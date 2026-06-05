@@ -70,7 +70,10 @@ graphify-out/
 generate-executive-pptx*.js
 generate-monthly-report.js
 generate-report.bat
-generate-site-monthly-pptx.js
+# generate-site-monthly-pptx.js — REMOVED from legacy list 2026-06-05.
+# It's live code: loaded by server.js:3904 as the /api/reports/monthly/.../site-template/pptx
+# generator. Tracking it in git so changes ship via the standard branch workflow.
+# (Same fix that was applied to executive-new-report.js below.)
 # executive-new-report.js — REMOVED from legacy list. It's live code:
 # loaded by server.js as the /api/executive-new-pptx generator. Tracking it
 # in git so changes ship via the standard branch workflow.
@@ -112,3 +115,6 @@ ap_unified_metrics_dump.json
 # Python bytecode caches
 __pycache__/
 *.pyc
+
+# Archived scratch/legacy artifacts (moved 2026-06-05 for readability)
+/archive/
