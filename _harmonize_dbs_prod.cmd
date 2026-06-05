@@ -119,36 +119,40 @@ if "%PM2_HERE%"=="1" (
 )
 
 rem --- Step 3: Verify updated *-db.js are in place ------------
+rem  Pre-requisite: from dev box, xcopy the 3 files to Z:\ BEFORE this script.
 echo.
 echo --- Step 3/5: Verify updated *-db.js are already at %PROD_ROOT% ---
-echo   (Pre-requisite: from dev box, xcopy these 3 files to Z:\ BEFORE this script)
 echo.
 set "CODE_OK=1"
-for %%F in (tracker-db.js inspection-db.js meetings-db.js) do (
-  if exist "%PROD_ROOT%%%F" (
-    findstr /c:"_ensureDbLocation" "%PROD_ROOT%%%F" >nul 2>nul
-    if !errorlevel! == 0 (
-      echo   OK  ^>  %%F has the new auto-migration code
-    ) else (
-      echo   STALE: %%F is the OLD version (no _ensureDbLocation found)
-      set "CODE_OK=0"
-    )
-  ) else (
-    echo   MISSING: %%F not found at %PROD_ROOT%
-    set "CODE_OK=0"
-  )
+for %%F in (tracker-db.js inspection-db.js meetings-db.js) do call :verify_one %%F
+if "%CODE_OK%"=="0" goto :stale_abort
+goto :step4
+
+:verify_one
+set "FILE=%~1"
+if not exist "%PROD_ROOT%%FILE%" (
+  echo   MISSING: %FILE% not found at %PROD_ROOT%
+  set "CODE_OK=0"
+  goto :eof
 )
-if "%CODE_OK%"=="0" (
-  echo.
-  echo ERROR: One or more *-db.js files are stale or missing.
-  echo From dev box cmd.exe, run:
-  echo   xcopy tracker-db.js Z:\ /Y
-  echo   xcopy inspection-db.js Z:\ /Y
-  echo   xcopy meetings-db.js Z:\ /Y
-  echo Then re-run this script. Re-starting pm2 now to restore service...
-  if "%PM2_HERE%"=="1" pm2 start endeavour-dashboard
-  exit /b 1
+findstr /c:"_ensureDbLocation" "%PROD_ROOT%%FILE%" >nul 2>nul
+if errorlevel 1 (
+  echo   STALE: %FILE% is the OLD version -- no _ensureDbLocation marker
+  set "CODE_OK=0"
+) else (
+  echo   OK     %FILE% has the new auto-migration code
 )
+goto :eof
+
+:stale_abort
+echo.
+echo ERROR: One or more *-db.js files are stale or missing.
+echo From DEV BOX cmd.exe, run _stage_harmonize_to_prod.cmd first,
+echo then re-run this script. Re-starting pm2 to restore service...
+if "%PM2_HERE%"=="1" pm2 start endeavour-dashboard
+exit /b 1
+
+:step4
 
 rem --- Step 4: Move DB files from root to data\ ---------------
 echo.
@@ -156,19 +160,27 @@ echo --- Step 4/5: Move tracker/inspection/meetings DBs to data\ ---
 
 if not exist "%PROD_ROOT%data\" mkdir "%PROD_ROOT%data" 2>nul
 
-for %%D in (tracker inspection meetings) do (
-  if exist "%PROD_ROOT%%%D.db" (
-    if exist "%PROD_ROOT%data\%%D.db" (
-      echo   WARNING: %PROD_ROOT%data\%%D.db ALREADY exists -- skipping %%D.db move to avoid clobber!
-    ) else (
-      move /Y "%PROD_ROOT%%%D.db"     "%PROD_ROOT%data\%%D.db"     >nul && echo   ^>  %%D.db moved
-      if exist "%PROD_ROOT%%%D.db-wal" move /Y "%PROD_ROOT%%%D.db-wal" "%PROD_ROOT%data\%%D.db-wal" >nul && echo   ^>  %%D.db-wal moved
-      if exist "%PROD_ROOT%%%D.db-shm" move /Y "%PROD_ROOT%%%D.db-shm" "%PROD_ROOT%data\%%D.db-shm" >nul && echo   ^>  %%D.db-shm moved
-    )
-  ) else (
-    echo   %%D.db not at root -- already migrated or never existed
-  )
+call :move_one tracker
+call :move_one inspection
+call :move_one meetings
+goto :step5
+
+:move_one
+set "D=%~1"
+if not exist "%PROD_ROOT%%D%.db" (
+  echo   %D%.db not at root -- already migrated or never existed
+  goto :eof
 )
+if exist "%PROD_ROOT%data\%D%.db" (
+  echo   WARNING: data\%D%.db ALREADY exists -- skipping %D%.db move to avoid clobber
+  goto :eof
+)
+move /Y "%PROD_ROOT%%D%.db"     "%PROD_ROOT%data\%D%.db"     >nul && echo   ^>  %D%.db moved
+if exist "%PROD_ROOT%%D%.db-wal" move /Y "%PROD_ROOT%%D%.db-wal" "%PROD_ROOT%data\%D%.db-wal" >nul && echo   ^>  %D%.db-wal moved
+if exist "%PROD_ROOT%%D%.db-shm" move /Y "%PROD_ROOT%%D%.db-shm" "%PROD_ROOT%data\%D%.db-shm" >nul && echo   ^>  %D%.db-shm moved
+goto :eof
+
+:step5
 
 rem --- Step 5: Start pm2 --------------------------------------
 echo.
