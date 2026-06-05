@@ -34,8 +34,34 @@
 
 const Database = require('better-sqlite3');
 const path     = require('path');
+const fs       = require('fs');
 
 const INIT = require('./inspection-init.json');
+
+// ── DB path resolution + auto-migration from legacy root location ──────────
+// Historical: inspection.db lived at __dirname/inspection.db. Harmonised
+// 2026-06-05 to __dirname/data/inspection.db (same pattern as reports.db).
+// The block below auto-migrates if it finds the DB at the old location —
+// idempotent + safe.
+const DATA_DIR  = path.join(__dirname, 'data');
+const INSPECTION_DB_PATH = path.join(DATA_DIR, 'inspection.db');
+function _ensureDbLocation() {
+  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+  const legacyPath = path.join(__dirname, 'inspection.db');
+  if (fs.existsSync(legacyPath) && !fs.existsSync(INSPECTION_DB_PATH)) {
+    try {
+      fs.renameSync(legacyPath, INSPECTION_DB_PATH);
+      for (const ext of ['-wal', '-shm']) {
+        if (fs.existsSync(legacyPath + ext)) {
+          try { fs.renameSync(legacyPath + ext, INSPECTION_DB_PATH + ext); } catch (e) { /* ignore */ }
+        }
+      }
+      console.log('[Inspection-DB] Migrated inspection.db from root to data/ (one-time)');
+    } catch (e) {
+      console.error('[Inspection-DB] Could not migrate inspection.db to data/:', e.message);
+    }
+  }
+}
 
 // ── Site-name → inspection code map ─────────────────────────────────────────
 // Mirrors the structure of tracker-db.js SITE_MAP. Names come from the
@@ -110,7 +136,8 @@ let _idb = null;
 
 function getDB() {
   if (!_idb) {
-    _idb = new Database(path.join(__dirname, 'inspection.db'));
+    _ensureDbLocation();
+    _idb = new Database(INSPECTION_DB_PATH);
     _idb.pragma('journal_mode = WAL');
     _idb.pragma('foreign_keys = ON');
     _initSchema(_idb);

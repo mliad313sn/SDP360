@@ -16,9 +16,34 @@
 
 const Database = require('better-sqlite3');
 const path     = require('path');
+const fs       = require('fs');
 
 // ── Default seed data (same as INIT in activity-tracker.html) ──────────────
 const INIT = require('./tracker-init.json');
+
+// ── DB path resolution + auto-migration from legacy root location ──────────
+// Historical: tracker.db lived at __dirname/tracker.db. Harmonised 2026-06-05
+// to __dirname/data/tracker.db (same pattern as reports.db). The block below
+// auto-migrates if it finds the DB at the old location — idempotent + safe.
+const DATA_DIR  = path.join(__dirname, 'data');
+const TRACKER_DB_PATH = path.join(DATA_DIR, 'tracker.db');
+function _ensureDbLocation() {
+  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+  const legacyPath = path.join(__dirname, 'tracker.db');
+  if (fs.existsSync(legacyPath) && !fs.existsSync(TRACKER_DB_PATH)) {
+    try {
+      fs.renameSync(legacyPath, TRACKER_DB_PATH);
+      for (const ext of ['-wal', '-shm']) {
+        if (fs.existsSync(legacyPath + ext)) {
+          try { fs.renameSync(legacyPath + ext, TRACKER_DB_PATH + ext); } catch (e) { /* ignore */ }
+        }
+      }
+      console.log('[Tracker-DB] Migrated tracker.db from root to data/ (one-time)');
+    } catch (e) {
+      console.error('[Tracker-DB] Could not migrate tracker.db to data/:', e.message);
+    }
+  }
+}
 
 // ── Site name → tracker code map (mirrors _SITE_MAP in the frontend) ───────
 // v1.10.9: added Tanda → TND (new mining site).
@@ -46,7 +71,8 @@ let _tdb = null;
 
 function getDB() {
   if (!_tdb) {
-    _tdb = new Database(path.join(__dirname, 'tracker.db'));
+    _ensureDbLocation();
+    _tdb = new Database(TRACKER_DB_PATH);
     _tdb.pragma('journal_mode = WAL');
     _tdb.pragma('foreign_keys = ON');
     _initSchema(_tdb);

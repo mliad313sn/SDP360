@@ -41,15 +41,42 @@
 
 const Database = require('better-sqlite3');
 const path     = require('path');
+const fs       = require('fs');
 
 const INIT = require('./meetings-init.json');
+
+// ── DB path resolution + auto-migration from legacy root location ──────────
+// Historical: meetings.db lived at __dirname/meetings.db. Harmonised
+// 2026-06-05 to __dirname/data/meetings.db (same pattern as reports.db).
+// The block below auto-migrates if it finds the DB at the old location —
+// idempotent + safe.
+const DATA_DIR = path.join(__dirname, 'data');
+const MEETINGS_DB_PATH = path.join(DATA_DIR, 'meetings.db');
+function _ensureDbLocation() {
+  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+  const legacyPath = path.join(__dirname, 'meetings.db');
+  if (fs.existsSync(legacyPath) && !fs.existsSync(MEETINGS_DB_PATH)) {
+    try {
+      fs.renameSync(legacyPath, MEETINGS_DB_PATH);
+      for (const ext of ['-wal', '-shm']) {
+        if (fs.existsSync(legacyPath + ext)) {
+          try { fs.renameSync(legacyPath + ext, MEETINGS_DB_PATH + ext); } catch (e) { /* ignore */ }
+        }
+      }
+      console.log('[Meetings-DB] Migrated meetings.db from root to data/ (one-time)');
+    } catch (e) {
+      console.error('[Meetings-DB] Could not migrate meetings.db to data/:', e.message);
+    }
+  }
+}
 
 // ── DB singleton ────────────────────────────────────────────────────────────
 let _mdb = null;
 
 function getDB() {
   if (!_mdb) {
-    _mdb = new Database(path.join(__dirname, 'meetings.db'));
+    _ensureDbLocation();
+    _mdb = new Database(MEETINGS_DB_PATH);
     _mdb.pragma('journal_mode = WAL');
     _mdb.pragma('foreign_keys = ON');
     _initSchema(_mdb);
