@@ -118,12 +118,37 @@ if "%PM2_HERE%"=="1" (
   )
 )
 
-rem --- Step 3: Deploy updated *-db.js -------------------------
+rem --- Step 3: Verify updated *-db.js are in place ------------
 echo.
-echo --- Step 3/5: Deploy updated *-db.js from dev ---
-xcopy "%DEV_SRC%tracker-db.js"    "%PROD_ROOT%"   /Y >nul && echo   ^>  tracker-db.js
-xcopy "%DEV_SRC%inspection-db.js" "%PROD_ROOT%"   /Y >nul && echo   ^>  inspection-db.js
-xcopy "%DEV_SRC%meetings-db.js"   "%PROD_ROOT%"   /Y >nul && echo   ^>  meetings-db.js
+echo --- Step 3/5: Verify updated *-db.js are already at %PROD_ROOT% ---
+echo   (Pre-requisite: from dev box, xcopy these 3 files to Z:\ BEFORE this script)
+echo.
+set "CODE_OK=1"
+for %%F in (tracker-db.js inspection-db.js meetings-db.js) do (
+  if exist "%PROD_ROOT%%%F" (
+    findstr /c:"_ensureDbLocation" "%PROD_ROOT%%%F" >nul 2>nul
+    if !errorlevel! == 0 (
+      echo   OK  ^>  %%F has the new auto-migration code
+    ) else (
+      echo   STALE: %%F is the OLD version (no _ensureDbLocation found)
+      set "CODE_OK=0"
+    )
+  ) else (
+    echo   MISSING: %%F not found at %PROD_ROOT%
+    set "CODE_OK=0"
+  )
+)
+if "%CODE_OK%"=="0" (
+  echo.
+  echo ERROR: One or more *-db.js files are stale or missing.
+  echo From dev box cmd.exe, run:
+  echo   xcopy tracker-db.js Z:\ /Y
+  echo   xcopy inspection-db.js Z:\ /Y
+  echo   xcopy meetings-db.js Z:\ /Y
+  echo Then re-run this script. Re-starting pm2 now to restore service...
+  if "%PM2_HERE%"=="1" pm2 start endeavour-dashboard
+  exit /b 1
+)
 
 rem --- Step 4: Move DB files from root to data\ ---------------
 echo.
