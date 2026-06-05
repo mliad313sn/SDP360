@@ -129,10 +129,10 @@ echo.
 
 echo --- Check 6: generate-site-monthly-pptx.js present? ---
 if exist "%PROD_ROOT%generate-site-monthly-pptx.js" (
-  echo   YES ^| File present in prod (size:)
+  echo   YES ^| File present in prod -- size:
   dir "%PROD_ROOT%generate-site-monthly-pptx.js" | findstr "generate-site"
 ) else (
-  echo   NO  ^| File MISSING — /api/reports/monthly/.../site-template/pptx will 503!
+  echo   NO  ^| File MISSING -- /api/reports/monthly/.../site-template/pptx will 503!
 )
 echo.
 
