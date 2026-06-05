@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><title>EDV — Contour pattern</title>
+<link rel="stylesheet" href="colors_and_type.css">
+<style>
+  body{padding:0;margin:0;background:#fff}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:0;height:160px}
+  .c{position:relative;display:flex;align-items:center;justify-content:center;color:#fff;font-family:var(--font-display);font-size:11px;letter-spacing:.18em;text-transform:uppercase;font-weight:700;overflow:hidden}
+  /* Topographic pattern via concentric SVG-style ellipses, low opacity */
+  .c::after{content:"";position:absolute;inset:-30%;background-image:
+    radial-gradient(ellipse 60% 40% at 30% 50%, transparent 0 28%, rgba(0,0,0,.10) 28% 28.6%, transparent 28.6%),
+    radial-gradient(ellipse 70% 50% at 30% 50%, transparent 0 36%, rgba(0,0,0,.10) 36% 36.6%, transparent 36.6%),
+    radial-gradient(ellipse 80% 60% at 30% 50%, transparent 0 44%, rgba(0,0,0,.10) 44% 44.6%, transparent 44.6%),
+    radial-gradient(ellipse 95% 70% at 30% 50%, transparent 0 52%, rgba(0,0,0,.10) 52% 52.6%, transparent 52.6%),
+    radial-gradient(ellipse 110% 80% at 30% 50%, transparent 0 60%, rgba(0,0,0,.10) 60% 60.6%, transparent 60.6%);
+    pointer-events:none}
+  .c span{z-index:2}
+</style></head>
+<body>
+  <div class="grid">
+    <div class="c" style="background:#3a4a60"><span>Contour · Slate</span></div>
+    <div class="c" style="background:#1b9a3a"><span>Contour · Green</span></div>
+  </div>
+</body></html>

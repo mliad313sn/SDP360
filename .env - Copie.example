@@ -1,0 +1,61 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  Endeavour Mining IT Dashboard — Environment Variables
+#
+#  HOW TO USE:
+#    Windows:    copy ".env - Copie.example" .env
+#    Mac/Linux:  cp ".env - Copie.example" .env
+#    Then fill in every value below and restart Docker.
+#
+#  SECURITY:
+#    • NEVER commit the .env file to Git — it contains secrets.
+#    • .gitignore is already configured to exclude .env files.
+#    • The server will REFUSE TO START if required variables are missing.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Dashboard Authentication (REQUIRED) ──────────────────────────────────────
+# The username and password used to access the dashboard via the browser.
+# DASH_PASS must be at least 12 characters. Do NOT leave as default.
+DASH_USER=itdash_endeavour
+DASH_PASS=ChangeThisPassword123!
+
+# ── Zoho OAuth Credentials (REQUIRED) ────────────────────────────────────────
+# Get from: https://api-console.zoho.com → Your OAuth App → Client Credentials
+ZOHO_CLIENT_ID=your_client_id_here
+ZOHO_CLIENT_SECRET=your_client_secret_here
+
+# Generate refresh token with BOTH scopes:
+#   ZohoAnalytics.fullaccess  ZohoSurvey.surveys.READ
+# Guide: accounts.zoho.com → Security → Connected Apps → Re-authorize
+ZOHO_REFRESH_TOKEN=your_refresh_token_here
+
+# ── SDP Analytics Plus (REQUIRED) ────────────────────────────────────────────
+# Your Analytics Plus workspace ID (from the Analytics Plus URL)
+WORKSPACE_ID=106803000000002012
+
+# Your SDP Organisation ID
+ORG_ID=878991289
+
+# ── Anthropic AI (optional — enables AI analysis buttons) ────────────────────
+# Get from: https://console.anthropic.com → API Keys
+# If not set, AI analysis buttons will be disabled.
+ANTHROPIC_API_KEY=
+
+# ── Zoho Survey (optional — enables CSAT/NPS tiles) ──────────────────────────
+# Step 1: Start server, visit http://localhost:3456/api/survey/list
+# Step 2: Find your IT Helpdesk survey in the list
+# Step 3: Paste the survey ID here, restart server
+ZOHO_SURVEY_ID=
+
+# ── Server Config ────────────────────────────────────────────────────────────
+# Port the dashboard runs on (default 3456)
+PORT=3456
+
+# Environment mode — set to "production" to enable:
+#   • Sanitised error messages (no internal details leaked to clients)
+#   • Debug endpoints disabled
+#   • Cookie Secure flag enforced (requires HTTPS)
+# Set to "development" only on your local machine for troubleshooting.
+NODE_ENV=production
+
+# How long to cache Analytics Plus data (seconds). 300 = 5 minutes
+CACHE_TTL=300

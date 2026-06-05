@@ -1,0 +1,363 @@
+/* ═══════════════════════════════════════════════════════════════════
+   Endeavour IT — Unified Shell stylesheet
+   ───────────────────────────────────────────────────────────────────
+   Single shared header used by every authenticated page.
+   All classes are prefixed `shell-` to avoid collision with per-page
+   CSS. Pages mount via:
+
+     <link rel="stylesheet" href="_shell.css">
+     <script src="auth.js" data-require="any"></script>
+     <script src="_shell.js"></script>
+
+     <div id="__shell" data-section="performance" data-current="tracker"></div>
+
+   The shell auto-renders on DOMContentLoaded.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Shell-specific aliases that resolve to the EDV brand tokens defined
+   in _tokens.css. Pages MUST link _tokens.css before _shell.css for
+   these to resolve. The fallback values in `var(..., FALLBACK)` keep
+   the shell rendering with brand-correct colors even if _tokens.css
+   fails to load. */
+:root {
+  --shell-navy:         var(--color-header-bg,    #3A4A60);  /* EDV slate */
+  --shell-navy-2:       var(--color-header-bg-2,  #2E3A4D);
+  --shell-orange:       var(--edv-orange,         #EF631A);  /* EDV brand orange */
+  --shell-orange-light: var(--edv-orange-75,      #F79853);
+  --shell-text-strong:  var(--color-text-on-dark, #fff);
+  --shell-text-mute:    var(--color-text-on-dark-muted, rgba(255,255,255,.62));
+  --shell-h:            56px;
+}
+
+/* Brand typography rollout — every page that loads _shell.css now uses
+   Libre Franklin (the open-source Franklin Gothic equivalent mandated
+   by the EDV brand book). _shell.css is injected AFTER each page's
+   inline <style> block, so this rule wins over per-page body fonts
+   without needing to edit every page individually. Per-page rules that
+   target more specific selectors (e.g. `.brand-name { font-family: ... }`)
+   still win — this is just a sane default. */
+body {
+  font-family: var(--font-sans, 'Libre Franklin', 'Franklin Gothic',
+               system-ui, -apple-system, 'Segoe UI', sans-serif);
+}
+
+.shell-header {
+  background: linear-gradient(180deg, var(--shell-navy) 0%, var(--shell-navy-2) 100%);
+  color: var(--shell-text-strong);
+  padding: 0 22px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: var(--shell-h);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  box-shadow: 0 2px 12px rgba(0,0,0,.25);
+  font-family: var(--font-sans, 'Libre Franklin', system-ui, -apple-system, 'Segoe UI', sans-serif);
+}
+
+/* ── BRAND ─────────────────────────────────────────────────────── */
+.shell-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  margin-right: 18px;
+  color: var(--shell-text-strong);
+  text-decoration: none;
+  transition: opacity .15s;
+}
+.shell-brand:hover { opacity: .85; }
+/* The shell logo hosts the official EDV logomark (white-on-dark variant
+   from public/brand/edv-logo-white.png). Sized to fit the 56px header
+   bar with sufficient breathing room. The orange "E" square that lived
+   here before was a placeholder — the real logo is brand-mandated. */
+.shell-logo {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  background-image: url('brand/edv-logo-white.png');
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+.shell-brand-text {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: .15px;
+  white-space: nowrap;
+  line-height: 1.1;
+}
+.shell-brand-text small {
+  display: block;
+  font-size: 9.5px;
+  font-weight: 400;
+  opacity: .6;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  margin-top: 1px;
+}
+
+/* ── PRIMARY NAV ───────────────────────────────────────────────── */
+.shell-nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.shell-nav-item,
+.shell-nav-item-link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 13px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--shell-text-mute);
+  text-decoration: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+  white-space: nowrap;
+  background: none;
+  border: none;
+  font-family: inherit;
+}
+.shell-nav-item:hover,
+.shell-nav-item-link:hover {
+  background: rgba(255,255,255,.08);
+  color: var(--shell-text-strong);
+}
+.shell-nav-item.is-active,
+.shell-nav-item-link.is-active {
+  background: rgba(255,255,255,.13);
+  color: var(--shell-text-strong);
+}
+.shell-nav-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;        /* fallback for any text-icon (e.g. caret) */
+  line-height: 1;
+  color: currentColor;     /* line-icon SVGs pick up the text colour */
+  flex-shrink: 0;
+}
+/* SVG line icons (Lucide-style) — sized once here, shared by nav + dropdown.
+   Stroke colour flows from the parent text colour via currentColor. */
+.shell-nav-icon svg {
+  width: 17px;
+  height: 17px;
+  display: block;
+}
+.shell-dropdown .shell-nav-icon svg {
+  width: 16px;
+  height: 16px;
+}
+.shell-nav-caret {
+  font-size: 9px;
+  margin-left: 1px;
+  opacity: .65;
+  /* Make the caret a discoverable click target (the JS click handler in
+     _shell.js toggles `.is-open` on the dropdown). The padding gives it
+     a comfortable hit area without changing the visible glyph size; the
+     border-radius + hover bg make it look interactive on mouseover. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 4px;
+  margin-left: 2px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background .15s, opacity .15s, transform .15s;
+}
+.shell-nav-caret:hover { background: rgba(255,255,255,.12); opacity: 1; }
+/* When the dropdown is pinned open, flip the caret so the user has
+   visual confirmation the click registered. */
+.shell-nav-item:has(.shell-dropdown.is-open) .shell-nav-caret { transform: rotate(180deg); opacity: 1; }
+
+/* ── DROPDOWN (Performance section) ────────────────────────────── */
+.shell-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 6px;
+  background: var(--shell-navy);
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 8px;
+  min-width: 240px;
+  box-shadow: 0 10px 28px rgba(0,0,0,.45);
+  padding: 6px;
+  display: none;
+  z-index: 1001;
+}
+/* Invisible hover bridge — fixes the "dropdown closes when I move my
+   mouse toward a submenu item" bug. The 6px margin-top above is empty
+   space that doesn't receive hover events: as the cursor crosses it,
+   :hover on .shell-nav-item drops and the dropdown collapses before
+   the user reaches a menu item. The ::before extends the dropdown's
+   hoverable area 10px upward (covering the 6px gap + a 4px overlap
+   with the parent button) so diagonal trajectories stay inside one
+   continuous hoverable region. */
+.shell-dropdown::before {
+  content: '';
+  position: absolute;
+  top: -10px;
+  left: 0;
+  right: 0;
+  height: 10px;
+}
+.shell-nav-item:hover .shell-dropdown,
+.shell-nav-item:focus-within .shell-dropdown,
+.shell-dropdown.is-open {
+  display: block;
+}
+.shell-dropdown a {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 11px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--shell-text-strong);
+  text-decoration: none;
+  border-radius: 5px;
+  transition: background .15s;
+}
+.shell-dropdown a:hover {
+  background: rgba(255,255,255,.08);
+}
+.shell-dropdown a.is-active {
+  background: rgba(245,134,10,.22);
+  color: var(--shell-orange-light);
+}
+.shell-dropdown a .shell-nav-icon { font-size: 14px; /* affects emoji fallbacks only; svg is sized above */ }
+
+/* ── RIGHT-SIDE ACTIONS (user pill, logout, version) ───────────── */
+.shell-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.shell-user-pill {
+  background: rgba(255,255,255,.1);
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 18px;
+  padding: 4px 4px 4px 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  cursor: pointer;
+  transition: background .15s;
+  font-family: inherit;
+}
+.shell-user-pill:hover { background: rgba(255,255,255,.18); }
+.shell-user-name {
+  font-weight: 600;
+  color: var(--shell-text-strong);
+}
+.shell-user-role {
+  background: var(--shell-orange);
+  color: #fff;
+  border-radius: 10px;
+  padding: 1.5px 8px;
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .35px;
+}
+.shell-version {
+  font-size: 10px;
+  opacity: .35;
+  letter-spacing: .03em;
+  white-space: nowrap;
+  margin-left: 6px;
+}
+
+/* ── PAGE ACTIONS BAR (optional second row, page-specific buttons) ── */
+.shell-page-bar {
+  background: var(--shell-navy-2);
+  color: var(--shell-text-mute);
+  padding: 7px 22px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11.5px;
+  border-bottom: 1px solid rgba(255,255,255,.07);
+  font-family: 'Outfit', system-ui, sans-serif;
+  flex-wrap: wrap;
+}
+.shell-page-bar .shell-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.shell-page-bar .shell-breadcrumb a {
+  color: rgba(255,255,255,.55);
+  text-decoration: none;
+}
+.shell-page-bar .shell-breadcrumb a:hover { color: #fff; }
+.shell-breadcrumb-sep { opacity: .4; }
+.shell-breadcrumb-current { color: var(--shell-orange-light); font-weight: 600; }
+.shell-page-bar-spacer { flex: 1; }
+
+/* In-page tab strip used inside .shell-page-bar (Weekly/Monthly/Admin in
+   reports.html, the 5 KPI tabs in executive.html, …). Visually distinct
+   from the global .shell-nav so users can tell page-tabs apart from
+   site-wide nav. */
+.shell-tabs {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.shell-tabs button,
+.shell-tabs a {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,.55) !important;
+  -webkit-text-fill-color: rgba(255,255,255,.55) !important;
+  padding: 5px 11px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 11.5px;
+  font-family: inherit;
+  text-decoration: none;
+  transition: background .15s, color .15s;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.shell-tabs button:hover,
+.shell-tabs a:hover {
+  background: rgba(255,255,255,.1);
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+}
+.shell-tabs button.active,
+.shell-tabs a.active,
+.shell-tabs button.is-active,
+.shell-tabs a.is-active {
+  background: rgba(255,255,255,.16);
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+}
+
+/* ── RESPONSIVE ─────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .shell-header { padding: 0 12px; }
+  .shell-brand { margin-right: 8px; }
+  .shell-brand-text small { display: none; }
+  .shell-nav-item,
+  .shell-nav-item-link { padding: 6px 9px; font-size: 12px; }
+  .shell-version { display: none; }
+}
+@media (max-width: 640px) {
+  .shell-nav-label { display: none; }
+  .shell-user-name { display: none; }
+}

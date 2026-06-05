@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Inspections — Endeavour Mining IT</title>
+
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="brand/icons.css">
+<link rel="stylesheet" href="brand/components.css">
+<link rel="stylesheet" href="_shell.css">
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+
+<style nonce="%%CSP_NONCE%%">
+  body {
+    margin: 0;
+    background: var(--color-background, #f4f6f7);
+    color: var(--color-text-primary, #1F2A33);
+    font-family: var(--font-sans, 'Libre Franklin', 'Franklin Gothic', system-ui, sans-serif);
+    font-size: 14px;
+  }
+  .insp-wrap        { max-width: 1280px; margin: 0 auto; padding: var(--space-6, 24px); }
+  .insp-head        { display: flex; align-items: center; gap: var(--space-4, 16px); margin-bottom: var(--space-5, 20px); flex-wrap: wrap; }
+  .insp-head h1     { margin: 0; font-size: 22px; font-weight: 700; color: var(--edv-slate, #3A4A60); }
+  .insp-head .sub   { font-size: 13px; color: var(--color-text-muted, #6b7785); }
+  .insp-head .spacer { flex: 1; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 14px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-md, 6px);
+    background: var(--edv-orange, #EF631A); color: #fff;
+    font-family: inherit; font-size: 13px; font-weight: 600;
+    cursor: pointer; text-decoration: none;
+    transition: background var(--motion-fast, 120ms);
+  }
+  .btn:hover        { background: var(--edv-orange-700, #C04E10); }
+  .btn-ghost        { background: #fff; color: var(--color-text-secondary, #3a4452); border-color: var(--color-border, #dfe3e8); }
+  .btn-ghost:hover  { background: var(--color-surface-muted, #f4f6f7); color: var(--color-text-primary, #1F2A33); }
+  .btn .icon        { width: 16px; height: 16px; }
+
+  /* Filter bar */
+  .filter-bar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: var(--space-3, 12px);
+    background: var(--color-surface, #fff);
+    border: 1px solid var(--color-border, #dfe3e8);
+    border-radius: var(--radius-md, 6px);
+    padding: var(--space-4, 16px);
+    margin-bottom: var(--space-5, 20px);
+  }
+  .filter-bar label {
+    display: block;
+    font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.8px;
+    color: var(--color-text-secondary, #3a4452);
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .filter-bar select,
+  .filter-bar input {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--color-border, #dfe3e8);
+    border-radius: var(--radius-sm, 4px);
+    background: #fff;
+    font-family: inherit; font-size: 13px;
+    color: var(--color-text-primary, #1F2A33);
+  }
+  .filter-bar select:focus,
+  .filter-bar input:focus {
+    outline: none;
+    border-color: var(--edv-orange, #EF631A);
+    box-shadow: 0 0 0 3px rgba(239, 99, 26, 0.15);
+  }
+  .filter-bar .btn { align-self: end; }
+
+  /* KPI tiles */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: var(--space-3, 12px);
+    margin-bottom: var(--space-5, 20px);
+  }
+  .kpi-tile {
+    background: var(--color-surface, #fff);
+    border: 1px solid var(--color-border, #dfe3e8);
+    border-radius: var(--radius-md, 6px);
+    padding: var(--space-4, 16px);
+    position: relative;
+    overflow: hidden;
+  }
+  .kpi-tile::before {
+    content: '';
+    position: absolute; left: 0; top: 0; bottom: 0;
+    width: 4px; background: var(--edv-orange, #EF631A);
+  }
+  .kpi-tile.success::before  { background: var(--edv-green, #1B9A3A); }
+  .kpi-tile.warning::before  { background: var(--color-warning, #D97706); }
+  .kpi-tile.danger::before   { background: var(--edv-red, #D90038); }
+  .kpi-tile.info::before     { background: var(--edv-blue, #145FAE); }
+  .kpi-tile .l {
+    font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.8px;
+    color: var(--color-text-secondary, #3a4452);
+    font-weight: 600;
+  }
+  .kpi-tile .v {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--color-text-primary, #1F2A33);
+    line-height: 1.1;
+    margin-top: 4px;
+  }
+  .kpi-tile .sub {
+    font-size: 11px;
+    color: var(--color-text-muted, #6b7785);
+    margin-top: 4px;
+  }
+
+  /* Trend */
+  .panel {
+    background: var(--color-surface, #fff);
+    border: 1px solid var(--color-border, #dfe3e8);
+    border-radius: var(--radius-md, 6px);
+    padding: var(--space-4, 16px);
+    margin-bottom: var(--space-5, 20px);
+  }
+  .panel h2 {
+    margin: 0 0 var(--space-3, 12px);
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1px;
+    color: var(--color-text-secondary, #3a4452);
+  }
+  .trend {
+    display: flex; align-items: flex-end;
+    gap: 6px; height: 140px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--color-border-subtle, #eef0f3);
+  }
+  .trend-bar {
+    flex: 1;
+    background: var(--edv-orange, #EF631A);
+    border-radius: var(--radius-sm, 4px) var(--radius-sm, 4px) 0 0;
+    position: relative;
+    min-height: 2px;
+    transition: background var(--motion-fast, 120ms);
+  }
+  .trend-bar:hover { background: var(--edv-orange-700, #C04E10); }
+  .trend-bar .vl   {
+    position: absolute; top: -16px; left: 50%; transform: translateX(-50%);
+    font-size: 10px;
+    color: var(--color-text-secondary, #3a4452);
+    font-weight: 600;
+  }
+  .trend-axis {
+    display: flex; gap: 6px; margin-top: 4px;
+    font-size: 10px; color: var(--color-text-muted, #6b7785);
+  }
+  .trend-axis span { flex: 1; text-align: center; }
+
+  /* Table */
+  table.list {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    background: var(--color-surface, #fff);
+  }
+  table.list th {
+    text-align: left;
+    padding: 10px 12px;
+    background: var(--edv-slate, #3A4A60);
+    color: #fff;
+    font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.8px;
+    font-weight: 600;
+  }
+  table.list td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--color-border-subtle, #eef0f3);
+    vertical-align: top;
+  }
+  table.list tr { cursor: pointer; transition: background var(--motion-fast, 120ms); }
+  table.list tr:hover { background: var(--color-surface-muted, #f4f6f7); }
+  .risk-pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: var(--radius-pill, 9999px);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .risk-Low      { background: #dcfce7; color: #14532d; }
+  .risk-Moderate { background: #fef3c7; color: #78350f; }
+  .risk-High     { background: #fed7aa; color: #9a3412; }
+  .risk-Critical { background: #fee2e2; color: #7f1d1d; }
+  .status-pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: var(--radius-pill, 9999px);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.5px;
+    background: var(--color-surface-muted, #f4f6f7);
+    color: var(--color-text-secondary, #3a4452);
+  }
+  .status-pill.submitted { background: #dbeafe; color: #1e40af; }
+  .status-pill.closed    { background: #dcfce7; color: #14532d; }
+
+  /* Per-row delete button (admin+). Sits next to "Open ▸" in the
+     actions cell. Ghost style by default; light-red on hover so the
+     destructive intent is obvious. */
+  .row-del-btn {
+    background: transparent;
+    border: 1px solid var(--color-border, #e2e5ea);
+    border-radius: var(--radius-md, 6px);
+    padding: 3px 8px;
+    font: 600 11px var(--font-sans, 'Libre Franklin', sans-serif);
+    color: var(--color-text-muted, #6b7785);
+    cursor: pointer;
+    transition: all .12s;
+  }
+  .row-del-btn:hover {
+    background: #fee2e2;
+    color: #b91c1c;
+    border-color: #fca5a5;
+  }
+  .row-del-btn:disabled { opacity: 0.5; cursor: wait; }
+
+  /* Empty state */
+  .empty {
+    text-align: center;
+    padding: var(--space-10, 40px) var(--space-6, 24px);
+    color: var(--color-text-muted, #6b7785);
+  }
+
+  @media (max-width: 640px) {
+    .insp-wrap { padding: var(--space-3, 12px); }
+    table.list { font-size: 12px; }
+    table.list th, table.list td { padding: 8px; }
+    .insp-head h1 { font-size: 18px; }
+    /* Hide secondary columns on small screens */
+    table.list .col-area,
+    table.list .col-inspector,
+    table.list .col-actions { display: none; }
+  }
+
+  /* ── Delete confirmation modal ─────────────────────────────────
+     Branded replacement for native confirm() on the per-row Delete
+     button. Same visual language as the inspection form's submit
+     modal so the user gets a consistent experience whether they
+     delete from the form or the dashboard. */
+  .del-modal-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    z-index: 9999;
+    display: none;
+    align-items: center; justify-content: center;
+    padding: 16px;
+  }
+  .del-modal-backdrop.show { display: flex; }
+  .del-modal-sheet {
+    background: #fff;
+    border-radius: var(--radius-lg, 12px);
+    box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
+    max-width: 460px; width: 100%;
+    padding: 22px 24px 18px;
+    font: 14px/1.5 var(--font-sans, 'Libre Franklin', sans-serif);
+    color: var(--color-text-primary, #1F2A33);
+  }
+  .del-modal-sheet h3 {
+    margin: 0 0 12px;
+    color: #dc2626;
+    font-size: 18px;
+    font-weight: 700;
+  }
+  .del-modal-sheet p { margin: 8px 0; }
+  .del-modal-sheet .warn { color: #dc2626; font-weight: 600; }
+  .del-modal-sheet .sub { color: var(--color-text-muted, #6b7785); font-size: 12px; }
+  .del-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 18px;
+  }
+  .del-modal-actions .btn,
+  .del-modal-actions .btn-cancel,
+  .del-modal-actions .btn-danger {
+    border-radius: var(--radius-md, 6px);
+    border: 1px solid transparent;
+    padding: 8px 16px;
+    font: 600 13px var(--font-sans, 'Libre Franklin', sans-serif);
+    cursor: pointer;
+    transition: all .12s;
+  }
+  .del-modal-actions .btn-cancel {
+    background: #fff;
+    border-color: var(--color-border, #e2e5ea);
+    color: var(--color-text-secondary, #3a4452);
+  }
+  .del-modal-actions .btn-cancel:hover { background: var(--color-surface-muted, #f4f6f7); }
+  .del-modal-actions .btn-danger {
+    background: #dc2626;
+    color: #fff;
+    box-shadow: 0 2px 5px rgba(220,38,38,.35), 0 4px 14px rgba(220,38,38,.18);
+  }
+  .del-modal-actions .btn-danger:hover { background: #b91c1c; }
+  .del-modal-actions .btn-danger:disabled { opacity: 0.6; cursor: wait; }
+</style>
+</head>
+<body>
+
+<div id="__shell" data-section="performance" data-current="inspections"></div>
+
+<!-- Delete-confirmation modal (replaces native confirm() on per-row Delete) -->
+<div class="del-modal-backdrop" id="delModal">
+  <div class="del-modal-sheet">
+    <h3 id="delModalTitle">Delete this inspection?</h3>
+    <div id="delModalBody"></div>
+    <div class="del-modal-actions">
+      <button type="button" class="btn-cancel" id="delCancelBtn">Cancel · Annuler</button>
+      <button type="button" class="btn-danger" id="delConfirmBtn">Delete · Supprimer</button>
+    </div>
+  </div>
+</div>
+
+<div class="insp-wrap">
+
+  <div class="insp-head">
+    <div>
+      <h1>IT Inspections</h1>
+      <div class="sub">Site inspections, findings, and corrective actions</div>
+    </div>
+    <div class="spacer"></div>
+    <a class="btn btn-ghost" href="inspection.html" id="newInspBtn" title="Start a new inspection">
+      <span class="icon icon-plus"></span> New inspection
+    </a>
+    <button class="btn" id="exportBtn" title="Download a roll-up PPTX of the current filter">
+      <span class="icon icon-download"></span> Export
+    </button>
+  </div>
+
+  <div class="filter-bar">
+    <div>
+      <label for="filterSite">Site</label>
+      <select id="filterSite"><option value="">All sites</option></select>
+    </div>
+    <div>
+      <label for="filterFrom">From</label>
+      <input type="date" id="filterFrom" />
+    </div>
+    <div>
+      <label for="filterTo">To</label>
+      <input type="date" id="filterTo" />
+    </div>
+    <div>
+      <label for="filterRisk">Risk</label>
+      <select id="filterRisk">
+        <option value="">Any</option>
+        <option value="Low">Low</option>
+        <option value="Moderate">Moderate</option>
+        <option value="High">High</option>
+        <option value="Critical">Critical</option>
+      </select>
+    </div>
+    <div>
+      <label for="filterStatus">Status</label>
+      <select id="filterStatus">
+        <option value="">Any</option>
+        <option value="draft">Draft</option>
+        <option value="submitted">Submitted</option>
+        <option value="closed">Closed</option>
+      </select>
+    </div>
+    <button class="btn btn-ghost" id="resetBtn"><span class="icon icon-refresh-cw"></span> Reset</button>
+  </div>
+
+  <div class="kpi-grid" id="kpiGrid"></div>
+
+  <div class="panel">
+    <h2>Inspections per month</h2>
+    <div class="trend" id="trendBars"></div>
+    <div class="trend-axis" id="trendAxis"></div>
+  </div>
+
+  <div class="panel" style="padding:0; overflow:hidden">
+    <table class="list" id="listTable">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Date</th>
+          <th>Site</th>
+          <th class="col-area">Area</th>
+          <th class="col-inspector">Inspector</th>
+          <th>Risk</th>
+          <th>Status</th>
+          <th class="col-actions">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="listBody"></tbody>
+    </table>
+    <div class="empty" id="emptyMsg" style="display:none">
+      <div style="font-size:32px;margin-bottom:8px">📋</div>
+      <div>No inspections match these filters.</div>
+      <div style="margin-top:12px">
+        <a class="btn" href="inspection.html"><span class="icon icon-plus"></span> Start the first one</a>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script nonce="%%CSP_NONCE%%">
+(function () {
+  'use strict';
+
+  const INSP_API = '/api/inspection';
+
+  function authHeaders() {
+    const h = {};
+    // auth.js sets window.__authToken to the token STRING; tolerate the
+    // older function-returning shape too. Never throw "is not a function".
+    let tok = null;
+    const at = window.__authToken;
+    if (typeof at === 'function') {
+      try { tok = at(); } catch(_) {}
+    } else if (typeof at === 'string' && at) {
+      tok = at;
+    }
+    if (!tok) tok = localStorage.getItem('report_token');
+    if (tok) h['x-report-token'] = tok;
+    return h;
+  }
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[c]));
+  }
+
+  function currentFilters() {
+    return {
+      site:   document.getElementById('filterSite').value,
+      from:   document.getElementById('filterFrom').value,
+      to:     document.getElementById('filterTo').value,
+      risk:   document.getElementById('filterRisk').value,
+      status: document.getElementById('filterStatus').value,
+    };
+  }
+
+  function qs(params) {
+    const sp = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) {
+      if (v) sp.set(k, v);
+    }
+    return sp.toString() ? '?' + sp.toString() : '';
+  }
+
+  // ── Hydrate the site filter from /api/inspection/lookups ────────
+  async function loadSites() {
+    try {
+      const r = await fetch(INSP_API + '/lookups', { credentials: 'same-origin', headers: authHeaders() });
+      if (!r.ok) return;
+      const lk = await r.json();
+      const sel = document.getElementById('filterSite');
+      (lk.sites || []).forEach(s => {
+        const o = document.createElement('option');
+        o.value = s.code;
+        o.textContent = s.name_en + (s.country ? ' — ' + s.country : '');
+        sel.appendChild(o);
+      });
+    } catch (e) { /* offline — leave "All sites" only */ }
+  }
+
+  // ── KPI tiles ────────────────────────────────────────────────────
+  function riskFromText(t) {
+    if (!t) return '';
+    const s = String(t).toLowerCase();
+    if (s.includes('critical')) return 'Critical';
+    if (s.includes('high'))     return 'High';
+    if (s.includes('moderate')) return 'Moderate';
+    if (s.includes('low'))      return 'Low';
+    return '';
+  }
+
+  function renderKpis(agg) {
+    const counts = agg.counts || {};
+    const tiles = [
+      { l: 'Total inspections',  v: counts.total          || 0, sub: 'in current filter',     cls: ''         },
+      { l: 'Critical risk',      v: counts.critical_count || 0, sub: 'inspections flagged',   cls: 'danger'   },
+      { l: 'Open actions',       v: agg.open_actions      || 0, sub: 'not yet closed',        cls: 'warning'  },
+      { l: 'Overdue actions',    v: agg.overdue_actions   || 0, sub: 'past due date',         cls: 'danger'   },
+      { l: 'Submitted',          v: counts.submitted_count || 0, sub: 'awaiting close-out',   cls: 'info'     },
+      { l: 'Sites covered',      v: counts.sites_covered  || 0, sub: 'distinct sites',        cls: 'success'  },
+    ];
+    document.getElementById('kpiGrid').innerHTML = tiles.map(t =>
+      `<div class="kpi-tile ${t.cls}">
+        <div class="l">${escapeHtml(t.l)}</div>
+        <div class="v">${escapeHtml(t.v)}</div>
+        <div class="sub">${escapeHtml(t.sub)}</div>
+       </div>`
+    ).join('');
+  }
+
+  function renderTrend(monthly) {
+    const bars = document.getElementById('trendBars');
+    const axis = document.getElementById('trendAxis');
+    if (!monthly || monthly.length === 0) {
+      bars.innerHTML = '<div class="empty" style="flex:1">No data yet.</div>';
+      axis.innerHTML = '';
+      return;
+    }
+    const max = Math.max.apply(null, monthly.map(m => m.n)) || 1;
+    bars.innerHTML = monthly.map(m => {
+      const pct = Math.max(2, Math.round((m.n / max) * 100));
+      return `<div class="trend-bar" style="height:${pct}%" title="${escapeHtml(m.ym)}: ${m.n}"><span class="vl">${m.n}</span></div>`;
+    }).join('');
+    axis.innerHTML = monthly.map(m => `<span>${escapeHtml(m.ym)}</span>`).join('');
+  }
+
+  // ── Table ───────────────────────────────────────────────────────
+  function renderTable(rows) {
+    const body  = document.getElementById('listBody');
+    const empty = document.getElementById('emptyMsg');
+    if (!rows.length) {
+      body.innerHTML = '';
+      empty.style.display = 'block';
+      return;
+    }
+    empty.style.display = 'none';
+    // RBAC: admin / executive / super_admin can delete. Matches the
+    // server-side `requireAdmin` gate on DELETE /api/inspection/:id.
+    const hasRole = window.__userHasRole || (() => false);
+    const canDelete = hasRole('admin') || hasRole('executive') || hasRole('super_admin');
+    body.innerHTML = rows.map(r => {
+      const risk    = riskFromText(r.overall_risk);
+      const riskCls = risk ? 'risk-' + risk : '';
+      const status  = (r.status || 'draft').toLowerCase();
+      const area    = r.area_text || r.area_code || '';
+      const date    = r.inspection_date || '';
+      const safeId  = escapeHtml(r.id);
+      return `<tr data-id="${safeId}">
+        <td><strong>${safeId}</strong></td>
+        <td>${escapeHtml(date)}</td>
+        <td>${escapeHtml(r.site_code || '—')}</td>
+        <td class="col-area">${escapeHtml(area)}</td>
+        <td class="col-inspector">${escapeHtml(r.inspector_name || '—')}</td>
+        <td>${risk ? `<span class="risk-pill ${riskCls}">${risk}</span>` : '—'}</td>
+        <td><span class="status-pill ${status}">${escapeHtml(status)}</span></td>
+        <td class="col-actions" style="white-space:nowrap">
+          <a href="inspection.html?id=${encodeURIComponent(r.id)}" title="Open" style="color:var(--edv-blue, #145FAE);text-decoration:none;font-weight:600;margin-right:10px">Open ▸</a>
+          ${canDelete ? `<button type="button" class="row-del-btn" data-id="${safeId}" data-status="${escapeHtml(status)}" title="Delete this inspection">✕ Delete</button>` : ''}
+        </td>
+      </tr>`;
+    }).join('');
+    // Row click → open the inspection. Buttons inside the row must
+    // stopPropagation() so the click doesn't bubble up to the row.
+    Array.from(body.querySelectorAll('tr')).forEach(tr => {
+      tr.onclick = (e) => {
+        // Ignore clicks on buttons / links inside the row
+        if (e.target.closest('button, a')) return;
+        window.location.href = 'inspection.html?id=' + encodeURIComponent(tr.dataset.id);
+      };
+    });
+    // Wire each Delete button — opens the styled confirmation modal.
+    // The actual DELETE fetch + UI cleanup lives in performDelete(),
+    // which is bound to the modal's confirm button when shown.
+    Array.from(body.querySelectorAll('.row-del-btn')).forEach(btn => {
+      btn.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        openDelModal(btn);
+      };
+    });
+  }
+
+  // Show the branded delete modal. Status-aware copy distinguishes
+  // a casual draft delete from destroying a submitted / closed row.
+  function openDelModal(btn) {
+    const modal = document.getElementById('delModal');
+    const title = document.getElementById('delModalTitle');
+    const body  = document.getElementById('delModalBody');
+    const ok    = document.getElementById('delConfirmBtn');
+    if (!modal || !title || !body || !ok) {
+      // Defensive fallback — keep the action available even if the
+      // markup somehow got lost.
+      const m = `Delete inspection ${btn.dataset.id}? This cannot be undone.\nProceed?`;
+      if (window.confirm(m)) performDelete(btn);
+      return;
+    }
+    const id     = btn.dataset.id;
+    const status = btn.dataset.status;
+    const harsh  = (status === 'submitted' || status === 'closed');
+    title.textContent = harsh
+      ? `Delete this ${status.toUpperCase()} inspection?`
+      : 'Delete this inspection?';
+    let html = `<p><strong>${escapeHtml(id)}</strong></p>`;
+    if (harsh) {
+      html += `<p class="warn">⚠ This inspection is ${status.toUpperCase()} (locked from editor edits). Deleting it removes the signed-off record and every finding, action, photo, and signature.</p>`;
+    } else {
+      html += `<p>This removes the row and every finding, action, photo, and signature from the database.</p>`;
+    }
+    html += `<p style="margin-top:14px"><strong>This cannot be undone.</strong></p>`;
+    html += `<p class="sub">Action irréversible · Supprime tout : observations, actions, photos, signatures.</p>`;
+    body.innerHTML = html;
+    // Reset confirm button state + bind the action handler. Cloning
+    // strips any prior onclick so consecutive deletes don't stack
+    // handlers across renders.
+    const fresh = ok.cloneNode(true);
+    fresh.disabled = false;
+    fresh.textContent = 'Delete · Supprimer';
+    ok.replaceWith(fresh);
+    fresh.onclick = () => performDelete(btn, fresh);
+    modal.classList.add('show');
+  }
+
+  function closeDelModal() {
+    const modal = document.getElementById('delModal');
+    if (modal) modal.classList.remove('show');
+  }
+
+  async function performDelete(rowBtn, modalBtn) {
+    const id = rowBtn.dataset.id;
+    if (modalBtn) { modalBtn.disabled = true; modalBtn.textContent = 'Deleting…'; }
+    rowBtn.disabled = true; rowBtn.textContent = '…';
+    try {
+      const r = await fetch(INSP_API + '/' + encodeURIComponent(id), {
+        method: 'DELETE',
+        credentials: 'same-origin',
+        headers: authHeaders(),
+      });
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        alert('Delete failed: ' + (j.error || ('HTTP ' + r.status)));
+        rowBtn.disabled = false; rowBtn.textContent = '✕ Delete';
+        if (modalBtn) { modalBtn.disabled = false; modalBtn.textContent = 'Delete · Supprimer'; }
+        return;
+      }
+      closeDelModal();
+      // Row gone — refresh the whole dashboard so KPIs + chart re-tally
+      refresh();
+    } catch (err) {
+      alert('Delete failed: ' + err.message);
+      rowBtn.disabled = false; rowBtn.textContent = '✕ Delete';
+      if (modalBtn) { modalBtn.disabled = false; modalBtn.textContent = 'Delete · Supprimer'; }
+    }
+  }
+
+  // Backdrop click + Cancel button + Escape — all dismiss the modal.
+  // Wired here from inside the IIFE because the script uses 'use strict'
+  // and is closed-over, so inline onclick="closeDelModal()" in the
+  // markup would fail to resolve the function.
+  (function wireDelModalDismiss() {
+    const m = document.getElementById('delModal');
+    const c = document.getElementById('delCancelBtn');
+    if (m) m.addEventListener('click', (e) => {
+      if (e.target === m) closeDelModal();   // backdrop only, not the sheet
+    });
+    if (c) c.addEventListener('click', closeDelModal);
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      const md = document.getElementById('delModal');
+      if (md && md.classList.contains('show')) closeDelModal();
+    });
+  })();
+
+  // ── Reload everything for current filters ────────────────────────
+  async function refresh() {
+    const f = currentFilters();
+    try {
+      const [aggRes, listRes] = await Promise.all([
+        fetch(INSP_API + '/aggregate' + qs(f), { credentials: 'same-origin', headers: authHeaders() }),
+        fetch(INSP_API + '/list'      + qs(f), { credentials: 'same-origin', headers: authHeaders() }),
+      ]);
+      if (!aggRes.ok || !listRes.ok) {
+        renderKpis({});
+        renderTrend([]);
+        renderTable([]);
+        return;
+      }
+      const agg  = await aggRes.json();
+      const list = await listRes.json();
+      renderKpis(agg);
+      renderTrend(agg.monthly || []);
+      renderTable(list.rows || []);
+    } catch (e) {
+      console.warn('inspections refresh failed:', e);
+      renderKpis({});
+      renderTrend([]);
+      renderTable([]);
+    }
+  }
+
+  // ── Export roll-up PPTX ──────────────────────────────────────────
+  async function exportRollup() {
+    const btn = document.getElementById('exportBtn');
+    const orig = btn.innerHTML;
+    btn.innerHTML = '⏳ Generating…';
+    btn.disabled = true;
+    try {
+      const r = await fetch(INSP_API + '/aggregate/export', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+        body: JSON.stringify({ filters: currentFilters() }),
+      });
+      if (!r.ok) {
+        const t = await r.text().catch(() => '');
+        alert('Export failed: ' + (t || r.status));
+        return;
+      }
+      const blob = await r.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href = url;
+      const tag = (currentFilters().site || 'GROUP') + '_' + new Date().toISOString().slice(0, 10);
+      a.download = 'Inspections_' + tag + '.pptx';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    } finally {
+      btn.innerHTML = orig;
+      btn.disabled = false;
+    }
+  }
+
+  function resetFilters() {
+    ['filterSite', 'filterFrom', 'filterTo', 'filterRisk', 'filterStatus'].forEach(id => {
+      document.getElementById(id).value = '';
+    });
+    refresh();
+  }
+
+  function wire() {
+    ['filterSite', 'filterRisk', 'filterStatus'].forEach(id =>
+      document.getElementById(id).addEventListener('change', refresh)
+    );
+    ['filterFrom', 'filterTo'].forEach(id =>
+      document.getElementById(id).addEventListener('change', refresh)
+    );
+    document.getElementById('resetBtn').addEventListener('click', resetFilters);
+    document.getElementById('exportBtn').addEventListener('click', exportRollup);
+  }
+
+  async function boot() {
+    wire();
+    await loadSites();
+    await refresh();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
+})();
+</script>
+
+</body>
+</html>

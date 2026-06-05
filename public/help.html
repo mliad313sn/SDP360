@@ -1,0 +1,1569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>User Manual — Endeavour IT Dashboard</title>
+<style>
+  :root{
+    --navy:#0d2b4e;--orange:#E8600A;--amber:#F59E0B;
+    --slate:#374151;--slate3:#9CA3AF;--border:#E5E7EB;
+    --bg:#F8F9FA;--white:#fff;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--slate);line-height:1.6}
+
+  /* ── HEADER ── */
+  .hdr{display:flex;align-items:center;gap:12px;background:var(--orange);padding:0 20px;height:52px;color:#fff;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+  .hdr-logo{font-size:16px;font-weight:700;letter-spacing:.4px;white-space:nowrap}
+  .hdr-sep{flex:1}
+  .lang-btn{background:rgba(255,255,255,.18);border:none;border-radius:4px;padding:5px 12px;color:#fff;cursor:pointer;font-size:12px;font-weight:600;transition:background .2s}
+  .lang-btn:hover,.lang-btn.active{background:rgba(255,255,255,.35)}
+  .back-btn{background:rgba(255,255,255,.18);border:none;border-radius:4px;padding:5px 12px;color:#fff;cursor:pointer;font-size:12px;text-decoration:none;display:inline-flex;align-items:center;gap:5px}
+  .back-btn:hover{background:rgba(255,255,255,.3)}
+
+  /* ── LAYOUT ── */
+  .container{max-width:1000px;margin:0 auto;padding:24px 20px 60px}
+
+  /* ── TOC SIDEBAR + CONTENT ── */
+  .doc-layout{display:flex;gap:32px;align-items:flex-start}
+  .toc{width:220px;flex-shrink:0;position:sticky;top:68px}
+  .toc-title{font-size:10px;font-weight:700;color:var(--orange);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--orange)}
+  .toc a{display:block;font-size:12px;color:var(--slate);text-decoration:none;padding:4px 0 4px 8px;border-left:2px solid transparent;transition:all .15s;line-height:1.4}
+  .toc a:hover{color:var(--orange);border-left-color:var(--orange)}
+  .toc a.toc-sub{padding-left:20px;color:var(--slate3);font-size:11px}
+  .toc a.toc-sub:hover{color:var(--orange)}
+  .content{flex:1;min-width:0}
+
+  /* ── COVER BANNER ── */
+  .cover{background:var(--navy);border-radius:10px;padding:32px 36px;color:#fff;margin-bottom:32px}
+  .cover h1{font-size:24px;font-weight:700;margin-bottom:6px}
+  .cover .sub{font-size:13px;opacity:.7;letter-spacing:.5px}
+  .cover .meta{margin-top:16px;font-size:12px;opacity:.6;display:flex;gap:24px}
+
+  /* ── SECTION ── */
+  .section{background:var(--white);border-radius:8px;border:1px solid var(--border);padding:24px 28px;margin-bottom:20px}
+  .section-num{display:inline-block;background:var(--orange);color:#fff;font-size:11px;font-weight:700;border-radius:3px;padding:1px 7px;margin-right:8px;vertical-align:middle}
+  h2{font-size:17px;font-weight:700;color:var(--navy);margin-bottom:14px;display:flex;align-items:center;gap:6px}
+  h3{font-size:14px;font-weight:700;color:var(--orange);margin:16px 0 8px}
+  h4{font-size:13px;font-weight:600;color:var(--slate);margin:12px 0 6px}
+  p{margin-bottom:10px;font-size:13.5px}
+  ul,ol{padding-left:20px;margin-bottom:10px}
+  li{font-size:13.5px;margin-bottom:4px}
+  strong{color:var(--navy)}
+
+  /* ── INFO BOX ── */
+  .info{background:#EFF6FF;border-left:4px solid #3B82F6;border-radius:4px;padding:10px 14px;margin:12px 0;font-size:13px}
+  .warn{background:#FFFBEB;border-left:4px solid var(--amber);border-radius:4px;padding:10px 14px;margin:12px 0;font-size:13px}
+  .tip{background:#F0FDF4;border-left:4px solid #22C55E;border-radius:4px;padding:10px 14px;margin:12px 0;font-size:13px}
+
+  /* ── TABLE ── */
+  table{width:100%;border-collapse:collapse;font-size:12.5px;margin:12px 0}
+  th{background:var(--navy);color:#fff;padding:8px 12px;text-align:left;font-weight:600}
+  td{padding:7px 12px;border-bottom:1px solid var(--border)}
+  tr:nth-child(even) td{background:#F9FAFB}
+
+  /* ── STEP BADGE ── */
+  .steps{list-style:none;padding:0;counter-reset:step}
+  .steps li{counter-increment:step;display:flex;gap:12px;align-items:flex-start;margin-bottom:10px;font-size:13.5px}
+  .steps li::before{content:counter(step);background:var(--orange);color:#fff;border-radius:50%;width:22px;height:22px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;margin-top:1px}
+
+  /* ── DIVIDER / LANGUAGE SEPARATOR ── */
+  .lang-divider{border:none;border-top:3px solid var(--navy);margin:40px 0;position:relative}
+  .lang-divider::after{content:attr(data-label);position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:var(--bg);padding:0 16px;font-size:11px;font-weight:700;letter-spacing:1px;color:var(--navy);text-transform:uppercase}
+
+  /* ── LANGUAGE SECTIONS ── */
+  .lang-section{display:none}
+  .lang-section.active{display:block}
+
+  /* ── RESPONSIVE ── */
+  @media(max-width:700px){
+    .doc-layout{flex-direction:column}
+    .toc{width:100%;position:static}
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="hdr">
+  <div class="hdr-logo">📘 Endeavour Mining — IT Dashboard · User Manual</div>
+  <div class="hdr-sep"></div>
+  <button class="lang-btn active" id="btn-en" onclick="setLang('en')">🇬🇧 English</button>
+  <button class="lang-btn" id="btn-fr" onclick="setLang('fr')">🇫🇷 Français</button>
+  &nbsp;
+  <a class="back-btn" href="javascript:history.back()">← Back</a>
+</div>
+
+<div class="container">
+
+<!-- ══════════════════════════════════════════════════════════════
+     ENGLISH SECTION
+════════════════════════════════════════════════════════════════ -->
+<div class="lang-section active" id="sec-en">
+
+  <!-- Cover -->
+  <div class="cover">
+    <h1>📊 Endeavour Mining — IT Operations Dashboard</h1>
+    <div class="sub">USER MANUAL · ENGLISH</div>
+    <div class="meta">
+      <span>Version 2.0</span>
+      <span>May 2026</span>
+      <span>IT Department — Endeavour Mining</span>
+    </div>
+  </div>
+
+  <div class="doc-layout">
+    <!-- TOC -->
+    <div class="toc">
+      <div class="toc-title">Contents</div>
+      <a href="#en-1">1. Overview</a>
+      <a href="#en-2">2. Accessing the Dashboard</a>
+      <a href="#en-3">3. Main Dashboard</a>
+      <a class="toc-sub" href="#en-3-1">Filters & Week Picker</a>
+      <a class="toc-sub" href="#en-3-2">KPI Cards</a>
+      <a class="toc-sub" href="#en-3-3">Ageing Tickets</a>
+      <a class="toc-sub" href="#en-3-4">Data Sync</a>
+      <a class="toc-sub" href="#en-3-5">Risk Register Export</a>
+      <a href="#en-4">4. Site Reports</a>
+      <a class="toc-sub" href="#en-4-1">Infrastructure KPIs</a>
+      <a class="toc-sub" href="#en-4-2">Helpdesk Metrics</a>
+      <a class="toc-sub" href="#en-4-3">Lights & Action Items</a>
+      <a class="toc-sub" href="#en-4-4">Submitting a Report</a>
+      <a href="#en-5">5. PPTX Report Downloads</a>
+      <a href="#en-6">6. Executive Dashboard</a>
+      <a href="#en-7">7. Admin Panel</a>
+      <a href="#en-8">8. Quick Reference</a>
+      <a href="#en-9">9. Incident SLA Targets</a>
+      <a class="toc-sub" href="#en-9-1">Priority Mapping</a>
+      <a class="toc-sub" href="#en-9-2">SLA Profiles</a>
+      <a class="toc-sub" href="#en-9-3">Site Matrix</a>
+      <a href="#en-10">10. IT Activity Tracker</a>
+      <a class="toc-sub" href="#en-10-1">Authentication &amp; Access</a>
+      <a class="toc-sub" href="#en-10-2">Opening the Tracker</a>
+      <a class="toc-sub" href="#en-10-3">Interface &amp; Tabs</a>
+      <a class="toc-sub" href="#en-10-4">Entering Activity Data</a>
+      <a class="toc-sub" href="#en-10-5">Saving Your Work</a>
+      <a href="#en-11">11. IT Inspections</a>
+      <a class="toc-sub" href="#en-11-1">Opening Inspections</a>
+      <a class="toc-sub" href="#en-11-2">Filling an Inspection</a>
+      <a class="toc-sub" href="#en-11-3">Save Model (Local + Submit)</a>
+      <a class="toc-sub" href="#en-11-4">Corrective Actions &amp; Photos</a>
+      <a class="toc-sub" href="#en-11-5">Exporting to PPTX</a>
+      <a href="#en-12">12. Meetings &amp; Council</a>
+      <a class="toc-sub" href="#en-12-1">Module Overview</a>
+      <a class="toc-sub" href="#en-12-2">Creating a Meeting PV</a>
+      <a class="toc-sub" href="#en-12-3">Issues, Actions &amp; Audit Trail</a>
+      <a class="toc-sub" href="#en-12-4">Bulk Excel Import</a>
+      <a class="toc-sub" href="#en-12-5">5 Engagements Compliance</a>
+      <a href="#en-13">13. Executive Scorecard</a>
+      <a class="toc-sub" href="#en-13-1">The 5 Tabs</a>
+      <a class="toc-sub" href="#en-13-2">KPI Tiles Reference</a>
+      <a class="toc-sub" href="#en-13-3">Customer Voice &amp; Verbatim</a>
+      <a class="toc-sub" href="#en-13-4">Filters &amp; Period Selection</a>
+      <a href="#en-14">14. AI Analysis &amp; Smart Insights</a>
+      <a class="toc-sub" href="#en-14-1">Analyze &amp; Save (AI)</a>
+      <a class="toc-sub" href="#en-14-2">Analyze Lite (deterministic)</a>
+      <a class="toc-sub" href="#en-14-3">Local LLM Option</a>
+    </div>
+
+    <!-- Content -->
+    <div class="content">
+
+      <!-- 1 -->
+      <div class="section" id="en-1">
+        <h2><span class="section-num">1</span>Overview</h2>
+        <p>The <strong>Endeavour Mining IT Operations Dashboard</strong> is a web-based platform that centralises IT service-desk data from ManageEngine Analytics Plus and provides real-time KPIs, site reporting, executive exports, inspection logs, meeting records, and AI-assisted analysis for all Endeavour Mining sites.</p>
+        <p>As of May 2026, the platform covers <strong>eight main areas</strong>:</p>
+        <ul>
+          <li><strong>Main Dashboard</strong> (§3) — live helpdesk KPIs, group/week filtering, ageing and open-ticket tracking</li>
+          <li><strong>Site Reports</strong> (§4) — weekly submission forms filled by on-site IT teams</li>
+          <li><strong>Report Builder</strong> (§5-6) — one-click PPTX exports for weekly and monthly reviews + monthly board deck runbook</li>
+          <li><strong>Activity Tracker</strong> (§10) — 31 activities × 4 pillars × 10 sites, monthly scoring</li>
+          <li><strong>IT Inspections</strong> (§11) — site infrastructure inspections with checklist, photos, signatures, PPTX export</li>
+          <li><strong>Meetings &amp; Council Escalations</strong> (§12) — monthly PV (Procès-Verbal) digital twin + Mine IT Council view</li>
+          <li><strong>Executive Scorecard</strong> (§13) — consolidated 5-tab view for management (KPIs, Action Plan, Tech Scorecard, Change &amp; Incidents, Customer Voice)</li>
+          <li><strong>AI Analysis &amp; Insights</strong> (§14) — on-premise LLM commentary (Ollama / Mistral Nemo) + Analyze Lite (deterministic, no network)</li>
+        </ul>
+        <div class="info">ℹ️ Ticket data is sourced from <strong>ManageEngine Analytics Plus</strong> via OAuth (MEAplus scope). The dashboard syncs automatically every hour. All dashboard pages serve from a local SQLite cache for instant load; Zoho is only contacted by background sync jobs.</div>
+      </div>
+
+      <!-- 2 -->
+      <div class="section" id="en-2">
+        <h2><span class="section-num">2</span>Accessing the Dashboard</h2>
+        <p>Open your web browser and navigate to the server address provided by your IT administrator (e.g. <code>http://&lt;server-ip&gt;:3456</code>). A login screen will appear.</p>
+        <ol class="steps">
+          <li>Enter your <strong>username</strong> and <strong>password</strong> as provided by the administrator.</li>
+          <li>Click <strong>Sign In</strong>.</li>
+          <li>You will land on the <strong>Main Dashboard</strong>. The navigation header provides links to all sections your role can access.</li>
+        </ol>
+        <div class="tip">💡 Bookmark the URL so you can return quickly. If you are accessing via RDP, the dashboard works in any browser on that machine. Your session stays active for 24 hours — no need to sign in again each day.</div>
+        <h3>User Roles</h3>
+        <p>The dashboard supports <strong>multiple roles per account</strong>. A user can be assigned ONE hierarchical level plus ANY combination of feature roles. Roles are managed by Admin+ users from the <em>⚙️ Admin → Users</em> tab.</p>
+
+        <h4 style="margin-top:14px">Hierarchical roles (pick exactly one — each tier inherits everything below it)</h4>
+        <table>
+          <tr><th>Role</th><th>Inherits</th><th>What it grants</th></tr>
+          <tr><td><strong>super_admin</strong></td><td>All lower tiers + all feature roles</td><td>Total system access. Can do anything any other role can do, regardless of feature roles assigned. Reserved for the system owner.</td></tr>
+          <tr><td><strong>executive</strong></td><td>admin, editor, viewer</td><td>All admin capabilities + executive-only screens (consolidated cross-site views). Cannot manage tracker config or users by default — needs the relevant feature roles for those.</td></tr>
+          <tr><td><strong>admin</strong></td><td>editor, viewer</td><td>User &amp; site management; re-open submitted reports; trigger Zoho sync; clear cache; access the Admin tab.</td></tr>
+          <tr><td><strong>editor</strong></td><td>viewer</td><td>Fill and submit weekly site reports; download monthly PPTX; edit own action items.</td></tr>
+          <tr><td><strong>viewer</strong></td><td>—</td><td>Read-only access to Main Dashboard, submitted Site Reports, and the Activity Tracker dashboard tab.</td></tr>
+        </table>
+
+        <h4 style="margin-top:14px">Feature roles (orthogonal — pick any combination, in addition to a hierarchical role)</h4>
+        <table>
+          <tr><th>Role</th><th>What it unlocks</th></tr>
+          <tr><td><strong>tracker-admin</strong></td><td>Edit Activity Tracker configuration: activities list, pillar weights, scoring targets, active sites. Can also reset the tracker to defaults.</td></tr>
+          <tr><td><strong>tracker-editor</strong></td><td>Enter monthly tracker actuals <strong>for the user's own assigned site only</strong>. Cannot touch config. Site is determined by the user's <em>site_id</em>.</td></tr>
+          <tr><td><strong>report-author</strong></td><td>Run <em>Analyze &amp; Save</em> (AI commentary generation), <em>Export PPTX</em>, and <em>Executive New Report</em> on the executive report page. Required for any AI-driven export.</td></tr>
+          <tr><td><strong>audit-viewer</strong></td><td>Read the audit trail (who changed what, when) for any submitted report. Does not allow triggering syncs or modifying data.</td></tr>
+        </table>
+
+        <div class="tip">💡 <strong>Examples:</strong>
+          <br><strong>Site IT Lead at Houndé</strong> → <em>editor</em> + <em>tracker-editor</em> (writes weekly reports + Houndé tracker actuals).
+          <br><strong>IT Operations Manager</strong> → <em>admin</em> + <em>tracker-admin</em> + <em>report-author</em> (runs the whole module).
+          <br><strong>CIO Assistant</strong> → <em>viewer</em> + <em>report-author</em> (read-only on data, but can publish reports).
+          <br><strong>Auditor</strong> → <em>viewer</em> + <em>audit-viewer</em>.
+        </div>
+        <div class="info">ℹ️ When the multi-role system was first activated, every existing <strong>admin / executive / super_admin</strong> account was automatically granted all 4 feature roles (tracker-admin, tracker-editor, report-author, audit-viewer) so nothing they could do before stopped working. New accounts you create from this point need feature roles assigned explicitly.</div>
+        <h3>Changing your password</h3>
+        <p>Any user can change their own password at any time from the <strong>Site Reports</strong> page. Click the 🔑 icon next to your username in the top-right corner, enter your current password and a new one (minimum 8 characters), then click <strong>Change Password</strong>.</p>
+      </div>
+
+      <!-- 3 -->
+      <div class="section" id="en-3">
+        <h2><span class="section-num">3</span>Main Dashboard</h2>
+        <p>The main dashboard (<strong>IT Operations Center</strong>) displays real-time helpdesk metrics pulled from Zoho Desk.</p>
+
+        <h3 id="en-3-1">3.1 Filters &amp; Week Picker</h3>
+        <p>The filter bar at the top of the page controls what data is displayed:</p>
+        <ul>
+          <li><strong>Week picker</strong> — use the ◀ ▶ arrows to navigate between weeks. Weeks follow the <em>Zoho Sunday-start convention</em> (W01 = first Sunday of the year, each week runs Sunday–Saturday).</li>
+          <li><strong>Group selector</strong> — click the group name chip to filter tickets for a specific IT group (e.g. Operations, Application, Network…). Click again or select "All Groups" to reset.</li>
+          <li><strong>Preset buttons</strong> — quick shortcuts to common group combinations saved per user in the browser.</li>
+          <li><strong>View toggle</strong> — switch between Summary, Detail, and Ageing views.</li>
+        </ul>
+        <div class="warn">⚠️ Week numbers in the dashboard match <strong>Zoho Analytics Plus</strong> week numbering. If a week label looks off, always verify against the Zoho AP calendar rather than standard ISO weeks.</div>
+
+        <h3 id="en-3-2">3.2 KPI Cards</h3>
+        <p>The top row of cards shows the key metrics for the selected week and group filter:</p>
+        <table>
+          <tr><th>KPI</th><th>Description</th></tr>
+          <tr><td>Total Tickets</td><td>All requests received in the selected period</td></tr>
+          <tr><td>Open Tickets</td><td>Tickets not yet closed (checks both Request Status and Pending Status fields)</td></tr>
+          <tr><td>Closed This Week</td><td>Tickets resolved within the selected week</td></tr>
+          <tr><td>SLA Breach</td><td>Tickets that exceeded the response/resolution SLA target</td></tr>
+          <tr><td>Avg. Resolution Time</td><td>Mean hours from ticket creation to closure</td></tr>
+        </table>
+
+        <h3 id="en-3-3">3.3 Ageing Tickets</h3>
+        <p>The ageing panel shows open tickets grouped by how long they have been waiting. Tickets are colour-coded: <strong style="color:#22c55e">Green</strong> = 0–3 days, <strong style="color:#f59e0b">Amber</strong> = 4–7 days, <strong style="color:#ef4444">Red</strong> = 8+ days.</p>
+        <p>Click any row to drill down and see the individual ticket details pulled from Zoho.</p>
+
+        <h3 id="en-3-4">3.4 Data Sync</h3>
+        <p>Data is refreshed automatically but you can trigger a manual sync at any time:</p>
+        <ul>
+          <li><strong>⟳ Refresh</strong> — reloads the page from the browser cache (fast, no new Zoho query).</li>
+          <li><strong>⚡ Force Sync</strong> — clears the server cache and fetches fresh data from Zoho immediately. Use this after a large batch of tickets has been updated.</li>
+        </ul>
+        <div class="info">ℹ️ Automatic sync schedule: every 4 hours at :45 past the hour, plus explicit triggers at <strong>06:00, 13:00, and 16:00</strong> on workdays.</div>
+
+        <h3 id="en-3-5">3.5 Risk Register Export</h3>
+        <p>In <strong>Monthly view</strong>, a <strong>📥 Export Risk Register</strong> button generates the monthly Occurrence sheet (.xlsx) for the operations Risk Register. Aggregates incidents per site × per risk domain (5 domains: Internet, Mobile, Power, Infrastructure, Radio).</p>
+        <ul>
+          <li>Picks up the currently selected month from the period picker (Monthly view required — weekly is blocked because months can straddle weeks).</li>
+          <li>Excludes <strong>Individual</strong>-scope tickets (single-user issues) and the <strong>Inspection</strong> category.</li>
+          <li>Output filename: <code>RiskRegister_Occurrence_YYYY-MM.xlsx</code>, opens in Excel / LibreOffice / Keynote.</li>
+          <li>Layout matches the existing monthly Occurrence sheets — column B is the site code, column I is the Occurrence count.</li>
+        </ul>
+        <div class="tip">💡 Diagnostics: after clicking the button, browser DevTools <strong>Console</strong> shows <code>[risk-register] diagnostics</code> with per-category skip counts. <code>skipped_unknown_site</code> &gt; 0 means a SDP site label isn't mapped — super_admins can add the mapping at <strong>Admin → Risk Register codes</strong>.</div>
+      </div>
+
+      <!-- 4 -->
+      <div class="section" id="en-4">
+        <h2><span class="section-num">4</span>Site Reports — Weekly Workflow</h2>
+        <p>Click <strong>📋 Site Reports</strong> in the header to access the weekly reporting module. Each site IT team submits <strong>one report per week</strong> covering infrastructure KPIs, helpdesk metrics, highlights, and action items. The monthly PPTX is automatically built from these weekly submissions.</p>
+
+        <h3 id="en-4-1">4.1 Infrastructure KPIs</h3>
+        <p>Fill in <strong>Section 1 — Infrastructure KPIs</strong> with this week's actual values for each monitored system (WAN uptime, server availability, backup success rate, etc.).</p>
+        <ul>
+          <li>Click <strong>📋 Copy from Previous Week</strong> to pre-fill all rows from last week's report. The Service name, KPI name, Target and previous Status/Trend are carried over — the <em>Current Value</em> column is intentionally cleared so you type only this week's numbers. The previous week's value is kept in memory to compute the Trend automatically.</li>
+          <li>Once you type a numeric value, the <strong>Status</strong> (🟢/🟡/🔴) is set automatically by comparing the value to the Target, and the <strong>Trend</strong> (▲/→/▼) is set by comparing the value to last week's value — no manual selection needed.</li>
+          <li>For non-numeric entries (e.g. "N/A", "OK", text), auto-computation does not apply. Set Status and Trend manually for those rows.</li>
+        </ul>
+        <div class="warn">⚠️ <strong>Manual Status / Trend values are overridden at PPTX export time</strong> for numeric rows. Even if you manually set a Trend in the form and save the report, the PPTX generator will recompute the Trend from the actual values (current vs previous week). The slide will show the computed direction — not what you typed. For non-numeric rows with no previous value to compare, the saved manual value is preserved.</div>
+        <div class="tip">💡 <strong>Copy from Previous Week</strong> is the recommended starting point every week — it saves the most time for sites with long KPI lists.</div>
+
+        <h3 id="en-4-2">4.2 Helpdesk Metrics</h3>
+        <p><strong>Section 2 — Helpdesk Metrics</strong> is pre-populated from Zoho data for your site's group. Review the auto-filled numbers, make any manual adjustments if needed, and save.</p>
+        <p>The <strong>Tech Break Pool</strong> panel lets coordinators mark which technicians are on break. Click a chip to add them; click again to remove.</p>
+
+        <h3 id="en-4-3">4.3 Low / High Lights</h3>
+        <p>Enter only the issues and successes that occurred <strong>this specific week</strong>. Do not copy items from the previous week — the system collects all weeks automatically and the monthly report will include every week's entries.</p>
+        <ul>
+          <li><strong>▼ Issues &amp; Incidents</strong>: problems, outages, or degraded services that happened this week.</li>
+          <li><strong>▲ Successes &amp; Achievements</strong>: completions, improvements, or positive outcomes this week.</li>
+          <li><strong>Changes In Progress / Pending</strong>: active or upcoming change requests. Enter a change once when it starts — do not re-enter it every week.</li>
+        </ul>
+        <div class="warn">⚠️ If you repeat the same item every week, it will appear only once in the monthly PPTX (deduplicated automatically), tagged with the first week it was entered. Enter each item only once.</div>
+
+        <h3 id="en-4-4">4.4 Action Items</h3>
+        <p>List tasks that require follow-up this week. Use <strong>↵ Import open from previous week</strong> to carry forward unresolved tasks — this copies all actions that were not closed last week into the current report. Do not manually re-add an action that is already being tracked. Update its <strong>Status</strong> field instead (open → in progress → closed).</p>
+        <div class="info">ℹ️ The monthly PPTX shows each action <strong>once</strong>, with its most recent status across all submitted weeks. If the same task appears in week 1 as "open" and in week 4 as "closed", the PPTX will show it as closed. Duplicate entries across weeks are automatically removed.</div>
+        <div class="warn">⚠️ Do not create a new action item for something that already exists — even if it is still open. Use <strong>Import open from previous week</strong> to bring it forward, then update the status. Creating duplicates will result in the same task appearing twice in the monthly report.</div>
+
+        <h3 id="en-4-5">4.5 Submitting a Report</h3>
+        <ol class="steps">
+          <li>Complete all four sections (Infrastructure, Helpdesk, Lights, Action Items).</li>
+          <li>Review the summary at the top of the page.</li>
+          <li>Click the green <strong>✅ Submit Report</strong> button.</li>
+          <li>A confirmation banner confirms the report is submitted. The status changes to <em>Submitted</em>.</li>
+        </ol>
+        <div class="warn">⚠️ Once submitted, a report can only be re-opened by an <strong>Admin</strong>. Make sure all information is correct before submitting.</div>
+      </div>
+
+      <!-- 5 -->
+      <div class="section" id="en-5">
+        <h2><span class="section-num">5</span>PPTX Report Generation</h2>
+
+        <h3>Weekly PPTX (single site)</h3>
+        <p>On the <strong>Weekly</strong> tab, select your site and week, then click <strong>⬇ Weekly PPTX</strong>. The file covers Infrastructure KPIs, Helpdesk Metrics, Lights, and Action Items for that one week.</p>
+
+        <h3>Monthly Site Report</h3>
+        <p>On the <strong>Monthly</strong> tab, select your site and month, then click <strong>⬇ Export PPTX</strong>. The file summarises the full month across all submitted weeks.</p>
+        <p>The monthly PPTX is built automatically from weekly data. For best results, review the consolidated Lights and Actions before generating:</p>
+        <ol class="steps">
+          <li>Load the Monthly Report for your site.</li>
+          <li>Check the <strong>Low/High Lights</strong> and <strong>Action Items</strong> tabs — the system auto-merges all weeks and removes duplicates.</li>
+          <li>Edit or remove any entry that is not relevant at the monthly level.</li>
+          <li>Click <strong>💾 Save Monthly Edits</strong> to lock in your curated version.</li>
+          <li>Click <strong>⬇ Export PPTX</strong> — the saved edits will be used; the auto-merge fallback is only used if no edits have been saved.</li>
+        </ol>
+        <div class="warn">⚠️ <strong>If a new weekly report is submitted after you saved Monthly Edits</strong>, the saved edits are not automatically updated. You will need to return to the Monthly Report tab, review the merged content again, and click <strong>💾 Save Monthly Edits</strong> once more before exporting. Always save edits as the last step, just before exporting.</div>
+
+        <h3>What the PPTX generator always computes automatically</h3>
+        <p>Regardless of what values are stored in the weekly report form, the following are always recalculated at export time:</p>
+        <table>
+          <tr><th>Element</th><th>How it is computed</th><th>Manual override?</th></tr>
+          <tr><td>KPI Status colour (🟢/🟡/🔴)</td><td>Current Value vs Target — green if at or above target, amber if within 5%, red if below</td><td>No — overridden for numeric values</td></tr>
+          <tr><td>KPI Trend arrow (▲/→/▼)</td><td>Current Value vs previous week's value — up if improved, down if degraded, stable if equal</td><td>No — overridden for numeric values</td></tr>
+          <tr><td>KPI Status &amp; Trend for non-numeric entries</td><td>Cannot be computed (e.g. "N/A", "OK")</td><td>Yes — saved manual value is used</td></tr>
+          <tr><td>Action Items deduplication</td><td>Same task + owner across weeks → kept once with most recent status</td><td>Yes — if you save Monthly Edits, your curated list is used instead</td></tr>
+          <tr><td>Lights deduplication</td><td>Same text across weeks → kept once, tagged to earliest week</td><td>Yes — if you save Monthly Edits, your curated list is used instead</td></tr>
+        </table>
+        <div class="tip">💡 The practical rule: <strong>type accurate values</strong> in the form and let the system compute everything else. Only use manual overrides for rows where the value is text-based (e.g. "OK", "N/A").</div>
+
+        <h3>Combined All-Sites Monthly PPTX <em>(Admin only)</em></h3>
+        <p>Click <strong>⬇ Export ALL Sites PPTX</strong> in the Monthly tab to generate one file covering all active sites for the selected month. Each site gets a divider slide followed by its 6 report slides. Ideal for the monthly management meeting.</p>
+
+        <h3>Weekly All-Sites Summary <em>(Admin only)</em></h3>
+        <p>On the Weekly tab, click <strong>⬇ Download All-Sites Summary</strong>. Aggregates all active sites for the selected week into one presentation.</p>
+        <div class="info">ℹ️ The all-sites exports will return an error if no sites have submitted data for the selected period. Remind site teams to submit before generating.</div>
+      </div>
+
+      <!-- 6 -->
+      <div class="section" id="en-6">
+        <h2><span class="section-num">6</span>Executive Report — Monthly Board Deck Runbook</h2>
+        <p>This section is a <strong>step-by-step recipe</strong> for producing the 11-slide PPTX you distribute to the board each month. The page is at <code>http://&lt;server-ip&gt;:3456/executive-report.html</code> and is driven by data already in the dashboard — no Zoho login required at export time. <strong>Required role</strong>: <em>report-author</em> (any hierarchy tier).</p>
+
+        <h3>Slide-by-slide what the deck contains</h3>
+        <table>
+          <tr><th>#</th><th>Slide</th><th>Source</th></tr>
+          <tr><td>1</td><td>Cover (period + Operations Summary)</td><td>Auto</td></tr>
+          <tr><td>2</td><td>IT Governance Narrative — Progress / Issues / Activities</td><td>Hand-written commentary fields (f-progress, f-issues, f-nextperiod)</td></tr>
+          <tr><td>3</td><td>Executive Overview — 4×3 KPI grid (12 tiles)</td><td>Auto from helpdesk + survey + change data</td></tr>
+          <tr><td>4</td><td>Helpdesk Operations 12-Month Trend</td><td>Auto + f-helpdesk commentary</td></tr>
+          <tr><td>5</td><td>Ticket Distribution &amp; Submission Channel (with 12-month Email vs Web Form trend)</td><td>Auto + f-helpdesk commentary</td></tr>
+          <tr><td>6</td><td>SLA Compliance &amp; Ticket Ageing by Group (with auto blocker analysis)</td><td>Auto + f-sla commentary</td></tr>
+          <tr><td>7</td><td>Customer Satisfaction &amp; Voice (CSAT + NPS)</td><td>Auto + f-csat commentary</td></tr>
+          <tr><td>8</td><td>Change Management</td><td>Auto + f-change commentary</td></tr>
+          <tr><td>9</td><td>Major Incidents (KPI tiles + Incident Register with RCA / CA / PIR / LL dots)</td><td>Auto from major-incidents UDFs + f-incidents commentary</td></tr>
+          <tr><td>10</td><td>IT Ops Strategy Roadmap (5 KPIs + 2 charts)</td><td>Activity Tracker</td></tr>
+          <tr><td>11</td><td>Executive Commentary &amp; Site Summaries (4 pillars + 5 site cards + General Review)</td><td>Activity Tracker</td></tr>
+        </table>
+
+        <h3 id="en-6-runbook">The 7-step monthly runbook</h3>
+        <ol class="steps">
+          <li><strong>Make sure the data is fresh.</strong> Open the Main Dashboard — if the data freshness chip in the top bar is <em>green</em> ("synced &lt;4h ago"), you're good. If it's amber/red, click <em>⚡ Force Sync</em> and wait for it to finish. Skip the Activity Tracker check if the period hasn't ended yet — tracker is monthly, you want the whole month closed.</li>
+
+          <li><strong>Open the Executive Report page</strong> (<em>📊 Executive New Report</em> or the direct URL above). At the top of the page:
+            <ul>
+              <li><strong>Period</strong> dropdown → pick the month you're reporting on.</li>
+              <li><strong>Site</strong> filter → leave on <em>All Sites</em> for the group deck (or pick a specific site if you're producing a per-site variant).</li>
+              <li><strong>Group</strong> filter → leave at default (All Groups). Don't apply a group filter unless you specifically want a slice; the cover always reads "Operations Summary" regardless.</li>
+            </ul>
+            Wait for the live KPI tiles + charts on the page to populate (~5-10s).
+          </li>
+
+          <li><strong>Fill in the IT Governance commentary cards.</strong> Scroll down to <em>Section 07 — IT Governance Narrative</em>. Click <em>✏ Edit</em> on each of the 4 cards and type bullet-style prose — one item per line:
+            <ul>
+              <li><strong>✅ Progress since last period</strong> — wins, milestones met, automation rolled out, recruitment closed</li>
+              <li><strong>⚠ Issues / Risks / Comment</strong> — incidents, blockers, vendor delays, capability gaps</li>
+              <li><strong>📅 Activities for next period</strong> — launches, rollouts, governance reviews</li>
+              <li><strong>🎯 Action items &amp; priorities</strong> — format: <code>[P1] Improve FRT SLA — Owner: Service Desk Manager</code> (one per line, optional <code>[P1]</code>/<code>[P2]</code>/<code>[P3]</code> badges, optional <code>— Owner: NAME</code> suffix)</li>
+            </ul>
+            These four fields ARE NOT auto-filled by AI — they're the only narrative sections you write yourself each month. Empty fields render a discreet placeholder on the slide rather than blank space.
+          </li>
+
+          <li><strong>Click <em>🤖 Analyze &amp; Save</em>.</strong> The AI reads your data + governance prose and generates the analyst commentary for slides 4-9 (helpdesk, SLA &amp; ageing, CSAT, change, major incidents). You'll see a progress panel: <em>"Analysis in progress…"</em> followed by ~5 status lines. Total time: ~30-45 seconds.
+            <div class="info">ℹ️ The AI now reads the &gt;60-day backlog ticket subjects to identify <strong>why tickets are blocked</strong> (vendor / procurement / infra / approval / user access) and includes the analysis at the bottom of slide 6's commentary band. For major incidents, it reads the RCA / Corrective Action / Lessons Learned UDFs to spot recurring root causes.</div>
+          </li>
+
+          <li><strong>Review the auto-filled commentary.</strong> Each section card now has analyst text. Read each one. Edit any sentence that's off — click ✏ Edit and type. The AI is conservative but occasionally surfaces something obvious that needs nuance (e.g. "consider FRT SLA target" when it's already on the action plan).</li>
+
+          <li><strong>Export the deck.</strong> Two buttons in the action bar at the bottom:
+            <ul>
+              <li><strong>📤 Export PPTX</strong> — client-side render in your browser. Faster (~5 sec). Produces the canonical 11-slide deck. Filename: <code>IT_Operations_Report_&lt;Month&gt;_&lt;Year&gt;.pptx</code>.</li>
+              <li><strong>📊 Executive New Report</strong> — server-side render. Slower (~30 sec, makes more AI calls). Includes the same 11 slides + ALSO appends the 2 Activity Tracker slides at positions 9 &amp; 10 if the tracker has data for the period. Filename: <code>Endeavour_Executive_Report_&lt;Year&gt;_&lt;MonthName&gt;.pptx</code>.</li>
+            </ul>
+            For a normal monthly deck, use <strong>Export PPTX</strong>. Use <em>Executive New Report</em> when you want richer AI commentary or are comfortable with a longer render.
+          </li>
+
+          <li><strong>Open the file, scan it, distribute.</strong> Recommended sanity checks before sharing:
+            <ul>
+              <li>Cover shows <strong>the right month</strong> (e.g. "MARCH 2026" in big gold)</li>
+              <li>Slide 2 governance panels show your typed bullets (not the placeholder)</li>
+              <li>Slide 9 Incident Register dots are mostly grey (not red) — grey means PIR was not required; red means RCA / CA / LL is genuinely missing</li>
+              <li>Slides 10 &amp; 11 (tracker) show the current month's % scores and site cards in the right colour</li>
+              <li>Footer page numbers read 2/11 through 11/11 (cover unnumbered)</li>
+            </ul>
+            Save to your distribution folder and share via Teams / email.
+          </li>
+        </ol>
+
+        <h3>Common gotchas</h3>
+        <ul>
+          <li><strong>Slide 7 says "No survey data"</strong> — the survey nightly sync hasn't run for the period, OR there are genuinely no responses. Trigger <code>POST /api/sync/trigger/survey</code> from an admin shell to refresh.</li>
+          <li><strong>Slides 10 &amp; 11 are missing or wrong month</strong> — the tracker has no data for that month. Site IT leads need to enter their tracker actuals first (Activity Tracker → Input tab → save).</li>
+          <li><strong>"403 Forbidden" when clicking Analyze &amp; Save or Export</strong> — your account is missing the <em>report-author</em> role. Ask an admin to grant it from the Admin tab.</li>
+          <li><strong>Major Incident commentary says "follow up" generically</strong> — the major-incident UDFs (Root Cause Analysis, Corrective Action, Lessons Learned) are empty in Zoho. Ask the incident owner to fill them, then trigger <code>POST /api/admin/refresh-major-incident-udfs</code> to backfill the DB.</li>
+        </ul>
+
+        <div class="tip">💡 The 4 Governance cards (Progress / Issues / Activities / Actions) and the auto-filled analyst commentary are NOT persisted server-side — they live in your browser session. If you reload the page, they reset. Always run <em>Analyze &amp; Save</em> + Export in the same session.</div>
+      </div>
+
+      <!-- 7 -->
+      <div class="section" id="en-7">
+        <h2><span class="section-num">7</span>Admin Panel</h2>
+        <p>Accessible only to accounts with the <strong>admin</strong> role (or any role above it in the hierarchy) via the ⚙️ Admin tab in Site Reports.</p>
+        <ul>
+          <li><strong>User Management</strong> — create, edit, and deactivate user accounts; assign hierarchical and feature roles (see §2).</li>
+          <li><strong>Site Management</strong> — add or deactivate sites; map each site to its Zoho group(s); set sort order for report generation. <em>Add / Disable</em> requires <strong>executive</strong> or higher; renaming an existing site is intentionally not exposed.</li>
+          <li><strong>Department Management</strong> — manage the editable department list used by the action-items dropdown (Mining, Technical Service, Processing, etc.).</li>
+          <li><strong>Week Management</strong> — view and manage the list of reporting weeks.</li>
+          <li><strong>Report Oversight</strong> — view all submitted/draft reports across all sites; re-open a report if corrections are needed.</li>
+        </ul>
+
+        <h3>Editing a user — the role picker</h3>
+        <p>Click <strong>Edit</strong> on any row in the Users table. The modal shows two role groups:</p>
+        <ul>
+          <li><strong>Hierarchical (radio — pick one)</strong>: Super Admin · Executive · Admin · Editor · Viewer</li>
+          <li><strong>Feature roles (checkboxes — pick any)</strong>: tracker-admin · tracker-editor · report-author · audit-viewer</li>
+        </ul>
+        <p>The user list table renders each user's roles as <strong>colour-coded chips</strong>: hierarchy tier in its standard role colour, and feature roles in a teal pill. If a user has multiple feature roles, they appear stacked.</p>
+        <div class="tip">💡 To grant a site IT lead local tracker access, assign them <em>editor</em> + <em>tracker-editor</em> and make sure their <em>Site</em> field is set — the tracker scope follows that field.</div>
+
+        <h3>Action items — Department + Comment</h3>
+        <p>Each action item has a mandatory <strong>Department</strong> (dropdown — Mining, Technical Service, Processing, Maintenance, Supply Chain, Security, Finance, Human Resource, Social Performance, General Manager, or any custom department added in Department Management) and an optional <strong>Comment</strong>.</p>
+        <p>Bulk import via CSV is supported: prepare a file with English headers (Task, Department, Priority, Due Date, Owner, Status, Comment) and click <strong>Import CSV</strong> on the Actions tab. The importer is forgiving (case-insensitive headers, lenient validation) and shows row-level errors before committing — successful rows are appended in append-mode.</p>
+
+        <div class="warn">⚠️ Deactivating a site removes it from PPTX generation but does <em>not</em> delete its historical data. Disabled sites stay in the database for audit purposes; activate them again to bring them back into reports.</div>
+
+        <h3 id="en-7-3">7.3 Active Sessions — Who's using the dashboard right now</h3>
+        <p>The <strong>🟢 Active Sessions</strong> card on the Admin page shows every user who has made an authenticated request in the last few minutes. Useful for answering "is anyone using this before I restart the server" or "did Aïssatou actually log in this morning."</p>
+        <ul>
+          <li><strong>Idle window</strong> — dropdown in the card header (1 min / 5 min / 15 min / 1 h / 24 h). Defaults to 5 min.</li>
+          <li><strong>Auto-refresh</strong> — every 30 seconds while the Admin tab is active and the browser tab is visible. Manual <strong>🔄 Refresh</strong> button also available.</li>
+          <li><strong>Last activity</strong> — shows relative ("● now", "12 min ago", "1 h 30 min ago"); hover for the absolute timestamp.</li>
+          <li><strong>Force Logout</strong> — super_admin only. Invalidates the session token immediately; the user sees "Not authenticated" on their next click and has to log in again. Disabled on your own row to prevent lockout.</li>
+        </ul>
+        <div class="info">ℹ️ Admins (non-super_admin) see the card as <strong>read-only</strong> — they can see who's online but cannot force-logout. Sessions automatically expire after 24 hours of no activity.</div>
+
+        <h3 id="en-7-4">7.4 Risk Register — Site Code Mapping (super_admin only)</h3>
+        <p>The Risk Register monthly Occurrence export aggregates incidents per site, but SDP / Zoho stores the site as a free-form text label (<code>HOUNDE</code>, <code>Sabodala</code>, <code>MANA</code>…) while the Risk Register expects short codes (<code>HGO</code>, <code>SGO</code>, <code>MGO</code>…). The <strong>🛡 Risk Register — Site Code Mapping</strong> card on the Admin page lets a super_admin maintain this mapping without a code deploy.</p>
+        <ul>
+          <li><strong>+ New Mapping</strong> — adds a SDP label → register code entry. The code dropdown lists the 10 canonical codes (IGO / SGO / MASSAWA / HGO / KGO / MGO / EXPLO / OUAGA OFF1 / EMSA / SML).</li>
+          <li><strong>Unmapped sites for [month]</strong> — diagnostic strip showing SDP labels that appear in incidents this month with no current mapping. Click <strong>+ Map</strong> on a chip to pre-fill the New Mapping modal.</li>
+          <li><strong>Edit</strong> — change the code an existing label maps to. The label itself is locked (it's the primary key).</li>
+          <li><strong>Delete</strong> — removes a mapping. Future tickets with that label will appear as unmapped again.</li>
+        </ul>
+        <p>Changes take effect <strong>immediately</strong> on the next export — no page reload or server restart required.</p>
+        <div class="info">ℹ️ Sites that don't belong on the Risk Register (corporate offices like <strong>LONDON</strong>, <strong>Dakar</strong>, <strong>ABIDJAN</strong>, <strong>ASSAFO</strong>) should simply be left unmapped — they're silently excluded from the export.</div>
+      </div>
+
+      <!-- 8 -->
+      <div class="section" id="en-8">
+        <h2><span class="section-num">8</span>Quick Reference</h2>
+        <table>
+          <tr><th>Action</th><th>How</th></tr>
+          <tr><td>Go to Main Dashboard</td><td>Click 🏠 IT Ops Center in header</td></tr>
+          <tr><td>Go to Site Reports</td><td>Click 📋 Site Reports in header</td></tr>
+          <tr><td>Force fresh data</td><td>Main Dashboard → ⚡ Force Sync</td></tr>
+          <tr><td>Change week</td><td>Filter bar → ◀ ▶ arrows</td></tr>
+          <tr><td>Filter by group</td><td>Filter bar → click a group chip</td></tr>
+          <tr><td>Submit weekly report</td><td>Site Reports → fill all sections → ✅ Submit Report</td></tr>
+          <tr><td>Download monthly PPTX</td><td>Site Reports → Reports tab → Monthly Site Report card</td></tr>
+          <tr><td>Download all-sites PPTX</td><td>Site Reports → Reports tab → Weekly All-Sites Summary (Admin)</td></tr>
+          <tr><td>Change your password</td><td>Site Reports → click 🔑 next to your username (top right)</td></tr>
+          <tr><td>Manage users/sites</td><td>Site Reports → ⚙️ Admin tab (Admin only)</td></tr>
+          <tr><td>Sign out</td><td>Any page → ⎋ Sign Out button (top right)</td></tr>
+        </table>
+        <div class="tip">💡 For technical issues or access problems, contact your IT administrator or the dashboard maintainer.</div>
+      </div>
+
+      <div class="section" id="en-9">
+        <h2><span class="section-num">9</span>Incident SLA Targets</h2>
+        <p>Zoho Desk enforces SLA policies on every incident ticket. The targets below are the values currently configured in Zoho Desk and are what the dashboard uses to compute <strong>SLA Breach</strong> counts and the SLA compliance % shown on each report.</p>
+
+        <h3 id="en-9-1">9.1 Priority Mapping</h3>
+        <p>Zoho Desk priority labels are mapped to P-codes used throughout the dashboard and PPTX reports:</p>
+        <table>
+          <thead><tr><th>Zoho Priority</th><th>Dashboard Code</th><th>Zoho SLA Name</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Critical</strong></td><td><span style="background:#E74C3C;color:#fff;padding:1px 8px;border-radius:3px;font-weight:700;font-size:12px">P1</span></td><td>Critical SLA for Incident</td></tr>
+            <tr><td><strong>High</strong></td><td><span style="background:#E87722;color:#fff;padding:1px 8px;border-radius:3px;font-weight:700;font-size:12px">P2</span></td><td>High SLA for Incidents</td></tr>
+            <tr><td><strong>Medium / Normal</strong></td><td><span style="background:#2A5490;color:#fff;padding:1px 8px;border-radius:3px;font-weight:700;font-size:12px">P3</span></td><td>Medium SLA for Incidents</td></tr>
+            <tr><td><strong>Low</strong></td><td><span style="background:#6B7280;color:#fff;padding:1px 8px;border-radius:3px;font-weight:700;font-size:12px">P4</span></td><td>Low SLA for Incidents</td></tr>
+          </tbody>
+        </table>
+
+        <h3 id="en-9-2">9.2 SLA Profiles</h3>
+        <p>Sites are grouped into three profiles that differ only in <strong>Response Time</strong> for P1–P3. Resolution times are identical across all sites.</p>
+
+        <h4>Profile A — Standard (MANA, LONDON, EXPLORATION, HOUNDE, ITY, KALANA, LAFIGUE)</h4>
+        <table>
+          <thead><tr><th>Priority</th><th>Response Time</th><th>Resolution Time</th></tr></thead>
+          <tbody>
+            <tr><td>P1 / Critical</td><td>30 min</td><td>2 hours</td></tr>
+            <tr><td>P2 / High</td><td>1 hour</td><td>4 hours</td></tr>
+            <tr><td>P3 / Medium</td><td>4 hours</td><td>1 day</td></tr>
+            <tr><td>P4 / Low</td><td>1 day</td><td>5 days</td></tr>
+          </tbody>
+        </table>
+
+        <h4>Profile B — Enhanced (Dakar, Ouaga, Sabodala)</h4>
+        <table>
+          <thead><tr><th>Priority</th><th>Response Time</th><th>Resolution Time</th></tr></thead>
+          <tbody>
+            <tr><td>P1 / Critical</td><td><strong style="color:#E87722">15 min</strong></td><td>2 hours</td></tr>
+            <tr><td>P2 / High</td><td><strong style="color:#E87722">30 min</strong></td><td>4 hours</td></tr>
+            <tr><td>P3 / Medium</td><td><strong style="color:#E87722">2 hours</strong></td><td>1 day</td></tr>
+            <tr><td>P4 / Low</td><td>1 day</td><td>5 days</td></tr>
+          </tbody>
+        </table>
+
+        <h4>Profile C — Intermediate (Abidjan)</h4>
+        <table>
+          <thead><tr><th>Priority</th><th>Response Time</th><th>Resolution Time</th></tr></thead>
+          <tbody>
+            <tr><td>P1 / Critical</td><td>30 min</td><td>2 hours</td></tr>
+            <tr><td>P2 / High</td><td>1 hour</td><td>4 hours</td></tr>
+            <tr><td>P3 / Medium</td><td><strong style="color:#E87722">2 hours</strong></td><td>1 day</td></tr>
+            <tr><td>P4 / Low</td><td>1 day</td><td>5 days</td></tr>
+          </tbody>
+        </table>
+        <div class="info">ℹ️ Orange values indicate a <strong>tighter</strong> target than the Standard Profile for the same priority.</div>
+
+        <h3 id="en-9-3">9.3 Full Site × Priority Matrix</h3>
+        <p>Response times (Resp.) and Resolution times (Res.) for all sites. Values in <strong style="color:#E87722">orange</strong> differ from the Standard Profile.</p>
+        <div style="overflow-x:auto">
+        <table style="font-size:12px;min-width:700px">
+          <thead>
+            <tr>
+              <th rowspan="2">Site</th>
+              <th colspan="4" style="text-align:center;border-bottom:1px solid #E5E7EB">Response Time</th>
+              <th colspan="4" style="text-align:center;border-bottom:1px solid #E5E7EB">Resolution Time</th>
+              <th rowspan="2">Profile</th>
+            </tr>
+            <tr>
+              <th>P1</th><th>P2</th><th>P3</th><th>P4</th>
+              <th>P1</th><th>P2</th><th>P3</th><th>P4</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>MANA</td><td>30 min</td><td>1 h</td><td>4 h</td><td>1 day</td><td>2 h</td><td>4 h</td><td>1 day</td><td>5 days</td><td>A</td></tr>
+            <tr><td>LONDON</td><td>30 min</td><td>1 h</td><td>4 h</td><td>1 day</td><td>2 h</td><td>4 h</td><td>1 day</td><td>5 days</td><td>A</td></tr>
+            <tr><td>EXPLORATION</td><td>30 min</td><td>1 h</td><td>4 h</td><td>1 day</td><td>2 h</td><td>4 h</td><td>1 day</td><td>5 days</td><td>A</td></tr>
+            <tr><td>HOUNDE</td><td>30 min</td><td>1 h</td><td>4 h</td><td>1 day</td><td>2 h</td><td>4 h</td><td>1 day</td><td>5 days</td><td>A</td></tr>
+            <tr><td>ITY</td><td>30 min</td><td>1 h</td><td>4 h</td><td>1 day</td><td>2 h</td><td>4 h</td><td>1 day</td><td>5 days</td><td>A</td></tr>
+            <tr><td>KALANA</td><td>30 min</td><td>1 h</td><td>4 h</td><td>1 day</td><td>2 h</td><td>4 h</td><td>1 day</td><td>5 days</td><td>A</td></tr>
+            <tr><td>LAFIGUE</td><td>30 min</td><td>1 h</td><td>4 h</td><td>1 day</td><td>2 h</td><td>4 h</td><td>1 day</td><td>5 days</td><td>A</td></tr>
+            <tr><td>ABIDJAN</td><td>30 min</td><td>1 h</td><td><strong style="color:#E87722">2 h</strong></td><td>1 day</td><td>2 h</td><td>4 h</td><td>1 day</td><td>5 days</td><td>C</td></tr>
+            <tr><td>Dakar</td><td><strong style="color:#E87722">15 min</strong></td><td><strong style="color:#E87722">30 min</strong></td><td><strong style="color:#E87722">2 h</strong></td><td>1 day</td><td>2 h</td><td>4 h</td><td>1 day</td><td>5 days</td><td>B</td></tr>
+            <tr><td>Ouaga</td><td><strong style="color:#E87722">15 min</strong></td><td><strong style="color:#E87722">30 min</strong></td><td><strong style="color:#E87722">2 h</strong></td><td>1 day</td><td>2 h</td><td>4 h</td><td>1 day</td><td>5 days</td><td>B</td></tr>
+            <tr><td>Sabodala</td><td><strong style="color:#E87722">15 min</strong></td><td><strong style="color:#E87722">30 min</strong></td><td><strong style="color:#E87722">2 h</strong></td><td>1 day</td><td>2 h</td><td>4 h</td><td>1 day</td><td>5 days</td><td>B</td></tr>
+          </tbody>
+        </table>
+        </div>
+      </div>
+
+      <!-- 10 -->
+      <div class="section" id="en-10">
+        <h2><span class="section-num">10</span>IT Activity Tracker</h2>
+        <p>The <strong>IT Activity Tracker</strong> is a structured tool for recording, scoring, and visualising IT activities across Endeavour Mining sites. It tracks 31 activities grouped under 4 strategic pillars for up to 10 sites.</p>
+        <p>The tracker is a separate module from the main dashboard and requires its own login. Access it via the <strong>📊 Activities</strong> link in the top navigation bar of Site Reports (visible to Admin and Executive users).</p>
+
+        <h3 id="en-10-1">10.1 Authentication &amp; Access</h3>
+        <p>The tracker uses the same authentication system as the rest of the dashboard. Access is now driven by the new feature roles introduced in §2:</p>
+        <table>
+          <tr><th>Persona</th><th>Recommended role combination</th><th>Pages accessible</th></tr>
+          <tr><td><strong>Site IT Manager</strong></td><td>editor + <em>tracker-editor</em></td><td>Dashboard, Scoring, Input — limited to <strong>own site only</strong> (uses the user's <em>site_id</em>)</td></tr>
+          <tr><td><strong>IT Operations Manager</strong></td><td>admin + <em>tracker-admin</em> + <em>report-author</em></td><td>All pages, including Timeline, Heatmap, Activities, Targets, Executive, Exec Report — full multi-site config &amp; data entry</td></tr>
+          <tr><td><strong>CIO / Executive</strong></td><td>executive + <em>tracker-admin</em> + <em>report-author</em></td><td>Same as IT Ops Manager + cross-site exec views</td></tr>
+          <tr><td><strong>System owner</strong></td><td>super_admin</td><td>Everything (super_admin implicitly grants every role)</td></tr>
+        </table>
+        <div class="warn">⚠️ <strong>tracker-editor</strong> users can only enter data for their own assigned site (set via the <em>Site</em> field in user management). The site selector is locked to their site automatically. <strong>tracker-admin</strong> / <em>executive</em> / <em>super_admin</em> users can view and edit all sites, AND edit the tracker configuration (activities list, weights, targets).</div>
+        <div class="info">ℹ️ A user with just <em>editor</em> + <em>viewer</em> (no tracker role) can still <strong>view</strong> the Dashboard tab read-only, but cannot save inputs. Add <em>tracker-editor</em> to grant write access for their site.</div>
+
+        <h3 id="en-10-2">10.2 Opening the Tracker</h3>
+        <ol class="steps">
+          <li>Log in to the dashboard at <code>http://&lt;server-ip&gt;:3456</code>.</li>
+          <li>Navigate to <strong>Site Reports</strong> using the top navigation bar.</li>
+          <li>Click the <strong>📊 Activities</strong> link in the navigation bar. The tracker opens in a new browser tab.</li>
+          <li>The tracker authenticates you automatically using your current session — no separate password needed.</li>
+        </ol>
+        <div class="tip">💡 You can also bookmark the direct URL (<code>http://&lt;server-ip&gt;:3456/activity-tracker.html</code>) once you have logged in. The tracker requires an active server connection — it cannot be used offline.</div>
+
+        <h3 id="en-10-3">10.3 Interface &amp; Tabs</h3>
+        <p>The tracker interface is organised as tabs. The tabs visible to you depend on your role:</p>
+        <table>
+          <tr><th>Tab</th><th>Description</th><th>Who can see it</th></tr>
+          <tr><td><strong>Dashboard</strong></td><td>Overall activity score summary across all sites</td><td>All logged-in users</td></tr>
+          <tr><td><strong>Scoring</strong></td><td>Detailed scores per pillar, activity, and site</td><td>All logged-in users</td></tr>
+          <tr><td><strong>Input</strong></td><td>Data entry form for weekly activity updates</td><td>All logged-in users (admins locked to own site)</td></tr>
+          <tr><td><strong>Timeline</strong></td><td>Historical trends over time per site and activity</td><td>Executive / super_admin only</td></tr>
+          <tr><td><strong>Heatmap</strong></td><td>Colour-coded activity coverage across sites</td><td>Executive / super_admin only</td></tr>
+          <tr><td><strong>Activities</strong></td><td>Activity configuration and management</td><td>Executive / super_admin only</td></tr>
+          <tr><td><strong>Targets</strong></td><td>Target setting per site and pillar</td><td>Executive / super_admin only</td></tr>
+          <tr><td><strong>Executive</strong></td><td>High-level consolidated executive view</td><td>Executive / super_admin only</td></tr>
+          <tr><td><strong>Exec Report</strong></td><td>Export-ready executive summary</td><td>Executive / super_admin only</td></tr>
+        </table>
+
+        <h3 id="en-10-4">10.4 Entering Activity Data</h3>
+        <p>On the <strong>Input</strong> tab, select the site (tracker-editor users see only their own site) and the reporting month, then enter the actual values for each activity. The form colour-codes each input GREEN / AMBER / RED based on its target.</p>
+        <div class="info">ℹ️ Activities are organised under 4 strategic pillars (with default weights): <strong>Network Infra (30%)</strong>, <strong>Biz Partnering (35%)</strong>, <strong>Risk &amp; Compliance (20%)</strong>, and <strong>People Dev (15%)</strong>. Each pillar contains a set of tracked activities; weights can be tuned by tracker-admin from the <em>Targets</em> tab.</div>
+
+        <h3 id="en-10-5">10.5 Saving Your Work</h3>
+        <p>Click the <strong>Save</strong> button at the bottom of the Input form to commit your entries to the server. Your data is stored centrally and is immediately visible to executive users reviewing all sites.</p>
+        <div class="warn">⚠️ Data is not saved automatically. Always click <strong>Save</strong> before closing or switching tabs to avoid losing your entries. Admin users can only save data for their own site — attempting to submit data for another site is blocked.</div>
+      </div>
+
+      <!-- 11 — IT Inspections -->
+      <div class="section" id="en-11">
+        <h2><span class="section-num">11</span>IT Inspections</h2>
+        <p>The <strong>IT Inspections</strong> module digitises on-site infrastructure inspections. Each inspection captures a structured checklist (17 categories, 173 items as of May 2026), free-text findings, photos, corrective actions, and signatures. It replaces the legacy Word/PDF inspection form and feeds an aggregate dashboard plus per-inspection PPTX exports.</p>
+        <p>Access via <strong>Insights ▾ → Inspections</strong> in the top nav. Any role with read access can view; <em>editor</em> users can create and edit inspections for their own site; <em>admin+</em> can edit any site and delete.</p>
+
+        <h3 id="en-11-1">11.1 Opening Inspections</h3>
+        <p>The <strong>Inspections dashboard</strong> lists all inspections filtered by site, period, risk level and status. KPI tiles at the top show total inspections, open critical/major findings, average risk, and monthly trend.</p>
+        <ul>
+          <li>Click <strong>+ New inspection</strong> to start a new one — pre-fills today's date, your name and site.</li>
+          <li>Click any row to open the existing inspection in edit mode.</li>
+          <li>Per-row <strong>✕ Delete</strong> button (admin+ only) opens a styled confirmation modal — destructive copy turns red for submitted/closed inspections.</li>
+        </ul>
+
+        <h3 id="en-11-2">11.2 Filling an Inspection</h3>
+        <p>The form is split into 5 areas: <strong>Identification</strong> (date, site, area, lead inspector — all required), <strong>Scope</strong>, <strong>Checklist</strong> (the 17 category accordion), <strong>Corrective Actions</strong>, <strong>Observations &amp; Signatures</strong>.</p>
+        <p>For each checklist item, set a status (✓ OK, △ Minor, ▲ Major, ⛔ Critical, ◯ Opp = improvement opportunity, N/A). Adding a Minor/Major/Critical/Opp status automatically <strong>seeds a corrective action</strong> with a sensible default priority. Add free-text notes per item, and attach photos via the 📷 button.</p>
+        <div class="tip">💡 The form has a <strong>voice dictation</strong> (🎙 button on most text fields) that uses your browser's speech recognition. Useful in the field where typing is slow. Push-to-talk: hold the button while speaking; release to insert.</div>
+
+        <h3 id="en-11-3">11.3 Save Model (Local + Save now + Submit)</h3>
+        <p>The inspection form deliberately does <strong>not</strong> auto-sync to the server on every keystroke. Every change goes to your browser's local storage instantly so you don't lose work, but it only reaches the server when you explicitly click <strong>Save now</strong> or <strong>Submit</strong>.</p>
+        <table>
+          <tr><th>Action</th><th>Local</th><th>Server</th></tr>
+          <tr><td>Keystroke / blur</td><td>✓</td><td>✗</td></tr>
+          <tr><td>Click <strong>Save now</strong></td><td>✓</td><td>✓</td></tr>
+          <tr><td>Click <strong>Submit</strong></td><td>✓</td><td>✓ (status → submitted)</td></tr>
+          <tr><td>Click <strong>Re-open</strong> (admin+)</td><td>✓</td><td>✓ (status → draft)</td></tr>
+        </table>
+        <p>The toolbar shows the sync state: <em>"✓ Saved locally HH:MM · click Save now to sync"</em> until you push. If a server save fails (e.g. no connectivity), the inspection ID is queued in localStorage and re-pushed automatically on the next successful <strong>Save now</strong> or page boot.</p>
+        <div class="warn">⚠️ The dashboard counts only <strong>submitted</strong> inspections in its KPIs. Drafts stay on the inspector's machine + server but won't appear in management views until submitted.</div>
+
+        <h3 id="en-11-4">11.4 Corrective Actions &amp; Photos</h3>
+        <p>Corrective actions auto-populate from flagged checklist items. Each action has a priority (Critical / High / Medium / Low — auto-set from the finding severity but editable), owner, due date, and status. Photos compress automatically to ~250-400 KB before upload to keep state blobs under the 100 MB server limit.</p>
+
+        <h3 id="en-11-5">11.5 Exporting to PPTX</h3>
+        <p>From the inspection edit page, <strong>Export PPTX</strong> (admin+) produces a 4-slide single-inspection deck (Cover, Findings table, Actions table, Observations + signatures). From the dashboard, <strong>Aggregate Export</strong> (executive+) produces a 4-slide roll-up across all filtered inspections.</p>
+      </div>
+
+      <!-- 12 — Meetings & Council -->
+      <div class="section" id="en-12">
+        <h2><span class="section-num">12</span>Meetings &amp; Council Escalations</h2>
+        <p>The <strong>Meetings</strong> module is a digital twin of the Endeavour Mining Group IT × Mines monthly meeting workflow. The unit of capture is a signed <strong>PV</strong> (Procès-Verbal) covering one site × one department × one month, with nested issues, actions, and projects. Escalations to the Mine IT Council are auto-derived from issues flagged <em>escalate</em>.</p>
+        <p>Access via <strong>Insights ▾ → Meetings Decisions</strong>. Companion views (Issues Log, Council, Compliance, Bulk Import, Progress) appear in the same submenu.</p>
+
+        <h3 id="en-12-1">12.1 Module Overview</h3>
+        <table>
+          <tr><th>Page</th><th>Purpose</th></tr>
+          <tr><td><strong>Meetings list</strong></td><td>All PVs with filters; 6 KPI tiles; 4 quick-jump cards</td></tr>
+          <tr><td><strong>Meeting editor</strong> (PV)</td><td>7-section editor: header, 3 priorities, projects, issues, actions, escalations, sign-off + audit thread</td></tr>
+          <tr><td><strong>Issues Log</strong></td><td>Flat list of every issue across all PVs (filter by category, severity, status…)</td></tr>
+          <tr><td><strong>Council</strong></td><td>Escalations grouped by Mine IT Council theme</td></tr>
+          <tr><td><strong>Compliance</strong></td><td>Per-site 5-Engagements leaderboard for the selected month</td></tr>
+          <tr><td><strong>Bulk Import</strong></td><td>Upload historical PVs as a 3-tab xlsx workbook (admin+)</td></tr>
+          <tr><td><strong>Progress</strong></td><td>"Since last meeting" diff view — pre-brief tool for the IT coordinator</td></tr>
+        </table>
+
+        <h3 id="en-12-2">12.2 Creating a Meeting PV</h3>
+        <ol class="steps">
+          <li>Click <strong>+ New meeting</strong> on the Meetings list page.</li>
+          <li>Pick the site, department, meeting date. The reference (e.g. <code>HGO_Maintenance_PV_2026-05</code>) is auto-generated.</li>
+          <li>Fill the 7 sections: header, top 3 priorities, projects in flight, issues raised, IT commitments, auto-escalations, sign-off.</li>
+          <li>Status transitions: <em>draft → submitted → signed → closed</em>. Editors are locked out once status reaches <em>closed</em>; admin+ can re-open.</li>
+        </ol>
+        <div class="info">ℹ️ Every lookup is bilingual (EN + FR). The category, severity, status and council-theme dropdowns show both languages — pick what matches the discussion language.</div>
+
+        <h3 id="en-12-3">12.3 Issues, Actions &amp; Audit Trail</h3>
+        <p>Each issue is classified by category (1 of 9: Connectivity, Hardware, Infrastructure, Operations, Application, Support &amp; Compliance, Data Reliability, Service Design, Leadership/Vision), severity (HIGH/MEDIUM/LOW), and target date. The PV editor's right column renders the full <strong>audit thread</strong> for the issue — every status change, escalate flip, and quick-comment is timestamped with the author's name.</p>
+        <p>Quick-comment box at the bottom posts an audit update without re-saving the entire PV.</p>
+
+        <h3 id="en-12-4">12.4 Bulk Excel Import</h3>
+        <p>For historical PVs already in Word / Excel / SharePoint, the <strong>Bulk Import</strong> page (admin+) accepts a 3-tab xlsx workbook (Meetings / Issues / Actions + a Codes cheat-sheet). Two-step flow:</p>
+        <ol class="steps">
+          <li><strong>Preview</strong> — uploads and validates without writing. Returns errors per row.</li>
+          <li><strong>Commit</strong> — persists. Existing references are UPDATED in place (idempotent re-uploads).</li>
+        </ol>
+        <div class="warn">⚠️ The import always sends complete Issues + Actions arrays — re-uploading a meeting will <strong>replace</strong> its existing children, not merge. Always re-upload the full state per meeting, never a partial set.</div>
+
+        <h3 id="en-12-5">12.5 The 5 Engagements (Compliance Monitor)</h3>
+        <p>The <strong>5 Engagements</strong> page is a leaderboard per site for the selected month, scoring each site against:</p>
+        <ol>
+          <li><strong>Three departments / month</strong> — at least 3 PVs per site per month</li>
+          <li><strong>Diffusion within 48h</strong> — signed PV shared within 48 hours of the meeting</li>
+          <li><strong>Champion / action</strong> — every action has a named owner</li>
+          <li><strong>Monthly feedback loop</strong> — write back to departments seen in the last 3 months (manual placeholder)</li>
+          <li><strong>Escalation discipline</strong> — every escalate=1 issue has a reason + Council theme</li>
+        </ol>
+      </div>
+
+      <!-- 13 — Executive Scorecard -->
+      <div class="section" id="en-13">
+        <h2><span class="section-num">13</span>Executive Scorecard</h2>
+        <p>The <strong>Executive Scorecard</strong> (Insights ▾ → Executive Scorecard) is the consolidated 5-tab view for IT management and the board. It serves DB-cached data instantly (no Zoho call on page load) and respects the global filter bar at the top (period, site, group, priority, category).</p>
+
+        <h3 id="en-13-1">13.1 The 5 Tabs</h3>
+        <table>
+          <tr><th>Tab</th><th>Decision question it answers</th></tr>
+          <tr><td><strong>KPI Snapshot</strong></td><td>Are we delivering service at the expected level? (volume, SLA, timing, quality)</td></tr>
+          <tr><td><strong>Action Plan &amp; Changes</strong></td><td>What's the auto-generated action plan from the worst-performing categories?</td></tr>
+          <tr><td><strong>Technician Scorecard</strong></td><td>Who's carrying the load, who needs support?</td></tr>
+          <tr><td><strong>Change &amp; Incidents</strong></td><td>Is change safe? Are we learning from failures? Are incidents recurring?</td></tr>
+          <tr><td><strong>Customer Voice</strong></td><td>Are users satisfied? What are they actually saying? (CSAT/NPS + verbatim)</td></tr>
+        </table>
+
+        <h3 id="en-13-2">13.2 KPI Tiles Reference</h3>
+        <p>Hover any KPI tile for the precise calculation. The most decision-driving tiles:</p>
+        <table>
+          <tr><th>Tile</th><th>Formula</th><th>RAG bands</th></tr>
+          <tr><td>Resolution SLA %</td><td>(closed within SLA / closed total) × 100</td><td>≥90% green / 80-89% amber / &lt;80% red</td></tr>
+          <tr><td>Avg Resolution Time</td><td>Math.floor of resolution days per ticket, then average</td><td>≤2d green / 3-4d amber / ≥5d red</td></tr>
+          <tr><td>Reopen Rate</td><td>(reopened / closed) × 100</td><td>&lt;5% green</td></tr>
+          <tr><td><strong>Multi-Touch Rate</strong></td><td>% tickets exhibiting friction: reopen OR &gt;1 requester response OR cross-team transfer</td><td>&lt;15% green / 15-30% amber / &gt;30% red</td></tr>
+          <tr><td>CSAT Score</td><td>% of survey responses scoring ≥80 out of 100</td><td>≥80% green</td></tr>
+          <tr><td>NPS Score</td><td>% Promoters − % Detractors (score buckets &lt;70 / 70-89 / ≥90)</td><td>≥30 good / ≥0 neutral</td></tr>
+          <tr><td><strong>Survey Response Rate</strong></td><td>(surveys responded / surveys sent) × 100, both from survey_results table</td><td>≥20% target</td></tr>
+          <tr><td>Avg MTTR (Major Inc.)</td><td>Mean hours-to-resolve across major incidents in period</td><td>&lt;4h P1, &lt;8h P2</td></tr>
+        </table>
+        <div class="info">ℹ️ <strong>Multi-Touch Rate</strong> is a behavioural proxy for customer effort — it counts tickets where the user had to come back (reopen), follow up (&gt;1 message), or wait for re-routing (cross-team transfer). It is <strong>NOT</strong> a true CES (Customer Effort Score), which requires a direct survey question. Adding a CES question to the SDP IT Survey is on the roadmap.</div>
+
+        <h3 id="en-13-3">13.3 Customer Voice &amp; Verbatim Explorer</h3>
+        <p>The <strong>Customer Voice</strong> tab unifies all survey data: CSAT score, NPS distribution, sentiment summary (positive/neutral/negative), CSAT trend chart, NPS donut, and the <strong>Verbatim Explorer</strong>.</p>
+        <p>Verbatim Explorer has 5 features:</p>
+        <ul>
+          <li><strong>Triage Queue</strong> — negative comments first, ranked by urgency keywords</li>
+          <li><strong>Compliments Wall</strong> — positive comments for morale</li>
+          <li><strong>Word Frequency Cloud</strong> — most-used terms across all comments</li>
+          <li><strong>Theme Breakdown</strong> — auto-classification (Speed, Quality, Communication, Resolution, etc.)</li>
+          <li><strong>Ticket linkage</strong> — each comment links to the original SDP ticket via the Display ID chip</li>
+        </ul>
+        <div class="tip">💡 Click any ticket Display ID chip (e.g. <em>#307800 ↗</em>) on a verbatim card to open the source ticket in ServiceDesk Plus in a new tab.</div>
+
+        <h3 id="en-13-4">13.4 Filters &amp; Period Selection</h3>
+        <p>The global filter bar above all 5 tabs controls everything:</p>
+        <ul>
+          <li><strong>Period</strong>: Current Month (default), Last Month, any specific month, Q1-Q4, Last 12 Months</li>
+          <li><strong>Site</strong>: All Sites or any specific site (auto-discovered from data)</li>
+          <li><strong>Group</strong>: All, Operations preset, Applications preset, Individual selection</li>
+          <li><strong>Priority</strong>: All, P1 only, P2 only, etc.</li>
+          <li><strong>Category</strong>: All or any specific category</li>
+        </ul>
+        <div class="info">ℹ️ Customer Voice tiles use the period filter consistently — survey responses are tallied for the same window as ticket data. CSAT trend chart always shows the full 12 months regardless of period (it's a trend, not a snapshot).</div>
+      </div>
+
+      <!-- 14 — AI Analysis -->
+      <div class="section" id="en-14">
+        <h2><span class="section-num">14</span>AI Analysis &amp; Smart Insights</h2>
+        <p>Two complementary tools generate analytical commentary on top of the dashboard data: <strong>Analyze &amp; Save</strong> (AI-powered, optional) and <strong>Analyze Lite</strong> (deterministic, always-available).</p>
+
+        <h3 id="en-14-1">14.1 Analyze &amp; Save (AI)</h3>
+        <p>On the Executive Report builder and Executive Scorecard, the <strong>✨ Analyze &amp; Save</strong> button (visible to <em>report-author</em> roles) sends a structured snapshot of the current view to an LLM and fills the commentary fields with AI-generated analysis. Three sub-analyses run in sequence: Monthly Summary, Major Incidents review, Customer Voice insights.</p>
+        <div class="info">ℹ️ As of May 2026 this calls a <strong>local on-premise LLM</strong> (default: Mistral Nemo 12B via Ollama at <code>localhost:11434</code>) — <strong>nothing leaves the corporate LAN</strong>. The previous cloud-Anthropic path is still selectable via the <code>AI_PROVIDER</code> env var.</div>
+        <div class="warn">⚠️ AI analysis takes 45-90 seconds per prompt on CPU. If the Analyze button shows "🔒 Analyze (paused)" the cloud AI is off and only Analyze Lite is available — that's the current state pending PKI sign-off.</div>
+
+        <h3 id="en-14-2">14.2 Analyze Lite (deterministic, no network)</h3>
+        <p>The <strong>⚡ Analyze (lite)</strong> button runs a pure JavaScript engine that classifies KPIs against thresholds, picks the worst site/category, computes trend direction, and fills the same commentary fields as the AI path — using templates instead of generative text.</p>
+        <ul>
+          <li>Runs entirely in the browser — <strong>zero network calls</strong></li>
+          <li>Instant (&lt;1 second)</li>
+          <li>Fields filled have a thin amber border so you can see at a glance which fields came from templates vs your own edits</li>
+          <li>Bilingual (EN / FR — detected from <code>&lt;html lang&gt;</code>)</li>
+        </ul>
+        <p>What it does NOT attempt (intentionally, to avoid sounding like a hallucinating AI):</p>
+        <ul>
+          <li>Inferred-from-subjects narrative analysis</li>
+          <li>Cross-KPI causal speculation</li>
+          <li>Free-form prose — Analyze Lite is fact-first, narrative-poor</li>
+        </ul>
+
+        <h3 id="en-14-3">14.3 Local LLM Option (privacy)</h3>
+        <p>For deployments where customer-ticket text must stay on-prem, the dashboard ships with a local-LLM provider switch. Set <code>AI_PROVIDER=local</code> in <code>.env</code> and the AI Analyze path will talk to <code>localhost:11434</code> (Ollama default) instead of the Anthropic cloud. Default model: <strong>Mistral Nemo 12B Instruct Q4</strong> (EU sovereignty, Apache 2.0, native French — important for Francophone West African sites).</p>
+        <div class="info">ℹ️ The browser never sees that the provider has changed — the server translates the Anthropic-shape request into an OpenAI-compatible chat-completions request and back. Same client code, same response shape.</div>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /doc-layout -->
+</div><!-- /sec-en -->
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     FRENCH SECTION
+════════════════════════════════════════════════════════════════ -->
+<div class="lang-section" id="sec-fr">
+
+  <!-- Cover -->
+  <div class="cover">
+    <h1>📊 Endeavour Mining — Tableau de Bord IT</h1>
+    <div class="sub">MANUEL UTILISATEUR · FRANÇAIS</div>
+    <div class="meta">
+      <span>Version 2.0</span>
+      <span>Mai 2026</span>
+      <span>Département IT — Endeavour Mining</span>
+    </div>
+  </div>
+
+  <div class="doc-layout">
+    <!-- TOC FR -->
+    <div class="toc">
+      <div class="toc-title">Sommaire</div>
+      <a href="#fr-1">1. Vue d'ensemble</a>
+      <a href="#fr-2">2. Accès au tableau de bord</a>
+      <a href="#fr-3">3. Tableau de bord principal</a>
+      <a class="toc-sub" href="#fr-3-1">Filtres & sélection de semaine</a>
+      <a class="toc-sub" href="#fr-3-2">Indicateurs KPI</a>
+      <a class="toc-sub" href="#fr-3-3">Tickets en attente</a>
+      <a class="toc-sub" href="#fr-3-4">Synchronisation des données</a>
+      <a class="toc-sub" href="#fr-3-5">Export Registre des Risques</a>
+      <a href="#fr-4">4. Rapports de site</a>
+      <a class="toc-sub" href="#fr-4-1">KPIs Infrastructure</a>
+      <a class="toc-sub" href="#fr-4-2">Métriques Helpdesk</a>
+      <a class="toc-sub" href="#fr-4-3">Éclairages & Points saillants</a>
+      <a class="toc-sub" href="#fr-4-4">Actions à suivre</a>
+      <a class="toc-sub" href="#fr-4-5">Soumettre un rapport</a>
+      <a href="#fr-5">5. Génération PPTX</a>
+      <a href="#fr-6">6. Tableau de bord Exécutif</a>
+      <a href="#fr-7">7. Panneau d'administration</a>
+      <a href="#fr-8">8. Référence rapide</a>
+      <a href="#fr-9">9. Cibles SLA des incidents</a>
+      <a class="toc-sub" href="#fr-9-1">Correspondances priorités</a>
+      <a class="toc-sub" href="#fr-9-2">Profils SLA</a>
+      <a class="toc-sub" href="#fr-9-3">Matrice par site</a>
+      <a href="#fr-10">10. Suivi des Activités IT</a>
+      <a class="toc-sub" href="#fr-10-1">Authentification &amp; accès</a>
+      <a class="toc-sub" href="#fr-10-2">Ouvrir le module</a>
+      <a class="toc-sub" href="#fr-10-3">Interface &amp; onglets</a>
+      <a class="toc-sub" href="#fr-10-4">Saisir les données</a>
+      <a class="toc-sub" href="#fr-10-5">Enregistrer vos données</a>
+      <a href="#fr-11">11. Inspections IT</a>
+      <a class="toc-sub" href="#fr-11-1">Ouvrir les Inspections</a>
+      <a class="toc-sub" href="#fr-11-2">Remplir une inspection</a>
+      <a class="toc-sub" href="#fr-11-3">Modèle de sauvegarde</a>
+      <a class="toc-sub" href="#fr-11-4">Actions correctives &amp; photos</a>
+      <a class="toc-sub" href="#fr-11-5">Export PPTX</a>
+      <a href="#fr-12">12. Réunions &amp; Council</a>
+      <a class="toc-sub" href="#fr-12-1">Vue d'ensemble du module</a>
+      <a class="toc-sub" href="#fr-12-2">Créer un PV de réunion</a>
+      <a class="toc-sub" href="#fr-12-3">Problèmes, actions &amp; audit</a>
+      <a class="toc-sub" href="#fr-12-4">Import Excel en lot</a>
+      <a class="toc-sub" href="#fr-12-5">Les 5 Engagements</a>
+      <a href="#fr-13">13. Tableau de Bord Exécutif</a>
+      <a class="toc-sub" href="#fr-13-1">Les 5 onglets</a>
+      <a class="toc-sub" href="#fr-13-2">Référence des tuiles KPI</a>
+      <a class="toc-sub" href="#fr-13-3">Voix client &amp; Verbatim</a>
+      <a class="toc-sub" href="#fr-13-4">Filtres &amp; sélection de période</a>
+      <a href="#fr-14">14. Analyse IA &amp; Insights</a>
+      <a class="toc-sub" href="#fr-14-1">Analyse IA</a>
+      <a class="toc-sub" href="#fr-14-2">Analyze Lite (déterministe)</a>
+      <a class="toc-sub" href="#fr-14-3">Option LLM local</a>
+    </div>
+
+    <div class="content">
+
+      <!-- 1 FR -->
+      <div class="section" id="fr-1">
+        <h2><span class="section-num">1</span>Vue d'ensemble</h2>
+        <p>Le <strong>Tableau de Bord IT Endeavour Mining</strong> est une plateforme web qui centralise les données du service d'assistance informatique depuis ManageEngine Analytics Plus et fournit des KPIs en temps réel, des rapports de site, des exports exécutifs, des journaux d'inspection, des comptes-rendus de réunion et une analyse assistée par IA pour tous les sites Endeavour Mining.</p>
+        <p>À mai 2026, la plateforme couvre <strong>huit zones principales</strong> :</p>
+        <ul>
+          <li><strong>Tableau de bord principal</strong> (§3) — KPIs helpdesk en direct, filtres par groupe/semaine, suivi des tickets en attente et en retard</li>
+          <li><strong>Rapports de site</strong> (§4) — formulaires hebdomadaires remplis par les équipes IT sur site</li>
+          <li><strong>Générateur de rapports</strong> (§5-6) — exports PPTX en un clic pour les revues hebdomadaires et mensuelles + procédure deck du board</li>
+          <li><strong>Suivi des Activités</strong> (§10) — 31 activités × 4 piliers × 10 sites, scoring mensuel</li>
+          <li><strong>Inspections IT</strong> (§11) — inspections d'infrastructure avec checklist, photos, signatures, export PPTX</li>
+          <li><strong>Réunions &amp; Council Escalations</strong> (§12) — jumeau numérique du PV mensuel + vue Mine IT Council</li>
+          <li><strong>Tableau de Bord Exécutif</strong> (§13) — vue consolidée à 5 onglets pour la direction (KPIs, Plan d'action, Scorecard tech, Change &amp; Incidents, Voix client)</li>
+          <li><strong>Analyse IA &amp; Insights</strong> (§14) — commentaires LLM sur site (Ollama / Mistral Nemo) + Analyze Lite (déterministe, sans réseau)</li>
+        </ul>
+        <div class="info">ℹ️ Les données ticket proviennent de <strong>ManageEngine Analytics Plus</strong> via OAuth (scope MEAplus). Le tableau de bord se synchronise automatiquement toutes les heures. Toutes les pages servent depuis un cache local SQLite pour un chargement instantané ; Zoho n'est contacté que par les jobs de synchronisation en arrière-plan.</div>
+      </div>
+
+      <!-- 2 FR -->
+      <div class="section" id="fr-2">
+        <h2><span class="section-num">2</span>Accès au tableau de bord</h2>
+        <p>Ouvrez votre navigateur web et accédez à l'adresse fournie par votre administrateur IT (ex. <code>http://&lt;adresse-serveur&gt;:3456</code>). Un écran de connexion s'affiche.</p>
+        <ol class="steps">
+          <li>Saisissez votre <strong>nom d'utilisateur</strong> et votre <strong>mot de passe</strong> fournis par l'administrateur.</li>
+          <li>Cliquez sur <strong>Sign In</strong>.</li>
+          <li>Vous arrivez sur le <strong>tableau de bord principal</strong>. L'en-tête de navigation donne accès à toutes les sections autorisées par votre rôle.</li>
+        </ol>
+        <div class="tip">💡 Ajoutez l'URL en favori pour y revenir rapidement. Si vous accédez via RDP, le tableau de bord fonctionne dans n'importe quel navigateur sur cette machine. Votre session reste active 24 heures — pas besoin de vous reconnecter chaque jour.</div>
+        <h3>Rôles utilisateurs</h3>
+        <p>Le tableau de bord supporte <strong>plusieurs rôles par compte</strong>. Un utilisateur reçoit UN niveau hiérarchique plus N'IMPORTE QUELLE combinaison de rôles fonctionnels. Les rôles sont gérés par les comptes Admin+ depuis l'onglet <em>⚙️ Admin → Users</em>.</p>
+
+        <h4 style="margin-top:14px">Rôles hiérarchiques (en choisir exactement un — chaque niveau hérite de tous les niveaux inférieurs)</h4>
+        <table>
+          <tr><th>Rôle</th><th>Hérite de</th><th>Ce qu'il accorde</th></tr>
+          <tr><td><strong>super_admin</strong></td><td>Tous les niveaux + tous les rôles fonctionnels</td><td>Accès total au système. Peut tout faire, indépendamment des rôles fonctionnels assignés. Réservé au propriétaire du système.</td></tr>
+          <tr><td><strong>executive</strong></td><td>admin, editor, viewer</td><td>Toutes les capacités d'admin + écrans Exécutifs (vues consolidées multi-sites). Ne peut PAS gérer la config du tracker ni les utilisateurs par défaut — nécessite les rôles fonctionnels correspondants.</td></tr>
+          <tr><td><strong>admin</strong></td><td>editor, viewer</td><td>Gestion des utilisateurs &amp; sites ; ré-ouvrir les rapports soumis ; déclencher la synchro Zoho ; vider le cache ; accès à l'onglet Admin.</td></tr>
+          <tr><td><strong>editor</strong></td><td>viewer</td><td>Remplir et soumettre les rapports hebdomadaires ; télécharger le PPTX mensuel ; éditer ses propres action items.</td></tr>
+          <tr><td><strong>viewer</strong></td><td>—</td><td>Lecture seule du tableau de bord principal, des rapports soumis et de l'onglet Dashboard du Suivi des Activités.</td></tr>
+        </table>
+
+        <h4 style="margin-top:14px">Rôles fonctionnels (orthogonaux — toute combinaison, en plus du rôle hiérarchique)</h4>
+        <table>
+          <tr><th>Rôle</th><th>Ce qu'il débloque</th></tr>
+          <tr><td><strong>tracker-admin</strong></td><td>Éditer la configuration du Suivi des Activités : liste d'activités, poids des piliers, cibles de scoring, sites actifs. Peut aussi réinitialiser le tracker.</td></tr>
+          <tr><td><strong>tracker-editor</strong></td><td>Saisir les données mensuelles du tracker <strong>uniquement pour le site assigné à l'utilisateur</strong>. Pas d'accès à la config. Le site est déterminé par <em>site_id</em> de l'utilisateur.</td></tr>
+          <tr><td><strong>report-author</strong></td><td>Lancer <em>Analyze &amp; Save</em> (génération de commentaire IA), <em>Export PPTX</em> et <em>Executive New Report</em> sur la page de rapport exécutif. Requis pour tout export piloté par l'IA.</td></tr>
+          <tr><td><strong>audit-viewer</strong></td><td>Lire la piste d'audit (qui a modifié quoi, quand) sur tout rapport soumis. Ne permet pas de déclencher de synchro ni de modifier les données.</td></tr>
+        </table>
+
+        <div class="tip">💡 <strong>Exemples :</strong>
+          <br><strong>Responsable IT site Houndé</strong> → <em>editor</em> + <em>tracker-editor</em> (rédige les rapports hebdo + saisit le tracker Houndé).
+          <br><strong>IT Operations Manager</strong> → <em>admin</em> + <em>tracker-admin</em> + <em>report-author</em> (pilote tout le module).
+          <br><strong>Assistant CIO</strong> → <em>viewer</em> + <em>report-author</em> (lecture seule, mais peut publier les rapports).
+          <br><strong>Auditeur</strong> → <em>viewer</em> + <em>audit-viewer</em>.
+        </div>
+        <div class="info">ℹ️ À l'activation du système multi-rôles, chaque compte existant <strong>admin / executive / super_admin</strong> a reçu automatiquement les 4 rôles fonctionnels (tracker-admin, tracker-editor, report-author, audit-viewer) afin que rien de ce qu'ils faisaient avant ne soit cassé. Les nouveaux comptes créés ensuite nécessitent une assignation explicite des rôles fonctionnels.</div>
+        <h3>Changer son mot de passe</h3>
+        <p>Tout utilisateur peut modifier son mot de passe à tout moment depuis la page <strong>Rapports de site</strong>. Cliquez sur l'icône 🔑 à côté de votre nom en haut à droite, saisissez votre mot de passe actuel et le nouveau (8 caractères minimum), puis cliquez sur <strong>Change Password</strong>.</p>
+      </div>
+
+      <!-- 3 FR -->
+      <div class="section" id="fr-3">
+        <h2><span class="section-num">3</span>Tableau de bord principal</h2>
+        <p>Le tableau de bord principal (<strong>IT Operations Center</strong>) affiche les métriques helpdesk en temps réel récupérées depuis Zoho Desk.</p>
+
+        <h3 id="fr-3-1">3.1 Filtres et sélection de semaine</h3>
+        <p>La barre de filtres en haut de page contrôle les données affichées :</p>
+        <ul>
+          <li><strong>Sélecteur de semaine</strong> — utilisez les flèches ◀ ▶ pour naviguer entre les semaines. Les semaines suivent la <em>convention Zoho débutant le dimanche</em> (S01 = premier dimanche de l'année, chaque semaine va du dimanche au samedi).</li>
+          <li><strong>Sélecteur de groupe</strong> — cliquez sur la pastille du nom de groupe pour filtrer les tickets d'un groupe IT spécifique (ex. Operations, Application, Network…). Cliquez à nouveau ou sélectionnez « All Groups » pour réinitialiser.</li>
+          <li><strong>Boutons de préréglage</strong> — raccourcis vers des combinaisons de groupes courants, sauvegardés par utilisateur dans le navigateur.</li>
+          <li><strong>Basculer la vue</strong> — passer entre les vues Résumé, Détail et Ancienneté.</li>
+        </ul>
+        <div class="warn">⚠️ Les numéros de semaines dans le tableau de bord correspondent au numérotage de <strong>Zoho Analytics Plus</strong>. Si un libellé de semaine semble incorrect, vérifiez toujours par rapport au calendrier Zoho AP plutôt qu'aux semaines ISO standard.</div>
+
+        <h3 id="fr-3-2">3.2 Indicateurs KPI</h3>
+        <p>La première rangée de cartes affiche les métriques clés pour la semaine et le filtre de groupe sélectionnés :</p>
+        <table>
+          <tr><th>KPI</th><th>Description</th></tr>
+          <tr><td>Total Tickets</td><td>Toutes les demandes reçues sur la période sélectionnée</td></tr>
+          <tr><td>Open Tickets</td><td>Tickets non encore clôturés (vérifie les champs Request Status et Pending Status)</td></tr>
+          <tr><td>Closed This Week</td><td>Tickets résolus pendant la semaine sélectionnée</td></tr>
+          <tr><td>SLA Breach</td><td>Tickets ayant dépassé l'objectif de délai SLA</td></tr>
+          <tr><td>Avg. Resolution Time</td><td>Durée moyenne en heures entre la création et la clôture du ticket</td></tr>
+        </table>
+
+        <h3 id="fr-3-3">3.3 Tickets en attente (Ageing)</h3>
+        <p>Le panneau d'ancienneté présente les tickets ouverts regroupés selon leur durée d'attente. Les tickets sont colorés : <strong style="color:#22c55e">Vert</strong> = 0–3 jours, <strong style="color:#f59e0b">Ambre</strong> = 4–7 jours, <strong style="color:#ef4444">Rouge</strong> = 8+ jours.</p>
+        <p>Cliquez sur n'importe quelle ligne pour voir le détail des tickets individuels récupérés depuis Zoho.</p>
+
+        <h3 id="fr-3-4">3.4 Synchronisation des données</h3>
+        <p>Les données se rafraîchissent automatiquement mais vous pouvez déclencher une synchronisation manuelle à tout moment :</p>
+        <ul>
+          <li><strong>⟳ Refresh</strong> — recharge la page depuis le cache du navigateur (rapide, sans nouvelle requête Zoho).</li>
+          <li><strong>⚡ Force Sync</strong> — vide le cache serveur et récupère immédiatement des données fraîches depuis Zoho. À utiliser après une mise à jour en masse de tickets.</li>
+        </ul>
+        <div class="info">ℹ️ Calendrier de synchronisation automatique : toutes les 4 heures à la 45e minute, plus des déclenchements explicites à <strong>06h00, 13h00 et 16h00</strong> les jours ouvrables.</div>
+
+        <h3 id="fr-3-5">3.5 Export Registre des Risques</h3>
+        <p>En <strong>vue Mensuelle</strong>, un bouton <strong>📥 Export Risk Register</strong> génère la feuille mensuelle d'Occurrences (.xlsx) du Registre des Risques opérationnel. Agrège les incidents par site × par domaine de risque (5 domaines : Internet, Mobile, Énergie, Infrastructure, Radio).</p>
+        <ul>
+          <li>Utilise le mois sélectionné dans le sélecteur de période (vue Mensuelle requise — l'hebdo est bloquée car les mois peuvent chevaucher des semaines).</li>
+          <li>Exclut les tickets de scope <strong>Individuel</strong> (problèmes d'un seul utilisateur) et la catégorie <strong>Inspection</strong>.</li>
+          <li>Nom du fichier : <code>RiskRegister_Occurrence_YYYY-MM.xlsx</code>, s'ouvre dans Excel / LibreOffice / Keynote.</li>
+          <li>Mise en page identique aux feuilles Occurrence mensuelles existantes — colonne B = code site, colonne I = nombre d'occurrences.</li>
+        </ul>
+        <div class="tip">💡 Diagnostic : après le clic, la <strong>Console</strong> des DevTools du navigateur affiche <code>[risk-register] diagnostics</code> avec les compteurs de skip par catégorie. <code>skipped_unknown_site</code> &gt; 0 signifie qu'un libellé de site SDP n'est pas mappé — les super_admins peuvent ajouter le mapping via <strong>Admin → Risk Register codes</strong>.</div>
+      </div>
+
+      <!-- 4 FR -->
+      <div class="section" id="fr-4">
+        <h2><span class="section-num">4</span>Rapports de site — Flux hebdomadaire</h2>
+        <p>Cliquez sur <strong>📋 Site Reports</strong> dans l'en-tête pour accéder au module de reporting hebdomadaire. Chaque équipe IT de site soumet <strong>un rapport par semaine</strong> couvrant les KPIs infrastructure, les métriques helpdesk, les points saillants et les actions à suivre. Le PPTX mensuel est construit automatiquement à partir de ces soumissions hebdomadaires.</p>
+
+        <h3 id="fr-4-1">4.1 KPIs Infrastructure</h3>
+        <p>Renseignez la <strong>Section 1 — Infrastructure KPIs</strong> avec les valeurs réelles de cette semaine pour chaque système surveillé (disponibilité WAN, serveurs, taux de succès des sauvegardes, etc.).</p>
+        <ul>
+          <li>Cliquez sur <strong>📋 Copier depuis la semaine précédente</strong> pour pré-remplir toutes les lignes depuis le rapport de la semaine dernière. Le nom du service, le nom du KPI, la Cible et le Statut/Tendance précédents sont reportés — la colonne <em>Valeur actuelle</em> est intentionnellement effacée pour que vous ne saisissiez que les chiffres de cette semaine. La valeur de la semaine précédente est conservée en mémoire pour calculer automatiquement la Tendance.</li>
+          <li>Dès que vous saisissez une valeur numérique, le <strong>Statut</strong> (🟢/🟡/🔴) est défini automatiquement en comparant la valeur à la Cible, et la <strong>Tendance</strong> (▲/→/▼) est définie en comparant la valeur à celle de la semaine précédente — aucune sélection manuelle nécessaire.</li>
+          <li>Pour les entrées non numériques (ex. « N/A », « OK », texte libre), le calcul automatique ne s'applique pas. Définissez manuellement le Statut et la Tendance pour ces lignes.</li>
+        </ul>
+        <div class="warn">⚠️ <strong>Les valeurs de Statut / Tendance saisies manuellement sont remplacées au moment de la génération PPTX</strong> pour les lignes numériques. Même si vous avez défini manuellement une Tendance dans le formulaire et sauvegardé le rapport, le générateur PPTX recalculera la Tendance à partir des valeurs réelles (semaine actuelle vs semaine précédente). La diapositive affichera la direction calculée — pas ce que vous avez saisi. Pour les lignes non numériques sans valeur précédente à comparer, la valeur manuelle sauvegardée est conservée.</div>
+        <div class="tip">💡 <strong>Copier depuis la semaine précédente</strong> est le point de départ recommandé chaque semaine — c'est un gain de temps considérable pour les sites avec de longues listes de KPIs.</div>
+
+        <h3 id="fr-4-2">4.2 Métriques Helpdesk</h3>
+        <p>La <strong>Section 2 — Helpdesk Metrics</strong> est pré-remplie avec les données Zoho du groupe de votre site. Vérifiez les chiffres, apportez les ajustements manuels si nécessaire, et sauvegardez.</p>
+        <p>Le panneau <strong>Tech Break Pool</strong> permet aux coordinateurs d'indiquer quels techniciens sont en pause. Cliquez sur une pastille pour l'ajouter ; cliquez à nouveau pour la retirer.</p>
+
+        <h3 id="fr-4-3">4.3 Points saillants (Low / High Lights)</h3>
+        <p>Saisissez uniquement les incidents et réussites survenus <strong>cette semaine spécifique</strong>. Ne copiez pas les éléments de la semaine précédente — le système collecte toutes les semaines automatiquement et le rapport mensuel inclura les entrées de chaque semaine.</p>
+        <ul>
+          <li><strong>▼ Incidents &amp; Problèmes</strong> : pannes, perturbations ou dégradations de service survenus cette semaine.</li>
+          <li><strong>▲ Réussites &amp; Réalisations</strong> : achèvements, améliorations ou résultats positifs de cette semaine.</li>
+          <li><strong>Changements en cours / En attente</strong> : demandes de changement actives ou à venir. Saisissez un changement une seule fois au début — ne le ressaisissez pas chaque semaine.</li>
+        </ul>
+        <div class="warn">⚠️ Si vous répétez le même élément chaque semaine, il n'apparaîtra qu'une seule fois dans le PPTX mensuel (dédupliqué automatiquement), associé à la première semaine où il a été saisi. Saisissez chaque élément une seule fois.</div>
+
+        <h3 id="fr-4-4">4.4 Actions à suivre</h3>
+        <p>Listez les tâches nécessitant un suivi cette semaine. Utilisez <strong>↵ Importer les tâches ouvertes de la semaine précédente</strong> pour reporter les tâches non résolues — cela copie dans le rapport actuel toutes les actions qui n'étaient pas clôturées la semaine dernière. Ne rajoutez pas manuellement une action déjà suivie. Mettez plutôt à jour son champ <strong>Statut</strong> (ouvert → en cours → clôturé).</p>
+        <div class="info">ℹ️ Le PPTX mensuel affiche chaque action <strong>une seule fois</strong>, avec son statut le plus récent sur l'ensemble des semaines soumises. Si la même tâche apparaît en semaine 1 comme « ouverte » et en semaine 4 comme « clôturée », le PPTX l'affichera comme clôturée. Les doublons entre semaines sont automatiquement supprimés.</div>
+        <div class="warn">⚠️ Ne créez pas une nouvelle action pour quelque chose qui existe déjà — même si elle est toujours ouverte. Utilisez <strong>Importer les tâches ouvertes de la semaine précédente</strong> pour la reporter, puis mettez à jour le statut. Créer des doublons entraînera l'apparition de la même tâche deux fois dans le rapport mensuel.</div>
+
+        <h3 id="fr-4-5">4.5 Soumettre un rapport</h3>
+        <ol class="steps">
+          <li>Complétez les quatre sections (Infrastructure, Helpdesk, Points saillants, Actions).</li>
+          <li>Vérifiez le résumé en haut de la page.</li>
+          <li>Cliquez sur le bouton vert <strong>✅ Submit Report</strong>.</li>
+          <li>Une bannière de confirmation indique que le rapport est soumis. Le statut passe à <em>Submitted</em>.</li>
+        </ol>
+        <div class="warn">⚠️ Une fois soumis, un rapport ne peut être réouvert que par un <strong>Admin</strong>. Assurez-vous que toutes les informations sont correctes avant de soumettre.</div>
+      </div>
+
+      <!-- 5 FR -->
+      <div class="section" id="fr-5">
+        <h2><span class="section-num">5</span>Génération PPTX</h2>
+
+        <h3>PPTX hebdomadaire (site unique)</h3>
+        <p>Dans l'onglet <strong>Weekly</strong>, sélectionnez votre site et la semaine, puis cliquez sur <strong>⬇ Weekly PPTX</strong>. Le fichier couvre les KPIs Infrastructure, les Métriques Helpdesk, les Points saillants et les Actions pour cette semaine uniquement.</p>
+
+        <h3>Rapport mensuel par site</h3>
+        <p>Dans l'onglet <strong>Monthly</strong>, sélectionnez votre site et le mois, puis cliquez sur <strong>⬇ Export PPTX</strong>. Le fichier synthétise l'ensemble du mois sur toutes les semaines soumises.</p>
+        <p>Le PPTX mensuel est construit automatiquement à partir des données hebdomadaires. Pour un résultat optimal, vérifiez les Points saillants et Actions consolidés avant de générer :</p>
+        <ol class="steps">
+          <li>Chargez le rapport mensuel de votre site.</li>
+          <li>Consultez les onglets <strong>Low/High Lights</strong> et <strong>Action Items</strong> — le système fusionne automatiquement toutes les semaines et supprime les doublons.</li>
+          <li>Modifiez ou supprimez tout élément non pertinent au niveau mensuel.</li>
+          <li>Cliquez sur <strong>💾 Save Monthly Edits</strong> pour valider votre version consolidée.</li>
+          <li>Cliquez sur <strong>⬇ Export PPTX</strong> — les éditions sauvegardées seront utilisées ; la fusion automatique n'est utilisée que si aucune édition n'a été sauvegardée.</li>
+        </ol>
+        <div class="warn">⚠️ <strong>Si un nouveau rapport hebdomadaire est soumis après que vous avez sauvegardé les éditions mensuelles</strong>, les éditions sauvegardées ne sont pas mises à jour automatiquement. Vous devrez retourner dans l'onglet Rapport mensuel, revoir le contenu fusionné, et cliquer à nouveau sur <strong>💾 Save Monthly Edits</strong> avant d'exporter. Sauvegardez toujours les éditions en dernière étape, juste avant l'export.</div>
+
+        <h3>Ce que le générateur PPTX calcule toujours automatiquement</h3>
+        <p>Indépendamment des valeurs saisies dans le formulaire hebdomadaire, les éléments suivants sont toujours recalculés au moment de l'export :</p>
+        <table>
+          <tr><th>Élément</th><th>Mode de calcul</th><th>Remplacement manuel ?</th></tr>
+          <tr><td>Couleur Statut KPI (🟢/🟡/🔴)</td><td>Valeur actuelle vs Cible — vert si atteint ou dépassé, ambre si dans les 5%, rouge si en dessous</td><td>Non — remplacé pour les valeurs numériques</td></tr>
+          <tr><td>Flèche Tendance KPI (▲/→/▼)</td><td>Valeur actuelle vs valeur de la semaine précédente — haut si amélioré, bas si dégradé, stable si égal</td><td>Non — remplacé pour les valeurs numériques</td></tr>
+          <tr><td>Statut &amp; Tendance pour les entrées non numériques</td><td>Impossible à calculer (ex. « N/A », « OK »)</td><td>Oui — la valeur manuelle sauvegardée est utilisée</td></tr>
+          <tr><td>Déduplication des Actions</td><td>Même tâche + responsable sur plusieurs semaines → conservée une fois avec le statut le plus récent</td><td>Oui — si vous sauvegardez des éditions mensuelles, votre liste personnalisée est utilisée</td></tr>
+          <tr><td>Déduplication des Points saillants</td><td>Même texte sur plusieurs semaines → conservé une fois, associé à la semaine la plus ancienne</td><td>Oui — si vous sauvegardez des éditions mensuelles, votre liste personnalisée est utilisée</td></tr>
+        </table>
+        <div class="tip">💡 La règle pratique : <strong>saisissez des valeurs précises</strong> dans le formulaire et laissez le système calculer le reste. N'utilisez les remplacements manuels que pour les lignes dont la valeur est textuelle (ex. « OK », « N/A »).</div>
+
+        <h3>PPTX mensuel tous sites <em>(Admin uniquement)</em></h3>
+        <p>Cliquez sur <strong>⬇ Export ALL Sites PPTX</strong> dans l'onglet Monthly pour générer un fichier couvrant tous les sites actifs pour le mois sélectionné. Chaque site obtient une diapositive de séparation suivie de ses 6 diapositives de rapport. Idéal pour la réunion mensuelle de direction.</p>
+
+        <h3>Récapitulatif hebdomadaire tous sites <em>(Admin uniquement)</em></h3>
+        <p>Dans l'onglet Weekly, cliquez sur <strong>⬇ Download All-Sites Summary</strong>. Regroupe tous les sites actifs pour la semaine sélectionnée en une seule présentation.</p>
+        <div class="info">ℹ️ Les exports tous sites renverront une erreur si aucun site n'a soumis de données pour la période sélectionnée. Rappeler aux équipes de soumettre avant de générer.</div>
+      </div>
+
+      <!-- 6 FR -->
+      <div class="section" id="fr-6">
+        <h2><span class="section-num">6</span>Rapport Exécutif — Procédure mensuelle pour le deck du board</h2>
+        <p>Cette section est une <strong>recette pas-à-pas</strong> pour produire le PPTX de 11 diapos que vous distribuez au conseil chaque mois. La page se trouve à <code>http://&lt;adresse-serveur&gt;:3456/executive-report.html</code> et est alimentée par les données déjà présentes dans le tableau de bord — pas besoin de connexion Zoho au moment de l'export. <strong>Rôle requis</strong> : <em>report-author</em> (n'importe quel niveau hiérarchique).</p>
+
+        <h3>Contenu du deck — diapo par diapo</h3>
+        <table>
+          <tr><th>#</th><th>Diapo</th><th>Source</th></tr>
+          <tr><td>1</td><td>Couverture (période + Operations Summary)</td><td>Auto</td></tr>
+          <tr><td>2</td><td>IT Governance Narrative — Progress / Issues / Activities</td><td>Champs de commentaire saisis (f-progress, f-issues, f-nextperiod)</td></tr>
+          <tr><td>3</td><td>Executive Overview — grille KPI 4×3 (12 tuiles)</td><td>Auto depuis helpdesk + survey + change</td></tr>
+          <tr><td>4</td><td>Helpdesk Operations 12-Month Trend</td><td>Auto + commentaire f-helpdesk</td></tr>
+          <tr><td>5</td><td>Ticket Distribution &amp; Submission Channel (avec tendance Email vs Web Form 12 mois)</td><td>Auto + commentaire f-helpdesk</td></tr>
+          <tr><td>6</td><td>SLA Compliance &amp; Ticket Ageing by Group (avec analyse auto des blocages)</td><td>Auto + commentaire f-sla</td></tr>
+          <tr><td>7</td><td>Customer Satisfaction &amp; Voice (CSAT + NPS)</td><td>Auto + commentaire f-csat</td></tr>
+          <tr><td>8</td><td>Change Management</td><td>Auto + commentaire f-change</td></tr>
+          <tr><td>9</td><td>Major Incidents (tuiles KPI + Incident Register avec pastilles RCA / CA / PIR / LL)</td><td>Auto depuis UDFs incidents majeurs + commentaire f-incidents</td></tr>
+          <tr><td>10</td><td>IT Ops Strategy Roadmap (5 KPIs + 2 graphiques)</td><td>Suivi des Activités</td></tr>
+          <tr><td>11</td><td>Executive Commentary &amp; Site Summaries (4 piliers + 5 cartes site + General Review)</td><td>Suivi des Activités</td></tr>
+        </table>
+
+        <h3 id="fr-6-runbook">La procédure mensuelle en 7 étapes</h3>
+        <ol class="steps">
+          <li><strong>Vérifiez la fraîcheur des données.</strong> Ouvrez le Tableau de bord principal — si la pastille de fraîcheur en haut est <em>verte</em> ("synchronisé &lt;4h"), vous êtes bon. Si elle est orange/rouge, cliquez <em>⚡ Force Sync</em> et attendez. Vérifiez aussi que le mois est terminé pour le tracker (cadence mensuelle).</li>
+
+          <li><strong>Ouvrez la page de Rapport Exécutif</strong> (<em>📊 Executive New Report</em> ou l'URL ci-dessus). En haut de page :
+            <ul>
+              <li>Menu <strong>Period</strong> → choisissez le mois à reporter.</li>
+              <li>Filtre <strong>Site</strong> → laissez sur <em>All Sites</em> pour le deck du groupe (ou choisissez un site spécifique pour une variante).</li>
+              <li>Filtre <strong>Group</strong> → laissez par défaut (All Groups). N'appliquez pas de filtre groupe sauf usage spécifique ; la couverture indique toujours "Operations Summary".</li>
+            </ul>
+            Attendez que les tuiles KPI + graphiques live se peuplent (~5-10s).
+          </li>
+
+          <li><strong>Remplissez les cartes de commentaire IT Governance.</strong> Descendez jusqu'à <em>Section 07 — IT Governance Narrative</em>. Cliquez <em>✏ Edit</em> sur chacune des 4 cartes et tapez en style bullet — un élément par ligne :
+            <ul>
+              <li><strong>✅ Progress since last period</strong> — succès, jalons atteints, automatisations lancées, recrutements clos</li>
+              <li><strong>⚠ Issues / Risks / Comment</strong> — incidents, blocages, retards fournisseurs, lacunes de capacité</li>
+              <li><strong>📅 Activities for next period</strong> — lancements, déploiements, revues de gouvernance</li>
+              <li><strong>🎯 Action items &amp; priorities</strong> — format : <code>[P1] Improve FRT SLA — Owner: Service Desk Manager</code> (un par ligne, badges <code>[P1]</code>/<code>[P2]</code>/<code>[P3]</code> optionnels, suffixe <code>— Owner: NOM</code> optionnel)</li>
+            </ul>
+            Ces 4 champs ne sont PAS auto-remplis par l'IA — ce sont les seules sections narratives que vous écrivez chaque mois. Un champ vide affiche un placeholder discret sur la diapo plutôt qu'un blanc.
+          </li>
+
+          <li><strong>Cliquez <em>🤖 Analyze &amp; Save</em>.</strong> L'IA lit vos données + votre prose de gouvernance et génère les commentaires d'analyse pour les diapos 4-9 (helpdesk, SLA &amp; ageing, CSAT, change, incidents). Vous voyez un panneau de progression : <em>"Analysis in progress…"</em> suivi de ~5 lignes de statut. Durée totale : ~30-45 secondes.
+            <div class="info">ℹ️ L'IA lit désormais les sujets des tickets &gt;60 jours pour identifier <strong>pourquoi les tickets sont bloqués</strong> (fournisseur / approvisionnement / infra / approbation / accès utilisateur) et inclut l'analyse en bas du bandeau de commentaire de la diapo 6. Pour les incidents majeurs, elle lit les UDF Root Cause / Corrective Action / Lessons Learned pour repérer les causes racines récurrentes.</div>
+          </li>
+
+          <li><strong>Relisez les commentaires auto-remplis.</strong> Chaque carte de section a maintenant du texte d'analyse. Lisez chacune. Modifiez toute phrase qui sonne faux — cliquez ✏ Edit et tapez. L'IA est conservatrice mais surfacie parfois quelque chose d'évident qui mériterait nuance (ex : "envisager la cible FRT SLA" alors qu'elle est déjà au plan d'action).</li>
+
+          <li><strong>Exportez le deck.</strong> Deux boutons dans la barre d'action en bas :
+            <ul>
+              <li><strong>📤 Export PPTX</strong> — rendu côté navigateur. Plus rapide (~5 sec). Produit le deck canonique de 11 diapos. Nom : <code>IT_Operations_Report_&lt;Mois&gt;_&lt;Année&gt;.pptx</code>.</li>
+              <li><strong>📊 Executive New Report</strong> — rendu côté serveur. Plus lent (~30 sec, plus d'appels IA). Inclut les 11 mêmes diapos + AJOUTE les 2 diapos du Suivi des Activités en positions 9 &amp; 10 si le tracker a des données pour la période. Nom : <code>Endeavour_Executive_Report_&lt;Année&gt;_&lt;NomMois&gt;.pptx</code>.</li>
+            </ul>
+            Pour un deck mensuel normal, utilisez <strong>Export PPTX</strong>. Utilisez <em>Executive New Report</em> si vous voulez un commentaire IA plus riche ou si vous acceptez un rendu plus long.
+          </li>
+
+          <li><strong>Ouvrez le fichier, parcourez-le, distribuez.</strong> Vérifications recommandées avant partage :
+            <ul>
+              <li>La couverture affiche <strong>le bon mois</strong> (ex : "MARCH 2026" en gros doré)</li>
+              <li>La diapo 2 montre vos bullets saisis (pas le placeholder)</li>
+              <li>Les pastilles de l'Incident Register diapo 9 sont majoritairement grises (pas rouges) — gris = PIR non requis ; rouge = RCA / CA / LL réellement manquant</li>
+              <li>Les diapos 10 &amp; 11 (tracker) montrent les % du mois courant et les cartes site dans la bonne couleur</li>
+              <li>Les pieds de page indiquent 2/11 à 11/11 (couverture sans numéro)</li>
+            </ul>
+            Sauvegardez dans votre dossier de distribution et partagez via Teams / email.
+          </li>
+        </ol>
+
+        <h3>Pièges fréquents</h3>
+        <ul>
+          <li><strong>La diapo 7 indique "No survey data"</strong> — la synchro nocturne des sondages n'a pas tourné, OU il n'y a vraiment aucune réponse. Déclenchez <code>POST /api/sync/trigger/survey</code> depuis un shell admin pour rafraîchir.</li>
+          <li><strong>Les diapos 10 &amp; 11 manquent ou affichent le mauvais mois</strong> — le tracker n'a pas de données pour ce mois. Les responsables IT site doivent saisir leurs réalisations tracker d'abord (Suivi des Activités → onglet Input → save).</li>
+          <li><strong>"403 Forbidden" au clic sur Analyze &amp; Save ou Export</strong> — votre compte n'a pas le rôle <em>report-author</em>. Demandez à un admin de l'attribuer depuis l'onglet Admin.</li>
+          <li><strong>Le commentaire des incidents majeurs dit "follow up" génériquement</strong> — les UDF Zoho (Root Cause Analysis, Corrective Action, Lessons Learned) sont vides. Demandez au propriétaire de l'incident de les remplir, puis déclenchez <code>POST /api/admin/refresh-major-incident-udfs</code> pour backfiller la base.</li>
+        </ul>
+
+        <div class="tip">💡 Les 4 cartes Governance (Progress / Issues / Activities / Actions) et les commentaires d'analyse auto-remplis NE sont PAS persistés côté serveur — ils vivent dans votre session navigateur. Si vous rechargez la page, ils sont réinitialisés. Lancez toujours <em>Analyze &amp; Save</em> + Export dans la même session.</div>
+      </div>
+
+      <!-- 7 FR -->
+      <div class="section" id="fr-7">
+        <h2><span class="section-num">7</span>Panneau d'administration</h2>
+        <p>Accessible uniquement aux comptes ayant le rôle <strong>admin</strong> (ou tout rôle supérieur dans la hiérarchie) via l'onglet ⚙️ Admin dans les Rapports de site.</p>
+        <ul>
+          <li><strong>Gestion des utilisateurs</strong> — créer, modifier et désactiver des comptes ; attribuer rôles hiérarchiques et fonctionnels (voir §2).</li>
+          <li><strong>Gestion des sites</strong> — ajouter ou désactiver des sites ; mapper chaque site à son/ses groupe(s) Zoho ; définir l'ordre de tri. <em>Ajouter / Désactiver</em> nécessite <strong>executive</strong> ou plus ; renommer un site existant n'est volontairement pas exposé.</li>
+          <li><strong>Gestion des départements</strong> — gérer la liste éditable des départements utilisée par le menu déroulant des action items (Mining, Technical Service, Processing, etc.).</li>
+          <li><strong>Gestion des semaines</strong> — consulter et gérer la liste des semaines de reporting.</li>
+          <li><strong>Supervision des rapports</strong> — consulter tous les rapports soumis/brouillons de tous les sites ; rouvrir un rapport si des corrections sont nécessaires.</li>
+        </ul>
+
+        <h3>Édition d'un utilisateur — le sélecteur de rôles</h3>
+        <p>Cliquez sur <strong>Edit</strong> sur n'importe quelle ligne de la table des utilisateurs. La fenêtre modale présente deux groupes de rôles :</p>
+        <ul>
+          <li><strong>Hiérarchique (radio — choisir un)</strong> : Super Admin · Executive · Admin · Editor · Viewer</li>
+          <li><strong>Rôles fonctionnels (cases à cocher — toute combinaison)</strong> : tracker-admin · tracker-editor · report-author · audit-viewer</li>
+        </ul>
+        <p>La table de la liste des utilisateurs affiche les rôles de chaque utilisateur sous forme de <strong>pastilles colorées</strong> : niveau hiérarchique dans sa couleur standard, et rôles fonctionnels en pastille teal. Si un utilisateur cumule plusieurs rôles fonctionnels, ils apparaissent côte-à-côte.</p>
+        <div class="tip">💡 Pour donner à un responsable IT site un accès local au tracker, attribuez-lui <em>editor</em> + <em>tracker-editor</em> et assurez-vous que son champ <em>Site</em> est renseigné — la portée du tracker suit ce champ.</div>
+
+        <h3>Action items — Département + Commentaire</h3>
+        <p>Chaque action item a un <strong>Département</strong> obligatoire (menu déroulant — Mining, Technical Service, Processing, Maintenance, Supply Chain, Security, Finance, Human Resource, Social Performance, General Manager, ou tout département personnalisé ajouté dans la Gestion des départements) et un <strong>Commentaire</strong> optionnel.</p>
+        <p>L'import CSV en masse est supporté : préparez un fichier avec en-têtes en anglais (Task, Department, Priority, Due Date, Owner, Status, Comment) et cliquez sur <strong>Import CSV</strong> dans l'onglet Actions. L'importateur est tolérant (en-têtes insensibles à la casse, validation indulgente) et affiche les erreurs ligne par ligne avant l'engagement — les lignes valides sont ajoutées en mode append.</p>
+
+        <div class="warn">⚠️ Désactiver un site le supprime de la génération PPTX mais ne supprime <em>pas</em> ses données historiques. Les sites désactivés restent en base pour audit ; réactivez-les pour les ramener dans les rapports.</div>
+
+        <h3 id="fr-7-3">7.3 Sessions actives — Qui utilise le tableau de bord en ce moment</h3>
+        <p>La carte <strong>🟢 Active Sessions</strong> sur la page Admin affiche tous les utilisateurs ayant effectué une requête authentifiée dans les dernières minutes. Utile pour répondre à "est-ce que quelqu'un utilise ça avant que je redémarre le serveur" ou "Aïssatou s'est-elle effectivement connectée ce matin".</p>
+        <ul>
+          <li><strong>Fenêtre d'inactivité</strong> — menu déroulant dans l'en-tête de la carte (1 min / 5 min / 15 min / 1 h / 24 h). Défaut : 5 min.</li>
+          <li><strong>Auto-rafraîchissement</strong> — toutes les 30 secondes tant que l'onglet Admin est actif et que l'onglet navigateur est visible. Bouton <strong>🔄 Refresh</strong> manuel également disponible.</li>
+          <li><strong>Dernière activité</strong> — affichage relatif ("● now", "12 min ago", "1 h 30 min ago") ; survolez pour le timestamp absolu.</li>
+          <li><strong>Force Logout</strong> — super_admin uniquement. Invalide immédiatement le token de session ; l'utilisateur voit "Not authenticated" au prochain clic et doit se reconnecter. Désactivé sur votre propre ligne pour éviter le verrouillage.</li>
+        </ul>
+        <div class="info">ℹ️ Les admins (non-super_admin) voient la carte en <strong>lecture seule</strong> — ils voient qui est connecté mais ne peuvent pas forcer la déconnexion. Les sessions expirent automatiquement après 24 heures sans activité.</div>
+
+        <h3 id="fr-7-4">7.4 Registre des Risques — Mappage des codes site (super_admin uniquement)</h3>
+        <p>L'export mensuel d'Occurrences du Registre des Risques agrège les incidents par site, mais SDP / Zoho stocke le site comme un libellé texte libre (<code>HOUNDE</code>, <code>Sabodala</code>, <code>MANA</code>…) tandis que le Registre attend des codes courts (<code>HGO</code>, <code>SGO</code>, <code>MGO</code>…). La carte <strong>🛡 Risk Register — Site Code Mapping</strong> sur la page Admin permet à un super_admin de maintenir cette correspondance sans redéploiement de code.</p>
+        <ul>
+          <li><strong>+ New Mapping</strong> — ajoute une entrée libellé SDP → code registre. Le menu déroulant des codes liste les 10 codes canoniques (IGO / SGO / MASSAWA / HGO / KGO / MGO / EXPLO / OUAGA OFF1 / EMSA / SML).</li>
+          <li><strong>Unmapped sites for [month]</strong> — bandeau de diagnostic affichant les libellés SDP apparaissant dans les incidents du mois sans mapping actuel. Cliquez sur <strong>+ Map</strong> sur une puce pour pré-remplir le formulaire.</li>
+          <li><strong>Edit</strong> — modifie le code associé à un libellé existant. Le libellé lui-même est verrouillé (c'est la clé primaire).</li>
+          <li><strong>Delete</strong> — supprime un mapping. Les futurs tickets avec ce libellé apparaîtront à nouveau comme non mappés.</li>
+        </ul>
+        <p>Les changements prennent effet <strong>immédiatement</strong> sur le prochain export — pas besoin de recharger la page ni de redémarrer le serveur.</p>
+        <div class="info">ℹ️ Les sites qui ne font pas partie du Registre (bureaux corporate comme <strong>LONDON</strong>, <strong>Dakar</strong>, <strong>ABIDJAN</strong>, <strong>ASSAFO</strong>) doivent simplement être laissés non mappés — ils sont silencieusement exclus de l'export.</div>
+      </div>
+
+      <!-- 8 FR -->
+      <div class="section" id="fr-8">
+        <h2><span class="section-num">8</span>Référence rapide</h2>
+        <table>
+          <tr><th>Action</th><th>Comment</th></tr>
+          <tr><td>Aller au tableau de bord principal</td><td>Cliquer sur 🏠 IT Ops Center dans l'en-tête</td></tr>
+          <tr><td>Aller aux rapports de site</td><td>Cliquer sur 📋 Site Reports dans l'en-tête</td></tr>
+          <tr><td>Forcer le rafraîchissement des données</td><td>Tableau de bord → ⚡ Force Sync</td></tr>
+          <tr><td>Changer de semaine</td><td>Barre de filtres → flèches ◀ ▶</td></tr>
+          <tr><td>Filtrer par groupe</td><td>Barre de filtres → cliquer sur une pastille de groupe</td></tr>
+          <tr><td>Soumettre un rapport hebdomadaire</td><td>Site Reports → remplir toutes les sections → ✅ Submit Report</td></tr>
+          <tr><td>Télécharger le PPTX mensuel</td><td>Site Reports → onglet Reports → carte Monthly Site Report</td></tr>
+          <tr><td>Télécharger le PPTX tous sites</td><td>Site Reports → onglet Reports → Weekly All-Sites Summary (Admin)</td></tr>
+          <tr><td>Changer son mot de passe</td><td>Site Reports → cliquer sur 🔑 à côté de votre nom (en haut à droite)</td></tr>
+          <tr><td>Gérer utilisateurs/sites</td><td>Site Reports → onglet ⚙️ Admin (Admin uniquement)</td></tr>
+          <tr><td>Se déconnecter</td><td>N'importe quelle page → bouton ⎋ Sign Out (en haut à droite)</td></tr>
+        </table>
+        <div class="tip">💡 Pour tout problème technique ou demande d'accès, contactez votre administrateur IT ou le responsable du tableau de bord.</div>
+      </div>
+
+      <div class="section" id="fr-9">
+        <h2><span class="section-num">9</span>Cibles SLA des incidents</h2>
+        <p>Zoho Desk applique des politiques SLA à chaque ticket d'incident. Les cibles ci-dessous sont les valeurs actuellement configurées dans Zoho Desk et sont utilisées par le tableau de bord pour calculer le nombre de <strong>dépassements SLA</strong> et le pourcentage de conformité affiché dans chaque rapport.</p>
+
+        <h3 id="fr-9-1">9.1 Correspondances des priorités</h3>
+        <p>Les priorités Zoho Desk sont converties en codes P utilisés dans le tableau de bord et les rapports PPTX :</p>
+        <table>
+          <thead><tr><th>Priorité Zoho</th><th>Code tableau de bord</th><th>Nom SLA dans Zoho</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Critical</strong></td><td><span style="background:#E74C3C;color:#fff;padding:1px 8px;border-radius:3px;font-weight:700;font-size:12px">P1</span></td><td>Critical SLA for Incident</td></tr>
+            <tr><td><strong>High</strong></td><td><span style="background:#E87722;color:#fff;padding:1px 8px;border-radius:3px;font-weight:700;font-size:12px">P2</span></td><td>High SLA for Incidents</td></tr>
+            <tr><td><strong>Medium / Normal</strong></td><td><span style="background:#2A5490;color:#fff;padding:1px 8px;border-radius:3px;font-weight:700;font-size:12px">P3</span></td><td>Medium SLA for Incidents</td></tr>
+            <tr><td><strong>Low</strong></td><td><span style="background:#6B7280;color:#fff;padding:1px 8px;border-radius:3px;font-weight:700;font-size:12px">P4</span></td><td>Low SLA for Incidents</td></tr>
+          </tbody>
+        </table>
+
+        <h3 id="fr-9-2">9.2 Profils SLA</h3>
+        <p>Les sites sont regroupés en trois profils qui diffèrent uniquement sur le <strong>Temps de réponse</strong> pour P1–P3. Les délais de résolution sont identiques pour tous les sites.</p>
+
+        <h4>Profil A — Standard (MANA, LONDON, EXPLORATION, HOUNDE, ITY, KALANA, LAFIGUE)</h4>
+        <table>
+          <thead><tr><th>Priorité</th><th>Temps de réponse</th><th>Délai de résolution</th></tr></thead>
+          <tbody>
+            <tr><td>P1 / Critical</td><td>30 min</td><td>2 heures</td></tr>
+            <tr><td>P2 / High</td><td>1 heure</td><td>4 heures</td></tr>
+            <tr><td>P3 / Medium</td><td>4 heures</td><td>1 jour</td></tr>
+            <tr><td>P4 / Low</td><td>1 jour</td><td>5 jours</td></tr>
+          </tbody>
+        </table>
+
+        <h4>Profil B — Renforcé (Dakar, Ouaga, Sabodala)</h4>
+        <table>
+          <thead><tr><th>Priorité</th><th>Temps de réponse</th><th>Délai de résolution</th></tr></thead>
+          <tbody>
+            <tr><td>P1 / Critical</td><td><strong style="color:#E87722">15 min</strong></td><td>2 heures</td></tr>
+            <tr><td>P2 / High</td><td><strong style="color:#E87722">30 min</strong></td><td>4 heures</td></tr>
+            <tr><td>P3 / Medium</td><td><strong style="color:#E87722">2 heures</strong></td><td>1 jour</td></tr>
+            <tr><td>P4 / Low</td><td>1 jour</td><td>5 jours</td></tr>
+          </tbody>
+        </table>
+
+        <h4>Profil C — Intermédiaire (Abidjan)</h4>
+        <table>
+          <thead><tr><th>Priorité</th><th>Temps de réponse</th><th>Délai de résolution</th></tr></thead>
+          <tbody>
+            <tr><td>P1 / Critical</td><td>30 min</td><td>2 heures</td></tr>
+            <tr><td>P2 / High</td><td>1 heure</td><td>4 heures</td></tr>
+            <tr><td>P3 / Medium</td><td><strong style="color:#E87722">2 heures</strong></td><td>1 jour</td></tr>
+            <tr><td>P4 / Low</td><td>1 jour</td><td>5 jours</td></tr>
+          </tbody>
+        </table>
+        <div class="info">ℹ️ Les valeurs en orange indiquent une cible <strong>plus stricte</strong> que le Profil Standard pour la même priorité.</div>
+
+        <h3 id="fr-9-3">9.3 Matrice complète site × priorité</h3>
+        <p>Temps de réponse (Rép.) et délais de résolution (Rés.) pour tous les sites. Les valeurs en <strong style="color:#E87722">orange</strong> diffèrent du Profil Standard.</p>
+        <div style="overflow-x:auto">
+        <table style="font-size:12px;min-width:700px">
+          <thead>
+            <tr>
+              <th rowspan="2">Site</th>
+              <th colspan="4" style="text-align:center;border-bottom:1px solid #E5E7EB">Temps de réponse</th>
+              <th colspan="4" style="text-align:center;border-bottom:1px solid #E5E7EB">Délai de résolution</th>
+              <th rowspan="2">Profil</th>
+            </tr>
+            <tr>
+              <th>P1</th><th>P2</th><th>P3</th><th>P4</th>
+              <th>P1</th><th>P2</th><th>P3</th><th>P4</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>MANA</td><td>30 min</td><td>1 h</td><td>4 h</td><td>1 j</td><td>2 h</td><td>4 h</td><td>1 j</td><td>5 j</td><td>A</td></tr>
+            <tr><td>LONDON</td><td>30 min</td><td>1 h</td><td>4 h</td><td>1 j</td><td>2 h</td><td>4 h</td><td>1 j</td><td>5 j</td><td>A</td></tr>
+            <tr><td>EXPLORATION</td><td>30 min</td><td>1 h</td><td>4 h</td><td>1 j</td><td>2 h</td><td>4 h</td><td>1 j</td><td>5 j</td><td>A</td></tr>
+            <tr><td>HOUNDE</td><td>30 min</td><td>1 h</td><td>4 h</td><td>1 j</td><td>2 h</td><td>4 h</td><td>1 j</td><td>5 j</td><td>A</td></tr>
+            <tr><td>ITY</td><td>30 min</td><td>1 h</td><td>4 h</td><td>1 j</td><td>2 h</td><td>4 h</td><td>1 j</td><td>5 j</td><td>A</td></tr>
+            <tr><td>KALANA</td><td>30 min</td><td>1 h</td><td>4 h</td><td>1 j</td><td>2 h</td><td>4 h</td><td>1 j</td><td>5 j</td><td>A</td></tr>
+            <tr><td>LAFIGUE</td><td>30 min</td><td>1 h</td><td>4 h</td><td>1 j</td><td>2 h</td><td>4 h</td><td>1 j</td><td>5 j</td><td>A</td></tr>
+            <tr><td>ABIDJAN</td><td>30 min</td><td>1 h</td><td><strong style="color:#E87722">2 h</strong></td><td>1 j</td><td>2 h</td><td>4 h</td><td>1 j</td><td>5 j</td><td>C</td></tr>
+            <tr><td>Dakar</td><td><strong style="color:#E87722">15 min</strong></td><td><strong style="color:#E87722">30 min</strong></td><td><strong style="color:#E87722">2 h</strong></td><td>1 j</td><td>2 h</td><td>4 h</td><td>1 j</td><td>5 j</td><td>B</td></tr>
+            <tr><td>Ouaga</td><td><strong style="color:#E87722">15 min</strong></td><td><strong style="color:#E87722">30 min</strong></td><td><strong style="color:#E87722">2 h</strong></td><td>1 j</td><td>2 h</td><td>4 h</td><td>1 j</td><td>5 j</td><td>B</td></tr>
+            <tr><td>Sabodala</td><td><strong style="color:#E87722">15 min</strong></td><td><strong style="color:#E87722">30 min</strong></td><td><strong style="color:#E87722">2 h</strong></td><td>1 j</td><td>2 h</td><td>4 h</td><td>1 j</td><td>5 j</td><td>B</td></tr>
+          </tbody>
+        </table>
+        </div>
+      </div>
+
+      <!-- 10 FR -->
+      <div class="section" id="fr-10">
+        <h2><span class="section-num">10</span>Suivi des Activités IT</h2>
+        <p>Le <strong>Suivi des Activités IT</strong> est un outil structuré permettant d'enregistrer, de noter et de visualiser les activités IT sur les sites Endeavour Mining. Il suit 31 activités regroupées sous 4 piliers stratégiques pour jusqu'à 10 sites.</p>
+        <p>Le module de suivi est distinct du tableau de bord principal et nécessite une connexion. Accédez-y via le lien <strong>📊 Activities</strong> dans la barre de navigation supérieure des Rapports de site (visible par les utilisateurs Admin et Exécutif).</p>
+
+        <h3 id="fr-10-1">10.1 Authentification &amp; accès</h3>
+        <p>Le module utilise le même système d'authentification que le reste du tableau de bord. L'accès est désormais piloté par les nouveaux rôles fonctionnels introduits au §2 :</p>
+        <table>
+          <tr><th>Profil</th><th>Combinaison de rôles recommandée</th><th>Pages accessibles</th></tr>
+          <tr><td><strong>Responsable IT de site</strong></td><td>editor + <em>tracker-editor</em></td><td>Dashboard, Scoring, Input — limité à <strong>son propre site</strong> (utilise <em>site_id</em> de l'utilisateur)</td></tr>
+          <tr><td><strong>IT Operations Manager</strong></td><td>admin + <em>tracker-admin</em> + <em>report-author</em></td><td>Toutes les pages, y compris Timeline, Heatmap, Activities, Targets, Executive, Exec Report — config &amp; saisie multi-sites</td></tr>
+          <tr><td><strong>DSI / Executive</strong></td><td>executive + <em>tracker-admin</em> + <em>report-author</em></td><td>Idem que IT Ops Manager + vues exécutives multi-sites</td></tr>
+          <tr><td><strong>Propriétaire système</strong></td><td>super_admin</td><td>Tout (super_admin accorde implicitement tous les rôles)</td></tr>
+        </table>
+        <div class="warn">⚠️ Les utilisateurs <strong>tracker-editor</strong> ne peuvent saisir que les données de leur propre site (défini via le champ <em>Site</em> dans la gestion des utilisateurs). Le sélecteur de site est automatiquement verrouillé. Les utilisateurs <strong>tracker-admin</strong> / <em>executive</em> / <em>super_admin</em> peuvent consulter et éditer tous les sites, ET modifier la configuration (liste d'activités, poids, cibles).</div>
+        <div class="info">ℹ️ Un utilisateur avec uniquement <em>editor</em> + <em>viewer</em> (sans rôle tracker) peut <strong>consulter</strong> l'onglet Dashboard en lecture seule, mais ne peut pas saisir. Ajoutez <em>tracker-editor</em> pour lui donner l'accès écriture sur son site.</div>
+
+        <h3 id="fr-10-2">10.2 Ouvrir le module</h3>
+        <ol class="steps">
+          <li>Connectez-vous au tableau de bord sur <code>http://&lt;adresse-serveur&gt;:3456</code>.</li>
+          <li>Accédez aux <strong>Rapports de site</strong> via la barre de navigation.</li>
+          <li>Cliquez sur le lien <strong>📊 Activities</strong> dans la barre de navigation. Le module s'ouvre dans un nouvel onglet.</li>
+          <li>Le module vous authentifie automatiquement grâce à votre session en cours — aucun mot de passe supplémentaire requis.</li>
+        </ol>
+        <div class="tip">💡 Vous pouvez mettre en favori l'URL directe (<code>http://&lt;adresse-serveur&gt;:3456/activity-tracker.html</code>) une fois connecté. Le module nécessite une connexion au serveur — il ne fonctionne pas hors ligne.</div>
+
+        <h3 id="fr-10-3">10.3 Interface &amp; onglets</h3>
+        <p>L'interface du module est organisée en onglets. Les onglets visibles dépendent de votre rôle :</p>
+        <table>
+          <tr><th>Onglet</th><th>Description</th><th>Qui peut le voir</th></tr>
+          <tr><td><strong>Dashboard</strong></td><td>Synthèse globale des scores d'activité sur tous les sites</td><td>Tous les utilisateurs connectés</td></tr>
+          <tr><td><strong>Scoring</strong></td><td>Scores détaillés par pilier, activité et site</td><td>Tous les utilisateurs connectés</td></tr>
+          <tr><td><strong>Input</strong></td><td>Formulaire de saisie des mises à jour d'activités hebdomadaires</td><td>Tous les utilisateurs connectés (admins limités à leur site)</td></tr>
+          <tr><td><strong>Timeline</strong></td><td>Tendances historiques par site et activité</td><td>Executive / super_admin uniquement</td></tr>
+          <tr><td><strong>Heatmap</strong></td><td>Couverture des activités par site (code couleur)</td><td>Executive / super_admin uniquement</td></tr>
+          <tr><td><strong>Activities</strong></td><td>Configuration et gestion des activités</td><td>Executive / super_admin uniquement</td></tr>
+          <tr><td><strong>Targets</strong></td><td>Définition des objectifs par site et pilier</td><td>Executive / super_admin uniquement</td></tr>
+          <tr><td><strong>Executive</strong></td><td>Vue exécutive consolidée de haut niveau</td><td>Executive / super_admin uniquement</td></tr>
+          <tr><td><strong>Exec Report</strong></td><td>Synthèse exécutive prête à l'export</td><td>Executive / super_admin uniquement</td></tr>
+        </table>
+
+        <h3 id="fr-10-4">10.4 Saisir les données d'activité</h3>
+        <p>Dans l'onglet <strong>Input</strong>, sélectionnez le site (les utilisateurs tracker-editor ne voient que leur propre site) et le mois de reporting, puis saisissez les valeurs réelles pour chaque activité. Le formulaire colorie chaque saisie en VERT / ORANGE / ROUGE selon sa cible.</p>
+        <div class="info">ℹ️ Les activités sont organisées sous 4 piliers stratégiques (avec leurs poids par défaut) : <strong>Network Infra (30%)</strong>, <strong>Biz Partnering (35%)</strong>, <strong>Risk &amp; Compliance (20%)</strong> et <strong>People Dev (15%)</strong>. Chaque pilier contient un ensemble d'activités suivies ; les poids peuvent être ajustés par un tracker-admin depuis l'onglet <em>Targets</em>.</div>
+
+        <h3 id="fr-10-5">10.5 Enregistrer vos données</h3>
+        <p>Cliquez sur le bouton <strong>Enregistrer</strong> en bas du formulaire Input pour valider vos saisies sur le serveur. Les données sont stockées de façon centralisée et immédiatement visibles par les utilisateurs exécutifs.</p>
+        <div class="warn">⚠️ Les données ne sont pas enregistrées automatiquement. Cliquez toujours sur <strong>Enregistrer</strong> avant de fermer ou changer d'onglet pour ne pas perdre vos saisies. Les utilisateurs Admin ne peuvent enregistrer des données que pour leur propre site — toute tentative de soumission pour un autre site est bloquée.</div>
+      </div>
+
+      <!-- 11 FR — Inspections IT -->
+      <div class="section" id="fr-11">
+        <h2><span class="section-num">11</span>Inspections IT</h2>
+        <p>Le module <strong>Inspections IT</strong> numérise les inspections terrain des infrastructures sur site. Chaque inspection capture une checklist structurée (17 catégories, 173 items à mai 2026), des observations libres, des photos, des actions correctives et des signatures. Il remplace l'ancien formulaire Word/PDF et alimente un tableau de bord agrégé ainsi qu'un export PPTX par inspection.</p>
+        <p>Accès via <strong>Insights ▾ → Inspections</strong> dans la barre de navigation. Tout rôle avec accès en lecture peut consulter ; les utilisateurs <em>editor</em> peuvent créer et modifier les inspections de leur site ; <em>admin+</em> peut modifier n'importe quel site et supprimer.</p>
+
+        <h3 id="fr-11-1">11.1 Ouvrir les Inspections</h3>
+        <p>Le <strong>tableau de bord des inspections</strong> liste toutes les inspections filtrées par site, période, niveau de risque et statut. Les tuiles KPI en haut montrent le total d'inspections, les anomalies majeures/critiques ouvertes, le risque moyen et la tendance mensuelle.</p>
+        <ul>
+          <li>Cliquez sur <strong>+ Nouvelle inspection</strong> pour en démarrer une — pré-remplie avec la date du jour, votre nom et votre site.</li>
+          <li>Cliquez sur n'importe quelle ligne pour ouvrir l'inspection existante en mode édition.</li>
+          <li>Le bouton <strong>✕ Supprimer</strong> par ligne (admin+ uniquement) ouvre une modale de confirmation stylée — texte rouge plus sévère pour les inspections soumises ou clôturées.</li>
+        </ul>
+
+        <h3 id="fr-11-2">11.2 Remplir une inspection</h3>
+        <p>Le formulaire est divisé en 5 zones : <strong>Identification</strong> (date, site, zone, inspecteur — tous obligatoires), <strong>Périmètre</strong>, <strong>Checklist</strong> (l'accordéon des 17 catégories), <strong>Actions correctives</strong>, <strong>Observations &amp; Signatures</strong>.</p>
+        <p>Pour chaque item de checklist, définissez un statut (✓ OK, △ Mineur, ▲ Majeur, ⛔ Critique, ◯ Opp = opportunité d'amélioration, N/A). Choisir un statut Mineur/Majeur/Critique/Opp <strong>génère automatiquement une action corrective</strong> avec une priorité par défaut appropriée. Ajoutez des notes libres par item et joignez des photos via le bouton 📷.</p>
+        <div class="tip">💡 Le formulaire dispose d'une <strong>dictée vocale</strong> (bouton 🎙 sur la plupart des champs texte) basée sur la reconnaissance vocale du navigateur. Utile sur le terrain où taper est lent. Appui-maintien : maintenez le bouton enfoncé en parlant ; relâchez pour insérer.</div>
+
+        <h3 id="fr-11-3">11.3 Modèle de sauvegarde (Local + Save now + Submit)</h3>
+        <p>Le formulaire d'inspection ne synchronise <strong>volontairement pas</strong> avec le serveur à chaque frappe. Chaque modification est sauvegardée instantanément dans le stockage local du navigateur pour ne pas perdre votre travail, mais n'atteint le serveur que lorsque vous cliquez explicitement sur <strong>Save now</strong> ou <strong>Submit</strong>.</p>
+        <table>
+          <tr><th>Action</th><th>Local</th><th>Serveur</th></tr>
+          <tr><td>Frappe / défocus</td><td>✓</td><td>✗</td></tr>
+          <tr><td>Clic <strong>Save now</strong></td><td>✓</td><td>✓</td></tr>
+          <tr><td>Clic <strong>Submit</strong></td><td>✓</td><td>✓ (statut → submitted)</td></tr>
+          <tr><td>Clic <strong>Re-open</strong> (admin+)</td><td>✓</td><td>✓ (statut → draft)</td></tr>
+        </table>
+        <p>La barre d'outils affiche l'état : <em>"✓ Saved locally HH:MM · click Save now to sync"</em> jusqu'à ce que vous synchronisiez. Si la sauvegarde serveur échoue (ex. sans connectivité), l'ID de l'inspection est mis en file d'attente dans localStorage et re-poussé automatiquement à la prochaine <strong>Save now</strong> réussie ou au prochain démarrage de la page.</p>
+        <div class="warn">⚠️ Le tableau de bord ne compte que les inspections <strong>soumises</strong> dans ses KPIs. Les brouillons restent sur la machine de l'inspecteur + serveur mais n'apparaîtront pas dans les vues management tant qu'ils ne sont pas soumis.</div>
+
+        <h3 id="fr-11-4">11.4 Actions correctives &amp; photos</h3>
+        <p>Les actions correctives se remplissent automatiquement à partir des items de checklist marqués. Chaque action a une priorité (Critical / High / Medium / Low — pré-définie selon la sévérité mais modifiable), un responsable, une date d'échéance et un statut. Les photos sont compressées automatiquement à ~250-400 Ko avant upload pour rester sous la limite serveur de 100 Mo.</p>
+
+        <h3 id="fr-11-5">11.5 Export PPTX</h3>
+        <p>Depuis la page d'édition d'inspection, <strong>Export PPTX</strong> (admin+) produit un deck de 4 diapos pour une inspection unique (Couverture, table des anomalies, table des actions, observations + signatures). Depuis le tableau de bord, <strong>Aggregate Export</strong> (executive+) produit un roll-up de 4 diapos sur toutes les inspections filtrées.</p>
+      </div>
+
+      <!-- 12 FR — Réunions & Council -->
+      <div class="section" id="fr-12">
+        <h2><span class="section-num">12</span>Réunions &amp; Council Escalations</h2>
+        <p>Le module <strong>Réunions</strong> est un jumeau numérique du flux mensuel Endeavour Mining Group IT × Mines. L'unité de capture est un <strong>PV</strong> (Procès-Verbal) signé couvrant un site × un département × un mois, avec des problèmes, actions et projets imbriqués. Les escalades vers le Mine IT Council sont dérivées automatiquement des problèmes marqués <em>escalate</em>.</p>
+        <p>Accès via <strong>Insights ▾ → Meetings Decisions</strong>. Les vues compagnons (Issues Log, Council, Compliance, Bulk Import, Progress) apparaissent dans le même sous-menu.</p>
+
+        <h3 id="fr-12-1">12.1 Vue d'ensemble du module</h3>
+        <table>
+          <tr><th>Page</th><th>Rôle</th></tr>
+          <tr><td><strong>Liste des réunions</strong></td><td>Tous les PVs avec filtres ; 6 tuiles KPI ; 4 cartes d'accès rapide</td></tr>
+          <tr><td><strong>Éditeur de réunion</strong> (PV)</td><td>Éditeur en 7 sections : en-tête, 3 priorités, projets, problèmes, actions, escalades, signature + fil d'audit</td></tr>
+          <tr><td><strong>Issues Log</strong></td><td>Liste plate de tous les problèmes à travers tous les PVs (filtres par catégorie, sévérité, statut…)</td></tr>
+          <tr><td><strong>Council</strong></td><td>Escalades groupées par thème Mine IT Council</td></tr>
+          <tr><td><strong>Compliance</strong></td><td>Classement par site sur les 5 Engagements pour le mois sélectionné</td></tr>
+          <tr><td><strong>Bulk Import</strong></td><td>Téléverser les PVs historiques sous forme de classeur xlsx 3-onglets (admin+)</td></tr>
+          <tr><td><strong>Progress</strong></td><td>Vue « depuis la dernière réunion » — outil de pré-briefing pour le coordinateur IT</td></tr>
+        </table>
+
+        <h3 id="fr-12-2">12.2 Créer un PV de réunion</h3>
+        <ol class="steps">
+          <li>Cliquez sur <strong>+ Nouvelle réunion</strong> sur la page de liste.</li>
+          <li>Choisissez le site, le département, la date de réunion. La référence (ex. <code>HGO_Maintenance_PV_2026-05</code>) est générée automatiquement.</li>
+          <li>Remplissez les 7 sections : en-tête, top 3 des priorités, projets en cours, problèmes soulevés, engagements IT, escalades automatiques, signature.</li>
+          <li>Transitions de statut : <em>draft → submitted → signed → closed</em>. Les éditeurs sont verrouillés une fois le statut <em>closed</em> ; admin+ peut ré-ouvrir.</li>
+        </ol>
+        <div class="info">ℹ️ Toutes les listes de référence sont bilingues (EN + FR). Les listes déroulantes catégorie, sévérité, statut et thème council affichent les deux langues — choisissez ce qui correspond à la langue de la discussion.</div>
+
+        <h3 id="fr-12-3">12.3 Problèmes, actions &amp; fil d'audit</h3>
+        <p>Chaque problème est classé par catégorie (1 parmi 9 : Connectivité, Matériel, Infrastructure, Opérations, Application, Support &amp; Conformité, Fiabilité des données, Conception de service, Leadership/Vision), sévérité (HIGH/MEDIUM/LOW) et date cible. La colonne droite de l'éditeur PV affiche le <strong>fil d'audit</strong> complet pour le problème — chaque changement de statut, bascule d'escalade et commentaire rapide est horodaté avec le nom de l'auteur.</p>
+        <p>La boîte de commentaire rapide en bas poste une mise à jour d'audit sans re-sauvegarder l'intégralité du PV.</p>
+
+        <h3 id="fr-12-4">12.4 Import Excel en lot</h3>
+        <p>Pour les PVs historiques déjà au format Word / Excel / SharePoint, la page <strong>Bulk Import</strong> (admin+) accepte un classeur xlsx 3-onglets (Meetings / Issues / Actions + un onglet Codes en cheat-sheet). Flux en deux étapes :</p>
+        <ol class="steps">
+          <li><strong>Preview</strong> — téléverse et valide sans écrire. Retourne les erreurs par ligne.</li>
+          <li><strong>Commit</strong> — persiste. Les références existantes sont MISES À JOUR en place (réuploads idempotents).</li>
+        </ol>
+        <div class="warn">⚠️ L'import envoie toujours les tableaux Issues + Actions complets — réuploader une réunion <strong>remplace</strong> ses enfants existants, ne fusionne pas. Toujours réuploader l'état complet par réunion, jamais un sous-ensemble partiel.</div>
+
+        <h3 id="fr-12-5">12.5 Les 5 Engagements (moniteur de conformité)</h3>
+        <p>La page <strong>5 Engagements</strong> est un classement par site pour le mois sélectionné, scorant chaque site contre :</p>
+        <ol>
+          <li><strong>Trois départements / mois</strong> — au moins 3 PVs par site par mois</li>
+          <li><strong>Diffusion sous 48h</strong> — PV signé partagé dans les 48 heures suivant la réunion</li>
+          <li><strong>Champion / action</strong> — chaque action a un responsable nommé</li>
+          <li><strong>Boucle de feedback mensuelle</strong> — retour aux départements vus dans les 3 derniers mois (placeholder manuel)</li>
+          <li><strong>Discipline d'escalade</strong> — chaque problème escalate=1 a une raison + thème Council</li>
+        </ol>
+      </div>
+
+      <!-- 13 FR — Tableau de bord Exécutif -->
+      <div class="section" id="fr-13">
+        <h2><span class="section-num">13</span>Tableau de Bord Exécutif (Executive Scorecard)</h2>
+        <p>Le <strong>Tableau de Bord Exécutif</strong> (Insights ▾ → Executive Scorecard) est la vue consolidée à 5 onglets pour la direction IT et le board. Il sert les données en cache BD instantanément (pas d'appel Zoho au chargement) et respecte la barre de filtres globale en haut (période, site, groupe, priorité, catégorie).</p>
+
+        <h3 id="fr-13-1">13.1 Les 5 onglets</h3>
+        <table>
+          <tr><th>Onglet</th><th>Question décisionnelle</th></tr>
+          <tr><td><strong>KPI Snapshot</strong></td><td>Livre-t-on le service au niveau attendu ? (volume, SLA, délais, qualité)</td></tr>
+          <tr><td><strong>Action Plan &amp; Changes</strong></td><td>Quel plan d'action généré automatiquement à partir des pires catégories ?</td></tr>
+          <tr><td><strong>Technician Scorecard</strong></td><td>Qui porte la charge, qui a besoin de soutien ?</td></tr>
+          <tr><td><strong>Change &amp; Incidents</strong></td><td>Le changement est-il sûr ? Apprenons-nous des échecs ? Les incidents se répètent-ils ?</td></tr>
+          <tr><td><strong>Customer Voice</strong></td><td>Les utilisateurs sont-ils satisfaits ? Que disent-ils vraiment ? (CSAT/NPS + verbatim)</td></tr>
+        </table>
+
+        <h3 id="fr-13-2">13.2 Référence des tuiles KPI</h3>
+        <p>Survolez une tuile KPI pour le calcul précis. Les tuiles les plus décisionnelles :</p>
+        <table>
+          <tr><th>Tuile</th><th>Formule</th><th>Bandes RAG</th></tr>
+          <tr><td>Resolution SLA %</td><td>(clôturés dans SLA / clôturés total) × 100</td><td>≥90% vert / 80-89% orange / &lt;80% rouge</td></tr>
+          <tr><td>Avg Resolution Time</td><td>Math.floor des jours de résolution par ticket, puis moyenne</td><td>≤2j vert / 3-4j orange / ≥5j rouge</td></tr>
+          <tr><td>Reopen Rate</td><td>(ré-ouverts / clôturés) × 100</td><td>&lt;5% vert</td></tr>
+          <tr><td><strong>Multi-Touch Rate</strong></td><td>% tickets présentant de la friction : réouverture OU &gt;1 réponse demandeur OU transfert inter-équipe</td><td>&lt;15% vert / 15-30% orange / &gt;30% rouge</td></tr>
+          <tr><td>CSAT Score</td><td>% des réponses survey notant ≥80 sur 100</td><td>≥80% vert</td></tr>
+          <tr><td>NPS Score</td><td>% Promoteurs − % Détracteurs (buckets &lt;70 / 70-89 / ≥90)</td><td>≥30 bon / ≥0 neutre</td></tr>
+          <tr><td><strong>Survey Response Rate</strong></td><td>(réponses survey / surveys envoyés) × 100, depuis la table survey_results</td><td>cible ≥20%</td></tr>
+          <tr><td>Avg MTTR (Major Inc.)</td><td>Heures moyennes de résolution sur les incidents majeurs de la période</td><td>&lt;4h P1, &lt;8h P2</td></tr>
+        </table>
+        <div class="info">ℹ️ Le <strong>Multi-Touch Rate</strong> est un proxy comportemental pour l'effort client — il compte les tickets où l'utilisateur a dû revenir (réouverture), relancer (&gt;1 message), ou attendre un transfert. Ce n'est <strong>PAS</strong> un vrai CES (Customer Effort Score), qui nécessite une question d'enquête directe. L'ajout d'une question CES à l'IT Survey SDP est dans la roadmap.</div>
+
+        <h3 id="fr-13-3">13.3 Voix client &amp; Verbatim Explorer</h3>
+        <p>L'onglet <strong>Customer Voice</strong> unifie toutes les données d'enquête : score CSAT, distribution NPS, résumé de sentiment (positif/neutre/négatif), graphique de tendance CSAT, donut NPS, et le <strong>Verbatim Explorer</strong>.</p>
+        <p>Le Verbatim Explorer offre 5 fonctionnalités :</p>
+        <ul>
+          <li><strong>File de triage</strong> — commentaires négatifs en premier, classés par mots-clés d'urgence</li>
+          <li><strong>Mur des compliments</strong> — commentaires positifs pour le moral</li>
+          <li><strong>Nuage de fréquence des mots</strong> — termes les plus utilisés à travers tous les commentaires</li>
+          <li><strong>Répartition par thème</strong> — auto-classification (Vitesse, Qualité, Communication, Résolution, etc.)</li>
+          <li><strong>Lien ticket</strong> — chaque commentaire renvoie au ticket SDP source via la pastille Display ID</li>
+        </ul>
+        <div class="tip">💡 Cliquez sur n'importe quelle pastille de Display ID (ex. <em>#307800 ↗</em>) sur une carte de verbatim pour ouvrir le ticket source dans ServiceDesk Plus dans un nouvel onglet.</div>
+
+        <h3 id="fr-13-4">13.4 Filtres &amp; sélection de période</h3>
+        <p>La barre de filtres globale au-dessus des 5 onglets contrôle tout :</p>
+        <ul>
+          <li><strong>Période</strong> : Mois en cours (par défaut), Mois précédent, mois spécifique, Q1-Q4, 12 derniers mois</li>
+          <li><strong>Site</strong> : Tous les sites ou un site spécifique (auto-découvert depuis les données)</li>
+          <li><strong>Groupe</strong> : Tous, preset Opérations, preset Applications, sélection individuelle</li>
+          <li><strong>Priorité</strong> : Toutes, P1 uniquement, P2 uniquement, etc.</li>
+          <li><strong>Catégorie</strong> : Toutes ou une catégorie spécifique</li>
+        </ul>
+        <div class="info">ℹ️ Les tuiles Customer Voice utilisent le filtre période de façon cohérente — les réponses survey sont comptées pour la même fenêtre que les données ticket. Le graphique CSAT trend affiche toujours les 12 mois pleins quelle que soit la période (c'est une tendance, pas un instantané).</div>
+      </div>
+
+      <!-- 14 FR — Analyse IA -->
+      <div class="section" id="fr-14">
+        <h2><span class="section-num">14</span>Analyse IA &amp; Smart Insights</h2>
+        <p>Deux outils complémentaires génèrent des commentaires analytiques par-dessus les données du dashboard : <strong>Analyze &amp; Save</strong> (basé IA, optionnel) et <strong>Analyze Lite</strong> (déterministe, toujours disponible).</p>
+
+        <h3 id="fr-14-1">14.1 Analyze &amp; Save (IA)</h3>
+        <p>Sur le Constructeur de Rapport Exécutif et le Tableau de Bord Exécutif, le bouton <strong>✨ Analyze &amp; Save</strong> (visible aux rôles <em>report-author</em>) envoie un instantané structuré de la vue actuelle à un LLM et remplit les champs de commentaire avec une analyse générée par IA. Trois sous-analyses s'exécutent en séquence : Résumé Mensuel, revue des Incidents Majeurs, insights Voix Client.</p>
+        <div class="info">ℹ️ Depuis mai 2026, cela appelle un <strong>LLM local sur site</strong> (par défaut : Mistral Nemo 12B via Ollama à <code>localhost:11434</code>) — <strong>aucune donnée ne quitte le LAN d'entreprise</strong>. L'ancien chemin cloud Anthropic reste sélectionnable via la variable d'environnement <code>AI_PROVIDER</code>.</div>
+        <div class="warn">⚠️ L'analyse IA prend 45-90 secondes par prompt sur CPU. Si le bouton Analyze affiche « 🔒 Analyze (paused) », l'IA cloud est désactivée et seul Analyze Lite est disponible — c'est l'état actuel en attente de validation PKI.</div>
+
+        <h3 id="fr-14-2">14.2 Analyze Lite (déterministe, sans réseau)</h3>
+        <p>Le bouton <strong>⚡ Analyze (lite)</strong> exécute un moteur JavaScript pur qui classifie les KPIs contre les seuils, identifie le pire site/catégorie, calcule la direction de la tendance, et remplit les mêmes champs de commentaire que le chemin IA — avec des modèles au lieu de texte génératif.</p>
+        <ul>
+          <li>S'exécute entièrement dans le navigateur — <strong>zéro appel réseau</strong></li>
+          <li>Instantané (&lt;1 seconde)</li>
+          <li>Les champs remplis ont une fine bordure orange pour voir d'un coup d'œil ceux provenant de modèles vs vos propres modifications</li>
+          <li>Bilingue (EN / FR — détecté depuis <code>&lt;html lang&gt;</code>)</li>
+        </ul>
+        <p>Ce qu'il N'ESSAIE PAS de faire (volontairement, pour éviter de sonner comme une IA qui hallucine) :</p>
+        <ul>
+          <li>Analyse narrative inférée depuis les sujets</li>
+          <li>Spéculation causale entre KPIs</li>
+          <li>Prose libre — Analyze Lite est factuel, pauvre en narratif</li>
+        </ul>
+
+        <h3 id="fr-14-3">14.3 Option LLM local (confidentialité)</h3>
+        <p>Pour les déploiements où le texte des tickets clients doit rester sur site, le dashboard est livré avec un sélecteur de fournisseur LLM local. Définissez <code>AI_PROVIDER=local</code> dans <code>.env</code> et le chemin IA Analyze parlera à <code>localhost:11434</code> (par défaut Ollama) au lieu du cloud Anthropic. Modèle par défaut : <strong>Mistral Nemo 12B Instruct Q4</strong> (souveraineté UE, Apache 2.0, français natif — important pour les sites francophones d'Afrique de l'Ouest).</p>
+        <div class="info">ℹ️ Le navigateur ne voit jamais que le fournisseur a changé — le serveur traduit la requête au format Anthropic en requête compatible OpenAI chat-completions et inversement. Même code client, même format de réponse.</div>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /doc-layout -->
+</div><!-- /sec-fr -->
+
+</div><!-- /container -->
+
+<script>
+function setLang(lang){
+  document.getElementById('sec-en').classList.toggle('active', lang==='en');
+  document.getElementById('sec-fr').classList.toggle('active', lang==='fr');
+  document.getElementById('btn-en').classList.toggle('active', lang==='en');
+  document.getElementById('btn-fr').classList.toggle('active', lang==='fr');
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+</script>
+</body>
+</html>

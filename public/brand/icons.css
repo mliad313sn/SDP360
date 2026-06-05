@@ -1,0 +1,71 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   EDV / Endeavour Mining — Icon classes
+   ───────────────────────────────────────────────────────────────────────
+   Used in tandem with public/brand/icons.js. Pages write semantic markup:
+
+       <button>
+         <i class="icon icon-zap"></i>
+         Force Sync
+       </button>
+
+   …and the hydration step in icons.js replaces the empty <i> with the
+   inline SVG at DOMContentLoaded. No HTTP request per icon, no flash.
+
+   The class wrapper (.icon) provides consistent sizing, vertical alignment,
+   and color inheritance regardless of which icon-name modifier follows.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  width: 1em;
+  height: 1em;
+  line-height: 1;
+  flex-shrink: 0;
+  color: currentColor;
+  /* Tiny optical adjustment so the icon sits on the text baseline cleanly.
+     Most browsers render inline SVG ~1px low at small sizes — nudge up. */
+  position: relative;
+  top: -0.04em;
+}
+
+.icon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  /* Prevent the SVG from inheriting any unwanted text rendering */
+  overflow: visible;
+}
+
+/* Size modifiers — always pick one, otherwise the icon is `1em`
+   (matches surrounding text size, which is usually right for inline use). */
+.icon-sm  { width: 0.85em; height: 0.85em; top: 0; }
+.icon-md  { width: 1.15em; height: 1.15em; }
+.icon-lg  { width: 1.5em;  height: 1.5em;  top: 0; }
+.icon-xl  { width: 2em;    height: 2em;    top: 0; }
+.icon-2xl { width: 3em;    height: 3em;    top: 0; }
+
+/* Spacing helpers when the icon precedes/follows text in a button or label */
+.icon + * { margin-left: 0.45em; }
+* + .icon { margin-left: 0.45em; }
+
+/* Strong tint variants — e.g. status icons in alerts */
+.icon-tint-success { color: var(--edv-green,  #1B9A3A); }
+.icon-tint-warning { color: var(--color-warning, #D97706); }
+.icon-tint-danger  { color: var(--edv-red,    #D90038); }
+.icon-tint-info    { color: var(--edv-blue,   #145FAE); }
+.icon-tint-muted   { color: var(--color-text-muted, #7B7B7B); }
+.icon-tint-orange  { color: var(--edv-orange, #EF631A); }
+
+/* When used inside a button, slight visual tightening so the icon doesn't
+   feel disconnected from the text it labels. */
+button .icon,
+.btn .icon {
+  margin-right: 0.4em;
+}
+button .icon:only-child,
+.btn .icon:only-child {
+  margin-right: 0;        /* icon-only buttons */
+}

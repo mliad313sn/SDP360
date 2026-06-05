@@ -1,0 +1,423 @@
+{
+  "month": "May",
+  "year": "2026",
+  "total": 1327,
+  "total_apr": 1458,
+  "total_delta_pct": -9.0,
+  "closed": 1238,
+  "closed_delta_pct": -12.8,
+  "closure_rate": 93.3,
+  "sla_compliance": 93.0,
+  "sla_compliance_delta_pp": 6.3,
+  "open_backlog": 188,
+  "open_backlog_delta_pct": -21.0,
+  "fcr_rate": 100.0,
+  "fcr_delta_pp": 0.0,
+  "avg_res_days": 1,
+  "channel": {
+    "E-Mail": 879,
+    "Web Form": 429,
+    "Live Chat": 12,
+    "Phone Call": 4,
+    "Mobile Application": 2,
+    "MS Teams": 1
+  },
+  "categories": {
+    "Software and Applications": 310,
+    "User Accounts and Access Permissions": 208,
+    "IT Infrastructure": 203,
+    "Email": 130,
+    "Network & Internet Access": 100,
+    "IT Hardware and Communication Devices": 97,
+    "Hardware and Accessories": 95,
+    "Printing Services": 69,
+    "Mobile & Communication Services": 44,
+    "infosec": 14,
+    "ERP Support": 12,
+    "IT Administrative task": 4,
+    "IT Policy Deviation": 4,
+    "Security Issues": 3,
+    "Inspection": 2,
+    "Badge d'acc\u00e8s site / Site Access Badge": 1,
+    "Periodic IT System Access Audit": 1
+  },
+  "groups": {
+    "Sabodala IT Agents": 270,
+    "Mana IT Agent": 249,
+    "ITY IT Agents": 213,
+    "Hounde IT Agents": 166,
+    "Lafigue IT Agents": 147,
+    "Abidjan IT Agents": 101,
+    "Exploration IT Support": 43,
+    "Exploration CI Support": 32,
+    "Tanda IT Agents": 31,
+    "Ouaga IT Agents": 29,
+    "Kalana IT Agents": 26,
+    "Exploration BF Support": 20
+  },
+  "mi_total": 4,
+  "mi_critical": 2,
+  "mi_high": 2,
+  "mi_records": [
+    {
+      "id": 307800,
+      "site": "LAFIGUE",
+      "priority": "High",
+      "subject": "SML-CENT-01  server access issue",
+      "status": "Closed"
+    },
+    {
+      "id": 307645,
+      "site": "ABIDJAN",
+      "priority": "Critical",
+      "subject": "Centric database server is down",
+      "status": "Closed"
+    },
+    {
+      "id": 307580,
+      "site": "LAFIGUE",
+      "priority": "Critical",
+      "subject": "GSM & LSI Issue",
+      "status": "Closed"
+    },
+    {
+      "id": "303918",
+      "site": "Sabodala",
+      "priority": "High",
+      "subject": "Service Disruption Follow-up \u2014 Server / EDV-WIFI (3-6 Feb 2026)",
+      "status": "Closed",
+      "date_resolved": "19 May 2026"
+    }
+  ],
+  "changes_total": 16,
+  "changes_type": {
+    "Standard": 11,
+    "Major": 4,
+    "Emergency": 1
+  },
+  "changes_status": {
+    "In Progress": 12,
+    "Completed": 4
+  },
+  "changes_emergency": 1,
+  "emergency_changes": [
+    {
+      "id": 273,
+      "subject": "Move IT Dashboard login from http://10.225.99.173:3456 to https://itops-dashboard.edv-ops.com",
+      "status": "In Progress"
+    }
+  ],
+  "ageing": {
+    "Abidjan IT Agents": {
+      "0-30": 23,
+      "31-60": 9,
+      ">60": 12,
+      "total": 44
+    },
+    "Exploration BF Support": {
+      "0-30": 2,
+      "31-60": 0,
+      ">60": 0,
+      "total": 2
+    },
+    "Exploration CI Support": {
+      "0-30": 4,
+      "31-60": 1,
+      ">60": 2,
+      "total": 7
+    },
+    "Exploration IT Support": {
+      "0-30": 1,
+      "31-60": 2,
+      ">60": 1,
+      "total": 4
+    },
+    "Hounde IT Agents": {
+      "0-30": 13,
+      "31-60": 0,
+      ">60": 0,
+      "total": 13
+    },
+    "ITY IT Agents": {
+      "0-30": 9,
+      "31-60": 0,
+      ">60": 0,
+      "total": 9
+    },
+    "Lafigue IT Agents": {
+      "0-30": 23,
+      "31-60": 2,
+      ">60": 0,
+      "total": 25
+    },
+    "Mana IT Agent": {
+      "0-30": 15,
+      "31-60": 0,
+      ">60": 0,
+      "total": 15
+    },
+    "Ouaga IT Agents": {
+      "0-30": 4,
+      "31-60": 0,
+      ">60": 0,
+      "total": 4
+    },
+    "Sabodala IT Agents": {
+      "0-30": 43,
+      "31-60": 16,
+      ">60": 5,
+      "total": 64
+    },
+    "Tanda IT Agents": {
+      "0-30": 4,
+      "31-60": 0,
+      ">60": 3,
+      "total": 7
+    }
+  },
+  "active_groups": 12,
+  "csat": {
+    "total_responses": 175,
+    "satisfied": 144,
+    "neutral": 10,
+    "dissatisfied": 7,
+    "no_rating": 14,
+    "csat_pct": 89.4,
+    "nps_proxy": 85,
+    "avg_score_1to5": 4.13,
+    "avg_score_pct": 82.6
+  },
+  "activity_tracker": {
+    "fleet_avg": 65,
+    "fleet_delta_pp": 1,
+    "green_total": 48,
+    "amber_total": 42,
+    "red_total": 47,
+    "on_target_pct": 35,
+    "activity_pct": 84,
+    "best_site": "HGO",
+    "best_site_score": 73,
+    "watch_site": "ITY",
+    "watch_site_score": 59,
+    "pillars": {
+      "Network Infra": {
+        "weight": 30,
+        "score_may": 56,
+        "delta_pp": 9,
+        "g": 13,
+        "a": 20,
+        "r": 0
+      },
+      "Biz Partnering": {
+        "weight": 35,
+        "score_may": 70,
+        "delta_pp": -2,
+        "g": 15,
+        "a": 9,
+        "r": 21
+      },
+      "Risk & Compliance": {
+        "weight": 20,
+        "score_may": 72,
+        "delta_pp": -2,
+        "g": 16,
+        "a": 10,
+        "r": 18
+      },
+      "People Dev": {
+        "weight": 15,
+        "score_may": 59,
+        "delta_pp": -3,
+        "g": 4,
+        "a": 3,
+        "r": 8
+      }
+    },
+    "sites": [
+      {
+        "code": "HGO",
+        "name": "Hound\u00e9",
+        "score": 73,
+        "delta_pp": 7,
+        "g": 15,
+        "a": 7,
+        "r": 7,
+        "rank": 1,
+        "tag": "LEADING"
+      },
+      {
+        "code": "SML",
+        "name": "Lafigu\u00e9",
+        "score": 67,
+        "delta_pp": 0,
+        "g": 8,
+        "a": 7,
+        "r": 12,
+        "rank": 2,
+        "tag": "STABLE"
+      },
+      {
+        "code": "MGO",
+        "name": "Mana",
+        "score": 63,
+        "delta_pp": -6,
+        "g": 9,
+        "a": 11,
+        "r": 9,
+        "rank": 3,
+        "tag": "DECLINED"
+      },
+      {
+        "code": "SGO",
+        "name": "Sabodala",
+        "score": 61,
+        "delta_pp": 5,
+        "g": 8,
+        "a": 12,
+        "r": 9,
+        "rank": 4,
+        "tag": "RECOVERY"
+      },
+      {
+        "code": "ITY",
+        "name": "Ity",
+        "score": 59,
+        "delta_pp": 0,
+        "g": 8,
+        "a": 5,
+        "r": 10,
+        "rank": 5,
+        "tag": "LAGGING"
+      }
+    ],
+    "trend_jan_may": {
+      "Fleet": [
+        26,
+        29,
+        55,
+        64,
+        65
+      ]
+    },
+    "site_trend": {
+      "MGO": {
+        "apr": 72,
+        "may": 63
+      },
+      "HGO": {
+        "apr": 66,
+        "may": 73
+      },
+      "SML": {
+        "apr": 69,
+        "may": 67
+      },
+      "ITY": {
+        "apr": 59,
+        "may": 59
+      },
+      "SGO": {
+        "apr": 56,
+        "may": 61
+      }
+    },
+    "exec_commentary": [
+      "Fleet performance improved by 1pp to 65% (64%\u219265%). Target attainment: 35%.",
+      "Network Infra (30%): fleet avg +9pp \u2014 positive momentum.",
+      "Systemic gap: Monthly Inspection, Mid Year and Yearly Review RED at all sites \u2014 requires coordinated intervention.",
+      "Improved: HGO +7pp (66%\u219273%), SGO +5pp (56%\u219261%).",
+      "Declined: MGO -6pp.",
+      "Stable (\u00b12pp): SML 67%, ITY 59%.",
+      "HGO newly GREEN: Bandwidth & Service Dynamic Allocation.",
+      "SML newly GREEN: Local Infrastructure Monitoring.",
+      "MGO newly RED: Monthly Department Meeting, Bi-Weekly CAB, Weekly Hazards Reporting.",
+      "HGO standout in Network Infra: +15pp.",
+      "MGO dropped in Risk & Compliance: -11pp \u2014 escalation recommended."
+    ]
+  },
+  "frt_sla": 86.4,
+  "frt_sla_delta_pp": 3.2,
+  "time_to_assign_h": 19,
+  "first_reply_h": 15,
+  "closing_time_d": 2,
+  "trend": {
+    "months": [
+      "Jun 25",
+      "Jul 25",
+      "Aug 25",
+      "Sept 25",
+      "Oct 25",
+      "Nov 25",
+      "Dec 25",
+      "Jan 26",
+      "Feb 26",
+      "Mar 26",
+      "Apr 26",
+      "May 26"
+    ],
+    "inbound": [
+      945,
+      996,
+      918,
+      1140,
+      1277,
+      1471,
+      1408,
+      1629,
+      1398,
+      1602,
+      1458,
+      1327
+    ],
+    "closed": [
+      944,
+      995,
+      918,
+      1137,
+      1277,
+      1468,
+      1408,
+      1628,
+      1397,
+      1596,
+      1428,
+      1238
+    ],
+    "sla_compliance": [
+      68.1,
+      61.4,
+      63.3,
+      78.4,
+      80.7,
+      72.1,
+      83.9,
+      87.8,
+      87.2,
+      86.6,
+      83.6,
+      91.6
+    ],
+    "frt_compliance": [
+      49.3,
+      45.9,
+      50.1,
+      72.2,
+      75.6,
+      65.4,
+      74.8,
+      72.6,
+      78.0,
+      72.8,
+      70.2,
+      79.1
+    ]
+  },
+  "ageing_dashboard": {
+    "0-7": 76,
+    "8-14": 29,
+    "15-30": 32,
+    "31-60": 29,
+    "60+": 22,
+    "total": 188
+  }
+}

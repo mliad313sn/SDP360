@@ -1,0 +1,56 @@
+# ─────────────────────────────────────────────────────────────────────────
+#  Endeavour Mining — IT Dashboard  |  docker compose up
+# ─────────────────────────────────────────────────────────────────────────
+#  Usage:
+#    1. Copy .env.example → .env and fill in your Zoho credentials
+#    2. Run:  docker compose up -d
+#    3. Open: http://localhost:3456
+#    4. Stop: docker compose down
+# ─────────────────────────────────────────────────────────────────────────
+
+# version field removed — obsolete in Docker Compose v2+
+
+services:
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: endeavour-it-dashboard
+    restart: unless-stopped          # auto-restarts if server crashes or machine reboots
+
+    # Port mapping: 0.0.0.0:host:container
+    # Binding to 0.0.0.0 opens the port to all network interfaces so team members
+    # on the LAN can access the dashboard via http://<server-ip>:3456
+    # The dashboard is protected by DASH_USER / DASH_PASS in the .env file.
+    ports:
+      - "0.0.0.0:${PORT:-3456}:3456"
+
+    # Load environment variables from .env file automatically
+    env_file:
+      - .env
+
+    # Mount source files so changes take effect after "docker compose restart"
+    # (no image rebuild needed for code changes — only for new npm deps)
+    # HTML changes: just edit public/ and refresh browser — no restart needed.
+    volumes:
+      - ./public:/app/public:ro           # :ro = read-only inside container
+      - ./server.js:/app/server.js:ro
+      - ./reports-db.js:/app/reports-db.js:ro
+      - ./reports-weekly-pptx.js:/app/reports-weekly-pptx.js:ro
+      - ./zoho-sync.js:/app/zoho-sync.js:ro   # sync module — background jobs
+      - ./data:/app/data                  # writable — stores notes.json, reports.db (SQLite)
+
+    # Health check visible in "docker ps" output
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3456/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+    # Logging — keeps last 10MB of logs, max 5 files
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"

@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IT Activity Tracker — Endeavour Mining</title>
+<script src="auth.js" data-require="any"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="_shell.css">
+<link rel="stylesheet" href="brand/icons.css">
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js" defer></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap');
+:root{--bg:#f8f9fb;--card:#fff;--border:#e2e8f0;--text:#1e293b;--muted:#64748b;--light:#94a3b8;
+--green:#16a34a;--green-bg:#dcfce7;--amber:#d97706;--amber-bg:#fef3c7;--red:#dc2626;--red-bg:#fee2e2;
+--teal:#0d9488;--blue:#2563eb;--purple:#7c3aed;--header:#1e293b;--radius:10px;
+--shadow:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);
+--shadow-md:0 4px 12px rgba(0,0,0,.08);--shadow-lg:0 10px 30px rgba(0,0,0,.12);
+--hdr-h:52px;--nav-h:44px}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);font-size:13px;line-height:1.5;-webkit-font-smoothing:antialiased;display:flex;flex-direction:column}
+::selection{background:#0d948833}
+#app{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+
+/* ═ HEADER ═ */
+.header{background:linear-gradient(135deg,#1e293b 0%,#0f172a 100%);color:#fff;padding:10px 24px;display:flex;align-items:center;gap:14px;flex-shrink:0;z-index:100;min-height:var(--hdr-h);flex-wrap:wrap}
+.header h1{font-size:16px;font-weight:700;letter-spacing:-.4px;white-space:nowrap}
+.header .sub{font-size:11px;color:#94a3b8;margin-top:1px}
+.hr{display:flex;align-items:center;gap:8px;margin-left:auto;flex-wrap:wrap}
+.sel{background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:8px;padding:4px 8px;font-family:inherit;font-size:12px;transition:border-color .2s;cursor:pointer}
+.sel:hover{border-color:#64748b}.sel:focus{outline:none;border-color:var(--teal);box-shadow:0 0 0 3px rgba(13,148,136,.2)}
+
+/* ═ BUTTONS ═ */
+.btn{padding:6px 12px;border:none;border-radius:8px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:4px;transition:all .2s;white-space:nowrap}
+.btn:active{transform:scale(.97)}
+.btn-t{background:var(--teal);color:#fff;box-shadow:0 1px 3px rgba(13,148,136,.3)}.btn-t:hover{background:#0f766e}
+.btn-p{background:var(--purple);color:#fff}.btn-p:hover{background:#6d28d9}
+.btn-d{background:#334155;color:#e2e8f0}.btn-d:hover{background:#475569}
+.btn-r{background:transparent;color:#94a3b8;border:1px solid #475569}.btn-r:hover{color:#fff}
+.btn-x{background:var(--red-bg);color:var(--red);font-size:11px;padding:4px 8px;border-radius:6px;border:1px solid #fecaca}.btn-x:hover{background:var(--red);color:#fff}
+
+/* ═ NAV ═ */
+.nav{display:flex;background:#fff;border-bottom:1px solid var(--border);padding:0 24px;overflow-x:auto;flex-shrink:0;z-index:99;box-shadow:var(--shadow)}
+.nav button{padding:11px 16px;font-family:inherit;font-size:12px;font-weight:600;color:var(--muted);background:none;border:none;border-bottom:2.5px solid transparent;cursor:pointer;white-space:nowrap;transition:all .2s}
+.nav button:hover{color:var(--text);background:#f8fafc}.nav button.active{color:var(--teal);border-bottom-color:var(--teal)}
+
+/* ═ SCROLLABLE CONTENT AREA ═ */
+.container{flex:1;overflow-y:auto;overflow-x:hidden;padding:16px 24px;max-width:1440px;width:100%;margin:0 auto}
+
+/* ═ STATUS BAR ═ */
+.sb{font-size:12px;color:var(--muted);margin-bottom:12px;display:flex;gap:14px;align-items:center;padding:8px 14px;background:var(--card);border:1px solid var(--border);border-radius:8px;flex-shrink:0}
+.sb .dot{width:8px;height:8px;border-radius:50%;display:inline-block;box-shadow:0 0 6px currentColor}
+
+/* ═ CARDS ═ */
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px;margin-bottom:16px}
+.card{background:var(--card);border-radius:12px;padding:16px;border:1px solid var(--border);position:relative;overflow:hidden;cursor:pointer;transition:all .2s;box-shadow:var(--shadow)}
+.card:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);border-color:#cbd5e1}
+.card .ac{position:absolute;left:0;top:0;bottom:0;width:4px;border-radius:4px 0 0 4px}
+.card .s{font-size:14px;font-weight:700;margin-bottom:2px}.card .n{font-size:11px;color:var(--muted);margin-bottom:10px}
+.card .g{display:flex;gap:6px;font-size:17px;font-weight:700;align-items:baseline}
+.card .g .gv{color:var(--green)}.card .g .av{color:var(--amber)}.card .g .rv{color:var(--red)}.card .g .sp{color:#e2e8f0;font-size:12px}
+.card .ag{margin-top:8px;font-size:12px;color:var(--muted);display:flex;align-items:baseline;gap:6px}
+.card .ag b{font-size:20px;color:var(--text);font-weight:700}
+.card .delta{font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px}
+.delta-up{color:var(--green);background:var(--green-bg)}.delta-down{color:var(--red);background:var(--red-bg)}.delta-flat{color:var(--light);background:#f1f5f9}
+.card.off{opacity:.3;filter:grayscale(.5)}.card.off:hover{transform:none}
+
+/* ═ CHARTS ═ */
+.cg{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.cb{background:var(--card);border-radius:12px;padding:20px;border:1px solid var(--border);box-shadow:var(--shadow)}
+.cb h3{font-size:13px;font-weight:700;margin-bottom:14px}.cb canvas{max-height:280px}
+
+/* ═ TABLE WRAPPER — THIS IS THE KEY FIX ═ */
+.tbl-wrap{overflow:auto;border:1px solid var(--border);border-radius:10px;background:var(--card);box-shadow:var(--shadow);max-height:calc(100vh - 240px)}
+table{width:100%;border-collapse:separate;border-spacing:0;font-size:12px}
+th{background:linear-gradient(135deg,#1e293b,#0f172a);color:#e2e8f0;padding:10px 12px;text-align:left;font-weight:600;font-size:11px;position:sticky;top:0;z-index:10;white-space:nowrap;letter-spacing:.3px;text-transform:uppercase}
+th:first-child{border-radius:0}th:last-child{border-radius:0}
+td{padding:8px 12px;border-bottom:1px solid #f1f5f9;vertical-align:middle;transition:background .1s}
+tbody tr:nth-child(even) td{background:#fafbfc}
+tbody tr:hover td{background:#f0f9ff}
+
+/* ═ RAG ═ */
+.rag{display:inline-flex;align-items:center;padding:3px 10px;border-radius:6px;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+.rag.green{background:var(--green-bg);color:var(--green);border:1px solid #bbf7d0}
+.rag.amber{background:var(--amber-bg);color:var(--amber);border:1px solid #fde68a}
+.rag.red{background:var(--red-bg);color:var(--red);border:1px solid #fecaca}
+.rag.na{background:#f1f5f9;color:#94a3b8;border:1px solid #e2e8f0}
+
+.sb2{height:6px;background:#e5e7eb;border-radius:4px;overflow:hidden;width:72px;display:inline-block;vertical-align:middle;margin-right:6px}
+.sb2 .f{height:100%;border-radius:4px;transition:width .4s ease}
+.pt{font-size:10px;padding:3px 8px;border-radius:6px;font-weight:600;white-space:nowrap}
+.pr td{background:#f8fafc!important;font-weight:700;font-size:12px;border-top:2px solid var(--border);border-bottom:2px solid var(--border)}
+
+/* ═ TIMELINE ═ */
+.tc{width:28px;height:26px;display:inline-flex;align-items:center;justify-content:center;border-radius:6px;font-size:13px;font-weight:700;margin:1px;transition:transform .15s}
+.tc:hover{transform:scale(1.1)}
+.td{background:var(--green-bg);color:var(--green);border:1px solid #bbf7d0}
+.tp{background:#ccfbf1;color:var(--teal);border:1px solid #99f6e4}
+.tf{background:#f1f5f9;color:#cbd5e1;border:1px solid #e2e8f0}
+.tn{background:#fafafa;color:#e5e7eb}
+
+/* ═ INPUT CELLS ═ */
+.ic{width:52px;padding:6px 4px;text-align:center;border:1.5px solid var(--border);border-radius:6px;font-family:'JetBrains Mono',monospace;font-size:12px;background:var(--card);transition:all .2s}
+.ic:focus{outline:none;border-color:var(--teal);box-shadow:0 0 0 3px rgba(13,148,136,.15)}
+.ic.hv{background:#d1fae5;font-weight:600;color:#065f46;border-color:#86efac}
+.ic.ip{background:#fef3c7;font-weight:600;color:#92400e;border-color:#fcd34d}
+.ic:disabled{background:#f8fafc;color:#94a3b8;border-color:#f1f5f9;cursor:not-allowed}
+
+/* ═ CONFIG ═ */
+.ci{padding:6px 8px;border:1.5px solid #e5e7eb;border-radius:6px;font-family:inherit;font-size:12px;background:#fffbeb;transition:all .2s}
+.ci:focus{outline:none;border-color:var(--teal);box-shadow:0 0 0 3px rgba(13,148,136,.12)}
+.cs{padding:5px 8px;border:1.5px solid #e5e7eb;border-radius:6px;font-family:inherit;font-size:12px;background:#fffbeb;cursor:pointer}
+.cs:focus{outline:none;border-color:var(--teal)}
+
+/* ═ SITE FILTER ═ */
+.sf{display:flex;gap:6px;padding:10px 0;flex-wrap:wrap;flex-shrink:0}
+.sb3{padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;border:1.5px solid var(--border);background:var(--card);cursor:pointer;font-family:inherit;transition:all .2s;box-shadow:var(--shadow)}
+.sb3:hover{border-color:var(--teal);transform:translateY(-1px)}.sb3.active{color:#fff}
+
+.stag{font-size:9px;background:#fef3c7;color:#92400e;padding:2px 6px;border-radius:4px;margin-left:4px;font-weight:700;border:1px solid #fde68a}
+.pb{height:8px;background:#e5e7eb;border-radius:5px;overflow:hidden;min-width:50px}.pb .f{height:100%;border-radius:5px;transition:width .4s ease}
+.kpi-r{display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap;flex-shrink:0}
+.kp{text-align:center;min-width:80px;padding:12px 16px;background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow)}
+.kp .v{font-size:26px;font-weight:700}.kp .l{font-size:11px;color:var(--muted);margin-top:2px}
+.toast{position:fixed;bottom:24px;right:24px;background:linear-gradient(135deg,#1e293b,#0f172a);color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;opacity:0;transition:all .3s;z-index:200;pointer-events:none;box-shadow:var(--shadow-lg)}
+.toast.show{opacity:1;transform:translateY(-4px)}
+.mo{position:fixed;inset:0;background:rgba(15,23,42,.6);backdrop-filter:blur(4px);z-index:300;display:flex;align-items:center;justify-content:center;animation:fadeIn .2s}
+.md{background:var(--card);border-radius:16px;padding:28px;max-width:560px;width:92%;max-height:80vh;overflow-y:auto;box-shadow:var(--shadow-lg);animation:slideUp .25s ease-out}
+.md h2{font-size:17px;font-weight:700;margin-bottom:16px}.md label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin:12px 0 4px}
+.md input,.md select{width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:13px;transition:all .2s}
+.md input:focus,.md select:focus{outline:none;border-color:var(--teal);box-shadow:0 0 0 3px rgba(13,148,136,.12)}
+.md .rw{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.md .acts{display:flex;gap:8px;margin-top:20px;justify-content:flex-end}
+.ep{position:absolute;top:38px;right:0;background:linear-gradient(135deg,#1e293b,#0f172a);border:1px solid #334155;border-radius:12px;padding:16px;min-width:250px;z-index:200;box-shadow:var(--shadow-lg);animation:slideDown .2s ease-out}
+.comment-box{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:16px;box-shadow:var(--shadow);flex-shrink:0}
+.comment-box h4{font-size:14px;font-weight:700;margin-bottom:10px}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slideDown{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}::-webkit-scrollbar-thumb:hover{background:#94a3b8}
+@media(max-width:1024px){.cg{grid-template-columns:1fr}.container{padding:14px 18px}}
+@media(max-width:768px){.cards{grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}.header{padding:10px 14px}.nav{padding:0 14px}.kp{min-width:65px;padding:10px}.kp .v{font-size:22px}td{padding:6px 8px;font-size:11px}}
+@media(max-width:480px){.cards{grid-template-columns:repeat(2,1fr);gap:8px}.card{padding:12px}.card .g{font-size:14px}.hr{gap:5px}.btn{padding:5px 8px;font-size:11px}}
+
+/* ═ HEATMAP ═ */
+.hm-cell{width:36px;height:28px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;transition:all .15s;border:1.5px solid transparent;user-select:none}
+.hm-cell:hover{transform:scale(1.1)}
+.hm-on{background:var(--green-bg);color:var(--green);border-color:#bbf7d0}
+.hm-off{background:#f8f9fb;color:#e2e8f0;border-color:#f1f5f9}
+.hm-off:hover{background:var(--green-bg);color:#bbf7d0;border-color:#bbf7d0}
+.hm-site-hdr{writing-mode:vertical-rl;transform:rotate(180deg);font-size:11px;font-weight:700;padding:8px 4px;text-align:center;letter-spacing:.3px}
+.hm-stats{font-size:10px;color:var(--muted);padding:4px 8px;text-align:center;font-weight:600}
+.hm-bar{height:4px;border-radius:2px;background:#e5e7eb;overflow:hidden;width:100%;margin-top:3px}
+.hm-bar .f{height:100%;border-radius:2px;background:var(--teal)}
+</style>
+<script src="_shell.js" defer></script>
+</head>
+<body>
+<!-- ═ Unified shell (rendered by _shell.js — re-rendered after auth.js sets user state) ═ -->
+<div id="__shell" data-section="performance" data-current="tracker" data-version="v1.10.8"></div>
+<div id="app" role="application" aria-label="IT Activity Tracker"></div>
+<div class="toast" role="alert" aria-live="polite" id="toast"></div>
+<div id="mr"></div>
+<script>
+const INIT={"sites":["MGO","HGO","SML","ITY","SGO","ABJ","DKR","KLN","EXP","EDV"],"siteNames":{"MGO":"Mana","HGO":"Hound\u00e9","SML":"Lafigu\u00e9","ITY":"Ity","SGO":"Sabodala","ABJ":"Abidjan","DKR":"Dakar","KLN":"Kalana","EXP":"Exploration","EDV":"Ouagadougou-EDV1"},"siteColors":{"MGO":"#0D9488","HGO":"#D97706","SML":"#7C3AED","ITY":"#B8860B","SGO":"#2563EB","ABJ":"#6366F1","DKR":"#0891B2","KLN":"#DC2626","EXP":"#65A30D","EDV":"#9333EA"},"activeSites":["MGO","HGO","SML","ITY","SGO"],"currentMonth":3,"activities":[{"id":1,"num":1,"pillar":"P1-Network Infrast","name":"Link 1 Upgrade","kpi":"BOOLEAN","weight":0.12,"start":1,"end":12,"shared":false},{"id":2,"num":2,"pillar":"P1-Network Infrast","name":"Link 2 Upgrade","kpi":"BOOLEAN","weight":0.08,"start":1,"end":12,"shared":false},{"id":3,"num":3,"pillar":"P1-Network Infrast","name":"Bandwidth & Service Dynamic Allocation","kpi":"BOOLEAN","weight":0.08,"start":1,"end":12,"shared":false},{"id":4,"num":4,"pillar":"P1-Network Infrast","name":"Distribution Layer Standardization","kpi":"BOOLEAN","weight":0.12,"start":1,"end":12,"shared":false},{"id":5,"num":5,"pillar":"P1-Network Infrast","name":"Local Infrastructure Monitoring","kpi":"COUNT","weight":0.08,"start":1,"end":12,"shared":false},{"id":6,"num":6,"pillar":"P1-Network Infrast","name":"Radio Infrastructure Monitoring","kpi":"BOOLEAN","weight":0.08,"start":1,"end":12,"shared":false},{"id":7,"num":7,"pillar":"P1-Network Infrast","name":"Radio Infrastructure Upgrade","kpi":"BOOLEAN","weight":0.12,"start":1,"end":12,"shared":false},{"id":8,"num":8,"pillar":"P1-Network Infrast","name":"Coverage & Capacity Improvement","kpi":"BOOLEAN","weight":0.12,"start":1,"end":12,"shared":false},{"id":9,"num":9,"pillar":"P1-Network Infrast","name":"Resilience & DC Standardization","kpi":"BOOLEAN","weight":0.12,"start":1,"end":12,"shared":false},{"id":10,"num":10,"pillar":"P1-Network Infrast","name":"Centralized Fire Suppression System","kpi":"BOOLEAN","weight":0.08,"start":4,"end":12,"shared":false},{"id":11,"num":12,"pillar":"P2-Business Partner","name":"Weekly IT Meeting","kpi":"COUNT","weight":0.083,"start":1,"end":12,"shared":false},{"id":12,"num":13,"pillar":"P2-Business Partner","name":"Monthly / Quarterly Cost Review","kpi":"COUNT","weight":0.083,"start":3,"end":12,"shared":false},{"id":13,"num":14,"pillar":"P2-Business Partner","name":"Monthly Department Meeting","kpi":"COUNT","weight":0.125,"start":3,"end":10,"shared":false},{"id":14,"num":15,"pillar":"P2-Business Partner","name":"Business Department Incubation","kpi":"COUNT","weight":0.125,"start":3,"end":10,"shared":false},{"id":15,"num":16,"pillar":"P2-Business Partner","name":"Toolbox & Awareness Campaigns","kpi":"COUNT","weight":0.083,"start":1,"end":10,"shared":false},{"id":16,"num":17,"pillar":"P2-Business Partner","name":"IT Achievements & Progress Communication","kpi":"COUNT","weight":0.042,"start":1,"end":10,"shared":true},{"id":17,"num":18,"pillar":"P2-Business Partner","name":"Network & End-User Satisfaction Survey","kpi":"COUNT","weight":0.085,"start":1,"end":12,"shared":true},{"id":18,"num":19,"pillar":"P2-Business Partner","name":"Stakeholder Management Workshops","kpi":"COUNT","weight":0.083,"start":1,"end":6,"shared":false},{"id":19,"num":20,"pillar":"P2-Business Partner","name":"IT Project / Initiatives","kpi":"COUNT","weight":0.165,"start":1,"end":12,"shared":false},{"id":20,"num":21,"pillar":"P3-Risk & Compliance","name":"Combined Monthly Risks & Major Incident Review","kpi":"COUNT","weight":0.1,"start":3,"end":12,"shared":false},{"id":21,"num":22,"pillar":"P3-Risk & Compliance","name":"Quarterly BackUp / Restore Test","kpi":"COUNT","weight":0.1,"start":1,"end":12,"shared":false},{"id":22,"num":23,"pillar":"P3-Risk & Compliance","name":"Monthly Changes Review","kpi":"COUNT","weight":0.1,"start":3,"end":12,"shared":false},{"id":23,"num":24,"pillar":"P3-Risk & Compliance","name":"Bi-Weekly CAB","kpi":"COUNT","weight":0.1,"start":1,"end":12,"shared":false},{"id":24,"num":26,"pillar":"P3-Risk & Compliance","name":"Daily Check","kpi":"COUNT","weight":0.1,"start":1,"end":12,"shared":false},{"id":25,"num":27,"pillar":"P3-Risk & Compliance","name":"Monthly Inspection","kpi":"COUNT","weight":0.1,"start":2,"end":10,"shared":false},{"id":26,"num":28,"pillar":"P3-Risk & Compliance","name":"VFL Visible Felt Leadership","kpi":"COUNT","weight":0.1,"start":1,"end":10,"shared":false},{"id":27,"num":29,"pillar":"P3-Risk & Compliance","name":"Weekly Hazards Reporting","kpi":"COUNT","weight":0.1,"start":1,"end":12,"shared":false},{"id":28,"num":30,"pillar":"P3-Risk & Compliance","name":"Monthly Access Review","kpi":"COUNT","weight":0.1,"start":2,"end":10,"shared":false},{"id":29,"num":31,"pillar":"P4-Manage People","name":"Monthly Mentoring / Coaching Session","kpi":"COUNT","weight":0.45,"start":3,"end":10,"shared":false},{"id":30,"num":32,"pillar":"P4-Manage People","name":"Quarterly People Assessment","kpi":"COUNT","weight":0.3,"start":1,"end":12,"shared":false},{"id":31,"num":33,"pillar":"P4-Manage People","name":"Mid Year and Yearly Review","kpi":"COUNT","weight":0.25,"start":4,"end":12,"shared":false}],"targets":{"MGO":[{"target":"TRUE/FALSE","active":true},{"target":"TRUE/FALSE","active":true},{"target":"TRUE/FALSE","active":true},{"target":"TRUE/FALSE","active":true},{"target":3,"active":true},{"target":"TRUE/FALSE","active":false},{"target":"TRUE/FALSE","active":true},{"target":"TRUE/FALSE","active":false},{"target":"TRUE/FALSE","active":true},{"target":"TRUE/FALSE","active":true},{"target":52,"active":true},{"target":4,"active":true},{"target":10,"active":true},{"target":1,"active":true},{"target":5,"active":true},{"target":10,"active":true},{"target":3,"active":true},{"target":1,"active":true},{"target":5,"active":true},{"target":10,"active":true},{"target":4,"active":true},{"target":10,"active":true},{"target":20,"active":true},{"target":365,"active":true},{"target":10,"active":true},{"target":10,"active":true},{"target":20,"active":true},{"target":10,"active":true},{"target":9,"active":true},{"target":3,"active":true},{"target":2,"active":true}],"HGO":[{"target":"TRUE/FALSE","active":true},{"target":"TRUE/FALSE","active":true},{"target":"TRUE/FALSE","active":true},{"target":"TRUE/FALSE","active":true},{"target":3,"active":true},{"target":"TRUE/FALSE","active":false},{"target":"TRUE/FALSE","active":true},{"target":"TRUE/FALSE","active":true},{"target":"TRUE/FALSE","active":true},{"target":"TRUE/FALSE","active":true},{"target":52,"active":true},{"target":4,"active":true},{"target":10,"active":true},{"target":10,"active":true},{"target":10,"active":true},{"target":10,"active":true},{"target":4,"active":true},{"target":1,"active":true},{"target":12,"active":true},{"target":10,"active":true},{"target":4,"active":true},{"target":10,"active":true},{"target":20,"active":true},{"target":365,"active":true},{"target":10,"active":true},{"target":10,"active":true},{"target":48,"active":true},{"target":12,"active":true},{"target":10,"active":true},{"target":4,"active":true},{"target":2,"active":true}],"SML":[{"target":"TRUE/FALSE","active":true},{"target":"TRUE/FALSE","active":true},{"target":"TRUE/FALSE","active":true},{"target":"TRUE/FALSE","active":true},{"target":3,"active":true},{"target":"TRUE/FALSE","active":false},{"target":"TRUE/FALSE","active":true},{"target":"TRUE/FALSE","active":true},{"target":"TRUE/FALSE","active":true},{"target":"TRUE/FALSE","active":true},{"target":52,"active":true},{"target":4,"active":true},{"target":10,"active":true},{"target":10,"active":true},{"target":10,"active":true},{"target":10,"active":true},{"target":4,"active":true},{"target":1,"active":true},{"target":12,"active":true},{"target":10,"active":true},{"target":4,"active":true},{"target":10,"active":true},{"target":20,"active":true},{"target":365,"active":true},{"target":10,"active":true},{"target":10,"active":true},{"target":48,"active":true},{"target":12,"active":true},{"target":10,"active":true},{"target":4,"active":true},{"target":2,"active":true}],"ITY":[{"target":"TRUE/FALSE","active":true},{"target":"TRUE/FALSE","active":true},{"target":"TRUE/FALSE","active":true},{"target":"TRUE/FALSE","active":true},{"target":3,"active":true},{"target":"TRUE/FALSE","active":false},{"target":"TRUE/FALSE","active":true},{"target":"TRUE/FALSE","active":true},{"target":"TRUE/FALSE","active":true},{"target":"TRUE/FALSE","active":true},{"target":52,"active":true},{"target":4,"active":true},{"target":10,"active":true},{"target":10,"active":true},{"target":10,"active":true},{"target":10,"active":true},{"target":4,"active":true},{"target":1,"active":true},{"target":12,"active":true},{"target":10,"active":true},{"target":4,"active":true},{"target":10,"active":true},{"target":20,"active":true},{"target":365,"active":true},{"target":10,"active":true},{"target":10,"active":true},{"target":48,"active":true},{"target":12,"active":true},{"target":10,"active":true},{"target":4,"active":true},{"target":2,"active":true}],"SGO":[{"target":"TRUE/FALSE","active":true},{"target":"TRUE/FALSE","active":true},{"target":"TRUE/FALSE","active":true},{"target":"TRUE/FALSE","active":true},{"target":3,"active":true},{"target":"TRUE/FALSE","active":false},{"target":"TRUE/FALSE","active":true},{"target":"TRUE/FALSE","active":true},{"target":"TRUE/FALSE","active":true},{"target":"TRUE/FALSE","active":true},{"target":52,"active":true},{"target":4,"active":true},{"target":10,"active":true},{"target":10,"active":true},{"target":10,"active":true},{"target":10,"active":true},{"target":4,"active":true},{"target":1,"active":true},{"target":12,"active":true},{"target":10,"active":true},{"target":4,"active":true},{"target":10,"active":true},{"target":20,"active":true},{"target":365,"active":true},{"target":10,"active":true},{"target":10,"active":true},{"target":48,"active":true},{"target":12,"active":true},{"target":10,"active":true},{"target":4,"active":true},{"target":2,"active":true}],"ABJ":[{"target":"TRUE/FALSE","active":false},{"target":"TRUE/FALSE","active":false},{"target":"TRUE/FALSE","active":false},{"target":"TRUE/FALSE","active":false},{"target":3,"active":false},{"target":"TRUE/FALSE","active":false},{"target":"TRUE/FALSE","active":false},{"target":"TRUE/FALSE","active":false},{"target":"TRUE/FALSE","active":false},{"target":"TRUE/FALSE","active":false},{"target":52,"active":false},{"target":4,"active":false},{"target":10,"active":false},{"target":10,"active":false},{"target":10,"active":false},{"target":10,"active":false},{"target":4,"active":false},{"target":1,"active":false},{"target":12,"active":false},{"target":10,"active":false},{"target":4,"active":false},{"target":10,"active":false},{"target":20,"active":false},{"target":365,"active":false},{"target":10,"active":false},{"target":10,"active":false},{"target":48,"active":false},{"target":12,"active":false},{"target":10,"active":false},{"target":4,"active":false},{"target":2,"active":false}],"DKR":[{"target":"TRUE/FALSE","active":false},{"target":"TRUE/FALSE","active":false},{"target":"TRUE/FALSE","active":false},{"target":"TRUE/FALSE","active":false},{"target":3,"active":false},{"target":"TRUE/FALSE","active":false},{"target":"TRUE/FALSE","active":false},{"target":"TRUE/FALSE","active":false},{"target":"TRUE/FALSE","active":false},{"target":"TRUE/FALSE","active":false},{"target":52,"active":false},{"target":4,"active":false},{"target":10,"active":false},{"target":10,"active":false},{"target":10,"active":false},{"target":10,"active":false},{"target":4,"active":false},{"target":1,"active":false},{"target":12,"active":false},{"target":10,"active":false},{"target":4,"active":false},{"target":10,"active":false},{"target":20,"active":false},{"target":365,"active":false},{"target":10,"active":false},{"target":10,"active":false},{"target":48,"active":false},{"target":12,"active":false},{"target":10,"active":false},{"target":4,"active":false},{"target":2,"active":false}],"KLN":[{"target":"TRUE/FALSE","active":false},{"target":"TRUE/FALSE","active":false},{"target":"TRUE/FALSE","active":false},{"target":"TRUE/FALSE","active":false},{"target":3,"active":false},{"target":"TRUE/FALSE","active":false},{"target":"TRUE/FALSE","active":false},{"target":"TRUE/FALSE","active":false},{"target":"TRUE/FALSE","active":false},{"target":"TRUE/FALSE","active":false},{"target":52,"active":false},{"target":4,"active":false},{"target":10,"active":false},{"target":10,"active":false},{"target":10,"active":false},{"target":10,"active":false},{"target":4,"active":false},{"target":1,"active":false},{"target":12,"active":false},{"target":10,"active":false},{"target":4,"active":false},{"target":10,"active":false},{"target":20,"active":false},{"target":365,"active":false},{"target":10,"active":false},{"target":10,"active":false},{"target":48,"active":false},{"target":12,"active":false},{"target":10,"active":false},{"target":4,"active":false},{"target":2,"active":false}],"EXP":[{"target":"TRUE/FALSE","active":false},{"target":"TRUE/FALSE","active":false},{"target":"TRUE/FALSE","active":false},{"target":"TRUE/FALSE","active":false},{"target":3,"active":false},{"target":"TRUE/FALSE","active":false},{"target":"TRUE/FALSE","active":false},{"target":"TRUE/FALSE","active":false},{"target":"TRUE/FALSE","active":false},{"target":"TRUE/FALSE","active":false},{"target":52,"active":false},{"target":4,"active":false},{"target":10,"active":false},{"target":10,"active":false},{"target":10,"active":false},{"target":10,"active":false},{"target":4,"active":false},{"target":1,"active":false},{"target":12,"active":false},{"target":10,"active":false},{"target":4,"active":false},{"target":10,"active":false},{"target":20,"active":false},{"target":365,"active":false},{"target":10,"active":false},{"target":10,"active":false},{"target":48,"active":false},{"target":12,"active":false},{"target":10,"active":false},{"target":4,"active":false},{"target":2,"active":false}],"EDV":[{"target":"TRUE/FALSE","active":false},{"target":"TRUE/FALSE","active":false},{"target":"TRUE/FALSE","active":false},{"target":"TRUE/FALSE","active":false},{"target":3,"active":false},{"target":"TRUE/FALSE","active":false},{"target":"TRUE/FALSE","active":false},{"target":"TRUE/FALSE","active":false},{"target":"TRUE/FALSE","active":false},{"target":"TRUE/FALSE","active":false},{"target":52,"active":false},{"target":4,"active":false},{"target":10,"active":false},{"target":10,"active":false},{"target":10,"active":false},{"target":10,"active":false},{"target":4,"active":false},{"target":1,"active":false},{"target":12,"active":false},{"target":10,"active":false},{"target":4,"active":false},{"target":10,"active":false},{"target":20,"active":false},{"target":365,"active":false},{"target":10,"active":false},{"target":10,"active":false},{"target":48,"active":false},{"target":12,"active":false},{"target":10,"active":false},{"target":4,"active":false},{"target":2,"active":false}]},"inputs":{"2026":{"MGO":[[0,0,1,0,0,0,0,0,0,0,0,0],[0,0,0,1,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[1,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[4,4,4,0,0,0,0,0,0,0,0,0],[1,1,1,0,0,0,0,0,0,0,0,0],[0,0,1,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,1,0,0,0,0,0,0,0,0,0],[0,0,1,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,1,0,0,0,0,0,0,0,0,0],[1,1,1,0,0,0,0,0,0,0,0,0],[1,1,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[1,1,0,0,0,0,0,0,0,0,0,0],[0,2,2,0,0,0,0,0,0,0,0,0],[31,28,0,0,0,0,0,0,0,0,0,0],[0,0,1,0,0,0,0,0,0,0,0,0],[0,0,3,0,0,0,0,0,0,0,0,0],[0,2,0,0,0,0,0,0,0,0,0,0],[1,1,1,0,0,0,0,0,0,0,0,0],[0,1,1,0,0,0,0,0,0,0,0,0],[0,0,1,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0]],"HGO":[[1,0,0,0,0,0,0,0,0,0,0,0],[0,0,1,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[1,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[4,4,4,0,0,0,0,0,0,0,0,0],[1,1,1,0,0,0,0,0,0,0,0,0],[0,0,3,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,1,0,0,0,0,0,0,0,0,0],[1,1,1,0,0,0,0,0,0,0,0,0],[0,0,1,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[1,1,1,0,0,0,0,0,0,0,0,0],[0,2,2,0,0,0,0,0,0,0,0,0],[31,28,31,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[1,1,1,0,0,0,0,0,0,0,0,0],[0,1,1,0,0,0,0,0,0,0,0,0],[0,0,1,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0]],"SML":[[1,0,0,0,0,0,0,0,0,0,0,0],[0,1,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[4,4,4,0,0,0,0,0,0,0,0,0],[1,1,1,0,0,0,0,0,0,0,0,0],[0,0,5,0,0,0,0,0,0,0,0,0],[0,0,1,0,0,0,0,0,0,0,0,0],[0,0,1,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,1,0,0,0,0,0,0,0,0,0],[1,1,1,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[1,1,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[29,24,31,0,0,0,0,0,0,0,0,0],[0,0,1,0,0,0,0,0,0,0,0,0],[0,0,3,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[1,1,1,0,0,0,0,0,0,0,0,0],[0,1,1,0,0,0,0,0,0,0,0,0],[0,0,1,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0]],"ITY":[[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[1,1,1,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[4,4,4,0,0,0,0,0,0,0,0,0],[1,1,1,0,0,0,0,0,0,0,0,0],[0,0,1,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,1,0,0,0,0,0,0,0,0,0],[1,1,1,0,0,0,0,0,0,0,0,0],[0,0,1,0,0,0,0,0,0,0,0,0],[0,0,1,0,0,0,0,0,0,0,0,0],[1,1,1,0,0,0,0,0,0,0,0,0],[2,2,2,0,0,0,0,0,0,0,0,0],[29,24,27,0,0,0,0,0,0,0,0,0],[0,0,1,0,0,0,0,0,0,0,0,0],[4,4,4,0,0,0,0,0,0,0,0,0],[0,1,1,0,0,0,0,0,0,0,0,0],[1,1,1,0,0,0,0,0,0,0,0,0],[0,0,1,0,0,0,0,0,0,0,0,0],[0,0,1,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0]],"SGO":[[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[1,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[4,4,4,0,0,0,0,0,0,0,0,0],[1,1,1,0,0,0,0,0,0,0,0,0],[0,0,1,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,1,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,1,0,0,0,0,0,0,0,0,0],[1,1,1,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[1,1,0,0,0,0,0,0,0,0,0,0],[0,0,1,0,0,0,0,0,0,0,0,0],[29,24,31,0,0,0,0,0,0,0,0,0],[0,0,1,0,0,0,0,0,0,0,0,0],[0,0,3,0,0,0,0,0,0,0,0,0],[0,0,11,0,0,0,0,0,0,0,0,0],[1,1,1,0,0,0,0,0,0,0,0,0],[0,0,1,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0]],"ABJ":[[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0]],"DKR":[[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0]],"KLN":[[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0]],"EXP":[[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0]],"EDV":[[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0]]}},"year":2026,"years":[2026],"pillarWeights":{"P1-Network Infrast":0.3,"P2-Business Partner":0.35,"P3-Risk & Compliance":0.2,"P4-Manage People":0.15}};
+
+let D=JSON.parse(JSON.stringify(INIT));
+// Pillar weights (design allocation)
+if(!D.pillarWeights)D.pillarWeights={'P1-Network Infrast':0.30,'P2-Business Partner':0.35,'P3-Risk & Compliance':0.20,'P4-Manage People':0.15};
+const MO=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const PC={};
+let S={view:'dashboard',site:null,month:D.currentMonth,year:D.year,dirty:false};
+let CI=[];
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
+function gP(){return[...new Set(D.activities.map(a=>a.pillar))];}
+function gPS(p){return p.replace(/^P\d+-/,'').replace('Network Infrast','Network Infra').replace('Business Partner','Biz Partnering').replace('Manage People','People Dev');}
+function gPC(p){if(!PC[p])PC[p]=['#0d9488','#7c3aed','#d97706','#2563eb','#6366f1','#0891b2','#dc2626','#65a30d'][gP().indexOf(p)%8]||'#64748b';return PC[p];}
+function gi(yr,site,ai,mi){return D.inputs[yr]?.[site]?.[ai]?.[mi]||0;}
+function si2(yr,site,ai,mi,v){if(!D.inputs[yr])D.inputs[yr]={};if(!D.inputs[yr][site])D.inputs[yr][site]=[];if(!D.inputs[yr][site][ai])D.inputs[yr][site][ai]=new Array(12).fill(0);D.inputs[yr][site][ai][mi]=v;}
+// ── Persistence helpers (SQLite backend via /api/tracker/*) ──────────────
+function _token(){return document.cookie.match(/report_token=([^;]+)/)?.[1]||'';}
+async function save(){
+  try{
+    const r=await fetch('/api/tracker/save',{method:'POST',headers:{'Content-Type':'application/json','x-report-token':_token()},body:JSON.stringify({D})});
+    if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error||r.statusText);}
+    S.dirty=false;render();toast('Saved ✓');
+  }catch(e){toast('Save failed: '+e.message);}
+}
+async function loadFromServer(){
+  try{
+    const r=await fetch('/api/tracker/load',{headers:{'x-report-token':_token()}});
+    if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error||r.statusText);}
+    const data=await r.json();
+    if(data.D){D=data.D;S.month=D.currentMonth||S.month;S.year=D.year||S.year;}
+  }catch(e){console.warn('[Tracker] Server load failed, using INIT defaults:',e.message);}
+}
+function load(){/* no-op — initial load is async via loadFromServer() */}
+async function reset(){
+  if(!confirm('Reset ALL data to defaults? This cannot be undone.'))return;
+  try{
+    const r=await fetch('/api/tracker/reset',{method:'POST',headers:{'x-report-token':_token()}});
+    if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error||r.statusText);}
+    const data=await r.json();
+    if(data.D){D=data.D;}else{D=JSON.parse(JSON.stringify(INIT));}
+    if(!D.pillarWeights)D.pillarWeights={'P1-Network Infrast':0.30,'P2-Business Partner':0.35,'P3-Risk & Compliance':0.20,'P4-Manage People':0.15};
+    S.month=D.currentMonth;S.year=D.year;S.dirty=false;render();toast('Reset to defaults ✓');
+  }catch(e){toast('Reset failed: '+e.message);}
+}
+
+// ── RBAC — Role-Based Access Control ──────────────────────────────────────
+// Strict orthogonal feature-role model:
+//   Data entry  = super_admin OR tracker-admin (all sites)
+//                 OR tracker-editor (own site only)
+//   Hierarchy roles below super_admin do NOT grant tracker write access —
+//   an executive without tracker-admin is read-only here.
+//
+//   IS_EXEC     = view-only access to cross-site tabs (timeline/heatmap/
+//                 config/targets) + the Export menu. Executive keeps this
+//                 read+export grant because their job is to consume; only
+//                 SAVE/RESET requires the orthogonal feature role.
+//   CAN_RESET   = reset tracker to defaults. super_admin or tracker-admin.
+//   CAN_SAVE_ALL= save the full D payload (config + all sites).
+//                 super_admin or tracker-admin.
+//   CAN_SAVE_OWN= save inputs scoped to own site only. tracker-editor.
+//   USER_SITE   = locked site code for tracker-editor (without -admin).
+//                 Null when the user can write across sites.
+// Users with NO tracker role still reach this page in view-only mode —
+// they see the Dashboard / Scoring tabs but no Save / Reset / Export
+// buttons, and the cross-site config tabs stay hidden.
+const _RBAC_AU   = window.__authUser || null;
+const _hasRole   = window.__userHasRole || (() => false);
+const IS_EXEC      = !_RBAC_AU || _hasRole('executive') || _hasRole('tracker-admin');
+const CAN_RESET    = _hasRole('super_admin') || _hasRole('tracker-admin');
+const CAN_SAVE_ALL = _hasRole('super_admin') || _hasRole('tracker-admin');
+const CAN_SAVE_OWN = _hasRole('tracker-editor');
+const CAN_SAVE     = CAN_SAVE_ALL || CAN_SAVE_OWN;
+const EXEC_ONLY  = new Set(['timeline','heatmap','config','targets']);
+// v1.10.9: added Tanda → TND (must stay in sync with SITE_MAP in tracker-db.js).
+const _SITE_MAP  = {
+  'MANA':'MGO',   'Mana IT Agent':'MGO',
+  'HOUNDE':'HGO', 'Hounde IT Agents':'HGO',
+  'LAFIGUE':'SML','Lafigue IT Agents':'SML',
+  'ITY':'ITY',    'ITY IT Agents':'ITY',
+  'Sabodala':'SGO','Sabodala IT Agents':'SGO',
+  'ABIDJAN':'ABJ','Abidjan IT Agents':'ABJ',
+  'Dakar':'DKR',  'Dakar IT Agents':'DKR',
+  'KALANA':'KLN', 'Kalana IT Agents':'KLN',
+  'EXPLORATION':'EXP','Exploration BF Support':'EXP','Exploration CI Support':'EXP',
+  'OUAGA':'EDV',  'Ouaga IT Agents':'EDV','Ouagadougou-EDV1':'EDV',
+  'TANDA':'TND',  'Tanda IT Agents':'TND'
+};
+// Lock to own site only when user is a tracker-editor without broader save
+// rights. tracker-admin / executive / super_admin keep cross-site write access
+// even when their user record has a site_name set.
+const USER_SITE  = (CAN_SAVE_OWN && !CAN_SAVE_ALL && _RBAC_AU?.site_name) ? (_SITE_MAP[_RBAC_AU.site_name] || null) : null;
+// ──────────────────────────────────────────────────────────────────────────
+
+function dC(){CI.forEach(c=>{try{c.destroy();}catch(e){}});CI=[];}
+
+
+// Effective weights: pillar_weight × (activity_share_within_pillar)
+// Ensures pillar allocation (30/35/20/15) is respected in overall score
+// When activities are inactive, their share is redistributed within the pillar
+function effWeights(site){
+  const tg=D.targets[site]||[];const PW=D.pillarWeights;
+  const pillars={};
+  D.activities.forEach((a,i)=>{
+    const p=a.pillar;
+    if(!pillars[p])pillars[p]={activeW:0,totalW:0};
+    pillars[p].totalW+=a.weight;
+    if(tg[i]?.active)pillars[p].activeW+=a.weight;
+  });
+  const ew=new Array(D.activities.length).fill(0);
+  D.activities.forEach((a,i)=>{
+    if(!tg[i]?.active)return;
+    const p=pillars[a.pillar];
+    const pW=a.pillar in PW?PW[a.pillar]:0.25; // pillar allocation (e.g. 0.30 for P1)
+    if(p.activeW>0){
+      // activity's share within pillar × pillar's allocation
+      ew[i]=pW*(a.weight/p.activeW);
+    }
+  });
+  return ew;
+}
+function score(site,yr,mo){yr=yr||S.year;mo=mo||S.month;const tg=D.targets[site]||[];const R=[];
+// Compute effective weights: redistribute inactive activity weights within each pillar
+const ew=effWeights(site);
+D.activities.forEach((a,i)=>{const t=tg[i];if(!t||!t.active){R.push({...a,ix:i,on:false,ya:0,yt:0,sc:'N/A',rg:'N/A',ew:0});return;}
+let ya=0;if(a.shared){let mx=0;D.sites.forEach(s2=>{let sm=0;for(let m=0;m<mo;m++)sm+=gi(yr,s2,i,m);mx=Math.max(mx,sm);});ya=mx;}else{for(let m=0;m<mo;m++)ya+=gi(yr,site,i,m);}
+if(a.kpi==='BOOLEAN'){
+// BOOLEAN: 0=Not Started, 0.5=In Progress, 1=Done. Capped at 1.
+const sc=Math.min(ya,1);let rg;if(sc>=1)rg='GREEN';else if(sc>=0.5)rg='AMBER';
+else rg=a.end<=mo?'RED':'AMBER';
+R.push({...a,ix:i,on:true,ya:Math.round(ya*100)/100,yt:1,sc,rg,ew:ew[i]});
+}else if(a.kpi==='PERCENT'){
+// PERCENT: Monthly avg %, target=expected %. Input 0-100 each month.
+const months=Math.min(mo,a.end)-a.start+1;
+const avg=months>0?ya/months:0; // ya = sum of monthly values
+const tgt=parseInt(t.target)||100;
+const sc=Math.min(avg/tgt,1);
+const rg=sc>=1?'GREEN':sc>=0.75?'AMBER':'RED';
+R.push({...a,ix:i,on:true,ya:Math.round(avg*10)/10,yt:tgt,sc:Math.round(sc*1000)/1000,rg,ew:ew[i]});
+}else if(a.kpi==='MILESTONE'){
+// MILESTONE: Multi-phase (0 to N). Target=total phases. YTD=max phase reached.
+const tgt=parseInt(t.target)||1;
+const phase=Math.min(ya,tgt); // ya = sum but treat as latest phase reached
+const sc=Math.min(phase/tgt,1);
+const rg=sc>=1?'GREEN':sc>0?'AMBER':(a.end<=mo?'RED':'AMBER');
+R.push({...a,ix:i,on:true,ya:Math.round(phase*100)/100,yt:tgt,sc:Math.round(sc*1000)/1000,rg,ew:ew[i]});
+}else if(a.kpi==='CURRENCY'){
+// CURRENCY: Budget delivery. Target=budget. YTD=actual spend/savings.
+const tgt=parseFloat(t.target)||0;
+if(tgt===0){R.push({...a,ix:i,on:true,ya,yt:0,sc:0,rg:'AMBER',ew:ew[i]});}
+else{const sc=Math.min(ya/tgt,1);const rg=sc>=1?'GREEN':sc>=0.75?'AMBER':'RED';
+R.push({...a,ix:i,on:true,ya:Math.round(ya*100)/100,yt:tgt,sc:Math.round(sc*1000)/1000,rg,ew:ew[i]});}
+}else if(a.kpi==='RATING'){
+// RATING: Qualitative 1-5 scale avg. Target=minimum acceptable (e.g. 4).
+const months=Math.min(mo,a.end)-a.start+1;
+const nonZeroMonths=[];for(let m2=a.start-1;m2<Math.min(mo,a.end);m2++){const v=gi(yr,site,i,m2);if(v>0)nonZeroMonths.push(v);}
+const avg=nonZeroMonths.length>0?nonZeroMonths.reduce((s,v)=>s+v,0)/nonZeroMonths.length:0;
+const tgt=parseFloat(t.target)||4;
+const sc=tgt>0?Math.min(avg/tgt,1):0;
+const rg=sc>=1?'GREEN':sc>=0.75?'AMBER':(nonZeroMonths.length===0&&a.end>mo?'AMBER':'RED');
+R.push({...a,ix:i,on:true,ya:Math.round(avg*100)/100,yt:tgt,sc:Math.round(sc*1000)/1000,rg,ew:ew[i]});
+}else{
+// COUNT (default): Sum of monthly values vs pro-rated annual target.
+if(a.start>mo){R.push({...a,ix:i,on:true,ya,yt:'N/A',sc:'N/A',rg:'N/A',ew:ew[i]});}
+else{const mA=Math.min(mo,a.end)-a.start+1;const tot=a.end-a.start+1;
+const ann=parseInt(t.target)||0;const yt=ann*(mA/tot);
+const sc=yt>0?Math.min(ya/yt,1):0;
+const rg=sc>=1?'GREEN':sc>=0.75?'AMBER':'RED';
+R.push({...a,ix:i,on:true,ya:Math.round(ya*100)/100,yt:Math.round(yt*100)/100,sc:Math.round(sc*1000)/1000,rg,ew:ew[i]});
+}}});return R;}
+function ss(site,yr,mo){const sc=score(site,yr,mo);const g=sc.filter(s=>s.rg==='GREEN').length,a=sc.filter(s=>s.rg==='AMBER').length,r=sc.filter(s=>s.rg==='RED').length;
+// Overall = weighted pillar average (respects pillar allocation exactly)
+const PW=D.pillarWeights;const pScores={};
+gP().forEach(p=>{let wS2=0,wT2=0;sc.forEach(s=>{if(s.on&&s.pillar===p&&typeof s.sc==='number'){wS2+=s.sc*s.weight;wT2+=s.weight;}});if(wT2>0)pScores[p]=wS2/wT2;});
+let oS=0,oT=0;Object.keys(pScores).forEach(p=>{const pw=p in PW?PW[p]:0.25;oS+=pw*pScores[p];oT+=pw;});
+return{active:sc.filter(s=>s.on).length,g,a,r,avg:oT>0?oS/oT:0,sc,pScores};}
+function ps2(site,p,yr,mo){const sc=score(site,yr,mo);let wS=0,wT=0;sc.forEach(s=>{if(s.on&&s.pillar===p&&typeof s.sc==='number'){wS+=s.sc*s.weight;wT+=s.weight;}});return wT>0?wS/wT:0;}
+
+function genCom(sites,yr,mo){const prev=mo-1;if(prev<1)return[{cat:'INFO',text:'First month of '+yr+' — baseline period, no prior month for comparison.'}];const c=[];
+const deltas=sites.map(s=>{const cu=ss(s,yr,mo).avg,pr=ss(s,yr,prev).avg;return{s,cur:cu,prev:pr,d:cu-pr};});
+const f=fleetStats(sites,yr,mo);const fp=fleetStats(sites,yr,prev);
+// ── COMBINED (Fleet-level for CIO/CFO) ──
+const fleetDelta=f.avg-fp.avg;
+if(Math.abs(fleetDelta)>0.01)c.push({cat:'COMBINED',text:'Fleet performance '+(fleetDelta>0?'improved':'declined')+' by '+Math.round(Math.abs(fleetDelta)*100)+'pp to '+Math.round(f.avg*100)+'% ('+Math.round(fp.avg*100)+'%→'+Math.round(f.avg*100)+'%). Target attainment: '+Math.round(f.attainment*100)+'%.'});
+// Pillar trends
+gP().forEach(p=>{let td=0;sites.forEach(s=>{td+=ps2(s,p,yr,mo)-ps2(s,p,yr,prev);});const ad=td/sites.length;if(Math.abs(ad)>0.03){const dir=ad>0?'positive momentum':'needs attention';c.push({cat:'COMBINED',text:gPS(p)+' ('+Math.round((D.pillarWeights[p]||0)*100)+'%): fleet avg '+(ad>0?'+':'')+Math.round(ad*100)+'pp — '+dir+'.'});}});
+// Shared activities
+D.activities.forEach((a,i)=>{if(!a.shared)return;const cu=score(sites[0],yr,mo)[i],pr=score(sites[0],yr,prev)[i];if(cu?.rg!==pr?.rg){const dir=cu.rg==='GREEN'?'completed':'changed to '+cu.rg;c.push({cat:'COMBINED',text:'Shared: "'+a.name+'" '+dir+' (fleet-wide impact).'});}});
+// Universal RED
+const ar=[];D.activities.forEach((a,i)=>{if(a.shared)return;const scored=sites.filter(s=>['GREEN','AMBER','RED'].includes(score(s,yr,mo)[i]?.rg));const rd=scored.filter(s=>score(s,yr,mo)[i]?.rg==='RED');if(scored.length>0&&rd.length===scored.length)ar.push(a.name);});
+if(ar.length)c.push({cat:'COMBINED',text:'Systemic gap: '+ar.slice(0,3).join(', ')+' RED at all sites'+(ar.length>3?' (+'+((ar.length-3))+' more)':'')+' — requires coordinated intervention.'});
+// ── SITE-SPECIFIC (for operational review) ──
+const imp=deltas.filter(d=>d.d>0.02).sort((a,b)=>b.d-a.d);const dec=deltas.filter(d=>d.d<-0.02).sort((a,b)=>a.d-b.d);const stb=deltas.filter(d=>Math.abs(d.d)<=0.02);
+if(imp.length)c.push({cat:'SITE',text:'Improved: '+imp.map(d=>d.s+' +'+Math.round(d.d*100)+'pp ('+Math.round(d.prev*100)+'%→'+Math.round(d.cur*100)+'%)').join(', ')+'.'});
+if(dec.length)c.push({cat:'SITE',text:'Declined: '+dec.map(d=>d.s+' '+Math.round(d.d*100)+'pp').join(', ')+'.'});
+if(stb.length)c.push({cat:'SITE',text:'Stable (±2pp): '+stb.map(d=>d.s+' '+Math.round(d.cur*100)+'%').join(', ')+'.'});
+// Per-site newly GREEN/RED
+const siteG={},siteR={};sites.forEach(s=>{const cu=score(s,yr,mo),pr=score(s,yr,prev);cu.forEach((x,i)=>{if(!D.activities[i]?.shared){if(x.rg==='GREEN'&&pr[i]?.rg!=='GREEN'){if(!siteG[s])siteG[s]=[];siteG[s].push(x.name);}if(x.rg==='RED'&&pr[i]?.rg!=='RED'){if(!siteR[s])siteR[s]=[];siteR[s].push(x.name);}}});});
+Object.entries(siteG).forEach(([s,acts])=>{c.push({cat:'SITE',text:s+' newly GREEN: '+acts.slice(0,3).join(', ')+(acts.length>3?' (+'+((acts.length-3))+')':'')+'.'});});
+Object.entries(siteR).forEach(([s,acts])=>{c.push({cat:'SITE',text:s+' newly RED: '+acts.slice(0,3).join(', ')+(acts.length>3?' (+'+((acts.length-3))+')':'')+'.'});});
+// Pillar outliers
+gP().forEach(p=>{const pD=sites.map(s=>({s,d:ps2(s,p,yr,mo)-ps2(s,p,yr,prev)}));const best=pD.reduce((a,b)=>a.d>b.d?a:b);const worst=pD.reduce((a,b)=>a.d<b.d?a:b);if(best.d>0.1)c.push({cat:'SITE',text:best.s+' standout in '+gPS(p)+': +'+Math.round(best.d*100)+'pp.'});if(worst.d<-0.1)c.push({cat:'SITE',text:worst.s+' dropped in '+gPS(p)+': '+Math.round(worst.d*100)+'pp — escalation recommended.'});});
+if(!c.length)c.push({cat:'INFO',text:'No significant changes this period.'});return c;}
+
+
+// Fleet statistics
+function fleetStats(sites,yr,mo){
+  const scores=sites.map(s=>ss(s,yr,mo).avg);
+  const avg=scores.reduce((a,b)=>a+b,0)/scores.length;
+  const variance=scores.reduce((a,b)=>a+(b-avg)**2,0)/scores.length;
+  const stdDev=Math.sqrt(variance);
+  const best=sites.reduce((a,b)=>ss(a,yr,mo).avg>=ss(b,yr,mo).avg?a:b);
+  const worst=sites.reduce((a,b)=>ss(a,yr,mo).avg<=ss(b,yr,mo).avg?a:b);
+  // Target attainment: % of scored activities at GREEN
+  let totalScored=0,totalGreen=0;
+  sites.forEach(s=>{const sc=score(s,yr,mo);sc.forEach(a=>{if(a.on&&['GREEN','AMBER','RED'].includes(a.rg)){totalScored++;if(a.rg==='GREEN')totalGreen++;}});});
+  const attainment=totalScored>0?totalGreen/totalScored:0;
+  // Completion: % of active activities with any progress (score > 0)
+  let totalActive=0,hasProgress=0;
+  sites.forEach(s=>{const sc=score(s,yr,mo);sc.forEach(a=>{if(a.on&&typeof a.sc==='number'){totalActive++;if(a.sc>0)hasProgress++;}});});
+  const completion=totalActive>0?hasProgress/totalActive:0;
+  // MoM trends
+  const trends=[];
+  for(let m=1;m<=mo;m++){const mScores=sites.map(s=>ss(s,yr,m).avg);trends.push({month:m,avg:mScores.reduce((a,b)=>a+b,0)/mScores.length,scores:Object.fromEntries(sites.map((s,i)=>[s,mScores[i]]))});}
+  return{avg,stdDev,best,worst,spread:ss(best,yr,mo).avg-ss(worst,yr,mo).avg,attainment,completion,trends};
+}
+// Executive summary one-liner
+function execSummary(sites,yr,mo){
+  const f=fleetStats(sites,yr,mo);
+  const dir=f.trends.length>=2?(f.trends[f.trends.length-1].avg>f.trends[f.trends.length-2].avg?'improving':'declining'):'starting';
+  const health=f.avg>=0.7?'strong':f.avg>=0.5?'moderate':'below expectations';
+  return`Fleet performance is ${health} at ${Math.round(f.avg*100)}% (${dir}). ${Math.round(f.attainment*100)}% of activities on target, ${Math.round(f.completion*100)}% showing progress. Spread: ${Math.round(f.spread*100)}pp (${f.best}→${f.worst}).`;
+}
+
+function render(){load();dC();const P=gP();
+const views=['dashboard','scoring','input','timeline','heatmap','config','targets'];
+// Tab labels — icon prefix uses the brand icon library when available;
+// falls back to plain label if the script hasn't loaded yet.
+const _i = (n) => (window.EDV_ICONS ? window.EDV_ICONS.html(n) + ' ' : '');
+const icons = {
+  dashboard: _i('bar-chart-3') + 'Dashboard',
+  scoring:   _i('file-text')   + 'Scoring',
+  input:     _i('edit')        + 'Input',
+  timeline:  _i('calendar')    + 'Timeline',
+  heatmap:   _i('target')      + 'Heatmap',     // grid-of-RAGs reads as a target
+  config:    _i('sliders')     + 'Activities',
+  targets:   _i('target')      + 'Targets'
+};
+// ── Filter nav tabs by role ──────────────────────────────────────────────
+const visViews=IS_EXEC?views:views.filter(v=>!EXEC_ONLY.has(v));
+// Redirect if current view is not allowed
+if(EXEC_ONLY.has(S.view)&&!IS_EXEC){S.view='dashboard';}
+// For non-exec admins with a locked site, redirect input to their site
+if(USER_SITE){S.site=USER_SITE;}
+// ─────────────────────────────────────────────────────────────────────────
+// Header brand + cross-nav + user pill are now provided by the unified
+// shell (rendered above #app in the page DOM). Here we only build the
+// page-bar — breadcrumb + Tracker-specific controls (year/period/save/
+// reset/export). The internal tab strip below stays as-is.
+const app=document.getElementById('app');
+app.innerHTML=`<div class="shell-page-bar" style="flex-wrap:wrap;gap:6px">
+<div class="shell-breadcrumb">
+  <span>Performance</span>
+  <span class="shell-breadcrumb-sep">›</span>
+  <span class="shell-breadcrumb-current">Activity Tracker</span>
+  <span style="opacity:.4;margin-left:8px;font-size:10.5px">· ${D.sites.length} sites · ${D.activities.length} activities</span>
+</div>
+<span class="shell-page-bar-spacer"></span>
+<span style="font-size:11px;color:rgba(255,255,255,.55)">Year:</span><select class="sel" onchange="S.year=+this.value;render()" style="background:rgba(255,255,255,.08);color:#fff;border:1px solid rgba(255,255,255,.15);padding:3px 6px;border-radius:5px;font-size:11.5px">${D.years.map(y=>`<option value="${y}" ${y===S.year?'selected':''}>${y}</option>`).join('')}</select>${CAN_SAVE_ALL?`<button class="btn btn-d" onclick="addYr()" style="font-size:10px;padding:3px 7px">+Yr</button>`:''}
+<span style="font-size:11px;color:rgba(255,255,255,.55);margin-left:6px">Period:</span><select class="sel" onchange="S.month=+this.value;render()" style="background:rgba(255,255,255,.08);color:#fff;border:1px solid rgba(255,255,255,.15);padding:3px 6px;border-radius:5px;font-size:11.5px">${MO.map((m,i)=>`<option value="${i+1}" ${i+1===S.month?'selected':''}>${m}</option>`).join('')}</select>
+${IS_EXEC?`<div style="position:relative;margin-left:6px" id="ew"><button class="btn btn-t" onclick="tEP()" style="font-size:11px;padding:4px 9px">📊 Export ▾</button><div id="ep" style="display:none" class="ep">
+<div style="font-size:10px;color:#94a3b8;font-weight:600;margin-bottom:6px">Report Settings</div>
+<label style="font-size:9px;color:#94a3b8;display:block;margin-bottom:2px">Report Type:</label>
+<select id="rT2" class="sel" style="width:100%;margin-bottom:6px"><option value="monthly">Monthly Performance Review</option><option value="quarterly">Quarterly Board Summary</option><option value="site">Single-Site Deep Dive</option><option value="pillar">Pillar Analysis</option></select>
+<label style="font-size:9px;color:#94a3b8;display:block;margin-bottom:2px">Report Month:</label><select id="rM" class="sel" style="width:100%;margin-bottom:6px">${MO.map((m,i)=>`<option value="${i+1}">${m}</option>`).join('')}</select>
+<label style="font-size:9px;color:#94a3b8;display:block;margin-bottom:2px">Sites:</label><div id="esl"></div>
+<div style="display:flex;gap:3px;margin-top:5px"><button onclick="sE(1)" class="btn btn-d" style="flex:1;font-size:8px">All</button><button onclick="sE(0)" class="btn btn-d" style="flex:1;font-size:8px">None</button><button onclick="sE(2)" class="btn btn-d" style="flex:1;font-size:8px">Active</button></div>
+<button onclick="doExp()" class="btn btn-t" style="width:100%;margin-top:6px;justify-content:center">Generate 3-Slide PPTX</button></div></div>`:''}
+${CAN_SAVE?`<button class="btn btn-d" onclick="save()" title="Save changes" style="font-size:11px;padding:4px 9px">${_i('save')}Save</button>`:''}${CAN_RESET?`<button class="btn btn-r" onclick="reset()" title="Reset to defaults" style="font-size:11px;padding:4px 9px">${_i('refresh-cw')}Reset</button>`:''}
+</div>
+<div class="nav">${visViews.map(v=>`<button class="${S.view===v?'active':''}" data-v="${v}">${icons[v]}</button>`).join('')}</div>
+<div class="container" id="ct"></div>`;
+document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>{S.view=b.dataset.v;render();});
+const ct=document.getElementById('ct');
+const sb=`<div class="sb"><span class="dot" style="background:${S.dirty?'var(--amber)':'var(--green)'}"></span>${S.dirty?'Unsaved':'Synced'} · ${MO[S.month-1]} ${S.year} · ${D.activities.length} activities · ${D.activeSites.length} active${USER_SITE?` · Site: ${USER_SITE}`:''}</div>`;
+({dashboard:rD,scoring:rS,input:rI,timeline:rT,heatmap:rHM,config:rC,targets:rTg})[S.view](ct,sb);}
+
+function addYr(){const ny=Math.max(...D.years)+1;D.years.push(ny);D.inputs[ny]={};D.sites.forEach(s=>{D.inputs[ny][s]=D.activities.map(()=>new Array(12).fill(0));});S.year=ny;S.dirty=true;render();toast('Year '+ny+' added');}
+
+// Dashboard
+function rD(ct,sb){const sm={};D.sites.forEach(s=>sm[s]=ss(s));const aS=D.activeSites;const tG=aS.reduce((t,s)=>t+sm[s].g,0),tA=aS.reduce((t,s)=>t+sm[s].a,0),tR=aS.reduce((t,s)=>t+sm[s].r,0);
+const pSm={};if(S.month>1)D.sites.forEach(s=>pSm[s]=ss(s,S.year,S.month-1));
+const fst=fleetStats(aS,S.year,S.month);
+let h=sb;
+h+=`<div style="margin-bottom:14px;padding:14px 18px;background:linear-gradient(135deg,#1e293b,#0f172a);border-radius:12px;color:#fff;font-size:13px;line-height:1.6">${execSummary(aS,S.year,S.month)}</div>`;
+h+=`<div class="kpi-r">
+<div class="kp"><div class="v" style="color:var(--teal)">${Math.round(fst.avg*100)}%</div><div class="l">Fleet Avg</div></div>
+<div class="kp"><div class="v" style="color:var(--green)">${tG}</div><div class="l">Green</div></div>
+<div class="kp"><div class="v" style="color:var(--amber)">${tA}</div><div class="l">Amber</div></div>
+<div class="kp"><div class="v" style="color:var(--red)">${tR}</div><div class="l">Red</div></div>
+<div class="kp"><div class="v">${Math.round(fst.attainment*100)}%</div><div class="l">On Target</div></div>
+<div class="kp"><div class="v">${Math.round(fst.completion*100)}%</div><div class="l">Active</div></div>
+<div class="kp"><div class="v" style="font-size:18px">${fst.best}</div><div class="l">Leading</div></div>
+<div class="kp"><div class="v" style="font-size:18px">${fst.worst}</div><div class="l">Lagging</div></div>
+</div><div class="cards">`;
+D.sites.forEach(s=>{const v=sm[s],c=D.siteColors[s],isA=aS.includes(s);let dl='';if(S.month>1&&isA){const d=(v.avg-(pSm[s]?.avg||0))*100;dl=d>0?`<span class="delta delta-up">▲${Math.round(d)}</span>`:d<-0?`<span class="delta delta-down">▼${Math.abs(Math.round(d))}</span>`:`<span class="delta delta-flat">—</span>`;}
+h+=`<div class="card ${isA?'':'off'}" onclick="S.site='${s}';S.view='scoring';render()"><div class="ac" style="background:${c}"></div><div class="s" style="color:${c}">${s}</div><div class="n">${D.siteNames[s]||s}${isA?'':' · Off'}</div><div class="g"><span class="gv">${v.g}</span><span class="sp">/</span><span class="av">${v.a}</span><span class="sp">/</span><span class="rv">${v.r}</span></div><div class="ag"><b>${Math.round(v.avg*100)}%</b>${dl}</div></div>`;});
+h+=`</div>`;
+const coms=genCom(aS,S.year,S.month);
+const combined=coms.filter(c=>c.cat==='COMBINED'),siteSpec=coms.filter(c=>c.cat==='SITE'),info=coms.filter(c=>c.cat==='INFO');
+h+=`<div class="comment-box"><h4>📝 Executive Commentary — ${MO[S.month-1]} ${S.year}${S.month>1?' vs '+MO[S.month-2]:''}</h4>`;
+if(info.length)h+=info.map(c=>`<div style="margin-bottom:4px;color:var(--muted)">ℹ️ ${c.text}</div>`).join('');
+if(combined.length){h+=`<div style="margin:8px 0 4px;font-size:11px;font-weight:700;color:var(--teal)">🌐 Cross-Site (Combined)</div>`;h+=combined.map(c=>{const isG=c.text.includes('positive')||c.text.includes('completed');const isB=c.text.includes('attention')||c.text.includes('RED')||c.text.includes('regressed');return`<div style="margin-bottom:3px;padding:4px 8px;border-left:3px solid ${isG?'var(--green)':isB?'var(--red)':'var(--light)'};background:${isG?'var(--green-bg)':isB?'var(--red-bg)':'#f8f9fb'};border-radius:0 4px 4px 0;font-size:11px">${c.text}</div>`;}).join('');}
+if(siteSpec.length){h+=`<div style="margin:8px 0 4px;font-size:11px;font-weight:700;color:var(--purple)">📍 Site-Specific</div>`;h+=siteSpec.map(c=>{const isG=c.text.includes('Improved')||c.text.includes('GREEN')||c.text.includes('standout');const isB=c.text.includes('Declined')||c.text.includes('RED')||c.text.includes('dropped');return`<div style="margin-bottom:3px;padding:4px 8px;border-left:3px solid ${isG?'var(--green)':isB?'var(--red)':'var(--light)'};background:${isG?'var(--green-bg)':isB?'var(--red-bg)':'#f8f9fb'};border-radius:0 4px 4px 0;font-size:11px">${c.text}</div>`;}).join('');}
+h+=`</div>`;
+h+=`<div class="cg"><div class="cb"><h3>📈 Score Trend (M1→M${S.month})</h3><canvas id="c0"></canvas></div><div class="cb"><h3>🎯 Target Attainment</h3><canvas id="c5"></canvas></div><div class="cb"><h3>Average Score by Site</h3><canvas id="c1"></canvas></div><div class="cb"><h3>Pillar Deep-Dive</h3><canvas id="c2"></canvas></div><div class="cb"><h3>RAG Distribution</h3><canvas id="c3"></canvas></div><div class="cb"><h3>Site G/A/R</h3><canvas id="c4"></canvas></div></div>`;
+ct.innerHTML=h;
+// Trend line chart
+const trendData=fst.trends;
+if(trendData.length>0){
+CI.push(new Chart(document.getElementById('c0'),{type:'line',data:{labels:trendData.map(t=>MO[t.month-1]),datasets:aS.map(s=>({label:s,data:trendData.map(t=>Math.round((t.scores[s]||0)*100)),borderColor:D.siteColors[s],backgroundColor:D.siteColors[s]+'22',borderWidth:2,pointRadius:4,pointHoverRadius:6,tension:.3,fill:false}))},options:{responsive:true,animation:{duration:300},plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:9}}}},scales:{y:{max:100,ticks:{callback:v=>v+'%'},grid:{color:'#f1f5f9'}},x:{grid:{display:false}}}}}));}
+// Doughnut: GREEN/AMBER/RED breakdown
+CI.push(new Chart(document.getElementById('c5'),{type:'doughnut',data:{labels:['Green (On Target)','Amber (At Risk)','Red (Off Track)'],datasets:[{data:[tG,tA,tR],backgroundColor:['#16a34a','#d97706','#dc2626'],borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,animation:{duration:300},plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:10}}},tooltip:{callbacks:{label:function(c){const t=c.dataset.data.reduce((a,b)=>a+b,0);return c.label+': '+c.raw+' ('+Math.round(c.raw/t*100)+'%)';}}}}}}));
+const P=gP(),co={responsive:true,animation:{duration:300},plugins:{legend:{display:false}},scales:{y:{grid:{color:'#f1f5f9'}},x:{grid:{display:false}}}};
+CI.push(new Chart(document.getElementById('c1'),{type:'bar',data:{labels:aS,datasets:[{data:aS.map(s=>Math.round(sm[s].avg*100)),backgroundColor:aS.map(s=>D.siteColors[s]),borderRadius:4,barPercentage:.6}]},options:{...co,scales:{...co.scales,y:{...co.scales.y,max:100,ticks:{callback:v=>v+'%'}}}}}));
+CI.push(new Chart(document.getElementById('c2'),{type:'bar',data:{labels:P.map(gPS),datasets:aS.map(s=>({label:s,data:P.map(p=>Math.round(ps2(s,p)*100)),backgroundColor:D.siteColors[s],borderRadius:3,barPercentage:.75}))},options:{...co,plugins:{legend:{display:true,position:'bottom',labels:{boxWidth:10,font:{size:9}}}},scales:{...co.scales,y:{...co.scales.y,max:100,ticks:{callback:v=>v+'%'}}}}}));
+const rd=P.map(p=>{let g=0,a=0,r=0;aS.forEach(s=>{score(s).forEach(x=>{if(x.pillar===p){if(x.rg==='GREEN')g++;if(x.rg==='AMBER')a++;if(x.rg==='RED')r++;}});});return{g,a,r};});
+CI.push(new Chart(document.getElementById('c3'),{type:'bar',data:{labels:P.map(gPS),datasets:[{label:'Green',data:rd.map(d=>d.g),backgroundColor:'#16a34a',borderRadius:2},{label:'Amber',data:rd.map(d=>d.a),backgroundColor:'#d97706',borderRadius:2},{label:'Red',data:rd.map(d=>d.r),backgroundColor:'#dc2626',borderRadius:2}]},options:{...co,plugins:{legend:{display:true,position:'bottom',labels:{boxWidth:10,font:{size:9}}}},scales:{y:{stacked:true,grid:{color:'#f1f5f9'}},x:{stacked:true,grid:{display:false}}}}}));
+CI.push(new Chart(document.getElementById('c4'),{type:'bar',data:{labels:aS,datasets:[{label:'Green',data:aS.map(s=>sm[s].g),backgroundColor:'#16a34a'},{label:'Amber',data:aS.map(s=>sm[s].a),backgroundColor:'#d97706'},{label:'Red',data:aS.map(s=>sm[s].r),backgroundColor:'#dc2626'}]},options:{...co,plugins:{legend:{display:true,position:'bottom',labels:{boxWidth:10,font:{size:9}}}},scales:{y:{stacked:true,grid:{color:'#f1f5f9'}},x:{stacked:true,grid:{display:false}}}}}));}
+
+// Scoring
+function rS(ct,sb){const site=S.site||D.activeSites[0]||D.sites[0];const sc=score(site);const sm=ss(site);
+let h=sb+sB(site)+`<div style="margin-bottom:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span style="font-size:16px;font-weight:700;color:${D.siteColors[site]}">${site}</span><span style="color:var(--muted);font-size:11px">${D.siteNames[site]||''}</span><span class="rag green">${sm.g}G</span><span class="rag amber">${sm.a}A</span><span class="rag red">${sm.r}R</span><span style="font-weight:700;font-size:14px;margin-left:auto">${Math.round(sm.avg*100)}%</span></div>`;
+h+=`<div class="tbl-wrap"><table><thead><tr><th>#</th><th>Pillar</th><th>Activity</th><th>Wt</th><th>YTD</th><th>Target</th><th>Score</th><th>RAG</th></tr></thead><tbody>`;
+let lp='';sc.forEach(s=>{if(!s.on)return;if(s.pillar!==lp){const p2=Math.round(ps2(site,s.pillar)*100);h+=`<tr class="pr"><td></td><td colspan="5"><span class="pt" style="font-size:10px;padding:3px 7px;background:${gPC(s.pillar)+'22'};color:${gPC(s.pillar)}">${gPS(s.pillar)}</span> <span style="font-size:10px;color:var(--muted)">(${Math.round((D.pillarWeights[s.pillar]||0)*100)}% of overall)</span></td><td colspan="2" style="text-align:right;font-size:12px">${p2}%</td></tr>`;lp=s.pillar;}
+const rc=s.rg==='GREEN'?'green':s.rg==='AMBER'?'amber':s.rg==='RED'?'red':'na';const sp=typeof s.sc==='number'?Math.round(s.sc*100)+'%':'N/A';const bw=typeof s.sc==='number'?Math.round(s.sc*100):0;const bc=s.rg==='GREEN'?'var(--green)':s.rg==='AMBER'?'var(--amber)':'var(--red)';
+h+=`<tr><td style="color:var(--light)">${s.num}</td><td><span class="pt" style="background:${gPC(s.pillar)+'22'};color:${gPC(s.pillar)}">${s.pillar.split('-')[0]}</span></td><td>${s.name}${s.shared?'<span class="stag">SHARED</span>':''}</td><td>${s.ew&&Math.abs(s.ew-s.weight)>0.001?`<span style="text-decoration:line-through;color:var(--light);font-size:10px">${(s.weight*100).toFixed(1)}%</span> <span style="color:var(--teal);font-weight:700">${(s.ew*100).toFixed(1)}%</span>`:`${(s.weight*100).toFixed(1)}%`}</td><td style="font-family:'JetBrains Mono';font-size:10px">${typeof s.ya==='number'?s.ya:'—'}</td><td style="font-family:'JetBrains Mono';font-size:10px">${typeof s.yt==='number'?s.yt.toFixed(1):'—'}</td><td><div class="sb2"><div class="f" style="width:${bw}%;background:${bc}"></div></div>${sp}</td><td><span class="rag ${rc}">${s.rg}</span></td></tr>`;});
+h+=`</tbody></table></div>`;ct.innerHTML=h;bSB(ct);}
+
+// Input
+function rI(ct,sb){const site=USER_SITE||(S.site||D.activeSites[0]||D.sites[0]);
+// Read-only banner for users without any save permission. They can still
+// browse the Input view (useful for QA / oversight) but every cell is
+// disabled and the save button is hidden — the banner makes that explicit
+// rather than letting them type into a frozen UI silently.
+const _viewOnly=!CAN_SAVE;
+let h=sb+sB(site);
+if(_viewOnly)h+=`<div style="margin-bottom:6px;padding:6px 10px;background:#fef3c7;border-left:3px solid var(--amber);border-radius:3px;font-size:10px;color:#78350f"><b>👁 View-only</b> — your role cannot edit actuals. Ask an admin for the <code>tracker-editor</code> (own site) or <code>tracker-admin</code> (all sites) feature role.</div>`;
+h+=`<div style="margin-bottom:5px;font-size:10px;color:var(--muted)"><b style="color:var(--purple)">BOOLEAN:</b> 0=Not Started · 0.5=In Progress · 1=Done | <b style="color:var(--teal)">COUNT:</b> Actual number</div>`;
+h+=`<div class="tbl-wrap"><table><thead><tr><th>#</th><th>Activity</th><th>KPI</th>`;MO.forEach((m,i)=>h+=`<th style="text-align:center;${i+1===S.month?'background:var(--teal)':''}${i>=S.month?';opacity:.3':''}">${m}</th>`);h+=`</tr></thead><tbody>`;
+D.activities.forEach((a,idx)=>{h+=`<tr><td style="color:var(--light)">${a.num}</td><td><span class="pt" style="background:${gPC(a.pillar)+'22'};color:${gPC(a.pillar)};margin-right:2px">${a.pillar.split('-')[0]}</span>${a.name}${a.shared?'<span class="stag">SHARED</span>':''}<span style="font-size:8px;color:var(--light);margin-left:3px">${a.kpi}</span></td><td style="font-size:9px;color:var(--muted)">${a.kpi}</td>`;
+// Cell is editable only when (a) the month window is open AND (b) the
+// user has any save right (CAN_SAVE). View-only users see the values
+// but the input is disabled.
+MO.forEach((m,mi)=>{const v=gi(S.year,site,idx,mi);const ed=CAN_SAVE&&mi<S.month&&mi+1>=a.start&&mi+1<=a.end;const cls=v>0?(v===0.5?'ip':'hv'):'';h+=`<td style="text-align:center"><input class="ic ${cls}" type="number" step="${a.kpi==='BOOLEAN'?'0.5':'1'}" min="0" ${a.kpi==='BOOLEAN'?'max="1"':''} value="${v}" data-s="${site}" data-a="${idx}" data-m="${mi}" ${ed?'':'disabled'}></td>`;});h+=`</tr>`;});
+h+=`</tbody></table></div>`;ct.innerHTML=h;bSB(ct);
+ct.querySelectorAll('.ic:not(:disabled)').forEach(el=>{el.onchange=e=>{si2(S.year,e.target.dataset.s,+e.target.dataset.a,+e.target.dataset.m,parseFloat(e.target.value)||0);S.dirty=true;const v=gi(S.year,e.target.dataset.s,+e.target.dataset.a,+e.target.dataset.m);e.target.className='ic'+(v>0?(v===0.5?' ip':' hv'):'');};});}
+
+// Timeline
+function rT(ct,sb){let h=sb+`<div style="margin-bottom:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="tc td">✓</span><span style="font-size:9px;color:var(--muted)">Done</span><span class="tc tp">○</span><span style="font-size:9px;color:var(--muted)">Pending</span><span class="tc tf">·</span><span style="font-size:9px;color:var(--muted)">Future</span><span class="tc tn">—</span><span style="font-size:9px;color:var(--muted)">N/A</span></div>`;
+h+=`<div class="tbl-wrap"><table><thead><tr><th>#</th><th>Activity</th>`;MO.forEach((m,i)=>h+=`<th style="text-align:center;${i+1===S.month?'background:var(--teal)':''}">${m}</th>`);h+=`<th>%</th></tr></thead><tbody>`;
+D.activities.forEach((a,idx)=>{h+=`<tr><td style="color:var(--light)">${a.num}</td><td><span class="pt" style="background:${gPC(a.pillar)+'22'};color:${gPC(a.pillar)};margin-right:2px">${a.pillar.split('-')[0]}</span>${a.name}${a.shared?'<span class="stag">SHARED</span>':''}</td>`;
+let dn=0,pn=0;MO.forEach((m,mi)=>{const mN=mi+1;if(mN<a.start||mN>a.end){h+=`<td style="text-align:center"><span class="tc tn">—</span></td>`;return;}if(mN>S.month){h+=`<td style="text-align:center"><span class="tc tf">·</span></td>`;return;}let has=false;D.sites.forEach(s=>{if(gi(S.year,s,idx,mi)>0)has=true;});if(has){dn++;h+=`<td style="text-align:center"><span class="tc td">✓</span></td>`;}else{pn++;h+=`<td style="text-align:center"><span class="tc tp">○</span></td>`;}});
+const pc=dn+pn>0?Math.round(dn/(dn+pn)*100):0;const bc=pc>=80?'var(--green)':pc>=50?'var(--amber)':'var(--red)';h+=`<td><div style="display:flex;align-items:center;gap:3px"><div class="pb"><div class="f" style="width:${pc}%;background:${bc}"></div></div><span style="font-size:9px;font-weight:600">${pc}%</span></div></td></tr>`;});
+h+=`</tbody></table></div>`;ct.innerHTML=h;}
+
+// Config
+function rC(ct,sb){const P=gP();
+let h=sb+`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:5px"><div><span style="font-size:14px;font-weight:700">Activities</span> <span style="font-size:10px;color:var(--muted)">${D.activities.length} activities, ${P.length} pillars</span></div><div style="display:flex;gap:4px"><button class="btn btn-t" onclick="shAA()">+ Activity</button><button class="btn btn-p" onclick="shAP()">+ Pillar</button></div></div>`;
+h+=`<div class="tbl-wrap"><table><thead><tr><th>#</th><th>Pillar</th><th>Activity</th><th>KPI</th><th>Weight</th><th>Start</th><th>End</th><th>Shared</th><th></th></tr></thead><tbody>`;
+let lp='';D.activities.forEach((a,idx)=>{if(a.pillar!==lp){const pw=D.activities.filter(x=>x.pillar===a.pillar).reduce((s,x)=>s+x.weight,0);h+=`<tr class="pr"><td></td><td colspan="6"><span class="pt" style="font-size:10px;padding:3px 7px;background:${gPC(a.pillar)+'22'};color:${gPC(a.pillar)}">${a.pillar}</span> — ${(pw*100).toFixed(0)}%</td><td colspan="2"></td></tr>`;lp=a.pillar;}
+h+=`<tr><td style="color:var(--light)">${a.num}</td><td><select class="cs" data-i="${idx}" data-f="pillar">${P.map(p=>`<option ${a.pillar===p?'selected':''}>${p}</option>`).join('')}</select></td><td><input class="ci" style="width:100%;min-width:150px" value="${a.name}" data-i="${idx}" data-f="name"></td><td><select class="cs" data-i="${idx}" data-f="kpi"><option ${a.kpi==='BOOLEAN'?'selected':''}>BOOLEAN</option><option ${a.kpi==='COUNT'?'selected':''}>COUNT</option><option ${a.kpi==='PERCENT'?'selected':''}>PERCENT</option><option ${a.kpi==='MILESTONE'?'selected':''}>MILESTONE</option><option ${a.kpi==='CURRENCY'?'selected':''}>CURRENCY</option><option ${a.kpi==='RATING'?'selected':''}>RATING</option></select></td><td><input class="ci" type="number" step="0.01" min="0" max="1" value="${a.weight}" data-i="${idx}" data-f="weight" style="width:48px"></td><td><select class="cs" data-i="${idx}" data-f="start">${MO.map((m,i)=>`<option value="${i+1}" ${a.start===i+1?'selected':''}>${m}</option>`).join('')}</select></td><td><select class="cs" data-i="${idx}" data-f="end">${MO.map((m,i)=>`<option value="${i+1}" ${a.end===i+1?'selected':''}>${m}</option>`).join('')}</select></td><td style="text-align:center"><input type="checkbox" ${a.shared?'checked':''} data-i="${idx}" data-f="shared" style="accent-color:var(--amber)"></td><td><button class="btn btn-x" onclick="dA(${idx})">✕</button></td></tr><div style="margin:10px 0;padding:12px;background:var(--card);border:1px solid var(--border);border-radius:8px;font-size:11px">
+<b>KPI Type Reference</b><br>
+<span style="color:var(--teal);font-weight:700">BOOLEAN</span> — Project milestone (0→0.5→1: Not Started / In Progress / Done)<br>
+<span style="color:var(--blue);font-weight:700">COUNT</span> — Recurring activity (sum of monthly actuals vs pro-rated annual target)<br>
+<span style="color:var(--purple);font-weight:700">PERCENT</span> — Percentage KPI (monthly avg % vs target %. Input 0-100. E.g. SLA, uptime, compliance rate)<br>
+<span style="color:var(--amber);font-weight:700">MILESTONE</span> — Multi-phase project (current phase vs total phases. E.g. 3 of 5 phases done)<br>
+<span style="color:var(--green);font-weight:700">CURRENCY</span> — Budget/cost tracking (actual spend/savings vs target amount)<br>
+<span style="color:var(--red);font-weight:700">RATING</span> — Qualitative score (avg of monthly 1-5 ratings vs target rating. E.g. user satisfaction ≥4/5)
+</div>`;});
+h+=`</tbody></table></div><div style="margin-top:8px;padding:8px;background:var(--card);border:1px solid var(--border);border-radius:5px;font-size:9px;color:var(--muted)"><b>Pillar Allocation</b> (must total 100%)
+<div style="display:flex;gap:10px;flex-wrap:wrap;margin:6px 0;align-items:center">${P.map(p=>{const pw=D.pillarWeights[p]||0;return'<label style="font-size:11px;display:flex;align-items:center;gap:3px"><span class="pt" style="background:'+gPC(p)+'22;color:'+gPC(p)+'">'+gPS(p)+'</span><input class=ci type=number step=1 min=0 max=100 value='+Math.round(pw*100)+' data-pw="'+p+'" style="width:48px;text-align:center">%</label>';}).join('')}
+<span style="font-size:10px;color:var(--muted)">Total: <b id=pwT>${Math.round(Object.values(D.pillarWeights).reduce((s,v)=>s+v,0)*100)}%</b></span></div>
+<div style="font-size:9px;color:var(--light)">Within-pillar: ${P.map(p=>gPS(p)+': '+(D.activities.filter(x=>x.pillar===p).reduce((s,x)=>s+x.weight,0)*100).toFixed(0)+'%').join(' | ')}</div></div>`;
+ct.innerHTML=h;
+ct.querySelectorAll('.ci,.cs').forEach(el=>{el.onchange=e=>{const i=+e.target.dataset.i,f=e.target.dataset.f;if(f==='weight')D.activities[i][f]=parseFloat(e.target.value)||0;else if(f==='start'||f==='end')D.activities[i][f]=parseInt(e.target.value);else D.activities[i][f]=e.target.value;S.dirty=true;render();};});
+ct.querySelectorAll('input[data-f="shared"]').forEach(el=>{el.onchange=e=>{D.activities[+e.target.dataset.i].shared=e.target.checked;S.dirty=true;};});
+ct.querySelectorAll('input[data-pw]').forEach(el=>{el.onchange=e=>{
+  const p=e.target.dataset.pw;if(!D.pillarWeights)D.pillarWeights={};D.pillarWeights[p]=(parseInt(e.target.value)||0)/100;S.dirty=true;
+  const tot=Object.values(D.pillarWeights).reduce((s,v)=>s+v,0);const el2=document.getElementById('pwT');if(el2){el2.textContent=Math.round(tot*100)+'%';el2.style.color=Math.abs(tot-1)<0.01?'var(--green)':'var(--red)';}
+};});}
+
+// Targets
+function rTg(ct,sb){const site=S.site||D.activeSites[0]||D.sites[0];
+let h=sb+sB(site)+`<div style="margin-bottom:5px;font-size:10px;color:var(--muted)">Targets for <b style="color:${D.siteColors[site]}">${site}</b></div>`;
+h+=`<div class="tbl-wrap"><table><thead><tr><th>#</th><th>Pillar</th><th>Activity</th><th>KPI</th><th>Window</th><th style="background:${D.siteColors[site]}">Target</th><th style="background:${D.siteColors[site]}">Active</th></tr></thead><tbody>`;
+D.activities.forEach((a,idx)=>{const t=(D.targets[site]||[])[idx]||{target:0,active:false};
+h+=`<tr><td style="color:var(--light)">${a.num}</td><td><span class="pt" style="background:${gPC(a.pillar)+'22'};color:${gPC(a.pillar)}">${a.pillar.split('-')[0]}</span></td><td>${a.name}${a.shared?'<span class="stag">SHARED</span>':''}</td><td>${a.kpi}</td><td style="font-size:9px">M${a.start}–M${a.end}</td><td style="background:#fef9c3">${a.kpi==='BOOLEAN'?'<span style="font-size:9px;color:var(--muted)">0/0.5/1</span>':`<input class="ci" type="number" min="0" value="${typeof t.target==='number'?t.target:parseInt(t.target)||0}" data-s="${site}" data-i="${idx}" data-tf="t" style="width:50px">`}</td><td style="background:${t.active?'#d1fae5':'#fee2e2'};text-align:center"><select class="cs" data-s="${site}" data-i="${idx}" data-tf="a" style="border-color:${t.active?'#16a34a':'#dc2626'};background:${t.active?'#d1fae5':'#fee2e2'};color:${t.active?'#166534':'#991b1b'}"><option value="y" ${t.active?'selected':''}>YES</option><option value="n" ${!t.active?'selected':''}>NO</option></select></td></tr>`;});
+h+=`</tbody></table></div>`;ct.innerHTML=h;bSB(ct);
+ct.querySelectorAll('[data-tf="t"]').forEach(el=>{el.onchange=e=>{const s=e.target.dataset.s,i=+e.target.dataset.i;if(!D.targets[s])D.targets[s]=[];if(!D.targets[s][i])D.targets[s][i]={target:0,active:false};D.targets[s][i].target=parseInt(e.target.value)||0;S.dirty=true;};});
+ct.querySelectorAll('[data-tf="a"]').forEach(el=>{el.onchange=e=>{const s=e.target.dataset.s,i=+e.target.dataset.i;if(!D.targets[s])D.targets[s]=[];if(!D.targets[s][i])D.targets[s][i]={target:0,active:false};D.targets[s][i].active=e.target.value==='y';S.dirty=true;const any=D.targets[s].some(t=>t?.active);if(any&&!D.activeSites.includes(s)){D.activeSites.push(s);toast(s+' activated');}else if(!any&&D.activeSites.includes(s)){D.activeSites=D.activeSites.filter(x=>x!==s);toast(s+' deactivated');}render();};});}
+
+// Helpers
+function sB(site){
+  // For non-exec admins: only show their assigned site in the site button bar
+  const sitesForBar=USER_SITE?[USER_SITE]:D.sites;
+  const bars=sitesForBar.map(s=>`<button class="sb3 ${s===site?'active':''}" style="${s===site?'background:'+D.siteColors[s]+';border-color:'+D.siteColors[s]:''}" data-s="${s}" ${USER_SITE&&sitesForBar.length===1?'disabled style="cursor:default;opacity:1"':''}>${s}</button>`).join('');
+  return`<div class="sf">${bars}</div>`;}
+function bSB(ct){if(!USER_SITE)ct.querySelectorAll('.sb3').forEach(b=>b.onclick=()=>{S.site=b.dataset.s;render();});}
+
+// Modals
+function shAA(){const P=gP();document.getElementById('mr').innerHTML=`<div class="mo" onclick="if(event.target===this)cM()"><div class="md"><h2>Add Activity</h2><label>Name</label><input id="mN"><div class="rw"><div><label>Pillar</label><select id="mP">${P.map(p=>`<option>${p}</option>`).join('')}</select></div><div><label>KPI</label><select id="mK"><option>BOOLEAN</option><option>COUNT</option><option>PERCENT</option><option>MILESTONE</option><option>CURRENCY</option><option>RATING</option></select></div></div><div class="rw"><div><label>Weight</label><input id="mW" type="number" step="0.01" value="0.1"></div><div><label>Shared?</label><select id="mSh"><option value="n">No</option><option value="y">Yes</option></select></div></div><div class="rw"><div><label>Start</label><select id="mS">${MO.map((m,i)=>`<option value="${i+1}">${m}</option>`).join('')}</select></div><div><label>End</label><select id="mE">${MO.map((m,i)=>`<option value="${i+1}" ${i===11?'selected':''}>${m}</option>`).join('')}</select></div></div><div class="acts"><button class="btn btn-r" onclick="cM()">Cancel</button><button class="btn btn-t" onclick="aA()">Add</button></div></div></div>`;}
+function aA(){const n=document.getElementById('mN').value.trim();if(!n){toast('Name required');return;}const mx=D.activities.reduce((m,a)=>Math.max(m,a.num||0),0);const a={num:mx+1,name:n,pillar:document.getElementById('mP').value,kpi:document.getElementById('mK').value,weight:parseFloat(document.getElementById('mW').value)||0.1,start:+document.getElementById('mS').value,end:+document.getElementById('mE').value,shared:document.getElementById('mSh').value==='y'};D.activities.push(a);D.sites.forEach(s=>{if(!D.targets[s])D.targets[s]=[];D.targets[s].push({target:a.kpi==='BOOLEAN'?'TRUE/FALSE':0,active:D.activeSites.includes(s)});D.years.forEach(yr=>{if(!D.inputs[yr])D.inputs[yr]={};if(!D.inputs[yr][s])D.inputs[yr][s]=[];D.inputs[yr][s].push(new Array(12).fill(0));});});S.dirty=true;cM();render();toast('Added: '+n);}
+function dA(idx){if(!confirm('Delete "'+D.activities[idx].name+'"?'))return;
+const pillar=D.activities[idx].pillar;const oldW=D.activities[idx].weight;
+D.activities.splice(idx,1);D.sites.forEach(s=>{D.targets[s]?.splice(idx,1);D.years.forEach(yr=>{D.inputs[yr]?.[s]?.splice(idx,1);});});
+// Redistribute deleted weight to remaining activities in same pillar
+const siblings=D.activities.filter(a=>a.pillar===pillar);
+if(siblings.length>0){const totalW=siblings.reduce((s,a)=>s+a.weight,0);if(totalW>0){siblings.forEach(a=>{a.weight=a.weight/totalW;});}}
+S.dirty=true;render();toast('Deleted — weights redistributed in '+pillar);}
+function shAP(){document.getElementById('mr').innerHTML=`<div class="mo" onclick="if(event.target===this)cM()"><div class="md"><h2>Add Pillar</h2><label>ID (e.g. P5-Innovation)</label><input id="mPN"><label>Color</label><input id="mPC" value="#6366F1" type="color"><div class="acts"><button class="btn btn-r" onclick="cM()">Cancel</button><button class="btn btn-p" onclick="aP()">Add</button></div></div></div>`;}
+function aP(){const n=document.getElementById('mPN').value.trim();if(!n){toast('Name required');return;}PC[n]=document.getElementById('mPC').value;cM();toast('"'+n+'" created');S.view='config';render();}
+function cM(){document.getElementById('mr').innerHTML='';}
+
+// Export
+
+// Heatmap: activity × site matrix
+function rHM(ct,sb){
+  const P=gP();const sites=D.sites;const acts=D.activities;
+  let h=sb;
+  h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:6px">
+    <div><span style="font-size:15px;font-weight:700">Activity × Site Heatmap</span><br>
+    <span style="font-size:11px;color:var(--muted)">Toggle which activities apply to each site. ✓ = active, blank = not concerned. Changes update scoring immediately.</span></div>
+    <div style="display:flex;gap:4px">
+      <button class="btn btn-t" onclick="hmAll(true)">Enable All</button>
+      <button class="btn btn-r" onclick="hmAll(false)">Disable All</button>
+    </div>
+  </div>`;
+  
+  h+=`<div class="tbl-wrap"><table style="font-size:11px"><thead><tr><th style="min-width:200px;position:sticky;left:0;z-index:12;background:linear-gradient(135deg,#1e293b,#0f172a)">Activity</th>`;
+  sites.forEach(s=>{
+    const c=D.siteColors[s]||'#999';const isA=D.activeSites.includes(s);
+    const tg=D.targets[s]||[];const activeCount=tg.filter(t=>t?.active).length;
+    h+=`<th style="text-align:center;padding:4px;vertical-align:bottom;${isA?'':'opacity:.5'}">
+      <div class="hm-site-hdr" style="color:${c}">${s}</div>
+      <div class="hm-stats">${activeCount}/${acts.length}</div>
+      <div class="hm-bar"><div class="f" style="width:${Math.round(activeCount/acts.length*100)}%"></div></div>
+    </th>`;
+  });
+  h+=`<th style="text-align:center">Coverage</th></tr></thead><tbody>`;
+  
+  let lastP='';
+  acts.forEach((a,ai)=>{
+    if(a.pillar!==lastP){
+      // Pillar header row
+      const pActs=acts.filter(x=>x.pillar===a.pillar);
+      const pW=D.pillarWeights[a.pillar]||0;
+      h+=`<tr class="pr"><td style="position:sticky;left:0;z-index:11;background:#f8fafc"><span class="pt" style="font-size:10px;padding:3px 7px;background:${gPC(a.pillar)+'22'};color:${gPC(a.pillar)}">${a.pillar}</span> <span style="font-size:10px;color:var(--muted)">${Math.round(pW*100)}% allocation, ${pActs.length} activities</span></td>`;
+      sites.forEach(s=>{
+        const tg=D.targets[s]||[];
+        const pActive=pActs.filter((_,idx2)=>{const gIdx=acts.indexOf(pActs[idx2]);return tg[gIdx]?.active;}).length;
+        h+=`<td style="text-align:center;font-size:10px;font-weight:600;color:${pActive===pActs.length?'var(--green)':pActive===0?'var(--red)':'var(--amber)'}">${pActive}/${pActs.length}</td>`;
+      });
+      h+=`<td></td></tr>`;
+      lastP=a.pillar;
+    }
+    
+    const siteActives=sites.filter(s=>(D.targets[s]||[])[ai]?.active).length;
+    h+=`<tr><td style="position:sticky;left:0;z-index:11;background:var(--card);border-right:1px solid var(--border)"><span class="pt" style="background:${gPC(a.pillar)+'22'};color:${gPC(a.pillar)};margin-right:3px">${a.pillar.split('-')[0]}</span>${a.name}${a.shared?'<span class="stag">SHARED</span>':''} <span style="font-size:9px;color:var(--light)">${a.kpi} ${(a.weight*100).toFixed(1)}%</span></td>`;
+    
+    sites.forEach(s=>{
+      const tg=D.targets[s]||[];
+      const isOn=tg[ai]?.active||false;
+      h+=`<td style="text-align:center;padding:4px"><div class="hm-cell ${isOn?'hm-on':'hm-off'}" data-s="${s}" data-a="${ai}" onclick="hmToggle(this,'${s}',${ai})">${isOn?'✓':''}</div></td>`;
+    });
+    
+    // Coverage
+    const pct=Math.round(siteActives/sites.length*100);
+    const bc=pct>=80?'var(--green)':pct>=50?'var(--amber)':'var(--red)';
+    h+=`<td style="text-align:center"><div class="hm-stats" style="color:${bc}">${siteActives}/${sites.length}</div><div class="hm-bar"><div class="f" style="width:${pct}%;background:${bc}"></div></div></td></tr>`;
+  });
+  
+  // Footer row: totals per site
+  h+=`<tr style="border-top:2px solid var(--border)"><td style="position:sticky;left:0;z-index:11;background:var(--card);font-weight:700">TOTAL ACTIVE</td>`;
+  sites.forEach(s=>{
+    const tg=D.targets[s]||[];
+    const total=tg.filter(t=>t?.active).length;
+    const pct=Math.round(total/acts.length*100);
+    h+=`<td style="text-align:center;font-weight:700;font-size:12px;color:${pct>=80?'var(--green)':pct>=50?'var(--amber)':'var(--red)'}">${total}<br><span style="font-size:9px;font-weight:400">${pct}%</span></td>`;
+  });
+  h+=`<td></td></tr>`;
+  
+  h+=`</tbody></table></div>`;
+  ct.innerHTML=h;
+}
+
+function hmToggle(el,site,ai){
+  if(!D.targets[site])D.targets[site]=[];
+  if(!D.targets[site][ai])D.targets[site][ai]={target:0,active:false};
+  const newState=!D.targets[site][ai].active;
+  D.targets[site][ai].active=newState;
+  S.dirty=true;
+  
+  // Update visual immediately without full re-render
+  el.className='hm-cell '+(newState?'hm-on':'hm-off');
+  el.textContent=newState?'✓':'';
+  
+  // Check if site should be activated/deactivated
+  const anyActive=D.targets[site].some(t=>t?.active);
+  if(anyActive&&!D.activeSites.includes(site)){D.activeSites.push(site);toast(site+' activated');}
+  else if(!anyActive&&D.activeSites.includes(site)){D.activeSites=D.activeSites.filter(x=>x!==site);toast(site+' deactivated');}
+}
+
+function hmAll(on){
+  if(!confirm(on?'Enable ALL activities at ALL sites?':'Disable ALL activities at ALL sites?'))return;
+  D.sites.forEach(s=>{
+    if(!D.targets[s])D.targets[s]=[];
+    D.activities.forEach((_,ai)=>{
+      if(!D.targets[s][ai])D.targets[s][ai]={target:0,active:false};
+      D.targets[s][ai].active=on;
+    });
+    const anyActive=D.targets[s].some(t=>t?.active);
+    if(anyActive&&!D.activeSites.includes(s))D.activeSites.push(s);
+    else if(!anyActive&&D.activeSites.includes(s))D.activeSites=D.activeSites.filter(x=>x!==s);
+  });
+  S.dirty=true;render();toast(on?'All enabled':'All disabled');
+}
+
+
+// Per-site 2-line commentary for executive report (positive + action)
+function siteCommentary(site,yr,mo){
+  const sm=ss(site,yr,mo);const sc=score(site,yr,mo);const prev=mo>1?ss(site,yr,mo-1):null;
+  const delta=prev?Math.round((sm.avg-prev.avg)*100):0;
+  const activeCount=sc.filter(s=>s.on).length;
+  const newG=prev?sc.filter((s,i)=>s.rg==='GREEN'&&score(site,yr,mo-1)[i]?.rg!=='GREEN').map(s=>s.name):[];
+  const reds=sc.filter(s=>s.rg==='RED'&&s.on);const newR=prev?sc.filter((s,i)=>s.rg==='RED'&&score(site,yr,mo-1)[i]?.rg!=='RED').map(s=>s.name):[];
+  // Line 1: positive
+  let pos='';
+  if(newG.length>=2)pos=(D.siteNames[site]||site)+' ('+activeCount+' activities). '+newG.slice(0,2).join(' & ')+' → GREEN. +'+newG.length+' new GREEN items.';
+  else if(newG.length===1)pos=(D.siteNames[site]||site)+' ('+activeCount+'). '+newG[0]+' → GREEN.'+(delta>0?' +'+delta+'pp improvement.':'');
+  else pos=(D.siteNames[site]||site)+' ('+activeCount+'). '+(delta>0?'+'+delta+'pp improvement.':'Holding steady at '+Math.round(sm.avg*100)+'%.');
+  // Line 2: action
+  let neg='';
+  if(newR.length)neg=newR.slice(0,2).join(' & ')+' turned RED.'+(reds.length>newR.length?' '+reds.length+' RED total to address.':'');
+  else if(reds.length)neg=reds.length+' RED remain'+(sm.a>5?' — '+sm.a+' amber items with conversion potential.':' but no new RED — upward trajectory.');
+  else neg='No RED items. Strong execution across all activities.';
+  return[pos,neg];
+}
+// General review bullets (fleet-wide highlights for CIO/CFO)
+function generalReview(sites,yr,mo){
+  const bullets=[];const prev=mo>1?mo-1:null;
+  // Find activities that went GREEN at ALL sites this month
+  D.activities.forEach((a,i)=>{
+    if(a.shared)return;
+    const allGreen=sites.every(s=>score(s,yr,mo)[i]?.rg==='GREEN');
+    const wasNotAllGreen=prev&&!sites.every(s=>score(s,yr,prev)[i]?.rg==='GREEN');
+    if(allGreen&&wasNotAllGreen)bullets.push('All sites have successfully completed '+a.name+' this month.');
+  });
+  // Link upgrade programme
+  const boolDone=[];D.activities.forEach((a,i)=>{if(a.kpi==='BOOLEAN'){const greens=sites.filter(s=>score(s,yr,mo)[i]?.rg==='GREEN');if(greens.length>0&&greens.length<sites.length)boolDone.push(a.name+' progressing — '+greens.map(s=>s).join(', ')+' now GREEN.');}});
+  if(boolDone.length)bullets.push(...boolDone.slice(0,2));
+  // Compliance/risk
+  const p3=gP().find(p=>p.includes('Risk'));
+  if(p3){const p3avg=sites.reduce((s,si)=>s+ps2(si,p3,yr,mo),0)/sites.length;if(p3avg<0.6)bullets.push('Risk & Compliance pillar at '+Math.round(p3avg*100)+'% fleet average — requires management attention.');}
+  // Shared activities
+  D.activities.forEach((a,i)=>{if(a.shared&&score(sites[0],yr,mo)[i]?.rg==='RED')bullets.push(a.name+' remains RED fleet-wide — coordinated action needed.');});
+  return bullets.slice(0,4);
+}
+
+let eS=[...INIT.activeSites];
+function tEP(){const p=document.getElementById('ep');if(!p){toast('Export panel not found');return;}const s=p.style.display==='none';p.style.display=s?'block':'none';if(s){document.getElementById('rM').value=S.month;rEL();}}
+function rEL(){document.getElementById('esl').innerHTML=D.sites.map(s=>`<label style="display:flex;align-items:center;gap:4px;padding:1px 0;cursor:pointer;font-size:10px;color:${D.activeSites.includes(s)?'#fff':'#64748b'}"><input type="checkbox" ${eS.includes(s)?'checked':''} onchange="tES('${s}',this.checked)" style="accent-color:${D.siteColors[s]}"><span style="color:${D.siteColors[s]};font-weight:600">${s}</span></label>`).join('');}
+function tES(s,on){if(on&&!eS.includes(s))eS.push(s);else eS=eS.filter(x=>x!==s);}
+function sE(m){eS=m===1?[...D.sites]:m===2?[...D.activeSites]:[];rEL();}
+function doExp(){if(!eS.length){toast('Select sites');return;}document.getElementById('ep').style.display='none';gPX(eS,S.year,+document.getElementById('rM').value);}
+document.addEventListener('click',e=>{const w=document.getElementById('ew');if(w&&!w.contains(e.target)){const p=document.getElementById('ep');if(p)p.style.display='none';}});
+
+// PPTX — server-side generation (avoids browser pptxgenjs compatibility issues)
+async function gPX(sel,yr,mo){
+  const aS=sel.filter(s=>D.activeSites.includes(s));
+  if(!aS.length){toast('No active sites selected');return;}
+  toast('⏳ Generating executive report...');
+  try{
+    const r=await fetch('/api/tracker/export',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-report-token':_token()},
+      body:JSON.stringify({sites:aS,yr,mo})
+    });
+    if(!r.ok){
+      const e=await r.json().catch(()=>({}));
+      toast('❌ Export error: '+(e.error||r.statusText));
+      return;
+    }
+    const blob=await r.blob();
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;
+    a.download='IT_Ops_Strategy_'+MO[mo-1]+yr+'.pptx';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast('✅ Report downloaded!');
+  }catch(e){toast('❌ Export error: '+e.message);console.error('PPTX export:',e);}
+}
+
+loadFromServer().then(()=>render());
+
+
+</script>
+</body>
+</html>

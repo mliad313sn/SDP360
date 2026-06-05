@@ -1,0 +1,4345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>IT Inspection — Endeavour Mining</title>
+
+<!-- PWA / Mobile App -->
+<meta name="theme-color" content="#0F3D4D" />
+<meta name="application-name" content="IT Inspect" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="IT Inspect" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="format-detection" content="telephone=no" />
+
+<!-- App icon (inline SVG, works as Android maskable + iOS touch icon) -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='100' fill='%230F3D4D'/%3E%3Crect x='48' y='48' width='416' height='416' rx='76' fill='%23B8893D'/%3E%3Ctext x='256' y='340' font-family='system-ui,sans-serif' font-size='220' font-weight='900' fill='%23fff' text-anchor='middle' letter-spacing='-8'%3EEM%3C/text%3E%3Crect x='100' y='380' width='312' height='14' rx='7' fill='%230F3D4D'/%3E%3C/svg%3E" />
+<link rel="apple-touch-icon" href="data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='100' fill='%230F3D4D'/%3E%3Crect x='48' y='48' width='416' height='416' rx='76' fill='%23B8893D'/%3E%3Ctext x='256' y='340' font-family='system-ui,sans-serif' font-size='220' font-weight='900' fill='%23fff' text-anchor='middle' letter-spacing='-8'%3EEM%3C/text%3E%3Crect x='100' y='380' width='312' height='14' rx='7' fill='%230F3D4D'/%3E%3C/svg%3E" />
+
+<!-- Inline web app manifest -->
+<link rel="manifest" href='data:application/manifest+json;charset=utf-8,{"name":"IT Inspection — Endeavour Mining","short_name":"IT Inspect","description":"Site IT inspection tool for mining operations","start_url":".","scope":".","display":"standalone","orientation":"portrait","background_color":"%23f4f6f7","theme_color":"%230F3D4D","categories":["productivity","business","utilities"],"icons":[{"src":"data:image/svg+xml;charset=utf-8,%3Csvg xmlns=\u0027http://www.w3.org/2000/svg\u0027 viewBox=\u00270 0 512 512\u0027%3E%3Crect width=\u0027512\u0027 height=\u0027512\u0027 rx=\u0027100\u0027 fill=\u0027%230f1419\u0027/%3E%3Crect x=\u002748\u0027 y=\u002748\u0027 width=\u0027416\u0027 height=\u0027416\u0027 rx=\u002776\u0027 fill=\u0027%23d97706\u0027/%3E%3Ctext x=\u0027256\u0027 y=\u0027340\u0027 font-family=\u0027system-ui,sans-serif\u0027 font-size=\u0027220\u0027 font-weight=\u0027900\u0027 fill=\u0027%23fff\u0027 text-anchor=\u0027middle\u0027 letter-spacing=\u0027-8\u0027%3EEM%3C/text%3E%3C/svg%3E","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]}' />
+<!-- ── Endeavour brand stack — tokens, icons, unified shell ───────────── -->
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="brand/icons.css">
+<link rel="stylesheet" href="brand/components.css">
+<link rel="stylesheet" href="_shell.css">
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+
+<style nonce="%%CSP_NONCE%%">
+/* ──────────────────────────────────────────────────────────────────────
+   Local aliases — map this page's legacy var names onto the canonical
+   EDV brand tokens loaded from _tokens.css. Lets the whole stylesheet
+   below stay unchanged while still picking up the unified palette.
+   ────────────────────────────────────────────────────────────────────── */
+:root{
+  --bg:           var(--edv-slate, #3A4A60);
+  --bg-2:         var(--edv-slate-700, #2C3949);
+  --panel:        var(--color-surface, #ffffff);
+  --panel-2:      var(--color-surface-muted, #f4f6f7);
+  --ink:          var(--color-text-primary, #1F2A33);
+  --ink-2:        var(--color-text-secondary, #3a4452);
+  --ink-3:        var(--color-text-muted, #6b7785);
+  --line:         var(--color-border, #dfe3e8);
+  --line-2:       var(--color-border-subtle, #eef0f3);
+  --accent:       var(--edv-orange, #EF631A);
+  --accent-2:     var(--edv-orange-700, #C04E10);
+  --accent-light: var(--edv-orange-50, #FFEEDF);
+  --ok:           var(--edv-green, #1B9A3A);
+  --warn:         var(--color-warning, #D97706);
+  --bad:          var(--edv-red, #D90038);
+  --crit:         #7f1d1d;
+  --opp:          var(--edv-blue, #145FAE);
+  --na:           #52525b;
+  --shadow:       0 1px 2px rgba(15,61,77,.06), 0 4px 12px rgba(15,61,77,.04);
+}
+
+/* Re-style the page's original sticky brand header into a flat, light
+   sub-toolbar. The unified shell above already handles primary brand /
+   nav, so we drop the brand block and keep only the inspection-
+   specific controls (saved selector, language, rename, delete, share). */
+header.app-header {
+  position:       static;
+  background:     var(--color-surface-muted, #f4f6f7);
+  color:          var(--color-text-primary, #1F2A33);
+  border-bottom:  1px solid var(--color-border, #dfe3e8);
+  border-top:     none;
+  padding:        12px 24px;
+}
+header.app-header .brand        { display: none; }
+header.app-header .btn-ghost    { color: var(--color-text-secondary, #3a4452); border-color: var(--color-border, #dfe3e8); }
+header.app-header .btn-ghost:hover { background: #fff; color: var(--color-text-primary, #1F2A33); }
+header.app-header .btn-primary  { background: var(--edv-orange, #EF631A); }
+header.app-header .btn-primary:hover { background: var(--edv-orange-700, #C04E10); }
+header.app-header .saved-bar select {
+  background: #fff;
+  color:      var(--color-text-primary, #1F2A33);
+  border:     1px solid var(--color-border, #dfe3e8);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  font-family:"IBM Plex Sans","Segoe UI",-apple-system,BlinkMacSystemFont,sans-serif;
+  background:var(--panel-2);
+  color:var(--ink);
+  font-size:14px;
+  line-height:1.45;
+  -webkit-font-smoothing:antialiased;
+}
+.mono{font-family:"JetBrains Mono","SF Mono",Menlo,Consolas,monospace}
+
+/* ---------- Header ---------- */
+.app-header{
+  background:var(--bg);
+  color:#fff;
+  padding:18px 24px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  border-bottom:3px solid var(--accent);
+  position:sticky;top:0;z-index:50;
+}
+.brand{display:flex;align-items:center;gap:14px}
+.brand-mark{
+  width:38px;height:38px;border-radius:6px;
+  background:linear-gradient(135deg,var(--accent),var(--accent-2));
+  display:flex;align-items:center;justify-content:center;
+  font-weight:800;letter-spacing:.5px;color:#fff;font-size:13px;
+}
+.brand-title{font-weight:700;font-size:15px;letter-spacing:.3px}
+.brand-sub{font-size:11px;color:#9aa3ad;text-transform:uppercase;letter-spacing:1.2px;margin-top:2px}
+.header-actions{display:flex;gap:8px;flex-wrap:wrap}
+.btn{
+  border:1px solid transparent;background:transparent;
+  padding:8px 14px;border-radius:6px;cursor:pointer;
+  font-family:inherit;font-size:13px;font-weight:600;
+  display:inline-flex;align-items:center;gap:6px;
+  transition:all .15s ease;
+}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent-2)}
+.btn-ghost{color:#fff;border-color:#384450}
+.btn-ghost:hover{background:#1a2129}
+.btn-light{background:#fff;color:var(--ink);border-color:var(--line)}
+.btn-light:hover{background:var(--panel-2)}
+.btn-danger{background:transparent;color:#fca5a5;border-color:#5b1d1d}
+.btn-danger:hover{background:#2a1010}
+
+/* ---------- Layout ---------- */
+.container{max-width:1180px;margin:0 auto;padding:24px}
+.section{
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:8px;
+  margin-bottom:16px;
+  overflow:hidden;
+  box-shadow:var(--shadow);
+}
+.section-head{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 18px;
+  background:linear-gradient(180deg,#fafbfc,#f3f5f7);
+  border-bottom:1px solid var(--line);
+}
+.section-title{
+  font-weight:700;font-size:13px;
+  text-transform:uppercase;letter-spacing:1.1px;
+  display:flex;align-items:center;gap:10px;
+}
+.section-title .num{
+  background:var(--bg);color:#fff;
+  width:24px;height:24px;border-radius:4px;
+  display:inline-flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:700;font-family:"JetBrains Mono",monospace;
+}
+.section-body{padding:18px}
+
+/* ---------- Form ---------- */
+.grid{display:grid;gap:14px}
+.grid-2{grid-template-columns:repeat(2,1fr)}
+.grid-3{grid-template-columns:repeat(3,1fr)}
+.grid-4{grid-template-columns:repeat(4,1fr)}
+@media(max-width:780px){
+  .grid-2,.grid-3,.grid-4{grid-template-columns:1fr}
+}
+.field label{
+  display:block;font-size:11px;font-weight:600;
+  text-transform:uppercase;letter-spacing:.8px;
+  color:var(--ink-2);margin-bottom:6px;
+}
+.field label .fr{color:var(--ink-3);font-weight:500;text-transform:none;letter-spacing:0;font-size:11px;margin-left:4px}
+input[type=text],input[type=date],input[type=time],input[type=number],
+input[type=email],select,textarea{
+  width:100%;padding:9px 11px;
+  border:1px solid var(--line);border-radius:5px;
+  background:#fff;font-family:inherit;font-size:14px;color:var(--ink);
+  transition:border-color .15s,box-shadow .15s;
+}
+input:focus,select:focus,textarea:focus{
+  outline:none;border-color:var(--accent);
+  box-shadow:0 0 0 3px rgba(217,119,6,.15);
+}
+textarea{resize:vertical;min-height:60px;font-family:inherit}
+.req{color:var(--bad)}
+
+/* ---------- Inspection items ---------- */
+.cat-tabs{
+  display:flex;flex-wrap:wrap;gap:4px;
+  padding:0 18px 0;background:var(--panel);
+  border-bottom:1px solid var(--line);overflow-x:auto;
+}
+.cat-tab{
+  padding:11px 14px;font-size:12px;font-weight:600;
+  cursor:pointer;border:none;background:transparent;
+  color:var(--ink-3);border-bottom:2px solid transparent;
+  white-space:nowrap;transition:all .15s;font-family:inherit;
+}
+.cat-tab:hover{color:var(--ink)}
+.cat-tab.active{color:var(--ink);border-bottom-color:var(--accent)}
+.cat-tab .badge{
+  background:var(--line);color:var(--ink-2);
+  padding:1px 6px;border-radius:10px;
+  font-size:10px;margin-left:6px;font-family:"JetBrains Mono",monospace;
+}
+.cat-tab.active .badge{background:var(--accent);color:#fff}
+
+.cat-panel{display:none;padding:18px}
+.cat-panel.active{display:block}
+
+.item{
+  border:1px solid var(--line);
+  border-radius:6px;
+  margin-bottom:12px;
+  overflow:hidden;
+  background:#fff;
+}
+.item-head{
+  display:flex;align-items:flex-start;gap:12px;
+  padding:12px 14px;background:var(--panel-2);
+  border-bottom:1px solid var(--line-2);
+}
+.item-num{
+  font-family:"JetBrains Mono",monospace;
+  font-size:11px;color:var(--ink-3);
+  background:#fff;padding:3px 7px;border-radius:3px;
+  border:1px solid var(--line);min-width:42px;text-align:center;
+}
+.item-label{flex:1;font-weight:600;font-size:13px}
+.item-label .fr{color:var(--ink-3);font-weight:400;font-size:12px;display:block;margin-top:2px}
+.status-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.status-btn{
+  padding:6px 10px;border:1.5px solid var(--line);
+  background:#fff;color:var(--ink-2);
+  border-radius:4px;cursor:pointer;
+  font-size:11px;font-weight:600;
+  text-transform:uppercase;letter-spacing:.5px;
+  font-family:inherit;transition:all .12s;
+}
+.status-btn:hover{border-color:var(--ink-3)}
+.status-btn[data-status="ok"].active{background:var(--ok);border-color:var(--ok);color:#fff}
+.status-btn[data-status="minor"].active{background:#eab308;border-color:#eab308;color:#fff}
+.status-btn[data-status="major"].active{background:var(--bad);border-color:var(--bad);color:#fff}
+.status-btn[data-status="critical"].active{background:var(--crit);border-color:var(--crit);color:#fff}
+.status-btn[data-status="opp"].active{background:var(--opp);border-color:var(--opp);color:#fff}
+.status-btn[data-status="na"].active{background:var(--na);border-color:var(--na);color:#fff}
+
+.item-body{padding:12px 14px;display:none}
+.item-body.show{display:block}
+.item-row{display:grid;grid-template-columns:1fr 200px;gap:12px;align-items:start}
+@media(max-width:680px){.item-row{grid-template-columns:1fr}}
+
+.photo-zone{
+  border:1.5px dashed var(--line);border-radius:5px;
+  padding:14px 10px;text-align:center;cursor:pointer;
+  transition:all .15s;background:var(--panel-2);
+}
+.photo-zone:hover{border-color:var(--accent);background:#FAF2DF}
+.photo-zone .icon{font-size:22px;margin-bottom:4px}
+.photo-zone .text{font-size:11px;color:var(--ink-3);font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+.photo-list{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px}
+/* `.photo-card` wraps a bigger thumbnail with an inline caption editor.
+   The old 64x64 .photo-thumb was painful to tap-select on phones; 96x96
+   gives a real touch target plus enough resolution to read the burned-in
+   timestamp / site / item stamp at a glance. */
+.photo-card{
+  display:flex;flex-direction:column;gap:4px;width:96px;
+}
+.photo-thumb{
+  position:relative;width:96px;height:96px;border-radius:5px;
+  overflow:hidden;border:1px solid var(--line);background:#000;
+}
+.photo-thumb img{width:100%;height:100%;object-fit:cover;cursor:pointer}
+.photo-thumb .x{
+  position:absolute;top:2px;right:2px;
+  background:rgba(0,0,0,.75);color:#fff;
+  width:22px;height:22px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:13px;cursor:pointer;border:none;
+  font-family:inherit;line-height:1;
+}
+.photo-thumb .photo-gps{
+  position:absolute;bottom:2px;left:2px;
+  background:rgba(0,0,0,.65);color:#fff;
+  width:18px;height:18px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;line-height:1;cursor:help;
+  pointer-events:auto;
+}
+.photo-cap{
+  font-family:inherit;font-size:11px;line-height:1.2;
+  padding:4px 6px;border:1px solid var(--line);
+  border-radius:3px;background:#fff;color:var(--ink-2);
+  width:96px;
+}
+.photo-cap:focus{
+  outline:none;border-color:var(--accent);
+  box-shadow:0 0 0 2px rgba(239,99,26,.18);
+}
+@media (max-width:680px){
+  .photo-card,.photo-thumb,.photo-cap{width:110px}
+  .photo-thumb{height:110px}
+  .photo-cap{font-size:12px;padding:6px 7px}
+}
+
+/* ---------- Corrective actions ---------- */
+.actions-table{width:100%;border-collapse:collapse;font-size:13px}
+.actions-table th{
+  background:var(--bg);color:#fff;
+  padding:10px 12px;text-align:left;font-weight:600;
+  font-size:11px;text-transform:uppercase;letter-spacing:.8px;
+}
+.actions-table td{padding:8px;border-bottom:1px solid var(--line-2);vertical-align:top}
+.actions-table tr:hover{background:var(--panel-2)}
+.actions-table input,.actions-table select,.actions-table textarea{
+  font-size:13px;padding:6px 8px;border:1px solid var(--line-2);background:transparent;
+}
+.actions-table input:hover,.actions-table select:hover{background:#fff;border-color:var(--line)}
+.priority-pill{
+  display:inline-block;padding:2px 8px;border-radius:10px;
+  font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;
+}
+.priority-critical{background:#fee2e2;color:#7f1d1d}
+.priority-high{background:#fed7aa;color:#9a3412}
+.priority-medium{background:#F5E9CA;color:#854d0e}
+.priority-low{background:#dbeafe;color:#1e40af}
+
+/* ---------- Summary ---------- */
+.summary-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:14px}
+@media(max-width:780px){.summary-grid{grid-template-columns:repeat(3,1fr)}}
+.kpi{
+  background:var(--panel-2);border:1px solid var(--line);
+  border-radius:6px;padding:10px 12px;
+}
+.kpi .v{font-size:22px;font-weight:700;font-family:"JetBrains Mono",monospace;line-height:1}
+.kpi .l{font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:var(--ink-3);margin-top:4px;font-weight:600}
+.kpi.ok .v{color:var(--ok)}
+.kpi.minor .v{color:#eab308}
+.kpi.major .v{color:var(--bad)}
+.kpi.critical .v{color:var(--crit)}
+.kpi.opp .v{color:var(--opp)}
+.kpi.na .v{color:var(--na)}
+
+/* ---------- Sign-off ---------- */
+.sign-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media(max-width:680px){.sign-grid{grid-template-columns:1fr}}
+.sign-box{border:1px solid var(--line);border-radius:6px;padding:14px;background:var(--panel-2)}
+.sign-line{
+  border-bottom:1.5px solid var(--ink-2);
+  height:36px;margin:14px 0 6px;
+  font-style:italic;color:var(--ink-3);
+  font-size:12px;display:flex;align-items:flex-end;padding-bottom:2px;
+}
+
+/* ---------- Misc ---------- */
+.helptext{font-size:11px;color:var(--ink-3);margin-top:4px}
+.divider{height:1px;background:var(--line);margin:18px 0}
+.toolbar{
+  display:flex;gap:8px;flex-wrap:wrap;align-items:center;
+  padding:12px 18px;background:#FAF2DF;border:1px solid #EDD5A0;
+  border-radius:6px;margin-bottom:16px;
+}
+.toolbar .save-status{font-size:11px;color:var(--ink-3);margin-left:auto}
+.toolbar .save-status.saved{color:var(--ok)}
+/* Server-side outcome of the debounced /api/inspection/save POST.
+   `.server-ok` paints over the base `.saved` color (slightly stronger
+   green); `.server-fail` is amber so the user notices that the local
+   save succeeded but the server didn't accept it yet. */
+.toolbar .save-status.server-ok{color:var(--ok);font-weight:600}
+.toolbar .save-status.server-fail{color:var(--warn, #B45309);font-weight:600}
+.save-now-link{
+  font-family:inherit;font-size:11px;font-weight:600;
+  background:transparent;border:none;
+  color:var(--accent);cursor:pointer;
+  padding:4px 6px;text-decoration:underline;
+  text-underline-offset:2px;
+}
+.save-now-link:hover{color:var(--accent-2);text-decoration:none}
+.save-now-link:disabled{opacity:0.4;cursor:default;text-decoration:none}
+.save-now-link.flashing{
+  animation:save-flash 1s ease-in-out;
+  color:var(--ok);
+}
+@keyframes save-flash{
+  0%{color:var(--accent)}
+  50%{color:var(--ok);transform:scale(1.06)}
+  100%{color:var(--ok)}
+}
+
+/* ---------- Combobox (Lead Inspector / Accompanied By) ----------
+   Native datalists are silent — users never realise a picker exists.
+   This is a visible combobox: chevron on the right, on-focus dropdown
+   panel showing the top suggestions, search-as-you-type. Free text
+   still works (the underlying <input> isn't constrained), so an
+   "Auditor from Group HSE" can be typed in directly. Mobile gets a
+   full-screen slide-up sheet instead of the inline panel — much better
+   one-handed. */
+.combobox{position:relative}
+.combobox > input[type="text"]{padding-right:38px}
+.combobox-chevron{
+  position:absolute;right:4px;top:50%;transform:translateY(-50%);
+  width:30px;height:30px;border-radius:50%;border:none;
+  background:transparent;color:var(--ink-3);
+  font-size:14px;font-weight:700;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  font-family:inherit;line-height:1;padding:0;
+  transition:transform .15s ease,color .15s ease;
+}
+.combobox-chevron:hover{color:var(--accent);background:var(--panel-2)}
+.combobox.is-open .combobox-chevron{transform:translateY(-50%) rotate(180deg);color:var(--accent)}
+.combobox-panel{
+  display:none;position:absolute;left:0;right:0;top:calc(100% + 4px);
+  background:#fff;border:1px solid var(--line);border-radius:6px;
+  box-shadow:0 6px 24px rgba(15,42,77,0.14);
+  z-index:50;
+  max-height:280px;overflow-y:auto;
+  padding:4px 0;
+}
+.combobox.is-open .combobox-panel{display:block}
+.combobox-option{
+  padding:8px 12px;font-size:13px;line-height:1.3;cursor:pointer;
+  display:flex;flex-direction:column;gap:1px;
+}
+.combobox-option:hover,
+.combobox-option.is-highlighted{background:var(--panel-2)}
+.combobox-option .opt-name{font-weight:600;color:var(--ink)}
+.combobox-option .opt-meta{font-size:11px;color:var(--ink-3)}
+.combobox-option.is-empty{
+  padding:14px 12px;font-style:italic;color:var(--ink-3);cursor:default;
+  text-align:center;
+}
+.combobox-option.is-empty:hover{background:transparent}
+.combobox-section-head{
+  padding:6px 12px 4px;font-size:10px;font-weight:700;
+  text-transform:uppercase;letter-spacing:.6px;color:var(--ink-3);
+  background:var(--panel-2);
+  position:sticky;top:0;
+}
+
+/* ---------- Mobile: replace inline panel with slide-up sheet ---------- */
+.combobox-sheet-backdrop{
+  display:none;position:fixed;inset:0;
+  background:rgba(15,20,25,.55);z-index:300;
+  animation:fadeIn .15s ease;
+}
+.combobox-sheet-backdrop.show{display:flex;align-items:flex-end;justify-content:center}
+.combobox-sheet{
+  background:#fff;width:100%;max-width:560px;
+  border-radius:14px 14px 0 0;
+  padding:14px 14px calc(20px + env(safe-area-inset-bottom));
+  max-height:75vh;display:flex;flex-direction:column;gap:10px;
+  animation:slideUp .22s cubic-bezier(.2,.9,.3,1.05);
+}
+.combobox-sheet-head{
+  display:flex;align-items:center;gap:10px;
+  padding-bottom:8px;border-bottom:1px solid var(--line-2);
+}
+.combobox-sheet-head h3{
+  margin:0;font-size:14px;font-weight:700;flex:1;color:var(--ink);
+}
+.combobox-sheet-head .x{
+  width:32px;height:32px;border-radius:50%;border:none;
+  background:var(--panel-2);font-size:16px;font-weight:700;cursor:pointer;
+  font-family:inherit;line-height:1;color:var(--ink-2);
+}
+.combobox-sheet-search{
+  width:100%;padding:10px 12px;border:1px solid var(--line);
+  border-radius:6px;font-family:inherit;font-size:14px;
+}
+.combobox-sheet-list{
+  flex:1;overflow-y:auto;
+  display:flex;flex-direction:column;
+  margin:0 -14px;padding:4px 0;
+}
+.combobox-sheet-list .combobox-option{padding:14px 18px;min-height:48px;justify-content:center}
+.combobox-sheet-list .combobox-section-head{padding:8px 18px 4px}
+
+/* Use the sheet on small screens; hide the inline panel there. */
+@media(max-width:680px){
+  .combobox.is-open .combobox-panel{display:none}
+}
+
+/* ---------- Input-with-mic (single-line text inputs that get a mic) ---------- */
+.input-with-mic{position:relative}
+.input-with-mic input[type="text"]{padding-right:48px}
+.input-with-mic .mic-btn-input{
+  position:absolute;right:4px;top:50%;transform:translateY(-50%);
+  bottom:auto;
+  width:32px;height:32px;font-size:15px;
+}
+@media(max-width:680px){
+  .input-with-mic input[type="text"]{padding-right:54px}
+  .input-with-mic .mic-btn-input{width:38px;height:38px;font-size:17px;right:5px}
+}
+
+/* ---------- Submit section + modal ---------- */
+.submit-section .section-head{
+  background:linear-gradient(180deg,#FFF8EC,#FAF2DF);
+}
+.submit-row{
+  display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+}
+.btn-submit{
+  font-family:inherit;font-size:14px;font-weight:700;
+  letter-spacing:.3px;
+  background:var(--ok);color:#fff;border:none;
+  padding:14px 28px;border-radius:6px;cursor:pointer;
+  min-height:48px;
+  box-shadow:0 1px 3px rgba(21,128,61,.25), 0 2px 8px rgba(21,128,61,.15);
+  transition:background var(--motion-fast,120ms),box-shadow var(--motion-fast,120ms),transform var(--motion-fast,120ms);
+}
+.btn-submit:hover{background:#15803d;box-shadow:0 2px 5px rgba(21,128,61,.35),0 4px 14px rgba(21,128,61,.18);transform:translateY(-1px)}
+.btn-submit:active{transform:translateY(0)}
+.btn-submit:disabled{
+  background:#9ca3af;color:#f3f4f6;
+  box-shadow:none;cursor:not-allowed;
+}
+.submit-hint{font-size:11px;color:var(--ink-3);font-style:italic;flex:1;min-width:200px}
+.submit-status-pill{
+  font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;
+  padding:4px 10px;border-radius:9999px;
+}
+.submit-status-pill.submitted{background:#dcfce7;color:#14532d}
+.submit-status-pill.closed{background:#dbeafe;color:#1e40af}
+.submit-status-pill.draft{background:#f3f4f6;color:#4b5563}
+
+/* When the inspection is submitted AND the user is an editor (not admin+),
+   every form field is grey-locked. The Submit button is hidden, replaced
+   by a sticky banner saying "Submitted — read only". Admin+ keep editing
+   rights and see a Re-open button. */
+body.submission-locked .field input,
+body.submission-locked .field select,
+body.submission-locked .field textarea,
+body.submission-locked .status-btn,
+body.submission-locked .photo-cap,
+body.submission-locked .actions-table input,
+body.submission-locked .actions-table select,
+body.submission-locked .actions-table textarea,
+body.submission-locked .mic-btn,
+body.submission-locked .photo-btn,
+body.submission-locked .sig-pad{
+  pointer-events:none;opacity:0.65;
+}
+body.submission-locked #submitBtn{display:none}
+body.submission-locked .submit-row::before{
+  content:'🔒 Inspection submitted — locked from edits. Contact an administrator to re-open.';
+  display:block;flex:1 1 100%;font-size:13px;color:#7f1d1d;
+  background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;
+  padding:10px 14px;
+}
+
+/* ---------- Generic modal backdrop (reused by Submit modal) ---------- */
+.modal-backdrop{
+  display:none;position:fixed;inset:0;
+  background:rgba(15,20,25,.5);z-index:200;
+  align-items:center;justify-content:center;
+  padding:20px;
+  animation:fadeIn .15s ease;
+}
+.modal-backdrop.show{display:flex}
+.modal-sheet{
+  background:#fff;width:100%;max-width:520px;
+  border-radius:10px;
+  padding:20px 22px;
+  box-shadow:0 12px 40px rgba(0,0,0,.25);
+  animation:slideUp .22s cubic-bezier(.2,.9,.3,1.05);
+}
+.modal-sheet h3{
+  margin:0 0 14px;font-size:15px;font-weight:700;
+  color:var(--ink);
+}
+.submit-modal-body{
+  font-size:13px;color:var(--ink-2);line-height:1.55;
+  max-height:60vh;overflow:auto;
+}
+.submit-modal-body ul{margin:8px 0 4px;padding-left:20px}
+.submit-modal-body li{margin:2px 0}
+.submit-modal-body .v-error{color:#7f1d1d;font-weight:600}
+.submit-modal-body .v-warn{color:#92400e}
+.submit-modal-body .v-ok{color:#14532d;font-weight:600}
+.modal-actions{
+  display:flex;gap:10px;justify-content:flex-end;
+  margin-top:18px;padding-top:14px;
+  border-top:1px solid var(--line-2);
+}
+@media (max-width:680px){
+  .submit-row{gap:10px}
+  .btn-submit{width:100%;padding:16px 24px}
+  .modal-actions{flex-direction:column-reverse}
+  .modal-actions button{width:100%}
+}
+
+/* ---------- Lightbox ---------- */
+.lightbox{
+  display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);
+  z-index:1000;align-items:center;justify-content:center;padding:20px;
+}
+.lightbox.show{display:flex}
+.lightbox img{max-width:100%;max-height:100%;border-radius:4px}
+.lightbox .close{
+  position:absolute;top:16px;right:16px;
+  background:rgba(255,255,255,.15);color:#fff;
+  border:none;width:36px;height:36px;border-radius:50%;
+  font-size:18px;cursor:pointer;
+}
+
+/* ---------- Search & filter ---------- */
+.filter-bar{
+  display:flex;flex-wrap:wrap;gap:10px;align-items:center;
+  padding:12px 18px;border-bottom:1px solid var(--line);
+  background:var(--panel-2);
+}
+.filter-bar input[type=text]{
+  flex:1;min-width:200px;padding:7px 11px;font-size:13px;
+}
+.filter-chips{display:flex;gap:4px;flex-wrap:wrap}
+.chip{
+  padding:5px 10px;font-size:11px;font-weight:600;
+  text-transform:uppercase;letter-spacing:.5px;
+  border:1px solid var(--line);background:#fff;color:var(--ink-2);
+  border-radius:4px;cursor:pointer;font-family:inherit;
+  transition:all .12s;
+}
+.chip:hover{border-color:var(--ink-3)}
+.chip.active{background:var(--bg);color:#fff;border-color:var(--bg)}
+.chip .n{
+  display:inline-block;background:rgba(255,255,255,.2);
+  color:inherit;padding:1px 5px;border-radius:8px;
+  font-size:10px;margin-left:4px;font-family:"JetBrains Mono",monospace;
+}
+.chip:not(.active) .n{background:var(--line);color:var(--ink-3)}
+
+/* ---------- Progress ---------- */
+.progress-wrap{
+  padding:12px 18px;border-bottom:1px solid var(--line);
+  background:#fff;
+}
+.progress-row{display:flex;align-items:center;gap:12px}
+.progress-bar{
+  flex:1;height:8px;background:var(--line-2);
+  border-radius:4px;overflow:hidden;position:relative;
+}
+.progress-fill{
+  height:100%;background:linear-gradient(90deg,var(--accent),var(--accent-2));
+  transition:width .3s ease;border-radius:4px;
+}
+.progress-text{
+  font-size:11px;font-weight:600;color:var(--ink-2);
+  font-family:"JetBrains Mono",monospace;min-width:80px;text-align:right;
+}
+
+/* ---------- Tab progress dot ---------- */
+.cat-tab .dot{
+  display:inline-block;width:6px;height:6px;border-radius:50%;
+  background:var(--line);margin-left:6px;vertical-align:middle;
+}
+.cat-tab.in-progress .dot{background:#eab308}
+.cat-tab.complete .dot{background:var(--ok)}
+.cat-tab.has-issues .dot{background:var(--bad)}
+
+/* ---------- Action button on item ---------- */
+.item-actions{
+  display:flex;justify-content:flex-end;gap:6px;
+  padding:8px 14px;border-top:1px dashed var(--line-2);
+  background:#fffcf6;
+}
+.action-btn{
+  padding:5px 10px;font-size:11px;font-weight:600;
+  background:var(--accent);color:#fff;border:none;
+  border-radius:4px;cursor:pointer;font-family:inherit;
+  text-transform:uppercase;letter-spacing:.4px;
+  display:inline-flex;align-items:center;gap:4px;
+}
+.action-btn:hover{background:var(--accent-2)}
+.action-btn.linked{background:var(--ok)}
+.action-btn.linked::before{content:"✓ "}
+
+/* ---------- Print options ---------- */
+.print-opts{
+  display:flex;flex-wrap:wrap;gap:14px;align-items:center;
+  margin-left:auto;font-size:12px;
+}
+.print-opts label{
+  display:inline-flex;align-items:center;gap:5px;cursor:pointer;
+  color:#fff;font-weight:500;
+}
+.print-opts input[type=checkbox]{accent-color:var(--accent)}
+
+/* ---------- Signature canvas ---------- */
+.sig-pad{
+  border:1.5px solid var(--line);border-radius:5px;
+  background:#fff;cursor:crosshair;width:100%;height:100px;
+  touch-action:none;display:block;
+}
+.sig-controls{
+  display:flex;gap:6px;margin-top:6px;align-items:center;
+}
+.sig-controls .label{
+  font-size:11px;color:var(--ink-3);font-style:italic;flex:1;
+}
+.sig-clear{
+  font-size:11px;padding:3px 8px;border:1px solid var(--line);
+  background:#fff;border-radius:3px;cursor:pointer;font-family:inherit;
+  color:var(--ink-2);
+}
+.sig-clear:hover{border-color:var(--bad);color:var(--bad)}
+
+/* ---------- Saved inspections ---------- */
+.saved-bar{
+  display:flex;gap:8px;align-items:center;flex-wrap:wrap;
+}
+.saved-bar select{
+  padding:6px 10px;border:1px solid #384450;background:#1a2129;color:#fff;
+  border-radius:5px;font-family:inherit;font-size:12px;min-width:200px;
+}
+
+/* ---------- Validation banner ---------- */
+.validation{
+  background:#F5E9CA;border:1px solid #D4AB5F;color:#78350f;
+  padding:12px 16px;border-radius:6px;margin-bottom:14px;
+  font-size:13px;
+}
+.validation.error{background:#fee2e2;border-color:#fca5a5;color:#7f1d1d}
+.validation.ok{background:#dcfce7;border-color:#86efac;color:#14532d}
+.validation strong{display:block;margin-bottom:4px;font-size:12px;text-transform:uppercase;letter-spacing:.5px}
+.validation ul{margin:6px 0 0;padding-left:20px}
+.validation li{margin:2px 0}
+
+/* ---------- Mobile / PWA ---------- */
+@supports (padding: env(safe-area-inset-top)) {
+  .app-header{padding-top:calc(18px + env(safe-area-inset-top))}
+  body{padding-bottom:env(safe-area-inset-bottom)}
+}
+@media (max-width:680px){
+  .app-header{padding:14px 14px;flex-wrap:wrap;gap:10px}
+  .brand-title{font-size:14px}
+  .brand-sub{font-size:10px}
+  .container{padding:12px}
+  .section-body{padding:14px}
+  .section-head{padding:11px 14px;flex-wrap:wrap;gap:6px}
+  .header-actions{width:100%;justify-content:flex-start;gap:6px}
+  .header-actions .btn{padding:9px 12px;font-size:12px;flex:0 0 auto}
+  .saved-bar{width:100%;flex:1}
+  .saved-bar select{flex:1;min-width:0;font-size:13px;padding:9px 10px}
+  .toolbar{flex-direction:column;align-items:flex-start;gap:8px}
+  .toolbar label{font-size:13px}
+  .filter-bar{padding:10px 14px;flex-direction:column;align-items:stretch;gap:8px}
+  .filter-chips{justify-content:flex-start}
+  .chip{padding:7px 11px;font-size:12px}
+  .cat-tab{padding:13px 14px;font-size:13px}
+  .item-head{flex-wrap:wrap;gap:8px}
+  .item-num{font-size:10px;padding:3px 6px}
+  .item-label{font-size:14px;line-height:1.4}
+  .status-row{gap:5px}
+  /* Touch targets — WCAG 2.1 AA requires at least 44×44 px hit area on mobile.
+     The 36 px height in the source HTML was rejected by accessibility review. */
+  .status-btn{padding:11px 14px;font-size:13px;min-height:44px;min-width:44px}
+  .chip{min-height:44px;padding:10px 14px}
+  .btn{min-height:44px;padding:11px 14px}
+  .cat-tab{padding:14px 16px;min-height:48px}
+  .photo-btn{padding:16px 6px;min-height:64px}
+  .mic-btn{width:44px;height:44px;font-size:18px;right:4px;bottom:4px}
+  .notes-wrap textarea,.field-with-mic textarea{padding-right:54px}
+  .photo-zone{padding:18px 10px}
+  .photo-zone .icon{font-size:28px}
+  /* .photo-thumb mobile sizing now lives in the .photo-card media query above */
+  .actions-table thead{display:none}
+  .actions-table tr{display:block;border-bottom:2px solid var(--line);padding:10px 0;margin-bottom:8px}
+  .actions-table td{display:block;padding:4px 8px;border:none}
+  .actions-table td::before{
+    content:attr(data-l);font-size:10px;font-weight:700;
+    text-transform:uppercase;letter-spacing:.6px;color:var(--ink-3);
+    display:block;margin-bottom:2px;
+  }
+  .sig-pad{height:120px}
+  .summary-grid{grid-template-columns:repeat(3,1fr) !important}
+}
+@media (max-width:380px){
+  .header-actions .btn{padding:8px 10px;font-size:11px}
+  .brand-mark{width:32px;height:32px;font-size:11px}
+  .kpi .v{font-size:18px}
+  .status-btn{padding:7px 9px;font-size:11px}
+}
+
+/* ---------- Voice / dictation ---------- */
+.notes-wrap{position:relative}
+.notes-wrap textarea{padding-right:42px}
+.mic-btn{
+  position:absolute;right:6px;bottom:7px;
+  width:30px;height:30px;border-radius:50%;
+  background:var(--panel-2);border:1.5px solid var(--line);
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;font-size:15px;transition:all .15s;
+  z-index:2;padding:0;line-height:1;
+  -webkit-tap-highlight-color:transparent;
+  touch-action:manipulation;
+}
+.mic-btn:hover{border-color:var(--accent);background:var(--accent-light)}
+.mic-btn.recording{
+  background:#fee2e2;border-color:#fca5a5;
+  animation:pulse-mic .8s ease-in-out infinite;
+}
+@keyframes pulse-mic{
+  0%,100%{box-shadow:0 0 0 0 rgba(185,28,28,.35)}
+  50%{box-shadow:0 0 0 7px rgba(185,28,28,0)}
+}
+/* Tighter pulse when interim words are actually landing — the mic
+   button visibly "breathes" so the inspector knows audio is being
+   captured, vs sitting silent on a dead recording session. */
+.mic-btn.recording.active{
+  animation:pulse-mic-active .35s ease-in-out infinite,
+            pulse-mic .8s ease-in-out infinite;
+}
+@keyframes pulse-mic-active{
+  0%,100%{transform:scale(1)}
+  50%{transform:scale(1.12)}
+}
+/* When the persistent network-error banner is up, grey out every mic
+   so the user isn't tapping a button that we already know won't work. */
+.voice-disabled .mic-btn{
+  opacity:0.35;
+  pointer-events:none;
+}
+.voice-net-banner{
+  display:none;align-items:flex-start;gap:12px;
+  padding:12px 14px;margin-bottom:14px;
+  background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;
+  color:#7f1d1d;font-size:13px;line-height:1.4;
+}
+.voice-net-banner .vnb-icon{font-size:22px;flex:0 0 28px;line-height:1}
+.voice-net-banner .vnb-text{flex:1;display:flex;flex-direction:column;gap:2px}
+.voice-net-banner .vnb-text strong{font-size:13px}
+.voice-net-banner .vnb-text span{font-size:12px;color:#991b1b}
+.voice-net-banner .vnb-retry{
+  margin-left:auto;padding:6px 12px;
+  background:#fff;border:1px solid #fca5a5;color:#7f1d1d;
+  border-radius:4px;cursor:pointer;
+  font-family:inherit;font-size:12px;font-weight:600;
+}
+.voice-net-banner .vnb-retry:hover{background:#fee2e2}
+.voice-hint{
+  font-size:10px;color:var(--bad);font-style:italic;
+  margin-top:3px;min-height:13px;transition:opacity .2s;
+  opacity:0;
+}
+.voice-hint.show{opacity:1}
+/* standalone mic for summary textareas */
+.field-with-mic{position:relative}
+.field-with-mic textarea{padding-right:42px}
+.field-with-mic .mic-btn{bottom:8px;right:8px}
+/* photo dual-buttons */
+.photo-btns{display:flex;gap:6px}
+.photo-btn{
+  flex:1;padding:11px 4px;border:1.5px dashed var(--line);
+  border-radius:5px;background:var(--panel-2);
+  display:flex;flex-direction:column;align-items:center;
+  gap:3px;cursor:pointer;font-family:inherit;
+  transition:all .15s;
+}
+.photo-btn:hover{border-color:var(--accent);background:var(--accent-light)}
+.photo-btn .icon{font-size:20px}
+.photo-btn .text{font-size:10px;color:var(--ink-3);font-weight:600;text-transform:uppercase;letter-spacing:.5px;text-align:center;line-height:1.2}
+@media(max-width:680px){
+  .photo-btn{padding:14px 4px}
+  .photo-btn .icon{font-size:24px}
+  .photo-btn .text{font-size:11px}
+  .mic-btn{width:34px;height:34px;font-size:17px;right:5px;bottom:6px}
+  .notes-wrap textarea,.field-with-mic textarea{padding-right:48px}
+}
+/* ---------- Toast notifications ---------- */
+#em-toast{
+  position:fixed;bottom:80px;left:50%;transform:translateX(-50%);
+  background:#1F2A33;color:#fff;
+  padding:12px 20px;border-radius:10px;
+  font-size:13px;font-weight:500;line-height:1.4;
+  max-width:calc(100vw - 32px);text-align:center;
+  box-shadow:0 4px 20px rgba(0,0,0,.35);
+  z-index:9999;pointer-events:none;
+  opacity:0;transition:opacity .25s;
+}
+#em-toast.show{opacity:1}
+#em-toast.toast-warn{background:#7f1d1d}
+#em-toast.toast-info{background:#1d4ed8}
+/* ---------- Install banner ---------- */
+.install-banner{
+  display:none;background:linear-gradient(180deg,#FAF2DF,#F5E9CA);
+  border:1px solid #D4AB5F;border-radius:8px;
+  padding:12px 14px;margin-bottom:14px;
+  align-items:center;gap:10px;
+}
+.install-banner.show{display:flex}
+.install-banner .ico{
+  width:38px;height:38px;border-radius:8px;
+  background:linear-gradient(135deg,var(--accent),var(--accent-2));
+  display:flex;align-items:center;justify-content:center;
+  color:#fff;font-weight:800;font-size:14px;flex-shrink:0;
+}
+.install-banner .txt{flex:1;font-size:13px;line-height:1.4}
+.install-banner .txt strong{display:block;font-size:13px;margin-bottom:2px}
+.install-banner .txt span{font-size:11px;color:var(--ink-2)}
+
+/* ---------- File:// warning banner ---------- */
+.file-warn-banner{
+  display:none;
+  background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;
+  padding:12px 16px;margin-bottom:16px;
+  flex-direction:column;gap:6px;
+}
+.file-warn-banner.show{display:flex}
+.file-warn-banner .fw-title{font-size:13px;font-weight:700;color:#991b1b}
+.file-warn-banner .fw-body{font-size:12px;color:#7f1d1d;line-height:1.5}
+.file-warn-banner .fw-steps{font-size:12px;color:#7f1d1d;margin:4px 0 0 0;padding-left:16px;line-height:1.7}
+/* ---------- Share menu ---------- */
+.share-menu{
+  display:none;position:fixed;inset:0;
+  background:rgba(15,20,25,.5);z-index:200;
+  align-items:flex-end;justify-content:center;
+  animation:fadeIn .15s ease;
+}
+.share-menu.show{display:flex}
+.share-sheet{
+  background:#fff;width:100%;max-width:520px;
+  border-radius:16px 16px 0 0;
+  padding:20px 18px calc(24px + env(safe-area-inset-bottom));
+  animation:slideUp .25s cubic-bezier(.2,.9,.3,1.2);
+}
+.share-sheet h3{
+  margin:0 0 14px;font-size:14px;font-weight:700;
+  text-transform:uppercase;letter-spacing:1px;color:var(--ink-2);
+}
+.share-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+@media(max-width:380px){.share-grid{grid-template-columns:repeat(3,1fr)}}
+.share-opt{
+  background:none;border:1px solid var(--line);
+  border-radius:10px;padding:14px 6px;
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+  cursor:pointer;font-family:inherit;
+  transition:all .15s;
+}
+.share-opt:hover{border-color:var(--accent);background:#FAF2DF}
+.share-opt .ico{
+  width:42px;height:42px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:22px;
+}
+.share-opt.whatsapp .ico{background:#25d366;color:#fff}
+.share-opt.summary .ico{background:#0F3D4D;color:#fff}
+.share-opt.pdf .ico{background:#dc2626;color:#fff}
+.share-opt.json .ico{background:#1d4ed8;color:#fff}
+.share-opt .lbl{font-size:11px;font-weight:600;color:var(--ink);text-align:center;line-height:1.2}
+.share-close{
+  width:100%;padding:12px;background:var(--panel-2);
+  border:1px solid var(--line);border-radius:8px;
+  font-family:inherit;font-size:14px;font-weight:600;
+  color:var(--ink-2);cursor:pointer;
+}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+
+/* ---------- Print ---------- */
+@media print{
+  body{background:#fff;font-size:11px}
+  .app-header{position:static;padding:10px 0;background:#fff;color:#000;border-bottom:2px solid #000}
+  .app-header *{color:#000 !important}
+  .header-actions,.toolbar,.cat-tabs,.photo-zone,.btn,.lightbox,.filter-bar,.print-opts,.action-btn,.item-actions,.sig-controls,.validation,.progress-wrap,.install-banner,.share-menu{display:none !important}
+  .cat-panel{display:block !important;padding:0;margin-bottom:14px;page-break-inside:avoid}
+  .section{box-shadow:none;border:1px solid #000;page-break-inside:avoid;margin-bottom:10px}
+  .section-head{background:#000 !important;color:#fff !important;padding:6px 10px}
+  .section-title{color:#fff !important;font-size:11px}
+  .section-title .num{background:#fff;color:#000}
+  .section-body{padding:10px}
+  .item{break-inside:avoid;border:1px solid #888}
+  .item-body{display:block !important}
+  .status-btn{display:none}
+  .status-btn.active{
+    display:inline-block;border:1px solid #000 !important;
+    background:#fff !important;color:#000 !important;
+  }
+  .status-btn.active::before{content:"✓ "}
+  .photo-thumb{width:90px;height:90px;break-inside:avoid}
+  .container{max-width:100%;padding:0}
+  .actions-table th{background:#000 !important;color:#fff !important}
+  .sig-pad{border:1px solid #000;height:80px}
+  /* Print toggles */
+  body.print-hide-ok .item.status-ok{display:none}
+  body.print-hide-na .item.status-na{display:none}
+  body.print-compact .item-body{padding:6px 10px}
+  body.print-compact textarea{border:none;padding:0;font-size:10.5px;background:transparent}
+  body.print-compact .photo-thumb{width:70px;height:70px}
+}
+</style>
+</head>
+<body>
+
+<!-- Unified Endeavour navigation shell -->
+<div id="__shell" data-section="performance" data-current="inspections"></div>
+
+<header class="app-header">
+  <div class="brand">
+    <div class="brand-mark">EM</div>
+    <div>
+      <div class="brand-title">IT Site Inspection — Mining Operations</div>
+      <div class="brand-sub mono">Inspection Site IT — Opérations Minières</div>
+    </div>
+  </div>
+  <div class="header-actions">
+    <div class="saved-bar">
+      <select id="savedSelect" onchange="switchInspection(this.value)" title="Switch inspection"></select>
+      <button class="btn btn-ghost" onclick="newInspection()" title="New inspection">+ New</button>
+      <button class="btn btn-ghost" id="langToggleBtn" onclick="toggleDictLang()" title="Dictation language / Langue de dictée" style="font-size:14px;min-width:62px">🇬🇧 EN</button>
+      <button class="btn btn-ghost" onclick="renameInspection()" title="Rename current">✎</button>
+      <button class="btn btn-ghost" onclick="deleteInspection()" title="Delete current">🗑</button>
+    </div>
+    <button class="btn btn-primary" onclick="openShareMenu()">📤 Share</button>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- File:// warning — shown by JS when not served over HTTPS -->
+  <div class="file-warn-banner" id="fileWarnBanner">
+    <div class="fw-title">⚠️ Fonctionnalités limitées — Ouvrez ce formulaire dans Chrome / Limited features</div>
+    <div class="fw-body">
+      La <strong>caméra</strong> et le <strong>microphone</strong> ne fonctionnent pas quand le fichier est ouvert depuis le gestionnaire de fichiers.<br>
+      <em>Camera and microphone require the file to be opened in Chrome or served via HTTPS.</em>
+    </div>
+    <ol class="fw-steps">
+      <li>Appuyez longuement sur le fichier <strong>IT_Inspection_SDP.html</strong></li>
+      <li>Choisissez <strong>"Ouvrir avec"</strong> → <strong>Chrome</strong></li>
+      <li>Ou copiez ce fichier sur un serveur web interne (HTTPS)</li>
+    </ol>
+  </div>
+
+  <div class="install-banner" id="installBanner">
+    <div class="ico">📲</div>
+    <div class="txt" id="installText">
+      <strong>Install IT Inspect on this phone</strong>
+      <span id="installHint">Add to home screen to use as an app · Ajouter à l'écran d'accueil</span>
+    </div>
+    <button class="btn btn-primary" id="installBtn" style="padding:7px 12px;font-size:12px" onclick="triggerInstall()">Install</button>
+    <button class="btn btn-light" style="padding:7px 10px;font-size:12px" onclick="dismissInstall()" title="Dismiss">×</button>
+  </div>
+  <div class="toolbar">
+    <strong style="font-size:12px;text-transform:uppercase;letter-spacing:.8px">Auto-save</strong>
+    <span class="save-status" id="saveStatus">Ready</span>
+    <button type="button" id="saveNowLink" class="save-now-link" onclick="forceSyncNow()" title="Push the latest changes to the server. Keystrokes only save to this device — click Save now (or Submit) to sync to the dashboard. Useful right before you go offline.">Save now</button>
+    <span style="margin:0 8px;color:var(--line)">|</span>
+    <strong style="font-size:12px;text-transform:uppercase;letter-spacing:.8px">Print</strong>
+    <label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;cursor:pointer">
+      <input type="checkbox" id="printHideOk" onchange="document.body.classList.toggle('print-hide-ok',this.checked)" /> Hide OK items
+    </label>
+    <label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;cursor:pointer">
+      <input type="checkbox" id="printHideNa" onchange="document.body.classList.toggle('print-hide-na',this.checked)" /> Hide N/A
+    </label>
+    <label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;cursor:pointer">
+      <input type="checkbox" id="printCompact" onchange="document.body.classList.toggle('print-compact',this.checked)" /> Compact
+    </label>
+  </div>
+
+  <div id="validationBox"></div>
+
+  <!-- ============== SECTION 1: IDENTIFICATION ============== -->
+  <section class="section">
+    <div class="section-head">
+      <div class="section-title"><span class="num">1</span> Identification &amp; Context · <em style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--ink-3)">Identification</em></div>
+    </div>
+    <div class="section-body">
+      <div class="grid grid-4">
+        <div class="field">
+          <label>Inspection ID <span class="fr">/ Référence</span></label>
+          <input type="text" id="f_id" class="mono" readonly />
+        </div>
+        <div class="field">
+          <label>Date <span class="req">*</span></label>
+          <input type="date" id="f_date" required />
+        </div>
+        <div class="field">
+          <label>Time <span class="fr">/ Heure</span></label>
+          <input type="time" id="f_time" />
+        </div>
+        <div class="field">
+          <label>Type</label>
+          <select id="f_type">
+            <option value="Routine">Routine / Routinière</option>
+            <option value="Pre-Audit">Pre-Audit / Pré-Audit</option>
+            <option value="Post-Incident">Post-Incident / Post-Incident</option>
+            <option value="Commissioning">Commissioning / Mise en service</option>
+            <option value="Handover">Handover / Passation</option>
+            <option value="Ad-hoc">Ad-hoc / Ponctuelle</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="grid grid-3">
+        <div class="field">
+          <label>Site <span class="req">*</span></label>
+          <select id="f_site" required>
+            <option value="">— Select / Sélectionner —</option>
+            <optgroup label="Mine Sites">
+              <option>Sabodala (SGO) — Senegal</option>
+              <option>Houndé (HGO) — Burkina Faso</option>
+              <option>Mana (MGO) — Burkina Faso</option>
+              <option>Ity (SMI) — Côte d'Ivoire</option>
+              <option>Lafigué (SML) — Côte d'Ivoire</option>
+              <option>Kalana (KGO) — Mali</option>
+            </optgroup>
+            <optgroup label="Regional Offices">
+              <option>Dakar Office</option>
+              <option>Abidjan Office</option>
+              <option>Ouagadougou Office</option>
+            </optgroup>
+            <optgroup label="Other">
+              <option>Other / Autre</option>
+            </optgroup>
+          </select>
+        </div>
+        <div class="field">
+          <label>Area / Zone <span class="req">*</span></label>
+          <select id="f_area">
+            <option value="">— Select / Sélectionner —</option>
+            <optgroup label="Server / IT Rooms">
+              <option>Main Server Room / Salle Serveur Principale</option>
+              <option>Secondary Server Room / Salle Secondaire</option>
+              <option>Plant IDF / Local Technique Usine</option>
+              <option>Workshop IT Closet / Atelier — Local IT</option>
+              <option>Warehouse IT Closet / Magasin — Local IT</option>
+              <option>Office IT / Local Bureau</option>
+            </optgroup>
+            <optgroup label="Operations">
+              <option>Process Plant Control Room / Salle de contrôle usine</option>
+              <option>Mine Operations Centre / Dispatch</option>
+              <option>Radio Dispatch Room / Salle dispatch radio</option>
+              <option>Heavy Workshop / Atelier engins</option>
+              <option>Weighbridge / Pont-bascule</option>
+            </optgroup>
+            <optgroup label="Communications">
+              <option>Communication Tower / Pylône de communication</option>
+              <option>Tower Equipment Shelter / Abri équipements pylône</option>
+              <option>VSAT Terminal / Terminal VSAT</option>
+              <option>Pit Repeater Site / Site répéteur fosse</option>
+              <option>Camp Telecom Room / Local télécom camp</option>
+            </optgroup>
+            <optgroup label="Underground">
+              <option>Underground Portal / Decline / Portail / Descenderie</option>
+              <option>Underground IT Closet / Local IT fond</option>
+              <option>Underground Refuge Chamber / Chambre refuge</option>
+              <option>Underground Substation / Sous-station fond</option>
+              <option>Hoist / Headframe / Treuil / Chevalement</option>
+            </optgroup>
+            <optgroup label="Security & Safety">
+              <option>Gate / Security Post / Portail / Poste sécurité</option>
+              <option>CCTV Control Room / Salle CCTV</option>
+              <option>Mine Rescue Station / Station mine rescue</option>
+              <option>Clinic / Infirmerie</option>
+            </optgroup>
+            <option>Other / Autre</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Specific Location <span class="fr">/ Localisation précise</span></label>
+          <div class="input-with-mic">
+            <input type="text" id="f_loc" placeholder="e.g. Building B-2, Rack R-04" />
+            <button class="mic-btn mic-btn-input" type="button" title="Tap to dictate / Appuyer pour dicter" onclick="toggleDictationField('f_loc', this)">🎤</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="grid grid-3">
+        <div class="field">
+          <label>Lead Inspector <span class="req">*</span></label>
+          <div class="combobox" data-combobox="people" data-target="f_inspector" data-sheet-title="Pick lead inspector / Choisir l'inspecteur">
+            <input type="text" id="f_inspector" placeholder="Pick a technician or type a name" autocomplete="off" />
+            <button type="button" class="combobox-chevron" tabindex="-1" aria-label="Show suggestions">▾</button>
+            <div class="combobox-panel" role="listbox" aria-hidden="true"></div>
+          </div>
+        </div>
+        <div class="field">
+          <label>Role <span class="fr">/ Fonction</span></label>
+          <input type="text" id="f_role" list="insp_roles_list" placeholder="e.g. Site IT Manager, Group IT, IT Coordinator" />
+        </div>
+        <div class="field">
+          <label>Accompanied by <span class="fr">/ Accompagné par</span></label>
+          <div class="combobox" data-combobox="people" data-target="f_witness" data-sheet-title="Pick accompanying person / Choisir l'accompagnant">
+            <input type="text" id="f_witness" placeholder="Pick a technician or type a name" autocomplete="off" />
+            <button type="button" class="combobox-chevron" tabindex="-1" aria-label="Show suggestions">▾</button>
+            <div class="combobox-panel" role="listbox" aria-hidden="true"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="grid grid-2">
+        <div class="field">
+          <label>Weather / Conditions</label>
+          <input type="text" id="f_weather" list="weather_presets" placeholder="Pick a preset or type your own" />
+          <datalist id="weather_presets">
+            <option value="Hot dry, dusty / Saison sèche, poussière"></option>
+            <option value="Hot dry / Saison sèche"></option>
+            <option value="Hot humid / Chaud humide"></option>
+            <option value="Rainy season / Saison des pluies"></option>
+            <option value="Cool dry / Frais sec"></option>
+            <option value="Cool morning, warm afternoon / Matin frais, après-midi chaud"></option>
+            <option value="Harmattan dust / Harmattan"></option>
+            <option value="Dust storm / Tempête de poussière"></option>
+            <option value="Foggy / Brumeux"></option>
+          </datalist>
+        </div>
+        <div class="field">
+          <label>Last Inspection Date <span class="fr">/ Dernière inspection</span></label>
+          <input type="date" id="f_lastdate" />
+        </div>
+      </div>
+
+      <div class="field field-with-mic" style="margin-top:14px">
+        <label>Scope &amp; Objectives <span class="fr">/ Périmètre &amp; objectifs</span></label>
+        <textarea id="f_scope" placeholder="Briefly describe what is being inspected and why / Décrire brièvement le périmètre et les motifs"></textarea>
+        <button class="mic-btn" type="button" title="Tap to dictate / Appuyer pour dicter" onclick="toggleDictationField('f_scope',this)">🎤</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============== SECTION 2: INSPECTION CHECKLIST ============== -->
+  <section class="section">
+    <div class="section-head">
+      <div class="section-title"><span class="num">2</span> Inspection Checklist · <em style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--ink-3)">Liste de contrôle</em></div>
+      <div style="font-size:11px;color:var(--ink-3)">
+        <span style="color:var(--ok)">●</span> OK
+        <span style="color:#eab308;margin-left:8px">●</span> Minor
+        <span style="color:var(--bad);margin-left:8px">●</span> Major
+        <span style="color:var(--crit);margin-left:8px">●</span> Critical
+        <span style="color:var(--opp);margin-left:8px">●</span> Opportunity
+        <span style="color:var(--na);margin-left:8px">●</span> N/A
+      </div>
+    </div>
+
+    <div class="progress-wrap">
+      <div class="progress-row">
+        <span style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--ink-2)">Progress</span>
+        <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+        <span class="progress-text" id="progressText">0 / 0</span>
+      </div>
+    </div>
+
+    <div class="filter-bar">
+      <input type="text" id="searchBox" placeholder="🔍 Search items / Rechercher (e.g. fire, battery, leaky, VSAT...)" oninput="applyFilters()" />
+      <div class="filter-chips" id="filterChips">
+        <button class="chip active" data-filter="all" onclick="setFilter('all')">All <span class="n" id="cnt_all">0</span></button>
+        <button class="chip" data-filter="issues" onclick="setFilter('issues')" style="border-color:#fca5a5;color:#7f1d1d">Issues only <span class="n" id="cnt_issues">0</span></button>
+        <button class="chip" data-filter="unaddressed" onclick="setFilter('unaddressed')">Unaddressed <span class="n" id="cnt_unaddressed">0</span></button>
+        <button class="chip" data-filter="opp" onclick="setFilter('opp')" style="border-color:#93c5fd;color:#1e40af">Opportunities <span class="n" id="cnt_opp">0</span></button>
+      </div>
+    </div>
+
+    <div class="cat-tabs" id="catTabs"></div>
+    <div id="catPanels"></div>
+  </section>
+
+  <!-- ============== SECTION 3: SUMMARY ============== -->
+  <section class="section">
+    <div class="section-head">
+      <div class="section-title"><span class="num">3</span> Summary &amp; Findings · <em style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--ink-3)">Synthèse</em></div>
+    </div>
+    <div class="section-body">
+      <div class="summary-grid" id="kpiGrid"></div>
+
+      <div class="grid grid-2">
+        <div class="field">
+          <label>Overall Risk Rating <span class="fr">/ Niveau de risque global</span></label>
+          <select id="f_risk">
+            <option value="">— Select —</option>
+            <option>🟢 Low / Faible</option>
+            <option>🟡 Moderate / Modéré</option>
+            <option>🟠 High / Élevé</option>
+            <option>🔴 Critical / Critique</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Operational Impact <span class="fr">/ Impact opérationnel</span></label>
+          <select id="f_impact">
+            <option value="">— Select —</option>
+            <option>None / Aucun</option>
+            <option>Limited / Limité</option>
+            <option>Site partial outage risk / Risque interruption partielle</option>
+            <option>Site outage risk / Risque interruption site</option>
+            <option>Production-stopping risk / Risque arrêt production</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field field-with-mic" style="margin-top:14px">
+        <label>Key Observations <span class="fr">/ Observations clés</span></label>
+        <textarea id="f_obs" rows="4" placeholder="Top findings, themes, root causes / Constats principaux, thèmes, causes"></textarea>
+        <button class="mic-btn" type="button" title="Tap to dictate / Appuyer pour dicter" onclick="toggleDictationField('f_obs',this)">🎤</button>
+      </div>
+
+      <div class="field field-with-mic" style="margin-top:14px">
+        <label>Positive Findings <span class="fr">/ Points positifs</span></label>
+        <textarea id="f_pos" rows="2" placeholder="What is working well / Ce qui fonctionne bien"></textarea>
+        <button class="mic-btn" type="button" title="Tap to dictate / Appuyer pour dicter" onclick="toggleDictationField('f_pos',this)">🎤</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============== SECTION 4: CORRECTIVE ACTIONS ============== -->
+  <section class="section">
+    <div class="section-head">
+      <div class="section-title"><span class="num">4</span> Corrective Actions &amp; Follow-up · <em style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--ink-3)">Actions correctives</em></div>
+      <button class="btn btn-light" onclick="addAction()">+ Add Action</button>
+    </div>
+    <div class="section-body" style="padding:0;overflow-x:auto">
+      <table class="actions-table" id="actionsTable">
+        <thead>
+          <tr>
+            <th style="width:30px">#</th>
+            <th style="width:24%">Action / Description</th>
+            <th style="width:11%">Linked Item</th>
+            <th style="width:9%">Priority</th>
+            <th style="width:13%">Owner</th>
+            <th style="width:10%">Target Date</th>
+            <th style="width:10%">Status</th>
+            <th style="width:13%">Notes</th>
+            <th style="width:30px"></th>
+          </tr>
+        </thead>
+        <tbody id="actionsBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============== SECTION 5: SIGN-OFF ============== -->
+  <section class="section">
+    <div class="section-head">
+      <div class="section-title"><span class="num">5</span> Sign-off · <em style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--ink-3)">Validation</em></div>
+    </div>
+    <div class="section-body">
+      <div class="sign-grid">
+        <div class="sign-box">
+          <strong style="font-size:12px;text-transform:uppercase;letter-spacing:.8px">Inspector / Inspecteur</strong>
+          <div class="grid grid-2" style="margin-top:10px">
+            <div class="field"><label>Name</label><input type="text" id="sign_insp_name" /></div>
+            <div class="field"><label>Date</label><input type="date" id="sign_insp_date" /></div>
+          </div>
+          <label style="display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--ink-2);margin:10px 0 4px">Signature</label>
+          <canvas class="sig-pad" id="sig_inspector" data-key="sig_inspector" width="800" height="120"></canvas>
+          <div class="sig-controls">
+            <span class="label">Sign with finger or mouse / Signer au doigt ou à la souris</span>
+            <button class="sig-clear" onclick="clearSignature('sig_inspector')">Clear</button>
+          </div>
+        </div>
+        <div class="sign-box">
+          <strong style="font-size:12px;text-transform:uppercase;letter-spacing:.8px">Site Acknowledgement / Validation Site</strong>
+          <div class="grid grid-2" style="margin-top:10px">
+            <div class="field"><label>Name</label><input type="text" id="sign_site_name" /></div>
+            <div class="field"><label>Date</label><input type="date" id="sign_site_date" /></div>
+          </div>
+          <label style="display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--ink-2);margin:10px 0 4px">Signature</label>
+          <canvas class="sig-pad" id="sig_site" data-key="sig_site" width="800" height="120"></canvas>
+          <div class="sig-controls">
+            <span class="label">Sign with finger or mouse / Signer au doigt ou à la souris</span>
+            <button class="sig-clear" onclick="clearSignature('sig_site')">Clear</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="field" style="margin-top:18px">
+        <label>Distribution / Diffusion</label>
+        <input type="text" id="f_dist" placeholder="Site IT Manager, Group IT, GM, HSE, ..." />
+      </div>
+    </div>
+  </section>
+
+  <!-- ============== SECTION 6: SUBMIT ============== -->
+  <section class="section submit-section" id="submitSection">
+    <div class="section-head">
+      <div class="section-title"><span class="num">6</span> Submit Inspection · <em style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--ink-3)">Soumettre</em></div>
+      <span class="submit-status-pill" id="submitStatusPill" style="display:none"></span>
+    </div>
+    <div class="section-body">
+      <p style="font-size:13px;color:var(--ink-2);margin:0 0 14px">
+        Auto-save has been syncing your work the whole time. Tap <strong>Submit</strong> when this inspection is complete and ready for review — the record is then marked <em>submitted</em>, locked from further edits by editors, and visible to reviewers on the dashboard.<br>
+        <span style="color:var(--ink-3);font-size:12px">L'auto-sauvegarde envoie déjà chaque modification. Le bouton ci-dessous marque l'inspection comme terminée et prête à être revue.</span>
+      </p>
+      <div class="submit-row">
+        <button type="button" class="btn-submit" id="submitBtn" onclick="submitInspection()">
+          ✓ Submit Inspection · Soumettre
+        </button>
+        <button type="button" class="btn btn-light" id="reopenBtn" style="display:none" onclick="reopenInspection()" title="Move this submitted inspection back to draft so it can be edited (admin only)">
+          ↻ Re-open for edits
+        </button>
+        <div class="submit-hint" id="submitHint">Validation runs on tap. You'll see what's missing before anything is sent.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Validation / confirmation modal -->
+  <div class="modal-backdrop" id="submitModal" onclick="if(event.target.id==='submitModal')closeSubmitModal()">
+    <div class="modal-sheet">
+      <h3 id="submitModalTitle">Ready to submit?</h3>
+      <div id="submitModalBody" class="submit-modal-body"></div>
+      <div class="modal-actions">
+        <button class="btn btn-light" onclick="closeSubmitModal()">Cancel · Annuler</button>
+        <button class="btn-submit" id="submitConfirmBtn" onclick="confirmSubmit()">Submit · Soumettre</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete-confirmation modal -->
+  <div class="modal-backdrop" id="deleteModal" onclick="if(event.target.id==='deleteModal')closeDeleteModal()">
+    <div class="modal-sheet">
+      <h3 id="deleteModalTitle" style="color:#e74c3c">Delete this inspection?</h3>
+      <div id="deleteModalBody" class="submit-modal-body"></div>
+      <div class="modal-actions">
+        <button class="btn btn-light" onclick="closeDeleteModal()">Cancel · Annuler</button>
+        <button class="btn-submit" id="deleteConfirmBtn" onclick="confirmDelete()" style="background:#dc2626;box-shadow:0 2px 5px rgba(220,38,38,.35),0 4px 14px rgba(220,38,38,.18)">Delete · Supprimer</button>
+      </div>
+    </div>
+  </div>
+
+  <div style="text-align:center;margin:24px 0;font-size:11px;color:var(--ink-3)">
+    Endeavour Mining · IT Operations · Site Inspection Form v1.0
+  </div>
+
+</div>
+
+<div class="share-menu" id="shareMenu" onclick="if(event.target.id==='shareMenu')closeShareMenu()">
+  <div class="share-sheet">
+    <h3>Share inspection report · Partager le rapport</h3>
+    <div class="share-grid">
+      <button class="share-opt whatsapp" onclick="shareWhatsApp()">
+        <div class="ico">💬</div>
+        <div class="lbl">WhatsApp<br>Summary</div>
+      </button>
+      <button class="share-opt summary" onclick="shareSummary()">
+        <div class="ico">📋</div>
+        <div class="lbl">Share<br>Summary</div>
+      </button>
+      <button class="share-opt pdf" onclick="sharePDF()">
+        <div class="ico">📄</div>
+        <div class="lbl">PDF<br>Report</div>
+      </button>
+      <button class="share-opt json" onclick="shareJSON()">
+        <div class="ico">💾</div>
+        <div class="lbl">Backup<br>(JSON)</div>
+      </button>
+    </div>
+    <button class="share-close" onclick="closeShareMenu()">Cancel · Annuler</button>
+  </div>
+</div>
+
+<div class="lightbox" id="lightbox" onclick="this.classList.remove('show')">
+  <button class="close" onclick="document.getElementById('lightbox').classList.remove('show')">×</button>
+  <img id="lightboxImg" alt="" />
+</div>
+
+<script nonce="%%CSP_NONCE%%">
+/* ============================================================
+   INSPECTION CATEGORIES & ITEMS
+   ============================================================ */
+const CATEGORIES = [
+  { id:'env', name:'Environment', fr:'Environnement', icon:'🌡', items:[
+    { l:'Temperature within range (18-24°C)', fr:'Température dans la plage' },
+    { l:'Relative humidity within range (40-60%)', fr:'Humidité relative dans la plage' },
+    { l:'HVAC / cooling units operational', fr:'Climatisation opérationnelle' },
+    { l:'HVAC redundancy (N+1)', fr:'Redondance climatisation (N+1)' },
+    { l:'Temperature/humidity monitoring & alarms', fr:'Surveillance & alarmes T°/HR' },
+    { l:'No water ingress / overhead pipe risk', fr:'Pas d\'infiltration / risque tuyauterie' },
+    { l:'No dust ingress (mining-specific)', fr:'Pas d\'entrée de poussière (spécifique mine)' },
+    { l:'Cleanliness — floors, racks, equipment', fr:'Propreté — sol, baies, équipements' },
+    { l:'Lighting adequate, emergency lighting works', fr:'Éclairage suffisant, secours fonctionnel' },
+    { l:'No combustible materials stored', fr:'Pas de matières combustibles stockées' },
+  ]},
+  { id:'pwr', name:'Power & UPS', fr:'Alimentation', icon:'⚡', items:[
+    { l:'UPS healthy — no faults / alarms', fr:'UPS sain — sans défaut/alarme' },
+    { l:'UPS load within capacity (<70%)', fr:'Charge UPS sous capacité (<70%)' },
+    { l:'UPS battery autonomy tested & documented', fr:'Autonomie batterie testée & documentée' },
+    { l:'UPS last service / maintenance current', fr:'Dernière maintenance UPS à jour' },
+    { l:'Generator backup operational & tested', fr:'Groupe électrogène opérationnel & testé' },
+    { l:'Diesel level / fuel supply adequate', fr:'Niveau gasoil / approvisionnement adéquat' },
+    { l:'Dual power feeds (A+B) where required', fr:'Doubles alimentations (A+B) selon besoin' },
+    { l:'PDUs labelled, no overload', fr:'PDU étiquetés, pas de surcharge' },
+    { l:'Earthing / grounding inspected', fr:'Mise à la terre inspectée' },
+    { l:'No exposed wiring or daisy-chained cords', fr:'Aucun câble exposé / multiprises en cascade' },
+    { l:'Surge protection in place', fr:'Protection contre surtension en place' },
+  ]},
+  { id:'fire', name:'Fire Safety', fr:'Sécurité incendie', icon:'🔥', items:[
+    { l:'Fire detection system operational (smoke/heat)', fr:'Détection incendie opérationnelle (fumée/chaleur)' },
+    { l:'Suppression system present (FM-200, Novec, Inergen, etc.)', fr:'Système d\'extinction présent' },
+    { l:'Suppression cylinders pressure within range', fr:'Pression bouteilles d\'extinction dans la plage' },
+    { l:'Suppression last service certificate < 12 months', fr:'Certificat de service < 12 mois' },
+    { l:'Detection panel — no fault, no isolation', fr:'Panneau détection — sans défaut, sans isolement' },
+    { l:'Manual release / abort station accessible', fr:'Déclenchement / abort manuel accessible' },
+    { l:'Portable extinguishers — CO₂ &amp; ABC, in date', fr:'Extincteurs portatifs CO₂ &amp; ABC, en date' },
+    { l:'Extinguishers visible, unobstructed, tagged', fr:'Extincteurs visibles, dégagés, étiquetés' },
+    { l:'Emergency exit clearly marked &amp; unobstructed', fr:'Issue de secours visible &amp; dégagée' },
+    { l:'Evacuation procedure posted &amp; current', fr:'Procédure d\'évacuation affichée &amp; à jour' },
+    { l:'Smoke seals on cable penetrations intact', fr:'Calfeutrement coupe-feu des passages câbles' },
+  ]},
+  { id:'net', name:'Network', fr:'Réseau', icon:'🔗', items:[
+    { l:'Core / distribution switches healthy (no red LEDs)', fr:'Switches cœur/distribution sains (aucun LED rouge)' },
+    { l:'Switch firmware within support window', fr:'Firmware switch sous support' },
+    { l:'Patch panels labelled &amp; documented', fr:'Patch panels étiquetés &amp; documentés' },
+    { l:'Cable management — no spaghetti, ties used', fr:'Câblage organisé — pas de spaghetti, attaches utilisées' },
+    { l:'No unused / disconnected patch cords hanging', fr:'Aucun cordon non utilisé pendant' },
+    { l:'Fiber backbone protected, slack in trays', fr:'Backbone fibre protégé, lovage en chemins' },
+    { l:'Wireless APs operational, coverage validated', fr:'AP Wi-Fi opérationnels, couverture validée' },
+    { l:'Internet / WAN links operational, redundancy', fr:'Liaisons Internet/WAN opérationnelles, redondance' },
+    { l:'Out-of-band management accessible', fr:'Gestion hors-bande accessible' },
+    { l:'Network monitoring (NMS) reachable for this site', fr:'Supervision réseau (NMS) joignable pour ce site' },
+  ]},
+  { id:'srv', name:'Servers &amp; Hypervisor', fr:'Serveurs &amp; Hyperviseur', icon:'🖥', items:[
+    { l:'All physical servers powered on — no amber/red status LEDs', fr:'Tous les serveurs physiques sous tension — aucun voyant orange/rouge' },
+    { l:'Hardware health alarms cleared (fans, temperatures, PSU redundancy A+B)', fr:'Alarmes matérielles effacées (ventilateurs, températures, redondance PSU A+B)' },
+    { l:'Out-of-band management (iDRAC / iLO / IPMI / iKVM) accessible from corporate network', fr:'Gestion hors-bande (iDRAC / iLO / IPMI / iKVM) accessible depuis le réseau corporate' },
+    { l:'BIOS / firmware revisions within vendor support window', fr:'Versions BIOS / firmware dans la fenêtre de support fournisseur' },
+    { l:'Hypervisor cluster healthy — no host failures, HA enabled (vSphere / Hyper-V / Proxmox / Nutanix)', fr:'Cluster hyperviseur sain — aucune panne hôte, HA activé' },
+    { l:'Cluster has N+1 spare capacity to absorb one host failure', fr:'Capacité N+1 disponible pour absorber la panne d\'un hôte' },
+    { l:'VM inventory current — no orphan VMs, CMDB matches', fr:'Inventaire VM à jour — aucune VM orpheline, CMDB cohérent' },
+    { l:'Critical services running (AD/DC, DNS, file, mail, monitoring agents, AV agents)', fr:'Services critiques actifs (AD/DC, DNS, fichiers, mail, agents supervision et antivirus)' },
+    { l:'Operating system patch level current — no missed critical updates &gt; 30 days', fr:'Niveau de patch OS à jour — aucun correctif critique manquant &gt; 30 jours' },
+    { l:'Performance alerts cleared (CPU sustained &gt; 80%, memory pressure, IO latency)', fr:'Alertes performance effacées (CPU soutenu &gt; 80%, pression mémoire, latence IO)' },
+    { l:'Server room asset labelling / U-position matches one-line diagram', fr:'Étiquetage actifs salle / position U cohérent avec schéma synoptique' },
+    { l:'Antivirus / EDR agent reporting in central console (last check-in &lt; 24 h)', fr:'Agent antivirus / EDR remonte vers la console centrale (dernier rapport &lt; 24 h)' },
+  ]},
+  { id:'sto', name:'Storage &amp; Datastores', fr:'Stockage &amp; Datastores', icon:'💽', items:[
+    { l:'Storage array(s) healthy — no degraded volumes, no failed disks', fr:'Baie(s) de stockage saine(s) — aucun volume dégradé, aucun disque en panne' },
+    { l:'RAID groups / parity consistent — no rebuild in progress, no parity errors', fr:'Groupes RAID / parité cohérents — aucune reconstruction en cours, aucune erreur de parité' },
+    { l:'Hot spare disks present and online', fr:'Disques de secours (hot spare) présents et en ligne' },
+    { l:'All datastores below capacity threshold (&lt; 80% used)', fr:'Tous les datastores sous le seuil de capacité (&lt; 80% utilisé)' },
+    { l:'Snapshot retention managed — no orphan / stale snapshots &gt; 7 days on production VMs', fr:'Rétention des snapshots maîtrisée — aucun snapshot orphelin &gt; 7 jours sur VM de production' },
+    { l:'Replication healthy (sync / async) — lag within RPO target', fr:'Réplication saine (sync / async) — décalage dans la cible RPO' },
+    { l:'SAN / NAS fabric — no path errors, multi-pathing (MPIO) intact, all paths active', fr:'Fabric SAN / NAS — aucune erreur de chemin, MPIO intact, tous les chemins actifs' },
+    { l:'Storage management console (vCenter, OnCommand, Unisphere, Prism, etc.) accessible', fr:'Console de gestion stockage (vCenter, OnCommand, Unisphere, Prism, etc.) accessible' },
+    { l:'Storage firmware / OS revision within vendor support window', fr:'Firmware / OS stockage dans la fenêtre de support fournisseur' },
+    { l:'Backup target reachable &amp; writable (deduplication appliance, NAS, cloud bucket)', fr:'Cible de sauvegarde joignable et accessible en écriture (appliance dedup, NAS, bucket cloud)' },
+    { l:'Capacity growth projection reviewed — at least 3 months runway', fr:'Projection de croissance capacité revue — au moins 3 mois d\'autonomie' },
+    { l:'Storage performance alerts cleared (latency, IOPS, queue depth)', fr:'Alertes performance stockage effacées (latence, IOPS, profondeur de file)' },
+  ]},
+  { id:'rack', name:'Racks &amp; Cabling', fr:'Baies &amp; câblage', icon:'🗄', items:[
+    { l:'Racks anchored, doors closing properly', fr:'Baies fixées, portes fermant correctement' },
+    { l:'Rack labels &amp; one-line diagram present', fr:'Étiquetage baies &amp; schéma synoptique présents' },
+    { l:'No unmanaged / unauthorised equipment', fr:'Aucun équipement non géré / non autorisé' },
+    { l:'Hot/cold aisle airflow respected', fr:'Confinement allée chaude/froide respecté' },
+    { l:'Blanking panels installed in unused U', fr:'Panneaux d\'obturation dans les U vides' },
+    { l:'Cable colour code consistent (data/voice/mgmt)', fr:'Code couleur câblage cohérent' },
+    { l:'No copper running parallel with high-voltage', fr:'Aucun cuivre parallèle à du HT' },
+    { l:'Floor / ceiling cable trays intact &amp; routed', fr:'Chemins de câbles intacts &amp; cheminés' },
+  ]},
+  { id:'sec', name:'Physical Security', fr:'Sécurité physique', icon:'🔒', items:[
+    { l:'Access control active (badge / biometric)', fr:'Contrôle d\'accès actif (badge / biométrie)' },
+    { l:'Access list reviewed &lt; 90 days', fr:'Liste d\'accès revue &lt; 90 jours' },
+    { l:'CCTV covers entries &amp; rack rows, recording', fr:'CCTV couvre entrées &amp; rangées, enregistrement actif' },
+    { l:'CCTV recording retention sufficient (≥30 days)', fr:'Rétention CCTV suffisante (≥30 jours)' },
+    { l:'Visitor log present &amp; in use', fr:'Registre visiteurs présent &amp; utilisé' },
+    { l:'Door integrity (no propping, intrusion alarms OK)', fr:'Intégrité de porte (non bloquée, alarmes OK)' },
+    { l:'Key management documented (if mechanical)', fr:'Gestion des clés documentée (si mécanique)' },
+    { l:'No tailgating / unauthorised presence observed', fr:'Aucun talonnage / présence non autorisée observé' },
+  ]},
+  { id:'doc', name:'Documentation', fr:'Documentation', icon:'📋', items:[
+    { l:'Asset inventory accurate &amp; current', fr:'Inventaire actifs précis &amp; à jour' },
+    { l:'Rack elevations / one-line diagrams posted', fr:'Élévations baies / schémas affichés' },
+    { l:'Network topology diagram available', fr:'Schéma topologique réseau disponible' },
+    { l:'Emergency contact list posted', fr:'Liste de contacts d\'urgence affichée' },
+    { l:'Change log / inspection log present', fr:'Journal de changement / inspection présent' },
+    { l:'Operating procedures (SOP) accessible', fr:'Procédures opératoires (SOP) accessibles' },
+    { l:'Equipment warranty &amp; support contracts visible', fr:'Garanties &amp; contrats de support consultables' },
+  ]},
+  { id:'bcp', name:'Backup &amp; Recovery', fr:'Sauvegarde &amp; PRA', icon:'💾', items:[
+    { l:'Backup jobs completing successfully', fr:'Sauvegardes en succès' },
+    { l:'Last successful restore test &lt; 90 days', fr:'Dernier test de restauration &lt; 90 jours' },
+    { l:'Off-site / cloud copy in place (3-2-1)', fr:'Copie hors-site / cloud en place (3-2-1)' },
+    { l:'DR runbook present &amp; recent', fr:'Runbook PRA présent &amp; récent' },
+    { l:'Critical service RPO/RTO documented', fr:'RPO/RTO services critiques documentés' },
+  ]},
+  { id:'op', name:'OT / Mining Ops', fr:'OT / Opérations minières', icon:'⛏', items:[
+    { l:'OT/IT segmentation in place', fr:'Segmentation OT/IT en place' },
+    { l:'Dispatch / fleet management connectivity OK', fr:'Connectivité dispatch / gestion flotte OK' },
+    { l:'Process plant SCADA / DCS link healthy', fr:'Liaison SCADA / DCS usine en bon état' },
+    { l:'Mine LAN / radio backbone operational', fr:'Backbone LAN/radio mine opérationnel' },
+    { l:'Weighbridge &amp; gate systems operational', fr:'Pont-bascule &amp; portique opérationnels' },
+    { l:'Geology / survey systems operational', fr:'Systèmes géologie / topo opérationnels' },
+    { l:'CCTV pit / plant feeds operational', fr:'Caméras fosse / usine opérationnelles' },
+  ]},
+  { id:'hse', name:'HSE &amp; Hazards', fr:'HSE &amp; Dangers', icon:'⚠', items:[
+    { l:'No ergonomic / trip / fall hazards', fr:'Aucun risque ergonomique / chute' },
+    { l:'PPE compliance for the area', fr:'EPI conforme à la zone' },
+    { l:'First aid kit present (if required)', fr:'Trousse de premiers secours (si requis)' },
+    { l:'No slip hazards (water, oil)', fr:'Aucun risque de glissade (eau, huile)' },
+    { l:'Working at height / overhead risks managed', fr:'Travaux en hauteur / risques sus-jacents gérés' },
+    { l:'Battery storage compliant (UPS, lithium, lead-acid)', fr:'Stockage batteries conforme' },
+    { l:'Signage — restricted area, hazard, voltage', fr:'Signalisation — zone restreinte, danger, tension' },
+  ]},
+  { id:'tower', name:'Comms Tower', fr:'Pylône comms', icon:'📡', items:[
+    { l:'Tower structural integrity — no corrosion, deformation, missing members', fr:'Intégrité structurelle — corrosion, déformation, membrures manquantes' },
+    { l:'Guy wires / anchors tensioned, anchor pads sound', fr:'Haubans tensionnés, plots d\'ancrage sains' },
+    { l:'Tower foundation — no cracks, no settlement', fr:'Fondation — sans fissures, sans affaissement' },
+    { l:'Aviation warning / obstruction lights operational (day &amp; night)', fr:'Balisage aérien / obstruction opérationnel (jour &amp; nuit)' },
+    { l:'Lightning rod &amp; surge arrestors in place &amp; bonded', fr:'Paratonnerre &amp; parafoudres en place &amp; reliés' },
+    { l:'Tower &amp; shelter earthing — last test &lt; 12 months, &lt; 5Ω', fr:'Mise à la terre pylône &amp; abri — dernier test &lt; 12 mois, &lt; 5Ω' },
+    { l:'Anti-climb / fence / signage compliant', fr:'Anti-escalade / clôture / signalétique conforme' },
+    { l:'Antennas mounted firmly, alignment marks intact', fr:'Antennes solidement fixées, repères d\'alignement intacts' },
+    { l:'Coax / feeder cables — weatherproofing, hangers, no chafing', fr:'Câbles coaxiaux / feeders — étanchéité, supports, aucun frottement' },
+    { l:'Cable entry boots &amp; ports sealed at shelter', fr:'Passages de câbles à l\'abri étanches' },
+    { l:'Equipment shelter — HVAC, lighting, intrusion alarm operational', fr:'Abri équipements — clim, éclairage, alarme intrusion opérationnels' },
+    { l:'Last climb / structural inspection certificate &lt; 12 months', fr:'Dernier certificat d\'inspection en hauteur &lt; 12 mois' },
+    { l:'Tower paint / corrosion protection acceptable', fr:'Peinture / protection anticorrosion acceptable' },
+    { l:'Access road to tower passable in all seasons', fr:'Piste d\'accès au pylône praticable toute saison' },
+  ]},
+  { id:'radio', name:'Radio Comms', fr:'Comms radio', icon:'📻', items:[
+    { l:'VHF/UHF base station operational, RF output within spec', fr:'Station de base VHF/UHF opérationnelle, puissance RF conforme' },
+    { l:'Repeater(s) operational — duplexer, controller, link', fr:'Répéteur(s) opérationnel — duplexeur, contrôleur, liaison' },
+    { l:'Coverage tested — pit, haul roads, ROM, workshops, plant', fr:'Couverture testée — fosse, pistes, ROM, ateliers, usine' },
+    { l:'Dead zones identified, documented &amp; communicated', fr:'Zones blanches identifiées, documentées &amp; communiquées' },
+    { l:'Emergency / mayday channel tested this period', fr:'Canal d\'urgence / mayday testé cette période' },
+    { l:'Mine rescue dedicated channel verified', fr:'Canal dédié mine rescue vérifié' },
+    { l:'Dispatch console operational, voice recording active', fr:'Console dispatch opérationnelle, enregistrement vocal actif' },
+    { l:'Radio fleet inventory current — no missing handsets', fr:'Inventaire flotte radio à jour — aucun terminal manquant' },
+    { l:'Handset batteries — chargers in place, rotation managed', fr:'Batteries terminaux — chargeurs en place, rotation gérée' },
+    { l:'Frequency licensing / authorisation current (regulator)', fr:'Licences / autorisations fréquences en cours (régulateur)' },
+    { l:'Digital trunked system — TETRA / DMR / NXDN healthy (if deployed)', fr:'Système numérique trunked — TETRA / DMR / NXDN sain (si déployé)' },
+    { l:'Programming templates / codeplugs backed up &amp; controlled', fr:'Templates / codeplugs sauvegardés &amp; contrôlés' },
+    { l:'Vehicle-mount radios — antennas, mounting, no faults', fr:'Radios véhicule — antennes, montage, sans défaut' },
+  ]},
+  { id:'cell', name:'Cellular &amp; Sat', fr:'Cellulaire &amp; Sat', icon:'📱', items:[
+    { l:'On-site cellular signal acceptable (operator survey, dBm logged)', fr:'Signal cellulaire site acceptable (relevé opérateur, dBm consigné)' },
+    { l:'In-building DAS / femtocell / microcell operational where deployed', fr:'DAS / femtocell intérieur opérationnel le cas échéant' },
+    { l:'Critical-area coverage validated (control room, clinic, gate, camp)', fr:'Couverture zones critiques validée (contrôle, infirmerie, portail, camp)' },
+    { l:'Multi-operator coverage where required (Orange, MTN, Moov, etc.)', fr:'Couverture multi-opérateurs selon besoin' },
+    { l:'Corporate SIM inventory managed — no orphan SIMs', fr:'Inventaire SIM corporate géré — aucune SIM orpheline' },
+    { l:'Emergency cellular fallback to alternate operator tested', fr:'Bascule cellulaire de secours testée' },
+    { l:'VSAT primary link operational — Eb/No, BER within spec', fr:'Lien VSAT principal opérationnel — Eb/No, BER conformes' },
+    { l:'VSAT dish — alignment, BUC/LNB, no corrosion / wildlife damage', fr:'Antenne VSAT — alignement, BUC/LNB, aucune corrosion / dégât animal' },
+    { l:'VSAT modem &amp; router — no faults, latency monitored', fr:'Modem &amp; routeur VSAT — sans défaut, latence surveillée' },
+    { l:'Iridium / Inmarsat satellite phone — tested, charged, accessible', fr:'Téléphone satellite Iridium / Inmarsat — testé, chargé, accessible' },
+    { l:'WAN failover (terrestrial ↔ satellite) tested this period', fr:'Bascule WAN (terrestre ↔ satellite) testée cette période' },
+    { l:'IoT / M2M SIMs (telemetry, dispatch tablets) accounted for', fr:'SIMs IoT / M2M (télémétrie, tablettes dispatch) recensées' },
+  ]},
+  { id:'ug', name:'Underground Comms', fr:'Comms souterrain', icon:'⬇', items:[
+    { l:'Leaky feeder (radiating cable) backbone — continuity, no breaks', fr:'Câble rayonnant (leaky feeder) — continuité, aucune coupure' },
+    { l:'Leaky feeder amplifiers / line extenders operational, status logged', fr:'Amplificateurs / extenseurs leaky feeder opérationnels, état journalisé' },
+    { l:'Underground Wi-Fi / LTE access points operational', fr:'Points d\'accès Wi-Fi / LTE souterrains opérationnels' },
+    { l:'Underground network switches sealed, IP-rated, dust/water OK', fr:'Switches souterrains scellés, indice IP conforme (poussière/eau)' },
+    { l:'Refuge chamber communications — radio, phone, monitoring', fr:'Chambre refuge — radio, téléphone, supervision opérationnels' },
+    { l:'Personnel tracking (cap-lamp tag / PED / RFID) operational', fr:'Suivi personnel (lampe-casque / PED / RFID) opérationnel' },
+    { l:'Tag-board / muster system tested', fr:'Tableau de pointage / système de rassemblement testé' },
+    { l:'Mine-wide PA / siren / stench gas evacuation system tested', fr:'PA mine / sirène / gaz d\'alerte évacuation testés' },
+    { l:'Hoist / cage / shaft communications operational', fr:'Communications puits / cage / treuil opérationnelles' },
+    { l:'Pit-to-surface fiber / radio link — redundant where critical', fr:'Liaison fond-jour fibre / radio — redondante là où critique' },
+    { l:'Atmospheric / gas monitoring telemetry to surface live', fr:'Télémétrie atmosphère / gaz vers le jour active' },
+    { l:'Equipment ATEX / intrinsically safe rating where required', fr:'Équipements ATEX / sécurité intrinsèque selon zonage' },
+    { l:'Cable hangers compliant, no draping in travelways', fr:'Supports de câbles conformes, aucun pendant en galerie' },
+    { l:'UPS / battery backup for UG comms minimum 4h autonomy', fr:'Onduleur / batterie comms souterraines, autonomie min. 4h' },
+  ]},
+  { id:'cctv', name:'CCTV &amp; PA', fr:'CCTV &amp; sono', icon:'📺', items:[
+    { l:'Pit / plant PTZ cameras operational, presets &amp; tours configured', fr:'Caméras PTZ fosse / usine opérationnelles, préréglages &amp; rondes' },
+    { l:'Thermal / low-light cameras (gate, perimeter, ROM) operational', fr:'Caméras thermiques / faible lumière (portail, périmètre, ROM) opérationnelles' },
+    { l:'License plate recognition (LPR) at gate operational', fr:'Lecture de plaques (LPR) au portail opérationnelle' },
+    { l:'Weighbridge / fuel-bay cameras operational &amp; aligned', fr:'Caméras pont-bascule / station carburant opérationnelles &amp; alignées' },
+    { l:'NVR/DVR — disks healthy, RAID/redundancy intact, no overwrite alarms', fr:'NVR/DVR — disques sains, RAID/redondance intacts, aucune alarme' },
+    { l:'Recording retention meets policy (≥30 days)', fr:'Rétention enregistrements conforme (≥30 jours)' },
+    { l:'Camera time sync (NTP) consistent across the fleet', fr:'Synchro horaire (NTP) cohérente sur la flotte' },
+    { l:'Video wall / control room display operational', fr:'Mur d\'images / écrans salle de contrôle opérationnels' },
+    { l:'Public address — speakers operational across all zones', fr:'Sonorisation — haut-parleurs opérationnels dans toutes les zones' },
+    { l:'Evacuation siren / muster alarm tested this period', fr:'Sirène d\'évacuation / rassemblement testée cette période' },
+    { l:'Mass notification (SMS / email blast) tested', fr:'Notification de masse (SMS / email blast) testée' },
+    { l:'Camera lenses cleaned (mining dust accumulation)', fr:'Optiques caméras nettoyées (poussière mine)' },
+  ]},
+];
+
+const STATUS_DEFS = [
+  { code:'ok', label:'OK', fr:'Conforme' },
+  { code:'minor', label:'Minor', fr:'Mineur' },
+  { code:'major', label:'Major', fr:'Majeur' },
+  { code:'critical', label:'Critical', fr:'Critique' },
+  { code:'opp', label:'Opportunity', fr:'Opportunité' },
+  { code:'na', label:'N/A', fr:'N/A' },
+];
+
+/* ============================================================
+   STORAGE — multi-inspection support
+   ============================================================ */
+const STORAGE_PREFIX = 'em_it_inspection_v2';
+const KEY_INDEX   = `${STORAGE_PREFIX}__index`;
+const KEY_CURRENT = `${STORAGE_PREFIX}__current`;
+const KEY_DATA    = id => `${STORAGE_PREFIX}__data__${id}`;
+
+let state = { meta:{}, items:{}, actions:[], signatures:{} };
+let currentId = null;
+let currentFilter = 'all';
+
+function genId(){
+  const d = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  return `EM-IT-${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${Math.floor(Math.random()*9000+1000)}`;
+}
+
+function getIndex(){
+  try { return JSON.parse(localStorage.getItem(KEY_INDEX) || '[]'); }
+  catch { return []; }
+}
+function setIndex(idx){ localStorage.setItem(KEY_INDEX, JSON.stringify(idx)); }
+
+function inspectionLabel(meta){
+  const id = meta.f_id || 'Untitled';
+  const site = (meta.f_site || '').split(' (')[0].split(' —')[0] || '—';
+  const date = meta.f_date || '—';
+  const name = meta.f_label ? ` · ${meta.f_label}` : '';
+  return `${id} · ${site} · ${date}${name}`;
+}
+
+function refreshSavedSelect(){
+  const sel = document.getElementById('savedSelect');
+  const idx = getIndex();
+  sel.innerHTML = idx.length === 0
+    ? '<option value="">No saved inspections</option>'
+    : idx.map(e => `<option value="${e.id}" ${e.id===currentId?'selected':''}>${escapeHtml(e.label)}</option>`).join('');
+}
+
+function newInspection(){
+  saveCurrent();
+  const id = genId();
+  state = { meta:{ f_id:id, f_date:new Date().toISOString().split('T')[0], f_time:new Date().toTimeString().slice(0,5) }, items:{}, actions:[], signatures:{} };
+  currentId = id;
+  const idx = getIndex();
+  idx.unshift({ id, label: inspectionLabel(state.meta), updated: Date.now() });
+  setIndex(idx);
+  localStorage.setItem(KEY_CURRENT, id);
+  applyStateToUI();
+  refreshSavedSelect();
+}
+
+function switchInspection(id){
+  if (!id || id === currentId) return;
+  saveCurrent();
+  currentId = id;
+  localStorage.setItem(KEY_CURRENT, id);
+  loadCurrent();
+}
+
+// Triggered by the toolbar 🗑 button. Pops a styled confirmation
+// modal — the actual delete (server + local cleanup) lives in
+// confirmDelete() below, which is invoked by the modal's confirm
+// button. Status-aware: a different copy is shown for already-
+// submitted / closed inspections because deleting one of those
+// destroys signed-off field work and should look more deliberate.
+function deleteInspection(){
+  if (!currentId) return;
+  const status = (state && state.status) || 'draft';
+  const body   = document.getElementById('deleteModalBody');
+  const title  = document.getElementById('deleteModalTitle');
+  if (!body || !title) {
+    // Defensive: if the modal markup is missing for any reason, fall
+    // back to native confirm() rather than silently dropping the action.
+    if (confirm('Delete this inspection? This cannot be undone.\n\nSupprimer cette inspection ? Action irréversible.')) {
+      confirmDelete();
+    }
+    return;
+  }
+  const lbl = inspectionLabel(state.meta) || currentId;
+  const harsh = (status === 'submitted' || status === 'closed');
+  title.textContent = harsh
+    ? `Delete this ${status.toUpperCase()} inspection?`
+    : 'Delete this inspection?';
+  let html = `<p><strong>${escapeHtml(lbl)}</strong></p>`;
+  if (harsh) {
+    html += `<p style="color:#dc2626"><strong>⚠ This inspection has been submitted.</strong> Deleting it removes the signed-off record and every finding, action, photo, and signature.</p>`;
+  } else {
+    html += `<p>This removes the draft and every finding, action, photo, and signature you have entered.</p>`;
+  }
+  html += `<p style="margin-top:14px"><strong>This cannot be undone.</strong><br><span style="color:var(--ink-3)">Action irréversible · Supprime tout : observations, actions, photos, signatures.</span></p>`;
+  body.innerHTML = html;
+  document.getElementById('deleteModal').classList.add('show');
+}
+
+function closeDeleteModal(){
+  document.getElementById('deleteModal').classList.remove('show');
+}
+
+async function confirmDelete(){
+  closeDeleteModal();
+  if (!currentId) return;
+  const doomedId = currentId;
+
+  // Server-side delete first (best-effort). If the row was never
+  // promoted to the server (under the 2026-05-24 save model, that
+  // means the user never clicked Save now or Submit) the DELETE
+  // returns 404 — we treat that as success and proceed with the
+  // local cleanup. Network / 403 failures are logged but don't
+  // block local cleanup either — better to leave the user with a
+  // clean local state than to lock them out of their own form.
+  try {
+    const tok = document.cookie.match(/report_token=([^;]+)/)?.[1] || localStorage.getItem('report_token') || '';
+    const r = await fetch('/api/inspection/' + encodeURIComponent(doomedId), {
+      method:      'DELETE',
+      credentials: 'same-origin',
+      headers:     tok ? { 'x-report-token': tok } : {},
+    });
+    if (!r.ok && r.status !== 404) {
+      const e = await r.json().catch(() => ({}));
+      console.warn('[inspection] server delete returned ' + r.status, e);
+      // Show but don't abort — admin can re-clean from the dashboard later
+      if (typeof showToast === 'function') {
+        showToast('Server delete failed (HTTP ' + r.status + '): ' + (e.error || '') + ' — removed locally only.', 'warn', 5000);
+      }
+    }
+  } catch (e) {
+    console.warn('[inspection] server delete error:', e);
+    if (typeof showToast === 'function') {
+      showToast('Server unreachable — inspection removed locally only.', 'warn', 4000);
+    }
+  }
+
+  localStorage.removeItem(KEY_DATA(doomedId));
+  const idx = getIndex().filter(e => e.id !== doomedId);
+  setIndex(idx);
+  if (idx.length){
+    currentId = idx[0].id;
+    localStorage.setItem(KEY_CURRENT, currentId);
+    loadCurrent();
+  } else {
+    newInspection();
+  }
+  refreshSavedSelect();
+  if (typeof showToast === 'function') showToast('Inspection deleted.', 'info', 2500);
+}
+
+function renameInspection(){
+  const lbl = prompt('Optional label / Libellé optionnel (e.g. "Q1 routine", "Pre-audit"):', state.meta.f_label || '');
+  if (lbl === null) return;
+  state.meta.f_label = lbl.trim();
+  updateIndexEntry();
+  refreshSavedSelect();
+  autosave();
+}
+
+function updateIndexEntry(){
+  const idx = getIndex();
+  const e = idx.find(x => x.id === currentId);
+  if (e){
+    e.label = inspectionLabel(state.meta);
+    e.updated = Date.now();
+    setIndex(idx);
+  }
+}
+
+function saveCurrent(){
+  if (!currentId) return;
+  try { localStorage.setItem(KEY_DATA(currentId), JSON.stringify(state)); }
+  catch(e){ console.warn('Save failed', e); }
+}
+
+function loadCurrent(){
+  if (!currentId) return false;
+  try {
+    const raw = localStorage.getItem(KEY_DATA(currentId));
+    if (!raw) return false;
+    state = Object.assign({meta:{},items:{},actions:[],signatures:{}}, JSON.parse(raw));
+    applyStateToUI();
+    return true;
+  } catch(e){ console.error(e); return false; }
+}
+
+/* ============================================================
+   RENDER CHECKLIST
+   ============================================================ */
+function renderChecklist(){
+  const tabs = document.getElementById('catTabs');
+  const panels = document.getElementById('catPanels');
+  tabs.innerHTML = '';
+  panels.innerHTML = '';
+
+  CATEGORIES.forEach((cat, i) => {
+    const tab = document.createElement('button');
+    tab.className = 'cat-tab' + (i===0?' active':'');
+    tab.dataset.cat = cat.id;
+    tab.innerHTML = `${cat.icon} ${cat.name} <span class="badge" id="badge_${cat.id}">${cat.items.length}</span><span class="dot"></span>`;
+    tab.onclick = () => {
+      document.querySelectorAll('.cat-tab').forEach(t=>t.classList.remove('active'));
+      document.querySelectorAll('.cat-panel').forEach(p=>p.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById('panel_'+cat.id).classList.add('active');
+    };
+    tabs.appendChild(tab);
+
+    const panel = document.createElement('div');
+    panel.className = 'cat-panel' + (i===0?' active':'');
+    panel.id = 'panel_'+cat.id;
+
+    cat.items.forEach((item, idx) => {
+      const key = `${cat.id}__${idx}`;
+      const code = `${cat.id.toUpperCase()}-${String(idx+1).padStart(2,'0')}`;
+      const itemDiv = document.createElement('div');
+      itemDiv.className = 'item';
+      itemDiv.dataset.key = key;
+      itemDiv.dataset.code = code;
+      itemDiv.dataset.text = (item.l + ' ' + item.fr).toLowerCase();
+      itemDiv.innerHTML = `
+        <div class="item-head">
+          <div class="item-num mono">${code}</div>
+          <div style="flex:1">
+            <div class="item-label">${item.l}<span class="fr">${item.fr}</span></div>
+            <div class="status-row">
+              ${STATUS_DEFS.map(s=>`<button class="status-btn" data-status="${s.code}" data-key="${key}">${s.label}</button>`).join('')}
+            </div>
+          </div>
+        </div>
+        <div class="item-body" id="body_${key}">
+          <div class="item-row">
+            <div class="field">
+              <label>Observation / Notes</label>
+              <div class="notes-wrap">
+                <textarea data-key="${key}" data-field="notes" placeholder="What was observed? Specific defect, location, asset tag, measured value... / Constat précis, localisation, n° asset, valeur mesurée..."></textarea>
+                <button class="mic-btn" type="button" data-key="${key}" title="Tap to dictate / Appuyer pour dicter" onclick="toggleDictation('${key}',this)">🎤</button>
+              </div>
+              <div class="voice-hint" id="vhint_${key}"></div>
+            </div>
+            <div>
+              <label style="display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--ink-2);margin-bottom:6px">Photos</label>
+              <div class="photo-btns">
+                <button type="button" class="photo-btn" onclick="openCamera('${key}')">
+                  <div class="icon">📷</div>
+                  <div class="text">Camera<br>Appareil</div>
+                </button>
+                <button type="button" class="photo-btn" onclick="openGallery('${key}')">
+                  <div class="icon">🖼</div>
+                  <div class="text">Gallery<br>Galerie</div>
+                </button>
+              </div>
+              <div class="photo-list" id="photos_${key}"></div>
+            </div>
+          </div>
+        </div>
+        <div class="item-actions" id="act_${key}" style="display:none">
+          <button class="action-btn" data-key="${key}" data-code="${code}" data-label="${escapeHtml(item.l)}" onclick="generateAction(this)">+ Add corrective action</button>
+        </div>
+      `;
+      panel.appendChild(itemDiv);
+    });
+
+    panels.appendChild(panel);
+  });
+
+  wireChecklistEvents();
+}
+
+/* ============================================================
+   VOICE DICTATION — Web Speech API
+   ============================================================ */
+const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+let _rec = null;
+let _recKey = null;
+let _recBtn = null;
+let _recTaId = null;
+// ── Push-to-talk state (2026-05-31 revert from continuous mode) ────
+// The over-engineered 3-buffer + continuous-mode + auto-restart +
+// auto-language-fallback model from 2026-05-23 still produced
+// duplicate-words bugs in the field (Chrome's session boundaries +
+// e.results re-emission are racier than the previous fix anticipated).
+// Reverted to the simplest possible "one tap = one session" model:
+//
+//   - r.continuous = false: ONE recording per tap; Chrome auto-ends
+//     after the user pauses speaking.
+//   - r.lang = dictLang: hard-set to the language the user picked
+//     via the EN / FR toggle in the header. No auto-detect — the
+//     user knows what they're speaking; let Chrome focus on accuracy.
+//   - onresult iterates from e.resultIndex (not from 0), so we only
+//     see NEW transcript chunks. No buffer juggling.
+//   - Final text is APPENDED to the textarea once per finalisation.
+//   - r.onend just calls _stopDictation — no auto-restart, no
+//     cross-session bookkeeping. Want more? Tap the mic again.
+//
+// Trade-off: longer dictations need multiple taps. Inspectors
+// preferred this over the duplicate-words bug.
+let _recRequestStop  = false;
+let _recStartTs      = 0;
+let _recNetFailures  = 0;
+let _micActiveTimer  = null;
+// Note: no REC_MAX_MS in push-to-talk mode — Chrome auto-ends each
+// session on its own when the user pauses; the previous 3-minute
+// hard cap was for continuous-mode auto-restart and is no longer
+// relevant.
+
+function _flashMicActive(){
+  if (!_recBtn) return;
+  _recBtn.classList.add('active');
+  clearTimeout(_micActiveTimer);
+  _micActiveTimer = setTimeout(() => {
+    if (_recBtn) _recBtn.classList.remove('active');
+  }, 1800);
+}
+
+function _showVoiceNetBanner(){
+  if (_recNetFailures < 2) return;
+  let banner = document.getElementById('voiceNetBanner');
+  if (!banner){
+    banner = document.createElement('div');
+    banner.id = 'voiceNetBanner';
+    banner.className = 'voice-net-banner';
+    banner.innerHTML =
+      '<div class="vnb-icon">🎤</div>' +
+      '<div class="vnb-text">' +
+        '<strong>Dictée vocale indisponible sur ce réseau.</strong>' +
+        '<span>Voice dictation is blocked — your network doesn\'t allow access to the cloud speech service. Type notes by keyboard.</span>' +
+      '</div>' +
+      '<button type="button" class="vnb-retry" onclick="resetVoiceNet()">Retry voice</button>';
+    const tb = document.querySelector('.toolbar');
+    if (tb && tb.parentNode) tb.parentNode.insertBefore(banner, tb.nextSibling);
+    else { const c = document.querySelector('.container'); if (c) c.prepend(banner); }
+  }
+  banner.style.display = 'flex';
+  document.body.classList.add('voice-disabled');
+}
+
+function resetVoiceNet(){
+  _recNetFailures = 0;
+  const banner = document.getElementById('voiceNetBanner');
+  if (banner) banner.style.display = 'none';
+  document.body.classList.remove('voice-disabled');
+  showToast('🎤 Voice dictation re-enabled — give it another try.', 'info', 3500);
+}
+
+/* ============================================================
+   TOAST NOTIFICATION
+   ============================================================ */
+let _toastTimer = null;
+function showToast(msg, type='warn', durationMs=4000){
+  const t = document.getElementById('em-toast');
+  if (!t) return;
+  clearTimeout(_toastTimer);
+  t.textContent = msg;
+  t.className = 'show toast-' + type;
+  _toastTimer = setTimeout(() => { t.className = ''; }, durationMs);
+}
+
+/* ============================================================
+   DICTATION LANGUAGE TOGGLE
+   ============================================================ */
+let dictLang = localStorage.getItem('em_dict_lang') || 'en-US';
+
+function toggleDictLang(){
+  dictLang = dictLang === 'fr-FR' ? 'en-US' : 'fr-FR';
+  localStorage.setItem('em_dict_lang', dictLang);
+  const btn = document.getElementById('langToggleBtn');
+  if (btn) btn.textContent = dictLang === 'fr-FR' ? '🇫🇷 FR' : '🇬🇧 EN';
+  if (_rec){ _stopDictation(); }
+  showToast(dictLang === 'fr-FR'
+    ? '🇫🇷 Langue : Français'
+    : '🇬🇧 Language: English', 'info', 2000);
+}
+
+/* ============================================================
+   SPEECH — helpers
+   ============================================================ */
+function _isHttps(){
+  return location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+}
+
+function _stopDictation(manual){
+  if (manual) _recRequestStop = true;
+  if (_rec){ try{ _rec.stop(); }catch(e){} _rec = null; }
+  if (_recBtn){
+    _recBtn.classList.remove('recording', 'active');
+    _recBtn.textContent = '🎤';
+  }
+  if (_recKey){
+    const vh = document.getElementById('vhint_'+_recKey);
+    if (vh){ vh.textContent=''; vh.classList.remove('show'); }
+  }
+  clearTimeout(_micActiveTimer);
+  _recKey = null; _recBtn = null; _recTaId = null;
+  // Push-to-talk: no buffers to reset. Each tap starts a fresh,
+  // isolated SpeechRecognition session.
+}
+
+function _buildRecognizer(ta, onInterim){
+  // ── Pre-flight checks ──────────────────────────────────────
+  if (!SpeechRec){
+    showToast('🎤 Dictée non disponible — utilisez Chrome ou Edge\nVoice input requires Chrome or Edge', 'warn', 5000);
+    return null;
+  }
+  if (!_isHttps()){
+    showToast(
+      '🔒 La dictée nécessite HTTPS.\nOuvrez ce formulaire via un lien web sécurisé.\nDictation requires a secure (HTTPS) link.',
+      'warn', 7000
+    );
+    return null;
+  }
+  if (document.body.classList.contains('voice-disabled')) {
+    // The persistent network-error banner is up — bail out silently rather
+    // than reissue the same toast for every tap.
+    return null;
+  }
+
+  // ── Simple push-to-talk recognizer ─────────────────────────────
+  // r.continuous = false → ONE session per tap. Chrome auto-ends
+  // when the user pauses speaking. No auto-restart, no cross-session
+  // bookkeeping → no duplicate-words bug.
+  // r.lang = dictLang → hard-set to the language picked via the
+  // EN / FR toggle in the header. The browser uses this to pick the
+  // right speech model (massive accuracy difference vs auto-detect).
+  const r = new SpeechRec();
+  r.continuous     = false;
+  r.interimResults = true;
+  r.lang           = dictLang;
+
+  r.onresult = e => {
+    // Canonical Web Speech API pattern: iterate from e.resultIndex
+    // (not from 0) so we only process NEW results. Chrome's session-
+    // boundary re-emission isn't an issue here because each tap is
+    // its own session.
+    let interim = '';
+    let finalText = '';
+    for (let i = e.resultIndex; i < e.results.length; i++){
+      const t = e.results[i][0].transcript;
+      if (e.results[i].isFinal) finalText += t;
+      else                      interim   += t;
+    }
+    if (finalText) {
+      // Append finalised text to whatever's already in the textarea.
+      // Add a space separator if needed.
+      const existing = (ta.value || '').replace(/\s+$/, '');
+      const sep = existing ? ' ' : '';
+      ta.value = existing + sep + finalText.trim();
+      ta.dispatchEvent(new Event('input'));
+      _flashMicActive();
+    }
+    if (onInterim) onInterim(interim);
+  };
+
+  r.onerror = e => {
+    if (e.error === 'no-speech'){
+      // User didn't say anything during the listening window.
+      // Just clear interim hint; r.onend will fire next.
+      if (onInterim) onInterim('');
+      return;
+    }
+    if (e.error === 'not-allowed'){
+      showToast(
+        '🎤 Accès micro refusé.\nParamètres → Applications → Chrome → Autorisations → Microphone → Autoriser\n(Mic access denied — allow in Chrome app permissions)',
+        'warn', 8000
+      );
+    } else if (e.error === 'network'){
+      // Web Speech API in Chrome/Edge calls a cloud speech service
+      // (Google / Microsoft). On a restricted mining network the egress
+      // is often blocked even when the dashboard itself loads fine.
+      _recNetFailures += 1;
+      _showVoiceNetBanner();
+      showToast(
+        '🎤 Dictée indisponible — pas d\'accès aux serveurs vocaux.\n' +
+        'Voice dictation needs internet access to cloud speech servers.\n' +
+        'Saisissez les notes au clavier. / Type the note manually instead.',
+        'warn', 6000
+      );
+    } else if (e.error === 'aborted'){
+      // benign — fired when we deliberately r.stop(); ignore
+    } else {
+      showToast('⚠ ' + e.error, 'warn', 4000);
+    }
+    if (onInterim) onInterim('');
+    _stopDictation(true);
+  };
+
+  // Push-to-talk: when Chrome ends the session (user paused, error,
+  // or manual stop), we just tear down. The user taps the mic again
+  // to start a new session. No auto-restart loop.
+  r.onend = () => {
+    if (_rec !== r) return;
+    _stopDictation(false);
+  };
+
+  return r;
+}
+
+/* Reset per-session flags so the next dictation starts fresh. */
+function _startSession(){
+  _recRequestStop = false;
+  _recStartTs     = Date.now();
+}
+
+/* Checklist item mic button — tap to record, tap (or pause) to stop. */
+function toggleDictation(key, btn){
+  if (_recKey === key){ _stopDictation(true); return; }
+  _stopDictation(true);
+  const ta = document.querySelector(`textarea[data-key="${key}"][data-field="notes"]`);
+  if (!ta) return;
+  const vh = document.getElementById('vhint_'+key);
+  _recKey = key; _recBtn = btn;
+  const r = _buildRecognizer(ta, interim => {
+    if (!vh) return;
+    vh.textContent = interim ? `🎤 "${interim}"` : '🎤 Écoute… / Listening…';
+    vh.classList.toggle('show', true);
+  });
+  if (!r) return;
+  _rec = r;
+  _startSession();
+  btn.classList.add('recording'); btn.textContent = '⏹';
+  if (vh){ vh.textContent = '🎤 Écoute… / Listening…'; vh.classList.add('show'); }
+  try { r.start(); } catch(e){ console.warn(e); _stopDictation(true); }
+}
+
+/* Standalone textarea fields (scope, observations, positive findings). */
+function toggleDictationField(fieldId, btn){
+  if (_recTaId === fieldId){ _stopDictation(true); return; }
+  _stopDictation(true);
+  const ta = document.getElementById(fieldId);
+  if (!ta) return;
+  _recTaId = fieldId; _recBtn = btn;
+  const r = _buildRecognizer(ta, interim => {
+    if (interim) showToast(`🎤 "${interim}"`, 'info', 3000);
+  });
+  if (!r) return;
+  _rec = r;
+  _startSession();
+  btn.classList.add('recording'); btn.textContent = '⏹';
+  showToast('🎤 Écoute… / Listening… — tap again to stop', 'info', 5000);
+  try { r.start(); } catch(e){ console.warn(e); _stopDictation(true); }
+}
+
+function wireChecklistEvents(){
+  document.querySelectorAll('.status-btn').forEach(btn=>{
+    btn.onclick = () => {
+      const key = btn.dataset.key;
+      const status = btn.dataset.status;
+      document.querySelectorAll(`.status-btn[data-key="${key}"]`).forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      if (!state.items[key]) state.items[key] = { photos:[] };
+      state.items[key].status = status;
+
+      const itemEl = document.querySelector(`.item[data-key="${key}"]`);
+      itemEl.className = 'item status-' + status;
+      const body = document.getElementById('body_'+key);
+      const acts = document.getElementById('act_'+key);
+      const isIssue = ['minor','major','critical','opp'].includes(status);
+      if (isIssue) {
+        body.classList.add('show');
+        acts.style.display = 'flex';
+      } else {
+        if (!state.items[key].notes && (!state.items[key].photos || !state.items[key].photos.length)) {
+          body.classList.remove('show');
+        }
+        acts.style.display = 'none';
+      }
+      updateKPIs();
+      updateProgress();
+      autosave();
+    };
+  });
+
+  document.querySelectorAll('textarea[data-field="notes"]').forEach(t=>{
+    t.oninput = () => {
+      const key = t.dataset.key;
+      if (!state.items[key]) state.items[key] = { photos:[] };
+      state.items[key].notes = t.value;
+      autosave();
+    };
+  });
+
+  // Note: file inputs for photos are now created dynamically in openCamera/openGallery
+  // so there are no static input[type="file"][data-key] elements to wire here.
+}
+
+/* ============================================================
+   CAMERA / GALLERY — dynamic input approach
+   (static <label for="..."> is unreliable on mobile for capture=environment)
+   ============================================================ */
+function _makeFileInput(capture, multiple){
+  const inp = document.createElement('input');
+  inp.type = 'file';
+  inp.accept = 'image/*';
+  if (capture) inp.setAttribute('capture', 'environment');
+  if (multiple) inp.multiple = true;
+  // Must stay WITHIN the viewport (not off at -9999px) for iOS Safari + Android
+  // to honour capture= and allow click() to trigger the picker.
+  inp.style.cssText = [
+    'position:fixed',
+    'top:0','left:0',
+    'width:1px','height:1px',
+    'opacity:0',
+    'overflow:hidden',
+    'z-index:-1'
+  ].join(';');
+  return inp;
+}
+
+function _openFileInput(key, capture, multiple, label){
+  const inp = _makeFileInput(capture, multiple);
+  document.body.appendChild(inp);
+
+  // Timeout: if nothing selected after 60s, clean up
+  let cleanupTimer = setTimeout(() => {
+    try { document.body.removeChild(inp); } catch(_){}
+  }, 60000);
+
+  inp.onchange = async e => {
+    clearTimeout(cleanupTimer);
+    const files = Array.from(e.target.files || []);
+    if (files.length){
+      showToast('📷 ' + files.length + ' photo(s) ajoutée(s) / added', 'info', 3000);
+      await handlePhotoFiles(key, files);
+    }
+    try { document.body.removeChild(inp); } catch(_){}
+  };
+  inp.oncancel = () => {
+    clearTimeout(cleanupTimer);
+    try { document.body.removeChild(inp); } catch(_){}
+  };
+
+  try {
+    inp.click();
+    showToast(label, 'info', 3000);
+  } catch(err){
+    clearTimeout(cleanupTimer);
+    try { document.body.removeChild(inp); } catch(_){}
+    showToast('⚠ Impossible d\'ouvrir ' + (capture ? 'la caméra' : 'la galerie') + ' — ouvrez ce fichier dans Chrome', 'warn', 6000);
+  }
+}
+
+function openCamera(key){
+  _openFileInput(key, true, false, '📷 Ouverture caméra… / Opening camera…');
+}
+
+function openGallery(key){
+  _openFileInput(key, false, true, '🖼 Ouverture galerie… / Opening gallery…');
+}
+
+async function handlePhotoFiles(key, files){
+  if (!state.items[key]) state.items[key] = { photos:[] };
+  if (!state.items[key].photos) state.items[key].photos = [];
+  for (const f of files){
+    try { state.items[key].photos.push(await processPhoto(f, key)); }
+    catch(err){ console.error('photo', err); }
+  }
+  renderPhotos(key);
+  const body = document.getElementById('body_'+key);
+  if (body) body.classList.add('show');
+  autosave();
+}
+
+/* ============================================================
+   PHOTO PROCESSOR — resize + JPEG compress + auto-stamp + GPS
+
+   Output shape:  { dataUrl, caption, ts, gps, w, h, sizeKB }
+                                                        — dataUrl is jpeg
+                                                          base64, capped at
+                                                          1600 px wide.
+
+   Stamp burned into the bottom-left corner: timestamp · site code ·
+   item code, plus a 3rd GPS line when geolocation is available. The
+   stamp is part of the image bytes so a photo that gets torn out of a
+   report is still attributable.
+
+   GPS is requested once per session via _getGps() and cached for
+   10 minutes. The user is asked exactly once; subsequent photos reuse
+   the same fix. If the browser denies / times out, the photo just
+   ships without a GPS line.
+   ============================================================ */
+
+let _gpsCache = null;
+function _getGps(timeoutMs){
+  timeoutMs = timeoutMs || 2500;
+  return new Promise(resolve => {
+    if (_gpsCache && (Date.now() - _gpsCache.fetchedAt) < 600000) return resolve(_gpsCache);
+    if (!navigator.geolocation) return resolve(null);
+    let done = false;
+    const t = setTimeout(() => { if (!done){ done = true; resolve(null); } }, timeoutMs);
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        if (done) return; done = true; clearTimeout(t);
+        _gpsCache = {
+          lat:       pos.coords.latitude,
+          lng:       pos.coords.longitude,
+          accuracy:  pos.coords.accuracy,
+          fetchedAt: Date.now()
+        };
+        resolve(_gpsCache);
+      },
+      () => { if (done) return; done = true; clearTimeout(t); resolve(null); },
+      { enableHighAccuracy: false, timeout: timeoutMs, maximumAge: 600000 }
+    );
+  });
+}
+
+function _parseItemCode(key){
+  const m = (key || '').match(/^([a-z]+)__(\d+)$/);
+  return m ? (m[1].toUpperCase() + '-' + String(+m[2] + 1).padStart(2, '0')) : '';
+}
+
+function _parseSiteCode(s){
+  if (!s) return '';
+  const m = String(s).match(/\(([A-Z]{2,4})\)/);
+  return m ? m[1] : String(s).split(' (')[0].split(' —')[0].slice(0, 12);
+}
+
+function _roundRect(ctx, x, y, w, h, r){
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function _drawStamp(ctx, w, h, lines){
+  const pad      = Math.max(8, Math.round(w / 200));
+  const fontSize = Math.max(14, Math.round(w / 80));
+  const lineGap  = Math.round(fontSize * 1.35);
+  ctx.font = fontSize + 'px Arial, "Helvetica Neue", sans-serif';
+  ctx.textBaseline = 'top';
+  ctx.textAlign = 'left';
+
+  let maxW = 0;
+  for (const ln of lines) maxW = Math.max(maxW, ctx.measureText(ln).width);
+  const boxW = maxW + pad * 2;
+  const boxH = lines.length * lineGap + pad;
+  const x = pad;
+  const y = h - boxH - pad;
+
+  ctx.fillStyle = 'rgba(0,0,0,0.68)';
+  _roundRect(ctx, x, y, boxW, boxH, 6);
+  ctx.fill();
+
+  ctx.fillStyle = '#ffffff';
+  for (let i = 0; i < lines.length; i++){
+    ctx.fillText(lines[i], x + pad, y + Math.round(pad/2) + i * lineGap);
+  }
+}
+
+async function processPhoto(file, key){
+  const dataUrl = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload  = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+  const img = await new Promise((resolve, reject) => {
+    const i = new Image();
+    i.onload  = () => resolve(i);
+    i.onerror = reject;
+    i.src = dataUrl;
+  });
+
+  // Geolocation in parallel — if the browser is slow, we ship without it.
+  let gps = null;
+  try { gps = await _getGps(2500); } catch(_){}
+
+  // Resize + compress. Photos ride inline base64 in state.items[].photos[],
+  // and a heavy inspection (60-80 items × 1-3 photos) used to inflate the
+  // save payload to 60-80 MB at maxW=1600 + quality=0.85, which blew past
+  // both the IIS (50 MB pre-fix) and Node (default 100 KB) body limits.
+  //
+  // Target each photo at ~250-400 KB so an 80-photo inspection lands
+  // under 30 MB total — comfortably inside Node's 100 MB ceiling and
+  // tolerant to flaky satellite/cellular uploads at remote sites.
+  //
+  // Long-side cap (1280 px) instead of width-only — handles portrait
+  // shots from phones in landscape detail. Quality 0.72 is the sweet
+  // spot for inspection photos (condition shots, dust on hardware,
+  // cabling, labels): visually indistinguishable from 0.85 at this
+  // resolution, but ~40% smaller on disk. Inspectors needing fine
+  // detail (rack labels, serial numbers) can re-shoot closer instead
+  // of relying on resolution.
+  const MAX_LONG_SIDE = 1280;
+  const JPEG_QUALITY  = 0.72;
+  let w = img.width, h = img.height;
+  const longSide = Math.max(w, h);
+  if (longSide > MAX_LONG_SIDE) {
+    const scale = MAX_LONG_SIDE / longSide;
+    w = Math.round(w * scale);
+    h = Math.round(h * scale);
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(img, 0, 0, w, h);
+
+  // Build + burn the stamp
+  const now      = new Date();
+  const pad      = n => String(n).padStart(2, '0');
+  const stampTs  = now.getFullYear() + '-' + pad(now.getMonth()+1) + '-' + pad(now.getDate()) +
+                   ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes());
+  const site     = _parseSiteCode(state.meta.f_site || '');
+  const item     = _parseItemCode(key);
+  const lines    = [stampTs];
+  if (site || item) lines.push([site, item].filter(Boolean).join(' · '));
+  if (gps) lines.push(gps.lat.toFixed(5) + ', ' + gps.lng.toFixed(5));
+  _drawStamp(ctx, w, h, lines);
+
+  const out = canvas.toDataURL('image/jpeg', JPEG_QUALITY);
+  const sizeKB = Math.round(out.length / 1024);
+  // Diagnostic — surface compression result so we can spot if a photo
+  // ends up unusually large (e.g. screenshot of dense text where JPEG
+  // does poorly). Field user can console.log to verify.
+  if (typeof console !== 'undefined') {
+    console.log('[Inspection] photo compressed: ' + w + 'x' + h + ' · ' + sizeKB + ' KB · key=' + key);
+  }
+  return {
+    dataUrl: out,
+    caption: '',
+    ts:      now.getTime(),
+    gps:     gps ? { lat: gps.lat, lng: gps.lng, accuracy: gps.accuracy } : null,
+    w, h,
+    sizeKB
+  };
+}
+
+// Normalise the photo entry — legacy entries are raw dataUrl strings;
+// new entries are { dataUrl, caption, ts, gps, w, h, sizeKB }. Either
+// way callers should read .dataUrl / .caption off the normalised view.
+function _normPhoto(p){
+  if (typeof p === 'string') return { dataUrl: p, caption: '', ts: 0, gps: null };
+  return Object.assign({ dataUrl: '', caption: '', ts: 0, gps: null }, p || {});
+}
+
+function renderPhotos(key){
+  const wrap = document.getElementById('photos_'+key);
+  if (!wrap) return;
+  const photos = (state.items[key] && state.items[key].photos) || [];
+  wrap.innerHTML = photos.map((p, i) => {
+    const n = _normPhoto(p);
+    const cap = escapeHtml(n.caption || '');
+    const gpsHint = n.gps ? `<span class="photo-gps" title="${n.gps.lat.toFixed(5)}, ${n.gps.lng.toFixed(5)}">📍</span>` : '';
+    return `
+      <div class="photo-card">
+        <div class="photo-thumb">
+          <img src="${n.dataUrl}" onclick="openLightbox('${key}',${i})" alt="" />
+          <button class="x" onclick="removePhoto('${key}',${i})" title="Remove">×</button>
+          ${gpsHint}
+        </div>
+        <input class="photo-cap" type="text" value="${cap}" maxlength="120"
+               placeholder="Légende / Caption" oninput="setPhotoCaption('${key}',${i},this.value)" />
+      </div>`;
+  }).join('');
+}
+
+function setPhotoCaption(key, idx, value){
+  const photos = state.items[key] && state.items[key].photos;
+  if (!photos || photos[idx] == null) return;
+  if (typeof photos[idx] === 'string') {
+    photos[idx] = { dataUrl: photos[idx], caption: '', ts: 0, gps: null };
+  }
+  photos[idx].caption = value;
+  autosave();
+}
+
+function openLightbox(key, idx){
+  const photos = state.items[key].photos;
+  document.getElementById('lightboxImg').src = _normPhoto(photos[idx]).dataUrl;
+  document.getElementById('lightbox').classList.add('show');
+}
+
+function removePhoto(key, idx){
+  state.items[key].photos.splice(idx,1);
+  renderPhotos(key);
+  autosave();
+}
+
+/* ============================================================
+   PROGRESS & KPIs
+   ============================================================ */
+function totalItems(){
+  return CATEGORIES.reduce((sum, c) => sum + c.items.length, 0);
+}
+
+function addressedItems(){
+  return Object.values(state.items).filter(it => it.status).length;
+}
+
+function updateProgress(){
+  const total = totalItems();
+  const done = addressedItems();
+  const pct = total ? Math.round(done/total*100) : 0;
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progressText').textContent = `${done} / ${total} · ${pct}%`;
+
+  // category dots
+  CATEGORIES.forEach(cat => {
+    const tab = document.querySelector(`.cat-tab[data-cat="${cat.id}"]`);
+    if (!tab) return;
+    let addressed = 0, issues = 0;
+    cat.items.forEach((_,idx) => {
+      const it = state.items[`${cat.id}__${idx}`];
+      if (it && it.status){
+        addressed++;
+        if (['minor','major','critical'].includes(it.status)) issues++;
+      }
+    });
+    tab.classList.remove('in-progress','complete','has-issues');
+    if (issues > 0) tab.classList.add('has-issues');
+    else if (addressed === cat.items.length) tab.classList.add('complete');
+    else if (addressed > 0) tab.classList.add('in-progress');
+
+    const badge = document.getElementById('badge_'+cat.id);
+    if (badge) {
+      if (issues > 0){
+        badge.textContent = issues + ' ⚠';
+        badge.style.background = 'var(--bad)';
+        badge.style.color = '#fff';
+      } else if (addressed === cat.items.length){
+        badge.textContent = '✓ ' + cat.items.length;
+        badge.style.background = 'var(--ok)';
+        badge.style.color = '#fff';
+      } else {
+        badge.textContent = `${addressed}/${cat.items.length}`;
+        badge.style.background = '';
+        badge.style.color = '';
+      }
+    }
+  });
+
+  // Filter chip counts
+  let issues=0, unaddressed=0, opps=0;
+  CATEGORIES.forEach(cat => {
+    cat.items.forEach((_,idx) => {
+      const it = state.items[`${cat.id}__${idx}`];
+      if (!it || !it.status) unaddressed++;
+      else if (['minor','major','critical'].includes(it.status)) issues++;
+      else if (it.status === 'opp') opps++;
+    });
+  });
+  document.getElementById('cnt_all').textContent = totalItems();
+  document.getElementById('cnt_issues').textContent = issues;
+  document.getElementById('cnt_unaddressed').textContent = unaddressed;
+  document.getElementById('cnt_opp').textContent = opps;
+}
+
+function updateKPIs(){
+  const counts = {ok:0,minor:0,major:0,critical:0,opp:0,na:0};
+  Object.values(state.items).forEach(it => { if (it.status) counts[it.status]++; });
+  document.getElementById('kpiGrid').innerHTML = `
+    <div class="kpi ok"><div class="v">${counts.ok}</div><div class="l">OK</div></div>
+    <div class="kpi minor"><div class="v">${counts.minor}</div><div class="l">Minor</div></div>
+    <div class="kpi major"><div class="v">${counts.major}</div><div class="l">Major</div></div>
+    <div class="kpi critical"><div class="v">${counts.critical}</div><div class="l">Critical</div></div>
+    <div class="kpi opp"><div class="v">${counts.opp}</div><div class="l">Opp.</div></div>
+    <div class="kpi na"><div class="v">${counts.na}</div><div class="l">N/A</div></div>
+  `;
+}
+
+/* ============================================================
+   FILTER & SEARCH
+   ============================================================ */
+function setFilter(f){
+  currentFilter = f;
+  document.querySelectorAll('.chip').forEach(c => c.classList.toggle('active', c.dataset.filter===f));
+  applyFilters();
+}
+
+function applyFilters(){
+  const q = (document.getElementById('searchBox').value || '').trim().toLowerCase();
+  document.querySelectorAll('.item').forEach(el => {
+    const key = el.dataset.key;
+    const it = state.items[key] || {};
+    const text = el.dataset.text || '';
+    const code = (el.dataset.code || '').toLowerCase();
+    const notes = (it.notes || '').toLowerCase();
+
+    let matchText = true;
+    if (q) matchText = text.includes(q) || code.includes(q) || notes.includes(q);
+
+    let matchFilter = true;
+    if (currentFilter === 'issues') matchFilter = ['minor','major','critical'].includes(it.status);
+    else if (currentFilter === 'unaddressed') matchFilter = !it.status;
+    else if (currentFilter === 'opp') matchFilter = it.status === 'opp';
+
+    el.style.display = (matchText && matchFilter) ? '' : 'none';
+  });
+
+  // If filtering, show all panels at once so hits aren't hidden behind tabs
+  const filterActive = q || currentFilter !== 'all';
+  document.querySelectorAll('.cat-panel').forEach(p => {
+    if (filterActive){
+      p.classList.add('active');
+      // Hide entire panel if no visible items
+      const visible = p.querySelectorAll('.item:not([style*="display: none"])').length;
+      p.style.display = visible ? '' : 'none';
+    } else {
+      p.style.display = '';
+      p.classList.remove('active');
+    }
+  });
+  if (!filterActive){
+    const activeTab = document.querySelector('.cat-tab.active');
+    if (activeTab){
+      const cat = activeTab.dataset.cat;
+      document.getElementById('panel_'+cat).classList.add('active');
+    }
+  }
+}
+
+/* ============================================================
+   CORRECTIVE ACTIONS
+   ============================================================ */
+function priorityFromStatus(status){
+  return ({critical:'Critical', major:'High', minor:'Medium', opp:'Low'})[status] || 'Medium';
+}
+
+function generateAction(btn){
+  const key = btn.dataset.key;
+  const code = btn.dataset.code;
+  const label = btn.dataset.label;
+  const it = state.items[key] || {};
+  // Avoid duplicates: check if an action already linked to this code exists
+  const existing = state.actions.find(a => a.link === code);
+  if (existing){
+    if (!confirm(`An action is already linked to ${code}. Add another?`)) return;
+  }
+  const desc = it.notes
+    ? `${label}\n\nObservation: ${it.notes}`
+    : label;
+  state.actions.push({
+    desc,
+    link: code,
+    priority: priorityFromStatus(it.status),
+    owner: '',
+    due: '',
+    status: 'Open',
+    notes: '',
+  });
+  btn.classList.add('linked');
+  btn.textContent = '✓ Action created';
+  setTimeout(()=>{ btn.classList.remove('linked'); btn.textContent='+ Add another action'; }, 2500);
+  renderActions();
+  autosave();
+  // Smooth scroll to action table briefly to acknowledge
+  document.getElementById('actionsTable').scrollIntoView({behavior:'smooth', block:'center'});
+}
+
+function addAction(prefill={}){
+  state.actions.push({
+    desc: prefill.desc || '',
+    link: prefill.link || '',
+    priority: prefill.priority || 'Medium',
+    owner: prefill.owner || '',
+    due: prefill.due || '',
+    status: prefill.status || 'Open',
+    notes: prefill.notes || '',
+  });
+  renderActions();
+  autosave();
+}
+
+function removeAction(i){
+  state.actions.splice(i,1);
+  renderActions();
+  autosave();
+}
+
+function renderActions(){
+  const tbody = document.getElementById('actionsBody');
+  if (state.actions.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--ink-3);padding:24px;font-style:italic">No corrective actions yet — flag an item as Minor/Major/Critical/Opportunity to auto-generate one, or click <strong>+ Add Action</strong>.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = state.actions.map((a, i) => `
+    <tr>
+      <td class="mono" data-l="#" style="color:var(--ink-3);font-size:11px;text-align:center">${i+1}</td>
+      <td data-l="Action / Description"><textarea rows="2" oninput="state.actions[${i}].desc=this.value;autosave()" placeholder="Action required...">${escapeHtml(a.desc)}</textarea></td>
+      <td data-l="Linked Item"><input type="text" class="mono" oninput="state.actions[${i}].link=this.value;autosave()" placeholder="e.g. FIRE-03" value="${escapeHtml(a.link)}" /></td>
+      <td data-l="Priority">
+        <select onchange="state.actions[${i}].priority=this.value;renderActions();autosave()">
+          ${['Critical','High','Medium','Low'].map(p=>`<option ${a.priority===p?'selected':''}>${p}</option>`).join('')}
+        </select>
+        <div style="margin-top:4px"><span class="priority-pill priority-${a.priority.toLowerCase()}">${a.priority}</span></div>
+      </td>
+      <td data-l="Owner"><input type="text" oninput="state.actions[${i}].owner=this.value;autosave()" value="${escapeHtml(a.owner)}" placeholder="Name / Team" /></td>
+      <td data-l="Target Date"><input type="date" oninput="state.actions[${i}].due=this.value;autosave()" value="${escapeHtml(a.due)}" /></td>
+      <td data-l="Status">
+        <select onchange="state.actions[${i}].status=this.value;autosave()">
+          ${['Open','In Progress','Blocked','Closed','Cancelled'].map(s=>`<option ${a.status===s?'selected':''}>${s}</option>`).join('')}
+        </select>
+      </td>
+      <td data-l="Notes"><textarea rows="2" oninput="state.actions[${i}].notes=this.value;autosave()" placeholder="Notes...">${escapeHtml(a.notes)}</textarea></td>
+      <td data-l=""><button class="btn btn-danger" onclick="removeAction(${i})" title="Delete" style="padding:4px 8px">×</button></td>
+    </tr>
+  `).join('');
+}
+
+function escapeHtml(s){
+  if(s==null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* ============================================================
+   META FIELDS
+   ============================================================ */
+const META_FIELDS = ['f_id','f_date','f_time','f_type','f_site','f_area','f_loc','f_inspector','f_role','f_witness','f_weather','f_lastdate','f_scope','f_risk','f_impact','f_obs','f_pos','f_dist','sign_insp_name','sign_insp_date','sign_site_name','sign_site_date'];
+
+function bindMeta(){
+  META_FIELDS.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const handler = () => {
+      state.meta[id] = el.value;
+      if (['f_id','f_site','f_date'].includes(id)) updateIndexEntry(), refreshSavedSelect();
+      autosave();
+    };
+    el.addEventListener('input', handler);
+    el.addEventListener('change', handler);
+  });
+}
+
+/* ============================================================
+   SIGNATURES
+   ============================================================ */
+function initSignaturePads(){
+  ['sig_inspector','sig_site'].forEach(id => initSigPad(id));
+}
+
+function initSigPad(id){
+  const c = document.getElementById(id);
+  if (!c) return;
+  const ctx = c.getContext('2d');
+  // size to displayed width for crisp drawing
+  const resize = () => {
+    const rect = c.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    if (rect.width === 0) return;
+    c.width = rect.width * dpr;
+    c.height = rect.height * dpr;
+    ctx.scale(dpr, dpr);
+    ctx.lineWidth = 1.8;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = '#0F3D4D';
+    // restore signature if any
+    const data = state.signatures && state.signatures[id];
+    if (data){
+      const img = new Image();
+      img.onload = () => ctx.drawImage(img, 0, 0, rect.width, rect.height);
+      img.src = data;
+    }
+  };
+  setTimeout(resize, 50);
+
+  let drawing = false, lastX=0, lastY=0;
+  const getPos = e => {
+    const rect = c.getBoundingClientRect();
+    if (e.touches && e.touches[0]){
+      return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top };
+    }
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  };
+  const start = e => {
+    e.preventDefault();
+    drawing = true;
+    const p = getPos(e); lastX = p.x; lastY = p.y;
+  };
+  const move = e => {
+    if (!drawing) return;
+    e.preventDefault();
+    const p = getPos(e);
+    ctx.beginPath();
+    ctx.moveTo(lastX, lastY);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+    lastX = p.x; lastY = p.y;
+  };
+  const end = () => {
+    if (!drawing) return;
+    drawing = false;
+    if (!state.signatures) state.signatures = {};
+    state.signatures[id] = c.toDataURL('image/png');
+    autosave();
+  };
+  c.addEventListener('mousedown', start);
+  c.addEventListener('mousemove', move);
+  c.addEventListener('mouseup', end);
+  c.addEventListener('mouseleave', end);
+  c.addEventListener('touchstart', start, {passive:false});
+  c.addEventListener('touchmove', move, {passive:false});
+  c.addEventListener('touchend', end);
+}
+
+function clearSignature(id){
+  const c = document.getElementById(id);
+  const ctx = c.getContext('2d');
+  ctx.clearRect(0,0,c.width,c.height);
+  if (state.signatures) delete state.signatures[id];
+  autosave();
+}
+
+/* ============================================================
+   PERSISTENCE
+   ============================================================ */
+let saveTimer = null;
+function autosave(){
+  const status = document.getElementById('saveStatus');
+  status.textContent = 'Saving...';
+  status.classList.remove('saved');
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    try {
+      saveCurrent();
+      updateIndexEntry();
+      const t = new Date().toLocaleTimeString();
+      status.textContent = `✓ Saved ${t}`;
+      status.classList.add('saved');
+    } catch(e){
+      status.textContent = '⚠ Save failed (storage limit?)';
+    }
+  }, 400);
+}
+
+function applyStateToUI(){
+  // restore meta
+  META_FIELDS.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = state.meta[id] || '';
+  });
+
+  // reset all status buttons & item visibility
+  document.querySelectorAll('.status-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.item').forEach(it => { it.className = 'item'; });
+  document.querySelectorAll('.item-body').forEach(b => b.classList.remove('show'));
+  document.querySelectorAll('.item-actions').forEach(a => a.style.display = 'none');
+  document.querySelectorAll('textarea[data-field="notes"]').forEach(t => { t.value = ''; });
+  document.querySelectorAll('.photo-list').forEach(p => { p.innerHTML = ''; });
+
+  // restore items
+  Object.keys(state.items).forEach(key => {
+    const it = state.items[key];
+    const itemEl = document.querySelector(`.item[data-key="${key}"]`);
+    if (it.status) {
+      itemEl && itemEl.classList.add('status-'+it.status);
+      const btn = document.querySelector(`.status-btn[data-key="${key}"][data-status="${it.status}"]`);
+      if (btn) btn.classList.add('active');
+      if (['minor','major','critical','opp'].includes(it.status)) {
+        document.getElementById('body_'+key)?.classList.add('show');
+        const acts = document.getElementById('act_'+key);
+        if (acts) acts.style.display = 'flex';
+      }
+    }
+    if (it.notes) {
+      const ta = document.querySelector(`textarea[data-key="${key}"][data-field="notes"]`);
+      if (ta) {
+        ta.value = it.notes;
+        document.getElementById('body_'+key)?.classList.add('show');
+      }
+    }
+    if (it.photos && it.photos.length) {
+      renderPhotos(key);
+      document.getElementById('body_'+key)?.classList.add('show');
+    }
+  });
+
+  // signatures
+  ['sig_inspector','sig_site'].forEach(id => {
+    const c = document.getElementById(id);
+    if (!c) return;
+    const ctx = c.getContext('2d');
+    const rect = c.getBoundingClientRect();
+    ctx.clearRect(0, 0, c.width, c.height);
+    const data = state.signatures && state.signatures[id];
+    if (data){
+      const img = new Image();
+      img.onload = () => ctx.drawImage(img, 0, 0, rect.width, rect.height);
+      img.src = data;
+    }
+  });
+
+  updateKPIs();
+  updateProgress();
+  renderActions();
+  applyFilters();
+  refreshSubmitStatus();
+}
+
+/* ============================================================
+   VALIDATION
+   ============================================================ */
+function validate(){
+  const issues = [];
+  const m = state.meta;
+  if (!m.f_date) issues.push('Date is missing');
+  if (!m.f_site) issues.push('Site is not selected');
+  if (!m.f_area) issues.push('Area / Zone is not selected');
+  if (!m.f_inspector) issues.push('Lead Inspector name is missing');
+  const total = totalItems();
+  const done = addressedItems();
+  const pct = Math.round(done/total*100);
+  if (pct < 50) issues.push(`Only ${pct}% of checklist items addressed (${done}/${total}) — consider completing more before sign-off`);
+  // unlinked critical findings
+  Object.entries(state.items).forEach(([k, it]) => {
+    if (['critical','major'].includes(it.status)){
+      const code = k.split('__');
+      const codeStr = code[0].toUpperCase() + '-' + String(parseInt(code[1])+1).padStart(2,'0');
+      const linked = state.actions.some(a => a.link === codeStr);
+      if (!linked) issues.push(`${codeStr} flagged ${it.status} but no corrective action linked`);
+    }
+  });
+  return issues;
+}
+
+function prepareAndPrint(){
+  const issues = validate();
+  const box = document.getElementById('validationBox');
+  if (issues.length){
+    box.innerHTML = `<div class="validation"><strong>⚠ Validation — ${issues.length} item(s) to review before printing</strong><ul>${issues.map(i=>`<li>${escapeHtml(i)}</li>`).join('')}</ul><button class="btn btn-light" style="margin-top:8px" onclick="forcePrint()">Print anyway / Imprimer quand même</button> <button class="btn btn-light" style="margin-top:8px" onclick="document.getElementById('validationBox').innerHTML=''">Dismiss</button></div>`;
+    box.scrollIntoView({behavior:'smooth', block:'center'});
+  } else {
+    box.innerHTML = `<div class="validation ok"><strong>✓ Ready to print</strong>All required fields complete, key findings linked to corrective actions.</div>`;
+    setTimeout(() => { window.print(); }, 300);
+  }
+}
+
+function forcePrint(){
+  document.getElementById('validationBox').innerHTML = '';
+  setTimeout(() => window.print(), 150);
+}
+
+/* ============================================================
+   SUBMIT WORKFLOW
+
+   Auto-save handles "don't lose work". Submit is a separate, deliberate
+   action that:
+     1. Validates the inspection (hard errors block; soft warnings prompt).
+     2. Marks state.status='submitted' + state.meta.submitted_at=ISO now.
+     3. Forces an immediate (non-debounced) server sync.
+     4. Switches the form into read-only mode for editor-role users.
+        Admin+ users keep editing rights and see a "Re-open" button.
+   ============================================================ */
+function validateForSubmit(){
+  const errors = [];
+  const warnings = [];
+  const m = state.meta;
+
+  // Hard requirements — without these the record isn't identifiable.
+  if (!m.f_date)      errors.push('Date is missing');
+  if (!m.f_site)      errors.push('Site is not selected');
+  if (!m.f_area)      errors.push('Area / Zone is not selected');
+  if (!m.f_inspector) errors.push('Lead Inspector name is missing');
+
+  // Coverage is INFORMATIONAL only, never an error.
+  // Inspectors can legitimately submit:
+  //   - a focused inspection on one category (e.g. Network only)
+  //   - an inspection split across multiple sessions
+  //   - a header-only acknowledgement of access (rare)
+  // The dashboard's risk-rating column makes the coverage level
+  // obvious post-hoc; gating Submit on a fixed percentage punishes
+  // valid workflows. Surface the percentage in the warnings panel so
+  // the inspector can self-correct if they meant to do more, but
+  // never block.
+  const total = totalItems();
+  const done  = addressedItems();
+  const pct   = total ? Math.round(done/total*100) : 0;
+  if (pct === 0) {
+    warnings.push(`No checklist items addressed yet — submitting a header-only inspection. Continue only if intentional.`);
+  } else if (pct < 50) {
+    warnings.push(`Partial coverage: ${pct}% of checklist items addressed (${done}/${total}). Confirm the scope was intentionally narrow.`);
+  } else if (pct < 80) {
+    warnings.push(`${pct}% of checklist items addressed (${done}/${total}) — a few remaining could be marked N/A or rated before sign-off.`);
+  }
+
+  // Unlinked critical / major findings — common audit gap.
+  Object.entries(state.items).forEach(([k, it]) => {
+    if (['critical','major'].includes(it.status)){
+      const parts = k.split('__');
+      const codeStr = parts[0].toUpperCase() + '-' + String(parseInt(parts[1])+1).padStart(2,'0');
+      const linked = state.actions.some(a => a.link === codeStr);
+      if (!linked) warnings.push(`${codeStr} flagged ${it.status.toUpperCase()} but no corrective action linked`);
+    }
+  });
+
+  if (!(state.signatures && state.signatures.sig_inspector)) {
+    warnings.push('Inspector signature is missing');
+  }
+
+  return { errors, warnings, ok: errors.length === 0 };
+}
+
+function submitInspection(){
+  if (state.status === 'submitted' || state.status === 'closed'){
+    showToast('Already submitted. Use Re-open if you need to edit it.', 'warn', 4000);
+    return;
+  }
+  const v          = validateForSubmit();
+  const title      = document.getElementById('submitModalTitle');
+  const body       = document.getElementById('submitModalBody');
+  const confirmBtn = document.getElementById('submitConfirmBtn');
+
+  let html = '';
+  if (v.errors.length){
+    title.textContent = 'Cannot submit yet';
+    html += '<p class="v-error">These required fields must be completed before submission:</p>';
+    html += '<ul class="v-error">' + v.errors.map(e => '<li>' + escapeHtml(e) + '</li>').join('') + '</ul>';
+    if (v.warnings.length){
+      html += '<p style="margin-top:10px"><strong>Also worth fixing:</strong></p>';
+      html += '<ul class="v-warn">' + v.warnings.map(w => '<li>' + escapeHtml(w) + '</li>').join('') + '</ul>';
+    }
+    confirmBtn.style.display = 'none';
+  } else {
+    title.textContent = 'Ready to submit?';
+    if (v.warnings.length){
+      html += '<p>Soft warnings — you can submit anyway, but worth reviewing:</p>';
+      html += '<ul class="v-warn">' + v.warnings.map(w => '<li>' + escapeHtml(w) + '</li>').join('') + '</ul>';
+    } else {
+      html += '<p class="v-ok">✓ All checks passed.</p>';
+    }
+    html += '<p style="margin-top:14px;color:var(--ink-3);font-size:12px">Submitting will:</p>';
+    html += '<ul style="color:var(--ink-3);font-size:12px">';
+    html += '<li>Mark this inspection as <strong>submitted</strong> on the dashboard</li>';
+    html += '<li>Force an immediate save to the server</li>';
+    html += '<li>Lock the form against further edits by editors (administrators can re-open)</li>';
+    html += '</ul>';
+    confirmBtn.style.display = '';
+  }
+  body.innerHTML = html;
+  document.getElementById('submitModal').classList.add('show');
+}
+
+async function confirmSubmit(){
+  state.status = 'submitted';
+  state.meta.submitted_at = new Date().toISOString();
+  if (typeof saveCurrent === 'function') saveCurrent();
+  closeSubmitModal();
+
+  let ok = true;
+  if (typeof window.forceSyncNow === 'function') ok = await window.forceSyncNow();
+
+  refreshSubmitStatus();
+  showToast(
+    ok ? '✓ Inspection submitted to the server.'
+       : 'Submitted locally — server sync queued (will retry on next save).',
+    ok ? 'info' : 'warn', 4500
+  );
+}
+
+function closeSubmitModal(){
+  document.getElementById('submitModal').classList.remove('show');
+}
+
+async function reopenInspection(){
+  if (!confirm('Re-open this submitted inspection for edits?\nRouvrir cette inspection soumise pour modification ?')) return;
+  state.status = 'draft';
+  state.meta.reopened_at = new Date().toISOString();
+  if (typeof saveCurrent === 'function') saveCurrent();
+  refreshSubmitStatus();
+  if (typeof window.forceSyncNow === 'function') await window.forceSyncNow();
+  showToast('Re-opened — inspection is editable again.', 'info', 3000);
+}
+
+// Mirror state.status into the Submit-section UI: pill colour, button
+// state, hint text, and the form-wide submission-locked class. Called
+// from applyStateToUI() and after every status flip in this script.
+function refreshSubmitStatus(){
+  const status    = state.status || 'draft';
+  const pill      = document.getElementById('submitStatusPill');
+  const reopenBtn = document.getElementById('reopenBtn');
+  const submitBtn = document.getElementById('submitBtn');
+  const hint      = document.getElementById('submitHint');
+  if (!pill || !submitBtn || !hint) return;
+
+  pill.style.display = '';
+  pill.className = 'submit-status-pill ' + status;
+  pill.textContent =
+    status === 'submitted' ? 'Submitted' :
+    status === 'closed'    ? 'Closed'    :
+                             'Draft';
+
+  // Admin+ check — auth.js exposes window.__userHasRole.
+  const has = window.__userHasRole || (() => false);
+  const isAdmin = has('admin') || has('executive') || has('super_admin');
+  const submitted = (status === 'submitted' || status === 'closed');
+
+  if (submitted){
+    submitBtn.disabled    = true;
+    submitBtn.textContent = '✓ Already submitted';
+    if (reopenBtn) reopenBtn.style.display = isAdmin ? '' : 'none';
+    hint.textContent = isAdmin
+      ? 'Inspection is submitted. As an administrator you can re-open it for edits.'
+      : 'Inspection is submitted. Editors can no longer modify it — contact an administrator if changes are needed.';
+    // Only editors get the read-only lockout; admin+ keep editing.
+    document.body.classList.toggle('submission-locked', !isAdmin);
+  } else {
+    submitBtn.disabled    = false;
+    submitBtn.textContent = '✓ Submit Inspection · Soumettre';
+    if (reopenBtn) reopenBtn.style.display = 'none';
+    hint.textContent = 'Validation runs on tap. You\'ll see what\'s missing before anything is sent.';
+    document.body.classList.remove('submission-locked');
+  }
+}
+
+/* ============================================================
+   EXPORT / IMPORT
+   ============================================================ */
+function exportJSON(){
+  const data = { exported_at: new Date().toISOString(), version: '2.0', ...state };
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  const id = state.meta.f_id || 'inspection';
+  const site = (state.meta.f_site || '').split(' (')[0].replace(/\s+/g,'_');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${id}${site?'_'+site:''}.json`;
+  a.click();
+}
+
+function importJSON(){
+  const inp = document.createElement('input');
+  inp.type = 'file';
+  inp.accept = 'application/json';
+  inp.onchange = e => {
+    const f = e.target.files[0];
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = JSON.parse(reader.result);
+        if (!confirm('Import as a new inspection? / Importer comme nouvelle inspection ?')) return;
+        const id = data.meta?.f_id || genId();
+        currentId = id;
+        state = { meta: data.meta||{}, items: data.items||{}, actions: data.actions||[], signatures: data.signatures||{} };
+        const idx = getIndex();
+        if (!idx.find(e => e.id === id)){
+          idx.unshift({ id, label: inspectionLabel(state.meta), updated: Date.now() });
+          setIndex(idx);
+        }
+        localStorage.setItem(KEY_CURRENT, id);
+        saveCurrent();
+        applyStateToUI();
+        refreshSavedSelect();
+      } catch(err){
+        alert('Invalid JSON file');
+      }
+    };
+    reader.readAsText(f);
+  };
+  inp.click();
+}
+
+/* ============================================================
+   SHARING / WHATSAPP / PWA INSTALL
+   ============================================================ */
+function openShareMenu(){
+  // Run validation first; if blocking, still allow share but warn
+  document.getElementById('shareMenu').classList.add('show');
+}
+function closeShareMenu(){
+  document.getElementById('shareMenu').classList.remove('show');
+}
+
+function statusEmoji(s){
+  return ({ok:'✅',minor:'⚠️',major:'🟠',critical:'🔴',opp:'🔵',na:'⚪'})[s] || '⚪';
+}
+
+function buildSummary(){
+  const m = state.meta;
+  const counts = {ok:0,minor:0,major:0,critical:0,opp:0,na:0};
+  Object.values(state.items).forEach(it => { if (it.status) counts[it.status]++; });
+
+  const issues = [];
+  CATEGORIES.forEach(cat => {
+    cat.items.forEach((item, idx) => {
+      const it = state.items[`${cat.id}__${idx}`];
+      if (it && ['critical','major'].includes(it.status)){
+        issues.push({
+          code: `${cat.id.toUpperCase()}-${String(idx+1).padStart(2,'0')}`,
+          status: it.status,
+          label: item.l,
+          notes: it.notes || '',
+        });
+      }
+    });
+  });
+
+  const opps = [];
+  CATEGORIES.forEach(cat => {
+    cat.items.forEach((item, idx) => {
+      const it = state.items[`${cat.id}__${idx}`];
+      if (it && it.status === 'opp'){
+        opps.push({
+          code: `${cat.id.toUpperCase()}-${String(idx+1).padStart(2,'0')}`,
+          label: item.l,
+        });
+      }
+    });
+  });
+
+  const openActions = state.actions.filter(a => a.status !== 'Closed' && a.status !== 'Cancelled');
+  const highPrio = openActions.filter(a => ['Critical','High'].includes(a.priority));
+
+  let out = '';
+  out += `🛠 *IT INSPECTION REPORT*\n`;
+  out += `━━━━━━━━━━━━━━━━━━\n\n`;
+  out += `📍 *Site:* ${m.f_site || '—'}\n`;
+  out += `🏭 *Area:* ${m.f_area || '—'}\n`;
+  if (m.f_loc) out += `📌 *Location:* ${m.f_loc}\n`;
+  out += `📅 *Date:* ${m.f_date || '—'}${m.f_time?' '+m.f_time:''}\n`;
+  out += `👤 *Inspector:* ${m.f_inspector || '—'}${m.f_role?' ('+m.f_role+')':''}\n`;
+  if (m.f_type) out += `🏷 *Type:* ${m.f_type}\n`;
+  out += `🆔 *ID:* ${m.f_id || '—'}\n\n`;
+
+  out += `📊 *RESULTS*\n`;
+  out += `✅ OK: ${counts.ok}   ⚠️ Minor: ${counts.minor}\n`;
+  out += `🟠 Major: ${counts.major}   🔴 Critical: ${counts.critical}\n`;
+  out += `🔵 Opportunities: ${counts.opp}   ⚪ N/A: ${counts.na}\n\n`;
+
+  if (m.f_risk) out += `🎯 *Overall Risk:* ${m.f_risk}\n`;
+  if (m.f_impact) out += `💼 *Operational Impact:* ${m.f_impact}\n`;
+  if (m.f_risk || m.f_impact) out += `\n`;
+
+  if (issues.length){
+    out += `🚨 *KEY FINDINGS (${issues.length})*\n`;
+    issues.slice(0,10).forEach(i => {
+      out += `${statusEmoji(i.status)} *${i.code}* — ${i.label}\n`;
+      if (i.notes) out += `   _${i.notes.slice(0,100)}${i.notes.length>100?'...':''}_\n`;
+    });
+    if (issues.length > 10) out += `… and ${issues.length-10} more\n`;
+    out += `\n`;
+  }
+
+  if (opps.length){
+    out += `💡 *OPPORTUNITIES (${opps.length})*\n`;
+    opps.slice(0,5).forEach(o => out += `🔵 *${o.code}* — ${o.label}\n`);
+    if (opps.length > 5) out += `… and ${opps.length-5} more\n`;
+    out += `\n`;
+  }
+
+  if (openActions.length){
+    out += `🎯 *CORRECTIVE ACTIONS (${openActions.length} open, ${highPrio.length} high priority)*\n`;
+    openActions.slice(0,8).forEach((a, i) => {
+      out += `${i+1}. [${a.priority}] ${a.desc.split('\n')[0].slice(0,80)}\n`;
+      const meta = [];
+      if (a.link) meta.push(`Ref: ${a.link}`);
+      if (a.owner) meta.push(`Owner: ${a.owner}`);
+      if (a.due) meta.push(`Due: ${a.due}`);
+      if (meta.length) out += `   ${meta.join(' · ')}\n`;
+    });
+    if (openActions.length > 8) out += `… and ${openActions.length-8} more\n`;
+    out += `\n`;
+  }
+
+  if (m.f_obs) out += `📝 *Key Observations:*\n${m.f_obs}\n\n`;
+  if (m.f_pos) out += `👍 *Positive Findings:*\n${m.f_pos}\n\n`;
+
+  out += `━━━━━━━━━━━━━━━━━━\n`;
+  out += `_Generated ${new Date().toLocaleString()}_\n`;
+  out += `_Endeavour Mining · IT Operations_`;
+
+  return out;
+}
+
+async function shareSummary(){
+  closeShareMenu();
+  const text = buildSummary();
+  const title = `IT Inspection — ${state.meta.f_site || 'Site'} ${state.meta.f_date || ''}`;
+  if (navigator.share){
+    try {
+      await navigator.share({ title, text });
+    } catch(e){
+      if (e.name !== 'AbortError') copyToClipboard(text);
+    }
+  } else {
+    copyToClipboard(text);
+  }
+}
+
+async function shareWhatsApp(){
+  closeShareMenu();
+  const text = buildSummary();
+  // WhatsApp URL scheme works on both iOS and Android
+  // Try Web Share API first (which lists WhatsApp as an option)
+  if (navigator.share){
+    try {
+      await navigator.share({
+        title: `IT Inspection — ${state.meta.f_site || 'Site'}`,
+        text,
+      });
+      return;
+    } catch(e){
+      if (e.name === 'AbortError') return;
+    }
+  }
+  // Fallback: open WhatsApp directly with pre-filled message
+  const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
+  window.open(url, '_blank');
+}
+
+function copyToClipboard(text){
+  if (navigator.clipboard){
+    navigator.clipboard.writeText(text).then(
+      () => alert('Summary copied to clipboard. Paste it into WhatsApp / email.\n\nRésumé copié. Coller dans WhatsApp / email.'),
+      () => promptCopy(text)
+    );
+  } else {
+    promptCopy(text);
+  }
+}
+function promptCopy(text){
+  prompt('Copy this summary (Ctrl+C / long-press → Copy):', text);
+}
+
+function sharePDF(){
+  closeShareMenu();
+  // Use the browser's print → "Save as PDF" → share from there
+  // On mobile, the print preview includes a Share option directly
+  prepareAndPrint();
+}
+
+async function shareJSON(){
+  closeShareMenu();
+  const data = { exported_at: new Date().toISOString(), version: '3.0', ...state };
+  const json = JSON.stringify(data, null, 2);
+  const id = state.meta.f_id || 'inspection';
+  const site = (state.meta.f_site || '').split(' (')[0].replace(/\s+/g,'_');
+  const filename = `${id}${site?'_'+site:''}.json`;
+
+  // Try Web Share API with file
+  if (navigator.canShare && navigator.share){
+    try {
+      const file = new File([json], filename, {type:'application/json'});
+      if (navigator.canShare({files:[file]})){
+        await navigator.share({ title: filename, files: [file] });
+        return;
+      }
+    } catch(e){
+      if (e.name === 'AbortError') return;
+    }
+  }
+  // Fallback: download
+  const blob = new Blob([json], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+}
+
+/* ---------- PWA INSTALL PROMPT ---------- */
+let deferredInstall = null;
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredInstall = e;
+  // Show banner unless already dismissed
+  if (!localStorage.getItem('em_install_dismissed')){
+    document.getElementById('installBanner').classList.add('show');
+  }
+});
+
+window.addEventListener('appinstalled', () => {
+  document.getElementById('installBanner').classList.remove('show');
+  deferredInstall = null;
+});
+
+async function triggerInstall(){
+  if (deferredInstall){
+    deferredInstall.prompt();
+    const choice = await deferredInstall.userChoice;
+    deferredInstall = null;
+    if (choice.outcome === 'accepted'){
+      document.getElementById('installBanner').classList.remove('show');
+    }
+  } else {
+    // iOS or browser without beforeinstallprompt — show instructions
+    showIOSInstructions();
+  }
+}
+
+function dismissInstall(){
+  document.getElementById('installBanner').classList.remove('show');
+  localStorage.setItem('em_install_dismissed', '1');
+}
+
+function showIOSInstructions(){
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  const msg = isIOS
+    ? 'To install on iPhone:\n\n1. Tap the Share button at the bottom of Safari (square with arrow up)\n2. Scroll down and tap "Add to Home Screen"\n3. Tap Add\n\nThe app will appear as an icon on your home screen.'
+    : 'To install:\n\n1. Tap the menu (⋮) in your browser\n2. Tap "Install app" or "Add to Home Screen"\n3. Confirm\n\nThe app will appear on your home screen and launch like a native app.';
+  alert(msg);
+}
+
+/* Detect iOS standalone vs not — show install hint with iOS instructions */
+function maybeShowIOSInstall(){
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  const isStandalone = window.navigator.standalone === true ||
+    window.matchMedia('(display-mode: standalone)').matches;
+  if (isIOS && !isStandalone && !localStorage.getItem('em_install_dismissed')){
+    document.getElementById('installHint').textContent =
+      'Tap Share ⎙ → "Add to Home Screen" to install / Toucher Partager → "Sur l\'écran d\'accueil"';
+    document.getElementById('installBtn').textContent = 'How?';
+    document.getElementById('installBanner').classList.add('show');
+  }
+}
+
+
+async function init(){
+  renderChecklist();
+  bindMeta();
+  initSignaturePads();
+
+  // Restore dictation language button label
+  const langBtn = document.getElementById('langToggleBtn');
+  if (langBtn) langBtn.textContent = dictLang === 'fr-FR' ? '🇫🇷 FR' : '🇬🇧 EN';
+
+  // Show warning banner when opened as a local file (camera + mic won't work)
+  if (!_isHttps()){
+    const wb = document.getElementById('fileWarnBanner');
+    if (wb) wb.classList.add('show');
+  }
+
+  // ── Resolve which inspection to load ─────────────────────────────
+  // Priority:
+  //   1. ?id= URL parameter (from dashboard's "Open" link). Critical
+  //      for the post-cache-clear case: localStorage is empty but the
+  //      user navigated specifically to a known inspection.
+  //   2. localStorage KEY_CURRENT (last-opened from a prior session
+  //      on the same device).
+  //   3. Fresh inspection (newInspection).
+  //
+  // For #1 and #2, we then try to load from localStorage first (fast,
+  // works offline). If the local cache miss, we fall back to fetching
+  // the inspection's state from the server — that brings up previously-
+  // submitted inspections on a freshly-cleared browser or new device.
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlId     = urlParams.get('id');
+  currentId       = urlId || localStorage.getItem(KEY_CURRENT);
+  const idx       = getIndex();
+
+  if (currentId && idx.find(e => e.id === currentId) && loadCurrent()) {
+    // Loaded from localStorage — fast path.
+  } else if (currentId && typeof window.fetchInspectionFromServer === 'function') {
+    // Have an ID (from URL or last-opened) but no local cache —
+    // typical after browser cache clear OR opening on a new device.
+    // Try the server before falling through to a fresh inspection.
+    const serverState = await window.fetchInspectionFromServer(currentId);
+    if (serverState) {
+      state = Object.assign({ meta:{}, items:{}, actions:[], signatures:{} }, serverState);
+      // Mirror to localStorage + index so subsequent interactions are
+      // fast and offline-safe. saveCurrent() reads the live `state`.
+      try { localStorage.setItem(KEY_CURRENT, currentId); } catch(_) {}
+      saveCurrent();
+      // Add to the inspection index used by the dropdown so the user
+      // can switch back to it without going through the URL each time.
+      const list = idx.slice();
+      if (!list.find(e => e.id === currentId)) {
+        list.unshift({
+          id:    currentId,
+          label: state.meta?.f_label || state.label || currentId,
+          ts:    Date.now(),
+        });
+        try { localStorage.setItem(`${STORAGE_PREFIX}__index`, JSON.stringify(list)); } catch(_) {}
+      }
+      applyStateToUI();
+      showToast('✓ Loaded from server / Chargée depuis le serveur', 'info', 3000);
+    } else {
+      // ID is unknown to server AND localStorage. Either it never existed,
+      // or the user doesn't have permission to see it. Start fresh rather
+      // than leaving them on a blank-but-wrong page.
+      if (urlId) showToast('Inspection not found on server — starting a new one.\nInspection introuvable sur le serveur — création d\'une nouvelle.', 'warn', 5000);
+      newInspection();
+    }
+  } else {
+    // No id anywhere — start fresh.
+    newInspection();
+  }
+  refreshSavedSelect();
+
+  // PWA install hint for iOS (Android handled by beforeinstallprompt)
+  setTimeout(maybeShowIOSInstall, 1500);
+
+  // Re-render signatures after layout settles
+  window.addEventListener('resize', () => initSignaturePads());
+}
+
+document.addEventListener('DOMContentLoaded', init);
+
+</script>
+
+<div id="em-toast"></div>
+
+<!-- ──────────────────────────────────────────────────────────────────
+     Server-sync overlay
+     ──────────────────────────────────────────────────────────────────
+     Adds online persistence on top of the existing localStorage-first
+     workflow without rewriting the body script. Strategy:
+
+       1. After auth, fetch /api/inspection/lookups and replace the
+          hard-coded site / area / type <option>s with server-driven
+          versions (keeps codes consistent with the DB seed).
+       2. Wrap saveCurrent() so every local save also fires a debounced
+          POST to /api/inspection/save. Failures land in an offline
+          queue (em_insp_sync_queue) and retry on next save or sync.
+       3. Surface a small "Sync" pill in the toolbar that shows queue
+          depth and lets the user force-flush.
+
+     Local-first means a lost network NEVER blocks data entry.
+     ────────────────────────────────────────────────────────────── -->
+<script nonce="%%CSP_NONCE%%">
+(function(){
+  'use strict';
+
+  const INSP_API = '/api/inspection';
+  const QUEUE_KEY = 'em_insp_sync_queue';
+
+  function getCsrfToken() { return null; /* session cookie auth — no CSRF helper yet */ }
+
+  function authHeaders() {
+    const h = { 'Content-Type': 'application/json' };
+    // Token source: auth.js on this page stores `window.__authToken` as
+    // the token STRING directly. Other dashboard pages historically
+    // exposed it as a function that returns the token. Tolerate both
+    // shapes and fall back to localStorage so a misconfigured page can
+    // never throw "__authToken is not a function" mid-fetch.
+    let tok = null;
+    const at = window.__authToken;
+    if (typeof at === 'function') {
+      try { tok = at(); } catch(_) {}
+    } else if (typeof at === 'string' && at) {
+      tok = at;
+    }
+    if (!tok) tok = localStorage.getItem('report_token');
+    if (tok) h['x-report-token'] = tok;
+    return h;
+  }
+
+  // ── Queue helpers ────────────────────────────────────────────────
+  function readQueue() {
+    try { return JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]'); }
+    catch { return []; }
+  }
+  function writeQueue(arr) { localStorage.setItem(QUEUE_KEY, JSON.stringify(arr)); }
+  function enqueue(id) {
+    const q = readQueue();
+    if (!q.includes(id)) { q.push(id); writeQueue(q); }
+    refreshSyncPill();
+  }
+  function dequeue(id) {
+    writeQueue(readQueue().filter(x => x !== id));
+    refreshSyncPill();
+  }
+
+  // ── Toolbar pill ─────────────────────────────────────────────────
+  function ensureSyncPill() {
+    if (document.getElementById('inspSyncPill')) return;
+    const tb = document.querySelector('.toolbar');
+    if (!tb) return;
+    const pill = document.createElement('button');
+    pill.id        = 'inspSyncPill';
+    pill.className = 'btn btn-light';
+    pill.type      = 'button';
+    pill.style.cssText = 'padding:6px 10px;font-size:11px;text-transform:uppercase;letter-spacing:.5px';
+    pill.onclick   = flushQueue;
+    tb.appendChild(pill);
+    refreshSyncPill();
+  }
+  function refreshSyncPill() {
+    const pill = document.getElementById('inspSyncPill');
+    if (!pill) return;
+    const n = readQueue().length;
+    const cloudIcon  = (window.EDV_ICONS && window.EDV_ICONS.html('cloud-off')) || '';
+    const checkIcon  = (window.EDV_ICONS && window.EDV_ICONS.html('check'))     || '';
+    if (n === 0) {
+      pill.innerHTML = checkIcon + ' Synced';
+      pill.style.color = 'var(--edv-green, #1B9A3A)';
+      pill.disabled = true;
+    } else {
+      pill.innerHTML = cloudIcon + ' Sync (' + n + ')';
+      pill.style.color = 'var(--edv-orange, #EF631A)';
+      pill.disabled = false;
+    }
+  }
+
+  // ── Network ──────────────────────────────────────────────────────
+  async function postSave(state) {
+    const res = await fetch(INSP_API + '/save', {
+      method:      'POST',
+      credentials: 'same-origin',
+      headers:     authHeaders(),
+      body:        JSON.stringify({ state }),
+    });
+    if (!res.ok) {
+      const txt = await res.text().catch(() => '');
+      throw new Error('save HTTP ' + res.status + ' — ' + txt.slice(0, 200));
+    }
+    return res.json();
+  }
+
+  // ── Fetch one inspection's full state from the server ────────────
+  // Used by init() in the body script when the user lands on
+  // inspection.html?id=… (e.g. clicking "Open" from the dashboard)
+  // and localStorage doesn't have the inspection — typically after a
+  // browser cache clear, on a new device, or in incognito. Returns the
+  // server's `state` blob, or null if the inspection is not found /
+  // not accessible to this user. Never throws to the caller — failures
+  // are swallowed so the caller can fall through to newInspection().
+  async function fetchInspectionFromServer(id) {
+    if (!id) return null;
+    try {
+      const res = await fetch(INSP_API + '/' + encodeURIComponent(id), {
+        credentials: 'same-origin',
+        headers:     authHeaders(),
+      });
+      if (!res.ok) return null;
+      const d = await res.json();
+      return (d && d.state) || null;
+    } catch (e) {
+      console.warn('[inspection] fetchInspectionFromServer failed:', e && e.message);
+      return null;
+    }
+  }
+  window.fetchInspectionFromServer = fetchInspectionFromServer;
+
+  async function flushQueue() {
+    const q = readQueue().slice();
+    if (q.length === 0) return;
+    let ok = 0, fail = 0;
+    for (const id of q) {
+      const raw = localStorage.getItem('em_it_inspection_v2__data__' + id);
+      if (!raw) { dequeue(id); continue; }
+      try {
+        await postSave(JSON.parse(raw));
+        dequeue(id);
+        ok++;
+      } catch(e) {
+        fail++;
+      }
+    }
+    if (typeof showToast === 'function') {
+      const msg = fail === 0 ? `Synced ${ok} inspection${ok === 1 ? '' : 's'}` : `Synced ${ok}, ${fail} failed (will retry)`;
+      showToast(msg, fail === 0 ? 'info' : 'warn', 3000);
+    }
+  }
+
+  // ── Lookup hydration (replaces hard-coded options) ───────────────
+  async function hydrateLookups() {
+    try {
+      const res = await fetch(INSP_API + '/lookups', {
+        credentials: 'same-origin',
+        headers:     authHeaders(),
+      });
+      if (!res.ok) return;
+      const lk = await res.json();
+      _hydrateSelect('f_type', lk.types || [], t => t.code, t => t.label_en + ' / ' + t.label_fr);
+      _hydrateSiteSelect(lk.sites  || []);
+      _hydrateAreaSelect(lk.areas  || []);
+    } catch(e) { /* offline — fall back to the hard-coded options */ }
+  }
+
+  // ── People source & roles datalist ───────────────────────────────
+  // `_peopleCache` is read by every combobox attached via setupPeopleComboboxes().
+  // Two flags help the combobox panel distinguish "still loading" from
+  // "loaded but empty" — avoids the misleading "No registered people match"
+  // message when the first fetch is simply still in flight.
+  let _peopleCache       = [];
+  let _peopleFetching    = false;
+  let _peopleFetchedOnce = false;
+
+  async function hydratePeople() {
+    _peopleFetching = true;
+    // While the fetch is mid-flight, refresh the open panel so it shows
+    // "Loading technicians…" instead of a stale empty state.
+    if (_openCombobox)      _renderComboboxList(_openCombobox);
+    if (_openSheetForCombo) _renderSheetRows(_sheetBackdrop ? _sheetBackdrop.querySelector('.combobox-sheet-search').value : '');
+
+    try {
+      const siteSel0 = document.getElementById('f_site');
+      const m = siteSel0 && siteSel0.value && siteSel0.value.match(/\(([A-Z]{2,4})\)/);
+      const code = m ? m[1] : '';
+      const res = await fetch(INSP_API + '/people' + (code ? '?site=' + encodeURIComponent(code) : ''), {
+        credentials: 'same-origin',
+        headers:     authHeaders(),
+      });
+      if (res.ok) {
+        const j = await res.json();
+        _peopleCache = j.people || [];
+        console.log('[inspection] hydratePeople loaded', _peopleCache.length,
+                    'people (site=' + (code || 'ALL') + ', sources=' + JSON.stringify(j.sources || {}) + ')');
+      } else {
+        console.warn('[inspection] hydratePeople fetch returned HTTP', res.status);
+      }
+    } catch(e) {
+      console.warn('[inspection] hydratePeople fetch threw:', e.message);
+      _peopleCache = [];
+    } finally {
+      _peopleFetching    = false;
+      _peopleFetchedOnce = true;
+    }
+
+    // The Role field stays a plain datalist (it's a short closed-ish list,
+    // doesn't need a custom combobox).
+    ensureDatalist('insp_roles_list', dedupe(_peopleCache.map(p => p.role).filter(Boolean))
+      .concat([
+        'Site IT Manager',
+        'IT Coordinator',
+        'Group IT',
+        'Network Engineer',
+        'IT Technician',
+        'HSE Officer',
+        'Site Manager',
+      ]));
+
+    // Re-fetch on site change so HGO/MGO/SGO technicians sort to the top.
+    const siteSel = document.getElementById('f_site');
+    if (siteSel && !siteSel._inspPeopleWired) {
+      siteSel.addEventListener('change', () => { hydratePeople(); });
+      siteSel._inspPeopleWired = true;
+    }
+
+    // Refresh any open combobox panel with the new data.
+    if (_openCombobox)      _renderComboboxList(_openCombobox);
+    if (_openSheetForCombo) _renderSheetRows(_sheetBackdrop ? _sheetBackdrop.querySelector('.combobox-sheet-search').value : '');
+  }
+
+  function dedupe(arr) { return Array.from(new Set(arr)); }
+
+  function ensureDatalist(id, values) {
+    let dl = document.getElementById(id);
+    if (!dl) {
+      dl = document.createElement('datalist');
+      dl.id = id;
+      document.body.appendChild(dl);
+    }
+    dl.innerHTML = '';
+    const seen = new Set();
+    for (const v of values) {
+      const obj = (v && typeof v === 'object') ? v : { value: v, label: v };
+      if (!obj.value) continue;
+      const key = String(obj.value).toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const o = document.createElement('option');
+      o.value = obj.value;
+      if (obj.label && obj.label !== obj.value) o.textContent = obj.label;
+      dl.appendChild(o);
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────
+  // Visible combobox for the Lead Inspector / Accompanied By inputs.
+  //
+  // Replaces the silent <input list="..."> approach. Click the input or
+  // the chevron → dropdown panel opens with the top suggestions.
+  // Type → filter. Click a row → input filled (plain name; site / role
+  // shown in the suggestion label but not committed to the input).
+  //
+  // For the Lead Inspector field only, picking a person also auto-fills
+  // the Role input (f_role) if it's empty.
+  //
+  // On mobile (<=680 px) the inline panel is hidden via CSS and a full-
+  // screen slide-up sheet is opened instead — much more thumb-friendly.
+  // ─────────────────────────────────────────────────────────────────
+  let _openCombobox       = null;   // { container, input, target } | null
+  let _sheetBackdrop      = null;   // mobile slide-up sheet root, lazy-built
+
+  function _isMobileViewport() { return window.matchMedia('(max-width:680px)').matches; }
+
+  function _peopleSorted() {
+    // server already orders by site-first then ticket count; we just hand
+    // through, keeping at most 60 entries inline (sheet shows the full list).
+    return _peopleCache;
+  }
+
+  function _filterPeople(needle) {
+    const q = (needle || '').trim().toLowerCase();
+    if (!q) return _peopleSorted();
+    return _peopleSorted().filter(p =>
+      (p.full_name || '').toLowerCase().includes(q) ||
+      (p.site_name || '').toLowerCase().includes(q) ||
+      (p.role      || '').toLowerCase().includes(q)
+    );
+  }
+
+  function _renderRows(container, rows) {
+    if (!rows.length) {
+      // Three different "no rows" cases:
+      //   1. fetch in flight                  → "Loading…"
+      //   2. fetch done, cache empty entirely → "No people available"
+      //   3. cache populated, filter matched 0 → "No match — type to use as free text"
+      let msg;
+      if (_peopleFetching) {
+        msg = '⏳ Loading technicians… / Chargement…';
+      } else if (!_peopleFetchedOnce || _peopleCache.length === 0) {
+        msg = 'No registered people available. Type a name to use anyway.';
+      } else {
+        msg = 'No match in the ' + _peopleCache.length + ' registered people. Type a name to use anyway.';
+      }
+      container.innerHTML = '<div class="combobox-option is-empty">' + escapeHtml(msg) + '</div>';
+      return;
+    }
+    const html = [];
+    // Optional section header when there are matches: shows the count.
+    html.push('<div class="combobox-section-head">' + rows.length + ' suggestion' + (rows.length === 1 ? '' : 's') + ' — pick or keep typing</div>');
+    for (const p of rows.slice(0, 60)) {
+      const meta = [p.site_name || '', p.role || ''].filter(Boolean).join(' · ') +
+                   (p.tickets ? ' · ' + p.tickets + ' tickets' : '');
+      html.push(
+        '<div class="combobox-option" data-name="' + escapeHtml(p.full_name) + '"' +
+        ' data-role="' + escapeHtml(p.role || '') + '">' +
+          '<span class="opt-name">' + escapeHtml(p.full_name) + '</span>' +
+          (meta ? '<span class="opt-meta">' + escapeHtml(meta) + '</span>' : '') +
+        '</div>'
+      );
+    }
+    container.innerHTML = html.join('');
+  }
+
+  function _renderComboboxList(combo) {
+    const panel = combo.querySelector('.combobox-panel');
+    const input = combo.querySelector('input[type="text"]');
+    if (panel) _renderRows(panel, _filterPeople(input.value));
+    if (_openSheetForCombo === combo) _renderSheetRows(input.value);
+  }
+
+  function _openComboboxDesktop(combo) {
+    if (_openCombobox && _openCombobox !== combo) _closeComboboxes();
+    combo.classList.add('is-open');
+    _openCombobox = combo;
+    // Eager-fetch on first open if the cache hasn't been hydrated yet —
+    // closes the race where the user clicks before the boot-time fetch
+    // resolves and otherwise lands on an empty panel.
+    if (!_peopleFetchedOnce && !_peopleFetching) hydratePeople();
+    _renderComboboxList(combo);
+  }
+
+  function _closeComboboxes() {
+    if (_openCombobox) {
+      _openCombobox.classList.remove('is-open');
+      _openCombobox = null;
+    }
+  }
+
+  // ── Mobile slide-up sheet ─────────────────────────────────────────
+  let _openSheetForCombo = null;
+  function _buildSheet() {
+    if (_sheetBackdrop) return _sheetBackdrop;
+    const bd = document.createElement('div');
+    bd.className = 'combobox-sheet-backdrop';
+    bd.innerHTML =
+      '<div class="combobox-sheet" onclick="event.stopPropagation()">' +
+        '<div class="combobox-sheet-head">' +
+          '<h3 id="cbSheetTitle">Pick a person</h3>' +
+          '<button type="button" class="x" aria-label="Close">×</button>' +
+        '</div>' +
+        '<input type="text" class="combobox-sheet-search" placeholder="Search… / Rechercher" />' +
+        '<div class="combobox-sheet-list"></div>' +
+      '</div>';
+    bd.addEventListener('click', e => { if (e.target === bd) _closeSheet(); });
+    bd.querySelector('.x').addEventListener('click', _closeSheet);
+    bd.querySelector('.combobox-sheet-search').addEventListener('input', e => _renderSheetRows(e.target.value));
+    bd.querySelector('.combobox-sheet-list').addEventListener('click', e => {
+      const opt = e.target.closest('.combobox-option');
+      if (!opt || opt.classList.contains('is-empty')) return;
+      _commitPick(_openSheetForCombo, opt.dataset.name, opt.dataset.role);
+      _closeSheet();
+    });
+    document.body.appendChild(bd);
+    _sheetBackdrop = bd;
+    return bd;
+  }
+  function _renderSheetRows(needle) {
+    if (!_sheetBackdrop) return;
+    _renderRows(_sheetBackdrop.querySelector('.combobox-sheet-list'), _filterPeople(needle));
+  }
+  function _openSheet(combo) {
+    const bd = _buildSheet();
+    const title = combo.dataset.sheetTitle || 'Pick a person';
+    bd.querySelector('#cbSheetTitle').textContent = title;
+    const search = bd.querySelector('.combobox-sheet-search');
+    search.value = combo.querySelector('input').value || '';
+    _openSheetForCombo = combo;
+    // Eager-fetch on first open if the cache hasn't been hydrated yet.
+    if (!_peopleFetchedOnce && !_peopleFetching) hydratePeople();
+    _renderSheetRows(search.value);
+    bd.classList.add('show');
+    setTimeout(() => search.focus(), 50);
+  }
+  function _closeSheet() {
+    if (!_sheetBackdrop) return;
+    _sheetBackdrop.classList.remove('show');
+    _openSheetForCombo = null;
+  }
+
+  // ── Pick commit ───────────────────────────────────────────────────
+  // Sets the target input, fires its `input` event so existing
+  // autosave wiring picks up the change, and auto-fills f_role when
+  // the user is picking a Lead Inspector (and Role is currently empty).
+  function _commitPick(combo, name, role) {
+    if (!combo || !name) return;
+    const targetId = combo.dataset.target;
+    const input    = document.getElementById(targetId);
+    if (!input) return;
+    input.value = name;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    if (targetId === 'f_inspector') {
+      const roleInp = document.getElementById('f_role');
+      if (roleInp && !roleInp.value && role) {
+        roleInp.value = role;
+        roleInp.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    }
+    _closeComboboxes();
+  }
+
+  // ── Setup ─────────────────────────────────────────────────────────
+  function setupPeopleComboboxes() {
+    document.querySelectorAll('.combobox[data-combobox="people"]').forEach(combo => {
+      if (combo._inspWired) return;
+      combo._inspWired = true;
+      const input    = combo.querySelector('input[type="text"]');
+      const chevron  = combo.querySelector('.combobox-chevron');
+      const panel    = combo.querySelector('.combobox-panel');
+
+      function open() {
+        if (_isMobileViewport()) _openSheet(combo);
+        else _openComboboxDesktop(combo);
+      }
+
+      input.addEventListener('focus', open);
+      input.addEventListener('click', e => { open(); e.stopPropagation(); });
+      input.addEventListener('input', () => {
+        if (_isMobileViewport()) return; // sheet has its own search input
+        _renderComboboxList(combo);
+        if (!combo.classList.contains('is-open')) _openComboboxDesktop(combo);
+      });
+      chevron.addEventListener('click', e => {
+        e.preventDefault(); e.stopPropagation();
+        if (_isMobileViewport()) { _openSheet(combo); return; }
+        if (combo.classList.contains('is-open')) _closeComboboxes();
+        else _openComboboxDesktop(combo);
+      });
+      panel.addEventListener('click', e => {
+        const opt = e.target.closest('.combobox-option');
+        if (!opt || opt.classList.contains('is-empty')) return;
+        _commitPick(combo, opt.dataset.name, opt.dataset.role);
+      });
+    });
+
+    // Global "click outside closes the panel" — single delegated listener.
+    if (!document._inspComboGlobalWired) {
+      document._inspComboGlobalWired = true;
+      document.addEventListener('click', e => {
+        if (!_openCombobox) return;
+        if (_openCombobox.contains(e.target)) return;
+        _closeComboboxes();
+      });
+      document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') { _closeComboboxes(); _closeSheet(); }
+      });
+    }
+  }
+
+  function _preserveValue(sel) { return sel ? sel.value : ''; }
+
+  function _hydrateSelect(id, rows, valFn, labFn) {
+    const sel = document.getElementById(id);
+    if (!sel || !rows.length) return;
+    const cur = _preserveValue(sel);
+    sel.innerHTML = '';
+    for (const r of rows) {
+      const o = document.createElement('option');
+      o.value = valFn(r);
+      o.textContent = labFn(r);
+      sel.appendChild(o);
+    }
+    if (cur) sel.value = cur;
+  }
+
+  function _hydrateSiteSelect(sites) {
+    const sel = document.getElementById('f_site');
+    if (!sel || !sites.length) return;
+    const cur = _preserveValue(sel);
+
+    const mines   = sites.filter(s => s.site_type === 'mine');
+    const offices = sites.filter(s => s.site_type === 'office');
+    const others  = sites.filter(s => s.site_type !== 'mine' && s.site_type !== 'office');
+
+    function mkOpt(s) {
+      const name = s.name_en + ' (' + s.code + ')' + (s.country ? ' — ' + s.country : '');
+      const o    = document.createElement('option');
+      o.value    = name;
+      o.textContent = name;
+      return o;
+    }
+    function mkGroup(label, arr) {
+      if (!arr.length) return null;
+      const g = document.createElement('optgroup');
+      g.label = label;
+      arr.forEach(s => g.appendChild(mkOpt(s)));
+      return g;
+    }
+    sel.innerHTML = '';
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = '— Select / Sélectionner —';
+    sel.appendChild(placeholder);
+    [mkGroup('Mine Sites',        mines),
+     mkGroup('Regional Offices',  offices),
+     mkGroup('Other',             others)].forEach(g => { if (g) sel.appendChild(g); });
+    if (cur) sel.value = cur;
+  }
+
+  function _hydrateAreaSelect(areas) {
+    const sel = document.getElementById('f_area');
+    if (!sel || !areas.length) return;
+    const cur = _preserveValue(sel);
+    sel.innerHTML = '';
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = '— Select / Sélectionner —';
+    sel.appendChild(placeholder);
+    const groups = {};
+    for (const a of areas) {
+      const g = a.area_group || 'Other';
+      (groups[g] = groups[g] || []).push(a);
+    }
+    for (const [groupName, rows] of Object.entries(groups)) {
+      const g = document.createElement('optgroup');
+      g.label = groupName;
+      for (const a of rows) {
+        const o = document.createElement('option');
+        o.value = a.name_en + ' / ' + a.name_fr;
+        o.textContent = a.name_en + ' / ' + a.name_fr;
+        g.appendChild(o);
+      }
+      sel.appendChild(g);
+    }
+    if (cur) sel.value = cur;
+  }
+
+  // ── saveCurrent() wrapper ────────────────────────────────────────
+  // The base script defines saveCurrent in the global scope. We
+  // monkey-patch it once at load to update the visible save indicator
+  // with meaningful local-only feedback.
+  //
+  // SAVE MODEL (chosen 2026-05-24): Local + manual "Save now" + Submit.
+  // Keystrokes save to localStorage ONLY. Server POSTs fire only when
+  // the user explicitly clicks "Save now" in the toolbar OR submits the
+  // inspection — both routes call forceSyncNow() below. This stops
+  // empty/half-filled drafts from polluting the dashboard, and gives
+  // field users explicit control over when their work is pushed
+  // (important on flaky satellite/cellular links at remote sites).
+  //
+  // Previous behaviour (debounced auto-sync on every keystroke) was
+  // replaced because (a) auto-promotion of empty drafts cluttered the
+  // dashboard, and (b) the user wanted server saves to be a deliberate
+  // action they can see and confirm.
+  let _lastServerError = null;     // exposed via __inspectionSync for console debug
+  let _localDirty       = false;    // true when local edits made since last server push
+  function _markStatus(html, kind) {
+    const el = document.getElementById('saveStatus');
+    if (!el) return;
+    el.innerHTML = html;
+    el.classList.remove('saved', 'server-ok', 'server-fail');
+    if (kind === 'ok')   el.classList.add('saved', 'server-ok');
+    if (kind === 'fail') el.classList.add('server-fail');
+  }
+  function _hhmm() {
+    const d = new Date();
+    return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+  }
+  // True when the inspection has enough content to be worth pushing to
+  // the server. Used as a soft gate inside forceSyncNow() to keep
+  // accidentally-empty inspections out of the dashboard. Once the
+  // inspection has been pushed at least once, we keep pushing it on
+  // every subsequent Save-now / Submit (so blanking a field still
+  // updates the server row). Threshold = "at least one of":
+  //   - site picked
+  //   - inspector name typed
+  //   - any item rated (status set), with notes, or with a photo
+  //   - any action recorded
+  //   - either signature captured
+  //   - meaningful scope / observations / positive text
+  //   - status flipped past 'draft' (Submit always counts)
+  const _promotedIds = new Set();
+  function _stateIsMeaningful(s, id) {
+    if (id && _promotedIds.has(id)) return true;
+    if (!s) return false;
+    if (s.status && s.status !== 'draft') return true;
+    if (!s.meta) return false;
+    const m = s.meta || {};
+    const trimmedTruthy = v => typeof v === 'string' && v.trim().length > 0;
+    if (trimmedTruthy(m.f_site))      return true;
+    if (trimmedTruthy(m.f_inspector)) return true;
+    if (trimmedTruthy(m.f_area))      return true;
+    if (trimmedTruthy(m.f_obs))       return true;
+    if (trimmedTruthy(m.f_pos))       return true;
+    if (trimmedTruthy(m.f_scope))     return true;
+    if (trimmedTruthy(m.f_label))     return true;
+    if (trimmedTruthy(m.f_witness))   return true;
+    if (s.items && Object.keys(s.items).length) {
+      for (const k of Object.keys(s.items)) {
+        const it = s.items[k];
+        if (!it) continue;
+        if (it.status && it.status !== '') return true;
+        if (it.notes && String(it.notes).trim()) return true;
+        if (Array.isArray(it.photos) && it.photos.length) return true;
+      }
+    }
+    if (Array.isArray(s.actions) && s.actions.some(a => a && (a.desc || a.notes || a.owner))) return true;
+    if (s.signatures && (s.signatures.inspector || s.signatures.site)) return true;
+    return false;
+  }
+
+  function installSavePatch() {
+    const orig = window.saveCurrent;
+    if (typeof orig !== 'function') return;
+    window.saveCurrent = function patched() {
+      // Local autosave (localStorage) — always runs. The base script's
+      // own "✓ Saved" indicator briefly flashes here; we overwrite it
+      // immediately below with the local-only / dirty-since-server
+      // version so the user knows exactly where the data lives.
+      orig.apply(this, arguments);
+      // Bare `currentId` / `state` resolve through the global lexical
+      // environment to the body script's top-level `let` declarations.
+      // window.currentId / window.state would be UNDEFINED — top-level
+      // `let` in a classic script does NOT add a property to the
+      // global object (only `var` and function-declarations do).
+      const id = currentId;
+      if (!id) return;
+      // Mark this inspection as having unpushed local changes. The
+      // toolbar status indicator shows "Save now to sync" while
+      // _localDirty is true, then flips to the "local + server" green
+      // state after a successful forceSyncNow().
+      _localDirty = true;
+      if (_promotedIds.has(id)) {
+        // Already on the server — user knows the row exists, just
+        // remind them their latest edits aren't there yet.
+        _markStatus(`✓ Saved locally ${_hhmm()} · click <b>Save now</b> to sync`, '');
+      } else if (_stateIsMeaningful(state, id)) {
+        _markStatus(`✓ Saved locally ${_hhmm()} · click <b>Save now</b> or Submit to sync`, '');
+      } else {
+        // Truly empty — don't nag the user with a sync hint yet.
+        _markStatus(`✓ Saved locally ${_hhmm()}`, '');
+      }
+    };
+  }
+
+  // forceSyncNow — explicit user action: push to the server now. Bound
+  // to the "Save now" link in the toolbar and called from the Submit
+  // flow (confirmSubmit / reopenInspection). Under the chosen save
+  // model (Local + manual Save now + Submit), this is the ONLY path
+  // by which an inspection reaches the server during normal editing —
+  // keystrokes only update localStorage. Resolves with true on
+  // success, false on failure (queue absorbs the failure either way).
+  async function forceSyncNow() {
+    // Same scoping note as installSavePatch above — these are bare
+    // references into the body script's `let` bindings, not window.*
+    const id   = currentId;
+    const link = document.getElementById('saveNowLink');
+    const ind  = document.getElementById('saveStatus');
+    if (link) { link.disabled = true; link.textContent = 'Saving…'; }
+    if (ind)  { ind.textContent = 'Syncing…'; ind.classList.remove('saved', 'server-ok', 'server-fail'); }
+
+    let ok = true;
+    if (id && state) {
+      try {
+        await postSave(state);
+        dequeue(id);
+        _promotedIds.add(id);
+        _localDirty       = false;
+        _lastServerError  = null;
+      } catch(e) {
+        enqueue(id);
+        _lastServerError  = e && e.message || String(e);
+        ok = false;
+        if (typeof showToast === 'function') {
+          showToast('Server save failed: ' + (_lastServerError || '').slice(0, 140) + ' — data is safe locally, will retry.', 'warn', 6000);
+        }
+      }
+    }
+    await flushQueue();
+
+    if (link) {
+      link.disabled    = false;
+      link.textContent = ok ? '✓ Saved' : 'Retry';
+      link.classList.add('flashing');
+      setTimeout(() => {
+        link.classList.remove('flashing');
+        link.textContent = 'Save now';
+      }, 2200);
+    }
+    if (ok) {
+      _markStatus(`✓ Saved (local + server ${_hhmm()})`, 'ok');
+    } else {
+      _markStatus(`✓ Saved locally · ⚠ Server queued`, 'fail');
+    }
+    return ok;
+  }
+  window.forceSyncNow = forceSyncNow;
+
+  // ── Boot ─────────────────────────────────────────────────────────
+  async function boot() {
+    installSavePatch();
+    ensureSyncPill();
+    await hydrateLookups();    // sites/areas/types must be live before
+    setupPeopleComboboxes();   // wire chevron + on-focus dropdown / sheet
+    hydratePeople();           // populate _peopleCache; combobox renders from it
+    flushQueue();              // catch up any inspections saved while offline
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
+
+  // Expose for manual debugging from the console.
+  // The getter pattern means console.log(window.__inspectionSync.peopleCount)
+  // always reflects the current state, not a snapshot at IIFE-init time.
+  window.__inspectionSync = {
+    flushQueue,
+    hydrateLookups,
+    hydratePeople,
+    readQueue,
+    // ── Diagnostics ─────────────────────────────────────────────────
+    // Use from the browser console:
+    //   __inspectionSync.lastServerError  →  null when last POST succeeded,
+    //                                        message string when it failed
+    //   __inspectionSync.queueDepth       →  how many inspections are
+    //                                        waiting to sync
+    //   __inspectionSync.localDirty       →  true when local edits made
+    //                                        since the last server push
+    //   __inspectionSync.forceSave()      →  manual server POST (same as
+    //                                        clicking "Save now" in the
+    //                                        toolbar). Keystroke autosave
+    //                                        is local-only by design.
+    get lastServerError() { return _lastServerError; },
+    get queueDepth()      { return readQueue().length; },
+    get localDirty()      { return _localDirty; },
+    forceSave: () => {
+      // Bare refs — see scoping comment in installSavePatch.
+      if (!currentId || !state) return Promise.reject(new Error('no current inspection'));
+      return postSave(state).then(r => {
+        _promotedIds.add(currentId);
+        _localDirty      = false;
+        _lastServerError = null;
+        return r;
+      }).catch(e => { _lastServerError = e.message; throw e; });
+    },
+    get peopleCache()  { return _peopleCache; },
+    get peopleCount()  { return _peopleCache.length; },
+    get isFetching()   { return _peopleFetching; },
+    get fetchedOnce()  { return _peopleFetchedOnce; },
+  };
+})();
+</script>
+
+</body>
+</html>

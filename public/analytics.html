@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SDP Analytics — Endeavour Mining IT</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js" defer></script>
+<style>
+/* ── EDV Design System adoption ────────────────────────────────────────
+   Page-local aliases mapped onto the canonical _tokens.css palette.
+   No hardcoded hex values below — every colour resolves through the
+   design system. Font swapped from Outfit to Libre Franklin (the
+   corporate-standard substitute for Franklin Gothic). Mono swapped
+   from DM Mono to JetBrains Mono per the EDV handoff.
+*/
+:root {
+  --navy:         var(--edv-slate);        /* #3A4A60 — header / accent dark */
+  --navy-2:       var(--edv-slate-dark);   /* #3A4B5E */
+  --navy-3:       #2E3A4D;                  /* mid-tone for gradients */
+  --orange:       var(--edv-orange);       /* #EF631A — brand orange */
+  --orange-light: var(--edv-orange-75);    /* #F79853 */
+  --bg:           var(--color-bg);         /* #F4F5F7 — page surface */
+  --bg-card:      var(--color-card);       /* #FFFFFF */
+  --border:       var(--color-border);     /* #E2E5EA */
+  --text-1:       var(--color-text-strong);
+  --text-2:       var(--color-text);
+  --text-3:       var(--color-text-muted);
+  --red:          var(--color-danger);     /* #D90038 — EDV red */
+  --red-pale:     var(--color-danger-bg);  /* #FEEAEE */
+  --amber:        var(--color-warning);    /* #D97706 — AA-safe amber */
+  --amber-pale:   var(--color-warning-bg); /* #FEF3C7 */
+  --green:        var(--color-success);    /* #1B9A3A — EDV green */
+  --green-pale:   var(--color-success-bg); /* #E7F5EA */
+  --blue:         var(--color-info);       /* #145FAE — EDV blue */
+  --blue-pale:    var(--color-info-bg);    /* #E8F0FA */
+  --shadow:       0 2px 8px rgba(58, 74, 96, .09);
+  --radius:       10px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--font-sans);background:var(--bg);color:var(--text-1);min-height:100vh}
+
+/* ── HEADER ── */
+.header{background:var(--navy);color:#fff;padding:0 28px;display:flex;align-items:center;gap:16px;height:56px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,.25)}
+.header-logo{width:28px;height:28px;background:var(--orange);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.header-title{font-size:15px;font-weight:600;letter-spacing:.2px}
+.header-sub{font-size:11px;opacity:.55;margin-left:2px}
+.header-spacer{flex:1}
+.header-sync{font-size:11px;opacity:.65;font-family:var(--font-mono)}
+.header-sync.stale{color:var(--orange-light);opacity:1}
+.btn-refresh{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);color:#fff;border-radius:6px;padding:5px 12px;font-size:12px;font-family:var(--font-sans);cursor:pointer;transition:background .15s}
+.btn-refresh:hover{background:rgba(255,255,255,.2)}
+.btn-refresh.spinning{opacity:.6;pointer-events:none}
+
+/* ── FILTERS ── */
+.filters{background:var(--navy-2);padding:8px 28px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-bottom:1px solid rgba(255,255,255,.07)}
+.filter-label{font-size:11px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.6px}
+.filter-select{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:#fff;border-radius:6px;padding:4px 10px;font-size:12px;font-family:var(--font-sans);cursor:pointer;appearance:none;-webkit-appearance:none;padding-right:22px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='rgba(255,255,255,.5)'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center}
+.filter-select option{background:var(--navy);color:#fff}
+.filter-divider{width:1px;height:18px;background:rgba(255,255,255,.1);margin:0 4px}
+
+/* ── MAIN ── */
+.main{max-width:1400px;margin:0 auto;padding:24px 28px 48px}
+
+/* ── SECTION ── */
+.section{margin-bottom:32px}
+.section-header{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.section-icon{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.section-icon.orange{background:#FFF3E0}
+.section-icon.blue{background:var(--blue-pale)}
+.section-icon.purple{background:#F3EEFF}
+.section-icon.teal{background:#E6FAF5}
+.section-title{font-size:16px;font-weight:600;color:var(--text-1)}
+.section-sub{font-size:12px;color:var(--text-3);margin-top:1px}
+.freshness-badge{margin-left:auto;font-size:10px;font-weight:600;padding:3px 9px;border-radius:20px;background:var(--green-pale);color:var(--green);letter-spacing:.3px}
+.freshness-badge.stale{background:var(--amber-pale);color:var(--amber)}
+.freshness-badge.unknown{background:var(--border);color:var(--text-3)}
+
+/* ── KPI TILES ── */
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:16px}
+.kpi{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px 14px 12px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--border)}
+.kpi.green::before{background:var(--green)}
+.kpi.red::before{background:var(--red)}
+.kpi.amber::before{background:var(--amber)}
+.kpi.blue::before{background:var(--blue)}
+.kpi.orange::before{background:var(--orange)}
+.kpi-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--text-3);margin-bottom:6px}
+.kpi-val{font-size:28px;font-weight:700;color:var(--text-1);line-height:1;font-variant-numeric:tabular-nums}
+.kpi-val.loading{font-size:14px;color:var(--text-3);font-weight:400}
+.kpi-sub{font-size:11px;color:var(--text-3);margin-top:5px}
+.kpi-sub .good{color:var(--green)}
+.kpi-sub .bad{color:var(--red)}
+.kpi-sub .warn{color:var(--amber)}
+
+/* ── CARDS GRID ── */
+.cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px}
+.card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+.card-head{padding:14px 16px 10px;border-bottom:1px solid var(--border)}
+.card-title{font-size:13px;font-weight:600;color:var(--text-1)}
+.card-sub{font-size:11px;color:var(--text-3);margin-top:2px}
+.card-body{padding:14px 16px}
+.chart-wrap{position:relative;height:200px}
+.chart-wrap.tall{height:260px}
+
+/* ── TABLE ── */
+.mini-table{width:100%;border-collapse:collapse;font-size:12px}
+.mini-table th{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text-3);padding:6px 8px;border-bottom:1px solid var(--border);text-align:left;font-weight:600}
+.mini-table td{padding:7px 8px;border-bottom:1px solid #f1f3f5;color:var(--text-2)}
+.mini-table tr:last-child td{border-bottom:none}
+.mini-table .num{text-align:right;font-family:var(--font-mono);font-size:11px}
+.pill{display:inline-block;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:600}
+.pill-green{background:var(--green-pale);color:var(--green)}
+.pill-red{background:var(--red-pale);color:var(--red)}
+.pill-amber{background:var(--amber-pale);color:var(--amber)}
+.pill-blue{background:var(--blue-pale);color:var(--blue)}
+.pill-grey{background:#F1F3F5;color:var(--text-2)}
+
+/* ── SYNC STATUS PANEL ── */
+.sync-panel{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 20px;display:flex;gap:20px;flex-wrap:wrap;align-items:center;margin-bottom:20px}
+.sync-job{display:flex;flex-direction:column;gap:2px}
+.sync-job-name{font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--text-3);font-weight:600}
+.sync-job-val{font-size:12px;font-family:var(--font-mono);color:var(--text-1)}
+.sync-divider{width:1px;height:32px;background:var(--border)}
+
+/* ── EMPTY STATE ── */
+.empty{text-align:center;padding:32px 16px;color:var(--text-3);font-size:13px}
+.empty .icon{font-size:28px;margin-bottom:8px}
+
+/* ── RESPONSIVE ── */
+@media(max-width:600px){
+  .main{padding:16px 14px 40px}
+  .header{padding:0 14px}
+  .filters{padding:8px 14px}
+  .kpi-row{grid-template-columns:repeat(2,1fr)}
+  .cards-grid{grid-template-columns:1fr}
+}
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="_shell.css">
+<link rel="stylesheet" href="brand/icons.css">
+<script src="auth.js" data-require="admin"></script>
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script src="_shell.js"></script>
+</head>
+<body>
+
+<!-- ═ Unified shell: brand + primary nav + user pill ═ -->
+<div id="__shell" data-section="performance" data-current="analytics" data-version="v1.10.8"></div>
+
+<!-- ═ Page actions row: breadcrumb + page-specific actions ═ -->
+<div class="shell-page-bar">
+  <div class="shell-breadcrumb">
+    <span>Performance</span>
+    <span class="shell-breadcrumb-sep">›</span>
+    <span class="shell-breadcrumb-current">Analytics</span>
+  </div>
+  <span class="shell-page-bar-spacer"></span>
+  <span id="lastRefreshed" style="font-family:var(--font-mono);opacity:.7">Loading…</span>
+  <button class="btn-refresh" id="refreshBtn" onclick="loadAll()">↻ Refresh</button>
+</div>
+
+<!-- ── FILTERS ── -->
+<div class="filters">
+  <span class="filter-label">Filter</span>
+  <select class="filter-select" id="fSite" onchange="loadAll()">
+    <option value="">All Sites</option>
+    <option>Sabodala</option>
+    <option>MANA</option>
+    <option>Hounde</option>
+    <option>Ity</option>
+    <option>Wahgnion</option>
+    <option>Lafigue</option>
+    <option>Ouagadougou</option>
+    <option>Abidjan</option>
+    <option>Dakar</option>
+  </select>
+  <div class="filter-divider"></div>
+  <select class="filter-select" id="fPeriod" onchange="loadAll()">
+    <option value="">All Time</option>
+    <option value="7d">Last 7 Days</option>
+    <option value="30d">Last 30 Days</option>
+    <option value="90d">Last 90 Days</option>
+    <option value="180d">Last 180 Days</option>
+    <option value="365d">Last 12 Months</option>
+  </select>
+</div>
+
+<!-- ── MAIN ── -->
+<div class="main">
+
+  <!-- Sync status bar -->
+  <div class="sync-panel" id="syncPanel">
+    <div class="sync-job"><div class="sync-job-name">Requests</div><div class="sync-job-val" id="sync-requests">—</div></div>
+    <div class="sync-divider"></div>
+    <div class="sync-job"><div class="sync-job-name">Change + CAB</div><div class="sync-job-val" id="sync-change_cab">—</div></div>
+    <div class="sync-divider"></div>
+    <div class="sync-job"><div class="sync-job-name">Survey</div><div class="sync-job-val" id="sync-survey">—</div></div>
+    <div class="sync-divider"></div>
+    <div style="margin-left:auto;font-size:11px;color:var(--text-3)" title="Page reads from local SQLite cache. Hourly cron syncs from ServiceDesk Plus.">Local cache · hourly sync from ServiceDesk Plus · <a href="/api/sync/status" target="_blank" style="color:var(--blue)">sync status</a></div>
+  </div>
+
+  <!-- ════════════════ SECTION 1: REQUESTS ════════════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon orange">🎫</div>
+      <div>
+        <div class="section-title">Helpdesk Requests</div>
+        <div class="section-sub">All tickets — incidents and service requests</div>
+      </div>
+      <div class="freshness-badge unknown" id="fresh-requests">—</div>
+    </div>
+
+    <div class="kpi-row" id="req-kpis">
+      <div class="kpi"><div class="kpi-label">Open</div><div class="kpi-val loading" id="kv-req-open">…</div><div class="kpi-sub" id="ks-req-open"></div></div>
+      <div class="kpi amber"><div class="kpi-label">Backlog (Overdue)</div><div class="kpi-val loading" id="kv-req-backlog">…</div><div class="kpi-sub" id="ks-req-backlog"></div></div>
+      <div class="kpi green"><div class="kpi-label">SLA Compliance</div><div class="kpi-val loading" id="kv-req-sla">…</div><div class="kpi-sub">within SLA</div></div>
+      <div class="kpi blue"><div class="kpi-label">Avg Resolution</div><div class="kpi-val loading" id="kv-req-avgres">…</div><div class="kpi-sub">hours (closed tickets)</div></div>
+      <div class="kpi"><div class="kpi-label">1st Reply SLA Fail</div><div class="kpi-val loading" id="kv-req-frsla">…</div><div class="kpi-sub" id="ks-req-frsla"></div></div>
+      <div class="kpi"><div class="kpi-label">Reopen Rate</div><div class="kpi-val loading" id="kv-req-reopen">…</div><div class="kpi-sub" id="ks-req-reopen"></div></div>
+      <div class="kpi blue"><div class="kpi-label">Service Requests</div><div class="kpi-val loading" id="kv-req-sr">…</div><div class="kpi-sub" id="ks-req-inc">— Incidents</div></div>
+      <div class="kpi red"><div class="kpi-label">Escalated</div><div class="kpi-val loading" id="kv-req-esc">…</div><div class="kpi-sub">tickets escalated</div></div>
+    </div>
+
+    <div class="cards-grid">
+      <div class="card">
+        <div class="card-head"><div class="card-title">Monthly Ticket Volume</div><div class="card-sub">Open vs Closed trend — last 12 months</div></div>
+        <div class="card-body"><div class="chart-wrap"><canvas id="chartReqTrend"></canvas></div></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><div class="card-title">Volume by Site</div><div class="card-sub">Total requests per site</div></div>
+        <div class="card-body"><div class="chart-wrap"><canvas id="chartReqSite"></canvas></div></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><div class="card-title">Top Categories</div><div class="card-sub">Most common request categories</div></div>
+        <div class="card-body"><div class="chart-wrap"><canvas id="chartReqCat"></canvas></div></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><div class="card-title">Top Technicians</div><div class="card-sub">Requests handled per technician</div></div>
+        <div class="card-body" id="reqTechTable"><div class="empty"><div class="icon">⏳</div>Loading…</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════ SECTION 2: CHANGE MANAGEMENT ════════════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon blue">🔄</div>
+      <div>
+        <div class="section-title">Change Management</div>
+        <div class="section-sub">Change requests — pipeline, success rate, risk</div>
+      </div>
+      <div class="freshness-badge unknown" id="fresh-change">—</div>
+    </div>
+
+    <div class="kpi-row">
+      <div class="kpi"><div class="kpi-label">Total Changes</div><div class="kpi-val loading" id="kv-chg-total">…</div><div class="kpi-sub" id="ks-chg-total"></div></div>
+      <div class="kpi green"><div class="kpi-label">Success Rate</div><div class="kpi-val loading" id="kv-chg-success">…</div><div class="kpi-sub">Target ≥90%</div></div>
+      <div class="kpi blue"><div class="kpi-label">In Progress</div><div class="kpi-val loading" id="kv-chg-inprog">…</div><div class="kpi-sub">scheduled, not closed</div></div>
+      <div class="kpi red"><div class="kpi-label">Emergency</div><div class="kpi-val loading" id="kv-chg-emerg">…</div><div class="kpi-sub">bypassed CAB</div></div>
+      <div class="kpi"><div class="kpi-label">Completed</div><div class="kpi-val loading" id="kv-chg-comp">…</div><div class="kpi-sub" id="ks-chg-comp"></div></div>
+      <div class="kpi amber"><div class="kpi-label">Avg Completion</div><div class="kpi-val loading" id="kv-chg-avg">…</div><div class="kpi-sub">days start → done</div></div>
+    </div>
+
+    <div class="cards-grid">
+      <div class="card">
+        <div class="card-head"><div class="card-title">Changes by Status</div><div class="card-sub">Distribution across all lifecycle stages</div></div>
+        <div class="card-body"><div class="chart-wrap"><canvas id="chartChgStatus"></canvas></div></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><div class="card-title">Changes by Risk Level</div><div class="card-sub">Low / Medium / High / Very High</div></div>
+        <div class="card-body"><div class="chart-wrap"><canvas id="chartChgRisk"></canvas></div></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><div class="card-title">Changes by Type</div><div class="card-sub">Standard / Normal / Emergency breakdown</div></div>
+        <div class="card-body"><div class="chart-wrap"><canvas id="chartChgType"></canvas></div></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><div class="card-title">Changes by Site</div><div class="card-sub">Volume per mining site</div></div>
+        <div class="card-body"><div class="chart-wrap"><canvas id="chartChgSite"></canvas></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════ SECTION 3: CAB ════════════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon purple">✅</div>
+      <div>
+        <div class="section-title">CAB Approvals</div>
+        <div class="section-sub">Change Advisory Board recommendations and compliance</div>
+      </div>
+      <div class="freshness-badge unknown" id="fresh-cab">—</div>
+    </div>
+
+    <div class="kpi-row">
+      <div class="kpi"><div class="kpi-label">Total Approvals</div><div class="kpi-val loading" id="kv-cab-total">…</div><div class="kpi-sub" id="ks-cab-changes"></div></div>
+      <div class="kpi green"><div class="kpi-label">CAB Compliance</div><div class="kpi-val loading" id="kv-cab-comp">…</div><div class="kpi-sub">changes with approval</div></div>
+      <div class="kpi blue"><div class="kpi-label">Approved</div><div class="kpi-val loading" id="kv-cab-appr">…</div><div class="kpi-sub" id="ks-cab-appr"></div></div>
+      <div class="kpi amber"><div class="kpi-label">Avg Turnaround</div><div class="kpi-val loading" id="kv-cab-turn">…</div><div class="kpi-sub">minutes</div></div>
+    </div>
+
+    <div class="cards-grid">
+      <div class="card">
+        <div class="card-head"><div class="card-title">Approval Status</div><div class="card-sub">Approved / Rejected / Pending distribution</div></div>
+        <div class="card-body"><div class="chart-wrap"><canvas id="chartCabStatus"></canvas></div></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><div class="card-title">By Approval Stage</div><div class="card-sub">Volume per CAB stage</div></div>
+        <div class="card-body"><div class="chart-wrap"><canvas id="chartCabStage"></canvas></div></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><div class="card-title">By Rule Type</div><div class="card-sub">Approval rule categories</div></div>
+        <div class="card-body" id="cabRuleTable"><div class="empty"><div class="icon">⏳</div>Loading…</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════ SECTION 4: SURVEY / CSAT ════════════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon teal">⭐</div>
+      <div>
+        <div class="section-title">Service Satisfaction (CSAT)</div>
+        <div class="section-sub">Post-resolution survey scores from ServiceDesk Plus</div>
+      </div>
+      <div class="freshness-badge unknown" id="fresh-survey">—</div>
+    </div>
+
+    <div class="kpi-row">
+      <div class="kpi"><div class="kpi-label">Surveys Sent</div><div class="kpi-val loading" id="kv-sur-sent">…</div><div class="kpi-sub" id="ks-sur-sent"></div></div>
+      <div class="kpi blue"><div class="kpi-label">Response Rate</div><div class="kpi-val loading" id="kv-sur-rate">…</div><div class="kpi-sub">Target ≥20%</div></div>
+      <div class="kpi green"><div class="kpi-label">Avg CSAT Score</div><div class="kpi-val loading" id="kv-sur-avg">…</div><div class="kpi-sub">out of 100</div></div>
+      <div class="kpi green"><div class="kpi-label">Satisfied (≥80)</div><div class="kpi-val loading" id="kv-sur-sat">…</div><div class="kpi-sub" id="ks-sur-sat"></div></div>
+    </div>
+
+    <div class="cards-grid">
+      <div class="card">
+        <div class="card-head"><div class="card-title">Monthly CSAT Trend</div><div class="card-sub">Average score + response rate — last 12 months</div></div>
+        <div class="card-body"><div class="chart-wrap tall"><canvas id="chartSurTrend"></canvas></div></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><div class="card-title">CSAT Distribution</div><div class="card-sub">Satisfied (≥80) · Neutral (60-79) · Dissatisfied (&lt;60)</div></div>
+        <div class="card-body"><div class="chart-wrap"><canvas id="chartSurDist"></canvas></div></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<script>
+'use strict';
+
+// ── API KEY — injected server-side as window.__ak ─────────────────
+// Wrap fetch() so every /api/* call automatically carries x-dash-key.
+const _baseFetch = window.fetch.bind(window);
+window.fetch = (url, opts = {}) => {
+  if (typeof url === 'string' && url.startsWith('/api/')) {
+    opts = { ...opts, headers: { ...(opts.headers || {}), 'x-dash-key': window.__ak || '' } };
+  }
+  return _baseFetch(url, opts);
+};
+
+// ── HELPERS ──────────────────────────────────────────────────────
+
+function fmt(n, decimals = 0) {
+  if (n == null || n === '') return '—';
+  return Number(n).toLocaleString('en', { maximumFractionDigits: decimals, minimumFractionDigits: decimals });
+}
+function pct(n) { return n == null ? '—' : fmt(n, 1) + '%'; }
+function age(isoStr) {
+  if (!isoStr) return 'Never';
+  const diff = Date.now() - new Date(isoStr).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 2)   return 'Just now';
+  if (m < 60)  return m + 'm ago';
+  const h = Math.floor(m / 60);
+  if (h < 24)  return h + 'h ago';
+  return Math.floor(h / 24) + 'd ago';
+}
+
+function sinceParam() {
+  const v = document.getElementById('fPeriod').value;
+  if (!v) return '';
+  const days = { '7d':7,'30d':30,'90d':90,'180d':180,'365d':365 }[v] || 0;
+  if (!days) return '';
+  const d = new Date(Date.now() - days * 86400000);
+  return '&since=' + d.toISOString().slice(0,10);
+}
+function siteParam() {
+  const v = document.getElementById('fSite').value;
+  return v ? '&site=' + encodeURIComponent(v) : '';
+}
+
+// RAG helper for SLA %
+function slaColor(pct) {
+  if (pct == null) return '';
+  if (pct >= 90) return 'good';
+  if (pct >= 75) return 'warn';
+  return 'bad';
+}
+
+// ── CHART HELPERS ────────────────────────────────────────────────
+
+const CHARTS = {};
+// Chart palette aligned with the EDV design system. Pulled from
+// _tokens.css (read at runtime via getComputedStyle so the page
+// stays in sync if the brand team retunes the palette later).
+const _cs = getComputedStyle(document.documentElement);
+const _t  = (name, fallback) => (_cs.getPropertyValue(name).trim() || fallback);
+const PALETTE = {
+  orange: _t('--edv-orange',   '#EF631A'),
+  navy:   _t('--edv-slate',    '#3A4A60'),
+  green:  _t('--edv-green',    '#1B9A3A'),
+  red:    _t('--edv-red',      '#D90038'),
+  amber:  _t('--color-warning','#D97706'),
+  blue:   _t('--edv-blue',     '#145FAE'),
+  teal:   _t('--edv-teal',     '#73C9DB'),
+  purple: '#7C3AED',  // tracker P3 — no direct EDV token
+  slate:  _t('--edv-slate-50', '#979BAB'),
+  pink:   '#EC4899',  // ad-hoc accent, no direct EDV token
+};
+const MULTI = [PALETTE.blue, PALETTE.orange, PALETTE.green, PALETTE.amber, PALETTE.red, PALETTE.teal, PALETTE.purple, PALETTE.pink, PALETTE.slate, PALETTE.navy];
+
+function destroyChart(id) { if (CHARTS[id]) { CHARTS[id].destroy(); delete CHARTS[id]; } }
+
+function barChart(id, labels, datasets, opts = {}) {
+  destroyChart(id);
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+  // Merge extra scales (e.g. secondary axis) without clobbering x/y
+  const extraScales = (opts.extra && opts.extra.scales) || {};
+  CHARTS[id] = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: opts.legend ?? false }, tooltip: { mode: 'index' } },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 11 }, color: '#8A95A3', maxRotation: 30 } },
+        y: { grid: { color: '#F1F3F5' }, ticks: { font: { size: 11 }, color: '#8A95A3' }, beginAtZero: true },
+        ...extraScales,
+      },
+    },
+  });
+}
+
+function lineChart(id, labels, datasets) {
+  destroyChart(id);
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+  CHARTS[id] = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: true, position: 'top', labels: { font: { size: 11 }, boxWidth: 12 } } },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 11 }, color: '#8A95A3', maxRotation: 30 } },
+        y: { grid: { color: '#F1F3F5' }, ticks: { font: { size: 11 }, color: '#8A95A3' }, beginAtZero: true },
+      },
+    },
+  });
+}
+
+function doughnutChart(id, labels, data, colors) {
+  destroyChart(id);
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+  CHARTS[id] = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{ data, backgroundColor: colors || MULTI.slice(0, data.length), borderWidth: 2, borderColor: '#fff' }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '60%',
+      plugins: { legend: { position: 'right', labels: { font: { size: 11 }, boxWidth: 12, padding: 10 } } },
+    },
+  });
+}
+
+function horizontalBar(id, labels, data, color) {
+  destroyChart(id);
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+  CHARTS[id] = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{ data, backgroundColor: color || PALETTE.blue, borderRadius: 4, barThickness: 14 }],
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color: '#F1F3F5' }, ticks: { font: { size: 11 }, color: '#8A95A3' }, beginAtZero: true },
+        y: { grid: { display: false }, ticks: { font: { size: 11 }, color: '#8A95A3' } },
+      },
+    },
+  });
+}
+
+// ── FRESHNESS ────────────────────────────────────────────────────
+
+function updateFreshness(section, data) {
+  const el = document.getElementById('fresh-' + section);
+  if (!el) return;
+  if (!data || !data.as_of) {
+    el.textContent = 'No sync yet';
+    el.className = 'freshness-badge unknown';
+    return;
+  }
+  el.textContent = 'As of ' + age(data.as_of);
+  el.className = data.stale_warning ? 'freshness-badge stale' : 'freshness-badge';
+}
+
+// ── SYNC STATUS ──────────────────────────────────────────────────
+
+async function loadSyncStatus() {
+  try {
+    const r = await fetch('/api/sync/status');
+    const d = await r.json();
+    const jobs = Array.isArray(d) ? d : (d.jobs || []);
+    for (const j of jobs) {
+      const el = document.getElementById('sync-' + j.job_name);
+      if (el) {
+        el.textContent = j.last_sync_at
+          ? age(j.last_sync_at) + ' · ' + fmt(j.last_sync_rows) + ' rows'
+          : 'Never synced';
+      }
+    }
+  } catch (e) {
+    console.warn('[sync status]', e.message);
+  }
+}
+
+// ── REQUESTS ─────────────────────────────────────────────────────
+
+async function loadRequests() {
+  const qs = sinceParam() + siteParam();
+  try {
+    const r  = await fetch('/api/metrics/requests?' + qs);
+    const j  = await r.json();
+    const d  = j.data || {};
+    updateFreshness('requests', j);
+
+    // KPIs
+    document.getElementById('kv-req-open').textContent    = fmt(d.open_count);
+    document.getElementById('kv-req-open').classList.remove('loading');
+    document.getElementById('ks-req-open').innerHTML      = `of ${fmt(d.total)} total · <span class="${d.closed_count>0?'good':''}">${fmt(d.closed_count)} closed</span>`;
+
+    const bklPct = d.total > 0 ? (d.backlog_count / d.open_count * 100).toFixed(0) : 0;
+    document.getElementById('kv-req-backlog').textContent = fmt(d.backlog_count);
+    document.getElementById('kv-req-backlog').classList.remove('loading');
+    document.getElementById('ks-req-backlog').innerHTML   = `<span class="${bklPct>10?'bad':'warn'}">${bklPct}% of open</span>`;
+
+    document.getElementById('kv-req-sla').textContent     = pct(d.sla_ok_pct);
+    document.getElementById('kv-req-sla').classList.remove('loading');
+    const slaEl = document.getElementById('kv-req-sla').closest('.kpi');
+    slaEl.className = 'kpi ' + (d.sla_ok_pct >= 90 ? 'green' : d.sla_ok_pct >= 75 ? 'amber' : 'red');
+
+    document.getElementById('kv-req-avgres').textContent  = d.avg_resolution_hrs != null ? fmt(d.avg_resolution_hrs, 1) + 'h' : '—';
+    document.getElementById('kv-req-avgres').classList.remove('loading');
+
+    document.getElementById('kv-req-frsla').textContent   = pct(d.first_resp_violated_pct);
+    document.getElementById('kv-req-frsla').classList.remove('loading');
+    document.getElementById('ks-req-frsla').innerHTML     = `<span class="${(d.first_resp_violated_pct||0)>10?'bad':'good'}">${fmt(d.first_resp_violated_count)} tickets</span>`;
+
+    document.getElementById('kv-req-reopen').textContent  = pct(d.reopen_pct);
+    document.getElementById('kv-req-reopen').classList.remove('loading');
+    document.getElementById('ks-req-reopen').innerHTML    = `<span>${fmt(d.reopen_count)} reopened</span>`;
+
+    document.getElementById('kv-req-sr').textContent      = fmt(d.service_request_count);
+    document.getElementById('kv-req-sr').classList.remove('loading');
+    document.getElementById('ks-req-inc').textContent     = fmt(d.incident_count) + ' Incidents';
+
+    document.getElementById('kv-req-esc').textContent     = fmt(d.escalated_count);
+    document.getElementById('kv-req-esc').classList.remove('loading');
+
+    // Monthly trend
+    const mt = d.monthly_trend || [];
+    barChart('chartReqTrend', mt.map(m => m.month), [
+      { label: 'Total', data: mt.map(m => m.total_count), backgroundColor: PALETTE.blue + '99', borderColor: PALETTE.blue, borderWidth: 1.5, type: 'bar' },
+      { label: 'Closed', data: mt.map(m => m.closed_count), backgroundColor: PALETTE.green + '99', borderColor: PALETTE.green, borderWidth: 1.5, type: 'bar' },
+      { label: 'SLA OK %', data: mt.map(m => m.sla_ok_pct), backgroundColor: PALETTE.orange, borderColor: PALETTE.orange, borderWidth: 2, type: 'line', yAxisID: 'pct', tension: 0.3, pointRadius: 3 },
+    ], { legend: true, extra: { scales: { pct: { type: 'linear', position: 'right', min: 0, max: 100, grid: { display: false }, ticks: { font: { size: 10 }, color: '#8A95A3', callback: v => v + '%' } } } } });
+
+    // By site
+    const bs = d.by_site || [];
+    horizontalBar('chartReqSite', bs.map(s => s.site || 'Unknown'), bs.map(s => s.count), PALETTE.blue);
+
+    // By category
+    const bc = d.by_category || [];
+    horizontalBar('chartReqCat', bc.map(c => c.category || 'Uncategorized'), bc.map(c => c.count), PALETTE.orange);
+
+    // Technician table
+    const bt = d.by_technician || [];
+    const tEl = document.getElementById('reqTechTable');
+    if (bt.length === 0) {
+      tEl.innerHTML = '<div class="empty"><div class="icon">📭</div>No data yet</div>';
+    } else {
+      tEl.innerHTML = `<table class="mini-table"><thead><tr><th>Technician</th><th class="num">Tickets</th></tr></thead><tbody>${
+        bt.map(t => `<tr><td>${t.technician || '—'}</td><td class="num">${fmt(t.count)}</td></tr>`).join('')
+      }</tbody></table>`;
+    }
+  } catch (e) {
+    console.error('[requests]', e);
+  }
+}
+
+// ── CHANGE ───────────────────────────────────────────────────────
+
+async function loadChange() {
+  const site_id = document.getElementById('fSite').value;
+  const qs = sinceParam() + (site_id ? '&site_id=' + encodeURIComponent(site_id) : '');
+  try {
+    const r = await fetch('/api/metrics/change?' + qs);
+    const j = await r.json();
+    const d = j.data || {};
+    updateFreshness('change', j);
+    updateFreshness('cab', j); // same job
+
+    document.getElementById('kv-chg-total').textContent  = fmt(d.total);
+    document.getElementById('kv-chg-total').classList.remove('loading');
+    document.getElementById('ks-chg-total').innerHTML    = `${fmt(d.finalized_count)} finalized`;
+
+    const scEl = document.getElementById('kv-chg-success');
+    scEl.textContent = pct(d.change_success_rate);
+    scEl.classList.remove('loading');
+    const scCard = scEl.closest('.kpi');
+    scCard.className = 'kpi ' + (d.change_success_rate >= 90 ? 'green' : d.change_success_rate >= 70 ? 'amber' : 'red');
+
+    document.getElementById('kv-chg-inprog').textContent = fmt(d.in_progress_count);
+    document.getElementById('kv-chg-inprog').classList.remove('loading');
+
+    document.getElementById('kv-chg-emerg').textContent  = fmt(d.emergency_count);
+    document.getElementById('kv-chg-emerg').classList.remove('loading');
+
+    document.getElementById('kv-chg-comp').textContent   = fmt(d.completed_count);
+    document.getElementById('kv-chg-comp').classList.remove('loading');
+    document.getElementById('ks-chg-comp').textContent   = fmt(d.cancelled_count) + ' cancelled';
+
+    document.getElementById('kv-chg-avg').textContent    = d.avg_completion_days != null ? fmt(d.avg_completion_days, 1) + 'd' : '—';
+    document.getElementById('kv-chg-avg').classList.remove('loading');
+
+    // By status doughnut
+    const bs = d.by_status || [];
+    doughnutChart('chartChgStatus', bs.map(s => s.status || '—'), bs.map(s => s.count));
+
+    // By risk bar
+    const br = d.by_risk || [];
+    barChart('chartChgRisk', br.map(r => r.risk || 'Unknown'), [{
+      data: br.map(r => r.count), backgroundColor: br.map(r => {
+        const v = (r.risk || '').toLowerCase();
+        return v.includes('very') || v.includes('high') ? PALETTE.red + 'CC' : v.includes('medium') ? PALETTE.amber + 'CC' : PALETTE.green + 'CC';
+      }), borderRadius: 4,
+    }]);
+
+    // By type bar
+    const bt2 = d.by_type || [];
+    barChart('chartChgType', bt2.map(t => t.change_type || 'Unknown'), [{
+      data: bt2.map(t => t.count), backgroundColor: MULTI.slice(0, bt2.length).map(c => c + 'CC'), borderRadius: 4,
+    }]);
+
+    // By site bar
+    const bst = d.by_site || [];
+    barChart('chartChgSite', bst.map(s => s.site_id || '—'), [{
+      data: bst.map(s => s.count), backgroundColor: PALETTE.navy + 'CC', borderRadius: 4,
+    }]);
+  } catch (e) {
+    console.error('[change]', e);
+  }
+}
+
+// ── CAB ──────────────────────────────────────────────────────────
+
+async function loadCAB() {
+  const qs = sinceParam();
+  try {
+    const r = await fetch('/api/metrics/cab?' + qs);
+    const j = await r.json();
+    const d = j.data || {};
+
+    document.getElementById('kv-cab-total').textContent   = fmt(d.total_approvals);
+    document.getElementById('kv-cab-total').classList.remove('loading');
+    document.getElementById('ks-cab-changes').textContent = fmt(d.distinct_changes) + ' unique changes';
+
+    const compEl = document.getElementById('kv-cab-comp');
+    compEl.textContent = pct(d.cab_compliance_pct);
+    compEl.classList.remove('loading');
+    compEl.closest('.kpi').className = 'kpi ' + (d.cab_compliance_pct >= 80 ? 'green' : 'amber');
+
+    document.getElementById('kv-cab-appr').textContent    = fmt(d.approved_count);
+    document.getElementById('kv-cab-appr').classList.remove('loading');
+    document.getElementById('ks-cab-appr').textContent    = fmt(d.changes_with_approval) + ' changes approved';
+
+    document.getElementById('kv-cab-turn').textContent    = d.avg_turnaround_minutes != null ? fmt(d.avg_turnaround_minutes, 0) : '—';
+    document.getElementById('kv-cab-turn').classList.remove('loading');
+
+    // Status doughnut
+    const bs = d.by_status || [];
+    doughnutChart('chartCabStatus', bs.map(s => s.approval_status || '—'), bs.map(s => s.count), [PALETTE.green, PALETTE.red, PALETTE.amber, PALETTE.slate]);
+
+    // Stage bar
+    const bst = d.by_stage || [];
+    barChart('chartCabStage', bst.map(s => s.approval_stage || 'Unknown'), [{
+      data: bst.map(s => s.count), backgroundColor: PALETTE.purple + 'CC', borderRadius: 4,
+    }]);
+
+    // Rule type table
+    const brt = d.by_rule_type || [];
+    const rEl = document.getElementById('cabRuleTable');
+    if (brt.length === 0) {
+      rEl.innerHTML = '<div class="empty"><div class="icon">📭</div>No data yet</div>';
+    } else {
+      rEl.innerHTML = `<table class="mini-table"><thead><tr><th>Rule Type</th><th class="num">Count</th></tr></thead><tbody>${
+        brt.map(r => `<tr><td>${r.rule_type || '—'}</td><td class="num">${fmt(r.count)}</td></tr>`).join('')
+      }</tbody></table>`;
+    }
+  } catch (e) {
+    console.error('[cab]', e);
+  }
+}
+
+// ── SURVEY ───────────────────────────────────────────────────────
+
+async function loadSurvey() {
+  const qs = sinceParam();
+  try {
+    const r = await fetch('/api/metrics/survey?' + qs);
+    const j = await r.json();
+    const d = j.data || {};
+    updateFreshness('survey', j);
+
+    document.getElementById('kv-sur-sent').textContent   = fmt(d.total_sent);
+    document.getElementById('kv-sur-sent').classList.remove('loading');
+    document.getElementById('ks-sur-sent').textContent   = fmt(d.responded_count) + ' responded';
+
+    const rateEl = document.getElementById('kv-sur-rate');
+    rateEl.textContent = pct(d.response_rate_pct);
+    rateEl.classList.remove('loading');
+    rateEl.closest('.kpi').className = 'kpi ' + (d.response_rate_pct >= 20 ? 'green' : 'amber');
+
+    const avgEl = document.getElementById('kv-sur-avg');
+    avgEl.textContent = d.avg_score != null ? fmt(d.avg_score, 1) : '—';
+    avgEl.classList.remove('loading');
+    avgEl.closest('.kpi').className = 'kpi ' + (d.avg_score >= 80 ? 'green' : d.avg_score >= 60 ? 'amber' : 'red');
+
+    const total = (d.satisfied_count || 0) + (d.neutral_count || 0) + (d.dissatisfied_count || 0);
+    const satPct = total > 0 ? (d.satisfied_count / total * 100).toFixed(0) : null;
+    document.getElementById('kv-sur-sat').textContent    = satPct != null ? satPct + '%' : '—';
+    document.getElementById('kv-sur-sat').classList.remove('loading');
+    document.getElementById('ks-sur-sat').textContent    = fmt(d.satisfied_count) + ' responses';
+
+    // Monthly trend
+    const mt = d.monthly_trend || [];
+    lineChart('chartSurTrend', mt.map(m => m.month), [
+      { label: 'Avg Score', data: mt.map(m => m.avg_score), borderColor: PALETTE.green, backgroundColor: PALETTE.green + '22', tension: 0.3, fill: true, pointRadius: 4, yAxisID: 'score' },
+      { label: 'Response Rate %', data: mt.map(m => m.sent_count > 0 ? +(m.responded_count / m.sent_count * 100).toFixed(1) : null), borderColor: PALETTE.blue, backgroundColor: 'transparent', tension: 0.3, borderDash: [5,4], pointRadius: 3, yAxisID: 'pct' },
+    ]);
+    // Patch chart options for dual axis
+    if (CHARTS['chartSurTrend']) {
+      CHARTS['chartSurTrend'].options.scales = {
+        x:     { grid: { display: false }, ticks: { font: { size: 11 }, color: '#8A95A3', maxRotation: 30 } },
+        score: { type: 'linear', position: 'left',  min: 0, max: 100, grid: { color: '#F1F3F5' }, ticks: { font: { size: 11 }, color: '#8A95A3' } },
+        pct:   { type: 'linear', position: 'right', min: 0, max: 100, grid: { display: false }, ticks: { font: { size: 11 }, color: '#8A95A3', callback: v => v + '%' } },
+      };
+      CHARTS['chartSurTrend'].update();
+    }
+
+    // Distribution doughnut
+    doughnutChart('chartSurDist',
+      ['Satisfied (≥80)', 'Neutral (60–79)', 'Dissatisfied (<60)'],
+      [d.satisfied_count || 0, d.neutral_count || 0, d.dissatisfied_count || 0],
+      [PALETTE.green, PALETTE.amber, PALETTE.red]
+    );
+  } catch (e) {
+    console.error('[survey]', e);
+  }
+}
+
+// ── MAIN LOAD ────────────────────────────────────────────────────
+
+let _loading = false;
+async function loadAll() {
+  if (_loading) return;
+  _loading = true;
+  const btn = document.getElementById('refreshBtn');
+  btn.classList.add('spinning');
+  btn.textContent = '↻ Loading…';
+
+  await Promise.allSettled([
+    loadSyncStatus(),
+    loadRequests(),
+    loadChange(),
+    loadCAB(),
+    loadSurvey(),
+  ]);
+
+  btn.classList.remove('spinning');
+  btn.textContent = '↻ Refresh';
+  document.getElementById('lastRefreshed').textContent = 'Updated ' + new Date().toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' });
+  _loading = false;
+}
+
+// Initial load + auto-refresh every 5 minutes
+loadAll();
+setInterval(loadAll, 300000);
+</script>
+</body>
+</html>

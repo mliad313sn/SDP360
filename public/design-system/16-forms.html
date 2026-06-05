@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><title>EDV — Form fields</title>
+<link rel="stylesheet" href="colors_and_type.css">
+<style>
+  body{padding:24px;font-family:var(--font-body);max-width:520px}
+  label{font-family:var(--font-display);font-size:10px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;color:#3a4a60;display:block;margin:14px 0 6px}
+  input,select,textarea{width:100%;font:inherit;font-size:14px;padding:10px 12px;border:1px solid #c5c6c4;border-radius:2px;background:#fff;color:#1a1a1a;transition:border-color .15s}
+  input:focus,select:focus,textarea:focus{outline:2px solid #145fae;outline-offset:0;border-color:#145fae}
+  .err input{border-color:#d90038}
+  .err .msg{color:#d90038;font-size:12px;margin-top:4px}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+</style></head>
+<body>
+  <div class="row">
+    <div><label>Full name</label><input value="A. Buck"></div>
+    <div><label>Position</label><input value="VP Communications"></div>
+  </div>
+  <label>Email</label><input value="alex.buck@endeavourmining.com">
+  <label>Country of operation</label>
+  <select><option>Côte d'Ivoire</option><option>Burkina Faso</option><option>Mali</option><option>Senegal</option></select>
+  <div class="err"><label>Phone</label><input value="+225 invalid"><div class="msg">Please use the format +225 27 22 48 99 00</div></div>
+</body></html>

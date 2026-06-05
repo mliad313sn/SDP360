@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><title>EDV — Radii &amp; shadows</title>
+<link rel="stylesheet" href="colors_and_type.css">
+<style>
+  body{padding:18px;background:#f7f7f7}
+  h4{font-family:var(--font-display);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--fg-3);margin:0 0 8px}
+  .row{display:flex;gap:14px;margin-bottom:14px}
+  .b{background:#fff;width:88px;height:62px;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:10px;color:#3a4a60;border:1px solid var(--border-subtle)}
+  .s{background:#fff;width:120px;height:62px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:10px;color:#3a4a60}
+  .s1{box-shadow:0 1px 2px rgba(58,74,96,.06),0 1px 1px rgba(58,74,96,.04)}
+  .s2{box-shadow:0 4px 12px rgba(58,74,96,.08),0 2px 4px rgba(58,74,96,.04)}
+  .s3{box-shadow:0 12px 32px rgba(58,74,96,.12),0 4px 8px rgba(58,74,96,.06)}
+</style></head>
+<body>
+  <h4>Radii (square-edged brand)</h4>
+  <div class="row">
+    <div class="b" style="border-radius:0">0</div>
+    <div class="b" style="border-radius:2px">sm · 2</div>
+    <div class="b" style="border-radius:4px">md · 4</div>
+    <div class="b" style="border-radius:8px">lg · 8</div>
+    <div class="b" style="border-radius:9999px">pill</div>
+  </div>
+  <h4>Shadows</h4>
+  <div class="row">
+    <div class="s s1">shadow-1</div>
+    <div class="s s2">shadow-2</div>
+    <div class="s s3">shadow-3</div>
+  </div>
+</body></html>

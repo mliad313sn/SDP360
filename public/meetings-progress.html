@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Department progress — Since last meeting — Endeavour Mining IT</title>
+
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="brand/icons.css">
+<link rel="stylesheet" href="brand/components.css">
+<link rel="stylesheet" href="_shell.css">
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+
+<style nonce="%%CSP_NONCE%%">
+  body {
+    margin: 0; background: var(--color-bg, #F4F5F7);
+    color: var(--color-text-strong, #1F2A33);
+    font-family: var(--font-sans, 'Libre Franklin', sans-serif);
+    font-size: 14px; line-height: 1.45;
+  }
+  .mp-wrap { max-width: 1500px; margin: 0 auto; padding: 24px 28px 48px; }
+
+  .mp-hero {
+    background: var(--color-card, #fff); border: 1px solid var(--color-border, #E2E5EA);
+    border-radius: 14px; box-shadow: 0 1px 2px rgba(58,74,96,.04);
+    padding: 20px 24px 18px; margin-bottom: 18px;
+    position: relative; overflow: hidden;
+  }
+  .mp-hero::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 6px;
+    background: linear-gradient(180deg, #1B9A3A, #145FAE);
+  }
+  .mp-eyebrow {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1.4px; color: #1B9A3A; margin-bottom: 6px;
+  }
+  .mp-hero h1 { margin: 0 0 4px; font-size: 22px; font-weight: 800; color: var(--edv-slate, #3A4A60); }
+  .mp-hero p { margin: 0; font-size: 12.5px; color: var(--color-text-muted, #7B7B7B); }
+  .mp-pickers { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; align-items: center; }
+  .mp-picker { display: flex; flex-direction: column; gap: 4px; }
+  .mp-picker label {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.7px; color: var(--color-text-muted, #7B7B7B);
+  }
+  .mp-picker select, .mp-picker input {
+    background: var(--color-card, #fff); border: 1px solid var(--color-border, #E2E5EA);
+    border-radius: 6px; padding: 8px 11px; font: 500 13px var(--font-sans);
+    color: var(--color-text-strong, #1F2A33);
+    min-width: 180px;
+  }
+  .btn-primary, .btn-ghost {
+    font-family: var(--font-sans); font-size: 12.5px; font-weight: 700;
+    padding: 8px 14px; border-radius: 6px; cursor: pointer;
+    letter-spacing: 0.2px; border: 1px solid transparent;
+    display: inline-flex; align-items: center; gap: 6px; text-decoration: none;
+    align-self: flex-end;
+  }
+  .btn-primary { background: var(--edv-orange, #EF631A); color: #fff; border-color: var(--edv-orange-dark, #C04E10); }
+  .btn-primary:hover { background: var(--edv-orange-dark, #C04E10); }
+  .btn-ghost {
+    background: transparent; color: var(--color-text-strong, #1F2A33);
+    border-color: var(--color-border, #E2E5EA);
+  }
+  .btn-ghost:hover { background: var(--color-bg, #F4F5F7); }
+
+  /* Context strip */
+  .mp-context {
+    background: var(--color-card, #fff); border: 1px solid var(--color-border, #E2E5EA);
+    border-radius: 12px; padding: 14px 18px;
+    margin-bottom: 18px;
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 18px;
+  }
+  @media (max-width: 900px) { .mp-context { grid-template-columns: 1fr; } }
+  .mp-ctx { font-size: 12.5px; }
+  .mp-ctx__l { font-size: 10px; font-weight: 800; text-transform: uppercase;
+               letter-spacing: 0.7px; color: var(--color-text-muted, #7B7B7B); margin-bottom: 4px; }
+  .mp-ctx__v { font-size: 14px; font-weight: 700; color: var(--color-text-strong, #1F2A33); }
+  .mp-ctx__s { font-size: 11.5px; color: var(--color-text-muted, #7B7B7B); margin-top: 3px; }
+
+  /* Summary KPI strip */
+  .mp-kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 18px; }
+  @media (max-width: 900px) { .mp-kpis { grid-template-columns: repeat(2, 1fr); } }
+  .mp-kpi {
+    background: var(--color-card, #fff); border: 1px solid var(--color-border, #E2E5EA);
+    border-radius: 8px; padding: 12px 14px; position: relative; overflow: hidden;
+  }
+  .mp-kpi::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--color-border, #E2E5EA); }
+  .mp-kpi--standing::before { background: var(--color-warning, #D97706); }
+  .mp-kpi--resolved::before { background: var(--edv-green, #1B9A3A); }
+  .mp-kpi--new::before      { background: var(--edv-blue, #145FAE); }
+  .mp-kpi--high::before     { background: var(--edv-red, #D90038); }
+  .mp-kpi--esc::before      { background: #7C3AED; }
+  .mp-kpi__label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--color-text-muted, #7B7B7B); margin-bottom: 4px; }
+  .mp-kpi__value { font-size: 26px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+  .mp-kpi__sub   { font-size: 10px; color: var(--color-text-muted, #7B7B7B); margin-top: 4px; }
+
+  /* Section cards */
+  .mp-section {
+    background: var(--color-card, #fff); border: 1px solid var(--color-border, #E2E5EA);
+    border-radius: 12px; box-shadow: 0 1px 2px rgba(58,74,96,.04);
+    margin-bottom: 18px; overflow: hidden;
+  }
+  .mp-section__head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 18px 12px; border-bottom: 1px solid var(--color-border-subtle, #EEF0F3);
+  }
+  .mp-section__title { font-size: 13px; font-weight: 800; color: var(--edv-slate, #3A4A60); }
+  .mp-section__title em { font-style: normal; font-weight: 600; color: var(--color-text-muted, #7B7B7B); margin-left: 6px; }
+  .mp-section__count {
+    font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 9999px;
+    background: var(--color-bg, #F4F5F7); color: var(--color-text-muted, #7B7B7B);
+    font-variant-numeric: tabular-nums;
+  }
+  .mp-section__hint {
+    font-size: 11px; color: var(--color-text-muted, #7B7B7B);
+    padding: 8px 18px; background: var(--color-bg, #F4F5F7);
+    border-bottom: 1px solid var(--color-border-subtle, #EEF0F3); font-style: italic;
+  }
+
+  /* Issue / action item row */
+  .mp-item {
+    display: grid;
+    grid-template-columns: 50px 90px 1fr 110px 90px 110px 110px;
+    gap: 10px; align-items: center;
+    padding: 10px 18px; font-size: 12.5px;
+    border-top: 1px solid var(--color-border-subtle, #EEF0F3);
+  }
+  .mp-item:first-child { border-top: 0; }
+  .mp-item:hover { background: var(--color-bg, #F4F5F7); }
+  .mp-item--HIGH    { border-left: 3px solid var(--edv-red, #D90038); }
+  .mp-item--MEDIUM  { border-left: 3px solid var(--color-warning, #D97706); }
+  .mp-item--LOW     { border-left: 3px solid var(--edv-blue, #0891B2); }
+  .mp-item--escalate { background: rgba(124,58,237,.04); }
+
+  .mp-item__cat {
+    font-family: var(--font-mono, monospace); font-size: 10.5px; font-weight: 800;
+    background: rgba(20,95,174,.10); color: var(--edv-blue, #145FAE);
+    padding: 2px 6px; border-radius: 4px; text-align: center;
+    border: 1px solid rgba(20,95,174,.30);
+  }
+  .mp-item__ref {
+    font-family: var(--font-mono, monospace); font-size: 10.5px;
+    color: var(--color-text-muted, #7B7B7B);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .mp-item__title strong { display: block; font-weight: 600; color: var(--color-text-strong, #1F2A33); }
+  .mp-item__title small  { display: block; font-size: 11px; color: var(--color-text-muted, #7B7B7B); margin-top: 2px; }
+  .mp-pill {
+    display: inline-block; font-size: 10px; font-weight: 800;
+    padding: 2px 8px; border-radius: 9999px;
+    border: 1px solid transparent; text-transform: uppercase;
+  }
+  .mp-esc-tag {
+    display: inline-block; font-size: 10px; font-weight: 800;
+    padding: 1px 6px; border-radius: 4px;
+    background: rgba(124,58,237,.10); color: #5B21B6;
+    border: 1px solid rgba(124,58,237,.30); margin-left: 5px;
+  }
+  .mp-item__date { font-size: 11.5px; color: var(--color-text, #524F4E); font-variant-numeric: tabular-nums; }
+  .mp-item__date.overdue { color: #B91C1C; font-weight: 700; }
+  .mp-item__open {
+    text-decoration: none; color: var(--edv-blue, #145FAE);
+    font-size: 11px; font-weight: 700;
+    border: 1px solid var(--color-border, #E2E5EA);
+    padding: 4px 8px; border-radius: 5px; text-align: center; white-space: nowrap;
+  }
+  .mp-item__open:hover { background: var(--color-bg, #F4F5F7); border-color: var(--edv-blue, #145FAE); }
+  .mp-empty {
+    padding: 24px; text-align: center;
+    color: var(--color-text-muted, #7B7B7B); font-size: 12.5px; font-style: italic;
+  }
+
+  /* Audit-since panel */
+  .mp-audit {
+    padding: 14px 18px; max-height: 320px; overflow-y: auto;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .mp-audit__item {
+    border-left: 3px solid var(--color-border, #E2E5EA);
+    padding: 6px 10px; font-size: 12px; line-height: 1.45;
+  }
+  .mp-audit__item--status   { border-left-color: var(--edv-blue, #145FAE); }
+  .mp-audit__item--escalate { border-left-color: #7C3AED; }
+  .mp-audit__head { font-size: 11px; color: var(--color-text-muted, #7B7B7B); margin-bottom: 2px; }
+  .mp-audit__head strong { color: var(--color-text-strong, #1F2A33); font-weight: 700; }
+  .mp-audit__tag {
+    display: inline-block; font-size: 10px; font-weight: 800;
+    padding: 1px 6px; border-radius: 4px; margin-left: 4px;
+    background: var(--color-bg, #F4F5F7); color: var(--color-text-muted, #7B7B7B);
+    text-transform: uppercase; letter-spacing: 0.4px;
+  }
+
+  /* Meeting history strip */
+  .mp-history {
+    display: flex; gap: 8px; flex-wrap: wrap;
+    padding: 12px 18px;
+  }
+  .mp-history__pill {
+    font-family: var(--font-mono, monospace); font-size: 10.5px;
+    background: var(--color-bg, #F4F5F7); border: 1px solid var(--color-border, #E2E5EA);
+    color: var(--color-text-strong, #1F2A33);
+    padding: 5px 9px; border-radius: 6px;
+    text-decoration: none;
+  }
+  .mp-history__pill:hover { border-color: var(--edv-blue, #145FAE); color: var(--edv-blue, #145FAE); }
+  .mp-history__pill--current { background: var(--edv-orange, #EF631A); color: #fff; border-color: var(--edv-orange-dark, #C04E10); }
+  .mp-history__pill--prev    { background: rgba(20,95,174,.10); border-color: rgba(20,95,174,.30); color: var(--edv-blue, #145FAE); }
+
+  /* Two-column for the bottom */
+  .mp-grid2 { display: grid; grid-template-columns: 1.4fr 1fr; gap: 18px; }
+  @media (max-width: 1100px) { .mp-grid2 { grid-template-columns: 1fr; } }
+
+  /* Compact rows for actions (different column layout) */
+  .mp-action {
+    display: grid;
+    grid-template-columns: 90px 1fr 110px 90px 110px 110px;
+    gap: 10px; align-items: center;
+    padding: 10px 18px; font-size: 12.5px;
+    border-top: 1px solid var(--color-border-subtle, #EEF0F3);
+  }
+  .mp-action:first-child { border-top: 0; }
+  .mp-action:hover { background: var(--color-bg, #F4F5F7); }
+
+  /* ── PRINT / PDF EXPORT ──────────────────────────────────────────── */
+  .mp-print-header { display: none; }
+  @media print {
+    #__shell, .mp-pickers, .mp-hero p, button {
+      display: none !important;
+    }
+    .mp-print-header { display: block !important; }
+    body { background: #FFFFFF !important; }
+    .mp-wrap { padding: 0 !important; max-width: 100% !important; }
+    .mp-hero {
+      border: none !important; box-shadow: none !important;
+      padding: 0 !important; margin-bottom: 14px;
+      border-bottom: 2px solid #1B9A3A; border-radius: 0;
+    }
+    .mp-hero::before { display: none; }
+    .mp-hero h1 { font-size: 16pt !important; margin-bottom: 4px !important; }
+    .mp-section {
+      box-shadow: none !important;
+      border: 1px solid #D1D5DB !important;
+      page-break-inside: avoid;
+      break-inside: avoid;
+      margin-bottom: 10px !important;
+    }
+    .mp-row, .mp-action {
+      page-break-inside: avoid;
+    }
+    @page { margin: 14mm 12mm; size: A4 portrait; }
+  }
+</style>
+</head>
+<body>
+
+<div id="__shell" data-section="performance" data-current="meetings"></div>
+
+<div class="mp-wrap">
+
+  <section class="mp-hero">
+    <div class="mp-eyebrow">Insights · Meetings · Pre-brief</div>
+    <h1>Since last meeting — department progress</h1>
+    <p>Pick a site + department to see what's standing, what closed since the last PV, what came up new, and the
+       audit trail of every status change. Use this to walk into the next meeting with the full picture.</p>
+    <div class="mp-pickers">
+      <div class="mp-picker">
+        <label>Site</label>
+        <select id="mpSite"></select>
+      </div>
+      <div class="mp-picker">
+        <label>Department</label>
+        <select id="mpDept"></select>
+      </div>
+      <div class="mp-picker">
+        <label>As of</label>
+        <input type="date" id="mpAsOf">
+      </div>
+      <button class="btn-primary" type="button" id="mpRun">▶ Load progress</button>
+      <button class="btn-ghost"   type="button" id="mpExportBtn"     title="Print or save as PDF (Ctrl+P)"        style="display:none">📤 PDF</button>
+      <button class="btn-ghost"   type="button" id="mpExportPptxBtn" title="Download server-generated PPTX deck" style="display:none">📤 PPTX</button>
+    </div>
+  </section>
+
+  <div id="mpBody">
+    <div class="mp-empty" style="background:var(--color-card,#fff);border:1px solid var(--color-border,#E2E5EA);border-radius:12px;padding:48px;font-size:14px">
+      Pick a site and a department, then click <strong>Load progress</strong>.
+    </div>
+  </div>
+
+</div>
+
+<script nonce="%%CSP_NONCE%%">
+(function () {
+  'use strict';
+  const API = '/api/meetings';
+
+  function authHeaders() {
+    const h = {};
+    const at = window.__authToken;
+    let tok = null;
+    if (typeof at === 'function') { try { tok = at(); } catch(_) {} }
+    else if (typeof at === 'string' && at) { tok = at; }
+    if (!tok) tok = localStorage.getItem('report_token');
+    if (tok) h['x-report-token'] = tok;
+    return h;
+  }
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const fmtDate = iso => {
+    if (!iso) return '—';
+    const M = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const [y, m, d] = String(iso).slice(0, 10).split('-');
+    return `${d} ${M[parseInt(m, 10) - 1]} ${y}`;
+  };
+  const tint = (hex, alpha) => {
+    const m = String(hex || '').match(/^#?([0-9a-f]{6})$/i);
+    if (!m) return `rgba(107,119,133,${alpha})`;
+    const n = parseInt(m[1], 16);
+    return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
+  };
+  const todayIso = () => new Date().toISOString().slice(0, 10);
+
+  const state = { lookups: null, filters: { site: '', department: '', asOf: '' } };
+
+  // ─ Pre-select from URL params if present
+  function readQuery() {
+    const params = new URLSearchParams(location.search);
+    state.filters.site = params.get('site') || '';
+    state.filters.department = params.get('department') || '';
+    state.filters.asOf = params.get('asOf') || '';
+  }
+
+  async function loadLookups() {
+    const r = await fetch(API + '/lookups', { credentials: 'same-origin', headers: authHeaders() });
+    state.lookups = await r.json();
+    fillSel('mpSite', state.lookups.sites,       'code', 'name',    'Select a site',       state.filters.site);
+    fillSel('mpDept', state.lookups.departments, 'code', 'name_en', 'Select a department', state.filters.department);
+    document.getElementById('mpAsOf').value = state.filters.asOf || todayIso();
+  }
+  function fillSel(id, items, valueKey, labelKey, blank, current) {
+    const el = document.getElementById(id);
+    el.innerHTML = `<option value="">${esc(blank)}</option>`
+      + (items || []).map(it => `<option value="${esc(it[valueKey])}"${it[valueKey] === current ? ' selected' : ''}>${esc(it[labelKey])}</option>`).join('');
+  }
+
+  async function load() {
+    state.filters.site = document.getElementById('mpSite').value;
+    state.filters.department = document.getElementById('mpDept').value;
+    state.filters.asOf = document.getElementById('mpAsOf').value;
+    if (!state.filters.site || !state.filters.department) {
+      document.getElementById('mpBody').innerHTML =
+        '<div class="mp-empty" style="background:var(--color-card,#fff);border:1px solid var(--color-border,#E2E5EA);border-radius:12px;padding:48px;font-size:14px">Pick BOTH a site and a department.</div>';
+      return;
+    }
+    const qs = new URLSearchParams();
+    qs.set('site', state.filters.site);
+    qs.set('department', state.filters.department);
+    if (state.filters.asOf) qs.set('asOf', state.filters.asOf);
+    const r = await fetch(API + '/progress?' + qs.toString(), { credentials: 'same-origin', headers: authHeaders() });
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      document.getElementById('mpBody').innerHTML =
+        `<div class="mp-empty" style="background:var(--color-card,#fff);border:1px solid var(--color-border,#E2E5EA);border-radius:12px;padding:32px;color:#991B1B">${esc(j.error || 'Failed to load progress')}</div>`;
+      return;
+    }
+    const data = await r.json();
+    // Reflect in URL
+    history.replaceState(null, '', '?' + qs.toString());
+    state.lastData = data;
+    render(data);
+    // Reveal both Export buttons — they're only meaningful once data is on screen.
+    const expPdf  = document.getElementById('mpExportBtn');
+    const expPptx = document.getElementById('mpExportPptxBtn');
+    if (expPdf)  expPdf.style.display  = '';
+    if (expPptx) expPptx.style.display = '';
+  }
+
+  function render(d) {
+    const today = todayIso();
+    const stsByCode = {}; (state.lookups.statuses   || []).forEach(s => { stsByCode[s.code] = s; });
+    const sevByCode = {}; (state.lookups.severities || []).forEach(s => { sevByCode[s.code] = s; });
+
+    const previous = d.previous;
+    const sm = d.summary || {};
+
+    // ── Context strip
+    const dept = (state.lookups.departments || []).find(x => x.code === d.department) || { name_en: d.department };
+    const ctxHtml = `
+      <div class="mp-context">
+        <div class="mp-ctx">
+          <div class="mp-ctx__l">Site · Department</div>
+          <div class="mp-ctx__v">${esc(d.site)} · ${esc(dept.name_en)}</div>
+          <div class="mp-ctx__s">${esc(d.department)}</div>
+        </div>
+        <div class="mp-ctx">
+          <div class="mp-ctx__l">Previous meeting</div>
+          <div class="mp-ctx__v">${previous ? esc(previous.reference) : '<em style="color:#7B7B7B;font-style:italic">No prior meeting</em>'}</div>
+          <div class="mp-ctx__s">${previous ? fmtDate(previous.meeting_date) + ' · status: ' + esc(previous.status) : 'This site × dept has no PV history yet — everything is "new".'}</div>
+        </div>
+        <div class="mp-ctx">
+          <div class="mp-ctx__l">Reference point</div>
+          <div class="mp-ctx__v">${esc(fmtDate(d.as_of))}</div>
+          <div class="mp-ctx__s">Items resolved / raised AFTER ${previous ? esc(previous.reference) : 'the start of records'} count as "since last meeting".</div>
+        </div>
+      </div>`;
+
+    // ── Meeting history strip
+    const hist = (d.meeting_history || []).slice().reverse();   // oldest → newest left→right
+    const histHtml = hist.length ? `
+      <div class="mp-section">
+        <div class="mp-section__head">
+          <div class="mp-section__title">Meeting history <em>· last ${hist.length} PV(s) for this site × dept</em></div>
+        </div>
+        <div class="mp-history">
+          ${hist.map(h => {
+            const isPrev = previous && h.id === previous.id;
+            const isCurr = d.current && h.id === d.current.id;
+            const cls = isCurr ? ' mp-history__pill--current' : (isPrev ? ' mp-history__pill--prev' : '');
+            return `<a class="mp-history__pill${cls}" href="meeting.html?id=${encodeURIComponent(h.id)}" title="${esc(h.status)}">${fmtDate(h.meeting_date)} · ${esc(h.reference)}</a>`;
+          }).join('')}
+        </div>
+      </div>` : '';
+
+    // ── Summary KPI strip
+    const kpiHtml = `
+      <div class="mp-kpis">
+        <div class="mp-kpi mp-kpi--standing">
+          <div class="mp-kpi__label">Standing issues</div>
+          <div class="mp-kpi__value">${esc(sm.standing_total || 0)}</div>
+          <div class="mp-kpi__sub">${esc(sm.standing_high || 0)} HIGH</div>
+        </div>
+        <div class="mp-kpi mp-kpi--resolved">
+          <div class="mp-kpi__label">Resolved since</div>
+          <div class="mp-kpi__value">${esc(sm.resolved_total || 0)}</div>
+          <div class="mp-kpi__sub">${previous ? fmtDate(previous.meeting_date) : '—'}</div>
+        </div>
+        <div class="mp-kpi mp-kpi--new">
+          <div class="mp-kpi__label">New since</div>
+          <div class="mp-kpi__value">${esc(sm.new_total || 0)}</div>
+          <div class="mp-kpi__sub">raised after last meeting</div>
+        </div>
+        <div class="mp-kpi mp-kpi--esc">
+          <div class="mp-kpi__label">Escalated open</div>
+          <div class="mp-kpi__value">${esc(sm.escalated_open || 0)}</div>
+          <div class="mp-kpi__sub">for the Mine IT Council</div>
+        </div>
+        <div class="mp-kpi mp-kpi--high">
+          <div class="mp-kpi__label">Standing actions</div>
+          <div class="mp-kpi__value">${esc(sm.actions_standing || 0)}</div>
+          <div class="mp-kpi__sub">${esc(sm.actions_resolved || 0)} closed since</div>
+        </div>
+      </div>`;
+
+    const issueRow = i => {
+      const sev = sevByCode[i.severity] || { color: '#6B7785', name_en: i.severity };
+      const st  = stsByCode[i.status]   || { color: '#6B7785', name_en: i.status };
+      const overdue = i.target_date && i.target_date < today && i.status !== 'resolved' && i.status !== 'cancelled';
+      return `
+        <div class="mp-item mp-item--${esc(i.severity || 'MEDIUM')}${i.escalate ? ' mp-item--escalate' : ''}">
+          <span class="mp-item__cat">${esc(i.category || '—')}</span>
+          <span class="mp-item__ref" title="${esc(i.meeting_reference)}">${esc(i.meeting_reference || '—')}</span>
+          <span class="mp-item__title">
+            <strong>${esc(i.title || '(untitled)')}</strong>
+            <small>${esc(i.champion || 'no champion')}${i.escalate ? '<span class="mp-esc-tag">↑ esc</span>' : ''}</small>
+          </span>
+          <span><span class="mp-pill" style="background:${tint(sev.color,0.12)};color:${esc(sev.color)};border-color:${tint(sev.color,0.3)}">${esc(sev.name_en)}</span></span>
+          <span><span class="mp-pill" style="background:${tint(st.color,0.12)};color:${esc(st.color)};border-color:${tint(st.color,0.3)}">${esc(st.name_en)}</span></span>
+          <span class="mp-item__date ${overdue ? 'overdue' : ''}">${fmtDate(i.target_date)}</span>
+          <a class="mp-item__open" href="meeting.html?id=${encodeURIComponent(i.meeting_id_ref)}">Open ›</a>
+        </div>`;
+    };
+    const actionRow = a => {
+      const st = stsByCode[a.status] || { color: '#6B7785', name_en: a.status };
+      const overdue = a.target_date && a.target_date < today && a.status !== 'resolved' && a.status !== 'cancelled';
+      return `
+        <div class="mp-action">
+          <span class="mp-item__ref" title="${esc(a.meeting_reference)}">${esc(a.meeting_reference || '—')}</span>
+          <span class="mp-item__title">
+            <strong>${esc(a.description || '(no description)')}</strong>
+            <small>${esc(a.owner_it || 'no champion')}</small>
+          </span>
+          <span><span class="mp-pill" style="background:${tint(st.color,0.12)};color:${esc(st.color)};border-color:${tint(st.color,0.3)}">${esc(st.name_en)}</span></span>
+          <span></span>
+          <span class="mp-item__date ${overdue ? 'overdue' : ''}">${fmtDate(a.target_date)}</span>
+          <a class="mp-item__open" href="meeting.html?id=${encodeURIComponent(a.meeting_id_ref)}">Open ›</a>
+        </div>`;
+    };
+
+    function section(title, hint, count, rowsHtml, emptyMsg) {
+      return `
+        <div class="mp-section">
+          <div class="mp-section__head">
+            <div class="mp-section__title">${title}</div>
+            <span class="mp-section__count">${count}</span>
+          </div>
+          ${hint ? `<div class="mp-section__hint">${hint}</div>` : ''}
+          ${count ? rowsHtml : `<div class="mp-empty">${esc(emptyMsg)}</div>`}
+        </div>`;
+    }
+
+    const issueHeader = `
+      <div class="mp-section__hint" style="font-style:normal;font-weight:700;background:var(--color-card,#fff);color:var(--color-text-muted,#7B7B7B);text-transform:uppercase;letter-spacing:0.6px;font-size:10px;padding:8px 18px">
+        Cat · Ref · Issue · Severity · Status · Target · Open
+      </div>`;
+
+    const actHeader = `
+      <div class="mp-section__hint" style="font-style:normal;font-weight:700;background:var(--color-card,#fff);color:var(--color-text-muted,#7B7B7B);text-transform:uppercase;letter-spacing:0.6px;font-size:10px;padding:8px 18px">
+        Ref · Description · Status ·  · Target · Open
+      </div>`;
+
+    const standingHtml = section(
+      'Standing issues <em>· Items still open in this site × dept</em>',
+      'Carry-overs from previous PVs. Sorted by severity then earliest target date.',
+      sm.standing_total || 0,
+      issueHeader + (d.standing || []).map(issueRow).join(''),
+      'No standing issues — congrats!'
+    );
+    const newHtml = section(
+      `New issues since last meeting <em>· raised after ${previous ? fmtDate(previous.meeting_date) : '—'}</em>`,
+      'Items that came up in a PV held after the previous meeting in scope.',
+      sm.new_total || 0,
+      issueHeader + (d.new_items || []).map(issueRow).join(''),
+      'No new items raised since the previous PV.'
+    );
+    const resolvedHtml = section(
+      'Resolved / cancelled since last meeting',
+      'Wins to report back to the department. ' + (previous ? 'Closed after ' + fmtDate(previous.meeting_date) : ''),
+      sm.resolved_total || 0,
+      issueHeader + (d.resolved || []).map(issueRow).join(''),
+      'No items closed since the previous PV — yet.'
+    );
+    const escHtml = section(
+      'Council escalations open <em>· Mine IT Council scope</em>',
+      'Items currently flagged Escalate = Yes. Only ~10–20 % of issues should be here.',
+      sm.escalated_open || 0,
+      issueHeader + (d.escalations || []).map(issueRow).join(''),
+      'No open escalations for this department.'
+    );
+
+    const actStanding = section(
+      'Standing actions',
+      'IT commitments still in flight.',
+      sm.actions_standing || 0,
+      actHeader + (d.actions_standing || []).map(actionRow).join(''),
+      'No open actions.'
+    );
+    const actResolved = section(
+      'Actions closed since last meeting',
+      previous ? 'Completed after ' + fmtDate(previous.meeting_date) : '',
+      sm.actions_resolved || 0,
+      actHeader + (d.actions_resolved || []).map(actionRow).join(''),
+      'No actions closed since the previous PV.'
+    );
+
+    // Audit since
+    const upd = d.updates_since || [];
+    const auditHtml = `
+      <div class="mp-section">
+        <div class="mp-section__head">
+          <div class="mp-section__title">Audit trail since last meeting <em>· ${esc(upd.length)} updates</em></div>
+        </div>
+        ${upd.length ? `
+          <div class="mp-audit">
+            ${upd.map(u => {
+              const kind = u.status_change ? 'mp-audit__item--status'
+                         : (u.escalate_change !== null && u.escalate_change !== undefined) ? 'mp-audit__item--escalate'
+                         : '';
+              const tags = [];
+              if (u.status_change)         tags.push(`<span class="mp-audit__tag">→ ${esc(u.status_change)}</span>`);
+              if (u.escalate_change === 1) tags.push(`<span class="mp-audit__tag">↑ escalated</span>`);
+              if (u.escalate_change === 0) tags.push(`<span class="mp-audit__tag">↓ de-escalated</span>`);
+              return `
+                <div class="mp-audit__item ${kind}">
+                  <div class="mp-audit__head">
+                    <strong>${esc(u.author_name || 'system')}</strong>
+                    · ${esc(String(u.created_at || '').slice(0, 16).replace('T', ' '))}
+                    · ${esc(u.issue_title || '')}
+                    ${tags.join(' ')}
+                  </div>
+                  <div>${esc(u.body || '—')}</div>
+                </div>`;
+            }).join('')}
+          </div>
+        ` : '<div class="mp-empty">No audit entries since the previous PV.</div>'}
+      </div>`;
+
+    document.getElementById('mpBody').innerHTML =
+      ctxHtml + kpiHtml + histHtml +
+      standingHtml + newHtml + resolvedHtml + escHtml +
+      `<div class="mp-grid2">${actStanding}${actResolved}</div>` +
+      auditHtml;
+  }
+
+  document.getElementById('mpRun').addEventListener('click', load);
+
+  // Export to PDF — print stylesheet hides app chrome + filter pickers.
+  // The browser's "Save as PDF" destination produces a clean single
+  // document the coordinator can email to the department head.
+  document.getElementById('mpExportBtn').addEventListener('click', () => {
+    setTimeout(() => window.print(), 50);
+  });
+
+  // Export to PPTX — server-side deck builder. Uses the same filters as
+  // the current view (site + department + optional asOf / current_id).
+  document.getElementById('mpExportPptxBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('mpExportPptxBtn');
+    if (!state.filters.site || !state.filters.department) return;
+    btn.disabled = true;
+    const original = btn.textContent;
+    btn.textContent = '⏳ Generating…';
+    try {
+      const qs = new URLSearchParams();
+      qs.set('site',       state.filters.site);
+      qs.set('department', state.filters.department);
+      if (state.filters.asOf) qs.set('asOf', state.filters.asOf);
+      const r = await fetch(API + '/progress/export-pptx?' + qs.toString(), {
+        credentials: 'same-origin', headers: authHeaders(),
+      });
+      if (!r.ok) {
+        let msg = 'PPTX export failed (HTTP ' + r.status + ')';
+        try { const j = await r.json(); msg = j.error || msg; } catch (_) {}
+        throw new Error(msg);
+      }
+      const blob = await r.blob();
+      const cd = r.headers.get('Content-Disposition') || '';
+      const m  = cd.match(/filename="([^"]+)"/);
+      const fname = (m && m[1]) || `progress_${state.filters.site}_${state.filters.department}.pptx`;
+      const url = URL.createObjectURL(blob);
+      const a   = document.createElement('a');
+      a.href = url; a.download = fname;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (e) {
+      alert(e.message || String(e));
+    } finally {
+      btn.disabled = false;
+      btn.textContent = original;
+    }
+  });
+  document.getElementById('mpSite').addEventListener('change', () => { /* defer until run */ });
+  document.getElementById('mpDept').addEventListener('change', () => { /* defer until run */ });
+
+  // Bootstrap
+  readQuery();
+  loadLookups().then(() => {
+    if (state.filters.site && state.filters.department) load();
+  });
+})();
+</script>
+
+</body>
+</html>

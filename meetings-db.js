@@ -1,0 +1,1535 @@
+/**
+ * meetings-db.js — Department Meetings & Council Escalations
+ *
+ * SQLite persistence layer for the Department Meeting / Mine IT Council
+ * tracker. Schema derives directly from the canonical Endeavour Mining
+ * operational templates:
+ *
+ *   - Guide_Operationnel_Reunions_Departementales.docx (May 2026)
+ *   - Department_Meeting_Report_Template.docx (the signed PV)
+ *   - Site_IT_Tracker_Template.xlsx (the quarterly site workbook)
+ *
+ * Model — one MEETING produces:
+ *
+ *     md_meetings  (PV header: site × department × month, signed)
+ *      │
+ *      ├── md_meeting_priorities    (3 priorities in dept's own words)
+ *      ├── md_meeting_projects      (department projects in flight)
+ *      ├── md_issues                (issues raised, with category/severity/escalate)
+ *      │    └── md_issue_updates    (audit trail per issue)
+ *      ├── md_actions               (IT commitments, linked to an issue)
+ *      └── md_meeting_attachments   (inline base64 photos/docs)
+ *
+ * 8 seeded lookup tables (admin-extendable per the original requirement):
+ *   md_intake_sources       — dept_meeting / survey / council / adhoc
+ *   md_departments          — Mining / Maintenance / HSE / ...
+ *   md_categories           — 9 canonical issue codes (CN/HW/IN/OT/AP/SC/DR/SD/LV)
+ *   md_severities           — HIGH / MEDIUM / LOW
+ *   md_statuses             — open / in_progress / blocked / on_hold / resolved / cancelled
+ *   md_meeting_statuses     — draft / submitted / signed / closed
+ *   md_escalation_reasons   — 6 criteria from the guide
+ *   md_council_themes       — Connectivity / Hardware lifecycle / OT-IT / Licensing / Cybersecurity / Other
+ *   md_project_phases       — Scoping / Design / Build / Deploy / Closeout
+ *   md_it_involvement       — Lead / Co-deliver / Support / Advisory / None
+ *   md_engagements          — the 5 non-negotiable engagements (for compliance monitor)
+ *
+ * RBAC enforcement happens at the route handler. This module accepts a
+ * userSiteCode and refuses cross-site writes by editors.
+ */
+
+'use strict';
+
+const Database = require('better-sqlite3');
+const path     = require('path');
+
+const INIT = require('./meetings-init.json');
+
+// ── DB singleton ────────────────────────────────────────────────────────────
+let _mdb = null;
+
+function getDB() {
+  if (!_mdb) {
+    _mdb = new Database(path.join(__dirname, 'meetings.db'));
+    _mdb.pragma('journal_mode = WAL');
+    _mdb.pragma('foreign_keys = ON');
+    _initSchema(_mdb);
+  }
+  return _mdb;
+}
+
+// ── Schema creation & seeding ───────────────────────────────────────────────
+function _initSchema(db) {
+  // Pre-step: if a v1 schema exists (with md_decisions), drop it cleanly.
+  // v1 was never deployed to production so there's no data to migrate.
+  // This block is idempotent and safe to ship.
+  const v1Tables = ['md_decisions', 'md_decision_updates', 'md_decision_attachments'];
+  v1Tables.forEach(t => db.exec(`DROP TABLE IF EXISTS ${t};`));
+  // v1 also had md_categories / md_statuses / md_priorities with a
+  // different shape — drop them so the v2 seed runs cleanly.
+  const v1Lookups = ['md_categories', 'md_statuses', 'md_priorities'];
+  v1Lookups.forEach(t => {
+    // Only drop if a v1-shaped row exists (presence of 'priority' column
+    // family) — but safest is just to drop and re-seed since the v2 init
+    // ships the same canonical codes.
+    db.exec(`DROP TABLE IF EXISTS ${t};`);
+  });
+
+  db.exec(`
+    -- ════════════════════════════════════════════════════════════════
+    -- LOOKUP TABLES — bilingual EN/FR, all admin-extendable
+    -- ════════════════════════════════════════════════════════════════
+    CREATE TABLE IF NOT EXISTS md_intake_sources (
+      code TEXT PRIMARY KEY,
+      name_en TEXT NOT NULL, name_fr TEXT,
+      color TEXT, display_order INTEGER DEFAULT 0, active INTEGER DEFAULT 1
+    );
+    CREATE TABLE IF NOT EXISTS md_departments (
+      code TEXT PRIMARY KEY,
+      name_en TEXT NOT NULL, name_fr TEXT,
+      display_order INTEGER DEFAULT 0, active INTEGER DEFAULT 1
+    );
+    CREATE TABLE IF NOT EXISTS md_categories (
+      code TEXT PRIMARY KEY,
+      name_en TEXT NOT NULL, name_fr TEXT,
+      color TEXT, icon TEXT,
+      display_order INTEGER DEFAULT 0, active INTEGER DEFAULT 1
+    );
+    CREATE TABLE IF NOT EXISTS md_severities (
+      code TEXT PRIMARY KEY,
+      name_en TEXT NOT NULL, name_fr TEXT,
+      description_en TEXT, description_fr TEXT,
+      color TEXT, rank INTEGER, display_order INTEGER DEFAULT 0
+    );
+    CREATE TABLE IF NOT EXISTS md_statuses (
+      code TEXT PRIMARY KEY,
+      name_en TEXT NOT NULL, name_fr TEXT,
+      color TEXT, is_terminal INTEGER DEFAULT 0,
+      display_order INTEGER DEFAULT 0
+    );
+    CREATE TABLE IF NOT EXISTS md_meeting_statuses (
+      code TEXT PRIMARY KEY,
+      name_en TEXT NOT NULL, name_fr TEXT,
+      color TEXT, display_order INTEGER DEFAULT 0
+    );
+    CREATE TABLE IF NOT EXISTS md_escalation_reasons (
+      code TEXT PRIMARY KEY,
+      name_en TEXT NOT NULL, name_fr TEXT,
+      description_en TEXT, description_fr TEXT,
+      display_order INTEGER DEFAULT 0
+    );
+    CREATE TABLE IF NOT EXISTS md_council_themes (
+      code TEXT PRIMARY KEY,
+      name_en TEXT NOT NULL, name_fr TEXT,
+      color TEXT, indicative_ask_en TEXT, indicative_ask_fr TEXT,
+      display_order INTEGER DEFAULT 0
+    );
+    CREATE TABLE IF NOT EXISTS md_project_phases (
+      code TEXT PRIMARY KEY,
+      name_en TEXT NOT NULL, name_fr TEXT,
+      display_order INTEGER DEFAULT 0
+    );
+    CREATE TABLE IF NOT EXISTS md_it_involvement (
+      code TEXT PRIMARY KEY,
+      name_en TEXT NOT NULL, name_fr TEXT,
+      display_order INTEGER DEFAULT 0
+    );
+    CREATE TABLE IF NOT EXISTS md_engagements (
+      code TEXT PRIMARY KEY,
+      name_en TEXT NOT NULL, name_fr TEXT,
+      rule_en TEXT, rule_fr TEXT,
+      display_order INTEGER DEFAULT 0
+    );
+
+    -- ════════════════════════════════════════════════════════════════
+    -- CORE — meetings + nested children
+    -- ════════════════════════════════════════════════════════════════
+    CREATE TABLE IF NOT EXISTS md_meetings (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      reference       TEXT UNIQUE,             -- e.g. HGO_Maintenance_PV_2026-05
+      site_code       TEXT NOT NULL,
+      department      TEXT NOT NULL,           -- FK md_departments.code
+      meeting_date    TEXT NOT NULL,           -- ISO yyyy-mm-dd
+      duration_min    INTEGER,
+      department_head TEXT, department_head_title TEXT,
+      site_it_lead    TEXT,
+      other_attendees TEXT,
+      intake_source   TEXT DEFAULT 'dept_meeting',
+      priority_1      TEXT, priority_2 TEXT, priority_3 TEXT,
+      next_meeting_date     TEXT,
+      next_meeting_location TEXT,
+      status          TEXT DEFAULT 'draft',   -- draft / submitted / signed / closed
+      submitted_at    TEXT,
+      dept_head_signed_at TEXT,
+      site_it_signed_at   TEXT,
+      created_by      INTEGER,
+      created_at      TEXT DEFAULT (datetime('now')),
+      updated_at      TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS ix_md_meetings_site_date ON md_meetings(site_code, meeting_date);
+    CREATE INDEX IF NOT EXISTS ix_md_meetings_dept      ON md_meetings(department);
+    CREATE INDEX IF NOT EXISTS ix_md_meetings_status    ON md_meetings(status);
+
+    CREATE TABLE IF NOT EXISTS md_meeting_projects (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      meeting_id      INTEGER NOT NULL,
+      ord             INTEGER DEFAULT 0,
+      project_name    TEXT NOT NULL,
+      phase           TEXT,                   -- FK md_project_phases.code
+      it_involvement  TEXT,                   -- FK md_it_involvement.code
+      status          TEXT,                   -- e.g. on_track / at_risk / blocked
+      it_lead         TEXT,
+      business_sponsor TEXT,
+      start_date      TEXT,
+      target_end      TEXT,
+      notes           TEXT,
+      FOREIGN KEY (meeting_id) REFERENCES md_meetings(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS md_issues (
+      id                INTEGER PRIMARY KEY AUTOINCREMENT,
+      meeting_id        INTEGER NOT NULL,
+      ord               INTEGER DEFAULT 0,
+      title             TEXT NOT NULL,
+      description       TEXT,
+      category          TEXT NOT NULL,        -- FK md_categories.code
+      severity          TEXT DEFAULT 'MEDIUM',-- FK md_severities.code
+      affects           TEXT,                 -- people / process impact narrative
+      champion          TEXT,                 -- mandatory per Engagement 3
+      champion_email    TEXT,
+      target_date       TEXT,
+      status            TEXT DEFAULT 'open',  -- FK md_statuses.code
+      escalate          INTEGER DEFAULT 0,    -- 0 = no, 1 = yes
+      escalation_reason TEXT,                 -- FK md_escalation_reasons.code (when escalate=1)
+      council_theme     TEXT,                 -- FK md_council_themes.code (when escalate=1)
+      notes             TEXT,
+      closed_at         TEXT,
+      created_at        TEXT DEFAULT (datetime('now')),
+      updated_at        TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (meeting_id) REFERENCES md_meetings(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS ix_md_issues_meeting   ON md_issues(meeting_id);
+    CREATE INDEX IF NOT EXISTS ix_md_issues_category  ON md_issues(category);
+    CREATE INDEX IF NOT EXISTS ix_md_issues_severity  ON md_issues(severity);
+    CREATE INDEX IF NOT EXISTS ix_md_issues_status    ON md_issues(status);
+    CREATE INDEX IF NOT EXISTS ix_md_issues_escalate  ON md_issues(escalate);
+
+    CREATE TABLE IF NOT EXISTS md_issue_updates (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      issue_id        INTEGER NOT NULL,
+      author_id       INTEGER, author_name TEXT,
+      body            TEXT,
+      status_change   TEXT,
+      escalate_change INTEGER,
+      created_at      TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (issue_id) REFERENCES md_issues(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS ix_md_updates_issue ON md_issue_updates(issue_id);
+
+    CREATE TABLE IF NOT EXISTS md_actions (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      meeting_id      INTEGER NOT NULL,
+      ord             INTEGER DEFAULT 0,
+      description     TEXT NOT NULL,
+      owner_it        TEXT,                   -- IT Champion (Engagement 3)
+      owner_email     TEXT,
+      target_date     TEXT,
+      status          TEXT DEFAULT 'open',
+      linked_issue_id INTEGER,                -- FK md_issues.id (the linked issue #)
+      closed_at       TEXT,
+      created_at      TEXT DEFAULT (datetime('now')),
+      updated_at      TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (meeting_id)      REFERENCES md_meetings(id) ON DELETE CASCADE,
+      FOREIGN KEY (linked_issue_id) REFERENCES md_issues(id)   ON DELETE SET NULL
+    );
+    CREATE INDEX IF NOT EXISTS ix_md_actions_meeting ON md_actions(meeting_id);
+    CREATE INDEX IF NOT EXISTS ix_md_actions_issue   ON md_actions(linked_issue_id);
+
+    CREATE TABLE IF NOT EXISTS md_meeting_attachments (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      meeting_id      INTEGER NOT NULL,
+      filename        TEXT,
+      mime_type       TEXT DEFAULT 'application/octet-stream',
+      data_b64        TEXT,
+      size_bytes      INTEGER,
+      uploaded_by     INTEGER,
+      created_at      TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (meeting_id) REFERENCES md_meetings(id) ON DELETE CASCADE
+    );
+  `);
+
+  // Seed lookups on first run
+  const n = db.prepare('SELECT COUNT(*) AS n FROM md_categories').get().n;
+  if (n === 0) {
+    console.log('[meetings-db] First run — seeding lookups…');
+    _seedLookups(db);
+    console.log('[meetings-db] ✅ Lookups seeded');
+  }
+
+  // ── One-time label fixes ─────────────────────────────────────────
+  // Idempotent: only updates rows that still carry the old label.
+  // Safe to leave in place; each migration is a no-op once applied.
+  //
+  // 2026-05-23: rename "InfoTech Survey" → "IT Survey" per the team's
+  // standard terminology. Same code (`survey`), same color, label only.
+  const r = db.prepare(`
+    UPDATE md_intake_sources
+       SET name_en = 'IT Survey', name_fr = 'Enquête IT'
+     WHERE code = 'survey'
+       AND (name_en = 'InfoTech Survey' OR name_fr = 'Enquête InfoTech')
+  `).run();
+  if (r.changes) console.log('[meetings-db] ✅ Relabelled intake_source `survey` → "IT Survey"');
+}
+
+function _seedLookups(db) {
+  const seed = db.transaction(() => {
+    _seedTable(db, 'md_intake_sources',     INIT.intake_sources);
+    _seedTable(db, 'md_departments',        INIT.departments);
+    _seedTable(db, 'md_categories',         INIT.categories);
+    _seedTable(db, 'md_severities',         INIT.severities);
+    _seedTable(db, 'md_statuses',           INIT.statuses);
+    _seedTable(db, 'md_meeting_statuses',   INIT.meeting_statuses);
+    _seedTable(db, 'md_escalation_reasons', INIT.escalation_reasons);
+    _seedTable(db, 'md_council_themes',     INIT.council_themes);
+    _seedTable(db, 'md_project_phases',     INIT.project_phases);
+    _seedTable(db, 'md_it_involvement',     INIT.it_involvement_levels);
+    _seedTable(db, 'md_engagements',        INIT.engagements);
+  });
+  seed();
+}
+
+// Generic seed helper — takes an array of {code, ...} and writes every
+// (code, value) pair into the given table. Uses INSERT OR REPLACE so
+// running the seed twice is idempotent.
+function _seedTable(db, table, rows) {
+  if (!Array.isArray(rows) || rows.length === 0) return;
+  // Derive the column list from the first row's keys
+  const cols = Object.keys(rows[0]);
+  const placeholders = cols.map(c => '@' + c).join(', ');
+  const stmt = db.prepare(`INSERT OR REPLACE INTO ${table} (${cols.join(',')}) VALUES (${placeholders})`);
+  rows.forEach(r => stmt.run(r));
+}
+
+// ── Helpers ─────────────────────────────────────────────────────────────────
+function _siteNameToCode(name) {
+  try { return require('./inspection-db.js').siteNameToCode(name); }
+  catch (e) { return null; }
+}
+
+// Reference format mirrors the canonical SharePoint naming:
+//   [SITE]_[Department]_PV_[YYYY-MM]   →  HGO_Maintenance_PV_2026-05
+// If the user re-saves a meeting whose meeting_date moves to a new month,
+// the reference auto-updates (caller may pass a fixed reference to override).
+function _buildReference(site_code, department, meeting_date) {
+  if (!site_code || !department || !meeting_date) return null;
+  const m = String(meeting_date).match(/^(\d{4})-(\d{2})/);
+  if (!m) return null;
+  // Title-case the department code (mining → Mining, mobile_maint → Mobile_Maint)
+  const dept = department
+    .split('_')
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+    .join('_');
+  return `${site_code}_${dept}_PV_${m[1]}-${m[2]}`;
+}
+
+// ── Public API ──────────────────────────────────────────────────────────────
+
+/** All lookups in one call — drives every dropdown in the form. */
+function loadLookups() {
+  const db = getDB();
+  const lookups = {
+    intake_sources:     db.prepare('SELECT * FROM md_intake_sources       WHERE active = 1 ORDER BY display_order').all(),
+    departments:        db.prepare('SELECT * FROM md_departments          WHERE active = 1 ORDER BY display_order').all(),
+    categories:         db.prepare('SELECT * FROM md_categories           WHERE active = 1 ORDER BY display_order').all(),
+    severities:         db.prepare('SELECT * FROM md_severities                            ORDER BY display_order').all(),
+    statuses:           db.prepare('SELECT * FROM md_statuses                              ORDER BY display_order').all(),
+    meeting_statuses:   db.prepare('SELECT * FROM md_meeting_statuses                      ORDER BY display_order').all(),
+    escalation_reasons: db.prepare('SELECT * FROM md_escalation_reasons                    ORDER BY display_order').all(),
+    council_themes:     db.prepare('SELECT * FROM md_council_themes                        ORDER BY display_order').all(),
+    project_phases:     db.prepare('SELECT * FROM md_project_phases                        ORDER BY display_order').all(),
+    it_involvement:     db.prepare('SELECT * FROM md_it_involvement                        ORDER BY display_order').all(),
+    engagements:        db.prepare('SELECT * FROM md_engagements                           ORDER BY display_order').all(),
+  };
+  // Sites pulled from reports.db (canonical authority — same pattern as
+  // the inspection module). Returns [] in isolated tests.
+  let sites = [];
+  try {
+    const rdb = require('./reports-db.js');
+    const canonical = rdb.listSites() || [];
+    sites = canonical.map(cs => ({
+      id:     cs.id,
+      code:   _siteNameToCode(cs.name) || cs.name,
+      name:   cs.name,
+      active: cs.active === 0 ? 0 : 1,
+    }));
+  } catch (e) { /* offline */ }
+  lookups.sites = sites;
+  return lookups;
+}
+
+/**
+ * Paginated meetings list with filters. Each row carries summary fields
+ * (issue counts, action counts) so the list view doesn't need N+1 queries.
+ */
+function listMeetings(opts = {}) {
+  const db = getDB();
+  const where  = [];
+  const params = {};
+  if (opts.site)        { where.push('m.site_code = @site');         params.site = opts.site; }
+  if (opts.department)  { where.push('m.department = @department');  params.department = opts.department; }
+  if (opts.status)      { where.push('m.status = @status');          params.status = opts.status; }
+  if (opts.intake)      { where.push('m.intake_source = @intake');   params.intake = opts.intake; }
+  if (opts.from)        { where.push('m.meeting_date >= @from');     params.from = opts.from; }
+  if (opts.to)          { where.push('m.meeting_date <= @to');       params.to = opts.to; }
+  if (opts.q) {
+    where.push('(m.reference LIKE @q OR m.department_head LIKE @q OR m.site_it_lead LIKE @q OR m.priority_1 LIKE @q OR m.priority_2 LIKE @q OR m.priority_3 LIKE @q)');
+    params.q = '%' + opts.q + '%';
+  }
+  const w = where.length ? 'WHERE ' + where.join(' AND ') : '';
+  const sql = `
+    SELECT
+      m.*,
+      (SELECT COUNT(*) FROM md_issues  i WHERE i.meeting_id = m.id)                                 AS issue_count,
+      (SELECT COUNT(*) FROM md_issues  i WHERE i.meeting_id = m.id AND i.severity = 'HIGH')         AS high_issue_count,
+      (SELECT COUNT(*) FROM md_issues  i WHERE i.meeting_id = m.id AND i.escalate = 1)              AS escalated_count,
+      (SELECT COUNT(*) FROM md_actions a WHERE a.meeting_id = m.id)                                 AS action_count,
+      (SELECT COUNT(*) FROM md_actions a WHERE a.meeting_id = m.id AND a.status NOT IN ('resolved','cancelled')) AS open_action_count,
+      (SELECT COUNT(*) FROM md_meeting_projects p WHERE p.meeting_id = m.id)                        AS project_count
+    FROM md_meetings m
+    ${w}
+    ORDER BY m.meeting_date DESC, m.id DESC
+    LIMIT @limit OFFSET @offset
+  `;
+  params.limit  = opts.limit  || 200;
+  params.offset = opts.offset || 0;
+  return db.prepare(sql).all(params);
+}
+
+/**
+ * countMeetings — returns the row count that listMeetings WOULD return
+ * with the same filters but NO pagination. Used by the list route so the
+ * front-end can render "Showing 1–20 of 187" and gray out Next on the
+ * last page. Mirrors the WHERE clauses in listMeetings exactly — keep
+ * the two in sync.
+ */
+function countMeetings(opts = {}) {
+  const db = getDB();
+  const where  = [];
+  const params = {};
+  if (opts.site)        { where.push('m.site_code = @site');         params.site = opts.site; }
+  if (opts.department)  { where.push('m.department = @department');  params.department = opts.department; }
+  if (opts.status)      { where.push('m.status = @status');          params.status = opts.status; }
+  if (opts.intake)      { where.push('m.intake_source = @intake');   params.intake = opts.intake; }
+  if (opts.from)        { where.push('m.meeting_date >= @from');     params.from = opts.from; }
+  if (opts.to)          { where.push('m.meeting_date <= @to');       params.to = opts.to; }
+  if (opts.q) {
+    where.push('(m.reference LIKE @q OR m.department_head LIKE @q OR m.site_it_lead LIKE @q OR m.priority_1 LIKE @q OR m.priority_2 LIKE @q OR m.priority_3 LIKE @q)');
+    params.q = '%' + opts.q + '%';
+  }
+  const w = where.length ? 'WHERE ' + where.join(' AND ') : '';
+  const row = db.prepare(`SELECT COUNT(*) AS n FROM md_meetings m ${w}`).get(params);
+  return (row && row.n) || 0;
+}
+
+/** Full meeting record incl. children. */
+function getMeeting(id) {
+  const db = getDB();
+  const header = db.prepare('SELECT * FROM md_meetings WHERE id = ?').get(id);
+  if (!header) return null;
+  const projects = db.prepare('SELECT * FROM md_meeting_projects WHERE meeting_id = ? ORDER BY ord, id').all(id);
+  const issues   = db.prepare('SELECT * FROM md_issues             WHERE meeting_id = ? ORDER BY ord, id').all(id);
+  const actions  = db.prepare('SELECT * FROM md_actions            WHERE meeting_id = ? ORDER BY ord, id').all(id);
+  const attachments = db.prepare(`
+    SELECT id, filename, mime_type, size_bytes, uploaded_by, created_at
+      FROM md_meeting_attachments WHERE meeting_id = ? ORDER BY id
+  `).all(id);
+  // Issue updates (audit trail) — flat list keyed by issue_id for convenience
+  const issueIds = issues.map(i => i.id);
+  let updates = [];
+  if (issueIds.length) {
+    updates = db.prepare(`
+      SELECT * FROM md_issue_updates
+       WHERE issue_id IN (${issueIds.map(() => '?').join(',')})
+       ORDER BY created_at DESC, id DESC
+    `).all(...issueIds);
+  }
+  return { header, projects, issues, actions, updates, attachments };
+}
+
+/**
+ * Upsert a meeting + its nested children in one transaction.
+ *
+ * @param {object} state  { id?, header: {...}, projects: [...], issues: [...], actions: [...] }
+ * @param {string|null} userSiteCode  if set, write blocked unless the meeting's site matches
+ * @param {number|null} userId   for audit
+ * @returns {{id, reference, created}}
+ */
+function saveMeeting(state, userSiteCode, userId) {
+  if (!state || !state.header) throw new Error('Missing state.header');
+  const db   = getDB();
+  const h    = state.header;
+  let   id   = state.id ? parseInt(state.id, 10) : null;
+  let   exist = id ? db.prepare('SELECT * FROM md_meetings WHERE id = ?').get(id) : null;
+
+  if (!h.site_code)    throw new Error('Missing site_code');
+  if (!h.department)   throw new Error('Missing department');
+  if (!h.meeting_date) throw new Error('Missing meeting_date');
+
+  // 2026-06-02: when the caller hasn't supplied an internal id, also try a
+  // lookup by `reference` before falling through to INSERT. CRITICAL for
+  // bulk imports — the importer only knows references from the xlsx, not
+  // the DB's auto-generated ids. The user-facing contract documented in
+  // meetings-import.js + CLAUDE.md is "matching reference → UPDATE in
+  // place, no duplicates". Without this fallback, every re-import of a
+  // workbook whose meetings are already in DB throws
+  // "UNIQUE constraint failed: md_meetings.reference" on saveMeeting's
+  // INSERT branch and the row gets skipped.
+  if (!exist && !id) {
+    const incomingRef = (h.reference || '').trim()
+      || _buildReference(h.site_code, h.department, h.meeting_date);
+    if (incomingRef) {
+      exist = db.prepare('SELECT * FROM md_meetings WHERE reference = ?').get(incomingRef);
+      if (exist) id = exist.id;   // adopt existing id so the UPDATE branch runs
+    }
+  }
+
+  // Cross-site write guard. An editor (userSiteCode set) cannot:
+  //   (a) edit a meeting that already belongs to a different site,
+  //   (b) create or transfer a meeting to a different site.
+  // Both the EXISTING record's site_code AND the INCOMING header.site_code
+  // must match the editor's scope.
+  if (userSiteCode) {
+    const existingSite = exist && exist.site_code;
+    const incomingSite = h.site_code || null;
+    if (existingSite && existingSite !== userSiteCode) {
+      throw new Error(`Cross-site save blocked: editor scoped to ${userSiteCode}, meeting is for ${existingSite}`);
+    }
+    if (incomingSite !== userSiteCode) {
+      throw new Error(`Cross-site save blocked: editor scoped to ${userSiteCode}, cannot write site ${incomingSite}`);
+    }
+    if (exist && exist.status === 'closed') {
+      throw new Error('Meeting is closed — only admin can re-open');
+    }
+  }
+
+  // 2026-06-02: Reference resolution priority (CRITICAL — see screenshot in
+  // the bulk-import session). Previously this only had two branches:
+  //     (exist && exist.reference) || _buildReference(...)
+  // …which silently DROPPED the file's explicit reference when no existing
+  // row was found, and replaced it with an auto-generated one built from
+  // site_code + department + meeting_date. The auto-build collapses different
+  // department names that share the same word root (e.g. file says
+  // "MGO_UNDERGROUND_PV_2026-04" but auto-build returns "MGO_Mining_PV_2026-04"
+  // because the file's department field is "mining"). When DB already had the
+  // auto-built collision, INSERT failed with "UNIQUE constraint failed:
+  // md_meetings.reference" on EVERY row of the user's workbook.
+  //
+  // Correct precedence:
+  //   1. Existing row's reference (we found a match — never rename)
+  //   2. The reference the caller supplied (file's explicit value, trimmed)
+  //   3. _buildReference() fallback when caller didn't supply one
+  const reference = (exist && exist.reference)
+                    || (h.reference != null ? String(h.reference).trim() : '')
+                    || _buildReference(h.site_code, h.department, h.meeting_date);
+
+  const tx = db.transaction(() => {
+    // Header upsert
+    const headerParams = {
+      id,
+      reference,
+      site_code:       h.site_code,
+      department:      h.department,
+      meeting_date:    h.meeting_date,
+      duration_min:    h.duration_min || null,
+      department_head: h.department_head || '',
+      department_head_title: h.department_head_title || '',
+      site_it_lead:    h.site_it_lead || '',
+      other_attendees: h.other_attendees || '',
+      intake_source:   h.intake_source || 'dept_meeting',
+      priority_1:      h.priority_1 || '',
+      priority_2:      h.priority_2 || '',
+      priority_3:      h.priority_3 || '',
+      next_meeting_date:     h.next_meeting_date || null,
+      next_meeting_location: h.next_meeting_location || '',
+      status:          h.status || 'draft',
+      submitted_at:        h.submitted_at        || (h.status === 'submitted' || h.status === 'signed' ? new Date().toISOString().replace('T',' ').slice(0,19) : null),
+      dept_head_signed_at: h.dept_head_signed_at || null,
+      site_it_signed_at:   h.site_it_signed_at   || null,
+      createdBy:       userId || null,
+    };
+
+    if (exist) {
+      db.prepare(`
+        UPDATE md_meetings SET
+          reference = @reference,
+          site_code = @site_code,
+          department = @department,
+          meeting_date = @meeting_date,
+          duration_min = @duration_min,
+          department_head = @department_head,
+          department_head_title = @department_head_title,
+          site_it_lead = @site_it_lead,
+          other_attendees = @other_attendees,
+          intake_source = @intake_source,
+          priority_1 = @priority_1,
+          priority_2 = @priority_2,
+          priority_3 = @priority_3,
+          next_meeting_date = @next_meeting_date,
+          next_meeting_location = @next_meeting_location,
+          status = @status,
+          submitted_at = COALESCE(submitted_at, @submitted_at),
+          dept_head_signed_at = COALESCE(dept_head_signed_at, @dept_head_signed_at),
+          site_it_signed_at   = COALESCE(site_it_signed_at,   @site_it_signed_at),
+          updated_at = datetime('now')
+        WHERE id = @id
+      `).run(headerParams);
+    } else {
+      const r = db.prepare(`
+        INSERT INTO md_meetings
+          (reference, site_code, department, meeting_date, duration_min,
+           department_head, department_head_title, site_it_lead, other_attendees,
+           intake_source, priority_1, priority_2, priority_3,
+           next_meeting_date, next_meeting_location, status,
+           submitted_at, dept_head_signed_at, site_it_signed_at, created_by)
+        VALUES
+          (@reference, @site_code, @department, @meeting_date, @duration_min,
+           @department_head, @department_head_title, @site_it_lead, @other_attendees,
+           @intake_source, @priority_1, @priority_2, @priority_3,
+           @next_meeting_date, @next_meeting_location, @status,
+           @submitted_at, @dept_head_signed_at, @site_it_signed_at, @createdBy)
+      `).run(headerParams);
+      headerParams.id = r.lastInsertRowid;
+    }
+    const meetingId = headerParams.id;
+
+    // Children — wipe + re-insert in the same transaction, BUT only when the
+    // caller explicitly supplies the array. A save with state.projects ===
+    // undefined leaves the existing project rows alone (e.g. a "header-only"
+    // PATCH that just flips status to 'signed'). A save with state.projects
+    // = [] CLEARS the projects, which is also legitimate.
+    if (state.projects !== undefined) {
+      db.prepare('DELETE FROM md_meeting_projects WHERE meeting_id = ?').run(meetingId);
+      const insProject = db.prepare(`
+        INSERT INTO md_meeting_projects
+          (meeting_id, ord, project_name, phase, it_involvement, status, it_lead, business_sponsor, start_date, target_end, notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+      (state.projects || []).forEach((p, ix) => {
+        if (!p.project_name) return;
+        insProject.run(meetingId, p.ord || ix, p.project_name, p.phase || null, p.it_involvement || null,
+          p.status || null, p.it_lead || null, p.business_sponsor || null, p.start_date || null, p.target_end || null, p.notes || null);
+      });
+    }
+
+    // Issues — same explicit-array contract. Only mutate when the caller
+    // sends state.issues. Otherwise leave existing issues alone — preserves
+    // their ids + audit history across header-only saves.
+    if (state.issues !== undefined) {
+    const oldIssues = db.prepare('SELECT id, status, escalate FROM md_issues WHERE meeting_id = ?').all(meetingId);
+    const oldIssueById = {};
+    oldIssues.forEach(o => { oldIssueById[o.id] = o; });
+    const incomingIds = new Set();
+
+    const updIssue = db.prepare(`
+      UPDATE md_issues SET
+        ord = ?, title = ?, description = ?, category = ?, severity = ?,
+        affects = ?, champion = ?, champion_email = ?, target_date = ?, status = ?,
+        escalate = ?, escalation_reason = ?, council_theme = ?, notes = ?,
+        closed_at = ?,
+        updated_at = datetime('now')
+      WHERE id = ? AND meeting_id = ?
+    `);
+    const insIssue = db.prepare(`
+      INSERT INTO md_issues
+        (meeting_id, ord, title, description, category, severity, affects,
+         champion, champion_email, target_date, status, escalate,
+         escalation_reason, council_theme, notes, closed_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    const insAudit = db.prepare(`
+      INSERT INTO md_issue_updates (issue_id, author_id, author_name, body, status_change, escalate_change)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
+
+    (state.issues || []).forEach((iss, ix) => {
+      if (!iss.title || !iss.category) return;
+      const terminal = (iss.status === 'resolved' || iss.status === 'cancelled');
+      const closed_at = terminal ? new Date().toISOString().replace('T',' ').slice(0,19) : null;
+      const escalate1 = iss.escalate ? 1 : 0;
+
+      if (iss.id && oldIssueById[iss.id]) {
+        incomingIds.add(iss.id);
+        updIssue.run(
+          iss.ord || ix, iss.title, iss.description || '', iss.category, iss.severity || 'MEDIUM',
+          iss.affects || '', iss.champion || '', iss.champion_email || '', iss.target_date || null,
+          iss.status || 'open', escalate1, iss.escalation_reason || null, iss.council_theme || null,
+          iss.notes || '', closed_at,
+          iss.id, meetingId
+        );
+        const old = oldIssueById[iss.id];
+        const statusChange = old.status !== (iss.status || 'open') ? (iss.status || 'open') : null;
+        const escChange    = old.escalate !== escalate1 ? escalate1 : null;
+        if (statusChange || escChange) {
+          insAudit.run(iss.id, userId || null, state.author_name || null,
+            iss.update_comment || null, statusChange, escChange);
+        }
+      } else {
+        const r = insIssue.run(
+          meetingId, iss.ord || ix, iss.title, iss.description || '', iss.category, iss.severity || 'MEDIUM',
+          iss.affects || '', iss.champion || '', iss.champion_email || '', iss.target_date || null,
+          iss.status || 'open', escalate1, iss.escalation_reason || null, iss.council_theme || null,
+          iss.notes || '', closed_at
+        );
+        insAudit.run(r.lastInsertRowid, userId || null, state.author_name || null,
+          iss.update_comment || 'Issue created.', iss.status || 'open', escalate1);
+      }
+    });
+
+    // Delete issues that disappeared from the payload (cascade deletes their updates).
+    oldIssues.forEach(o => { if (!incomingIds.has(o.id)) db.prepare('DELETE FROM md_issues WHERE id = ?').run(o.id); });
+    } // end if (state.issues !== undefined)
+
+    // Actions — same explicit-array contract.
+    if (state.actions !== undefined) {
+      db.prepare('DELETE FROM md_actions WHERE meeting_id = ?').run(meetingId);
+      const insAction = db.prepare(`
+        INSERT INTO md_actions
+          (meeting_id, ord, description, owner_it, owner_email, target_date, status, linked_issue_id, closed_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+      // Map linked_issue_ord (1-based ord from the UI) to actual issue id.
+      const issuesAfter = db.prepare('SELECT id, ord FROM md_issues WHERE meeting_id = ? ORDER BY ord, id').all(meetingId);
+      (state.actions || []).forEach((a, ix) => {
+        if (!a.description) return;
+        let linked = null;
+        if (a.linked_issue_id) linked = a.linked_issue_id;
+        else if (a.linked_issue_ord) {
+          const ord = parseInt(a.linked_issue_ord, 10);
+          const match = issuesAfter[ord - 1];
+          if (match) linked = match.id;
+        }
+        const terminal = (a.status === 'resolved' || a.status === 'cancelled');
+        const closed_at = terminal ? new Date().toISOString().replace('T',' ').slice(0,19) : null;
+        insAction.run(meetingId, a.ord || ix, a.description, a.owner_it || '', a.owner_email || '',
+          a.target_date || null, a.status || 'open', linked, closed_at);
+      });
+    }
+  });
+  tx();
+
+  // The transaction closure mutated headerParams.id — but it's local to the
+  // function scope, not accessible here. Re-fetch the id by reference.
+  const saved = db.prepare('SELECT id FROM md_meetings WHERE reference = ?').get(reference);
+  return { id: saved && saved.id, reference, created: !exist };
+}
+
+/** Append an audit-trail update to one issue. */
+function addIssueUpdate(issueId, opts = {}) {
+  const db = getDB();
+  const issue = db.prepare('SELECT id, status, escalate FROM md_issues WHERE id = ?').get(issueId);
+  if (!issue) throw new Error('Issue not found');
+  const tx = db.transaction(() => {
+    db.prepare(`
+      INSERT INTO md_issue_updates (issue_id, author_id, author_name, body, status_change, escalate_change)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(issueId, opts.author_id || null, opts.author_name || null, opts.body || null,
+      opts.status_change || null, opts.escalate_change ?? null);
+    if (opts.status_change && opts.status_change !== issue.status) {
+      const terminal = (opts.status_change === 'resolved' || opts.status_change === 'cancelled');
+      db.prepare(`
+        UPDATE md_issues
+          SET status = ?, closed_at = CASE WHEN ? = 1 THEN datetime('now') ELSE closed_at END,
+              updated_at = datetime('now')
+        WHERE id = ?
+      `).run(opts.status_change, terminal ? 1 : 0, issueId);
+    }
+    if (opts.escalate_change !== null && opts.escalate_change !== undefined && opts.escalate_change !== issue.escalate) {
+      db.prepare(`UPDATE md_issues SET escalate = ?, updated_at = datetime('now') WHERE id = ?`)
+        .run(opts.escalate_change ? 1 : 0, issueId);
+    }
+  });
+  tx();
+}
+
+/** Flat list of all issues across all meetings — drives the Issues Log view. */
+function listIssues(opts = {}) {
+  const db = getDB();
+  const where = [];
+  const params = {};
+  if (opts.site)        { where.push('m.site_code = @site');        params.site = opts.site; }
+  if (opts.department)  { where.push('m.department = @department'); params.department = opts.department; }
+  if (opts.category)    { where.push('i.category = @category');     params.category = opts.category; }
+  if (opts.severity)    { where.push('i.severity = @severity');     params.severity = opts.severity; }
+  if (opts.status)      { where.push('i.status = @status');         params.status = opts.status; }
+  if (opts.escalate !== undefined) { where.push('i.escalate = @esc'); params.esc = opts.escalate ? 1 : 0; }
+  if (opts.council_theme) { where.push('i.council_theme = @ct');    params.ct = opts.council_theme; }
+  if (opts.from)        { where.push('m.meeting_date >= @from');    params.from = opts.from; }
+  if (opts.to)          { where.push('m.meeting_date <= @to');      params.to = opts.to; }
+  if (opts.q) {
+    where.push('(i.title LIKE @q OR i.description LIKE @q OR i.champion LIKE @q OR i.affects LIKE @q)');
+    params.q = '%' + opts.q + '%';
+  }
+  const w = where.length ? 'WHERE ' + where.join(' AND ') : '';
+  const sql = `
+    SELECT
+      i.*,
+      m.reference     AS meeting_reference,
+      m.site_code     AS site_code,
+      m.department    AS department,
+      m.meeting_date  AS meeting_date,
+      m.id            AS meeting_id_ref
+    FROM md_issues i
+    JOIN md_meetings m ON m.id = i.meeting_id
+    ${w}
+    ORDER BY
+      CASE WHEN i.status IN ('resolved','cancelled') THEN 1 ELSE 0 END,
+      CASE i.severity WHEN 'HIGH' THEN 0 WHEN 'MEDIUM' THEN 1 ELSE 2 END,
+      CASE WHEN i.target_date IS NULL THEN 1 ELSE 0 END,
+      i.target_date ASC,
+      m.meeting_date DESC
+    LIMIT @limit OFFSET @offset
+  `;
+  params.limit = opts.limit || 500;
+  params.offset = opts.offset || 0;
+  return db.prepare(sql).all(params);
+}
+
+/** Council Escalations view — all issues where escalate = 1, grouped at render-time by theme. */
+function listEscalations(opts = {}) {
+  return listIssues(Object.assign({}, opts, { escalate: true }));
+}
+
+/**
+ * Insights — chart-shaped analytical roll-up for the meetings-insights.html
+ * dashboard. Returns 7 separate datasets in one trip so the front-end can
+ * render the whole page with a single round-trip.
+ *
+ *   period          {from, to, months}      Echoed back for label rendering
+ *   monthly         [{month, meetings, issues_opened, issues_closed, escalated}]
+ *                                           — Backfilled with zero-rows for inactive
+ *                                             months so the line chart doesn't
+ *                                             skip gaps.
+ *   by_month_site   [{month, site, n}]      Stacked-bar source.
+ *   by_category     [{category, n, high_n, esc_n}]  Top 12, descending.
+ *   by_severity     [{severity, n}]         Donut source.
+ *   by_council_theme[{theme, n}]            Escalations only (escalate=1).
+ *   compliance_heatmap [{site, e1..e5, raw…}]  Per-site 5-Engagements fraction
+ *                                                in [0..1], or null when N/A.
+ *                                                E4 is null (placeholder).
+ *   site_leaderboard [{site, meetings, issues, high, escalations, overdue,
+ *                       champion_pct, diffused_48h_pct, engagement_1,
+ *                       escalation_disc, score}]
+ *                                           — `score` = simple unweighted mean
+ *                                             of the non-null engagement scores
+ *                                             (Option A per user choice).
+ *
+ * Default period = last 6 calendar months including current (ITSM standard
+ * visibility window per CLAUDE.md doctrine). `from` / `to` are inclusive
+ * 'YYYY-MM-DD' bounds. `site` and `department` filter all 7 datasets so the
+ * page can be sliced by site/department from the header filter bar without
+ * extra round-trips.
+ */
+function insights(opts = {}) {
+  const db = getDB();
+
+  // Default period: trailing 6 months (current month inclusive).
+  // Anchored on the 1st of the start month so the monthly time-series
+  // doesn't truncate the first month of the window.
+  const todayD = new Date();
+  const sixMoStart = new Date(todayD.getFullYear(), todayD.getMonth() - 5, 1);
+  const from = opts.from || sixMoStart.toISOString().slice(0, 10);
+  const to   = opts.to   || todayD.toISOString().slice(0, 10);
+
+  const extra = [];
+  const params = { from, to };
+  if (opts.site)       { extra.push('m.site_code = @site');         params.site = opts.site; }
+  if (opts.department) { extra.push('m.department = @department');  params.department = opts.department; }
+  const extraW = extra.length ? ' AND ' + extra.join(' AND ') : '';
+
+  // ── 1. Monthly time-series ──────────────────────────────────
+  // LEFT JOIN issues so months with PVs but zero issues still surface.
+  const monthlyRaw = db.prepare(`
+    SELECT
+      strftime('%Y-%m', m.meeting_date) AS month,
+      COUNT(DISTINCT m.id)              AS meetings,
+      COUNT(i.id)                       AS issues_opened,
+      SUM(CASE WHEN i.status IN ('resolved','cancelled') THEN 1 ELSE 0 END) AS issues_closed,
+      SUM(CASE WHEN i.escalate = 1                     THEN 1 ELSE 0 END) AS escalated
+    FROM md_meetings m
+    LEFT JOIN md_issues i ON i.meeting_id = m.id
+    WHERE m.meeting_date BETWEEN @from AND @to ${extraW}
+    GROUP BY strftime('%Y-%m', m.meeting_date)
+    ORDER BY month ASC
+  `).all(params);
+  const monthly = _backfillMonths(monthlyRaw, from, to);
+
+  // ── 2. Meetings × site × month (stacked-bar source) ────────
+  const byMonthSite = db.prepare(`
+    SELECT
+      strftime('%Y-%m', m.meeting_date) AS month,
+      m.site_code                       AS site,
+      COUNT(*)                          AS n
+    FROM md_meetings m
+    WHERE m.meeting_date BETWEEN @from AND @to ${extraW}
+    GROUP BY month, m.site_code
+    ORDER BY month ASC, m.site_code ASC
+  `).all(params);
+
+  // ── 3. Issues by category (top 12) ─────────────────────────
+  const byCategory = db.prepare(`
+    SELECT
+      i.category                                                    AS category,
+      COUNT(*)                                                      AS n,
+      SUM(CASE WHEN i.severity = 'HIGH' THEN 1 ELSE 0 END)          AS high_n,
+      SUM(CASE WHEN i.escalate = 1      THEN 1 ELSE 0 END)          AS esc_n
+    FROM md_issues i
+    JOIN md_meetings m ON m.id = i.meeting_id
+    WHERE m.meeting_date BETWEEN @from AND @to ${extraW}
+    GROUP BY i.category
+    ORDER BY n DESC
+    LIMIT 12
+  `).all(params);
+
+  // ── 4. Issues by severity (donut source) ───────────────────
+  const bySeverity = db.prepare(`
+    SELECT i.severity AS severity, COUNT(*) AS n
+    FROM md_issues i
+    JOIN md_meetings m ON m.id = i.meeting_id
+    WHERE m.meeting_date BETWEEN @from AND @to ${extraW}
+    GROUP BY i.severity
+  `).all(params);
+
+  // ── 5. Council escalations by theme ────────────────────────
+  // Bucket missing themes as '_unset' so the bar chart can surface them.
+  const byCouncilTheme = db.prepare(`
+    SELECT
+      COALESCE(NULLIF(TRIM(i.council_theme), ''), '_unset') AS theme,
+      COUNT(*) AS n
+    FROM md_issues i
+    JOIN md_meetings m ON m.id = i.meeting_id
+    WHERE m.meeting_date BETWEEN @from AND @to ${extraW} AND i.escalate = 1
+    GROUP BY theme
+    ORDER BY n DESC
+  `).all(params);
+
+  // ── 6. Compliance heatmap raw data ─────────────────────────
+  // 3 separate queries instead of correlated subqueries — avoids row
+  // explosion from the m × i × a join and keeps SQL legible.
+  const heatmapBase = db.prepare(`
+    SELECT
+      m.site_code AS site,
+      COUNT(*)    AS meetings_count,
+      SUM(CASE WHEN m.submitted_at IS NOT NULL
+                AND julianday(m.submitted_at) - julianday(m.meeting_date) <= 2
+               THEN 1 ELSE 0 END) AS diffused_48h
+    FROM md_meetings m
+    WHERE m.meeting_date BETWEEN @from AND @to ${extraW}
+    GROUP BY m.site_code
+  `).all(params);
+
+  const actionStats = db.prepare(`
+    SELECT
+      m.site_code AS site,
+      COUNT(*)    AS actions_total,
+      SUM(CASE WHEN a.owner_it IS NOT NULL AND TRIM(a.owner_it) != ''
+               THEN 1 ELSE 0 END) AS actions_with_champion
+    FROM md_actions a
+    JOIN md_meetings m ON m.id = a.meeting_id
+    WHERE m.meeting_date BETWEEN @from AND @to ${extraW}
+    GROUP BY m.site_code
+  `).all(params);
+
+  const escDiscipline = db.prepare(`
+    SELECT
+      m.site_code AS site,
+      COUNT(*)    AS escalated_total,
+      SUM(CASE WHEN i.escalation_reason IS NOT NULL AND TRIM(i.escalation_reason) != ''
+                AND i.council_theme    IS NOT NULL AND TRIM(i.council_theme)    != ''
+               THEN 1 ELSE 0 END) AS escalated_complete
+    FROM md_issues i
+    JOIN md_meetings m ON m.id = i.meeting_id
+    WHERE m.meeting_date BETWEEN @from AND @to ${extraW} AND i.escalate = 1
+    GROUP BY m.site_code
+  `).all(params);
+
+  // Engagement #1 prorated target: 3 PVs per site per month.
+  const numMonths = _diffMonthsInclusive(from, to);
+  const actByS = Object.fromEntries(actionStats.map(r => [r.site, r]));
+  const escByS = Object.fromEntries(escDiscipline.map(r => [r.site, r]));
+
+  const complianceHeatmap = heatmapBase.map(r => {
+    const a   = actByS[r.site] || { actions_total: 0, actions_with_champion: 0 };
+    const e   = escByS[r.site] || { escalated_total: 0, escalated_complete: 0 };
+    const e1  = numMonths > 0 ? Math.min(1, r.meetings_count / (3 * numMonths)) : null;
+    const e2  = r.meetings_count   > 0 ? r.diffused_48h         / r.meetings_count   : null;
+    const e3  = a.actions_total    > 0 ? a.actions_with_champion / a.actions_total    : null;
+    // E4 — monthly feedback loop — placeholder until outbound comms log lands.
+    const e4  = null;
+    const e5  = e.escalated_total  > 0 ? e.escalated_complete    / e.escalated_total  : null;
+    return {
+      site: r.site, e1, e2, e3, e4, e5,
+      meetings_count: r.meetings_count,
+      diffused_48h:   r.diffused_48h,
+      actions_total:  a.actions_total,
+      actions_with_champion: a.actions_with_champion,
+      escalated_total:       e.escalated_total,
+      escalated_complete:    e.escalated_complete,
+    };
+  });
+
+  // ── 7. Site leaderboard ─────────────────────────────────────
+  const leaderboard = db.prepare(`
+    SELECT
+      m.site_code AS site,
+      COUNT(DISTINCT m.id) AS meetings,
+      COUNT(i.id)          AS issues,
+      SUM(CASE WHEN i.severity = 'HIGH' THEN 1 ELSE 0 END) AS high,
+      SUM(CASE WHEN i.escalate = 1      THEN 1 ELSE 0 END) AS escalations,
+      SUM(CASE WHEN i.target_date IS NOT NULL AND i.target_date < date('now')
+                AND i.status NOT IN ('resolved','cancelled') THEN 1 ELSE 0 END) AS overdue
+    FROM md_meetings m
+    LEFT JOIN md_issues i ON i.meeting_id = m.id
+    WHERE m.meeting_date BETWEEN @from AND @to ${extraW}
+    GROUP BY m.site_code
+    ORDER BY meetings DESC, site ASC
+  `).all(params);
+
+  // Composite score = simple mean of the non-null engagement scores
+  // (Option A per user choice). E4 is excluded — it's a placeholder
+  // until the outbound-comms log feature ships.
+  const heatBySite = Object.fromEntries(complianceHeatmap.map(r => [r.site, r]));
+  const siteLeaderboard = leaderboard.map(r => {
+    const hm = heatBySite[r.site] || {};
+    const scores = [hm.e1, hm.e2, hm.e3, hm.e5].filter(x => x != null && !isNaN(x));
+    const score  = scores.length > 0 ? scores.reduce((a,b) => a+b, 0) / scores.length : null;
+    return {
+      ...r,
+      engagement_1:     hm.e1     != null ? hm.e1     : null,
+      diffused_48h_pct: hm.e2     != null ? hm.e2     : null,
+      champion_pct:     hm.e3     != null ? hm.e3     : null,
+      escalation_disc:  hm.e5     != null ? hm.e5     : null,
+      score,
+    };
+  });
+
+  return {
+    period: { from, to, months: numMonths },
+    monthly,
+    by_month_site:      byMonthSite,
+    by_category:        byCategory,
+    by_severity:        bySeverity,
+    by_council_theme:   byCouncilTheme,
+    compliance_heatmap: complianceHeatmap,
+    site_leaderboard:   siteLeaderboard,
+  };
+}
+
+// Number of calendar months a [from, to] window spans, inclusive of both
+// endpoints. Used to prorate Engagement #1's "3 PVs per month" target.
+function _diffMonthsInclusive(from, to) {
+  const d1 = new Date(from);
+  const d2 = new Date(to);
+  if (isNaN(d1) || isNaN(d2)) return 0;
+  return (d2.getFullYear() - d1.getFullYear()) * 12 + (d2.getMonth() - d1.getMonth()) + 1;
+}
+
+// Backfill the monthly time-series with zero rows for inactive months
+// so charts render gaps as 0 instead of compressing the x-axis.
+// Safety cap at 36 months to prevent runaway from a malformed range.
+function _backfillMonths(rows, from, to) {
+  const known = Object.fromEntries(rows.map(r => [r.month, r]));
+  const out = [];
+  const cursor = new Date(from);
+  const end    = new Date(to);
+  if (isNaN(cursor) || isNaN(end)) return rows;
+  // Anchor cursor on the 1st of the month so date arithmetic doesn't drift
+  // when from is e.g. the 31st (next-month +1 = March 3rd, skipping Feb).
+  cursor.setDate(1);
+  end.setDate(1);
+  let guard = 0;
+  while (cursor <= end && guard < 36) {
+    const k = cursor.toISOString().slice(0, 7);
+    out.push(known[k] || {
+      month: k, meetings: 0, issues_opened: 0, issues_closed: 0, escalated: 0,
+    });
+    cursor.setMonth(cursor.getMonth() + 1);
+    guard++;
+  }
+  return out;
+}
+
+/** KPI aggregate for the meetings dashboard. */
+function aggregate(opts = {}) {
+  const db = getDB();
+  const where  = [];
+  const params = {};
+  if (opts.site)       { where.push('m.site_code = @site');         params.site = opts.site; }
+  if (opts.department) { where.push('m.department = @department');  params.department = opts.department; }
+  if (opts.from)       { where.push('m.meeting_date >= @from');     params.from = opts.from; }
+  if (opts.to)         { where.push('m.meeting_date <= @to');       params.to = opts.to; }
+  const w = where.length ? 'WHERE ' + where.join(' AND ') : '';
+
+  const meetingCounts = db.prepare(`
+    SELECT
+      COUNT(*) AS total_meetings,
+      SUM(CASE WHEN m.status = 'draft'     THEN 1 ELSE 0 END) AS draft_count,
+      SUM(CASE WHEN m.status = 'submitted' THEN 1 ELSE 0 END) AS submitted_count,
+      SUM(CASE WHEN m.status = 'signed'    THEN 1 ELSE 0 END) AS signed_count,
+      SUM(CASE WHEN m.status = 'closed'    THEN 1 ELSE 0 END) AS closed_count,
+      COUNT(DISTINCT m.department) AS departments_covered
+    FROM md_meetings m ${w}
+  `).get(params);
+
+  const issueCounts = db.prepare(`
+    SELECT
+      COUNT(*) AS total_issues,
+      SUM(CASE WHEN i.severity = 'HIGH'   THEN 1 ELSE 0 END) AS high_issues,
+      SUM(CASE WHEN i.severity = 'MEDIUM' THEN 1 ELSE 0 END) AS medium_issues,
+      SUM(CASE WHEN i.severity = 'LOW'    THEN 1 ELSE 0 END) AS low_issues,
+      SUM(CASE WHEN i.status IN ('resolved','cancelled') THEN 0 ELSE 1 END) AS open_issues,
+      SUM(CASE WHEN i.escalate = 1 AND i.status NOT IN ('resolved','cancelled') THEN 1 ELSE 0 END) AS escalated_open,
+      SUM(CASE WHEN i.escalate = 1 THEN 1 ELSE 0 END) AS total_escalated,
+      SUM(CASE WHEN i.target_date IS NOT NULL AND i.target_date < date('now')
+                AND i.status NOT IN ('resolved','cancelled') THEN 1 ELSE 0 END) AS overdue_issues
+    FROM md_issues i
+    JOIN md_meetings m ON m.id = i.meeting_id
+    ${w}
+  `).get(params);
+
+  const byCategory = db.prepare(`
+    SELECT i.category, COUNT(*) AS n,
+           SUM(CASE WHEN i.severity = 'HIGH' THEN 1 ELSE 0 END) AS high_n,
+           SUM(CASE WHEN i.escalate = 1 THEN 1 ELSE 0 END) AS esc_n
+    FROM md_issues i JOIN md_meetings m ON m.id = i.meeting_id
+    ${w}
+    GROUP BY i.category
+    ORDER BY n DESC
+  `).all(params);
+
+  const byTheme = db.prepare(`
+    SELECT i.council_theme, COUNT(*) AS n
+    FROM md_issues i JOIN md_meetings m ON m.id = i.meeting_id
+    ${w} ${w ? 'AND' : 'WHERE'} i.escalate = 1
+    GROUP BY i.council_theme
+    ORDER BY n DESC
+  `).all(params);
+
+  return {
+    meetings: meetingCounts,
+    issues:   issueCounts,
+    by_category: byCategory,
+    by_council_theme: byTheme,
+  };
+}
+
+/**
+ * Compliance monitor for the 5 Engagements. Returns per-site counts so
+ * the UI can render a leaderboard. `month` parameter expected as 'YYYY-MM'.
+ */
+function compliance(opts = {}) {
+  const db = getDB();
+  const month = opts.month || new Date().toISOString().slice(0, 7);
+  const monthFirst = `${month}-01`;
+  const monthLast  = `${month}-31`;
+
+  // Per-site meeting count for the month
+  const perSite = db.prepare(`
+    SELECT m.site_code,
+           COUNT(*) AS meetings_this_month,
+           SUM(CASE WHEN m.submitted_at IS NOT NULL
+                     AND julianday(m.submitted_at) - julianday(m.meeting_date) <= 2 THEN 1 ELSE 0 END) AS diffused_in_48h,
+           SUM(CASE WHEN m.status IN ('signed','closed') THEN 1 ELSE 0 END) AS signed_count
+    FROM md_meetings m
+    WHERE m.meeting_date BETWEEN ? AND ?
+    GROUP BY m.site_code
+    ORDER BY m.site_code
+  `).all(monthFirst, monthLast);
+
+  // Champion compliance: count actions with no owner_it
+  const actionStats = db.prepare(`
+    SELECT
+      COUNT(*) AS total_actions,
+      SUM(CASE WHEN a.owner_it IS NULL OR TRIM(a.owner_it) = '' THEN 1 ELSE 0 END) AS actions_without_champion
+    FROM md_actions a
+    JOIN md_meetings m ON m.id = a.meeting_id
+    WHERE m.meeting_date BETWEEN ? AND ?
+  `).get(monthFirst, monthLast);
+
+  // Escalation discipline: count issues marked escalate=1 with no escalation_reason or no council_theme
+  const escalationStats = db.prepare(`
+    SELECT
+      COUNT(*) AS total_escalated,
+      SUM(CASE WHEN i.escalation_reason IS NULL OR TRIM(i.escalation_reason) = '' THEN 1 ELSE 0 END) AS missing_reason,
+      SUM(CASE WHEN i.council_theme     IS NULL OR TRIM(i.council_theme)     = '' THEN 1 ELSE 0 END) AS missing_theme
+    FROM md_issues i
+    JOIN md_meetings m ON m.id = i.meeting_id
+    WHERE m.meeting_date BETWEEN ? AND ? AND i.escalate = 1
+  `).get(monthFirst, monthLast);
+
+  return {
+    month,
+    per_site: perSite,
+    actions: actionStats,
+    escalations: escalationStats,
+  };
+}
+
+function deleteMeeting(id) {
+  const db = getDB();
+  // Snapshot DB BEFORE the destructive write. Meetings have nested
+  // issues, actions, attachments, and audit-trail updates that all
+  // cascade-delete with the parent — a backup is the only practical
+  // way to recover if the deletion was a mistake. If backup throws,
+  // the delete never runs. Path is logged to pm2 ([Backup] meetings -> …).
+  _backup(db, 'pre-delete-meeting-' + String(id || 'unknown').slice(0, 30));
+  const info = db.prepare('DELETE FROM md_meetings WHERE id = ?').run(id);
+  return info.changes > 0;
+}
+
+// Shared backup wrapper — see db-backup.js. Same convention as
+// tracker-db and inspection-db so backups across modules live
+// side-by-side in data/backups/ with predictable filenames.
+function _backup(db, reason) {
+  const { backupDatabase } = require('./db-backup.js');
+  return backupDatabase(db, 'meetings', reason);
+}
+
+function getMeetingStatus(id) {
+  const db  = getDB();
+  const row = db.prepare('SELECT status, site_code FROM md_meetings WHERE id = ?').get(id);
+  return row || null;
+}
+
+function resetLookups() {
+  const db = getDB();
+  // Backup BEFORE wiping the lookup tables. Same rationale as the
+  // inspection module's resetLookups — doesn't touch meeting rows
+  // themselves but losing the lookups breaks the form UX until the
+  // seed re-runs. Backup gives a one-step rollback if the seed
+  // unexpectedly changed shape between releases.
+  _backup(db, 'pre-reset-lookups');
+  db.exec(`
+    DELETE FROM md_intake_sources;
+    DELETE FROM md_departments;
+    DELETE FROM md_categories;
+    DELETE FROM md_severities;
+    DELETE FROM md_statuses;
+    DELETE FROM md_meeting_statuses;
+    DELETE FROM md_escalation_reasons;
+    DELETE FROM md_council_themes;
+    DELETE FROM md_project_phases;
+    DELETE FROM md_it_involvement;
+    DELETE FROM md_engagements;
+  `);
+  _seedLookups(db);
+}
+
+// ── Parametrable list helpers — admin can extend any lookup at runtime. ──
+//
+// The 11 lookup tables are the same set everywhere (POST add, PUT update,
+// PATCH active, GET list). Centralise the allowlist so adding a new lookup
+// is a one-line change.
+const ALLOWED_LOOKUP_TABLES = [
+  'md_intake_sources', 'md_departments', 'md_categories', 'md_severities',
+  'md_statuses', 'md_meeting_statuses', 'md_escalation_reasons',
+  'md_council_themes', 'md_project_phases', 'md_it_involvement', 'md_engagements',
+];
+
+function _assertLookupTable(table) {
+  if (!ALLOWED_LOOKUP_TABLES.includes(table)) throw new Error('Disallowed lookup table');
+}
+
+// Discover the table's actual columns at runtime. Each lookup has a slightly
+// different column set (md_categories has color+icon; md_severities has
+// description_en/fr) — this lets the add/update functions silently drop
+// any client-supplied keys that don't apply to the target table instead of
+// crashing with "no such column".
+function _lookupColumns(db, table) {
+  return db.prepare(`PRAGMA table_info(${table})`).all().map(r => r.name);
+}
+
+/**
+ * Insert ONE row into a lookup. Refuses to write if `code` already exists —
+ * use updateLookupRow() to patch an existing row. (The underlying
+ * _seedTable uses INSERT OR REPLACE which would silently clobber columns
+ * absent from the patch back to their defaults, e.g. wiping display_order
+ * to 0 or active to 1. Strict refuse here protects admins from that
+ * surprise.)
+ */
+function addLookupRow(table, row) {
+  _assertLookupTable(table);
+  if (!row || typeof row !== 'object') throw new Error('Row body is required');
+  if (!row.code || typeof row.code !== 'string') throw new Error('code is required');
+  if (!row.name_en) throw new Error('name_en is required');
+
+  const db = getDB();
+  const exists = db.prepare(`SELECT 1 FROM ${table} WHERE code = ?`).get(row.code);
+  if (exists) throw new Error(`Code "${row.code}" already exists in ${table.replace(/^md_/, '')} — use update instead.`);
+
+  // Drop client keys that don't match an actual column on this table.
+  const cols = _lookupColumns(db, table);
+  const filtered = {};
+  for (const k of Object.keys(row)) {
+    if (cols.includes(k)) filtered[k] = row[k];
+  }
+  _seedTable(db, table, [filtered]);
+  return { ok: true };
+}
+
+/**
+ * List one lookup table. With { includeInactive: true } the admin sees
+ * soft-deleted rows too (the dropdowns elsewhere in the app filter by
+ * active=1 via loadLookups()). Sorted by display_order then code so the
+ * admin UI is deterministic.
+ */
+function listLookupTable(table, opts = {}) {
+  _assertLookupTable(table);
+  const where = opts.includeInactive ? '' : 'WHERE active = 1';
+  return getDB().prepare(`SELECT * FROM ${table} ${where} ORDER BY display_order, code`).all();
+}
+
+/**
+ * Partial UPDATE — patch only the columns supplied. `code` itself is NOT
+ * editable (it's the PK and the URL identifier); to rename a code, delete
+ * the row and re-add with the new code.
+ *
+ * Editable columns are the universal four (name_en, name_fr, display_order,
+ * active) plus per-table extras (color, icon, description_en/fr) when the
+ * target table has them. Unknown keys are silently dropped so the client
+ * doesn't have to know each table's schema.
+ */
+function updateLookupRow(table, code, patch) {
+  _assertLookupTable(table);
+  if (!code || typeof code !== 'string') throw new Error('code is required');
+
+  const db = getDB();
+  const cols = _lookupColumns(db, table);
+
+  // Whitelist of columns the admin can touch (gates per-row tampering).
+  const editable = ['name_en', 'name_fr', 'color', 'icon',
+                    'description_en', 'description_fr',
+                    'display_order', 'active'];
+
+  const sets = [];
+  const params = { code };
+  for (const k of editable) {
+    if (!cols.includes(k)) continue;                          // skip cols absent on this table
+    if (!Object.prototype.hasOwnProperty.call(patch || {}, k)) continue;
+    sets.push(`${k} = @${k}`);
+    // Coerce active and display_order to integers (clients sometimes send strings/booleans).
+    if (k === 'active')        params[k] = (patch[k] === 1 || patch[k] === true || patch[k] === '1') ? 1 : 0;
+    else if (k === 'display_order') params[k] = parseInt(patch[k], 10) || 0;
+    else                       params[k] = patch[k];
+  }
+  if (sets.length === 0) throw new Error('Nothing to update — supply at least one editable field');
+
+  const r = db.prepare(`UPDATE ${table} SET ${sets.join(', ')} WHERE code = @code`).run(params);
+  if (r.changes === 0) throw new Error(`No row with code "${code}" in ${table.replace(/^md_/, '')}`);
+  return { ok: true, changes: r.changes };
+}
+
+// ── Department progress / inter-meeting diff ────────────────────────
+/**
+ * Find the most recent prior meeting in (site_code × department) before
+ * `beforeDate`. If beforeDate is omitted, the very last meeting in the
+ * pair is returned. Returns `null` if no prior meeting exists.
+ */
+function previousMeeting(site_code, department, beforeDate) {
+  if (!site_code || !department) return null;
+  const db = getDB();
+  if (beforeDate) {
+    return db.prepare(`
+      SELECT * FROM md_meetings
+       WHERE site_code = ? AND department = ? AND meeting_date < ?
+       ORDER BY meeting_date DESC, id DESC LIMIT 1
+    `).get(site_code, department, beforeDate);
+  }
+  return db.prepare(`
+    SELECT * FROM md_meetings
+     WHERE site_code = ? AND department = ?
+     ORDER BY meeting_date DESC, id DESC LIMIT 1
+  `).get(site_code, department);
+}
+
+/**
+ * Pre-brief view for the IT coordinator running the NEXT meeting with a
+ * given department. Two natural calling conventions:
+ *
+ *   compareDepartment({ site, department, current_id })
+ *     — current_id is the meeting we're preparing TO RUN (e.g. a draft).
+ *       The previous meeting is auto-derived as the most recent prior
+ *       meeting in the same site × department.
+ *
+ *   compareDepartment({ site, department, asOf: 'YYYY-MM-DD' })
+ *     — no current meeting yet (pure pre-brief). Previous = most recent
+ *       meeting in (site × dept) before asOf. asOf defaults to today.
+ *
+ * Returns:
+ *   {
+ *     site, department, current: {id?, meeting_date, reference, status} | null,
+ *     previous: {id, meeting_date, reference, status} | null,
+ *     standing:  [issues that are still open in this site×dept],
+ *     resolved:  [issues that closed since previous.meeting_date],
+ *     new_items: [issues raised AFTER previous.meeting_date],
+ *     actions_standing: [...], actions_resolved: [...], actions_new: [...],
+ *     escalations: [open escalated issues in scope],
+ *     meeting_history: [last 6 PV references for this site × dept],
+ *   }
+ *
+ * Every item carries enough origin info (meeting_reference, meeting_id,
+ * meeting_date) for the UI to deep-link back to the parent PV.
+ */
+function compareDepartment(opts = {}) {
+  const db = getDB();
+  const site_code = opts.site;
+  const department = opts.department;
+  if (!site_code || !department) throw new Error('site and department are required');
+
+  // Resolve current + previous
+  let current = null;
+  if (opts.current_id) {
+    current = db.prepare('SELECT * FROM md_meetings WHERE id = ?').get(parseInt(opts.current_id, 10));
+    if (current && (current.site_code !== site_code || current.department !== department)) {
+      throw new Error(`Meeting #${opts.current_id} does not match site/department scope`);
+    }
+  }
+  const asOf = opts.asOf || (current && current.meeting_date) || new Date().toISOString().slice(0, 10);
+  const previous = previousMeeting(site_code, department, current ? current.meeting_date : (opts.asOf ? null : null));
+  // when current is supplied, "previous" is the meeting BEFORE current's date
+  // when asOf is supplied, "previous" is the meeting BEFORE asOf
+  // when neither, "previous" is just the most recent meeting overall
+
+  // Reference date: what counts as "before" the next meeting
+  const refDate = (previous && previous.meeting_date) || '1970-01-01';
+
+  // ─ Standing issues: open in this site × dept (regardless of which
+  //   meeting they came from)
+  const standing = db.prepare(`
+    SELECT i.*, m.reference AS meeting_reference, m.meeting_date AS meeting_date, m.id AS meeting_id_ref
+      FROM md_issues i JOIN md_meetings m ON m.id = i.meeting_id
+     WHERE m.site_code = ? AND m.department = ?
+       AND i.status NOT IN ('resolved','cancelled')
+     ORDER BY
+       CASE i.severity WHEN 'HIGH' THEN 0 WHEN 'MEDIUM' THEN 1 ELSE 2 END,
+       CASE WHEN i.target_date IS NULL THEN 1 ELSE 0 END,
+       i.target_date ASC, i.id ASC
+  `).all(site_code, department);
+
+  // ─ Resolved since previous meeting
+  const resolved = db.prepare(`
+    SELECT i.*, m.reference AS meeting_reference, m.meeting_date AS meeting_date, m.id AS meeting_id_ref
+      FROM md_issues i JOIN md_meetings m ON m.id = i.meeting_id
+     WHERE m.site_code = ? AND m.department = ?
+       AND i.status IN ('resolved','cancelled')
+       AND (i.closed_at IS NULL OR date(i.closed_at) > date(?))
+     ORDER BY i.closed_at DESC, i.id DESC
+  `).all(site_code, department, refDate);
+
+  // ─ New issues: raised AFTER previous.meeting_date (i.e. came up since)
+  const newIssues = db.prepare(`
+    SELECT i.*, m.reference AS meeting_reference, m.meeting_date AS meeting_date, m.id AS meeting_id_ref
+      FROM md_issues i JOIN md_meetings m ON m.id = i.meeting_id
+     WHERE m.site_code = ? AND m.department = ?
+       AND m.meeting_date > ?
+     ORDER BY i.severity, i.id
+  `).all(site_code, department, refDate);
+
+  // ─ Actions in scope (standing / resolved / new — same split as issues)
+  const actions_standing = db.prepare(`
+    SELECT a.*, m.reference AS meeting_reference, m.meeting_date AS meeting_date, m.id AS meeting_id_ref
+      FROM md_actions a JOIN md_meetings m ON m.id = a.meeting_id
+     WHERE m.site_code = ? AND m.department = ?
+       AND a.status NOT IN ('resolved','cancelled')
+     ORDER BY
+       CASE WHEN a.target_date IS NULL THEN 1 ELSE 0 END,
+       a.target_date ASC, a.id ASC
+  `).all(site_code, department);
+  const actions_resolved = db.prepare(`
+    SELECT a.*, m.reference AS meeting_reference, m.meeting_date AS meeting_date, m.id AS meeting_id_ref
+      FROM md_actions a JOIN md_meetings m ON m.id = a.meeting_id
+     WHERE m.site_code = ? AND m.department = ?
+       AND a.status IN ('resolved','cancelled')
+       AND (a.closed_at IS NULL OR date(a.closed_at) > date(?))
+     ORDER BY a.closed_at DESC, a.id DESC
+  `).all(site_code, department, refDate);
+  const actions_new = db.prepare(`
+    SELECT a.*, m.reference AS meeting_reference, m.meeting_date AS meeting_date, m.id AS meeting_id_ref
+      FROM md_actions a JOIN md_meetings m ON m.id = a.meeting_id
+     WHERE m.site_code = ? AND m.department = ?
+       AND m.meeting_date > ?
+     ORDER BY a.id
+  `).all(site_code, department, refDate);
+
+  // ─ Escalations (open + flagged) in scope
+  const escalations = db.prepare(`
+    SELECT i.*, m.reference AS meeting_reference, m.meeting_date AS meeting_date, m.id AS meeting_id_ref
+      FROM md_issues i JOIN md_meetings m ON m.id = i.meeting_id
+     WHERE m.site_code = ? AND m.department = ?
+       AND i.escalate = 1 AND i.status NOT IN ('resolved','cancelled')
+     ORDER BY i.severity, i.id
+  `).all(site_code, department);
+
+  // ─ Audit updates since previous meeting (helps explain transitions)
+  // Pull every audit row whose issue belongs to this scope and dated >
+  // refDate. Keep newest 25 so the UI doesn't get flooded.
+  const updates_since = db.prepare(`
+    SELECT u.*, i.title AS issue_title, m.reference AS meeting_reference, m.id AS meeting_id_ref
+      FROM md_issue_updates u
+      JOIN md_issues   i ON i.id = u.issue_id
+      JOIN md_meetings m ON m.id = i.meeting_id
+     WHERE m.site_code = ? AND m.department = ?
+       AND date(u.created_at) > date(?)
+     ORDER BY u.created_at DESC, u.id DESC
+     LIMIT 25
+  `).all(site_code, department, refDate);
+
+  // ─ Last 6 meetings in scope (history strip for UI breadcrumbs)
+  const meeting_history = db.prepare(`
+    SELECT id, reference, meeting_date, status, department_head, site_it_lead
+      FROM md_meetings
+     WHERE site_code = ? AND department = ?
+     ORDER BY meeting_date DESC, id DESC LIMIT 6
+  `).all(site_code, department);
+
+  return {
+    site: site_code, department,
+    current,
+    previous,
+    as_of: asOf,
+    standing, resolved, new_items: newIssues,
+    actions_standing, actions_resolved, actions_new,
+    escalations,
+    updates_since,
+    meeting_history,
+    summary: {
+      standing_total:    standing.length,
+      standing_high:     standing.filter(i => i.severity === 'HIGH').length,
+      resolved_total:    resolved.length,
+      new_total:         newIssues.length,
+      escalated_open:    escalations.length,
+      actions_standing:  actions_standing.length,
+      actions_resolved:  actions_resolved.length,
+      actions_new:       actions_new.length,
+    },
+  };
+}
+
+module.exports = {
+  loadLookups,
+  listMeetings, countMeetings, getMeeting, saveMeeting, deleteMeeting, getMeetingStatus,
+  listIssues, listEscalations, addIssueUpdate,
+  aggregate, compliance, insights,
+  previousMeeting, compareDepartment,
+  resetLookups,
+  addLookupRow, listLookupTable, updateLookupRow,
+  getMeetingIdByReference,
+};
+
+// ── Public helper exposed for the bulk-import preview ───────────────────
+// Returns the existing meeting id when a reference is already in DB, or
+// null when the reference is new. Lets the import UI decorate each row
+// with "🆕 will create" vs "🔄 will update" before the user commits.
+function getMeetingIdByReference(reference) {
+  if (!reference) return null;
+  const row = getDB().prepare('SELECT id FROM md_meetings WHERE reference = ?').get(String(reference).trim());
+  return row ? row.id : null;
+}

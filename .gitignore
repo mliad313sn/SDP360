@@ -1,0 +1,114 @@
+# ── SECRETS — NEVER COMMIT ────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+*.env
+.token_cache.json
+
+# ── RUNTIME DATA ─────────────────────────────────────────────────
+data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# ── NODE ─────────────────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-error.log
+
+# ── OS / EDITOR LOCK FILES ────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+.~lock.*#
+
+# ── GENERATED BINARIES — do not store in git ─────────────────────
+# (regenerate these from the server at any time)
+*.pptx
+*.pptx.tmp
+*.pdf
+*.docx
+*.xlsx
+*.zip
+*.png
+*.jpg
+*.jpeg
+*.gif
+
+# ── EXCEPTION: ship the IT Activity Tracker brand assets ─────────
+# These are the icons embedded in tracker PPTX slides (logo, pillar icons,
+# RAG check/warn marks, header chart icon, brand footer bands). They MUST
+# be tracked in git so the executive-report.html PPTX export can fetch
+# them client-side.
+!public/tracker-icons/*.png
+
+# ── EXCEPTION: official EDV brand assets used by the unified shell ───
+# The shell logo and login-page badge load from public/brand/. These
+# files come from the EDV brand-guidelines folder (logo HIGH WHITE.png
+# for dark headers, logo HIGH.png for light surfaces). They have to be
+# tracked so first-deploy renders correctly.
+!public/brand/*.png
+!public/brand/*.jpg
+!public/brand/*.svg
+
+# ── TEMP / SCRATCH FILES ─────────────────────────────────────────
+*.tmp
+dist/
+# Auto-deploy script written by .git/hooks/post-commit — regenerated
+# on every commit, never committed.
+_deploy.cmd
+unpacked_tmpl/
+slide_qa*.jpg
+smoke-check*.jpg
+tmpl_thumb.jpg
+chart_*.png
+graphify-out/
+.graphify_*
+
+# ── LEGACY / ONE-OFF SCRIPTS (not part of the live app) ──────────
+generate-executive-pptx*.js
+generate-monthly-report.js
+generate-report.bat
+generate-site-monthly-pptx.js
+# executive-new-report.js — REMOVED from legacy list. It's live code:
+# loaded by server.js as the /api/executive-new-pptx generator. Tracking it
+# in git so changes ship via the standard branch workflow.
+extract_feb2026_data.js
+extract-cache.py
+get-token.js
+make_group_reports*.js
+make_monthly_report.js
+server-minimal.js
+zijmSsgS
+zithhXhE
+
+# ── SKILL FILES (managed by Cowork, not the app) ─────────────────
+*.skill
+.claude/
+
+# ── MISC DOCS / NOTES (optional — remove lines to commit these) ───
+CLAUDE_MEMORY.md
+CLAUDE_PROJECT_CONTEXT.md
+NEW_CONVERSATION_PROMPT.md
+RESTORE_README.txt
+RESTORE_AI_ANALYSIS.md
+EXECUTIVE_REPORT_TASK.md
+ANALYSIS_WORKFLOW.md
+COLLEAGUE_README.txt
+COLLEAGUE_SETUP.md
+DEPLOY_TO_SERVER.html
+monthly_report_task_config.md
+"Start Prompt Dashboard.txt"
+"Views in Analytics.txt"
+
+# Chrome DevTools MCP dumps of the AP Unified Metrics page — captured
+# during the 2026-06-02 ITSM-divergence audit. Kept locally as raw
+# audit artefacts; the verified formulas are folded into the tracked
+# FORMULA_RECONCILIATION.md so no committed file references these.
+ap_unified_metrics_dump.txt
+ap_unified_metrics_dump.json
+
+# Python bytecode caches
+__pycache__/
+*.pyc

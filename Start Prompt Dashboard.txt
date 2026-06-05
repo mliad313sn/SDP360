@@ -1,0 +1,6 @@
+I'm working on the Endeavour Mining SDP Dashboard. Please read CLAUDE_PROJECT_CONTEXT.md in my workspace folder
+
+pm2 restart endeavour-dashboard 
+ 
+pm2 reload endeavour-dashboard 
+

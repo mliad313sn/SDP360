@@ -1,0 +1,1703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IT Operations Center · Endeavour Mining</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js" defer></script>
+<style>
+:root{--orange:#EF631A;--amber:#F99D07;--blue:#1976BC;--green:#16A34A;--green-l:#DCFCE7;--green-d:#166534;--red:#DC2626;--red-l:#FEE2E2;--red-d:#991B1B;--amb-l:#FEF3C7;--amb-d:#92400E;--slate:#3B3B3B;--slate2:#524F4E;--slate3:#8A8380;--bg:#F7F5F3;--card:#FFFFFF;--border:#E8E5E2;--radius:8px;--shadow:0 2px 8px rgba(0,0,0,.08)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Calibri,sans-serif;background:var(--bg);color:var(--slate);font-size:13px}
+a{color:var(--blue);text-decoration:none}
+.hdr{display:flex;align-items:center;gap:12px;background:var(--orange);padding:0 16px;height:52px;color:#fff;flex-shrink:0}
+.hdr-logo{font-size:18px;font-weight:700;letter-spacing:.5px;white-space:nowrap}
+.hdr-sub{font-size:11px;opacity:.8;letter-spacing:1px;text-transform:uppercase}
+.hdr-sep{flex:1}
+.hdr-link{font-size:11px;background:rgba(255,255,255,.18);border-radius:4px;padding:4px 10px;color:#fff;cursor:pointer;transition:background .2s}
+.hdr-link:hover{background:rgba(255,255,255,.3)}
+.status-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--amber);margin-right:5px}
+.status-dot.ok{background:var(--green)}
+.status-dot.err{background:var(--red)}
+#statusText{font-size:11px;color:rgba(255,255,255,.85)}
+.btn-refresh{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.4);border-radius:4px;color:#fff;padding:5px 12px;cursor:pointer;font-size:12px}
+.btn-refresh:hover{background:rgba(255,255,255,.25)}
+.btn-export{background:rgba(34,197,94,.25);border:1px solid rgba(34,197,94,.7);border-radius:4px;color:#fff;padding:5px 12px;cursor:pointer;font-size:12px;font-weight:600;letter-spacing:.3px}
+.btn-export:hover{background:rgba(34,197,94,.45)}
+.btn-export:disabled{opacity:.5;cursor:not-allowed}
+.btn-unassigned{border-radius:4px;color:#fff;padding:5px 12px;cursor:pointer;font-size:12px;font-weight:600;letter-spacing:.3px;border:1px solid rgba(220,38,38,.7);background:rgba(220,38,38,.2)}
+.btn-unassigned:hover{background:rgba(220,38,38,.38)}
+.btn-unassigned.none{border-color:rgba(255,255,255,.4);background:rgba(255,255,255,.15);font-weight:400}
+/* ── Unassigned modal table ──────────────────────────────────── */
+#unassignedModalBody table tbody tr:nth-child(even){background:#f7f5f3}
+#unassignedModalBody table tbody tr:hover{background:#dbeafe}
+.accent-strip{height:4px;background:linear-gradient(90deg,var(--orange) 0%,var(--amber) 35%,var(--blue) 60%,#5A4FCF 100%)}
+/* ── Data freshness bar ─────────────────────────────────────── */
+.freshness-bar{display:none;align-items:center;gap:8px;padding:4px 16px;font-size:11px;border-bottom:1px solid var(--border)}
+.freshness-ok{background:#F0FDF4;color:#15803D}
+.freshness-warn{background:#FFFBEB;color:#92400E}
+.freshness-stale{background:#FEF2F2;color:#991B1B}
+.fb-dot{width:7px;height:7px;border-radius:50%;background:#16A34A;flex-shrink:0;display:inline-block}
+.fb-sync-btn{margin-left:auto;background:transparent;border:1px solid currentColor;border-radius:4px;padding:2px 9px;font-size:11px;cursor:pointer;font-weight:600;color:inherit;white-space:nowrap}
+.fb-sync-btn:hover{background:rgba(0,0,0,.07)}
+@keyframes fb-pulse{0%,100%{opacity:1}50%{opacity:.45}}
+.filter-bar{display:flex;align-items:center;gap:8px;padding:8px 14px;background:#fff;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.filter-label{font-size:11px;color:var(--slate3);font-weight:600;letter-spacing:.5px;text-transform:uppercase;white-space:nowrap}
+select.flt{border:1px solid var(--border);border-radius:5px;padding:5px 10px;font-size:12px;color:var(--slate);background:#fff;cursor:pointer;min-width:140px}
+select.flt:focus{outline:2px solid var(--orange);border-color:transparent}
+.period-badge{background:var(--amb-l);color:var(--amb-d);border-radius:4px;padding:4px 10px;font-size:11px;font-weight:600;white-space:nowrap}
+.filter-sep{width:1px;height:22px;background:var(--border);margin:0 4px}
+.view-toggle{display:flex;background:#F3F4F6;border-radius:7px;padding:2px;border:1px solid var(--border);gap:1px}
+.vt-btn{background:transparent;border:none;border-radius:5px;padding:4px 12px;font-size:11px;font-weight:600;color:var(--slate3);cursor:pointer;transition:all .18s;white-space:nowrap}
+.vt-btn:hover{color:var(--slate);background:rgba(255,255,255,.7)}
+.vt-btn.active{background:#fff;color:var(--orange);box-shadow:0 1px 4px rgba(0,0,0,.12)}
+.page{padding:12px 14px;display:flex;flex-direction:column;gap:12px}
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.kpi-card{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);box-shadow:var(--shadow);padding:14px 16px;position:relative;overflow:hidden}
+.kpi-card-accent{position:absolute;left:0;top:0;bottom:0;width:5px;border-radius:var(--radius) 0 0 var(--radius)}
+.kpi-lbl{font-size:10px;font-weight:700;color:var(--slate3);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px}
+.kpi-val{font-size:30px;font-weight:700;line-height:1;margin-bottom:4px}
+.kpi-sub{font-size:11px;color:var(--slate3)}
+.kpi-delta{display:inline-block;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:700;margin-left:4px}
+.dug{background:var(--green-l);color:var(--green-d)}
+.dub{background:var(--red-l);color:var(--red-d)}
+.ddn{background:var(--green-l);color:var(--green-d)}
+.ddb{background:var(--red-l);color:var(--red-d)}
+.dne{background:#F3F4F6;color:#6B7280}
+.sec-hdr{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.sec-hdr-bar{width:4px;height:18px;background:var(--amber);border-radius:2px;flex-shrink:0}
+.sec-hdr-title{font-size:12px;font-weight:700;color:var(--orange);letter-spacing:.8px;text-transform:uppercase}
+.chart-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.chart-card{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);box-shadow:var(--shadow);padding:14px 16px}
+.chart-card.full{grid-column:1/-1}
+.chart-wrap{position:relative}
+.presence-wrap{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);box-shadow:var(--shadow);padding:14px 16px}
+.presence-grid{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.pres-badge{border-radius:6px;padding:8px 12px;min-width:130px;cursor:default;border:1px solid var(--border)}
+.pb-name{font-size:12px;font-weight:700;color:var(--slate)}
+.pb-stats{font-size:10px;color:var(--slate3);margin-top:2px}
+.pres-weeks{display:flex;gap:4px;margin-top:4px}
+.pres-pip{min-width:38px;height:16px;border-radius:3px;text-align:center;font-size:9px;font-weight:700;line-height:16px;padding:0 4px}
+.pres-pip.active{background:var(--green);color:#fff}
+.pres-pip.inactive{background:#E5E7EB;color:#9CA3AF}
+.tbl-wrap{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);box-shadow:var(--shadow);overflow:auto}
+.tbl-wrap table{width:100%;border-collapse:collapse;font-size:12px}
+.tbl-wrap th{background:var(--orange);color:#fff;padding:9px 10px;font-weight:700;font-size:10.5px;letter-spacing:.5px;text-align:left;cursor:pointer;white-space:nowrap;user-select:none;position:sticky;top:0}
+.tbl-wrap th:hover{background:#D5541A}
+.tbl-wrap th.sa::after{content:" ▲"}
+.tbl-wrap th.sd::after{content:" ▼"}
+.tbl-wrap td{padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
+.tbl-wrap tr:nth-child(even) td{background:#FAFAF9}
+.tbl-wrap tr:hover td{background:#FEF3EC}
+.slg{background:var(--green-l);color:var(--green-d);text-align:center;border-radius:4px;padding:2px 6px;display:inline-block;font-size:11px;font-weight:700}
+.slw{background:var(--amb-l);color:var(--amb-d);text-align:center;border-radius:4px;padding:2px 6px;display:inline-block;font-size:11px;font-weight:700}
+.slb{background:var(--red-l);color:var(--red-d);text-align:center;border-radius:4px;padding:2px 6px;display:inline-block;font-size:11px;font-weight:700}
+.empty-state{text-align:center;padding:32px;color:var(--slate3);font-size:13px}
+.page-footer{background:var(--slate2);color:rgba(255,255,255,.55);font-size:10px;text-align:center;padding:8px;letter-spacing:.5px}
+#loadOverlay{position:fixed;inset:0;background:rgba(247,245,243,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;gap:12px}
+.spinner{width:40px;height:40px;border:4px solid var(--border);border-top-color:var(--orange);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#loadMsg{font-size:13px;color:var(--slate3);max-width:420px;text-align:center;line-height:1.6}
+#loadErrBtn{display:none;margin-top:8px;padding:8px 18px;background:var(--orange);color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:12px}
+
+/* ── GROUP MULTI-SELECT WIDGET ──────────────────────── */
+.grp-widget{display:flex;align-items:center;gap:4px;position:relative}
+.grp-preset{background:#F3F4F6;border:1px solid var(--border);border-radius:5px;padding:4px 9px;font-size:11px;font-weight:600;color:var(--slate3);cursor:pointer;transition:all .15s;white-space:nowrap}
+.grp-preset:hover{background:#E9EBF0;color:var(--slate)}
+.grp-preset.active{background:var(--orange);border-color:var(--orange);color:#fff}
+.grp-picker-wrap{position:relative}
+.grp-picker-btn{border:1px solid var(--border);border-radius:5px;padding:5px 10px;font-size:12px;color:var(--slate);background:#fff;cursor:pointer;min-width:110px;text-align:left;white-space:nowrap}
+.grp-picker-btn.has-sel{border-color:var(--orange);color:var(--orange);font-weight:600}
+.grp-dropdown{position:absolute;top:calc(100% + 4px);left:0;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.14);z-index:500;min-width:230px;max-height:300px;overflow-y:auto;padding:4px 0;display:none}
+.grp-dropdown.open{display:block}
+.grp-dd-hdr{padding:7px 12px 5px;font-size:10px;font-weight:700;color:var(--slate3);letter-spacing:.5px;text-transform:uppercase;border-bottom:1px solid var(--border);margin-bottom:2px;display:flex;justify-content:space-between;align-items:center}
+.grp-dd-hdr button{font-size:10px;background:none;border:none;color:var(--blue);cursor:pointer;font-weight:600}
+.grp-dd-hdr button:hover{text-decoration:underline}
+.grp-item{display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;font-size:12px;transition:background .1s}
+.grp-item:hover{background:#FEF3EC}
+.grp-item input[type=checkbox]{cursor:pointer;accent-color:var(--orange);width:13px;height:13px}
+.grp-item label{cursor:pointer;flex:1;color:var(--slate)}
+.grp-config-btn{background:none;border:1px solid var(--border);border-radius:5px;padding:4px 7px;font-size:13px;cursor:pointer;color:var(--slate3);line-height:1;transition:all .15s}
+.grp-config-btn:hover{background:#F3F4F6;color:var(--slate)}
+
+/* ── CONFIG MODAL ───────────────────────────────────── */
+.grp-modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:9998;align-items:center;justify-content:center}
+.grp-modal-bg.open{display:flex}
+.grp-modal{background:#fff;border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,.2);width:500px;max-height:82vh;display:flex;flex-direction:column;overflow:hidden}
+.grp-modal-hdr{padding:15px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-shrink:0}
+.grp-modal-hdr h2{font-size:14px;font-weight:700;color:var(--slate)}
+.grp-modal-close{background:none;border:none;font-size:18px;cursor:pointer;color:var(--slate3);line-height:1}
+.grp-modal-close:hover{color:var(--red)}
+.grp-modal-body{padding:16px 18px;flex:1;overflow-y:auto}
+.grp-modal-team{margin-bottom:18px}
+.grp-modal-team-hdr{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.grp-team-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.grp-modal-team-label{font-size:12px;font-weight:700;letter-spacing:.3px;color:var(--slate)}
+.grp-chips{display:flex;flex-wrap:wrap;gap:5px;min-height:32px;background:#F9F9F9;border:1px solid var(--border);border-radius:6px;padding:5px 7px}
+.grp-chip{background:#E5E7EB;border-radius:4px;padding:3px 8px;font-size:11px;display:flex;align-items:center;gap:5px;color:var(--slate)}
+.grp-chip-rm{cursor:pointer;color:var(--slate3);font-weight:700;font-size:12px;line-height:1;transition:color .1s}
+.grp-chip-rm:hover{color:var(--red)}
+.grp-chip-empty{font-size:11px;color:var(--slate3);padding:3px 4px}
+.grp-add-row{display:flex;gap:6px;margin-top:6px}
+.grp-add-row select{flex:1;border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-size:12px;color:var(--slate)}
+.grp-add-row button{background:var(--orange);color:#fff;border:none;border-radius:4px;padding:4px 12px;font-size:12px;cursor:pointer;font-weight:600}
+.grp-add-row button:hover{background:#D5541A}
+.grp-modal-ftr{padding:11px 18px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px;flex-shrink:0}
+.grp-modal-ftr button{border-radius:5px;padding:7px 16px;font-size:12px;cursor:pointer;font-weight:600}
+.grp-btn-cancel{background:#F3F4F6;border:1px solid var(--border);color:var(--slate)}
+.grp-btn-save{background:var(--orange);border:none;color:#fff}
+.grp-btn-save:hover{background:#D5541A}
+</style>
+<script src="auth.js" data-require="any"></script>
+<script src="lib/dashboard-shared.js"></script>
+<!-- EDV brand tokens MUST load before _shell.css so the shell CSS variables resolve -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="brand/icons.css">
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<link rel="stylesheet" href="_shell.css">
+<script src="_shell.js"></script>
+</head>
+<body>
+
+<div id="loadOverlay">
+  <div class="spinner"></div>
+  <div id="loadMsg">Loading dashboard data…</div>
+  <button id="loadErrBtn" onclick="location.reload()">⟳ Retry</button>
+</div>
+
+<!-- ═ Unified shell ═ -->
+<div id="__shell" data-section="operations" data-version="v1.10.8"></div>
+
+<!-- ═ Page-bar: breadcrumb + helpdesk-specific actions (status, refresh, force-sync, export, unassigned) ═ -->
+<div class="shell-page-bar" style="flex-wrap:wrap;gap:6px">
+  <div class="shell-breadcrumb">
+    <span class="shell-breadcrumb-current">Helpdesk · IT Operations Center</span>
+    <span class="status-dot" id="sdot" style="margin-left:10px"></span>
+    <span id="statusText" style="font-size:11px">Connecting…</span>
+  </div>
+  <span class="shell-page-bar-spacer"></span>
+  <button class="btn-refresh" onclick="location.reload()" style="font-size:11.5px;padding:5px 10px">⟳ Refresh</button>
+  <button class="btn-refresh" id="btnForceSync" onclick="forceSync()" title="Clear server cache and fetch fresh data from Zoho" style="display:none;font-size:11.5px;padding:5px 10px"><i class="icon icon-zap"></i>Force Sync</button>
+  <button class="btn-export" id="btnExport" onclick="exportCSV()" title="Export current period ticket data to CSV" style="font-size:11.5px;padding:5px 10px"><i class="icon icon-download"></i>Export CSV</button>
+  <!-- Risk Register Occurrence export (purely additive, 2026-05-28). Reads from local SQLite (request_records), classifies incidents into 5 risk domains, outputs the monthly Occurrence sheet. Monthly-only — disabled when view mode is weekly. -->
+  <button class="btn-export" id="btnRiskRegister" onclick="exportRiskRegister()" title="Export Risk Register Occurrence sheet for the selected month (Excel)" style="font-size:11.5px;padding:5px 10px">📥 Export Risk Register</button>
+  <button class="btn-unassigned none" id="btnUnassigned" onclick="openUnassignedModal()" title="View open tickets not yet assigned to a technician — respects current Site &amp; Group filters" style="font-size:11.5px;padding:5px 10px">👤 Unassigned (—)</button>
+</div>
+<div class="accent-strip"></div>
+
+<!-- ── Tickets Drill-in Modal (used by Unassigned + Top 10 SLA + Ageing Report) ─ -->
+<div id="unassignedModal" onclick="if(event.target===this)closeUnassignedModal()"
+  style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.55);
+         align-items:center;justify-content:center;padding:20px">
+  <div style="background:#fff;border-radius:10px;width:100%;max-width:980px;max-height:85vh;
+              display:flex;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,.28)">
+    <!-- Modal header -->
+    <div style="display:flex;align-items:center;gap:12px;padding:14px 20px;
+                border-bottom:2px solid #e8e5e2;flex-shrink:0;background:#f7f5f3;border-radius:10px 10px 0 0">
+      <span id="ticketModalTitle" style="font-size:15px;font-weight:700;color:#1C3A5E">👤 Unassigned Open Tickets</span>
+      <span id="ticketModalSubtitle" style="font-size:11px;color:#6b7a99;margin-top:1px">Tickets not yet assigned to a technician · sorted oldest first</span>
+      <span style="flex:1"></span>
+      <button onclick="exportUnassignedCSV()"
+        style="background:#16A34A;color:#fff;border:none;border-radius:5px;padding:6px 16px;
+               font-size:12px;font-weight:600;cursor:pointer"><i class="icon icon-download"></i>Download CSV</button>
+      <button onclick="closeUnassignedModal()"
+        style="background:#e8e5e2;border:none;border-radius:5px;padding:6px 12px;
+               font-size:15px;cursor:pointer;color:#555;line-height:1">✕</button>
+    </div>
+    <!-- Modal body -->
+    <div id="unassignedModalBody" style="overflow-y:auto;padding:16px 20px;flex:1;min-height:0"></div>
+  </div>
+</div>
+
+<div id="freshnessBar" class="freshness-bar"></div>
+
+<div class="filter-bar">
+  <!-- View mode toggle -->
+  <div class="view-toggle">
+    <button class="vt-btn active" data-mode="weekly"    onclick="setMode('weekly')">Weekly</button>
+    <button class="vt-btn"        data-mode="monthly"   onclick="setMode('monthly')">Monthly</button>
+    <button class="vt-btn"        data-mode="quarterly" onclick="setMode('quarterly')">Quarterly</button>
+    <button class="vt-btn"        data-mode="yearly"    onclick="setMode('yearly')">Yearly</button>
+  </div>
+  <span class="filter-sep"></span>
+  <span class="filter-label">Site</span>
+  <select class="flt" id="fSite" onchange="applyFilters()"><option value="all">All Sites</option></select>
+  <span class="filter-sep"></span>
+  <span class="filter-label">Group</span>
+  <div class="grp-widget" id="grpWidget">
+    <button class="grp-preset active" id="gp-all"  onclick="setGroupPreset('all')">All</button>
+    <button class="grp-preset"        id="gp-ops"  onclick="setGroupPreset('ops')">Operations</button>
+    <button class="grp-preset"        id="gp-app"  onclick="setGroupPreset('app')">Applications</button>
+    <div class="grp-picker-wrap">
+      <button class="grp-picker-btn" id="grpPickerBtn" onclick="toggleGroupPicker(event)">▾ Custom</button>
+      <div class="grp-dropdown" id="grpDropdown">
+        <div class="grp-dd-hdr">
+          <span>Select groups</span>
+          <span><button onclick="checkAllGroups(true)">All</button> · <button onclick="checkAllGroups(false)">None</button></span>
+        </div>
+        <div id="grpCheckList"></div>
+      </div>
+    </div>
+    <button class="grp-config-btn" onclick="openGroupConfig()" title="Configure team presets" aria-label="Configure team presets"><i class="icon icon-sliders"></i></button>
+  </div>
+  <span class="filter-sep"></span>
+  <span class="filter-label">Category</span>
+  <select class="flt" id="fCat" onchange="applyFilters()"><option value="all">All Categories</option></select>
+  <span class="filter-sep"></span>
+  <span class="filter-label">Priority</span>
+  <select class="flt" id="fPri" onchange="applyFilters()">
+    <option value="all">All Priorities</option>
+    <option value="Critical">Critical</option>
+    <option value="High">High</option>
+    <option value="Medium">Medium</option>
+    <option value="Low">Low</option>
+  </select>
+  <span class="filter-sep"></span>
+  <span class="filter-label" id="periodLabel">Report Week</span>
+  <select class="flt" id="fPeriod" onchange="applyFilters()" style="min-width:200px"></select>
+  <span class="filter-sep"></span>
+  <span class="filter-label">Trend</span>
+  <select class="flt" id="fTrend" onchange="applyFilters()" style="min-width:100px">
+    <option value="8">8 wks</option>
+    <option value="12" selected>12 wks</option>
+    <option value="16">16 wks</option>
+  </select>
+  <div class="hdr-sep"></div>
+  <span class="period-badge" id="periodBadge">Loading…</span>
+</div>
+
+<div class="page">
+
+  <div class="kpi-row">
+    <div class="kpi-card" title="Total tickets created during this period (all statuses). Counts every new request logged via portal or email."><div class="kpi-card-accent" style="background:var(--blue)"></div><div class="kpi-lbl">Inbound Tickets</div><div class="kpi-val" id="k-inbound" style="color:var(--blue)">—</div><div class="kpi-sub" id="k-inbound-sub"></div></div>
+    <div class="kpi-card" title="Closed Tickets — AP formula: countif(Request Pending Status = 0). Includes Closed, Resolved, Confirmed Resolution, Cancelled and any other non-pending status. Closure rate = Closed ÷ Inbound."><div class="kpi-card-accent" style="background:var(--green)"></div><div class="kpi-lbl">Closed Tickets</div><div class="kpi-val" id="k-closed" style="color:var(--green)">—</div><div class="kpi-sub" id="k-closed-sub"></div></div>
+    <div class="kpi-card" title="1st Reply SLA % — percentage of tickets that received their first technician response within the SLA target time. Does NOT measure resolution. Higher is better. Target ≥80%."><div class="kpi-card-accent" style="background:var(--orange)"></div><div class="kpi-lbl">1st Reply SLA % <span style="font-size:9px;opacity:.7">(on-time responses)</span></div><div class="kpi-val" id="k-frsla" style="color:var(--orange)">—</div><div class="kpi-sub" id="k-frsla-sub"></div></div>
+    <div class="kpi-card" title="Resolution SLA % — percentage of tickets fully resolved within the SLA target time. Separate from first reply. Higher is better. Target ≥80%."><div class="kpi-card-accent" style="background:var(--slate2)"></div><div class="kpi-lbl">Resolution SLA % <span style="font-size:9px;opacity:.7">(on-time closures)</span></div><div class="kpi-val" id="k-ressla" style="color:var(--slate2)">—</div><div class="kpi-sub" id="k-ressla-sub"></div></div>
+  </div>
+
+  <div class="kpi-row">
+    <div class="kpi-card" title="Time to Assign (hrs) — average hours from ticket creation to technician assignment. AP formula: dateandtimediff(HOUR,Created Time,Assigned Time). Lower is better."><div class="kpi-card-accent" style="background:var(--blue)"></div><div class="kpi-lbl">Time to Assign <span style="font-size:9px;opacity:.7">(hrs to assignment)</span></div><div class="kpi-val" id="k-assign" style="color:var(--blue)">—</div><div class="kpi-sub" id="k-assign-sub"></div></div>
+    <div class="kpi-card" title="First Reply (hrs) — average hours from ticket creation to first technician reply. AP formula: (Responded Time − Created Time) ÷ 3600. Lower is better."><div class="kpi-card-accent" style="background:var(--orange)"></div><div class="kpi-lbl">First Reply <span style="font-size:9px;opacity:.7">(hrs to first response)</span></div><div class="kpi-val" id="k-reply" style="color:var(--orange)">—</div><div class="kpi-sub" id="k-reply-sub"></div></div>
+    <div class="kpi-card" title="Resolution Time (days) — average calendar days from ticket creation to resolution. AP formula: datediff(Resolved Time, Created Time). Lower is better."><div class="kpi-card-accent" style="background:var(--amb-d)"></div><div class="kpi-lbl">Resolution Time <span style="font-size:9px;opacity:.7">(days to resolve)</span></div><div class="kpi-val" id="k-res" style="color:var(--amb-d)">—</div><div class="kpi-sub" id="k-res-sub"></div></div>
+    <div class="kpi-card" title="Closing Time (days) — average calendar days from ticket creation to full closure. AP formula: datediff(Completed Time, Created Time). Lower is better."><div class="kpi-card-accent" style="background:var(--slate3)"></div><div class="kpi-lbl">Closing Time <span style="font-size:9px;opacity:.7">(days to close)</span></div><div class="kpi-val" id="k-close" style="color:var(--slate3)">—</div><div class="kpi-sub" id="k-close-sub"></div></div>
+  </div>
+
+  <div class="chart-row">
+    <div class="chart-card">
+      <div class="sec-hdr"><div class="sec-hdr-bar"></div><span class="sec-hdr-title">Ageing Report — Open Tickets <span style="font-size:9px;font-weight:400;opacity:.65;letter-spacing:0;text-transform:none">(how long currently unresolved tickets have been waiting)</span></span><span id="ageing-total" style="font-size:10px;color:var(--slate3);margin-left:auto"></span></div>
+      <div class="chart-wrap" style="height:230px"><canvas id="cAgeing"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="sec-hdr"><div class="sec-hdr-bar"></div><span class="sec-hdr-title" id="top10Title">Top 10 Resolution SLA Breaches by Category</span> <span style="font-size:9px;color:var(--slate3);font-weight:400;text-transform:none;letter-spacing:0">(categories where tickets most often missed their resolution deadline)</span></div>
+      <div class="chart-wrap" style="height:230px"><canvas id="cTop10"></canvas></div>
+    </div>
+  </div>
+
+  <div class="chart-card full">
+    <div class="sec-hdr">
+      <div class="sec-hdr-bar"></div>
+      <span class="sec-hdr-title" id="trendTitle">Request Volume Trend</span>
+      <span style="font-size:10px;color:var(--slate3);margin-left:auto" title="Bars show ticket counts (left axis). Lines show % of tickets that MISSED SLA — lower lines are better.">■ Inbound &nbsp; ■ Closed &nbsp; — Resolution SLA Missed % <span style="opacity:.7">(lower=better)</span> &nbsp; ·· 1st Reply SLA Missed % <span style="opacity:.7">(lower=better)</span></span>
+    </div>
+    <div class="chart-wrap" style="height:230px"><canvas id="cTrend"></canvas></div>
+  </div>
+
+  <div class="presence-wrap">
+    <div class="sec-hdr">
+      <div class="sec-hdr-bar"></div>
+      <span class="sec-hdr-title" id="presTitle">Technician Activity</span>
+      <span style="font-size:9px;color:var(--slate3);font-weight:400;text-transform:none;letter-spacing:0;margin-left:6px">(technicians who handled at least one ticket — green = active this period, grey = inactive)</span>
+      <span id="presLegend" style="font-size:10px;color:var(--slate3);margin-left:8px"></span>
+    </div>
+    <div class="presence-grid" id="presGrid"><div class="empty-state">Loading…</div></div>
+  </div>
+
+  <div>
+    <div class="sec-hdr" style="margin-bottom:8px">
+      <div class="sec-hdr-bar"></div>
+      <span class="sec-hdr-title" id="techTitle">Technician Performance — Report Period</span>
+      <span id="tech-count" style="font-size:10px;color:var(--slate3);margin-left:8px"></span>
+    </div>
+    <div class="tbl-wrap">
+      <table id="techTable">
+        <thead><tr>
+          <th onclick="sortTbl(0)">Technician</th>
+          <th onclick="sortTbl(1)">Site</th>
+          <th onclick="sortTbl(2)" style="text-align:right" title="Total tickets created in this period assigned to this technician">Inbound</th>
+          <th onclick="sortTbl(3)" style="text-align:right" title="Tickets with status Closed / Resolved / Confirm Resolution">Closed</th>
+          <th onclick="sortTbl(4)" style="text-align:right" title="Inbound minus Closed — tickets still open or in progress">Ongoing</th>
+          <th onclick="sortTbl(5)" style="text-align:right" title="Tickets placed on hold at least once (OnHold Count > 0). High numbers may indicate avoidance.">On Hold</th>
+          <th onclick="sortTbl(6)" style="text-align:right" title="Average hours from ticket creation to first technician reply. Lower is better.">1st Reply avg (h)</th>
+          <th onclick="sortTbl(7)" style="text-align:right" title="Average calendar days from ticket creation to closure. Lower is better.">Resolution avg (d)</th>
+          <th onclick="sortTbl(8)" style="text-align:center" title="1st Reply SLA % — % of this technician's tickets that received a first reply within the SLA target. Higher is better. Target ≥80%.">1st Reply SLA %</th>
+          <th onclick="sortTbl(9)" style="text-align:center" title="Resolution SLA % — % of this technician's tickets fully resolved within the SLA target time. Higher is better. Target ≥80%.">Resolution SLA %</th>
+        </tr></thead>
+        <tbody id="techBody"><tr><td colspan="10" class="empty-state">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<div class="page-footer">
+  Endeavour Mining &nbsp;·&nbsp; IT Operations Center &nbsp;·&nbsp; Helpdesk Dashboard &nbsp;·&nbsp;
+  <span id="footerTime"></span>
+</div>
+
+<!-- ── GROUP CONFIG MODAL ───────────────────────────────── -->
+<div class="grp-modal-bg" id="grpModalBg">
+  <div class="grp-modal">
+    <div class="grp-modal-hdr">
+      <h2><i class="icon icon-sliders"></i>Configure Team Groups</h2>
+      <button class="grp-modal-close" onclick="closeGroupConfig()">✕</button>
+    </div>
+    <div class="grp-modal-body">
+      <p style="font-size:11px;color:#6B7280;margin-bottom:14px">Assign groups to each team preset. Click <b>✕</b> on a chip to remove. Add groups using the dropdowns below each team.</p>
+      <div id="grpModalTeams"></div>
+    </div>
+    <div class="grp-modal-ftr">
+      <button class="grp-btn-cancel" onclick="closeGroupConfig()">Cancel</button>
+      <button class="grp-btn-save"   onclick="saveGroupConfig()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script nonce="%%CSP_NONCE%%">
+'use strict';
+// ── Proxy ──────────────────────────────────────────────────────────────────
+const _h = window.location.hostname;
+// PROXY = base URL the dashboard sends API calls to.
+//   - localhost (dev box / file://): explicit http://localhost:3456
+//   - any other hostname: use location.origin so the same-origin protocol+port
+//     is preserved. Crucially, when the page is loaded via the IIS reverse
+//     proxy (https://itops-dashboard.edv-ops.com), this becomes the HTTPS
+//     URL — no port hardcode, no mixed-content blocking, no protocol mismatch.
+const PROXY = (!_h||_h==='localhost'||_h==='127.0.0.1') ? 'http://localhost:3456' : location.origin;
+
+// ── Nav visibility — apply once DOM is ready ───────────────────────────────
+// Script runs in <head> so DOM elements don't exist yet at parse time.
+// DOMContentLoaded fires before any async fetches resolve, giving us the
+// earliest safe moment to show/hide nav based on the role auth.js already set.
+document.addEventListener('DOMContentLoaded', function applyNavRole() {
+  const _isSuperAdmin = window.__authUser && window.__authUser.role === 'super_admin';
+  const _isAdmin      = window.__authUser && ['admin','super_admin'].includes(window.__authUser.role);
+  const _ne = document.getElementById('nav-executive');
+  const _nr = document.getElementById('nav-exec-report');
+  if (_ne) _ne.style.display = _isSuperAdmin ? '' : 'none';
+  if (_nr) _nr.style.display = _isSuperAdmin ? '' : 'none';
+  const _hs = document.getElementById('btnForceSync');
+  if (_hs) _hs.style.display = _isAdmin ? '' : 'none';
+});
+async function pgGet(ep,ms){
+  ms=ms||35000;
+  const hdrs = window.__ak ? {'X-Dash-Key': window.__ak} : (window.__authToken ? {'x-report-token': window.__authToken} : {});
+  const to=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),ms));
+  const fx=fetch(PROXY+ep,{headers:hdrs}).then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.json();});
+  return Promise.race([fx,to]);
+}
+// xRows is provided by /lib/dashboard-shared.js — declared there as a
+// top-level function, so it's in global scope by the time this script runs.
+// We do NOT re-declare it here. (A previous attempt to add a
+// `const xRows = window.xRows || …` fallback caused
+// "SyntaxError: Identifier 'xRows' has already been declared" because the
+// shared lib's function declaration occupies the same global slot.)
+
+// ── Zoho Week Utilities (Sunday-start, mirrors AP Analytics Plus convention) ─
+// AP uses W01 = first Sunday of the year; weeks run Sun–Sat.
+function _zFirstSun(yr){
+  const d=new Date(yr,0,1);
+  d.setDate(1+(d.getDay()===0?0:7-d.getDay()));
+  return d;
+}
+function isoWk(d){
+  const t=new Date(d.getTime());t.setHours(0,0,0,0);
+  let yr=t.getFullYear();
+  let fs=_zFirstSun(yr);
+  if(t<fs){yr--;fs=_zFirstSun(yr);}
+  return Math.floor((t-fs)/(7*86400000))+1;
+}
+function isoWkYr(d){
+  const t=new Date(d.getTime());t.setHours(0,0,0,0);
+  const yr=t.getFullYear();
+  return t<_zFirstSun(yr)?yr-1:yr;
+}
+function wkStart(yr,wk){
+  const fs=_zFirstSun(yr);
+  const s=new Date(fs);s.setDate(fs.getDate()+(wk-1)*7);s.setHours(0,0,0,0);return s;
+}
+function wkEnd(yr,wk){
+  const s=wkStart(yr,wk),e=new Date(s);e.setDate(s.getDate()+6);e.setHours(23,59,59,999);return e;
+}
+function prevWk(yr,wk){
+  if(wk===1){const d=new Date(yr-1,11,28);return{yr:yr-1,wk:isoWk(d)};}
+  return{yr,wk:wk-1};
+}
+function lastCompleteWk(){
+  const now=new Date(),cw=isoWk(now),cy=isoWkYr(now);
+  return prevWk(cy,cw);
+}
+function fmtD(d){return d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'});}
+function wkLabel(yr,wk){
+  const s=wkStart(yr,wk),e=wkEnd(yr,wk);
+  return 'W'+String(wk).padStart(2,'0')+' '+yr+'  ('+fmtD(s)+'–'+fmtD(e)+')';
+}
+
+// ── Date parser  "15 Dec 2024, 08:34:03 AM" ───────────────────────────────
+const _M={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
+function parseDt(s){
+  if(!s)return null;
+  const m=String(s).match(/(\d+)\s+([A-Za-z]+)\s+(\d{4})/);
+  if(!m)return null;
+  const mo=_M[m[2].toLowerCase().slice(0,3)];
+  if(mo===undefined)return null;
+  return new Date(+m[3],mo,+m[1]);
+}
+
+// parseZohoDT, isClosed, isResOverdue, xRows, IT_HELPDESK_GROUPS, isITHelpdesk
+// are all loaded from /lib/dashboard-shared.js (single source of truth across
+// the three dashboards — index, executive, executive-report).
+//
+// isResOverdue body is at dashboard-shared.js. The local definition that
+// previously lived here was the canonical source; it now lives in the shared
+// lib and this file consumes it via window.isResOverdue.
+
+// ── Period key system ──────────────────────────────────────────────────────
+// Weekly:    "W2026-08"
+// Monthly:   "M2026-02"
+// Quarterly: "Q2026-1"
+// Yearly:    "Y2025"
+
+function pMode(pKey){ const c=pKey[0]; return c==='W'?'weekly':c==='M'?'monthly':c==='Q'?'quarterly':'yearly'; }
+
+function pStart(pKey){
+  const mode=pMode(pKey);
+  if(mode==='weekly'){const[ys,ws]=pKey.slice(1).split('-');return wkStart(+ys,+ws);}
+  if(mode==='monthly'){const[ys,ms]=pKey.slice(1).split('-');return new Date(+ys,+ms-1,1);}
+  if(mode==='quarterly'){const[ys,qs]=pKey.slice(1).split('-');return new Date(+ys,(+qs-1)*3,1);}
+  return new Date(+pKey.slice(1),0,1);
+}
+function pEnd(pKey){
+  const mode=pMode(pKey);
+  if(mode==='weekly'){const[ys,ws]=pKey.slice(1).split('-');return wkEnd(+ys,+ws);}
+  if(mode==='monthly'){const[ys,ms]=pKey.slice(1).split('-');const e=new Date(+ys,+ms,0);e.setHours(23,59,59,999);return e;}
+  if(mode==='quarterly'){const[ys,qs]=pKey.slice(1).split('-');const e=new Date(+ys,+qs*3,0);e.setHours(23,59,59,999);return e;}
+  const e=new Date(+pKey.slice(1),11,31,23,59,59,999);return e;
+}
+function prevP(pKey){
+  const mode=pMode(pKey);
+  if(mode==='weekly'){const[ys,ws]=pKey.slice(1).split('-');const p=prevWk(+ys,+ws);return 'W'+p.yr+'-'+String(p.wk).padStart(2,'0');}
+  if(mode==='monthly'){const[ys,ms]=pKey.slice(1).split('-');const yr=+ys,mo=+ms;if(mo===1)return 'M'+(yr-1)+'-12';return 'M'+yr+'-'+String(mo-1).padStart(2,'0');}
+  if(mode==='quarterly'){const[ys,qs]=pKey.slice(1).split('-');const yr=+ys,q=+qs;if(q===1)return 'Q'+(yr-1)+'-4';return 'Q'+yr+'-'+(q-1);}
+  return 'Y'+(+pKey.slice(1)-1);
+}
+function lastNP(pKey,n){
+  const list=[];let p=pKey;
+  for(let i=0;i<n;i++){list.unshift(p);p=prevP(p);}
+  return list;
+}
+function defaultP(mode){
+  const now=new Date();
+  if(mode==='weekly'){
+    // Default = current Zoho week (in-progress is fine — user explicitly wants W10 vs W09).
+    // lastCompleteWk() would give W09 and leave W10 out of the dropdown entirely.
+    const cw=isoWk(now),cy=isoWkYr(now);
+    return 'W'+cy+'-'+String(cw).padStart(2,'0');
+  }
+  if(mode==='monthly'){
+    // Default = current calendar month (in-progress is fine — matches weekly behaviour
+    // and aligns with the dropdown which already starts from the current month).
+    const yr=now.getFullYear(),mo=now.getMonth()+1;
+    return 'M'+yr+'-'+String(mo).padStart(2,'0');
+  }
+  if(mode==='quarterly'){const cq=Math.ceil((now.getMonth()+1)/3),yr=now.getFullYear();if(cq===1)return 'Q'+(yr-1)+'-4';return 'Q'+yr+'-'+(cq-1);}
+  return 'Y'+(now.getFullYear()-1);
+}
+function pLabel(pKey){
+  const mode=pMode(pKey);
+  if(mode==='weekly'){const[ys,ws]=pKey.slice(1).split('-');return wkLabel(+ys,+ws);}
+  if(mode==='monthly'){const[ys,ms]=pKey.slice(1).split('-');return new Date(+ys,+ms-1,1).toLocaleDateString('en-GB',{month:'long',year:'numeric'});}
+  if(mode==='quarterly'){
+    const[ys,qs]=pKey.slice(1).split('-');
+    const s=new Date(+ys,(+qs-1)*3,1),e=new Date(+ys,+qs*3-1,1);
+    return 'Q'+qs+' '+ys+'  ('+s.toLocaleDateString('en-GB',{month:'short'})+'–'+e.toLocaleDateString('en-GB',{month:'short'})+')';
+  }
+  return pKey.slice(1);
+}
+function pShort(pKey){
+  const mode=pMode(pKey);
+  if(mode==='weekly'){const[ys,ws]=pKey.slice(1).split('-');return 'W'+String(+ws).padStart(2,'0')+'\n'+ys;}
+  if(mode==='monthly'){const[ys,ms]=pKey.slice(1).split('-');return new Date(+ys,+ms-1,1).toLocaleDateString('en-GB',{month:'short'})+'\n'+ys;}
+  if(mode==='quarterly'){const[ys,qs]=pKey.slice(1).split('-');return 'Q'+qs+'\n'+ys;}
+  return pKey.slice(1);
+}
+function pCmpLabel(cmpKey){
+  const mode=pMode(cmpKey);
+  if(mode==='weekly'){const[ys,ws]=cmpKey.slice(1).split('-');return 'W'+String(+ws).padStart(2,'0')+' '+ys;}
+  if(mode==='monthly'){const[ys,ms]=cmpKey.slice(1).split('-');return new Date(+ys,+ms-1,1).toLocaleDateString('en-GB',{month:'short',year:'numeric'});}
+  if(mode==='quarterly'){const[ys,qs]=cmpKey.slice(1).split('-');return 'Q'+qs+' '+ys;}
+  return cmpKey.slice(1);
+}
+
+// ── State ──────────────────────────────────────────────────────────────────
+let RAW=[];
+let VIEW_MODE='weekly';
+let REF_P='', CMP_P='';
+let FS='all',FC='all',FP='all',FTN=12;
+let FG=[];          // [] = all groups; non-empty array = selected group names
+let CH={};
+let SC=3,SD=-1;
+
+// ── Team preset config (localStorage-backed) ───────────────────────────────
+const DEFAULT_TEAMS = {
+  ops: { label:'Operations',   color:'#1976BC', groups:[] },
+  app: { label:'Applications', color:'#16A34A', groups:[] },
+};
+// localStorage key 'grpTeams_v2' is index.html-specific (Operations/Applications shape).
+// executive.html uses 'sdp_category_groups' (different schema, sub-categorised),
+// executive-report.html uses 'sdp_group_presets' (versioned per _PRESET_VERSION).
+// Audit Tier 3: the three keys are intentionally unmerged — each dashboard's
+// shape is different and unifying would require user-data migration without
+// clear benefit. Each preset list is local to its dashboard.
+//
+// v1.10.9: bumped 'grpTeams' → 'grpTeams_v2'. The v1 key was populated by an
+// auto-detect keyword guesser that miscategorised half the Apps groups as
+// Ops (anything containing "support" matched). Bumping the key forces every
+// existing user to re-seed from the canonical lists in dashboard-shared.js
+// without us having to detect-and-overwrite-the-broken-data manually.
+const _GROUP_TEAMS_KEY = 'grpTeams_v2';
+let GROUP_TEAMS = (()=>{ try{ const s=localStorage.getItem(_GROUP_TEAMS_KEY); return s ? JSON.parse(s) : DEFAULT_TEAMS; }catch(e){ return DEFAULT_TEAMS; } })();
+// One-time cleanup: delete the legacy 'grpTeams' key so it doesn't sit
+// orphaned in localStorage forever. Safe to remove this line in a few
+// months once all users have hit the page at least once.
+try { localStorage.removeItem('grpTeams'); } catch(_){}
+let _activePreset = 'all'; // 'all' | 'ops' | 'app' | 'custom'
+
+// ── Row matching ───────────────────────────────────────────────────────────
+function matchPeriod(r,pKey){
+  const dt=parseDt(r['Created Time']);if(!dt)return false;
+  const s=pStart(pKey),e=pEnd(pKey);
+  if(dt<s||dt>e)return false;
+  if(FS!=='all'&&!(r['Site']||'').toUpperCase().includes(FS.toUpperCase()))return false;
+  if(FG.length&&!FG.some(g=>g.toLowerCase()===(r['Group']||'').toLowerCase()))return false;
+  if(FC!=='all'){const cv=FC.toLowerCase();if(!(r['Category']||'').toLowerCase().includes(cv)&&!(r['Sub Category']||'').toLowerCase().includes(cv))return false;}
+  if(FP!=='all'&&(r['Priority']||'').toLowerCase()!==FP.toLowerCase())return false;
+  return true;
+}
+function getPRows(pKey){return RAW.filter(r=>matchPeriod(r,pKey));}
+
+// ── Period stats ───────────────────────────────────────────────────────────
+function pStats(pKey){
+  const rows=getPRows(pKey),n=rows.length;
+  let closed=0,onhold=0,slaV=0,frV=0;
+  // Timing — AP-aligned formulas (verified against FORMULA_RECONCILIATION.md):
+  //   TTA:   dateandtimediff(HOUR,"Created Time","Assigned Time") → Math.floor per ticket, include >=0, avg Math.round
+  //   FR:    Zoho pre-computed "Time to Respond in Hrs" → include >0, NO upper cutoff, avg Math.floor
+  //   Res:   datediff("Resolved Time","Created Time")  → Math.floor per ticket, include >=0, avg Math.round
+  //   Close: datediff("Completed Time","Created Time") → Math.floor per ticket, include >=0, avg Math.round
+  // 2026-06-02 ITSM-alignment (FORMULA_RECONCILIATION.md §6 D2/D3):
+  // Track closed-with-verdict + responded-with-verdict subsets so the
+  // SLA and FRT percentages use the correct verdict-only denominators.
+  // The raw slaV / frV counters are kept for backwards compatibility
+  // (consumers that show "X violations" by count, not %).
+  let ttaS=0,ttaN=0,ahS=0,ahN=0,rdS=0,rdN=0,cdS=0,cdN=0;
+  let slaVClosed=0;                // overdue AND closed (numerator for SLA %, ITSM)
+  let respondedN=0, frVResponded=0; // responded counter + FR-overdue AND responded
+  rows.forEach(r=>{
+    const _isClosed = isClosed(r);
+    if(_isClosed)closed++;
+    if(parseInt(r['OnHold Count']||0)>0)onhold++;
+    const _resOver = isResOverdue(r);
+    if(_resOver)slaV++;
+    if(_resOver && _isClosed) slaVClosed++;
+    const frFlag=(r['First Response Overdue Status']||'').toLowerCase();
+    const _frV = (frFlag==='true'||frFlag==='1'||frFlag==='yes');
+    if(_frV)frV++;
+    // Responded gate — gives the ITSM FRT denominator (§6 D3).
+    const _respTime = r['Responded Time'];
+    const _responded = (_respTime != null && String(_respTime).trim() !== '');
+    if(_responded) {
+      respondedN++;
+      if(_frV) frVResponded++;
+    }
+    // TTA: dateandtimediff(HOUR,...) — integer floor, include >=0, NO upper cutoff (AP-aligned)
+    const ct=parseZohoDT(r['Created Time']);
+    if(ct){
+      const at=parseZohoDT(r['Assigned Time']);
+      if(at){const hf=(at-ct)/3600000;if(hf>=0){ttaS+=Math.floor(hf);ttaN++;}}
+      const res=parseZohoDT(r['Resolved Time']);
+      if(res){const df=(res-ct)/86400000;if(df>=0&&df<365){rdS+=Math.floor(df);rdN++;}}
+      const comp=parseZohoDT(r['Completed Time']);
+      if(comp){const df=(comp-ct)/86400000;if(df>=0&&df<365){cdS+=Math.floor(df);cdN++;}}
+    }
+    // FR: Zoho pre-computed field — include >0 with NO upper cutoff (AP includes all)
+    const fr=parseFloat(r['Time to Respond in Hrs']);
+    if(!isNaN(fr)&&fr>0){ahS+=fr;ahN++;}
+  });
+  return{
+    n,closed,ongoing:n-closed,onhold,slaV,frV,
+    // ITSM-aligned percentages (verdict-only denominators).
+    // Tiles now match executive.html / executive-report.html after the
+    // 2026-06-02 alignment sprint.
+    slaPct: closed     > 0 ? Math.round((1 - slaVClosed   / closed)     * 1000) / 10 : null,
+    frPct:  respondedN > 0 ? Math.round((1 - frVResponded / respondedN) * 1000) / 10 : null,
+    avgTta:ttaN>0?Math.round(ttaS/ttaN):null,      // integer display, Math.round avg
+    avgAh: ahN>0?Math.floor(ahS/ahN):null,          // integer display, Math.floor avg (AP: 19 not 20)
+    avgRd: rdN>0?Math.round(rdS/rdN):null,          // integer display, Math.round avg
+    avgCd: cdN>0?Math.round(cdS/cdN):null           // integer display, Math.round avg
+  };
+}
+
+// ── KPI helpers ───────────────────────────────────────────────────────────
+function delta(cur,prev,loBetter){
+  if(cur===null||prev===null||prev===0)return'';
+  const d=cur-prev,pct=Math.round(d/Math.abs(prev)*100),sign=d>0?'+':'';
+  const good=loBetter?d<0:d>0;
+  const cls=d>0?(good?'dug':'dub'):(good?'ddn':'ddb');
+  return '<span class="kpi-delta '+cls+'">'+sign+pct+'%</span>';
+}
+function deltaAbs(cur,prev,loBetter,u){
+  if(cur===null||prev===null)return'';
+  const d=cur-prev,sign=d>0?'+':'';
+  const good=loBetter?d<0:d>0;
+  const cls=d>0?(good?'dug':'dub'):(good?'ddn':'ddb');
+  return '<span class="kpi-delta '+cls+'">'+sign+Math.round(d*10)/10+(u||'')+'</span>';
+}
+function setH(id,v){const e=document.getElementById(id);if(e)e.innerHTML=v;}
+
+function renderKPIs(r,c){
+  const cLbl=' vs '+pCmpLabel(CMP_P);
+  setH('k-inbound',r.n);
+  setH('k-inbound-sub',delta(r.n,c.n,false)+' &nbsp; prev: '+c.n+cLbl);
+  setH('k-closed',r.closed);
+  setH('k-closed-sub',delta(r.closed,c.closed,false)+' &nbsp; prev: '+c.closed+cLbl);
+  setH('k-frsla',r.frPct!==null?r.frPct+'%':'—');
+  setH('k-frsla-sub',r.frPct!==null&&c.frPct!==null?deltaAbs(r.frPct,c.frPct,false,'pt')+' &nbsp; prev: '+c.frPct+'%'+cLbl:'No FR SLA data');
+  setH('k-ressla',r.slaPct!==null?r.slaPct+'%':'—');
+  setH('k-ressla-sub',r.slaPct!==null&&c.slaPct!==null?deltaAbs(r.slaPct,c.slaPct,false,'pt')+' &nbsp; prev: '+c.slaPct+'%'+cLbl:'No SLA data');
+  setH('k-assign',r.avgTta!==null?r.avgTta+'h':'—');
+  setH('k-assign-sub',r.avgTta!==null&&c.avgTta!==null?deltaAbs(r.avgTta,c.avgTta,true,'h')+' &nbsp; prev: '+c.avgTta+'h'+cLbl:'No assign data');
+  setH('k-reply',r.avgAh!==null?r.avgAh+'h':'—');
+  setH('k-reply-sub',r.avgAh!==null&&c.avgAh!==null?deltaAbs(r.avgAh,c.avgAh,true,'h')+' &nbsp; prev: '+c.avgAh+'h'+cLbl:'No first reply data');
+  setH('k-res',r.avgRd!==null?r.avgRd+'d':'—');
+  setH('k-res-sub',r.avgRd!==null&&c.avgRd!==null?deltaAbs(r.avgRd,c.avgRd,true,'d')+' &nbsp; prev: '+c.avgRd+'d'+cLbl:'No resolution data');
+  setH('k-close',r.avgCd!==null?r.avgCd+'d':'—');
+  setH('k-close-sub',r.avgCd!==null&&c.avgCd!==null?deltaAbs(r.avgCd,c.avgCd,true,'d')+' &nbsp; prev: '+c.avgCd+'d'+cLbl:'No closing time data');
+}
+
+// ── Ageing Chart ──────────────────────────────────────────────────────────
+// CLOSED_STATUSES is now shared via /lib/dashboard-shared.js (Audit Tier 3).
+
+// ── Export CSV ────────────────────────────────────────────────────────────────
+// Exports all tickets for the current period + active filters (Site/Group/Category/Priority)
+// as a UTF-8 CSV with all available Zoho fields.
+function exportCSV(){
+  const btn=document.getElementById('btnExport');
+  if(btn){btn.disabled=true;btn.textContent='⏳ Exporting…';}
+  setTimeout(()=>{  // defer to let UI update
+    try{
+      const rows=getPRows(REF_P);
+      if(!rows.length){
+        alert('No tickets to export for the current period and filters.');
+        if(btn){btn.disabled=false;btn.innerHTML=(window.EDV_ICONS?window.EDV_ICONS.html('download'):'')+' Export CSV';}
+        return;
+      }
+      // Ordered key fields first, then remaining fields alphabetically
+      const KEY_FIELDS=[
+        'Request Display ID','Subject','Request Type','Requester','Technician',
+        'Group','Site','Department','Category','Sub Category','Service Category',
+        'Priority','Level','Mode','SLA',
+        'Request Status','Request Pending Status','Overdue Status','SLA Breach',
+        'First Response Overdue Status','IsEscalated','Escalated','VIP User','FCR Marked',
+        'Created Time','Assigned Time','Responded Time','Resolved Time','Completed Time',
+        'DueBy Time','Last Updated Time',
+        'Time to Assign in Hrs','Time to Respond in Hrs','Time to Resolve (in Days)',
+        'Time to Close in Days','Time Elapsed','Time Elapsed in Hrs','Time Elapsed in Minutes',
+        'Days Since Created','Days Since Request Updation',
+        'OnHold Count','Reopen Count',
+        'Request Closure Comments','Close Comments'
+      ];
+      // Build full ordered column list: key fields that exist + any remaining fields
+      const allKeys=Object.keys(rows[0]);
+      const keySet=new Set(KEY_FIELDS);
+      const remainingKeys=allKeys.filter(k=>!keySet.has(k)).sort();
+      const existingKey=KEY_FIELDS.filter(k=>allKeys.includes(k));
+      const cols=[...existingKey,...remainingKeys];
+      // CSV value escaper
+      const esc=v=>{
+        const s=(v===null||v===undefined)?'':String(v);
+        if(s.includes(',')||s.includes('"')||s.includes('\n')||s.includes('\r'))
+          return '"'+s.replace(/"/g,'""')+'"';
+        return s;
+      };
+      // Build CSV lines
+      const lines=[cols.map(esc).join(',')];
+      rows.forEach(r=>lines.push(cols.map(c=>esc(r[c])).join(',')));
+      const csv=lines.join('\r\n');
+      // Generate descriptive filename
+      const periodLbl=pCmpLabel(REF_P).replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_-]/g,'');
+      const siteLbl=FS==='all'?'AllSites':FS.replace(/[^a-zA-Z0-9]/g,'_');
+      const grpLbl=FG.length===0?'AllGroups':FG.length===1?FG[0].replace(/[^a-zA-Z0-9]/g,'_'):FG.length+'_Groups';
+      const catLbl=FC==='all'?'':('_'+FC.replace(/[^a-zA-Z0-9]/g,'_'));
+      const priLbl=FP==='all'?'':('_'+FP);
+      const fname='IT_Tickets_'+periodLbl+'_'+siteLbl+'_'+grpLbl+catLbl+priLbl+'_('+rows.length+'rows).csv';
+      // Download with UTF-8 BOM so Excel opens correctly with accented characters
+      const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a');
+      a.href=url;a.download=fname;a.style.display='none';
+      document.body.appendChild(a);a.click();document.body.removeChild(a);
+      setTimeout(()=>URL.revokeObjectURL(url),10000);
+    }catch(err){
+      console.error('Export error:',err);
+      alert('Export failed: '+err.message);
+    }finally{
+      if(btn){btn.disabled=false;btn.innerHTML=(window.EDV_ICONS?window.EDV_ICONS.html('download'):'')+' Export CSV';}
+    }
+  },50);
+}
+
+// ─── Risk Register Excel export (purely additive, 2026-05-28) ──────────
+// Monthly-only export: posts a GET to /api/risk-register-export with the
+// currently-selected month parsed from REF_P. Server returns the
+// xlsx as a blob; we trigger a download via a temporary <a download>.
+//
+// Per Risk_Register_Export_Spec.md "Non-Regression Constraint", this
+// function is independent — it doesn't read/write any existing state
+// other than REF_P (read-only) and VIEW_MODE (read-only).
+function exportRiskRegister(){
+  const btn = document.getElementById('btnRiskRegister');
+  // Q4 in the spec discussion: block weekly mode (no ambiguity about
+  // which month a week belongs to when it straddles a month boundary).
+  if (VIEW_MODE !== 'monthly') {
+    alert('Risk Register export requires Monthly view. Please switch to the Monthly tab and pick a month.');
+    return;
+  }
+  // REF_P shape is 'M2026-05' for monthly. Strip the leading 'M'.
+  const m = /^M(\d{4}-\d{2})$/.exec(REF_P || '');
+  if (!m) {
+    alert('Could not read the selected month (REF_P="' + REF_P + '"). Please re-pick a month and try again.');
+    return;
+  }
+  const month = m[1];
+
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Exporting…'; }
+  const restoreBtn = () => {
+    if (btn) { btn.disabled = false; btn.textContent = '📥 Export Risk Register'; }
+  };
+
+  // The global /api/ middleware (server.js:946) gates every API call on
+  // either an X-Dash-Key header or a valid x-report-token. index.html's
+  // pgGet() helper does this automatically; we can't reuse pgGet here
+  // because it auto-parses JSON and we need r.blob(). Apply the same
+  // pattern inline.
+  const _rrHdrs = window.__ak
+    ? { 'X-Dash-Key': window.__ak }
+    : (window.__authToken ? { 'x-report-token': window.__authToken } : {});
+  fetch('/api/risk-register-export?month=' + encodeURIComponent(month), { headers: _rrHdrs })
+    .then(async (res) => {
+      if (!res.ok) {
+        let msg = 'HTTP ' + res.status;
+        try { const j = await res.json(); if (j.error) msg = j.error; } catch (_) {}
+        throw new Error(msg);
+      }
+      // Diagnostics surfaced via X-Risk-Register-Diag header — log so a
+      // power user can spot abnormal row counts without opening the file.
+      const diag = res.headers.get('X-Risk-Register-Diag');
+      if (diag) {
+        try { console.log('[risk-register] diagnostics:', JSON.parse(diag)); } catch (_) {}
+      }
+      return res.blob();
+    })
+    .then((blob) => {
+      const url = URL.createObjectURL(blob);
+      const a   = document.createElement('a');
+      a.href     = url;
+      a.download = 'RiskRegister_Occurrence_' + month + '.xlsx';
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    })
+    .catch((err) => {
+      console.error('[risk-register] export failed:', err);
+      alert('Risk Register export failed: ' + err.message);
+    })
+    .finally(restoreBtn);
+}
+
+// ── Tickets Drill-in Modal ─────────────────────────────────────────────────
+// Shared modal used for: Unassigned tickets, Top 10 SLA Violations drill-down,
+// and Ageing Report drill-down. Each entry-point filters RAW differently and
+// passes the resulting rows to _openTicketDrillModal(). The Ticket ID column
+// links out to the full ticket in ServiceDesk Plus (new tab).
+// NOTE 2026-05-27: SDP_TICKET_URL_BASE removed from here — it's now declared
+// canonically in /lib/dashboard-shared.js (loaded at line 152 in <head>) and
+// is in scope thanks to classic-script shared lexical environment. Declaring
+// it again here was throwing 'Identifier already declared' at parse time
+// which killed the entire body script and left the page stuck on
+// "Loading dashboard data...". See CLAUDE.md "Known Pitfalls" for the
+// classic-script scoping rules that caused this.
+let _currentModalRows=[];        // tracks what's displayed → CSV export uses this
+let _currentModalContext='Tickets';  // file-name fragment for the CSV export
+
+function _ticketIdLink(r){
+  const esc=v=>(v===null||v===undefined)?'':String(v);
+  const display=esc(r['Request Display ID']||r['Display ID']||'—');
+  const longId=esc(r['Request ID']||'');
+  if(!longId||display==='—')return display;
+  return`<a href="${SDP_TICKET_URL_BASE}${longId}/details" target="_blank" rel="noopener" `+
+    `style="color:#1976BC;text-decoration:none;font-weight:600" `+
+    `title="Open ticket #${display} in ServiceDesk Plus">${display} ↗</a>`;
+}
+
+function _isOpenTicket(r){
+  if(isClosed(r))return false;
+  return!CLOSED_STATUSES.has((r['Request Status']||'').toLowerCase().trim());
+}
+function _isUnassignedTicket(r){
+  const t=(r['Technician']||r['Assigned To']||'').trim();
+  return!t||t==='Unassigned'||t==='-No Value-';
+}
+function _getUnassignedRows(){
+  return RAW.filter(r=>{
+    if(!_isOpenTicket(r))return false;
+    if(!_isUnassignedTicket(r))return false;
+    // Apply current Site / Group / Category / Priority filters (period-independent — unassigned = current state)
+    if(FS!=='all'&&!(r['Site']||'').toUpperCase().includes(FS.toUpperCase()))return false;
+    if(FG.length&&!FG.some(g=>g.toLowerCase()===(r['Group']||'').toLowerCase()))return false;
+    if(FC!=='all'){const cv=FC.toLowerCase();if(!(r['Category']||'').toLowerCase().includes(cv)&&!(r['Sub Category']||'').toLowerCase().includes(cv))return false;}
+    if(FP!=='all'&&(r['Priority']||'').toLowerCase()!==FP.toLowerCase())return false;
+    return true;
+  }).sort((a,b)=>(parseInt(b['Days Since Created'])||0)-(parseInt(a['Days Since Created'])||0));
+}
+function updateUnassignedBadge(){
+  const btn=document.getElementById('btnUnassigned');
+  if(!btn)return;
+  const n=_getUnassignedRows().length;
+  btn.textContent='👤 Unassigned ('+n+')';
+  if(n>0){btn.classList.remove('none');}else{btn.classList.add('none');}
+}
+// Generalized drill-in modal opener. Used by:
+//   - openUnassignedModal()       — current state, no period filter
+//   - top10 chart onClick         — by category, current period, SLA-violated only
+//   - ageing chart onClick        — by age band, currently-open
+function _openTicketDrillModal({title, subtitle, rows, contextTag, emptyMsg, contextLine}){
+  const esc=v=>(v===null||v===undefined)?'':String(v);
+  const priStyle=p=>p==='Critical'?'color:#DC2626;font-weight:700':p==='High'?'color:#D97706;font-weight:600':'';
+  const dayStyle=d=>d>=30?'color:#DC2626;font-weight:700':d>=15?'color:#D97706;font-weight:600':'';
+  _currentModalRows=rows;
+  _currentModalContext=contextTag||'Tickets';
+  document.getElementById('ticketModalTitle').textContent=title;
+  document.getElementById('ticketModalSubtitle').textContent=subtitle||'';
+  const tbody=rows.length===0
+    ?`<tr><td colspan="8" style="text-align:center;padding:28px;color:#888;font-size:13px">${emptyMsg||'✓ No tickets match the current filters'}</td></tr>`
+    :rows.map(r=>{
+        const days=parseInt(r['Days Since Created'])||0;
+        const pri=(r['Priority']||'').trim();
+        const subj=esc(r['Subject']||'—');
+        return`<tr>
+          <td style="padding:6px 10px;white-space:nowrap;font-size:11px">${_ticketIdLink(r)}</td>
+          <td style="padding:6px 10px;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${subj}">${subj}</td>
+          <td style="padding:6px 10px">${esc(r['Group']||'—')}</td>
+          <td style="padding:6px 10px">${esc(r['Site']||'—')}</td>
+          <td style="padding:6px 10px">${esc(r['Category']||'—')}</td>
+          <td style="padding:6px 10px;${priStyle(pri)}">${pri||'—'}</td>
+          <td style="padding:6px 10px;text-align:center;${dayStyle(days)}">${days}d</td>
+          <td style="padding:6px 10px;font-size:11px">${esc(r['Request Status']||'—')}</td>
+        </tr>`;
+      }).join('');
+  document.getElementById('unassignedModalBody').innerHTML=`
+    <div style="margin-bottom:12px;font-size:12px;color:#6b7a99">
+      ${contextLine||''}
+      <span style="margin-left:8px;color:#D97706">⚠ Tickets shown in orange ≥ 15 days · red ≥ 30 days · click ID to open in SDP</span>
+    </div>
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="background:#1C3A5E;color:#fff;text-align:left">
+          <th style="padding:8px 10px;white-space:nowrap">Ticket ID</th>
+          <th style="padding:8px 10px">Subject</th>
+          <th style="padding:8px 10px">Group</th>
+          <th style="padding:8px 10px">Site</th>
+          <th style="padding:8px 10px">Category</th>
+          <th style="padding:8px 10px">Priority</th>
+          <th style="padding:8px 10px;text-align:center">Days Open</th>
+          <th style="padding:8px 10px">Status</th>
+        </tr></thead>
+        <tbody>${tbody}</tbody>
+      </table>
+    </div>`;
+  document.getElementById('unassignedModal').style.display='flex';
+  document.addEventListener('keydown',_unassignedEscKey);
+}
+
+function openUnassignedModal(){
+  const rows=_getUnassignedRows();
+  const siteLbl=FS==='all'?'All Sites':FS;
+  const grpLbl=FG.length===0?'All Groups':FG.join(', ');
+  _openTicketDrillModal({
+    title:'👤 Unassigned Open Tickets',
+    subtitle:'Tickets not yet assigned to a technician · sorted oldest first',
+    rows,
+    contextTag:'Unassigned_Tickets',
+    emptyMsg:'✓ No unassigned open tickets for the current filters',
+    contextLine:`<strong style="color:#1C3A5E">${rows.length}</strong> open unassigned ticket${rows.length!==1?'s':''} &nbsp;·&nbsp; ${siteLbl} &nbsp;·&nbsp; ${grpLbl}`
+  });
+}
+function _unassignedEscKey(e){if(e.key==='Escape')closeUnassignedModal();}
+function closeUnassignedModal(){
+  document.getElementById('unassignedModal').style.display='none';
+  document.removeEventListener('keydown',_unassignedEscKey);
+}
+function exportUnassignedCSV(){
+  // Generic: exports whatever rows are currently in the drill-in modal
+  // (Unassigned, Top 10 SLA drill-down, Ageing drill-down, etc.).
+  const rows=_currentModalRows;
+  if(!rows||!rows.length){alert('No tickets to export for the current view.');return;}
+  const COLS=['Request Display ID','Request ID','Subject','Group','Site','Category','Priority',
+              'Days Since Created','Request Status','Created Time','Requester',
+              'Technician','Assigned To'];
+  const esc=v=>{const s=(v===null||v===undefined)?'':String(v);
+    return(s.includes(',')||s.includes('"')||s.includes('\n'))?'"'+s.replace(/"/g,'""')+'"':s;};
+  const lines=[COLS.map(esc).join(',')];
+  rows.forEach(r=>lines.push(COLS.map(c=>esc(r[c])).join(',')));
+  const siteLbl=FS==='all'?'AllSites':FS.replace(/[^a-zA-Z0-9]/g,'_');
+  const grpLbl=FG.length===0?'AllGroups':FG.length===1?FG[0].replace(/[^a-zA-Z0-9]/g,'_'):FG.length+'Groups';
+  const today=new Date().toISOString().slice(0,10);
+  const tag=(_currentModalContext||'Tickets').replace(/[^a-zA-Z0-9_]/g,'_');
+  const fname=tag+'_'+today+'_'+siteLbl+'_'+grpLbl+'_('+rows.length+'rows).csv';
+  const blob=new Blob(['\ufeff'+lines.join('\r\n')],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=fname;a.style.display='none';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url),10000);
+}
+
+function renderAgeing(){
+  const today=new Date();
+  const open=RAW.filter(r=>{
+    if(isClosed(r))return false;                                             // Pending Status = No
+    const rs=(r['Request Status']||'').toLowerCase().trim();
+    if(CLOSED_STATUSES.has(rs))return false;                                 // closed by Request Status (older tickets)
+    if(FS!=='all'&&!(r['Site']||'').toUpperCase().includes(FS.toUpperCase()))return false;
+    if(FG.length&&!FG.some(g=>g.toLowerCase()===(r['Group']||'').toLowerCase()))return false;
+    if(FC!=='all'){const cv=FC.toLowerCase();if(!(r['Category']||'').toLowerCase().includes(cv)&&!(r['Sub Category']||'').toLowerCase().includes(cv))return false;}
+    if(FP!=='all'&&(r['Priority']||'').toLowerCase()!==FP.toLowerCase())return false;
+    return true;
+  });
+  const bk=[0,0,0,0,0];
+  open.forEach(r=>{
+    const dt=parseDt(r['Created Time']);if(!dt)return;
+    const d=Math.floor((today-dt)/864e5);
+    if(d<=7)bk[0]++;else if(d<=14)bk[1]++;else if(d<=30)bk[2]++;else if(d<=60)bk[3]++;else bk[4]++;
+  });
+  setH('ageing-total',open.length+' open tickets');
+  const labels=['0–7 d','8–14 d','15–30 d','31–60 d','60+ d'];
+  const cols=['#16A34ACC','#65A30DCC','#D97706CC','#DC2626CC','#7C3AEDCC'];
+  // Filter predicate per age-band index (parallel to labels above)
+  const ageFilter=[
+    d=>d<=7,
+    d=>d>7&&d<=14,
+    d=>d>14&&d<=30,
+    d=>d>30&&d<=60,
+    d=>d>60
+  ];
+  // Capture the already-filtered `open` array so the drill-down respects all
+  // current Site/Group/Category/Priority filters without recomputing.
+  const drillSource=open;
+  if(CH.ageing)CH.ageing.destroy();
+  const ctx=document.getElementById('cAgeing').getContext('2d');
+  CH.ageing=new Chart(ctx,{
+    type:'bar',
+    data:{labels,datasets:[{label:'Open',data:bk,backgroundColor:cols,borderColor:cols.map(c=>c.slice(0,7)),borderWidth:1,borderRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      onClick:(evt,els)=>{
+        if(!els||!els.length)return;
+        const idx=els[0].index;
+        const lbl=labels[idx];const pred=ageFilter[idx];if(!pred)return;
+        const today=new Date();
+        const drillRows=drillSource.filter(r=>{
+          const dt=parseDt(r['Created Time']);if(!dt)return false;
+          const d=Math.floor((today-dt)/864e5);
+          return pred(d);
+        }).sort((a,b)=>(parseInt(b['Days Since Created'])||0)-(parseInt(a['Days Since Created'])||0));
+        _openTicketDrillModal({
+          title:'⏳ Open Tickets — '+lbl+' old',
+          subtitle:'Currently unresolved tickets in this age band · sorted oldest first',
+          rows:drillRows,
+          contextTag:'Ageing_'+lbl.replace(/[^a-zA-Z0-9]/g,'_'),
+          emptyMsg:'✓ No open tickets in this age band',
+          contextLine:`<strong style="color:#1C3A5E">${drillRows.length}</strong> open ticket${drillRows.length!==1?'s':''} aged <strong>${lbl}</strong>`
+        });
+      },
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+c.raw+' tickets — click to drill in'}}},
+      scales:{x:{grid:{display:false},ticks:{font:{size:11}}},y:{beginAtZero:true,ticks:{font:{size:11},stepSize:1}}}}
+  });
+}
+
+// ── Top 10 SLA Violations ─────────────────────────────────────────────────
+function renderTop10(){
+  const rows=getPRows(REF_P);
+  const modeLbl={weekly:'Week',monthly:'Month',quarterly:'Quarter',yearly:'Year'}[VIEW_MODE];
+  setH('top10Title','Top 10 SLA Violations by Category — '+modeLbl);
+  const cm={};
+  rows.forEach(r=>{
+    const cat=(r['Category']||r['Sub Category']||'Unknown').trim();
+    if(!cat||cat==='-No Value-')return;
+    if(!cm[cat])cm[cat]={t:0,v:0};
+    cm[cat].t++;
+    if(isResOverdue(r))cm[cat].v++; // accurate: Due By Time vs Resolved Time
+  });
+  const entries=Object.entries(cm).filter(([,v])=>v.v>0).sort((a,b)=>b[1].v-a[1].v).slice(0,10);
+  const labels=entries.map(([k])=>k.length>28?k.slice(0,26)+'…':k);
+  const data=entries.map(([,v])=>v.v);
+  const pcts=entries.map(([,v])=>v.t>0?Math.round(v.v/v.t*100):0);
+  // Multi-colour palette: red → orange → amber → yellow-green → green (worst → best)
+  const TOP10_PALETTE=[
+    'rgba(220,38,38,0.80)',   // #1 worst — deep red
+    'rgba(234,56,12,0.78)',   // #2 — red-orange
+    'rgba(249,115,22,0.78)',  // #3 — orange
+    'rgba(251,146,60,0.76)',  // #4 — light orange
+    'rgba(245,158,11,0.76)',  // #5 — amber
+    'rgba(234,179,8,0.74)',   // #6 — yellow
+    'rgba(163,230,53,0.74)',  // #7 — yellow-green
+    'rgba(132,204,22,0.74)',  // #8 — lime
+    'rgba(74,222,128,0.74)',  // #9 — light green
+    'rgba(34,197,94,0.74)',   // #10 best — green
+  ];
+  const bgColors=data.map((_,i)=>TOP10_PALETTE[i]||TOP10_PALETTE[TOP10_PALETTE.length-1]);
+  const bdColors=bgColors.map(c=>c.replace(/,[\d.]+\)$/,',1)'));
+  if(CH.top10)CH.top10.destroy();
+  const ctx=document.getElementById('cTop10').getContext('2d');
+  // Map clicked-bar index → full category name (entries[i][0]) for drill-down
+  const fullCats=entries.map(([k])=>k);
+  CH.top10=new Chart(ctx,{
+    type:'bar',
+    data:{labels,datasets:[{label:'SLA Violations',data,backgroundColor:bgColors,borderColor:bdColors,borderWidth:1,borderRadius:3}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      onClick:(evt,els)=>{
+        if(!els||!els.length)return;
+        const idx=els[0].index;
+        const cat=fullCats[idx];if(!cat)return;
+        // Filter the same period rows that fed the chart, by matching category and SLA-violated
+        const periodRows=getPRows(REF_P);
+        const drillRows=periodRows.filter(r=>{
+          const c=(r['Category']||r['Sub Category']||'Unknown').trim();
+          if(c!==cat)return false;
+          return isResOverdue(r);
+        }).sort((a,b)=>(parseInt(b['Days Since Created'])||0)-(parseInt(a['Days Since Created'])||0));
+        _openTicketDrillModal({
+          title:'⚠ SLA Violations — '+cat,
+          subtitle:modeLbl+' · '+drillRows.length+' violation'+(drillRows.length!==1?'s':''),
+          rows:drillRows,
+          contextTag:'SLA_Violations_'+cat.replace(/[^a-zA-Z0-9]/g,'_'),
+          emptyMsg:'✓ No SLA violations in this category for the selected period',
+          contextLine:`<strong style="color:#1C3A5E">${drillRows.length}</strong> SLA violation${drillRows.length!==1?'s':''} in <strong>${cat}</strong> &nbsp;·&nbsp; ${modeLbl}`
+        });
+      },
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+c.raw+' violations ('+pcts[c.dataIndex]+'% of cat.) — click to drill in'}}},
+      scales:{x:{beginAtZero:true,ticks:{font:{size:11},stepSize:1}},y:{ticks:{font:{size:10}},grid:{display:false}}}}
+  });
+}
+
+// ── Volume Trend ──────────────────────────────────────────────────────────
+function renderTrend(){
+  const periods=lastNP(REF_P,FTN);
+  const labels=periods.map(p=>pShort(p));
+  const inb=[],cl=[],sv=[],fv=[];
+  periods.forEach(p=>{
+    const rows=getPRows(p);
+    inb.push(rows.length);
+    cl.push(rows.filter(isClosed).length);
+    const svc=rows.filter(r=>isResOverdue(r)).length; // accurate: Due By Time vs Resolved Time
+    const fvc=rows.filter(r=>{const f=(r['First Response Overdue Status']||'').toLowerCase();return f==='true'||f==='1'||f==='yes';}).length;
+    sv.push(rows.length?Math.round(svc/rows.length*1000)/10:0);
+    fv.push(rows.length?Math.round(fvc/rows.length*1000)/10:0);
+  });
+  const modeLabel={weekly:'Weekly',monthly:'Monthly',quarterly:'Quarterly',yearly:'Yearly'}[VIEW_MODE];
+  setH('trendTitle',modeLabel+' Request Volume Trend');
+  if(CH.trend)CH.trend.destroy();
+  const ctx=document.getElementById('cTrend').getContext('2d');
+  CH.trend=new Chart(ctx,{
+    data:{labels,datasets:[
+      {type:'bar',label:'Inbound',data:inb,yAxisID:'y',backgroundColor:'rgba(25,118,188,0.45)',borderColor:'#1976BC',borderWidth:1,borderRadius:3,order:3},
+      {type:'bar',label:'Closed',data:cl,yAxisID:'y',backgroundColor:'rgba(22,163,74,0.4)',borderColor:'#16A34A',borderWidth:1,borderRadius:3,order:4},
+      {type:'line',label:'Res. SLA Violated %',data:sv,yAxisID:'y2',borderColor:'#DC2626',backgroundColor:'rgba(220,38,38,0.06)',tension:0.35,pointRadius:3,pointBackgroundColor:'#DC2626',fill:false,order:1},
+      {type:'line',label:'1st Reply Violated %',data:fv,yAxisID:'y2',borderColor:'#D97706',backgroundColor:'transparent',tension:0.35,pointRadius:3,pointBackgroundColor:'#D97706',fill:false,borderDash:[4,3],order:2}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{legend:{position:'top',labels:{font:{size:11},boxWidth:18}}},
+      scales:{
+        x:{ticks:{font:{size:9},maxRotation:0},grid:{display:false}},
+        y:{position:'left',beginAtZero:true,ticks:{font:{size:10}},title:{display:true,text:'Count',font:{size:10}}},
+        y2:{position:'right',beginAtZero:true,max:100,ticks:{font:{size:10},callback:v=>v+'%'},grid:{drawOnChartArea:false},title:{display:true,text:'Violated %',font:{size:10}}}
+      }}
+  });
+}
+
+// ── Presence ──────────────────────────────────────────────────────────────
+function renderPresence(){
+  const periods=[REF_P,CMP_P];
+  const tm={};
+  periods.forEach((p,idx)=>{
+    getPRows(p).forEach(r=>{
+      const t=(r['Technician']||r['Assigned To']||'').trim();
+      if(!t||t==='Unassigned'||t==='-No Value-')return;
+      if(!tm[t])tm[t]={site:r['Site']||'',active:[false,false],counts:[0,0]};
+      tm[t].active[idx]=true;tm[t].counts[idx]++;
+    });
+  });
+  const sorted=Object.entries(tm).sort((a,b)=>{
+    if(b[1].active[0]!==a[1].active[0])return(b[1].active[0]?1:0)-(a[1].active[0]?1:0);
+    return b[1].counts[0]-a[1].counts[0];
+  });
+  const pl=[pCmpLabel(REF_P),pCmpLabel(CMP_P)];
+  setH('presLegend',pl[0]+' (report) &nbsp;vs&nbsp; '+pl[1]+' (comparison)');
+  const modeLabel={weekly:'Weekly ',monthly:'Monthly ',quarterly:'Quarterly ',yearly:'Yearly '}[VIEW_MODE];
+  setH('presTitle',modeLabel+'Technician Presence');
+  const grid=document.getElementById('presGrid');
+  if(!sorted.length){grid.innerHTML='<div class="empty-state">No technician data for selected filters</div>';return;}
+  grid.innerHTML=sorted.map(([name,info])=>{
+    const bg=info.active[0]?'#F0FDF4':'#F9FAFB';
+    const bd=info.active[0]?'#86EFAC':'#E5E7EB';
+    const pips=info.active.map((a,i)=>'<div class="pres-pip '+(a?'active':'inactive')+'" title="'+pl[i]+': '+info.counts[i]+' tickets">'+pl[i]+'</div>').join('');
+    return '<div class="pres-badge" style="background:'+bg+';border-color:'+bd+'">'+
+      '<div class="pb-name">'+name+'</div>'+
+      '<div class="pb-stats">'+(info.site||'—')+' · '+info.counts[0]+' tickets</div>'+
+      '<div class="pres-weeks">'+pips+'</div></div>';
+  }).join('');
+}
+
+// ── Tech Table ────────────────────────────────────────────────────────────
+let TDATA=[];
+function buildTData(){
+  const rows=getPRows(REF_P);
+  const m={};
+  rows.forEach(r=>{
+    const t=(r['Technician']||r['Assigned To']||'').trim();
+    if(!t||t==='Unassigned'||t==='-No Value-')return;
+    // 2026-06-02 ITSM-alignment: track closed-with-verdict + responded
+    // subsets per technician so the table-column percentages match the
+    // tile-level ones above (and executive.html).
+    if(!m[t])m[t]={name:t,site:r['Site']||'—',n:0,closed:0,onhold:0,rdS:0,rdN:0,ahS:0,ahN:0,
+                   slaV:0,frV:0,slaVClosed:0,respondedN:0,frVResponded:0};
+    const e=m[t];e.n++;
+    const _isClosed = isClosed(r);
+    if(_isClosed)e.closed++;
+    if(parseInt(r['OnHold Count']||0)>0)e.onhold++;
+    const _resOver = isResOverdue(r);
+    if(_resOver)e.slaV++;
+    if(_resOver && _isClosed) e.slaVClosed++;
+    const frFlag=(r['First Response Overdue Status']||'').toLowerCase();
+    const _frV = (frFlag==='true'||frFlag==='1'||frFlag==='yes');
+    if(_frV)e.frV++;
+    const _rt = r['Responded Time'];
+    const _responded = (_rt != null && String(_rt).trim() !== '');
+    if(_responded){
+      e.respondedN++;
+      if(_frV) e.frVResponded++;
+    }
+    // FR: Zoho pre-computed field, no upper cutoff (AP-aligned)
+    const frH=parseFloat(r['Time to Respond in Hrs']);
+    if(!isNaN(frH)&&frH>0){e.ahS+=frH;e.ahN++;}
+    // Res: datediff floor, include >=0 (AP-aligned)
+    const ct=parseZohoDT(r['Created Time']);
+    if(ct){
+      const res=parseZohoDT(r['Resolved Time']);
+      if(res){const df=(res-ct)/86400000;if(df>=0&&df<365){e.rdS+=Math.floor(df);e.rdN++;}}
+    }
+  });
+  TDATA=Object.values(m).map(e=>({
+    name:e.name,site:e.site,n:e.n,closed:e.closed,ongoing:e.n-e.closed,onhold:e.onhold,
+    avgAh:e.ahN>0?Math.floor(e.ahS/e.ahN):null,   // integer, floor (AP-aligned)
+    avgRd:e.rdN>0?Math.round(e.rdS/e.rdN):null,    // integer, round (AP-aligned)
+    // ITSM-aligned: per-technician FRT SLA % uses responded-only denominator;
+    // Resolution SLA % uses closed-only denominator (FORMULA_RECONCILIATION.md §6).
+    frSla: e.respondedN > 0 ? Math.round((1 - e.frVResponded / e.respondedN) * 1000) / 10 : null,
+    resSla:e.closed     > 0 ? Math.round((1 - e.slaVClosed   / e.closed)     * 1000) / 10 : null
+  }));
+}
+function slaChip(v){
+  if(v===null)return'<span style="color:#9CA3AF">—</span>';
+  const c=v>=90?'slg':v>=75?'slw':'slb';
+  return'<span class="'+c+'">'+v+'%</span>';
+}
+function renderTechTbl(){
+  buildTData();
+  const modeLabel={weekly:'Report Week',monthly:'Report Month',quarterly:'Report Quarter',yearly:'Report Year'}[VIEW_MODE];
+  setH('techTitle','Technician Performance — '+modeLabel);
+  const keys=['name','site','n','closed','ongoing','onhold','avgAh','avgRd','frSla','resSla'];
+  const k=keys[SC];
+  TDATA.sort((a,b)=>{
+    const av=a[k]??-Infinity,bv=b[k]??-Infinity;
+    return typeof av==='string'?SD*av.localeCompare(bv):SD*(av-bv);
+  });
+  document.querySelectorAll('#techTable thead th').forEach((th,i)=>{th.className=i===SC?(SD>0?'sa':'sd'):'';});
+  setH('tech-count',TDATA.length+' technicians');
+  const tb=document.getElementById('techBody');
+  if(!TDATA.length){tb.innerHTML='<tr><td colspan="10" class="empty-state">No tickets for selected period and filters</td></tr>';return;}
+  tb.innerHTML=TDATA.map(d=>'<tr>'+
+    '<td style="font-weight:700">'+d.name+'</td>'+
+    '<td style="font-size:11px;color:var(--slate3)">'+d.site+'</td>'+
+    '<td style="text-align:right;font-weight:600;color:var(--blue)">'+d.n+'</td>'+
+    '<td style="text-align:right;font-weight:600;color:var(--green)">'+d.closed+'</td>'+
+    '<td style="text-align:right;color:var(--slate3)">'+d.ongoing+'</td>'+
+    '<td style="text-align:right;color:var(--amb-d)">'+d.onhold+'</td>'+
+    '<td style="text-align:right">'+(d.avgAh!==null?d.avgAh+'h':'—')+'</td>'+
+    '<td style="text-align:right">'+(d.avgRd!==null?d.avgRd+'d':'—')+'</td>'+
+    '<td style="text-align:center">'+slaChip(d.frSla)+'</td>'+
+    '<td style="text-align:center">'+slaChip(d.resSla)+'</td>'+
+    '</tr>').join('');
+}
+function sortTbl(col){if(SC===col)SD*=-1;else{SC=col;SD=-1;}renderTechTbl();}
+
+// ── Dropdowns ─────────────────────────────────────────────────────────────
+let _allGroups = []; // all unique group names from RAW (updated in populateDrops)
+
+function populateDrops(){
+  const ss=new Set(),gsAll=new Set(),cs=new Set();
+  const siteGroups={};
+  RAW.forEach(r=>{
+    const s=(r['Site']||'').trim();if(s&&s!=='-No Value-'){ss.add(s);}
+    const g=(r['Group']||'').trim();if(g&&g!=='-No Value-'){
+      gsAll.add(g);
+      if(s&&s!=='-No Value-'){if(!siteGroups[s])siteGroups[s]=new Set();siteGroups[s].add(g);}
+    }
+    const c=(r['Category']||'').trim();if(c&&c!=='-No Value-')cs.add(c);
+  });
+  const sEl=document.getElementById('fSite'),cv1=sEl.value;
+  sEl.innerHTML='<option value="all">All Sites</option>'+[...ss].sort().map(s=>'<option value="'+s+'"'+(s===cv1?' selected':'')+'>'+s+'</option>').join('');
+  const cEl=document.getElementById('fCat'),cv3=cEl.value;
+  cEl.innerHTML='<option value="all">All Categories</option>'+[...cs].sort().map(c=>'<option value="'+c+'"'+(c===cv3?' selected':'')+'>'+c+'</option>').join('');
+
+  // Store all group names globally and populate the multi-select checklist
+  _allGroups = [...gsAll].sort();
+
+  // Auto-populate empty team configs from keyword matching (runs only once, first load)
+  _autoDetectTeams();
+
+  // Build the checkbox dropdown list
+  _buildGroupCheckList();
+  _updateGroupPickerBtn();
+}
+
+// Seed Operations/Applications presets from the canonical lists in
+// dashboard-shared.js. Existing users who customised their groups under
+// the v2 storage key keep their custom list; v1 users get auto-reseeded
+// because the v1 key was bumped (see _GROUP_TEAMS_KEY comment above).
+//
+// Replaces the old keyword-based auto-detect — that approach silently
+// missed groups whose names didn't contain any keyword (e.g. "Mana IT
+// Agent" matched "support"-less, "ITY IT Agents" was inconsistent), and
+// miscategorised others (e.g. "Infosec Team" → Apps via "support" kw).
+// Now the index.html "Operations" / "Applications" buttons return the
+// SAME ticket set as executive.html and the server's /api/reports/
+// helpdesk-live endpoint.
+function _autoDetectTeams(){
+  const saved = localStorage.getItem(_GROUP_TEAMS_KEY);
+  if(saved) return; // user has v2-customised config — don't touch it
+
+  // Pull canonical lists exposed by dashboard-shared.js. If for some
+  // reason it didn't load, fall back to the inline defaults so the
+  // page still works (just may not include Tanda or future additions).
+  const canonOps  = (typeof window !== 'undefined' && Array.isArray(window.OPS_GROUPS_DEFAULT))
+    ? window.OPS_GROUPS_DEFAULT
+    : ['Abidjan IT Agents','Exploration BF Support','Exploration CI Support',
+       'Exploration IT Support','Hounde IT Agents','ITY IT Agents','Kalana IT Agents',
+       'Lafigue IT Agents','Mana IT Agent','Ouaga IT Agents','Sabodala IT Agents',
+       'Tanda IT Agents'];
+  const canonApps = (typeof window !== 'undefined' && Array.isArray(window.APPS_GROUPS_DEFAULT))
+    ? window.APPS_GROUPS_DEFAULT
+    : ['Benchmark Support Team','CELOXIS Support Agents','EDV Academy Team',
+       'EDV SharePoint Support','EQS ONEIT Support Agents','ERP Support','Infosec Team',
+       'Ivalua Support Team','ManageEngine ServiceDesk Plus','My Path Support Agents','Oracle Support'];
+
+  // Use the canonical lists VERBATIM — including groups that haven't logged
+  // a ticket yet (e.g. a brand-new site like Tanda IT Agents). Filtering
+  // against _allGroups was the wrong call: it meant Tanda silently dropped
+  // out of the Operations preset until its first ticket landed, defeating
+  // the whole point of pre-defining the canonical list. A group with zero
+  // tickets adds zero rows to filter results — no harm done.
+  GROUP_TEAMS.ops.groups = canonOps.slice();
+  GROUP_TEAMS.app.groups = canonApps.slice();
+}
+
+function _buildGroupCheckList(){
+  const list = document.getElementById('grpCheckList');
+  if(!list) return;
+  list.innerHTML = _allGroups.map(g => {
+    const checked = FG.length===0 || FG.some(f=>f.toLowerCase()===g.toLowerCase());
+    return `<div class="grp-item"><input type="checkbox" id="gc_${g.replace(/\s/g,'_')}" ${checked?'checked':''} onchange="_onGroupCheck()"><label for="gc_${g.replace(/\s/g,'_')}">${g}</label></div>`;
+  }).join('');
+}
+
+function _updateGroupPickerBtn(){
+  const btn = document.getElementById('grpPickerBtn');
+  if(!btn) return;
+  if(FG.length===0){ btn.textContent='▾ Custom'; btn.classList.remove('has-sel'); }
+  else if(FG.length===_allGroups.length){ btn.textContent='▾ Custom'; btn.classList.remove('has-sel'); }
+  else { btn.textContent=`▾ ${FG.length} group${FG.length>1?'s':''}…`; btn.classList.add('has-sel'); }
+}
+
+function _getCheckedGroups(){
+  const boxes = document.querySelectorAll('#grpCheckList input[type=checkbox]');
+  const checked = [];
+  boxes.forEach(b=>{ if(b.checked) checked.push(b.labels[0].textContent); });
+  return checked.length===_allGroups.length ? [] : checked;
+}
+
+function _onGroupCheck(){
+  _activePreset = 'custom';
+  _setPresetBtns('custom');
+  FG = _getCheckedGroups();
+  _updateGroupPickerBtn();
+  renderAll();
+}
+
+function checkAllGroups(all){
+  document.querySelectorAll('#grpCheckList input[type=checkbox]').forEach(b=>b.checked=all);
+  _onGroupCheck();
+}
+
+function toggleGroupPicker(e){
+  e.stopPropagation();
+  const dd = document.getElementById('grpDropdown');
+  dd.classList.toggle('open');
+}
+
+// Close picker when clicking outside
+document.addEventListener('click', e=>{
+  const dd=document.getElementById('grpDropdown');
+  const wrap=document.querySelector('.grp-picker-wrap');
+  if(dd && !wrap?.contains(e.target)) dd.classList.remove('open');
+});
+function populatePeriodSel(){
+  const el=document.getElementById('fPeriod');
+  const counts={weekly:20,monthly:24,quarterly:12,yearly:6};
+  const n=counts[VIEW_MODE]||20;
+  const dp=defaultP(VIEW_MODE);
+  // For monthly: explicitly anchor the dropdown to the current calendar month.
+  // defaultP('monthly') now also returns the current month, so this branch is
+  // a no-op in normal use — kept as defensive code in case defaultP's monthly
+  // rule ever reverts to "last complete month".
+  const now=new Date();
+  const startP=VIEW_MODE==='monthly'
+    ?'M'+now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')
+    :dp;
+  const periods=lastNP(startP,n).slice().reverse();
+  el.innerHTML=periods.map(p=>'<option value="'+p+'"'+(p===REF_P?' selected':'')+'>'+pLabel(p)+'</option>').join('');
+}
+
+// ── View mode switch ───────────────────────────────────────────────────────
+function setMode(mode){
+  VIEW_MODE=mode;
+  document.querySelectorAll('.vt-btn').forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));
+  // Update trend size options
+  const tEl=document.getElementById('fTrend');
+  const opts={
+    weekly:[{v:8,l:'8 wks'},{v:12,l:'12 wks',s:true},{v:16,l:'16 wks'}],
+    monthly:[{v:6,l:'6 mo'},{v:12,l:'12 mo',s:true},{v:18,l:'18 mo'}],
+    quarterly:[{v:4,l:'4 Q'},{v:8,l:'8 Q',s:true},{v:12,l:'12 Q'}],
+    yearly:[{v:3,l:'3 yr',s:true},{v:5,l:'5 yr'}]
+  }[mode];
+  tEl.innerHTML=opts.map(o=>'<option value="'+o.v+'"'+(o.s?' selected':'')+'>'+o.l+'</option>').join('');
+  FTN=parseInt(tEl.value);
+  // Update period label
+  const lbl={weekly:'Report Week',monthly:'Report Month',quarterly:'Report Quarter',yearly:'Report Year'}[mode];
+  setH('periodLabel',lbl);
+  // Reset to default period for this mode
+  REF_P=defaultP(mode);
+  CMP_P=prevP(REF_P);
+  populatePeriodSel();
+  renderAll();
+}
+
+// ── Group preset buttons ───────────────────────────────────────────────────
+function _setPresetBtns(active){
+  _activePreset = active;
+  ['all','ops','app','custom'].forEach(id=>{
+    const btn=document.getElementById('gp-'+id);
+    if(btn) btn.classList.toggle('active', id===active);
+  });
+}
+
+function setGroupPreset(preset){
+  document.getElementById('grpDropdown')?.classList.remove('open');
+  if(preset==='all'){
+    FG = [];
+    _setPresetBtns('all');
+  } else {
+    const team = GROUP_TEAMS[preset];
+    FG = team ? [...team.groups] : [];
+    _setPresetBtns(FG.length ? preset : 'all');
+  }
+  // Sync checkboxes to reflect preset
+  document.querySelectorAll('#grpCheckList input[type=checkbox]').forEach(b=>{
+    const g = b.labels[0]?.textContent || '';
+    b.checked = FG.length===0 || FG.some(f=>f.toLowerCase()===g.toLowerCase());
+  });
+  _updateGroupPickerBtn();
+  renderAll();
+}
+
+// ── Group config modal ─────────────────────────────────────────────────────
+function openGroupConfig(){
+  document.getElementById('grpDropdown')?.classList.remove('open');
+  _renderGroupModal();
+  document.getElementById('grpModalBg').classList.add('open');
+}
+function closeGroupConfig(){
+  document.getElementById('grpModalBg').classList.remove('open');
+}
+document.getElementById('grpModalBg').addEventListener('click', e=>{
+  if(e.target===document.getElementById('grpModalBg')) closeGroupConfig();
+});
+
+function _renderGroupModal(){
+  const container = document.getElementById('grpModalTeams');
+  const teams = [
+    {key:'ops', color:'#1976BC'},
+    {key:'app', color:'#16A34A'},
+  ];
+  container.innerHTML = teams.map(({key,color})=>{
+    const t = GROUP_TEAMS[key] || {label:key, groups:[]};
+    const chips = t.groups.length
+      ? t.groups.map(g=>`<span class="grp-chip"><span>${g}</span><span class="grp-chip-rm" onclick="_removeGroupFromTeam('${key}','${g.replace(/'/g,"\\'")}')" title="Remove">✕</span></span>`).join('')
+      : '<span class="grp-chip-empty">No groups assigned yet</span>';
+    // Build "add" select of unassigned groups
+    const assigned = new Set(t.groups.map(g=>g.toLowerCase()));
+    const available = _allGroups.filter(g=>!assigned.has(g.toLowerCase()));
+    const opts = available.map(g=>`<option value="${g}">${g}</option>`).join('');
+    return `
+    <div class="grp-modal-team">
+      <div class="grp-modal-team-hdr">
+        <span class="grp-team-dot" style="background:${color}"></span>
+        <span class="grp-modal-team-label">${t.label}</span>
+      </div>
+      <div class="grp-chips" id="chips-${key}">${chips}</div>
+      <div class="grp-add-row">
+        <select id="grp-add-sel-${key}"><option value="">— add a group —</option>${opts}</select>
+        <button onclick="_addGroupToTeam('${key}')">+ Add</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function _addGroupToTeam(teamKey){
+  const sel = document.getElementById('grp-add-sel-'+teamKey);
+  const g = sel.value; if(!g) return;
+  if(!GROUP_TEAMS[teamKey]) return;
+  if(!GROUP_TEAMS[teamKey].groups.includes(g)){
+    GROUP_TEAMS[teamKey].groups.push(g);
+  }
+  sel.value='';
+  _renderGroupModal(); // re-render to update chips + available options
+}
+
+function _removeGroupFromTeam(teamKey, groupName){
+  if(!GROUP_TEAMS[teamKey]) return;
+  GROUP_TEAMS[teamKey].groups = GROUP_TEAMS[teamKey].groups.filter(g=>g!==groupName);
+  _renderGroupModal();
+}
+
+function saveGroupConfig(){
+  localStorage.setItem(_GROUP_TEAMS_KEY, JSON.stringify(GROUP_TEAMS));
+  closeGroupConfig();
+  // If currently on a preset that changed, re-apply it
+  if(_activePreset==='ops'||_activePreset==='app') setGroupPreset(_activePreset);
+}
+
+// ── Apply filters ─────────────────────────────────────────────────────────
+function applyFilters(){
+  FS=document.getElementById('fSite').value;
+  // FG is managed by the group widget — not read from a <select>
+  FC=document.getElementById('fCat').value;
+  FP=document.getElementById('fPri').value;
+  FTN=parseInt(document.getElementById('fTrend').value)||12;
+  const pv=document.getElementById('fPeriod').value;
+  if(pv){REF_P=pv;CMP_P=prevP(pv);}
+  renderAll();
+}
+// ── Zoho monthly summary SLA lookup ─────────────────────────────────────────
+// For monthly view, replaces the raw Overdue Status backfill with Zoho's
+// authoritative "% of SLA Violated" figure — consistent with executive-report.html.
+const _MNS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function _zohoSlaPct(periodKey){
+  if(VIEW_MODE!=='monthly'||!window.MONTHLY_SUM||!window.MONTHLY_SUM.length)return null;
+  const mp=periodKey.match(/^M(\d{4})-(\d{2})$/);
+  if(!mp)return null;
+  const yr=parseInt(mp[1]),mo=parseInt(mp[2]);
+  const row=window.MONTHLY_SUM.find(r=>{
+    const ct=(r['Created Time']||r.month||'').trim();
+    const pts=ct.split(/[\s,]+/);
+    if(pts.length<2)return false;
+    const rmo=_MNS.indexOf(pts[0].slice(0,3))+1;
+    const ryr=parseInt(pts[pts.length-1]);
+    return rmo===mo&&ryr===yr;
+  });
+  if(!row)return null;
+  const v=parseFloat(row['% of SLA Violated']??row['% SLA Violated']??row.slaViolatedPct??NaN);
+  return isNaN(v)?null:Math.round((100-v)*10)/10;
+}
+
+function renderAll(){
+  const modeLabel={weekly:'Weekly',monthly:'Monthly',quarterly:'Quarterly',yearly:'Yearly'}[VIEW_MODE];
+  setH('periodBadge',modeLabel+': '+pCmpLabel(REF_P)+'  vs  '+pCmpLabel(CMP_P));
+  const r=pStats(REF_P),c=pStats(CMP_P);
+  // For monthly view: override slaPct from Zoho monthly summary (authoritative source)
+  const zr=_zohoSlaPct(REF_P); if(zr!==null)r.slaPct=zr;
+  const zc=_zohoSlaPct(CMP_P); if(zc!==null)c.slaPct=zc;
+  renderKPIs(r,c);
+  renderAgeing();
+  renderTop10();
+  renderTrend();
+  renderPresence();
+  renderTechTbl();
+  updateUnassignedBadge();
+}
+
+// ── Force Sync — admin only: triggers background cache refresh without blocking users ──
+async function forceSync(){
+  const btn=document.getElementById('btnForceSync');
+  const stxt=document.getElementById('statusText');
+  if(btn){btn.disabled=true;btn.textContent='⏳ Syncing…';}
+  stxt.textContent='Triggering sync…';
+  try{
+    const hdrs={'Content-Type':'application/json','x-report-token':window.__authToken||''};
+    // Trigger all three sync jobs in parallel (non-blocking — server responds immediately)
+    await Promise.all([
+      fetch(PROXY+'/api/sync/trigger/requests',   {method:'POST',headers:hdrs}),
+      fetch(PROXY+'/api/sync/trigger/change_cab', {method:'POST',headers:hdrs}),
+      fetch(PROXY+'/api/sync/trigger/survey',     {method:'POST',headers:hdrs}),
+    ]);
+    stxt.textContent='Sync started — data will update in the background (1–2 min)';
+    if(btn){btn.disabled=false;btn.innerHTML=(window.EDV_ICONS?window.EDV_ICONS.html('zap'):'')+' Force Sync';}
+    // Reload after 90s to show fresh data once sync completes
+    setTimeout(()=>location.reload(), 90000);
+  }catch(e){
+    stxt.textContent='Force sync failed: '+e.message;
+    if(btn){btn.disabled=false;btn.innerHTML=(window.EDV_ICONS?window.EDV_ICONS.html('zap'):'')+' Force Sync';}
+  }
+}
+
+// ── Load ──────────────────────────────────────────────────────────────────
+async function loadData(){
+  const dot=document.getElementById('sdot'),stxt=document.getElementById('statusText');
+  try{
+    setH('loadMsg','Fetching ticket data from proxy…');
+    const res=await pgGet('/api/data/requests-raw',180000);
+    RAW=xRows(res); // Load all groups — group filtering is handled by FG preset (All/Ops/App/Custom)
+    if(!RAW.length){
+      dot.className='status-dot err';stxt.textContent='No data from proxy';
+      setH('loadMsg','⚠ Proxy returned no data. Ensure it is running and data is loaded.');
+      document.getElementById('loadErrBtn').style.display='inline-block';
+      return;
+    }
+    // Also fetch monthly summary for Zoho-authoritative SLA (non-fatal if unavailable)
+    try{const ms=await pgGet('/api/data/monthly-summary',20000);window.MONTHLY_SUM=(ms&&ms.data&&ms.data.rows)?ms.data.rows:[];}catch(_){window.MONTHLY_SUM=[];}
+    dot.className='status-dot ok';
+    stxt.textContent=RAW.length.toLocaleString()+' tickets loaded';
+    document.getElementById('loadOverlay').style.display='none';
+    // Initialise default weekly view
+    VIEW_MODE='weekly';
+    REF_P=defaultP('weekly');
+    CMP_P=prevP(REF_P);
+    populateDrops();
+    populatePeriodSel();
+    renderAll();
+    document.getElementById('footerTime').textContent='Data as of '+new Date().toLocaleTimeString('en-GB');
+  }catch(e){
+    dot.className='status-dot err';
+    stxt.textContent='Server unreachable';
+    setH('loadMsg','<div style="margin-bottom:14px;color:#94a3b8"><i class="icon icon-cloud-off icon-2xl"></i></div><strong style="font-size:16px;color:#0d2b4e">Unable to reach the dashboard server.</strong><br><br><span style="font-size:13px;color:#6b7280">The server may be restarting or temporarily unavailable.<br>Please wait a moment and try again, or contact your IT administrator.</span>');if(window.EDV_ICONS)window.EDV_ICONS.hydrate(document.getElementById('loadMsg'));
+    document.querySelector('.spinner').style.display='none';
+    document.getElementById('loadErrBtn').style.display='inline-block';
+    console.error('[loadData]',e);
+  }
+}
+
+// ── Data freshness indicator ───────────────────────────────────────────────
+// Fetches /api/cache/status and updates the bar below the header with how
+// fresh the raw ticket data is. Warns colleagues if data is stale.
+// When a background cache refresh is running, polls every 30 s until done.
+let _freshnessTimer = null;
+async function initFreshnessBar() {
+  const bar = document.getElementById('freshnessBar');
+  if (!bar) return;
+  try {
+    const r = await fetch(PROXY + '/api/cache/status', {
+      headers: { 'x-dash-key': window.__ak || '' }
+    });
+    if (!r.ok) return;
+    const d = await r.json();
+
+    // ── Refreshing badge (shown on top of any state) ──────────────────
+    const refreshingBadge = d.refreshing
+      ? `<span style="margin-left:8px;background:#dbeafe;color:#1d4ed8;border-radius:4px;
+                      padding:2px 8px;font-size:10px;font-weight:700;letter-spacing:.4px;
+                      animation:fb-pulse 1.2s ease-in-out infinite">🔄 REFRESHING…</span>`
+      : '';
+
+    // Poll fast while refreshing, back to 5 min when idle
+    clearInterval(_freshnessTimer);
+    _freshnessTimer = setInterval(initFreshnessBar, d.refreshing ? 30_000 : 300_000);
+
+    // Role-based UI — always apply regardless of cache state
+    const isAdmin      = window.__authUser && ['admin','super_admin'].includes(window.__authUser.role);
+    const isSuperAdmin = window.__authUser && window.__authUser.role === 'super_admin';
+    const hdrSync = document.getElementById('btnForceSync');
+    if (hdrSync) hdrSync.style.display = isAdmin ? '' : 'none';
+    // Show executive nav links for super_admin only
+    const navExec   = document.getElementById('nav-executive');
+    const navReport = document.getElementById('nav-exec-report');
+    if (navExec)   navExec.style.display   = isSuperAdmin ? '' : 'none';
+    if (navReport) navReport.style.display = isSuperAdmin ? '' : 'none';
+
+    if (!d.ts) {
+      // No cache yet but refresh may be running — still show the badge
+      if (d.refreshing) {
+        bar.style.display = 'flex';
+        bar.className = 'freshness-bar freshness-warn';
+        bar.innerHTML = `<span>⏳</span><span>Loading ticket data for the first time…</span>${refreshingBadge}`;
+      } else {
+        bar.style.display = 'none';
+      }
+      return;
+    }
+
+    const ageMs = Date.now() - d.ts;
+    const ageH  = ageMs / 3_600_000;
+    const when  = new Date(d.ts);
+    const fmt   = when.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' })
+                + ' ' + when.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
+    const rows  = d.rows ? ` · ${d.rows.toLocaleString()} tickets` : '';
+    bar.style.display = 'flex';
+    const _zap = (window.EDV_ICONS ? window.EDV_ICONS.html('zap') : '');
+    const syncBtn = isAdmin ? `<button class="fb-sync-btn" onclick="forceSync()">${_zap} Sync Now</button>` : '';
+    if (ageH < 4) {
+      bar.className = 'freshness-bar freshness-ok';
+      bar.innerHTML = `<span class="fb-dot"></span><span>Data as of <strong>${fmt}</strong>${rows}</span>${refreshingBadge}${syncBtn}`;
+    } else if (ageH < 24) {
+      const h = Math.floor(ageH);
+      bar.className = 'freshness-bar freshness-warn';
+      bar.innerHTML = `<span>⚠</span><span>Data is <strong>${h} hour${h>1?'s':''} old</strong>${rows} — auto-refresh runs every 2 hours</span>${refreshingBadge}${syncBtn}`;
+    } else {
+      const days = Math.floor(ageH / 24);
+      bar.className = 'freshness-bar freshness-stale';
+      bar.innerHTML = `<span>⛔</span><span>Data is <strong>${days} day${days>1?'s':''} old</strong>${rows} — please sync before sharing with colleagues</span>${refreshingBadge}${syncBtn}`;
+    }
+  } catch(e) { /* non-fatal — freshness bar is informational only */ }
+}
+// Kick off the first poll; subsequent interval is managed inside initFreshnessBar
+_freshnessTimer = setInterval(initFreshnessBar, 300_000);
+
+document.getElementById('footerTime').textContent=new Date().toLocaleDateString('en-GB',{weekday:'short',year:'numeric',month:'short',day:'numeric'});
+loadData();
+initFreshnessBar();
+</script>
+</body>
+</html>

@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zoho Token Renewal — Endeavour Mining IT Dashboard</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',Arial,sans-serif;background:#f3f4f6;color:#1f2937;line-height:1.6}
+  header{background:#0d2b4e;color:#fff;padding:28px 40px}
+  header h1{font-size:22px;font-weight:700}
+  header p{font-size:13px;color:#94a3b8;margin-top:4px}
+  .container{max-width:860px;margin:0 auto;padding:36px 24px}
+  .intro{background:#fff;border-radius:10px;padding:24px 28px;margin-bottom:28px;border-left:5px solid #E8600A}
+  .intro h2{font-size:16px;color:#E8600A;margin-bottom:8px}
+  .intro p{font-size:14px;color:#374151}
+  .step{background:#fff;border-radius:10px;padding:24px 28px;margin-bottom:20px;box-shadow:0 1px 4px rgba(0,0,0,.07)}
+  .step-header{display:flex;align-items:center;gap:14px;margin-bottom:16px}
+  .step-num{background:#E8600A;color:#fff;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;flex-shrink:0}
+  .step h3{font-size:16px;font-weight:700;color:#0d2b4e}
+  .step p{font-size:14px;color:#374151;margin-bottom:10px}
+  .step ol,.step ul{padding-left:20px;font-size:14px;color:#374151}
+  .step li{margin-bottom:6px}
+  code{background:#f1f5f9;border:1px solid #e2e8f0;border-radius:5px;padding:2px 7px;font-family:Consolas,monospace;font-size:13px;color:#0f172a}
+  .cmd-block{background:#0d2b4e;color:#e2e8f0;border-radius:8px;padding:16px 20px;margin:12px 0;font-family:Consolas,monospace;font-size:13px;line-height:1.8}
+  .cmd-block .prompt{color:#94a3b8}
+  .cmd-block .cmd{color:#86efac}
+  .cmd-block .comment{color:#64748b}
+  .tip{background:#eff6ff;border:1px solid #bfdbfe;border-radius:7px;padding:12px 16px;font-size:13px;color:#1e40af;margin-top:12px}
+  .tip strong{color:#1d4ed8}
+  .warn{background:#fff7ed;border:1px solid #fed7aa;border-radius:7px;padding:12px 16px;font-size:13px;color:#c2410c;margin-top:12px}
+  .warn strong{color:#9a3412}
+  .success{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:7px;padding:12px 16px;font-size:13px;color:#166534;margin-top:12px}
+  .tag{display:inline-block;background:#fef3c7;color:#92400e;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-left:8px}
+  .scope-box{background:#1e293b;color:#7dd3fc;border-radius:8px;padding:14px 18px;font-family:Consolas,monospace;font-size:14px;letter-spacing:.3px;margin:12px 0;user-select:all;cursor:pointer}
+  table{width:100%;border-collapse:collapse;font-size:13px;margin-top:10px}
+  th{background:#f8fafc;text-align:left;padding:10px 12px;border:1px solid #e2e8f0;color:#475569;font-weight:600}
+  td{padding:10px 12px;border:1px solid #e2e8f0;color:#374151}
+  .footer-note{text-align:center;font-size:12px;color:#9ca3af;margin-top:32px;padding-bottom:32px}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🔑 Zoho Token Renewal Guide</h1>
+  <p>Endeavour Mining IT Dashboard · Use this guide whenever the data sync stops working with a "Token failed" error</p>
+</header>
+
+<div class="container">
+
+  <!-- When to use -->
+  <div class="intro">
+    <h2>When do you need this?</h2>
+    <p>The dashboard syncs live ticket data from ManageEngine Analytics Plus using a Zoho OAuth token. The <strong>refresh token</strong> can occasionally become invalid if the Zoho account password is changed or the app is revoked in the API console. When this happens, PM2 logs will show:</p>
+    <div class="cmd-block" style="margin-top:10px">
+      <span style="color:#f87171">✗ Token failed: Request failed with status code 400</span>
+    </div>
+    <p style="margin-top:10px">The dashboard keeps serving from cache, but live data stops updating. Follow the steps below to fix it in ~5 minutes.</p>
+  </div>
+
+  <!-- Step 1 -->
+  <div class="step">
+    <div class="step-header">
+      <div class="step-num">1</div>
+      <h3>Confirm the token is actually broken</h3>
+    </div>
+    <p>On the server, check the PM2 logs:</p>
+    <div class="cmd-block">
+      <span class="prompt">C:\Apps\SDP-Dashboard&gt; </span><span class="cmd">pm2 logs endeavour-dashboard --lines 20</span>
+    </div>
+    <p>Look for the red error line. If you see <code>✅ Token Refreshed</code> instead, the token is working fine and you don't need this guide.</p>
+  </div>
+
+  <!-- Step 2 -->
+  <div class="step">
+    <div class="step-header">
+      <div class="step-num">2</div>
+      <h3>Log in to the Zoho API Console</h3>
+    </div>
+    <ol>
+      <li>Open a browser and go to <code>https://api-console.zoho.com</code></li>
+      <li>Zoho will ask you to <strong>Verify your identity</strong> — click <strong>Send OTP</strong></li>
+      <li>Enter the OTP from your Endeavour email inbox</li>
+      <li>You will land on the API Console main page</li>
+    </ol>
+    <div class="tip">💡 You must use the same Zoho account that was used to originally set up the dashboard credentials.</div>
+  </div>
+
+  <!-- Step 3 -->
+  <div class="step">
+    <div class="step-header">
+      <div class="step-num">3</div>
+      <h3>Generate a new authorization code <span class="tag">Time-sensitive</span></h3>
+    </div>
+    <ol>
+      <li>Click <strong>Self Client</strong> in the left sidebar</li>
+      <li>Click <strong>Generate Code</strong></li>
+      <li>In the <strong>Scope</strong> field, paste exactly:</li>
+    </ol>
+    <div class="scope-box" title="Click to select all">MEAplus.fullaccess.all</div>
+    <ol start="4">
+      <li>Set <strong>Time Duration</strong> to <code>10 minutes</code></li>
+      <li>Click <strong>Create</strong></li>
+      <li>Zoho shows a one-time <strong>authorization code</strong> — <strong>copy it immediately</strong></li>
+    </ol>
+    <div class="warn">⚠️ The authorization code expires in <strong>10 minutes</strong>. Complete Step 5 before it expires.</div>
+    <div class="warn" style="margin-top:8px">⚠️ <strong>Do NOT use the narrower read-only scope</strong> (<code>MEAplus.data.read,MEAplus.metadata.read</code>). It looks like the right "least privilege" choice but triggers <strong>errorCode 7301 SECURITY_NOT_PERMITTED</strong> on several views (Survey Results, REQUEST_TABLE, MAJOR_INCIDENTS) with a misleading "user does not have permission" message. Confirmed 2026-05-27 in prod.</div>
+    <div class="warn" style="margin-top:8px">⚠️ Do <strong>not</strong> use <code>ZohoAnalytics.*</code> scopes (e.g. <code>ZohoAnalytics.fullaccess</code>, <code>ZohoAnalytics.data.read</code>) — those are for Zoho Analytics, not ManageEngine Analytics Plus, and will cause <strong>INVALID_OAUTHSCOPE</strong> error (errorCode 8540).</div>
+
+    <table style="margin-top:14px">
+      <tr><th>Scope</th><th>What it allows</th><th>Status</th></tr>
+      <tr><td><code>MEAplus.fullaccess.all</code></td><td>Full access to all Analytics Plus APIs</td><td><strong>✅ Use this</strong></td></tr>
+      <tr><td><code>MEAplus.data.read,MEAplus.metadata.read</code></td><td>Read-only data + metadata (looks right, but doesn't work)</td><td>❌ Triggers 7301 on several views</td></tr>
+    </table>
+  </div>
+
+  <!-- Step 4 -->
+  <div class="step">
+    <div class="step-header">
+      <div class="step-num">4</div>
+      <h3>Make sure get-token.js is on the server</h3>
+    </div>
+    <p>The <code>get-token.js</code> script handles the token exchange automatically. If it's not already in <code>C:\Apps\SDP-Dashboard\</code>, copy it from the source folder:</p>
+    <div class="cmd-block">
+      <span class="comment">:: Copy the script to the server folder</span><br>
+      <span class="prompt">C:\&gt; </span><span class="cmd">copy "C:\Users\Admin\Documents\SDP-Dashboard\get-token.js" "C:\Apps\SDP-Dashboard\get-token.js"</span>
+    </div>
+    <div class="tip">💡 Keep <code>get-token.js</code> in your Documents\SDP-Dashboard folder permanently so you can always copy it over when needed.</div>
+  </div>
+
+  <!-- Step 5 -->
+  <div class="step">
+    <div class="step-header">
+      <div class="step-num">5</div>
+      <h3>Run the token exchange <span class="tag">Time-sensitive</span></h3>
+    </div>
+    <p>Open CMD as Administrator, then run — replacing <code>&lt;YOUR-CODE&gt;</code> with the authorization code from Step 3:</p>
+    <div class="cmd-block">
+      <span class="prompt">C:\Apps\SDP-Dashboard&gt; </span><span class="cmd">node get-token.js &lt;YOUR-CODE&gt;</span>
+    </div>
+    <p>Example:</p>
+    <div class="cmd-block">
+      <span class="prompt">C:\Apps\SDP-Dashboard&gt; </span><span class="cmd">node get-token.js 1000.abc123def456.xyz789</span>
+    </div>
+    <p>If successful, you will see:</p>
+    <div class="cmd-block">
+      <span style="color:#86efac">✅  Got refresh token!</span><br><br>
+      .env updated with new ZOHO_REFRESH_TOKEN.<br>
+      Now run:  pm2 restart endeavour-dashboard --update-env<br><br>
+      Done — delete this file afterwards: del get-token.js
+    </div>
+    <div class="warn">⚠️ If you see <code>Exchange failed</code>, the code has expired. Go back to Step 3 and generate a new one.</div>
+  </div>
+
+  <!-- Step 6 -->
+  <div class="step">
+    <div class="step-header">
+      <div class="step-num">6</div>
+      <h3>Restart the dashboard with the new token</h3>
+    </div>
+    <p>The <code>--update-env</code> flag is required — without it PM2 uses the old cached environment and ignores the new token:</p>
+    <div class="cmd-block">
+      <span class="prompt">C:\Apps\SDP-Dashboard&gt; </span><span class="cmd">pm2 restart endeavour-dashboard --update-env</span>
+    </div>
+    <div class="success">✅ You should see PM2 restart cleanly with status <strong>online</strong>.</div>
+  </div>
+
+  <!-- Step 7 -->
+  <div class="step">
+    <div class="step-header">
+      <div class="step-num">7</div>
+      <h3>Verify the token is working</h3>
+    </div>
+    <p>Check the PM2 logs for the confirmation message:</p>
+    <div class="cmd-block">
+      <span class="prompt">C:\Apps\SDP-Dashboard&gt; </span><span class="cmd">pm2 logs endeavour-dashboard --lines 15</span>
+    </div>
+    <p>Look for:</p>
+    <div class="cmd-block">
+      <span style="color:#86efac">[Token] ✅ Refreshed #1, expires 10:29:38 AM | granted scope: MEAplus.data.read,MEAplus.metadata.read</span>
+    </div>
+    <p>This confirms the new token is active and the correct scope was granted. The dashboard will now sync live data again automatically every 2 hours.</p>
+    <div class="tip">💡 You can also open the dashboard at <code>http://&lt;server-ip&gt;:3456</code> and click <strong>⚡ Force Sync</strong> on the main dashboard to immediately pull fresh data.</div>
+  </div>
+
+  <!-- Step 8 -->
+  <div class="step">
+    <div class="step-header">
+      <div class="step-num">8</div>
+      <h3>Clean up</h3>
+    </div>
+    <p>Delete the exchange script from the server folder for security:</p>
+    <div class="cmd-block">
+      <span class="prompt">C:\Apps\SDP-Dashboard&gt; </span><span class="cmd">del get-token.js</span>
+    </div>
+    <div class="tip">💡 Keep a copy in <code>C:\Users\Admin\Documents\SDP-Dashboard\get-token.js</code> for next time.</div>
+  </div>
+
+  <!-- Summary -->
+  <div class="step" style="border-left:4px solid #22c55e">
+    <div class="step-header">
+      <div class="step-num" style="background:#16a34a">✓</div>
+      <h3>Quick Reference — Complete Sequence</h3>
+    </div>
+    <div class="cmd-block">
+      <span class="comment">── On the server (CMD as Administrator) ──────────────────────</span><br><br>
+      <span class="comment">1. Copy script if needed</span><br>
+      <span class="prompt">C:\&gt; </span><span class="cmd">copy "C:\Users\Admin\Documents\SDP-Dashboard\get-token.js" "C:\Apps\SDP-Dashboard\get-token.js"</span><br><br>
+      <span class="comment">2. Exchange the code (paste your code from Zoho)</span><br>
+      <span class="prompt">C:\Apps\SDP-Dashboard&gt; </span><span class="cmd">node get-token.js &lt;PASTE-CODE-HERE&gt;</span><br><br>
+      <span class="comment">3. Restart with new env vars</span><br>
+      <span class="prompt">C:\Apps\SDP-Dashboard&gt; </span><span class="cmd">pm2 restart endeavour-dashboard --update-env</span><br><br>
+      <span class="comment">4. Verify token is active</span><br>
+      <span class="prompt">C:\Apps\SDP-Dashboard&gt; </span><span class="cmd">pm2 logs endeavour-dashboard --lines 15</span><br><br>
+      <span class="comment">5. Clean up</span><br>
+      <span class="prompt">C:\Apps\SDP-Dashboard&gt; </span><span class="cmd">del get-token.js</span>
+    </div>
+  </div>
+
+  <div class="footer-note">
+    Endeavour Mining · IT Department · Dashboard Administration Guide<br>
+    Keep this file in <code>C:\Users\Admin\Documents\SDP-Dashboard\</code> for reference
+  </div>
+
+</div>
+</body>
+</html>
