@@ -236,12 +236,13 @@ Copy `.env - Copie.example` → `.env` and fill in every value.
 
 ## Zoho OAuth — Getting a Refresh Token
 
-Required scope: `MEAplus.data.read,MEAplus.metadata.read`
+Required scope: `MEAplus.fullaccess.all`
 Do **not** use `ZohoAnalytics.*` — it targets the wrong workspace.
+Do **not** use the narrower `MEAplus.data.read,MEAplus.metadata.read` — confirmed 2026-05-27 to trigger errorCode 7301 SECURITY_NOT_PERMITTED on Survey Results / REQUEST_TABLE / MAJOR_INCIDENTS views (misleading error text — it looks like a user-ACL issue but is actually a scope-too-narrow rejection). See `ANALYTICS_PLUS_API_SCOPES.md` for details.
 
 ```
 1. Go to https://api-console.zoho.com → Self Client
-2. Paste scope: MEAplus.data.read,MEAplus.metadata.read
+2. Paste scope: MEAplus.fullaccess.all
 3. Set duration: 10 minutes
 4. Copy the authorisation code
 5. Exchange for refresh token:
@@ -560,7 +561,7 @@ node -e "require('./tracker-pptx.js')" 2>&1 | head -3
 - [ ] `.env` file present with all required variables
 - [ ] `DASH_PASS` is at least 12 characters
 - [ ] `NODE_ENV=production` in `.env`
-- [ ] Zoho refresh token uses `MEAplus.data.read,MEAplus.metadata.read` scope (not `ZohoAnalytics.*`)
+- [ ] Zoho refresh token uses `MEAplus.fullaccess.all` scope (NOT the narrower `MEAplus.data.read,MEAplus.metadata.read` which triggers 7301, and NOT `ZohoAnalytics.*` which is the wrong workspace)
 - [ ] `tracker.db` and `reports.db` are writable by the Node process
 - [ ] PM2 configured for auto-restart on reboot (`pm2 save` + `pm2-service-install`)
 - [ ] Firewall: port 3456 accessible only from LAN (not public internet)

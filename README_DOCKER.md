@@ -82,21 +82,19 @@ You need **4 values** from Zoho.
 
 ### ZOHO_REFRESH_TOKEN
 
-This is the most important one. It must be generated with **both** OAuth scopes:
+This is the most important one. It must be generated with the **ManageEngine Analytics Plus** scope (NOT `ZohoAnalytics.*` — that targets the wrong workspace and triggers INVALID_OAUTHSCOPE 8540):
 
 ```
-ZohoAnalytics.fullaccess
-ZohoSurvey.surveys.READ
+MEAplus.fullaccess.all
 ```
+
+⚠️ Do **not** use the narrower `MEAplus.data.read,MEAplus.metadata.read` — confirmed 2026-05-27 to trigger errorCode 7301 SECURITY_NOT_PERMITTED on Survey Results / REQUEST_TABLE / MAJOR_INCIDENTS views (misleading error text — it looks like a per-user-ACL issue but is actually a scope-too-narrow rejection). See `ANALYTICS_PLUS_API_SCOPES.md` for details.
 
 **Steps:**
-1. Go to https://accounts.zoho.com/oauth/v2/auth with these parameters:
+1. Go to https://api-console.zoho.com → Self Client → Generate Code with:
    ```
-   scope=ZohoAnalytics.fullaccess,ZohoSurvey.surveys.READ
-   client_id=YOUR_CLIENT_ID
-   response_type=code
-   redirect_uri=https://www.zoho.com/books        ← any valid redirect
-   access_type=offline
+   scope=MEAplus.fullaccess.all
+   duration=10 minutes
    ```
 2. Authorize the app
 3. Exchange the `code` for a refresh token:

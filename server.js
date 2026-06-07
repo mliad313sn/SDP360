@@ -433,11 +433,13 @@ async function refreshAccessToken() {
   _refreshBreaker.attempts = 0;
   _refreshBreaker.lastSignature = null;
   // SECURITY: Token stored in memory only — no disk write.
-  // Required scope: MEAplus.data.read,MEAplus.metadata.read
-  // DO NOT use: ZohoAnalytics.fullaccess, ZohoAnalytics.data.all, ZohoSurvey.surveys.READ (rejected by ManageEngine Analytics Plus API)
+  // Required scope: MEAplus.fullaccess.all
+  // DO NOT use: ZohoAnalytics.* (wrong workspace — INVALID_OAUTHSCOPE 8540),
+  //             MEAplus.data.read,MEAplus.metadata.read (triggers SECURITY_NOT_PERMITTED 7301 on
+  //             Survey Results / REQUEST_TABLE / MAJOR_INCIDENTS views — confirmed 2026-05-27).
   console.log(`[Token] ✅ Refreshed #${tokenState.refreshCount}, expires ${new Date(tokenState.expiresAt).toLocaleTimeString()} | granted scope: ${res.data.scope || 'not returned'}`);
-  if (res.data.scope && !res.data.scope.includes('MEAplus.data.read') && !res.data.scope.includes('MEAplus.fullaccess')) {
-    console.warn('[Token] ⚠️  Scope missing MEAplus.data.read — API calls will likely fail with INVALID_OAUTHSCOPE (8540). Renew token using RENEW_ZOHO_TOKEN.html.');
+  if (res.data.scope && !res.data.scope.includes('MEAplus.fullaccess')) {
+    console.warn('[Token] ⚠️  Scope is NOT MEAplus.fullaccess.all — Survey Results / REQUEST_TABLE / MAJOR_INCIDENTS views will likely 403 with errorCode 7301. Renew token using RENEW_ZOHO_TOKEN.html.');
   }
   return tokenState.accessToken;
 }

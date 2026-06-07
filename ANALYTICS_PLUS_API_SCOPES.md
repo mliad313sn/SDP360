@@ -92,7 +92,7 @@ It reads like a per-user-ACL issue but is actually a **scope-too-narrow** reject
 ## Token Renewal Steps
 
 1. Go to `https://api-console.zoho.com` → Self Client → Generate Code
-2. Paste scope: `MEAplus.data.read,MEAplus.metadata.read`
+2. Paste scope: `MEAplus.fullaccess.all` (NOT the narrower read scope — see "DO NOT use" section above)
 3. Set duration: 10 minutes → Create → Copy code
 4. On server CMD (as Admin):
    ```

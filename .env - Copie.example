@@ -23,9 +23,11 @@ DASH_PASS=ChangeThisPassword123!
 ZOHO_CLIENT_ID=your_client_id_here
 ZOHO_CLIENT_SECRET=your_client_secret_here
 
-# Generate refresh token with BOTH scopes:
-#   ZohoAnalytics.fullaccess  ZohoSurvey.surveys.READ
-# Guide: accounts.zoho.com → Security → Connected Apps → Re-authorize
+# Generate refresh token with this scope (ManageEngine Analytics Plus):
+#   MEAplus.fullaccess.all
+# Do NOT use ZohoAnalytics.* (wrong workspace) or MEAplus.data.read,MEAplus.metadata.read
+# (triggers errorCode 7301 SECURITY_NOT_PERMITTED on several views — confirmed 2026-05-27).
+# Guide: see RENEW_ZOHO_TOKEN.html or ANALYTICS_PLUS_API_SCOPES.md
 ZOHO_REFRESH_TOKEN=your_refresh_token_here
 
 # ── SDP Analytics Plus (REQUIRED) ────────────────────────────────────────────
