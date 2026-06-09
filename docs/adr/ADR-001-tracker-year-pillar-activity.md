@@ -1,8 +1,10 @@
 # ADR-001 — Tracker schema: bind pillars to years and activities to pillars
 
-**Status**: Proposed — awaiting IT Director / Architect approval
-**Date**: 2026-06-09
+**Status**: ✅ **Accepted**
+**Date drafted**: 2026-06-09
+**Date accepted**: 2026-06-09
 **Author**: Claude (drafted with the project owner)
+**Approved by**: samaziz679 (project owner / repository maintainer)
 **Supersedes**: none (first ADR in this project)
 **Related**:
   - `docs/DATA_ARCHITECTURE.md` §2 — current tracker schema
@@ -392,13 +394,17 @@ schema, restore from backup (`_backup_prod.cmd` snapshots include
 
 This ADR is considered **accepted** when:
 
-- [ ] The IT Director (or designated architect) signs off in writing.
+- [x] The project owner (samaziz679) signs off in writing. ✅ 2026-06-09 — accepted as drafted, no amendments requested.
 - [ ] A Phase 0 timeline is committed (target: within the next 2 weeks).
 - [ ] The dual-write diff script is reviewed and approved as a Phase 1
-      gate.
+      gate. (To be created during Phase 0.)
 - [ ] The Phase 4 trigger (4 weeks stability) is acknowledged as binding.
 
-Until then, the ADR remains in **Proposed** status.
+**Acceptance note (2026-06-09)**: project owner approved the ADR as
+drafted, including the recommended Option 2 (normalised tables with
+5-phase dual-write migration). Implementation start date and IT
+Director / external architect counter-signature remain open items but
+do NOT block Phase 0 from being scheduled.
 
 ---
 
