@@ -271,6 +271,24 @@ function _initSchema(db) {
       PRIMARY KEY (inspection_id, signer_type),
       FOREIGN KEY (inspection_id) REFERENCES insp_inspections(id) ON DELETE CASCADE
     );
+
+    -- ── PALIER 1 — Canonical category catalogue (additive, 2026-06-05) ──
+    -- Until 2026-06-05 the 17 inspection categories existed only in
+    -- inspection-init.json AND in an inline 'const CATEGORIES' in
+    -- inspection.html (documented as a footgun in CLAUDE.md). This
+    -- table makes the catalogue queryable from SQL. NO foreign key is
+    -- added to insp_findings.category for compatibility — that table
+    -- continues to accept any string. Future features can JOIN against
+    -- this catalogue when they need the canonical EN/FR labels.
+    CREATE TABLE IF NOT EXISTS insp_categories (
+      code          TEXT PRIMARY KEY,
+      name_en       TEXT NOT NULL,
+      name_fr       TEXT,
+      icon          TEXT,
+      display_order INTEGER DEFAULT 0,
+      active        INTEGER DEFAULT 1,
+      created_at    TEXT DEFAULT (datetime('now'))
+    );
   `);
 
   // Seed lookup tables on first run only
@@ -279,6 +297,33 @@ function _initSchema(db) {
     console.log('[inspection-db] First run — seeding lookup tables…');
     _seedLookups(db);
     console.log('[inspection-db] ✅ Lookups seeded');
+  }
+
+  // ── PALIER 1 — Seed insp_categories independently ─────────────────
+  // Seeded separately because v1 DBs may already have insp_sites
+  // populated (so the seed-gate above won't fire). Idempotent: skips
+  // rows that already exist.
+  try {
+    const catCount = db.prepare('SELECT COUNT(*) AS n FROM insp_categories').get().n;
+    if (catCount === 0 && Array.isArray(INIT.categories)) {
+      const insCat = db.prepare(
+        `INSERT OR IGNORE INTO insp_categories (code, name_en, name_fr, icon, display_order, active)
+         VALUES (?, ?, ?, ?, ?, 1)`
+      );
+      const seed = db.transaction(() => {
+        INIT.categories.forEach((c, i) => insCat.run(
+          c.id || c.code,
+          c.name_en || c.id,
+          c.name_fr || c.name_en || c.id,
+          c.icon || null,
+          c.display_order != null ? c.display_order : i
+        ));
+      });
+      seed();
+      console.log(`[inspection-db] ✅ Seeded ${INIT.categories.length} insp_categories (Palier 1)`);
+    }
+  } catch (e) {
+    console.error('[inspection-db] insp_categories seed failed:', e.message);
   }
 }
 

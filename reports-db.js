@@ -480,6 +480,97 @@ if (deptCount === 0) {
   console.log(`[seed] Inserted ${defaults.length} default action_departments`);
 }
 
+// ══════════════════════════════════════════════════════════════════
+//  PALIER 1 — Canonical catalogues (additive, opt-in, non-breaking)
+//  Added 2026-06-05. These tables are READ-ONLY catalogues that the
+//  existing code does NOT yet depend on. They expose, in queryable
+//  form, structures previously trapped in JS hashmaps (SITE_MAP) or
+//  free-text strings (infra KPIs). Future features can JOIN against
+//  them; legacy code remains untouched.
+// ══════════════════════════════════════════════════════════════════
+
+// ── 1.A site_module_codes ─────────────────────────────────────────
+// Maps each canonical site (sites.id) to its module-specific code.
+// Replaces the 4 duplicate SITE_MAP hashmaps in tracker-db.js,
+// inspection-db.js, meetings-db.js (via inspection), risk-register-export.js.
+// Source of truth assembled from those 4 files + DATA_ARCHITECTURE.md §1.
+db.exec(`
+CREATE TABLE IF NOT EXISTS site_module_codes (
+  site_id    INTEGER NOT NULL,
+  module     TEXT    NOT NULL,            -- 'tracker' | 'inspection' | 'meetings' | 'risk_register'
+  code       TEXT    NOT NULL,            -- e.g. 'MGO', 'HGO', 'KLN', 'OUAGA OFF1'
+  updated_at TEXT    DEFAULT (datetime('now')),
+  PRIMARY KEY (site_id, module),
+  FOREIGN KEY (site_id) REFERENCES sites(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_smc_module ON site_module_codes(module);
+CREATE INDEX IF NOT EXISTS idx_smc_code   ON site_module_codes(code);
+`);
+
+// Backfill — canonical site name → { module → code }.
+// 'meetings' reuses inspection codes (per meetings-db.js _userMeetingsSite).
+// Wahgnion (inactive) is intentionally omitted from per-module codes.
+const _SITE_MODULE_CODES_SEED = {
+  'Sabodala':    { tracker: 'SGO', inspection: 'SGO', meetings: 'SGO', risk_register: 'SGO' },
+  'MANA':        { tracker: 'MGO', inspection: 'MGO', meetings: 'MGO', risk_register: 'MGO' },
+  'Hounde':      { tracker: 'HGO', inspection: 'HGO', meetings: 'HGO', risk_register: 'HGO' },
+  'Ity':         { tracker: 'ITY', inspection: 'SMI', meetings: 'SMI', risk_register: 'IGO' },
+  'Lafigue':     { tracker: 'SML', inspection: 'SML', meetings: 'SML', risk_register: 'SML' },
+  'Ouagadougou': { tracker: 'EDV', inspection: 'OUA', meetings: 'OUA', risk_register: 'OUAGA OFF1' },
+  'Abidjan':     { tracker: 'ABJ', inspection: 'ABJ', meetings: 'ABJ' },
+  'Dakar':       { tracker: 'DKR', inspection: 'DKR', meetings: 'DKR' },
+  'Exploration': { tracker: 'EXP', risk_register: 'EXPLO' },
+  'Kalana':      { tracker: 'KLN', inspection: 'KGO', meetings: 'KGO', risk_register: 'KGO' },
+  'Tanda':       { tracker: 'TND' },
+};
+{
+  const upsertCode = db.prepare(
+    `INSERT OR IGNORE INTO site_module_codes (site_id, module, code) VALUES (?, ?, ?)`
+  );
+  const findSite = db.prepare(`SELECT id FROM sites WHERE name = ? COLLATE NOCASE`);
+  let inserted = 0;
+  for (const [siteName, modCodes] of Object.entries(_SITE_MODULE_CODES_SEED)) {
+    const row = findSite.get(siteName);
+    if (!row) continue;
+    for (const [mod, code] of Object.entries(modCodes)) {
+      const r = upsertCode.run(row.id, mod, code);
+      if (r.changes > 0) inserted++;
+    }
+  }
+  if (inserted > 0) console.log(`[seed] site_module_codes — inserted ${inserted} (site,module,code) mappings`);
+}
+
+// ── 1.B infra_kpi_catalog ─────────────────────────────────────────
+// Reference catalogue of canonical (service, kpi) pairs. Today the
+// infra_kpis table stores free-text values per report; renames silently
+// break trend charts. This catalogue captures the universe of values
+// in use today + lets a future admin UI manage them centrally.
+db.exec(`
+CREATE TABLE IF NOT EXISTS infra_kpi_catalog (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  service       TEXT    NOT NULL,         -- 'Network' | 'Email' | 'WAN1 Fetekro Explo' | ...
+  kpi           TEXT    NOT NULL,         -- 'Availability' | 'Latency' | ...
+  target_default TEXT,                    -- the most recently used target for this pair
+  display_order INTEGER DEFAULT 0,
+  active        INTEGER DEFAULT 1,
+  created_at    TEXT DEFAULT (datetime('now')),
+  UNIQUE(service, kpi)
+);
+CREATE INDEX IF NOT EXISTS idx_infra_kpi_cat_service ON infra_kpi_catalog(service);
+`);
+// Backfill from any existing infra_kpis rows. Idempotent — re-runs on
+// every boot just pick up newly-seen (service, kpi) combinations.
+try {
+  const r = db.prepare(
+    `INSERT OR IGNORE INTO infra_kpi_catalog (service, kpi, target_default)
+     SELECT service, kpi, MAX(target) FROM infra_kpis
+     WHERE service IS NOT NULL AND service != ''
+       AND kpi     IS NOT NULL AND kpi     != ''
+     GROUP BY service, kpi`
+  ).run();
+  if (r.changes > 0) console.log(`[seed] infra_kpi_catalog — backfilled ${r.changes} new (service, kpi) pairs from history`);
+} catch (e) { /* infra_kpis may be empty on a fresh DB — no problem */ }
+
 // ── SEED DEFAULT ADMIN ────────────────────────────────────────────
 function hashPassword(password, salt) {
   return crypto.pbkdf2Sync(password, salt, 100000, 64, 'sha512').toString('hex');

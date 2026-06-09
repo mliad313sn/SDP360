@@ -66,6 +66,39 @@ function siteNameToCode(siteName) {
   return siteName ? (SITE_MAP[siteName] || null) : null;
 }
 
+// ── PALIER 1 — Activity code helper (additive, 2026-06-05) ──────────────────
+// Today activities are referenced by their position in D.activities[]
+// (activity_ix). That index is fragile: any reorder / splice silently
+// misaligns tracker_targets and tracker_inputs.
+//
+// This helper derives a STABLE, READABLE code from (pillar, name) for
+// each activity. Used by loadTracker() to enrich the returned D object
+// with `D.activities[i].code`. Stored data and existing call sites are
+// untouched — the code is a NEW field that future features can opt in
+// to (e.g. for audit logs, cross-year activity tracking, or as a
+// future replacement for activity_ix).
+//
+// Format: 'P{1-4}-{ALPHA12}'
+//   pillar  "1-Network Infrast"   →  P1
+//   pillar  "3-Risk & Compliance" →  P3
+//   name    "Backup verification" →  BACKUPVERIFI
+//   result  P1-BACKUPVERIFI
+//
+// If the activity already has a `code` field (set by a future admin UI),
+// it is preserved.
+function getActivityCode(activity) {
+  if (!activity) return null;
+  if (activity.code && typeof activity.code === 'string') return activity.code;
+  const pMatch = String(activity.pillar || '').match(/^(\d+)/);
+  const p = pMatch ? `P${pMatch[1]}` : 'PX';
+  const n = String(activity.name || 'untitled')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')   // strip accents
+    .replace(/[^A-Za-z0-9]/g, '')
+    .toUpperCase()
+    .slice(0, 12) || 'UNTITLED';
+  return `${p}-${n}`;
+}
+
 // ── DB singleton ─────────────────────────────────────────────────────────────
 let _tdb = null;
 
@@ -187,6 +220,15 @@ function loadTracker() {
   const pillarWeights = JSON.parse(cfg.pillar_weights_json || '{}');
   const activeSites   = JSON.parse(cfg.active_sites_json   || '[]');
   const years         = JSON.parse(cfg.years_json          || '[]');
+
+  // ── PALIER 1 — Read-time enrichment ────────────────────────────
+  // Enrich each activity with a stable `code` for use by future
+  // features. Does NOT persist back to DB — if you want to lock the
+  // code in (e.g. an admin edited the auto-derived value), set it
+  // explicitly on activity.code and saveTracker() will round-trip it.
+  for (const a of activities) {
+    if (!a.code) a.code = getActivityCode(a);
+  }
 
   // Targets — rebuild per-site arrays indexed by activity_ix
   const targetRows = db.prepare('SELECT * FROM tracker_targets ORDER BY site, activity_ix').all();
@@ -438,4 +480,4 @@ function deleteTrackerYear(year) {
   };
 }
 
-module.exports = { loadTracker, saveTracker, resetTracker, deleteTrackerYear, previewDeleteTrackerYear, backupDatabase, siteNameToCode };
+module.exports = { loadTracker, saveTracker, resetTracker, deleteTrackerYear, previewDeleteTrackerYear, backupDatabase, siteNameToCode, getActivityCode };
