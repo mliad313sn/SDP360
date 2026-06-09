@@ -89,13 +89,19 @@ function siteNameToCode(siteName) {
 function getActivityCode(activity) {
   if (!activity) return null;
   if (activity.code && typeof activity.code === 'string') return activity.code;
-  const pMatch = String(activity.pillar || '').match(/^(\d+)/);
+  // Pillar string variants seen in production: "1-Network Infrast" OR "P1-Network Infrast".
+  // The regex accepts an optional leading 'P' so both forms yield the same digit.
+  const pMatch = String(activity.pillar || '').match(/^P?(\d+)/i);
   const p = pMatch ? `P${pMatch[1]}` : 'PX';
+  // Slice at 20 chars: shorter (12) collides on near-identical activity names
+  // ("Radio Infrastructure Upgrade" vs "Radio Infrastructure Monitoring" both
+  // truncate to RADIOINFRAST). 20 chars is collision-free for the current 31
+  // activities and stays readable (P1-RADIOINFRASTRUCTUREM).
   const n = String(activity.name || 'untitled')
     .normalize('NFD').replace(/[̀-ͯ]/g, '')   // strip accents
     .replace(/[^A-Za-z0-9]/g, '')
     .toUpperCase()
-    .slice(0, 12) || 'UNTITLED';
+    .slice(0, 20) || 'UNTITLED';
   return `${p}-${n}`;
 }
 
@@ -145,6 +151,65 @@ function _initSchema(db) {
     );
   `);
 
+  // ══════════════════════════════════════════════════════════════════
+  //  PHASE 0 (ADR-001) — additive normalised schema, dual-write ready
+  //  Added 2026-06-09. These tables coexist with the legacy
+  //  tracker_config singleton. loadTracker() and saveTracker() are
+  //  NOT changed at this phase — they still read/write the legacy
+  //  schema. _backfillFromLegacy() (below) populates these tables
+  //  at boot from the legacy data. Phase 1 will introduce dual-write
+  //  in saveTracker(); Phase 2 will switch reads.
+  // ══════════════════════════════════════════════════════════════════
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS tracker_years (
+      year       INTEGER PRIMARY KEY,
+      active     INTEGER DEFAULT 1,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS tracker_pillars (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      year          INTEGER NOT NULL,
+      code          TEXT    NOT NULL,            -- 'P1' .. 'P4' (derived from legacy "1-Network Infrast")
+      name          TEXT    NOT NULL,            -- 'Network Infrast' (the part after the leading digit)
+      weight        REAL    NOT NULL,            -- 0.30 etc.
+      display_order INTEGER DEFAULT 0,
+      active        INTEGER DEFAULT 1,
+      created_at    TEXT DEFAULT (datetime('now')),
+      updated_at    TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (year) REFERENCES tracker_years(year) ON DELETE CASCADE,
+      UNIQUE (year, code)
+    );
+    CREATE INDEX IF NOT EXISTS ix_track_pil_year ON tracker_pillars(year);
+
+    CREATE TABLE IF NOT EXISTS tracker_activities (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      pillar_id     INTEGER NOT NULL,
+      code          TEXT    NOT NULL,            -- from getActivityCode() helper (Palier 1)
+      name          TEXT    NOT NULL,
+      kpi_type      TEXT    NOT NULL,            -- BOOLEAN | PERCENT | MILESTONE | CURRENCY | RATING | COUNT
+      start_month   INTEGER,                     -- 1..12
+      end_month     INTEGER,                     -- 1..12
+      display_order INTEGER DEFAULT 0,
+      active        INTEGER DEFAULT 1,
+      created_at    TEXT DEFAULT (datetime('now')),
+      updated_at    TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (pillar_id) REFERENCES tracker_pillars(id) ON DELETE CASCADE,
+      UNIQUE (pillar_id, code)
+    );
+    CREATE INDEX IF NOT EXISTS ix_track_act_pillar ON tracker_activities(pillar_id);
+    CREATE INDEX IF NOT EXISTS ix_track_act_code   ON tracker_activities(code);
+  `);
+
+  // PHASE 0 — additive columns on legacy tables for activity_id mapping
+  // These let us correlate legacy (site, activity_ix) tuples to the new
+  // activity_id during the backfill. Wrapped in try/catch for idempotence.
+  try { db.exec(`ALTER TABLE tracker_targets ADD COLUMN activity_id INTEGER`); } catch(e) {}
+  try { db.exec(`ALTER TABLE tracker_inputs  ADD COLUMN activity_id INTEGER`); } catch(e) {}
+  try { db.exec(`CREATE INDEX IF NOT EXISTS ix_track_tgt_actid ON tracker_targets(activity_id)`); } catch(e) {}
+  try { db.exec(`CREATE INDEX IF NOT EXISTS ix_track_inp_actid ON tracker_inputs(activity_id)`); } catch(e) {}
+
   // Seed on first run (empty tracker_config)
   const n = db.prepare('SELECT COUNT(*) as n FROM tracker_config').get().n;
   if (n === 0) {
@@ -152,6 +217,196 @@ function _initSchema(db) {
     _seed(db);
     console.log('[tracker-db] ✅ Default data seeded');
   }
+
+  // PHASE 0 — backfill the new normalised tables from the legacy
+  // singleton. Idempotent: skips rows already present, updates pillar
+  // weights if they drifted. Runs at every boot for now (Phase 1 will
+  // move this to saveTracker dual-write).
+  try {
+    const result = _backfillFromLegacy(db);
+    const totalChanges = result.years_inserted + result.pillars_inserted +
+                         result.pillars_updated + result.activities_inserted +
+                         result.targets_backfilled + result.inputs_backfilled;
+    if (totalChanges > 0) {
+      console.log('[Tracker-DB] _backfillFromLegacy:', JSON.stringify(result));
+    }
+  } catch (e) {
+    console.error('[Tracker-DB] _backfillFromLegacy failed:', e.message);
+    // Non-fatal — legacy schema is still in place and serves the app
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  PHASE 0 (ADR-001) — _backfillFromLegacy
+//  ------------------------------------------------------------------
+//  Reads the legacy singleton (tracker_config) and populates the new
+//  normalised tables (tracker_years / tracker_pillars / tracker_activities)
+//  + back-fills the activity_id column on tracker_targets and
+//  tracker_inputs.
+//
+//  IDEMPOTENT: re-running picks up only what is missing.
+//  NON-DESTRUCTIVE: never deletes from the legacy schema.
+//
+//  Pillar code derivation: the legacy pillar string is "1-Network Infrast"
+//  (or "P1-Network Infrast" depending on the seed variant). We extract
+//  the leading digit as 'P{1-4}' and the remainder as the display name.
+//
+//  Activity code derivation: uses getActivityCode() from Palier 1, which
+//  produces a stable 'P{1-4}-{ALPHA12}' identifier from (pillar, name).
+//
+//  Year scoping: legacy has no year dimension for pillars / activities.
+//  We copy the SAME pillar/activity set into every year listed in
+//  years_json. This freezes the current shape per year. Future user edits
+//  in any year will be tracked separately once Phase 1 dual-write ships.
+//
+//  Targets scoping: legacy targets have no year. We map them to the
+//  LATEST year's activity_id (the canonical "current" set of targets).
+// ══════════════════════════════════════════════════════════════════
+function _backfillFromLegacy(db) {
+  const cfg = db.prepare('SELECT * FROM tracker_config WHERE id=1').get();
+  if (!cfg) {
+    return { years_inserted: 0, pillars_inserted: 0, pillars_updated: 0,
+             activities_inserted: 0, targets_backfilled: 0, inputs_backfilled: 0 };
+  }
+
+  const activities    = JSON.parse(cfg.activities_json     || '[]');
+  const pillarWeights = JSON.parse(cfg.pillar_weights_json || '{}');
+  const years         = JSON.parse(cfg.years_json          || '[]');
+
+  // Parse a legacy pillar string like "1-Network Infrast" or "P2-Business Partner"
+  // into { code: 'P1', name: 'Network Infrast' }.
+  function parsePillar(pillarStr) {
+    if (!pillarStr) return null;
+    const s = String(pillarStr).trim();
+    const m = s.match(/^P?(\d+)\s*[-–—]?\s*(.*)$/);
+    if (m) return { code: 'P' + m[1], name: (m[2] || '').trim() || s };
+    // Fallback: take first 4 alphanum chars as code
+    return { code: s.replace(/[^A-Z0-9]/gi, '').slice(0, 4).toUpperCase() || 'PX', name: s };
+  }
+
+  const insertYear   = db.prepare(`INSERT OR IGNORE INTO tracker_years (year) VALUES (?)`);
+  const findPillar   = db.prepare(`SELECT id, weight, name FROM tracker_pillars WHERE year = ? AND code = ?`);
+  const insertPillar = db.prepare(`INSERT INTO tracker_pillars (year, code, name, weight, display_order) VALUES (?, ?, ?, ?, ?)`);
+  const updatePillar = db.prepare(`UPDATE tracker_pillars SET name=?, weight=?, updated_at=datetime('now') WHERE id=?`);
+  const findActivity = db.prepare(`SELECT id FROM tracker_activities WHERE pillar_id = ? AND code = ?`);
+  const insertActivity = db.prepare(`
+    INSERT INTO tracker_activities (pillar_id, code, name, kpi_type, start_month, end_month, display_order)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  let years_inserted = 0, pillars_inserted = 0, pillars_updated = 0, activities_inserted = 0;
+
+  const tx = db.transaction(() => {
+    for (const year of years) {
+      const r = insertYear.run(year);
+      if (r.changes > 0) years_inserted++;
+
+      // Pillar id map for this year: legacy pillar string → pillar_id
+      const pillarIdMap = {};
+      const orderedPillars = Object.keys(pillarWeights);
+      orderedPillars.forEach((pillarStr, order) => {
+        const parsed = parsePillar(pillarStr);
+        if (!parsed) return;
+        const weight = Number(pillarWeights[pillarStr]) || 0;
+        const existing = findPillar.get(year, parsed.code);
+        if (existing) {
+          // Update only if name or weight drifted
+          if (existing.weight !== weight || existing.name !== parsed.name) {
+            updatePillar.run(parsed.name, weight, existing.id);
+            pillars_updated++;
+          }
+          pillarIdMap[pillarStr] = existing.id;
+        } else {
+          const ins = insertPillar.run(year, parsed.code, parsed.name, weight, order);
+          pillarIdMap[pillarStr] = Number(ins.lastInsertRowid);
+          pillars_inserted++;
+        }
+      });
+
+      // Activities under each pillar
+      activities.forEach((act, ix) => {
+        if (!act || !act.pillar) return;
+        const pillarId = pillarIdMap[act.pillar];
+        if (!pillarId) return;  // legacy activity references unknown pillar — skip
+        const code = getActivityCode(act);
+        const existing = findActivity.get(pillarId, code);
+        if (existing) return;  // already present
+        insertActivity.run(
+          pillarId,
+          code,
+          String(act.name || 'Untitled'),
+          String(act.kpi || 'BOOLEAN'),
+          Number(act.start) || 1,
+          Number(act.end)   || 12,
+          ix
+        );
+        activities_inserted++;
+      });
+    }
+  });
+  tx();
+
+  // Backfill activity_id on tracker_inputs (per-year mapping) and
+  // tracker_targets (mapped to the latest year). Both honor the
+  // existing (site, activity_ix) primary key — we never modify the
+  // legacy key, only fill the NEW activity_id column.
+  const ixMeta = activities.map(act => ({
+    pillarStr: act && act.pillar ? act.pillar : null,
+    code: act ? getActivityCode(act) : null,
+  }));
+
+  let inputs_backfilled = 0;
+  const findPillarByYearCode = db.prepare(`SELECT id FROM tracker_pillars WHERE year = ? AND code = ?`);
+  const findActivityByPillarCode = db.prepare(`SELECT id FROM tracker_activities WHERE pillar_id = ? AND code = ?`);
+  const updateInputActivityId = db.prepare(`
+    UPDATE tracker_inputs SET activity_id = ?
+    WHERE year = ? AND site = ? AND activity_ix = ? AND activity_id IS NULL
+  `);
+
+  const inputRows = db.prepare(`SELECT year, site, activity_ix FROM tracker_inputs WHERE activity_id IS NULL`).all();
+  const txInputs = db.transaction(() => {
+    for (const row of inputRows) {
+      const meta = ixMeta[row.activity_ix];
+      if (!meta || !meta.pillarStr || !meta.code) continue;
+      const parsed = parsePillar(meta.pillarStr);
+      if (!parsed) continue;
+      const pillarRow = findPillarByYearCode.get(row.year, parsed.code);
+      if (!pillarRow) continue;
+      const actRow = findActivityByPillarCode.get(pillarRow.id, meta.code);
+      if (!actRow) continue;
+      const r = updateInputActivityId.run(actRow.id, row.year, row.site, row.activity_ix);
+      if (r.changes > 0) inputs_backfilled++;
+    }
+  });
+  txInputs();
+
+  let targets_backfilled = 0;
+  const latestYear = years.length > 0 ? Math.max(...years.map(Number)) : null;
+  if (latestYear) {
+    const updateTargetActivityId = db.prepare(`
+      UPDATE tracker_targets SET activity_id = ?
+      WHERE site = ? AND activity_ix = ? AND activity_id IS NULL
+    `);
+    const targetRows = db.prepare(`SELECT site, activity_ix FROM tracker_targets WHERE activity_id IS NULL`).all();
+    const txTargets = db.transaction(() => {
+      for (const row of targetRows) {
+        const meta = ixMeta[row.activity_ix];
+        if (!meta || !meta.pillarStr || !meta.code) continue;
+        const parsed = parsePillar(meta.pillarStr);
+        if (!parsed) continue;
+        const pillarRow = findPillarByYearCode.get(latestYear, parsed.code);
+        if (!pillarRow) continue;
+        const actRow = findActivityByPillarCode.get(pillarRow.id, meta.code);
+        if (!actRow) continue;
+        const r = updateTargetActivityId.run(actRow.id, row.site, row.activity_ix);
+        if (r.changes > 0) targets_backfilled++;
+      }
+    });
+    txTargets();
+  }
+
+  return { years_inserted, pillars_inserted, pillars_updated,
+           activities_inserted, targets_backfilled, inputs_backfilled };
 }
 
 function _seed(db) {
