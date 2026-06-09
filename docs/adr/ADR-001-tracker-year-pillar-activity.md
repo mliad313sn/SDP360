@@ -408,6 +408,44 @@ do NOT block Phase 0 from being scheduled.
 
 ---
 
+## 8.5 · Addendum 2026-06-09 — Phase 0 deletion-drift policy
+
+**Context**: A peer reviewer pointed out that Phase 0 (`_backfillFromLegacy`)
+is strictly **additive** — `INSERT OR IGNORE` and `UPDATE` on drift, but
+never `DELETE`. Consequence: while the new tables auto-sync on ADD
+operations (year, pillar, activity, weight changes) at the next boot /
+lazy load, they NEVER auto-sync on DELETE operations.
+
+Specifically:
+- User deletes year 2027 via the Tracker Setup UI → legacy
+  (`tracker_config.years_json`, `tracker_inputs`) is cleaned immediately.
+- The new tables (`tracker_years`, `tracker_pillars`, `tracker_activities`)
+  retain ghost rows for 2027 indefinitely.
+- This drift has **zero impact on runtime** today (loadTracker still
+  reads legacy), but it pollutes the new tables for any future
+  feature that JOINs against them.
+
+**Three options considered** (2026-06-09 review):
+
+| Option | Description | Trade-off |
+|---|---|---|
+| A — Defer to Phase 1 | Do not delete years/pillars/activities until Phase 1 ships dual-delete (deleteTrackerYear updates both schemas atomically). Tolerate the no-op state in the meantime. | Cleanest. No operator burden. Slight risk: forgetting to defer. |
+| B — Manual cleanup post-delete | Operator runs a hand-crafted SQL script after each UI delete to wipe ghost rows in the new schema. | Avoids feature work but requires discipline + audit trail. |
+| C — Tolerate drift permanently | Ignore. Phase 1 will eventually clean things up via a one-shot reconciliation. | Lowest cost, highest risk of forgetting. |
+
+**Decision (2026-06-09)**: **Option A.** Until Phase 1 ships:
+- Document the deferral in CLAUDE.md Known Pitfalls so any future
+  session is aware.
+- Operators avoid Tracker Setup → delete operations on years, pillars,
+  or activities.
+- If a delete is unavoidable, follow the manual cleanup procedure
+  documented in the conversation log (and to be migrated into a
+  dedicated runbook if it happens twice).
+
+This decision lifts a hard requirement on Phase 1: **Phase 1 MUST
+handle DELETE propagation before being declared complete.** Without it,
+the deferred deletes pile up and the new tables become unreliable.
+
 ## 9 · Open questions
 
 1. **Should `current_month` and `active_sites_json` also be normalised?**
