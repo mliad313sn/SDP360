@@ -31,11 +31,11 @@ echo  Production layout diagnostic — %CONTEXT%
 echo ============================================================
 echo.
 
-echo --- DBs at root (tracker / inspection / meetings) ---
-dir "%PROD_ROOT%*.db" 2>nul | findstr ".db"
+echo --- DBs at root (should be EMPTY post-harmonisation 2026-06-05) ---
+dir "%PROD_ROOT%*.db" 2>nul | findstr ".db" || echo   ^(no DB at root -- expected after harmonisation^)
 echo.
 
-echo --- data\ folder (reports.db lives here) ---
+echo --- data\ folder (canonical location of ALL 4 DBs since 2026-06-05) ---
 if exist "%PROD_ROOT%data\" (
   dir "%PROD_ROOT%data\*.db*" 2>nul | findstr ".db"
 ) else (

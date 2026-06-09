@@ -81,17 +81,37 @@ if exist "%PROD_ROOT%data\reports.db" (
   echo   WARNING: data\reports.db not found at %PROD_ROOT%data\
 )
 
-rem --- Other 3 DBs at the root --------------------------------
+rem --- Other 3 DBs: now under data\ since 2026-06-05 harmonisation -----
+rem  Original location was %PROD_ROOT%%%D.db (root). Harmonisation commit
+rem  0aa7e58 moved them to %PROD_ROOT%data\%%D.db so all 4 DBs live in
+rem  one folder, matching reports.db's long-standing pattern.
+rem
+rem  We try data\ FIRST (the canonical post-harmonisation location), then
+rem  fall back to the root (in case this script is run against an older
+rem  install that hasn't been harmonised yet — defensive only).
 echo.
-for %%D in (tracker inspection meetings) do (
-  if exist "%PROD_ROOT%%%D.db" (
-    copy /Y "%PROD_ROOT%%%D.db"     "%DEST%\%%D.db"     >nul && echo   ^>  %%D.db
-    if exist "%PROD_ROOT%%%D.db-wal" copy /Y "%PROD_ROOT%%%D.db-wal" "%DEST%\%%D.db-wal" >nul && echo   ^>  %%D.db-wal
-    if exist "%PROD_ROOT%%%D.db-shm" copy /Y "%PROD_ROOT%%%D.db-shm" "%DEST%\%%D.db-shm" >nul && echo   ^>  %%D.db-shm
-  ) else (
-    echo   WARNING: %%D.db not found at %PROD_ROOT%
-  )
+for %%D in (tracker inspection meetings) do call :snapshot_satellite %%D
+goto :after_satellite
+
+:snapshot_satellite
+set "D=%~1"
+if exist "%PROD_ROOT%data\%D%.db" (
+  copy /Y "%PROD_ROOT%data\%D%.db"     "%DEST%\data\%D%.db"     >nul && echo   ^>  data\%D%.db
+  if exist "%PROD_ROOT%data\%D%.db-wal" copy /Y "%PROD_ROOT%data\%D%.db-wal" "%DEST%\data\%D%.db-wal" >nul && echo   ^>  data\%D%.db-wal
+  if exist "%PROD_ROOT%data\%D%.db-shm" copy /Y "%PROD_ROOT%data\%D%.db-shm" "%DEST%\data\%D%.db-shm" >nul && echo   ^>  data\%D%.db-shm
+  goto :eof
 )
+if exist "%PROD_ROOT%%D%.db" (
+  echo   NOTE: %D%.db still at ROOT -- not yet harmonised. Backing up from legacy location.
+  copy /Y "%PROD_ROOT%%D%.db"     "%DEST%\%D%.db"     >nul && echo   ^>  %D%.db (legacy root location)
+  if exist "%PROD_ROOT%%D%.db-wal" copy /Y "%PROD_ROOT%%D%.db-wal" "%DEST%\%D%.db-wal" >nul && echo   ^>  %D%.db-wal (legacy)
+  if exist "%PROD_ROOT%%D%.db-shm" copy /Y "%PROD_ROOT%%D%.db-shm" "%DEST%\%D%.db-shm" >nul && echo   ^>  %D%.db-shm (legacy)
+  goto :eof
+)
+echo   WARNING: %D%.db not found at %PROD_ROOT%data\ NOR %PROD_ROOT%
+goto :eof
+
+:after_satellite
 
 rem --- .env (secrets — invaluable!) ---------------------------
 echo.
@@ -106,14 +126,25 @@ echo.
 echo ============================================================
 echo Snapshot complete. Verify sizes (each .db should be ^> 0 KB):
 echo ============================================================
-dir "%DEST%\*.db" 2>nul | findstr ".db"
+echo --- data\ (canonical, post-harmonisation) ---
 dir "%DEST%\data\*.db" 2>nul | findstr ".db"
+echo.
+echo --- root\ (only present if a pre-harmonisation install) ---
+dir "%DEST%\*.db" 2>nul | findstr ".db" || echo   (no root-level DBs in snapshot -- this is the expected, post-harmonised state)
 echo.
 echo Backup folder: %DEST%
 echo.
+echo Expected (post-harmonisation 2026-06-05):
+echo   data\reports.db       (largest, several MB to tens of MB)
+echo   data\tracker.db       (small, KB to a few MB)
+echo   data\inspection.db    (variable, photos make it grow)
+echo   data\meetings.db      (small, KB to a few MB)
+echo   + their -wal and -shm sidecars
+echo.
 echo Restore (only if needed):
 echo   1) pm2 stop endeavour-dashboard
-echo   2) copy backup files back to %PROD_ROOT% preserving the data\ subfolder
+echo   2) Copy backup files back to %PROD_ROOT% preserving the data\ subfolder
+echo      ALL 4 DBs go into %PROD_ROOT%data\  (NOT root)
 echo   3) pm2 start endeavour-dashboard
 echo.
 endlocal
