@@ -106,16 +106,26 @@ for (const y of legacyYS) {
 }
 
 // ── activity_id coverage on legacy rows ─────────────────────────
+// Distinguish BENIGN historical residuals (rows whose activity_ix is
+// out of the current activities_json range — caused by a past UI delete
+// that didn't splice the children) from REAL drift (activity_ix within
+// range but somehow not mapped).
 console.log('--- activity_id coverage on legacy rows ---');
-const tNull = db.prepare('SELECT COUNT(*) c FROM tracker_targets WHERE activity_id IS NULL').get().c;
-const tTot  = db.prepare('SELECT COUNT(*) c FROM tracker_targets').get().c;
-if (tNull > 0) warn('tracker_targets: ' + tNull + ' / ' + tTot + ' rows have NULL activity_id');
-else           ok  ('tracker_targets: all ' + tTot + ' rows mapped to activity_id');
+const nLegacyAct = legacyActivities.length;
 
-const iNull = db.prepare('SELECT COUNT(*) c FROM tracker_inputs WHERE activity_id IS NULL').get().c;
-const iTot  = db.prepare('SELECT COUNT(*) c FROM tracker_inputs').get().c;
-if (iNull > 0) warn('tracker_inputs : ' + iNull + ' / ' + iTot + ' rows have NULL activity_id');
-else           ok  ('tracker_inputs : all ' + iTot + ' rows mapped to activity_id');
+const tNullInRange   = db.prepare('SELECT COUNT(*) c FROM tracker_targets WHERE activity_id IS NULL AND activity_ix <  ?').get(nLegacyAct).c;
+const tNullOutRange  = db.prepare('SELECT COUNT(*) c FROM tracker_targets WHERE activity_id IS NULL AND activity_ix >= ?').get(nLegacyAct).c;
+const tTot           = db.prepare('SELECT COUNT(*) c FROM tracker_targets').get().c;
+if (tNullInRange > 0) warn('tracker_targets: ' + tNullInRange + ' / ' + tTot + ' rows have NULL activity_id WITHIN current range (drift to fix)');
+if (tNullOutRange > 0) console.log('  INFO tracker_targets: ' + tNullOutRange + ' / ' + tTot + ' rows are HISTORICAL RESIDUALS (activity_ix >= ' + nLegacyAct + ', i.e. point to activities deleted from legacy in the past). Benign — they are never read by the engine.');
+if (tNullInRange + tNullOutRange === 0) ok('tracker_targets: all ' + tTot + ' rows mapped to activity_id');
+
+const iNullInRange  = db.prepare('SELECT COUNT(*) c FROM tracker_inputs WHERE activity_id IS NULL AND activity_ix <  ?').get(nLegacyAct).c;
+const iNullOutRange = db.prepare('SELECT COUNT(*) c FROM tracker_inputs WHERE activity_id IS NULL AND activity_ix >= ?').get(nLegacyAct).c;
+const iTot          = db.prepare('SELECT COUNT(*) c FROM tracker_inputs').get().c;
+if (iNullInRange > 0) warn('tracker_inputs : ' + iNullInRange + ' / ' + iTot + ' rows have NULL activity_id WITHIN current range (drift to fix)');
+if (iNullOutRange > 0) console.log('  INFO tracker_inputs : ' + iNullOutRange + ' / ' + iTot + ' rows are HISTORICAL RESIDUALS (activity_ix >= ' + nLegacyAct + '). Benign.');
+if (iNullInRange + iNullOutRange === 0) ok('tracker_inputs : all ' + iTot + ' rows mapped to activity_id');
 
 db.close();
 
