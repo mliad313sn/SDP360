@@ -596,6 +596,30 @@ function saveTracker(D, userSite) {
     }
   });
   saveInputs();
+
+  // ── PHASE 1 (ADR-001) — DUAL-WRITE to normalised tables ─────────────
+  // After every successful legacy save, propagate to the new schema by
+  // running the existing idempotent backfill. ADDs (new year, new
+  // pillar, new activity) appear in the new tables; UPDATEs (pillar
+  // weight changed) flow through too; new tracker_inputs / tracker_targets
+  // rows get their activity_id mapped. Deletions are NOT handled here —
+  // they're handled explicitly in deleteTrackerYear() per ADR-001 §8.5.
+  // Idempotent + silent: no-op when nothing changed; logs a summary
+  // line when something did.
+  try {
+    const r = _backfillFromLegacy(db);
+    const total = r.years_inserted + r.pillars_inserted + r.pillars_updated +
+                  r.activities_inserted + r.targets_backfilled + r.inputs_backfilled;
+    if (total > 0) {
+      console.log('[Tracker-DB] saveTracker dual-write:', JSON.stringify(r));
+    }
+  } catch (e) {
+    // Dual-write failure is logged but does NOT bubble up — the legacy
+    // save already succeeded, the new schema can be re-synced later by
+    // the boot-time _backfillFromLegacy. Failing here would mislead the
+    // user into thinking their save was lost.
+    console.error('[Tracker-DB] saveTracker dual-write failed (legacy save was OK):', e.message);
+  }
 }
 
 /**
@@ -608,8 +632,25 @@ function resetTracker() {
   // every year's data + config, so an automatic backup is even more
   // critical here than for a single-year delete.
   const backupPath = backupDatabase('pre-reset');
+  // Legacy wipe
   db.exec('DELETE FROM tracker_config; DELETE FROM tracker_targets; DELETE FROM tracker_inputs;');
+  // PHASE 1 — wipe the normalised schema too. Order matters: activities
+  // → pillars → years respects the FK CASCADE chain (CASCADE would
+  // handle it via DELETE FROM tracker_years alone, but being explicit
+  // makes the intent obvious to any future reader).
+  db.exec(`
+    DELETE FROM tracker_activities;
+    DELETE FROM tracker_pillars;
+    DELETE FROM tracker_years;
+  `);
   _seed(db);
+  // Re-populate normalised schema from the freshly-seeded legacy state.
+  try {
+    const r = _backfillFromLegacy(db);
+    console.log('[Tracker-DB] resetTracker — repopulated normalised schema:', JSON.stringify(r));
+  } catch (e) {
+    console.error('[Tracker-DB] resetTracker — backfill failed (legacy was reset OK):', e.message);
+  }
   return { backup_path: backupPath };
 }
 
@@ -716,22 +757,55 @@ function deleteTrackerYear(year) {
   // can investigate (disk full, perms, etc.) before retrying.
   const backupPath = backupDatabase('pre-delete-year-' + y);
 
+  // PHASE 1 — DUAL-DELETE in one atomic transaction.
+  // 1) Wipe legacy tracker_inputs rows for the year being deleted.
+  // 2) Update legacy tracker_config.years_json.
+  // 3) NULL-out activity_id pointers in tracker_targets that reference
+  //    activities under the year's pillars (orphan avoidance — see
+  //    ADR-001 §8.5). tracker_inputs activity_id is implicitly cleaned
+  //    by step 1's row deletion.
+  // 4) DELETE FROM tracker_years — FK CASCADE wipes tracker_pillars
+  //    (year=y) and then tracker_activities under those pillars.
+  // If any step throws, the entire transaction rolls back; the backup
+  // taken earlier is still there for manual recovery.
   const tx = db.transaction(() => {
+    // Step 1 — legacy
     const r = db.prepare('DELETE FROM tracker_inputs WHERE year = ?').run(y);
+    // Step 2 — legacy
     db.prepare(`
       UPDATE tracker_config
       SET years_json = ?, updated_at = datetime('now')
       WHERE id = 1
     `).run(JSON.stringify(newYears));
-    return r.changes;
+    // Step 3 — new schema: cleanup tracker_targets activity_id orphans
+    const orphanTargets = db.prepare(`
+      UPDATE tracker_targets
+      SET activity_id = NULL
+      WHERE activity_id IN (
+        SELECT a.id FROM tracker_activities a
+        JOIN tracker_pillars p ON p.id = a.pillar_id
+        WHERE p.year = ?
+      )
+    `).run(y);
+    // Step 4 — new schema: cascade delete
+    const deletedYears = db.prepare('DELETE FROM tracker_years WHERE year = ?').run(y);
+    return {
+      inputs_deleted_legacy:     r.changes,
+      targets_orphans_cleaned:   orphanTargets.changes,
+      years_deleted_new_schema:  deletedYears.changes,
+    };
   });
-  const inputsDeleted = tx();
+  const txResult = tx();
+
+  console.log('[Tracker-DB] deleteTrackerYear', y, '— dual-delete:', JSON.stringify(txResult));
 
   return {
-    year:           y,
-    inputs_deleted: inputsDeleted,
-    years_after:    newYears,
-    backup_path:    backupPath,    // operator can restore from this if needed
+    year:                       y,
+    inputs_deleted:             txResult.inputs_deleted_legacy,
+    targets_orphans_cleaned:    txResult.targets_orphans_cleaned,
+    years_deleted_new_schema:   txResult.years_deleted_new_schema,
+    years_after:                newYears,
+    backup_path:                backupPath,  // operator can restore from this if needed
   };
 }
 
