@@ -39,7 +39,7 @@ if not exist "Z:\" (
 )
 
 set "SRC=C:\Users\Admin\Documents\SDP-Dashboard"
-for %%F in (tracker-db.js _audit_tracker_dualwrite.cmd) do (
+for %%F in (tracker-db.js _audit_tracker_dualwrite.cmd _audit_tracker_dualwrite.js) do (
   if not exist "%SRC%\%%F" (
     echo ERROR: %SRC%\%%F missing.
     exit /b 1
@@ -62,6 +62,7 @@ echo.
 
 xcopy "%SRC%\tracker-db.js"                "Z:\" /Y >nul && echo   ^>  tracker-db.js
 xcopy "%SRC%\_audit_tracker_dualwrite.cmd" "Z:\" /Y >nul && echo   ^>  _audit_tracker_dualwrite.cmd
+xcopy "%SRC%\_audit_tracker_dualwrite.js"  "Z:\" /Y >nul && echo   ^>  _audit_tracker_dualwrite.js
 
 echo.
 echo ============================================================
