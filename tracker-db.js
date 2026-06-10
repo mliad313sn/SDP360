@@ -210,6 +210,15 @@ function _initSchema(db) {
   try { db.exec(`CREATE INDEX IF NOT EXISTS ix_track_tgt_actid ON tracker_targets(activity_id)`); } catch(e) {}
   try { db.exec(`CREATE INDEX IF NOT EXISTS ix_track_inp_actid ON tracker_inputs(activity_id)`); } catch(e) {}
 
+  // PHASE 2 — additive columns on tracker_activities to preserve the
+  // legacy-side fields that aren't part of the normalised schema. They
+  // let _loadFromNewSchema() return a D.activities[] with byte-identical
+  // shape to what _loadFromLegacy() produces. Idempotent.
+  try { db.exec(`ALTER TABLE tracker_activities ADD COLUMN legacy_id  INTEGER`); } catch(e) {}
+  try { db.exec(`ALTER TABLE tracker_activities ADD COLUMN legacy_num INTEGER`); } catch(e) {}
+  try { db.exec(`ALTER TABLE tracker_activities ADD COLUMN weight     REAL DEFAULT 0`); } catch(e) {}
+  try { db.exec(`ALTER TABLE tracker_activities ADD COLUMN shared     INTEGER DEFAULT 0`); } catch(e) {}
+
   // Seed on first run (empty tracker_config)
   const n = db.prepare('SELECT COUNT(*) as n FROM tracker_config').get().n;
   if (n === 0) {
@@ -290,8 +299,20 @@ function _backfillFromLegacy(db) {
   const updatePillar = db.prepare(`UPDATE tracker_pillars SET name=?, weight=?, updated_at=datetime('now') WHERE id=?`);
   const findActivity = db.prepare(`SELECT id FROM tracker_activities WHERE pillar_id = ? AND code = ?`);
   const insertActivity = db.prepare(`
-    INSERT INTO tracker_activities (pillar_id, code, name, kpi_type, start_month, end_month, display_order)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO tracker_activities
+      (pillar_id, code, name, kpi_type, start_month, end_month, display_order,
+       legacy_id, legacy_num, weight, shared)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  // PHASE 2 — also UPDATE non-key fields if they drift on an existing
+  // activity (legacy_id/num/weight/shared can change as the admin
+  // tweaks the legacy JSON; we want the new schema to follow).
+  const updateActivityFields = db.prepare(`
+    UPDATE tracker_activities
+       SET name = ?, kpi_type = ?, start_month = ?, end_month = ?,
+           legacy_id = ?, legacy_num = ?, weight = ?, shared = ?,
+           updated_at = datetime('now')
+     WHERE id = ?
   `);
 
   let years_inserted = 0, pillars_inserted = 0, pillars_updated = 0, activities_inserted = 0;
@@ -328,9 +349,26 @@ function _backfillFromLegacy(db) {
         if (!act || !act.pillar) return;
         const pillarId = pillarIdMap[act.pillar];
         if (!pillarId) return;  // legacy activity references unknown pillar — skip
-        const code = getActivityCode(act);
+        const code   = getActivityCode(act);
+        // Capture the 4 extra legacy fields that Phase 2 must preserve.
+        const legId  = (act.id  != null) ? Number(act.id)  : null;
+        const legNum = (act.num != null) ? Number(act.num) : null;
+        const weight = (act.weight != null) ? Number(act.weight) : 0;
+        const shared = act.shared ? 1 : 0;
         const existing = findActivity.get(pillarId, code);
-        if (existing) return;  // already present
+        if (existing) {
+          // PHASE 2 — refresh non-key fields so the new schema follows
+          // any drift from the legacy singleton.
+          updateActivityFields.run(
+            String(act.name || 'Untitled'),
+            String(act.kpi  || 'BOOLEAN'),
+            Number(act.start) || 1,
+            Number(act.end)   || 12,
+            legId, legNum, weight, shared,
+            existing.id
+          );
+          return;
+        }
         insertActivity.run(
           pillarId,
           code,
@@ -338,7 +376,8 @@ function _backfillFromLegacy(db) {
           String(act.kpi || 'BOOLEAN'),
           Number(act.start) || 1,
           Number(act.end)   || 12,
-          ix
+          ix,
+          legId, legNum, weight, shared
         );
         activities_inserted++;
       });
@@ -462,7 +501,58 @@ function _seed(db) {
  * Load the full tracker state and assemble a D object identical in shape
  * to the INIT/localStorage D object used by the frontend.
  */
+// ══════════════════════════════════════════════════════════════════
+//  PHASE 2 (ADR-001) — switchable read source with shadow mode
+//  Added 2026-06-09. Three modes:
+//    TRACKER_READ_SOURCE=legacy (default)
+//      → _loadFromLegacy() — reads tracker_config singleton (unchanged)
+//    TRACKER_READ_SOURCE=new
+//      → _loadFromNewSchema() — reads tracker_years/pillars/activities
+//    TRACKER_READ_SHADOW=1  (orthogonal, can be combined with either)
+//      → after returning from the active source, runs the OTHER source
+//        in shadow and logs any structural differences. Zero UX impact.
+//
+//  Default (legacy + no shadow) = strict pre-Phase-2 behaviour.
+//  Recommended progression:
+//    1. Deploy this commit with default (legacy). No change for users.
+//    2. Flip TRACKER_READ_SHADOW=1 on prod (+ pm2 reload --update-env).
+//    3. Watch pm2 logs for [Tracker-DB] shadow diff messages over 1 week.
+//    4. When diffs are 0 (or all expected/documented), flip
+//       TRACKER_READ_SOURCE=new. Rollback is instant via env-var flip.
+// ══════════════════════════════════════════════════════════════════
 function loadTracker() {
+  const source = String(process.env.TRACKER_READ_SOURCE || 'legacy').toLowerCase();
+  const shadow = String(process.env.TRACKER_READ_SHADOW || '').trim() === '1';
+
+  const primary   = source === 'new' ? 'new' : 'legacy';
+  const secondary = primary === 'new' ? 'legacy' : 'new';
+
+  let D;
+  try {
+    D = primary === 'new' ? _loadFromNewSchema() : _loadFromLegacy();
+  } catch (e) {
+    // Primary backend failed — fall back to legacy for safety
+    console.error('[Tracker-DB] loadTracker(' + primary + ') threw:', e.message, '— falling back to legacy');
+    D = _loadFromLegacy();
+  }
+
+  if (shadow) {
+    try {
+      const Dshadow = secondary === 'new' ? _loadFromNewSchema() : _loadFromLegacy();
+      const diffs = _diffTrackerD(D, Dshadow);
+      if (diffs.length > 0) {
+        console.warn('[Tracker-DB] shadow diff (' + primary + ' vs ' + secondary + '):', JSON.stringify(diffs).slice(0, 4000));
+      }
+    } catch (e) {
+      console.error('[Tracker-DB] shadow load failed:', e.message);
+    }
+  }
+
+  return D;
+}
+
+// Legacy backend — verbatim copy of the pre-Phase-2 loadTracker body.
+function _loadFromLegacy() {
   const db  = getDB();
   const cfg = db.prepare('SELECT * FROM tracker_config WHERE id=1').get();
 
@@ -476,11 +566,7 @@ function loadTracker() {
   const activeSites   = JSON.parse(cfg.active_sites_json   || '[]');
   const years         = JSON.parse(cfg.years_json          || '[]');
 
-  // ── PALIER 1 — Read-time enrichment ────────────────────────────
-  // Enrich each activity with a stable `code` for use by future
-  // features. Does NOT persist back to DB — if you want to lock the
-  // code in (e.g. an admin edited the auto-derived value), set it
-  // explicitly on activity.code and saveTracker() will round-trip it.
+  // PALIER 1 — read-time enrichment with stable activity code.
   for (const a of activities) {
     if (!a.code) a.code = getActivityCode(a);
   }
@@ -488,7 +574,6 @@ function loadTracker() {
   // Targets — rebuild per-site arrays indexed by activity_ix
   const targetRows = db.prepare('SELECT * FROM tracker_targets ORDER BY site, activity_ix').all();
   const targets    = {};
-  // Initialize all known sites with null-filled arrays
   INIT.sites.forEach(s => {
     targets[s] = activities.map(() => ({ target: 0, active: false }));
   });
@@ -496,6 +581,7 @@ function loadTracker() {
     if (!targets[row.site]) {
       targets[row.site] = activities.map(() => ({ target: 0, active: false }));
     }
+    if (row.activity_ix >= activities.length) return; // skip historical residuals
     const rawTarget = row.target;
     targets[row.site][row.activity_ix] = {
       target: rawTarget === 'TRUE/FALSE' ? rawTarget : (isNaN(rawTarget) ? rawTarget : parseFloat(rawTarget)),
@@ -510,6 +596,7 @@ function loadTracker() {
     const yr = row.year;
     if (!inputs[yr])         inputs[yr] = {};
     if (!inputs[yr][row.site]) inputs[yr][row.site] = [];
+    if (row.activity_ix >= activities.length) return; // skip historical residuals
     inputs[yr][row.site][row.activity_ix] = JSON.parse(row.months_json || '[0,0,0,0,0,0,0,0,0,0,0,0]');
   });
 
@@ -528,6 +615,141 @@ function loadTracker() {
     years,
     pillarWeights
   };
+}
+
+// PHASE 2 — Normalised-schema backend.
+// Returns the SAME shape as _loadFromLegacy() so App.jsx is oblivious.
+// Strategy:
+//   - years: from tracker_years
+//   - canonical year = latest year (matches legacy convention)
+//   - activities: from tracker_activities under canonical year's pillars
+//   - pillarWeights: reconstructed from tracker_pillars (canonical year)
+//                    in the legacy key format "P1-Network Infrast"
+//   - activeSites + current_month: still read from tracker_config
+//     (these singletons don't have a year dimension and are not
+//     normalised yet — out of scope for ADR-001)
+//   - targets + inputs: read from legacy tables, same as Phase 0/1
+//     (activity_id column is available but not used until a later
+//      phase switches the writers AND every legacy splice path)
+function _loadFromNewSchema() {
+  const db = getDB();
+  const cfg = db.prepare('SELECT active_sites_json, current_month FROM tracker_config WHERE id=1').get();
+  if (!cfg) return JSON.parse(JSON.stringify(INIT));
+
+  const yearsRow = db.prepare('SELECT year FROM tracker_years ORDER BY year').all();
+  const years = yearsRow.map(r => r.year);
+  if (years.length === 0) {
+    // No data in new schema yet — degrade to legacy for safety
+    return _loadFromLegacy();
+  }
+  const currentYear = years[years.length - 1];
+
+  // Pillars for the canonical year. Reconstruct the legacy key format
+  // "<code>-<name>" so App.jsx and downstream code see identical keys.
+  const pillarRows = db.prepare(
+    'SELECT code, name, weight FROM tracker_pillars WHERE year = ? ORDER BY display_order'
+  ).all(currentYear);
+  const pillarWeights = {};
+  for (const p of pillarRows) {
+    const legacyKey = p.name ? (p.code + '-' + p.name) : p.code;
+    pillarWeights[legacyKey] = p.weight;
+  }
+
+  // Activities for the canonical year, joined to their pillar so we can
+  // rebuild the legacy 'pillar' string. Order by display_order to keep
+  // activity_ix stable when the legacy reader is replaced later.
+  // The 4 PHASE-2 columns (legacy_id, legacy_num, weight, shared) are
+  // re-injected to preserve the byte-identical shape.
+  const actRows = db.prepare(`
+    SELECT a.code, a.name, a.kpi_type, a.start_month, a.end_month, a.display_order,
+           a.legacy_id, a.legacy_num, a.weight, a.shared,
+           p.code AS pillar_code, p.name AS pillar_name
+    FROM tracker_activities a
+    JOIN tracker_pillars p ON p.id = a.pillar_id
+    WHERE p.year = ?
+    ORDER BY a.display_order, a.id
+  `).all(currentYear);
+  const activities = actRows.map(a => {
+    // Field ordering matches the legacy shape produced by the JSON
+    // parse path (id, num, pillar, name, kpi, weight, start, end,
+    // shared, code) — getting the order identical means
+    // JSON.stringify() comparisons in the shadow diff stay clean.
+    const obj = {};
+    if (a.legacy_id  != null) obj.id  = a.legacy_id;
+    if (a.legacy_num != null) obj.num = a.legacy_num;
+    obj.pillar = a.pillar_name ? (a.pillar_code + '-' + a.pillar_name) : a.pillar_code;
+    obj.name   = a.name;
+    obj.kpi    = a.kpi_type;
+    if (a.weight != null) obj.weight = a.weight;
+    obj.start  = a.start_month;
+    obj.end    = a.end_month;
+    obj.shared = a.shared === 1;
+    obj.code   = a.code;
+    return obj;
+  });
+
+  const activeSites = JSON.parse(cfg.active_sites_json || '[]');
+
+  // Targets — same as legacy (we still read from tracker_targets indexed by activity_ix)
+  const targetRows = db.prepare('SELECT * FROM tracker_targets ORDER BY site, activity_ix').all();
+  const targets = {};
+  INIT.sites.forEach(s => {
+    targets[s] = activities.map(() => ({ target: 0, active: false }));
+  });
+  targetRows.forEach(row => {
+    if (!targets[row.site]) {
+      targets[row.site] = activities.map(() => ({ target: 0, active: false }));
+    }
+    if (row.activity_ix >= activities.length) return; // skip historical residuals
+    const rawTarget = row.target;
+    targets[row.site][row.activity_ix] = {
+      target: rawTarget === 'TRUE/FALSE' ? rawTarget : (isNaN(rawTarget) ? rawTarget : parseFloat(rawTarget)),
+      active: row.active === 1
+    };
+  });
+
+  // Inputs — same as legacy
+  const inputRows = db.prepare('SELECT * FROM tracker_inputs ORDER BY year, site, activity_ix').all();
+  const inputs = {};
+  inputRows.forEach(row => {
+    const yr = row.year;
+    if (!inputs[yr]) inputs[yr] = {};
+    if (!inputs[yr][row.site]) inputs[yr][row.site] = [];
+    if (row.activity_ix >= activities.length) return;
+    inputs[yr][row.site][row.activity_ix] = JSON.parse(row.months_json || '[0,0,0,0,0,0,0,0,0,0,0,0]');
+  });
+
+  return {
+    sites:        INIT.sites,
+    siteNames:    INIT.siteNames,
+    siteColors:   INIT.siteColors,
+    activeSites,
+    currentMonth: cfg.current_month,
+    activities,
+    targets,
+    inputs,
+    year:         currentYear,
+    years,
+    pillarWeights
+  };
+}
+
+// Tiny structural diff between two D objects. Returns an array of
+// short string descriptors (no JSON dump — keeps log line bounded).
+// Used by the shadow mode to surface drift without flooding logs.
+function _diffTrackerD(A, B) {
+  const out = [];
+  const compareScalar = (k) => {
+    if (A[k] !== B[k]) out.push(k + ':' + JSON.stringify(A[k]) + '!=' + JSON.stringify(B[k]));
+  };
+  const compareJson = (k) => {
+    const ja = JSON.stringify(A[k]);
+    const jb = JSON.stringify(B[k]);
+    if (ja !== jb) out.push(k + ':differ(len ' + ja.length + ' vs ' + jb.length + ')');
+  };
+  for (const k of ['currentMonth', 'year']) compareScalar(k);
+  for (const k of ['years', 'activeSites', 'activities', 'pillarWeights', 'targets', 'inputs']) compareJson(k);
+  return out;
 }
 
 /**
