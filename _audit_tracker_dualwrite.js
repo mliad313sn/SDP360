@@ -57,6 +57,15 @@ for (const y of newYS) {
 }
 
 // ── Pillars per year ────────────────────────────────────────────
+// Code-derivation logic MUST match _backfillFromLegacy() in tracker-db.js
+// (function parsePillar). It accepts both '1-...' and 'P1-...' prefixes.
+function parsePillarCode(pillarStr) {
+  if (!pillarStr) return null;
+  const s = String(pillarStr).trim();
+  const m = s.match(/^P?(\d+)\s*[-–—]?\s*(.*)$/);
+  if (m) return 'P' + m[1];
+  return s.replace(/[^A-Z0-9]/gi, '').slice(0, 4).toUpperCase() || 'PX';
+}
 console.log('--- Pillars per year ---');
 const pillarKeys = Object.keys(legacyPillars).sort();
 for (const y of legacyYS) {
@@ -65,8 +74,7 @@ for (const y of legacyYS) {
   ).all(y);
   const newMap = Object.fromEntries(newP.map(p => [p.code, p]));
   for (const lk of pillarKeys) {
-    const m = String(lk).match(/^(\d+)/);
-    const expectedCode   = m ? 'P' + m[1] : lk.slice(0, 4).toUpperCase();
+    const expectedCode   = parsePillarCode(lk);
     const expectedWeight = legacyPillars[lk];
     const newRow         = newMap[expectedCode];
     if (!newRow) {
