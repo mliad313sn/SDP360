@@ -520,12 +520,20 @@ function _seed(db) {
 //    4. When diffs are 0 (or all expected/documented), flip
 //       TRACKER_READ_SOURCE=new. Rollback is instant via env-var flip.
 // ══════════════════════════════════════════════════════════════════
+let _phase2ConfigLogged = false;
 function loadTracker() {
   const source = String(process.env.TRACKER_READ_SOURCE || 'legacy').toLowerCase();
   const shadow = String(process.env.TRACKER_READ_SHADOW || '').trim() === '1';
 
   const primary   = source === 'new' ? 'new' : 'legacy';
   const secondary = primary === 'new' ? 'legacy' : 'new';
+
+  // Log Phase 2 config once per process lifetime so operators can
+  // confirm at a glance whether shadow / new is actually active.
+  if (!_phase2ConfigLogged) {
+    console.log('[Tracker-DB] Phase 2 config: primary=' + primary + ' shadow=' + (shadow ? 'ON' : 'off'));
+    _phase2ConfigLogged = true;
+  }
 
   let D;
   try {
