@@ -116,7 +116,7 @@ goto :eof
 rem --- .env (secrets — invaluable!) ---------------------------
 echo.
 if exist "%PROD_ROOT%.env" (
-  copy /Y "%PROD_ROOT%.env" "%DEST%\.env" >nul && echo   ^>  .env (KEEP THIS SAFE!)
+  copy /Y "%PROD_ROOT%.env" "%DEST%\.env" >nul && echo   ^>  .env -- KEEP THIS SAFE
 ) else (
   echo   NOTE: %PROD_ROOT%.env not found.
 )
