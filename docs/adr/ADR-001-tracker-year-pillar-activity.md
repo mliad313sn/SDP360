@@ -265,6 +265,29 @@ The decision is informed by:
 
 ## 5 · Migration plan (5 phases)
 
+> **Execution log (updated 2026-06-11)**
+>
+> | Phase | Shipped | Commits | Notes |
+> |---|---|---|---|
+> | Phase 0 — normalised schema + backfill | ✅ 2026-06-09 prod | `909dade` | Backfill: 2 years, 14 pillars, 62 activities, 341 targets, 651 inputs |
+> | Phase 1 — dual-write/delete/wipe + audit | ✅ 2026-06-09 prod | `50fe8fd` + audit fixes `510d160`/`d5ad098`/`0cb5540` | AUDIT PASSED on prod; 11 historical residuals classified benign |
+> | Phase 2 — switchable reads + shadow | ✅ 2026-06-11 prod | `2c07e85` + `dbc5c6f` | `TRACKER_READ_SOURCE=new` live; shadow (now new→legacy) stays armed |
+> | Phase 3 — App.jsx consumes activity_id | ⏳ not started | — | |
+> | Phase 4 — decommission legacy singleton | ⏳ not started | — | Gate: 4 weeks of Phase 3 stability |
+>
+> **Amendment 2026-06-11 — observation window shortened (J+7 → J+2).**
+> The ADR planned one week of shadow observation before switching
+> reads. The project owner advanced the switch to day 2 because:
+> (a) byte-identical parity between the two backends was proven on
+> BOTH dev and prod data at J0 (11/11 fields MATCH including the
+> activities array after the 4 legacy-field columns were added);
+> (b) two days of real production usage produced zero `shadow diff`
+> log lines; (c) rollback is a 30-second env-var flip; and (d) the
+> shadow remains armed post-switch in the inverse direction
+> (new→legacy), so any divergence introduced later still gets logged.
+> Post-switch smoke test passed: tracker UI values identical,
+> input save/reload round-trip OK, no shadow diff.
+
 ### Phase 0 — Implementation on dev box (1-2 days)
 
 - Create the three new tables in `tracker-db.js` `_initSchema()`
