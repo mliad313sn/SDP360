@@ -2321,11 +2321,32 @@ app.get('/api/metrics/survey', (req, res) => {
 app.get('/api/metrics/requests', (req, res) => {
   try {
     const { getRequestMetrics, getSyncStatus } = require('./reports-db');
-    const { site, since } = req.query;
-    const metrics  = getRequestMetrics({ site, since });
+    const { site, since, status, rtype, impact, mode } = req.query;
+    // Multi-value filters arrive as comma-separated lists (2026-06-11,
+    // analytics.html Status/Type/Impact/Mode widgets). Absent = no filter.
+    const csv = v => (v ? String(v).split(',').map(s => s.trim()).filter(Boolean) : undefined);
+    const metrics  = getRequestMetrics({
+      site, since,
+      statuses: csv(status),
+      rtypes:   csv(rtype),
+      impacts:  csv(impact),
+      modes:    csv(mode),
+    });
     const syncMeta = getSyncStatus().find(j => j.job_name === 'requests') || {};
     const freshness = buildDataFreshness(syncMeta);
     res.json({ ok: true, ...freshness, data: metrics });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+/**
+ * GET /api/metrics/request-filter-options
+ * Distinct values for the analytics multi-select filters
+ * (Request Status / Request Type / Impact / Mode). 2026-06-11.
+ */
+app.get('/api/metrics/request-filter-options', (req, res) => {
+  try {
+    const { getRequestFilterOptions } = require('./reports-db');
+    res.json({ ok: true, data: getRequestFilterOptions() });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

@@ -61,6 +61,23 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text-1);min-h
 .filter-select option{background:var(--navy);color:#fff}
 .filter-divider{width:1px;height:18px;background:rgba(255,255,255,.1);margin:0 4px}
 
+/* ── MULTI-SELECT FILTER WIDGETS (Status/Type/Impact/Mode — 2026-06-11) ──
+   Dark-themed dropdown-checkbox pickers matching .filter-select. The
+   filters only constrain the Helpdesk Requests section (request_records
+   columns) — Change/CAB/CSAT sections are unaffected. */
+.mfilt-widget{position:relative;display:flex;align-items:center}
+.mfilt-btn{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:#fff;border-radius:6px;padding:4px 10px;font-size:12px;font-family:var(--font-sans);cursor:pointer;min-width:110px;text-align:left;white-space:nowrap}
+.mfilt-btn.has-sel{border-color:var(--orange,#E87722);color:var(--orange,#E87722);font-weight:600}
+.mfilt-dd{position:absolute;top:calc(100% + 4px);left:0;background:var(--navy);border:1px solid rgba(255,255,255,.18);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.4);z-index:500;min-width:220px;max-height:300px;overflow-y:auto;padding:4px 0;display:none}
+.mfilt-dd.open{display:block}
+.mfilt-dd-hdr{padding:7px 12px 5px;font-size:10px;font-weight:700;color:rgba(255,255,255,.5);letter-spacing:.5px;text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,.1);margin-bottom:2px;display:flex;justify-content:space-between;align-items:center}
+.mfilt-dd-hdr button{font-size:10px;background:none;border:none;color:var(--blue,#4A9EDE);cursor:pointer;font-weight:600}
+.mfilt-dd-hdr button:hover{text-decoration:underline}
+.mfilt-item{display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;font-size:12px;color:#fff;transition:background .1s}
+.mfilt-item:hover{background:rgba(255,255,255,.08)}
+.mfilt-item input[type=checkbox]{cursor:pointer;accent-color:var(--orange,#E87722);width:13px;height:13px}
+.mfilt-item label{cursor:pointer;flex:1}
+
 /* ── MAIN ── */
 .main{max-width:1400px;margin:0 auto;padding:24px 28px 48px}
 
@@ -189,6 +206,39 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text-1);min-h
     <option value="180d">Last 180 Days</option>
     <option value="365d">Last 12 Months</option>
   </select>
+  <div class="filter-divider"></div>
+  <!-- Multi-select filters (2026-06-11). They constrain the Helpdesk
+       Requests section only — Change/CAB/CSAT use different tables
+       that don't carry these columns. Populated at boot from
+       /api/metrics/request-filter-options (live DISTINCT values). -->
+  <div class="mfilt-widget" id="mfStatus" title="Applies to the Helpdesk Requests section only">
+    <button class="mfilt-btn" id="mfStatusBtn" onclick="toggleMFilter(event,'mfStatus')">▾ All Statuses</button>
+    <div class="mfilt-dd" id="mfStatusDD">
+      <div class="mfilt-dd-hdr"><span>Statuses</span><span><button onclick="mfAll('mfStatus',true)">All</button> · <button onclick="mfAll('mfStatus',false)">None</button></span></div>
+      <div id="mfStatusList"></div>
+    </div>
+  </div>
+  <div class="mfilt-widget" id="mfType" title="Applies to the Helpdesk Requests section only">
+    <button class="mfilt-btn" id="mfTypeBtn" onclick="toggleMFilter(event,'mfType')">▾ All Types</button>
+    <div class="mfilt-dd" id="mfTypeDD">
+      <div class="mfilt-dd-hdr"><span>Types</span><span><button onclick="mfAll('mfType',true)">All</button> · <button onclick="mfAll('mfType',false)">None</button></span></div>
+      <div id="mfTypeList"></div>
+    </div>
+  </div>
+  <div class="mfilt-widget" id="mfImpact" title="Applies to the Helpdesk Requests section only">
+    <button class="mfilt-btn" id="mfImpactBtn" onclick="toggleMFilter(event,'mfImpact')">▾ All Impacts</button>
+    <div class="mfilt-dd" id="mfImpactDD">
+      <div class="mfilt-dd-hdr"><span>Impacts</span><span><button onclick="mfAll('mfImpact',true)">All</button> · <button onclick="mfAll('mfImpact',false)">None</button></span></div>
+      <div id="mfImpactList"></div>
+    </div>
+  </div>
+  <div class="mfilt-widget" id="mfMode" title="Applies to the Helpdesk Requests section only">
+    <button class="mfilt-btn" id="mfModeBtn" onclick="toggleMFilter(event,'mfMode')">▾ All Modes</button>
+    <div class="mfilt-dd" id="mfModeDD">
+      <div class="mfilt-dd-hdr"><span>Modes</span><span><button onclick="mfAll('mfMode',true)">All</button> · <button onclick="mfAll('mfMode',false)">None</button></span></div>
+      <div id="mfModeList"></div>
+    </div>
+  </div>
 </div>
 
 <!-- ── MAIN ── -->
@@ -397,6 +447,94 @@ function siteParam() {
   return v ? '&site=' + encodeURIComponent(v) : '';
 }
 
+// ─── Multi-select filters: Status / Type / Impact / Mode (2026-06-11) ───
+// Server-side filtering: selections are sent as CSV query params to
+// /api/metrics/requests, which maps them to SQL IN clauses — so every
+// KPI in the Helpdesk Requests section filters consistently. The other
+// sections (Change/CAB/CSAT) read different tables and are unaffected.
+// State lives in an object, NOT top-level `let` vars — classic-script
+// top-level let is not on `window` (CLAUDE.md pitfall, hit on index.html).
+const _MF_STATE = { mfStatus:null, mfType:null, mfImpact:null, mfMode:null }; // null = All
+let _MF_OPTIONS = { mfStatus:[], mfType:[], mfImpact:[], mfMode:[] };
+const _MF_CFG = {
+  mfStatus: { param:'status', optKey:'statuses', label:'Statuses' },
+  mfType:   { param:'rtype',  optKey:'types',    label:'Types'    },
+  mfImpact: { param:'impact', optKey:'impacts',  label:'Impacts'  },
+  mfMode:   { param:'mode',   optKey:'modes',    label:'Modes'    },
+};
+function mfParams() {
+  let out = '';
+  for (const wid of Object.keys(_MF_CFG)) {
+    const s = _MF_STATE[wid];
+    if (s !== null) out += '&' + _MF_CFG[wid].param + '=' + encodeURIComponent(s.join(','));
+  }
+  return out;
+}
+function toggleMFilter(e, wid) {
+  e.stopPropagation();
+  const dd = document.getElementById(wid + 'DD');
+  document.querySelectorAll('.mfilt-dd.open').forEach(d => { if (d !== dd) d.classList.remove('open'); });
+  dd.classList.toggle('open');
+}
+function mfAll(wid, on) {
+  document.getElementById(wid).querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = !!on);
+  _mfChange(wid);
+}
+function _mfChange(wid) {
+  const sel = [...document.getElementById(wid).querySelectorAll('input[type=checkbox]:checked')].map(cb => cb.value);
+  const all = _MF_OPTIONS[wid];
+  _MF_STATE[wid] = sel.length === all.length ? null : sel;
+  _mfUpdateBtn(wid);
+  try {
+    const s = _MF_STATE[wid];
+    localStorage.setItem('an_' + wid, s === null ? '__ALL__' : JSON.stringify(s));
+  } catch (_e) {}
+  loadAll();
+}
+function _mfUpdateBtn(wid) {
+  const btn = document.getElementById(wid + 'Btn');
+  const cfg = _MF_CFG[wid];
+  const s   = _MF_STATE[wid];
+  const all = _MF_OPTIONS[wid];
+  if (s === null)            { btn.textContent = '▾ All ' + cfg.label;            btn.classList.remove('has-sel'); }
+  else if (s.length === 0)   { btn.textContent = '▾ None';                        btn.classList.add('has-sel'); }
+  else if (s.length === 1)   { btn.textContent = '▾ ' + s[0];                     btn.classList.add('has-sel'); }
+  else                       { btn.textContent = '▾ ' + s.length + ' of ' + all.length; btn.classList.add('has-sel'); }
+}
+async function _initMFilters() {
+  try {
+    const r = await fetch('/api/metrics/request-filter-options');
+    const j = await r.json();
+    const d = (j && j.data) || {};
+    const escH = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    for (const wid of Object.keys(_MF_CFG)) {
+      const all = d[_MF_CFG[wid].optKey] || [];
+      _MF_OPTIONS[wid] = all;
+      let restored = null;
+      try {
+        const raw = localStorage.getItem('an_' + wid);
+        if (raw && raw !== '__ALL__') {
+          const arr = JSON.parse(raw);
+          if (Array.isArray(arr)) restored = arr.filter(v => all.includes(v));
+        }
+      } catch (_e) {}
+      const list = document.getElementById(wid + 'List');
+      if (list) list.innerHTML = all.map((v, i) => {
+        const checked = restored === null || restored.includes(v) ? 'checked' : '';
+        return `<div class="mfilt-item"><input type="checkbox" id="${wid}-${i}" value="${escH(v)}" ${checked} onchange="_mfChange('${wid}')"><label for="${wid}-${i}">${escH(v)}</label></div>`;
+      }).join('');
+      if (restored !== null && restored.length !== all.length) _MF_STATE[wid] = restored;
+      _mfUpdateBtn(wid);
+    }
+  } catch (e) { console.warn('[mfilters] init failed (filters stay at All):', e.message); }
+}
+document.addEventListener('click', e => {
+  document.querySelectorAll('.mfilt-widget').forEach(w => {
+    const dd = w.querySelector('.mfilt-dd');
+    if (dd && !w.contains(e.target)) dd.classList.remove('open');
+  });
+});
+
 // RAG helper for SLA %
 function slaColor(pct) {
   if (pct == null) return '';
@@ -544,7 +682,7 @@ async function loadSyncStatus() {
 // ── REQUESTS ─────────────────────────────────────────────────────
 
 async function loadRequests() {
-  const qs = sinceParam() + siteParam();
+  const qs = sinceParam() + siteParam() + mfParams();
   try {
     const r  = await fetch('/api/metrics/requests?' + qs);
     const j  = await r.json();
@@ -810,8 +948,11 @@ async function loadAll() {
   _loading = false;
 }
 
-// Initial load + auto-refresh every 5 minutes
-loadAll();
+// Initial load + auto-refresh every 5 minutes.
+// Filter options load first so restored localStorage selections apply
+// to the very first fetch; loadAll runs even if the options call fails
+// (filters simply stay at "All").
+_initMFilters().finally(loadAll);
 setInterval(loadAll, 300000);
 </script>
 </body>

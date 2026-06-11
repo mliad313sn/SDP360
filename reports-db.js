@@ -3263,13 +3263,27 @@ function getSurveyMetrics({ since } = {}) {
  *
  * Optional filters: site (site name), since (ISO date for created_time).
  */
-function getRequestMetrics({ site, since } = {}) {
+function getRequestMetrics({ site, since, statuses, rtypes, impacts, modes } = {}) {
   // AP formula: Inbound = count(RequestID) — ALL tickets, no filter (AP chart has Filters: 0).
   // Closed = countif(pending_status = 0). No SLA exclusion needed.
   let where = 'WHERE 1=1';
   const p = [];
   if (site)  { where += ' AND site=?';          p.push(site); }
   if (since) { where += ' AND created_time>=?'; p.push(since); }
+  // ── Multi-value filters (2026-06-11, analytics.html Status/Type/Impact/Mode) ──
+  // Each is an optional array of allowed values → SQL IN clause. Because every
+  // sub-query below reuses the same `${where}` + `...p`, these filters apply
+  // uniformly to ALL the KPIs this function computes. Empty/absent = no filter.
+  const addIn = (col, vals) => {
+    if (Array.isArray(vals) && vals.length > 0) {
+      where += ` AND ${col} IN (${vals.map(() => '?').join(',')})`;
+      p.push(...vals);
+    }
+  };
+  addIn('request_status', statuses);
+  addIn('request_type',   rtypes);
+  addIn('impact',         impacts);
+  addIn('mode',           modes);
 
   const total           = db.prepare(`SELECT COUNT(*) as n FROM request_records ${where}`).get(...p).n;
   const openCount       = db.prepare(`SELECT COUNT(*) as n FROM request_records ${where} AND pending_status=1`).get(...p).n;
@@ -3687,6 +3701,26 @@ function getActiveMajorIncidentsForSite(groups) {
   });
 }
 
+/**
+ * Distinct values present in request_records for the 4 analytics
+ * multi-select filters (2026-06-11). Drives the dropdown options on
+ * analytics.html so new Zoho values appear automatically — no
+ * hardcoded lists to maintain. All 4 columns are indexed or small
+ * enough that DISTINCT scans are sub-millisecond at current volume.
+ */
+function getRequestFilterOptions() {
+  const distinct = (col) => db.prepare(
+    `SELECT DISTINCT ${col} AS v FROM request_records
+     WHERE ${col} IS NOT NULL AND ${col} != '' ORDER BY 1`
+  ).all().map(r => r.v);
+  return {
+    statuses: distinct('request_status'),
+    types:    distinct('request_type'),
+    impacts:  distinct('impact'),
+    modes:    distinct('mode'),
+  };
+}
+
 module.exports = {
   db,
   hashPassword, makeSession,
@@ -3739,6 +3773,7 @@ module.exports = {
   getRequestRecords,
   // Computed metrics (replicate Zoho Analytics aggregate formulas)
   getChangeMetrics, getCABMetrics, getSurveyMetrics, getRequestMetrics,
+  getRequestFilterOptions,
   // Open changes for PPTX slide
   getOpenChangesForSite,
   getActiveMajorIncidentsForSite,
