@@ -100,6 +100,12 @@ select.flt:focus{outline:2px solid var(--orange);border-color:transparent}
 #loadMsg{font-size:13px;color:var(--slate3);max-width:420px;text-align:center;line-height:1.6}
 #loadErrBtn{display:none;margin-top:8px;padding:8px 18px;background:var(--orange);color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:12px}
 
+/* ── MULTI-FILTER WIDGETS (Status/Type/Impact/Mode — 2026-06-09) ─── */
+/* Reuses the .grp-* classes below but is laid out as a single picker
+   button + dropdown (no presets, no config button). */
+.mfilt-widget{display:flex;align-items:center;position:relative}
+.mfilt-widget .grp-picker-btn{min-width:130px}
+
 /* ── GROUP MULTI-SELECT WIDGET ──────────────────────── */
 .grp-widget{display:flex;align-items:center;gap:4px;position:relative}
 .grp-preset{background:#F3F4F6;border:1px solid var(--border);border-radius:5px;padding:4px 9px;font-size:11px;font-weight:600;color:var(--slate3);cursor:pointer;transition:all .15s;white-space:nowrap}
@@ -258,6 +264,58 @@ select.flt:focus{outline:2px solid var(--orange);border-color:transparent}
   <span class="filter-sep"></span>
   <span class="filter-label" id="periodLabel">Report Week</span>
   <select class="flt" id="fPeriod" onchange="applyFilters()" style="min-width:200px"></select>
+  <span class="filter-sep"></span>
+  <!-- 4 multi-select filters added 2026-06-09 (status/type/impact/mode).
+       Each widget uses the same dropdown-checkbox pattern as the Group
+       filter above. Default state = all values selected = no filtering.
+       Wire-up runs after window.allRows is populated (see _initMFilters). -->
+  <span class="filter-label">Status</span>
+  <div class="mfilt-widget" id="mfStatus" data-mf-key="Request Status">
+    <button class="grp-picker-btn" id="mfStatusBtn" onclick="toggleMFilter(event, 'mfStatus')">▾ All Statuses</button>
+    <div class="grp-dropdown" id="mfStatusDD">
+      <div class="grp-dd-hdr">
+        <span>Select statuses</span>
+        <span><button onclick="mfAll('mfStatus', true)">All</button> · <button onclick="mfAll('mfStatus', false)">None</button></span>
+      </div>
+      <div class="mfilt-list" id="mfStatusList"></div>
+    </div>
+  </div>
+  <span class="filter-sep"></span>
+  <span class="filter-label">Type</span>
+  <div class="mfilt-widget" id="mfType" data-mf-key="Request Type">
+    <button class="grp-picker-btn" id="mfTypeBtn" onclick="toggleMFilter(event, 'mfType')">▾ All Types</button>
+    <div class="grp-dropdown" id="mfTypeDD">
+      <div class="grp-dd-hdr">
+        <span>Select types</span>
+        <span><button onclick="mfAll('mfType', true)">All</button> · <button onclick="mfAll('mfType', false)">None</button></span>
+      </div>
+      <div class="mfilt-list" id="mfTypeList"></div>
+    </div>
+  </div>
+  <span class="filter-sep"></span>
+  <span class="filter-label">Impact</span>
+  <div class="mfilt-widget" id="mfImpact" data-mf-key="Impact">
+    <button class="grp-picker-btn" id="mfImpactBtn" onclick="toggleMFilter(event, 'mfImpact')">▾ All Impacts</button>
+    <div class="grp-dropdown" id="mfImpactDD">
+      <div class="grp-dd-hdr">
+        <span>Select impacts</span>
+        <span><button onclick="mfAll('mfImpact', true)">All</button> · <button onclick="mfAll('mfImpact', false)">None</button></span>
+      </div>
+      <div class="mfilt-list" id="mfImpactList"></div>
+    </div>
+  </div>
+  <span class="filter-sep"></span>
+  <span class="filter-label">Mode</span>
+  <div class="mfilt-widget" id="mfMode" data-mf-key="Mode">
+    <button class="grp-picker-btn" id="mfModeBtn" onclick="toggleMFilter(event, 'mfMode')">▾ All Modes</button>
+    <div class="grp-dropdown" id="mfModeDD">
+      <div class="grp-dd-hdr">
+        <span>Select modes</span>
+        <span><button onclick="mfAll('mfMode', true)">All</button> · <button onclick="mfAll('mfMode', false)">None</button></span>
+      </div>
+      <div class="mfilt-list" id="mfModeList"></div>
+    </div>
+  </div>
   <span class="filter-sep"></span>
   <span class="filter-label">Trend</span>
   <select class="flt" id="fTrend" onchange="applyFilters()" style="min-width:100px">
@@ -546,6 +604,21 @@ let RAW=[];
 let VIEW_MODE='weekly';
 let REF_P='', CMP_P='';
 let FS='all',FC='all',FP='all',FTN=12;
+// 4 multi-select filters added 2026-06-09 (status/type/impact/mode).
+// Convention: null = "All" (no filtering). Array = filter rows whose
+// column value is included in the array. Default = null on boot, set
+// to the full list only when the user opens the dropdown and changes
+// selection (so an empty array means "user selected None" -> no rows).
+let FST=null, FRT=null, FIM=null, FMO=null;
+// Helper used in EVERY row-level matching block to apply the 4 new
+// filters consistently. Returns false if the row should be excluded.
+function _mfMatch(r){
+  if(FST!==null && !FST.includes(r['Request Status']||''))return false;
+  if(FRT!==null && !FRT.includes(r['Request Type']  ||''))return false;
+  if(FIM!==null && !FIM.includes(r['Impact']        ||''))return false;
+  if(FMO!==null && !FMO.includes(r['Mode']          ||''))return false;
+  return true;
+}
 let FG=[];          // [] = all groups; non-empty array = selected group names
 let CH={};
 let SC=3,SD=-1;
@@ -584,6 +657,7 @@ function matchPeriod(r,pKey){
   if(FG.length&&!FG.some(g=>g.toLowerCase()===(r['Group']||'').toLowerCase()))return false;
   if(FC!=='all'){const cv=FC.toLowerCase();if(!(r['Category']||'').toLowerCase().includes(cv)&&!(r['Sub Category']||'').toLowerCase().includes(cv))return false;}
   if(FP!=='all'&&(r['Priority']||'').toLowerCase()!==FP.toLowerCase())return false;
+  if(!_mfMatch(r))return false;
   return true;
 }
 function getPRows(pKey){return RAW.filter(r=>matchPeriod(r,pKey));}
@@ -871,6 +945,7 @@ function _getUnassignedRows(){
     if(FG.length&&!FG.some(g=>g.toLowerCase()===(r['Group']||'').toLowerCase()))return false;
     if(FC!=='all'){const cv=FC.toLowerCase();if(!(r['Category']||'').toLowerCase().includes(cv)&&!(r['Sub Category']||'').toLowerCase().includes(cv))return false;}
     if(FP!=='all'&&(r['Priority']||'').toLowerCase()!==FP.toLowerCase())return false;
+    if(!_mfMatch(r))return false;
     return true;
   }).sort((a,b)=>(parseInt(b['Days Since Created'])||0)-(parseInt(a['Days Since Created'])||0));
 }
@@ -986,6 +1061,7 @@ function renderAgeing(){
     if(FG.length&&!FG.some(g=>g.toLowerCase()===(r['Group']||'').toLowerCase()))return false;
     if(FC!=='all'){const cv=FC.toLowerCase();if(!(r['Category']||'').toLowerCase().includes(cv)&&!(r['Sub Category']||'').toLowerCase().includes(cv))return false;}
     if(FP!=='all'&&(r['Priority']||'').toLowerCase()!==FP.toLowerCase())return false;
+    if(!_mfMatch(r))return false;
     return true;
   });
   const bk=[0,0,0,0,0];
@@ -1375,6 +1451,113 @@ document.addEventListener('click', e=>{
   const wrap=document.querySelector('.grp-picker-wrap');
   if(dd && !wrap?.contains(e.target)) dd.classList.remove('open');
 });
+
+// ─── Multi-select filter widgets (Status / Type / Impact / Mode) ────
+// Added 2026-06-09. Each widget is a single button + dropdown of
+// checkboxes; logic shared via a small data-driven map.
+const _MF_CFG = {
+  mfStatus: { key:'Request Status', label:'Statuses', stateName:'FST' },
+  mfType:   { key:'Request Type',   label:'Types',    stateName:'FRT' },
+  mfImpact: { key:'Impact',         label:'Impacts',  stateName:'FIM' },
+  mfMode:   { key:'Mode',           label:'Modes',    stateName:'FMO' },
+};
+function _mfGetState(wid){ return window[_MF_CFG[wid].stateName]; }
+function _mfSetState(wid, v){ window[_MF_CFG[wid].stateName] = v; }
+function _mfAllValues(wid){
+  // Distinct values present in the data — used as the "All" baseline.
+  // RAW is the global tickets array set in loadData() — same source as
+  // pStats() / getPRows() / renderTop10() etc.
+  if(typeof RAW === 'undefined' || !RAW.length) return [];
+  const k = _MF_CFG[wid].key;
+  return [...new Set(RAW.map(r => r[k]).filter(v => v != null && v !== ''))].sort();
+}
+function toggleMFilter(e, wid){
+  e.stopPropagation();
+  const dd = document.getElementById(wid+'DD');
+  // Close other multi-filter dropdowns + Group dropdown
+  document.querySelectorAll('.mfilt-widget .grp-dropdown.open').forEach(d => { if(d !== dd) d.classList.remove('open'); });
+  document.getElementById('grpDropdown')?.classList.remove('open');
+  dd.classList.toggle('open');
+}
+function mfAll(wid, on){
+  const widget = document.getElementById(wid);
+  widget.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = !!on);
+  _mfChange(wid);
+}
+function _mfChange(wid){
+  const widget = document.getElementById(wid);
+  const sel = [...widget.querySelectorAll('input[type=checkbox]:checked')].map(cb => cb.value);
+  const all = _mfAllValues(wid);
+  // null = "All" sentinel (no filtering); only set null if EVERY value
+  // is checked. Otherwise store the actual selection (possibly empty
+  // -> hides everything, which is the user's explicit intent).
+  _mfSetState(wid, sel.length === all.length ? null : sel);
+  _mfUpdateBtn(wid);
+  // Persist user choice (silent — no harm if it fails)
+  try {
+    const s = _mfGetState(wid);
+    localStorage.setItem('hd_'+wid, s === null ? '__ALL__' : JSON.stringify(s));
+  } catch(_e){}
+  renderAll();
+}
+function _mfUpdateBtn(wid){
+  const widget = document.getElementById(wid);
+  const btn = document.getElementById(wid+'Btn');
+  const cfg = _MF_CFG[wid];
+  const s = _mfGetState(wid);
+  const all = _mfAllValues(wid);
+  if(s === null){
+    btn.textContent = '▾ All ' + cfg.label;
+    btn.classList.remove('has-sel');
+  } else if(s.length === 0){
+    btn.textContent = '▾ None';
+    btn.classList.add('has-sel');
+  } else if(s.length === 1){
+    btn.textContent = '▾ ' + s[0];
+    btn.classList.add('has-sel');
+  } else if(s.length <= 2){
+    btn.textContent = '▾ ' + s.join(', ');
+    btn.classList.add('has-sel');
+  } else {
+    btn.textContent = '▾ ' + s.length + ' of ' + all.length;
+    btn.classList.add('has-sel');
+  }
+}
+function _initMFilters(){
+  if(typeof RAW === 'undefined' || !RAW.length) return;
+  for(const wid of Object.keys(_MF_CFG)){
+    const all = _mfAllValues(wid);
+    const list = document.getElementById(wid+'List');
+    if(!list) continue;
+    // Restore prior selection from localStorage (if any).
+    let restored = null;
+    try {
+      const raw = localStorage.getItem('hd_'+wid);
+      if(raw === '__ALL__') restored = null;
+      else if(raw) {
+        const arr = JSON.parse(raw);
+        if(Array.isArray(arr)) restored = arr.filter(v => all.includes(v));
+      }
+    } catch(_e){}
+    // Defensive escape — values can contain HTML-unsafe chars.
+    const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    list.innerHTML = all.map((v, i) => {
+      const checked = restored === null || restored.includes(v) ? 'checked' : '';
+      return `<div class="grp-item"><input type="checkbox" id="${wid}-${i}" value="${esc(v)}" ${checked} onchange="_mfChange('${wid}')"><label for="${wid}-${i}">${esc(v)}</label></div>`;
+    }).join('');
+    // Sync state with what was restored
+    if(restored !== null && restored.length !== all.length) _mfSetState(wid, restored);
+    _mfUpdateBtn(wid);
+  }
+}
+// Close multi-filter dropdowns when clicking outside any of them.
+document.addEventListener('click', e=>{
+  document.querySelectorAll('.mfilt-widget').forEach(w => {
+    const dd = w.querySelector('.grp-dropdown');
+    if(dd && !w.contains(e.target)) dd.classList.remove('open');
+  });
+});
+
 function populatePeriodSel(){
   const el=document.getElementById('fPeriod');
   const counts={weekly:20,monthly:24,quarterly:12,yearly:6};
@@ -1608,6 +1791,7 @@ async function loadData(){
     CMP_P=prevP(REF_P);
     populateDrops();
     populatePeriodSel();
+    _initMFilters(); // populate Status/Type/Impact/Mode dropdowns from RAW
     renderAll();
     document.getElementById('footerTime').textContent='Data as of '+new Date().toLocaleTimeString('en-GB');
   }catch(e){
