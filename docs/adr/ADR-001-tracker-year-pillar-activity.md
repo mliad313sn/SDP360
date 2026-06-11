@@ -272,7 +272,7 @@ The decision is informed by:
 > | Phase 0 — normalised schema + backfill | ✅ 2026-06-09 prod | `909dade` | Backfill: 2 years, 14 pillars, 62 activities, 341 targets, 651 inputs |
 > | Phase 1 — dual-write/delete/wipe + audit | ✅ 2026-06-09 prod | `50fe8fd` + audit fixes `510d160`/`d5ad098`/`0cb5540` | AUDIT PASSED on prod; 11 historical residuals classified benign |
 > | Phase 2 — switchable reads + shadow | ✅ 2026-06-11 prod | `2c07e85` + `dbc5c6f` | `TRACKER_READ_SOURCE=new` live; shadow (now new→legacy) stays armed |
-> | Phase 3 — App.jsx consumes activity_id | ⏳ not started | — | |
+> | Phase 3 — pillar/activity deletes propagate | ✅ 2026-06-11 prod-ready | `182f171` | **Re-scoped** (see amendment below): backend reconciliation instead of App.jsx refactor |
 > | Phase 4 — decommission legacy singleton | ⏳ not started | — | Gate: 4 weeks of Phase 3 stability |
 >
 > **Amendment 2026-06-11 — observation window shortened (J+7 → J+2).**
@@ -287,6 +287,28 @@ The decision is informed by:
 > (new→legacy), so any divergence introduced later still gets logged.
 > Post-switch smoke test passed: tracker UI values identical,
 > input save/reload round-trip OK, no shadow diff.
+>
+> **Amendment 2026-06-11 — Phase 3 re-scoped to backend reconciliation.**
+> The ADR sketched Phase 3 as "App.jsx + engine.js consume activity_id"
+> (3-5 days, high UI-regression surface). The user-facing goal —
+> unblock pillar/activity deletes — was achieved instead with
+> `_pruneNewSchemaOrphans()` in tracker-db.js (~100 lines, commit
+> `182f171`): after every saveTracker dual-write (and once at boot),
+> any pillar/activity present in the normalised schema but absent
+> from the legacy singleton is deleted (activity_id pointers NULLed
+> first, FK CASCADE for pillar→activities), and legacy
+> targets/inputs rows beyond the current activities range are
+> cleaned (ends the "historical residuals" accumulation; the 11
+> existing rows on prod are removed at first boot). App.jsx's
+> existing splice-based delete handlers are unchanged and remain the
+> write path. Guards: prune refuses to run against an empty legacy
+> list; single transaction; shadow comparator stays armed as the
+> independent safety net. Tested: mid-array activity delete and
+> whole-pillar delete both propagate with 11/11 byte-identical
+> parity between backends. The original frontend refactor
+> (activity_id-keyed persistence) is deferred to Phase 4 territory
+> ("Phase 3b") — it only becomes necessary if per-year activity
+> divergence or index-free persistence is required.
 
 ### Phase 0 — Implementation on dev box (1-2 days)
 
