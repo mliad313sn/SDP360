@@ -105,6 +105,20 @@ function getActivityCode(activity) {
   return `${p}-${n}`;
 }
 
+// Parse a legacy pillar string like "1-Network Infrast" or "P2-Business Partner"
+// into { code: 'P1', name: 'Network Infrast' }. Module-level (hoisted out of
+// _backfillFromLegacy in Phase 3) because the prune logic needs the same
+// derivation — single source of truth. The audit script
+// (_audit_tracker_dualwrite.js) carries a mirrored copy: keep in sync.
+function parsePillar(pillarStr) {
+  if (!pillarStr) return null;
+  const s = String(pillarStr).trim();
+  const m = s.match(/^P?(\d+)\s*[-–—]?\s*(.*)$/);
+  if (m) return { code: 'P' + m[1], name: (m[2] || '').trim() || s };
+  // Fallback: take first 4 alphanum chars as code
+  return { code: s.replace(/[^A-Z0-9]/gi, '').slice(0, 4).toUpperCase() || 'PX', name: s };
+}
+
 // ── DB singleton ─────────────────────────────────────────────────────────────
 let _tdb = null;
 
@@ -243,6 +257,18 @@ function _initSchema(db) {
     console.error('[Tracker-DB] _backfillFromLegacy failed:', e.message);
     // Non-fatal — legacy schema is still in place and serves the app
   }
+
+  // PHASE 3 — boot-time orphan prune. Cleans ghosts left by any
+  // pillar/activity delete performed BEFORE Phase 3 shipped (and the
+  // pre-existing historical residual rows in tracker_targets/inputs).
+  try {
+    const pr = _pruneNewSchemaOrphans(db);
+    if (pr && (pr.activities_pruned + pr.pillars_pruned + pr.legacy_targets_pruned + pr.legacy_inputs_pruned) > 0) {
+      console.log('[Tracker-DB] boot prune:', JSON.stringify(pr));
+    }
+  } catch (e) {
+    console.error('[Tracker-DB] boot prune failed (non-fatal):', e.message);
+  }
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -282,17 +308,6 @@ function _backfillFromLegacy(db) {
   const pillarWeights = JSON.parse(cfg.pillar_weights_json || '{}');
   const years         = JSON.parse(cfg.years_json          || '[]');
 
-  // Parse a legacy pillar string like "1-Network Infrast" or "P2-Business Partner"
-  // into { code: 'P1', name: 'Network Infrast' }.
-  function parsePillar(pillarStr) {
-    if (!pillarStr) return null;
-    const s = String(pillarStr).trim();
-    const m = s.match(/^P?(\d+)\s*[-–—]?\s*(.*)$/);
-    if (m) return { code: 'P' + m[1], name: (m[2] || '').trim() || s };
-    // Fallback: take first 4 alphanum chars as code
-    return { code: s.replace(/[^A-Z0-9]/gi, '').slice(0, 4).toUpperCase() || 'PX', name: s };
-  }
-
   const insertYear   = db.prepare(`INSERT OR IGNORE INTO tracker_years (year) VALUES (?)`);
   const findPillar   = db.prepare(`SELECT id, weight, name FROM tracker_pillars WHERE year = ? AND code = ?`);
   const insertPillar = db.prepare(`INSERT INTO tracker_pillars (year, code, name, weight, display_order) VALUES (?, ?, ?, ?, ?)`);
@@ -311,6 +326,7 @@ function _backfillFromLegacy(db) {
     UPDATE tracker_activities
        SET name = ?, kpi_type = ?, start_month = ?, end_month = ?,
            legacy_id = ?, legacy_num = ?, weight = ?, shared = ?,
+           display_order = ?,
            updated_at = datetime('now')
      WHERE id = ?
   `);
@@ -358,13 +374,16 @@ function _backfillFromLegacy(db) {
         const existing = findActivity.get(pillarId, code);
         if (existing) {
           // PHASE 2 — refresh non-key fields so the new schema follows
-          // any drift from the legacy singleton.
+          // any drift from the legacy singleton. PHASE 3 adds
+          // display_order=ix so activity order stays aligned after a
+          // mid-array delete shifts the legacy indices.
           updateActivityFields.run(
             String(act.name || 'Untitled'),
             String(act.kpi  || 'BOOLEAN'),
             Number(act.start) || 1,
             Number(act.end)   || 12,
             legId, legNum, weight, shared,
+            ix,
             existing.id
           );
           return;
@@ -446,6 +465,97 @@ function _backfillFromLegacy(db) {
 
   return { years_inserted, pillars_inserted, pillars_updated,
            activities_inserted, targets_backfilled, inputs_backfilled };
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  PHASE 3 (ADR-001) — orphan pruning. Added 2026-06-11.
+//  _backfillFromLegacy is strictly additive: it never DELETEs. Until
+//  Phase 3, deleting a pillar/activity via the Tracker Setup UI left
+//  ghost rows in the new tables — and since Phase 2 reads from those
+//  tables, a deleted activity would REAPPEAR in the UI.
+//
+//  This function mirrors deletions: any pillar/activity present in
+//  the new schema but ABSENT from the legacy singleton (the write
+//  source of truth until Phase 4) is removed. It also deletes legacy
+//  tracker_targets / tracker_inputs rows whose activity_ix is beyond
+//  the current activities array (the "historical residuals" the audit
+//  flags as benign — they stop accumulating from now on).
+//
+//  Safety guards:
+//    - Never prunes when the legacy lists are empty (a reset mid-state
+//      or corrupted config must not wipe the new schema).
+//    - activity_id pointers in targets/inputs are NULLed before the
+//      delete to avoid dangling references; the next backfill re-maps.
+//    - Single transaction: all-or-nothing.
+//
+//  NOTE: the legacy model has ONE global activity/pillar list applied
+//  to every year, so the prune is global too (a pillar removed from
+//  the config disappears from ALL years in the new schema). True
+//  per-year divergence only becomes possible at Phase 4 when the
+//  legacy singleton is decommissioned.
+// ══════════════════════════════════════════════════════════════════
+function _pruneNewSchemaOrphans(db) {
+  const cfg = db.prepare(
+    'SELECT activities_json, pillar_weights_json FROM tracker_config WHERE id = 1'
+  ).get();
+  if (!cfg) return null;
+
+  let activities, pillarWeights;
+  try {
+    activities    = JSON.parse(cfg.activities_json     || '[]');
+    pillarWeights = JSON.parse(cfg.pillar_weights_json || '{}');
+  } catch (_) { return null; }
+
+  // Guard: never prune against an empty legacy list.
+  if (!Array.isArray(activities) || activities.length === 0) return null;
+  if (Object.keys(pillarWeights).length === 0) return null;
+
+  const expectedActCodes = new Set(activities.map(a => getActivityCode(a)));
+  const expectedPilCodes = new Set(
+    Object.keys(pillarWeights).map(k => { const pp = parsePillar(k); return pp ? pp.code : null; }).filter(Boolean)
+  );
+
+  const nullTgt = db.prepare('UPDATE tracker_targets SET activity_id = NULL WHERE activity_id = ?');
+  const nullInp = db.prepare('UPDATE tracker_inputs  SET activity_id = NULL WHERE activity_id = ?');
+  const delAct  = db.prepare('DELETE FROM tracker_activities WHERE id = ?');
+  const delPil  = db.prepare('DELETE FROM tracker_pillars WHERE id = ?');
+
+  let activities_pruned = 0, pillars_pruned = 0;
+  const tx = db.transaction(() => {
+    // 1) Activities whose code vanished from the legacy list (any year).
+    for (const row of db.prepare('SELECT id, code FROM tracker_activities').all()) {
+      if (!expectedActCodes.has(row.code)) {
+        nullTgt.run(row.id);
+        nullInp.run(row.id);
+        delAct.run(row.id);
+        activities_pruned++;
+      }
+    }
+    // 2) Pillars whose code vanished. NULL their remaining activities'
+    //    pointers first; the FK CASCADE then wipes those activities.
+    for (const row of db.prepare('SELECT id, code FROM tracker_pillars').all()) {
+      if (!expectedPilCodes.has(row.code)) {
+        for (const a of db.prepare('SELECT id FROM tracker_activities WHERE pillar_id = ?').all(row.id)) {
+          nullTgt.run(a.id);
+          nullInp.run(a.id);
+          activities_pruned++;
+        }
+        delPil.run(row.id);
+        pillars_pruned++;
+      }
+    }
+    // 3) Legacy residual rows beyond the current activities range —
+    //    these are what a UI delete leaves behind in tracker_targets /
+    //    tracker_inputs (PK includes activity_ix; INSERT OR REPLACE
+    //    never removes the old tail). Cleaning them here stops the
+    //    "historical residuals" from accumulating.
+    const n = activities.length;
+    const t = db.prepare('DELETE FROM tracker_targets WHERE activity_ix >= ?').run(n);
+    const i = db.prepare('DELETE FROM tracker_inputs  WHERE activity_ix >= ?').run(n);
+    return { legacy_targets_pruned: t.changes, legacy_inputs_pruned: i.changes };
+  });
+  const legacy = tx();
+  return { activities_pruned, pillars_pruned, ...legacy };
 }
 
 function _seed(db) {
@@ -832,8 +942,10 @@ function saveTracker(D, userSite) {
   // running the existing idempotent backfill. ADDs (new year, new
   // pillar, new activity) appear in the new tables; UPDATEs (pillar
   // weight changed) flow through too; new tracker_inputs / tracker_targets
-  // rows get their activity_id mapped. Deletions are NOT handled here —
-  // they're handled explicitly in deleteTrackerYear() per ADR-001 §8.5.
+  // rows get their activity_id mapped. Year deletions are handled in
+  // deleteTrackerYear(); pillar/activity deletions are handled by the
+  // PHASE 3 prune below (they arrive here as a shortened activities_json
+  // after App.jsx's splice handlers ran).
   // Idempotent + silent: no-op when nothing changed; logs a summary
   // line when something did.
   try {
@@ -842,6 +954,14 @@ function saveTracker(D, userSite) {
                   r.activities_inserted + r.targets_backfilled + r.inputs_backfilled;
     if (total > 0) {
       console.log('[Tracker-DB] saveTracker dual-write:', JSON.stringify(r));
+    }
+    // PHASE 3 — mirror deletions: anything no longer in the legacy
+    // config is removed from the normalised schema, and out-of-range
+    // legacy residual rows are cleaned. This is what makes
+    // pillar/activity deletes from the Tracker Setup UI safe.
+    const pr = _pruneNewSchemaOrphans(db);
+    if (pr && (pr.activities_pruned + pr.pillars_pruned + pr.legacy_targets_pruned + pr.legacy_inputs_pruned) > 0) {
+      console.log('[Tracker-DB] saveTracker prune:', JSON.stringify(pr));
     }
   } catch (e) {
     // Dual-write failure is logged but does NOT bubble up — the legacy
