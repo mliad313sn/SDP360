@@ -606,17 +606,21 @@ let REF_P='', CMP_P='';
 let FS='all',FC='all',FP='all',FTN=12;
 // 4 multi-select filters added 2026-06-09 (status/type/impact/mode).
 // Convention: null = "All" (no filtering). Array = filter rows whose
-// column value is included in the array. Default = null on boot, set
-// to the full list only when the user opens the dropdown and changes
-// selection (so an empty array means "user selected None" -> no rows).
-let FST=null, FRT=null, FIM=null, FMO=null;
+// column value is included in the array. Stored in a single object
+// (not separate top-level `let`s) because top-level `let` in a classic
+// script is NOT a property of `window` — the previous design tried to
+// read `window['FST']` which returned undefined and crashed _mfUpdateBtn
+// with 'Cannot read length of undefined'. CLAUDE.md documents this
+// exact footgun (Inspection module pitfall: 'window.state is undefined').
+const _MF_STATE = { mfStatus:null, mfType:null, mfImpact:null, mfMode:null };
 // Helper used in EVERY row-level matching block to apply the 4 new
 // filters consistently. Returns false if the row should be excluded.
 function _mfMatch(r){
-  if(FST!==null && !FST.includes(r['Request Status']||''))return false;
-  if(FRT!==null && !FRT.includes(r['Request Type']  ||''))return false;
-  if(FIM!==null && !FIM.includes(r['Impact']        ||''))return false;
-  if(FMO!==null && !FMO.includes(r['Mode']          ||''))return false;
+  const S = _MF_STATE;
+  if(S.mfStatus!==null && !S.mfStatus.includes(r['Request Status']||''))return false;
+  if(S.mfType  !==null && !S.mfType  .includes(r['Request Type']  ||''))return false;
+  if(S.mfImpact!==null && !S.mfImpact.includes(r['Impact']        ||''))return false;
+  if(S.mfMode  !==null && !S.mfMode  .includes(r['Mode']          ||''))return false;
   return true;
 }
 let FG=[];          // [] = all groups; non-empty array = selected group names
@@ -1455,14 +1459,17 @@ document.addEventListener('click', e=>{
 // ─── Multi-select filter widgets (Status / Type / Impact / Mode) ────
 // Added 2026-06-09. Each widget is a single button + dropdown of
 // checkboxes; logic shared via a small data-driven map.
+// State for each widget lives in the _MF_STATE object declared above
+// (NOT separate top-level `let` vars — those aren't on `window` in
+// classic scripts, which caused the original crash).
 const _MF_CFG = {
-  mfStatus: { key:'Request Status', label:'Statuses', stateName:'FST' },
-  mfType:   { key:'Request Type',   label:'Types',    stateName:'FRT' },
-  mfImpact: { key:'Impact',         label:'Impacts',  stateName:'FIM' },
-  mfMode:   { key:'Mode',           label:'Modes',    stateName:'FMO' },
+  mfStatus: { key:'Request Status', label:'Statuses' },
+  mfType:   { key:'Request Type',   label:'Types'    },
+  mfImpact: { key:'Impact',         label:'Impacts'  },
+  mfMode:   { key:'Mode',           label:'Modes'    },
 };
-function _mfGetState(wid){ return window[_MF_CFG[wid].stateName]; }
-function _mfSetState(wid, v){ window[_MF_CFG[wid].stateName] = v; }
+function _mfGetState(wid){ return _MF_STATE[wid]; }
+function _mfSetState(wid, v){ _MF_STATE[wid] = v; }
 function _mfAllValues(wid){
   // Distinct values present in the data — used as the "All" baseline.
   // RAW is the global tickets array set in loadData() — same source as
