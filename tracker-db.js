@@ -275,6 +275,17 @@ function _initSchema(db) {
     console.log('[tracker-db] ✅ Default data seeded');
   }
 
+  // ── PHASE 4d GUARD ───────────────────────────────────────────────
+  // Once per-year mode is live, the legacy singleton is FROZEN and no
+  // longer mirrors reality (years can diverge). Running the legacy→new
+  // mirror would RESURRECT activities deleted from individual years
+  // and overwrite per-year values with stale global ones. Skip the
+  // whole mirror block (backfill + prune + v2 sync).
+  if (String(process.env.TRACKER_PER_YEAR_EDITS || '').trim() === '1') {
+    console.log('[Tracker-DB] per-year mode active — legacy mirror skipped at boot');
+    return;
+  }
+
   // PHASE 0 — backfill the new normalised tables from the legacy
   // singleton. Idempotent: skips rows already present, updates pillar
   // weights if they drifted. Runs at every boot for now (Phase 1 will
@@ -720,16 +731,23 @@ function _seed(db) {
 // ══════════════════════════════════════════════════════════════════
 let _phase2ConfigLogged = false;
 function loadTracker() {
-  const source = String(process.env.TRACKER_READ_SOURCE || 'legacy').toLowerCase();
-  const shadow = String(process.env.TRACKER_READ_SHADOW || '').trim() === '1';
+  const source      = String(process.env.TRACKER_READ_SOURCE || 'legacy').toLowerCase();
+  const perYearMode = String(process.env.TRACKER_PER_YEAR_EDITS || '').trim() === '1';
+  // PHASE 4d — the shadow comparator checks new-vs-legacy parity. Once
+  // per-year mode freezes the legacy singleton, the comparison is
+  // meaningless (legacy goes stale by design) and would spam false
+  // diffs on every load. Auto-disable it.
+  const shadow = !perYearMode && String(process.env.TRACKER_READ_SHADOW || '').trim() === '1';
 
-  const primary   = source === 'new' ? 'new' : 'legacy';
+  // PHASE 4d — per-year mode forces the new-schema backend; reading
+  // the frozen legacy would show stale data.
+  const primary   = (perYearMode || source === 'new') ? 'new' : 'legacy';
   const secondary = primary === 'new' ? 'legacy' : 'new';
 
-  // Log Phase 2 config once per process lifetime so operators can
-  // confirm at a glance whether shadow / new is actually active.
+  // Log config once per process lifetime so operators can confirm at
+  // a glance which mode is actually active.
   if (!_phase2ConfigLogged) {
-    console.log('[Tracker-DB] Phase 2 config: primary=' + primary + ' shadow=' + (shadow ? 'ON' : 'off'));
+    console.log('[Tracker-DB] Phase 2 config: primary=' + primary + ' shadow=' + (shadow ? 'ON' : 'off') + (perYearMode ? ' perYear=ON' : ''));
     _phase2ConfigLogged = true;
   }
 

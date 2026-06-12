@@ -14,6 +14,8 @@
  */
 'use strict';
 
+try { require('dotenv').config(); } catch (_) { /* dotenv optional for the audit */ }
+
 const Database = require('better-sqlite3');
 const path     = require('path');
 
@@ -29,6 +31,51 @@ try {
 let drift = 0;
 const ok   = (msg) => console.log('  OK   ' + msg);
 const warn = (msg) => { console.log('  WARN ' + msg); drift++; };
+
+// ══════════════════════════════════════════════════════════════════
+//  AUDIT v2 — per-year mode (ADR-001 Phase 4d)
+//  Once TRACKER_PER_YEAR_EDITS=1 the legacy singleton is frozen and
+//  legacy-parity checks become meaningless (legacy goes stale by
+//  design). Instead, run internal-integrity checks on the normalised
+//  schema: per-year structure summary, pillar weight sums, v2 row
+//  coverage. FK constraints already guarantee referential integrity.
+// ══════════════════════════════════════════════════════════════════
+if (String(process.env.TRACKER_PER_YEAR_EDITS || '').trim() === '1') {
+  console.log('--- MODE: per-year (legacy frozen — internal integrity checks) ---');
+  const years = db.prepare('SELECT year FROM tracker_years ORDER BY year').all().map(r => r.year);
+  if (years.length === 0) { console.log('  CRITICAL: tracker_years is empty'); db.close(); process.exit(2); }
+  for (const y of years) {
+    const pillars = db.prepare('SELECT code, weight FROM tracker_pillars WHERE year=? ORDER BY display_order').all(y);
+    const nActs   = db.prepare(`SELECT COUNT(*) c FROM tracker_activities a JOIN tracker_pillars p ON p.id=a.pillar_id WHERE p.year=?`).get(y).c;
+    const nTgt    = db.prepare('SELECT COUNT(*) c FROM tracker_targets_v2 WHERE year=?').get(y).c;
+    const nInp    = db.prepare('SELECT COUNT(*) c FROM tracker_inputs_v2  WHERE year=?').get(y).c;
+    const wSum    = pillars.reduce((s, p) => s + (p.weight || 0), 0);
+    const wOk     = Math.abs(wSum - 1) < 0.005;
+    (wOk ? ok : warn)('year ' + y + ': ' + pillars.length + ' pillars (weights sum ' + wSum.toFixed(2) + (wOk ? '' : ' ≠ 1.00') + '), ' + nActs + ' activities, ' + nTgt + ' targets_v2, ' + nInp + ' inputs_v2');
+    if (nActs === 0) console.log('  INFO year ' + y + ' has no activities yet (new empty year — use Copy structure in Setup)');
+  }
+  // Duplicate activity codes within a year would break position mapping
+  const dups = db.prepare(`
+    SELECT p.year, a.code, COUNT(*) c FROM tracker_activities a
+    JOIN tracker_pillars p ON p.id=a.pillar_id
+    GROUP BY p.year, a.code HAVING c > 1`).all();
+  if (dups.length) warn('duplicate activity codes: ' + JSON.stringify(dups).slice(0, 200));
+  else ok('no duplicate activity codes within any year');
+
+  db.close();
+  console.log('');
+  if (drift === 0) {
+    console.log('============================================================');
+    console.log('   AUDIT PASSED -- per-year schema internally consistent');
+    console.log('============================================================');
+    process.exit(0);
+  } else {
+    console.log('============================================================');
+    console.log('   AUDIT FAILED -- ' + drift + ' issue(s) above');
+    console.log('============================================================');
+    process.exit(1);
+  }
+}
 
 // ── Load legacy singleton ────────────────────────────────────────
 const cfg = db.prepare(
