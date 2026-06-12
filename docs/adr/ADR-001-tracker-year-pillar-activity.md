@@ -309,6 +309,43 @@ The decision is informed by:
 > (activity_id-keyed persistence) is deferred to Phase 4 territory
 > ("Phase 3b") — it only becomes necessary if per-year activity
 > divergence or index-free persistence is required.
+>
+> **Amendment 2026-06-11 — Phase 4 design decisions (locked with the
+> project owner ahead of the 2026-06-12 build session).**
+>
+> Phase 4 delivers true per-year divergence (e.g. remove an activity
+> from 2027 while preserving its 2026 history) by making the
+> normalised schema the WRITE source and decommissioning the legacy
+> singleton. Four decisions locked:
+>
+> 1. **New-year creation starts EMPTY.** No automatic copy from the
+>    previous year. An explicit "Copy from previous year" button is
+>    provided in Tracker Setup for convenience (user-triggered, never
+>    automatic).
+> 2. **Tracker Setup gains a year selector** (defaults to the current
+>    year). Every pillar/activity add/edit/delete applies ONLY to the
+>    selected year.
+> 3. **Targets become per-year** — new keying (year, site,
+>    activity_id). Migration backfills the current global targets
+>    into every existing year (2026, 2027) so nothing is lost; the
+>    years then diverge independently.
+> 4. **Stability gate re-defined: functional, not calendar.** The
+>    original "4 weeks of Phase 3 stability" is replaced by a
+>    point-of-no-return checklist. Rationale: the real irreversible
+>    moment is not the code deploy but the FIRST DIVERGENT EDIT
+>    (once 2026 ≠ 2027, the legacy singleton can no longer represent
+>    the state; rollback degrades to backup-restore). Phase 4 builds
+>    and deploys in compat mode (years identical, dual-write + shadow
+>    + audit still active, fully rollbackable). The first divergent
+>    edit is only allowed when ALL of:
+>      ① v2 UI stable in prod ≥ 1 week with no incident;
+>      ② audit v2 PASSED;
+>      ③ fresh backup taken the same day;
+>      ④ calm point in the monthly cycle (not during site
+>        end-of-month data entry);
+>      ⑤ explicit owner go-decision logged in this ADR.
+>    After that gate, the legacy singleton is frozen as
+>    `tracker_config_legacy` (read-only, kept for forensics).
 
 ### Phase 0 — Implementation on dev box (1-2 days)
 
