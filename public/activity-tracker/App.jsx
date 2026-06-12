@@ -1650,9 +1650,45 @@ function SetupPanel({ D, S, roles, onMutate, onAddYear }) {
       .filter(({ a }) => a.pillar === p),
   }));
 
+  // ── PHASE 4 — per-year editing context (ADR-001 Phase 4) ────────
+  // When per-year mode is live, all edits below apply to S.year ONLY.
+  // The "Copy from previous year" button appears when the selected
+  // year has no structure yet and an earlier year has one to clone.
+  const perYear = !!D.perYearEnabled;
+  const prevYearWithData = perYear
+    ? (D.years || []).filter(y => y < S.year && D.byYear?.[y]?.activities?.length > 0).pop()
+    : null;
+  const yearIsEmpty = perYear && (!D.byYear?.[S.year] || (D.byYear[S.year].activities || []).length === 0);
+  function copyFromPreviousYear() {
+    if (!prevYearWithData || !D.byYear) return;
+    const src = D.byYear[prevYearWithData];
+    D.byYear[S.year] = JSON.parse(JSON.stringify(src));   // deep copy: activities + pillarWeights + targets
+    if (!D.inputs) D.inputs = {};
+    if (!D.inputs[S.year]) D.inputs[S.year] = {};
+    D.sites.forEach(s => {
+      D.inputs[S.year][s] = D.byYear[S.year].activities.map(() => new Array(12).fill(0));
+    });
+    onMutate();
+  }
+
   return (
     <div className="tt-panel">
       <div className="setup-eyebrow">Setup · {D.activities.length} activities · {pillars.length} pillars · {D.activeSites.length} of {D.sites.length} sites active</div>
+
+      {perYear && (
+        <div className="tt-banner" style={{ background: '#EFF6FF', border: '1px solid #93C5FD', color: '#1E40AF' }}>
+          <b>📅 Editing year {S.year}</b> — pillars, activities and targets below apply to <b>{S.year} only</b>.
+          Switch years via the toolbar Year dropdown.
+          {yearIsEmpty && prevYearWithData && canEdit && (
+            <button className="btn-primary" type="button" onClick={copyFromPreviousYear} style={{ marginLeft: 12 }}>
+              ⧉ Copy structure from {prevYearWithData}
+            </button>
+          )}
+          {yearIsEmpty && !prevYearWithData && (
+            <span style={{ marginLeft: 8 }}>This year is empty — add pillars and activities below.</span>
+          )}
+        </div>
+      )}
 
       {!canEdit && (
         <div className="tt-banner tt-banner--warn">
@@ -1665,7 +1701,9 @@ function SetupPanel({ D, S, roles, onMutate, onAddYear }) {
       <section className="setup-section">
         <div className="setup-section__head">
           <h3>1 · Years</h3>
-          <small>Reporting years configured in the tracker. Pillar weights, targets and active sites apply across every year — only input data is per-year.</small>
+          <small>{perYear
+            ? 'Reporting years configured in the tracker. Each year has its OWN pillars, activities and targets — a new year starts empty (use "Copy structure" to clone).'
+            : 'Reporting years configured in the tracker. Pillar weights, targets and active sites apply across every year — only input data is per-year.'}</small>
           {canEdit && (
             <button className="btn-primary" type="button" onClick={onAddYear} style={{ marginLeft: 'auto' }}>
               + Add year
@@ -2385,9 +2423,17 @@ function App() {
         D.years = [...years, nextYear].sort((a, b) => a - b);
         if (!D.inputs) D.inputs = {};
         D.inputs[nextYear] = {};
-        D.sites.forEach(s => {
-          D.inputs[nextYear][s] = D.activities.map(() => new Array(12).fill(0));
-        });
+        if (D.perYearEnabled && D.byYear) {
+          // PHASE 4 — per-year mode: a new year starts EMPTY (ADR-001
+          // Phase 4 decision 1). Use "Copy from previous year" in
+          // Tracker Setup to clone the previous structure on demand.
+          D.byYear[nextYear] = { activities: [], pillarWeights: {}, targets: {} };
+        } else {
+          // Compat mode: the global activity list applies to all years.
+          D.sites.forEach(s => {
+            D.inputs[nextYear][s] = D.activities.map(() => new Array(12).fill(0));
+          });
+        }
         setS(s => ({ ...s, year: nextYear, month: 1 }));
         setAppModal(null);
         onMutate();
@@ -2401,21 +2447,37 @@ function App() {
   if (loadErr) return <div className="tt-page"><div className="tt-error">Failed to load tracker data: {loadErr}</div></div>;
   if (!D)      return <div className="tt-page"><div className="tt-loading">Loading…</div></div>;
 
+  // ── PHASE 4 (ADR-001) — per-year view ─────────────────────────
+  // When the server enables per-year edits, every panel receives a
+  // view of D whose activities/targets/pillarWeights are those of the
+  // SELECTED year (S.year — the existing toolbar year selector
+  // doubles as the Tracker Setup year scope, per Phase 4 decision 2).
+  // The arrays are shared by reference with D.byYear[S.year], so the
+  // panels' existing in-place mutations (splice / property writes)
+  // land in the right year's structure and _saveV2 persists them.
+  // Compat mode (flag off): Dv === D, behaviour byte-identical.
+  const Dv = (D.perYearEnabled && D.byYear && D.byYear[S.year])
+    ? { ...D,
+        activities:    D.byYear[S.year].activities,
+        targets:       D.byYear[S.year].targets,
+        pillarWeights: D.byYear[S.year].pillarWeights }
+    : D;
+
   let panel;
   if (S.view === 'dashboard') {
-    panel = <DashboardPanel D={D} S={S} />;
+    panel = <DashboardPanel D={Dv} S={S} />;
   } else if (S.view === 'scoring') {
-    panel = <ScoringPanel D={D} S={S} setS={setS} roles={roles} />;
+    panel = <ScoringPanel D={Dv} S={S} setS={setS} roles={roles} />;
   } else if (S.view === 'input') {
-    panel = <InputPanel D={D} S={S} setS={setS} roles={roles} onMutate={onMutate} />;
+    panel = <InputPanel D={Dv} S={S} setS={setS} roles={roles} onMutate={onMutate} />;
   } else if (S.view === 'heatmap') {
-    panel = <HeatmapPanel D={D} S={S} />;
+    panel = <HeatmapPanel D={Dv} S={S} />;
   } else if (S.view === 'setup') {
-    panel = <SetupPanel D={D} S={S} roles={roles} onMutate={onMutate} onAddYear={handleAddYear} />;
+    panel = <SetupPanel D={Dv} S={S} roles={roles} onMutate={onMutate} onAddYear={handleAddYear} />;
   } else if (S.view === 'targets') {
-    panel = <TargetsPanel D={D} S={S} roles={roles} onMutate={onMutate} />;
+    panel = <TargetsPanel D={Dv} S={S} roles={roles} onMutate={onMutate} />;
   } else if (S.view === 'roadmap') {
-    panel = <RoadmapPanel D={D} S={S} />;
+    panel = <RoadmapPanel D={Dv} S={S} />;
   } else {
     panel = <StubPanel tab={TABS.find(t => t.id === S.view) || { label: 'Unknown' }} phase={3} />;
   }

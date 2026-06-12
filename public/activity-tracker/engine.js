@@ -15,6 +15,26 @@
 (function (global) {
   'use strict';
 
+  // ── PHASE 4 (ADR-001) — per-year resolution ─────────────────────
+  // When the server provides D.byYear (per-year structures), resolve
+  // the requested year's activities/targets/pillarWeights so that
+  // cross-year computations (e.g. the Dashboard 6-month drill-down
+  // spanning Dec→Jan) score each data point against the structure of
+  // ITS OWN year. Falls back to D unchanged when byYear is absent
+  // (legacy backend) or the year is unknown — i.e. exact pre-Phase-4
+  // behaviour. Returns a cheap view sharing inputs/sites with D.
+  function forYear(D, yr) {
+    if (!D || !D.byYear) return D;
+    const yd = D.byYear[yr];
+    if (!yd || !yd.activities) return D;
+    if (yd.activities === D.activities) return D;  // already the canonical view
+    return Object.assign(Object.create(D), {
+      activities:    yd.activities,
+      targets:       yd.targets || D.targets,
+      pillarWeights: yd.pillarWeights || D.pillarWeights,
+    });
+  }
+
   // ── Pillar helpers ──────────────────────────────────────────────
   /** Distinct pillar codes in declaration order. */
   function gP(D) {
@@ -81,6 +101,7 @@
   // RATING, COUNT (default). See the comments inline for the
   // formula each one uses.
   function score(D, site, yr, mo) {
+    D = forYear(D, yr);   // PHASE 4 — score against the structure of yr's year
     const tg = D.targets[site] || [];
     const R = [];
     const ew = effWeights(D, site);
@@ -165,6 +186,7 @@
 
   // ── Site summary (g/a/r counts + weighted avg + per-pillar) ────
   function ss(D, site, yr, mo) {
+    D = forYear(D, yr);   // PHASE 4 — pillar weights of yr's year
     const sc = score(D, site, yr, mo);
     const g = sc.filter(s => s.rg === 'GREEN').length;
     const a = sc.filter(s => s.rg === 'AMBER').length;
@@ -192,6 +214,7 @@
 
   // ── Pillar score for one site ──────────────────────────────────
   function ps2(D, site, p, yr, mo) {
+    D = forYear(D, yr);   // PHASE 4 — structure of yr's year
     const sc = score(D, site, yr, mo);
     let wS = 0, wT = 0;
     sc.forEach(s => {
