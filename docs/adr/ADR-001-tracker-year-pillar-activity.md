@@ -1,6 +1,6 @@
 # ADR-001 — Tracker schema: bind pillars to years and activities to pillars
 
-**Status**: ✅ **Accepted**
+**Status**: ✅ **Accepted — FULLY IMPLEMENTED (Phase 4d live in production 2026-06-12)**
 **Date drafted**: 2026-06-09
 **Date accepted**: 2026-06-09
 **Author**: Claude (drafted with the project owner)
@@ -276,7 +276,7 @@ The decision is informed by:
 > | Phase 4a — v2 tables (targets/inputs per-year, activity_id-keyed) | ✅ 2026-06-12 built | `6e72b80` | Backfill propagates global targets to every year |
 > | Phase 4b — loadTracker byYear + perYearEnabled | ✅ 2026-06-12 built | `af8e83a` | Compat parity proven; post-flip read path pre-wired |
 > | Phase 4c — _saveV2 write path + year-aware frontend | ✅ 2026-06-12 built | `f0ffd97` + `060baac` | Divergence test passed: 2027 edit left 2026 intact |
-> | Phase 4d — THE FLIP (`TRACKER_PER_YEAR_EDITS=1`) | ⏳ awaiting checklist | — | Gate: 5-condition functional checklist (see amendment); rollback possible only until first divergent edit |
+> | Phase 4d — THE FLIP (`TRACKER_PER_YEAR_EDITS=1`) | ✅ **2026-06-12 LIVE in prod** | pre-flip fixes `b2d089d` | Owner GO given 2026-06-12. Checklist: backup `2026-06-12_043713` ✓, audit PASSED ✓, calm mid-month ✓, condition ① amended (the gated per-year code is not exercised in compat — local divergence tests + post-flip smoke are the real validation). Boot log confirms `perYear=ON` + `legacy mirror skipped`. **First divergent edit executed same day**: one activity removed from 2027 only — prod audit shows 2026=31 activities (intact, incl. inputs) vs 2027=30, weights Σ=1.00 both years, AUDIT PASSED in per-year mode. Legacy singleton now frozen forensics; rollback is backup-restore only. P5/P6/P7 placeholder pillars cleaned by direct SQL (UI never displayed zero-activity pillars). |
 >
 > **Amendment 2026-06-11 — observation window shortened (J+7 → J+2).**
 > The ADR planned one week of shadow observation before switching
