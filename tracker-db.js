@@ -849,37 +849,37 @@ function _loadFromNewSchema() {
     return _loadFromLegacy();
   }
   const currentYear = years[years.length - 1];
+  const perYearEnabled = String(process.env.TRACKER_PER_YEAR_EDITS || '').trim() === '1';
 
-  // Pillars for the canonical year. Reconstruct the legacy key format
-  // "<code>-<name>" so App.jsx and downstream code see identical keys.
-  const pillarRows = db.prepare(
+  const activeSites = JSON.parse(cfg.active_sites_json || '[]');
+  const coerceTarget = (raw) =>
+    raw === 'TRUE/FALSE' ? raw : (isNaN(raw) ? raw : parseFloat(raw));
+
+  // ── PHASE 4b — per-year structures ───────────────────────────────
+  // byYear[y] = { activities, pillarWeights, targets } built from the
+  // normalised tables + v2 targets. Top-level D.activities /
+  // D.pillarWeights stay canonical-year aliases so App.jsx and the
+  // PPTX generators keep working unchanged (compat).
+  const qPillars = db.prepare(
     'SELECT code, name, weight FROM tracker_pillars WHERE year = ? ORDER BY display_order'
-  ).all(currentYear);
-  const pillarWeights = {};
-  for (const p of pillarRows) {
-    const legacyKey = p.name ? (p.code + '-' + p.name) : p.code;
-    pillarWeights[legacyKey] = p.weight;
-  }
-
-  // Activities for the canonical year, joined to their pillar so we can
-  // rebuild the legacy 'pillar' string. Order by display_order to keep
-  // activity_ix stable when the legacy reader is replaced later.
-  // The 4 PHASE-2 columns (legacy_id, legacy_num, weight, shared) are
-  // re-injected to preserve the byte-identical shape.
-  const actRows = db.prepare(`
-    SELECT a.code, a.name, a.kpi_type, a.start_month, a.end_month, a.display_order,
+  );
+  const qActs = db.prepare(`
+    SELECT a.id AS db_id, a.code, a.name, a.kpi_type, a.start_month, a.end_month,
            a.legacy_id, a.legacy_num, a.weight, a.shared,
            p.code AS pillar_code, p.name AS pillar_name
     FROM tracker_activities a
     JOIN tracker_pillars p ON p.id = a.pillar_id
     WHERE p.year = ?
     ORDER BY a.display_order, a.id
-  `).all(currentYear);
-  const activities = actRows.map(a => {
-    // Field ordering matches the legacy shape produced by the JSON
-    // parse path (id, num, pillar, name, kpi, weight, start, end,
-    // shared, code) — getting the order identical means
-    // JSON.stringify() comparisons in the shadow diff stay clean.
+  `);
+  const qTargetsV2 = db.prepare(
+    'SELECT site, activity_id, target, active FROM tracker_targets_v2 WHERE year = ?'
+  );
+
+  // Field ordering matches the legacy JSON shape (id, num, pillar,
+  // name, kpi, weight, start, end, shared, code) so JSON.stringify
+  // comparisons in the shadow diff stay clean.
+  const shapeActivity = (a) => {
     const obj = {};
     if (a.legacy_id  != null) obj.id  = a.legacy_id;
     if (a.legacy_num != null) obj.num = a.legacy_num;
@@ -892,38 +892,85 @@ function _loadFromNewSchema() {
     obj.shared = a.shared === 1;
     obj.code   = a.code;
     return obj;
-  });
+  };
 
-  const activeSites = JSON.parse(cfg.active_sites_json || '[]');
-
-  // Targets — same as legacy (we still read from tracker_targets indexed by activity_ix)
-  const targetRows = db.prepare('SELECT * FROM tracker_targets ORDER BY site, activity_ix').all();
-  const targets = {};
-  INIT.sites.forEach(s => {
-    targets[s] = activities.map(() => ({ target: 0, active: false }));
-  });
-  targetRows.forEach(row => {
-    if (!targets[row.site]) {
-      targets[row.site] = activities.map(() => ({ target: 0, active: false }));
+  const byYear   = {};
+  const idToIxBy = {};   // year → Map(db activity id → position) for v2 reads
+  for (const y of years) {
+    const pw = {};
+    for (const p of qPillars.all(y)) {
+      pw[p.name ? (p.code + '-' + p.name) : p.code] = p.weight;
     }
-    if (row.activity_ix >= activities.length) return; // skip historical residuals
-    const rawTarget = row.target;
-    targets[row.site][row.activity_ix] = {
-      target: rawTarget === 'TRUE/FALSE' ? rawTarget : (isNaN(rawTarget) ? rawTarget : parseFloat(rawTarget)),
-      active: row.active === 1
-    };
-  });
+    const aRows = qActs.all(y);
+    const acts  = aRows.map(shapeActivity);
+    const idToIx = new Map(aRows.map((a, ix) => [a.db_id, ix]));
+    idToIxBy[y] = idToIx;
 
-  // Inputs — same as legacy
-  const inputRows = db.prepare('SELECT * FROM tracker_inputs ORDER BY year, site, activity_ix').all();
-  const inputs = {};
-  inputRows.forEach(row => {
-    const yr = row.year;
-    if (!inputs[yr]) inputs[yr] = {};
-    if (!inputs[yr][row.site]) inputs[yr][row.site] = [];
-    if (row.activity_ix >= activities.length) return;
-    inputs[yr][row.site][row.activity_ix] = JSON.parse(row.months_json || '[0,0,0,0,0,0,0,0,0,0,0,0]');
-  });
+    const yTargets = {};
+    INIT.sites.forEach(s => { yTargets[s] = acts.map(() => ({ target: 0, active: false })); });
+    for (const r of qTargetsV2.all(y)) {
+      const ix = idToIx.get(r.activity_id);
+      if (ix == null) continue;
+      if (!yTargets[r.site]) yTargets[r.site] = acts.map(() => ({ target: 0, active: false }));
+      yTargets[r.site][ix] = { target: coerceTarget(r.target), active: r.active === 1 };
+    }
+    byYear[y] = { activities: acts, pillarWeights: pw, targets: yTargets };
+  }
+  const canon = byYear[currentYear] || { activities: [], pillarWeights: {}, targets: {} };
+  const activities    = canon.activities;
+  const pillarWeights = canon.pillarWeights;
+
+  // ── Top-level targets + inputs ───────────────────────────────────
+  let targets, inputs = {};
+  if (perYearEnabled) {
+    // POST-FLIP (Phase 4d): v2 tables are the source of truth.
+    targets = canon.targets;
+    const qInputsV2 = db.prepare(
+      'SELECT site, activity_id, months_json FROM tracker_inputs_v2 WHERE year = ?'
+    );
+    for (const y of years) {
+      const idToIx = idToIxBy[y];
+      const nActs  = byYear[y].activities.length;
+      inputs[y] = {};
+      for (const r of qInputsV2.all(y)) {
+        const ix = idToIx.get(r.activity_id);
+        if (ix == null) continue;
+        if (!inputs[y][r.site]) inputs[y][r.site] = [];
+        inputs[y][r.site][ix] = JSON.parse(r.months_json || '[0,0,0,0,0,0,0,0,0,0,0,0]');
+      }
+      // Normalise array lengths so the frontend grid renders every row
+      for (const s of Object.keys(inputs[y])) {
+        for (let i = 0; i < nActs; i++) if (inputs[y][s][i] === undefined) inputs[y][s][i] = undefined;
+      }
+    }
+  } else {
+    // COMPAT (pre-flip): byte-identical to the pre-4b read path — the
+    // shadow comparator vs legacy keeps validating this exact output.
+    const targetRows = db.prepare('SELECT * FROM tracker_targets ORDER BY site, activity_ix').all();
+    targets = {};
+    INIT.sites.forEach(s => {
+      targets[s] = activities.map(() => ({ target: 0, active: false }));
+    });
+    targetRows.forEach(row => {
+      if (!targets[row.site]) {
+        targets[row.site] = activities.map(() => ({ target: 0, active: false }));
+      }
+      if (row.activity_ix >= activities.length) return; // skip historical residuals
+      targets[row.site][row.activity_ix] = {
+        target: coerceTarget(row.target),
+        active: row.active === 1
+      };
+    });
+
+    const inputRows = db.prepare('SELECT * FROM tracker_inputs ORDER BY year, site, activity_ix').all();
+    inputRows.forEach(row => {
+      const yr = row.year;
+      if (!inputs[yr]) inputs[yr] = {};
+      if (!inputs[yr][row.site]) inputs[yr][row.site] = [];
+      if (row.activity_ix >= activities.length) return;
+      inputs[yr][row.site][row.activity_ix] = JSON.parse(row.months_json || '[0,0,0,0,0,0,0,0,0,0,0,0]');
+    });
+  }
 
   return {
     sites:        INIT.sites,
@@ -936,7 +983,9 @@ function _loadFromNewSchema() {
     inputs,
     year:         currentYear,
     years,
-    pillarWeights
+    pillarWeights,
+    byYear,                    // PHASE 4b — per-year structures
+    perYearEnabled             // PHASE 4b — UI gate (Tracker Setup year selector)
   };
 }
 
