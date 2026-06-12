@@ -346,6 +346,15 @@ The decision is informed by:
 >      ⑤ explicit owner go-decision logged in this ADR.
 >    After that gate, the legacy singleton is frozen as
 >    `tracker_config_legacy` (read-only, kept for forensics).
+>
+> **Phase 4 technical plan (2026-06-12) — sub-phases 4a→4d:**
+>
+> | Sub | Scope | Risk |
+> |---|---|---|
+> | 4a | Additive schema: `tracker_targets_v2` + `tracker_inputs_v2`, both keyed (year, site, activity_id) with FK CASCADE to tracker_activities; idempotent backfill from the ix-keyed tables (activity_id is already 100% mapped per the audit) | None — new tables, nothing reads them yet |
+> | 4b | `_loadFromNewSchema` returns `D.byYear = {year: {activities, pillarWeights, targets}}` + `D.perYearEnabled` flag, with top-level `D.activities/pillarWeights/targets` kept as canonical-year aliases (compat — App.jsx unchanged); `saveTracker` triple-writes (legacy + ix-tables + v2) | Low — top-level shape byte-identical, shadow comparator stays armed |
+> | 4c | Frontend year-aware: engine.js resolves activities via `byYear[yr]` when present; App.jsx Setup/Targets panels gain a year selector + explicit "Copy from previous year" button — ALL gated behind `D.perYearEnabled` (env `TRACKER_PER_YEAR_EDITS`); when the flag is off the UI and behaviour are exactly today's | Low while flag off |
+> | 4d | Day-J flip after the 5-condition checklist: set `TRACKER_PER_YEAR_EDITS=1` → per-year edits live, `saveTracker` stops writing the legacy singleton + ix-tables, audit script v2 (internal-integrity checks replace legacy-parity checks) | Point of no return at first divergent edit |
 
 ### Phase 0 — Implementation on dev box (1-2 days)
 

@@ -233,6 +233,40 @@ function _initSchema(db) {
   try { db.exec(`ALTER TABLE tracker_activities ADD COLUMN weight     REAL DEFAULT 0`); } catch(e) {}
   try { db.exec(`ALTER TABLE tracker_activities ADD COLUMN shared     INTEGER DEFAULT 0`); } catch(e) {}
 
+  // ══════════════════════════════════════════════════════════════════
+  //  PHASE 4a (ADR-001) — per-year targets & inputs, keyed by
+  //  activity_id. Added 2026-06-12.
+  //  The legacy ix-keyed tables stay authoritative until the Phase 4d
+  //  flip (TRACKER_PER_YEAR_EDITS). These v2 tables are populated by
+  //  _backfillV2() and kept consistent by FK CASCADE: deleting an
+  //  activity (orphan prune) or a year (deleteTrackerYear → pillars →
+  //  activities cascade) automatically removes the matching v2 rows.
+  // ══════════════════════════════════════════════════════════════════
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS tracker_targets_v2 (
+      year        INTEGER NOT NULL,
+      site        TEXT    NOT NULL,
+      activity_id INTEGER NOT NULL,
+      target      TEXT    NOT NULL DEFAULT '0',
+      active      INTEGER NOT NULL DEFAULT 0,
+      updated_at  TEXT DEFAULT (datetime('now')),
+      PRIMARY KEY (year, site, activity_id),
+      FOREIGN KEY (activity_id) REFERENCES tracker_activities(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS ix_ttv2_year ON tracker_targets_v2(year);
+
+    CREATE TABLE IF NOT EXISTS tracker_inputs_v2 (
+      year        INTEGER NOT NULL,
+      site        TEXT    NOT NULL,
+      activity_id INTEGER NOT NULL,
+      months_json TEXT    NOT NULL DEFAULT '[0,0,0,0,0,0,0,0,0,0,0,0]',
+      updated_at  TEXT DEFAULT (datetime('now')),
+      PRIMARY KEY (year, site, activity_id),
+      FOREIGN KEY (activity_id) REFERENCES tracker_activities(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS ix_tiv2_year ON tracker_inputs_v2(year);
+  `);
+
   // Seed on first run (empty tracker_config)
   const n = db.prepare('SELECT COUNT(*) as n FROM tracker_config').get().n;
   if (n === 0) {
@@ -268,6 +302,17 @@ function _initSchema(db) {
     }
   } catch (e) {
     console.error('[Tracker-DB] boot prune failed (non-fatal):', e.message);
+  }
+
+  // PHASE 4a — seed/sync the per-year v2 tables (no-op once
+  // TRACKER_PER_YEAR_EDITS=1; the guard lives inside _backfillV2).
+  try {
+    const v2 = _backfillV2(db);
+    if (v2 && (v2.targets_v2_synced + v2.inputs_v2_synced) > 0) {
+      console.log('[Tracker-DB] boot v2 sync:', JSON.stringify(v2));
+    }
+  } catch (e) {
+    console.error('[Tracker-DB] boot v2 sync failed (non-fatal):', e.message);
   }
 }
 
@@ -556,6 +601,49 @@ function _pruneNewSchemaOrphans(db) {
   });
   const legacy = tx();
   return { activities_pruned, pillars_pruned, ...legacy };
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  PHASE 4a (ADR-001) — v2 backfill. Added 2026-06-12.
+//  Mirrors the ix-keyed tables into the per-year activity_id-keyed
+//  v2 tables:
+//    - tracker_inputs_v2: direct copy (inputs.activity_id is already
+//      mapped per-year by _backfillFromLegacy).
+//    - tracker_targets_v2: the legacy targets are GLOBAL (one row per
+//      site × activity); per decision 3 of the Phase 4 amendment they
+//      are propagated to EVERY year by joining through the activity
+//      code (targets.activity_id points at the latest year's activity;
+//      same code identifies the sibling activity in every other year).
+//  INSERT OR REPLACE so subsequent saves keep v2 values in sync with
+//  the legacy source while in compat mode.
+//
+//  HARD GUARD: must NEVER run after the Phase 4d flip — once
+//  TRACKER_PER_YEAR_EDITS=1, the v2 tables are the source of truth
+//  and re-mirroring from the frozen legacy would overwrite per-year
+//  edits with stale global values.
+// ══════════════════════════════════════════════════════════════════
+function _backfillV2(db) {
+  if (String(process.env.TRACKER_PER_YEAR_EDITS || '').trim() === '1') return null;
+
+  const tx = db.transaction(() => {
+    const t = db.prepare(`
+      INSERT OR REPLACE INTO tracker_targets_v2 (year, site, activity_id, target, active)
+      SELECT p2.year, t.site, a2.id, t.target, t.active
+      FROM tracker_targets t
+      JOIN tracker_activities a1 ON a1.id   = t.activity_id
+      JOIN tracker_activities a2 ON a2.code = a1.code
+      JOIN tracker_pillars   p2 ON p2.id   = a2.pillar_id
+      WHERE t.activity_id IS NOT NULL
+    `).run();
+    const i = db.prepare(`
+      INSERT OR REPLACE INTO tracker_inputs_v2 (year, site, activity_id, months_json)
+      SELECT year, site, activity_id, months_json
+      FROM tracker_inputs
+      WHERE activity_id IS NOT NULL
+    `).run();
+    return { targets_v2_synced: t.changes, inputs_v2_synced: i.changes };
+  });
+  return tx();
 }
 
 function _seed(db) {
@@ -963,6 +1051,9 @@ function saveTracker(D, userSite) {
     if (pr && (pr.activities_pruned + pr.pillars_pruned + pr.legacy_targets_pruned + pr.legacy_inputs_pruned) > 0) {
       console.log('[Tracker-DB] saveTracker prune:', JSON.stringify(pr));
     }
+    // PHASE 4a — keep the per-year v2 tables in sync with this save
+    // (no-op once TRACKER_PER_YEAR_EDITS=1; guard inside _backfillV2).
+    _backfillV2(db);
   } catch (e) {
     // Dual-write failure is logged but does NOT bubble up — the legacy
     // save already succeeded, the new schema can be re-synced later by
