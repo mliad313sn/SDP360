@@ -8,6 +8,9 @@
  *   data-require="executive"   — executive or super_admin allowed
  *   data-require="admin"       — admin, executive, or super_admin allowed
  *   data-require="any"         — any logged-in user allowed (index, reports)
+ *   data-require="a|b"         — OR list: pass if the user holds ANY of the
+ *                                listed roles (hierarchy still applies per
+ *                                entry). e.g. "admin|scorecard-viewer"
  *   (no attribute)             — defaults to "any"
  */
 (function() {
@@ -60,9 +63,14 @@
 
   // Page-level role gate. Routes through userHasRoleClient so the same gate
   // works for hierarchy roles AND feature roles (e.g. data-require="tracker-admin").
-  if (requireRole !== 'any' && !userHasRoleClient(requireRole)) {
-    location.replace('index.html');
-    return;
+  // Pipe-separated list = OR: "admin|scorecard-viewer" passes if the user
+  // holds ANY of the listed roles (hierarchy implication applies per entry).
+  if (requireRole !== 'any') {
+    const anyOf = requireRole.split('|').map(s => s.trim()).filter(Boolean);
+    if (!anyOf.some(userHasRoleClient)) {
+      location.replace('index.html');
+      return;
+    }
   }
 
   // Expose user info globally for pages to use

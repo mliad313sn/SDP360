@@ -116,8 +116,12 @@
         // pattern as Activity Tracker. Keeps Insights ▾ lean and matches
         // the user mental model of "one module = one nav entry".
         { id: 'meetings',    label: 'Meetings Decisions',  icon: ICON_LIB['clipboard-check'], href: 'meetings.html',          roles: ['any']       },
-        { id: 'analytics',   label: 'Analytics',           icon: ICON_LIB['line-chart'],      href: 'analytics.html',         roles: ['admin']     },
-        { id: 'scorecard',   label: 'Executive Scorecard', icon: ICON_LIB.gauge,              href: 'executive.html',         roles: ['executive'] }
+        // scorecard-viewer (feature role, 2026-06-12): READ-ONLY access to the
+        // two gated analytical pages for users who must consult them without
+        // holding the powerful executive/admin hierarchy tiers. Keep in sync
+        // with the data-require attributes in analytics.html + executive.html.
+        { id: 'analytics',   label: 'Analytics',           icon: ICON_LIB['line-chart'],      href: 'analytics.html',         roles: ['admin', 'scorecard-viewer']     },
+        { id: 'scorecard',   label: 'Executive Scorecard', icon: ICON_LIB.gauge,              href: 'executive.html',         roles: ['executive', 'scorecard-viewer'] }
       ]
     },
     {

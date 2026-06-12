@@ -364,6 +364,10 @@ try { db.exec(`ALTER TABLE weekly_reports ADD COLUMN created_by INTEGER`); } cat
 //   tracker-editor  — enter own-site monthly tracker actuals
 //   report-author   — run AI Analyze + Export PPTX + Executive New Report
 //   audit-viewer    — read audit-log + sync status (no sync trigger)
+//   scorecard-viewer — READ-ONLY access to executive.html + analytics.html
+//                      (pages otherwise gated executive/admin). Does NOT
+//                      grant AI Analyze or PPTX export (report-author gates
+//                      those server-side). Added 2026-06-12.
 db.exec(`
 CREATE TABLE IF NOT EXISTS user_roles (
   user_id  INTEGER NOT NULL,
@@ -659,7 +663,7 @@ function getPreviousWeek() {
 // Hierarchy chain — index N implies index N..end (so super_admin implies
 // everything, viewer implies only viewer).
 const ROLE_HIERARCHY = ['super_admin', 'executive', 'admin', 'editor', 'viewer'];
-const FEATURE_ROLES_KNOWN = ['tracker-admin', 'tracker-editor', 'report-author', 'audit-viewer'];
+const FEATURE_ROLES_KNOWN = ['tracker-admin', 'tracker-editor', 'report-author', 'audit-viewer', 'scorecard-viewer'];
 
 /**
  * Returns the array of role strings explicitly assigned to a user.

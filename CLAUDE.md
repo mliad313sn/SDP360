@@ -1444,7 +1444,7 @@ pm2 reload endeavour-dashboard
 | `public/help.html` | Bilingual EN/FR user manual — covers all 14 sections |
 | `_recover_better_sqlite3_prod.cmd` | Emergency: rebuild better-sqlite3 native binding on prod after an npm operation breaks it. Bypasses corporate SSL inspection for the prebuild download. Run from prod cmd.exe at `C:\Apps\SDP-Dashboard\` |
 | `_uninstall_exceljs_prod.cmd` | Optional cleanup: removes the unused `exceljs` + 80 transitive packages from prod after the xlsx switch. Run from prod cmd.exe |
-| `public/auth.js` | Unified auth helper — roles: super_admin > executive > admin > editor > viewer + feature roles (tracker-admin, tracker-editor, report-author, audit-viewer) |
+| `public/auth.js` | Unified auth helper — roles: super_admin > executive > admin > editor > viewer + feature roles (tracker-admin, tracker-editor, report-author, audit-viewer, scorecard-viewer). `data-require` accepts a pipe-separated OR list (`"admin\|scorecard-viewer"`). scorecard-viewer (2026-06-12) = read-only access to executive.html + analytics.html without the executive/admin write powers; AI Analyze + PPTX export stay blocked server-side by report-author |
 | `RENEW_ZOHO_TOKEN.html` | Runbook for renewing the Zoho OAuth refresh token (8 steps) |
 | `ANALYTICS_PLUS_API_SCOPES.md` | Canonical scope reference — **use `MEAplus.fullaccess.all`** (the narrower read-only scopes trigger 7301) |
 | `get-token.js` | Token exchange utility — supports `--dc=com/eu/in/au` and `--verbose` flags |
