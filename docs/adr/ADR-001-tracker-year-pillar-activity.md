@@ -273,7 +273,10 @@ The decision is informed by:
 > | Phase 1 — dual-write/delete/wipe + audit | ✅ 2026-06-09 prod | `50fe8fd` + audit fixes `510d160`/`d5ad098`/`0cb5540` | AUDIT PASSED on prod; 11 historical residuals classified benign |
 > | Phase 2 — switchable reads + shadow | ✅ 2026-06-11 prod | `2c07e85` + `dbc5c6f` | `TRACKER_READ_SOURCE=new` live; shadow (now new→legacy) stays armed |
 > | Phase 3 — pillar/activity deletes propagate | ✅ 2026-06-11 prod-ready | `182f171` | **Re-scoped** (see amendment below): backend reconciliation instead of App.jsx refactor |
-> | Phase 4 — decommission legacy singleton | ⏳ not started | — | Gate: 4 weeks of Phase 3 stability |
+> | Phase 4a — v2 tables (targets/inputs per-year, activity_id-keyed) | ✅ 2026-06-12 built | `6e72b80` | Backfill propagates global targets to every year |
+> | Phase 4b — loadTracker byYear + perYearEnabled | ✅ 2026-06-12 built | `af8e83a` | Compat parity proven; post-flip read path pre-wired |
+> | Phase 4c — _saveV2 write path + year-aware frontend | ✅ 2026-06-12 built | `f0ffd97` + `060baac` | Divergence test passed: 2027 edit left 2026 intact |
+> | Phase 4d — THE FLIP (`TRACKER_PER_YEAR_EDITS=1`) | ⏳ awaiting checklist | — | Gate: 5-condition functional checklist (see amendment); rollback possible only until first divergent edit |
 >
 > **Amendment 2026-06-11 — observation window shortened (J+7 → J+2).**
 > The ADR planned one week of shadow observation before switching
