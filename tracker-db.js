@@ -1021,8 +1021,183 @@ function _diffTrackerD(A, B) {
  * If userSite is null (exec/super_admin):
  *   - Everything is written
  */
+// ══════════════════════════════════════════════════════════════════
+//  PHASE 4c (ADR-001) — per-year write path. Added 2026-06-12.
+//  Active only when TRACKER_PER_YEAR_EDITS=1 (the Phase 4d flip).
+//  Writes D.byYear directly into the normalised tables; the legacy
+//  singleton's activities_json / pillar_weights_json are FROZEN
+//  (never written again). activeSites / years_json / current_month
+//  keep living in tracker_config — they have no year dimension
+//  (ADR-001 §9.1).
+// ══════════════════════════════════════════════════════════════════
+
+// Sync one year's pillars + activities + targets from a byYear entry.
+// Reconciles by code: insert new, update drifted, delete vanished
+// (FK CASCADE cleans v2 rows of deleted activities automatically).
+function _syncYearStructure(db, year, yd) {
+  const acts = Array.isArray(yd.activities) ? yd.activities : [];
+  const pw   = yd.pillarWeights || {};
+
+  // ── Pillars ──
+  const wantPillars = new Map(); // code → {name, weight, order}
+  Object.keys(pw).forEach((k, order) => {
+    const p = parsePillar(k);
+    if (p) wantPillars.set(p.code, { name: p.name, weight: Number(pw[k]) || 0, order });
+  });
+  const havePillars = new Map(
+    db.prepare('SELECT id, code, name, weight, display_order FROM tracker_pillars WHERE year = ?')
+      .all(year).map(r => [r.code, r])
+  );
+  const insP = db.prepare('INSERT INTO tracker_pillars (year, code, name, weight, display_order) VALUES (?, ?, ?, ?, ?)');
+  const updP = db.prepare(`UPDATE tracker_pillars SET name=?, weight=?, display_order=?, updated_at=datetime('now') WHERE id=?`);
+  const delP = db.prepare('DELETE FROM tracker_pillars WHERE id=?');
+  const pillarIdByCode = new Map();
+  for (const [code, w] of wantPillars) {
+    const have = havePillars.get(code);
+    if (have) {
+      if (have.name !== w.name || have.weight !== w.weight || have.display_order !== w.order) {
+        updP.run(w.name, w.weight, w.order, have.id);
+      }
+      pillarIdByCode.set(code, have.id);
+    } else {
+      const r = insP.run(year, code, w.name, w.weight, w.order);
+      pillarIdByCode.set(code, Number(r.lastInsertRowid));
+    }
+  }
+  for (const [code, have] of havePillars) {
+    if (!wantPillars.has(code)) delP.run(have.id);  // CASCADE wipes its activities + their v2 rows
+  }
+
+  // ── Activities ──
+  const haveActs = new Map(
+    db.prepare(`SELECT a.id, a.code FROM tracker_activities a
+                JOIN tracker_pillars p ON p.id = a.pillar_id WHERE p.year = ?`)
+      .all(year).map(r => [r.code, r.id])
+  );
+  const insA = db.prepare(`
+    INSERT INTO tracker_activities
+      (pillar_id, code, name, kpi_type, start_month, end_month, display_order,
+       legacy_id, legacy_num, weight, shared)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+  const updA = db.prepare(`
+    UPDATE tracker_activities
+       SET pillar_id=?, name=?, kpi_type=?, start_month=?, end_month=?, display_order=?,
+           legacy_id=?, legacy_num=?, weight=?, shared=?, updated_at=datetime('now')
+     WHERE id=?`);
+  const delA = db.prepare('DELETE FROM tracker_activities WHERE id=?');
+  const actIdByIx = [];           // position → db id (for targets/inputs resolution)
+  const seenCodes = new Set();
+  acts.forEach((act, ix) => {
+    if (!act) { actIdByIx[ix] = null; return; }
+    const code = getActivityCode(act);
+    seenCodes.add(code);
+    const pParsed  = parsePillar(act.pillar);
+    const pillarId = pParsed ? pillarIdByCode.get(pParsed.code) : null;
+    if (!pillarId) { actIdByIx[ix] = null; return; }   // activity references an unknown pillar — skip
+    const legId  = (act.id  != null) ? Number(act.id)  : null;
+    const legNum = (act.num != null) ? Number(act.num) : null;
+    const weight = (act.weight != null) ? Number(act.weight) : 0;
+    const shared = act.shared ? 1 : 0;
+    const haveId = haveActs.get(code);
+    if (haveId) {
+      updA.run(pillarId, String(act.name || 'Untitled'), String(act.kpi || 'BOOLEAN'),
+               Number(act.start) || 1, Number(act.end) || 12, ix,
+               legId, legNum, weight, shared, haveId);
+      actIdByIx[ix] = haveId;
+    } else {
+      const r = insA.run(pillarId, code, String(act.name || 'Untitled'), String(act.kpi || 'BOOLEAN'),
+                         Number(act.start) || 1, Number(act.end) || 12, ix,
+                         legId, legNum, weight, shared);
+      actIdByIx[ix] = Number(r.lastInsertRowid);
+    }
+  });
+  for (const [code, id] of haveActs) {
+    if (!seenCodes.has(code)) delA.run(id);   // CASCADE wipes its v2 targets/inputs
+  }
+
+  // ── Targets v2 (exec-only data; wipe + reinsert for the year) ──
+  db.prepare('DELETE FROM tracker_targets_v2 WHERE year = ?').run(year);
+  const insT = db.prepare(`
+    INSERT OR REPLACE INTO tracker_targets_v2 (year, site, activity_id, target, active)
+    VALUES (?, ?, ?, ?, ?)`);
+  for (const [site, arr] of Object.entries(yd.targets || {})) {
+    (arr || []).forEach((t, ix) => {
+      const aid = actIdByIx[ix];
+      if (!t || !aid) return;
+      insT.run(year, site, aid, String(t.target ?? 0), t.active ? 1 : 0);
+    });
+  }
+
+  return actIdByIx;
+}
+
+function _saveV2(db, D, userSite) {
+  const byYear = D.byYear || {};
+  const tx = db.transaction(() => {
+    const actIdMaps = {};   // year → position → activity_id
+    if (!userSite) {
+      // Config singleton: ONLY the year-less fields evolve. The
+      // activities/pillar JSON columns are frozen as forensics.
+      db.prepare(`
+        UPDATE tracker_config
+        SET active_sites_json=?, years_json=?, current_month=?, updated_at=datetime('now')
+        WHERE id=1
+      `).run(
+        JSON.stringify(D.activeSites || []),
+        JSON.stringify(D.years || []),
+        D.currentMonth || 4
+      );
+      const insYear = db.prepare('INSERT OR IGNORE INTO tracker_years (year) VALUES (?)');
+      for (const y of (D.years || [])) {
+        const yi = parseInt(y, 10);
+        if (Number.isFinite(yi)) insYear.run(yi);
+      }
+      for (const [yStr, yd] of Object.entries(byYear)) {
+        const y = parseInt(yStr, 10);
+        if (!Number.isFinite(y)) continue;
+        insYear.run(y);
+        actIdMaps[y] = _syncYearStructure(db, y, yd);
+      }
+    }
+
+    // ── Inputs v2 (both roles; admin restricted to own site) ──
+    const insI = db.prepare(`
+      INSERT OR REPLACE INTO tracker_inputs_v2 (year, site, activity_id, months_json)
+      VALUES (?, ?, ?, ?)`);
+    const qIds = db.prepare(`
+      SELECT a.id FROM tracker_activities a
+      JOIN tracker_pillars p ON p.id = a.pillar_id
+      WHERE p.year = ? ORDER BY a.display_order, a.id`);
+    for (const [yStr, sites] of Object.entries(D.inputs || {})) {
+      const y = parseInt(yStr, 10);
+      if (!Number.isFinite(y)) continue;
+      // Resolve position → activity_id: use the map from the structure
+      // sync if we just rebuilt this year, else read current DB order.
+      const ids = actIdMaps[y] || qIds.all(y).map(r => r.id);
+      for (const [site, arr] of Object.entries(sites || {})) {
+        if (userSite && site !== userSite) continue;
+        (arr || []).forEach((months, ix) => {
+          const aid = ids[ix];
+          if (!aid || !Array.isArray(months)) return;
+          insI.run(y, site, aid, JSON.stringify(months));
+        });
+      }
+    }
+  });
+  tx();
+  console.log('[Tracker-DB] saveTracker v2 (per-year mode) — legacy singleton untouched');
+}
+
 function saveTracker(D, userSite) {
   const db = getDB();
+
+  // ── PHASE 4d write path ─────────────────────────────────────────
+  // Once TRACKER_PER_YEAR_EDITS=1, the per-year v2 path takes over and
+  // the legacy singleton is frozen (read-only forensics). Before the
+  // flip, the original legacy-first dual-write below stays in charge.
+  if (String(process.env.TRACKER_PER_YEAR_EDITS || '').trim() === '1') {
+    return _saveV2(db, D, userSite);
+  }
 
   if (!userSite) {
     // ── Executive save: update global config ──────────────────────────────
