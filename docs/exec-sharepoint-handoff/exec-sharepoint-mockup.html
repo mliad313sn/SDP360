@@ -45,8 +45,11 @@
   .accent{height:4px;background:var(--orange);}
   .wrap{padding:22px 28px;}
 
-  .seclabel{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin:0 0 10px;}
+  .seclabel{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin:0 0 4px;}
   .seclabel .soft{font-weight:400;text-transform:none;letter-spacing:0;}
+  .secintro{font-size:12.5px;color:var(--body);margin:0 0 12px;max-width:90ch;line-height:1.5;}
+  .leadintro{font-size:13px;color:var(--body);margin:0 0 14px;max-width:90ch;line-height:1.5;}
+  .panel .sub{font-size:12px;color:var(--muted);margin:-8px 0 12px;line-height:1.45;}
 
   .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px;}
   .kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;position:relative;overflow:hidden;}
@@ -116,6 +119,7 @@
   </div>
   <div class="accent"></div>
   <div class="wrap">
+    <p class="leadintro">A monthly snapshot of how the IT department is performing — the headline numbers below, then how they're trending, the status of each site, and the wins and watch-points for the month.</p>
     <div class="kpis">
       <div class="kpi k-green"><div class="l">Tickets resolved</div><div class="v">1,236</div><div class="d up">▲ 93% closure</div></div>
       <div class="kpi"><div class="l">SLA compliance</div><div class="v">91%</div><div class="d up">▲ +1.3 pp vs Apr</div></div>
@@ -126,18 +130,20 @@
     <div class="grid2">
       <div class="panel">
         <h2>Ticket volume &amp; SLA — last 6 months</h2>
+        <p class="sub">How many requests we resolved each month, and how often we answered within our agreed response time (SLA).</p>
         <div class="legend"><span><i style="background:#145FAE"></i>Resolved</span><span><i style="background:#EF631A;height:3px;border-radius:0"></i>SLA %</span></div>
         <div class="chartbox"><canvas id="trendA" role="img" aria-label="Resolved tickets and SLA over six months."></canvas></div>
       </div>
       <div class="panel">
         <h2>Site status</h2>
+        <p class="sub">Overall IT health at each operating site. Green = healthy, amber = watch, red = needs attention.</p>
         <div class="sites">
           <span class="site"><span class="dot" style="background:#1B9A3A"></span>Houndé</span><span class="site"><span class="dot" style="background:#1B9A3A"></span>Mana</span>
           <span class="site"><span class="dot" style="background:#D97706"></span>Sabodala</span><span class="site"><span class="dot" style="background:#1B9A3A"></span>Ity</span>
           <span class="site"><span class="dot" style="background:#1B9A3A"></span>Kalana</span><span class="site"><span class="dot" style="background:#D90038"></span>Lafigué</span>
           <span class="site"><span class="dot" style="background:#1B9A3A"></span>Dakar</span><span class="site"><span class="dot" style="background:#D97706"></span>Ouaga</span>
         </div>
-        <div class="tracker"><h2 style="margin-bottom:6px">IT strategy tracker</h2><span class="score">72%</span> <span style="color:var(--muted);font-size:12px">fleet score</span><div class="pill-row">Network 81% · Business partnering 74%<br>Risk &amp; compliance 63% · Manage people 69%</div></div>
+        <div class="tracker"><h2 style="margin-bottom:4px">IT strategy tracker</h2><p class="sub" style="margin:0 0 8px">Progress on the multi-year IT strategy across all sites (full detail in the strategy view).</p><span class="score">72%</span> <span style="color:var(--muted);font-size:12px">fleet score</span><div class="pill-row">Network 81% · Business partnering 74%<br>Risk &amp; compliance 63% · Manage people 69%</div></div>
       </div>
     </div>
     <div class="grid2b">
@@ -158,7 +164,8 @@
   </div>
   <div class="accent"></div>
   <div class="wrap">
-    <p class="seclabel">◎ Strategic progress &nbsp;·&nbsp; <span class="soft" style="color:var(--muted)">fleet score <b style="color:var(--ink);font-weight:600">72%</b> · ▲ +3 pts over 6 months</span></p>
+    <p class="seclabel">◎ Strategic progress</p>
+    <p class="secintro">The IT strategy is organised into four pillars. Each score (0–100%) shows how far we've advanced that pillar this year — higher is better. The fleet score is the average across all sites: <b style="font-weight:600">72%, up 3 points over six months</b>.</p>
     <div class="pillars">
       <div class="pcard p-net"><p class="pn">Network infrastructure</p><p class="pv">81%</p><div class="pbar"><div style="width:81%;height:5px;border-radius:3px;background:#145FAE"></div></div><p class="ps">on track · ▲ +5</p></div>
       <div class="pcard p-par"><p class="pn">Business partnering</p><p class="pv">74%</p><div class="pbar"><div style="width:74%;height:5px;border-radius:3px;background:#EF631A"></div></div><p class="ps">on track · ▲ +2</p></div>
@@ -166,13 +173,15 @@
       <div class="pcard p-ppl"><p class="pn">Manage people</p><p class="pv">69%</p><div class="pbar"><div style="width:69%;height:5px;border-radius:3px;background:#0D9488"></div></div><p class="ps">on track · ▲ +4</p></div>
     </div>
     <p class="seclabel">▤ Strategic roadmap — this quarter</p>
+    <p class="secintro">The major IT initiatives planned for this quarter and where each one stands — what we've delivered, what's underway, and what's at risk of slipping.</p>
     <div class="road">
       <div class="rc done"><p class="rt">✓ Delivered</p><p class="rb">Houndé network upgrade · SOC onboarding phase 1</p></div>
       <div class="rc flight"><p class="rt">◐ In flight</p><p class="rb">Identity &amp; access programme · DR test for 2 sites</p></div>
       <div class="rc risk"><p class="rt">▲ At risk</p><p class="rb">Lafigué power resilience · compliance pillar catch-up</p></div>
     </div>
     <div class="ops">
-      <p class="seclabel">∿ Service health <span class="soft">— keeping the lights on</span></p>
+      <p class="seclabel">∿ Service health</p>
+      <p class="secintro">The day-to-day support numbers — response times, satisfaction, volume and uptime. This is "keeping the lights on", shown here as supporting context to the strategy above.</p>
       <div class="ops-grid">
         <div class="ops-c"><p class="l">SLA</p><p class="v">91%</p></div>
         <div class="ops-c"><p class="l">CSAT</p><p class="v">88%</p></div>
