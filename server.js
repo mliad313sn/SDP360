@@ -1033,7 +1033,7 @@ function loadHtml(name) {
   'executive.html', 'login.html', 'index.html', 'analytics.html', 'reports.html', 'executive-report.html',
   'inspection.html', 'inspections.html',
   'meetings.html', 'meeting.html', 'meetings-issues.html', 'meetings-council.html', 'meetings-compliance.html',
-  'meetings-import.html', 'meetings-progress.html', 'meetings-insights.html', 'meetings-setup.html',
+  'meetings-import.html', 'meetings-progress.html', 'meetings-insights.html', 'meetings-setup.html', 'meetings-actions.html',
   'activity-tracker.html', 'help.html',
 ].forEach(loadHtml);
 
@@ -1129,6 +1129,7 @@ app.get('/help.html', (req, res) => {
 app.get('/meetings.html',            (req, res) => sendHtmlPage(res, 'meetings.html',            false, 'Meetings dashboard unavailable'));
 app.get('/meeting.html',             (req, res) => sendHtmlPage(res, 'meeting.html',             false, 'Meeting editor unavailable'));
 app.get('/meetings-issues.html',     (req, res) => sendHtmlPage(res, 'meetings-issues.html',     false, 'Issues Log unavailable'));
+app.get('/meetings-actions.html',    (req, res) => sendHtmlPage(res, 'meetings-actions.html',    false, 'Actions Register unavailable'));
 app.get('/meetings-council.html',    (req, res) => sendHtmlPage(res, 'meetings-council.html',    false, 'Council escalations unavailable'));
 app.get('/meetings-compliance.html', (req, res) => sendHtmlPage(res, 'meetings-compliance.html', false, '5 Engagements monitor unavailable'));
 app.get('/meetings-import.html',     (req, res) => sendHtmlPage(res, 'meetings-import.html',     false, 'Bulk import unavailable'));
@@ -6179,6 +6180,73 @@ app.get('/api/meetings/escalations', requireReportSession, (req, res) => {
     }) });
   } catch(e) {
     console.error('[Meetings] escalations error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// GET /api/meetings/actions — flat Actions Register across all PVs.
+// viewer+. Filters: site, department, status, owner, overdue, from, to, q.
+// Registered BEFORE /:id; the numeric guard on /:id also lets "actions" fall
+// through, but keeping it here groups it with the other list routes.
+app.get('/api/meetings/actions', requireReportSession, (req, res) => {
+  try {
+    if (!meetingsDb) return res.status(503).json({ error: 'Meetings module not available' });
+    res.json({ rows: meetingsDb.listActions({
+      site:       req.query.site       || undefined,
+      department: req.query.department || undefined,
+      status:     req.query.status     || undefined,
+      owner:      req.query.owner      || undefined,
+      overdue:    req.query.overdue === '1' || req.query.overdue === 'true' || undefined,
+      from:       req.query.from       || undefined,
+      to:         req.query.to         || undefined,
+      q:          req.query.q          || undefined,
+    }) });
+  } catch(e) {
+    console.error('[Meetings] actions list error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST /api/meetings/actions/:id/update — change one action's status + log an
+// audit comment. editor+ ; editors are scoped to their own site. Crucially,
+// this is allowed EVEN WHEN the parent PV is closed — actions outlive the
+// signed/closed meeting, and closing a stale action must not require an admin
+// to re-open the whole PV.
+app.post('/api/meetings/actions/:id/update', requireReportSession, meetingsJsonBody, (req, res) => {
+  try {
+    if (!meetingsDb) return res.status(503).json({ error: 'Meetings module not available' });
+    if (!rdb.userHasRole(req.reportUser, 'editor')) {
+      return res.status(403).json({ error: 'editor role or higher required' });
+    }
+    const actionId = parseInt(req.params.id, 10);
+    if (!Number.isFinite(actionId)) return res.status(400).json({ error: 'Invalid action id' });
+    // Site scoping for editors — look up the parent meeting's site.
+    const parent = (function () {
+      try {
+        const sql = require('better-sqlite3')(require('path').join(__dirname, 'meetings.db'));
+        const r = sql.prepare(`
+          SELECT m.site_code FROM md_actions a
+          JOIN md_meetings m ON m.id = a.meeting_id WHERE a.id = ?
+        `).get(actionId);
+        sql.close();
+        return r;
+      } catch (_) { return null; }
+    })();
+    if (!parent) return res.status(404).json({ error: 'Action not found' });
+    const userSite = _userMeetingsSite(req.reportUser);
+    if (userSite && parent.site_code !== userSite) {
+      return res.status(403).json({ error: `Action belongs to ${parent.site_code}; you are scoped to ${userSite}` });
+    }
+    const body = req.body || {};
+    meetingsDb.addActionUpdate(actionId, {
+      author_id:     req.reportUser.id || null,
+      author_name:   req.reportUser.full_name || req.reportUser.username,
+      body:          body.body || '',
+      status_change: body.status_change || null,
+    });
+    res.json({ ok: true });
+  } catch(e) {
+    console.error('[Meetings] action update error:', e.message);
     res.status(500).json({ error: e.message });
   }
 });

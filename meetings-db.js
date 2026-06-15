@@ -271,6 +271,20 @@ function _initSchema(db) {
     CREATE INDEX IF NOT EXISTS ix_md_actions_meeting ON md_actions(meeting_id);
     CREATE INDEX IF NOT EXISTS ix_md_actions_issue   ON md_actions(linked_issue_id);
 
+    -- Audit trail for action status changes (parity with md_issue_updates).
+    -- Lets the Actions Register close/track an action from a flat list with a
+    -- who/when/comment record, independent of the parent PV's lifecycle.
+    CREATE TABLE IF NOT EXISTS md_action_updates (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      action_id     INTEGER NOT NULL,
+      author_id     INTEGER, author_name TEXT,
+      body          TEXT,
+      status_change TEXT,
+      created_at    TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (action_id) REFERENCES md_actions(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS ix_md_action_updates_action ON md_action_updates(action_id);
+
     CREATE TABLE IF NOT EXISTS md_meeting_attachments (
       id              INTEGER PRIMARY KEY AUTOINCREMENT,
       meeting_id      INTEGER NOT NULL,
@@ -844,6 +858,97 @@ function listIssues(opts = {}) {
 /** Council Escalations view — all issues where escalate = 1, grouped at render-time by theme. */
 function listEscalations(opts = {}) {
   return listIssues(Object.assign({}, opts, { escalate: true }));
+}
+
+/**
+ * Append an audit update to one action + optionally change its status.
+ * Mirrors addIssueUpdate. Terminal statuses (resolved / cancelled) stamp
+ * closed_at. Intentionally does NOT care about the parent meeting's status:
+ * actions are living commitments that routinely outlive a signed/closed PV,
+ * so the Actions Register can close them even after the meeting is closed.
+ * (Site-scoping for editors is enforced at the route layer.)
+ */
+function addActionUpdate(actionId, opts = {}) {
+  const db = getDB();
+  const action = db.prepare('SELECT id, status FROM md_actions WHERE id = ?').get(actionId);
+  if (!action) throw new Error('Action not found');
+  const tx = db.transaction(() => {
+    db.prepare(`
+      INSERT INTO md_action_updates (action_id, author_id, author_name, body, status_change)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(actionId, opts.author_id || null, opts.author_name || null, opts.body || null,
+      opts.status_change || null);
+    if (opts.status_change && opts.status_change !== action.status) {
+      const terminal = (opts.status_change === 'resolved' || opts.status_change === 'cancelled' || opts.status_change === 'closed');
+      db.prepare(`
+        UPDATE md_actions
+          SET status = ?, closed_at = CASE WHEN ? = 1 THEN datetime('now') ELSE closed_at END,
+              updated_at = datetime('now')
+        WHERE id = ?
+      `).run(opts.status_change, terminal ? 1 : 0, actionId);
+    }
+  });
+  tx();
+}
+
+/** Audit thread for one action (newest first). */
+function listActionUpdates(actionId) {
+  return getDB().prepare(
+    'SELECT * FROM md_action_updates WHERE action_id = ? ORDER BY id DESC'
+  ).all(actionId);
+}
+
+/**
+ * Flat list of all actions across all meetings — drives the Actions Register.
+ * Filters: site, department, status, owner (LIKE on champion name/email),
+ * overdue (boolean), q (free text). Joins the parent meeting for reference /
+ * site / department / status, and the linked issue title when present.
+ */
+function listActions(opts = {}) {
+  const db = getDB();
+  const where = [];
+  const params = {};
+  if (opts.site)       { where.push('m.site_code = @site COLLATE NOCASE');         params.site = opts.site; }
+  if (opts.department) { where.push('m.department = @department COLLATE NOCASE');  params.department = opts.department; }
+  if (opts.status)     { where.push('a.status = @status');                          params.status = opts.status; }
+  if (opts.owner) {
+    where.push('(a.owner_it LIKE @owner OR a.owner_email LIKE @owner)');
+    params.owner = '%' + opts.owner + '%';
+  }
+  if (opts.overdue) {
+    where.push("a.target_date IS NOT NULL AND a.target_date < date('now') AND a.status NOT IN ('resolved','cancelled','closed')");
+  }
+  if (opts.from)       { where.push('m.meeting_date >= @from'); params.from = opts.from; }
+  if (opts.to)         { where.push('m.meeting_date <= @to');   params.to = opts.to; }
+  if (opts.q) {
+    where.push('(a.description LIKE @q OR a.owner_it LIKE @q OR a.owner_email LIKE @q)');
+    params.q = '%' + opts.q + '%';
+  }
+  const w = where.length ? 'WHERE ' + where.join(' AND ') : '';
+  const sql = `
+    SELECT
+      a.*,
+      m.reference     AS meeting_reference,
+      m.site_code     AS site_code,
+      m.department    AS department,
+      m.meeting_date  AS meeting_date,
+      m.status        AS meeting_status,
+      m.id            AS meeting_id_ref,
+      li.title        AS linked_issue_title
+    FROM md_actions a
+    JOIN md_meetings m ON m.id = a.meeting_id
+    LEFT JOIN md_issues li ON li.id = a.linked_issue_id
+    ${w}
+    ORDER BY
+      CASE WHEN a.status IN ('resolved','cancelled','closed') THEN 1 ELSE 0 END,
+      CASE WHEN a.target_date IS NULL THEN 1 ELSE 0 END,
+      a.target_date ASC,
+      m.meeting_date DESC
+    LIMIT @limit OFFSET @offset
+  `;
+  params.limit = opts.limit || 1000;
+  params.offset = opts.offset || 0;
+  return db.prepare(sql).all(params);
 }
 
 /**
@@ -1565,6 +1670,7 @@ module.exports = {
   loadLookups,
   listMeetings, countMeetings, getMeeting, saveMeeting, deleteMeeting, getMeetingStatus,
   listIssues, listEscalations, addIssueUpdate,
+  listActions, addActionUpdate, listActionUpdates,
   aggregate, compliance, insights,
   previousMeeting, compareDepartment,
   resetLookups,
