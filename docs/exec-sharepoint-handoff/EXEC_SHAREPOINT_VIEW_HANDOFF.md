@@ -106,6 +106,11 @@ to validate content fast and get pixel-perfect brand fidelity, then move to **A*
 
 ## 7. Layout / responsive notes
 
+- **Embedded content — no logo, light header.** This view is embedded inside a
+  SharePoint page that already carries the Endeavour site header, logo and nav.
+  Do **not** add our own logo; keep the header minimal (or drop it and rely on the
+  SharePoint page title). The mockup reflects this. The only useful header content
+  is the reporting period + "last synced" timestamp, which SharePoint won't provide.
 - Target: one screen, readable in ~10 seconds, no scrolling on a desktop/TV.
 - Must degrade gracefully to 2-column on tablets and 1-column on phones (the mockup
   already does via the media query).
