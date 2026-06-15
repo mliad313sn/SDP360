@@ -6184,7 +6184,12 @@ app.get('/api/meetings/escalations', requireReportSession, (req, res) => {
 });
 
 // GET /api/meetings/:id — full meeting (header + projects + issues + actions + audit + attachments)
-app.get('/api/meetings/:id', requireReportSession, (req, res) => {
+app.get('/api/meetings/:id', requireReportSession, (req, res, next) => {
+  // Guard: this parametric route is registered BEFORE the specific
+  // /api/meetings/progress route, so a non-numeric :id (e.g. "progress")
+  // must fall through to the later matching route instead of being parsed
+  // as a meeting id (parseInt("progress")=NaN → bogus 404 "Not found").
+  if (!Number.isFinite(parseInt(req.params.id, 10))) return next();
   try {
     if (!meetingsDb) return res.status(503).json({ error: 'Meetings module not available' });
     const rec = meetingsDb.getMeeting(parseInt(req.params.id, 10));
@@ -6491,7 +6496,10 @@ app.get('/api/meetings/progress', requireReportSession, (req, res) => {
 // Returns a Buffer with mime `application/vnd.openxmlformats-officedocument.presentationml.presentation`.
 // Filename derived from the meeting reference for readability in the
 // browser's download bar (so coordinators don't email "download.pptx").
-app.get('/api/meetings/:id/export-pptx', requireReportSession, async (req, res) => {
+app.get('/api/meetings/:id/export-pptx', requireReportSession, async (req, res, next) => {
+  // Same guard as GET /api/meetings/:id — let /progress/export-pptx fall
+  // through to its specific route instead of matching :id="progress".
+  if (!Number.isFinite(parseInt(req.params.id, 10))) return next();
   try {
     if (!meetingsDb)   return res.status(503).json({ error: 'Meetings module not available' });
     if (!meetingsPptx) return res.status(503).json({ error: 'PPTX generator not available' });
