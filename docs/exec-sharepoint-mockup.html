@@ -9,21 +9,24 @@
 <link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   /* ============================================================
-     STANDALONE A/B MOCKUPS — for the Designer + the decision meeting.
-     Two layouts of the SAME executive view:
-       OPTION A — Run-first (operations forward)
-       OPTION B — Strategy-first (recommended)
-     Brand tokens mirror the live dashboard (_tokens.css):
-       navy #1E293B  slate #3A4A60  blue #145FAE  orange #E87722  red #D90038
-       RAG green #16A34A / amber #EF9F27 / red #DC2626
-       pillars: Network blue · Partner teal · Risk purple · People coral
-       font: Libre Franklin (≈95% match to Franklin Gothic)
+     STANDALONE A/B MOCKUPS — Endeavour Mining brand (from _tokens.css)
+       orange #EF631A (PRIMARY accent)   slate #3A4A60 (header)
+       blue #145FAE   yellow #FFCD18 (branded only)
+       RAG  green #1B9A3A / amber #D97706 / red #D90038
+       grey #524F4E (body)   light-grey #C5C6C4 (borders)
+       pillars: Network blue · Business partnering orange ·
+                Risk & compliance purple #7C3AED · People teal #0D9488
+       font: Libre Franklin (open derivative of Franklin Gothic)
+       logo: ../public/brand/edv-logo-white.png  (real EDV mark)
+     Two layouts of the SAME view, stacked + labelled:
+       Option A — Run-first (operations forward)
+       Option B — Strategy-first (recommended)
      See EXEC_SHAREPOINT_VIEW_HANDOFF.md for fidelity-vs-delivery notes.
      ============================================================ */
   :root{
-    --navy:#1E293B; --slate:#3A4A60; --blue:#145FAE; --orange:#E87722;
-    --ink:#1F2A33; --muted:#6B7785; --line:#E2E5EA; --bg:#F4F5F7; --card:#FFFFFF;
-    --green:#16A34A; --amber:#EF9F27; --red:#DC2626;
+    --slate:#3A4A60; --orange:#EF631A; --orange-d:#CA6419; --blue:#145FAE;
+    --ink:#2C2C2A; --body:#524F4E; --muted:#827D7D; --line:#DCDEDB; --bg:#F4F5F7; --card:#FFFFFF;
+    --green:#1B9A3A; --amber:#D97706; --red:#D90038;
   }
   *{box-sizing:border-box;}
   body{margin:0;background:var(--bg);color:var(--ink);font-family:'Libre Franklin',system-ui,sans-serif;font-size:14px;line-height:1.45;}
@@ -31,13 +34,13 @@
   .ab-tag{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:4px 12px;border-radius:6px;}
   .page{max-width:1180px;margin:0 auto 36px;padding:0 0 28px;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--card);}
 
-  .hdr{background:var(--navy);color:#fff;padding:18px 28px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+  .hdr{background:var(--slate);color:#fff;padding:16px 28px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
   .hdr-l{display:flex;align-items:center;gap:14px;}
-  .hdr-logo{width:40px;height:40px;border-radius:8px;background:var(--orange);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;color:#fff;}
-  .hdr h1{margin:0;font-size:20px;font-weight:800;letter-spacing:.2px;}
+  .hdr-logo{height:34px;width:auto;display:block;}
+  .hdr h1{margin:0;font-size:19px;font-weight:800;letter-spacing:.2px;}
   .hdr .sub{margin:2px 0 0;font-size:12px;color:#AEB7C4;}
   .hdr-r{text-align:right;}
-  .synced{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;background:rgba(22,163,74,.18);color:#86EFAC;padding:5px 11px;border-radius:6px;}
+  .synced{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;background:rgba(27,154,58,.22);color:#A7E8B8;padding:5px 11px;border-radius:6px;}
   .period{margin:5px 0 0;font-size:12px;color:#AEB7C4;}
   .accent{height:4px;background:var(--orange);}
   .wrap{padding:22px 28px;}
@@ -48,7 +51,7 @@
   .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px;}
   .kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;position:relative;overflow:hidden;}
   .kpi::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--blue);}
-  .kpi.k-green::before{background:var(--green);} .kpi.k-orange::before{background:var(--orange);} .kpi.k-purple::before{background:#534AB7;}
+  .kpi.k-green::before{background:var(--green);} .kpi.k-orange::before{background:var(--orange);} .kpi.k-purple::before{background:#7C3AED;}
   .kpi .l{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);}
   .kpi .v{font-size:28px;font-weight:800;margin:5px 0 0;color:var(--slate);}
   .kpi .d{font-size:12px;margin:3px 0 0;color:var(--muted);}
@@ -61,7 +64,7 @@
   .legend i{display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:5px;vertical-align:-1px;}
   .chartbox{position:relative;height:200px;}
   .sites{display:grid;grid-template-columns:1fr 1fr;gap:9px;}
-  .site{display:flex;align-items:center;gap:8px;font-size:13px;}
+  .site{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--body);}
   .dot{width:10px;height:10px;border-radius:50%;}
   .tracker{border-top:1px solid var(--line);margin-top:14px;padding-top:14px;}
   .tracker .score{font-size:26px;font-weight:800;color:var(--slate);}
@@ -69,31 +72,29 @@
 
   .grid2b{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;}
   .note{border-radius:12px;padding:14px 18px;}
-  .note.win{background:rgba(22,163,74,.08);border:1px solid rgba(22,163,74,.25);}
-  .note.foc{background:rgba(239,159,39,.10);border:1px solid rgba(239,159,39,.3);}
+  .note.win{background:rgba(27,154,58,.09);border:1px solid rgba(27,154,58,.28);}
+  .note.foc{background:rgba(217,119,6,.10);border:1px solid rgba(217,119,6,.32);}
   .note h3{margin:0 0 8px;font-size:13px;font-weight:700;}
-  .note.win h3{color:#15803D;} .note.foc h3{color:#B45309;}
+  .note.win h3{color:#147A2D;} .note.foc h3{color:#A65A05;}
   .note ul{margin:0;padding-left:18px;font-size:13px;line-height:1.8;}
-  .note.win ul{color:#15803D;} .note.foc ul{color:#B45309;}
+  .note.win ul{color:#147A2D;} .note.foc ul{color:#A65A05;}
 
-  /* v2 strategy-forward */
-  .traj{font-size:13px;color:var(--muted);margin:0 0 10px;}
-  .traj b{color:var(--ink);font-weight:600;}
+  /* v2 strategy-forward — pillar colours from the canonical tracker tokens */
   .pillars{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:22px;}
   .pcard{border-radius:12px;padding:14px;}
   .pcard .pn{margin:0;font-size:12px;font-weight:600;}
   .pcard .pv{margin:8px 0 0;font-size:26px;font-weight:800;}
   .pbar{height:5px;border-radius:3px;margin-top:8px;}
   .pcard .ps{margin:6px 0 0;font-size:11px;}
-  .p-net{background:#E6F1FB;color:#0C447C;}     .p-net .pbar{background:rgba(24,95,165,.25);}
-  .p-par{background:#E1F5EE;color:#04342C;}     .p-par .pbar{background:rgba(15,110,86,.25);}
-  .p-risk{background:#EEEDFE;color:#26215C;}    .p-risk .pbar{background:rgba(83,74,183,.25);}
-  .p-ppl{background:#FAECE7;color:#4A1B0C;}     .p-ppl .pbar{background:rgba(153,60,29,.22);}
+  .p-net{background:#E6F1FB;color:#0C447C;}     .p-net .pbar{background:rgba(20,95,174,.22);}
+  .p-par{background:#FCEADF;color:#8A3410;}     .p-par .pbar{background:rgba(239,99,26,.22);}
+  .p-risk{background:#EEEDFE;color:#3C3489;}    .p-risk .pbar{background:rgba(124,58,237,.22);}
+  .p-ppl{background:#DCF1EC;color:#0A4A40;}     .p-ppl .pbar{background:rgba(13,148,136,.22);}
   .road{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:22px;}
   .rc{border-radius:10px;padding:11px 13px;}
-  .rc.done{background:rgba(22,163,74,.08);} .rc.flight{background:rgba(20,95,174,.08);} .rc.risk{background:rgba(239,159,39,.12);}
-  .rc .rt{margin:0;font-size:12px;font-weight:600;} .rc.done .rt{color:#15803D;} .rc.flight .rt{color:#145FAE;} .rc.risk .rt{color:#B45309;}
-  .rc .rb{margin:4px 0 0;font-size:13px;} .rc.done .rb{color:#15803D;} .rc.flight .rb{color:#145FAE;} .rc.risk .rb{color:#B45309;}
+  .rc.done{background:rgba(27,154,58,.09);} .rc.flight{background:rgba(20,95,174,.09);} .rc.risk{background:rgba(217,119,6,.12);}
+  .rc .rt{margin:0;font-size:12px;font-weight:600;} .rc.done .rt{color:#147A2D;} .rc.flight .rt{color:#145FAE;} .rc.risk .rt{color:#A65A05;}
+  .rc .rb{margin:4px 0 0;font-size:13px;} .rc.done .rb{color:#147A2D;} .rc.flight .rb{color:#145FAE;} .rc.risk .rb{color:#A65A05;}
   .ops{border-top:1px solid var(--line);padding-top:14px;}
   .ops-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;}
   .ops-c{background:#F1EFE8;border-radius:8px;padding:10px 12px;}
@@ -110,7 +111,7 @@
 </div>
 <div class="page">
   <div class="hdr">
-    <div class="hdr-l"><div class="hdr-logo">E</div><div><h1>IT Operations — Executive View</h1><p class="sub">Endeavour Mining · Group IT × Mines</p></div></div>
+    <div class="hdr-l"><img class="hdr-logo" src="../public/brand/edv-logo-white.png" alt="Endeavour Mining"><div><h1>IT Operations — Executive View</h1><p class="sub">Group IT × Mines</p></div></div>
     <div class="hdr-r"><span class="synced">● Synced 15 Jun 2026, 06:00</span><p class="period">Reporting period · May 2026</p></div>
   </div>
   <div class="accent"></div>
@@ -125,18 +126,18 @@
     <div class="grid2">
       <div class="panel">
         <h2>Ticket volume &amp; SLA — last 6 months</h2>
-        <div class="legend"><span><i style="background:#145FAE"></i>Resolved</span><span><i style="background:#E87722;height:3px;border-radius:0"></i>SLA %</span></div>
+        <div class="legend"><span><i style="background:#145FAE"></i>Resolved</span><span><i style="background:#EF631A;height:3px;border-radius:0"></i>SLA %</span></div>
         <div class="chartbox"><canvas id="trendA" role="img" aria-label="Resolved tickets and SLA over six months."></canvas></div>
       </div>
       <div class="panel">
         <h2>Site status</h2>
         <div class="sites">
-          <span class="site"><span class="dot" style="background:#16A34A"></span>Houndé</span><span class="site"><span class="dot" style="background:#16A34A"></span>Mana</span>
-          <span class="site"><span class="dot" style="background:#EF9F27"></span>Sabodala</span><span class="site"><span class="dot" style="background:#16A34A"></span>Ity</span>
-          <span class="site"><span class="dot" style="background:#16A34A"></span>Kalana</span><span class="site"><span class="dot" style="background:#DC2626"></span>Lafigué</span>
-          <span class="site"><span class="dot" style="background:#16A34A"></span>Dakar</span><span class="site"><span class="dot" style="background:#EF9F27"></span>Ouaga</span>
+          <span class="site"><span class="dot" style="background:#1B9A3A"></span>Houndé</span><span class="site"><span class="dot" style="background:#1B9A3A"></span>Mana</span>
+          <span class="site"><span class="dot" style="background:#D97706"></span>Sabodala</span><span class="site"><span class="dot" style="background:#1B9A3A"></span>Ity</span>
+          <span class="site"><span class="dot" style="background:#1B9A3A"></span>Kalana</span><span class="site"><span class="dot" style="background:#D90038"></span>Lafigué</span>
+          <span class="site"><span class="dot" style="background:#1B9A3A"></span>Dakar</span><span class="site"><span class="dot" style="background:#D97706"></span>Ouaga</span>
         </div>
-        <div class="tracker"><h2 style="margin-bottom:6px">IT strategy tracker</h2><span class="score">72%</span> <span style="color:var(--muted);font-size:12px">fleet score</span><div class="pill-row">Network 81% · Business partner 74%<br>Risk &amp; compliance 63% · Manage people 69%</div></div>
+        <div class="tracker"><h2 style="margin-bottom:6px">IT strategy tracker</h2><span class="score">72%</span> <span style="color:var(--muted);font-size:12px">fleet score</span><div class="pill-row">Network 81% · Business partnering 74%<br>Risk &amp; compliance 63% · Manage people 69%</div></div>
       </div>
     </div>
     <div class="grid2b">
@@ -148,21 +149,21 @@
 </div>
 
 <div class="ab-band">
-  <span class="ab-tag" style="background:#E1F5EE;color:#04342C;">Option B — Strategy-first (recommended)</span>
+  <span class="ab-tag" style="background:#DCF1EC;color:#0A4A40;">Option B — Strategy-first (recommended)</span>
 </div>
 <div class="page">
   <div class="hdr">
-    <div class="hdr-l"><div class="hdr-logo">E</div><div><h1>IT Operations — Executive View</h1><p class="sub">Endeavour Mining · strategy first, service health second</p></div></div>
+    <div class="hdr-l"><img class="hdr-logo" src="../public/brand/edv-logo-white.png" alt="Endeavour Mining"><div><h1>IT Operations — Executive View</h1><p class="sub">Strategy first, service health second</p></div></div>
     <div class="hdr-r"><span class="synced">● Synced 15 Jun 2026, 06:00</span><p class="period">Reporting period · May 2026</p></div>
   </div>
   <div class="accent"></div>
   <div class="wrap">
-    <p class="seclabel">◎ Strategic progress &nbsp;·&nbsp; <span class="soft" style="text-transform:none;letter-spacing:0;font-weight:400;color:var(--muted)">fleet score <b style="color:var(--ink);font-weight:600">72%</b> · ▲ +3 pts over 6 months</span></p>
+    <p class="seclabel">◎ Strategic progress &nbsp;·&nbsp; <span class="soft" style="color:var(--muted)">fleet score <b style="color:var(--ink);font-weight:600">72%</b> · ▲ +3 pts over 6 months</span></p>
     <div class="pillars">
-      <div class="pcard p-net"><p class="pn">Network infrastructure</p><p class="pv">81%</p><div class="pbar"><div style="width:81%;height:5px;border-radius:3px;background:#185FA5"></div></div><p class="ps">on track · ▲ +5</p></div>
-      <div class="pcard p-par"><p class="pn">Business partnering</p><p class="pv">74%</p><div class="pbar"><div style="width:74%;height:5px;border-radius:3px;background:#0F6E56"></div></div><p class="ps">on track · ▲ +2</p></div>
-      <div class="pcard p-risk"><p class="pn">Risk &amp; compliance</p><p class="pv">63%</p><div class="pbar"><div style="width:63%;height:5px;border-radius:3px;background:#534AB7"></div></div><p class="ps">below target · ▼ -1</p></div>
-      <div class="pcard p-ppl"><p class="pn">Manage people</p><p class="pv">69%</p><div class="pbar"><div style="width:69%;height:5px;border-radius:3px;background:#993C1D"></div></div><p class="ps">on track · ▲ +4</p></div>
+      <div class="pcard p-net"><p class="pn">Network infrastructure</p><p class="pv">81%</p><div class="pbar"><div style="width:81%;height:5px;border-radius:3px;background:#145FAE"></div></div><p class="ps">on track · ▲ +5</p></div>
+      <div class="pcard p-par"><p class="pn">Business partnering</p><p class="pv">74%</p><div class="pbar"><div style="width:74%;height:5px;border-radius:3px;background:#EF631A"></div></div><p class="ps">on track · ▲ +2</p></div>
+      <div class="pcard p-risk"><p class="pn">Risk &amp; compliance</p><p class="pv">63%</p><div class="pbar"><div style="width:63%;height:5px;border-radius:3px;background:#7C3AED"></div></div><p class="ps">below target · ▼ -1</p></div>
+      <div class="pcard p-ppl"><p class="pn">Manage people</p><p class="pv">69%</p><div class="pbar"><div style="width:69%;height:5px;border-radius:3px;background:#0D9488"></div></div><p class="ps">on track · ▲ +4</p></div>
     </div>
     <p class="seclabel">▤ Strategic roadmap — this quarter</p>
     <div class="road">
@@ -191,7 +192,7 @@ new Chart(document.getElementById('trendA'), {
   data:{ labels:['Dec','Jan','Feb','Mar','Apr','May'],
     datasets:[
       {type:'bar',label:'Resolved',data:[1080,1120,1190,1150,1198,1236],backgroundColor:'#145FAE',borderRadius:4,yAxisID:'y'},
-      {type:'line',label:'SLA %',data:[86,88,89,87,90,91],borderColor:'#E87722',backgroundColor:'#E87722',borderWidth:2,tension:.3,pointRadius:3,yAxisID:'y1'}
+      {type:'line',label:'SLA %',data:[86,88,89,87,90,91],borderColor:'#EF631A',backgroundColor:'#EF631A',borderWidth:2,tension:.3,pointRadius:3,yAxisID:'y1'}
     ]},
   options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
     scales:{y:{position:'left',grid:{display:false},ticks:{font:{size:11}}},
