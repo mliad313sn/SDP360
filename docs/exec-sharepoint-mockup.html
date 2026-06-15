@@ -3,46 +3,52 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>IT Operations — Executive View (mockup for SharePoint)</title>
+<title>IT Operations — Executive View (A/B mockups for SharePoint)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   /* ============================================================
-     STANDALONE MOCKUP — for the Designer to open + refine.
+     STANDALONE A/B MOCKUPS — for the Designer + the decision meeting.
+     Two layouts of the SAME executive view:
+       OPTION A — Run-first (operations forward)
+       OPTION B — Strategy-first (recommended)
      Brand tokens mirror the live dashboard (_tokens.css):
-       navy   #1E293B   slate  #3A4A60
-       blue   #145FAE   orange #E87722 / #EF631A   red #D90038
-       RAG:   green #16A34A   amber #EF9F27   red #DC2626
-       font:  Libre Franklin (≈95% match to Franklin Gothic)
-     This is the "master visual". See the handoff .md for how
-     faithfully SharePoint can reproduce it per delivery mode.
+       navy #1E293B  slate #3A4A60  blue #145FAE  orange #E87722  red #D90038
+       RAG green #16A34A / amber #EF9F27 / red #DC2626
+       pillars: Network blue · Partner teal · Risk purple · People coral
+       font: Libre Franklin (≈95% match to Franklin Gothic)
+     See EXEC_SHAREPOINT_VIEW_HANDOFF.md for fidelity-vs-delivery notes.
      ============================================================ */
   :root{
     --navy:#1E293B; --slate:#3A4A60; --blue:#145FAE; --orange:#E87722;
     --ink:#1F2A33; --muted:#6B7785; --line:#E2E5EA; --bg:#F4F5F7; --card:#FFFFFF;
-    --green:#16A34A; --amber:#EF9F27; --red:#DC2626; --teal:#0D9488;
+    --green:#16A34A; --amber:#EF9F27; --red:#DC2626;
   }
   *{box-sizing:border-box;}
   body{margin:0;background:var(--bg);color:var(--ink);font-family:'Libre Franklin',system-ui,sans-serif;font-size:14px;line-height:1.45;}
-  .page{max-width:1180px;margin:0 auto;padding:0 0 40px;}
+  .ab-band{max-width:1180px;margin:0 auto;padding:16px 28px 4px;}
+  .ab-tag{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:4px 12px;border-radius:6px;}
+  .page{max-width:1180px;margin:0 auto 36px;padding:0 0 28px;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--card);}
 
   .hdr{background:var(--navy);color:#fff;padding:18px 28px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
-  .hdr::after{content:'';position:absolute;}
   .hdr-l{display:flex;align-items:center;gap:14px;}
-  .hdr-logo{width:40px;height:40px;border-radius:8px;background:var(--orange);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;}
+  .hdr-logo{width:40px;height:40px;border-radius:8px;background:var(--orange);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;color:#fff;}
   .hdr h1{margin:0;font-size:20px;font-weight:800;letter-spacing:.2px;}
   .hdr .sub{margin:2px 0 0;font-size:12px;color:#AEB7C4;}
   .hdr-r{text-align:right;}
   .synced{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;background:rgba(22,163,74,.18);color:#86EFAC;padding:5px 11px;border-radius:6px;}
   .period{margin:5px 0 0;font-size:12px;color:#AEB7C4;}
   .accent{height:4px;background:var(--orange);}
-
   .wrap{padding:22px 28px;}
+
+  .seclabel{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin:0 0 10px;}
+  .seclabel .soft{font-weight:400;text-transform:none;letter-spacing:0;}
+
   .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px;}
   .kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;position:relative;overflow:hidden;}
   .kpi::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--blue);}
-  .kpi.k-green::before{background:var(--green);} .kpi.k-amber::before{background:var(--amber);} .kpi.k-orange::before{background:var(--orange);} .kpi.k-purple::before{background:#7C3AED;}
+  .kpi.k-green::before{background:var(--green);} .kpi.k-orange::before{background:var(--orange);} .kpi.k-purple::before{background:#534AB7;}
   .kpi .l{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);}
   .kpi .v{font-size:28px;font-weight:800;margin:5px 0 0;color:var(--slate);}
   .kpi .d{font-size:12px;margin:3px 0 0;color:var(--muted);}
@@ -54,7 +60,6 @@
   .legend{display:flex;gap:16px;font-size:12px;color:var(--muted);margin-bottom:8px;}
   .legend i{display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:5px;vertical-align:-1px;}
   .chartbox{position:relative;height:200px;}
-
   .sites{display:grid;grid-template-columns:1fr 1fr;gap:9px;}
   .site{display:flex;align-items:center;gap:8px;font-size:13px;}
   .dot{width:10px;height:10px;border-radius:50%;}
@@ -71,30 +76,45 @@
   .note ul{margin:0;padding-left:18px;font-size:13px;line-height:1.8;}
   .note.win ul{color:#15803D;} .note.foc ul{color:#B45309;}
 
-  .foot{text-align:center;font-size:11px;color:#9AA3AF;margin-top:18px;}
-  @media(max-width:900px){.kpis{grid-template-columns:repeat(2,1fr);}.grid2,.grid2b{grid-template-columns:1fr;}}
+  /* v2 strategy-forward */
+  .traj{font-size:13px;color:var(--muted);margin:0 0 10px;}
+  .traj b{color:var(--ink);font-weight:600;}
+  .pillars{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:22px;}
+  .pcard{border-radius:12px;padding:14px;}
+  .pcard .pn{margin:0;font-size:12px;font-weight:600;}
+  .pcard .pv{margin:8px 0 0;font-size:26px;font-weight:800;}
+  .pbar{height:5px;border-radius:3px;margin-top:8px;}
+  .pcard .ps{margin:6px 0 0;font-size:11px;}
+  .p-net{background:#E6F1FB;color:#0C447C;}     .p-net .pbar{background:rgba(24,95,165,.25);}
+  .p-par{background:#E1F5EE;color:#04342C;}     .p-par .pbar{background:rgba(15,110,86,.25);}
+  .p-risk{background:#EEEDFE;color:#26215C;}    .p-risk .pbar{background:rgba(83,74,183,.25);}
+  .p-ppl{background:#FAECE7;color:#4A1B0C;}     .p-ppl .pbar{background:rgba(153,60,29,.22);}
+  .road{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:22px;}
+  .rc{border-radius:10px;padding:11px 13px;}
+  .rc.done{background:rgba(22,163,74,.08);} .rc.flight{background:rgba(20,95,174,.08);} .rc.risk{background:rgba(239,159,39,.12);}
+  .rc .rt{margin:0;font-size:12px;font-weight:600;} .rc.done .rt{color:#15803D;} .rc.flight .rt{color:#145FAE;} .rc.risk .rt{color:#B45309;}
+  .rc .rb{margin:4px 0 0;font-size:13px;} .rc.done .rb{color:#15803D;} .rc.flight .rb{color:#145FAE;} .rc.risk .rb{color:#B45309;}
+  .ops{border-top:1px solid var(--line);padding-top:14px;}
+  .ops-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;}
+  .ops-c{background:#F1EFE8;border-radius:8px;padding:10px 12px;}
+  .ops-c .l{margin:0;font-size:11px;color:var(--muted);} .ops-c .v{margin:3px 0 0;font-size:18px;font-weight:700;color:var(--slate);}
+
+  .foot{text-align:center;font-size:11px;color:#9AA3AF;padding:16px 0 0;}
+  @media(max-width:900px){.kpis{grid-template-columns:repeat(2,1fr);}.grid2,.grid2b{grid-template-columns:1fr;}.pillars{grid-template-columns:repeat(2,1fr);}.road{grid-template-columns:1fr;}.ops-grid{grid-template-columns:repeat(3,1fr);}}
 </style>
 </head>
 <body>
-<div class="page">
 
+<div class="ab-band">
+  <span class="ab-tag" style="background:#E6F1FB;color:#0C447C;">Option A — Run-first (operations forward)</span>
+</div>
+<div class="page">
   <div class="hdr">
-    <div class="hdr-l">
-      <div class="hdr-logo">E</div>
-      <div>
-        <h1>IT Operations — Executive View</h1>
-        <p class="sub">Endeavour Mining · Group IT × Mines</p>
-      </div>
-    </div>
-    <div class="hdr-r">
-      <span class="synced">● Synced 15 Jun 2026, 06:00</span>
-      <p class="period">Reporting period · May 2026</p>
-    </div>
+    <div class="hdr-l"><div class="hdr-logo">E</div><div><h1>IT Operations — Executive View</h1><p class="sub">Endeavour Mining · Group IT × Mines</p></div></div>
+    <div class="hdr-r"><span class="synced">● Synced 15 Jun 2026, 06:00</span><p class="period">Reporting period · May 2026</p></div>
   </div>
   <div class="accent"></div>
-
   <div class="wrap">
-
     <div class="kpis">
       <div class="kpi k-green"><div class="l">Tickets resolved</div><div class="v">1,236</div><div class="d up">▲ 93% closure</div></div>
       <div class="kpi"><div class="l">SLA compliance</div><div class="v">91%</div><div class="d up">▲ +1.3 pp vs Apr</div></div>
@@ -102,54 +122,72 @@
       <div class="kpi k-green"><div class="l">User satisfaction</div><div class="v">88%</div><div class="d">CSAT · 214 responses</div></div>
       <div class="kpi k-purple"><div class="l">Major incidents</div><div class="v">3</div><div class="d">99.7% uptime</div></div>
     </div>
-
     <div class="grid2">
       <div class="panel">
         <h2>Ticket volume &amp; SLA — last 6 months</h2>
         <div class="legend"><span><i style="background:#145FAE"></i>Resolved</span><span><i style="background:#E87722;height:3px;border-radius:0"></i>SLA %</span></div>
-        <div class="chartbox"><canvas id="trend" role="img" aria-label="Resolved tickets and SLA compliance over six months, both trending up."></canvas></div>
+        <div class="chartbox"><canvas id="trendA" role="img" aria-label="Resolved tickets and SLA over six months."></canvas></div>
       </div>
       <div class="panel">
         <h2>Site status</h2>
         <div class="sites">
-          <span class="site"><span class="dot" style="background:#16A34A"></span>Houndé</span>
-          <span class="site"><span class="dot" style="background:#16A34A"></span>Mana</span>
-          <span class="site"><span class="dot" style="background:#EF9F27"></span>Sabodala</span>
-          <span class="site"><span class="dot" style="background:#16A34A"></span>Ity</span>
-          <span class="site"><span class="dot" style="background:#16A34A"></span>Kalana</span>
-          <span class="site"><span class="dot" style="background:#DC2626"></span>Lafigué</span>
-          <span class="site"><span class="dot" style="background:#16A34A"></span>Dakar</span>
-          <span class="site"><span class="dot" style="background:#EF9F27"></span>Ouaga</span>
+          <span class="site"><span class="dot" style="background:#16A34A"></span>Houndé</span><span class="site"><span class="dot" style="background:#16A34A"></span>Mana</span>
+          <span class="site"><span class="dot" style="background:#EF9F27"></span>Sabodala</span><span class="site"><span class="dot" style="background:#16A34A"></span>Ity</span>
+          <span class="site"><span class="dot" style="background:#16A34A"></span>Kalana</span><span class="site"><span class="dot" style="background:#DC2626"></span>Lafigué</span>
+          <span class="site"><span class="dot" style="background:#16A34A"></span>Dakar</span><span class="site"><span class="dot" style="background:#EF9F27"></span>Ouaga</span>
         </div>
-        <div class="tracker">
-          <h2 style="margin-bottom:6px">IT strategy tracker</h2>
-          <span class="score">72%</span> <span style="color:var(--muted);font-size:12px">fleet score</span>
-          <div class="pill-row">
-            Network 81% · Business partner 74%<br>
-            Risk &amp; compliance 63% · Manage people 69%
-          </div>
-        </div>
+        <div class="tracker"><h2 style="margin-bottom:6px">IT strategy tracker</h2><span class="score">72%</span> <span style="color:var(--muted);font-size:12px">fleet score</span><div class="pill-row">Network 81% · Business partner 74%<br>Risk &amp; compliance 63% · Manage people 69%</div></div>
       </div>
     </div>
-
     <div class="grid2b">
-      <div class="note win">
-        <h3>✓ Highlights this month</h3>
-        <ul><li>SLA recovered to 91% after April dip</li><li>Houndé network upgrade completed</li><li>CSAT up 4 points to 88%</li></ul>
-      </div>
-      <div class="note foc">
-        <h3>▲ Focus areas</h3>
-        <ul><li>Lafigué power / UPS stability (red)</li><li>Risk &amp; compliance pillar below target</li><li>2 major incidents pending root-cause</li></ul>
+      <div class="note win"><h3>✓ Highlights this month</h3><ul><li>SLA recovered to 91% after April dip</li><li>Houndé network upgrade completed</li><li>CSAT up 4 points to 88%</li></ul></div>
+      <div class="note foc"><h3>▲ Focus areas</h3><ul><li>Lafigué power / UPS stability (red)</li><li>Risk &amp; compliance pillar below target</li><li>2 major incidents pending root-cause</li></ul></div>
+    </div>
+    <p class="foot">Option A · operations forward · sample figures · no individual performance or customer comments</p>
+  </div>
+</div>
+
+<div class="ab-band">
+  <span class="ab-tag" style="background:#E1F5EE;color:#04342C;">Option B — Strategy-first (recommended)</span>
+</div>
+<div class="page">
+  <div class="hdr">
+    <div class="hdr-l"><div class="hdr-logo">E</div><div><h1>IT Operations — Executive View</h1><p class="sub">Endeavour Mining · strategy first, service health second</p></div></div>
+    <div class="hdr-r"><span class="synced">● Synced 15 Jun 2026, 06:00</span><p class="period">Reporting period · May 2026</p></div>
+  </div>
+  <div class="accent"></div>
+  <div class="wrap">
+    <p class="seclabel">◎ Strategic progress &nbsp;·&nbsp; <span class="soft" style="text-transform:none;letter-spacing:0;font-weight:400;color:var(--muted)">fleet score <b style="color:var(--ink);font-weight:600">72%</b> · ▲ +3 pts over 6 months</span></p>
+    <div class="pillars">
+      <div class="pcard p-net"><p class="pn">Network infrastructure</p><p class="pv">81%</p><div class="pbar"><div style="width:81%;height:5px;border-radius:3px;background:#185FA5"></div></div><p class="ps">on track · ▲ +5</p></div>
+      <div class="pcard p-par"><p class="pn">Business partnering</p><p class="pv">74%</p><div class="pbar"><div style="width:74%;height:5px;border-radius:3px;background:#0F6E56"></div></div><p class="ps">on track · ▲ +2</p></div>
+      <div class="pcard p-risk"><p class="pn">Risk &amp; compliance</p><p class="pv">63%</p><div class="pbar"><div style="width:63%;height:5px;border-radius:3px;background:#534AB7"></div></div><p class="ps">below target · ▼ -1</p></div>
+      <div class="pcard p-ppl"><p class="pn">Manage people</p><p class="pv">69%</p><div class="pbar"><div style="width:69%;height:5px;border-radius:3px;background:#993C1D"></div></div><p class="ps">on track · ▲ +4</p></div>
+    </div>
+    <p class="seclabel">▤ Strategic roadmap — this quarter</p>
+    <div class="road">
+      <div class="rc done"><p class="rt">✓ Delivered</p><p class="rb">Houndé network upgrade · SOC onboarding phase 1</p></div>
+      <div class="rc flight"><p class="rt">◐ In flight</p><p class="rb">Identity &amp; access programme · DR test for 2 sites</p></div>
+      <div class="rc risk"><p class="rt">▲ At risk</p><p class="rb">Lafigué power resilience · compliance pillar catch-up</p></div>
+    </div>
+    <div class="ops">
+      <p class="seclabel">∿ Service health <span class="soft">— keeping the lights on</span></p>
+      <div class="ops-grid">
+        <div class="ops-c"><p class="l">SLA</p><p class="v">91%</p></div>
+        <div class="ops-c"><p class="l">CSAT</p><p class="v">88%</p></div>
+        <div class="ops-c"><p class="l">Resolved</p><p class="v">1,236</p></div>
+        <div class="ops-c"><p class="l">Avg resolve</p><p class="v">14h</p></div>
+        <div class="ops-c"><p class="l">Maj. incidents</p><p class="v">3</p></div>
+        <div class="ops-c"><p class="l">Uptime</p><p class="v">99.7%</p></div>
       </div>
     </div>
-
-    <p class="foot">Mockup for discussion · sample figures · no individual performance or customer comments shown</p>
+    <p class="foot">Option B · strategy forward (recommended) · sample figures · no individual performance or customer comments</p>
   </div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
-new Chart(document.getElementById('trend'), {
+new Chart(document.getElementById('trendA'), {
   data:{ labels:['Dec','Jan','Feb','Mar','Apr','May'],
     datasets:[
       {type:'bar',label:'Resolved',data:[1080,1120,1190,1150,1198,1236],backgroundColor:'#145FAE',borderRadius:4,yAxisID:'y'},

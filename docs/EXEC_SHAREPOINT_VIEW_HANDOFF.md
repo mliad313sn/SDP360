@@ -17,14 +17,22 @@ It is **not** the full dashboard. The full dashboard (helpdesk, scorecards,
 inspections, meetings, activity tracker) lives on an internal LAN-only app. This
 is a curated extract pushed outward.
 
-## 2. The starting artifact
+## 2. The starting artifact — two layout options (A/B)
 
-Open **`exec-sharepoint-mockup.html`** (same folder) in any browser. That is the
-"master visual" — built to the live dashboard's brand. Refine THAT. It is
-self-contained (Libre Franklin + Chart.js load from CDN; works with internet).
+Open **`exec-sharepoint-mockup.html`** (same folder) in any browser. It contains
+**two layouts of the same view**, stacked top-to-bottom, both built to the live
+dashboard's brand (self-contained; Libre Franklin + Chart.js from CDN):
 
-There is also a cleaner inline version that was shown in the working session; the
-HTML file is the canonical one to iterate on.
+- **Option A — Run-first (operations forward):** 5 big KPI tiles + trend lead;
+  strategy tracker sits in a side panel.
+- **Option B — Strategy-first (recommended):** the 4 strategy pillars + fleet
+  trajectory + quarterly roadmap lead; operational KPIs become a compact support
+  band underneath.
+
+Both are kept deliberately as an **A/B to put in front of stakeholders** — the
+question for the meeting is "do you want to see strategy or service first?". We
+recommend **B**, because this is an *executive* view and leaders steer direction,
+not ticket throughput. The chosen layout becomes the master to refine.
 
 ## 3. Content blocks (and the real data behind each)
 
@@ -106,11 +114,12 @@ to validate content fast and get pixel-perfect brand fidelity, then move to **A*
 
 ## 8. Open decisions (pending the stakeholder meeting)
 
-1. **Content** — which of the 6 blocks survive? (KPIs / trend / site RAG / tracker /
-   highlights). Stakeholders cross items off.
-2. **Delivery mode** — B, A, or A+ (drives fidelity, see §6).
-3. **Refresh cadence** — daily? hourly? (snapshot = nightly is usually plenty).
-4. **Audience confirmation** — all staff, or a named group? (affects SharePoint
+1. **Layout** — Option A (run-first) or Option B (strategy-first, recommended)? See §2.
+2. **Content** — which blocks survive? (KPIs / trend / site RAG / strategy pillars /
+   roadmap / highlights). Stakeholders cross items off.
+3. **Delivery mode** — B, A, or A+ (drives fidelity, see §6).
+4. **Refresh cadence** — daily? hourly? (snapshot = nightly is usually plenty).
+5. **Audience confirmation** — all staff, or a named group? (affects SharePoint
    permissions, not the design).
 
 ## 9. What we need back from the Designer
