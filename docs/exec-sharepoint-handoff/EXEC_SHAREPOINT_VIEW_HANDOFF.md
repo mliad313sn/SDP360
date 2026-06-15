@@ -28,6 +28,10 @@ dashboard's brand (self-contained; Libre Franklin + Chart.js from CDN):
 - **Option B — Strategy-first (recommended):** the 4 strategy pillars + fleet
   trajectory + quarterly roadmap lead; operational KPIs become a compact support
   band underneath.
+- **Option C — Module cards (command center):** one equal-weight card per area
+  (Strategy · Service · Changes · Incidents · Meetings & actions · Sites). Best
+  suited to native SharePoint, since each card maps cleanly to a web part and can
+  link to its full detail.
 
 Both are kept deliberately as an **A/B to put in front of stakeholders** — the
 question for the meeting is "do you want to see strategy or service first?". We

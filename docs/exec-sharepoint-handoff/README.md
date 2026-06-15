@@ -13,7 +13,7 @@ integration teams) as described below.
 | File | For | Notes |
 |---|---|---|
 | **EXEC_SHAREPOINT_VIEW_HANDOFF.md** | Designer — **start here** | The brief: context, content, brand tokens, the fidelity-vs-delivery note, what to deliver back |
-| **exec-sharepoint-mockup.html** | Designer — **the visual** | Options A + B. Opens in any browser; only fonts + chart load from the internet (no other dependency) |
+| **exec-sharepoint-mockup.html** | Designer — **the visual** | Options A + B + C (stacked). Opens in any browser; only fonts + chart load from the internet (no other dependency) |
 | BOOMI_SHAREPOINT_INTEGRATION_SPEC.md | Integration / M365 / Security | Not for the Designer — the "how it gets to SharePoint" (governed Boomi path) |
 
 ## How to hand off — pick the channel that fits
