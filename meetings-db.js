@@ -514,8 +514,29 @@ function saveMeeting(state, userSiteCode, userId) {
     const incomingRef = (h.reference || '').trim()
       || _buildReference(h.site_code, h.department, h.meeting_date);
     if (incomingRef) {
-      exist = db.prepare('SELECT * FROM md_meetings WHERE reference = ?').get(incomingRef);
+      // Case-insensitive reference match — a re-import carrying an
+      // UPPERCASE reference (MGO_FINANCE_PV_2026-05) must adopt the
+      // existing title-cased row (MGO_Finance_PV_2026-05) instead of
+      // inserting a parallel one.
+      exist = db.prepare('SELECT * FROM md_meetings WHERE reference = ? COLLATE NOCASE').get(incomingRef);
       if (exist) id = exist.id;   // adopt existing id so the UPDATE branch runs
+    }
+    // Logical-identity fallback (2026-06-15): a PV is uniquely identified by
+    // site × department × month — NOT by the free-form reference string. This
+    // catches re-imports whose reference SPELLING drifted (RH vs Hr,
+    // UNDERGROUND vs Mining, SP vs Other_Dept) or whose day-of-month moved
+    // (04-01 vs 04-02). Without it, the 2026-06-02 double-import created 9
+    // duplicate rows. site_code + department compared case-insensitively.
+    if (!exist && h.site_code && h.department && h.meeting_date) {
+      const month = String(h.meeting_date).slice(0, 7);
+      exist = db.prepare(`
+        SELECT * FROM md_meetings
+         WHERE site_code = ? COLLATE NOCASE
+           AND department = ? COLLATE NOCASE
+           AND substr(meeting_date, 1, 7) = ?
+         ORDER BY id LIMIT 1
+      `).get(h.site_code, h.department, month);
+      if (exist) id = exist.id;
     }
   }
 
@@ -1366,13 +1387,13 @@ function previousMeeting(site_code, department, beforeDate) {
   if (beforeDate) {
     return db.prepare(`
       SELECT * FROM md_meetings
-       WHERE site_code = ? AND department = ? AND meeting_date < ?
+       WHERE site_code = ? COLLATE NOCASE AND department = ? COLLATE NOCASE AND meeting_date < ?
        ORDER BY meeting_date DESC, id DESC LIMIT 1
     `).get(site_code, department, beforeDate);
   }
   return db.prepare(`
     SELECT * FROM md_meetings
-     WHERE site_code = ? AND department = ?
+     WHERE site_code = ? COLLATE NOCASE AND department = ? COLLATE NOCASE
      ORDER BY meeting_date DESC, id DESC LIMIT 1
   `).get(site_code, department);
 }
