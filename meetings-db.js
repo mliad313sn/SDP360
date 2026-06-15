@@ -898,6 +898,24 @@ function listActionUpdates(actionId) {
   ).all(actionId);
 }
 
+/** Parent meeting's site + status for one issue (route-layer site scoping). */
+function getIssueParent(issueId) {
+  return getDB().prepare(`
+    SELECT m.id AS id, m.site_code AS site_code, m.status AS status
+      FROM md_issues i JOIN md_meetings m ON m.id = i.meeting_id
+     WHERE i.id = ?
+  `).get(issueId) || null;
+}
+
+/** Parent meeting's site + status for one action (route-layer site scoping). */
+function getActionParent(actionId) {
+  return getDB().prepare(`
+    SELECT m.site_code AS site_code, m.status AS meeting_status
+      FROM md_actions a JOIN md_meetings m ON m.id = a.meeting_id
+     WHERE a.id = ?
+  `).get(actionId) || null;
+}
+
 /**
  * Flat list of all actions across all meetings — drives the Actions Register.
  * Filters: site, department, status, owner (LIKE on champion name/email),
@@ -1670,7 +1688,7 @@ module.exports = {
   loadLookups,
   listMeetings, countMeetings, getMeeting, saveMeeting, deleteMeeting, getMeetingStatus,
   listIssues, listEscalations, addIssueUpdate,
-  listActions, addActionUpdate, listActionUpdates,
+  listActions, addActionUpdate, listActionUpdates, getActionParent, getIssueParent,
   aggregate, compliance, insights,
   previousMeeting, compareDepartment,
   resetLookups,

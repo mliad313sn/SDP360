@@ -245,6 +245,22 @@ function _initSchema(db) {
     CREATE INDEX IF NOT EXISTS ix_insp_actions_inspection
       ON insp_actions(inspection_id);
 
+    -- Audit trail for corrective-action status changes. Lets the Actions
+    -- Register close/track an action from a flat list (who/when/comment),
+    -- independent of the parent inspection's lifecycle (a corrective action
+    -- routinely outlives a submitted/closed inspection).
+    CREATE TABLE IF NOT EXISTS insp_action_updates (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      action_id     INTEGER NOT NULL,
+      author_id     INTEGER, author_name TEXT,
+      body          TEXT,
+      status_change TEXT,
+      created_at    TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (action_id) REFERENCES insp_actions(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS ix_insp_action_updates_action
+      ON insp_action_updates(action_id);
+
     CREATE TABLE IF NOT EXISTS insp_photos (
       id              INTEGER PRIMARY KEY AUTOINCREMENT,
       inspection_id   TEXT NOT NULL,
@@ -816,6 +832,98 @@ function aggregate(opts = {}) {
   };
 }
 
+/**
+ * Append an audit update to one corrective action + optionally change its
+ * status. Terminal statuses (Closed / Cancelled) stamp closed_at. Does NOT
+ * care about the parent inspection's status — actions outlive a submitted/
+ * closed inspection, and the register must be able to close a stale one.
+ * (Site-scoping for editors is enforced at the route layer.)
+ */
+function addActionUpdate(actionId, opts = {}) {
+  const db = getDB();
+  const action = db.prepare('SELECT id, status FROM insp_actions WHERE id = ?').get(actionId);
+  if (!action) throw new Error('Action not found');
+  const tx = db.transaction(() => {
+    db.prepare(`
+      INSERT INTO insp_action_updates (action_id, author_id, author_name, body, status_change)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(actionId, opts.author_id || null, opts.author_name || null, opts.body || null,
+      opts.status_change || null);
+    if (opts.status_change && opts.status_change !== action.status) {
+      const terminal = (opts.status_change === 'Closed' || opts.status_change === 'Cancelled');
+      db.prepare(`
+        UPDATE insp_actions
+          SET status = ?, closed_at = CASE WHEN ? = 1 THEN datetime('now') ELSE closed_at END,
+              updated_at = datetime('now')
+        WHERE id = ?
+      `).run(opts.status_change, terminal ? 1 : 0, actionId);
+    }
+  });
+  tx();
+}
+
+/** Audit thread for one action (newest first). */
+function listActionUpdates(actionId) {
+  return getDB().prepare(
+    'SELECT * FROM insp_action_updates WHERE action_id = ? ORDER BY id DESC'
+  ).all(actionId);
+}
+
+/** Parent inspection's site + status for one action (route-layer site scoping). */
+function getActionParent(actionId) {
+  return getDB().prepare(`
+    SELECT i.site_code AS site_code, i.status AS inspection_status
+      FROM insp_actions a JOIN insp_inspections i ON i.id = a.inspection_id
+     WHERE a.id = ?
+  `).get(actionId) || null;
+}
+
+/**
+ * Flat list of corrective actions across all inspections — drives the
+ * Inspection Actions Register. Filters: site, status, owner, priority,
+ * overdue, q. Joins the parent inspection for label / site / date / status.
+ */
+function listActions(opts = {}) {
+  const db = getDB();
+  const where = [];
+  const params = {};
+  if (opts.site)     { where.push('i.site_code = @site COLLATE NOCASE'); params.site = opts.site; }
+  if (opts.status)   { where.push('a.status = @status');                 params.status = opts.status; }
+  if (opts.priority) { where.push('a.priority = @priority');             params.priority = opts.priority; }
+  if (opts.owner)    { where.push('a.owner LIKE @owner');                params.owner = '%' + opts.owner + '%'; }
+  if (opts.overdue) {
+    where.push("a.due_date IS NOT NULL AND a.due_date < date('now') AND a.status != 'Closed' AND a.status != 'Cancelled'");
+  }
+  if (opts.from)     { where.push('i.inspection_date >= @from'); params.from = opts.from; }
+  if (opts.to)       { where.push('i.inspection_date <= @to');   params.to = opts.to; }
+  if (opts.q) {
+    where.push('(a.description LIKE @q OR a.owner LIKE @q OR a.linked_item LIKE @q)');
+    params.q = '%' + opts.q + '%';
+  }
+  const w = where.length ? 'WHERE ' + where.join(' AND ') : '';
+  const sql = `
+    SELECT
+      a.*,
+      i.label            AS inspection_label,
+      i.site_code        AS site_code,
+      i.area_code        AS area_code,
+      i.inspection_date  AS inspection_date,
+      i.status           AS inspection_status
+    FROM insp_actions a
+    JOIN insp_inspections i ON i.id = a.inspection_id
+    ${w}
+    ORDER BY
+      CASE WHEN a.status IN ('Closed','Cancelled') THEN 1 ELSE 0 END,
+      CASE WHEN a.due_date IS NULL THEN 1 ELSE 0 END,
+      a.due_date ASC,
+      i.inspection_date DESC
+    LIMIT @limit OFFSET @offset
+  `;
+  params.limit = opts.limit || 1000;
+  params.offset = opts.offset || 0;
+  return db.prepare(sql).all(params);
+}
+
 function resetLookups() {
   const db = getDB();
   // Backup BEFORE wiping the lookup tables. resetLookups doesn't
@@ -898,6 +1006,7 @@ module.exports = {
   saveInspection,
   deleteInspection,
   aggregate,
+  listActions, addActionUpdate, listActionUpdates, getActionParent,
   resetLookups,
   siteNameToCode,
   parseSiteCode

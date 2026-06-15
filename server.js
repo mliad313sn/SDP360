@@ -1031,7 +1031,7 @@ function loadHtml(name) {
 // previously served by express.static (no asset-version injection possible).
 [
   'executive.html', 'login.html', 'index.html', 'analytics.html', 'reports.html', 'executive-report.html',
-  'inspection.html', 'inspections.html',
+  'inspection.html', 'inspections.html', 'inspection-actions.html',
   'meetings.html', 'meeting.html', 'meetings-issues.html', 'meetings-council.html', 'meetings-compliance.html',
   'meetings-import.html', 'meetings-progress.html', 'meetings-insights.html', 'meetings-setup.html', 'meetings-actions.html',
   'activity-tracker.html', 'help.html',
@@ -1096,6 +1096,11 @@ app.get('/executive-report.html', (req, res) => {
 // using the session cookie (same pattern as the tracker).
 app.get('/inspection.html', (req, res) => {
   sendHtmlPage(res, 'inspection.html', false, 'Inspection form unavailable');
+});
+
+// ── Serve inspection-actions.html (corrective actions register) ───────────
+app.get('/inspection-actions.html', (req, res) => {
+  sendHtmlPage(res, 'inspection-actions.html', false, 'Actions register unavailable');
 });
 
 // ── Serve inspections.html (list / dashboard) with CSP nonce ───────────────
@@ -5825,6 +5830,63 @@ app.get('/api/inspection/aggregate', requireReportSession, (req, res) => {
   }
 });
 
+// GET /api/inspection/actions — flat Corrective-Actions Register across all
+// inspections. viewer+. Filters: site, status, priority, owner, overdue, q.
+// MUST be registered BEFORE /api/inspection/:id (inspection ids are TEXT, so
+// no numeric guard is possible — order is the only thing that disambiguates).
+app.get('/api/inspection/actions', requireReportSession, (req, res) => {
+  try {
+    if (!inspectionDb) return res.status(503).json({ error: 'Inspection module not available' });
+    res.json({ rows: inspectionDb.listActions({
+      site:     req.query.site     || undefined,
+      status:   req.query.status   || undefined,
+      priority: req.query.priority || undefined,
+      owner:    req.query.owner    || undefined,
+      overdue:  req.query.overdue === '1' || req.query.overdue === 'true' || undefined,
+      from:     req.query.from     || undefined,
+      to:       req.query.to       || undefined,
+      q:        req.query.q        || undefined,
+    }) });
+  } catch(e) {
+    console.error('[Inspection] actions list error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST /api/inspection/actions/:id/update — change one corrective action's
+// status + log an audit comment. editor+ ; editors scoped to their own site.
+// Allowed EVEN WHEN the parent inspection is submitted/closed — corrective
+// actions outlive the inspection and must stay closable without re-opening it.
+app.post('/api/inspection/actions/:id/update', requireReportSession, inspectionJsonBody, (req, res) => {
+  try {
+    if (!inspectionDb) return res.status(503).json({ error: 'Inspection module not available' });
+    if (!rdb.userHasRole(req.reportUser, 'editor')) {
+      return res.status(403).json({ error: 'editor role or higher required' });
+    }
+    const actionId = parseInt(req.params.id, 10);
+    if (!Number.isFinite(actionId)) return res.status(400).json({ error: 'Invalid action id' });
+    // Site scoping for editors — resolve the parent inspection's site via the
+    // module's own (already-open) connection. No raw re-open / stray file.
+    const parent = inspectionDb.getActionParent(actionId);
+    if (!parent) return res.status(404).json({ error: 'Action not found' });
+    const userSite = _userInspectionSite(req.reportUser);
+    if (userSite && parent.site_code !== userSite) {
+      return res.status(403).json({ error: `Action belongs to ${parent.site_code}; you are scoped to ${userSite}` });
+    }
+    const body = req.body || {};
+    inspectionDb.addActionUpdate(actionId, {
+      author_id:     req.reportUser.id || null,
+      author_name:   req.reportUser.full_name || req.reportUser.username,
+      body:          body.body || '',
+      status_change: body.status_change || null,
+    });
+    res.json({ ok: true });
+  } catch(e) {
+    console.error('[Inspection] action update error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // GET /api/inspection/:id — full record (header + findings + actions + photos + sigs)
 app.get('/api/inspection/:id', requireReportSession, (req, res) => {
   try {
@@ -6220,18 +6282,9 @@ app.post('/api/meetings/actions/:id/update', requireReportSession, meetingsJsonB
     }
     const actionId = parseInt(req.params.id, 10);
     if (!Number.isFinite(actionId)) return res.status(400).json({ error: 'Invalid action id' });
-    // Site scoping for editors — look up the parent meeting's site.
-    const parent = (function () {
-      try {
-        const sql = require('better-sqlite3')(require('path').join(__dirname, 'meetings.db'));
-        const r = sql.prepare(`
-          SELECT m.site_code FROM md_actions a
-          JOIN md_meetings m ON m.id = a.meeting_id WHERE a.id = ?
-        `).get(actionId);
-        sql.close();
-        return r;
-      } catch (_) { return null; }
-    })();
+    // Site scoping for editors — look up the parent meeting's site via the
+    // module's own (already-open) connection. No raw re-open / stray file.
+    const parent = meetingsDb.getActionParent(actionId);
     if (!parent) return res.status(404).json({ error: 'Action not found' });
     const userSite = _userMeetingsSite(req.reportUser);
     if (userSite && parent.site_code !== userSite) {
@@ -6305,20 +6358,11 @@ app.post('/api/meetings/issues/:id/update', requireReportSession, meetingsJsonBo
       return res.status(403).json({ error: 'editor role or higher required' });
     }
     const issueId = parseInt(req.params.id, 10);
-    // Look up the parent meeting to enforce site scoping
-    const db = meetingsDb;
-    const parent = (function () {
-      // tiny inline join via getMeeting? — instead, just query the DB directly
-      try {
-        const sql = require('better-sqlite3')(require('path').join(__dirname, 'meetings.db'));
-        const r = sql.prepare(`
-          SELECT m.id, m.site_code, m.status FROM md_issues i
-          JOIN md_meetings m ON m.id = i.meeting_id WHERE i.id = ?
-        `).get(issueId);
-        sql.close();
-        return r;
-      } catch (_) { return null; }
-    })();
+    // Look up the parent meeting to enforce site scoping. Uses the module's
+    // already-open connection (was previously re-opening __dirname/meetings.db
+    // at the ROOT — the wrong path since the DB moved to data/ on 2026-06-05,
+    // which created a stray empty file and made every lookup 404).
+    const parent = meetingsDb.getIssueParent(issueId);
     if (!parent) return res.status(404).json({ error: 'Issue not found' });
 
     const userSite = _userMeetingsSite(req.reportUser);

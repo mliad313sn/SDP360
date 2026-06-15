@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Corrective Actions Register — Endeavour Mining IT</title>
+
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="brand/icons.css">
+<link rel="stylesheet" href="brand/components.css">
+<link rel="stylesheet" href="_shell.css">
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+
+<style nonce="%%CSP_NONCE%%">
+  body {
+    margin: 0; background: var(--color-bg, #F4F5F7);
+    color: var(--color-text-strong, #1F2A33);
+    font-family: var(--font-sans, 'Libre Franklin', sans-serif);
+    font-size: 14px; line-height: 1.45;
+  }
+  .mi-wrap { max-width: 1500px; margin: 0 auto; padding: 24px 28px 48px; }
+  .mi-back {
+    display: inline-flex; align-items: center; gap: 6px; margin-bottom: 14px;
+    font-size: 12.5px; font-weight: 700; text-decoration: none;
+    color: var(--edv-blue, #145FAE); border: 1px solid var(--color-border, #E2E5EA);
+    background: var(--color-card,#fff); padding: 7px 12px; border-radius: 8px;
+  }
+  .mi-back:hover { border-color: var(--edv-blue, #145FAE); }
+
+  .mi-hero {
+    background: var(--color-card, #fff); border: 1px solid var(--color-border, #E2E5EA);
+    border-radius: 14px; box-shadow: 0 1px 2px rgba(58,74,96,.04);
+    padding: 22px 26px; margin-bottom: 18px; position: relative; overflow: hidden;
+  }
+  .mi-hero::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 6px; background: linear-gradient(180deg, #EF631A, #D90038); }
+  .mi-eyebrow { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.4px; color: var(--edv-orange, #EF631A); margin-bottom: 8px; }
+  .mi-hero h1 { margin: 0 0 6px; font-size: 24px; font-weight: 800; color: var(--edv-slate, #3A4A60); }
+  .mi-hero p  { margin: 0; font-size: 13px; color: var(--color-text, #524F4E); max-width: 72ch; line-height: 1.55; }
+  .mi-hero p strong { color: var(--color-text-strong, #1F2A33); font-weight: 600; }
+
+  .mi-kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin-bottom: 18px; }
+  .mi-kpi { background: var(--color-card, #fff); border: 1px solid var(--color-border, #E2E5EA); border-radius: 8px; padding: 12px 14px; position: relative; overflow: hidden; }
+  .mi-kpi::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--color-border, #E2E5EA); }
+  .mi-kpi--info::before    { background: var(--edv-blue, #145FAE); }
+  .mi-kpi--warning::before { background: var(--color-warning, #D97706); }
+  .mi-kpi--danger::before  { background: var(--edv-red, #D90038); }
+  .mi-kpi--ok::before      { background: #16A34A; }
+  .mi-kpi--esc::before     { background: #7C3AED; }
+  .mi-kpi__label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--color-text-muted, #7B7B7B); margin-bottom: 4px; }
+  .mi-kpi__value { font-size: 26px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+  .mi-kpi__sub   { font-size: 10px; color: var(--color-text-muted, #7B7B7B); margin-top: 6px; }
+
+  .mi-section-head { font-size: 11.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.1px; color: var(--edv-slate, #3A4A60); margin-bottom: 10px; }
+  .mi-filters { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+  .mi-select, .mi-search {
+    background: var(--color-card, #fff); border: 1px solid var(--color-border, #E2E5EA);
+    border-radius: 6px; padding: 9px 12px; font: 500 13px var(--font-sans); color: var(--color-text-strong, #1F2A33);
+  }
+  .mi-select { padding-right: 24px; min-width: 140px; }
+  .mi-search { flex: 1; min-width: 220px; }
+  .mi-select:focus, .mi-search:focus { outline: none; border-color: var(--edv-orange, #EF631A); box-shadow: 0 0 0 3px rgba(239,99,26,.12); }
+  .mi-chk { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 500; color: var(--color-text, #524F4E); padding: 0 6px; }
+
+  .mi-table-card { background: var(--color-card, #fff); border: 1px solid var(--color-border, #E2E5EA); border-radius: 12px; box-shadow: 0 1px 2px rgba(58,74,96,.04); overflow: hidden; }
+  .mi-table-card__head { padding: 14px 18px 12px; border-bottom: 1px solid var(--color-border-subtle, #EEF0F3); }
+  .mi-table-head, .mi-row {
+    display: grid;
+    grid-template-columns: 50px minmax(0,1.3fr) minmax(0,2.2fr) 90px minmax(0,1fr) 92px 150px 70px;
+    gap: 10px; align-items: center; padding: 10px 18px; font-size: 12.5px;
+  }
+  .mi-table-head { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--color-text-muted, #7B7B7B); background: var(--color-bg, #F4F5F7); border-bottom: 1px solid var(--color-border-subtle, #EEF0F3); }
+  .mi-row { border-top: 1px solid var(--color-border-subtle, #EEF0F3); transition: background 120ms; }
+  .mi-row:hover { background: var(--color-bg, #F4F5F7); }
+  .mi-row__site { font-family: var(--font-mono, monospace); font-size: 11px; font-weight: 800; color: #fff; background: var(--edv-slate, #3A4A60); padding: 3px 7px; border-radius: 4px; text-align: center; }
+  .mi-row__insp strong { display: block; font-weight: 600; color: var(--color-text-strong, #1F2A33); line-height: 1.3; font-size: 12px; }
+  .mi-row__insp small  { display: block; font-size: 10.5px; color: var(--color-text-muted, #7B7B7B); margin-top: 2px; }
+  .mi-row__title strong { display: block; font-weight: 600; color: var(--color-text-strong, #1F2A33); line-height: 1.35; }
+  .mi-row__title small  { display: block; font-size: 11px; color: var(--color-text-muted, #7B7B7B); margin-top: 2px; }
+  .mi-link-tag { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; background: rgba(20,95,174,.10); color: #145FAE; border: 1px solid rgba(20,95,174,.28); margin-top: 3px; }
+  .mi-closed-tag { display: inline-block; font-size: 9.5px; font-weight: 800; letter-spacing: .4px; padding: 1px 5px; border-radius: 3px; margin-left: 5px; background: rgba(107,119,133,.12); color: #4B5563; border: 1px solid rgba(107,119,133,.3); }
+  .mi-pill { display: inline-block; font-size: 10px; font-weight: 800; letter-spacing: 0.5px; padding: 3px 9px; border-radius: 9999px; text-transform: uppercase; border: 1px solid transparent; }
+  .mi-row__date { font-size: 11.5px; color: var(--color-text, #524F4E); font-variant-numeric: tabular-nums; }
+  .mi-row__overdue { color: #B91C1C; font-weight: 700; }
+  .mi-status-sel { width: 100%; border: 1px solid var(--color-border, #E2E5EA); border-radius: 6px; padding: 6px 8px; font: 700 11px var(--font-sans); cursor: pointer; background: var(--color-card,#fff); color: var(--color-text-strong,#1F2A33); }
+  .mi-status-sel:focus { outline: none; border-color: var(--edv-orange, #EF631A); box-shadow: 0 0 0 3px rgba(239,99,26,.12); }
+  .mi-status-sel:disabled { cursor: default; opacity: .9; }
+  .mi-row__open { text-decoration: none; color: var(--edv-blue, #145FAE); font-size: 11px; font-weight: 700; border: 1px solid var(--color-border, #E2E5EA); padding: 5px 9px; border-radius: 6px; text-align: center; white-space: nowrap; }
+  .mi-row__open:hover { background: var(--color-bg, #F4F5F7); border-color: var(--edv-blue, #145FAE); }
+  .mi-empty { padding: 32px; text-align: center; color: var(--color-text-muted, #7B7B7B); font-size: 13px; font-style: italic; }
+  .mi-toast { position: fixed; right: 20px; bottom: 20px; z-index: 999; background: #16A34A; color: #fff; font-weight: 700; font-size: 13px; padding: 12px 18px; border-radius: 8px; box-shadow: 0 6px 18px rgba(0,0,0,.18); opacity: 0; transform: translateY(8px); transition: opacity .18s, transform .18s; }
+  .mi-toast.show { opacity: 1; transform: translateY(0); }
+  .mi-toast.err  { background: #B91C1C; }
+
+  @media (max-width: 1100px) {
+    .mi-kpis { grid-template-columns: repeat(3, 1fr); }
+    .mi-table-head, .mi-row { grid-template-columns: 44px minmax(0,1.1fr) minmax(0,1.7fr) 78px minmax(0,.9fr) 80px 130px 60px; font-size: 11.5px; padding: 9px 12px; gap: 8px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="__shell" data-section="performance" data-current="inspections"></div>
+
+<div class="mi-wrap">
+
+  <a class="mi-back" href="inspections.html">‹ Inspections dashboard</a>
+
+  <section class="mi-hero">
+    <div class="mi-eyebrow">Inspections · Corrective Actions Register</div>
+    <h1>Corrective actions across all inspections</h1>
+    <p>Every corrective action raised in any site inspection, in one place — so a critical finding's fix
+       isn't forgotten between visits. <strong>Filter</strong> by site, status, priority or owner, and
+       <strong>close an action right here</strong> without re-opening its inspection. Overdue rows are red.</p>
+  </section>
+
+  <section class="mi-kpis" id="miKpis"></section>
+
+  <section class="mi-filters">
+    <select class="mi-select" id="miSite"><option value="">All sites</option></select>
+    <select class="mi-select" id="miStatus">
+      <option value="">All statuses</option>
+      <option value="Open">Open</option>
+      <option value="In Progress">In Progress</option>
+      <option value="Blocked">Blocked</option>
+      <option value="Closed">Closed</option>
+      <option value="Cancelled">Cancelled</option>
+    </select>
+    <select class="mi-select" id="miPrio">
+      <option value="">All priorities</option>
+      <option value="Critical">Critical</option>
+      <option value="High">High</option>
+      <option value="Medium">Medium</option>
+      <option value="Low">Low</option>
+    </select>
+    <label class="mi-chk"><input type="checkbox" id="miOverdue"> Overdue only</label>
+    <input class="mi-search" type="search" id="miQ" placeholder="Search description / owner / item…">
+  </section>
+
+  <section class="mi-table-card">
+    <div class="mi-table-card__head">
+      <div class="mi-section-head">Corrective actions</div>
+      <div id="miSubcount" style="font-size:11px;color:var(--color-text-muted,#7B7B7B);margin-top:2px">Loading…</div>
+    </div>
+    <div id="miTable"></div>
+  </section>
+
+</div>
+
+<div class="mi-toast" id="miToast"></div>
+
+<script nonce="%%CSP_NONCE%%">
+(function () {
+  'use strict';
+  const API = '/api/inspection';
+  const STATUSES = ['Open', 'In Progress', 'Blocked', 'Closed', 'Cancelled'];
+  const TERMINAL = new Set(['Closed', 'Cancelled']);
+  const STATUS_COLOR = { 'Open': '#D97706', 'In Progress': '#145FAE', 'Blocked': '#D90038', 'Closed': '#16A34A', 'Cancelled': '#6B7785' };
+  const PRIO_COLOR   = { 'Critical': '#D90038', 'High': '#EF631A', 'Medium': '#D97706', 'Low': '#145FAE' };
+  const canEdit = !!(window.__userHasRole && window.__userHasRole('editor'));
+
+  function authHeaders(extra) {
+    const h = extra || {};
+    const at = window.__authToken;
+    let tok = null;
+    if (typeof at === 'function') { try { tok = at(); } catch(_) {} }
+    else if (typeof at === 'string' && at) { tok = at; }
+    if (!tok) tok = localStorage.getItem('report_token');
+    if (tok) h['x-report-token'] = tok;
+    return h;
+  }
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const fmtDate = iso => {
+    if (!iso) return '—';
+    const M = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const [y, m, d] = String(iso).slice(0, 10).split('-');
+    return `${d} ${M[parseInt(m, 10) - 1]} ${y}`;
+  };
+  const tint = (hex, alpha) => {
+    const m = String(hex || '').match(/^#?([0-9a-f]{6})$/i);
+    if (!m) return `rgba(107,119,133,${alpha})`;
+    const n = parseInt(m[1], 16);
+    return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
+  };
+  const todayIso = () => new Date().toISOString().slice(0, 10);
+
+  const state = { lookups: null, actions: [], filters: { site: '', status: '', priority: '', overdue: '', q: '' } };
+
+  let _toastT = null;
+  function toast(msg, isErr) {
+    const el = document.getElementById('miToast');
+    el.textContent = msg;
+    el.className = 'mi-toast show' + (isErr ? ' err' : '');
+    clearTimeout(_toastT);
+    _toastT = setTimeout(() => { el.className = 'mi-toast' + (isErr ? ' err' : ''); }, 2600);
+  }
+
+  function renderKpis() {
+    const rows = state.actions;
+    const today = todayIso();
+    const open    = rows.filter(r => !TERMINAL.has(r.status)).length;
+    const overdue = rows.filter(r => r.due_date && r.due_date < today && !TERMINAL.has(r.status)).length;
+    const noOwner = rows.filter(r => !TERMINAL.has(r.status) && !(r.owner && String(r.owner).trim())).length;
+    const closed  = rows.filter(r => TERMINAL.has(r.status)).length;
+    const tiles = [
+      { l: 'Total actions', v: rows.length, k: 'info',    s: 'in scope' },
+      { l: 'Open',          v: open,        k: 'warning', s: 'not yet closed' },
+      { l: 'Overdue',       v: overdue,     k: 'danger',  s: 'past due date' },
+      { l: 'No owner',      v: noOwner,     k: 'esc',     s: 'open & unassigned' },
+      { l: 'Closed',        v: closed,      k: 'ok',      s: 'closed / cancelled' },
+    ];
+    document.getElementById('miKpis').innerHTML = tiles.map(t => `
+      <div class="mi-kpi mi-kpi--${t.k}">
+        <div class="mi-kpi__label">${esc(t.l)}</div>
+        <div class="mi-kpi__value">${esc(t.v)}</div>
+        <div class="mi-kpi__sub">${esc(t.s)}</div>
+      </div>`).join('');
+  }
+
+  function renderFilters() {
+    const el = document.getElementById('miSite');
+    el.innerHTML = '<option value="">All sites</option>'
+      + (state.lookups.sites || []).map(s => `<option value="${esc(s.code)}">${esc(s.name)}</option>`).join('');
+  }
+
+  function statusCell(r) {
+    const col = STATUS_COLOR[r.status] || '#6B7785';
+    if (!canEdit) {
+      return `<span class="mi-pill" style="background:${tint(col,0.12)};color:${col};border-color:${tint(col,0.3)}">${esc(r.status)}</span>`;
+    }
+    const opts = STATUSES.map(s => `<option value="${esc(s)}"${s === r.status ? ' selected' : ''}>${esc(s)}</option>`).join('');
+    return `<select class="mi-status-sel" data-act="${esc(r.id)}" style="color:${col}">${opts}</select>`;
+  }
+
+  function renderTable() {
+    const rows = state.actions;
+    const today = todayIso();
+    const header = `
+      <div class="mi-table-head" role="row">
+        <span>Site</span><span>Inspection</span><span>Action</span><span>Priority</span>
+        <span>Owner</span><span>Due</span><span>Status</span><span></span>
+      </div>`;
+    if (!rows.length) {
+      document.getElementById('miTable').innerHTML = header + '<div class="mi-empty">No actions match the current filter.</div>';
+      document.getElementById('miSubcount').textContent = '0 actions';
+      return;
+    }
+    const body = rows.map(r => {
+      const overdue = r.due_date && r.due_date < today && !TERMINAL.has(r.status);
+      const inspClosed = (r.inspection_status === 'closed' || r.inspection_status === 'submitted');
+      const pcol = PRIO_COLOR[r.priority] || '#6B7785';
+      return `
+        <div class="mi-row" role="row">
+          <span class="mi-row__site">${esc(r.site_code || '—')}</span>
+          <span class="mi-row__insp">
+            <strong>${esc(r.inspection_label || r.inspection_id || '—')}</strong>
+            <small>${esc(fmtDate(r.inspection_date))}${inspClosed ? '<span class="mi-closed-tag">'+esc(r.inspection_status)+'</span>' : ''}</small>
+          </span>
+          <span class="mi-row__title">
+            <strong>${esc(r.description || '(no description)')}</strong>
+            ${r.linked_item ? `<small><span class="mi-link-tag">↳ ${esc(String(r.linked_item).slice(0,60))}</span></small>` : ''}
+          </span>
+          <span>${r.priority ? `<span class="mi-pill" style="background:${tint(pcol,0.12)};color:${pcol};border-color:${tint(pcol,0.3)}">${esc(r.priority)}</span>` : '—'}</span>
+          <span style="font-size:12px;color:var(--color-text,#524F4E)">${esc(r.owner || '—')}</span>
+          <span class="mi-row__date ${overdue ? 'mi-row__overdue' : ''}">${fmtDate(r.due_date)}</span>
+          <span>${statusCell(r)}</span>
+          <a class="mi-row__open" href="inspection.html?id=${encodeURIComponent(r.inspection_id)}">Open ›</a>
+        </div>`;
+    }).join('');
+    document.getElementById('miTable').innerHTML = header + body;
+    document.getElementById('miSubcount').textContent = rows.length + ' action' + (rows.length === 1 ? '' : 's');
+
+    if (canEdit) {
+      document.querySelectorAll('.mi-status-sel').forEach(selEl => selEl.addEventListener('change', onStatusChange));
+    }
+  }
+
+  async function onStatusChange(e) {
+    const selEl = e.target;
+    const id = selEl.getAttribute('data-act');
+    const status = selEl.value;
+    selEl.disabled = true;
+    try {
+      const r = await fetch(API + '/actions/' + encodeURIComponent(id) + '/update', {
+        method: 'POST', credentials: 'same-origin',
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ status_change: status }),
+      });
+      if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || ('HTTP ' + r.status)); }
+      toast('Action updated → ' + status);
+      await loadAll();
+    } catch (err) {
+      toast('Update failed: ' + (err.message || ''), true);
+      selEl.disabled = false;
+      await loadAll();
+    }
+  }
+
+  async function loadAll() {
+    state.lookups = state.lookups || await fetch(API + '/lookups', { credentials: 'same-origin', headers: authHeaders() }).then(r => r.json());
+    renderFilters();
+    const qs = new URLSearchParams();
+    if (state.filters.site)     qs.set('site', state.filters.site);
+    if (state.filters.status)   qs.set('status', state.filters.status);
+    if (state.filters.priority) qs.set('priority', state.filters.priority);
+    if (state.filters.overdue)  qs.set('overdue', '1');
+    if (state.filters.q)        qs.set('q', state.filters.q);
+    const list = await fetch(API + '/actions?' + qs.toString(), { credentials: 'same-origin', headers: authHeaders() })
+      .then(r => r.ok ? r.json() : { rows: [] });
+    state.actions = list.rows || [];
+    renderKpis();
+    renderTable();
+  }
+
+  document.getElementById('miSite').addEventListener('change',    e => { state.filters.site     = e.target.value; loadAll(); });
+  document.getElementById('miStatus').addEventListener('change',  e => { state.filters.status   = e.target.value; loadAll(); });
+  document.getElementById('miPrio').addEventListener('change',    e => { state.filters.priority = e.target.value; loadAll(); });
+  document.getElementById('miOverdue').addEventListener('change', e => { state.filters.overdue  = e.target.checked ? '1' : ''; loadAll(); });
+  let _qT = null;
+  document.getElementById('miQ').addEventListener('input', e => {
+    clearTimeout(_qT); _qT = setTimeout(() => { state.filters.q = e.target.value.trim(); loadAll(); }, 250);
+  });
+
+  loadAll().catch(err => {
+    console.error('[insp-actions] load failed:', err);
+    document.getElementById('miTable').innerHTML = '<div class="mi-empty">Failed to load actions. ' + esc(err.message || '') + '</div>';
+  });
+})();
+</script>
+</body>
+</html>
