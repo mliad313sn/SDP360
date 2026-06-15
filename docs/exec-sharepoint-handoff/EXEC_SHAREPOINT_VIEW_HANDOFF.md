@@ -41,10 +41,11 @@ the mockup are placeholders.
 
 | Block | What it shows | Real source |
 |---|---|---|
-| 5 KPI tiles | Tickets resolved + closure %, SLA compliance %, Avg resolution time, CSAT %, Major incidents + uptime | Helpdesk DB (`request_records`), CSAT survey, major-incidents |
+| 6 KPI tiles | Tickets resolved + closure %, SLA compliance %, Avg resolution time, CSAT %, Major incidents + uptime, Change success % | Helpdesk DB (`request_records`), CSAT survey, major-incidents, change_records |
 | Trend chart | 6-month resolved volume (bars) + SLA % (line) | `getHelpdesk6MonthHistory` / monthly aggregates |
 | Site status | RAG dot per operating site | Activity Tracker per-site score, or a chosen ops signal |
 | IT strategy tracker | Fleet score + 4 pillar scores (Network / Business partner / Risk & compliance / Manage people) | Activity Tracker `tracker.pillars` |
+| Meetings &amp; actions | Dept meetings (PVs), open actions, overdue actions, Council escalations, 5-Engagements compliance % | Meetings module — `aggregate` / actions register / `compliance` |
 | Highlights / Focus areas | 3 wins + 3 watch-items | Auto-synthesised commentary (already generated for the PPTX deck) |
 | "Synced" badge | Freshness timestamp | Set at push time |
 

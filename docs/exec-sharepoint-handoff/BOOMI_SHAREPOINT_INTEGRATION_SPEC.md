@@ -63,6 +63,7 @@ values** (no ticket-level data, no names, no verbatims). Proposed shape:
   },
   "incidents": { "major_count": 3, "uptime_pct": 99.7, "pending_rca": 2 },
   "changes": { "executed": 28, "success_pct": 96 },
+  "meetings": { "pvs_month": 18, "open_actions": 24, "overdue_actions": 5, "open_escalations": 3, "engagements_pct": 82 },
   "trend6m": [
     { "month": "Dec", "resolved": 1080, "sla_pct": 86 },
     { "month": "May", "resolved": 1236, "sla_pct": 91 }
