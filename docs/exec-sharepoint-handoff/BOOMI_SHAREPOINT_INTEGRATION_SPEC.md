@@ -62,6 +62,7 @@ values** (no ticket-level data, no names, no verbatims). Proposed shape:
     "csat_responses": 214
   },
   "incidents": { "major_count": 3, "uptime_pct": 99.7, "pending_rca": 2 },
+  "changes": { "executed": 28, "success_pct": 96 },
   "trend6m": [
     { "month": "Dec", "resolved": 1080, "sla_pct": 86 },
     { "month": "May", "resolved": 1236, "sla_pct": 91 }

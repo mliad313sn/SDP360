@@ -51,7 +51,7 @@
   .leadintro{font-size:13px;color:var(--body);margin:0 0 14px;max-width:90ch;line-height:1.5;}
   .panel .sub{font-size:12px;color:var(--muted);margin:-8px 0 12px;line-height:1.45;}
 
-  .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px;}
+  .kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:20px;}
   .kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;position:relative;overflow:hidden;}
   .kpi::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--blue);}
   .kpi.k-green::before{background:var(--green);} .kpi.k-orange::before{background:var(--orange);} .kpi.k-purple::before{background:#7C3AED;}
@@ -99,7 +99,7 @@
   .rc .rt{margin:0;font-size:12px;font-weight:600;} .rc.done .rt{color:#147A2D;} .rc.flight .rt{color:#145FAE;} .rc.risk .rt{color:#A65A05;}
   .rc .rb{margin:4px 0 0;font-size:13px;} .rc.done .rb{color:#147A2D;} .rc.flight .rb{color:#145FAE;} .rc.risk .rb{color:#A65A05;}
   .ops{border-top:1px solid var(--line);padding-top:14px;}
-  .ops-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;}
+  .ops-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:10px;}
   .ops-c{background:#F1EFE8;border-radius:8px;padding:10px 12px;}
   .ops-c .l{margin:0;font-size:11px;color:var(--muted);} .ops-c .v{margin:3px 0 0;font-size:18px;font-weight:700;color:var(--slate);}
 
@@ -126,6 +126,7 @@
       <div class="kpi k-orange"><div class="l">Avg time to resolve</div><div class="v">14h</div><div class="d">target: under 24h</div></div>
       <div class="kpi k-green"><div class="l">User satisfaction</div><div class="v">88%</div><div class="d">from 214 survey ratings (CSAT)</div></div>
       <div class="kpi k-purple"><div class="l">Major incidents</div><div class="v">3</div><div class="d">systems available 99.7% of the time</div></div>
+      <div class="kpi k-orange"><div class="l">Change success</div><div class="v">96%</div><div class="d">planned changes done without disruption</div></div>
     </div>
     <div class="grid2">
       <div class="panel">
@@ -181,13 +182,14 @@
     </div>
     <div class="ops">
       <p class="seclabel">∿ Service health</p>
-      <p class="secintro">The day-to-day support numbers — how quickly we respond, how satisfied users are, how much we handle, and how available systems are. This is "keeping the lights on", shown here as supporting context to the strategy above.</p>
+      <p class="secintro">The day-to-day support numbers — how quickly we respond, how satisfied users are, how much we handle, how reliably planned changes are delivered, and how available systems are. This is "keeping the lights on", shown here as supporting context to the strategy above.</p>
       <div class="ops-grid">
         <div class="ops-c"><p class="l">Answered on time</p><p class="v">91%</p></div>
         <div class="ops-c"><p class="l">Satisfaction</p><p class="v">88%</p></div>
         <div class="ops-c"><p class="l">Requests resolved</p><p class="v">1,236</p></div>
         <div class="ops-c"><p class="l">Avg time to fix</p><p class="v">14h</p></div>
         <div class="ops-c"><p class="l">Major incidents</p><p class="v">3</p></div>
+        <div class="ops-c"><p class="l">Change success</p><p class="v">96%</p></div>
         <div class="ops-c"><p class="l">Availability</p><p class="v">99.7%</p></div>
       </div>
     </div>
