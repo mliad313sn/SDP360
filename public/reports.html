@@ -1638,6 +1638,11 @@ function showFormPage() {
 }
 
 function showSection(n) {
+  // Flush a pending autosave on the tab we're leaving so edits aren't lost
+  // if the debounce hasn't fired yet (Lights = 2, Action Items = 3).
+  if ((currentSection === 2 || currentSection === 3) && currentSection !== n) {
+    try { flushAutoSave(currentSection); } catch(_) {}
+  }
   for (let i=0;i<4;i++) {
     document.getElementById(`section-${i}`).style.display = i===n ? 'block' : 'none';
     const tab = document.getElementById(`stab-${i}`);
@@ -3225,6 +3230,79 @@ async function saveSection(n) {
     toast('Save failed: ' + e, 'error');
   }
 }
+
+// ══════════════════════════════════════════════════════════════════
+//  AUTOSAVE — Lights (section 2) + Action Items (section 3)
+//  Technicians sometimes forget to click Save on these two tabs. A
+//  debounced, SILENT save fires ~1.5s after the last edit so nothing is
+//  lost. The manual "Save" buttons stay as the authoritative path (full
+//  validation + toast + status auto-advance); autosave never changes
+//  status, never toasts, and never blocks.
+// ══════════════════════════════════════════════════════════════════
+const _autoSaveTimers = {};      // { 2: timeoutId, 3: timeoutId }
+let   _autoSaveBusy    = false;  // prevents overlapping autosaves
+
+function _reportEditable() {
+  return !!currentReport && currentReport.status !== 'submitted';
+}
+
+function scheduleAutoSave(n) {
+  if (!_reportEditable()) return;
+  clearTimeout(_autoSaveTimers[n]);
+  _autoSaveTimers[n] = setTimeout(() => autoSaveSection(n), 1500);
+}
+
+async function autoSaveSection(n) {
+  clearTimeout(_autoSaveTimers[n]);
+  if (!_reportEditable() || _autoSaveBusy) return;
+  const id = currentReport.id;
+  try {
+    if (n === 2) {
+      const lights = collectLights();
+      _autoSaveBusy = true; setSaving('saving');
+      await api('PUT', `/api/reports/${id}/lights`, lights);
+      currentReport.lights = lights;
+    } else if (n === 3) {
+      const actions = collectActions();
+      // The server requires a valid department on every task row. While any
+      // task row is still missing one, skip the autosave silently (the manual
+      // Save button surfaces it as an error). Avoids repeated 400s on every
+      // keystroke before the department is picked.
+      if (actions.some(a => a.task && !a.department)) return;
+      _autoSaveBusy = true; setSaving('saving');
+      await api('PUT', `/api/reports/${id}/actions`, actions);
+      currentReport.action_items = actions;
+    } else { return; }
+    setSaving('saved');
+    setTimeout(() => setSaving(''), 1500);
+  } catch (e) {
+    // Silent: the manual Save remains the authoritative path that reports errors.
+    setSaving('');
+    console.warn('[autosave] section ' + n + ' failed:', e);
+  } finally {
+    _autoSaveBusy = false;
+  }
+}
+
+// Run a pending autosave immediately (used when leaving the tab).
+function flushAutoSave(n) {
+  if (_autoSaveTimers[n]) { clearTimeout(_autoSaveTimers[n]); autoSaveSection(n); }
+}
+
+// Wire debounced autosave via event delegation on the two editable sections.
+// Containers are static in the DOM (rows are appended inside), so delegation
+// also catches dynamically-added inputs. Programmatic value-setting on load
+// does NOT fire input/change, so opening a report never triggers a spurious save.
+(function wireAutoSave() {
+  function attach() {
+    [['section-2', 2], ['section-3', 3]].forEach(([elId, n]) => {
+      const el = document.getElementById(elId);
+      if (el) ['input', 'change'].forEach(ev => el.addEventListener(ev, () => scheduleAutoSave(n)));
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', attach);
+  else attach();
+})();
 
 // ══════════════════════════════════════════════════════════════════
 //  SUBMIT / REVERT
