@@ -57,6 +57,32 @@ is expected to be transparent — **verify in the browser after deploy** (open
 executive.html / index.html as a logged-in user; the dashboards should populate;
 DevTools → Network shows the `/api/data/*` calls returning 200).
 
+## Phase 1 extension (2026-06-19) — `/api/metrics/*`
+
+Same proven-safe pattern applied to the 5 `/api/metrics/*` KPI routes
+(`change`, `cab`, `survey`, `requests`, `request-filter-options`). Verified:
+no route-level auth before; consumed **only** by `analytics.html` (a gated,
+logged-in page) → the `report_token` cookie is sent → `requireReportSession`
+passes. All 5 now require a session.
+
+### Remaining unauthenticated `/api/*` — triage for the next pass
+
+A single-line scan found ~34 `/api/*` routes without route-level auth. A blind
+bulk transform is **unsafe** (it would also catch `/api/reports/auth/login`,
+which MUST stay public, and may false-positive on multi-line middleware). The
+rest should be gated one verified batch at a time:
+
+- **Keep public (intentional):** `/api/reports/auth/login`, `/api/ping`,
+  `/api/health/views`.
+- **Owner-handled:** `/api/notes` (GET/POST), `/api/save-charts` (the human
+  partner is verifying these separately).
+- **Candidates (verify consumer + whether a role, not just a session, is
+  needed):** `/api/survey/*`, `/api/change`, `/api/cab`, `/api/requests`,
+  `/api/sync/status`, `/api/cache/status`. The **mutating** ones
+  (`/api/survey/*-cache/clear`, `/api/risk-register-config/aliases` POST/DELETE)
+  need a **role** (admin / super_admin), not just `requireReportSession` —
+  defer until the role mapping is confirmed.
+
 ## Follow-ups (NOT done here — separate decisions)
 
 - **Drop `window.__ak`** from pages whose routes are now all session-gated

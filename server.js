@@ -2255,7 +2255,7 @@ app.get('/api/survey/:response_id/answers', (req, res) => {
  *   site_id  — filter to a single site (optional)
  *   since    — ISO date string — only changes created on/after this date (optional)
  */
-app.get('/api/metrics/change', (req, res) => {
+app.get('/api/metrics/change', requireReportSession, (req, res) => {
   try {
     const { getChangeMetrics, getSyncStatus } = require('./reports-db');
     const { site_id, since } = req.query;
@@ -2276,7 +2276,7 @@ app.get('/api/metrics/change', (req, res) => {
  * Query params:
  *   since    — ISO date string — only approvals requested on/after this date (optional)
  */
-app.get('/api/metrics/cab', (req, res) => {
+app.get('/api/metrics/cab', requireReportSession, (req, res) => {
   try {
     const { getCABMetrics, getSyncStatus } = require('./reports-db');
     const { since } = req.query;
@@ -2297,7 +2297,7 @@ app.get('/api/metrics/cab', (req, res) => {
  * Query params:
  *   since    — ISO date string — only surveys sent on/after this date (optional)
  */
-app.get('/api/metrics/survey', (req, res) => {
+app.get('/api/metrics/survey', requireReportSession, (req, res) => {
   try {
     const { getSurveyMetrics, getSyncStatus } = require('./reports-db');
     const { since } = req.query;
@@ -2324,7 +2324,7 @@ app.get('/api/metrics/survey', (req, res) => {
  *   site   — filter by site name (optional)
  *   since  — ISO date string — only requests created on/after this date (optional)
  */
-app.get('/api/metrics/requests', (req, res) => {
+app.get('/api/metrics/requests', requireReportSession, (req, res) => {
   try {
     const { getRequestMetrics, getSyncStatus } = require('./reports-db');
     const { site, since, status, rtype, impact, mode } = req.query;
@@ -2349,7 +2349,7 @@ app.get('/api/metrics/requests', (req, res) => {
  * Distinct values for the analytics multi-select filters
  * (Request Status / Request Type / Impact / Mode). 2026-06-11.
  */
-app.get('/api/metrics/request-filter-options', (req, res) => {
+app.get('/api/metrics/request-filter-options', requireReportSession, (req, res) => {
   try {
     const { getRequestFilterOptions } = require('./reports-db');
     res.json({ ok: true, data: getRequestFilterOptions() });
