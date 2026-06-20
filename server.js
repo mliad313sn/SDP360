@@ -5241,8 +5241,11 @@ app.post('/api/save-charts', express.json({ limit: '50mb' }), (req, res) => {
 // Save PPTX binary from browser export (for server-side access)
 app.post('/api/save-pptx', requireReportSession, requireRole('report-author'), express.raw({ type: 'application/octet-stream', limit: '30mb' }), (req, res) => {
   try {
-    const fname = req.query.name || 'export.pptx';
-    const outPath = path.join(__dirname, 'data', fname);
+    // Sanitise the client-supplied filename — basename only, forced .pptx,
+    // and guaranteed to stay inside data/ (was a path-traversal hole:
+    // ?name=../../x escaped the directory). See services/safeFilename.js.
+    const { safeJoin } = require('./services/safeFilename');
+    const outPath = safeJoin(path.join(__dirname, 'data'), req.query.name, { ext: '.pptx', fallback: 'export.pptx' });
     fs.writeFileSync(outPath, req.body);
     res.json({ ok: true, path: outPath });
   } catch(e) { res.status(500).json({ error: e.message }); }
