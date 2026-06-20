@@ -367,7 +367,39 @@ CREATE INDEX idx_dpg_group ON dashboard_preset_groups(scope, group_name);
 
 ## 2 · `tracker.db` — Activity Tracker (worktree root)
 
-Managed by `tracker-db.js`. 3 tables only.
+Managed by `tracker-db.js`.
+
+> ### ⚠️ Schema v2 — per-year (current source of truth, ADR-001)
+>
+> Since 2026-06-12 the tracker runs in **per-year mode**
+> (`TRACKER_PER_YEAR_EDITS=1` in prod `.env`). Each year owns its own
+> pillars, activities and targets. The **normalised v2 tables are the
+> source of truth**:
+>
+> ```sql
+> tracker_years      (year PK, current_month, ...)
+> tracker_pillars    (id, year, code, name, weight, display_order;   UNIQUE per year)
+> tracker_activities (id, pillar_id FK→tracker_pillars, code, ...;    UNIQUE per year)
+> tracker_targets_v2 (year, site, activity_id FK→tracker_activities, target, active;
+>                     PK(year, site, activity_id), FK CASCADE)
+> tracker_inputs_v2  (year, site, activity_id, months_json;           same shape, FK CASCADE)
+> ```
+>
+> **The legacy singleton `tracker_config` + `tracker_targets` +
+> `tracker_inputs` below are FROZEN forensics** — kept for backward
+> reference but **never written and never re-promoted to source of
+> truth** after the first divergent edit (2026 ≠ 2027). The boot-time
+> legacy mirror / prune / v2-sync are auto-skipped in per-year mode;
+> re-enabling them would resurrect deleted activities from the stale
+> legacy. **Rollback in per-year mode = backup-restore ONLY** (the
+> env-var rollback died with the first divergent edit). See
+> `docs/adr/ADR-001-tracker-year-pillar-activity.md` and the ADR-001
+> COMPLETE row in CLAUDE.md.
+>
+> Score math (`engine.js` browser + `tracker-pptx.js` server) is
+> unchanged; only the persistence shape moved to per-year.
+
+### Legacy schema (FROZEN — forensics only, do not write)
 
 ```sql
 CREATE TABLE tracker_config (
