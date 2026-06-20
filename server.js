@@ -1340,7 +1340,7 @@ const MO = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','D
 /**
  * GET /api/survey/list — now returns the Analytics Plus survey view info
  */
-app.get('/api/survey/list', async (req, res) => {
+app.get('/api/survey/list', requireReportSession, async (req, res) => {
   try {
     // Just confirm the view is accessible and return its ID
     const token = await getValidToken();
@@ -1576,7 +1576,7 @@ app.get('/api/survey/kpis', requireReportSession, (req, res) => {
 /**
  * POST /api/survey/cache/clear
  */
-app.post('/api/survey/cache/clear', (req, res) => {
+app.post('/api/survey/cache/clear', requireReportSession, requireAdmin, (req, res) => {
   _surveyCache.data = null; _surveyCache.ts = 0;
   res.json({ ok: true, message: 'Survey cache cleared' });
 });
@@ -1825,7 +1825,7 @@ app.get('/api/survey/by-dimension', requireReportSession, async (req, res) => {
 });
 
 // POST /api/survey/dimension-cache/clear
-app.post('/api/survey/dimension-cache/clear', (req, res) => {
+app.post('/api/survey/dimension-cache/clear', requireReportSession, requireAdmin, (req, res) => {
   _dimCache.data = null; _dimCache.ts = 0;
   res.json({ ok: true });
 });
@@ -2015,7 +2015,7 @@ app.get('/api/survey/voice', requireReportSession, async (req, res) => {
 });
 
 // POST /api/survey/voice-cache/clear
-app.post('/api/survey/voice-cache/clear', (req, res) => {
+app.post('/api/survey/voice-cache/clear', requireReportSession, requireAdmin, (req, res) => {
   _voiceCache.data = null; _voiceCache.ts = 0;
   res.json({ ok: true });
 });
@@ -2151,7 +2151,7 @@ function buildDataFreshness(syncMeta) {
  * Query params: status, site_id, since (ISO date), limit (default 200), offset
  * Response includes source transparency: source, as_of, data_freshness, stale_warning
  */
-app.get('/api/change', (req, res) => {
+app.get('/api/change', requireReportSession, (req, res) => {
   try {
     const { getChangeRecords, getSyncStatus } = require('./reports-db');
     const { status, site_id, since, limit = 200, offset = 0 } = req.query;
@@ -2173,7 +2173,7 @@ app.get('/api/change', (req, res) => {
  * Query params: change_id, status, limit (default 500)
  * Response includes source transparency: source, as_of, data_freshness, stale_warning
  */
-app.get('/api/cab', (req, res) => {
+app.get('/api/cab', requireReportSession, (req, res) => {
   try {
     const { getCABApprovals, getSyncStatus } = require('./reports-db');
     const { change_id, status, limit = 500 } = req.query;
@@ -2223,7 +2223,7 @@ app.get('/api/survey', requireReportSession, (req, res) => {
  * GET /api/survey/:response_id/answers
  * Returns all individual question answers for a single survey response.
  */
-app.get('/api/survey/:response_id/answers', (req, res) => {
+app.get('/api/survey/:response_id/answers', requireReportSession, (req, res) => {
   try {
     const { getSurveyAnswers, getSyncStatus } = require('./reports-db');
     const answers  = getSurveyAnswers(req.params.response_id);
@@ -2369,7 +2369,7 @@ app.get('/api/metrics/request-filter-options', requireReportSession, (req, res) 
  *   pending_only  — '1' to return only open requests
  *   overdue_only  — '1' to return only SLA-violated requests
  */
-app.get('/api/requests', (req, res) => {
+app.get('/api/requests', requireReportSession, (req, res) => {
   try {
     const { getRequestRecords, getSyncStatus } = require('./reports-db');
     const { limit = '200', offset = '0', status, site, since, pending_only, overdue_only } = req.query;

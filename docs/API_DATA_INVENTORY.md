@@ -82,6 +82,28 @@ returned "none-in-public" — they may be dead (YAGNI removal candidates) or
 called by an external/non-page client (which gating would break). Verify the
 caller before gating or removing.
 
+## Phase 1 pass 4 (2026-06-19) — mutations (role) + no-caller routes
+
+- **Mutations → admin role:** the 3 survey cache-clear POSTs
+  (`/api/survey/cache/clear`, `/api/survey/dimension-cache/clear`,
+  `/api/survey/voice-cache/clear`) now require `requireReportSession,
+  requireAdmin` — matching the existing `/api/cache/clear`. No page calls
+  them; they are privileged server-cache operations.
+- **Already secure (scan false-positive):** `/api/risk-register-config/aliases`
+  POST + DELETE were flagged "unauthed" by the single-line scan, but actually
+  carry `requireReportSession` on a continuation line **plus** an in-handler
+  `super_admin` check. **Left unchanged.** (A good reminder that the single-line
+  scan over-reports.)
+- **No-caller routes → gated as a safe default + flagged for removal:**
+  `/api/change`, `/api/cab`, `/api/requests`, `/api/survey/list`,
+  `/api/survey/:response_id/answers` have **no reference anywhere in the repo**
+  (pages, lib, services, tools, docs). Determination: **likely dead**, but a
+  non-page external client (curl / monitoring using X-Dash-Key) cannot be ruled
+  out. They were **gated with `requireReportSession`** (hardening — reversible,
+  less destructive than deletion). **Recommended next:** confirm no external
+  caller, then remove them (YAGNI). An external X-Dash-Key caller, if any, would
+  need a session token either way (gate or remove).
+
 ### Remaining unauthenticated `/api/*` — triage for the next pass
 
 A single-line scan found ~34 `/api/*` routes without route-level auth. A blind
