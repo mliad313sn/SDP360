@@ -1372,7 +1372,7 @@ app.get('/api/survey/list', async (req, res) => {
  * GET /api/survey/summary — reads view 106803000000002079 directly
  * Returns same shape as before so dashboard works without changes
  */
-app.get('/api/survey/summary', async (req, res) => {
+app.get('/api/survey/summary', requireReportSession, async (req, res) => {
   // Serve cache if fresh
   if (_surveyCache.data && Date.now() - _surveyCache.ts < _surveyCache.TTL) {
     return res.json(_surveyCache.data);
@@ -1458,7 +1458,7 @@ function emptyResult(note) {
  * GET /api/survey/kpis?yr=2026&mo=2&groups=ITY IT Agents,Mana IT Agent,...
  * Group + period-filtered CSAT — joins survey_results with request_records on request_id.
  */
-app.get('/api/survey/kpis', (req, res) => {
+app.get('/api/survey/kpis', requireReportSession, (req, res) => {
   try {
     const { yr, mo, groups } = req.query;
     const groupList = groups ? groups.split(',').map(g => g.trim()).filter(Boolean) : [];
@@ -1585,7 +1585,7 @@ app.post('/api/survey/cache/clear', (req, res) => {
  * GET /api/survey/debug — shows raw sample rows for troubleshooting
  * SECURITY: Only available in development mode. Returns 404 in production.
  */
-app.get('/api/survey/debug', async (req, res) => {
+app.get('/api/survey/debug', requireReportSession, async (req, res) => {
   if (!IS_DEV) {
     return res.status(404).json({ error: 'Not found.' });
   }
@@ -1626,7 +1626,7 @@ app.get('/api/survey/debug', async (req, res) => {
  */
 const _dimCache = { data: null, ts: 0, TTL: 600000 }; // 10 min cache
 
-app.get('/api/survey/by-dimension', async (req, res) => {
+app.get('/api/survey/by-dimension', requireReportSession, async (req, res) => {
   if (_dimCache.data && Date.now() - _dimCache.ts < _dimCache.TTL) {
     return res.json(_dimCache.data);
   }
@@ -1892,7 +1892,7 @@ function aggregateVoice(comments, meta) {
   };
 }
 
-app.get('/api/survey/voice', async (req, res) => {
+app.get('/api/survey/voice', requireReportSession, async (req, res) => {
   // ?month=YYYY-MM  — return data filtered to a specific month (no cache for filtered views)
   const monthFilter = (req.query.month || '').trim();  // e.g. "2026-03"
 
@@ -2033,7 +2033,7 @@ app.get('/api/ping', (req, res) => res.json({ ok: true, time: new Date().toISOSt
  * Returns last sync time, row count, and any error for each sync job.
  * Used by the dashboard to show a "Data last updated: X minutes ago" indicator.
  */
-app.get('/api/sync/status', (req, res) => {
+app.get('/api/sync/status', requireReportSession, (req, res) => {
   try {
     const { getSyncStatus } = require('./reports-db');
     const jobs = getSyncStatus();
@@ -2197,7 +2197,7 @@ app.get('/api/cab', (req, res) => {
  * Query params: since (ISO date), limit (default 500), offset
  * Response includes source transparency: source, as_of, data_freshness, stale_warning
  */
-app.get('/api/survey', (req, res) => {
+app.get('/api/survey', requireReportSession, (req, res) => {
   try {
     const { getSurveyResults, getSyncStatus } = require('./reports-db');
     const { since, limit = 500, offset = 0 } = req.query;
@@ -2577,7 +2577,7 @@ app.post('/api/admin/refresh-major-incident-udfs', requireReportSession, require
 });
 
 // GET /api/cache/status — returns raw cache freshness for the "Data as of" indicator
-app.get('/api/cache/status', (req, res) => {
+app.get('/api/cache/status', requireReportSession, (req, res) => {
   let changeCount = 0;
   try { changeCount = db.prepare('SELECT COUNT(*) as n FROM change_records').get().n; } catch(e) {}
   res.json({

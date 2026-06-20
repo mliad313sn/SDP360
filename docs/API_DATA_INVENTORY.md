@@ -65,6 +65,23 @@ no route-level auth before; consumed **only** by `analytics.html` (a gated,
 logged-in page) → the `report_token` cookie is sent → `requireReportSession`
 passes. All 5 now require a session.
 
+## Phase 1 pass 3 (2026-06-19) — survey/status GET routes
+
+Gated 8 more read-only GET routes via an **exact allow-list** transform
+(verified each: no prior auth, consumed by a gated logged-in page → cookie
+sent → `requireReportSession` passes). Confirmed the login route stayed public
+and no POST mutation was touched:
+
+`/api/survey`, `/api/survey/summary`, `/api/survey/kpis`,
+`/api/survey/by-dimension`, `/api/survey/voice`, `/api/survey/debug`
+(debug — protected regardless), `/api/sync/status`, `/api/cache/status`.
+
+**Deferred (no front-end caller found):** `/api/change`, `/api/cab`,
+`/api/requests`, `/api/survey/list`, `/api/survey/:response_id/answers`. These
+returned "none-in-public" — they may be dead (YAGNI removal candidates) or
+called by an external/non-page client (which gating would break). Verify the
+caller before gating or removing.
+
 ### Remaining unauthenticated `/api/*` — triage for the next pass
 
 A single-line scan found ~34 `/api/*` routes without route-level auth. A blind
