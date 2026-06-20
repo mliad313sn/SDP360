@@ -14,7 +14,9 @@ const path     = require('path');
 const fs       = require('fs');
 
 // ── DB FILE ───────────────────────────────────────────────────────
-const DATA_DIR = path.join(__dirname, 'data');
+// SDP_DATA_DIR override lets tests point the module at a throwaway temp
+// directory; unset in prod so the default data/ path is unchanged.
+const DATA_DIR = process.env.SDP_DATA_DIR ? path.resolve(process.env.SDP_DATA_DIR) : path.join(__dirname, 'data');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 const db = new Database(path.join(DATA_DIR, 'reports.db'));
 

@@ -25,7 +25,9 @@ const INIT = require('./tracker-init.json');
 // Historical: tracker.db lived at __dirname/tracker.db. Harmonised 2026-06-05
 // to __dirname/data/tracker.db (same pattern as reports.db). The block below
 // auto-migrates if it finds the DB at the old location — idempotent + safe.
-const DATA_DIR  = path.join(__dirname, 'data');
+// SDP_DATA_DIR override lets tests point the module at a throwaway temp
+// directory; unset in prod so the default data/ path is unchanged.
+const DATA_DIR  = process.env.SDP_DATA_DIR ? path.resolve(process.env.SDP_DATA_DIR) : path.join(__dirname, 'data');
 const TRACKER_DB_PATH = path.join(DATA_DIR, 'tracker.db');
 function _ensureDbLocation() {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
