@@ -658,7 +658,7 @@ node -e "const s=require('./server.js')" 2>&1 | head -5
 ```json
 {
   "axios": "^1.6.0",         // Zoho API HTTP client
-  "better-sqlite3": "^9.4.3", // SQLite (native — recompile if Node version changes)
+  "better-sqlite3": "^12.10.0", // SQLite (native — Node 24 prebuilds)
   "cors": "^2.8.5",           // CORS headers
   "dotenv": "^16.3.0",        // .env loading
   "express": "^4.18.2",       // Web framework

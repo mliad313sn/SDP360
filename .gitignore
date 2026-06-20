@@ -118,3 +118,8 @@ __pycache__/
 
 # Archived scratch/legacy artifacts (moved 2026-06-05 for readability)
 /archive/
+
+# Scratch audit note + accidental Windows "Copie" duplicates (audit 8.3)
+AUDIT
+*- Copie*
+* - Copie*
