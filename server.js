@@ -2755,7 +2755,7 @@ const simpleViews = [
 // etc.) because the underlying REQUEST_TABLE view doesn't return them. The
 // Lessons Learned tab + RCA/CA completeness stats on the executive page show
 // empty values for those fields. Adding a dedicated UDF sync is a follow-up.
-app.get('/api/data/major-incidents', async (req, res) => {
+app.get('/api/data/major-incidents', requireReportSession, async (req, res) => {
   try {
     let dbRows = [];
     try {
@@ -2782,7 +2782,7 @@ app.get('/api/data/major-incidents', async (req, res) => {
   }
 });
 
-app.get('/api/data/change-table', async (req, res) => {
+app.get('/api/data/change-table', requireReportSession, async (req, res) => {
   try {
     let dbRows = [];
     try {
@@ -2815,7 +2815,7 @@ app.get('/api/data/change-table', async (req, res) => {
 // passthrough, and Express dispatches the first matching route registered.
 // Returns the legacy shape { rows: [{ month, avgFRT, avgRT, n }, …] } so the
 // executive.html chart code reads it unchanged.
-app.get('/api/data/first-response', async (req, res) => {
+app.get('/api/data/first-response', requireReportSession, async (req, res) => {
   try {
     let dbRows = [];
     try {
@@ -2855,7 +2855,7 @@ app.get('/api/data/first-response', async (req, res) => {
 // SLA trend (Phase 3 of executive.html rewrite, 2026-05-26).
 // Powers the red/green compliance line on the Monthly Volume chart.
 // DB-direct via getSlaTrendDB; Zoho fallback only when DB is empty.
-app.get('/api/data/sla-trend', async (req, res) => {
+app.get('/api/data/sla-trend', requireReportSession, async (req, res) => {
   try {
     let dbRows = [];
     try {
@@ -2885,7 +2885,7 @@ app.get('/api/data/sla-trend', async (req, res) => {
 // SLA by category (Phase 3 of executive.html rewrite, 2026-05-26).
 // Powers the SLA Violations by Category chart on the KPI Snapshot tab.
 // DB-direct via getSlaByCategoryDB; Zoho fallback only when DB is empty.
-app.get('/api/data/sla-by-category', async (req, res) => {
+app.get('/api/data/sla-by-category', requireReportSession, async (req, res) => {
   try {
     let dbRows = [];
     try {
@@ -2928,7 +2928,7 @@ app.get('/api/data/sla-by-category', async (req, res) => {
 // six eliminates the page's direct Zoho dependency.
 // ────────────────────────────────────────────────────────────────────
 
-app.get('/api/data/group-requests', async (req, res) => {
+app.get('/api/data/group-requests', requireReportSession, async (req, res) => {
   try {
     let dbRows = [];
     try {
@@ -2950,7 +2950,7 @@ app.get('/api/data/group-requests', async (req, res) => {
   }
 });
 
-app.get('/api/data/emergency-changes', async (req, res) => {
+app.get('/api/data/emergency-changes', requireReportSession, async (req, res) => {
   try {
     let dbRows = [];
     try {
@@ -2972,7 +2972,7 @@ app.get('/api/data/emergency-changes', async (req, res) => {
   }
 });
 
-app.get('/api/data/ageing', async (req, res) => {
+app.get('/api/data/ageing', requireReportSession, async (req, res) => {
   try {
     let dbRows = [];
     try {
@@ -2994,7 +2994,7 @@ app.get('/api/data/ageing', async (req, res) => {
   }
 });
 
-app.get('/api/data/incident-vs-sr', async (req, res) => {
+app.get('/api/data/incident-vs-sr', requireReportSession, async (req, res) => {
   try {
     let dbRows = [];
     try {
@@ -3016,7 +3016,7 @@ app.get('/api/data/incident-vs-sr', async (req, res) => {
   }
 });
 
-app.get('/api/data/cab-approvals', async (req, res) => {
+app.get('/api/data/cab-approvals', requireReportSession, async (req, res) => {
   try {
     let dbRows = [];
     try {
@@ -3038,7 +3038,7 @@ app.get('/api/data/cab-approvals', async (req, res) => {
   }
 });
 
-app.get('/api/data/cab-recommendations', async (req, res) => {
+app.get('/api/data/cab-recommendations', requireReportSession, async (req, res) => {
   try {
     let dbRows = [];
     try {
@@ -3336,7 +3336,7 @@ async function getRawRequestRows() {
 // Uses request_records.mode column (populated during every sync run) instead of the raw Zoho
 // view cache, where the Mode field is sparsely present.
 // Query params: yr (YYYY), mo (1-12), site (optional), groups (comma-separated, optional)
-app.get('/api/data/submission-channels', (req, res) => {
+app.get('/api/data/submission-channels', requireReportSession, (req, res) => {
   try {
     const { yr, mo, site, groups } = req.query;
     const db = require('./reports-db').db;
@@ -3417,7 +3417,7 @@ app.get('/api/data/submission-channels', (req, res) => {
 // matches and returns 304 Not Modified — no body transferred. That turns
 // a 5-10 MB / 1-2 MB-gzipped payload into a few hundred bytes, which is
 // the user-felt "stop loading 25k rows on every page" win.
-app.get('/api/data/requests-raw', async (req, res) => {
+app.get('/api/data/requests-raw', requireReportSession, async (req, res) => {
   try {
     await getRawRequestRows(); // populates _rawCache if not warmed yet
     const ts      = _rawCache.ts || 0;
@@ -3440,7 +3440,7 @@ app.get('/api/data/requests-raw', async (req, res) => {
   }
 });
 
-app.get('/api/data/monthly-summary', async (req, res) => {
+app.get('/api/data/monthly-summary', requireReportSession, async (req, res) => {
   // Sourced from local request_records (synced from Zoho).
   // Replaces the prior live call to Zoho prebuilt view 644288 — that view's
   // 'Created Time' label format drifted, breaking the prev-month label match
@@ -3478,49 +3478,14 @@ app.get('/api/data/monthly-summary', async (req, res) => {
   }
 });
 
-app.get('/api/data/perf-summary', async (req, res) => {
-  try {
-    const raw = await fetchView(VIEWS.REQUEST_TABLE, 10000);
-    const rows = raw.rows || [];
-    const parseMonth = (str) => {
-      if (!str) return null;
-      const parts = str.trim().split(/[\s,]+/);
-      if (parts.length >= 3 && isNaN(parts[1])) return parts[1] + ' ' + parts[2];
-      return null;
-    };
-    const monthOrder = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    const map = {};
-    rows.forEach(r => {
-      const m = parseMonth(r['Created Time']);
-      if (!m) return;
-      const rd = parseFloat(r['Time to Resolve (in Days)']) || null;
-      const ah = parseFloat(r['Time to Assign in Hrs']) || null;
-      if (!map[m]) map[m] = { month: m, rdSum: 0, rdN: 0, ahSum: 0, ahN: 0 };
-      if (rd) { map[m].rdSum += rd; map[m].rdN++; }
-      if (ah) { map[m].ahSum += ah; map[m].ahN++; }
-    });
-    const result = Object.values(map)
-      .sort((a, b) => {
-        const [am, ay] = a.month.split(' ');
-        const [bm, by] = b.month.split(' ');
-        return ay !== by ? parseInt(ay) - parseInt(by) : monthOrder.indexOf(am) - monthOrder.indexOf(bm);
-      })
-      .map(m => ({
-        month: m.month,
-        avgResolveDays: m.rdN > 0 ? Math.round(m.rdSum / m.rdN * 10) / 10 : null,
-        avgAssignHrs:   m.ahN > 0 ? Math.round(m.ahSum / m.ahN * 10) / 10 : null,
-      }));
-    res.json({ success: true, data: { rows: result, columns: ['month','avgResolveDays','avgAssignHrs'] } });
-  } catch(err) { res.status(err.response?.status||500).json({ error: err.message, details: err.response?.data }); }
-});
-
+// /api/data/perf-summary removed 2026-06-19 — dead route (no caller), audit 3.3 YAGNI.
 // Ageing by Site — DB-direct (Phase 2 of executive.html rewrite, 2026-05-26).
 // Previously this fetched live Zoho view 141197 + parsed its pivoted shape;
 // that path now returns empty too often (timeout / 0 rows / Zoho-side schema
 // drift). Helper reads request_records and computes the same shape end-to-end.
 // Live Zoho is retained as a fallback ONLY if the DB returns 0 sites (brand-
 // new install with no sync yet).
-app.get('/api/data/ageing-by-site', async (req, res) => {
+app.get('/api/data/ageing-by-site', requireReportSession, async (req, res) => {
   try {
     let result = [];
     try {
@@ -3570,7 +3535,7 @@ app.get('/api/data/ageing-by-site', async (req, res) => {
 // DB-direct equivalent is the % of open tickets where FRT wasn't overdue,
 // which is the closest semantic match to what the legacy column meant
 // in the executive.html chart).
-app.get('/api/data/ageing-by-group', async (req, res) => {
+app.get('/api/data/ageing-by-group', requireReportSession, async (req, res) => {
   try {
     let result = [];
     try {
