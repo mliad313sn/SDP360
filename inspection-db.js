@@ -37,6 +37,8 @@ const path     = require('path');
 const fs       = require('fs');
 
 const INIT = require('./inspection-init.json');
+const blobStore = require('./services/blobStore');
+const BLOB_MODULE = 'inspection';
 
 // ── DB path resolution + auto-migration from legacy root location ──────────
 // Historical: inspection.db lived at __dirname/inspection.db. Harmonised
@@ -271,6 +273,7 @@ function _initSchema(db) {
       caption         TEXT,
       mime_type       TEXT DEFAULT 'image/jpeg',
       data_b64        TEXT,
+      file_ref        TEXT,
       size_bytes      INTEGER,
       created_at      TEXT DEFAULT (datetime('now')),
       FOREIGN KEY (inspection_id) REFERENCES insp_inspections(id) ON DELETE CASCADE
@@ -285,6 +288,7 @@ function _initSchema(db) {
       signer_name     TEXT,
       signer_date     TEXT,
       signature_b64   TEXT,
+      file_ref        TEXT,
       signed_at       TEXT DEFAULT (datetime('now')),
       PRIMARY KEY (inspection_id, signer_type),
       FOREIGN KEY (inspection_id) REFERENCES insp_inspections(id) ON DELETE CASCADE
@@ -308,6 +312,15 @@ function _initSchema(db) {
       created_at    TEXT DEFAULT (datetime('now'))
     );
   `);
+
+  // Idempotent ALTERs — add file_ref to existing DBs (blobs-on-filesystem).
+  // SQLite has no "ADD COLUMN IF NOT EXISTS"; probe table_info first.
+  const _hasCol = (table, col) =>
+    db.prepare(`PRAGMA table_info(${table})`).all().some(c => c.name === col);
+  if (!_hasCol('insp_photos', 'file_ref'))
+    db.exec('ALTER TABLE insp_photos ADD COLUMN file_ref TEXT');
+  if (!_hasCol('insp_signatures', 'file_ref'))
+    db.exec('ALTER TABLE insp_signatures ADD COLUMN file_ref TEXT');
 
   // Seed lookup tables on first run only
   const n = db.prepare('SELECT COUNT(*) AS n FROM insp_sites').get().n;
@@ -537,6 +550,34 @@ function listInspections(opts = {}) {
 }
 
 /** Full record including findings / actions / photos / signatures. */
+// Re-inflate filesystem-backed blobs in a state blob so callers see the same
+// shape they always did (photos[].dataUrl, signatures.sig_*). Dual-read:
+// blobs externalized to the filesystem carry an `__blob` ref; legacy rows keep
+// their inline dataUrl strings and pass through untouched.
+function _inflateState(state) {
+  if (!state || typeof state !== 'object') return state;
+  for (const val of Object.values(state.items || {})) {
+    if (!val || !Array.isArray(val.photos)) continue;
+    val.photos = val.photos.map(p => {
+      if (p && typeof p === 'object' && p.__blob) {
+        const dataUrl = blobStore.getDataUrl(p.__blob, p.mime);
+        const out = { ...p, dataUrl: dataUrl || '' };
+        delete out.__blob;
+        return out;
+      }
+      return p;
+    });
+  }
+  const sig = state.signatures || {};
+  for (const k of ['sig_inspector', 'sig_site']) {
+    const v = sig[k];
+    if (v && typeof v === 'object' && v.__blob) {
+      sig[k] = blobStore.getDataUrl(v.__blob, v.mime) || '';
+    }
+  }
+  return state;
+}
+
 function getInspection(id) {
   const db = getDB();
   const header = db.prepare('SELECT * FROM insp_inspections WHERE id = ?').get(id);
@@ -546,6 +587,7 @@ function getInspection(id) {
   let stateBlob = null;
   try { stateBlob = header.state_json ? JSON.parse(header.state_json) : null; }
   catch(e) { console.warn('[inspection-db] state_json parse failed for', id, e.message); }
+  stateBlob = _inflateState(stateBlob);
 
   const findings = db.prepare(`
     SELECT category, item_index, item_code, item_text_en, item_text_fr, status, notes
@@ -561,17 +603,58 @@ function getInspection(id) {
   `).all(id);
 
   const photos = db.prepare(`
-    SELECT id, finding_key, action_id, caption, mime_type, data_b64, size_bytes
+    SELECT id, finding_key, action_id, caption, mime_type, data_b64, file_ref, size_bytes
       FROM insp_photos WHERE inspection_id = ?
       ORDER BY id
-  `).all(id);
+  `).all(id).map(p => {
+    // Dual-read: prefer the filesystem blob, fall back to legacy inline b64.
+    if (p.file_ref) p.data_b64 = blobStore.getB64(p.file_ref) || p.data_b64 || '';
+    delete p.file_ref;
+    return p;
+  });
 
   const signatures = db.prepare(`
-    SELECT signer_type, signer_name, signer_date, signature_b64, signed_at
+    SELECT signer_type, signer_name, signer_date, signature_b64, file_ref, signed_at
       FROM insp_signatures WHERE inspection_id = ?
-  `).all(id);
+  `).all(id).map(s => {
+    if (s.file_ref) s.signature_b64 = blobStore.getB64(s.file_ref) || s.signature_b64 || '';
+    delete s.file_ref;
+    return s;
+  });
 
   return { header, findings, actions, photos, signatures, state: stateBlob };
+}
+
+// Move inline base64 photo/signature payloads out of `state` onto the
+// filesystem (blobStore), mutating `state` in place so the stored state_json
+// carries lightweight `__blob` refs instead of multi-MB data: URLs. Idempotent
+// — entries already carrying `__blob` are left alone. Called BEFORE the save
+// transaction so state_json is stringified in its stripped form.
+function _externalizeBlobs(state, id) {
+  for (const [key, val] of Object.entries(state.items || {})) {
+    if (!val || !Array.isArray(val.photos)) continue;
+    val.photos = val.photos.map((raw, i) => {
+      if (!raw) return raw;
+      const p = (typeof raw === 'string') ? { dataUrl: raw } : raw;
+      if (p.__blob) return p;                       // already externalized
+      if (!p.dataUrl || typeof p.dataUrl !== 'string' || !p.dataUrl.startsWith('data:')) return p;
+      const { mime, b64 } = blobStore._splitDataUrl(p.dataUrl);
+      const { ref, size } = blobStore.putB64(BLOB_MODULE, id, `${key}-${i}`, mime, b64);
+      const out = { ...p, __blob: ref, mime, sizeBytes: size };
+      delete out.dataUrl;
+      return out;
+    });
+  }
+  const sig = state.signatures || {};
+  for (const [k, name] of [['sig_inspector', 'sig-inspector'], ['sig_site', 'sig-site']]) {
+    const v = sig[k];
+    if (!v) continue;
+    if (typeof v === 'object' && v.__blob) continue;       // already externalized
+    if (typeof v !== 'string' || !v.startsWith('data:')) continue;
+    const { mime, b64 } = blobStore._splitDataUrl(v);
+    const { ref } = blobStore.putB64(BLOB_MODULE, id, name, mime, b64);
+    sig[k] = { __blob: ref, mime };
+  }
 }
 
 /**
@@ -593,6 +676,13 @@ function saveInspection(state, userSiteCode, createdBy) {
   if (userSiteCode && siteCode && siteCode !== userSiteCode) {
     throw new Error(`Cross-site save blocked: user is scoped to ${userSiteCode}, inspection is for ${siteCode}`);
   }
+
+  // Externalize photo/signature blobs to the filesystem (mutates `state` so
+  // state_json below stores refs, not multi-MB data: URLs). Done outside the
+  // tx — FS writes are not transactional; orphaned files (if the tx later
+  // fails, or a photo is removed on a re-save) are harmless and cleaned on
+  // deleteInspection.
+  _externalizeBlobs(state, id);
 
   // Area: store both the structured code (if we can resolve it) and the
   // free text — early adopters will paste in "Other" / custom strings.
@@ -703,20 +793,27 @@ function saveInspection(state, userSiteCode, createdBy) {
     //   • a raw dataUrl string  (legacy shape from the original PWA)
     //   • { dataUrl, caption, ts, gps, w, h, sizeKB }  (current shape)
     // Normalise so the DB always sees the latter.
+    // _externalizeBlobs (above, pre-tx) has already moved every photo to the
+    // filesystem and set p.__blob; we store the file_ref (data_b64 stays NULL).
+    // The dataUrl branch is a defensive fallback for any photo that slipped
+    // through un-externalized.
     db.prepare('DELETE FROM insp_photos WHERE inspection_id = ?').run(id);
     const insPhoto = db.prepare(`
       INSERT INTO insp_photos
-        (inspection_id, finding_key, caption, mime_type, data_b64, size_bytes)
-      VALUES (?, ?, ?, ?, ?, ?)
+        (inspection_id, finding_key, caption, mime_type, data_b64, file_ref, size_bytes)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
     for (const [key, val] of Object.entries(state.items || {})) {
       if (!val || !Array.isArray(val.photos)) continue;
       for (const raw of val.photos) {
         if (!raw) continue;
         const p = (typeof raw === 'string') ? { dataUrl: raw, caption: '' } : raw;
-        if (!p.dataUrl) continue;
-        const { mime, b64 } = _splitDataUrl(p.dataUrl);
-        insPhoto.run(id, key, p.caption || '', mime, b64, b64.length);
+        if (p.__blob) {
+          insPhoto.run(id, key, p.caption || '', p.mime || 'image/jpeg', null, p.__blob, p.sizeBytes || null);
+        } else if (p.dataUrl) {
+          const { mime, b64 } = _splitDataUrl(p.dataUrl);
+          insPhoto.run(id, key, p.caption || '', mime, b64, null, b64.length);
+        }
       }
     }
 
@@ -724,19 +821,17 @@ function saveInspection(state, userSiteCode, createdBy) {
     db.prepare('DELETE FROM insp_signatures WHERE inspection_id = ?').run(id);
     const insSig = db.prepare(`
       INSERT INTO insp_signatures
-        (inspection_id, signer_type, signer_name, signer_date, signature_b64)
-      VALUES (?, ?, ?, ?, ?)
+        (inspection_id, signer_type, signer_name, signer_date, signature_b64, file_ref)
+      VALUES (?, ?, ?, ?, ?, ?)
     `);
+    const _runSig = (type, name, date, v) => {
+      if (v && typeof v === 'object' && v.__blob) insSig.run(id, type, name, date, null, v.__blob);
+      else { const { b64 } = _splitDataUrl(v); insSig.run(id, type, name, date, b64, null); }
+    };
     const sigInsp = state.signatures && state.signatures.sig_inspector;
-    if (sigInsp) {
-      const { b64 } = _splitDataUrl(sigInsp);
-      insSig.run(id, 'inspector', meta.sign_insp_name || meta.f_inspector || '', meta.sign_insp_date || null, b64);
-    }
+    if (sigInsp) _runSig('inspector', meta.sign_insp_name || meta.f_inspector || '', meta.sign_insp_date || null, sigInsp);
     const sigSite = state.signatures && state.signatures.sig_site;
-    if (sigSite) {
-      const { b64 } = _splitDataUrl(sigSite);
-      insSig.run(id, 'site', meta.sign_site_name || '', meta.sign_site_date || null, b64);
-    }
+    if (sigSite) _runSig('site', meta.sign_site_name || '', meta.sign_site_date || null, sigSite);
   });
   tx();
 
@@ -754,6 +849,10 @@ function deleteInspection(id) {
   // route handlers.
   _backup(db, 'pre-delete-' + String(id || 'unknown').slice(0, 30));
   const info = db.prepare('DELETE FROM insp_inspections WHERE id = ?').run(id);
+  if (info.changes > 0) {
+    // Remove the filesystem blobs for this inspection (photos + signatures).
+    try { blobStore.removeOwner(BLOB_MODULE, id); } catch (_) {}
+  }
   return info.changes > 0;
 }
 
@@ -1000,6 +1099,7 @@ function _splitDataUrl(dataUrl) {
 }
 
 module.exports = {
+  getDB,
   loadLookups,
   listPeople,
   listInspections,
