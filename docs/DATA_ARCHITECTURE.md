@@ -578,7 +578,8 @@ CREATE TABLE insp_photos (
   action_id      INTEGER,                       -- nullable FK insp_actions
   caption        TEXT,
   mime_type      TEXT DEFAULT 'image/jpeg',
-  data_b64       TEXT,                          -- INLINE base64 (compressed to ~250-400 KB/photo)
+  data_b64       TEXT,                          -- LEGACY inline base64 (pre-2026-06-21 rows only)
+  file_ref       TEXT,                          -- NEW: relative path under data/blobs (preferred)
   size_bytes     INTEGER,
   created_at     TEXT DEFAULT (datetime('now'))
 );
@@ -589,11 +590,25 @@ CREATE TABLE insp_signatures (
   signer_type    TEXT NOT NULL,                 -- 'inspector' | 'manager'
   signer_name    TEXT,
   signer_date    TEXT,
-  signature_b64  TEXT,                          -- INLINE PNG base64
+  signature_b64  TEXT,                          -- LEGACY inline PNG base64 (pre-2026-06-21 rows only)
+  file_ref       TEXT,                          -- NEW: relative path under data/blobs (preferred)
   signed_at      TEXT DEFAULT (datetime('now')),
   PRIMARY KEY (inspection_id, signer_type)
 );
 ```
+
+> **Blob storage model (since 2026-06-21).** Photos and signatures are NO
+> LONGER stored inline as base64. On save, `inspection-db.js` writes the bytes
+> to the filesystem under `data/blobs/inspection/<id>/…` (via
+> `services/blobStore.js`) and stores the relative path in `file_ref`;
+> `data_b64` / `signature_b64` are left NULL. The `state_json` blob on
+> `insp_inspections` likewise keeps a lightweight `__blob` ref instead of the
+> data: URL. **Reads are dual-read**: `getInspection()` re-inflates `file_ref`
+> (and legacy inline `data_b64`) so callers — the form (`rec.state`) and the
+> PPTX (`rec.photos` / `rec.signatures`) — see the same shape as before.
+> Pre-2026-06-21 rows keep their inline base64 and still work untouched; run
+> `tools/migrate-inspection-blobs.js` to shrink the backlog. See CLAUDE.md
+> § "Photos/signatures now live on the FILESYSTEM".
 
 ### Inspection site codes (`SITE_MAP` in inspection-db.js)
 

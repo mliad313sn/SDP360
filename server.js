@@ -100,6 +100,14 @@ const PORT = process.env.PORT || 3456;
 //                           connection refused. See docs/INTERNAL_TLS_SETUP.md.
 const BIND_HOST = process.env.BIND_HOST || '0.0.0.0';
 
+// Session-cookie Secure flag. Default false so login still works over plain
+// HTTP on the internal LAN (direct :3456). Set SESSION_COOKIE_SECURE=1 once the
+// dashboard is reached over HTTPS (IIS/TLS termination) so the report_token
+// cookie is only ever transmitted over HTTPS. Flip via .env + pm2 reload — no
+// code change, and only do it when NO client still uses plain HTTP.
+const SESSION_COOKIE_SECURE = process.env.SESSION_COOKIE_SECURE === '1'
+  || /^true$/i.test(process.env.SESSION_COOKIE_SECURE || '');
+
 // ── PROXY AWARENESS ────────────────────────────────────────────────
 // IIS in front of Node will forward requests with these headers:
 //   X-Forwarded-For   — original client IP
@@ -2433,7 +2441,7 @@ app.get('/api/workspaces', async (req, res) => {
   } catch(err) { res.status(500).json({ error: err.message, details: err.response?.data }); }
 });
 
-app.get('/api/views', async (req, res) => {
+app.get('/api/views', requireReportSession, async (req, res) => {
   try {
     const token = await getValidToken();
     const r = await axios.get(`${CONFIG.analyticsApi}/workspaces/${CONFIG.workspaceId}/views`, { headers: apiHeaders(token), timeout: 10000 });
@@ -3847,7 +3855,7 @@ app.post('/api/ai/analyze', requireReportSession, requireRole('report-author'), 
   }
 });
 
-app.get('/api/sample/:viewId', async (req, res) => {
+app.get('/api/sample/:viewId', requireReportSession, async (req, res) => {
   // SECURITY: Whitelist viewId against the registered VIEWS map only.
   // Prevents enumeration of any view in the Zoho workspace by guessing numeric IDs.
   const viewId = req.params.viewId;
@@ -3977,7 +3985,7 @@ app.post('/api/reports/auth/login', loginLimiter, jsonBody, (req, res) => {
     if (result.token) {
       res.cookie('report_token', result.token, {
         httpOnly: true,
-        secure:   false,          // HTTP-safe: internal network does not use HTTPS
+        secure:   SESSION_COOKIE_SECURE,  // set SESSION_COOKIE_SECURE=1 in .env once on HTTPS (IIS/TLS)
         sameSite: 'lax',          // 'lax' allows cookie on same-site page navigations (GET)
         maxAge:   24 * 60 * 60 * 1000, // 24 hours
       });
@@ -5170,7 +5178,7 @@ app.post('/api/executive-new-pptx', requireReportSession, requireRole('report-au
 // Stores all editable insight field content in data/notes.json
 const NOTES_FILE = path.join(__dirname, 'data', 'notes.json');
 
-app.get('/api/notes', (req, res) => {
+app.get('/api/notes', requireReportSession, (req, res) => {
   try {
     if (!fs.existsSync(NOTES_FILE)) return res.json({});
     const raw = fs.readFileSync(NOTES_FILE, 'utf8');
@@ -5181,7 +5189,7 @@ app.get('/api/notes', (req, res) => {
   }
 });
 
-app.post('/api/notes', express.json({ limit: '1mb' }), (req, res) => {
+app.post('/api/notes', requireReportSession, express.json({ limit: '1mb' }), (req, res) => {
   try {
     const dataDir = path.join(__dirname, 'data');
     if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
@@ -5195,7 +5203,7 @@ app.post('/api/notes', express.json({ limit: '1mb' }), (req, res) => {
 });
 
 // ── CHART IMAGE EXPORT (temporary — for PPTX generation) ─────────
-app.post('/api/save-charts', express.json({ limit: '50mb' }), (req, res) => {
+app.post('/api/save-charts', requireReportSession, express.json({ limit: '50mb' }), (req, res) => {
   try {
     const outPath = path.join(__dirname, 'data', 'chart_images.json');
     fs.writeFileSync(outPath, JSON.stringify(req.body));
