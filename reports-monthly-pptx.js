@@ -980,9 +980,9 @@ async function generateMonthlyPptxV2(monthlyData, siteName, year, month, edits, 
   slideMonthlyLightsV2(pptx, editedLights, monthLabel, openChanges || []);
   slideMonthlyActiveIncidents(pptx, monthLabel, activeIncidents || [], siteName);
   slideMonthlyActionsV2(pptx, editedActions, monthLabel);
-  slideAnnualObjectives(pptx, objectives, siteName, year);
-  // Department meetings monthly status (summary attached to monthlyData).
+  // Department meetings monthly status — right after Actions & Follow-ups.
   if (hasDeptMeetingData(monthlyData.meetingsSummary)) slideDepartmentMeetings(pptx, monthlyData.meetingsSummary);
+  slideAnnualObjectives(pptx, objectives, siteName, year);
 
   return fixComboChartAxes(await pptx.write({ outputType: 'nodebuffer' }));
 }
@@ -1014,9 +1014,9 @@ async function generateAllSitesMonthlyPptx(allSiteData, year, month) {
     slideMonthlyLightsV2(pptx, editedLights, monthLabel, openChanges || []);
     slideMonthlyActiveIncidents(pptx, monthLabel, activeIncidents || [], site.name);
     slideMonthlyActionsV2(pptx, editedActions, monthLabel);
-    slideAnnualObjectives(pptx, objectives, site.name, year);
-    // Department meetings monthly status — per site, when data exists.
+    // Department meetings monthly status — right after Actions & Follow-ups.
     if (hasDeptMeetingData(meetingsSummary)) slideDepartmentMeetings(pptx, meetingsSummary);
+    slideAnnualObjectives(pptx, objectives, site.name, year);
   }
 
   return fixComboChartAxes(await pptx.write({ outputType: 'nodebuffer' }));
