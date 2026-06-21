@@ -4899,7 +4899,20 @@ app.get('/api/reports/:id/pptx', requireReportSession, async (req, res) => {
     const _wGroups = _wSite ? (_wSite.zoho_group || '').split(',').map(g => g.trim()).filter(Boolean) : [];
     const openChanges     = rdb.getOpenChangesForSite(_wGroups);
     const activeIncidents = rdb.getActiveMajorIncidentsForSite(_wGroups);
-    const buf = await rpptx.generateWeeklyPptx(report, prevReport, openChanges, activeIncidents);
+    // Department-meetings monthly snapshot for the report's site + month —
+    // drives the new "Department Meetings" slide. Degrades gracefully (null)
+    // if the meetings module is unavailable or the site can't be mapped.
+    let meetingsSummary = null;
+    try {
+      if (meetingsDb && report.site_name) {
+        const mCode = meetingsDb.siteNameToCode(report.site_name);
+        const refDate = report.end_date || report.start_date || '';
+        const mY = parseInt(String(refDate).slice(0, 4), 10);
+        const mM = parseInt(String(refDate).slice(5, 7), 10);
+        if (mCode && mY && mM) meetingsSummary = meetingsDb.getSiteMonthlyMeetingSummary(mCode, mY, mM);
+      }
+    } catch (e) { console.warn('[Report] meetings summary failed:', e.message); }
+    const buf = await rpptx.generateWeeklyPptx(report, prevReport, openChanges, activeIncidents, meetingsSummary);
     const filename = `Endeavour_${report.site_name}_${report.week_label.replace(/\s/g,'_')}_Report.pptx`;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.presentationml.presentation');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);

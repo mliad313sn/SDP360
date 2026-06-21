@@ -2927,6 +2927,33 @@ a validation error.
 server. If it's missing, all `/import/*` routes return 503 but the
 rest of the meetings module keeps working — degraded mode is acceptable.
 
+### Weekly-deck "Department Meetings" slide (added 2026-06-21)
+
+The weekly report PPTX (`reports-weekly-pptx.js → generateWeeklyPptx`) now
+emits an extra **"Department Meetings · <Month>"** slide after Action Items,
+so the presenter can justify why department work is / isn't advancing.
+
+- **Data**: `meetings-db.getSiteMonthlyMeetingSummary(siteCode, year, month)`
+  — a calendar-month snapshot for one site: cadence KPIs (PVs held vs 3-dept
+  target, open/HIGH issues, resolved/new this month, escalations), a
+  per-department breakdown with a RAG status (`on_track` / `blocked` /
+  `no_pv`), a 3-month opened/closed trend, and an auto-generated
+  "why progress stalled" commentary string. Tested in
+  `tests/meetings-summary.test.js`.
+- **Slide**: `slideDepartmentMeetings(pptx, summary)` in
+  `reports-weekly-pptx.js` (KPI strip + dept table + RAG pills + commentary
+  band + trend strip). Tested in `tests/pptx-meetings-slide.test.js`.
+- **Wiring**: the weekly PPTX route (`GET /api/reports/:id/pptx`) maps the
+  report's `site_name → site_code` via `meetingsDb.siteNameToCode`, derives the
+  month from the report period, and passes the summary as
+  `generateWeeklyPptx(..., meetingsSummary)` (NEW optional 5th arg).
+- **Conditional + backward-compatible**: the slide is emitted ONLY when the
+  site has meeting data (`available` + departments/PVs). Callers that don't
+  pass the 5th arg (weekly summary deck, the golden test) render exactly as
+  before — that's why `tests/pptx-monthly-golden.test.js` still matches.
+- Snapshot every week shows the CURRENT month (fills in as PVs land). To get
+  the real look, the user can generate any submitted report's weekly PPTX.
+
 ### Insights dashboard (`meetings-insights.html` — added 2026-06-02)
 
 Chart-driven analytical view of the whole meetings module — for the IT

@@ -1686,8 +1686,125 @@ function compareDepartment(opts = {}) {
   };
 }
 
+// ── Per-site monthly meeting summary ──────────────────────────────────────
+// Feeds the "Department Meetings — Monthly Status" slide on the weekly report
+// deck. Returns a calendar-month snapshot for one site: cadence KPIs, a
+// per-department breakdown with a RAG status, a 3-month opened/closed trend,
+// and an auto-generated "why progress stalled" commentary line.
+//
+// `open` = issues whose status is not resolved/cancelled (standing backlog,
+// regardless of which month's PV raised them). `resolved_month` / `new_month`
+// are keyed on closed_at / created_at within the target month.
+const _OPEN_SQL = "i.status NOT IN ('resolved','cancelled')";
+function getSiteMonthlyMeetingSummary(siteCode, year, month) {
+  const db = getDB();
+  const ym = `${year}-${String(month).padStart(2, '0')}`;
+  const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const monthLabel = `${MON[month - 1]} ${year}`;
+  if (!siteCode) {
+    return { site_code: null, year, month, month_label: monthLabel, available: false,
+             kpis: {}, departments: [], trend: { months: [], opened: [], closed: [] }, commentary: '' };
+  }
+
+  // Cadence (PVs held this month) + the site-wide standing/flow issue counts.
+  const cad = db.prepare(
+    `SELECT COUNT(*) pvs, COUNT(DISTINCT department) depts
+       FROM md_meetings WHERE site_code=@site AND substr(meeting_date,1,7)=@ym`
+  ).get({ site: siteCode, ym });
+
+  const iss = db.prepare(
+    `SELECT
+        SUM(CASE WHEN ${_OPEN_SQL} THEN 1 ELSE 0 END)                                  open,
+        SUM(CASE WHEN ${_OPEN_SQL} AND i.severity='HIGH' THEN 1 ELSE 0 END)            high_open,
+        SUM(CASE WHEN ${_OPEN_SQL} AND i.escalate=1 THEN 1 ELSE 0 END)                 esc_open,
+        SUM(CASE WHEN substr(i.closed_at,1,7)=@ym THEN 1 ELSE 0 END)                   resolved_m,
+        SUM(CASE WHEN substr(i.created_at,1,7)=@ym THEN 1 ELSE 0 END)                  new_m
+       FROM md_issues i JOIN md_meetings m ON m.id=i.meeting_id
+      WHERE m.site_code=@site`
+  ).get({ site: siteCode, ym }) || {};
+
+  // Per-department: meeting cadence + issue counts, merged by department.
+  const deptMeet = db.prepare(
+    `SELECT department dept, MAX(meeting_date) last_pv,
+            MAX(CASE WHEN substr(meeting_date,1,7)=@ym THEN 1 ELSE 0 END) pv_this_month
+       FROM md_meetings WHERE site_code=@site GROUP BY department`
+  ).all({ site: siteCode, ym });
+  const deptIss = db.prepare(
+    `SELECT m.department dept,
+            SUM(CASE WHEN ${_OPEN_SQL} THEN 1 ELSE 0 END)                       open,
+            SUM(CASE WHEN ${_OPEN_SQL} AND i.severity='HIGH' THEN 1 ELSE 0 END) high,
+            SUM(CASE WHEN ${_OPEN_SQL} AND i.status='blocked' THEN 1 ELSE 0 END) blocked,
+            SUM(CASE WHEN substr(i.closed_at,1,7)=@ym THEN 1 ELSE 0 END)        resolved_m,
+            SUM(CASE WHEN substr(i.created_at,1,7)=@ym THEN 1 ELSE 0 END)       new_m
+       FROM md_issues i JOIN md_meetings m ON m.id=i.meeting_id
+      WHERE m.site_code=@site GROUP BY m.department`
+  ).all({ site: siteCode, ym });
+
+  const byDept = {};
+  for (const d of deptMeet) byDept[d.dept] = { department: d.dept, last_pv: d.last_pv || null,
+    pv_this_month: !!d.pv_this_month, open: 0, high: 0, blocked: 0, resolved_m: 0, new_m: 0 };
+  for (const d of deptIss) {
+    const t = byDept[d.dept] || (byDept[d.dept] = { department: d.dept, last_pv: null, pv_this_month: false, open: 0, high: 0, blocked: 0, resolved_m: 0, new_m: 0 });
+    t.open = d.open || 0; t.high = d.high || 0; t.blocked = d.blocked || 0;
+    t.resolved_m = d.resolved_m || 0; t.new_m = d.new_m || 0;
+  }
+  const departments = Object.values(byDept).map(t => {
+    let status = 'on_track';
+    if (!t.pv_this_month)              status = 'no_pv';
+    else if (t.blocked > 0 || t.high > 0) status = 'blocked';
+    return { ...t, status };
+  }).sort((a, b) => {
+    const rank = s => (s === 'blocked' ? 0 : s === 'no_pv' ? 1 : 2);
+    return rank(a.status) - rank(b.status) || (b.open - a.open);
+  });
+
+  // 3-month opened/closed trend ending at the target month.
+  const months = [], opened = [], closed = [];
+  for (let k = 2; k >= 0; k--) {
+    const d = new Date(year, month - 1 - k, 1);
+    const tym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    months.push(MON[d.getMonth()]);
+    const row = db.prepare(
+      `SELECT
+         SUM(CASE WHEN substr(i.created_at,1,7)=@tym THEN 1 ELSE 0 END) o,
+         SUM(CASE WHEN substr(i.closed_at,1,7)=@tym  THEN 1 ELSE 0 END) c
+        FROM md_issues i JOIN md_meetings m ON m.id=i.meeting_id WHERE m.site_code=@site`
+    ).get({ site: siteCode, tym }) || {};
+    opened.push(row.o || 0); closed.push(row.c || 0);
+  }
+
+  // Auto-commentary — the "why it's not advancing" justification line.
+  const bits = [];
+  for (const d of departments.filter(x => x.status === 'blocked').slice(0, 2))
+    bits.push(`${d.department}: ${d.open} issue${d.open === 1 ? '' : 's'} open${d.high ? ` (${d.high} HIGH)` : ''}`);
+  const noPv = departments.filter(x => x.status === 'no_pv').map(x => x.department);
+  if (noPv.length) bits.push(`${noPv.slice(0, 3).join(', ')}: no PV in ${MON[month - 1]}`);
+  if ((iss.esc_open || 0) > 0) bits.push(`${iss.esc_open} escalated to Council`);
+  const commentary = bits.length ? bits.join(' · ') : 'All departments met this month with no standing blockers.';
+
+  return {
+    site_code: siteCode, year, month, month_label: monthLabel, available: true,
+    kpis: {
+      pvs_held:        cad.pvs   || 0,
+      depts_with_pv:   cad.depts || 0,
+      dept_target:     3,                    // Engagement #1
+      open_issues:     iss.open      || 0,
+      high_open:       iss.high_open || 0,
+      resolved_month:  iss.resolved_m || 0,
+      new_month:       iss.new_m     || 0,
+      escalations_open:iss.esc_open  || 0,
+    },
+    departments,
+    trend: { months, opened, closed },
+    commentary,
+  };
+}
+
 module.exports = {
+  getDB,
   loadLookups,
+  siteNameToCode: _siteNameToCode,
+  getSiteMonthlyMeetingSummary,
   listMeetings, countMeetings, getMeeting, saveMeeting, deleteMeeting, getMeetingStatus,
   listIssues, listEscalations, addIssueUpdate,
   listActions, addActionUpdate, listActionUpdates, getActionParent, getIssueParent,
