@@ -1,192 +1,255 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fr">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>IT Operations — Executive View (service-first, with Changes)</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Group IT — Vue Exécutive</title>
+<!-- Self-contained except the web font. The 6-month chart is inline SVG (no
+     chart library) so the page works inside SharePoint's CSP with no external
+     script. No logo on purpose — SharePoint provides the site header. -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  /* Endeavour Mining brand (from _tokens.css). Service-health-first planche,
-     reproduced intact + a 6th 'Change success' KPI added to Service Health
-     (6 tiles laid out as 2 rows of 3). */
   :root{
-    --slate:#3A4A60; --orange:#EF631A; --blue:#145FAE;
-    --ink:#2C2C2A; --body:#524F4E; --muted:#7C7D7D; --line:#DCDEDB; --bg:#F4F5F7; --card:#FFFFFF;
-    --green:#1B9A3A; --amber:#EF9F27; --red:#D90038;
+    --navy:#1C3A5E; --blue:#2A5490; --sky:#0EA5E9; --orange:#E87722; --purple:#7C3AED;
+    --green:#2D9C4A; --amber:#E0A100; --red:#DC2626;
+    --ink:#1E293B; --muted:#64748B; --faint:#94A3B8;
+    --bg:#F1F5F9; --card:#FFFFFF; --soft:#F8FAFC; --line:#E2E8F0;
+    --r:10px; --r-sm:8px;
   }
-  *{box-sizing:border-box;}
-  body{margin:0;background:var(--bg);color:var(--ink);font-family:'Libre Franklin',system-ui,sans-serif;font-size:14px;line-height:1.45;}
-  .page{max-width:980px;margin:0 auto 28px;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--card);}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:'Libre Franklin',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    -webkit-font-smoothing:antialiased;font-size:14px;line-height:1.45;}
+  .poster{max-width:1180px;margin:0 auto;padding:14px;}
+  .card{background:var(--card);border:.5px solid var(--line);border-radius:var(--r);}
+  .muted{color:var(--muted)} .faint{color:var(--faint)}
+  .up{color:var(--green)} .down{color:var(--red)}
+  .num{font-variant-numeric:tabular-nums}
 
-  .hdr{background:var(--slate);color:#fff;padding:18px 28px;display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;}
-  .eyebrow{font-size:11px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:#9AA6B6;margin:0 0 4px;}
-  .hdr h1{margin:0;font-size:22px;font-weight:800;letter-spacing:.3px;text-transform:uppercase;}
-  .hdr .sub{margin:4px 0 0;font-size:12.5px;color:#AEB7C4;}
-  .hdr-r{text-align:right;}
-  .synced{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;background:rgba(27,154,58,.22);color:#A7E8B8;padding:5px 11px;border-radius:6px;}
-  .period{margin:6px 0 0;font-size:12px;color:#AEB7C4;}
-  .accent{height:4px;background:var(--orange);}
-  .wrap{padding:22px 28px 26px;}
+  .hdr{background:var(--navy);border-radius:var(--r);padding:14px 18px;
+    display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+  .hdr .eyebrow{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#9DB4CE}
+  .hdr h1{margin:2px 0 0;font-size:18px;font-weight:600;color:#fff}
+  .hdr .right{text-align:right;font-size:12px;color:#CBD5E1}
+  .pill{display:inline-block;font-size:11px;font-weight:600;padding:3px 11px;border-radius:20px}
+  .pill-ok{background:#173D27;color:#9EE6B4}
 
-  .sechead{display:flex;align-items:center;gap:10px;margin:0 0 6px;}
-  .sechead .sq{width:11px;height:11px;border-radius:2px;flex:none;}
-  .sechead .tx{font-size:12px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--slate);white-space:nowrap;}
-  .sechead .ln{flex:1;height:1px;background:var(--line);}
-  .secintro{font-size:13px;color:var(--body);margin:0 0 14px;max-width:96ch;line-height:1.5;}
-  .gap{height:26px;}
+  .band{margin-top:14px}
+  .band-h{display:flex;align-items:center;gap:9px;margin:0 2px 9px}
+  .band-h .bar{width:4px;height:16px;border-radius:2px;background:var(--orange)}
+  .band-h h2{margin:0;font-size:13px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--navy)}
+  .band-h .sub{font-size:11px;color:var(--muted)}
 
-  .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
-  .kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:13px 15px;position:relative;overflow:hidden;}
-  .kpi::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--blue);}
-  .kpi.k-green::before{background:var(--green);} .kpi.k-orange::before{background:var(--orange);} .kpi.k-navy::before{background:var(--slate);}
-  .kpi .l{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);min-height:26px;}
-  .kpi .v{font-size:27px;font-weight:800;margin:4px 0 0;color:var(--slate);line-height:1;}
-  .kpi .d{font-size:12px;margin:5px 0 0;color:var(--muted);}
-  .kpi .d.up{color:var(--green);font-weight:600;}
+  .grid{display:grid;gap:8px}
+  .g6{grid-template-columns:repeat(6,1fr)}
+  .g4{grid-template-columns:repeat(4,1fr)}
+  .g3{grid-template-columns:repeat(3,1fr)}
+  .g2{grid-template-columns:1fr 1fr}
+  @media(max-width:900px){.g6{grid-template-columns:repeat(3,1fr)}.g4{grid-template-columns:repeat(2,1fr)}.g3,.g2{grid-template-columns:1fr 1fr}}
+  @media(max-width:560px){.g6,.g4,.g3,.g2{grid-template-columns:1fr 1fr}}
 
-  .grid2{display:grid;grid-template-columns:1.45fr 1fr;gap:16px;}
-  .panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;}
-  .panel h2{margin:0 0 4px;font-size:14px;font-weight:700;color:var(--slate);}
-  .panel .psub{font-size:12px;color:var(--muted);margin:0 0 12px;line-height:1.45;}
-  .legend{display:flex;gap:16px;font-size:12px;color:var(--muted);margin-bottom:8px;}
-  .legend i{display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:5px;vertical-align:-1px;}
-  .chartbox{position:relative;height:210px;}
-  .sites{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-  .site{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--body);}
-  .dot{width:11px;height:11px;border-radius:50%;flex:none;}
-  .tracker{border-top:1px solid var(--line);margin-top:14px;padding-top:14px;}
-  .tracker .score{font-size:27px;font-weight:800;color:var(--slate);}
+  .kpi{background:var(--soft);border-radius:var(--r-sm);padding:10px 12px;border-left:3px solid var(--blue)}
+  .kpi .lab{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+  .kpi .val{font-size:23px;font-weight:600;color:var(--navy);line-height:1.1;margin-top:2px}
+  .kpi .sub{font-size:10.5px;color:var(--muted);margin-top:2px}
+  .a-blue{border-color:var(--blue)} .a-green{border-color:var(--green)} .a-orange{border-color:var(--orange)}
+  .a-purple{border-color:var(--purple)} .a-red{border-color:var(--red)} .a-sky{border-color:var(--sky)}
 
-  .pillars{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
-  .pcard{border-radius:12px;padding:14px;}
-  .pcard .pn{margin:0;font-size:12px;font-weight:600;}
-  .pcard .pv{margin:8px 0 0;font-size:26px;font-weight:800;}
-  .pbar{height:5px;border-radius:3px;margin-top:8px;}
-  .pcard .ps{margin:6px 0 0;font-size:11px;}
-  .p-net{background:#E6F1FB;color:#0C447C;}  .p-net .pbar{background:rgba(20,95,174,.22);}
-  .p-par{background:#FCEADF;color:#8A3410;}  .p-par .pbar{background:rgba(239,99,26,.22);}
-  .p-risk{background:#EEF0F2;color:#3A4A60;} .p-risk .pbar{background:rgba(58,74,96,.20);}
-  .p-ppl{background:#E7F3E1;color:#1C5C1E;}  .p-ppl .pbar{background:rgba(27,154,58,.22);}
+  .dot{width:9px;height:9px;border-radius:50%;display:inline-block;flex:0 0 auto}
+  .d-g{background:var(--green)} .d-a{background:var(--amber)} .d-r{background:var(--red)}
 
-  .road{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
-  .rc{border-radius:10px;padding:11px 13px;}
-  .rc.done{background:rgba(27,154,58,.09);} .rc.flight{background:rgba(20,95,174,.09);} .rc.risk{background:rgba(239,99,26,.12);}
-  .rc .rt{margin:0;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;} .rc.done .rt{color:#147A2D;} .rc.flight .rt{color:#145FAE;} .rc.risk .rt{color:#A65A05;}
-  .rc .rb{margin:5px 0 0;font-size:13px;font-weight:600;} .rc.done .rb{color:#147A2D;} .rc.flight .rb{color:#145FAE;} .rc.risk .rb{color:#A65A05;}
+  .row{display:flex;align-items:center;gap:8px}
+  .site{padding:9px 11px}
+  .site .nm{font-size:12.5px;font-weight:500}
+  .site .mt{font-size:10px;color:var(--muted)}
 
-  .grid2b{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
-  .note{border-radius:12px;padding:14px 18px;}
-  .note.win{background:rgba(27,154,58,.09);} .note.foc{background:rgba(239,99,26,.10);}
-  .note h3{margin:0 0 8px;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;}
-  .note.win h3{color:#147A2D;} .note.foc h3{color:#A65A05;}
-  .note ul{margin:0;padding-left:18px;font-size:13px;line-height:1.9;}
-  .note.win ul{color:#147A2D;} .note.foc ul{color:#A65A05;font-weight:600;}
+  .panel{padding:11px 13px}
+  .panel .ph{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px}
+  .stat{display:flex;gap:16px}
+  .stat .v{font-size:20px;font-weight:600} .stat .k{font-size:10px;color:var(--muted)}
+  .bar3{height:6px;border-radius:3px;background:var(--line);margin-top:9px;overflow:hidden;display:flex}
 
-  .foot{text-align:center;font-size:11px;color:#9AA3AF;padding:18px 0 0;}
-  @media(max-width:820px){.kpis,.grid2,.grid2b{grid-template-columns:1fr;}.pillars{grid-template-columns:repeat(2,1fr);}.road{grid-template-columns:1fr;}}
+  .pillar{padding:9px 12px}
+  .pillar .top{display:flex;justify-content:space-between;align-items:baseline}
+  .pillar .nm{font-size:12.5px;font-weight:500}
+  .pillar .pc{font-size:16px;font-weight:600;color:var(--navy)}
+  .track{height:6px;border-radius:3px;background:var(--line);margin-top:7px;overflow:hidden}
+  .fill{height:100%;border-radius:3px}
+
+  .list{margin:0;padding:0;list-style:none}
+  .list li{display:flex;gap:8px;align-items:flex-start;font-size:12px;padding:3px 0;color:var(--ink)}
+  .tick{color:var(--green);font-weight:700} .warn{color:var(--orange);font-weight:700}
+  .road-h{font-size:11px;font-weight:600;margin:0 0 4px}
+
+  .foot{margin-top:12px;display:flex;justify-content:space-between;font-size:10.5px;color:var(--faint);padding:2px 4px;flex-wrap:wrap;gap:6px}
+
+  .chart-wrap{padding:10px 12px}
+  .leg{display:flex;gap:14px;font-size:10.5px;color:var(--muted);margin-bottom:4px}
+  .leg b{display:inline-block;width:9px;height:9px;border-radius:2px;vertical-align:-1px;margin-right:4px}
 </style>
 </head>
 <body>
-<div class="page">
+<div class="poster">
+
+  <!-- Header (no logo — SharePoint provides the chrome) -->
   <div class="hdr">
     <div>
-      <p class="eyebrow">Group IT × Mines</p>
-      <h1>IT Operations — Executive View</h1>
-      <p class="sub">Service health first, then strategic progress</p>
+      <div class="eyebrow">Group IT &times; Mines</div>
+      <h1>Vue Ex&eacute;cutive IT &mdash; Op&eacute;rations &amp; Strat&eacute;gie</h1>
     </div>
-    <div class="hdr-r">
-      <span class="synced">● Synced 15 Jun 2026, 06:00</span>
-      <p class="period">Reporting period · May 2026</p>
+    <div class="right">
+      <div>P&eacute;riode &middot; Mai 2026</div>
+      <div class="faint" style="font-size:11px">Actualis&eacute; 15 juin 2026 &middot; via Boomi</div>
+      <span class="pill pill-ok" style="margin-top:5px">&#9679; Service stable</span>
     </div>
   </div>
-  <div class="accent"></div>
 
-  <div class="wrap">
+  <!-- SECTION 1 — SERVICE & OPERATIONS -->
+  <div class="band">
+    <div class="band-h"><span class="bar"></span><h2>Service &amp; op&eacute;rations</h2><span class="sub">Performance du mois</span></div>
 
-    <div class="sechead"><span class="sq" style="background:var(--slate)"></span><span class="tx">Service health</span><span class="ln"></span></div>
-    <p class="secintro">How the IT department is performing day to day — the headline numbers, how they're trending, and the status of each operating site.</p>
-    <div class="kpis">
-      <div class="kpi k-green"><div class="l">Requests resolved</div><div class="v">1,236</div><div class="d up">▲ 93% of all requests closed</div></div>
-      <div class="kpi"><div class="l">Answered on time</div><div class="v">91%</div><div class="d up">▲ within the agreed time (SLA)</div></div>
-      <div class="kpi k-orange"><div class="l">Avg time to resolve</div><div class="v">14h</div><div class="d">target: under 24h</div></div>
-      <div class="kpi k-green"><div class="l">User satisfaction</div><div class="v">88%</div><div class="d">from 214 ratings (CSAT)</div></div>
-      <div class="kpi k-navy"><div class="l">Major incidents</div><div class="v">3</div><div class="d">systems available 99.7% of the time</div></div>
-      <div class="kpi k-orange"><div class="l">Change success</div><div class="v">96%</div><div class="d">planned changes done without disruption</div></div>
+    <div class="grid g6">
+      <div class="kpi a-blue"><div class="lab">Demandes r&eacute;solues</div><div class="val num">1&nbsp;236</div><div class="sub">93% des demandes cl&ocirc;tur&eacute;es</div></div>
+      <div class="kpi a-green"><div class="lab">R&eacute;pondu dans les d&eacute;lais</div><div class="val num">91%</div><div class="sub">dans le SLA convenu</div></div>
+      <div class="kpi a-orange"><div class="lab">D&eacute;lai moy. de r&eacute;solution</div><div class="val num">14 h</div><div class="sub">cible &lt; 24 h</div></div>
+      <div class="kpi a-purple"><div class="lab">Satisfaction (CSAT)</div><div class="val num">88%</div><div class="sub">sur 214 &eacute;valuations</div></div>
+      <div class="kpi a-red"><div class="lab">Incidents majeurs</div><div class="val num">2</div><div class="sub">disponibilit&eacute; 99,7%</div></div>
+      <div class="kpi a-sky"><div class="lab">Changements r&eacute;ussis</div><div class="val num">96%</div><div class="sub">48 ex&eacute;cut&eacute;s, sans perturbation</div></div>
     </div>
 
-    <div class="gap"></div>
-
-    <div class="grid2">
-      <div class="panel">
-        <h2>Ticket volume &amp; SLA — last 6 months</h2>
-        <p class="psub">How many requests we resolved each month, and how often we answered within our agreed response time (SLA).</p>
-        <div class="legend"><span><i style="background:#145FAE"></i>Resolved</span><span><i style="background:#EF631A;height:3px;border-radius:0"></i>SLA %</span></div>
-        <div class="chartbox"><canvas id="trend" role="img" aria-label="Resolved tickets and SLA over six months."></canvas></div>
+    <div class="grid g2" style="margin-top:8px">
+      <div class="card chart-wrap">
+        <strong style="font-size:12px">Volume de tickets &amp; SLA &mdash; 6 derniers mois</strong>
+        <div class="leg" style="margin-top:6px"><span><b style="background:#2A5490"></b>R&eacute;solus</span><span><b style="background:#E87722"></b>SLA %</span></div>
+        <svg viewBox="0 0 560 150" width="100%" height="120" role="img" aria-label="Tickets resolus et SLA sur 6 mois">
+          <line x1="34" y1="120" x2="556" y2="120" stroke="#E2E8F0"/>
+          <line x1="34" y1="80" x2="556" y2="80" stroke="#F1F5F9"/>
+          <line x1="34" y1="40" x2="556" y2="40" stroke="#F1F5F9"/>
+          <g fill="#2A5490">
+            <rect x="48"  y="64" width="40" height="56" rx="2"/>
+            <rect x="133" y="52" width="40" height="68" rx="2"/>
+            <rect x="218" y="58" width="40" height="62" rx="2"/>
+            <rect x="303" y="46" width="40" height="74" rx="2"/>
+            <rect x="388" y="50" width="40" height="70" rx="2"/>
+            <rect x="473" y="40" width="40" height="80" rx="2"/>
+          </g>
+          <polyline fill="none" stroke="#E87722" stroke-width="2.5"
+            points="68,52 153,58 238,48 323,62 408,40 493,44"/>
+          <g fill="#E87722">
+            <circle cx="68" cy="52" r="3"/><circle cx="153" cy="58" r="3"/><circle cx="238" cy="48" r="3"/>
+            <circle cx="323" cy="62" r="3"/><circle cx="408" cy="40" r="3"/><circle cx="493" cy="44" r="3"/>
+          </g>
+          <g fill="#94A3B8" font-size="10" text-anchor="middle" font-family="Libre Franklin,sans-serif">
+            <text x="68" y="135">D&eacute;c</text><text x="153" y="135">Jan</text><text x="238" y="135">F&eacute;v</text>
+            <text x="323" y="135">Mar</text><text x="408" y="135">Avr</text><text x="493" y="135">Mai</text>
+          </g>
+        </svg>
       </div>
-      <div class="panel">
-        <h2>Site status</h2>
-        <p class="psub">Overall IT health at each operating site. Green = healthy, amber = watch, red = needs attention.</p>
-        <div class="sites">
-          <span class="site"><span class="dot" style="background:#1B9A3A"></span>Houndé</span><span class="site"><span class="dot" style="background:#1B9A3A"></span>Mana</span>
-          <span class="site"><span class="dot" style="background:#EF9F27"></span>Sabodala</span><span class="site"><span class="dot" style="background:#1B9A3A"></span>Ity</span>
-          <span class="site"><span class="dot" style="background:#1B9A3A"></span>Kalana</span><span class="site"><span class="dot" style="background:#D90038"></span>Lafigué</span>
-          <span class="site"><span class="dot" style="background:#1B9A3A"></span>Dakar</span><span class="site"><span class="dot" style="background:#EF9F27"></span>Ouaga</span>
-        </div>
-        <div class="tracker">
-          <h2 style="margin-bottom:3px">IT strategy tracker</h2>
-          <p class="psub" style="margin-bottom:8px">Average progress on the multi-year IT strategy across all sites — detailed by pillar below.</p>
-          <span class="score">72%</span> <span style="color:var(--muted);font-size:12px">fleet score · ▲ +3 over six months</span>
+
+      <div class="card panel">
+        <div class="ph" style="color:var(--navy)">Statut par site</div>
+        <div class="grid g4" style="gap:6px">
+          <div class="row site"><span class="dot d-g"></span><div><div class="nm">Hound&eacute;</div><div class="mt">OK</div></div></div>
+          <div class="row site"><span class="dot d-g"></span><div><div class="nm">Mana</div><div class="mt">OK</div></div></div>
+          <div class="row site"><span class="dot d-g"></span><div><div class="nm">Sabodala</div><div class="mt">OK</div></div></div>
+          <div class="row site"><span class="dot d-g"></span><div><div class="nm">Ity</div><div class="mt">OK</div></div></div>
+          <div class="row site"><span class="dot d-a"></span><div><div class="nm">Kalana</div><div class="mt">WAN &agrave; surveiller</div></div></div>
+          <div class="row site"><span class="dot d-r"></span><div><div class="nm">Lafigu&eacute;</div><div class="mt">&Eacute;nergie / UPS</div></div></div>
+          <div class="row site"><span class="dot d-g"></span><div><div class="nm">Dakar</div><div class="mt">OK</div></div></div>
+          <div class="row site"><span class="dot d-g"></span><div><div class="nm">Ouaga</div><div class="mt">OK</div></div></div>
         </div>
       </div>
     </div>
 
-    <div class="gap"></div>
+    <div class="grid g3" style="margin-top:8px">
+      <div class="card panel">
+        <div class="ph" style="color:var(--sky)">Changements</div>
+        <div class="stat">
+          <div><div class="v num">48</div><div class="k">ex&eacute;cut&eacute;s</div></div>
+          <div><div class="v num up">96%</div><div class="k">r&eacute;ussis</div></div>
+          <div><div class="v num">2</div><div class="k">urgents</div></div>
+        </div>
+        <div class="muted" style="font-size:10.5px;margin-top:8px">Aucun changement majeur en &eacute;chec ce mois.</div>
+      </div>
 
-    <div class="sechead"><span class="sq" style="background:var(--blue)"></span><span class="tx">Strategic progress</span><span class="ln"></span></div>
-    <p class="secintro">The IT strategy is organised into four pillars. Each score (0–100%) shows how far we've advanced that pillar this year — higher is better.</p>
-    <div class="pillars">
-      <div class="pcard p-net"><p class="pn">Network infrastructure</p><p class="pv">81%</p><div class="pbar"><div style="width:81%;height:5px;border-radius:3px;background:#145FAE"></div></div><p class="ps">on track · ▲ +5</p></div>
-      <div class="pcard p-par"><p class="pn">Business partnering</p><p class="pv">74%</p><div class="pbar"><div style="width:74%;height:5px;border-radius:3px;background:#EF631A"></div></div><p class="ps">on track · ▲ +2</p></div>
-      <div class="pcard p-risk"><p class="pn">Risk &amp; compliance</p><p class="pv">63%</p><div class="pbar"><div style="width:63%;height:5px;border-radius:3px;background:#3A4A60"></div></div><p class="ps">below target · ▼ −1</p></div>
-      <div class="pcard p-ppl"><p class="pn">Manage people</p><p class="pv">69%</p><div class="pbar"><div style="width:69%;height:5px;border-radius:3px;background:#1B9A3A"></div></div><p class="ps">on track · ▲ +4</p></div>
+      <div class="card panel">
+        <div class="ph" style="color:var(--red)">Incidents majeurs</div>
+        <div class="stat">
+          <div><div class="v num">2</div><div class="k">P1 / P2</div></div>
+          <div><div class="v num">3 h 12</div><div class="k">indispo. cumul&eacute;e</div></div>
+        </div>
+        <div class="muted" style="font-size:10.5px;margin-top:8px">Hound&eacute; &mdash; coupure WAN principale. RCA cl&ocirc;tur&eacute;e, PIR partag&eacute;.</div>
+      </div>
+
+      <div class="card panel">
+        <div class="ph" style="color:var(--amber)">Suivi des actions (r&eacute;unions)</div>
+        <div class="stat">
+          <div><div class="v num up">17</div><div class="k">cl&ocirc;tur&eacute;es</div></div>
+          <div><div class="v num">23</div><div class="k">ouvertes</div></div>
+          <div><div class="v num down">4</div><div class="k">en retard</div></div>
+        </div>
+        <div class="bar3"><div style="width:42%;background:var(--green)"></div><div style="width:48%;background:var(--blue)"></div><div style="width:10%;background:var(--red)"></div></div>
+      </div>
     </div>
-
-    <div class="gap"></div>
-
-    <div class="sechead"><span class="sq" style="background:var(--orange)"></span><span class="tx">Strategic roadmap — this quarter</span><span class="ln"></span></div>
-    <p class="secintro">The major IT initiatives planned for this quarter and where each one stands — delivered, underway, or at risk of slipping.</p>
-    <div class="road">
-      <div class="rc done"><p class="rt">✓ Delivered</p><p class="rb">Houndé network upgrade · SOC onboarding phase 1</p></div>
-      <div class="rc flight"><p class="rt">◑ In flight</p><p class="rb">Identity &amp; access programme · DR test for 2 sites</p></div>
-      <div class="rc risk"><p class="rt">▲ At risk</p><p class="rb">Lafigué power resilience · compliance pillar catch-up</p></div>
-    </div>
-
-    <div class="gap"></div>
-
-    <div class="grid2b">
-      <div class="note win"><h3>✓ Highlights this month</h3><ul><li>SLA recovered to 91% after the April dip</li><li>Houndé network upgrade completed</li><li>CSAT up 4 points to 88%</li></ul></div>
-      <div class="note foc"><h3>▲ Focus areas</h3><ul><li>Lafigué power / UPS stability (red)</li><li>Risk &amp; compliance pillar below target</li><li>2 major incidents pending root-cause</li></ul></div>
-    </div>
-
-    <p class="foot">IT Operations — Executive View · sample figures · no individual performance or customer comments</p>
   </div>
+
+  <!-- SECTION 2 — STRATEGIE, SITES & PERSPECTIVES -->
+  <div class="band">
+    <div class="band-h"><span class="bar"></span><h2>Strat&eacute;gie &amp; perspectives</h2><span class="sub">Avancement du plan IT</span></div>
+
+    <div class="grid g2">
+      <div class="card panel">
+        <div class="row" style="justify-content:space-between;align-items:baseline">
+          <div class="ph" style="color:var(--navy);margin:0">IT strategy tracker</div>
+          <div style="text-align:right"><span style="font-size:22px;font-weight:600;color:var(--navy)">72%</span>
+            <span class="up" style="font-size:11px"> &#9650; +3 sur 6 mois</span><div class="muted" style="font-size:10px">score flotte</div></div>
+        </div>
+        <div style="margin-top:8px">
+          <div class="pillar"><div class="top"><span class="nm">Infrastructure r&eacute;seau</span><span class="pc">81%</span></div><div class="track"><div class="fill" style="width:81%;background:var(--green)"></div></div><div class="up" style="font-size:10px;margin-top:3px">sur la trajectoire &middot; &#9650; +5</div></div>
+          <div class="pillar"><div class="top"><span class="nm">Business partnering</span><span class="pc">74%</span></div><div class="track"><div class="fill" style="width:74%;background:var(--green)"></div></div><div class="up" style="font-size:10px;margin-top:3px">sur la trajectoire &middot; &#9650; +2</div></div>
+          <div class="pillar"><div class="top"><span class="nm">Risque &amp; conformit&eacute;</span><span class="pc" style="color:var(--red)">63%</span></div><div class="track"><div class="fill" style="width:63%;background:var(--red)"></div></div><div class="down" style="font-size:10px;margin-top:3px">sous la cible &middot; &#9660; &minus;1</div></div>
+          <div class="pillar"><div class="top"><span class="nm">Gestion des personnes</span><span class="pc">69%</span></div><div class="track"><div class="fill" style="width:69%;background:var(--amber)"></div></div><div class="up" style="font-size:10px;margin-top:3px">sur la trajectoire &middot; &#9650; +4</div></div>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div class="card panel">
+          <div class="ph" style="color:var(--navy)">Feuille de route &mdash; ce trimestre</div>
+          <div class="grid g3" style="gap:8px">
+            <div><div class="road-h tick">&#10003; Livr&eacute;</div><div class="muted" style="font-size:10.5px;line-height:1.5">R&eacute;seau Hound&eacute; &middot; SOC onboarding ph.1</div></div>
+            <div><div class="road-h" style="color:var(--sky)">&#9681; En cours</div><div class="muted" style="font-size:10.5px;line-height:1.5">SOC ph.2 &middot; WAN redondant</div></div>
+            <div><div class="road-h warn">&#9650; &Agrave; risque</div><div class="muted" style="font-size:10.5px;line-height:1.5">Migration Postgres &middot; Cert PKI wildcard</div></div>
+          </div>
+        </div>
+
+        <div class="grid g2" style="gap:8px">
+          <div class="card panel">
+            <div class="ph" style="color:var(--green)">&#10003; Points forts du mois</div>
+            <ul class="list">
+              <li><span class="tick">&#10003;</span>SLA redress&eacute; &agrave; 91% apr&egrave;s le creux d'avril</li>
+              <li><span class="tick">&#10003;</span>Mise &agrave; niveau r&eacute;seau Hound&eacute; termin&eacute;e</li>
+              <li><span class="tick">&#10003;</span>CSAT +4 points, &agrave; 88%</li>
+            </ul>
+          </div>
+          <div class="card panel">
+            <div class="ph" style="color:var(--orange)">&#9650; Points de vigilance</div>
+            <ul class="list">
+              <li><span class="warn">&#9650;</span>Stabilit&eacute; &eacute;nergie / UPS &agrave; Lafigu&eacute; (rouge)</li>
+              <li><span class="warn">&#9650;</span>Pilier Risque &amp; conformit&eacute; sous la cible</li>
+              <li><span class="warn">&#9650;</span>2 incidents majeurs en attente de RCA</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">
+    <span>Donn&eacute;es SDP au 15 juin 2026 &middot; actualis&eacute;es via Boomi &middot; vue int&eacute;gr&eacute;e SharePoint M365</span>
+    <span>Group IT &mdash; Endeavour Mining</span>
+  </div>
+
 </div>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
-<script>
-new Chart(document.getElementById('trend'), {
-  data:{ labels:['Dec','Jan','Feb','Mar','Apr','May'],
-    datasets:[
-      {type:'bar',label:'Resolved',data:[1080,1120,1190,1150,1198,1236],backgroundColor:'#145FAE',borderRadius:4,yAxisID:'y'},
-      {type:'line',label:'SLA %',data:[86,88,89,87,90,91],borderColor:'#EF631A',backgroundColor:'#EF631A',borderWidth:2,tension:.3,pointRadius:3,yAxisID:'y1'}
-    ]},
-  options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
-    scales:{y:{position:'left',min:0,max:1400,grid:{display:false},ticks:{font:{size:11}}},
-      y1:{position:'right',min:70,max:100,grid:{display:false},ticks:{font:{size:11},callback:v=>v+'%'}},
-      x:{grid:{display:false},ticks:{font:{size:11}}}}}
-});
-</script>
 </body>
 </html>
