@@ -1414,7 +1414,9 @@ pm2 reload endeavour-dashboard
 
 | File | Purpose |
 |------|---------|
-| `server.js` | Express API, sync jobs, PM2 entry point |
+| `server.js` | Express API, sync jobs, PM2 entry point. **Being split** — see `routes/` (split-server.js pilot). |
+| `routes/inspection.js` | First module extracted from server.js (split pilot, 2026-06-21). Factory `module.exports = (deps) => router` — DI pattern: server.js passes `{ express, inspectionDb, inspectionPptx, rdb, require* middleware, getRawCache }` and does `app.use(require('./routes/inspection')(deps))`. Handlers byte-identical to the old inline ones. Tested by `tests/inspection-routes.test.js`. **Pattern to copy for future extractions** (meetings, tracker, risk-register…). |
+| `services/blobStore.js` | Filesystem blob store (`<DATA_DIR>/blobs/<module>/<owner>/…`) — keeps inspection photos/signatures (and future blobs) OUT of SQLite. Path-traversal-guarded, SDP_DATA_DIR-aware. |
 | `reports-weekly-pptx.js` | Weekly PPTX **and** all `slideMonthly*` monthly slide functions |
 | `reports-monthly-pptx.js` | Dedicated monthly PPTX generator — FORKED `slideMonthly*` (feeds v2 + all-sites decks; NOT identical to the weekly file's copies — see the slideMonthly* audit section) |
 | `reports-pptx-shared.js` | Shared pure RAG/trend helpers (`statusColor`, `trendArrow`, `trendColor`, `computeTrends`, `autoStatusColor`) deduplicated out of both PPTX files. Edit here, not in copies. |
