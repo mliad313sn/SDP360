@@ -16,7 +16,8 @@ const { C, EDV, FONTS } = require('./public/brand/brand-tokens');
 
 // Shared RAG/trend helpers — single source of truth, also used by
 // reports-monthly-pptx.js (see reports-pptx-shared.js).
-const { statusColor, trendArrow, trendColor, computeTrends, autoStatusColor } = require('./reports-pptx-shared');
+const { statusColor, trendArrow, trendColor, computeTrends, autoStatusColor,
+        slideDepartmentMeetings, hasDeptMeetingData } = require('./reports-pptx-shared');
 
 // ── SLIDE HELPERS ─────────────────────────────────────────────────
 function addTitle(slide, text, subtitle) {
@@ -656,91 +657,6 @@ function slideActionItems(pptx, report) {
   return slide;
 }
 
-// ── SLIDE — DEPARTMENT MEETINGS MONTHLY STATUS ────────────────────
-// Snapshot of the site's department-meeting cadence + issue progress for the
-// current month, so the presenter can justify why things are / aren't moving.
-// Fed by meetings-db.getSiteMonthlyMeetingSummary(). Conditional: only emitted
-// when the site actually has meeting data (see generateWeeklyPptx).
-function slideDepartmentMeetings(pptx, summary) {
-  const slide = pptx.addSlide();
-  const s = summary || {};
-  const k = s.kpis || {};
-  const siteLabel = s.site_code ? s.site_code + ' — ' : '';
-  addTitle(slide, `${siteLabel}Department Meetings · ${s.month_label || ''}`, null);
-
-  // KPI strip — 4 tiles
-  const tileW = 3.13, tileG = 0.04, tileH = 0.85, tileY = 1.0;
-  const tX = i => 0.3 + i * (tileW + tileG);
-  const tile = (col, label, value, sub, accent) => {
-    const x = tX(col);
-    slide.addShape('rect', { x, y: tileY, w: tileW, h: tileH, fill: { color: 'FFFFFF' }, line: { color: 'DDDDDD', pt: 0.5 } });
-    slide.addShape('rect', { x, y: tileY, w: 0.06, h: tileH, fill: { color: accent }, line: { color: accent, pt: 0 } });
-    slide.addText(label, { x: x + 0.12, y: tileY + 0.06, w: tileW - 0.2, h: 0.16, fontSize: 8, bold: true, color: '444444', fontFace: 'Calibri', valign: 'middle' });
-    slide.addText(String(value), { x: x + 0.12, y: tileY + 0.26, w: tileW - 0.2, h: 0.34, fontSize: 22, bold: true, color: C.blue, fontFace: 'Calibri', valign: 'middle' });
-    if (sub) slide.addText(sub, { x: x + 0.12, y: tileY + 0.62, w: tileW - 0.2, h: 0.16, fontSize: 8, color: '666666', fontFace: 'Calibri', valign: 'middle' });
-  };
-  const pvBelow = (k.depts_with_pv || 0) < (k.dept_target || 3);
-  tile(0, 'PVs HELD (MONTH)', `${k.pvs_held || 0} / ${k.dept_target || 3}`, pvBelow ? 'below 3-dept target' : 'target met', pvBelow ? C.orange : '2D9C4A');
-  tile(1, 'OPEN ISSUES', k.open_issues || 0, `${k.high_open || 0} HIGH severity`, 'DC2626');
-  tile(2, 'RESOLVED (MONTH)', k.resolved_month || 0, `${k.new_month || 0} new raised`, '2D9C4A');
-  tile(3, 'ESCALATIONS OPEN', k.escalations_open || 0, 'to Mine IT Council', '7C3AED');
-
-  // Per-department table (cap 8 rows so it fits)
-  addSectionBadge(slide, 'Department status', 0.3, 2.05, 12.73);
-  const MAXD = 8;
-  const depts = (s.departments || []).slice(0, MAXD);
-  const pill = { blocked: { bg: 'FCEBEB', fg: 'A32D2D', txt: 'BLOCKED' },
-                 no_pv:   { bg: 'FAEEDA', fg: '854F0B', txt: 'NO PV — MISS' },
-                 on_track:{ bg: 'EAF3DE', fg: '3B6D11', txt: 'ON TRACK' } };
-  const hdr = ['Department', 'Last PV', 'Open', 'HIGH', 'Resolved', 'New', 'Status'].map((t, i) => ({
-    text: t, options: { bold: true, color: C.white, fill: { color: C.tableHead }, align: i === 0 ? 'left' : 'center' } }));
-  const rows = depts.length ? depts.map((d, i) => {
-    const f = i % 2 === 0 ? C.lightGrey : C.white;
-    const p = pill[d.status] || pill.on_track;
-    return [
-      { text: d.department || '—',        options: { fill: { color: f }, bold: true, align: 'left' } },
-      { text: d.last_pv || '— none',      options: { fill: { color: f }, align: 'center', color: d.last_pv ? C.darkGrey : '999999' } },
-      { text: String(d.open || 0),        options: { fill: { color: f }, align: 'center' } },
-      { text: String(d.high || 0),        options: { fill: { color: f }, align: 'center', bold: (d.high || 0) > 0, color: (d.high || 0) > 0 ? 'A32D2D' : C.darkGrey } },
-      { text: String(d.resolved_m || 0),  options: { fill: { color: f }, align: 'center' } },
-      { text: String(d.new_m || 0),       options: { fill: { color: f }, align: 'center' } },
-      { text: p.txt,                      options: { fill: { color: p.bg }, align: 'center', bold: true, color: p.fg } },
-    ];
-  }) : [[{ text: 'No department meetings recorded for this site yet.', options: { colspan: 7, align: 'center', color: '888888', italic: true } }]];
-
-  const rowH = 0.42;
-  const tableH = (rows.length + 1) * rowH;
-  slide.addTable([hdr, ...rows], {
-    x: 0.3, y: 2.42, w: 12.73, fontFace: 'Calibri', fontSize: 11,
-    border: { type: 'solid', color: 'CCCCCC', pt: 0.5 },
-    colW: [3.93, 1.7, 1.3, 1.2, 1.5, 1.2, 1.9], rowH,
-  });
-  if ((s.departments || []).length > MAXD) {
-    slide.addText(`+ ${(s.departments.length - MAXD)} more departments — see the Meetings module`, {
-      x: 0.3, y: 2.42 + tableH + 0.02, w: 12.73, h: 0.18, fontSize: 8, italic: true, color: '888888', fontFace: 'Calibri' });
-  }
-
-  // Commentary band — the "why progress stalled" justification
-  const cmtY = Math.min(2.42 + tableH + 0.22, 6.35);
-  slide.addShape('rect', { x: 0.3, y: cmtY, w: 12.73, h: 0.62, fill: { color: 'FBF3E9' }, line: { color: 'E8C9A0', pt: 0.5 } });
-  slide.addShape('rect', { x: 0.3, y: cmtY, w: 0.06, h: 0.62, fill: { color: C.orange }, line: { color: C.orange, pt: 0 } });
-  slide.addText('WHY PROGRESS STALLED', { x: 0.46, y: cmtY + 0.05, w: 12.5, h: 0.16, fontSize: 8, bold: true, color: 'A05A12', fontFace: 'Calibri' });
-  slide.addText(s.commentary || '—', { x: 0.46, y: cmtY + 0.22, w: 12.5, h: 0.36, fontSize: 11, color: '5A3A12', fontFace: 'Calibri', valign: 'top' });
-
-  // 3-month opened/closed trend strip
-  const tr = s.trend || { months: [], opened: [], closed: [] };
-  if (tr.months && tr.months.length) {
-    const ty = cmtY + 0.72;
-    const pairs = tr.months.map((m, i) => `${m}: ${tr.opened[i] || 0}↑/${tr.closed[i] || 0}↓`).join('    ');
-    slide.addText([
-      { text: '3-month issue flow  ', options: { bold: true, color: C.blue } },
-      { text: pairs, options: { color: '555555' } },
-      { text: '    (opened↑ / closed↓ — flat or rising opened = not advancing)', options: { italic: true, color: '999999' } },
-    ], { x: 0.3, y: ty, w: 12.73, h: 0.22, fontSize: 9, fontFace: 'Calibri', valign: 'middle' });
-  }
-  return slide;
-}
-
 // ── SLIDE — MONTHLY INFRA SUMMARY ────────────────────────────────
 function slideMonthlyInfra(pptx, monthlyData, siteName, monthLabel) {
   const slide = pptx.addSlide();
@@ -832,10 +748,7 @@ async function generateWeeklyPptx(report, prevReport, openChanges, activeInciden
   slideActiveIncidents(pptx, report, activeIncidents || []);
   slideActionItems(pptx, report);
   // Department meetings monthly status — only when the site has meeting data.
-  if (meetingsSummary && meetingsSummary.available &&
-      ((meetingsSummary.departments && meetingsSummary.departments.length) || (meetingsSummary.kpis && meetingsSummary.kpis.pvs_held))) {
-    slideDepartmentMeetings(pptx, meetingsSummary);
-  }
+  if (hasDeptMeetingData(meetingsSummary)) slideDepartmentMeetings(pptx, meetingsSummary);
 
   return fixComboChartAxes(await pptx.write({ outputType: 'nodebuffer' }));
 }
@@ -868,6 +781,8 @@ async function generateMonthlyPptx(monthlyData, siteName, year, month) {
 
   // Monthly infra summary (averages + past months)
   slideMonthlyInfra(pptx, monthlyData, siteName, monthLabel);
+  // Department meetings monthly status (once per site).
+  if (hasDeptMeetingData(monthlyData.meetingsSummary)) slideDepartmentMeetings(pptx, monthlyData.meetingsSummary);
 
   return fixComboChartAxes(await pptx.write({ outputType: 'nodebuffer' }));
 }
@@ -930,6 +845,8 @@ async function generateWeeklySummaryPptx(summaryData) {
     slideLights(pptx, report, report.openChanges || []);
     slideActiveIncidents(pptx, report, report.activeIncidents || []);
     slideActionItems(pptx, report);
+    // Department meetings monthly status — per site, when data exists.
+    if (hasDeptMeetingData(report.meetingsSummary)) slideDepartmentMeetings(pptx, report.meetingsSummary);
   });
 
   return fixComboChartAxes(await pptx.write({ outputType: 'nodebuffer' }));

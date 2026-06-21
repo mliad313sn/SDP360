@@ -4882,6 +4882,19 @@ app.put('/api/reports/:id/reassign-week', requireReportSession, jsonBody, (req, 
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// Build the per-site monthly meeting summary for the report decks. Maps the
+// report's site name to a meetings site_code and returns the calendar-month
+// snapshot, or null (degrades gracefully) if the meetings module is absent,
+// the site can't be mapped, or anything throws.
+function _meetingsSummaryForSite(siteName, year, month) {
+  try {
+    if (!meetingsDb || !siteName || !year || !month) return null;
+    const code = meetingsDb.siteNameToCode(siteName);
+    if (!code) return null;
+    return meetingsDb.getSiteMonthlyMeetingSummary(code, parseInt(year, 10), parseInt(month, 10));
+  } catch (e) { console.warn('[Report] meetings summary failed:', e.message); return null; }
+}
+
 // GET /api/reports/:id/pptx  — download weekly PPTX
 app.get('/api/reports/:id/pptx', requireReportSession, async (req, res) => {
   if (!rpptx) return res.status(503).json({ error: 'PPTX module not available' });
@@ -4900,18 +4913,9 @@ app.get('/api/reports/:id/pptx', requireReportSession, async (req, res) => {
     const openChanges     = rdb.getOpenChangesForSite(_wGroups);
     const activeIncidents = rdb.getActiveMajorIncidentsForSite(_wGroups);
     // Department-meetings monthly snapshot for the report's site + month —
-    // drives the new "Department Meetings" slide. Degrades gracefully (null)
-    // if the meetings module is unavailable or the site can't be mapped.
-    let meetingsSummary = null;
-    try {
-      if (meetingsDb && report.site_name) {
-        const mCode = meetingsDb.siteNameToCode(report.site_name);
-        const refDate = report.end_date || report.start_date || '';
-        const mY = parseInt(String(refDate).slice(0, 4), 10);
-        const mM = parseInt(String(refDate).slice(5, 7), 10);
-        if (mCode && mY && mM) meetingsSummary = meetingsDb.getSiteMonthlyMeetingSummary(mCode, mY, mM);
-      }
-    } catch (e) { console.warn('[Report] meetings summary failed:', e.message); }
+    // drives the new "Department Meetings" slide.
+    const _wRef = report.end_date || report.start_date || '';
+    const meetingsSummary = _meetingsSummaryForSite(report.site_name, String(_wRef).slice(0, 4), String(_wRef).slice(5, 7));
     const buf = await rpptx.generateWeeklyPptx(report, prevReport, openChanges, activeIncidents, meetingsSummary);
     const filename = `Endeavour_${report.site_name}_${report.week_label.replace(/\s/g,'_')}_Report.pptx`;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.presentationml.presentation');
@@ -4936,7 +4940,8 @@ app.get('/api/reports/monthly/all-sites/:year/:month/pptx', requireReportSession
       const _aGroups   = (site.zoho_group || '').split(',').map(g => g.trim()).filter(Boolean);
       const openChanges     = rdb.getOpenChangesForSite(_aGroups);
       const activeIncidents = rdb.getActiveMajorIncidentsForSite(_aGroups);
-      allData.push({ site, monthlyData, edits, objectives, yearlyData, openChanges, activeIncidents });
+      allData.push({ site, monthlyData, edits, objectives, yearlyData, openChanges, activeIncidents,
+        meetingsSummary: _meetingsSummaryForSite(site.name, year, month) });
     }
     if (allData.length === 0) return res.status(404).json({ error: 'No active sites found' });
     const buf = await rpptxMonthly.generateAllSitesMonthlyPptx(allData, parseInt(year), parseInt(month));
@@ -4973,6 +4978,7 @@ app.get('/api/reports/monthly/:site_id/:year/:month/pptx', requireReportSession,
         r ? { ...r, openChanges: _openChanges, activeIncidents: _activeIncidents } : r
       );
     }
+    monthlyData.meetingsSummary = _meetingsSummaryForSite(site.name, year, month);
     const buf = await rpptx.generateMonthlyPptx(monthlyData, site.name, parseInt(year), parseInt(month));
     const monthName = new Date(parseInt(year), parseInt(month)-1, 1).toLocaleString('en',{month:'long'});
     const filename = `Endeavour_${site.name}_${monthName}_${year}_Monthly_Report.pptx`;
@@ -4995,6 +5001,8 @@ app.get('/api/reports/weekly-summary/:year/:week/pptx', requireReportSession, as
     // report so generateWeeklySummaryPptx → slideLights renders both
     // panels for every site's slide.
     const _wsSites = rdb.listSites();
+    const _wsRange = rdb.getWeekRange(parseInt(year), parseInt(week));
+    const _wsRef   = (_wsRange && (_wsRange.end || _wsRange.start)) || '';
     summaryData.reports = summaryData.reports.map(r => {
       const _s = _wsSites.find(s => s.id === r.site_id);
       const _g = _s ? (_s.zoho_group || '').split(',').map(g => g.trim()).filter(Boolean) : [];
@@ -5002,6 +5010,7 @@ app.get('/api/reports/weekly-summary/:year/:week/pptx', requireReportSession, as
         ...r,
         openChanges:     rdb.getOpenChangesForSite(_g),
         activeIncidents: rdb.getActiveMajorIncidentsForSite(_g),
+        meetingsSummary: _meetingsSummaryForSite(_s ? _s.name : null, String(_wsRef).slice(0, 4), String(_wsRef).slice(5, 7)),
       };
     });
     const buf = await rpptx.generateWeeklySummaryPptx(summaryData);
@@ -5106,6 +5115,7 @@ app.get('/api/reports/monthly/:site_id/:year/:month/pptx-v2', requireReportSessi
     const _mGroups       = (site.zoho_group || '').split(',').map(g => g.trim()).filter(Boolean);
     const openChanges    = rdb.getOpenChangesForSite(_mGroups);
     const activeIncidents= rdb.getActiveMajorIncidentsForSite(_mGroups);
+    monthlyData.meetingsSummary = _meetingsSummaryForSite(site.name, year, month);
     const buf = await rpptxMonthly.generateMonthlyPptxV2(monthlyData, site.name, parseInt(year), parseInt(month), edits, objectives, yearlyData, openChanges, activeIncidents);
     const monthName = new Date(parseInt(year), parseInt(month)-1, 1).toLocaleString('en', { month: 'long' });
     const filename = `Endeavour_${site.name}_${year}_${monthName}_Monthly_Report.pptx`;

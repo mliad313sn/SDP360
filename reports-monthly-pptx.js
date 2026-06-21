@@ -31,7 +31,8 @@ const { C, EDV, FONTS } = require('./public/brand/brand-tokens');
 // the byte-identical helpers shared with reports-weekly-pptx.js — single
 // source of truth in reports-pptx-shared.js. The monthly-only helpers
 // (slaColor / pctColor / infraCellColor) stay below.
-const { statusColor, trendArrow, trendColor, computeTrends, autoStatusColor } = require('./reports-pptx-shared');
+const { statusColor, trendArrow, trendColor, computeTrends, autoStatusColor,
+        slideDepartmentMeetings, hasDeptMeetingData } = require('./reports-pptx-shared');
 
 function slaColor(pct) {
   if (pct == null) return C.midGrey;
@@ -980,13 +981,15 @@ async function generateMonthlyPptxV2(monthlyData, siteName, year, month, edits, 
   slideMonthlyActiveIncidents(pptx, monthLabel, activeIncidents || [], siteName);
   slideMonthlyActionsV2(pptx, editedActions, monthLabel);
   slideAnnualObjectives(pptx, objectives, siteName, year);
+  // Department meetings monthly status (summary attached to monthlyData).
+  if (hasDeptMeetingData(monthlyData.meetingsSummary)) slideDepartmentMeetings(pptx, monthlyData.meetingsSummary);
 
   return fixComboChartAxes(await pptx.write({ outputType: 'nodebuffer' }));
 }
 
 /**
  * Generate a combined deck for all sites in one PPTX.
- * allSiteData: [{ site, monthlyData, edits, objectives }, ...]
+ * allSiteData: [{ site, monthlyData, edits, objectives, meetingsSummary }, ...]
  */
 async function generateAllSitesMonthlyPptx(allSiteData, year, month) {
   const pptx       = new PptxGenJS();
@@ -997,7 +1000,7 @@ async function generateAllSitesMonthlyPptx(allSiteData, year, month) {
   // Master cover
   slideCover(pptx, 'All Sites', monthLabel, allSiteData.length);
 
-  for (const { site, monthlyData, edits, objectives, yearlyData, openChanges, activeIncidents } of allSiteData) {
+  for (const { site, monthlyData, edits, objectives, yearlyData, openChanges, activeIncidents, meetingsSummary } of allSiteData) {
     const { reports } = monthlyData;
     const lastReport  = reports && reports.length ? reports[reports.length - 1] : null;
     const prevReport  = reports && reports.length >= 2 ? reports[reports.length - 2] : null;
@@ -1012,6 +1015,8 @@ async function generateAllSitesMonthlyPptx(allSiteData, year, month) {
     slideMonthlyActiveIncidents(pptx, monthLabel, activeIncidents || [], site.name);
     slideMonthlyActionsV2(pptx, editedActions, monthLabel);
     slideAnnualObjectives(pptx, objectives, site.name, year);
+    // Department meetings monthly status — per site, when data exists.
+    if (hasDeptMeetingData(meetingsSummary)) slideDepartmentMeetings(pptx, meetingsSummary);
   }
 
   return fixComboChartAxes(await pptx.write({ outputType: 'nodebuffer' }));
