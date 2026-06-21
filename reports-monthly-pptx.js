@@ -27,32 +27,11 @@ const { fixComboChartAxes } = require('./pptx-fix-axes');
 const { C, EDV, FONTS } = require('./public/brand/brand-tokens');
 
 // ── SHARED HELPERS ────────────────────────────────────────────────
-function statusColor(color) {
-  switch ((color || '').toLowerCase()) {
-    case 'green':  return '2D9C4A';
-    case 'orange': return 'E87722';
-    case 'red':    return 'D0312D';
-    default:       return 'AAAAAA';
-  }
-}
-
-function trendArrow(trend) {
-  switch ((trend || '').toLowerCase()) {
-    case 'up':        return '▲';
-    case 'down':      return '▼';
-    case 'stable':    return '→';
-    case 'no_change': return 'No change';
-    default:          return '—';
-  }
-}
-
-function trendColor(trend) {
-  switch ((trend || '').toLowerCase()) {
-    case 'up':   return '2D9C4A';
-    case 'down': return 'D0312D';
-    default:     return '666666';
-  }
-}
+// statusColor / trendArrow / trendColor / computeTrends / autoStatusColor are
+// the byte-identical helpers shared with reports-weekly-pptx.js — single
+// source of truth in reports-pptx-shared.js. The monthly-only helpers
+// (slaColor / pctColor / infraCellColor) stay below.
+const { statusColor, trendArrow, trendColor, computeTrends, autoStatusColor } = require('./reports-pptx-shared');
 
 function slaColor(pct) {
   if (pct == null) return C.midGrey;
@@ -62,52 +41,6 @@ function slaColor(pct) {
 function pctColor(pct) {
   if (pct == null) return C.midGrey;
   return pct >= 80 ? '27AE60' : pct >= 50 ? 'F39C12' : 'E74C3C';
-}
-
-/**
- * Auto-compute trend direction by comparing current vs previous week's numeric value.
- * Matched by service name. Non-numeric values fall back to the stored trend.
- * Returns a new array of KPI objects with trend overridden where computable.
- */
-function computeTrends(currentKpis, prevKpis) {
-  if (!currentKpis || !currentKpis.length) return currentKpis || [];
-  if (!prevKpis    || !prevKpis.length)    return currentKpis;
-  const prevMap = {};
-  prevKpis.forEach(k => { prevMap[(k.service || '').trim().toLowerCase()] = k.status_value; });
-  return currentKpis.map(k => {
-    const key     = (k.service || '').trim().toLowerCase();
-    const curRaw  = String(k.status_value || '').replace('%', '').replace(',', '.').trim();
-    const prevRaw = String(prevMap[key]  || '').replace('%', '').replace(',', '.').trim();
-    const curVal  = parseFloat(curRaw);
-    const prevVal = parseFloat(prevRaw);
-    if (!isNaN(curVal) && !isNaN(prevVal)) {
-      const trend = curVal > prevVal ? 'up' : curVal < prevVal ? 'down' : 'stable';
-      return { ...k, trend };
-    }
-    return k; // non-numeric: keep stored trend
-  });
-}
-
-/**
- * Auto-derive a status color by comparing a numeric value to its target.
- * Returns { color: hex, hasColor: bool }.
- * Falls back to the manually-stored status_color when numeric comparison isn't possible.
- *   ≥ target       → green  (#2D9C4A)
- *   ≥ target × 0.9 → orange (#E87722)
- *   < target × 0.9 → red    (#D0312D)
- */
-function autoStatusColor(statusValue, target, storedColor) {
-  const val = parseFloat(String(statusValue || '').replace('%', '').trim());
-  const tgt = parseFloat(String(target || '').replace('%', '').trim());
-  if (!isNaN(val) && !isNaN(tgt) && tgt > 0) {
-    if (val >= tgt)        return { color: '2D9C4A', hasColor: true };
-    if (val >= tgt * 0.90) return { color: 'E87722', hasColor: true };
-    return                        { color: 'D0312D', hasColor: true };
-  }
-  // Numeric comparison not possible — use stored color
-  const sc = statusColor(storedColor);
-  const hasColor = !!(storedColor && storedColor !== 'none');
-  return { color: sc, hasColor };
 }
 
 /**

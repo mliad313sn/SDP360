@@ -1416,7 +1416,8 @@ pm2 reload endeavour-dashboard
 |------|---------|
 | `server.js` | Express API, sync jobs, PM2 entry point |
 | `reports-weekly-pptx.js` | Weekly PPTX **and** all `slideMonthly*` monthly slide functions |
-| `reports-monthly-pptx.js` | Dedicated monthly PPTX generator — identical `slideMonthly*` copies |
+| `reports-monthly-pptx.js` | Dedicated monthly PPTX generator — FORKED `slideMonthly*` (feeds v2 + all-sites decks; NOT identical to the weekly file's copies — see the slideMonthly* audit section) |
+| `reports-pptx-shared.js` | Shared pure RAG/trend helpers (`statusColor`, `trendArrow`, `trendColor`, `computeTrends`, `autoStatusColor`) deduplicated out of both PPTX files. Edit here, not in copies. |
 | `reports-db.js` | All SQLite queries (`getMonthlyData`, `getHelpdesk6MonthHistory`, `getCalendarMonthlyHelpdesk`, `getYearlySummary`) |
 | `public/lib/dashboard-shared.js` | **Canonical helpers** consumed by every page — `parseZohoDT`, `isClosed`, `isResOverdue`, `xRows`, `OPS_GROUPS_DEFAULT`, `APPS_GROUPS_DEFAULT`, `IT_HELPDESK_GROUPS`. Single source of truth for KPI math. **Edit here, NOT in individual pages.** |
 | `public/_tokens.css` | **Canonical design tokens** (palette, typography, spacing, radius, shadow) — every page imports this |
@@ -1451,18 +1452,66 @@ pm2 reload endeavour-dashboard
 | `ANALYTICS_PLUS_API_SCOPES.md` | Canonical scope reference — **use `MEAplus.fullaccess.all`** (the narrower read-only scopes trigger 7301) |
 | `get-token.js` | Token exchange utility — supports `--dc=com/eu/in/au` and `--verbose` flags |
 
-> **Critical rule — `slideMonthly*` functions are duplicated across TWO tracked files** (`reports-weekly-pptx.js` and `reports-monthly-pptx.js`). Any change to a monthly slide **must be applied to both copies**, or the same chart starts rendering differently depending on which generator built it.
+> **Critical rule — `slideMonthly*` functions have FORKED across the two tracked
+> files** (`reports-weekly-pptx.js` and `reports-monthly-pptx.js`). They are **no
+> longer identical copies** — each set feeds a *different* live deck (see the
+> usage table below). **Do NOT blind-merge a `slideMonthly*` change into "the
+> other copy"** — that would change the output of a deck it doesn't belong to.
+> Edit the version that belongs to the deck you're changing, and rely on the
+> golden fingerprint test to confirm you didn't disturb the others.
 
-### `slideMonthly*` duplication (tracked files only)
+### `slideMonthly*` duplication — actual state (2026-06-21 audit)
 
-The `slideMonthly*` family (6 functions: `slideMonthlyHelpdesk`, `slideMonthlyInfra`, `slideMonthlyInfraTrend`, `slideMonthlyLastWeekInfra`, `slideMonthlyLightsV2`, `slideMonthlyActionsV2`) is defined independently in two files that are **both in git**:
+A function-by-function diff of the two files found that **only the small pure
+RAG/trend helpers were ever truly identical**; everything else has legitimately
+diverged. Result of the 2026-06-21 dedup pass:
 
-- `reports-weekly-pptx.js` ← canonical (per Key Files table)
-- `reports-monthly-pptx.js` ← canonical (per Key Files table)
+**Deduplicated → `reports-pptx-shared.js`** (single source of truth, imported by
+both files): `statusColor`, `trendArrow`, `trendColor`, `computeTrends`,
+`autoStatusColor`. Unit-tested in `tests/pptx-shared-helpers.test.js`.
 
-> _2026-06-02 update_: `reports-pptx.js` was a third copy referenced here historically; it was deleted in commit `94c549e` ("chore: delete unused reports-pptx.js"). The duplication is now across TWO files only, not three.
+**Left forked on purpose** — these differ between the two files and unifying any
+of them is a *visual/design decision*, not a mechanical dedup:
 
-A handful of shared helpers (`addTitle`, `addSectionBadge`, `kpiTile`, `metricCard`) also appear in these two files. When changing one, grep the other before considering the change complete.
+| Symbol | How they differ | Why forked |
+|---|---|---|
+| `addTitle` | weekly fontSize 28 / y 0.15 · monthly 24 / 0.12 | different title sizing per deck |
+| `addSectionBadge` | monthly added an `h` param + font 10 (weekly 11) | monthly needs variable-height banners |
+| `const C` palette | values differ | each deck tuned independently |
+| every `slideMonthly*` renderer | different signatures (`prevReport`, `reportMonth`, `openChanges`) + bodies | feed different generators (see usage table) |
+
+**Which deck each file actually powers** (server.js call sites):
+
+| Generator (exported) | File | Server route |
+|---|---|---|
+| `generateWeeklyPptx` | weekly | weekly download |
+| `generateMonthlyPptx` | weekly | per-site monthly download |
+| `generateWeeklySummaryPptx` | weekly | all-sites weekly summary |
+| `generateMonthlyPptxV2` | monthly | per-site monthly **v2** |
+| `generateAllSitesMonthlyPptx` | monthly | all-sites monthly |
+
+> `generateMonthlyPptxV2` / `generateAllSitesMonthlyPptx` are *also* exported by
+> the weekly file but those copies are **dead** — the server always calls the
+> `reports-monthly-pptx.js` versions (`rpptxMonthly.*`).
+
+**Safety net — golden fingerprint test.** `tests/pptx-monthly-golden.test.js`
+seeds a throwaway DB (`SDP_DATA_DIR`), renders **all 5 live decks**, and compares
+a per-slide structural fingerprint (text runs + shape/pic/chart counts) to
+`tests/__golden__/pptx-fingerprint.json`. Run it before/after any PPTX edit:
+```
+node --test --test-force-exit tests/pptx-monthly-golden.test.js
+```
+After an INTENTIONAL visual change, regenerate the golden:
+```
+GOLDEN_UPDATE=1 node --test --test-force-exit tests/pptx-monthly-golden.test.js
+```
+
+> _2026-06-02 update_: `reports-pptx.js` was a third copy referenced here
+> historically; deleted in commit `94c549e`. Duplication is across TWO files only.
+
+The other shared helpers (`kpiTile`, `metricCard`) are defined *inline inside*
+their slide functions (closures), so they aren't trivially extractable and stay
+per-file. Grep both files before assuming a helper is shared.
 
 ### KPI denominator doctrine — ITSM standard (added 2026-06-02)
 

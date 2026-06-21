@@ -14,6 +14,10 @@ const { fixComboChartAxes } = require('./pptx-fix-axes');
 // brand-aligned palette for new slides. See public/brand/README.md.
 const { C, EDV, FONTS } = require('./public/brand/brand-tokens');
 
+// Shared RAG/trend helpers — single source of truth, also used by
+// reports-monthly-pptx.js (see reports-pptx-shared.js).
+const { statusColor, trendArrow, trendColor, computeTrends, autoStatusColor } = require('./reports-pptx-shared');
+
 // ── SLIDE HELPERS ─────────────────────────────────────────────────
 function addTitle(slide, text, subtitle) {
   slide.addText(text, {
@@ -154,80 +158,6 @@ function addActiveIncidentsBlock(slide, incidents, startY, maxRows) {
     { text: '✗ missing',         options:{ fontSize:8, color:'DC2626', bold:true } },
   ], { x:0.3, y:outY + 0.04, w:totalW, h:0.22, fontFace:'Calibri', valign:'top' });
   return outY + 0.30;
-}
-
-function statusColor(color) {
-  switch ((color||'').toLowerCase()) {
-    case 'green':  return '2D9C4A';
-    case 'orange': return 'E87722';
-    case 'red':    return 'D0312D';
-    default:       return 'AAAAAA';
-  }
-}
-
-function trendArrow(trend) {
-  switch ((trend||'').toLowerCase()) {
-    case 'up':        return '▲';
-    case 'down':      return '▼';
-    case 'stable':    return '→';
-    case 'no_change': return 'No change';
-    default:          return '—';
-  }
-}
-
-function trendColor(trend) {
-  switch ((trend||'').toLowerCase()) {
-    case 'up':   return '2D9C4A';
-    case 'down': return 'D0312D';
-    default:     return '666666';
-  }
-}
-
-/**
- * Auto-compute trend direction by comparing current vs previous week's numeric value.
- * Matched by service name (case-insensitive, trimmed). Non-numeric values keep stored trend.
- * Returns a new array of KPI objects with trend overridden where computable.
- */
-function computeTrends(currentKpis, prevKpis) {
-  if (!currentKpis || !currentKpis.length) return currentKpis || [];
-  if (!prevKpis    || !prevKpis.length)    return currentKpis;
-  const prevMap = {};
-  prevKpis.forEach(k => { prevMap[(k.service || '').trim().toLowerCase()] = k.status_value; });
-  return currentKpis.map(k => {
-    const key     = (k.service || '').trim().toLowerCase();
-    const curRaw  = String(k.status_value || '').replace('%', '').replace(',', '.').trim();
-    const prevRaw = String(prevMap[key]  || '').replace('%', '').replace(',', '.').trim();
-    const curVal  = parseFloat(curRaw);
-    const prevVal = parseFloat(prevRaw);
-    if (!isNaN(curVal) && !isNaN(prevVal)) {
-      const trend = curVal > prevVal ? 'up' : curVal < prevVal ? 'down' : 'stable';
-      return { ...k, trend };
-    }
-    return k; // non-numeric: keep stored trend
-  });
-}
-
-/**
- * Auto-derive status cell color by comparing numeric status_value to target.
- * Ensures all sites are rendered consistently regardless of what the IT manager
- * manually selected as status_color in the form.
- *   ≥ target        → green  (#2D9C4A)
- *   ≥ target × 0.90 → orange (#E87722)
- *   < target × 0.90 → red    (#D0312D)
- * Falls back to stored status_color when numeric comparison is not possible.
- * Returns { color: hex, hasColor: bool }
- */
-function autoStatusColor(statusValue, target, storedColor) {
-  const val = parseFloat(String(statusValue || '').replace('%', '').trim());
-  const tgt = parseFloat(String(target || '').replace('%', '').trim());
-  if (!isNaN(val) && !isNaN(tgt) && tgt > 0) {
-    if (val >= tgt)        return { color: '2D9C4A', hasColor: true };
-    if (val >= tgt * 0.90) return { color: 'E87722', hasColor: true };
-    return                        { color: 'D0312D', hasColor: true };
-  }
-  const sc = statusColor(storedColor);
-  const hasColor = !!(storedColor && storedColor !== 'none');
-  return { color: sc, hasColor };
 }
 
 // ── SLIDE 1 — INFRA KPIs ──────────────────────────────────────────
