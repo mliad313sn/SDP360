@@ -173,9 +173,13 @@ made so far so that future sessions can pick up exactly where the last one ended
 > 5. **No golden test for the exec-pptx deck** — the `tests/pptx-monthly-golden`
 >    fingerprint covers the weekly/monthly report decks, NOT `render.py`.
 >    Consider a fingerprint test for the 11-slide Group IT Report.
-> 6. **Slide 2 narrative columns** are AI-filled (f-progress/f-issues/
->    f-nextperiod); the ops_summary editor lets the operator edit RAG / owner /
->    Strategic-KPIs but not those 3 columns directly. Could add inline editing.
+> 6. **Slide 2 narrative columns** — ✅ DONE (commit after `2a57c29`): the
+>    Operations Summary editor now has Progress / Issues / Activities
+>    textareas (os-progress / os-issues / os-activities, persisted per month).
+>    They override the slide-2 columns; blank = falls back to the AI commentary
+>    (render.py `_section_bullets` reads `_os.<key>` first, then `commentary`).
+>    Also verified live: slide-5 `categories_prev` (Jun-vs-May grouped bars)
+>    + `monthly_channels` (channel line) populate from the browser payload.
 > 7. **Deploy the 6 cumulative commits** (`72f593c`..`50d8717`) and confirm a
 >    fresh Analyze→Export in each audience renders correctly end-to-end.
 

@@ -931,12 +931,20 @@ Example:
           <label>Headcount <input id="os-headcount" class="os-f" style="width:46px" value="7"></label>
         </div>
         <label style="display:block;margin-bottom:8px">Goal <input id="os-goal" class="os-f" style="width:100%" placeholder="Goal statement (leave blank for the default)…"></label>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">
+          <label style="display:block;font-size:11px;color:#475569">Progress since last period
+            <textarea id="os-progress" class="os-f" rows="4" style="width:100%;resize:vertical;font-size:11px" placeholder="One bullet per line. Leave blank to use AI commentary."></textarea></label>
+          <label style="display:block;font-size:11px;color:#475569">Issues / Risks / Comments
+            <textarea id="os-issues" class="os-f" rows="4" style="width:100%;resize:vertical;font-size:11px" placeholder="One bullet per line. Leave blank to use AI commentary."></textarea></label>
+          <label style="display:block;font-size:11px;color:#475569">Activities for next period
+            <textarea id="os-activities" class="os-f" rows="4" style="width:100%;resize:vertical;font-size:11px" placeholder="One bullet per line. Leave blank to use AI commentary."></textarea></label>
+        </div>
         <table style="width:100%;border-collapse:collapse;font-size:11px">
           <thead><tr style="text-align:left;color:#64748b">
             <th style="width:34%">Deliverable / KPI</th><th style="width:12%">Owner</th><th style="width:9%">End</th><th style="width:8%">RAG</th><th>Comments</th></tr></thead>
           <tbody id="os-kpi-rows"></tbody>
         </table>
-        <div style="color:#94a3b8;margin-top:6px">Saved per month in this browser. Progress / Issues / Activities columns come from the fields above (AI-prefilled by Analyze).</div>
+        <div style="color:#94a3b8;margin-top:6px">Saved per month in this browser. Progress / Issues / Activities here override the slide-2 columns; leave blank to use the AI commentary (Analyze).</div>
       </div>
     </div>
   </div>
@@ -6934,6 +6942,12 @@ function _opsSummaryCollect(){
     owner_name: g('os-owner-name'), owner_title: g('os-owner-title'),
     financial_year: g('os-fy'), headcount: g('os-headcount'), goal: g('os-goal'),
     rag: { overall:g('os-rag-overall'), schedule:g('os-rag-schedule'), risk:g('os-rag-risk'), budget:g('os-rag-budget'), resource:g('os-rag-resource') },
+    // Slide-2 narrative columns — operator override. Blank = render.py falls
+    // back to the AI commentary (progress→f-progress, issues→f-issues,
+    // activities→f-nextperiod) per _section_bullets().
+    progress:   g('os-progress').trim(),
+    issues:     g('os-issues').trim(),
+    activities: g('os-activities').trim(),
     kpis,
   };
 }
@@ -6942,6 +6956,7 @@ function _opsSummaryApply(os){
   const set = (id,v) => { const e=document.getElementById(id); if(e && v!=null && v!=='') e.value=v; };
   set('os-owner-name', os.owner_name); set('os-owner-title', os.owner_title);
   set('os-fy', os.financial_year); set('os-headcount', os.headcount); set('os-goal', os.goal);
+  set('os-progress', os.progress); set('os-issues', os.issues); set('os-activities', os.activities);
   const rag = os.rag||{}; ['overall','schedule','risk','budget','resource'].forEach(k => set('os-rag-'+k, rag[k]));
   _opsRenderKpis(os.kpis);
 }
