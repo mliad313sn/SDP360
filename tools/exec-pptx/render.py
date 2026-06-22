@@ -566,16 +566,16 @@ def add_multi_text(slide, x, y, w, h, lines, *, font='Calibri', anchor=MSO_ANCHO
         r.font.color.rgb = col
     return tb
 
-def _fit_footer_size(text, base=10.0):
-    """Scale the navy footer-band font down for long AI commentary so it
-    never overflows the fixed-height band. The browser-side audience LENGTH
-    BUDGET keeps Executive text short; this is the safety net for longer
-    (Operational / Technical) commentary or any model overshoot."""
+def _fit_footer_size(text, base=11.5):
+    """Footer-band font sizing. The bands are ~0.85" tall × 12.3" wide, so
+    short commentary (Executive/CFO-CIO) renders LARGE and readable; only
+    long (Operational/Technical) commentary or model overshoot scales down,
+    so it never overflows. Base raised 10→11.5 — the bands had spare room."""
     n = len(text or '')
-    if n <= 240: return base
-    if n <= 340: return base - 1.0
-    if n <= 440: return base - 1.8
-    return max(7.0, base - 2.6)
+    if n <= 300: return base
+    if n <= 450: return base - 1.5
+    if n <= 620: return base - 3.0
+    return max(8.0, base - 4.0)
 
 def header_band(slide, title, section, period):
     """Standard header used across helpdesk slides"""
@@ -1027,7 +1027,7 @@ if not _exec_comment:
 add_rect(s, Inches(0.4), Inches(6.25), Inches(12.55), Inches(0.88), DARK_NAVY)
 add_text(s, Inches(0.6), Inches(6.30), Inches(12.2), Inches(0.80),
          _exec_comment,
-         size=_fit_footer_size(_exec_comment, 10.5), color=WHITE, anchor=MSO_ANCHOR.MIDDLE)
+         size=_fit_footer_size(_exec_comment, 11.5), color=WHITE, anchor=MSO_ANCHOR.MIDDLE)
 footer_bar(s, 3)
 
 # ====================================================================
@@ -1073,7 +1073,7 @@ if not _sla_comment:
 add_rect(s, Inches(0.4), Inches(6.25), Inches(12.55), Inches(0.85), DARK_NAVY)
 add_text(s, Inches(0.55), Inches(6.32), Inches(12.3), Inches(0.75),
          _sla_comment,
-         size=_fit_footer_size(_sla_comment, 9.5), color=WHITE, anchor=MSO_ANCHOR.MIDDLE)
+         size=_fit_footer_size(_sla_comment, 11.5), color=WHITE, anchor=MSO_ANCHOR.MIDDLE)
 footer_bar(s, 4)
 
 # ====================================================================
@@ -1147,7 +1147,7 @@ if not _chan_comment:
 add_rect(s, Inches(0.4), Inches(6.30), Inches(12.55), Inches(0.80), DARK_NAVY)
 add_text(s, Inches(0.55), Inches(6.36), Inches(12.3), Inches(0.70),
          _chan_comment,
-         size=_fit_footer_size(_chan_comment, 9.5), color=WHITE, anchor=MSO_ANCHOR.MIDDLE)
+         size=_fit_footer_size(_chan_comment, 11.5), color=WHITE, anchor=MSO_ANCHOR.MIDDLE)
 footer_bar(s, 5)
 
 # ====================================================================
@@ -1210,7 +1210,7 @@ _s6_comment = (K.get('commentary', {}).get('slide6')
 add_rect(s, Inches(0.4), Inches(6.25), Inches(12.55), Inches(0.85), DARK_NAVY)
 add_text(s, Inches(0.55), Inches(6.32), Inches(12.3), Inches(0.75),
          _s6_comment,
-         size=_fit_footer_size(_s6_comment, 9.5), color=WHITE, anchor=MSO_ANCHOR.MIDDLE)
+         size=_fit_footer_size(_s6_comment, 11.5), color=WHITE, anchor=MSO_ANCHOR.MIDDLE)
 footer_bar(s, 6)
 
 # ====================================================================
@@ -1347,7 +1347,7 @@ if not _csat_comment:
 add_rect(s, Inches(0.4), Inches(6.10), Inches(12.55), Inches(0.95), DARK_NAVY)
 add_text(s, Inches(0.55), Inches(6.18), Inches(12.3), Inches(0.85),
          _csat_comment,
-         size=_fit_footer_size(_csat_comment, 9.5), color=WHITE, anchor=MSO_ANCHOR.MIDDLE)
+         size=_fit_footer_size(_csat_comment, 11.5), color=WHITE, anchor=MSO_ANCHOR.MIDDLE)
 footer_bar(s, 7)
 
 # ====================================================================
@@ -1432,7 +1432,7 @@ if not _change_comment:
 add_rect(s, Inches(0.4), Inches(6.20), Inches(12.55), Inches(0.85), DARK_NAVY)
 add_text(s, Inches(0.55), Inches(6.27), Inches(12.3), Inches(0.75),
          _change_comment,
-         size=_fit_footer_size(_change_comment, 9.5), color=WHITE, anchor=MSO_ANCHOR.MIDDLE)
+         size=_fit_footer_size(_change_comment, 11.5), color=WHITE, anchor=MSO_ANCHOR.MIDDLE)
 footer_bar(s, 8)
 
 # ====================================================================
@@ -1586,7 +1586,7 @@ if not _inc_comment:
 add_rect(s, Inches(0.4), Inches(6.25), Inches(12.55), Inches(0.85), DARK_NAVY)
 add_text(s, Inches(0.55), Inches(6.32), Inches(12.3), Inches(0.75),
          _inc_comment,
-         size=_fit_footer_size(_inc_comment, 9.5), color=WHITE, anchor=MSO_ANCHOR.MIDDLE)
+         size=_fit_footer_size(_inc_comment, 11.5), color=WHITE, anchor=MSO_ANCHOR.MIDDLE)
 footer_bar(s, 9)
 
 # ====================================================================
@@ -1980,7 +1980,7 @@ if _tr_months and _tr_pillars:
         )
     add_rect(s, Inches(0.4), Inches(6.35), Inches(12.55), Inches(0.70), DARK_NAVY)
     add_text(s, Inches(0.55), Inches(6.40), Inches(12.3), Inches(0.65),
-             _s11b_comment, size=9, color=WHITE, anchor=MSO_ANCHOR.MIDDLE)
+             _s11b_comment, size=_fit_footer_size(_s11b_comment, 11.5), color=WHITE, anchor=MSO_ANCHOR.MIDDLE)
     footer_bar(s, 12)
 
 # ── Save to stdout (Node spawn contract) ──────────────────────────────

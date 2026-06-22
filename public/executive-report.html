@@ -4673,6 +4673,7 @@ function _audiencePreamble() {
   return `═══ INSTRUCTIONS — TONE & AUDIENCE ═══\n${a.preamble}\n\n`
        + `═══ LENGTH BUDGET (STRICT — this OVERRIDES any sentence count mentioned later) ═══\n`
        + `  • Every section field (helpdesk / sla / changeManagement / majorIncidents / csat / backlogReasons): ${L.section}.\n`
+       + `  • Summary-slide narrative bullets (progress / issues / nextperiod / actions): ${L.gov} (still within the per-field word cap).\n`
        + `  • Each of these strings is printed inside a NARROW one-band footer on the slide — text longer than the budget overflows and gets clipped. Be punchy and information-dense; never pad to fill space.\n\n`;
 }
 
