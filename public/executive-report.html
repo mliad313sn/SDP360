@@ -6850,16 +6850,37 @@ function _buildExecPptxPayload() {
   const prev  = (_data.raw || []).filter(t => isOps(t) && inMonth(t, prevYr, prevMo));
 
   // ── KPIs ────────────────────────────────────────────────────────────
-  const closed    = cur.filter(t => /closed|cancelled|resolved|confirm/i.test(t['Request Status']||'')).length;
-  const closedPrev= prev.filter(t => /closed|cancelled|resolved|confirm/i.test(t['Request Status']||'')).length;
-  const slaViol   = cur.filter(t => t['Overdue Status'] === '1').length;
-  const frtViol   = cur.filter(t => (t['First Response Overdue Status']||'') === 'true').length;
-  const slaResPct = cur.length ? Math.round((1 - slaViol/cur.length) * 1000) / 10 : null;
-  const frtSlaPct = cur.length ? Math.round((1 - frtViol/cur.length) * 1000) / 10 : null;
-  const slaResPrev= prev.length ? (1 - prev.filter(t=>t['Overdue Status']==='1').length/prev.length) * 100 : null;
-  const frtSlaPrev= prev.length ? (1 - prev.filter(t=>(t['First Response Overdue Status']||'')==='true').length/prev.length) * 100 : null;
-  const closureRt = cur.length ? Math.round((closed/cur.length) * 1000) / 10 : null;
+  // Reconciled to the dashboard scorecard's canonical KPI logic
+  // (FORMULA_RECONCILIATION.md §6) so the deck NEVER diverges from the on-screen
+  // tiles. Was: closed via regex, Resolution SLA = (1 - overdue/total) which
+  // showed 100% while the scorecard showed 90.4%. Now:
+  //   closed            = isClosed()                              (canonical)
+  //   Resolution SLA %  = (closed AND not overdue) / closed       (closed-only denom, isResOverdue)
+  //   FCR %             = closed-not-escalated-not-reopened / closed
+  const _curClosed  = cur.filter(isClosed);
+  const _prevClosed = prev.filter(isClosed);
+  const closed      = _curClosed.length;
+  const closedPrev  = _prevClosed.length;
+  const resOverdue     = _curClosed.filter(r => isResOverdue(r)).length;
+  const resOverduePrev = _prevClosed.filter(r => isResOverdue(r)).length;
+  const slaResPct  = closed     ? Math.round((closed - resOverdue) / closed * 1000) / 10 : null;
+  const slaResPrev = closedPrev ? (closedPrev - resOverduePrev) / closedPrev * 100 : null;
+  // First Response SLA — /total basis (drives the slide-3 FRT tile; unchanged behaviour).
+  const _frtV = rows => rows.filter(t => { const f=(t['First Response Overdue Status']||'').toLowerCase(); return f==='true'||f==='yes'||f==='1'; }).length;
+  const frtSlaPct  = cur.length  ? Math.round((1 - _frtV(cur)/cur.length) * 1000) / 10 : null;
+  const frtSlaPrev = prev.length ? (1 - _frtV(prev)/prev.length) * 100 : null;
+  const closureRt     = cur.length  ? Math.round((closed/cur.length) * 1000) / 10 : null;
   const closureRtPrev = prev.length ? (closedPrev/prev.length) * 100 : null;
+  // FCR Rate — mirrors the scorecard FCR tile exactly (numerator: status
+  // closed/resolved, not reopened, not escalated; denominator: closed).
+  const fcrClosed = cur.filter(r => {
+    const s = (r['Request Status'] || '').toLowerCase();
+    if (s !== 'closed' && s !== 'resolved') return false;
+    if (parseInt(r['Reopen Count'] || 0) > 0) return false;
+    const esc = (r['Is Escalated'] || r['IsEscalated'] || r['Escalated'] || 'no').toString().toLowerCase();
+    return !(esc === 'true' || esc === 'yes' || esc === '1');
+  }).length;
+  const fcrPct = closed ? Math.round(fcrClosed / closed * 1000) / 10 : null;
 
   // Channel split (Mode field)
   const tally = (rows, field) => {
@@ -6938,7 +6959,10 @@ function _buildExecPptxPayload() {
       t46_60:    a.t46_60 || 0,
       t_over_60: a.tOver60 || 0,
     }));
-  const openBacklog = ageing.reduce((s,a) => s + a.t0_30 + a.t31_45 + a.t46_60 + a.t_over_60, 0);
+  // Open backlog = period tickets still open — matches the scorecard "Still open
+  // this period" tile. The all-time ageing sum (kept above for the chart) was
+  // inflating this ~10x (260 vs the scorecard's 26).
+  const openBacklog = cur.filter(r => !isClosed(r)).length;
 
   // Support Groups count — distinct tech_groups that actually saw a ticket
   // this period. Falls through to the OPS preset size if nothing in cur
@@ -6990,7 +7014,7 @@ function _buildExecPptxPayload() {
       sla_res_pct:        slaResPct,
       frt_sla_pct:        frtSlaPct,
       open_backlog:       openBacklog,
-      fcr_rate:           csat.fcrPct || null,
+      fcr_rate:           fcrPct,
       csat_pct:           csat.csatPct || null,
       nps:                csat.nps || null,
       prev_csat_pct:      csat.prevCsatPct || null,
