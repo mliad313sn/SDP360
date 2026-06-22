@@ -292,6 +292,28 @@ function _majorIncidents(filters) {
       });
     });
     out.mi_total = out.mi_records.length;
+
+    // ── Slide-9 tile aggregates (Resolved / Open / Downtime / MoM) ──────
+    let _down = 0, _res = 0;
+    out.mi_records.forEach(m => {
+      const st = String(m.status || '').toLowerCase();
+      if (st === 'closed' || st === 'resolved' || m.date_resolved) _res++;
+      const d = parseFloat(m.downtime); if (!isNaN(d) && d > 0) _down += d;
+    });
+    out.mi_resolved   = _res;
+    out.mi_open       = Math.max(0, out.mi_total - _res);
+    out.mi_downtime_h = Math.round(_down);
+    // Previous-month major-incident count → drives the "MoM CHANGE" tile.
+    try {
+      const _pm  = month === 1 ? 12 : month - 1;
+      const _py  = month === 1 ? year - 1 : year;
+      const _pym = `${_py}-${String(_pm).padStart(2, '0')}`;
+      const _pr  = reportsDb.db.prepare(`
+        SELECT COUNT(*) AS n FROM request_records
+        WHERE request_type LIKE '%Major Incident%'
+          AND strftime('%Y-%m', created_time) = ?`).get(_pym);
+      out.mi_prev_total = _pr ? _pr.n : null;
+    } catch (_) { out.mi_prev_total = null; }
   } catch (e) {
     console.warn('[reportPayload] majorIncidents failed:', e.message);
   }
@@ -636,9 +658,18 @@ function build(browserPayload) {
   // Categories — browser sends [{name, current, previous}]; render.py
   // wants {catName: count}.
   if (Array.isArray(browserPayload.categories) && browserPayload.categories.length) {
-    const cats = {};
-    browserPayload.categories.forEach(c => { if (c && c.name) cats[c.name] = c.current || 0; });
+    const cats = {}, catsPrev = {};
+    browserPayload.categories.forEach(c => {
+      if (c && c.name) { cats[c.name] = c.current || 0; catsPrev[c.name] = c.previous || 0; }
+    });
     enriched.categories = cats;
+    // Prior-month counts → slide 5 grouped (current vs previous) bars.
+    if (Object.values(catsPrev).some(v => v > 0)) enriched.categories_prev = catsPrev;
+  }
+
+  // Recent change titles → slide 8 yellow-box "at a glance" line.
+  if (Array.isArray(browserPayload.recent_changes) && browserPayload.recent_changes.length) {
+    enriched.recent_changes = browserPayload.recent_changes.filter(Boolean).slice(0, 6);
   }
 
   // Submission channels (Mode field) — same reshape

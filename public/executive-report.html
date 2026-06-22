@@ -7211,6 +7211,10 @@ function _buildExecPptxPayload() {
       completed:    chgInMonth.filter(c => /completed|closed/i.test(c['Stage']||c.stage||'')).length,
       in_progress:  chgInMonth.filter(c => /progress|implement|review/i.test(c['Stage']||c.stage||'')).length,
     },
+    // Recent change titles → slide 8 yellow-box "at a glance" line
+    recent_changes: chgInMonth.slice(0, 6)
+      .map(c => (c['Subject'] || c['Change Title'] || c['Title'] || '').trim())
+      .filter(Boolean),
     // ── AI-generated commentary (Phase B) ───────────────────────────
     // The 6 named fields are filled by runAnalysis() — cloud Anthropic
     // path — or by AnalyzeLite (deterministic). Render.py reads these
@@ -7556,16 +7560,23 @@ function _trkSiteSummary(D, site, yr, mo) {
 function _buildTrackerBlock(D, yr, mo) {
   const activeSites = (D.activeSites && D.activeSites.length) ? D.activeSites : (D.sites || []);
   const PW = D.pillarWeights || {}, SN = D.siteNames || {}, SC = D.siteColors || {};
-  let G = 0, A = 0, R = 0, sumScore = 0, nS = 0;
-  const sites = [], pAgg = {};
+  let G = 0, A = 0, R = 0, sumScore = 0, nS = 0, prevSumScore = 0, prevNS = 0;
+  let totalActivities = 0;
+  const sites = [], pAgg = {}, codesWithData = [];
   activeSites.forEach(code => {
     const ss = _trkSiteSummary(D, code, yr, mo);
     if (ss.active === 0) return;
+    codesWithData.push(code);
     G += ss.g; A += ss.a; R += ss.r; sumScore += ss.avg; nS++;
+    totalActivities += ss.active;
     let delta = null;
-    if (mo > 1) { const pv = _trkSiteSummary(D, code, yr, mo - 1); if (pv.active > 0) delta = Math.round((ss.avg - pv.avg) * 100); }
+    if (mo > 1) { const pv = _trkSiteSummary(D, code, yr, mo - 1); if (pv.active > 0) { delta = Math.round((ss.avg - pv.avg) * 100); prevSumScore += pv.avg; prevNS++; } }
+    // Per-site positive + action commentary (mirrors the standalone tracker deck)
+    let pos = '', act = '';
+    try { const cmt = _trkSiteCommentary(D, code, yr, mo); pos = cmt[0] || ''; act = cmt[1] || ''; } catch (e) {}
     sites.push({ code, name: SN[code] || code, color: '#' + _trkHex(SC[code]),
-      score: Math.round(ss.avg * 100), delta_pp: delta, g: ss.g, a: ss.a, r: ss.r });
+      score: Math.round(ss.avg * 100), delta_pp: delta, g: ss.g, a: ss.a, r: ss.r,
+      activities: ss.active, positive: pos, action: act });
     ss.sc.forEach(s => {
       if (!s.on) return;
       const ag = pAgg[s.pillar] = pAgg[s.pillar] || { green: 0, amber: 0, red: 0, sSum: 0, sN: 0, weight: (s.pillar in PW ? PW[s.pillar] : 0.25) };
@@ -7577,14 +7588,36 @@ function _buildTrackerBlock(D, yr, mo) {
     });
   });
   sites.sort((a, b) => b.score - a.score);
+  // Best Δ — biggest MoM improver (falls back to top scorer)
+  let bestSite = '', bestDelta = 0;
+  sites.forEach(st => { if (st.delta_pp != null && st.delta_pp > bestDelta) { bestDelta = st.delta_pp; bestSite = st.code; } });
+  if (!bestSite && sites.length) bestSite = sites[0].code;
   const pillars = {};
   Object.entries(pAgg).forEach(([p, ag]) => {
+    // Pillar MoM delta — current vs previous fleet average for the pillar
+    let pdelta = 0;
+    if (mo > 1 && codesWithData.length) {
+      const prevAvg = codesWithData.reduce((s, c) => s + _trkPillarScore(D, c, p, yr, mo - 1), 0) / codesWithData.length;
+      const curAvg = ag.sN ? ag.sSum / ag.sN : 0;
+      pdelta = Math.round((curAvg - prevAvg) * 100);
+    }
     pillars[_trkPillarShort(p)] = { green: ag.green, amber: ag.amber, red: ag.red,
-      score: ag.sN ? Math.round(ag.sSum / ag.sN * 100) : 0, weight: Math.round(ag.weight * 100) };
+      score: ag.sN ? Math.round(ag.sSum / ag.sN * 100) : 0,
+      weight: Math.round(ag.weight * 100), delta_pp: pdelta };
   });
+  // General review bullets → {text, kind}
+  let generalReview = [];
+  try {
+    generalReview = _trkGeneralReview(D, codesWithData, yr, mo)
+      .map(b => ({ text: b.text, kind: b.ok ? 'pos' : 'action' }));
+  } catch (e) {}
+  const avgScore = nS ? Math.round(sumScore / nS * 100) : 0;
+  const avgDelta = (prevNS ? Math.round((sumScore / nS - prevSumScore / prevNS) * 100) : null);
   return { green: G, amber: A, red: R,
-    avg_score: nS ? Math.round(sumScore / nS * 100) : 0, avg_delta_pp: null,
-    sites, pillars, commentary: [],
+    avg_score: avgScore, avg_delta_pp: avgDelta,
+    best_site: bestSite, best_delta_pp: bestDelta,
+    total_activities: totalActivities, active_sites: nS,
+    sites, pillars, general_review: generalReview, commentary: [],
     trends: { months: [], fleet: [], pillars: {}, sites: {} } };
 }
 
