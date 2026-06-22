@@ -1390,13 +1390,16 @@ _mi_raw = K.get('mi_records', [])[:6]   # 2 columns × 3 rows max
 incidents = []
 for rec in _mi_raw:
     badge, badge_col = _badge_for_priority(rec.get('priority'))
+    # Top line: SITE · #ticket · MTTR Nh  (May-final card header)
     site_str = rec.get('site', '—')
-    if rec.get('date_resolved'):
-        site_str = f"{site_str}  ·  resolved {rec['date_resolved']}"
-    elif rec.get('date'):
-        site_str = f"{site_str}  ·  {rec['date']}"
-    else:
-        site_str = f"{site_str}  ·  {PERIOD_LONG}"
+    _bits = []
+    if rec.get('id'):                       _bits.append(f"#{rec['id']}")
+    if rec.get('mttr_h') is not None:       _bits.append(f"MTTR {rec['mttr_h']}h")
+    elif rec.get('date_resolved'):          _bits.append(f"resolved {rec['date_resolved']}")
+    elif rec.get('date'):                   _bits.append(str(rec['date']))
+    else:                                   _bits.append(PERIOD_LONG)
+    if _bits:
+        site_str = site_str + "  ·  " + "  ·  ".join(_bits)
     incidents.append({
         'badge':     badge,
         'badge_col': badge_col,

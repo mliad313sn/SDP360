@@ -249,6 +249,16 @@ function _majorIncidents(filters) {
       const pir = _udfPick(udf, _UDF.pir);
       const dt  = _udfPick(udf, _UDF.downtime);
 
+      // MTTR (hours to restore) for the slide-9 card header — prefer
+      // resolved−created, fall back to the downtime UDF. (May-final fidelity:
+      // the deck showed "MTTR 29h / 94h" per incident.)
+      let mttr_h = null;
+      const _parseDT = v => { if (!v) return null; const d = new Date(String(v).replace(' ', 'T')); return isNaN(d.getTime()) ? null : d; };
+      const _ct = _parseDT(r.created_time);
+      const _rt = _parseDT(r.resolved_time) || _parseDT(r.completed_time);
+      if (_ct && _rt) { const h = Math.round((_rt - _ct) / 3600000); if (h >= 0 && h < 24 * 365) mttr_h = h; }
+      if (mttr_h == null && dt != null) { const d = parseFloat(dt); if (!isNaN(d) && d >= 0) mttr_h = Math.round(d); }
+
       // Compose a "lessons / actions" string render.py uses on slide 9.
       // Honest sourcing: only state "pending" when ALL the post-incident
       // UDFs are empty; otherwise quote whichever fields have content.
@@ -272,7 +282,7 @@ function _majorIncidents(filters) {
         // incidents that actually have an RCA filled. render.py reads
         // `lessons` (preferred) then `action` then falls back to the
         // pending message.
-        rca, ca, ll, pir, downtime: dt,
+        rca, ca, ll, pir, downtime: dt, mttr_h,
         lessons: lessonsLine,
         // Also build a one-line ticket-status detail (used by slide 9
         // when no inline "description" is set).
