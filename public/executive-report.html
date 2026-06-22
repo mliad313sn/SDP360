@@ -2188,11 +2188,16 @@ function inMonth(str, yr, mo) {
 function activeSite() {
   return document.getElementById('selSite').value || 'all';
 }
+// Accent- AND case-insensitive: the SITE selector values carry diacritics
+// ("Houndé", "Lafigué", "Binhouyé") but the SDP ticket Site field does NOT
+// ("HOUNDE", "LAFIGUE") — without stripping accents, siteMatch('Houndé')
+// missed all 2593 "HOUNDE" rows and the scorecard came up empty.
+function _siteNorm(s){ return (s||'').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,''); }
 function siteMatch(rowSite) {
   const f = activeSite();
   if (f === 'all') return true;
-  return (rowSite||'').toLowerCase().includes(f.toLowerCase()) ||
-         f.toLowerCase().includes((rowSite||'').toLowerCase().split(' ')[0]);
+  const fn = _siteNorm(f), rn = _siteNorm(rowSite);
+  return rn.includes(fn) || fn.includes(rn.split(' ')[0]);
 }
 
 // ── Load all data ─────────────────────────────────────────────────────────────

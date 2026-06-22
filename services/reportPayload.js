@@ -192,11 +192,13 @@ function _majorIncidents(filters) {
   // incident list matches what the rest of the deck shows when a specific
   // site is selected. 'all'/empty = fleet-wide (unchanged). Group filtering
   // is intentionally NOT applied — major incidents are cross-cutting.
-  const _siteSel = (filters.site && String(filters.site).toLowerCase() !== 'all')
-    ? String(filters.site).trim().toLowerCase() : null;
+  // Accent- + case-insensitive (site selector carries diacritics — "Houndé",
+  // "Lafigué" — but SDP ticket sites do not: "HOUNDE", "LAFIGUE").
+  const _siteNorm = s => String(s || '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  const _siteSel = (filters.site && _siteNorm(filters.site) !== 'all') ? _siteNorm(filters.site) : null;
   const _miSiteOk = (rowSite) => {
     if (!_siteSel) return true;
-    const rs = String(rowSite || '').trim().toLowerCase();
+    const rs = _siteNorm(rowSite);
     return rs.includes(_siteSel) || _siteSel.includes(rs.split(' ')[0]);
   };
 
