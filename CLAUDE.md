@@ -6,7 +6,182 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ---
 
-## ⚡ Current state (as of 2026-06-05)
+## ⚡ Current state (as of 2026-06-22)
+
+> **READ FIRST.** Branch `main`, tip `50d8717`. This session was a focused
+> **Group IT Report PPTX (exec-pptx) overhaul** — 6 commits
+> (`72f593c`..`50d8717`) bringing the dashboard's generated deck into
+> pixel-alignment with the user's hand-finished **"Group IT May 2026 -
+> Final-Operations.pptx"** template, fixing filter leakage, and making the
+> AI commentary length audience-aware. The pipeline is unchanged in shape
+> (`executive-report.html _buildExecPptxPayload` → POST `/api/reports/exec-pptx`
+> → `services/reportPayload.js build()` → `python tools/exec-pptx/render.py`);
+> all visual work lives in `render.py`, all data/scoping work in the browser
+> builder + `build()`.
+>
+> **Deploy status**: NOT yet deployed by the user as of this writing. The
+> 6 commits touch `tools/exec-pptx/render.py`, `public/executive-report.html`,
+> `services/reportPayload.js`. `executive-report.html` is in `_htmlCache` and
+> `reportPayload.js` is server code → after `_deploy.cmd`, do
+> `pm2 stop` → `timeout /t 5` → `pm2 start` (NOT reload — EADDRINUSE pitfall).
+> `render.py` is spawned fresh per export (copy-only, no reload needed).
+> The user had already deployed `411cf2f` and earlier and confirmed a clean
+> June 2026 export mid-session.
+>
+> ### What landed (6 commits)
+>
+> | Commit | Subject |
+> |---|---|
+> | `72f593c` | design: align slides 3-11 to May template (render.py restyle) |
+> | `411cf2f` | feat: wire live payload to feed new template fields (slides 5/8/9/10/11) |
+> | `9114a08` | fix: apply CHANGES GRP filter to change charts in export |
+> | `9c6ae36` | fix: apply selected group + site filters across all helpdesk + change charts |
+> | `c42604d` | feat: dimension AI commentary length by audience + footer auto-shrink |
+> | `50d8717` | polish: audience-size slide-2 bullets + larger footer font |
+>
+> ### Track 1 — render.py restyle to match the May template (slides 3-11)
+>
+> Per-slide changes in `tools/exec-pptx/render.py` (the matplotlib + python-pptx
+> generator). The May final was the **design** reference (data still comes
+> from the dashboard — the user's directive: "stick to the site's calc logic"):
+>
+> - **Slide 3 (KPI Executive Overview)** — tile titles changed from light
+>   gray to **bold NAVY** (`kpi_tile` label color); slide-3 footer band
+>   enlarged (was the smallest at 0.55").
+> - **Slide 4 (12-mo trend)** — `_draw_volume_trend`: grouped vertical
+>   Inbound(navy `#1F3D5C`)/Closed(green `#2E8540`) bars + value labels on
+>   top. `_draw_sla_trend`: Res.SLA green / FRT navy lines.
+> - **Slide 5 (categories/channel)** — `_draw_categories`: horizontal
+>   **grouped** current-vs-previous bars (needs `categories_prev`); the
+>   channel area is now a **single line chart** (`_draw_channel_share_trend`),
+>   the redundant horizontal channel bar was removed.
+> - **Slide 7 (CSAT)** — `_draw_csat_donut`: bold-white % **on the slices**
+>   (autopct, pctdistance 0.80) + legend below.
+> - **Slide 8 (changes)** — `_draw_changes_donut`: bold-white % on slices
+>   (Standard dark-navy, Major mid-blue, Emergency red); the yellow box is
+>   now **data-driven** (was hardcoded CHG-254) + a **"→ Recent changes
+>   include …"** glance line from `recent_changes`.
+> - **Slide 9 (Major Incidents)** — **4 tiles** (Major / Resolved / Open /
+>   MoM Change; P1/P2/downtime in the first tile's subtitle) + **single-column**
+>   full-width incident cards with a description + bold **Action:** line
+>   (run-level: "Action:" bold navy + recommendation italic). Was a 2×3 grid
+>   with "Lessons:".
+> - **Slide 10 (tracker roadmap)** — **5 pastel KPI tiles** (Green / Amber /
+>   Red / Avg Score / Best Δ — pastel bg + colored top bar, NOT the
+>   left-accent kpi_tile); **vertical** per-site bars (one stable colour per
+>   site) + **vertical** stacked pillar bars; italic **"Source:"** footer
+>   (no navy commentary band). Header subtitle adds "· N Operating Sites · M
+>   Activities".
+> - **Slide 11 (per-site)** — **4 pillar banners** (name + weight% + Δpp,
+>   teal/orange/purple/gold) + rich **site cards** (code, name·activities,
+>   score%, Δ pill, G/A/R light badges, ✓ positive line, ⚠ action line) +
+>   **General Review** bullets + "Source:" footer. This is the
+>   **tracker-pptx.js two-slide design** ported into render.py at 13.33×7.5.
+> - **UTF-8 fix**: `render.py` now reads stdin via
+>   `sys.stdin.buffer.read().decode('utf-8')` — was the Windows locale codec
+>   (cp1252) → mojibake on accented site names (Houndé→HoundÃ©) + em-dashes.
+>
+> ### Track 2 — data wiring so the LIVE export populates the new fields
+>
+> render.py reads new fields with graceful fallbacks; the browser + `build()`
+> now supply them:
+> - **`executive-report.html` `_buildTrackerBlock`** enriched: `best_site`,
+>   `best_delta_pp`, `total_activities`, `active_sites`, fleet `avg_delta_pp`,
+>   per-site `positive`/`action` (via existing `_trkSiteCommentary`), per-pillar
+>   `delta_pp` (cur vs prev fleet avg), `general_review` (via `_trkGeneralReview`).
+>   Plus top-level `recent_changes` (from `chgInMonth` subjects).
+> - **`services/reportPayload.js build()`**: emits `categories_prev` (from the
+>   browser `categories[].previous` already present) and passes `recent_changes`
+>   through. `_majorIncidents()` now computes `mi_resolved` / `mi_open` /
+>   `mi_downtime_h` / `mi_prev_total` (prev-month count via an extra query) for
+>   the slide-9 tiles, and already supplies per-record `detail` (description) +
+>   `lessons`/`action`.
+>
+> ### Track 3 — filter scoping (the "Sunshine ERP leaked into Operations deck" bug)
+>
+> The export's change charts (donut, 6 tiles, recent-changes) were filtered
+> by **month only** — they ignored CHANGES GRP entirely, so ERP/Apps changes
+> leaked into the Operations deck. AND the helpdesk side was **hardcoded** to
+> the Operations ticket preset, ignoring an explicit TICKETS GRP selection
+> AND the site selector. Now `_buildExecPptxPayload`:
+> - **Group (tickets)** = explicit `_activeGroups` if set, else
+>   `_DEFAULT_GROUP_PRESETS.Operations` (keeps the Operations default but
+>   honors a narrower selection). Applied to tickets, prev, 12-mo trend,
+>   categories, channels, ageing, backlog, support-groups.
+> - **Group (changes)** = explicit `_activeChangeGroups` if set, else
+>   `CHANGE_GROUP_PRESETS.Operations` (consistent with tickets).
+> - **Site** = the SAME `siteMatch()` the on-screen preview uses (`selSite`;
+>   'all' = no filter) — applied across tickets + changes + ageing + trend.
+> - **No change for the all/all default** — numbers identical; filters only
+>   bite when the user narrows a group or site.
+> - **STILL fleet-wide (by design, flagged):** Major Incidents (server
+>   `_majorIncidents`, month+type only) and CSAT (survey-wide, not group/site
+>   tagged). Open question for next session — see below.
+>
+> ### Track 4 — AI commentary length is now audience-aware + footers never overflow
+>
+> The audience selector (Executive CFO/CIO · Operational · Technical) set
+> **tone** but each prompt field hardcoded sentence counts (helpdesk 5-7,
+> csat 4-6, sla/change 2-3) that overrode the brevity → footers overflowed
+> even in CFO/CIO mode. Now:
+> - **`_AUDIENCE_LEN` + `_alen()`** in `executive-report.html` → per-audience
+>   LENGTH BUDGET (Executive 1-2 short sentences / Operational 2-3 / Technical
+>   4-6). `_audiencePreamble()` injects a **STRICT budget block** that overrides
+>   any later count and notes the text renders in a narrow footer band.
+> - Every footer-feeding field spec now substitutes `${_alen('section')}` /
+>   `${_alen('csat')}` instead of a fixed count; the slide-2 narrative bullets
+>   (progress/issues/nextperiod/actions) scale via `${_alen('gov')}`.
+> - **Slide 2 IS audience-aware** — the governance prompt already prepends
+>   `_audiencePreamble()`; verified. Its columns cap at 5 bullets / fixed box
+>   so no overflow regardless of audience.
+> - **`render.py _fit_footer_size(text, base=11.5)`** — safety net: short
+>   (CFO/CIO) commentary renders LARGE (base 11.5, bands are 0.85" tall);
+>   only long (Operational/Technical) commentary scales down (10 → 9 → 8.5)
+>   to fit. Applied to all footer bands (slides 3-9 + 11b). Slide-9 footer band
+>   enlarged 0.55"→0.85". Verified with a 527-char stress comment — fits.
+>
+> ### QA harness (dev-only, gitignored deploy)
+>
+> `tools/exec-pptx/_mk_qa_fixture.py` builds `fixtures/kpis-may-qa.json` —
+> a **render.py-flat-shape** fixture (monthly_trend, monthly_channels,
+> categories_prev, flat csat, mi resolved/open/mom/action, enriched tracker
+> block) so render.py can be visually QA'd locally WITHOUT a 5-min live data
+> fetch. Loop: edit render.py → `python tools/exec-pptx/render.py < fixtures/kpis-may-qa.json > out.pptx`
+> → LibreOffice (`C:\Program Files\LibreOffice\program\soffice.exe`) → PDF →
+> PyMuPDF → PNG → inspect. The dev box also has real **Office 365 PowerPoint**
+> at `C:\Program Files\Microsoft Office\root\Office16\POWERPNT.EXE` for
+> faithful-render QA.
+>
+> ### Open items / next improvements (for the following session)
+>
+> 1. **Major Incidents scoping (slide 9)** — still month+type only, no
+>    group/site filter (`reportPayload._majorIncidents`). User was asked
+>    whether to also honor the **Site** selector here; decision pending.
+>    Site filtering is clean (site column exists); group filtering is
+>    debatable (MIs are cross-cutting). If yes: pass `selSite` in the payload
+>    + filter the SQL by site, leave group fleet-wide.
+> 2. **CSAT scoping (slide 7)** — survey-wide; can't filter by group/site
+>    until survey responses are reliably tagged with site/group. Needs a
+>    survey-instrument change (add a site question) or a mapping.
+> 3. **Pain-points / Voice clustering** — slide-7 "TOP PAIN POINTS" still
+>    shows a "Voice clustering pending (Phase 5)" placeholder; `/api/survey/voice`
+>    returns 401. LLM verbatim clustering is the unfinished Phase 5.
+> 4. **Verify on live** that `categories_prev` (slide 5 grouped Apr-vs-current
+>    bars) and `monthly_channels` (slide 5 channel line) actually populate from
+>    the browser payload — they were validated against the QA fixture, not yet
+>    against a real export.
+> 5. **No golden test for the exec-pptx deck** — the `tests/pptx-monthly-golden`
+>    fingerprint covers the weekly/monthly report decks, NOT `render.py`.
+>    Consider a fingerprint test for the 11-slide Group IT Report.
+> 6. **Slide 2 narrative columns** are AI-filled (f-progress/f-issues/
+>    f-nextperiod); the ops_summary editor lets the operator edit RAG / owner /
+>    Strategic-KPIs but not those 3 columns directly. Could add inline editing.
+> 7. **Deploy the 6 cumulative commits** (`72f593c`..`50d8717`) and confirm a
+>    fresh Analyze→Export in each audience renders correctly end-to-end.
+
+---
+
+## ⚡ Prior state (as of 2026-06-05)
 
 > **READ FIRST.** Branch `claude/busy-kirch-2a4176` is now **~273 commits
 > ahead of origin** (still NOT pushed). Tip: `d86b382` (data evolution
