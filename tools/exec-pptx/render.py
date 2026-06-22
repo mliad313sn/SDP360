@@ -566,6 +566,17 @@ def add_multi_text(slide, x, y, w, h, lines, *, font='Calibri', anchor=MSO_ANCHO
         r.font.color.rgb = col
     return tb
 
+def _fit_footer_size(text, base=10.0):
+    """Scale the navy footer-band font down for long AI commentary so it
+    never overflows the fixed-height band. The browser-side audience LENGTH
+    BUDGET keeps Executive text short; this is the safety net for longer
+    (Operational / Technical) commentary or any model overshoot."""
+    n = len(text or '')
+    if n <= 240: return base
+    if n <= 340: return base - 1.0
+    if n <= 440: return base - 1.8
+    return max(7.0, base - 2.6)
+
 def header_band(slide, title, section, period):
     """Standard header used across helpdesk slides"""
     # Navy band
@@ -1016,7 +1027,7 @@ if not _exec_comment:
 add_rect(s, Inches(0.4), Inches(6.25), Inches(12.55), Inches(0.88), DARK_NAVY)
 add_text(s, Inches(0.6), Inches(6.30), Inches(12.2), Inches(0.80),
          _exec_comment,
-         size=10.5, color=WHITE, anchor=MSO_ANCHOR.MIDDLE)
+         size=_fit_footer_size(_exec_comment, 10.5), color=WHITE, anchor=MSO_ANCHOR.MIDDLE)
 footer_bar(s, 3)
 
 # ====================================================================
@@ -1062,7 +1073,7 @@ if not _sla_comment:
 add_rect(s, Inches(0.4), Inches(6.25), Inches(12.55), Inches(0.85), DARK_NAVY)
 add_text(s, Inches(0.55), Inches(6.32), Inches(12.3), Inches(0.75),
          _sla_comment,
-         size=9, color=WHITE, anchor=MSO_ANCHOR.MIDDLE)
+         size=_fit_footer_size(_sla_comment, 9.5), color=WHITE, anchor=MSO_ANCHOR.MIDDLE)
 footer_bar(s, 4)
 
 # ====================================================================
@@ -1136,7 +1147,7 @@ if not _chan_comment:
 add_rect(s, Inches(0.4), Inches(6.30), Inches(12.55), Inches(0.80), DARK_NAVY)
 add_text(s, Inches(0.55), Inches(6.36), Inches(12.3), Inches(0.70),
          _chan_comment,
-         size=9, color=WHITE, anchor=MSO_ANCHOR.MIDDLE)
+         size=_fit_footer_size(_chan_comment, 9.5), color=WHITE, anchor=MSO_ANCHOR.MIDDLE)
 footer_bar(s, 5)
 
 # ====================================================================
@@ -1194,11 +1205,12 @@ top_summary = ", ".join([
     for g, v in top_ag
 ])
 total_open = sum(_ag_open(v) for v in K['ageing'].values())
+_s6_comment = (K.get('commentary', {}).get('slide6')
+    or f"{MONTH} open backlog: {total_open} tickets across {len(K['ageing'])} Operations groups. Highest concentration: {top_summary}. Engagement ongoing with external providers and procurement to unblock hardware/software dependencies.")
 add_rect(s, Inches(0.4), Inches(6.25), Inches(12.55), Inches(0.85), DARK_NAVY)
 add_text(s, Inches(0.55), Inches(6.32), Inches(12.3), Inches(0.75),
-         K.get('commentary', {}).get('slide6')
-         or f"{MONTH} open backlog: {total_open} tickets across {len(K['ageing'])} Operations groups. Highest concentration: {top_summary}. Engagement ongoing with external providers and procurement to unblock hardware/software dependencies.",
-         size=9, color=WHITE, anchor=MSO_ANCHOR.MIDDLE)
+         _s6_comment,
+         size=_fit_footer_size(_s6_comment, 9.5), color=WHITE, anchor=MSO_ANCHOR.MIDDLE)
 footer_bar(s, 6)
 
 # ====================================================================
@@ -1335,7 +1347,7 @@ if not _csat_comment:
 add_rect(s, Inches(0.4), Inches(6.10), Inches(12.55), Inches(0.95), DARK_NAVY)
 add_text(s, Inches(0.55), Inches(6.18), Inches(12.3), Inches(0.85),
          _csat_comment,
-         size=9, color=WHITE, anchor=MSO_ANCHOR.MIDDLE)
+         size=_fit_footer_size(_csat_comment, 9.5), color=WHITE, anchor=MSO_ANCHOR.MIDDLE)
 footer_bar(s, 7)
 
 # ====================================================================
@@ -1420,7 +1432,7 @@ if not _change_comment:
 add_rect(s, Inches(0.4), Inches(6.20), Inches(12.55), Inches(0.85), DARK_NAVY)
 add_text(s, Inches(0.55), Inches(6.27), Inches(12.3), Inches(0.75),
          _change_comment,
-         size=9, color=WHITE, anchor=MSO_ANCHOR.MIDDLE)
+         size=_fit_footer_size(_change_comment, 9.5), color=WHITE, anchor=MSO_ANCHOR.MIDDLE)
 footer_bar(s, 8)
 
 # ====================================================================
@@ -1571,10 +1583,10 @@ if not _inc_comment:
             f"PIR pending on the remainder. Focus: drive RCA-completion to 100% "
             f"and embed lessons-learned in next change-control cycle."
         )
-add_rect(s, Inches(0.4), Inches(6.55), Inches(12.55), Inches(0.55), DARK_NAVY)
-add_text(s, Inches(0.55), Inches(6.55), Inches(12.3), Inches(0.55),
+add_rect(s, Inches(0.4), Inches(6.25), Inches(12.55), Inches(0.85), DARK_NAVY)
+add_text(s, Inches(0.55), Inches(6.32), Inches(12.3), Inches(0.75),
          _inc_comment,
-         size=9, color=WHITE, anchor=MSO_ANCHOR.MIDDLE)
+         size=_fit_footer_size(_inc_comment, 9.5), color=WHITE, anchor=MSO_ANCHOR.MIDDLE)
 footer_bar(s, 9)
 
 # ====================================================================
