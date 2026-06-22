@@ -188,15 +188,27 @@ made so far so that future sessions can pick up exactly where the last one ended
 >
 > Diagnosed from a Major Incident (#289097) whose RCA/CA/PIR/LL showed RED
 > (MISSING) on the live register although they were filled in Zoho. Findings:
-> - **Major Incidents**: the requests sync filters on `Last Updated Time`
->   (`zoho-sync.js:550`), AND the MAJOR_INCIDENTS UDF backfill (`zoho-sync.js:602`)
->   re-fetches the FULL view (≤2000 rows) every sync and upserts `udf_json`.
->   Belt-and-suspenders added 2026-06-22: the requests filter now **always
->   upserts every Major-Incident base row** (`_isMajorIncident`, ≈16 rows) so
->   status/resolution/priority are guaranteed fresh without trusting Last
->   Updated Time. #289097 was simply **stale** (filled in Zoho after the last
->   sync) — a "⚡ Refresh from Zoho" repopulates it. Proof the chain works:
->   6/16 register incidents already had UDF populated.
+> - **Major Incidents base rows**: the requests filter now **always upserts
+>   every Major-Incident base row** (`_isMajorIncident`, ≈16 rows) so
+>   status/resolution/priority stay fresh without trusting Last Updated Time.
+> - **Major-Incident UDF (RCA/CA/PIR/LL) — real bug, fixed 2026-06-22**: the
+>   register UDFs were sourced from a SEPARATE Zoho Analytics report
+>   **view 790842**, which had gone STALE — the `POST /api/admin/refresh-major-incident-udfs`
+>   diagnostic showed it returned only **12 rows with udfsExtracted=0** (the UDF
+>   fields were re-created in SDP AFTER the report's columns were mapped, so it
+>   returned them empty for recent incidents — e.g. #289097 showed RCA/CA/PIR/LL
+>   red despite being filled in SDP). Meanwhile the base **REQUEST_TABLE view
+>   002201 NOW returns all UDF columns** (203-col schema snapshot; a manual
+>   Request export confirmed #289097's UDF filled there). **Fix**: source the MI
+>   UDF straight from the base 002201 rows we already fetch (`extractUdf` over
+>   `allRows.filter(_isMajorIncident)`), 790842 kept only as a fallback. Also
+>   `extractUdf` now keeps **non-empty values only** (no 100-null bloat per
+>   request; neither path can clobber good data with blanks). Needs deploy +
+>   one requests sync to repopulate. **Diagnostic endpoint to reuse**:
+>   `POST /api/admin/refresh-major-incident-udfs` returns rowsFetched /
+>   udfsExtracted / dbUpdated / dbUnmatched. **Rule**: prefer sourcing UDF from
+>   the table that actually owns the record over a separate Analytics report —
+>   reports drift when custom fields are recreated.
 > - **Changes had a real gap (fixed)**: the Zoho Change view exposes NO
 >   "Last Updated Time" column (`EXPECTED_CHANGE_COLS`), so the old incremental
 >   filter (new OR open OR recently-completed) NEVER re-pulled a change edited

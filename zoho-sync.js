@@ -100,7 +100,16 @@ function extractUdf(row) {
     //   • Request/Major-Incident UDFs (literal "UDF:" prefix in the column name,
     //     e.g. "UDF:Root Cause Analysis :", "UDF:Lessons Learned:")
     if (key.startsWith('UDF:') || UDF_PREFIXES.some(p => key.startsWith(p))) {
-      udf[key] = row[key] || null;
+      const val = row[key];
+      // Keep only NON-EMPTY UDF values. Two reasons:
+      //  1. Avoids bloating udf_json with dozens of empty form-field keys on
+      //     every request (the REQUEST_TABLE view now exposes 100+ UDF columns).
+      //  2. Makes the 790842 backfill non-destructive: it returns empty UDF for
+      //     recent incidents, which now yields null here → no upsert → it can't
+      //     clobber good values captured from the base REQUEST_TABLE view.
+      if (val !== null && val !== undefined && String(val).trim() !== '') {
+        udf[key] = val;
+      }
     }
   }
   return Object.keys(udf).length > 0 ? JSON.stringify(udf) : null;
@@ -606,91 +615,51 @@ async function syncRequestData({ force = false } = {}) {
       console.log(`[Sync] requests — reconciliation removed ${deleted} stale records`);
     }
 
-    // ── MAJOR_INCIDENTS UDF backfill ──────────────────────────────
-    // The base REQUEST_TABLE Zoho view (002201) does NOT return UDF columns
-    // (Root Cause Analysis, Corrective Action, Lessons Learned, Preventive
-    // Measures, Workaround Details, PIR Required). Those columns ARE returned
-    // by the MAJOR_INCIDENTS Report view (790842), which is small (typically
-    // <500 rows over 12 months). We fetch it on every request sync and write
-    // the JSON-encoded UDFs back into request_records.udf_json keyed by
-    // request_id. The base sync runs first, so request_records always exists
-    // when we try to UPDATE here.
+    // ── Major-Incident UDF capture (rewritten 2026-06-22) ─────────
+    // The REQUEST_TABLE view (002201) NOW returns all the Major-Incident UDF
+    // columns (Root Cause Analysis, Corrective Action, Lessons Learned, PIR
+    // Required/Date, Total Downtime, Preventive Measures, Workaround …), so we
+    // source UDF straight from the base rows we already fetched — covering
+    // EVERY major incident, including recent ones.
+    //
+    // Why the change: the old path fetched a separate MAJOR_INCIDENTS report
+    // (view 790842) and wrote its UDFs back. That report had gone stale — it
+    // returned only ~12 rows with EMPTY UDF for recent incidents (the UDF
+    // fields were re-created in SDP after the report's columns were mapped),
+    // so the register showed RCA/CA/PIR/LL as MISSING (red) even when filled
+    // in SDP (e.g. #289097). We keep 790842 ONLY as a fallback for the case
+    // where 002201 stops exposing UDF columns. extractUdf() now keeps only
+    // non-empty values, so neither path can clobber good data with blanks.
     let udfUpdated = 0;
     try {
-      const miResult = await _fetchView(_VIEWS.MAJOR_INCIDENTS, 2000);
-      if (miResult && Array.isArray(miResult.rows)) {
-        const miRows = miResult.rows;
-        console.log(`[Sync] requests — fetched ${miRows.length} MAJOR_INCIDENTS rows for UDF backfill`);
+      const _miBase = allRows.filter(r => _isMajorIncident(r));
+      let udfRows = _miBase.map(r => {
+        const rid = String(r['Request ID'] || r['RequestID'] || '').trim()
+                 || String(r['Request Display ID'] || '').trim();
+        const udf = extractUdf(r);                       // non-empty UDF only
+        return (rid && udf) ? { request_id: rid, udf_json: udf } : null;
+      }).filter(Boolean);
+      let source = 'REQUEST_TABLE(002201)';
 
-        // First-row diagnostic: helps spot when the Zoho view starts returning
-        // a different column-name format and extractUdf() silently drops everything.
-        if (miRows.length > 0) {
-          const firstCols = Object.keys(miRows[0]);
-          const udfCols   = firstCols.filter(c => c.startsWith('UDF:'));
-          if (udfCols.length === 0) {
-            console.warn(`[Sync] requests — ⚠️ MAJOR_INCIDENTS view returned NO "UDF:" columns. Cols: ${firstCols.slice(0,12).join(', ')}…`);
-          } else {
-            console.log(`[Sync] requests — UDF columns found: ${udfCols.join(' | ')}`);
-          }
-        }
-
-        // 2026-06-02 expand the field-name fallbacks. The MAJOR_INCIDENTS
-        // (view 790842) is a Zoho Analytics REPORT, not the raw REQUEST_TABLE.
-        // The "Request ID" column may be exposed under several names depending
-        // on how the report's columns were configured at the Zoho side:
-        //   • 'Request ID' / 'RequestID'              — long internal id
-        //     (e.g. 212627000021435102), matches request_records.request_id
-        //   • 'Request Display ID' / 'Display ID'     — short display id
-        //     (e.g. 307800), matches request_records.display_id
-        // The previous code only tried the first pair; if Zoho ever drops the
-        // long-id column from the report (configurable per analyst), the
-        // whole UDF backfill silently produces 0 rows. Now we cascade both.
-        let extractedCount = 0;
-        let firstRowDumped = false;
-        const _LONG_ID_KEYS    = ['Request ID', 'RequestID', 'Request_ID', 'Request Id'];
-        const _DISPLAY_ID_KEYS = ['Request Display ID', 'Display ID', 'Display_ID', 'RequestDisplayID'];
-        const udfRows = miRows.map((r, ix) => {
-          let rid = null, ridKind = null;
-          for (const k of _LONG_ID_KEYS)    { if (r[k] != null && String(r[k]).trim()) { rid = String(r[k]).trim(); ridKind = 'long';    break; } }
-          if (!rid) {
-            for (const k of _DISPLAY_ID_KEYS) { if (r[k] != null && String(r[k]).trim()) { rid = String(r[k]).trim(); ridKind = 'display'; break; } }
-          }
-          if (!rid) {
-            // First-row diagnostic ONLY (once per sync). Tells us what columns
-            // the view actually exposes so we can extend _LONG_ID_KEYS /
-            // _DISPLAY_ID_KEYS in a follow-up if a new variant appears.
-            if (!firstRowDumped) {
-              firstRowDumped = true;
-              const keys = Object.keys(r);
-              const candidates = keys.filter(k => /request|display|id$/i.test(k));
-              console.warn(`[Sync] requests — ⚠️ MAJOR_INCIDENTS row #${ix} has no Request/Display ID column. Total keys: ${keys.length}. ID-shaped candidates: ${candidates.join(' | ') || '(none)'}`);
-              if (candidates.length === 0) {
-                console.warn(`[Sync] requests — First 12 keys: ${keys.slice(0, 12).join(' | ')}`);
-              }
-            }
-            return null;
-          }
+      // Fallback: only if the base view exposed no MI UDF at all (e.g. the UDF
+      // columns were removed from 002201) do we fetch the legacy report.
+      if (udfRows.length === 0) {
+        const miResult = await _fetchView(_VIEWS.MAJOR_INCIDENTS, 2000);
+        const miRows   = (miResult && Array.isArray(miResult.rows)) ? miResult.rows : [];
+        const _LONG = ['Request ID', 'RequestID', 'Request_ID', 'Request Id'];
+        const _DISP = ['Request Display ID', 'Display ID', 'Display_ID', 'RequestDisplayID'];
+        udfRows = miRows.map(r => {
+          let rid = null;
+          for (const k of _LONG) { if (r[k] != null && String(r[k]).trim()) { rid = String(r[k]).trim(); break; } }
+          if (!rid) for (const k of _DISP) { if (r[k] != null && String(r[k]).trim()) { rid = String(r[k]).trim(); break; } }
           const udf = extractUdf(r);
-          if (!udf) return null;     // no UDF columns present → skip
-          extractedCount++;
-          return { request_id: rid, udf_json: udf, _ridKind: ridKind };
+          return (rid && udf) ? { request_id: rid, udf_json: udf } : null;
         }).filter(Boolean);
-
-        // Pass-through to the DB helper. It now also matches on display_id
-        // as a fallback when request_id doesn't match — see comment in
-        // reports-db.js `upsertRequestUdfBatch`.
-        udfUpdated = upsertRequestUdfBatch(udfRows);
-        const unmatched = udfRows.length - udfUpdated;
-        console.log(`[Sync] requests — UDF backfill: extracted=${extractedCount}, dbUpdated=${udfUpdated}, unmatched=${unmatched}`);
-        if (extractedCount > 0) {
-          const _kinds = {};
-          udfRows.forEach(r => { _kinds[r._ridKind] = (_kinds[r._ridKind] || 0) + 1; });
-          console.log(`[Sync] requests — UDF id-kind breakdown: ${Object.entries(_kinds).map(([k, v]) => k + '=' + v).join(', ')}`);
-        }
-        if (unmatched > 0 && udfRows[0]) {
-          console.warn(`[Sync] requests — ⚠️ ${unmatched} UDF rows had no matching request_id NOR display_id in DB (e.g. "${udfRows[0].request_id}" / kind=${udfRows[0]._ridKind}). Possible format mismatch.`);
-        }
+        source = 'MAJOR_INCIDENTS(790842) fallback';
       }
+
+      udfUpdated = upsertRequestUdfBatch(udfRows);
+      console.log(`[Sync] requests — UDF backfill from ${source}: MIs=${_miBase.length}, withUdf=${udfRows.length}, dbUpdated=${udfUpdated}`);
     } catch (udfErr) {
       // Non-fatal: log and continue. UDFs are nice-to-have on top of the
       // already-synced base request data.
