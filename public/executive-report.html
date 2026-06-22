@@ -6789,6 +6789,15 @@ async function exportExecPptxV2() {
     const fname = `Group_IT_Operations_Report_${(payload.filters.month_name || 'Period').replace(/\s+/g,'_')}_${payload.filters.year || ''}.pptx`;
     payload.output_filename = fname;
 
+    // Tracker block (slides 10/11). Built with the faithful client-side engine
+    // (_buildTrackerBlock → _trkSiteSummary, cumulative + per-KPI-type) because
+    // the server reportPayload._tracker() scores a single month crudely and
+    // returns all-red/empty. build() server-side prefers this browser block.
+    try {
+      const _trkD = await _trkFetchData();
+      if (_trkD) payload.tracker = _buildTrackerBlock(_trkD, payload.filters.year, payload.filters.month);
+    } catch (e) { console.warn('[tracker] block build skipped:', e.message); }
+
     const res = await fetch('/api/reports/exec-pptx', {
       method: 'POST',
       headers: {
@@ -7431,6 +7440,46 @@ function _trkSiteSummary(D, site, yr, mo) {
   let oS = 0, oT = 0;
   Object.keys(pScores).forEach(p => { const pw = (p in PW) ? PW[p] : 0.25; oS += pw * pScores[p]; oT += pw; });
   return { active:sc.filter(s=>s.on).length, g:sc.filter(s=>s.rg==='GREEN').length, a:sc.filter(s=>s.rg==='AMBER').length, r:sc.filter(s=>s.rg==='RED').length, avg:oT>0?oS/oT:0, sc, pScores };
+}
+
+// Build the render.py-shaped tracker block (slides 10/11) from the faithful
+// scoring engine above. The server-side reportPayload._tracker() uses crude
+// single-month scoring (all-red); this uses _trkSiteSummary (cumulative +
+// per-KPI-type), matching the live Activity Tracker. build() prefers this.
+// Verified on May 2026: Green 52 / Amber 47 / Red 33 / Avg 69%, HGO best 77%.
+function _buildTrackerBlock(D, yr, mo) {
+  const activeSites = (D.activeSites && D.activeSites.length) ? D.activeSites : (D.sites || []);
+  const PW = D.pillarWeights || {}, SN = D.siteNames || {}, SC = D.siteColors || {};
+  let G = 0, A = 0, R = 0, sumScore = 0, nS = 0;
+  const sites = [], pAgg = {};
+  activeSites.forEach(code => {
+    const ss = _trkSiteSummary(D, code, yr, mo);
+    if (ss.active === 0) return;
+    G += ss.g; A += ss.a; R += ss.r; sumScore += ss.avg; nS++;
+    let delta = null;
+    if (mo > 1) { const pv = _trkSiteSummary(D, code, yr, mo - 1); if (pv.active > 0) delta = Math.round((ss.avg - pv.avg) * 100); }
+    sites.push({ code, name: SN[code] || code, color: '#' + _trkHex(SC[code]),
+      score: Math.round(ss.avg * 100), delta_pp: delta, g: ss.g, a: ss.a, r: ss.r });
+    ss.sc.forEach(s => {
+      if (!s.on) return;
+      const ag = pAgg[s.pillar] = pAgg[s.pillar] || { green: 0, amber: 0, red: 0, sSum: 0, sN: 0, weight: (s.pillar in PW ? PW[s.pillar] : 0.25) };
+      if (s.rg === 'GREEN') ag.green++; else if (s.rg === 'AMBER') ag.amber++; else if (s.rg === 'RED') ag.red++;
+    });
+    Object.entries(ss.pScores || {}).forEach(([p, v]) => {
+      const ag = pAgg[p] = pAgg[p] || { green: 0, amber: 0, red: 0, sSum: 0, sN: 0, weight: (p in PW ? PW[p] : 0.25) };
+      ag.sSum += v; ag.sN++;
+    });
+  });
+  sites.sort((a, b) => b.score - a.score);
+  const pillars = {};
+  Object.entries(pAgg).forEach(([p, ag]) => {
+    pillars[_trkPillarShort(p)] = { green: ag.green, amber: ag.amber, red: ag.red,
+      score: ag.sN ? Math.round(ag.sSum / ag.sN * 100) : 0, weight: Math.round(ag.weight * 100) };
+  });
+  return { green: G, amber: A, red: R,
+    avg_score: nS ? Math.round(sumScore / nS * 100) : 0, avg_delta_pp: null,
+    sites, pillars, commentary: [],
+    trends: { months: [], fleet: [], pillars: {}, sites: {} } };
 }
 
 function _trkPillarScore(D, site, p, yr, mo) {

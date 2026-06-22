@@ -511,7 +511,11 @@ function build(browserPayload) {
   const ageing      = _ageing();
   const mi          = _majorIncidents(dbFilters);
   const changes     = _changes(dbFilters);
-  const tracker     = _tracker(dbFilters);
+  // Prefer the browser-built tracker block: executive-report.html scores the
+  // tracker with the faithful engine (cumulative + per-KPI-type via
+  // _trkSiteSummary), whereas _tracker() below scores a single month crudely
+  // (all-red). Fall back to _tracker() only when the browser didn't send one.
+  const tracker     = browserPayload.tracker || _tracker(dbFilters);
 
   // Assemble final payload. Browser fields take precedence so the
   // operator can override anything via the dashboard UI.
