@@ -188,13 +188,15 @@ made so far so that future sessions can pick up exactly where the last one ended
 >
 > Diagnosed from a Major Incident (#289097) whose RCA/CA/PIR/LL showed RED
 > (MISSING) on the live register although they were filled in Zoho. Findings:
-> - **Major Incidents are fine**: the requests sync filters on `Last Updated
->   Time` (`zoho-sync.js:550`) so an edited-after-closure incident IS re-pulled,
->   AND the MAJOR_INCIDENTS UDF backfill (`zoho-sync.js:602`) re-fetches the
->   FULL view (≤2000 rows) every sync and upserts `udf_json`. #289097 was
->   simply **stale** (filled in Zoho after the last sync) — a "⚡ Refresh from
->   Zoho" repopulates it. Proof it works: 6/16 register incidents had UDF
->   populated.
+> - **Major Incidents**: the requests sync filters on `Last Updated Time`
+>   (`zoho-sync.js:550`), AND the MAJOR_INCIDENTS UDF backfill (`zoho-sync.js:602`)
+>   re-fetches the FULL view (≤2000 rows) every sync and upserts `udf_json`.
+>   Belt-and-suspenders added 2026-06-22: the requests filter now **always
+>   upserts every Major-Incident base row** (`_isMajorIncident`, ≈16 rows) so
+>   status/resolution/priority are guaranteed fresh without trusting Last
+>   Updated Time. #289097 was simply **stale** (filled in Zoho after the last
+>   sync) — a "⚡ Refresh from Zoho" repopulates it. Proof the chain works:
+>   6/16 register incidents already had UDF populated.
 > - **Changes had a real gap (fixed)**: the Zoho Change view exposes NO
 >   "Last Updated Time" column (`EXPECTED_CHANGE_COLS`), so the old incremental
 >   filter (new OR open OR recently-completed) NEVER re-pulled a change edited

@@ -543,8 +543,17 @@ async function syncRequestData({ force = false } = {}) {
     // whose overdue_status, request_status, or any other field changes after their
     // initial sync are re-upserted and SQLite stays current.
     // Fall back to Created Time if Last Updated Time is missing.
+    //
+    // EXCEPTION — always upsert Major Incidents (2026-06-22). They're a tiny set
+    // (≈16 over 12 months) but business-critical, and their post-incident fields
+    // (RCA / CA / PIR / Lessons) are filled AFTER closure during the PIR. Rather
+    // than trust Last Updated Time to bump on every such edit, we full-upsert
+    // every MI base row each sync — negligible cost, guaranteed fresh. (UDF text
+    // itself comes from the separate full MAJOR_INCIDENTS backfill below.)
+    const _isMajorIncident = r => /major\s*incident/i.test(r['Request Type'] || '');
     const newRows = lastSync
       ? allRows.filter(r => {
+          if (_isMajorIncident(r)) return true;   // always refresh MIs
           const updated = parseZohoDate(r['Last Updated Time']) || parseZohoDate(r['Created Time']);
           return isNew(updated, lastSync);
         })
