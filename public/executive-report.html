@@ -6960,9 +6960,18 @@ function _buildExecPptxPayload() {
     const M  = {Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12}[re[2]] || 0;
     return parseInt(re[3]) === y && M === m;
   };
-  const isOps = t => opsGroups.indexOf(t['Group']) >= 0;
-  const cur   = (_data.raw || []).filter(t => isOps(t) && inMonth(t, yr, mo));
-  const prev  = (_data.raw || []).filter(t => isOps(t) && inMonth(t, prevYr, prevMo));
+  // Group scope for helpdesk charts: honor an explicit TICKETS GRP
+  // selection (_activeGroups); when "All"/untouched, default to the
+  // Operations preset (this stays the "Operations" deck). Was: hardcoded
+  // to opsGroups, which ignored an explicit group selection.
+  const _tgrp     = (_activeGroups && _activeGroups.length) ? _activeGroups : opsGroups;
+  const _tgrpSet  = new Set(_tgrp.map(g => String(g).trim().toLowerCase()));
+  const isOps     = t => _tgrpSet.has((t['Group'] || '').trim().toLowerCase());
+  // Site scope: reuse the SAME siteMatch() the on-screen preview uses, so
+  // the deck matches what's displayed. 'all' = no site filter.
+  const _siteOk   = t => siteMatch(t['Site'] || t['Site Name'] || '');
+  const cur   = (_data.raw || []).filter(t => isOps(t) && _siteOk(t) && inMonth(t, yr, mo));
+  const prev  = (_data.raw || []).filter(t => isOps(t) && _siteOk(t) && inMonth(t, prevYr, prevMo));
 
   // ── KPIs ────────────────────────────────────────────────────────────
   // Reconciled to the dashboard scorecard's canonical KPI logic
@@ -7012,7 +7021,7 @@ function _buildExecPptxPayload() {
   // 12-month trend — adds per-channel % so slide 5 can draw Email vs
   // Web Form share over time (user 2026-06-04 feedback).
   const monthlyMap = {};
-  (_data.raw || []).filter(isOps).forEach(t => {
+  (_data.raw || []).filter(t => isOps(t) && _siteOk(t)).forEach(t => {
     const re = (t['Created Time']||'').match(/(\d+)\s+(\w+)\s+(\d{4})/);
     if (!re) return;
     const yyyy = parseInt(re[3]);
@@ -7064,9 +7073,11 @@ function _buildExecPptxPayload() {
     .map(name => ({ name, current: chanCur[name]||0, previous: chanPrev[name]||0 }))
     .sort((a,b) => b.current - a.current);
 
-  // Ageing — already filtered to OPS groups in _data.ageing
+  // Ageing — scope to the same group set + site as the rest of the deck.
+  // (Ageing groups are site-named, so siteMatch on the group name drops
+  // other sites when a specific site is selected.)
   const ageing = (_data.ageing || [])
-    .filter(a => opsGroups.indexOf(a.group) >= 0)
+    .filter(a => _tgrpSet.has(String(a.group || '').trim().toLowerCase()) && siteMatch(a.group))
     .map(a => ({
       group:     a.group.replace(/ IT (Agents?|Support)$/i, '').trim(),
       t0_30:     a.t0_30 || 0,
@@ -7100,9 +7111,15 @@ function _buildExecPptxPayload() {
   // preview via changeGroupMatch). null/empty = all groups. This is what
   // keeps ERP/Apps changes (e.g. "Sunshine Phase 3") out of the Operations
   // deck when the CHANGES GRP dropdown is scoped to Operations.
-  const _chgScope = (_activeChangeGroups && _activeChangeGroups.length) ? _activeChangeGroups : null;
+  // Group scope: explicit CHANGES GRP selection → else Operations changes
+  // preset (consistent with how tickets default to the Operations preset).
+  const _chgScope = (_activeChangeGroups && _activeChangeGroups.length)
+    ? _activeChangeGroups
+    : ((typeof CHANGE_GROUP_PRESETS !== 'undefined'
+        && CHANGE_GROUP_PRESETS.Operations && CHANGE_GROUP_PRESETS.Operations.length)
+        ? CHANGE_GROUP_PRESETS.Operations : null);
   const _chgGroupOk = (c) => {
-    if (!_chgScope) return true;   // "All" selected → no group filter
+    if (!_chgScope) return true;   // no scope available → all groups
     const g = (c['Group'] || c['Group Name'] || c.group || c.group_name || '').trim().toLowerCase();
     return _chgScope.some(ag => String(ag).trim().toLowerCase() === g);
   };
@@ -7111,7 +7128,8 @@ function _buildExecPptxPayload() {
     const re = ct.match(/(\d+)\s+(\w+)\s+(\d{4})/);
     if (!re) return false;
     const inM = parseInt(re[3]) === yr && ({Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12}[re[2]] || 0) === mo;
-    return inM && _chgGroupOk(c);
+    // Same site scope as the rest of the deck.
+    return inM && _chgGroupOk(c) && siteMatch(c['Site'] || c['Site Name'] || '');
   });
   // ── Change-type bucketing (audit-fixed 2026-05-28) ───────────────────
   // Was: substring `.includes(type)` — matched "Emergency" AND "Non-Emergency"
