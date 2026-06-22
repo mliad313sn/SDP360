@@ -934,13 +934,15 @@ x,y = get_pos(0,1); kpi_tile(s,x,y,TILE_W,TILE_H,"CLOSED TICKETS", f"{K['closed'
 x,y = get_pos(0,2); kpi_tile(s,x,y,TILE_W,TILE_H,"SLA COMPLIANCE (Res)", f"{K['sla_compliance']:.1f}%", "Target ≥ 90%  ⚠", accent=AMBER, value_color=NAVY, value_size=32); tile_delta(x,y,_d_sla[0],     _d_sla[1])
 x,y = get_pos(0,3); kpi_tile(s,x,y,TILE_W,TILE_H,"OPEN BACKLOG", f"{K['open_backlog']}", "Active open tickets", accent=ORANGE, value_size=32);          tile_delta(x,y,_d_backlog[0], _d_backlog[1])
 
-# Row 2 — Quality / FRT / Resolution
-# FCR RATE tile dropped 2026-06-04 per user direction — fcr_rate is
-# computed from CSAT survey data which is rarely populated for the
-# helpdesk filter, so the tile was almost always showing 0.0%.
-# Layout reflowed to 2 tiles centered: FRT SLA (left) + AVG RESOLUTION (right).
-x,y = get_pos(1,0); kpi_tile(s,x,y,TILE_W,TILE_H,"FRT SLA", f"{K['frt_sla']:.1f}%", "Target ≥ 90%  ⚠", accent=RED, value_size=32);                       tile_delta(x,y,_d_frt[0],     _d_frt[1])
-x,y = get_pos(1,1); kpi_tile(s,x,y,TILE_W,TILE_H,"AVG RESOLUTION", f"{K['avg_res_days']}d", "MTTR — all tickets", accent=BLUE, value_size=32);             tile_delta(x,y,_d_res[0],     _d_res[1])
+# Row 2 — Quality: FCR · FRT · Resolution · SLA Violations (4 tiles, May-final layout)
+# FCR + SLA Violations restored 2026-06-22: fcr_rate is now reconciled to the
+# scorecard's ticket-based proxy (closed, not escalated, not reopened — no longer
+# the empty CSAT-derived value), and SLA Violations = 100 - Resolution SLA.
+_sla_viol = max(0.0, 100 - K.get('sla_compliance', 0))
+x,y = get_pos(1,0); kpi_tile(s,x,y,TILE_W,TILE_H,"FCR RATE", f"{K['fcr_rate']:.1f}%", "Closed, no escalation / reopen", accent=GREEN, value_size=32);      tile_delta(x,y,_d_fcr[0],  _d_fcr[1])
+x,y = get_pos(1,1); kpi_tile(s,x,y,TILE_W,TILE_H,"FRT SLA", f"{K['frt_sla']:.1f}%", "Target ≥ 90%  ⚠", accent=RED, value_size=32);                         tile_delta(x,y,_d_frt[0],  _d_frt[1])
+x,y = get_pos(1,2); kpi_tile(s,x,y,TILE_W,TILE_H,"AVG RESOLUTION", f"{K['avg_res_days']}d", "MTTR — all tickets", accent=BLUE, value_size=32);              tile_delta(x,y,_d_res[0],  _d_res[1])
+x,y = get_pos(1,3); kpi_tile(s,x,y,TILE_W,TILE_H,"SLA VIOLATIONS", f"{_sla_viol:.1f}%", "Missed Resolution SLA", accent=ORANGE, value_color=NAVY, value_size=32)
 
 # Row 3 — Governance & Incident
 x,y = get_pos(2,0); kpi_tile(s,x,y,TILE_W,TILE_H,"CHANGES (NEW)", f"{K['changes_total']}", "Created this period", accent=BLUE, value_size=32);            tile_delta(x,y,_d_changes[0], _d_changes[1])
