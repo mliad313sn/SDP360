@@ -7090,13 +7090,28 @@ function _buildExecPptxPayload() {
   const csat = _data.csat || {};
   const totalCSAT = csat.totalResponses || (csat.promoters||0) + (csat.passives||0) + (csat.detractors||0);
 
-  // Changes
+  // Changes — filtered by month AND change-group scope so the Operations
+  // deck doesn't leak ERP/Apps changes (e.g. "Sunshine Phase 3"). Scope
+  // preference: the live CHANGES GRP selection (_activeChangeGroups) →
+  // else the Operations changes preset (CHANGE_GROUP_PRESETS.Operations)
+  // → else all groups. Matches how tickets are scoped to Operations.
   const chgRows = _data.changes || [];
+  // Honor the live CHANGES GRP selection exactly (same as the on-screen
+  // preview via changeGroupMatch). null/empty = all groups. This is what
+  // keeps ERP/Apps changes (e.g. "Sunshine Phase 3") out of the Operations
+  // deck when the CHANGES GRP dropdown is scoped to Operations.
+  const _chgScope = (_activeChangeGroups && _activeChangeGroups.length) ? _activeChangeGroups : null;
+  const _chgGroupOk = (c) => {
+    if (!_chgScope) return true;   // "All" selected → no group filter
+    const g = (c['Group'] || c['Group Name'] || c.group || c.group_name || '').trim().toLowerCase();
+    return _chgScope.some(ag => String(ag).trim().toLowerCase() === g);
+  };
   const chgInMonth = chgRows.filter(c => {
     const ct = c['Created Time'] || c.createdTime || c.created_time || '';
     const re = ct.match(/(\d+)\s+(\w+)\s+(\d{4})/);
     if (!re) return false;
-    return parseInt(re[3]) === yr && ({Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12}[re[2]] || 0) === mo;
+    const inM = parseInt(re[3]) === yr && ({Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12}[re[2]] || 0) === mo;
+    return inM && _chgGroupOk(c);
   });
   // ── Change-type bucketing (audit-fixed 2026-05-28) ───────────────────
   // Was: substring `.includes(type)` — matched "Emergency" AND "Non-Emergency"
