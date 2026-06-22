@@ -706,38 +706,49 @@ add_text(s, Inches(0.4), Inches(0.18), Inches(10), Inches(0.5),
 add_text(s, Inches(11.5), Inches(0.18), Inches(1.7), Inches(0.5),
          PERIOD_LONG, size=12, bold=True, color=ORANGE, align=PP_ALIGN.RIGHT, anchor=MSO_ANCHOR.MIDDLE)
 
+# Operator-edited summary (structured, persisted + edited in the dashboard UI,
+# sent on the export payload as ops_summary). Each field falls back to the AI
+# commentary / sensible default when not provided — see executive-report.html
+# "Operations Summary" editor.
+_os = K.get('ops_summary') or {}
+def _rag_color(v, default=AMBER):
+    return {'G': GREEN, 'A': AMBER, 'R': RED}.get(str(v or '').strip().upper()[:1], default)
+
 # Owner block left
 add_rect(s, Inches(0.4), Inches(1.05), Inches(3.6), Inches(1.5), LIGHT_GRAY, line=RGBColor(0xE5,0xE7,0xEB))
 add_text(s, Inches(0.55), Inches(1.15), Inches(3.4), Inches(0.4),
-         "Mohamed Diagne", size=14, bold=True, color=NAVY)
+         _os.get('owner_name') or "Mohamed Diagne", size=14, bold=True, color=NAVY)
 add_text(s, Inches(0.55), Inches(1.55), Inches(3.4), Inches(0.35),
-         "IT Operations  ·  Mines & Exploration", size=11, italic=True, color=GRAY)
+         _os.get('owner_title') or "IT Operations  ·  Mines & Exploration", size=11, italic=True, color=GRAY)
 # Owner KV grid
-labels_kv = [("Reporting Month", MONTH),("Financial Year","2026"),("Headcount (inc. Contract)","7")]
+labels_kv = [("Reporting Month", MONTH),
+             ("Financial Year", str(_os.get('financial_year') or "2026")),
+             ("Headcount (inc. Contract)", str(_os.get('headcount') or "7"))]
 yy = Inches(2.0)
 for i,(k,v) in enumerate(labels_kv):
     add_text(s, Inches(0.55), yy+Inches(0.18*i), Inches(2.0), Inches(0.2), k, size=9, color=GRAY)
     add_text(s, Inches(2.6), yy+Inches(0.18*i), Inches(1.4), Inches(0.2), v, size=9, bold=True, color=NAVY)
 
-# RAG status pills (top right)
+# RAG status pills (top right) — data-driven from ops_summary.rag (G/A/R)
 def status_pill(x, y, label, color):
     add_rect(s, x, y, Inches(1.2), Inches(0.5), color)
     add_text(s, x, y, Inches(1.2), Inches(0.5), label, size=10, bold=True, color=WHITE,
              align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE)
 
 add_text(s, Inches(4.2), Inches(1.05), Inches(8.7), Inches(0.3), "Project Health", size=10, bold=True, color=GRAY)
-status_pill(Inches(4.2), Inches(1.4), "Overall: A", AMBER)
-status_pill(Inches(5.5), Inches(1.4), "Schedule: A", AMBER)
-status_pill(Inches(6.8), Inches(1.4), "Risk: A", AMBER)
-status_pill(Inches(8.1), Inches(1.4), "Budget: G", GREEN)
-status_pill(Inches(9.4), Inches(1.4), "Resource: A", AMBER)
+_rag = _os.get('rag') or {}
+_pills = [("Overall", _rag.get('overall', 'A')), ("Schedule", _rag.get('schedule', 'A')),
+          ("Risk", _rag.get('risk', 'A')), ("Budget", _rag.get('budget', 'G')), ("Resource", _rag.get('resource', 'A'))]
+for i, (lab, val) in enumerate(_pills):
+    v = (str(val).strip().upper()[:1] or 'A')
+    status_pill(Inches(4.2) + Inches(1.3) * i, Inches(1.4), f"{lab}: {v}", _rag_color(v))
 
 # Goal banner
 add_rect(s, Inches(0.4), Inches(2.7), Inches(12.55), Inches(0.6), NAVY)
 add_text(s, Inches(0.55), Inches(2.78), Inches(1.2), Inches(0.45),
          "GOAL", size=11, bold=True, color=ORANGE, anchor=MSO_ANCHOR.MIDDLE)
 add_text(s, Inches(1.7), Inches(2.78), Inches(11.2), Inches(0.45),
-         "Ensure IT alignment with operational needs and strategic objectives, while fostering innovation and maintaining cost-effectiveness.",
+         _os.get('goal') or "Ensure IT alignment with operational needs and strategic objectives, while fostering innovation and maintaining cost-effectiveness.",
          size=10, italic=True, color=WHITE, anchor=MSO_ANCHOR.MIDDLE)
 
 # Two columns: Progress / Issues
@@ -773,51 +784,32 @@ def _bullets_to_lines(bullets, accent_color):
     return out
 
 _commentary = K.get('commentary') or {}
-_progress_text = _commentary.get('progress') or ''
-_issues_text   = _commentary.get('issues')   or ''
 
-# Progress
-add_rect(s, Inches(0.4), col_y, Inches(6.2), Inches(0.35), GREEN)
-add_text(s, Inches(0.55), col_y, Inches(6), Inches(0.35), "Progress since last period",
-         size=11, bold=True, color=WHITE, anchor=MSO_ANCHOR.MIDDLE)
-add_rect(s, Inches(0.4), col_y+Inches(0.35), Inches(6.2), col_h, WHITE, line=RGBColor(0xE5,0xE7,0xEB))
-_prog_bullets = _parse_commentary_bullets(_progress_text, max_bullets=5)
-if _prog_bullets:
-    prog_lines = _bullets_to_lines(_prog_bullets, NAVY)
-else:
-    # Fallback: data-driven defaults from K (replaces previous
-    # April-hardcoded template text)
-    prog_lines = [
-        (f"• Helpdesk {MONTH}: ", 9, True, NAVY),
-        (f"{K.get('total', 0):,} tickets, {K.get('closure_rate', 0):.1f}% closure, Res SLA {K.get('sla_compliance', 0):.0f}%.", 9, False, CHARCOAL),
-        (f"• Change Governance: ", 9, True, NAVY),
-        (f"{K.get('changes_total', 0)} changes — {K.get('changes_type', {}).get('Standard', 0)} Standard / {K.get('changes_type', {}).get('Major', 0)} Major / {K.get('changes_type', {}).get('Emergency', 0)} Emergency.", 9, False, CHARCOAL),
-        ("• Click Analyze ", 9, True, AMBER),
-        ("on the dashboard to generate executive commentary for this section.", 9, False, GRAY),
-    ]
-add_multi_text(s, Inches(0.55), col_y+Inches(0.45), Inches(6.0), col_h-Inches(0.2), prog_lines, line_space=1.15)
+# Pick a section's bullets: the operator's ops_summary field (list or text)
+# wins, then the AI commentary, then a "click Analyze" hint.
+def _section_bullets(os_key, comm_key):
+    v = _os.get(os_key)
+    if isinstance(v, list):
+        items = [str(x).lstrip('•·-*◦ ').strip() for x in v if str(x).strip()]
+        if items: return items[:5]
+    if isinstance(v, str) and v.strip():
+        return _parse_commentary_bullets(v, 5)
+    return _parse_commentary_bullets(_commentary.get(comm_key) or '', 5)
 
-# Issues / Risks
-add_rect(s, Inches(6.75), col_y, Inches(6.2), Inches(0.35), AMBER)
-add_text(s, Inches(6.9), col_y, Inches(6), Inches(0.35), "Issues / Risks / Comments",
-         size=11, bold=True, color=WHITE, anchor=MSO_ANCHOR.MIDDLE)
-add_rect(s, Inches(6.75), col_y+Inches(0.35), Inches(6.2), col_h, WHITE, line=RGBColor(0xE5,0xE7,0xEB))
-_issue_bullets = _parse_commentary_bullets(_issues_text, max_bullets=5)
-if _issue_bullets:
-    issue_lines = _bullets_to_lines(_issue_bullets, RED)
-else:
-    # Fallback: data-driven from current month's K
-    issue_lines = [
-        (f"• {K.get('mi_total', 0)} Major Incidents ({MONTH}): ", 9, True, RED),
-        ("see slide 9 for site breakdown + actions.", 9, False, CHARCOAL),
-        (f"• FRT SLA at {K.get('frt_sla', 0):.1f}%: ", 9, True, AMBER),
-        ("review on slide 4 (12-month trend).", 9, False, CHARCOAL),
-        (f"• Open Backlog {K.get('open_backlog', 0)} tickets: ", 9, True, AMBER),
-        ("ageing distribution on slide 6.", 9, False, CHARCOAL),
-        ("• Click ✨ Analyze (AI) ", 9, True, AMBER),
-        ("on the dashboard for narrative risk commentary.", 9, False, GRAY),
-    ]
-add_multi_text(s, Inches(6.9), col_y+Inches(0.45), Inches(6.0), col_h-Inches(0.2), issue_lines, line_space=1.15)
+# Three columns — Progress | Issues | Activities (May-final layout). The third
+# column (Activities for next period) was missing entirely before.
+def _summary_col(x, w, title, bar_color, bullets, accent):
+    add_rect(s, x, col_y, w, Inches(0.35), bar_color)
+    add_text(s, x+Inches(0.12), col_y, w-Inches(0.2), Inches(0.35), title,
+             size=10.5, bold=True, color=WHITE, anchor=MSO_ANCHOR.MIDDLE)
+    add_rect(s, x, col_y+Inches(0.35), w, col_h, WHITE, line=RGBColor(0xE5,0xE7,0xEB))
+    lines = _bullets_to_lines(bullets, accent) if bullets else [
+        ("• Click Analyze to generate this section.", 9, False, GRAY)]
+    add_multi_text(s, x+Inches(0.12), col_y+Inches(0.45), w-Inches(0.24), col_h-Inches(0.2), lines, line_space=1.08)
+
+_summary_col(Inches(0.40), Inches(4.05), "Progress since last period", GREEN, _section_bullets('progress', 'progress'), NAVY)
+_summary_col(Inches(4.55), Inches(4.05), "Issues / Risks / Comments",  AMBER, _section_bullets('issues',   'issues'),   RED)
+_summary_col(Inches(8.70), Inches(4.25), "Activities for next period",  NAVY,  _section_bullets('activities','actions'),  NAVY)
 
 # Strategic KPIs table — start earlier so the last row clears the corner footer at y=7.18
 ky = Inches(5.10)
@@ -836,12 +828,19 @@ for label, w in hdrs:
              size=9, bold=True, color=NAVY, anchor=MSO_ANCHOR.MIDDLE)
     cx += Inches(w)
 
-rows = [
+_default_kpi_rows = [
     ("Strategic IT Roadmap Delivery & Governance", "Mohamed", "H2-26", GREEN, "Roadmap distributed to Site IT Mgrs; first IT Council scheduled May."),
     ("Control Framework Transfer to SCM", "Mohamed", "H1-26", AMBER, "Transfer in progress with Guy Serge; June review session planned."),
     ("Skills Matrix APPS Adoption (4MP V2)", "Mohamed", "H1-26", GREEN, "V2 released; Finance pilot underway with 9-box, mentoring, dev plans."),
     ("Infrastructure Standardization Oversight", "Mohamed", "H2-26", AMBER, "Site link upgrades progressing; SGO contract/procurement delays."),
 ]
+# Data-driven from ops_summary.kpis (operator-edited); fall back to defaults.
+_kpi_src = _os.get('kpis')
+if isinstance(_kpi_src, list) and _kpi_src:
+    rows = [(r.get('deliverable', '—'), r.get('owner', 'Mohamed'), r.get('end', ''),
+             _rag_color(r.get('rag')), r.get('comments', '')) for r in _kpi_src[:4]]
+else:
+    rows = _default_kpi_rows
 ry = hy + Inches(0.32)
 row_h = Inches(0.30)
 for i,(d,o,e,rag,com) in enumerate(rows):
