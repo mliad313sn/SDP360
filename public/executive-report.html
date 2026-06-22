@@ -910,6 +910,35 @@ Example:
 [P2] Reduce emergency change rate below 5% — Owner: Change Manager</div>
       </div>
     </div>
+    <div class="commentary-card" style="grid-column:span 2">
+      <div class="commentary-hdr">
+        <span class="commentary-name">📋 Operations Summary — status &amp; KPIs (slide 2)</span>
+        <button class="btn" style="font-size:11px;padding:3px 8px" onclick="_opsSummarySave()">💾 Save</button>
+      </div>
+      <div class="commentary-body" style="font-size:12px">
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+          <span style="color:#64748b">Project Health:</span>
+          <label>Overall <select id="os-rag-overall" class="os-f"><option>G</option><option selected>A</option><option>R</option></select></label>
+          <label>Schedule <select id="os-rag-schedule" class="os-f"><option>G</option><option selected>A</option><option>R</option></select></label>
+          <label>Risk <select id="os-rag-risk" class="os-f"><option>G</option><option selected>A</option><option>R</option></select></label>
+          <label>Budget <select id="os-rag-budget" class="os-f"><option selected>G</option><option>A</option><option>R</option></select></label>
+          <label>Resource <select id="os-rag-resource" class="os-f"><option>G</option><option selected>A</option><option>R</option></select></label>
+        </div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+          <label>Owner <input id="os-owner-name" class="os-f" style="width:150px" value="Mohamed Diagne"></label>
+          <label>Title <input id="os-owner-title" class="os-f" style="width:230px" value="IT Operations · Mines &amp; Exploration"></label>
+          <label>FY <input id="os-fy" class="os-f" style="width:60px" value="2026"></label>
+          <label>Headcount <input id="os-headcount" class="os-f" style="width:46px" value="7"></label>
+        </div>
+        <label style="display:block;margin-bottom:8px">Goal <input id="os-goal" class="os-f" style="width:100%" placeholder="Goal statement (leave blank for the default)…"></label>
+        <table style="width:100%;border-collapse:collapse;font-size:11px">
+          <thead><tr style="text-align:left;color:#64748b">
+            <th style="width:34%">Deliverable / KPI</th><th style="width:12%">Owner</th><th style="width:9%">End</th><th style="width:8%">RAG</th><th>Comments</th></tr></thead>
+          <tbody id="os-kpi-rows"></tbody>
+        </table>
+        <div style="color:#94a3b8;margin-top:6px">Saved per month in this browser. Progress / Issues / Activities columns come from the fields above (AI-prefilled by Analyze).</div>
+      </div>
+    </div>
   </div>
 
   <!-- Analysis Progress -->
@@ -2079,6 +2108,8 @@ function _syncPeriodFromKeys() {
 
   if (btnLbl) btnLbl.textContent = label;
   if (badge)  badge.textContent  = label;
+  // Reload the per-month Operations Summary editor for the new period.
+  try { _opsSummaryLoad(); } catch(e){}
 }
 
 // (Audit Tier 3) Removed onPeriodChange empty stub — no callers in current code.
@@ -6798,6 +6829,9 @@ async function exportExecPptxV2() {
       if (_trkD) payload.tracker = _buildTrackerBlock(_trkD, payload.filters.year, payload.filters.month);
     } catch (e) { console.warn('[tracker] block build skipped:', e.message); }
 
+    // Operations Summary structured fields (slide 2): RAG, owner, goal, KPIs.
+    try { payload.ops_summary = _opsSummaryCollect(); } catch (e) { console.warn('[ops_summary] collect skipped:', e.message); }
+
     const res = await fetch('/api/reports/exec-pptx', {
       method: 'POST',
       headers: {
@@ -6829,6 +6863,78 @@ async function exportExecPptxV2() {
     btns.forEach((b, i) => { b.disabled = false; b.textContent = orig[i]; });
   }
 }
+
+// ── Operations Summary editor (slide 2 structured fields) ───────────────
+// The 3 text columns (Progress / Issues / Activities) come from the existing
+// f-progress / f-issues / f-nextperiod fields (AI-prefilled). This editor
+// covers the STRUCTURED fields render.py reads from K['ops_summary']: RAG
+// pills, owner/FY/headcount, goal, and the 4-row Strategic-KPI table. Saved
+// per month in localStorage.
+const _OS_DEFAULT_KPIS = [
+  { deliverable:'Strategic IT Roadmap Delivery & Governance', owner:'Mohamed', end:'H2-26', rag:'G', comments:'' },
+  { deliverable:'Control Framework Transfer to SCM',          owner:'Mohamed', end:'H1-26', rag:'A', comments:'' },
+  { deliverable:'Skills Matrix APPS Adoption (4MP V2)',       owner:'Mohamed', end:'H1-26', rag:'G', comments:'' },
+  { deliverable:'Infrastructure Standardization Oversight',   owner:'Mohamed', end:'H2-26', rag:'A', comments:'' },
+];
+function _osEsc(s){ return String(s==null?'':s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function _opsKpiRowHtml(r){
+  r = r || {};
+  const opt = v => ['G','A','R'].map(o=>`<option ${r.rag===o?'selected':''}>${o}</option>`).join('');
+  return `<tr>
+    <td><input class="os-f os-kpi-deliv" style="width:100%" value="${_osEsc(r.deliverable)}"></td>
+    <td><input class="os-f os-kpi-owner" style="width:100%" value="${_osEsc(r.owner)}"></td>
+    <td><input class="os-f os-kpi-end"   style="width:100%" value="${_osEsc(r.end)}"></td>
+    <td><select class="os-f os-kpi-rag">${opt()}</select></td>
+    <td><input class="os-f os-kpi-com"   style="width:100%" value="${_osEsc(r.comments)}"></td>
+  </tr>`;
+}
+function _opsRenderKpis(kpis){
+  const tb = document.getElementById('os-kpi-rows'); if (!tb) return;
+  const list = (kpis && kpis.length ? kpis : _OS_DEFAULT_KPIS).slice(0,4);
+  tb.innerHTML = list.map(_opsKpiRowHtml).join('');
+}
+function _opsSummaryKey(){
+  const yr = _reportMonth && _reportMonth.yr;
+  const mo = _reportMonth && (_reportMonth.mo || (_reportMonth.mos && _reportMonth.mos[0]));
+  return `opsSummary_${yr||'x'}_${mo||'x'}`;
+}
+function _opsSummaryCollect(){
+  const g = id => (document.getElementById(id)||{}).value || '';
+  const kpis = [...document.querySelectorAll('#os-kpi-rows tr')].map(tr => ({
+    deliverable: (tr.querySelector('.os-kpi-deliv')||{}).value || '',
+    owner:       (tr.querySelector('.os-kpi-owner')||{}).value || '',
+    end:         (tr.querySelector('.os-kpi-end')  ||{}).value || '',
+    rag:         (tr.querySelector('.os-kpi-rag')  ||{}).value || 'A',
+    comments:    (tr.querySelector('.os-kpi-com')  ||{}).value || '',
+  })).filter(r => (r.deliverable||'').trim());
+  return {
+    owner_name: g('os-owner-name'), owner_title: g('os-owner-title'),
+    financial_year: g('os-fy'), headcount: g('os-headcount'), goal: g('os-goal'),
+    rag: { overall:g('os-rag-overall'), schedule:g('os-rag-schedule'), risk:g('os-rag-risk'), budget:g('os-rag-budget'), resource:g('os-rag-resource') },
+    kpis,
+  };
+}
+function _opsSummaryApply(os){
+  os = os || {};
+  const set = (id,v) => { const e=document.getElementById(id); if(e && v!=null && v!=='') e.value=v; };
+  set('os-owner-name', os.owner_name); set('os-owner-title', os.owner_title);
+  set('os-fy', os.financial_year); set('os-headcount', os.headcount); set('os-goal', os.goal);
+  const rag = os.rag||{}; ['overall','schedule','risk','budget','resource'].forEach(k => set('os-rag-'+k, rag[k]));
+  _opsRenderKpis(os.kpis);
+}
+function _opsSummaryLoad(){
+  let os = null;
+  try { os = JSON.parse(localStorage.getItem(_opsSummaryKey()) || 'null'); } catch(e){}
+  _opsSummaryApply(os || {});
+}
+function _opsSummarySave(){
+  try {
+    localStorage.setItem(_opsSummaryKey(), JSON.stringify(_opsSummaryCollect()));
+    const st = document.getElementById('actionStatus'); if (st) st.textContent = '✅ Operations Summary saved for this month.';
+  } catch(e){ alert('Operations Summary save failed: ' + e.message); }
+}
+// Render the default KPI rows + load any saved summary once the DOM is ready.
+document.addEventListener('DOMContentLoaded', () => { try { _opsRenderKpis(null); _opsSummaryLoad(); } catch(e){} });
 
 // ── Data extraction — mirror what the on-screen charts already compute ──
 // Numbers come pre-formatted as numbers (not strings) so the renderer's

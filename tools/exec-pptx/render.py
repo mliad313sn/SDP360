@@ -809,7 +809,7 @@ def _summary_col(x, w, title, bar_color, bullets, accent):
 
 _summary_col(Inches(0.40), Inches(4.05), "Progress since last period", GREEN, _section_bullets('progress', 'progress'), NAVY)
 _summary_col(Inches(4.55), Inches(4.05), "Issues / Risks / Comments",  AMBER, _section_bullets('issues',   'issues'),   RED)
-_summary_col(Inches(8.70), Inches(4.25), "Activities for next period",  NAVY,  _section_bullets('activities','actions'),  NAVY)
+_summary_col(Inches(8.70), Inches(4.25), "Activities for next period",  NAVY,  _section_bullets('activities','nextperiod'),  NAVY)
 
 # Strategic KPIs table — start earlier so the last row clears the corner footer at y=7.18
 ky = Inches(5.10)
