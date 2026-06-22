@@ -61,7 +61,11 @@ SLIDE_H = Inches(7.5)
 # bytes from stdout. If invoked locally for testing, pipe a fixture:
 #     py -3 render.py < fixtures/kpis-may.json > /tmp/out.pptx
 try:
-    K = json.loads(sys.stdin.read())
+    # Read raw bytes and decode as UTF-8 explicitly — on Windows sys.stdin
+    # defaults to the locale codec (cp1252), which mojibakes accented site
+    # names (Houndé/Lafigué) and em-dashes that Node sends as UTF-8.
+    _raw_in = sys.stdin.buffer.read()
+    K = json.loads(_raw_in.decode('utf-8'))
 except json.JSONDecodeError as e:
     print(f"[render] FATAL: stdin is not valid JSON ({e})", file=sys.stderr)
     sys.exit(2)
@@ -272,12 +276,37 @@ def _draw_categories(ax):
     if not cats:
         ax.text(0.5, 0.5, 'No category data', ha='center', va='center',
                 fontsize=11, color='#6B7280'); return
-    names = [c[0][:32] + ('…' if len(c[0]) > 32 else '') for c in cats][::-1]
-    vals  = [c[1] for c in cats][::-1]
-    bars  = ax.barh(names, vals, color='#E87722', edgecolor='white')
-    for b, v in zip(bars, vals):
-        ax.text(v + max(vals) * 0.01, b.get_y() + b.get_height() / 2,
-                f'{v:,}', va='center', fontsize=8, color='#1A3A5F')
+    prev = K.get('categories_prev') or {}
+    full  = [c[0] for c in cats]
+    names = [(n[:30] + ('…' if len(n) > 30 else '')) for n in full][::-1]
+    cur_v = [c[1] for c in cats][::-1]
+    has_prev = bool(prev)
+    import numpy as _np
+    y = _np.arange(len(names))
+    if has_prev:
+        # Grouped current-vs-previous horizontal bars (matches May template).
+        prev_v = [prev.get(n, 0) for n in full][::-1]
+        bh = 0.38
+        bars_cur = ax.barh(y + bh / 2, cur_v,  height=bh, color='#1F3D5C',
+                           label=PERIOD_TICK,      edgecolor='white')
+        bars_prv = ax.barh(y - bh / 2, prev_v, height=bh, color='#E87722',
+                           label=PREV_PERIOD_TICK, edgecolor='white')
+        _xmax = max(cur_v + prev_v) if (cur_v + prev_v) else 1
+        for bars in (bars_cur, bars_prv):
+            for b in bars:
+                w = b.get_width()
+                if w:
+                    ax.text(w + _xmax * 0.01, b.get_y() + b.get_height() / 2,
+                            f'{int(w):,}', va='center', fontsize=6.5, color='#374151')
+        ax.legend(fontsize=8, loc='lower right', frameon=False)
+    else:
+        bars = ax.barh(y, cur_v, color='#1F3D5C', edgecolor='white')
+        _xmax = max(cur_v) if cur_v else 1
+        for b, v in zip(bars, cur_v):
+            ax.text(v + _xmax * 0.01, b.get_y() + b.get_height() / 2,
+                    f'{v:,}', va='center', fontsize=8, color='#1A3A5F')
+    ax.set_yticks(y); ax.set_yticklabels(names, fontsize=8)
+    ax.set_xlim(0, _xmax * 1.12)
     ax.spines[['top', 'right']].set_visible(False)
     ax.grid(axis='x', alpha=0.2, linestyle='--')
     ax.tick_params(axis='y', labelsize=8)
@@ -325,17 +354,23 @@ def _draw_volume_trend(ax):
     import numpy as _np
     x = _np.arange(len(labels))
     bw = 0.4
-    ax.bar(x - bw/2, inbound, width=bw, color='#2E5C8A', label='Inbound',  edgecolor='white')
-    ax.bar(x + bw/2, closed,  width=bw, color='#E87722', label='Closed',   edgecolor='white')
-    # Highlight the rightmost (current period) by darkening the edge
-    if labels:
-        for i, b in enumerate(ax.patches):
-            if i % len(labels) == len(labels) - 1:
-                b.set_edgecolor('#1A3A5F'); b.set_linewidth(1.5)
+    # Template palette: Inbound = deep navy, Closed = green.
+    bars_in = ax.bar(x - bw/2, inbound, width=bw, color='#1F3D5C', label='Inbound', edgecolor='white')
+    bars_cl = ax.bar(x + bw/2, closed,  width=bw, color='#2E8540', label='Closed',  edgecolor='white')
+    _ymax = max(inbound + closed) if (inbound + closed) else 1
+    # Value labels above each bar (matches the May template).
+    for bars in (bars_in, bars_cl):
+        for b in bars:
+            h = b.get_height()
+            if h:
+                ax.text(b.get_x() + b.get_width() / 2, h + _ymax * 0.012,
+                        f'{int(h):,}', ha='center', va='bottom',
+                        fontsize=5.5, color='#374151')
+    ax.set_ylim(0, _ymax * 1.14)
     ax.set_xticks(x); ax.set_xticklabels(labels, rotation=35, ha='right', fontsize=8)
     ax.spines[['top', 'right']].set_visible(False)
     ax.grid(axis='y', alpha=0.2, linestyle='--')
-    ax.legend(fontsize=9, loc='upper left', frameon=False)
+    ax.legend(fontsize=9, loc='upper left', frameon=False, ncol=2)
     ax.tick_params(axis='y', labelsize=8)
 
 
@@ -349,9 +384,10 @@ def _draw_sla_trend(ax):
     frt_sla = [r.get('frt_sla', 0) or 0 for r in series]
     import numpy as _np
     x = _np.arange(len(labels))
-    ax.plot(x, res_sla, color='#E87722', marker='o', linewidth=2,   label='Resolution SLA')
-    ax.plot(x, frt_sla, color='#DC2626', marker='s', linewidth=2,   label='FRT SLA')
-    ax.axhline(y=90, color='#16A34A', linestyle='--', linewidth=1,  alpha=0.6, label='Target 90%')
+    # Template palette: Resolution SLA = green, FRT SLA = navy.
+    ax.plot(x, res_sla, color='#2E8540', marker='o', linewidth=2.2, label='Resolution SLA')
+    ax.plot(x, frt_sla, color='#1F3D5C', marker='o', linewidth=2.2, label='FRT SLA')
+    ax.axhline(y=90, color='#9CA3AF', linestyle='--', linewidth=1,  alpha=0.7, label='Target 90%')
     ax.set_ylim(0, 100)
     ax.set_xticks(x); ax.set_xticklabels(labels, rotation=35, ha='right', fontsize=7)
     ax.spines[['top', 'right']].set_visible(False)
@@ -456,28 +492,37 @@ def _draw_csat_donut(ax):
         ax.text(0.5, 0.5, 'No CSAT data captured this month',
                 ha='center', va='center', fontsize=11, color='#6B7280'); return
     sizes = [p[0] for p in parts]
-    labels = [f"{p[1]} ({p[0]})" for p in parts]
+    legends = [f"{p[1]} ({p[0]})" for p in parts]
     colors = [p[2] for p in parts]
-    ax.pie(sizes, labels=labels, autopct='%1.0f%%', colors=colors,
-           wedgeprops=dict(width=0.42, edgecolor='white'),
-           textprops={'fontsize': 8, 'color': '#1A3A5F'})
+    wedges, _t, autotexts = ax.pie(
+        sizes, autopct=lambda pct: f'{pct:.0f}%' if pct >= 4 else '',
+        colors=colors, startangle=90, counterclock=False, pctdistance=0.80,
+        wedgeprops=dict(width=0.42, edgecolor='white'),
+        textprops={'fontsize': 10, 'color': 'white', 'fontweight': 'bold'})
+    ax.legend(wedges, legends, loc='lower center', bbox_to_anchor=(0.5, -0.06),
+              ncol=min(len(parts), 3), fontsize=8.5, frameon=False)
 
 
 def _draw_changes_donut(ax):
     by_type = K.get('changes_type') or {}
-    parts = [(by_type.get('Standard', 0),  'Standard',  '#2E5C8A'),
-             (by_type.get('Major', 0),     'Major',     '#1A3A5F'),
+    # Template palette: Standard = dark navy (dominant), Major = mid-blue, Emergency = red.
+    parts = [(by_type.get('Standard', 0),  'Standard',  '#1A3A5F'),
+             (by_type.get('Major', 0),     'Major',     '#2E5C8A'),
              (by_type.get('Emergency', 0), 'Emergency', '#DC2626')]
     parts = [p for p in parts if p[0] > 0]
     if not parts:
         ax.text(0.5, 0.5, 'No change data', ha='center', va='center',
                 fontsize=11, color='#6B7280'); return
     sizes = [p[0] for p in parts]
-    labels = [f"{p[1]} ({p[0]})" for p in parts]
+    legends = [f"{p[1]} ({p[0]})" for p in parts]
     colors = [p[2] for p in parts]
-    ax.pie(sizes, labels=labels, autopct='%1.0f%%', colors=colors,
-           wedgeprops=dict(width=0.42, edgecolor='white'),
-           textprops={'fontsize': 9, 'color': '#1A3A5F'})
+    wedges, _t, autotexts = ax.pie(
+        sizes, autopct=lambda pct: f'{pct:.0f}%' if pct >= 4 else '',
+        colors=colors, startangle=90, counterclock=False, pctdistance=0.80,
+        wedgeprops=dict(width=0.42, edgecolor='white'),
+        textprops={'fontsize': 11, 'color': 'white', 'fontweight': 'bold'})
+    ax.legend(wedges, legends, loc='lower center', bbox_to_anchor=(0.5, -0.06),
+              ncol=min(len(parts), 3), fontsize=9, frameon=False)
 
 # ========== HELPERS ==========
 def add_rect(slide, x, y, w, h, fill, line=None, shape=MSO_SHAPE.RECTANGLE):
@@ -570,9 +615,9 @@ def kpi_tile(slide, x, y, w, h, label, value, sub, *, accent=BLUE, value_color=N
     add_rect(slide, x, y, Inches(0.10), h, accent)
     # main background
     add_rect(slide, x+Inches(0.10), y, w-Inches(0.10), h, WHITE, line=RGBColor(0xE5,0xE7,0xEB))
-    # label
+    # label — bold navy caps for visibility (was light gray; matches May template)
     add_text(slide, x+Inches(0.25), y+Inches(0.10), w-Inches(0.35), Inches(0.25),
-             label.upper(), size=9, bold=True, color=GRAY)
+             label.upper(), size=9, bold=True, color=NAVY)
     # value
     add_text(slide, x+Inches(0.25), y+Inches(0.32), w-Inches(0.35), Inches(0.55),
              value, size=value_size, bold=True, color=value_color)
@@ -968,10 +1013,10 @@ if not _exec_comment:
         f"Focus: {'close ' + format(_sla_gap_pp, '.1f') + 'pp gap to 90% Res SLA' if _sla_gap_pp > 0 else 'maintain Res SLA above target'}; "
         f"lift FRT to 90%."
     )
-add_rect(s, Inches(0.4), Inches(6.55), Inches(12.55), Inches(0.55), DARK_NAVY)
-add_text(s, Inches(0.55), Inches(6.55), Inches(12.3), Inches(0.55),
+add_rect(s, Inches(0.4), Inches(6.25), Inches(12.55), Inches(0.88), DARK_NAVY)
+add_text(s, Inches(0.6), Inches(6.30), Inches(12.2), Inches(0.80),
          _exec_comment,
-         size=9, color=WHITE, anchor=MSO_ANCHOR.MIDDLE)
+         size=10.5, color=WHITE, anchor=MSO_ANCHOR.MIDDLE)
 footer_bar(s, 3)
 
 # ====================================================================
@@ -1031,15 +1076,10 @@ add_text(s, Inches(0.4), Inches(1.05), Inches(12), Inches(0.4),
 # Top-left: category bar chart (kept) — narrower
 s.shapes.add_picture(_chart('categories', figsize=(5.8, 4.6), data_fn=_draw_categories, title=f'Top Categories — {PERIOD_LONG}'), Inches(0.4), Inches(1.55), width=Inches(5.5), height=Inches(4.6))
 
-# Top-right: current-month channel breakdown (bar chart — replaces pie
-# to fix label overlap when 4+ channels are present)
-s.shapes.add_picture(_chart('channel_now', figsize=(7.0, 2.2), data_fn=_draw_channels, title=f'Submission Channel — {MONTH}'), Inches(6.05), Inches(1.55), width=Inches(6.95), height=Inches(2.2))
-
-# NEW (2026-06-04): 12-month Email vs Web Form share trend below the
-# current-month bar — user explicitly asked to see "the compared trend
-# of email channel over months vs Web form submission on last 12 month
-# in small format".
-s.shapes.add_picture(_chart('channel_trend_12m', figsize=(7.0, 1.6), data_fn=_draw_channel_share_trend, title='E-Mail vs Web Form — 12-Month Share'), Inches(6.05), Inches(3.80), width=Inches(6.95), height=Inches(1.30))
+# Top-right: Submission-channel LINE chart — E-Mail vs Web Form % over 12
+# months (matches the May template, which uses a single line chart here
+# rather than the old current-month bar + small trend stack).
+s.shapes.add_picture(_chart('channel_trend_12m', figsize=(7.0, 3.0), data_fn=_draw_channel_share_trend, title='Submission Channel — % of monthly volume'), Inches(6.05), Inches(1.55), width=Inches(6.95), height=Inches(2.95))
 
 # Current-month channel split tiles — moved down to clear the 12-month
 # trend chart above (which ends at y=5.10)
@@ -1330,14 +1370,39 @@ for i,(lbl, val, sub, ac) in enumerate(t_cards):
     r,c = divmod(i,3)
     kpi_tile(s, gx + (cw+ggap)*c, gy + (chh+ggap)*r, cw, chh, lbl, val, sub, accent=ac, value_size=28)
 
-# Highlight box - Emergency change description
-add_rect(s, Inches(5.4), Inches(4.85), Inches(7.55), Inches(1.10), RGBColor(0xFF,0xF8,0xE6), line=AMBER)
-add_text(s, Inches(5.55), Inches(4.92), Inches(7.3), Inches(0.30),
-         "⚠  Emergency Change — sml-fsv-mining Disk Space Upgrade  (CHG-254)",
-         size=10, bold=True, color=ORANGE_D, anchor=MSO_ANCHOR.TOP)
-add_text(s, Inches(5.55), Inches(5.20), Inches(7.3), Inches(0.70),
-         "Lafigué (SML) — Mining VM running out of disk space. Critical urgent storage extension to prevent service interruption. Status: In Progress  ·  Group: EDV InfraOPs Support  ·  Priority: Critical.",
-         size=9, color=NAVY, anchor=MSO_ANCHOR.TOP)
+# Highlight box — Emergency-rate summary + "recent changes" at-a-glance
+# (data-driven; matches the May template's yellow callout).
+_emg_list = K.get('emergency_changes') or []
+_emg_band = 'above <5% target' if emerg_pct >= 5 else 'within <5% target'
+_emg_title = (f"⚠  Emergency Change — {emerg_ch} of {total_ch} RFCs "
+              f"({emerg_pct:.1f}%, {_emg_band})")
+_ch_fail = (status.get('Failed', 0) + status.get('Backed Out', 0)
+            + status.get('Backed-Out', 0))
+if _emg_list:
+    _e0 = _emg_list[0]
+    _emg_body = (f"Emergency: \"{str(_e0.get('subject',''))[:90]}\" "
+                 f"(status: {_e0.get('status','—')}). "
+                 f"All {total_ch} RFCs tracked — {_ch_fail} failed/backed-out. "
+                 f"Review emergency rate for CAB-compliance gaps.")
+else:
+    _emg_body = (f"{emerg_ch} emergency change this period. All {total_ch} RFCs "
+                 f"tracked — {_ch_fail} failed/backed-out. Emergency rate "
+                 f"{emerg_pct:.1f}% {_emg_band} — review for CAB-compliance gaps.")
+# "Recent changes include …" glance line — recent change titles (browser may
+# send K['recent_changes']; else fall back to emergency subjects).
+_recent = K.get('recent_changes') or [str(e.get('subject', '')) for e in _emg_list]
+_recent = [r for r in _recent if r][:5]
+_glance = ("→ Recent changes include " + "; ".join(
+              (r[:46] + ('…' if len(r) > 46 else '')) for r in _recent) + ".") if _recent else ""
+
+add_rect(s, Inches(5.4), Inches(4.80), Inches(7.55), Inches(1.33), RGBColor(0xFF,0xF8,0xE6), line=AMBER)
+add_text(s, Inches(5.55), Inches(4.85), Inches(7.3), Inches(0.28),
+         _emg_title, size=10, bold=True, color=ORANGE_D, anchor=MSO_ANCHOR.TOP)
+add_text(s, Inches(5.55), Inches(5.12), Inches(7.3), Inches(0.55),
+         _emg_body, size=8.5, color=NAVY, anchor=MSO_ANCHOR.TOP)
+if _glance:
+    add_text(s, Inches(5.55), Inches(5.70), Inches(7.3), Inches(0.40),
+             _glance, size=8.5, italic=True, color=GRAY, anchor=MSO_ANCHOR.TOP)
 
 # Bottom commentary — data-driven, prefer AI commentary['change'] if filled
 _change_comment = (K.get('commentary') or {}).get('change', '').strip()
@@ -1366,13 +1431,32 @@ header_band(s, "Major Incidents & Escalations", "HELP DESK", PERIOD_SHORT)
 add_text(s, Inches(0.4), Inches(1.05), Inches(10), Inches(0.4),
          f"Major Incident Summary — {PERIOD_LONG}", size=15, bold=True, color=NAVY)
 
-# Top 3 KPI tiles
-kpi_tile(s, Inches(0.4), Inches(1.55), Inches(4.1), Inches(1.5), "P1 INCIDENTS", str(K['mi_critical']),
-         "Critical priority", accent=RED, value_color=RED, value_size=40)
-kpi_tile(s, Inches(4.65), Inches(1.55), Inches(4.1), Inches(1.5), "P2 INCIDENTS", str(K['mi_high']),
-         "High priority", accent=AMBER, value_color=AMBER, value_size=40)
-kpi_tile(s, Inches(8.90), Inches(1.55), Inches(4.05), Inches(1.5), "TOTAL MAJOR INCIDENTS", str(K['mi_total']),
-         f"Created in {MONTH}", accent=BLUE, value_color=NAVY, value_size=40)
+# Top 4 KPI tiles (May-final layout): Major Incidents / Resolved / Open / MoM Change
+_mi_total = K.get('mi_total', 0)
+_mi_res   = K.get('mi_resolved', _mi_total)
+_mi_open  = K.get('mi_open', max(0, _mi_total - _mi_res))
+_mi_down  = K.get('mi_downtime_h', 0)
+_mi_prev  = K.get('mi_prev_total')
+_mi_mom   = K.get('mi_mom')
+if not _mi_mom:
+    if _mi_prev is None:           _mi_mom = '—'
+    elif _mi_total == _mi_prev:    _mi_mom = 'flat'
+    else:                          _mi_mom = f"{'+' if _mi_total > _mi_prev else ''}{_mi_total - _mi_prev}"
+_mom_sub = (f"vs {PREV_PERIOD_TICK} ({_mi_prev} major)"
+            if _mi_prev is not None else f"vs {PREV_PERIOD_TICK}")
+_mtw = Inches(3.07); _mtg = Inches(0.12); _mtx0 = Inches(0.4); _mty = Inches(1.55); _mth = Inches(1.45)
+def _mt(i): return _mtx0 + (_mtw + _mtg) * i
+kpi_tile(s, _mt(0), _mty, _mtw, _mth, "MAJOR INCIDENTS", str(_mi_total),
+         f"P1: {K['mi_critical']} · P2: {K['mi_high']} · Downtime {_mi_down}h",
+         accent=RED, value_color=RED, value_size=36)
+kpi_tile(s, _mt(1), _mty, _mtw, _mth, "RESOLVED", str(_mi_res),
+         "All closed this period" if _mi_open == 0 else f"{_mi_res} closed in scope",
+         accent=GREEN, value_color=GREEN, value_size=36)
+kpi_tile(s, _mt(2), _mty, _mtw, _mth, "OPEN", str(_mi_open),
+         "No open major incidents" if _mi_open == 0 else "Awaiting resolution",
+         accent=ORANGE, value_color=NAVY, value_size=36)
+kpi_tile(s, _mt(3), _mty, _mtw, _mth, "MoM CHANGE", str(_mi_mom),
+         _mom_sub, accent=BLUE, value_color=NAVY, value_size=36)
 
 # Incident detail boxes — data-driven from K['mi_records'][]. Each record
 # is expected to carry: id, site, priority, subject, status, plus optional
@@ -1418,57 +1502,56 @@ if not incidents:
         'lessons': '—',
     })
 
-# 2-column × 3-row grid layout (2026-06-04) — user reported cards
-# drifting off the slide with the old 5-stacked layout. Now max 6
-# incidents render in 2 columns of 3, each card 6.10" wide × 1.05"
-# tall. Footer band still lands at y=6.55.
-COL_W      = Inches(6.10)
-COL_GAP    = Inches(0.15)
-BADGE_W    = Inches(1.00)   # narrower than before to leave room for text
-TEXT_W     = COL_W - BADGE_W - Inches(0.10)   # inner text panel
-ROW_H      = Inches(1.05)
-ROW_GAP    = Inches(0.05)
-GRID_X0    = Inches(0.4)
-GRID_Y0    = Inches(3.20)
+# Single-column full-width incident cards (2026-06-22) — matches the May
+# template: badge strip (CRITICAL/HIGH) on the left, then a white panel with
+# a spaced-caps header (SITE · #id · MTTR Nh), bold subject, a description
+# paragraph and a bold "Action:" recommendation line.
+_n = min(len(incidents), 4) or 1
+CARD_X  = Inches(0.4)
+CARD_W  = Inches(12.55)
+BADGE_W = Inches(1.45)
+_AREA_Y0, _AREA_Y1, _CGAP = 3.20, 6.05, 0.10
+_card_h = (_AREA_Y1 - _AREA_Y0 - _CGAP * (_n - 1)) / _n
+_BORDER = RGBColor(0xE5, 0xE7, 0xEB)
 
-for i, inc in enumerate(incidents[:6]):
-    row = i // 2
-    col = i %  2
-    cx  = GRID_X0 + (COL_W + COL_GAP) * col
-    cy  = GRID_Y0 + (ROW_H + ROW_GAP) * row
+def _spaced(t):
+    return '  ·  '.join(seg.strip() for seg in str(t).split('·'))
 
-    # Badge strip (Critical/High/Info)
-    add_rect(s, cx, cy, BADGE_W, ROW_H, inc['badge_col'])
-    add_text(s, cx, cy, BADGE_W, ROW_H, inc['badge'], size=12, bold=True, color=WHITE,
-             align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE)
-
-    # Text panel (white card with thin border)
-    tx = cx + BADGE_W + Inches(0.05)
-    add_rect(s, tx, cy, TEXT_W, ROW_H, WHITE, line=RGBColor(0xE5,0xE7,0xEB))
-    # Site + date (top muted line)
-    add_text(s, tx + Inches(0.10), cy + Inches(0.03),
-             TEXT_W - Inches(0.20), Inches(0.18),
-             inc['site'], size=7, bold=True, color=GRAY)
-    # Subject (main bold line)
-    add_text(s, tx + Inches(0.10), cy + Inches(0.18),
-             TEXT_W - Inches(0.20), Inches(0.26),
-             inc['subject'], size=10, bold=True, color=NAVY)
-    # Detail (status / ticket line)
-    add_text(s, tx + Inches(0.10), cy + Inches(0.43),
-             TEXT_W - Inches(0.20), Inches(0.20),
-             inc['detail'], size=7, color=CHARCOAL)
-    # Lessons (last line, italic)
-    _lsn = (inc['lessons'] or '').strip()
-    if _lsn:
-        # Truncate to fit single line in the narrower 2-col layout
-        if len(_lsn) > 120:
-            _lsn = _lsn[:118] + '…'
-        add_text(s, tx + Inches(0.10), cy + Inches(0.63),
-                 Inches(0.85), Inches(0.20),
-                 "Lessons:", size=7, bold=True, color=ORANGE_D)
-        add_text(s, tx + Inches(0.95), cy + Inches(0.63),
-                 TEXT_W - Inches(1.05), Inches(0.38),
-                 _lsn, size=7, color=CHARCOAL)
+for i, inc in enumerate(incidents[:_n]):
+    cy  = Inches(_AREA_Y0 + (_card_h + _CGAP) * i)
+    chh = Inches(_card_h)
+    # Badge strip
+    add_rect(s, CARD_X, cy, BADGE_W, chh, inc['badge_col'])
+    add_text(s, CARD_X, cy, BADGE_W, chh, inc['badge'], size=11, bold=True,
+             color=WHITE, align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE)
+    # White panel
+    tx = CARD_X + BADGE_W + Inches(0.06)
+    tw = CARD_W - BADGE_W - Inches(0.06)
+    add_rect(s, tx, cy, tw, chh, WHITE, line=_BORDER)
+    add_text(s, tx + Inches(0.14), cy + Inches(0.05), tw - Inches(0.28), Inches(0.18),
+             inc['site'].upper(), size=7.5, bold=True, color=GRAY)
+    add_text(s, tx + Inches(0.14), cy + Inches(0.23), tw - Inches(0.28), Inches(0.24),
+             inc['subject'], size=11, bold=True, color=NAVY)
+    # Description + bold Action line (run-level for the "Action:" emphasis)
+    _desc = (inc['detail'] or '').strip()
+    if len(_desc) > 200: _desc = _desc[:198] + '…'
+    _act = (inc['lessons'] or '').strip()
+    if len(_act) > 170: _act = _act[:168] + '…'
+    _bb = s.shapes.add_textbox(tx + Inches(0.14), cy + Inches(0.47),
+                               tw - Inches(0.28), chh - Inches(0.50))
+    _tf = _bb.text_frame
+    _tf.word_wrap = True
+    _tf.margin_left = Emu(0); _tf.margin_right = Emu(0)
+    _tf.margin_top = Emu(0); _tf.margin_bottom = Emu(0)
+    _p1 = _tf.paragraphs[0]; _p1.line_spacing = 1.0
+    _r = _p1.add_run(); _r.text = _desc
+    _r.font.name = 'Calibri'; _r.font.size = Pt(8.5); _r.font.color.rgb = CHARCOAL
+    if _act:
+        _p2 = _tf.add_paragraph(); _p2.line_spacing = 1.0
+        _ra = _p2.add_run(); _ra.text = 'Action: '
+        _ra.font.name = 'Calibri'; _ra.font.size = Pt(8.5); _ra.font.bold = True; _ra.font.color.rgb = NAVY
+        _rb = _p2.add_run(); _rb.text = _act
+        _rb.font.name = 'Calibri'; _rb.font.size = Pt(8.5); _rb.font.italic = True; _rb.font.color.rgb = CHARCOAL
 
 # Bottom commentary — data-driven, prefer AI commentary['incidents'] if filled
 _inc_comment = (K.get('commentary') or {}).get('incidents', '').strip()
@@ -1505,48 +1588,62 @@ footer_bar(s, 9)
 # ====================================================================
 
 # Chart data_fns for the tracker visuals
+def _norm_hex(c, fallback='#2563EB'):
+    c = (c or '').strip()
+    if not c:
+        return fallback
+    return c if c.startswith('#') else '#' + c
+
+
 def _draw_tracker_site_scores(ax):
     sites = (K.get('tracker') or {}).get('sites') or []
     if not sites:
         ax.text(0.5, 0.5, 'No tracker data', ha='center', va='center',
                 fontsize=11, color='#6B7280'); return
-    sites = sorted(sites, key=lambda s: s.get('score', 0))   # ascending so best at top
-    names  = [s.get('name', s.get('code','?')) for s in sites]
+    # Vertical bars, one stable colour per site (matches May template).
+    codes  = [s.get('code', s.get('name', '?')) for s in sites]
     scores = [s.get('score', 0) for s in sites]
-    # Brand red for <55, amber 55-65, green ≥65 (matches RAG thresholds in
-    # the dashboard tracker UI per CLAUDE.md activity tracker section).
-    colors = ['#DC2626' if v < 55 else '#F59E0B' if v < 65 else '#16A34A' for v in scores]
-    bars = ax.barh(names, scores, color=colors, edgecolor='white')
+    colors = [_norm_hex(s.get('color')) for s in sites]
+    import numpy as _np
+    x = _np.arange(len(codes))
+    bars = ax.bar(x, scores, color=colors, edgecolor='white', width=0.62)
     for b, v in zip(bars, scores):
-        ax.text(v + 1.5, b.get_y() + b.get_height() / 2,
-                f'{v}%', va='center', fontsize=9,
-                color='#1A3A5F', fontweight='bold')
-    ax.set_xlim(0, 105)
+        ax.text(b.get_x() + b.get_width() / 2, v + 1.5, f'{v}',
+                ha='center', va='bottom', fontsize=11, color='#374151')
+    ax.set_xticks(x); ax.set_xticklabels(codes, fontsize=10)
+    ax.set_ylim(0, 100)
     ax.spines[['top', 'right']].set_visible(False)
-    ax.grid(axis='x', alpha=0.2, linestyle='--')
+    ax.grid(axis='y', alpha=0.2, linestyle='--')
     ax.tick_params(axis='y', labelsize=9)
-    from matplotlib.ticker import PercentFormatter as _PF
-    ax.xaxis.set_major_formatter(_PF(decimals=0))
+
+
+def _short_pillar(n):
+    return (n.replace('Risk & Compliance', 'Risk & Compl.')
+             .replace('Business Partnering', 'Biz Partnering')
+             .replace('Network Infrastructure', 'Network Infra'))
 
 
 def _draw_tracker_pillar_rag(ax):
-    """Stacked horizontal bar per pillar showing G/A/R counts."""
+    """Vertical stacked bar per pillar showing G/A/R counts (template style)."""
     pillars = (K.get('tracker') or {}).get('pillars') or {}
     if not pillars:
         ax.text(0.5, 0.5, 'No pillar data', ha='center', va='center',
                 fontsize=11, color='#6B7280'); return
-    # Sort by weight DESC so the most-strategic pillar is at top
+    # Sort by weight DESC so the most-strategic pillar reads first
     items = sorted(pillars.items(), key=lambda kv: -(kv[1].get('weight', 0) or 0))
-    names = [n.replace('-', ' — ') for n, _ in items][::-1]
-    g = [v.get('green', 0) for _, v in items][::-1]
-    a = [v.get('amber', 0) for _, v in items][::-1]
-    r = [v.get('red',   0) for _, v in items][::-1]
-    ax.barh(names, g, color='#16A34A', label='Green')
-    ax.barh(names, a, left=g, color='#F59E0B', label='Amber')
-    ax.barh(names, r, left=[gi+ai for gi,ai in zip(g,a)], color='#DC2626', label='Red')
-    ax.legend(fontsize=8, loc='lower right', frameon=False, ncol=3)
+    names = [_short_pillar(n) for n, _ in items]
+    g = [v.get('green', 0) for _, v in items]
+    a = [v.get('amber', 0) for _, v in items]
+    r = [v.get('red',   0) for _, v in items]
+    import numpy as _np
+    x = _np.arange(len(names))
+    ax.bar(x, g, color='#16A34A', label='Green', width=0.6)
+    ax.bar(x, a, bottom=g, color='#F59E0B', label='Amber', width=0.6)
+    ax.bar(x, r, bottom=[gi + ai for gi, ai in zip(g, a)], color='#DC2626', label='Red', width=0.6)
+    ax.set_xticks(x); ax.set_xticklabels(names, fontsize=9)
+    ax.legend(fontsize=8, loc='upper right', frameon=False, ncol=3)
     ax.spines[['top', 'right']].set_visible(False)
-    ax.grid(axis='x', alpha=0.2, linestyle='--')
+    ax.grid(axis='y', alpha=0.2, linestyle='--')
     ax.tick_params(axis='y', labelsize=9)
 
 
@@ -1558,8 +1655,11 @@ _tk = K.get('tracker') or {}
 _has_tk = bool(_tk.get('sites'))
 
 header_band(s, "IT Ops Strategy Roadmap", "ACTIVITY TRACKER", PERIOD_SHORT)
-add_text(s, Inches(0.4), Inches(1.05), Inches(12), Inches(0.4),
-         f"Fleet Performance — {PERIOD_LONG}", size=15, bold=True, color=NAVY)
+_tk_sub = (f"Fleet Performance — {PERIOD_LONG}"
+           + (f"  ·  {_tk.get('active_sites')} Operating Sites  ·  {_tk.get('total_activities')} Activities"
+              if (K.get('tracker') or {}).get('sites') else ''))
+add_text(s, Inches(0.4), Inches(1.05), Inches(12.5), Inches(0.4),
+         _tk_sub, size=14, bold=True, color=NAVY)
 
 if not _has_tk:
     # Graceful empty-data panel — same shape as before but reflects
@@ -1576,64 +1676,52 @@ if not _has_tk:
              "empty. Verify in pm2 logs and on the /activity-tracker.html page.",
              size=11, color=CHARCOAL, align=PP_ALIGN.CENTER)
 else:
-    # ── Top row: 4 KPI tiles (Fleet Score · Green · Amber · Red) ──────
-    avg_sc = _tk.get('avg_score', 0)
-    avg_d  = _tk.get('avg_delta_pp', 0) or 0
-    avg_kind = 'good' if avg_d > 0 else 'bad' if avg_d < 0 else 'neutral'
-    avg_color = GREEN if avg_sc >= 65 else AMBER if avg_sc >= 55 else RED
+    # ── Top row: 5 pastel KPI tiles (Green/Amber/Red/Avg/Best Δ) ──────
+    # Pastel card + coloured top bar (matches the May tracker template),
+    # NOT the left-accent kpi_tile used elsewhere.
+    avg_sc    = _tk.get('avg_score', 0)
+    best_site = _tk.get('best_site', '')
+    best_d    = _tk.get('best_delta_pp', 0) or 0
 
-    def _tk_tile(x, y, w, h, label, value, sub, accent, value_color, delta_str=None, delta_kind='neutral'):
-        kpi_tile(s, x, y, w, h, label, value, sub, accent=accent, value_color=value_color, value_size=28)
-        if delta_str:
-            tile_delta(x, y, delta_str, delta_kind)
+    def _pastel_tile(x, y, w, h, value, label, bar_col, bg_col, num_col):
+        add_rect(s, x, y, w, h, bg_col)
+        add_rect(s, x, y, w, Inches(0.07), bar_col)          # top accent bar
+        add_text(s, x + Inches(0.18), y + Inches(0.16), w - Inches(0.30), Inches(0.58),
+                 value, size=30, bold=True, color=num_col)
+        add_text(s, x + Inches(0.18), y + h - Inches(0.34), w - Inches(0.30), Inches(0.24),
+                 label, size=10, bold=True, color=GRAY)
 
-    _tk_tile(Inches(0.4),  Inches(1.55), Inches(3.0), Inches(1.3),
-             "FLEET SCORE", f"{avg_sc}%", f"Active in {MONTH}", avg_color, avg_color,
-             delta_str=f"{'+' if avg_d>0 else ''}{avg_d}pp MoM" if avg_d != 0 else 'flat MoM',
-             delta_kind=avg_kind)
-    _tk_tile(Inches(3.55), Inches(1.55), Inches(3.0), Inches(1.3),
-             "GREEN", str(_tk.get('green', 0)), "Activities meeting target",
-             GREEN, GREEN)
-    _tk_tile(Inches(6.70), Inches(1.55), Inches(3.0), Inches(1.3),
-             "AMBER", str(_tk.get('amber', 0)), "Activities partial",
-             AMBER, AMBER)
-    _tk_tile(Inches(9.85), Inches(1.55), Inches(3.1), Inches(1.3),
-             "RED", str(_tk.get('red', 0)), "Activities below target",
-             RED, RED)
+    _tw = Inches(2.39); _tg = Inches(0.15); _tx0 = Inches(0.4); _ty = Inches(1.55); _th = Inches(1.30)
+    def _tkx(i): return _tx0 + (_tw + _tg) * i
+    _GRN_BG = RGBColor(0xE8,0xF5,0xEC); _AMB_BG = RGBColor(0xFE,0xF6,0xE7)
+    _RED_BG = RGBColor(0xFD,0xEC,0xEC); _TEAL_BG = RGBColor(0xE6,0xF4,0xF1)
+    _BLU_BG = RGBColor(0xE8,0xF1,0xFB)
+    _TEAL = RGBColor(0x0D,0x94,0x88); _BLU = RGBColor(0x25,0x63,0xEB)
+    _AMB_D = RGBColor(0xD9,0x77,0x06)
+    _pastel_tile(_tkx(0), _ty, _tw, _th, str(_tk.get('green', 0)), "GREEN",        GREEN,  _GRN_BG, GREEN)
+    _pastel_tile(_tkx(1), _ty, _tw, _th, str(_tk.get('amber', 0)), "AMBER",        _AMB_D, _AMB_BG, _AMB_D)
+    _pastel_tile(_tkx(2), _ty, _tw, _th, str(_tk.get('red',   0)), "RED",          RED,    _RED_BG, RED)
+    _pastel_tile(_tkx(3), _ty, _tw, _th, f"{avg_sc}%",             "AVG SCORE",    _TEAL,  _TEAL_BG, _TEAL)
+    _bd_str = f"{'+' if best_d > 0 else ''}{best_d}pp"
+    _pastel_tile(_tkx(4), _ty, _tw, _th, _bd_str,
+                 f"BEST Δ ({best_site})" if best_site else "BEST Δ", _BLU, _BLU_BG, _BLU)
 
-    # ── Left: site score bar chart ───────────────────────────────────
-    s.shapes.add_picture(_chart('tracker_sites', figsize=(6.5, 3.8),
-                                 data_fn=_draw_tracker_site_scores,
-                                 title='Site Scores — Fleet Leaderboard'),
-                          Inches(0.4),  Inches(3.05), width=Inches(6.4), height=Inches(3.15))
+    # ── Two chart cards (vertical bars) ──────────────────────────────
+    add_text(s, Inches(0.4), Inches(3.08), Inches(6.3), Inches(0.30),
+             "Site Performance (%)", size=12, bold=True, color=NAVY)
+    s.shapes.add_picture(_chart('tracker_sites', figsize=(6.5, 3.6),
+                                 data_fn=_draw_tracker_site_scores, title=''),
+                          Inches(0.4), Inches(3.38), width=Inches(6.3), height=Inches(2.82))
+    add_text(s, Inches(6.95), Inches(3.08), Inches(6.0), Inches(0.30),
+             "RAG Distribution by Pillar", size=12, bold=True, color=NAVY)
+    s.shapes.add_picture(_chart('tracker_pillars', figsize=(6.5, 3.6),
+                                 data_fn=_draw_tracker_pillar_rag, title=''),
+                          Inches(6.95), Inches(3.38), width=Inches(6.0), height=Inches(2.82))
 
-    # ── Right: pillar RAG distribution stacked bar ──────────────────
-    s.shapes.add_picture(_chart('tracker_pillars', figsize=(6.5, 3.8),
-                                 data_fn=_draw_tracker_pillar_rag,
-                                 title='Pillar RAG Distribution'),
-                          Inches(6.95), Inches(3.05), width=Inches(6.0), height=Inches(3.15))
-
-# Bottom commentary — prefer AI commentary['exec'] (if filled), else
-# auto-derive from K
-_tk_comment = (K.get('commentary') or {}).get('exec', '').strip()
-if not _tk_comment:
-    if _has_tk:
-        n_sites = len(_tk.get('sites', []))
-        best = max(_tk.get('sites') or [], key=lambda s: s.get('score', 0), default=None)
-        worst = min(_tk.get('sites') or [], key=lambda s: s.get('score', 0), default=None)
-        _tk_comment = (
-            f"{PERIOD_LONG}: fleet score {_tk.get('avg_score', 0)}% across "
-            f"{n_sites} active sites ({_tk.get('green', 0)} green, "
-            f"{_tk.get('amber', 0)} amber, {_tk.get('red', 0)} red). "
-            f"Leader: {best.get('name','?')} ({best.get('score',0)}%). "
-            f"Watch: {worst.get('name','?')} ({worst.get('score',0)}%) — "
-            f"focus next month on closing the gap via the dominant red pillar."
-        )
-    else:
-        _tk_comment = "Tracker integration available but no snapshot data for this period."
-add_rect(s, Inches(0.4), Inches(6.35), Inches(12.55), Inches(0.70), DARK_NAVY)
-add_text(s, Inches(0.55), Inches(6.40), Inches(12.3), Inches(0.65),
-         _tk_comment, size=9, color=WHITE, anchor=MSO_ANCHOR.MIDDLE)
+# Source footer (template style — italic gray line, no navy commentary bar)
+add_text(s, Inches(0.4), Inches(6.48), Inches(12.55), Inches(0.25),
+         f"Source: IT Ops Objectives Tracker — {PERIOD_SHORT} vs {PREV_PERIOD_TICK}  |  Endeavour Mining PLC",
+         size=9, italic=True, color=GRAY)
 footer_bar(s, 10)
 
 # ────────────────────────────────────────────────────────────────────
@@ -1651,74 +1739,105 @@ if not sites:
     add_text(s, Inches(0.55), Inches(3.0), Inches(12.3), Inches(0.5),
              "No site-level tracker data for this period",
              size=16, bold=True, color=NAVY, align=PP_ALIGN.CENTER)
+    footer_bar(s, 11)
 else:
-    # 2-row × 5-col grid of site cards (10 sites max, layout adapts)
-    sites_sorted = sorted(sites, key=lambda s: -s.get('score', 0))
-    cols = 5
-    rows = (min(len(sites_sorted), 10) + cols - 1) // cols  # at most 2 rows
-    card_w = Inches(2.45); card_h = Inches(2.20); gap = Inches(0.10)
-    gx0 = Inches(0.4); gy0 = Inches(1.55)
-    for i, site in enumerate(sites_sorted[:cols * rows]):
-        r = i // cols; c = i % cols
-        x = gx0 + (card_w + gap) * c
-        y = gy0 + (card_h + gap) * r
-        sc      = site.get('score', 0)
-        sc_col  = GREEN if sc >= 65 else AMBER if sc >= 55 else RED
-        d       = site.get('delta_pp', 0) or 0
-        d_kind  = 'good' if d > 0 else 'bad' if d < 0 else 'neutral'
+    _pill = _tk.get('pillars') or {}
+    # ── Pillar banners (full-colour, weight + MoM Δ) ─────────────────
+    _PB = [('Network Infra',  RGBColor(0x0D, 0x94, 0x88)),
+           ('Biz Partnering', RGBColor(0xE8, 0x77, 0x22)),
+           ('Risk & Compl',   RGBColor(0x7C, 0x3A, 0xED)),
+           ('People Dev',     RGBColor(0xCA, 0x8A, 0x04))]
+    def _match_pillar(key):
+        kw = key.split()[0].lower()
+        for n, v in _pill.items():
+            if kw in n.lower():
+                return n, v
+        return key, {}
+    _bw = Inches(3.04); _bg = Inches(0.13); _bx0 = Inches(0.4); _by = Inches(1.48); _bh = Inches(0.60)
+    for i, (label, col) in enumerate(_PB):
+        nm, pv = _match_pillar(label)
+        wt = pv.get('weight', 0); dl = pv.get('delta_pp', 0) or 0
+        bx = _bx0 + (_bw + _bg) * i
+        add_rect(s, bx, _by, _bw, _bh, col)
+        add_text(s, bx + Inches(0.16), _by + Inches(0.07), _bw - Inches(0.30), Inches(0.22),
+                 f"{_short_pillar(label)} ({wt}%)", size=9, bold=True, color=WHITE)
+        add_text(s, bx + Inches(0.16), _by + Inches(0.27), _bw - Inches(0.30), Inches(0.30),
+                 f"{'+' if dl > 0 else ''}{dl}pp", size=16, bold=True, color=WHITE)
 
-        add_rect(s, x, y, card_w, Inches(0.10), sc_col)
-        add_rect(s, x, y + Inches(0.10), card_w, card_h - Inches(0.10),
-                 WHITE, line=RGBColor(0xE5, 0xE7, 0xEB))
+    add_text(s, Inches(0.4), Inches(2.20), Inches(6), Inches(0.26),
+             "Site-by-Site Summary", size=12, bold=True, color=NAVY)
 
-        # Site name
-        add_text(s, x + Inches(0.10), y + Inches(0.18), card_w - Inches(0.20), Inches(0.30),
-                 site.get('name', site.get('code', '?')), size=11, bold=True, color=NAVY)
-        add_text(s, x + Inches(0.10), y + Inches(0.45), card_w - Inches(0.20), Inches(0.20),
-                 f"({site.get('code', '?')})", size=8, color=GRAY, italic=True)
+    # ── Rich site cards ──────────────────────────────────────────────
+    sites_sorted = sorted(sites, key=lambda s: -s.get('score', 0))[:5]
+    n_cards = len(sites_sorted) or 1
+    cw = (12.55 - 0.12 * (n_cards - 1)) / n_cards
+    card_w = Inches(cw); gap = Inches(0.12)
+    gx0 = Inches(0.4); gy0 = Inches(2.52); card_h = Inches(2.78)
+    _LGRN = RGBColor(0xE8, 0xF5, 0xEC); _LAMB = RGBColor(0xFE, 0xF6, 0xE7); _LRED = RGBColor(0xFD, 0xEC, 0xEC)
+    _AMB_D = RGBColor(0xD9, 0x77, 0x06)
+    for i, site in enumerate(sites_sorted):
+        x = gx0 + (card_w + gap) * i
+        y = gy0
+        sc     = site.get('score', 0)
+        sc_col = GREEN if sc >= 65 else AMBER if sc >= 55 else RED
+        d      = site.get('delta_pp', 0) or 0
+        add_rect(s, x, y, card_w, Inches(0.07), sc_col)
+        add_rect(s, x, y + Inches(0.07), card_w, card_h - Inches(0.07), WHITE, line=RGBColor(0xE5, 0xE7, 0xEB))
+        # code + subtitle
+        add_text(s, x + Inches(0.12), y + Inches(0.13), card_w - Inches(0.24), Inches(0.26),
+                 site.get('code', '?'), size=13, bold=True, color=sc_col)
+        add_text(s, x + Inches(0.12), y + Inches(0.40), card_w - Inches(0.24), Inches(0.18),
+                 f"{site.get('name','?')} · {site.get('activities', site.get('g',0)+site.get('a',0)+site.get('r',0))} activities",
+                 size=7, color=GRAY)
+        # score + delta pill
+        add_text(s, x + Inches(0.12), y + Inches(0.58), Inches(1.2), Inches(0.46),
+                 f"{sc}%", size=22, bold=True, color=sc_col)
+        d_txt = f"{'+' if d > 0 else ''}{d}pp"
+        delta_pill(s, x + Inches(1.25), y + Inches(0.70), d_txt,
+                   kind='good' if d > 0 else 'bad' if d < 0 else 'neutral',
+                   w=card_w - Inches(1.37), h=Inches(0.24), size=8)
+        # G/A/R badges
+        _by2 = y + Inches(1.08); _pw = (cw - 0.24 - 0.10) / 3
+        for j, (cnt, lbl, bg, fg) in enumerate([
+            (site.get('g', 0), 'G', _LGRN, GREEN),
+            (site.get('a', 0), 'A', _LAMB, _AMB_D),
+            (site.get('r', 0), 'R', _LRED, RED)]):
+            px = x + Inches(0.12) + Inches((_pw + 0.05) * j)
+            add_rect(s, px, _by2, Inches(_pw), Inches(0.22), bg, shape=MSO_SHAPE.ROUNDED_RECTANGLE)
+            add_text(s, px, _by2, Inches(_pw), Inches(0.22), f"{cnt}{lbl}", size=8, bold=True,
+                     color=fg, align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE)
+        # positive (green) + action (amber) commentary lines
+        _pos = (site.get('positive') or '').strip()
+        _act = (site.get('action') or '').strip()
+        if _pos:
+            add_text(s, x + Inches(0.12), y + Inches(1.40), card_w - Inches(0.24), Inches(0.62),
+                     f"✓  {_pos}", size=7, color=RGBColor(0x33, 0x55, 0x33))
+        if _act:
+            add_text(s, x + Inches(0.12), y + Inches(2.08), card_w - Inches(0.24), Inches(0.62),
+                     f"⚠  {_act}", size=7, italic=True, color=_AMB_D)
 
-        # Big score
-        add_text(s, x + Inches(0.10), y + Inches(0.70), card_w - Inches(0.20), Inches(0.55),
-                 f"{sc}%", size=28, bold=True, color=sc_col)
+    # ── General Review ───────────────────────────────────────────────
+    add_rect(s, Inches(0.4), Inches(5.45), Inches(12.55), Inches(0.035), RGBColor(0x0D, 0x94, 0x88))
+    add_text(s, Inches(0.4), Inches(5.52), Inches(6), Inches(0.24),
+             "General Review", size=12, bold=True, color=NAVY)
+    _gr = _tk.get('general_review') or []
+    if not _gr:
+        _gr = [{'text': c, 'kind': 'pos'} for c in (_tk.get('commentary') or [])[:4]]
+    _gy = 5.80
+    for item in _gr[:4]:
+        txt = item.get('text', '') if isinstance(item, dict) else str(item)
+        kind = item.get('kind', 'pos') if isinstance(item, dict) else 'pos'
+        mark = '✓' if kind == 'pos' else '⚠'
+        col = RGBColor(0x16, 0xA3, 0x4A) if kind == 'pos' else _AMB_D
+        add_text(s, Inches(0.45), Inches(_gy), Inches(0.3), Inches(0.20), mark, size=9, bold=True, color=col)
+        add_text(s, Inches(0.75), Inches(_gy), Inches(12.0), Inches(0.20),
+                 txt, size=9, color=(CHARCOAL if kind == 'pos' else _AMB_D))
+        _gy += 0.225
 
-        # MoM delta pill (smaller text)
-        if d != 0:
-            d_text = f"{'+' if d > 0 else ''}{d}pp MoM"
-            add_text(s, x + Inches(0.10), y + Inches(1.25), card_w - Inches(0.20), Inches(0.18),
-                     d_text, size=8, bold=True,
-                     color=GREEN if d_kind == 'good' else RED if d_kind == 'bad' else GRAY)
-
-        # G/A/R counts in mini-pills
-        gy = y + Inches(1.45); pill_w = Inches(0.65); pill_h = Inches(0.30)
-        for j, (cnt, lbl, col) in enumerate([
-            (site.get('g', 0), 'G', GREEN),
-            (site.get('a', 0), 'A', AMBER),
-            (site.get('r', 0), 'R', RED),
-        ]):
-            px = x + Inches(0.10) + (pill_w + Inches(0.05)) * j
-            add_rect(s, px, gy, pill_w, pill_h, col)
-            add_text(s, px, gy, pill_w, pill_h, f"{cnt} {lbl}",
-                     size=8, bold=True, color=WHITE,
-                     align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE)
-
-# Bottom commentary — prefer commentary['progress'] from Analyze, else
-# generic period summary
-_s11_comment = (K.get('commentary') or {}).get('progress', '').strip()
-if not _s11_comment:
-    if sites:
-        green_sites = [s for s in sites if s.get('score', 0) >= 65]
-        red_sites   = [s for s in sites if s.get('score', 0) < 55]
-        _s11_comment = (
-            f"{PERIOD_LONG}: {len(green_sites)} of {len(sites)} sites at green "
-            f"(≥65% score), {len(red_sites)} at red (<55%). "
-            f"{('Top red exposures: ' + ', '.join(s.get('name','?') for s in red_sites[:3]) + '.') if red_sites else 'No red sites — fleet healthy.'}"
-        )
-    else:
-        _s11_comment = "No site summaries to render."
-add_rect(s, Inches(0.4), Inches(6.35), Inches(12.55), Inches(0.70), DARK_NAVY)
-add_text(s, Inches(0.55), Inches(6.40), Inches(12.3), Inches(0.65),
-         _s11_comment, size=9, color=WHITE, anchor=MSO_ANCHOR.MIDDLE)
-footer_bar(s, 11)
+    add_text(s, Inches(0.4), Inches(6.95), Inches(12.55), Inches(0.25),
+             f"Source: IT Ops Objectives Tracker — {PERIOD_SHORT} vs {PREV_PERIOD_TICK}  |  Endeavour Mining PLC",
+             size=9, italic=True, color=GRAY)
+    footer_bar(s, 11)
 
 # ────────────────────────────────────────────────────────────────────
 # SLIDE 11b — Pillar Trends (6-month fleet avg per pillar)
