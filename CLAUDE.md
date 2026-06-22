@@ -181,8 +181,29 @@ made so far so that future sessions can pick up exactly where the last one ended
 >    (render.py `_section_bullets` reads `_os.<key>` first, then `commentary`).
 >    Also verified live: slide-5 `categories_prev` (Jun-vs-May grouped bars)
 >    + `monthly_channels` (channel line) populate from the browser payload.
-> 7. **Deploy the 6 cumulative commits** (`72f593c`..`50d8717`) and confirm a
->    fresh Analyze→Export in each audience renders correctly end-to-end.
+> 7. **Deploy the cumulative commits** and confirm a fresh Analyze→Export in
+>    each audience renders correctly end-to-end.
+>
+> ### Sync gotcha — closed Changes weren't re-synced after post-closure edits
+>
+> Diagnosed from a Major Incident (#289097) whose RCA/CA/PIR/LL showed RED
+> (MISSING) on the live register although they were filled in Zoho. Findings:
+> - **Major Incidents are fine**: the requests sync filters on `Last Updated
+>   Time` (`zoho-sync.js:550`) so an edited-after-closure incident IS re-pulled,
+>   AND the MAJOR_INCIDENTS UDF backfill (`zoho-sync.js:602`) re-fetches the
+>   FULL view (≤2000 rows) every sync and upserts `udf_json`. #289097 was
+>   simply **stale** (filled in Zoho after the last sync) — a "⚡ Refresh from
+>   Zoho" repopulates it. Proof it works: 6/16 register incidents had UDF
+>   populated.
+> - **Changes had a real gap (fixed)**: the Zoho Change view exposes NO
+>   "Last Updated Time" column (`EXPECTED_CHANGE_COLS`), so the old incremental
+>   filter (new OR open OR recently-completed) NEVER re-pulled a change edited
+>   AFTER it closed (RCA / Change Closure Code / UDF filled during the
+>   post-implementation review — the normal workflow). Fix: **upsert ALL change
+>   rows every sync** (`zoho-sync.js` change_cab) — the set is small (~hundreds),
+>   so a full upsert is cheap and guarantees post-closure edits propagate.
+>   **Rule**: a dataset with no modified-time signal can't be synced
+>   incrementally on edits — either add a modified-time column or full-upsert it.
 
 ---
 

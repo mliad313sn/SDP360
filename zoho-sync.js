@@ -223,23 +223,21 @@ async function syncChangeCab() {
       changeRows.map(r => r['Change ID'] || r['Change  ID']).filter(Boolean)
     );
 
-    // Incremental filter: upsert rows that are new, still open, OR recently completed.
-    // The original filter (new OR open) was buggy: when a change transitions from
-    // open → closed in Zoho its Stage becomes 'Close', so isOpen=false and it was
-    // never re-upserted — leaving the DB frozen with the old stage.
-    // Fix: also include rows whose Completed Time is after the last sync.
-    // This catches the open→closed transition without upsetting thousands of old
-    // historical closed records on every run.
-    const newChangeRows = lastSync
-      ? changeRows.filter(r => {
-          const created   = parseZohoDate(r['Created Time']);
-          const completed = parseZohoDate(r['Completed Time']);
-          const isOpen    = r['Stage'] !== 'Close';
-          return isNew(created, lastSync) || isOpen || (completed && isNew(completed, lastSync));
-        })
-      : changeRows;
+    // Upsert ALL change rows every sync (2026-06-22). Unlike requests, the
+    // Zoho Change view exposes NO "Last Updated Time" column (see
+    // EXPECTED_CHANGE_COLS), so there is no incremental signal for a change
+    // that is EDITED AFTER it closes — e.g. RCA / Change Closure Code / UDF
+    // filled during the post-implementation review, which is the NORMAL
+    // workflow. Created/Completed/Stage don't change on such an edit, so the
+    // previous incremental filter (new OR open OR recently-completed) left
+    // those rows frozen in SQLite with stale (often empty) post-closure
+    // fields. The change set is small (hundreds of rows), so a full upsert
+    // every sync is cheap (<10 ms) and guarantees post-closure edits
+    // propagate. Deletion reconciliation is handled separately via
+    // liveChangeIds + the FULL_SYNC_EVERY cadence.
+    const newChangeRows = changeRows;
 
-    console.log(`[Sync] change_cab — ${newChangeRows.length} new/open/recently-closed Change rows to upsert`);
+    console.log(`[Sync] change_cab — ${newChangeRows.length} Change rows to upsert (full — catches post-closure edits)`);
 
     // Map Zoho columns → DB columns
     const changeMapped = newChangeRows.map(r => ({
