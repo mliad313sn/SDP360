@@ -154,12 +154,13 @@ made so far so that future sessions can pick up exactly where the last one ended
 >
 > ### Open items / next improvements (for the following session)
 >
-> 1. **Major Incidents scoping (slide 9)** — still month+type only, no
->    group/site filter (`reportPayload._majorIncidents`). User was asked
->    whether to also honor the **Site** selector here; decision pending.
->    Site filtering is clean (site column exists); group filtering is
->    debatable (MIs are cross-cutting). If yes: pass `selSite` in the payload
->    + filter the SQL by site, leave group fleet-wide.
+> 1. **Major Incidents scoping (slide 9)** — ✅ DONE: the browser sends the
+>    selected site in `payload.filters.site`; `build()` forwards it as
+>    `dbFilters.site`; `_majorIncidents` filters rows with the SAME fuzzy
+>    `siteMatch` logic the rest of the deck uses ('all' = fleet-wide). Group
+>    filtering left OFF by design (MIs are cross-cutting). The main query
+>    `LIMIT` lifts 10→50 only when a site is selected so post-filter rows
+>    aren't truncated; prev-month MoM count is site-scoped too.
 > 2. **CSAT scoping (slide 7)** — survey-wide; can't filter by group/site
 >    until survey responses are reliably tagged with site/group. Needs a
 >    survey-instrument change (add a site question) or a mapping.

@@ -7192,6 +7192,9 @@ function _buildExecPptxPayload() {
       month:             mo,
       prev_period_short: prevShort,
       prepared_by:       (document.getElementById('preparedBy')||{}).value || 'IT Operations Team',
+      // Selected site ('all' = no filter). Server-side _majorIncidents scopes
+      // the slide-9 incidents to this site (other charts are filtered browser-side).
+      site:              (typeof activeSite === 'function') ? activeSite() : 'all',
     },
     kpis: {
       total_tickets:      cur.length,

@@ -188,6 +188,18 @@ function _majorIncidents(filters) {
   const { year, month, site_id } = filters;
   if (!year || !month) return out;
 
+  // Site scope (slide 9). Mirrors the browser siteMatch() fuzzy logic so the
+  // incident list matches what the rest of the deck shows when a specific
+  // site is selected. 'all'/empty = fleet-wide (unchanged). Group filtering
+  // is intentionally NOT applied — major incidents are cross-cutting.
+  const _siteSel = (filters.site && String(filters.site).toLowerCase() !== 'all')
+    ? String(filters.site).trim().toLowerCase() : null;
+  const _miSiteOk = (rowSite) => {
+    if (!_siteSel) return true;
+    const rs = String(rowSite || '').trim().toLowerCase();
+    return rs.includes(_siteSel) || _siteSel.includes(rs.split(' ')[0]);
+  };
+
   try {
     const ym = `${year}-${String(month).padStart(2, '0')}`;
     // request_records doesn't store an explicit priority column — the
@@ -210,7 +222,7 @@ function _majorIncidents(filters) {
       WHERE request_type LIKE '%Major Incident%'
         AND strftime('%Y-%m', created_time) = ?
       ORDER BY created_time DESC
-      LIMIT 10
+      LIMIT ${_siteSel ? 50 : 10}
     `).all(ym);
 
     // Variant-tolerant UDF reader — Zoho ships keys with mixed
@@ -232,6 +244,7 @@ function _majorIncidents(filters) {
     };
 
     rows.forEach(r => {
+      if (!_miSiteOk(r.site)) return;   // site scope (slide 9)
       let priority = 'High';
       let udf = {};
       try {
@@ -308,11 +321,12 @@ function _majorIncidents(filters) {
       const _pm  = month === 1 ? 12 : month - 1;
       const _py  = month === 1 ? year - 1 : year;
       const _pym = `${_py}-${String(_pm).padStart(2, '0')}`;
-      const _pr  = reportsDb.db.prepare(`
-        SELECT COUNT(*) AS n FROM request_records
+      // Fetch site so the prev-month MoM count respects the same site scope.
+      const _prevRows = reportsDb.db.prepare(`
+        SELECT site FROM request_records
         WHERE request_type LIKE '%Major Incident%'
-          AND strftime('%Y-%m', created_time) = ?`).get(_pym);
-      out.mi_prev_total = _pr ? _pr.n : null;
+          AND strftime('%Y-%m', created_time) = ?`).all(_pym);
+      out.mi_prev_total = _prevRows.filter(r => _miSiteOk(r.site)).length;
     } catch (_) { out.mi_prev_total = null; }
   } catch (e) {
     console.warn('[reportPayload] majorIncidents failed:', e.message);
@@ -533,6 +547,7 @@ function build(browserPayload) {
   // Normalise filter object the DB helpers expect (site_id + year + month).
   const dbFilters = {
     site_id: filters.site_id,
+    site:    filters.site,      // selected site name ('all' = no filter) → slide-9 MI scoping
     year,
     month: monthIdx,
   };
