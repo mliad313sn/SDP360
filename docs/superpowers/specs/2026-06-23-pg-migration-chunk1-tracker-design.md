@@ -160,7 +160,7 @@ Prod runs `TRACKER_PER_YEAR_EDITS=1` (ADR-001), so the meaningful path is the **
 
 ```
 Browser /api/tracker/load
-  → async route handler (await loadTracker(user))
+  → async route handler (await loadTracker())
     → tracker-db.js postgres branch → _loadFromNewSchema (await pgDb.prepare(sql).all(...))
       → PostgreSQL (sdp_dashboard, schema tracker, *_v2 tables)
   ← same D object shape as SQLite → identical JSON to the browser
