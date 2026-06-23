@@ -5267,10 +5267,10 @@ try {
 }
 
 // GET /api/tracker/load — return full D object from SQLite
-app.get('/api/tracker/load', requireReportSession, requireAdmin, (req, res) => {
+app.get('/api/tracker/load', requireReportSession, requireAdmin, async (req, res) => {
   try {
     if (!trackerDb) return res.status(503).json({ error: 'Tracker module not available' });
-    const D = trackerDb.loadTracker();
+    const D = await trackerDb.loadTracker();
     res.json({ D });
   } catch(e) {
     console.error('[Tracker] load error:', e.message);
@@ -5283,7 +5283,7 @@ app.get('/api/tracker/load', requireReportSession, requireAdmin, (req, res) => {
 //   super_admin / tracker-admin → can save full D (config + all sites)
 //   tracker-editor              → can save inputs scoped to OWN site only
 //   admin / executive (without an explicit tracker-* feature role) → REJECTED
-app.post('/api/tracker/save', requireReportSession, requireRole(['super_admin', 'tracker-admin', 'tracker-editor']), (req, res) => {
+app.post('/api/tracker/save', requireReportSession, requireRole(['super_admin', 'tracker-admin', 'tracker-editor']), async (req, res) => {
   try {
     if (!trackerDb) return res.status(503).json({ error: 'Tracker module not available' });
     const { D } = req.body || {};
@@ -5304,7 +5304,7 @@ app.post('/api/tracker/save', requireReportSession, requireRole(['super_admin', 
       }
     }
 
-    trackerDb.saveTracker(D, userSite);
+    await trackerDb.saveTracker(D, userSite);
 
     // Audit log — grep-friendly. Same shape as [Inspection] save ok lines.
     // Lets ops trace every persistence event (`pm2 logs … | findstr Tracker`)
@@ -5338,7 +5338,7 @@ app.post('/api/tracker/export', requireReportSession, requireAdmin, async (req, 
     const { sites, yr, mo } = req.body || {};
     if (!sites || !yr || !mo) return res.status(400).json({ error: 'Missing sites, yr or mo' });
 
-    const D   = trackerDb.loadTracker();
+    const D   = await trackerDb.loadTracker();
     const buf = await trackerPptx.generateTrackerPptx(D, sites, parseInt(yr), parseInt(mo));
 
     const MO  = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -5595,11 +5595,14 @@ app.post('/api/reports/exec-pptx', requireReportSession, requireAdmin, async (re
 // POST /api/tracker/reset — restore DB to INIT defaults
 // Strict: super_admin or tracker-admin only. Executives without the
 // tracker-admin feature role cannot reset the tracker.
-app.post('/api/tracker/reset', requireReportSession, requireRole(['super_admin', 'tracker-admin']), (req, res) => {
+app.post('/api/tracker/reset', requireReportSession, requireRole(['super_admin', 'tracker-admin']), async (req, res) => {
   try {
     if (!trackerDb) return res.status(503).json({ error: 'Tracker module not available' });
-    trackerDb.resetTracker();
-    const D = trackerDb.loadTracker();
+    if (trackerDb.TRACKER_BACKEND === 'postgres') {
+      return res.status(501).json({ error: 'Reset is not supported on the PostgreSQL backend (Chunk 1 scope).' });
+    }
+    await trackerDb.resetTracker();
+    const D = await trackerDb.loadTracker();
     res.json({ ok: true, D });
   } catch(e) {
     console.error('[Tracker] reset error:', e.message);
@@ -5630,14 +5633,14 @@ app.post('/api/tracker/reset', requireReportSession, requireRole(['super_admin',
 // file" path-mismatch bug (fixed 2026-05-31 — earlier version of
 // this route opened data/tracker.db directly which doesn't exist;
 // tracker.db lives at the worktree root, not under data/).
-app.get('/api/tracker/delete-year', requireReportSession, requireRole(['super_admin', 'tracker-admin']), (req, res) => {
+app.get('/api/tracker/delete-year', requireReportSession, requireRole(['super_admin', 'tracker-admin']), async (req, res) => {
   try {
     if (!trackerDb) return res.status(503).json({ error: 'Tracker module not available' });
     const year = parseInt(req.query.year, 10);
     if (!Number.isFinite(year) || year < 2000 || year > 2100) {
       return res.status(400).json({ error: 'Missing or invalid ?year= parameter' });
     }
-    res.json(trackerDb.previewDeleteTrackerYear(year));
+    res.json(await trackerDb.previewDeleteTrackerYear(year));
   } catch(e) {
     console.error('[Tracker] delete-year preview error:', e.message);
     res.status(500).json({ error: e.message });
@@ -5647,7 +5650,7 @@ app.get('/api/tracker/delete-year', requireReportSession, requireRole(['super_ad
 // POST commit: actually delete the year + its tracker_inputs rows.
 // jsonBody (defined earlier in server.js) is a 2 MB JSON parser —
 // plenty for a `{year:2027}` body.
-app.post('/api/tracker/delete-year', requireReportSession, requireRole(['super_admin', 'tracker-admin']), jsonBody, (req, res) => {
+app.post('/api/tracker/delete-year', requireReportSession, requireRole(['super_admin', 'tracker-admin']), jsonBody, async (req, res) => {
   try {
     if (!trackerDb) return res.status(503).json({ error: 'Tracker module not available' });
     const year = parseInt((req.body && req.body.year), 10);
@@ -5655,12 +5658,13 @@ app.post('/api/tracker/delete-year', requireReportSession, requireRole(['super_a
       return res.status(400).json({ error: 'Missing or invalid year in body' });
     }
     // deleteTrackerYear calls backupDatabase() FIRST inside the
-    // function — if that throws (disk full, perms), no destructive
-    // write happens and the error bubbles up here as a 400.
-    const result = trackerDb.deleteTrackerYear(year);
+    // function (sqlite backend only) — if that throws (disk full,
+    // perms), no destructive write happens and the error bubbles up
+    // here as a 400. The postgres backend skips the file snapshot.
+    const result = await trackerDb.deleteTrackerYear(year);
     const who = req.reportUser?.username || req.reportUser?.full_name || 'unknown';
     console.log(`[Tracker] year delete year=${result.year} user=${who} inputs_removed=${result.inputs_deleted} years_after=[${result.years_after.join(', ')}] backup=${result.backup_path}`);
-    const D = trackerDb.loadTracker();
+    const D = await trackerDb.loadTracker();
     res.json({ ok: true, D, summary: result });
   } catch(e) {
     console.error('[Tracker] delete-year error:', e.message);
