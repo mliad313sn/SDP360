@@ -6343,6 +6343,13 @@ async function start() {
     console.error('⚠️  Renew flow: open RENEW_ZOHO_TOKEN.html → Steps 2–6 → pm2 restart --update-env');
   }
 
+  // Activity Tracker on PostgreSQL (Chunk 1) — connect the pool + apply the
+  // tracker schema before serving. Default backend is sqlite (no-op here).
+  if (require('./tracker-db').TRACKER_BACKEND === 'postgres') {
+    await require('./tracker-db').initPgTracker();
+    console.log('[Tracker] PostgreSQL backend ready');
+  }
+
   // SECURITY: Bind interface controlled by env var BIND_HOST (see top
   // of file for rationale). On Windows production behind IIS reverse
   // proxy, set BIND_HOST=127.0.0.1 so the Node process is unreachable

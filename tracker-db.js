@@ -135,6 +135,27 @@ function getDB() {
   return _tdb;
 }
 
+// ── PostgreSQL backend selector (Chunk 1) ────────────────────────────────────
+// `sqlite` (default) keeps the better-sqlite3 path above, byte-for-byte.
+// `postgres` routes the per-year v2 path through the async services/pgDb adapter.
+const TRACKER_BACKEND = (process.env.TRACKER_BACKEND || 'sqlite').toLowerCase();
+let _pg = null;
+// Connect the pool once at server boot and apply the tracker schema.
+async function initPgTracker() {
+  const { makePgDb } = require('./services/pgDb');
+  const url = process.env.PG_URL || process.env.DATABASE_URL;
+  if (!url) throw new Error('TRACKER_BACKEND=postgres but PG_URL/DATABASE_URL is not set');
+  _pg = makePgDb(url);
+  await _pg.connect();
+  await _pg.exec(require('fs').readFileSync(
+    require('path').join(__dirname, 'db', 'postgres', 'tracker', '001_init.sql'), 'utf8'));
+  return _pg;
+}
+function pgHandle() {
+  if (!_pg) throw new Error('pgDb not initialised — await initPgTracker() at boot');
+  return _pg;
+}
+
 // ── Schema creation & seeding ────────────────────────────────────────────────
 function _initSchema(db) {
   db.exec(`
@@ -1494,4 +1515,4 @@ function deleteTrackerYear(year) {
   };
 }
 
-module.exports = { loadTracker, saveTracker, resetTracker, deleteTrackerYear, previewDeleteTrackerYear, backupDatabase, siteNameToCode, getActivityCode };
+module.exports = { loadTracker, saveTracker, resetTracker, deleteTrackerYear, previewDeleteTrackerYear, backupDatabase, siteNameToCode, getActivityCode, TRACKER_BACKEND, initPgTracker, pgHandle };

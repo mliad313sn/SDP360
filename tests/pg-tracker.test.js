@@ -1,6 +1,9 @@
 'use strict';
 // Chunk 1 — PostgreSQL adapter + tracker.db cutover. TDD suite.
 // Pure-unit tests run anywhere; DB-backed tests skip cleanly when Postgres is down.
+// tracker-db tests run in the prod-live mode: per-year edits + postgres backend.
+process.env.TRACKER_BACKEND = 'postgres';
+process.env.TRACKER_PER_YEAR_EDITS = '1';
 const { test } = require('node:test');
 const assert = require('node:assert');
 const fs = require('fs'); const path = require('path'); const os = require('os');
@@ -101,4 +104,20 @@ test('copy-tracker: tracker.db -> Postgres parity + idempotence', async (t) => {
     const r = await db.prepare(`INSERT INTO tracker_pillars (year,code,name,weight) VALUES (2026,'P9','Extra',5)`).run();
     assert.ok(r.lastID > 1, 'identity sequence should be past copied id 1, got ' + r.lastID);
   } finally { await db.close(); await dropTestDb(ctx); fs.rmSync(path.dirname(src), { recursive: true, force: true }); }
+});
+
+// ── Task 5: TRACKER_BACKEND selector + boot init ────────────────────────────
+test('tracker-db: initPgTracker() connects + applies schema; pgHandle usable', async (t) => {
+  const ctx = await provisionTestDb();
+  if (!ctx) return t.skip('Postgres not reachable');
+  process.env.PG_URL = ctx.url;
+  const tdb = require('../tracker-db');
+  assert.equal(tdb.TRACKER_BACKEND, 'postgres', 'backend selector should read env');
+  try {
+    await tdb.initPgTracker();                       // connect + apply 001_init.sql
+    const h = tdb.pgHandle();
+    assert.deepEqual(await h.prepare('SELECT 1 AS x').get(), { x: 1 });
+    // 001_init applied → config singleton present
+    assert.equal((await h.prepare('SELECT count(*)::int n FROM tracker_config').get()).n, 1);
+  } finally { try { await tdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
 });
