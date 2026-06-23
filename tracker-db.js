@@ -156,6 +156,262 @@ function pgHandle() {
   return _pg;
 }
 
+// ── Async PostgreSQL fork of the v2 (per-year) read/save path ────────────────
+// Faithful ports of _loadFromNewSchema / _saveV2 / _syncYearStructure with:
+//   getDB() → pgHandle(); db.prepare().get/all/run → await …; db.transaction()()
+//   → await runTransaction(async …); .lastInsertRowid → .lastID;
+//   INSERT OR REPLACE/IGNORE → ON CONFLICT; datetime('now') → now().
+const _MONTHS0 = '[0,0,0,0,0,0,0,0,0,0,0,0]';
+
+async function _loadFromNewSchemaPg() {
+  const h = pgHandle();
+  const cfg = await h.prepare('SELECT active_sites_json, current_month FROM tracker_config WHERE id=1').get();
+  if (!cfg) return JSON.parse(JSON.stringify(INIT));
+
+  const yearsRow = await h.prepare('SELECT year FROM tracker_years ORDER BY year').all();
+  const years = yearsRow.map(r => r.year);
+  if (years.length === 0) return JSON.parse(JSON.stringify(INIT));   // no legacy fallback in pg mode
+  const currentYear = years[years.length - 1];
+  const perYearEnabled = String(process.env.TRACKER_PER_YEAR_EDITS || '').trim() === '1';
+
+  const activeSites = JSON.parse(cfg.active_sites_json || '[]');
+  const coerceTarget = (raw) => raw === 'TRUE/FALSE' ? raw : (isNaN(raw) ? raw : parseFloat(raw));
+
+  const qPillars = h.prepare('SELECT code, name, weight FROM tracker_pillars WHERE year = ? ORDER BY display_order');
+  const qActs = h.prepare(`
+    SELECT a.id AS db_id, a.code, a.name, a.kpi_type, a.start_month, a.end_month,
+           a.legacy_id, a.legacy_num, a.weight, a.shared,
+           p.code AS pillar_code, p.name AS pillar_name
+    FROM tracker_activities a JOIN tracker_pillars p ON p.id = a.pillar_id
+    WHERE p.year = ? ORDER BY a.display_order, a.id`);
+  const qTargetsV2 = h.prepare('SELECT site, activity_id, target, active FROM tracker_targets_v2 WHERE year = ?');
+
+  const shapeActivity = (a) => {
+    const obj = {};
+    if (a.legacy_id  != null) obj.id  = a.legacy_id;
+    if (a.legacy_num != null) obj.num = a.legacy_num;
+    obj.pillar = a.pillar_name ? (a.pillar_code + '-' + a.pillar_name) : a.pillar_code;
+    obj.name   = a.name;
+    obj.kpi    = a.kpi_type;
+    if (a.weight != null) obj.weight = a.weight;
+    obj.start  = a.start_month;
+    obj.end    = a.end_month;
+    obj.shared = a.shared === 1;
+    obj.code   = a.code;
+    return obj;
+  };
+
+  const byYear = {};
+  const idToIxBy = {};
+  for (const y of years) {
+    const pw = {};
+    for (const p of await qPillars.all(y)) pw[p.name ? (p.code + '-' + p.name) : p.code] = p.weight;
+    const aRows = await qActs.all(y);
+    const acts  = aRows.map(shapeActivity);
+    const idToIx = new Map(aRows.map((a, ix) => [a.db_id, ix]));
+    idToIxBy[y] = idToIx;
+
+    const yTargets = {};
+    INIT.sites.forEach(s => { yTargets[s] = acts.map(() => ({ target: 0, active: false })); });
+    for (const r of await qTargetsV2.all(y)) {
+      const ix = idToIx.get(r.activity_id);
+      if (ix == null) continue;
+      if (!yTargets[r.site]) yTargets[r.site] = acts.map(() => ({ target: 0, active: false }));
+      yTargets[r.site][ix] = { target: coerceTarget(r.target), active: r.active === 1 };
+    }
+    byYear[y] = { activities: acts, pillarWeights: pw, targets: yTargets };
+  }
+  const canon = byYear[currentYear] || { activities: [], pillarWeights: {}, targets: {} };
+  const activities    = canon.activities;
+  const pillarWeights = canon.pillarWeights;
+
+  let targets, inputs = {};
+  if (perYearEnabled) {
+    targets = canon.targets;
+    const qInputsV2 = h.prepare('SELECT site, activity_id, months_json FROM tracker_inputs_v2 WHERE year = ?');
+    for (const y of years) {
+      const idToIx = idToIxBy[y];
+      const nActs  = byYear[y].activities.length;
+      inputs[y] = {};
+      for (const r of await qInputsV2.all(y)) {
+        const ix = idToIx.get(r.activity_id);
+        if (ix == null) continue;
+        if (!inputs[y][r.site]) inputs[y][r.site] = [];
+        inputs[y][r.site][ix] = JSON.parse(r.months_json || _MONTHS0);
+      }
+      for (const s of Object.keys(inputs[y])) {
+        for (let i = 0; i < nActs; i++) if (inputs[y][s][i] === undefined) inputs[y][s][i] = undefined;
+      }
+    }
+  } else {
+    const targetRows = await h.prepare('SELECT * FROM tracker_targets ORDER BY site, activity_ix').all();
+    targets = {};
+    INIT.sites.forEach(s => { targets[s] = activities.map(() => ({ target: 0, active: false })); });
+    targetRows.forEach(row => {
+      if (!targets[row.site]) targets[row.site] = activities.map(() => ({ target: 0, active: false }));
+      if (row.activity_ix >= activities.length) return;
+      targets[row.site][row.activity_ix] = { target: coerceTarget(row.target), active: row.active === 1 };
+    });
+    const inputRows = await h.prepare('SELECT * FROM tracker_inputs ORDER BY year, site, activity_ix').all();
+    inputRows.forEach(row => {
+      const yr = row.year;
+      if (!inputs[yr]) inputs[yr] = {};
+      if (!inputs[yr][row.site]) inputs[yr][row.site] = [];
+      if (row.activity_ix >= activities.length) return;
+      inputs[yr][row.site][row.activity_ix] = JSON.parse(row.months_json || _MONTHS0);
+    });
+  }
+
+  return {
+    sites: INIT.sites, siteNames: INIT.siteNames, siteColors: INIT.siteColors,
+    activeSites, currentMonth: cfg.current_month, activities, targets, inputs,
+    year: currentYear, years, pillarWeights, byYear, perYearEnabled,
+  };
+}
+
+async function _syncYearStructurePg(year, yd) {
+  const h = pgHandle();
+  const acts = Array.isArray(yd.activities) ? yd.activities : [];
+  const pw   = yd.pillarWeights || {};
+
+  // ── Pillars ──
+  const wantPillars = new Map();
+  Object.keys(pw).forEach((k, order) => {
+    const p = parsePillar(k);
+    if (p) wantPillars.set(p.code, { name: p.name, weight: Number(pw[k]) || 0, order });
+  });
+  const havePillars = new Map(
+    (await h.prepare('SELECT id, code, name, weight, display_order FROM tracker_pillars WHERE year = ?').all(year))
+      .map(r => [r.code, r]));
+  const insP = h.prepare('INSERT INTO tracker_pillars (year, code, name, weight, display_order) VALUES (?, ?, ?, ?, ?)');
+  const updP = h.prepare(`UPDATE tracker_pillars SET name=?, weight=?, display_order=?, updated_at=now() WHERE id=?`);
+  const delP = h.prepare('DELETE FROM tracker_pillars WHERE id=?');
+  const pillarIdByCode = new Map();
+  for (const [code, w] of wantPillars) {
+    const have = havePillars.get(code);
+    if (have) {
+      if (have.name !== w.name || have.weight !== w.weight || have.display_order !== w.order) {
+        await updP.run(w.name, w.weight, w.order, have.id);
+      }
+      pillarIdByCode.set(code, have.id);
+    } else {
+      const r = await insP.run(year, code, w.name, w.weight, w.order);
+      pillarIdByCode.set(code, Number(r.lastID));
+    }
+  }
+  for (const [code, have] of havePillars) {
+    if (!wantPillars.has(code)) await delP.run(have.id);   // CASCADE wipes activities + v2 rows
+  }
+
+  // ── Activities ──
+  const haveActs = new Map(
+    (await h.prepare(`SELECT a.id, a.code FROM tracker_activities a
+                      JOIN tracker_pillars p ON p.id = a.pillar_id WHERE p.year = ?`).all(year))
+      .map(r => [r.code, r.id]));
+  const insA = h.prepare(`
+    INSERT INTO tracker_activities
+      (pillar_id, code, name, kpi_type, start_month, end_month, display_order, legacy_id, legacy_num, weight, shared)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+  const updA = h.prepare(`
+    UPDATE tracker_activities
+       SET pillar_id=?, name=?, kpi_type=?, start_month=?, end_month=?, display_order=?,
+           legacy_id=?, legacy_num=?, weight=?, shared=?, updated_at=now()
+     WHERE id=?`);
+  const delA = h.prepare('DELETE FROM tracker_activities WHERE id=?');
+  const actIdByIx = [];
+  const seenCodes = new Set();
+  for (let ix = 0; ix < acts.length; ix++) {
+    const act = acts[ix];
+    if (!act) { actIdByIx[ix] = null; continue; }
+    const code = getActivityCode(act);
+    seenCodes.add(code);
+    const pParsed  = parsePillar(act.pillar);
+    const pillarId = pParsed ? pillarIdByCode.get(pParsed.code) : null;
+    if (!pillarId) { actIdByIx[ix] = null; continue; }
+    const legId  = (act.id  != null) ? Number(act.id)  : null;
+    const legNum = (act.num != null) ? Number(act.num) : null;
+    const weight = (act.weight != null) ? Number(act.weight) : 0;
+    const shared = act.shared ? 1 : 0;
+    const haveId = haveActs.get(code);
+    if (haveId) {
+      await updA.run(pillarId, String(act.name || 'Untitled'), String(act.kpi || 'BOOLEAN'),
+                     Number(act.start) || 1, Number(act.end) || 12, ix,
+                     legId, legNum, weight, shared, haveId);
+      actIdByIx[ix] = haveId;
+    } else {
+      const r = await insA.run(pillarId, code, String(act.name || 'Untitled'), String(act.kpi || 'BOOLEAN'),
+                               Number(act.start) || 1, Number(act.end) || 12, ix,
+                               legId, legNum, weight, shared);
+      actIdByIx[ix] = Number(r.lastID);
+    }
+  }
+  for (const [code, id] of haveActs) {
+    if (!seenCodes.has(code)) await delA.run(id);
+  }
+
+  // ── Targets v2 (wipe + reinsert for the year) ──
+  await h.prepare('DELETE FROM tracker_targets_v2 WHERE year = ?').run(year);
+  const insT = h.prepare(`
+    INSERT INTO tracker_targets_v2 (year, site, activity_id, target, active) VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT (year, site, activity_id) DO UPDATE SET target=EXCLUDED.target, active=EXCLUDED.active, updated_at=now()`);
+  for (const [site, arr] of Object.entries(yd.targets || {})) {
+    for (let ix = 0; ix < (arr || []).length; ix++) {
+      const t = arr[ix];
+      const aid = actIdByIx[ix];
+      if (!t || !aid) continue;
+      await insT.run(year, site, aid, String(t.target ?? 0), t.active ? 1 : 0);
+    }
+  }
+  return actIdByIx;
+}
+
+async function _saveV2Pg(D, userSite) {
+  const h = pgHandle();
+  const byYear = D.byYear || {};
+  await h.runTransaction(async () => {
+    const actIdMaps = {};
+    if (!userSite) {
+      await h.prepare(`
+        UPDATE tracker_config SET active_sites_json=?, years_json=?, current_month=?, updated_at=now() WHERE id=1
+      `).run(JSON.stringify(D.activeSites || []), JSON.stringify(D.years || []), D.currentMonth || 4);
+
+      const insYear = h.prepare('INSERT INTO tracker_years (year) VALUES (?) ON CONFLICT (year) DO NOTHING');
+      for (const y of (D.years || [])) {
+        const yi = parseInt(y, 10);
+        if (Number.isFinite(yi)) await insYear.run(yi);
+      }
+      for (const [yStr, yd] of Object.entries(byYear)) {
+        const y = parseInt(yStr, 10);
+        if (!Number.isFinite(y)) continue;
+        await insYear.run(y);
+        actIdMaps[y] = await _syncYearStructurePg(y, yd);
+      }
+    }
+
+    const insI = h.prepare(`
+      INSERT INTO tracker_inputs_v2 (year, site, activity_id, months_json) VALUES (?, ?, ?, ?)
+      ON CONFLICT (year, site, activity_id) DO UPDATE SET months_json=EXCLUDED.months_json, updated_at=now()`);
+    const qIds = h.prepare(`
+      SELECT a.id FROM tracker_activities a JOIN tracker_pillars p ON p.id = a.pillar_id
+      WHERE p.year = ? ORDER BY a.display_order, a.id`);
+    for (const [yStr, sites] of Object.entries(D.inputs || {})) {
+      const y = parseInt(yStr, 10);
+      if (!Number.isFinite(y)) continue;
+      const ids = actIdMaps[y] || (await qIds.all(y)).map(r => r.id);
+      for (const [site, arr] of Object.entries(sites || {})) {
+        if (userSite && site !== userSite) continue;
+        for (let ix = 0; ix < (arr || []).length; ix++) {
+          const months = arr[ix];
+          const aid = ids[ix];
+          if (!aid || !Array.isArray(months)) continue;
+          await insI.run(y, site, aid, JSON.stringify(months));
+        }
+      }
+    }
+  });
+  console.log('[Tracker-DB] saveTracker v2 (postgres per-year) — legacy untouched');
+}
+
 // ── Schema creation & seeding ────────────────────────────────────────────────
 function _initSchema(db) {
   db.exec(`
@@ -754,6 +1010,7 @@ function _seed(db) {
 // ══════════════════════════════════════════════════════════════════
 let _phase2ConfigLogged = false;
 function loadTracker() {
+  if (TRACKER_BACKEND === 'postgres') return _loadFromNewSchemaPg();   // async (caller awaits)
   const source      = String(process.env.TRACKER_READ_SOURCE || 'legacy').toLowerCase();
   const perYearMode = String(process.env.TRACKER_PER_YEAR_EDITS || '').trim() === '1';
   // PHASE 4d — the shadow comparator checks new-vs-legacy parity. Once
@@ -1230,6 +1487,7 @@ function _saveV2(db, D, userSite) {
 }
 
 function saveTracker(D, userSite) {
+  if (TRACKER_BACKEND === 'postgres') return _saveV2Pg(D, userSite);   // async (caller awaits)
   const db = getDB();
 
   // ── PHASE 4d write path ─────────────────────────────────────────

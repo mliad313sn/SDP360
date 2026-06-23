@@ -121,3 +121,68 @@ test('tracker-db: initPgTracker() connects + applies schema; pgHandle usable', a
     assert.equal((await h.prepare('SELECT count(*)::int n FROM tracker_config').get()).n, 1);
   } finally { try { await tdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
 });
+
+// ── Task 6: async postgres v2 load/save parity ──────────────────────────────
+// Boot a tracker pg handle pointed at a fresh DB seeded from the sqlite fixture.
+async function _bootPgTracker() {
+  const ctx = await provisionTestDb();
+  if (!ctx) return null;
+  process.env.PG_URL = ctx.url;
+  const tdb = require('../tracker-db');
+  await tdb.initPgTracker();
+  const { copyTracker } = require('../tools/pg/copy-tracker');
+  const src = _makeSqliteFixture();
+  await copyTracker(src, tdb.pgHandle());
+  fs.rmSync(path.dirname(src), { recursive: true, force: true });
+  return { ctx, tdb };
+}
+
+test('pg load: loadTracker() returns correct per-year D from Postgres', async (t) => {
+  const boot = await _bootPgTracker();
+  if (!boot) return t.skip('Postgres not reachable');
+  const { ctx, tdb } = boot;
+  try {
+    const D = await tdb.loadTracker();
+    assert.ok(D.years.includes(2026), 'years includes 2026');
+    assert.equal(D.perYearEnabled, true);
+    const yd = D.byYear[2026];
+    assert.equal(yd.activities[0].code, 'A1');
+    assert.equal(yd.activities[0].name, 'Patching');
+    assert.equal(yd.activities[0].kpi, 'BOOLEAN');
+    assert.equal(yd.activities[0].pillar, 'P1-Network Infrast');
+    assert.equal(yd.pillarWeights['P1-Network Infrast'], 25);
+    assert.deepEqual(D.inputs[2026].HGO[0], [1,0,1,0,0,0,0,0,0,0,0,0]);
+    assert.deepEqual(D.targets.HGO[0], { target: 1, active: true });
+  } finally { try { await tdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
+});
+
+test('pg save: exec round-trip persists an input edit', async (t) => {
+  const boot = await _bootPgTracker();
+  if (!boot) return t.skip('Postgres not reachable');
+  const { ctx, tdb } = boot;
+  try {
+    const D = await tdb.loadTracker();
+    D.inputs[2026].HGO[0] = [9,9,9,0,0,0,0,0,0,0,0,0];   // edit
+    await tdb.saveTracker(D, null);                       // exec/super_admin
+    const D2 = await tdb.loadTracker();
+    assert.deepEqual(D2.inputs[2026].HGO[0], [9,9,9,0,0,0,0,0,0,0,0,0]);
+  } finally { try { await tdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
+});
+
+test('pg save: adding a pillar+activity syncs structure (lastID FK)', async (t) => {
+  const boot = await _bootPgTracker();
+  if (!boot) return t.skip('Postgres not reachable');
+  const { ctx, tdb } = boot;
+  try {
+    const D = await tdb.loadTracker();
+    // add a new pillar P2 with a new activity in byYear[2026]
+    D.byYear[2026].pillarWeights['P2-Business Partner'] = 20;
+    D.byYear[2026].activities.push({ pillar: 'P2-Business Partner', name: 'Onboarding', kpi: 'BOOLEAN', start: 1, end: 12, code: 'B1' });
+    D.byYear[2026].targets = D.byYear[2026].targets || {};
+    await tdb.saveTracker(D, null);
+    const D2 = await tdb.loadTracker();
+    const codes = D2.byYear[2026].activities.map(a => a.code).sort();
+    assert.deepEqual(codes, ['A1', 'B1']);
+    assert.equal(D2.byYear[2026].pillarWeights['P2-Business Partner'], 20);
+  } finally { try { await tdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
+});
