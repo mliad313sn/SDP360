@@ -186,3 +186,67 @@ test('pg save: adding a pillar+activity syncs structure (lastID FK)', async (t) 
     assert.equal(D2.byYear[2026].pillarWeights['P2-Business Partner'], 20);
   } finally { try { await tdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
 });
+
+// ── Task 7: year delete cascade + preview + RBAC ────────────────────────────
+test('pg delete-year: FK cascade removes year N, preserves year M', async (t) => {
+  const boot = await _bootPgTracker();
+  if (!boot) return t.skip('Postgres not reachable');
+  const { ctx, tdb } = boot;
+  try {
+    // add a second year 2027 via the save path
+    const D = await tdb.loadTracker();
+    D.years = [2026, 2027];
+    D.byYear[2027] = { activities: [{ pillar: 'P1-Network Infrast', name: 'Patching', kpi: 'BOOLEAN', start: 1, end: 12, code: 'A1' }], pillarWeights: { 'P1-Network Infrast': 25 }, targets: {} };
+    D.inputs[2027] = { HGO: [[2,2,0,0,0,0,0,0,0,0,0,0]] };
+    await tdb.saveTracker(D, null);
+
+    const res = await tdb.deleteTrackerYear(2026);
+    assert.deepEqual(res.years_after, [2027]);
+
+    const h = tdb.pgHandle();
+    assert.equal((await h.prepare('SELECT count(*)::int n FROM tracker_years WHERE year=?').get(2026)).n, 0);
+    assert.equal((await h.prepare('SELECT count(*)::int n FROM tracker_pillars WHERE year=?').get(2026)).n, 0, 'pillars cascaded');
+    assert.equal((await h.prepare('SELECT count(*)::int n FROM tracker_inputs_v2 WHERE year=?').get(2026)).n, 0, 'v2 inputs cascaded');
+    assert.equal((await h.prepare('SELECT count(*)::int n FROM tracker_inputs_v2 WHERE year=?').get(2027)).n, 1, 'year 2027 intact');
+
+    const D2 = await tdb.loadTracker();
+    assert.ok(!D2.years.includes(2026));
+    assert.deepEqual(D2.inputs[2027].HGO[0], [2,2,0,0,0,0,0,0,0,0,0,0]);
+  } finally { try { await tdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
+});
+
+test('pg preview-year: returns cascade impact without mutating', async (t) => {
+  const boot = await _bootPgTracker();
+  if (!boot) return t.skip('Postgres not reachable');
+  const { ctx, tdb } = boot;
+  try {
+    const D = await tdb.loadTracker();
+    D.years = [2026, 2027];
+    D.byYear[2027] = { activities: [{ pillar: 'P1-Network Infrast', name: 'Patching', kpi: 'BOOLEAN', start: 1, end: 12, code: 'A1' }], pillarWeights: { 'P1-Network Infrast': 25 }, targets: {} };
+    D.inputs[2027] = { HGO: [[2,2,0,0,0,0,0,0,0,0,0,0]] };
+    await tdb.saveTracker(D, null);
+
+    const pv = await tdb.previewDeleteTrackerYear(2026);
+    assert.equal(pv.is_in_config, true);
+    assert.deepEqual(pv.years_after, [2027]);
+    assert.equal(pv.inputs_will_be_deleted, 1);
+    assert.equal(pv.would_leave_zero_years, false);
+    // not mutated
+    assert.equal((await tdb.pgHandle().prepare('SELECT count(*)::int n FROM tracker_years WHERE year=?').get(2026)).n, 1);
+  } finally { try { await tdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
+});
+
+test('pg RBAC: admin save writes only own site inputs', async (t) => {
+  const boot = await _bootPgTracker();
+  if (!boot) return t.skip('Postgres not reachable');
+  const { ctx, tdb } = boot;
+  try {
+    const D = await tdb.loadTracker();
+    D.inputs[2026].HGO[0] = [5,5,5,0,0,0,0,0,0,0,0,0];
+    D.inputs[2026].MGO    = [[7,7,7,0,0,0,0,0,0,0,0,0]];
+    await tdb.saveTracker(D, 'HGO');                       // admin scoped to HGO
+    const D2 = await tdb.loadTracker();
+    assert.deepEqual(D2.inputs[2026].HGO[0], [5,5,5,0,0,0,0,0,0,0,0,0], 'HGO written');
+    assert.ok(!D2.inputs[2026].MGO, 'MGO inputs must NOT be written under HGO scope');
+  } finally { try { await tdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
+});

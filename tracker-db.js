@@ -412,6 +412,54 @@ async function _saveV2Pg(D, userSite) {
   console.log('[Tracker-DB] saveTracker v2 (postgres per-year) — legacy untouched');
 }
 
+async function _previewDeleteTrackerYearPg(year) {
+  const y = parseInt(year, 10);
+  if (!Number.isFinite(y) || y < 2000 || y > 2100) throw new Error('Invalid year: ' + year);
+  const h = pgHandle();
+  const cfg = await h.prepare('SELECT years_json FROM tracker_config WHERE id=1').get();
+  let years;
+  try { years = JSON.parse((cfg && cfg.years_json) || '[]'); } catch (_) { years = []; }
+  if (!Array.isArray(years)) years = [];
+  const inputsForYear = await h.prepare('SELECT COUNT(*)::int c FROM tracker_inputs_v2 WHERE year = ?').get(y);
+  const otherYears = await h.prepare(
+    `SELECT year, COUNT(*)::int c FROM tracker_inputs_v2 WHERE year != ? GROUP BY year ORDER BY year`).all(y);
+  return {
+    year:                    y,
+    years_current:           years,
+    years_after:             years.filter(x => x !== y),
+    inputs_will_be_deleted:  inputsForYear ? inputsForYear.c : 0,
+    other_years_untouched:   otherYears,
+    is_in_config:            years.includes(y),
+    would_leave_zero_years:  years.filter(x => x !== y).length === 0,
+  };
+}
+
+async function _deleteTrackerYearPg(year) {
+  const y = parseInt(year, 10);
+  if (!Number.isFinite(y) || y < 2000 || y > 2100) throw new Error('Invalid year: ' + year);
+  const h = pgHandle();
+  const cfg = await h.prepare('SELECT years_json FROM tracker_config WHERE id=1').get();
+  if (!cfg) throw new Error('tracker_config row id=1 not found');
+  let years;
+  try { years = JSON.parse(cfg.years_json || '[]'); } catch (_) { years = []; }
+  if (!Array.isArray(years)) years = [];
+  const newYears = years.filter(x => x !== y);
+  if (newYears.length === 0) throw new Error('Cannot delete the last remaining year — at least one must be kept.');
+
+  // No SQLite VACUUM-INTO backup on the pg backend (that helper is file-snapshot
+  // only). FK ON DELETE CASCADE does the structural work: tracker_years →
+  // tracker_pillars → tracker_activities → tracker_targets_v2 / tracker_inputs_v2.
+  let deletedYears = 0;
+  await h.runTransaction(async () => {
+    await h.prepare(`UPDATE tracker_config SET years_json = ?, updated_at = now() WHERE id = 1`)
+      .run(JSON.stringify(newYears));
+    const r = await h.prepare('DELETE FROM tracker_years WHERE year = ?').run(y);
+    deletedYears = r.changes;
+  });
+  console.log('[Tracker-DB] deleteTrackerYear(pg)', y, '— cascade removed years:', deletedYears);
+  return { year: y, years_after: newYears, years_deleted: deletedYears, backup_path: null };
+}
+
 // ── Schema creation & seeding ────────────────────────────────────────────────
 function _initSchema(db) {
   db.exec(`
@@ -1591,6 +1639,12 @@ function saveTracker(D, userSite) {
  * Executive/super_admin only — enforced by the route handler.
  */
 function resetTracker() {
+  if (TRACKER_BACKEND === 'postgres') {
+    // Scoped out of Chunk 1: _seed writes the legacy singleton unconditionally,
+    // which the postgres per-year model intentionally freezes. Surfaced as 501
+    // by the route handler.
+    throw new Error('resetTracker is not supported on the postgres backend (Chunk 1 scope).');
+  }
   const db = getDB();
   // Backup BEFORE destruction — reset wipes EVERYTHING including
   // every year's data + config, so an automatic backup is even more
@@ -1667,6 +1721,7 @@ function backupDatabase(reason) {
  * originally hit on 2026-05-31, fixed by routing through this function).
  */
 function previewDeleteTrackerYear(year) {
+  if (TRACKER_BACKEND === 'postgres') return _previewDeleteTrackerYearPg(year);   // async
   const y = parseInt(year, 10);
   if (!Number.isFinite(y) || y < 2000 || y > 2100) {
     throw new Error('Invalid year: ' + year);
@@ -1699,6 +1754,7 @@ function previewDeleteTrackerYear(year) {
 }
 
 function deleteTrackerYear(year) {
+  if (TRACKER_BACKEND === 'postgres') return _deleteTrackerYearPg(year);   // async
   const y = parseInt(year, 10);
   if (!Number.isFinite(y) || y < 2000 || y > 2100) {
     throw new Error('Invalid year: ' + year);
