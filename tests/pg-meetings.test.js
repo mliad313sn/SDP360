@@ -97,3 +97,31 @@ test('pg saveMeeting: create round-trip + header-only preserves children + dedup
     await assert.rejects(mdb.saveMeeting({ id: r.id, header: { site_code: 'HGO', department: 'Maintenance', meeting_date: '2026-05-20' } }, 'MGO', 1), /Cross-site/);
   } finally { try { await mdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
 });
+
+// ── issue/action updates + parents + list/escalations ───────────────────────
+test('pg issues/actions: updates + parents + list + escalations', async (t) => {
+  const b = await boot(); if (!b) return t.skip('no pg');
+  const { ctx, mdb } = b;
+  try {
+    const r = await mdb.saveMeeting({
+      header: { site_code: 'HGO', department: 'IT', meeting_date: '2026-05-10', status: 'submitted' },
+      issues: [{ title: 'VPN flaky', category: 'CN', severity: 'HIGH', escalate: 0, status: 'open' }],
+      actions: [{ description: 'Replace router', status: 'open' }],
+    }, null, 1);
+    const full = await mdb.getMeeting(r.id);
+    const issueId = full.issues[0].id, actionId = full.actions[0].id;
+    await mdb.addIssueUpdate(issueId, { author_name: 'me', body: 'escalating', status_change: 'in_progress', escalate_change: 1 });
+    const af = await mdb.getMeeting(r.id);
+    assert.equal(af.issues[0].status, 'in_progress'); assert.equal(af.issues[0].escalate, 1);
+    assert.ok(af.updates.length >= 2, 'audit rows accrue');
+    const high = await mdb.listIssues({ site: 'HGO', severity: 'HIGH' });
+    assert.equal(high.length, 1); assert.equal(high[0].meeting_reference, full.header.reference);
+    assert.equal((await mdb.listEscalations({ site: 'HGO' })).length, 1, 'escalated issue shows in escalations');
+    assert.equal((await mdb.getIssueParent(issueId)).site_code, 'HGO');
+    assert.equal((await mdb.getActionParent(actionId)).site_code, 'HGO');
+    await mdb.addActionUpdate(actionId, { author_name: 'me', status_change: 'resolved' });
+    assert.ok((await mdb.listActionUpdates(actionId)).length >= 1);
+    const af2 = await mdb.getMeeting(r.id);
+    assert.equal(af2.actions[0].status, 'resolved'); assert.ok(af2.actions[0].closed_at, 'closed_at stamped');
+  } finally { try { await mdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
+});

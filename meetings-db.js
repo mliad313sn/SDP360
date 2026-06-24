@@ -1052,6 +1052,7 @@ async function _saveMeetingPg(state, userSiteCode, userId) {
 
 /** Append an audit-trail update to one issue. */
 function addIssueUpdate(issueId, opts = {}) {
+  if (MEETINGS_BACKEND === 'postgres') return _addIssueUpdatePg(issueId, opts);
   const db = getDB();
   const issue = db.prepare('SELECT id, status, escalate FROM md_issues WHERE id = ?').get(issueId);
   if (!issue) throw new Error('Issue not found');
@@ -1080,6 +1081,7 @@ function addIssueUpdate(issueId, opts = {}) {
 
 /** Flat list of all issues across all meetings — drives the Issues Log view. */
 function listIssues(opts = {}) {
+  if (MEETINGS_BACKEND === 'postgres') return _listIssuesPg(opts);
   const db = getDB();
   const where = [];
   const params = {};
@@ -1135,6 +1137,7 @@ function listEscalations(opts = {}) {
  * (Site-scoping for editors is enforced at the route layer.)
  */
 function addActionUpdate(actionId, opts = {}) {
+  if (MEETINGS_BACKEND === 'postgres') return _addActionUpdatePg(actionId, opts);
   const db = getDB();
   const action = db.prepare('SELECT id, status FROM md_actions WHERE id = ?').get(actionId);
   if (!action) throw new Error('Action not found');
@@ -1159,6 +1162,7 @@ function addActionUpdate(actionId, opts = {}) {
 
 /** Audit thread for one action (newest first). */
 function listActionUpdates(actionId) {
+  if (MEETINGS_BACKEND === 'postgres') return _listActionUpdatesPg(actionId);
   return getDB().prepare(
     'SELECT * FROM md_action_updates WHERE action_id = ? ORDER BY id DESC'
   ).all(actionId);
@@ -1166,6 +1170,7 @@ function listActionUpdates(actionId) {
 
 /** Parent meeting's site + status for one issue (route-layer site scoping). */
 function getIssueParent(issueId) {
+  if (MEETINGS_BACKEND === 'postgres') return _getIssueParentPg(issueId);
   return getDB().prepare(`
     SELECT m.id AS id, m.site_code AS site_code, m.status AS status
       FROM md_issues i JOIN md_meetings m ON m.id = i.meeting_id
@@ -1175,11 +1180,82 @@ function getIssueParent(issueId) {
 
 /** Parent meeting's site + status for one action (route-layer site scoping). */
 function getActionParent(actionId) {
+  if (MEETINGS_BACKEND === 'postgres') return _getActionParentPg(actionId);
   return getDB().prepare(`
     SELECT m.site_code AS site_code, m.status AS meeting_status
       FROM md_actions a JOIN md_meetings m ON m.id = a.meeting_id
      WHERE a.id = ?
   `).get(actionId) || null;
+}
+
+// ── Async postgres forks: issue/action updates + parents (Chunk 2) ──────────
+async function _addIssueUpdatePg(issueId, opts = {}) {
+  const H = pgHandle();
+  const issue = await H.prepare('SELECT id, status, escalate FROM md_issues WHERE id = ?').get(issueId);
+  if (!issue) throw new Error('Issue not found');
+  await H.runTransaction(async () => {
+    await H.prepare(`INSERT INTO md_issue_updates (issue_id, author_id, author_name, body, status_change, escalate_change) VALUES (?,?,?,?,?,?)`)
+      .run(issueId, opts.author_id || null, opts.author_name || null, opts.body || null, opts.status_change || null, opts.escalate_change ?? null);
+    if (opts.status_change && opts.status_change !== issue.status) {
+      const terminal = (opts.status_change === 'resolved' || opts.status_change === 'cancelled');
+      await H.prepare(`UPDATE md_issues SET status = ?, closed_at = CASE WHEN ? = 1 THEN to_char(now(),'YYYY-MM-DD HH24:MI:SS') ELSE closed_at END, updated_at = now() WHERE id = ?`)
+        .run(opts.status_change, terminal ? 1 : 0, issueId);
+    }
+    if (opts.escalate_change !== null && opts.escalate_change !== undefined && opts.escalate_change !== issue.escalate) {
+      await H.prepare(`UPDATE md_issues SET escalate = ?, updated_at = now() WHERE id = ?`).run(opts.escalate_change ? 1 : 0, issueId);
+    }
+  });
+}
+async function _listIssuesPg(opts = {}) {
+  const where = [], params = {};
+  if (opts.site)        { where.push('m.site_code = @site');        params.site = opts.site; }
+  if (opts.department)  { where.push('m.department = @department'); params.department = opts.department; }
+  if (opts.category)    { where.push('i.category = @category');     params.category = opts.category; }
+  if (opts.severity)    { where.push('i.severity = @severity');     params.severity = opts.severity; }
+  if (opts.status)      { where.push('i.status = @status');         params.status = opts.status; }
+  if (opts.escalate !== undefined) { where.push('i.escalate = @esc'); params.esc = opts.escalate ? 1 : 0; }
+  if (opts.council_theme) { where.push('i.council_theme = @ct');    params.ct = opts.council_theme; }
+  if (opts.from)        { where.push('m.meeting_date >= @from');    params.from = opts.from; }
+  if (opts.to)          { where.push('m.meeting_date <= @to');      params.to = opts.to; }
+  if (opts.q) {
+    where.push('(i.title ILIKE @q OR i.description ILIKE @q OR i.champion ILIKE @q OR i.affects ILIKE @q)');
+    params.q = '%' + opts.q + '%';
+  }
+  const w = where.length ? 'WHERE ' + where.join(' AND ') : '';
+  params.limit = opts.limit || 500; params.offset = opts.offset || 0;
+  return pgHandle().prepare(`
+    SELECT i.*, m.reference AS meeting_reference, m.site_code AS site_code, m.department AS department,
+           m.meeting_date AS meeting_date, m.id AS meeting_id_ref
+    FROM md_issues i JOIN md_meetings m ON m.id = i.meeting_id ${w}
+    ORDER BY CASE WHEN i.status IN ('resolved','cancelled') THEN 1 ELSE 0 END,
+             CASE i.severity WHEN 'HIGH' THEN 0 WHEN 'MEDIUM' THEN 1 ELSE 2 END,
+             CASE WHEN i.target_date IS NULL THEN 1 ELSE 0 END, i.target_date ASC, m.meeting_date DESC
+    LIMIT @limit OFFSET @offset`).all(params);
+}
+async function _addActionUpdatePg(actionId, opts = {}) {
+  const H = pgHandle();
+  const action = await H.prepare('SELECT id, status FROM md_actions WHERE id = ?').get(actionId);
+  if (!action) throw new Error('Action not found');
+  await H.runTransaction(async () => {
+    await H.prepare(`INSERT INTO md_action_updates (action_id, author_id, author_name, body, status_change) VALUES (?,?,?,?,?)`)
+      .run(actionId, opts.author_id || null, opts.author_name || null, opts.body || null, opts.status_change || null);
+    if (opts.status_change && opts.status_change !== action.status) {
+      const terminal = (opts.status_change === 'resolved' || opts.status_change === 'cancelled' || opts.status_change === 'closed');
+      await H.prepare(`UPDATE md_actions SET status = ?, closed_at = CASE WHEN ? = 1 THEN to_char(now(),'YYYY-MM-DD HH24:MI:SS') ELSE closed_at END, updated_at = now() WHERE id = ?`)
+        .run(opts.status_change, terminal ? 1 : 0, actionId);
+    }
+  });
+}
+async function _listActionUpdatesPg(actionId) {
+  return pgHandle().prepare('SELECT * FROM md_action_updates WHERE action_id = ? ORDER BY id DESC').all(actionId);
+}
+async function _getIssueParentPg(issueId) {
+  return (await pgHandle().prepare(`SELECT m.id AS id, m.site_code AS site_code, m.status AS status
+      FROM md_issues i JOIN md_meetings m ON m.id = i.meeting_id WHERE i.id = ?`).get(issueId)) || null;
+}
+async function _getActionParentPg(actionId) {
+  return (await pgHandle().prepare(`SELECT m.site_code AS site_code, m.status AS meeting_status
+      FROM md_actions a JOIN md_meetings m ON m.id = a.meeting_id WHERE a.id = ?`).get(actionId)) || null;
 }
 
 /**
