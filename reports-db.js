@@ -673,10 +673,15 @@ const FEATURE_ROLES_KNOWN = ['tracker-admin', 'tracker-editor', 'report-author',
  * stable display.
  */
 function getUserRoles(userId) {
+  if (REPORTS_BACKEND === 'postgres') return _getUserRolesPg(userId);
   if (!userId) return [];
   return db.prepare(`SELECT role FROM user_roles WHERE user_id=? ORDER BY role`)
            .all(userId)
            .map(r => r.role);
+}
+async function _getUserRolesPg(userId) {
+  if (!userId) return [];
+  return (await pgHandle().prepare(`SELECT role FROM user_roles WHERE user_id=? ORDER BY role`).all(userId)).map(r => r.role);
 }
 
 /**
@@ -685,6 +690,7 @@ function getUserRoles(userId) {
  * against malformed UI input).
  */
 function setUserRoles(userId, roles) {
+  if (REPORTS_BACKEND === 'postgres') return _setUserRolesPg(userId, roles);
   if (!userId) return;
   const allowed = new Set([...ROLE_HIERARCHY, ...FEATURE_ROLES_KNOWN]);
   const clean = (Array.isArray(roles) ? roles : []).filter(r => allowed.has(r));
@@ -733,7 +739,31 @@ function userHasRole(userOrId, requiredRole) {
   return false;
 }
 
+// ── PostgreSQL backend selector (Sub-chunk A: auth/sessions) ─────────────────
+// `sqlite` (default) keeps the better-sqlite3 path, byte-for-byte. `postgres`
+// routes the auth/session/user functions through the async services/pgDb adapter.
+// The module-level sqlite `db` stays the default handle untouched; the pg path uses
+// pgHandle(). `listSites`/`createSite`/`updateSite` + `userHasRole` are NOT forked in
+// A (spec §4/§5.4). Prod stays sqlite (all-or-nothing flip later).
+const REPORTS_BACKEND = (process.env.REPORTS_BACKEND || 'sqlite').toLowerCase();
+let _pg = null;
+async function initPgReports() {            // called once at server boot
+  const { makePgDb } = require('./services/pgDb');
+  const url = process.env.PG_URL || process.env.DATABASE_URL;
+  if (!url) throw new Error('REPORTS_BACKEND=postgres but PG_URL/DATABASE_URL is not set');
+  _pg = makePgDb(url);
+  await _pg.connect();
+  await _pg.exec(require('fs').readFileSync(
+    require('path').join(__dirname, 'db', 'postgres', 'reports', '001_auth.sql'), 'utf8'));
+  return _pg;
+}
+function pgHandle() {
+  if (!_pg) throw new Error('pgDb not initialised — await initPgReports() at boot');
+  return _pg;
+}
+
 function login(username, password) {
+  if (REPORTS_BACKEND === 'postgres') return _loginPg(username, password);
   const user = db.prepare(`SELECT * FROM users WHERE username=? AND active=1`).get(username);
   if (!user) return null;
   const hash = hashPassword(password, user.salt);
@@ -746,6 +776,7 @@ function login(username, password) {
 }
 
 function validateSession(token) {
+  if (REPORTS_BACKEND === 'postgres') return _validateSessionPg(token);
   if (!token) return null;
   const s = db.prepare(`SELECT * FROM sessions WHERE token=? AND expires_at > datetime('now')`).get(token);
   if (!s) return null;
@@ -762,7 +793,44 @@ function validateSession(token) {
 }
 
 function logout(token) {
+  if (REPORTS_BACKEND === 'postgres') return _logoutPg(token);
   db.prepare(`DELETE FROM sessions WHERE token=?`).run(token);
+}
+
+// ── Async postgres forks of the auth/session path (Sub-chunk A) ──────────────
+async function _loginPg(username, password) {
+  const h = pgHandle();
+  const user = await h.prepare(`SELECT * FROM users WHERE username=? AND active=1`).get(username);
+  if (!user) return null;
+  if (hashPassword(password, user.salt) !== user.password_hash) return null;
+  const token = makeSession();
+  const expiresAt = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
+  await h.prepare(`INSERT INTO sessions (token, user_id, expires_at) VALUES (?,?,?)`).run(token, user.id, expiresAt);
+  return { token, user: await _safeUserPg(user) };
+}
+async function _validateSessionPg(token) {
+  if (!token) return null;
+  const h = pgHandle();
+  const s = await h.prepare(`SELECT * FROM sessions WHERE token=? AND expires_at > now()`).get(token);
+  if (!s) return null;
+  const user = await h.prepare(`SELECT * FROM users WHERE id=? AND active=1`).get(s.user_id);
+  if (!user) return null;
+  try {                                    // 60s last_seen throttle (decided)
+    await h.prepare(`UPDATE sessions SET last_seen = now()
+      WHERE token = ? AND (last_seen IS NULL OR last_seen < now() - interval '60 seconds')`).run(token);
+  } catch (_) { /* non-fatal */ }
+  return await _safeUserPg(user);          // preloads .roles → role middlewares stay sync
+}
+async function _logoutPg(token) {
+  return pgHandle().prepare(`DELETE FROM sessions WHERE token=?`).run(token);
+}
+// pg variant of safeUser — same field set, preloads roles.
+async function _safeUserPg(u) {
+  const roles = await _getUserRolesPg(u.id);
+  return {
+    id: u.id, username: u.username, full_name: u.full_name,
+    site_id: u.site_id, role: u.role, roles, active: u.active,
+  };
 }
 
 // ─── Active sessions (admin observability) ────────────────────────────
@@ -770,6 +838,7 @@ function logout(token) {
 // session as active when last_seen falls within the supplied window
 // (default 5 minutes). Returns enriched rows joined with users.
 function listActiveSessions(idleMinutes) {
+  if (REPORTS_BACKEND === 'postgres') return _listActiveSessionsPg(idleMinutes);
   const m = Math.max(1, Math.min(1440, Number(idleMinutes) || 5));
   // LEFT JOIN sites because users without a site_id ("All Groups" — admins)
   // still need to appear. site_name resolves to NULL for those, which the
@@ -798,7 +867,28 @@ function listActiveSessions(idleMinutes) {
 // Force-logout a session by token. Returns the number of rows affected
 // (0 if the token didn't exist or had already been deleted).
 function forceLogoutByToken(token) {
+  if (REPORTS_BACKEND === 'postgres') return _forceLogoutByTokenPg(token);
   const r = db.prepare(`DELETE FROM sessions WHERE token = ?`).run(token);
+  return { deleted: r.changes };
+}
+async function _listActiveSessionsPg(idleMinutes) {
+  const m = Math.max(1, Math.min(1440, Number(idleMinutes) || 5));
+  return pgHandle().prepare(`
+    SELECT s.token, s.created_at, s.expires_at,
+           COALESCE(s.last_seen, s.created_at) AS last_seen,
+           ROUND(EXTRACT(EPOCH FROM (now() - COALESCE(s.last_seen, s.created_at))))::int AS seconds_idle,
+           u.id AS user_id, u.username, u.full_name, u.role, site.name AS site_name
+    FROM sessions s
+    JOIN users u    ON u.id = s.user_id
+    LEFT JOIN sites site ON site.id = u.site_id
+    WHERE COALESCE(s.last_seen, s.created_at) > now() - (? * interval '1 minute')
+      AND s.expires_at > now()
+      AND u.active = 1
+    ORDER BY last_seen DESC
+  `).all(m);
+}
+async function _forceLogoutByTokenPg(token) {
+  const r = await pgHandle().prepare(`DELETE FROM sessions WHERE token = ?`).run(token);
   return { deleted: r.changes };
 }
 
@@ -816,6 +906,7 @@ function safeUser(u) {
 
 // ── USER MANAGEMENT ───────────────────────────────────────────────
 function listUsers() {
+  if (REPORTS_BACKEND === 'postgres') return _listUsersPg();
   const users = db.prepare(`
     SELECT u.id, u.username, u.full_name, u.site_id, s.name as site_name, s.zoho_group, u.role, u.active, u.created_at
     FROM users u LEFT JOIN sites s ON u.site_id=s.id ORDER BY u.id
@@ -831,6 +922,7 @@ function listUsers() {
 }
 
 function createUser({ username, full_name, password, site_id, role, roles }) {
+  if (REPORTS_BACKEND === 'postgres') return _createUserPg({ username, full_name, password, site_id, role, roles });
   const salt = crypto.randomBytes(16).toString('hex');
   const hash = hashPassword(password, salt);
   // Resolve final roles set: prefer the new `roles` array; fall back to the
@@ -850,6 +942,7 @@ function createUser({ username, full_name, password, site_id, role, roles }) {
 
 // Change own password — verifies current password before updating
 function changePassword(userId, currentPassword, newPassword) {
+  if (REPORTS_BACKEND === 'postgres') return _changePasswordPg(userId, currentPassword, newPassword);
   const user = db.prepare('SELECT * FROM users WHERE id=? AND active=1').get(userId);
   if (!user) return { ok: false, error: 'User not found' };
   const currentHash = hashPassword(currentPassword, user.salt);
@@ -862,6 +955,7 @@ function changePassword(userId, currentPassword, newPassword) {
 }
 
 function updateUser(id, { full_name, password, site_id, role, roles, active }) {
+  if (REPORTS_BACKEND === 'postgres') return _updateUserPg(id, { full_name, password, site_id, role, roles, active });
   // Resolve roles to update: prefer the new `roles` array; fall back to
   // single `role` for legacy callers. If neither is provided, leave the
   // current user_roles set alone.
@@ -901,7 +995,77 @@ function updateUser(id, { full_name, password, site_id, role, roles, active }) {
 }
 
 function deleteUser(id) {
+  if (REPORTS_BACKEND === 'postgres') return _deleteUserPg(id);
   db.prepare(`DELETE FROM users WHERE id=?`).run(id);
+}
+
+// ── Async postgres forks of user management (Sub-chunk A) ────────────────────
+async function _setUserRolesPg(userId, roles) {
+  if (!userId) return;
+  const allowed = new Set([...ROLE_HIERARCHY, ...FEATURE_ROLES_KNOWN]);
+  const clean = (Array.isArray(roles) ? roles : []).filter(r => allowed.has(r));
+  if (clean.length === 0) clean.push('viewer');
+  const h = pgHandle();
+  await h.runTransaction(async () => {
+    await h.prepare(`DELETE FROM user_roles WHERE user_id=?`).run(userId);
+    const ins = h.prepare(`INSERT INTO user_roles (user_id, role) VALUES (?, ?) ON CONFLICT (user_id, role) DO NOTHING`);
+    for (const r of clean) await ins.run(userId, r);
+    const highest = ROLE_HIERARCHY.find(x => clean.includes(x)) || 'viewer';
+    await h.prepare(`UPDATE users SET role=? WHERE id=?`).run(highest, userId);
+  });
+}
+async function _listUsersPg() {
+  const h = pgHandle();
+  const users = await h.prepare(`
+    SELECT u.id, u.username, u.full_name, u.site_id, s.name as site_name, s.zoho_group, u.role, u.active, u.created_at
+    FROM users u LEFT JOIN sites s ON u.site_id=s.id ORDER BY u.id`).all();
+  const allRoles = await h.prepare(`
+    SELECT user_id, string_agg(role, ',' ORDER BY role) AS roles_csv FROM user_roles GROUP BY user_id`).all();
+  const rolesByUser = {};
+  for (const r of allRoles) rolesByUser[r.user_id] = r.roles_csv ? r.roles_csv.split(',') : [];
+  return users.map(u => ({ ...u, roles: rolesByUser[u.id] || [] }));
+}
+async function _createUserPg({ username, full_name, password, site_id, role, roles }) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = hashPassword(password, salt);
+  const finalRoles = Array.isArray(roles) && roles.length > 0 ? roles : [role || 'editor'];
+  const ROLE_HIERARCHY_LOCAL = ['super_admin', 'executive', 'admin', 'editor', 'viewer'];
+  const highest = ROLE_HIERARCHY_LOCAL.find(h => finalRoles.includes(h)) || 'viewer';
+  const result = await pgHandle().prepare(`INSERT INTO users (username, full_name, password_hash, salt, site_id, role) VALUES (?,?,?,?,?,?)`)
+    .run(username, full_name, hash, salt, site_id || null, highest);
+  if (result.lastID) await _setUserRolesPg(result.lastID, finalRoles);
+  return result;
+}
+async function _changePasswordPg(userId, currentPassword, newPassword) {
+  const h = pgHandle();
+  const user = await h.prepare('SELECT * FROM users WHERE id=? AND active=1').get(userId);
+  if (!user) return { ok: false, error: 'User not found' };
+  if (hashPassword(currentPassword, user.salt) !== user.password_hash) return { ok: false, error: 'Current password is incorrect' };
+  if (newPassword.length < 8) return { ok: false, error: 'New password must be at least 8 characters' };
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = hashPassword(newPassword, salt);
+  await h.prepare('UPDATE users SET password_hash=?, salt=? WHERE id=?').run(hash, salt, userId);
+  return { ok: true };
+}
+async function _updateUserPg(id, { full_name, password, site_id, role, roles, active }) {
+  const h = pgHandle();
+  const willUpdateRoles = Array.isArray(roles) || typeof role === 'string';
+  const finalRoles = Array.isArray(roles) && roles.length > 0 ? roles : (typeof role === 'string' ? [role] : null);
+  const ROLE_HIERARCHY_LOCAL = ['super_admin', 'executive', 'admin', 'editor', 'viewer'];
+  const highest = finalRoles ? (ROLE_HIERARCHY_LOCAL.find(x => finalRoles.includes(x)) || 'viewer') : null;
+  if (password) {
+    const salt = crypto.randomBytes(16).toString('hex');
+    const hash = hashPassword(password, salt);
+    if (willUpdateRoles && highest) await h.prepare(`UPDATE users SET full_name=?, password_hash=?, salt=?, site_id=?, role=?, active=? WHERE id=?`).run(full_name, hash, salt, site_id ?? null, highest, active ?? 1, id);
+    else await h.prepare(`UPDATE users SET full_name=?, password_hash=?, salt=?, site_id=?, active=? WHERE id=?`).run(full_name, hash, salt, site_id ?? null, active ?? 1, id);
+  } else {
+    if (willUpdateRoles && highest) await h.prepare(`UPDATE users SET full_name=?, site_id=?, role=?, active=? WHERE id=?`).run(full_name, site_id ?? null, highest, active ?? 1, id);
+    else await h.prepare(`UPDATE users SET full_name=?, site_id=?, active=? WHERE id=?`).run(full_name, site_id ?? null, active ?? 1, id);
+  }
+  if (willUpdateRoles && finalRoles) await _setUserRolesPg(id, finalRoles);
+}
+async function _deleteUserPg(id) {
+  return pgHandle().prepare(`DELETE FROM users WHERE id=?`).run(id);
 }
 
 // ── SITES ─────────────────────────────────────────────────────────
@@ -3729,6 +3893,7 @@ function getRequestFilterOptions() {
 
 module.exports = {
   db,
+  REPORTS_BACKEND, initPgReports, pgHandle,
   hashPassword, makeSession,
   login, validateSession, logout, safeUser,
   // Active-sessions observability (admin card on reports.html#admin)
