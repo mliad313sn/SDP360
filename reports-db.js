@@ -837,6 +837,7 @@ async function _safeUserPg(u) {
 // session as active when last_seen falls within the supplied window
 // (default 5 minutes). Returns enriched rows joined with users.
 function listActiveSessions(idleMinutes) {
+  if (REPORTS_BACKEND === 'postgres') return _listActiveSessionsPg(idleMinutes);
   const m = Math.max(1, Math.min(1440, Number(idleMinutes) || 5));
   // LEFT JOIN sites because users without a site_id ("All Groups" — admins)
   // still need to appear. site_name resolves to NULL for those, which the
@@ -865,7 +866,28 @@ function listActiveSessions(idleMinutes) {
 // Force-logout a session by token. Returns the number of rows affected
 // (0 if the token didn't exist or had already been deleted).
 function forceLogoutByToken(token) {
+  if (REPORTS_BACKEND === 'postgres') return _forceLogoutByTokenPg(token);
   const r = db.prepare(`DELETE FROM sessions WHERE token = ?`).run(token);
+  return { deleted: r.changes };
+}
+async function _listActiveSessionsPg(idleMinutes) {
+  const m = Math.max(1, Math.min(1440, Number(idleMinutes) || 5));
+  return pgHandle().prepare(`
+    SELECT s.token, s.created_at, s.expires_at,
+           COALESCE(s.last_seen, s.created_at) AS last_seen,
+           ROUND(EXTRACT(EPOCH FROM (now() - COALESCE(s.last_seen, s.created_at))))::int AS seconds_idle,
+           u.id AS user_id, u.username, u.full_name, u.role, site.name AS site_name
+    FROM sessions s
+    JOIN users u    ON u.id = s.user_id
+    LEFT JOIN sites site ON site.id = u.site_id
+    WHERE COALESCE(s.last_seen, s.created_at) > now() - (? * interval '1 minute')
+      AND s.expires_at > now()
+      AND u.active = 1
+    ORDER BY last_seen DESC
+  `).all(m);
+}
+async function _forceLogoutByTokenPg(token) {
+  const r = await pgHandle().prepare(`DELETE FROM sessions WHERE token = ?`).run(token);
   return { deleted: r.changes };
 }
 

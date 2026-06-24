@@ -114,3 +114,23 @@ test('userHasRole sync invariant (spec #5 — no await, no PG)', () => {
   assert.equal(rdb.userHasRole({ roles: ['tracker-admin'] }, 'tracker-admin'), true);  // feature role
   assert.equal(rdb.userHasRole({ roles: ['viewer'] }, 'admin'), false);         // no upward grant
 });
+
+// ── Task 5: listActiveSessions window + forceLogoutByToken ──────────────────
+test('pg sessions: listActiveSessions window (number seconds_idle) + forceLogout', async (t) => {
+  const b = await boot(); if (!b) return t.skip('no pg');
+  const { ctx, rdb } = b; const h = rdb.pgHandle();
+  try {
+    await seedUser(rdb, h, { username: 'dave', password: 'pw' });
+    const { token: tFresh } = await rdb.login('dave', 'pw');
+    await seedUser(rdb, h, { username: 'erin', password: 'pw' });
+    const { token: tStale } = await rdb.login('erin', 'pw');
+    await h.prepare(`UPDATE sessions SET last_seen = now() - interval '30 minutes' WHERE token=?`).run(tStale);
+    const active = await rdb.listActiveSessions(5);
+    const tokens = active.map(r => r.token);
+    assert.ok(tokens.includes(tFresh) && !tokens.includes(tStale), 'only the fresh session is within the 5-min window');
+    assert.equal(typeof active[0].seconds_idle, 'number', 'seconds_idle is a JS number');
+    const fl = await rdb.forceLogoutByToken(tFresh);
+    assert.equal(fl.deleted, 1);
+    assert.equal(await rdb.validateSession(tFresh), null, 'force-logged-out session is gone');
+  } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
+});
