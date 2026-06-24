@@ -168,3 +168,54 @@ test('pg analytics: listActions + aggregate + compliance', async (t) => {
     assert.equal(comp.escalations.total_escalated, 1); assert.equal(comp.escalations.missing_reason, 0);
   } finally { try { await mdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
 });
+
+// ── analytics: previousMeeting + compareDepartment + monthly summary + insights ─
+test('pg analytics: previousMeeting + compareDepartment + getSiteMonthlyMeetingSummary + insights', async (t) => {
+  const b = await boot(); if (!b) return t.skip('no pg');
+  const { ctx, mdb } = b;
+  try {
+    // Previous PV (April) with one standing-open + one resolved issue.
+    await mdb.saveMeeting({
+      header: { site_code: 'HGO', department: 'IT', meeting_date: '2026-04-10', status: 'signed', submitted_at: '2026-04-11 09:00:00' },
+      issues: [
+        { title: 'standing',    category: 'CN', severity: 'HIGH', status: 'open' },
+        { title: 'will-resolve', category: 'HW', severity: 'MEDIUM', status: 'resolved', closed_at: '2026-04-20' },
+      ] }, null, 1);
+    // Current PV (May) with a brand-new open issue.
+    const cur = await mdb.saveMeeting({
+      header: { site_code: 'HGO', department: 'IT', meeting_date: '2026-05-10', status: 'draft' },
+      issues: [{ title: 'new-issue', category: 'CN', severity: 'LOW', status: 'open' }] }, null, 1);
+
+    // previousMeeting — case-insensitive site/dept, before the current date.
+    const prev = await mdb.previousMeeting('hgo', 'it', '2026-05-10');
+    assert.equal(prev.meeting_date, '2026-04-10', 'previousMeeting picks the April PV');
+
+    // compareDepartment — standing/resolved/new split relative to the previous PV.
+    const cmp = await mdb.compareDepartment({ site: 'HGO', department: 'IT', current_id: cur.id });
+    assert.equal(cmp.previous.meeting_date, '2026-04-10');
+    assert.equal(cmp.summary.standing_total, 2, 'two open issues (April standing + May new)');
+    assert.equal(cmp.summary.standing_high, 1, 'one HIGH standing');
+    assert.equal(cmp.summary.resolved_total, 1, 'one resolved since previous');
+    assert.equal(cmp.summary.new_total, 1, 'one new issue raised after previous PV');
+
+    // getSiteMonthlyMeetingSummary — May snapshot.
+    const sm = await mdb.getSiteMonthlyMeetingSummary('HGO', 2026, 5);
+    assert.equal(sm.available, true);
+    assert.equal(sm.kpis.pvs_held, 1, 'one PV held in May');
+    assert.equal(sm.kpis.open_issues, 2);
+    assert.equal(sm.kpis.high_open, 1);
+    const it = sm.departments.find(d => d.department === 'IT');
+    assert.equal(it.status, 'blocked', 'IT has an open HIGH → blocked');
+    assert.equal(sm.trend.months.length, 3, '3-month trend window');
+
+    // insights — explicit window so the assertion is run-date independent.
+    const ins = await mdb.insights({ from: '2026-01-01', to: '2026-12-31', site: 'HGO' });
+    assert.equal(ins.monthly.length, 12, 'backfilled to 12 months');
+    assert.ok(ins.by_category.find(c => c.category === 'CN'));
+    const lb = ins.site_leaderboard.find(s => s.site === 'HGO');
+    assert.equal(lb.meetings, 2, 'two meetings in window');
+    const hm = ins.compliance_heatmap.find(h => h.site === 'HGO');
+    assert.equal(hm.meetings_count, 2);
+    assert.equal(hm.diffused_48h, 1, 'April PV diffused within 48h, May draft not');
+  } finally { try { await mdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
+});

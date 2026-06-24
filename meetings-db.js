@@ -1365,6 +1365,7 @@ async function _listActionsPg(opts = {}) {
  * extra round-trips.
  */
 function insights(opts = {}) {
+  if (MEETINGS_BACKEND === 'postgres') return _insightsPg(opts);
   const db = getDB();
 
   // Default period: trailing 6 months (current month inclusive).
@@ -1532,6 +1533,195 @@ function insights(opts = {}) {
   // Composite score = simple mean of the non-null engagement scores
   // (Option A per user choice). E4 is excluded — it's a placeholder
   // until the outbound-comms log feature ships.
+  const heatBySite = Object.fromEntries(complianceHeatmap.map(r => [r.site, r]));
+  const siteLeaderboard = leaderboard.map(r => {
+    const hm = heatBySite[r.site] || {};
+    const scores = [hm.e1, hm.e2, hm.e3, hm.e5].filter(x => x != null && !isNaN(x));
+    const score  = scores.length > 0 ? scores.reduce((a,b) => a+b, 0) / scores.length : null;
+    return {
+      ...r,
+      engagement_1:     hm.e1     != null ? hm.e1     : null,
+      diffused_48h_pct: hm.e2     != null ? hm.e2     : null,
+      champion_pct:     hm.e3     != null ? hm.e3     : null,
+      escalation_disc:  hm.e5     != null ? hm.e5     : null,
+      score,
+    };
+  });
+
+  return {
+    period: { from, to, months: numMonths },
+    monthly,
+    by_month_site:      byMonthSite,
+    by_category:        byCategory,
+    by_severity:        bySeverity,
+    by_council_theme:   byCouncilTheme,
+    compliance_heatmap: complianceHeatmap,
+    site_leaderboard:   siteLeaderboard,
+  };
+}
+
+// ── Postgres fork of insights() ───────────────────────────────────────────
+// Pure read path. Dialect rewrites vs the sqlite original:
+//   strftime('%Y-%m', meeting_date)  → substr(meeting_date,1,7)  (TEXT col)
+//   julianday(a)-julianday(b) <= 2   → (a::timestamptz - b::timestamptz) <= interval '2 days'
+//   i.target_date < date('now')      → i.target_date < to_char(current_date,'YYYY-MM-DD') (lexical, TEXT col)
+// The JS aggregation/scoring afterwards is identical to the sqlite path.
+async function _insightsPg(opts = {}) {
+  const H = pgHandle();
+
+  const todayD = new Date();
+  const sixMoStart = new Date(todayD.getFullYear(), todayD.getMonth() - 5, 1);
+  const from = opts.from || sixMoStart.toISOString().slice(0, 10);
+  const to   = opts.to   || todayD.toISOString().slice(0, 10);
+
+  const extra = [];
+  const params = { from, to };
+  if (opts.site)       { extra.push('m.site_code = @site');        params.site = opts.site; }
+  if (opts.department) { extra.push('m.department = @department'); params.department = opts.department; }
+  const extraW = extra.length ? ' AND ' + extra.join(' AND ') : '';
+
+  // 1. Monthly time-series
+  const monthlyRaw = await H.prepare(`
+    SELECT
+      substr(m.meeting_date,1,7)        AS month,
+      COUNT(DISTINCT m.id)              AS meetings,
+      COUNT(i.id)                       AS issues_opened,
+      SUM(CASE WHEN i.status IN ('resolved','cancelled') THEN 1 ELSE 0 END) AS issues_closed,
+      SUM(CASE WHEN i.escalate = 1                     THEN 1 ELSE 0 END) AS escalated
+    FROM md_meetings m
+    LEFT JOIN md_issues i ON i.meeting_id = m.id
+    WHERE m.meeting_date BETWEEN @from AND @to ${extraW}
+    GROUP BY substr(m.meeting_date,1,7)
+    ORDER BY month ASC
+  `).all(params);
+  const monthly = _backfillMonths(monthlyRaw, from, to);
+
+  // 2. Meetings × site × month
+  const byMonthSite = await H.prepare(`
+    SELECT
+      substr(m.meeting_date,1,7)        AS month,
+      m.site_code                       AS site,
+      COUNT(*)                          AS n
+    FROM md_meetings m
+    WHERE m.meeting_date BETWEEN @from AND @to ${extraW}
+    GROUP BY substr(m.meeting_date,1,7), m.site_code
+    ORDER BY month ASC, m.site_code ASC
+  `).all(params);
+
+  // 3. Issues by category (top 12)
+  const byCategory = await H.prepare(`
+    SELECT
+      i.category                                                    AS category,
+      COUNT(*)                                                      AS n,
+      SUM(CASE WHEN i.severity = 'HIGH' THEN 1 ELSE 0 END)          AS high_n,
+      SUM(CASE WHEN i.escalate = 1      THEN 1 ELSE 0 END)          AS esc_n
+    FROM md_issues i
+    JOIN md_meetings m ON m.id = i.meeting_id
+    WHERE m.meeting_date BETWEEN @from AND @to ${extraW}
+    GROUP BY i.category
+    ORDER BY n DESC
+    LIMIT 12
+  `).all(params);
+
+  // 4. Issues by severity
+  const bySeverity = await H.prepare(`
+    SELECT i.severity AS severity, COUNT(*) AS n
+    FROM md_issues i
+    JOIN md_meetings m ON m.id = i.meeting_id
+    WHERE m.meeting_date BETWEEN @from AND @to ${extraW}
+    GROUP BY i.severity
+  `).all(params);
+
+  // 5. Council escalations by theme
+  const byCouncilTheme = await H.prepare(`
+    SELECT
+      COALESCE(NULLIF(TRIM(i.council_theme), ''), '_unset') AS theme,
+      COUNT(*) AS n
+    FROM md_issues i
+    JOIN md_meetings m ON m.id = i.meeting_id
+    WHERE m.meeting_date BETWEEN @from AND @to ${extraW} AND i.escalate = 1
+    GROUP BY theme
+    ORDER BY n DESC
+  `).all(params);
+
+  // 6. Compliance heatmap raw data
+  const heatmapBase = await H.prepare(`
+    SELECT
+      m.site_code AS site,
+      COUNT(*)    AS meetings_count,
+      SUM(CASE WHEN m.submitted_at IS NOT NULL
+                AND (m.submitted_at::timestamptz - m.meeting_date::timestamptz) <= interval '2 days'
+               THEN 1 ELSE 0 END) AS diffused_48h
+    FROM md_meetings m
+    WHERE m.meeting_date BETWEEN @from AND @to ${extraW}
+    GROUP BY m.site_code
+  `).all(params);
+
+  const actionStats = await H.prepare(`
+    SELECT
+      m.site_code AS site,
+      COUNT(*)    AS actions_total,
+      SUM(CASE WHEN a.owner_it IS NOT NULL AND TRIM(a.owner_it) != ''
+               THEN 1 ELSE 0 END) AS actions_with_champion
+    FROM md_actions a
+    JOIN md_meetings m ON m.id = a.meeting_id
+    WHERE m.meeting_date BETWEEN @from AND @to ${extraW}
+    GROUP BY m.site_code
+  `).all(params);
+
+  const escDiscipline = await H.prepare(`
+    SELECT
+      m.site_code AS site,
+      COUNT(*)    AS escalated_total,
+      SUM(CASE WHEN i.escalation_reason IS NOT NULL AND TRIM(i.escalation_reason) != ''
+                AND i.council_theme    IS NOT NULL AND TRIM(i.council_theme)    != ''
+               THEN 1 ELSE 0 END) AS escalated_complete
+    FROM md_issues i
+    JOIN md_meetings m ON m.id = i.meeting_id
+    WHERE m.meeting_date BETWEEN @from AND @to ${extraW} AND i.escalate = 1
+    GROUP BY m.site_code
+  `).all(params);
+
+  const numMonths = _diffMonthsInclusive(from, to);
+  const actByS = Object.fromEntries(actionStats.map(r => [r.site, r]));
+  const escByS = Object.fromEntries(escDiscipline.map(r => [r.site, r]));
+
+  const complianceHeatmap = heatmapBase.map(r => {
+    const a   = actByS[r.site] || { actions_total: 0, actions_with_champion: 0 };
+    const e   = escByS[r.site] || { escalated_total: 0, escalated_complete: 0 };
+    const e1  = numMonths > 0 ? Math.min(1, r.meetings_count / (3 * numMonths)) : null;
+    const e2  = r.meetings_count   > 0 ? r.diffused_48h         / r.meetings_count   : null;
+    const e3  = a.actions_total    > 0 ? a.actions_with_champion / a.actions_total    : null;
+    const e4  = null;
+    const e5  = e.escalated_total  > 0 ? e.escalated_complete    / e.escalated_total  : null;
+    return {
+      site: r.site, e1, e2, e3, e4, e5,
+      meetings_count: r.meetings_count,
+      diffused_48h:   r.diffused_48h,
+      actions_total:  a.actions_total,
+      actions_with_champion: a.actions_with_champion,
+      escalated_total:       e.escalated_total,
+      escalated_complete:    e.escalated_complete,
+    };
+  });
+
+  // 7. Site leaderboard
+  const leaderboard = await H.prepare(`
+    SELECT
+      m.site_code AS site,
+      COUNT(DISTINCT m.id) AS meetings,
+      COUNT(i.id)          AS issues,
+      SUM(CASE WHEN i.severity = 'HIGH' THEN 1 ELSE 0 END) AS high,
+      SUM(CASE WHEN i.escalate = 1      THEN 1 ELSE 0 END) AS escalations,
+      SUM(CASE WHEN i.target_date IS NOT NULL AND i.target_date < to_char(current_date,'YYYY-MM-DD')
+                AND i.status NOT IN ('resolved','cancelled') THEN 1 ELSE 0 END) AS overdue
+    FROM md_meetings m
+    LEFT JOIN md_issues i ON i.meeting_id = m.id
+    WHERE m.meeting_date BETWEEN @from AND @to ${extraW}
+    GROUP BY m.site_code
+    ORDER BY meetings DESC, site ASC
+  `).all(params);
+
   const heatBySite = Object.fromEntries(complianceHeatmap.map(r => [r.site, r]));
   const siteLeaderboard = leaderboard.map(r => {
     const hm = heatBySite[r.site] || {};
@@ -1986,6 +2176,7 @@ async function _updateLookupRowPg(table, code, patch) {
  * pair is returned. Returns `null` if no prior meeting exists.
  */
 function previousMeeting(site_code, department, beforeDate) {
+  if (MEETINGS_BACKEND === 'postgres') return _previousMeetingPg(site_code, department, beforeDate);
   if (!site_code || !department) return null;
   const db = getDB();
   if (beforeDate) {
@@ -2000,6 +2191,16 @@ function previousMeeting(site_code, department, beforeDate) {
      WHERE site_code = ? COLLATE NOCASE AND department = ? COLLATE NOCASE
      ORDER BY meeting_date DESC, id DESC LIMIT 1
   `).get(site_code, department);
+}
+async function _previousMeetingPg(site_code, department, beforeDate) {
+  if (!site_code || !department) return null;
+  const H = pgHandle();
+  if (beforeDate) {
+    return (await H.prepare(`SELECT * FROM md_meetings WHERE lower(site_code)=lower(?) AND lower(department)=lower(?) AND meeting_date < ?
+      ORDER BY meeting_date DESC, id DESC LIMIT 1`).get(site_code, department, beforeDate)) || null;
+  }
+  return (await H.prepare(`SELECT * FROM md_meetings WHERE lower(site_code)=lower(?) AND lower(department)=lower(?)
+    ORDER BY meeting_date DESC, id DESC LIMIT 1`).get(site_code, department)) || null;
 }
 
 /**
@@ -2031,6 +2232,7 @@ function previousMeeting(site_code, department, beforeDate) {
  * meeting_date) for the UI to deep-link back to the parent PV.
  */
 function compareDepartment(opts = {}) {
+  if (MEETINGS_BACKEND === 'postgres') return _compareDepartmentPg(opts);
   const db = getDB();
   const site_code = opts.site;
   const department = opts.department;
@@ -2165,6 +2367,130 @@ function compareDepartment(opts = {}) {
   };
 }
 
+// ── Postgres fork of compareDepartment() ──────────────────────────────────
+// Pure read path + an awaited previousMeeting() (which itself dispatches to
+// the pg fork). Dialect rewrites vs the sqlite original:
+//   date(closed_at) > date(?)   → substr(closed_at,1,10) > ?   (closed_at TEXT, ? = 'YYYY-MM-DD')
+//   date(u.created_at) > date(?)→ u.created_at::date > ?::date (created_at TIMESTAMPTZ)
+async function _compareDepartmentPg(opts = {}) {
+  const H = pgHandle();
+  const site_code = opts.site;
+  const department = opts.department;
+  if (!site_code || !department) throw new Error('site and department are required');
+
+  let current = null;
+  if (opts.current_id) {
+    current = await H.prepare('SELECT * FROM md_meetings WHERE id = ?').get(parseInt(opts.current_id, 10));
+    if (current && (current.site_code !== site_code || current.department !== department)) {
+      throw new Error(`Meeting #${opts.current_id} does not match site/department scope`);
+    }
+  }
+  const asOf = opts.asOf || (current && current.meeting_date) || new Date().toISOString().slice(0, 10);
+  const previous = await previousMeeting(site_code, department, current ? current.meeting_date : (opts.asOf ? null : null));
+  const refDate = (previous && previous.meeting_date) || '1970-01-01';
+
+  const standing = await H.prepare(`
+    SELECT i.*, m.reference AS meeting_reference, m.meeting_date AS meeting_date, m.id AS meeting_id_ref
+      FROM md_issues i JOIN md_meetings m ON m.id = i.meeting_id
+     WHERE m.site_code = ? AND m.department = ?
+       AND i.status NOT IN ('resolved','cancelled')
+     ORDER BY
+       CASE i.severity WHEN 'HIGH' THEN 0 WHEN 'MEDIUM' THEN 1 ELSE 2 END,
+       CASE WHEN i.target_date IS NULL THEN 1 ELSE 0 END,
+       i.target_date ASC, i.id ASC
+  `).all(site_code, department);
+
+  const resolved = await H.prepare(`
+    SELECT i.*, m.reference AS meeting_reference, m.meeting_date AS meeting_date, m.id AS meeting_id_ref
+      FROM md_issues i JOIN md_meetings m ON m.id = i.meeting_id
+     WHERE m.site_code = ? AND m.department = ?
+       AND i.status IN ('resolved','cancelled')
+       AND (i.closed_at IS NULL OR substr(i.closed_at,1,10) > ?)
+     ORDER BY i.closed_at DESC, i.id DESC
+  `).all(site_code, department, refDate);
+
+  const newIssues = await H.prepare(`
+    SELECT i.*, m.reference AS meeting_reference, m.meeting_date AS meeting_date, m.id AS meeting_id_ref
+      FROM md_issues i JOIN md_meetings m ON m.id = i.meeting_id
+     WHERE m.site_code = ? AND m.department = ?
+       AND m.meeting_date > ?
+     ORDER BY i.severity, i.id
+  `).all(site_code, department, refDate);
+
+  const actions_standing = await H.prepare(`
+    SELECT a.*, m.reference AS meeting_reference, m.meeting_date AS meeting_date, m.id AS meeting_id_ref
+      FROM md_actions a JOIN md_meetings m ON m.id = a.meeting_id
+     WHERE m.site_code = ? AND m.department = ?
+       AND a.status NOT IN ('resolved','cancelled')
+     ORDER BY
+       CASE WHEN a.target_date IS NULL THEN 1 ELSE 0 END,
+       a.target_date ASC, a.id ASC
+  `).all(site_code, department);
+  const actions_resolved = await H.prepare(`
+    SELECT a.*, m.reference AS meeting_reference, m.meeting_date AS meeting_date, m.id AS meeting_id_ref
+      FROM md_actions a JOIN md_meetings m ON m.id = a.meeting_id
+     WHERE m.site_code = ? AND m.department = ?
+       AND a.status IN ('resolved','cancelled')
+       AND (a.closed_at IS NULL OR substr(a.closed_at,1,10) > ?)
+     ORDER BY a.closed_at DESC, a.id DESC
+  `).all(site_code, department, refDate);
+  const actions_new = await H.prepare(`
+    SELECT a.*, m.reference AS meeting_reference, m.meeting_date AS meeting_date, m.id AS meeting_id_ref
+      FROM md_actions a JOIN md_meetings m ON m.id = a.meeting_id
+     WHERE m.site_code = ? AND m.department = ?
+       AND m.meeting_date > ?
+     ORDER BY a.id
+  `).all(site_code, department, refDate);
+
+  const escalations = await H.prepare(`
+    SELECT i.*, m.reference AS meeting_reference, m.meeting_date AS meeting_date, m.id AS meeting_id_ref
+      FROM md_issues i JOIN md_meetings m ON m.id = i.meeting_id
+     WHERE m.site_code = ? AND m.department = ?
+       AND i.escalate = 1 AND i.status NOT IN ('resolved','cancelled')
+     ORDER BY i.severity, i.id
+  `).all(site_code, department);
+
+  const updates_since = await H.prepare(`
+    SELECT u.*, i.title AS issue_title, m.reference AS meeting_reference, m.id AS meeting_id_ref
+      FROM md_issue_updates u
+      JOIN md_issues   i ON i.id = u.issue_id
+      JOIN md_meetings m ON m.id = i.meeting_id
+     WHERE m.site_code = ? AND m.department = ?
+       AND u.created_at::date > ?::date
+     ORDER BY u.created_at DESC, u.id DESC
+     LIMIT 25
+  `).all(site_code, department, refDate);
+
+  const meeting_history = await H.prepare(`
+    SELECT id, reference, meeting_date, status, department_head, site_it_lead
+      FROM md_meetings
+     WHERE site_code = ? AND department = ?
+     ORDER BY meeting_date DESC, id DESC LIMIT 6
+  `).all(site_code, department);
+
+  return {
+    site: site_code, department,
+    current,
+    previous,
+    as_of: asOf,
+    standing, resolved, new_items: newIssues,
+    actions_standing, actions_resolved, actions_new,
+    escalations,
+    updates_since,
+    meeting_history,
+    summary: {
+      standing_total:    standing.length,
+      standing_high:     standing.filter(i => i.severity === 'HIGH').length,
+      resolved_total:    resolved.length,
+      new_total:         newIssues.length,
+      escalated_open:    escalations.length,
+      actions_standing:  actions_standing.length,
+      actions_resolved:  actions_resolved.length,
+      actions_new:       actions_new.length,
+    },
+  };
+}
+
 // ── Per-site monthly meeting summary ──────────────────────────────────────
 // Feeds the "Department Meetings — Monthly Status" slide on the weekly report
 // deck. Returns a calendar-month snapshot for one site: cadence KPIs, a
@@ -2176,6 +2502,7 @@ function compareDepartment(opts = {}) {
 // are keyed on closed_at / created_at within the target month.
 const _OPEN_SQL = "i.status NOT IN ('resolved','cancelled')";
 function getSiteMonthlyMeetingSummary(siteCode, year, month) {
+  if (MEETINGS_BACKEND === 'postgres') return _getSiteMonthlyMeetingSummaryPg(siteCode, year, month);
   const db = getDB();
   const ym = `${year}-${String(month).padStart(2, '0')}`;
   const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -2267,6 +2594,111 @@ function getSiteMonthlyMeetingSummary(siteCode, year, month) {
       pvs_held:        cad.pvs   || 0,
       depts_with_pv:   cad.depts || 0,
       dept_target:     3,                    // Engagement #1
+      open_issues:     iss.open      || 0,
+      high_open:       iss.high_open || 0,
+      resolved_month:  iss.resolved_m || 0,
+      new_month:       iss.new_m     || 0,
+      escalations_open:iss.esc_open  || 0,
+    },
+    departments,
+    trend: { months, opened, closed },
+    commentary,
+  };
+}
+
+// ── Postgres fork of getSiteMonthlyMeetingSummary() ───────────────────────
+// Dialect rewrites vs the sqlite original:
+//   substr(meeting_date,1,7)   → kept (meeting_date TEXT)
+//   substr(i.closed_at,1,7)    → kept (closed_at TEXT)
+//   substr(i.created_at,1,7)   → to_char(i.created_at,'YYYY-MM') (created_at TIMESTAMPTZ)
+async function _getSiteMonthlyMeetingSummaryPg(siteCode, year, month) {
+  const H = pgHandle();
+  const ym = `${year}-${String(month).padStart(2, '0')}`;
+  const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const monthLabel = `${MON[month - 1]} ${year}`;
+  if (!siteCode) {
+    return { site_code: null, year, month, month_label: monthLabel, available: false,
+             kpis: {}, departments: [], trend: { months: [], opened: [], closed: [] }, commentary: '' };
+  }
+
+  const cad = await H.prepare(
+    `SELECT COUNT(*) pvs, COUNT(DISTINCT department) depts
+       FROM md_meetings WHERE site_code=@site AND substr(meeting_date,1,7)=@ym`
+  ).get({ site: siteCode, ym });
+
+  const iss = (await H.prepare(
+    `SELECT
+        SUM(CASE WHEN ${_OPEN_SQL} THEN 1 ELSE 0 END)                                  open,
+        SUM(CASE WHEN ${_OPEN_SQL} AND i.severity='HIGH' THEN 1 ELSE 0 END)            high_open,
+        SUM(CASE WHEN ${_OPEN_SQL} AND i.escalate=1 THEN 1 ELSE 0 END)                 esc_open,
+        SUM(CASE WHEN substr(i.closed_at,1,7)=@ym THEN 1 ELSE 0 END)                   resolved_m,
+        SUM(CASE WHEN to_char(i.created_at,'YYYY-MM')=@ym THEN 1 ELSE 0 END)           new_m
+       FROM md_issues i JOIN md_meetings m ON m.id=i.meeting_id
+      WHERE m.site_code=@site`
+  ).get({ site: siteCode, ym })) || {};
+
+  const deptMeet = await H.prepare(
+    `SELECT department dept, MAX(meeting_date) last_pv,
+            MAX(CASE WHEN substr(meeting_date,1,7)=@ym THEN 1 ELSE 0 END) pv_this_month
+       FROM md_meetings WHERE site_code=@site GROUP BY department`
+  ).all({ site: siteCode, ym });
+  const deptIss = await H.prepare(
+    `SELECT m.department dept,
+            SUM(CASE WHEN ${_OPEN_SQL} THEN 1 ELSE 0 END)                       open,
+            SUM(CASE WHEN ${_OPEN_SQL} AND i.severity='HIGH' THEN 1 ELSE 0 END) high,
+            SUM(CASE WHEN ${_OPEN_SQL} AND i.status='blocked' THEN 1 ELSE 0 END) blocked,
+            SUM(CASE WHEN substr(i.closed_at,1,7)=@ym THEN 1 ELSE 0 END)        resolved_m,
+            SUM(CASE WHEN to_char(i.created_at,'YYYY-MM')=@ym THEN 1 ELSE 0 END) new_m
+       FROM md_issues i JOIN md_meetings m ON m.id=i.meeting_id
+      WHERE m.site_code=@site GROUP BY m.department`
+  ).all({ site: siteCode, ym });
+
+  const byDept = {};
+  for (const d of deptMeet) byDept[d.dept] = { department: d.dept, last_pv: d.last_pv || null,
+    pv_this_month: !!d.pv_this_month, open: 0, high: 0, blocked: 0, resolved_m: 0, new_m: 0 };
+  for (const d of deptIss) {
+    const t = byDept[d.dept] || (byDept[d.dept] = { department: d.dept, last_pv: null, pv_this_month: false, open: 0, high: 0, blocked: 0, resolved_m: 0, new_m: 0 });
+    t.open = d.open || 0; t.high = d.high || 0; t.blocked = d.blocked || 0;
+    t.resolved_m = d.resolved_m || 0; t.new_m = d.new_m || 0;
+  }
+  const departments = Object.values(byDept).map(t => {
+    let status = 'on_track';
+    if (!t.pv_this_month)              status = 'no_pv';
+    else if (t.blocked > 0 || t.high > 0) status = 'blocked';
+    return { ...t, status };
+  }).sort((a, b) => {
+    const rank = s => (s === 'blocked' ? 0 : s === 'no_pv' ? 1 : 2);
+    return rank(a.status) - rank(b.status) || (b.open - a.open);
+  });
+
+  const months = [], opened = [], closed = [];
+  for (let k = 2; k >= 0; k--) {
+    const d = new Date(year, month - 1 - k, 1);
+    const tym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    months.push(MON[d.getMonth()]);
+    const row = (await H.prepare(
+      `SELECT
+         SUM(CASE WHEN to_char(i.created_at,'YYYY-MM')=@tym THEN 1 ELSE 0 END) o,
+         SUM(CASE WHEN substr(i.closed_at,1,7)=@tym  THEN 1 ELSE 0 END) c
+        FROM md_issues i JOIN md_meetings m ON m.id=i.meeting_id WHERE m.site_code=@site`
+    ).get({ site: siteCode, tym })) || {};
+    opened.push(row.o || 0); closed.push(row.c || 0);
+  }
+
+  const bits = [];
+  for (const d of departments.filter(x => x.status === 'blocked').slice(0, 2))
+    bits.push(`${d.department}: ${d.open} issue${d.open === 1 ? '' : 's'} open${d.high ? ` (${d.high} HIGH)` : ''}`);
+  const noPv = departments.filter(x => x.status === 'no_pv').map(x => x.department);
+  if (noPv.length) bits.push(`${noPv.slice(0, 3).join(', ')}: no PV in ${MON[month - 1]}`);
+  if ((iss.esc_open || 0) > 0) bits.push(`${iss.esc_open} escalated to Council`);
+  const commentary = bits.length ? bits.join(' · ') : 'All departments met this month with no standing blockers.';
+
+  return {
+    site_code: siteCode, year, month, month_label: monthLabel, available: true,
+    kpis: {
+      pvs_held:        cad.pvs   || 0,
+      depts_with_pv:   cad.depts || 0,
+      dept_target:     3,
       open_issues:     iss.open      || 0,
       high_open:       iss.high_open || 0,
       resolved_month:  iss.resolved_m || 0,
