@@ -2,6 +2,12 @@
 // Chunk 2 — meetings.db → PostgreSQL. TDD suite. Runs the postgres backend
 // against a throwaway DB; skips cleanly when Postgres is unreachable.
 process.env.MEETINGS_BACKEND = 'postgres';
+// loadLookups requires reports-db.js, which opens its sqlite DB + seeds a default
+// admin at module-load (FATAL without these). Isolate + supply throwaway creds.
+const _os = require('os'), _fs = require('fs'), _path = require('path');
+process.env.SDP_DATA_DIR = process.env.SDP_DATA_DIR || _fs.mkdtempSync(_path.join(_os.tmpdir(), 'mtg-'));
+process.env.DASH_USER = process.env.DASH_USER || 'pgtest-admin';
+process.env.DASH_PASS = process.env.DASH_PASS || 'pgtest-pass-0000';
 const { test } = require('node:test');
 const assert = require('node:assert');
 const { provisionTestDb, dropTestDb } = require('./pg-helpers');
@@ -33,4 +39,31 @@ test('meetings pg: schema idempotent + lookups seeded + survey relabel', async (
     const sv = await h.prepare(`SELECT name_en FROM md_intake_sources WHERE code='survey'`).get();
     if (sv) assert.equal(sv.name_en, 'IT Survey', 'survey relabel applied');
   } finally { try { await h.close(); } catch {} await dropTestDb(ctx); }
+});
+
+// ── Read-path forks: loadLookups + getMeeting/list/count/status/idByRef ─────
+test('pg meetings read-path (seed via pgHandle)', async (t) => {
+  const b = await boot(); if (!b) return t.skip('no pg');
+  const { ctx, mdb } = b; const h = mdb.pgHandle();
+  try {
+    const lk = await mdb.loadLookups();
+    assert.ok(lk.categories.length > 0 && lk.statuses.length > 0, 'lookups seeded');
+    const m = await h.prepare(`INSERT INTO md_meetings (reference, site_code, department, meeting_date, status, department_head)
+                               VALUES ('HGO_Maintenance_PV_2026-05','HGO','Maintenance','2026-05-10','submitted','Chef')`).run();
+    const mid = m.lastID;
+    await h.prepare(`INSERT INTO md_issues (meeting_id, title, category, severity, escalate, status) VALUES (?,?,?,?,?,?)`)
+      .run(mid, 'Net down', 'CN', 'HIGH', 1, 'open');
+    await h.prepare(`INSERT INTO md_actions (meeting_id, description, status) VALUES (?,?,?)`).run(mid, 'Fix it', 'open');
+    const full = await mdb.getMeeting(mid);
+    assert.equal(full.header.reference, 'HGO_Maintenance_PV_2026-05');
+    assert.equal(full.issues.length, 1); assert.equal(full.actions.length, 1);
+    const list = await mdb.listMeetings({ site: 'HGO' });
+    assert.equal(list.length, 1);
+    assert.equal(list[0].issue_count, 1); assert.equal(typeof list[0].issue_count, 'number');
+    assert.equal(list[0].high_issue_count, 1); assert.equal(list[0].escalated_count, 1);
+    assert.equal(await mdb.countMeetings({ site: 'HGO' }), 1);
+    assert.equal((await mdb.listMeetings({ q: 'maintenance' })).length, 1, 'ILIKE q is case-insensitive');
+    assert.equal((await mdb.getMeetingStatus(mid)).status, 'submitted');
+    assert.equal(await mdb.getMeetingIdByReference('HGO_Maintenance_PV_2026-05'), mid);
+  } finally { try { await mdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
 });

@@ -430,6 +430,7 @@ function _buildReference(site_code, department, meeting_date) {
 
 /** All lookups in one call — drives every dropdown in the form. */
 function loadLookups() {
+  if (MEETINGS_BACKEND === 'postgres') return _loadLookupsPg();
   const db = getDB();
   const lookups = {
     intake_sources:     db.prepare('SELECT * FROM md_intake_sources       WHERE active = 1 ORDER BY display_order').all(),
@@ -461,11 +462,101 @@ function loadLookups() {
   return lookups;
 }
 
+// ── Async postgres read-path forks (Chunk 2) ────────────────────────────────
+async function _loadLookupsPg() {
+  const h = pgHandle();
+  const lookups = {
+    intake_sources:     await h.prepare('SELECT * FROM md_intake_sources       WHERE active = 1 ORDER BY display_order').all(),
+    departments:        await h.prepare('SELECT * FROM md_departments          WHERE active = 1 ORDER BY display_order').all(),
+    categories:         await h.prepare('SELECT * FROM md_categories           WHERE active = 1 ORDER BY display_order').all(),
+    severities:         await h.prepare('SELECT * FROM md_severities                            ORDER BY display_order').all(),
+    statuses:           await h.prepare('SELECT * FROM md_statuses                              ORDER BY display_order').all(),
+    meeting_statuses:   await h.prepare('SELECT * FROM md_meeting_statuses                      ORDER BY display_order').all(),
+    escalation_reasons: await h.prepare('SELECT * FROM md_escalation_reasons                    ORDER BY display_order').all(),
+    council_themes:     await h.prepare('SELECT * FROM md_council_themes                        ORDER BY display_order').all(),
+    project_phases:     await h.prepare('SELECT * FROM md_project_phases                        ORDER BY display_order').all(),
+    it_involvement:     await h.prepare('SELECT * FROM md_it_involvement                        ORDER BY display_order').all(),
+    engagements:        await h.prepare('SELECT * FROM md_engagements                           ORDER BY display_order').all(),
+  };
+  let sites = [];
+  try {                                       // reports-db stays sqlite/sync — leave bare
+    const rdb = require('./reports-db.js');
+    const canonical = rdb.listSites() || [];
+    sites = canonical.map(cs => ({ id: cs.id, code: _siteNameToCode(cs.name) || cs.name, name: cs.name, active: cs.active === 0 ? 0 : 1 }));
+  } catch (e) { /* offline */ }
+  lookups.sites = sites;
+  return lookups;
+}
+
+// Shared WHERE-builder for listMeetings/countMeetings (named @params; ILIKE for q).
+function _meetingsWhere(opts) {
+  const where = [], params = {};
+  if (opts.site)       { where.push('m.site_code = @site');       params.site = opts.site; }
+  if (opts.department) { where.push('m.department = @department'); params.department = opts.department; }
+  if (opts.status)     { where.push('m.status = @status');         params.status = opts.status; }
+  if (opts.intake)     { where.push('m.intake_source = @intake');  params.intake = opts.intake; }
+  if (opts.from)       { where.push('m.meeting_date >= @from');    params.from = opts.from; }
+  if (opts.to)         { where.push('m.meeting_date <= @to');      params.to = opts.to; }
+  if (opts.q) {
+    where.push('(m.reference ILIKE @q OR m.department_head ILIKE @q OR m.site_it_lead ILIKE @q OR m.priority_1 ILIKE @q OR m.priority_2 ILIKE @q OR m.priority_3 ILIKE @q)');
+    params.q = '%' + opts.q + '%';
+  }
+  return { w: where.length ? 'WHERE ' + where.join(' AND ') : '', params };
+}
+async function _listMeetingsPg(opts = {}) {
+  const { w, params } = _meetingsWhere(opts);
+  params.limit = opts.limit || 200; params.offset = opts.offset || 0;
+  return pgHandle().prepare(`
+    SELECT m.*,
+      (SELECT COUNT(*) FROM md_issues  i WHERE i.meeting_id = m.id)                                 AS issue_count,
+      (SELECT COUNT(*) FROM md_issues  i WHERE i.meeting_id = m.id AND i.severity = 'HIGH')         AS high_issue_count,
+      (SELECT COUNT(*) FROM md_issues  i WHERE i.meeting_id = m.id AND i.escalate = 1)              AS escalated_count,
+      (SELECT COUNT(*) FROM md_actions a WHERE a.meeting_id = m.id)                                 AS action_count,
+      (SELECT COUNT(*) FROM md_actions a WHERE a.meeting_id = m.id AND a.status NOT IN ('resolved','cancelled')) AS open_action_count,
+      (SELECT COUNT(*) FROM md_meeting_projects p WHERE p.meeting_id = m.id)                        AS project_count
+    FROM md_meetings m ${w}
+    ORDER BY m.meeting_date DESC, m.id DESC
+    LIMIT @limit OFFSET @offset`).all(params);
+}
+async function _countMeetingsPg(opts = {}) {
+  const { w, params } = _meetingsWhere(opts);
+  const row = await pgHandle().prepare(`SELECT COUNT(*) AS n FROM md_meetings m ${w}`).get(params);
+  return (row && row.n) || 0;
+}
+async function _getMeetingPg(id) {
+  const h = pgHandle();
+  const header = await h.prepare('SELECT * FROM md_meetings WHERE id = ?').get(id);
+  if (!header) return null;
+  const projects = await h.prepare('SELECT * FROM md_meeting_projects WHERE meeting_id = ? ORDER BY ord, id').all(id);
+  const issues   = await h.prepare('SELECT * FROM md_issues             WHERE meeting_id = ? ORDER BY ord, id').all(id);
+  const actions  = await h.prepare('SELECT * FROM md_actions            WHERE meeting_id = ? ORDER BY ord, id').all(id);
+  const attachments = await h.prepare(`SELECT id, filename, mime_type, size_bytes, uploaded_by, created_at
+      FROM md_meeting_attachments WHERE meeting_id = ? ORDER BY id`).all(id);
+  const issueIds = issues.map(i => i.id);
+  let updates = [];
+  if (issueIds.length) {
+    updates = await h.prepare(`SELECT * FROM md_issue_updates
+       WHERE issue_id IN (${issueIds.map(() => '?').join(',')})
+       ORDER BY created_at DESC, id DESC`).all(...issueIds);
+  }
+  return { header, projects, issues, actions, updates, attachments };
+}
+async function _getMeetingStatusPg(id) {
+  const row = await pgHandle().prepare('SELECT status, site_code FROM md_meetings WHERE id = ?').get(id);
+  return row || null;
+}
+async function _getMeetingIdByReferencePg(reference) {
+  if (!reference) return null;
+  const row = await pgHandle().prepare('SELECT id FROM md_meetings WHERE reference = ?').get(String(reference).trim());
+  return row ? row.id : null;
+}
+
 /**
  * Paginated meetings list with filters. Each row carries summary fields
  * (issue counts, action counts) so the list view doesn't need N+1 queries.
  */
 function listMeetings(opts = {}) {
+  if (MEETINGS_BACKEND === 'postgres') return _listMeetingsPg(opts);
   const db = getDB();
   const where  = [];
   const params = {};
@@ -507,6 +598,7 @@ function listMeetings(opts = {}) {
  * the two in sync.
  */
 function countMeetings(opts = {}) {
+  if (MEETINGS_BACKEND === 'postgres') return _countMeetingsPg(opts);
   const db = getDB();
   const where  = [];
   const params = {};
@@ -527,6 +619,7 @@ function countMeetings(opts = {}) {
 
 /** Full meeting record incl. children. */
 function getMeeting(id) {
+  if (MEETINGS_BACKEND === 'postgres') return _getMeetingPg(id);
   const db = getDB();
   const header = db.prepare('SELECT * FROM md_meetings WHERE id = ?').get(id);
   if (!header) return null;
@@ -1419,6 +1512,7 @@ function _backup(db, reason) {
 }
 
 function getMeetingStatus(id) {
+  if (MEETINGS_BACKEND === 'postgres') return _getMeetingStatusPg(id);
   const db  = getDB();
   const row = db.prepare('SELECT status, site_code FROM md_meetings WHERE id = ?').get(id);
   return row || null;
@@ -1873,6 +1967,7 @@ module.exports = {
 // null when the reference is new. Lets the import UI decorate each row
 // with "🆕 will create" vs "🔄 will update" before the user commits.
 function getMeetingIdByReference(reference) {
+  if (MEETINGS_BACKEND === 'postgres') return _getMeetingIdByReferencePg(reference);
   if (!reference) return null;
   const row = getDB().prepare('SELECT id FROM md_meetings WHERE reference = ?').get(String(reference).trim());
   return row ? row.id : null;
