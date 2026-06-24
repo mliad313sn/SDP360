@@ -673,10 +673,15 @@ const FEATURE_ROLES_KNOWN = ['tracker-admin', 'tracker-editor', 'report-author',
  * stable display.
  */
 function getUserRoles(userId) {
+  if (REPORTS_BACKEND === 'postgres') return _getUserRolesPg(userId);
   if (!userId) return [];
   return db.prepare(`SELECT role FROM user_roles WHERE user_id=? ORDER BY role`)
            .all(userId)
            .map(r => r.role);
+}
+async function _getUserRolesPg(userId) {
+  if (!userId) return [];
+  return (await pgHandle().prepare(`SELECT role FROM user_roles WHERE user_id=? ORDER BY role`).all(userId)).map(r => r.role);
 }
 
 /**
@@ -770,6 +775,7 @@ function login(username, password) {
 }
 
 function validateSession(token) {
+  if (REPORTS_BACKEND === 'postgres') return _validateSessionPg(token);
   if (!token) return null;
   const s = db.prepare(`SELECT * FROM sessions WHERE token=? AND expires_at > datetime('now')`).get(token);
   if (!s) return null;
@@ -786,7 +792,44 @@ function validateSession(token) {
 }
 
 function logout(token) {
+  if (REPORTS_BACKEND === 'postgres') return _logoutPg(token);
   db.prepare(`DELETE FROM sessions WHERE token=?`).run(token);
+}
+
+// ── Async postgres forks of the auth/session path (Sub-chunk A) ──────────────
+async function _loginPg(username, password) {
+  const h = pgHandle();
+  const user = await h.prepare(`SELECT * FROM users WHERE username=? AND active=1`).get(username);
+  if (!user) return null;
+  if (hashPassword(password, user.salt) !== user.password_hash) return null;
+  const token = makeSession();
+  const expiresAt = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
+  await h.prepare(`INSERT INTO sessions (token, user_id, expires_at) VALUES (?,?,?)`).run(token, user.id, expiresAt);
+  return { token, user: await _safeUserPg(user) };
+}
+async function _validateSessionPg(token) {
+  if (!token) return null;
+  const h = pgHandle();
+  const s = await h.prepare(`SELECT * FROM sessions WHERE token=? AND expires_at > now()`).get(token);
+  if (!s) return null;
+  const user = await h.prepare(`SELECT * FROM users WHERE id=? AND active=1`).get(s.user_id);
+  if (!user) return null;
+  try {                                    // 60s last_seen throttle (decided)
+    await h.prepare(`UPDATE sessions SET last_seen = now()
+      WHERE token = ? AND (last_seen IS NULL OR last_seen < now() - interval '60 seconds')`).run(token);
+  } catch (_) { /* non-fatal */ }
+  return await _safeUserPg(user);          // preloads .roles → role middlewares stay sync
+}
+async function _logoutPg(token) {
+  return pgHandle().prepare(`DELETE FROM sessions WHERE token=?`).run(token);
+}
+// pg variant of safeUser — same field set, preloads roles.
+async function _safeUserPg(u) {
+  const roles = await _getUserRolesPg(u.id);
+  return {
+    id: u.id, username: u.username, full_name: u.full_name,
+    site_id: u.site_id, role: u.role, roles, active: u.active,
+  };
 }
 
 // ─── Active sessions (admin observability) ────────────────────────────

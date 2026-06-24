@@ -58,3 +58,59 @@ test('reports-db: REPORTS_BACKEND selector + initPgReports applies schema', asyn
                                    WHERE table_name='users'`).get()).n, 1);
   } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
 });
+
+// ── Task 4: login / validateSession / getUserRoles / logout ─────────────────
+// Seed a site + user (with a real PBKDF2 hash) + roles directly via pgHandle.
+async function seedUser(rdb, h, { username = 'u1', password = 'pw', role = 'admin', roles = ['admin'], active = 1 } = {}) {
+  const site = await h.prepare(`INSERT INTO sites (name, zoho_group, active) VALUES (?,?,1)`).run('Site-' + username, username + ' IT Agents');
+  const salt = 'salt-' + username;
+  const hash = rdb.hashPassword(password, salt);
+  const u = await h.prepare(`INSERT INTO users (username, full_name, password_hash, salt, site_id, role, active)
+                             VALUES (?,?,?,?,?,?,?)`).run(username, 'User ' + username, hash, salt, site.lastID, role, active);
+  for (const r of roles) await h.prepare(`INSERT INTO user_roles (user_id, role) VALUES (?,?) ON CONFLICT DO NOTHING`).run(u.lastID, r);
+  return { userId: u.lastID, siteId: site.lastID };
+}
+
+test('pg auth: login + validateSession round-trip (roles preloaded) + logout', async (t) => {
+  const b = await boot(); if (!b) return t.skip('no pg');
+  const { ctx, rdb } = b; const h = rdb.pgHandle();
+  try {
+    await seedUser(rdb, h, { username: 'alice', password: 'secret', role: 'admin', roles: ['admin', 'tracker-admin'] });
+    assert.equal(await rdb.login('alice', 'wrong'), null, 'bad password → null');
+    const ok = await rdb.login('alice', 'secret');
+    assert.ok(ok && ok.token, 'good login → token');
+    assert.deepEqual(ok.user.roles.sort(), ['admin', 'tracker-admin'], 'roles preloaded on login user');
+    const u = await rdb.validateSession(ok.token);
+    assert.equal(u.username, 'alice'); assert.ok(Array.isArray(u.roles) && u.roles.includes('tracker-admin'));
+    await rdb.logout(ok.token);
+    assert.equal(await rdb.validateSession(ok.token), null, 'logged-out token → null');
+    // inactive user can't log in
+    await seedUser(rdb, h, { username: 'bob', password: 'x', active: 0 });
+    assert.equal(await rdb.login('bob', 'x'), null, 'inactive user → null');
+  } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
+});
+
+test('pg auth: last_seen 60s throttle', async (t) => {
+  const b = await boot(); if (!b) return t.skip('no pg');
+  const { ctx, rdb } = b; const h = rdb.pgHandle();
+  try {
+    await seedUser(rdb, h, { username: 'carol', password: 'pw' });
+    const { token } = await rdb.login('carol', 'pw');
+    await rdb.validateSession(token);
+    const t1 = (await h.prepare(`SELECT last_seen FROM sessions WHERE token=?`).get(token)).last_seen;
+    await rdb.validateSession(token);                       // immediate re-validate → throttled
+    const t2 = (await h.prepare(`SELECT last_seen FROM sessions WHERE token=?`).get(token)).last_seen;
+    assert.deepEqual(t2, t1, 'last_seen NOT bumped within 60s');
+    await h.prepare(`UPDATE sessions SET last_seen = now() - interval '2 minutes' WHERE token=?`).run(token);
+    await rdb.validateSession(token);                       // now > 60s → bumped
+    const t3 = (await h.prepare(`SELECT last_seen FROM sessions WHERE token=?`).get(token)).last_seen;
+    assert.notDeepEqual(t3, t1, 'last_seen bumped after 60s');
+  } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
+});
+
+test('userHasRole sync invariant (spec #5 — no await, no PG)', () => {
+  const rdb = require('../reports-db');
+  assert.equal(rdb.userHasRole({ roles: ['admin'] }, 'editor'), true);          // hierarchy grants down
+  assert.equal(rdb.userHasRole({ roles: ['tracker-admin'] }, 'tracker-admin'), true);  // feature role
+  assert.equal(rdb.userHasRole({ roles: ['viewer'] }, 'admin'), false);         // no upward grant
+});
