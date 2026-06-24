@@ -6,6 +6,11 @@ const fs = require('fs'); const path = require('path'); const os = require('os')
 // require time even in pg mode — point it at a throwaway dir so a running prod
 // instance's WAL lock can't break (or pollute) the suite.
 process.env.SDP_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'rpt-auth-'));
+// reports-db.js seeds a default admin into its sqlite DB at module-load and FATALs
+// if these aren't set on first boot — supply throwaway creds for the temp sqlite
+// (irrelevant to the pg path under test).
+process.env.DASH_USER = process.env.DASH_USER || 'pgtest-admin';
+process.env.DASH_PASS = process.env.DASH_PASS || 'pgtest-pass-0000';
 const { test } = require('node:test');
 const assert = require('node:assert');
 const { provisionTestDb, dropTestDb } = require('./pg-helpers');
@@ -31,4 +36,25 @@ test('schema: idempotent + real FKs (sessions + user_roles CASCADE, users.site_i
       WHERE table_name='users' AND column_name='site_id' AND constraint_name LIKE '%fkey%'`).get();
     assert.ok(fk.n >= 1, 'users.site_id FK present');
   } finally { await db.close(); await dropTestDb(ctx); }
+});
+
+// Reused by later tests — boots a reports-db pg handle against a fresh test DB.
+async function boot() {
+  const ctx = await provisionTestDb(); if (!ctx) return null;
+  process.env.PG_URL = ctx.url;
+  const rdb = require('../reports-db');
+  await rdb.initPgReports();
+  return { ctx, rdb };
+}
+
+test('reports-db: REPORTS_BACKEND selector + initPgReports applies schema', async (t) => {
+  const b = await boot(); if (!b) return t.skip('no pg');
+  const { ctx, rdb } = b;
+  try {
+    assert.equal(rdb.REPORTS_BACKEND, 'postgres');
+    const h = rdb.pgHandle();
+    assert.deepEqual(await h.prepare('SELECT 1 AS x').get(), { x: 1 });
+    assert.equal((await h.prepare(`SELECT count(*)::int n FROM information_schema.tables
+                                   WHERE table_name='users'`).get()).n, 1);
+  } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
 });

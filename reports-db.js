@@ -733,7 +733,31 @@ function userHasRole(userOrId, requiredRole) {
   return false;
 }
 
+// ── PostgreSQL backend selector (Sub-chunk A: auth/sessions) ─────────────────
+// `sqlite` (default) keeps the better-sqlite3 path, byte-for-byte. `postgres`
+// routes the auth/session/user functions through the async services/pgDb adapter.
+// The module-level sqlite `db` stays the default handle untouched; the pg path uses
+// pgHandle(). `listSites`/`createSite`/`updateSite` + `userHasRole` are NOT forked in
+// A (spec §4/§5.4). Prod stays sqlite (all-or-nothing flip later).
+const REPORTS_BACKEND = (process.env.REPORTS_BACKEND || 'sqlite').toLowerCase();
+let _pg = null;
+async function initPgReports() {            // called once at server boot
+  const { makePgDb } = require('./services/pgDb');
+  const url = process.env.PG_URL || process.env.DATABASE_URL;
+  if (!url) throw new Error('REPORTS_BACKEND=postgres but PG_URL/DATABASE_URL is not set');
+  _pg = makePgDb(url);
+  await _pg.connect();
+  await _pg.exec(require('fs').readFileSync(
+    require('path').join(__dirname, 'db', 'postgres', 'reports', '001_auth.sql'), 'utf8'));
+  return _pg;
+}
+function pgHandle() {
+  if (!_pg) throw new Error('pgDb not initialised — await initPgReports() at boot');
+  return _pg;
+}
+
 function login(username, password) {
+  if (REPORTS_BACKEND === 'postgres') return _loginPg(username, password);
   const user = db.prepare(`SELECT * FROM users WHERE username=? AND active=1`).get(username);
   if (!user) return null;
   const hash = hashPassword(password, user.salt);
@@ -3729,6 +3753,7 @@ function getRequestFilterOptions() {
 
 module.exports = {
   db,
+  REPORTS_BACKEND, initPgReports, pgHandle,
   hashPassword, makeSession,
   login, validateSession, logout, safeUser,
   // Active-sessions observability (admin card on reports.html#admin)
