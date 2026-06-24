@@ -67,3 +67,33 @@ test('pg meetings read-path (seed via pgHandle)', async (t) => {
     assert.equal(await mdb.getMeetingIdByReference('HGO_Maintenance_PV_2026-05'), mid);
   } finally { try { await mdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
 });
+
+// ── saveMeeting fork: round-trip + defensive children + dedup + cross-site ──
+test('pg saveMeeting: create round-trip + header-only preserves children + dedup + cross-site', async (t) => {
+  const b = await boot(); if (!b) return t.skip('no pg');
+  const { ctx, mdb } = b;
+  try {
+    const r = await mdb.saveMeeting({
+      header: { site_code: 'HGO', department: 'Maintenance', meeting_date: '2026-05-10', status: 'submitted', department_head: 'Chef' },
+      issues: [{ title: 'Net down', category: 'CN', severity: 'HIGH', escalate: 1, status: 'open' }],
+      actions: [{ description: 'Fix it', status: 'open', linked_issue_ord: 1 }],
+    }, null, 1);
+    assert.ok(r.id && r.created, 'created');
+    let full = await mdb.getMeeting(r.id);
+    assert.equal(full.issues.length, 1); assert.equal(full.actions.length, 1);
+    assert.equal(full.actions[0].linked_issue_id, full.issues[0].id, 'linked_issue_ord → id');
+    assert.equal(full.updates.length, 1, 'issue-created audit row');
+    // header-only PATCH (no issues/actions arrays) preserves children
+    await mdb.saveMeeting({ id: r.id, header: { ...full.header, status: 'signed' } }, null, 1);
+    full = await mdb.getMeeting(r.id);
+    assert.equal(full.header.status, 'signed');
+    assert.equal(full.issues.length, 1, 'children preserved on header-only save');
+    assert.equal(full.actions.length, 1);
+    // logical-identity dedup: same site/dept/month → UPDATE, not duplicate
+    const r2 = await mdb.saveMeeting({ header: { site_code: 'HGO', department: 'Maintenance', meeting_date: '2026-05-20', status: 'draft' }, issues: [] }, null, 1);
+    assert.equal(r2.id, r.id, 'logical-identity dedup → same row');
+    assert.equal(await mdb.countMeetings({ site: 'HGO' }), 1, 'no duplicate row');
+    // cross-site guard (editor scoped to MGO cannot write HGO)
+    await assert.rejects(mdb.saveMeeting({ id: r.id, header: { site_code: 'HGO', department: 'Maintenance', meeting_date: '2026-05-20' } }, 'MGO', 1), /Cross-site/);
+  } finally { try { await mdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
+});

@@ -652,6 +652,7 @@ function getMeeting(id) {
  * @returns {{id, reference, created}}
  */
 function saveMeeting(state, userSiteCode, userId) {
+  if (MEETINGS_BACKEND === 'postgres') return _saveMeetingPg(state, userSiteCode, userId);
   if (!state || !state.header) throw new Error('Missing state.header');
   const db   = getDB();
   const h    = state.header;
@@ -928,6 +929,124 @@ function saveMeeting(state, userSiteCode, userId) {
   // The transaction closure mutated headerParams.id — but it's local to the
   // function scope, not accessible here. Re-fetch the id by reference.
   const saved = db.prepare('SELECT id FROM md_meetings WHERE reference = ?').get(reference);
+  return { id: saved && saved.id, reference, created: !exist };
+}
+
+// Async postgres fork of saveMeeting — faithful port: db.transaction→runTransaction,
+// .lastInsertRowid→.lastID, COLLATE NOCASE→lower()=lower(), datetime('now')→now(),
+// forEach→for..of (await), named @params header + positional children. Defensive
+// children contract + two-sided cross-site guard preserved verbatim.
+async function _saveMeetingPg(state, userSiteCode, userId) {
+  if (!state || !state.header) throw new Error('Missing state.header');
+  const H = pgHandle();
+  const h = state.header;
+  let id = state.id ? parseInt(state.id, 10) : null;
+  let exist = id ? await H.prepare('SELECT * FROM md_meetings WHERE id = ?').get(id) : null;
+  if (!h.site_code)    throw new Error('Missing site_code');
+  if (!h.department)   throw new Error('Missing department');
+  if (!h.meeting_date) throw new Error('Missing meeting_date');
+  if (!exist && !id) {
+    const incomingRef = (h.reference || '').trim() || _buildReference(h.site_code, h.department, h.meeting_date);
+    if (incomingRef) {
+      exist = await H.prepare('SELECT * FROM md_meetings WHERE lower(reference) = lower(?)').get(incomingRef);
+      if (exist) id = exist.id;
+    }
+    if (!exist && h.site_code && h.department && h.meeting_date) {
+      const month = String(h.meeting_date).slice(0, 7);
+      exist = await H.prepare(`SELECT * FROM md_meetings
+         WHERE lower(site_code) = lower(?) AND lower(department) = lower(?) AND substr(meeting_date, 1, 7) = ?
+         ORDER BY id LIMIT 1`).get(h.site_code, h.department, month);
+      if (exist) id = exist.id;
+    }
+  }
+  if (userSiteCode) {
+    const existingSite = exist && exist.site_code;
+    const incomingSite = h.site_code || null;
+    if (existingSite && existingSite !== userSiteCode) throw new Error(`Cross-site save blocked: editor scoped to ${userSiteCode}, meeting is for ${existingSite}`);
+    if (incomingSite !== userSiteCode) throw new Error(`Cross-site save blocked: editor scoped to ${userSiteCode}, cannot write site ${incomingSite}`);
+    if (exist && exist.status === 'closed') throw new Error('Meeting is closed — only admin can re-open');
+  }
+  const reference = (exist && exist.reference) || (h.reference != null ? String(h.reference).trim() : '') || _buildReference(h.site_code, h.department, h.meeting_date);
+
+  await H.runTransaction(async () => {
+    const hp = {
+      id, reference, site_code: h.site_code, department: h.department, meeting_date: h.meeting_date,
+      duration_min: h.duration_min || null, department_head: h.department_head || '', department_head_title: h.department_head_title || '',
+      site_it_lead: h.site_it_lead || '', other_attendees: h.other_attendees || '', intake_source: h.intake_source || 'dept_meeting',
+      priority_1: h.priority_1 || '', priority_2: h.priority_2 || '', priority_3: h.priority_3 || '',
+      next_meeting_date: h.next_meeting_date || null, next_meeting_location: h.next_meeting_location || '',
+      status: h.status || 'draft',
+      submitted_at: h.submitted_at || (h.status === 'submitted' || h.status === 'signed' ? new Date().toISOString().replace('T', ' ').slice(0, 19) : null),
+      dept_head_signed_at: h.dept_head_signed_at || null, site_it_signed_at: h.site_it_signed_at || null, createdBy: userId || null,
+    };
+    if (exist) {
+      await H.prepare(`UPDATE md_meetings SET reference=@reference, site_code=@site_code, department=@department, meeting_date=@meeting_date,
+        duration_min=@duration_min, department_head=@department_head, department_head_title=@department_head_title, site_it_lead=@site_it_lead,
+        other_attendees=@other_attendees, intake_source=@intake_source, priority_1=@priority_1, priority_2=@priority_2, priority_3=@priority_3,
+        next_meeting_date=@next_meeting_date, next_meeting_location=@next_meeting_location, status=@status,
+        submitted_at=COALESCE(submitted_at, @submitted_at), dept_head_signed_at=COALESCE(dept_head_signed_at, @dept_head_signed_at),
+        site_it_signed_at=COALESCE(site_it_signed_at, @site_it_signed_at), updated_at=now() WHERE id=@id`).run(hp);
+    } else {
+      const r = await H.prepare(`INSERT INTO md_meetings
+        (reference, site_code, department, meeting_date, duration_min, department_head, department_head_title, site_it_lead, other_attendees,
+         intake_source, priority_1, priority_2, priority_3, next_meeting_date, next_meeting_location, status, submitted_at, dept_head_signed_at, site_it_signed_at, created_by)
+        VALUES (@reference,@site_code,@department,@meeting_date,@duration_min,@department_head,@department_head_title,@site_it_lead,@other_attendees,
+         @intake_source,@priority_1,@priority_2,@priority_3,@next_meeting_date,@next_meeting_location,@status,@submitted_at,@dept_head_signed_at,@site_it_signed_at,@createdBy)`).run(hp);
+      hp.id = r.lastID;
+    }
+    const meetingId = hp.id;
+    if (state.projects !== undefined) {
+      await H.prepare('DELETE FROM md_meeting_projects WHERE meeting_id = ?').run(meetingId);
+      const insP = H.prepare(`INSERT INTO md_meeting_projects (meeting_id, ord, project_name, phase, it_involvement, status, it_lead, business_sponsor, start_date, target_end, notes) VALUES (?,?,?,?,?,?,?,?,?,?,?)`);
+      let ix = 0;
+      for (const p of (state.projects || [])) { if (p.project_name) await insP.run(meetingId, p.ord || ix, p.project_name, p.phase || null, p.it_involvement || null, p.status || null, p.it_lead || null, p.business_sponsor || null, p.start_date || null, p.target_end || null, p.notes || null); ix++; }
+    }
+    if (state.issues !== undefined) {
+      const oldIssues = await H.prepare('SELECT id, status, escalate FROM md_issues WHERE meeting_id = ?').all(meetingId);
+      const oldById = {}; oldIssues.forEach(o => { oldById[o.id] = o; });
+      const incoming = new Set();
+      const updI = H.prepare(`UPDATE md_issues SET ord=?, title=?, description=?, category=?, severity=?, affects=?, champion=?, champion_email=?, target_date=?, status=?, escalate=?, escalation_reason=?, council_theme=?, notes=?, closed_at=?, updated_at=now() WHERE id=? AND meeting_id=?`);
+      const insI = H.prepare(`INSERT INTO md_issues (meeting_id, ord, title, description, category, severity, affects, champion, champion_email, target_date, status, escalate, escalation_reason, council_theme, notes, closed_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
+      const insA = H.prepare(`INSERT INTO md_issue_updates (issue_id, author_id, author_name, body, status_change, escalate_change) VALUES (?,?,?,?,?,?)`);
+      let ix = 0;
+      for (const iss of (state.issues || [])) {
+        if (!iss.title || !iss.category) { ix++; continue; }
+        const terminal = (iss.status === 'resolved' || iss.status === 'cancelled');
+        const closed_at = terminal ? new Date().toISOString().replace('T', ' ').slice(0, 19) : null;
+        const esc = iss.escalate ? 1 : 0;
+        if (iss.id && oldById[iss.id]) {
+          incoming.add(iss.id);
+          await updI.run(iss.ord || ix, iss.title, iss.description || '', iss.category, iss.severity || 'MEDIUM', iss.affects || '', iss.champion || '', iss.champion_email || '', iss.target_date || null, iss.status || 'open', esc, iss.escalation_reason || null, iss.council_theme || null, iss.notes || '', closed_at, iss.id, meetingId);
+          const old = oldById[iss.id];
+          const sc = old.status !== (iss.status || 'open') ? (iss.status || 'open') : null;
+          const ec = old.escalate !== esc ? esc : null;
+          if (sc || ec) await insA.run(iss.id, userId || null, state.author_name || null, iss.update_comment || null, sc, ec);
+        } else {
+          const r = await insI.run(meetingId, iss.ord || ix, iss.title, iss.description || '', iss.category, iss.severity || 'MEDIUM', iss.affects || '', iss.champion || '', iss.champion_email || '', iss.target_date || null, iss.status || 'open', esc, iss.escalation_reason || null, iss.council_theme || null, iss.notes || '', closed_at);
+          await insA.run(r.lastID, userId || null, state.author_name || null, iss.update_comment || 'Issue created.', iss.status || 'open', esc);
+        }
+        ix++;
+      }
+      for (const o of oldIssues) { if (!incoming.has(o.id)) await H.prepare('DELETE FROM md_issues WHERE id = ?').run(o.id); }
+    }
+    if (state.actions !== undefined) {
+      await H.prepare('DELETE FROM md_actions WHERE meeting_id = ?').run(meetingId);
+      const insAc = H.prepare(`INSERT INTO md_actions (meeting_id, ord, description, owner_it, owner_email, target_date, status, linked_issue_id, closed_at) VALUES (?,?,?,?,?,?,?,?,?)`);
+      const issuesAfter = await H.prepare('SELECT id, ord FROM md_issues WHERE meeting_id = ? ORDER BY ord, id').all(meetingId);
+      let ix = 0;
+      for (const a of (state.actions || [])) {
+        if (!a.description) { ix++; continue; }
+        let linked = null;
+        if (a.linked_issue_id) linked = a.linked_issue_id;
+        else if (a.linked_issue_ord) { const ord = parseInt(a.linked_issue_ord, 10); const m = issuesAfter[ord - 1]; if (m) linked = m.id; }
+        const terminal = (a.status === 'resolved' || a.status === 'cancelled');
+        const closed_at = terminal ? new Date().toISOString().replace('T', ' ').slice(0, 19) : null;
+        await insAc.run(meetingId, a.ord || ix, a.description, a.owner_it || '', a.owner_email || '', a.target_date || null, a.status || 'open', linked, closed_at);
+        ix++;
+      }
+    }
+  });
+  const saved = await H.prepare('SELECT id FROM md_meetings WHERE reference = ?').get(reference);
   return { id: saved && saved.id, reference, created: !exist };
 }
 
