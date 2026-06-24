@@ -51,3 +51,34 @@ node tools/pg/copy-tracker.js     # tracker.db -> Postgres (idempotent upsert, a
 Schema: `db/postgres/tracker/001_init.sql` (legacy + per-year v2 tables;
 type-preserving — `*_json` TEXT, `active` INTEGER, `target` TEXT; FK ON DELETE
 CASCADE for `deleteTrackerYear`).
+
+---
+
+## reports.db — Sub-chunk A (auth/sessions) — `agent/pg-reports-auth` / `feat/pg-reports-auth`
+
+DB layer DONE + green (`tests/pg-reports-auth.test.js`, 8 tests). Behind
+`REPORTS_BACKEND=sqlite|postgres` (default `sqlite`; **prod stays sqlite** until the
+whole reports.db (A+B+C+D) is cut over + KPI-reconciled — all-or-nothing flip).
+
+- Schema: `db/postgres/reports/001_auth.sql` (sites→users→user_roles→sessions, real FKs
+  incl. `sessions.user_id`/`user_roles.user_id` ON DELETE CASCADE, `users.site_id`→sites).
+- Forked (async) in `reports-db.js`: `login`, `validateSession` (60s `last_seen` throttle,
+  preloads `.roles`), `getUserRoles`, `logout`, `listActiveSessions`, `forceLogoutByToken`,
+  `listUsers`, `createUser`, `changePassword`, `updateUser`, `deleteUser`, `setUserRoles`.
+  `initPgReports()`/`pgHandle()` + `REPORTS_BACKEND` exported. **NOT forked** (stay sqlite):
+  `userHasRole` (reads preloaded `.roles`), `listSites`/`createSite`/`updateSite` (sub-chunk B).
+- Copy: `tools/pg/copy-reports-auth.js` (sites→users→user_roles→sessions, FK order, seq advance).
+- Env: `REPORTS_BACKEND`, `PG_URL`/`DATABASE_URL`.
+
+**Test gotcha:** `reports-db.js` opens its sqlite DB + seeds a default admin at module-load,
+FATALing without `DASH_USER`/`DASH_PASS`. The test header sets `SDP_DATA_DIR` (throwaway
+sqlite) **and** dummy `DASH_USER`/`DASH_PASS` before requiring it. Run:
+`PG_ADMIN_URL='postgres://postgres:<PG_PASSWORD>@localhost:5432/postgres' node --test --test-force-exit tests/pg-reports-auth.test.js`.
+
+**DEFERRED — Task 7 (server.js wiring), done in the coordinated merge pass:** make the 2 auth
+middlewares + ~9 `/api/reports/*` route handlers + `/api/health/views` `async`+`await`; adapt
+the UNIQUE-violation matcher (`server.js:4112`) for pg (`e.code==='23505'`/`duplicate key`);
+convert the cross-module `listUsers→listPeople` path (`inspection-db.js:listPeople` +
+`/api/inspection/people` + `/api/meetings/people`); add the boot hook + the route-level
+pg-mode test #10. Deferred because it edits `server.js`/`routes/inspection.js` — the same
+files Chunks 2/3 touch — so all chunks' wiring is merged together to avoid 3-way conflicts.
