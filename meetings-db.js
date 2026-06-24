@@ -86,6 +86,58 @@ function getDB() {
   return _mdb;
 }
 
+// ── PostgreSQL backend selector (Chunk 2) ────────────────────────────────────
+// `sqlite` (default) keeps the better-sqlite3 path above, byte-for-byte.
+// `postgres` routes every DB function through the async services/pgDb adapter.
+const MEETINGS_BACKEND = (process.env.MEETINGS_BACKEND || 'sqlite').toLowerCase();
+let _pg = null;
+async function initPgMeetings() {              // called once at server boot
+  const { makePgDb } = require('./services/pgDb');
+  const url = process.env.PG_URL || process.env.DATABASE_URL;
+  if (!url) throw new Error('MEETINGS_BACKEND=postgres but PG_URL/DATABASE_URL is not set');
+  _pg = makePgDb(url);
+  await _pg.connect();
+  await _pg.exec(require('fs').readFileSync(
+    require('path').join(__dirname, 'db', 'postgres', 'meetings', '001_init.sql'), 'utf8'));
+  // Seed the 11 lookups on first run (data-driven from meetings-init.json).
+  const seeded = await _pg.prepare('SELECT COUNT(*) AS n FROM md_categories').get();
+  if (!seeded || !seeded.n) await _seedLookupsPg();
+  // Idempotent label fix (parity with the sqlite path): survey → "IT Survey".
+  await _pg.prepare(`UPDATE md_intake_sources SET name_en='IT Survey', name_fr='Enquête IT'
+                     WHERE code='survey' AND (name_en='InfoTech Survey' OR name_fr='Enquête InfoTech')`).run();
+  return _pg;
+}
+function pgHandle() {
+  if (!_pg) throw new Error('pgDb not initialised — await initPgMeetings() at boot');
+  return _pg;
+}
+// Generic pg seed — INSERT ... ON CONFLICT (code) DO UPDATE, named @col binding
+// (the hardened adapter translates @name). Mirrors _seedTable's dynamic columns.
+async function _seedTablePg(table, rows) {
+  if (!Array.isArray(rows) || rows.length === 0) return;
+  const cols = Object.keys(rows[0]);
+  const set  = cols.filter(c => c !== 'code').map(c => `${c}=EXCLUDED.${c}`).join(', ');
+  const sql  = `INSERT INTO ${table} (${cols.join(',')}) VALUES (${cols.map(c => '@' + c).join(',')}) `
+             + (set ? `ON CONFLICT (code) DO UPDATE SET ${set}` : `ON CONFLICT (code) DO NOTHING`);
+  const stmt = pgHandle().prepare(sql);
+  for (const r of rows) await stmt.run(r);
+}
+async function _seedLookupsPg() {
+  await pgHandle().runTransaction(async () => {
+    await _seedTablePg('md_intake_sources',     INIT.intake_sources);
+    await _seedTablePg('md_departments',        INIT.departments);
+    await _seedTablePg('md_categories',         INIT.categories);
+    await _seedTablePg('md_severities',         INIT.severities);
+    await _seedTablePg('md_statuses',           INIT.statuses);
+    await _seedTablePg('md_meeting_statuses',   INIT.meeting_statuses);
+    await _seedTablePg('md_escalation_reasons', INIT.escalation_reasons);
+    await _seedTablePg('md_council_themes',     INIT.council_themes);
+    await _seedTablePg('md_project_phases',     INIT.project_phases);
+    await _seedTablePg('md_it_involvement',     INIT.it_involvement_levels);
+    await _seedTablePg('md_engagements',        INIT.engagements);
+  });
+}
+
 // ── Schema creation & seeding ───────────────────────────────────────────────
 function _initSchema(db) {
   // Pre-step: if a v1 schema exists (with md_decisions), drop it cleanly.
@@ -1813,6 +1865,7 @@ module.exports = {
   resetLookups,
   addLookupRow, listLookupTable, updateLookupRow,
   getMeetingIdByReference,
+  MEETINGS_BACKEND, initPgMeetings, pgHandle,
 };
 
 // ── Public helper exposed for the bulk-import preview ───────────────────
