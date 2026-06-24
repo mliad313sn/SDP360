@@ -1,7 +1,8 @@
 # Design — reports.db migration, Sub-chunk A: auth/sessions → PostgreSQL
 
 **Date**: 2026-06-24
-**Status**: Approved (design dialogue 2026-06-24). Revised after spec review (rev 2).
+**Status**: Approved (design dialogue 2026-06-24). Revised after spec review (rev 3 —
+sessions FK CASCADE + listUsers→listPeople cross-module ripple + line anchors).
 **Branch**: `feat/pg-reports-auth`
 **Audience**: Implementer (this repo) + reviewers.
 
@@ -64,7 +65,9 @@ pg, but **does not flip prod**.
   `listActiveSessions`, `forceLogoutByToken`, `listUsers`, `createUser`, `updateUser`,
   `deleteUser`, `changePassword`, `setUserRoles`, `getUserRoles`. (§5.3)
 - The auth middlewares + **every server.js route handler that synchronously consumes a
-  forked function** become `async` and `await` (full list §5.4).
+  forked function** become `async` and `await` (full list §5.4) — including the **cross-module
+  `listUsers` consumer** `inspection-db.js:listPeople` and its two routes
+  (`/api/inspection/people`, `/api/meetings/people`).
 - `validateSession` **last_seen 60s throttle** (decided).
 - `tools/pg/copy-reports-auth.js` (sqlite → pg) for `sites`, `users`, `user_roles`,
   `sessions` (in that order — FK).
@@ -146,9 +149,12 @@ CREATE). Confirmed live shapes:
   (the FK **does** exist in sqlite — line 48 — and `foreign_keys=ON`; keep it);
   **`active INTEGER DEFAULT 1`**; `created_at TIMESTAMPTZ DEFAULT now()`.
 - `sessions` (reports-db.js:51-58, +`last_seen` ALTER) — `token TEXT PRIMARY KEY`;
-  `user_id INTEGER`; **`expires_at`/`created_at`/`last_seen` TIMESTAMPTZ** (login writes ISO
-  strings via `toISOString()` — pg coerces on INSERT; all comparisons use `now()`). Indices
-  on `(user_id)`, `(expires_at)`.
+  `user_id INTEGER`; **`FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE`**
+  (reports-db.js:56 — `deleteUser` relies on this cascade; pg defaults to NO ACTION, so it
+  MUST be declared or `deleteUser` FK-violates on a user with a live session);
+  **`expires_at`/`created_at`/`last_seen` TIMESTAMPTZ** (login writes ISO strings via
+  `toISOString()` — pg coerces on INSERT; all comparisons use `now()`). Indices on
+  `(user_id)`, `(expires_at)`.
 - `user_roles` (reports-db.js:374-380) — composite `PRIMARY KEY (user_id, role)`;
   `FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE` (`deleteUser` relies on this).
 
@@ -166,11 +172,11 @@ Route at top `if (REPORTS_BACKEND==='postgres') return _fnPg(...)`; sqlite body 
 | `logout` | 764 | DELETE session by token. |
 | `listActiveSessions` | 772 | dialect rewrites (§5.3a). |
 | `forceLogoutByToken` | 800 | DELETE; `{ deleted: r.changes }`. |
-| `listUsers` | 818 | SELECT users LEFT JOIN sites. (`sites` rows exist in pg — copied.) |
-| `createUser` | ~845 | INSERT (`.lastInsertRowid`→`.lastID`); then `setUserRoles` (tx). |
-| `updateUser` | ~884 | UPDATE. |
-| `deleteUser` | ~904 | DELETE (user_roles FK CASCADE). |
-| `changePassword` | ~860 | UPDATE password_hash+salt; returns `{ok:…}`. |
+| `listUsers` | 818 | SELECT users LEFT JOIN sites. (`sites` rows exist in pg — copied.) Cross-module consumer `inspection-db.js:493` `listPeople` must also convert — §5.4. |
+| `createUser` | 833 | INSERT (`.lastInsertRowid`→`.lastID`); then `setUserRoles` (tx). |
+| `changePassword` | 852 | UPDATE password_hash+salt; returns `{ok:…}`. |
+| `updateUser` | 864 | UPDATE. |
+| `deleteUser` | 903 | DELETE (user_roles + sessions FK CASCADE). |
 | `setUserRoles` | (grep) | `db.transaction`→`await runTransaction`; DELETE + INSERT roles. |
 
 **NOT forked in A:** `userHasRole` (reads `.roles` array, no DB — §5.4); `listSites`/
@@ -208,10 +214,23 @@ mode. Full list to convert (verify line numbers at implementation time):
 synchronous**. This holds ONLY IF the pg `validateSession`/`safeUser` path preloads `.roles`
 (it does — §5.3). If that preload were dropped, these middlewares would silently mis-authorize.
 
-**Not converted (because their functions stay sqlite-sync in A):** the ~12 `rdb.listSites()
-.find()/.filter()` chains across server.js report/PPTX routes (~4026/4045/4086/4661/4670/…),
-and `meetings-db.js:400` / `inspection-db.js:417`. They keep working unchanged because
-`listSites` is not forked in A.
+**Cross-module ripple from forking `listUsers` (REQUIRED — `users` IS migrated in A, unlike
+`sites`):** `inspection-db.js:493` `listPeople()` does `const users = (rdb.listUsers() || [])
+.filter(...)` synchronously. Since `listUsers` is forked to async, `listPeople` returns a
+Promise-broken result in pg mode and its two route consumers 500:
+- `routes/inspection.js:70` → `GET /api/inspection/people`
+- `server.js:5783` → `GET /api/meetings/people`
+A must therefore: make `inspection-db.js:listPeople` `async` + `await rdb.listUsers()`, and
+make those two handlers `async` + `await listPeople()`. (There is no sqlite-sync escape like
+`sites` has, because `users` lives in pg in pg-mode — a sync sqlite read would return stale
+users.) **Coordination note:** `routes/inspection.js` + `server.js:/api/meetings/people` are
+also touched by Chunks 2/3 — resolve the trivial overlap at merge (these are
+`async`/`await`-only edits).
+
+**Not converted (their functions stay sqlite-sync in A):** the ~14 `rdb.listSites()
+.find()/.filter()` chains across server.js report/PPTX routes (4661, 4670, 4685, 4696, 4911,
+4933, 4964, …), and `meetings-db.js:400` / `inspection-db.js:417`. They keep working
+unchanged because `listSites` is not forked in A.
 
 Express supports async middleware/handlers; the converted handlers already exit via
 `next()`/`res.json()`/`res.status()`. `await` is transparent for the sqlite path.
@@ -248,13 +267,16 @@ Cases:
    `seconds_idle` as a JS **number** (assert `typeof === 'number'`), `ROUND`ed.
 7. `forceLogoutByToken` → `{deleted:1}` then `validateSession` null.
 8. user CRUD: `createUser` (+ `setUserRoles` tx) → `listUsers` → `updateUser` →
-   `changePassword` (new hash validates) → `deleteUser` (user_roles cascade gone).
+   `changePassword` (new hash validates) → `deleteUser`. Assert **both** cascades fire:
+   `user_roles` AND `sessions` rows for the deleted user are gone (the sessions FK CASCADE).
 9. seed a `sites` row + `createUser` with that `site_id` → FK satisfied; `listUsers` shows
    `site_name`.
 10. **route-level pg-mode smoke** (the §5.4 ripple guard): drive the actual handlers (direct
-    invocation or supertest) for the login route, `/api/reports/users` (list), and
-    `/api/reports/sessions/active` under `REPORTS_BACKEND=postgres`; assert real JSON bodies
-    (not a serialized Promise). This is the only case that catches a missed `await`.
+    invocation or supertest) under `REPORTS_BACKEND=postgres` for the login route,
+    `/api/reports/users` (list), `/api/reports/sessions/active`, **and `/api/inspection/people`
+    or `/api/meetings/people`** (the `listUsers`→`listPeople` cross-module path); assert real
+    JSON arrays/bodies (not a serialized Promise). This is the only case that catches a missed
+    `await` — including the cross-module one.
 - Plus: **sqlite path unchanged** smoke (`require('./reports-db').REPORTS_BACKEND` ⇒ `sqlite`;
   existing auth works), `node --check` on touched files.
 
@@ -266,6 +288,8 @@ Cases:
 | Missed `await` at a sync route consumer → broken login/users/sessions in pg mode | §5.4 enumerates every site; **test #10** drives the actual handlers under pg to catch any miss. |
 | `userHasRole`/admin middlewares accidentally made async or `.roles` preload dropped | §5.3/§5.4 invariant: pg `validateSession` MUST preload `.roles`; test #2 asserts it; keep `userHasRole` unforked. |
 | `listSites` async breaking meetings/inspection | Scoped OUT of A — `listSites` stays sqlite-sync; meetings-db:400 / inspection-db:417 untouched. |
+| `listUsers` async breaking `/api/inspection/people` + `/api/meetings/people` | `listUsers` IS forked (auth scope), so convert `inspection-db.js:listPeople` + both route handlers to `async`/`await` (§5.4); test #10 drives one of those routes under pg. Coordinate the trivial `routes/inspection.js`/`server.js` overlap with Chunks 2/3 at merge. |
+| `deleteUser` FK-violates on a user with a live session in pg | `sessions.user_id` FK declared `ON DELETE CASCADE` (§5.2); test #8 asserts the session cascade. |
 | `users.site_id` FK ordering on copy | Copy `sites` before `users` (§5.6); `001_auth.sql` creates `sites` before `users`. |
 | `expires_at`/`last_seen` TEXT(sqlite)→TIMESTAMPTZ(pg) | Columns are TIMESTAMPTZ; `login`'s `toISOString()` write is unchanged, pg coerces; comparisons use `now()`. |
 | Pool exhaustion | Auth-only is light; `PG_POOL_MAX=10` fine for A. Real tuning deferred to D (noted). |
@@ -278,9 +302,12 @@ Cases:
   `setUserRoles`/`getUserRoles` against pg; `tests/pg-reports-auth.test.js` green (incl. the
   route-level pg-mode test #10); skips clean with PG down.
 - `REPORTS_BACKEND=sqlite` (default) byte-identical; existing auth unaffected.
-- Every server.js sync consumer in §5.4 is `async`+`await`ed; the three role middlewares stay
-  sync via the preloaded `.roles` invariant; a real login + a user-management + an
-  active-sessions request all succeed under both backends.
+- Every server.js sync consumer in §5.4 is `async`+`await`ed (incl. `inspection-db.js:listPeople`
+  + `/api/inspection/people` + `/api/meetings/people`); the three role middlewares stay sync via
+  the preloaded `.roles` invariant; a real login + user-management + active-sessions + a
+  people-lookup request all succeed under both backends.
+- `sessions.user_id` FK is `ON DELETE CASCADE`; `deleteUser` cascades both `user_roles` and
+  `sessions` (test #8).
 - `listSites`/`createSite`/`updateSite` remain sqlite-backed (unchanged); meetings/inspection
   lookups unaffected.
 - `pgHandle` exported; `module.exports.db` unchanged.
