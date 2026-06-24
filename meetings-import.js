@@ -316,7 +316,10 @@ function parseBuffer(buf, lookups) {
  *                             errors (the offending rows are skipped).
  *                             Default false → refuses if errors.length > 0.
  */
-function commit(parsed, meetingsDb, opts = {}) {
+// NOTE: async since meetingsDb.saveMeeting is a Promise under the postgres
+// backend (MEETINGS_BACKEND=postgres). The sqlite path resolves synchronously,
+// so `await` is a no-op there. Callers MUST `await commit(...)`.
+async function commit(parsed, meetingsDb, opts = {}) {
   const out = { created: 0, updated: 0, skipped: 0, issues: 0, actions: 0, errors: [] };
   if (!parsed || !Array.isArray(parsed.meetings)) {
     out.errors.push({ row: 0, msg: 'Nothing to commit (empty payload)' });
@@ -352,7 +355,7 @@ function commit(parsed, meetingsDb, opts = {}) {
         })),
         author_name: opts.author_name || 'import',
       };
-      const result = meetingsDb.saveMeeting(state, null, opts.userId || null);
+      const result = await meetingsDb.saveMeeting(state, null, opts.userId || null);
       if (result.created) out.created++; else out.updated++;
       out.issues += state.issues.length;
       out.actions += state.actions.length;
