@@ -146,3 +146,25 @@ test('pg lookups CRUD + deleteMeeting cascade + resetLookups', async (t) => {
     assert.ok(!(await mdb.listLookupTable('md_categories', { includeInactive: true })).find(r => r.code === 'ZZ'), 'custom ZZ gone after reset');
   } finally { try { await mdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
 });
+
+// ── analytics: listActions + aggregate + compliance ─────────────────────────
+test('pg analytics: listActions + aggregate + compliance', async (t) => {
+  const b = await boot(); if (!b) return t.skip('no pg');
+  const { ctx, mdb } = b;
+  try {
+    await mdb.saveMeeting({ header: { site_code: 'HGO', department: 'IT', meeting_date: '2026-05-10', status: 'signed', submitted_at: '2026-05-11 09:00:00' },
+      issues: [{ title: 'A', category: 'CN', severity: 'HIGH', escalate: 1, escalation_reason: 'R', council_theme: 'T', status: 'open' }],
+      actions: [{ description: 'Do X', owner_it: 'Bob', status: 'open', target_date: '2020-01-01' }] }, null, 1);
+    const acts = await mdb.listActions({ site: 'hgo' });            // lower() case-insensitive
+    assert.equal(acts.length, 1); assert.ok(acts[0].meeting_reference);
+    assert.equal((await mdb.listActions({ overdue: true })).length, 1, 'overdue (target 2020) flagged');
+    const agg = await mdb.aggregate({ site: 'HGO' });
+    assert.equal(agg.meetings.total_meetings, 1); assert.equal(typeof agg.meetings.total_meetings, 'number');
+    assert.equal(agg.issues.high_issues, 1); assert.equal(agg.issues.total_escalated, 1);
+    assert.equal(agg.by_category[0].category, 'CN');
+    const comp = await mdb.compliance({ month: '2026-05' });
+    assert.equal(comp.per_site.length, 1); assert.equal(comp.per_site[0].site_code, 'HGO');
+    assert.equal(comp.per_site[0].diffused_in_48h, 1, 'submitted within 48h');
+    assert.equal(comp.escalations.total_escalated, 1); assert.equal(comp.escalations.missing_reason, 0);
+  } finally { try { await mdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
+});

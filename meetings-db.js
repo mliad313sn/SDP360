@@ -1265,6 +1265,7 @@ async function _getActionParentPg(actionId) {
  * site / department / status, and the linked issue title when present.
  */
 function listActions(opts = {}) {
+  if (MEETINGS_BACKEND === 'postgres') return _listActionsPg(opts);
   const db = getDB();
   const where = [];
   const params = {};
@@ -1309,6 +1310,28 @@ function listActions(opts = {}) {
   params.limit = opts.limit || 1000;
   params.offset = opts.offset || 0;
   return db.prepare(sql).all(params);
+}
+async function _listActionsPg(opts = {}) {
+  const where = [], params = {};
+  if (opts.site)       { where.push('lower(m.site_code) = lower(@site)');        params.site = opts.site; }
+  if (opts.department) { where.push('lower(m.department) = lower(@department)'); params.department = opts.department; }
+  if (opts.status)     { where.push('a.status = @status');                       params.status = opts.status; }
+  if (opts.owner)      { where.push('(a.owner_it ILIKE @owner OR a.owner_email ILIKE @owner)'); params.owner = '%' + opts.owner + '%'; }
+  if (opts.overdue)    { where.push("a.target_date IS NOT NULL AND a.target_date < to_char(current_date,'YYYY-MM-DD') AND a.status NOT IN ('resolved','cancelled','closed')"); }
+  if (opts.from)       { where.push('m.meeting_date >= @from'); params.from = opts.from; }
+  if (opts.to)         { where.push('m.meeting_date <= @to');   params.to = opts.to; }
+  if (opts.q)          { where.push('(a.description ILIKE @q OR a.owner_it ILIKE @q OR a.owner_email ILIKE @q)'); params.q = '%' + opts.q + '%'; }
+  const w = where.length ? 'WHERE ' + where.join(' AND ') : '';
+  params.limit = opts.limit || 1000; params.offset = opts.offset || 0;
+  return pgHandle().prepare(`
+    SELECT a.*, m.reference AS meeting_reference, m.site_code AS site_code, m.department AS department,
+           m.meeting_date AS meeting_date, m.status AS meeting_status, m.id AS meeting_id_ref, li.title AS linked_issue_title
+    FROM md_actions a
+    JOIN md_meetings m ON m.id = a.meeting_id
+    LEFT JOIN md_issues li ON li.id = a.linked_issue_id ${w}
+    ORDER BY CASE WHEN a.status IN ('resolved','cancelled','closed') THEN 1 ELSE 0 END,
+             CASE WHEN a.target_date IS NULL THEN 1 ELSE 0 END, a.target_date ASC, m.meeting_date DESC
+    LIMIT @limit OFFSET @offset`).all(params);
 }
 
 /**
@@ -1572,6 +1595,7 @@ function _backfillMonths(rows, from, to) {
 
 /** KPI aggregate for the meetings dashboard. */
 function aggregate(opts = {}) {
+  if (MEETINGS_BACKEND === 'postgres') return _aggregatePg(opts);
   const db = getDB();
   const where  = [];
   const params = {};
@@ -1639,6 +1663,7 @@ function aggregate(opts = {}) {
  * the UI can render a leaderboard. `month` parameter expected as 'YYYY-MM'.
  */
 function compliance(opts = {}) {
+  if (MEETINGS_BACKEND === 'postgres') return _compliancePg(opts);
   const db = getDB();
   const month = opts.month || new Date().toISOString().slice(0, 7);
   const monthFirst = `${month}-01`;
@@ -1684,6 +1709,57 @@ function compliance(opts = {}) {
     actions: actionStats,
     escalations: escalationStats,
   };
+}
+
+// ── Async postgres forks: aggregate + compliance (Chunk 2) ──────────────────
+async function _aggregatePg(opts = {}) {
+  const H = pgHandle();
+  const where = [], params = {};
+  if (opts.site)       { where.push('m.site_code = @site');        params.site = opts.site; }
+  if (opts.department) { where.push('m.department = @department'); params.department = opts.department; }
+  if (opts.from)       { where.push('m.meeting_date >= @from');    params.from = opts.from; }
+  if (opts.to)         { where.push('m.meeting_date <= @to');      params.to = opts.to; }
+  const w = where.length ? 'WHERE ' + where.join(' AND ') : '';
+  const meetings = await H.prepare(`SELECT COUNT(*) AS total_meetings,
+      SUM(CASE WHEN m.status='draft' THEN 1 ELSE 0 END) AS draft_count,
+      SUM(CASE WHEN m.status='submitted' THEN 1 ELSE 0 END) AS submitted_count,
+      SUM(CASE WHEN m.status='signed' THEN 1 ELSE 0 END) AS signed_count,
+      SUM(CASE WHEN m.status='closed' THEN 1 ELSE 0 END) AS closed_count,
+      COUNT(DISTINCT m.department) AS departments_covered FROM md_meetings m ${w}`).get(params);
+  const issues = await H.prepare(`SELECT COUNT(*) AS total_issues,
+      SUM(CASE WHEN i.severity='HIGH' THEN 1 ELSE 0 END) AS high_issues,
+      SUM(CASE WHEN i.severity='MEDIUM' THEN 1 ELSE 0 END) AS medium_issues,
+      SUM(CASE WHEN i.severity='LOW' THEN 1 ELSE 0 END) AS low_issues,
+      SUM(CASE WHEN i.status IN ('resolved','cancelled') THEN 0 ELSE 1 END) AS open_issues,
+      SUM(CASE WHEN i.escalate=1 AND i.status NOT IN ('resolved','cancelled') THEN 1 ELSE 0 END) AS escalated_open,
+      SUM(CASE WHEN i.escalate=1 THEN 1 ELSE 0 END) AS total_escalated,
+      SUM(CASE WHEN i.target_date IS NOT NULL AND i.target_date < to_char(current_date,'YYYY-MM-DD') AND i.status NOT IN ('resolved','cancelled') THEN 1 ELSE 0 END) AS overdue_issues
+      FROM md_issues i JOIN md_meetings m ON m.id=i.meeting_id ${w}`).get(params);
+  const by_category = await H.prepare(`SELECT i.category, COUNT(*) AS n,
+      SUM(CASE WHEN i.severity='HIGH' THEN 1 ELSE 0 END) AS high_n,
+      SUM(CASE WHEN i.escalate=1 THEN 1 ELSE 0 END) AS esc_n
+      FROM md_issues i JOIN md_meetings m ON m.id=i.meeting_id ${w} GROUP BY i.category ORDER BY n DESC`).all(params);
+  const by_council_theme = await H.prepare(`SELECT i.council_theme, COUNT(*) AS n
+      FROM md_issues i JOIN md_meetings m ON m.id=i.meeting_id ${w} ${w ? 'AND' : 'WHERE'} i.escalate=1
+      GROUP BY i.council_theme ORDER BY n DESC`).all(params);
+  return { meetings, issues, by_category, by_council_theme };
+}
+async function _compliancePg(opts = {}) {
+  const H = pgHandle();
+  const month = opts.month || new Date().toISOString().slice(0, 7);
+  const monthFirst = `${month}-01`, monthLast = `${month}-31`;
+  const per_site = await H.prepare(`SELECT m.site_code, COUNT(*) AS meetings_this_month,
+      SUM(CASE WHEN m.submitted_at IS NOT NULL AND (m.submitted_at::timestamptz - m.meeting_date::timestamptz) <= interval '2 days' THEN 1 ELSE 0 END) AS diffused_in_48h,
+      SUM(CASE WHEN m.status IN ('signed','closed') THEN 1 ELSE 0 END) AS signed_count
+      FROM md_meetings m WHERE m.meeting_date BETWEEN ? AND ? GROUP BY m.site_code ORDER BY m.site_code`).all(monthFirst, monthLast);
+  const actions = await H.prepare(`SELECT COUNT(*) AS total_actions,
+      SUM(CASE WHEN a.owner_it IS NULL OR TRIM(a.owner_it)='' THEN 1 ELSE 0 END) AS actions_without_champion
+      FROM md_actions a JOIN md_meetings m ON m.id=a.meeting_id WHERE m.meeting_date BETWEEN ? AND ?`).get(monthFirst, monthLast);
+  const escalations = await H.prepare(`SELECT COUNT(*) AS total_escalated,
+      SUM(CASE WHEN i.escalation_reason IS NULL OR TRIM(i.escalation_reason)='' THEN 1 ELSE 0 END) AS missing_reason,
+      SUM(CASE WHEN i.council_theme IS NULL OR TRIM(i.council_theme)='' THEN 1 ELSE 0 END) AS missing_theme
+      FROM md_issues i JOIN md_meetings m ON m.id=i.meeting_id WHERE m.meeting_date BETWEEN ? AND ? AND i.escalate=1`).get(monthFirst, monthLast);
+  return { month, per_site, actions, escalations };
 }
 
 function deleteMeeting(id) {
