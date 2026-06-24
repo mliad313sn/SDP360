@@ -149,6 +149,71 @@ function getDB() {
   return _idb;
 }
 
+// ── PostgreSQL backend selector + handle (Chunk 3) ──────────────────────────
+// INSPECTION_BACKEND=postgres routes every DB function through an async pg
+// fork; default 'sqlite' is a no-op (existing better-sqlite3 path unchanged).
+// The blobStore (filesystem) + all pure-JS helpers are backend-agnostic and
+// reused verbatim, so the save/load contract is byte-identical across backends.
+const INSPECTION_BACKEND = (process.env.INSPECTION_BACKEND || 'sqlite').toLowerCase();
+let _pg = null;
+
+// Connect the pool once at boot, apply the schema, and seed lookups on first run.
+async function initPgInspection() {
+  const { makePgDb } = require('./services/pgDb');
+  const url = process.env.PG_URL || process.env.DATABASE_URL;
+  if (!url) throw new Error('INSPECTION_BACKEND=postgres but PG_URL/DATABASE_URL is not set');
+  _pg = makePgDb(url);
+  await _pg.connect();
+  await _pg.exec(require('fs').readFileSync(
+    require('path').join(__dirname, 'db', 'postgres', 'inspection', '001_init.sql'), 'utf8'));
+  await _seedLookupsPg(_pg);
+  return _pg;
+}
+function pgHandle() {
+  if (!_pg) throw new Error('inspection pgDb not initialised — await initPgInspection() at boot');
+  return _pg;
+}
+
+// Seed lookups on a fresh pg DB. Idempotent — only fills empty tables, so a
+// boot against an already-populated DB is a no-op (mirrors the sqlite seed-gate).
+async function _seedLookupsPg(H) {
+  const n = (await H.prepare('SELECT COUNT(*) AS n FROM insp_sites').get()).n;
+  if (Number(n) === 0) {
+    await H.runTransaction(async () => {
+      for (const s of (INIT.sites || [])) {
+        await H.prepare(`INSERT INTO insp_sites (code, name_en, name_fr, country, site_type, display_order, active)
+          VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT (code) DO NOTHING`)
+          .run(s.code, s.name_en, s.name_fr || s.name_en, s.country || '', s.site_type || 'mine',
+               s.display_order || 0, s.active === 0 ? 0 : 1);
+      }
+      for (const a of (INIT.areas || [])) {
+        await H.prepare(`INSERT INTO insp_areas (code, name_en, name_fr, area_group, display_order, active)
+          VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (code) DO NOTHING`)
+          .run(a.code, a.name_en, a.name_fr || a.name_en, a.area_group || '', a.display_order || 0,
+               a.active === 0 ? 0 : 1);
+      }
+      for (const t of (INIT.types || [])) {
+        await H.prepare(`INSERT INTO insp_types (code, label_en, label_fr, display_order)
+          VALUES (?, ?, ?, ?) ON CONFLICT (code) DO NOTHING`)
+          .run(t.code, t.label_en, t.label_fr || t.label_en, t.display_order || 0);
+      }
+    });
+  }
+  const catN = (await H.prepare('SELECT COUNT(*) AS n FROM insp_categories').get()).n;
+  if (Number(catN) === 0 && Array.isArray(INIT.categories)) {
+    await H.runTransaction(async () => {
+      let i = 0;
+      for (const c of INIT.categories) {
+        await H.prepare(`INSERT INTO insp_categories (code, name_en, name_fr, icon, display_order, active)
+          VALUES (?, ?, ?, ?, ?, 1) ON CONFLICT (code) DO NOTHING`)
+          .run(c.id || c.code, c.name_en || c.id, c.name_fr || c.name_en || c.id,
+               c.icon || null, c.display_order != null ? c.display_order : i);
+        i++;
+      }
+    });
+  }
+}
+
 // ── Schema creation & seeding ───────────────────────────────────────────────
 function _initSchema(db) {
   db.exec(`
@@ -408,6 +473,7 @@ function _seedLookups(db) {
  * (which would only happen in isolated unit tests).
  */
 function loadLookups() {
+  if (INSPECTION_BACKEND === 'postgres') return _loadLookupsPg();
   const db = getDB();
 
   // ── Canonical site list from reports.db, merged with form metadata ──
@@ -525,6 +591,7 @@ function listPeople(opts = {}) {
 
 /** Paginated header list. Filters all optional. */
 function listInspections(opts = {}) {
+  if (INSPECTION_BACKEND === 'postgres') return _listInspectionsPg(opts);
   const db = getDB();
   const where  = [];
   const params = {};
@@ -579,6 +646,7 @@ function _inflateState(state) {
 }
 
 function getInspection(id) {
+  if (INSPECTION_BACKEND === 'postgres') return _getInspectionPg(id);
   const db = getDB();
   const header = db.prepare('SELECT * FROM insp_inspections WHERE id = ?').get(id);
   if (!header) return null;
@@ -667,6 +735,7 @@ function _externalizeBlobs(state, id) {
  * @returns {{id:string, created:boolean}}
  */
 function saveInspection(state, userSiteCode, createdBy) {
+  if (INSPECTION_BACKEND === 'postgres') return _saveInspectionPg(state, userSiteCode, createdBy);
   if (!state || !state.meta) throw new Error('Missing state.meta');
   const db   = getDB();
   const meta = state.meta;
@@ -839,6 +908,7 @@ function saveInspection(state, userSiteCode, createdBy) {
 }
 
 function deleteInspection(id) {
+  if (INSPECTION_BACKEND === 'postgres') return _deleteInspectionPg(id);
   const db = getDB();
   // Snapshot the DB BEFORE the destructive write. Photos + signatures
   // for an inspection can be 10-30 MB inline; a full DB copy is the
@@ -869,6 +939,7 @@ function _backup(db, reason) {
 // cannot modify a submitted/closed record; only admin+ can.
 function getInspectionStatus(id) {
   if (!id) return null;
+  if (INSPECTION_BACKEND === 'postgres') return _getInspectionStatusPg(id);
   const db  = getDB();
   const row = db.prepare('SELECT status FROM insp_inspections WHERE id = ?').get(id);
   return row ? (row.status || 'draft') : null;
@@ -876,6 +947,7 @@ function getInspectionStatus(id) {
 
 /** Roll-up counts for the list page KPI tiles + simple time-series. */
 function aggregate(opts = {}) {
+  if (INSPECTION_BACKEND === 'postgres') return _aggregatePg(opts);
   const db = getDB();
   const where  = [];
   const params = {};
@@ -941,6 +1013,7 @@ function aggregate(opts = {}) {
  * (Site-scoping for editors is enforced at the route layer.)
  */
 function addActionUpdate(actionId, opts = {}) {
+  if (INSPECTION_BACKEND === 'postgres') return _addActionUpdatePg(actionId, opts);
   const db = getDB();
   const action = db.prepare('SELECT id, status FROM insp_actions WHERE id = ?').get(actionId);
   if (!action) throw new Error('Action not found');
@@ -965,6 +1038,8 @@ function addActionUpdate(actionId, opts = {}) {
 
 /** Audit thread for one action (newest first). */
 function listActionUpdates(actionId) {
+  if (INSPECTION_BACKEND === 'postgres')
+    return pgHandle().prepare('SELECT * FROM insp_action_updates WHERE action_id = ? ORDER BY id DESC').all(actionId);
   return getDB().prepare(
     'SELECT * FROM insp_action_updates WHERE action_id = ? ORDER BY id DESC'
   ).all(actionId);
@@ -972,11 +1047,19 @@ function listActionUpdates(actionId) {
 
 /** Parent inspection's site + status for one action (route-layer site scoping). */
 function getActionParent(actionId) {
+  if (INSPECTION_BACKEND === 'postgres') return _getActionParentPg(actionId);
   return getDB().prepare(`
     SELECT i.site_code AS site_code, i.status AS inspection_status
       FROM insp_actions a JOIN insp_inspections i ON i.id = a.inspection_id
      WHERE a.id = ?
   `).get(actionId) || null;
+}
+async function _getActionParentPg(actionId) {
+  return (await pgHandle().prepare(`
+    SELECT i.site_code AS site_code, i.status AS inspection_status
+      FROM insp_actions a JOIN insp_inspections i ON i.id = a.inspection_id
+     WHERE a.id = ?
+  `).get(actionId)) || null;
 }
 
 /**
@@ -985,6 +1068,7 @@ function getActionParent(actionId) {
  * overdue, q. Joins the parent inspection for label / site / date / status.
  */
 function listActions(opts = {}) {
+  if (INSPECTION_BACKEND === 'postgres') return _listActionsPg(opts);
   const db = getDB();
   const where = [];
   const params = {};
@@ -1026,6 +1110,7 @@ function listActions(opts = {}) {
 }
 
 function resetLookups() {
+  if (INSPECTION_BACKEND === 'postgres') return _resetLookupsPg();
   const db = getDB();
   // Backup BEFORE wiping the lookup tables. resetLookups doesn't
   // touch inspection rows themselves, but losing the site/area/type
@@ -1098,6 +1183,373 @@ function _splitDataUrl(dataUrl) {
   return { mime: 'image/jpeg', b64: String(dataUrl) };
 }
 
+// ══════════════════════════════════════════════════════════════════════════
+// PostgreSQL forks (INSPECTION_BACKEND=postgres). Pure-JS helpers
+// (_inflateState, _externalizeBlobs, _headerParams, _findItemDef,
+// _splitDataUrl, siteNameToCode, parseSiteCode) + blobStore (filesystem) are
+// reused verbatim, so the save/load contract is byte-identical to sqlite.
+// Dialect rewrites: datetime('now')->now() (TIMESTAMPTZ cols); date('now')->
+// to_char(current_date,'YYYY-MM-DD') (lexical vs TEXT due_date); COLLATE NOCASE
+// ->lower()=lower(); LIKE->ILIKE; closed_at CASE stamps to_char (TEXT col);
+// db.transaction()() -> await runTransaction(async …).
+// ══════════════════════════════════════════════════════════════════════════
+
+async function _loadLookupsPg() {
+  const H = pgHandle();
+  let sites;
+  try {
+    const rdb = require('./reports-db.js');
+    const canonical = (await rdb.listSites()) || [];   // await-safe for both sqlite (array) + future pg
+    if (canonical.length) {
+      const metaByCode = {};
+      (INIT.sites || []).forEach(s => { metaByCode[s.code] = s; });
+      sites = canonical.map(cs => {
+        const code = siteNameToCode(cs.name) || cs.name;
+        const meta = metaByCode[code] || {};
+        return {
+          id:            cs.id,
+          code,
+          name_en:       meta.name_en || cs.name,
+          name_fr:       meta.name_fr || cs.name,
+          country:       meta.country || '',
+          site_type:     meta.site_type || (meta.country ? 'mine' : ''),
+          display_order: meta.display_order || cs.sort_order || 99,
+          zoho_group:    cs.zoho_group || null,
+          source:        'reports-db',
+          active:        cs.active === 0 ? 0 : 1,
+        };
+      });
+      const seenCodes = new Set(sites.map(s => s.code));
+      (INIT.sites || []).forEach(s => {
+        if (!seenCodes.has(s.code) && s.site_type === 'other') sites.push({ ...s, source: 'init', active: 1 });
+      });
+      sites.sort((a, b) => (a.display_order || 99) - (b.display_order || 99));
+    }
+  } catch (e) { /* reports-db unavailable — fall through to seed */ }
+
+  if (!sites) {
+    sites = (await H.prepare(`SELECT code, name_en, name_fr, country, site_type, display_order
+        FROM insp_sites WHERE active = 1 ORDER BY display_order, name_en`).all()).map(s => ({ ...s, source: 'init' }));
+  }
+  const areas = await H.prepare(`SELECT code, name_en, name_fr, area_group, display_order
+      FROM insp_areas WHERE active = 1 ORDER BY display_order, name_en`).all();
+  const types = await H.prepare(`SELECT code, label_en, label_fr FROM insp_types ORDER BY display_order`).all();
+  return {
+    sites, areas, types,
+    statuses:    INIT.statuses    || [],
+    categories:  INIT.categories  || [],
+    priorityMap: INIT.priorityMap || {},
+    siteAliases: INIT.siteAliases || {},
+  };
+}
+
+async function _listInspectionsPg(opts = {}) {
+  const H = pgHandle();
+  const where = [], params = {};
+  if (opts.site)   { where.push('site_code = @site');                     params.site   = opts.site; }
+  if (opts.from)   { where.push('inspection_date >= @from');              params.from   = opts.from; }
+  if (opts.to)     { where.push('inspection_date <= @to');                params.to     = opts.to; }
+  if (opts.risk)   { where.push("overall_risk LIKE '%' || @risk || '%'"); params.risk   = opts.risk; }
+  if (opts.status) { where.push('status = @status');                      params.status = opts.status; }
+  params.limit  = opts.limit  || 200;
+  params.offset = opts.offset || 0;
+  return H.prepare(`
+    SELECT id, label, inspection_date, inspection_time, inspection_type,
+           site_code, area_code, area_text, specific_location,
+           inspector_name, overall_risk, operational_impact,
+           status, created_at, updated_at, submitted_at
+      FROM insp_inspections
+      ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
+      ORDER BY inspection_date DESC, updated_at DESC
+      LIMIT @limit OFFSET @offset
+  `).all(params);
+}
+
+async function _getInspectionPg(id) {
+  const H = pgHandle();
+  const header = await H.prepare('SELECT * FROM insp_inspections WHERE id = ?').get(id);
+  if (!header) return null;
+
+  let stateBlob = null;
+  try { stateBlob = header.state_json ? JSON.parse(header.state_json) : null; }
+  catch (e) { console.warn('[inspection-db] state_json parse failed for', id, e.message); }
+  stateBlob = _inflateState(stateBlob);
+
+  const findings = await H.prepare(`
+    SELECT category, item_index, item_code, item_text_en, item_text_fr, status, notes
+      FROM insp_findings WHERE inspection_id = ? ORDER BY category, item_index`).all(id);
+
+  const actions = await H.prepare(`
+    SELECT id, ord, description, linked_item, priority, owner, due_date,
+           status, notes, created_at, updated_at, closed_at
+      FROM insp_actions WHERE inspection_id = ? ORDER BY ord, id`).all(id);
+
+  const photos = (await H.prepare(`
+    SELECT id, finding_key, action_id, caption, mime_type, data_b64, file_ref, size_bytes
+      FROM insp_photos WHERE inspection_id = ? ORDER BY id`).all(id)).map(p => {
+    if (p.file_ref) p.data_b64 = blobStore.getB64(p.file_ref) || p.data_b64 || '';
+    delete p.file_ref;
+    return p;
+  });
+
+  const signatures = (await H.prepare(`
+    SELECT signer_type, signer_name, signer_date, signature_b64, file_ref, signed_at
+      FROM insp_signatures WHERE inspection_id = ?`).all(id)).map(s => {
+    if (s.file_ref) s.signature_b64 = blobStore.getB64(s.file_ref) || s.signature_b64 || '';
+    delete s.file_ref;
+    return s;
+  });
+
+  return { header, findings, actions, photos, signatures, state: stateBlob };
+}
+
+async function _resolveAreaCodePg(H, areaText) {
+  if (!areaText) return null;
+  const row = await H.prepare(`SELECT code FROM insp_areas
+     WHERE lower(name_en) = lower(@t) OR lower(name_fr) = lower(@t) LIMIT 1`).get({ t: areaText });
+  return row ? row.code : null;
+}
+
+async function _saveInspectionPg(state, userSiteCode, createdBy) {
+  if (!state || !state.meta) throw new Error('Missing state.meta');
+  const H    = pgHandle();
+  const meta = state.meta;
+  const id   = meta.f_id || _genId();
+
+  const siteCode = parseSiteCode(meta.f_site);
+  if (userSiteCode && siteCode && siteCode !== userSiteCode) {
+    throw new Error(`Cross-site save blocked: user is scoped to ${userSiteCode}, inspection is for ${siteCode}`);
+  }
+
+  _externalizeBlobs(state, id);                       // FS writes, pre-tx (not transactional)
+
+  const areaText = meta.f_area || '';
+  const areaCode = await _resolveAreaCodePg(H, areaText);
+  const existing = await H.prepare('SELECT id FROM insp_inspections WHERE id = ?').get(id);
+
+  await H.runTransaction(async () => {
+    if (existing) {
+      await H.prepare(`
+        UPDATE insp_inspections SET
+          label = @label, inspection_date = @date, inspection_time = @time, inspection_type = @type,
+          site_code = @siteCode, area_code = @areaCode, area_text = @areaText, specific_location = @loc,
+          inspector_name = @inspector, inspector_role = @role, accompanied_by = @witness,
+          weather = @weather, last_inspection_date = @lastdate, scope = @scope,
+          overall_risk = @risk, operational_impact = @impact,
+          key_observations = @obs, positive_findings = @pos, distribution = @dist,
+          state_json = @stateJson, status = @status, updated_at = now(),
+          submitted_at = CASE WHEN @status = 'submitted' AND submitted_at IS NULL
+                              THEN now() ELSE submitted_at END
+        WHERE id = @id
+      `).run(_headerParams(id, meta, siteCode, areaCode, areaText, state));
+    } else {
+      await H.prepare(`
+        INSERT INTO insp_inspections
+          (id, label, inspection_date, inspection_time, inspection_type,
+           site_code, area_code, area_text, specific_location,
+           inspector_name, inspector_role, accompanied_by,
+           weather, last_inspection_date, scope,
+           overall_risk, operational_impact,
+           key_observations, positive_findings, distribution,
+           state_json, status, created_by, submitted_at)
+        VALUES
+          (@id, @label, @date, @time, @type,
+           @siteCode, @areaCode, @areaText, @loc,
+           @inspector, @role, @witness,
+           @weather, @lastdate, @scope,
+           @risk, @impact,
+           @obs, @pos, @dist,
+           @stateJson, @status, @createdBy,
+           CASE WHEN @status = 'submitted' THEN now() ELSE NULL END)
+      `).run({ ..._headerParams(id, meta, siteCode, areaCode, areaText, state), createdBy: createdBy || null });
+    }
+
+    await H.prepare('DELETE FROM insp_findings WHERE inspection_id = ?').run(id);
+    for (const [key, val] of Object.entries(state.items || {})) {
+      if (!val) continue;
+      const [cat, ixStr] = String(key).split('__');
+      const ix = parseInt(ixStr, 10);
+      if (isNaN(ix)) continue;
+      const itemDef  = _findItemDef(cat, ix);
+      const itemCode = `${cat.toUpperCase()}-${String(ix + 1).padStart(2, '0')}`;
+      await H.prepare(`INSERT INTO insp_findings
+          (inspection_id, category, item_index, item_code, item_text_en, item_text_fr, status, notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+        .run(id, cat, ix, itemCode, itemDef ? itemDef.l : null, itemDef ? itemDef.fr : null,
+             val.status || null, val.notes || null);
+    }
+
+    await H.prepare('DELETE FROM insp_actions WHERE inspection_id = ?').run(id);
+    let aix = 0;
+    for (const a of (state.actions || [])) {
+      await H.prepare(`INSERT INTO insp_actions
+          (inspection_id, ord, description, linked_item, priority, owner, due_date, status, notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+        .run(id, aix, a.desc || a.description || '', a.link || a.linked_item || '',
+             a.priority || 'Medium', a.owner || '', a.due || a.due_date || null,
+             a.status || 'Open', a.notes || '');
+      aix++;
+    }
+
+    await H.prepare('DELETE FROM insp_photos WHERE inspection_id = ?').run(id);
+    for (const [key, val] of Object.entries(state.items || {})) {
+      if (!val || !Array.isArray(val.photos)) continue;
+      for (const raw of val.photos) {
+        if (!raw) continue;
+        const p = (typeof raw === 'string') ? { dataUrl: raw, caption: '' } : raw;
+        if (p.__blob) {
+          await H.prepare(`INSERT INTO insp_photos
+              (inspection_id, finding_key, caption, mime_type, data_b64, file_ref, size_bytes)
+            VALUES (?, ?, ?, ?, ?, ?, ?)`)
+            .run(id, key, p.caption || '', p.mime || 'image/jpeg', null, p.__blob, p.sizeBytes || null);
+        } else if (p.dataUrl) {
+          const { mime, b64 } = _splitDataUrl(p.dataUrl);
+          await H.prepare(`INSERT INTO insp_photos
+              (inspection_id, finding_key, caption, mime_type, data_b64, file_ref, size_bytes)
+            VALUES (?, ?, ?, ?, ?, ?, ?)`)
+            .run(id, key, p.caption || '', mime, b64, null, b64.length);
+        }
+      }
+    }
+
+    await H.prepare('DELETE FROM insp_signatures WHERE inspection_id = ?').run(id);
+    const _runSig = async (type, name, date, v) => {
+      if (v && typeof v === 'object' && v.__blob) {
+        await H.prepare(`INSERT INTO insp_signatures
+            (inspection_id, signer_type, signer_name, signer_date, signature_b64, file_ref)
+          VALUES (?, ?, ?, ?, ?, ?)`).run(id, type, name, date, null, v.__blob);
+      } else {
+        const { b64 } = _splitDataUrl(v);
+        await H.prepare(`INSERT INTO insp_signatures
+            (inspection_id, signer_type, signer_name, signer_date, signature_b64, file_ref)
+          VALUES (?, ?, ?, ?, ?, ?)`).run(id, type, name, date, b64, null);
+      }
+    };
+    const sigInsp = state.signatures && state.signatures.sig_inspector;
+    if (sigInsp) await _runSig('inspector', meta.sign_insp_name || meta.f_inspector || '', meta.sign_insp_date || null, sigInsp);
+    const sigSite = state.signatures && state.signatures.sig_site;
+    if (sigSite) await _runSig('site', meta.sign_site_name || '', meta.sign_site_date || null, sigSite);
+  });
+
+  return { id, created: !existing };
+}
+
+async function _deleteInspectionPg(id) {
+  // No sqlite-style _backup (better-sqlite3 file copy) in pg mode — Postgres
+  // backups are handled at the cluster level. Blobs are still cleaned up.
+  const info = await pgHandle().prepare('DELETE FROM insp_inspections WHERE id = ?').run(id);
+  if (info.changes > 0) { try { blobStore.removeOwner(BLOB_MODULE, id); } catch (_) {} }
+  return info.changes > 0;
+}
+
+async function _getInspectionStatusPg(id) {
+  const row = await pgHandle().prepare('SELECT status FROM insp_inspections WHERE id = ?').get(id);
+  return row ? (row.status || 'draft') : null;
+}
+
+async function _aggregatePg(opts = {}) {
+  const H = pgHandle();
+  const where = [], params = {};
+  if (opts.site) { where.push('i.site_code = @site'); params.site = opts.site; }
+  if (opts.from) { where.push('i.inspection_date >= @from'); params.from = opts.from; }
+  if (opts.to)   { where.push('i.inspection_date <= @to');   params.to   = opts.to; }
+  const w = where.length ? 'WHERE ' + where.join(' AND ') : '';
+
+  const counts = await H.prepare(`
+    SELECT COUNT(*) AS total,
+           SUM(CASE WHEN overall_risk LIKE '%Critical%' THEN 1 ELSE 0 END) AS critical_count,
+           SUM(CASE WHEN status = 'draft'     THEN 1 ELSE 0 END) AS draft_count,
+           SUM(CASE WHEN status = 'submitted' THEN 1 ELSE 0 END) AS submitted_count,
+           SUM(CASE WHEN status = 'closed'    THEN 1 ELSE 0 END) AS closed_count,
+           COUNT(DISTINCT site_code) AS sites_covered
+      FROM insp_inspections i ${w}`).get(params);
+
+  const findingStatus = await H.prepare(`
+    SELECT f.status, COUNT(*) AS n
+      FROM insp_findings f JOIN insp_inspections i ON i.id = f.inspection_id
+      ${w} GROUP BY f.status`).all(params);
+
+  const actionsOpen = await H.prepare(`
+    SELECT COUNT(*) AS n
+      FROM insp_actions a JOIN insp_inspections i ON i.id = a.inspection_id
+      ${w} ${w ? 'AND' : 'WHERE'} a.status != 'Closed' AND a.status != 'Cancelled'`).get(params);
+
+  const overdue = await H.prepare(`
+    SELECT COUNT(*) AS n
+      FROM insp_actions a JOIN insp_inspections i ON i.id = a.inspection_id
+      ${w} ${w ? 'AND' : 'WHERE'} a.due_date IS NOT NULL
+            AND a.due_date < to_char(current_date,'YYYY-MM-DD')
+            AND a.status != 'Closed' AND a.status != 'Cancelled'`).get(params);
+
+  const monthly = await H.prepare(`
+    SELECT substr(inspection_date, 1, 7) AS ym, COUNT(*) AS n
+      FROM insp_inspections i ${w} GROUP BY ym ORDER BY ym`).all(params);
+
+  return {
+    counts, findingStatus,
+    open_actions:    actionsOpen ? actionsOpen.n : 0,
+    overdue_actions: overdue     ? overdue.n     : 0,
+    monthly,
+  };
+}
+
+async function _addActionUpdatePg(actionId, opts = {}) {
+  const H = pgHandle();
+  const action = await H.prepare('SELECT id, status FROM insp_actions WHERE id = ?').get(actionId);
+  if (!action) throw new Error('Action not found');
+  await H.runTransaction(async () => {
+    await H.prepare(`INSERT INTO insp_action_updates (action_id, author_id, author_name, body, status_change)
+      VALUES (?, ?, ?, ?, ?)`)
+      .run(actionId, opts.author_id || null, opts.author_name || null, opts.body || null, opts.status_change || null);
+    if (opts.status_change && opts.status_change !== action.status) {
+      const terminal = (opts.status_change === 'Closed' || opts.status_change === 'Cancelled');
+      // closed_at is TEXT → stamp via to_char (now() is timestamptz; CASE branches must match the TEXT col).
+      await H.prepare(`UPDATE insp_actions
+          SET status = ?, closed_at = CASE WHEN ? = 1 THEN to_char(now(),'YYYY-MM-DD HH24:MI:SS') ELSE closed_at END,
+              updated_at = now()
+        WHERE id = ?`).run(opts.status_change, terminal ? 1 : 0, actionId);
+    }
+  });
+}
+
+async function _listActionsPg(opts = {}) {
+  const H = pgHandle();
+  const where = [], params = {};
+  if (opts.site)     { where.push('lower(i.site_code) = lower(@site)'); params.site = opts.site; }
+  if (opts.status)   { where.push('a.status = @status');                params.status = opts.status; }
+  if (opts.priority) { where.push('a.priority = @priority');            params.priority = opts.priority; }
+  if (opts.owner)    { where.push('a.owner ILIKE @owner');              params.owner = '%' + opts.owner + '%'; }
+  if (opts.overdue) {
+    where.push("a.due_date IS NOT NULL AND a.due_date < to_char(current_date,'YYYY-MM-DD') AND a.status != 'Closed' AND a.status != 'Cancelled'");
+  }
+  if (opts.from)     { where.push('i.inspection_date >= @from'); params.from = opts.from; }
+  if (opts.to)       { where.push('i.inspection_date <= @to');   params.to = opts.to; }
+  if (opts.q) {
+    where.push('(a.description ILIKE @q OR a.owner ILIKE @q OR a.linked_item ILIKE @q)');
+    params.q = '%' + opts.q + '%';
+  }
+  const w = where.length ? 'WHERE ' + where.join(' AND ') : '';
+  params.limit = opts.limit || 1000;
+  params.offset = opts.offset || 0;
+  return H.prepare(`
+    SELECT a.*,
+      i.label AS inspection_label, i.site_code AS site_code, i.area_code AS area_code,
+      i.inspection_date AS inspection_date, i.status AS inspection_status
+    FROM insp_actions a JOIN insp_inspections i ON i.id = a.inspection_id
+    ${w}
+    ORDER BY
+      CASE WHEN a.status IN ('Closed','Cancelled') THEN 1 ELSE 0 END,
+      CASE WHEN a.due_date IS NULL THEN 1 ELSE 0 END,
+      a.due_date ASC, i.inspection_date DESC
+    LIMIT @limit OFFSET @offset`).all(params);
+}
+
+async function _resetLookupsPg() {
+  const H = pgHandle();
+  await H.exec('DELETE FROM insp_sites; DELETE FROM insp_areas; DELETE FROM insp_types;');
+  await _seedLookupsPg(H);
+}
+
 module.exports = {
   getDB,
   loadLookups,
@@ -1111,5 +1563,6 @@ module.exports = {
   listActions, addActionUpdate, listActionUpdates, getActionParent,
   resetLookups,
   siteNameToCode,
-  parseSiteCode
+  parseSiteCode,
+  INSPECTION_BACKEND, initPgInspection, pgHandle
 };
