@@ -5705,6 +5705,19 @@ app.use(require('./routes/inspection')({
   getRawCache: () => _rawCache,
 }));
 
+// ── 4MyPeople integration (slice 1) — read-only /api/v1 consumption ──────────
+// Behind the dashboard's OWN auth (executive/admin). No shared session/SSO yet.
+// Disabled until FMP_API_KEY is set in .env (the client degrades to [] without it,
+// but we only mount when configured to avoid empty panels).
+if (process.env.FMP_API_KEY) {
+  const { makeFmpClient } = require('./services/fmpClient');
+  app.use(require('./routes/fourmypeople')({
+    express, requireReportSession, requireRole,
+    fmpClient: makeFmpClient(),   // reads FMP_API_URL + FMP_API_KEY from env
+  }));
+  console.log('[FMP] 4MyPeople integration routes mounted (/api/integration/fmp/*)');
+}
+
 // ══════════════════════════════════════════════════════════════════
 // MEETINGS — Department Meetings & Council Escalations (v2 schema)
 // Mirrors the canonical Endeavour Mining operating system 1:1:
