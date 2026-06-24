@@ -59,9 +59,13 @@ Read each definition (sites ~30, users ~38, sessions ~51, user_roles ~374) + any
 'use strict';
 // Sub-chunk A — reports.db auth/sessions → PostgreSQL. TDD. Skips when PG down.
 process.env.REPORTS_BACKEND = 'postgres';
+const fs = require('fs'); const path = require('path'); const os = require('os');
+// Isolate the module-load sqlite handle: reports-db.js opens data/reports.db at
+// require time even in pg mode — point it at a throwaway dir so a running prod
+// instance's WAL lock can't break (or pollute) the suite.
+process.env.SDP_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'rpt-auth-'));
 const { test } = require('node:test');
 const assert = require('node:assert');
-const fs = require('fs'); const path = require('path');
 const { provisionTestDb, dropTestDb } = require('./pg-helpers');
 const { makePgDb } = require('../services/pgDb');
 const SCHEMA = fs.readFileSync(path.join(__dirname, '../db/postgres/reports/001_auth.sql'), 'utf8');
@@ -119,8 +123,11 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS user_roles (
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   role TEXT NOT NULL,
+  granted_at TIMESTAMPTZ DEFAULT now(),        -- live schema has this (reports-db.js:377)
   PRIMARY KEY (user_id, role)
 );
+CREATE INDEX IF NOT EXISTS idx_ur_user ON user_roles(user_id);
+CREATE INDEX IF NOT EXISTS idx_ur_role ON user_roles(role);
 CREATE TABLE IF NOT EXISTS sessions (
   token TEXT PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -131,7 +138,7 @@ CREATE TABLE IF NOT EXISTS sessions (
 CREATE INDEX IF NOT EXISTS ix_sessions_user    ON sessions(user_id);
 CREATE INDEX IF NOT EXISTS ix_sessions_expires ON sessions(expires_at);
 ```
-> If Step 2's read of `user_roles` (reports-db.js ~374) shows extra columns (e.g. `created_at`), add them here. Keep the composite PK + FK CASCADE.
+> **`active` columns stay `INTEGER` (NOT `BOOLEAN`)** — every `WHERE active=1` predicate depends on it (§5.2 rule). Verify the `user_roles` columns against reports-db.js ~374-382 at implementation time; the DDL above already mirrors `granted_at` + the two indexes the live schema carries.
 
 - [ ] **Step 4: Run → passes.**
 - [ ] **Step 5: Commit** — `git add db/postgres/reports/001_auth.sql tests/pg-reports-auth.test.js && git commit -m "feat(pg-reports): 001_auth schema (TDD idempotence + FKs)"`
@@ -216,6 +223,7 @@ Add `REPORTS_BACKEND, initPgReports, pgHandle` to `module.exports` (keep `db` an
   - `validateSession(token)` → `safeUser` shape incl. **`roles` array preloaded**; expired session → null.
   - **60s throttle**: call `validateSession` twice quickly → `last_seen` unchanged; backdate `last_seen` 2 min (`UPDATE sessions SET last_seen = now() - interval '2 minutes'`) → next `validateSession` bumps it.
   - `logout(token)` → subsequent `validateSession` null.
+  - **`userHasRole` sync invariant (spec test #5)** — a SEPARATE `test()` that needs **no boot/PG** (do not skip on PG-down): `const rdb = require('../reports-db'); assert.equal(rdb.userHasRole({roles:['admin']}, 'editor'), true)` (hierarchy grants down), `userHasRole({roles:['tracker-admin']}, 'tracker-admin') === true` (feature role), `userHasRole({roles:['viewer']}, 'admin') === false`. **No `await`** — proves the preloaded-array path stays synchronous (the invariant the role middlewares rely on). Place it before the `boot()`-using tests.
 
 - [ ] **Step 2: Run → fails** (sqlite forks hit the real `reports.db`, wrong/absent data → assertions fail).
 
@@ -352,19 +360,19 @@ async function _forceLogoutByTokenPg(token) {
 
 **Files:** Modify `server.js` (2 middlewares + ~9 route handlers + boot wiring); Modify `inspection-db.js` (`listPeople` 490); Modify `routes/inspection.js` (`/api/inspection/people` ~70).
 
-- [ ] **Step 1: Write the failing route-level test** (test #10) — with `REPORTS_BACKEND=postgres` + a booted pg (seed a site, an admin user, a session), **invoke the real handlers** (require `server.js`'s exported app via supertest, OR call the handler functions directly with mock `req`/`res`). Assert real JSON (not a serialized Promise) for: the login route, `GET /api/reports/users`, `GET /api/reports/sessions/active`, and **`GET /api/inspection/people`** (the `listUsers→listPeople` path). *(If wiring supertest against the full `server.js` boot is heavy, the acceptance bar is: a focused harness that calls each handler with the booted `rdb`/`inspectionDb` in pg mode and asserts the response shape.)*
+- [ ] **Step 1: Write the failing route-level test** (test #10) — with `REPORTS_BACKEND=postgres` + a booted pg (seed a site, an admin user, a session). **Default approach: direct-handler harness** — do NOT `require('../server.js')` (that triggers a full boot: Zoho scheduling, `_rawCache`, `app.listen`). Instead, replicate each handler's body inline (or extract it) and drive it with the booted `rdb`/`inspectionDb` and a mock `req`/`res` (`res.json = (b)=>{captured=b}`, `res.status = (c)=>{code=c; return res}`). Assert **real JSON arrays/objects, not a serialized Promise** (`assert.ok(Array.isArray(body))` / `assert.ok(!(body instanceof Promise))`), for: the login route (good creds → token; **duplicate-username createUser → 409, not 500** — guards the §Task7 matcher fix), `GET /api/reports/users` (array), `GET /api/reports/sessions/active` (array), and **`GET /api/inspection/people`** (array — the `listUsers→listPeople` cross-module path). Only fall back to supertest if a handler genuinely can't be invoked without the full app.
 
 - [ ] **Step 2: Run → fails** (handlers sync-consume Promises in pg mode).
 
 - [ ] **Step 3: Convert the consumers.** Make each `async` and `await` the forked call. Exact sites (verify line numbers):
   - **`server.js` global `/api/` gate (957-968):** `app.use('/api/', async (req,res,next) => { … const user = await rdb.validateSession(token); … })`.
   - **`requireReportSession` (3921):** `async (req,res,next) => { … const user = await rdb.validateSession(token); … }`.
-  - **`/api/health/views` (~599):** handler `async`; `const user = await validateSession(token)`.
-  - **login route (~3975):** `async`; `const result = await rdb.login(...)`.
-  - **logout route (~3997):** `async`; `await rdb.logout(token)`.
-  - **change-password (~4008):** `async`; `const result = await rdb.changePassword(...)`.
-  - **`GET /api/reports/users` (~4100):** `async`; `res.json(await rdb.listUsers())`.
-  - **create/update/delete user (~4109/4122/4131):** `async`; `await rdb.createUser(...)` etc. (the UNIQUE-collision handling must be a `try/await/catch`).
+  - **`/api/health/views` (~599):** handler is **already `async`** — only add `await`: `const user = await validateSession(token)`.
+  - **login route (~3975):** add `async`; `const result = await rdb.login(...)`.
+  - **logout route (~3997):** add `async`; `await rdb.logout(token)`.
+  - **change-password (~4008):** add `async`; `const result = await rdb.changePassword(...)`.
+  - **`GET /api/reports/users` (~4100):** add `async`; `res.json(await rdb.listUsers())`.
+  - **create/update/delete user (~4109/4122/4131):** add `async`; `await rdb.createUser(...)` etc. **Adapt the UNIQUE-collision matcher** at server.js:4112 — better-sqlite3 throws `UNIQUE constraint failed…` but node-postgres throws `duplicate key value violates unique constraint` with `e.code==='23505'`. Change `if (e.message.includes('UNIQUE'))` → `if (e.code === '23505' || /UNIQUE|duplicate key/i.test(e.message))` so the 409 still fires in pg mode (wrap as `try { await rdb.createUser(...) } catch (e) { …409… }`).
   - **`GET /api/reports/sessions/active` (~4147):** `async`; `const sessions = await rdb.listActiveSessions(idle)`.
   - **force-logout (~4191):** `async`; `const r = await rdb.forceLogoutByToken(token)`.
   - **`inspection-db.js:listPeople` (490):** `async function listPeople(opts={}){ … const users = (await rdb.listUsers() || []).filter(...) … }`.
