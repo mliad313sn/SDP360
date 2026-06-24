@@ -1687,6 +1687,7 @@ function compliance(opts = {}) {
 }
 
 function deleteMeeting(id) {
+  if (MEETINGS_BACKEND === 'postgres') return _deleteMeetingPg(id);
   const db = getDB();
   // Snapshot DB BEFORE the destructive write. Meetings have nested
   // issues, actions, attachments, and audit-trail updates that all
@@ -1714,6 +1715,7 @@ function getMeetingStatus(id) {
 }
 
 function resetLookups() {
+  if (MEETINGS_BACKEND === 'postgres') return _resetLookupsPg();
   const db = getDB();
   // Backup BEFORE wiping the lookup tables. Same rationale as the
   // inspection module's resetLookups — doesn't touch meeting rows
@@ -1770,6 +1772,7 @@ function _lookupColumns(db, table) {
  * surprise.)
  */
 function addLookupRow(table, row) {
+  if (MEETINGS_BACKEND === 'postgres') return _addLookupRowPg(table, row);
   _assertLookupTable(table);
   if (!row || typeof row !== 'object') throw new Error('Row body is required');
   if (!row.code || typeof row.code !== 'string') throw new Error('code is required');
@@ -1796,6 +1799,7 @@ function addLookupRow(table, row) {
  * admin UI is deterministic.
  */
 function listLookupTable(table, opts = {}) {
+  if (MEETINGS_BACKEND === 'postgres') return _listLookupTablePg(table, opts);
   _assertLookupTable(table);
   const where = opts.includeInactive ? '' : 'WHERE active = 1';
   return getDB().prepare(`SELECT * FROM ${table} ${where} ORDER BY display_order, code`).all();
@@ -1812,6 +1816,7 @@ function listLookupTable(table, opts = {}) {
  * doesn't have to know each table's schema.
  */
 function updateLookupRow(table, code, patch) {
+  if (MEETINGS_BACKEND === 'postgres') return _updateLookupRowPg(table, code, patch);
   _assertLookupTable(table);
   if (!code || typeof code !== 'string') throw new Error('code is required');
 
@@ -1837,6 +1842,63 @@ function updateLookupRow(table, code, patch) {
   if (sets.length === 0) throw new Error('Nothing to update — supply at least one editable field');
 
   const r = db.prepare(`UPDATE ${table} SET ${sets.join(', ')} WHERE code = @code`).run(params);
+  if (r.changes === 0) throw new Error(`No row with code "${code}" in ${table.replace(/^md_/, '')}`);
+  return { ok: true, changes: r.changes };
+}
+
+// ── Async postgres forks: delete / reset / lookup CRUD (Chunk 2) ────────────
+// _backup is SQLite VACUUM-INTO only — skipped in pg mode (FK CASCADE handles
+// children on delete; rely on PG-level backups). PRAGMA table_info → information_schema.
+async function _deleteMeetingPg(id) {
+  const r = await pgHandle().prepare('DELETE FROM md_meetings WHERE id = ?').run(id);
+  return r.changes > 0;
+}
+async function _resetLookupsPg() {
+  const h = pgHandle();
+  await h.exec(`DELETE FROM md_intake_sources; DELETE FROM md_departments; DELETE FROM md_categories;
+    DELETE FROM md_severities; DELETE FROM md_statuses; DELETE FROM md_meeting_statuses;
+    DELETE FROM md_escalation_reasons; DELETE FROM md_council_themes; DELETE FROM md_project_phases;
+    DELETE FROM md_it_involvement; DELETE FROM md_engagements;`);
+  await _seedLookupsPg();
+}
+async function _lookupColumnsPg(table) {
+  return (await pgHandle().prepare('SELECT column_name FROM information_schema.columns WHERE table_name = ?').all(table)).map(r => r.column_name);
+}
+async function _addLookupRowPg(table, row) {
+  _assertLookupTable(table);
+  if (!row || typeof row !== 'object') throw new Error('Row body is required');
+  if (!row.code || typeof row.code !== 'string') throw new Error('code is required');
+  if (!row.name_en) throw new Error('name_en is required');
+  const h = pgHandle();
+  const exists = await h.prepare(`SELECT 1 FROM ${table} WHERE code = ?`).get(row.code);
+  if (exists) throw new Error(`Code "${row.code}" already exists in ${table.replace(/^md_/, '')} — use update instead.`);
+  const cols = await _lookupColumnsPg(table);
+  const filtered = {};
+  for (const k of Object.keys(row)) if (cols.includes(k)) filtered[k] = row[k];
+  await _seedTablePg(table, [filtered]);
+  return { ok: true };
+}
+async function _listLookupTablePg(table, opts = {}) {
+  _assertLookupTable(table);
+  const where = opts.includeInactive ? '' : 'WHERE active = 1';
+  return pgHandle().prepare(`SELECT * FROM ${table} ${where} ORDER BY display_order, code`).all();
+}
+async function _updateLookupRowPg(table, code, patch) {
+  _assertLookupTable(table);
+  if (!code || typeof code !== 'string') throw new Error('code is required');
+  const cols = await _lookupColumnsPg(table);
+  const editable = ['name_en', 'name_fr', 'color', 'icon', 'description_en', 'description_fr', 'display_order', 'active'];
+  const sets = []; const params = { code };
+  for (const k of editable) {
+    if (!cols.includes(k)) continue;
+    if (!Object.prototype.hasOwnProperty.call(patch || {}, k)) continue;
+    sets.push(`${k} = @${k}`);
+    if (k === 'active') params[k] = (patch[k] === 1 || patch[k] === true || patch[k] === '1') ? 1 : 0;
+    else if (k === 'display_order') params[k] = parseInt(patch[k], 10) || 0;
+    else params[k] = patch[k];
+  }
+  if (sets.length === 0) throw new Error('Nothing to update — supply at least one editable field');
+  const r = await pgHandle().prepare(`UPDATE ${table} SET ${sets.join(', ')} WHERE code = @code`).run(params);
   if (r.changes === 0) throw new Error(`No row with code "${code}" in ${table.replace(/^md_/, '')}`);
   return { ok: true, changes: r.changes };
 }

@@ -125,3 +125,24 @@ test('pg issues/actions: updates + parents + list + escalations', async (t) => {
     assert.equal(af2.actions[0].status, 'resolved'); assert.ok(af2.actions[0].closed_at, 'closed_at stamped');
   } finally { try { await mdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
 });
+
+// ── lookup CRUD + deleteMeeting + resetLookups ──────────────────────────────
+test('pg lookups CRUD + deleteMeeting cascade + resetLookups', async (t) => {
+  const b = await boot(); if (!b) return t.skip('no pg');
+  const { ctx, mdb } = b;
+  try {
+    await mdb.addLookupRow('md_categories', { code: 'ZZ', name_en: 'Zeta', name_fr: 'Zêta', display_order: 99 });
+    assert.ok((await mdb.listLookupTable('md_categories', { includeInactive: true })).find(r => r.code === 'ZZ'), 'added row appears');
+    await assert.rejects(mdb.addLookupRow('md_categories', { code: 'ZZ', name_en: 'Dup' }), /already exists/);
+    await mdb.updateLookupRow('md_categories', 'ZZ', { name_en: 'Zeta2', active: 0 });
+    const zz = (await mdb.listLookupTable('md_categories', { includeInactive: true })).find(r => r.code === 'ZZ');
+    assert.equal(zz.name_en, 'Zeta2'); assert.equal(zz.active, 0);
+    assert.ok(!(await mdb.listLookupTable('md_categories')).find(r => r.code === 'ZZ'), 'inactive hidden by default');
+    const r = await mdb.saveMeeting({ header: { site_code: 'HGO', department: 'IT', meeting_date: '2026-05-10', status: 'draft' }, issues: [{ title: 'x', category: 'CN' }] }, null, 1);
+    assert.equal(await mdb.deleteMeeting(r.id), true);
+    assert.equal(await mdb.getMeeting(r.id), null);
+    await mdb.resetLookups();
+    assert.ok((await mdb.listLookupTable('md_categories', { includeInactive: true })).length > 0, 'reseeded');
+    assert.ok(!(await mdb.listLookupTable('md_categories', { includeInactive: true })).find(r => r.code === 'ZZ'), 'custom ZZ gone after reset');
+  } finally { try { await mdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
+});
