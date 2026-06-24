@@ -690,6 +690,7 @@ async function _getUserRolesPg(userId) {
  * against malformed UI input).
  */
 function setUserRoles(userId, roles) {
+  if (REPORTS_BACKEND === 'postgres') return _setUserRolesPg(userId, roles);
   if (!userId) return;
   const allowed = new Set([...ROLE_HIERARCHY, ...FEATURE_ROLES_KNOWN]);
   const clean = (Array.isArray(roles) ? roles : []).filter(r => allowed.has(r));
@@ -905,6 +906,7 @@ function safeUser(u) {
 
 // ── USER MANAGEMENT ───────────────────────────────────────────────
 function listUsers() {
+  if (REPORTS_BACKEND === 'postgres') return _listUsersPg();
   const users = db.prepare(`
     SELECT u.id, u.username, u.full_name, u.site_id, s.name as site_name, s.zoho_group, u.role, u.active, u.created_at
     FROM users u LEFT JOIN sites s ON u.site_id=s.id ORDER BY u.id
@@ -920,6 +922,7 @@ function listUsers() {
 }
 
 function createUser({ username, full_name, password, site_id, role, roles }) {
+  if (REPORTS_BACKEND === 'postgres') return _createUserPg({ username, full_name, password, site_id, role, roles });
   const salt = crypto.randomBytes(16).toString('hex');
   const hash = hashPassword(password, salt);
   // Resolve final roles set: prefer the new `roles` array; fall back to the
@@ -939,6 +942,7 @@ function createUser({ username, full_name, password, site_id, role, roles }) {
 
 // Change own password — verifies current password before updating
 function changePassword(userId, currentPassword, newPassword) {
+  if (REPORTS_BACKEND === 'postgres') return _changePasswordPg(userId, currentPassword, newPassword);
   const user = db.prepare('SELECT * FROM users WHERE id=? AND active=1').get(userId);
   if (!user) return { ok: false, error: 'User not found' };
   const currentHash = hashPassword(currentPassword, user.salt);
@@ -951,6 +955,7 @@ function changePassword(userId, currentPassword, newPassword) {
 }
 
 function updateUser(id, { full_name, password, site_id, role, roles, active }) {
+  if (REPORTS_BACKEND === 'postgres') return _updateUserPg(id, { full_name, password, site_id, role, roles, active });
   // Resolve roles to update: prefer the new `roles` array; fall back to
   // single `role` for legacy callers. If neither is provided, leave the
   // current user_roles set alone.
@@ -990,7 +995,77 @@ function updateUser(id, { full_name, password, site_id, role, roles, active }) {
 }
 
 function deleteUser(id) {
+  if (REPORTS_BACKEND === 'postgres') return _deleteUserPg(id);
   db.prepare(`DELETE FROM users WHERE id=?`).run(id);
+}
+
+// ── Async postgres forks of user management (Sub-chunk A) ────────────────────
+async function _setUserRolesPg(userId, roles) {
+  if (!userId) return;
+  const allowed = new Set([...ROLE_HIERARCHY, ...FEATURE_ROLES_KNOWN]);
+  const clean = (Array.isArray(roles) ? roles : []).filter(r => allowed.has(r));
+  if (clean.length === 0) clean.push('viewer');
+  const h = pgHandle();
+  await h.runTransaction(async () => {
+    await h.prepare(`DELETE FROM user_roles WHERE user_id=?`).run(userId);
+    const ins = h.prepare(`INSERT INTO user_roles (user_id, role) VALUES (?, ?) ON CONFLICT (user_id, role) DO NOTHING`);
+    for (const r of clean) await ins.run(userId, r);
+    const highest = ROLE_HIERARCHY.find(x => clean.includes(x)) || 'viewer';
+    await h.prepare(`UPDATE users SET role=? WHERE id=?`).run(highest, userId);
+  });
+}
+async function _listUsersPg() {
+  const h = pgHandle();
+  const users = await h.prepare(`
+    SELECT u.id, u.username, u.full_name, u.site_id, s.name as site_name, s.zoho_group, u.role, u.active, u.created_at
+    FROM users u LEFT JOIN sites s ON u.site_id=s.id ORDER BY u.id`).all();
+  const allRoles = await h.prepare(`
+    SELECT user_id, string_agg(role, ',' ORDER BY role) AS roles_csv FROM user_roles GROUP BY user_id`).all();
+  const rolesByUser = {};
+  for (const r of allRoles) rolesByUser[r.user_id] = r.roles_csv ? r.roles_csv.split(',') : [];
+  return users.map(u => ({ ...u, roles: rolesByUser[u.id] || [] }));
+}
+async function _createUserPg({ username, full_name, password, site_id, role, roles }) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = hashPassword(password, salt);
+  const finalRoles = Array.isArray(roles) && roles.length > 0 ? roles : [role || 'editor'];
+  const ROLE_HIERARCHY_LOCAL = ['super_admin', 'executive', 'admin', 'editor', 'viewer'];
+  const highest = ROLE_HIERARCHY_LOCAL.find(h => finalRoles.includes(h)) || 'viewer';
+  const result = await pgHandle().prepare(`INSERT INTO users (username, full_name, password_hash, salt, site_id, role) VALUES (?,?,?,?,?,?)`)
+    .run(username, full_name, hash, salt, site_id || null, highest);
+  if (result.lastID) await _setUserRolesPg(result.lastID, finalRoles);
+  return result;
+}
+async function _changePasswordPg(userId, currentPassword, newPassword) {
+  const h = pgHandle();
+  const user = await h.prepare('SELECT * FROM users WHERE id=? AND active=1').get(userId);
+  if (!user) return { ok: false, error: 'User not found' };
+  if (hashPassword(currentPassword, user.salt) !== user.password_hash) return { ok: false, error: 'Current password is incorrect' };
+  if (newPassword.length < 8) return { ok: false, error: 'New password must be at least 8 characters' };
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = hashPassword(newPassword, salt);
+  await h.prepare('UPDATE users SET password_hash=?, salt=? WHERE id=?').run(hash, salt, userId);
+  return { ok: true };
+}
+async function _updateUserPg(id, { full_name, password, site_id, role, roles, active }) {
+  const h = pgHandle();
+  const willUpdateRoles = Array.isArray(roles) || typeof role === 'string';
+  const finalRoles = Array.isArray(roles) && roles.length > 0 ? roles : (typeof role === 'string' ? [role] : null);
+  const ROLE_HIERARCHY_LOCAL = ['super_admin', 'executive', 'admin', 'editor', 'viewer'];
+  const highest = finalRoles ? (ROLE_HIERARCHY_LOCAL.find(x => finalRoles.includes(x)) || 'viewer') : null;
+  if (password) {
+    const salt = crypto.randomBytes(16).toString('hex');
+    const hash = hashPassword(password, salt);
+    if (willUpdateRoles && highest) await h.prepare(`UPDATE users SET full_name=?, password_hash=?, salt=?, site_id=?, role=?, active=? WHERE id=?`).run(full_name, hash, salt, site_id ?? null, highest, active ?? 1, id);
+    else await h.prepare(`UPDATE users SET full_name=?, password_hash=?, salt=?, site_id=?, active=? WHERE id=?`).run(full_name, hash, salt, site_id ?? null, active ?? 1, id);
+  } else {
+    if (willUpdateRoles && highest) await h.prepare(`UPDATE users SET full_name=?, site_id=?, role=?, active=? WHERE id=?`).run(full_name, site_id ?? null, highest, active ?? 1, id);
+    else await h.prepare(`UPDATE users SET full_name=?, site_id=?, active=? WHERE id=?`).run(full_name, site_id ?? null, active ?? 1, id);
+  }
+  if (willUpdateRoles && finalRoles) await _setUserRolesPg(id, finalRoles);
+}
+async function _deleteUserPg(id) {
+  return pgHandle().prepare(`DELETE FROM users WHERE id=?`).run(id);
 }
 
 // ── SITES ─────────────────────────────────────────────────────────

@@ -134,3 +134,26 @@ test('pg sessions: listActiveSessions window (number seconds_idle) + forceLogout
     assert.equal(await rdb.validateSession(tFresh), null, 'force-logged-out session is gone');
   } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
 });
+
+// ── Task 6: user CRUD + cascades ────────────────────────────────────────────
+test('pg users: createUser/listUsers/updateUser/changePassword/deleteUser + cascades', async (t) => {
+  const b = await boot(); if (!b) return t.skip('no pg');
+  const { ctx, rdb } = b; const h = rdb.pgHandle();
+  try {
+    const site = await h.prepare(`INSERT INTO sites (name, zoho_group, active) VALUES (?,?,1)`).run('Mana', 'Mana IT Agents');
+    const r = await rdb.createUser({ username: 'frank', full_name: 'Frank', password: 'pw12345678', site_id: site.lastID, roles: ['admin', 'tracker-admin'] });
+    const uid = r.lastID;
+    let frank = (await rdb.listUsers()).find(u => u.username === 'frank');
+    assert.ok(frank && frank.site_name === 'Mana', 'listUsers shows site_name (LEFT JOIN sites)');
+    assert.deepEqual(frank.roles.sort(), ['admin', 'tracker-admin']);
+    await rdb.updateUser(uid, { full_name: 'Frank Updated', site_id: site.lastID, roles: ['editor'] });
+    frank = (await rdb.listUsers()).find(u => u.id === uid);
+    assert.equal(frank.full_name, 'Frank Updated'); assert.deepEqual(frank.roles, ['editor']);
+    assert.equal((await rdb.changePassword(uid, 'pw12345678', 'newpw12345')).ok, true);
+    const login = await rdb.login('frank', 'newpw12345');
+    assert.ok(login && login.token, 'login with the new password works');
+    await rdb.deleteUser(uid);
+    assert.equal((await h.prepare(`SELECT count(*)::int n FROM user_roles WHERE user_id=?`).get(uid)).n, 0, 'user_roles cascaded');
+    assert.equal((await h.prepare(`SELECT count(*)::int n FROM sessions WHERE user_id=?`).get(uid)).n, 0, 'sessions cascaded');
+  } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
+});
