@@ -759,7 +759,44 @@ async function initPgReports() {            // called once at server boot
   await _pg.exec(require('fs').readFileSync(
     require('path').join(__dirname, 'db', 'postgres', 'reports', '002_config.sql'), 'utf8'));
   await _seedConfigPg(_pg);
+  // Chunk 4C — report-editor tables (weeks / weekly_reports / kpis / lights / actions / monthly / objectives / catalogs).
+  await _pg.exec(require('fs').readFileSync(
+    require('path').join(__dirname, 'db', 'postgres', 'reports', '003_reports.sql'), 'utf8'));
+  await _seedReportsCatalogsPg(_pg);
   return _pg;
+}
+
+// Catalog backfills (data-dependent; no-op on a fresh pg DB, like the sqlite boot path).
+async function _seedReportsCatalogsPg(H) {
+  // site_module_codes — resolve site_id by name; seeds nothing until matching sites exist in pg.
+  const SEED = {  // verbatim from _SITE_MODULE_CODES_SEED below
+    'Sabodala':    { tracker:'SGO', inspection:'SGO', meetings:'SGO', risk_register:'SGO' },
+    'MANA':        { tracker:'MGO', inspection:'MGO', meetings:'MGO', risk_register:'MGO' },
+    'Hounde':      { tracker:'HGO', inspection:'HGO', meetings:'HGO', risk_register:'HGO' },
+    'Ity':         { tracker:'ITY', inspection:'SMI', meetings:'SMI', risk_register:'IGO' },
+    'Lafigue':     { tracker:'SML', inspection:'SML', meetings:'SML', risk_register:'SML' },
+    'Ouagadougou': { tracker:'EDV', inspection:'OUA', meetings:'OUA', risk_register:'OUAGA OFF1' },
+    'Abidjan':     { tracker:'ABJ', inspection:'ABJ', meetings:'ABJ' },
+    'Dakar':       { tracker:'DKR', inspection:'DKR', meetings:'DKR' },
+    'Exploration': { tracker:'EXP', risk_register:'EXPLO' },
+    'Kalana':      { tracker:'KLN', inspection:'KGO', meetings:'KGO', risk_register:'KGO' },
+    'Tanda':       { tracker:'TND' },
+  };
+  await H.runTransaction(async () => {
+    for (const [siteName, modCodes] of Object.entries(SEED)) {
+      const row = await H.prepare('SELECT id FROM sites WHERE lower(name)=lower(?)').get(siteName);
+      if (!row) continue;
+      for (const [mod, code] of Object.entries(modCodes)) {
+        await H.prepare(`INSERT INTO site_module_codes (site_id, module, code) VALUES (?, ?, ?)
+          ON CONFLICT (site_id, module) DO NOTHING`).run(row.id, mod, code);
+      }
+    }
+  });
+  // infra_kpi_catalog — backfill from existing infra_kpis (empty on a fresh DB).
+  await H.exec(`INSERT INTO infra_kpi_catalog (service, kpi, target_default)
+    SELECT service, kpi, MAX(target) FROM infra_kpis
+    WHERE service IS NOT NULL AND service != '' AND kpi IS NOT NULL AND kpi != ''
+    GROUP BY service, kpi ON CONFLICT (service, kpi) DO NOTHING`);
 }
 function pgHandle() {
   if (!_pg) throw new Error('pgDb not initialised — await initPgReports() at boot');
