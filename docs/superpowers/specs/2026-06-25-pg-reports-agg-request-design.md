@@ -43,12 +43,21 @@ The risk in 4D-2 is preserving KPI math byte-for-byte. Canonical rewrites:
   (created_time is TEXT 'YYYY-MM-DD HH:MM:SS'; the bound is 'YYYY-MM-DD'). `date(x) <= ?` likewise.
 - **duration math:** sqlite `(julianday(a) - julianday(b)) * 24` = HOURS →
   `EXTRACT(EPOCH FROM (a::timestamptz - b::timestamptz)) / 3600`; `(julianday(a)-julianday(b))`
-  = DAYS → `/ 86400`; `time_elapsed_ms / 3600000.0` (already ms) → unchanged (numeric divide).
-- **month bucket:** `strftime('%Y-%m', created_time)` → `to_char(created_time::timestamptz,'YYYY-MM')`.
-- **now:** `date('now')` → `current_date`; `date('now','-N months')` → `current_date - interval 'N months'`;
+  = DAYS → `/ 86400`.
+- **month bucket / filter:** `strftime('%Y-%m', created_time)` → `to_char(created_time::timestamptz,'YYYY-MM')`
+  — BOTH as a `GROUP BY` bucket (getRequestMetrics) AND as an equality filter
+  `strftime('%Y-%m', created_time) = ?` (`_aggregateHelpdesk6MoFromRaw`).
+- **datetime():** `datetime(created_time)` (e.g. in an ORDER BY) → `created_time::timestamptz`;
   `datetime('now')` → `now()`.
-- **percentage:** `ROUND(100.0 * x / y, 1)` → `ROUND((100.0 * x / y)::numeric, 1)` (pg's 2-arg
-  ROUND needs numeric). Where the result is consumed by JS `Math.round(...)` it stays pure JS.
+- **now/date:** `date('now')` → `current_date`; `date('now','-N months')` → `current_date - interval 'N months'`.
+- **2-arg ROUND in SQL:** `ROUND(<expr>, n)` → keep the `, n`. In pg the 2-arg ROUND needs a
+  `numeric` first arg; the in-scope cases already resolve to numeric natively (decimal literal
+  `100.0` is `numeric`; `AVG(bigint)` is `numeric`), so `ROUND(100.0*x/y, 1)` and
+  `ROUND(AVG(time_elapsed_ms)/3600000.0, 2)` work as-is. Add `::numeric` only if a case is
+  double-precision-typed. Percentages rounded in JS (`Math.round`/`.toFixed`) stay pure JS.
+- **raw TEXT comparisons left UNCHANGED:** a bare `created_time >= ?` where the bound is an ISO
+  string (e.g. `getMajorIncidentsHistory`'s `cutoff.toISOString()`) is a lexical string compare on
+  a TEXT column in BOTH engines — do NOT add a `::date`/`::timestamptz` cast (it would change semantics).
 - **case-insensitive / null:** `LOWER(col) = 'false'`, `COALESCE(a,b)`, `IN (?,?,…)` → unchanged.
 - **aggregates:** `COUNT(*)` / `AVG(...)` / `SUM(...)` return JS numbers via the adapter's
   NUMERIC/BIGINT type-parsers — no `::int` casts needed.
@@ -67,13 +76,25 @@ The risk in 4D-2 is preserving KPI math byte-for-byte. Canonical rewrites:
 - **`getMonthlyData`** (assembler) — pg branch `await`s the forked `getCalendarMonthlyHelpdesk`,
   `getCalendarMonthlyTop10`, `getHelpdesk6MonthHistory` and the weeks→`getReport` path (4C, already
   forked). The `pastMonths`/`prevD` JS date arithmetic is pure, reused.
-- **`getHelpdesk6MonthHistory`** + **`_aggregateHelpdesk6MoFromRaw`** — 6-month rolling window;
-  the helper aggregates from raw rows. pg branch awaits the per-month queries; the JS rollup is reused.
-- **`getMonthlyHelpdeskHistory`** — 12-month `strftime`-grouped trend → `to_char` group.
-- **`getMajorIncidentsHistory`** — filters major-incident rows, parses `udf_json`, runs the
-  priority-fallback chain (Priority→priority→Severity→…→impact-derived). All JS-over-rows, reused
-  on awaited rows; the SQL gets the date/`strftime` rewrites. Keep the canonical `P-Label`.
-- **`getActiveMajorIncidentsForSite`** — open major incidents for a site's groups; date/now rewrites.
+- **`_aggregateHelpdesk6MoFromRaw`** — aggregates a single month from raw `request_records`; its
+  one SQL filter is `strftime('%Y-%m', created_time) = ?` → `to_char(created_time::timestamptz,'YYYY-MM') = ?`
+  (equality form). pg branch awaits the queries; JS rollup reused.
+- **`getHelpdesk6MonthHistory`** — 6-month rolling window. Calls `getCalendarMonthlyHelpdesk` per
+  month; **also has a weekly-fallback branch** (fires when `cal.inbound===0`) that queries
+  `weeks`/`weekly_reports`/`helpdesk_data` directly (`substr(start_date,1,7)=?` — dialect-safe) and
+  parses `chart_data` JSON. The pg fork MUST `await` BOTH paths (the calendar call AND the fallback
+  `db.prepare(...).all()/.get()` queries); the JS rollup is reused.
+- **`getMonthlyHelpdeskHistory(monthsBack=12)`** — NOT strftime/grouped: it loops month-by-month
+  in JS and runs `date(created_time) >= ? AND date(created_time) <= ?` per iteration. Rewrite = the
+  `created_time::date` cast on each per-month COUNT; the JS month loop is pure, reused.
+- **`getMajorIncidentsHistory(monthsBack=12)`** — its only SQL is `WHERE LOWER(...) LIKE '%major%'
+  AND created_time >= ?` where the bound is `cutoff.toISOString()`. This is a raw TEXT lexical
+  comparison — **leave it UNCHANGED** (no `date()`/`strftime`/cast). Then JS-over-rows: parse
+  `udf_json`, run the priority-fallback chain (Priority→priority→Severity→…→impact-derived), keep
+  the canonical `P-Label`. All reused on awaited rows.
+- **`getActiveMajorIncidentsForSite`** — open major incidents for a site's groups. WHERE has NO
+  date/now expression (`pending_status=1`, `LIKE '%major%'`, `tech_group IN (…)`). The one dialect
+  hazard is **`datetime(created_time) ASC` in the ORDER BY** → `created_time::timestamptz ASC`.
 - **`getRequestFilterOptions`** — DISTINCT option lists (statuses/sites/categories/groups/types/
   modes/impacts) for the filter UI; simple DISTINCT + ORDER, awaited.
 - **`getRequestMetrics`** — the big multi-query KPI bundle (open/closed/backlog/within-SLA/FRT/
