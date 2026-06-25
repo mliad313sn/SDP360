@@ -755,11 +755,58 @@ async function initPgReports() {            // called once at server boot
   await _pg.connect();
   await _pg.exec(require('fs').readFileSync(
     require('path').join(__dirname, 'db', 'postgres', 'reports', '001_auth.sql'), 'utf8'));
+  // Chunk 4B — config tables (action_departments / audit_log / dashboard_preset_groups).
+  await _pg.exec(require('fs').readFileSync(
+    require('path').join(__dirname, 'db', 'postgres', 'reports', '002_config.sql'), 'utf8'));
+  await _seedConfigPg(_pg);
   return _pg;
 }
 function pgHandle() {
   if (!_pg) throw new Error('pgDb not initialised — await initPgReports() at boot');
   return _pg;
+}
+
+// Seed config tables on a fresh pg DB (idempotent — only fills empty tables,
+// mirroring the sqlite seed-gates). sites is owned by the 4A copy/seed path.
+async function _seedConfigPg(H) {
+  // action_departments — verbatim from the sqlite seed (reports-db.js defaults).
+  const dn = Number((await H.prepare('SELECT COUNT(*) AS n FROM action_departments').get()).n);
+  if (dn === 0) {
+    const DEFAULT_DEPTS = [
+      'Mining', 'Technical Service', 'Processing', 'Maintenance',
+      'Supply Chain', 'Security', 'Finance', 'Human Resource',
+      'Social performance', 'General Manager',
+    ];
+    await H.runTransaction(async () => {
+      let i = 0;
+      for (const name of DEFAULT_DEPTS) {
+        // sqlite seed inserts sort_order = i+1 (1-based) — match it.
+        await H.prepare(`INSERT INTO action_departments (name, sort_order) VALUES (?, ?)
+          ON CONFLICT (lower(name)) DO NOTHING`).run(name, i + 1);
+        i++;
+      }
+    });
+  }
+  // dashboard_preset_groups — reuse groupPresets' canonical seeds (lazy require;
+  // groupPresets does not require reports-db at module top, so no cycle).
+  const gp = require('./services/groupPresets');
+  const SEED = { tickets: gp.TICKETS_SEED, changes: gp.CHANGES_SEED };
+  for (const scope of ['tickets', 'changes']) {
+    const c = Number((await H.prepare('SELECT COUNT(*) AS n FROM dashboard_preset_groups WHERE scope=?').get(scope)).n);
+    if (c === 0) {
+      await H.runTransaction(async () => {
+        for (const [preset, groups] of Object.entries(SEED[scope])) {
+          let ix = 0;
+          for (const g of groups) {
+            await H.prepare(`INSERT INTO dashboard_preset_groups
+              (scope, preset_name, group_name, display_order, updated_by)
+              VALUES (?, ?, ?, ?, '_system') ON CONFLICT DO NOTHING`).run(scope, preset, g, ix);
+            ix++;
+          }
+        }
+      });
+    }
+  }
 }
 
 function login(username, password) {
@@ -1075,17 +1122,30 @@ async function _deleteUserPg(id) {
 // hides from new dropdowns while preserving historical reports.
 
 function listSites({ includeInactive = false } = {}) {
+  if (REPORTS_BACKEND === 'postgres') return _listSitesPg({ includeInactive });
   if (includeInactive) {
     return db.prepare(`SELECT id, name, zoho_group, active, sort_order FROM sites ORDER BY sort_order, name`).all();
   }
   return db.prepare(`SELECT id, name, zoho_group, active, sort_order FROM sites WHERE active=1 ORDER BY sort_order, name`).all();
 }
+async function _listSitesPg({ includeInactive = false } = {}) {
+  const H = pgHandle();
+  const sql = includeInactive
+    ? 'SELECT id, name, zoho_group, active, sort_order FROM sites ORDER BY sort_order, name'
+    : 'SELECT id, name, zoho_group, active, sort_order FROM sites WHERE active=1 ORDER BY sort_order, name';
+  return H.prepare(sql).all();
+}
 
 function updateSiteGroup(site_id, zoho_group) {
+  if (REPORTS_BACKEND === 'postgres') return _updateSiteGroupPg(site_id, zoho_group);
   db.prepare(`UPDATE sites SET zoho_group=? WHERE id=?`).run(zoho_group || null, site_id);
+}
+async function _updateSiteGroupPg(site_id, zoho_group) {
+  await pgHandle().prepare('UPDATE sites SET zoho_group=? WHERE id=?').run(zoho_group || null, site_id);
 }
 
 function createSite({ name, zoho_group, sort_order } = {}) {
+  if (REPORTS_BACKEND === 'postgres') return _createSitePg({ name, zoho_group, sort_order });
   const trimmed = String(name || '').trim();
   if (!trimmed) throw new Error('name is required');
   if (trimmed.length > 60) throw new Error('name too long (max 60)');
@@ -1105,8 +1165,27 @@ function createSite({ name, zoho_group, sort_order } = {}) {
                    .run(trimmed, zoho_group || null, order);
   return { id: result.lastInsertRowid, name: trimmed, zoho_group: zoho_group || null, sort_order: order, active: 1 };
 }
+// read-then-UPDATE reactivation (NOT INSERT OR REPLACE); .lastID not .lastInsertRowid
+async function _createSitePg({ name, zoho_group, sort_order } = {}) {
+  const H = pgHandle();
+  const trimmed = String(name || '').trim();
+  if (!trimmed) throw new Error('name is required');
+  if (trimmed.length > 60) throw new Error('name too long (max 60)');
+  const existing = await H.prepare('SELECT id, active FROM sites WHERE lower(name)=lower(?)').get(trimmed);
+  if (existing) {
+    if (existing.active) throw new Error('site already exists');
+    await H.prepare('UPDATE sites SET active=1, zoho_group=COALESCE(?, zoho_group) WHERE id=?').run(zoho_group || null, existing.id);
+    return { id: existing.id, name: trimmed, reactivated: true };
+  }
+  const order = Number.isFinite(sort_order) ? sort_order
+    : Number((await H.prepare('SELECT COALESCE(MAX(sort_order),0)+1 AS n FROM sites').get()).n);
+  const result = await H.prepare('INSERT INTO sites (name, zoho_group, sort_order, active) VALUES (?, ?, ?, 1)')
+                        .run(trimmed, zoho_group || null, order);
+  return { id: result.lastID, name: trimmed, zoho_group: zoho_group || null, sort_order: order, active: 1 };
+}
 
 function updateSite(id, { zoho_group, sort_order, active } = {}) {
+  if (REPORTS_BACKEND === 'postgres') return _updateSitePg(id, { zoho_group, sort_order, active });
   // Note: `name` is intentionally NOT in the partial-update fields — sites cannot be
   // renamed via this API (Q2 design decision: external integrations may reference by name).
   const cur = db.prepare(`SELECT * FROM sites WHERE id=?`).get(id);
@@ -1123,8 +1202,22 @@ function updateSite(id, { zoho_group, sort_order, active } = {}) {
   db.prepare(`UPDATE sites SET ${updates.join(', ')} WHERE id=?`).run(...params);
   return db.prepare(`SELECT * FROM sites WHERE id=?`).get(id);
 }
+async function _updateSitePg(id, { zoho_group, sort_order, active } = {}) {
+  const H = pgHandle();
+  const cur = await H.prepare('SELECT * FROM sites WHERE id=?').get(id);
+  if (!cur) throw new Error('site not found');
+  const updates = [], params = [];
+  if (zoho_group !== undefined) { updates.push('zoho_group=?'); params.push(zoho_group || null); }
+  if (sort_order !== undefined) { updates.push('sort_order=?'); params.push(sort_order); }
+  if (active     !== undefined) { updates.push('active=?');     params.push(active ? 1 : 0); }
+  if (!updates.length) return cur;
+  params.push(id);
+  await H.prepare(`UPDATE sites SET ${updates.join(', ')} WHERE id=?`).run(...params);
+  return H.prepare('SELECT * FROM sites WHERE id=?').get(id);
+}
 
 function setSiteActive(id, active) {
+  if (REPORTS_BACKEND === 'postgres') return _updateSitePg(id, { active: active ? 1 : 0 });
   return updateSite(id, { active: active ? 1 : 0 });
 }
 
@@ -1288,13 +1381,22 @@ function getActionsForReport(report_id) {
 // (department is stored as TEXT snapshot, not FK). See spec §3-§4.
 
 function listDepartments({ includeInactive = false } = {}) {
+  if (REPORTS_BACKEND === 'postgres') return _listDepartmentsPg({ includeInactive });
   if (includeInactive) {
     return db.prepare(`SELECT id, name, sort_order, active FROM action_departments ORDER BY sort_order, name`).all();
   }
   return db.prepare(`SELECT id, name, sort_order, active FROM action_departments WHERE active=1 ORDER BY sort_order, name`).all();
 }
+async function _listDepartmentsPg({ includeInactive = false } = {}) {
+  const H = pgHandle();
+  const sql = includeInactive
+    ? 'SELECT id, name, sort_order, active FROM action_departments ORDER BY sort_order, name'
+    : 'SELECT id, name, sort_order, active FROM action_departments WHERE active=1 ORDER BY sort_order, name';
+  return H.prepare(sql).all();
+}
 
 function createDepartment({ name, sort_order } = {}) {
+  if (REPORTS_BACKEND === 'postgres') return _createDepartmentPg({ name, sort_order });
   const trimmed = String(name || '').trim();
   if (!trimmed) throw new Error('name is required');
   if (trimmed.length > 60) throw new Error('name too long (max 60)');
@@ -1313,8 +1415,25 @@ function createDepartment({ name, sort_order } = {}) {
   const result = db.prepare(`INSERT INTO action_departments (name, sort_order) VALUES (?, ?)`).run(trimmed, order);
   return { id: result.lastInsertRowid, name: trimmed, sort_order: order, active: 1 };
 }
+async function _createDepartmentPg({ name, sort_order } = {}) {
+  const H = pgHandle();
+  const trimmed = String(name || '').trim();
+  if (!trimmed) throw new Error('name is required');
+  if (trimmed.length > 60) throw new Error('name too long (max 60)');
+  const existing = await H.prepare('SELECT id, active FROM action_departments WHERE lower(name)=lower(?)').get(trimmed);
+  if (existing) {
+    if (existing.active) throw new Error('department already exists');
+    await H.prepare(`UPDATE action_departments SET active=1, updated_at=now() WHERE id=?`).run(existing.id);
+    return { id: existing.id, name: trimmed, reactivated: true };
+  }
+  const order = Number.isFinite(sort_order) ? sort_order
+    : Number((await H.prepare('SELECT COALESCE(MAX(sort_order),0)+1 AS n FROM action_departments').get()).n);
+  const result = await H.prepare('INSERT INTO action_departments (name, sort_order) VALUES (?, ?)').run(trimmed, order);
+  return { id: result.lastID, name: trimmed, sort_order: order, active: 1 };
+}
 
 function updateDepartment(id, { name, sort_order, active } = {}) {
+  if (REPORTS_BACKEND === 'postgres') return _updateDepartmentPg(id, { name, sort_order, active });
   const cur = db.prepare(`SELECT * FROM action_departments WHERE id=?`).get(id);
   if (!cur) throw new Error('department not found');
 
@@ -1337,8 +1456,30 @@ function updateDepartment(id, { name, sort_order, active } = {}) {
   db.prepare(`UPDATE action_departments SET ${updates.join(', ')} WHERE id=?`).run(...params);
   return db.prepare(`SELECT * FROM action_departments WHERE id=?`).get(id);
 }
+async function _updateDepartmentPg(id, { name, sort_order, active } = {}) {
+  const H = pgHandle();
+  const cur = await H.prepare('SELECT * FROM action_departments WHERE id=?').get(id);
+  if (!cur) throw new Error('department not found');
+  const updates = [], params = [];
+  if (name !== undefined) {
+    const trimmed = String(name || '').trim();
+    if (!trimmed) throw new Error('name cannot be empty');
+    if (trimmed.length > 60) throw new Error('name too long (max 60)');
+    const dup = await H.prepare('SELECT id FROM action_departments WHERE lower(name)=lower(?) AND id<>?').get(trimmed, id);
+    if (dup) throw new Error('another department already has this name');
+    updates.push('name=?'); params.push(trimmed);
+  }
+  if (sort_order !== undefined) { updates.push('sort_order=?'); params.push(sort_order); }
+  if (active     !== undefined) { updates.push('active=?');     params.push(active ? 1 : 0); }
+  if (!updates.length) return cur;
+  updates.push('updated_at=now()');
+  params.push(id);
+  await H.prepare(`UPDATE action_departments SET ${updates.join(', ')} WHERE id=?`).run(...params);
+  return H.prepare('SELECT * FROM action_departments WHERE id=?').get(id);
+}
 
 function setDepartmentActive(id, active) {
+  if (REPORTS_BACKEND === 'postgres') return _updateDepartmentPg(id, { active: active ? 1 : 0 });
   return updateDepartment(id, { active: active ? 1 : 0 });
 }
 
@@ -3742,6 +3883,7 @@ function getYearlySummary(site_id, year) {
  *         'edited_monthly' | 'edited_objectives'
  */
 function logAudit({ report_id, site_id, user_id, username, action, details } = {}) {
+  if (REPORTS_BACKEND === 'postgres') return _logAuditPg({ report_id, site_id, user_id, username, action, details });
   try {
     db.prepare(
       `INSERT INTO audit_log (report_id, site_id, user_id, username, action, details)
@@ -3755,15 +3897,33 @@ function logAudit({ report_id, site_id, user_id, username, action, details } = {
     console.error('[audit_log] write error:', e.message);
   }
 }
+// async under pg. logAudit is fire-and-forget on the sqlite path (callers don't
+// await); the returned Promise resolves later — callers that ignore it still work.
+async function _logAuditPg({ report_id, site_id, user_id, username, action, details } = {}) {
+  try {
+    await pgHandle().prepare(
+      `INSERT INTO audit_log (report_id, site_id, user_id, username, action, details)
+       VALUES (?,?,?,?,?,?)`
+    ).run(report_id || null, site_id || null, user_id || null, username || null, action,
+          details ? JSON.stringify(details) : null);
+  } catch (e) { console.error('[audit_log] write error:', e.message); }
+}
 
 /**
  * Return the last N audit entries for a specific report (most recent first).
  */
 function getReportAuditLog(report_id, limit = 30) {
+  if (REPORTS_BACKEND === 'postgres') return _getReportAuditLogPg(report_id, limit);
   return db.prepare(
     `SELECT id, user_id, username, action, details, created_at
      FROM audit_log WHERE report_id=?
      ORDER BY created_at DESC LIMIT ?`
+  ).all(report_id, limit);
+}
+async function _getReportAuditLogPg(report_id, limit = 30) {
+  return pgHandle().prepare(
+    `SELECT id, user_id, username, action, details, created_at
+     FROM audit_log WHERE report_id=? ORDER BY created_at DESC LIMIT ?`
   ).all(report_id, limit);
 }
 
