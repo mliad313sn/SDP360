@@ -1898,6 +1898,7 @@ function getMonthlyData(site_id, year, month) {
  * Returns null when request_records is empty for this site (data not yet synced).
  */
 function getCalendarMonthlyHelpdesk(site_id, year, month) {
+  if (REPORTS_BACKEND === 'postgres') return _getCalendarMonthlyHelpdeskPg(site_id, year, month);
   // zoho_group may be a comma-separated list of Zoho group names (e.g. Exploration has 3).
   // Split and query all groups together using IN (?, ?, ...) — matches server.js behaviour.
   const siteRow = db.prepare(`SELECT zoho_group FROM sites WHERE id=?`).get(site_id);
@@ -1967,6 +1968,7 @@ function getCalendarMonthlyHelpdesk(site_id, year, month) {
  *   pct        = violations / total tickets in that category × 100
  */
 function getCalendarMonthlyTop10(site_id, year, month) {
+  if (REPORTS_BACKEND === 'postgres') return _getCalendarMonthlyTop10Pg(site_id, year, month);
   const siteRow = db.prepare(`SELECT zoho_group FROM sites WHERE id=?`).get(site_id);
   if (!siteRow || !siteRow.zoho_group) return [];
   const groups = siteRow.zoho_group.split(',').map(g => g.trim()).filter(Boolean);
@@ -1999,6 +2001,62 @@ function getCalendarMonthlyTop10(site_id, year, month) {
     violations: r.violations,
     pct:        Math.round(r.violations / r.total * 100),
   }));
+}
+
+// ── Chunk 4D-2a pg forks (calendar) ─────────────────────────────────────────
+// Dialect: date(x)>=? → x::date>=?::date; julianday duration → EXTRACT(EPOCH …)/3600|/86400;
+// GROUP BY category → GROUP BY 1 (sqlite binds the COALESCE alias; pg the raw col).
+async function _getCalendarMonthlyHelpdeskPg(site_id, year, month) {
+  const H = pgHandle();
+  const siteRow = await H.prepare('SELECT zoho_group FROM sites WHERE id=?').get(site_id);
+  if (!siteRow || !siteRow.zoho_group) return null;
+  const groups = siteRow.zoho_group.split(',').map(g => g.trim()).filter(Boolean);
+  if (!groups.length) return null;
+  const inClause = groups.map(() => '?').join(',');
+  const from  = `${year}-${String(month).padStart(2,'0')}-01`;
+  const lastD = new Date(year, month, 0);
+  const to    = `${lastD.getFullYear()}-${String(lastD.getMonth()+1).padStart(2,'0')}-${String(lastD.getDate()).padStart(2,'0')}`;
+  const gft = [...groups, from, to];
+  const DR = `tech_group IN (${inClause}) AND created_time::date>=?::date AND created_time::date<=?::date`;
+  const total = (await H.prepare(`SELECT COUNT(*) as n FROM request_records WHERE ${DR}`).get(...gft)).n;
+  if (!total) return { inbound:0, closed:0, close_pct:0, sla_res_pct:null, sla_reply_pct:null, source:'calendar' };
+  const closed         = (await H.prepare(`SELECT COUNT(*) as n FROM request_records WHERE ${DR} AND pending_status=0`).get(...gft)).n;
+  const slaResOkClosed = (await H.prepare(`SELECT COUNT(*) as n FROM request_records WHERE ${DR} AND pending_status=0 AND overdue_status=0`).get(...gft)).n;
+  const rplyOk    = (await H.prepare(`SELECT COUNT(*) as n FROM request_records WHERE ${DR} AND responded_time IS NOT NULL AND responded_time!='' AND LOWER(first_response_overdue)='false'`).get(...gft)).n;
+  const rplyTotal = (await H.prepare(`SELECT COUNT(*) as n FROM request_records WHERE ${DR} AND responded_time IS NOT NULL AND responded_time!=''`).get(...gft)).n;
+  const avgTtaRow = await H.prepare(`SELECT AVG(EXTRACT(EPOCH FROM (assigned_time::timestamptz - created_time::timestamptz))/3600) as v FROM request_records WHERE ${DR} AND assigned_time IS NOT NULL AND assigned_time!=''`).get(...gft);
+  const avgFrRow  = await H.prepare(`SELECT AVG(EXTRACT(EPOCH FROM (responded_time::timestamptz - created_time::timestamptz))/3600) as v FROM request_records WHERE ${DR} AND responded_time IS NOT NULL AND responded_time!=''`).get(...gft);
+  const avgRtRow  = await H.prepare(`SELECT AVG(EXTRACT(EPOCH FROM (COALESCE(resolved_time,completed_time)::timestamptz - created_time::timestamptz))/86400) as v FROM request_records WHERE ${DR} AND COALESCE(resolved_time,completed_time) IS NOT NULL`).get(...gft);
+  return {
+    inbound: total, closed,
+    close_pct: Math.round(closed / total * 100),
+    sla_res_pct:   closed > 0 ? Math.round(slaResOkClosed / closed * 100) : null,
+    sla_reply_pct: rplyTotal > 0 ? Math.round(rplyOk / rplyTotal * 100) : null,
+    avg_tta_h:         avgTtaRow.v  != null ? Math.round(avgTtaRow.v)  : null,
+    avg_first_reply_h: avgFrRow.v   != null ? Math.round(avgFrRow.v)   : null,
+    avg_resolution_d:  avgRtRow.v   != null ? Math.round(avgRtRow.v)   : null,
+    source: 'calendar', from, to,
+  };
+}
+async function _getCalendarMonthlyTop10Pg(site_id, year, month) {
+  const H = pgHandle();
+  const siteRow = await H.prepare('SELECT zoho_group FROM sites WHERE id=?').get(site_id);
+  if (!siteRow || !siteRow.zoho_group) return [];
+  const groups = siteRow.zoho_group.split(',').map(g => g.trim()).filter(Boolean);
+  if (!groups.length) return [];
+  const inClause = groups.map(() => '?').join(',');
+  const from  = `${year}-${String(month).padStart(2,'0')}-01`;
+  const lastD = new Date(year, month, 0);
+  const to    = `${lastD.getFullYear()}-${String(lastD.getMonth()+1).padStart(2,'0')}-${String(lastD.getDate()).padStart(2,'0')}`;
+  const gft   = [...groups, from, to];
+  const rows = await H.prepare(`
+    SELECT COALESCE(NULLIF(TRIM(category),''), 'Uncategorised') AS category,
+           COUNT(*) AS total, SUM(CASE WHEN overdue_status=1 THEN 1 ELSE 0 END) AS violations
+    FROM request_records
+    WHERE tech_group IN (${inClause}) AND created_time::date>=?::date AND created_time::date<=?::date
+    GROUP BY 1 HAVING SUM(CASE WHEN overdue_status=1 THEN 1 ELSE 0 END) > 0
+    ORDER BY violations DESC, total DESC LIMIT 10`).all(...gft);
+  return rows.map(r => ({ category: r.category, violations: r.violations, pct: Math.round(r.violations / r.total * 100) }));
 }
 
 // ── 6-MONTH HELPDESK HISTORY (for monthly PPTX combo chart) ─────
