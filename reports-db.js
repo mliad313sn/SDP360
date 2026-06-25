@@ -640,6 +640,7 @@ function getWeekRange(year, week) {
 }
 
 function ensureWeek(year, week) {
+  if (REPORTS_BACKEND === 'postgres') return _ensureWeekPg(year, week);
   const existing = db.prepare(`SELECT id FROM weeks WHERE year=? AND week_number=?`).get(year, week);
   if (existing) return existing.id;
   const range = getWeekRange(year, week);
@@ -1260,6 +1261,7 @@ function setSiteActive(id, active) {
 
 // ── REPORT CRUD ───────────────────────────────────────────────────
 function ensureReport(site_id, year, week) {
+  if (REPORTS_BACKEND === 'postgres') return _ensureReportPg(site_id, year, week);
   const week_id = ensureWeek(year, week);
   const existing = db.prepare(`SELECT * FROM weekly_reports WHERE site_id=? AND week_id=?`).get(site_id, week_id);
   if (existing) return existing;
@@ -1268,6 +1270,7 @@ function ensureReport(site_id, year, week) {
 }
 
 function getReport(report_id) {
+  if (REPORTS_BACKEND === 'postgres') return _getReportPg(report_id);
   const report = db.prepare(`
     SELECT wr.*, w.year, w.week_number, w.start_date, w.end_date, w.label as week_label,
            s.name as site_name, s.zoho_group
@@ -1297,6 +1300,7 @@ function getReport(report_id) {
 }
 
 function listReports(site_id, year, week) {
+  if (REPORTS_BACKEND === 'postgres') return _listReportsPg(site_id, year, week);
   let sql = `SELECT wr.id, wr.status, wr.updated_at, wr.submitted_at, w.label as week_label,
              w.year, w.week_number, w.start_date, w.end_date, s.name as site_name, s.zoho_group
              FROM weekly_reports wr
@@ -1592,6 +1596,7 @@ const saveActionItems = db.transaction((report_id, items) => {
 });
 
 function updateReportStatus(report_id, status, user_id) {
+  if (REPORTS_BACKEND === 'postgres') return _updateReportStatusPg(report_id, status, user_id);
   const now = new Date().toISOString();
   const submitted_at = status === 'submitted' ? now : null;
   const submitted_by = status === 'submitted' ? user_id : null;
@@ -1608,7 +1613,68 @@ const deleteReport = db.transaction((id) => {
 });
 
 function touchReport(report_id) {
+  if (REPORTS_BACKEND === 'postgres') return _touchReportPg(report_id);
   db.prepare(`UPDATE weekly_reports SET updated_at=datetime('now') WHERE id=?`).run(report_id);
+}
+
+// ══ Chunk 4C — PostgreSQL forks (REPORTS_BACKEND=postgres) ══════════════════
+// sqlite path stays synchronous (returns value); only the pg branch is async.
+// getWeekRange/getISOWeek/getPreviousWeek are PURE (no DB) and used as-is.
+async function _ensureWeekPg(year, week) {
+  const H = pgHandle();
+  const existing = await H.prepare('SELECT id FROM weeks WHERE year=? AND week_number=?').get(year, week);
+  if (existing) return existing.id;
+  const range = getWeekRange(year, week);   // pure, sync
+  const r = await H.prepare('INSERT INTO weeks (year, week_number, start_date, end_date, label) VALUES (?,?,?,?,?)')
+                   .run(year, week, range.start, range.end, range.label);
+  return r.lastID;
+}
+async function _ensureReportPg(site_id, year, week) {
+  const H = pgHandle();
+  const week_id = await _ensureWeekPg(year, week);
+  const existing = await H.prepare('SELECT * FROM weekly_reports WHERE site_id=? AND week_id=?').get(site_id, week_id);
+  if (existing) return existing;
+  const r = await H.prepare('INSERT INTO weekly_reports (site_id, week_id) VALUES (?,?)').run(site_id, week_id);
+  return H.prepare('SELECT * FROM weekly_reports WHERE id=?').get(r.lastID);
+}
+async function _getReportPg(report_id) {
+  const H = pgHandle();
+  const report = await H.prepare(`
+    SELECT wr.*, w.year, w.week_number, w.start_date, w.end_date, w.label as week_label,
+           s.name as site_name, s.zoho_group
+    FROM weekly_reports wr JOIN weeks w ON w.id=wr.week_id JOIN sites s ON s.id=wr.site_id
+    WHERE wr.id=?`).get(report_id);
+  if (!report) return null;
+  report.infra_kpis   = await H.prepare('SELECT * FROM infra_kpis WHERE report_id=? ORDER BY sort_order').all(report_id);
+  report.helpdesk     = (await H.prepare('SELECT * FROM helpdesk_data WHERE report_id=?').get(report_id)) || {};
+  report.lights       = await H.prepare('SELECT * FROM lights WHERE report_id=? ORDER BY type, sort_order').all(report_id);
+  report.action_items = await H.prepare('SELECT * FROM action_items WHERE report_id=? ORDER BY sort_order').all(report_id);
+  for (const k of ['sla_violations', 'group_metrics', 'all_groups', 'chart_data']) {
+    if (report.helpdesk[k]) { try { report.helpdesk[k] = JSON.parse(report.helpdesk[k]); } catch (e) {} }
+  }
+  return report;
+}
+async function _listReportsPg(site_id, year, week) {
+  const H = pgHandle();
+  let sql = `SELECT wr.id, wr.status, wr.updated_at, wr.submitted_at, w.label as week_label,
+             w.year, w.week_number, w.start_date, w.end_date, s.name as site_name, s.zoho_group
+             FROM weekly_reports wr JOIN weeks w ON w.id=wr.week_id JOIN sites s ON s.id=wr.site_id WHERE 1=1`;
+  const params = [];
+  if (site_id) { sql += ' AND wr.site_id=?'; params.push(site_id); }
+  if (year)    { sql += ' AND w.year=?';     params.push(year); }
+  if (week)    { sql += ' AND w.week_number=?'; params.push(week); }
+  sql += ' ORDER BY w.year DESC, w.week_number DESC';
+  return H.prepare(sql).all(...params);
+}
+async function _updateReportStatusPg(report_id, status, user_id) {
+  const now = new Date().toISOString();
+  const submitted_at = status === 'submitted' ? now : null;
+  const submitted_by = status === 'submitted' ? user_id : null;
+  await pgHandle().prepare('UPDATE weekly_reports SET status=?, submitted_at=?, submitted_by=?, updated_at=now() WHERE id=?')
+    .run(status, submitted_at, submitted_by, report_id);
+}
+async function _touchReportPg(report_id) {
+  await pgHandle().prepare('UPDATE weekly_reports SET updated_at=now() WHERE id=?').run(report_id);
 }
 
 // ── MONTHLY DATA ──────────────────────────────────────────────────
