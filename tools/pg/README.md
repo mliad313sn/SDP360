@@ -121,3 +121,38 @@ DB layer DONE + green (`tests/pg-reports-config.test.js`, 6 tests). Same
 and group-preset route handlers in server.js need `async`+`await` once the branch merges;
 + merge `feat/pg-reports-config` to main. Sites/dept routes currently call these sync (fine
 on sqlite default).
+
+---
+
+## reports.db — Sub-chunk C (report-CRUD + KPI storage) — `feat/pg-reports-reports`
+
+DB layer DONE + green (`tests/pg-reports-reports.test.js`, 6 tests). Same
+`REPORTS_BACKEND=sqlite|postgres` flag (default `sqlite`).
+
+- Schema: `db/postgres/reports/003_reports.sql` — 10 tables (`weeks`, `weekly_reports`,
+  `infra_kpis`, `helpdesk_data`, `lights`, `action_items`, `monthly_reports`,
+  `annual_objectives`, `site_module_codes`, `infra_kpi_catalog`). INTEGER IDENTITY;
+  `REAL`→`double precision`; JSON blobs→TEXT; includes ALTER-added cols
+  (`weekly_reports.created_by`, `action_items.department`/`comment`). `sites` reused from 001.
+- Forked in `reports-db.js` (~22 fns): `ensureWeek`, `ensureReport`, `getReport`,
+  `listReports`, `updateReportStatus`, `touchReport`, `getWeekSummaryData`, `saveInfraKpis`,
+  `saveHelpdeskData`, `saveLights`, `saveActionItems`, `getActionsForReport`,
+  `getLightsForReport`, `getPreviousWeekOpenActions`, `getPreviousWeekInfraKpis`,
+  `listAllWeeksWithActions`, `listAllWeeksWithLights`, `deleteReport`, `getMonthlyReport`,
+  `getMonthlyEdits`, `saveMonthlyEdits`, `getAnnualObjectives`, `saveAnnualObjectives`.
+  `initPgReports` now also applies `003_reports.sql` + runs `_seedReportsCatalogsPg`
+  (site_module_codes + infra_kpi_catalog backfills — data-dependent, no-op on a fresh DB).
+- **tx-convert:** the module-level `const x = db.transaction(...)` helpers (saveInfraKpis,
+  saveLights, saveActionItems, saveAnnualObjectives, deleteReport) became dispatching
+  `function x()` + a renamed `const _xSqlite = db.transaction(...)` (sqlite tx preserved) +
+  an async `_xPg` using `runTransaction`.
+- **PURE (not forked):** `getISOWeek`, `getWeekRange`, `getPreviousWeek` (date math, no DB) —
+  called by the pg branches synchronously.
+- `saveHelpdeskData`'s `ON CONFLICT(report_id) DO UPDATE` is a FULL-column replace (no
+  COALESCE) — identical to sqlite; partial saves NULL unset columns (tested).
+- Copy: `tools/pg/copy-reports-reports.js` (10 tables, FK order, 9 IDENTITY seqs advanced;
+  `sites` pre-seeded by copy-reports-auth in a real cutover).
+
+**DEFERRED (coordinated wiring pass):** `/api/reports/:id`, the report save endpoints, and
+the weekly/monthly PPTX routes in server.js need `async`+`await`; + merge to main.
+`getMonthlyData` + all hot-path aggregates + Zoho sync stay in **Chunk 4D** (the last one).
