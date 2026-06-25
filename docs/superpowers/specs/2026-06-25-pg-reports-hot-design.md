@@ -74,8 +74,10 @@ isn't guaranteed).
 
 ### Seeding
 
-`initPgReports` seeds the 4 default `sync_metadata` job rows (`helpdesk`, `change_cab`, `survey`,
-`requests`) via `INSERT … ON CONFLICT (job_name) DO NOTHING` — mirrors the sqlite `_seedJob` gate.
+`initPgReports` seeds the 4 default `sync_metadata` job rows — `helpdesk`, `change_cab`, `survey`,
+`requests` (the canonical list from `SYNC_JOBS` at `reports-db.js:3265`; note the in-code table
+comment at `:154` is stale, listing only 3 — do NOT copy that comment into `004_hot.sql`) — via
+`INSERT … ON CONFLICT (job_name) DO NOTHING`, mirroring the sqlite `_seedJob` gate.
 
 ## Writer conversion (the structural work)
 
@@ -99,8 +101,18 @@ maps a single object → named `@param`→`$N`). Dialect: `datetime('now')`→`n
 `upsertRequestUdfBatch` keeps its two-step logic: UPDATE `udf_json` WHERE `request_id=?`; on
 `changes===0`, fallback UPDATE WHERE `display_id=?` (both positional `?`).
 
-> Writers return a **count** (not lastID), so no `RETURNING` needed; `ON CONFLICT` statements
-> don't get auto-`RETURNING` from the adapter anyway.
+> **Auto-RETURNING:** the adapter appends `RETURNING *` to any INSERT that doesn't already
+> contain `RETURNING` (`pgDb.js` `isBareInsert` only excludes the literal RETURNING token — it
+> does NOT exclude `ON CONFLICT`). So these `INSERT … ON CONFLICT` statements DO get a trailing
+> `RETURNING *`. That is **harmless**: the writers count via `.run().changes` (= pg `rowCount`),
+> which the trailing RETURNING doesn't change. No writer needs `lastID`.
+
+> **`upsertSurveyAnswerBatch` is append-only, NOT an upsert.** `_upsertSurveyAnswer`
+> (`reports-db.js:3415`) uses a **bare `ON CONFLICT DO NOTHING` with no conflict target**, and
+> `survey_answers` has **no UNIQUE constraint** (only the `id` PK) — so the DO NOTHING never
+> fires and every call inserts a new row. Port it verbatim (bare `ON CONFLICT DO NOTHING` is
+> valid in pg and likewise never fires). Do NOT invent an `ON CONFLICT(col)` target — there's no
+> backing unique index. (Test increment 3 must expect re-insert, not replace, for survey_answers.)
 
 ## Reconcilers
 
@@ -108,6 +120,11 @@ Each `reconcile*(liveIds)` reads all local Zoho-ids, computes `toDelete = local 
 batch-deletes. pg fork: `await H.prepare('SELECT <id> FROM <table>').all()` → diff in JS →
 `await runTransaction` looping `await H.prepare('DELETE … WHERE <id>=?').run(id)`. Returns the
 delete count. (Same early-return on empty `liveIds`.)
+
+> **`reconcileSurveyResults` deletes from TWO tables** (`reports-db.js:3572`): per stale row it
+> deletes `survey_results` by `result_id` AND `survey_answers` by `response_id` (the answer
+> cascade — there's no FK, so it's done in code). The pg fork must replicate both deletes inside
+> the transaction or it orphans `survey_answers` rows. The other three reconcilers are single-table.
 
 ## Raw readers
 
