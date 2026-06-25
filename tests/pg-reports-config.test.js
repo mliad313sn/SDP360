@@ -56,3 +56,20 @@ test('config pg: sites CRUD + reactivate', async (t) => {
     await assert.rejects(rdb.createSite({ name: 'TestMine' }), /already exists/);
   } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
 });
+
+test('config pg: departments CRUD + ci dedup', async (t) => {
+  const b = await boot(); if (!b) return t.skip('no pg');
+  const { ctx, rdb } = b;
+  try {
+    const d = await rdb.createDepartment({ name: 'ZetaDept' });
+    assert.ok(d.id);
+    await assert.rejects(rdb.createDepartment({ name: 'zetadept' }), /already exists/); // active dup
+    await rdb.updateDepartment(d.id, { sort_order: 4 });
+    await rdb.setDepartmentActive(d.id, 0);
+    assert.ok(!(await rdb.listDepartments()).find(x => x.id === d.id), 'inactive hidden');
+    assert.ok((await rdb.listDepartments({ includeInactive: true })).find(x => x.id === d.id));
+    const re = await rdb.createDepartment({ name: 'ZETADEPT' });  // reactivate (ci)
+    assert.equal(re.id, d.id); assert.equal(re.reactivated, true);
+    await assert.rejects(rdb.updateDepartment(d.id, { name: '' }), /empty/);
+  } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
+});

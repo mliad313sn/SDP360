@@ -1381,13 +1381,22 @@ function getActionsForReport(report_id) {
 // (department is stored as TEXT snapshot, not FK). See spec §3-§4.
 
 function listDepartments({ includeInactive = false } = {}) {
+  if (REPORTS_BACKEND === 'postgres') return _listDepartmentsPg({ includeInactive });
   if (includeInactive) {
     return db.prepare(`SELECT id, name, sort_order, active FROM action_departments ORDER BY sort_order, name`).all();
   }
   return db.prepare(`SELECT id, name, sort_order, active FROM action_departments WHERE active=1 ORDER BY sort_order, name`).all();
 }
+async function _listDepartmentsPg({ includeInactive = false } = {}) {
+  const H = pgHandle();
+  const sql = includeInactive
+    ? 'SELECT id, name, sort_order, active FROM action_departments ORDER BY sort_order, name'
+    : 'SELECT id, name, sort_order, active FROM action_departments WHERE active=1 ORDER BY sort_order, name';
+  return H.prepare(sql).all();
+}
 
 function createDepartment({ name, sort_order } = {}) {
+  if (REPORTS_BACKEND === 'postgres') return _createDepartmentPg({ name, sort_order });
   const trimmed = String(name || '').trim();
   if (!trimmed) throw new Error('name is required');
   if (trimmed.length > 60) throw new Error('name too long (max 60)');
@@ -1406,8 +1415,25 @@ function createDepartment({ name, sort_order } = {}) {
   const result = db.prepare(`INSERT INTO action_departments (name, sort_order) VALUES (?, ?)`).run(trimmed, order);
   return { id: result.lastInsertRowid, name: trimmed, sort_order: order, active: 1 };
 }
+async function _createDepartmentPg({ name, sort_order } = {}) {
+  const H = pgHandle();
+  const trimmed = String(name || '').trim();
+  if (!trimmed) throw new Error('name is required');
+  if (trimmed.length > 60) throw new Error('name too long (max 60)');
+  const existing = await H.prepare('SELECT id, active FROM action_departments WHERE lower(name)=lower(?)').get(trimmed);
+  if (existing) {
+    if (existing.active) throw new Error('department already exists');
+    await H.prepare(`UPDATE action_departments SET active=1, updated_at=now() WHERE id=?`).run(existing.id);
+    return { id: existing.id, name: trimmed, reactivated: true };
+  }
+  const order = Number.isFinite(sort_order) ? sort_order
+    : Number((await H.prepare('SELECT COALESCE(MAX(sort_order),0)+1 AS n FROM action_departments').get()).n);
+  const result = await H.prepare('INSERT INTO action_departments (name, sort_order) VALUES (?, ?)').run(trimmed, order);
+  return { id: result.lastID, name: trimmed, sort_order: order, active: 1 };
+}
 
 function updateDepartment(id, { name, sort_order, active } = {}) {
+  if (REPORTS_BACKEND === 'postgres') return _updateDepartmentPg(id, { name, sort_order, active });
   const cur = db.prepare(`SELECT * FROM action_departments WHERE id=?`).get(id);
   if (!cur) throw new Error('department not found');
 
@@ -1430,8 +1456,30 @@ function updateDepartment(id, { name, sort_order, active } = {}) {
   db.prepare(`UPDATE action_departments SET ${updates.join(', ')} WHERE id=?`).run(...params);
   return db.prepare(`SELECT * FROM action_departments WHERE id=?`).get(id);
 }
+async function _updateDepartmentPg(id, { name, sort_order, active } = {}) {
+  const H = pgHandle();
+  const cur = await H.prepare('SELECT * FROM action_departments WHERE id=?').get(id);
+  if (!cur) throw new Error('department not found');
+  const updates = [], params = [];
+  if (name !== undefined) {
+    const trimmed = String(name || '').trim();
+    if (!trimmed) throw new Error('name cannot be empty');
+    if (trimmed.length > 60) throw new Error('name too long (max 60)');
+    const dup = await H.prepare('SELECT id FROM action_departments WHERE lower(name)=lower(?) AND id<>?').get(trimmed, id);
+    if (dup) throw new Error('another department already has this name');
+    updates.push('name=?'); params.push(trimmed);
+  }
+  if (sort_order !== undefined) { updates.push('sort_order=?'); params.push(sort_order); }
+  if (active     !== undefined) { updates.push('active=?');     params.push(active ? 1 : 0); }
+  if (!updates.length) return cur;
+  updates.push('updated_at=now()');
+  params.push(id);
+  await H.prepare(`UPDATE action_departments SET ${updates.join(', ')} WHERE id=?`).run(...params);
+  return H.prepare('SELECT * FROM action_departments WHERE id=?').get(id);
+}
 
 function setDepartmentActive(id, active) {
+  if (REPORTS_BACKEND === 'postgres') return _updateDepartmentPg(id, { active: active ? 1 : 0 });
   return updateDepartment(id, { active: active ? 1 : 0 });
 }
 
