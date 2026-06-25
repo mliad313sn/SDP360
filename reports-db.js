@@ -3966,8 +3966,13 @@ function getRequestMetrics({ site, since, statuses, rtypes, impacts, modes } = {
  * Return the stored monthly_reports row for a site/year/month, or null.
  */
 function getMonthlyReport(site_id, year, month) {
+  if (REPORTS_BACKEND === 'postgres') return _getMonthlyReportPg(site_id, year, month);
   return db.prepare(`SELECT * FROM monthly_reports WHERE site_id=? AND year=? AND month=?`)
            .get(site_id, year, month) || null;
+}
+async function _getMonthlyReportPg(site_id, year, month) {
+  return (await pgHandle().prepare('SELECT * FROM monthly_reports WHERE site_id=? AND year=? AND month=?')
+           .get(site_id, year, month)) || null;
 }
 
 /**
@@ -3976,6 +3981,7 @@ function getMonthlyReport(site_id, year, month) {
  * Otherwise auto-merge from the weekly_reports for that month.
  */
 function getMonthlyEdits(site_id, year, month) {
+  if (REPORTS_BACKEND === 'postgres') return _getMonthlyEditsPg(site_id, year, month);
   const saved = getMonthlyReport(site_id, year, month);
   if (saved && (saved.edited_lights || saved.edited_actions)) {
     return {
@@ -4053,7 +4059,50 @@ function getMonthlyEdits(site_id, year, month) {
 /**
  * Save user edits to monthly_reports (upsert).
  */
+// pg fork of getMonthlyEdits — awaits the reads; the dedup/sort JS is identical to sqlite.
+async function _getMonthlyEditsPg(site_id, year, month) {
+  const H = pgHandle();
+  const saved = await _getMonthlyReportPg(site_id, year, month);
+  if (saved && (saved.edited_lights || saved.edited_actions)) {
+    return {
+      edited_lights:  saved.edited_lights  ? JSON.parse(saved.edited_lights)  : [],
+      edited_actions: saved.edited_actions ? JSON.parse(saved.edited_actions) : [],
+      notes:  saved.notes || '', status: saved.status, source: 'saved',
+    };
+  }
+  const mStr = `${year}-${String(month).padStart(2,'0')}`;
+  const weekRows = await H.prepare(`
+    SELECT wr.id as report_id, w.label as week_label
+    FROM weeks w JOIN weekly_reports wr ON wr.week_id=w.id AND wr.site_id=?
+    WHERE substr(w.start_date,1,7)=? ORDER BY w.year, w.week_number`).all(site_id, mStr);
+  const lightsRaw = [], actionsRaw = [];
+  for (const wk of weekRows) {
+    const ls = await H.prepare('SELECT * FROM lights WHERE report_id=? ORDER BY type, sort_order').all(wk.report_id);
+    ls.forEach(l => lightsRaw.push({ type: l.type, content: l.content, week_label: wk.week_label }));
+    const as = await H.prepare('SELECT * FROM action_items WHERE report_id=? ORDER BY sort_order').all(wk.report_id);
+    as.forEach(a => actionsRaw.push({ task: a.task, priority: a.priority, due_date: a.due_date, owner: a.owner,
+      status: a.status, department: a.department, comment: a.comment, week_label: wk.week_label }));
+  }
+  const lightsMap = new Map();
+  for (const l of lightsRaw) {
+    const key = l.type + '||' + (l.content || '').trim().toLowerCase();
+    const isChange = l.type === 'change_in_progress' || l.type === 'change_pending';
+    if (!lightsMap.has(key)) lightsMap.set(key, l);
+    else if (isChange) lightsMap.set(key, l);
+  }
+  const lights = Array.from(lightsMap.values());
+  const actionsMap = new Map();
+  for (const a of actionsRaw) {
+    const key = (a.task || '').trim().toLowerCase() + '||' + (a.owner || '').trim().toLowerCase();
+    actionsMap.set(key, a);
+  }
+  const _actionOrder = s => ['open','in_progress'].includes((s||'open').toLowerCase()) ? 0 : 1;
+  const actions = Array.from(actionsMap.values()).sort((a, b) => _actionOrder(a.status) - _actionOrder(b.status));
+  return { edited_lights: lights, edited_actions: actions, notes: '', status: 'draft', source: 'auto' };
+}
+
 function saveMonthlyEdits(site_id, year, month, { edited_lights, edited_actions, notes, status }) {
+  if (REPORTS_BACKEND === 'postgres') return _saveMonthlyEditsPg(site_id, year, month, { edited_lights, edited_actions, notes, status });
   const el = edited_lights  != null ? JSON.stringify(edited_lights)  : null;
   const ea = edited_actions != null ? JSON.stringify(edited_actions) : null;
   db.prepare(`
@@ -4067,11 +4116,26 @@ function saveMonthlyEdits(site_id, year, month, { edited_lights, edited_actions,
       updated_at     = datetime('now')
   `).run(site_id, year, month, el, ea, notes || null, status || 'draft');
 }
+async function _saveMonthlyEditsPg(site_id, year, month, { edited_lights, edited_actions, notes, status }) {
+  const el = edited_lights  != null ? JSON.stringify(edited_lights)  : null;
+  const ea = edited_actions != null ? JSON.stringify(edited_actions) : null;
+  await pgHandle().prepare(`
+    INSERT INTO monthly_reports (site_id, year, month, edited_lights, edited_actions, notes, status, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, now())
+    ON CONFLICT(site_id, year, month) DO UPDATE SET
+      edited_lights  = COALESCE(EXCLUDED.edited_lights,  monthly_reports.edited_lights),
+      edited_actions = COALESCE(EXCLUDED.edited_actions, monthly_reports.edited_actions),
+      notes          = COALESCE(EXCLUDED.notes,          monthly_reports.notes),
+      status         = COALESCE(EXCLUDED.status,         monthly_reports.status),
+      updated_at     = now()
+  `).run(site_id, year, month, el, ea, notes || null, status || 'draft');
+}
 
 /**
  * Get annual objectives for a site+year, sorted by sort_order.
  */
 function getAnnualObjectives(site_id, year) {
+  if (REPORTS_BACKEND === 'postgres') return _getAnnualObjectivesPg(site_id, year);
   return db.prepare(`
     SELECT id, objective, target, status, sort_order
     FROM annual_objectives
@@ -4079,12 +4143,20 @@ function getAnnualObjectives(site_id, year) {
     ORDER BY sort_order, id
   `).all(site_id, year);
 }
+async function _getAnnualObjectivesPg(site_id, year) {
+  return pgHandle().prepare(`SELECT id, objective, target, status, sort_order
+    FROM annual_objectives WHERE site_id=? AND year=? ORDER BY sort_order, id`).all(site_id, year);
+}
 
 /**
  * Replace all annual objectives for a site+year in a single transaction.
  * objectives: [{objective, target, status}]
  */
-const saveAnnualObjectives = db.transaction((site_id, year, objectives) => {
+function saveAnnualObjectives(site_id, year, objectives) {
+  if (REPORTS_BACKEND === 'postgres') return _saveAnnualObjectivesPg(site_id, year, objectives);
+  return _saveAnnualObjectivesSqlite(site_id, year, objectives);
+}
+const _saveAnnualObjectivesSqlite = db.transaction((site_id, year, objectives) => {
   db.prepare(`DELETE FROM annual_objectives WHERE site_id=? AND year=?`).run(site_id, year);
   const ins = db.prepare(`
     INSERT INTO annual_objectives (site_id, year, objective, target, status, sort_order, updated_at)
@@ -4094,6 +4166,17 @@ const saveAnnualObjectives = db.transaction((site_id, year, objectives) => {
     ins.run(site_id, year, o.objective || '', o.target || null, o.status || 'in_progress', i);
   });
 });
+async function _saveAnnualObjectivesPg(site_id, year, objectives) {
+  const H = pgHandle();
+  await H.runTransaction(async () => {
+    await H.prepare('DELETE FROM annual_objectives WHERE site_id=? AND year=?').run(site_id, year);
+    let i = 0;
+    for (const o of (objectives || [])) {
+      await H.prepare(`INSERT INTO annual_objectives (site_id, year, objective, target, status, sort_order, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, now())`).run(site_id, year, o.objective||'', o.target||null, o.status||'in_progress', i); i++;
+    }
+  });
+}
 
 // ── YEARLY SUMMARY (for monthly page trend tables) ────────────────
 /**

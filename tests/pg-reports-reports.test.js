@@ -105,3 +105,22 @@ test('reports pg: deleteReport cascade + getWeekSummaryData', async (t) => {
     assert.equal(Number((await h.prepare('SELECT COUNT(*) AS n FROM action_items WHERE report_id=?').get(r.id)).n), 0);
   } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
 });
+
+test('reports pg: monthly edits + annual objectives', async (t) => {
+  const b = await boot(); if (!b) return t.skip('no pg');
+  const { ctx, rdb, siteId } = b;
+  try {
+    assert.equal(await rdb.getMonthlyReport(siteId, 2026, 5), null);
+    await rdb.saveMonthlyEdits(siteId, 2026, 5, { edited_lights:[{type:'low_light',content:'L'}], edited_actions:[{task:'T'}], notes:'n', status:'draft' });
+    // Honest pg check — unforked fns silently hit the sqlite db; assert the row is in PG.
+    assert.equal(Number((await rdb.pgHandle().prepare('SELECT COUNT(*) AS n FROM monthly_reports').get()).n), 1, 'wrote to PG');
+    const m = await rdb.getMonthlyEdits(siteId, 2026, 5);
+    assert.equal(m.source, 'saved'); assert.equal(m.edited_lights.length, 1); assert.equal(m.notes, 'n');
+    await rdb.saveMonthlyEdits(siteId, 2026, 5, { status:'finalized' });   // upsert COALESCE keeps lights
+    assert.equal((await rdb.getMonthlyReport(siteId, 2026, 5)).status, 'finalized');
+    assert.equal((await rdb.getMonthlyEdits(siteId, 2026, 5)).edited_lights.length, 1, 'COALESCE kept lights');
+    await rdb.saveAnnualObjectives(siteId, 2026, [{ objective:'O1', target:'T1' }, { objective:'O2' }]);
+    const objs = await rdb.getAnnualObjectives(siteId, 2026);
+    assert.equal(objs.length, 2); assert.equal(objs[0].objective, 'O1');
+  } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
+});
