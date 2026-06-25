@@ -1842,6 +1842,7 @@ async function _getPreviousWeekInfraKpisPg(site_id, current_report_id) {
 
 // ── MONTHLY DATA ──────────────────────────────────────────────────
 function getMonthlyData(site_id, year, month) {
+  if (REPORTS_BACKEND === 'postgres') return _getMonthlyDataPg(site_id, year, month);
   // Get all weeks that fall within the month
   const weeks = db.prepare(`
     SELECT w.*, wr.id as report_id, wr.status
@@ -1885,6 +1886,37 @@ function getMonthlyData(site_id, year, month) {
     prev_calendar_hd: getCalendarMonthlyHelpdesk(site_id, prevYear, prevMonth),
     monthly_top10:    getCalendarMonthlyTop10(site_id, year, month),
     history6m:        getHelpdesk6MonthHistory(site_id, year, month),
+  };
+}
+async function _getMonthlyDataPg(site_id, year, month) {
+  const H = pgHandle();
+  const mStr = `${year}-${String(month).padStart(2,'0')}`;
+  const weeks = await H.prepare(`
+    SELECT w.*, wr.id as report_id, wr.status FROM weeks w
+    LEFT JOIN weekly_reports wr ON wr.week_id=w.id AND wr.site_id=?
+    WHERE (substr(w.start_date,1,7)=? OR substr(w.end_date,1,7)=?) ORDER BY w.week_number`).all(site_id, mStr, mStr);
+  const reports = (await Promise.all(weeks.filter(w => w.report_id).map(w => getReport(w.report_id)))).filter(Boolean);
+  const pastMonths = [];
+  for (let m = 0; m < 6; m++) {
+    const d = new Date(year, month - 1 - m, 1);
+    const py = d.getFullYear(), pm = d.getMonth() + 1;
+    const pmStr = `${py}-${String(pm).padStart(2,'0')}`;
+    const pmWeeks = await H.prepare(`SELECT wr.id as report_id FROM weeks w
+      JOIN weekly_reports wr ON wr.week_id=w.id AND wr.site_id=?
+      WHERE substr(w.start_date,1,7)=? OR substr(w.end_date,1,7)=?`).all(site_id, pmStr, pmStr);
+    if (pmWeeks.length) {
+      const pmReports = (await Promise.all(pmWeeks.map(w => getReport(w.report_id)))).filter(Boolean);
+      pastMonths.push({ year: py, month: pm, label: d.toLocaleString('en',{month:'short',year:'numeric'}), reports: pmReports });
+    }
+  }
+  const prevD = new Date(year, month - 2, 1);
+  const prevYear = prevD.getFullYear(), prevMonth = prevD.getMonth() + 1;
+  return {
+    weeks, reports, pastMonths,
+    calendar_hd:      await _getCalendarMonthlyHelpdeskPg(site_id, year, month),
+    prev_calendar_hd: await _getCalendarMonthlyHelpdeskPg(site_id, prevYear, prevMonth),
+    monthly_top10:    await _getCalendarMonthlyTop10Pg(site_id, year, month),
+    history6m:        await _getHelpdesk6MonthHistoryPg(site_id, year, month),
   };
 }
 
@@ -4620,6 +4652,7 @@ async function _saveAnnualObjectivesPg(site_id, year, objectives) {
  * - hd figures are SUMMED/AVERAGED across all weekly reports of the month
  */
 function getYearlySummary(site_id, year) {
+  if (REPORTS_BACKEND === 'postgres') return _getYearlySummaryPg(site_id, year);
   const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const result = [];
 
@@ -4652,6 +4685,27 @@ function getYearlySummary(site_id, year) {
     const hd = getCalendarMonthlyHelpdesk(site_id, year, m)
               || { inbound:0, closed:0, close_pct:0, sla_res_pct:null, sla_reply_pct:null };
 
+    result.push({ month: m, label: monthNames[m-1], has_data: true, kpis, hd });
+  }
+  return result;
+}
+async function _getYearlySummaryPg(site_id, year) {
+  const H = pgHandle();
+  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const result = [];
+  for (let m = 1; m <= 12; m++) {
+    const mStr = `${year}-${String(m).padStart(2,'0')}`;
+    const reportRows = await H.prepare(`SELECT DISTINCT wr.id as report_id, w.week_number
+      FROM weeks w JOIN weekly_reports wr ON wr.week_id=w.id AND wr.site_id=?
+      WHERE substr(w.start_date,1,7)=? ORDER BY w.week_number`).all(site_id, mStr);
+    if (!reportRows.length) {
+      const hd = (await _getCalendarMonthlyHelpdeskPg(site_id, year, m)) || null;
+      result.push({ month: m, label: monthNames[m-1], has_data: false, kpis: [], hd });
+      continue;
+    }
+    const lastRid = reportRows[reportRows.length - 1].report_id;
+    const kpis = await H.prepare(`SELECT service, kpi, target, status_value, status_color, trend FROM infra_kpis WHERE report_id=? ORDER BY sort_order`).all(lastRid);
+    const hd = (await _getCalendarMonthlyHelpdeskPg(site_id, year, m)) || { inbound:0, closed:0, close_pct:0, sla_res_pct:null, sla_reply_pct:null };
     result.push({ month: m, label: monthNames[m-1], has_data: true, kpis, hd });
   }
   return result;

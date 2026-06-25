@@ -96,3 +96,28 @@ test('agg pg: 6-month history (calendar + raw) + monthly history', async (t) => 
     assert.ok(mRow); assert.equal(mRow['Requests'], 5); assert.equal(mRow['Closed Requests Count'], 3);
   } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
 });
+
+test('agg pg: getMonthlyData assembler + getYearlySummary', async (t) => {
+  const b = await boot(); if (!b) return t.skip('no pg');
+  const { ctx, rdb, siteId } = b;
+  try {
+    const G = 'Hounde IT Agents', C = '2026-05-10 09:00:00';
+    await rdb.upsertRequestBatch([
+      _req({request_id:'A',tech_group:G,created_time:C,pending_status:0,overdue_status:0}),
+      _req({request_id:'B',tech_group:G,created_time:C,pending_status:0}),
+      _req({request_id:'D',tech_group:G,created_time:C,pending_status:0,overdue_status:1}),
+      _req({request_id:'E',tech_group:G,created_time:C,pending_status:1}),
+      _req({request_id:'F',tech_group:G,created_time:C,pending_status:1}),
+    ]);
+    const md = await rdb.getMonthlyData(siteId, 2026, 5);
+    assert.equal(md.calendar_hd.inbound, 5);
+    assert.ok(Array.isArray(md.history6m) && md.history6m.length === 6);
+    assert.ok(Array.isArray(md.reports) && Array.isArray(md.weeks));
+    assert.ok(Array.isArray(md.monthly_top10));
+    const ys = await rdb.getYearlySummary(siteId, 2026);
+    assert.equal(ys.length, 12);
+    assert.equal(ys[4].hd.inbound, 5);          // May (index 4)
+    assert.ok(Array.isArray(ys[4].kpis));
+    assert.equal(ys[0].has_data, false);        // Jan — no weekly reports
+  } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
+});
