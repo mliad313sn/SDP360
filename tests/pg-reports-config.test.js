@@ -34,3 +34,25 @@ test('config pg: schema idempotent + depts + presets seeded', async (t) => {
     assert.ok(gn > 0, 'pg preset groups seeded');
   } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
 });
+
+test('config pg: sites CRUD + reactivate', async (t) => {
+  const b = await boot(); if (!b) return t.skip('no pg');
+  const { ctx, rdb } = b;
+  try {
+    const a = await rdb.createSite({ name: 'TestMine', zoho_group: 'TestMine IT' });
+    assert.ok(a.id);
+    let list = await rdb.listSites();
+    assert.ok(list.find(s => s.id === a.id && s.name === 'TestMine'));
+    await rdb.updateSiteGroup(a.id, 'TestMine IT Agents');
+    await rdb.updateSite(a.id, { sort_order: 7 });
+    const after = (await rdb.listSites()).find(s => s.id === a.id);
+    assert.equal(after.zoho_group, 'TestMine IT Agents'); assert.equal(after.sort_order, 7);
+    await rdb.setSiteActive(a.id, 0);
+    assert.ok(!(await rdb.listSites()).find(s => s.id === a.id), 'inactive hidden by default');
+    assert.ok((await rdb.listSites({ includeInactive: true })).find(s => s.id === a.id));
+    // reactivate-on-duplicate (case-insensitive)
+    const re = await rdb.createSite({ name: 'testmine' });
+    assert.equal(re.id, a.id); assert.equal(re.reactivated, true);
+    await assert.rejects(rdb.createSite({ name: 'TestMine' }), /already exists/);
+  } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
+});

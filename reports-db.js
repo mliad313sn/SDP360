@@ -1122,17 +1122,30 @@ async function _deleteUserPg(id) {
 // hides from new dropdowns while preserving historical reports.
 
 function listSites({ includeInactive = false } = {}) {
+  if (REPORTS_BACKEND === 'postgres') return _listSitesPg({ includeInactive });
   if (includeInactive) {
     return db.prepare(`SELECT id, name, zoho_group, active, sort_order FROM sites ORDER BY sort_order, name`).all();
   }
   return db.prepare(`SELECT id, name, zoho_group, active, sort_order FROM sites WHERE active=1 ORDER BY sort_order, name`).all();
 }
+async function _listSitesPg({ includeInactive = false } = {}) {
+  const H = pgHandle();
+  const sql = includeInactive
+    ? 'SELECT id, name, zoho_group, active, sort_order FROM sites ORDER BY sort_order, name'
+    : 'SELECT id, name, zoho_group, active, sort_order FROM sites WHERE active=1 ORDER BY sort_order, name';
+  return H.prepare(sql).all();
+}
 
 function updateSiteGroup(site_id, zoho_group) {
+  if (REPORTS_BACKEND === 'postgres') return _updateSiteGroupPg(site_id, zoho_group);
   db.prepare(`UPDATE sites SET zoho_group=? WHERE id=?`).run(zoho_group || null, site_id);
+}
+async function _updateSiteGroupPg(site_id, zoho_group) {
+  await pgHandle().prepare('UPDATE sites SET zoho_group=? WHERE id=?').run(zoho_group || null, site_id);
 }
 
 function createSite({ name, zoho_group, sort_order } = {}) {
+  if (REPORTS_BACKEND === 'postgres') return _createSitePg({ name, zoho_group, sort_order });
   const trimmed = String(name || '').trim();
   if (!trimmed) throw new Error('name is required');
   if (trimmed.length > 60) throw new Error('name too long (max 60)');
@@ -1152,8 +1165,27 @@ function createSite({ name, zoho_group, sort_order } = {}) {
                    .run(trimmed, zoho_group || null, order);
   return { id: result.lastInsertRowid, name: trimmed, zoho_group: zoho_group || null, sort_order: order, active: 1 };
 }
+// read-then-UPDATE reactivation (NOT INSERT OR REPLACE); .lastID not .lastInsertRowid
+async function _createSitePg({ name, zoho_group, sort_order } = {}) {
+  const H = pgHandle();
+  const trimmed = String(name || '').trim();
+  if (!trimmed) throw new Error('name is required');
+  if (trimmed.length > 60) throw new Error('name too long (max 60)');
+  const existing = await H.prepare('SELECT id, active FROM sites WHERE lower(name)=lower(?)').get(trimmed);
+  if (existing) {
+    if (existing.active) throw new Error('site already exists');
+    await H.prepare('UPDATE sites SET active=1, zoho_group=COALESCE(?, zoho_group) WHERE id=?').run(zoho_group || null, existing.id);
+    return { id: existing.id, name: trimmed, reactivated: true };
+  }
+  const order = Number.isFinite(sort_order) ? sort_order
+    : Number((await H.prepare('SELECT COALESCE(MAX(sort_order),0)+1 AS n FROM sites').get()).n);
+  const result = await H.prepare('INSERT INTO sites (name, zoho_group, sort_order, active) VALUES (?, ?, ?, 1)')
+                        .run(trimmed, zoho_group || null, order);
+  return { id: result.lastID, name: trimmed, zoho_group: zoho_group || null, sort_order: order, active: 1 };
+}
 
 function updateSite(id, { zoho_group, sort_order, active } = {}) {
+  if (REPORTS_BACKEND === 'postgres') return _updateSitePg(id, { zoho_group, sort_order, active });
   // Note: `name` is intentionally NOT in the partial-update fields — sites cannot be
   // renamed via this API (Q2 design decision: external integrations may reference by name).
   const cur = db.prepare(`SELECT * FROM sites WHERE id=?`).get(id);
@@ -1170,8 +1202,22 @@ function updateSite(id, { zoho_group, sort_order, active } = {}) {
   db.prepare(`UPDATE sites SET ${updates.join(', ')} WHERE id=?`).run(...params);
   return db.prepare(`SELECT * FROM sites WHERE id=?`).get(id);
 }
+async function _updateSitePg(id, { zoho_group, sort_order, active } = {}) {
+  const H = pgHandle();
+  const cur = await H.prepare('SELECT * FROM sites WHERE id=?').get(id);
+  if (!cur) throw new Error('site not found');
+  const updates = [], params = [];
+  if (zoho_group !== undefined) { updates.push('zoho_group=?'); params.push(zoho_group || null); }
+  if (sort_order !== undefined) { updates.push('sort_order=?'); params.push(sort_order); }
+  if (active     !== undefined) { updates.push('active=?');     params.push(active ? 1 : 0); }
+  if (!updates.length) return cur;
+  params.push(id);
+  await H.prepare(`UPDATE sites SET ${updates.join(', ')} WHERE id=?`).run(...params);
+  return H.prepare('SELECT * FROM sites WHERE id=?').get(id);
+}
 
 function setSiteActive(id, active) {
+  if (REPORTS_BACKEND === 'postgres') return _updateSitePg(id, { active: active ? 1 : 0 });
   return updateSite(id, { active: active ? 1 : 0 });
 }
 
