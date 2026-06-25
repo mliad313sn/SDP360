@@ -640,6 +640,7 @@ function getWeekRange(year, week) {
 }
 
 function ensureWeek(year, week) {
+  if (REPORTS_BACKEND === 'postgres') return _ensureWeekPg(year, week);
   const existing = db.prepare(`SELECT id FROM weeks WHERE year=? AND week_number=?`).get(year, week);
   if (existing) return existing.id;
   const range = getWeekRange(year, week);
@@ -759,7 +760,44 @@ async function initPgReports() {            // called once at server boot
   await _pg.exec(require('fs').readFileSync(
     require('path').join(__dirname, 'db', 'postgres', 'reports', '002_config.sql'), 'utf8'));
   await _seedConfigPg(_pg);
+  // Chunk 4C — report-editor tables (weeks / weekly_reports / kpis / lights / actions / monthly / objectives / catalogs).
+  await _pg.exec(require('fs').readFileSync(
+    require('path').join(__dirname, 'db', 'postgres', 'reports', '003_reports.sql'), 'utf8'));
+  await _seedReportsCatalogsPg(_pg);
   return _pg;
+}
+
+// Catalog backfills (data-dependent; no-op on a fresh pg DB, like the sqlite boot path).
+async function _seedReportsCatalogsPg(H) {
+  // site_module_codes — resolve site_id by name; seeds nothing until matching sites exist in pg.
+  const SEED = {  // verbatim from _SITE_MODULE_CODES_SEED below
+    'Sabodala':    { tracker:'SGO', inspection:'SGO', meetings:'SGO', risk_register:'SGO' },
+    'MANA':        { tracker:'MGO', inspection:'MGO', meetings:'MGO', risk_register:'MGO' },
+    'Hounde':      { tracker:'HGO', inspection:'HGO', meetings:'HGO', risk_register:'HGO' },
+    'Ity':         { tracker:'ITY', inspection:'SMI', meetings:'SMI', risk_register:'IGO' },
+    'Lafigue':     { tracker:'SML', inspection:'SML', meetings:'SML', risk_register:'SML' },
+    'Ouagadougou': { tracker:'EDV', inspection:'OUA', meetings:'OUA', risk_register:'OUAGA OFF1' },
+    'Abidjan':     { tracker:'ABJ', inspection:'ABJ', meetings:'ABJ' },
+    'Dakar':       { tracker:'DKR', inspection:'DKR', meetings:'DKR' },
+    'Exploration': { tracker:'EXP', risk_register:'EXPLO' },
+    'Kalana':      { tracker:'KLN', inspection:'KGO', meetings:'KGO', risk_register:'KGO' },
+    'Tanda':       { tracker:'TND' },
+  };
+  await H.runTransaction(async () => {
+    for (const [siteName, modCodes] of Object.entries(SEED)) {
+      const row = await H.prepare('SELECT id FROM sites WHERE lower(name)=lower(?)').get(siteName);
+      if (!row) continue;
+      for (const [mod, code] of Object.entries(modCodes)) {
+        await H.prepare(`INSERT INTO site_module_codes (site_id, module, code) VALUES (?, ?, ?)
+          ON CONFLICT (site_id, module) DO NOTHING`).run(row.id, mod, code);
+      }
+    }
+  });
+  // infra_kpi_catalog — backfill from existing infra_kpis (empty on a fresh DB).
+  await H.exec(`INSERT INTO infra_kpi_catalog (service, kpi, target_default)
+    SELECT service, kpi, MAX(target) FROM infra_kpis
+    WHERE service IS NOT NULL AND service != '' AND kpi IS NOT NULL AND kpi != ''
+    GROUP BY service, kpi ON CONFLICT (service, kpi) DO NOTHING`);
 }
 function pgHandle() {
   if (!_pg) throw new Error('pgDb not initialised — await initPgReports() at boot');
@@ -1223,6 +1261,7 @@ function setSiteActive(id, active) {
 
 // ── REPORT CRUD ───────────────────────────────────────────────────
 function ensureReport(site_id, year, week) {
+  if (REPORTS_BACKEND === 'postgres') return _ensureReportPg(site_id, year, week);
   const week_id = ensureWeek(year, week);
   const existing = db.prepare(`SELECT * FROM weekly_reports WHERE site_id=? AND week_id=?`).get(site_id, week_id);
   if (existing) return existing;
@@ -1231,6 +1270,7 @@ function ensureReport(site_id, year, week) {
 }
 
 function getReport(report_id) {
+  if (REPORTS_BACKEND === 'postgres') return _getReportPg(report_id);
   const report = db.prepare(`
     SELECT wr.*, w.year, w.week_number, w.start_date, w.end_date, w.label as week_label,
            s.name as site_name, s.zoho_group
@@ -1260,6 +1300,7 @@ function getReport(report_id) {
 }
 
 function listReports(site_id, year, week) {
+  if (REPORTS_BACKEND === 'postgres') return _listReportsPg(site_id, year, week);
   let sql = `SELECT wr.id, wr.status, wr.updated_at, wr.submitted_at, w.label as week_label,
              w.year, w.week_number, w.start_date, w.end_date, s.name as site_name, s.zoho_group
              FROM weekly_reports wr
@@ -1273,13 +1314,29 @@ function listReports(site_id, year, week) {
   return db.prepare(sql).all(...params);
 }
 
-const saveInfraKpis = db.transaction((report_id, kpis) => {
+function saveInfraKpis(report_id, kpis) {
+  if (REPORTS_BACKEND === 'postgres') return _saveInfraKpisPg(report_id, kpis);
+  return _saveInfraKpisSqlite(report_id, kpis);
+}
+const _saveInfraKpisSqlite = db.transaction((report_id, kpis) => {
   db.prepare(`DELETE FROM infra_kpis WHERE report_id=?`).run(report_id);
   const ins = db.prepare(`INSERT INTO infra_kpis (report_id,service,kpi,target,status_value,status_color,trend,sort_order) VALUES (?,?,?,?,?,?,?,?)`);
   kpis.forEach((k, i) => ins.run(report_id, k.service, k.kpi, k.target, k.status_value, k.status_color||'green', k.trend||'stable', i));
 });
+async function _saveInfraKpisPg(report_id, kpis) {
+  const H = pgHandle();
+  await H.runTransaction(async () => {
+    await H.prepare('DELETE FROM infra_kpis WHERE report_id=?').run(report_id);
+    let i = 0;
+    for (const k of (kpis || [])) {
+      await H.prepare('INSERT INTO infra_kpis (report_id,service,kpi,target,status_value,status_color,trend,sort_order) VALUES (?,?,?,?,?,?,?,?)')
+        .run(report_id, k.service, k.kpi, k.target, k.status_value, k.status_color||'green', k.trend||'stable', i); i++;
+    }
+  });
+}
 
 function saveHelpdeskData(report_id, data) {
+  if (REPORTS_BACKEND === 'postgres') return _saveHelpdeskDataPg(report_id, data);
   const sla = data.sla_violations ? JSON.stringify(data.sla_violations) : null;
   const gm  = data.group_metrics  ? JSON.stringify(data.group_metrics)  : null;
   const ag  = data.all_groups     ? JSON.stringify(data.all_groups)     : null;
@@ -1310,17 +1367,65 @@ function saveHelpdeskData(report_id, data) {
        data.tech_on_break||null, data.techs_on_duty||null, sla, gm, ag,
        data.fetched_at||null, data.selected_group||null, cd);
 }
+// Full-column ON CONFLICT replace (no COALESCE) — identical semantics to sqlite.
+async function _saveHelpdeskDataPg(report_id, data) {
+  const H = pgHandle();
+  const sla = data.sla_violations ? JSON.stringify(data.sla_violations) : null;
+  const gm  = data.group_metrics  ? JSON.stringify(data.group_metrics)  : null;
+  const ag  = data.all_groups     ? JSON.stringify(data.all_groups)     : null;
+  const cd  = data.chart_data     ? JSON.stringify(data.chart_data)     : null;
+  await H.prepare(`INSERT INTO helpdesk_data
+    (report_id,time_to_assign,time_to_assign_prev,first_reply,first_reply_prev,
+     resolution_time,resolution_time_prev,closing_time,closing_time_prev,
+     comments_metrics,comments_sla,tech_on_break,techs_on_duty,sla_violations,
+     group_metrics,all_groups,fetched_at,selected_group,chart_data)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    ON CONFLICT(report_id) DO UPDATE SET
+    time_to_assign=EXCLUDED.time_to_assign, time_to_assign_prev=EXCLUDED.time_to_assign_prev,
+    first_reply=EXCLUDED.first_reply, first_reply_prev=EXCLUDED.first_reply_prev,
+    resolution_time=EXCLUDED.resolution_time, resolution_time_prev=EXCLUDED.resolution_time_prev,
+    closing_time=EXCLUDED.closing_time, closing_time_prev=EXCLUDED.closing_time_prev,
+    comments_metrics=EXCLUDED.comments_metrics, comments_sla=EXCLUDED.comments_sla,
+    tech_on_break=EXCLUDED.tech_on_break, techs_on_duty=EXCLUDED.techs_on_duty,
+    sla_violations=EXCLUDED.sla_violations,
+    group_metrics=EXCLUDED.group_metrics, all_groups=EXCLUDED.all_groups,
+    fetched_at=EXCLUDED.fetched_at, selected_group=EXCLUDED.selected_group,
+    chart_data=EXCLUDED.chart_data,
+    updated_at=now()`)
+  .run(report_id, data.time_to_assign||null, data.time_to_assign_prev||null,
+       data.first_reply||null, data.first_reply_prev||null,
+       data.resolution_time||null, data.resolution_time_prev||null,
+       data.closing_time||null, data.closing_time_prev||null,
+       data.comments_metrics||null, data.comments_sla||null,
+       data.tech_on_break||null, data.techs_on_duty||null, sla, gm, ag,
+       data.fetched_at||null, data.selected_group||null, cd);
+}
 
-const saveLights = db.transaction((report_id, lights) => {
+function saveLights(report_id, lights) {
+  if (REPORTS_BACKEND === 'postgres') return _saveLightsPg(report_id, lights);
+  return _saveLightsSqlite(report_id, lights);
+}
+const _saveLightsSqlite = db.transaction((report_id, lights) => {
   db.prepare(`DELETE FROM lights WHERE report_id=?`).run(report_id);
   const ins = db.prepare(`INSERT INTO lights (report_id,type,content,sort_order) VALUES (?,?,?,?)`);
   lights.forEach((l, i) => ins.run(report_id, l.type, l.content, i));
 });
+async function _saveLightsPg(report_id, lights) {
+  const H = pgHandle();
+  await H.runTransaction(async () => {
+    await H.prepare('DELETE FROM lights WHERE report_id=?').run(report_id);
+    let i = 0;
+    for (const l of (lights || [])) {
+      await H.prepare('INSERT INTO lights (report_id,type,content,sort_order) VALUES (?,?,?,?)').run(report_id, l.type, l.content, i); i++;
+    }
+  });
+}
 
 // Returns all non-closed actions from the most recent previous report
 // for the same site. Used by the "carry over" button in the weekly report UI.
 // Imports: open, in_progress, on_hold, cancelled — excludes: closed only.
 function getPreviousWeekOpenActions(site_id, current_report_id) {
+  if (REPORTS_BACKEND === 'postgres') return _getPreviousWeekOpenActionsPg(site_id, current_report_id);
   const prev = db.prepare(`
     SELECT wr.id, w.label as week_label
     FROM weekly_reports wr
@@ -1342,6 +1447,7 @@ function getPreviousWeekOpenActions(site_id, current_report_id) {
 // Returns a list of all past weeks for the site (excluding current report),
 // each with their non-closed action count. Used to populate the week-picker modal.
 function listAllWeeksWithActions(site_id, current_report_id) {
+  if (REPORTS_BACKEND === 'postgres') return _listAllWeeksWithActionsPg(site_id, current_report_id);
   const weeks = db.prepare(`
     SELECT wr.id as report_id, w.label as week_label, w.year, w.week_number,
            w.start_date, w.end_date,
@@ -1359,6 +1465,7 @@ function listAllWeeksWithActions(site_id, current_report_id) {
 // Returns all non-closed actions from a specific report_id.
 // Used when the user picks a specific week in the week-picker modal.
 function getActionsForReport(report_id) {
+  if (REPORTS_BACKEND === 'postgres') return _getActionsForReportPg(report_id);
   const meta = db.prepare(`
     SELECT wr.id, w.label as week_label
     FROM weekly_reports wr
@@ -1486,6 +1593,7 @@ function setDepartmentActive(id, active) {
 // Returns a list of all past weeks for the site with their lights counts per type.
 // Used to populate the week-picker modal for Low/High Lights carry-over.
 function listAllWeeksWithLights(site_id, current_report_id) {
+  if (REPORTS_BACKEND === 'postgres') return _listAllWeeksWithLightsPg(site_id, current_report_id);
   const weeks = db.prepare(`
     SELECT wr.id as report_id, w.label as week_label, w.year, w.week_number,
            w.start_date, w.end_date,
@@ -1503,6 +1611,7 @@ function listAllWeeksWithLights(site_id, current_report_id) {
 // Returns all lights (low_light + high_light) from a specific report_id.
 // Used when the user picks a specific week in the lights week-picker modal.
 function getLightsForReport(report_id) {
+  if (REPORTS_BACKEND === 'postgres') return _getLightsForReportPg(report_id);
   const meta = db.prepare(`
     SELECT wr.id, w.label as week_label
     FROM weekly_reports wr
@@ -1520,6 +1629,7 @@ function getLightsForReport(report_id) {
 }
 
 function getPreviousWeekInfraKpis(site_id, current_report_id) {
+  if (REPORTS_BACKEND === 'postgres') return _getPreviousWeekInfraKpisPg(site_id, current_report_id);
   const prev = db.prepare(`
     SELECT wr.id, w.label as week_label
     FROM weekly_reports wr
@@ -1538,7 +1648,11 @@ function getPreviousWeekInfraKpis(site_id, current_report_id) {
   return { week_label: prev.week_label, kpis };
 }
 
-const saveActionItems = db.transaction((report_id, items) => {
+function saveActionItems(report_id, items) {
+  if (REPORTS_BACKEND === 'postgres') return _saveActionItemsPg(report_id, items);
+  return _saveActionItemsSqlite(report_id, items);
+}
+const _saveActionItemsSqlite = db.transaction((report_id, items) => {
   db.prepare(`DELETE FROM action_items WHERE report_id=?`).run(report_id);
   const ins = db.prepare(`INSERT INTO action_items (report_id,task,priority,due_date,owner,status,department,comment,sort_order) VALUES (?,?,?,?,?,?,?,?,?)`);
   items.forEach((a, i) => ins.run(
@@ -1553,8 +1667,20 @@ const saveActionItems = db.transaction((report_id, items) => {
     i
   ));
 });
+async function _saveActionItemsPg(report_id, items) {
+  const H = pgHandle();
+  await H.runTransaction(async () => {
+    await H.prepare('DELETE FROM action_items WHERE report_id=?').run(report_id);
+    let i = 0;
+    for (const a of (items || [])) {
+      await H.prepare('INSERT INTO action_items (report_id,task,priority,due_date,owner,status,department,comment,sort_order) VALUES (?,?,?,?,?,?,?,?,?)')
+        .run(report_id, a.task, a.priority||'Medium', a.due_date||null, a.owner||null, a.status||'open', a.department||null, a.comment||null, i); i++;
+    }
+  });
+}
 
 function updateReportStatus(report_id, status, user_id) {
+  if (REPORTS_BACKEND === 'postgres') return _updateReportStatusPg(report_id, status, user_id);
   const now = new Date().toISOString();
   const submitted_at = status === 'submitted' ? now : null;
   const submitted_by = status === 'submitted' ? user_id : null;
@@ -1562,16 +1688,145 @@ function updateReportStatus(report_id, status, user_id) {
     .run(status, submitted_at, submitted_by, now, report_id);
 }
 
-const deleteReport = db.transaction((id) => {
+function deleteReport(id) {
+  if (REPORTS_BACKEND === 'postgres') return _deleteReportPg(id);
+  return _deleteReportSqlite(id);
+}
+const _deleteReportSqlite = db.transaction((id) => {
   db.prepare(`DELETE FROM infra_kpis    WHERE report_id=?`).run(id);
   db.prepare(`DELETE FROM helpdesk_data WHERE report_id=?`).run(id);
   db.prepare(`DELETE FROM lights        WHERE report_id=?`).run(id);
   db.prepare(`DELETE FROM action_items  WHERE report_id=?`).run(id);
   db.prepare(`DELETE FROM weekly_reports WHERE id=?`).run(id);
 });
+// Explicit child deletes inside a tx (mirrors sqlite; not relying on FK CASCADE).
+async function _deleteReportPg(id) {
+  const H = pgHandle();
+  await H.runTransaction(async () => {
+    await H.prepare('DELETE FROM infra_kpis    WHERE report_id=?').run(id);
+    await H.prepare('DELETE FROM helpdesk_data WHERE report_id=?').run(id);
+    await H.prepare('DELETE FROM lights        WHERE report_id=?').run(id);
+    await H.prepare('DELETE FROM action_items  WHERE report_id=?').run(id);
+    await H.prepare('DELETE FROM weekly_reports WHERE id=?').run(id);
+  });
+}
 
 function touchReport(report_id) {
+  if (REPORTS_BACKEND === 'postgres') return _touchReportPg(report_id);
   db.prepare(`UPDATE weekly_reports SET updated_at=datetime('now') WHERE id=?`).run(report_id);
+}
+
+// ══ Chunk 4C — PostgreSQL forks (REPORTS_BACKEND=postgres) ══════════════════
+// sqlite path stays synchronous (returns value); only the pg branch is async.
+// getWeekRange/getISOWeek/getPreviousWeek are PURE (no DB) and used as-is.
+async function _ensureWeekPg(year, week) {
+  const H = pgHandle();
+  const existing = await H.prepare('SELECT id FROM weeks WHERE year=? AND week_number=?').get(year, week);
+  if (existing) return existing.id;
+  const range = getWeekRange(year, week);   // pure, sync
+  const r = await H.prepare('INSERT INTO weeks (year, week_number, start_date, end_date, label) VALUES (?,?,?,?,?)')
+                   .run(year, week, range.start, range.end, range.label);
+  return r.lastID;
+}
+async function _ensureReportPg(site_id, year, week) {
+  const H = pgHandle();
+  const week_id = await _ensureWeekPg(year, week);
+  const existing = await H.prepare('SELECT * FROM weekly_reports WHERE site_id=? AND week_id=?').get(site_id, week_id);
+  if (existing) return existing;
+  const r = await H.prepare('INSERT INTO weekly_reports (site_id, week_id) VALUES (?,?)').run(site_id, week_id);
+  return H.prepare('SELECT * FROM weekly_reports WHERE id=?').get(r.lastID);
+}
+async function _getReportPg(report_id) {
+  const H = pgHandle();
+  const report = await H.prepare(`
+    SELECT wr.*, w.year, w.week_number, w.start_date, w.end_date, w.label as week_label,
+           s.name as site_name, s.zoho_group
+    FROM weekly_reports wr JOIN weeks w ON w.id=wr.week_id JOIN sites s ON s.id=wr.site_id
+    WHERE wr.id=?`).get(report_id);
+  if (!report) return null;
+  report.infra_kpis   = await H.prepare('SELECT * FROM infra_kpis WHERE report_id=? ORDER BY sort_order').all(report_id);
+  report.helpdesk     = (await H.prepare('SELECT * FROM helpdesk_data WHERE report_id=?').get(report_id)) || {};
+  report.lights       = await H.prepare('SELECT * FROM lights WHERE report_id=? ORDER BY type, sort_order').all(report_id);
+  report.action_items = await H.prepare('SELECT * FROM action_items WHERE report_id=? ORDER BY sort_order').all(report_id);
+  for (const k of ['sla_violations', 'group_metrics', 'all_groups', 'chart_data']) {
+    if (report.helpdesk[k]) { try { report.helpdesk[k] = JSON.parse(report.helpdesk[k]); } catch (e) {} }
+  }
+  return report;
+}
+async function _listReportsPg(site_id, year, week) {
+  const H = pgHandle();
+  let sql = `SELECT wr.id, wr.status, wr.updated_at, wr.submitted_at, w.label as week_label,
+             w.year, w.week_number, w.start_date, w.end_date, s.name as site_name, s.zoho_group
+             FROM weekly_reports wr JOIN weeks w ON w.id=wr.week_id JOIN sites s ON s.id=wr.site_id WHERE 1=1`;
+  const params = [];
+  if (site_id) { sql += ' AND wr.site_id=?'; params.push(site_id); }
+  if (year)    { sql += ' AND w.year=?';     params.push(year); }
+  if (week)    { sql += ' AND w.week_number=?'; params.push(week); }
+  sql += ' ORDER BY w.year DESC, w.week_number DESC';
+  return H.prepare(sql).all(...params);
+}
+async function _updateReportStatusPg(report_id, status, user_id) {
+  const now = new Date().toISOString();
+  const submitted_at = status === 'submitted' ? now : null;
+  const submitted_by = status === 'submitted' ? user_id : null;
+  await pgHandle().prepare('UPDATE weekly_reports SET status=?, submitted_at=?, submitted_by=?, updated_at=now() WHERE id=?')
+    .run(status, submitted_at, submitted_by, report_id);
+}
+async function _touchReportPg(report_id) {
+  await pgHandle().prepare('UPDATE weekly_reports SET updated_at=now() WHERE id=?').run(report_id);
+}
+async function _getPreviousWeekOpenActionsPg(site_id, current_report_id) {
+  const H = pgHandle();
+  const prev = await H.prepare(`SELECT wr.id, w.label as week_label FROM weekly_reports wr
+    JOIN weeks w ON w.id = wr.week_id WHERE wr.site_id = ? AND wr.id != ?
+    ORDER BY w.year DESC, w.week_number DESC LIMIT 1`).get(site_id, current_report_id);
+  if (!prev) return { week_label: null, actions: [] };
+  const actions = await H.prepare(`SELECT task, priority, due_date, owner, status, department, comment, sort_order
+    FROM action_items WHERE report_id = ? AND status != 'closed' ORDER BY sort_order`).all(prev.id);
+  return { week_label: prev.week_label, actions };
+}
+async function _listAllWeeksWithActionsPg(site_id, current_report_id) {
+  return pgHandle().prepare(`SELECT wr.id as report_id, w.label as week_label, w.year, w.week_number,
+    w.start_date, w.end_date, COUNT(ai.id) as action_count
+    FROM weekly_reports wr JOIN weeks w ON w.id = wr.week_id
+    LEFT JOIN action_items ai ON ai.report_id = wr.id AND ai.status != 'closed'
+    WHERE wr.site_id = ? AND wr.id != ? GROUP BY wr.id, w.label, w.year, w.week_number, w.start_date, w.end_date
+    ORDER BY w.year DESC, w.week_number DESC`).all(site_id, current_report_id);
+}
+async function _getActionsForReportPg(report_id) {
+  const H = pgHandle();
+  const meta = await H.prepare(`SELECT wr.id, w.label as week_label FROM weekly_reports wr
+    JOIN weeks w ON w.id = wr.week_id WHERE wr.id = ?`).get(report_id);
+  if (!meta) return { week_label: null, actions: [] };
+  const actions = await H.prepare(`SELECT task, priority, due_date, owner, status, department, comment, sort_order
+    FROM action_items WHERE report_id = ? ORDER BY sort_order`).all(report_id);
+  return { week_label: meta.week_label, actions };
+}
+async function _listAllWeeksWithLightsPg(site_id, current_report_id) {
+  return pgHandle().prepare(`SELECT wr.id as report_id, w.label as week_label, w.year, w.week_number,
+    w.start_date, w.end_date, COUNT(l.id) as light_count
+    FROM weekly_reports wr JOIN weeks w ON w.id = wr.week_id
+    LEFT JOIN lights l ON l.report_id = wr.id
+    WHERE wr.site_id = ? AND wr.id != ? GROUP BY wr.id, w.label, w.year, w.week_number, w.start_date, w.end_date
+    ORDER BY w.year DESC, w.week_number DESC`).all(site_id, current_report_id);
+}
+async function _getLightsForReportPg(report_id) {
+  const H = pgHandle();
+  const meta = await H.prepare(`SELECT wr.id, w.label as week_label FROM weekly_reports wr
+    JOIN weeks w ON w.id = wr.week_id WHERE wr.id = ?`).get(report_id);
+  if (!meta) return { week_label: null, lights: [] };
+  const lights = await H.prepare('SELECT type, content, sort_order FROM lights WHERE report_id = ? ORDER BY sort_order').all(report_id);
+  return { week_label: meta.week_label, lights };
+}
+async function _getPreviousWeekInfraKpisPg(site_id, current_report_id) {
+  const H = pgHandle();
+  const prev = await H.prepare(`SELECT wr.id, w.label as week_label FROM weekly_reports wr
+    JOIN weeks w ON w.id = wr.week_id WHERE wr.site_id = ? AND wr.id != ?
+    ORDER BY w.year DESC, w.week_number DESC LIMIT 1`).get(site_id, current_report_id);
+  if (!prev) return { week_label: null, kpis: [] };
+  const kpis = await H.prepare(`SELECT service, kpi, target, status_value, status_color, trend, sort_order
+    FROM infra_kpis WHERE report_id = ? ORDER BY sort_order`).all(prev.id);
+  return { week_label: prev.week_label, kpis };
 }
 
 // ── MONTHLY DATA ──────────────────────────────────────────────────
@@ -2973,6 +3228,7 @@ function getHelpdesk6MonthHistory(site_id, year, month, groups) {
  * where reports[] contains every submitted report across active sites for that week.
  */
 function getWeekSummaryData(year, week) {
+  if (REPORTS_BACKEND === 'postgres') return _getWeekSummaryDataPg(year, week);
   const rows = db.prepare(`
     SELECT wr.id as report_id
     FROM weekly_reports wr
@@ -2990,6 +3246,17 @@ function getWeekSummaryData(year, week) {
     end_date:   weekRange.end,
     reports:    rows.map(r => getReport(r.report_id)).filter(Boolean)
   };
+}
+async function _getWeekSummaryDataPg(year, week) {
+  const H = pgHandle();
+  const rows = await H.prepare(`
+    SELECT wr.id as report_id FROM weekly_reports wr
+    JOIN weeks w ON w.id=wr.week_id JOIN sites s ON s.id=wr.site_id
+    WHERE w.year=? AND w.week_number=? AND wr.status='submitted' AND s.active=1
+    ORDER BY s.sort_order, s.name`).all(year, week);
+  const weekRange = getWeekRange(year, week);   // pure, sync
+  const reports = (await Promise.all(rows.map(r => getReport(r.report_id)))).filter(Boolean);
+  return { year, week, week_label: weekRange.label, start_date: weekRange.start, end_date: weekRange.end, reports };
 }
 
 // ── SYNC METADATA HELPERS ─────────────────────────────────────────
@@ -3699,8 +3966,13 @@ function getRequestMetrics({ site, since, statuses, rtypes, impacts, modes } = {
  * Return the stored monthly_reports row for a site/year/month, or null.
  */
 function getMonthlyReport(site_id, year, month) {
+  if (REPORTS_BACKEND === 'postgres') return _getMonthlyReportPg(site_id, year, month);
   return db.prepare(`SELECT * FROM monthly_reports WHERE site_id=? AND year=? AND month=?`)
            .get(site_id, year, month) || null;
+}
+async function _getMonthlyReportPg(site_id, year, month) {
+  return (await pgHandle().prepare('SELECT * FROM monthly_reports WHERE site_id=? AND year=? AND month=?')
+           .get(site_id, year, month)) || null;
 }
 
 /**
@@ -3709,6 +3981,7 @@ function getMonthlyReport(site_id, year, month) {
  * Otherwise auto-merge from the weekly_reports for that month.
  */
 function getMonthlyEdits(site_id, year, month) {
+  if (REPORTS_BACKEND === 'postgres') return _getMonthlyEditsPg(site_id, year, month);
   const saved = getMonthlyReport(site_id, year, month);
   if (saved && (saved.edited_lights || saved.edited_actions)) {
     return {
@@ -3786,7 +4059,50 @@ function getMonthlyEdits(site_id, year, month) {
 /**
  * Save user edits to monthly_reports (upsert).
  */
+// pg fork of getMonthlyEdits — awaits the reads; the dedup/sort JS is identical to sqlite.
+async function _getMonthlyEditsPg(site_id, year, month) {
+  const H = pgHandle();
+  const saved = await _getMonthlyReportPg(site_id, year, month);
+  if (saved && (saved.edited_lights || saved.edited_actions)) {
+    return {
+      edited_lights:  saved.edited_lights  ? JSON.parse(saved.edited_lights)  : [],
+      edited_actions: saved.edited_actions ? JSON.parse(saved.edited_actions) : [],
+      notes:  saved.notes || '', status: saved.status, source: 'saved',
+    };
+  }
+  const mStr = `${year}-${String(month).padStart(2,'0')}`;
+  const weekRows = await H.prepare(`
+    SELECT wr.id as report_id, w.label as week_label
+    FROM weeks w JOIN weekly_reports wr ON wr.week_id=w.id AND wr.site_id=?
+    WHERE substr(w.start_date,1,7)=? ORDER BY w.year, w.week_number`).all(site_id, mStr);
+  const lightsRaw = [], actionsRaw = [];
+  for (const wk of weekRows) {
+    const ls = await H.prepare('SELECT * FROM lights WHERE report_id=? ORDER BY type, sort_order').all(wk.report_id);
+    ls.forEach(l => lightsRaw.push({ type: l.type, content: l.content, week_label: wk.week_label }));
+    const as = await H.prepare('SELECT * FROM action_items WHERE report_id=? ORDER BY sort_order').all(wk.report_id);
+    as.forEach(a => actionsRaw.push({ task: a.task, priority: a.priority, due_date: a.due_date, owner: a.owner,
+      status: a.status, department: a.department, comment: a.comment, week_label: wk.week_label }));
+  }
+  const lightsMap = new Map();
+  for (const l of lightsRaw) {
+    const key = l.type + '||' + (l.content || '').trim().toLowerCase();
+    const isChange = l.type === 'change_in_progress' || l.type === 'change_pending';
+    if (!lightsMap.has(key)) lightsMap.set(key, l);
+    else if (isChange) lightsMap.set(key, l);
+  }
+  const lights = Array.from(lightsMap.values());
+  const actionsMap = new Map();
+  for (const a of actionsRaw) {
+    const key = (a.task || '').trim().toLowerCase() + '||' + (a.owner || '').trim().toLowerCase();
+    actionsMap.set(key, a);
+  }
+  const _actionOrder = s => ['open','in_progress'].includes((s||'open').toLowerCase()) ? 0 : 1;
+  const actions = Array.from(actionsMap.values()).sort((a, b) => _actionOrder(a.status) - _actionOrder(b.status));
+  return { edited_lights: lights, edited_actions: actions, notes: '', status: 'draft', source: 'auto' };
+}
+
 function saveMonthlyEdits(site_id, year, month, { edited_lights, edited_actions, notes, status }) {
+  if (REPORTS_BACKEND === 'postgres') return _saveMonthlyEditsPg(site_id, year, month, { edited_lights, edited_actions, notes, status });
   const el = edited_lights  != null ? JSON.stringify(edited_lights)  : null;
   const ea = edited_actions != null ? JSON.stringify(edited_actions) : null;
   db.prepare(`
@@ -3800,11 +4116,26 @@ function saveMonthlyEdits(site_id, year, month, { edited_lights, edited_actions,
       updated_at     = datetime('now')
   `).run(site_id, year, month, el, ea, notes || null, status || 'draft');
 }
+async function _saveMonthlyEditsPg(site_id, year, month, { edited_lights, edited_actions, notes, status }) {
+  const el = edited_lights  != null ? JSON.stringify(edited_lights)  : null;
+  const ea = edited_actions != null ? JSON.stringify(edited_actions) : null;
+  await pgHandle().prepare(`
+    INSERT INTO monthly_reports (site_id, year, month, edited_lights, edited_actions, notes, status, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, now())
+    ON CONFLICT(site_id, year, month) DO UPDATE SET
+      edited_lights  = COALESCE(EXCLUDED.edited_lights,  monthly_reports.edited_lights),
+      edited_actions = COALESCE(EXCLUDED.edited_actions, monthly_reports.edited_actions),
+      notes          = COALESCE(EXCLUDED.notes,          monthly_reports.notes),
+      status         = COALESCE(EXCLUDED.status,         monthly_reports.status),
+      updated_at     = now()
+  `).run(site_id, year, month, el, ea, notes || null, status || 'draft');
+}
 
 /**
  * Get annual objectives for a site+year, sorted by sort_order.
  */
 function getAnnualObjectives(site_id, year) {
+  if (REPORTS_BACKEND === 'postgres') return _getAnnualObjectivesPg(site_id, year);
   return db.prepare(`
     SELECT id, objective, target, status, sort_order
     FROM annual_objectives
@@ -3812,12 +4143,20 @@ function getAnnualObjectives(site_id, year) {
     ORDER BY sort_order, id
   `).all(site_id, year);
 }
+async function _getAnnualObjectivesPg(site_id, year) {
+  return pgHandle().prepare(`SELECT id, objective, target, status, sort_order
+    FROM annual_objectives WHERE site_id=? AND year=? ORDER BY sort_order, id`).all(site_id, year);
+}
 
 /**
  * Replace all annual objectives for a site+year in a single transaction.
  * objectives: [{objective, target, status}]
  */
-const saveAnnualObjectives = db.transaction((site_id, year, objectives) => {
+function saveAnnualObjectives(site_id, year, objectives) {
+  if (REPORTS_BACKEND === 'postgres') return _saveAnnualObjectivesPg(site_id, year, objectives);
+  return _saveAnnualObjectivesSqlite(site_id, year, objectives);
+}
+const _saveAnnualObjectivesSqlite = db.transaction((site_id, year, objectives) => {
   db.prepare(`DELETE FROM annual_objectives WHERE site_id=? AND year=?`).run(site_id, year);
   const ins = db.prepare(`
     INSERT INTO annual_objectives (site_id, year, objective, target, status, sort_order, updated_at)
@@ -3827,6 +4166,17 @@ const saveAnnualObjectives = db.transaction((site_id, year, objectives) => {
     ins.run(site_id, year, o.objective || '', o.target || null, o.status || 'in_progress', i);
   });
 });
+async function _saveAnnualObjectivesPg(site_id, year, objectives) {
+  const H = pgHandle();
+  await H.runTransaction(async () => {
+    await H.prepare('DELETE FROM annual_objectives WHERE site_id=? AND year=?').run(site_id, year);
+    let i = 0;
+    for (const o of (objectives || [])) {
+      await H.prepare(`INSERT INTO annual_objectives (site_id, year, objective, target, status, sort_order, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, now())`).run(site_id, year, o.objective||'', o.target||null, o.status||'in_progress', i); i++;
+    }
+  });
+}
 
 // ── YEARLY SUMMARY (for monthly page trend tables) ────────────────
 /**
