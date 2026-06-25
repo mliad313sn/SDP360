@@ -1842,6 +1842,7 @@ async function _getPreviousWeekInfraKpisPg(site_id, current_report_id) {
 
 // ── MONTHLY DATA ──────────────────────────────────────────────────
 function getMonthlyData(site_id, year, month) {
+  if (REPORTS_BACKEND === 'postgres') return _getMonthlyDataPg(site_id, year, month);
   // Get all weeks that fall within the month
   const weeks = db.prepare(`
     SELECT w.*, wr.id as report_id, wr.status
@@ -1887,6 +1888,37 @@ function getMonthlyData(site_id, year, month) {
     history6m:        getHelpdesk6MonthHistory(site_id, year, month),
   };
 }
+async function _getMonthlyDataPg(site_id, year, month) {
+  const H = pgHandle();
+  const mStr = `${year}-${String(month).padStart(2,'0')}`;
+  const weeks = await H.prepare(`
+    SELECT w.*, wr.id as report_id, wr.status FROM weeks w
+    LEFT JOIN weekly_reports wr ON wr.week_id=w.id AND wr.site_id=?
+    WHERE (substr(w.start_date,1,7)=? OR substr(w.end_date,1,7)=?) ORDER BY w.week_number`).all(site_id, mStr, mStr);
+  const reports = (await Promise.all(weeks.filter(w => w.report_id).map(w => getReport(w.report_id)))).filter(Boolean);
+  const pastMonths = [];
+  for (let m = 0; m < 6; m++) {
+    const d = new Date(year, month - 1 - m, 1);
+    const py = d.getFullYear(), pm = d.getMonth() + 1;
+    const pmStr = `${py}-${String(pm).padStart(2,'0')}`;
+    const pmWeeks = await H.prepare(`SELECT wr.id as report_id FROM weeks w
+      JOIN weekly_reports wr ON wr.week_id=w.id AND wr.site_id=?
+      WHERE substr(w.start_date,1,7)=? OR substr(w.end_date,1,7)=?`).all(site_id, pmStr, pmStr);
+    if (pmWeeks.length) {
+      const pmReports = (await Promise.all(pmWeeks.map(w => getReport(w.report_id)))).filter(Boolean);
+      pastMonths.push({ year: py, month: pm, label: d.toLocaleString('en',{month:'short',year:'numeric'}), reports: pmReports });
+    }
+  }
+  const prevD = new Date(year, month - 2, 1);
+  const prevYear = prevD.getFullYear(), prevMonth = prevD.getMonth() + 1;
+  return {
+    weeks, reports, pastMonths,
+    calendar_hd:      await _getCalendarMonthlyHelpdeskPg(site_id, year, month),
+    prev_calendar_hd: await _getCalendarMonthlyHelpdeskPg(site_id, prevYear, prevMonth),
+    monthly_top10:    await _getCalendarMonthlyTop10Pg(site_id, year, month),
+    history6m:        await _getHelpdesk6MonthHistoryPg(site_id, year, month),
+  };
+}
 
 // ── CALENDAR-BASED MONTHLY HELPDESK (matches Analytics Plus formula) ──────
 /**
@@ -1898,6 +1930,7 @@ function getMonthlyData(site_id, year, month) {
  * Returns null when request_records is empty for this site (data not yet synced).
  */
 function getCalendarMonthlyHelpdesk(site_id, year, month) {
+  if (REPORTS_BACKEND === 'postgres') return _getCalendarMonthlyHelpdeskPg(site_id, year, month);
   // zoho_group may be a comma-separated list of Zoho group names (e.g. Exploration has 3).
   // Split and query all groups together using IN (?, ?, ...) — matches server.js behaviour.
   const siteRow = db.prepare(`SELECT zoho_group FROM sites WHERE id=?`).get(site_id);
@@ -1967,6 +2000,7 @@ function getCalendarMonthlyHelpdesk(site_id, year, month) {
  *   pct        = violations / total tickets in that category × 100
  */
 function getCalendarMonthlyTop10(site_id, year, month) {
+  if (REPORTS_BACKEND === 'postgres') return _getCalendarMonthlyTop10Pg(site_id, year, month);
   const siteRow = db.prepare(`SELECT zoho_group FROM sites WHERE id=?`).get(site_id);
   if (!siteRow || !siteRow.zoho_group) return [];
   const groups = siteRow.zoho_group.split(',').map(g => g.trim()).filter(Boolean);
@@ -1999,6 +2033,62 @@ function getCalendarMonthlyTop10(site_id, year, month) {
     violations: r.violations,
     pct:        Math.round(r.violations / r.total * 100),
   }));
+}
+
+// ── Chunk 4D-2a pg forks (calendar) ─────────────────────────────────────────
+// Dialect: date(x)>=? → x::date>=?::date; julianday duration → EXTRACT(EPOCH …)/3600|/86400;
+// GROUP BY category → GROUP BY 1 (sqlite binds the COALESCE alias; pg the raw col).
+async function _getCalendarMonthlyHelpdeskPg(site_id, year, month) {
+  const H = pgHandle();
+  const siteRow = await H.prepare('SELECT zoho_group FROM sites WHERE id=?').get(site_id);
+  if (!siteRow || !siteRow.zoho_group) return null;
+  const groups = siteRow.zoho_group.split(',').map(g => g.trim()).filter(Boolean);
+  if (!groups.length) return null;
+  const inClause = groups.map(() => '?').join(',');
+  const from  = `${year}-${String(month).padStart(2,'0')}-01`;
+  const lastD = new Date(year, month, 0);
+  const to    = `${lastD.getFullYear()}-${String(lastD.getMonth()+1).padStart(2,'0')}-${String(lastD.getDate()).padStart(2,'0')}`;
+  const gft = [...groups, from, to];
+  const DR = `tech_group IN (${inClause}) AND created_time::date>=?::date AND created_time::date<=?::date`;
+  const total = (await H.prepare(`SELECT COUNT(*) as n FROM request_records WHERE ${DR}`).get(...gft)).n;
+  if (!total) return { inbound:0, closed:0, close_pct:0, sla_res_pct:null, sla_reply_pct:null, source:'calendar' };
+  const closed         = (await H.prepare(`SELECT COUNT(*) as n FROM request_records WHERE ${DR} AND pending_status=0`).get(...gft)).n;
+  const slaResOkClosed = (await H.prepare(`SELECT COUNT(*) as n FROM request_records WHERE ${DR} AND pending_status=0 AND overdue_status=0`).get(...gft)).n;
+  const rplyOk    = (await H.prepare(`SELECT COUNT(*) as n FROM request_records WHERE ${DR} AND responded_time IS NOT NULL AND responded_time!='' AND LOWER(first_response_overdue)='false'`).get(...gft)).n;
+  const rplyTotal = (await H.prepare(`SELECT COUNT(*) as n FROM request_records WHERE ${DR} AND responded_time IS NOT NULL AND responded_time!=''`).get(...gft)).n;
+  const avgTtaRow = await H.prepare(`SELECT AVG(EXTRACT(EPOCH FROM (assigned_time::timestamptz - created_time::timestamptz))/3600) as v FROM request_records WHERE ${DR} AND assigned_time IS NOT NULL AND assigned_time!=''`).get(...gft);
+  const avgFrRow  = await H.prepare(`SELECT AVG(EXTRACT(EPOCH FROM (responded_time::timestamptz - created_time::timestamptz))/3600) as v FROM request_records WHERE ${DR} AND responded_time IS NOT NULL AND responded_time!=''`).get(...gft);
+  const avgRtRow  = await H.prepare(`SELECT AVG(EXTRACT(EPOCH FROM (COALESCE(resolved_time,completed_time)::timestamptz - created_time::timestamptz))/86400) as v FROM request_records WHERE ${DR} AND COALESCE(resolved_time,completed_time) IS NOT NULL`).get(...gft);
+  return {
+    inbound: total, closed,
+    close_pct: Math.round(closed / total * 100),
+    sla_res_pct:   closed > 0 ? Math.round(slaResOkClosed / closed * 100) : null,
+    sla_reply_pct: rplyTotal > 0 ? Math.round(rplyOk / rplyTotal * 100) : null,
+    avg_tta_h:         avgTtaRow.v  != null ? Math.round(avgTtaRow.v)  : null,
+    avg_first_reply_h: avgFrRow.v   != null ? Math.round(avgFrRow.v)   : null,
+    avg_resolution_d:  avgRtRow.v   != null ? Math.round(avgRtRow.v)   : null,
+    source: 'calendar', from, to,
+  };
+}
+async function _getCalendarMonthlyTop10Pg(site_id, year, month) {
+  const H = pgHandle();
+  const siteRow = await H.prepare('SELECT zoho_group FROM sites WHERE id=?').get(site_id);
+  if (!siteRow || !siteRow.zoho_group) return [];
+  const groups = siteRow.zoho_group.split(',').map(g => g.trim()).filter(Boolean);
+  if (!groups.length) return [];
+  const inClause = groups.map(() => '?').join(',');
+  const from  = `${year}-${String(month).padStart(2,'0')}-01`;
+  const lastD = new Date(year, month, 0);
+  const to    = `${lastD.getFullYear()}-${String(lastD.getMonth()+1).padStart(2,'0')}-${String(lastD.getDate()).padStart(2,'0')}`;
+  const gft   = [...groups, from, to];
+  const rows = await H.prepare(`
+    SELECT COALESCE(NULLIF(TRIM(category),''), 'Uncategorised') AS category,
+           COUNT(*) AS total, SUM(CASE WHEN overdue_status=1 THEN 1 ELSE 0 END) AS violations
+    FROM request_records
+    WHERE tech_group IN (${inClause}) AND created_time::date>=?::date AND created_time::date<=?::date
+    GROUP BY 1 HAVING SUM(CASE WHEN overdue_status=1 THEN 1 ELSE 0 END) > 0
+    ORDER BY violations DESC, total DESC LIMIT 10`).all(...gft);
+  return rows.map(r => ({ category: r.category, violations: r.violations, pct: Math.round(r.violations / r.total * 100) }));
 }
 
 // ── 6-MONTH HELPDESK HISTORY (for monthly PPTX combo chart) ─────
@@ -2034,6 +2124,7 @@ function getCalendarMonthlyTop10(site_id, year, month) {
  *     '% of First Responses SLA Violated':   <0..100 number> }
  */
 function getMonthlyHelpdeskHistory(monthsBack = 12) {
+  if (REPORTS_BACKEND === 'postgres') return _getMonthlyHelpdeskHistoryPg(monthsBack);
   const MN = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
                   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const today = new Date();
@@ -2070,6 +2161,34 @@ function getMonthlyHelpdeskHistory(monthsBack = 12) {
       // preserved for executive.html consumer compatibility.
       '% of SLA Violated':                   closed     > 0 ? Math.round(slaViolClosed / closed     * 1000) / 10 : 0,
       '% of First Responses SLA Violated':   replyTotal > 0 ? Math.round(replyViol     / replyTotal * 1000) / 10 : 0,
+    });
+  }
+  return rows;
+}
+async function _getMonthlyHelpdeskHistoryPg(monthsBack = 12) {
+  const H = pgHandle();
+  const MN = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const today = new Date();
+  const rows = [];
+  const DR = `created_time::date >= ?::date AND created_time::date <= ?::date`;
+  for (let ago = monthsBack - 1; ago >= 0; ago--) {
+    const d  = new Date(today.getFullYear(), today.getMonth() - ago, 1);
+    const yr = d.getFullYear(), mo = d.getMonth() + 1;
+    const start = `${yr}-${String(mo).padStart(2,'0')}-01`;
+    const last  = new Date(yr, mo, 0).getDate();
+    const end   = `${yr}-${String(mo).padStart(2,'0')}-${String(last).padStart(2,'0')}`;
+    const params = [start, end];
+    const total       = (await H.prepare(`SELECT COUNT(*) AS n FROM request_records WHERE ${DR}`).get(...params)).n;
+    const closed      = (await H.prepare(`SELECT COUNT(*) AS n FROM request_records WHERE ${DR} AND pending_status = 0`).get(...params)).n;
+    const slaViolClosed = (await H.prepare(`SELECT COUNT(*) AS n FROM request_records WHERE ${DR} AND pending_status = 0 AND overdue_status = 1`).get(...params)).n;
+    const replyViol   = (await H.prepare(`SELECT COUNT(*) AS n FROM request_records WHERE ${DR} AND responded_time IS NOT NULL AND responded_time != '' AND LOWER(first_response_overdue) = 'true'`).get(...params)).n;
+    const replyTotal  = (await H.prepare(`SELECT COUNT(*) AS n FROM request_records WHERE ${DR} AND responded_time IS NOT NULL AND responded_time != ''`).get(...params)).n;
+    rows.push({
+      'Created Time': `${MN[mo]} ${yr}`,
+      'Requests': total,
+      'Closed Requests Count': closed,
+      '% of SLA Violated':                 closed     > 0 ? Math.round(slaViolClosed / closed     * 1000) / 10 : 0,
+      '% of First Responses SLA Violated': replyTotal > 0 ? Math.round(replyViol     / replyTotal * 1000) / 10 : 0,
     });
   }
   return rows;
@@ -2885,6 +3004,7 @@ function getCustomerVoiceByDimensionDB() {
 }
 
 function getMajorIncidentsHistory(monthsBack = 12) {
+  if (REPORTS_BACKEND === 'postgres') return _getMajorIncidentsHistoryPg(monthsBack);
   const today = new Date();
   const cutoff = new Date(today.getFullYear(), today.getMonth() - monthsBack + 1, 1);
   const cutoffISO = cutoff.toISOString();
@@ -2896,6 +3016,29 @@ function getMajorIncidentsHistory(monthsBack = 12) {
     ORDER BY created_time DESC
   `).all(cutoffISO);
 
+  return _mapMajorIncidentRows(rows);
+}
+
+// PG fork — same raw-TEXT cutoff comparison (created_time >= ISO bound is a
+// lexical string compare on a TEXT col in BOTH engines; do NOT add a cast).
+// Awaits the query, reuses the shared JS row mapper.
+async function _getMajorIncidentsHistoryPg(monthsBack = 12) {
+  const today = new Date();
+  const cutoff = new Date(today.getFullYear(), today.getMonth() - monthsBack + 1, 1);
+  const cutoffISO = cutoff.toISOString();
+  const rows = await pgHandle().prepare(`
+    SELECT * FROM request_records
+    WHERE LOWER(COALESCE(request_type, '')) LIKE '%major%'
+      AND created_time >= ?
+    ORDER BY created_time DESC
+  `).all(cutoffISO);
+  return _mapMajorIncidentRows(rows);
+}
+
+// Shared major-incident row transform (engine-agnostic, pure JS over fetched
+// rows): UDF defaults, udf_json unpack, priority-fallback chain + canonical
+// P-Label, downtime parse. Used by both the sqlite and pg paths.
+function _mapMajorIncidentRows(rows) {
   // Default UDF keys (empty) so client code can call .trim() without a
   // null check on rows where udf_json hasn't been backfilled yet.
   const UDF_DEFAULTS = {
@@ -3097,6 +3240,7 @@ function isoToZohoStr(iso) {
 // (FORMULA_RECONCILIATION.md §6 D2); FRT% uses responded-only denominator
 // (§6 D3). Returns the same shape as the calendar path.
 function _aggregateHelpdesk6MoFromRaw(siteName, py, pm, groups) {
+  if (REPORTS_BACKEND === 'postgres') return _aggregateHelpdesk6MoFromRawPg(siteName, py, pm, groups);
   const mStr = `${py}-${String(pm).padStart(2, '0')}`;
   const gParams = Array.isArray(groups) ? groups : [];
   const groupWhere = gParams.length > 0
@@ -3139,14 +3283,46 @@ function _aggregateHelpdesk6MoFromRaw(siteName, py, pm, groups) {
 // Resolve a sites-table id to the canonical site name used in request_records.
 // Returns null when site_id is unset (= All Sites filter).
 function _siteIdToName(site_id) {
+  if (REPORTS_BACKEND === 'postgres') return _siteIdToNamePg(site_id);
   if (!site_id) return null;
   try {
     const row = db.prepare('SELECT name FROM sites WHERE id = ?').get(site_id);
     return row ? row.name : null;
   } catch (_) { return null; }
 }
+async function _siteIdToNamePg(site_id) {
+  if (!site_id) return null;
+  try {
+    const row = await pgHandle().prepare('SELECT name FROM sites WHERE id = ?').get(site_id);
+    return row ? row.name : null;
+  } catch (_) { return null; }
+}
+// pg fork: single aggregate query — strftime('%Y-%m',created_time)=? → to_char(...,'YYYY-MM')=?.
+async function _aggregateHelpdesk6MoFromRawPg(siteName, py, pm, groups) {
+  const H = pgHandle();
+  const mStr = `${py}-${String(pm).padStart(2, '0')}`;
+  const gParams = Array.isArray(groups) ? groups : [];
+  const groupWhere = gParams.length > 0 ? `AND tech_group IN (${gParams.map(() => '?').join(',')})` : '';
+  const siteClause = siteName ? `AND site=?` : '';
+  const siteParam  = siteName ? [siteName] : [];
+  const row = await H.prepare(`
+    SELECT COUNT(*) as inbound,
+      SUM(CASE WHEN pending_status = 0 THEN 1 ELSE 0 END) as closed,
+      SUM(CASE WHEN pending_status = 0 AND LOWER(COALESCE(overdue_status::text,'')) NOT IN ('1','true','yes') THEN 1 ELSE 0 END) as sla_ok_closed,
+      SUM(CASE WHEN responded_time IS NOT NULL AND TRIM(responded_time) != '' THEN 1 ELSE 0 END) as responded,
+      SUM(CASE WHEN responded_time IS NOT NULL AND TRIM(responded_time) != '' AND LOWER(COALESCE(first_response_overdue,'')) NOT IN ('1','true','yes') THEN 1 ELSE 0 END) as frt_ok_responded
+    FROM request_records
+    WHERE to_char(created_time::timestamptz,'YYYY-MM') = ? ${siteClause} ${groupWhere}
+  `).get(mStr, ...siteParam, ...gParams);
+  return {
+    inbound: row.inbound || 0, closed: row.closed || 0,
+    res_sla_pct:   row.closed    > 0 ? Math.round(row.sla_ok_closed   / row.closed    * 100) : null,
+    reply_sla_pct: row.responded > 0 ? Math.round(row.frt_ok_responded / row.responded * 100) : null,
+  };
+}
 
 function getHelpdesk6MonthHistory(site_id, year, month, groups) {
+  if (REPORTS_BACKEND === 'postgres') return _getHelpdesk6MonthHistoryPg(site_id, year, month, groups);
   // 2026-06-02: added `groups` param. When set, the calendar fast-path can't
   // satisfy the request (it's site-wide / group-wide aggregate) — fall through
   // to _aggregateHelpdesk6MoFromRaw which scans request_records with the group
@@ -3228,6 +3404,49 @@ function getHelpdesk6MonthHistory(site_id, year, month, groups) {
       res_sla_pct:   resN > 0 ? Math.round(resSum / resN) : null,
       reply_sla_pct: frN  > 0 ? Math.round(frSum  / frN)  : null,
     });
+  }
+  return history;
+}
+async function _getHelpdesk6MonthHistoryPg(site_id, year, month, groups) {
+  const H = pgHandle();
+  const groupList = Array.isArray(groups) ? groups.filter(Boolean) : [];
+  const useRaw = groupList.length > 0;
+  const siteName = useRaw ? await _siteIdToNamePg(site_id) : null;
+  const history = [];
+  for (let ago = 5; ago >= 0; ago--) {
+    const d = new Date(year, month - 1 - ago, 1);
+    const py = d.getFullYear(), pm = d.getMonth() + 1;
+    const lbl = d.toLocaleString('en', { month: 'short', year: 'numeric' });
+    if (useRaw) {
+      const agg = await _aggregateHelpdesk6MoFromRawPg(siteName, py, pm, groupList);
+      history.push({ label: lbl, inbound: agg.inbound || null, closed: agg.closed || null, res_sla_pct: agg.res_sla_pct, reply_sla_pct: agg.reply_sla_pct });
+      continue;
+    }
+    const cal = await _getCalendarMonthlyHelpdeskPg(site_id, py, pm);
+    if (cal && cal.inbound > 0) {
+      history.push({ label: lbl, inbound: cal.inbound, closed: cal.closed, res_sla_pct: cal.sla_res_pct, reply_sla_pct: cal.sla_reply_pct });
+      continue;
+    }
+    // weekly fallback (substr dialect-safe)
+    const pmStr = `${py}-${String(pm).padStart(2, '0')}`;
+    const rptRows = await H.prepare(`SELECT wr.id as report_id, w.label as week_label
+      FROM weeks w JOIN weekly_reports wr ON wr.week_id=w.id AND wr.site_id=?
+      WHERE substr(w.start_date,1,7)=? OR substr(w.end_date,1,7)=?`).all(site_id, pmStr, pmStr);
+    if (!rptRows.length) { history.push({ label: lbl, inbound: null, closed: null, res_sla_pct: null, reply_sla_pct: null }); continue; }
+    let mIn = 0, mCl = 0, resSum = 0, resN = 0, frSum = 0, frN = 0;
+    for (const row of rptRows) {
+      const hdRow = await H.prepare('SELECT chart_data FROM helpdesk_data WHERE report_id=?').get(row.report_id);
+      if (!hdRow || !hdRow.chart_data) continue;
+      let cd; try { cd = JSON.parse(hdRow.chart_data); } catch (e) { continue; }
+      const wks = Array.isArray(cd.weeks) ? cd.weeks : [];
+      const wk = wks.find(w => (w.label||'').trim().toLowerCase() === (row.week_label||'').trim().toLowerCase()) || (wks.length ? wks[wks.length - 1] : null);
+      if (!wk) continue;
+      mIn += wk.inbound || 0; mCl += wk.closed || 0;
+      if (wk.res_ok_pct != null) { resSum += wk.res_ok_pct; resN++; }
+      if (wk.fr_ok_pct  != null) { frSum  += wk.fr_ok_pct;  frN++;  }
+    }
+    history.push({ label: lbl, inbound: mIn || null, closed: mCl || null,
+      res_sla_pct: resN > 0 ? Math.round(resSum / resN) : null, reply_sla_pct: frN > 0 ? Math.round(frSum / frN) : null });
   }
   return history;
 }
@@ -4110,7 +4329,9 @@ function getSurveyMetrics({ since } = {}) {
  *
  * Optional filters: site (site name), since (ISO date for created_time).
  */
-function getRequestMetrics({ site, since, statuses, rtypes, impacts, modes } = {}) {
+function getRequestMetrics(opts = {}) {
+  if (REPORTS_BACKEND === 'postgres') return _getRequestMetricsPg(opts);
+  const { site, since, statuses, rtypes, impacts, modes } = opts;
   // AP formula: Inbound = count(RequestID) — ALL tickets, no filter (AP chart has Filters: 0).
   // Closed = countif(pending_status = 0). No SLA exclusion needed.
   let where = 'WHERE 1=1';
@@ -4226,6 +4447,65 @@ function getRequestMetrics({ site, since, statuses, rtypes, impacts, modes } = {
     by_technician: byTech,
     by_group:      byGroup,
     monthly_trend: monthly.reverse(),
+  };
+}
+async function _getRequestMetricsPg({ site, since, statuses, rtypes, impacts, modes } = {}) {
+  const H = pgHandle();
+  let where = 'WHERE 1=1';
+  const p = [];
+  if (site)  { where += ' AND site=?';          p.push(site); }
+  if (since) { where += ' AND created_time>=?'; p.push(since); }
+  const addIn = (col, vals) => { if (Array.isArray(vals) && vals.length > 0) { where += ` AND ${col} IN (${vals.map(()=>'?').join(',')})`; p.push(...vals); } };
+  addIn('request_status', statuses); addIn('request_type', rtypes); addIn('impact', impacts); addIn('mode', modes);
+  const cnt = async (extra) => (await H.prepare(`SELECT COUNT(*) as n FROM request_records ${where}${extra}`).get(...p)).n;
+  const total           = await cnt('');
+  const openCount       = await cnt(' AND pending_status=1');
+  const closedCount     = await cnt(' AND pending_status=0');
+  const backlogCount    = await cnt(' AND pending_status=1 AND overdue_status=1');
+  const withinSlaCount  = await cnt(' AND overdue_status=0');
+  const slaViolated     = await cnt(' AND overdue_status=1');
+  const withinSlaClosed = await cnt(' AND pending_status=0 AND overdue_status=0');
+  const slaOkPct        = closedCount > 0 ? +(withinSlaClosed / closedCount * 100).toFixed(1) : null;
+  const reopenCount     = await cnt(' AND reopen_count > 0');
+  const reopenedClosed  = await cnt(' AND pending_status=0 AND reopen_count > 0');
+  const reopenPct       = closedCount > 0 ? +(reopenedClosed / closedCount * 100).toFixed(1) : null;
+  const resolvedCount   = await cnt(` AND request_status='Resolved'`);
+  const resolvedSameWeek= (await H.prepare(`SELECT COUNT(*) as n FROM request_records ${where} AND request_status='Resolved' AND resolved_time IS NOT NULL AND created_time IS NOT NULL AND EXTRACT(EPOCH FROM (resolved_time::timestamptz - created_time::timestamptz))/86400 <= 7`).get(...p)).n;
+  const serviceReqCount = await cnt(' AND service_request=1');
+  const incidentCount   = await cnt(' AND service_request=0');
+  const escalatedCount  = (await H.prepare(`SELECT COUNT(*) as n FROM request_records ${where} AND (is_escalated::text IN ('1','true'))`).get(...p)).n;
+  const firstRespViolated     = await cnt(` AND (LOWER(first_response_overdue) IN ('true','1','yes'))`);
+  const respondedCount        = await cnt(` AND responded_time IS NOT NULL AND responded_time != ''`);
+  const firstRespViolatedResp = await cnt(` AND responded_time IS NOT NULL AND responded_time != '' AND (LOWER(first_response_overdue) IN ('true','1','yes'))`);
+  const firstRespViolatedPct  = respondedCount > 0 ? +(firstRespViolatedResp / respondedCount * 100).toFixed(1) : null;
+  const avgHrsRow = await H.prepare(`SELECT ROUND(AVG(time_elapsed_ms)/3600000.0, 2) as avg_hrs FROM request_records ${where} AND pending_status=0 AND time_elapsed_ms IS NOT NULL AND time_elapsed_ms > 0`).get(...p);
+  const byStatus   = await H.prepare(`SELECT request_status as status, COUNT(*) as count FROM request_records ${where} GROUP BY request_status ORDER BY count DESC`).all(...p);
+  const bySite     = await H.prepare(`SELECT site, COUNT(*) as count FROM request_records ${where} GROUP BY site ORDER BY count DESC`).all(...p);
+  const byCategory = await H.prepare(`SELECT category, COUNT(*) as count FROM request_records ${where} GROUP BY category ORDER BY count DESC LIMIT 10`).all(...p);
+  const byTech     = await H.prepare(`SELECT technician, COUNT(*) as count FROM request_records ${where} GROUP BY technician ORDER BY count DESC LIMIT 10`).all(...p);
+  const byGroup    = await H.prepare(`SELECT tech_group, COUNT(*) as count FROM request_records ${where} GROUP BY tech_group ORDER BY count DESC LIMIT 10`).all(...p);
+  const monthly = await H.prepare(`
+    SELECT to_char(created_time::timestamptz,'YYYY-MM') as month,
+           COUNT(*) as total_count,
+           SUM(CASE WHEN pending_status=0 THEN 1 ELSE 0 END) as closed_count,
+           SUM(CASE WHEN overdue_status=1 THEN 1 ELSE 0 END) as sla_violated_count,
+           SUM(CASE WHEN pending_status=0 AND overdue_status=0 THEN 1 ELSE 0 END) as within_sla_closed,
+           CASE WHEN SUM(CASE WHEN pending_status=0 THEN 1 ELSE 0 END) > 0
+                THEN ROUND(100.0 * SUM(CASE WHEN pending_status=0 AND overdue_status=0 THEN 1 ELSE 0 END)
+                                  / SUM(CASE WHEN pending_status=0 THEN 1 ELSE 0 END), 1)
+                ELSE NULL END as sla_ok_pct
+    FROM request_records ${where}
+    GROUP BY to_char(created_time::timestamptz,'YYYY-MM') ORDER BY month DESC LIMIT 12`).all(...p);
+  return {
+    total, open_count: openCount, closed_count: closedCount, backlog_count: backlogCount,
+    within_sla_count: withinSlaCount, sla_violated_count: slaViolated, sla_ok_pct: slaOkPct,
+    reopen_count: reopenCount, reopen_pct: reopenPct, resolved_count: resolvedCount,
+    resolved_same_week: resolvedSameWeek, service_request_count: serviceReqCount,
+    incident_count: incidentCount, escalated_count: escalatedCount,
+    first_resp_violated_count: firstRespViolated, first_resp_violated_pct: firstRespViolatedPct,
+    avg_resolution_hrs: avgHrsRow?.avg_hrs ?? null,
+    by_status: byStatus, by_site: bySite, by_category: byCategory, by_technician: byTech,
+    by_group: byGroup, monthly_trend: monthly.reverse(),
   };
 }
 
@@ -4457,6 +4737,7 @@ async function _saveAnnualObjectivesPg(site_id, year, objectives) {
  * - hd figures are SUMMED/AVERAGED across all weekly reports of the month
  */
 function getYearlySummary(site_id, year) {
+  if (REPORTS_BACKEND === 'postgres') return _getYearlySummaryPg(site_id, year);
   const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const result = [];
 
@@ -4489,6 +4770,27 @@ function getYearlySummary(site_id, year) {
     const hd = getCalendarMonthlyHelpdesk(site_id, year, m)
               || { inbound:0, closed:0, close_pct:0, sla_res_pct:null, sla_reply_pct:null };
 
+    result.push({ month: m, label: monthNames[m-1], has_data: true, kpis, hd });
+  }
+  return result;
+}
+async function _getYearlySummaryPg(site_id, year) {
+  const H = pgHandle();
+  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const result = [];
+  for (let m = 1; m <= 12; m++) {
+    const mStr = `${year}-${String(m).padStart(2,'0')}`;
+    const reportRows = await H.prepare(`SELECT DISTINCT wr.id as report_id, w.week_number
+      FROM weeks w JOIN weekly_reports wr ON wr.week_id=w.id AND wr.site_id=?
+      WHERE substr(w.start_date,1,7)=? ORDER BY w.week_number`).all(site_id, mStr);
+    if (!reportRows.length) {
+      const hd = (await _getCalendarMonthlyHelpdeskPg(site_id, year, m)) || null;
+      result.push({ month: m, label: monthNames[m-1], has_data: false, kpis: [], hd });
+      continue;
+    }
+    const lastRid = reportRows[reportRows.length - 1].report_id;
+    const kpis = await H.prepare(`SELECT service, kpi, target, status_value, status_color, trend FROM infra_kpis WHERE report_id=? ORDER BY sort_order`).all(lastRid);
+    const hd = (await _getCalendarMonthlyHelpdeskPg(site_id, year, m)) || { inbound:0, closed:0, close_pct:0, sla_res_pct:null, sla_reply_pct:null };
     result.push({ month: m, label: monthNames[m-1], has_data: true, kpis, hd });
   }
   return result;
@@ -4585,6 +4887,7 @@ function getOpenChangesForSite(groups) {
 // handful of *open* major incidents at any one time, but the LIMIT is
 // defensive in case a backlog has built up.
 function getActiveMajorIncidentsForSite(groups) {
+  if (REPORTS_BACKEND === 'postgres') return _getActiveMajorIncidentsForSitePg(groups);
   if (!groups || !groups.length) return [];
   const ph = groups.map(() => '?').join(',');
   const rows = db.prepare(`
@@ -4602,6 +4905,35 @@ function getActiveMajorIncidentsForSite(groups) {
     LIMIT 25
   `).all(...groups);
 
+  return _mapActiveMajorIncidentRows(rows);
+}
+
+// PG fork — only dialect hazard is the datetime() in the ORDER BY →
+// created_time::timestamptz. WHERE has no date/now expression.
+async function _getActiveMajorIncidentsForSitePg(groups) {
+  if (!groups || !groups.length) return [];
+  const ph = groups.map(() => '?').join(',');
+  const rows = await pgHandle().prepare(`
+    SELECT request_id, display_id, subject, request_status, pending_status,
+           overdue_status, request_type, technician, requester, site,
+           tech_group, category, sub_category, created_time, due_by_time,
+           resolved_time, last_updated_time, udf_json
+    FROM request_records
+    WHERE pending_status = 1
+      AND LOWER(COALESCE(request_type, '')) LIKE '%major%'
+      AND tech_group IN (${ph})
+    ORDER BY
+      overdue_status DESC,
+      created_time::timestamptz ASC
+    LIMIT 25
+  `).all(...groups);
+
+  return _mapActiveMajorIncidentRows(rows);
+}
+
+// Shared transform for active major-incident rows (engine-agnostic JS):
+// curated UDF subset + completeness/PIR heuristics.
+function _mapActiveMajorIncidentRows(rows) {
   // Surface a curated subset of UDFs the panel cares about, plus a
   // pre-computed completeness flag (missing/partial/done) for each so
   // the client doesn't have to re-implement the dashboard's heuristic.
@@ -4658,6 +4990,7 @@ function getActiveMajorIncidentsForSite(groups) {
  * enough that DISTINCT scans are sub-millisecond at current volume.
  */
 function getRequestFilterOptions() {
+  if (REPORTS_BACKEND === 'postgres') return _getRequestFilterOptionsPg();
   const distinct = (col) => db.prepare(
     `SELECT DISTINCT ${col} AS v FROM request_records
      WHERE ${col} IS NOT NULL AND ${col} != '' ORDER BY 1`
@@ -4667,6 +5000,16 @@ function getRequestFilterOptions() {
     types:    distinct('request_type'),
     impacts:  distinct('impact'),
     modes:    distinct('mode'),
+  };
+}
+async function _getRequestFilterOptionsPg() {
+  const H = pgHandle();
+  const distinct = async (col) => (await H.prepare(`SELECT DISTINCT ${col} AS v FROM request_records WHERE ${col} IS NOT NULL AND ${col} != '' ORDER BY 1`).all()).map(r => r.v);
+  return {
+    statuses: await distinct('request_status'),
+    types:    await distinct('request_type'),
+    impacts:  await distinct('impact'),
+    modes:    await distinct('mode'),
   };
 }
 
