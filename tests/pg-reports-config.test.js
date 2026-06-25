@@ -9,7 +9,26 @@ process.env.DASH_PASS = process.env.DASH_PASS || 'pgtest-pass-0000';
 const { test } = require('node:test');
 const assert = require('node:assert');
 const { provisionTestDb, dropTestDb } = require('./pg-helpers');
+const { makePgDb } = require('../services/pgDb');
 const SCHEMA2 = _fs.readFileSync(_path.join(__dirname, '../db/postgres/reports/002_config.sql'), 'utf8');
+
+// A throwaway sqlite reports.db seeded with the 3 config tables (copy-script source).
+function _makeConfigSqliteFixture() {
+  const Database = require('better-sqlite3');
+  const dir = _fs.mkdtempSync(_path.join(_os.tmpdir(), 'rcfg-fix-'));
+  const p = _path.join(dir, 'reports.db');
+  const db = new Database(p);
+  db.exec(`
+    CREATE TABLE action_departments (id INTEGER PRIMARY KEY, name TEXT, sort_order INTEGER, active INTEGER, created_at TEXT, updated_at TEXT);
+    CREATE TABLE audit_log (id INTEGER PRIMARY KEY, report_id INTEGER, site_id INTEGER, user_id INTEGER, username TEXT, action TEXT, details TEXT, created_at TEXT);
+    CREATE TABLE dashboard_preset_groups (scope TEXT, preset_name TEXT, group_name TEXT, display_order INTEGER, updated_at TEXT, updated_by TEXT, PRIMARY KEY(scope,preset_name,group_name));
+  `);
+  db.prepare(`INSERT INTO action_departments VALUES (5,'Mining',1,1,'2026-06-01 00:00:00',NULL)`).run();
+  db.prepare(`INSERT INTO audit_log VALUES (3,99,1,1,'me','created','{"a":1}','2026-06-01 00:00:00')`).run();
+  db.prepare(`INSERT INTO dashboard_preset_groups VALUES ('tickets','Operations','GrpA',0,'2026-06-01 00:00:00','sys')`).run();
+  db.close();
+  return p;
+}
 
 async function boot() {
   const ctx = await provisionTestDb();
@@ -105,4 +124,24 @@ test('config pg: group presets get/set/discovered', async (t) => {
     const merged = await gp.getPresetsWithDiscovered(null, 'tickets');
     assert.ok(Array.isArray(merged.Other));
   } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
+});
+
+test('copy-reports-config: sqlite → pg parity + sequence advance', async (t) => {
+  const ctx = await provisionTestDb(); if (!ctx) return t.skip('no pg');
+  const { copyReportsConfig } = require('../tools/pg/copy-reports-config');
+  const src = _makeConfigSqliteFixture();
+  const db = makePgDb(ctx.url); await db.connect();
+  try {
+    const c = await copyReportsConfig(src, db);
+    assert.equal(c.action_departments, 1); assert.equal(c.audit_log, 1); assert.equal(c.dashboard_preset_groups, 1);
+    assert.equal((await db.prepare(`SELECT name FROM action_departments WHERE id=5`).get()).name, 'Mining');
+    assert.equal(JSON.parse((await db.prepare(`SELECT details FROM audit_log WHERE id=3`).get()).details).a, 1);
+    assert.equal((await db.prepare(`SELECT group_name FROM dashboard_preset_groups WHERE scope='tickets'`).get()).group_name, 'GrpA');
+    // idempotent re-copy
+    await copyReportsConfig(src, db);
+    assert.equal((await db.prepare(`SELECT count(*)::int n FROM action_departments`).get()).n, 1);
+    // IDENTITY advanced past copied id 5
+    const r = await db.prepare(`INSERT INTO action_departments (name) VALUES ('NewDept')`).run();
+    assert.ok(r.lastID > 5, 'action_departments identity advanced past copied id, got ' + r.lastID);
+  } finally { await db.close(); await dropTestDb(ctx); _fs.rmSync(_path.dirname(src), { recursive: true, force: true }); }
 });
