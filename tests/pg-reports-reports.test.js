@@ -54,3 +54,36 @@ test('reports pg: week + report header CRUD + status', async (t) => {
     assert.equal((await rdb.getReport(r.id)).submitted_at, null, 'revert clears submitted_at');
   } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
 });
+
+test('reports pg: infra/helpdesk/lights/actions save + read + carry-over', async (t) => {
+  const b = await boot(); if (!b) return t.skip('no pg');
+  const { ctx, rdb, siteId } = b;
+  try {
+    const r = await rdb.ensureReport(siteId, 2026, 21);
+    await rdb.saveInfraKpis(r.id, [{ service:'Network', kpi:'Availability', target:'99%', status_value:'99.5%', status_color:'green', trend:'up' }]);
+    // Save #1 — full payload. JSON round-trip asserted on THIS save.
+    await rdb.saveHelpdeskData(r.id, { time_to_assign: 1.5, sla_violations:[{category:'X',pct:10}], group_metrics:[{label:'W21'}], selected_group:'Ops' });
+    let full = await rdb.getReport(r.id);
+    assert.equal(full.helpdesk.time_to_assign, 1.5);
+    assert.deepEqual(full.helpdesk.sla_violations, [{category:'X',pct:10}], 'JSON round-trip');
+    // Save #2 — partial. saveHelpdeskData's ON CONFLICT does a FULL-column replace (no COALESCE).
+    await rdb.saveHelpdeskData(r.id, { time_to_assign: 2.0, selected_group:'Ops2' });
+    await rdb.saveLights(r.id, [{ type:'low_light', content:'L1' }, { type:'high_light', content:'H1' }]);
+    await rdb.saveActionItems(r.id, [{ task:'Do X', owner:'Bob', department:'Mining', comment:'note', status:'open' }]);
+    full = await rdb.getReport(r.id);
+    assert.equal(full.infra_kpis.length, 1);
+    assert.equal(full.helpdesk.time_to_assign, 2.0, 'helpdesk upsert replaced');
+    assert.equal(full.helpdesk.sla_violations, null, 'full-replace upsert NULLs unset cols');
+    assert.equal(full.lights.length, 2);
+    assert.equal(full.action_items[0].department, 'Mining');
+    // readers
+    assert.equal((await rdb.getLightsForReport(r.id)).lights.length, 2);
+    assert.equal((await rdb.getActionsForReport(r.id)).actions.length, 1);
+    // carry-over from a 2nd report
+    const r2 = await rdb.ensureReport(siteId, 2026, 22);
+    assert.equal((await rdb.getPreviousWeekOpenActions(siteId, r2.id)).actions.length, 1);
+    assert.equal((await rdb.getPreviousWeekInfraKpis(siteId, r2.id)).kpis.length, 1);
+    assert.ok((await rdb.listAllWeeksWithActions(siteId, r2.id)).length >= 1);
+    assert.ok((await rdb.listAllWeeksWithLights(siteId, r2.id)).length >= 1);
+  } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
+});
