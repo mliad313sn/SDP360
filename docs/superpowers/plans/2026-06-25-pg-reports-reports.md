@@ -316,14 +316,20 @@ test('reports pg: infra/helpdesk/lights/actions save + read + carry-over', async
   try {
     const r = await rdb.ensureReport(siteId, 2026, 21);
     await rdb.saveInfraKpis(r.id, [{ service:'Network', kpi:'Availability', target:'99%', status_value:'99.5%', status_color:'green', trend:'up' }]);
+    // Save #1 — full payload. Assert JSON round-trip on THIS save.
     await rdb.saveHelpdeskData(r.id, { time_to_assign: 1.5, sla_violations:[{category:'X',pct:10}], group_metrics:[{label:'W21'}], selected_group:'Ops' });
-    await rdb.saveHelpdeskData(r.id, { time_to_assign: 2.0, selected_group:'Ops2' });   // upsert same report_id
+    let full = await rdb.getReport(r.id);
+    assert.equal(full.helpdesk.time_to_assign, 1.5);
+    assert.deepEqual(full.helpdesk.sla_violations, [{category:'X',pct:10}], 'JSON round-trip');
+    // Save #2 — partial. saveHelpdeskData's ON CONFLICT does a FULL-column replace
+    // (no COALESCE), so unset columns become NULL. Assert that honestly.
+    await rdb.saveHelpdeskData(r.id, { time_to_assign: 2.0, selected_group:'Ops2' });
     await rdb.saveLights(r.id, [{ type:'low_light', content:'L1' }, { type:'high_light', content:'H1' }]);
     await rdb.saveActionItems(r.id, [{ task:'Do X', owner:'Bob', department:'Mining', comment:'note', status:'open' }]);
-    const full = await rdb.getReport(r.id);
+    full = await rdb.getReport(r.id);
     assert.equal(full.infra_kpis.length, 1);
     assert.equal(full.helpdesk.time_to_assign, 2.0, 'helpdesk upsert replaced');
-    assert.deepEqual(full.helpdesk.sla_violations, [{category:'X',pct:10}], 'JSON round-trip (from 1st save, COALESCE-preserved? no — full replace)');
+    assert.equal(full.helpdesk.sla_violations, null, 'full-replace upsert NULLs unset cols');
     assert.equal(full.lights.length, 2);
     assert.equal(full.action_items[0].department, 'Mining');
     // readers
@@ -339,7 +345,11 @@ test('reports pg: infra/helpdesk/lights/actions save + read + carry-over', async
 });
 ```
 
-> NOTE: `saveHelpdeskData` does a FULL-column `ON CONFLICT DO UPDATE` (every column set from `excluded`, no COALESCE) — so the 2nd save with only `time_to_assign`+`selected_group` will NULL `sla_violations`. Adjust the assertion: after the 2nd save `full.helpdesk.sla_violations` is `null`. **Fix the test** to assert `time_to_assign===2.0` and `sla_violations` round-trips when set in the SAME save — split into two reports or assert null after the partial 2nd save. Keep the test honest to the real upsert semantics.
+> The test above is already honest to `saveHelpdeskData`'s real semantics: a FULL-column
+> `ON CONFLICT(report_id) DO UPDATE` (every column set from `excluded`, NO COALESCE), so the
+> partial save #2 NULLs `sla_violations`/`group_metrics`. The JSON round-trip is asserted on
+> save #1 (full payload); the NULL-on-replace is asserted after save #2. Do NOT assert that
+> save #1's `group_metrics`/`sla_violations` survive save #2 — they don't.
 
 - [ ] **Step 2: Run** → FAIL.
 - [ ] **Step 3: Implement.** Convert the 3 `const x = db.transaction(...)` savers to dispatching functions + add the readers' forks:
@@ -442,7 +452,7 @@ test('reports pg: monthly edits + annual objectives', async (t) => {
 ```
 
 - [ ] **Step 2: Run** → FAIL.
-- [ ] **Step 3: Implement.** Fork `getMonthlyReport` (single get), `getMonthlyEdits` (pg branch: await getMonthlyReport; the auto-merge path awaits the week/lights/action reads — the dedup JS is pure, reused), `saveMonthlyEdits` (`ON CONFLICT(site_id,year,month) DO UPDATE` with COALESCE; swap `datetime('now')`→`now()`, `excluded`→`EXCLUDED`), `getAnnualObjectives` (await all), and convert `saveAnnualObjectives` (const tx → dispatching fn; pg uses runTransaction with `now()`).
+- [ ] **Step 3: Implement.** Fork `getMonthlyReport` (single get), `getMonthlyEdits` (pg branch: await getMonthlyReport; the auto-merge path awaits the week/lights/action reads — the dedup JS is pure, reused), `saveMonthlyEdits` (`ON CONFLICT(site_id,year,month) DO UPDATE` with COALESCE — swap **both** the INSERT-side VALUES `datetime('now')`→`now()` AND the `DO UPDATE` `datetime('now')`→`now()`, and `excluded`→`EXCLUDED`), `getAnnualObjectives` (await all), and convert `saveAnnualObjectives` (const tx → dispatching fn; pg uses runTransaction; INSERT VALUES `datetime('now')`→`now()`).
 
 - [ ] **Step 4: Run** → PASS. - [ ] **Step 5: Commit** `git commit -am "feat(pg-reports-reports): monthly edits + objectives forks (TDD)"`
 
@@ -468,7 +478,7 @@ test('reports pg: monthly edits + annual objectives', async (t) => {
     - `annual_objectives` [id, site_id, year, objective, target, status, sort_order, updated_at] pk [id]
     - `site_module_codes` [site_id, module, code, updated_at] pk [site_id, module]
     - `infra_kpi_catalog` [id, service, kpi, target_default, display_order, active, created_at] pk [id]
-  - upsert on PK (reuse the `_upsertSql` helper shape); advance IDENTITY seq for the 8 IDENTITY tables via `GREATEST((SELECT COALESCE(MAX(id),0) FROM t), 1)`.
+  - upsert on PK (reuse the `_upsertSql` helper shape); advance IDENTITY seq for the **9 IDENTITY tables** (`weeks, weekly_reports, infra_kpis, helpdesk_data, lights, action_items, monthly_reports, annual_objectives, infra_kpi_catalog` — NOT `site_module_codes`, which is composite-PK non-IDENTITY) via `GREATEST((SELECT COALESCE(MAX(id),0) FROM t), 1)`. **`infra_kpi_catalog` is copied with explicit `id` so its sequence MUST be advanced** or a later insert collides.
   - **The sqlite fixture must define the tables WITH the ALTER columns present** (created_by/department/comment) so the `SELECT <cols>` in the copier doesn't throw.
 
 - [ ] **Step 4: Run** → PASS. - [ ] **Step 5: Commit** `git commit -am "feat(pg-reports-reports): copy-reports-reports sqlite→pg parity (TDD)"`
