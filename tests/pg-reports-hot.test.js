@@ -35,6 +35,30 @@ const _sres = o => ({ result_id:null, response_id:null, survey_id:null, survey_n
 const _sans = o => ({ response_id:null, result_id:null, question_id:null, question_text:null,
   question_type:null, answer_text:null, answer_option:null, score:null, skipped:0, ...o });
 
+// Throwaway sqlite reports.db seeded with the hot tables (copy-script source).
+function _makeHotSqliteFixture() {
+  const Database = require('better-sqlite3');
+  const dir = _fs.mkdtempSync(_path.join(_os.tmpdir(), 'rhot-fix-'));
+  const p = _path.join(dir, 'reports.db');
+  const db = new Database(p);
+  db.exec(`
+    CREATE TABLE change_records (id INTEGER PRIMARY KEY, change_id TEXT, display_id TEXT, subject TEXT, status TEXT, stage TEXT, stage_status TEXT, risk TEXT, change_type TEXT, emergency INTEGER, category TEXT, sub_category TEXT, requester TEXT, requester_id TEXT, owner_id TEXT, manager TEXT, site_id TEXT, group_id TEXT, group_name TEXT, scheduled_start TEXT, scheduled_end TEXT, completed_time TEXT, created_time TEXT, closure_code TEXT, udf_json TEXT, fetched_at TEXT);
+    CREATE TABLE cab_approvals (id INTEGER PRIMARY KEY, approval_id TEXT, change_id TEXT, approver_name TEXT, approval_status TEXT, approval_stage TEXT, approval_level TEXT, approval_level_status TEXT, recommendation_requested TEXT, action_taken_on TEXT, turnaround_minutes INTEGER, rule_type TEXT, comments TEXT, fetched_at TEXT);
+    CREATE TABLE survey_results (id INTEGER PRIMARY KEY, result_id TEXT, response_id TEXT, survey_id TEXT, survey_name TEXT, request_id TEXT, request_display_id TEXT, change_id TEXT, user_id TEXT, overall_score REAL, survey_sent_on TEXT, survey_responded_on TEXT, fetched_at TEXT);
+    CREATE TABLE survey_answers (id INTEGER PRIMARY KEY, response_id TEXT, result_id TEXT, question_id TEXT, question_text TEXT, question_type TEXT, answer_text TEXT, answer_option TEXT, score INTEGER, skipped INTEGER, fetched_at TEXT);
+    CREATE TABLE request_records (id INTEGER PRIMARY KEY, request_id TEXT, display_id TEXT, subject TEXT, request_status TEXT, pending_status INTEGER, overdue_status INTEGER, request_type TEXT, service_request INTEGER, is_escalated INTEGER, reopen_count INTEGER, due_by_time TEXT, time_elapsed_ms INTEGER, created_time TEXT, resolved_time TEXT, completed_time TEXT, responded_time TEXT, assigned_time TEXT, last_updated_time TEXT, first_response_overdue TEXT, technician TEXT, requester TEXT, category TEXT, sub_category TEXT, site TEXT, tech_group TEXT, mode TEXT, impact TEXT, udf_json TEXT, fetched_at TEXT);
+    CREATE TABLE sync_metadata (job_name TEXT PRIMARY KEY, last_sync_at TEXT, last_sync_rows INTEGER, last_error TEXT, last_error_at TEXT, sync_count INTEGER, last_full_sync_at TEXT, schema_snapshot TEXT, deleted_count INTEGER);
+  `);
+  db.prepare(`INSERT INTO change_records (id,change_id,status,group_name,stage_status,created_time) VALUES (4,'C9','Completed','Ops','done','2026-05-01')`).run();
+  db.prepare(`INSERT INTO cab_approvals (id,approval_id,change_id,approval_status,turnaround_minutes) VALUES (2,'A9','C9','Approved',30)`).run();
+  db.prepare(`INSERT INTO survey_results (id,result_id,response_id,overall_score,survey_sent_on) VALUES (6,'SR9','P9',88.5,'2026-05-02')`).run();
+  db.prepare(`INSERT INTO survey_answers (id,response_id,result_id,question_text,score) VALUES (3,'P9','SR9','Q',5)`).run();
+  db.prepare(`INSERT INTO request_records (id,request_id,display_id,request_status,pending_status,time_elapsed_ms,site,udf_json) VALUES (8,'R9','#INC-9','Closed',0,7200000,'Hounde','{"RCA":"z"}')`).run();
+  db.prepare(`INSERT INTO sync_metadata (job_name,last_sync_at,last_sync_rows,sync_count) VALUES ('requests','2026-05-10 00:00:00',100,5)`).run();
+  db.close();
+  return p;
+}
+
 async function boot() {
   const ctx = await provisionTestDb();
   if (!ctx) return null;
@@ -110,4 +134,28 @@ test('hot pg: sync metadata cursor + reconcilers', async (t) => {
     assert.equal(await rdb.reconcileSurveyResults(new Set(['other'])), 1);
     assert.equal((await rdb.getSurveyAnswers('P9')).length, 0, 'answer cascade deleted');
   } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
+});
+
+test('copy-reports-hot: sqlite → pg parity + sequence advance', async (t) => {
+  const ctx = await provisionTestDb(); if (!ctx) return t.skip('no pg');
+  const { copyReportsHot } = require('../tools/pg/copy-reports-hot');
+  const src = _makeHotSqliteFixture();
+  const db = makePgDb(ctx.url); await db.connect();
+  try {
+    const c = await copyReportsHot(src, db);
+    assert.equal(c.request_records, 1); assert.equal(c.change_records, 1); assert.equal(c.cab_approvals, 1);
+    assert.equal(c.survey_results, 1); assert.equal(c.survey_answers, 1); assert.equal(c.sync_metadata, 1);
+    // parity + types
+    assert.equal((await db.prepare('SELECT change_id, group_name, stage_status FROM change_records WHERE id=4').get()).group_name, 'Ops');
+    assert.equal(Number((await db.prepare('SELECT time_elapsed_ms FROM request_records WHERE id=8').get()).time_elapsed_ms), 7200000);
+    assert.equal(JSON.parse((await db.prepare('SELECT udf_json FROM request_records WHERE id=8').get()).udf_json).RCA, 'z');
+    assert.equal(Number((await db.prepare('SELECT overall_score FROM survey_results WHERE id=6').get()).overall_score), 88.5);
+    assert.equal((await db.prepare("SELECT sync_count FROM sync_metadata WHERE job_name='requests'").get()).sync_count, 5);
+    // idempotent re-copy
+    await copyReportsHot(src, db);
+    assert.equal(Number((await db.prepare('SELECT COUNT(*)::int n FROM request_records').get()).n), 1);
+    // IDENTITY advanced past copied ids
+    assert.ok((await db.prepare(`INSERT INTO request_records (request_id) VALUES ('NEW')`).run()).lastID > 8, 'request seq advanced');
+    assert.ok((await db.prepare(`INSERT INTO change_records (change_id) VALUES ('NEW')`).run()).lastID > 4, 'change seq advanced');
+  } finally { await db.close(); await dropTestDb(ctx); _fs.rmSync(_path.dirname(src), { recursive: true, force: true }); }
 });
