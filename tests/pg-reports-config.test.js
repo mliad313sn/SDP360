@@ -73,3 +73,17 @@ test('config pg: departments CRUD + ci dedup', async (t) => {
     await assert.rejects(rdb.updateDepartment(d.id, { name: '' }), /empty/);
   } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
 });
+
+test('config pg: logAudit + getReportAuditLog round-trip', async (t) => {
+  const b = await boot(); if (!b) return t.skip('no pg');
+  const { ctx, rdb } = b;
+  try {
+    await rdb.logAudit({ report_id: 99, user_id: 1, username: 'me', action: 'created', details: { a: 1 } });
+    await rdb.logAudit({ report_id: 99, user_id: 1, username: 'me', action: 'edited', details: { b: 2 } });
+    const rows = await rdb.getReportAuditLog(99, 10);
+    assert.equal(rows.length, 2);
+    assert.equal(rows[0].action, 'edited');                 // newest first
+    assert.equal(JSON.parse(rows[0].details).b, 2);
+    assert.equal((await rdb.getReportAuditLog(99, 1)).length, 1); // limit respected
+  } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
+});

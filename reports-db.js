@@ -3883,6 +3883,7 @@ function getYearlySummary(site_id, year) {
  *         'edited_monthly' | 'edited_objectives'
  */
 function logAudit({ report_id, site_id, user_id, username, action, details } = {}) {
+  if (REPORTS_BACKEND === 'postgres') return _logAuditPg({ report_id, site_id, user_id, username, action, details });
   try {
     db.prepare(
       `INSERT INTO audit_log (report_id, site_id, user_id, username, action, details)
@@ -3896,15 +3897,33 @@ function logAudit({ report_id, site_id, user_id, username, action, details } = {
     console.error('[audit_log] write error:', e.message);
   }
 }
+// async under pg. logAudit is fire-and-forget on the sqlite path (callers don't
+// await); the returned Promise resolves later — callers that ignore it still work.
+async function _logAuditPg({ report_id, site_id, user_id, username, action, details } = {}) {
+  try {
+    await pgHandle().prepare(
+      `INSERT INTO audit_log (report_id, site_id, user_id, username, action, details)
+       VALUES (?,?,?,?,?,?)`
+    ).run(report_id || null, site_id || null, user_id || null, username || null, action,
+          details ? JSON.stringify(details) : null);
+  } catch (e) { console.error('[audit_log] write error:', e.message); }
+}
 
 /**
  * Return the last N audit entries for a specific report (most recent first).
  */
 function getReportAuditLog(report_id, limit = 30) {
+  if (REPORTS_BACKEND === 'postgres') return _getReportAuditLogPg(report_id, limit);
   return db.prepare(
     `SELECT id, user_id, username, action, details, created_at
      FROM audit_log WHERE report_id=?
      ORDER BY created_at DESC LIMIT ?`
+  ).all(report_id, limit);
+}
+async function _getReportAuditLogPg(report_id, limit = 30) {
+  return pgHandle().prepare(
+    `SELECT id, user_id, username, action, details, created_at
+     FROM audit_log WHERE report_id=? ORDER BY created_at DESC LIMIT ?`
   ).all(report_id, limit);
 }
 
