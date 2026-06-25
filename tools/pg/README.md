@@ -156,3 +156,37 @@ DB layer DONE + green (`tests/pg-reports-reports.test.js`, 6 tests). Same
 **DEFERRED (coordinated wiring pass):** `/api/reports/:id`, the report save endpoints, and
 the weekly/monthly PPTX routes in server.js need `async`+`await`; + merge to main.
 `getMonthlyData` + all hot-path aggregates + Zoho sync stay in **Chunk 4D** (the last one).
+
+---
+
+## reports.db — Sub-chunk 4D-1 (hot-path LOAD layer) — `feat/pg-reports-hot`
+
+DB layer DONE + green (`tests/pg-reports-hot.test.js`, 4 tests). Same `REPORTS_BACKEND` flag.
+**4D is split:** 4D-1 = load path (this); **4D-2 = the ~35 KPI aggregate readers** (still TODO).
+
+- Schema: `db/postgres/reports/004_hot.sql` — 6 tables (`request_records`, `change_records`,
+  `cab_approvals`, `survey_results`, `survey_answers`, `sync_metadata`). INTEGER IDENTITY;
+  `time_elapsed_ms` BIGINT; `overall_score` double precision; UNIQUE on Zoho-id cols; no FKs
+  between hot tables. Includes ALTER cols `change_records.{group_name,stage_status}`,
+  `request_records.{request_type,mode,impact,udf_json}`, `sync_metadata.{last_full_sync_at,
+  schema_snapshot,deleted_count}`.
+- Forked in `reports-db.js`: 6 writers (`upsertRequestBatch`/`upsertRequestUdfBatch`/
+  `upsertChangeBatch`/`upsertCABBatch`/`upsertSurveyResultBatch`/`upsertSurveyAnswerBatch`),
+  4 reconcilers, 4 sync-meta (`getSyncStatus`/`getLastSyncAt`/`markSyncSuccess`/`markSyncError`),
+  5 raw readers (`getRequestRecords`/`getChangeRecords`/`getCABApprovals`/`getSurveyResults`/
+  `getSurveyAnswers`). `initPgReports` applies `004_hot.sql` + seeds the 4 sync-job rows.
+- **tx-convert** for the writers (`const x = db.transaction(...)` → dispatching `function x()`
+  + `_xSqlite` + async `_xPg` with inline pg SQL). Gotchas captured: `survey_answers` is
+  append-only (bare `ON CONFLICT DO NOTHING`, no unique target); `upsertRequestBatch` does NOT
+  write `udf_json` (only `upsertRequestUdfBatch` does, via 2-step UPDATE by request_id then
+  display_id); `markSyncSuccess` qualifies every DO-UPDATE existing-row ref with the table name
+  (`sync_metadata.sync_count + 1`, …) — pg requires it; `reconcileSurveyResults` cascades to
+  `survey_answers`. The auto-appended `RETURNING *` on `ON CONFLICT` inserts is harmless (count via `.changes`).
+- Copy: `tools/pg/copy-reports-hot.js` (6 tables, paged SELECT @5000 rows for big tables, 5
+  IDENTITY seqs advanced; survey_answers/sync_metadata copied by their own PK).
+
+**DEFERRED:** **4D-2** = `getMonthlyData` + `getCalendarMonthly*`/`getHelpdesk6MonthHistory`/
+`getMonthlyHelpdeskHistory`/`getRequestMetrics`/`getCABMetrics`/`getChangeMetrics`/
+`getSurveyMetrics`/`getMajorIncidentsHistory`/`getRequestFilterOptions`/all `*DB` aggregates
+(denominator doctrine). Plus server.js `_rawCache` rebuild + `/api/sync/*` + `/api/data/*`
+route `await` wiring. The `REPORTS_BACKEND=postgres` prod flip needs 4D-2 + KPI reconciliation.
