@@ -121,3 +121,26 @@ test('agg pg: getMonthlyData assembler + getYearlySummary', async (t) => {
     assert.equal(ys[0].has_data, false);        // Jan — no weekly reports
   } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
 });
+
+test('agg pg: getRequestMetrics denominators + getRequestFilterOptions', async (t) => {
+  const b = await boot(); if (!b) return t.skip('no pg');
+  const { ctx, rdb } = b;
+  try {
+    const G = 'Hounde IT Agents', C = '2026-05-10 09:00:00';
+    await rdb.upsertRequestBatch([
+      _req({request_id:'A',tech_group:G,site:'Hounde',request_status:'Closed',created_time:C,pending_status:0,overdue_status:0,responded_time:'2026-05-10 10:00:00',first_response_overdue:'false'}),
+      _req({request_id:'B',tech_group:G,site:'Hounde',request_status:'Closed',created_time:C,pending_status:0,overdue_status:0,responded_time:'2026-05-10 10:00:00',first_response_overdue:'false'}),
+      _req({request_id:'D',tech_group:G,site:'Hounde',request_status:'Closed',created_time:C,pending_status:0,overdue_status:1,responded_time:'2026-05-10 10:00:00',first_response_overdue:'false'}),
+      _req({request_id:'E',tech_group:G,site:'Hounde',request_status:'Open',created_time:C,pending_status:1,responded_time:'2026-05-10 10:00:00',first_response_overdue:'true'}),
+      _req({request_id:'F',tech_group:G,site:'Hounde',request_status:'Open',created_time:C,pending_status:1}),
+    ]);
+    const m = await rdb.getRequestMetrics({});
+    assert.equal(m.total, 5); assert.equal(m.closed_count, 3); assert.equal(m.open_count, 2);
+    assert.equal(m.sla_ok_pct, 66.7, 'closed-only +(2/3*100).toFixed(1)');
+    assert.equal(m.first_resp_violated_pct, 25, 'responded-only +(1/4*100).toFixed(1)');
+    assert.equal(m.reopen_pct, 0);
+    assert.ok(Array.isArray(m.monthly_trend) && m.monthly_trend.length >= 1);
+    const fo = await rdb.getRequestFilterOptions();
+    assert.ok(fo.statuses.includes('Closed') && fo.statuses.includes('Open'));
+  } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
+});

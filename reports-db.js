@@ -4305,7 +4305,9 @@ function getSurveyMetrics({ since } = {}) {
  *
  * Optional filters: site (site name), since (ISO date for created_time).
  */
-function getRequestMetrics({ site, since, statuses, rtypes, impacts, modes } = {}) {
+function getRequestMetrics(opts = {}) {
+  if (REPORTS_BACKEND === 'postgres') return _getRequestMetricsPg(opts);
+  const { site, since, statuses, rtypes, impacts, modes } = opts;
   // AP formula: Inbound = count(RequestID) — ALL tickets, no filter (AP chart has Filters: 0).
   // Closed = countif(pending_status = 0). No SLA exclusion needed.
   let where = 'WHERE 1=1';
@@ -4421,6 +4423,65 @@ function getRequestMetrics({ site, since, statuses, rtypes, impacts, modes } = {
     by_technician: byTech,
     by_group:      byGroup,
     monthly_trend: monthly.reverse(),
+  };
+}
+async function _getRequestMetricsPg({ site, since, statuses, rtypes, impacts, modes } = {}) {
+  const H = pgHandle();
+  let where = 'WHERE 1=1';
+  const p = [];
+  if (site)  { where += ' AND site=?';          p.push(site); }
+  if (since) { where += ' AND created_time>=?'; p.push(since); }
+  const addIn = (col, vals) => { if (Array.isArray(vals) && vals.length > 0) { where += ` AND ${col} IN (${vals.map(()=>'?').join(',')})`; p.push(...vals); } };
+  addIn('request_status', statuses); addIn('request_type', rtypes); addIn('impact', impacts); addIn('mode', modes);
+  const cnt = async (extra) => (await H.prepare(`SELECT COUNT(*) as n FROM request_records ${where}${extra}`).get(...p)).n;
+  const total           = await cnt('');
+  const openCount       = await cnt(' AND pending_status=1');
+  const closedCount     = await cnt(' AND pending_status=0');
+  const backlogCount    = await cnt(' AND pending_status=1 AND overdue_status=1');
+  const withinSlaCount  = await cnt(' AND overdue_status=0');
+  const slaViolated     = await cnt(' AND overdue_status=1');
+  const withinSlaClosed = await cnt(' AND pending_status=0 AND overdue_status=0');
+  const slaOkPct        = closedCount > 0 ? +(withinSlaClosed / closedCount * 100).toFixed(1) : null;
+  const reopenCount     = await cnt(' AND reopen_count > 0');
+  const reopenedClosed  = await cnt(' AND pending_status=0 AND reopen_count > 0');
+  const reopenPct       = closedCount > 0 ? +(reopenedClosed / closedCount * 100).toFixed(1) : null;
+  const resolvedCount   = await cnt(` AND request_status='Resolved'`);
+  const resolvedSameWeek= (await H.prepare(`SELECT COUNT(*) as n FROM request_records ${where} AND request_status='Resolved' AND resolved_time IS NOT NULL AND created_time IS NOT NULL AND EXTRACT(EPOCH FROM (resolved_time::timestamptz - created_time::timestamptz))/86400 <= 7`).get(...p)).n;
+  const serviceReqCount = await cnt(' AND service_request=1');
+  const incidentCount   = await cnt(' AND service_request=0');
+  const escalatedCount  = (await H.prepare(`SELECT COUNT(*) as n FROM request_records ${where} AND (is_escalated::text IN ('1','true'))`).get(...p)).n;
+  const firstRespViolated     = await cnt(` AND (LOWER(first_response_overdue) IN ('true','1','yes'))`);
+  const respondedCount        = await cnt(` AND responded_time IS NOT NULL AND responded_time != ''`);
+  const firstRespViolatedResp = await cnt(` AND responded_time IS NOT NULL AND responded_time != '' AND (LOWER(first_response_overdue) IN ('true','1','yes'))`);
+  const firstRespViolatedPct  = respondedCount > 0 ? +(firstRespViolatedResp / respondedCount * 100).toFixed(1) : null;
+  const avgHrsRow = await H.prepare(`SELECT ROUND(AVG(time_elapsed_ms)/3600000.0, 2) as avg_hrs FROM request_records ${where} AND pending_status=0 AND time_elapsed_ms IS NOT NULL AND time_elapsed_ms > 0`).get(...p);
+  const byStatus   = await H.prepare(`SELECT request_status as status, COUNT(*) as count FROM request_records ${where} GROUP BY request_status ORDER BY count DESC`).all(...p);
+  const bySite     = await H.prepare(`SELECT site, COUNT(*) as count FROM request_records ${where} GROUP BY site ORDER BY count DESC`).all(...p);
+  const byCategory = await H.prepare(`SELECT category, COUNT(*) as count FROM request_records ${where} GROUP BY category ORDER BY count DESC LIMIT 10`).all(...p);
+  const byTech     = await H.prepare(`SELECT technician, COUNT(*) as count FROM request_records ${where} GROUP BY technician ORDER BY count DESC LIMIT 10`).all(...p);
+  const byGroup    = await H.prepare(`SELECT tech_group, COUNT(*) as count FROM request_records ${where} GROUP BY tech_group ORDER BY count DESC LIMIT 10`).all(...p);
+  const monthly = await H.prepare(`
+    SELECT to_char(created_time::timestamptz,'YYYY-MM') as month,
+           COUNT(*) as total_count,
+           SUM(CASE WHEN pending_status=0 THEN 1 ELSE 0 END) as closed_count,
+           SUM(CASE WHEN overdue_status=1 THEN 1 ELSE 0 END) as sla_violated_count,
+           SUM(CASE WHEN pending_status=0 AND overdue_status=0 THEN 1 ELSE 0 END) as within_sla_closed,
+           CASE WHEN SUM(CASE WHEN pending_status=0 THEN 1 ELSE 0 END) > 0
+                THEN ROUND(100.0 * SUM(CASE WHEN pending_status=0 AND overdue_status=0 THEN 1 ELSE 0 END)
+                                  / SUM(CASE WHEN pending_status=0 THEN 1 ELSE 0 END), 1)
+                ELSE NULL END as sla_ok_pct
+    FROM request_records ${where}
+    GROUP BY to_char(created_time::timestamptz,'YYYY-MM') ORDER BY month DESC LIMIT 12`).all(...p);
+  return {
+    total, open_count: openCount, closed_count: closedCount, backlog_count: backlogCount,
+    within_sla_count: withinSlaCount, sla_violated_count: slaViolated, sla_ok_pct: slaOkPct,
+    reopen_count: reopenCount, reopen_pct: reopenPct, resolved_count: resolvedCount,
+    resolved_same_week: resolvedSameWeek, service_request_count: serviceReqCount,
+    incident_count: incidentCount, escalated_count: escalatedCount,
+    first_resp_violated_count: firstRespViolated, first_resp_violated_pct: firstRespViolatedPct,
+    avg_resolution_hrs: avgHrsRow?.avg_hrs ?? null,
+    by_status: byStatus, by_site: bySite, by_category: byCategory, by_technician: byTech,
+    by_group: byGroup, monthly_trend: monthly.reverse(),
   };
 }
 
@@ -4875,6 +4936,7 @@ function getActiveMajorIncidentsForSite(groups) {
  * enough that DISTINCT scans are sub-millisecond at current volume.
  */
 function getRequestFilterOptions() {
+  if (REPORTS_BACKEND === 'postgres') return _getRequestFilterOptionsPg();
   const distinct = (col) => db.prepare(
     `SELECT DISTINCT ${col} AS v FROM request_records
      WHERE ${col} IS NOT NULL AND ${col} != '' ORDER BY 1`
@@ -4884,6 +4946,16 @@ function getRequestFilterOptions() {
     types:    distinct('request_type'),
     impacts:  distinct('impact'),
     modes:    distinct('mode'),
+  };
+}
+async function _getRequestFilterOptionsPg() {
+  const H = pgHandle();
+  const distinct = async (col) => (await H.prepare(`SELECT DISTINCT ${col} AS v FROM request_records WHERE ${col} IS NOT NULL AND ${col} != '' ORDER BY 1`).all()).map(r => r.v);
+  return {
+    statuses: await distinct('request_status'),
+    types:    await distinct('request_type'),
+    impacts:  await distinct('impact'),
+    modes:    await distinct('mode'),
   };
 }
 
