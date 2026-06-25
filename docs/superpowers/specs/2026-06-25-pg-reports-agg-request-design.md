@@ -24,8 +24,9 @@ no-op dispatch so prod is unchanged.
 
 `getRequestMetrics`, `getCalendarMonthlyHelpdesk`, `getCalendarMonthlyTop10`,
 `getHelpdesk6MonthHistory`, `_aggregateHelpdesk6MoFromRaw`, `getMonthlyHelpdeskHistory`,
-`getMonthlyData` (assembler), `getRequestFilterOptions`, `getMajorIncidentsHistory`,
-`getActiveMajorIncidentsForSite`.
+`getMonthlyData` (assembler), `getYearlySummary` (12-month assembler — calls
+`getCalendarMonthlyHelpdesk`, so it MUST be forked here or it breaks in pg), `getRequestFilterOptions`,
+`getMajorIncidentsHistory`, `getActiveMajorIncidentsForSite`. (11 functions.)
 
 **No schema, no copy script** — 4D-1 owns the tables + `copy-reports-hot.js`. 4D-2a is pure
 read-fork + tests.

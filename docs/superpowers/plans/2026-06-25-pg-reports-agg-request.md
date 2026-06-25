@@ -59,15 +59,35 @@ test('agg pg: getCalendarMonthlyHelpdesk denominators + duration', async (t) => 
     assert.equal(cal.avg_tta_h, 2);          // assigned 2h after created (1 row)
     assert.equal(cal.avg_first_reply_h, 1);  // responded 1h after created
     assert.equal(cal.avg_resolution_d, 1);   // resolved 1 day after created
-    // top10: 1 category with a violation (request_id D)
+    // top10: row D (null category, overdue) → 1 'Uncategorised' violation
     const top = await rdb.getCalendarMonthlyTop10(siteId, 2026, 5);
     assert.ok(Array.isArray(top) && top.length >= 1 && top[0].violations >= 1);
+  } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
+});
+
+test('agg pg: getCalendarMonthlyTop10 NULL + empty category collapse to one Uncategorised', async (t) => {
+  const b = await boot(); if (!b) return t.skip('no pg');
+  const { ctx, rdb, siteId } = b;
+  try {
+    const G='Hounde IT Agents', C='2026-05-10 09:00:00';
+    // one NULL-category violation + one empty-string-category violation
+    await rdb.upsertRequestBatch([
+      _req({request_id:'N1',tech_group:G,created_time:C,overdue_status:1,category:null}),
+      _req({request_id:'N2',tech_group:G,created_time:C,overdue_status:1,category:''}),
+    ]);
+    const top = await rdb.getCalendarMonthlyTop10(siteId, 2026, 5);
+    const unc = top.filter(r => r.category === 'Uncategorised');
+    assert.equal(unc.length, 1, 'NULL + empty collapse into ONE Uncategorised group (GROUP BY 1)');
+    assert.equal(unc[0].violations, 2);
   } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
 });
 ```
 
 - [ ] **Step 2: Run** → FAIL.
-- [ ] **Step 3: Implement** `_getCalendarMonthlyHelpdeskPg` + `_getCalendarMonthlyTop10Pg` + dispatch. Faithfully port `reports-db.js:1900` and `:1969`. The `siteRow`/`groups`/`from`/`to`/`inClause` JS is identical; queries become `await H.prepare(...).all/get(...)`. Apply dialect: every `date(created_time)>=? AND date(created_time)<=?` → `created_time::date>=?::date AND created_time::date<=?::date`; the 3 `AVG((julianday(x)-julianday(created_time))*24)`/bare → `AVG(EXTRACT(EPOCH FROM (x::timestamptz - created_time::timestamptz))/3600)` (hours) and the resolution one `/86400` (days, no `*24`). The `Math.round`/null-guard return JS is reused verbatim. Top10: same date rewrite; `COALESCE(NULLIF(TRIM(category),''),'Uncategorised')`, `SUM(CASE…)`, `HAVING violations>0` unchanged.
+- [ ] **Step 3: Implement** `_getCalendarMonthlyHelpdeskPg` + `_getCalendarMonthlyTop10Pg` + dispatch. Faithfully port `reports-db.js:1900` and `:1969`. The `siteRow`/`groups`/`from`/`to`/`inClause` JS is identical; queries become `await H.prepare(...).all/get(...)`. Apply dialect: every `date(created_time)>=? AND date(created_time)<=?` → `created_time::date>=?::date AND created_time::date<=?::date`; the 3 `AVG((julianday(x)-julianday(created_time))*24)`/bare → `AVG(EXTRACT(EPOCH FROM (x::timestamptz - created_time::timestamptz))/3600)` (hours) and the resolution one `/86400` (days, no `*24`) — and **cast the COALESCE in that AVG**:
+`AVG(EXTRACT(EPOCH FROM (COALESCE(resolved_time,completed_time)::timestamptz - created_time::timestamptz))/86400)`. The `Math.round`/null-guard return JS is reused verbatim.
+
+Top10: same date rewrite; `COALESCE(NULLIF(TRIM(category),''),'Uncategorised') AS category`, `SUM(CASE…)`, `HAVING violations>0` unchanged — **EXCEPT `GROUP BY category`**. In sqlite `GROUP BY category` binds to the output ALIAS (the COALESCE), collapsing NULL + `''` into one `'Uncategorised'` group; in pg a bare `GROUP BY category` binds to the raw INPUT column → NULL and `''` become two groups. **Rewrite to `GROUP BY 1`** (positional → binds the output expression) so pg matches sqlite byte-for-byte. Test must seed both a NULL-category and an empty-string-category violated row and assert they collapse into ONE `'Uncategorised'` row.
 
 > NOTE pg `AVG(EXTRACT(EPOCH…)/N)` returns numeric → `Math.round` works. `cal.avg_resolution_d` for the single 1-day row = round(1.0) = 1.
 
@@ -90,16 +110,21 @@ test('agg pg: getCalendarMonthlyHelpdesk denominators + duration', async (t) => 
 
 ---
 
-## Task 3: getMonthlyData assembler
+## Task 3: getMonthlyData assembler + getYearlySummary
 
 **Files:** Modify `reports-db.js`; Test: append.
 
-- [ ] **Step 1: Write failing test** — seed (Task 1's request rows are enough for calendar_hd). `const md = await rdb.getMonthlyData(siteId, 2026, 5)`. Assert `md.calendar_hd.inbound===5`, `Array.isArray(md.history6m)`, `md.history6m.length===6`, `Array.isArray(md.reports)`, `Array.isArray(md.weeks)`, and `md.monthly_top10` is an array. (No weekly_reports seeded → reports/weeks empty arrays, fine.)
+> **Why getYearlySummary is here:** it's not in the spec's original 10, but it's a request/helpdesk
+> aggregate sibling of `getMonthlyData` that calls `getCalendarMonthlyHelpdesk` synchronously
+> (`reports-db.js:4477`, `:4489`). Once Task 1 makes that fn async, `getYearlySummary` would assign
+> an unresolved Promise to `hd` and silently break in pg mode. It MUST be forked in this chunk.
+
+- [ ] **Step 1: Write failing test** — seed Task 1's request rows. `const md = await rdb.getMonthlyData(siteId, 2026, 5)`: assert `md.calendar_hd.inbound===5`, `Array.isArray(md.history6m)`, `md.history6m.length===6`, `Array.isArray(md.reports)`, `Array.isArray(md.weeks)`, `md.monthly_top10` is an array. (No weekly_reports → reports/weeks empty, fine.) `const ys = await rdb.getYearlySummary(siteId, 2026)`: assert `ys.length===12`, the May entry `ys[4].hd.inbound===5` and `Array.isArray(ys[4].kpis)`, other months `has_data===false`.
 
 - [ ] **Step 2: Run** → FAIL.
-- [ ] **Step 3: Implement** `_getMonthlyDataPg` (port `:1844`): the two inline weeks queries (`substr(w.start_date,1,7)=?` — dialect-safe) become `await pgHandle().prepare(...).all(...)`; `reports`/`pmReports` use `await Promise.all(weeks.filter(w=>w.report_id).map(w => getReport(w.report_id)))` (getReport is 4C-forked → Promise); the `pastMonths`/`prevD` JS date math is pure; the return object awaits the 4 forked calls (`getCalendarMonthlyHelpdesk` ×2, `getCalendarMonthlyTop10`, `getHelpdesk6MonthHistory`). Add dispatch line.
+- [ ] **Step 3: Implement** `_getMonthlyDataPg` (port `:1844`): the two inline weeks queries (`substr(w.start_date,1,7)=?` — dialect-safe) become `await pgHandle().prepare(...).all(...)`; `reports`/`pmReports` use `await Promise.all(weeks.filter(w=>w.report_id).map(w => getReport(w.report_id)))` (getReport is 4C-forked → Promise); the `pastMonths`/`prevD` JS date math is pure; the return object awaits the 4 forked calls (`getCalendarMonthlyHelpdesk` ×2, `getCalendarMonthlyTop10`, `getHelpdesk6MonthHistory`). Add dispatch line. `_getYearlySummaryPg` (port `:4459`): the 12-month JS loop is pure; `await` the per-month `reportRows`/`kpis` queries (`substr(w.start_date,1,7)=?` dialect-safe) AND the `getCalendarMonthlyHelpdesk` calls (×2 branches). Add dispatch line. (`getYearlySummary` is exported at `:4685`-ish — confirm it's in module.exports; it is.)
 
-- [ ] **Step 4: Run** → PASS. - [ ] **Step 5: Commit** `git commit -am "feat(pg-reports-agg-request): getMonthlyData assembler fork (awaits calendar/6mo/getReport) (TDD)"`
+- [ ] **Step 4: Run** → PASS. - [ ] **Step 5: Commit** `git commit -am "feat(pg-reports-agg-request): getMonthlyData assembler + getYearlySummary forks (await calendar/6mo/getReport) (TDD)"`
 
 ---
 
@@ -107,9 +132,9 @@ test('agg pg: getCalendarMonthlyHelpdesk denominators + duration', async (t) => 
 
 **Files:** Modify `reports-db.js`; Test: append.
 
-- [ ] **Step 1: Write failing test** — using Task 1's 5 seeded rows (site='Hounde' on the rows? Task 1 set tech_group but maybe not `site`; for getRequestMetrics the filter is `site=?` on the `site` column — seed rows with `site:'Hounde'` OR call `getRequestMetrics({})` with no site filter). Assert `m.total===5`, `m.closed_count===3`, `m.open_count===2`, `m.sla_ok_pct===67` (closed-only round(2/3*100) → 66.7 → check `+(2/3*100).toFixed(1)===66.7`), `m.first_resp_violated_pct===25` (1 of 4 responded violated → 25.0), `m.reopen_pct` (0), `m.monthly` array has the seeded month with `sla_ok_pct`. `getRequestFilterOptions()` → `statuses`/`types` include seeded values.
+- [ ] **Step 1: Write failing test** — each test gets a fresh DB, so **re-seed** the 5 rows from Task 1 here (add `site:'Hounde'` to each) and call `getRequestMetrics({})` (no site filter — the fresh DB holds only these rows). Assert `m.total===5`, `m.closed_count===3`, `m.open_count===2`, **`m.sla_ok_pct===66.7`** (`getRequestMetrics` uses `+(withinSlaClosed/closedCount*100).toFixed(1)` = `+(2/3*100).toFixed(1)` = 66.7 — NOT `Math.round`/67), `m.first_resp_violated_pct===25` (`+(1/4*100).toFixed(1)`=25, row E only), `m.reopen_pct===null` or `0` (no reopens — assert what the formula yields: closedCount>0 so `+(0/3*100).toFixed(1)===0`), `m.monthly` array has the seeded month with `sla_ok_pct`. `getRequestFilterOptions()` → `statuses`/`types` include seeded values.
 
-> Recompute the exact expected: closed=3, withinSlaClosed=2 → slaOkPct = +(2/3*100).toFixed(1) = 66.7. firstRespViolatedResp=1, respondedCount=4 → 25.0. Assert those exact numbers.
+> Exact expected (closed-only/responded-only denominators): closed=3, withinSlaClosed=2 → `sla_ok_pct = +(2/3*100).toFixed(1) = 66.7`. firstRespViolatedResp=1 (row E), respondedCount=4 → `first_resp_violated_pct = 25`. reopenedClosed=0 → `reopen_pct = 0`.
 
 - [ ] **Step 2: Run** → FAIL.
 - [ ] **Step 3: Implement** `_getRequestMetricsPg` (port `:4113`): the `where`/`addIn`/`p` builder is identical (positional `?` → `$N` via `_translate`); every sub-query `await H.prepare(\`...${where}...\`).get/all(...p)`. Dialect: `(JULIANDAY(resolved_time)-JULIANDAY(created_time)) <= 7` → `EXTRACT(EPOCH FROM (resolved_time::timestamptz - created_time::timestamptz))/86400 <= 7`; `ROUND(AVG(time_elapsed_ms)/3600000.0, 2)` keep as-is (numeric); monthly `strftime('%Y-%m',created_time)` → `to_char(...,'YYYY-MM')` (GROUP), `ROUND(100.0*.../...,1)` keep. The `+(x/y*100).toFixed(1)` JS reused. `is_escalated=1 OR is_escalated='true' OR is_escalated='1'` unchanged. Return object identical. `_getRequestFilterOptionsPg` (port `:4660`): the `distinct(col)` helper → `await pgHandle().prepare(...).all()`; assemble the same object (async). Add dispatch lines.
@@ -141,9 +166,9 @@ test('agg pg: getCalendarMonthlyHelpdesk denominators + duration', async (t) => 
 - [ ] **Step 2: Regression** — all reports.db pg suites still pass + default sqlite synchronous-return smoke:
 ```
 PG_ADMIN_URL='…' node --test --test-force-exit tests/pg-reports-hot.test.js tests/pg-reports-reports.test.js tests/pg-reports-config.test.js tests/pg-reports-auth.test.js
-SDP_DATA_DIR=$(mktemp -d) DASH_USER=x DASH_PASS=y node -e "const r=require('./reports-db.js'); console.log('isPromise=', r.getRequestMetrics({}) instanceof Promise, r.getMonthlyData(1,2026,5) instanceof Promise); process.exit(0)"
+SDP_DATA_DIR=$(mktemp -d) DASH_USER=x DASH_PASS=y node -e "const r=require('./reports-db.js'); console.log('isPromise=', r.getRequestMetrics({}) instanceof Promise, r.getMonthlyData(1,2026,5) instanceof Promise, r.getYearlySummary(1,2026) instanceof Promise); process.exit(0)"
 ```
-Expected: `isPromise= false false`.
+Expected: `isPromise= false false false`.
 - [ ] **Step 3: `node --check reports-db.js`.**
 - [ ] **Step 4:** Append a 4D-2a section to `tools/pg/README.md` (functions forked, the dialect contract, the raw-TEXT-compare-unchanged + datetime()-ORDER-BY gotchas, deferred 4D-2b/c/d + the prod-flip precondition).
 - [ ] **Step 5: Commit** `git commit -am "docs(pg-reports-agg-request): README 4D-2a + final suite green"`
