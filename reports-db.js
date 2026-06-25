@@ -2092,6 +2092,7 @@ async function _getCalendarMonthlyTop10Pg(site_id, year, month) {
  *     '% of First Responses SLA Violated':   <0..100 number> }
  */
 function getMonthlyHelpdeskHistory(monthsBack = 12) {
+  if (REPORTS_BACKEND === 'postgres') return _getMonthlyHelpdeskHistoryPg(monthsBack);
   const MN = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
                   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const today = new Date();
@@ -2128,6 +2129,34 @@ function getMonthlyHelpdeskHistory(monthsBack = 12) {
       // preserved for executive.html consumer compatibility.
       '% of SLA Violated':                   closed     > 0 ? Math.round(slaViolClosed / closed     * 1000) / 10 : 0,
       '% of First Responses SLA Violated':   replyTotal > 0 ? Math.round(replyViol     / replyTotal * 1000) / 10 : 0,
+    });
+  }
+  return rows;
+}
+async function _getMonthlyHelpdeskHistoryPg(monthsBack = 12) {
+  const H = pgHandle();
+  const MN = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const today = new Date();
+  const rows = [];
+  const DR = `created_time::date >= ?::date AND created_time::date <= ?::date`;
+  for (let ago = monthsBack - 1; ago >= 0; ago--) {
+    const d  = new Date(today.getFullYear(), today.getMonth() - ago, 1);
+    const yr = d.getFullYear(), mo = d.getMonth() + 1;
+    const start = `${yr}-${String(mo).padStart(2,'0')}-01`;
+    const last  = new Date(yr, mo, 0).getDate();
+    const end   = `${yr}-${String(mo).padStart(2,'0')}-${String(last).padStart(2,'0')}`;
+    const params = [start, end];
+    const total       = (await H.prepare(`SELECT COUNT(*) AS n FROM request_records WHERE ${DR}`).get(...params)).n;
+    const closed      = (await H.prepare(`SELECT COUNT(*) AS n FROM request_records WHERE ${DR} AND pending_status = 0`).get(...params)).n;
+    const slaViolClosed = (await H.prepare(`SELECT COUNT(*) AS n FROM request_records WHERE ${DR} AND pending_status = 0 AND overdue_status = 1`).get(...params)).n;
+    const replyViol   = (await H.prepare(`SELECT COUNT(*) AS n FROM request_records WHERE ${DR} AND responded_time IS NOT NULL AND responded_time != '' AND LOWER(first_response_overdue) = 'true'`).get(...params)).n;
+    const replyTotal  = (await H.prepare(`SELECT COUNT(*) AS n FROM request_records WHERE ${DR} AND responded_time IS NOT NULL AND responded_time != ''`).get(...params)).n;
+    rows.push({
+      'Created Time': `${MN[mo]} ${yr}`,
+      'Requests': total,
+      'Closed Requests Count': closed,
+      '% of SLA Violated':                 closed     > 0 ? Math.round(slaViolClosed / closed     * 1000) / 10 : 0,
+      '% of First Responses SLA Violated': replyTotal > 0 ? Math.round(replyViol     / replyTotal * 1000) / 10 : 0,
     });
   }
   return rows;
@@ -3155,6 +3184,7 @@ function isoToZohoStr(iso) {
 // (FORMULA_RECONCILIATION.md §6 D2); FRT% uses responded-only denominator
 // (§6 D3). Returns the same shape as the calendar path.
 function _aggregateHelpdesk6MoFromRaw(siteName, py, pm, groups) {
+  if (REPORTS_BACKEND === 'postgres') return _aggregateHelpdesk6MoFromRawPg(siteName, py, pm, groups);
   const mStr = `${py}-${String(pm).padStart(2, '0')}`;
   const gParams = Array.isArray(groups) ? groups : [];
   const groupWhere = gParams.length > 0
@@ -3197,14 +3227,46 @@ function _aggregateHelpdesk6MoFromRaw(siteName, py, pm, groups) {
 // Resolve a sites-table id to the canonical site name used in request_records.
 // Returns null when site_id is unset (= All Sites filter).
 function _siteIdToName(site_id) {
+  if (REPORTS_BACKEND === 'postgres') return _siteIdToNamePg(site_id);
   if (!site_id) return null;
   try {
     const row = db.prepare('SELECT name FROM sites WHERE id = ?').get(site_id);
     return row ? row.name : null;
   } catch (_) { return null; }
 }
+async function _siteIdToNamePg(site_id) {
+  if (!site_id) return null;
+  try {
+    const row = await pgHandle().prepare('SELECT name FROM sites WHERE id = ?').get(site_id);
+    return row ? row.name : null;
+  } catch (_) { return null; }
+}
+// pg fork: single aggregate query — strftime('%Y-%m',created_time)=? → to_char(...,'YYYY-MM')=?.
+async function _aggregateHelpdesk6MoFromRawPg(siteName, py, pm, groups) {
+  const H = pgHandle();
+  const mStr = `${py}-${String(pm).padStart(2, '0')}`;
+  const gParams = Array.isArray(groups) ? groups : [];
+  const groupWhere = gParams.length > 0 ? `AND tech_group IN (${gParams.map(() => '?').join(',')})` : '';
+  const siteClause = siteName ? `AND site=?` : '';
+  const siteParam  = siteName ? [siteName] : [];
+  const row = await H.prepare(`
+    SELECT COUNT(*) as inbound,
+      SUM(CASE WHEN pending_status = 0 THEN 1 ELSE 0 END) as closed,
+      SUM(CASE WHEN pending_status = 0 AND LOWER(COALESCE(overdue_status::text,'')) NOT IN ('1','true','yes') THEN 1 ELSE 0 END) as sla_ok_closed,
+      SUM(CASE WHEN responded_time IS NOT NULL AND TRIM(responded_time) != '' THEN 1 ELSE 0 END) as responded,
+      SUM(CASE WHEN responded_time IS NOT NULL AND TRIM(responded_time) != '' AND LOWER(COALESCE(first_response_overdue,'')) NOT IN ('1','true','yes') THEN 1 ELSE 0 END) as frt_ok_responded
+    FROM request_records
+    WHERE to_char(created_time::timestamptz,'YYYY-MM') = ? ${siteClause} ${groupWhere}
+  `).get(mStr, ...siteParam, ...gParams);
+  return {
+    inbound: row.inbound || 0, closed: row.closed || 0,
+    res_sla_pct:   row.closed    > 0 ? Math.round(row.sla_ok_closed   / row.closed    * 100) : null,
+    reply_sla_pct: row.responded > 0 ? Math.round(row.frt_ok_responded / row.responded * 100) : null,
+  };
+}
 
 function getHelpdesk6MonthHistory(site_id, year, month, groups) {
+  if (REPORTS_BACKEND === 'postgres') return _getHelpdesk6MonthHistoryPg(site_id, year, month, groups);
   // 2026-06-02: added `groups` param. When set, the calendar fast-path can't
   // satisfy the request (it's site-wide / group-wide aggregate) — fall through
   // to _aggregateHelpdesk6MoFromRaw which scans request_records with the group
@@ -3286,6 +3348,49 @@ function getHelpdesk6MonthHistory(site_id, year, month, groups) {
       res_sla_pct:   resN > 0 ? Math.round(resSum / resN) : null,
       reply_sla_pct: frN  > 0 ? Math.round(frSum  / frN)  : null,
     });
+  }
+  return history;
+}
+async function _getHelpdesk6MonthHistoryPg(site_id, year, month, groups) {
+  const H = pgHandle();
+  const groupList = Array.isArray(groups) ? groups.filter(Boolean) : [];
+  const useRaw = groupList.length > 0;
+  const siteName = useRaw ? await _siteIdToNamePg(site_id) : null;
+  const history = [];
+  for (let ago = 5; ago >= 0; ago--) {
+    const d = new Date(year, month - 1 - ago, 1);
+    const py = d.getFullYear(), pm = d.getMonth() + 1;
+    const lbl = d.toLocaleString('en', { month: 'short', year: 'numeric' });
+    if (useRaw) {
+      const agg = await _aggregateHelpdesk6MoFromRawPg(siteName, py, pm, groupList);
+      history.push({ label: lbl, inbound: agg.inbound || null, closed: agg.closed || null, res_sla_pct: agg.res_sla_pct, reply_sla_pct: agg.reply_sla_pct });
+      continue;
+    }
+    const cal = await _getCalendarMonthlyHelpdeskPg(site_id, py, pm);
+    if (cal && cal.inbound > 0) {
+      history.push({ label: lbl, inbound: cal.inbound, closed: cal.closed, res_sla_pct: cal.sla_res_pct, reply_sla_pct: cal.sla_reply_pct });
+      continue;
+    }
+    // weekly fallback (substr dialect-safe)
+    const pmStr = `${py}-${String(pm).padStart(2, '0')}`;
+    const rptRows = await H.prepare(`SELECT wr.id as report_id, w.label as week_label
+      FROM weeks w JOIN weekly_reports wr ON wr.week_id=w.id AND wr.site_id=?
+      WHERE substr(w.start_date,1,7)=? OR substr(w.end_date,1,7)=?`).all(site_id, pmStr, pmStr);
+    if (!rptRows.length) { history.push({ label: lbl, inbound: null, closed: null, res_sla_pct: null, reply_sla_pct: null }); continue; }
+    let mIn = 0, mCl = 0, resSum = 0, resN = 0, frSum = 0, frN = 0;
+    for (const row of rptRows) {
+      const hdRow = await H.prepare('SELECT chart_data FROM helpdesk_data WHERE report_id=?').get(row.report_id);
+      if (!hdRow || !hdRow.chart_data) continue;
+      let cd; try { cd = JSON.parse(hdRow.chart_data); } catch (e) { continue; }
+      const wks = Array.isArray(cd.weeks) ? cd.weeks : [];
+      const wk = wks.find(w => (w.label||'').trim().toLowerCase() === (row.week_label||'').trim().toLowerCase()) || (wks.length ? wks[wks.length - 1] : null);
+      if (!wk) continue;
+      mIn += wk.inbound || 0; mCl += wk.closed || 0;
+      if (wk.res_ok_pct != null) { resSum += wk.res_ok_pct; resN++; }
+      if (wk.fr_ok_pct  != null) { frSum  += wk.fr_ok_pct;  frN++;  }
+    }
+    history.push({ label: lbl, inbound: mIn || null, closed: mCl || null,
+      res_sla_pct: resN > 0 ? Math.round(resSum / resN) : null, reply_sla_pct: frN > 0 ? Math.round(frSum / frN) : null });
   }
   return history;
 }

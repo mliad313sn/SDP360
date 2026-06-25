@@ -68,3 +68,31 @@ test('agg pg: getCalendarMonthlyTop10 NULL + empty category collapse to one Unca
     assert.equal(unc[0].violations, 2);
   } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
 });
+
+test('agg pg: 6-month history (calendar + raw) + monthly history', async (t) => {
+  const b = await boot(); if (!b) return t.skip('no pg');
+  const { ctx, rdb, siteId } = b;
+  try {
+    const G = 'Hounde IT Agents', C = '2026-05-10 09:00:00';
+    await rdb.upsertRequestBatch([
+      _req({request_id:'A',tech_group:G,site:'Hounde',created_time:C,pending_status:0,overdue_status:0,responded_time:'2026-05-10 10:00:00',first_response_overdue:'false'}),
+      _req({request_id:'B',tech_group:G,site:'Hounde',created_time:C,pending_status:0,overdue_status:0}),
+      _req({request_id:'D',tech_group:G,site:'Hounde',created_time:C,pending_status:0,overdue_status:1}),
+      _req({request_id:'E',tech_group:G,site:'Hounde',created_time:C,pending_status:1}),
+      _req({request_id:'F',tech_group:G,site:'Hounde',created_time:C,pending_status:1}),
+    ]);
+    // calendar path (no groups)
+    const h6 = await rdb.getHelpdesk6MonthHistory(siteId, 2026, 5);
+    assert.equal(h6.length, 6);
+    const may = h6[5];
+    assert.equal(may.inbound, 5); assert.equal(may.closed, 3); assert.equal(may.res_sla_pct, 67);
+    // raw path (groups → _aggregateHelpdesk6MoFromRaw)
+    const h6r = await rdb.getHelpdesk6MonthHistory(siteId, 2026, 5, ['Hounde IT Agents']);
+    assert.equal(h6r.length, 6); assert.equal(h6r[5].inbound, 5);
+    // monthly history (12 months, all sites/groups)
+    const mh = await rdb.getMonthlyHelpdeskHistory(12);
+    assert.equal(mh.length, 12);
+    const mRow = mh.find(r => r['Created Time'] === 'May 2026');
+    assert.ok(mRow); assert.equal(mRow['Requests'], 5); assert.equal(mRow['Closed Requests Count'], 3);
+  } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
+});
