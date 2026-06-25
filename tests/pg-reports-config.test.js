@@ -87,3 +87,22 @@ test('config pg: logAudit + getReportAuditLog round-trip', async (t) => {
     assert.equal((await rdb.getReportAuditLog(99, 1)).length, 1); // limit respected
   } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
 });
+
+test('config pg: group presets get/set/discovered', async (t) => {
+  const b = await boot(); if (!b) return t.skip('no pg');
+  const { ctx, rdb } = b;
+  const gp = require('../services/groupPresets');
+  try {
+    const pres = await gp.getPresets(null, 'tickets');     // db arg ignored in pg mode
+    assert.ok(Array.isArray(pres.Operations));
+    assert.ok(pres.Operations.length > 0, 'seeded tickets/Operations non-empty');
+    const r = await gp.setPresets(null, 'tickets', { Operations: ['G1', 'G1', 'G2'], Other: [] }, 'tester');
+    assert.equal(r.ok, true);
+    const after = await gp.getPresets(null, 'tickets');
+    assert.deepEqual(after.Operations, ['G1', 'G2']);       // deduped, replaced
+    const disc = await gp.getDiscovered(null, 'tickets');   // hot tables absent → []
+    assert.deepEqual(disc, []);
+    const merged = await gp.getPresetsWithDiscovered(null, 'tickets');
+    assert.ok(Array.isArray(merged.Other));
+  } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
+});

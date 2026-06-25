@@ -66,9 +66,19 @@ const CHANGES_SEED = {
 
 const SEED_BY_SCOPE = { tickets: TICKETS_SEED, changes: CHANGES_SEED };
 
+// Resolve the active DB handle. Under REPORTS_BACKEND=postgres use reports-db's
+// pool (lazy require — reports-db does NOT require this module, so no cycle);
+// otherwise use the injected sqlite `db`. Callers pass `db` unchanged either way.
+function _h(db) {
+  const rdb = require('../reports-db');
+  if (rdb.REPORTS_BACKEND === 'postgres') return { H: rdb.pgHandle(), isPg: true };
+  return { H: db, isPg: false };
+}
+
 // ── Schema + seed ─────────────────────────────────────────────────────
 let _schemaReady = false;
 function _initSchema(db) {
+  if (_h(db).isPg) return;     // pg schema applied by initPgReports / 002_config.sql
   if (_schemaReady) return;
   db.exec(`
     CREATE TABLE IF NOT EXISTS dashboard_preset_groups (
@@ -111,25 +121,31 @@ function _initSchema(db) {
 }
 
 // ── Reads ─────────────────────────────────────────────────────────────
-function getPresets(db, scope) {
-  _initSchema(db);
+// Dispatch pattern (matches reports-db / meetings / inspection): the sqlite
+// path returns SYNCHRONOUSLY (so existing non-awaited callers keep working on
+// the default backend); only the pg branch returns a Promise. Callers awaiting
+// the result work in both modes (await on a sync value is a no-op).
+const _GP_SQL = `SELECT preset_name, group_name FROM dashboard_preset_groups
+      WHERE scope = ? ORDER BY preset_name, display_order, group_name`;
+function _foldPresets(rows) {
   const out = {};
   CANONICAL_PRESETS.forEach(p => { out[p] = []; });
-
-  try {
-    const rows = db.prepare(`
-      SELECT preset_name, group_name FROM dashboard_preset_groups
-      WHERE scope = ?
-      ORDER BY preset_name, display_order, group_name
-    `).all(scope);
-    rows.forEach(r => {
-      if (!out[r.preset_name]) out[r.preset_name] = [];   // tolerant of unknown preset names
-      out[r.preset_name].push(r.group_name);
-    });
-  } catch (e) {
-    console.warn(`[group-presets] getPresets(${scope}) failed:`, e.message);
-  }
+  rows.forEach(r => {
+    if (!out[r.preset_name]) out[r.preset_name] = [];   // tolerant of unknown preset names
+    out[r.preset_name].push(r.group_name);
+  });
   return out;
+}
+function getPresets(db, scope) {
+  const { H, isPg } = _h(db);
+  if (isPg) return _getPresetsPg(H, scope);
+  _initSchema(db);
+  try { return _foldPresets(H.prepare(_GP_SQL).all(scope)); }
+  catch (e) { console.warn(`[group-presets] getPresets(${scope}) failed:`, e.message); return _foldPresets([]); }
+}
+async function _getPresetsPg(H, scope) {
+  try { return _foldPresets(await H.prepare(_GP_SQL).all(scope)); }
+  catch (e) { console.warn(`[group-presets] getPresets(${scope}) failed:`, e.message); return _foldPresets([]); }
 }
 
 // DISTINCT groups found in actual data (last 12 months) for the scope,
@@ -141,40 +157,42 @@ function getPresets(db, scope) {
 // For 'changes' scope: SELECT DISTINCT tech_group FROM change_records
 //   (change_records may use group_name; fallback handled below.)
 function getDiscovered(db, scope) {
+  const { H, isPg } = _h(db);
+  if (isPg) return _getDiscoveredPg(H, scope);
   _initSchema(db);
-  const table = scope === 'changes' ? 'change_records' : 'request_records';
-  // change_records uses `group_name` per server.js exec-pptx slide 4 fix
-  // (CLAUDE.md, recent commits). request_records uses `tech_group`.
-  const col = scope === 'changes' ? 'group_name' : 'tech_group';
-
+  const { table, col } = _discoveredCols(scope);
   try {
-    // Read assigned set first — fast (one scan of the 50-200 row preset table)
-    const assignedRows = db.prepare(
-      'SELECT group_name FROM dashboard_preset_groups WHERE scope = ?'
-    ).all(scope);
-    const assigned = new Set(assignedRows.map(r => r.group_name));
-
-    // Pull distinct groups from data with a date window. The 12-month
-    // window keeps the list relevant — long-retired groups stop appearing.
-    const rows = db.prepare(`
-      SELECT DISTINCT ${col} AS g
-      FROM ${table}
+    const assigned = new Set(H.prepare('SELECT group_name FROM dashboard_preset_groups WHERE scope = ?').all(scope).map(r => r.group_name));
+    const rows = H.prepare(`
+      SELECT DISTINCT ${col} AS g FROM ${table}
       WHERE ${col} IS NOT NULL AND TRIM(${col}) != ''
         AND date(created_time) >= date('now', '-12 months')
-      ORDER BY g
-    `).all();
+      ORDER BY g`).all();
     return rows.map(r => r.g).filter(g => !assigned.has(g));
-  } catch (e) {
-    console.warn(`[group-presets] getDiscovered(${scope}) failed:`, e.message);
-    return [];
-  }
+  } catch (e) { console.warn(`[group-presets] getDiscovered(${scope}) failed:`, e.message); return []; }
+}
+// change_records uses `group_name` per server.js exec-pptx slide 4 fix; request_records uses `tech_group`.
+function _discoveredCols(scope) {
+  return scope === 'changes' ? { table: 'change_records', col: 'group_name' } : { table: 'request_records', col: 'tech_group' };
+}
+// Dialect: date('now','-12 months') → current_date - interval; date(created_time) → ::date.
+// In 4B-only pg mode the hot table is absent → the catch returns [] (graceful, documented).
+async function _getDiscoveredPg(H, scope) {
+  const { table, col } = _discoveredCols(scope);
+  try {
+    const assigned = new Set((await H.prepare('SELECT group_name FROM dashboard_preset_groups WHERE scope = ?').all(scope)).map(r => r.group_name));
+    const rows = await H.prepare(`
+      SELECT DISTINCT ${col} AS g FROM ${table}
+      WHERE ${col} IS NOT NULL AND TRIM(${col}) != ''
+        AND created_time::date >= current_date - interval '12 months'
+      ORDER BY g`).all();
+    return rows.map(r => r.g).filter(g => !assigned.has(g));
+  } catch (e) { console.warn(`[group-presets] getDiscovered(${scope}) failed:`, e.message); return []; }
 }
 
 // Convenience for the frontend: presets with discovered groups appended
 // to "Other" so the UI doesn't need to do the merge itself.
-function getPresetsWithDiscovered(db, scope) {
-  const presets = getPresets(db, scope);
-  const discovered = getDiscovered(db, scope);
+function _mergeDiscovered(presets, discovered) {
   if (discovered.length) {
     const otherSet = new Set(presets.Other || []);
     discovered.forEach(g => {
@@ -187,47 +205,61 @@ function getPresetsWithDiscovered(db, scope) {
   }
   return presets;
 }
+function getPresetsWithDiscovered(db, scope) {
+  const { isPg } = _h(db);
+  if (isPg) return (async () => _mergeDiscovered(await getPresets(db, scope), await getDiscovered(db, scope)))();
+  return _mergeDiscovered(getPresets(db, scope), getDiscovered(db, scope));
+}
 
 // ── Writes ────────────────────────────────────────────────────────────
 // Atomic replace per scope: delete + reinsert in a transaction. The
 // `presets` arg is a `{ presetName: [group, group, ...] }` map.
 // Unknown preset names are accepted (forward-compat) — they get stored
 // but the canonical list determines what the dropdown renders.
-function setPresets(db, scope, presets, user) {
-  _initSchema(db);
-  if (!presets || typeof presets !== 'object') {
-    throw new Error('setPresets: presets must be an object');
-  }
-  // Defensive: drop empty / non-array entries
+const _SP_DEL = 'DELETE FROM dashboard_preset_groups WHERE scope = ?';
+const _SP_INS = `INSERT INTO dashboard_preset_groups
+      (scope, preset_name, group_name, display_order, updated_by) VALUES (?, ?, ?, ?, ?)`;
+function _cleanPresets(presets) {
+  if (!presets || typeof presets !== 'object') throw new Error('setPresets: presets must be an object');
   const clean = {};
   Object.entries(presets).forEach(([name, groups]) => {
     if (!Array.isArray(groups)) return;
-    // Dedupe + drop falsy
-    const seen = new Set();
-    const out = [];
-    groups.forEach(g => {
-      const v = (g || '').trim();
-      if (v && !seen.has(v)) { seen.add(v); out.push(v); }
-    });
+    const seen = new Set(); const out = [];
+    groups.forEach(g => { const v = (g || '').trim(); if (v && !seen.has(v)) { seen.add(v); out.push(v); } });
     clean[name] = out;
   });
-
-  const delAll = db.prepare('DELETE FROM dashboard_preset_groups WHERE scope = ?');
-  const ins = db.prepare(`
-    INSERT INTO dashboard_preset_groups
-      (scope, preset_name, group_name, display_order, updated_by)
-    VALUES (?, ?, ?, ?, ?)
-  `);
-  const tx = db.transaction(() => {
+  return clean;
+}
+function _setPresetsResult(scope, user, clean) {
+  const total = Object.values(clean).reduce((s, g) => s + g.length, 0);
+  console.log(`[group-presets] setPresets scope=${scope} user=${user} → ${total} assignments across ${Object.keys(clean).length} presets`);
+  return { ok: true, scope, total_assignments: total, presets: Object.keys(clean).length };
+}
+function setPresets(db, scope, presets, user) {
+  const { H, isPg } = _h(db);
+  if (isPg) return _setPresetsPg(H, scope, presets, user);
+  _initSchema(db);
+  const clean = _cleanPresets(presets);
+  const delAll = H.prepare(_SP_DEL);
+  const ins = H.prepare(_SP_INS);
+  H.transaction(() => {
     delAll.run(scope);
     for (const [preset, groups] of Object.entries(clean)) {
       groups.forEach((g, ix) => ins.run(scope, preset, g, ix, user || '_unknown'));
     }
+  })();
+  return _setPresetsResult(scope, user, clean);
+}
+async function _setPresetsPg(H, scope, presets, user) {
+  const clean = _cleanPresets(presets);
+  await H.runTransaction(async () => {
+    await H.prepare(_SP_DEL).run(scope);
+    for (const [preset, groups] of Object.entries(clean)) {
+      let ix = 0;
+      for (const g of groups) { await H.prepare(_SP_INS).run(scope, preset, g, ix, user || '_unknown'); ix++; }
+    }
   });
-  tx();
-  const total = Object.values(clean).reduce((s, g) => s + g.length, 0);
-  console.log(`[group-presets] setPresets scope=${scope} user=${user} → ${total} assignments across ${Object.keys(clean).length} presets`);
-  return { ok: true, scope, total_assignments: total, presets: Object.keys(clean).length };
+  return _setPresetsResult(scope, user, clean);
 }
 
 module.exports = {
