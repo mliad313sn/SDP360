@@ -553,10 +553,12 @@ function loadLookups() {
  *                                        first (the rest are still returned
  *                                        below them for cross-site visits)
  */
-function listPeople(opts = {}) {
+// async because rdb.listUsers is a Promise under REPORTS_BACKEND=postgres
+// (await is a no-op on the sqlite path). Callers (the /people routes) await it.
+async function listPeople(opts = {}) {
   try {
     const rdb   = require('./reports-db.js');
-    const users = (rdb.listUsers() || []).filter(u => u.active && u.full_name);
+    const users = (await rdb.listUsers() || []).filter(u => u.active && u.full_name);
 
     // Roles that plausibly perform or witness an inspection.
     const allowed = new Set([

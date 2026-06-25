@@ -47,10 +47,10 @@ module.exports = function inspectionRoutes(deps) {
   }
 
   // GET /api/inspection/lookups — hydrate the form (sites + areas + types + categories)
-  router.get('/api/inspection/lookups', requireReportSession, (req, res) => {
+  router.get('/api/inspection/lookups', requireReportSession, async (req, res) => {
     try {
       if (!inspectionDb) return res.status(503).json({ error: 'Inspection module not available' });
-      res.json(inspectionDb.loadLookups());
+      res.json(await inspectionDb.loadLookups());
     } catch(e) {
       console.error('[Inspection] lookups error:', e.message);
       res.status(500).json({ error: e.message });
@@ -61,13 +61,13 @@ module.exports = function inspectionRoutes(deps) {
   // and Accompanied-By fields. Merges reports.db users with the Zoho-ticket
   // technician roster (from the warm ticket cache). Optional ?site=CODE
   // surfaces that site's members first.
-  router.get('/api/inspection/people', requireReportSession, (req, res) => {
+  router.get('/api/inspection/people', requireReportSession, async (req, res) => {
     try {
       if (!inspectionDb) return res.status(503).json({ error: 'Inspection module not available' });
       const wantedCode = req.query.site || null;
 
       // 1) Admin / editor users from reports.db
-      const fromUsers = inspectionDb.listPeople({ site_code: wantedCode }) || [];
+      const fromUsers = await inspectionDb.listPeople({ site_code: wantedCode }) || [];
 
       // 2) Technicians extracted from the warm ticket cache.
       const techMap = {};
@@ -113,10 +113,10 @@ module.exports = function inspectionRoutes(deps) {
   });
 
   // GET /api/inspection/list — paginated header list with optional filters
-  router.get('/api/inspection/list', requireReportSession, (req, res) => {
+  router.get('/api/inspection/list', requireReportSession, async (req, res) => {
     try {
       if (!inspectionDb) return res.status(503).json({ error: 'Inspection module not available' });
-      const rows = inspectionDb.listInspections({
+      const rows = await inspectionDb.listInspections({
         site:   req.query.site   || undefined,
         from:   req.query.from   || undefined,
         to:     req.query.to     || undefined,
@@ -133,10 +133,10 @@ module.exports = function inspectionRoutes(deps) {
   });
 
   // GET /api/inspection/aggregate — KPI roll-up for the dashboard tiles
-  router.get('/api/inspection/aggregate', requireReportSession, (req, res) => {
+  router.get('/api/inspection/aggregate', requireReportSession, async (req, res) => {
     try {
       if (!inspectionDb) return res.status(503).json({ error: 'Inspection module not available' });
-      res.json(inspectionDb.aggregate({
+      res.json(await inspectionDb.aggregate({
         site: req.query.site || undefined,
         from: req.query.from || undefined,
         to:   req.query.to   || undefined
@@ -150,10 +150,10 @@ module.exports = function inspectionRoutes(deps) {
   // GET /api/inspection/actions — flat Corrective-Actions Register across all
   // inspections. viewer+. MUST be registered BEFORE /api/inspection/:id
   // (inspection ids are TEXT, so no numeric guard — order disambiguates).
-  router.get('/api/inspection/actions', requireReportSession, (req, res) => {
+  router.get('/api/inspection/actions', requireReportSession, async (req, res) => {
     try {
       if (!inspectionDb) return res.status(503).json({ error: 'Inspection module not available' });
-      res.json({ rows: inspectionDb.listActions({
+      res.json({ rows: await inspectionDb.listActions({
         site:     req.query.site     || undefined,
         status:   req.query.status   || undefined,
         priority: req.query.priority || undefined,
@@ -172,7 +172,7 @@ module.exports = function inspectionRoutes(deps) {
   // POST /api/inspection/actions/:id/update — change one corrective action's
   // status + log an audit comment. editor+ ; editors scoped to their own site.
   // Allowed EVEN WHEN the parent inspection is submitted/closed.
-  router.post('/api/inspection/actions/:id/update', requireReportSession, inspectionJsonBody, (req, res) => {
+  router.post('/api/inspection/actions/:id/update', requireReportSession, inspectionJsonBody, async (req, res) => {
     try {
       if (!inspectionDb) return res.status(503).json({ error: 'Inspection module not available' });
       if (!rdb.userHasRole(req.reportUser, 'editor')) {
@@ -180,14 +180,14 @@ module.exports = function inspectionRoutes(deps) {
       }
       const actionId = parseInt(req.params.id, 10);
       if (!Number.isFinite(actionId)) return res.status(400).json({ error: 'Invalid action id' });
-      const parent = inspectionDb.getActionParent(actionId);
+      const parent = await inspectionDb.getActionParent(actionId);
       if (!parent) return res.status(404).json({ error: 'Action not found' });
       const userSite = _userInspectionSite(req.reportUser);
       if (userSite && parent.site_code !== userSite) {
         return res.status(403).json({ error: `Action belongs to ${parent.site_code}; you are scoped to ${userSite}` });
       }
       const body = req.body || {};
-      inspectionDb.addActionUpdate(actionId, {
+      await inspectionDb.addActionUpdate(actionId, {
         author_id:     req.reportUser.id || null,
         author_name:   req.reportUser.full_name || req.reportUser.username,
         body:          body.body || '',
@@ -201,10 +201,10 @@ module.exports = function inspectionRoutes(deps) {
   });
 
   // GET /api/inspection/:id — full record (header + findings + actions + photos + sigs)
-  router.get('/api/inspection/:id', requireReportSession, (req, res) => {
+  router.get('/api/inspection/:id', requireReportSession, async (req, res) => {
     try {
       if (!inspectionDb) return res.status(503).json({ error: 'Inspection module not available' });
-      const rec = inspectionDb.getInspection(req.params.id);
+      const rec = await inspectionDb.getInspection(req.params.id);
       if (!rec) return res.status(404).json({ error: 'Not found' });
       res.json(rec);
     } catch(e) {
@@ -216,7 +216,7 @@ module.exports = function inspectionRoutes(deps) {
   // POST /api/inspection/save — upsert. Editors scoped to their own site;
   // admin+ can write any site. Submission-lock RBAC: editors cannot modify a
   // submitted/closed record (admin+ unrestricted).
-  router.post('/api/inspection/save', requireReportSession, inspectionJsonBody, (req, res) => {
+  router.post('/api/inspection/save', requireReportSession, inspectionJsonBody, async (req, res) => {
     try {
       if (!inspectionDb) return res.status(503).json({ error: 'Inspection module not available' });
       if (!rdb.userHasRole(req.reportUser, 'editor')) {
@@ -228,7 +228,7 @@ module.exports = function inspectionRoutes(deps) {
       const isAdmin = rdb.userHasRole(req.reportUser, 'admin');
       const id      = state.meta.f_id;
       if (id && !isAdmin){
-        const existing = inspectionDb.getInspectionStatus(id);
+        const existing = await inspectionDb.getInspectionStatus(id);
         if (existing === 'submitted' || existing === 'closed'){
           return res.status(403).json({
             error: `Inspection is ${existing} — only an administrator can modify or re-open it.`,
@@ -238,7 +238,7 @@ module.exports = function inspectionRoutes(deps) {
       }
 
       const userSite = _userInspectionSite(req.reportUser);
-      const out      = inspectionDb.saveInspection(state, userSite, req.reportUser.id || null);
+      const out      = await inspectionDb.saveInspection(state, userSite, req.reportUser.id || null);
       // Audit log — grep-friendly: pm2 logs … | findstr Inspection
       const itemCount  = Object.keys(state.items || {}).length;
       const actCount   = (state.actions || []).length;
@@ -259,16 +259,16 @@ module.exports = function inspectionRoutes(deps) {
   });
 
   // DELETE /api/inspection/:id — admin+ (admin / executive / super_admin)
-  router.delete('/api/inspection/:id', requireReportSession, requireAdmin, (req, res) => {
+  router.delete('/api/inspection/:id', requireReportSession, requireAdmin, async (req, res) => {
     try {
       if (!inspectionDb) return res.status(503).json({ error: 'Inspection module not available' });
       const id = req.params.id;
       let status = '?', site = '—';
       try {
-        const row = inspectionDb.getInspectionStatus(id);
+        const row = await inspectionDb.getInspectionStatus(id);
         if (row) { status = row.status || '?'; site = row.site_code || '—'; }
       } catch (_) {}
-      const ok = inspectionDb.deleteInspection(id);
+      const ok = await inspectionDb.deleteInspection(id);
       if (!ok) return res.status(404).json({ error: 'Not found' });
       console.log(`[Inspection] DELETE id=${id} user=${req.reportUser.username || '?'} site=${site} prior_status=${status}`);
       res.json({ ok: true });
@@ -283,9 +283,9 @@ module.exports = function inspectionRoutes(deps) {
     try {
       if (!inspectionDb)   return res.status(503).json({ error: 'Inspection module not available' });
       if (!inspectionPptx) return res.status(503).json({ error: 'PPTX module not available' });
-      const rec = inspectionDb.getInspection(req.params.id);
+      const rec = await inspectionDb.getInspection(req.params.id);
       if (!rec) return res.status(404).json({ error: 'Not found' });
-      const buf = await inspectionPptx.generateInspectionPptx(rec, inspectionDb.loadLookups());
+      const buf = await inspectionPptx.generateInspectionPptx(rec, await inspectionDb.loadLookups());
       const safeId = String(req.params.id).replace(/[^A-Za-z0-9_-]/g, '_');
       res.setHeader('Content-Type',        'application/vnd.openxmlformats-officedocument.presentationml.presentation');
       res.setHeader('Content-Disposition', `attachment; filename="Inspection_${safeId}.pptx"`);
@@ -302,9 +302,9 @@ module.exports = function inspectionRoutes(deps) {
       if (!inspectionDb)   return res.status(503).json({ error: 'Inspection module not available' });
       if (!inspectionPptx) return res.status(503).json({ error: 'PPTX module not available' });
       const filters = (req.body && req.body.filters) || {};
-      const agg     = inspectionDb.aggregate(filters);
-      const rows    = inspectionDb.listInspections({ ...filters, limit: 500 });
-      const buf     = await inspectionPptx.generateAggregatePptx({ filters, aggregate: agg, rows }, inspectionDb.loadLookups());
+      const agg     = await inspectionDb.aggregate(filters);
+      const rows    = await inspectionDb.listInspections({ ...filters, limit: 500 });
+      const buf     = await inspectionPptx.generateAggregatePptx({ filters, aggregate: agg, rows }, await inspectionDb.loadLookups());
       const tag     = (filters.site || 'GROUP') + '_' + (filters.from || '') + '_' + (filters.to || '');
       res.setHeader('Content-Type',        'application/vnd.openxmlformats-officedocument.presentationml.presentation');
       res.setHeader('Content-Disposition', `attachment; filename="Inspections_${tag.replace(/[^A-Za-z0-9_-]/g, '_')}.pptx"`);
@@ -316,11 +316,11 @@ module.exports = function inspectionRoutes(deps) {
   });
 
   // POST /api/inspection/reset — wipe + re-seed lookup tables (super_admin only)
-  router.post('/api/inspection/reset', requireReportSession, requireRole('super_admin'), (req, res) => {
+  router.post('/api/inspection/reset', requireReportSession, requireRole('super_admin'), async (req, res) => {
     try {
       if (!inspectionDb) return res.status(503).json({ error: 'Inspection module not available' });
-      inspectionDb.resetLookups();
-      res.json({ ok: true, lookups: inspectionDb.loadLookups() });
+      await inspectionDb.resetLookups();
+      res.json({ ok: true, lookups: await inspectionDb.loadLookups() });
     } catch(e) {
       console.error('[Inspection] reset error:', e.message);
       res.status(500).json({ error: e.message });

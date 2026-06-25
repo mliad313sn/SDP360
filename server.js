@@ -596,7 +596,7 @@ app.get('/api/health/views', async (req, res) => {
   const token = req.headers['x-report-token'] || req.query.token;
   if (!token) return res.status(401).json({ error: 'Authentication required' });
   const { validateSession } = require('./reports-db');
-  const user = validateSession(token);
+  const user = await validateSession(token);
   if (!user || !['admin','super_admin'].includes(user.role)) {
     return res.status(403).json({ error: 'Admin role required' });
   }
@@ -954,14 +954,14 @@ app.use((req, res, next) => {
 // ── API Key guard — extra layer on all /api/* routes ─────────────
 // Accepts either x-dash-key (injected into HTML) OR a valid x-report-token session.
 // This allows index.html (Editor/Viewer) to call APIs using their session token.
-app.use('/api/', (req, res, next) => {
+app.use('/api/', async (req, res, next) => {
   if (req.path.startsWith('/reports/')) return next(); // protected by requireReportSession
   const key   = req.headers['x-dash-key'];
   if (key === DASH_API_KEY) return next(); // API key present — allow
   // Fallback: accept valid session token (for Editor/Viewer users on index.html)
   const token = req.headers['x-report-token'] || getCookie(req, 'report_token');
   if (rdb && token) {
-    const user = rdb.validateSession(token);
+    let user; try { user = await rdb.validateSession(token); } catch (e) { user = null; }
     if (user) return next();
   }
   return res.status(401).json({ error: 'Unauthorized' });
@@ -3917,11 +3917,15 @@ try {
   console.error('[Reports] ❌ executive-new-report failed to load:', e.message);
 }
 
-// Report session auth middleware (uses separate sessions from Basic Auth)
-function requireReportSession(req, res, next) {
+// Report session auth middleware (uses separate sessions from Basic Auth).
+// async because rdb.validateSession is a Promise under REPORTS_BACKEND=postgres
+// (await on the sqlite path resolves synchronously — no behaviour change).
+async function requireReportSession(req, res, next) {
   if (!rdb) return res.status(503).json({ error: 'Reports module not available' });
   const token = req.headers['x-report-token'] || getCookie(req, 'report_token');
-  const user  = rdb.validateSession(token);
+  let user;
+  try { user = await rdb.validateSession(token); }
+  catch (e) { console.error('[auth] validateSession failed:', e.message); return res.status(500).json({ error: 'Auth check failed' }); }
   if (!user) return res.status(401).json({ error: 'Not authenticated' });
   req.reportUser = user;
   next();
@@ -3972,12 +3976,12 @@ const jsonBody = express.json({ limit: '2mb' });
 
 // ── Auth routes ───────────────────────────────────────────────────
 // SECURITY: Login endpoint is rate-limited (10 attempts/15min) to block brute force.
-app.post('/api/reports/auth/login', loginLimiter, jsonBody, (req, res) => {
+app.post('/api/reports/auth/login', loginLimiter, jsonBody, async (req, res) => {
   if (!rdb) return res.status(503).json({ error: 'Reports module not available' });
   const { username, password } = req.body || {};
   if (!username || !password) return res.status(400).json({ error: 'username and password required' });
   try {
-    const result = rdb.login(username, password);
+    const result = await rdb.login(username, password);
     if (!result) return res.status(401).json({ error: 'Invalid credentials' });
     // SECURITY: If token is also set as a cookie, apply httpOnly + Secure + SameSite flags.
     // httpOnly prevents JavaScript from reading the cookie (XSS protection).
@@ -3994,9 +3998,9 @@ app.post('/api/reports/auth/login', loginLimiter, jsonBody, (req, res) => {
   } catch(e) { res.status(500).json({ error: IS_DEV ? e.message : 'Login error.' }); }
 });
 
-app.post('/api/reports/auth/logout', requireReportSession, (req, res) => {
+app.post('/api/reports/auth/logout', requireReportSession, async (req, res) => {
   const token = req.headers['x-report-token'];
-  try { rdb.logout(token); res.json({ ok: true }); }
+  try { await rdb.logout(token); res.json({ ok: true }); }
   catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -4005,12 +4009,12 @@ app.get('/api/reports/auth/me', requireReportSession, (req, res) => {
 });
 
 // ── Change own password ───────────────────────────────────────────
-app.post('/api/reports/auth/change-password', requireReportSession, jsonBody, (req, res) => {
+app.post('/api/reports/auth/change-password', requireReportSession, jsonBody, async (req, res) => {
   const { current_password, new_password } = req.body || {};
   if (!current_password || !new_password)
     return res.status(400).json({ error: 'current_password and new_password are required' });
   try {
-    const result = rdb.changePassword(req.reportUser.id, current_password, new_password);
+    const result = await rdb.changePassword(req.reportUser.id, current_password, new_password);
     if (!result.ok) return res.status(400).json({ error: result.error });
     res.json({ ok: true, message: 'Password changed successfully' });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -4096,39 +4100,40 @@ app.delete('/api/reports/sites/:id', requireReportSession, requireExecutiveOrSup
 });
 
 // ── Users (admin only) ────────────────────────────────────────────
-app.get('/api/reports/users', requireReportSession, requireAdmin, (req, res) => {
-  try { res.json(rdb.listUsers()); }
+app.get('/api/reports/users', requireReportSession, requireAdmin, async (req, res) => {
+  try { res.json(await rdb.listUsers()); }
   catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-app.post('/api/reports/users', requireReportSession, requireAdmin, jsonBody, (req, res) => {
+app.post('/api/reports/users', requireReportSession, requireAdmin, jsonBody, async (req, res) => {
   try {
     // Accept both legacy `role: 'admin'` (string) and new `roles: ['admin', 'tracker-editor']` (array).
     const { username, full_name, password, site_id, role, roles } = req.body || {};
     if (!username || !full_name || !password) return res.status(400).json({ error: 'username, full_name, password required' });
-    rdb.createUser({ username, full_name, password, site_id, role, roles });
+    await rdb.createUser({ username, full_name, password, site_id, role, roles });
     res.json({ ok: true });
   } catch(e) {
-    if (e.message.includes('UNIQUE')) return res.status(409).json({ error: 'Username already exists' });
+    // sqlite raises "UNIQUE constraint failed"; postgres raises SQLSTATE 23505.
+    if (e.code === '23505' || (e.message && e.message.includes('UNIQUE'))) return res.status(409).json({ error: 'Username already exists' });
     res.status(500).json({ error: e.message });
   }
 });
 
-app.put('/api/reports/users/:id', requireReportSession, requireAdmin, jsonBody, (req, res) => {
+app.put('/api/reports/users/:id', requireReportSession, requireAdmin, jsonBody, async (req, res) => {
   try {
     // Accept both legacy `role` (string) and new `roles` (array) — see createUser comment.
     const { full_name, password, site_id, role, roles, active } = req.body || {};
     if (!full_name) return res.status(400).json({ error: 'full_name required' });
-    rdb.updateUser(parseInt(req.params.id), { full_name, password, site_id, role, roles, active });
+    await rdb.updateUser(parseInt(req.params.id), { full_name, password, site_id, role, roles, active });
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-app.delete('/api/reports/users/:id', requireReportSession, requireAdmin, (req, res) => {
+app.delete('/api/reports/users/:id', requireReportSession, requireAdmin, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     if (req.reportUser.id === id) return res.status(400).json({ error: 'Cannot delete your own account' });
-    rdb.deleteUser(id);
+    await rdb.deleteUser(id);
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -4141,10 +4146,10 @@ app.delete('/api/reports/users/:id', requireReportSession, requireAdmin, (req, r
 // View: admin+ (matches the Users-card RBAC — same operational scope).
 // Force-logout: super_admin only (destructive action; could kick the
 // wrong session in a multi-tab scenario).
-app.get('/api/reports/sessions/active', requireReportSession, requireAdmin, (req, res) => {
+app.get('/api/reports/sessions/active', requireReportSession, requireAdmin, async (req, res) => {
   try {
     const idle = Math.max(1, Math.min(1440, parseInt(req.query.idle_minutes || '5', 10) || 5));
-    const sessions = rdb.listActiveSessions(idle);
+    const sessions = await rdb.listActiveSessions(idle);
     // Don't leak full tokens to the browser — sufficient to show a
     // short prefix for visual identification, and pass the full one
     // back only when the operator explicitly clicks Force Logout.
@@ -4179,7 +4184,7 @@ app.delete('/api/reports/sessions/:token', requireReportSession, (req, res, next
     return res.status(403).json({ error: 'super_admin only' });
   }
   next();
-}, (req, res) => {
+}, async (req, res) => {
   try {
     const token = decodeURIComponent(req.params.token || '');
     if (!token) return res.status(400).json({ error: 'token is required' });
@@ -4188,7 +4193,7 @@ app.delete('/api/reports/sessions/:token', requireReportSession, (req, res, next
     if (token === (req.headers['x-report-token'] || getCookie(req, 'report_token'))) {
       return res.status(400).json({ error: 'Cannot force-logout your own session — use the regular Logout instead.' });
     }
-    const r = rdb.forceLogoutByToken(token);
+    const r = await rdb.forceLogoutByToken(token);
     const who = req.reportUser?.username || 'unknown';
     console.log(`[sessions] force-logout token=${token.slice(0,8)}… by ${who} — rows=${r.deleted}`);
     res.json(r);
@@ -4886,12 +4891,15 @@ app.put('/api/reports/:id/reassign-week', requireReportSession, jsonBody, (req, 
 // report's site name to a meetings site_code and returns the calendar-month
 // snapshot, or null (degrades gracefully) if the meetings module is absent,
 // the site can't be mapped, or anything throws.
-function _meetingsSummaryForSite(siteName, year, month) {
+// async because getSiteMonthlyMeetingSummary is a Promise under
+// MEETINGS_BACKEND=postgres (await is a no-op on the sqlite path). All call
+// sites await this — it's an optional enrichment that degrades to null.
+async function _meetingsSummaryForSite(siteName, year, month) {
   try {
     if (!meetingsDb || !siteName || !year || !month) return null;
     const code = meetingsDb.siteNameToCode(siteName);
     if (!code) return null;
-    return meetingsDb.getSiteMonthlyMeetingSummary(code, parseInt(year, 10), parseInt(month, 10));
+    return await meetingsDb.getSiteMonthlyMeetingSummary(code, parseInt(year, 10), parseInt(month, 10));
   } catch (e) { console.warn('[Report] meetings summary failed:', e.message); return null; }
 }
 
@@ -4915,7 +4923,7 @@ app.get('/api/reports/:id/pptx', requireReportSession, async (req, res) => {
     // Department-meetings monthly snapshot for the report's site + month —
     // drives the new "Department Meetings" slide.
     const _wRef = report.end_date || report.start_date || '';
-    const meetingsSummary = _meetingsSummaryForSite(report.site_name, String(_wRef).slice(0, 4), String(_wRef).slice(5, 7));
+    const meetingsSummary = await _meetingsSummaryForSite(report.site_name, String(_wRef).slice(0, 4), String(_wRef).slice(5, 7));
     const buf = await rpptx.generateWeeklyPptx(report, prevReport, openChanges, activeIncidents, meetingsSummary);
     const filename = `Endeavour_${report.site_name}_${report.week_label.replace(/\s/g,'_')}_Report.pptx`;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.presentationml.presentation');
@@ -4941,7 +4949,7 @@ app.get('/api/reports/monthly/all-sites/:year/:month/pptx', requireReportSession
       const openChanges     = rdb.getOpenChangesForSite(_aGroups);
       const activeIncidents = rdb.getActiveMajorIncidentsForSite(_aGroups);
       allData.push({ site, monthlyData, edits, objectives, yearlyData, openChanges, activeIncidents,
-        meetingsSummary: _meetingsSummaryForSite(site.name, year, month) });
+        meetingsSummary: await _meetingsSummaryForSite(site.name, year, month) });
     }
     if (allData.length === 0) return res.status(404).json({ error: 'No active sites found' });
     const buf = await rpptxMonthly.generateAllSitesMonthlyPptx(allData, parseInt(year), parseInt(month));
@@ -4978,7 +4986,7 @@ app.get('/api/reports/monthly/:site_id/:year/:month/pptx', requireReportSession,
         r ? { ...r, openChanges: _openChanges, activeIncidents: _activeIncidents } : r
       );
     }
-    monthlyData.meetingsSummary = _meetingsSummaryForSite(site.name, year, month);
+    monthlyData.meetingsSummary = await _meetingsSummaryForSite(site.name, year, month);
     const buf = await rpptx.generateMonthlyPptx(monthlyData, site.name, parseInt(year), parseInt(month));
     const monthName = new Date(parseInt(year), parseInt(month)-1, 1).toLocaleString('en',{month:'long'});
     const filename = `Endeavour_${site.name}_${monthName}_${year}_Monthly_Report.pptx`;
@@ -5003,16 +5011,16 @@ app.get('/api/reports/weekly-summary/:year/:week/pptx', requireReportSession, as
     const _wsSites = rdb.listSites();
     const _wsRange = rdb.getWeekRange(parseInt(year), parseInt(week));
     const _wsRef   = (_wsRange && (_wsRange.end || _wsRange.start)) || '';
-    summaryData.reports = summaryData.reports.map(r => {
+    summaryData.reports = await Promise.all(summaryData.reports.map(async r => {
       const _s = _wsSites.find(s => s.id === r.site_id);
       const _g = _s ? (_s.zoho_group || '').split(',').map(g => g.trim()).filter(Boolean) : [];
       return {
         ...r,
         openChanges:     rdb.getOpenChangesForSite(_g),
         activeIncidents: rdb.getActiveMajorIncidentsForSite(_g),
-        meetingsSummary: _meetingsSummaryForSite(_s ? _s.name : null, String(_wsRef).slice(0, 4), String(_wsRef).slice(5, 7)),
+        meetingsSummary: await _meetingsSummaryForSite(_s ? _s.name : null, String(_wsRef).slice(0, 4), String(_wsRef).slice(5, 7)),
       };
-    });
+    }));
     const buf = await rpptx.generateWeeklySummaryPptx(summaryData);
     const filename = `Endeavour_AllSites_${summaryData.week_label.replace(/\s+/g, '_')}_Weekly_Summary.pptx`;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.presentationml.presentation');
@@ -5115,7 +5123,7 @@ app.get('/api/reports/monthly/:site_id/:year/:month/pptx-v2', requireReportSessi
     const _mGroups       = (site.zoho_group || '').split(',').map(g => g.trim()).filter(Boolean);
     const openChanges    = rdb.getOpenChangesForSite(_mGroups);
     const activeIncidents= rdb.getActiveMajorIncidentsForSite(_mGroups);
-    monthlyData.meetingsSummary = _meetingsSummaryForSite(site.name, year, month);
+    monthlyData.meetingsSummary = await _meetingsSummaryForSite(site.name, year, month);
     const buf = await rpptxMonthly.generateMonthlyPptxV2(monthlyData, site.name, parseInt(year), parseInt(month), edits, objectives, yearlyData, openChanges, activeIncidents);
     const monthName = new Date(parseInt(year), parseInt(month)-1, 1).toLocaleString('en', { month: 'long' });
     const filename = `Endeavour_${site.name}_${year}_${monthName}_Monthly_Report.pptx`;
@@ -5778,10 +5786,10 @@ function _userMeetingsSite(user) {
 }
 
 // GET /api/meetings/lookups — all bilingual lookups + canonical site list
-app.get('/api/meetings/lookups', requireReportSession, (req, res) => {
+app.get('/api/meetings/lookups', requireReportSession, async (req, res) => {
   try {
     if (!meetingsDb) return res.status(503).json({ error: 'Meetings module not available' });
-    res.json(meetingsDb.loadLookups());
+    res.json(await meetingsDb.loadLookups());
   } catch(e) {
     console.error('[Meetings] lookups error:', e.message);
     res.status(500).json({ error: e.message });
@@ -5790,10 +5798,10 @@ app.get('/api/meetings/lookups', requireReportSession, (req, res) => {
 
 // GET /api/meetings/people — owner / Champion autocomplete
 // Reuses the inspection people roster so the same names appear here.
-app.get('/api/meetings/people', requireReportSession, (req, res) => {
+app.get('/api/meetings/people', requireReportSession, async (req, res) => {
   try {
     if (!inspectionDb) return res.status(503).json({ error: 'Inspection module not available' });
-    res.json({ people: inspectionDb.listPeople({ site_code: req.query.site || null }) });
+    res.json({ people: await inspectionDb.listPeople({ site_code: req.query.site || null }) });
   } catch(e) {
     console.error('[Meetings] people error:', e.message);
     res.status(500).json({ error: e.message });
@@ -5807,7 +5815,7 @@ app.get('/api/meetings/people', requireReportSession, (req, res) => {
 //             which ignores status/intake/q). Drives the pagination math
 //             on meetings.html so "Next" greys out correctly on the last
 //             page and the badge "Page 3 / 7" is accurate.
-app.get('/api/meetings/list', requireReportSession, (req, res) => {
+app.get('/api/meetings/list', requireReportSession, async (req, res) => {
   try {
     if (!meetingsDb) return res.status(503).json({ error: 'Meetings module not available' });
     const opts = {
@@ -5819,11 +5827,11 @@ app.get('/api/meetings/list', requireReportSession, (req, res) => {
       to:         req.query.to         || undefined,
       q:          req.query.q          || undefined,
     };
-    const rows = meetingsDb.listMeetings(Object.assign({}, opts, {
+    const rows = await meetingsDb.listMeetings(Object.assign({}, opts, {
       limit:  parseInt(req.query.limit  || '200', 10),
       offset: parseInt(req.query.offset || '0',   10),
     }));
-    const total = meetingsDb.countMeetings(opts);
+    const total = await meetingsDb.countMeetings(opts);
     res.json({ rows, total });
   } catch(e) {
     console.error('[Meetings] list error:', e.message);
@@ -5832,10 +5840,10 @@ app.get('/api/meetings/list', requireReportSession, (req, res) => {
 });
 
 // GET /api/meetings/aggregate — KPI roll-up for the Meetings dashboard
-app.get('/api/meetings/aggregate', requireReportSession, (req, res) => {
+app.get('/api/meetings/aggregate', requireReportSession, async (req, res) => {
   try {
     if (!meetingsDb) return res.status(503).json({ error: 'Meetings module not available' });
-    res.json(meetingsDb.aggregate({
+    res.json(await meetingsDb.aggregate({
       site:       req.query.site       || undefined,
       department: req.query.department || undefined,
       from:       req.query.from       || undefined,
@@ -5852,10 +5860,10 @@ app.get('/api/meetings/aggregate', requireReportSession, (req, res) => {
 //   site leaderboard). One round-trip per page load.
 //   Filters: site, department, from, to (defaults to last 6 months
 //   per the ITSM standard visibility doctrine in CLAUDE.md).
-app.get('/api/meetings/insights', requireReportSession, (req, res) => {
+app.get('/api/meetings/insights', requireReportSession, async (req, res) => {
   try {
     if (!meetingsDb) return res.status(503).json({ error: 'Meetings module not available' });
-    res.json(meetingsDb.insights({
+    res.json(await meetingsDb.insights({
       site:       req.query.site       || undefined,
       department: req.query.department || undefined,
       from:       req.query.from       || undefined,
@@ -5869,10 +5877,10 @@ app.get('/api/meetings/insights', requireReportSession, (req, res) => {
 
 // GET /api/meetings/compliance — the 5 Engagements monitor
 //   ?month=YYYY-MM (defaults to current month)
-app.get('/api/meetings/compliance', requireReportSession, (req, res) => {
+app.get('/api/meetings/compliance', requireReportSession, async (req, res) => {
   try {
     if (!meetingsDb) return res.status(503).json({ error: 'Meetings module not available' });
-    res.json(meetingsDb.compliance({ month: req.query.month || undefined }));
+    res.json(await meetingsDb.compliance({ month: req.query.month || undefined }));
   } catch(e) {
     console.error('[Meetings] compliance error:', e.message);
     res.status(500).json({ error: e.message });
@@ -5880,7 +5888,7 @@ app.get('/api/meetings/compliance', requireReportSession, (req, res) => {
 });
 
 // GET /api/meetings/issues — flat Issues Log across all meetings
-app.get('/api/meetings/issues', requireReportSession, (req, res) => {
+app.get('/api/meetings/issues', requireReportSession, async (req, res) => {
   try {
     if (!meetingsDb) return res.status(503).json({ error: 'Meetings module not available' });
     const escalate = req.query.escalate;
@@ -5899,7 +5907,7 @@ app.get('/api/meetings/issues', requireReportSession, (req, res) => {
     };
     if (escalate === '1' || escalate === 'true')  opts.escalate = true;
     else if (escalate === '0' || escalate === 'false') opts.escalate = false;
-    res.json({ rows: meetingsDb.listIssues(opts) });
+    res.json({ rows: await meetingsDb.listIssues(opts) });
   } catch(e) {
     console.error('[Meetings] issues error:', e.message);
     res.status(500).json({ error: e.message });
@@ -5908,10 +5916,10 @@ app.get('/api/meetings/issues', requireReportSession, (req, res) => {
 
 // GET /api/meetings/escalations — alias for /issues?escalate=1, the
 // Mine IT Council view — auto-grouped by council theme on the client.
-app.get('/api/meetings/escalations', requireReportSession, (req, res) => {
+app.get('/api/meetings/escalations', requireReportSession, async (req, res) => {
   try {
     if (!meetingsDb) return res.status(503).json({ error: 'Meetings module not available' });
-    res.json({ rows: meetingsDb.listEscalations({
+    res.json({ rows: await meetingsDb.listEscalations({
       site:          req.query.site          || undefined,
       department:    req.query.department    || undefined,
       category:      req.query.category      || undefined,
@@ -5931,10 +5939,10 @@ app.get('/api/meetings/escalations', requireReportSession, (req, res) => {
 // viewer+. Filters: site, department, status, owner, overdue, from, to, q.
 // Registered BEFORE /:id; the numeric guard on /:id also lets "actions" fall
 // through, but keeping it here groups it with the other list routes.
-app.get('/api/meetings/actions', requireReportSession, (req, res) => {
+app.get('/api/meetings/actions', requireReportSession, async (req, res) => {
   try {
     if (!meetingsDb) return res.status(503).json({ error: 'Meetings module not available' });
-    res.json({ rows: meetingsDb.listActions({
+    res.json({ rows: await meetingsDb.listActions({
       site:       req.query.site       || undefined,
       department: req.query.department || undefined,
       status:     req.query.status     || undefined,
@@ -5955,7 +5963,7 @@ app.get('/api/meetings/actions', requireReportSession, (req, res) => {
 // this is allowed EVEN WHEN the parent PV is closed — actions outlive the
 // signed/closed meeting, and closing a stale action must not require an admin
 // to re-open the whole PV.
-app.post('/api/meetings/actions/:id/update', requireReportSession, meetingsJsonBody, (req, res) => {
+app.post('/api/meetings/actions/:id/update', requireReportSession, meetingsJsonBody, async (req, res) => {
   try {
     if (!meetingsDb) return res.status(503).json({ error: 'Meetings module not available' });
     if (!rdb.userHasRole(req.reportUser, 'editor')) {
@@ -5965,14 +5973,14 @@ app.post('/api/meetings/actions/:id/update', requireReportSession, meetingsJsonB
     if (!Number.isFinite(actionId)) return res.status(400).json({ error: 'Invalid action id' });
     // Site scoping for editors — look up the parent meeting's site via the
     // module's own (already-open) connection. No raw re-open / stray file.
-    const parent = meetingsDb.getActionParent(actionId);
+    const parent = await meetingsDb.getActionParent(actionId);
     if (!parent) return res.status(404).json({ error: 'Action not found' });
     const userSite = _userMeetingsSite(req.reportUser);
     if (userSite && parent.site_code !== userSite) {
       return res.status(403).json({ error: `Action belongs to ${parent.site_code}; you are scoped to ${userSite}` });
     }
     const body = req.body || {};
-    meetingsDb.addActionUpdate(actionId, {
+    await meetingsDb.addActionUpdate(actionId, {
       author_id:     req.reportUser.id || null,
       author_name:   req.reportUser.full_name || req.reportUser.username,
       body:          body.body || '',
@@ -5986,7 +5994,7 @@ app.post('/api/meetings/actions/:id/update', requireReportSession, meetingsJsonB
 });
 
 // GET /api/meetings/:id — full meeting (header + projects + issues + actions + audit + attachments)
-app.get('/api/meetings/:id', requireReportSession, (req, res, next) => {
+app.get('/api/meetings/:id', requireReportSession, async (req, res, next) => {
   // Guard: this parametric route is registered BEFORE the specific
   // /api/meetings/progress route, so a non-numeric :id (e.g. "progress")
   // must fall through to the later matching route instead of being parsed
@@ -5994,7 +6002,7 @@ app.get('/api/meetings/:id', requireReportSession, (req, res, next) => {
   if (!Number.isFinite(parseInt(req.params.id, 10))) return next();
   try {
     if (!meetingsDb) return res.status(503).json({ error: 'Meetings module not available' });
-    const rec = meetingsDb.getMeeting(parseInt(req.params.id, 10));
+    const rec = await meetingsDb.getMeeting(parseInt(req.params.id, 10));
     if (!rec) return res.status(404).json({ error: 'Not found' });
     res.json(rec);
   } catch(e) {
@@ -6008,7 +6016,7 @@ app.get('/api/meetings/:id', requireReportSession, (req, res, next) => {
 // admin+ can write any site. Body shape:
 //   { state: { id?, header: {...}, projects: [...], issues: [...], actions: [...] } }
 // Children arrays are OPTIONAL — omitting them preserves existing rows.
-app.post('/api/meetings/save', requireReportSession, meetingsJsonBody, (req, res) => {
+app.post('/api/meetings/save', requireReportSession, meetingsJsonBody, async (req, res) => {
   try {
     if (!meetingsDb) return res.status(503).json({ error: 'Meetings module not available' });
     if (!rdb.userHasRole(req.reportUser, 'editor')) {
@@ -6020,7 +6028,7 @@ app.post('/api/meetings/save', requireReportSession, meetingsJsonBody, (req, res
     }
     state.author_name = state.author_name || req.reportUser.full_name || req.reportUser.username;
     const userSite = _userMeetingsSite(req.reportUser);
-    const out      = meetingsDb.saveMeeting(state, userSite, req.reportUser.id || null);
+    const out      = await meetingsDb.saveMeeting(state, userSite, req.reportUser.id || null);
     res.json({ ok: true, ...out, scope: userSite || 'all' });
   } catch(e) {
     console.error('[Meetings] save error:', e.message);
@@ -6032,7 +6040,7 @@ app.post('/api/meetings/save', requireReportSession, meetingsJsonBody, (req, res
 // POST /api/meetings/issues/:id/update — append an audit-trail comment
 // or status / escalate change to a single issue.
 // Editor users can only update issues whose meeting belongs to their site.
-app.post('/api/meetings/issues/:id/update', requireReportSession, meetingsJsonBody, (req, res) => {
+app.post('/api/meetings/issues/:id/update', requireReportSession, meetingsJsonBody, async (req, res) => {
   try {
     if (!meetingsDb) return res.status(503).json({ error: 'Meetings module not available' });
     if (!rdb.userHasRole(req.reportUser, 'editor')) {
@@ -6043,7 +6051,7 @@ app.post('/api/meetings/issues/:id/update', requireReportSession, meetingsJsonBo
     // already-open connection (was previously re-opening __dirname/meetings.db
     // at the ROOT — the wrong path since the DB moved to data/ on 2026-06-05,
     // which created a stray empty file and made every lookup 404).
-    const parent = meetingsDb.getIssueParent(issueId);
+    const parent = await meetingsDb.getIssueParent(issueId);
     if (!parent) return res.status(404).json({ error: 'Issue not found' });
 
     const userSite = _userMeetingsSite(req.reportUser);
@@ -6055,7 +6063,7 @@ app.post('/api/meetings/issues/:id/update', requireReportSession, meetingsJsonBo
     }
 
     const body = req.body || {};
-    meetingsDb.addIssueUpdate(issueId, {
+    await meetingsDb.addIssueUpdate(issueId, {
       author_id:       req.reportUser.id || null,
       author_name:     req.reportUser.full_name || req.reportUser.username,
       body:            body.body || '',
@@ -6071,10 +6079,10 @@ app.post('/api/meetings/issues/:id/update', requireReportSession, meetingsJsonBo
 });
 
 // DELETE /api/meetings/:id — executive+ only (cascading)
-app.delete('/api/meetings/:id', requireReportSession, requireExecutiveOrSuperAdmin, (req, res) => {
+app.delete('/api/meetings/:id', requireReportSession, requireExecutiveOrSuperAdmin, async (req, res) => {
   try {
     if (!meetingsDb) return res.status(503).json({ error: 'Meetings module not available' });
-    const ok = meetingsDb.deleteMeeting(parseInt(req.params.id, 10));
+    const ok = await meetingsDb.deleteMeeting(parseInt(req.params.id, 10));
     if (!ok) return res.status(404).json({ error: 'Not found' });
     res.json({ ok: true });
   } catch(e) {
@@ -6087,12 +6095,12 @@ app.delete('/api/meetings/:id', requireReportSession, requireExecutiveOrSuperAdm
 // lookup table (super_admin). Body: the row object {code, name_en, ...}.
 // :table must be one of the allowed lookups (validated in DB layer).
 // Refuses if the code already exists — use PUT to update an existing row.
-app.post('/api/meetings/lookups/:table', requireReportSession, requireRole('super_admin'), meetingsJsonBody, (req, res) => {
+app.post('/api/meetings/lookups/:table', requireReportSession, requireRole('super_admin'), meetingsJsonBody, async (req, res) => {
   try {
     if (!meetingsDb) return res.status(503).json({ error: 'Meetings module not available' });
-    meetingsDb.addLookupRow(req.params.table, req.body || {});
+    await meetingsDb.addLookupRow(req.params.table, req.body || {});
     console.log(`[meetings-lookups] ADD ${req.params.table}/${(req.body || {}).code} by ${req.reportUser && req.reportUser.username}`);
-    res.json({ ok: true, lookups: meetingsDb.loadLookups() });
+    res.json({ ok: true, lookups: await meetingsDb.loadLookups() });
   } catch(e) {
     console.error('[Meetings] addLookupRow error:', e.message);
     res.status(400).json({ error: e.message });
@@ -6103,10 +6111,10 @@ app.post('/api/meetings/lookups/:table', requireReportSession, requireRole('supe
 // the admin UI. Differs from /api/meetings/lookups (the form-facing one,
 // which silently filters active=1 via loadLookups). super_admin only — the
 // admin card on reports.html#admin needs to manage soft-deleted rows too.
-app.get('/api/meetings/lookups/:table', requireReportSession, requireRole('super_admin'), (req, res) => {
+app.get('/api/meetings/lookups/:table', requireReportSession, requireRole('super_admin'), async (req, res) => {
   try {
     if (!meetingsDb) return res.status(503).json({ error: 'Meetings module not available' });
-    const rows = meetingsDb.listLookupTable(req.params.table, { includeInactive: true });
+    const rows = await meetingsDb.listLookupTable(req.params.table, { includeInactive: true });
     res.json({ table: req.params.table, rows });
   } catch(e) {
     console.error('[Meetings] listLookupTable error:', e.message);
@@ -6119,12 +6127,12 @@ app.get('/api/meetings/lookups/:table', requireReportSession, requireRole('super
 // description_en, description_fr, display_order, active}. The `code` is
 // the PK and is NOT editable through this route — to rename a code,
 // POST a new one and PATCH the old one inactive.
-app.put('/api/meetings/lookups/:table/:code', requireReportSession, requireRole('super_admin'), meetingsJsonBody, (req, res) => {
+app.put('/api/meetings/lookups/:table/:code', requireReportSession, requireRole('super_admin'), meetingsJsonBody, async (req, res) => {
   try {
     if (!meetingsDb) return res.status(503).json({ error: 'Meetings module not available' });
-    const result = meetingsDb.updateLookupRow(req.params.table, req.params.code, req.body || {});
+    const result = await meetingsDb.updateLookupRow(req.params.table, req.params.code, req.body || {});
     console.log(`[meetings-lookups] PUT ${req.params.table}/${req.params.code} by ${req.reportUser && req.reportUser.username}`);
-    res.json({ ok: true, changes: result.changes, lookups: meetingsDb.loadLookups() });
+    res.json({ ok: true, changes: result.changes, lookups: await meetingsDb.loadLookups() });
   } catch(e) {
     console.error('[Meetings] updateLookupRow error:', e.message);
     res.status(400).json({ error: e.message });
@@ -6135,11 +6143,11 @@ app.put('/api/meetings/lookups/:table/:code', requireReportSession, requireRole(
 // (super_admin). Body: {active: 0|1|true|false}. Soft-delete equivalent —
 // the row stays in DB (so old PVs continue to render their original code
 // labels), but it disappears from form dropdowns and import allowlists.
-app.patch('/api/meetings/lookups/:table/:code/active', requireReportSession, requireRole('super_admin'), meetingsJsonBody, (req, res) => {
+app.patch('/api/meetings/lookups/:table/:code/active', requireReportSession, requireRole('super_admin'), meetingsJsonBody, async (req, res) => {
   try {
     if (!meetingsDb) return res.status(503).json({ error: 'Meetings module not available' });
     const active = (req.body && (req.body.active === 1 || req.body.active === true || req.body.active === '1')) ? 1 : 0;
-    const result = meetingsDb.updateLookupRow(req.params.table, req.params.code, { active });
+    const result = await meetingsDb.updateLookupRow(req.params.table, req.params.code, { active });
     console.log(`[meetings-lookups] TOGGLE ${req.params.table}/${req.params.code} active=${active} by ${req.reportUser && req.reportUser.username}`);
     res.json({ ok: true, active, changes: result.changes });
   } catch(e) {
@@ -6149,11 +6157,11 @@ app.patch('/api/meetings/lookups/:table/:code/active', requireReportSession, req
 });
 
 // POST /api/meetings/reset — wipe + re-seed all lookups (super_admin)
-app.post('/api/meetings/reset', requireReportSession, requireRole('super_admin'), (req, res) => {
+app.post('/api/meetings/reset', requireReportSession, requireRole('super_admin'), async (req, res) => {
   try {
     if (!meetingsDb) return res.status(503).json({ error: 'Meetings module not available' });
-    meetingsDb.resetLookups();
-    res.json({ ok: true, lookups: meetingsDb.loadLookups() });
+    await meetingsDb.resetLookups();
+    res.json({ ok: true, lookups: await meetingsDb.loadLookups() });
   } catch(e) {
     console.error('[Meetings] reset error:', e.message);
     res.status(500).json({ error: e.message });
@@ -6162,14 +6170,14 @@ app.post('/api/meetings/reset', requireReportSession, requireRole('super_admin')
 
 // ── Bulk import routes ──────────────────────────────────────────────
 // GET /api/meetings/import/template — admin+ — download blank xlsx
-app.get('/api/meetings/import/template', requireReportSession, (req, res) => {
+app.get('/api/meetings/import/template', requireReportSession, async (req, res) => {
   try {
     if (!meetingsDb)     return res.status(503).json({ error: 'Meetings module not available' });
     if (!meetingsImport) return res.status(503).json({ error: 'Import module not available (xlsx not installed)' });
     if (!rdb.userHasRole(req.reportUser, 'admin')) {
       return res.status(403).json({ error: 'admin role or higher required' });
     }
-    const buf = meetingsImport.buildTemplate(meetingsDb.loadLookups());
+    const buf = meetingsImport.buildTemplate(await meetingsDb.loadLookups());
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename="meetings_import_template.xlsx"');
     res.send(buf);
@@ -6183,7 +6191,7 @@ app.get('/api/meetings/import/template', requireReportSession, (req, res) => {
 // Body: raw .xlsx bytes (Content-Type: application/octet-stream OR multipart/form-data
 //       with the file field — we accept either since express.raw is content-type
 //       agnostic when set to type:'*/*').
-app.post('/api/meetings/import/preview', requireReportSession, meetingsImportBody, (req, res) => {
+app.post('/api/meetings/import/preview', requireReportSession, meetingsImportBody, async (req, res) => {
   try {
     if (!meetingsDb)     return res.status(503).json({ error: 'Meetings module not available' });
     if (!meetingsImport) return res.status(503).json({ error: 'Import module not available (xlsx not installed)' });
@@ -6191,22 +6199,19 @@ app.post('/api/meetings/import/preview', requireReportSession, meetingsImportBod
       return res.status(403).json({ error: 'admin role or higher required' });
     }
     if (!req.body || !req.body.length) return res.status(400).json({ error: 'Empty body (expected raw xlsx bytes)' });
-    const parsed = meetingsImport.parseBuffer(req.body, meetingsDb.loadLookups());
+    const parsed = meetingsImport.parseBuffer(req.body, await meetingsDb.loadLookups());
     // Decorate each meeting with `will_update` so the preview UI can warn
     // the user before a re-upload silently overwrites children of meetings
     // that already exist in DB (issues + actions are wipe-and-replaced
     // during the commit's saveMeeting call — manual edits made via the
     // editor since the original import would be lost).
-    const willUpdateCount = (() => {
-      let n = 0;
-      parsed.meetings.forEach(m => {
-        const existingId = meetingsDb.getMeetingIdByReference(m.header.reference);
-        m.header._willUpdate    = !!existingId;
-        m.header._existingId    = existingId || null;
-        if (existingId) n++;
-      });
-      return n;
-    })();
+    let willUpdateCount = 0;
+    for (const m of parsed.meetings) {
+      const existingId = await meetingsDb.getMeetingIdByReference(m.header.reference);
+      m.header._willUpdate = !!existingId;
+      m.header._existingId = existingId || null;
+      if (existingId) willUpdateCount++;
+    }
     // Strip __row metadata from preview response to keep payload small;
     // commit endpoint will re-parse anyway.
     res.json({
@@ -6238,7 +6243,7 @@ app.post('/api/meetings/import/preview', requireReportSession, meetingsImportBod
 // POST /api/meetings/import/commit — admin+ — parse + persist
 // Same body shape as /preview. Query string `?force=1` skips bad rows
 // instead of refusing the whole upload.
-app.post('/api/meetings/import/commit', requireReportSession, meetingsImportBody, (req, res) => {
+app.post('/api/meetings/import/commit', requireReportSession, meetingsImportBody, async (req, res) => {
   try {
     if (!meetingsDb)     return res.status(503).json({ error: 'Meetings module not available' });
     if (!meetingsImport) return res.status(503).json({ error: 'Import module not available (xlsx not installed)' });
@@ -6246,9 +6251,9 @@ app.post('/api/meetings/import/commit', requireReportSession, meetingsImportBody
       return res.status(403).json({ error: 'admin role or higher required' });
     }
     if (!req.body || !req.body.length) return res.status(400).json({ error: 'Empty body (expected raw xlsx bytes)' });
-    const parsed = meetingsImport.parseBuffer(req.body, meetingsDb.loadLookups());
+    const parsed = meetingsImport.parseBuffer(req.body, await meetingsDb.loadLookups());
     const force  = req.query.force === '1' || req.query.force === 'true';
-    const result = meetingsImport.commit(parsed, meetingsDb, {
+    const result = await meetingsImport.commit(parsed, meetingsDb, {
       force,
       userId:      req.reportUser.id || null,
       author_name: req.reportUser.full_name || req.reportUser.username || 'import',
@@ -6264,13 +6269,13 @@ app.post('/api/meetings/import/commit', requireReportSession, meetingsImportBody
 // Required: ?site=<code>&department=<code>
 // Optional: &current_id=<id>     (the next meeting being prepared)
 //           &asOf=YYYY-MM-DD      (pre-brief without a current draft)
-app.get('/api/meetings/progress', requireReportSession, (req, res) => {
+app.get('/api/meetings/progress', requireReportSession, async (req, res) => {
   try {
     if (!meetingsDb) return res.status(503).json({ error: 'Meetings module not available' });
     if (!req.query.site || !req.query.department) {
       return res.status(400).json({ error: 'site and department query params required' });
     }
-    const out = meetingsDb.compareDepartment({
+    const out = await meetingsDb.compareDepartment({
       site:       req.query.site,
       department: req.query.department,
       current_id: req.query.current_id || undefined,
@@ -6296,9 +6301,9 @@ app.get('/api/meetings/:id/export-pptx', requireReportSession, async (req, res, 
   try {
     if (!meetingsDb)   return res.status(503).json({ error: 'Meetings module not available' });
     if (!meetingsPptx) return res.status(503).json({ error: 'PPTX generator not available' });
-    const meeting = meetingsDb.getMeeting(parseInt(req.params.id, 10));
+    const meeting = await meetingsDb.getMeeting(parseInt(req.params.id, 10));
     if (!meeting) return res.status(404).json({ error: 'Meeting not found' });
-    const lookups = meetingsDb.loadLookups();
+    const lookups = await meetingsDb.loadLookups();
     const buf     = await meetingsPptx.generatePvPptx(meeting, lookups);
     // Sanitise the reference for the filename (no path separators or quote
     // characters; the rest is already snake-case / ASCII).
@@ -6324,13 +6329,13 @@ app.get('/api/meetings/progress/export-pptx', requireReportSession, async (req, 
     if (!req.query.site || !req.query.department) {
       return res.status(400).json({ error: 'site and department query params required' });
     }
-    const data = meetingsDb.compareDepartment({
+    const data = await meetingsDb.compareDepartment({
       site:       req.query.site,
       department: req.query.department,
       current_id: req.query.current_id || undefined,
       asOf:       req.query.asOf || undefined,
     });
-    const lookups = meetingsDb.loadLookups();
+    const lookups = await meetingsDb.loadLookups();
     const buf     = await meetingsPptx.generateProgressPptx(data, lookups);
     const safe = `Progress_${String(req.query.site).replace(/[^\w]/g, '_')}_${String(req.query.department).replace(/[^\w]/g, '_')}`
                   .slice(0, 80);
@@ -6360,11 +6365,24 @@ async function start() {
     console.error('⚠️  Renew flow: open RENEW_ZOHO_TOKEN.html → Steps 2–6 → pm2 restart --update-env');
   }
 
-  // Activity Tracker on PostgreSQL (Chunk 1) — connect the pool + apply the
-  // tracker schema before serving. Default backend is sqlite (no-op here).
+  // PostgreSQL backends (Chunks 1-4) — connect each pool + apply its schema
+  // before serving. Every module defaults to sqlite (the *_BACKEND env vars are
+  // unset in prod), so each block is a no-op until the operator flips a flag.
   if (require('./tracker-db').TRACKER_BACKEND === 'postgres') {
     await require('./tracker-db').initPgTracker();
     console.log('[Tracker] PostgreSQL backend ready');
+  }
+  if (require('./reports-db').REPORTS_BACKEND === 'postgres') {
+    await require('./reports-db').initPgReports();
+    console.log('[Reports] PostgreSQL auth backend ready');
+  }
+  if (require('./meetings-db').MEETINGS_BACKEND === 'postgres') {
+    await require('./meetings-db').initPgMeetings();
+    console.log('[Meetings] PostgreSQL backend ready');
+  }
+  if (require('./inspection-db').INSPECTION_BACKEND === 'postgres') {
+    await require('./inspection-db').initPgInspection();
+    console.log('[Inspection] PostgreSQL backend ready');
   }
 
   // SECURITY: Bind interface controlled by env var BIND_HOST (see top
