@@ -82,3 +82,42 @@ convert the cross-module `listUsers→listPeople` path (`inspection-db.js:listPe
 `/api/inspection/people` + `/api/meetings/people`); add the boot hook + the route-level
 pg-mode test #10. Deferred because it edits `server.js`/`routes/inspection.js` — the same
 files Chunks 2/3 touch — so all chunks' wiring is merged together to avoid 3-way conflicts.
+
+> _Status update_: sub-chunk A's server.js wiring (auth middleware + routes + boot hook +
+> listPeople ripple + 23505 matcher) **landed** in the coordinated merge pass on `main`
+> (commit `a1caa1f`), alongside Chunks 2/3. The reports.db flip is still all-or-nothing
+> (prod stays sqlite until B+C+D land + KPI-reconcile).
+
+---
+
+## reports.db — Sub-chunk B (config/sites) — `feat/pg-reports-config`
+
+DB layer DONE + green (`tests/pg-reports-config.test.js`, 6 tests). Same
+`REPORTS_BACKEND=sqlite|postgres` flag (default `sqlite`).
+
+- Schema: `db/postgres/reports/002_config.sql` — `action_departments`, `audit_log`,
+  `dashboard_preset_groups` (INTEGER IDENTITY to match 001; `lower(name)` unique index =
+  sqlite `UNIQUE COLLATE NOCASE`; `details`/JSON kept TEXT). **`sites` is NOT here** — it
+  already exists in `001_auth.sql` (users.site_id FK) and is copied by `copy-reports-auth`;
+  4B's sites functions operate on that same table, closing the auth-vs-sites split-brain.
+- Forked in `reports-db.js`: `listSites`, `updateSiteGroup`, `createSite`, `updateSite`,
+  `setSiteActive`, `listDepartments`, `createDepartment`, `updateDepartment`,
+  `setDepartmentActive`, `logAudit`, `getReportAuditLog`. `initPgReports` now also applies
+  `002_config.sql` + seeds depts + preset-groups (`_seedConfigPg`).
+- Forked in `services/groupPresets.js`: `getPresets`, `setPresets`, `getDiscovered`,
+  `getPresetsWithDiscovered`, `_initSchema` — via `_h(db)` which lazily `require('../reports-db')`
+  and uses `pgHandle()` when `REPORTS_BACKEND==='postgres'` (no cycle; reports-db doesn't
+  require groupPresets). **Sync dispatch:** the sqlite path returns synchronously (default
+  callers unchanged), only the pg branch returns a Promise.
+- **`getDiscovered` degrades to `[]`** in pg mode until the hot tables
+  (`request_records`/`change_records`) land in Chunk 4D — its try/catch swallows the
+  missing-relation error. Explicitly-classified presets are unaffected.
+- Copy: `tools/pg/copy-reports-config.js` (action_departments + audit_log +
+  dashboard_preset_groups; idempotent upsert; seq advance via `COALESCE(MAX(id),0)`).
+- **`rr_site_aliases` is NOT in 4B** — it's owned by `risk-register-export.js` (its own
+  reports.db handle); deferred to its own "4B-RR" mini-chunk.
+
+**DEFERRED (coordinated wiring pass):** the `/api/reports/sites`, `/api/reports/departments`,
+and group-preset route handlers in server.js need `async`+`await` once the branch merges;
++ merge `feat/pg-reports-config` to main. Sites/dept routes currently call these sync (fine
+on sqlite default).
