@@ -1688,13 +1688,28 @@ function updateReportStatus(report_id, status, user_id) {
     .run(status, submitted_at, submitted_by, now, report_id);
 }
 
-const deleteReport = db.transaction((id) => {
+function deleteReport(id) {
+  if (REPORTS_BACKEND === 'postgres') return _deleteReportPg(id);
+  return _deleteReportSqlite(id);
+}
+const _deleteReportSqlite = db.transaction((id) => {
   db.prepare(`DELETE FROM infra_kpis    WHERE report_id=?`).run(id);
   db.prepare(`DELETE FROM helpdesk_data WHERE report_id=?`).run(id);
   db.prepare(`DELETE FROM lights        WHERE report_id=?`).run(id);
   db.prepare(`DELETE FROM action_items  WHERE report_id=?`).run(id);
   db.prepare(`DELETE FROM weekly_reports WHERE id=?`).run(id);
 });
+// Explicit child deletes inside a tx (mirrors sqlite; not relying on FK CASCADE).
+async function _deleteReportPg(id) {
+  const H = pgHandle();
+  await H.runTransaction(async () => {
+    await H.prepare('DELETE FROM infra_kpis    WHERE report_id=?').run(id);
+    await H.prepare('DELETE FROM helpdesk_data WHERE report_id=?').run(id);
+    await H.prepare('DELETE FROM lights        WHERE report_id=?').run(id);
+    await H.prepare('DELETE FROM action_items  WHERE report_id=?').run(id);
+    await H.prepare('DELETE FROM weekly_reports WHERE id=?').run(id);
+  });
+}
 
 function touchReport(report_id) {
   if (REPORTS_BACKEND === 'postgres') return _touchReportPg(report_id);
@@ -3213,6 +3228,7 @@ function getHelpdesk6MonthHistory(site_id, year, month, groups) {
  * where reports[] contains every submitted report across active sites for that week.
  */
 function getWeekSummaryData(year, week) {
+  if (REPORTS_BACKEND === 'postgres') return _getWeekSummaryDataPg(year, week);
   const rows = db.prepare(`
     SELECT wr.id as report_id
     FROM weekly_reports wr
@@ -3230,6 +3246,17 @@ function getWeekSummaryData(year, week) {
     end_date:   weekRange.end,
     reports:    rows.map(r => getReport(r.report_id)).filter(Boolean)
   };
+}
+async function _getWeekSummaryDataPg(year, week) {
+  const H = pgHandle();
+  const rows = await H.prepare(`
+    SELECT wr.id as report_id FROM weekly_reports wr
+    JOIN weeks w ON w.id=wr.week_id JOIN sites s ON s.id=wr.site_id
+    WHERE w.year=? AND w.week_number=? AND wr.status='submitted' AND s.active=1
+    ORDER BY s.sort_order, s.name`).all(year, week);
+  const weekRange = getWeekRange(year, week);   // pure, sync
+  const reports = (await Promise.all(rows.map(r => getReport(r.report_id)))).filter(Boolean);
+  return { year, week, week_label: weekRange.label, start_date: weekRange.start, end_date: weekRange.end, reports };
 }
 
 // ── SYNC METADATA HELPERS ─────────────────────────────────────────

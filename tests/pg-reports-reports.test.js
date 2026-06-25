@@ -87,3 +87,21 @@ test('reports pg: infra/helpdesk/lights/actions save + read + carry-over', async
     assert.ok((await rdb.listAllWeeksWithLights(siteId, r2.id)).length >= 1);
   } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
 });
+
+test('reports pg: deleteReport cascade + getWeekSummaryData', async (t) => {
+  const b = await boot(); if (!b) return t.skip('no pg');
+  const { ctx, rdb, siteId } = b;
+  try {
+    const r = await rdb.ensureReport(siteId, 2026, 23);
+    await rdb.saveInfraKpis(r.id, [{ service:'N', kpi:'A' }]);
+    await rdb.saveActionItems(r.id, [{ task:'T' }]);
+    await rdb.updateReportStatus(r.id, 'submitted', 1);
+    const sum = await rdb.getWeekSummaryData(2026, 23);
+    assert.equal(sum.reports.length, 1); assert.ok(sum.week_label);
+    await rdb.deleteReport(r.id);
+    assert.equal(await rdb.getReport(r.id), null);
+    const h = rdb.pgHandle();
+    assert.equal(Number((await h.prepare('SELECT COUNT(*) AS n FROM infra_kpis WHERE report_id=?').get(r.id)).n), 0);
+    assert.equal(Number((await h.prepare('SELECT COUNT(*) AS n FROM action_items WHERE report_id=?').get(r.id)).n), 0);
+  } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
+});
