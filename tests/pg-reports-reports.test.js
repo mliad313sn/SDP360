@@ -12,6 +12,40 @@ const { provisionTestDb, dropTestDb } = require('./pg-helpers');
 const { makePgDb } = require('../services/pgDb');
 const SCHEMA3 = _fs.readFileSync(_path.join(__dirname, '../db/postgres/reports/003_reports.sql'), 'utf8');
 
+// A throwaway sqlite reports.db seeded with the report-editor tables (copy-script source).
+function _makeReportsSqliteFixture() {
+  const Database = require('better-sqlite3');
+  const dir = _fs.mkdtempSync(_path.join(_os.tmpdir(), 'rrep-fix-'));
+  const p = _path.join(dir, 'reports.db');
+  const db = new Database(p);
+  db.exec(`
+    CREATE TABLE sites (id INTEGER PRIMARY KEY, name TEXT, zoho_group TEXT, active INTEGER, sort_order INTEGER);
+    CREATE TABLE weeks (id INTEGER PRIMARY KEY, year INTEGER, week_number INTEGER, start_date TEXT, end_date TEXT, label TEXT);
+    CREATE TABLE weekly_reports (id INTEGER PRIMARY KEY, site_id INTEGER, week_id INTEGER, status TEXT, submitted_at TEXT, submitted_by INTEGER, created_by INTEGER, created_at TEXT, updated_at TEXT);
+    CREATE TABLE infra_kpis (id INTEGER PRIMARY KEY, report_id INTEGER, service TEXT, kpi TEXT, target TEXT, status_value TEXT, status_color TEXT, trend TEXT, sort_order INTEGER);
+    CREATE TABLE helpdesk_data (id INTEGER PRIMARY KEY, report_id INTEGER, time_to_assign REAL, time_to_assign_prev REAL, first_reply REAL, first_reply_prev REAL, resolution_time REAL, resolution_time_prev REAL, closing_time REAL, closing_time_prev REAL, comments_metrics TEXT, comments_sla TEXT, tech_on_break TEXT, techs_on_duty TEXT, sla_violations TEXT, group_metrics TEXT, all_groups TEXT, selected_group TEXT, chart_data TEXT, fetched_at TEXT, updated_at TEXT);
+    CREATE TABLE lights (id INTEGER PRIMARY KEY, report_id INTEGER, type TEXT, content TEXT, sort_order INTEGER);
+    CREATE TABLE action_items (id INTEGER PRIMARY KEY, report_id INTEGER, task TEXT, priority TEXT, due_date TEXT, owner TEXT, status TEXT, sort_order INTEGER, department TEXT, comment TEXT);
+    CREATE TABLE monthly_reports (id INTEGER PRIMARY KEY, site_id INTEGER, year INTEGER, month INTEGER, edited_lights TEXT, edited_actions TEXT, notes TEXT, status TEXT, updated_at TEXT);
+    CREATE TABLE annual_objectives (id INTEGER PRIMARY KEY, site_id INTEGER, year INTEGER, objective TEXT, target TEXT, status TEXT, sort_order INTEGER, updated_at TEXT);
+    CREATE TABLE site_module_codes (site_id INTEGER, module TEXT, code TEXT, updated_at TEXT, PRIMARY KEY(site_id,module));
+    CREATE TABLE infra_kpi_catalog (id INTEGER PRIMARY KEY, service TEXT, kpi TEXT, target_default TEXT, display_order INTEGER, active INTEGER, created_at TEXT);
+  `);
+  db.prepare(`INSERT INTO sites VALUES (1,'Hounde','Hounde IT Agents',1,0)`).run();
+  db.prepare(`INSERT INTO weeks VALUES (5,2026,20,'2026-05-11','2026-05-17','W20 2026')`).run();
+  db.prepare(`INSERT INTO weekly_reports VALUES (3,1,5,'submitted','2026-05-18 09:00:00',1,1,'2026-05-11 00:00:00','2026-05-18 09:00:00')`).run();
+  db.prepare(`INSERT INTO infra_kpis VALUES (7,3,'Network','Availability','99%','99.5%','green','up',0)`).run();
+  db.prepare(`INSERT INTO helpdesk_data (id,report_id,time_to_assign,selected_group,sla_violations) VALUES (4,3,1.5,'Ops','[{"category":"X"}]')`).run();
+  db.prepare(`INSERT INTO lights VALUES (9,3,'low_light','L1',0)`).run();
+  db.prepare(`INSERT INTO action_items VALUES (11,3,'Do X','High','2026-05-30','Bob','open',0,'Mining','note')`).run();
+  db.prepare(`INSERT INTO monthly_reports VALUES (2,1,2026,5,'[]','[]','n','draft','2026-05-20 00:00:00')`).run();
+  db.prepare(`INSERT INTO annual_objectives VALUES (6,1,2026,'O1','T1','in_progress',0,'2026-05-20 00:00:00')`).run();
+  db.prepare(`INSERT INTO site_module_codes VALUES (1,'tracker','HGO','2026-05-20 00:00:00')`).run();
+  db.prepare(`INSERT INTO infra_kpi_catalog VALUES (8,'Network','Availability','99%',0,1,'2026-05-20 00:00:00')`).run();
+  db.close();
+  return p;
+}
+
 async function boot() {
   const ctx = await provisionTestDb();
   if (!ctx) return null;
@@ -123,4 +157,31 @@ test('reports pg: monthly edits + annual objectives', async (t) => {
     const objs = await rdb.getAnnualObjectives(siteId, 2026);
     assert.equal(objs.length, 2); assert.equal(objs[0].objective, 'O1');
   } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
+});
+
+test('copy-reports-reports: sqlite → pg parity + sequence advance', async (t) => {
+  const ctx = await provisionTestDb(); if (!ctx) return t.skip('no pg');
+  const { copyReportsReports } = require('../tools/pg/copy-reports-reports');
+  const src = _makeReportsSqliteFixture();
+  const db = makePgDb(ctx.url); await db.connect();
+  try {
+    // sites is owned by copy-reports-auth (runs first in a real cutover). Seed the
+    // referenced site so weekly_reports/monthly_reports/etc. FKs resolve.
+    await db.exec(_fs.readFileSync(_path.join(__dirname, '../db/postgres/reports/001_auth.sql'), 'utf8'));
+    await db.prepare(`INSERT INTO sites (id, name, active, sort_order) VALUES (1, 'Hounde', 1, 0) ON CONFLICT (id) DO NOTHING`).run();
+    const c = await copyReportsReports(src, db);
+    assert.equal(c.weeks, 1); assert.equal(c.weekly_reports, 1); assert.equal(c.action_items, 1);
+    assert.equal(c.site_module_codes, 1); assert.equal(c.infra_kpi_catalog, 1);
+    // parity + ALTER-added cols
+    assert.equal((await db.prepare('SELECT created_by FROM weekly_reports WHERE id=3').get()).created_by, 1);
+    const ai = await db.prepare('SELECT department, comment FROM action_items WHERE id=11').get();
+    assert.equal(ai.department, 'Mining'); assert.equal(ai.comment, 'note');
+    assert.equal((await db.prepare('SELECT code FROM site_module_codes WHERE site_id=1').get()).code, 'HGO');
+    // idempotent re-copy
+    await copyReportsReports(src, db);
+    assert.equal(Number((await db.prepare('SELECT COUNT(*)::int n FROM weekly_reports').get()).n), 1);
+    // IDENTITY advanced past copied weekly_reports id 3 + infra_kpi_catalog id 8
+    assert.ok((await db.prepare(`INSERT INTO weeks (year, week_number, start_date, end_date, label) VALUES (2027,1,'2027-01-01','2027-01-07','W01 2027')`).run()).lastID > 5);
+    assert.ok((await db.prepare(`INSERT INTO infra_kpi_catalog (service, kpi) VALUES ('Email','Latency')`).run()).lastID > 8, 'catalog seq advanced');
+  } finally { await db.close(); await dropTestDb(ctx); _fs.rmSync(_path.dirname(src), { recursive: true, force: true }); }
 });
