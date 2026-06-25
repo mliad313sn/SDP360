@@ -764,7 +764,18 @@ async function initPgReports() {            // called once at server boot
   await _pg.exec(require('fs').readFileSync(
     require('path').join(__dirname, 'db', 'postgres', 'reports', '003_reports.sql'), 'utf8'));
   await _seedReportsCatalogsPg(_pg);
+  // Chunk 4D-1 — hot-path Zoho tables (request_records / change_records / cab_approvals / survey_* / sync_metadata).
+  await _pg.exec(require('fs').readFileSync(
+    require('path').join(__dirname, 'db', 'postgres', 'reports', '004_hot.sql'), 'utf8'));
+  await _seedSyncMetadataPg(_pg);
   return _pg;
+}
+
+// Seed the 4 default sync-job rows (mirrors the sqlite _seedJob gate; SYNC_JOBS below).
+async function _seedSyncMetadataPg(H) {
+  for (const j of ['helpdesk', 'change_cab', 'survey', 'requests']) {
+    await H.prepare(`INSERT INTO sync_metadata (job_name) VALUES (?) ON CONFLICT (job_name) DO NOTHING`).run(j);
+  }
 }
 
 // Catalog backfills (data-dependent; no-op on a fresh pg DB, like the sqlite boot path).
