@@ -23,14 +23,17 @@ All behind `REPORTS_BACKEND === 'postgres'` dispatch (sqlite path untouched):
 
 | Family | Functions |
 |---|---|
-| Weeks | `ensureWeek`, `getPreviousWeek`. (`getISOWeek` + `getWeekRange` are pure date math reading only the `weeks` table for ranges — `getWeekRange` DOES query `weeks`, so it forks; `getISOWeek` is pure, no fork.) |
-| Report header | `ensureReport`, `getReport`, `listReports`, `deleteReport`, `getWeekSummaryData` |
-| Per-report data | `saveInfraKpis`, `saveHelpdeskData`, `saveLights`, `saveActionItems`, `getActionsForReport`, `getLightsForReport`, `listAllWeeksWithActions`, `listAllWeeksWithLights` |
+| Weeks | `ensureWeek` only |
+| Report header | `ensureReport`, `getReport`, `listReports`, `deleteReport`, `updateReportStatus`, `touchReport`, `getWeekSummaryData` |
+| Per-report data | `saveInfraKpis`, `saveHelpdeskData`, `saveLights`, `saveActionItems`, `getActionsForReport`, `getLightsForReport`, `listAllWeeksWithActions`, `listAllWeeksWithLights`, `getPreviousWeekOpenActions`, `getPreviousWeekInfraKpis` |
 | Monthly edits | `getMonthlyReport`, `getMonthlyEdits`, `saveMonthlyEdits` |
 | Objectives | `getAnnualObjectives`, `saveAnnualObjectives` |
 
-> `getWeekRange` is forked because it does `SELECT * FROM weeks WHERE year=? AND week_number=?`.
-> `getISOWeek(date)` is pure JS (no DB) — left untouched.
+> **PURE — NOT forked:** `getISOWeek(date)` and `getWeekRange(year, week)` are pure date math
+> (`reports-db.js:617`, `:629` — `getWeekRange` uses `_zFirstSun`, it does NOT query `weeks`).
+> `getPreviousWeek` (`:652`) is pure too (calls `getISOWeek`). They stay synchronous and are
+> called by the pg branches without `await` (e.g. `getWeekSummaryData` reads `getWeekRange(...)`
+> synchronously). Only `ensureWeek` (`:642`) touches the DB.
 
 **Out of scope (Chunk 4D):** `getMonthlyData` (assembler — calls `getCalendarMonthlyHelpdesk`/
 `getHelpdesk6MonthHistory` which read `request_records`), every `getCalendarMonthly*` /
@@ -46,16 +49,20 @@ New migration `db/postgres/reports/003_reports.sql` (idempotent, `IF NOT EXISTS`
 
 - **`weeks`** — IDENTITY id, year/week_number INTEGER, start_date/end_date/label TEXT, UNIQUE(year, week_number).
 - **`weekly_reports`** — IDENTITY id, site_id INTEGER → sites(id), week_id INTEGER → weeks(id),
-  status TEXT, submitted_at TEXT (app), submitted_by INTEGER, created_at/updated_at TIMESTAMPTZ,
-  UNIQUE(site_id, week_id).
+  status TEXT, submitted_at TEXT (app), submitted_by INTEGER, **created_by INTEGER** (ALTER at
+  `reports-db.js:353`), created_at/updated_at TIMESTAMPTZ, UNIQUE(site_id, week_id).
 - **`infra_kpis`** — IDENTITY id, report_id → weekly_reports(id) **ON DELETE CASCADE**,
   service/kpi/target/status_value/status_color/trend TEXT, sort_order INTEGER.
 - **`helpdesk_data`** — IDENTITY id, report_id → weekly_reports(id) ON DELETE CASCADE **UNIQUE**,
-  the REAL timing columns (time_to_assign… → `REAL`/`double precision`), the TEXT JSON columns
-  (comments_*, sla_violations, group_metrics, all_groups, selected_group, chart_data, fetched_at),
-  updated_at TIMESTAMPTZ.
+  the REAL timing columns (time_to_assign/_prev, first_reply/_prev, resolution_time/_prev,
+  closing_time/_prev → `double precision`), the TEXT columns (comments_metrics, comments_sla,
+  **tech_on_break, techs_on_duty**, sla_violations, group_metrics, all_groups, selected_group,
+  chart_data, fetched_at — all TEXT/JSON), updated_at TIMESTAMPTZ.
 - **`lights`** — IDENTITY id, report_id → weekly_reports(id) ON DELETE CASCADE, type/content TEXT, sort_order INTEGER.
-- **`action_items`** — IDENTITY id, report_id → weekly_reports(id) ON DELETE CASCADE, task/priority/due_date/owner/status TEXT, sort_order INTEGER.
+- **`action_items`** — IDENTITY id, report_id → weekly_reports(id) ON DELETE CASCADE,
+  task/priority/due_date/owner/status TEXT, sort_order INTEGER, **department TEXT, comment TEXT**
+  (ALTERs at `reports-db.js:327-328` — read/written by saveActionItems/getActionsForReport/
+  getMonthlyEdits/getPreviousWeekOpenActions; MUST be in the pg schema + copy column list).
 - **`monthly_reports`** — IDENTITY id, site_id → sites(id), year/month INTEGER, edited_lights/edited_actions/notes TEXT (JSON), status TEXT, updated_at TIMESTAMPTZ, UNIQUE(site_id, year, month).
 - **`annual_objectives`** — IDENTITY id, site_id → sites(id), year INTEGER, objective/target/status TEXT, sort_order INTEGER, updated_at TIMESTAMPTZ.
 - **`site_module_codes`** — composite PK (site_id, module), site_id → sites(id) **ON DELETE CASCADE**, module/code TEXT, updated_at TIMESTAMPTZ. Indices on module, code.
@@ -127,7 +134,9 @@ working on the default backend even before the route-wiring pass. Verified the s
 `tools/pg/copy-reports-reports.js` — one-shot idempotent sqlite→pg copy of the 10 tables in FK
 order: `weeks` → `weekly_reports` → {`infra_kpis`, `helpdesk_data`, `lights`, `action_items`} →
 `monthly_reports`, `annual_objectives`, `site_module_codes`, `infra_kpi_catalog`. (`sites`
-already handled by `copy-reports-auth`.) Upsert on PK; advance each IDENTITY sequence via
+already handled by `copy-reports-auth`.) **Column lists must include the ALTER-added columns**
+(`weekly_reports.created_by`, `action_items.department`/`comment`). Upsert on PK; advance each
+IDENTITY sequence via
 `GREATEST((SELECT COALESCE(MAX(id),0) FROM t), 1)`. Skips cleanly when PG is unreachable. Same
 structure as `copy-reports-auth.js` / `copy-reports-config.js`.
 
@@ -139,8 +148,8 @@ skips cleanly when PG down. Header sets `REPORTS_BACKEND=postgres` + `SDP_DATA_D
 `createSite` (4B) so reports have a valid `site_id`. Increments:
 
 1. **schema + catalogs** — `003_reports.sql` idempotent re-apply; catalog tables present + empty-seed no-op.
-2. **weeks + report header** — `ensureWeek` dedup (UNIQUE year,week), `ensureReport` create+idempotent (UNIQUE site,week), `getReport` shape, `listReports` filters, `getWeekRange`.
-3. **per-report data** — `saveInfraKpis` replace, `saveHelpdeskData` upsert (insert then update same report_id) with JSON round-trip, `saveLights`/`saveActionItems` + `getLightsForReport`/`getActionsForReport`, `listAllWeeksWith*`.
+2. **weeks + report header** — `ensureWeek` dedup (UNIQUE year,week), `ensureReport` create+idempotent (UNIQUE site,week), `getReport` shape, `listReports` filters, `updateReportStatus` (draft→submitted→draft, stamps submitted_at/by), `touchReport` (bumps updated_at).
+3. **per-report data** — `saveInfraKpis` replace, `saveHelpdeskData` upsert (insert then update same report_id) with JSON round-trip, `saveLights`/`saveActionItems` (incl. `department`/`comment`) + `getLightsForReport`/`getActionsForReport`, `listAllWeeksWith*`, `getPreviousWeekOpenActions`/`getPreviousWeekInfraKpis`.
 4. **delete cascade** — `deleteReport` wipes infra_kpis/helpdesk_data/lights/action_items (FK CASCADE).
 5. **monthly + objectives** — `getMonthlyReport`/`getMonthlyEdits`/`saveMonthlyEdits` (UNIQUE site,year,month upsert), `getAnnualObjectives`/`saveAnnualObjectives`.
 6. **getWeekSummaryData** — aggregates submitted reports for a week (awaits getReport).
