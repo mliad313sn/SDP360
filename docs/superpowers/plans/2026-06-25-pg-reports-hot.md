@@ -210,7 +210,7 @@ async function _upsertRequestBatchPg(rows) {
 }
 ```
 
-Copy each writer's exact column list + ON CONFLICT clause from reports-db.js (`_upsertChange:3316`, `_upsertCAB:3354`, `_upsertSurveyResult:3392`, `_upsertSurveyAnswer:3415` — the last is bare `ON CONFLICT DO NOTHING`, NO target, keep verbatim). `upsertRequestUdfBatch`: dispatching fn; pg branch does the two-step UPDATE (by request_id; on `changes===0`, UPDATE by display_id) — both `now()` for fetched_at. Fork the 5 raw readers (`getChangeRecords`/`getCABApprovals`/`getSurveyResults`/`getSurveyAnswers`/`getRequestRecords`): `getDB()`→`pgHandle()`, `.all(...)`→`await`, same WHERE/ORDER/LIMIT.
+Copy each writer's exact column list + ON CONFLICT clause from reports-db.js (`_upsertRequest:3439`, `_upsertChange:3316`, `_upsertCAB:3354`, `_upsertSurveyResult:3392`, `_upsertSurveyAnswer:3415` — the last is bare `ON CONFLICT DO NOTHING`, NO target, keep verbatim). **Caveat:** `_upsertRequest`'s column list does NOT include `udf_json` (ends `…mode, impact, fetched_at`); `udf_json` is written ONLY by `upsertRequestUdfBatch`. Do not add `@udf_json` to the request upsert. `upsertRequestUdfBatch`: dispatching fn; pg branch does the two-step UPDATE (by request_id; on `changes===0`, UPDATE by display_id) — both `now()` for fetched_at. Fork the 5 raw readers (`getChangeRecords`/`getCABApprovals`/`getSurveyResults`/`getSurveyAnswers`/`getRequestRecords`): `getDB()`→`pgHandle()`, `.all(...)`→`await`, same WHERE/ORDER/LIMIT.
 
 - [ ] **Step 4: Run** → PASS. - [ ] **Step 5: Commit** `git commit -am "feat(pg-reports-hot): 6 batch writers + 5 raw readers forks (TDD; UDF fallback, survey append-only)"`
 
@@ -251,7 +251,7 @@ test('hot pg: sync metadata cursor + reconcilers', async (t) => {
 - [ ] **Step 3: Implement.** Fork the 4 sync-meta helpers (dispatch + pg fork):
   - `getSyncStatus` → `await H.prepare('SELECT * FROM sync_metadata ORDER BY job_name').all()`.
   - `getLastSyncAt` → `await … .get(jobName)`; return `row?.last_sync_at ?? null`.
-  - `markSyncSuccess` → port the `INSERT … ON CONFLICT(job_name) DO UPDATE` verbatim with `datetime('now')`→`now()`, `excluded.`→`EXCLUDED.`, and `sync_count = sync_count + 1` → `sync_count = sync_metadata.sync_count + 1` (qualify the column — pg requires the table name in DO UPDATE for the existing-row value, not the bare name; the `CASE WHEN ? THEN datetime('now')` → `CASE WHEN ? THEN now() ELSE NULL END` with the `fullSync?1:0` arg becomes a boolean compare — pass `fullSync` and use `CASE WHEN ?::int = 1 THEN now() ELSE NULL END`, or pass the literal). Keep the same 5 positional params order.
+  - `markSyncSuccess` → port the `INSERT … ON CONFLICT(job_name) DO UPDATE` with `datetime('now')`→`now()`, `excluded.`→`EXCLUDED.`. **DEFINITIVE form (do not improvise):** keep the SAME 5 positional `.run()` args in order `(jobName, rowsUpserted, deleted, schemaSnapshot, fullSync ? 1 : 0)` — i.e. keep coercing fullSync to `1|0` exactly like sqlite. In the SQL: the VALUES `CASE WHEN ? THEN datetime('now') ELSE NULL END` → `CASE WHEN $5::int = 1 THEN now() ELSE NULL END` (the 5th `?`/`$5`). In DO UPDATE, **qualify every existing-row column reference with the table name** (pg requires it; bare names are an error): `sync_count = sync_metadata.sync_count + 1`, `schema_snapshot = COALESCE(EXCLUDED.schema_snapshot, sync_metadata.schema_snapshot)`, `last_full_sync_at = CASE WHEN EXCLUDED.last_full_sync_at IS NOT NULL THEN EXCLUDED.last_full_sync_at ELSE sync_metadata.last_full_sync_at END`. (`last_sync_at`/`last_sync_rows`/`last_error`/`deleted_count` are plain `now()`/`EXCLUDED.col`/`NULL`.)
   - `markSyncError` → port with `now()`; `EXCLUDED.last_error`.
 
   > **pg DO UPDATE column-ref gotcha:** sqlite allows bare `sync_count = sync_count + 1` in DO UPDATE; pg needs `sync_count = sync_metadata.sync_count + 1` (and `COALESCE(EXCLUDED.schema_snapshot, sync_metadata.schema_snapshot)`, `… ELSE sync_metadata.last_full_sync_at END`). Qualify every existing-row reference with the table name.
@@ -271,9 +271,19 @@ test('hot pg: sync metadata cursor + reconcilers', async (t) => {
 - [ ] **Step 2: Run** → FAIL.
 - [ ] **Step 3: Implement** `tools/pg/copy-reports-hot.js` modeled on `copy-reports-config.js`:
   - apply `001_auth.sql` + `002_config.sql` + `003_reports.sql` + `004_hot.sql` (self-contained).
-  - `TABLES` (cols mirror sqlite incl ALTER cols; pk = Zoho-id col, except sync_metadata pk=`job_name`):
-    `request_records` (incl request_type/mode/impact/udf_json), `change_records` (incl group_name/stage_status/udf_json), `cab_approvals`, `survey_results`, `survey_answers` (pk `id` — no Zoho-unique; use pk `['id']`), `sync_metadata` (pk `['job_name']`).
-    > Note: `survey_answers` has no UNIQUE Zoho key — copy by `id` PK (`ON CONFLICT (id) DO …`). That's fine for an idempotent re-copy since ids are stable in the source.
+  - `TABLES` — the FULL ordered column arrays (transcribed from reports-db.js CREATEs + ALTERs; pk = Zoho-id col, except survey_answers pk `['id']` and sync_metadata pk `['job_name']`):
+
+```js
+const TABLES = [
+  ['change_records', ['id','change_id','display_id','subject','status','stage','stage_status','risk','change_type','emergency','category','sub_category','requester','requester_id','owner_id','manager','site_id','group_id','group_name','scheduled_start','scheduled_end','completed_time','created_time','closure_code','udf_json','fetched_at'], ['change_id']],
+  ['cab_approvals', ['id','approval_id','change_id','approver_name','approval_status','approval_stage','approval_level','approval_level_status','recommendation_requested','action_taken_on','turnaround_minutes','rule_type','comments','fetched_at'], ['approval_id']],
+  ['survey_results', ['id','result_id','response_id','survey_id','survey_name','request_id','request_display_id','change_id','user_id','overall_score','survey_sent_on','survey_responded_on','fetched_at'], ['result_id']],
+  ['survey_answers', ['id','response_id','result_id','question_id','question_text','question_type','answer_text','answer_option','score','skipped','fetched_at'], ['id']],
+  ['request_records', ['id','request_id','display_id','subject','request_status','pending_status','overdue_status','request_type','service_request','is_escalated','reopen_count','due_by_time','time_elapsed_ms','created_time','resolved_time','completed_time','responded_time','assigned_time','last_updated_time','first_response_overdue','technician','requester','category','sub_category','site','tech_group','mode','impact','udf_json','fetched_at'], ['request_id']],
+  ['sync_metadata', ['job_name','last_sync_at','last_sync_rows','last_error','last_error_at','sync_count','last_full_sync_at','schema_snapshot','deleted_count'], ['job_name']],
+];
+```
+    > `survey_answers` has no UNIQUE Zoho key — copy by `id` PK (`ON CONFLICT (id) DO …`); fine for idempotent re-copy since source ids are stable. The fixture in the test must define each sqlite table WITH these exact columns (incl. ALTER cols) so `SELECT <cols>` doesn't throw.
   - **Batched insert:** chunk rows (~500) per prepared-statement loop inside one transaction (request_records can be 25k+). A simple per-row `await ins.run()` loop inside `runTransaction` is acceptable for correctness; the chunking is to bound memory on the SELECT side — `SELECT … ` the source in pages of 5000 if needed. For the test fixture (tiny) a single pass is fine; implement paged SELECT for the real run.
   - advance IDENTITY seq for the 5 IDENTITY tables (all but sync_metadata) via `GREATEST((SELECT COALESCE(MAX(id),0) FROM t),1)`.
 
