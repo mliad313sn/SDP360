@@ -755,11 +755,58 @@ async function initPgReports() {            // called once at server boot
   await _pg.connect();
   await _pg.exec(require('fs').readFileSync(
     require('path').join(__dirname, 'db', 'postgres', 'reports', '001_auth.sql'), 'utf8'));
+  // Chunk 4B — config tables (action_departments / audit_log / dashboard_preset_groups).
+  await _pg.exec(require('fs').readFileSync(
+    require('path').join(__dirname, 'db', 'postgres', 'reports', '002_config.sql'), 'utf8'));
+  await _seedConfigPg(_pg);
   return _pg;
 }
 function pgHandle() {
   if (!_pg) throw new Error('pgDb not initialised — await initPgReports() at boot');
   return _pg;
+}
+
+// Seed config tables on a fresh pg DB (idempotent — only fills empty tables,
+// mirroring the sqlite seed-gates). sites is owned by the 4A copy/seed path.
+async function _seedConfigPg(H) {
+  // action_departments — verbatim from the sqlite seed (reports-db.js defaults).
+  const dn = Number((await H.prepare('SELECT COUNT(*) AS n FROM action_departments').get()).n);
+  if (dn === 0) {
+    const DEFAULT_DEPTS = [
+      'Mining', 'Technical Service', 'Processing', 'Maintenance',
+      'Supply Chain', 'Security', 'Finance', 'Human Resource',
+      'Social performance', 'General Manager',
+    ];
+    await H.runTransaction(async () => {
+      let i = 0;
+      for (const name of DEFAULT_DEPTS) {
+        // sqlite seed inserts sort_order = i+1 (1-based) — match it.
+        await H.prepare(`INSERT INTO action_departments (name, sort_order) VALUES (?, ?)
+          ON CONFLICT (lower(name)) DO NOTHING`).run(name, i + 1);
+        i++;
+      }
+    });
+  }
+  // dashboard_preset_groups — reuse groupPresets' canonical seeds (lazy require;
+  // groupPresets does not require reports-db at module top, so no cycle).
+  const gp = require('./services/groupPresets');
+  const SEED = { tickets: gp.TICKETS_SEED, changes: gp.CHANGES_SEED };
+  for (const scope of ['tickets', 'changes']) {
+    const c = Number((await H.prepare('SELECT COUNT(*) AS n FROM dashboard_preset_groups WHERE scope=?').get(scope)).n);
+    if (c === 0) {
+      await H.runTransaction(async () => {
+        for (const [preset, groups] of Object.entries(SEED[scope])) {
+          let ix = 0;
+          for (const g of groups) {
+            await H.prepare(`INSERT INTO dashboard_preset_groups
+              (scope, preset_name, group_name, display_order, updated_by)
+              VALUES (?, ?, ?, ?, '_system') ON CONFLICT DO NOTHING`).run(scope, preset, g, ix);
+            ix++;
+          }
+        }
+      });
+    }
+  }
 }
 
 function login(username, password) {
