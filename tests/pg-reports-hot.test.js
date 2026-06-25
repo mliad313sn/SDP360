@@ -85,3 +85,29 @@ test('hot pg: writers + raw readers + UDF fallback', async (t) => {
     assert.equal((await rdb.getSurveyAnswers('RESP1')).length, 2, 'survey_answers append-only (no unique → re-insert)');
   } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
 });
+
+test('hot pg: sync metadata cursor + reconcilers', async (t) => {
+  const b = await boot(); if (!b) return t.skip('no pg');
+  const { ctx, rdb } = b;
+  try {
+    await rdb.markSyncSuccess('requests', 42, { deleted: 3, fullSync: true });
+    assert.ok(await rdb.getLastSyncAt('requests'), 'cursor set');
+    let st = (await rdb.getSyncStatus()).find(s => s.job_name === 'requests');
+    assert.equal(st.last_sync_rows, 42); assert.equal(st.deleted_count, 3); assert.ok(st.last_full_sync_at);
+    assert.equal(st.sync_count, 1);
+    await rdb.markSyncSuccess('requests', 10, {});   // sync_count increments
+    assert.equal((await rdb.getSyncStatus()).find(s => s.job_name === 'requests').sync_count, 2);
+    await rdb.markSyncError('requests', 'boom');
+    st = (await rdb.getSyncStatus()).find(s => s.job_name === 'requests');
+    assert.equal(st.last_error, 'boom'); assert.ok(st.last_sync_at, 'error did not clobber last_sync_at');
+    // reconcile: seed 3 requests, keep 1
+    await rdb.upsertRequestBatch([_req({ request_id:'X1' }), _req({ request_id:'X2' }), _req({ request_id:'X3' })]);
+    assert.equal(await rdb.reconcileRequestRecords(new Set(['X1'])), 2, 'deleted 2 stale');
+    assert.equal(await rdb.reconcileRequestRecords(new Set()), 0, 'empty liveIds → no-op');
+    // survey cascade: result + its answers both deleted
+    await rdb.upsertSurveyResultBatch([_sres({ result_id:'S9', response_id:'P9', survey_sent_on:'2026-05-01' })]);
+    await rdb.upsertSurveyAnswerBatch([_sans({ response_id:'P9', result_id:'S9', question_text:'Q' })]);
+    assert.equal(await rdb.reconcileSurveyResults(new Set(['other'])), 1);
+    assert.equal((await rdb.getSurveyAnswers('P9')).length, 0, 'answer cascade deleted');
+  } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
+});

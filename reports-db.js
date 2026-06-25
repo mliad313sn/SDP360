@@ -3279,12 +3279,18 @@ SYNC_JOBS.forEach(j => _seedJob.run(j));
 
 /** Get the sync status for all jobs (used by /api/sync/status) */
 function getSyncStatus() {
+  if (REPORTS_BACKEND === 'postgres') return pgHandle().prepare(`SELECT * FROM sync_metadata ORDER BY job_name`).all();
   return db.prepare(`SELECT * FROM sync_metadata ORDER BY job_name`).all();
 }
 
 /** Get last_sync_at for a single job (used by zoho-sync.js as the incremental cursor) */
 function getLastSyncAt(jobName) {
+  if (REPORTS_BACKEND === 'postgres') return _getLastSyncAtPg(jobName);
   const row = db.prepare(`SELECT last_sync_at FROM sync_metadata WHERE job_name=?`).get(jobName);
+  return row ? row.last_sync_at : null;
+}
+async function _getLastSyncAtPg(jobName) {
+  const row = await pgHandle().prepare(`SELECT last_sync_at FROM sync_metadata WHERE job_name=?`).get(jobName);
   return row ? row.last_sync_at : null;
 }
 
@@ -3296,7 +3302,9 @@ function getLastSyncAt(jobName) {
  *  @param {string} [opts.schemaSnapshot]  - JSON string of column names seen
  *  @param {boolean} [opts.fullSync]       - true if this was a full reconciliation run
  */
-function markSyncSuccess(jobName, rowsUpserted, { deleted = 0, schemaSnapshot = null, fullSync = false } = {}) {
+function markSyncSuccess(jobName, rowsUpserted, opts = {}) {
+  if (REPORTS_BACKEND === 'postgres') return _markSyncSuccessPg(jobName, rowsUpserted, opts);
+  const { deleted = 0, schemaSnapshot = null, fullSync = false } = opts;
   db.prepare(`
     INSERT INTO sync_metadata (job_name, last_sync_at, last_sync_rows, last_error, sync_count, deleted_count, schema_snapshot, last_full_sync_at)
     VALUES (?, datetime('now'), ?, NULL, 1, ?, ?, CASE WHEN ? THEN datetime('now') ELSE NULL END)
@@ -3310,15 +3318,40 @@ function markSyncSuccess(jobName, rowsUpserted, { deleted = 0, schemaSnapshot = 
       last_full_sync_at = CASE WHEN excluded.last_full_sync_at IS NOT NULL THEN excluded.last_full_sync_at ELSE last_full_sync_at END
   `).run(jobName, rowsUpserted, deleted, schemaSnapshot, fullSync ? 1 : 0);
 }
+// pg: qualify every DO-UPDATE existing-row column ref with the table name (pg requirement).
+async function _markSyncSuccessPg(jobName, rowsUpserted, { deleted = 0, schemaSnapshot = null, fullSync = false } = {}) {
+  await pgHandle().prepare(`
+    INSERT INTO sync_metadata (job_name, last_sync_at, last_sync_rows, last_error, sync_count, deleted_count, schema_snapshot, last_full_sync_at)
+    VALUES (?, now(), ?, NULL, 1, ?, ?, CASE WHEN ?::int = 1 THEN now() ELSE NULL END)
+    ON CONFLICT(job_name) DO UPDATE SET
+      last_sync_at      = now(),
+      last_sync_rows    = EXCLUDED.last_sync_rows,
+      last_error        = NULL,
+      sync_count        = sync_metadata.sync_count + 1,
+      deleted_count     = EXCLUDED.deleted_count,
+      schema_snapshot   = COALESCE(EXCLUDED.schema_snapshot, sync_metadata.schema_snapshot),
+      last_full_sync_at = CASE WHEN EXCLUDED.last_full_sync_at IS NOT NULL THEN EXCLUDED.last_full_sync_at ELSE sync_metadata.last_full_sync_at END
+  `).run(jobName, rowsUpserted, deleted, schemaSnapshot, fullSync ? 1 : 0);
+}
 
 /** Record a sync error without clearing the last successful timestamp */
 function markSyncError(jobName, errorMessage) {
+  if (REPORTS_BACKEND === 'postgres') return _markSyncErrorPg(jobName, errorMessage);
   db.prepare(`
     INSERT INTO sync_metadata (job_name, last_error, last_error_at)
     VALUES (?, ?, datetime('now'))
     ON CONFLICT(job_name) DO UPDATE SET
       last_error    = excluded.last_error,
       last_error_at = datetime('now')
+  `).run(jobName, String(errorMessage).slice(0, 500));
+}
+async function _markSyncErrorPg(jobName, errorMessage) {
+  await pgHandle().prepare(`
+    INSERT INTO sync_metadata (job_name, last_error, last_error_at)
+    VALUES (?, ?, now())
+    ON CONFLICT(job_name) DO UPDATE SET
+      last_error    = EXCLUDED.last_error,
+      last_error_at = now()
   `).run(jobName, String(errorMessage).slice(0, 500));
 }
 
@@ -3703,6 +3736,7 @@ async function _upsertRequestUdfBatchPg(rows) {
  * Returns number of rows deleted.
  */
 function reconcileChangeRecords(liveIds) {
+  if (REPORTS_BACKEND === 'postgres') return _reconcilePg('change_records', 'change_id', liveIds);
   if (!liveIds || liveIds.size === 0) return 0;
   // SQLite doesn't support NOT IN with very large arrays well,
   // so we get all local IDs and delete the diff in a transaction.
@@ -3720,6 +3754,7 @@ function reconcileChangeRecords(liveIds) {
  * Delete cab_approvals whose approval_id is NOT in the provided set.
  */
 function reconcileCABApprovals(liveIds) {
+  if (REPORTS_BACKEND === 'postgres') return _reconcilePg('cab_approvals', 'approval_id', liveIds);
   if (!liveIds || liveIds.size === 0) return 0;
   const localIds = db.prepare(`SELECT approval_id FROM cab_approvals`).all().map(r => r.approval_id);
   const toDelete = localIds.filter(id => !liveIds.has(id));
@@ -3736,6 +3771,7 @@ function reconcileCABApprovals(liveIds) {
  * Also cascades: survey_answers with those response_ids are removed.
  */
 function reconcileSurveyResults(liveIds) {
+  if (REPORTS_BACKEND === 'postgres') return _reconcileSurveyResultsPg(liveIds);
   if (!liveIds || liveIds.size === 0) return 0;
   const localRows = db.prepare(`SELECT result_id, response_id FROM survey_results`).all();
   const toDelete  = localRows.filter(r => !liveIds.has(r.result_id));
@@ -3754,6 +3790,7 @@ function reconcileSurveyResults(liveIds) {
  * Delete request_records whose request_id is NOT in the provided set.
  */
 function reconcileRequestRecords(liveIds) {
+  if (REPORTS_BACKEND === 'postgres') return _reconcilePg('request_records', 'request_id', liveIds);
   if (!liveIds || liveIds.size === 0) return 0;
   const localIds = db.prepare(`SELECT request_id FROM request_records`).all().map(r => r.request_id);
   const toDelete = localIds.filter(id => !liveIds.has(id));
@@ -3762,6 +3799,36 @@ function reconcileRequestRecords(liveIds) {
   const runAll = db.transaction(ids => { ids.forEach(id => del.run(id)); });
   runAll(toDelete);
   console.log(`[DB] reconcileRequestRecords — deleted ${toDelete.length} stale records`);
+  return toDelete.length;
+}
+
+// ── Chunk 4D-1 pg reconcilers ───────────────────────────────────────────────
+// Generic single-id-column reconciler (change/CAB/request). Reads local ids,
+// diffs vs the liveIds Set, deletes the stale ones in a transaction.
+async function _reconcilePg(table, idCol, liveIds) {
+  if (!liveIds || liveIds.size === 0) return 0;
+  const H = pgHandle();
+  const localIds = (await H.prepare(`SELECT ${idCol} FROM ${table}`).all()).map(r => r[idCol]);
+  const toDelete = localIds.filter(id => !liveIds.has(id));
+  if (toDelete.length === 0) return 0;
+  await H.runTransaction(async () => { for (const id of toDelete) await H.prepare(`DELETE FROM ${table} WHERE ${idCol} = ?`).run(id); });
+  console.log(`[DB] reconcile ${table} (pg) — deleted ${toDelete.length} stale records`);
+  return toDelete.length;
+}
+// survey_results reconciler also cascades to survey_answers (by response_id).
+async function _reconcileSurveyResultsPg(liveIds) {
+  if (!liveIds || liveIds.size === 0) return 0;
+  const H = pgHandle();
+  const localRows = await H.prepare(`SELECT result_id, response_id FROM survey_results`).all();
+  const toDelete = localRows.filter(r => !liveIds.has(r.result_id));
+  if (toDelete.length === 0) return 0;
+  await H.runTransaction(async () => {
+    for (const r of toDelete) {
+      await H.prepare(`DELETE FROM survey_results WHERE result_id = ?`).run(r.result_id);
+      await H.prepare(`DELETE FROM survey_answers WHERE response_id = ?`).run(r.response_id);
+    }
+  });
+  console.log(`[DB] reconcileSurveyResults (pg) — deleted ${toDelete.length} stale results (+answers)`);
   return toDelete.length;
 }
 
