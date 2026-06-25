@@ -3386,17 +3386,75 @@ const _upsertCAB = db.prepare(`
     fetched_at               = datetime('now')
 `);
 
-const upsertChangeBatch = db.transaction((rows) => {
+function upsertChangeBatch(rows) {
+  if (REPORTS_BACKEND === 'postgres') return _upsertChangeBatchPg(rows);
+  return _upsertChangeBatchSqlite(rows);
+}
+const _upsertChangeBatchSqlite = db.transaction((rows) => {
   let n = 0;
   for (const r of rows) { _upsertChange.run(r); n++; }
   return n;
 });
 
-const upsertCABBatch = db.transaction((rows) => {
+function upsertCABBatch(rows) {
+  if (REPORTS_BACKEND === 'postgres') return _upsertCABBatchPg(rows);
+  return _upsertCABBatchSqlite(rows);
+}
+const _upsertCABBatchSqlite = db.transaction((rows) => {
   let n = 0;
   for (const r of rows) { _upsertCAB.run(r); n++; }
   return n;
 });
+
+// ── Chunk 4D-1 pg writer forks ──────────────────────────────────────────────
+// Same INSERT…ON CONFLICT bodies as the sqlite prepared statements, with
+// datetime('now')→now() and excluded.→EXCLUDED. Named-object binding via pgDb.
+const _CHANGE_UPSERT_PG = `
+  INSERT INTO change_records
+    (change_id, display_id, subject, status, stage, stage_status, risk, change_type, emergency,
+     category, sub_category, requester, requester_id, owner_id, manager, site_id,
+     group_id, group_name, scheduled_start, scheduled_end, completed_time, created_time,
+     closure_code, udf_json, fetched_at)
+  VALUES
+    (@change_id, @display_id, @subject, @status, @stage, @stage_status, @risk, @change_type, @emergency,
+     @category, @sub_category, @requester, @requester_id, @owner_id, @manager, @site_id,
+     @group_id, @group_name, @scheduled_start, @scheduled_end, @completed_time, @created_time,
+     @closure_code, @udf_json, now())
+  ON CONFLICT(change_id) DO UPDATE SET
+    display_id = EXCLUDED.display_id, subject = EXCLUDED.subject, status = EXCLUDED.status,
+    stage = EXCLUDED.stage, stage_status = EXCLUDED.stage_status, risk = EXCLUDED.risk,
+    change_type = EXCLUDED.change_type, emergency = EXCLUDED.emergency, category = EXCLUDED.category,
+    sub_category = EXCLUDED.sub_category, requester = EXCLUDED.requester, requester_id = EXCLUDED.requester_id,
+    owner_id = EXCLUDED.owner_id, manager = EXCLUDED.manager, site_id = EXCLUDED.site_id,
+    group_id = EXCLUDED.group_id, group_name = EXCLUDED.group_name, scheduled_start = EXCLUDED.scheduled_start,
+    scheduled_end = EXCLUDED.scheduled_end, completed_time = EXCLUDED.completed_time, created_time = EXCLUDED.created_time,
+    closure_code = EXCLUDED.closure_code, udf_json = EXCLUDED.udf_json, fetched_at = now()`;
+async function _upsertChangeBatchPg(rows) {
+  const H = pgHandle(); let n = 0;
+  await H.runTransaction(async () => { for (const r of (rows || [])) { await H.prepare(_CHANGE_UPSERT_PG).run(r); n++; } });
+  return n;
+}
+const _CAB_UPSERT_PG = `
+  INSERT INTO cab_approvals
+    (approval_id, change_id, approver_name, approval_status, approval_stage,
+     approval_level, approval_level_status, recommendation_requested, action_taken_on,
+     turnaround_minutes, rule_type, comments, fetched_at)
+  VALUES
+    (@approval_id, @change_id, @approver_name, @approval_status, @approval_stage,
+     @approval_level, @approval_level_status, @recommendation_requested, @action_taken_on,
+     @turnaround_minutes, @rule_type, @comments, now())
+  ON CONFLICT(approval_id) DO UPDATE SET
+    change_id = EXCLUDED.change_id, approver_name = EXCLUDED.approver_name,
+    approval_status = EXCLUDED.approval_status, approval_stage = EXCLUDED.approval_stage,
+    approval_level = EXCLUDED.approval_level, approval_level_status = EXCLUDED.approval_level_status,
+    recommendation_requested = EXCLUDED.recommendation_requested, action_taken_on = EXCLUDED.action_taken_on,
+    turnaround_minutes = EXCLUDED.turnaround_minutes, rule_type = EXCLUDED.rule_type,
+    comments = EXCLUDED.comments, fetched_at = now()`;
+async function _upsertCABBatchPg(rows) {
+  const H = pgHandle(); let n = 0;
+  await H.runTransaction(async () => { for (const r of (rows || [])) { await H.prepare(_CAB_UPSERT_PG).run(r); n++; } });
+  return n;
+}
 
 // ── SURVEY UPSERT HELPERS ─────────────────────────────────────────
 
@@ -3433,17 +3491,60 @@ const _upsertSurveyAnswer = db.prepare(`
   ON CONFLICT DO NOTHING
 `);
 
-const upsertSurveyResultBatch = db.transaction((rows) => {
+function upsertSurveyResultBatch(rows) {
+  if (REPORTS_BACKEND === 'postgres') return _upsertSurveyResultBatchPg(rows);
+  return _upsertSurveyResultBatchSqlite(rows);
+}
+const _upsertSurveyResultBatchSqlite = db.transaction((rows) => {
   let n = 0;
   for (const r of rows) { _upsertSurveyResult.run(r); n++; }
   return n;
 });
 
-const upsertSurveyAnswerBatch = db.transaction((rows) => {
+function upsertSurveyAnswerBatch(rows) {
+  if (REPORTS_BACKEND === 'postgres') return _upsertSurveyAnswerBatchPg(rows);
+  return _upsertSurveyAnswerBatchSqlite(rows);
+}
+const _upsertSurveyAnswerBatchSqlite = db.transaction((rows) => {
   let n = 0;
   for (const r of rows) { _upsertSurveyAnswer.run(r); n++; }
   return n;
 });
+
+const _SURVEY_RESULT_UPSERT_PG = `
+  INSERT INTO survey_results
+    (result_id, response_id, survey_id, survey_name, request_id,
+     request_display_id, change_id, user_id, overall_score,
+     survey_sent_on, survey_responded_on, fetched_at)
+  VALUES
+    (@result_id, @response_id, @survey_id, @survey_name, @request_id,
+     @request_display_id, @change_id, @user_id, @overall_score,
+     @survey_sent_on, @survey_responded_on, now())
+  ON CONFLICT(result_id) DO UPDATE SET
+    response_id = EXCLUDED.response_id, survey_id = EXCLUDED.survey_id, survey_name = EXCLUDED.survey_name,
+    request_id = EXCLUDED.request_id, request_display_id = EXCLUDED.request_display_id,
+    change_id = EXCLUDED.change_id, user_id = EXCLUDED.user_id, overall_score = EXCLUDED.overall_score,
+    survey_sent_on = EXCLUDED.survey_sent_on, survey_responded_on = EXCLUDED.survey_responded_on,
+    fetched_at = now()`;
+async function _upsertSurveyResultBatchPg(rows) {
+  const H = pgHandle(); let n = 0;
+  await H.runTransaction(async () => { for (const r of (rows || [])) { await H.prepare(_SURVEY_RESULT_UPSERT_PG).run(r); n++; } });
+  return n;
+}
+// Append-only: bare ON CONFLICT DO NOTHING, no conflict target (survey_answers has no UNIQUE).
+const _SURVEY_ANSWER_INSERT_PG = `
+  INSERT INTO survey_answers
+    (response_id, result_id, question_id, question_text, question_type,
+     answer_text, answer_option, score, skipped, fetched_at)
+  VALUES
+    (@response_id, @result_id, @question_id, @question_text, @question_type,
+     @answer_text, @answer_option, @score, @skipped, now())
+  ON CONFLICT DO NOTHING`;
+async function _upsertSurveyAnswerBatchPg(rows) {
+  const H = pgHandle(); let n = 0;
+  await H.runTransaction(async () => { for (const r of (rows || [])) { await H.prepare(_SURVEY_ANSWER_INSERT_PG).run(r); n++; } });
+  return n;
+}
 
 // ── REQUEST UPSERT HELPERS ────────────────────────────────────────
 
@@ -3490,11 +3591,47 @@ const _upsertRequest = db.prepare(`
     fetched_at             = datetime('now')
 `);
 
-const upsertRequestBatch = db.transaction((rows) => {
+function upsertRequestBatch(rows) {
+  if (REPORTS_BACKEND === 'postgres') return _upsertRequestBatchPg(rows);
+  return _upsertRequestBatchSqlite(rows);
+}
+const _upsertRequestBatchSqlite = db.transaction((rows) => {
   let n = 0;
   for (const r of rows) { _upsertRequest.run(r); n++; }
   return n;
 });
+// NOTE: no udf_json here — udf_json is written ONLY by upsertRequestUdfBatch.
+const _REQUEST_UPSERT_PG = `
+  INSERT INTO request_records
+    (request_id, display_id, subject, request_status, pending_status, overdue_status,
+     request_type, service_request, is_escalated, reopen_count, due_by_time, time_elapsed_ms,
+     created_time, resolved_time, completed_time, responded_time, assigned_time,
+     last_updated_time, first_response_overdue, technician, requester,
+     category, sub_category, site, tech_group, mode, impact, fetched_at)
+  VALUES
+    (@request_id, @display_id, @subject, @request_status, @pending_status, @overdue_status,
+     @request_type, @service_request, @is_escalated, @reopen_count, @due_by_time, @time_elapsed_ms,
+     @created_time, @resolved_time, @completed_time, @responded_time, @assigned_time,
+     @last_updated_time, @first_response_overdue, @technician, @requester,
+     @category, @sub_category, @site, @tech_group, @mode, @impact, now())
+  ON CONFLICT(request_id) DO UPDATE SET
+    display_id = EXCLUDED.display_id, subject = EXCLUDED.subject, request_status = EXCLUDED.request_status,
+    pending_status = EXCLUDED.pending_status, overdue_status = EXCLUDED.overdue_status,
+    request_type = EXCLUDED.request_type, service_request = EXCLUDED.service_request,
+    is_escalated = EXCLUDED.is_escalated, reopen_count = EXCLUDED.reopen_count,
+    due_by_time = EXCLUDED.due_by_time, time_elapsed_ms = EXCLUDED.time_elapsed_ms,
+    created_time = EXCLUDED.created_time, resolved_time = EXCLUDED.resolved_time,
+    completed_time = EXCLUDED.completed_time, responded_time = EXCLUDED.responded_time,
+    assigned_time = EXCLUDED.assigned_time, last_updated_time = EXCLUDED.last_updated_time,
+    first_response_overdue = EXCLUDED.first_response_overdue, technician = EXCLUDED.technician,
+    requester = EXCLUDED.requester, category = EXCLUDED.category, sub_category = EXCLUDED.sub_category,
+    site = EXCLUDED.site, tech_group = EXCLUDED.tech_group, mode = EXCLUDED.mode, impact = EXCLUDED.impact,
+    fetched_at = now()`;
+async function _upsertRequestBatchPg(rows) {
+  const H = pgHandle(); let n = 0;
+  await H.runTransaction(async () => { for (const r of (rows || [])) { await H.prepare(_REQUEST_UPSERT_PG).run(r); n++; } });
+  return n;
+}
 
 // UDF-only updater. Used by the MAJOR_INCIDENTS backfill step in zoho-sync —
 // the MAJOR_INCIDENTS Zoho view (790842) is the only place that exposes
@@ -3522,7 +3659,11 @@ const _upsertRequestUdfByDisplayId = db.prepare(`
    WHERE display_id = ?
 `);
 
-const upsertRequestUdfBatch = db.transaction((rows) => {
+function upsertRequestUdfBatch(rows) {
+  if (REPORTS_BACKEND === 'postgres') return _upsertRequestUdfBatchPg(rows);
+  return _upsertRequestUdfBatchSqlite(rows);
+}
+const _upsertRequestUdfBatchSqlite = db.transaction((rows) => {
   let n = 0;
   for (const r of rows) {
     // Primary path: match on the long Zoho id.
@@ -3539,6 +3680,20 @@ const upsertRequestUdfBatch = db.transaction((rows) => {
   }
   return n;
 });
+// Two-step UPDATE (positional ?): by request_id, fallback by display_id on miss.
+async function _upsertRequestUdfBatchPg(rows) {
+  const H = pgHandle(); let n = 0;
+  await H.runTransaction(async () => {
+    for (const r of (rows || [])) {
+      let result = await H.prepare(`UPDATE request_records SET udf_json = ?, fetched_at = now() WHERE request_id = ?`).run(r.udf_json, r.request_id);
+      if (result.changes === 0) {
+        result = await H.prepare(`UPDATE request_records SET udf_json = ?, fetched_at = now() WHERE display_id = ?`).run(r.udf_json, r.request_id);
+      }
+      if (result.changes > 0) n++;
+    }
+  });
+  return n;
+}
 
 // ── RECONCILIATION HELPERS ────────────────────────────────────────
 // Used during full syncs to remove records deleted in Zoho.
@@ -3613,6 +3768,7 @@ function reconcileRequestRecords(liveIds) {
 // ── QUERY HELPERS FOR API ENDPOINTS ──────────────────────────────
 
 function getChangeRecords({ limit = 200, offset = 0, status, site_id, since } = {}) {
+  if (REPORTS_BACKEND === 'postgres') return _getChangeRecordsPg({ limit, offset, status, site_id, since });
   let sql = `SELECT * FROM change_records WHERE 1=1`;
   const p = [];
   if (status)  { sql += ` AND status=?`;       p.push(status); }
@@ -3622,8 +3778,17 @@ function getChangeRecords({ limit = 200, offset = 0, status, site_id, since } = 
   p.push(limit, offset);
   return db.prepare(sql).all(...p);
 }
+async function _getChangeRecordsPg({ limit = 200, offset = 0, status, site_id, since } = {}) {
+  let sql = `SELECT * FROM change_records WHERE 1=1`; const p = [];
+  if (status)  { sql += ` AND status=?`;        p.push(status); }
+  if (site_id) { sql += ` AND site_id=?`;       p.push(site_id); }
+  if (since)   { sql += ` AND created_time>=?`; p.push(since); }
+  sql += ` ORDER BY created_time DESC LIMIT ? OFFSET ?`; p.push(limit, offset);
+  return pgHandle().prepare(sql).all(...p);
+}
 
 function getCABApprovals({ change_id, status, limit = 500 } = {}) {
+  if (REPORTS_BACKEND === 'postgres') return _getCABApprovalsPg({ change_id, status, limit });
   let sql = `SELECT * FROM cab_approvals WHERE 1=1`;
   const p = [];
   if (change_id) { sql += ` AND change_id=?`;       p.push(change_id); }
@@ -3632,8 +3797,16 @@ function getCABApprovals({ change_id, status, limit = 500 } = {}) {
   p.push(limit);
   return db.prepare(sql).all(...p);
 }
+async function _getCABApprovalsPg({ change_id, status, limit = 500 } = {}) {
+  let sql = `SELECT * FROM cab_approvals WHERE 1=1`; const p = [];
+  if (change_id) { sql += ` AND change_id=?`;       p.push(change_id); }
+  if (status)    { sql += ` AND approval_status=?`; p.push(status); }
+  sql += ` ORDER BY recommendation_requested DESC LIMIT ?`; p.push(limit);
+  return pgHandle().prepare(sql).all(...p);
+}
 
 function getSurveyResults({ limit = 500, offset = 0, since } = {}) {
+  if (REPORTS_BACKEND === 'postgres') return _getSurveyResultsPg({ limit, offset, since });
   let sql = `SELECT * FROM survey_results WHERE 1=1`;
   const p = [];
   if (since) { sql += ` AND survey_sent_on>=?`; p.push(since); }
@@ -3641,12 +3814,20 @@ function getSurveyResults({ limit = 500, offset = 0, since } = {}) {
   p.push(limit, offset);
   return db.prepare(sql).all(...p);
 }
+async function _getSurveyResultsPg({ limit = 500, offset = 0, since } = {}) {
+  let sql = `SELECT * FROM survey_results WHERE 1=1`; const p = [];
+  if (since) { sql += ` AND survey_sent_on>=?`; p.push(since); }
+  sql += ` ORDER BY survey_sent_on DESC LIMIT ? OFFSET ?`; p.push(limit, offset);
+  return pgHandle().prepare(sql).all(...p);
+}
 
 function getSurveyAnswers(response_id) {
+  if (REPORTS_BACKEND === 'postgres') return pgHandle().prepare(`SELECT * FROM survey_answers WHERE response_id=? ORDER BY id`).all(response_id);
   return db.prepare(`SELECT * FROM survey_answers WHERE response_id=? ORDER BY id`).all(response_id);
 }
 
 function getRequestRecords({ limit = 200, offset = 0, status, site, since, pending_only, overdue_only } = {}) {
+  if (REPORTS_BACKEND === 'postgres') return _getRequestRecordsPg({ limit, offset, status, site, since, pending_only, overdue_only });
   let sql = `SELECT * FROM request_records WHERE 1=1`;
   const p = [];
   if (status)       { sql += ` AND request_status=?`;   p.push(status); }
@@ -3657,6 +3838,16 @@ function getRequestRecords({ limit = 200, offset = 0, status, site, since, pendi
   sql += ` ORDER BY created_time DESC LIMIT ? OFFSET ?`;
   p.push(limit, offset);
   return db.prepare(sql).all(...p);
+}
+async function _getRequestRecordsPg({ limit = 200, offset = 0, status, site, since, pending_only, overdue_only } = {}) {
+  let sql = `SELECT * FROM request_records WHERE 1=1`; const p = [];
+  if (status)       { sql += ` AND request_status=?`;   p.push(status); }
+  if (site)         { sql += ` AND site=?`;              p.push(site); }
+  if (since)        { sql += ` AND created_time>=?`;     p.push(since); }
+  if (pending_only) { sql += ` AND pending_status=1`; }
+  if (overdue_only) { sql += ` AND overdue_status=1`; }
+  sql += ` ORDER BY created_time DESC LIMIT ? OFFSET ?`; p.push(limit, offset);
+  return pgHandle().prepare(sql).all(...p);
 }
 
 // ── COMPUTED METRICS (replicate Zoho Analytics aggregate formulas) ─
