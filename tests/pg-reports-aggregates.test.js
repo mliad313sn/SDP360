@@ -144,3 +144,23 @@ test('agg pg: getRequestMetrics denominators + getRequestFilterOptions', async (
     assert.ok(fo.statuses.includes('Closed') && fo.statuses.includes('Open'));
   } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
 });
+
+test('agg pg: major-incident history + active', async (t) => {
+  const b = await boot(); if (!b) return t.skip('no pg');
+  const { ctx, rdb } = b;
+  try {
+    const G = 'Hounde IT Agents';
+    // recent major incident (within the 12-month window)
+    const C = new Date(); C.setMonth(C.getMonth() - 1);
+    const created = `${C.getFullYear()}-${String(C.getMonth()+1).padStart(2,'0')}-15 09:00:00`;
+    await rdb.upsertRequestBatch([
+      _req({request_id:'MI1', display_id:'#INC-MI1', request_type:'Major Incident', tech_group:G, site:'Hounde', pending_status:1, created_time:created}),
+    ]);
+    await rdb.upsertRequestUdfBatch([{ request_id:'MI1', udf_json:JSON.stringify({'UDF:Priority':'High','UDF:Root Cause Analysis :':'rca text that is long enough'}) }]);
+    const hist = await rdb.getMajorIncidentsHistory(12);
+    const mi = hist.find(r => r['Request ID'] === 'MI1');
+    assert.ok(mi, 'major incident in history'); assert.equal(mi['Request Type'], 'Major Incident');
+    const active = await rdb.getActiveMajorIncidentsForSite(['Hounde IT Agents']);
+    assert.ok(active.find(r => r.request_id === 'MI1'), 'open major incident for the group');
+  } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
+});

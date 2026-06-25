@@ -3004,6 +3004,7 @@ function getCustomerVoiceByDimensionDB() {
 }
 
 function getMajorIncidentsHistory(monthsBack = 12) {
+  if (REPORTS_BACKEND === 'postgres') return _getMajorIncidentsHistoryPg(monthsBack);
   const today = new Date();
   const cutoff = new Date(today.getFullYear(), today.getMonth() - monthsBack + 1, 1);
   const cutoffISO = cutoff.toISOString();
@@ -3015,6 +3016,29 @@ function getMajorIncidentsHistory(monthsBack = 12) {
     ORDER BY created_time DESC
   `).all(cutoffISO);
 
+  return _mapMajorIncidentRows(rows);
+}
+
+// PG fork — same raw-TEXT cutoff comparison (created_time >= ISO bound is a
+// lexical string compare on a TEXT col in BOTH engines; do NOT add a cast).
+// Awaits the query, reuses the shared JS row mapper.
+async function _getMajorIncidentsHistoryPg(monthsBack = 12) {
+  const today = new Date();
+  const cutoff = new Date(today.getFullYear(), today.getMonth() - monthsBack + 1, 1);
+  const cutoffISO = cutoff.toISOString();
+  const rows = await pgHandle().prepare(`
+    SELECT * FROM request_records
+    WHERE LOWER(COALESCE(request_type, '')) LIKE '%major%'
+      AND created_time >= ?
+    ORDER BY created_time DESC
+  `).all(cutoffISO);
+  return _mapMajorIncidentRows(rows);
+}
+
+// Shared major-incident row transform (engine-agnostic, pure JS over fetched
+// rows): UDF defaults, udf_json unpack, priority-fallback chain + canonical
+// P-Label, downtime parse. Used by both the sqlite and pg paths.
+function _mapMajorIncidentRows(rows) {
   // Default UDF keys (empty) so client code can call .trim() without a
   // null check on rows where udf_json hasn't been backfilled yet.
   const UDF_DEFAULTS = {
@@ -4863,6 +4887,7 @@ function getOpenChangesForSite(groups) {
 // handful of *open* major incidents at any one time, but the LIMIT is
 // defensive in case a backlog has built up.
 function getActiveMajorIncidentsForSite(groups) {
+  if (REPORTS_BACKEND === 'postgres') return _getActiveMajorIncidentsForSitePg(groups);
   if (!groups || !groups.length) return [];
   const ph = groups.map(() => '?').join(',');
   const rows = db.prepare(`
@@ -4880,6 +4905,35 @@ function getActiveMajorIncidentsForSite(groups) {
     LIMIT 25
   `).all(...groups);
 
+  return _mapActiveMajorIncidentRows(rows);
+}
+
+// PG fork — only dialect hazard is the datetime() in the ORDER BY →
+// created_time::timestamptz. WHERE has no date/now expression.
+async function _getActiveMajorIncidentsForSitePg(groups) {
+  if (!groups || !groups.length) return [];
+  const ph = groups.map(() => '?').join(',');
+  const rows = await pgHandle().prepare(`
+    SELECT request_id, display_id, subject, request_status, pending_status,
+           overdue_status, request_type, technician, requester, site,
+           tech_group, category, sub_category, created_time, due_by_time,
+           resolved_time, last_updated_time, udf_json
+    FROM request_records
+    WHERE pending_status = 1
+      AND LOWER(COALESCE(request_type, '')) LIKE '%major%'
+      AND tech_group IN (${ph})
+    ORDER BY
+      overdue_status DESC,
+      created_time::timestamptz ASC
+    LIMIT 25
+  `).all(...groups);
+
+  return _mapActiveMajorIncidentRows(rows);
+}
+
+// Shared transform for active major-incident rows (engine-agnostic JS):
+// curated UDF subset + completeness/PIR heuristics.
+function _mapActiveMajorIncidentRows(rows) {
   // Surface a curated subset of UDFs the panel cares about, plus a
   // pre-computed completeness flag (missing/partial/done) for each so
   // the client doesn't have to re-implement the dashboard's heuristic.

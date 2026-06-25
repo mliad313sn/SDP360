@@ -185,8 +185,46 @@ DB layer DONE + green (`tests/pg-reports-hot.test.js`, 4 tests). Same `REPORTS_B
 - Copy: `tools/pg/copy-reports-hot.js` (6 tables, paged SELECT @5000 rows for big tables, 5
   IDENTITY seqs advanced; survey_answers/sync_metadata copied by their own PK).
 
-**DEFERRED:** **4D-2** = `getMonthlyData` + `getCalendarMonthly*`/`getHelpdesk6MonthHistory`/
-`getMonthlyHelpdeskHistory`/`getRequestMetrics`/`getCABMetrics`/`getChangeMetrics`/
-`getSurveyMetrics`/`getMajorIncidentsHistory`/`getRequestFilterOptions`/all `*DB` aggregates
-(denominator doctrine). Plus server.js `_rawCache` rebuild + `/api/sync/*` + `/api/data/*`
-route `await` wiring. The `REPORTS_BACKEND=postgres` prod flip needs 4D-2 + KPI reconciliation.
+## reports.db — Sub-chunk 4D-2a (request monthly KPIs + assembler) — `feat/pg-reports-agg-request`
+
+First of four 4D-2 sub-chunks (the KPI-aggregate / denominator-doctrine half of the hot path).
+DB layer DONE + green (`tests/pg-reports-aggregates.test.js`, 6 tests — the shared 4D-2 suite,
+accretes across 4D-2a–d). Same `REPORTS_BACKEND` flag. **No schema, no copy script** — 4D-1 owns
+the tables; 4D-2a is pure read-fork + tests.
+
+- **11 read fns forked** in `reports-db.js`: `getCalendarMonthlyHelpdesk`, `getCalendarMonthlyTop10`,
+  `getHelpdesk6MonthHistory`, `_aggregateHelpdesk6MoFromRaw`, `getMonthlyHelpdeskHistory`,
+  `getMonthlyData` (assembler), `getYearlySummary` (12-mo assembler — calls getCalendarMonthlyHelpdesk,
+  so it MUST be forked here), `getRequestMetrics`, `getRequestFilterOptions`,
+  `getMajorIncidentsHistory`, `getActiveMajorIncidentsForSite`.
+- **Dialect reconciliation contract** (preserves KPI math byte-for-byte): `date(x) >= ?` →
+  `x::date >= ?::date`; `(julianday(a)-julianday(b))*24` (HOURS) → `EXTRACT(EPOCH FROM (a::timestamptz
+  - b::timestamptz))/3600` (DAYS → `/86400`); `strftime('%Y-%m',x)` → `to_char(x::timestamptz,'YYYY-MM')`
+  (both as GROUP BY bucket AND equality filter); `datetime(x)` in ORDER BY → `x::timestamptz`;
+  `GROUP BY <output-alias>` → `GROUP BY 1` (pg can't GROUP BY a `COALESCE(NULLIF(...),'Uncategorised')`
+  output alias — must repeat the expr or use the ordinal); `is_escalated` (INTEGER col) string
+  filter → `is_escalated::text IN ('1','true')`; `ROUND(expr,n)` kept (in-scope cases resolve to
+  numeric natively). **Raw ISO-string TEXT compares left UNCHANGED** — `getMajorIncidentsHistory`'s
+  `created_time >= cutoff.toISOString()` is a lexical string compare on a TEXT col in BOTH engines;
+  adding a `::date`/`::timestamptz` cast would change semantics.
+- **Denominator doctrine preserved** (must NOT regress to `/total`): Resolution SLA % =
+  closed-and-not-overdue / closed (`pending_status=0`); FRT % = responded-and-not-violated /
+  responded (`responded_time` set); close % = closed / total.
+- **Pure-JS row mappers extracted** so both engines share one transform (DRY, no divergence):
+  `_mapMajorIncidentRows` (UDF unpack + priority-fallback chain + canonical P-Label + downtime),
+  `_mapActiveMajorIncidentRows` (curated UDF subset + completeness/PIR heuristics). pg forks
+  `await pgHandle().prepare(...).all(...)` then call the shared mapper.
+- **pg forks use `pgHandle()`, never `db`** — `db` is always the sqlite Database; the live pg
+  connection is `pgHandle()`. (A fork that queried `db.prepare` silently hit the empty sqlite file.)
+- Tests exercise the denominators + duration math with hand-computed assertions (closed-only
+  `sla_res_pct=round(2/3*100)=67`, responded-only `sla_reply_pct=round(3/4*100)=75`, EXTRACT-EPOCH
+  `avg_tta_h=2`/`avg_resolution_d=1`, GROUP BY 1 NULL+'' category collapse to one Uncategorised,
+  P-Label resolution). sqlite synchronous-return smoke confirms the default path stays sync.
+
+**DEFERRED:** **4D-2b** (request SLA/ageing/trend: `getAgeing{Summary,ByGroup,BySite}DB`,
+`getSlaTrendDB`, `getSlaByCategoryDB`, `getFirstResponseTrendDB`, `getGroupRequestsDB`,
+`getIncidentVsSrDB`); **4D-2c** (change/CAB: `getChangeMetrics`, `getChangeRecordsHistory`,
+`getOpenChangesForSite`, `getEmergencyChangesDB`, `getCABMetrics`, `getCabApprovalsDB`,
+`getCabRecommendationsDB`); **4D-2d** (survey: `getSurveyMetrics`, `getCustomerVoiceDB`,
+`getCustomerVoiceByDimensionDB`). Plus server.js `_rawCache` rebuild + `/api/sync/*` + `/api/data/*`
+route `await` wiring. The `REPORTS_BACKEND=postgres` prod flip needs ALL of 4A–4D-2d + KPI reconciliation.
