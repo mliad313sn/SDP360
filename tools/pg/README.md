@@ -262,8 +262,43 @@ script** — 4D-1 owns the tables. All 8 fns read ONLY `request_records`.
   sort, closed-only/responded-only SLA% (whole-month aggregate → 71.4 / 25), the `>= 5` HAVING drop,
   and the EXTRACT-EPOCH FRT/RT trend. sqlite synchronous-return smoke covers all 8.
 
-**DEFERRED:** **4D-2c** (change/CAB: `getChangeMetrics`, `getChangeRecordsHistory`,
-`getOpenChangesForSite`, `getEmergencyChangesDB`, `getCABMetrics`, `getCabApprovalsDB`,
-`getCabRecommendationsDB`); **4D-2d** (survey: `getSurveyMetrics`, `getCustomerVoiceDB`,
+## reports.db — Sub-chunk 4D-2c (change / CAB) — `feat/pg-reports-agg-change`
+
+Third of four 4D-2 sub-chunks — first to read the non-request hot tables (`change_records`,
+`cab_approvals`). DB layer DONE + green (`tests/pg-reports-aggregates.test.js`, now 11; 4D-2c added 2).
+Same `REPORTS_BACKEND` flag. **No schema, no copy script** — 4D-1 owns the tables.
+
+- **7 read fns forked** in `reports-db.js`: `getEmergencyChangesDB`, `getCabApprovalsDB`,
+  `getCabRecommendationsDB`, `getChangeRecordsHistory`, `getChangeMetrics`, `getCABMetrics`,
+  `getOpenChangesForSite`. Multi-query metric bundles use shared `_assemble{Change,CAB}Metrics`
+  helpers; list/history maps extracted to `_map{EmergencyChanges,CabApprovals,CabRecommendations,
+  ChangeRecordsHistory}`.
+- **THREE new dialect hazards beyond 4D-2a/b:**
+  - **INTEGER column vs TEXT literal** — `change_records.emergency` is `INTEGER`; sqlite's
+    `emergency=1 OR emergency='true' OR emergency='1'` errors in PG → `emergency::text IN ('1','true')`
+    (the `is_escalated::text` pattern from 4D-2a).
+  - **`ROUND(AVG(<double>), 1)` needs `::numeric`** — PG has no `round(double precision, integer)`.
+    The julianday-day-diff path `ROUND(AVG(JULIANDAY(a)-JULIANDAY(b)),1)` →
+    `ROUND(AVG(EXTRACT(EPOCH FROM (NULLIF(a,'')::timestamptz - NULLIF(b,'')::timestamptz))/86400)::numeric, 1)`.
+    But `ROUND(AVG(turnaround_minutes),1)` stays as-is (INTEGER → AVG = numeric).
+  - **TEXT temporal column vs `datetime('now')`** — `scheduled_start <= datetime('now')` →
+    `NULLIF(scheduled_start,'')::timestamptz <= now()` (NULLIF guards the `''::timestamptz` cast error).
+- **getChangeRecordsHistory awaits TWO queries** (the `sites` group→site lookup + the `change_records`
+  scan). `||` concat, `LEFT JOIN`, `NULLS LAST`, `IN(…)`, `GROUP BY <real col>`, bare-alias
+  `ORDER BY count DESC`, dynamic `${where}` with `?`→`$N` per-statement — all unchanged. raw-ISO
+  cutoff bounds (`created_time >= ?`, `recommendation_requested >= ?`) UNCHANGED.
+- **Bundled crash-fix:** `getCabApprovalsDB` / `getCabRecommendationsDB` `SELECT c.site` — a
+  **non-existent column** (`change_records` has `site_id`, not `site`), so both threw
+  `no such column: c.site` on EVERY call (broken in prod). Dropped `c.site` in BOTH the sqlite body
+  AND the pg fork → `'Site'` maps to `''`. Strictly corrective (a guaranteed crash → a working call),
+  sqlite≡pg. (Separately, `getEmergencyChangesDB`'s `r.change_status`/`r.planned_start_time`/`r.site`
+  non-existent-column *reads* under `SELECT *` are harmless `undefined`/`null` — left untouched; a
+  separate task fixes the `change_status` one.)
+- Tests: getChangeMetrics (emergency=1 / Failed+Backout / Close-Completed-excluded in-progress /
+  2-and-4-day avg → 3.0), getCABMetrics (DISTINCT compliance 1/2 → 50, AVG(30,50)=40 no-cast), and
+  the list/history/join/open-changes filters incl. group→site derivation + udf_json unpack. sqlite
+  synchronous-return smoke covers all 7.
+
+**DEFERRED:** **4D-2d** (survey: `getSurveyMetrics`, `getCustomerVoiceDB`,
 `getCustomerVoiceByDimensionDB`). Plus server.js `_rawCache` rebuild + `/api/sync/*` + `/api/data/*`
 route `await` wiring. The `REPORTS_BACKEND=postgres` prod flip needs ALL of 4A–4D-2d + KPI reconciliation.
