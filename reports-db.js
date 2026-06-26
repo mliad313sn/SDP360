@@ -2517,6 +2517,7 @@ function _mapFrtTrend(rows) {
  *             detractor = overall_score <  70
  */
 function getCustomerVoiceDB(monthsBack = 12) {
+  if (REPORTS_BACKEND === 'postgres') return _getCustomerVoiceDBPg(monthsBack);
   const cutoff = new Date();
   cutoff.setMonth(cutoff.getMonth() - monthsBack + 1);
   cutoff.setDate(1); cutoff.setHours(0,0,0,0);
@@ -2539,12 +2540,6 @@ function getCustomerVoiceDB(monthsBack = 12) {
     WHERE COALESCE(survey_sent_on, survey_responded_on) >= ?
   `).get(cutoffISO);
 
-  const totalSent      = sendCounts.total_sent      || 0;
-  const totalResponded = sendCounts.total_responded || 0;
-  const responseRate   = totalSent > 0
-                          ? Math.round((totalResponded / totalSent) * 100)
-                          : null;
-
   // ── Roll up scored totals (for CSAT / NPS / avgRating) ───────────────
   const tot = db.prepare(`
     SELECT COUNT(*) AS total_responses,
@@ -2557,12 +2552,6 @@ function getCustomerVoiceDB(monthsBack = 12) {
     FROM survey_results
     WHERE overall_score IS NOT NULL
   `).get();
-
-  const scored    = tot && tot.scored ? tot.scored : 0;
-  const npsBase   = (tot.promoters || 0) + (tot.passives || 0) + (tot.detractors || 0);
-  const csatPct   = scored  ? Math.round((tot.satisfied || 0) / scored * 100) : null;
-  const avgScore  = scored  ? Math.round((tot.avg_score || 0) * 10) / 10      : null;
-  const nps       = npsBase ? Math.round(((tot.promoters / npsBase) - (tot.detractors / npsBase)) * 100) : null;
 
   // ── Monthly breakdown (with per-month sent + responded counts) ───────
   const monthlyRows = db.prepare(`
@@ -2580,6 +2569,71 @@ function getCustomerVoiceDB(monthsBack = 12) {
     GROUP BY yyyymm
     ORDER BY yyyymm
   `).all(cutoffISO);
+
+  return _assembleCustomerVoice({ sendCounts, tot, monthlyRows });
+}
+// PG fork — 3 queries awaited. Raw ISO cutoff (COALESCE(...) >= ?) UNCHANGED (sendCounts +
+// monthlyRows). monthly bucket `strftime('%Y-%m', COALESCE(...))` → direct
+// `to_char(COALESCE(...)::timestamptz,'YYYY-MM')` (NO NULLIF — the WHERE `COALESCE(...) >= ?`
+// guarantees a valid non-null timestamp in grouped rows). NO SQL ROUND (all averaging is JS
+// Math.round over raw AVG(overall_score)), so no `::numeric` cast here.
+async function _getCustomerVoiceDBPg(monthsBack = 12) {
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - monthsBack + 1);
+  cutoff.setDate(1); cutoff.setHours(0,0,0,0);
+  const cutoffISO = cutoff.toISOString();
+  const H = pgHandle();
+
+  const sendCounts = await H.prepare(`
+    SELECT
+      COUNT(*)                                                       AS total_sent,
+      SUM(CASE WHEN survey_responded_on IS NOT NULL THEN 1 ELSE 0 END) AS total_responded
+    FROM survey_results
+    WHERE COALESCE(survey_sent_on, survey_responded_on) >= ?
+  `).get(cutoffISO);
+
+  const tot = await H.prepare(`
+    SELECT COUNT(*) AS total_responses,
+           AVG(overall_score) AS avg_score,
+           SUM(CASE WHEN overall_score >= 80 THEN 1 ELSE 0 END) AS satisfied,
+           SUM(CASE WHEN overall_score >= 90 THEN 1 ELSE 0 END) AS promoters,
+           SUM(CASE WHEN overall_score >= 70 AND overall_score < 90 THEN 1 ELSE 0 END) AS passives,
+           SUM(CASE WHEN overall_score <  70 THEN 1 ELSE 0 END) AS detractors,
+           SUM(CASE WHEN overall_score IS NOT NULL THEN 1 ELSE 0 END) AS scored
+    FROM survey_results
+    WHERE overall_score IS NOT NULL
+  `).get();
+
+  const monthlyRows = await H.prepare(`
+    SELECT to_char(COALESCE(survey_sent_on, survey_responded_on)::timestamptz, 'YYYY-MM') AS yyyymm,
+           COUNT(*)                                                          AS sent,
+           SUM(CASE WHEN survey_responded_on IS NOT NULL THEN 1 ELSE 0 END)  AS responses,
+           AVG(overall_score) AS avg_score,
+           SUM(CASE WHEN overall_score >= 80 THEN 1 ELSE 0 END) AS satisfied,
+           SUM(CASE WHEN overall_score >= 90 THEN 1 ELSE 0 END) AS promoters,
+           SUM(CASE WHEN overall_score >= 70 AND overall_score < 90 THEN 1 ELSE 0 END) AS passives,
+           SUM(CASE WHEN overall_score <  70 THEN 1 ELSE 0 END) AS detractors,
+           SUM(CASE WHEN overall_score IS NOT NULL THEN 1 ELSE 0 END) AS scored
+    FROM survey_results
+    WHERE COALESCE(survey_sent_on, survey_responded_on) >= ?
+    GROUP BY yyyymm
+    ORDER BY yyyymm
+  `).all(cutoffISO);
+
+  return _assembleCustomerVoice({ sendCounts, tot, monthlyRows });
+}
+function _assembleCustomerVoice({ sendCounts, tot, monthlyRows }) {
+  const totalSent      = sendCounts.total_sent      || 0;
+  const totalResponded = sendCounts.total_responded || 0;
+  const responseRate   = totalSent > 0
+                          ? Math.round((totalResponded / totalSent) * 100)
+                          : null;
+
+  const scored    = tot && tot.scored ? tot.scored : 0;
+  const npsBase   = (tot.promoters || 0) + (tot.passives || 0) + (tot.detractors || 0);
+  const csatPct   = scored  ? Math.round((tot.satisfied || 0) / scored * 100) : null;
+  const avgScore  = scored  ? Math.round((tot.avg_score || 0) * 10) / 10      : null;
+  const nps       = npsBase ? Math.round(((tot.promoters / npsBase) - (tot.detractors / npsBase)) * 100) : null;
 
   const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const byMonth = monthlyRows.map(r => {
@@ -3233,6 +3287,7 @@ function _mapCabRecommendations(rows) {
  *   }
  */
 function getCustomerVoiceByDimensionDB() {
+  if (REPORTS_BACKEND === 'postgres') return _getCustomerVoiceByDimensionDBPg();
   // Pull surveys + ticket metadata in ONE query (instead of two Zoho views).
   const rows = db.prepare(`
     SELECT
@@ -3254,6 +3309,35 @@ function getCustomerVoiceByDimensionDB() {
     WHERE pending_status = 0
   `).get();
 
+  return _assembleCustomerVoiceByDimension(rows, closedRow);
+}
+// PG fork — awaits the survey⨝request LEFT JOIN + the closed-ticket count. NO dialect rewrite in
+// the SQL (no strftime/julianday/datetime/ROUND); ALL aggregation is engine-agnostic JS reused via
+// the shared assembler.
+async function _getCustomerVoiceByDimensionDBPg() {
+  const H = pgHandle();
+  const rows = await H.prepare(`
+    SELECT
+      s.overall_score                                                AS score,
+      s.request_display_id                                           AS display_id,
+      COALESCE(s.survey_responded_on, s.survey_sent_on)              AS month_src,
+      r.technician                                                   AS tech,
+      r.site                                                         AS site,
+      r.tech_group                                                   AS grp
+    FROM survey_results s
+    LEFT JOIN request_records r ON r.display_id = s.request_display_id
+    WHERE s.overall_score IS NOT NULL
+  `).all();
+
+  const closedRow = await H.prepare(`
+    SELECT COUNT(*) AS n
+    FROM request_records
+    WHERE pending_status = 0
+  `).get();
+
+  return _assembleCustomerVoiceByDimension(rows, closedRow);
+}
+function _assembleCustomerVoiceByDimension(rows, closedRow) {
   const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const monthLbl = iso => {
     if (!iso) return null;
@@ -4683,6 +4767,7 @@ function _assembleCABMetrics({ total, byStatus, distinctChanges, approvedChanges
  * Optional filter: since (ISO date for survey_sent_on).
  */
 function getSurveyMetrics({ since } = {}) {
+  if (REPORTS_BACKEND === 'postgres') return _getSurveyMetricsPg({ since });
   let where = 'WHERE 1=1';
   const p = [];
   if (since) { where += ' AND survey_sent_on>=?'; p.push(since); }
@@ -4694,7 +4779,6 @@ function getSurveyMetrics({ since } = {}) {
   const avgScore  = db.prepare(
     `SELECT ROUND(AVG(overall_score), 1) as avg FROM survey_results ${where} AND overall_score IS NOT NULL`
   ).get(...p).avg;
-  const responseRatePct = total > 0 ? +(responded / total * 100).toFixed(1) : null;
 
   // CSAT score buckets: <60 = dissatisfied, 60–80 = neutral, ≥80 = satisfied
   const buckets = db.prepare(`
@@ -4715,6 +4799,45 @@ function getSurveyMetrics({ since } = {}) {
     GROUP BY month ORDER BY month DESC LIMIT 12
   `).all(...p);
 
+  return _assembleSurveyMetrics({ total, responded, avgScore, buckets, monthly });
+}
+// PG fork — `since` bound (survey_sent_on>=?) UNCHANGED; overall_score is double precision →
+// `ROUND(AVG(...),1)` needs `::numeric` (×2: top avgScore + monthly avg_score). monthly bucket
+// `strftime('%Y-%m', survey_sent_on)` → `to_char(NULLIF(survey_sent_on,'')::timestamptz,'YYYY-MM')`
+// (NULLIF guards the ''::timestamptz error — the WHERE doesn't filter NULL/'' when `since` absent).
+async function _getSurveyMetricsPg({ since } = {}) {
+  const H = pgHandle();
+  let where = 'WHERE 1=1';
+  const p = [];
+  if (since) { where += ' AND survey_sent_on>=?'; p.push(since); }
+
+  const total     = (await H.prepare(`SELECT COUNT(*) as n FROM survey_results ${where}`).get(...p)).n;
+  const responded = (await H.prepare(
+    `SELECT COUNT(*) as n FROM survey_results ${where} AND survey_responded_on IS NOT NULL`
+  ).get(...p)).n;
+  const avgScore  = (await H.prepare(
+    `SELECT ROUND(AVG(overall_score)::numeric, 1) as avg FROM survey_results ${where} AND overall_score IS NOT NULL`
+  ).get(...p)).avg;
+  const buckets = await H.prepare(`
+    SELECT
+      SUM(CASE WHEN overall_score < 60                          THEN 1 ELSE 0 END) as dissatisfied,
+      SUM(CASE WHEN overall_score >= 60 AND overall_score < 80  THEN 1 ELSE 0 END) as neutral,
+      SUM(CASE WHEN overall_score >= 80                         THEN 1 ELSE 0 END) as satisfied
+    FROM survey_results ${where} AND overall_score IS NOT NULL
+  `).get(...p);
+  const monthly = await H.prepare(`
+    SELECT to_char(NULLIF(survey_sent_on,'')::timestamptz, 'YYYY-MM') as month,
+           COUNT(*) as sent_count,
+           SUM(CASE WHEN survey_responded_on IS NOT NULL THEN 1 ELSE 0 END) as responded_count,
+           ROUND(AVG(CASE WHEN overall_score IS NOT NULL THEN overall_score END)::numeric, 1) as avg_score
+    FROM survey_results ${where}
+    GROUP BY month ORDER BY month DESC LIMIT 12
+  `).all(...p);
+
+  return _assembleSurveyMetrics({ total, responded, avgScore, buckets, monthly });
+}
+function _assembleSurveyMetrics({ total, responded, avgScore, buckets, monthly }) {
+  const responseRatePct = total > 0 ? +(responded / total * 100).toFixed(1) : null;
   return {
     total_sent:          total,
     responded_count:     responded,

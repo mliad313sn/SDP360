@@ -27,6 +27,9 @@ const _chg = o => ({ change_id:null, display_id:null, subject:null, status:null,
 const _cab = o => ({ approval_id:null, change_id:null, approver_name:null, approval_status:null,
   approval_stage:null, approval_level:null, approval_level_status:null, recommendation_requested:null,
   action_taken_on:null, turnaround_minutes:null, rule_type:null, comments:null, ...o });
+const _sres = o => ({ result_id:null, response_id:null, survey_id:null, survey_name:null,
+  request_id:null, request_display_id:null, change_id:null, user_id:null, overall_score:null,
+  survey_sent_on:null, survey_responded_on:null, ...o });
 
 async function boot() {
   const ctx = await provisionTestDb();
@@ -371,5 +374,75 @@ test('agg pg: change list/history + cab join + open changes', async (t) => {
     assert.ok(h1, 'history row'); assert.equal(h1['Site'], 'Hounde', 'derived from group→site map');
     assert.equal(h1['UDF:Reason'], 'urgent', 'udf_json unpacked');
     // NOTE: do NOT assert on getEmergencyChangesDB "Status" — r.change_status is a non-existent col.
+  } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
+});
+
+// ── 4D-2d — survey / Customer-Voice ───────────────────────────────────────
+test('agg pg: getSurveyMetrics + getCustomerVoiceDB (to_char, ROUND ::numeric, NULLIF, CSAT/NPS)', async (t) => {
+  const b = await boot(); if (!b) return t.skip('no pg');
+  const { ctx, rdb } = b;
+  try {
+    // getSurveyMetrics: 4 scored (95,70,50,85) + 1 unscored; 3 responded. month 2026-05.
+    await rdb.upsertSurveyResultBatch([
+      _sres({result_id:'M1',overall_score:95,survey_sent_on:'2026-05-10 09:00:00',survey_responded_on:'2026-05-10 10:00:00'}),
+      _sres({result_id:'M2',overall_score:70,survey_sent_on:'2026-05-10 09:00:00',survey_responded_on:'2026-05-10 10:00:00'}),
+      _sres({result_id:'M3',overall_score:50,survey_sent_on:'2026-05-10 09:00:00',survey_responded_on:'2026-05-10 10:00:00'}),
+      _sres({result_id:'M4',overall_score:85,survey_sent_on:'2026-05-10 09:00:00'}),
+      _sres({result_id:'M5',survey_sent_on:'2026-05-10 09:00:00'}),
+    ]);
+    const sm = await rdb.getSurveyMetrics({});
+    assert.equal(sm.total_sent, 5);
+    assert.equal(sm.responded_count, 3);
+    assert.equal(sm.response_rate_pct, 60, 'round(3/5*100,1)');
+    assert.equal(sm.avg_score, 75, 'ROUND(AVG(95,70,50,85)::numeric,1)=75');
+    assert.equal(sm.satisfied_count, 2);     // 95,85 >=80
+    assert.equal(sm.neutral_count, 1);       // 70 in 60-80
+    assert.equal(sm.dissatisfied_count, 1);  // 50 <60
+    const mm = sm.monthly_trend.find(r => r.month === '2026-05');
+    assert.ok(mm, 'monthly row'); assert.equal(mm.avg_score, 75); assert.equal(mm.sent_count, 5); assert.equal(mm.responded_count, 3);
+
+    // getCustomerVoiceDB: 4 scored (95,75,50,95) + 1 sent-only. month 2026-06 -> 'Jun 2026'.
+    await rdb.upsertSurveyResultBatch([
+      _sres({result_id:'V1',overall_score:95,survey_sent_on:'2026-06-10 09:00:00',survey_responded_on:'2026-06-10 10:00:00'}),
+      _sres({result_id:'V2',overall_score:75,survey_sent_on:'2026-06-10 09:00:00',survey_responded_on:'2026-06-10 10:00:00'}),
+      _sres({result_id:'V3',overall_score:50,survey_sent_on:'2026-06-10 09:00:00',survey_responded_on:'2026-06-10 10:00:00'}),
+      _sres({result_id:'V4',overall_score:95,survey_sent_on:'2026-06-10 09:00:00',survey_responded_on:'2026-06-10 10:00:00'}),
+      _sres({result_id:'V5',survey_sent_on:'2026-06-10 09:00:00'}),
+    ]);
+    const cv = await rdb.getCustomerVoiceDB();
+    // tot has NO cutoff → all 8 scored rows (M1-M4 + V1-V4).
+    // promoters(>=90): M1,V1,V4=3; passives(70-89): M2,M4,V2=3; detractors(<70): M3,V3=2.
+    assert.equal(cv.promoters, 3); assert.equal(cv.passives, 3); assert.equal(cv.detractors, 2);
+    assert.equal(cv.totalResponses, 8, 'scored rows');
+    assert.equal(cv.csatPct, 50, 'satisfied 4/8');
+    assert.equal(cv.nps, 13, 'round((3/8 - 2/8)*100)=round(12.5)=13');
+    // sendCounts over the 12-mo window: all 10 rows → totalSent=10, totalResponded=7
+    assert.equal(cv.totalSent, 10); assert.equal(cv.totalResponded, 7);
+    assert.equal(cv.responseRate, 70, 'round(7/10*100)');
+    assert.ok(cv.byMonth.find(r => r.month === 'Jun 2026'), 'byMonth Jun 2026');
+    assert.ok(cv.byMonth.find(r => r.month === 'May 2026'), 'byMonth May 2026');
+  } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
+});
+
+test('agg pg: getCustomerVoiceByDimensionDB (LEFT JOIN + dimensions)', async (t) => {
+  const b = await boot(); if (!b) return t.skip('no pg');
+  const { ctx, rdb } = b;
+  try {
+    await rdb.upsertRequestBatch([
+      _req({request_id:'R1',display_id:'#REQ-1',technician:'Tina',site:'Hounde',tech_group:'Hounde IT Agents',pending_status:0}),
+    ]);
+    await rdb.upsertSurveyResultBatch([
+      _sres({result_id:'SR1',request_display_id:'#REQ-1',overall_score:90,survey_responded_on:'2026-06-10 10:00:00'}),
+      _sres({result_id:'SR2',request_display_id:'#NOPE',overall_score:60,survey_responded_on:'2026-06-10 10:00:00'}),
+    ]);
+    const cv = await rdb.getCustomerVoiceByDimensionDB();
+    assert.equal(cv.totalSurvey, 2, 'both scored rows');
+    assert.equal(cv.totalJoined, 1, 'only SR1 joins a request');
+    assert.equal(cv.joinRate, 50);
+    assert.equal(cv.closedCount, 1, 'R1 pending_status=0');
+    const s = cv.bySite.find(r => r.site === 'Hounde');
+    assert.ok(s, 'Hounde site dimension'); assert.equal(s.responses, 1); assert.equal(s.csatPct, 100); // 90 >=80
+    assert.ok(cv.byGroup.find(r => r.group === 'Hounde IT Agents'), 'group dim');
+    assert.ok(cv.byTech.find(r => r.name === 'Tina'), 'tech dim');
   } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
 });
