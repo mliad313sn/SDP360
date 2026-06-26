@@ -2474,10 +2474,9 @@ app.post('/api/admin/refresh-major-incident-udfs', requireReportSession, require
     const sampleUnmatchedIds = [];
     if (dbUnmatched > 0 && rdb && typeof rdb.getRequestRecords === 'function') {
       // Cheap way: query each id individually until we have 5 unmatched samples
-      const checkStmt = db.prepare(`SELECT 1 FROM request_records WHERE request_id = ? LIMIT 1`);
       for (const r of udfRows) {
         if (sampleUnmatchedIds.length >= 5) break;
-        if (!checkStmt.get(r.request_id)) sampleUnmatchedIds.push(r.request_id);
+        if (!rdb.requestRecordExists(r.request_id)) sampleUnmatchedIds.push(r.request_id);  // sweep adds await
       }
     }
 
@@ -4673,8 +4672,8 @@ app.put('/api/reports/:id/lights', requireReportSession, jsonBody, (req, res) =>
 const ACTION_VALID_PRIORITY = new Set(['High', 'Medium', 'Low']);
 const ACTION_VALID_STATUS   = new Set(['open', 'in_progress', 'on_hold', 'closed', 'cancelled']);
 
-function validateActionItems(items) {
-  const activeDepts = new Set(rdb.listDepartments({ includeInactive: false }).map(d => d.name));
+async function validateActionItems(items) {
+  const activeDepts = new Set(rdb.listDepartments({ includeInactive: false }).map(d => d.name));  // sweep adds await
   const errors = [];
   const cleaned = items.map((a, i) => {
     const out = { ...a };
@@ -4702,12 +4701,12 @@ function validateActionItems(items) {
 }
 
 // PUT /api/reports/:id/actions  — save weekly action items
-app.put('/api/reports/:id/actions', requireReportSession, jsonBody, (req, res) => {
+app.put('/api/reports/:id/actions', requireReportSession, jsonBody, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const items = Array.isArray(req.body) ? req.body : [];
 
-    const { errors, cleaned } = validateActionItems(items);
+    const { errors, cleaned } = await validateActionItems(items);
     if (errors.length) {
       return res.status(400).json({ error: 'validation', details: errors });
     }
@@ -4768,21 +4767,14 @@ app.put('/api/reports/:id/reassign-week', requireReportSession, jsonBody, (req, 
     // Ensure the target week row exists in the weeks table (creates it if new)
     const newWeekId = rdb.ensureWeek(year, week);
 
-    // Block if another report for this site already uses the target week
-    const duplicate = rdb.db.prepare(
-      'SELECT wr.id FROM weekly_reports wr WHERE wr.site_id=? AND wr.week_id=? AND wr.id!=?'
-    ).get(existing.site_id, newWeekId, id);
-    if (duplicate) {
-      const dup = rdb.getReport(duplicate.id);
+    // Conflict-check + reassign via the forked helper (no await here — the Task 2 sweep adds it).
+    const { duplicateReportId } = rdb.reassignReportWeek({ reportId: id, siteId: existing.site_id, newWeekId });
+    if (duplicateReportId) {
+      const dup = rdb.getReport(duplicateReportId);
       return res.status(409).json({
         error: `A ${dup.week_label} report already exists for ${existing.site_name}. Delete it first, then try again.`
       });
     }
-
-    // Reassign
-    rdb.db.prepare(
-      "UPDATE weekly_reports SET week_id=?, updated_at=datetime('now') WHERE id=?"
-    ).run(newWeekId, id);
     const reassigned = rdb.getReport(id);
     rdb.logAudit({ report_id: id, site_id: existing.site_id, user_id: req.reportUser.id, username: req.reportUser.username, action: 'reassigned_week', details: { from_week: existing.week_label, to_week: reassigned?.week_label } });
     res.json(reassigned);
@@ -4958,14 +4950,14 @@ app.get('/api/reports/monthly/:site_id/:year/:month/edits', requireReportSession
 // Save user-edited lights/actions for the monthly report.
 // Applies the same validateActionItems guard as the weekly PUT — spec §9.1-9.2
 // (defense-in-depth on every action-item write path, not just the weekly one).
-app.post('/api/reports/monthly/:site_id/:year/:month/edits', requireReportSession, express.json({ limit: '2mb' }), (req, res) => {
+app.post('/api/reports/monthly/:site_id/:year/:month/edits', requireReportSession, express.json({ limit: '2mb' }), async (req, res) => {
   try {
     const { site_id, year, month } = req.params;
     const { edited_lights, edited_actions, notes, status } = req.body || {};
 
     let cleanedActions = edited_actions;
     if (Array.isArray(edited_actions) && edited_actions.length) {
-      const { errors, cleaned } = validateActionItems(edited_actions);
+      const { errors, cleaned } = await validateActionItems(edited_actions);
       if (errors.length) {
         return res.status(400).json({ error: 'validation', details: errors });
       }
@@ -5676,12 +5668,12 @@ const meetingsImportBody = express.raw({ type: '*/*', limit: '30mb' });
 
 // Resolve the user's meetings site code (form code, e.g. 'MGO').
 // Returns null for unrestricted users (admin+).
-function _userMeetingsSite(user) {
+async function _userMeetingsSite(user) {
   if (!user) return null;
   if (rdb.userHasRole(user, 'admin')) return null;
   const siteId = user.site_id;
   if (!siteId) return null;
-  const sites = rdb.listSites();
+  const sites = rdb.listSites();   // sweep adds await (listSites is forked)
   const site  = sites.find(s => s.id === siteId);
   if (!inspectionDb) return null;
   return inspectionDb.siteNameToCode(site ? site.name : null);
@@ -5877,7 +5869,7 @@ app.post('/api/meetings/actions/:id/update', requireReportSession, meetingsJsonB
     // module's own (already-open) connection. No raw re-open / stray file.
     const parent = await meetingsDb.getActionParent(actionId);
     if (!parent) return res.status(404).json({ error: 'Action not found' });
-    const userSite = _userMeetingsSite(req.reportUser);
+    const userSite = await _userMeetingsSite(req.reportUser);
     if (userSite && parent.site_code !== userSite) {
       return res.status(403).json({ error: `Action belongs to ${parent.site_code}; you are scoped to ${userSite}` });
     }
@@ -5929,7 +5921,7 @@ app.post('/api/meetings/save', requireReportSession, meetingsJsonBody, async (re
       return res.status(400).json({ error: 'Missing state.header.department' });
     }
     state.author_name = state.author_name || req.reportUser.full_name || req.reportUser.username;
-    const userSite = _userMeetingsSite(req.reportUser);
+    const userSite = await _userMeetingsSite(req.reportUser);
     const out      = await meetingsDb.saveMeeting(state, userSite, req.reportUser.id || null);
     res.json({ ok: true, ...out, scope: userSite || 'all' });
   } catch(e) {
@@ -5956,7 +5948,7 @@ app.post('/api/meetings/issues/:id/update', requireReportSession, meetingsJsonBo
     const parent = await meetingsDb.getIssueParent(issueId);
     if (!parent) return res.status(404).json({ error: 'Issue not found' });
 
-    const userSite = _userMeetingsSite(req.reportUser);
+    const userSite = await _userMeetingsSite(req.reportUser);
     if (userSite && parent.site_code !== userSite) {
       return res.status(403).json({ error: `Issue belongs to ${parent.site_code}; you are scoped to ${userSite}` });
     }
