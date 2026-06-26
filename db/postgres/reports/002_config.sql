@@ -43,3 +43,11 @@ CREATE TABLE IF NOT EXISTS dashboard_preset_groups (
 );
 CREATE INDEX IF NOT EXISTS idx_dpg_scope ON dashboard_preset_groups(scope);
 CREATE INDEX IF NOT EXISTS idx_dpg_group ON dashboard_preset_groups(scope, group_name);
+
+-- Risk Register site-alias map (Chunk 4B-RR) — SDP free-form site label → register short code.
+CREATE TABLE IF NOT EXISTS rr_site_aliases (
+  sdp_label  TEXT PRIMARY KEY,
+  code       TEXT NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  updated_by TEXT
+);

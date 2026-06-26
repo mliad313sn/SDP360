@@ -856,6 +856,16 @@ async function _seedConfigPg(H) {
       });
     }
   }
+
+  // rr_site_aliases — reuse risk-register's DEFAULT_SITE_ALIASES (lazy require; rr requires
+  // reports-db lazily in _h(), so the cycle resolves at call-time — same as groupPresets above).
+  const rr = require('./risk-register-export');
+  const rrN = Number((await H.prepare('SELECT COUNT(*) AS n FROM rr_site_aliases').get()).n);
+  if (rrN === 0) {
+    for (const [label, code] of Object.entries(rr.DEFAULT_SITE_ALIASES)) {
+      await H.prepare('INSERT INTO rr_site_aliases (sdp_label, code, updated_by) VALUES (?, ?, ?) ON CONFLICT (sdp_label) DO NOTHING').run(label, code, '_system');
+    }
+  }
 }
 
 function login(username, password) {
