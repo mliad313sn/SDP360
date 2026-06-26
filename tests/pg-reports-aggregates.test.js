@@ -446,3 +446,45 @@ test('agg pg: getCustomerVoiceByDimensionDB (LEFT JOIN + dimensions)', async (t)
     assert.ok(cv.byTech.find(r => r.name === 'Tina'), 'tech dim');
   } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
 });
+
+// ── 4D-wiring-1 — raw-handle-replacement readers ──────────────────────────
+test('agg pg: getRequestRecordsSince + getSurveyKpisDB + getSubmissionChannelsDB (wiring-1 readers)', async (t) => {
+  const b = await boot(); if (!b) return t.skip('no pg');
+  const { ctx, rdb } = b;
+  try {
+    // getRequestRecordsSince — ASC, in-window only
+    await rdb.upsertRequestBatch([
+      _req({request_id:'RA',display_id:'#A',created_time:'2026-05-01 09:00:00',mode:'Email',tech_group:'G'}),
+      _req({request_id:'RB',display_id:'#B',created_time:'2026-06-01 09:00:00',mode:'Web',tech_group:'G'}),
+      _req({request_id:'ROLD',display_id:'#O',created_time:'2025-01-01 09:00:00',mode:'Email',tech_group:'G'}),
+      _req({request_id:'RC',display_id:'#C',created_time:'2026-05-10 09:00:00',mode:'',tech_group:'G'}),
+    ]);
+    const since = await rdb.getRequestRecordsSince('2026-04-01T00:00:00.000Z');
+    const ids = since.map(r => r.request_id);
+    assert.ok(!ids.includes('ROLD'), 'old row excluded');
+    assert.deepEqual(ids.filter(x => ['RA','RB'].includes(x)), ['RA','RB'], 'ASC order RA before RB');
+    assert.ok(since[0].display_id, 'raw column names present');
+
+    // getSubmissionChannelsDB — to_char period filter + GROUP BY channel collapse
+    const ch = await rdb.getSubmissionChannelsDB({ yr:'2026', mo:'5' });
+    const byCh = Object.fromEntries(ch.map(r => [r.channel === null ? '_null' : r.channel, r.cnt]));
+    assert.equal(byCh['Email'], 1, 'May Email (RA); RB is June, ROLD is 2025');
+    assert.equal(byCh['_null'], 1, "empty mode (RC) → NULL channel");
+    assert.ok(!('Web' in byCh), 'RB (Web) is June, excluded by 2026-05 filter');
+    // site+groups together — locks the corrected positional-param ordering
+    await rdb.upsertRequestBatch([_req({request_id:'RS',created_time:'2026-05-12 09:00:00',mode:'Phone',site:'Hounde',tech_group:'G'})]);
+    const chSG2 = await rdb.getSubmissionChannelsDB({ yr:'2026', mo:'5', site:'Hounde', groups:['G'] });
+    assert.equal(Object.fromEntries(chSG2.map(r=>[r.channel,r.cnt]))['Phone'], 1, 'site=Hounde + group=G → only RS');
+
+    // getSurveyKpisDB — to_char period filter + group filter via LEFT JOIN on request_id
+    await rdb.upsertSurveyResultBatch([
+      _sres({result_id:'SK1',request_id:'RA',overall_score:90,survey_responded_on:'2026-05-10 10:00:00'}),
+      _sres({result_id:'SK2',request_id:'RUNMATCHED',overall_score:50,survey_responded_on:'2026-05-11 10:00:00'}),
+    ]);
+    const k = await rdb.getSurveyKpisDB({ yr:'2026', mo:'5', groups:[] });
+    assert.equal(k.rows1.length, 2, 'both surveys in 2026-05, no group filter');
+    const kg = await rdb.getSurveyKpisDB({ yr:'2026', mo:'5', groups:['G'] });
+    assert.equal(kg.rows1.length, 1, 'only SK1 (joins RA, tech_group=G)');
+    assert.equal(kg.rows1[0].overall_score, 90);
+  } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
+});
