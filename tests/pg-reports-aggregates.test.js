@@ -18,6 +18,15 @@ const _req = o => ({ request_id:null, display_id:null, subject:null, request_sta
   completed_time:null, responded_time:null, assigned_time:null, last_updated_time:null,
   first_response_overdue:null, technician:null, requester:null, category:null, sub_category:null,
   site:null, tech_group:null, mode:null, impact:null, ...o });
+// change_records / cab_approvals null-templates (4D-2c) — match upsert{Change,CAB}Batch @named params.
+const _chg = o => ({ change_id:null, display_id:null, subject:null, status:null, stage:null,
+  stage_status:null, risk:null, change_type:null, emergency:0, category:null, sub_category:null,
+  requester:null, requester_id:null, owner_id:null, manager:null, site_id:null, group_id:null,
+  group_name:null, scheduled_start:null, scheduled_end:null, completed_time:null, created_time:null,
+  closure_code:null, udf_json:null, ...o });
+const _cab = o => ({ approval_id:null, change_id:null, approver_name:null, approval_status:null,
+  approval_stage:null, approval_level:null, approval_level_status:null, recommendation_requested:null,
+  action_taken_on:null, turnaround_minutes:null, rule_type:null, comments:null, ...o });
 
 async function boot() {
   const ctx = await provisionTestDb();
@@ -273,5 +282,94 @@ test('agg pg: FRT/RT trend + group counts + incident-vs-SR', async (t) => {
     assert.ok(im, 'May 2026 incident-vs-SR row');
     assert.equal(im['Incidents'], 1);          // F1 service_request=0
     assert.equal(im['Service Requests'], 2);   // F2,F3 service_request=1
+  } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
+});
+
+// ── 4D-2c — change / CAB ──────────────────────────────────────────────────
+test('agg pg: getChangeMetrics + getCABMetrics (emergency::text, NULLIF ts, ROUND ::numeric, DISTINCT)', async (t) => {
+  const b = await boot(); if (!b) return t.skip('no pg');
+  const { ctx, rdb } = b;
+  try {
+    await rdb.upsertChangeBatch([
+      // 2 Completed (scheduled→completed 2d and 4d apart) → avg_completion_days = 3.0
+      _chg({change_id:'CH1',status:'Completed',stage:'Close',emergency:1,scheduled_start:'2026-05-10 09:00:00',completed_time:'2026-05-12 09:00:00',created_time:'2026-05-10 09:00:00'}),
+      _chg({change_id:'CH2',status:'Completed',stage:'Close',scheduled_start:'2026-05-10 09:00:00',completed_time:'2026-05-14 09:00:00',created_time:'2026-05-10 09:00:00'}),
+      _chg({change_id:'CH3',status:'Cancelled',stage:'Close',created_time:'2026-05-10 09:00:00'}),
+      _chg({change_id:'CH4',status:'Rejected',created_time:'2026-05-10 09:00:00'}),
+      _chg({change_id:'CH5',status:'Failed',created_time:'2026-05-10 09:00:00'}),
+      _chg({change_id:'CH6',status:'Backout',stage:'Close',created_time:'2026-05-10 09:00:00'}),
+      // in-progress: scheduled_start in past + stage/status not Close-Completed/Cancelled
+      _chg({change_id:'CH7',status:'In Progress',stage:'Implementation',scheduled_start:'2026-05-10 09:00:00',created_time:'2026-05-10 09:00:00'}),
+    ]);
+    const cm = await rdb.getChangeMetrics({});
+    assert.equal(cm.total, 7);
+    assert.equal(cm.completed_count, 2);
+    assert.equal(cm.cancelled_count, 1);
+    assert.equal(cm.rejected_count, 1);
+    assert.equal(cm.failed_count, 2, 'Failed + (Close,Backout)');
+    assert.equal(cm.executed_count, 4, 'completed + failed');
+    assert.equal(cm.change_success_rate, 50, 'round(2/4*100,1)');
+    assert.equal(cm.emergency_count, 1, 'emergency::text IN (1,true)');
+    assert.equal(cm.in_progress_count, 1, 'NULLIF(scheduled_start)::timestamptz <= now()');
+    assert.equal(cm.avg_completion_days, 3, 'EXTRACT-EPOCH/86400 ROUND ::numeric → (2+4)/2');
+
+    await rdb.upsertCABBatch([
+      _cab({approval_id:'A1',change_id:'C1',approval_status:'Approved',turnaround_minutes:30,recommendation_requested:'2026-06-01 09:00:00'}),
+      _cab({approval_id:'A2',change_id:'C1',approval_status:'Approved',turnaround_minutes:50,recommendation_requested:'2026-06-01 09:00:00'}),
+      _cab({approval_id:'A3',change_id:'C2',approval_status:'Rejected',recommendation_requested:'2026-06-01 09:00:00'}),
+    ]);
+    const cab = await rdb.getCABMetrics({});
+    assert.equal(cab.total_approvals, 3);
+    assert.equal(cab.approved_count, 2);
+    assert.equal(cab.distinct_changes, 2, 'C1, C2');
+    assert.equal(cab.changes_with_approval, 1, 'only C1 fully Approved');
+    assert.equal(cab.cab_compliance_pct, 50, 'round(1/2*100,1)');
+    assert.equal(cab.avg_turnaround_minutes, 40, 'AVG(30,50) numeric, no cast');
+  } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
+});
+
+test('agg pg: change list/history + cab join + open changes', async (t) => {
+  const b = await boot(); if (!b) return t.skip('no pg');
+  const { ctx, rdb } = b;
+  try {
+    const G = 'Hounde IT Agents';   // matches the boot site's zoho_group
+    await rdb.upsertChangeBatch([
+      _chg({change_id:'C1',display_id:'CRQ-1',subject:'Net upgrade',change_type:'Emergency Change',
+            status:'Completed',stage:'Implementation',group_name:G,created_time:'2026-06-10 09:00:00',
+            udf_json:JSON.stringify({'UDF:Reason':'urgent'})}),
+      _chg({change_id:'C2',display_id:'CRQ-2',subject:'Routine patch',change_type:'Normal',
+            status:'Completed',stage:'Close',group_name:G,created_time:'2026-06-11 09:00:00'}),
+    ]);
+    await rdb.upsertCABBatch([
+      _cab({approval_id:'A1',change_id:'C1',approver_name:'Alice',approval_status:'Approved',
+            turnaround_minutes:30,recommendation_requested:'2026-06-12 09:00:00'}),
+      _cab({approval_id:'A2',change_id:'C1',approver_name:'Bob',approval_status:'Pending',
+            recommendation_requested:'2026-06-12 09:00:00'}),
+    ]);
+
+    const emg = await rdb.getEmergencyChangesDB();
+    const e1 = emg.find(r => r['Change ID'] === 'C1');
+    assert.ok(e1, 'emergency change present'); assert.match(e1['Change Type'], /emergency/i);
+    assert.ok(!emg.find(r => r['Change ID'] === 'C2'), 'non-emergency absent');
+
+    const apps = await rdb.getCabApprovalsDB();
+    const a1 = apps.find(r => r['Change ID'] === 'C1');
+    assert.ok(a1, 'cab approval row'); assert.equal(a1['Subject'], 'Net upgrade'); // LEFT JOIN
+    assert.equal(a1['Change Approver'], 'Alice');
+    assert.equal(a1['Site'], '', "c.site dropped (non-existent col) → '' both engines");
+
+    const recs = await rdb.getCabRecommendationsDB();
+    assert.ok(recs.find(r => r['Change Approver'] === 'Alice'), 'turnaround-set row present');
+    assert.ok(!recs.find(r => r['Change Approver'] === 'Bob'), 'no-turnaround row absent');
+
+    const open = await rdb.getOpenChangesForSite([G]);
+    assert.ok(open.find(r => r.display_id === 'CRQ-1'), 'open (stage!=Close) present');
+    assert.ok(!open.find(r => r.display_id === 'CRQ-2'), 'closed absent');
+
+    const hist = await rdb.getChangeRecordsHistory();
+    const h1 = hist.find(r => r['Change ID'] === 'C1');
+    assert.ok(h1, 'history row'); assert.equal(h1['Site'], 'Hounde', 'derived from group→site map');
+    assert.equal(h1['UDF:Reason'], 'urgent', 'udf_json unpacked');
+    // NOTE: do NOT assert on getEmergencyChangesDB "Status" — r.change_status is a non-existent col.
   } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
 });
