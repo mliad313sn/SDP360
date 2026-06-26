@@ -299,6 +299,43 @@ Same `REPORTS_BACKEND` flag. **No schema, no copy script** — 4D-1 owns the tab
   the list/history/join/open-changes filters incl. group→site derivation + udf_json unpack. sqlite
   synchronous-return smoke covers all 7.
 
-**DEFERRED:** **4D-2d** (survey: `getSurveyMetrics`, `getCustomerVoiceDB`,
-`getCustomerVoiceByDimensionDB`). Plus server.js `_rawCache` rebuild + `/api/sync/*` + `/api/data/*`
-route `await` wiring. The `REPORTS_BACKEND=postgres` prod flip needs ALL of 4A–4D-2d + KPI reconciliation.
+## reports.db — Sub-chunk 4D-2d (survey / Customer-Voice) — `feat/pg-reports-agg-survey`
+
+**Fourth and FINAL 4D-2 sub-chunk** — completes the entire KPI-aggregate half of the hot path.
+DB layer DONE + green (`tests/pg-reports-aggregates.test.js`, now 13; 4D-2d added 2). Same
+`REPORTS_BACKEND` flag. **No schema, no copy script** — 4D-1 owns the tables.
+
+- **3 read fns forked** in `reports-db.js`: `getSurveyMetrics`, `getCustomerVoiceDB`,
+  `getCustomerVoiceByDimensionDB`. All read `survey_results`; the last also LEFT JOINs
+  `request_records` for tech/site/group dimensions. Multi-query bodies use shared assemblers
+  `_assembleSurveyMetrics` / `_assembleCustomerVoice` / `_assembleCustomerVoiceByDimension`.
+- **`to_char` direct-vs-NULLIF asymmetry** (the key reconciliation): `strftime('%Y-%m', x)` →
+  `to_char(x::timestamptz,'YYYY-MM')`, BUT the cast guard differs by the query's own WHERE:
+  - `getCustomerVoiceDB` monthlyRows buckets `COALESCE(survey_sent_on,survey_responded_on)` under
+    `WHERE COALESCE(...) >= ?` → the WHERE self-guarantees a valid non-null timestamp in grouped
+    rows → **direct `::timestamptz` cast, no NULLIF** (matches how 4D-2a/b cast `created_time` in
+    `to_char`).
+  - `getSurveyMetrics` monthly buckets `survey_sent_on` under `WHERE 1=1 [AND survey_sent_on>=?]` →
+    when `since` is absent, NULL/'' rows survive → **`NULLIF(survey_sent_on,'')::timestamptz`**
+    (sqlite `strftime('%Y-%m','')`→NULL; pg `''::timestamptz` errors).
+- **`ROUND(AVG(<double>),1)` → `::numeric`** — `survey_results.overall_score` is `double precision`;
+  PG has no `round(double,int)`. TWO such in `getSurveyMetrics` (top `avgScore` + monthly
+  `avg_score`). **`getCustomerVoiceDB` has NONE** — every average is JS `Math.round` over a raw
+  `AVG(overall_score)` (which flows back as a JS number via the adapter's float parser), so no cast.
+- **raw ISO cutoff bounds UNCHANGED** (`COALESCE(...) >= ?`, `survey_sent_on >= ?`); `LEFT JOIN`,
+  `COALESCE`, `SUM(CASE…)`, `GROUP BY <alias>`, bare-alias `ORDER BY month DESC`, dynamic `${where}`
+  all unchanged. `getCustomerVoiceByDimensionDB` has NO SQL dialect rewrite (no strftime/julianday/
+  datetime/ROUND) — all CSAT/NPS/dimension aggregation is engine-agnostic JS (`_acc`/`toArr`/
+  `monthLbl` via `new Date()`), reused verbatim.
+- Tests: getSurveyMetrics buckets + `ROUND(AVG::numeric)` + monthly to_char; getCustomerVoiceDB
+  cross-month CSAT/NPS (the `tot` query has NO cutoff → 8 scored rows across 2 months → nps=13,
+  csat=50, totalSent=10); the LEFT-JOIN dimension rollup (join 1/2, csatPct=100, closedCount).
+  sqlite synchronous-return smoke covers all 3.
+
+**4D-2 KPI-aggregate half COMPLETE** (4D-2a request KPIs · 4D-2b SLA/ageing/trend · 4D-2c change/CAB ·
+4D-2d survey — 13 shared-suite tests; 37/37 reports.db pg).
+
+**DEFERRED (post-4D-2):** **4D-wiring** — server.js `_rawCache` rebuild (`_rebuildCacheFromSQLite`
+via getRequestRecords) + `/api/sync/*` + `/api/data/*` + report/save/PPTX route `await` (one
+coordinated pass). **4B-RR** — `rr_site_aliases` (risk-register own handle). The
+`REPORTS_BACKEND=postgres` prod flip needs 4D-wiring + 4B-RR + a full KPI reconciliation.
