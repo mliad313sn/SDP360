@@ -213,3 +213,37 @@ test('agg pg: ageing buckets (site/group/summary) + TRUNC boundary + noise filte
     assert.ok(iH < iM, 'higher-total Hounde group sorts before Mana (ORDER BY repeated-SUM)');
   } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
 });
+
+test('agg pg: SLA trend + by-category denominators + string %', async (t) => {
+  const b = await boot(); if (!b) return t.skip('no pg');
+  const { ctx, rdb } = b;
+  try {
+    const G = 'Hounde IT Agents', C = '2026-05-10 09:00:00';
+    const big = [];
+    // category 'Network' — 5 rows: 3 closed (1 overdue), 1 responded+frt-violated, 1 open
+    big.push(_req({request_id:'S1',tech_group:G,category:'Network',created_time:C,pending_status:0,overdue_status:1,responded_time:'2026-05-10 10:00:00',first_response_overdue:'false'}));
+    big.push(_req({request_id:'S2',tech_group:G,category:'Network',created_time:C,pending_status:0,overdue_status:0,responded_time:'2026-05-10 10:00:00',first_response_overdue:'false'}));
+    big.push(_req({request_id:'S3',tech_group:G,category:'Network',created_time:C,pending_status:0,overdue_status:0,responded_time:'2026-05-10 10:00:00',first_response_overdue:'false'}));
+    big.push(_req({request_id:'S4',tech_group:G,category:'Network',created_time:C,pending_status:1,responded_time:'2026-05-10 10:00:00',first_response_overdue:'true'}));
+    big.push(_req({request_id:'S5',tech_group:G,category:'Network',created_time:C,pending_status:1}));
+    // small category 'Tiny' — 4 rows, closed+overdue (dropped by HAVING>=5 in by-category,
+    // but DO leak into the category-less monthly trend)
+    for (let i=0;i<4;i++) big.push(_req({request_id:'T'+i,tech_group:G,category:'Tiny',created_time:C,pending_status:0,overdue_status:1}));
+    await rdb.upsertRequestBatch(big);
+
+    const trend = await rdb.getSlaTrendDB();
+    const may = trend.find(r => r['Created Date'] === 'May 2026');
+    assert.ok(may, 'May 2026 trend row');
+    // whole-month aggregate: closed = 3 Network + 4 Tiny = 7; violated_closed = S1 + 4 Tiny = 5
+    //   → round(5/7*1000)/10 = 71.4 ; responded = S1,S2,S3,S4 = 4; frt_viol = S4 = 1 → 25.0
+    assert.equal(may['% of SLA Violated'], 71.4);
+    assert.equal(may['% of First Responses SLA Violated'], 25);
+
+    const byCat = await rdb.getSlaByCategoryDB();
+    const net = byCat.find(r => r['Category'] === 'Network');
+    assert.ok(net, 'Network category present (>=5)');
+    assert.equal(typeof net['% of SLA Violated'], 'string');
+    assert.ok(net['% of SLA Violated'].endsWith('%'), 'string with % suffix');
+    assert.ok(!byCat.find(r => r['Category'] === 'Tiny'), 'Tiny dropped by HAVING >= 5');
+  } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
+});

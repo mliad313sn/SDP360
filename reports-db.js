@@ -2601,6 +2601,7 @@ function getCustomerVoiceDB(monthsBack = 12) {
  * render time (see line ~8054), so we don't pre-invert here.
  */
 function getSlaTrendDB(monthsBack = 12) {
+  if (REPORTS_BACKEND === 'postgres') return _getSlaTrendDBPg(monthsBack);
   const cutoff = new Date();
   cutoff.setMonth(cutoff.getMonth() - monthsBack + 1);
   cutoff.setDate(1); cutoff.setHours(0,0,0,0);
@@ -2627,6 +2628,35 @@ function getSlaTrendDB(monthsBack = 12) {
     ORDER BY yyyymm
   `).all(cutoffISO);
 
+  return _mapSlaTrend(rows);
+}
+// PG fork — strftime→to_char; closed-only / responded-only denominators preserved; the raw
+// ISO cutoff (`created_time >= ?`) is a lexical TEXT compare, left UNCHANGED. GROUP BY yyyymm
+// (alias doesn't shadow a column) is safe.
+async function _getSlaTrendDBPg(monthsBack = 12) {
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - monthsBack + 1);
+  cutoff.setDate(1); cutoff.setHours(0,0,0,0);
+  const cutoffISO = cutoff.toISOString();
+
+  const rows = await pgHandle().prepare(`
+    SELECT to_char(created_time::timestamptz, 'YYYY-MM') AS yyyymm,
+           COUNT(*) AS total,
+           SUM(CASE WHEN pending_status = 0 THEN 1 ELSE 0 END) AS closed,
+           SUM(CASE WHEN pending_status = 0 AND overdue_status = 1 THEN 1 ELSE 0 END) AS sla_viol_closed,
+           SUM(CASE WHEN responded_time IS NOT NULL AND responded_time != '' THEN 1 ELSE 0 END) AS responded,
+           SUM(CASE WHEN responded_time IS NOT NULL AND responded_time != ''
+                     AND LOWER(TRIM(COALESCE(first_response_overdue,''))) IN ('true','yes','1')
+                    THEN 1 ELSE 0 END) AS frt_viol_responded
+    FROM request_records
+    WHERE created_time >= ?
+    GROUP BY yyyymm
+    ORDER BY yyyymm
+  `).all(cutoffISO);
+
+  return _mapSlaTrend(rows);
+}
+function _mapSlaTrend(rows) {
   const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   return rows.map(r => {
     const [yr, mo] = (r.yyyymm || '').split('-').map(Number);
@@ -2653,6 +2683,7 @@ function getSlaTrendDB(monthsBack = 12) {
  * Consumer at executive.html:8643 reads r['Category'] + r['% of SLA Violated'].
  */
 function getSlaByCategoryDB() {
+  if (REPORTS_BACKEND === 'postgres') return _getSlaByCategoryDBPg();
   // 2026-06-02 ITSM-alignment (FORMULA_RECONCILIATION.md §6 D2):
   // SLA violation % per category uses the closed-only denominator. AP
   // `/total` previously inflated open-heavy categories' apparent SLA
@@ -2675,6 +2706,31 @@ function getSlaByCategoryDB() {
     LIMIT 20
   `).all();
 
+  return _mapSlaByCategory(rows);
+}
+// PG fork — datetime('now','-12 months') → typed `created_time::timestamptz >= now() -
+// interval '12 months'`; HAVING output-alias → HAVING COUNT(*) >= 5; GROUP BY cat (alias ≠
+// the `category` column, so no shadowing) safe; closed-only denominator preserved.
+async function _getSlaByCategoryDBPg() {
+  const rows = await pgHandle().prepare(`
+    SELECT TRIM(COALESCE(category, '(Uncategorised)')) AS cat,
+           COUNT(*) AS total,
+           SUM(CASE WHEN pending_status = 0 THEN 1 ELSE 0 END) AS closed,
+           SUM(CASE WHEN pending_status = 0 AND overdue_status = 1 THEN 1 ELSE 0 END) AS violated_closed
+    FROM request_records
+    WHERE created_time::timestamptz >= now() - interval '12 months'
+      AND category IS NOT NULL
+      AND TRIM(category) != ''
+      AND LOWER(TRIM(category)) NOT IN ('-no value-', '-no value', 'no value', '(blank)')
+    GROUP BY cat
+    HAVING COUNT(*) >= 5
+    ORDER BY violated_closed DESC, total DESC
+    LIMIT 20
+  `).all();
+
+  return _mapSlaByCategory(rows);
+}
+function _mapSlaByCategory(rows) {
   return rows.map(r => {
     // Per-category ITSM violation %. Denominator = closed-in-category, NULL when
     // a category has no closed tickets in the rolling window (rare — but emit
