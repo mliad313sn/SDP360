@@ -61,6 +61,7 @@ const ROUTES = [
   '/api/reports/sites',
   '/api/reports/departments',
   '/api/dashboard/presets?scope=tickets',
+  '/api/risk-register-config/aliases',   // 4B-RR (requireReportSession-only → admin can hit)
 ];
 for (const path of ROUTES) {
   test(`smoke 200: ${path}`, async () => {
