@@ -1395,7 +1395,7 @@ app.get('/api/survey/summary', requireReportSession, async (req, res) => {
   try {
     const rdb2 = require('./reports-db');
     if (typeof rdb2.getCustomerVoiceDB === 'function') {
-      const dbVoice = rdb2.getCustomerVoiceDB(12) || {};
+      const dbVoice = await rdb2.getCustomerVoiceDB(12) || {};
       if (dbVoice.totalResponses > 0) {
         // Wrap into the legacy /api/survey/summary shape so the
         // executive.html chart code reads it transparently.
@@ -1589,7 +1589,7 @@ app.get('/api/survey/by-dimension', requireReportSession, async (req, res) => {
   try {
     const rdb2 = require('./reports-db');
     if (typeof rdb2.getCustomerVoiceByDimensionDB === 'function') {
-      const dbDim = rdb2.getCustomerVoiceByDimensionDB();
+      const dbDim = await rdb2.getCustomerVoiceByDimensionDB();
       if (dbDim && dbDim.totalSurvey > 0) {
         _dimCache.data = dbDim;
         _dimCache.ts   = Date.now();
@@ -1984,10 +1984,10 @@ app.get('/api/ping', (req, res) => res.json({ ok: true, time: new Date().toISOSt
  * Returns last sync time, row count, and any error for each sync job.
  * Used by the dashboard to show a "Data last updated: X minutes ago" indicator.
  */
-app.get('/api/sync/status', requireReportSession, (req, res) => {
+app.get('/api/sync/status', requireReportSession, async (req, res) => {
   try {
     const { getSyncStatus } = require('./reports-db');
-    const jobs = getSyncStatus();
+    const jobs = await getSyncStatus();
     // Enrich with human-readable staleness
     const now = Date.now();
     const enriched = jobs.map(j => {
@@ -2102,12 +2102,12 @@ function buildDataFreshness(syncMeta) {
  * Query params: status, site_id, since (ISO date), limit (default 200), offset
  * Response includes source transparency: source, as_of, data_freshness, stale_warning
  */
-app.get('/api/change', requireReportSession, (req, res) => {
+app.get('/api/change', requireReportSession, async (req, res) => {
   try {
     const { getChangeRecords, getSyncStatus } = require('./reports-db');
     const { status, site_id, since, limit = 200, offset = 0 } = req.query;
-    const records  = getChangeRecords({ status, site_id, since, limit: +limit, offset: +offset });
-    const syncMeta = getSyncStatus().find(j => j.job_name === 'change_cab') || {};
+    const records  = await getChangeRecords({ status, site_id, since, limit: +limit, offset: +offset });
+    const syncMeta = (await getSyncStatus()).find(j => j.job_name === 'change_cab') || {};
     res.json({
       ok: true,
       count: records.length,
@@ -2124,12 +2124,12 @@ app.get('/api/change', requireReportSession, (req, res) => {
  * Query params: change_id, status, limit (default 500)
  * Response includes source transparency: source, as_of, data_freshness, stale_warning
  */
-app.get('/api/cab', requireReportSession, (req, res) => {
+app.get('/api/cab', requireReportSession, async (req, res) => {
   try {
     const { getCABApprovals, getSyncStatus } = require('./reports-db');
     const { change_id, status, limit = 500 } = req.query;
-    const records  = getCABApprovals({ change_id, status, limit: +limit });
-    const syncMeta = getSyncStatus().find(j => j.job_name === 'change_cab') || {};
+    const records  = await getCABApprovals({ change_id, status, limit: +limit });
+    const syncMeta = (await getSyncStatus()).find(j => j.job_name === 'change_cab') || {};
     res.json({
       ok: true,
       count: records.length,
@@ -2148,12 +2148,12 @@ app.get('/api/cab', requireReportSession, (req, res) => {
  * Query params: since (ISO date), limit (default 500), offset
  * Response includes source transparency: source, as_of, data_freshness, stale_warning
  */
-app.get('/api/survey', requireReportSession, (req, res) => {
+app.get('/api/survey', requireReportSession, async (req, res) => {
   try {
     const { getSurveyResults, getSyncStatus } = require('./reports-db');
     const { since, limit = 500, offset = 0 } = req.query;
-    const records  = getSurveyResults({ since, limit: +limit, offset: +offset });
-    const syncMeta = getSyncStatus().find(j => j.job_name === 'survey') || {};
+    const records  = await getSurveyResults({ since, limit: +limit, offset: +offset });
+    const syncMeta = (await getSyncStatus()).find(j => j.job_name === 'survey') || {};
     const freshness = buildDataFreshness(syncMeta);
     // Override the stale_warning to name the correct trigger job
     if (freshness.stale_warning) {
@@ -2174,11 +2174,11 @@ app.get('/api/survey', requireReportSession, (req, res) => {
  * GET /api/survey/:response_id/answers
  * Returns all individual question answers for a single survey response.
  */
-app.get('/api/survey/:response_id/answers', requireReportSession, (req, res) => {
+app.get('/api/survey/:response_id/answers', requireReportSession, async (req, res) => {
   try {
     const { getSurveyAnswers, getSyncStatus } = require('./reports-db');
-    const answers  = getSurveyAnswers(req.params.response_id);
-    const syncMeta = getSyncStatus().find(j => j.job_name === 'survey') || {};
+    const answers  = await getSurveyAnswers(req.params.response_id);
+    const syncMeta = (await getSyncStatus()).find(j => j.job_name === 'survey') || {};
     res.json({
       ok: true,
       count: answers.length,
@@ -2206,12 +2206,12 @@ app.get('/api/survey/:response_id/answers', requireReportSession, (req, res) => 
  *   site_id  — filter to a single site (optional)
  *   since    — ISO date string — only changes created on/after this date (optional)
  */
-app.get('/api/metrics/change', requireReportSession, (req, res) => {
+app.get('/api/metrics/change', requireReportSession, async (req, res) => {
   try {
     const { getChangeMetrics, getSyncStatus } = require('./reports-db');
     const { site_id, since } = req.query;
-    const metrics  = getChangeMetrics({ site_id, since });
-    const syncMeta = getSyncStatus().find(j => j.job_name === 'change_cab') || {};
+    const metrics  = await getChangeMetrics({ site_id, since });
+    const syncMeta = (await getSyncStatus()).find(j => j.job_name === 'change_cab') || {};
     res.json({ ok: true, ...buildDataFreshness(syncMeta), data: metrics });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -2227,12 +2227,12 @@ app.get('/api/metrics/change', requireReportSession, (req, res) => {
  * Query params:
  *   since    — ISO date string — only approvals requested on/after this date (optional)
  */
-app.get('/api/metrics/cab', requireReportSession, (req, res) => {
+app.get('/api/metrics/cab', requireReportSession, async (req, res) => {
   try {
     const { getCABMetrics, getSyncStatus } = require('./reports-db');
     const { since } = req.query;
-    const metrics  = getCABMetrics({ since });
-    const syncMeta = getSyncStatus().find(j => j.job_name === 'change_cab') || {};
+    const metrics  = await getCABMetrics({ since });
+    const syncMeta = (await getSyncStatus()).find(j => j.job_name === 'change_cab') || {};
     res.json({ ok: true, ...buildDataFreshness(syncMeta), data: metrics });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -2248,12 +2248,12 @@ app.get('/api/metrics/cab', requireReportSession, (req, res) => {
  * Query params:
  *   since    — ISO date string — only surveys sent on/after this date (optional)
  */
-app.get('/api/metrics/survey', requireReportSession, (req, res) => {
+app.get('/api/metrics/survey', requireReportSession, async (req, res) => {
   try {
     const { getSurveyMetrics, getSyncStatus } = require('./reports-db');
     const { since } = req.query;
-    const metrics   = getSurveyMetrics({ since });
-    const syncMeta  = getSyncStatus().find(j => j.job_name === 'survey') || {};
+    const metrics   = await getSurveyMetrics({ since });
+    const syncMeta  = (await getSyncStatus()).find(j => j.job_name === 'survey') || {};
     const freshness = buildDataFreshness(syncMeta);
     if (freshness.stale_warning) {
       freshness.stale_warning = freshness.stale_warning.replace('change_cab', 'survey');
@@ -2275,21 +2275,21 @@ app.get('/api/metrics/survey', requireReportSession, (req, res) => {
  *   site   — filter by site name (optional)
  *   since  — ISO date string — only requests created on/after this date (optional)
  */
-app.get('/api/metrics/requests', requireReportSession, (req, res) => {
+app.get('/api/metrics/requests', requireReportSession, async (req, res) => {
   try {
     const { getRequestMetrics, getSyncStatus } = require('./reports-db');
     const { site, since, status, rtype, impact, mode } = req.query;
     // Multi-value filters arrive as comma-separated lists (2026-06-11,
     // analytics.html Status/Type/Impact/Mode widgets). Absent = no filter.
     const csv = v => (v ? String(v).split(',').map(s => s.trim()).filter(Boolean) : undefined);
-    const metrics  = getRequestMetrics({
+    const metrics  = await getRequestMetrics({
       site, since,
       statuses: csv(status),
       rtypes:   csv(rtype),
       impacts:  csv(impact),
       modes:    csv(mode),
     });
-    const syncMeta = getSyncStatus().find(j => j.job_name === 'requests') || {};
+    const syncMeta = (await getSyncStatus()).find(j => j.job_name === 'requests') || {};
     const freshness = buildDataFreshness(syncMeta);
     res.json({ ok: true, ...freshness, data: metrics });
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -2300,10 +2300,10 @@ app.get('/api/metrics/requests', requireReportSession, (req, res) => {
  * Distinct values for the analytics multi-select filters
  * (Request Status / Request Type / Impact / Mode). 2026-06-11.
  */
-app.get('/api/metrics/request-filter-options', requireReportSession, (req, res) => {
+app.get('/api/metrics/request-filter-options', requireReportSession, async (req, res) => {
   try {
     const { getRequestFilterOptions } = require('./reports-db');
-    res.json({ ok: true, data: getRequestFilterOptions() });
+    res.json({ ok: true, data: await getRequestFilterOptions() });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -2320,18 +2320,18 @@ app.get('/api/metrics/request-filter-options', requireReportSession, (req, res) 
  *   pending_only  — '1' to return only open requests
  *   overdue_only  — '1' to return only SLA-violated requests
  */
-app.get('/api/requests', requireReportSession, (req, res) => {
+app.get('/api/requests', requireReportSession, async (req, res) => {
   try {
     const { getRequestRecords, getSyncStatus } = require('./reports-db');
     const { limit = '200', offset = '0', status, site, since, pending_only, overdue_only } = req.query;
-    const rows     = getRequestRecords({
+    const rows     = await getRequestRecords({
       limit:        Math.min(parseInt(limit, 10) || 200, 1000),
       offset:       parseInt(offset, 10) || 0,
       status, site, since,
       pending_only: pending_only === '1',
       overdue_only: overdue_only === '1',
     });
-    const syncMeta = getSyncStatus().find(j => j.job_name === 'requests') || {};
+    const syncMeta = (await getSyncStatus()).find(j => j.job_name === 'requests') || {};
     res.json({
       ok: true,
       count: rows.length,
@@ -2712,7 +2712,7 @@ app.get('/api/data/major-incidents', requireReportSession, async (req, res) => {
     try {
       const rdbLocal = require('./reports-db');
       if (typeof rdbLocal.getMajorIncidentsHistory === 'function') {
-        dbRows = rdbLocal.getMajorIncidentsHistory(12) || [];
+        dbRows = await rdbLocal.getMajorIncidentsHistory(12) || [];
       }
     } catch(e) { console.warn('[major-incidents] DB lookup failed:', e.message); }
 
@@ -2739,7 +2739,7 @@ app.get('/api/data/change-table', requireReportSession, async (req, res) => {
     try {
       const rdbLocal = require('./reports-db');
       if (typeof rdbLocal.getChangeRecordsHistory === 'function') {
-        dbRows = rdbLocal.getChangeRecordsHistory(12) || [];
+        dbRows = await rdbLocal.getChangeRecordsHistory(12) || [];
       }
     } catch(e) { console.warn('[change-table] DB lookup failed:', e.message); }
 
@@ -2772,7 +2772,7 @@ app.get('/api/data/first-response', requireReportSession, async (req, res) => {
     try {
       const rdb2 = require('./reports-db');
       if (typeof rdb2.getFirstResponseTrendDB === 'function') {
-        dbRows = rdb2.getFirstResponseTrendDB(12) || [];
+        dbRows = await rdb2.getFirstResponseTrendDB(12) || [];
       }
     } catch(e) { console.warn('[first-response] DB lookup failed:', e.message); }
 
@@ -2812,7 +2812,7 @@ app.get('/api/data/sla-trend', requireReportSession, async (req, res) => {
     try {
       const rdb2 = require('./reports-db');
       if (typeof rdb2.getSlaTrendDB === 'function') {
-        dbRows = rdb2.getSlaTrendDB(12) || [];
+        dbRows = await rdb2.getSlaTrendDB(12) || [];
       }
     } catch(e) { console.warn('[sla-trend] DB lookup failed:', e.message); }
 
@@ -2842,7 +2842,7 @@ app.get('/api/data/sla-by-category', requireReportSession, async (req, res) => {
     try {
       const rdb2 = require('./reports-db');
       if (typeof rdb2.getSlaByCategoryDB === 'function') {
-        dbRows = rdb2.getSlaByCategoryDB() || [];
+        dbRows = await rdb2.getSlaByCategoryDB() || [];
       }
     } catch(e) { console.warn('[sla-by-category] DB lookup failed:', e.message); }
 
@@ -2884,7 +2884,7 @@ app.get('/api/data/group-requests', requireReportSession, async (req, res) => {
     let dbRows = [];
     try {
       const rdb2 = require('./reports-db');
-      if (typeof rdb2.getGroupRequestsDB === 'function') dbRows = rdb2.getGroupRequestsDB(12) || [];
+      if (typeof rdb2.getGroupRequestsDB === 'function') dbRows = await rdb2.getGroupRequestsDB(12) || [];
     } catch(e) { console.warn('[group-requests] DB lookup failed:', e.message); }
     if (dbRows.length > 0) {
       console.log(`[group-requests] ✅ DB: ${dbRows.length} groups`);
@@ -2906,7 +2906,7 @@ app.get('/api/data/emergency-changes', requireReportSession, async (req, res) =>
     let dbRows = [];
     try {
       const rdb2 = require('./reports-db');
-      if (typeof rdb2.getEmergencyChangesDB === 'function') dbRows = rdb2.getEmergencyChangesDB(12) || [];
+      if (typeof rdb2.getEmergencyChangesDB === 'function') dbRows = await rdb2.getEmergencyChangesDB(12) || [];
     } catch(e) { console.warn('[emergency-changes] DB lookup failed:', e.message); }
     if (dbRows.length > 0) {
       console.log(`[emergency-changes] ✅ DB: ${dbRows.length} emergency RFCs`);
@@ -2928,7 +2928,7 @@ app.get('/api/data/ageing', requireReportSession, async (req, res) => {
     let dbRows = [];
     try {
       const rdb2 = require('./reports-db');
-      if (typeof rdb2.getAgeingSummaryDB === 'function') dbRows = rdb2.getAgeingSummaryDB() || [];
+      if (typeof rdb2.getAgeingSummaryDB === 'function') dbRows = await rdb2.getAgeingSummaryDB() || [];
     } catch(e) { console.warn('[ageing] DB lookup failed:', e.message); }
     if (dbRows.length > 0) {
       console.log(`[ageing] ✅ DB: ${dbRows.length} group×tier rows`);
@@ -2950,7 +2950,7 @@ app.get('/api/data/incident-vs-sr', requireReportSession, async (req, res) => {
     let dbRows = [];
     try {
       const rdb2 = require('./reports-db');
-      if (typeof rdb2.getIncidentVsSrDB === 'function') dbRows = rdb2.getIncidentVsSrDB(12) || [];
+      if (typeof rdb2.getIncidentVsSrDB === 'function') dbRows = await rdb2.getIncidentVsSrDB(12) || [];
     } catch(e) { console.warn('[incident-vs-sr] DB lookup failed:', e.message); }
     if (dbRows.length > 0) {
       console.log(`[incident-vs-sr] ✅ DB: ${dbRows.length} months`);
@@ -2972,7 +2972,7 @@ app.get('/api/data/cab-approvals', requireReportSession, async (req, res) => {
     let dbRows = [];
     try {
       const rdb2 = require('./reports-db');
-      if (typeof rdb2.getCabApprovalsDB === 'function') dbRows = rdb2.getCabApprovalsDB(12) || [];
+      if (typeof rdb2.getCabApprovalsDB === 'function') dbRows = await rdb2.getCabApprovalsDB(12) || [];
     } catch(e) { console.warn('[cab-approvals] DB lookup failed:', e.message); }
     if (dbRows.length > 0) {
       console.log(`[cab-approvals] ✅ DB: ${dbRows.length} approval rows`);
@@ -2994,7 +2994,7 @@ app.get('/api/data/cab-recommendations', requireReportSession, async (req, res) 
     let dbRows = [];
     try {
       const rdb2 = require('./reports-db');
-      if (typeof rdb2.getCabRecommendationsDB === 'function') dbRows = rdb2.getCabRecommendationsDB(12) || [];
+      if (typeof rdb2.getCabRecommendationsDB === 'function') dbRows = await rdb2.getCabRecommendationsDB(12) || [];
     } catch(e) { console.warn('[cab-recommendations] DB lookup failed:', e.message); }
     if (dbRows.length > 0) {
       console.log(`[cab-recommendations] ✅ DB: ${dbRows.length} recommendation rows`);
@@ -3364,7 +3364,7 @@ app.get('/api/data/monthly-summary', requireReportSession, async (req, res) => {
     try {
       const rdb2 = require('./reports-db');
       if (typeof rdb2.getMonthlyHelpdeskHistory === 'function') {
-        dbRows = rdb2.getMonthlyHelpdeskHistory(12) || [];
+        dbRows = await rdb2.getMonthlyHelpdeskHistory(12) || [];
       }
     } catch(e) { console.warn('[monthly-summary] DB lookup failed:', e.message); }
 
@@ -3401,7 +3401,7 @@ app.get('/api/data/ageing-by-site', requireReportSession, async (req, res) => {
     try {
       const rdb2 = require('./reports-db');
       if (typeof rdb2.getAgeingBySiteDB === 'function') {
-        result = rdb2.getAgeingBySiteDB() || [];
+        result = await rdb2.getAgeingBySiteDB() || [];
       }
     } catch(e) { console.warn('[ageing-by-site] DB lookup failed:', e.message); }
 
@@ -3452,7 +3452,7 @@ app.get('/api/data/ageing-by-group', requireReportSession, async (req, res) => {
       const rdb2 = require('./reports-db');
       if (typeof rdb2.getAgeingByGroupDB === 'function') {
         // Map DB shape → legacy chart shape: rename slaPct → slaCompliance.
-        result = (rdb2.getAgeingByGroupDB() || []).map(g => ({
+        result = (await rdb2.getAgeingByGroupDB() || []).map(g => ({
           group:         g.group,
           site:          '',       // legacy column — present but blank for DB-direct
           t0_30:         g.t0_30,
