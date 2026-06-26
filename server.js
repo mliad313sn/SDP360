@@ -624,9 +624,9 @@ app.get('/api/health/views', async (req, res) => {
 // To force a sync after a pm2 restart, an admin can hit
 // /api/sync/trigger/requests from the browser. The cron will also fire
 // at the next clock tick (:00 survey, :30 change_cab, :45 requests).
-setTimeout(() => {
+setTimeout(async () => {
   console.log('[Startup] Rebuilding raw cache from SQLite (DB-only, no Zoho)…');
-  _rebuildCacheFromSQLite().catch(e => console.error('[Startup:rebuild]', e.message));
+  await _rebuildCacheFromSQLite().catch(e => console.error('[Startup:rebuild]', e.message));
   // Zoho view schema health check still useful for diagnostics — keep it,
   // but defer to 5min so it doesn't race the first cron token refresh.
   setTimeout(() => {
@@ -1466,41 +1466,14 @@ function emptyResult(note) {
  * GET /api/survey/kpis?yr=2026&mo=2&groups=ITY IT Agents,Mana IT Agent,...
  * Group + period-filtered CSAT — joins survey_results with request_records on request_id.
  */
-app.get('/api/survey/kpis', requireReportSession, (req, res) => {
+app.get('/api/survey/kpis', requireReportSession, async (req, res) => {
   try {
     const { yr, mo, groups } = req.query;
     const groupList = groups ? groups.split(',').map(g => g.trim()).filter(Boolean) : [];
-    const db = require('./reports-db').db;
+    const rdb = require('./reports-db');
 
-    // ── Build period filter for KPI totals (by survey_responded_on or survey_sent_on) ──
-    let dateWhere = '';
-    const params = [];
-    if (yr && mo) {
-      const pad = String(mo).padStart(2, '0');
-      dateWhere = `AND strftime('%Y-%m', COALESCE(sr.survey_responded_on, sr.survey_sent_on)) = ?`;
-      params.push(`${yr}-${pad}`);
-    } else if (yr) {
-      dateWhere = `AND strftime('%Y', COALESCE(sr.survey_responded_on, sr.survey_sent_on)) = ?`;
-      params.push(String(yr));
-    }
-
-    // Build group filter — join to request_records to get tech_group
-    let groupWhere = '';
-    if (groupList.length > 0) {
-      groupWhere = `AND rr.tech_group IN (${groupList.map(() => '?').join(',')})`;
-      params.push(...groupList);
-    }
-
-    // ── Query 1: KPI totals — filtered by period + groups ──
-    const kpiSql = `
-      SELECT sr.overall_score
-      FROM survey_results sr
-      LEFT JOIN request_records rr ON sr.request_id = rr.request_id
-      WHERE sr.overall_score IS NOT NULL
-        ${dateWhere}
-        ${groupWhere}
-    `;
-    const kpiRows = db.prepare(kpiSql).all(...params);
+    // Forked reader (sqlite/pg dispatch) — q1 period+group-filtered scores, q2 12-mo trend rows.
+    const { rows1: kpiRows, rows2: trendRows } = await rdb.getSurveyKpisDB({ yr, mo, groups: groupList });
 
     let scoreSum = 0, n = 0, satisfied = 0, promoters = 0, passives = 0, detractors = 0;
     kpiRows.forEach(r => {
@@ -1511,36 +1484,6 @@ app.get('/api/survey/kpis', requireReportSession, (req, res) => {
       else if (s >= 70) passives++;
       else detractors++;
     });
-
-    // ── Query 2: byMonth trend — always last 12 months, group-filtered but NOT period-filtered ──
-    // Compute the cutoff date: 12 months before the selected period (or today)
-    let trendCutoff;
-    if (yr && mo) {
-      // Go back 11 more months from the selected month to get 12 months total
-      const selDate = new Date(parseInt(yr), parseInt(mo) - 1, 1);
-      selDate.setMonth(selDate.getMonth() - 11);
-      trendCutoff = `${selDate.getFullYear()}-${String(selDate.getMonth() + 1).padStart(2, '0')}-01`;
-    } else {
-      // No period selected — show rolling 12 months from today
-      const d = new Date();
-      d.setMonth(d.getMonth() - 11);
-      d.setDate(1);
-      trendCutoff = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
-    }
-
-    const trendParams = [trendCutoff];
-    if (groupList.length > 0) trendParams.push(...groupList);
-
-    const trendSql = `
-      SELECT sr.overall_score,
-             COALESCE(sr.survey_responded_on, sr.survey_sent_on) as responded_on
-      FROM survey_results sr
-      LEFT JOIN request_records rr ON sr.request_id = rr.request_id
-      WHERE sr.overall_score IS NOT NULL
-        AND COALESCE(sr.survey_responded_on, sr.survey_sent_on) >= ?
-        ${groupList.length > 0 ? `AND rr.tech_group IN (${groupList.map(() => '?').join(',')})` : ''}
-    `;
-    const trendRows = db.prepare(trendSql).all(...trendParams);
 
     const byMonthMap = {};
     trendRows.forEach(r => {
@@ -1564,7 +1507,7 @@ app.get('/api/survey/kpis', requireReportSession, (req, res) => {
     const npsBase = promoters + passives + detractors;
     // Include survey sync timestamp so the dashboard can warn when data is stale
     const { getSyncStatus } = require('./reports-db');
-    const surveySync = getSyncStatus().find(j => j.job_name === 'survey') || {};
+    const surveySync = (await getSyncStatus()).find(j => j.job_name === 'survey') || {};
     res.json({
       totalResponses: n,
       avgRating:  n > 0 ? Math.round(scoreSum / n * 10) / 10 : null,
@@ -3178,12 +3121,10 @@ async function _rebuildCacheFromSQLite() {
   if (_rawCacheRefreshing) return;
   _rawCacheRefreshing = true;
   try {
-    const { db: rdb } = require('./reports-db');
     const cutoff = new Date();
     cutoff.setMonth(cutoff.getMonth() - 13); cutoff.setDate(1); cutoff.setHours(0,0,0,0);
-    const dbRows = rdb.prepare(
-      `SELECT * FROM request_records WHERE created_time >= ? ORDER BY created_time ASC`
-    ).all(cutoff.toISOString());
+    // Forked reader (sqlite/pg dispatch) — in pg mode reads from Postgres, not the empty sqlite handle.
+    const dbRows = await require('./reports-db').getRequestRecordsSince(cutoff.toISOString());
     if (dbRows.length > 0) {
       const rows = dbRows.map(r => ({
         'Request ID':             r.request_id,
@@ -3344,51 +3285,12 @@ async function getRawRequestRows() {
 // Uses request_records.mode column (populated during every sync run) instead of the raw Zoho
 // view cache, where the Mode field is sparsely present.
 // Query params: yr (YYYY), mo (1-12), site (optional), groups (comma-separated, optional)
-app.get('/api/data/submission-channels', requireReportSession, (req, res) => {
+app.get('/api/data/submission-channels', requireReportSession, async (req, res) => {
   try {
     const { yr, mo, site, groups } = req.query;
-    const db = require('./reports-db').db;
-
-    // ── Date range ──
-    let dateWhere = '';
-    const params = [];
-    if (yr && mo) {
-      const pad = String(mo).padStart(2, '0');
-      dateWhere = `AND strftime('%Y-%m', created_time) = ?`;
-      params.push(`${yr}-${pad}`);
-    } else if (yr) {
-      dateWhere = `AND strftime('%Y', created_time) = ?`;
-      params.push(String(yr));
-    }
-
-    // ── Group filter ──
     const groupList = groups ? groups.split(',').map(g => g.trim()).filter(Boolean) : [];
-    let groupWhere = '';
-    if (groupList.length > 0) {
-      groupWhere = `AND tech_group IN (${groupList.map(() => '?').join(',')})`;
-      params.push(...groupList);
-    }
-
-    // ── Site filter ──
-    let siteWhere = '';
-    if (site && site !== 'all') {
-      siteWhere = `AND site = ?`;
-      params.push(site);
-    }
-
-    // Count per mode — exclude NULL and empty (treat same as Unknown)
-    const rows = db.prepare(`
-      SELECT
-        CASE WHEN mode IS NULL OR mode = '' OR lower(mode) = 'unknown' THEN NULL ELSE mode END AS channel,
-        COUNT(*) AS cnt
-      FROM request_records
-      WHERE 1=1
-        ${dateWhere}
-        ${siteWhere}
-        ${groupWhere}
-      GROUP BY channel
-      ORDER BY cnt DESC
-    `).all(...params);
+    // Forked reader (sqlite/pg dispatch) — to_char period filter + GROUP BY channel collapse.
+    const rows = await require('./reports-db').getSubmissionChannelsDB({ yr, mo, site, groups: groupList });
 
     const total       = rows.reduce((s, r) => s + r.cnt, 0);
     const knownRows   = rows.filter(r => r.channel !== null);
@@ -6415,9 +6317,9 @@ async function start() {
     // ── Startup pre-warm: load SQLite cache immediately so first user load never
     // blocks. Skip the Zoho API attempt here — startup requests sync (below) will
     // fetch any new tickets and trigger a full cache rebuild once it completes.
-    setTimeout(() => {
+    setTimeout(async () => {
       console.log('[startup] 🔄 Pre-warming raw request cache from SQLite…');
-      _rebuildCacheFromSQLite();
+      await _rebuildCacheFromSQLite();
     }, 3000);
   });
 }
