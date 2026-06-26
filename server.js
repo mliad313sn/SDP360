@@ -6422,4 +6422,7 @@ async function start() {
   });
 }
 
-start();
+// Boot only when run directly (pm2/prod); skip when required by a test harness so the
+// express app can be mounted in-process (http.createServer(app)) without binding a port.
+if (require.main === module) start();
+module.exports = { app };
