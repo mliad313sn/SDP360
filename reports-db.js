@@ -4567,6 +4567,83 @@ async function _getRequestRecordsPg({ limit = 200, offset = 0, status, site, sin
   return pgHandle().prepare(sql).all(...p);
 }
 
+// ── 4D-wiring-1: readers that replace raw-sqlite-handle reads in server.js ──
+
+// ALL request_records since a cutoff, ASC — feeds server.js _rebuildCacheFromSQLite (_rawCache).
+// Unpaginated (vs the paginated getRequestRecords above). Raw-ISO cutoff on TEXT created_time → no cast.
+function getRequestRecordsSince(cutoffISO) {
+  if (REPORTS_BACKEND === 'postgres') return _getRequestRecordsSincePg(cutoffISO);
+  return db.prepare(`SELECT * FROM request_records WHERE created_time >= ? ORDER BY created_time ASC`).all(cutoffISO);
+}
+async function _getRequestRecordsSincePg(cutoffISO) {
+  return await pgHandle().prepare(`SELECT * FROM request_records WHERE created_time >= ? ORDER BY created_time ASC`).all(cutoffISO);
+}
+
+// Submission-channels counts — feeds server.js /api/data/submission-channels. strftime→to_char;
+// GROUP BY channel (alias ≠ the `mode` column it transforms → no shadowing). Returns {channel, cnt}.
+function getSubmissionChannelsDB({ yr, mo, site, groups } = {}) {
+  if (REPORTS_BACKEND === 'postgres') return _getSubmissionChannelsDBPg({ yr, mo, site, groups });
+  const { where, p } = _submChWhere({ yr, mo, site, groups }, 'sqlite');
+  return db.prepare(`SELECT CASE WHEN mode IS NULL OR mode='' OR lower(mode)='unknown' THEN NULL ELSE mode END AS channel, COUNT(*) AS cnt FROM request_records WHERE 1=1 ${where} GROUP BY channel ORDER BY cnt DESC`).all(...p);
+}
+async function _getSubmissionChannelsDBPg({ yr, mo, site, groups } = {}) {
+  const { where, p } = _submChWhere({ yr, mo, site, groups }, 'pg');
+  return await pgHandle().prepare(`SELECT CASE WHEN mode IS NULL OR mode='' OR lower(mode)='unknown' THEN NULL ELSE mode END AS channel, COUNT(*) AS cnt FROM request_records WHERE 1=1 ${where} GROUP BY channel ORDER BY cnt DESC`).all(...p);
+}
+// Shared WHERE builder — clause + param order kept CONSISTENT (date → site → groups) so the
+// positional binding aligns even when site AND groups are both passed (the inline route this
+// replaces had a latent misalignment). Only the strftime→to_char differs by dialect.
+function _submChWhere({ yr, mo, site, groups }, dialect) {
+  const p = []; let where = '';
+  const ym = dialect === 'pg'
+    ? { m: `to_char(created_time::timestamptz,'YYYY-MM')`, y: `to_char(created_time::timestamptz,'YYYY')` }
+    : { m: `strftime('%Y-%m', created_time)`, y: `strftime('%Y', created_time)` };
+  if (yr && mo) { where += ` AND ${ym.m} = ?`; p.push(`${yr}-${String(mo).padStart(2,'0')}`); }
+  else if (yr)  { where += ` AND ${ym.y} = ?`; p.push(String(yr)); }
+  if (site && site !== 'all') { where += ` AND site = ?`; p.push(site); }
+  const gl = Array.isArray(groups) ? groups.filter(Boolean) : [];
+  if (gl.length) { where += ` AND tech_group IN (${gl.map(()=>'?').join(',')})`; p.push(...gl); }
+  return { where, p };
+}
+
+// Survey KPI source rows — feeds server.js /api/survey/kpis. Returns { rows1, rows2 } (the handler
+// keeps its JS reductions). q1 = period+group-filtered scores; q2 = 12-mo trend (lexical cutoff,
+// computed here from yr/mo — mirrors the route's old inline block). strftime→to_char on q1; the
+// q2 COALESCE(...) >= ? cutoff is a lexical TEXT compare → UNCHANGED. JOIN sr.request_id=rr.request_id.
+function getSurveyKpisDB({ yr, mo, groups } = {}) {
+  if (REPORTS_BACKEND === 'postgres') return _getSurveyKpisDBPg({ yr, mo, groups });
+  const q = _surveyKpiQueries({ yr, mo, groups }, 'sqlite');
+  return { rows1: db.prepare(q.q1).all(...q.p1), rows2: db.prepare(q.q2).all(...q.p2) };
+}
+async function _getSurveyKpisDBPg({ yr, mo, groups } = {}) {
+  const H = pgHandle();
+  const q = _surveyKpiQueries({ yr, mo, groups }, 'pg');
+  return { rows1: await H.prepare(q.q1).all(...q.p1), rows2: await H.prepare(q.q2).all(...q.p2) };
+}
+function _surveyKpiQueries({ yr, mo, groups }, dialect) {
+  const gl = Array.isArray(groups) ? groups.filter(Boolean) : [];
+  const ym = dialect === 'pg'
+    ? { m: `to_char(COALESCE(sr.survey_responded_on, sr.survey_sent_on)::timestamptz,'YYYY-MM')`,
+        y: `to_char(COALESCE(sr.survey_responded_on, sr.survey_sent_on)::timestamptz,'YYYY')` }
+    : { m: `strftime('%Y-%m', COALESCE(sr.survey_responded_on, sr.survey_sent_on))`,
+        y: `strftime('%Y', COALESCE(sr.survey_responded_on, sr.survey_sent_on))` };
+  // q1 — period + group filtered scores
+  let dWhere = '', p1 = [];
+  if (yr && mo) { dWhere = ` AND ${ym.m} = ?`; p1.push(`${yr}-${String(mo).padStart(2,'0')}`); }
+  else if (yr)  { dWhere = ` AND ${ym.y} = ?`; p1.push(String(yr)); }
+  let gWhere = '';
+  if (gl.length) { gWhere = ` AND rr.tech_group IN (${gl.map(()=>'?').join(',')})`; p1.push(...gl); }
+  const q1 = `SELECT sr.overall_score FROM survey_results sr LEFT JOIN request_records rr ON sr.request_id = rr.request_id WHERE sr.overall_score IS NOT NULL ${dWhere} ${gWhere}`;
+  // q2 — 12-mo trend; cutoff computed here (mirrors server.js old inline block)
+  let cut;
+  if (yr && mo) { const d = new Date(parseInt(yr), parseInt(mo)-1, 1); d.setMonth(d.getMonth()-11); cut = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`; }
+  else { const d = new Date(); d.setMonth(d.getMonth()-11); d.setDate(1); cut = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`; }
+  const p2 = [cut]; let g2 = '';
+  if (gl.length) { g2 = ` AND rr.tech_group IN (${gl.map(()=>'?').join(',')})`; p2.push(...gl); }
+  const q2 = `SELECT sr.overall_score, COALESCE(sr.survey_responded_on, sr.survey_sent_on) as responded_on FROM survey_results sr LEFT JOIN request_records rr ON sr.request_id = rr.request_id WHERE sr.overall_score IS NOT NULL AND COALESCE(sr.survey_responded_on, sr.survey_sent_on) >= ? ${g2}`;
+  return { q1, p1, q2, p2 };
+}
+
 // ── COMPUTED METRICS (replicate Zoho Analytics aggregate formulas) ─
 
 /**
@@ -5616,6 +5693,8 @@ module.exports = {
   // Query helpers
   getChangeRecords, getCABApprovals, getSurveyResults, getSurveyAnswers,
   getRequestRecords,
+  // 4D-wiring-1 readers (replace raw-sqlite-handle reads in server.js)
+  getRequestRecordsSince, getSubmissionChannelsDB, getSurveyKpisDB,
   // Computed metrics (replicate Zoho Analytics aggregate formulas)
   getChangeMetrics, getCABMetrics, getSurveyMetrics, getRequestMetrics,
   getRequestFilterOptions,

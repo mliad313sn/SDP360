@@ -624,9 +624,9 @@ app.get('/api/health/views', async (req, res) => {
 // To force a sync after a pm2 restart, an admin can hit
 // /api/sync/trigger/requests from the browser. The cron will also fire
 // at the next clock tick (:00 survey, :30 change_cab, :45 requests).
-setTimeout(() => {
+setTimeout(async () => {
   console.log('[Startup] Rebuilding raw cache from SQLite (DB-only, no Zoho)…');
-  _rebuildCacheFromSQLite().catch(e => console.error('[Startup:rebuild]', e.message));
+  await _rebuildCacheFromSQLite().catch(e => console.error('[Startup:rebuild]', e.message));
   // Zoho view schema health check still useful for diagnostics — keep it,
   // but defer to 5min so it doesn't race the first cron token refresh.
   setTimeout(() => {
@@ -1395,7 +1395,7 @@ app.get('/api/survey/summary', requireReportSession, async (req, res) => {
   try {
     const rdb2 = require('./reports-db');
     if (typeof rdb2.getCustomerVoiceDB === 'function') {
-      const dbVoice = rdb2.getCustomerVoiceDB(12) || {};
+      const dbVoice = await rdb2.getCustomerVoiceDB(12) || {};
       if (dbVoice.totalResponses > 0) {
         // Wrap into the legacy /api/survey/summary shape so the
         // executive.html chart code reads it transparently.
@@ -1466,41 +1466,14 @@ function emptyResult(note) {
  * GET /api/survey/kpis?yr=2026&mo=2&groups=ITY IT Agents,Mana IT Agent,...
  * Group + period-filtered CSAT — joins survey_results with request_records on request_id.
  */
-app.get('/api/survey/kpis', requireReportSession, (req, res) => {
+app.get('/api/survey/kpis', requireReportSession, async (req, res) => {
   try {
     const { yr, mo, groups } = req.query;
     const groupList = groups ? groups.split(',').map(g => g.trim()).filter(Boolean) : [];
-    const db = require('./reports-db').db;
+    const rdb = require('./reports-db');
 
-    // ── Build period filter for KPI totals (by survey_responded_on or survey_sent_on) ──
-    let dateWhere = '';
-    const params = [];
-    if (yr && mo) {
-      const pad = String(mo).padStart(2, '0');
-      dateWhere = `AND strftime('%Y-%m', COALESCE(sr.survey_responded_on, sr.survey_sent_on)) = ?`;
-      params.push(`${yr}-${pad}`);
-    } else if (yr) {
-      dateWhere = `AND strftime('%Y', COALESCE(sr.survey_responded_on, sr.survey_sent_on)) = ?`;
-      params.push(String(yr));
-    }
-
-    // Build group filter — join to request_records to get tech_group
-    let groupWhere = '';
-    if (groupList.length > 0) {
-      groupWhere = `AND rr.tech_group IN (${groupList.map(() => '?').join(',')})`;
-      params.push(...groupList);
-    }
-
-    // ── Query 1: KPI totals — filtered by period + groups ──
-    const kpiSql = `
-      SELECT sr.overall_score
-      FROM survey_results sr
-      LEFT JOIN request_records rr ON sr.request_id = rr.request_id
-      WHERE sr.overall_score IS NOT NULL
-        ${dateWhere}
-        ${groupWhere}
-    `;
-    const kpiRows = db.prepare(kpiSql).all(...params);
+    // Forked reader (sqlite/pg dispatch) — q1 period+group-filtered scores, q2 12-mo trend rows.
+    const { rows1: kpiRows, rows2: trendRows } = await rdb.getSurveyKpisDB({ yr, mo, groups: groupList });
 
     let scoreSum = 0, n = 0, satisfied = 0, promoters = 0, passives = 0, detractors = 0;
     kpiRows.forEach(r => {
@@ -1511,36 +1484,6 @@ app.get('/api/survey/kpis', requireReportSession, (req, res) => {
       else if (s >= 70) passives++;
       else detractors++;
     });
-
-    // ── Query 2: byMonth trend — always last 12 months, group-filtered but NOT period-filtered ──
-    // Compute the cutoff date: 12 months before the selected period (or today)
-    let trendCutoff;
-    if (yr && mo) {
-      // Go back 11 more months from the selected month to get 12 months total
-      const selDate = new Date(parseInt(yr), parseInt(mo) - 1, 1);
-      selDate.setMonth(selDate.getMonth() - 11);
-      trendCutoff = `${selDate.getFullYear()}-${String(selDate.getMonth() + 1).padStart(2, '0')}-01`;
-    } else {
-      // No period selected — show rolling 12 months from today
-      const d = new Date();
-      d.setMonth(d.getMonth() - 11);
-      d.setDate(1);
-      trendCutoff = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
-    }
-
-    const trendParams = [trendCutoff];
-    if (groupList.length > 0) trendParams.push(...groupList);
-
-    const trendSql = `
-      SELECT sr.overall_score,
-             COALESCE(sr.survey_responded_on, sr.survey_sent_on) as responded_on
-      FROM survey_results sr
-      LEFT JOIN request_records rr ON sr.request_id = rr.request_id
-      WHERE sr.overall_score IS NOT NULL
-        AND COALESCE(sr.survey_responded_on, sr.survey_sent_on) >= ?
-        ${groupList.length > 0 ? `AND rr.tech_group IN (${groupList.map(() => '?').join(',')})` : ''}
-    `;
-    const trendRows = db.prepare(trendSql).all(...trendParams);
 
     const byMonthMap = {};
     trendRows.forEach(r => {
@@ -1564,7 +1507,7 @@ app.get('/api/survey/kpis', requireReportSession, (req, res) => {
     const npsBase = promoters + passives + detractors;
     // Include survey sync timestamp so the dashboard can warn when data is stale
     const { getSyncStatus } = require('./reports-db');
-    const surveySync = getSyncStatus().find(j => j.job_name === 'survey') || {};
+    const surveySync = (await getSyncStatus()).find(j => j.job_name === 'survey') || {};
     res.json({
       totalResponses: n,
       avgRating:  n > 0 ? Math.round(scoreSum / n * 10) / 10 : null,
@@ -1646,7 +1589,7 @@ app.get('/api/survey/by-dimension', requireReportSession, async (req, res) => {
   try {
     const rdb2 = require('./reports-db');
     if (typeof rdb2.getCustomerVoiceByDimensionDB === 'function') {
-      const dbDim = rdb2.getCustomerVoiceByDimensionDB();
+      const dbDim = await rdb2.getCustomerVoiceByDimensionDB();
       if (dbDim && dbDim.totalSurvey > 0) {
         _dimCache.data = dbDim;
         _dimCache.ts   = Date.now();
@@ -2041,10 +1984,10 @@ app.get('/api/ping', (req, res) => res.json({ ok: true, time: new Date().toISOSt
  * Returns last sync time, row count, and any error for each sync job.
  * Used by the dashboard to show a "Data last updated: X minutes ago" indicator.
  */
-app.get('/api/sync/status', requireReportSession, (req, res) => {
+app.get('/api/sync/status', requireReportSession, async (req, res) => {
   try {
     const { getSyncStatus } = require('./reports-db');
-    const jobs = getSyncStatus();
+    const jobs = await getSyncStatus();
     // Enrich with human-readable staleness
     const now = Date.now();
     const enriched = jobs.map(j => {
@@ -2159,12 +2102,12 @@ function buildDataFreshness(syncMeta) {
  * Query params: status, site_id, since (ISO date), limit (default 200), offset
  * Response includes source transparency: source, as_of, data_freshness, stale_warning
  */
-app.get('/api/change', requireReportSession, (req, res) => {
+app.get('/api/change', requireReportSession, async (req, res) => {
   try {
     const { getChangeRecords, getSyncStatus } = require('./reports-db');
     const { status, site_id, since, limit = 200, offset = 0 } = req.query;
-    const records  = getChangeRecords({ status, site_id, since, limit: +limit, offset: +offset });
-    const syncMeta = getSyncStatus().find(j => j.job_name === 'change_cab') || {};
+    const records  = await getChangeRecords({ status, site_id, since, limit: +limit, offset: +offset });
+    const syncMeta = (await getSyncStatus()).find(j => j.job_name === 'change_cab') || {};
     res.json({
       ok: true,
       count: records.length,
@@ -2181,12 +2124,12 @@ app.get('/api/change', requireReportSession, (req, res) => {
  * Query params: change_id, status, limit (default 500)
  * Response includes source transparency: source, as_of, data_freshness, stale_warning
  */
-app.get('/api/cab', requireReportSession, (req, res) => {
+app.get('/api/cab', requireReportSession, async (req, res) => {
   try {
     const { getCABApprovals, getSyncStatus } = require('./reports-db');
     const { change_id, status, limit = 500 } = req.query;
-    const records  = getCABApprovals({ change_id, status, limit: +limit });
-    const syncMeta = getSyncStatus().find(j => j.job_name === 'change_cab') || {};
+    const records  = await getCABApprovals({ change_id, status, limit: +limit });
+    const syncMeta = (await getSyncStatus()).find(j => j.job_name === 'change_cab') || {};
     res.json({
       ok: true,
       count: records.length,
@@ -2205,12 +2148,12 @@ app.get('/api/cab', requireReportSession, (req, res) => {
  * Query params: since (ISO date), limit (default 500), offset
  * Response includes source transparency: source, as_of, data_freshness, stale_warning
  */
-app.get('/api/survey', requireReportSession, (req, res) => {
+app.get('/api/survey', requireReportSession, async (req, res) => {
   try {
     const { getSurveyResults, getSyncStatus } = require('./reports-db');
     const { since, limit = 500, offset = 0 } = req.query;
-    const records  = getSurveyResults({ since, limit: +limit, offset: +offset });
-    const syncMeta = getSyncStatus().find(j => j.job_name === 'survey') || {};
+    const records  = await getSurveyResults({ since, limit: +limit, offset: +offset });
+    const syncMeta = (await getSyncStatus()).find(j => j.job_name === 'survey') || {};
     const freshness = buildDataFreshness(syncMeta);
     // Override the stale_warning to name the correct trigger job
     if (freshness.stale_warning) {
@@ -2231,11 +2174,11 @@ app.get('/api/survey', requireReportSession, (req, res) => {
  * GET /api/survey/:response_id/answers
  * Returns all individual question answers for a single survey response.
  */
-app.get('/api/survey/:response_id/answers', requireReportSession, (req, res) => {
+app.get('/api/survey/:response_id/answers', requireReportSession, async (req, res) => {
   try {
     const { getSurveyAnswers, getSyncStatus } = require('./reports-db');
-    const answers  = getSurveyAnswers(req.params.response_id);
-    const syncMeta = getSyncStatus().find(j => j.job_name === 'survey') || {};
+    const answers  = await getSurveyAnswers(req.params.response_id);
+    const syncMeta = (await getSyncStatus()).find(j => j.job_name === 'survey') || {};
     res.json({
       ok: true,
       count: answers.length,
@@ -2263,12 +2206,12 @@ app.get('/api/survey/:response_id/answers', requireReportSession, (req, res) => 
  *   site_id  — filter to a single site (optional)
  *   since    — ISO date string — only changes created on/after this date (optional)
  */
-app.get('/api/metrics/change', requireReportSession, (req, res) => {
+app.get('/api/metrics/change', requireReportSession, async (req, res) => {
   try {
     const { getChangeMetrics, getSyncStatus } = require('./reports-db');
     const { site_id, since } = req.query;
-    const metrics  = getChangeMetrics({ site_id, since });
-    const syncMeta = getSyncStatus().find(j => j.job_name === 'change_cab') || {};
+    const metrics  = await getChangeMetrics({ site_id, since });
+    const syncMeta = (await getSyncStatus()).find(j => j.job_name === 'change_cab') || {};
     res.json({ ok: true, ...buildDataFreshness(syncMeta), data: metrics });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -2284,12 +2227,12 @@ app.get('/api/metrics/change', requireReportSession, (req, res) => {
  * Query params:
  *   since    — ISO date string — only approvals requested on/after this date (optional)
  */
-app.get('/api/metrics/cab', requireReportSession, (req, res) => {
+app.get('/api/metrics/cab', requireReportSession, async (req, res) => {
   try {
     const { getCABMetrics, getSyncStatus } = require('./reports-db');
     const { since } = req.query;
-    const metrics  = getCABMetrics({ since });
-    const syncMeta = getSyncStatus().find(j => j.job_name === 'change_cab') || {};
+    const metrics  = await getCABMetrics({ since });
+    const syncMeta = (await getSyncStatus()).find(j => j.job_name === 'change_cab') || {};
     res.json({ ok: true, ...buildDataFreshness(syncMeta), data: metrics });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -2305,12 +2248,12 @@ app.get('/api/metrics/cab', requireReportSession, (req, res) => {
  * Query params:
  *   since    — ISO date string — only surveys sent on/after this date (optional)
  */
-app.get('/api/metrics/survey', requireReportSession, (req, res) => {
+app.get('/api/metrics/survey', requireReportSession, async (req, res) => {
   try {
     const { getSurveyMetrics, getSyncStatus } = require('./reports-db');
     const { since } = req.query;
-    const metrics   = getSurveyMetrics({ since });
-    const syncMeta  = getSyncStatus().find(j => j.job_name === 'survey') || {};
+    const metrics   = await getSurveyMetrics({ since });
+    const syncMeta  = (await getSyncStatus()).find(j => j.job_name === 'survey') || {};
     const freshness = buildDataFreshness(syncMeta);
     if (freshness.stale_warning) {
       freshness.stale_warning = freshness.stale_warning.replace('change_cab', 'survey');
@@ -2332,21 +2275,21 @@ app.get('/api/metrics/survey', requireReportSession, (req, res) => {
  *   site   — filter by site name (optional)
  *   since  — ISO date string — only requests created on/after this date (optional)
  */
-app.get('/api/metrics/requests', requireReportSession, (req, res) => {
+app.get('/api/metrics/requests', requireReportSession, async (req, res) => {
   try {
     const { getRequestMetrics, getSyncStatus } = require('./reports-db');
     const { site, since, status, rtype, impact, mode } = req.query;
     // Multi-value filters arrive as comma-separated lists (2026-06-11,
     // analytics.html Status/Type/Impact/Mode widgets). Absent = no filter.
     const csv = v => (v ? String(v).split(',').map(s => s.trim()).filter(Boolean) : undefined);
-    const metrics  = getRequestMetrics({
+    const metrics  = await getRequestMetrics({
       site, since,
       statuses: csv(status),
       rtypes:   csv(rtype),
       impacts:  csv(impact),
       modes:    csv(mode),
     });
-    const syncMeta = getSyncStatus().find(j => j.job_name === 'requests') || {};
+    const syncMeta = (await getSyncStatus()).find(j => j.job_name === 'requests') || {};
     const freshness = buildDataFreshness(syncMeta);
     res.json({ ok: true, ...freshness, data: metrics });
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -2357,10 +2300,10 @@ app.get('/api/metrics/requests', requireReportSession, (req, res) => {
  * Distinct values for the analytics multi-select filters
  * (Request Status / Request Type / Impact / Mode). 2026-06-11.
  */
-app.get('/api/metrics/request-filter-options', requireReportSession, (req, res) => {
+app.get('/api/metrics/request-filter-options', requireReportSession, async (req, res) => {
   try {
     const { getRequestFilterOptions } = require('./reports-db');
-    res.json({ ok: true, data: getRequestFilterOptions() });
+    res.json({ ok: true, data: await getRequestFilterOptions() });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -2377,18 +2320,18 @@ app.get('/api/metrics/request-filter-options', requireReportSession, (req, res) 
  *   pending_only  — '1' to return only open requests
  *   overdue_only  — '1' to return only SLA-violated requests
  */
-app.get('/api/requests', requireReportSession, (req, res) => {
+app.get('/api/requests', requireReportSession, async (req, res) => {
   try {
     const { getRequestRecords, getSyncStatus } = require('./reports-db');
     const { limit = '200', offset = '0', status, site, since, pending_only, overdue_only } = req.query;
-    const rows     = getRequestRecords({
+    const rows     = await getRequestRecords({
       limit:        Math.min(parseInt(limit, 10) || 200, 1000),
       offset:       parseInt(offset, 10) || 0,
       status, site, since,
       pending_only: pending_only === '1',
       overdue_only: overdue_only === '1',
     });
-    const syncMeta = getSyncStatus().find(j => j.job_name === 'requests') || {};
+    const syncMeta = (await getSyncStatus()).find(j => j.job_name === 'requests') || {};
     res.json({
       ok: true,
       count: rows.length,
@@ -2769,7 +2712,7 @@ app.get('/api/data/major-incidents', requireReportSession, async (req, res) => {
     try {
       const rdbLocal = require('./reports-db');
       if (typeof rdbLocal.getMajorIncidentsHistory === 'function') {
-        dbRows = rdbLocal.getMajorIncidentsHistory(12) || [];
+        dbRows = await rdbLocal.getMajorIncidentsHistory(12) || [];
       }
     } catch(e) { console.warn('[major-incidents] DB lookup failed:', e.message); }
 
@@ -2796,7 +2739,7 @@ app.get('/api/data/change-table', requireReportSession, async (req, res) => {
     try {
       const rdbLocal = require('./reports-db');
       if (typeof rdbLocal.getChangeRecordsHistory === 'function') {
-        dbRows = rdbLocal.getChangeRecordsHistory(12) || [];
+        dbRows = await rdbLocal.getChangeRecordsHistory(12) || [];
       }
     } catch(e) { console.warn('[change-table] DB lookup failed:', e.message); }
 
@@ -2829,7 +2772,7 @@ app.get('/api/data/first-response', requireReportSession, async (req, res) => {
     try {
       const rdb2 = require('./reports-db');
       if (typeof rdb2.getFirstResponseTrendDB === 'function') {
-        dbRows = rdb2.getFirstResponseTrendDB(12) || [];
+        dbRows = await rdb2.getFirstResponseTrendDB(12) || [];
       }
     } catch(e) { console.warn('[first-response] DB lookup failed:', e.message); }
 
@@ -2869,7 +2812,7 @@ app.get('/api/data/sla-trend', requireReportSession, async (req, res) => {
     try {
       const rdb2 = require('./reports-db');
       if (typeof rdb2.getSlaTrendDB === 'function') {
-        dbRows = rdb2.getSlaTrendDB(12) || [];
+        dbRows = await rdb2.getSlaTrendDB(12) || [];
       }
     } catch(e) { console.warn('[sla-trend] DB lookup failed:', e.message); }
 
@@ -2899,7 +2842,7 @@ app.get('/api/data/sla-by-category', requireReportSession, async (req, res) => {
     try {
       const rdb2 = require('./reports-db');
       if (typeof rdb2.getSlaByCategoryDB === 'function') {
-        dbRows = rdb2.getSlaByCategoryDB() || [];
+        dbRows = await rdb2.getSlaByCategoryDB() || [];
       }
     } catch(e) { console.warn('[sla-by-category] DB lookup failed:', e.message); }
 
@@ -2941,7 +2884,7 @@ app.get('/api/data/group-requests', requireReportSession, async (req, res) => {
     let dbRows = [];
     try {
       const rdb2 = require('./reports-db');
-      if (typeof rdb2.getGroupRequestsDB === 'function') dbRows = rdb2.getGroupRequestsDB(12) || [];
+      if (typeof rdb2.getGroupRequestsDB === 'function') dbRows = await rdb2.getGroupRequestsDB(12) || [];
     } catch(e) { console.warn('[group-requests] DB lookup failed:', e.message); }
     if (dbRows.length > 0) {
       console.log(`[group-requests] ✅ DB: ${dbRows.length} groups`);
@@ -2963,7 +2906,7 @@ app.get('/api/data/emergency-changes', requireReportSession, async (req, res) =>
     let dbRows = [];
     try {
       const rdb2 = require('./reports-db');
-      if (typeof rdb2.getEmergencyChangesDB === 'function') dbRows = rdb2.getEmergencyChangesDB(12) || [];
+      if (typeof rdb2.getEmergencyChangesDB === 'function') dbRows = await rdb2.getEmergencyChangesDB(12) || [];
     } catch(e) { console.warn('[emergency-changes] DB lookup failed:', e.message); }
     if (dbRows.length > 0) {
       console.log(`[emergency-changes] ✅ DB: ${dbRows.length} emergency RFCs`);
@@ -2985,7 +2928,7 @@ app.get('/api/data/ageing', requireReportSession, async (req, res) => {
     let dbRows = [];
     try {
       const rdb2 = require('./reports-db');
-      if (typeof rdb2.getAgeingSummaryDB === 'function') dbRows = rdb2.getAgeingSummaryDB() || [];
+      if (typeof rdb2.getAgeingSummaryDB === 'function') dbRows = await rdb2.getAgeingSummaryDB() || [];
     } catch(e) { console.warn('[ageing] DB lookup failed:', e.message); }
     if (dbRows.length > 0) {
       console.log(`[ageing] ✅ DB: ${dbRows.length} group×tier rows`);
@@ -3007,7 +2950,7 @@ app.get('/api/data/incident-vs-sr', requireReportSession, async (req, res) => {
     let dbRows = [];
     try {
       const rdb2 = require('./reports-db');
-      if (typeof rdb2.getIncidentVsSrDB === 'function') dbRows = rdb2.getIncidentVsSrDB(12) || [];
+      if (typeof rdb2.getIncidentVsSrDB === 'function') dbRows = await rdb2.getIncidentVsSrDB(12) || [];
     } catch(e) { console.warn('[incident-vs-sr] DB lookup failed:', e.message); }
     if (dbRows.length > 0) {
       console.log(`[incident-vs-sr] ✅ DB: ${dbRows.length} months`);
@@ -3029,7 +2972,7 @@ app.get('/api/data/cab-approvals', requireReportSession, async (req, res) => {
     let dbRows = [];
     try {
       const rdb2 = require('./reports-db');
-      if (typeof rdb2.getCabApprovalsDB === 'function') dbRows = rdb2.getCabApprovalsDB(12) || [];
+      if (typeof rdb2.getCabApprovalsDB === 'function') dbRows = await rdb2.getCabApprovalsDB(12) || [];
     } catch(e) { console.warn('[cab-approvals] DB lookup failed:', e.message); }
     if (dbRows.length > 0) {
       console.log(`[cab-approvals] ✅ DB: ${dbRows.length} approval rows`);
@@ -3051,7 +2994,7 @@ app.get('/api/data/cab-recommendations', requireReportSession, async (req, res) 
     let dbRows = [];
     try {
       const rdb2 = require('./reports-db');
-      if (typeof rdb2.getCabRecommendationsDB === 'function') dbRows = rdb2.getCabRecommendationsDB(12) || [];
+      if (typeof rdb2.getCabRecommendationsDB === 'function') dbRows = await rdb2.getCabRecommendationsDB(12) || [];
     } catch(e) { console.warn('[cab-recommendations] DB lookup failed:', e.message); }
     if (dbRows.length > 0) {
       console.log(`[cab-recommendations] ✅ DB: ${dbRows.length} recommendation rows`);
@@ -3178,12 +3121,10 @@ async function _rebuildCacheFromSQLite() {
   if (_rawCacheRefreshing) return;
   _rawCacheRefreshing = true;
   try {
-    const { db: rdb } = require('./reports-db');
     const cutoff = new Date();
     cutoff.setMonth(cutoff.getMonth() - 13); cutoff.setDate(1); cutoff.setHours(0,0,0,0);
-    const dbRows = rdb.prepare(
-      `SELECT * FROM request_records WHERE created_time >= ? ORDER BY created_time ASC`
-    ).all(cutoff.toISOString());
+    // Forked reader (sqlite/pg dispatch) — in pg mode reads from Postgres, not the empty sqlite handle.
+    const dbRows = await require('./reports-db').getRequestRecordsSince(cutoff.toISOString());
     if (dbRows.length > 0) {
       const rows = dbRows.map(r => ({
         'Request ID':             r.request_id,
@@ -3344,51 +3285,12 @@ async function getRawRequestRows() {
 // Uses request_records.mode column (populated during every sync run) instead of the raw Zoho
 // view cache, where the Mode field is sparsely present.
 // Query params: yr (YYYY), mo (1-12), site (optional), groups (comma-separated, optional)
-app.get('/api/data/submission-channels', requireReportSession, (req, res) => {
+app.get('/api/data/submission-channels', requireReportSession, async (req, res) => {
   try {
     const { yr, mo, site, groups } = req.query;
-    const db = require('./reports-db').db;
-
-    // ── Date range ──
-    let dateWhere = '';
-    const params = [];
-    if (yr && mo) {
-      const pad = String(mo).padStart(2, '0');
-      dateWhere = `AND strftime('%Y-%m', created_time) = ?`;
-      params.push(`${yr}-${pad}`);
-    } else if (yr) {
-      dateWhere = `AND strftime('%Y', created_time) = ?`;
-      params.push(String(yr));
-    }
-
-    // ── Group filter ──
     const groupList = groups ? groups.split(',').map(g => g.trim()).filter(Boolean) : [];
-    let groupWhere = '';
-    if (groupList.length > 0) {
-      groupWhere = `AND tech_group IN (${groupList.map(() => '?').join(',')})`;
-      params.push(...groupList);
-    }
-
-    // ── Site filter ──
-    let siteWhere = '';
-    if (site && site !== 'all') {
-      siteWhere = `AND site = ?`;
-      params.push(site);
-    }
-
-    // Count per mode — exclude NULL and empty (treat same as Unknown)
-    const rows = db.prepare(`
-      SELECT
-        CASE WHEN mode IS NULL OR mode = '' OR lower(mode) = 'unknown' THEN NULL ELSE mode END AS channel,
-        COUNT(*) AS cnt
-      FROM request_records
-      WHERE 1=1
-        ${dateWhere}
-        ${siteWhere}
-        ${groupWhere}
-      GROUP BY channel
-      ORDER BY cnt DESC
-    `).all(...params);
+    // Forked reader (sqlite/pg dispatch) — to_char period filter + GROUP BY channel collapse.
+    const rows = await require('./reports-db').getSubmissionChannelsDB({ yr, mo, site, groups: groupList });
 
     const total       = rows.reduce((s, r) => s + r.cnt, 0);
     const knownRows   = rows.filter(r => r.channel !== null);
@@ -3462,7 +3364,7 @@ app.get('/api/data/monthly-summary', requireReportSession, async (req, res) => {
     try {
       const rdb2 = require('./reports-db');
       if (typeof rdb2.getMonthlyHelpdeskHistory === 'function') {
-        dbRows = rdb2.getMonthlyHelpdeskHistory(12) || [];
+        dbRows = await rdb2.getMonthlyHelpdeskHistory(12) || [];
       }
     } catch(e) { console.warn('[monthly-summary] DB lookup failed:', e.message); }
 
@@ -3499,7 +3401,7 @@ app.get('/api/data/ageing-by-site', requireReportSession, async (req, res) => {
     try {
       const rdb2 = require('./reports-db');
       if (typeof rdb2.getAgeingBySiteDB === 'function') {
-        result = rdb2.getAgeingBySiteDB() || [];
+        result = await rdb2.getAgeingBySiteDB() || [];
       }
     } catch(e) { console.warn('[ageing-by-site] DB lookup failed:', e.message); }
 
@@ -3550,7 +3452,7 @@ app.get('/api/data/ageing-by-group', requireReportSession, async (req, res) => {
       const rdb2 = require('./reports-db');
       if (typeof rdb2.getAgeingByGroupDB === 'function') {
         // Map DB shape → legacy chart shape: rename slaPct → slaCompliance.
-        result = (rdb2.getAgeingByGroupDB() || []).map(g => ({
+        result = (await rdb2.getAgeingByGroupDB() || []).map(g => ({
           group:         g.group,
           site:          '',       // legacy column — present but blank for DB-direct
           t0_30:         g.t0_30,
@@ -6415,11 +6317,14 @@ async function start() {
     // ── Startup pre-warm: load SQLite cache immediately so first user load never
     // blocks. Skip the Zoho API attempt here — startup requests sync (below) will
     // fetch any new tickets and trigger a full cache rebuild once it completes.
-    setTimeout(() => {
+    setTimeout(async () => {
       console.log('[startup] 🔄 Pre-warming raw request cache from SQLite…');
-      _rebuildCacheFromSQLite();
+      await _rebuildCacheFromSQLite();
     }, 3000);
   });
 }
 
-start();
+// Boot only when run directly (pm2/prod); skip when required by a test harness so the
+// express app can be mounted in-process (http.createServer(app)) without binding a port.
+if (require.main === module) start();
+module.exports = { app };

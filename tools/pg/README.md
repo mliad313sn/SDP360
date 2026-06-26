@@ -335,7 +335,42 @@ DB layer DONE + green (`tests/pg-reports-aggregates.test.js`, now 13; 4D-2d adde
 **4D-2 KPI-aggregate half COMPLETE** (4D-2a request KPIs · 4D-2b SLA/ageing/trend · 4D-2c change/CAB ·
 4D-2d survey — 13 shared-suite tests; 37/37 reports.db pg).
 
-**DEFERRED (post-4D-2):** **4D-wiring** — server.js `_rawCache` rebuild (`_rebuildCacheFromSQLite`
-via getRequestRecords) + `/api/sync/*` + `/api/data/*` + report/save/PPTX route `await` (one
-coordinated pass). **4B-RR** — `rr_site_aliases` (risk-register own handle). The
-`REPORTS_BACKEND=postgres` prod flip needs 4D-wiring + 4B-RR + a full KPI reconciliation.
+## reports.db — Sub-chunk 4D-wiring-1 (server.js hot dashboard path) — `feat/pg-reports-wiring-1`
+
+First of two wiring passes — the **HTTP-handler layer** that consumes the forked DB fns so the
+Helpdesk/Analytics dashboard works in pg mode. (4D-wiring-2 = PPTX/report + `/api/reports/*` config
+routes.) Behaviour-preserving in sqlite mode (`await` on a sync value is a no-op). Same `REPORTS_BACKEND`
+flag.
+
+- **3 new forked readers** in `reports-db.js` (replace raw-sqlite-handle reads that broke in pg mode):
+  - `getRequestRecordsSince(cutoffISO)` — `SELECT * … WHERE created_time >= ? ORDER BY created_time ASC`
+    (unpaginated; feeds `_rebuildCacheFromSQLite` → the `_rawCache` → `/api/data/requests-raw`). Raw-ISO
+    cutoff UNCHANGED.
+  - `getSurveyKpisDB({yr,mo,groups})` — `/api/survey/kpis`; two queries (period+group-filtered scores;
+    12-mo trend) with `strftime → to_char`, the LEFT JOIN `sr.request_id=rr.request_id`, lexical q2
+    cutoff UNCHANGED. Returns `{rows1, rows2}`; the route keeps its JS reductions.
+  - `getSubmissionChannelsDB({yr,mo,site,groups})` — `/api/data/submission-channels`; `strftime → to_char`,
+    `GROUP BY channel` (CASE-alias, no shadowing). **Also fixes a latent positional-param bug** in the
+    route it replaces (WHERE order date/site/groups vs param order date/group/site) via a
+    consistent-order shared WHERE builder.
+- **~26 route awaits** (hot dashboard path): 14 `/api/data/*` (await INSIDE the inner `try`, `||[]`
+  fallback preserved) + `/api/survey/summary` + `/api/survey/by-dimension` (already-async, +await);
+  5 `/api/metrics/*` + `/api/sync/status` + 5 raw-data (`/api/change|cab|survey|survey-answers|requests`)
+  made `async` + `await` (the `getSyncStatus().find(...)` precedence wrapped as
+  `(await getSyncStatus()).find(...)`).
+- **`_rebuildCacheFromSQLite` rewired** to `await getRequestRecordsSince(...)` (works in pg mode) +
+  the two boot pre-warm `setTimeout` callbacks made `async`+`await`.
+- **Test enabler:** `server.js` now exports `{ app }` and guards `start()` with
+  `if (require.main === module)` so the new **`tests/server-routes-smoke.test.js`** mounts the app
+  in-process (`http.createServer(app)`), authenticates (`X-Dash-Key` + `x-report-token` from
+  `rdb.login`, seeded admin), and asserts 6 hot-path routes return 200 in sqlite mode. Run with
+  `--test-force-exit`; harness sets dummy `ZOHO_*` (top-level REQUIRED_ENV presence check) + seeds a
+  few `request_records` rows so DB routes don't hit the Zoho fallback. `tests/pg-reports-aggregates.test.js`
+  +1 (the 3 readers). 38/38 reports.db pg green; sqlite sync smoke for all 3 readers.
+
+**DEFERRED:** **4D-wiring-2** — the PPTX/report routes (`/api/reports/monthly|weekly|yearly…/pptx`,
+`getMonthlyData`/`getWeekSummaryData`/`getOpenChangesForSite`/`getActiveMajorIncidentsForSite`) + the
+`/api/reports/*` config routes (sites/departments/groupPresets — `listSites`/`updateSite`/etc.) + the
+admin/sync raw-`db` handles (`/api/admin/refresh-major-incident-udfs`, the `rr.*(rdb.db)` /
+`groupPresets.*(rdb.db)` passthroughs). **4B-RR** — `rr_site_aliases`. The
+`REPORTS_BACKEND=postgres` prod flip needs 4D-wiring-2 + 4B-RR + a full KPI reconciliation.
