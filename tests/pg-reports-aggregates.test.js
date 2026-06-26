@@ -488,3 +488,13 @@ test('agg pg: getRequestRecordsSince + getSurveyKpisDB + getSubmissionChannelsDB
     assert.equal(kg.rows1[0].overall_score, 90);
   } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
 });
+
+test('agg pg: requestRecordExists (wiring-2 helper)', async (t) => {
+  const b = await boot(); if (!b) return t.skip('no pg');
+  const { ctx, rdb } = b;
+  try {
+    await rdb.upsertRequestBatch([_req({ request_id:'EX1', created_time:'2026-05-01 09:00:00' })]);
+    assert.equal(await rdb.requestRecordExists('EX1'), true);
+    assert.equal(await rdb.requestRecordExists('NOPE'), false);
+  } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
+});

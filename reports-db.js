@@ -1722,6 +1722,38 @@ async function _deleteReportPg(id) {
   });
 }
 
+// 4D-wiring-2: reassign a report to a new week — tx conflict-check then UPDATE. Returns
+// {duplicateReportId} (the occupying report id, or null if reassigned). updated_at is TIMESTAMPTZ
+// → now() in pg (matching touchReport/updateReportStatus), datetime('now') in sqlite.
+function reassignReportWeek({ reportId, siteId, newWeekId } = {}) {
+  if (REPORTS_BACKEND === 'postgres') return _reassignReportWeekPg({ reportId, siteId, newWeekId });
+  return _reassignReportWeekSqlite({ reportId, siteId, newWeekId });
+}
+const _reassignReportWeekSqlite = db.transaction(({ reportId, siteId, newWeekId }) => {
+  const dup = db.prepare('SELECT id FROM weekly_reports WHERE site_id=? AND week_id=? AND id!=?').get(siteId, newWeekId, reportId);
+  if (dup) return { duplicateReportId: dup.id };
+  db.prepare("UPDATE weekly_reports SET week_id=?, updated_at=datetime('now') WHERE id=?").run(newWeekId, reportId);
+  return { duplicateReportId: null };
+});
+async function _reassignReportWeekPg({ reportId, siteId, newWeekId }) {
+  const H = pgHandle();
+  return await H.runTransaction(async () => {
+    const dup = await H.prepare('SELECT id FROM weekly_reports WHERE site_id=? AND week_id=? AND id!=?').get(siteId, newWeekId, reportId);
+    if (dup) return { duplicateReportId: dup.id };
+    await H.prepare('UPDATE weekly_reports SET week_id=?, updated_at=now() WHERE id=?').run(newWeekId, reportId);
+    return { duplicateReportId: null };
+  });
+}
+
+// 4D-wiring-2: existence check for the refresh-major-incident-udfs diagnostic.
+function requestRecordExists(requestId) {
+  if (REPORTS_BACKEND === 'postgres') return _requestRecordExistsPg(requestId);
+  return !!db.prepare('SELECT 1 FROM request_records WHERE request_id = ? LIMIT 1').get(requestId);
+}
+async function _requestRecordExistsPg(requestId) {
+  return !!(await pgHandle().prepare('SELECT 1 FROM request_records WHERE request_id = ? LIMIT 1').get(requestId));
+}
+
 function touchReport(report_id) {
   if (REPORTS_BACKEND === 'postgres') return _touchReportPg(report_id);
   db.prepare(`UPDATE weekly_reports SET updated_at=datetime('now') WHERE id=?`).run(report_id);
@@ -5663,6 +5695,7 @@ module.exports = {
   listDepartments, createDepartment, updateDepartment, setDepartmentActive,
   getPreviousWeekInfraKpis,
   updateReportStatus, touchReport, deleteReport,
+  reassignReportWeek, requestRecordExists,   // 4D-wiring-2 helpers
   getMonthlyData, getWeekSummaryData, getYearlySummary, getCalendarMonthlyHelpdesk, getCalendarMonthlyTop10, getHelpdesk6MonthHistory,
   getMonthlyHelpdeskHistory, getMajorIncidentsHistory, getChangeRecordsHistory,
   fmtDowntime,   // shared formatter — kept in sync with public/lib/dashboard-shared.js
