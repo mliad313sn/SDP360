@@ -61,6 +61,23 @@ on a real column all work as-is in pg). New for 4D-2c:
   (feeds `AVG` then `ROUND(...::numeric,1)` per the rule above). The `NULLIF(x,'')` guards blank
   rows; the WHERE already filters `IS NOT NULL` + `status='Completed'`. (getChangeMetrics avg_completion_days.)
 
+## Pre-existing crash bug bundled (getCabApprovalsDB / getCabRecommendationsDB)
+
+Both CAB-join functions `SELECT … c.site AS site …` from `change_records c`, but **`change_records`
+has no `site` column — only `site_id`** (verified against the live `data/reports.db`, the sqlite
+test schema, and `004_hot.sql`). So **both functions throw `no such column: c.site` on EVERY call
+today** — they have never returned a row; there is no output to "preserve". A PG fork that copied the
+SQL verbatim would error identically (`column c.site does not exist`) and be untestable.
+
+**Decision (bundled corrective fix):** drop `c.site AS site` from the SELECT in BOTH the sqlite body
+AND the pg fork of BOTH functions. The JS map already does `'Site': r.site || ''`, so `'Site'`
+becomes `''` — which matches the documented reality that the Zoho change view "ships Site as an empty
+string" (see `getChangeRecordsHistory`'s comment). This is strictly corrective (a guaranteed crash →
+a working call), keeps sqlite≡pg, and is the minimum change. It is NOT a behavioural regression
+because the prior "behaviour" was an unconditional exception. Flagged in the commit message + README.
+(This is a DIFFERENT bug from getEmergencyChangesDB's `r.change_status`/`r.planned_start_time`
+non-existent-column *reads*, which are harmless under `SELECT *` and stay untouched.)
+
 ## Per-function notes
 
 - **`getEmergencyChangesDB(monthsBack=12)`** — `SELECT * FROM change_records WHERE
@@ -74,10 +91,11 @@ on a real column all work as-is in pg). New for 4D-2c:
 - **`getCabApprovalsDB(monthsBack=12)`** — `cab_approvals a LEFT JOIN change_records c ON
   c.change_id=a.change_id`, `WHERE a.recommendation_requested >= ? OR a.recommendation_requested IS
   NULL`, `ORDER BY a.recommendation_requested DESC NULLS LAST LIMIT 500`. Raw ISO bound UNCHANGED;
-  `NULLS LAST` + `LEFT JOIN` valid in pg. pg fork awaits, reuses the JS map.
+  `NULLS LAST` + `LEFT JOIN` valid in pg. **Drop the `c.site AS site` column from BOTH branches**
+  (see "Pre-existing crash bug" above) → `'Site'` maps to `''`. pg fork awaits, reuses the JS map.
 - **`getCabRecommendationsDB(monthsBack=12)`** — same join, `WHERE a.turnaround_minutes IS NOT NULL
   AND a.recommendation_requested >= ? ORDER BY a.recommendation_requested DESC LIMIT 500`. Raw ISO
-  bound UNCHANGED. pg fork awaits, reuses the JS map.
+  bound UNCHANGED. **Same `c.site` drop in BOTH branches.** pg fork awaits, reuses the JS map.
 - **`getChangeRecordsHistory(monthsBack=12)`** — TWO queries: (1) `SELECT name, zoho_group FROM sites
   WHERE active = 1` (builds the group→site name map), (2) `SELECT * FROM change_records WHERE
   created_time >= ? ORDER BY created_time DESC` (raw ISO bound UNCHANGED). pg fork MUST `await` BOTH;
