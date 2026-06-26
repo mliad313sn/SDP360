@@ -221,9 +221,48 @@ the tables; 4D-2a is pure read-fork + tests.
   `avg_tta_h=2`/`avg_resolution_d=1`, GROUP BY 1 NULL+'' category collapse to one Uncategorised,
   P-Label resolution). sqlite synchronous-return smoke confirms the default path stays sync.
 
-**DEFERRED:** **4D-2b** (request SLA/ageing/trend: `getAgeing{Summary,ByGroup,BySite}DB`,
-`getSlaTrendDB`, `getSlaByCategoryDB`, `getFirstResponseTrendDB`, `getGroupRequestsDB`,
-`getIncidentVsSrDB`); **4D-2c** (change/CAB: `getChangeMetrics`, `getChangeRecordsHistory`,
+## reports.db — Sub-chunk 4D-2b (request SLA / ageing / trend) — `feat/pg-reports-agg-sla`
+
+Second of four 4D-2 sub-chunks. DB layer DONE + green (`tests/pg-reports-aggregates.test.js`, now 9
+tests — the shared 4D-2 suite; 4D-2b added 3). Same `REPORTS_BACKEND` flag. **No schema, no copy
+script** — 4D-1 owns the tables. All 8 fns read ONLY `request_records`.
+
+- **8 read fns forked** in `reports-db.js`: `getAgeingBySiteDB`, `getAgeingByGroupDB`,
+  `getAgeingSummaryDB`, `getSlaTrendDB`, `getSlaByCategoryDB`, `getFirstResponseTrendDB`,
+  `getGroupRequestsDB`, `getIncidentVsSrDB`. Each reuses the 4D-2a dialect contract; pure-JS
+  `.map`/pivot transforms extracted to shared helpers (`_mapAgeing{Site,Group,Summary}`,
+  `_mapSlaTrend`, `_mapSlaByCategory`, `_mapFrtTrend`, `_mapIncidentVsSr`).
+- **Two NEW divergences beyond 4D-2a's contract:**
+  - **`HAVING` on an output alias** — sqlite allows `HAVING total > 0` / `>= 5`; **Postgres does
+    NOT allow output aliases in HAVING** → repeat the aggregate: `HAVING COUNT(*) > 0` / `>= 5`
+    (getAgeingBySiteDB / getAgeingByGroupDB / getSlaByCategoryDB).
+  - **`ORDER BY` on an alias EXPRESSION** — sqlite allows `ORDER BY (d0_30 + d31_45 + d46_60 +
+    d_over_60) DESC`; **Postgres allows a *bare* output alias in ORDER BY but NOT an expression
+    built from aliases** → repeat the four `SUM(CASE …)` expressions (getAgeingSummaryDB only).
+    Bare-alias ORDER BY (`total`, `yyyymm`, `cnt`, `violated_closed`) is fine as-is.
+- **`CAST(... AS INTEGER)` rounds in PG, truncates in sqlite** — ageing buckets use
+  `CAST((julianday('now') - julianday(created_time)) AS INTEGER)` (= days). sqlite truncates toward
+  zero; pg `CAST(double AS integer)` ROUNDS half-to-even → a ticket on a bucket boundary shifts.
+  Reproduce sqlite truncation with `TRUNC(EXTRACT(EPOCH FROM (now() - created_time::timestamptz)) /
+  86400)::integer` (TRUNC, not CAST).
+- **`datetime('now','-12 months')`** (getSlaByCategoryDB) → typed `created_time::timestamptz >=
+  now() - interval '12 months'`.
+- **`GROUP BY` on a simple alias is SAFE in pg** — `yyyymm`/`grp`/`cat`/`site` don't shadow a
+  transformed input column (unlike 4D-2a's `COALESCE(NULLIF(category,'')) AS category` → `GROUP BY 1`).
+  Kept readable.
+- **Mixed-case alias must be quoted in pg** — `SUM(...) AS tOver60` folds to `tover60` unquoted, so
+  the shared mapper's `r.tOver60` reads undefined. Quote it: `AS "tOver60"` (getAgeingByGroupDB).
+- **Denominator doctrine preserved** — getSlaTrendDB / getSlaByCategoryDB keep closed-only
+  (`pending_status=0`) + responded-only (`responded_time` set) denominators verbatim.
+- **`getSlaByCategoryDB` shape quirk preserved** — `'% of SLA Violated'` is a STRING `pct+'%'`
+  (consumer calls `.replace('%','')`), NOT a number.
+- **raw ISO cutoff** (the 4 trend fns bind `cutoff.toISOString()` against `created_time >= ?`) left
+  UNCHANGED (lexical TEXT compare, same as 4D-2a). pg forks query `pgHandle()`, never `db`.
+- Tests exercise mid-bucket ageing seeds (robust to wall-clock skew), the ORDER-BY repeated-SUM
+  sort, closed-only/responded-only SLA% (whole-month aggregate → 71.4 / 25), the `>= 5` HAVING drop,
+  and the EXTRACT-EPOCH FRT/RT trend. sqlite synchronous-return smoke covers all 8.
+
+**DEFERRED:** **4D-2c** (change/CAB: `getChangeMetrics`, `getChangeRecordsHistory`,
 `getOpenChangesForSite`, `getEmergencyChangesDB`, `getCABMetrics`, `getCabApprovalsDB`,
 `getCabRecommendationsDB`); **4D-2d** (survey: `getSurveyMetrics`, `getCustomerVoiceDB`,
 `getCustomerVoiceByDimensionDB`). Plus server.js `_rawCache` rebuild + `/api/sync/*` + `/api/data/*`

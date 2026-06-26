@@ -2274,6 +2274,7 @@ function fmtDowntime(hours) {
  * by total descending so the biggest backlog sites appear first.
  */
 function getAgeingBySiteDB() {
+  if (REPORTS_BACKEND === 'postgres') return _getAgeingBySiteDBPg();
   const rows = db.prepare(`
     SELECT site,
            SUM(CASE WHEN age_days <=  30                  THEN 1 ELSE 0 END) AS d0,
@@ -2295,6 +2296,36 @@ function getAgeingBySiteDB() {
     HAVING total > 0
     ORDER BY total DESC
   `).all();
+  return _mapAgeingSite(rows);
+}
+// PG fork — CAST(julianday-days AS INTEGER) → TRUNC(EXTRACT-EPOCH/86400)::integer (sqlite
+// CAST truncates; pg CAST rounds). HAVING output-alias → HAVING COUNT(*) (pg forbids alias).
+// Derived table aliased `q` (pg requires it).
+async function _getAgeingBySiteDBPg() {
+  const rows = await pgHandle().prepare(`
+    SELECT site,
+           SUM(CASE WHEN age_days <=  30                  THEN 1 ELSE 0 END) AS d0,
+           SUM(CASE WHEN age_days >   30 AND age_days<=45 THEN 1 ELSE 0 END) AS d31,
+           SUM(CASE WHEN age_days >   45 AND age_days<=60 THEN 1 ELSE 0 END) AS d46,
+           SUM(CASE WHEN age_days >   60                  THEN 1 ELSE 0 END) AS d60,
+           COUNT(*) AS total
+    FROM (
+      SELECT site,
+             TRUNC(EXTRACT(EPOCH FROM (now() - created_time::timestamptz)) / 86400)::integer AS age_days
+      FROM request_records
+      WHERE pending_status = 1
+        AND site IS NOT NULL
+        AND TRIM(site) != ''
+        AND LOWER(TRIM(site)) NOT IN ('-no value-', '-no value', 'no value', '(blank)')
+        AND created_time IS NOT NULL
+    ) q
+    GROUP BY site
+    HAVING COUNT(*) > 0
+    ORDER BY total DESC
+  `).all();
+  return _mapAgeingSite(rows);
+}
+function _mapAgeingSite(rows) {
   return rows.map(r => ({
     site:  r.site,
     d0:    r.d0   || 0,
@@ -2319,6 +2350,7 @@ function getAgeingBySiteDB() {
  * Rendered next to the group name in the executive.html table.
  */
 function getAgeingByGroupDB() {
+  if (REPORTS_BACKEND === 'postgres') return _getAgeingByGroupDBPg();
   const rows = db.prepare(`
     SELECT tech_group AS grp,
            SUM(CASE WHEN age_days <=  30                  THEN 1 ELSE 0 END) AS t0_30,
@@ -2342,6 +2374,37 @@ function getAgeingByGroupDB() {
     HAVING total > 0
     ORDER BY total DESC
   `).all();
+  return _mapAgeingGroup(rows);
+}
+// PG fork — same TRUNC-days + HAVING COUNT(*) rewrites; `sla_pct` 100.0 literal is numeric
+// so the division resolves natively; derived table aliased `q`.
+async function _getAgeingByGroupDBPg() {
+  const rows = await pgHandle().prepare(`
+    SELECT tech_group AS grp,
+           SUM(CASE WHEN age_days <=  30                  THEN 1 ELSE 0 END) AS t0_30,
+           SUM(CASE WHEN age_days >   30 AND age_days<=45 THEN 1 ELSE 0 END) AS t31_45,
+           SUM(CASE WHEN age_days >   45 AND age_days<=60 THEN 1 ELSE 0 END) AS t46_60,
+           SUM(CASE WHEN age_days >   60                  THEN 1 ELSE 0 END) AS "tOver60",
+           COUNT(*) AS total,
+           SUM(CASE WHEN frt_ok = 1 THEN 1 ELSE 0 END) * 100.0 / NULLIF(COUNT(*),0) AS sla_pct
+    FROM (
+      SELECT tech_group,
+             TRUNC(EXTRACT(EPOCH FROM (now() - created_time::timestamptz)) / 86400)::integer AS age_days,
+             CASE WHEN LOWER(TRIM(COALESCE(first_response_overdue,''))) IN ('true','yes','1')
+                  THEN 0 ELSE 1 END AS frt_ok
+      FROM request_records
+      WHERE pending_status = 1
+        AND tech_group IS NOT NULL
+        AND TRIM(tech_group) != ''
+        AND created_time IS NOT NULL
+    ) q
+    GROUP BY grp
+    HAVING COUNT(*) > 0
+    ORDER BY total DESC
+  `).all();
+  return _mapAgeingGroup(rows);
+}
+function _mapAgeingGroup(rows) {
   return rows.map(r => ({
     group:    r.grp,
     t0_30:    r.t0_30   || 0,
@@ -2368,6 +2431,7 @@ function getAgeingByGroupDB() {
  * stuck ticket from blowing the monthly mean.
  */
 function getFirstResponseTrendDB(monthsBack = 12) {
+  if (REPORTS_BACKEND === 'postgres') return _getFirstResponseTrendDBPg(monthsBack);
   const cutoff = new Date();
   cutoff.setMonth(cutoff.getMonth() - monthsBack + 1);
   cutoff.setDate(1); cutoff.setHours(0,0,0,0);
@@ -2389,6 +2453,37 @@ function getFirstResponseTrendDB(monthsBack = 12) {
     ORDER BY yyyymm
   `).all(cutoffISO);
 
+  return _mapFrtTrend(rows);
+}
+// PG fork — strftime→to_char; julianday-hours `*24` → EXTRACT-EPOCH/3600; julianday-days →
+// /86400 (incl the 365-day RT cap); raw ISO cutoff UNCHANGED; GROUP BY yyyymm safe. AVG keeps
+// the float (no TRUNC). String compares `responded_time > created_time` are lexical (same in
+// both engines on these ISO-ish TEXT values), left unchanged.
+async function _getFirstResponseTrendDBPg(monthsBack = 12) {
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - monthsBack + 1);
+  cutoff.setDate(1); cutoff.setHours(0,0,0,0);
+  const cutoffISO = cutoff.toISOString();
+
+  const rows = await pgHandle().prepare(`
+    SELECT to_char(created_time::timestamptz, 'YYYY-MM') AS yyyymm,
+           AVG(CASE WHEN responded_time IS NOT NULL AND responded_time > created_time
+                    THEN EXTRACT(EPOCH FROM (responded_time::timestamptz - created_time::timestamptz)) / 3600
+                    END) AS avg_frt_hrs,
+           AVG(CASE WHEN resolved_time IS NOT NULL AND resolved_time > created_time
+                         AND EXTRACT(EPOCH FROM (resolved_time::timestamptz - created_time::timestamptz)) / 86400 <= 365
+                    THEN EXTRACT(EPOCH FROM (resolved_time::timestamptz - created_time::timestamptz)) / 86400
+                    END) AS avg_rt_days,
+           COUNT(*) AS n
+    FROM request_records
+    WHERE created_time >= ?
+    GROUP BY yyyymm
+    ORDER BY yyyymm
+  `).all(cutoffISO);
+
+  return _mapFrtTrend(rows);
+}
+function _mapFrtTrend(rows) {
   const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   return rows.map(r => {
     // yyyymm is "2026-04" — convert to "Apr 2026"
@@ -2538,6 +2633,7 @@ function getCustomerVoiceDB(monthsBack = 12) {
  * render time (see line ~8054), so we don't pre-invert here.
  */
 function getSlaTrendDB(monthsBack = 12) {
+  if (REPORTS_BACKEND === 'postgres') return _getSlaTrendDBPg(monthsBack);
   const cutoff = new Date();
   cutoff.setMonth(cutoff.getMonth() - monthsBack + 1);
   cutoff.setDate(1); cutoff.setHours(0,0,0,0);
@@ -2564,6 +2660,35 @@ function getSlaTrendDB(monthsBack = 12) {
     ORDER BY yyyymm
   `).all(cutoffISO);
 
+  return _mapSlaTrend(rows);
+}
+// PG fork — strftime→to_char; closed-only / responded-only denominators preserved; the raw
+// ISO cutoff (`created_time >= ?`) is a lexical TEXT compare, left UNCHANGED. GROUP BY yyyymm
+// (alias doesn't shadow a column) is safe.
+async function _getSlaTrendDBPg(monthsBack = 12) {
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - monthsBack + 1);
+  cutoff.setDate(1); cutoff.setHours(0,0,0,0);
+  const cutoffISO = cutoff.toISOString();
+
+  const rows = await pgHandle().prepare(`
+    SELECT to_char(created_time::timestamptz, 'YYYY-MM') AS yyyymm,
+           COUNT(*) AS total,
+           SUM(CASE WHEN pending_status = 0 THEN 1 ELSE 0 END) AS closed,
+           SUM(CASE WHEN pending_status = 0 AND overdue_status = 1 THEN 1 ELSE 0 END) AS sla_viol_closed,
+           SUM(CASE WHEN responded_time IS NOT NULL AND responded_time != '' THEN 1 ELSE 0 END) AS responded,
+           SUM(CASE WHEN responded_time IS NOT NULL AND responded_time != ''
+                     AND LOWER(TRIM(COALESCE(first_response_overdue,''))) IN ('true','yes','1')
+                    THEN 1 ELSE 0 END) AS frt_viol_responded
+    FROM request_records
+    WHERE created_time >= ?
+    GROUP BY yyyymm
+    ORDER BY yyyymm
+  `).all(cutoffISO);
+
+  return _mapSlaTrend(rows);
+}
+function _mapSlaTrend(rows) {
   const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   return rows.map(r => {
     const [yr, mo] = (r.yyyymm || '').split('-').map(Number);
@@ -2590,6 +2715,7 @@ function getSlaTrendDB(monthsBack = 12) {
  * Consumer at executive.html:8643 reads r['Category'] + r['% of SLA Violated'].
  */
 function getSlaByCategoryDB() {
+  if (REPORTS_BACKEND === 'postgres') return _getSlaByCategoryDBPg();
   // 2026-06-02 ITSM-alignment (FORMULA_RECONCILIATION.md §6 D2):
   // SLA violation % per category uses the closed-only denominator. AP
   // `/total` previously inflated open-heavy categories' apparent SLA
@@ -2612,6 +2738,31 @@ function getSlaByCategoryDB() {
     LIMIT 20
   `).all();
 
+  return _mapSlaByCategory(rows);
+}
+// PG fork — datetime('now','-12 months') → typed `created_time::timestamptz >= now() -
+// interval '12 months'`; HAVING output-alias → HAVING COUNT(*) >= 5; GROUP BY cat (alias ≠
+// the `category` column, so no shadowing) safe; closed-only denominator preserved.
+async function _getSlaByCategoryDBPg() {
+  const rows = await pgHandle().prepare(`
+    SELECT TRIM(COALESCE(category, '(Uncategorised)')) AS cat,
+           COUNT(*) AS total,
+           SUM(CASE WHEN pending_status = 0 THEN 1 ELSE 0 END) AS closed,
+           SUM(CASE WHEN pending_status = 0 AND overdue_status = 1 THEN 1 ELSE 0 END) AS violated_closed
+    FROM request_records
+    WHERE created_time::timestamptz >= now() - interval '12 months'
+      AND category IS NOT NULL
+      AND TRIM(category) != ''
+      AND LOWER(TRIM(category)) NOT IN ('-no value-', '-no value', 'no value', '(blank)')
+    GROUP BY cat
+    HAVING COUNT(*) >= 5
+    ORDER BY violated_closed DESC, total DESC
+    LIMIT 20
+  `).all();
+
+  return _mapSlaByCategory(rows);
+}
+function _mapSlaByCategory(rows) {
   return rows.map(r => {
     // Per-category ITSM violation %. Denominator = closed-in-category, NULL when
     // a category has no closed tickets in the rolling window (rare — but emit
@@ -2641,12 +2792,31 @@ function getSlaByCategoryDB() {
  *   [{ Group: 'MANA IT Agent', 'Request Count': 412 }, …]
  */
 function getGroupRequestsDB(monthsBack = 12) {
+  if (REPORTS_BACKEND === 'postgres') return _getGroupRequestsDBPg(monthsBack);
   const cutoff = new Date();
   cutoff.setMonth(cutoff.getMonth() - monthsBack + 1);
   cutoff.setDate(1); cutoff.setHours(0,0,0,0);
   const cutoffISO = cutoff.toISOString();
 
   const rows = db.prepare(`
+    SELECT tech_group AS grp, COUNT(*) AS cnt
+    FROM request_records
+    WHERE created_time >= ?
+      AND tech_group IS NOT NULL
+      AND TRIM(tech_group) != ''
+    GROUP BY grp
+    ORDER BY cnt DESC
+  `).all(cutoffISO);
+  return rows.map(r => ({ 'Group': r.grp, 'Request Count': r.cnt }));
+}
+// PG fork — no strftime/julianday; raw ISO cutoff UNCHANGED; GROUP BY grp safe.
+async function _getGroupRequestsDBPg(monthsBack = 12) {
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - monthsBack + 1);
+  cutoff.setDate(1); cutoff.setHours(0,0,0,0);
+  const cutoffISO = cutoff.toISOString();
+
+  const rows = await pgHandle().prepare(`
     SELECT tech_group AS grp, COUNT(*) AS cnt
     FROM request_records
     WHERE created_time >= ?
@@ -2703,6 +2873,7 @@ function getEmergencyChangesDB(monthsBack = 12) {
  * by upstream code that wants the raw pivot, so we preserve it.
  */
 function getAgeingSummaryDB() {
+  if (REPORTS_BACKEND === 'postgres') return _getAgeingSummaryDBPg();
   const rows = db.prepare(`
     SELECT tech_group AS grp,
            SUM(CASE WHEN age_days <= 30                  THEN 1 ELSE 0 END) AS d0_30,
@@ -2721,7 +2892,37 @@ function getAgeingSummaryDB() {
     GROUP BY grp
     ORDER BY (d0_30 + d31_45 + d46_60 + d_over_60) DESC
   `).all();
-
+  return _mapAgeingSummary(rows);
+}
+// PG fork — TRUNC-days; NO HAVING (matches source). ORDER BY is an EXPRESSION over output
+// aliases (pg forbids that) → repeat the four SUM(CASE …) expressions. Derived table aliased `q`.
+async function _getAgeingSummaryDBPg() {
+  const rows = await pgHandle().prepare(`
+    SELECT tech_group AS grp,
+           SUM(CASE WHEN age_days <= 30                  THEN 1 ELSE 0 END) AS d0_30,
+           SUM(CASE WHEN age_days > 30 AND age_days<=45  THEN 1 ELSE 0 END) AS d31_45,
+           SUM(CASE WHEN age_days > 45 AND age_days<=60  THEN 1 ELSE 0 END) AS d46_60,
+           SUM(CASE WHEN age_days > 60                   THEN 1 ELSE 0 END) AS d_over_60
+    FROM (
+      SELECT tech_group,
+             TRUNC(EXTRACT(EPOCH FROM (now() - created_time::timestamptz)) / 86400)::integer AS age_days
+      FROM request_records
+      WHERE pending_status = 1
+        AND tech_group IS NOT NULL
+        AND TRIM(tech_group) != ''
+        AND created_time IS NOT NULL
+    ) q
+    GROUP BY grp
+    ORDER BY (
+        SUM(CASE WHEN age_days <= 30                  THEN 1 ELSE 0 END)
+      + SUM(CASE WHEN age_days > 30 AND age_days<=45  THEN 1 ELSE 0 END)
+      + SUM(CASE WHEN age_days > 45 AND age_days<=60  THEN 1 ELSE 0 END)
+      + SUM(CASE WHEN age_days > 60                   THEN 1 ELSE 0 END)
+    ) DESC
+  `).all();
+  return _mapAgeingSummary(rows);
+}
+function _mapAgeingSummary(rows) {
   // Zoho ships a pivoted shape — one row per (Group, Tier). Emit the same
   // for max consumer-side compatibility, but ALSO include the wide-form
   // fields so callers that want a single row per group can use them too.
@@ -2752,6 +2953,7 @@ function getAgeingSummaryDB() {
  *   [{ 'Created Time': 'Apr 2026', 'Incidents': 432, 'Service Requests': 1203 }, …]
  */
 function getIncidentVsSrDB(monthsBack = 12) {
+  if (REPORTS_BACKEND === 'postgres') return _getIncidentVsSrDBPg(monthsBack);
   const cutoff = new Date();
   cutoff.setMonth(cutoff.getMonth() - monthsBack + 1);
   cutoff.setDate(1); cutoff.setHours(0,0,0,0);
@@ -2767,6 +2969,29 @@ function getIncidentVsSrDB(monthsBack = 12) {
     ORDER BY yyyymm
   `).all(cutoffISO);
 
+  return _mapIncidentVsSr(rows);
+}
+// PG fork — strftime→to_char; raw ISO cutoff UNCHANGED; GROUP BY yyyymm safe;
+// service_request is INTEGER so the = 0/1 compares are unchanged.
+async function _getIncidentVsSrDBPg(monthsBack = 12) {
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - monthsBack + 1);
+  cutoff.setDate(1); cutoff.setHours(0,0,0,0);
+  const cutoffISO = cutoff.toISOString();
+
+  const rows = await pgHandle().prepare(`
+    SELECT to_char(created_time::timestamptz, 'YYYY-MM') AS yyyymm,
+           SUM(CASE WHEN service_request = 0 THEN 1 ELSE 0 END) AS incidents,
+           SUM(CASE WHEN service_request = 1 THEN 1 ELSE 0 END) AS srs
+    FROM request_records
+    WHERE created_time >= ?
+    GROUP BY yyyymm
+    ORDER BY yyyymm
+  `).all(cutoffISO);
+
+  return _mapIncidentVsSr(rows);
+}
+function _mapIncidentVsSr(rows) {
   const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   return rows.map(r => {
     const [yr, mo] = (r.yyyymm || '').split('-').map(Number);
