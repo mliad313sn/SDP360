@@ -164,3 +164,52 @@ test('agg pg: major-incident history + active', async (t) => {
     assert.ok(active.find(r => r.request_id === 'MI1'), 'open major incident for the group');
   } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
 });
+
+// ── 4D-2b — request SLA / ageing / trend ──────────────────────────────────
+test('agg pg: ageing buckets (site/group/summary) + TRUNC boundary + noise filter', async (t) => {
+  const b = await boot(); if (!b) return t.skip('no pg');
+  const { ctx, rdb } = b;
+  try {
+    const G = 'Hounde IT Agents';
+    // an OPEN row created N days ago (TEXT 'YYYY-MM-DD HH:MM:SS', UTC)
+    const daysAgo = (n) => new Date(Date.now() - n*86400000).toISOString().slice(0,19).replace('T',' ');
+    await rdb.upsertRequestBatch([
+      // Hounde site/group: one per bucket. 65d → >60; 50d → 46-60; 40d → 31-45; 10d → 0-30
+      _req({request_id:'AG1',tech_group:G,site:'Hounde',pending_status:1,created_time:daysAgo(65),first_response_overdue:'false'}),
+      _req({request_id:'AG2',tech_group:G,site:'Hounde',pending_status:1,created_time:daysAgo(50),first_response_overdue:'true'}),
+      _req({request_id:'AG3',tech_group:G,site:'Hounde',pending_status:1,created_time:daysAgo(40),first_response_overdue:'false'}),
+      _req({request_id:'AG4',tech_group:G,site:'Hounde',pending_status:1,created_time:daysAgo(10),first_response_overdue:'false'}),
+      // a second group with FEWER open rows → locks getAgeingSummaryDB ORDER BY (total DESC)
+      _req({request_id:'AG5',tech_group:'Mana IT Agents',site:'Mana',pending_status:1,created_time:daysAgo(5),first_response_overdue:'false'}),
+      // closed row — excluded from all ageing (pending_status=0)
+      _req({request_id:'AG6',tech_group:G,site:'Hounde',pending_status:0,created_time:daysAgo(70)}),
+      // noise site — dropped by getAgeingBySiteDB filter, but counted in the group path
+      _req({request_id:'AG7',tech_group:G,site:'-No Value-',pending_status:1,created_time:daysAgo(20)}),
+    ]);
+
+    const bySite = await rdb.getAgeingBySiteDB();
+    const hs = bySite.find(r => r.site === 'Hounde');
+    assert.ok(hs, 'Hounde site present');
+    assert.equal(hs.d0, 1); assert.equal(hs.d31, 1); assert.equal(hs.d46, 1); assert.equal(hs.d60, 1);
+    assert.equal(hs.total, 4, 'closed AG6 + noise AG7 excluded');
+    assert.ok(!bySite.find(r => String(r.site).toLowerCase().includes('no value')), 'noise site dropped');
+
+    const byGrp = await rdb.getAgeingByGroupDB();
+    const hg = byGrp.find(r => r.group === G);
+    assert.ok(hg, 'Hounde group present');
+    // AG7 has tech_group=G and is open → counted by GROUP (group path has NO site-noise filter).
+    // 5 open Hounde-group rows: 65d,50d,40d,10d,20d → >60:1, 46-60:1, 31-45:1, 0-30:2.
+    assert.equal(hg.total, 5, 'AG6 closed excluded; AG7 counted in group path');
+    assert.equal(hg.t0_30, 2);   // 10d + 20d
+    assert.equal(hg.t31_45, 1);  // 40d
+    assert.equal(hg.t46_60, 1);  // 50d
+    assert.equal(hg.tOver60, 1); // 65d
+    assert.ok(hg.slaPct >= 0 && hg.slaPct <= 100, 'frt slaPct in range');
+
+    const summ = await rdb.getAgeingSummaryDB();
+    const grps = summ.map(r => r['Group']);
+    const iH = grps.indexOf(G), iM = grps.indexOf('Mana IT Agents');
+    assert.ok(iH >= 0 && iM >= 0, 'both groups present');
+    assert.ok(iH < iM, 'higher-total Hounde group sorts before Mana (ORDER BY repeated-SUM)');
+  } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
+});

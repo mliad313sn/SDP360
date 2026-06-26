@@ -2274,6 +2274,7 @@ function fmtDowntime(hours) {
  * by total descending so the biggest backlog sites appear first.
  */
 function getAgeingBySiteDB() {
+  if (REPORTS_BACKEND === 'postgres') return _getAgeingBySiteDBPg();
   const rows = db.prepare(`
     SELECT site,
            SUM(CASE WHEN age_days <=  30                  THEN 1 ELSE 0 END) AS d0,
@@ -2295,6 +2296,36 @@ function getAgeingBySiteDB() {
     HAVING total > 0
     ORDER BY total DESC
   `).all();
+  return _mapAgeingSite(rows);
+}
+// PG fork — CAST(julianday-days AS INTEGER) → TRUNC(EXTRACT-EPOCH/86400)::integer (sqlite
+// CAST truncates; pg CAST rounds). HAVING output-alias → HAVING COUNT(*) (pg forbids alias).
+// Derived table aliased `q` (pg requires it).
+async function _getAgeingBySiteDBPg() {
+  const rows = await pgHandle().prepare(`
+    SELECT site,
+           SUM(CASE WHEN age_days <=  30                  THEN 1 ELSE 0 END) AS d0,
+           SUM(CASE WHEN age_days >   30 AND age_days<=45 THEN 1 ELSE 0 END) AS d31,
+           SUM(CASE WHEN age_days >   45 AND age_days<=60 THEN 1 ELSE 0 END) AS d46,
+           SUM(CASE WHEN age_days >   60                  THEN 1 ELSE 0 END) AS d60,
+           COUNT(*) AS total
+    FROM (
+      SELECT site,
+             TRUNC(EXTRACT(EPOCH FROM (now() - created_time::timestamptz)) / 86400)::integer AS age_days
+      FROM request_records
+      WHERE pending_status = 1
+        AND site IS NOT NULL
+        AND TRIM(site) != ''
+        AND LOWER(TRIM(site)) NOT IN ('-no value-', '-no value', 'no value', '(blank)')
+        AND created_time IS NOT NULL
+    ) q
+    GROUP BY site
+    HAVING COUNT(*) > 0
+    ORDER BY total DESC
+  `).all();
+  return _mapAgeingSite(rows);
+}
+function _mapAgeingSite(rows) {
   return rows.map(r => ({
     site:  r.site,
     d0:    r.d0   || 0,
@@ -2319,6 +2350,7 @@ function getAgeingBySiteDB() {
  * Rendered next to the group name in the executive.html table.
  */
 function getAgeingByGroupDB() {
+  if (REPORTS_BACKEND === 'postgres') return _getAgeingByGroupDBPg();
   const rows = db.prepare(`
     SELECT tech_group AS grp,
            SUM(CASE WHEN age_days <=  30                  THEN 1 ELSE 0 END) AS t0_30,
@@ -2342,6 +2374,37 @@ function getAgeingByGroupDB() {
     HAVING total > 0
     ORDER BY total DESC
   `).all();
+  return _mapAgeingGroup(rows);
+}
+// PG fork — same TRUNC-days + HAVING COUNT(*) rewrites; `sla_pct` 100.0 literal is numeric
+// so the division resolves natively; derived table aliased `q`.
+async function _getAgeingByGroupDBPg() {
+  const rows = await pgHandle().prepare(`
+    SELECT tech_group AS grp,
+           SUM(CASE WHEN age_days <=  30                  THEN 1 ELSE 0 END) AS t0_30,
+           SUM(CASE WHEN age_days >   30 AND age_days<=45 THEN 1 ELSE 0 END) AS t31_45,
+           SUM(CASE WHEN age_days >   45 AND age_days<=60 THEN 1 ELSE 0 END) AS t46_60,
+           SUM(CASE WHEN age_days >   60                  THEN 1 ELSE 0 END) AS "tOver60",
+           COUNT(*) AS total,
+           SUM(CASE WHEN frt_ok = 1 THEN 1 ELSE 0 END) * 100.0 / NULLIF(COUNT(*),0) AS sla_pct
+    FROM (
+      SELECT tech_group,
+             TRUNC(EXTRACT(EPOCH FROM (now() - created_time::timestamptz)) / 86400)::integer AS age_days,
+             CASE WHEN LOWER(TRIM(COALESCE(first_response_overdue,''))) IN ('true','yes','1')
+                  THEN 0 ELSE 1 END AS frt_ok
+      FROM request_records
+      WHERE pending_status = 1
+        AND tech_group IS NOT NULL
+        AND TRIM(tech_group) != ''
+        AND created_time IS NOT NULL
+    ) q
+    GROUP BY grp
+    HAVING COUNT(*) > 0
+    ORDER BY total DESC
+  `).all();
+  return _mapAgeingGroup(rows);
+}
+function _mapAgeingGroup(rows) {
   return rows.map(r => ({
     group:    r.grp,
     t0_30:    r.t0_30   || 0,
@@ -2703,6 +2766,7 @@ function getEmergencyChangesDB(monthsBack = 12) {
  * by upstream code that wants the raw pivot, so we preserve it.
  */
 function getAgeingSummaryDB() {
+  if (REPORTS_BACKEND === 'postgres') return _getAgeingSummaryDBPg();
   const rows = db.prepare(`
     SELECT tech_group AS grp,
            SUM(CASE WHEN age_days <= 30                  THEN 1 ELSE 0 END) AS d0_30,
@@ -2721,7 +2785,37 @@ function getAgeingSummaryDB() {
     GROUP BY grp
     ORDER BY (d0_30 + d31_45 + d46_60 + d_over_60) DESC
   `).all();
-
+  return _mapAgeingSummary(rows);
+}
+// PG fork — TRUNC-days; NO HAVING (matches source). ORDER BY is an EXPRESSION over output
+// aliases (pg forbids that) → repeat the four SUM(CASE …) expressions. Derived table aliased `q`.
+async function _getAgeingSummaryDBPg() {
+  const rows = await pgHandle().prepare(`
+    SELECT tech_group AS grp,
+           SUM(CASE WHEN age_days <= 30                  THEN 1 ELSE 0 END) AS d0_30,
+           SUM(CASE WHEN age_days > 30 AND age_days<=45  THEN 1 ELSE 0 END) AS d31_45,
+           SUM(CASE WHEN age_days > 45 AND age_days<=60  THEN 1 ELSE 0 END) AS d46_60,
+           SUM(CASE WHEN age_days > 60                   THEN 1 ELSE 0 END) AS d_over_60
+    FROM (
+      SELECT tech_group,
+             TRUNC(EXTRACT(EPOCH FROM (now() - created_time::timestamptz)) / 86400)::integer AS age_days
+      FROM request_records
+      WHERE pending_status = 1
+        AND tech_group IS NOT NULL
+        AND TRIM(tech_group) != ''
+        AND created_time IS NOT NULL
+    ) q
+    GROUP BY grp
+    ORDER BY (
+        SUM(CASE WHEN age_days <= 30                  THEN 1 ELSE 0 END)
+      + SUM(CASE WHEN age_days > 30 AND age_days<=45  THEN 1 ELSE 0 END)
+      + SUM(CASE WHEN age_days > 45 AND age_days<=60  THEN 1 ELSE 0 END)
+      + SUM(CASE WHEN age_days > 60                   THEN 1 ELSE 0 END)
+    ) DESC
+  `).all();
+  return _mapAgeingSummary(rows);
+}
+function _mapAgeingSummary(rows) {
   // Zoho ships a pivoted shape — one row per (Group, Tier). Emit the same
   // for max consumer-side compatibility, but ALSO include the wide-form
   // fields so callers that want a single row per group can use them too.
