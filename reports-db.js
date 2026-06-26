@@ -2839,6 +2839,7 @@ async function _getGroupRequestsDBPg(monthsBack = 12) {
  * (Subject, Site, Change Type, Status, Created Time, etc.).
  */
 function getEmergencyChangesDB(monthsBack = 12) {
+  if (REPORTS_BACKEND === 'postgres') return _getEmergencyChangesDBPg(monthsBack);
   const cutoff = new Date();
   cutoff.setMonth(cutoff.getMonth() - monthsBack + 1);
   cutoff.setDate(1); cutoff.setHours(0,0,0,0);
@@ -2851,6 +2852,28 @@ function getEmergencyChangesDB(monthsBack = 12) {
     ORDER BY created_time DESC
   `).all(cutoffISO);
 
+  return _mapEmergencyChanges(rows);
+}
+// PG fork — raw ISO cutoff (created_time>=?) UNCHANGED; LIKE/LOWER/COALESCE valid as-is.
+async function _getEmergencyChangesDBPg(monthsBack = 12) {
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - monthsBack + 1);
+  cutoff.setDate(1); cutoff.setHours(0,0,0,0);
+  const cutoffISO = cutoff.toISOString();
+
+  const rows = await pgHandle().prepare(`
+    SELECT * FROM change_records
+    WHERE LOWER(COALESCE(change_type, '')) LIKE '%emergency%'
+      AND created_time >= ?
+    ORDER BY created_time DESC
+  `).all(cutoffISO);
+
+  return _mapEmergencyChanges(rows);
+}
+// NOTE: r.change_status + r.planned_start_time are non-existent columns (table has `status` +
+// `scheduled_start`) → 'Status' undefined, 'Planned Start Time' null in BOTH engines. Pre-existing
+// latent bug, preserved verbatim (a separate task fixes it). r.site also non-existent → undefined.
+function _mapEmergencyChanges(rows) {
   return rows.map(r => ({
     'Change ID':         r.change_id,
     'Change Display ID': r.display_id,
@@ -3015,11 +3038,15 @@ function _mapIncidentVsSr(rows) {
  * cab_approvals doesn't have Subject — we LEFT JOIN change_records for it.
  */
 function getCabApprovalsDB(monthsBack = 12) {
+  if (REPORTS_BACKEND === 'postgres') return _getCabApprovalsDBPg(monthsBack);
   const cutoff = new Date();
   cutoff.setMonth(cutoff.getMonth() - monthsBack + 1);
   cutoff.setDate(1); cutoff.setHours(0,0,0,0);
   const cutoffISO = cutoff.toISOString();
 
+  // NOTE: `c.site` was dropped here (and in the pg fork) — change_records has NO `site` column
+  // (only site_id), so the original query threw `no such column: c.site` on EVERY call. The JS
+  // map's `'Site': r.site || ''` now yields '' (matching "Site is empty upstream"). See spec.
   const rows = db.prepare(`
     SELECT
       a.approver_name           AS approver,
@@ -3034,8 +3061,7 @@ function getCabApprovalsDB(monthsBack = 12) {
       a.comments                AS comments,
       a.change_id               AS change_id,
       c.display_id              AS change_display_id,
-      c.subject                 AS subject,
-      c.site                    AS site
+      c.subject                 AS subject
     FROM cab_approvals a
     LEFT JOIN change_records c ON c.change_id = a.change_id
     WHERE a.recommendation_requested >= ?
@@ -3044,6 +3070,42 @@ function getCabApprovalsDB(monthsBack = 12) {
     LIMIT 500
   `).all(cutoffISO);
 
+  return _mapCabApprovals(rows);
+}
+// PG fork — raw ISO bound (recommendation_requested>=?) UNCHANGED; LEFT JOIN + NULLS LAST valid.
+// `c.site` dropped (non-existent column — see sqlite body note).
+async function _getCabApprovalsDBPg(monthsBack = 12) {
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - monthsBack + 1);
+  cutoff.setDate(1); cutoff.setHours(0,0,0,0);
+  const cutoffISO = cutoff.toISOString();
+
+  const rows = await pgHandle().prepare(`
+    SELECT
+      a.approver_name           AS approver,
+      a.approval_status         AS status,
+      a.approval_stage          AS stage,
+      a.approval_level          AS level,
+      a.approval_level_status   AS level_status,
+      a.recommendation_requested AS req_at,
+      a.action_taken_on         AS taken_at,
+      a.turnaround_minutes      AS turnaround,
+      a.rule_type               AS rule_type,
+      a.comments                AS comments,
+      a.change_id               AS change_id,
+      c.display_id              AS change_display_id,
+      c.subject                 AS subject
+    FROM cab_approvals a
+    LEFT JOIN change_records c ON c.change_id = a.change_id
+    WHERE a.recommendation_requested >= ?
+       OR a.recommendation_requested IS NULL
+    ORDER BY a.recommendation_requested DESC NULLS LAST
+    LIMIT 500
+  `).all(cutoffISO);
+
+  return _mapCabApprovals(rows);
+}
+function _mapCabApprovals(rows) {
   return rows.map(r => ({
     'Change Approver':                          r.approver || '',
     'Approval Status':                          r.status || '',
@@ -3078,11 +3140,13 @@ function getCabApprovalsDB(monthsBack = 12) {
  * actually happened, not pending).
  */
 function getCabRecommendationsDB(monthsBack = 12) {
+  if (REPORTS_BACKEND === 'postgres') return _getCabRecommendationsDBPg(monthsBack);
   const cutoff = new Date();
   cutoff.setMonth(cutoff.getMonth() - monthsBack + 1);
   cutoff.setDate(1); cutoff.setHours(0,0,0,0);
   const cutoffISO = cutoff.toISOString();
 
+  // `c.site` dropped (non-existent column) — see getCabApprovalsDB note.
   const rows = db.prepare(`
     SELECT
       a.approver_name           AS approver,
@@ -3094,8 +3158,7 @@ function getCabRecommendationsDB(monthsBack = 12) {
       a.turnaround_minutes      AS turnaround,
       a.change_id               AS change_id,
       c.display_id              AS change_display_id,
-      c.subject                 AS subject,
-      c.site                    AS site
+      c.subject                 AS subject
     FROM cab_approvals a
     LEFT JOIN change_records c ON c.change_id = a.change_id
     WHERE a.turnaround_minutes IS NOT NULL
@@ -3104,6 +3167,38 @@ function getCabRecommendationsDB(monthsBack = 12) {
     LIMIT 500
   `).all(cutoffISO);
 
+  return _mapCabRecommendations(rows);
+}
+// PG fork — raw ISO bound (recommendation_requested>=?) UNCHANGED; `c.site` dropped.
+async function _getCabRecommendationsDBPg(monthsBack = 12) {
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - monthsBack + 1);
+  cutoff.setDate(1); cutoff.setHours(0,0,0,0);
+  const cutoffISO = cutoff.toISOString();
+
+  const rows = await pgHandle().prepare(`
+    SELECT
+      a.approver_name           AS approver,
+      a.approval_status         AS status,
+      a.approval_stage          AS stage,
+      a.approval_level          AS level,
+      a.recommendation_requested AS req_at,
+      a.action_taken_on         AS taken_at,
+      a.turnaround_minutes      AS turnaround,
+      a.change_id               AS change_id,
+      c.display_id              AS change_display_id,
+      c.subject                 AS subject
+    FROM cab_approvals a
+    LEFT JOIN change_records c ON c.change_id = a.change_id
+    WHERE a.turnaround_minutes IS NOT NULL
+      AND a.recommendation_requested >= ?
+    ORDER BY a.recommendation_requested DESC
+    LIMIT 500
+  `).all(cutoffISO);
+
+  return _mapCabRecommendations(rows);
+}
+function _mapCabRecommendations(rows) {
   return rows.map(r => ({
     'Change Approver':                          r.approver || '',
     'Approval Status':                          r.status || '',
@@ -3372,6 +3467,7 @@ function _mapMajorIncidentRows(rows) {
  * matching the Zoho field naming, so the client code reads them transparently.
  */
 function getChangeRecordsHistory(monthsBack = 12) {
+  if (REPORTS_BACKEND === 'postgres') return _getChangeRecordsHistoryPg(monthsBack);
   const today = new Date();
   const cutoff = new Date(today.getFullYear(), today.getMonth() - monthsBack + 1, 1);
   const cutoffISO = cutoff.toISOString();
@@ -3380,12 +3476,7 @@ function getChangeRecordsHistory(monthsBack = 12) {
   // sites.zoho_group can be a comma-separated list (e.g. Exploration has 3
   // groups). Splitting + lower-casing both sides for case-insensitive match.
   const siteRows = db.prepare(`SELECT name, zoho_group FROM sites WHERE active = 1`).all();
-  const groupToSite = {};
-  for (const s of siteRows) {
-    if (!s.zoho_group) continue;
-    s.zoho_group.split(',').map(g => g.trim().toLowerCase()).filter(Boolean)
-      .forEach(g => { groupToSite[g] = s.name; });
-  }
+  const groupToSite = _buildGroupToSite(siteRows);
 
   const rows = db.prepare(`
     SELECT * FROM change_records
@@ -3393,6 +3484,37 @@ function getChangeRecordsHistory(monthsBack = 12) {
     ORDER BY created_time DESC
   `).all(cutoffISO);
 
+  return _mapChangeRecordsHistory(rows, groupToSite);
+}
+// PG fork — awaits BOTH the sites lookup AND the change_records query; raw ISO cutoff
+// (created_time>=?) UNCHANGED. JS map (group→site derivation + udf_json unpack) reused.
+async function _getChangeRecordsHistoryPg(monthsBack = 12) {
+  const today = new Date();
+  const cutoff = new Date(today.getFullYear(), today.getMonth() - monthsBack + 1, 1);
+  const cutoffISO = cutoff.toISOString();
+  const H = pgHandle();
+
+  const siteRows = await H.prepare(`SELECT name, zoho_group FROM sites WHERE active = 1`).all();
+  const groupToSite = _buildGroupToSite(siteRows);
+
+  const rows = await H.prepare(`
+    SELECT * FROM change_records
+    WHERE created_time >= ?
+    ORDER BY created_time DESC
+  `).all(cutoffISO);
+
+  return _mapChangeRecordsHistory(rows, groupToSite);
+}
+function _buildGroupToSite(siteRows) {
+  const groupToSite = {};
+  for (const s of siteRows) {
+    if (!s.zoho_group) continue;
+    s.zoho_group.split(',').map(g => g.trim().toLowerCase()).filter(Boolean)
+      .forEach(g => { groupToSite[g] = s.name; });
+  }
+  return groupToSite;
+}
+function _mapChangeRecordsHistory(rows, groupToSite) {
   return rows.map(r => {
     // The Zoho change-table view ships Site as an empty string (per
     // executive.html line ~8261 — the field is unpopulated upstream). We
@@ -5152,9 +5274,24 @@ console.log('[Reports-DB] ✅ SQLite ready — reports.db');
 // groups: string[] matching sites.zoho_group (e.g. ['Mana IT Agent']
 //         or ['Exploration BF Support','Exploration CI Support','Exploration IT Support'])
 function getOpenChangesForSite(groups) {
+  if (REPORTS_BACKEND === 'postgres') return _getOpenChangesForSitePg(groups);
   if (!groups || !groups.length) return [];
   const ph = groups.map(() => '?').join(',');
   return db.prepare(`
+    SELECT display_id, subject, status, stage, stage_status, risk, emergency, requester,
+           scheduled_start, scheduled_end, created_time
+    FROM change_records
+    WHERE stage != 'Close'
+      AND group_name IN (${ph})
+    ORDER BY scheduled_end ASC, created_time DESC
+    LIMIT 25
+  `).all(...groups);
+}
+// PG fork — no dialect hazard (string ORDER BY, IN list). Empty-groups guard preserved.
+async function _getOpenChangesForSitePg(groups) {
+  if (!groups || !groups.length) return [];
+  const ph = groups.map(() => '?').join(',');
+  return await pgHandle().prepare(`
     SELECT display_id, subject, status, stage, stage_status, risk, emergency, requester,
            scheduled_start, scheduled_end, created_time
     FROM change_records
