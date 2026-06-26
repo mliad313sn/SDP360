@@ -374,3 +374,36 @@ flag.
 admin/sync raw-`db` handles (`/api/admin/refresh-major-incident-udfs`, the `rr.*(rdb.db)` /
 `groupPresets.*(rdb.db)` passthroughs). **4B-RR** — `rr_site_aliases`. The
 `REPORTS_BACKEND=postgres` prod flip needs 4D-wiring-2 + 4B-RR + a full KPI reconciliation.
+
+## reports.db — Sub-chunk 4D-wiring-2 (server.js cold path) — `feat/pg-reports-wiring-2`
+
+Second/final server.js wiring pass — the cold path (report builder, PPTX, config CRUD, presets).
+Behaviour-preserving in sqlite (await-on-sync = no-op; `node --check` gates the one real risk).
+Same `REPORTS_BACKEND` flag.
+
+- **2 new forked helpers** (replace the report-path raw-`db`-handle sites):
+  - `reassignReportWeek({reportId, siteId, newWeekId})` — `/api/reports/:id/reassign-week`; tx
+    conflict-check + UPDATE, returns `{duplicateReportId}` (occupying report id, or null). `updated_at`
+    is TIMESTAMPTZ → **`now()`** (matching `touchReport`/`updateReportStatus`), `datetime('now')` sqlite.
+  - `requestRecordExists(requestId)` — `/api/admin/refresh-major-incident-udfs` diagnostic existence
+    check (`SELECT 1 … LIMIT 1`, boolean).
+- **~36 cold-path handlers** made `async` + **all forked `rdb.*` / `groupPresets.*` calls awaited**
+  file-wide (report builder + PPTX + sites/departments CRUD + `/api/dashboard/presets`). Done with a
+  per-fn sed sweep guarded by `node --check` + `grep "await await"` (0) + a "0 un-awaited remaining"
+  grep. **Pure fns** (`getWeekRange`/`getISOWeek`/`getPreviousWeek`) intentionally NOT awaited.
+- **2 helper ripples** made `async` + awaited at their callers: `validateActionItems` (calls
+  `listDepartments`; awaited at `PUT /api/reports/:id/actions` + `POST .../edits`), `_userMeetingsSite`
+  (calls `listSites`; awaited at 3 meetings routes — breaks under `REPORTS_BACKEND=postgres` regardless
+  of `MEETINGS_BACKEND`). Also fixed `upsertRequestUdfBatch` (un-awaited → `dbUnmatched=NaN` under pg).
+- **Tests:** `reassignReportWeek` in `tests/pg-reports-reports.test.js` (conflict→no-change /
+  free-week→reassigned), `requestRecordExists` in `tests/pg-reports-aggregates.test.js`. Extended
+  `tests/server-routes-smoke.test.js` with 4 cold-path routes (`/api/reports`, `/api/reports/sites`,
+  `/api/reports/departments`, `/api/dashboard/presets`) → 10/10 in sqlite. golden-pptx green (shape
+  unchanged). 40/40 reports.db pg; both helpers sync on sqlite.
+- **Out of scope (flagged):** risk-register (`rr.*`, 4B-RR) + `/api/survey/voice` raw-`db` reads
+  (~1874/1895 — Voice-of-Customer path, separate follow-up).
+
+**4D-wiring COMPLETE** (hot path 4D-wiring-1 + cold path 4D-wiring-2). **The entire reports.db DB
+layer + server.js consumer layer are now PostgreSQL-ready behind `REPORTS_BACKEND`.** Remaining before
+the prod flip: **4B-RR** (`rr_site_aliases`) + the `/api/survey/voice` follow-up + a full **KPI
+reconciliation** (sqlite-vs-pg numeric diff on real data) — no further DB/route forking.
