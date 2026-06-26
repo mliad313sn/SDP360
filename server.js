@@ -2466,7 +2466,7 @@ app.post('/api/admin/refresh-major-incident-udfs', requireReportSession, require
 
     // Apply via the exported batch helper (same UPDATE statement the sync uses)
     const dbUpdated = (rdb && typeof rdb.upsertRequestUdfBatch === 'function')
-                       ? rdb.upsertRequestUdfBatch(udfRows)
+                       ? await rdb.upsertRequestUdfBatch(udfRows)
                        : 0;
     const dbUnmatched = udfRows.length - dbUpdated;
 
@@ -2476,7 +2476,7 @@ app.post('/api/admin/refresh-major-incident-udfs', requireReportSession, require
       // Cheap way: query each id individually until we have 5 unmatched samples
       for (const r of udfRows) {
         if (sampleUnmatchedIds.length >= 5) break;
-        if (!rdb.requestRecordExists(r.request_id)) sampleUnmatchedIds.push(r.request_id);  // sweep adds await
+        if (!await rdb.requestRecordExists(r.request_id)) sampleUnmatchedIds.push(r.request_id);  // sweep adds await
       }
     }
 
@@ -3922,13 +3922,13 @@ app.post('/api/reports/auth/change-password', requireReportSession, jsonBody, as
 });
 
 // ── Sites ─────────────────────────────────────────────────────────
-app.get('/api/reports/sites', requireReportSession, (req, res) => {
+app.get('/api/reports/sites', requireReportSession, async (req, res) => {
   try {
     const includeInactive = req.query.include_inactive === '1';
     if (includeInactive && !['executive','super_admin'].includes(req.reportUser?.role)) {
       return res.status(403).json({ error: 'Executive or super_admin only for include_inactive' });
     }
-    res.json(rdb.listSites({ includeInactive }));
+    res.json(await rdb.listSites({ includeInactive }));
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -3936,7 +3936,7 @@ app.get('/api/reports/sites', requireReportSession, (req, res) => {
 // - admin/executive/super_admin can update zoho_group (existing behavior, used by inline Save).
 // - executive+ required for sort_order or active changes (broader site config).
 // `name` is intentionally NOT editable here — see reports-db.js updateSite() comment.
-app.put('/api/reports/sites/:id', requireReportSession, requireAdmin, jsonBody, (req, res) => {
+app.put('/api/reports/sites/:id', requireReportSession, requireAdmin, jsonBody, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const { zoho_group, sort_order, active } = req.body || {};
@@ -3947,17 +3947,17 @@ app.put('/api/reports/sites/:id', requireReportSession, requireAdmin, jsonBody, 
       return res.status(403).json({ error: 'Executive or super_admin only to change sort_order / active' });
     }
 
-    const before = rdb.listSites({ includeInactive: true }).find(s => s.id === id);
+    const before = await rdb.listSites({ includeInactive: true }).find(s => s.id === id);
     if (!before) return res.status(404).json({ error: 'Site not found' });
 
-    const after = rdb.updateSite(id, { zoho_group, sort_order, active });
+    const after = await rdb.updateSite(id, { zoho_group, sort_order, active });
 
     // Audit only the broader updates; legacy zoho_group inline edits stay quiet to keep audit_log focused
     if (broaderUpdate) {
       const action = (before.active && !after.active) ? 'site_disabled'
                    : (!before.active && after.active) ? 'site_enabled'
                    : 'site_updated';
-      rdb.logAudit({
+      await rdb.logAudit({
         site_id: id, user_id: req.reportUser.id, username: req.reportUser.username,
         action, details: { before: { zoho_group: before.zoho_group, sort_order: before.sort_order, active: before.active },
                             after:  { zoho_group: after.zoho_group,  sort_order: after.sort_order,  active: after.active } }
@@ -3970,11 +3970,11 @@ app.put('/api/reports/sites/:id', requireReportSession, requireAdmin, jsonBody, 
 // POST /api/reports/sites — create a new site (executive+).
 // If a site with the same name already exists but is inactive, it's reactivated
 // instead of failing the UNIQUE constraint (matches Departments behavior).
-app.post('/api/reports/sites', requireReportSession, requireExecutiveOrSuperAdmin, jsonBody, (req, res) => {
+app.post('/api/reports/sites', requireReportSession, requireExecutiveOrSuperAdmin, jsonBody, async (req, res) => {
   try {
     const { name, zoho_group, sort_order } = req.body || {};
-    const result = rdb.createSite({ name, zoho_group, sort_order });
-    rdb.logAudit({
+    const result = await rdb.createSite({ name, zoho_group, sort_order });
+    await rdb.logAudit({
       site_id: result.id, user_id: req.reportUser.id, username: req.reportUser.username,
       action: result.reactivated ? 'site_enabled' : 'site_created',
       details: { id: result.id, name: result.name, zoho_group: zoho_group || null }
@@ -3985,13 +3985,13 @@ app.post('/api/reports/sites', requireReportSession, requireExecutiveOrSuperAdmi
 
 // DELETE /api/reports/sites/:id — soft-delete (sets active=0).
 // Historical reports keep their site_id link and remain accessible.
-app.delete('/api/reports/sites/:id', requireReportSession, requireExecutiveOrSuperAdmin, (req, res) => {
+app.delete('/api/reports/sites/:id', requireReportSession, requireExecutiveOrSuperAdmin, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const before = rdb.listSites({ includeInactive: true }).find(s => s.id === id);
+    const before = await rdb.listSites({ includeInactive: true }).find(s => s.id === id);
     if (!before) return res.status(404).json({ error: 'Site not found' });
-    const after = rdb.setSiteActive(id, 0);
-    rdb.logAudit({
+    const after = await rdb.setSiteActive(id, 0);
+    await rdb.logAudit({
       site_id: id, user_id: req.reportUser.id, username: req.reportUser.username,
       action: 'site_disabled',
       details: { id, name: before.name }
@@ -4104,21 +4104,21 @@ app.delete('/api/reports/sessions/:token', requireReportSession, (req, res, next
 // ── Action departments (categories used by action items dropdown) ─
 // GET active list — any logged-in session (used by reports.html dropdown).
 // Mutations require executive or super_admin.
-app.get('/api/reports/departments', requireReportSession, (req, res) => {
+app.get('/api/reports/departments', requireReportSession, async (req, res) => {
   try {
     const includeInactive = req.query.include_inactive === '1';
     if (includeInactive && !['executive','super_admin'].includes(req.reportUser?.role)) {
       return res.status(403).json({ error: 'Executive or super_admin only for include_inactive' });
     }
-    res.json(rdb.listDepartments({ includeInactive }));
+    res.json(await rdb.listDepartments({ includeInactive }));
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-app.post('/api/reports/departments', requireReportSession, requireExecutiveOrSuperAdmin, jsonBody, (req, res) => {
+app.post('/api/reports/departments', requireReportSession, requireExecutiveOrSuperAdmin, jsonBody, async (req, res) => {
   try {
     const { name, sort_order } = req.body || {};
-    const result = rdb.createDepartment({ name, sort_order });
-    rdb.logAudit({
+    const result = await rdb.createDepartment({ name, sort_order });
+    await rdb.logAudit({
       user_id: req.reportUser.id, username: req.reportUser.username,
       action: result.reactivated ? 'department_enabled' : 'department_created',
       details: { id: result.id, name: result.name }
@@ -4127,16 +4127,16 @@ app.post('/api/reports/departments', requireReportSession, requireExecutiveOrSup
   } catch(e) { res.status(400).json({ error: e.message }); }
 });
 
-app.put('/api/reports/departments/:id', requireReportSession, requireExecutiveOrSuperAdmin, jsonBody, (req, res) => {
+app.put('/api/reports/departments/:id', requireReportSession, requireExecutiveOrSuperAdmin, jsonBody, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const before = rdb.listDepartments({ includeInactive: true }).find(d => d.id === id);
+    const before = await rdb.listDepartments({ includeInactive: true }).find(d => d.id === id);
     if (!before) return res.status(404).json({ error: 'Department not found' });
-    const after = rdb.updateDepartment(id, req.body || {});
+    const after = await rdb.updateDepartment(id, req.body || {});
     const action = (before.active && !after.active) ? 'department_disabled'
                  : (!before.active && after.active) ? 'department_enabled'
                  : 'department_updated';
-    rdb.logAudit({
+    await rdb.logAudit({
       user_id: req.reportUser.id, username: req.reportUser.username,
       action, details: { id, before: { name: before.name, active: before.active, sort_order: before.sort_order },
                               after:  { name: after.name,  active: after.active,  sort_order: after.sort_order } }
@@ -4145,13 +4145,13 @@ app.put('/api/reports/departments/:id', requireReportSession, requireExecutiveOr
   } catch(e) { res.status(400).json({ error: e.message }); }
 });
 
-app.delete('/api/reports/departments/:id', requireReportSession, requireExecutiveOrSuperAdmin, (req, res) => {
+app.delete('/api/reports/departments/:id', requireReportSession, requireExecutiveOrSuperAdmin, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const before = rdb.listDepartments({ includeInactive: true }).find(d => d.id === id);
+    const before = await rdb.listDepartments({ includeInactive: true }).find(d => d.id === id);
     if (!before) return res.status(404).json({ error: 'Department not found' });
-    const after = rdb.setDepartmentActive(id, 0);
-    rdb.logAudit({
+    const after = await rdb.setDepartmentActive(id, 0);
+    await rdb.logAudit({
       user_id: req.reportUser.id, username: req.reportUser.username,
       action: 'department_disabled',
       details: { id, name: before.name }
@@ -4171,110 +4171,110 @@ app.get('/api/reports/current-week', requireReportSession, (req, res) => {
 
 // ── Report CRUD ───────────────────────────────────────────────────
 // GET /api/reports?site_id=&year=&week=  — list reports
-app.get('/api/reports', requireReportSession, (req, res) => {
+app.get('/api/reports', requireReportSession, async (req, res) => {
   try {
     const { site_id, year, week } = req.query;
     // Non-admins can only see their own site
     const effectiveSiteId = req.reportUser.role !== 'admin' && req.reportUser.site_id
       ? req.reportUser.site_id
       : (site_id ? parseInt(site_id) : undefined);
-    res.json(rdb.listReports(effectiveSiteId, year ? parseInt(year) : undefined, week ? parseInt(week) : undefined));
+    res.json(await rdb.listReports(effectiveSiteId, year ? parseInt(year) : undefined, week ? parseInt(week) : undefined));
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // POST /api/reports/ensure  — get or create a report for site+week
-app.post('/api/reports/ensure', requireReportSession, jsonBody, (req, res) => {
+app.post('/api/reports/ensure', requireReportSession, jsonBody, async (req, res) => {
   try {
     const { site_id, year, week } = req.body || {};
     if (!site_id || !year || !week) return res.status(400).json({ error: 'site_id, year, week required' });
     // Non-admin editors can only create for their own site
     if (!['admin','executive','super_admin'].includes(req.reportUser.role) && req.reportUser.site_id && req.reportUser.site_id !== parseInt(site_id))
       return res.status(403).json({ error: 'You can only manage reports for your own site' });
-    const isNew = !rdb.listReports(parseInt(site_id)).find(r => r.year === parseInt(year) && r.week_number === parseInt(week));
-    const report = rdb.ensureReport(parseInt(site_id), parseInt(year), parseInt(week));
+    const isNew = !await rdb.listReports(parseInt(site_id)).find(r => r.year === parseInt(year) && r.week_number === parseInt(week));
+    const report = await rdb.ensureReport(parseInt(site_id), parseInt(year), parseInt(week));
     if (isNew) {
-      rdb.logAudit({ report_id: report.id, site_id: parseInt(site_id), user_id: req.reportUser.id, username: req.reportUser.username, action: 'created', details: { year, week } });
+      await rdb.logAudit({ report_id: report.id, site_id: parseInt(site_id), user_id: req.reportUser.id, username: req.reportUser.username, action: 'created', details: { year, week } });
     }
     res.json(report);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // GET /api/reports/:id/carry-over-actions  — non-closed actions from previous week (legacy)
-app.get('/api/reports/:id/carry-over-actions', requireReportSession, (req, res) => {
+app.get('/api/reports/:id/carry-over-actions', requireReportSession, async (req, res) => {
   try {
-    const report = rdb.getReport(parseInt(req.params.id));
+    const report = await rdb.getReport(parseInt(req.params.id));
     if (!report) return res.status(404).json({ error: 'Report not found' });
-    const result = rdb.getPreviousWeekOpenActions(report.site_id, report.id);
+    const result = await rdb.getPreviousWeekOpenActions(report.site_id, report.id);
     res.json(result);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // GET /api/reports/:id/action-weeks  — list all past weeks with non-closed action counts
-app.get('/api/reports/:id/action-weeks', requireReportSession, (req, res) => {
+app.get('/api/reports/:id/action-weeks', requireReportSession, async (req, res) => {
   try {
-    const report = rdb.getReport(parseInt(req.params.id));
+    const report = await rdb.getReport(parseInt(req.params.id));
     if (!report) return res.status(404).json({ error: 'Report not found' });
-    const weeks = rdb.listAllWeeksWithActions(report.site_id, report.id);
+    const weeks = await rdb.listAllWeeksWithActions(report.site_id, report.id);
     res.json({ weeks });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // GET /api/reports/:id/actions-from/:source_report_id  — non-closed actions from a specific week
-app.get('/api/reports/:id/actions-from/:source_report_id', requireReportSession, (req, res) => {
+app.get('/api/reports/:id/actions-from/:source_report_id', requireReportSession, async (req, res) => {
   try {
-    const report = rdb.getReport(parseInt(req.params.id));
+    const report = await rdb.getReport(parseInt(req.params.id));
     if (!report) return res.status(404).json({ error: 'Report not found' });
-    const sourceReport = rdb.getReport(parseInt(req.params.source_report_id));
+    const sourceReport = await rdb.getReport(parseInt(req.params.source_report_id));
     if (!sourceReport) return res.status(404).json({ error: 'Source report not found' });
     // Security: source report must belong to the same site
     if (sourceReport.site_id !== report.site_id)
       return res.status(403).json({ error: 'Source report is from a different site' });
-    const result = rdb.getActionsForReport(parseInt(req.params.source_report_id));
+    const result = await rdb.getActionsForReport(parseInt(req.params.source_report_id));
     res.json(result);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // GET /api/reports/:id/light-weeks  — list all past weeks with lights counts
-app.get('/api/reports/:id/light-weeks', requireReportSession, (req, res) => {
+app.get('/api/reports/:id/light-weeks', requireReportSession, async (req, res) => {
   try {
-    const report = rdb.getReport(parseInt(req.params.id));
+    const report = await rdb.getReport(parseInt(req.params.id));
     if (!report) return res.status(404).json({ error: 'Report not found' });
-    const weeks = rdb.listAllWeeksWithLights(report.site_id, report.id);
+    const weeks = await rdb.listAllWeeksWithLights(report.site_id, report.id);
     res.json({ weeks });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // GET /api/reports/:id/lights-from/:source_report_id  — lights from a specific week
-app.get('/api/reports/:id/lights-from/:source_report_id', requireReportSession, (req, res) => {
+app.get('/api/reports/:id/lights-from/:source_report_id', requireReportSession, async (req, res) => {
   try {
-    const report = rdb.getReport(parseInt(req.params.id));
+    const report = await rdb.getReport(parseInt(req.params.id));
     if (!report) return res.status(404).json({ error: 'Report not found' });
-    const sourceReport = rdb.getReport(parseInt(req.params.source_report_id));
+    const sourceReport = await rdb.getReport(parseInt(req.params.source_report_id));
     if (!sourceReport) return res.status(404).json({ error: 'Source report not found' });
     // Security: source report must belong to the same site
     if (sourceReport.site_id !== report.site_id)
       return res.status(403).json({ error: 'Source report is from a different site' });
-    const result = rdb.getLightsForReport(parseInt(req.params.source_report_id));
+    const result = await rdb.getLightsForReport(parseInt(req.params.source_report_id));
     res.json(result);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // GET /api/reports/:id/carry-over-infra  — infra KPIs from previous week (for copy feature)
-app.get('/api/reports/:id/carry-over-infra', requireReportSession, (req, res) => {
+app.get('/api/reports/:id/carry-over-infra', requireReportSession, async (req, res) => {
   try {
-    const report = rdb.getReport(parseInt(req.params.id));
+    const report = await rdb.getReport(parseInt(req.params.id));
     if (!report) return res.status(404).json({ error: 'Report not found' });
-    const result = rdb.getPreviousWeekInfraKpis(report.site_id, report.id);
+    const result = await rdb.getPreviousWeekInfraKpis(report.site_id, report.id);
     res.json(result);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // GET /api/reports/:id/audit  — audit trail for a specific report
 // Requires audit-viewer role (or admin chain via hierarchy implication).
-app.get('/api/reports/:id/audit', requireReportSession, requireRole(['audit-viewer', 'admin']), (req, res) => {
+app.get('/api/reports/:id/audit', requireReportSession, requireRole(['audit-viewer', 'admin']), async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const entries = rdb.getReportAuditLog(id);
+    const entries = await rdb.getReportAuditLog(id);
     res.json(entries);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -4548,9 +4548,9 @@ app.get('/api/reports/technicians', requireReportSession, async (req, res) => {
 });
 
 // GET /api/reports/:id  — full report with all sections
-app.get('/api/reports/:id', requireReportSession, (req, res) => {
+app.get('/api/reports/:id', requireReportSession, async (req, res) => {
   try {
-    const report = rdb.getReport(parseInt(req.params.id));
+    const report = await rdb.getReport(parseInt(req.params.id));
     if (!report) return res.status(404).json({ error: 'Report not found' });
     // Non-admin: only own site
     if (req.reportUser.role !== 'admin' && req.reportUser.site_id && req.reportUser.site_id !== report.site_id)
@@ -4560,23 +4560,23 @@ app.get('/api/reports/:id', requireReportSession, (req, res) => {
 });
 
 // GET /api/reports/:id/open-changes  — live open changes for the report's site
-app.get('/api/reports/:id/open-changes', requireReportSession, (req, res) => {
+app.get('/api/reports/:id/open-changes', requireReportSession, async (req, res) => {
   try {
-    const report = rdb.getReport(parseInt(req.params.id));
+    const report = await rdb.getReport(parseInt(req.params.id));
     if (!report) return res.status(404).json({ error: 'Report not found' });
-    const site = rdb.listSites().find(s => s.id === report.site_id);
+    const site = await rdb.listSites().find(s => s.id === report.site_id);
     const groups = site ? (site.zoho_group || '').split(',').map(g => g.trim()).filter(Boolean) : [];
-    res.json(rdb.getOpenChangesForSite(groups));
+    res.json(await rdb.getOpenChangesForSite(groups));
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // GET /api/sites/:siteId/open-changes  — live open changes by site ID (used by monthly editor)
-app.get('/api/sites/:siteId/open-changes', requireReportSession, (req, res) => {
+app.get('/api/sites/:siteId/open-changes', requireReportSession, async (req, res) => {
   try {
-    const site = rdb.listSites().find(s => s.id === parseInt(req.params.siteId));
+    const site = await rdb.listSites().find(s => s.id === parseInt(req.params.siteId));
     if (!site) return res.status(404).json({ error: 'Site not found' });
     const groups = (site.zoho_group || '').split(',').map(g => g.trim()).filter(Boolean);
-    res.json(rdb.getOpenChangesForSite(groups));
+    res.json(await rdb.getOpenChangesForSite(groups));
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -4584,33 +4584,33 @@ app.get('/api/sites/:siteId/open-changes', requireReportSession, (req, res) => {
 // the report's site, with UDF completeness flags (RCA/CA/LL/PIR) so the
 // weekly report editor can show a "what's still on fire here" panel
 // next to the Active Changes one. Mirrors /open-changes auth + scope.
-app.get('/api/reports/:id/active-incidents', requireReportSession, (req, res) => {
+app.get('/api/reports/:id/active-incidents', requireReportSession, async (req, res) => {
   try {
-    const report = rdb.getReport(parseInt(req.params.id));
+    const report = await rdb.getReport(parseInt(req.params.id));
     if (!report) return res.status(404).json({ error: 'Report not found' });
-    const site = rdb.listSites().find(s => s.id === report.site_id);
+    const site = await rdb.listSites().find(s => s.id === report.site_id);
     const groups = site ? (site.zoho_group || '').split(',').map(g => g.trim()).filter(Boolean) : [];
-    res.json(rdb.getActiveMajorIncidentsForSite(groups));
+    res.json(await rdb.getActiveMajorIncidentsForSite(groups));
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // GET /api/sites/:siteId/active-incidents — same payload, looked up by
 // site id. Used by the monthly editor (which doesn't have a report id
 // at hand) and by any future "site dashboard" that wants the panel.
-app.get('/api/sites/:siteId/active-incidents', requireReportSession, (req, res) => {
+app.get('/api/sites/:siteId/active-incidents', requireReportSession, async (req, res) => {
   try {
-    const site = rdb.listSites().find(s => s.id === parseInt(req.params.siteId));
+    const site = await rdb.listSites().find(s => s.id === parseInt(req.params.siteId));
     if (!site) return res.status(404).json({ error: 'Site not found' });
     const groups = (site.zoho_group || '').split(',').map(g => g.trim()).filter(Boolean);
-    res.json(rdb.getActiveMajorIncidentsForSite(groups));
+    res.json(await rdb.getActiveMajorIncidentsForSite(groups));
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // DELETE /api/reports/:id  — delete a draft (or any report for admin)
-app.delete('/api/reports/:id', requireReportSession, (req, res) => {
+app.delete('/api/reports/:id', requireReportSession, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const report = rdb.getReport(id);
+    const report = await rdb.getReport(id);
     if (!report) return res.status(404).json({ error: 'Report not found' });
     const isPrivileged = ['admin','super_admin'].includes(req.reportUser.role);
     if (!isPrivileged) {
@@ -4619,46 +4619,46 @@ app.delete('/api/reports/:id', requireReportSession, (req, res) => {
       if (report.status === 'submitted')
         return res.status(403).json({ error: 'Cannot delete a submitted report — ask a super_admin to revert first' });
     }
-    rdb.logAudit({ report_id: id, site_id: report.site_id, user_id: req.reportUser.id, username: req.reportUser.username, action: 'deleted', details: { week_label: report.week_label } });
-    rdb.deleteReport(id);
+    await rdb.logAudit({ report_id: id, site_id: report.site_id, user_id: req.reportUser.id, username: req.reportUser.username, action: 'deleted', details: { week_label: report.week_label } });
+    await rdb.deleteReport(id);
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // PUT /api/reports/:id/infra  — save infrastructure KPIs
-app.put('/api/reports/:id/infra', requireReportSession, jsonBody, (req, res) => {
+app.put('/api/reports/:id/infra', requireReportSession, jsonBody, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const kpis = Array.isArray(req.body) ? req.body : [];
-    rdb.saveInfraKpis(id, kpis);
-    rdb.touchReport(id);
-    const r = rdb.getReport(id);
-    rdb.logAudit({ report_id: id, site_id: r?.site_id, user_id: req.reportUser.id, username: req.reportUser.username, action: 'edited_infra', details: { week_label: r?.week_label, kpi_count: kpis.length } });
+    await rdb.saveInfraKpis(id, kpis);
+    await rdb.touchReport(id);
+    const r = await rdb.getReport(id);
+    await rdb.logAudit({ report_id: id, site_id: r?.site_id, user_id: req.reportUser.id, username: req.reportUser.username, action: 'edited_infra', details: { week_label: r?.week_label, kpi_count: kpis.length } });
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // PUT /api/reports/:id/helpdesk  — save helpdesk metrics
-app.put('/api/reports/:id/helpdesk', requireReportSession, jsonBody, (req, res) => {
+app.put('/api/reports/:id/helpdesk', requireReportSession, jsonBody, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    rdb.saveHelpdeskData(id, req.body || {});
-    rdb.touchReport(id);
-    const r = rdb.getReport(id);
-    rdb.logAudit({ report_id: id, site_id: r?.site_id, user_id: req.reportUser.id, username: req.reportUser.username, action: 'edited_helpdesk', details: { week_label: r?.week_label } });
+    await rdb.saveHelpdeskData(id, req.body || {});
+    await rdb.touchReport(id);
+    const r = await rdb.getReport(id);
+    await rdb.logAudit({ report_id: id, site_id: r?.site_id, user_id: req.reportUser.id, username: req.reportUser.username, action: 'edited_helpdesk', details: { week_label: r?.week_label } });
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // PUT /api/reports/:id/lights  — save low/high lights
-app.put('/api/reports/:id/lights', requireReportSession, jsonBody, (req, res) => {
+app.put('/api/reports/:id/lights', requireReportSession, jsonBody, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const lights = Array.isArray(req.body) ? req.body : [];
-    rdb.saveLights(id, lights);
-    rdb.touchReport(id);
-    const r = rdb.getReport(id);
-    rdb.logAudit({ report_id: id, site_id: r?.site_id, user_id: req.reportUser.id, username: req.reportUser.username, action: 'edited_lights', details: { week_label: r?.week_label, count: lights.length } });
+    await rdb.saveLights(id, lights);
+    await rdb.touchReport(id);
+    const r = await rdb.getReport(id);
+    await rdb.logAudit({ report_id: id, site_id: r?.site_id, user_id: req.reportUser.id, username: req.reportUser.username, action: 'edited_lights', details: { week_label: r?.week_label, count: lights.length } });
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -4673,7 +4673,7 @@ const ACTION_VALID_PRIORITY = new Set(['High', 'Medium', 'Low']);
 const ACTION_VALID_STATUS   = new Set(['open', 'in_progress', 'on_hold', 'closed', 'cancelled']);
 
 async function validateActionItems(items) {
-  const activeDepts = new Set(rdb.listDepartments({ includeInactive: false }).map(d => d.name));  // sweep adds await
+  const activeDepts = new Set(await rdb.listDepartments({ includeInactive: false }).map(d => d.name));  // sweep adds await
   const errors = [];
   const cleaned = items.map((a, i) => {
     const out = { ...a };
@@ -4711,16 +4711,16 @@ app.put('/api/reports/:id/actions', requireReportSession, jsonBody, async (req, 
       return res.status(400).json({ error: 'validation', details: errors });
     }
 
-    rdb.saveActionItems(id, cleaned);
-    rdb.touchReport(id);
-    const r = rdb.getReport(id);
-    rdb.logAudit({ report_id: id, site_id: r?.site_id, user_id: req.reportUser.id, username: req.reportUser.username, action: 'edited_actions', details: { week_label: r?.week_label, count: items.length } });
+    await rdb.saveActionItems(id, cleaned);
+    await rdb.touchReport(id);
+    const r = await rdb.getReport(id);
+    await rdb.logAudit({ report_id: id, site_id: r?.site_id, user_id: req.reportUser.id, username: req.reportUser.username, action: 'edited_actions', details: { week_label: r?.week_label, count: items.length } });
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // PUT /api/reports/:id/status  — submit / revert to draft
-app.put('/api/reports/:id/status', requireReportSession, jsonBody, (req, res) => {
+app.put('/api/reports/:id/status', requireReportSession, jsonBody, async (req, res) => {
   try {
     const id     = parseInt(req.params.id);
     const status = req.body?.status;
@@ -4728,17 +4728,17 @@ app.put('/api/reports/:id/status', requireReportSession, jsonBody, (req, res) =>
       return res.status(400).json({ error: 'status must be draft, in_progress, ready, or submitted' });
 
     // Only super_admin may revert a submitted report back to draft
-    const report = rdb.getReport(id);
+    const report = await rdb.getReport(id);
     if (!report) return res.status(404).json({ error: 'Report not found' });
     if (report.status === 'submitted' && status !== 'submitted') {
       if (req.reportUser.role !== 'super_admin')
         return res.status(403).json({ error: 'Only a super_admin can revert a submitted report to draft.' });
     }
 
-    rdb.updateReportStatus(id, status, req.reportUser.id);
+    await rdb.updateReportStatus(id, status, req.reportUser.id);
     // Audit
     const action = status === 'submitted' ? 'submitted' : (report.status === 'submitted' ? 'reverted' : 'status_changed');
-    rdb.logAudit({ report_id: id, site_id: report.site_id, user_id: req.reportUser.id, username: req.reportUser.username, action, details: { from: report.status, to: status } });
+    await rdb.logAudit({ report_id: id, site_id: report.site_id, user_id: req.reportUser.id, username: req.reportUser.username, action, details: { from: report.status, to: status } });
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -4746,7 +4746,7 @@ app.put('/api/reports/:id/status', requireReportSession, jsonBody, (req, res) =>
 // PUT /api/reports/:id/reassign-week  — move report to a different week (any status)
 // Body: { year: <number>, week: <number> }
 // Blocks if another report already exists for the same (site, new week).
-app.put('/api/reports/:id/reassign-week', requireReportSession, jsonBody, (req, res) => {
+app.put('/api/reports/:id/reassign-week', requireReportSession, jsonBody, async (req, res) => {
   try {
     const id   = parseInt(req.params.id);
     const year = parseInt(req.body?.year);
@@ -4756,7 +4756,7 @@ app.put('/api/reports/:id/reassign-week', requireReportSession, jsonBody, (req, 
     if (week < 1 || week > 53)
       return res.status(400).json({ error: 'week must be between 1 and 53' });
 
-    const existing = rdb.getReport(id);
+    const existing = await rdb.getReport(id);
     if (!existing) return res.status(404).json({ error: 'Report not found' });
 
     // Non-admin editors may only touch their own site
@@ -4765,18 +4765,18 @@ app.put('/api/reports/:id/reassign-week', requireReportSession, jsonBody, (req, 
       return res.status(403).json({ error: 'You can only manage reports for your own site' });
 
     // Ensure the target week row exists in the weeks table (creates it if new)
-    const newWeekId = rdb.ensureWeek(year, week);
+    const newWeekId = await rdb.ensureWeek(year, week);
 
     // Conflict-check + reassign via the forked helper (no await here — the Task 2 sweep adds it).
-    const { duplicateReportId } = rdb.reassignReportWeek({ reportId: id, siteId: existing.site_id, newWeekId });
+    const { duplicateReportId } = await rdb.reassignReportWeek({ reportId: id, siteId: existing.site_id, newWeekId });
     if (duplicateReportId) {
-      const dup = rdb.getReport(duplicateReportId);
+      const dup = await rdb.getReport(duplicateReportId);
       return res.status(409).json({
         error: `A ${dup.week_label} report already exists for ${existing.site_name}. Delete it first, then try again.`
       });
     }
-    const reassigned = rdb.getReport(id);
-    rdb.logAudit({ report_id: id, site_id: existing.site_id, user_id: req.reportUser.id, username: req.reportUser.username, action: 'reassigned_week', details: { from_week: existing.week_label, to_week: reassigned?.week_label } });
+    const reassigned = await rdb.getReport(id);
+    await rdb.logAudit({ report_id: id, site_id: existing.site_id, user_id: req.reportUser.id, username: req.reportUser.username, action: 'reassigned_week', details: { from_week: existing.week_label, to_week: reassigned?.week_label } });
     res.json(reassigned);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -4801,19 +4801,19 @@ async function _meetingsSummaryForSite(siteName, year, month) {
 app.get('/api/reports/:id/pptx', requireReportSession, async (req, res) => {
   if (!rpptx) return res.status(503).json({ error: 'PPTX module not available' });
   try {
-    const report = rdb.getReport(parseInt(req.params.id));
+    const report = await rdb.getReport(parseInt(req.params.id));
     if (!report) return res.status(404).json({ error: 'Report not found' });
     // Fetch previous week's report for auto-trend computation
-    const prevData = rdb.getPreviousWeekInfraKpis(report.site_id, report.id);
+    const prevData = await rdb.getPreviousWeekInfraKpis(report.site_id, report.id);
     const prevReport = prevData && prevData.kpis && prevData.kpis.length
       ? { infra_kpis: prevData.kpis } : null;
     // Fetch open changes + active major incidents for this site's group(s).
     // Both ride into slideLights so the deck mirrors the on-screen panels
     // in the report editor (Active Changes + Active Major Incidents).
-    const _wSite = rdb.listSites().find(s => s.id === report.site_id);
+    const _wSite = await rdb.listSites().find(s => s.id === report.site_id);
     const _wGroups = _wSite ? (_wSite.zoho_group || '').split(',').map(g => g.trim()).filter(Boolean) : [];
-    const openChanges     = rdb.getOpenChangesForSite(_wGroups);
-    const activeIncidents = rdb.getActiveMajorIncidentsForSite(_wGroups);
+    const openChanges     = await rdb.getOpenChangesForSite(_wGroups);
+    const activeIncidents = await rdb.getActiveMajorIncidentsForSite(_wGroups);
     // Department-meetings monthly snapshot for the report's site + month —
     // drives the new "Department Meetings" slide.
     const _wRef = report.end_date || report.start_date || '';
@@ -4832,16 +4832,16 @@ app.get('/api/reports/monthly/all-sites/:year/:month/pptx', requireReportSession
   if (!rpptxMonthly) return res.status(503).json({ error: 'Monthly PPTX module not available' });
   try {
     const { year, month } = req.params;
-    const sites = rdb.listSites().filter(s => s.active);
+    const sites = await rdb.listSites().filter(s => s.active);
     const allData = [];
     for (const site of sites) {
-      const monthlyData = rdb.getMonthlyData(site.id, parseInt(year), parseInt(month));
-      const edits      = rdb.getMonthlyEdits(site.id, parseInt(year), parseInt(month));
-      const objectives = rdb.getAnnualObjectives(site.id, parseInt(year));
-      const yearlyData = rdb.getYearlySummary(site.id, parseInt(year));
+      const monthlyData = await rdb.getMonthlyData(site.id, parseInt(year), parseInt(month));
+      const edits      = await rdb.getMonthlyEdits(site.id, parseInt(year), parseInt(month));
+      const objectives = await rdb.getAnnualObjectives(site.id, parseInt(year));
+      const yearlyData = await rdb.getYearlySummary(site.id, parseInt(year));
       const _aGroups   = (site.zoho_group || '').split(',').map(g => g.trim()).filter(Boolean);
-      const openChanges     = rdb.getOpenChangesForSite(_aGroups);
-      const activeIncidents = rdb.getActiveMajorIncidentsForSite(_aGroups);
+      const openChanges     = await rdb.getOpenChangesForSite(_aGroups);
+      const activeIncidents = await rdb.getActiveMajorIncidentsForSite(_aGroups);
       allData.push({ site, monthlyData, edits, objectives, yearlyData, openChanges, activeIncidents,
         meetingsSummary: await _meetingsSummaryForSite(site.name, year, month) });
     }
@@ -4863,18 +4863,18 @@ app.get('/api/reports/monthly/:site_id/:year/:month/pptx', requireReportSession,
   if (!rpptx) return res.status(503).json({ error: 'PPTX module not available' });
   try {
     const { site_id, year, month } = req.params;
-    const sites = rdb.listSites();
+    const sites = await rdb.listSites();
     const site  = sites.find(s => s.id === parseInt(site_id));
     if (!site) return res.status(404).json({ error: 'Site not found' });
-    const monthlyData = rdb.getMonthlyData(parseInt(site_id), parseInt(year), parseInt(month));
+    const monthlyData = await rdb.getMonthlyData(parseInt(site_id), parseInt(year), parseInt(month));
     // Attach current open changes + active major incidents to every weekly
     // report inside monthlyData so each per-week Lights slide renders the
     // same panels the editor shows. Both lists are point-in-time (now),
     // not historical — every week's slide gets the same snapshot, which
     // matches how the editor preview behaves.
     const _mGroups        = (site.zoho_group || '').split(',').map(g => g.trim()).filter(Boolean);
-    const _openChanges    = rdb.getOpenChangesForSite(_mGroups);
-    const _activeIncidents= rdb.getActiveMajorIncidentsForSite(_mGroups);
+    const _openChanges    = await rdb.getOpenChangesForSite(_mGroups);
+    const _activeIncidents= await rdb.getActiveMajorIncidentsForSite(_mGroups);
     if (Array.isArray(monthlyData.reports)) {
       monthlyData.reports = monthlyData.reports.map(r =>
         r ? { ...r, openChanges: _openChanges, activeIncidents: _activeIncidents } : r
@@ -4895,14 +4895,14 @@ app.get('/api/reports/weekly-summary/:year/:week/pptx', requireReportSession, as
   if (!rpptx) return res.status(503).json({ error: 'PPTX module not available' });
   try {
     const { year, week } = req.params;
-    const summaryData = rdb.getWeekSummaryData(parseInt(year), parseInt(week));
+    const summaryData = await rdb.getWeekSummaryData(parseInt(year), parseInt(week));
     if (!summaryData.reports.length) {
       return res.status(404).json({ error: `No submitted reports found for ${summaryData.week_label}` });
     }
     // Attach open changes + active major incidents per site to each
     // report so generateWeeklySummaryPptx → slideLights renders both
     // panels for every site's slide.
-    const _wsSites = rdb.listSites();
+    const _wsSites = await rdb.listSites();
     const _wsRange = rdb.getWeekRange(parseInt(year), parseInt(week));
     const _wsRef   = (_wsRange && (_wsRange.end || _wsRange.start)) || '';
     summaryData.reports = await Promise.all(summaryData.reports.map(async r => {
@@ -4910,8 +4910,8 @@ app.get('/api/reports/weekly-summary/:year/:week/pptx', requireReportSession, as
       const _g = _s ? (_s.zoho_group || '').split(',').map(g => g.trim()).filter(Boolean) : [];
       return {
         ...r,
-        openChanges:     rdb.getOpenChangesForSite(_g),
-        activeIncidents: rdb.getActiveMajorIncidentsForSite(_g),
+        openChanges:     await rdb.getOpenChangesForSite(_g),
+        activeIncidents: await rdb.getActiveMajorIncidentsForSite(_g),
         meetingsSummary: await _meetingsSummaryForSite(_s ? _s.name : null, String(_wsRef).slice(0, 4), String(_wsRef).slice(5, 7)),
       };
     }));
@@ -4927,10 +4927,10 @@ app.get('/api/reports/weekly-summary/:year/:week/pptx', requireReportSession, as
 });
 
 // GET /api/reports/monthly/:site_id/:year/:month  — monthly overview (no PPTX)
-app.get('/api/reports/monthly/:site_id/:year/:month', requireReportSession, (req, res) => {
+app.get('/api/reports/monthly/:site_id/:year/:month', requireReportSession, async (req, res) => {
   try {
     const { site_id, year, month } = req.params;
-    const data = rdb.getMonthlyData(parseInt(site_id), parseInt(year), parseInt(month));
+    const data = await rdb.getMonthlyData(parseInt(site_id), parseInt(year), parseInt(month));
     res.json(data);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -4938,10 +4938,10 @@ app.get('/api/reports/monthly/:site_id/:year/:month', requireReportSession, (req
 // ── MONTHLY REPORT EDITS ──────────────────────────────────────────
 // GET /api/reports/monthly/:site_id/:year/:month/edits
 // Returns merged lights+actions with week labels (saved edits or auto-merged from weekly)
-app.get('/api/reports/monthly/:site_id/:year/:month/edits', requireReportSession, (req, res) => {
+app.get('/api/reports/monthly/:site_id/:year/:month/edits', requireReportSession, async (req, res) => {
   try {
     const { site_id, year, month } = req.params;
-    const data = rdb.getMonthlyEdits(parseInt(site_id), parseInt(year), parseInt(month));
+    const data = await rdb.getMonthlyEdits(parseInt(site_id), parseInt(year), parseInt(month));
     res.json(data);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -4964,40 +4964,40 @@ app.post('/api/reports/monthly/:site_id/:year/:month/edits', requireReportSessio
       cleanedActions = cleaned;
     }
 
-    rdb.saveMonthlyEdits(parseInt(site_id), parseInt(year), parseInt(month), { edited_lights, edited_actions: cleanedActions, notes, status });
-    rdb.logAudit({ site_id: parseInt(site_id), user_id: req.reportUser.id, username: req.reportUser.username, action: 'edited_monthly', details: { year, month, lights: (edited_lights||[]).length, actions: (cleanedActions||[]).length } });
+    await rdb.saveMonthlyEdits(parseInt(site_id), parseInt(year), parseInt(month), { edited_lights, edited_actions: cleanedActions, notes, status });
+    await rdb.logAudit({ site_id: parseInt(site_id), user_id: req.reportUser.id, username: req.reportUser.username, action: 'edited_monthly', details: { year, month, lights: (edited_lights||[]).length, actions: (cleanedActions||[]).length } });
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // GET /api/reports/yearly/:site_id/:year
 // Returns 12-month summary: infra KPIs (last week each month) + helpdesk totals
-app.get('/api/reports/yearly/:site_id/:year', requireReportSession, (req, res) => {
+app.get('/api/reports/yearly/:site_id/:year', requireReportSession, async (req, res) => {
   try {
     const { site_id, year } = req.params;
-    const data = rdb.getYearlySummary(parseInt(site_id), parseInt(year));
+    const data = await rdb.getYearlySummary(parseInt(site_id), parseInt(year));
     res.json(data);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // GET /api/reports/objectives/:site_id/:year
 // Return annual objectives for site+year
-app.get('/api/reports/objectives/:site_id/:year', requireReportSession, (req, res) => {
+app.get('/api/reports/objectives/:site_id/:year', requireReportSession, async (req, res) => {
   try {
     const { site_id, year } = req.params;
-    const rows = rdb.getAnnualObjectives(parseInt(site_id), parseInt(year));
+    const rows = await rdb.getAnnualObjectives(parseInt(site_id), parseInt(year));
     res.json(rows);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // POST /api/reports/objectives/:site_id/:year
 // Replace all objectives for site+year
-app.post('/api/reports/objectives/:site_id/:year', requireReportSession, express.json({ limit: '1mb' }), (req, res) => {
+app.post('/api/reports/objectives/:site_id/:year', requireReportSession, express.json({ limit: '1mb' }), async (req, res) => {
   try {
     const { site_id, year } = req.params;
     const objectives = Array.isArray(req.body) ? req.body : [];
-    rdb.saveAnnualObjectives(parseInt(site_id), parseInt(year), objectives);
-    rdb.logAudit({ site_id: parseInt(site_id), user_id: req.reportUser.id, username: req.reportUser.username, action: 'edited_objectives', details: { year, count: objectives.length } });
+    await rdb.saveAnnualObjectives(parseInt(site_id), parseInt(year), objectives);
+    await rdb.logAudit({ site_id: parseInt(site_id), user_id: req.reportUser.id, username: req.reportUser.username, action: 'edited_objectives', details: { year, count: objectives.length } });
     res.json({ ok: true, saved: objectives.length });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -5007,16 +5007,16 @@ app.get('/api/reports/monthly/:site_id/:year/:month/pptx-v2', requireReportSessi
   if (!rpptxMonthly) return res.status(503).json({ error: 'Monthly PPTX module not available' });
   try {
     const { site_id, year, month } = req.params;
-    const sites = rdb.listSites();
+    const sites = await rdb.listSites();
     const site  = sites.find(s => s.id === parseInt(site_id));
     if (!site) return res.status(404).json({ error: 'Site not found' });
-    const monthlyData = rdb.getMonthlyData(parseInt(site_id), parseInt(year), parseInt(month));
-    const edits       = rdb.getMonthlyEdits(parseInt(site_id), parseInt(year), parseInt(month));
-    const objectives  = rdb.getAnnualObjectives(parseInt(site_id), parseInt(year));
-    const yearlyData  = rdb.getYearlySummary(parseInt(site_id), parseInt(year));
+    const monthlyData = await rdb.getMonthlyData(parseInt(site_id), parseInt(year), parseInt(month));
+    const edits       = await rdb.getMonthlyEdits(parseInt(site_id), parseInt(year), parseInt(month));
+    const objectives  = await rdb.getAnnualObjectives(parseInt(site_id), parseInt(year));
+    const yearlyData  = await rdb.getYearlySummary(parseInt(site_id), parseInt(year));
     const _mGroups       = (site.zoho_group || '').split(',').map(g => g.trim()).filter(Boolean);
-    const openChanges    = rdb.getOpenChangesForSite(_mGroups);
-    const activeIncidents= rdb.getActiveMajorIncidentsForSite(_mGroups);
+    const openChanges    = await rdb.getOpenChangesForSite(_mGroups);
+    const activeIncidents= await rdb.getActiveMajorIncidentsForSite(_mGroups);
     monthlyData.meetingsSummary = await _meetingsSummaryForSite(site.name, year, month);
     const buf = await rpptxMonthly.generateMonthlyPptxV2(monthlyData, site.name, parseInt(year), parseInt(month), edits, objectives, yearlyData, openChanges, activeIncidents);
     const monthName = new Date(parseInt(year), parseInt(month)-1, 1).toLocaleString('en', { month: 'long' });
@@ -5036,10 +5036,10 @@ app.get('/api/reports/monthly/:site_id/:year/:month/site-template/pptx', require
   if (!rpptxSiteTemplate) return res.status(503).json({ error: 'Site template PPTX module not available' });
   try {
     const { site_id, year, month } = req.params;
-    const sites = rdb.listSites();
+    const sites = await rdb.listSites();
     const site  = sites.find(s => s.id === parseInt(site_id));
     if (!site) return res.status(404).json({ error: 'Site not found' });
-    const monthlyData = rdb.getMonthlyData(parseInt(site_id), parseInt(year), parseInt(month));
+    const monthlyData = await rdb.getMonthlyData(parseInt(site_id), parseInt(year), parseInt(month));
     console.log(`[site-template/pptx] Generating for ${site.name} ${year}-${month}`);
     const buf = await rpptxSiteTemplate.generateSiteMonthlyPptx(monthlyData, site.name, parseInt(year), parseInt(month));
     const monthName = new Date(parseInt(year), parseInt(month)-1, 1).toLocaleString('en', { month: 'long' });
@@ -5065,7 +5065,7 @@ app.post('/api/executive-new-pptx', requireReportSession, requireRole('report-au
 
     // Resolve site_id from groups if not supplied
     if (!payload.site_id && Array.isArray(payload.groups) && payload.groups.length > 0 && rdb) {
-      const sites = rdb.listSites();
+      const sites = await rdb.listSites();
       const firstGroup = payload.groups[0];
       const matched = sites.find(s =>
         (s.zoho_group || '').split(',').map(g => g.trim()).includes(firstGroup)
@@ -5074,7 +5074,7 @@ app.post('/api/executive-new-pptx', requireReportSession, requireRole('report-au
     }
     // Use site 1 as fallback when all-sites filter is active
     if (!payload.site_id && rdb) {
-      const sites = rdb.listSites();
+      const sites = await rdb.listSites();
       if (sites.length > 0) payload.site_id = sites[0].id;
     }
 
@@ -5198,7 +5198,7 @@ app.post('/api/tracker/save', requireReportSession, requireRole(['super_admin', 
     if (!isUnrestricted) {
       // tracker-editor → site-scoped inputs only (must have site_id)
       const siteId = req.reportUser.site_id;
-      const sites  = rdb.listSites();
+      const sites  = await rdb.listSites();
       const site   = sites.find(s => s.id === siteId);
       userSite = trackerDb.siteNameToCode(site?.name || null);
       if (!userSite) {
@@ -5296,7 +5296,7 @@ const groupPresets         = require('./services/groupPresets');
 // canonical preset name. See services/groupPresets.js for schema + seeds.
 
 // Read — open to any authenticated user (drives dropdown population).
-app.get('/api/dashboard/presets', requireReportSession, (req, res) => {
+app.get('/api/dashboard/presets', requireReportSession, async (req, res) => {
   const scope = String(req.query.scope || 'tickets').toLowerCase();
   if (scope !== 'tickets' && scope !== 'changes') {
     return res.status(400).json({ error: "scope must be 'tickets' or 'changes'" });
@@ -5305,8 +5305,8 @@ app.get('/api/dashboard/presets', requireReportSession, (req, res) => {
     const db = rdb.db;
     const includeDiscovered = req.query.include_discovered === '1';
     const presets = includeDiscovered
-      ? groupPresets.getPresetsWithDiscovered(db, scope)
-      : groupPresets.getPresets(db, scope);
+      ? await groupPresets.getPresetsWithDiscovered(db, scope)
+      : await groupPresets.getPresets(db, scope);
     return res.json({ scope, presets, canonical_names: groupPresets.CANONICAL_PRESETS });
   } catch (e) {
     console.error('[group-presets] GET failed:', e);
@@ -5318,7 +5318,7 @@ app.get('/api/dashboard/presets', requireReportSession, (req, res) => {
 // MUST be the full presets map for the scope; the implementation does
 // an atomic DELETE + reinsert inside a transaction so partial updates
 // can't leave a half-state.
-app.put('/api/dashboard/presets', requireReportSession, requireAdmin, (req, res) => {
+app.put('/api/dashboard/presets', requireReportSession, requireAdmin, async (req, res) => {
   const scope = String(req.query.scope || 'tickets').toLowerCase();
   if (scope !== 'tickets' && scope !== 'changes') {
     return res.status(400).json({ error: "scope must be 'tickets' or 'changes'" });
@@ -5330,7 +5330,7 @@ app.put('/api/dashboard/presets', requireReportSession, requireAdmin, (req, res)
   }
   try {
     const user = (req.reportUser && (req.reportUser.username || req.reportUser.full_name)) || 'unknown';
-    const out = groupPresets.setPresets(rdb.db, scope, presets, user);
+    const out = await groupPresets.setPresets(rdb.db, scope, presets, user);
     return res.json(out);
   } catch (e) {
     console.error('[group-presets] PUT failed:', e);
@@ -5341,13 +5341,13 @@ app.put('/api/dashboard/presets', requireReportSession, requireAdmin, (req, res)
 // Discovered — groups present in the actual data but NOT yet classified
 // in any preset for this scope. Drives the "Pending" badge in the
 // modal. Admin+ only.
-app.get('/api/dashboard/groups/discovered', requireReportSession, requireAdmin, (req, res) => {
+app.get('/api/dashboard/groups/discovered', requireReportSession, requireAdmin, async (req, res) => {
   const scope = String(req.query.scope || 'tickets').toLowerCase();
   if (scope !== 'tickets' && scope !== 'changes') {
     return res.status(400).json({ error: "scope must be 'tickets' or 'changes'" });
   }
   try {
-    const discovered = groupPresets.getDiscovered(rdb.db, scope);
+    const discovered = await groupPresets.getDiscovered(rdb.db, scope);
     return res.json({ scope, discovered, count: discovered.length });
   } catch (e) {
     console.error('[group-presets] discovered failed:', e);
@@ -5673,7 +5673,7 @@ async function _userMeetingsSite(user) {
   if (rdb.userHasRole(user, 'admin')) return null;
   const siteId = user.site_id;
   if (!siteId) return null;
-  const sites = rdb.listSites();   // sweep adds await (listSites is forked)
+  const sites = await rdb.listSites();   // sweep adds await (listSites is forked)
   const site  = sites.find(s => s.id === siteId);
   if (!inspectionDb) return null;
   return inspectionDb.siteNameToCode(site ? site.name : null);
