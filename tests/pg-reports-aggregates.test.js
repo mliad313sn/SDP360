@@ -247,3 +247,31 @@ test('agg pg: SLA trend + by-category denominators + string %', async (t) => {
     assert.ok(!byCat.find(r => r['Category'] === 'Tiny'), 'Tiny dropped by HAVING >= 5');
   } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
 });
+
+test('agg pg: FRT/RT trend + group counts + incident-vs-SR', async (t) => {
+  const b = await boot(); if (!b) return t.skip('no pg');
+  const { ctx, rdb } = b;
+  try {
+    const G = 'Hounde IT Agents', C = '2026-05-10 09:00:00';
+    await rdb.upsertRequestBatch([
+      _req({request_id:'F1',tech_group:G,service_request:0,created_time:C,responded_time:'2026-05-10 10:00:00',resolved_time:'2026-05-11 09:00:00'}),
+      _req({request_id:'F2',tech_group:G,service_request:1,created_time:C}),
+      _req({request_id:'F3',tech_group:'Mana IT Agents',service_request:1,created_time:C}),
+    ]);
+    const frt = await rdb.getFirstResponseTrendDB();
+    const m = frt.find(r => r.month === 'May 2026');
+    assert.ok(m, 'May 2026 FRT row');
+    assert.equal(m.avgFRT, 1, 'responded 1h after created');
+    assert.equal(m.avgRT, 1, 'resolved 1 day after created');
+
+    const gr = await rdb.getGroupRequestsDB();
+    const hg = gr.find(r => r['Group'] === G);
+    assert.ok(hg && hg['Request Count'] === 2, 'F1+F2 in Hounde group');
+
+    const ivs = await rdb.getIncidentVsSrDB();
+    const im = ivs.find(r => r['Created Time'] === 'May 2026');
+    assert.ok(im, 'May 2026 incident-vs-SR row');
+    assert.equal(im['Incidents'], 1);          // F1 service_request=0
+    assert.equal(im['Service Requests'], 2);   // F2,F3 service_request=1
+  } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
+});

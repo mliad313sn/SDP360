@@ -2431,6 +2431,7 @@ function _mapAgeingGroup(rows) {
  * stuck ticket from blowing the monthly mean.
  */
 function getFirstResponseTrendDB(monthsBack = 12) {
+  if (REPORTS_BACKEND === 'postgres') return _getFirstResponseTrendDBPg(monthsBack);
   const cutoff = new Date();
   cutoff.setMonth(cutoff.getMonth() - monthsBack + 1);
   cutoff.setDate(1); cutoff.setHours(0,0,0,0);
@@ -2452,6 +2453,37 @@ function getFirstResponseTrendDB(monthsBack = 12) {
     ORDER BY yyyymm
   `).all(cutoffISO);
 
+  return _mapFrtTrend(rows);
+}
+// PG fork — strftime→to_char; julianday-hours `*24` → EXTRACT-EPOCH/3600; julianday-days →
+// /86400 (incl the 365-day RT cap); raw ISO cutoff UNCHANGED; GROUP BY yyyymm safe. AVG keeps
+// the float (no TRUNC). String compares `responded_time > created_time` are lexical (same in
+// both engines on these ISO-ish TEXT values), left unchanged.
+async function _getFirstResponseTrendDBPg(monthsBack = 12) {
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - monthsBack + 1);
+  cutoff.setDate(1); cutoff.setHours(0,0,0,0);
+  const cutoffISO = cutoff.toISOString();
+
+  const rows = await pgHandle().prepare(`
+    SELECT to_char(created_time::timestamptz, 'YYYY-MM') AS yyyymm,
+           AVG(CASE WHEN responded_time IS NOT NULL AND responded_time > created_time
+                    THEN EXTRACT(EPOCH FROM (responded_time::timestamptz - created_time::timestamptz)) / 3600
+                    END) AS avg_frt_hrs,
+           AVG(CASE WHEN resolved_time IS NOT NULL AND resolved_time > created_time
+                         AND EXTRACT(EPOCH FROM (resolved_time::timestamptz - created_time::timestamptz)) / 86400 <= 365
+                    THEN EXTRACT(EPOCH FROM (resolved_time::timestamptz - created_time::timestamptz)) / 86400
+                    END) AS avg_rt_days,
+           COUNT(*) AS n
+    FROM request_records
+    WHERE created_time >= ?
+    GROUP BY yyyymm
+    ORDER BY yyyymm
+  `).all(cutoffISO);
+
+  return _mapFrtTrend(rows);
+}
+function _mapFrtTrend(rows) {
   const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   return rows.map(r => {
     // yyyymm is "2026-04" — convert to "Apr 2026"
@@ -2760,12 +2792,31 @@ function _mapSlaByCategory(rows) {
  *   [{ Group: 'MANA IT Agent', 'Request Count': 412 }, …]
  */
 function getGroupRequestsDB(monthsBack = 12) {
+  if (REPORTS_BACKEND === 'postgres') return _getGroupRequestsDBPg(monthsBack);
   const cutoff = new Date();
   cutoff.setMonth(cutoff.getMonth() - monthsBack + 1);
   cutoff.setDate(1); cutoff.setHours(0,0,0,0);
   const cutoffISO = cutoff.toISOString();
 
   const rows = db.prepare(`
+    SELECT tech_group AS grp, COUNT(*) AS cnt
+    FROM request_records
+    WHERE created_time >= ?
+      AND tech_group IS NOT NULL
+      AND TRIM(tech_group) != ''
+    GROUP BY grp
+    ORDER BY cnt DESC
+  `).all(cutoffISO);
+  return rows.map(r => ({ 'Group': r.grp, 'Request Count': r.cnt }));
+}
+// PG fork — no strftime/julianday; raw ISO cutoff UNCHANGED; GROUP BY grp safe.
+async function _getGroupRequestsDBPg(monthsBack = 12) {
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - monthsBack + 1);
+  cutoff.setDate(1); cutoff.setHours(0,0,0,0);
+  const cutoffISO = cutoff.toISOString();
+
+  const rows = await pgHandle().prepare(`
     SELECT tech_group AS grp, COUNT(*) AS cnt
     FROM request_records
     WHERE created_time >= ?
@@ -2902,6 +2953,7 @@ function _mapAgeingSummary(rows) {
  *   [{ 'Created Time': 'Apr 2026', 'Incidents': 432, 'Service Requests': 1203 }, …]
  */
 function getIncidentVsSrDB(monthsBack = 12) {
+  if (REPORTS_BACKEND === 'postgres') return _getIncidentVsSrDBPg(monthsBack);
   const cutoff = new Date();
   cutoff.setMonth(cutoff.getMonth() - monthsBack + 1);
   cutoff.setDate(1); cutoff.setHours(0,0,0,0);
@@ -2917,6 +2969,29 @@ function getIncidentVsSrDB(monthsBack = 12) {
     ORDER BY yyyymm
   `).all(cutoffISO);
 
+  return _mapIncidentVsSr(rows);
+}
+// PG fork — strftime→to_char; raw ISO cutoff UNCHANGED; GROUP BY yyyymm safe;
+// service_request is INTEGER so the = 0/1 compares are unchanged.
+async function _getIncidentVsSrDBPg(monthsBack = 12) {
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - monthsBack + 1);
+  cutoff.setDate(1); cutoff.setHours(0,0,0,0);
+  const cutoffISO = cutoff.toISOString();
+
+  const rows = await pgHandle().prepare(`
+    SELECT to_char(created_time::timestamptz, 'YYYY-MM') AS yyyymm,
+           SUM(CASE WHEN service_request = 0 THEN 1 ELSE 0 END) AS incidents,
+           SUM(CASE WHEN service_request = 1 THEN 1 ELSE 0 END) AS srs
+    FROM request_records
+    WHERE created_time >= ?
+    GROUP BY yyyymm
+    ORDER BY yyyymm
+  `).all(cutoffISO);
+
+  return _mapIncidentVsSr(rows);
+}
+function _mapIncidentVsSr(rows) {
   const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   return rows.map(r => {
     const [yr, mo] = (r.yyyymm || '').split('-').map(Number);
