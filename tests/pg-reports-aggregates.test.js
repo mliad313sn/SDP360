@@ -423,3 +423,26 @@ test('agg pg: getSurveyMetrics + getCustomerVoiceDB (to_char, ROUND ::numeric, N
     assert.ok(cv.byMonth.find(r => r.month === 'May 2026'), 'byMonth May 2026');
   } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
 });
+
+test('agg pg: getCustomerVoiceByDimensionDB (LEFT JOIN + dimensions)', async (t) => {
+  const b = await boot(); if (!b) return t.skip('no pg');
+  const { ctx, rdb } = b;
+  try {
+    await rdb.upsertRequestBatch([
+      _req({request_id:'R1',display_id:'#REQ-1',technician:'Tina',site:'Hounde',tech_group:'Hounde IT Agents',pending_status:0}),
+    ]);
+    await rdb.upsertSurveyResultBatch([
+      _sres({result_id:'SR1',request_display_id:'#REQ-1',overall_score:90,survey_responded_on:'2026-06-10 10:00:00'}),
+      _sres({result_id:'SR2',request_display_id:'#NOPE',overall_score:60,survey_responded_on:'2026-06-10 10:00:00'}),
+    ]);
+    const cv = await rdb.getCustomerVoiceByDimensionDB();
+    assert.equal(cv.totalSurvey, 2, 'both scored rows');
+    assert.equal(cv.totalJoined, 1, 'only SR1 joins a request');
+    assert.equal(cv.joinRate, 50);
+    assert.equal(cv.closedCount, 1, 'R1 pending_status=0');
+    const s = cv.bySite.find(r => r.site === 'Hounde');
+    assert.ok(s, 'Hounde site dimension'); assert.equal(s.responses, 1); assert.equal(s.csatPct, 100); // 90 >=80
+    assert.ok(cv.byGroup.find(r => r.group === 'Hounde IT Agents'), 'group dim');
+    assert.ok(cv.byTech.find(r => r.name === 'Tina'), 'tech dim');
+  } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
+});

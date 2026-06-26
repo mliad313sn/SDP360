@@ -3287,6 +3287,7 @@ function _mapCabRecommendations(rows) {
  *   }
  */
 function getCustomerVoiceByDimensionDB() {
+  if (REPORTS_BACKEND === 'postgres') return _getCustomerVoiceByDimensionDBPg();
   // Pull surveys + ticket metadata in ONE query (instead of two Zoho views).
   const rows = db.prepare(`
     SELECT
@@ -3308,6 +3309,35 @@ function getCustomerVoiceByDimensionDB() {
     WHERE pending_status = 0
   `).get();
 
+  return _assembleCustomerVoiceByDimension(rows, closedRow);
+}
+// PG fork — awaits the survey⨝request LEFT JOIN + the closed-ticket count. NO dialect rewrite in
+// the SQL (no strftime/julianday/datetime/ROUND); ALL aggregation is engine-agnostic JS reused via
+// the shared assembler.
+async function _getCustomerVoiceByDimensionDBPg() {
+  const H = pgHandle();
+  const rows = await H.prepare(`
+    SELECT
+      s.overall_score                                                AS score,
+      s.request_display_id                                           AS display_id,
+      COALESCE(s.survey_responded_on, s.survey_sent_on)              AS month_src,
+      r.technician                                                   AS tech,
+      r.site                                                         AS site,
+      r.tech_group                                                   AS grp
+    FROM survey_results s
+    LEFT JOIN request_records r ON r.display_id = s.request_display_id
+    WHERE s.overall_score IS NOT NULL
+  `).all();
+
+  const closedRow = await H.prepare(`
+    SELECT COUNT(*) AS n
+    FROM request_records
+    WHERE pending_status = 0
+  `).get();
+
+  return _assembleCustomerVoiceByDimension(rows, closedRow);
+}
+function _assembleCustomerVoiceByDimension(rows, closedRow) {
   const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const monthLbl = iso => {
     if (!iso) return null;
