@@ -4370,6 +4370,7 @@ async function _getRequestRecordsPg({ limit = 200, offset = 0, status, site, sin
  * Optional filters: site_id, since (ISO date string for created_time).
  */
 function getChangeMetrics({ site_id, since } = {}) {
+  if (REPORTS_BACKEND === 'postgres') return _getChangeMetricsPg({ site_id, since });
   let where = 'WHERE 1=1';
   const p = [];
   if (site_id) { where += ' AND site_id=?';      p.push(site_id); }
@@ -4378,23 +4379,10 @@ function getChangeMetrics({ site_id, since } = {}) {
   const total    = db.prepare(`SELECT COUNT(*) as n FROM change_records ${where}`).get(...p).n;
   const byStatus = db.prepare(`SELECT status, COUNT(*) as count FROM change_records ${where} GROUP BY status ORDER BY count DESC`).all(...p);
 
-  const completed = byStatus.find(r => r.status === 'Completed')?.count  || 0;
-  const cancelled = byStatus.find(r => r.status === 'Cancelled')?.count  || 0;
-  const rejected  = byStatus.find(r => r.status === 'Rejected')?.count   || 0;
-  const finalized = completed + cancelled + rejected;            // AP "All_Introduced_Change_Finalized_Count"
-  // 2026-06-02 ITSM-alignment (FORMULA_RECONCILIATION.md §6 D4):
-  // Success rate = successful / executed, where executed = success + failed +
-  // backed_out. Cancelled and Rejected are EXCLUDED from the denominator —
-  // they were never actually executed, so they don't measure rollout quality
-  // the way AP's "/finalized" includes them. The dashboard already uses this
-  // logic in executive*-pages via _tallyChanges (5ebdb44); aligning the
-  // server-side helper too so analytics.html shows the same number.
   const failedCount = db.prepare(
     `SELECT COUNT(*) as n FROM change_records ${where}
      AND (status='Failed' OR (stage='Close' AND status='Backout'))`
   ).get(...p).n;
-  const executed = completed + failedCount;                       // ITSM denominator
-  const changeSuccessRate = executed > 0 ? +(completed / executed * 100).toFixed(1) : null;
 
   const byRisk  = db.prepare(`SELECT risk, COUNT(*) as count FROM change_records ${where} GROUP BY risk ORDER BY count DESC`).all(...p);
   const byType  = db.prepare(`SELECT change_type, COUNT(*) as count FROM change_records ${where} GROUP BY change_type ORDER BY count DESC`).all(...p);
@@ -4420,6 +4408,53 @@ function getChangeMetrics({ site_id, since } = {}) {
      AND status='Completed' AND completed_time IS NOT NULL AND scheduled_start IS NOT NULL`
   ).get(...p);
 
+  return _assembleChangeMetrics({ total, byStatus, failedCount, byRisk, byType, bySite, emergCount, inProgress, avgDaysRow });
+}
+// PG fork — dynamic ${where} with `?` placeholders (adapter translates ?→$N per-statement).
+// Rewrites: emergency INTEGER→`emergency::text IN ('1','true')`; `scheduled_start <= datetime('now')`
+// →`NULLIF(scheduled_start,'')::timestamptz <= now()`; JULIANDAY day-diff→`EXTRACT(EPOCH …)/86400`
+// fed to `ROUND(AVG(...)::numeric, 1)`. `since` bound (created_time>=?) UNCHANGED. `||` concat OK.
+async function _getChangeMetricsPg({ site_id, since } = {}) {
+  const H = pgHandle();
+  let where = 'WHERE 1=1';
+  const p = [];
+  if (site_id) { where += ' AND site_id=?';      p.push(site_id); }
+  if (since)   { where += ' AND created_time>=?'; p.push(since);   }
+
+  const total    = (await H.prepare(`SELECT COUNT(*) as n FROM change_records ${where}`).get(...p)).n;
+  const byStatus = await H.prepare(`SELECT status, COUNT(*) as count FROM change_records ${where} GROUP BY status ORDER BY count DESC`).all(...p);
+  const failedCount = (await H.prepare(
+    `SELECT COUNT(*) as n FROM change_records ${where}
+     AND (status='Failed' OR (stage='Close' AND status='Backout'))`
+  ).get(...p)).n;
+  const byRisk  = await H.prepare(`SELECT risk, COUNT(*) as count FROM change_records ${where} GROUP BY risk ORDER BY count DESC`).all(...p);
+  const byType  = await H.prepare(`SELECT change_type, COUNT(*) as count FROM change_records ${where} GROUP BY change_type ORDER BY count DESC`).all(...p);
+  const bySite  = await H.prepare(`SELECT site_id, COUNT(*) as count FROM change_records ${where} GROUP BY site_id ORDER BY count DESC`).all(...p);
+  const emergCount = (await H.prepare(
+    `SELECT COUNT(*) as n FROM change_records ${where} AND emergency::text IN ('1','true')`
+  ).get(...p)).n;
+  const inProgress = (await H.prepare(
+    `SELECT COUNT(*) as n FROM change_records ${where}
+     AND NULLIF(scheduled_start,'')::timestamptz <= now()
+     AND (stage || ' - ' || status) NOT IN ('Close - Completed','Close - Cancelled')`
+  ).get(...p)).n;
+  const avgDaysRow = await H.prepare(
+    `SELECT ROUND(AVG(EXTRACT(EPOCH FROM (NULLIF(completed_time,'')::timestamptz - NULLIF(scheduled_start,'')::timestamptz)) / 86400)::numeric, 1) as avg_days
+     FROM change_records ${where}
+     AND status='Completed' AND completed_time IS NOT NULL AND scheduled_start IS NOT NULL`
+  ).get(...p);
+
+  return _assembleChangeMetrics({ total, byStatus, failedCount, byRisk, byType, bySite, emergCount, inProgress, avgDaysRow });
+}
+// Shared assembly — engine-agnostic JS over resolved query outputs (derives completed/cancelled/
+// rejected/finalized/executed/changeSuccessRate; ITSM success = completed/executed).
+function _assembleChangeMetrics({ total, byStatus, failedCount, byRisk, byType, bySite, emergCount, inProgress, avgDaysRow }) {
+  const completed = byStatus.find(r => r.status === 'Completed')?.count  || 0;
+  const cancelled = byStatus.find(r => r.status === 'Cancelled')?.count  || 0;
+  const rejected  = byStatus.find(r => r.status === 'Rejected')?.count   || 0;
+  const finalized = completed + cancelled + rejected;            // AP "All_Introduced_Change_Finalized_Count"
+  const executed  = completed + failedCount;                     // ITSM denominator (success + failed + backed_out)
+  const changeSuccessRate = executed > 0 ? +(completed / executed * 100).toFixed(1) : null;
   return {
     total,
     completed_count:     completed,
@@ -4445,6 +4480,7 @@ function getChangeMetrics({ site_id, since } = {}) {
  * Optional filter: since (ISO date for recommendation_requested).
  */
 function getCABMetrics({ since } = {}) {
+  if (REPORTS_BACKEND === 'postgres') return _getCABMetricsPg({ since });
   let where = 'WHERE 1=1';
   const p = [];
   if (since) { where += ' AND recommendation_requested>=?'; p.push(since); }
@@ -4454,13 +4490,10 @@ function getCABMetrics({ since } = {}) {
     `SELECT approval_status, COUNT(*) as count FROM cab_approvals ${where} GROUP BY approval_status ORDER BY count DESC`
   ).all(...p);
 
-  const approved = byStatus.find(r => r.approval_status === 'Approved')?.count || 0;
-
   const distinctChanges   = db.prepare(`SELECT COUNT(DISTINCT change_id) as n FROM cab_approvals ${where}`).get(...p).n;
   const approvedChanges   = db.prepare(
     `SELECT COUNT(DISTINCT change_id) as n FROM cab_approvals ${where} AND approval_status='Approved'`
   ).get(...p).n;
-  const cabCompliancePct  = distinctChanges > 0 ? +(approvedChanges / distinctChanges * 100).toFixed(1) : null;
 
   const avgTurnaround = db.prepare(
     `SELECT ROUND(AVG(turnaround_minutes), 1) as avg FROM cab_approvals ${where}
@@ -4474,6 +4507,40 @@ function getCABMetrics({ since } = {}) {
     `SELECT approval_stage, COUNT(*) as count FROM cab_approvals ${where} GROUP BY approval_stage ORDER BY count DESC`
   ).all(...p);
 
+  return _assembleCABMetrics({ total, byStatus, distinctChanges, approvedChanges, avgTurnaround, byRuleType, byStage });
+}
+// PG fork — dynamic ${where}; `since` bound (recommendation_requested>=?) UNCHANGED; no julianday/
+// strftime/datetime. `ROUND(AVG(turnaround_minutes),1)` stays as-is (INTEGER → AVG = numeric, no cast).
+async function _getCABMetricsPg({ since } = {}) {
+  const H = pgHandle();
+  let where = 'WHERE 1=1';
+  const p = [];
+  if (since) { where += ' AND recommendation_requested>=?'; p.push(since); }
+
+  const total    = (await H.prepare(`SELECT COUNT(*) as n FROM cab_approvals ${where}`).get(...p)).n;
+  const byStatus = await H.prepare(
+    `SELECT approval_status, COUNT(*) as count FROM cab_approvals ${where} GROUP BY approval_status ORDER BY count DESC`
+  ).all(...p);
+  const distinctChanges = (await H.prepare(`SELECT COUNT(DISTINCT change_id) as n FROM cab_approvals ${where}`).get(...p)).n;
+  const approvedChanges = (await H.prepare(
+    `SELECT COUNT(DISTINCT change_id) as n FROM cab_approvals ${where} AND approval_status='Approved'`
+  ).get(...p)).n;
+  const avgTurnaround = (await H.prepare(
+    `SELECT ROUND(AVG(turnaround_minutes), 1) as avg FROM cab_approvals ${where}
+     AND turnaround_minutes IS NOT NULL AND turnaround_minutes > 0`
+  ).get(...p)).avg;
+  const byRuleType = await H.prepare(
+    `SELECT rule_type, COUNT(*) as count FROM cab_approvals ${where} GROUP BY rule_type ORDER BY count DESC`
+  ).all(...p);
+  const byStage = await H.prepare(
+    `SELECT approval_stage, COUNT(*) as count FROM cab_approvals ${where} GROUP BY approval_stage ORDER BY count DESC`
+  ).all(...p);
+
+  return _assembleCABMetrics({ total, byStatus, distinctChanges, approvedChanges, avgTurnaround, byRuleType, byStage });
+}
+function _assembleCABMetrics({ total, byStatus, distinctChanges, approvedChanges, avgTurnaround, byRuleType, byStage }) {
+  const approved = byStatus.find(r => r.approval_status === 'Approved')?.count || 0;
+  const cabCompliancePct = distinctChanges > 0 ? +(approvedChanges / distinctChanges * 100).toFixed(1) : null;
   return {
     total_approvals:       total,
     approved_count:        approved,
