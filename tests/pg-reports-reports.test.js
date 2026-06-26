@@ -185,3 +185,21 @@ test('copy-reports-reports: sqlite → pg parity + sequence advance', async (t) 
     assert.ok((await db.prepare(`INSERT INTO infra_kpi_catalog (service, kpi) VALUES ('Email','Latency')`).run()).lastID > 8, 'catalog seq advanced');
   } finally { await db.close(); await dropTestDb(ctx); _fs.rmSync(_path.dirname(src), { recursive: true, force: true }); }
 });
+
+test('reports pg: reassignReportWeek (wiring-2 helper)', async (t) => {
+  const b = await boot(); if (!b) return t.skip('no pg');
+  const { ctx, rdb, siteId } = b;
+  try {
+    const r1 = await rdb.ensureReport(siteId, 2026, 10);   // (site_id, year, week)
+    const r2 = await rdb.ensureReport(siteId, 2026, 11);
+    const id1 = r1.id, id2 = r2.id;
+    const w2id = (await rdb.getReport(id2)).week_id;
+    const w3id = await rdb.ensureWeek(2026, 12);   // a FREE week (ensureWeek makes only the week row, no report)
+    const dup = await rdb.reassignReportWeek({ reportId: id1, siteId, newWeekId: w2id });
+    assert.equal(dup.duplicateReportId, id2, 'conflict returns the occupying report id');
+    assert.notEqual((await rdb.getReport(id1)).week_id, w2id, 'r1 week unchanged on conflict');
+    const ok = await rdb.reassignReportWeek({ reportId: id1, siteId, newWeekId: w3id });
+    assert.equal(ok.duplicateReportId, null, 'free week → reassigned');
+    assert.equal((await rdb.getReport(id1)).week_id, w3id, 'week_id updated');
+  } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
+});

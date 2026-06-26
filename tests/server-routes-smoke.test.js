@@ -56,6 +56,11 @@ const ROUTES = [
   '/api/requests?limit=5',
   '/api/data/submission-channels',
   '/api/data/requests-raw',
+  // 4D-wiring-2 cold-path routes (report builder + config + presets)
+  '/api/reports',
+  '/api/reports/sites',
+  '/api/reports/departments',
+  '/api/dashboard/presets?scope=tickets',
 ];
 for (const path of ROUTES) {
   test(`smoke 200: ${path}`, async () => {
