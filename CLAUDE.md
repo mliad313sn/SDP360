@@ -3328,13 +3328,29 @@ Browser (reports.html#admin)
 
 ### Five risk domains (first-match-wins classifier)
 
-| # | Domain | SDP category + sub-category matches |
+**Matching is by SUB-CATEGORY ONLY, category-agnostic** (changed 2026-06-28).
+SDP duplicates the same subcategory names (Electrical power & UPS, Radio,
+Servers, …) under several parent categories, so a ticket's `category` is
+unreliable — the subcategory identifies the risk. Each sub maps to exactly one
+domain (no cross-domain collision), so sub-only matching is safe. The `cat`
+shown below is the canonical/documentary parent only; it is NOT required at
+match time (see `classifyIncident` in `risk-register-export.js`).
+
+| # | Domain | SDP sub-category matches (any parent category) |
 |---|---|---|
-| 1 | Unavailability of Internet | `Network & Internet Access / Network issues` + `Network / WAN` |
-| 2 | Unavailability of the mobile phone | `Mobile & Communication Services / 3G/4G Internet & GSM-SIM` |
-| 3 | Unavailability of electrical power | `IT Infrastructure / Power & UPS` |
-| 4 | Infrastructure unavailability | `IT Infrastructure / Servers`, `… / Data Centers`, `… / Network`, `… / Backup`, `… / Database`, `… / Cloud Services`, `Enterprise Applications / System`, `… / Technical`, `Email / Issue with Email`, `Network & Internet Access / Network Configuration`, `… / VPN (Remote Access Services)` |
-| 5 | Radio system unavailability | `Network & Internet Access / Radio / Telecom` |
+| 1 | Unavailability of Internet | `Network issues`, `WAN` |
+| 2 | Unavailability of the mobile phone | `3G/4G Internet & GSM-SIM` |
+| 3 | Unavailability of electrical power | `Electrical power & UPS` |
+| 4 | Infrastructure unavailability | `Servers`, `Data Centers`, `Network`, `Backup`, `Database`, `Cloud Services`, `System`, `Technical`, `Issue with Email`, `Network Configuration`, `VPN (Remote Access Services)` |
+| 5 | Radio system unavailability | `Radio` |
+
+> **Gotcha (2026-06-28):** the original rules pinned `cat:'IT Infrastructure'`
+> for elec/radio AND used the wrong sub names (`Power & UPS`, `Radio / Telecom`)
+> → domains 3 & 5 were **0 on every site**. Real SDP names are
+> `Electrical power & UPS` and `Radio`, and the same subs are duplicated across
+> parents → hence category-agnostic, sub-only matching. Also the SheetJS date
+> cell rendered the **previous day** (e.g. `06-29` for June) from a midnight
+> `Date`; anchoring the last-day date at **noon** fixes the off-by-one.
 
 Source/Actions text per domain is fixed (per spec §5) — see `DOMAINS` array in `risk-register-export.js`. Effecacite columns ("Leave empty (0)") are spec-required.
 

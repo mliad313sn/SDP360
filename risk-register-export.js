@@ -55,8 +55,10 @@ const DOMAIN_RULES = [
   {
     domain: '3.Unavailability of electrical power',
     matches: [
-      // ⚠ Confirm exact subcategory name with the team — may need to be created in SDP
-      { cat: 'IT Infrastructure', sub: 'Power & UPS' },
+      // SDP subcategory "Electrical power & UPS" (leaf items Power Issue /
+      // Power Setup / UPS Issue / UPS Setup). request_records stores this
+      // middle level. Matched category-agnostically — see classifyIncident.
+      { sub: 'Electrical power & UPS' },
     ],
   },
   {
@@ -78,8 +80,9 @@ const DOMAIN_RULES = [
   {
     domain: '5.Radio system unavailability',
     matches: [
-      // ⚠ Confirm exact subcategory name with the team — may need to be created in SDP
-      { cat: 'Network & Internet Access', sub: 'Radio / Telecom' },
+      // SDP subcategory "Radio". Matched category-agnostically (it appears
+      // under more than one parent category) — see classifyIncident.
+      { sub: 'Radio' },
     ],
   },
 ];
@@ -125,11 +128,18 @@ function classifyIncident(rec) {
   const impact = String(rec.impact || '').trim();
   if (EXCLUDED_IMPACTS.has(impact)) return null;
   // (3) Match against the 5 domain rules — first match wins.
+  // Matching is by SUB-CATEGORY across ANY parent category: SDP duplicates the
+  // same subcategory names (Electrical power & UPS, Radio, Servers, …) under
+  // several top-level categories, so a ticket's `category` is unreliable — the
+  // subcategory is what identifies the risk. Each sub maps to exactly one
+  // domain (no cross-domain collision), so sub-only matching is safe. A
+  // match's `cat` field, when present, is documentation of the canonical
+  // parent only and is intentionally NOT required. (A future cat-only rule —
+  // `{ cat: 'X' }` with no sub — still matches by category.)
   for (const rule of DOMAIN_RULES) {
     for (const m of rule.matches) {
-      if (m.cat === cat && (m.sub == null || m.sub === sub)) {
-        return rule.domain;
-      }
+      if (m.sub != null) { if (m.sub === sub) return rule.domain; }
+      else if (m.cat != null) { if (m.cat === cat) return rule.domain; }
     }
   }
   return null;
@@ -302,7 +312,13 @@ function generateRiskRegisterExcel(month, occurrences) {
   // Compute last day of selected month — used for column A on every row.
   // SheetJS represents dates as Date objects with cellDates: true.
   const [year, mon] = month.split('-').map(Number);
-  const lastDay = new Date(year, mon, 0);  // day 0 of next month = last of current
+  // Day 0 of next month = last day of the selected month. Use NOON, not
+  // midnight: SheetJS's Date→Excel-serial conversion rounds a midnight
+  // date down to the previous calendar day in some timezones (the cell
+  // STORES 2026-06-30 but Excel DISPLAYS "6/29/26"). Anchoring at 12:00
+  // keeps the serial safely inside the correct day. (Confirmed off-by-one
+  // on the 2026-06 export.)
+  const lastDay = new Date(year, mon, 0, 12, 0, 0);
 
   // Build the worksheet as an array-of-arrays (header + data rows).
   // SheetJS's aoa_to_sheet is the most predictable way to construct a
