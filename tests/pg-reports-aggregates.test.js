@@ -342,6 +342,7 @@ test('agg pg: change list/history + cab join + open changes', async (t) => {
     await rdb.upsertChangeBatch([
       _chg({change_id:'C1',display_id:'CRQ-1',subject:'Net upgrade',change_type:'Emergency Change',
             status:'Completed',stage:'Implementation',group_name:G,created_time:'2026-06-10 09:00:00',
+            scheduled_start:'2026-06-15 08:00:00',
             udf_json:JSON.stringify({'UDF:Reason':'urgent'})}),
       _chg({change_id:'C2',display_id:'CRQ-2',subject:'Routine patch',change_type:'Normal',
             status:'Completed',stage:'Close',group_name:G,created_time:'2026-06-11 09:00:00'}),
@@ -356,6 +357,8 @@ test('agg pg: change list/history + cab join + open changes', async (t) => {
     const emg = await rdb.getEmergencyChangesDB();
     const e1 = emg.find(r => r['Change ID'] === 'C1');
     assert.ok(e1, 'emergency change present'); assert.match(e1['Change Type'], /emergency/i);
+    assert.equal(e1['Status'], 'Completed', 'Status maps r.status (was the non-existent r.change_status)');
+    assert.ok(e1['Planned Start Time'], 'Planned Start Time maps r.scheduled_start (was non-existent r.planned_start_time)');
     assert.ok(!emg.find(r => r['Change ID'] === 'C2'), 'non-emergency absent');
 
     const apps = await rdb.getCabApprovalsDB();
@@ -376,7 +379,6 @@ test('agg pg: change list/history + cab join + open changes', async (t) => {
     const h1 = hist.find(r => r['Change ID'] === 'C1');
     assert.ok(h1, 'history row'); assert.equal(h1['Site'], 'Hounde', 'derived from group→site map');
     assert.equal(h1['UDF:Reason'], 'urgent', 'udf_json unpacked');
-    // NOTE: do NOT assert on getEmergencyChangesDB "Status" — r.change_status is a non-existent col.
   } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
 });
 
