@@ -52,6 +52,56 @@ Schema: `db/postgres/tracker/001_init.sql` (legacy + per-year v2 tables;
 type-preserving — `*_json` TEXT, `active` INTEGER, `target` TEXT; FK ON DELETE
 CASCADE for `deleteTrackerYear`).
 
+### reports.db — full copy (orchestrated)
+
+```bash
+PG_URL=postgres://…  node tools/pg/copy-reports-all.js  [path/to/reports.db]
+```
+
+Runs the four phase-copiers over ONE pg connection in **FK-safe order**: `auth` (sites + users +
+sessions) → `config` (action_departments + audit_log + dashboard_preset_groups + **rr_site_aliases**)
+→ `reports` (weeks/weekly_reports/infra_kpis/helpdesk_data/lights/action_items/monthly_reports/
+annual_objectives/site_module_codes/infra_kpi_catalog) → `hot` (request_records/change_records/
+cab_approvals/survey_results/survey_answers/sync_metadata). Each phase applies its schema (001–004)
+first, upserts on PK / Zoho-id (idempotent — safe to re-run), and advances IDENTITY sequences. The
+phase-copiers are also runnable individually (`copy-reports-{auth,config,reports,hot}.js`). Defaults
+the source to `data/reports.db`.
+
+## Cutover runbook (`REPORTS_BACKEND=sqlite` → `postgres`)
+
+The migration is **all-or-nothing for reports.db** — every DB fn + every server.js consumer is forked
+behind the one flag. Cutover steps (the data copy + flag flip are a deploy action, done by the operator
+on the prod host — NOT by any automated step here):
+
+1. **Provision** a Postgres DB + role; set `PG_URL` (or `DATABASE_URL`) in prod `.env` (do NOT yet set
+   `REPORTS_BACKEND`).
+2. **Reconcile (dry-run, sqlite still live):** `node tools/pg/reconcile-reports.js <reports.db>`
+   copies the live sqlite into a scratch PG and diffs the KPI readers sqlite-vs-pg. Investigate any
+   non-zero diff before proceeding (see the reconciliation section).
+3. **Copy:** `PG_URL=… node tools/pg/copy-reports-all.js <reports.db>` to load prod data into the real PG.
+4. **Flip:** set `REPORTS_BACKEND=postgres` in prod `.env`; `pm2 stop endeavour-dashboard` →
+   `timeout /t 5` → `pm2 start` (NOT reload — `_htmlCache`/server.js need a fresh boot; EADDRINUSE
+   pitfall). `initPgReports` re-applies 001–004 (idempotent) + seeds at boot.
+5. **Verify:** the dashboard + report builder + admin config load; `/api/sync/status` fresh; spot-check
+   a monthly PPTX export. **Rollback** = set `REPORTS_BACKEND=sqlite` + restart (sqlite is untouched —
+   the copy is one-way into PG, the sqlite file is never modified).
+6. Repeat the copy+flip per module flag (`TRACKER_BACKEND`/`MEETINGS_BACKEND`/`INSPECTION_BACKEND`)
+   when each is ready — they're independent.
+
+### KPI reconciliation (`tools/pg/reconcile-reports.js`)
+
+```bash
+PG_ADMIN_URL=postgres://…  node tools/pg/reconcile-reports.js [path/to/reports.db]
+```
+
+Provisions a throwaway PG, copies the sqlite reports.db into it, then runs **21 whole-dataset KPI
+readers** (getRequestMetrics, getSlaTrendDB, getChangeMetrics, getCABMetrics, getSurveyMetrics,
+getAgeing*DB, getCustomerVoice*DB, getMajorIncidentsHistory, …) in two child processes — one
+sqlite-backed, one pg-backed — and **deep-diffs the JSON** (float epsilon 1e-9). Prints `✓`/`✗` per
+reader; exits 0 only if all identical. Drops the scratch DB after. The sqlite file is read-only.
+Run it pre-flip on real prod data; any `✗` must be investigated before cutover. (Per-site assemblers
+like `getMonthlyData(site,y,m)` aren't in the v1 list — extend `READERS` if needed.)
+
 ---
 
 ## reports.db — Sub-chunk A (auth/sessions) — `agent/pg-reports-auth` / `feat/pg-reports-auth`
