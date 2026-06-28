@@ -407,3 +407,37 @@ Same `REPORTS_BACKEND` flag.
 layer + server.js consumer layer are now PostgreSQL-ready behind `REPORTS_BACKEND`.** Remaining before
 the prod flip: **4B-RR** (`rr_site_aliases`) + the `/api/survey/voice` follow-up + a full **KPI
 reconciliation** (sqlite-vs-pg numeric diff on real data) — no further DB/route forking.
+
+## reports.db — Sub-chunk 4B-RR (risk-register rr_site_aliases) — `feat/pg-reports-4b-rr`
+
+The deferred risk-register slice from 4B. Mirrors the **groupPresets** fork exactly. Same
+`REPORTS_BACKEND` flag.
+
+- **Schema:** `rr_site_aliases` added to `db/postgres/reports/002_config.sql` (`sdp_label` PK / `code`
+  / `updated_at TIMESTAMPTZ DEFAULT now()` / `updated_by`). `initPgReports` already applies 002.
+- **Seed:** `_seedConfigPg` (reports-db.js) lazy-requires `risk-register-export` for
+  `DEFAULT_SITE_ALIASES` and seeds-if-empty (count-guard + `ON CONFLICT (sdp_label) DO NOTHING`) —
+  same lazy-require-at-call-time pattern as the groupPresets seed (no eager cycle: rr's `_h()`
+  lazy-requires reports-db).
+- **Module fork** (`risk-register-export.js`): added the `_h(db)` resolver (`{H, isPg}`; pg →
+  `rdb.pgHandle()`, else the injected sqlite `db`). 8 DB fns made **async** + routed through
+  `await _h(db).H.prepare(...)`: `_initConfigSchema` (pg early-return — schema/seed owned by
+  002+`_seedConfigPg`; sqlite path unchanged), `getSiteAliases`, `loadOccurrencesFromDB`,
+  `buildRiskRegisterExport`, `listAliases`, `upsertAlias`, `deleteAlias`, `listUnmappedSites`. The
+  upsert (`ON CONFLICT(sdp_label) DO UPDATE SET …=excluded.…, updated_at=CURRENT_TIMESTAMP`) is
+  pg-valid AS-IS; `request_records` reads keep raw-ISO TEXT cutoffs UNCHANGED; `deleteAlias` uses
+  `.changes` (pgDb `.run()` → `{changes: rowCount}`). `classifyIncident`/`resolveSite`/Excel gen/
+  constants are pure — unchanged.
+- **server.js:** the 4 `/api/risk-register-config/*` CRUD handlers (GET/POST/DELETE aliases, GET
+  unmapped) made `async` + `await rr.*(rdb.db, …)` (`rdb.db` stays — `_h` ignores it in pg).
+  `/api/risk-register-export` was already awaited. **Unlike the reports-db forked fns, these module
+  fns are async in BOTH modes** (every caller is an awaited server route — like groupPresets).
+- **Tests:** `tests/pg-reports-rr.test.js` (3: seed+listAliases, upsert+delete via `.changes`,
+  loadOccurrences+listUnmappedSites against seeded `request_records`). +`/api/risk-register-config/
+  aliases` in the route smoke (11/11 sqlite). 43/43 reports.db pg.
+
+**🎉 reports.db migration code-COMPLETE.** Every DB fn (4A–4D-2d), every server.js consumer (4D-wiring-1/2),
+and the risk-register module (4B-RR) are PostgreSQL-ready behind `REPORTS_BACKEND` (default sqlite,
+prod untouched). **Remaining before the prod flip — verification + 1 isolated path only:** the
+`/api/survey/voice` raw-`db` follow-up (spawned task) + a full **KPI reconciliation** (sqlite-vs-pg
+numeric diff on real data) + the one-shot `copy-reports-*.js` data copy at cutover.
