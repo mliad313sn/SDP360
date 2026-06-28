@@ -216,6 +216,28 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
 .saving-indicator{font-size:0.78rem;color:#6b7a99;display:flex;align-items:center;gap:4px}
 .saving-indicator.saving{color:var(--amber)}
 .saving-indicator.saved{color:var(--green)}
+
+/* ── Admin left-rail (settings-style two-column layout) ─────────── */
+.admin-layout{display:flex;gap:22px;align-items:flex-start}
+.admin-rail{flex:0 0 210px;position:sticky;top:16px;display:flex;flex-direction:column;gap:4px;
+  background:#fff;border:1px solid var(--border);border-radius:10px;padding:8px}
+.admin-rail__item{display:flex;align-items:center;gap:10px;width:100%;text-align:left;
+  padding:9px 12px;border:none;border-radius:7px;background:transparent;cursor:pointer;
+  font-size:0.9rem;font-weight:600;color:#42526b;line-height:1.2;transition:background .12s,color .12s}
+.admin-rail__item .ar-ico{font-size:1rem;width:1.2em;text-align:center;flex:0 0 auto}
+.admin-rail__item:hover{background:#f1f5fb;color:var(--dark-blue)}
+.admin-rail__item.active{background:var(--dark-blue);color:#fff}
+.admin-rail__item small{display:block;font-size:0.68rem;font-weight:400;opacity:.7;margin-top:1px}
+.admin-content{flex:1 1 auto;min-width:0}
+.admin-panel{display:none}
+.admin-panel.active{display:block;animation:adminPanelIn .18s ease}
+@keyframes adminPanelIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@media (max-width:880px){
+  .admin-layout{flex-direction:column}
+  .admin-rail{flex:1 1 auto;position:static;flex-direction:row;flex-wrap:wrap;width:100%}
+  .admin-rail__item{width:auto;flex:1 1 auto;justify-content:center}
+  .admin-rail__item small{display:none}
+}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js" defer></script>
@@ -943,10 +965,20 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
 
   <!-- ── ADMIN PAGE ────────────────────────────────────────────── -->
   <div class="page" id="page-admin">
-    <div class="page-title">Admin — User Management</div>
-    <div class="page-subtitle">Manage user accounts and site access</div>
+    <div class="page-title">Admin — Settings</div>
+    <div class="page-subtitle">Users, sites, departments, sessions &amp; integrations</div>
 
-    <div class="card">
+    <div class="admin-layout">
+      <nav class="admin-rail" id="admin-rail" aria-label="Admin sections">
+        <button type="button" class="admin-rail__item" data-panel="users"       onclick="showAdminPanel('users')"><span class="ar-ico">👤</span><span>Users<small>Accounts &amp; roles</small></span></button>
+        <button type="button" class="admin-rail__item" data-panel="sessions"    onclick="showAdminPanel('sessions')"><span class="ar-ico">🟢</span><span>Active Sessions<small>Who's online</small></span></button>
+        <button type="button" class="admin-rail__item" data-panel="sites"       onclick="showAdminPanel('sites')"><span class="ar-ico">🏢</span><span>Sites<small>Zoho group mapping</small></span></button>
+        <button type="button" class="admin-rail__item" data-panel="departments" onclick="showAdminPanel('departments')"><span class="ar-ico">🏷</span><span>Departments<small>Action item categories</small></span></button>
+        <button type="button" class="admin-rail__item" data-panel="risk" id="admin-rail-risk" style="display:none" onclick="showAdminPanel('risk')"><span class="ar-ico">🛡</span><span>Risk Register<small>Site code mapping</small></span></button>
+      </nav>
+      <div class="admin-content">
+
+    <div class="card admin-panel" id="ap-users" data-panel="users">
       <h3>👤 Users
         <button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="openUserModal()">+ New User</button>
       </h3>
@@ -970,7 +1002,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
          column on sessions, bumped by validateSession on every
          authenticated request. Auto-refreshes every 30 s while the card
          is open. View = admin+, Force-logout = super_admin only. -->
-    <div class="card" id="sessions-card">
+    <div class="card admin-panel" id="sessions-card" data-panel="sessions">
       <h3>🟢 Active Sessions
         <span style="font-size:0.78rem;font-weight:400;color:#6b7a99;margin-left:8px">
           Users who've made an authenticated request in the last
@@ -1001,7 +1033,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
     </div>
 
     <!-- Sites / Group Mapping -->
-    <div class="card">
+    <div class="card admin-panel" id="ap-sites" data-panel="sites">
       <h3>🏢 Sites — Zoho Group Mapping
         <span style="font-size:0.78rem;font-weight:400;color:#6b7a99;margin-left:8px">Maps each site to its Zoho AP helpdesk group for automatic chart loading</span>
         <button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="openSiteModal()">+ New Site</button>
@@ -1013,7 +1045,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
     </div>
 
     <!-- Departments / Action Item Categories -->
-    <div class="card">
+    <div class="card admin-panel" id="ap-depts" data-panel="departments">
       <h3>🏷 Departments — Action Item Categories
         <span style="font-size:0.78rem;font-weight:400;color:#6b7a99;margin-left:8px">Used by the Action Items dropdown on weekly + monthly reports</span>
         <button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="openDeptModal()">+ New Department</button>
@@ -1037,7 +1069,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
          the Risk Register's short codes (HGO, MGO, …). The whole card is
          hidden for non-super-admin users by loadAdminPage() — the API also
          gates writes server-side. -->
-    <div class="card" id="rr-aliases-card" style="display:none">
+    <div class="card admin-panel" id="rr-aliases-card" data-panel="risk">
       <h3>🛡 Risk Register — Site Code Mapping
         <span style="font-size:0.78rem;font-weight:400;color:#6b7a99;margin-left:8px">
           SDP free-form site labels → Risk Register short codes (used by the monthly Occurrence export)
@@ -1080,6 +1112,8 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
          visible only to super_admin. Server routes are unchanged
          (POST/PUT/PATCH on /api/meetings/lookups/:table/*). -->
 
+      </div><!-- /.admin-content -->
+    </div><!-- /.admin-layout -->
   </div>
 </div>
 
@@ -4243,10 +4277,49 @@ async function downloadAllSitesMonthlyPptx(fromMonthlyPage) {
 // ══════════════════════════════════════════════════════════════════
 //  ADMIN PAGE
 // ══════════════════════════════════════════════════════════════════
+// Admin left-rail: show one settings panel at a time. name ∈ users|sessions|sites|departments|risk.
+const _ADMIN_PANEL_IDS = { users:'ap-users', sessions:'sessions-card', sites:'ap-sites', departments:'ap-depts', risk:'rr-aliases-card' };
+function showAdminPanel(name) {
+  // Guard: 'risk' is super_admin-only — fall back to Users for everyone else.
+  if (name === 'risk' && currentUser?.role !== 'super_admin') name = 'users';
+  if (!_ADMIN_PANEL_IDS[name]) name = 'users';
+  document.querySelectorAll('#page-admin .admin-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('#admin-rail .admin-rail__item').forEach(b => b.classList.toggle('active', b.dataset.panel === name));
+  const panel = document.getElementById(_ADMIN_PANEL_IDS[name]);
+  if (panel) panel.classList.add('active');
+  // Fresh data when opening Active Sessions.
+  if (name === 'sessions' && typeof loadActiveSessions === 'function') loadActiveSessions();
+  // Reflect the section in the hash (deep-linkable); guard avoids re-entrancy with the router.
+  const want = '#admin/' + name;
+  if (location.hash !== want) { _suppressHashRoute = true; location.hash = want; }
+}
+let _suppressHashRoute = false;
+
 async function loadAdminPage() {
   try {
     const isExecOrSuper = ['executive','super_admin'].includes(currentUser?.role);
     const isSuperAdmin  = currentUser?.role === 'super_admin';
+
+    // ── Render the left-rail + active panel FIRST, before any data fetch. ──
+    // The rail and the visible panel are layout, not data. Keeping them ahead
+    // of the awaits means the admin tab is never left blank if an API call
+    // fails — the chrome shows immediately, data fills in when it resolves.
+    const rrRail = document.getElementById('admin-rail-risk');
+    if (rrRail) rrRail.style.display = isSuperAdmin ? '' : 'none';
+    if (isSuperAdmin) {
+      loadRrAliases();
+      // Default the unmapped-sites picker to the previous month
+      // (when admins typically generate the monthly Risk Register).
+      const d = new Date(); d.setDate(0);
+      const m = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+      const monthInput = document.getElementById('rr-unmapped-month');
+      if (monthInput && !monthInput.value) monthInput.value = m;
+      loadRrUnmappedSites();
+    }
+    // Open the panel from the hash sub-section (#admin/<section>) or default to Users.
+    const sub = (location.hash.split('/')[1] || '').toLowerCase();
+    showAdminPanel(['users','sessions','sites','departments','risk'].includes(sub) ? sub : 'users');
+
     const deptUrl  = isExecOrSuper ? '/api/reports/departments?include_inactive=1' : '/api/reports/departments';
     const sitesUrl = isExecOrSuper ? '/api/reports/sites?include_inactive=1'        : '/api/reports/sites';
     const [users, sites, depts] = await Promise.all([
@@ -4263,27 +4336,6 @@ async function loadAdminPage() {
     if (document.getElementById('sessions-card')) {
       loadActiveSessions();
       _startActiveSessionsPolling();
-    }
-
-    // Risk Register codes card — super_admin only. The HTML card is
-    // display:none by default; we reveal it + load data only for the
-    // right role. Non-super-admin admins never see the card or fire
-    // any of its API calls.
-    const rrCard = document.getElementById('rr-aliases-card');
-    if (rrCard) {
-      if (isSuperAdmin) {
-        rrCard.style.display = '';
-        loadRrAliases();
-        // Default the unmapped-sites picker to the previous month
-        // (when admins typically generate the monthly Risk Register).
-        const d = new Date(); d.setDate(0);
-        const m = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
-        const monthInput = document.getElementById('rr-unmapped-month');
-        if (monthInput && !monthInput.value) monthInput.value = m;
-        loadRrUnmappedSites();
-      } else {
-        rrCard.style.display = 'none';
-      }
     }
 
     // Meetings reference codes card moved to /meetings-setup.html — handled
@@ -4900,7 +4952,9 @@ initApp();
 // no-op if the user lacks admin role (loadAdminPage's API calls would
 // 403 anyway). Logs to console so we can verify in DevTools.
 function _routeFromHash() {
-  if (location.hash !== '#admin') return;
+  // showAdminPanel() sets #admin/<section> itself — don't re-route (would reload the page + refetch).
+  if (_suppressHashRoute) { _suppressHashRoute = false; return; }
+  if (!location.hash.startsWith('#admin')) return;   // matches #admin and #admin/<section>
   if (!window.__userHasRole || !window.__userHasRole('admin')) {
     console.log('[hash-router] #admin requested but user lacks admin role — ignoring');
     return;
@@ -4923,7 +4977,7 @@ window.addEventListener('hashchange', _routeFromHash);
   let attempts = 0;
   const tick = () => {
     attempts++;
-    if (location.hash !== '#admin') return;            // hash gone — done
+    if (!location.hash.startsWith('#admin')) return;    // hash gone — done (matches #admin/<section> too)
     if (window.__userHasRole && window.__userHasRole('admin') && typeof showPage === 'function') {
       _routeFromHash();
       return;
