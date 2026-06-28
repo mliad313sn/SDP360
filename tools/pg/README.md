@@ -486,8 +486,20 @@ The deferred risk-register slice from 4B. Mirrors the **groupPresets** fork exac
   loadOccurrences+listUnmappedSites against seeded `request_records`). +`/api/risk-register-config/
   aliases` in the route smoke (11/11 sqlite). 43/43 reports.db pg.
 
-**🎉 reports.db migration code-COMPLETE.** Every DB fn (4A–4D-2d), every server.js consumer (4D-wiring-1/2),
-and the risk-register module (4B-RR) are PostgreSQL-ready behind `REPORTS_BACKEND` (default sqlite,
-prod untouched). **Remaining before the prod flip — verification + 1 isolated path only:** the
-`/api/survey/voice` raw-`db` follow-up (spawned task) + a full **KPI reconciliation** (sqlite-vs-pg
-numeric diff on real data) + the one-shot `copy-reports-*.js` data copy at cutover.
+## reports.db — survey/voice — `feat/pg-survey-voice`
+
+The last raw-`db`-handle code path: `/api/survey/voice` (server.js ~1874/1895) read the raw sqlite
+handle for `survey_results` + `survey_answers`. Two forked readers added in `reports-db.js`
+(synchronous-return invariant): `getSurveyResultsForVoice()` (full table, voice columns) +
+`getSurveyVoiceAnswers()` (`skipped=0` + non-empty text OR long option — `skipped` INTEGER /
+`TRIM`/`LENGTH` are pg-valid, no rewrite). The route awaits them (already async); the cache-build JS
+(incl. the `text.length<5` floor) is unchanged. `tests/pg-reports-aggregates.test.js` +1 (16 total).
+Not added to the route smoke (the `_voiceCache` makes it state-leaky — the reader unit test is the
+coverage).
+
+**🎉 reports.db migration FULLY CODE-COMPLETE.** Every DB fn (4A–4D-2d), every server.js consumer
+(4D-wiring-1/2), the risk-register module (4B-RR), and the survey/voice route are PostgreSQL-ready
+behind `REPORTS_BACKEND` (default sqlite, prod untouched). **No app code left to fork.** Remaining is
+pure cutover (operator/deploy): run `tools/pg/reconcile-reports.js` on real data (all 21 readers must
+match), `tools/pg/copy-reports-all.js` to load PG, then flip `REPORTS_BACKEND=postgres` + restart —
+see the **Cutover runbook** above.
