@@ -15,6 +15,7 @@ const TABLES = [
   ['action_departments',      ['id', 'name', 'sort_order', 'active', 'created_at', 'updated_at'], ['id']],
   ['audit_log',               ['id', 'report_id', 'site_id', 'user_id', 'username', 'action', 'details', 'created_at'], ['id']],
   ['dashboard_preset_groups', ['scope', 'preset_name', 'group_name', 'display_order', 'updated_at', 'updated_by'], ['scope', 'preset_name', 'group_name']],
+  ['rr_site_aliases',         ['sdp_label', 'code', 'updated_at', 'updated_by'], ['sdp_label']],   // 4B-RR (added to 002_config.sql after this script's first version)
 ];
 
 function _upsertSql(table, cols, pk) {
