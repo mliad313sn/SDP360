@@ -3328,29 +3328,34 @@ Browser (reports.html#admin)
 
 ### Five risk domains (first-match-wins classifier)
 
-**Matching is by SUB-CATEGORY ONLY, category-agnostic** (changed 2026-06-28).
+**Matching is SUB-CATEGORY-driven, mostly category-agnostic** (changed 2026-06-28).
 SDP duplicates the same subcategory names (Electrical power & UPS, Radio,
 Servers, …) under several parent categories, so a ticket's `category` is
-unreliable — the subcategory identifies the risk. Each sub maps to exactly one
-domain (no cross-domain collision), so sub-only matching is safe. The `cat`
-shown below is the canonical/documentary parent only; it is NOT required at
-match time (see `classifyIncident` in `risk-register-export.js`).
+unreliable. Each match object requires every field it specifies
+(`classifyIncident` in `risk-register-export.js`):
+- `{ sub: 'X' }` — match `sub` under ANY parent category (default; for specific
+  subcategory names SDP duplicates across parents).
+- `{ cat: 'Y', sub: 'X' }` — STRICT, only under category `Y`. Used for the two
+  GENERIC names `System` / `Technical` (Enterprise Applications) so unrelated
+  tickets like `ERP Support / System` are NOT pulled into domain 4.
 
-| # | Domain | SDP sub-category matches (any parent category) |
+| # | Domain | SDP sub-category matches |
 |---|---|---|
-| 1 | Unavailability of Internet | `Network issues`, `WAN` |
-| 2 | Unavailability of the mobile phone | `3G/4G Internet & GSM-SIM` |
-| 3 | Unavailability of electrical power | `Electrical power & UPS` |
-| 4 | Infrastructure unavailability | `Servers`, `Data Centers`, `Network`, `Backup`, `Database`, `Cloud Services`, `System`, `Technical`, `Issue with Email`, `Network Configuration`, `VPN (Remote Access Services)` |
-| 5 | Radio system unavailability | `Radio` |
+| 1 | Unavailability of Internet | `Network issues`, `WAN` (any parent) |
+| 2 | Unavailability of the mobile phone | `3G/4G Internet & GSM-SIM` (any parent) |
+| 3 | Unavailability of electrical power | `Electrical power & UPS` (any parent) |
+| 4 | Infrastructure unavailability | any-parent: `Servers`, `Data Centers`, `Network`, `Backup`, `Database`, `Cloud Services`, `Issue with Email`, `Network Configuration`, `VPN (Remote Access Services)` · **strict** `Enterprise Applications / System` + `… / Technical` |
+| 5 | Radio system unavailability | `Radio` (any parent) |
 
 > **Gotcha (2026-06-28):** the original rules pinned `cat:'IT Infrastructure'`
 > for elec/radio AND used the wrong sub names (`Power & UPS`, `Radio / Telecom`)
 > → domains 3 & 5 were **0 on every site**. Real SDP names are
-> `Electrical power & UPS` and `Radio`, and the same subs are duplicated across
-> parents → hence category-agnostic, sub-only matching. Also the SheetJS date
-> cell rendered the **previous day** (e.g. `06-29` for June) from a midnight
-> `Date`; anchoring the last-day date at **noon** fixes the off-by-one.
+> `Electrical power & UPS` and `Radio`, and the subs are duplicated across
+> parents → hence category-agnostic matching (with `System`/`Technical` kept
+> strict to avoid over-counting). Also the SheetJS date cell rendered the
+> **previous day** (e.g. `06-29` for June) from a midnight `Date`; anchoring the
+> last-day date at **noon** fixes the off-by-one. Validated on real June-2026
+> data (192 incidents → D1=22 · D2=8 · D4=30 · D3=0 · D5=0).
 
 Source/Actions text per domain is fixed (per spec §5) — see `DOMAINS` array in `risk-register-export.js`. Effecacite columns ("Leave empty (0)") are spec-required.
 
