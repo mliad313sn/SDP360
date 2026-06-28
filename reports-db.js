@@ -2976,11 +2976,11 @@ function _mapEmergencyChanges(rows) {
     'Subject':           r.subject,
     'Site':              r.site,
     'Change Type':       r.change_type,
-    'Status':            r.change_status,
+    'Status':            r.status,            // was r.change_status — non-existent col → always undefined
     'Stage':             r.stage,
     'Stage and Status':  r.stage,
     'Created Time':      isoToZohoStr(r.created_time),
-    'Planned Start Time':isoToZohoStr(r.planned_start_time),
+    'Planned Start Time':isoToZohoStr(r.scheduled_start),  // was r.planned_start_time — non-existent col → always null
   }));
 }
 
