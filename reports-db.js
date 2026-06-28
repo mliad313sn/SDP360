@@ -4585,6 +4585,27 @@ function getSurveyAnswers(response_id) {
   return db.prepare(`SELECT * FROM survey_answers WHERE response_id=? ORDER BY id`).all(response_id);
 }
 
+// ── /api/survey/voice readers (replace the route's raw rdb.db.prepare reads) ──
+// Per-response context (full table, voice columns) — feeds the voice cache's resultMap.
+const _VOICE_RESULTS_SQL = `SELECT response_id, request_id, request_display_id, overall_score, survey_responded_on, survey_sent_on FROM survey_results`;
+function getSurveyResultsForVoice() {
+  if (REPORTS_BACKEND === 'postgres') return pgHandle().prepare(_VOICE_RESULTS_SQL).all();
+  return db.prepare(_VOICE_RESULTS_SQL).all();
+}
+// Candidate free-text answers — skipped=0 with non-empty text OR a long option (>25 chars).
+// No dialect rewrite: skipped is INTEGER; TRIM/LENGTH/IS NOT NULL are pg-valid. (The route's
+// extra text.length<5 floor stays in the route's JS extraction loop.)
+const _VOICE_ANSWERS_SQL = `
+  SELECT response_id, answer_text, answer_option
+  FROM survey_answers
+  WHERE skipped = 0
+    AND ( (answer_text   IS NOT NULL AND TRIM(answer_text)   != '')
+       OR (answer_option IS NOT NULL AND LENGTH(answer_option) > 25) )`;
+function getSurveyVoiceAnswers() {
+  if (REPORTS_BACKEND === 'postgres') return pgHandle().prepare(_VOICE_ANSWERS_SQL).all();
+  return db.prepare(_VOICE_ANSWERS_SQL).all();
+}
+
 function getRequestRecords({ limit = 200, offset = 0, status, site, since, pending_only, overdue_only } = {}) {
   if (REPORTS_BACKEND === 'postgres') return _getRequestRecordsPg({ limit, offset, status, site, since, pending_only, overdue_only });
   let sql = `SELECT * FROM request_records WHERE 1=1`;
@@ -5735,6 +5756,7 @@ module.exports = {
   reconcileRequestRecords,
   // Query helpers
   getChangeRecords, getCABApprovals, getSurveyResults, getSurveyAnswers,
+  getSurveyResultsForVoice, getSurveyVoiceAnswers,   // /api/survey/voice readers
   getRequestRecords,
   // 4D-wiring-1 readers (replace raw-sqlite-handle reads in server.js)
   getRequestRecordsSince, getSubmissionChannelsDB, getSurveyKpisDB,

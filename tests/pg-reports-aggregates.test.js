@@ -30,6 +30,9 @@ const _cab = o => ({ approval_id:null, change_id:null, approver_name:null, appro
 const _sres = o => ({ result_id:null, response_id:null, survey_id:null, survey_name:null,
   request_id:null, request_display_id:null, change_id:null, user_id:null, overall_score:null,
   survey_sent_on:null, survey_responded_on:null, ...o });
+// survey_answers writer needs all @named cols (response_id + result_id are NOT NULL).
+const _sans = o => ({ response_id:null, result_id:null, question_id:null, question_text:null,
+  question_type:null, answer_text:null, answer_option:null, score:null, skipped:0, ...o });
 
 async function boot() {
   const ctx = await provisionTestDb();
@@ -496,5 +499,33 @@ test('agg pg: requestRecordExists (wiring-2 helper)', async (t) => {
     await rdb.upsertRequestBatch([_req({ request_id:'EX1', created_time:'2026-05-01 09:00:00' })]);
     assert.equal(await rdb.requestRecordExists('EX1'), true);
     assert.equal(await rdb.requestRecordExists('NOPE'), false);
+  } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
+});
+
+// ── survey/voice — the two voice-route readers ────────────────────────────
+test('agg pg: getSurveyResultsForVoice + getSurveyVoiceAnswers (voice readers)', async (t) => {
+  const b = await boot(); if (!b) return t.skip('no pg');
+  const { ctx, rdb } = b;
+  try {
+    await rdb.upsertSurveyResultBatch([
+      _sres({ result_id:'VR1', response_id:'RESP1', request_id:'RQ1', overall_score:90, survey_responded_on:'2026-05-10 10:00:00' }),
+      _sres({ result_id:'VR2', response_id:'RESP2', overall_score:40, survey_responded_on:'2026-05-11 10:00:00' }),
+    ]);
+    const results = await rdb.getSurveyResultsForVoice();
+    assert.ok(results.length >= 2, 'returns all survey_results rows');
+    const r1 = results.find(r => r.response_id === 'RESP1');
+    assert.ok(r1 && r1.overall_score === 90 && r1.request_id === 'RQ1', 'voice columns present');
+
+    await rdb.upsertSurveyAnswerBatch([
+      _sans({ response_id:'RESP1', result_id:'VR1', answer_text:'Internet was down all morning', skipped:0 }),   // IN (free text)
+      _sans({ response_id:'RESP2', result_id:'VR2', answer_option:'The VPN kept disconnecting repeatedly', skipped:0 }), // IN (long option >25)
+      _sans({ response_id:'RESP1', result_id:'VR1', answer_text:'This is great service', skipped:1 }),            // OUT (skipped)
+      _sans({ response_id:'RESP2', result_id:'VR2', answer_text:'   ', answer_option:'good', skipped:0 }),        // OUT (blank text + short option)
+    ]);
+    const ans = await rdb.getSurveyVoiceAnswers();
+    assert.equal(ans.length, 2, 'only the free-text + long-option candidate rows (skipped + blank/short excluded)');
+    const texts = ans.map(a => (a.answer_text || a.answer_option || '').trim());
+    assert.ok(texts.includes('Internet was down all morning'), 'free-text in');
+    assert.ok(texts.includes('The VPN kept disconnecting repeatedly'), 'long-option in');
   } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
 });

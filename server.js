@@ -1871,11 +1871,7 @@ app.get('/api/survey/voice', requireReportSession, async (req, res) => {
       // Query 1: per-response context (score / ticket linkage / date).
       // Keyed by response_id so the answer loop can stitch the context
       // onto each typed comment without a per-row sub-query.
-      const resultRows = rdb.db.prepare(`
-        SELECT response_id, request_id, request_display_id, overall_score,
-               survey_responded_on, survey_sent_on
-        FROM survey_results
-      `).all();
+      const resultRows = await rdb.getSurveyResultsForVoice();
       const resultMap = {};
       resultRows.forEach(r => {
         if (!r.response_id) return;
@@ -1892,15 +1888,7 @@ app.get('/api/survey/voice', requireReportSession, async (req, res) => {
       // Query 2: only rows worth examining — skipped=0 AND has free-text
       // OR a long answer_option. SQL pre-filter avoids iterating star_rating
       // selections in JS.
-      const answerRows = rdb.db.prepare(`
-        SELECT response_id, answer_text, answer_option
-        FROM survey_answers
-        WHERE skipped = 0
-          AND (
-                (answer_text   IS NOT NULL AND TRIM(answer_text)   != '')
-             OR (answer_option IS NOT NULL AND LENGTH(answer_option) > 25)
-              )
-      `).all();
+      const answerRows = await rdb.getSurveyVoiceAnswers();
       console.log(`[survey/voice] DB query: ${resultRows.length} responses, ${answerRows.length} candidate answer rows`);
 
       // Map DB rows to the legacy `r` shape so the existing extraction loop
