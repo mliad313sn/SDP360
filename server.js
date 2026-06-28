@@ -2591,10 +2591,10 @@ app.get('/api/risk-register-export', async (req, res) => {
 //   GET    /api/risk-register-config/sites                canonical codes
 const rrConfigJsonBody = express.json({ limit: '64kb' });
 
-app.get('/api/risk-register-config/aliases', requireReportSession, (req, res) => {
+app.get('/api/risk-register-config/aliases', requireReportSession, async (req, res) => {
   try {
     const rr = require('./risk-register-export');
-    res.json({ aliases: rr.listAliases(rdb.db) });
+    res.json({ aliases: await rr.listAliases(rdb.db) });
   } catch (err) {
     console.error('[rr-config] list error:', err.message);
     res.status(500).json({ error: err.message });
@@ -2616,12 +2616,12 @@ app.post('/api/risk-register-config/aliases',
     next();
   },
   rrConfigJsonBody,
-  (req, res) => {
+  async (req, res) => {
     try {
       const rr = require('./risk-register-export');
       const { sdp_label, code } = req.body || {};
       const updatedBy = req.reportUser?.username || req.reportUser?.full_name || 'unknown';
-      const saved = rr.upsertAlias(rdb.db, sdp_label, code, updatedBy);
+      const saved = await rr.upsertAlias(rdb.db, sdp_label, code, updatedBy);
       console.log(`[rr-config] upsert ${saved.sdp_label} → ${saved.code} by ${updatedBy}`);
       res.json({ saved });
     } catch (err) {
@@ -2638,11 +2638,11 @@ app.delete('/api/risk-register-config/aliases/:sdp_label',
     }
     next();
   },
-  (req, res) => {
+  async (req, res) => {
     try {
       const rr = require('./risk-register-export');
       const label = decodeURIComponent(req.params.sdp_label || '');
-      const r = rr.deleteAlias(rdb.db, label);
+      const r = await rr.deleteAlias(rdb.db, label);
       const who = req.reportUser?.username || req.reportUser?.full_name || 'unknown';
       console.log(`[rr-config] delete "${label}" by ${who} — rows=${r.deleted}`);
       res.json(r);
@@ -2652,11 +2652,11 @@ app.delete('/api/risk-register-config/aliases/:sdp_label',
     }
   });
 
-app.get('/api/risk-register-config/unmapped', requireReportSession, (req, res) => {
+app.get('/api/risk-register-config/unmapped', requireReportSession, async (req, res) => {
   try {
     const rr = require('./risk-register-export');
     const month = (req.query.month || '').trim();
-    res.json({ month, unmapped: rr.listUnmappedSites(rdb.db, month) });
+    res.json({ month, unmapped: await rr.listUnmappedSites(rdb.db, month) });
   } catch (err) {
     console.error('[rr-config] unmapped error:', err.message);
     res.status(400).json({ error: err.message });

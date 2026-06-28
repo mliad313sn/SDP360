@@ -222,7 +222,17 @@ const DEFAULT_SITE_ALIASES = Object.freeze({
 // because the Risk Register is a derived view of that data — keeps
 // related state in one DB. Alternative would be a separate
 // risk-register.db; rejected to keep operational complexity low.
-function _initConfigSchema(db) {
+// Resolve the active DB handle (Chunk 4B-RR — mirrors services/groupPresets.js _h). Under
+// REPORTS_BACKEND=postgres use reports-db's pg pool (lazy require — reports-db requires THIS module
+// lazily in _seedConfigPg, so no load-time cycle); otherwise use the injected sqlite `db`.
+function _h(db) {
+  const rdb = require('./reports-db');
+  if (rdb.REPORTS_BACKEND === 'postgres') return { H: rdb.pgHandle(), isPg: true };
+  return { H: db, isPg: false };
+}
+
+async function _initConfigSchema(db) {
+  if (_h(db).isPg) return;   // pg: schema via 002_config.sql, seed via reports-db _seedConfigPg
   db.exec(`
     CREATE TABLE IF NOT EXISTS rr_site_aliases (
       sdp_label  TEXT PRIMARY KEY,
@@ -251,10 +261,11 @@ function _initConfigSchema(db) {
 // Read the live alias map from the DB. Falls back to the baked-in
 // defaults when the table is unreachable for any reason — better to
 // produce an export with the old mapping than to fail entirely.
-function getSiteAliases(db) {
+async function getSiteAliases(db) {
   try {
-    _initConfigSchema(db);
-    const rows = db.prepare('SELECT sdp_label, code FROM rr_site_aliases').all();
+    await _initConfigSchema(db);
+    const { H } = _h(db);
+    const rows = await H.prepare('SELECT sdp_label, code FROM rr_site_aliases').all();
     if (rows.length === 0) return { ...DEFAULT_SITE_ALIASES };
     const out = {};
     for (const r of rows) out[r.sdp_label] = r.code;
@@ -396,10 +407,10 @@ function generateRiskRegisterExcel(month, occurrences) {
 // selected month, then classifies + aggregates.
 // `db` is the better-sqlite3 instance owned by reports-db.js (passed in
 // to keep this module decoupled — no module-level singleton).
-function loadOccurrencesFromDB(db, month) {
+async function loadOccurrencesFromDB(db, month) {
   // Read the live alias map once per export (cheap — small table) so
   // admin edits take effect immediately, no module reload required.
-  const aliases = getSiteAliases(db);
+  const aliases = await getSiteAliases(db);
 
   // Compute YYYY-MM-01 (inclusive) → next month YYYY-MM-01 (exclusive)
   const [year, mon] = month.split('-').map(Number);
@@ -417,7 +428,8 @@ function loadOccurrencesFromDB(db, month) {
   //      diagnostics, not silently drop them at the SQL layer.
   //   2. Future-proofing — if Zoho introduces a new Impact label, the
   //      classifier's VALID_IMPACTS set is the only thing to update.
-  const rows = db.prepare(`
+  const { H } = _h(db);
+  const rows = await H.prepare(`
     SELECT site, category, sub_category, request_type, impact
     FROM request_records
     WHERE created_time >= ?
@@ -506,11 +518,11 @@ function loadOccurrencesFromDB(db, month) {
 // Note: no longer async — SheetJS XLSX.write is synchronous. The
 // server handler can still await this (await on a non-promise resolves
 // immediately) so the calling code in server.js needs no change.
-function buildRiskRegisterExport(db, month) {
+async function buildRiskRegisterExport(db, month) {
   if (!/^\d{4}-\d{2}$/.test(month)) {
     throw new Error(`Invalid month format "${month}" — expected YYYY-MM`);
   }
-  const { occurrences, diagnostics } = loadOccurrencesFromDB(db, month);
+  const { occurrences, diagnostics } = await loadOccurrencesFromDB(db, month);
   console.log(`[risk-register] month=${month} rows=${diagnostics.total_incident_rows} classified=${diagnostics.classified} (null_impact=${diagnostics.classified_with_null_impact}) skipped_individual=${diagnostics.skipped_non_operational} skipped_unknown_site=${diagnostics.skipped_unknown_site} skipped_no_domain=${diagnostics.skipped_no_domain} top_unknown=${diagnostics.skipped_unknown_site_top.join(', ')}`);
   const buf = generateRiskRegisterExcel(month, occurrences);
   return { buffer: buf, diagnostics };
@@ -520,9 +532,10 @@ function buildRiskRegisterExport(db, month) {
 // Thin wrappers used by /api/risk-register-config/* — they all share
 // _initConfigSchema so calling them before the table exists is safe.
 
-function listAliases(db) {
-  _initConfigSchema(db);
-  return db.prepare(
+async function listAliases(db) {
+  await _initConfigSchema(db);
+  const { H } = _h(db);
+  return await H.prepare(
     'SELECT sdp_label, code, updated_at, updated_by FROM rr_site_aliases ORDER BY code, sdp_label'
   ).all();
 }
@@ -530,8 +543,8 @@ function listAliases(db) {
 // Insert or update a single mapping. Trims whitespace defensively so
 // admins typing "  HOUNDE " don't end up with a label that nothing
 // matches at lookup time.
-function upsertAlias(db, sdp_label, code, updated_by) {
-  _initConfigSchema(db);
+async function upsertAlias(db, sdp_label, code, updated_by) {
+  await _initConfigSchema(db);
   const label = String(sdp_label || '').trim();
   const c     = String(code      || '').trim();
   if (!label) throw new Error('sdp_label is required');
@@ -539,7 +552,8 @@ function upsertAlias(db, sdp_label, code, updated_by) {
   if (!SITES.includes(c)) {
     throw new Error(`code must be one of: ${SITES.join(', ')}`);
   }
-  db.prepare(`
+  const { H } = _h(db);
+  await H.prepare(`
     INSERT INTO rr_site_aliases (sdp_label, code, updated_by, updated_at)
     VALUES (?, ?, ?, CURRENT_TIMESTAMP)
     ON CONFLICT(sdp_label) DO UPDATE SET
@@ -550,26 +564,28 @@ function upsertAlias(db, sdp_label, code, updated_by) {
   return { sdp_label: label, code: c };
 }
 
-function deleteAlias(db, sdp_label) {
-  _initConfigSchema(db);
-  const r = db.prepare('DELETE FROM rr_site_aliases WHERE sdp_label = ?').run(sdp_label);
+async function deleteAlias(db, sdp_label) {
+  await _initConfigSchema(db);
+  const { H } = _h(db);
+  const r = await H.prepare('DELETE FROM rr_site_aliases WHERE sdp_label = ?').run(sdp_label);
   return { deleted: r.changes };
 }
 
 // Inspect which SDP labels appear in incidents for a given month
 // without a matching alias. Powers the "Unmapped sites this month"
 // panel in the admin UI — gives one-click visibility into drift.
-function listUnmappedSites(db, month) {
-  _initConfigSchema(db);
+async function listUnmappedSites(db, month) {
+  await _initConfigSchema(db);
   if (!/^\d{4}-\d{2}$/.test(month)) {
     throw new Error(`Invalid month format "${month}" — expected YYYY-MM`);
   }
-  const aliases = getSiteAliases(db);
+  const aliases = await getSiteAliases(db);
   const [year, mon] = month.split('-').map(Number);
   const startISO    = `${month}-01T00:00:00`;
   const endDate     = new Date(year, mon, 1);
   const endISO      = `${endDate.getFullYear()}-${String(endDate.getMonth()+1).padStart(2,'0')}-01T00:00:00`;
-  const rows = db.prepare(`
+  const { H } = _h(db);
+  const rows = await H.prepare(`
     SELECT site, COUNT(*) c
     FROM request_records
     WHERE created_time >= ?
