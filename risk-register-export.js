@@ -42,14 +42,14 @@ const DOMAIN_RULES = [
   {
     domain: '1.Unavailability of Internet',
     matches: [
-      { cat: 'Network & Internet Access', sub: 'Network issues' },
-      { cat: 'Network',                   sub: 'WAN' },
+      { sub: 'Network issues' },   // canonical parent: Network & Internet Access
+      { sub: 'WAN' },              // canonical parent: Network
     ],
   },
   {
     domain: '2.Unavailability of the mobile phone',
     matches: [
-      { cat: 'Mobile & Communication Services', sub: '3G/4G Internet & GSM-SIM' },
+      { sub: '3G/4G Internet & GSM-SIM' },  // canonical parent: Mobile & Communication Services
     ],
   },
   {
@@ -64,17 +64,21 @@ const DOMAIN_RULES = [
   {
     domain: '4.Infrastructure unavailability (FW, files, data, mail, etc.)',
     matches: [
-      { cat: 'IT Infrastructure',         sub: 'Servers' },
-      { cat: 'IT Infrastructure',         sub: 'Data Centers' },
-      { cat: 'IT Infrastructure',         sub: 'Network' },
-      { cat: 'IT Infrastructure',         sub: 'Backup' },
-      { cat: 'IT Infrastructure',         sub: 'Database' },
-      { cat: 'IT Infrastructure',         sub: 'Cloud Services' },
-      { cat: 'Enterprise Applications',   sub: 'System' },
-      { cat: 'Enterprise Applications',   sub: 'Technical' },
-      { cat: 'Email',                     sub: 'Issue with Email' },
-      { cat: 'Network & Internet Access', sub: 'Network Configuration' },
-      { cat: 'Network & Internet Access', sub: 'VPN (Remote Access Services)' },
+      // Specific subcategory names → category-agnostic (canonical parent in
+      // the comment). SDP duplicates these across parents.
+      { sub: 'Servers' },         // IT Infrastructure
+      { sub: 'Data Centers' },    // IT Infrastructure
+      { sub: 'Network' },         // IT Infrastructure
+      { sub: 'Backup' },          // IT Infrastructure
+      { sub: 'Database' },        // IT Infrastructure
+      { sub: 'Cloud Services' },  // IT Infrastructure
+      { sub: 'Issue with Email' },        // Email
+      { sub: 'Network Configuration' },   // Network & Internet Access
+      { sub: 'VPN (Remote Access Services)' }, // Network & Internet Access
+      // GENERIC names → STRICT (category required) so we don't pull in
+      // unrelated tickets like "ERP Support / System".
+      { cat: 'Enterprise Applications', sub: 'System' },
+      { cat: 'Enterprise Applications', sub: 'Technical' },
     ],
   },
   {
@@ -128,18 +132,22 @@ function classifyIncident(rec) {
   const impact = String(rec.impact || '').trim();
   if (EXCLUDED_IMPACTS.has(impact)) return null;
   // (3) Match against the 5 domain rules — first match wins.
-  // Matching is by SUB-CATEGORY across ANY parent category: SDP duplicates the
-  // same subcategory names (Electrical power & UPS, Radio, Servers, …) under
-  // several top-level categories, so a ticket's `category` is unreliable — the
-  // subcategory is what identifies the risk. Each sub maps to exactly one
-  // domain (no cross-domain collision), so sub-only matching is safe. A
-  // match's `cat` field, when present, is documentation of the canonical
-  // parent only and is intentionally NOT required. (A future cat-only rule —
-  // `{ cat: 'X' }` with no sub — still matches by category.)
+  // A match object requires EVERY field it specifies, and ignores the others:
+  //   { sub: 'X' }          → sub === 'X' under ANY parent category (category-
+  //                           agnostic; for SPECIFIC subcategory names that SDP
+  //                           duplicates across parents — Electrical power &
+  //                           UPS, Radio, Servers, Backup, …).
+  //   { cat: 'Y', sub: 'X' } → sub === 'X' AND only under category 'Y' (strict;
+  //                           used for GENERIC sub names like 'System' /
+  //                           'Technical' that recur under unrelated parents and
+  //                           would otherwise be over-counted).
+  //   { cat: 'Y' }          → any sub under category 'Y' (cat-only).
   for (const rule of DOMAIN_RULES) {
     for (const m of rule.matches) {
-      if (m.sub != null) { if (m.sub === sub) return rule.domain; }
-      else if (m.cat != null) { if (m.cat === cat) return rule.domain; }
+      if (m.cat == null && m.sub == null) continue;          // malformed guard
+      const catOk = (m.cat == null) || (m.cat === cat);
+      const subOk = (m.sub == null) || (m.sub === sub);
+      if (catOk && subOk) return rule.domain;
     }
   }
   return null;
