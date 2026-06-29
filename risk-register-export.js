@@ -153,6 +153,64 @@ function classifyIncident(rec) {
   return null;
 }
 
+// ─── "Services affected" checkbox field (UDF) ─────────────────────────
+// SDP additional field `txt_services_affected` (a multi-select Check Box)
+// lets the technician DECLARE which of the 5 risks an incident materialised.
+// It syncs into request_records.udf_json under the key "UDF:Services affected"
+// as a COMMA-joined list of the exact checkbox labels, e.g.
+//   "Internet,Mobile phone"
+//   "Internet,Infrastructure (FW, files, data, mail, etc.)"
+// NOTE: the Infrastructure label itself contains commas, so a naive split(',')
+// is WRONG. We match by distinctive keyword (the 5 options never overlap).
+const SERVICES_AFFECTED_KEYWORDS = [
+  { kw: 'internet',       domain: '1.Unavailability of Internet' },
+  { kw: 'mobile',         domain: '2.Unavailability of the mobile phone' },
+  { kw: 'electrical',     domain: '3.Unavailability of electrical power' },
+  { kw: 'infrastructure', domain: '4.Infrastructure unavailability (FW, files, data, mail, etc.)' },
+  { kw: 'radio',          domain: '5.Radio system unavailability' },
+];
+
+// Parse the "Services affected" UDF value out of a udf_json blob → an array of
+// domain labels (deduped, in domain order). Returns [] when the field is
+// absent, blank, or the blob is unparseable.
+function servicesAffectedDomains(udfJson) {
+  if (!udfJson) return [];
+  let parsed;
+  try { parsed = typeof udfJson === 'string' ? JSON.parse(udfJson) : udfJson; }
+  catch { return []; }
+  if (!parsed || typeof parsed !== 'object') return [];
+  // Find the key tolerant of the "UDF:" prefix / spacing variants.
+  let val = null;
+  for (const k of Object.keys(parsed)) {
+    if (/services?\s*affected/i.test(k)) { val = parsed[k]; break; }
+  }
+  if (val == null || String(val).trim() === '') return [];
+  const low = String(val).toLowerCase();
+  const out = [];
+  for (const { kw, domain } of SERVICES_AFFECTED_KEYWORDS) {
+    if (low.includes(kw) && !out.includes(domain)) out.push(domain);
+  }
+  return out;
+}
+
+// Resolve the set of risk domains an incident belongs to.
+//   1. Inspection / Individual-impact → [] (same exclusions as classifyIncident)
+//   2. "Services affected" populated → it WINS (authoritative, possibly multi-
+//      domain); the category-based inference is NOT also applied → no double
+//      count.
+//   3. otherwise → fall back to the single category/sub classification.
+// Returns an array of domain labels (possibly empty).
+function domainsForIncident(rec) {
+  const cat = String(rec.category || '').trim();
+  if (cat === 'Inspection') return [];
+  const impact = String(rec.impact || '').trim();
+  if (EXCLUDED_IMPACTS.has(impact)) return [];
+  const sa = servicesAffectedDomains(rec.udf_json);
+  if (sa.length) return sa;
+  const d = classifyIncident(rec);
+  return d ? [d] : [];
+}
+
 // ─── Static metadata per domain (spec §5) ─────────────────────────────
 // Source + Actions text is per-domain boilerplate. Effecacite columns
 // stay blank (spec says "Leave empty (0)").
@@ -454,7 +512,7 @@ async function loadOccurrencesFromDB(db, month) {
   //      classifier's VALID_IMPACTS set is the only thing to update.
   const { H } = _h(db);
   const rows = await H.prepare(`
-    SELECT site, category, sub_category, request_type, impact
+    SELECT site, category, sub_category, request_type, impact, udf_json
     FROM request_records
     WHERE created_time >= ?
       AND created_time <  ?
@@ -472,6 +530,8 @@ async function loadOccurrencesFromDB(db, month) {
                                   // we INCLUDE (NULL is treated as
                                   // in-scope per 2026-05-30 tuning).
   let classifiedCount      = 0;
+  let viaServicesAffected  = 0;   // incidents classified via the explicit field
+  let viaCategory          = 0;   // incidents classified via category fallback
   // Track which raw site labels weren't on the register so the
   // diagnostics can surface them (helps spot label drift in SDP).
   const unknownSiteSamples = {};
@@ -495,19 +555,32 @@ async function loadOccurrencesFromDB(db, month) {
     // count is "field unpopulated" vs "explicitly in-scope".
     const impact = String(r.impact || '').trim();
     if (!impact) nullImpactCount++;
+    // Explicit 'Individual' impact is non-operational — excluded from BOTH
+    // the Services-affected path and the category path.
+    if (impact === 'Individual') { skippedNonOperational++; continue; }
 
-    const domain = classifyIncident(r);
-    if (!domain) {
-      // classifyIncident returns null for:
-      //   - explicit 'Individual' impact (counted as non-operational)
-      //   - no domain rule matched (counted as no-domain)
-      if (impact === 'Individual') skippedNonOperational++;
-      else                         skippedNoDomain++;
-      continue;
+    // Precedence: the technician-declared "Services affected" field wins
+    // (authoritative, possibly multi-domain). Only when it is empty do we
+    // fall back to the category/sub classification. This is what prevents
+    // an incident from being counted twice (field AND category).
+    const saDomains = servicesAffectedDomains(r.udf_json);
+    let domains;
+    if (saDomains.length) {
+      domains = saDomains;
+      viaServicesAffected++;
+    } else {
+      const d = classifyIncident(r);
+      if (!d) { skippedNoDomain++; continue; }
+      domains = [d];
+      viaCategory++;
     }
 
     if (!occurrences[site]) occurrences[site] = {};
-    occurrences[site][domain] = (occurrences[site][domain] || 0) + 1;
+    // One occurrence per affected risk (a single incident can materialise
+    // several risks — e.g. a power outage → Internet + Electrical + Radio).
+    for (const dom of domains) {
+      occurrences[site][dom] = (occurrences[site][dom] || 0) + 1;
+    }
     classifiedCount++;
   }
 
@@ -524,6 +597,8 @@ async function loadOccurrencesFromDB(db, month) {
     diagnostics: {
       total_incident_rows:        rows.length,
       classified:                 classifiedCount,
+      classified_via_services_affected: viaServicesAffected,
+      classified_via_category:    viaCategory,
       skipped_no_site:            skippedNoSite,
       skipped_unknown_site:       skippedUnknownSite,
       skipped_unknown_site_top:   unknownSites,    // ['LONDON (22)', ...]
@@ -637,6 +712,8 @@ module.exports = {
   SITES,
   // Exposed for unit-test ergonomics
   classifyIncident,
+  servicesAffectedDomains,
+  domainsForIncident,
   loadOccurrencesFromDB,
   resolveSite,
   getSiteAliases,
