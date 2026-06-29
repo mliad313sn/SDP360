@@ -115,6 +115,20 @@ function extractUdf(row) {
   return Object.keys(udf).length > 0 ? JSON.stringify(udf) : null;
 }
 
+// Build [{ request_id, udf_json }] for a set of Zoho request rows. Captures the
+// non-empty UDFs (incl. "UDF:Services affected", consumed by the Risk Register)
+// for EVERY row — not just Major Incidents. Rows with no request id or no UDF
+// are dropped (extractUdf returns null for them).
+function buildUdfRows(rows) {
+  if (!Array.isArray(rows)) return [];
+  return rows.map(r => {
+    const rid = String(r['Request ID'] || r['RequestID'] || '').trim()
+             || String(r['Request Display ID'] || '').trim();
+    const udf = extractUdf(r);
+    return (rid && udf) ? { request_id: rid, udf_json: udf } : null;
+  }).filter(Boolean);
+}
+
 // ── SCHEMA DRIFT DETECTION ────────────────────────────────────────
 
 /**
@@ -632,18 +646,22 @@ async function syncRequestData({ force = false } = {}) {
     // non-empty values, so neither path can clobber good data with blanks.
     let udfUpdated = 0;
     try {
-      const _miBase = allRows.filter(r => _isMajorIncident(r));
-      let udfRows = _miBase.map(r => {
-        const rid = String(r['Request ID'] || r['RequestID'] || '').trim()
-                 || String(r['Request Display ID'] || '').trim();
-        const udf = extractUdf(r);                       // non-empty UDF only
-        return (rid && udf) ? { request_id: rid, udf_json: udf } : null;
-      }).filter(Boolean);
-      let source = 'REQUEST_TABLE(002201)';
+      // Capture UDFs (incl. "UDF:Services affected" for the Risk Register) for
+      // EVERY changed request — NOT just Major Incidents (the previous bug:
+      // regular incidents' Services-affected was never stored). newRows already
+      // holds all changed rows PLUS all Major Incidents (always-refreshed
+      // above), and extractUdf() returns null for rows with no UDF, so the work
+      // stays bounded by the incremental set. A force sync (lastSync=null →
+      // newRows=allRows) backfills udf_json across the whole table.
+      const _miBase = allRows.filter(r => _isMajorIncident(r));  // for the fallback gate + log
+      let udfRows = buildUdfRows(newRows);
+      let source = 'REQUEST_TABLE(002201) all-incidents';
 
-      // Fallback: only if the base view exposed no MI UDF at all (e.g. the UDF
-      // columns were removed from 002201) do we fetch the legacy report.
-      if (udfRows.length === 0) {
+      // Fallback: fire ONLY when Major Incidents exist but NONE produced UDF
+      // from the base view (i.e. 002201 stopped exposing MI UDF columns) — not
+      // merely because a quiet incremental sync had no changed UDF rows.
+      const _miUdfCount = buildUdfRows(_miBase).length;
+      if (_miBase.length > 0 && _miUdfCount === 0) {
         const miResult = await _fetchView(_VIEWS.MAJOR_INCIDENTS, 2000);
         const miRows   = (miResult && Array.isArray(miResult.rows)) ? miResult.rows : [];
         const _LONG = ['Request ID', 'RequestID', 'Request_ID', 'Request Id'];
@@ -688,4 +706,6 @@ module.exports = {
   syncChangeCab,
   syncSurveyData,
   syncRequestData,
+  // Exposed for unit tests
+  buildUdfRows,
 };

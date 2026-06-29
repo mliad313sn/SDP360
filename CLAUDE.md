@@ -3366,9 +3366,18 @@ options Internet / Mobile phone / Electrical power / Infrastructure (FW, files,
 data, mail, etc.) / Radio = the 5 domains 1:1) lets the technician **declare**
 which risks an incident materialised. It syncs into `request_records.udf_json`
 under key **`UDF:Services affected`** as a **comma-joined list of the exact
-labels** (already captured by `extractUdf` — no sync change). ⚠️ The
-Infrastructure label itself contains commas, so parse by **keyword**
-(internet/mobile/electrical/infrastructure/radio), never `split(',')`.
+labels**. ⚠️ The Infrastructure label itself contains commas, so parse by
+**keyword** (internet/mobile/electrical/infrastructure/radio), never `split(',')`.
+
+> **Sync fix (2026-06-29):** the requests sync USED to capture `udf_json` **only
+> for Major Incidents** (`zoho-sync.js` `_miBase = allRows.filter(_isMajorIncident)`),
+> so a regular `Incident`'s Services-affected was silently dropped. Fixed: the
+> sync now builds udf via `buildUdfRows(newRows)` → UDFs captured for **every
+> changed incident** (extractUdf keeps non-empty only → bounded by the
+> incremental set). **A one-time `force=true` requests sync backfills `udf_json`
+> across the whole table** (an already-synced incident whose Last Updated Time is
+> in the past isn't re-pulled by a normal incremental sync). Tested in
+> `tests/zoho-sync-udf.test.js`.
 
 `domainsForIncident(rec)` (in `risk-register-export.js`) resolves an incident's
 domain set with this precedence (impact≠Individual + non-Inspection still apply
