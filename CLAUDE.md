@@ -3359,6 +3359,32 @@ unreliable. Each match object requires every field it specifies
 
 Source/Actions text per domain is fixed (per spec §5) — see `DOMAINS` array in `risk-register-export.js`. Effecacite columns ("Leave empty (0)") are spec-required.
 
+### "Services affected" field takes PRECEDENCE over category (2026-06-29)
+
+SDP additional field **`txt_services_affected`** (a multi-select Check Box,
+options Internet / Mobile phone / Electrical power / Infrastructure (FW, files,
+data, mail, etc.) / Radio = the 5 domains 1:1) lets the technician **declare**
+which risks an incident materialised. It syncs into `request_records.udf_json`
+under key **`UDF:Services affected`** as a **comma-joined list of the exact
+labels** (already captured by `extractUdf` — no sync change). ⚠️ The
+Infrastructure label itself contains commas, so parse by **keyword**
+(internet/mobile/electrical/infrastructure/radio), never `split(',')`.
+
+`domainsForIncident(rec)` (in `risk-register-export.js`) resolves an incident's
+domain set with this precedence (impact≠Individual + non-Inspection still apply
+as the AND gate):
+1. **Services affected populated → it WINS** (authoritative, **multi-domain** —
+   one incident can count toward several risks, e.g. power outage → Internet +
+   Electrical + Radio). The category/sub inference is **NOT** also applied → no
+   double-count.
+2. Field empty → fall back to the single category/sub classification.
+
+So the *Occurrence* column can now exceed the incident count (1 occurrence **per**
+risk materialised — correct for a risk register). Applied to **all months**
+(the field is populated back to Jan 2026). Diagnostics expose
+`classified_via_services_affected` vs `classified_via_category`. Tested in
+`tests/risk-register-classify.test.js` (pure parser + in-memory loadOccurrences).
+
 ### Filtering rules
 
 ```
