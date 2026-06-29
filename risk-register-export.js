@@ -374,7 +374,19 @@ function resolveSite(raw, aliases) {
 // ─── Excel generator (SheetJS CE — pure JS, no native bindings) ──────
 // Returns a Buffer ready to res.send(). Sheet layout matches the
 // Risk Register's monthly Occurrence sheet column-for-column.
-function generateRiskRegisterExcel(month, occurrences) {
+// `sources` (optional) = sources[site][domainLabel] = { field, category } — drives
+// the trailing "Origine occurrence" column. Safe to omit (column shows blank).
+function generateRiskRegisterExcel(month, occurrences, sources) {
+  sources = sources || {};
+  // Per-cell origin label: where the cell's occurrences came from.
+  const originLabel = (site, label, count) => {
+    if (!count) return '';
+    const s = (sources[site] && sources[site][label]) || { field: 0, category: 0 };
+    if (s.field && !s.category) return 'Services affected';
+    if (s.category && !s.field) return 'Catégorie';
+    if (s.field && s.category)  return `Mixte: ${s.field} SA / ${s.category} cat.`;
+    return '';   // count>0 but no breakdown recorded (shouldn't happen)
+  };
   // Compute last day of selected month — used for column A on every row.
   // SheetJS represents dates as Date objects with cellDates: true.
   const [year, mon] = month.split('-').map(Number);
@@ -394,7 +406,7 @@ function generateRiskRegisterExcel(month, occurrences) {
     'Dates', 'Site', 'Liste des risques Majeurs', 'Source',
     'Actions(préventives & correctives)',
     'Effecacite actuelle(%)', 'Effecacite Cible(%)',
-    'Commentaires', 'Occurrence',
+    'Commentaires', 'Occurrence', 'Origine occurrence',
   ];
   const aoa = [headers];
 
@@ -412,6 +424,7 @@ function generateRiskRegisterExcel(month, occurrences) {
         0,              // G: Efficacy target (spec: "Leave empty (0)")
         '',             // H: Comments (spec: "Leave empty")
         count,          // I: Occurrence
+        originLabel(site, domain.label, count),  // J: Origine occurrence
       ]);
     }
   }
@@ -433,6 +446,7 @@ function generateRiskRegisterExcel(month, occurrences) {
     { wch: 18 }, // G — Efficacy target
     { wch: 25 }, // H — Comments
     { wch: 14 }, // I — Occurrence
+    { wch: 26 }, // J — Origine occurrence
   ];
 
   // ── Row heights — set the header row taller for the wrapped labels ─
@@ -522,6 +536,7 @@ async function loadOccurrencesFromDB(db, month) {
 
   // Aggregate: occurrences[site][domain] = count
   const occurrences = {};
+  const sources     = {};   // sources[site][domain] = { field, category }
   let skippedNoSite        = 0;
   let skippedUnknownSite   = 0;
   let skippedNoDomain      = 0;
@@ -564,22 +579,30 @@ async function loadOccurrencesFromDB(db, month) {
     // fall back to the category/sub classification. This is what prevents
     // an incident from being counted twice (field AND category).
     const saDomains = servicesAffectedDomains(r.udf_json);
-    let domains;
+    let domains, srcKey;
     if (saDomains.length) {
       domains = saDomains;
+      srcKey = 'field';
       viaServicesAffected++;
     } else {
       const d = classifyIncident(r);
       if (!d) { skippedNoDomain++; continue; }
       domains = [d];
+      srcKey = 'category';
       viaCategory++;
     }
 
     if (!occurrences[site]) occurrences[site] = {};
+    if (!sources[site])     sources[site] = {};
     // One occurrence per affected risk (a single incident can materialise
     // several risks — e.g. a power outage → Internet + Electrical + Radio).
+    // `sources[site][dom]` tracks, per cell, how many of its occurrences came
+    // from the field vs the category fallback (drives the export's "Origine"
+    // column — a cell can be mixed).
     for (const dom of domains) {
       occurrences[site][dom] = (occurrences[site][dom] || 0) + 1;
+      if (!sources[site][dom]) sources[site][dom] = { field: 0, category: 0 };
+      sources[site][dom][srcKey]++;
     }
     classifiedCount++;
   }
@@ -594,6 +617,7 @@ async function loadOccurrencesFromDB(db, month) {
 
   return {
     occurrences,
+    sources,
     diagnostics: {
       total_incident_rows:        rows.length,
       classified:                 classifiedCount,
@@ -621,9 +645,9 @@ async function buildRiskRegisterExport(db, month) {
   if (!/^\d{4}-\d{2}$/.test(month)) {
     throw new Error(`Invalid month format "${month}" — expected YYYY-MM`);
   }
-  const { occurrences, diagnostics } = await loadOccurrencesFromDB(db, month);
+  const { occurrences, sources, diagnostics } = await loadOccurrencesFromDB(db, month);
   console.log(`[risk-register] month=${month} rows=${diagnostics.total_incident_rows} classified=${diagnostics.classified} (null_impact=${diagnostics.classified_with_null_impact}) skipped_individual=${diagnostics.skipped_non_operational} skipped_unknown_site=${diagnostics.skipped_unknown_site} skipped_no_domain=${diagnostics.skipped_no_domain} top_unknown=${diagnostics.skipped_unknown_site_top.join(', ')}`);
-  const buf = generateRiskRegisterExcel(month, occurrences);
+  const buf = generateRiskRegisterExcel(month, occurrences, sources);
   return { buffer: buf, diagnostics };
 }
 

@@ -3394,6 +3394,13 @@ risk materialised — correct for a risk register). Applied to **all months**
 `classified_via_services_affected` vs `classified_via_category`. Tested in
 `tests/risk-register-classify.test.js` (pure parser + in-memory loadOccurrences).
 
+**Provenance column (col. J "Origine occurrence")**: `loadOccurrencesFromDB` also
+returns `sources[site][domain] = { field, category }` (per-cell breakdown, since
+a cell aggregates several incidents and can be mixed). `generateRiskRegisterExcel`
+emits a trailing column J showing `Services affected` / `Catégorie` /
+`Mixte: X SA / Y cat.` per row — so the reader knows which occurrences are
+technician-declared vs category-inferred. Additive (columns A-I unchanged).
+
 ### Filtering rules
 
 ```

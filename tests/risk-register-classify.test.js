@@ -85,3 +85,24 @@ test('loadOccurrencesFromDB: precedence + multi-domain + site filter + fallback'
   assert.equal(diagnostics.classified_via_category, 2, 'B + E via category');
   db.close();
 });
+
+test('loadOccurrencesFromDB: per-cell source breakdown (field vs category, incl. mixed)', async () => {
+  const db = new Database(':memory:');
+  db.exec(`CREATE TABLE request_records(
+    request_id TEXT, site TEXT, category TEXT, sub_category TEXT,
+    request_type TEXT, impact TEXT, created_time TEXT, udf_json TEXT)`);
+  const ins = db.prepare(`INSERT INTO request_records
+    (request_id,site,category,sub_category,request_type,impact,created_time,udf_json)
+    VALUES (?,?,?,?,?,?,?,?)`);
+  // MANA: one via field (Internet+Radio), one via category (Network issues = D1)
+  ins.run('A', 'MANA', 'IT Infrastructure', 'Backup', 'Incident', 'Enterprise', '2026-06-15T10:00:00', SA('Internet,Radio'));
+  ins.run('B', 'MANA', 'Network & Internet Access', 'Network issues', 'Incident', 'Enterprise', '2026-06-16T10:00:00', null);
+
+  const { occurrences, sources } = await rr.loadOccurrencesFromDB(db, '2026-06');
+  // MGO / D1 = 2 → 1 via field (A) + 1 via category (B) → mixed
+  assert.equal(occurrences['MGO'][D1], 2);
+  assert.deepEqual(sources['MGO'][D1], { field: 1, category: 1 });
+  // MGO / D5 = 1 → all field
+  assert.deepEqual(sources['MGO'][D5], { field: 1, category: 0 });
+  db.close();
+});
