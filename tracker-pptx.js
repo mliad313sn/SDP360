@@ -757,4 +757,4 @@ function _renderTrackerSlideTwo(pr, D, selectedSites, yr, mo) {
     { x:0.40, y:5.38, w:9.00, h:0.16, fontSize:7, color:TL, italic:true, fontFace:'Calibri', margin:0, valign:'middle' });
 }
 
-module.exports = { generateTrackerPptx, addTrackerSlidesTo };
+module.exports = { generateTrackerPptx, addTrackerSlidesTo, fleetStats, ps2, ss, score };
