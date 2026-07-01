@@ -993,6 +993,16 @@ app.get('/api/exec/summary', (req, res) => {
   }
 });
 
+// GET /api/exec/editorial?period=YYYY-MM — admin-only editorial reader.
+// Sibling of the PUT below; used by the reports.html#admin card to prefill.
+// Behind the /api/ gate (NOT exempted) + requireReportSession + requireAdmin.
+app.get('/api/exec/editorial', requireReportSession, requireAdmin, (req, res) => {
+  const period = String(req.query.period || '').trim();
+  if (!/^\d{4}-\d{2}$/.test(period)) return res.status(400).json({ error: 'period YYYY-MM required' });
+  const rdb2 = require('./reports-db');
+  res.json(rdb2.getExecEditorial(period));
+});
+
 // PUT /api/exec/editorial?period=YYYY-MM — admin-only editorial persistence.
 // Behind the /api/ gate (NOT exempted) + requireReportSession + requireAdmin.
 app.put('/api/exec/editorial', requireReportSession, requireAdmin, express.json(), (req, res) => {
