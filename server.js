@@ -956,6 +956,10 @@ app.use((req, res, next) => {
 // This allows index.html (Editor/Viewer) to call APIs using their session token.
 app.use('/api/', async (req, res, next) => {
   if (req.path.startsWith('/reports/')) return next(); // protected by requireReportSession
+  // Public Executive View summary — aggregates-only, no auth (SharePoint-facing).
+  // The editorial WRITE (PUT /api/exec/editorial) is NOT exempted here — it goes
+  // through requireReportSession + requireAdmin below the gate.
+  if (req.method === 'GET' && req.path === '/exec/summary') return next();
   const key   = req.headers['x-dash-key'];
   if (key === DASH_API_KEY) return next(); // API key present — allow
   // Fallback: accept valid session token (for Editor/Viewer users on index.html)
@@ -965,6 +969,41 @@ app.use('/api/', async (req, res, next) => {
     if (user) return next();
   }
   return res.status(401).json({ error: 'Unauthorized' });
+});
+
+// ── Executive View — public read + admin editorial write ─────────────────────
+// GET /api/exec/summary is PUBLIC (exempted in the /api/ gate above): a
+// SharePoint-facing, aggregates-only snapshot with a 60 s server-side cache.
+// It returns ONLY what execSummary.loadExecSummary produces (already
+// PII-whitelisted). PUT /api/exec/editorial is staff-only (session + admin).
+let _execCache = { at: 0, body: null };
+app.get('/api/exec/summary', (req, res) => {
+  try {
+    if (Date.now() - _execCache.at < 60_000 && _execCache.body) return res.json(_execCache.body);
+    const rdb2 = require('./reports-db');
+    const trackerDb = require('./tracker-db');
+    const trackerPptx = require('./tracker-pptx');
+    const execSummary = require('./services/execSummary');
+    const body = execSummary.loadExecSummary({ rdb: rdb2, trackerDb, trackerScore: trackerPptx });
+    _execCache = { at: Date.now(), body };
+    res.json(body);
+  } catch (e) {
+    console.warn('[exec-summary] unavailable:', e.message);
+    res.status(200).json({ error: 'unavailable' });
+  }
+});
+
+// PUT /api/exec/editorial?period=YYYY-MM — admin-only editorial persistence.
+// Behind the /api/ gate (NOT exempted) + requireReportSession + requireAdmin.
+app.put('/api/exec/editorial', requireReportSession, requireAdmin, express.json(), (req, res) => {
+  const period = String(req.query.period || '').trim();
+  if (!/^\d{4}-\d{2}$/.test(period)) return res.status(400).json({ error: 'period YYYY-MM required' });
+  const rdb2 = require('./reports-db');
+  const saved = rdb2.setExecEditorial(period,
+    { highlights: req.body.highlights, focus: req.body.focus },
+    (req.reportUser && req.reportUser.username) || 'unknown');
+  _execCache = { at: 0, body: null }; // bust the summary cache so the edit shows immediately
+  res.json(saved);
 });
 
 // ── APP_VERSION — global cache-busting token (added 2026-06-05) ──────────────
@@ -1042,7 +1081,7 @@ function loadHtml(name) {
   'inspection.html', 'inspections.html', 'inspection-actions.html',
   'meetings.html', 'meeting.html', 'meetings-issues.html', 'meetings-council.html', 'meetings-compliance.html',
   'meetings-import.html', 'meetings-progress.html', 'meetings-insights.html', 'meetings-setup.html', 'meetings-actions.html',
-  'activity-tracker.html', 'help.html',
+  'activity-tracker.html', 'help.html', 'exec-view.html',
 ].forEach(loadHtml);
 
 // Helper: build the per-request HTML, inject api-key + nonce, send. Pages
@@ -1070,6 +1109,13 @@ function sendHtmlPage(res, name, injectApiKey, fallbackMsg) {
 // Must be registered BEFORE express.static so this route takes precedence.
 app.get(['/executive.html'], (req, res) => {
   sendHtmlPage(res, 'executive.html', true, 'Dashboard unavailable');
+});
+
+// ── Serve exec-view.html — PUBLIC (no auth, no api-key injection) ─────────────
+// SharePoint-facing read-only Executive View. It fetches only the public
+// /api/exec/summary endpoint, so it never needs window.__ak.
+app.get('/exec-view.html', (req, res) => {
+  sendHtmlPage(res, 'exec-view.html', false, 'Executive view unavailable');
 });
 
 // ── Serve login.html with CSP nonce injected ─────────────────────────────────
