@@ -1,1 +1,613 @@
-<!doctype html><title>Executive View</title>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IT Operations — Executive View · Endeavour Mining</title>
+<!-- PUBLIC read-only status page. No auth.js, no _shell.js, no API key. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="_tokens.css">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:var(--font-sans, 'Libre Franklin', system-ui, sans-serif);
+    background:var(--color-bg, #F4F5F7);
+    color:var(--color-text-strong, #2A2A2A);
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{text-decoration:none;color:inherit}
+  .wrap{max-width:1320px;margin:0 auto;padding:0 20px 40px}
+
+  /* ── Header ─────────────────────────────────────────────────── */
+  .ev-header{
+    background:linear-gradient(135deg, var(--edv-slate, #3A4A60) 0%, #2E3A4D 100%);
+    color:#fff;
+    padding:18px 0;
+    border-bottom:4px solid var(--edv-orange, #EF631A);
+  }
+  .ev-header .inner{max-width:1320px;margin:0 auto;padding:0 20px;display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+  .ev-logo{
+    width:56px;height:56px;flex-shrink:0;
+    background:rgba(255,255,255,.06);
+    border-radius:12px;
+    background-image:url('brand/edv-logo-white.png');
+    background-size:74%;background-repeat:no-repeat;background-position:center;
+  }
+  .ev-titles{display:flex;flex-direction:column;gap:2px;min-width:0}
+  .ev-title{font-size:1.32rem;font-weight:800;letter-spacing:.01em;line-height:1.15}
+  .ev-subtitle{font-size:.82rem;color:var(--color-text-on-dark-muted, rgba(255,255,255,.62));font-weight:500}
+  .ev-meta{margin-left:auto;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .ev-updated{font-size:.78rem;color:rgba(255,255,255,.78);text-align:right;line-height:1.35}
+  .ev-updated strong{color:#fff;font-weight:700}
+  .ev-delayed{display:inline-block;margin-top:2px;font-size:.72rem;color:#FFCD18;font-weight:600}
+  .ev-refresh{
+    background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.22);
+    color:#fff;border-radius:8px;padding:7px 12px;font-size:.8rem;font-weight:600;
+    cursor:pointer;font-family:inherit;transition:background .15s;
+  }
+  .ev-refresh:hover{background:rgba(255,255,255,.20)}
+
+  /* ── Section scaffolding ────────────────────────────────────── */
+  .section{margin-top:24px}
+  .section-title{
+    font-size:.76rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--color-text-muted, #7B7B7B);margin-bottom:10px;
+  }
+  .card{background:var(--color-card,#fff);border:1px solid var(--color-border,#E2E5EA);border-radius:12px}
+
+  /* ── Quick actions ──────────────────────────────────────────── */
+  .qa-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  .qa-tile{
+    display:flex;align-items:flex-start;gap:12px;
+    padding:16px 16px;border-radius:12px;background:#fff;
+    border:1px solid var(--color-border,#E2E5EA);
+    box-shadow:0 1px 3px rgba(28,45,63,.06);
+    transition:transform .12s, box-shadow .12s, border-color .12s;
+    position:relative;
+  }
+  .qa-tile:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(28,45,63,.12);border-color:var(--edv-orange,#EF631A)}
+  .qa-icon{
+    width:42px;height:42px;flex-shrink:0;border-radius:10px;
+    display:flex;align-items:center;justify-content:center;color:#fff;font-size:1.2rem;
+  }
+  .qa-body{min-width:0;flex:1}
+  .qa-label{font-size:.95rem;font-weight:700;color:var(--color-text-strong,#2A2A2A);display:flex;align-items:center;gap:6px}
+  .qa-sub{font-size:.78rem;color:var(--color-text-muted,#7B7B7B);margin-top:3px;line-height:1.35}
+  .qa-arrow{position:absolute;top:14px;right:14px;color:var(--color-text-muted,#c3c6cc);font-size:1.1rem;font-weight:700}
+
+  /* ── Global status band ─────────────────────────────────────── */
+  .status-band{
+    display:flex;align-items:center;gap:14px;
+    padding:18px 22px;border-radius:12px;margin-top:22px;
+    border:1px solid transparent;
+  }
+  .status-band .sb-icon{font-size:1.7rem;line-height:1}
+  .status-band .sb-text{font-size:1.15rem;font-weight:800}
+  .status-band .sb-note{font-size:.86rem;font-weight:600;opacity:.9;margin-left:auto}
+  .status-operational{background:var(--color-success-bg,#E7F5EA);border-color:#bfe3c6;color:var(--edv-green-dark,#158D3E)}
+  .status-degraded{background:var(--color-warning-bg,#FEF3C7);border-color:#f4dd9a;color:var(--color-warning,#D97706)}
+  .status-major{background:var(--color-danger-bg,#FEEAEE);border-color:#f4c2ce;color:var(--edv-red,#D90038)}
+
+  /* ── KPI cards ──────────────────────────────────────────────── */
+  .kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
+  .kpi-card{padding:16px;background:#fff;border:1px solid var(--color-border,#E2E5EA);border-radius:12px;min-height:118px;display:flex;flex-direction:column}
+  .kpi-label{font-size:.74rem;font-weight:700;color:var(--color-text-muted,#7B7B7B);letter-spacing:.02em;text-transform:uppercase;line-height:1.25}
+  .kpi-value{font-size:2rem;font-weight:800;color:var(--edv-slate,#3A4A60);margin-top:6px;line-height:1}
+  .kpi-value .unit{font-size:1rem;font-weight:700;color:var(--color-text-muted,#7B7B7B);margin-left:2px}
+  .kpi-foot{margin-top:auto;display:flex;align-items:center;justify-content:space-between;gap:8px;padding-top:8px}
+  .kpi-delta{font-size:.82rem;font-weight:700;display:inline-flex;align-items:center;gap:3px}
+  .delta-good{color:var(--edv-green-dark,#158D3E)}
+  .delta-bad{color:var(--edv-red,#D90038)}
+  .delta-flat{color:var(--color-text-muted,#7B7B7B)}
+  .kpi-spark{opacity:.9}
+  .kpi-unavailable{font-size:.9rem;font-weight:600;color:var(--color-text-muted,#7B7B7B);margin-top:10px}
+
+  /* ── Two-column region ──────────────────────────────────────── */
+  .cols{display:grid;grid-template-columns:1.15fr 1fr;gap:18px;margin-top:24px}
+  .panel{padding:18px 20px}
+  .panel h2{font-size:.95rem;font-weight:800;color:var(--edv-slate,#3A4A60);margin-bottom:14px}
+
+  /* ── Sites table ────────────────────────────────────────────── */
+  table.sites{width:100%;border-collapse:collapse}
+  table.sites th{text-align:left;font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--color-text-muted,#7B7B7B);padding:6px 8px;border-bottom:2px solid var(--color-border,#E2E5EA)}
+  table.sites td{padding:9px 8px;font-size:.9rem;border-bottom:1px solid var(--color-border,#E2E5EA)}
+  table.sites tr:last-child td{border-bottom:none}
+  .site-name{font-weight:700;color:var(--color-text-strong,#2A2A2A)}
+  .site-code{font-size:.74rem;color:var(--color-text-muted,#7B7B7B);font-weight:600}
+  .chip{display:inline-block;padding:2px 10px;border-radius:20px;font-size:.74rem;font-weight:700}
+  .chip-degraded{background:var(--color-warning-bg,#FEF3C7);color:var(--color-warning,#D97706)}
+  .chip-major{background:var(--color-danger-bg,#FEEAEE);color:var(--edv-red,#D90038)}
+  .chip-operational{background:var(--color-success-bg,#E7F5EA);color:var(--edv-green-dark,#158D3E)}
+  .all-ok{display:flex;align-items:center;gap:10px;padding:8px 4px;color:var(--edv-green-dark,#158D3E);font-weight:700;font-size:.95rem}
+
+  /* ── Planned maintenance ────────────────────────────────────── */
+  .pm-row{display:flex;align-items:flex-start;gap:14px;padding:12px 0;border-bottom:1px solid var(--color-border,#E2E5EA)}
+  .pm-row:last-child{border-bottom:none}
+  .pm-date{flex-shrink:0;width:58px;text-align:center;background:var(--color-info-bg,#E8F0FA);border-radius:10px;padding:8px 4px}
+  .pm-date .d{font-size:1.15rem;font-weight:800;color:var(--edv-blue,#145FAE);line-height:1}
+  .pm-date .m{font-size:.66rem;font-weight:700;text-transform:uppercase;color:var(--edv-blue,#145FAE);letter-spacing:.05em}
+  .pm-info{flex:1;min-width:0}
+  .pm-title{font-weight:700;font-size:.92rem;color:var(--color-text-strong,#2A2A2A)}
+  .pm-detail{font-size:.8rem;color:var(--color-text-muted,#7B7B7B);margin-top:2px}
+  .pm-impact{margin-top:5px}
+  .impact-chip{display:inline-block;padding:1px 9px;border-radius:16px;font-size:.7rem;font-weight:700}
+  .impact-high{background:var(--color-danger-bg,#FEEAEE);color:var(--edv-red,#D90038)}
+  .impact-medium{background:var(--color-warning-bg,#FEF3C7);color:var(--color-warning,#D97706)}
+  .impact-low{background:var(--color-success-bg,#E7F5EA);color:var(--edv-green-dark,#158D3E)}
+
+  /* ── Strategic progress ─────────────────────────────────────── */
+  .strat-head{display:flex;align-items:center;gap:18px;margin-bottom:16px}
+  .ring-wrap{flex-shrink:0}
+  .ring-label{font-size:.78rem;color:var(--color-text-muted,#7B7B7B);font-weight:600}
+  .pillar{margin-bottom:12px}
+  .pillar:last-child{margin-bottom:0}
+  .pillar-top{display:flex;justify-content:space-between;font-size:.84rem;font-weight:600;margin-bottom:4px}
+  .pillar-pct{font-weight:800;color:var(--edv-slate,#3A4A60)}
+  .bar-track{height:8px;background:var(--color-border,#E2E5EA);border-radius:6px;overflow:hidden}
+  .bar-fill{height:100%;border-radius:6px;background:var(--edv-blue,#145FAE)}
+
+  /* ── Highlights / focus ─────────────────────────────────────── */
+  .hl-list{list-style:none;display:flex;flex-direction:column;gap:8px}
+  .hl-list li{display:flex;align-items:flex-start;gap:10px;font-size:.9rem;color:var(--color-text-strong,#2A2A2A)}
+  .hl-check{color:var(--edv-green-dark,#158D3E);font-weight:800;flex-shrink:0}
+  .focus-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .focus-card{padding:14px 16px;border-left:4px solid var(--edv-orange,#EF631A);background:#fff;border:1px solid var(--color-border,#E2E5EA);border-left-width:4px;border-radius:10px}
+  .focus-title{font-weight:700;font-size:.92rem;color:var(--color-text-strong,#2A2A2A)}
+  .focus-sub{font-size:.8rem;color:var(--color-text-muted,#7B7B7B);margin-top:3px}
+
+  /* ── Footer ─────────────────────────────────────────────────── */
+  .ev-footer{margin-top:34px;padding-top:16px;border-top:1px solid var(--color-border,#E2E5EA);text-align:center;color:var(--color-text-muted,#7B7B7B);font-size:.76rem;line-height:1.6}
+  .ev-footer .powered{font-weight:600}
+
+  /* ── Full-page fallback ─────────────────────────────────────── */
+  .fallback{
+    display:none;text-align:center;padding:70px 20px;color:var(--color-text-muted,#7B7B7B);
+  }
+  .fallback .icn{font-size:2.6rem;margin-bottom:14px}
+  .fallback .msg{font-size:1.05rem;font-weight:600;color:var(--color-text-strong,#2A2A2A)}
+  .fallback .sub{font-size:.86rem;margin-top:8px}
+  .fallback button{
+    margin-top:18px;background:var(--edv-orange,#EF631A);color:#fff;border:none;border-radius:8px;
+    padding:10px 22px;font-size:.9rem;font-weight:700;cursor:pointer;font-family:inherit;
+  }
+  body.error-only #content{display:none}
+  body.error-only #fallback{display:block}
+
+  /* ── Responsive ─────────────────────────────────────────────── */
+  @media (max-width:1100px){
+    .kpi-grid{grid-template-columns:repeat(3,1fr)}
+    .cols{grid-template-columns:1fr}
+    .focus-grid{grid-template-columns:1fr}
+  }
+  @media (max-width:760px){
+    .qa-grid{grid-template-columns:1fr 1fr}
+    .kpi-grid{grid-template-columns:1fr 1fr}
+    .ev-meta{margin-left:0;width:100%;justify-content:space-between}
+    .ev-updated{text-align:left}
+  }
+</style>
+</head>
+<body>
+
+<header class="ev-header">
+  <div class="inner">
+    <div class="ev-logo" aria-hidden="true"></div>
+    <div class="ev-titles">
+      <div class="ev-title">IT Operations — Executive View</div>
+      <div class="ev-subtitle">Endeavour Mining · Group IT service status at a glance</div>
+    </div>
+    <div class="ev-meta">
+      <div class="ev-updated">
+        <div id="lastUpdated">Last updated: —</div>
+        <span id="delayedNote" class="ev-delayed" style="display:none;">⚠ data may be delayed</span>
+      </div>
+      <button class="ev-refresh" id="refreshBtn" type="button">↻ Refresh</button>
+    </div>
+  </div>
+</header>
+
+<!-- Full-page degradation fallback -->
+<div id="fallback" class="fallback">
+  <div class="icn">🛠️</div>
+  <div class="msg">IT status is temporarily unavailable — please retry.</div>
+  <div class="sub">We couldn't load the latest service status. This page refreshes automatically every few minutes.</div>
+  <button type="button" id="fallbackRetry">Retry now</button>
+</div>
+
+<main class="wrap" id="content">
+
+  <!-- 2. Quick actions -->
+  <section class="section" aria-label="Quick actions">
+    <div class="qa-grid" id="quickActions"><!-- rendered --></div>
+  </section>
+
+  <!-- 3. Global status band -->
+  <div id="statusBand" class="status-band status-operational" role="status">
+    <span class="sb-icon">•</span>
+    <span class="sb-text">—</span>
+  </div>
+
+  <!-- 4. KPIs -->
+  <section class="section" aria-label="Key performance indicators">
+    <div class="section-title">This month at a glance <span id="periodLabel"></span></div>
+    <div class="kpi-grid" id="kpiGrid"><!-- rendered --></div>
+  </section>
+
+  <!-- 5 & 7. Sites + strategic progress -->
+  <div class="cols">
+    <div class="card panel">
+      <h2>Sites requiring attention</h2>
+      <div id="sitesArea"><!-- rendered --></div>
+    </div>
+    <div class="card panel">
+      <h2>Strategic progress</h2>
+      <div id="stratArea"><!-- rendered --></div>
+    </div>
+  </div>
+
+  <!-- 6. Planned maintenance -->
+  <section class="section" id="pmSection">
+    <div class="section-title">Planned maintenance</div>
+    <div class="card panel"><div id="pmArea"><!-- rendered --></div></div>
+  </section>
+
+  <!-- 8. Monthly highlights -->
+  <section class="section" id="hlSection" style="display:none;">
+    <div class="section-title">Monthly highlights</div>
+    <div class="card panel"><ul class="hl-list" id="hlList"></ul></div>
+  </section>
+
+  <!-- 9. Current focus areas -->
+  <section class="section" id="focusSection" style="display:none;">
+    <div class="section-title">Current focus areas</div>
+    <div class="focus-grid" id="focusGrid"></div>
+  </section>
+
+  <!-- 10. Footer -->
+  <footer class="ev-footer">
+    <div>This is a read-only status view. For help, use the quick actions above to open a request in the IT Service Desk.</div>
+    <div class="powered">Powered by ServiceDesk Plus Cloud / Zoho Analytics</div>
+  </footer>
+
+</main>
+
+<script>
+(function () {
+  'use strict';
+
+  // Deep links to ServiceDesk Plus — TODO: replace with real URLs (user will supply).
+  const SDP = {
+    issue:       '#TODO_SDP_ISSUE',
+    service:     '#TODO_SDP_SERVICE',
+    maintenance: '#TODO_SDP_MAINTENANCE',
+    incident:    '#TODO_SDP_INCIDENT'
+  };
+
+  const REFRESH_MS = 300000;       // 5 minutes
+  const STALE_MS   = 3 * 3600000;  // 3 hours
+
+  // ── Helpers ──────────────────────────────────────────────────
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+  function el(id) { return document.getElementById(id); }
+  function isNum(v) { return typeof v === 'number' && isFinite(v); }
+  // A KPI sub-object is "available" only if it carries at least one value key.
+  function hasVal(o) {
+    return o && typeof o === 'object' &&
+      (isNum(o.value) || isNum(o.value_pct));
+  }
+
+  function fmtTimestamp(iso) {
+    if (!iso) return null;
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return null;
+    return d;
+  }
+  function fmtWhen(d) {
+    try {
+      return d.toLocaleString(undefined, {
+        year: 'numeric', month: 'short', day: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+      });
+    } catch (e) {
+      return d.toISOString();
+    }
+  }
+
+  // Small inline SVG sparkline from an array of numbers.
+  function sparkline(arr, color) {
+    if (!Array.isArray(arr) || arr.length < 2) return '';
+    const w = 56, h = 18, pad = 2;
+    const nums = arr.filter(isNum);
+    if (nums.length < 2) return '';
+    const min = Math.min.apply(null, nums);
+    const max = Math.max.apply(null, nums);
+    const span = (max - min) || 1;
+    const stepX = (w - pad * 2) / (nums.length - 1);
+    const pts = nums.map(function (v, i) {
+      const x = pad + i * stepX;
+      const y = pad + (h - pad * 2) * (1 - (v - min) / span);
+      return x.toFixed(1) + ',' + y.toFixed(1);
+    }).join(' ');
+    return '<svg class="kpi-spark" width="' + w + '" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '" ' +
+      'aria-hidden="true"><polyline fill="none" stroke="' + color + '" stroke-width="1.6" ' +
+      'stroke-linecap="round" stroke-linejoin="round" points="' + pts + '"/></svg>';
+  }
+
+  // Progress ring (SVG arc) for strategic overall %.
+  function progressRing(pct) {
+    const p = isNum(pct) ? Math.max(0, Math.min(100, pct)) : 0;
+    const size = 84, stroke = 9, r = (size - stroke) / 2, c = 2 * Math.PI * r;
+    const off = c * (1 - p / 100);
+    return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '" aria-hidden="true">' +
+      '<circle cx="' + (size / 2) + '" cy="' + (size / 2) + '" r="' + r + '" fill="none" stroke="#E2E5EA" stroke-width="' + stroke + '"/>' +
+      '<circle cx="' + (size / 2) + '" cy="' + (size / 2) + '" r="' + r + '" fill="none" stroke="#EF631A" stroke-width="' + stroke + '" ' +
+      'stroke-linecap="round" stroke-dasharray="' + c.toFixed(1) + '" stroke-dashoffset="' + off.toFixed(1) + '" ' +
+      'transform="rotate(-90 ' + (size / 2) + ' ' + (size / 2) + ')"/>' +
+      '<text x="50%" y="50%" text-anchor="middle" dominant-baseline="central" ' +
+      'font-size="20" font-weight="800" fill="#3A4A60">' + (isNum(pct) ? Math.round(p) + '%' : '—') + '</text>' +
+      '</svg>';
+  }
+
+  // Delta rendering: dir + sign + arrow, colored (invert => lower is better).
+  function deltaHtml(val, unit, invert) {
+    if (!isNum(val)) return '<span class="kpi-delta delta-flat">— vs last month</span>';
+    const up = val > 0, down = val < 0;
+    let good;
+    if (val === 0) good = null;
+    else good = invert ? down : up;   // timing metrics: down is good
+    const cls = good === null ? 'delta-flat' : (good ? 'delta-good' : 'delta-bad');
+    const arrow = up ? '▲' : (down ? '▼' : '·');
+    const sign = val > 0 ? '+' : '';
+    return '<span class="kpi-delta ' + cls + '">' + arrow + ' ' + sign + val + esc(unit) + ' vs last month</span>';
+  }
+
+  // ── Renderers ────────────────────────────────────────────────
+  function renderQuickActions() {
+    const tiles = [
+      { key: 'issue',       cls: '#D90038', icon: '⚠', label: 'Report an IT Issue',        sub: 'Something not working? Log an incident with IT.' },
+      { key: 'service',     cls: '#EF631A', icon: '＋', label: 'Request an IT Service',     sub: 'New access, equipment or software request.' },
+      { key: 'maintenance', cls: '#145FAE', icon: '🛠', label: 'View Planned Maintenance', sub: 'See scheduled works that may affect you.' },
+      { key: 'incident',    cls: '#3A4A60', icon: '☰', label: 'View Major Incident',       sub: 'Live updates on current major incidents.' }
+    ];
+    el('quickActions').innerHTML = tiles.map(function (t) {
+      return '<a class="qa-tile" href="' + esc(SDP[t.key]) + '">' +
+        '<span class="qa-icon" style="background:' + t.cls + '">' + t.icon + '</span>' +
+        '<span class="qa-body">' +
+        '<span class="qa-label">' + esc(t.label) + '</span>' +
+        '<span class="qa-sub">' + esc(t.sub) + '</span>' +
+        '</span><span class="qa-arrow">→</span></a>';
+    }).join('');
+  }
+
+  function renderStatus(status) {
+    const band = el('statusBand');
+    const level = (status && status.level) || 'operational';
+    const majors = (status && isNum(status.active_major_incidents)) ? status.active_major_incidents : 0;
+    let cls, icon, text;
+    if (level === 'major') {
+      cls = 'status-major'; icon = '⛔'; text = 'Major Incident In Progress';
+    } else if (level === 'degraded') {
+      cls = 'status-degraded'; icon = '⚠'; text = 'Some IT Services Are Degraded';
+    } else {
+      cls = 'status-operational'; icon = '✓'; text = 'All Core IT Services Operational';
+    }
+    band.className = 'status-band ' + cls;
+    let note = '';
+    if (majors > 0) {
+      note = '<span class="sb-note">' + majors + ' active major incident' + (majors === 1 ? '' : 's') + '</span>';
+    }
+    band.innerHTML = '<span class="sb-icon">' + icon + '</span>' +
+      '<span class="sb-text">' + esc(text) + '</span>' + note;
+  }
+
+  function kpiCard(label, obj, opts) {
+    opts = opts || {};
+    if (!hasVal(obj)) {
+      return '<div class="kpi-card"><div class="kpi-label">' + esc(label) + '</div>' +
+        '<div class="kpi-unavailable">Data unavailable</div></div>';
+    }
+    const raw = isNum(obj.value) ? obj.value : obj.value_pct;
+    const valStr = esc(raw) + (opts.unit ? '<span class="unit">' + esc(opts.unit) + '</span>' : '');
+    const delta = deltaHtml(opts.deltaVal, opts.deltaUnit || '', !!opts.invert);
+    const spark = opts.spark ? sparkline(opts.spark, opts.sparkColor || '#145FAE') : '';
+    return '<div class="kpi-card">' +
+      '<div class="kpi-label">' + esc(label) + '</div>' +
+      '<div class="kpi-value">' + valStr + '</div>' +
+      '<div class="kpi-foot">' + delta + spark + '</div>' +
+      '</div>';
+  }
+
+  function renderKpis(k, period) {
+    el('periodLabel').textContent = period ? '· ' + period : '';
+    k = k || {};
+    const spark = k.spark || {};
+    const rr = k.requests_resolved || {};
+    const sla = k.sla_compliance || {};
+    const art = k.avg_resolution_h || {};
+    const csat = k.csat || {};
+    const chg = k.change_success || {};
+    const html = [
+      kpiCard('Requests Resolved', rr, { deltaVal: rr.delta_pct, deltaUnit: '%' }),
+      kpiCard('Answered within SLA', sla, { unit: '%', deltaVal: sla.delta_pp, deltaUnit: 'pp',
+        spark: spark.sla, sparkColor: '#145FAE' }),
+      kpiCard('Average Resolution Time', art, { unit: 'h', deltaVal: art.delta_h, deltaUnit: 'h', invert: true }),
+      kpiCard('User Satisfaction', csat, { unit: '%', deltaVal: csat.delta_pp, deltaUnit: 'pp',
+        spark: spark.csat, sparkColor: '#1B9A3A' }),
+      kpiCard('Change Success Rate', chg, { unit: '%', deltaVal: chg.delta_pp, deltaUnit: 'pp' })
+    ];
+    el('kpiGrid').innerHTML = html.join('');
+  }
+
+  function statusChip(level) {
+    const l = level || 'operational';
+    const label = l.charAt(0).toUpperCase() + l.slice(1);
+    return '<span class="chip chip-' + esc(l) + '">' + esc(label) + '</span>';
+  }
+
+  function renderSites(sites, allOk) {
+    const area = el('sitesArea');
+    if (allOk || !Array.isArray(sites) || sites.length === 0) {
+      area.innerHTML = '<div class="all-ok"><span class="hl-check">✓</span>' +
+        'All monitored sites are operating normally</div>';
+      return;
+    }
+    let rows = sites.map(function (s) {
+      return '<tr>' +
+        '<td><span class="site-name">' + esc(s.name || s.code) + '</span> ' +
+        '<span class="site-code">' + esc(s.code) + '</span></td>' +
+        '<td>' + statusChip(s.status) + '</td>' +
+        '<td>' + (isNum(s.open_incidents) ? s.open_incidents : '—') + '</td>' +
+        '</tr>';
+    }).join('');
+    area.innerHTML = '<table class="sites"><thead><tr>' +
+      '<th>Site</th><th>Status</th><th>Open incidents</th>' +
+      '</tr></thead><tbody>' + rows + '</tbody></table>';
+  }
+
+  function renderMaintenance(pm) {
+    const area = el('pmArea');
+    if (!Array.isArray(pm) || pm.length === 0) {
+      area.innerHTML = '<div class="pm-detail" style="padding:6px 0;">No planned maintenance scheduled.</div>';
+      return;
+    }
+    const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+    area.innerHTML = pm.slice(0, 3).map(function (m) {
+      let dd = '—', mm = '';
+      const d = fmtTimestamp(m.date + 'T00:00:00');
+      if (d) { dd = d.getDate(); mm = months[d.getMonth()]; }
+      const imp = (m.impact || '').toLowerCase();
+      const impCls = imp === 'high' ? 'impact-high' : (imp === 'medium' ? 'impact-medium' : 'impact-low');
+      const impChip = m.impact ? '<span class="impact-chip ' + impCls + '">' + esc(m.impact) + ' impact</span>' : '';
+      const scope = m.scope ? ' · ' + esc(m.scope) : '';
+      return '<div class="pm-row">' +
+        '<div class="pm-date"><div class="d">' + dd + '</div><div class="m">' + mm + '</div></div>' +
+        '<div class="pm-info">' +
+        '<div class="pm-title">' + esc(m.title) + '</div>' +
+        '<div class="pm-detail">' + esc(m.window || '') + scope + '</div>' +
+        '<div class="pm-impact">' + impChip + '</div>' +
+        '</div></div>';
+    }).join('');
+  }
+
+  function renderStrategic(sp) {
+    const area = el('stratArea');
+    if (!sp) {
+      area.innerHTML = '<div class="pm-detail">No strategic progress data.</div>';
+      return;
+    }
+    const ring = '<div class="strat-head">' +
+      '<div class="ring-wrap">' + progressRing(sp.overall_pct) + '</div>' +
+      '<div><div class="ring-label">Overall completion</div>' +
+      '<div style="font-size:1.05rem;font-weight:800;color:#3A4A60;">Strategic roadmap</div></div>' +
+      '</div>';
+    let pillars = '';
+    if (Array.isArray(sp.pillars)) {
+      pillars = sp.pillars.map(function (p) {
+        const pct = isNum(p.pct) ? Math.max(0, Math.min(100, p.pct)) : 0;
+        return '<div class="pillar">' +
+          '<div class="pillar-top"><span>' + esc(p.name) + '</span>' +
+          '<span class="pillar-pct">' + (isNum(p.pct) ? p.pct + '%' : '—') + '</span></div>' +
+          '<div class="bar-track"><div class="bar-fill" style="width:' + pct + '%"></div></div>' +
+          '</div>';
+      }).join('');
+    }
+    area.innerHTML = ring + pillars;
+  }
+
+  function renderHighlights(hl) {
+    const sec = el('hlSection');
+    if (!Array.isArray(hl) || hl.length === 0) { sec.style.display = 'none'; return; }
+    sec.style.display = '';
+    el('hlList').innerHTML = hl.map(function (h) {
+      return '<li><span class="hl-check">✓</span><span>' + esc(h) + '</span></li>';
+    }).join('');
+  }
+
+  function renderFocus(fa) {
+    const sec = el('focusSection');
+    if (!Array.isArray(fa) || fa.length === 0) { sec.style.display = 'none'; return; }
+    sec.style.display = '';
+    el('focusGrid').innerHTML = fa.slice(0, 3).map(function (f) {
+      return '<div class="focus-card">' +
+        '<div class="focus-title">' + esc(f.title) + '</div>' +
+        '<div class="focus-sub">' + esc(f.subtitle || '') + '</div>' +
+        '</div>';
+    }).join('');
+  }
+
+  function renderTimestamp(iso) {
+    const d = fmtTimestamp(iso);
+    if (!d) {
+      el('lastUpdated').textContent = 'Last updated: —';
+      el('delayedNote').style.display = 'none';
+      return;
+    }
+    el('lastUpdated').innerHTML = 'Last updated: <strong>' + esc(fmtWhen(d)) + '</strong>';
+    const stale = (Date.now() - d.getTime()) > STALE_MS;
+    el('delayedNote').style.display = stale ? 'inline-block' : 'none';
+  }
+
+  // ── Main render ──────────────────────────────────────────────
+  function render(data) {
+    document.body.classList.remove('error-only');
+    renderTimestamp(data.data_as_of);
+    renderStatus(data.status);
+    renderKpis(data.kpis, data.period);
+    renderSites(data.sites_attention, data.all_sites_ok);
+    renderMaintenance(data.planned_maintenance);
+    renderStrategic(data.strategic_progress);
+    renderHighlights(data.highlights);
+    renderFocus(data.focus_areas);
+  }
+
+  function showFallback() {
+    // Keep any previously-rendered content behind the fallback only if we
+    // never rendered anything; otherwise leave the stale-but-valid view up
+    // and just surface the delayed note. Here we show the neutral fallback
+    // only when we have no successful render yet.
+    if (!rendered) {
+      document.body.classList.add('error-only');
+    }
+  }
+
+  // ── Fetch loop ───────────────────────────────────────────────
+  let rendered = false;
+  let inFlight = false;
+
+  function refresh() {
+    if (inFlight) return;
+    inFlight = true;
+    fetch('/api/exec/summary', { headers: { 'Accept': 'application/json' }, cache: 'no-store' })
+      .then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
+      .then(function (data) {
+        if (!data || data.error) throw new Error('unavailable');
+        render(data);
+        rendered = true;
+      })
+      .catch(function () {
+        showFallback();
+      })
+      .then(function () { inFlight = false; });
+  }
+
+  el('refreshBtn').addEventListener('click', refresh);
+  el('fallbackRetry').addEventListener('click', refresh);
+
+  // Static UI + first load.
+  renderQuickActions();
+  refresh();
+  setInterval(refresh, REFRESH_MS);
+})();
+</script>
+</body>
+</html>
