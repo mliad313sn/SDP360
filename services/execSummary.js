@@ -44,7 +44,9 @@ function buildExecSummary(d) {
       pick(m, ['date','title','window','impact','scope'])),
     strategic_progress: d.strategic || { overall_pct: 0, pillars: [] },
     highlights: hl.length ? hl : null,
-    focus_areas: fc.length ? fc : null,
+    // whitelist focus entry keys so the public payload shape is strictly
+    // predictable (mirrors planned_maintenance) — admin-authored, not PII.
+    focus_areas: fc.length ? fc.map(f => pick(f, ['title', 'subtitle'])) : null,
   };
 }
 
