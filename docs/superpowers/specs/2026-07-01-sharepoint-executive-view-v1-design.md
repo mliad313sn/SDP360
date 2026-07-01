@@ -1,0 +1,229 @@
+# SharePoint IT Operations Executive View — v1 Design
+
+**Date:** 2026-07-01
+**Status:** Approved (brainstorming) — pending spec review + implementation plan
+**Branch:** `feat/sharepoint-exec-view-v1`
+
+## Goal
+
+Ship a concise, **employee-facing** IT Operations "Executive View" as a single
+**read-only page hosted in our existing dashboard**, surfaced on SharePoint via a
+Quick Link. It must let any employee grasp overall IT status in <5 s and reach
+the right action in one click — without reproducing the full operational
+dashboard.
+
+This is **v1 = one page only**. The 5 additional tabs from the external Model-4
+handoff (Service Health, Sites, Projects, Reports, Knowledge) are explicitly
+**out of scope** (v2).
+
+## Context — why this shape
+
+The external handoff (`sharepoint-executive-view-model-4-handoff.md`, authored
+without full knowledge of our codebase) assumes the data must be freshly wired
+from source systems into a native SharePoint SPFx web part. Grounded in **what we
+already built**, that is unnecessary:
+
+- `services/reportPayload.js build()` already assembles essentially the entire
+  Executive View dataset for the monthly PPTX: helpdesk KPIs + MoM deltas, CSAT,
+  changes/emergency, major incidents (with downtime), and the full Activity
+  Tracker rollup (green/amber/red, `avg_score`, per-site, per-pillar, 6-month
+  trends).
+- The editorial-input pattern already exists (the Operations Summary `os-*`
+  editor persisted per month in `reports.db`).
+- We own the app, the design system (`_tokens.css`, brand), the auth, and the
+  hourly Zoho sync.
+
+So v1 is a **thin presentation surface + one read-only aggregator endpoint** over
+data we already produce — not a new SPFx project.
+
+> **Reuse caveats found during planning (2026-07-01):** (1) `reportPayload.build()`
+> takes a **browser payload** and its server-side `_tracker()` fallback scores
+> crudely — so the endpoint calls the underlying **`reports-db.js` helpers
+> directly** (the same ones `build()` uses) and, for strategic progress, uses
+> **`tracker-db.loadTracker()` + the faithful scorers in `tracker-pptx.js`**
+> (`fleetStats`/`ps2`, to be exported). (2) The Operations Summary `os-*` editor
+> persists to **browser `localStorage` only** (it reaches the server transiently
+> inside the PPTX payload, never stored) — so the editorial content needs a **new
+> server-side store + admin card**, not a reuse of `os-*`. Native SharePoint rendering
+(SPFx / Graph push to Lists / Power BI) is deferred to v2 if governance requires
+it.
+
+## Decisions locked during brainstorming
+
+| Decision | Choice |
+|---|---|
+| Hosting & auth | **Public read-only page in our dashboard** (no login), aggregates only, **no PII**. SharePoint links to it via Quick Link. |
+| Page scope | **Full single page** (matches the user's mockup variant 3). |
+| Site status | **Derived from incidents** (Major Incident + SLA breach). **No uptime %** (we don't ingest OPManager). Exception-only. |
+| Editorial input | **New small server-side store + admin card** (the `os-*` editor is `localStorage`-only, so it can't be reused server-side). |
+| Language | English (like the mockups). FR later if needed. |
+
+## Architecture
+
+Four units, each with one responsibility:
+
+```
+Employee (in SharePoint)
+  │  clicks Quick Link
+  ▼
+public/exec-view.html      ← public, read-only, no login (reuses _tokens.css/brand)
+  │  fetch
+  ▼
+GET /api/exec/summary      ← PUBLIC endpoint, aggregates only, NO PII
+  │  reuses (server-side, NO browser payload)
+  ├─ reports-db.js helpers        (helpdesk KPIs, CSAT, changes, MI — same the PPTX uses)
+  ├─ tracker-db.loadTracker() + tracker-pptx scorers (faithful pillar/overall %)
+  ├─ site-status derivation       (from open incidents / active MI / overdue)
+  └─ editorial store              (highlights/focus) read from reports.db
+                              ▲
+                              │ entered via
+        NEW small admin card "Exec View editorial" → new reports.db table
+```
+
+| Unit | Responsibility | Depends on |
+|---|---|---|
+| `GET /api/exec/summary` | Assemble the v1 JSON, **filter all PII**, derive site status | `reportPayload`, `reports-db`, editorial getter |
+| `public/exec-view.html` | Pure presentation (render JSON, auto-refresh, "last updated") | the endpoint |
+| Editorial extension | Capture highlights/focus → `reports.db` | existing admin card |
+| SharePoint | Front door (Quick Link → page URL) | nothing (zero M365 dev) |
+
+Freshness: data = last Zoho cron sync (hourly). The page shows "Last updated"
+from `sync_metadata.requests.last_sync_at` and auto-refreshes (every 5 min).
+
+## Endpoint contract — `GET /api/exec/summary`
+
+Aggregates only. Shape:
+
+```jsonc
+{
+  "data_as_of": "2026-06-25T08:00:00Z",   // sync_metadata.requests.last_sync_at
+  "period": "2026-06",
+  "status": { "level": "operational|degraded|major", "active_major_incidents": 0 },
+  "kpis": {
+    "requests_resolved": { "value": 1236, "delta_pct": 8 },
+    "sla_compliance":    { "value_pct": 91, "delta_pp": 2 },
+    "avg_resolution_h":  { "value": 14, "delta_h": -3 },
+    "csat":              { "value_pct": 88, "delta_pp": 4 },
+    "change_success":    { "value_pct": 96, "delta_pp": 1 },
+    "spark": { "sla": [], "csat": [] }   // small 6-month series, optional, no PII
+  },
+  "sites_attention": [ { "code": "SGO", "name": "Sabodala", "status": "degraded", "open_incidents": 2 } ],
+  "all_sites_ok": false,
+  "planned_maintenance": [ { "date": "2026-06-26", "title": "SAP Upgrade", "window": "22:00–04:00", "impact": "High", "scope": "ITY, Houndé" } ],
+  "strategic_progress": { "overall_pct": 72, "pillars": [ { "name": "Network & Infrastructure", "pct": 82 } ] },
+  "highlights": [ "2 major projects completed" ],
+  "focus_areas": [ { "title": "UPS Upgrade – Lafigué", "subtitle": "Improving site power reliability" } ]
+}
+```
+
+### Block → source mapping (everything already exists)
+
+| Block | Source |
+|---|---|
+| `status.level` | derived: active MI → `major`; else degraded site → `degraded`; else `operational` |
+| `kpis` | `reportPayload.build()`: `closed`/`total`→resolved, `sla_compliance`(+`_delta_pp`), `avg_res_days`, CSAT block, change-success helper |
+| `kpis.spark` | existing 6-month histories — **`sla` and `csat` only** (no change-success 6-month series exists; `spark.change` is intentionally omitted in v1) |
+| `sites_attention` | derived: open incidents per site + `getActiveMajorIncidentsForSite` (exception-only) |
+| `planned_maintenance` | `change_records` approved, `scheduled_start` within 7 days (max 3) |
+| `strategic_progress` | `tracker-db.loadTracker()` (raw D) scored by the **faithful** `fleetStats`/`ps2` (exported from `tracker-pptx.js`) → overall + 4 pillar % |
+| `highlights` / `focus_areas` | **new** editorial store `exec_view_editorial` in `reports.db` (per-month) |
+
+### PII boundary (strict)
+
+The endpoint exposes **only** the whitelisted fields above. **Never**: ticket
+subjects, requester/technician names, CSAT verbatims, ticket/record IDs. For
+maintenance, only change title/window/impact/scope (no requester). The boundary
+is enforced **field-by-field in the endpoint**, not by trusting `build()`'s full
+output.
+
+## Site-status derivation (pure function)
+
+**Site set — reuse, do not reinvent.** SDP `request_records.site` carries
+free-form full mine/office names that don't match any module's short-code list
+(documented codebase trap; see the existing `rr_site_aliases` pattern). v1 does
+**not** introduce a new canonical site table: it **groups open incidents by the
+raw `request_records.site` value** and normalizes the display name via an
+existing site-name mapping if one is readily available (else shows the raw
+label). Because the block is exception-only, only sites that resolve to
+`major`/`degraded` are ever emitted, so a complete canonical list is unnecessary.
+
+For each site that has open incidents:
+- `open_incidents` = count of **non-closed** incidents for the site (current state).
+- **`major`** = an **active (unresolved) Major Incident** on the site.
+- **`degraded`** = no MI, but **≥ 1 open incident that is overdue** (`overdue_status`).
+- **`operational`** = open incidents all within SLA (or none).
+
+**Exception-only**: the block lists only `major` + `degraded` sites, most severe
+first, **max 4 rows**. If none → "All monitored sites are operating normally".
+**Default degraded threshold = ≥ 1 overdue open incident** (configurable for
+later tuning).
+
+## Editorial store + admin card
+
+The Operations Summary `os-*` editor persists only to browser `localStorage`, so
+it can't be read server-side. v1 adds a **small server-side store**:
+
+- **New table** `exec_view_editorial` in `reports.db`:
+  `period TEXT PRIMARY KEY, highlights_json TEXT, focus_json TEXT, updated_at TEXT, updated_by TEXT`.
+  - `highlights_json` → array of short strings (max 4).
+  - `focus_json` → array of `{ title, subtitle }` (max 3).
+- **Admin save route** `PUT /api/exec/editorial?period=YYYY-MM` (admin+), behind
+  the normal auth gate (this is the write side, staff-only).
+- **Admin UI**: a small new admin card "Exec View editorial" on `reports.html#admin`
+  (highlights textarea + a small focus repeater), following the existing card pattern.
+- **Read**: the public summary endpoint reads the row for the **current month**.
+- **Empty = hidden**: if unset, the highlights/focus blocks are **omitted** from
+  the page (no empty panels).
+
+## Exposure & security (public route)
+
+- `GET /api/exec/summary` and `exec-view.html` must **bypass auth**: register the
+  endpoint **before** the global `app.use('/api/', …)` gate (or allowlist it);
+  serve the page via a public handler (no `injectApiKey`, no session), added to
+  the `_htmlCache` boot list.
+- Hardening: GET only · **whitelisted aggregates** (the real control) · **~60 s
+  server-side cache** of the JSON (data changes hourly → avoids recompute + limits
+  abuse) · no secrets/config exposed · same-origin (no CORS needed).
+- **Cache/label coherence**: cache the **whole JSON including `data_as_of`** as one
+  unit, so the served "Last updated" label always matches the served payload.
+- Optional (non-blocking): restrict to the internal network at the **IIS** layer.
+
+## Refresh & error handling
+
+- Page: fetch on load + **auto-refresh every 5 min** + "Last updated: `data_as_of`".
+- **Per block**: unavailable/stale source → "Data unavailable" (never a misleading
+  zero); the endpoint returns `null` for that block and the page renders
+  accordingly.
+- Endpoint down → neutral "Status temporarily unavailable" + keep last render.
+- Freshness guard: if `data_as_of` older than **3 h** (default, given hourly
+  sync), a subtle "data may be delayed" note.
+
+## Testing
+
+- Endpoint integration test (in-memory `reports.db` seeded): JSON shape,
+  **anti-PII assertion** (no forbidden field present), site-status derivation
+  (major/degraded/operational cases), exception-only + cap-4, empty-editorial →
+  blocks omitted.
+- Site-status derivation as a **pure function** → dedicated unit tests.
+- Page: light visual smoke via preview tools (not a hard test).
+
+## Out of scope (v1)
+
+- The 5 other tabs (Service Health, detailed Sites, Projects, Reports, Knowledge).
+- Real site availability (OPManager integration) → v2.
+- Native SharePoint rendering (SPFx / Graph push to Lists / Power BI) → v2 if
+  governance requires it.
+- Multi-tab nav hidden in v1 (single page); optional "Full dashboard" link for staff.
+- French localization (page ships in English).
+
+## Acceptance criteria
+
+- A user identifies overall IT status in <5 s; reaches issue reporting / service
+  request in one click (deep links to ServiceDesk Plus).
+- Only sites needing attention appear (exception-only, max 4); no fake uptime %.
+- No block shows more than its cap (5 KPIs, 4 site exceptions, 3 maintenance,
+  4 highlights, 3 focus areas).
+- Every value carries the last-refresh timestamp / reporting period.
+- The endpoint exposes **zero PII** (verified by test).
+- Editorial content edited once in the dashboard auto-updates the page.
+- The page is public read-only; the endpoint bypasses the auth gate safely.

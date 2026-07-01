@@ -577,6 +577,54 @@ try {
   if (r.changes > 0) console.log(`[seed] infra_kpi_catalog — backfilled ${r.changes} new (service, kpi) pairs from history`);
 } catch (e) { /* infra_kpis may be empty on a fresh DB — no problem */ }
 
+// ── 1.C exec_view_editorial ───────────────────────────────────────
+// Exec View editorial (SharePoint executive page) — per-month highlights/focus.
+// v1: sqlite only. TODO(pg): fork under REPORTS_BACKEND=postgres when needed.
+db.exec(`
+CREATE TABLE IF NOT EXISTS exec_view_editorial (
+  period          TEXT PRIMARY KEY,       -- 'YYYY-MM'
+  highlights_json TEXT,
+  focus_json      TEXT,
+  updated_at      TEXT,
+  updated_by      TEXT
+);
+`);
+
+/**
+ * getExecEditorial(period) — reads the Executive View editorial blocks
+ * (Monthly highlights + Current focus areas) for a given 'YYYY-MM' period.
+ * Returns { highlights: [], focus: [] } when the period has never been set.
+ */
+function getExecEditorial(period) {
+  try {
+    const row = db.prepare('SELECT highlights_json, focus_json FROM exec_view_editorial WHERE period=?').get(period);
+    if (!row) return { highlights: [], focus: [] };
+    const parse = (s, d) => { try { const v = JSON.parse(s || ''); return Array.isArray(v) ? v : d; } catch { return d; } };
+    return { highlights: parse(row.highlights_json, []), focus: parse(row.focus_json, []) };
+  } catch { return { highlights: [], focus: [] }; }
+}
+
+/**
+ * setExecEditorial(period, {highlights, focus}, user) — upserts the
+ * editorial blocks for a period. Enforces caps (max 4 highlights, max 3
+ * focus areas) and drops blank entries so the Executive View footprint
+ * stays predictable regardless of what an admin pastes in.
+ */
+function setExecEditorial(period, { highlights, focus }, user) {
+  const H = Array.isArray(highlights) ? highlights.filter(x => String(x || '').trim()).slice(0, 4) : [];
+  const F = Array.isArray(focus) ? focus.filter(x => x && String(x.title || '').trim()).slice(0, 3) : [];
+  db.prepare(`
+    INSERT INTO exec_view_editorial (period, highlights_json, focus_json, updated_at, updated_by)
+    VALUES (?, ?, ?, datetime('now'), ?)
+    ON CONFLICT(period) DO UPDATE SET
+      highlights_json = excluded.highlights_json,
+      focus_json      = excluded.focus_json,
+      updated_at      = excluded.updated_at,
+      updated_by      = excluded.updated_by
+  `).run(period, JSON.stringify(H), JSON.stringify(F), user || 'unknown');
+  return { highlights: H, focus: F };
+}
+
 // ── SEED DEFAULT ADMIN ────────────────────────────────────────────
 function hashPassword(password, salt) {
   return crypto.pbkdf2Sync(password, salt, 100000, 64, 'sha512').toString('hex');
@@ -5674,6 +5722,55 @@ function _mapActiveMajorIncidentRows(rows) {
   });
 }
 
+// ── UPCOMING PLANNED CHANGES (Executive View — planned maintenance) ─────────
+/**
+ * getUpcomingChanges(days) — changes still open (stage != 'Close') whose
+ * scheduled_start falls within the next `days` days. Returns ONLY the five
+ * operationally-safe, PII-free fields the public Executive View renders:
+ *   { date, title, window, impact, scope }
+ *   - date   = scheduled_start (date portion)
+ *   - title  = change subject (operational text — no requester/technician)
+ *   - window = scheduled_start → scheduled_end (HH:MM–HH:MM)
+ *   - impact = risk band
+ *   - scope  = site_id
+ * Deliberately selects ONLY those columns (never requester/owner/manager).
+ * sqlite path only for now — see TODO(pg).
+ */
+function getUpcomingChanges(days = 7) {
+  // TODO(pg): add a REPORTS_BACKEND==='postgres' fork when the Exec View is
+  // wired to the PG reports.db (datetime('now') → now(); julianday window
+  // math not needed here — plain lexical/ISO comparisons on scheduled_start).
+  const n = Number(days) > 0 ? Number(days) : 7;
+  const rows = db.prepare(`
+    SELECT subject, risk, site_id, scheduled_start, scheduled_end
+    FROM change_records
+    WHERE stage != 'Close'
+      AND scheduled_start IS NOT NULL AND scheduled_start != ''
+      AND datetime(scheduled_start) >= datetime('now')
+      AND datetime(scheduled_start) <= datetime('now', '+' || ? || ' days')
+    ORDER BY datetime(scheduled_start) ASC
+    LIMIT 25
+  `).all(n);
+  const hhmm = (v) => {
+    if (!v) return '';
+    const s = String(v).replace(' ', 'T');
+    const d = new Date(s);
+    if (isNaN(d.getTime())) return '';
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  };
+  return rows.map(r => {
+    const startT = hhmm(r.scheduled_start);
+    const endT   = hhmm(r.scheduled_end);
+    return {
+      date:   r.scheduled_start ? String(r.scheduled_start).slice(0, 10) : null,
+      title:  r.subject || '—',
+      window: (startT && endT) ? `${startT}–${endT}` : (startT || ''),
+      impact: r.risk || null,
+      scope:  r.site_id || null,
+    };
+  });
+}
+
 /**
  * Distinct values present in request_records for the 4 analytics
  * multi-select filters (2026-06-11). Drives the dropdown options on
@@ -5766,4 +5863,8 @@ module.exports = {
   // Open changes for PPTX slide
   getOpenChangesForSite,
   getActiveMajorIncidentsForSite,
+  // Upcoming planned changes (Exec View — planned maintenance)
+  getUpcomingChanges,
+  // Exec View editorial (SharePoint executive page)
+  getExecEditorial, setExecEditorial,
 };

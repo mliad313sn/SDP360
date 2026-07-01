@@ -974,6 +974,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         <button type="button" class="admin-rail__item" data-panel="sessions"    onclick="showAdminPanel('sessions')"><span class="ar-ico">🟢</span><span>Active Sessions<small>Who's online</small></span></button>
         <button type="button" class="admin-rail__item" data-panel="sites"       onclick="showAdminPanel('sites')"><span class="ar-ico">🏢</span><span>Sites<small>Zoho group mapping</small></span></button>
         <button type="button" class="admin-rail__item" data-panel="departments" onclick="showAdminPanel('departments')"><span class="ar-ico">🏷</span><span>Departments<small>Action item categories</small></span></button>
+        <button type="button" class="admin-rail__item" data-panel="execview"    onclick="showAdminPanel('execview')"><span class="ar-ico">📣</span><span>Exec View<small>Highlights &amp; focus</small></span></button>
         <button type="button" class="admin-rail__item" data-panel="risk" id="admin-rail-risk" style="display:none" onclick="showAdminPanel('risk')"><span class="ar-ico">🛡</span><span>Risk Register<small>Site code mapping</small></span></button>
       </nav>
       <div class="admin-content">
@@ -1062,6 +1063,54 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         </thead>
         <tbody id="dept-table-body"></tbody>
       </table>
+    </div>
+
+    <!-- ─── Executive View editorial (admin+) ─────────────────────────────────
+         Monthly highlights + current focus areas that the public Executive
+         View page (SharePoint-facing) shows for the selected month. Persisted
+         in reports.db (exec_view_editorial) via PUT /api/exec/editorial;
+         prefilled here via GET /api/exec/editorial. Both routes are
+         session + admin gated server-side. -->
+    <div class="card admin-panel" id="ap-execview" data-panel="execview">
+      <h3>📣 Executive View — Highlights &amp; Focus
+        <span style="font-size:0.78rem;font-weight:400;color:#6b7a99;margin-left:8px">
+          Editorial shown on the public Executive View page for the selected month (max 4 highlights, 3 focus areas)
+        </span>
+      </h3>
+
+      <div class="form-row cols-2" style="max-width:520px">
+        <div class="form-group">
+          <label>Month *</label>
+          <input type="month" id="ev-month" onchange="loadExecEditorial()">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Monthly highlights <span style="font-weight:400;color:#6b7a99">— one bullet per line, max 4 lines</span></label>
+        <textarea id="ev-highlights" rows="4" placeholder="e.g. Restored WAN redundancy at Houndé&#10;Closed 3 major incidents within SLA"></textarea>
+      </div>
+
+      <div class="form-group">
+        <label>Current focus areas <span style="font-weight:400;color:#6b7a99">— up to 3 (title + subtitle)</span></label>
+        <div id="ev-focus-rows">
+          <div class="form-row cols-2" style="margin-bottom:8px">
+            <div class="form-group"><input type="text" class="ev-focus-title"    placeholder="Focus title 1"></div>
+            <div class="form-group"><input type="text" class="ev-focus-subtitle" placeholder="Subtitle 1"></div>
+          </div>
+          <div class="form-row cols-2" style="margin-bottom:8px">
+            <div class="form-group"><input type="text" class="ev-focus-title"    placeholder="Focus title 2"></div>
+            <div class="form-group"><input type="text" class="ev-focus-subtitle" placeholder="Subtitle 2"></div>
+          </div>
+          <div class="form-row cols-2" style="margin-bottom:8px">
+            <div class="form-group"><input type="text" class="ev-focus-title"    placeholder="Focus title 3"></div>
+            <div class="form-group"><input type="text" class="ev-focus-subtitle" placeholder="Subtitle 3"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-actions" style="justify-content:flex-start">
+        <button class="btn btn-primary" onclick="saveExecEditorial()">Save</button>
+      </div>
     </div>
 
     <!-- ─── Risk Register codes (super_admin only) ────────────────────────────
@@ -4278,7 +4327,7 @@ async function downloadAllSitesMonthlyPptx(fromMonthlyPage) {
 //  ADMIN PAGE
 // ══════════════════════════════════════════════════════════════════
 // Admin left-rail: show one settings panel at a time. name ∈ users|sessions|sites|departments|risk.
-const _ADMIN_PANEL_IDS = { users:'ap-users', sessions:'sessions-card', sites:'ap-sites', departments:'ap-depts', risk:'rr-aliases-card' };
+const _ADMIN_PANEL_IDS = { users:'ap-users', sessions:'sessions-card', sites:'ap-sites', departments:'ap-depts', execview:'ap-execview', risk:'rr-aliases-card' };
 function showAdminPanel(name) {
   // Guard: 'risk' is super_admin-only — fall back to Users for everyone else.
   if (name === 'risk' && currentUser?.role !== 'super_admin') name = 'users';
@@ -4289,6 +4338,12 @@ function showAdminPanel(name) {
   if (panel) panel.classList.add('active');
   // Fresh data when opening Active Sessions.
   if (name === 'sessions' && typeof loadActiveSessions === 'function') loadActiveSessions();
+  // Fresh editorial when opening the Exec View card (defaults month to current if blank).
+  if (name === 'execview' && typeof loadExecEditorial === 'function') {
+    const mi = document.getElementById('ev-month');
+    if (mi && !mi.value) { const d = new Date(); mi.value = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); }
+    loadExecEditorial();
+  }
   // Reflect the section in the hash (deep-linkable); guard avoids re-entrancy with the router.
   const want = '#admin/' + name;
   if (location.hash !== want) { _suppressHashRoute = true; location.hash = want; }
@@ -4318,7 +4373,7 @@ async function loadAdminPage() {
     }
     // Open the panel from the hash sub-section (#admin/<section>) or default to Users.
     const sub = (location.hash.split('/')[1] || '').toLowerCase();
-    showAdminPanel(['users','sessions','sites','departments','risk'].includes(sub) ? sub : 'users');
+    showAdminPanel(['users','sessions','sites','departments','execview','risk'].includes(sub) ? sub : 'users');
 
     const deptUrl  = isExecOrSuper ? '/api/reports/departments?include_inactive=1' : '/api/reports/departments';
     const sitesUrl = isExecOrSuper ? '/api/reports/sites?include_inactive=1'        : '/api/reports/sites';
@@ -4929,6 +4984,50 @@ async function deleteUser(id) {
 function esc(s) {
   if (s == null) return '';
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  EXECUTIVE VIEW EDITORIAL (admin+ card)
+//  Reads / writes the per-month highlights + focus shown on the public
+//  Executive View page. Server routes are session + admin gated.
+// ══════════════════════════════════════════════════════════════════
+function _evPeriod() {
+  const mi = document.getElementById('ev-month');
+  return (mi && mi.value) || '';
+}
+function loadExecEditorial() {
+  const period = _evPeriod();
+  if (!/^\d{4}-\d{2}$/.test(period)) return;
+  api('GET', '/api/exec/editorial?period=' + encodeURIComponent(period)).then(data => {
+    // NOTE: values are assigned to form-field .value (plain-text sink), so we do
+    // NOT esc() them — the browser never HTML-parses input/textarea values, and
+    // esc()-ing here would double-encode (& → &amp; shown literally). The strings
+    // never touch innerHTML on this card.
+    const hl = (data && Array.isArray(data.highlights)) ? data.highlights : [];
+    const ta = document.getElementById('ev-highlights');
+    if (ta) ta.value = hl.join('\n');
+    const focus  = (data && Array.isArray(data.focus)) ? data.focus : [];
+    const titles = document.querySelectorAll('#ev-focus-rows .ev-focus-title');
+    const subs   = document.querySelectorAll('#ev-focus-rows .ev-focus-subtitle');
+    titles.forEach((el, i) => { el.value = (focus[i] && focus[i].title)    || ''; });
+    subs.forEach((el, i)   => { el.value = (focus[i] && focus[i].subtitle) || ''; });
+  }).catch(err => toast(err || 'Could not load editorial', 'error'));
+}
+function saveExecEditorial() {
+  const period = _evPeriod();
+  if (!/^\d{4}-\d{2}$/.test(period)) { toast('Pick a month (YYYY-MM) first', 'error'); return; }
+  const ta = document.getElementById('ev-highlights');
+  const highlights = (ta ? ta.value : '').split('\n').map(s => s.trim()).filter(Boolean);
+  const titles = document.querySelectorAll('#ev-focus-rows .ev-focus-title');
+  const subs   = document.querySelectorAll('#ev-focus-rows .ev-focus-subtitle');
+  const focus = [];
+  titles.forEach((el, i) => {
+    const title = (el.value || '').trim();
+    if (title) focus.push({ title, subtitle: ((subs[i] && subs[i].value) || '').trim() });
+  });
+  api('PUT', '/api/exec/editorial?period=' + encodeURIComponent(period), { highlights, focus })
+    .then(() => { toast('Saved ✓'); loadExecEditorial(); })
+    .catch(err => toast(err || 'Save failed', 'error'));
 }
 
 // ══════════════════════════════════════════════════════════════════
