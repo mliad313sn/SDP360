@@ -34,7 +34,17 @@ already built**, that is unnecessary:
   hourly Zoho sync.
 
 So v1 is a **thin presentation surface + one read-only aggregator endpoint** over
-data we already produce — not a new SPFx project. Native SharePoint rendering
+data we already produce — not a new SPFx project.
+
+> **Reuse caveats found during planning (2026-07-01):** (1) `reportPayload.build()`
+> takes a **browser payload** and its server-side `_tracker()` fallback scores
+> crudely — so the endpoint calls the underlying **`reports-db.js` helpers
+> directly** (the same ones `build()` uses) and, for strategic progress, uses
+> **`tracker-db.loadTracker()` + the faithful scorers in `tracker-pptx.js`**
+> (`fleetStats`/`ps2`, to be exported). (2) The Operations Summary `os-*` editor
+> persists to **browser `localStorage` only** (it reaches the server transiently
+> inside the PPTX payload, never stored) — so the editorial content needs a **new
+> server-side store + admin card**, not a reuse of `os-*`. Native SharePoint rendering
 (SPFx / Graph push to Lists / Power BI) is deferred to v2 if governance requires
 it.
 
@@ -45,7 +55,7 @@ it.
 | Hosting & auth | **Public read-only page in our dashboard** (no login), aggregates only, **no PII**. SharePoint links to it via Quick Link. |
 | Page scope | **Full single page** (matches the user's mockup variant 3). |
 | Site status | **Derived from incidents** (Major Incident + SLA breach). **No uptime %** (we don't ingest OPManager). Exception-only. |
-| Editorial input | **Extend the existing Operations Summary editor** (`os-*` keys in `reports.db`). |
+| Editorial input | **New small server-side store + admin card** (the `os-*` editor is `localStorage`-only, so it can't be reused server-side). |
 | Language | English (like the mockups). FR later if needed. |
 
 ## Architecture
@@ -60,13 +70,14 @@ public/exec-view.html      ← public, read-only, no login (reuses _tokens.css/b
   │  fetch
   ▼
 GET /api/exec/summary      ← PUBLIC endpoint, aggregates only, NO PII
-  │  reuses
-  ├─ services/reportPayload.build()   (KPIs, CSAT, changes, MI, tracker — trimmed)
-  ├─ site-status derivation (from open incidents / active MI / overdue)
-  └─ editorial (highlights/focus) read from reports.db
+  │  reuses (server-side, NO browser payload)
+  ├─ reports-db.js helpers        (helpdesk KPIs, CSAT, changes, MI — same the PPTX uses)
+  ├─ tracker-db.loadTracker() + tracker-pptx scorers (faithful pillar/overall %)
+  ├─ site-status derivation       (from open incidents / active MI / overdue)
+  └─ editorial store              (highlights/focus) read from reports.db
                               ▲
                               │ entered via
-        Operations Summary editor (extended)  →  reports.db
+        NEW small admin card "Exec View editorial" → new reports.db table
 ```
 
 | Unit | Responsibility | Depends on |
@@ -114,8 +125,8 @@ Aggregates only. Shape:
 | `kpis.spark` | existing 6-month histories — **`sla` and `csat` only** (no change-success 6-month series exists; `spark.change` is intentionally omitted in v1) |
 | `sites_attention` | derived: open incidents per site + `getActiveMajorIncidentsForSite` (exception-only) |
 | `planned_maintenance` | `change_records` approved, `scheduled_start` within 7 days (max 3) |
-| `strategic_progress` | Tracker: `avg_score`→overall, `pillars{name:score}` (4 pillars) |
-| `highlights` / `focus_areas` | editorial `reports.db` (`os-highlights` / `os-focus`) |
+| `strategic_progress` | `tracker-db.loadTracker()` (raw D) scored by the **faithful** `fleetStats`/`ps2` (exported from `tracker-pptx.js`) → overall + 4 pillar % |
+| `highlights` / `focus_areas` | **new** editorial store `exec_view_editorial` in `reports.db` (per-month) |
 
 ### PII boundary (strict)
 
@@ -147,15 +158,20 @@ first, **max 4 rows**. If none → "All monitored sites are operating normally".
 **Default degraded threshold = ≥ 1 overdue open incident** (configurable for
 later tuning).
 
-## Editorial extension (Operations Summary editor)
+## Editorial store + admin card
 
-Extend the existing per-month `os-*` persistence in `reports.db`:
-- `os-highlights` → array of short strings (max 4).
-- `os-focus` → array of `{ title, subtitle }` (max 3).
+The Operations Summary `os-*` editor persists only to browser `localStorage`, so
+it can't be read server-side. v1 adds a **small server-side store**:
 
-- **UI**: add fields to the existing Operations Summary admin card (highlights
-  textarea + small focus repeater).
-- **Read**: the endpoint reads these keys for the **current month**.
+- **New table** `exec_view_editorial` in `reports.db`:
+  `period TEXT PRIMARY KEY, highlights_json TEXT, focus_json TEXT, updated_at TEXT, updated_by TEXT`.
+  - `highlights_json` → array of short strings (max 4).
+  - `focus_json` → array of `{ title, subtitle }` (max 3).
+- **Admin save route** `PUT /api/exec/editorial?period=YYYY-MM` (admin+), behind
+  the normal auth gate (this is the write side, staff-only).
+- **Admin UI**: a small new admin card "Exec View editorial" on `reports.html#admin`
+  (highlights textarea + a small focus repeater), following the existing card pattern.
+- **Read**: the public summary endpoint reads the row for the **current month**.
 - **Empty = hidden**: if unset, the highlights/focus blocks are **omitted** from
   the page (no empty panels).
 
