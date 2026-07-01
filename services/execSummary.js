@@ -18,4 +18,34 @@ function deriveSiteStatus(rows, opts = {}) {
   return out.slice(0, cap);
 }
 
-module.exports = { deriveSiteStatus };
+function buildExecSummary(d) {
+  const sites = deriveSiteStatus(d.siteRows || []);
+  const level = d.activeMajorIncidents > 0 || sites.some(s => s.status === 'major')
+    ? 'major'
+    : (sites.some(s => s.status === 'degraded') ? 'degraded' : 'operational');
+  const hl = (d.editorial && d.editorial.highlights) || [];
+  const fc = (d.editorial && d.editorial.focus) || [];
+  const pick = (o, keys) => { const r = {}; for (const k of keys) if (o && o[k] != null) r[k] = o[k]; return r; };
+  return {
+    data_as_of: d.dataAsOf || null,
+    period: d.period,
+    status: { level, active_major_incidents: d.activeMajorIncidents || 0 },
+    kpis: {
+      requests_resolved: pick(d.helpdesk.requests_resolved, ['value','delta_pct']),
+      sla_compliance:    pick(d.helpdesk.sla_compliance,    ['value_pct','delta_pp']),
+      avg_resolution_h:  pick(d.helpdesk.avg_resolution_h,  ['value','delta_h']),
+      csat:              pick(d.helpdesk.csat,              ['value_pct','delta_pp']),
+      change_success:    pick(d.helpdesk.change_success,    ['value_pct','delta_pp']),
+      spark: { sla: (d.spark && d.spark.sla) || [], csat: (d.spark && d.spark.csat) || [] },
+    },
+    sites_attention: sites,
+    all_sites_ok: sites.length === 0,
+    planned_maintenance: (d.upcomingMaintenance || []).slice(0, 3).map(m =>
+      pick(m, ['date','title','window','impact','scope'])),
+    strategic_progress: d.strategic || { overall_pct: 0, pillars: [] },
+    highlights: hl.length ? hl : null,
+    focus_areas: fc.length ? fc : null,
+  };
+}
+
+module.exports = { deriveSiteStatus, buildExecSummary };
