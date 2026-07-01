@@ -186,6 +186,14 @@ function mapSpark(rdb, now) {
   return out;
 }
 
+// Normalise a site label for matching: strip accents + case + surrounding space.
+// request_records.site carries free-form mine names with case AND accent drift
+// (Houndé vs HOUNDE, Massawa vs MASSAWA), so a plain toLowerCase() would miss a
+// real Major Incident and render the site as operational. Accent-fold guards
+// the common cases. (One-off suffix drift like "LAFIGUE - SML" remains a known
+// limitation — a shared site-alias helper would be the fuller fix.)
+const _normSite = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase();
+
 // mapSiteRows — per-site point-in-time open/overdue counts + active-MI flag →
 // the assembler's siteRows[] (deriveSiteStatus then emits exception-only).
 function mapSiteRows(rdb, now) {
@@ -202,7 +210,7 @@ function mapSiteRows(rdb, now) {
       s.zoho_group.split(',').map(g => g.trim()).filter(Boolean).forEach(g => allGroups.push(g));
     }
     const mis = allGroups.length ? (rdb.getActiveMajorIncidentsForSite(allGroups) || []) : [];
-    for (const mi of mis) { if (mi && mi.site) miSites.add(String(mi.site).trim().toLowerCase()); }
+    for (const mi of mis) { if (mi && mi.site) miSites.add(_normSite(mi.site)); }
   } catch (e) { console.warn('[execSummary] active MI failed:', e.message); }
 
   for (const s of sites) {
@@ -218,7 +226,7 @@ function mapSiteRows(rdb, now) {
       code: s.name,
       name: s.name,
       open_incidents: open || 0,
-      has_active_mi: miSites.has(String(s.name).trim().toLowerCase()),
+      has_active_mi: miSites.has(_normSite(s.name)),
       overdue_open: overdue || 0,
     });
   }
@@ -277,6 +285,9 @@ function mapStrategic(trackerDb, trackerScore, now) {
   return out;
 }
 
+// NOTE (v1 = sqlite only): the mappers call reports-db readers synchronously.
+// Under REPORTS_BACKEND=postgres those readers return Promises, so this path
+// would need a pg fork (await the readers). TODO(pg) when reports.db cuts over.
 function loadExecSummary(deps) {
   const now = deps.now || new Date();
   const period = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
