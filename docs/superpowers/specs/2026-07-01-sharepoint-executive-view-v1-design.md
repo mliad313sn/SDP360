@@ -94,7 +94,7 @@ Aggregates only. Shape:
     "avg_resolution_h":  { "value": 14, "delta_h": -3 },
     "csat":              { "value_pct": 88, "delta_pp": 4 },
     "change_success":    { "value_pct": 96, "delta_pp": 1 },
-    "spark": { "sla": [], "csat": [], "change": [] }   // small series, optional, no PII
+    "spark": { "sla": [], "csat": [] }   // small 6-month series, optional, no PII
   },
   "sites_attention": [ { "code": "SGO", "name": "Sabodala", "status": "degraded", "open_incidents": 2 } ],
   "all_sites_ok": false,
@@ -111,7 +111,7 @@ Aggregates only. Shape:
 |---|---|
 | `status.level` | derived: active MI → `major`; else degraded site → `degraded`; else `operational` |
 | `kpis` | `reportPayload.build()`: `closed`/`total`→resolved, `sla_compliance`(+`_delta_pp`), `avg_res_days`, CSAT block, change-success helper |
-| `kpis.spark` | existing 6-month histories (sla trend, csat) — small arrays, no PII |
+| `kpis.spark` | existing 6-month histories — **`sla` and `csat` only** (no change-success 6-month series exists; `spark.change` is intentionally omitted in v1) |
 | `sites_attention` | derived: open incidents per site + `getActiveMajorIncidentsForSite` (exception-only) |
 | `planned_maintenance` | `change_records` approved, `scheduled_start` within 7 days (max 3) |
 | `strategic_progress` | Tracker: `avg_score`→overall, `pillars{name:score}` (4 pillars) |
@@ -127,7 +127,16 @@ output.
 
 ## Site-status derivation (pure function)
 
-For each canonical site:
+**Site set — reuse, do not reinvent.** SDP `request_records.site` carries
+free-form full mine/office names that don't match any module's short-code list
+(documented codebase trap; see the existing `rr_site_aliases` pattern). v1 does
+**not** introduce a new canonical site table: it **groups open incidents by the
+raw `request_records.site` value** and normalizes the display name via an
+existing site-name mapping if one is readily available (else shows the raw
+label). Because the block is exception-only, only sites that resolve to
+`major`/`degraded` are ever emitted, so a complete canonical list is unnecessary.
+
+For each site that has open incidents:
 - `open_incidents` = count of **non-closed** incidents for the site (current state).
 - **`major`** = an **active (unresolved) Major Incident** on the site.
 - **`degraded`** = no MI, but **≥ 1 open incident that is overdue** (`overdue_status`).
@@ -135,7 +144,8 @@ For each canonical site:
 
 **Exception-only**: the block lists only `major` + `degraded` sites, most severe
 first, **max 4 rows**. If none → "All monitored sites are operating normally".
-The overdue threshold is configurable for later tuning.
+**Default degraded threshold = ≥ 1 overdue open incident** (configurable for
+later tuning).
 
 ## Editorial extension (Operations Summary editor)
 
@@ -158,6 +168,8 @@ Extend the existing per-month `os-*` persistence in `reports.db`:
 - Hardening: GET only · **whitelisted aggregates** (the real control) · **~60 s
   server-side cache** of the JSON (data changes hourly → avoids recompute + limits
   abuse) · no secrets/config exposed · same-origin (no CORS needed).
+- **Cache/label coherence**: cache the **whole JSON including `data_as_of`** as one
+  unit, so the served "Last updated" label always matches the served payload.
 - Optional (non-blocking): restrict to the internal network at the **IIS** layer.
 
 ## Refresh & error handling
@@ -167,8 +179,8 @@ Extend the existing per-month `os-*` persistence in `reports.db`:
   zero); the endpoint returns `null` for that block and the page renders
   accordingly.
 - Endpoint down → neutral "Status temporarily unavailable" + keep last render.
-- Freshness guard: if `data_as_of` older than N hours, a subtle "data may be
-  delayed" note.
+- Freshness guard: if `data_as_of` older than **3 h** (default, given hourly
+  sync), a subtle "data may be delayed" note.
 
 ## Testing
 
