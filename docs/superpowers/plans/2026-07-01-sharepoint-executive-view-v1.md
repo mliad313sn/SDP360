@@ -429,6 +429,18 @@ function loadExecSummary(deps) {
 ```
 Implement the small `mapHelpdeskKpis/mapSpark/mapSiteRows/mapStrategic` helpers in the same file, each calling the confirmed reporters from Step 1 and shaping to the assembler's input. `mapStrategic` = `trackerDb.loadTracker()` → `trackerScore.fleetStats(...)` for overall + `trackerScore.ps2(...)` per pillar → `{ overall_pct, pillars:[{name,pct}] }`.
 
+- [ ] **Step 3b: Add a mapper integration test (real field-shaping risk)**
+
+`tests/exec-summary-load.test.js` — inject **stub** deps (no real DB) so the
+mappers are exercised directly. The stub `rdb`/`trackerDb`/`trackerScore` return
+known raw shapes (e.g. `getCalendarMonthlyHelpdesk` → `{ inbound, closed,
+sla_res_pct, avg_tta_h, … }`, tracker `loadTracker` → a small `D`), and the test
+asserts `loadExecSummary` remaps them correctly into the assembler's expected
+keys (`kpis.csat.value_pct`, `kpis.avg_resolution_h.value`, MoM deltas from
+current-vs-prev month, `strategic_progress.overall_pct`). This is where the real
+work is — the mappers must translate the readers' native keys, and the deltas
+must be derived (current − previous). Red → implement mappers → green.
+
 - [ ] **Step 4: Smoke against the local (stub) DB**
 
 Run:
@@ -478,6 +490,11 @@ app.get('/api/exec/summary', async (req, res) => {
   } catch (e) { res.status(200).json({ error: 'unavailable' }); }  // page degrades gracefully
 });
 ```
+> Contract note: this whole-response fallback (`{ error: 'unavailable' }`) is the
+> coarse safety net. **Task 7's page MUST treat a body containing `error` (or a
+> failed fetch) as the full-page "Status temporarily unavailable" fallback**, and
+> handle per-block `null` fields as "Data unavailable" — the two degradation
+> levels are complementary.
 - Serve the page publicly (no `injectApiKey`, no session): add `'exec-view.html'` to the `_htmlCache` boot list, add a route `app.get('/exec-view.html', (req,res)=>sendHtmlPage(res,'exec-view.html', false, 'Executive view unavailable'))` placed so it is NOT behind an auth wall.
 - Admin write route (behind the gate + `requireReportSession` + `requireAdmin`):
 ```js
