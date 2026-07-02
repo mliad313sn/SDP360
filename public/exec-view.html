@@ -59,7 +59,8 @@
   .card{background:var(--color-card,#fff);border:1px solid var(--color-border,#E2E5EA);border-radius:12px}
 
   /* ── Quick actions ──────────────────────────────────────────── */
-  .qa-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  .qa-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+  @media (max-width:640px){.qa-grid{grid-template-columns:1fr}}
   .qa-tile{
     display:flex;align-items:flex-start;gap:12px;
     padding:16px 16px;border-radius:12px;background:#fff;
@@ -100,6 +101,7 @@
   .mi-meta{display:flex;align-items:center;gap:12px;margin-top:6px;font-size:.82rem;font-weight:700;color:var(--color-text-muted,#7B7B7B)}
   .mi-site{color:var(--edv-slate,#3A4A60)}
   .mi-downtime{color:var(--edv-red,#D90038)}
+  .mi-ai{margin-left:auto;font-size:.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--edv-slate,#3A4A60);background:#EEF1F6;border:1px solid #DCE1E9;padding:2px 8px;border-radius:999px}
   .mi-body{margin-top:12px;display:flex;flex-direction:column;gap:8px}
   .mi-field{display:grid;grid-template-columns:130px 1fr;gap:10px;font-size:.9rem;line-height:1.45}
   .mi-flabel{font-weight:800;color:var(--color-text-muted,#7B7B7B);text-transform:uppercase;font-size:.7rem;letter-spacing:.04em;padding-top:2px}
@@ -447,6 +449,7 @@
     area.innerHTML = mis.map(function (m) {
       const dt = m.downtime_h ? '<span class="mi-downtime">↓ ' + esc(m.downtime_h) + 'h downtime</span>' : '';
       const site = m.site ? '<span class="mi-site">' + esc(m.site) + '</span>' : '';
+      const ai = m.summarized ? '<span class="mi-ai" title="Root cause and corrective action condensed by AI">AI summary</span>' : '';
       const statusTxt = m.status ? esc(m.status) : 'In progress';
       const body = [
         miField('Impact', m.impact),
@@ -458,7 +461,7 @@
         '<span class="mi-title">' + esc(m.title || 'Major incident') + '</span>' +
         '<span class="mi-status">' + statusTxt + '</span>' +
         '</div>' +
-        '<div class="mi-meta">' + site + dt + '</div>' +
+        '<div class="mi-meta">' + site + dt + ai + '</div>' +
         (body ? '<div class="mi-body">' + body + '</div>' : '') +
         '</div>';
     }).join('');

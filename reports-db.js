@@ -625,6 +625,65 @@ function setExecEditorial(period, { highlights, focus }, user) {
   return { highlights: H, focus: F };
 }
 
+// ── 1.D exec_mi_summary ───────────────────────────────────────────
+// AI-generated concise summaries of a Major Incident's root cause +
+// corrective action, for the PUBLIC Exec View card. Cached per incident and
+// keyed by src_hash (a hash of the source RCA/CA/impact/subject) so the
+// summary is regenerated ONLY when the underlying text changes — the public
+// endpoint never calls the model on the request path, it just reads this cache.
+// v1: sqlite only. TODO(pg): fork under REPORTS_BACKEND=postgres when needed.
+db.exec(`
+CREATE TABLE IF NOT EXISTS exec_mi_summary (
+  request_id      TEXT PRIMARY KEY,
+  src_hash        TEXT NOT NULL,
+  root_cause_summary  TEXT,
+  action_summary      TEXT,
+  model           TEXT,
+  updated_at      TEXT
+);
+`);
+
+/**
+ * getExecMiSummaries(ids) — batch-read cached MI summaries.
+ * Returns a map { request_id: {src_hash, root_cause_summary, action_summary, model} }.
+ * Missing ids are simply absent from the map.
+ */
+function getExecMiSummaries(ids) {
+  const out = {};
+  const list = (ids || []).filter(Boolean).map(String);
+  if (!list.length) return out;
+  try {
+    const ph = list.map(() => '?').join(',');
+    const rows = db.prepare(
+      `SELECT request_id, src_hash, root_cause_summary, action_summary, model
+         FROM exec_mi_summary WHERE request_id IN (${ph})`
+    ).all(...list);
+    for (const r of rows) out[r.request_id] = r;
+  } catch (e) { console.warn('[exec-mi-summary] read failed:', e.message); }
+  return out;
+}
+
+/**
+ * setExecMiSummary(request_id, {src_hash, root_cause_summary, action_summary, model})
+ * — upsert one incident's cached summary.
+ */
+function setExecMiSummary(request_id, s) {
+  if (!request_id || !s || !s.src_hash) return;
+  try {
+    db.prepare(`
+      INSERT INTO exec_mi_summary (request_id, src_hash, root_cause_summary, action_summary, model, updated_at)
+      VALUES (?, ?, ?, ?, ?, datetime('now'))
+      ON CONFLICT(request_id) DO UPDATE SET
+        src_hash           = excluded.src_hash,
+        root_cause_summary = excluded.root_cause_summary,
+        action_summary     = excluded.action_summary,
+        model              = excluded.model,
+        updated_at         = excluded.updated_at
+    `).run(String(request_id), String(s.src_hash),
+           s.root_cause_summary || null, s.action_summary || null, s.model || null);
+  } catch (e) { console.warn('[exec-mi-summary] write failed:', e.message); }
+}
+
 // ── SEED DEFAULT ADMIN ────────────────────────────────────────────
 function hashPassword(password, salt) {
   return crypto.pbkdf2Sync(password, salt, 100000, 64, 'sha512').toString('hex');
@@ -5638,6 +5697,12 @@ function getActiveMajorIncidentsForSite(groups) {
     FROM request_records
     WHERE pending_status = 1
       AND LOWER(COALESCE(request_type, '')) LIKE '%major%'
+      -- request_status is the FRESH truth for the always-re-upserted MI rows;
+      -- pending_status can be stale (=1 on a closed MI). Drop terminal states
+      -- so closed / resolved / cancelled incidents never show as "active".
+      AND LOWER(COALESCE(request_status, '')) NOT LIKE '%closed%'
+      AND LOWER(COALESCE(request_status, '')) NOT LIKE '%resolved%'
+      AND LOWER(COALESCE(request_status, '')) NOT LIKE '%cancel%'
       AND tech_group IN (${ph})
     ORDER BY
       overdue_status DESC,             -- breached SLAs first
@@ -5661,6 +5726,10 @@ async function _getActiveMajorIncidentsForSitePg(groups) {
     FROM request_records
     WHERE pending_status = 1
       AND LOWER(COALESCE(request_type, '')) LIKE '%major%'
+      -- see sqlite fork: exclude terminal states (stale pending_status guard)
+      AND LOWER(COALESCE(request_status, '')) NOT LIKE '%closed%'
+      AND LOWER(COALESCE(request_status, '')) NOT LIKE '%resolved%'
+      AND LOWER(COALESCE(request_status, '')) NOT LIKE '%cancel%'
       AND tech_group IN (${ph})
     ORDER BY
       overdue_status DESC,
@@ -5870,4 +5939,5 @@ module.exports = {
   getUpcomingChanges,
   // Exec View editorial (SharePoint executive page)
   getExecEditorial, setExecEditorial,
+  getExecMiSummaries, setExecMiSummary,
 };
