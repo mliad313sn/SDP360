@@ -1,5 +1,7 @@
 'use strict';
 
+const miSummary = require('./execMiSummary');
+
 // Pure: rows = [{ site, open_incidents, has_active_mi, overdue_open }] →
 // exception-only list [{ code, name, status, open_incidents }], major first,
 // max 4. Only major/degraded are emitted (operational sites are omitted).
@@ -30,7 +32,7 @@ function buildExecSummary(d) {
   // status/root-cause/corrective-action/downtime). Public per the 2026-07-02
   // decision (option a); personal fields were already dropped in mapMajorIncidents.
   const majorIncidents = (d.majorIncidents || []).map(mi =>
-    pick(mi, ['title', 'site', 'status', 'impact', 'root_cause', 'corrective_action', 'downtime_h']));
+    pick(mi, ['title', 'site', 'status', 'impact', 'root_cause', 'corrective_action', 'downtime_h', 'summarized']));
   return {
     data_as_of: d.dataAsOf || null,
     period: d.period,
@@ -234,6 +236,8 @@ function mapMajorIncidents(mis) {
     root_cause:        (m.rca && String(m.rca).trim()) || null,
     corrective_action: (m.ca && String(m.ca).trim()) || null,
     downtime_h:        (m.downtime && String(m.downtime).trim()) || null,
+    // only present (true) when the RCA/CA above are the AI-condensed versions
+    ...(m._summarized ? { summarized: true } : {}),
   }));
 }
 
@@ -314,6 +318,18 @@ function loadExecSummary(deps) {
   const helpdesk = mapHelpdeskKpis(deps.rdb, now);
   const spark = mapSpark(deps.rdb, now);
   const mis = _activeMIs(deps.rdb);              // one fetch → detail + rollup + count
+  // Read-path: swap in cached AI summaries where the source text is unchanged;
+  // collect the rest and schedule offline regeneration (fire-and-forget) so the
+  // model is NEVER called on this public, cached request path.
+  try {
+    if (deps.rdb.getExecMiSummaries) {
+      const cache = deps.rdb.getExecMiSummaries(mis.map(m => m.request_id));
+      const { stale } = miSummary.applyCachedSummaries(mis, cache);
+      if (stale.length && typeof deps.scheduleMiSummaries === 'function') {
+        deps.scheduleMiSummaries(stale);
+      }
+    }
+  } catch (e) { console.warn('[execSummary] mi-summary cache failed:', e.message); }
   const majorIncidents = mapMajorIncidents(mis);
   const siteRows = mapSiteRows(mis);
   const activeMajorIncidents = mis.length;

@@ -977,6 +977,30 @@ app.use('/api/', async (req, res, next) => {
 // It returns ONLY what execSummary.loadExecSummary produces (already
 // PII-whitelisted). PUT /api/exec/editorial is staff-only (session + admin).
 let _execCache = { at: 0, body: null };
+
+// aiCall(body) => Promise<string>: wraps the provider switch and returns the
+// model's raw text. Used ONLY off the request path (MI-summary regeneration).
+async function _execAiCall(body) {
+  const withModel = { ...body, model: AI_ALLOWED_MODELS[0] };  // cheapest allowed (haiku); ignored on the local path
+  const data = AI_PROVIDER === 'local' ? await _aiCallLocal(withModel) : await _aiCallAnthropic(withModel);
+  return (data && data.content && data.content[0] && data.content[0].text) || '';
+}
+
+// scheduleMiSummaries: fire-and-forget regeneration of stale MI summaries so the
+// PUBLIC endpoint never blocks on the model. A single in-flight guard prevents
+// stacking regens when the page is hit repeatedly within a warm-up window.
+let _miRegenInFlight = false;
+function _scheduleMiSummaries(stale) {
+  if (_miRegenInFlight || !stale || !stale.length) return;
+  _miRegenInFlight = true;
+  const rdb2 = require('./reports-db');
+  const miSummary = require('./services/execMiSummary');
+  Promise.resolve()
+    .then(() => miSummary.regenerate({ stale, aiCall: _execAiCall, rdb: rdb2, model: AI_PROVIDER === 'local' ? LOCAL_LLM_MODEL : AI_ALLOWED_MODELS[0] }))
+    .catch(e => console.warn('[exec-mi-summary] regen batch failed:', e.message))
+    .finally(() => { _miRegenInFlight = false; _execCache = { at: 0, body: null }; }); // bust cache so the next load serves the warm summaries
+}
+
 app.get('/api/exec/summary', (req, res) => {
   try {
     if (Date.now() - _execCache.at < 60_000 && _execCache.body) return res.json(_execCache.body);
@@ -984,7 +1008,10 @@ app.get('/api/exec/summary', (req, res) => {
     const trackerDb = require('./tracker-db');
     const trackerPptx = require('./tracker-pptx');
     const execSummary = require('./services/execSummary');
-    const body = execSummary.loadExecSummary({ rdb: rdb2, trackerDb, trackerScore: trackerPptx });
+    const body = execSummary.loadExecSummary({
+      rdb: rdb2, trackerDb, trackerScore: trackerPptx,
+      scheduleMiSummaries: _scheduleMiSummaries,
+    });
     _execCache = { at: Date.now(), body };
     res.json(body);
   } catch (e) {
