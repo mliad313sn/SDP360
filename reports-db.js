@@ -5634,7 +5634,7 @@ function getActiveMajorIncidentsForSite(groups) {
     SELECT request_id, display_id, subject, request_status, pending_status,
            overdue_status, request_type, technician, requester, site,
            tech_group, category, sub_category, created_time, due_by_time,
-           resolved_time, last_updated_time, udf_json
+           resolved_time, last_updated_time, impact, udf_json
     FROM request_records
     WHERE pending_status = 1
       AND LOWER(COALESCE(request_type, '')) LIKE '%major%'
@@ -5657,7 +5657,7 @@ async function _getActiveMajorIncidentsForSitePg(groups) {
     SELECT request_id, display_id, subject, request_status, pending_status,
            overdue_status, request_type, technician, requester, site,
            tech_group, category, sub_category, created_time, due_by_time,
-           resolved_time, last_updated_time, udf_json
+           resolved_time, last_updated_time, impact, udf_json
     FROM request_records
     WHERE pending_status = 1
       AND LOWER(COALESCE(request_type, '')) LIKE '%major%'
@@ -5697,12 +5697,15 @@ function _mapActiveMajorIncidentRows(rows) {
     const ca  = udf['UDF:Corrective action:']     || '';
     const ll  = udf['UDF:Lessons Learned:']       || '';
     const pir = udf['UDF:PIR Required:']          || '';
+    const downtime = udf['UDF:Total Downtime:'] || udf['UDF:Total Downtime'] || '';
     return {
       request_id:        r.request_id,
       display_id:        r.display_id,
       subject:           r.subject,
       status:            r.request_status,
       overdue:           !!r.overdue_status,
+      impact:            r.impact || null,
+      downtime:          downtime,
       technician:        r.technician,
       requester:         r.requester,
       site:              r.site,

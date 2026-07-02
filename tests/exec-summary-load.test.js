@@ -1,45 +1,33 @@
 'use strict';
-// Mapper integration test (Task 5). Injects STUB rdb / trackerDb / trackerScore
-// returning KNOWN raw shapes (mirroring the REAL reader return values observed
-// in reports-db.js + tracker-pptx.js) and asserts loadExecSummary remaps them
-// correctly into the final Executive View summary produced by buildExecSummary.
+// Mapper integration test. Injects STUB rdb / trackerDb / trackerScore returning
+// KNOWN raw shapes (mirroring the REAL reader returns in reports-db.js +
+// tracker-pptx.js) and asserts loadExecSummary remaps them into the final
+// Executive View summary.
 //
-// TDD: this is written FIRST — it drives the mapper shapes. Run it and watch it
-// FAIL (loadExecSummary/mappers don't exist yet), then implement until it PASSES.
+// v1.1 (2026-07-02): KPIs anchor to the LAST COMPLETE month (not the current
+// partial one). With now = 2026-06-15, the "report month" is MAY 2026 and the
+// MoM comparison is May-vs-April. Site panel + status band are MAJOR-INCIDENT-
+// centric, and a whitelisted major_incidents[] detail block is included.
 
 const test = require('node:test');
 const assert = require('node:assert');
 const { loadExecSummary } = require('../services/execSummary');
 
-// now = 2026-06-15 → period '2026-06', prev month '2026-05'
+// now = 2026-06-15 → period '2026-06', report month (last complete) '2026-05'.
 const NOW = new Date(2026, 5, 15, 8, 0, 0);
 
-// ── STUB reports-db ────────────────────────────────────────────────────────
-// Shapes mirror the real readers:
-//  getMonthlyHelpdeskHistory → [{ 'Created Time','Requests','Closed Requests Count',
-//                                 '% of SLA Violated','% of First Responses SLA Violated' }]
-//  getSlaTrendDB             → [{ 'Created Date','% of SLA Violated',... , n }]
-//  getRequestMetrics         → { open_count, incident_count, backlog_count, avg_resolution_hrs, ... }
-//  getChangeMetrics          → { change_success_rate, ... }
-//  getSurveyKpisDB           → { rows1:[{overall_score}], rows2:[{overall_score,responded_on}] }
-//  getActiveMajorIncidentsForSite → [{ site, ... }]
-//  listSites                 → [{ id, name, zoho_group }]
-//  getUpcomingChanges        → [{ date, title, window, impact, scope }]
-//  getExecEditorial          → { highlights:[], focus:[] }
-//  getLastSyncAt             → ISO string
 function makeRdb() {
   return {
     getLastSyncAt(job) { return job === 'requests' ? '2026-06-15T06:30:00Z' : null; },
-    // Fleet-wide monthly helpdesk history — current month last, prev month before.
-    getMonthlyHelpdeskHistory(monthsBack) {
+    // oldest→newest; LAST row = current (partial) month, so report month = [len-2].
+    getMonthlyHelpdeskHistory() {
       return [
-        { 'Created Time': 'Apr 2026', 'Requests': 1000, 'Closed Requests Count': 900, '% of SLA Violated': 12, '% of First Responses SLA Violated': 10 },
-        { 'Created Time': 'May 2026', 'Requests': 1100, 'Closed Requests Count': 1000, '% of SLA Violated': 11, '% of First Responses SLA Violated': 9 },
-        { 'Created Time': 'Jun 2026', 'Requests': 1300, 'Closed Requests Count': 1200, '% of SLA Violated': 9,  '% of First Responses SLA Violated': 8 },
+        { 'Created Time': 'Apr 2026', 'Requests': 1100, 'Closed Requests Count': 1000, '% of SLA Violated': 11 },
+        { 'Created Time': 'May 2026', 'Requests': 1300, 'Closed Requests Count': 1200, '% of SLA Violated': 9 },   // report month
+        { 'Created Time': 'Jun 2026', 'Requests': 40,   'Closed Requests Count': 30,   '% of SLA Violated': 3 },   // current partial (ignored)
       ];
     },
-    // 6-month violation trend → spark.sla = 100 - violated
-    getSlaTrendDB(monthsBack) {
+    getSlaTrendDB() {
       return [
         { 'Created Date': 'Jan 2026', '% of SLA Violated': 15, n: 800 },
         { 'Created Date': 'Feb 2026', '% of SLA Violated': 14, n: 820 },
@@ -49,48 +37,43 @@ function makeRdb() {
         { 'Created Date': 'Jun 2026', '% of SLA Violated': 9,  n: 1300 },
       ];
     },
-    // avg resolution (hours). current-month call vs prev-month call
+    // fleet avg-resolution: report month since=2026-05-01, prior since=2026-04-01.
     getRequestMetrics(opts = {}) {
-      // Per-site calls (opts.site set) drive site rows; fleet calls (no site) drive avg resolution.
-      if (opts.site) {
-        const bySite = {
-          'Sabodala': { open_count: 5, incident_count: 5, backlog_count: 2, avg_resolution_hrs: 20 },
-          'Mana':     { open_count: 1, incident_count: 1, backlog_count: 0, avg_resolution_hrs: 10 },
-          'Houndé':   { open_count: 3, incident_count: 3, backlog_count: 0, avg_resolution_hrs: 12 },
-        };
-        return bySite[opts.site] || { open_count: 0, incident_count: 0, backlog_count: 0, avg_resolution_hrs: null };
-      }
-      // fleet-wide avg resolution: current period since = 2026-06-01, prev since = 2026-05-01
-      if (opts.since === '2026-06-01') return { avg_resolution_hrs: 14 };
-      if (opts.since === '2026-05-01') return { avg_resolution_hrs: 17 };
+      if (opts.since === '2026-05-01') return { avg_resolution_hrs: 14 };
+      if (opts.since === '2026-04-01') return { avg_resolution_hrs: 17 };
       return { avg_resolution_hrs: null };
     },
     getChangeMetrics(opts = {}) {
-      // current period (since 2026-06-01) vs prev (since 2026-05-01)
-      if (opts.since === '2026-06-01') return { change_success_rate: 96 };
-      if (opts.since === '2026-05-01') return { change_success_rate: 95 };
+      if (opts.since === '2026-05-01') return { change_success_rate: 96 };
+      if (opts.since === '2026-04-01') return { change_success_rate: 95 };
       return { change_success_rate: null };
     },
-    getSurveyKpisDB({ yr, mo } = {}) {
-      // rows1 = current-period scores; rows2 = 12-mo trend with responded_on
-      // current month (2026-06): 3 responses, 2 satisfied (>=80) → 67%
-      // prev month    (2026-05): 4 responses, 3 satisfied        → 75%
+    getSurveyKpisDB() {
+      // rows1 = report-month (May) scores → 2/3 satisfied = 67%.
+      // rows2 = trend window incl. April (prev, for the delta) + May + June.
       return {
         rows1: [{ overall_score: 90 }, { overall_score: 82 }, { overall_score: 40 }],
         rows2: [
-          { overall_score: 70, responded_on: '2026-05-04' },
-          { overall_score: 85, responded_on: '2026-05-10' },
-          { overall_score: 88, responded_on: '2026-05-20' },
-          { overall_score: 95, responded_on: '2026-05-25' },
+          { overall_score: 85, responded_on: '2026-04-04' },
+          { overall_score: 88, responded_on: '2026-04-10' },
+          { overall_score: 95, responded_on: '2026-04-20' },
+          { overall_score: 70, responded_on: '2026-04-25' },   // Apr: 3/4 = 75%
+          { overall_score: 88, responded_on: '2026-05-02' },
+          { overall_score: 95, responded_on: '2026-05-09' },   // May: 2/2 = 100%
           { overall_score: 90, responded_on: '2026-06-02' },
-          { overall_score: 82, responded_on: '2026-06-09' },
-          { overall_score: 40, responded_on: '2026-06-12' },
+          { overall_score: 40, responded_on: '2026-06-12' },   // Jun: 1/2 = 50%
         ],
       };
     },
-    getActiveMajorIncidentsForSite(groups) {
-      // one active MI at Sabodala
-      return [{ site: 'Sabodala', display_id: 'INC-1', status: 'Open' }];
+    // Active MI reader output shape (curated rows from _mapActiveMajorIncidentRows):
+    // rich with personal fields that mapMajorIncidents MUST drop.
+    getActiveMajorIncidentsForSite() {
+      return [{
+        request_id: 'REQ-9', display_id: 'INC-1', site: 'Sabodala',
+        status: 'On Hold', overdue: true, technician: 'Bob', requester: 'Alice',
+        subject: 'Fibre cut - Sabodala internet down', impact: 'Enterprise',
+        rca: 'Backhoe severed the trunk line', ca: 'Rerouted via satellite link', downtime: '6',
+      }];
     },
     listSites() {
       return [
@@ -99,10 +82,8 @@ function makeRdb() {
         { id: 3, name: 'Houndé',   zoho_group: 'Hounde IT Agents' },
       ];
     },
-    getUpcomingChanges(days) {
-      return [
-        { date: '2026-06-20', title: 'Core switch firmware', window: '22:00–02:00', impact: 'High', scope: 'SGO' },
-      ];
+    getUpcomingChanges() {
+      return [{ date: '2026-06-20', title: 'Core switch firmware', window: '22:00–02:00', impact: 'High', scope: 'SGO' }];
     },
     getExecEditorial(period) {
       assert.equal(period, '2026-06');
@@ -111,108 +92,115 @@ function makeRdb() {
   };
 }
 
-// ── STUB tracker ────────────────────────────────────────────────────────────
-const STUB_D = {
-  activeSites: ['SGO', 'MGO'],
-  sites: ['SGO', 'MGO'],
-  year: 2026,
-  currentMonth: 6,
-  pillarWeights: { 'P1-Network Infrast': 0.30, 'P2-Business Partner': 0.35 },
-};
+const STUB_D = { activeSites: ['SGO', 'MGO'], sites: ['SGO', 'MGO'], year: 2026, currentMonth: 6,
+  pillarWeights: { 'P1-Network Infrast': 0.30, 'P2-Business Partner': 0.35 } };
 function makeTrackerDb() { return { loadTracker() { return STUB_D; } }; }
 function makeTrackerScore() {
   return {
-    // fleetStats returns { avg (0-1 fraction), best, attainment }
-    fleetStats(D, sites, yr, mo) { return { avg: 0.72, best: 'SGO', attainment: 0.6 }; },
-    // ps2 returns a 0-1 fraction per pillar
-    ps2(D, site, pillar, yr, mo) {
-      const byPillar = { 'P1-Network Infrast': 0.82, 'P2-Business Partner': 0.60 };
-      return byPillar[pillar] != null ? byPillar[pillar] : 0.5;
-    },
-    // ss/score present so mapStrategic can derive pillar names if it wants
-    ss() { return { avg: 0.72, g: 0, a: 0, r: 0, active: 0, sc: [], pScores: {} }; },
-    // gP-style pillar name source — provide the pillar list via score()'s activities-free stub
+    fleetStats() { return { avg: 0.72, best: 'SGO', attainment: 0.6 }; },
+    ps2(D, site, pillar) { const p = { 'P1-Network Infrast': 0.82, 'P2-Business Partner': 0.60 }; return p[pillar] != null ? p[pillar] : 0.5; },
+    ss() { return { avg: 0.72 }; },
     score() { return []; },
   };
 }
+const deps = () => ({ rdb: makeRdb(), trackerDb: makeTrackerDb(), trackerScore: makeTrackerScore(), now: NOW });
 
-test('loadExecSummary: helpdesk KPIs remap (resolved + MoM delta_pct)', () => {
-  const s = loadExecSummary({ rdb: makeRdb(), trackerDb: makeTrackerDb(), trackerScore: makeTrackerScore(), now: NOW });
+test('loadExecSummary: report_month = last complete month (May for a mid-June now)', () => {
+  const s = loadExecSummary(deps());
   assert.equal(s.period, '2026-06');
+  assert.equal(s.report_month, '2026-05');
   assert.equal(s.data_as_of, '2026-06-15T06:30:00Z');
-  // resolved = current closed (1200); delta_pct vs prev (1000) = +20
-  assert.equal(s.kpis.requests_resolved.value, 1200);
-  assert.equal(s.kpis.requests_resolved.delta_pct, 20);
 });
 
-test('loadExecSummary: sla_compliance = 100 - %violated, delta_pp current-prev', () => {
-  const s = loadExecSummary({ rdb: makeRdb(), trackerDb: makeTrackerDb(), trackerScore: makeTrackerScore(), now: NOW });
-  // current violated 9 → 91; prev violated 11 → 89; delta +2pp
-  assert.equal(s.kpis.sla_compliance.value_pct, 91);
-  assert.equal(s.kpis.sla_compliance.delta_pp, 2);
+test('loadExecSummary: resolved + MoM delta reflect the report month (May vs Apr)', () => {
+  const s = loadExecSummary(deps());
+  assert.equal(s.kpis.requests_resolved.value, 1200);         // May closed
+  assert.equal(s.kpis.requests_resolved.delta_pct, 20);       // (1200-1000)/1000
 });
 
-test('loadExecSummary: avg_resolution_h value + delta_h (current - prev)', () => {
-  const s = loadExecSummary({ rdb: makeRdb(), trackerDb: makeTrackerDb(), trackerScore: makeTrackerScore(), now: NOW });
+test('loadExecSummary: sla_compliance = 100 - %violated (May 91, delta vs Apr +2pp)', () => {
+  const s = loadExecSummary(deps());
+  assert.equal(s.kpis.sla_compliance.value_pct, 91);          // 100 - 9
+  assert.equal(s.kpis.sla_compliance.delta_pp, 2);            // 91 - 89
+});
+
+test('loadExecSummary: avg_resolution_h (May 14, delta -3 vs Apr 17)', () => {
+  const s = loadExecSummary(deps());
   assert.equal(s.kpis.avg_resolution_h.value, 14);
-  assert.equal(s.kpis.avg_resolution_h.delta_h, -3);   // 14 - 17
+  assert.equal(s.kpis.avg_resolution_h.delta_h, -3);
 });
 
-test('loadExecSummary: csat value_pct + delta_pp from survey scores', () => {
-  const s = loadExecSummary({ rdb: makeRdb(), trackerDb: makeTrackerDb(), trackerScore: makeTrackerScore(), now: NOW });
-  // current month rows1: 2 of 3 satisfied → 67
+test('loadExecSummary: csat (May 67 from rows1, delta -8 vs Apr 75)', () => {
+  const s = loadExecSummary(deps());
   assert.equal(s.kpis.csat.value_pct, 67);
-  // prev month (2026-05 in rows2): 3 of 4 satisfied → 75 ; delta 67-75 = -8
   assert.equal(s.kpis.csat.delta_pp, -8);
 });
 
-test('loadExecSummary: change_success value_pct + delta_pp', () => {
-  const s = loadExecSummary({ rdb: makeRdb(), trackerDb: makeTrackerDb(), trackerScore: makeTrackerScore(), now: NOW });
+test('loadExecSummary: change_success (May 96, delta +1 vs Apr 95)', () => {
+  const s = loadExecSummary(deps());
   assert.equal(s.kpis.change_success.value_pct, 96);
   assert.equal(s.kpis.change_success.delta_pp, 1);
 });
 
 test('loadExecSummary: spark arrays populated', () => {
-  const s = loadExecSummary({ rdb: makeRdb(), trackerDb: makeTrackerDb(), trackerScore: makeTrackerScore(), now: NOW });
-  assert.deepEqual(s.kpis.spark.sla, [85, 86, 87, 88, 89, 91]);   // 100 - violated
-  assert.deepEqual(s.kpis.spark.csat, [75, 67]);                  // May 3/4=75, Jun 2/3=67 (byMonth csatPct)
+  const s = loadExecSummary(deps());
+  assert.deepEqual(s.kpis.spark.sla, [85, 86, 87, 88, 89, 91]);
+  assert.deepEqual(s.kpis.spark.csat, [75, 100, 50]);         // Apr/May/Jun monthly CSAT
 });
 
-test('loadExecSummary: site rows → attention (Sabodala major via active MI)', () => {
-  const s = loadExecSummary({ rdb: makeRdb(), trackerDb: makeTrackerDb(), trackerScore: makeTrackerScore(), now: NOW });
-  // Sabodala has active MI → major ; Houndé has overdue_open 0 → operational (excluded); Mana clean
-  const codes = s.sites_attention.map(x => x.name);
-  assert.ok(codes.includes('Sabodala'));
-  const sgo = s.sites_attention.find(x => x.name === 'Sabodala');
+test('loadExecSummary: MAJOR-INCIDENT-centric site panel (only MI sites, count = # MIs)', () => {
+  const s = loadExecSummary(deps());
+  assert.equal(s.sites_attention.length, 1);                 // only Sabodala (has the MI)
+  const sgo = s.sites_attention[0];
+  assert.equal(sgo.name, 'Sabodala');
   assert.equal(sgo.status, 'major');
+  assert.equal(sgo.open_incidents, 1);                        // = active MIs at the site (NOT raw ticket volume)
   assert.equal(s.status.level, 'major');
   assert.equal(s.status.active_major_incidents, 1);
 });
 
+test('loadExecSummary: major_incidents detail block is whitelisted (no personal fields)', () => {
+  const s = loadExecSummary(deps());
+  assert.equal(s.major_incidents.length, 1);
+  const mi = s.major_incidents[0];
+  assert.equal(mi.title, 'Fibre cut - Sabodala internet down');
+  assert.equal(mi.site, 'Sabodala');
+  assert.equal(mi.status, 'On Hold');
+  assert.equal(mi.impact, 'Enterprise');
+  assert.equal(mi.root_cause, 'Backhoe severed the trunk line');
+  assert.equal(mi.corrective_action, 'Rerouted via satellite link');
+  assert.equal(mi.downtime_h, '6');
+  // personal / internal fields dropped
+  assert.deepEqual(Object.keys(mi).sort(),
+    ['corrective_action', 'downtime_h', 'impact', 'root_cause', 'site', 'status', 'title']);
+});
+
 test('loadExecSummary: planned maintenance passthrough (5 whitelisted fields only)', () => {
-  const s = loadExecSummary({ rdb: makeRdb(), trackerDb: makeTrackerDb(), trackerScore: makeTrackerScore(), now: NOW });
+  const s = loadExecSummary(deps());
   assert.equal(s.planned_maintenance.length, 1);
   assert.deepEqual(Object.keys(s.planned_maintenance[0]).sort(), ['date', 'impact', 'scope', 'title', 'window']);
 });
 
 test('loadExecSummary: strategic_progress from faithful scorers (fraction → pct)', () => {
-  const s = loadExecSummary({ rdb: makeRdb(), trackerDb: makeTrackerDb(), trackerScore: makeTrackerScore(), now: NOW });
-  assert.equal(s.strategic_progress.overall_pct, 72);   // 0.72 → 72
+  const s = loadExecSummary(deps());
+  assert.equal(s.strategic_progress.overall_pct, 72);
   const net = s.strategic_progress.pillars.find(p => p.name === 'P1-Network Infrast');
   assert.ok(net);
-  assert.equal(net.pct, 82);                              // ps2 0.82 → 82
+  assert.equal(net.pct, 82);
 });
 
 test('loadExecSummary: editorial passthrough', () => {
-  const s = loadExecSummary({ rdb: makeRdb(), trackerDb: makeTrackerDb(), trackerScore: makeTrackerScore(), now: NOW });
+  const s = loadExecSummary(deps());
   assert.deepEqual(s.highlights, ['Fibre link to Houndé live']);
   assert.equal(s.focus_areas.length, 1);
 });
 
-test('loadExecSummary: ANTI-PII — no forbidden keys in the final JSON', () => {
-  const s = loadExecSummary({ rdb: makeRdb(), trackerDb: makeTrackerDb(), trackerScore: makeTrackerScore(), now: NOW });
+test('loadExecSummary: ANTI-PII — no PERSONAL/internal identifiers in the final JSON', () => {
+  const s = loadExecSummary(deps());
   const blob = JSON.stringify(s).toLowerCase();
-  for (const bad of ['subject', 'requester', 'technician', 'request_id', 'udf', 'verbatim', 'email', 'overall_score']) {
+  // MI operational detail (title/root_cause/corrective_action) is intentionally
+  // public per the 2026-07-02 decision; PERSONAL + internal identifiers are not.
+  for (const bad of ['requester', 'technician', 'verbatim', '"email"', 'request_id', 'display_id', 'overall_score', 'udf', '"rca"', '"subject"']) {
     assert.ok(!blob.includes(bad), `must not contain "${bad}"`);
   }
 });
