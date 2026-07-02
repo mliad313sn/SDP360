@@ -605,13 +605,14 @@ def footer_bar(slide, page_num):
     elem = banner_pic._element
     spTree.remove(elem)
     spTree.insert(2, elem)   # right after nvGrpSpPr/grpSpPr — behind all content
-    # Page number in a navy circle sitting on the chevrons (below every slide's
-    # commentary band, which can extend to ~7.10", so the circle reads cleanly
-    # on ALL slides — not just the ones with a high commentary band).
-    D = Inches(0.36)
-    CX = Inches(12.50); CY = Inches(7.11)
-    add_rect(slide, CX, CY, D, D, DARK_NAVY, shape=MSO_SHAPE.OVAL)
-    add_text(slide, CX, CY, D, D, str(page_num), size=12, bold=True, color=WHITE,
+    # Page number in a BLUE BOX at the right end of the chevron banner — matches
+    # the master-template footer badge (banner + page number only). Sits above
+    # every slide's commentary band (which can extend to ~7.10").
+    BADGE_BLUE = RGBColor(0x2E, 0x6C, 0xB0)
+    BW, BH = Inches(0.55), Inches(0.30)
+    BX, BY2 = Inches(12.30), Inches(7.22)
+    add_rect(slide, BX, BY2, BW, BH, BADGE_BLUE)
+    add_text(slide, BX, BY2, BW, BH, str(page_num), size=13, bold=True, color=WHITE,
              align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE)
 
 def kpi_tile(slide, x, y, w, h, label, value, sub, *, accent=BLUE, value_color=NAVY, sub_color=GRAY, value_size=30):
