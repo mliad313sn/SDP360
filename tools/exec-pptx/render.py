@@ -764,12 +764,13 @@ _os = K.get('ops_summary') or {}
 def _rag_color(v, default=AMBER):
     return {'G': GREEN, 'A': AMBER, 'R': RED}.get(str(v or '').strip().upper()[:1], default)
 
-# ── Title: "5. Operations: Summary" (orange number · navy · blue), no bar ──
+# ── Title: "5. Operations:" orange · "Summary" blue (per template), no bar ──
 _tb = s.shapes.add_textbox(Inches(0.4), Inches(0.12), Inches(9.5), Inches(0.55))
 _tf = _tb.text_frame; _tf.word_wrap = True
 _tf.margin_left = Emu(0); _tf.margin_top = Emu(0); _tf.margin_bottom = Emu(0)
 _p = _tf.paragraphs[0]
-for _t, _c in (("5. ", ORANGE), ("Operations: ", NAVY), ("Summary", BLUE)):
+TITLE_BLUE = RGBColor(0x2E, 0x75, 0xB6)   # template's "Summary" blue
+for _t, _c in (("5. Operations: ", ORANGE), ("Summary", TITLE_BLUE)):
     _r = _p.add_run(); _r.text = _t
     _r.font.name = 'Calibri'; _r.font.size = Pt(26); _r.font.bold = True; _r.font.color.rgb = _c
 add_text(s, Inches(11.3), Inches(0.2), Inches(1.65), Inches(0.4),
@@ -865,10 +866,10 @@ def _numbered(x, y, w, h, items, *, size=8.2, line_space=0.98):
     return tb
 
 # ── Quadrant scaffolding (2x2 grid) ──
-def _quadrant(x, y, w, title):
+def _quadrant(x, y, w, title, body_fill=LIGHT_BLUE):
     add_rect(s, x, y, w, Inches(0.3), NAVY)
     add_text(s, x+Inches(0.12), y, w-Inches(0.2), Inches(0.3), title, size=10.5, bold=True, color=WHITE, anchor=MSO_ANCHOR.MIDDLE)
-    add_rect(s, x, y+Inches(0.3), w, Inches(1.6), WHITE, line=BORDER)
+    add_rect(s, x, y+Inches(0.3), w, Inches(1.6), body_fill, line=BORDER)
     return x+Inches(0.12), y+Inches(0.38), w-Inches(0.24)
 
 LX, RX, QW = Inches(0.4), Inches(6.8), Inches(6.15)
