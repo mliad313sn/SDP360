@@ -5638,6 +5638,12 @@ function getActiveMajorIncidentsForSite(groups) {
     FROM request_records
     WHERE pending_status = 1
       AND LOWER(COALESCE(request_type, '')) LIKE '%major%'
+      -- request_status is the FRESH truth for the always-re-upserted MI rows;
+      -- pending_status can be stale (=1 on a closed MI). Drop terminal states
+      -- so closed / resolved / cancelled incidents never show as "active".
+      AND LOWER(COALESCE(request_status, '')) NOT LIKE '%closed%'
+      AND LOWER(COALESCE(request_status, '')) NOT LIKE '%resolved%'
+      AND LOWER(COALESCE(request_status, '')) NOT LIKE '%cancel%'
       AND tech_group IN (${ph})
     ORDER BY
       overdue_status DESC,             -- breached SLAs first
@@ -5661,6 +5667,10 @@ async function _getActiveMajorIncidentsForSitePg(groups) {
     FROM request_records
     WHERE pending_status = 1
       AND LOWER(COALESCE(request_type, '')) LIKE '%major%'
+      -- see sqlite fork: exclude terminal states (stale pending_status guard)
+      AND LOWER(COALESCE(request_status, '')) NOT LIKE '%closed%'
+      AND LOWER(COALESCE(request_status, '')) NOT LIKE '%resolved%'
+      AND LOWER(COALESCE(request_status, '')) NOT LIKE '%cancel%'
       AND tech_group IN (${ph})
     ORDER BY
       overdue_status DESC,
