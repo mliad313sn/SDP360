@@ -755,165 +755,171 @@ add_text(s, Inches(6.2), Inches(5.9), Inches(6.8), Inches(0.5),
 # SLIDE 2 — Operations: Summary
 # ====================================================================
 s = prs.slides.add_slide(BLANK)
-# Title bar
-add_rect(s, 0, 0, SLIDE_W, Inches(0.85), DARK_NAVY)
-add_text(s, Inches(0.4), Inches(0.18), Inches(10), Inches(0.5),
-         "Operations: Summary", size=22, bold=True, color=WHITE)
-add_text(s, Inches(11.5), Inches(0.18), Inches(1.7), Inches(0.5),
-         PERIOD_LONG, size=12, bold=True, color=ORANGE, align=PP_ALIGN.RIGHT, anchor=MSO_ANCHOR.MIDDLE)
 
-# Operator-edited summary (structured, persisted + edited in the dashboard UI,
-# sent on the export payload as ops_summary). Each field falls back to the AI
-# commentary / sensible default when not provided — see executive-report.html
-# "Operations Summary" editor.
+# Template-matched palette extension (local to this slide)
+LIGHT_BLUE = RGBColor(0xDC, 0xE6, 0xF2)
+BORDER     = RGBColor(0xC9, 0xCF, 0xD8)
+
 _os = K.get('ops_summary') or {}
 def _rag_color(v, default=AMBER):
     return {'G': GREEN, 'A': AMBER, 'R': RED}.get(str(v or '').strip().upper()[:1], default)
 
-# Owner block left
-add_rect(s, Inches(0.4), Inches(1.05), Inches(3.6), Inches(1.5), LIGHT_GRAY, line=RGBColor(0xE5,0xE7,0xEB))
-add_text(s, Inches(0.55), Inches(1.15), Inches(3.4), Inches(0.4),
-         _os.get('owner_name') or "Mohamed Diagne", size=14, bold=True, color=NAVY)
-add_text(s, Inches(0.55), Inches(1.55), Inches(3.4), Inches(0.35),
-         _os.get('owner_title') or "IT Operations  ·  Mines & Exploration", size=11, italic=True, color=GRAY)
-# Owner KV grid
-labels_kv = [("Reporting Month", MONTH),
-             ("Financial Year", str(_os.get('financial_year') or "2026")),
-             ("Headcount (inc. Contract)", str(_os.get('headcount') or "7"))]
-yy = Inches(2.0)
-for i,(k,v) in enumerate(labels_kv):
-    add_text(s, Inches(0.55), yy+Inches(0.18*i), Inches(2.0), Inches(0.2), k, size=9, color=GRAY)
-    add_text(s, Inches(2.6), yy+Inches(0.18*i), Inches(1.4), Inches(0.2), v, size=9, bold=True, color=NAVY)
+# ── Title: "5. Operations: Summary" (orange number · navy · blue), no bar ──
+_tb = s.shapes.add_textbox(Inches(0.4), Inches(0.12), Inches(9.5), Inches(0.55))
+_tf = _tb.text_frame; _tf.word_wrap = True
+_tf.margin_left = Emu(0); _tf.margin_top = Emu(0); _tf.margin_bottom = Emu(0)
+_p = _tf.paragraphs[0]
+for _t, _c in (("5. ", ORANGE), ("Operations: ", NAVY), ("Summary", BLUE)):
+    _r = _p.add_run(); _r.text = _t
+    _r.font.name = 'Calibri'; _r.font.size = Pt(26); _r.font.bold = True; _r.font.color.rgb = _c
+add_text(s, Inches(11.3), Inches(0.2), Inches(1.65), Inches(0.4),
+         PERIOD_LONG, size=12, bold=True, color=ORANGE, align=PP_ALIGN.RIGHT, anchor=MSO_ANCHOR.MIDDLE)
 
-# RAG status pills (top right) — data-driven from ops_summary.rag (G/A/R)
-def status_pill(x, y, label, color):
-    add_rect(s, x, y, Inches(1.2), Inches(0.5), color)
-    add_text(s, x, y, Inches(1.2), Inches(0.5), label, size=10, bold=True, color=WHITE,
-             align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE)
+# ── Owner block (initials avatar + name + title) ──
+_owner = _os.get('owner_name') or "Mohamed Diagne"
+_initials = ''.join(w[0] for w in _owner.split()[:2]).upper() or "MD"
+add_rect(s, Inches(0.4), Inches(0.95), Inches(0.95), Inches(0.95), NAVY, shape=MSO_SHAPE.OVAL)
+add_text(s, Inches(0.4), Inches(0.95), Inches(0.95), Inches(0.95), _initials,
+         size=26, bold=True, color=WHITE, align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE)
+add_text(s, Inches(1.5), Inches(1.02), Inches(2.7), Inches(0.4), _owner, size=14, bold=True, color=NAVY)
+add_text(s, Inches(1.5), Inches(1.44), Inches(2.7), Inches(0.5),
+         _os.get('owner_title') or "IT Operation  ·  Mines & Exploration", size=10.5, italic=True, color=GRAY)
 
-add_text(s, Inches(4.2), Inches(1.05), Inches(8.7), Inches(0.3), "Project Health", size=10, bold=True, color=GRAY)
+# ── Reporting-month table (bordered 2-col) ──
+_kv = [("Reporting Month", MONTH),
+       ("Financial Year", str(_os.get('financial_year') or "2026")),
+       ("Headcount (inc. Contract)", str(_os.get('headcount') or "7"))]
+_tx, _ty = Inches(4.35), Inches(0.98); _lw, _vw, _rh = Inches(2.0), Inches(1.35), Inches(0.34)
+for _i, (_k, _v) in enumerate(_kv):
+    _yy = _ty + _rh * _i
+    add_rect(s, _tx, _yy, _lw, _rh, LIGHT_GRAY, line=BORDER)
+    add_text(s, _tx+Inches(0.1), _yy, _lw-Inches(0.15), _rh, _k, size=9.5, bold=True, color=NAVY, anchor=MSO_ANCHOR.MIDDLE)
+    add_rect(s, _tx+_lw, _yy, _vw, _rh, WHITE, line=BORDER)
+    add_text(s, _tx+_lw+Inches(0.1), _yy, _vw-Inches(0.15), _rh, _v, size=9.5, bold=True, color=CHARCOAL, anchor=MSO_ANCHOR.MIDDLE)
+
+# ── Status matrix (label box over solid colour cell) ──
 _rag = _os.get('rag') or {}
-_pills = [("Overall", _rag.get('overall', 'A')), ("Schedule", _rag.get('schedule', 'A')),
+_cells = [("Overall Status", _rag.get('overall', 'A')), ("Schedule", _rag.get('schedule', 'A')),
           ("Risk", _rag.get('risk', 'A')), ("Budget", _rag.get('budget', 'G')), ("Resource", _rag.get('resource', 'A'))]
-for i, (lab, val) in enumerate(_pills):
-    v = (str(val).strip().upper()[:1] or 'A')
-    status_pill(Inches(4.2) + Inches(1.3) * i, Inches(1.4), f"{lab}: {v}", _rag_color(v))
+_sx, _cw, _gap = Inches(7.95), Inches(0.98), Inches(0.02)
+for _i, (_lab, _val) in enumerate(_cells):
+    _x = _sx + (_cw + _gap) * _i
+    add_rect(s, _x, Inches(0.95), _cw, Inches(0.58), WHITE, line=BORDER)
+    add_text(s, _x+Inches(0.04), Inches(0.95), _cw-Inches(0.08), Inches(0.58), _lab,
+             size=8, bold=True, color=NAVY, align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE)
+    add_rect(s, _x, Inches(1.55), _cw, Inches(0.42), _rag_color(_val), line=BORDER)
 
-# Goal banner
-add_rect(s, Inches(0.4), Inches(2.7), Inches(12.55), Inches(0.6), NAVY)
-add_text(s, Inches(0.55), Inches(2.78), Inches(1.2), Inches(0.45),
-         "GOAL", size=11, bold=True, color=ORANGE, anchor=MSO_ANCHOR.MIDDLE)
-add_text(s, Inches(1.7), Inches(2.78), Inches(11.2), Inches(0.45),
+# ── Goal (navy label bar + light-blue text panel) ──
+add_rect(s, Inches(0.4), Inches(2.18), Inches(12.55), Inches(0.3), NAVY)
+add_text(s, Inches(0.55), Inches(2.18), Inches(2.0), Inches(0.3), "Goal:", size=11, bold=True, color=WHITE, anchor=MSO_ANCHOR.MIDDLE)
+add_rect(s, Inches(0.4), Inches(2.48), Inches(12.55), Inches(0.42), LIGHT_BLUE, line=BORDER)
+add_text(s, Inches(0.6), Inches(2.48), Inches(12.2), Inches(0.42),
          _os.get('goal') or "Ensure IT alignment with operational needs and strategic objectives, while fostering innovation and maintaining cost-effectiveness.",
-         size=10, italic=True, color=WHITE, anchor=MSO_ANCHOR.MIDDLE)
+         size=10, color=NAVY, anchor=MSO_ANCHOR.MIDDLE)
 
-# Two columns: Progress / Issues
-col_y = Inches(3.45)
-col_h = Inches(1.65)
-
-# Helper — split AI commentary text into clean bullet lines for the
-# slide. Accepts text with • · - * ◦ markers or plain newlines.
-def _parse_commentary_bullets(text, max_bullets=5):
-    if not text or not isinstance(text, str):
-        return []
-    # Normalise unicode bullets to newline separators
-    text = text.replace('•', '\n').replace('·', '\n')
-    lines = [l.strip() for l in text.split('\n') if l.strip()]
-    out = []
-    for l in lines:
-        cleaned = l.lstrip('•·-*◦ ').strip()
-        if cleaned: out.append(cleaned)
-    return out[:max_bullets]
-
-# Convert bullet list to add_multi_text tuples — splits on ':' into a
-# bold NAVY label + CHARCOAL body so the slide retains its visual
-# hierarchy even when content is AI-generated.
-def _bullets_to_lines(bullets, accent_color):
-    out = []
-    for b in bullets:
-        if ': ' in b and len(b.split(': ', 1)[0]) < 60:
-            head, tail = b.split(': ', 1)
-            out.append((f"• {head}: ", 9, True, accent_color))
-            out.append((tail, 9, False, CHARCOAL))
-        else:
-            out.append((f"• {b}", 9, False, CHARCOAL))
-    return out
-
+# ── Section-content helpers ──
 _commentary = K.get('commentary') or {}
-
-# Pick a section's bullets: the operator's ops_summary field (list or text)
-# wins, then the AI commentary, then a "click Analyze" hint.
+def _parse_commentary_bullets(text, max_bullets=7):
+    if not text or not isinstance(text, str): return []
+    text = text.replace('•', '\n').replace('·', '\n')
+    out = []
+    for l in text.split('\n'):
+        c = l.strip().lstrip('•·-*◦ ').strip()
+        if c: out.append(c)
+    return out[:max_bullets]
 def _section_bullets(os_key, comm_key):
     v = _os.get(os_key)
     if isinstance(v, list):
         items = [str(x).lstrip('•·-*◦ ').strip() for x in v if str(x).strip()]
-        if items: return items[:5]
+        if items: return items[:7]
     if isinstance(v, str) and v.strip():
-        return _parse_commentary_bullets(v, 5)
-    return _parse_commentary_bullets(_commentary.get(comm_key) or '', 5)
+        return _parse_commentary_bullets(v, 7)
+    return _parse_commentary_bullets(_commentary.get(comm_key) or '', 7)
 
-# Three columns — Progress | Issues | Activities (May-final layout). The third
-# column (Activities for next period) was missing entirely before.
-def _summary_col(x, w, title, bar_color, bullets, accent):
-    add_rect(s, x, col_y, w, Inches(0.35), bar_color)
-    add_text(s, x+Inches(0.12), col_y, w-Inches(0.2), Inches(0.35), title,
-             size=10.5, bold=True, color=WHITE, anchor=MSO_ANCHOR.MIDDLE)
-    add_rect(s, x, col_y+Inches(0.35), w, col_h, WHITE, line=RGBColor(0xE5,0xE7,0xEB))
-    lines = _bullets_to_lines(bullets, accent) if bullets else [
-        ("• Click Analyze to generate this section.", 9, False, GRAY)]
-    add_multi_text(s, x+Inches(0.12), col_y+Inches(0.45), w-Inches(0.24), col_h-Inches(0.2), lines, line_space=1.08)
+def _split_lead(txt):
+    for sep in (' - ', ' – ', ': '):
+        if sep in txt:
+            head, tail = txt.split(sep, 1)
+            if 0 < len(head) < 60: return head, sep + tail
+    return '', txt
 
-_summary_col(Inches(0.40), Inches(4.05), "Progress since last period", GREEN, _section_bullets('progress', 'progress'), NAVY)
-_summary_col(Inches(4.55), Inches(4.05), "Issues / Risks / Comments",  AMBER, _section_bullets('issues',   'issues'),   RED)
-_summary_col(Inches(8.70), Inches(4.25), "Activities for next period",  NAVY,  _section_bullets('activities','nextperiod'),  NAVY)
+def _numbered(x, y, w, h, items, *, size=8.2, line_space=0.98):
+    tb = s.shapes.add_textbox(x, y, w, h); tf = tb.text_frame
+    tf.margin_left=Emu(0); tf.margin_right=Emu(0); tf.margin_top=Emu(0); tf.margin_bottom=Emu(0)
+    tf.word_wrap = True; tf.vertical_anchor = MSO_ANCHOR.TOP
+    if not items:
+        p = tf.paragraphs[0]; r = p.add_run(); r.text = "Click Analyze to generate this section."
+        r.font.name='Calibri'; r.font.size=Pt(size); r.font.italic=True; r.font.color.rgb=GRAY
+        return tb
+    for i, it in enumerate(items):
+        p = tf.paragraphs[0] if i==0 else tf.add_paragraph()
+        p.line_spacing = line_space
+        rn = p.add_run(); rn.text = "%d. " % (i+1)
+        rn.font.name='Calibri'; rn.font.size=Pt(size); rn.font.bold=True; rn.font.color.rgb=NAVY
+        lead, rest = _split_lead(it)
+        if lead:
+            rl = p.add_run(); rl.text = lead
+            rl.font.name='Calibri'; rl.font.size=Pt(size); rl.font.bold=True; rl.font.color.rgb=NAVY
+        rb = p.add_run(); rb.text = rest if lead else it
+        rb.font.name='Calibri'; rb.font.size=Pt(size); rb.font.color.rgb=CHARCOAL
+    return tb
 
-# Strategic KPIs table — start earlier so the last row clears the corner footer at y=7.18
-ky = Inches(5.10)
-add_rect(s, Inches(0.4), ky, Inches(12.55), Inches(0.35), NAVY)
-add_text(s, Inches(0.55), ky, Inches(12.4), Inches(0.35), "Strategic KPIs",
-         size=11, bold=True, color=WHITE, anchor=MSO_ANCHOR.MIDDLE)
+# ── Quadrant scaffolding (2x2 grid) ──
+def _quadrant(x, y, w, title):
+    add_rect(s, x, y, w, Inches(0.3), NAVY)
+    add_text(s, x+Inches(0.12), y, w-Inches(0.2), Inches(0.3), title, size=10.5, bold=True, color=WHITE, anchor=MSO_ANCHOR.MIDDLE)
+    add_rect(s, x, y+Inches(0.3), w, Inches(1.6), WHITE, line=BORDER)
+    return x+Inches(0.12), y+Inches(0.38), w-Inches(0.24)
 
-# Header row
-hy = ky + Inches(0.35)
-hdrs = [("Deliverable / KPI", 4.2),("Owner", 1.0),("End",0.8),("RAG",0.7),("Comments",5.85)]
-hx = Inches(0.4)
-add_rect(s, hx, hy, Inches(12.55), Inches(0.32), LIGHT_GRAY)
-cx = hx
-for label, w in hdrs:
-    add_text(s, cx+Inches(0.1), hy+Inches(0.04), Inches(w), Inches(0.25), label,
-             size=9, bold=True, color=NAVY, anchor=MSO_ANCHOR.MIDDLE)
-    cx += Inches(w)
+LX, RX, QW = Inches(0.4), Inches(6.8), Inches(6.15)
+TY, BY = Inches(3.0), Inches(5.0)
 
-_default_kpi_rows = [
-    ("Strategic IT Roadmap Delivery & Governance", "Mohamed", "H2-26", GREEN, "Roadmap distributed to Site IT Mgrs; first IT Council scheduled May."),
-    ("Control Framework Transfer to SCM", "Mohamed", "H1-26", AMBER, "Transfer in progress with Guy Serge; June review session planned."),
-    ("Skills Matrix APPS Adoption (4MP V2)", "Mohamed", "H1-26", GREEN, "V2 released; Finance pilot underway with 9-box, mentoring, dev plans."),
-    ("Infrastructure Standardization Oversight", "Mohamed", "H2-26", AMBER, "Site link upgrades progressing; SGO contract/procurement delays."),
+bx, by, bw = _quadrant(LX, TY, QW, "Progress since last period")
+_numbered(bx, by, bw, Inches(1.5), _section_bullets('progress', 'progress'))
+bx, by, bw = _quadrant(RX, TY, QW, "Issues / Risks / Comment")
+_numbered(bx, by, bw, Inches(1.5), _section_bullets('issues', 'issues'))
+bx, by, bw = _quadrant(LX, BY, QW, "Activities for next period")
+_numbered(bx, by, bw, Inches(1.5), _section_bullets('activities', 'nextperiod'))
+
+# BR — KPIs table
+_quadrant(RX, BY, QW, "KPIs")
+_cols = [("Deliverable / KPI", 2.05), ("Owner", 0.8), ("End date", 0.75), ("RAG", 0.5), ("Comments", 2.05)]
+_hy = BY + Inches(0.30)
+add_rect(s, RX, _hy, QW, Inches(0.26), NAVY)
+_cx = RX
+for _lab, _w in _cols:
+    add_text(s, _cx+Inches(0.06), _hy, Inches(_w), Inches(0.26), _lab, size=7.5, bold=True, color=WHITE, anchor=MSO_ANCHOR.MIDDLE)
+    _cx += Inches(_w)
+_default_kpis = [
+    {"deliverable":"Strategic IT Roadmap Delivery & Governance","owner":"Mohamed","end":"H2-26","rag":"G","comments":"Mine IT Council held; roadmap execution progressing."},
+    {"deliverable":"Control Framework Transfer to SCM","owner":"Mohamed","end":"H1-26","rag":"G","comments":"Transferred to Guy-Serge; design effectiveness testing."},
+    {"deliverable":"Skills Matrix APPS Adoption","owner":"Mohamed","end":"H1-26","rag":"A","comments":"V2 stress test ongoing; adoption follow-up next period."},
+    {"deliverable":"Infrastructure Standardization Oversight","owner":"Mohamed","end":"H2-26","rag":"A","comments":"SGO DC 80% done; supplier delivery lag may delay."},
 ]
-# Data-driven from ops_summary.kpis (operator-edited); fall back to defaults.
 _kpi_src = _os.get('kpis')
-if isinstance(_kpi_src, list) and _kpi_src:
-    rows = [(r.get('deliverable', '—'), r.get('owner', 'Mohamed'), r.get('end', ''),
-             _rag_color(r.get('rag')), r.get('comments', '')) for r in _kpi_src[:4]]
-else:
-    rows = _default_kpi_rows
-ry = hy + Inches(0.32)
-row_h = Inches(0.30)
-for i,(d,o,e,rag,com) in enumerate(rows):
-    bg = WHITE if i%2==0 else LIGHTER_GRAY
-    add_rect(s, hx, ry+row_h*i, Inches(12.55), row_h, bg, line=RGBColor(0xE5,0xE7,0xEB))
-    cx = hx
-    cells = [(d,4.2,9,False,NAVY),(o,1.0,9,False,CHARCOAL),(e,0.8,9,False,CHARCOAL)]
-    for txt,w,sz,bd,col in cells:
-        add_text(s, cx+Inches(0.1), ry+row_h*i+Inches(0.05), Inches(w), Inches(0.25), txt,
-                 size=sz, bold=bd, color=col, anchor=MSO_ANCHOR.MIDDLE)
-        cx += Inches(w)
-    # RAG dot
-    add_rect(s, cx+Inches(0.27), ry+row_h*i+Inches(0.07), Inches(0.18), Inches(0.18), rag, shape=MSO_SHAPE.OVAL)
-    cx += Inches(0.7)
-    # Comments
-    add_text(s, cx+Inches(0.1), ry+row_h*i+Inches(0.05), Inches(5.7), Inches(0.25), com,
-             size=8, color=GRAY, anchor=MSO_ANCHOR.MIDDLE)
+_kpis = _kpi_src if isinstance(_kpi_src, list) and _kpi_src else _default_kpis
+_ry = _hy + Inches(0.26); _rh2 = Inches(0.315)
+for _i, _row in enumerate(_kpis[:4]):
+    _yy = _ry + _rh2*_i
+    add_rect(s, RX, _yy, QW, _rh2, WHITE if _i%2==0 else LIGHTER_GRAY, line=BORDER)
+    _cx = RX
+    _vals = [(_row.get('deliverable','—'), 2.05, NAVY, True), (_row.get('owner','Mohamed'), 0.8, CHARCOAL, False), (_row.get('end',''), 0.75, CHARCOAL, False)]
+    for _txt, _w, _col, _bd in _vals:
+        add_text(s, _cx+Inches(0.06), _yy, Inches(_w), _rh2, _txt, size=7, bold=_bd, color=_col, anchor=MSO_ANCHOR.MIDDLE)
+        _cx += Inches(_w)
+    add_rect(s, _cx+Inches(0.09), _yy+Inches(0.06), Inches(0.32), _rh2-Inches(0.12), _rag_color(_row.get('rag')), line=BORDER)
+    _cx += Inches(0.5)
+    add_text(s, _cx+Inches(0.06), _yy, Inches(2.0), _rh2, _row.get('comments',''), size=6.5, color=GRAY, anchor=MSO_ANCHOR.MIDDLE)
+
+# ── Legend ──
+_ly = Inches(6.95)
+add_text(s, Inches(0.4), _ly, Inches(0.8), Inches(0.22), "Legend:", size=9, bold=True, color=CHARCOAL, anchor=MSO_ANCHOR.MIDDLE)
+_leg = [(Inches(1.25), GREEN, "On Track / No issues"),
+        (Inches(3.35), AMBER, "Potential Risk / Attention needed"),
+        (Inches(6.55), RED, "Off Track / Issues present")]
+for _x, _c, _lab in _leg:
+    add_rect(s, _x, _ly+Inches(0.02), Inches(0.26), Inches(0.18), _c)
+    add_text(s, _x+Inches(0.32), _ly, Inches(2.7), Inches(0.22), _lab, size=8, color=CHARCOAL, anchor=MSO_ANCHOR.MIDDLE)
 
 footer_bar(s, 2)
 
