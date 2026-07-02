@@ -91,6 +91,21 @@
   .status-degraded{background:var(--color-warning-bg,#FEF3C7);border-color:#f4dd9a;color:var(--color-warning,#D97706)}
   .status-major{background:var(--color-danger-bg,#FEEAEE);border-color:#f4c2ce;color:var(--edv-red,#D90038)}
 
+  /* ── Major-incident detail cards ───────────────────────────────── */
+  #majorIncidentsArea{display:flex;flex-direction:column;gap:14px}
+  .mi-card{border:1px solid #f4c2ce;border-left:5px solid var(--edv-red,#D90038);background:var(--color-danger-bg,#FEEAEE);border-radius:12px;padding:16px 18px}
+  .mi-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
+  .mi-title{font-size:1.02rem;font-weight:800;color:var(--edv-slate,#3A4A60);line-height:1.3}
+  .mi-status{flex:none;font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#fff;background:var(--edv-red,#D90038);padding:4px 10px;border-radius:999px;white-space:nowrap}
+  .mi-meta{display:flex;align-items:center;gap:12px;margin-top:6px;font-size:.82rem;font-weight:700;color:var(--color-text-muted,#7B7B7B)}
+  .mi-site{color:var(--edv-slate,#3A4A60)}
+  .mi-downtime{color:var(--edv-red,#D90038)}
+  .mi-body{margin-top:12px;display:flex;flex-direction:column;gap:8px}
+  .mi-field{display:grid;grid-template-columns:130px 1fr;gap:10px;font-size:.9rem;line-height:1.45}
+  .mi-flabel{font-weight:800;color:var(--color-text-muted,#7B7B7B);text-transform:uppercase;font-size:.7rem;letter-spacing:.04em;padding-top:2px}
+  .mi-fval{color:#3A4A60;white-space:pre-wrap}
+  @media (max-width:640px){.mi-field{grid-template-columns:1fr;gap:2px}}
+
   /* ── KPI cards ──────────────────────────────────────────────── */
   .kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
   .kpi-card{padding:16px;background:#fff;border:1px solid var(--color-border,#E2E5EA);border-radius:12px;min-height:118px;display:flex;flex-direction:column}
@@ -230,9 +245,15 @@
     <span class="sb-text">—</span>
   </div>
 
+  <!-- 3b. Active Major Incidents — detail shown on the page (not a link) -->
+  <section class="section" id="majorIncidentsSection" aria-label="Active major incidents" style="display:none;">
+    <div class="section-title">Active Major Incidents</div>
+    <div id="majorIncidentsArea"><!-- rendered --></div>
+  </section>
+
   <!-- 4. KPIs -->
   <section class="section" aria-label="Key performance indicators">
-    <div class="section-title">This month at a glance <span id="periodLabel"></span></div>
+    <div class="section-title">Service performance <span id="periodLabel"></span></div>
     <div class="kpi-grid" id="kpiGrid"><!-- rendered --></div>
   </section>
 
@@ -279,11 +300,11 @@
   'use strict';
 
   // Deep links to ServiceDesk Plus — TODO: replace with real URLs (user will supply).
+  // Report an issue AND request a service both open the ServiceDesk Plus home
+  // page (the portal lets the user pick incident vs service there).
   const SDP = {
-    issue:       '#TODO_SDP_ISSUE',
-    service:     '#TODO_SDP_SERVICE',
-    maintenance: '#TODO_SDP_MAINTENANCE',
-    incident:    '#TODO_SDP_INCIDENT'
+    issue:   'https://oneitsupport.endeavourmining.com/app/854990271/HomePage.do',
+    service: 'https://oneitsupport.endeavourmining.com/app/854990271/HomePage.do'
   };
 
   const REFRESH_MS = 300000;       // 5 minutes
@@ -370,11 +391,12 @@
 
   // ── Renderers ────────────────────────────────────────────────
   function renderQuickActions() {
+    // Only two ACTIONABLE tiles (they link out to ServiceDesk Plus). Planned
+    // maintenance and major incidents are shown as INFORMATION on this page
+    // (sections below), not links.
     const tiles = [
-      { key: 'issue',       cls: '#D90038', icon: '⚠', label: 'Report an IT Issue',        sub: 'Something not working? Log an incident with IT.' },
-      { key: 'service',     cls: '#EF631A', icon: '＋', label: 'Request an IT Service',     sub: 'New access, equipment or software request.' },
-      { key: 'maintenance', cls: '#145FAE', icon: '🛠', label: 'View Planned Maintenance', sub: 'See scheduled works that may affect you.' },
-      { key: 'incident',    cls: '#3A4A60', icon: '☰', label: 'View Major Incident',       sub: 'Live updates on current major incidents.' }
+      { key: 'issue',   cls: '#D90038', icon: '⚠', label: 'Report an IT Issue',    sub: 'Something not working? Log an incident with IT.' },
+      { key: 'service', cls: '#EF631A', icon: '＋', label: 'Request an IT Service', sub: 'New access, equipment or software request.' }
     ];
     el('quickActions').innerHTML = tiles.map(function (t) {
       return '<a class="qa-tile" href="' + esc(SDP[t.key]) + '">' +
@@ -405,6 +427,41 @@
     }
     band.innerHTML = '<span class="sb-icon">' + icon + '</span>' +
       '<span class="sb-text">' + esc(text) + '</span>' + note;
+  }
+
+  function miField(label, val) {
+    if (!val) return '';
+    return '<div class="mi-field"><span class="mi-flabel">' + esc(label) + '</span>' +
+      '<span class="mi-fval">' + esc(val) + '</span></div>';
+  }
+
+  function renderMajorIncidents(mis) {
+    const sec = el('majorIncidentsSection');
+    const area = el('majorIncidentsArea');
+    if (!Array.isArray(mis) || mis.length === 0) {
+      sec.style.display = 'none';
+      area.innerHTML = '';
+      return;
+    }
+    sec.style.display = '';
+    area.innerHTML = mis.map(function (m) {
+      const dt = m.downtime_h ? '<span class="mi-downtime">↓ ' + esc(m.downtime_h) + 'h downtime</span>' : '';
+      const site = m.site ? '<span class="mi-site">' + esc(m.site) + '</span>' : '';
+      const statusTxt = m.status ? esc(m.status) : 'In progress';
+      const body = [
+        miField('Impact', m.impact),
+        miField('Root cause', m.root_cause),
+        miField('Corrective action', m.corrective_action)
+      ].join('');
+      return '<div class="mi-card">' +
+        '<div class="mi-head">' +
+        '<span class="mi-title">' + esc(m.title || 'Major incident') + '</span>' +
+        '<span class="mi-status">' + statusTxt + '</span>' +
+        '</div>' +
+        '<div class="mi-meta">' + site + dt + '</div>' +
+        (body ? '<div class="mi-body">' + body + '</div>' : '') +
+        '</div>';
+    }).join('');
   }
 
   function kpiCard(label, obj, opts) {
@@ -459,15 +516,17 @@
       return;
     }
     let rows = sites.map(function (s) {
+      const name = s.name || s.code;
+      const codeChip = (s.code && s.code !== name)
+        ? ' <span class="site-code">' + esc(s.code) + '</span>' : '';
       return '<tr>' +
-        '<td><span class="site-name">' + esc(s.name || s.code) + '</span> ' +
-        '<span class="site-code">' + esc(s.code) + '</span></td>' +
+        '<td><span class="site-name">' + esc(name) + '</span>' + codeChip + '</td>' +
         '<td>' + statusChip(s.status) + '</td>' +
         '<td>' + (isNum(s.open_incidents) ? s.open_incidents : '—') + '</td>' +
         '</tr>';
     }).join('');
     area.innerHTML = '<table class="sites"><thead><tr>' +
-      '<th>Site</th><th>Status</th><th>Open incidents</th>' +
+      '<th>Site</th><th>Status</th><th>Active major incidents</th>' +
       '</tr></thead><tbody>' + rows + '</tbody></table>';
   }
 
@@ -559,7 +618,8 @@
     document.body.classList.remove('error-only');
     renderTimestamp(data.data_as_of);
     renderStatus(data.status);
-    renderKpis(data.kpis, data.period);
+    renderMajorIncidents(data.major_incidents);
+    renderKpis(data.kpis, data.report_month || data.period);
     renderSites(data.sites_attention, data.all_sites_ok);
     renderMaintenance(data.planned_maintenance);
     renderStrategic(data.strategic_progress);

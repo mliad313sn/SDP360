@@ -26,10 +26,17 @@ function buildExecSummary(d) {
   const hl = (d.editorial && d.editorial.highlights) || [];
   const fc = (d.editorial && d.editorial.focus) || [];
   const pick = (o, keys) => { const r = {}; for (const k of keys) if (o && o[k] != null) r[k] = o[k]; return r; };
+  // Active Major Incidents — whitelisted operational detail (title/impact/
+  // status/root-cause/corrective-action/downtime). Public per the 2026-07-02
+  // decision (option a); personal fields were already dropped in mapMajorIncidents.
+  const majorIncidents = (d.majorIncidents || []).map(mi =>
+    pick(mi, ['title', 'site', 'status', 'impact', 'root_cause', 'corrective_action', 'downtime_h']));
   return {
     data_as_of: d.dataAsOf || null,
     period: d.period,
+    report_month: d.reportMonth || null,   // the last COMPLETE month the KPIs reflect
     status: { level, active_major_incidents: d.activeMajorIncidents || 0 },
+    major_incidents: majorIncidents.length ? majorIncidents : null,
     kpis: {
       requests_resolved: pick(d.helpdesk.requests_resolved, ['value','delta_pct']),
       sla_compliance:    pick(d.helpdesk.sla_compliance,    ['value_pct','delta_pp']),
@@ -70,8 +77,11 @@ function _round(v) { return v == null ? null : Math.round(v); }
 // mapHelpdeskKpis — fleet-wide monthly helpdesk history + change + survey +
 // avg-resolution readers → the assembler's helpdesk{...} sub-objects.
 function mapHelpdeskKpis(rdb, now) {
-  const y = now.getFullYear(), m = now.getMonth() + 1;
-  const prev = _prevMonth(y, m);
+  // Anchor to the LAST COMPLETE calendar month, not the current one: on the
+  // 1st of a month the current month has ~1 day of data and reads as -98% /
+  // near-empty. "ref" = previous month (last complete); "prev" = the one before.
+  const ref  = _prevMonth(now.getFullYear(), now.getMonth() + 1);
+  const prev = _prevMonth(ref.y, ref.m);
   const out = {
     requests_resolved: {},
     sla_compliance: {},
@@ -82,12 +92,13 @@ function mapHelpdeskKpis(rdb, now) {
 
   // ── Requests resolved + SLA compliance (fleet-wide, month-over-month) ─────
   // getMonthlyHelpdeskHistory rows carry 'Requests', 'Closed Requests Count',
-  // and '% of SLA Violated' per calendar month, oldest→newest. The last two
-  // rows are current + previous month.
+  // and '% of SLA Violated' per calendar month, oldest→newest. The LAST row is
+  // the current (partial) month, so the last COMPLETE month is [len-2] and the
+  // month before it is [len-3].
   try {
     const hist = rdb.getMonthlyHelpdeskHistory(13) || [];
-    const cur = hist[hist.length - 1] || {};
-    const pv  = hist[hist.length - 2] || {};
+    const cur = hist[hist.length - 2] || {};
+    const pv  = hist[hist.length - 3] || {};
     const curClosed = _num(cur['Closed Requests Count']);
     const pvClosed  = _num(pv['Closed Requests Count']);
     out.requests_resolved.value = curClosed;
@@ -108,7 +119,7 @@ function mapHelpdeskKpis(rdb, now) {
   // created since the given date. We approximate a month value with a
   // since=<month-1st> read; delta_h = current - previous.
   try {
-    const curM = rdb.getRequestMetrics({ since: _monthStart(y, m) }) || {};
+    const curM = rdb.getRequestMetrics({ since: _monthStart(ref.y, ref.m) }) || {};
     const pvM  = rdb.getRequestMetrics({ since: _monthStart(prev.y, prev.m) }) || {};
     const cur = _num(curM.avg_resolution_hrs);
     const pv  = _num(pvM.avg_resolution_hrs);
@@ -121,16 +132,16 @@ function mapHelpdeskKpis(rdb, now) {
   // .rows2 = trailing window with responded_on (YYYY-MM-DD). We compute the
   // current-month CSAT from rows1 and the previous-month CSAT from rows2.
   try {
-    const cur = _csatFromRows1(rdb.getSurveyKpisDB({ yr: y, mo: m }));
-    const pvKey = _ym(prev.y, prev.m);
-    const pvPct = _csatForMonthFromRows2(rdb.getSurveyKpisDB({ yr: y, mo: m }), pvKey);
+    const kpi = rdb.getSurveyKpisDB({ yr: ref.y, mo: ref.m });
+    const cur = _csatFromRows1(kpi);
+    const pvPct = _csatForMonthFromRows2(kpi, _ym(prev.y, prev.m));
     if (cur != null) out.csat.value_pct = cur;
     if (cur != null && pvPct != null) out.csat.delta_pp = cur - pvPct;
   } catch (e) { console.warn('[execSummary] csat failed:', e.message); }
 
   // ── Change success rate (fleet) — current vs previous month ───────────────
   try {
-    const curC = rdb.getChangeMetrics({ since: _monthStart(y, m) }) || {};
+    const curC = rdb.getChangeMetrics({ since: _monthStart(ref.y, ref.m) }) || {};
     const pvC  = rdb.getChangeMetrics({ since: _monthStart(prev.y, prev.m) }) || {};
     const cur = _num(curC.change_success_rate);
     const pv  = _num(pvC.change_success_rate);
@@ -196,58 +207,52 @@ function mapSpark(rdb, now) {
 // limitation — a shared site-alias helper would be the fuller fix.)
 const _normSite = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase();
 
-// mapSiteRows — per-site point-in-time open/overdue counts + active-MI flag →
-// the assembler's siteRows[] (deriveSiteStatus then emits exception-only).
-function mapSiteRows(rdb, now) {
-  const rows = [];
-  let sites = [];
-  try { sites = rdb.listSites() || []; } catch (e) { console.warn('[execSummary] listSites failed:', e.message); }
-
-  // Sites carrying an active (open) Major Incident — union across all groups.
-  const miSites = new Set();
-  try {
-    const allGroups = [];
-    for (const s of sites) {
-      if (!s.zoho_group) continue;
-      s.zoho_group.split(',').map(g => g.trim()).filter(Boolean).forEach(g => allGroups.push(g));
-    }
-    const mis = allGroups.length ? (rdb.getActiveMajorIncidentsForSite(allGroups) || []) : [];
-    for (const mi of mis) { if (mi && mi.site) miSites.add(_normSite(mi.site)); }
-  } catch (e) { console.warn('[execSummary] active MI failed:', e.message); }
-
-  for (const s of sites) {
-    let open = 0, overdue = 0;
-    try {
-      // Point-in-time (no `since`): currently-open + backlog (open AND overdue).
-      const m = rdb.getRequestMetrics({ site: s.name }) || {};
-      open    = _num(m.incident_count) != null ? _num(m.incident_count) : (_num(m.open_count) || 0);
-      overdue = _num(m.backlog_count) || 0;
-    } catch (e) { console.warn('[execSummary] site metrics failed for', s.name, e.message); }
-    rows.push({
-      site: s.name,
-      code: s.name,
-      name: s.name,
-      open_incidents: open || 0,
-      has_active_mi: miSites.has(_normSite(s.name)),
-      overdue_open: overdue || 0,
-    });
-  }
-  return rows;
-}
-
-// mapActiveMi — total count of currently-open Major Incidents across the fleet.
-function mapActiveMi(rdb) {
+// _activeMIs — active (open) Major Incidents across all site groups. One fetch
+// feeds the MI detail block, the site rollup, and the active count.
+function _activeMIs(rdb) {
   try {
     const sites = rdb.listSites() || [];
-    const allGroups = [];
+    const groups = [];
     for (const s of sites) {
       if (!s.zoho_group) continue;
-      s.zoho_group.split(',').map(g => g.trim()).filter(Boolean).forEach(g => allGroups.push(g));
+      String(s.zoho_group).split(',').map(g => g.trim()).filter(Boolean).forEach(g => groups.push(g));
     }
-    if (!allGroups.length) return 0;
-    const mis = rdb.getActiveMajorIncidentsForSite(allGroups) || [];
-    return mis.length;
-  } catch (e) { console.warn('[execSummary] mapActiveMi failed:', e.message); return 0; }
+    if (!groups.length) return [];
+    return rdb.getActiveMajorIncidentsForSite(groups) || [];
+  } catch (e) { console.warn('[execSummary] active MI fetch failed:', e.message); return []; }
+}
+
+// mapMajorIncidents — whitelist active-MI rows to PUBLIC-SAFE detail for the
+// exec page (title/impact/status/root-cause/corrective-action/downtime).
+// Personal fields (technician, requester, ids) are DROPPED here.
+function mapMajorIncidents(mis) {
+  return (mis || []).map(m => ({
+    title:             m.subject || '—',
+    site:              m.site || '—',
+    status:            m.status || 'In progress',
+    impact:            m.impact || null,
+    root_cause:        (m.rca && String(m.rca).trim()) || null,
+    corrective_action: (m.ca && String(m.ca).trim()) || null,
+    downtime_h:        (m.downtime && String(m.downtime).trim()) || null,
+  }));
+}
+
+// mapSiteRows — MAJOR-INCIDENT-centric rollup: a site appears only if it has an
+// active Major Incident; open_incidents = count of active MIs there. Raw ticket
+// volume is intentionally NOT shown (execs care about MIs, not the full
+// backlog). deriveSiteStatus then marks each site 'major'.
+function mapSiteRows(mis) {
+  const byCode = {};
+  for (const m of (mis || [])) {
+    const key = _normSite(m.site);
+    if (!key) continue;
+    if (!byCode[key]) byCode[key] = { code: m.site, name: m.site, count: 0 };
+    byCode[key].count++;
+  }
+  return Object.values(byCode).map(s => ({
+    site: s.name, code: s.code, name: s.name,
+    open_incidents: s.count, has_active_mi: true, overdue_open: 0,
+  }));
 }
 
 // mapStrategic — faithful tracker scoring (tracker-pptx.js fleetStats/ps2) →
@@ -265,9 +270,18 @@ function mapStrategic(trackerDb, trackerScore, now) {
     // own current period is D.year/D.currentMonth; prefer that over the wall
     // clock so we score the latest month operators actually filled in.
     const yr = D.year || now.getFullYear();
-    const mo = D.currentMonth || (now.getMonth() + 1);
-
-    const fleet = trackerScore.fleetStats(D, sites, yr, mo);
+    const startMo = D.currentMonth || (now.getMonth() + 1);
+    // Use the most recent month with real data: walk back from the tracker's
+    // current month to the last one with a non-zero fleet score, so a not-yet-
+    // filled current month (e.g. the 1st) doesn't render the roadmap as 0%.
+    let mo = startMo;
+    let fleet = trackerScore.fleetStats(D, sites, yr, startMo);
+    if (!(fleet && fleet.avg > 0)) {
+      for (let mm = startMo - 1; mm >= 1; mm--) {
+        const f = trackerScore.fleetStats(D, sites, yr, mm);
+        if (f && f.avg > 0) { fleet = f; mo = mm; break; }
+      }
+    }
     out.overall_pct = Math.round((fleet && fleet.avg != null ? fleet.avg : 0) * 100);
 
     // Pillar list: prefer gP(D) (activities-derived), else pillarWeights keys.
@@ -293,19 +307,23 @@ function mapStrategic(trackerDb, trackerScore, now) {
 function loadExecSummary(deps) {
   const now = deps.now || new Date();
   const period = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const ref = _prevMonth(now.getFullYear(), now.getMonth() + 1);   // last complete month
+  const reportMonth = _ym(ref.y, ref.m);
   let dataAsOf = null;
   try { dataAsOf = deps.rdb.getLastSyncAt('requests'); } catch (_) { dataAsOf = null; }
   const helpdesk = mapHelpdeskKpis(deps.rdb, now);
   const spark = mapSpark(deps.rdb, now);
-  const siteRows = mapSiteRows(deps.rdb, now);
-  const activeMajorIncidents = mapActiveMi(deps.rdb, now);
+  const mis = _activeMIs(deps.rdb);              // one fetch → detail + rollup + count
+  const majorIncidents = mapMajorIncidents(mis);
+  const siteRows = mapSiteRows(mis);
+  const activeMajorIncidents = mis.length;
   let upcomingMaintenance = [];
   try { upcomingMaintenance = deps.rdb.getUpcomingChanges(7) || []; } catch (_) { upcomingMaintenance = []; }
   const strategic = mapStrategic(deps.trackerDb, deps.trackerScore, now);
   let editorial = { highlights: [], focus: [] };
   try { editorial = deps.rdb.getExecEditorial(period) || editorial; } catch (_) {}
   return buildExecSummary({
-    period, dataAsOf, helpdesk, spark, siteRows,
+    period, reportMonth, dataAsOf, helpdesk, spark, siteRows, majorIncidents,
     activeMajorIncidents, upcomingMaintenance, strategic, editorial,
   });
 }
@@ -318,6 +336,6 @@ module.exports = {
   mapHelpdeskKpis,
   mapSpark,
   mapSiteRows,
-  mapActiveMi,
+  mapMajorIncidents,
   mapStrategic,
 };
