@@ -605,11 +605,13 @@ def footer_bar(slide, page_num):
     elem = banner_pic._element
     spTree.remove(elem)
     spTree.insert(2, elem)   # right after nvGrpSpPr/grpSpPr — behind all content
-    # Page number in a navy circle (kept in FRONT, on the chevrons, right side)
-    D = Inches(0.40)
-    CX = Inches(12.48); CY = Inches(7.02)
+    # Page number in a navy circle sitting on the chevrons (below every slide's
+    # commentary band, which can extend to ~7.10", so the circle reads cleanly
+    # on ALL slides — not just the ones with a high commentary band).
+    D = Inches(0.36)
+    CX = Inches(12.50); CY = Inches(7.11)
     add_rect(slide, CX, CY, D, D, DARK_NAVY, shape=MSO_SHAPE.OVAL)
-    add_text(slide, CX, CY, D, D, str(page_num), size=13, bold=True, color=WHITE,
+    add_text(slide, CX, CY, D, D, str(page_num), size=12, bold=True, color=WHITE,
              align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE)
 
 def kpi_tile(slide, x, y, w, h, label, value, sub, *, accent=BLUE, value_color=NAVY, sub_color=GRAY, value_size=30):
@@ -1026,8 +1028,8 @@ if not _exec_comment:
         f"Focus: {'close ' + format(_sla_gap_pp, '.1f') + 'pp gap to 90% Res SLA' if _sla_gap_pp > 0 else 'maintain Res SLA above target'}; "
         f"lift FRT to 90%."
     )
-add_rect(s, Inches(0.4), Inches(5.45), Inches(12.55), Inches(1.05), DARK_NAVY)
-add_text(s, Inches(0.6), Inches(5.52), Inches(12.2), Inches(0.92),
+add_rect(s, Inches(0.4), Inches(5.9), Inches(12.55), Inches(1.1), DARK_NAVY)
+add_text(s, Inches(0.6), Inches(5.97), Inches(12.2), Inches(0.96),
          _exec_comment,
          size=_fit_footer_size(_exec_comment, 11.5), color=WHITE, anchor=MSO_ANCHOR.MIDDLE)
 footer_bar(s, 3)
