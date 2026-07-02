@@ -593,32 +593,24 @@ def header_band(slide, title, section, period):
              size=12, bold=True, color=WHITE, align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE)
 
 def footer_bar(slide, page_num):
-    # === Adjusted defaults (matches user-edited slide 3, April 2026 deck) ===
-    # Thinner banner sitting flush at the bottom; corner image trimmed to align with banner;
-    # slide number text-box right-aligned just above the banner — all on background z-order.
-    BANNER_H = Inches(0.15)        # was 0.30 — halved per user adjustment
+    # Chevron banner flush at the bottom + the page number in a NAVY CIRCLE
+    # sitting on the right (matches the May template — was a corner triangle).
+    BANNER_H = Inches(0.15)        # thin banner sitting flush at the bottom
     BANNER_Y = Inches(7.35)        # bottom-flush at SLIDE_H - BANNER_H
     banner_pic = slide.shapes.add_picture(BANNER_IMG, 0, BANNER_Y,
                                           width=SLIDE_W, height=BANNER_H)
-    # Bottom-right corner accent — shorter, lifted above the banner
-    CORNER_W = Inches(0.85)
-    CORNER_H = Inches(0.16)        # was 0.55 — trimmed per user adjustment
-    CORNER_X = Inches(12.473)
-    CORNER_Y = Inches(7.18)
-    corner_pic = slide.shapes.add_picture(CORNER_IMG, CORNER_X, CORNER_Y,
-                                          width=CORNER_W, height=CORNER_H)
-    # Slide number on top (text — editable, right-aligned over corner image)
-    add_text(slide, Inches(12.373), Inches(7.157), Inches(0.75), Inches(0.236),
-             str(page_num), size=14, bold=True, color=WHITE,
-             align=PP_ALIGN.RIGHT, anchor=MSO_ANCHOR.MIDDLE)
-    # Move banner + corner images to the BACK of the z-order (background layer)
+    # Send the banner to the BACK of the z-order (background layer) so content
+    # never hides behind it.
     spTree = slide.shapes._spTree
-    for pic in (banner_pic, corner_pic):
-        elem = pic._element
-        spTree.remove(elem)
-        # Insert right after the spTree's nvGrpSpPr/grpSpPr (always the first 2 children),
-        # so the picture sits behind all other content shapes but above the slide background.
-        spTree.insert(2, elem)
+    elem = banner_pic._element
+    spTree.remove(elem)
+    spTree.insert(2, elem)   # right after nvGrpSpPr/grpSpPr — behind all content
+    # Page number in a navy circle (kept in FRONT, on the chevrons, right side)
+    D = Inches(0.40)
+    CX = Inches(12.48); CY = Inches(7.02)
+    add_rect(slide, CX, CY, D, D, DARK_NAVY, shape=MSO_SHAPE.OVAL)
+    add_text(slide, CX, CY, D, D, str(page_num), size=13, bold=True, color=WHITE,
+             align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE)
 
 def kpi_tile(slide, x, y, w, h, label, value, sub, *, accent=BLUE, value_color=NAVY, sub_color=GRAY, value_size=30):
     """KPI card with left accent bar"""
@@ -929,19 +921,22 @@ footer_bar(s, 2)
 # ====================================================================
 s = prs.slides.add_slide(BLANK)
 header_band(s, "Executive Overview", "HELP DESK", PERIOD_SHORT)
-add_text(s, Inches(0.4), Inches(1.05), Inches(10), Inches(0.5),
-         f"{PERIOD_LONG} — At a Glance", size=18, bold=True, color=NAVY)
+# "May 2026 — At a Glance" with an orange underline under "At a Glance"
+add_text(s, Inches(0.4), Inches(1.02), Inches(10), Inches(0.32),
+         f"{PERIOD_LONG} — At a Glance", size=15, bold=True, color=NAVY)
+add_rect(s, Inches(0.4) + Inches(0.098*len(f"{PERIOD_LONG} — ")), Inches(1.34),
+         Inches(1.25), Inches(0.035), ORANGE)
 
-# 12 KPI tiles in 3 rows × 4 cols
-TILE_W = Inches(3.0); TILE_H = Inches(1.55); GAP = Inches(0.13)
-ORIGIN_X = Inches(0.4); ORIGIN_Y = Inches(1.65)
+# 12 KPI tiles in 3 rows × 4 cols — COMPACT (May template), fits above commentary
+TILE_W = Inches(3.04); TILE_H = Inches(1.15); GAP = Inches(0.13)
+ORIGIN_X = Inches(0.4); ORIGIN_Y = Inches(1.5)
 
 def get_pos(row, col):
     return (ORIGIN_X + (TILE_W+GAP)*col, ORIGIN_Y + (TILE_H+GAP)*row)
 
 # Helper: place a delta pill in the top-right corner of a tile
 def tile_delta(x, y, txt, kind):
-    delta_pill(s, x + TILE_W - Inches(1.30), y + Inches(0.08), txt, kind=kind, dark_bg=False, w=Inches(1.20), size=9)
+    delta_pill(s, x + TILE_W - Inches(1.12), y + Inches(0.10), txt, kind=kind, dark_bg=False, w=Inches(1.02), size=8)
 
 # Helpers — derive MoM delta string + direction from a (delta, unit, good_is) tuple
 def _delta_str(val, unit='%', invert=False):
@@ -991,26 +986,26 @@ if _emerg_n is None:
 _emerg_pct = (_emerg_n / max(K.get('changes_total', 0), 1) * 100) if K.get('changes_total') else 0
 
 # Row 1 — Volume & SLA
-x,y = get_pos(0,0); kpi_tile(s,x,y,TILE_W,TILE_H,"TOTAL TICKETS", f"{K['total']:,}", f"Created in {MONTH}", accent=BLUE, value_size=32);                  tile_delta(x,y,_d_total[0],   _d_total[1])
-x,y = get_pos(0,1); kpi_tile(s,x,y,TILE_W,TILE_H,"CLOSED TICKETS", f"{K['closed']:,}", f"{K['closure_rate']:.1f}% closure rate", accent=GREEN, value_size=32); tile_delta(x,y,_d_closed[0],  _d_closed[1])
-x,y = get_pos(0,2); kpi_tile(s,x,y,TILE_W,TILE_H,"SLA COMPLIANCE (Res)", f"{K['sla_compliance']:.1f}%", "Target ≥ 90%  ⚠", accent=AMBER, value_color=NAVY, value_size=32); tile_delta(x,y,_d_sla[0],     _d_sla[1])
-x,y = get_pos(0,3); kpi_tile(s,x,y,TILE_W,TILE_H,"OPEN BACKLOG", f"{K['open_backlog']}", "Active open tickets", accent=ORANGE, value_size=32);          tile_delta(x,y,_d_backlog[0], _d_backlog[1])
+x,y = get_pos(0,0); kpi_tile(s,x,y,TILE_W,TILE_H,"TOTAL TICKETS", f"{K['total']:,}", f"Created in {MONTH}", accent=BLUE, value_size=24);                  tile_delta(x,y,_d_total[0],   _d_total[1])
+x,y = get_pos(0,1); kpi_tile(s,x,y,TILE_W,TILE_H,"CLOSED TICKETS", f"{K['closed']:,}", f"{K['closure_rate']:.1f}% closure rate", accent=GREEN, value_size=24); tile_delta(x,y,_d_closed[0],  _d_closed[1])
+x,y = get_pos(0,2); kpi_tile(s,x,y,TILE_W,TILE_H,"SLA COMPLIANCE (Res)", f"{K['sla_compliance']:.1f}%", "Target ≥ 90%  ⚠", accent=AMBER, value_color=NAVY, value_size=24); tile_delta(x,y,_d_sla[0],     _d_sla[1])
+x,y = get_pos(0,3); kpi_tile(s,x,y,TILE_W,TILE_H,"OPEN BACKLOG", f"{K['open_backlog']}", "Active open tickets", accent=ORANGE, value_size=24);          tile_delta(x,y,_d_backlog[0], _d_backlog[1])
 
 # Row 2 — Quality: FCR · FRT · Resolution · SLA Violations (4 tiles, May-final layout)
 # FCR + SLA Violations restored 2026-06-22: fcr_rate is now reconciled to the
 # scorecard's ticket-based proxy (closed, not escalated, not reopened — no longer
 # the empty CSAT-derived value), and SLA Violations = 100 - Resolution SLA.
 _sla_viol = max(0.0, 100 - K.get('sla_compliance', 0))
-x,y = get_pos(1,0); kpi_tile(s,x,y,TILE_W,TILE_H,"FCR RATE", f"{K['fcr_rate']:.1f}%", "Closed, no escalation / reopen", accent=GREEN, value_size=32);      tile_delta(x,y,_d_fcr[0],  _d_fcr[1])
-x,y = get_pos(1,1); kpi_tile(s,x,y,TILE_W,TILE_H,"FRT SLA", f"{K['frt_sla']:.1f}%", "Target ≥ 90%  ⚠", accent=RED, value_size=32);                         tile_delta(x,y,_d_frt[0],  _d_frt[1])
-x,y = get_pos(1,2); kpi_tile(s,x,y,TILE_W,TILE_H,"AVG RESOLUTION", f"{K['avg_res_days']}d", "MTTR — all tickets", accent=BLUE, value_size=32);              tile_delta(x,y,_d_res[0],  _d_res[1])
-x,y = get_pos(1,3); kpi_tile(s,x,y,TILE_W,TILE_H,"SLA VIOLATIONS", f"{_sla_viol:.1f}%", "Missed Resolution SLA", accent=ORANGE, value_color=NAVY, value_size=32)
+x,y = get_pos(1,0); kpi_tile(s,x,y,TILE_W,TILE_H,"FCR RATE", f"{K['fcr_rate']:.1f}%", "Closed, no escalation / reopen", accent=GREEN, value_size=24);      tile_delta(x,y,_d_fcr[0],  _d_fcr[1])
+x,y = get_pos(1,1); kpi_tile(s,x,y,TILE_W,TILE_H,"FRT SLA", f"{K['frt_sla']:.1f}%", "Target ≥ 90%  ⚠", accent=RED, value_size=24);                         tile_delta(x,y,_d_frt[0],  _d_frt[1])
+x,y = get_pos(1,2); kpi_tile(s,x,y,TILE_W,TILE_H,"AVG RESOLUTION", f"{K['avg_res_days']}d", "MTTR — all tickets", accent=BLUE, value_size=24);              tile_delta(x,y,_d_res[0],  _d_res[1])
+x,y = get_pos(1,3); kpi_tile(s,x,y,TILE_W,TILE_H,"SLA VIOLATIONS", f"{_sla_viol:.1f}%", "Missed Resolution SLA", accent=ORANGE, value_color=NAVY, value_size=24)
 
 # Row 3 — Governance & Incident
-x,y = get_pos(2,0); kpi_tile(s,x,y,TILE_W,TILE_H,"CHANGES (NEW)", f"{K['changes_total']}", "Created this period", accent=BLUE, value_size=32);            tile_delta(x,y,_d_changes[0], _d_changes[1])
-x,y = get_pos(2,1); kpi_tile(s,x,y,TILE_W,TILE_H,"EMERGENCY CHANGES", f"{_emerg_n}", f"{_emerg_pct:.1f}% — Target < 5%", accent=AMBER, value_size=32); tile_delta(x,y,_d_emerg[0],   _d_emerg[1])
-x,y = get_pos(2,2); kpi_tile(s,x,y,TILE_W,TILE_H,"MAJOR INCIDENTS", f"{K['mi_total']}", f"{K['mi_critical']} P1 · {K['mi_high']} P2", accent=RED, value_color=RED, value_size=32); tile_delta(x,y,_d_mi[0],      _d_mi[1])
-x,y = get_pos(2,3); kpi_tile(s,x,y,TILE_W,TILE_H,"SUPPORT GROUPS", f"{_support_n}", f"Active in {MONTH}", accent=GREEN, value_size=32);                tile_delta(x,y,_d_grp[0],     _d_grp[1])
+x,y = get_pos(2,0); kpi_tile(s,x,y,TILE_W,TILE_H,"CHANGES (NEW)", f"{K['changes_total']}", "Created this period", accent=BLUE, value_size=24);            tile_delta(x,y,_d_changes[0], _d_changes[1])
+x,y = get_pos(2,1); kpi_tile(s,x,y,TILE_W,TILE_H,"EMERGENCY CHANGES", f"{_emerg_n}", f"{_emerg_pct:.1f}% — Target < 5%", accent=AMBER, value_size=24); tile_delta(x,y,_d_emerg[0],   _d_emerg[1])
+x,y = get_pos(2,2); kpi_tile(s,x,y,TILE_W,TILE_H,"MAJOR INCIDENTS", f"{K['mi_total']}", f"{K['mi_critical']} P1 · {K['mi_high']} P2", accent=RED, value_color=RED, value_size=24); tile_delta(x,y,_d_mi[0],      _d_mi[1])
+x,y = get_pos(2,3); kpi_tile(s,x,y,TILE_W,TILE_H,"SUPPORT GROUPS", f"{_support_n}", f"Active in {MONTH}", accent=GREEN, value_size=24);                tile_delta(x,y,_d_grp[0],     _d_grp[1])
 
 # Bottom commentary band — data-driven, no more April hardcoded
 # Prefer AI-generated executive comment from K['commentary']['exec']
@@ -1031,8 +1026,8 @@ if not _exec_comment:
         f"Focus: {'close ' + format(_sla_gap_pp, '.1f') + 'pp gap to 90% Res SLA' if _sla_gap_pp > 0 else 'maintain Res SLA above target'}; "
         f"lift FRT to 90%."
     )
-add_rect(s, Inches(0.4), Inches(6.25), Inches(12.55), Inches(0.88), DARK_NAVY)
-add_text(s, Inches(0.6), Inches(6.30), Inches(12.2), Inches(0.80),
+add_rect(s, Inches(0.4), Inches(5.45), Inches(12.55), Inches(1.05), DARK_NAVY)
+add_text(s, Inches(0.6), Inches(5.52), Inches(12.2), Inches(0.92),
          _exec_comment,
          size=_fit_footer_size(_exec_comment, 11.5), color=WHITE, anchor=MSO_ANCHOR.MIDDLE)
 footer_bar(s, 3)
