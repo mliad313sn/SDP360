@@ -221,7 +221,7 @@ function _majorIncidents(filters) {
              created_time, resolved_time, completed_time, udf_json,
              impact
       FROM request_records
-      WHERE request_type LIKE '%Major Incident%'
+      WHERE (request_type LIKE '%Major Incident%' OR template LIKE '%Major Incident%')
         AND strftime('%Y-%m', created_time) = ?
       ORDER BY created_time DESC
       LIMIT ${_siteSel ? 50 : 10}
@@ -326,7 +326,7 @@ function _majorIncidents(filters) {
       // Fetch site so the prev-month MoM count respects the same site scope.
       const _prevRows = reportsDb.db.prepare(`
         SELECT site FROM request_records
-        WHERE request_type LIKE '%Major Incident%'
+        WHERE (request_type LIKE '%Major Incident%' OR template LIKE '%Major Incident%')
           AND strftime('%Y-%m', created_time) = ?`).all(_pym);
       out.mi_prev_total = _prevRows.filter(r => _miSiteOk(r.site)).length;
     } catch (_) { out.mi_prev_total = null; }

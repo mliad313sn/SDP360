@@ -26,9 +26,9 @@ function addMI(o) {
   rdb.db.prepare(
     `INSERT INTO request_records
        (request_id, display_id, subject, request_status, pending_status,
-        overdue_status, request_type, tech_group, site, created_time)
+        overdue_status, request_type, template, tech_group, site, created_time)
      VALUES (@request_id, @display_id, @subject, @request_status, @pending_status,
-             @overdue_status, @request_type, @tech_group, @site, @created_time)`
+             @overdue_status, @request_type, @template, @tech_group, @site, @created_time)`
   ).run({
     request_id: 'MI-' + (++n),
     display_id: '#INC-' + n,
@@ -37,6 +37,7 @@ function addMI(o) {
     pending_status: o.pending_status === undefined ? 1 : o.pending_status,
     overdue_status: o.overdue_status || 0,
     request_type: o.request_type || 'Major Incident',
+    template: o.template || null,
     tech_group: G,
     site: o.site || 'Hounde',
     created_time: o.created_time || '2026-06-01T00:00:00',
@@ -50,12 +51,16 @@ before(() => {
   addMI({ subject: 'RESOLVED',      request_status: 'Resolved',  pending_status: 1 });
   addMI({ subject: 'CANCELLED',     request_status: 'Cancelled', pending_status: 1 });
   addMI({ subject: 'not major',     request_status: 'Open',      pending_status: 1, request_type: 'Incident' });
+  // #311587 shape: Request Type "Incident" but Template "Major Incident Report"
+  // → must be detected as an active major incident via the template signal.
+  addMI({ subject: 'TEMPLATE MI',   request_status: 'Open',      pending_status: 1,
+          request_type: 'Incident', template: 'Major Incident Report' });
 });
 
-test('active MI filter: keeps Open + NULL status, drops Closed/Resolved/Cancelled + non-major', () => {
+test('active MI filter: keeps Open + NULL status + template-flagged, drops terminal + non-major', () => {
   const rows = rdb.getActiveMajorIncidentsForSite([G]);
   const subjects = rows.map(r => r.subject).sort();
-  assert.deepEqual(subjects, ['NULLSTATUS', 'OPEN one']);
+  assert.deepEqual(subjects, ['NULLSTATUS', 'OPEN one', 'TEMPLATE MI']);
 });
 
 test('active MI filter: the stale-Closed incident never leaks through', () => {

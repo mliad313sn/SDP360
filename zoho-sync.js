@@ -194,6 +194,7 @@ const EXPECTED_REQUEST_COLS = [
   'Created Time', 'Resolved Time', 'Completed Time', 'Responded Time',
   'Assigned Time', 'Last Updated Time', 'First Response Overdue Status',
   'Technician', 'Requester', 'Category', 'Sub Category', 'Site', 'Group', 'Mode',
+  'Request Template',
 ];
 
 // ── FULL-SYNC CADENCE ─────────────────────────────────────────────
@@ -573,7 +574,13 @@ async function syncRequestData({ force = false } = {}) {
     // than trust Last Updated Time to bump on every such edit, we full-upsert
     // every MI base row each sync — negligible cost, guaranteed fresh. (UDF text
     // itself comes from the separate full MAJOR_INCIDENTS backfill below.)
-    const _isMajorIncident = r => /major\s*incident/i.test(r['Request Type'] || '');
+    // A ticket is a Major Incident when its Request Type OR its SDP Template
+    // says so. The team logs MIs with Template "Major Incident Report" while
+    // Request Type stays "Incident" (e.g. #311587), so Request Type alone misses
+    // them. Both signals are checked here and everywhere MIs are detected.
+    const _tmpl = r => r['Request Template'] || r['Template'] || '';
+    const _isMajorIncident = r =>
+      /major\s*incident/i.test(r['Request Type'] || '') || /major\s*incident/i.test(_tmpl(r));
     const newRows = lastSync
       ? allRows.filter(r => {
           if (_isMajorIncident(r)) return true;   // always refresh MIs
@@ -594,6 +601,7 @@ async function syncRequestData({ force = false } = {}) {
       overdue_status:         !(r['Overdue Status']||'').trim() ? null   // NULL = no SLA rule (automated tickets — matches AP filter)
                               : ['yes','true','1'].includes((r['Overdue Status']||'').toLowerCase().trim()) ? 1 : 0,
       request_type:           r['Request Type']                                 || null,
+      template:               r['Request Template'] || r['Template']            || null,
       service_request:        parseInt(r['Service Request']         ?? '0', 10) || 0,
       is_escalated:           (String(r['IsEscalated'] || '')).toLowerCase() === 'true'
                               || r['IsEscalated'] === 1 || r['IsEscalated'] === '1' ? 1 : 0,

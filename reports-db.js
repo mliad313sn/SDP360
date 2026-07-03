@@ -306,6 +306,11 @@ try { db.exec(`ALTER TABLE sync_metadata ADD COLUMN schema_snapshot   TEXT`);   
 try { db.exec(`ALTER TABLE sync_metadata ADD COLUMN deleted_count     INTEGER DEFAULT 0`); } catch(e) {}
 // request_records: add request_type text column (stores "Major Incident" etc.)
 try { db.exec(`ALTER TABLE request_records ADD COLUMN request_type TEXT`); } catch(e) {}
+// request_records: add template column. The team marks a Major Incident via the
+// SDP "Template" field ("Major Incident Report") while Request Type stays
+// "Incident", so major-incident detection must also read this. Backfilled by a
+// full requests sync.
+try { db.exec(`ALTER TABLE request_records ADD COLUMN template TEXT`); } catch(e) {}
 // request_records: add mode column (submission channel: Email, Web Portal, Phone, etc.)
 try { db.exec(`ALTER TABLE request_records ADD COLUMN mode TEXT`); } catch(e) {}
 // request_records: add impact column (Risk Register filter — 'Enterprise', 'Single department',
@@ -3564,7 +3569,7 @@ function getMajorIncidentsHistory(monthsBack = 12) {
 
   const rows = db.prepare(`
     SELECT * FROM request_records
-    WHERE LOWER(COALESCE(request_type, '')) LIKE '%major%'
+    WHERE (LOWER(COALESCE(request_type, '')) LIKE '%major%' OR LOWER(COALESCE(template, '')) LIKE '%major incident%')
       AND created_time >= ?
     ORDER BY created_time DESC
   `).all(cutoffISO);
@@ -3581,7 +3586,7 @@ async function _getMajorIncidentsHistoryPg(monthsBack = 12) {
   const cutoffISO = cutoff.toISOString();
   const rows = await pgHandle().prepare(`
     SELECT * FROM request_records
-    WHERE LOWER(COALESCE(request_type, '')) LIKE '%major%'
+    WHERE (LOWER(COALESCE(request_type, '')) LIKE '%major%' OR LOWER(COALESCE(template, '')) LIKE '%major incident%')
       AND created_time >= ?
     ORDER BY created_time DESC
   `).all(cutoffISO);
@@ -4383,13 +4388,13 @@ async function _upsertSurveyAnswerBatchPg(rows) {
 const _upsertRequest = db.prepare(`
   INSERT INTO request_records
     (request_id, display_id, subject, request_status, pending_status, overdue_status,
-     request_type, service_request, is_escalated, reopen_count, due_by_time, time_elapsed_ms,
+     request_type, template, service_request, is_escalated, reopen_count, due_by_time, time_elapsed_ms,
      created_time, resolved_time, completed_time, responded_time, assigned_time,
      last_updated_time, first_response_overdue, technician, requester,
      category, sub_category, site, tech_group, mode, impact, fetched_at)
   VALUES
     (@request_id, @display_id, @subject, @request_status, @pending_status, @overdue_status,
-     @request_type, @service_request, @is_escalated, @reopen_count, @due_by_time, @time_elapsed_ms,
+     @request_type, @template, @service_request, @is_escalated, @reopen_count, @due_by_time, @time_elapsed_ms,
      @created_time, @resolved_time, @completed_time, @responded_time, @assigned_time,
      @last_updated_time, @first_response_overdue, @technician, @requester,
      @category, @sub_category, @site, @tech_group, @mode, @impact, datetime('now'))
@@ -4400,6 +4405,7 @@ const _upsertRequest = db.prepare(`
     pending_status         = excluded.pending_status,
     overdue_status         = excluded.overdue_status,
     request_type           = excluded.request_type,
+    template               = excluded.template,
     service_request        = excluded.service_request,
     is_escalated           = excluded.is_escalated,
     reopen_count           = excluded.reopen_count,
@@ -4436,20 +4442,20 @@ const _upsertRequestBatchSqlite = db.transaction((rows) => {
 const _REQUEST_UPSERT_PG = `
   INSERT INTO request_records
     (request_id, display_id, subject, request_status, pending_status, overdue_status,
-     request_type, service_request, is_escalated, reopen_count, due_by_time, time_elapsed_ms,
+     request_type, template, service_request, is_escalated, reopen_count, due_by_time, time_elapsed_ms,
      created_time, resolved_time, completed_time, responded_time, assigned_time,
      last_updated_time, first_response_overdue, technician, requester,
      category, sub_category, site, tech_group, mode, impact, fetched_at)
   VALUES
     (@request_id, @display_id, @subject, @request_status, @pending_status, @overdue_status,
-     @request_type, @service_request, @is_escalated, @reopen_count, @due_by_time, @time_elapsed_ms,
+     @request_type, @template, @service_request, @is_escalated, @reopen_count, @due_by_time, @time_elapsed_ms,
      @created_time, @resolved_time, @completed_time, @responded_time, @assigned_time,
      @last_updated_time, @first_response_overdue, @technician, @requester,
      @category, @sub_category, @site, @tech_group, @mode, @impact, now())
   ON CONFLICT(request_id) DO UPDATE SET
     display_id = EXCLUDED.display_id, subject = EXCLUDED.subject, request_status = EXCLUDED.request_status,
     pending_status = EXCLUDED.pending_status, overdue_status = EXCLUDED.overdue_status,
-    request_type = EXCLUDED.request_type, service_request = EXCLUDED.service_request,
+    request_type = EXCLUDED.request_type, template = EXCLUDED.template, service_request = EXCLUDED.service_request,
     is_escalated = EXCLUDED.is_escalated, reopen_count = EXCLUDED.reopen_count,
     due_by_time = EXCLUDED.due_by_time, time_elapsed_ms = EXCLUDED.time_elapsed_ms,
     created_time = EXCLUDED.created_time, resolved_time = EXCLUDED.resolved_time,
@@ -5696,7 +5702,7 @@ function getActiveMajorIncidentsForSite(groups) {
            resolved_time, last_updated_time, impact, udf_json
     FROM request_records
     WHERE pending_status = 1
-      AND LOWER(COALESCE(request_type, '')) LIKE '%major%'
+      AND (LOWER(COALESCE(request_type, '')) LIKE '%major%' OR LOWER(COALESCE(template, '')) LIKE '%major incident%')
       -- request_status is the FRESH truth for the always-re-upserted MI rows;
       -- pending_status can be stale (=1 on a closed MI). Drop terminal states
       -- so closed / resolved / cancelled incidents never show as "active".
@@ -5725,7 +5731,7 @@ async function _getActiveMajorIncidentsForSitePg(groups) {
            resolved_time, last_updated_time, impact, udf_json
     FROM request_records
     WHERE pending_status = 1
-      AND LOWER(COALESCE(request_type, '')) LIKE '%major%'
+      AND (LOWER(COALESCE(request_type, '')) LIKE '%major%' OR LOWER(COALESCE(template, '')) LIKE '%major incident%')
       -- see sqlite fork: exclude terminal states (stale pending_status guard)
       AND LOWER(COALESCE(request_status, '')) NOT LIKE '%closed%'
       AND LOWER(COALESCE(request_status, '')) NOT LIKE '%resolved%'
