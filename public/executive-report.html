@@ -3408,6 +3408,17 @@ function renderChangeKpis(yr, mo, site) {
   if (_ksEl) {
     _ksEl.textContent = successPct != null ? successPct + '%' : '—';
     _ksEl.title       = success + ' successful of ' + successExecuted + ' executed (excl. cancelled / rejected)';
+    // Sub-label: make a low rate read as "awaiting closure" rather than
+    // "failure". Pending changes (no closure code / outcome filled yet) count
+    // toward NEITHER successful NOR executed — so 0% with 0 failed usually just
+    // means the closures haven't been recorded in SDP yet.
+    const _ksSub = _ksEl.closest('.kpi-card')?.querySelector('.kpi-sub');
+    if (_ksSub) {
+      const _parts = [];
+      if (successExecuted > 0) _parts.push(`${success} of ${successExecuted} executed`);
+      if (_tally.pending  > 0) _parts.push(`${_tally.pending} pending closure`);
+      _ksSub.textContent = _parts.length ? _parts.join(' · ') : 'Completed';
+    }
   }
   setText('kpiFailed',    failed  || '0');
 
