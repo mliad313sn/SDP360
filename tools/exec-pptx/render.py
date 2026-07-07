@@ -1293,20 +1293,11 @@ add_rect(s, Inches(5.1), Inches(3.7), Inches(7.85), Inches(2.2), WHITE, line=RGB
 add_text(s, Inches(5.25), Inches(3.78), Inches(7.7), Inches(0.3),
          f"TOP PAIN POINTS  ({MONTH} survey · {K['csat_dissatisfied']} dissatisfied responses analysed)", size=10, bold=True, color=NAVY)
 
-# Derive top-3 pain themes dynamically from the April survey free-text
-# (filter to Dissatisfied responses; categorize via keyword regex; count by theme)
-# 2026-06-03: Production rewrite — _derive_pain_points used to read a
-# CSV from a dev-only sandbox path that does not exist on prod.
-# Voice themes now expected on the payload at K[voice_themes][pain][].
-# When absent, fall back to a placeholder row so the slide still renders.
-# Phase 5 of the integration roadmap brings LLM clustering — see
-# ITOPS_REPORT_INTEGRATION_GUIDE.md §3.5 and §9.
-# 2026-06-03: Production rewrite — _derive_pain_points used to read a
-# CSV from a dev-only sandbox path that does not exist on prod.
-# Voice themes now expected on the payload at K['voice_themes']['pain'][].
-# When absent, fall back to a placeholder row so the slide still renders.
-# Phase 5 of the integration roadmap brings LLM clustering — see
-# ITOPS_REPORT_INTEGRATION_GUIDE.md sec 3.5 and sec 9.
+# Top-3 pain themes come from K['voice_themes']['pain'] — derived
+# DETERMINISTICALLY in the browser (executive-report.html _buildExecPptxPayload)
+# by tallying the themes[] on the negative survey verbatims. No LLM. When the
+# period has no verbatim themes, _derive_pain_points renders a clean exec line
+# (dissatisfied count → "see commentary", or a positive "no negative feedback").
 def _derive_pain_points():
     colors = [RED, AMBER, BLUE]
     voice = K.get('voice_themes', {})
