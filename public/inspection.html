@@ -187,6 +187,18 @@ textarea{resize:vertical;min-height:60px;font-family:inherit}
 .req{color:var(--bad)}
 
 /* ---------- Inspection items ---------- */
+.cat-domains{
+  display:flex;flex-wrap:wrap;gap:6px;
+  padding:12px 18px 10px;background:var(--panel);
+}
+.cat-domain-btn{
+  font-size:12px;font-weight:700;padding:6px 13px;border-radius:999px;
+  border:1px solid var(--line);background:var(--card,#fff);color:var(--ink-2,#3A4A60);
+  cursor:pointer;font-family:inherit;transition:all .15s;
+}
+.cat-domain-btn:hover{border-color:var(--accent)}
+.cat-domain-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.cat-domain-btn .dn{opacity:.7;font-weight:600;margin-left:5px}
 .cat-tabs{
   display:flex;flex-wrap:wrap;gap:4px;
   padding:0 18px 0;background:var(--panel);
@@ -964,7 +976,7 @@ body.submission-locked .submit-row::before{
   body{background:#fff;font-size:11px}
   .app-header{position:static;padding:10px 0;background:#fff;color:#000;border-bottom:2px solid #000}
   .app-header *{color:#000 !important}
-  .header-actions,.toolbar,.cat-tabs,.photo-zone,.btn,.lightbox,.filter-bar,.print-opts,.action-btn,.item-actions,.sig-controls,.validation,.progress-wrap,.install-banner,.share-menu{display:none !important}
+  .header-actions,.toolbar,.cat-tabs,.cat-domains,.photo-zone,.btn,.lightbox,.filter-bar,.print-opts,.action-btn,.item-actions,.sig-controls,.validation,.progress-wrap,.install-banner,.share-menu{display:none !important}
   .cat-panel{display:block !important;padding:0;margin-bottom:14px;page-break-inside:avoid}
   .section{box-shadow:none;border:1px solid #000;page-break-inside:avoid;margin-bottom:10px}
   .section-head{background:#000 !important;color:#fff !important;padding:6px 10px}
@@ -1258,6 +1270,7 @@ body.submission-locked .submit-row::before{
       </div>
     </div>
 
+    <div class="cat-domains" id="catDomains"></div>
     <div class="cat-tabs" id="catTabs"></div>
     <div id="catPanels"></div>
   </section>
@@ -1947,6 +1960,54 @@ function renderChecklist(){
   });
 
   wireChecklistEvents();
+  renderDomainBar();
+  applyDomainFilter(_activeDomain);
+}
+
+/* ============================================================
+   DOMAIN FILTER — group the 17 category tabs into inspection
+   "types" (domains) so the inspector can focus on one area.
+   Pure display filter over CATEGORIES — no data-model change.
+   ============================================================ */
+const CAT_DOMAINS = [
+  { id: 'all',     label: 'All',               cats: null },
+  { id: 'it',      label: 'IT & Datacenter',   cats: ['pwr','net','srv','sto','rack','bcp','env','doc'] },
+  { id: 'telecom', label: 'Telecom & Comms',   cats: ['tower','radio','cell','ug','cctv'] },
+  { id: 'safety',  label: 'Safety & Physical', cats: ['fire','sec','hse'] },
+  { id: 'ot',      label: 'OT & Ops',          cats: ['op'] },
+];
+let _activeDomain = 'all';
+
+function _domainCount(dom){
+  if (!dom.cats) return CATEGORIES.length;
+  return CATEGORIES.filter(c => dom.cats.includes(c.id)).length;
+}
+function renderDomainBar(){
+  const bar = document.getElementById('catDomains');
+  if (!bar) return;
+  bar.innerHTML = CAT_DOMAINS.map(d =>
+    `<button class="cat-domain-btn${d.id===_activeDomain?' active':''}" data-domain="${d.id}">${d.label}<span class="dn">${_domainCount(d)}</span></button>`
+  ).join('');
+  bar.querySelectorAll('.cat-domain-btn').forEach(b =>
+    b.addEventListener('click', () => applyDomainFilter(b.dataset.domain))
+  );
+}
+function applyDomainFilter(domainId){
+  const dom = CAT_DOMAINS.find(d => d.id === domainId) || CAT_DOMAINS[0];
+  _activeDomain = dom.id;
+  const allow = dom.cats; // null = show all
+  document.querySelectorAll('#catDomains .cat-domain-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.domain === _activeDomain)
+  );
+  let firstVisible = null;
+  document.querySelectorAll('.cat-tab').forEach(tab => {
+    const show = !allow || allow.includes(tab.dataset.cat);
+    tab.style.display = show ? '' : 'none';
+    if (show && !firstVisible) firstVisible = tab;
+  });
+  // If the active tab was just hidden, jump to the first visible category.
+  const activeTab = document.querySelector('.cat-tab.active');
+  if ((!activeTab || activeTab.style.display === 'none') && firstVisible) firstVisible.click();
 }
 
 /* ============================================================
