@@ -1189,9 +1189,17 @@ function groupMatch(rowGroup) {
 
 // ── Change management group match (used by change-side charts) ────────────────
 function changeGroupMatch(rowGroup) {
-  if (!_activeChangeGroups || !_activeChangeGroups.length) return true;  // all groups
+  // Effective change scope: an explicit CHANGES GRP selection wins; otherwise
+  // the changes INHERIT the TICKETS GRP selection (_activeGroups) so picking
+  // "Operations" for tickets also scopes the changes — the CHANGES GRP filter
+  // is easy to forget and its Operations preset is often empty. Only when
+  // neither is set do we show all change groups.
+  const scope = (_activeChangeGroups && _activeChangeGroups.length) ? _activeChangeGroups
+              : (_activeGroups && _activeGroups.length) ? _activeGroups
+              : null;
+  if (!scope) return true;  // all groups
   const g = (rowGroup || '').trim().toLowerCase();
-  return _activeChangeGroups.some(ag => ag.toLowerCase() === g);
+  return scope.some(ag => String(ag).toLowerCase() === g);
 }
 
 // Rebuilt 2026-06-04 to mirror populateGroupSelect(): renders the list
@@ -7171,16 +7179,22 @@ function _buildExecPptxPayload() {
   // preview via changeGroupMatch). null/empty = all groups. This is what
   // keeps ERP/Apps changes (e.g. "Sunshine Phase 3") out of the Operations
   // deck when the CHANGES GRP dropdown is scoped to Operations.
-  // Group scope: explicit CHANGES GRP selection → else Operations changes
-  // preset (consistent with how tickets default to the Operations preset).
-  const _chgScope = (_activeChangeGroups && _activeChangeGroups.length)
-    ? _activeChangeGroups
+  // Change scope: explicit CHANGES GRP → else inherit the TICKETS GRP
+  // selection (_activeGroups) → else the Operations changes preset (if any) →
+  // else all. Keeps the whole slide-8 change section (donut, tiles,
+  // recent_changes) in the same group scope the user picked for the deck.
+  const _chgScope =
+      (_activeChangeGroups && _activeChangeGroups.length) ? _activeChangeGroups
+    : (_activeGroups && _activeGroups.length) ? _activeGroups
     : ((typeof CHANGE_GROUP_PRESETS !== 'undefined'
         && CHANGE_GROUP_PRESETS.Operations && CHANGE_GROUP_PRESETS.Operations.length)
         ? CHANGE_GROUP_PRESETS.Operations : null);
   const _chgGroupOk = (c) => {
     if (!_chgScope) return true;   // no scope available → all groups
-    const g = (c['Group'] || c['Group Name'] || c.group || c.group_name || '').trim().toLowerCase();
+    // Read the same group fields as the on-screen path — SDP change views put
+    // the group under 'Group' OR 'Assigned Group'; missing either would wrongly
+    // drop the row once a scope is active.
+    const g = (c['Group'] || c['Assigned Group'] || c['Group Name'] || c.group || c.group_name || '').trim().toLowerCase();
     return _chgScope.some(ag => String(ag).trim().toLowerCase() === g);
   };
   const chgInMonth = chgRows.filter(c => {
