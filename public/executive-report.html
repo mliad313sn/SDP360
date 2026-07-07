@@ -905,7 +905,7 @@
         <div class="commentary-field empty" id="f-actions" contenteditable="false">Click ✏ Edit to add 3-6 action items. Format: one per line. Optional priority prefix '[P1]' / '[P2]' / '[P3]' renders as a coloured badge. Optional owner suffix ' — Owner: NAME' shown in muted grey.
 
 Example:
-[P1] Improve FRT SLA to ≥90% — Owner: Service Desk Manager
+[P1] Improve FRT SLA to ≥80% — Owner: Service Desk Manager
 [P1] Clear 60-day backlog at Abidjan IT — Owner: Site IT Leads
 [P2] Reduce emergency change rate below 5% — Owner: Change Manager</div>
       </div>
@@ -4959,7 +4959,7 @@ REQUIRED behaviour:
   "progress":  "[4 short bullet lines (use '•' marker, one per line) summarising what went well: each bullet ≤ 18 words, anchored in a metric or named site/initiative. Examples: '• Closure rate +5pp MoM, driven by Hounde + ITY catching up on Q1 backlog.' '• MTN Lafigué replacement link signed — meeting requested w/c June 9.']",
   "issues":   "[3-5 bullet lines on risks and blockers requiring exec visibility: each ≤ 22 words, name the impact and the party blocking. Examples: '• 226 tickets >60d open — 38 at Sabodala carrying load; root cause = procurement lead time on switches.' '• 3 Major Incidents (May) include SML-CENT-01 server access — RCA pending, exposes single point of failure.']",
   "nextperiod": "[3-5 bullet lines naming the strategic activities planned for next period: each ≤ 20 words. Use forward-looking language. Examples: '• Roll out automated ticket-routing rules in May to reduce reassignments from 0.7 → 0.4.' '• Q3 onboarding for new Site IT Lead at Sabodala — closes single point of failure on 24/7 coverage.']",
-  "actions":  "[3-6 lines, ONE per line, format: '[P1] action verb-led — Owner: NAME'. Priorities: P1 = critical/this month, P2 = high/next month, P3 = nice to have. Tie each action to a specific KPI gap or risk above. Examples:\\n[P1] Close FRT SLA gap to ≥90% by enforcing 1-hour acknowledgement SLA — Owner: Service Desk Manager\\n[P1] Clear 60-day backlog at Abidjan IT (38 tickets) — Owner: Site IT Lead Abidjan\\n[P2] Deploy RCA discipline check on all P1+P2 incidents within 5 working days — Owner: Major Incident Manager\\n[P3] Pilot auto-routing for incidents at Hounde — Owner: Process Lead]"
+  "actions":  "[3-6 lines, ONE per line, format: '[P1] action verb-led — Owner: NAME'. Priorities: P1 = critical/this month, P2 = high/next month, P3 = nice to have. Tie each action to a specific KPI gap or risk above. Examples:\\n[P1] Close FRT SLA gap to ≥80% by enforcing 1-hour acknowledgement SLA — Owner: Service Desk Manager\\n[P1] Clear 60-day backlog at Abidjan IT (38 tickets) — Owner: Site IT Lead Abidjan\\n[P2] Deploy RCA discipline check on all P1+P2 incidents within 5 working days — Owner: Major Incident Manager\\n[P3] Pilot auto-routing for incidents at Hounde — Owner: Process Lead]"
 }
 
 Rules:
@@ -5950,9 +5950,10 @@ async function exportPptx() {
     const resSlaPct = (slaComp !== 'N/A') ? Math.round(parseFloat(slaComp)) : null;
     const frtTxt = frtSlaPct != null ? frtSlaPct + '%' : 'N/A';
     const resTxt = resSlaPct != null ? resSlaPct + '%' : 'N/A';
-    const frtCol = frtSlaPct != null && frtSlaPct >= 90 ? '16A34A' : 'D97706';
+    const FRT_TARGET = 80;   // FRT SLA target is 80% (org standard), not 90% like Res SLA
+    const frtCol = frtSlaPct != null && frtSlaPct >= FRT_TARGET ? '16A34A' : 'D97706';
     const resCol = resSlaPct != null && resSlaPct >= 90 ? '16A34A' : 'D97706';
-    const frtIcon = frtSlaPct != null && frtSlaPct >= 90 ? ' ✓' : '  ⚠';
+    const frtIcon = frtSlaPct != null && frtSlaPct >= FRT_TARGET ? ' ✓' : '  ⚠';
     const resIcon = resSlaPct != null && resSlaPct >= 90 ? ' ✓' : '  ⚠';
 
     // ── RIGHT TOP: TWO SLA tiles, same size, side-by-side ──
@@ -5961,7 +5962,7 @@ async function exportPptx() {
     s3.addShape(pres.shapes.RECTANGLE, { x:7.41, y:1.49, w:0.05, h:1.02, fill:{color:frtCol},   line:{color:frtCol} });
     s3.addText('FRT SLA',                   { x:7.51, y:1.57, w:1.37, h:0.13, fontSize:8.5, bold:true, color:'6B7280', fontFace:FONT_BODY, charSpacing:1, margin:0, valign:'middle' });
     s3.addText(frtTxt,                       { x:7.51, y:1.74, w:1.37, h:0.40, fontSize:22,  bold:true, color:frtCol,   fontFace:FONT_HDR,                margin:0, valign:'middle' });
-    s3.addText('Target ≥ 90%' + frtIcon,    { x:7.51, y:2.20, w:1.37, h:0.20, fontSize:8,             color:frtCol,   fontFace:FONT_BODY,                margin:0, valign:'middle' });
+    s3.addText('Target ≥ 80%' + frtIcon,    { x:7.51, y:2.20, w:1.37, h:0.20, fontSize:8,             color:frtCol,   fontFace:FONT_BODY,                margin:0, valign:'middle' });
 
     // Res SLA tile (NEW — same size as FRT, to the right)
     s3.addShape(pres.shapes.RECTANGLE, { x:9.00, y:1.49, w:1.49, h:1.02, fill:{color:'FFFFFF'}, line:{color:'E5E7EB',pt:0.5}, rectRadius:0.04 });
