@@ -7085,8 +7085,13 @@ function _buildExecPptxPayload() {
     if (!monthlyMap[k]) monthlyMap[k] = { yyyy, M, inbound:0, closed:0, slaV:0, frtV:0, email:0, webform:0 };
     const b = monthlyMap[k];
     b.inbound++;
-    if (/closed|cancelled|resolved|confirm/i.test(t['Request Status']||'')) b.closed++;
-    if (t['Overdue Status']==='1') b.slaV++;
+    const _tClosed = /closed|cancelled|resolved|confirm/i.test(t['Request Status']||'');
+    if (_tClosed) b.closed++;
+    // Resolution-SLA violation: use the canonical isResOverdue() (closed-only,
+    // timestamp-aware) so the 12-month trend matches the Res-SLA tile. The old
+    // `Overdue Status === '1'` shortcut never matched → slaV stayed 0 → the line
+    // was pinned at 100%.
+    if (isResOverdue(t)) b.slaV++;
     if ((t['First Response Overdue Status']||'')==='true') b.frtV++;
     const mode = (t['Mode']||'').trim();
     if (mode === 'E-Mail' || mode === 'Email') b.email++;
@@ -7099,7 +7104,7 @@ function _buildExecPptxPayload() {
       label:   `${MN[b.M-1]} ${String(b.yyyy).slice(-2)}`,
       inbound: b.inbound,
       closed:  b.closed,
-      res_sla: b.inbound ? Math.round((1 - b.slaV/b.inbound)*1000)/10 : 0,
+      res_sla: b.closed  ? Math.round((b.closed - b.slaV)/b.closed*1000)/10 : 0,   // ITSM: (closed & not overdue)/closed — matches the Res-SLA tile
       frt_sla: b.inbound ? Math.round((1 - b.frtV/b.inbound)*1000)/10 : 0,
     }));
   // Separate series — same 12 months but with channel-share % per month

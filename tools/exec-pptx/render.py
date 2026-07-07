@@ -387,12 +387,14 @@ def _draw_sla_trend(ax):
     # Template palette: Resolution SLA = green, FRT SLA = navy.
     ax.plot(x, res_sla, color='#2E8540', marker='o', linewidth=2.2, label='Resolution SLA')
     ax.plot(x, frt_sla, color='#1F3D5C', marker='o', linewidth=2.2, label='FRT SLA')
-    ax.axhline(y=90, color='#9CA3AF', linestyle='--', linewidth=1,  alpha=0.7, label='Target 90%')
+    # Distinct targets: Resolution SLA 90%, FRT SLA 80%.
+    ax.axhline(y=90, color='#2E8540', linestyle='--', linewidth=1, alpha=0.5, label='Res target 90%')
+    ax.axhline(y=80, color='#1F3D5C', linestyle=':',  linewidth=1, alpha=0.6, label='FRT target 80%')
     ax.set_ylim(0, 100)
     ax.set_xticks(x); ax.set_xticklabels(labels, rotation=35, ha='right', fontsize=7)
     ax.spines[['top', 'right']].set_visible(False)
     ax.grid(axis='y', alpha=0.2, linestyle='--')
-    ax.legend(fontsize=8, loc='lower left', frameon=False, ncol=3)
+    ax.legend(fontsize=7, loc='lower left', frameon=False, ncol=2)
     ax.tick_params(axis='y', labelsize=8)
     # Y-axis as %
     from matplotlib.ticker import PercentFormatter as _PF
@@ -999,8 +1001,11 @@ x,y = get_pos(0,3); kpi_tile(s,x,y,TILE_W,TILE_H,"OPEN BACKLOG", f"{K['open_back
 # scorecard's ticket-based proxy (closed, not escalated, not reopened — no longer
 # the empty CSAT-derived value), and SLA Violations = 100 - Resolution SLA.
 _sla_viol = max(0.0, 100 - K.get('sla_compliance', 0))
+# First-Response-Time SLA target is 80% (org standard), NOT 90% like Resolution SLA.
+_FRT_TARGET = 80
+_frt_ok = (K.get('frt_sla', 0) or 0) >= _FRT_TARGET
 x,y = get_pos(1,0); kpi_tile(s,x,y,TILE_W,TILE_H,"FCR RATE", f"{K['fcr_rate']:.1f}%", "Closed, no escalation / reopen", accent=GREEN, value_size=24);      tile_delta(x,y,_d_fcr[0],  _d_fcr[1])
-x,y = get_pos(1,1); kpi_tile(s,x,y,TILE_W,TILE_H,"FRT SLA", f"{K['frt_sla']:.1f}%", "Target ≥ 90%  ⚠", accent=RED, value_size=24);                         tile_delta(x,y,_d_frt[0],  _d_frt[1])
+x,y = get_pos(1,1); kpi_tile(s,x,y,TILE_W,TILE_H,"FRT SLA", f"{K['frt_sla']:.1f}%", f"Target ≥ {_FRT_TARGET}%  {'✓' if _frt_ok else '⚠'}", accent=(GREEN if _frt_ok else RED), value_size=24); tile_delta(x,y,_d_frt[0],  _d_frt[1])
 x,y = get_pos(1,2); kpi_tile(s,x,y,TILE_W,TILE_H,"AVG RESOLUTION", f"{K['avg_res_days']}d", "MTTR — all tickets", accent=BLUE, value_size=24);              tile_delta(x,y,_d_res[0],  _d_res[1])
 x,y = get_pos(1,3); kpi_tile(s,x,y,TILE_W,TILE_H,"SLA VIOLATIONS", f"{_sla_viol:.1f}%", "Missed Resolution SLA", accent=ORANGE, value_color=NAVY, value_size=24)
 
@@ -1027,7 +1032,7 @@ if not _exec_comment:
         f"{K.get('mi_high', 0)} P2). {K.get('changes_total', 0)} new changes; "
         f"emergency rate {_emerg_pct:.1f}%. "
         f"Focus: {'close ' + format(_sla_gap_pp, '.1f') + 'pp gap to 90% Res SLA' if _sla_gap_pp > 0 else 'maintain Res SLA above target'}; "
-        f"lift FRT to 90%."
+        f"lift FRT to 80%."
     )
 add_rect(s, Inches(0.4), Inches(5.9), Inches(12.55), Inches(1.1), DARK_NAVY)
 add_text(s, Inches(0.6), Inches(5.97), Inches(12.2), Inches(0.96),
@@ -1048,7 +1053,8 @@ s.shapes.add_picture(_chart('volume_trend', figsize=(8.5, 4.5), data_fn=_draw_vo
 
 # Right: TWO KPI tiles side-by-side (FRT SLA + Res. SLA), then SLA trend chart below
 kpi_tile(s, Inches(9.2), Inches(1.55), Inches(1.80), Inches(1.4),
-         "FRT SLA", f"{K['frt_sla']:.1f}%", "Target ≥ 90%  ⚠", accent=RED, value_size=24)
+         "FRT SLA", f"{K['frt_sla']:.1f}%", f"Target ≥ {_FRT_TARGET}%  {'✓' if _frt_ok else '⚠'}",
+         accent=(GREEN if _frt_ok else RED), value_size=24)
 kpi_tile(s, Inches(11.10), Inches(1.55), Inches(1.80), Inches(1.4),
          "RES. SLA", f"{K['sla_compliance']:.0f}%", "Target ≥ 90%  ⚠", accent=AMBER, value_color=NAVY, value_size=24)
 
@@ -1069,7 +1075,7 @@ if not _sla_comment:
         f"Resolution SLA {K['sla_compliance']:.0f}% ({_sla_mom_s} MoM) — "
         f"{'above 90% target ✓' if K['sla_compliance'] >= 90 else 'within ' + format(90 - K['sla_compliance'], '.1f') + 'pp of the 90% target'}. "
         f"FRT SLA at {K['frt_sla']:.1f}% ({_frt_mom_s}) "
-        f"{'is the main gap' if K['frt_sla'] < 90 else 'meets target'}. "
+        f"{'meets the 80% target ✓' if _frt_ok else 'is below the 80% target'}. "
         f"Software/Apps ({_swa:,} tickets) and IT Infrastructure ({_iti:,}) are "
         f"{_cat_share:.0f}% of volume. "
         f"Action: {'close the SLA gap to 90% and ' if K['sla_compliance'] < 90 else ''}"
