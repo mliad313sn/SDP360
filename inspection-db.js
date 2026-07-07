@@ -1111,6 +1111,39 @@ function listActions(opts = {}) {
   return db.prepare(sql).all(params);
 }
 
+/**
+ * Full-table export for the "Download Excel" feature — every inspection,
+ * every finding, every corrective action across ALL inspections (no filter,
+ * no LIMIT). Excludes the state_json blob (photos/signatures live there and
+ * would bloat the workbook). Backend-agnostic: `await handle.prepare(sql).all()`
+ * resolves for both the sync sqlite handle and the async pg handle.
+ */
+async function exportRows() {
+  const H = INSPECTION_BACKEND === 'postgres' ? pgHandle() : getDB();
+  const inspections = await H.prepare(`
+    SELECT id, label, inspection_date, inspection_time, inspection_type,
+           site_code, area_code, area_text, specific_location,
+           inspector_name, inspector_role, accompanied_by, weather,
+           last_inspection_date, scope, overall_risk, operational_impact,
+           key_observations, positive_findings, distribution,
+           status, created_by, created_at, updated_at, submitted_at
+      FROM insp_inspections
+     ORDER BY inspection_date DESC, id`).all();
+  const findings = await H.prepare(`
+    SELECT f.inspection_id, i.label AS inspection_label, i.site_code,
+           i.inspection_date, f.category, f.item_index, f.item_code,
+           f.item_text_en, f.status, f.notes
+      FROM insp_findings f JOIN insp_inspections i ON i.id = f.inspection_id
+     ORDER BY i.inspection_date DESC, f.inspection_id, f.category, f.item_index`).all();
+  const actions = await H.prepare(`
+    SELECT a.id, a.inspection_id, i.label AS inspection_label, i.site_code,
+           i.inspection_date, a.ord, a.description, a.linked_item, a.priority,
+           a.owner, a.due_date, a.status, a.notes, a.created_at, a.closed_at
+      FROM insp_actions a JOIN insp_inspections i ON i.id = a.inspection_id
+     ORDER BY CASE WHEN a.status IN ('Closed','Cancelled') THEN 1 ELSE 0 END, a.due_date, a.id`).all();
+  return { inspections, findings, actions };
+}
+
 function resetLookups() {
   if (INSPECTION_BACKEND === 'postgres') return _resetLookupsPg();
   const db = getDB();
@@ -1563,6 +1596,7 @@ module.exports = {
   deleteInspection,
   aggregate,
   listActions, addActionUpdate, listActionUpdates, getActionParent,
+  exportRows,
   resetLookups,
   siteNameToCode,
   parseSiteCode,

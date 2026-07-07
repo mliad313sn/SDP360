@@ -1,5 +1,7 @@
 'use strict';
 
+const tableExcel = require('../services/tableExcel');
+
 // ─────────────────────────────────────────────────────────────────────────
 // Inspection routes — extracted from server.js (split-server.js PILOT, 2026-06-21).
 //
@@ -196,6 +198,28 @@ module.exports = function inspectionRoutes(deps) {
       res.json({ ok: true });
     } catch(e) {
       console.error('[Inspection] action update error:', e.message);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // GET /api/inspection/export.xlsx — full-table Excel dump (Inspections /
+  // Findings / Actions sheets). admin+ (bulk data export). MUST be registered
+  // BEFORE /api/inspection/:id (ids are TEXT → :id would swallow "export.xlsx").
+  router.get('/api/inspection/export.xlsx', requireReportSession, requireAdmin, async (req, res) => {
+    try {
+      if (!inspectionDb) return res.status(503).json({ error: 'Inspection module not available' });
+      const data = await inspectionDb.exportRows();
+      const buf = tableExcel.buildWorkbook([
+        { name: 'Inspections', rows: data.inspections },
+        { name: 'Findings',    rows: data.findings },
+        { name: 'Actions',     rows: data.actions },
+      ]);
+      const stamp = new Date().toISOString().slice(0, 10);
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename="Inspections_full_${stamp}.xlsx"`);
+      res.send(buf);
+    } catch (e) {
+      console.error('[Inspection] excel export error:', e.message);
       res.status(500).json({ error: e.message });
     }
   });

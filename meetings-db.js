@@ -1311,6 +1311,35 @@ function listActions(opts = {}) {
   params.offset = opts.offset || 0;
   return db.prepare(sql).all(params);
 }
+
+/**
+ * Full-table export for the "Download Excel" feature — every PV, issue,
+ * action and project across ALL meetings (no filter, no LIMIT). Backend-
+ * agnostic: `await handle.prepare(sql).all()` resolves for both the sync
+ * sqlite handle and the async pg handle. Attachments (base64 blobs) and
+ * lookup tables are intentionally excluded.
+ */
+async function exportRows() {
+  const H = MEETINGS_BACKEND === 'postgres' ? pgHandle() : getDB();
+  const meetings = await H.prepare(`SELECT * FROM md_meetings ORDER BY meeting_date DESC, id`).all();
+  const issues = await H.prepare(`
+    SELECT iss.*, m.reference AS meeting_reference, m.site_code AS site_code,
+           m.department AS department, m.meeting_date AS meeting_date
+      FROM md_issues iss JOIN md_meetings m ON m.id = iss.meeting_id
+     ORDER BY m.meeting_date DESC, iss.meeting_id, iss.ord`).all();
+  const actions = await H.prepare(`
+    SELECT a.*, m.reference AS meeting_reference, m.site_code AS site_code,
+           m.department AS department, m.meeting_date AS meeting_date
+      FROM md_actions a JOIN md_meetings m ON m.id = a.meeting_id
+     ORDER BY m.meeting_date DESC, a.meeting_id, a.ord`).all();
+  const projects = await H.prepare(`
+    SELECT p.*, m.reference AS meeting_reference, m.site_code AS site_code,
+           m.department AS department, m.meeting_date AS meeting_date
+      FROM md_meeting_projects p JOIN md_meetings m ON m.id = p.meeting_id
+     ORDER BY m.meeting_date DESC, p.meeting_id, p.ord`).all();
+  return { meetings, issues, actions, projects };
+}
+
 async function _listActionsPg(opts = {}) {
   const where = [], params = {};
   if (opts.site)       { where.push('lower(m.site_code) = lower(@site)');        params.site = opts.site; }
@@ -2719,6 +2748,7 @@ module.exports = {
   listMeetings, countMeetings, getMeeting, saveMeeting, deleteMeeting, getMeetingStatus,
   listIssues, listEscalations, addIssueUpdate,
   listActions, addActionUpdate, listActionUpdates, getActionParent, getIssueParent,
+  exportRows,
   aggregate, compliance, insights,
   previousMeeting, compareDepartment,
   resetLookups,

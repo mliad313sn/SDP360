@@ -137,6 +137,9 @@
 
   <section class="mi-hero">
     <div class="mi-hero__actions">
+      <button class="mi-btn" id="miExcel" title="Download EVERY inspection, finding and corrective action as an Excel workbook (all sites, ignores filters). Admin only.">
+        <i class="icon icon-download"></i> Excel (full data)
+      </button>
       <button class="mi-btn mi-btn--pptx" id="miExport" title="Export the current filtered view as a PowerPoint deck (KPIs, charts, and the priority action list).">
         <i class="icon icon-download"></i> Export PPTX
       </button>
@@ -672,6 +675,23 @@
     clearTimeout(_qT); _qT = setTimeout(() => { state.filters.q = e.target.value.trim(); loadAll(); }, 250);
   });
   document.getElementById('miExport').addEventListener('click', exportPptx);
+  // Excel full-table export (admin+). Hidden for non-admins; server also enforces.
+  (function () {
+    const b = document.getElementById('miExcel'); if (!b) return;
+    if (!(window.__userHasRole && window.__userHasRole('admin'))) { b.style.display = 'none'; return; }
+    b.addEventListener('click', async () => {
+      b.disabled = true; const lbl = b.innerHTML; b.textContent = 'Preparing…';
+      try {
+        const r = await fetch('/api/inspection/export.xlsx', { credentials: 'same-origin', headers: authHeaders() });
+        if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || ('HTTP ' + r.status)); }
+        const url = URL.createObjectURL(await r.blob());
+        const a = document.createElement('a'); a.href = url; a.download = 'Inspections_full.xlsx';
+        document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 5000);
+        toast('Excel downloaded');
+      } catch (e) { toast('Excel export failed: ' + (e.message || ''), true); }
+      finally { b.disabled = false; b.innerHTML = lbl; }
+    });
+  })();
 
   loadAll().catch(err => {
     console.error('[insp-actions] load failed:', err);

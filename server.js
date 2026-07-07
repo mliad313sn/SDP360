@@ -5921,6 +5921,31 @@ app.get('/api/meetings/escalations', requireReportSession, async (req, res) => {
   }
 });
 
+// GET /api/meetings/export.xlsx — full-table Excel dump (Meetings / Issues /
+// Actions / Projects sheets). admin+ (bulk data export). The /api/meetings/:id
+// route's non-numeric guard (parseInt("export.xlsx")=NaN → next()) lets this
+// specific path resolve here regardless of registration order.
+app.get('/api/meetings/export.xlsx', requireReportSession, requireAdmin, async (req, res) => {
+  try {
+    if (!meetingsDb) return res.status(503).json({ error: 'Meetings module not available' });
+    const tableExcel = require('./services/tableExcel');
+    const data = await meetingsDb.exportRows();
+    const buf = tableExcel.buildWorkbook([
+      { name: 'Meetings', rows: data.meetings },
+      { name: 'Issues',   rows: data.issues },
+      { name: 'Actions',  rows: data.actions },
+      { name: 'Projects', rows: data.projects },
+    ]);
+    const stamp = new Date().toISOString().slice(0, 10);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="Meetings_full_${stamp}.xlsx"`);
+    res.send(buf);
+  } catch(e) {
+    console.error('[Meetings] excel export error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // GET /api/meetings/actions — flat Actions Register across all PVs.
 // viewer+. Filters: site, department, status, owner, overdue, from, to, q.
 // Registered BEFORE /:id; the numeric guard on /:id also lets "actions" fall
