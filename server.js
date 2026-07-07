@@ -981,6 +981,7 @@ let _execCache = { at: 0, body: null };
 // aiCall(body) => Promise<string>: wraps the provider switch and returns the
 // model's raw text. Used ONLY off the request path (MI-summary regeneration).
 async function _execAiCall(body) {
+  if (AI_DISABLED) { const e = new Error('AI analysis is disabled'); e.status = 503; throw e; }
   const withModel = { ...body, model: AI_ALLOWED_MODELS[0] };  // cheapest allowed (haiku); ignored on the local path
   const data = AI_PROVIDER === 'local' ? await _aiCallLocal(withModel) : await _aiCallAnthropic(withModel);
   return (data && data.content && data.content[0] && data.content[0].text) || '';
@@ -991,6 +992,7 @@ async function _execAiCall(body) {
 // stacking regens when the page is hit repeatedly within a warm-up window.
 let _miRegenInFlight = false;
 function _scheduleMiSummaries(stale) {
+  if (AI_DISABLED) return;   // no live model → exec-view keeps its non-AI MI text
   if (_miRegenInFlight || !stale || !stale.length) return;
   _miRegenInFlight = true;
   const rdb2 = require('./reports-db');
@@ -3580,18 +3582,30 @@ app.get('/api/data/ageing-by-group', requireReportSession, async (req, res) => {
 //
 // PROVIDER ROUTING (added 2026-05-25 for on-prem privacy):
 // `AI_PROVIDER` in .env selects the backend that actually runs the prompt.
-//   'anthropic' (default) → https://api.anthropic.com/v1/messages
+//   'off' (DEFAULT, since 2026-07-07) → cloud/LLM analysis DISABLED. The
+//                           browser's "Analyze & Save" call gets a clean 503
+//                           and the UI falls back to the on-device deterministic
+//                           "Analyze (Quick)" engine. No ITSM data leaves the box.
 //   'local'               → http://localhost:11434/v1/chat/completions (Ollama
-//                           or any other OpenAI-compatible server)
+//                           or any other OpenAI-compatible server) — on-prem LLM.
+//   'anthropic'           → https://api.anthropic.com/v1/messages — CLOUD. Only
+//                           runs when explicitly opted in via AI_PROVIDER=anthropic.
 // The browser is unaware of which provider runs — it always sends an
 // Anthropic-shape body. The server translates request + response when
-// routing to a local OpenAI-compatible backend. Field user can switch
-// providers with one env edit + pm2 reload — no client deploy needed.
+// routing to a local OpenAI-compatible backend. Switch providers with one env
+// edit + pm2 restart — no client deploy needed.
 //
-// Why local: ITSM data (ticket subjects, root causes, customer voice,
-// incident lessons-learned) shouldn't leave the corporate network.
-// Setting AI_PROVIDER=local keeps the entire analysis on-prem.
-const AI_PROVIDER = (process.env.AI_PROVIDER || 'anthropic').toLowerCase();
+// Why off by default: ITSM data (ticket subjects, root causes, customer voice,
+// incident lessons-learned) shouldn't leave the corporate network. The default
+// is now 'off' so a plain deploy never calls the Anthropic cloud API; set
+// AI_PROVIDER=local for an on-prem LLM, or AI_PROVIDER=anthropic to opt back in.
+const AI_PROVIDER = (process.env.AI_PROVIDER || 'off').toLowerCase();
+// Truthy when no live model runs — both the interactive analyze route and the
+// off-request MI-summary regeneration short-circuit on this.
+const AI_DISABLED = AI_PROVIDER === 'off' || AI_PROVIDER === 'disabled' || AI_PROVIDER === 'none';
+console.log(AI_DISABLED
+  ? '[AI] provider=off — cloud/LLM analysis DISABLED (deterministic "Analyze (Quick)" only)'
+  : `[AI] provider=${AI_PROVIDER}`);
 
 // Cloud provider config
 const AI_ALLOWED_MODELS = [
@@ -3808,6 +3822,13 @@ async function _aiCallLocal(body) {
 
 app.post('/api/ai/analyze', requireReportSession, requireRole('report-author'), aiLimiter, express.json({ limit: '64kb' }), async (req, res) => {
   const body = req.body || {};
+
+  // Cloud/LLM analysis switched off (AI_PROVIDER=off, the default). Return a
+  // clean 503 so the client falls back to the deterministic "Analyze (Quick)"
+  // engine instead of surfacing a scary error.
+  if (AI_DISABLED) {
+    return res.status(503).json({ error: 'AI analysis is disabled on this server. Use "Analyze (Quick)" for the on-device deterministic engine.' });
+  }
 
   // Validate messages array (provider-agnostic)
   if (!Array.isArray(body.messages) || body.messages.length === 0) {
