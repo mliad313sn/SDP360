@@ -1322,8 +1322,8 @@ body.submission-locked .submit-row::before{
             <th style="width:24%">Action / Description</th>
             <th style="width:11%">Linked Item</th>
             <th style="width:9%">Priority</th>
-            <th style="width:13%">Owner</th>
-            <th style="width:10%">Target Date</th>
+            <th style="width:13%">Owner <span style="color:#D90038" title="Required before submit">*</span></th>
+            <th style="width:10%">Target Date <span style="color:#D90038" title="Required before submit">*</span></th>
             <th style="width:10%">Status</th>
             <th style="width:13%">Notes</th>
             <th style="width:30px"></th>
@@ -2753,6 +2753,11 @@ function removeAction(i){
   autosave();
 }
 
+// Owner + Target Date are mandatory before submit — flag empty ones in red
+// so the gap is obvious while filling the form (validated in validateForSubmit).
+function _reqStyle(v){ return (v && String(v).trim()) ? '' : 'border-color:#D90038;background:#FFF6F6;'; }
+function _markReq(el){ const ok = !!(el.value && el.value.trim()); el.style.borderColor = ok ? '' : '#D90038'; el.style.background = ok ? '' : '#FFF6F6'; }
+
 function renderActions(){
   const tbody = document.getElementById('actionsBody');
   if (state.actions.length === 0) {
@@ -2770,8 +2775,8 @@ function renderActions(){
         </select>
         <div style="margin-top:4px"><span class="priority-pill priority-${a.priority.toLowerCase()}">${a.priority}</span></div>
       </td>
-      <td data-l="Owner"><input type="text" oninput="state.actions[${i}].owner=this.value;autosave()" value="${escapeHtml(a.owner)}" placeholder="Name / Team" /></td>
-      <td data-l="Target Date"><input type="date" oninput="state.actions[${i}].due=this.value;autosave()" value="${escapeHtml(a.due)}" /></td>
+      <td data-l="Owner"><input type="text" oninput="state.actions[${i}].owner=this.value;_markReq(this);autosave()" value="${escapeHtml(a.owner)}" placeholder="Name / Team (required)" style="${_reqStyle(a.owner)}" /></td>
+      <td data-l="Target Date"><input type="date" oninput="state.actions[${i}].due=this.value;_markReq(this);autosave()" value="${escapeHtml(a.due)}" style="${_reqStyle(a.due)}" /></td>
       <td data-l="Status">
         <select onchange="state.actions[${i}].status=this.value;autosave()">
           ${['Open','In Progress','Blocked','Closed','Cancelled'].map(s=>`<option ${a.status===s?'selected':''}>${s}</option>`).join('')}
@@ -3057,6 +3062,17 @@ function validateForSubmit(){
   } else if (pct < 80) {
     warnings.push(`${pct}% of checklist items addressed (${done}/${total}) — a few remaining could be marked N/A or rated before sign-off.`);
   }
+
+  // Every corrective action MUST have an Owner and a Target Date — an action
+  // with no one accountable and no deadline can't be tracked to closure.
+  state.actions.forEach((a, i) => {
+    const label   = (a.desc && a.desc.trim()) ? `"${a.desc.trim().slice(0, 40)}"` : `Action #${i + 1}`;
+    const noOwner = !(a.owner && String(a.owner).trim());
+    const noDue   = !(a.due   && String(a.due).trim());
+    if (noOwner && noDue) errors.push(`${label}: set an Owner and a Target Date`);
+    else if (noOwner)     errors.push(`${label}: set an Owner`);
+    else if (noDue)       errors.push(`${label}: set a Target Date`);
+  });
 
   // Unlinked critical / major findings — common audit gap.
   Object.entries(state.items).forEach(([k, it]) => {
