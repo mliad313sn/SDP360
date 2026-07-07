@@ -7243,8 +7243,37 @@ function _buildExecPptxPayload() {
       .map(([theme, v]) => ({ theme, count: v.count, sample: v.sample }));
   })();
 
+  // Backlog classified by THEME — keyword rules over the OPEN ticket subjects
+  // (deterministic, no AI). Answers "what is the backlog made of" for slide 6.
+  const _backlogThemes = (() => {
+    const RULES = [
+      ['Network & connectivity',    /network|cabl|fib(er|re)|switch|router|\bwan\b|\blan\b|connect|internet|\blink\b|\bvpn\b|wi-?fi|bandwidth/i],
+      ['External provider / vendor', /provider|vendor|\bisp\b|operator|telco|starlink|third.?part|contractor|outsourc|supplier issue/i],
+      ['Procurement & delivery',     /procure|purchas|\bpo\b|\bquote\b|supplier|deliver|\border\b|invoice|licen[cs]e/i],
+      ['Project / initiative',       /project|initiative|deploy|roll.?out|migrat|\bphase\b|\bsprint\b|implement|upgrade|install|commission/i],
+      ['Hardware',                   /laptop|desktop|printer|hardware|device|monitor|replacement|equipment|toner|scanner|\bpc\b|keyboard|battery/i],
+      ['Access & accounts',          /access|account|permission|password|reset|onboard|off.?board|active directory|\bmfa\b|\bvpn account/i],
+      ['Applications & software',    /software|application|\berp\b|\bsap\b|module|\breport\b|e-?mail|outlook|office|365|sharepoint|teams/i],
+    ];
+    const rows = (_data.raw || []).filter(t => {
+      if (!isOps(t) || !_siteOk(t) || isClosed(t)) return false;
+      const g = (t['Group'] || t['Assigned Group'] || '').trim();
+      return !g || groupMatch(g);
+    });
+    const tally = {};
+    rows.forEach(t => {
+      const s = String(t['Subject'] || t['Request Subject'] || '');
+      let theme = 'Other / uncategorised';
+      for (const [name, re] of RULES) { if (re.test(s)) { theme = name; break; } }
+      tally[theme] = (tally[theme] || 0) + 1;
+    });
+    return Object.entries(tally).sort((a, b) => b[1] - a[1]).slice(0, 6)
+      .map(([theme, count]) => ({ theme, count }));
+  })();
+
   return {
     voice_themes: { pain: _painPoints },
+    backlog_themes: _backlogThemes,
     filters: {
       period_label:      periodLabel,
       period_short:      periodShort,

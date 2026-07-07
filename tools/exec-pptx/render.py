@@ -1189,7 +1189,10 @@ add_rect(s, Inches(8.5), Inches(1.55), Inches(4.45), Inches(2.2), RGBColor(0xFF,
 _ageing_d = K.get('ageing') or {}
 def _agsum(k_new, k_old):
     return sum(((v.get(k_new) if k_new in v else v.get(k_old, 0)) or 0) for v in _ageing_d.values())
-_bk_open    = K.get('open_backlog') or _agsum('total', 'open')
+# Use the ageing total as the denominator so the box is self-consistent with
+# the CRITICAL AGEING panel (open_backlog is a narrower, different metric — using
+# it produced impossible >100% "fresh" shares).
+_bk_open    = _agsum('total', 'open') or K.get('open_backlog') or 0
 _bk_over60  = _agsum('>60', 'over_60')
 _bk_under30 = _agsum('0-30', 'under_30')
 _bk_o60_grp = [g.replace(' IT Agents', '').replace(' IT Agent', '').replace(' Support', '')
@@ -1201,10 +1204,22 @@ _bk_fresh_pct = round(_bk_under30 / _bk_open * 100) if _bk_open else 0
 _os_blk = _os.get('backlog_blockers')
 if isinstance(_os_blk, str):
     _os_blk = [l.strip() for l in _os_blk.splitlines() if l.strip()]
+_bk_themes = [t for t in (K.get('backlog_themes') or []) if (t or {}).get('count')]
 if isinstance(_os_blk, list) and any(str(x).strip() for x in _os_blk):
     add_text(s, Inches(8.65), Inches(1.65), Inches(4.2), Inches(0.3),
              "WHY IS THE BACKLOG BLOCKED?", size=10, bold=True, color=ORANGE_D)
     backlog_lines = [(f"{i+1}.  {str(b).strip()}", 9, False, CHARCOAL) for i, b in enumerate(_os_blk[:5])]
+elif _bk_themes:
+    # Backlog classified by theme from open-ticket subjects (keyword rules).
+    _bt_total = sum(int(t.get('count') or 0) for t in _bk_themes) or 1
+    add_text(s, Inches(8.65), Inches(1.65), Inches(4.2), Inches(0.3),
+             f"BACKLOG BY THEME  ({_bt_total} open)", size=10, bold=True, color=ORANGE_D)
+    _bt_colors = [NAVY, BLUE, ORANGE_D, GREEN, GRAY, GRAY]
+    backlog_lines = []
+    for i, t in enumerate(_bk_themes[:5]):
+        _c = int(t.get('count') or 0)
+        backlog_lines.append((f"{t.get('theme','—')}: {_c}  ({round(_c/_bt_total*100)}%)",
+                              9, True, _bt_colors[i % len(_bt_colors)]))
 else:
     add_text(s, Inches(8.65), Inches(1.65), Inches(4.2), Inches(0.3),
              "BACKLOG — AGEING BREAKDOWN", size=10, bold=True, color=ORANGE_D)

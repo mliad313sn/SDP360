@@ -588,6 +588,9 @@ function build(browserPayload) {
     voice_themes: (browserPayload.voice_themes && Array.isArray(browserPayload.voice_themes.pain))
       ? browserPayload.voice_themes
       : { pain: [], praise: [] },
+    // Backlog classified by theme (keyword rules over open-ticket subjects) —
+    // drives slide 6's backlog panel.
+    backlog_themes: Array.isArray(browserPayload.backlog_themes) ? browserPayload.backlog_themes : [],
 
     // Slides 10-11
     tracker,
