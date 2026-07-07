@@ -302,25 +302,10 @@ module.exports = function inspectionRoutes(deps) {
     }
   });
 
-  // POST /api/inspection/:id/export — single-inspection PPTX
-  router.post('/api/inspection/:id/export', requireReportSession, requireAdmin, async (req, res) => {
-    try {
-      if (!inspectionDb)   return res.status(503).json({ error: 'Inspection module not available' });
-      if (!inspectionPptx) return res.status(503).json({ error: 'PPTX module not available' });
-      const rec = await inspectionDb.getInspection(req.params.id);
-      if (!rec) return res.status(404).json({ error: 'Not found' });
-      const buf = await inspectionPptx.generateInspectionPptx(rec, await inspectionDb.loadLookups());
-      const safeId = String(req.params.id).replace(/[^A-Za-z0-9_-]/g, '_');
-      res.setHeader('Content-Type',        'application/vnd.openxmlformats-officedocument.presentationml.presentation');
-      res.setHeader('Content-Disposition', `attachment; filename="Inspection_${safeId}.pptx"`);
-      res.send(buf);
-    } catch(e) {
-      console.error('[Inspection] export error:', e.message);
-      res.status(500).json({ error: e.message });
-    }
-  });
-
-  // POST /api/inspection/aggregate/export — roll-up PPTX (executive+)
+  // POST /api/inspection/aggregate/export — roll-up PPTX (executive+).
+  // MUST be registered BEFORE /api/inspection/:id/export, otherwise the
+  // parametric route swallows it (:id="aggregate" → getInspection('aggregate')
+  // → 404 "Not found"). Same route-ordering class as the /actions vs /:id pitfall.
   router.post('/api/inspection/aggregate/export', requireReportSession, requireExecutiveOrSuperAdmin, inspectionJsonBody, async (req, res) => {
     try {
       if (!inspectionDb)   return res.status(503).json({ error: 'Inspection module not available' });
@@ -335,6 +320,24 @@ module.exports = function inspectionRoutes(deps) {
       res.send(buf);
     } catch(e) {
       console.error('[Inspection] aggregate export error:', e.message);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // POST /api/inspection/:id/export — single-inspection PPTX
+  router.post('/api/inspection/:id/export', requireReportSession, requireAdmin, async (req, res) => {
+    try {
+      if (!inspectionDb)   return res.status(503).json({ error: 'Inspection module not available' });
+      if (!inspectionPptx) return res.status(503).json({ error: 'PPTX module not available' });
+      const rec = await inspectionDb.getInspection(req.params.id);
+      if (!rec) return res.status(404).json({ error: 'Not found' });
+      const buf = await inspectionPptx.generateInspectionPptx(rec, await inspectionDb.loadLookups());
+      const safeId = String(req.params.id).replace(/[^A-Za-z0-9_-]/g, '_');
+      res.setHeader('Content-Type',        'application/vnd.openxmlformats-officedocument.presentationml.presentation');
+      res.setHeader('Content-Disposition', `attachment; filename="Inspection_${safeId}.pptx"`);
+      res.send(buf);
+    } catch(e) {
+      console.error('[Inspection] export error:', e.message);
       res.status(500).json({ error: e.message });
     }
   });

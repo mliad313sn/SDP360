@@ -12,6 +12,7 @@
 <script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
 <script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any" data-redirect="login.html"></script>
 <script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<script nonce="%%CSP_NONCE%%" src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js" defer></script>
 
 <style nonce="%%CSP_NONCE%%">
   body {
@@ -342,6 +343,9 @@
     <a class="btn btn-ghost" href="inspection.html" id="newInspBtn" title="Start a new inspection">
       <span class="icon icon-plus"></span> New inspection
     </a>
+    <button class="btn btn-ghost" id="excelBtn" title="Download EVERY inspection, finding and corrective action as an Excel workbook (all sites, ignores filters). Admin only." style="display:none">
+      <span class="icon icon-download"></span> Excel (full data)
+    </button>
     <button class="btn" id="exportBtn" title="Download a roll-up PPTX of the current filter">
       <span class="icon icon-download"></span> Export
     </button>
@@ -383,6 +387,25 @@
   </div>
 
   <div class="kpi-grid" id="kpiGrid"></div>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin-bottom:20px" id="inspCharts">
+    <div style="background:var(--color-card,#fff);border:1px solid var(--color-border,#E2E5EA);border-radius:12px;padding:14px 16px 10px">
+      <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.9px;color:var(--edv-slate,#3A4A60);margin-bottom:8px">Inspections by status</div>
+      <div style="position:relative;height:184px"><canvas id="chStatus"></canvas></div>
+    </div>
+    <div style="background:var(--color-card,#fff);border:1px solid var(--color-border,#E2E5EA);border-radius:12px;padding:14px 16px 10px">
+      <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.9px;color:var(--edv-slate,#3A4A60);margin-bottom:8px">Findings by status</div>
+      <div style="position:relative;height:184px"><canvas id="chFind"></canvas></div>
+    </div>
+    <div style="background:var(--color-card,#fff);border:1px solid var(--color-border,#E2E5EA);border-radius:12px;padding:14px 16px 10px">
+      <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.9px;color:var(--edv-slate,#3A4A60);margin-bottom:8px">Inspections by risk</div>
+      <div style="position:relative;height:184px"><canvas id="chRisk"></canvas></div>
+    </div>
+    <div style="background:var(--color-card,#fff);border:1px solid var(--color-border,#E2E5EA);border-radius:12px;padding:14px 16px 10px">
+      <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.9px;color:var(--edv-slate,#3A4A60);margin-bottom:8px">Inspections by site</div>
+      <div style="position:relative;height:184px"><canvas id="chSite"></canvas></div>
+    </div>
+  </div>
 
   <div class="panel">
     <h2>Inspections per month</h2>
@@ -689,13 +712,59 @@
       const list = await listRes.json();
       renderKpis(agg);
       renderTrend(agg.monthly || []);
+      renderCharts(agg, list.rows || []);
       renderTable(list.rows || []);
     } catch (e) {
       console.warn('inspections refresh failed:', e);
       renderKpis({});
       renderTrend([]);
+      renderCharts({}, []);
       renderTable([]);
     }
+  }
+
+  // ── Analytics charts (Chart.js) ──────────────────────────────────
+  const CHARTS = {};
+  function mkChart(id, cfg) {
+    if (!window.Chart) return;
+    if (CHARTS[id]) CHARTS[id].destroy();
+    const el = document.getElementById(id); if (!el) return;
+    cfg.options = Object.assign({ responsive: true, maintainAspectRatio: false, animation: false }, cfg.options || {});
+    CHARTS[id] = new Chart(el.getContext('2d'), cfg);
+  }
+  function emptyChart() {
+    return { type: 'doughnut', data: { labels: ['No data'], datasets: [{ data: [1], backgroundColor: ['#E2E5EA'], borderWidth: 0 }] },
+      options: { cutout: '58%', plugins: { legend: { display: false }, tooltip: { enabled: false } } } };
+  }
+  function renderCharts(agg, rows) {
+    if (!window.Chart) return;
+    const c = agg.counts || {};
+    const LFONT = { size: 11 };
+    // Inspections by status
+    const stL = [['Draft', c.draft_count || 0, '#6B7785'], ['Submitted', c.submitted_count || 0, '#145FAE'], ['Closed', c.closed_count || 0, '#16A34A']].filter(x => x[1] > 0);
+    mkChart('chStatus', stL.length ? { type: 'doughnut',
+      data: { labels: stL.map(x => x[0]), datasets: [{ data: stL.map(x => x[1]), backgroundColor: stL.map(x => x[2]), borderColor: '#fff', borderWidth: 2 }] },
+      options: { cutout: '58%', plugins: { legend: { position: 'right', labels: { boxWidth: 12, padding: 8, font: LFONT } } } } } : emptyChart());
+    // Findings by status
+    const FS = { ok: ['OK', '#16A34A'], minor: ['Minor', '#D97706'], major: ['Major', '#EF631A'], critical: ['Critical', '#D90038'], opp: ['Opportunity', '#145FAE'], na: ['N/A', '#6B7785'] };
+    const fs = (agg.findingStatus || []).filter(f => f.n > 0);
+    mkChart('chFind', fs.length ? { type: 'doughnut',
+      data: { labels: fs.map(f => (FS[f.status] || [f.status])[0]), datasets: [{ data: fs.map(f => f.n), backgroundColor: fs.map(f => (FS[f.status] || [0, '#6B7785'])[1]), borderColor: '#fff', borderWidth: 2 }] },
+      options: { cutout: '58%', plugins: { legend: { position: 'right', labels: { boxWidth: 12, padding: 6, font: LFONT } } } } } : emptyChart());
+    // Inspections by risk (client-side)
+    const RK = { Low: '#16A34A', Moderate: '#D97706', High: '#EF631A', Critical: '#D90038' };
+    const rk = { Low: 0, Moderate: 0, High: 0, Critical: 0 };
+    (rows || []).forEach(r => { const v = String(r.overall_risk || '').toLowerCase(); Object.keys(RK).forEach(k => { if (v.includes(k.toLowerCase())) rk[k]++; }); });
+    const rkL = Object.keys(RK).filter(k => rk[k] > 0);
+    mkChart('chRisk', rkL.length ? { type: 'bar',
+      data: { labels: rkL, datasets: [{ data: rkL.map(k => rk[k]), backgroundColor: rkL.map(k => RK[k]), borderRadius: 4, maxBarThickness: 46 }] },
+      options: { plugins: { legend: { display: false } }, scales: { x: { ticks: { font: LFONT } }, y: { beginAtZero: true, ticks: { precision: 0, font: LFONT } } } } } : emptyChart());
+    // Inspections by site (client-side)
+    const sm = {}; (rows || []).forEach(r => { const s = r.site_code || '—'; sm[s] = (sm[s] || 0) + 1; });
+    const siteArr = Object.entries(sm).sort((a, b) => b[1] - a[1]).slice(0, 10);
+    mkChart('chSite', siteArr.length ? { type: 'bar',
+      data: { labels: siteArr.map(x => x[0]), datasets: [{ data: siteArr.map(x => x[1]), backgroundColor: '#145FAE', borderRadius: 3, maxBarThickness: 30 }] },
+      options: { indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, ticks: { precision: 0, font: LFONT } }, y: { ticks: { font: LFONT } } } } } : emptyChart());
   }
 
   // ── Export roll-up PPTX ──────────────────────────────────────────
@@ -746,6 +815,22 @@
     );
     document.getElementById('resetBtn').addEventListener('click', resetFilters);
     document.getElementById('exportBtn').addEventListener('click', exportRollup);
+    // Excel full-table export (admin+). Revealed only for admins; server enforces.
+    const xl = document.getElementById('excelBtn');
+    if (xl && window.__userHasRole && window.__userHasRole('admin')) {
+      xl.style.display = '';
+      xl.addEventListener('click', async () => {
+        const orig = xl.innerHTML; xl.disabled = true; xl.innerHTML = '⏳ Preparing…';
+        try {
+          const r = await fetch(INSP_API + '/export.xlsx', { credentials: 'same-origin', headers: authHeaders() });
+          if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || ('HTTP ' + r.status)); }
+          const url = URL.createObjectURL(await r.blob());
+          const a = document.createElement('a'); a.href = url; a.download = 'Inspections_full.xlsx';
+          document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 5000);
+        } catch (e) { alert('Excel export failed: ' + (e.message || '')); }
+        finally { xl.innerHTML = orig; xl.disabled = false; }
+      });
+    }
   }
 
   async function boot() {
