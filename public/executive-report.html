@@ -482,13 +482,14 @@
   <div class="live-chip" style="margin-right:6px"><div class="live-dot"></div> Live Data</div>
   <button class="btn" onclick="loadAllData()" id="btnRefresh" style="font-size:11.5px;padding:5px 10px"><i class="icon icon-refresh-cw"></i>Refresh</button>
   <button class="btn" onclick="forceSync()" id="btnForceSync" style="background:#1e3a50;border:1px solid #0ea5e9;color:#7dd3fc;font-size:11.5px;padding:5px 10px">⚡ Refresh from Zoho</button>
-  <select id="analyzeAudience" onchange="setAnalyzeAudience(this.value)" title="Tone for generated commentary. Executive = CFO/CIO ready (strategic, financial impact, outlook). Operational = IT manager view (process, root cause, actions). Technical = engineer detail. Choice persists." style="font-size:11.5px;padding:4px 6px;border:1px solid #d8dde6;border-radius:4px;background:#fff;color:#1B3050">
+  <!-- Audience/tone selector only fed the retired cloud-AI prompts; the Quick
+       engine doesn't use it. Hidden in the Quick-only workflow. -->
+  <select id="analyzeAudience" onchange="setAnalyzeAudience(this.value)" title="Tone for generated commentary." style="display:none">
     <option value="executive">Audience: Executive (CFO/CIO)</option>
     <option value="operational">Audience: Operational (IT Mgr)</option>
     <option value="technical">Audience: Technical</option>
   </select>
-  <button class="btn btn-primary" onclick="runAnalysis()" id="btnAnalyze" title="Generate executive commentary, observations, and recommendations for all commentary fields based on the current month's KPIs. Output is editable before export." style="font-size:11.5px;padding:5px 10px">Analyze</button>
-  <button class="btn" onclick="window.AnalyzeLite && window.AnalyzeLite.runReportLite()" id="btnAnalyzeLite" title="Quick threshold-based commentary — fully offline, no external calls. Edit any field after." style="font-size:11.5px;padding:5px 10px;background:#fff7ed;color:#9a3412;border:1px solid #fed7aa">Analyze (Quick)</button>
+  <button class="btn btn-primary" onclick="window.AnalyzeLite && window.AnalyzeLite.runReportLite()" id="btnAnalyzeLite" title="Quick threshold-based commentary — fully offline, no external calls, no data leaves this browser. Fills every commentary field from the current month's KPIs; edit any field after." style="font-size:11.5px;padding:5px 10px">Analyze (Quick)</button>
   <!-- 📤 Export PPTX (template-based, Python) — hidden until IIS ARR proxy timeout
        is raised on the prod server. Currently 502s through HTTPS because the
        render runs longer than the default proxy timeout. To re-enable post-fix:
@@ -652,7 +653,7 @@
       <button class="btn" style="font-size:11px;padding:3px 8px" onclick="editField('f-helpdesk')">✏ Edit</button>
     </div>
     <div class="commentary-body">
-      <div class="commentary-field empty" id="f-helpdesk" contenteditable="false">Click "Analyze &amp; Save" to auto-fill helpdesk observations, or click ✏ Edit to write manually.</div>
+      <div class="commentary-field empty" id="f-helpdesk" contenteditable="false">Click "Analyze (Quick)" to auto-fill helpdesk observations, or click ✏ Edit to write manually.</div>
     </div>
   </div>
 
@@ -711,7 +712,7 @@
       <button class="btn" style="font-size:11px;padding:3px 8px" onclick="editField('f-change')">✏ Edit</button>
     </div>
     <div class="commentary-body">
-      <div class="commentary-field empty" id="f-change" contenteditable="false">Click "Analyze &amp; Save" to auto-fill change management observations, or click ✏ Edit to write manually.</div>
+      <div class="commentary-field empty" id="f-change" contenteditable="false">Click "Analyze (Quick)" to auto-fill change management observations, or click ✏ Edit to write manually.</div>
     </div>
   </div>
 
@@ -762,7 +763,7 @@
       <button class="btn" style="font-size:11px;padding:3px 8px" onclick="editField('f-incidents')">✏ Edit</button>
     </div>
     <div class="commentary-body">
-      <div class="commentary-field empty" id="f-incidents" contenteditable="false">Click "Analyze &amp; Save" to auto-fill major incidents summary, or click ✏ Edit to write manually.</div>
+      <div class="commentary-field empty" id="f-incidents" contenteditable="false">Click "Analyze (Quick)" to auto-fill major incidents summary, or click ✏ Edit to write manually.</div>
     </div>
   </div>
 
@@ -822,7 +823,7 @@
       <button class="btn" style="font-size:11px;padding:3px 8px" onclick="editField('f-csat')">✏ Edit</button>
     </div>
     <div class="commentary-body">
-      <div class="commentary-field empty" id="f-csat" contenteditable="false">Click "Analyze &amp; Save" to auto-fill CSAT observations, or click ✏ Edit to write manually.</div>
+      <div class="commentary-field empty" id="f-csat" contenteditable="false">Click "Analyze (Quick)" to auto-fill CSAT observations, or click ✏ Edit to write manually.</div>
     </div>
   </div>
 
@@ -842,7 +843,7 @@
         <button class="btn" style="font-size:11px;padding:3px 8px" onclick="editField('f-exec')">✏ Edit</button>
       </div>
       <div class="commentary-body">
-        <div class="commentary-field empty" id="f-exec" contenteditable="false">Click "Analyze &amp; Save" to auto-fill executive summary, or click ✏ Edit to write manually.</div>
+        <div class="commentary-field empty" id="f-exec" contenteditable="false">Click "Analyze (Quick)" to auto-fill executive summary, or click ✏ Edit to write manually.</div>
       </div>
     </div>
     <div class="commentary-card" style="grid-column:span 2">
@@ -851,7 +852,7 @@
         <button class="btn" style="font-size:11px;padding:3px 8px" onclick="editField('f-sla')">✏ Edit</button>
       </div>
       <div class="commentary-body">
-        <div class="commentary-field empty" id="f-sla" contenteditable="false">Click "Analyze &amp; Save" to auto-fill SLA &amp; quality observations, or click ✏ Edit to write manually.</div>
+        <div class="commentary-field empty" id="f-sla" contenteditable="false">Click "Analyze (Quick)" to auto-fill SLA &amp; quality observations, or click ✏ Edit to write manually.</div>
       </div>
     </div>
   </div>
@@ -944,7 +945,7 @@ Example:
             <th style="width:34%">Deliverable / KPI</th><th style="width:12%">Owner</th><th style="width:9%">End</th><th style="width:8%">RAG</th><th>Comments</th></tr></thead>
           <tbody id="os-kpi-rows"></tbody>
         </table>
-        <div style="color:#94a3b8;margin-top:6px">Saved per month in this browser. Progress / Issues / Activities here override the slide-2 columns; leave blank to use the AI commentary (Analyze).</div>
+        <div style="color:#94a3b8;margin-top:6px">Saved per month in this browser. Progress / Issues / Activities here override the slide-2 columns; leave blank to use the Analyze (Quick) commentary.</div>
       </div>
     </div>
   </div>
@@ -959,8 +960,7 @@ Example:
   <div class="action-bar">
     <div class="action-bar-left" id="actionStatus">Data loaded — ready to analyze and export.</div>
     <div style="display:flex; gap:10px; flex-wrap:wrap">
-      <button class="btn btn-primary" onclick="runAnalysis()" id="btnAnalyze2" title="Generate executive commentary, observations, and recommendations for all commentary fields based on the current month's KPIs. Output is editable before export.">Analyze</button>
-      <button class="btn" onclick="window.AnalyzeLite && window.AnalyzeLite.runReportLite()" id="btnAnalyzeLite2" title="Quick threshold-based commentary — fully offline, no external calls. Edit any field after." style="background:#fff7ed;color:#9a3412;border:1px solid #fed7aa">Analyze (Quick)</button>
+      <button class="btn btn-primary" onclick="window.AnalyzeLite && window.AnalyzeLite.runReportLite()" id="btnAnalyzeLite2" title="Quick threshold-based commentary — fully offline, no external calls, no data leaves this browser. Fills every commentary field from the current month's KPIs; edit any field after.">Analyze (Quick)</button>
       <!-- 📋 Group IT Report — template-driven Python pipeline at tools/exec-pptx/render.py.
            IIS ARR proxy timeout was raised to 5 min (see CLAUDE.md "Fix PPTX export 502")
            which now lets this finish before IIS gives up. -->
@@ -4503,6 +4503,12 @@ function setAiStep(steps, index, state) {
 }
 
 async function runAnalysis() {
+  // Cloud/LLM analysis is retired — the deck builder is Quick-only now. Any
+  // lingering caller is redirected to the offline deterministic engine so the
+  // page never calls /api/ai/analyze (which the server returns 503 for).
+  if (window.AnalyzeLite && typeof window.AnalyzeLite.runReportLite === 'function') {
+    return window.AnalyzeLite.runReportLite();
+  }
   const prog = document.getElementById('aiProgress');
   prog.style.display = 'block';
 
