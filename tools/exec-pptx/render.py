@@ -429,6 +429,15 @@ def _draw_channel_share_trend(ax):
     labels  = [r.get('label', '') for r in chan_series]
     em_pct  = [r.get('email_pct', 0)   for r in chan_series]
     wf_pct  = [r.get('webform_pct', 0) for r in chan_series]
+    # Drop leading months that have NO channel data (the SDP "Mode" field was
+    # only captured from ~Mar 2026, so earlier tickets have no channel → both
+    # series read 0%). Starting the chart at the first month with real data
+    # avoids the misleading flat-0% run on the left.
+    _start = 0
+    while _start < len(labels) and (em_pct[_start] or 0) == 0 and (wf_pct[_start] or 0) == 0:
+        _start += 1
+    if _start < len(labels):   # keep the full range only if EVERY month is empty
+        labels, em_pct, wf_pct = labels[_start:], em_pct[_start:], wf_pct[_start:]
     import numpy as _np
     x = _np.arange(len(labels))
     ax.plot(x, em_pct, color='#2E5C8A', marker='o', linewidth=2, label='E-Mail')
