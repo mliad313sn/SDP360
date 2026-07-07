@@ -1181,19 +1181,39 @@ add_text(s, Inches(0.4), Inches(1.05), Inches(10), Inches(0.4),
 s.shapes.add_picture(_chart('ageing', figsize=(8.0, 4.6), data_fn=_draw_ageing, title='Open Ticket Ageing by Group'), Inches(0.4), Inches(1.55), width=Inches(7.8), height=Inches(4.6))
 
 # Right side panels
-# Why is the backlog blocked
+# Backlog panel — operator-written blockers if present, else a FACTUAL ageing
+# breakdown from the real data. (Was hardcoded narrative — "external providers /
+# procurement / Mana-Dakar-Sabodala recruitment" — that printed every month
+# regardless of the data.)
 add_rect(s, Inches(8.5), Inches(1.55), Inches(4.45), Inches(2.2), RGBColor(0xFF,0xF8,0xE6), line=AMBER)
-add_text(s, Inches(8.65), Inches(1.65), Inches(4.2), Inches(0.3),
-         "WHY IS THE BACKLOG BLOCKED?", size=10, bold=True, color=ORANGE_D)
-backlog_lines = [
-    ("①  External providers ", 9, True, NAVY),
-    ("(data & credit provisioning) — SLA commitments under review by Infra team.", 9, False, CHARCOAL),
-    ("②  Procurement delays ", 9, True, NAVY),
-    ("on hardware / software purchases creating pending-approval queues.", 9, False, CHARCOAL),
-    ("③  Site coverage gaps ", 9, True, NAVY),
-    ("at Mana / Dakar / Sabodala awaiting recruitment closure.", 9, False, CHARCOAL),
-    ("→  Engagement underway with providers & procurement.", 9, True, GREEN),
-]
+_ageing_d = K.get('ageing') or {}
+def _agsum(k_new, k_old):
+    return sum(((v.get(k_new) if k_new in v else v.get(k_old, 0)) or 0) for v in _ageing_d.values())
+_bk_open    = K.get('open_backlog') or _agsum('total', 'open')
+_bk_over60  = _agsum('>60', 'over_60')
+_bk_under30 = _agsum('0-30', 'under_30')
+_bk_o60_grp = [g.replace(' IT Agents', '').replace(' IT Agent', '').replace(' Support', '')
+               for g, v in _ageing_d.items() if ((v.get('>60') if '>60' in v else v.get('over_60', 0)) or 0) > 0]
+_bk_fresh_pct = round(_bk_under30 / _bk_open * 100) if _bk_open else 0
+
+# Operator override: ops_summary.backlog_blockers (list or newline text). When
+# present, keep the "WHY IS THE BACKLOG BLOCKED?" framing with the real notes.
+_os_blk = _os.get('backlog_blockers')
+if isinstance(_os_blk, str):
+    _os_blk = [l.strip() for l in _os_blk.splitlines() if l.strip()]
+if isinstance(_os_blk, list) and any(str(x).strip() for x in _os_blk):
+    add_text(s, Inches(8.65), Inches(1.65), Inches(4.2), Inches(0.3),
+             "WHY IS THE BACKLOG BLOCKED?", size=10, bold=True, color=ORANGE_D)
+    backlog_lines = [(f"{i+1}.  {str(b).strip()}", 9, False, CHARCOAL) for i, b in enumerate(_os_blk[:5])]
+else:
+    add_text(s, Inches(8.65), Inches(1.65), Inches(4.2), Inches(0.3),
+             "BACKLOG — AGEING BREAKDOWN", size=10, bold=True, color=ORANGE_D)
+    _o60_str = (" — " + ", ".join(_bk_o60_grp[:3])) if _bk_o60_grp else " — none"
+    backlog_lines = [
+        (f"Open backlog: {_bk_open} tickets across {len(_ageing_d)} groups.", 9, True, NAVY),
+        (f"Aged > 60 days: {_bk_over60} ticket{'s' if _bk_over60 != 1 else ''}{_o60_str}.", 9, True, RED),
+        (f"Fresh < 30 days: {_bk_fresh_pct}% of open (recently raised).", 9, True, GREEN),
+    ]
 add_multi_text(s, Inches(8.65), Inches(1.95), Inches(4.2), Inches(1.7), backlog_lines, line_space=1.2)
 
 # Critical ageing panel
