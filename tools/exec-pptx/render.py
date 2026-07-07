@@ -1312,9 +1312,14 @@ def _derive_pain_points():
     voice = K.get('voice_themes', {})
     raw = (voice.get('pain') or [])[:3]
     if not raw:
-        return [('1', 'Voice clustering pending',
-                 'Phase 5 of the integration brings LLM clustering of survey verbatims.',
-                 GRAY)]
+        # No structured verbatim themes available for this period — show a clean,
+        # exec-appropriate line (NOT the old dev "LLM clustering pending" text).
+        _dis = K.get('csat_dissatisfied', 0) or 0
+        if _dis:
+            return [('1', f'{_dis} dissatisfied response{"s" if _dis != 1 else ""} this period',
+                     'Recurring themes are summarised in the executive commentary below.', AMBER)]
+        return [('1', 'No dissatisfied responses this period',
+                 'No negative survey feedback to cluster.', GREEN)]
     out = []
     for i, item in enumerate(raw):
         theme = (item or {}).get('theme', '—')

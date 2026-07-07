@@ -582,7 +582,12 @@ function build(browserPayload) {
     // Slides 7-9
     ...mi,
     ...changes,
-    voice_themes: { pain: [], praise: [] },   // Phase 5 LLM fills this
+    // Pain themes are derived deterministically in the browser from the negative
+    // survey verbatims (voice_themes.pain) — pass them through. Fall back to
+    // empty so render.py shows its clean no-data line.
+    voice_themes: (browserPayload.voice_themes && Array.isArray(browserPayload.voice_themes.pain))
+      ? browserPayload.voice_themes
+      : { pain: [], praise: [] },
 
     // Slides 10-11
     tracker,

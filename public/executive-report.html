@@ -7205,7 +7205,32 @@ function _buildExecPptxPayload() {
     }).length;
   };
 
+  // Top pain points for slide 7 — derived DETERMINISTICALLY from the negative
+  // survey verbatims (each comment carries a themes[] array from the survey
+  // pipeline). No LLM required — this replaces the old "Voice clustering
+  // pending (Phase 5)" placeholder with the actual dominant complaint themes.
+  const _painPoints = (() => {
+    const comments = (_data.voice && Array.isArray(_data.voice.allComments)) ? _data.voice.allComments : [];
+    const neg = comments.filter(c => (c.sentiment || '').toLowerCase() === 'negative');
+    if (!neg.length) return [];
+    const tally = {};   // theme -> { count, sample }
+    neg.forEach(c => {
+      const themes = (Array.isArray(c.themes) && c.themes.length) ? c.themes : ['Unresolved / other'];
+      themes.forEach(t => {
+        const key = (String(t || '').trim()) || 'Unresolved / other';
+        if (!tally[key]) tally[key] = { count: 0, sample: '' };
+        tally[key].count++;
+        if (!tally[key].sample && c.text) tally[key].sample = String(c.text).replace(/\s+/g, ' ').trim().slice(0, 90);
+      });
+    });
+    return Object.entries(tally)
+      .sort((a, b) => b[1].count - a[1].count)
+      .slice(0, 3)
+      .map(([theme, v]) => ({ theme, count: v.count, sample: v.sample }));
+  })();
+
   return {
+    voice_themes: { pain: _painPoints },
     filters: {
       period_label:      periodLabel,
       period_short:      periodShort,
