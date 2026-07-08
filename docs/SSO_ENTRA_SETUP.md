@@ -47,7 +47,9 @@ add **`email`** (and optionally `upn`, `family_name`, `given_name`).
 If prompted "Turn on the Microsoft Graph email permission," accept it.
 
 App → **API permissions** → confirm **Microsoft Graph → openid, profile,
-email** (delegated) are present. **Grant admin consent** for the tenant.
+email, User.Read** (delegated) are present. **Grant admin consent** for the
+tenant. (`User.Read` lets the dashboard read jobTitle + officeLocation from
+Graph `/me` so it can auto-fill each user's title/office on sign-in.)
 
 > Why: the dashboard matches you by the `email` claim. Without it, sign-in fails
 > with `no_email`. `oid` (object id) is always present and is stored as the
@@ -65,16 +67,31 @@ defence-in-depth: Entra blocks unassigned users *before* they reach the app.
 Add these to `C:\Apps\SDP-Dashboard\.env` (values from steps 1–2):
 
 ```ini
-SSO_ENABLED=true
+SSO_MODE=available            # off | available | only  (see the cutover below)
 ENTRA_TENANT_ID=<Directory (tenant) ID>
 ENTRA_CLIENT_ID=<Application (client) ID>
 ENTRA_CLIENT_SECRET=<the secret VALUE from step 2>
 ENTRA_REDIRECT_URI=https://itops-dashboard.edv-ops.com/api/auth/sso/callback
+SSO_BREAKGLASS_USER=<your emergency super_admin username>
+SESSION_COOKIE_SECURE=1
 ```
 
-Leaving `SSO_ENABLED` unset (or `false`) keeps the current password login — the
-SSO code stays completely dormant, so deploying it changes nothing until you
-flip this on. After editing `.env`: `pm2 restart` (stop → wait → start).
+`SSO_MODE` unset (or `off`) keeps the current password login — the SSO code
+stays completely dormant, so deploying it changes nothing until you set it.
+After editing `.env`: `pm2 restart` (stop → wait → start); the boot log prints
+`[SSO] mode=… (Entra ready)`.
+
+### The cutover (recommended order)
+
+1. **`SSO_MODE=off`** — deploy the code. Nothing changes; password login as today.
+2. **Map emails** (§7) for every active user.
+3. **`SSO_MODE=available`** — BOTH "Sign in with Microsoft" **and** password work.
+   People start using Microsoft; a wrong email is just a password fallback, not
+   a lockout. First Microsoft sign-in links their Entra `oid` and auto-fills
+   name / title / office. Run this ~a week; fix any mismaps as they surface.
+4. **`SSO_MODE=only`** — Microsoft required; password disabled except the
+   break-glass account (`/login.html?breakglass=1`). Test your own Microsoft
+   sign-in **before** this step.
 
 ## 6. Break-glass (emergency password) account
 
@@ -87,10 +104,16 @@ give it an `email`/Entra link so it can't be shadowed by SSO.
 ## 7. Pre-provision your people (dashboard admin)
 
 Every user who will sign in via Microsoft must already exist as a dashboard
-user **with their Entra email**. On `reports.html#admin` → Users, set each
-user's **Email** to their corporate address (e.g. `first.last@edv-ops.com`) and
-give them the right **role + site**. First successful Microsoft sign-in links
-their stable Entra `oid` automatically; from then on the match is by `oid`.
+user **with their Entra email**. Fastest way: `reports.html#admin` → Users →
+**✉ Map SSO emails** — it lists every active user with a
+`first.last@edv-ops.com` address auto-suggested from their name (editable domain
+at the top). **Review each against your Entra directory**, correct any, and
+**Save all**. Blank = that user has no SSO (still password-only).
+
+Names, titles and offices come **from Entra automatically** on first sign-in —
+you only maintain **email + role + site**. First successful Microsoft sign-in
+links the stable Entra `oid`; from then on the match is by `oid` (immune to
+email changes).
 
 ---
 
