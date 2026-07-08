@@ -29,7 +29,10 @@ if (-not [System.IO.Path]::IsPathRooted($gitCommon)) { $gitCommon = Join-Path $r
 $markerPath = Join-Path $gitCommon 'last-deployed'
 
 $base = ''
-if (Test-Path $markerPath) { $base = (Get-Content $markerPath -Raw).Trim() }
+if (Test-Path $markerPath) {
+  $raw = Get-Content $markerPath -Raw -ErrorAction SilentlyContinue
+  if ($raw) { $base = $raw.Trim() }
+}
 # Validate the marker points at a real commit; else fall back to the last
 # confirmed prod baseline (Exec View v1) so a wiped/stale marker never packages
 # the whole repo.
@@ -90,8 +93,11 @@ if (Test-Path $zip) { Remove-Item $zip -Force }
 Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zip -Force
 Remove-Item $stage -Recurse -Force
 
-# Advance the marker (packaged == will be deployed; mirrors the old _deploy.cmd).
-(git rev-parse HEAD).Trim() | Set-Content $markerPath -Encoding ASCII
+# NOTE: the marker is intentionally NOT advanced here. Building a zip is not the
+# same as deploying it. In the ZIP model you may build/commit several times
+# before actually applying on prod, so every rebuild must keep the FULL backlog
+# since the last CONFIRMED prod deploy. Advance the marker only after you have
+# verified the zip is live on prod -- run tools\deploy\mark-deployed.cmd then.
 
 Write-Host ""
 Write-Host ("Built " + (Split-Path $zip -Leaf)) -ForegroundColor Green
@@ -101,3 +107,5 @@ Write-Host "Deploy on prod:" -ForegroundColor Cyan
 Write-Host "  1. Copy the .zip to the prod server and extract it anywhere."
 Write-Host "  2. Run _apply_on_prod.cmd from the extracted folder."
 Write-Host "  3. Run _pm2_restart_prod.cmd on prod (server.js + cached HTML need a restart)."
+Write-Host "  4. Back on THIS box, once you've confirmed it's live:" -ForegroundColor Cyan
+Write-Host "     tools\deploy\mark-deployed.cmd   (so the next zip starts fresh from here)"
