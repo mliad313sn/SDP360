@@ -1713,7 +1713,7 @@ table tbody tr:hover td { background: var(--color-bg); }
           <div class="rag-indicator rag-amber"></div>
         </div>
       </div>
-      <div class="kpi-tile kpi-amber" title="Resolution SLA Compliance — % of tickets fully resolved within their SLA deadline. Separate from 1st Reply SLA. Higher is better. Target ≥80%.">
+      <div class="kpi-tile kpi-amber" title="Resolution SLA Compliance — % of tickets fully resolved within their SLA deadline. Separate from 1st Reply SLA. Higher is better. Target ≥90%.">
         <div class="kpi-tile-label">Resolution SLA %</div>
         <div class="kpi-tile-value" id="kv-sla">73%</div>
         <div class="kpi-tile-meta">
@@ -4986,7 +4986,7 @@ function buildDataSnapshotForAI() {
     '',
     '== TICKET VOLUME ==',
     monthLabel + ': ' + curInbound + ' inbound, ' + curClosed + ' closed | vs prev: ' + prevInbound + ' (' + (pct>0?'+':'') + pct + '%)',
-    'SLA compliance: ' + curSlaComp + '% (target 80%) | violated: ' + curSlaViol + '%',
+    'SLA compliance: ' + curSlaComp + '% (target 90%) | violated: ' + curSlaViol + '%',
     'Trend (last months): ' + inboundTrend,
     '',
     '== PERFORMANCE ==',
