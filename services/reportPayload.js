@@ -344,6 +344,7 @@ function _changes(filters) {
     changes_status: {},
     changes_emergency: 0,
     emergency_changes: [],
+    changes_division: {},
   };
   const { year, month } = filters;
   if (!year || !month) return out;
@@ -351,7 +352,7 @@ function _changes(filters) {
   try {
     const ym = `${year}-${String(month).padStart(2, '0')}`;
     const rows = reportsDb.db.prepare(`
-      SELECT display_id AS id, subject, change_type, status, emergency
+      SELECT display_id AS id, subject, change_type, status, emergency, udf_json
       FROM change_records
       WHERE strftime('%Y-%m', created_time) = ?
     `).all(ym);
@@ -369,6 +370,14 @@ function _changes(filters) {
           id: r.id, subject: r.subject || '—', status: r.status || 'In Progress',
         });
       }
+      // Division tally (slide 8, 2nd donut). The change-table UDF is a BARE
+      // `Division` key inside udf_json (see zoho-sync UDF_PREFIXES — change
+      // UDFs have no "UDF:" prefix). Month-only scope, same as changes_type.
+      try {
+        const u = r.udf_json ? JSON.parse(r.udf_json) : null;
+        const d = String((u && (u['Division'] || u['UDF:Division'])) || '').trim() || 'Unassigned';
+        out.changes_division[d] = (out.changes_division[d] || 0) + 1;
+      } catch (e) { /* malformed udf_json — skip division for this row */ }
     });
   } catch (e) {
     console.warn('[reportPayload] changes failed:', e.message);
@@ -591,10 +600,18 @@ function build(browserPayload) {
     // Backlog classified by theme (keyword rules over open-ticket subjects) —
     // drives slide 6's backlog panel.
     backlog_themes: Array.isArray(browserPayload.backlog_themes) ? browserPayload.backlog_themes : [],
-    // Changes by Division (UDF:Division) — browser-computed over the scoped
-    // change set → slide 8's second donut. {division: count}.
-    changes_division: (browserPayload.changes_division && typeof browserPayload.changes_division === 'object')
-      ? browserPayload.changes_division : {},
+    // Changes by Division (bare `Division` UDF on the change table) — slide 8's
+    // second donut, {division: count}. Browser-computed over the SCOPED change
+    // set when available; else the server tally from _changes() (month-only,
+    // unscoped — same doctrine as changes_type). An all-'Unassigned' browser
+    // tally also falls back: it means the browser rows lacked the field
+    // (stale cached HTML), not that every change is genuinely unassigned.
+    changes_division: (() => {
+      const b = browserPayload.changes_division;
+      const hasReal = b && typeof b === 'object'
+        && Object.keys(b).some(k => k !== 'Unassigned' && b[k] > 0);
+      return hasReal ? b : (changes.changes_division || {});
+    })(),
 
     // Slides 10-11
     tracker,

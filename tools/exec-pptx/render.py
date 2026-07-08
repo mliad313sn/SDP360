@@ -518,16 +518,23 @@ def _donut_on(ax, items, *, legend_ncol=2, legend_fs=8, pct_min=5, empty='No dat
     """items: [(label, count, color)] — draws a donut + legend on `ax`."""
     items = [it for it in items if it[1] and it[1] > 0]
     if not items:
-        ax.text(0.5, 0.5, empty, ha='center', va='center', fontsize=10, color='#6B7280'); return
+        # Clean empty state — no axes frame / ticks (a bare pie axes would
+        # otherwise render a 0..1 box around the message).
+        ax.text(0.5, 0.5, empty, ha='center', va='center', fontsize=10, color='#6B7280')
+        ax.set_xticks([]); ax.set_yticks([])
+        for sp in ax.spines.values(): sp.set_visible(False)
+        return
     sizes   = [c for _, c, _ in items]
     legends = [f"{l} ({c})" for l, c, _ in items]
     colors  = [col for _, _, col in items]
     wedges, _t, _a = ax.pie(
         sizes, autopct=lambda pct: f'{pct:.0f}%' if pct >= pct_min else '',
-        colors=colors, startangle=90, counterclock=False, pctdistance=0.80,
+        colors=colors, startangle=90, counterclock=False, pctdistance=0.79,
         wedgeprops=dict(width=0.42, edgecolor='white'),
         textprops={'fontsize': 10, 'color': 'white', 'fontweight': 'bold'})
-    ax.legend(wedges, legends, loc='lower center', bbox_to_anchor=(0.5, -0.08),
+    # Anchor the legend's TOP just below the axes so it hangs under the ring —
+    # loc='lower center' with a small negative offset overlapped the donut.
+    ax.legend(wedges, legends, loc='upper center', bbox_to_anchor=(0.5, -0.02),
               ncol=legend_ncol, fontsize=legend_fs, frameon=False)
 
 def _draw_changes_donut(ax):
@@ -1425,10 +1432,13 @@ add_text(s, Inches(0.4), Inches(1.05), Inches(10), Inches(0.4),
          f"Change Portfolio — {PERIOD_LONG}", size=15, bold=True, color=NAVY)
 
 # Two side-by-side donuts: Changes by Type + Changes by Division (UDF:Division).
-s.shapes.add_picture(_chart('changes_type_donut', figsize=(2.9, 3.8), data_fn=_draw_changes_donut, title=f'By Type — {MONTH}'),
-                     Inches(0.30), Inches(1.70), width=Inches(2.45), height=Inches(3.65))
-s.shapes.add_picture(_chart('changes_div_donut', figsize=(2.9, 3.8), data_fn=_draw_division_donut, title='By Division'),
-                     Inches(2.80), Inches(1.70), width=Inches(2.45), height=Inches(3.65))
+# Width-only placement: python-pptx keeps the PNG's native aspect ratio, so the
+# rings stay perfect circles (forcing both w+h squashed them into ellipses —
+# bbox_inches='tight' makes the saved PNG aspect unpredictable).
+s.shapes.add_picture(_chart('changes_type_donut', figsize=(2.9, 3.6), data_fn=_draw_changes_donut, title=f'By Type — {MONTH}'),
+                     Inches(0.30), Inches(1.70), width=Inches(2.45))
+s.shapes.add_picture(_chart('changes_div_donut', figsize=(2.9, 3.6), data_fn=_draw_division_donut, title='By Division'),
+                     Inches(2.80), Inches(1.70), width=Inches(2.45))
 
 # 6 KPI tiles in 2x3
 ct = K['changes_type']
