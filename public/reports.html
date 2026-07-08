@@ -981,7 +981,8 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
 
     <div class="card admin-panel" id="ap-users" data-panel="users">
       <h3>👤 Users
-        <button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="openUserModal()">+ New User</button>
+        <button class="btn btn-secondary btn-sm" style="margin-left:auto" onclick="openEmailMapModal()" title="Bulk-set corporate emails for Microsoft SSO (auto-suggested from each name).">✉ Map SSO emails</button>
+        <button class="btn btn-primary btn-sm" onclick="openUserModal()">+ New User</button>
       </h3>
       <table class="user-table" id="user-table">
         <thead>
@@ -1271,6 +1272,33 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeUserModal()">Cancel</button>
       <button class="btn btn-primary" onclick="saveUser()">Save User</button>
+    </div>
+  </div>
+</div>
+
+<!-- Bulk SSO email mapping ─────────────────────────────────────── -->
+<div class="modal-overlay" id="email-map-modal">
+  <div class="modal" style="max-width:720px">
+    <h3 style="margin-top:0">✉ Map SSO emails</h3>
+    <p style="font-size:13px;color:#64748B;margin:0 0 12px">
+      Set each user's corporate email so they can sign in with Microsoft. Emails are
+      auto-suggested from the name — <strong>review carefully</strong> against your Entra
+      directory before saving. Blank = no SSO for that user.
+    </p>
+    <div class="form-group" style="display:flex;align-items:center;gap:10px">
+      <label style="margin:0">Email domain</label>
+      <input type="text" id="emap-domain" value="edv-ops.com" style="max-width:220px" oninput="emapResuggest()">
+      <button class="btn btn-secondary btn-sm" onclick="emapResuggest(true)" title="Re-fill blank emails from the current domain">Re-suggest blanks</button>
+    </div>
+    <div style="max-height:48vh;overflow:auto;border:1px solid #e2e8f0;border-radius:8px">
+      <table class="user-table" id="emap-table" style="margin:0">
+        <thead><tr><th>User</th><th>Site</th><th>Email (for Microsoft SSO)</th></tr></thead>
+        <tbody id="emap-body"></tbody>
+      </table>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="document.getElementById('email-map-modal').classList.remove('open')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveEmailMap()">Save all</button>
     </div>
   </div>
 </div>
@@ -4949,6 +4977,61 @@ function modalRolesSet(roles) {
 
 function closeUserModal() {
   document.getElementById('user-modal').classList.remove('open');
+}
+
+// ── Bulk SSO email mapping ───────────────────────────────────────────────────
+let _emapUsers = [];
+function _emapEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function _deriveEmail(fullName, domain) {
+  const clean = String(fullName || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase().replace(/[^a-z\s'-]/g, ' ').trim();
+  const parts = clean.split(/\s+/).filter(Boolean);
+  if (!parts.length) return '';
+  const first = parts[0].replace(/[^a-z]/g, '');
+  const last  = parts.length > 1 ? parts[parts.length - 1].replace(/[^a-z]/g, '') : '';
+  const local = last ? `${first}.${last}` : first;
+  return local ? `${local}@${domain}` : '';
+}
+async function openEmailMapModal() {
+  try { _emapUsers = (await api('GET', '/api/reports/users')) || []; }
+  catch (e) { toast('Failed to load users: ' + e, 'error'); return; }
+  _emapUsers = _emapUsers.filter(u => u.active);
+  renderEmapRows();
+  document.getElementById('email-map-modal').classList.add('open');
+}
+function renderEmapRows() {
+  const domain = (document.getElementById('emap-domain').value.trim()) || 'edv-ops.com';
+  document.getElementById('emap-body').innerHTML = _emapUsers.map(u => {
+    const suggested = u.email || _deriveEmail(u.full_name, domain);
+    const linked = u.has_entra ? ' <span style="color:#16A34A" title="Already signed in with Microsoft">●</span>' : '';
+    return `<tr>
+      <td><strong>${_emapEsc(u.full_name || u.username)}</strong>${linked}<br><small style="color:#64748B">${_emapEsc(u.username)}</small></td>
+      <td style="color:#64748B">${_emapEsc(u.site_name || '—')}</td>
+      <td><input type="email" data-uid="${u.id}" value="${_emapEsc(suggested)}" style="width:100%" placeholder="blank = no SSO"></td>
+    </tr>`;
+  }).join('');
+}
+// Re-fill only BLANK email inputs from the current domain — never clobber a
+// value the admin (or a prior save) already set.
+function emapResuggest() {
+  const domain = (document.getElementById('emap-domain').value.trim()) || 'edv-ops.com';
+  document.querySelectorAll('#emap-body input[data-uid]').forEach(inp => {
+    if (inp.value.trim()) return;
+    const u = _emapUsers.find(x => x.id === parseInt(inp.getAttribute('data-uid')));
+    if (u) inp.value = _deriveEmail(u.full_name, domain);
+  });
+}
+async function saveEmailMap() {
+  const updates = [];
+  document.querySelectorAll('#emap-body input[data-uid]').forEach(inp => {
+    updates.push({ id: parseInt(inp.getAttribute('data-uid')), email: inp.value.trim() });
+  });
+  try {
+    const r = await api('PUT', '/api/reports/users/emails', { updates });
+    toast(`Emails saved (${r.updated}) ✓`, 'success');
+    document.getElementById('email-map-modal').classList.remove('open');
+    loadAdminPage();
+  } catch (e) { toast('Save failed: ' + e, 'error'); }
 }
 
 async function saveUser() {

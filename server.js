@@ -4236,6 +4236,25 @@ app.post('/api/reports/users', requireReportSession, requireAdmin, jsonBody, asy
   }
 });
 
+// Bulk email mapping for the SSO transition — set many users' emails at once.
+// Body: { updates: [{ id, email }] }. admin+. Registered BEFORE /users/:id so
+// "emails" isn't parsed as an :id.
+app.put('/api/reports/users/emails', requireReportSession, requireAdmin, jsonBody, async (req, res) => {
+  try {
+    const updates = (req.body && req.body.updates) || [];
+    if (!Array.isArray(updates)) return res.status(400).json({ error: 'updates[] required' });
+    let n = 0;
+    for (const u of updates) {
+      const id = parseInt(u && u.id, 10);
+      if (!Number.isFinite(id)) continue;
+      await rdb.setUserEmail(id, (u.email || '').trim());
+      n++;
+    }
+    console.log(`[SSO] bulk email map: ${n} user(s) updated by ${req.reportUser?.username || 'admin'}`);
+    res.json({ ok: true, updated: n });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 app.put('/api/reports/users/:id', requireReportSession, requireAdmin, jsonBody, async (req, res) => {
   try {
     // Accept both legacy `role` (string) and new `roles` (array) — see createUser comment.
