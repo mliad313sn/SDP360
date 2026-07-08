@@ -1,10 +1,10 @@
 #Requires -Version 5
-# ─────────────────────────────────────────────────────────────────────────────
+# =============================================================================
 # STANDARD PROD DEPLOY (2026-07-08+): build a self-contained ZIP instead of
 # xcopy-ing to the Z: share. No Z: mapping needed on the dev box.
 #
-#   Dev box:  run _deploy.cmd   (the post-commit hook regenerates it to call
-#             this script) — or run this .ps1 directly. Produces
+#   Dev box:  run _deploy.cmd (the post-commit hook regenerates it to call this
+#             script) - or run this .ps1 directly. Produces
 #             sdp-deploy_<sha>_<stamp>.zip in the repo root.
 #   Prod:     copy the .zip to the server, extract it anywhere, run
 #             _apply_on_prod.cmd from the extracted folder, then
@@ -13,7 +13,10 @@
 # The ZIP contains every file changed since the last deploy at its repo-relative
 # path under files\, a DELETIONS.txt manifest, a human MANIFEST.txt, and the
 # _apply_on_prod.cmd installer.
-# ─────────────────────────────────────────────────────────────────────────────
+#
+# NOTE: keep this file PURE ASCII - Windows PowerShell 5.1 reads .ps1 as ANSI,
+# so non-ASCII chars (em-dashes, box-drawing) corrupt the parse.
+# =============================================================================
 $ErrorActionPreference = 'Stop'
 
 $root = (git rev-parse --show-toplevel).Trim()
@@ -28,20 +31,24 @@ $markerPath = Join-Path $gitCommon 'last-deployed'
 $base = ''
 if (Test-Path $markerPath) { $base = (Get-Content $markerPath -Raw).Trim() }
 # Validate the marker points at a real commit; else fall back to the last
-# confirmed prod baseline (Exec View v1) so a wiped/stale marker never
-# accidentally packages the whole repo.
-if (-not $base -or -not (git cat-file -e "$base^{commit}" 2>$null; $?)) { $base = '7fb62d9' }
+# confirmed prod baseline (Exec View v1) so a wiped/stale marker never packages
+# the whole repo.
+if ($base) {
+  $null = git rev-parse --verify --quiet $base 2>$null
+  if ($LASTEXITCODE -ne 0) { $base = '' }
+}
+if (-not $base) { $base = '7fb62d9' }
 
 $changed = @(git diff --name-only --diff-filter=ACMR "$base..HEAD")
 $deleted = @(git diff --name-only --diff-filter=D    "$base..HEAD")
 
-# Dev-only paths that never belong on prod (same spirit as the old hook's SKIP).
+# Dev-only paths that never belong on prod (same spirit as the old hook SKIP).
 $skip = '^(iis/|docs/|tools/deploy/|tools/exec-pptx/(fixtures|refs)/|tools/exec-pptx/INTEGRATION_|_deploy\.cmd$|_apply_on_prod\.cmd$|sdp-deploy_.*\.zip$)'
 $changed = @($changed | Where-Object { $_ -and ($_ -notmatch $skip) })
 $deleted = @($deleted | Where-Object { $_ -and ($_ -notmatch $skip) })
 
 if ($changed.Count -eq 0 -and $deleted.Count -eq 0) {
-  Write-Host "Nothing to deploy since $base — no package built." -ForegroundColor Yellow
+  Write-Host "Nothing to deploy since $base - no package built." -ForegroundColor Yellow
   exit 0
 }
 
@@ -67,42 +74,13 @@ foreach ($f in $changed) {
 @($deleted | ForEach-Object { $_ -replace '/', '\' }) | Set-Content (Join-Path $stage 'DELETIONS.txt') -Encoding ASCII
 
 # Human manifest.
-$m = @("SDP Dashboard deploy package",
-       "HEAD $head   base $base   built $stamp",
-       "",
-       "Changed ($($changed.Count)):") + @($changed | ForEach-Object { "  + $_" })
-if ($deleted.Count) { $m += @("", "Deleted ($($deleted.Count)):") + @($deleted | ForEach-Object { "  - $_" }) }
+$m = @("SDP Dashboard deploy package", "HEAD $head   base $base   built $stamp", "", "Changed ($($changed.Count)):")
+$m += @($changed | ForEach-Object { "  + $_" })
+if ($deleted.Count) { $m += @("", "Deleted ($($deleted.Count)):"); $m += @($deleted | ForEach-Object { "  - $_" }) }
 $m | Set-Content (Join-Path $stage 'MANIFEST.txt') -Encoding UTF8
 
-# Prod installer (runs on the prod host in cmd.exe).
-$installer = @'
-@echo off
-setlocal enabledelayedexpansion
-:: Apply this SDP Dashboard deploy package on the PROD server.
-:: Extract the zip anywhere on prod, then run this file from the extracted folder.
-set "APP=%SDP_PROD_DIR%"
-if "%APP%"=="" set "APP=C:\Apps\SDP-Dashboard"
-if not exist "%APP%\server.js" (
-  echo [ERROR] "%APP%" does not look like the app root ^(no server.js^).
-  echo Set SDP_PROD_DIR to the correct path and re-run.
-  pause & exit /b 1
-)
-echo Applying package to %APP% ...
-xcopy "%~dp0files" "%APP%" /E /Y /I
-if errorlevel 1 ( echo [ERROR] file copy failed. & pause & exit /b 1 )
-if exist "%~dp0DELETIONS.txt" (
-  for /f "usebackq delims=" %%F in ("%~dp0DELETIONS.txt") do (
-    if exist "%APP%\%%F" ( del /F /Q "%APP%\%%F" && echo   deleted %%F )
-  )
-)
-echo.
-echo Files applied. Now RESTART the server ^(server.js + boot-cached HTML need it^):
-echo     _pm2_restart_prod.cmd     ^(pm2 stop -^> timeout 5 -^> start; NOT reload^)
-echo render.py is copy-only. After the restart, each user presses Ctrl+F5 once.
-echo.
-pause
-'@
-$installer | Set-Content (Join-Path $stage '_apply_on_prod.cmd') -Encoding ASCII
+# Prod installer - a committed template copied in as _apply_on_prod.cmd.
+Copy-Item (Join-Path $PSScriptRoot 'apply-on-prod.cmd') (Join-Path $stage '_apply_on_prod.cmd') -Force
 
 # Zip into the repo root (gitignored).
 $zip = Join-Path $root ("sdp-deploy_${head}_${stamp}.zip")
