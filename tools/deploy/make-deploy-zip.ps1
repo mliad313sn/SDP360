@@ -82,7 +82,9 @@ $m | Set-Content (Join-Path $stage 'MANIFEST.txt') -Encoding UTF8
 # Prod installer - a committed template copied in as _apply_on_prod.cmd.
 Copy-Item (Join-Path $PSScriptRoot 'apply-on-prod.cmd') (Join-Path $stage '_apply_on_prod.cmd') -Force
 
-# Zip into the repo root (gitignored).
+# Zip into the repo root (gitignored). Remove any older packages first so there
+# is only ever ONE sdp-deploy_*.zip = the current one (no "which zip?" doubt).
+Get-ChildItem -Path $root -Filter 'sdp-deploy_*.zip' -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
 $zip = Join-Path $root ("sdp-deploy_${head}_${stamp}.zip")
 if (Test-Path $zip) { Remove-Item $zip -Force }
 Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zip -Force
