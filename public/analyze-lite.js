@@ -38,7 +38,7 @@
   // ── Thresholds (identical to the AI prompt's thresholds) ──────────
   const TH = {
     slaCompGood: 90,  slaCompWarn: 85,
-    frtCompGood: 90,  frtCompWarn: 85,
+    frtCompGood: 80,  frtCompWarn: 70,   // FRT SLA target is 80% (org standard), not 90% like Res SLA
     avgFrtGood:  4,   avgFrtWarn:  8,        // hours
     avgMttrGood: 1,   avgMttrWarn: 2,        // days
     closureGood: 80,  closureWarn: 60,

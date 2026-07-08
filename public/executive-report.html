@@ -4791,7 +4791,7 @@ All numbers below are scoped to this filter unless noted as "12-month trend".
 
 ═══ HELPDESK KPI SCORECARD ═══
 ${kpiStatus(h.slaComp,95,85)}  Resolution SLA Compliance : ${h.slaComp != null ? h.slaComp+'%' : 'N/A'}  (target ≥90%)
-${kpiStatus(frtCompPct,95,85)}  FRT SLA Compliance        : ${frtCompPct != null ? frtCompPct+'%' : 'N/A'}  (target ≥90%)
+${kpiStatus(frtCompPct,80,70)}  FRT SLA Compliance        : ${frtCompPct != null ? frtCompPct+'%' : 'N/A'}  (target ≥80%)
 ${kpiStatusLow(h.avgFrt!=null?parseFloat(h.avgFrt):null,4,8)}  Avg First Response Time   : ${h.avgFrt != null ? h.avgFrt+'h' : 'N/A'}  (target ≤4h)
 ${kpiStatusLow(h.avgMttr!=null?parseFloat(h.avgMttr):null,1,2)}  Avg MTTR                  : ${h.avgMttr != null ? h.avgMttr+'d' : 'N/A'}  (target ≤1d)
 ${kpiStatus(h.closureRate,80,60)}  Closure Rate              : ${h.closureRate != null ? h.closureRate+'%' : 'N/A'}  (${h.closed} of ${h.total} resolved)
