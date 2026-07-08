@@ -960,6 +960,9 @@ app.use('/api/', async (req, res, next) => {
   // The editorial WRITE (PUT /api/exec/editorial) is NOT exempted here — it goes
   // through requireReportSession + requireAdmin below the gate.
   if (req.method === 'GET' && req.path === '/exec/summary') return next();
+  // Public SSO endpoints — the user isn't authenticated yet during login.
+  // /auth/config (is SSO on?) + /auth/sso/login + /auth/sso/callback.
+  if (req.path === '/auth/config' || req.path.startsWith('/auth/sso/')) return next();
   const key   = req.headers['x-dash-key'];
   if (key === DASH_API_KEY) return next(); // API key present — allow
   // Fallback: accept valid session token (for Editor/Viewer users on index.html)
@@ -3973,6 +3976,11 @@ app.post('/api/reports/auth/login', loginLimiter, jsonBody, async (req, res) => 
   if (!rdb) return res.status(503).json({ error: 'Reports module not available' });
   const { username, password } = req.body || {};
   if (!username || !password) return res.status(400).json({ error: 'username and password required' });
+  // SSO-only mode: password sign-in is reserved for the break-glass account so
+  // an Entra outage can't lock everyone out. Everyone else must use Microsoft.
+  if (SSO_ENABLED && username !== SSO_BREAKGLASS_USER) {
+    return res.status(403).json({ error: 'Password sign-in is disabled — use "Sign in with Microsoft".' });
+  }
   try {
     const result = await rdb.login(username, password);
     if (!result) return res.status(401).json({ error: 'Invalid credentials' });
@@ -3999,6 +4007,98 @@ app.post('/api/reports/auth/logout', requireReportSession, async (req, res) => {
 
 app.get('/api/reports/auth/me', requireReportSession, (req, res) => {
   res.json({ user: req.reportUser });
+});
+
+// ── Microsoft Entra ID (Azure AD) SSO ────────────────────────────────────────
+// OpenID Connect auth-code + PKCE. The engine (services/ssoEntra.js) is
+// identity-only; here we map the validated identity onto the dashboard user and
+// mint the SAME session token password login uses. Flag-gated + dormant until
+// SSO_ENABLED=true and the ENTRA_* vars are set. See docs/SSO_ENTRA_SETUP.md.
+const SSO_ENABLED         = /^(1|true|yes)$/i.test(process.env.SSO_ENABLED || '');
+const SSO_BREAKGLASS_USER = process.env.SSO_BREAKGLASS_USER || 'admin';
+const _ssoCfg = {
+  tenantId:     process.env.ENTRA_TENANT_ID     || '',
+  clientId:     process.env.ENTRA_CLIENT_ID     || '',
+  clientSecret: process.env.ENTRA_CLIENT_SECRET || '',
+  redirectUri:  process.env.ENTRA_REDIRECT_URI  || 'https://itops-dashboard.edv-ops.com/api/auth/sso/callback',
+  scopes:       'openid profile email',
+};
+const _ssoReady = SSO_ENABLED && _ssoCfg.tenantId && _ssoCfg.clientId && _ssoCfg.clientSecret;
+console.log(`[SSO] Entra ID ${SSO_ENABLED ? (_ssoReady ? 'ENABLED' : 'ENABLED but MISCONFIGURED (check ENTRA_* vars)') : 'off'}`);
+
+// Pending logins: state → {nonce, codeVerifier, at}. In-memory (single pm2
+// process); 10-min TTL. A pm2 restart drops in-flight logins — the user just
+// clicks sign-in again. (Move to a table if the app ever runs multi-process.)
+const _ssoPending = new Map();
+setInterval(() => {
+  const cutoff = Date.now() - 10 * 60 * 1000;
+  for (const [k, v] of _ssoPending) if (v.at < cutoff) _ssoPending.delete(k);
+}, 5 * 60 * 1000).unref();
+
+// Public: does the login page show the Microsoft button / hide the password form?
+app.get('/api/auth/config', (req, res) => {
+  res.json({ sso_enabled: !!_ssoReady, breakglass_user: SSO_ENABLED ? SSO_BREAKGLASS_USER : null });
+});
+
+// Kick off the login: build the authorize URL, stash PKCE bits, redirect to Entra.
+app.get('/api/auth/sso/login', (req, res) => {
+  if (!_ssoReady) return res.status(404).send('SSO is not enabled on this server.');
+  try {
+    const ssoEntra = require('./services/ssoEntra');
+    const { url, state, nonce, codeVerifier } = ssoEntra.beginLogin(_ssoCfg);
+    _ssoPending.set(state, { nonce, codeVerifier, at: Date.now() });
+    res.redirect(url);
+  } catch (e) {
+    console.error('[SSO] login start failed:', e.message);
+    res.redirect('/login.html?sso_error=start_failed');
+  }
+});
+
+// Entra redirects back here with ?code=&state=. Validate, map to a user, mint.
+app.get('/api/auth/sso/callback', async (req, res) => {
+  if (!_ssoReady) return res.status(404).send('SSO is not enabled on this server.');
+  const _fail = (code) => res.redirect('/login.html?sso_error=' + encodeURIComponent(code));
+  try {
+    if (req.query.error) { console.warn('[SSO] Entra returned error:', req.query.error, req.query.error_description || ''); return _fail(String(req.query.error)); }
+    const { code, state } = req.query;
+    if (!code || !state) return _fail('missing_code');
+    const pending = _ssoPending.get(state);          // state match = CSRF guard
+    if (!pending) return _fail('state_expired');
+    _ssoPending.delete(state);
+
+    const ssoEntra = require('./services/ssoEntra');
+    const claims = await ssoEntra.completeLogin({
+      code, codeVerifier: pending.codeVerifier, expectedNonce: pending.nonce, cfg: _ssoCfg,
+    });
+
+    // Pre-provisioned only: the identity must match an active dashboard user.
+    const user = await rdb.findUserByEntra({ oid: claims.oid, email: claims.email });
+    if (!user) {
+      console.warn(`[SSO] denied — no provisioned user for ${claims.email} (oid ${claims.oid})`);
+      return _fail('not_provisioned');
+    }
+    await rdb.linkUserEntra(user.id, claims.oid, claims.email);   // stamp stable oid
+    const session = await rdb.createSessionForUser(user.id);
+    if (!session) return _fail('session_failed');
+    console.log(`[SSO] login ok user=${user.username} email=${claims.email}`);
+
+    // Set the same httpOnly session cookie password login uses…
+    res.cookie('report_token', session.token, {
+      httpOnly: true, secure: SESSION_COOKIE_SECURE, sameSite: 'lax', maxAge: 24 * 60 * 60 * 1000,
+    });
+    // …and hand the token to localStorage via a tiny page (mirrors the password
+    // flow; token is in the HTTPS response body, never in the URL).
+    const payload = JSON.stringify({ token: session.token, user: session.user });
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(`<!doctype html><meta charset="utf-8"><title>Signing in…</title>
+<body style="font-family:system-ui;background:#0f1419;color:#cbd5e1;display:grid;place-items:center;height:100vh;margin:0">
+<div>Signing you in…</div>
+<script>try{var d=${payload};localStorage.setItem('report_token',d.token);localStorage.setItem('report_user',JSON.stringify(d.user));}catch(e){}location.replace('/index.html');</script>
+</body>`);
+  } catch (e) {
+    console.error('[SSO] callback failed:', e.code || '', e.message);
+    return _fail(e.code || 'sso_failed');
+  }
 });
 
 // ── Change own password ───────────────────────────────────────────
@@ -4101,9 +4201,9 @@ app.get('/api/reports/users', requireReportSession, requireAdmin, async (req, re
 app.post('/api/reports/users', requireReportSession, requireAdmin, jsonBody, async (req, res) => {
   try {
     // Accept both legacy `role: 'admin'` (string) and new `roles: ['admin', 'tracker-editor']` (array).
-    const { username, full_name, password, site_id, role, roles } = req.body || {};
+    const { username, full_name, password, site_id, role, roles, email } = req.body || {};
     if (!username || !full_name || !password) return res.status(400).json({ error: 'username, full_name, password required' });
-    await rdb.createUser({ username, full_name, password, site_id, role, roles });
+    await rdb.createUser({ username, full_name, password, site_id, role, roles, email });
     res.json({ ok: true });
   } catch(e) {
     // sqlite raises "UNIQUE constraint failed"; postgres raises SQLSTATE 23505.
@@ -4115,9 +4215,9 @@ app.post('/api/reports/users', requireReportSession, requireAdmin, jsonBody, asy
 app.put('/api/reports/users/:id', requireReportSession, requireAdmin, jsonBody, async (req, res) => {
   try {
     // Accept both legacy `role` (string) and new `roles` (array) — see createUser comment.
-    const { full_name, password, site_id, role, roles, active } = req.body || {};
+    const { full_name, password, site_id, role, roles, active, email } = req.body || {};
     if (!full_name) return res.status(400).json({ error: 'full_name required' });
-    await rdb.updateUser(parseInt(req.params.id), { full_name, password, site_id, role, roles, active });
+    await rdb.updateUser(parseInt(req.params.id), { full_name, password, site_id, role, roles, active, email });
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
