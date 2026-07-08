@@ -334,11 +334,15 @@
     if (btnMs) btnMs.addEventListener('click', () => { location.href = '/api/auth/sso/login'; });
     if (cfg.sso_enabled) {
       document.getElementById('ssoWrap').style.display = 'block';
-      // SSO-only: hide the password form unless ?breakglass=1 (emergency admin).
-      if (!breakglass) {
+      // password_login: true in 'available' (both shown) + 'off'; false in 'only'.
+      const showPassword = cfg.password_login || breakglass;
+      if (!showPassword) {
         document.getElementById('loginForm').style.display = 'none';
-      } else {
+      } else if (cfg.mode === 'only' && breakglass) {
         document.querySelector('.logo p').textContent = 'Break-glass sign-in — for the emergency admin account only.';
+      } else if (cfg.mode === 'available') {
+        // Both methods available during the transition — show a divider.
+        document.getElementById('ssoHint').textContent = 'Use your Endeavour Microsoft account — or sign in with a password below.';
       }
     }
   })();

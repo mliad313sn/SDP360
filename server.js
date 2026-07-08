@@ -3976,9 +3976,10 @@ app.post('/api/reports/auth/login', loginLimiter, jsonBody, async (req, res) => 
   if (!rdb) return res.status(503).json({ error: 'Reports module not available' });
   const { username, password } = req.body || {};
   if (!username || !password) return res.status(400).json({ error: 'username and password required' });
-  // SSO-only mode: password sign-in is reserved for the break-glass account so
-  // an Entra outage can't lock everyone out. Everyone else must use Microsoft.
-  if (SSO_ENABLED && username !== SSO_BREAKGLASS_USER) {
+  // 'only' mode: password sign-in is reserved for the break-glass account so an
+  // Entra outage can't lock everyone out. 'available' mode keeps password login
+  // open for everyone (the hybrid transition window). 'off' → unrestricted.
+  if (SSO_MODE === 'only' && username !== SSO_BREAKGLASS_USER) {
     return res.status(403).json({ error: 'Password sign-in is disabled — use "Sign in with Microsoft".' });
   }
   try {
@@ -4014,7 +4015,16 @@ app.get('/api/reports/auth/me', requireReportSession, (req, res) => {
 // identity-only; here we map the validated identity onto the dashboard user and
 // mint the SAME session token password login uses. Flag-gated + dormant until
 // SSO_ENABLED=true and the ENTRA_* vars are set. See docs/SSO_ENTRA_SETUP.md.
-const SSO_ENABLED         = /^(1|true|yes)$/i.test(process.env.SSO_ENABLED || '');
+// SSO_MODE controls the cutover: 'off' (password only), 'available' (BOTH
+// Microsoft + password — the hybrid transition window), 'only' (Microsoft
+// required; password reserved for the break-glass account). Back-compat:
+// SSO_ENABLED=true maps to 'only'.
+const SSO_MODE = (() => {
+  const m = String(process.env.SSO_MODE || '').toLowerCase();
+  if (m === 'off' || m === 'available' || m === 'only') return m;
+  return /^(1|true|yes)$/i.test(process.env.SSO_ENABLED || '') ? 'only' : 'off';
+})();
+const SSO_ENABLED         = SSO_MODE !== 'off';   // SSO routes active (available + only)
 const SSO_BREAKGLASS_USER = process.env.SSO_BREAKGLASS_USER || 'admin';
 const _ssoCfg = {
   tenantId:     process.env.ENTRA_TENANT_ID     || '',
@@ -4024,7 +4034,7 @@ const _ssoCfg = {
   scopes:       'openid profile email',
 };
 const _ssoReady = SSO_ENABLED && _ssoCfg.tenantId && _ssoCfg.clientId && _ssoCfg.clientSecret;
-console.log(`[SSO] Entra ID ${SSO_ENABLED ? (_ssoReady ? 'ENABLED' : 'ENABLED but MISCONFIGURED (check ENTRA_* vars)') : 'off'}`);
+console.log(`[SSO] mode=${SSO_MODE} ${SSO_ENABLED ? (_ssoReady ? '(Entra ready)' : '(MISCONFIGURED — check ENTRA_* vars)') : ''}`);
 
 // Pending logins: state → {nonce, codeVerifier, at}. In-memory (single pm2
 // process); 10-min TTL. A pm2 restart drops in-flight logins — the user just
@@ -4035,9 +4045,16 @@ setInterval(() => {
   for (const [k, v] of _ssoPending) if (v.at < cutoff) _ssoPending.delete(k);
 }, 5 * 60 * 1000).unref();
 
-// Public: does the login page show the Microsoft button / hide the password form?
+// Public: drives the login page — show the Microsoft button? show the password
+// form? password_login is false only in 'only' mode (break-glass still works via
+// ?breakglass=1, which the server allows for SSO_BREAKGLASS_USER).
 app.get('/api/auth/config', (req, res) => {
-  res.json({ sso_enabled: !!_ssoReady, breakglass_user: SSO_ENABLED ? SSO_BREAKGLASS_USER : null });
+  res.json({
+    sso_enabled:    !!_ssoReady,
+    mode:           SSO_MODE,
+    password_login: SSO_MODE !== 'only',
+    breakglass_user: SSO_MODE === 'only' ? SSO_BREAKGLASS_USER : null,
+  });
 });
 
 // Kick off the login: build the authorize URL, stash PKCE bits, redirect to Entra.
@@ -4078,6 +4095,13 @@ app.get('/api/auth/sso/callback', async (req, res) => {
       return _fail('not_provisioned');
     }
     await rdb.linkUserEntra(user.id, claims.oid, claims.email);   // stamp stable oid
+    // Refresh the display profile FROM Microsoft (name/title/office).
+    try {
+      await rdb.updateUserProfileFromEntra(user.id, {
+        first_name: claims.first_name, last_name: claims.last_name,
+        title: claims.title, office: claims.office, full_name: claims.name,
+      });
+    } catch (e) { console.warn('[SSO] profile sync skipped:', e.message); }
     const session = await rdb.createSessionForUser(user.id);
     if (!session) return _fail('session_failed');
     console.log(`[SSO] login ok user=${user.username} email=${claims.email}`);
