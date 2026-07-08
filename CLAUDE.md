@@ -6,7 +6,91 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ---
 
-## ⚡ Current state (as of 2026-06-22)
+## ⚡ Current state (as of 2026-07-08)
+
+> **READ FIRST.** Branch `main`, tip `01c0811`, **~44 commits ahead of the last
+> confirmed prod deploy** (`7fb62d9`, Exec View v1). **NOTHING in this session
+> is deployed yet.** `_deploy.cmd` is staged with **30 files**. Because it
+> touches `server.js` + many `_htmlCache`'d HTMLs, deploy = `_deploy.cmd` then
+> **`_pm2_restart_prod.cmd`** (pm2 stop → `timeout /t 5` → start — NOT `reload`;
+> EADDRINUSE crash-loop pitfall). `render.py` is copy-only. Users need ONE
+> **Ctrl+F5** after restart. The deploy marker keeps drifting (background
+> harness) — rebaseline with `git rev-parse 7fb62d9 > .git/last-deployed && sh
+> .git/hooks/post-commit` before each `_deploy.cmd`.
+>
+> ### What landed (7 tracks, ~44 commits)
+>
+> | Track | Commits | Summary |
+> |---|---|---|
+> | **1 · SharePoint Exec View v1.1/v1.2** | `8bb2ce1`..`15168ef` (+`28ca533`) | MI-centric site panel (only sites with an active Major Incident or overdue backlog), on-page MI detail + SDP quick-links, report-month anchoring, **AI-summarized MI cards** (server-side, cached, degrades to non-AI text), active-MI query fix (exclude closed/resolved/cancelled — stale `pending_status` was leaking closed MIs), footer "Powered by…" removed. New `_pm2_restart_prod.cmd` + `_pm2_recover_prod.cmd`. |
+> | **2 · Group IT Report (exec-pptx)** | `db8c100`..`7bea65c` | Slide-2 rebuilt to the "5. Operations: Summary" template (initials avatar, quadrant grid, title colours, light-blue zones); slide-3 Executive Overview compacted; **page number in a blue box**; **FRT SLA target = 80%** everywhere; Resolution-SLA 12-mo trend flat-100% bug fixed (`isResOverdue` in the monthly builder); channel chart trims leading no-data months; **deterministic TOP PAIN POINTS** from survey verbatims (dropped the Phase-5/LLM placeholder); **change charts inherit the tickets group scope** (stop Application-team leakage into the Ops deck); **backlog classified BY THEME** from ticket subjects (`_backlogThemes`, 7 keyword rules) + fixed a >100% "fresh share" denom bug. |
+> | **3 · AI off + Quick-only** | `c5f64cd`, `50ea5f7` | **`AI_PROVIDER` default flipped `anthropic`→`off`** — `/api/ai/analyze` returns a clean 503, MI-summary regen skips. Deck builder is **Quick-only**: cloud "Analyze" buttons removed, "Analyze (Quick)" promoted to primary, `runAnalysis()` redirects to the offline engine, Audience selector hidden. |
+> | **4 · Corrective-Action dashboards + exports** | `78664ea`, `8074b10`, `71d9fa7`, `b3c5db1` | `inspection-actions.html` + `meetings-actions.html` each got a **Chart.js analytics dashboard** (status/priority-or-dept donuts, ageing, by-site stacked, raised-vs-closed trend) + a **client-side PPTX export** (pptxgenjs 3.12.0, already vendored — 3-slide deck scoped to the active filter). Plus **full-table Excel export** (`services/tableExcel.js` + `GET /api/inspection/export.xlsx` + `GET /api/meetings/export.xlsx`, admin+, multi-sheet, SheetJS server-side). |
+> | **5 · Inspection form** | `e6b19e0`, `1fa20d3`, `b3c5db1` | **Owner + Target Date now mandatory** on corrective actions (red highlight + Submit blocked). **Checklist "display by type"** domain filter (All / IT & Datacenter / Telecom & Comms / Safety & Physical / OT & Ops — pure display filter over the 17 categories). Fixed the **`/api/inspection/aggregate/export` 404** (route order: `/:id/export` was swallowing `/aggregate/export`). |
+> | **6 · Microsoft Entra ID SSO** (dormant) | `e9dd863`..`40212de`, `f1c6c1f` | Full stack, **flag-gated on `SSO_MODE` (off/available/only), inert until set**. See the dedicated section below. |
+> | **7 · Help manual** | `01c0811` | `help.html` bilingual (EN+FR) refreshed: inspection domain filter + mandatory fields + 11.6 Actions Register; meetings 12.6 Actions Register + 12.7 Insights; section 14 reframed Quick-first; new section 15 SharePoint Exec View. 30 headings, TOC anchors validated. |
+>
+> ### Microsoft Entra ID SSO — built this session, DORMANT
+>
+> Decisions (locked with the user): **SSO-only** end-state, **pre-provisioned
+> only** (deny unknowns), **roles/sites stay in the dashboard DB**, one
+> **break-glass** password super_admin, **profile auto-synced from Entra**,
+> **hybrid `available` cutover window**. Everything is gated on `SSO_MODE` and
+> ships completely inert (default `off`).
+>
+> - **Engine** `services/ssoEntra.js` — OIDC auth-code + PKCE, **zero new npm
+>   deps** (axios + built-in `crypto` for RS256/JWKS verification). Enriches the
+>   profile via Graph `/me` (jobTitle/officeLocation; needs `User.Read`).
+>   `tests/sso-entra.test.js` (12, real RSA round-trip).
+> - **DB** `reports-db.js` — `users` gains `email`, `entra_oid`, `first_name`,
+>   `last_name`, `title`, `office` (idempotent ALTER). New `findUserByEntra`,
+>   `linkUserEntra`, `createSessionForUser` (mints the SAME session token as
+>   `login()`), `updateUserProfileFromEntra` (COALESCE — never wipes on blank),
+>   `setUserEmail`. sqlite + pg forks. `tests/sso-db.test.js` (8).
+> - **Routes** `server.js` — `SSO_MODE` (SSO_ENABLED=true → `only` back-compat).
+>   `GET /api/auth/config` (public), `/api/auth/sso/login`, `/api/auth/sso/callback`
+>   (state/nonce/PKCE in a 10-min in-memory map; findUser→link→profile-sync→mint
+>   →httpOnly `report_token` cookie + localStorage handoff via a tiny HTML page).
+>   All 3 exempted from the `/api/` gate. Password-login **break-glass gate fires
+>   only in `only` mode**. `tests/sso-routes.smoke.test.js` (4, boots app SSO-off).
+> - **UI** `login.html` (Microsoft button; hides password form per mode; friendly
+>   `sso_error` messages), `reports.html` (Email field on Users + **✉ Map SSO
+>   emails** bulk screen with `first.last@edv-ops.com` auto-suggest, accent-folded).
+> - **Cutover** (`docs/SSO_ENTRA_SETUP.md`): register app + `email` claim +
+>   `User.Read` → **map emails in bulk** → `SSO_MODE=available` (~1 wk, both
+>   methods) → `SSO_MODE=only`. `.env`: `SSO_MODE`, `ENTRA_TENANT_ID/CLIENT_ID/
+>   CLIENT_SECRET/REDIRECT_URI`, `SSO_BREAKGLASS_USER`, `SESSION_COOKIE_SECURE=1`.
+> - **The user is the M365/Entra admin** and will do the app registration. **Not
+>   yet done** as of this writing → SSO cannot be end-to-end tested until it is.
+>   Total SSO suite: **24 tests green**.
+>
+> ### New files this session
+>
+> `services/ssoEntra.js`, `services/tableExcel.js`, `docs/SSO_ENTRA_SETUP.md`,
+> `_pm2_restart_prod.cmd`, `_pm2_recover_prod.cmd`, tests: `sso-entra`, `sso-db`,
+> `sso-routes.smoke`, `exec-active-mi-filter`, `exec-mi-summary`.
+>
+> ### Open items / next session
+>
+> 1. **Deploy the 30-file backlog** + `_pm2_restart_prod.cmd`; after restart run
+>    ONE full requests sync (`POST /api/sync/trigger/requests?force=true`) so the
+>    new `template` column backfills and **Major Incident #311587** (flagged via
+>    SDP Template, not Request Type) appears.
+> 2. **SSO go-live** — user does the Entra app registration, then: bulk-map
+>    emails → `SSO_MODE=available` → verify own Microsoft sign-in → `only`.
+>    Offered but not yet done: a **callback integration test** (stub the engine,
+>    prove findUser→link→profile→session→cookie) + a **security-review pass**.
+> 3. **help.html** — add a "Sign in with Microsoft" note to §2 once SSO is
+>    `available`; optionally refresh Admin §7 for the new cards (Exec View
+>    editorial, SSO email-mapping).
+> 4. **Backlog-theme keyword tuning** — the `_backlogThemes` rules are a first
+>    pass; tune against real June data if too much lands in "Other".
+> 5. **Postgres**: the SSO reports-db pg forks exist but `entra_oid`/profile
+>    columns must be added to the pg `users` schema before a reports.db PG cutover.
+>
+> ---
+
+## ⚡ Prior state (as of 2026-06-22)
 
 > **READ FIRST.** Branch `main`, tip `50d8717`. This session was a focused
 > **Group IT Report PPTX (exec-pptx) overhaul** — 6 commits
