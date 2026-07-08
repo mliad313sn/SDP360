@@ -323,6 +323,12 @@ try { db.exec(`ALTER TABLE sessions ADD COLUMN last_seen TEXT`); } catch(e) {}
 try { db.exec(`CREATE INDEX IF NOT EXISTS idx_sessions_last_seen ON sessions(last_seen)`); } catch(e) {}
 // sites: add zoho_group column for group-based helpdesk filtering
 try { db.exec(`ALTER TABLE sites ADD COLUMN zoho_group TEXT`); } catch(e) {}
+// users: Entra ID (Azure AD) SSO — email is the pre-provisioning match key;
+// entra_oid is the stable object-id linked on first successful Microsoft login.
+try { db.exec(`ALTER TABLE users ADD COLUMN email TEXT`); } catch(e) {}
+try { db.exec(`ALTER TABLE users ADD COLUMN entra_oid TEXT`); } catch(e) {}
+try { db.exec(`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`); } catch(e) {}
+try { db.exec(`CREATE INDEX IF NOT EXISTS idx_users_entra ON users(entra_oid)`); } catch(e) {}
 // v1.10.9 — change_records: add group_name for site-based change filtering
 try { db.exec(`ALTER TABLE change_records ADD COLUMN group_name TEXT`); } catch(e) {}
 try { db.exec(`CREATE INDEX IF NOT EXISTS idx_cr_group_name ON change_records(group_name)`); } catch(e) {}
@@ -1116,6 +1122,8 @@ function safeUser(u) {
   return {
     id: u.id, username: u.username, full_name: u.full_name,
     site_id: u.site_id,
+    email: u.email || null,       // Entra SSO match key (also shown in the admin UI)
+    has_entra: !!u.entra_oid,     // linked to a Microsoft identity?
     role: u.role,           // legacy single-role field — highest hierarchical tier
     roles,                  // full role array (hierarchical + feature)
     active: u.active,
@@ -1126,7 +1134,8 @@ function safeUser(u) {
 function listUsers() {
   if (REPORTS_BACKEND === 'postgres') return _listUsersPg();
   const users = db.prepare(`
-    SELECT u.id, u.username, u.full_name, u.site_id, s.name as site_name, s.zoho_group, u.role, u.active, u.created_at
+    SELECT u.id, u.username, u.full_name, u.site_id, s.name as site_name, s.zoho_group, u.role, u.active, u.created_at,
+           u.email, u.entra_oid
     FROM users u LEFT JOIN sites s ON u.site_id=s.id ORDER BY u.id
   `).all();
   // Attach roles array to each user — single GROUP_CONCAT query is cheaper
@@ -1136,11 +1145,11 @@ function listUsers() {
   `).all();
   const rolesByUser = {};
   for (const r of allRoles) rolesByUser[r.user_id] = r.roles_csv ? r.roles_csv.split(',').sort() : [];
-  return users.map(u => ({ ...u, roles: rolesByUser[u.id] || [] }));
+  return users.map(u => ({ ...u, has_entra: !!u.entra_oid, entra_oid: undefined, roles: rolesByUser[u.id] || [] }));
 }
 
-function createUser({ username, full_name, password, site_id, role, roles }) {
-  if (REPORTS_BACKEND === 'postgres') return _createUserPg({ username, full_name, password, site_id, role, roles });
+function createUser({ username, full_name, password, site_id, role, roles, email }) {
+  if (REPORTS_BACKEND === 'postgres') return _createUserPg({ username, full_name, password, site_id, role, roles, email });
   const salt = crypto.randomBytes(16).toString('hex');
   const hash = hashPassword(password, salt);
   // Resolve final roles set: prefer the new `roles` array; fall back to the
@@ -1155,6 +1164,12 @@ function createUser({ username, full_name, password, site_id, role, roles }) {
            .run(username, full_name, hash, salt, site_id || null, highest);
   // Persist all roles to user_roles
   if (result.lastInsertRowid) setUserRoles(result.lastInsertRowid, finalRoles);
+  // Email (Entra SSO match key) — additive so the branchy password logic above
+  // stays untouched. Stored lowercase; blank → NULL.
+  if (result.lastInsertRowid && email !== undefined) {
+    const e = (email && String(email).trim().toLowerCase()) || null;
+    db.prepare(`UPDATE users SET email=? WHERE id=?`).run(e, result.lastInsertRowid);
+  }
   return result;
 }
 
@@ -1172,8 +1187,8 @@ function changePassword(userId, currentPassword, newPassword) {
   return { ok: true };
 }
 
-function updateUser(id, { full_name, password, site_id, role, roles, active }) {
-  if (REPORTS_BACKEND === 'postgres') return _updateUserPg(id, { full_name, password, site_id, role, roles, active });
+function updateUser(id, { full_name, password, site_id, role, roles, active, email }) {
+  if (REPORTS_BACKEND === 'postgres') return _updateUserPg(id, { full_name, password, site_id, role, roles, active, email });
   // Resolve roles to update: prefer the new `roles` array; fall back to
   // single `role` for legacy callers. If neither is provided, leave the
   // current user_roles set alone.
@@ -1210,6 +1225,68 @@ function updateUser(id, { full_name, password, site_id, role, roles, active }) {
   if (willUpdateRoles && finalRoles) {
     setUserRoles(id, finalRoles);
   }
+  // Email (Entra SSO match key) — additive; only touched when explicitly sent.
+  if (email !== undefined) {
+    const e = (email && String(email).trim().toLowerCase()) || null;
+    db.prepare(`UPDATE users SET email=? WHERE id=?`).run(e, id);
+  }
+}
+
+// ── Entra ID (Azure AD) SSO helpers ──────────────────────────────────────────
+// findUserByEntra: resolve a Microsoft identity to a dashboard user — prefer the
+// stable oid link, fall back to a case-insensitive email match (pre-provisioning).
+// Returns the raw active user row, or null (→ caller denies: not provisioned).
+function findUserByEntra({ oid, email } = {}) {
+  if (REPORTS_BACKEND === 'postgres') return _findUserByEntraPg({ oid, email });
+  let u = null;
+  if (oid)          u = db.prepare(`SELECT * FROM users WHERE entra_oid=? AND active=1`).get(oid);
+  if (!u && email)  u = db.prepare(`SELECT * FROM users WHERE lower(email)=lower(?) AND active=1`).get(email);
+  return u || null;
+}
+// linkUserEntra: on first successful SSO match, stamp the stable oid. Set the
+// email too only if the row didn't already have one (don't clobber a curated value).
+function linkUserEntra(userId, oid, email) {
+  if (REPORTS_BACKEND === 'postgres') return _linkUserEntraPg(userId, oid, email);
+  db.prepare(`UPDATE users SET entra_oid=?, email=COALESCE(email, ?) WHERE id=?`)
+    .run(oid || null, (email && String(email).toLowerCase()) || null, userId);
+}
+// createSessionForUser: mint the SAME 24h session token as password login, but
+// without a password (identity already proven by Entra). Mirrors login().
+function createSessionForUser(userId) {
+  if (REPORTS_BACKEND === 'postgres') return _createSessionForUserPg(userId);
+  const user = db.prepare(`SELECT * FROM users WHERE id=? AND active=1`).get(userId);
+  if (!user) return null;
+  const token     = makeSession();
+  const expiresAt = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
+  db.prepare(`INSERT INTO sessions (token, user_id, expires_at) VALUES (?,?,?)`).run(token, user.id, expiresAt);
+  return { token, user: safeUser(user) };
+}
+
+// PostgreSQL forks — reports.db may run under REPORTS_BACKEND=postgres later.
+async function _findUserByEntraPg({ oid, email } = {}) {
+  const h = pgHandle();
+  let u = null;
+  if (oid)         u = await h.prepare(`SELECT * FROM users WHERE entra_oid=? AND active=1`).get(oid);
+  if (!u && email) u = await h.prepare(`SELECT * FROM users WHERE lower(email)=lower(?) AND active=1`).get(email);
+  return u || null;
+}
+async function _linkUserEntraPg(userId, oid, email) {
+  await pgHandle().prepare(`UPDATE users SET entra_oid=?, email=COALESCE(email, ?) WHERE id=?`)
+    .run(oid || null, (email && String(email).toLowerCase()) || null, userId);
+}
+async function _createSessionForUserPg(userId) {
+  const h = pgHandle();
+  const user = await h.prepare(`SELECT * FROM users WHERE id=? AND active=1`).get(userId);
+  if (!user) return null;
+  const token     = makeSession();
+  const expiresAt = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
+  await h.prepare(`INSERT INTO sessions (token, user_id, expires_at) VALUES (?,?,?)`).run(token, user.id, expiresAt);
+  return { token, user: await _safeUserPg(user) };
+}
+async function _safeUserPg(u) {
+  const roles = await getUserRoles(u.id);
+  return { id: u.id, username: u.username, full_name: u.full_name, site_id: u.site_id,
+           email: u.email || null, has_entra: !!u.entra_oid, role: u.role, roles, active: u.active };
 }
 
 function deleteUser(id) {
@@ -5885,6 +5962,7 @@ module.exports = {
   REPORTS_BACKEND, initPgReports, pgHandle,
   hashPassword, makeSession,
   login, validateSession, logout, safeUser,
+  findUserByEntra, linkUserEntra, createSessionForUser,
   // Active-sessions observability (admin card on reports.html#admin)
   listActiveSessions, forceLogoutByToken,
   // Multi-role RBAC helpers
