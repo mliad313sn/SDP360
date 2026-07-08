@@ -60,6 +60,26 @@ test('updateUser can change the email additively', () => {
   assert.equal(u.email, 'new.addr@edv-ops.com');
 });
 
+test('updateUserProfileFromEntra sets profile; COALESCE keeps existing on null', () => {
+  rdb.updateUserProfileFromEntra(uid, { first_name: 'Azize', last_name: 'Samandoulgou', title: 'IT Manager', office: 'Ouagadougou' });
+  let u = rdb.listUsers().find(x => x.id === uid);
+  assert.equal(u.first_name, 'Azize');
+  assert.equal(u.title, 'IT Manager');
+  assert.equal(u.office, 'Ouagadougou');
+  // A later login where Graph omitted the title must NOT wipe it.
+  rdb.updateUserProfileFromEntra(uid, { first_name: 'Azize', last_name: 'Samandoulgou', title: '', office: null });
+  u = rdb.listUsers().find(x => x.id === uid);
+  assert.equal(u.title, 'IT Manager', 'blank/null title preserved via COALESCE');
+});
+
+test('setUserEmail (bulk mapping) lowercases and can clear', () => {
+  rdb.setUserEmail(uid, '  BULK.Addr@EDV-ops.com ');
+  assert.equal(rdb.listUsers().find(x => x.id === uid).email, 'bulk.addr@edv-ops.com');
+  rdb.setUserEmail(uid, '');
+  assert.equal(rdb.listUsers().find(x => x.id === uid).email, null);
+  rdb.setUserEmail(uid, 'bulk.addr@edv-ops.com'); // restore for later tests
+});
+
 test('inactive user is not resolved by findUserByEntra', () => {
   rdb.updateUser(uid, { full_name: 'Azize SAMANDOULGOU', active: 0 });
   assert.equal(rdb.findUserByEntra({ oid: 'oid-stable-123' }), null, 'inactive → not found');

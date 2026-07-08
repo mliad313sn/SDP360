@@ -329,6 +329,13 @@ try { db.exec(`ALTER TABLE users ADD COLUMN email TEXT`); } catch(e) {}
 try { db.exec(`ALTER TABLE users ADD COLUMN entra_oid TEXT`); } catch(e) {}
 try { db.exec(`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`); } catch(e) {}
 try { db.exec(`CREATE INDEX IF NOT EXISTS idx_users_entra ON users(entra_oid)`); } catch(e) {}
+// users profile — first/last/title/office. Auto-synced FROM Entra on each SSO
+// login (given_name / family_name / jobTitle / officeLocation). full_name kept
+// as the display field; site_id remains the authorization/scoping key.
+try { db.exec(`ALTER TABLE users ADD COLUMN first_name TEXT`); } catch(e) {}
+try { db.exec(`ALTER TABLE users ADD COLUMN last_name  TEXT`); } catch(e) {}
+try { db.exec(`ALTER TABLE users ADD COLUMN title      TEXT`); } catch(e) {}
+try { db.exec(`ALTER TABLE users ADD COLUMN office     TEXT`); } catch(e) {}
 // v1.10.9 — change_records: add group_name for site-based change filtering
 try { db.exec(`ALTER TABLE change_records ADD COLUMN group_name TEXT`); } catch(e) {}
 try { db.exec(`CREATE INDEX IF NOT EXISTS idx_cr_group_name ON change_records(group_name)`); } catch(e) {}
@@ -1121,6 +1128,8 @@ function safeUser(u) {
   const roles = getUserRoles(u.id);
   return {
     id: u.id, username: u.username, full_name: u.full_name,
+    first_name: u.first_name || null, last_name: u.last_name || null,
+    title: u.title || null, office: u.office || null,
     site_id: u.site_id,
     email: u.email || null,       // Entra SSO match key (also shown in the admin UI)
     has_entra: !!u.entra_oid,     // linked to a Microsoft identity?
@@ -1135,7 +1144,7 @@ function listUsers() {
   if (REPORTS_BACKEND === 'postgres') return _listUsersPg();
   const users = db.prepare(`
     SELECT u.id, u.username, u.full_name, u.site_id, s.name as site_name, s.zoho_group, u.role, u.active, u.created_at,
-           u.email, u.entra_oid
+           u.email, u.entra_oid, u.first_name, u.last_name, u.title, u.office
     FROM users u LEFT JOIN sites s ON u.site_id=s.id ORDER BY u.id
   `).all();
   // Attach roles array to each user — single GROUP_CONCAT query is cheaper
@@ -1250,6 +1259,38 @@ function linkUserEntra(userId, oid, email) {
   db.prepare(`UPDATE users SET entra_oid=?, email=COALESCE(email, ?) WHERE id=?`)
     .run(oid || null, (email && String(email).toLowerCase()) || null, userId);
 }
+// updateUserProfileFromEntra: refresh the display profile FROM Microsoft on each
+// SSO login. COALESCE so a field only overwrites when Entra actually supplied it
+// (jobTitle/office can be absent if the Graph call is skipped/fails).
+function _nz(v) { const s = (v == null ? '' : String(v)).trim(); return s || null; }
+function updateUserProfileFromEntra(userId, p = {}) {
+  if (REPORTS_BACKEND === 'postgres') return _updateUserProfileFromEntraPg(userId, p);
+  db.prepare(`UPDATE users SET
+      first_name = COALESCE(?, first_name),
+      last_name  = COALESCE(?, last_name),
+      title      = COALESCE(?, title),
+      office     = COALESCE(?, office),
+      full_name  = COALESCE(?, full_name)
+    WHERE id = ?`)
+    .run(_nz(p.first_name), _nz(p.last_name), _nz(p.title), _nz(p.office), _nz(p.full_name), userId);
+}
+async function _updateUserProfileFromEntraPg(userId, p = {}) {
+  await pgHandle().prepare(`UPDATE users SET
+      first_name = COALESCE(?, first_name), last_name = COALESCE(?, last_name),
+      title = COALESCE(?, title), office = COALESCE(?, office), full_name = COALESCE(?, full_name)
+    WHERE id = ?`)
+    .run(_nz(p.first_name), _nz(p.last_name), _nz(p.title), _nz(p.office), _nz(p.full_name), userId);
+}
+
+// setUserEmail: used by the bulk email-mapping screen. Lowercased; blank → NULL.
+function setUserEmail(userId, email) {
+  if (REPORTS_BACKEND === 'postgres') return _setUserEmailPg(userId, email);
+  db.prepare(`UPDATE users SET email=? WHERE id=?`).run(_nz(email && String(email).toLowerCase()), userId);
+}
+async function _setUserEmailPg(userId, email) {
+  await pgHandle().prepare(`UPDATE users SET email=? WHERE id=?`).run(_nz(email && String(email).toLowerCase()), userId);
+}
+
 // createSessionForUser: mint the SAME 24h session token as password login, but
 // without a password (identity already proven by Entra). Mirrors login().
 function createSessionForUser(userId) {
@@ -5963,6 +6004,7 @@ module.exports = {
   hashPassword, makeSession,
   login, validateSession, logout, safeUser,
   findUserByEntra, linkUserEntra, createSessionForUser,
+  updateUserProfileFromEntra, setUserEmail,
   // Active-sessions observability (admin card on reports.html#admin)
   listActiveSessions, forceLogoutByToken,
   // Multi-role RBAC helpers
