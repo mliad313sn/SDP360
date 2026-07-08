@@ -42,11 +42,12 @@ function makeIdToken(claimOverrides = {}, { kid = KID, tamper = false } = {}) {
   if (tamper) sig = sig.slice(0, -2) + (sig.endsWith('AA') ? 'BB' : 'AA');
   return signingInput + '.' + sig;
 }
-// Stub HTTP: token endpoint returns our id_token; JWKS returns our public JWK.
-function httpFor(idToken) {
+// Stub HTTP: token endpoint returns our id_token; getJson routes by URL —
+// JWKS returns our public JWK, Graph returns the supplied profile (or {}).
+function httpFor(idToken, graph) {
   return {
-    postForm: async () => ({ id_token: idToken, access_token: 'x', token_type: 'Bearer' }),
-    getJson:  async () => ({ keys: [PUB_JWK] }),
+    postForm: async () => ({ id_token: idToken, access_token: 'graph-token', token_type: 'Bearer' }),
+    getJson:  async (url) => (String(url).includes('graph.microsoft.com') ? (graph || {}) : { keys: [PUB_JWK] }),
   };
 }
 
@@ -70,6 +71,28 @@ test('completeLogin: valid token → normalized claims (email lowercased)', asyn
   assert.equal(claims.oid, '00000000-1111-2222-3333-444444444444');
   assert.equal(claims.email, 'azize.samandoulgou@edv-ops.com'); // lowercased
   assert.equal(claims.name, 'Azize SAMANDOULGOU');
+});
+
+test('completeLogin enriches first/last/title/office from Microsoft Graph', async () => {
+  const graph = { displayName: 'Azize SAMANDOULGOU', givenName: 'Azize', surname: 'Samandoulgou',
+                  jobTitle: 'IT Manager', officeLocation: 'Ouagadougou', department: 'IT' };
+  const claims = await sso.completeLogin({
+    code: 'c', codeVerifier: 'v', expectedNonce: 'NONCE123', cfg: CFG, http: httpFor(makeIdToken(), graph),
+  });
+  assert.equal(claims.first_name, 'Azize');
+  assert.equal(claims.last_name, 'Samandoulgou');
+  assert.equal(claims.title, 'IT Manager');
+  assert.equal(claims.office, 'Ouagadougou');
+});
+
+test('completeLogin falls back to id_token names when Graph fails (non-fatal)', async () => {
+  const http = {
+    postForm: async () => ({ id_token: makeIdToken({ given_name: 'Azize', family_name: 'Samandoulgou' }), access_token: 't' }),
+    getJson:  async (url) => { if (String(url).includes('graph.microsoft.com')) throw new Error('graph down'); return { keys: [PUB_JWK] }; },
+  };
+  const claims = await sso.completeLogin({ code: 'c', codeVerifier: 'v', expectedNonce: 'NONCE123', cfg: CFG, http });
+  assert.equal(claims.first_name, 'Azize'); // from id_token given_name
+  assert.equal(claims.title, '');           // Graph failed → empty, login still succeeds
 });
 
 test('rejects a tampered signature', async () => {

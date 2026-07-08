@@ -43,7 +43,7 @@ function beginLogin(cfg) {
     response_type:         'code',
     redirect_uri:          cfg.redirectUri,
     response_mode:         'query',
-    scope:                 cfg.scopes || 'openid profile email',
+    scope:                 cfg.scopes || 'openid profile email User.Read',
     state,
     nonce,
     code_challenge:        codeChallenge,
@@ -68,7 +68,7 @@ async function completeLogin({ code, codeVerifier, expectedNonce, cfg, http }) {
     code,
     redirect_uri:  cfg.redirectUri,
     code_verifier: codeVerifier,
-    scope:         cfg.scopes || 'openid profile email',
+    scope:         cfg.scopes || 'openid profile email User.Read',
   });
 
   let tok;
@@ -80,7 +80,36 @@ async function completeLogin({ code, codeVerifier, expectedNonce, cfg, http }) {
   }
   if (!tok || !tok.id_token) throw _err('no_id_token', 'Token response did not include an id_token');
 
-  return verifyIdToken(tok.id_token, cfg, http, expectedNonce);
+  const identity = await verifyIdToken(tok.id_token, cfg, http, expectedNonce);
+
+  // Enrich the profile from Microsoft Graph (jobTitle + officeLocation aren't in
+  // the ID token). Non-fatal: if the Graph call fails (no User.Read consent /
+  // network), fall back to the ID-token name claims.
+  let g = {};
+  if (tok.access_token) {
+    try { g = await _fetchGraphProfile(tok.access_token, http); }
+    catch (e) { console.warn('[SSO] Graph /me enrichment skipped:', e.message); g = {}; }
+  }
+  return {
+    oid:        identity.oid,
+    email:      identity.email,
+    name:       g.displayName    || identity.name       || '',
+    first_name: g.givenName      || identity.first_name || '',
+    last_name:  g.surname        || identity.last_name  || '',
+    title:      g.jobTitle       || '',
+    office:     g.officeLocation || '',
+    department: g.department     || '',
+    tid:        identity.tid,
+    raw:        identity.raw,
+  };
+}
+
+// Microsoft Graph /me — jobTitle + officeLocation + name (needs the access
+// token carrying the User.Read scope). Returns {} on any non-2xx (caller
+// treats enrichment as best-effort).
+async function _fetchGraphProfile(accessToken, http) {
+  const url = 'https://graph.microsoft.com/v1.0/me?$select=givenName,surname,displayName,jobTitle,officeLocation,department,mail,userPrincipalName';
+  return (await http.getJson(url, { Authorization: 'Bearer ' + accessToken })) || {};
 }
 
 // ── ID-token verification: signature (RS256 via JWKS) + standard claims ──────
@@ -125,7 +154,13 @@ async function verifyIdToken(idToken, cfg, http, expectedNonce) {
   if (!oid)   throw _err('no_oid',   'id_token has no oid/sub claim');
   if (!email) throw _err('no_email', 'id_token has no email/UPN claim (add "email" to the app\'s optional claims)');
 
-  return { oid, email, name: payload.name || '', tid: payload.tid || null, raw: payload };
+  return {
+    oid, email,
+    name:       payload.name        || '',
+    first_name: payload.given_name  || '',
+    last_name:  payload.family_name || '',
+    tid: payload.tid || null, raw: payload,
+  };
 }
 
 // ── JWKS fetch + cache (1h), with one refresh on unknown kid (key rotation) ──
@@ -150,7 +185,7 @@ function _defaultHttp() {
     postForm: async (url, form) => (await axios.post(url, form, {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, timeout: 15000,
     })).data,
-    getJson: async (url) => (await axios.get(url, { timeout: 15000 })).data,
+    getJson: async (url, headers) => (await axios.get(url, { timeout: 15000, headers: headers || {} })).data,
   };
 }
 
