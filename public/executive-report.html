@@ -7225,6 +7225,18 @@ function _buildExecPptxPayload() {
     }).length;
   };
 
+  // Changes by Division (slide 8, 2nd donut) — tally UDF:Division over the same
+  // scoped chgInMonth set. Field-name tolerant; blanks bucketed as "Unassigned".
+  const _chgDivisions = (() => {
+    const tally = {};
+    chgInMonth.forEach(c => {
+      const d = String(c['UDF:Division'] || c['Division'] || c['udf_division']
+                    || c['UDF Division'] || c.division || '').trim() || 'Unassigned';
+      tally[d] = (tally[d] || 0) + 1;
+    });
+    return tally;
+  })();
+
   // Top pain points for slide 7 — derived DETERMINISTICALLY from the negative
   // survey verbatims (each comment carries a themes[] array from the survey
   // pipeline). No LLM required — this replaces the old "Voice clustering
@@ -7385,6 +7397,8 @@ function _buildExecPptxPayload() {
     recent_changes: chgInMonth.slice(0, 6)
       .map(c => (c['Subject'] || c['Change Title'] || c['Title'] || '').trim())
       .filter(Boolean),
+    // Changes by Division (UDF:Division) → slide 8, 2nd donut. {division: count}.
+    changes_division: _chgDivisions,
     // ── AI-generated commentary (Phase B) ───────────────────────────
     // The 6 named fields are filled by runAnalysis() — cloud Anthropic
     // path — or by AnalyzeLite (deterministic). Render.py reads these

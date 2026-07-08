@@ -591,6 +591,10 @@ function build(browserPayload) {
     // Backlog classified by theme (keyword rules over open-ticket subjects) —
     // drives slide 6's backlog panel.
     backlog_themes: Array.isArray(browserPayload.backlog_themes) ? browserPayload.backlog_themes : [],
+    // Changes by Division (UDF:Division) — browser-computed over the scoped
+    // change set → slide 8's second donut. {division: count}.
+    changes_division: (browserPayload.changes_division && typeof browserPayload.changes_division === 'object')
+      ? browserPayload.changes_division : {},
 
     // Slides 10-11
     tracker,

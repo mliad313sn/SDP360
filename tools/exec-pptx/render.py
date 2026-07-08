@@ -514,26 +514,41 @@ def _draw_csat_donut(ax):
               ncol=min(len(parts), 3), fontsize=8.5, frameon=False)
 
 
+def _donut_on(ax, items, *, legend_ncol=2, legend_fs=8, pct_min=5, empty='No data'):
+    """items: [(label, count, color)] — draws a donut + legend on `ax`."""
+    items = [it for it in items if it[1] and it[1] > 0]
+    if not items:
+        ax.text(0.5, 0.5, empty, ha='center', va='center', fontsize=10, color='#6B7280'); return
+    sizes   = [c for _, c, _ in items]
+    legends = [f"{l} ({c})" for l, c, _ in items]
+    colors  = [col for _, _, col in items]
+    wedges, _t, _a = ax.pie(
+        sizes, autopct=lambda pct: f'{pct:.0f}%' if pct >= pct_min else '',
+        colors=colors, startangle=90, counterclock=False, pctdistance=0.80,
+        wedgeprops=dict(width=0.42, edgecolor='white'),
+        textprops={'fontsize': 10, 'color': 'white', 'fontweight': 'bold'})
+    ax.legend(wedges, legends, loc='lower center', bbox_to_anchor=(0.5, -0.08),
+              ncol=legend_ncol, fontsize=legend_fs, frameon=False)
+
 def _draw_changes_donut(ax):
     by_type = K.get('changes_type') or {}
     # Template palette: Standard = dark navy (dominant), Major = mid-blue, Emergency = red.
-    parts = [(by_type.get('Standard', 0),  'Standard',  '#1A3A5F'),
-             (by_type.get('Major', 0),     'Major',     '#2E5C8A'),
-             (by_type.get('Emergency', 0), 'Emergency', '#DC2626')]
-    parts = [p for p in parts if p[0] > 0]
-    if not parts:
-        ax.text(0.5, 0.5, 'No change data', ha='center', va='center',
-                fontsize=11, color='#6B7280'); return
-    sizes = [p[0] for p in parts]
-    legends = [f"{p[1]} ({p[0]})" for p in parts]
-    colors = [p[2] for p in parts]
-    wedges, _t, autotexts = ax.pie(
-        sizes, autopct=lambda pct: f'{pct:.0f}%' if pct >= 4 else '',
-        colors=colors, startangle=90, counterclock=False, pctdistance=0.80,
-        wedgeprops=dict(width=0.42, edgecolor='white'),
-        textprops={'fontsize': 11, 'color': 'white', 'fontweight': 'bold'})
-    ax.legend(wedges, legends, loc='lower center', bbox_to_anchor=(0.5, -0.06),
-              ncol=min(len(parts), 3), fontsize=9, frameon=False)
+    _donut_on(ax, [
+        ('Standard',  by_type.get('Standard', 0),  '#1A3A5F'),
+        ('Major',     by_type.get('Major', 0),     '#2E5C8A'),
+        ('Emergency', by_type.get('Emergency', 0),  '#DC2626'),
+    ], legend_ncol=1, legend_fs=8, pct_min=4, empty='No change data')
+
+def _draw_division_donut(ax):
+    # Changes by Division (UDF:Division), browser-computed over the same scoped
+    # set. Top 6 divisions + "Other"; deterministic colour ramp.
+    by_div = K.get('changes_division') or {}
+    ranked = sorted(((str(k), int(v)) for k, v in by_div.items() if v), key=lambda x: -x[1])
+    if len(ranked) > 6:
+        ranked = ranked[:6] + [('Other', sum(v for _, v in ranked[6:]))]
+    pal = ['#1A3A5F', '#2E5C8A', '#4E7CB0', '#8AB0D6', '#E88A2E', '#0D9488', '#9CA3AF']
+    _donut_on(ax, [(l, c, pal[i % len(pal)]) for i, (l, c) in enumerate(ranked)],
+              legend_ncol=2, legend_fs=7, pct_min=7, empty='No division data')
 
 # ========== HELPERS ==========
 def add_rect(slide, x, y, w, h, fill, line=None, shape=MSO_SHAPE.RECTANGLE):
@@ -1409,7 +1424,11 @@ header_band(s, "Change Management", "HELP DESK", PERIOD_SHORT)
 add_text(s, Inches(0.4), Inches(1.05), Inches(10), Inches(0.4),
          f"Change Portfolio — {PERIOD_LONG}", size=15, bold=True, color=NAVY)
 
-s.shapes.add_picture(_chart('changes_donut', figsize=(5.0, 4.5), data_fn=_draw_changes_donut, title=f'Changes by Type — {MONTH}'), Inches(0.4), Inches(1.55), width=Inches(4.7), height=Inches(4.5))
+# Two side-by-side donuts: Changes by Type + Changes by Division (UDF:Division).
+s.shapes.add_picture(_chart('changes_type_donut', figsize=(2.9, 3.8), data_fn=_draw_changes_donut, title=f'By Type — {MONTH}'),
+                     Inches(0.30), Inches(1.70), width=Inches(2.45), height=Inches(3.65))
+s.shapes.add_picture(_chart('changes_div_donut', figsize=(2.9, 3.8), data_fn=_draw_division_donut, title='By Division'),
+                     Inches(2.80), Inches(1.70), width=Inches(2.45), height=Inches(3.65))
 
 # 6 KPI tiles in 2x3
 ct = K['changes_type']
