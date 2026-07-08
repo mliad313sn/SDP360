@@ -1437,7 +1437,9 @@ add_text(s, Inches(0.4), Inches(1.05), Inches(10), Inches(0.4),
 # bbox_inches='tight' makes the saved PNG aspect unpredictable).
 s.shapes.add_picture(_chart('changes_type_donut', figsize=(2.9, 3.6), data_fn=_draw_changes_donut, title=f'By Type — {MONTH}'),
                      Inches(0.30), Inches(1.70), width=Inches(2.45))
-s.shapes.add_picture(_chart('changes_div_donut', figsize=(2.9, 3.6), data_fn=_draw_division_donut, title='By Division'),
+# Titled "By Category" per user preference — the DATA is still the change
+# table's UDF:Division field (the deck's reporting language calls it category).
+s.shapes.add_picture(_chart('changes_div_donut', figsize=(2.9, 3.6), data_fn=_draw_division_donut, title='By Category'),
                      Inches(2.80), Inches(1.70), width=Inches(2.45))
 
 # 6 KPI tiles in 2x3
