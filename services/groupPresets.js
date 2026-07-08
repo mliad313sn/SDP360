@@ -53,14 +53,31 @@ const TICKETS_SEED = {
   Other:        [],
 };
 
-// Per user direction (2026-06-04): changes scope starts EMPTY, with the
-// same 5 preset names. Admin classifies the discovered change-group
-// names into the appropriate preset via the modal.
+// Changes scope seed — REVISED 2026-07-08. The original 2026-06-04 direction
+// ("start EMPTY, admin classifies via the modal") left the Operations preset
+// empty on prod, so the deck's change-scope fallback chain bottomed out at
+// "all groups" and ERP changes (Sunshine / ION / R5) leaked into the
+// Operations deck's slide 8. Seeded from the real change-group inventory
+// (Change-25-2026.xlsx, 292 rows): site IT agents + CAB + InfraOPs are
+// Operations; ERP/app vendor teams are Application. Group matching is
+// case-insensitive downstream, so one case variant per name suffices.
+// The seed only applies when the scope has ZERO rows — an admin who already
+// classified groups via the modal is never overwritten.
 const CHANGES_SEED = {
-  Operations:    [],
-  Application:   [],
-  Cybersecurity: [],
-  ITSM:          [],
+  Operations: [
+    'Abidjan IT Agents', 'Exploration BF Support', 'Exploration CI Support',
+    'Exploration IT Support', 'Hounde IT Agents', 'ITY IT Agents',
+    'Kalana IT Agents', 'Lafigue IT Agents', 'Mana IT Agent',
+    'Ouaga IT Agents', 'Sabodala IT Agents', 'Tanda IT Agents',
+    'CAB Agents', 'EDV InfraOPs Support',
+  ],
+  Application: [
+    'Benchmark Support Team', 'EQS ONEIT Support Agents', 'ERP Support',
+    'Ivalua Support Team', 'My Path Support Agents', 'Oracle Support',
+    'SunShine Project Team',
+  ],
+  Cybersecurity: ['Infosec Team'],
+  ITSM:          ['ManageEngine ServiceDesk Plus'],
   Other:         [],
 };
 
