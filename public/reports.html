@@ -1258,6 +1258,10 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
       </div>
     </div>
     <div class="form-group">
+      <label>Email <span style="color:#94a3b8;font-weight:400;text-transform:none">(for Microsoft SSO — corporate address)</span></label>
+      <input type="email" id="modal-email" placeholder="first.last@edv-ops.com" autocomplete="off">
+    </div>
+    <div class="form-group">
       <label>Status</label>
       <select id="modal-active">
         <option value="1">Active</option>
@@ -4905,6 +4909,7 @@ function openUserModal(user) {
   document.getElementById('modal-username').value  = user ? user.username : '';
   document.getElementById('modal-username').disabled = !!user;
   document.getElementById('modal-fullname').value  = user ? user.full_name : '';
+  document.getElementById('modal-email').value     = user ? (user.email || '') : '';
   document.getElementById('modal-password').value  = '';
   document.getElementById('modal-pw-label').textContent = user ? 'Password (leave blank to keep)' : 'Password *';
   document.getElementById('modal-site').value      = user?.site_id || '';
@@ -4950,18 +4955,25 @@ async function saveUser() {
   const id       = document.getElementById('modal-user-id').value;
   const username = document.getElementById('modal-username').value.trim();
   const fullName = document.getElementById('modal-fullname').value.trim();
-  const password = document.getElementById('modal-password').value;
+  let   password = document.getElementById('modal-password').value;
+  const email    = document.getElementById('modal-email').value.trim().toLowerCase();
   const site_id  = document.getElementById('modal-site').value ? parseInt(document.getElementById('modal-site').value) : null;
   const roles    = modalRolesGet();
   const active   = parseInt(document.getElementById('modal-active').value);
   if (!username || !fullName) { toast('Username and full name required', 'error'); return; }
-  if (!id && !password) { toast('Password required for new user', 'error'); return; }
+  // New user: a password is required for password login, but an SSO-only user
+  // (email set) never uses it — auto-generate a strong throwaway so the admin
+  // doesn't have to invent one.
+  if (!id && !password) {
+    if (email) { password = 'SSO!' + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2).toUpperCase(); }
+    else { toast('Password required (or set an Email for a Microsoft SSO user)', 'error'); return; }
+  }
   if (roles.length === 0) { toast('Pick at least one role', 'error'); return; }
   try {
     if (id) {
-      await api('PUT', `/api/reports/users/${id}`, { full_name: fullName, password: password||undefined, site_id, roles, active });
+      await api('PUT', `/api/reports/users/${id}`, { full_name: fullName, password: password||undefined, site_id, roles, active, email });
     } else {
-      await api('POST', '/api/reports/users', { username, full_name: fullName, password, site_id, roles });
+      await api('POST', '/api/reports/users', { username, full_name: fullName, password, site_id, roles, email });
     }
     closeUserModal();
     toast(id ? 'User updated ✓' : 'User created ✓', 'success');
