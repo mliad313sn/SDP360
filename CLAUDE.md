@@ -8,15 +8,20 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ## ⚡ Current state (as of 2026-07-08)
 
-> **READ FIRST.** Branch `main`, tip `01c0811`, **~44 commits ahead of the last
+> **READ FIRST.** Branch `main`, tip `01c0811`+, **~46 commits ahead of the last
 > confirmed prod deploy** (`7fb62d9`, Exec View v1). **NOTHING in this session
-> is deployed yet.** `_deploy.cmd` is staged with **30 files**. Because it
-> touches `server.js` + many `_htmlCache`'d HTMLs, deploy = `_deploy.cmd` then
-> **`_pm2_restart_prod.cmd`** (pm2 stop → `timeout /t 5` → start — NOT `reload`;
-> EADDRINUSE crash-loop pitfall). `render.py` is copy-only. Users need ONE
-> **Ctrl+F5** after restart. The deploy marker keeps drifting (background
-> harness) — rebaseline with `git rev-parse 7fb62d9 > .git/last-deployed && sh
-> .git/hooks/post-commit` before each `_deploy.cmd`.
+> is deployed yet.**
+>
+> **DEPLOY MODEL CHANGED (2026-07-08): ZIP package, no more `Z:` xcopy.** Run
+> `_deploy.cmd` (now a wrapper for `tools/deploy/make-deploy-zip.ps1`) → builds
+> `sdp-deploy_<sha>_<stamp>.zip` → user copies it to prod, extracts, runs the
+> bundled `_apply_on_prod.cmd` (xcopies into `C:\Apps\SDP-Dashboard` + deletions)
+> → then **`_pm2_restart_prod.cmd`** (pm2 stop → `timeout /t 5` → start — NOT
+> `reload`; EADDRINUSE crash-loop pitfall). `render.py` is copy-only. Users need
+> ONE **Ctrl+F5** after restart. Because this backlog touches `server.js` + many
+> `_htmlCache`'d HTMLs, the restart is mandatory. The marker still drifts
+> (background harness) — rebaseline `git rev-parse 7fb62d9 > .git/last-deployed`
+> before packaging if it looks wrong.
 >
 > ### What landed (7 tracks, ~44 commits)
 >
@@ -1682,30 +1687,36 @@ The repo is **not pushed to origin**. `git push` when ready.
 
 > **When Claude is working in this folder it is already in the workspace — edits go live on copy to `Z:\` (the SMB-shared production path).**
 
-### Deploy commands — ALWAYS use `Z:\` (not `C:\Apps\SDP-Dashboard\`)
+### Deploy commands — ZIP package model (2026-07-08+; the Z:\ xcopy model is RETIRED)
 
-The user's dev box has the remote production folder mapped as drive `Z:\`,
-so deploys are now done via the network share instead of the local fallback.
-PM2 reload still has to run ON the remote server (the user does that
-manually from the production shell or via remote PM2).
+Prod deploys are now done with a **self-contained ZIP** copied to the server —
+**no `Z:` drive mapping**. The workflow:
 
 ```cmd
-:: Single-file deploy (most common — HTML/JS files)
-xcopy "C:\Users\Admin\Documents\SDP-Dashboard\.claude\worktrees\<branch>\public\executive-report.html" "Z:\public\" /Y
+:: 1) DEV BOX — build the package (post-commit regenerates _deploy.cmd to do this)
+_deploy.cmd
+::    → runs tools\deploy\make-deploy-zip.ps1
+::    → produces  sdp-deploy_<sha>_<stamp>.zip  in the repo root
+::    (every file changed since .git/last-deployed, at its repo-relative path
+::     under files\, + DELETIONS.txt + MANIFEST.txt + _apply_on_prod.cmd)
 
-:: Server-side file deploy (requires pm2 reload AFTER copy)
-xcopy "C:\Users\Admin\Documents\SDP-Dashboard\.claude\worktrees\<branch>\reports-db.js"  "Z:\" /Y
-xcopy "C:\Users\Admin\Documents\SDP-Dashboard\.claude\worktrees\<branch>\zoho-sync.js"  "Z:\" /Y
-xcopy "C:\Users\Admin\Documents\SDP-Dashboard\.claude\worktrees\<branch>\server.js"     "Z:\" /Y
+:: 2) copy the .zip to the PROD server, extract it anywhere, then FROM the extracted folder:
+_apply_on_prod.cmd
+::    → xcopy files\* into C:\Apps\SDP-Dashboard  (override with SDP_PROD_DIR)
+::    → processes DELETIONS.txt
 
-:: Reload (must run from the remote server's shell)
-pm2 reload endeavour-dashboard
+:: 3) PROD — restart (server.js + boot-cached HTML need it; render.py is copy-only)
+_pm2_restart_prod.cmd          :: pm2 stop -> timeout /t 5 -> start  (NOT reload)
 ```
 
-> Note: `Z:\` is the SMB share. Claude's sandboxed shell **cannot reach `Z:\`
-> directly** (same restriction as the old `C:\Apps\` path) — the user runs
-> these xcopy commands from their dev shell. Claude prints the commands but
-> never executes them.
+Then each user presses **Ctrl+F5** once. The packager advances
+`.git/last-deployed` to HEAD after building the ZIP. Dev-only paths are excluded
+(`iis/`, `docs/`, `tools/deploy/`, `tools/exec-pptx/{fixtures,refs}/`, the ZIP +
+`_deploy.cmd`/`_apply_on_prod.cmd` themselves).
+
+> Claude CAN build the ZIP itself (PowerShell tool → `make-deploy-zip.ps1`), but
+> **cannot copy it to prod or run pm2** — the user does steps 2-3 on the server.
+> The old `Z:\` SMB path is no longer used for deploys.
 
 ---
 
@@ -2295,75 +2306,58 @@ const C = {
 
 ---
 
-## Deployment Steps
+## Deployment Steps — ZIP package (2026-07-08+)
 
 ```cmd
-:: 1. Copy changed files from worktree → production share Z:\
-xcopy "C:\Users\Admin\Documents\SDP-Dashboard\.claude\worktrees\<branch>\reports-weekly-pptx.js"  "Z:\" /Y
-xcopy "C:\Users\Admin\Documents\SDP-Dashboard\.claude\worktrees\<branch>\reports-monthly-pptx.js" "Z:\" /Y
-:: For HTML/static assets, copy into Z:\public\
-xcopy "C:\Users\Admin\Documents\SDP-Dashboard\.claude\worktrees\<branch>\public\executive-report.html" "Z:\public\" /Y
-:: (add any other changed files)
+:: 1. DEV BOX — build the deploy package (post-commit regenerates _deploy.cmd)
+_deploy.cmd
+::    → tools\deploy\make-deploy-zip.ps1 → sdp-deploy_<sha>_<stamp>.zip (repo root)
 
-:: 2. Reload server (run on the production host, NOT via Z:)
-pm2 reload endeavour-dashboard
+:: 2. copy the .zip to the PROD server, extract anywhere, run FROM the extracted folder:
+_apply_on_prod.cmd
+::    → xcopy files\* into C:\Apps\SDP-Dashboard  (+ processes DELETIONS.txt)
 
-:: 3. If EADDRINUSE error (run on production host):
-powershell -command "Get-NetTCPConnection -LocalPort 3456 | Select-Object -ExpandProperty OwningProcess | ForEach-Object { taskkill /F /PID $_ }"
-pm2 restart endeavour-dashboard
+:: 3. PROD — restart (server.js + boot-cached HTML need it; render.py is copy-only)
+_pm2_restart_prod.cmd          :: pm2 stop -> timeout /t 5 -> start (NOT reload — EADDRINUSE trap)
 
-:: 4. Verify new code is loaded (run on production host, in C:\Apps\SDP-Dashboard\)
-node -e "require('./reports-weekly-pptx.js')" 2>&1 | head -3
+:: If EADDRINUSE crash-loop (orphan on :3456), recover with:
+_pm2_recover_prod.cmd
+
+:: 4. Verify (on prod, in C:\Apps\SDP-Dashboard\)
+node -e "require('./server.js')" 2>&1 | head -3    :: or just check pm2 status + Ctrl+F5
 ```
 
-> **Why `Z:\` and not `C:\Apps\SDP-Dashboard\`**: the dev box has the remote
-> production folder mapped via SMB to drive `Z:`. Files copied to `Z:\` land
-> directly in `C:\Apps\SDP-Dashboard\` on the server — no intermediate copy
-> step. `pm2 reload` still has to run on the server itself (the daemon is
-> there, not on the dev box).
+Then each user presses **Ctrl+F5** once. `pm2 reload` is NOT used (race →
+EADDRINUSE crash-loop; always stop→wait→start).
 
 ### Auto-deploy via git post-commit hook
 
-A post-commit hook at `.git/hooks/post-commit` (in the main repo, shared by
-all worktrees) writes a fresh `_deploy.cmd` script in the worktree root on
-every commit. **The script is cumulative** — it lists every file changed
-since the last successful deploy, NOT just the last commit. So if you
-commit several times before running `_deploy.cmd`, the script always
-covers everything since you last deployed.
+A post-commit hook at `.git/hooks/post-commit` (in the main repo, shared by all
+worktrees) regenerates `_deploy.cmd` in the worktree root on every commit. Since
+2026-07-08 `_deploy.cmd` is a **thin wrapper** that runs the committed
+PowerShell packager `tools/deploy/make-deploy-zip.ps1`. Running it builds a
+**self-contained ZIP** — `sdp-deploy_<sha>_<stamp>.zip` — of every file changed
+since the last deploy (cumulative), at its repo-relative path under `files\`,
+plus `DELETIONS.txt`, `MANIFEST.txt`, and the `_apply_on_prod.cmd` installer.
+**No `Z:` mapping needed.**
 
-How that works: when `_deploy.cmd` finishes successfully, it writes the
-current commit hash to `.git/last-deployed`. The next post-commit hook
-reads that file and uses `git diff --name-only <last-deployed>..HEAD` to
-build the new `_deploy.cmd`. If the marker doesn't exist yet (first run
-on a fresh worktree), the hook falls back to "HEAD only" — the legacy
-behaviour for the very first deploy.
+The packager reads the `.git/last-deployed` marker (fallback `7fb62d9`, the last
+confirmed prod deploy), diffs `<marker>..HEAD`, and **advances the marker to
+HEAD** after building the ZIP. So packaging == "this is the deploy".
 
 After Claude commits, output looks like:
 ```
-[deploy] _deploy.cmd staged with 3 file(s). Run it from cmd.exe to push to Z:\
+[deploy] _deploy.cmd will package 8 file(s) + 0 deletion(s) since <sha> into a ZIP.
+[deploy] Run it (cmd.exe) -> sdp-deploy_*.zip -> copy to prod -> _apply_on_prod.cmd -> _pm2_restart_prod.cmd
 ```
 
-User then runs it from cmd.exe in the worktree:
-```cmd
-_deploy.cmd
-```
+**On prod**, `_apply_on_prod.cmd` (bundled in the ZIP) xcopies `files\*` into
+`C:\Apps\SDP-Dashboard` (override via `SDP_PROD_DIR`), processes deletions, then
+reminds you to run `_pm2_restart_prod.cmd`. `_deploy.cmd`, `_apply_on_prod.cmd`
+and `sdp-deploy_*.zip` are all gitignored.
 
-Output:
-```
-Deploying 3 file(s) to Z:\ ...
-  >  public\executive-report.html
-  >  reports-db.js
-  >  CLAUDE.md
-
-Deploy complete. For server-side changes, run on production host:
-    pm2 reload endeavour-dashboard
-```
-
-**Why a staged script and not direct xcopy from the hook:** Claude's
-sandboxed shell cannot reach `Z:\` even though the user's interactive
-session has it mapped. The hook generates a Windows .cmd that runs in
-the user's unsandboxed cmd.exe where Z:\ IS visible. `_deploy.cmd` is
-gitignored — regenerated on every commit, never committed.
+> Claude CAN build the ZIP itself (PowerShell tool → `make-deploy-zip.ps1`), but
+> cannot copy it to prod or run pm2 — the user does steps 2-3 on the server.
 
 **Skipped paths (dev-only, never deployed to Z:\):** The hook's
 `SKIP_PREFIXES` regex (around line 68) excludes paths that exist in
