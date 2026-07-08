@@ -150,21 +150,24 @@
       <a class="toc-sub" href="#en-11-3">Save Model (Local + Submit)</a>
       <a class="toc-sub" href="#en-11-4">Corrective Actions &amp; Photos</a>
       <a class="toc-sub" href="#en-11-5">Exporting to PPTX</a>
+      <a class="toc-sub" href="#en-11-6">Actions Register &amp; Analytics</a>
       <a href="#en-12">12. Meetings &amp; Council</a>
       <a class="toc-sub" href="#en-12-1">Module Overview</a>
       <a class="toc-sub" href="#en-12-2">Creating a Meeting PV</a>
       <a class="toc-sub" href="#en-12-3">Issues, Actions &amp; Audit Trail</a>
       <a class="toc-sub" href="#en-12-4">Bulk Excel Import</a>
       <a class="toc-sub" href="#en-12-5">5 Engagements Compliance</a>
+      <a class="toc-sub" href="#en-12-6">Actions Register &amp; Analytics</a>
+      <a class="toc-sub" href="#en-12-7">Insights Dashboard</a>
       <a href="#en-13">13. Executive Scorecard</a>
       <a class="toc-sub" href="#en-13-1">The 5 Tabs</a>
       <a class="toc-sub" href="#en-13-2">KPI Tiles Reference</a>
       <a class="toc-sub" href="#en-13-3">Customer Voice &amp; Verbatim</a>
       <a class="toc-sub" href="#en-13-4">Filters &amp; Period Selection</a>
-      <a href="#en-14">14. AI Analysis &amp; Smart Insights</a>
-      <a class="toc-sub" href="#en-14-1">Analyze &amp; Save (AI)</a>
-      <a class="toc-sub" href="#en-14-2">Analyze Lite (deterministic)</a>
-      <a class="toc-sub" href="#en-14-3">Local LLM Option</a>
+      <a href="#en-14">14. Report Analysis (Quick)</a>
+      <a class="toc-sub" href="#en-14-1">Analyze (Quick) — standard</a>
+      <a class="toc-sub" href="#en-14-2">Cloud / on-prem AI (optional)</a>
+      <a href="#en-15">15. Public IT Status (SharePoint)</a>
     </div>
 
     <!-- Content -->
@@ -667,6 +670,7 @@
         <p>The form is split into 5 areas: <strong>Identification</strong> (date, site, area, lead inspector — all required), <strong>Scope</strong>, <strong>Checklist</strong> (the 17 category accordion), <strong>Corrective Actions</strong>, <strong>Observations &amp; Signatures</strong>.</p>
         <p>For each checklist item, set a status (✓ OK, △ Minor, ▲ Major, ⛔ Critical, ◯ Opp = improvement opportunity, N/A). Adding a Minor/Major/Critical/Opp status automatically <strong>seeds a corrective action</strong> with a sensible default priority. Add free-text notes per item, and attach photos via the 📷 button.</p>
         <div class="tip">💡 The form has a <strong>voice dictation</strong> (🎙 button on most text fields) that uses your browser's speech recognition. Useful in the field where typing is slow. Push-to-talk: hold the button while speaking; release to insert.</div>
+        <div class="tip">🗂 <strong>Display by type</strong> — above the 17 category tabs there's a filter bar that groups them into domains: <em>All · IT &amp; Datacenter · Telecom &amp; Comms · Safety &amp; Physical · OT &amp; Ops</em>. Pick a domain to focus on just its categories; <em>All</em> shows everything. It's a display filter only — your data and the full checklist are unchanged.</div>
 
         <h3 id="en-11-3">11.3 Save Model (Local + Save now + Submit)</h3>
         <p>The inspection form deliberately does <strong>not</strong> auto-sync to the server on every keystroke. Every change goes to your browser's local storage instantly so you don't lose work, but it only reaches the server when you explicitly click <strong>Save now</strong> or <strong>Submit</strong>.</p>
@@ -682,9 +686,20 @@
 
         <h3 id="en-11-4">11.4 Corrective Actions &amp; Photos</h3>
         <p>Corrective actions auto-populate from flagged checklist items. Each action has a priority (Critical / High / Medium / Low — auto-set from the finding severity but editable), owner, due date, and status. Photos compress automatically to ~250-400 KB before upload to keep state blobs under the 100 MB server limit.</p>
+        <div class="warn">⚠️ <strong>Owner and Target Date are mandatory</strong> on every corrective action. Empty ones show a red border, and <strong>Submit</strong> is blocked until each action has both (drafts / Save now are unaffected). This ensures every fix can be tracked to closure.</div>
 
         <h3 id="en-11-5">11.5 Exporting to PPTX</h3>
         <p>From the inspection edit page, <strong>Export PPTX</strong> (admin+) produces a 4-slide single-inspection deck (Cover, Findings table, Actions table, Observations + signatures). From the dashboard, <strong>Aggregate Export</strong> (executive+) produces a 4-slide roll-up across all filtered inspections.</p>
+
+        <h3 id="en-11-6">11.6 Corrective Actions Register &amp; Analytics</h3>
+        <p>The <strong>Actions register</strong> button (top of the Inspections dashboard) opens a cross-inspection view of every corrective action in one place — so a critical finding's fix isn't forgotten between visits.</p>
+        <ul>
+          <li><strong>Filter</strong> by site, status, priority, owner, overdue-only or free-text search. Overdue rows are highlighted red.</li>
+          <li><strong>Close an action in place</strong> (editor+) via the status dropdown — even if the parent inspection is already submitted/closed (actions outlive the inspection).</li>
+          <li><strong>Analytics charts</strong> at the top: status breakdown, open actions by priority, open-action ageing, open actions by site (on-time vs overdue), and a raised-vs-closed 6-month trend. Every chart follows the active filter.</li>
+          <li><strong>Export PPTX</strong> — a 3-slide deck (KPIs + status/priority donuts; by-site + ageing + trend; a ranked priority-action table) scoped to the current filter.</li>
+          <li><strong>Excel (full data)</strong> (admin+) — downloads every inspection, finding and corrective action as a multi-sheet workbook (all sites, ignores filters). For offline analysis in Excel.</li>
+        </ul>
       </div>
 
       <!-- 12 — Meetings & Council -->
@@ -735,6 +750,19 @@
           <li><strong>Monthly feedback loop</strong> — write back to departments seen in the last 3 months (manual placeholder)</li>
           <li><strong>Escalation discipline</strong> — every escalate=1 issue has a reason + Council theme</li>
         </ol>
+
+        <h3 id="en-12-6">12.6 Actions Register &amp; Analytics</h3>
+        <p>The <strong>✔ Actions</strong> tab (on every meetings page) opens a flat register of every IT commitment across all PVs — so nothing slips through between meetings.</p>
+        <ul>
+          <li><strong>Filter</strong> by site, department, status, owner (champion) or overdue-only; search description/owner. Overdue rows are red.</li>
+          <li><strong>Close an action in place</strong> (editor+) — even after the PV is signed/closed (actions outlive the meeting).</li>
+          <li><strong>Analytics charts</strong>: status breakdown, open actions by department, ageing, open by site (on-time vs overdue), raised-vs-closed 6-month trend — all following the active filter.</li>
+          <li><strong>Export PPTX</strong> — a 3-slide deck (KPIs + status/department donuts; by-site + ageing + trend; a ranked outstanding-actions table).</li>
+          <li><strong>Excel (full data)</strong> (admin+) — every PV, issue, action and project as a multi-sheet workbook (all sites, ignores filters).</li>
+        </ul>
+
+        <h3 id="en-12-7">12.7 Insights Dashboard</h3>
+        <p>The <strong>📊 Dashboard</strong> tab is a six-month analytical view of the whole meetings cadence: PVs-per-month by site, issues opened vs closed, issues by category and severity, Council escalations by theme, a 5-Engagements compliance heatmap, and a site leaderboard with a composite score. Filter by site, department and period (3 / 6 / 12 months).</p>
       </div>
 
       <!-- 13 — Executive Scorecard -->
@@ -794,31 +822,38 @@
       <!-- 14 — AI Analysis -->
       <div class="section" id="en-14">
         <h2><span class="section-num">14</span>AI Analysis &amp; Smart Insights</h2>
-        <p>Two complementary tools generate analytical commentary on top of the dashboard data: <strong>Analyze &amp; Save</strong> (AI-powered, optional) and <strong>Analyze Lite</strong> (deterministic, always-available).</p>
+        <p>The Executive Report builder generates analytical commentary on top of the dashboard data. As of July 2026, <strong>Analyze (Quick)</strong> — a deterministic, fully-offline engine — is the standard (and only visible) tool on the deck builder. The optional AI path is <strong>disabled by default</strong> for privacy.</p>
 
-        <h3 id="en-14-1">14.1 Analyze &amp; Save (AI)</h3>
-        <p>On the Executive Report builder and Executive Scorecard, the <strong>✨ Analyze &amp; Save</strong> button (visible to <em>report-author</em> roles) sends a structured snapshot of the current view to an LLM and fills the commentary fields with AI-generated analysis. Three sub-analyses run in sequence: Monthly Summary, Major Incidents review, Customer Voice insights.</p>
-        <div class="info">ℹ️ As of May 2026 this calls a <strong>local on-premise LLM</strong> (default: Mistral Nemo 12B via Ollama at <code>localhost:11434</code>) — <strong>nothing leaves the corporate LAN</strong>. The previous cloud-Anthropic path is still selectable via the <code>AI_PROVIDER</code> env var.</div>
-        <div class="warn">⚠️ AI analysis takes 45-90 seconds per prompt on CPU. If the Analyze button shows "🔒 Analyze (paused)" the cloud AI is off and only Analyze Lite is available — that's the current state pending PKI sign-off.</div>
-
-        <h3 id="en-14-2">14.2 Analyze Lite (deterministic, no network)</h3>
-        <p>The <strong>⚡ Analyze (lite)</strong> button runs a pure JavaScript engine that classifies KPIs against thresholds, picks the worst site/category, computes trend direction, and fills the same commentary fields as the AI path — using templates instead of generative text.</p>
+        <h3 id="en-14-1">14.1 Analyze (Quick) — the standard tool</h3>
+        <p>On the Executive Report builder, click <strong>Analyze (Quick)</strong> to auto-fill every commentary field from the current month's KPIs. It runs a pure-JavaScript engine that classifies each KPI against its threshold, picks the worst site/category, computes trend direction, and writes the commentary — templates rather than generative text.</p>
         <ul>
-          <li>Runs entirely in the browser — <strong>zero network calls</strong></li>
-          <li>Instant (&lt;1 second)</li>
-          <li>Fields filled have a thin amber border so you can see at a glance which fields came from templates vs your own edits</li>
-          <li>Bilingual (EN / FR — detected from <code>&lt;html lang&gt;</code>)</li>
+          <li>Runs entirely in the browser — <strong>zero network calls; no data leaves your machine</strong></li>
+          <li>Instant (&lt;1 second); every field stays editable afterwards</li>
+          <li>Bilingual (EN / FR)</li>
         </ul>
-        <p>What it does NOT attempt (intentionally, to avoid sounding like a hallucinating AI):</p>
-        <ul>
-          <li>Inferred-from-subjects narrative analysis</li>
-          <li>Cross-KPI causal speculation</li>
-          <li>Free-form prose — Analyze Lite is fact-first, narrative-poor</li>
-        </ul>
+        <p>What it does NOT attempt (intentionally, to avoid sounding like a hallucinating AI): inferred-from-subjects narrative, cross-KPI causal speculation, free-form prose. It is fact-first, narrative-poor.</p>
 
-        <h3 id="en-14-3">14.3 Local LLM Option (privacy)</h3>
-        <p>For deployments where customer-ticket text must stay on-prem, the dashboard ships with a local-LLM provider switch. Set <code>AI_PROVIDER=local</code> in <code>.env</code> and the AI Analyze path will talk to <code>localhost:11434</code> (Ollama default) instead of the Anthropic cloud. Default model: <strong>Mistral Nemo 12B Instruct Q4</strong> (EU sovereignty, Apache 2.0, native French — important for Francophone West African sites).</p>
-        <div class="info">ℹ️ The browser never sees that the provider has changed — the server translates the Anthropic-shape request into an OpenAI-compatible chat-completions request and back. Same client code, same response shape.</div>
+        <h3 id="en-14-2">14.2 Cloud / on-prem AI (optional — off by default)</h3>
+        <p>A richer AI path can generate narrative commentary, but it is <strong>switched off by default</strong> (<code>AI_PROVIDER=off</code>) so no ITSM ticket text ever leaves the corporate network. Your administrator can turn it on in one of two ways via the server <code>.env</code>:</p>
+        <table>
+          <tr><th>Setting</th><th>What it does</th></tr>
+          <tr><td><code>AI_PROVIDER=local</code></td><td>On-premise LLM (default: Mistral Nemo 12B via Ollama at <code>localhost:11434</code>). Nothing leaves the LAN. ~45-90s per prompt on CPU.</td></tr>
+          <tr><td><code>AI_PROVIDER=anthropic</code></td><td>Anthropic cloud API (needs a valid API key). Fastest, but ticket text is sent to the cloud.</td></tr>
+        </table>
+        <div class="info">ℹ️ This is an administrator setting, not a user one — most users will only ever see <strong>Analyze (Quick)</strong>. When AI is enabled, the button behaviour is identical; the server simply generates richer commentary behind the scenes.</div>
+      </div>
+
+      <!-- 15 — Public IT Status (SharePoint) -->
+      <div class="section" id="en-15">
+        <h2><span class="section-num">15</span>Public IT Status View (SharePoint)</h2>
+        <p>The <strong>IT Status</strong> page (<code>/exec-view.html</code>) is a public, read-only, exception-only snapshot designed to be embedded as a SharePoint Quick Link. Any Endeavour employee can open it <strong>without logging in</strong> — it shows only aggregates, never ticket-level detail.</p>
+        <p>It answers one question at a glance — <em>"is IT healthy this month?"</em>: headline KPIs, the sites that need attention (an active major incident or an overdue backlog), upcoming planned maintenance, Activity-Tracker strategic progress, and admin-authored highlights.</p>
+        <ul>
+          <li><strong>Exception-only</strong> — only sites with a problem are listed; healthy sites are intentionally omitted.</li>
+          <li><strong>Privacy by design</strong> — no ticket subjects, requester/technician names, or verbatim comments ever appear.</li>
+          <li><strong>Editorial</strong> — admins set the month's Highlights and Focus areas on <code>reports.html#admin → Exec View</code>.</li>
+        </ul>
+        <div class="info">ℹ️ SharePoint Quick Link target: <code>https://itops-dashboard.edv-ops.com/exec-view.html</code>. The page caches for 60 seconds server-side, so it stays fast even under heavy embed traffic.</div>
       </div>
 
     </div><!-- /content -->
@@ -880,21 +915,24 @@
       <a class="toc-sub" href="#fr-11-3">Modèle de sauvegarde</a>
       <a class="toc-sub" href="#fr-11-4">Actions correctives &amp; photos</a>
       <a class="toc-sub" href="#fr-11-5">Export PPTX</a>
+      <a class="toc-sub" href="#fr-11-6">Registre des actions &amp; Analytique</a>
       <a href="#fr-12">12. Réunions &amp; Council</a>
       <a class="toc-sub" href="#fr-12-1">Vue d'ensemble du module</a>
       <a class="toc-sub" href="#fr-12-2">Créer un PV de réunion</a>
       <a class="toc-sub" href="#fr-12-3">Problèmes, actions &amp; audit</a>
       <a class="toc-sub" href="#fr-12-4">Import Excel en lot</a>
       <a class="toc-sub" href="#fr-12-5">Les 5 Engagements</a>
+      <a class="toc-sub" href="#fr-12-6">Registre des actions &amp; Analytique</a>
+      <a class="toc-sub" href="#fr-12-7">Tableau de bord Insights</a>
       <a href="#fr-13">13. Tableau de Bord Exécutif</a>
       <a class="toc-sub" href="#fr-13-1">Les 5 onglets</a>
       <a class="toc-sub" href="#fr-13-2">Référence des tuiles KPI</a>
       <a class="toc-sub" href="#fr-13-3">Voix client &amp; Verbatim</a>
       <a class="toc-sub" href="#fr-13-4">Filtres &amp; sélection de période</a>
-      <a href="#fr-14">14. Analyse IA &amp; Insights</a>
-      <a class="toc-sub" href="#fr-14-1">Analyse IA</a>
-      <a class="toc-sub" href="#fr-14-2">Analyze Lite (déterministe)</a>
-      <a class="toc-sub" href="#fr-14-3">Option LLM local</a>
+      <a href="#fr-14">14. Analyse des rapports (Quick)</a>
+      <a class="toc-sub" href="#fr-14-1">Analyze (Quick) — standard</a>
+      <a class="toc-sub" href="#fr-14-2">IA cloud / sur site (optionnelle)</a>
+      <a href="#fr-15">15. Statut IT public (SharePoint)</a>
     </div>
 
     <div class="content">
@@ -1396,6 +1434,7 @@
         <p>Le formulaire est divisé en 5 zones : <strong>Identification</strong> (date, site, zone, inspecteur — tous obligatoires), <strong>Périmètre</strong>, <strong>Checklist</strong> (l'accordéon des 17 catégories), <strong>Actions correctives</strong>, <strong>Observations &amp; Signatures</strong>.</p>
         <p>Pour chaque item de checklist, définissez un statut (✓ OK, △ Mineur, ▲ Majeur, ⛔ Critique, ◯ Opp = opportunité d'amélioration, N/A). Choisir un statut Mineur/Majeur/Critique/Opp <strong>génère automatiquement une action corrective</strong> avec une priorité par défaut appropriée. Ajoutez des notes libres par item et joignez des photos via le bouton 📷.</p>
         <div class="tip">💡 Le formulaire dispose d'une <strong>dictée vocale</strong> (bouton 🎙 sur la plupart des champs texte) basée sur la reconnaissance vocale du navigateur. Utile sur le terrain où taper est lent. Appui-maintien : maintenez le bouton enfoncé en parlant ; relâchez pour insérer.</div>
+        <div class="tip">🗂 <strong>Affichage par type</strong> — au-dessus des 17 onglets de catégories, une barre de filtre les regroupe en domaines : <em>All · IT &amp; Datacenter · Telecom &amp; Comms · Safety &amp; Physical · OT &amp; Ops</em>. Choisissez un domaine pour n'afficher que ses catégories ; <em>All</em> montre tout. C'est un filtre d'affichage uniquement — vos données et la checklist complète restent inchangées.</div>
 
         <h3 id="fr-11-3">11.3 Modèle de sauvegarde (Local + Save now + Submit)</h3>
         <p>Le formulaire d'inspection ne synchronise <strong>volontairement pas</strong> avec le serveur à chaque frappe. Chaque modification est sauvegardée instantanément dans le stockage local du navigateur pour ne pas perdre votre travail, mais n'atteint le serveur que lorsque vous cliquez explicitement sur <strong>Save now</strong> ou <strong>Submit</strong>.</p>
@@ -1411,9 +1450,20 @@
 
         <h3 id="fr-11-4">11.4 Actions correctives &amp; photos</h3>
         <p>Les actions correctives se remplissent automatiquement à partir des items de checklist marqués. Chaque action a une priorité (Critical / High / Medium / Low — pré-définie selon la sévérité mais modifiable), un responsable, une date d'échéance et un statut. Les photos sont compressées automatiquement à ~250-400 Ko avant upload pour rester sous la limite serveur de 100 Mo.</p>
+        <div class="warn">⚠️ Le <strong>Responsable et la Date cible sont obligatoires</strong> sur chaque action corrective. Les champs vides s'affichent en rouge et <strong>Submit</strong> est bloqué tant que chaque action n'a pas les deux (les brouillons / Save now ne sont pas concernés). Ainsi chaque correctif peut être suivi jusqu'à sa clôture.</div>
 
         <h3 id="fr-11-5">11.5 Export PPTX</h3>
         <p>Depuis la page d'édition d'inspection, <strong>Export PPTX</strong> (admin+) produit un deck de 4 diapos pour une inspection unique (Couverture, table des anomalies, table des actions, observations + signatures). Depuis le tableau de bord, <strong>Aggregate Export</strong> (executive+) produit un roll-up de 4 diapos sur toutes les inspections filtrées.</p>
+
+        <h3 id="fr-11-6">11.6 Registre des actions correctives &amp; Analytique</h3>
+        <p>Le bouton <strong>Actions register</strong> (en haut du tableau de bord Inspections) ouvre une vue transversale de toutes les actions correctives au même endroit — pour qu'un correctif d'anomalie critique ne soit pas oublié entre deux visites.</p>
+        <ul>
+          <li><strong>Filtrez</strong> par site, statut, priorité, responsable, en-retard-uniquement ou recherche texte. Les lignes en retard sont en rouge.</li>
+          <li><strong>Clôturez une action sur place</strong> (editor+) via la liste de statut — même si l'inspection parente est déjà soumise/fermée (les actions survivent à l'inspection).</li>
+          <li><strong>Graphiques analytiques</strong> en haut : répartition par statut, actions ouvertes par priorité, ancienneté, actions ouvertes par site (à temps vs en retard), et une tendance ouvertes-vs-clôturées sur 6 mois. Chaque graphique suit le filtre actif.</li>
+          <li><strong>Export PPTX</strong> — un deck de 3 diapos (KPI + donuts statut/priorité ; par site + ancienneté + tendance ; une table des actions prioritaires classées) selon le filtre courant.</li>
+          <li><strong>Excel (données complètes)</strong> (admin+) — télécharge toutes les inspections, anomalies et actions dans un classeur multi-onglets (tous sites, ignore les filtres). Pour l'analyse hors-ligne dans Excel.</li>
+        </ul>
       </div>
 
       <!-- 12 FR — Réunions & Council -->
@@ -1464,6 +1514,19 @@
           <li><strong>Boucle de feedback mensuelle</strong> — retour aux départements vus dans les 3 derniers mois (placeholder manuel)</li>
           <li><strong>Discipline d'escalade</strong> — chaque problème escalate=1 a une raison + thème Council</li>
         </ol>
+
+        <h3 id="fr-12-6">12.6 Registre des actions &amp; Analytique</h3>
+        <p>L'onglet <strong>✔ Actions</strong> (sur chaque page réunions) ouvre un registre plat de tous les engagements IT à travers tous les PVs — pour que rien ne passe entre les mailles entre deux réunions.</p>
+        <ul>
+          <li><strong>Filtrez</strong> par site, département, statut, responsable (champion) ou en-retard-uniquement ; recherche description/responsable. Les lignes en retard sont en rouge.</li>
+          <li><strong>Clôturez une action sur place</strong> (editor+) — même après signature/clôture du PV (les actions survivent à la réunion).</li>
+          <li><strong>Graphiques analytiques</strong> : répartition par statut, actions ouvertes par département, ancienneté, ouvertes par site (à temps vs en retard), tendance ouvertes-vs-clôturées sur 6 mois — suivant tous le filtre actif.</li>
+          <li><strong>Export PPTX</strong> — un deck de 3 diapos (KPI + donuts statut/département ; par site + ancienneté + tendance ; une table des actions en cours classées).</li>
+          <li><strong>Excel (données complètes)</strong> (admin+) — tous les PVs, problèmes, actions et projets dans un classeur multi-onglets (tous sites, ignore les filtres).</li>
+        </ul>
+
+        <h3 id="fr-12-7">12.7 Tableau de bord Insights</h3>
+        <p>L'onglet <strong>📊 Dashboard</strong> est une vue analytique sur six mois de toute la cadence des réunions : PVs-par-mois par site, problèmes ouverts vs clôturés, problèmes par catégorie et sévérité, escalades Council par thème, une heatmap de conformité des 5 Engagements, et un classement des sites avec un score composite. Filtrez par site, département et période (3 / 6 / 12 mois).</p>
       </div>
 
       <!-- 13 FR — Tableau de bord Exécutif -->
@@ -1522,32 +1585,39 @@
 
       <!-- 14 FR — Analyse IA -->
       <div class="section" id="fr-14">
-        <h2><span class="section-num">14</span>Analyse IA &amp; Smart Insights</h2>
-        <p>Deux outils complémentaires génèrent des commentaires analytiques par-dessus les données du dashboard : <strong>Analyze &amp; Save</strong> (basé IA, optionnel) et <strong>Analyze Lite</strong> (déterministe, toujours disponible).</p>
+        <h2><span class="section-num">14</span>Analyse des rapports (Quick)</h2>
+        <p>Le Constructeur de Rapport Exécutif génère des commentaires analytiques par-dessus les données du dashboard. Depuis juillet 2026, <strong>Analyze (Quick)</strong> — un moteur déterministe entièrement hors-ligne — est l'outil standard (et le seul visible) sur le constructeur de deck. Le chemin IA optionnel est <strong>désactivé par défaut</strong> pour la confidentialité.</p>
 
-        <h3 id="fr-14-1">14.1 Analyze &amp; Save (IA)</h3>
-        <p>Sur le Constructeur de Rapport Exécutif et le Tableau de Bord Exécutif, le bouton <strong>✨ Analyze &amp; Save</strong> (visible aux rôles <em>report-author</em>) envoie un instantané structuré de la vue actuelle à un LLM et remplit les champs de commentaire avec une analyse générée par IA. Trois sous-analyses s'exécutent en séquence : Résumé Mensuel, revue des Incidents Majeurs, insights Voix Client.</p>
-        <div class="info">ℹ️ Depuis mai 2026, cela appelle un <strong>LLM local sur site</strong> (par défaut : Mistral Nemo 12B via Ollama à <code>localhost:11434</code>) — <strong>aucune donnée ne quitte le LAN d'entreprise</strong>. L'ancien chemin cloud Anthropic reste sélectionnable via la variable d'environnement <code>AI_PROVIDER</code>.</div>
-        <div class="warn">⚠️ L'analyse IA prend 45-90 secondes par prompt sur CPU. Si le bouton Analyze affiche « 🔒 Analyze (paused) », l'IA cloud est désactivée et seul Analyze Lite est disponible — c'est l'état actuel en attente de validation PKI.</div>
-
-        <h3 id="fr-14-2">14.2 Analyze Lite (déterministe, sans réseau)</h3>
-        <p>Le bouton <strong>⚡ Analyze (lite)</strong> exécute un moteur JavaScript pur qui classifie les KPIs contre les seuils, identifie le pire site/catégorie, calcule la direction de la tendance, et remplit les mêmes champs de commentaire que le chemin IA — avec des modèles au lieu de texte génératif.</p>
+        <h3 id="fr-14-1">14.1 Analyze (Quick) — l'outil standard</h3>
+        <p>Sur le Constructeur de Rapport Exécutif, cliquez sur <strong>Analyze (Quick)</strong> pour remplir automatiquement chaque champ de commentaire à partir des KPIs du mois. Il exécute un moteur JavaScript pur qui classifie chaque KPI contre son seuil, identifie le pire site/catégorie, calcule la direction de la tendance et rédige le commentaire — des modèles plutôt que du texte génératif.</p>
         <ul>
-          <li>S'exécute entièrement dans le navigateur — <strong>zéro appel réseau</strong></li>
-          <li>Instantané (&lt;1 seconde)</li>
-          <li>Les champs remplis ont une fine bordure orange pour voir d'un coup d'œil ceux provenant de modèles vs vos propres modifications</li>
-          <li>Bilingue (EN / FR — détecté depuis <code>&lt;html lang&gt;</code>)</li>
+          <li>S'exécute entièrement dans le navigateur — <strong>zéro appel réseau ; aucune donnée ne quitte votre machine</strong></li>
+          <li>Instantané (&lt;1 seconde) ; chaque champ reste modifiable ensuite</li>
+          <li>Bilingue (EN / FR)</li>
         </ul>
-        <p>Ce qu'il N'ESSAIE PAS de faire (volontairement, pour éviter de sonner comme une IA qui hallucine) :</p>
-        <ul>
-          <li>Analyse narrative inférée depuis les sujets</li>
-          <li>Spéculation causale entre KPIs</li>
-          <li>Prose libre — Analyze Lite est factuel, pauvre en narratif</li>
-        </ul>
+        <p>Ce qu'il N'ESSAIE PAS de faire (volontairement, pour éviter de sonner comme une IA qui hallucine) : narratif inféré depuis les sujets, spéculation causale entre KPIs, prose libre. Il est factuel, pauvre en narratif.</p>
 
-        <h3 id="fr-14-3">14.3 Option LLM local (confidentialité)</h3>
-        <p>Pour les déploiements où le texte des tickets clients doit rester sur site, le dashboard est livré avec un sélecteur de fournisseur LLM local. Définissez <code>AI_PROVIDER=local</code> dans <code>.env</code> et le chemin IA Analyze parlera à <code>localhost:11434</code> (par défaut Ollama) au lieu du cloud Anthropic. Modèle par défaut : <strong>Mistral Nemo 12B Instruct Q4</strong> (souveraineté UE, Apache 2.0, français natif — important pour les sites francophones d'Afrique de l'Ouest).</p>
-        <div class="info">ℹ️ Le navigateur ne voit jamais que le fournisseur a changé — le serveur traduit la requête au format Anthropic en requête compatible OpenAI chat-completions et inversement. Même code client, même format de réponse.</div>
+        <h3 id="fr-14-2">14.2 IA cloud / sur site (optionnelle — désactivée par défaut)</h3>
+        <p>Un chemin IA plus riche peut générer un commentaire narratif, mais il est <strong>désactivé par défaut</strong> (<code>AI_PROVIDER=off</code>) afin qu'aucun texte de ticket ITSM ne quitte le réseau d'entreprise. Votre administrateur peut l'activer de deux façons via le <code>.env</code> du serveur :</p>
+        <table>
+          <tr><th>Paramètre</th><th>Effet</th></tr>
+          <tr><td><code>AI_PROVIDER=local</code></td><td>LLM sur site (par défaut : Mistral Nemo 12B via Ollama à <code>localhost:11434</code>). Rien ne quitte le LAN. ~45-90s par prompt sur CPU.</td></tr>
+          <tr><td><code>AI_PROVIDER=anthropic</code></td><td>API cloud Anthropic (nécessite une clé API valide). Plus rapide, mais le texte des tickets est envoyé au cloud.</td></tr>
+        </table>
+        <div class="info">ℹ️ C'est un paramètre administrateur, pas utilisateur — la plupart des utilisateurs ne verront que <strong>Analyze (Quick)</strong>. Quand l'IA est activée, le comportement du bouton est identique ; le serveur génère simplement un commentaire plus riche en coulisses.</div>
+      </div>
+
+      <!-- 15 FR — Vue Statut IT public (SharePoint) -->
+      <div class="section" id="fr-15">
+        <h2><span class="section-num">15</span>Vue Statut IT public (SharePoint)</h2>
+        <p>La page <strong>Statut IT</strong> (<code>/exec-view.html</code>) est un instantané public, en lecture seule et par exception, conçu pour être intégré comme lien rapide SharePoint. Tout employé Endeavour peut l'ouvrir <strong>sans se connecter</strong> — elle ne montre que des agrégats, jamais le détail au niveau ticket.</p>
+        <p>Elle répond à une seule question d'un coup d'œil — <em>« l'IT est-elle saine ce mois-ci ? »</em> : KPIs phares, les sites qui nécessitent attention (un incident majeur actif ou un backlog en retard), les maintenances planifiées à venir, la progression stratégique du Suivi des Activités, et les points forts rédigés par les admins.</p>
+        <ul>
+          <li><strong>Par exception</strong> — seuls les sites avec un problème sont listés ; les sites sains sont volontairement omis.</li>
+          <li><strong>Confidentialité par conception</strong> — aucun sujet de ticket, nom de demandeur/technicien, ni verbatim n'apparaît jamais.</li>
+          <li><strong>Éditorial</strong> — les admins définissent les Points forts et Axes du mois sur <code>reports.html#admin → Exec View</code>.</li>
+        </ul>
+        <div class="info">ℹ️ Cible du lien rapide SharePoint : <code>https://itops-dashboard.edv-ops.com/exec-view.html</code>. La page est mise en cache 60 secondes côté serveur, elle reste donc rapide même sous forte charge d'intégration.</div>
       </div>
 
     </div><!-- /content -->
