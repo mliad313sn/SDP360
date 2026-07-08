@@ -70,14 +70,18 @@ const CHANGES_SEED = {
     'Kalana IT Agents', 'Lafigue IT Agents', 'Mana IT Agent',
     'Ouaga IT Agents', 'Sabodala IT Agents', 'Tanda IT Agents',
     'CAB Agents', 'EDV InfraOPs Support',
+    // Per user direction 2026-07-08: security + ITSM-platform changes belong
+    // in the Operations deck (unlike the tickets scope, which keeps them in
+    // their own Cybersecurity / ITSM presets).
+    'Infosec Team', 'ManageEngine ServiceDesk Plus',
   ],
   Application: [
     'Benchmark Support Team', 'EQS ONEIT Support Agents', 'ERP Support',
     'Ivalua Support Team', 'My Path Support Agents', 'Oracle Support',
     'SunShine Project Team',
   ],
-  Cybersecurity: ['Infosec Team'],
-  ITSM:          ['ManageEngine ServiceDesk Plus'],
+  Cybersecurity: [],
+  ITSM:          [],
   Other:         [],
 };
 
