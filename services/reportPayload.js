@@ -242,7 +242,24 @@ function _majorIncidents(filters) {
       ca:       ['UDF:Corrective action:','UDF:Corrective Action:','Corrective Action','CA'],
       ll:       ['UDF:Lessons Learned:','UDF:Lessons Learned','Lessons Learned','LL'],
       pir:      ['UDF:PIR Required:','UDF:PIR Required','PIR'],
-      downtime: ['UDF:Total Downtime:','UDF:Total Downtime','Total Downtime'],
+      downtime: ['UDF:Total Downtime (Hours):','UDF:Total Downtime (Hours)','UDF:Total Downtime:','UDF:Total Downtime','Total Downtime'],
+      // Objective outage window — filled by technicians on the MI template.
+      // "13 Jun, 2026 18:57:00" SDP format. Preferred over the typed
+      // Total Downtime number (which is rarely filled and often rounded to 0).
+      actual_start: ['UDF:Incident Actual Start Time','UDF:Incident Actual Start Time:'],
+      actual_end:   ['UDF:Incident Actual Resolution Time','UDF:Incident Actual Resolution Time:'],
+    };
+    // Parse the SDP UDF datetime format "13 Jun, 2026 18:57:00" (also accepts
+    // ISO). Returns a Date or null.
+    const _MON3 = {jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
+    const _parseSdpDT = v => {
+      if (!v) return null;
+      const m = String(v).match(/(\d{1,2})\s+(\w{3}),?\s+(\d{4})[\s,]+(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+      if (m && _MON3[m[2].toLowerCase()] !== undefined) {
+        return new Date(+m[3], _MON3[m[2].toLowerCase()], +m[1], +m[4], +m[5], +(m[6] || 0));
+      }
+      const d = new Date(String(v).replace(' ', 'T'));
+      return isNaN(d.getTime()) ? null : d;
     };
 
     rows.forEach(r => {
@@ -262,16 +279,31 @@ function _majorIncidents(filters) {
       const ca  = _udfPick(udf, _UDF.ca);
       const ll  = _udfPick(udf, _UDF.ll);
       const pir = _udfPick(udf, _UDF.pir);
-      const dt  = _udfPick(udf, _UDF.downtime);
+      let   dt  = _udfPick(udf, _UDF.downtime);
 
-      // MTTR (hours to restore) for the slide-9 card header — prefer
-      // resolved−created, fall back to the downtime UDF. (May-final fidelity:
-      // the deck showed "MTTR 29h / 94h" per incident.)
+      // Effective downtime — the objective outage window (Actual Start →
+      // Actual Resolution UDFs) beats the typed Total Downtime number, which
+      // technicians rarely fill (and round to 0 for sub-hour outages: prod
+      // audit 2026-07-09 — #311587 had "Total Downtime (Hours): 0" for a real
+      // 40-min outage, #310139 had no downtime field at all for a 7h cut).
+      const _as = _parseSdpDT(_udfPick(udf, _UDF.actual_start));
+      const _ae = _parseSdpDT(_udfPick(udf, _UDF.actual_end));
+      if (_as && _ae && _ae > _as && (_ae - _as) < 30 * 86400000) {
+        dt = ((_ae - _as) / 3600000).toFixed(1);   // hours, 1 decimal
+      }
+
+      // MTTR (hours to RESTORE) for the slide-9 card header. Precedence:
+      // actual outage window (most honest — the ticket often stays open long
+      // after service is back: #310139 restored in 7h, ticket closed 42h
+      // later) → resolved−created → downtime UDF.
       let mttr_h = null;
+      if (_as && _ae && _ae > _as && (_ae - _as) < 30 * 86400000) {
+        mttr_h = Math.max(1, Math.round((_ae - _as) / 3600000));
+      }
       const _parseDT = v => { if (!v) return null; const d = new Date(String(v).replace(' ', 'T')); return isNaN(d.getTime()) ? null : d; };
       const _ct = _parseDT(r.created_time);
       const _rt = _parseDT(r.resolved_time) || _parseDT(r.completed_time);
-      if (_ct && _rt) { const h = Math.round((_rt - _ct) / 3600000); if (h >= 0 && h < 24 * 365) mttr_h = h; }
+      if (mttr_h == null && _ct && _rt) { const h = Math.round((_rt - _ct) / 3600000); if (h >= 0 && h < 24 * 365) mttr_h = h; }
       if (mttr_h == null && dt != null) { const d = parseFloat(dt); if (!isNaN(d) && d >= 0) mttr_h = Math.round(d); }
 
       // Compose a "lessons / actions" string render.py uses on slide 9.
