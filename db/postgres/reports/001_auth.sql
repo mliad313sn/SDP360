@@ -18,8 +18,27 @@ CREATE TABLE IF NOT EXISTS users (
   site_id INTEGER REFERENCES sites(id),
   role TEXT DEFAULT 'editor',
   active INTEGER DEFAULT 1,
-  created_at TIMESTAMPTZ DEFAULT now()
+  created_at TIMESTAMPTZ DEFAULT now(),
+  -- Entra ID SSO (mirrors the sqlite ALTERs added 2026-07): email is the
+  -- pre-provisioning match key; entra_oid links on first Microsoft login;
+  -- first/last/title/office auto-sync FROM Entra on each SSO login.
+  email      TEXT,
+  entra_oid  TEXT,
+  first_name TEXT,
+  last_name  TEXT,
+  title      TEXT,
+  office     TEXT
 );
+-- Same columns for PG databases created BEFORE the SSO work (this file is
+-- re-applied idempotently at every boot via initPgReports).
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email      TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS entra_oid  TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS first_name TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_name  TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS title      TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS office     TEXT;
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_entra ON users(entra_oid);
 CREATE TABLE IF NOT EXISTS user_roles (
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   role TEXT NOT NULL,

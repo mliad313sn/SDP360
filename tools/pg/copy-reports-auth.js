@@ -12,7 +12,7 @@ const SCHEMA = fs.readFileSync(path.join(__dirname, '../../db/postgres/reports/0
 // FK order. cols mirror the live sqlite auth schema.
 const TABLES = [
   ['sites',      ['id', 'name', 'zoho_group', 'active', 'sort_order'], ['id']],
-  ['users',      ['id', 'username', 'full_name', 'password_hash', 'salt', 'site_id', 'role', 'active', 'created_at'], ['id']],
+  ['users',      ['id', 'username', 'full_name', 'password_hash', 'salt', 'site_id', 'role', 'active', 'created_at', 'email', 'entra_oid', 'first_name', 'last_name', 'title', 'office'], ['id']],
   ['user_roles', ['user_id', 'role', 'granted_at'], ['user_id', 'role']],
   ['sessions',   ['token', 'user_id', 'expires_at', 'created_at', 'last_seen'], ['token']],
 ];
@@ -34,7 +34,14 @@ async function copyReportsAuth(sqlitePath, pg) {
     await pg.runTransaction(async () => {
       for (const [table, cols, pk] of TABLES) {
         let rows = [];
-        try { rows = sdb.prepare(`SELECT ${cols.join(', ')} FROM ${table}`).all(); }
+        // Tolerate source DBs that predate ALTER-added columns (e.g. the SSO
+        // profile columns on users): select NULL for any column the source
+        // table doesn't have, instead of failing the whole table.
+        try {
+          const have = new Set(sdb.prepare(`PRAGMA table_info(${table})`).all().map(c => c.name));
+          const sel  = cols.map(c => have.has(c) ? c : `NULL AS ${c}`).join(', ');
+          rows = sdb.prepare(`SELECT ${sel} FROM ${table}`).all();
+        }
         catch (_) { rows = []; }
         const ins = pg.prepare(_upsertSql(table, cols, pk));
         for (const r of rows) await ins.run(...cols.map(c => r[c]));
