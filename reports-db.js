@@ -344,6 +344,24 @@ try { db.exec(`ALTER TABLE change_records ADD COLUMN stage_status TEXT`); } catc
 // department feature — action_items: nullable department + comment columns
 try { db.exec(`ALTER TABLE action_items ADD COLUMN department TEXT`); } catch(e) {}
 try { db.exec(`ALTER TABLE action_items ADD COLUMN comment    TEXT`); } catch(e) {}
+// 2026-07-09 — survey_answers duplicate purge + UNIQUE key. The writer used
+// "ON CONFLICT DO NOTHING" but the table had NO unique constraint, so every
+// survey sync re-INSERTed every answer row (prod audit: 70% of 16,991 rows
+// were duplicates; worst respondent row repeated 88x). This inflated any
+// per-comment analysis — e.g. the exec-deck TOP PAIN POINTS showed
+// "14 mentions" for what was really 2 respondents. (response_id, question_id)
+// is a verified natural key: zero legitimate multi-content pairs in prod.
+// Dedup keeps the OLDEST row (MIN id); the unique index then makes the
+// existing ON CONFLICT DO NOTHING writer actually idempotent.
+try {
+  const _saDup = db.prepare(`SELECT COUNT(*) c FROM sqlite_master WHERE type='index' AND name='uq_sa_response_question'`).get();
+  if (_saDup.c === 0) {
+    const del = db.prepare(`DELETE FROM survey_answers WHERE id NOT IN (
+      SELECT MIN(id) FROM survey_answers GROUP BY response_id, question_id)`).run();
+    db.exec(`CREATE UNIQUE INDEX uq_sa_response_question ON survey_answers(response_id, question_id)`);
+    if (del.changes > 0) console.log(`[Reports-DB] survey_answers: purged ${del.changes} duplicate rows + added UNIQUE(response_id, question_id)`);
+  }
+} catch (e) { console.error('[Reports-DB] survey_answers dedup migration failed:', e.message); }
 // v1.11.5 — request_records: add udf_json for major-incident UDFs
 // (Root Cause Analysis, Corrective Action, Lessons Learned, Preventive Measures,
 //  Workaround Details, PIR Required). The base REQUEST_TABLE Zoho view does NOT

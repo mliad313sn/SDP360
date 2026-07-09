@@ -1988,8 +1988,14 @@ app.get('/api/survey/voice', requireReportSession, async (req, res) => {
         'Option':      r.answer_option || '',
       }));
 
-      // Extract typed text answers
+      // Extract typed text answers.
+      // _seenComment guards against duplicate answer rows: survey_answers
+      // historically accumulated dupes (INSERT with no UNIQUE key \u2014 fixed by
+      // the reports-db dedup migration), which inflated theme counts (e.g.
+      // "14 mentions" from 2 respondents on the June 2026 deck). One comment
+      // per (respondent, text) regardless of how many rows carry it.
       const allComments = [];
+      const _seenComment = new Set();
       answersRaw.forEach(r => {
         const rid = (r['Response ID'] || r['\ufeffResponse ID'] || Object.values(r)[0] || '').toString().trim();
         const textRaw = r['Text'] || r['\ufeffText'] || r['Comment'] || r['\ufeffComment'] || '';
@@ -1999,6 +2005,9 @@ app.get('/api/survey/voice', requireReportSession, async (req, res) => {
         const text = (textRaw || optCandidate).trim();
         if (!text || /^\s*\d+([.,]\d+)?\s*$/.test(text)) return;
         if (text.length < 5) return;
+        const _ck = rid + '|' + text.toLowerCase();
+        if (_seenComment.has(_ck)) return;
+        _seenComment.add(_ck);
         const ctx = resultMap[rid] || {};
         allComments.push({
           responseId: rid,
