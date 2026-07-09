@@ -16,7 +16,7 @@ const SCHEMA4 = _fs.readFileSync(_path.join(__dirname, '../db/postgres/reports/0
 // (like better-sqlite3) throws on a missing named param. So fill all keys (null
 // default) and override. (udf_json is NOT a request-writer column — set via UDF batch.)
 const _req = o => ({ request_id:null, display_id:null, subject:null, request_status:null,
-  pending_status:1, overdue_status:0, request_type:null, service_request:0, is_escalated:0,
+  pending_status:1, overdue_status:0, request_type:null, template:null, service_request:0, is_escalated:0,
   reopen_count:0, due_by_time:null, time_elapsed_ms:null, created_time:null, resolved_time:null,
   completed_time:null, responded_time:null, assigned_time:null, last_updated_time:null,
   first_response_overdue:null, technician:null, requester:null, category:null, sub_category:null,
@@ -46,13 +46,16 @@ function _makeHotSqliteFixture() {
     CREATE TABLE cab_approvals (id INTEGER PRIMARY KEY, approval_id TEXT, change_id TEXT, approver_name TEXT, approval_status TEXT, approval_stage TEXT, approval_level TEXT, approval_level_status TEXT, recommendation_requested TEXT, action_taken_on TEXT, turnaround_minutes INTEGER, rule_type TEXT, comments TEXT, fetched_at TEXT);
     CREATE TABLE survey_results (id INTEGER PRIMARY KEY, result_id TEXT, response_id TEXT, survey_id TEXT, survey_name TEXT, request_id TEXT, request_display_id TEXT, change_id TEXT, user_id TEXT, overall_score REAL, survey_sent_on TEXT, survey_responded_on TEXT, fetched_at TEXT);
     CREATE TABLE survey_answers (id INTEGER PRIMARY KEY, response_id TEXT, result_id TEXT, question_id TEXT, question_text TEXT, question_type TEXT, answer_text TEXT, answer_option TEXT, score INTEGER, skipped INTEGER, fetched_at TEXT);
-    CREATE TABLE request_records (id INTEGER PRIMARY KEY, request_id TEXT, display_id TEXT, subject TEXT, request_status TEXT, pending_status INTEGER, overdue_status INTEGER, request_type TEXT, service_request INTEGER, is_escalated INTEGER, reopen_count INTEGER, due_by_time TEXT, time_elapsed_ms INTEGER, created_time TEXT, resolved_time TEXT, completed_time TEXT, responded_time TEXT, assigned_time TEXT, last_updated_time TEXT, first_response_overdue TEXT, technician TEXT, requester TEXT, category TEXT, sub_category TEXT, site TEXT, tech_group TEXT, mode TEXT, impact TEXT, udf_json TEXT, fetched_at TEXT);
+    CREATE TABLE request_records (id INTEGER PRIMARY KEY, request_id TEXT, display_id TEXT, subject TEXT, request_status TEXT, pending_status INTEGER, overdue_status INTEGER, request_type TEXT, template TEXT, service_request INTEGER, is_escalated INTEGER, reopen_count INTEGER, due_by_time TEXT, time_elapsed_ms INTEGER, created_time TEXT, resolved_time TEXT, completed_time TEXT, responded_time TEXT, assigned_time TEXT, last_updated_time TEXT, first_response_overdue TEXT, technician TEXT, requester TEXT, category TEXT, sub_category TEXT, site TEXT, tech_group TEXT, mode TEXT, impact TEXT, udf_json TEXT, fetched_at TEXT);
     CREATE TABLE sync_metadata (job_name TEXT PRIMARY KEY, last_sync_at TEXT, last_sync_rows INTEGER, last_error TEXT, last_error_at TEXT, sync_count INTEGER, last_full_sync_at TEXT, schema_snapshot TEXT, deleted_count INTEGER);
   `);
   db.prepare(`INSERT INTO change_records (id,change_id,status,group_name,stage_status,created_time) VALUES (4,'C9','Completed','Ops','done','2026-05-01')`).run();
   db.prepare(`INSERT INTO cab_approvals (id,approval_id,change_id,approval_status,turnaround_minutes) VALUES (2,'A9','C9','Approved',30)`).run();
   db.prepare(`INSERT INTO survey_results (id,result_id,response_id,overall_score,survey_sent_on) VALUES (6,'SR9','P9',88.5,'2026-05-02')`).run();
   db.prepare(`INSERT INTO survey_answers (id,response_id,result_id,question_text,score) VALUES (3,'P9','SR9','Q',5)`).run();
+  // duplicate of row 3 (same response+question) — pre-dedup-migration prod DBs have these;
+  // the copy must collapse it (uq_sa_response_question would reject it otherwise).
+  db.prepare(`INSERT INTO survey_answers (id,response_id,result_id,question_text,score) VALUES (4,'P9','SR9','Q',5)`).run();
   db.prepare(`INSERT INTO request_records (id,request_id,display_id,request_status,pending_status,time_elapsed_ms,site,udf_json) VALUES (8,'R9','#INC-9','Closed',0,7200000,'Hounde','{"RCA":"z"}')`).run();
   db.prepare(`INSERT INTO sync_metadata (job_name,last_sync_at,last_sync_rows,sync_count) VALUES ('requests','2026-05-10 00:00:00',100,5)`).run();
   db.close();

@@ -20,8 +20,13 @@ const TABLES = [
   ['change_records', ['id','change_id','display_id','subject','status','stage','stage_status','risk','change_type','emergency','category','sub_category','requester','requester_id','owner_id','manager','site_id','group_id','group_name','scheduled_start','scheduled_end','completed_time','created_time','closure_code','udf_json','fetched_at'], ['change_id']],
   ['cab_approvals', ['id','approval_id','change_id','approver_name','approval_status','approval_stage','approval_level','approval_level_status','recommendation_requested','action_taken_on','turnaround_minutes','rule_type','comments','fetched_at'], ['approval_id']],
   ['survey_results', ['id','result_id','response_id','survey_id','survey_name','request_id','request_display_id','change_id','user_id','overall_score','survey_sent_on','survey_responded_on','fetched_at'], ['result_id']],
-  ['survey_answers', ['id','response_id','result_id','question_id','question_text','question_type','answer_text','answer_option','score','skipped','fetched_at'], ['id']],
-  ['request_records', ['id','request_id','display_id','subject','request_status','pending_status','overdue_status','request_type','service_request','is_escalated','reopen_count','due_by_time','time_elapsed_ms','created_time','resolved_time','completed_time','responded_time','assigned_time','last_updated_time','first_response_overdue','technician','requester','category','sub_category','site','tech_group','mode','impact','udf_json','fetched_at'], ['request_id']],
+  // survey_answers: 4th element = dedup WHERE clause. Pre-dedup-migration DBs
+  // carry duplicate (response_id, question_id) rows (writer had no UNIQUE key);
+  // PG's uq_sa_response_question would reject them mid-copy, so keep only the
+  // oldest row per key at SELECT time. NULL-safe: no NULL question_ids in prod.
+  ['survey_answers', ['id','response_id','result_id','question_id','question_text','question_type','answer_text','answer_option','score','skipped','fetched_at'], ['id'],
+   'WHERE id IN (SELECT MIN(id) FROM survey_answers GROUP BY response_id, question_id)'],
+  ['request_records', ['id','request_id','display_id','subject','request_status','pending_status','overdue_status','request_type','template','service_request','is_escalated','reopen_count','due_by_time','time_elapsed_ms','created_time','resolved_time','completed_time','responded_time','assigned_time','last_updated_time','first_response_overdue','technician','requester','category','sub_category','site','tech_group','mode','impact','udf_json','fetched_at'], ['request_id']],
   ['sync_metadata', ['job_name','last_sync_at','last_sync_rows','last_error','last_error_at','sync_count','last_full_sync_at','schema_snapshot','deleted_count'], ['job_name']],
 ];
 const IDENTITY_TABLES = ['change_records', 'cab_approvals', 'survey_results', 'survey_answers', 'request_records'];
@@ -40,13 +45,13 @@ async function copyReportsHot(sqlitePath, pg) {
   const counts = {};
   try {
     for (const s of SCHEMAS) await pg.exec(s);
-    for (const [table, cols, pk] of TABLES) {
+    for (const [table, cols, pk, where] of TABLES) {
       const sql = _upsertSql(table, cols, pk);
       let copied = 0, offset = 0;
       // Page through the source so big tables don't materialise all rows at once.
       for (;;) {
         let page = [];
-        try { page = sdb.prepare(`SELECT ${cols.join(', ')} FROM ${table} LIMIT ? OFFSET ?`).all(PAGE, offset); }
+        try { page = sdb.prepare(`SELECT ${cols.join(', ')} FROM ${table} ${where || ''} LIMIT ? OFFSET ?`).all(PAGE, offset); }
         catch (_) { page = []; }
         if (!page.length) break;
         await pg.runTransaction(async () => {
