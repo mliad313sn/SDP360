@@ -503,3 +503,19 @@ behind `REPORTS_BACKEND` (default sqlite, prod untouched). **No app code left to
 pure cutover (operator/deploy): run `tools/pg/reconcile-reports.js` on real data (all 21 readers must
 match), `tools/pg/copy-reports-all.js` to load PG, then flip `REPORTS_BACKEND=postgres` + restart —
 see the **Cutover runbook** above.
+
+## Prod admin menu + provisioning (2026-07-09)
+
+`_sdp_admin.cmd` (ships in the deploy ZIP, lives at the app root on prod) is a
+4MyPeople-style interactive Install & Maintenance menu: apply deploy ZIP,
+pm2 restart (stop/wait/start), backup/restore points (code+data, skips
+node_modules + raw_cache.json + blobs), health probe (:3456/api/auth/config),
+diagnostics, pm2 EADDRINUSE recovery — plus the two PG-migration enablers:
+
+- **C. Check DB connection** — `node tools/pg/provision-prod.js --check`
+  (reads PG_URL from .env, prints server version + backend flags).
+- **P. Provision PostgreSQL** — prompts for the cluster superuser URL + a new
+  sdp_app password, then `node tools/pg/provision-prod.js` creates role
+  `sdp_app` (LOGIN) + database `sdp_dashboard` (OWNER sdp_app). Idempotent;
+  never touches fmp_v2. This is the ONE action needing 4MyPeople-cluster
+  superuser access; everything after uses the unprivileged sdp_app role.
