@@ -2584,7 +2584,7 @@ function getAgeingBySiteDB() {
     )
     GROUP BY site
     HAVING total > 0
-    ORDER BY total DESC
+    ORDER BY total DESC, site ASC
   `).all();
   return _mapAgeingSite(rows);
 }
@@ -2611,7 +2611,7 @@ async function _getAgeingBySiteDBPg() {
     ) q
     GROUP BY site
     HAVING COUNT(*) > 0
-    ORDER BY total DESC
+    ORDER BY total DESC, site COLLATE "C" ASC
   `).all();
   return _mapAgeingSite(rows);
 }
@@ -2662,7 +2662,7 @@ function getAgeingByGroupDB() {
     )
     GROUP BY grp
     HAVING total > 0
-    ORDER BY total DESC
+    ORDER BY total DESC, grp ASC
   `).all();
   return _mapAgeingGroup(rows);
 }
@@ -2690,7 +2690,7 @@ async function _getAgeingByGroupDBPg() {
     ) q
     GROUP BY grp
     HAVING COUNT(*) > 0
-    ORDER BY total DESC
+    ORDER BY total DESC, tech_group COLLATE "C" ASC
   `).all();
   return _mapAgeingGroup(rows);
 }
@@ -3078,7 +3078,7 @@ function getSlaByCategoryDB() {
       AND LOWER(TRIM(category)) NOT IN ('-no value-', '-no value', 'no value', '(blank)')
     GROUP BY cat
     HAVING total >= 5            -- ignore long-tail categories with too few tickets
-    ORDER BY violated_closed DESC, total DESC
+    ORDER BY violated_closed DESC, total DESC, cat ASC
     LIMIT 20
   `).all();
 
@@ -3100,7 +3100,7 @@ async function _getSlaByCategoryDBPg() {
       AND LOWER(TRIM(category)) NOT IN ('-no value-', '-no value', 'no value', '(blank)')
     GROUP BY cat
     HAVING COUNT(*) >= 5
-    ORDER BY violated_closed DESC, total DESC
+    ORDER BY violated_closed DESC, total DESC, TRIM(COALESCE(category, '(Uncategorised)')) COLLATE "C" ASC
     LIMIT 20
   `).all();
 
@@ -3149,7 +3149,7 @@ function getGroupRequestsDB(monthsBack = 12) {
       AND tech_group IS NOT NULL
       AND TRIM(tech_group) != ''
     GROUP BY grp
-    ORDER BY cnt DESC
+    ORDER BY cnt DESC, grp ASC
   `).all(cutoffISO);
   return rows.map(r => ({ 'Group': r.grp, 'Request Count': r.cnt }));
 }
@@ -3167,7 +3167,7 @@ async function _getGroupRequestsDBPg(monthsBack = 12) {
       AND tech_group IS NOT NULL
       AND TRIM(tech_group) != ''
     GROUP BY grp
-    ORDER BY cnt DESC
+    ORDER BY cnt DESC, tech_group COLLATE "C" ASC
   `).all(cutoffISO);
   return rows.map(r => ({ 'Group': r.grp, 'Request Count': r.cnt }));
 }
@@ -3257,7 +3257,7 @@ function getAgeingSummaryDB() {
         AND created_time IS NOT NULL
     )
     GROUP BY grp
-    ORDER BY (d0_30 + d31_45 + d46_60 + d_over_60) DESC
+    ORDER BY (d0_30 + d31_45 + d46_60 + d_over_60) DESC, grp ASC
   `).all();
   return _mapAgeingSummary(rows);
 }
@@ -3285,7 +3285,7 @@ async function _getAgeingSummaryDBPg() {
       + SUM(CASE WHEN age_days > 30 AND age_days<=45  THEN 1 ELSE 0 END)
       + SUM(CASE WHEN age_days > 45 AND age_days<=60  THEN 1 ELSE 0 END)
       + SUM(CASE WHEN age_days > 60                   THEN 1 ELSE 0 END)
-    ) DESC
+    ) DESC, tech_group COLLATE "C" ASC
   `).all();
   return _mapAgeingSummary(rows);
 }
@@ -5041,6 +5041,22 @@ async function _getChangeMetricsPg({ site_id, since } = {}) {
 
   return _assembleChangeMetrics({ total, byStatus, failedCount, byRisk, byType, bySite, emergCount, inProgress, avgDaysRow });
 }
+// Deterministic ordering for grouped-breakdown rows: count DESC, then label ASC (NULL label
+// first, code-unit compare). Applied in the shared assemblers so BOTH the sqlite and pg forks
+// emit identical row order — sqlite (BINARY) and pg (locale collation) tie-break count-equal
+// groups differently, which made the reconcile harness flag positional diffs on equal data.
+function _sortBreakdown(rows, key) {
+  return rows.slice().sort((a, b) => {
+    const d = (b.count || 0) - (a.count || 0);
+    if (d) return d;
+    const x = a[key], y = b[key];
+    if (x == null && y == null) return 0;
+    if (x == null) return -1;
+    if (y == null) return 1;
+    return x < y ? -1 : x > y ? 1 : 0;
+  });
+}
+
 // Shared assembly — engine-agnostic JS over resolved query outputs (derives completed/cancelled/
 // rejected/finalized/executed/changeSuccessRate; ITSM success = completed/executed).
 function _assembleChangeMetrics({ total, byStatus, failedCount, byRisk, byType, bySite, emergCount, inProgress, avgDaysRow }) {
@@ -5062,10 +5078,10 @@ function _assembleChangeMetrics({ total, byStatus, failedCount, byRisk, byType, 
     in_progress_count:   inProgress,
     emergency_count:     emergCount,
     avg_completion_days: avgDaysRow?.avg_days ?? null,
-    by_status: byStatus,
-    by_risk:   byRisk,
-    by_type:   byType,
-    by_site:   bySite,
+    by_status: _sortBreakdown(byStatus, 'status'),
+    by_risk:   _sortBreakdown(byRisk,   'risk'),
+    by_type:   _sortBreakdown(byType,   'change_type'),
+    by_site:   _sortBreakdown(bySite,   'site_id'),
   };
 }
 
@@ -5143,9 +5159,9 @@ function _assembleCABMetrics({ total, byStatus, distinctChanges, approvedChanges
     changes_with_approval: approvedChanges,
     cab_compliance_pct:    cabCompliancePct,  // %  — Zoho "CAB Compliance (Major)"
     avg_turnaround_minutes: avgTurnaround,
-    by_status:    byStatus,
-    by_rule_type: byRuleType,
-    by_stage:     byStage,
+    by_status:    _sortBreakdown(byStatus,   'approval_status'),
+    by_rule_type: _sortBreakdown(byRuleType, 'rule_type'),
+    by_stage:     _sortBreakdown(byStage,    'approval_stage'),
   };
 }
 
@@ -5326,11 +5342,14 @@ function getRequestMetrics(opts = {}) {
   ).get(...p);
 
   // Breakdowns
-  const byStatus   = db.prepare(`SELECT request_status as status, COUNT(*) as count FROM request_records ${where} GROUP BY request_status ORDER BY count DESC`).all(...p);
-  const bySite     = db.prepare(`SELECT site, COUNT(*) as count FROM request_records ${where} GROUP BY site ORDER BY count DESC`).all(...p);
-  const byCategory = db.prepare(`SELECT category, COUNT(*) as count FROM request_records ${where} GROUP BY category ORDER BY count DESC LIMIT 10`).all(...p);
-  const byTech     = db.prepare(`SELECT technician, COUNT(*) as count FROM request_records ${where} GROUP BY technician ORDER BY count DESC LIMIT 10`).all(...p);
-  const byGroup    = db.prepare(`SELECT tech_group, COUNT(*) as count FROM request_records ${where} GROUP BY tech_group ORDER BY count DESC LIMIT 10`).all(...p);
+  // Deterministic tiebreak on the grouped label (sqlite ASC = NULLs first, BINARY collation —
+  // pg forks mirror with NULLS FIRST + COLLATE "C"). Matters ON the LIMITed breakdowns too:
+  // count-ties at the LIMIT boundary must pick the same rows under both engines.
+  const byStatus   = db.prepare(`SELECT request_status as status, COUNT(*) as count FROM request_records ${where} GROUP BY request_status ORDER BY count DESC, request_status ASC`).all(...p);
+  const bySite     = db.prepare(`SELECT site, COUNT(*) as count FROM request_records ${where} GROUP BY site ORDER BY count DESC, site ASC`).all(...p);
+  const byCategory = db.prepare(`SELECT category, COUNT(*) as count FROM request_records ${where} GROUP BY category ORDER BY count DESC, category ASC LIMIT 10`).all(...p);
+  const byTech     = db.prepare(`SELECT technician, COUNT(*) as count FROM request_records ${where} GROUP BY technician ORDER BY count DESC, technician ASC LIMIT 10`).all(...p);
+  const byGroup    = db.prepare(`SELECT tech_group, COUNT(*) as count FROM request_records ${where} GROUP BY tech_group ORDER BY count DESC, tech_group ASC LIMIT 10`).all(...p);
 
   // Monthly incoming trend (last 12 months) — chronological order.
   // 2026-06-02 ITSM-aligned sla_ok_pct: closed-and-not-overdue / closed
@@ -5405,11 +5424,13 @@ async function _getRequestMetricsPg({ site, since, statuses, rtypes, impacts, mo
   const firstRespViolatedResp = await cnt(` AND responded_time IS NOT NULL AND responded_time != '' AND (LOWER(first_response_overdue) IN ('true','1','yes'))`);
   const firstRespViolatedPct  = respondedCount > 0 ? +(firstRespViolatedResp / respondedCount * 100).toFixed(1) : null;
   const avgHrsRow = await H.prepare(`SELECT ROUND(AVG(time_elapsed_ms)/3600000.0, 2) as avg_hrs FROM request_records ${where} AND pending_status=0 AND time_elapsed_ms IS NOT NULL AND time_elapsed_ms > 0`).get(...p);
-  const byStatus   = await H.prepare(`SELECT request_status as status, COUNT(*) as count FROM request_records ${where} GROUP BY request_status ORDER BY count DESC`).all(...p);
-  const bySite     = await H.prepare(`SELECT site, COUNT(*) as count FROM request_records ${where} GROUP BY site ORDER BY count DESC`).all(...p);
-  const byCategory = await H.prepare(`SELECT category, COUNT(*) as count FROM request_records ${where} GROUP BY category ORDER BY count DESC LIMIT 10`).all(...p);
-  const byTech     = await H.prepare(`SELECT technician, COUNT(*) as count FROM request_records ${where} GROUP BY technician ORDER BY count DESC LIMIT 10`).all(...p);
-  const byGroup    = await H.prepare(`SELECT tech_group, COUNT(*) as count FROM request_records ${where} GROUP BY tech_group ORDER BY count DESC LIMIT 10`).all(...p);
+  // Tiebreak mirrors the sqlite fork: COLLATE "C" = byte order (sqlite BINARY), NULLS FIRST =
+  // sqlite's ASC NULL placement. Keeps LIMITed breakdowns picking identical rows on count-ties.
+  const byStatus   = await H.prepare(`SELECT request_status as status, COUNT(*) as count FROM request_records ${where} GROUP BY request_status ORDER BY count DESC, request_status COLLATE "C" ASC NULLS FIRST`).all(...p);
+  const bySite     = await H.prepare(`SELECT site, COUNT(*) as count FROM request_records ${where} GROUP BY site ORDER BY count DESC, site COLLATE "C" ASC NULLS FIRST`).all(...p);
+  const byCategory = await H.prepare(`SELECT category, COUNT(*) as count FROM request_records ${where} GROUP BY category ORDER BY count DESC, category COLLATE "C" ASC NULLS FIRST LIMIT 10`).all(...p);
+  const byTech     = await H.prepare(`SELECT technician, COUNT(*) as count FROM request_records ${where} GROUP BY technician ORDER BY count DESC, technician COLLATE "C" ASC NULLS FIRST LIMIT 10`).all(...p);
+  const byGroup    = await H.prepare(`SELECT tech_group, COUNT(*) as count FROM request_records ${where} GROUP BY tech_group ORDER BY count DESC, tech_group COLLATE "C" ASC NULLS FIRST LIMIT 10`).all(...p);
   const monthly = await H.prepare(`
     SELECT to_char(created_time::timestamptz,'YYYY-MM') as month,
            COUNT(*) as total_count,
@@ -5994,10 +6015,12 @@ function getUpcomingChanges(days = 7) {
  */
 function getRequestFilterOptions() {
   if (REPORTS_BACKEND === 'postgres') return _getRequestFilterOptionsPg();
+  // .sort() (UTF-16 code-unit) applied in BOTH forks — SQL ORDER BY collation differs between
+  // sqlite (BINARY) and pg (locale), so the deterministic ordering lives in shared-shape JS.
   const distinct = (col) => db.prepare(
     `SELECT DISTINCT ${col} AS v FROM request_records
      WHERE ${col} IS NOT NULL AND ${col} != '' ORDER BY 1`
-  ).all().map(r => r.v);
+  ).all().map(r => r.v).sort();
   return {
     statuses: distinct('request_status'),
     types:    distinct('request_type'),
@@ -6007,7 +6030,7 @@ function getRequestFilterOptions() {
 }
 async function _getRequestFilterOptionsPg() {
   const H = pgHandle();
-  const distinct = async (col) => (await H.prepare(`SELECT DISTINCT ${col} AS v FROM request_records WHERE ${col} IS NOT NULL AND ${col} != '' ORDER BY 1`).all()).map(r => r.v);
+  const distinct = async (col) => (await H.prepare(`SELECT DISTINCT ${col} AS v FROM request_records WHERE ${col} IS NOT NULL AND ${col} != '' ORDER BY 1`).all()).map(r => r.v).sort();
   return {
     statuses: await distinct('request_status'),
     types:    await distinct('request_type'),
