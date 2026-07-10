@@ -204,10 +204,20 @@ Should still respond — Node is alive, just bound to loopback.
 Even though Node is now on loopback only, harden the Windows firewall to block external access to port 3456 just in case `BIND_HOST` is ever forgotten:
 
 ```cmd
-netsh advfirewall firewall add rule name="Block Node 3456 external" dir=in protocol=TCP localport=3456 remoteip=!127.0.0.1 action=block
+netsh advfirewall firewall add rule name="Block Node 3456 external" dir=in protocol=TCP localport=3456 action=block
 ```
 
-This says: incoming TCP on 3456 from anywhere except localhost → block.
+> **Why no `remoteip=` exception for localhost?** Two reasons: (a) netsh has NO
+> negation operator — `remoteip=!127.0.0.1` is INVALID SYNTAX and the command
+> fails with "A specified IP address or address keyword is not valid" (this doc
+> shipped with that bug until 2026-07-10 — if the rule was "added" back then,
+> it actually failed; re-run the corrected command above and verify with
+> `netsh advfirewall firewall show rule name="Block Node 3456 external"`);
+> (b) it isn't needed — **Windows Firewall never filters loopback traffic**,
+> so IIS on the same box keeps reaching `http://localhost:3456` even with a
+> blanket block on the port. Verify after adding: `curl http://localhost:3456`
+> from the server still answers; `http://<server-ip>:3456` from another
+> machine times out.
 
 ### 8. Smoke test the end-to-end flow
 
