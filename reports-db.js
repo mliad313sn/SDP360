@@ -3084,9 +3084,16 @@ function getSlaByCategoryDB() {
 
   return _mapSlaByCategory(rows);
 }
-// PG fork — datetime('now','-12 months') → typed `created_time::timestamptz >= now() -
-// interval '12 months'`; HAVING output-alias → HAVING COUNT(*) >= 5; GROUP BY cat (alias ≠
-// the `category` column, so no shadowing) safe; closed-only denominator preserved.
+// PG fork — the 12-month cutoff MUST mirror sqlite's LEXICAL text compare, not a typed
+// timestamptz compare. sqlite compares the ISO 'YYYY-MM-DDTHH:MM:SSZ' column against a
+// 'YYYY-MM-DD HH:MM:SS' cutoff string: on the boundary DAY, 'T' (0x54) > ' ' (0x20), so
+// sqlite includes the ENTIRE boundary day. A typed `::timestamptz >= now() - interval`
+// cut at the exact instant instead — 30-row divergence on real prod data (2026-07-10
+// reconciliation). to_char(now() at UTC) reproduces sqlite's datetime('now') string
+// byte-for-byte, so both engines run the same lexical window (dialect contract:
+// "raw ISO-string TEXT compares LEFT UNCHANGED").
+// HAVING output-alias → HAVING COUNT(*) >= 5; GROUP BY cat (alias ≠ the `category`
+// column, so no shadowing) safe; closed-only denominator preserved.
 async function _getSlaByCategoryDBPg() {
   const rows = await pgHandle().prepare(`
     SELECT TRIM(COALESCE(category, '(Uncategorised)')) AS cat,
@@ -3094,7 +3101,7 @@ async function _getSlaByCategoryDBPg() {
            SUM(CASE WHEN pending_status = 0 THEN 1 ELSE 0 END) AS closed,
            SUM(CASE WHEN pending_status = 0 AND overdue_status = 1 THEN 1 ELSE 0 END) AS violated_closed
     FROM request_records
-    WHERE created_time::timestamptz >= now() - interval '12 months'
+    WHERE created_time >= to_char((now() at time zone 'UTC') - interval '12 months', 'YYYY-MM-DD HH24:MI:SS')
       AND category IS NOT NULL
       AND TRIM(category) != ''
       AND LOWER(TRIM(category)) NOT IN ('-no value-', '-no value', 'no value', '(blank)')
