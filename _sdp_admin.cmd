@@ -169,16 +169,21 @@ exit /b 0
 
 :: ---------------------------------------------------------------- P
 :provision
-echo One-time PostgreSQL provisioning (needs the CLUSTER SUPERUSER).
-echo Creates role sdp_app + database sdp_dashboard. Never touches fmp_v2.
-set "SUPURL="
-set /p SUPURL=Superuser URL (postgres://postgres:PASS@localhost:5432/postgres):
+echo One-time PostgreSQL provisioning - creates role sdp_app + database
+echo sdp_dashboard on this cluster. Never touches fmp_v2 / 4MyPeople.
+echo.
+echo   PostgreSQL 'postgres' superuser password.
+echo   Leave BLANK to use the standard appliance password - same convention
+echo   as the 4MyPeople installer; auto-read from its config.psd1.
+set "SUPW="
+set /p SUPW=postgres password:
 set "APPPW="
 set /p APPPW=New password for the sdp_app role:
-set "PG_SUPER_URL=%SUPURL%"
+if not defined APPPW ( echo [ERROR] sdp_app password cannot be blank. & exit /b 1 )
+set "PG_SUPER_PASSWORD=%SUPW%"
 set "SDP_APP_PASSWORD=%APPPW%"
 node "%APP%\tools\pg\provision-prod.js"
-set "PG_SUPER_URL="
+set "PG_SUPER_PASSWORD="
 set "SDP_APP_PASSWORD="
 exit /b 0
 

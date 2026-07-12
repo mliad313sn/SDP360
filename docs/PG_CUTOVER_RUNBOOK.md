@@ -71,9 +71,14 @@ n'est bloquant** — essayer dans cet ordre, s'arrêter au premier qui passe :
    Compress-Archive -Path ($mods | ForEach-Object { "node_modules\$_" }) -DestinationPath sdp-pgdriver.zip
    ```
    Sur le prod : extraire dans `C:\Apps\SDP-Dashboard\node_modules\`.
-3. `_sdp_admin.cmd` → **P. Provision PostgreSQL** : URL superuser (arbre §1) +
-   choisir le mot de passe de `sdp_app` (le noter dans le coffre). Crée
-   `sdp_app` + `sdp_dashboard`. Idempotent, ne touche pas fmp_v2.
+3. `_sdp_admin.cmd` → **P. Provision PostgreSQL** : au prompt
+   `postgres password:`, **laisser VIDE (Enter)** = le mot de passe standard
+   de l'appliance est lu automatiquement dans le `config.psd1` de l'installeur
+   4MyPeople (même convention que l'installeur ; confirmé actif sur le prod
+   par les logs checkdb du 2026-07). Ne taper un mot de passe que si le
+   cluster n'est pas encore standardisé (arbre §1). Puis choisir le mot de
+   passe de `sdp_app` (le noter dans le coffre). Crée `sdp_app` +
+   `sdp_dashboard`. Idempotent, ne touche pas fmp_v2.
 4. Ajouter au `.env` prod (SANS poser de flag backend !) :
    ```
    PG_URL=postgres://sdp_app:<mdp>@localhost:5432/sdp_dashboard

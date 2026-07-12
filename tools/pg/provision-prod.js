@@ -7,8 +7,15 @@
 //     app root, connects, prints server version + database name. Exit 0 = OK.
 //
 //   PROVISION (one-time, needs the cluster SUPERUSER):
-//     set PG_SUPER_URL=postgres://postgres:<superuser-pass>@localhost:5432/postgres
 //     set SDP_APP_PASSWORD=<new password for the sdp_app role>
+//     plus ONE of:
+//       PG_SUPER_PASSWORD=<postgres password>       (host/port default localhost:5432)
+//       PG_SUPER_URL=postgres://postgres:...@host:port/postgres   (full URL, legacy)
+//       NOTHING -> the STANDARD APPLIANCE password is auto-resolved from the
+//                  4MyPeople installer's config.psd1 (same convention as the
+//                  4MyPeople installer's own "leave blank" prompt). Search
+//                  order: FMP_CONFIG_PSD1 env -> %TEMP%\4MyPeople-Installer\
+//                  -> every C:\Users\<x>\AppData\Local\Temp\4MyPeople-Installer\.
 //     node tools/pg/provision-prod.js
 //     Creates role sdp_app (LOGIN) + database sdp_dashboard (OWNER sdp_app).
 //     Idempotent: re-running on an existing role/db is a no-op (password NOT
@@ -16,6 +23,25 @@
 //     NEVER touches fmp_v2 or any 4MyPeople object.
 const fs = require('fs');
 const path = require('path');
+
+// Find the 4MyPeople installer's StandardPgSuperPassword — the "leave blank"
+// convention. Returns { pw, src } or null. The value is NEVER printed.
+function resolveStandardPgPassword() {
+  const candidates = [];
+  if (process.env.FMP_CONFIG_PSD1) candidates.push(process.env.FMP_CONFIG_PSD1);
+  if (process.env.TEMP) candidates.push(path.join(process.env.TEMP, '4MyPeople-Installer', 'config.psd1'));
+  try {
+    fs.readdirSync('C:\\Users').forEach(u =>
+      candidates.push(path.join('C:\\Users', u, 'AppData', 'Local', 'Temp', '4MyPeople-Installer', 'config.psd1')));
+  } catch (_) {}
+  for (const p of candidates) {
+    try {
+      const m = fs.readFileSync(p, 'utf8').match(/StandardPgSuperPassword\s*=\s*'([^']+)'/);
+      if (m) return { pw: m[1], src: p };
+    } catch (_) { /* not there — next candidate */ }
+  }
+  return null;
+}
 
 function loadDotEnv() {
   // Minimal .env reader (KEY=VALUE lines) — avoids a dotenv dependency here.
@@ -58,11 +84,31 @@ async function main() {
   }
 
   // ── provision mode ──
-  const superUrl = process.env.PG_SUPER_URL;
-  const appPass  = process.env.SDP_APP_PASSWORD;
-  if (!superUrl || !appPass) {
-    console.error('Provision mode needs PG_SUPER_URL (cluster superuser) + SDP_APP_PASSWORD (new sdp_app password).');
+  const appPass = process.env.SDP_APP_PASSWORD;
+  if (!appPass) {
+    console.error('Provision mode needs SDP_APP_PASSWORD (the new password for the sdp_app role).');
     process.exit(2);
+  }
+  let superUrl = process.env.PG_SUPER_URL;
+  if (!superUrl) {
+    const host = process.env.PG_SUPER_HOST || 'localhost';
+    const port = process.env.PG_SUPER_PORT || '5432';
+    let pw = process.env.PG_SUPER_PASSWORD;
+    if (pw) {
+      console.log('[provision] using the supplied postgres password');
+    } else {
+      // Blank = the 4MyPeople "standard appliance password" convention.
+      const std = resolveStandardPgPassword();
+      if (!std) {
+        console.error('[provision] No password supplied and no 4MyPeople config.psd1 found to read the');
+        console.error('[provision] standard appliance password from. Either type the postgres password,');
+        console.error('[provision] or set FMP_CONFIG_PSD1=<path to the installer config.psd1>.');
+        process.exit(2);
+      }
+      pw = std.pw;
+      console.log('[provision] using the STANDARD APPLIANCE password (from ' + std.src + ')');
+    }
+    superUrl = 'postgres://postgres:' + encodeURIComponent(pw) + '@' + host + ':' + port + '/postgres';
   }
   const pool = new Pool({ connectionString: superUrl, max: 1, connectionTimeoutMillis: 8000 });
   try {
