@@ -51,3 +51,27 @@ CREATE TABLE IF NOT EXISTS rr_site_aliases (
   updated_at TIMESTAMPTZ DEFAULT now(),
   updated_by TEXT
 );
+
+-- Exec View editorial (SharePoint executive page) — per-month highlights/focus.
+-- Mirrors reports-db.js sqlite exec_view_editorial (period 'YYYY-MM' TEXT PK;
+-- *_json kept TEXT for byte-identical round-trip; updated_at is writer-managed
+-- via now() in the upsert, so no column default).
+CREATE TABLE IF NOT EXISTS exec_view_editorial (
+  period          TEXT PRIMARY KEY,
+  highlights_json TEXT,
+  focus_json      TEXT,
+  updated_at      TIMESTAMPTZ,
+  updated_by      TEXT
+);
+
+-- Exec View Major-Incident AI-summary cache — keyed by src_hash so summaries
+-- regenerate only when the source RCA/CA/impact/subject text changes.
+-- Mirrors reports-db.js sqlite exec_mi_summary.
+CREATE TABLE IF NOT EXISTS exec_mi_summary (
+  request_id          TEXT PRIMARY KEY,
+  src_hash            TEXT NOT NULL,
+  root_cause_summary  TEXT,
+  action_summary      TEXT,
+  model               TEXT,
+  updated_at          TIMESTAMPTZ
+);

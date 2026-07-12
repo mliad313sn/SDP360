@@ -615,7 +615,7 @@ try {
 
 // ── 1.C exec_view_editorial ───────────────────────────────────────
 // Exec View editorial (SharePoint executive page) — per-month highlights/focus.
-// v1: sqlite only. TODO(pg): fork under REPORTS_BACKEND=postgres when needed.
+// PG fork: db/postgres/reports/002_config.sql + _getExecEditorialPg/_setExecEditorialPg.
 db.exec(`
 CREATE TABLE IF NOT EXISTS exec_view_editorial (
   period          TEXT PRIMARY KEY,       -- 'YYYY-MM'
@@ -626,17 +626,36 @@ CREATE TABLE IF NOT EXISTS exec_view_editorial (
 );
 `);
 
+// Shared row→{highlights, focus} mapping (both forks).
+function _mapExecEditorial(row) {
+  if (!row) return { highlights: [], focus: [] };
+  const parse = (s, d) => { try { const v = JSON.parse(s || ''); return Array.isArray(v) ? v : d; } catch { return d; } };
+  return { highlights: parse(row.highlights_json, []), focus: parse(row.focus_json, []) };
+}
+// Shared input normalisation (both forks): caps (max 4 highlights, max 3 focus)
+// + drops blank entries so the Executive View footprint stays predictable.
+function _normExecEditorial({ highlights, focus }) {
+  const H = Array.isArray(highlights) ? highlights.filter(x => String(x || '').trim()).slice(0, 4) : [];
+  const F = Array.isArray(focus) ? focus.filter(x => x && String(x.title || '').trim()).slice(0, 3) : [];
+  return { H, F };
+}
+
 /**
  * getExecEditorial(period) — reads the Executive View editorial blocks
  * (Monthly highlights + Current focus areas) for a given 'YYYY-MM' period.
  * Returns { highlights: [], focus: [] } when the period has never been set.
  */
 function getExecEditorial(period) {
+  if (REPORTS_BACKEND === 'postgres') return _getExecEditorialPg(period);
   try {
     const row = db.prepare('SELECT highlights_json, focus_json FROM exec_view_editorial WHERE period=?').get(period);
-    if (!row) return { highlights: [], focus: [] };
-    const parse = (s, d) => { try { const v = JSON.parse(s || ''); return Array.isArray(v) ? v : d; } catch { return d; } };
-    return { highlights: parse(row.highlights_json, []), focus: parse(row.focus_json, []) };
+    return _mapExecEditorial(row);
+  } catch { return { highlights: [], focus: [] }; }
+}
+async function _getExecEditorialPg(period) {
+  try {
+    const row = await pgHandle().prepare('SELECT highlights_json, focus_json FROM exec_view_editorial WHERE period=?').get(period);
+    return _mapExecEditorial(row);
   } catch { return { highlights: [], focus: [] }; }
 }
 
@@ -647,11 +666,25 @@ function getExecEditorial(period) {
  * stays predictable regardless of what an admin pastes in.
  */
 function setExecEditorial(period, { highlights, focus }, user) {
-  const H = Array.isArray(highlights) ? highlights.filter(x => String(x || '').trim()).slice(0, 4) : [];
-  const F = Array.isArray(focus) ? focus.filter(x => x && String(x.title || '').trim()).slice(0, 3) : [];
+  if (REPORTS_BACKEND === 'postgres') return _setExecEditorialPg(period, { highlights, focus }, user);
+  const { H, F } = _normExecEditorial({ highlights, focus });
   db.prepare(`
     INSERT INTO exec_view_editorial (period, highlights_json, focus_json, updated_at, updated_by)
     VALUES (?, ?, ?, datetime('now'), ?)
+    ON CONFLICT(period) DO UPDATE SET
+      highlights_json = excluded.highlights_json,
+      focus_json      = excluded.focus_json,
+      updated_at      = excluded.updated_at,
+      updated_by      = excluded.updated_by
+  `).run(period, JSON.stringify(H), JSON.stringify(F), user || 'unknown');
+  return { highlights: H, focus: F };
+}
+// PG fork — datetime('now') → now(); ON CONFLICT … DO UPDATE SET x=excluded.x is pg-valid as-is.
+async function _setExecEditorialPg(period, { highlights, focus }, user) {
+  const { H, F } = _normExecEditorial({ highlights, focus });
+  await pgHandle().prepare(`
+    INSERT INTO exec_view_editorial (period, highlights_json, focus_json, updated_at, updated_by)
+    VALUES (?, ?, ?, now(), ?)
     ON CONFLICT(period) DO UPDATE SET
       highlights_json = excluded.highlights_json,
       focus_json      = excluded.focus_json,
@@ -667,7 +700,7 @@ function setExecEditorial(period, { highlights, focus }, user) {
 // keyed by src_hash (a hash of the source RCA/CA/impact/subject) so the
 // summary is regenerated ONLY when the underlying text changes — the public
 // endpoint never calls the model on the request path, it just reads this cache.
-// v1: sqlite only. TODO(pg): fork under REPORTS_BACKEND=postgres when needed.
+// PG fork: db/postgres/reports/002_config.sql + _getExecMiSummariesPg/_setExecMiSummaryPg.
 db.exec(`
 CREATE TABLE IF NOT EXISTS exec_mi_summary (
   request_id      TEXT PRIMARY KEY,
@@ -685,6 +718,7 @@ CREATE TABLE IF NOT EXISTS exec_mi_summary (
  * Missing ids are simply absent from the map.
  */
 function getExecMiSummaries(ids) {
+  if (REPORTS_BACKEND === 'postgres') return _getExecMiSummariesPg(ids);
   const out = {};
   const list = (ids || []).filter(Boolean).map(String);
   if (!list.length) return out;
@@ -698,17 +732,51 @@ function getExecMiSummaries(ids) {
   } catch (e) { console.warn('[exec-mi-summary] read failed:', e.message); }
   return out;
 }
+// PG fork — sqlite's dynamic IN (?,?,…) becomes `= ANY(?)` with ONE array param:
+// pgDb passes positional args straight to node-postgres, which serialises a JS
+// array to a PG array literal, so no per-id placeholder building is needed.
+async function _getExecMiSummariesPg(ids) {
+  const out = {};
+  const list = (ids || []).filter(Boolean).map(String);
+  if (!list.length) return out;
+  try {
+    const rows = await pgHandle().prepare(
+      `SELECT request_id, src_hash, root_cause_summary, action_summary, model
+         FROM exec_mi_summary WHERE request_id = ANY(?)`
+    ).all(list);
+    for (const r of rows) out[r.request_id] = r;
+  } catch (e) { console.warn('[exec-mi-summary] read failed:', e.message); }
+  return out;
+}
 
 /**
  * setExecMiSummary(request_id, {src_hash, root_cause_summary, action_summary, model})
  * — upsert one incident's cached summary.
  */
 function setExecMiSummary(request_id, s) {
+  if (REPORTS_BACKEND === 'postgres') return _setExecMiSummaryPg(request_id, s);
   if (!request_id || !s || !s.src_hash) return;
   try {
     db.prepare(`
       INSERT INTO exec_mi_summary (request_id, src_hash, root_cause_summary, action_summary, model, updated_at)
       VALUES (?, ?, ?, ?, ?, datetime('now'))
+      ON CONFLICT(request_id) DO UPDATE SET
+        src_hash           = excluded.src_hash,
+        root_cause_summary = excluded.root_cause_summary,
+        action_summary     = excluded.action_summary,
+        model              = excluded.model,
+        updated_at         = excluded.updated_at
+    `).run(String(request_id), String(s.src_hash),
+           s.root_cause_summary || null, s.action_summary || null, s.model || null);
+  } catch (e) { console.warn('[exec-mi-summary] write failed:', e.message); }
+}
+// PG fork — datetime('now') → now(); upsert syntax is pg-valid as-is.
+async function _setExecMiSummaryPg(request_id, s) {
+  if (!request_id || !s || !s.src_hash) return;
+  try {
+    await pgHandle().prepare(`
+      INSERT INTO exec_mi_summary (request_id, src_hash, root_cause_summary, action_summary, model, updated_at)
+      VALUES (?, ?, ?, ?, ?, now())
       ON CONFLICT(request_id) DO UPDATE SET
         src_hash           = excluded.src_hash,
         root_cause_summary = excluded.root_cause_summary,
@@ -5976,12 +6044,9 @@ function _mapActiveMajorIncidentRows(rows) {
  *   - impact = risk band
  *   - scope  = site_id
  * Deliberately selects ONLY those columns (never requester/owner/manager).
- * sqlite path only for now — see TODO(pg).
  */
 function getUpcomingChanges(days = 7) {
-  // TODO(pg): add a REPORTS_BACKEND==='postgres' fork when the Exec View is
-  // wired to the PG reports.db (datetime('now') → now(); julianday window
-  // math not needed here — plain lexical/ISO comparisons on scheduled_start).
+  if (REPORTS_BACKEND === 'postgres') return _getUpcomingChangesPg(days);
   const n = Number(days) > 0 ? Number(days) : 7;
   const rows = db.prepare(`
     SELECT subject, risk, site_id, scheduled_start, scheduled_end
@@ -5993,6 +6058,28 @@ function getUpcomingChanges(days = 7) {
     ORDER BY datetime(scheduled_start) ASC
     LIMIT 25
   `).all(n);
+  return _mapUpcomingChanges(rows);
+}
+// PG fork — scheduled_start/_end are TEXT ISO columns: sqlite's
+// datetime(col) >= datetime('now', '+N days') window becomes a typed
+// NULLIF(col,'')::timestamptz compare against now() + (N * interval '1 day').
+// The `?::int` cast keeps the day count an integer for interval multiplication.
+async function _getUpcomingChangesPg(days = 7) {
+  const n = Number(days) > 0 ? Number(days) : 7;
+  const rows = await pgHandle().prepare(`
+    SELECT subject, risk, site_id, scheduled_start, scheduled_end
+    FROM change_records
+    WHERE stage != 'Close'
+      AND scheduled_start IS NOT NULL AND scheduled_start != ''
+      AND NULLIF(scheduled_start,'')::timestamptz >= now()
+      AND NULLIF(scheduled_start,'')::timestamptz <= now() + (?::int * interval '1 day')
+    ORDER BY NULLIF(scheduled_start,'')::timestamptz ASC
+    LIMIT 25
+  `).all(n);
+  return _mapUpcomingChanges(rows);
+}
+// Shared JS row-mapping (both forks) — the 5 whitelisted PII-free fields.
+function _mapUpcomingChanges(rows) {
   const hhmm = (v) => {
     if (!v) return '';
     const s = String(v).replace(' ', 'T');

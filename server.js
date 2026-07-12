@@ -1006,19 +1006,29 @@ function _scheduleMiSummaries(stale) {
     .finally(() => { _miRegenInFlight = false; _execCache = { at: 0, body: null }; }); // bust cache so the next load serves the warm summaries
 }
 
-app.get('/api/exec/summary', (req, res) => {
+// loadExecSummary is async (PG-ready readers). In-flight promise guard: two
+// concurrent cold requests share ONE regeneration instead of both recomputing.
+// Only the RESOLVED body is cached — the .finally clears the in-flight slot so
+// a rejected promise is never served from cache.
+let _execInFlight = null;
+app.get('/api/exec/summary', async (req, res) => {
   try {
     if (Date.now() - _execCache.at < 60_000 && _execCache.body) return res.json(_execCache.body);
-    const rdb2 = require('./reports-db');
-    const trackerDb = require('./tracker-db');
-    const trackerPptx = require('./tracker-pptx');
-    const execSummary = require('./services/execSummary');
-    const body = execSummary.loadExecSummary({
-      rdb: rdb2, trackerDb, trackerScore: trackerPptx,
-      scheduleMiSummaries: _scheduleMiSummaries,
-    });
-    _execCache = { at: Date.now(), body };
-    res.json(body);
+    if (!_execInFlight) {
+      _execInFlight = (async () => {
+        const rdb2 = require('./reports-db');
+        const trackerDb = require('./tracker-db');
+        const trackerPptx = require('./tracker-pptx');
+        const execSummary = require('./services/execSummary');
+        const body = await execSummary.loadExecSummary({
+          rdb: rdb2, trackerDb, trackerScore: trackerPptx,
+          scheduleMiSummaries: _scheduleMiSummaries,
+        });
+        _execCache = { at: Date.now(), body };
+        return body;
+      })().finally(() => { _execInFlight = null; });
+    }
+    res.json(await _execInFlight);
   } catch (e) {
     console.warn('[exec-summary] unavailable:', e.message);
     res.status(200).json({ error: 'unavailable' });
@@ -1028,20 +1038,20 @@ app.get('/api/exec/summary', (req, res) => {
 // GET /api/exec/editorial?period=YYYY-MM — admin-only editorial reader.
 // Sibling of the PUT below; used by the reports.html#admin card to prefill.
 // Behind the /api/ gate (NOT exempted) + requireReportSession + requireAdmin.
-app.get('/api/exec/editorial', requireReportSession, requireAdmin, (req, res) => {
+app.get('/api/exec/editorial', requireReportSession, requireAdmin, async (req, res) => {
   const period = String(req.query.period || '').trim();
   if (!/^\d{4}-\d{2}$/.test(period)) return res.status(400).json({ error: 'period YYYY-MM required' });
   const rdb2 = require('./reports-db');
-  res.json(rdb2.getExecEditorial(period));
+  res.json(await rdb2.getExecEditorial(period));   // async under REPORTS_BACKEND=postgres
 });
 
 // PUT /api/exec/editorial?period=YYYY-MM — admin-only editorial persistence.
 // Behind the /api/ gate (NOT exempted) + requireReportSession + requireAdmin.
-app.put('/api/exec/editorial', requireReportSession, requireAdmin, express.json(), (req, res) => {
+app.put('/api/exec/editorial', requireReportSession, requireAdmin, express.json(), async (req, res) => {
   const period = String(req.query.period || '').trim();
   if (!/^\d{4}-\d{2}$/.test(period)) return res.status(400).json({ error: 'period YYYY-MM required' });
   const rdb2 = require('./reports-db');
-  const saved = rdb2.setExecEditorial(period,
+  const saved = await rdb2.setExecEditorial(period,   // async under REPORTS_BACKEND=postgres
     { highlights: req.body.highlights, focus: req.body.focus },
     (req.reportUser && req.reportUser.username) || 'unknown');
   _execCache = { at: 0, body: null }; // bust the summary cache so the edit shows immediately

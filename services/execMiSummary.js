@@ -118,7 +118,7 @@ async function regenerate({ stale, aiCall, rdb, model, log } = {}) {
       const text = await aiCall(buildMiSummaryPrompt(mi));
       const parsed = parseSummaryResponse(text);
       if (!parsed) { warn(`no parseable summary for ${mi.request_id}`); continue; }
-      rdb.setExecMiSummary(mi.request_id, {
+      await rdb.setExecMiSummary(mi.request_id, {   // async under REPORTS_BACKEND=postgres; no-op await on sqlite
         src_hash: miSrcHash(mi),
         root_cause_summary: parsed.root_cause || null,
         action_summary: parsed.action || null,

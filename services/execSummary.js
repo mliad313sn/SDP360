@@ -78,7 +78,9 @@ function _round(v) { return v == null ? null : Math.round(v); }
 
 // mapHelpdeskKpis — fleet-wide monthly helpdesk history + change + survey +
 // avg-resolution readers → the assembler's helpdesk{...} sub-objects.
-function mapHelpdeskKpis(rdb, now) {
+// async: under REPORTS_BACKEND=postgres the rdb readers return Promises;
+// awaiting the sqlite (sync) returns is a no-op, so behaviour is identical.
+async function mapHelpdeskKpis(rdb, now) {
   // Anchor to the LAST COMPLETE calendar month, not the current one: on the
   // 1st of a month the current month has ~1 day of data and reads as -98% /
   // near-empty. "ref" = previous month (last complete); "prev" = the one before.
@@ -98,7 +100,7 @@ function mapHelpdeskKpis(rdb, now) {
   // the current (partial) month, so the last COMPLETE month is [len-2] and the
   // month before it is [len-3].
   try {
-    const hist = rdb.getMonthlyHelpdeskHistory(13) || [];
+    const hist = (await rdb.getMonthlyHelpdeskHistory(13)) || [];
     const cur = hist[hist.length - 2] || {};
     const pv  = hist[hist.length - 3] || {};
     const curClosed = _num(cur['Closed Requests Count']);
@@ -121,8 +123,8 @@ function mapHelpdeskKpis(rdb, now) {
   // created since the given date. We approximate a month value with a
   // since=<month-1st> read; delta_h = current - previous.
   try {
-    const curM = rdb.getRequestMetrics({ since: _monthStart(ref.y, ref.m) }) || {};
-    const pvM  = rdb.getRequestMetrics({ since: _monthStart(prev.y, prev.m) }) || {};
+    const curM = (await rdb.getRequestMetrics({ since: _monthStart(ref.y, ref.m) })) || {};
+    const pvM  = (await rdb.getRequestMetrics({ since: _monthStart(prev.y, prev.m) })) || {};
     const cur = _num(curM.avg_resolution_hrs);
     const pv  = _num(pvM.avg_resolution_hrs);
     if (cur != null) out.avg_resolution_h.value = _round(cur);
@@ -134,7 +136,7 @@ function mapHelpdeskKpis(rdb, now) {
   // .rows2 = trailing window with responded_on (YYYY-MM-DD). We compute the
   // current-month CSAT from rows1 and the previous-month CSAT from rows2.
   try {
-    const kpi = rdb.getSurveyKpisDB({ yr: ref.y, mo: ref.m });
+    const kpi = await rdb.getSurveyKpisDB({ yr: ref.y, mo: ref.m });
     const cur = _csatFromRows1(kpi);
     const pvPct = _csatForMonthFromRows2(kpi, _ym(prev.y, prev.m));
     if (cur != null) out.csat.value_pct = cur;
@@ -143,8 +145,8 @@ function mapHelpdeskKpis(rdb, now) {
 
   // ── Change success rate (fleet) — current vs previous month ───────────────
   try {
-    const curC = rdb.getChangeMetrics({ since: _monthStart(ref.y, ref.m) }) || {};
-    const pvC  = rdb.getChangeMetrics({ since: _monthStart(prev.y, prev.m) }) || {};
+    const curC = (await rdb.getChangeMetrics({ since: _monthStart(ref.y, ref.m) })) || {};
+    const pvC  = (await rdb.getChangeMetrics({ since: _monthStart(prev.y, prev.m) })) || {};
     const cur = _num(curC.change_success_rate);
     const pv  = _num(pvC.change_success_rate);
     if (cur != null) out.change_success.value_pct = _round(cur);
@@ -177,15 +179,15 @@ function _csatForMonthFromRows2(kpi, ymKey) {
 // mapSpark — trailing sparkline arrays for the KPI mini-charts.
 //  spark.sla  = last 6 months of (100 - SLA-violated%)  from getSlaTrendDB
 //  spark.csat = last 6 months of monthly CSAT%           from getSurveyKpisDB rows2
-function mapSpark(rdb, now) {
+async function mapSpark(rdb, now) {
   const out = { sla: [], csat: [] };
   const y = now.getFullYear(), m = now.getMonth() + 1;
   try {
-    const trend = rdb.getSlaTrendDB(6) || [];
+    const trend = (await rdb.getSlaTrendDB(6)) || [];
     out.sla = trend.slice(-6).map(r => _round(100 - _num(r['% of SLA Violated']))).filter(v => v != null);
   } catch (e) { console.warn('[execSummary] spark sla failed:', e.message); }
   try {
-    const kpi = rdb.getSurveyKpisDB({ yr: y, mo: m });
+    const kpi = await rdb.getSurveyKpisDB({ yr: y, mo: m });
     const byMonth = {};
     for (const r of (kpi && kpi.rows2) || []) {
       const mon = r.responded_on ? String(r.responded_on).substring(0, 7) : null;
@@ -211,16 +213,16 @@ const _normSite = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').
 
 // _activeMIs — active (open) Major Incidents across all site groups. One fetch
 // feeds the MI detail block, the site rollup, and the active count.
-function _activeMIs(rdb) {
+async function _activeMIs(rdb) {
   try {
-    const sites = rdb.listSites() || [];
+    const sites = (await rdb.listSites()) || [];
     const groups = [];
     for (const s of sites) {
       if (!s.zoho_group) continue;
       String(s.zoho_group).split(',').map(g => g.trim()).filter(Boolean).forEach(g => groups.push(g));
     }
     if (!groups.length) return [];
-    return rdb.getActiveMajorIncidentsForSite(groups) || [];
+    return (await rdb.getActiveMajorIncidentsForSite(groups)) || [];
   } catch (e) { console.warn('[execSummary] active MI fetch failed:', e.message); return []; }
 }
 
@@ -262,11 +264,14 @@ function mapSiteRows(mis) {
 // mapStrategic — faithful tracker scoring (tracker-pptx.js fleetStats/ps2) →
 // { overall_pct, pillars:[{name, pct}] } for the current period across active
 // sites. fleetStats.avg / ps2 return 0-1 fractions → ×100 to percent.
-function mapStrategic(trackerDb, trackerScore, now) {
+// async + awaited loadTracker: under TRACKER_BACKEND=postgres loadTracker
+// returns a Promise — the previous sync call scored a Promise (not D) and the
+// strategic block silently read 0% in prod. await is a no-op on sqlite.
+async function mapStrategic(trackerDb, trackerScore, now) {
   const out = { overall_pct: 0, pillars: [] };
   if (!trackerDb || !trackerScore) return out;
   try {
-    const D = trackerDb.loadTracker();
+    const D = await trackerDb.loadTracker();
     if (!D) return out;
     const sites = (D.activeSites && D.activeSites.length) ? D.activeSites : (D.sites || []);
     if (!sites.length) return out;
@@ -305,25 +310,25 @@ function mapStrategic(trackerDb, trackerScore, now) {
   return out;
 }
 
-// NOTE (v1 = sqlite only): the mappers call reports-db readers synchronously.
-// Under REPORTS_BACKEND=postgres those readers return Promises, so this path
-// would need a pg fork (await the readers). TODO(pg) when reports.db cuts over.
-function loadExecSummary(deps) {
+// async since the PG-readiness pass (2026-07-12): every deps.rdb.* reader is
+// awaited so the SAME code path serves REPORTS_BACKEND=sqlite (sync returns —
+// await is a no-op) and postgres (Promise returns). Same for trackerDb.
+async function loadExecSummary(deps) {
   const now = deps.now || new Date();
   const period = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   const ref = _prevMonth(now.getFullYear(), now.getMonth() + 1);   // last complete month
   const reportMonth = _ym(ref.y, ref.m);
   let dataAsOf = null;
-  try { dataAsOf = deps.rdb.getLastSyncAt('requests'); } catch (_) { dataAsOf = null; }
-  const helpdesk = mapHelpdeskKpis(deps.rdb, now);
-  const spark = mapSpark(deps.rdb, now);
-  const mis = _activeMIs(deps.rdb);              // one fetch → detail + rollup + count
+  try { dataAsOf = await deps.rdb.getLastSyncAt('requests'); } catch (_) { dataAsOf = null; }
+  const helpdesk = await mapHelpdeskKpis(deps.rdb, now);
+  const spark = await mapSpark(deps.rdb, now);
+  const mis = await _activeMIs(deps.rdb);        // one fetch → detail + rollup + count
   // Read-path: swap in cached AI summaries where the source text is unchanged;
   // collect the rest and schedule offline regeneration (fire-and-forget) so the
   // model is NEVER called on this public, cached request path.
   try {
     if (deps.rdb.getExecMiSummaries) {
-      const cache = deps.rdb.getExecMiSummaries(mis.map(m => m.request_id));
+      const cache = await deps.rdb.getExecMiSummaries(mis.map(m => m.request_id));
       const { stale } = miSummary.applyCachedSummaries(mis, cache);
       if (stale.length && typeof deps.scheduleMiSummaries === 'function') {
         deps.scheduleMiSummaries(stale);
@@ -334,10 +339,10 @@ function loadExecSummary(deps) {
   const siteRows = mapSiteRows(mis);
   const activeMajorIncidents = mis.length;
   let upcomingMaintenance = [];
-  try { upcomingMaintenance = deps.rdb.getUpcomingChanges(7) || []; } catch (_) { upcomingMaintenance = []; }
-  const strategic = mapStrategic(deps.trackerDb, deps.trackerScore, now);
+  try { upcomingMaintenance = (await deps.rdb.getUpcomingChanges(7)) || []; } catch (_) { upcomingMaintenance = []; }
+  const strategic = await mapStrategic(deps.trackerDb, deps.trackerScore, now);
   let editorial = { highlights: [], focus: [] };
-  try { editorial = deps.rdb.getExecEditorial(period) || editorial; } catch (_) {}
+  try { editorial = (await deps.rdb.getExecEditorial(period)) || editorial; } catch (_) {}
   return buildExecSummary({
     period, reportMonth, dataAsOf, helpdesk, spark, siteRows, majorIncidents,
     activeMajorIncidents, upcomingMaintenance, strategic, editorial,

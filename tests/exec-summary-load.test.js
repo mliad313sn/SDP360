@@ -105,51 +105,51 @@ function makeTrackerScore() {
 }
 const deps = () => ({ rdb: makeRdb(), trackerDb: makeTrackerDb(), trackerScore: makeTrackerScore(), now: NOW });
 
-test('loadExecSummary: report_month = last complete month (May for a mid-June now)', () => {
-  const s = loadExecSummary(deps());
+test('loadExecSummary: report_month = last complete month (May for a mid-June now)', async () => {
+  const s = await loadExecSummary(deps());
   assert.equal(s.period, '2026-06');
   assert.equal(s.report_month, '2026-05');
   assert.equal(s.data_as_of, '2026-06-15T06:30:00Z');
 });
 
-test('loadExecSummary: resolved + MoM delta reflect the report month (May vs Apr)', () => {
-  const s = loadExecSummary(deps());
+test('loadExecSummary: resolved + MoM delta reflect the report month (May vs Apr)', async () => {
+  const s = await loadExecSummary(deps());
   assert.equal(s.kpis.requests_resolved.value, 1200);         // May closed
   assert.equal(s.kpis.requests_resolved.delta_pct, 20);       // (1200-1000)/1000
 });
 
-test('loadExecSummary: sla_compliance = 100 - %violated (May 91, delta vs Apr +2pp)', () => {
-  const s = loadExecSummary(deps());
+test('loadExecSummary: sla_compliance = 100 - %violated (May 91, delta vs Apr +2pp)', async () => {
+  const s = await loadExecSummary(deps());
   assert.equal(s.kpis.sla_compliance.value_pct, 91);          // 100 - 9
   assert.equal(s.kpis.sla_compliance.delta_pp, 2);            // 91 - 89
 });
 
-test('loadExecSummary: avg_resolution_h (May 14, delta -3 vs Apr 17)', () => {
-  const s = loadExecSummary(deps());
+test('loadExecSummary: avg_resolution_h (May 14, delta -3 vs Apr 17)', async () => {
+  const s = await loadExecSummary(deps());
   assert.equal(s.kpis.avg_resolution_h.value, 14);
   assert.equal(s.kpis.avg_resolution_h.delta_h, -3);
 });
 
-test('loadExecSummary: csat (May 67 from rows1, delta -8 vs Apr 75)', () => {
-  const s = loadExecSummary(deps());
+test('loadExecSummary: csat (May 67 from rows1, delta -8 vs Apr 75)', async () => {
+  const s = await loadExecSummary(deps());
   assert.equal(s.kpis.csat.value_pct, 67);
   assert.equal(s.kpis.csat.delta_pp, -8);
 });
 
-test('loadExecSummary: change_success (May 96, delta +1 vs Apr 95)', () => {
-  const s = loadExecSummary(deps());
+test('loadExecSummary: change_success (May 96, delta +1 vs Apr 95)', async () => {
+  const s = await loadExecSummary(deps());
   assert.equal(s.kpis.change_success.value_pct, 96);
   assert.equal(s.kpis.change_success.delta_pp, 1);
 });
 
-test('loadExecSummary: spark arrays populated', () => {
-  const s = loadExecSummary(deps());
+test('loadExecSummary: spark arrays populated', async () => {
+  const s = await loadExecSummary(deps());
   assert.deepEqual(s.kpis.spark.sla, [85, 86, 87, 88, 89, 91]);
   assert.deepEqual(s.kpis.spark.csat, [75, 100, 50]);         // Apr/May/Jun monthly CSAT
 });
 
-test('loadExecSummary: MAJOR-INCIDENT-centric site panel (only MI sites, count = # MIs)', () => {
-  const s = loadExecSummary(deps());
+test('loadExecSummary: MAJOR-INCIDENT-centric site panel (only MI sites, count = # MIs)', async () => {
+  const s = await loadExecSummary(deps());
   assert.equal(s.sites_attention.length, 1);                 // only Sabodala (has the MI)
   const sgo = s.sites_attention[0];
   assert.equal(sgo.name, 'Sabodala');
@@ -159,8 +159,8 @@ test('loadExecSummary: MAJOR-INCIDENT-centric site panel (only MI sites, count =
   assert.equal(s.status.active_major_incidents, 1);
 });
 
-test('loadExecSummary: major_incidents detail block is whitelisted (no personal fields)', () => {
-  const s = loadExecSummary(deps());
+test('loadExecSummary: major_incidents detail block is whitelisted (no personal fields)', async () => {
+  const s = await loadExecSummary(deps());
   assert.equal(s.major_incidents.length, 1);
   const mi = s.major_incidents[0];
   assert.equal(mi.title, 'Fibre cut - Sabodala internet down');
@@ -175,28 +175,28 @@ test('loadExecSummary: major_incidents detail block is whitelisted (no personal 
     ['corrective_action', 'downtime_h', 'impact', 'root_cause', 'site', 'status', 'title']);
 });
 
-test('loadExecSummary: planned maintenance passthrough (5 whitelisted fields only)', () => {
-  const s = loadExecSummary(deps());
+test('loadExecSummary: planned maintenance passthrough (5 whitelisted fields only)', async () => {
+  const s = await loadExecSummary(deps());
   assert.equal(s.planned_maintenance.length, 1);
   assert.deepEqual(Object.keys(s.planned_maintenance[0]).sort(), ['date', 'impact', 'scope', 'title', 'window']);
 });
 
-test('loadExecSummary: strategic_progress from faithful scorers (fraction → pct)', () => {
-  const s = loadExecSummary(deps());
+test('loadExecSummary: strategic_progress from faithful scorers (fraction → pct)', async () => {
+  const s = await loadExecSummary(deps());
   assert.equal(s.strategic_progress.overall_pct, 72);
   const net = s.strategic_progress.pillars.find(p => p.name === 'P1-Network Infrast');
   assert.ok(net);
   assert.equal(net.pct, 82);
 });
 
-test('loadExecSummary: editorial passthrough', () => {
-  const s = loadExecSummary(deps());
+test('loadExecSummary: editorial passthrough', async () => {
+  const s = await loadExecSummary(deps());
   assert.deepEqual(s.highlights, ['Fibre link to Houndé live']);
   assert.equal(s.focus_areas.length, 1);
 });
 
-test('loadExecSummary: ANTI-PII — no PERSONAL/internal identifiers in the final JSON', () => {
-  const s = loadExecSummary(deps());
+test('loadExecSummary: ANTI-PII — no PERSONAL/internal identifiers in the final JSON', async () => {
+  const s = await loadExecSummary(deps());
   const blob = JSON.stringify(s).toLowerCase();
   // MI operational detail (title/root_cause/corrective_action) is intentionally
   // public per the 2026-07-02 decision; PERSONAL + internal identifiers are not.
