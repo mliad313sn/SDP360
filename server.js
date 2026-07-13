@@ -1058,6 +1058,44 @@ app.put('/api/exec/editorial', requireReportSession, requireAdmin, express.json(
   res.json(saved);
 });
 
+// ── Scheduled backups (admin card) — bridges to Manage-SDP.ps1 / schtasks ───
+// super_admin only. The app only CONFIGURES the Task Scheduler jobs; they run
+// even when the app is down (the whole point of the Task Scheduler choice).
+const backupSchedule = require('./services/backupSchedule');
+function _requireSuperAdminInline(req, res) {
+  if (!rdb.userHasRole(req.reportUser, 'super_admin')) {
+    res.status(403).json({ error: 'super_admin only' });
+    return false;
+  }
+  return true;
+}
+app.get('/api/admin/backup-schedule', requireReportSession, async (req, res) => {
+  if (!_requireSuperAdminInline(req, res)) return;
+  try {
+    const [status, restorePoints] = await Promise.all([
+      backupSchedule.getStatus(),
+      backupSchedule.listRestorePoints(),
+    ]);
+    res.json({ status, restorePoints: restorePoints.slice(0, 20) });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+app.post('/api/admin/backup-schedule', requireReportSession, express.json(), async (req, res) => {
+  if (!_requireSuperAdminInline(req, res)) return;
+  try {
+    const r = await backupSchedule.setSchedule(req.body || {});
+    console.log(`[backup-schedule] updated by ${req.reportUser.username}:`, JSON.stringify(req.body));
+    res.json(r);
+  } catch (e) { res.status(400).json({ error: e.message }); }
+});
+app.post('/api/admin/backup-now', requireReportSession, express.json(), async (req, res) => {
+  if (!_requireSuperAdminInline(req, res)) return;
+  try {
+    const r = await backupSchedule.backupNow({ dbOnly: !!(req.body && req.body.dbOnly) });
+    console.log(`[backup-schedule] manual backup by ${req.reportUser.username} (dbOnly=${!!(req.body && req.body.dbOnly)})`);
+    res.json(r);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ── APP_VERSION — global cache-busting token (added 2026-06-05) ──────────────
 // Computed once at boot. Injected as `?v=<APP_VERSION>` into every local
 // <script src> and <link href> reference inside cached HTMLs. Combined with
