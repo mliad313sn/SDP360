@@ -99,11 +99,12 @@ try {
         # robocopy retry-storm forever). Sweep staging and drop them.
         $junk = 0
         Get-ChildItem $nmDst -Recurse -File -Force -ErrorAction SilentlyContinue | ForEach-Object {
-            try { $s = [IO.File]::OpenRead($_.FullName); $s.Close() }
+            $p = $_.FullName   # capture: inside catch, $_ is the ErrorRecord
+            try { $s = [IO.File]::OpenRead($p); $s.Close() }
             catch {
                 # broken-symlink reparse points: Remove-Item and cmd del both
                 # fail on them; [IO.File]::Delete removes them (verified).
-                [IO.File]::Delete($_.FullName)
+                [IO.File]::Delete($p)
                 $junk++
             }
         }
