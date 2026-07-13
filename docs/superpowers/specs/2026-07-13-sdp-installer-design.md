@@ -22,7 +22,7 @@ Task Scheduler.
 |---|---|
 | Fresh-install target | **Blank server**: installer can lay down Node.js, pm2 (+ Windows service), PostgreSQL, provision `sdp_app`/`sdp_dashboard`, generate `.env` |
 | Deliverable format | **True monolithic .exe** (7-Zip SFX wrapping the bundle; extracts to %TEMP%, auto-runs Setup.bat) |
-| Payload | **Fully self-contained**: app code + complete `node_modules` (native binaries prebuilt on the dev box, same OS/arch/Node major) + cached Node.js MSI + PostgreSQL installer |
+| Payload | **Fully self-contained**: app code + complete `node_modules` (native binaries prebuilt on the dev box, same OS/arch/Node major) + cached Node.js MSI + PostgreSQL installer + **Python 3 embeddable + offline wheels (matplotlib, python-pptx, pillow)** — the exec-PPTX export (`server.js` spawns `python tools/exec-pptx/render.py`) is a hard runtime dependency that must work on a blank server with zero network |
 | Scheduled backups | **Windows Task Scheduler** (via `schtasks`), configured from the app's admin UI — backups run even when the app is down |
 | Fresh questionnaire UX | Every prompt: **Enter = sensible default/known value**; shows **"where to find this"** hints; values can be **skipped and completed later** via a re-runnable menu option |
 
@@ -33,7 +33,7 @@ DEV BOX                                            BUNDLE (inside the .exe)
 build-installer.ps1 (new, tools/installer-build/)   Setup.bat            console menu, self-elevating
   1. git archive at a clean tag  → app code          Install-SDP.ps1      steps 1-7, modes, rollback
   2. + node_modules (dev copy, natives included)     Manage-SDP.ps1       backup/restore/list/checkdb/
-  3. + payload/installers/ (node MSI, PG exe —                            prune/schedule
+  3. + payload/installers/ (node MSI, PG exe, python-embed + wheels —                            prune/schedule
        downloaded once, cached under tools/          config.psd1          declarative config + silent-
        installer-build/cache/, gitignored)                                mode answers
   4. + tools/installer/* (the 4 runtime files)       payload/app.zip      code + node_modules
@@ -55,8 +55,8 @@ build-installer.ps1 (new, tools/installer-build/)   Setup.bat            console
 | # | Step | Fresh | Upgrade (default) | Patch | Reinstall |
 |---|---|---|---|---|---|
 | 1 | Preflight: admin rights, OS, disk, port free / owned by our pm2 app | ✔ | ✔ | ✔ | ✔ |
-| 2 | Node.js ≥ NodeMinMajor — install from payload if absent | ✔ | verify | verify | ✔ |
-| 3 | pm2 + Windows service — global install **from payload cache** (`npm i -g` against a bundled offline tarball or a bundled pm2 tree; NEVER the network), `pm2-service-install`; skip if service exists | ✔ | verify | verify | ✔ |
+| 2 | Node.js ≥ NodeMinMajor + **Python 3 + wheels (matplotlib/python-pptx/pillow, offline pip from the payload)** — install whichever is absent | ✔ | verify | verify | ✔ |
+| 3 | pm2 + Windows service — global install **from payload cache** (`npm i -g` against a bundled offline tarball or a bundled pm2 tree; NEVER the network), `pm2-service-install`; skip if service exists. **App registration (fresh/reinstall): `pm2 start server.js --name <ServiceName> --node-args="--max-old-space-size=<HeapMB>"` then `pm2 save`** (HeapMB=4096 in config.psd1 — prevents the documented OOM crash-loop; `pm2 save` required for boot resurrection) | ✔ | verify | verify | ✔ |
 | 4 | PostgreSQL: install from payload OR reuse an existing cluster (4MyPeople convention: blank password = StandardPgSuperPassword from config.psd1, auto-read like `provision-prod.js` does today); provision `sdp_app` + `sdp_dashboard` (reuses `tools/pg/provision-prod.js`) | ✔ | verify | — | ✔ |
 | 4b | **.env questionnaire** (below) | ✔ | preserve + append new keys commented | preserve | ✔ |
 | 5 | **Automatic backup** via `Manage-SDP.ps1 -Backup` (code + `.env` + `pg_dump`) → `restore-point-pre-<v>-<stamp>` | — | ✔ before touching anything | ✔ | ✔ |
@@ -79,7 +79,7 @@ build-installer.ps1 (new, tools/installer-build/)   Setup.bat            console
 
 | Action | Behaviour |
 |---|---|
-| `-Backup [-DbOnly]` | Restore point under `<InstallDir>\..\SDP-Backups\`: full (code, `.env`, `pg_dump` via the dump-db.js logic) or DB-only (`sdp_dashboard.sql`) |
+| `-Backup [-DbOnly]` | Restore point under `<InstallDir>\..\SDP-Backups\`: **Full** = code + `.env` + `pg_dump` + **`data\` INCLUDED** (frozen sqlite archives = the documented per-module PG rollback path) + **`blobs\` INCLUDED** (inspection photos exist NOWHERE else — closes the current `_sdp_admin.cmd` gap; weekly-full only, size grows). Excluded: `node_modules` (payload re-provides it), `raw_cache.json`, logs, `SDP-Backups` itself. **DB-only** = `sdp_dashboard.sql` alone |
 | `-Restore <name>` | pm2 stop → restore code+`.env` → recreate DB + `psql < dump` → pm2 start. Explicit, destructive, asks YES |
 | `-List` / `-Prune` | List restore points / apply retention (defaults: 8 full, 14 db-only; config.psd1) |
 | `-CheckDb` | The existing PG pre-flight |
