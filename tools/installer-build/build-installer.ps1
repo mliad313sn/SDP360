@@ -94,6 +94,18 @@ try {
         if (Test-Path $nmDst) { Remove-Item $nmDst -Recurse -Force }
         Copy-Item $nm $nmDst -Recurse -Force
         Remove-Item (Join-Path $nmDst '.cache') -Recurse -Force -ErrorAction SilentlyContinue
+        # npm leaves unreadable shim-temp artifacts in node_modules\.bin
+        # (.name-XXXXXXXX reparse leftovers). They break ZipFile (and made
+        # robocopy retry-storm forever). Sweep staging and drop them.
+        $junk = 0
+        Get-ChildItem $nmDst -Recurse -File -Force -ErrorAction SilentlyContinue | ForEach-Object {
+            try { $s = [IO.File]::OpenRead($_.FullName); $s.Close() }
+            catch {
+                try { Remove-Item -LiteralPath $_.FullName -Force } catch { & cmd /c ('del /f /q "' + $_.FullName + '"') | Out-Null }
+                $junk++
+            }
+        }
+        if ($junk -gt 0) { Warn ("dropped $junk unreadable node_modules artifact(s) from staging (npm shim leftovers)") }
         Set-Content -Path (Join-Path $work '.staged') -Value $ver -Encoding ascii
     }
 
