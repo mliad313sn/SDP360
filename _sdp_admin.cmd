@@ -100,48 +100,21 @@ exit /b 0
 
 :: ---------------------------------------------------------------- 5
 :backup
-if not exist "%BAK%" mkdir "%BAK%"
-for /f %%T in ('powershell -NoProfile -Command "Get-Date -Format yyyyMMdd-HHmmss"') do set "STAMP=%%T"
-set "STAGE=%TEMP%\sdp-bak-%RANDOM%"
-echo Staging (robocopy, skips node_modules / blobs / raw_cache.json / logs) ...
-robocopy "%APP%" "%STAGE%" /E /XD node_modules "%BAK%" blobs backups .git /XF raw_cache.json *.log /NFL /NDL /NJH /NJS >nul
-echo PostgreSQL dump (sdp_dashboard - skipped automatically if no PG_URL) ...
-node "%APP%\tools\pg\dump-db.js" "%STAGE%\sdp_dashboard.sql"
-echo Compressing to %BAK%\sdp-restore_%STAMP%.zip ...
-powershell -NoProfile -Command "Compress-Archive -Path '%STAGE%\*' -DestinationPath '%BAK%\sdp-restore_%STAMP%.zip' -Force"
-rd /s /q "%STAGE%" 2>nul
-if exist "%BAK%\sdp-restore_%STAMP%.zip" (
-  echo [OK] Restore point created: sdp-restore_%STAMP%.zip
-  echo      NOTE: node_modules + inspection photo blobs are NOT in the
-  echo      restore point - code deps rarely change and blobs are large.
-) else ( echo [ERROR] backup failed. )
+powershell -NoProfile -ExecutionPolicy Bypass -File "%APP%\tools\installer\Manage-SDP.ps1" -Backup -Tag menu
+echo NOTE: full restore point now INCLUDES data\ + blobs\ + pg_dump (Manage-SDP.ps1).
 exit /b 0
 
 :: ---------------------------------------------------------------- 6
 :restore
 call :listbak
 set "RP="
-set /p RP=Restore point file name (e.g. sdp-restore_20260709-120000.zip):
-if not exist "%BAK%\%RP%" ( echo [ERROR] Not found: %BAK%\%RP% & exit /b 1 )
-echo.
-echo *** THIS OVERWRITES code + data in %APP% with the restore point. ***
-set "OK="
-set /p OK=Type YES to proceed:
-if /i not "%OK%"=="YES" ( echo Cancelled. & exit /b 0 )
-call pm2 stop %PM2APP%
-timeout /t 3 /nobreak >nul
-set "STAGE=%TEMP%\sdp-restore-%RANDOM%"
-powershell -NoProfile -Command "Expand-Archive -LiteralPath '%BAK%\%RP%' -DestinationPath '%STAGE%' -Force"
-robocopy "%STAGE%" "%APP%" /E /NFL /NDL /NJH /NJS >nul
-rd /s /q "%STAGE%" 2>nul
-call pm2 start %PM2APP%
-echo [OK] Restored %RP% + service restarted. Ctrl+F5 in browsers.
+set /p RP=Restore point file name (e.g. sdp-restore_menu_20260713-120000.zip):
+powershell -NoProfile -ExecutionPolicy Bypass -File "%APP%\tools\installer\Manage-SDP.ps1" -Restore -Name "%RP%"
 exit /b 0
 
 :: ---------------------------------------------------------------- 7
 :listbak
-echo Restore points in %BAK%:
-if exist "%BAK%" ( dir /b /o-d "%BAK%\sdp-restore_*.zip" 2>nul ) else ( echo   none yet )
+powershell -NoProfile -ExecutionPolicy Bypass -File "%APP%\tools\installer\Manage-SDP.ps1" -List
 exit /b 0
 
 :: ---------------------------------------------------------------- 8

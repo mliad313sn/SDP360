@@ -46,6 +46,22 @@ made so far so that future sessions can pick up exactly where the last one ended
 > (sdp_app/sdp_dashboard populated from it). Postgres superuser password = appliance
 > standard, read from `%TEMP%\4MyPeople-Installer\config.psd1` at run time.
 >
+> **2026-07-13 (suite) — INSTALLEUR 4MyPeople-style LIVRE** : `SDP-Setup-<version>.exe`
+> autonome (Node+pm2+PostgreSQL+Python embarques, zero reseau) — spec/plan dans
+> docs/superpowers/, guide operateur docs/INSTALLER.md. Runtime committe dans
+> tools/installer/ (Setup.bat menu, Install-SDP.ps1 7 etapes/4 modes/rollback auto,
+> Manage-SDP.ps1 = L'implementation backup/restore/schedule unique — _sdp_admin.cmd
+> 5/6/7 delegue), build dev-only dans tools/installer-build/ (cache gitignore).
+> Carte admin "Scheduled Backups" (reports.html#admin, super_admin) -> 2 taches
+> Task Scheduler via /api/admin/backup-schedule (services/backupSchedule.js, TDD).
+> E2E prouve sur :3457 : fresh/upgrade/rollback-auto(exit 2)/downgrade-refuse.
+> Pieges captures : robocopy /IS /IT /IM (fichiers meme taille+date sautes),
+> 7zSD.sfx vient du LZMA SDK (plus dans 7z-extra), Read-Host -AsSecureString gele
+> sur stdin redirige, python-embed exige ._pth import site decommente. INCIDENT
+> recupere : le .env dev a ete perdu (fichiers racine supprimes pendant le build
+> T10, cause externe non identifiee) — reconstruit depuis le .env prod (UNC),
+> PG_URL re-adapte dev; git etait intact.
+>
 > **Open items:** (1) SSO Entra go-live — code complete + dormant, waiting on the
 > user's app registration (see the 2026-07-08 section below); (2) scheduled/automatic
 > pg_dump (Task Scheduler) — today it runs only when option 5 is used; (3) 12
