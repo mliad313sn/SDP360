@@ -176,6 +176,27 @@ function Read-Secret($prompt) {
         return Read-Host -Prompt ($prompt + ' [input not masked]')
     }
 }
+function Get-EnvValue($key) {
+    $envFile = Join-Path $InstallDir '.env'
+    if (-not (Test-Path $envFile)) { return $null }
+    $m = Select-String -Path $envFile -Pattern ('^' + $key + '=(.+)$') | Select-Object -First 1
+    if ($m) { return $m.Matches[0].Groups[1].Value.Trim() } else { return $null }
+}
+function New-RandomPassword([int]$len = 24) {
+    $chars = ([char[]](48..57)) + ([char[]](65..90)) + ([char[]](97..122))
+    return -join (1..$len | ForEach-Object { $chars | Get-Random })
+}
+function Resolve-Pm2 {
+    # NPM_GLOBAL_DIR (test/blank-path override) forces the local dir and ONLY it.
+    $npmDir = if ($env:NPM_GLOBAL_DIR) { $env:NPM_GLOBAL_DIR } else { Join-Path $env:APPDATA 'npm' }
+    $local = Join-Path $npmDir 'pm2.cmd'
+    if (Test-Path $local) { return $local }
+    if (-not $env:NPM_GLOBAL_DIR) {
+        $c = Get-Command pm2 -ErrorAction SilentlyContinue
+        if ($c) { return $c.Source }
+    }
+    return $null
+}
 function Find-PgBin($exe) {
     foreach ($root in @('C:\Program Files\PostgreSQL', 'C:\Program Files (x86)\PostgreSQL')) {
         if (Test-Path $root) {
@@ -520,10 +541,185 @@ function Step2-RuntimeDeps {
 }
 
 # =====================================================================
-# Steps 3-7 are implemented in later plan tasks.
+# Step 3 - pm2 + Windows service. NO npm invocation EVER: pm2 comes as a
+# pre-installed global tree in payload\installers\pm2-global\ (node_modules\pm2
+# + the pm2* shims) xcopied into %APPDATA%\npm (or NPM_GLOBAL_DIR override).
+# When pm2 is absent AND the payload has no tree -> 'NoService mode' (WARN):
+# step 7 probes via a plain background node process (test boxes only).
+# App registration with pm2 happens in STEP 7, not here - on a fresh install
+# server.js only exists after step 6 deploys the code.
 # =====================================================================
-function Step3-Pm2Service { Die 'Step 3 (pm2/service) not implemented yet - later plan task' }
-function Step4-Postgres   { Die 'Step 4 (PostgreSQL) not implemented yet - later plan task' }
+function Step3-Pm2Service {
+    $npmDir = if ($env:NPM_GLOBAL_DIR) { $env:NPM_GLOBAL_DIR } else { Join-Path $env:APPDATA 'npm' }
+    $pm2 = Resolve-Pm2
+    if (-not $pm2) {
+        $tree = Join-Path $PayloadInst 'pm2-global'
+        if (Test-Path $tree) {
+            Log "pm2 absent - installing the bundled offline global tree into $npmDir" 'STEP'
+            if (-not (Test-Path (Join-Path $npmDir 'node_modules'))) { New-Item -ItemType Directory -Path (Join-Path $npmDir 'node_modules') -Force | Out-Null }
+            Invoke-Robocopy (Join-Path $tree 'node_modules') (Join-Path $npmDir 'node_modules') @()
+            Get-ChildItem $tree -File -Filter 'pm2*' | ForEach-Object { Copy-Item $_.FullName $npmDir -Force }
+            $pm2 = Resolve-Pm2
+            if (-not $pm2) { Die "pm2 tree copied but $npmDir\pm2.cmd still missing - bad payload" }
+        } else {
+            Log 'pm2 not installed and no pm2-global tree in the payload - NoService mode (probe via plain node in step 7)' 'WARN'
+            $script:Pm2 = $null
+            return
+        }
+    }
+    $script:Pm2 = $pm2
+    $v = (cmd /c ('"' + $pm2 + '" -v 2>nul') | Select-Object -Last 1)
+    if (-not $v) { Die "pm2 found at $pm2 but 'pm2 -v' produced nothing" }
+    Log "pm2 $v OK ($pm2)"
+
+    # Windows service so pm2 resurrects at boot. Skipped under NPM_GLOBAL_DIR
+    # (blank-path smoke override) - never register services from a test tree.
+    if ($env:NPM_GLOBAL_DIR) { Log 'NPM_GLOBAL_DIR override set - skipping Windows-service registration (test mode)' 'WARN'; return }
+    $svc = Get-Service pm2* -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($svc) { Log ("pm2 Windows service present: " + $svc.Name + " (" + $svc.Status + ")") }
+    else {
+        # pm2-windows-service is unreliable on modern Node; the recorded decision
+        # (plan task 8) is the schtasks ONSTART fallback: SYSTEM runs pm2 resurrect.
+        $tn = 'SDP-Pm2-Resurrect' + $(if ($SvcName -ne 'endeavour-dashboard') { '-' + $SvcName } else { '' })
+        $tr = '"' + $pm2 + '" resurrect'
+        & schtasks /Create /F /RU SYSTEM /SC ONSTART /TN $tn /TR $tr | Out-Null
+        if ($LASTEXITCODE -ne 0) { Log 'Could not register the ONSTART pm2 resurrect task - register a pm2 service manually' 'WARN' }
+        else { Log "No pm2 service found - registered scheduled task $tn (ONSTART: pm2 resurrect)" 'OK' }
+    }
+}
+
+# =====================================================================
+# Step 4 - PostgreSQL: install from payload OR reuse the existing cluster,
+# then provision role sdp_app + the database and compute PG_URL for step 4b.
+# Provisioning prefers tools\pg\provision-prod.js (blank super password ->
+# standard appliance value, same convention everywhere); when node_modules\pg
+# is not reachable yet (blank server, code not deployed until step 6) it falls
+# back to the SAME idempotent logic via psql. SDP_FORCE_PSQL_PROVISION=1
+# forces the fallback (test hook).
+# =====================================================================
+function Find-ProvisionScript {
+    # 1) deployed app  2) dev/repo layout (this script lives in <repo>\tools\installer)
+    $c = Join-Path $InstallDir 'tools\pg\provision-prod.js'
+    if ((Test-Path $c) -and (Test-Path (Join-Path $InstallDir 'node_modules\pg'))) { return @{ Script = $c; Cwd = $InstallDir } }
+    $repo = Split-Path (Split-Path $here -Parent) -Parent
+    $c = Join-Path $repo 'tools\pg\provision-prod.js'
+    if ((Test-Path $c) -and (Test-Path (Join-Path $repo 'node_modules\pg'))) { return @{ Script = $c; Cwd = $repo } }
+    return $null
+}
+function Invoke-PsqlSuper([string]$sql) {
+    $psql = Find-PgBin 'psql.exe'
+    if (-not $psql) { Die 'psql.exe not found under Program Files\PostgreSQL' }
+    $superPw = if ($cfg.EnvAnswers -and $cfg.EnvAnswers.ContainsKey('PG_SUPER_PASSWORD') -and $cfg.EnvAnswers.PG_SUPER_PASSWORD) { $cfg.EnvAnswers.PG_SUPER_PASSWORD } else { $cfg.StandardPgSuperPassword }
+    $env:PGPASSWORD = $superPw
+    try { return (& $psql -h $cfg.PgHost -p $cfg.PgPort -U postgres -d postgres -v ON_ERROR_STOP=1 -t -A -c $sql) }
+    finally { $env:PGPASSWORD = '' }
+}
+function Step4-Postgres {
+    # ---- cluster present? ----
+    $svc = Get-Service postgresql* -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($svc) {
+        Log ("PostgreSQL service present: " + $svc.Name + " (" + $svc.Status + ")")
+        if ($svc.Status -ne 'Running') { Log 'Starting the PostgreSQL service' 'STEP'; Start-Service $svc.Name }
+    } else {
+        $exe = Get-ChildItem $PayloadInst -Filter 'postgresql-*.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
+        if (-not $exe) { Die "No PostgreSQL cluster and no postgresql-*.exe in $PayloadInst" }
+        Log ("Installing PostgreSQL unattended: " + $exe.Name + " (port $($cfg.PgPort))") 'STEP'
+        $a = @('--mode', 'unattended', '--unattendedmodeui', 'none', '--superpassword', $cfg.StandardPgSuperPassword, '--serverport', "$($cfg.PgPort)")
+        $p = Start-Process $exe.FullName -ArgumentList $a -Wait -PassThru
+        if ($p.ExitCode -ne 0) { Die "PostgreSQL installer failed (exit $($p.ExitCode))" }
+        $svc = Get-Service postgresql* -ErrorAction SilentlyContinue | Select-Object -First 1
+        if (-not $svc) { Die 'PostgreSQL installed but no postgresql* service found' }
+        Log 'PostgreSQL installed' 'OK'
+    }
+    if ($Mode -eq 'upgrade') {
+        # verify only - the DB and .env already exist; nothing is provisioned.
+        $url = Get-EnvValue 'PG_URL'
+        if ($url) { Log 'Upgrade mode: PostgreSQL verify only (PG_URL present in .env)' } else { Log 'Upgrade mode: no PG_URL in .env (sqlite-only install?) - skipping DB checks' 'WARN' }
+        return
+    }
+
+    # ---- sdp_app password: EnvAnswers > reuse from existing PG_URL > prompt/generate ----
+    $appPw = $null
+    if ($cfg.EnvAnswers -and $cfg.EnvAnswers.ContainsKey('SDP_APP_PASSWORD') -and $cfg.EnvAnswers.SDP_APP_PASSWORD) {
+        $appPw = [string]$cfg.EnvAnswers.SDP_APP_PASSWORD
+        Log 'sdp_app password taken from EnvAnswers (silent)'
+    } else {
+        $url = Get-EnvValue 'PG_URL'
+        if ($url -and $url -ne '__COMPUTED__') {
+            try {
+                $u = [Uri]$url
+                $appPw = [Uri]::UnescapeDataString($u.UserInfo.Split(':')[1])
+                Log 'sdp_app password reused from the existing .env PG_URL'
+            } catch { }
+        }
+    }
+    if (-not $appPw) {
+        if ($cfg.ContainsKey('EnvSilent') -and $cfg.EnvSilent) {
+            $appPw = New-RandomPassword
+            Log 'sdp_app password GENERATED (silent mode) - it lands in .env PG_URL' 'WARN'
+        } else {
+            Write-Host '     where: password for the dedicated sdp_app PostgreSQL role (stored in .env PG_URL)' -ForegroundColor DarkGray
+            $inp = Read-Secret '  sdp_app database password [Enter = generate one]'
+            if ([string]::IsNullOrWhiteSpace($inp)) {
+                $appPw = New-RandomPassword
+                Write-Host ("     generated: " + $appPw + "   (SHOWN ONCE - stored in .env PG_URL)") -ForegroundColor Yellow
+            } else { $appPw = $inp }
+        }
+    }
+
+    # ---- Reinstall + -ConfirmDataLoss: drop the DB before provisioning ----
+    if ($Mode -eq 'reinstall' -and $ConfirmDataLoss) {
+        if ($cfg.DbName -notmatch '^[a-z_][a-z0-9_]*$') { Die "Unsafe DbName '$($cfg.DbName)'" }
+        Log ("-ConfirmDataLoss: DROP DATABASE IF EXISTS " + $cfg.DbName) 'WARN'
+        Invoke-PsqlSuper ("DROP DATABASE IF EXISTS " + $cfg.DbName + " WITH (FORCE)") | Out-Null
+        if ($LASTEXITCODE -ne 0) { Die 'DROP DATABASE failed' }
+    }
+
+    # ---- provision role + database (idempotent) ----
+    $prov = if ($env:SDP_FORCE_PSQL_PROVISION -eq '1') { $null } else { Find-ProvisionScript }
+    if ($prov) {
+        Log ("Provisioning via node " + $prov.Script + " --db=" + $cfg.DbName) 'STEP'
+        $env:SDP_APP_PASSWORD = $appPw
+        try {
+            Push-Location $prov.Cwd
+            try { & node $prov.Script ('--db=' + $cfg.DbName) } finally { Pop-Location }
+            if ($LASTEXITCODE -ne 0) { Die 'provision-prod.js failed - see output above' }
+        } finally { $env:SDP_APP_PASSWORD = '' }
+    } else {
+        # psql fallback - byte-for-byte the provision-prod.js semantics:
+        # role create-if-absent (password NOT reset when it exists), db create-if-absent.
+        Log 'Provisioning via psql fallback (node_modules\pg not reachable yet)' 'STEP'
+        if ($cfg.DbName -notmatch '^[a-z_][a-z0-9_]*$') { Die "Unsafe DbName '$($cfg.DbName)'" }
+        $roleExists = Invoke-PsqlSuper "SELECT 1 FROM pg_roles WHERE rolname = 'sdp_app'"
+        if ("$roleExists".Trim() -ne '1') {
+            Invoke-PsqlSuper ("CREATE ROLE sdp_app LOGIN PASSWORD '" + ($appPw -replace "'", "''") + "'") | Out-Null
+            if ($LASTEXITCODE -ne 0) { Die 'CREATE ROLE sdp_app failed' }
+            Log 'role sdp_app created'
+        } else { Log 'role sdp_app already exists (password unchanged - PG_URL must match it)' 'WARN' }
+        $dbExists = Invoke-PsqlSuper ("SELECT 1 FROM pg_database WHERE datname = '" + $cfg.DbName + "'")
+        if ("$dbExists".Trim() -ne '1') {
+            Invoke-PsqlSuper ("CREATE DATABASE " + $cfg.DbName + " OWNER sdp_app") | Out-Null
+            if ($LASTEXITCODE -ne 0) { Die ("CREATE DATABASE " + $cfg.DbName + " failed") }
+            Log ("database " + $cfg.DbName + " created (owner sdp_app)")
+        } else { Log ("database " + $cfg.DbName + " already exists") }
+    }
+
+    # ---- compute PG_URL for the questionnaire + verify with the app creds ----
+    $pgUrl = 'postgres://' + $cfg.DbUser + ':' + [Uri]::EscapeDataString($appPw) + '@' + $cfg.PgHost + ':' + $cfg.PgPort + '/' + $cfg.DbName
+    if (-not $script:ComputedEnv) { $script:ComputedEnv = @{} }
+    $script:ComputedEnv['pg_url'] = $pgUrl
+    $psql = Find-PgBin 'psql.exe'
+    if ($psql) {
+        $env:PGPASSWORD = $appPw
+        try { $one = (& $psql -h $cfg.PgHost -p $cfg.PgPort -U $cfg.DbUser -d $cfg.DbName -t -A -c 'SELECT 1') } finally { $env:PGPASSWORD = '' }
+        if ("$one".Trim() -eq '1') { Log ("PostgreSQL ready: " + $cfg.DbUser + "@" + $cfg.PgHost + ":" + $cfg.PgPort + "/" + $cfg.DbName) 'OK' }
+        else { Die ("Cannot connect as " + $cfg.DbUser + " to " + $cfg.DbName + " with the chosen password. If the role pre-existed with another password, rerun provisioning with --reset-password or supply the right one in EnvAnswers.SDP_APP_PASSWORD.") }
+    } else { Log 'psql.exe not found - skipping the app-credentials connectivity check' 'WARN' }
+}
+
+# =====================================================================
+# Steps 5-7 are implemented in a later plan task.
+# =====================================================================
 function Step5-Backup     { Die 'Step 5 (backup) not implemented yet - later plan task' }
 function Step6-Deploy     { Die 'Step 6 (deploy) not implemented yet - later plan task' }
 function Step7-Verify     { Die 'Step 7 (verify) not implemented yet - later plan task' }

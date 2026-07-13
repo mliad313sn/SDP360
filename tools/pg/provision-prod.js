@@ -61,6 +61,18 @@ async function main() {
   const dotenv = loadDotEnv();
   const args = process.argv.slice(2);
 
+  // Optional --db=<name> (default sdp_dashboard) — used by the installer's
+  // parallel TEST instance (sdp_dashboard_test). Role stays sdp_app.
+  let dbName = 'sdp_dashboard';
+  const dbIx = args.findIndex(a => a === '--db' || a.startsWith('--db='));
+  if (dbIx !== -1) {
+    dbName = args[dbIx].startsWith('--db=') ? args[dbIx].slice(5) : args[dbIx + 1];
+    if (!dbName || !/^[a-z_][a-z0-9_]*$/.test(dbName)) {
+      console.error('[provision] invalid --db name: ' + dbName);
+      process.exit(2);
+    }
+  }
+
   if (args.includes('--check')) {
     const url = process.env.PG_URL || process.env.DATABASE_URL || dotenv.PG_URL || dotenv.DATABASE_URL;
     if (!url) {
@@ -124,14 +136,14 @@ async function main() {
     } else {
       console.log('[provision] role sdp_app already exists (password unchanged; use --reset-password to force)');
     }
-    const db = await pool.query("SELECT 1 FROM pg_database WHERE datname = 'sdp_dashboard'");
+    const db = await pool.query('SELECT 1 FROM pg_database WHERE datname = $1', [dbName]);
     if (db.rowCount === 0) {
-      await pool.query('CREATE DATABASE sdp_dashboard OWNER sdp_app');
-      console.log('[provision] database sdp_dashboard created (owner sdp_app)');
+      await pool.query('CREATE DATABASE ' + dbName + ' OWNER sdp_app'); // dbName validated ^[a-z_][a-z0-9_]*$
+      console.log('[provision] database ' + dbName + ' created (owner sdp_app)');
     } else {
-      console.log('[provision] database sdp_dashboard already exists');
+      console.log('[provision] database ' + dbName + ' already exists');
     }
-    console.log('[provision] DONE. Add to .env:  PG_URL=postgres://sdp_app:<password>@localhost:5432/sdp_dashboard');
+    console.log('[provision] DONE. Add to .env:  PG_URL=postgres://sdp_app:<password>@localhost:5432/' + dbName);
     console.log('[provision] fmp_v2 / 4MyPeople objects were NOT touched.');
     process.exit(0);
   } catch (e) {
