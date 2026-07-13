@@ -19,9 +19,11 @@
 #                                  is written instead - seed the tree from a
 #                                  box that has pm2 (npm i -g pm2, re-run).
 #   7zr.exe + 7zSD.sfx             SFX build pieces (REQUIRED for the exe).
-#                                  7zSD.sfx lives inside the "7z extra" .7z
-#                                  archive; 7zr.exe is downloaded first and
-#                                  used to extract it (bootstrap order).
+#                                  7zSD.sfx ships in the LZMA SDK archive
+#                                  (lzma<ver>.7z, under bin\); the modern
+#                                  "7z extra" package no longer contains the
+#                                  SFX modules. 7zr.exe is downloaded first
+#                                  and used to extract it (bootstrap order).
 #
 # KEEP THIS FILE PURE ASCII (Windows PowerShell 5.1 ANSI parse pitfall).
 # =====================================================================
@@ -162,26 +164,30 @@ if ((Test-Path $pm2Marker) -and -not $Force) {
     }
 }
 
-# --- 6) 7-Zip SFX pieces: 7zr.exe then 7zSD.sfx (from the "extra" package) ----
+# --- 6) 7-Zip SFX pieces: 7zr.exe then 7zSD.sfx --------------------------------
+# 7zSD.sfx ships in the LZMA SDK (lzma<ver>.7z, under bin\). The modern
+# "7z extra" packages (7z2501-extra.7z etc.) NO LONGER contain the SFX
+# modules - verified 2026-07-13 (only 7za.exe/dll trees inside).
 $sevenZr = Join-Path $cache '7zr.exe'
 [void](Get-File 'https://www.7-zip.org/a/7zr.exe' $sevenZr '7zr.exe')
 $sfx = Join-Path $cache '7zSD.sfx'
 if ((Test-Path $sfx) -and -not $Force) {
     Report '7zSD.sfx' 'SKIPPED' '7zSD.sfx'
 } elseif (-not (Test-Path $sevenZr)) {
-    Report '7zSD.sfx' 'UNAVAILABLE' '7zr.exe missing - cannot extract the extra package'
+    Report '7zSD.sfx' 'UNAVAILABLE' '7zr.exe missing - cannot extract the LZMA SDK'
 } else {
-    $gotExtra = $null
-    foreach ($rel in @('7z2501-extra.7z', '7z2409-extra.7z', '7z2408-extra.7z', '7z2301-extra.7z')) {
+    $gotSdk = $null
+    foreach ($rel in @('lzma2501.7z', 'lzma2409.7z', 'lzma2408.7z', 'lzma2301.7z', 'lzma1900.7z')) {
         $dest = Join-Path $cache $rel
-        if ((Test-Path $dest) -or (Get-File ("https://www.7-zip.org/a/$rel") $dest ("7z extra ($rel)"))) { $gotExtra = $dest; break }
+        if ((Test-Path $dest) -or (Get-File ("https://www.7-zip.org/a/$rel") $dest ("LZMA SDK ($rel)"))) { $gotSdk = $dest; break }
     }
-    if ($gotExtra) {
-        & $sevenZr e $gotExtra ('-o' + $cache) '7zSD.sfx' '-y' | Out-Null
-        if (Test-Path $sfx) { Report '7zSD.sfx' 'EXTRACTED' ('from ' + (Split-Path $gotExtra -Leaf)) }
-        else { Report '7zSD.sfx' 'UNAVAILABLE' '7zr extraction produced no 7zSD.sfx' }
+    if ($gotSdk) {
+        # -r: the module sits at bin\7zSD.sfx inside the SDK; e flattens the path.
+        & $sevenZr e $gotSdk ('-o' + $cache) '7zSD.sfx' '-r' '-y' | Out-Null
+        if (Test-Path $sfx) { Report '7zSD.sfx' 'EXTRACTED' ('from ' + (Split-Path $gotSdk -Leaf)) }
+        else { Report '7zSD.sfx' 'UNAVAILABLE' ('7zr found no 7zSD.sfx inside ' + (Split-Path $gotSdk -Leaf)) }
     } else {
-        Report '7zSD.sfx' 'UNAVAILABLE' 'no 7z extra package downloadable'
+        Report '7zSD.sfx' 'UNAVAILABLE' 'no LZMA SDK archive downloadable'
     }
 }
 
