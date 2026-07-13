@@ -6,7 +6,55 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ---
 
-## ⚡ Current state (as of 2026-07-08)
+## ⚡ Current state (as of 2026-07-13)
+
+> **READ FIRST.** Branch `main`. **🏁 The SQLite→PostgreSQL migration is COMPLETE
+> in prod: ALL 4 modules run on PostgreSQL** (`TRACKER_BACKEND` / `MEETINGS_BACKEND`
+> / `INSPECTION_BACKEND` / `REPORTS_BACKEND` = `postgres` in prod `.env`, plus
+> `PG_URL=postgres://sdp_app:…@localhost:5432/sdp_dashboard`). The PG cluster is the
+> one the 4MyPeople installer manages (cohabitation audited: its destructive ops are
+> scoped to fmp_v2/fmp_app; the postgres superuser password is the appliance-standard
+> value from the installer's config.psd1 — treat it as 4MyPeople-owned). The sqlite
+> `.db` files are **frozen archives** — rollback per module = remove the flag + pm2
+> stop/start (post-flip writes stay in PG). Backups: `_sdp_admin.cmd` option 5 embeds
+> a `pg_dump` (`tools/pg/dump-db.js`) in every restore point — 4MyPeople's own
+> restore points cover fmp_v2 ONLY.
+>
+> **Prod ops now go through `_sdp_admin.cmd`** (4MyPeople-style menu at the app root):
+> apply deploy ZIP / restart (stop-wait-start) / backup+restore points / health probe
+> / diagnostics / PG check (C) / PG provisioning (P — blank postgres password = the
+> standard appliance value auto-read from config.psd1) / pm2 crash-loop recovery (R).
+> Deploy-marker discipline: the packager NO LONGER advances `.git/last-deployed` —
+> run `tools\deploy\mark-deployed.cmd` on the dev box after each confirmed prod apply;
+> the packager auto-deletes older `sdp-deploy_*.zip` so the repo root holds exactly one.
+>
+> **Key fixes this session (all deployed):** `survey_answers` had NO unique key → every
+> sync re-inserted every row (70% dupes; deck pain-points showed "14 mentions" for 2
+> respondents) — boot migration purges + `uq_sa_response_question`; slide-9 downtime/MTTR
+> now use the `UDF:Incident Actual Start/Resolution Time` window (the typed Total
+> Downtime UDF key had drifted + is unreliable); slide-8 has two donuts (By Type +
+> "By Category" = UDF:Division); CHANGES-scope group presets now SEED populated
+> (Operations incl. Infosec + ManageEngine per user direction — ERP excluded);
+> Exec View made PG-ready (5 readers forked, `loadExecSummary` async — this had been
+> silently breaking the strategic block since the tracker flip); **await-precedence
+> pitfall**: a sync→async sweep wrote `await rdb.listSites().find(...)` in 11 places
+> (method chained on the Promise) — always `(await f()).method()`; grep for
+> `await \w+\.\w+\([^)]*\)\.` after any such sweep.
+>
+> **QA asset:** `prod-snapshot/` (gitignored) = full prod `data/` copy (2026-07-09) —
+> reports/tracker/meetings/inspection DBs + blobs. Local PG 17 on :5432 mirrors prod
+> (sdp_app/sdp_dashboard populated from it). Postgres superuser password = appliance
+> standard, read from `%TEMP%\4MyPeople-Installer\config.psd1` at run time.
+>
+> **Open items:** (1) SSO Entra go-live — code complete + dormant, waiting on the
+> user's app registration (see the 2026-07-08 section below); (2) scheduled/automatic
+> pg_dump (Task Scheduler) — today it runs only when option 5 is used; (3) 12
+> pre-existing PG test fixtures missing the `template` key (task chip filed);
+> (4) backlog-theme keyword tuning; (5) repo never pushed to origin.
+
+---
+
+## ⚡ Prior state (as of 2026-07-08)
 
 > **READ FIRST.** Branch `main`, tip `01c0811`+, **~46 commits ahead of the last
 > confirmed prod deploy** (`7fb62d9`, Exec View v1). **NOTHING in this session
