@@ -101,7 +101,9 @@ try {
         Get-ChildItem $nmDst -Recurse -File -Force -ErrorAction SilentlyContinue | ForEach-Object {
             try { $s = [IO.File]::OpenRead($_.FullName); $s.Close() }
             catch {
-                try { Remove-Item -LiteralPath $_.FullName -Force } catch { & cmd /c ('del /f /q "' + $_.FullName + '"') | Out-Null }
+                # broken-symlink reparse points: Remove-Item and cmd del both
+                # fail on them; [IO.File]::Delete removes them (verified).
+                [IO.File]::Delete($_.FullName)
                 $junk++
             }
         }
