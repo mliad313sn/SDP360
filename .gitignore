@@ -129,3 +129,6 @@ sdp-deploy_*.zip
 sdp-pgdriver.zip
 _apply_on_prod.cmd
 prod-snapshot/
+tools/installer-build/cache/
+SDP-Setup-*.exe
+SDP-Dashboard-*.7z

@@ -46,7 +46,7 @@ $changed = @(git diff --name-only --diff-filter=ACMR "$base..HEAD")
 $deleted = @(git diff --name-only --diff-filter=D    "$base..HEAD")
 
 # Dev-only paths that never belong on prod (same spirit as the old hook SKIP).
-$skip = '^(iis/|docs/|tools/deploy/|tools/exec-pptx/(fixtures|refs)/|tools/exec-pptx/INTEGRATION_|_deploy\.cmd$|_apply_on_prod\.cmd$|sdp-deploy_.*\.zip$)'
+$skip = '^(iis/|docs/|tools/deploy/|tools/installer-build/|tools/exec-pptx/(fixtures|refs)/|tools/exec-pptx/INTEGRATION_|_deploy\.cmd$|_apply_on_prod\.cmd$|sdp-deploy_.*\.zip$)'
 $changed = @($changed | Where-Object { $_ -and ($_ -notmatch $skip) })
 $deleted = @($deleted | Where-Object { $_ -and ($_ -notmatch $skip) })
 
