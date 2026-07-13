@@ -5,7 +5,14 @@
 #
 #   powershell -File tools\installer-build\build-installer.ps1            (release: HEAD must be clean + tagged)
 #   powershell -File tools\installer-build\build-installer.ps1 -DevBuild  (version dev-<sha>; dirty tree = WARN)
-#   ... -KeepWork          keep the staging dir for inspection
+#   ... -KeepWork          keep the staging dir after a successful build
+#   ... -Clean             discard the resumable work dir and rebuild
+#
+# RESUMABLE: the work dir is %TEMP%\sdp-build-<version>; an interrupted run
+# resumes (staging / app.zip / bundle.7z stages are skipped when complete).
+# The work dir is kept on failure and removed after a successful exe build.
+# Copy-Item is used instead of robocopy: robocopy hangs in silent retry
+# storms when run without an interactive console (observed 2026-07-13).
 #
 # Output: SDP-Setup-<version>.exe in the repo root (gitignored).
 # Bundle layout (= SFX archive root; the SFX extracts + runs Setup.bat):
@@ -26,7 +33,8 @@
 # =====================================================================
 param(
     [switch]$DevBuild,
-    [switch]$KeepWork
+    [switch]$KeepWork,
+    [switch]$Clean
 )
 $ErrorActionPreference = 'Stop'
 
@@ -56,32 +64,52 @@ try {
     }
     Ok ("version: $ver (sha $sha)")
 
-    # --- staging ----------------------------------------------------------------
-    $work   = Join-Path $env:TEMP ('sdp-build-' + (Get-Random))
+    # --- staging (RESUMABLE: fixed per-version work dir; finished stages are
+    # skipped on re-run, so an interrupted build continues where it stopped.
+    # Pass -Clean to force a from-scratch rebuild.) --------------------------------
+    $work   = Join-Path $env:TEMP ('sdp-build-' + $ver)
+    if ($Clean -and (Test-Path $work)) { Remove-Item $work -Recurse -Force }
     $stage  = Join-Path $work 'app'
     $bundle = Join-Path $work 'bundle'
     New-Item -ItemType Directory -Path $stage, $bundle -Force | Out-Null
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
 
-    Step 'git archive HEAD -> staging'
-    $srcZip = Join-Path $work 'src.zip'
-    git archive --format=zip -o $srcZip HEAD
-    if ($LASTEXITCODE -ne 0) { Die 'git archive failed' }
-    Expand-Archive -LiteralPath $srcZip -DestinationPath $stage -Force
-    Remove-Item $srcZip -Force
+    if (Test-Path (Join-Path $work '.staged')) {
+        Ok 'staging already complete - skipped (resume)'
+    } else {
+        Step 'git archive HEAD -> staging'
+        $srcZip = Join-Path $work 'src.zip'
+        git archive --format=zip -o $srcZip HEAD
+        if ($LASTEXITCODE -ne 0) { Die 'git archive failed' }
+        Expand-Archive -LiteralPath $srcZip -DestinationPath $stage -Force
+        Remove-Item $srcZip -Force
 
-    Step 'copy dev node_modules (exclude .cache) into staging'
-    $nm = Join-Path $repo 'node_modules'
-    if (-not (Test-Path $nm)) { Die "no node_modules in $repo - run the app install first" }
-    & robocopy $nm (Join-Path $stage 'node_modules') /E /XD .cache /NFL /NDL /NJH /NJS | Out-Null
-    if ($LASTEXITCODE -ge 8) { Die "robocopy node_modules failed ($LASTEXITCODE)" }
+        Step 'copy dev node_modules (exclude .cache) into staging'
+        $nm = Join-Path $repo 'node_modules'
+        if (-not (Test-Path $nm)) { Die "no node_modules in $repo - run the app install first" }
+        # Copy-Item, NOT robocopy: robocopy hangs in retry storms when run
+        # without an interactive console (observed 2026-07-13); Copy-Item is
+        # plain .NET I/O and fails loudly instead.
+        $nmDst = Join-Path $stage 'node_modules'
+        if (Test-Path $nmDst) { Remove-Item $nmDst -Recurse -Force }
+        Copy-Item $nm $nmDst -Recurse -Force
+        Remove-Item (Join-Path $nmDst '.cache') -Recurse -Force -ErrorAction SilentlyContinue
+        Set-Content -Path (Join-Path $work '.staged') -Value $ver -Encoding ascii
+    }
 
-    Step 'zip staging -> payload\app.zip'
     $payload = Join-Path $bundle 'payload'
     $payloadInst = Join-Path $payload 'installers'
     New-Item -ItemType Directory -Path $payloadInst -Force | Out-Null
     $appZip = Join-Path $payload 'app.zip'
-    Add-Type -AssemblyName System.IO.Compression.FileSystem
-    [IO.Compression.ZipFile]::CreateFromDirectory($stage, $appZip, [IO.Compression.CompressionLevel]::Fastest, $false)
+    if (Test-Path $appZip) {
+        Ok 'app.zip already built - skipped (resume)'
+    } else {
+        Step 'zip staging -> payload\app.zip'
+        $tmpZip = $appZip + '.tmp'
+        if (Test-Path $tmpZip) { Remove-Item $tmpZip -Force }
+        [IO.Compression.ZipFile]::CreateFromDirectory($stage, $tmpZip, [IO.Compression.CompressionLevel]::Fastest, $false)
+        Move-Item $tmpZip $appZip -Force
+    }
     Ok ("app.zip: " + [math]::Round((Get-Item $appZip).Length/1MB, 1) + " MB")
 
     # --- bundle root: runtime scripts + version.json ------------------------------
@@ -104,8 +132,9 @@ try {
             $src = Join-Path $cache $o.Filter
             $marker = if ($o.Filter -eq 'pm2-global') { Join-Path $src 'node_modules\pm2\package.json' } else { $src }
             if ((Test-Path $src) -and (Test-Path $marker)) {
-                & robocopy $src (Join-Path $payloadInst $o.Filter) /E /NFL /NDL /NJH /NJS | Out-Null
-                if ($LASTEXITCODE -ge 8) { Die ("robocopy " + $o.Filter + " failed") }
+                $dstDir = Join-Path $payloadInst $o.Filter
+                if (Test-Path $dstDir) { Remove-Item $dstDir -Recurse -Force }
+                Copy-Item $src $dstDir -Recurse -Force
                 Ok ("payload: " + $o.Name)
             } else {
                 Warn ("payload MISSING (optional): " + $o.Name + " - target servers must already have it")
@@ -129,12 +158,19 @@ try {
         Warn 'Run tools\installer-build\download-cache.ps1 to fetch the SFX pieces, then rebuild.'
         exit 0
     }
-    Step '7zr a bundle.7z'
-    Push-Location $bundle
-    try {
-        & $sevenZr a -mx=1 $archive * | Out-Null
-        if ($LASTEXITCODE -ne 0) { Die "7zr a failed ($LASTEXITCODE)" }
-    } finally { Pop-Location }
+    if (Test-Path $archive) {
+        Ok 'bundle.7z already built - skipped (resume)'
+    } else {
+        Step '7zr a bundle.7z'
+        Push-Location $bundle
+        try {
+            $tmp7z = $archive + '.tmp.7z'
+            if (Test-Path $tmp7z) { Remove-Item $tmp7z -Force }
+            & $sevenZr a -mx=1 -bd $tmp7z * | Out-Null
+            if ($LASTEXITCODE -ne 0) { Die "7zr a failed ($LASTEXITCODE)" }
+            Move-Item $tmp7z $archive -Force
+        } finally { Pop-Location }
+    }
     Ok ("bundle.7z: " + [math]::Round((Get-Item $archive).Length/1MB, 1) + " MB")
 
     if (-not (Test-Path $sfxMod)) {
@@ -164,13 +200,14 @@ try {
         }
     } finally { $out.Close() }
     Ok ("BUILT: " + $exe + " (" + [math]::Round((Get-Item $exe).Length/1MB, 1) + " MB)")
+    # success: drop the resumable work dir (kept on failure so a re-run resumes)
+    if (-not $KeepWork -and (Test-Path $work)) {
+        Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue
+    }
     Write-Host ''
     Write-Host 'Distribute the exe to the server, run it (UAC prompt), pick a menu option.' -ForegroundColor Gray
 
 } finally {
     Pop-Location
-    if (-not $KeepWork -and (Test-Path variable:work) -and $work -and (Test-Path $work)) {
-        Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue
-    }
 }
 exit 0
