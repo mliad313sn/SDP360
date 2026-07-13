@@ -149,7 +149,11 @@ try {
             if ((Test-Path $src) -and (Test-Path $marker)) {
                 $dstDir = Join-Path $payloadInst $o.Filter
                 if (Test-Path $dstDir) { Remove-Item $dstDir -Recurse -Force }
-                Copy-Item $src $dstDir -Recurse -Force
+                # robocopy (with retries) not Copy-Item: real-time AV scanning
+                # transiently locks the many small pm2/wheels files as they arrive,
+                # which makes Copy-Item -Recurse abort. /R:3 /W:1 rides that out.
+                & robocopy $src $dstDir /E /R:3 /W:1 /NFL /NDL /NJH /NJS | Out-Null
+                if ($LASTEXITCODE -ge 8) { throw ("robocopy failed (" + $LASTEXITCODE + ") for " + $o.Name) }
                 Ok ("payload: " + $o.Name)
             } else {
                 Warn ("payload MISSING (optional): " + $o.Name + " - target servers must already have it")
