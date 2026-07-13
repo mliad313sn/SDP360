@@ -975,6 +975,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         <button type="button" class="admin-rail__item" data-panel="sites"       onclick="showAdminPanel('sites')"><span class="ar-ico">🏢</span><span>Sites<small>Zoho group mapping</small></span></button>
         <button type="button" class="admin-rail__item" data-panel="departments" onclick="showAdminPanel('departments')"><span class="ar-ico">🏷</span><span>Departments<small>Action item categories</small></span></button>
         <button type="button" class="admin-rail__item" data-panel="execview"    onclick="showAdminPanel('execview')"><span class="ar-ico">📣</span><span>Exec View<small>Highlights &amp; focus</small></span></button>
+        <button type="button" class="admin-rail__item" data-panel="backups" id="admin-rail-backups" style="display:none" onclick="showAdminPanel('backups')"><span class="ar-ico">💾</span><span>Backups<small>Scheduled &amp; manual</small></span></button>
         <button type="button" class="admin-rail__item" data-panel="risk" id="admin-rail-risk" style="display:none" onclick="showAdminPanel('risk')"><span class="ar-ico">🛡</span><span>Risk Register<small>Site code mapping</small></span></button>
       </nav>
       <div class="admin-content">
@@ -1112,6 +1113,40 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
       <div class="modal-actions" style="justify-content:flex-start">
         <button class="btn btn-primary" onclick="saveExecEditorial()">Save</button>
       </div>
+    </div>
+
+    <!-- ─── Scheduled Backups (super_admin only) ──────────────────
+         Configures the two Windows Task Scheduler jobs (daily DB dump +
+         weekly full restore point) via Manage-SDP.ps1. The tasks run even
+         when the app is down - the app only configures them. -->
+    <div class="card admin-panel" id="ap-backups" data-panel="backups">
+      <h3>💾 Scheduled Backups
+        <button class="btn btn-secondary btn-sm" style="margin-left:auto" onclick="backupNowAdmin()" id="bk-now-btn">⬇ Backup now (DB)</button>
+      </h3>
+      <div id="bk-status" style="margin-bottom:14px;font-size:0.9rem;color:#6b7a99">Loading…</div>
+      <div class="form-row cols-2" style="max-width:640px">
+        <div class="form-group"><label>Daily DB backup time</label><input type="time" id="bk-daily" value="02:00"></div>
+        <div class="form-group"><label>Weekly full backup</label>
+          <div style="display:flex;gap:8px">
+            <select id="bk-weekly-day" style="flex:1">
+              <option>SUN</option><option>MON</option><option>TUE</option><option>WED</option><option>THU</option><option>FRI</option><option>SAT</option>
+            </select>
+            <input type="time" id="bk-weekly-time" value="03:00" style="flex:1">
+          </div>
+        </div>
+      </div>
+      <div class="form-row cols-2" style="max-width:640px">
+        <div class="form-group"><label>Keep full backups</label><input type="number" id="bk-ret-full" value="8" min="1" max="99"></div>
+        <div class="form-group"><label>Keep DB-only backups</label><input type="number" id="bk-ret-db" value="14" min="1" max="99"></div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;margin:6px 0 16px">
+        <button class="btn btn-primary btn-sm" onclick="saveBackupSchedule(true)">💾 Save &amp; enable</button>
+        <button class="btn btn-secondary btn-sm" onclick="saveBackupSchedule(false)">⏸ Disable schedule</button>
+        <span id="bk-save-msg" style="font-size:0.85rem;color:#6b7a99"></span>
+      </div>
+      <h4 style="margin:10px 0 6px">Recent restore points</h4>
+      <table class="user-table"><thead><tr><th>Name</th><th>Size</th><th>Date</th></tr></thead>
+        <tbody id="bk-points"><tr><td colspan="3" style="color:#6b7a99">Loading…</td></tr></tbody></table>
     </div>
 
     <!-- ─── Risk Register codes (super_admin only) ────────────────────────────
@@ -4359,10 +4394,10 @@ async function downloadAllSitesMonthlyPptx(fromMonthlyPage) {
 //  ADMIN PAGE
 // ══════════════════════════════════════════════════════════════════
 // Admin left-rail: show one settings panel at a time. name ∈ users|sessions|sites|departments|risk.
-const _ADMIN_PANEL_IDS = { users:'ap-users', sessions:'sessions-card', sites:'ap-sites', departments:'ap-depts', execview:'ap-execview', risk:'rr-aliases-card' };
+const _ADMIN_PANEL_IDS = { users:'ap-users', sessions:'sessions-card', sites:'ap-sites', departments:'ap-depts', execview:'ap-execview', backups:'ap-backups', risk:'rr-aliases-card' };
 function showAdminPanel(name) {
   // Guard: 'risk' is super_admin-only — fall back to Users for everyone else.
-  if (name === 'risk' && currentUser?.role !== 'super_admin') name = 'users';
+  if ((name === 'risk' || name === 'backups') && currentUser?.role !== 'super_admin') name = 'users';
   if (!_ADMIN_PANEL_IDS[name]) name = 'users';
   document.querySelectorAll('#page-admin .admin-panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('#admin-rail .admin-rail__item').forEach(b => b.classList.toggle('active', b.dataset.panel === name));
@@ -4376,6 +4411,8 @@ function showAdminPanel(name) {
     if (mi && !mi.value) { const d = new Date(); mi.value = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); }
     loadExecEditorial();
   }
+  // Fresh data when opening Scheduled Backups.
+  if (name === 'backups' && typeof loadBackupSchedule === 'function') loadBackupSchedule();
   // Reflect the section in the hash (deep-linkable); guard avoids re-entrancy with the router.
   const want = '#admin/' + name;
   if (location.hash !== want) { _suppressHashRoute = true; location.hash = want; }
@@ -4393,6 +4430,8 @@ async function loadAdminPage() {
     // fails — the chrome shows immediately, data fills in when it resolves.
     const rrRail = document.getElementById('admin-rail-risk');
     if (rrRail) rrRail.style.display = isSuperAdmin ? '' : 'none';
+    const bkRail = document.getElementById('admin-rail-backups');
+    if (bkRail) bkRail.style.display = isSuperAdmin ? '' : 'none';
     if (isSuperAdmin) {
       loadRrAliases();
       // Default the unmapped-sites picker to the previous month
@@ -5090,6 +5129,54 @@ function _evPeriod() {
   const mi = document.getElementById('ev-month');
   return (mi && mi.value) || '';
 }
+// ── Scheduled Backups card (super_admin) ──────────────────
+async function loadBackupSchedule() {
+  const st = document.getElementById('bk-status'), tb = document.getElementById('bk-points');
+  try {
+    const d = await api('GET', '/api/admin/backup-schedule');
+    const f = (t) => {
+      if (!t || !t.exists) return '<span style="color:#b45309">not scheduled</span>';
+      const en = t.enabled ? '<span style="color:#15803d">enabled</span>' : '<span style="color:#b91c1c">disabled</span>';
+      const lr = t.lastRun ? (' · last run ' + esc(t.lastRun) + ' (result ' + esc(String(t.lastResult == null ? '?' : t.lastResult)) + ')') : ' · never ran';
+      return en + lr;
+    };
+    st.innerHTML = '<b>Daily DB:</b> ' + f(d.status.daily) + ' &nbsp;│&nbsp; <b>Weekly full:</b> ' + f(d.status.weekly);
+    if (d.status.daily && d.status.daily.startTime) document.getElementById('bk-daily').value = d.status.daily.startTime;
+    if (d.status.weekly && d.status.weekly.startTime) document.getElementById('bk-weekly-time').value = d.status.weekly.startTime;
+    if (d.status.daily && d.status.daily.retentionFull) document.getElementById('bk-ret-full').value = d.status.daily.retentionFull;
+    if (d.status.daily && d.status.daily.retentionDbOnly) document.getElementById('bk-ret-db').value = d.status.daily.retentionDbOnly;
+    tb.innerHTML = (d.restorePoints && d.restorePoints.length)
+      ? d.restorePoints.map(p => '<tr><td>' + esc(p.name) + '</td><td>' + (p.sizeBytes/1048576).toFixed(1) + ' MB</td><td>' + esc((p.mtime||'').slice(0,16).replace('T',' ')) + '</td></tr>').join('')
+      : '<tr><td colspan="3" style="color:#6b7a99">none yet</td></tr>';
+  } catch (e) { st.textContent = 'Error: ' + e.message; }
+}
+async function saveBackupSchedule(enable) {
+  const msg = document.getElementById('bk-save-msg');
+  msg.textContent = 'Saving…';
+  try {
+    await api('POST', '/api/admin/backup-schedule', enable ? {
+      enabled: true,
+      daily: document.getElementById('bk-daily').value,
+      weeklyDay: document.getElementById('bk-weekly-day').value,
+      weeklyTime: document.getElementById('bk-weekly-time').value,
+      retentionFull: parseInt(document.getElementById('bk-ret-full').value, 10),
+      retentionDbOnly: parseInt(document.getElementById('bk-ret-db').value, 10),
+    } : { enabled: false });
+    msg.textContent = enable ? '✓ Saved + tasks (re)created' : '✓ Schedule disabled';
+    loadBackupSchedule();
+  } catch (e) { msg.textContent = 'Error: ' + e.message; }
+}
+async function backupNowAdmin() {
+  const btn = document.getElementById('bk-now-btn'), msg = document.getElementById('bk-save-msg');
+  btn.disabled = true; msg.textContent = 'Backing up…';
+  try {
+    await api('POST', '/api/admin/backup-now', { dbOnly: true });
+    msg.textContent = '✓ Backup done';
+    loadBackupSchedule();
+  } catch (e) { msg.textContent = 'Error: ' + e.message; }
+  finally { btn.disabled = false; }
+}
+
 function loadExecEditorial() {
   const period = _evPeriod();
   if (!/^\d{4}-\d{2}$/.test(period)) return;
