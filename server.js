@@ -4182,7 +4182,7 @@ app.put('/api/reports/sites/:id', requireReportSession, requireAdmin, jsonBody, 
       return res.status(403).json({ error: 'Executive or super_admin only to change sort_order / active' });
     }
 
-    const before = await rdb.listSites({ includeInactive: true }).find(s => s.id === id);
+    const before = (await rdb.listSites({ includeInactive: true })).find(s => s.id === id);
     if (!before) return res.status(404).json({ error: 'Site not found' });
 
     const after = await rdb.updateSite(id, { zoho_group, sort_order, active });
@@ -4223,7 +4223,7 @@ app.post('/api/reports/sites', requireReportSession, requireExecutiveOrSuperAdmi
 app.delete('/api/reports/sites/:id', requireReportSession, requireExecutiveOrSuperAdmin, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const before = await rdb.listSites({ includeInactive: true }).find(s => s.id === id);
+    const before = (await rdb.listSites({ includeInactive: true })).find(s => s.id === id);
     if (!before) return res.status(404).json({ error: 'Site not found' });
     const after = await rdb.setSiteActive(id, 0);
     await rdb.logAudit({
@@ -4384,7 +4384,7 @@ app.post('/api/reports/departments', requireReportSession, requireExecutiveOrSup
 app.put('/api/reports/departments/:id', requireReportSession, requireExecutiveOrSuperAdmin, jsonBody, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const before = await rdb.listDepartments({ includeInactive: true }).find(d => d.id === id);
+    const before = (await rdb.listDepartments({ includeInactive: true })).find(d => d.id === id);
     if (!before) return res.status(404).json({ error: 'Department not found' });
     const after = await rdb.updateDepartment(id, req.body || {});
     const action = (before.active && !after.active) ? 'department_disabled'
@@ -4402,7 +4402,7 @@ app.put('/api/reports/departments/:id', requireReportSession, requireExecutiveOr
 app.delete('/api/reports/departments/:id', requireReportSession, requireExecutiveOrSuperAdmin, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const before = await rdb.listDepartments({ includeInactive: true }).find(d => d.id === id);
+    const before = (await rdb.listDepartments({ includeInactive: true })).find(d => d.id === id);
     if (!before) return res.status(404).json({ error: 'Department not found' });
     const after = await rdb.setDepartmentActive(id, 0);
     await rdb.logAudit({
@@ -4818,7 +4818,7 @@ app.get('/api/reports/:id/open-changes', requireReportSession, async (req, res) 
   try {
     const report = await rdb.getReport(parseInt(req.params.id));
     if (!report) return res.status(404).json({ error: 'Report not found' });
-    const site = await rdb.listSites().find(s => s.id === report.site_id);
+    const site = (await rdb.listSites()).find(s => s.id === report.site_id);
     const groups = site ? (site.zoho_group || '').split(',').map(g => g.trim()).filter(Boolean) : [];
     res.json(await rdb.getOpenChangesForSite(groups));
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -4827,7 +4827,7 @@ app.get('/api/reports/:id/open-changes', requireReportSession, async (req, res) 
 // GET /api/sites/:siteId/open-changes  — live open changes by site ID (used by monthly editor)
 app.get('/api/sites/:siteId/open-changes', requireReportSession, async (req, res) => {
   try {
-    const site = await rdb.listSites().find(s => s.id === parseInt(req.params.siteId));
+    const site = (await rdb.listSites()).find(s => s.id === parseInt(req.params.siteId));
     if (!site) return res.status(404).json({ error: 'Site not found' });
     const groups = (site.zoho_group || '').split(',').map(g => g.trim()).filter(Boolean);
     res.json(await rdb.getOpenChangesForSite(groups));
@@ -4842,7 +4842,7 @@ app.get('/api/reports/:id/active-incidents', requireReportSession, async (req, r
   try {
     const report = await rdb.getReport(parseInt(req.params.id));
     if (!report) return res.status(404).json({ error: 'Report not found' });
-    const site = await rdb.listSites().find(s => s.id === report.site_id);
+    const site = (await rdb.listSites()).find(s => s.id === report.site_id);
     const groups = site ? (site.zoho_group || '').split(',').map(g => g.trim()).filter(Boolean) : [];
     res.json(await rdb.getActiveMajorIncidentsForSite(groups));
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -4853,7 +4853,7 @@ app.get('/api/reports/:id/active-incidents', requireReportSession, async (req, r
 // at hand) and by any future "site dashboard" that wants the panel.
 app.get('/api/sites/:siteId/active-incidents', requireReportSession, async (req, res) => {
   try {
-    const site = await rdb.listSites().find(s => s.id === parseInt(req.params.siteId));
+    const site = (await rdb.listSites()).find(s => s.id === parseInt(req.params.siteId));
     if (!site) return res.status(404).json({ error: 'Site not found' });
     const groups = (site.zoho_group || '').split(',').map(g => g.trim()).filter(Boolean);
     res.json(await rdb.getActiveMajorIncidentsForSite(groups));
@@ -4927,7 +4927,7 @@ const ACTION_VALID_PRIORITY = new Set(['High', 'Medium', 'Low']);
 const ACTION_VALID_STATUS   = new Set(['open', 'in_progress', 'on_hold', 'closed', 'cancelled']);
 
 async function validateActionItems(items) {
-  const activeDepts = new Set(await rdb.listDepartments({ includeInactive: false }).map(d => d.name));  // sweep adds await
+  const activeDepts = new Set((await rdb.listDepartments({ includeInactive: false })).map(d => d.name));  // sweep adds await
   const errors = [];
   const cleaned = items.map((a, i) => {
     const out = { ...a };
@@ -5064,7 +5064,7 @@ app.get('/api/reports/:id/pptx', requireReportSession, async (req, res) => {
     // Fetch open changes + active major incidents for this site's group(s).
     // Both ride into slideLights so the deck mirrors the on-screen panels
     // in the report editor (Active Changes + Active Major Incidents).
-    const _wSite = await rdb.listSites().find(s => s.id === report.site_id);
+    const _wSite = (await rdb.listSites()).find(s => s.id === report.site_id);
     const _wGroups = _wSite ? (_wSite.zoho_group || '').split(',').map(g => g.trim()).filter(Boolean) : [];
     const openChanges     = await rdb.getOpenChangesForSite(_wGroups);
     const activeIncidents = await rdb.getActiveMajorIncidentsForSite(_wGroups);
@@ -5086,7 +5086,7 @@ app.get('/api/reports/monthly/all-sites/:year/:month/pptx', requireReportSession
   if (!rpptxMonthly) return res.status(503).json({ error: 'Monthly PPTX module not available' });
   try {
     const { year, month } = req.params;
-    const sites = await rdb.listSites().filter(s => s.active);
+    const sites = (await rdb.listSites()).filter(s => s.active);
     const allData = [];
     for (const site of sites) {
       const monthlyData = await rdb.getMonthlyData(site.id, parseInt(year), parseInt(month));
