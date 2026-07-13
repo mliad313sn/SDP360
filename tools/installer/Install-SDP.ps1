@@ -101,7 +101,10 @@ $script:ExitCode    = 1          # main catch exits with this (2 = rolled back)
 $script:StepResults = New-Object System.Collections.ArrayList
 $script:WarnKeys    = @()        # questionnaire keys left as placeholders
 $script:BundleVer   = '?'
+$script:BundleSha   = '?'
 $script:RollbackZip = $null
+$script:Pm2         = $null      # resolved in step 3; $null = NoService test mode
+$script:NodeProc    = $null      # NoService mode: the plain background node process
 
 function Invoke-Step([string]$N, [string]$Name, [scriptblock]$Body) {
     Log ("---- Step $N : $Name ----") 'STEP'
@@ -436,7 +439,15 @@ function Step1-Preflight {
 
     # bundle payload + downgrade check
     if (-not (Test-Path (Join-Path $PayloadDir 'app.zip'))) { Die "Bundle payload missing: $PayloadDir\app.zip (pass -BundleRoot)" }
-    $bv = Get-JsonVersion (Join-Path $BundleRoot 'version.json')
+    $bv = $null
+    $bvPath = Join-Path $BundleRoot 'version.json'
+    if (Test-Path $bvPath) {
+        try {
+            $bvObj = Get-Content $bvPath -Raw | ConvertFrom-Json
+            $bv = $bvObj.version
+            if ($bvObj.sha) { $script:BundleSha = "$($bvObj.sha)" }
+        } catch { }
+    }
     if ($bv) { $script:BundleVer = $bv }
     $iv = Get-JsonVersion (Join-Path $InstallDir 'version.json')
     if ($bv -and $iv) {
@@ -718,11 +729,200 @@ function Step4-Postgres {
 }
 
 # =====================================================================
-# Steps 5-7 are implemented in a later plan task.
+# Step 5 - automatic pre-change restore point via Manage-SDP.ps1 -Backup.
+# Manage-SDP's LAST stdout line is the zip path (its logs go to the console
+# via Write-Host, not the output stream).
 # =====================================================================
-function Step5-Backup     { Die 'Step 5 (backup) not implemented yet - later plan task' }
-function Step6-Deploy     { Die 'Step 6 (deploy) not implemented yet - later plan task' }
-function Step7-Verify     { Die 'Step 7 (verify) not implemented yet - later plan task' }
+function Step5-Backup {
+    $manage = Join-Path $here 'Manage-SDP.ps1'
+    if (-not (Test-Path $manage)) { Die "Manage-SDP.ps1 not found next to this script: $manage" }
+    $mArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $manage, '-Backup', '-Tag', ('pre-' + $script:BundleVer))
+    if ($Config) { $mArgs += @('-Config', $Config) }
+    $out = & powershell @mArgs
+    if ($LASTEXITCODE -ne 0) { Die 'Pre-change backup failed - refusing to continue (see the manage-backup log)' }
+    $zip = ($out | Select-Object -Last 1)
+    if (-not ($zip -and (Test-Path $zip))) { Die "Backup ran but returned no zip path (got: '$zip')" }
+    $script:RollbackZip = $zip
+    Log ("Restore point: " + $zip) 'OK'
+}
+
+# =====================================================================
+# Step 6 - deploy code (+ node_modules) from payload\app.zip.
+# Exclusions HARD-CODED (repo doctrine): data\ blobs\ SDP-Backups\ .env.
+# Upgrade/Reinstall: old node_modules renamed .prev (rollback safety), the
+# payload tree moved in. Patch: node_modules untouched. version.json written.
+# Upgrade: new env.template keys appended to .env COMMENTED (never overwrite).
+# =====================================================================
+function Step6-Deploy {
+    $appZip = Join-Path $PayloadDir 'app.zip'
+    $stage = Join-Path $env:TEMP ('sdp-deploy-stage-' + (Get-Random))
+    Log "Expanding payload app.zip -> $stage" 'STEP'
+    Expand-Archive -LiteralPath $appZip -DestinationPath $stage -Force
+    try {
+        if (-not (Test-Path (Join-Path $stage 'server.js'))) { Die 'payload app.zip has no server.js at its root - bad bundle' }
+        Log 'Deploying code (exclusions: data, blobs, SDP-Backups, node_modules, .env)' 'STEP'
+        # /IS /IT /IM: a deploy must copy UNCONDITIONALLY. Robocopy silently skips
+        # files whose size+LastWriteTime match: 'Same' needs /IS, 'Tweaked' /IT and
+        # 'Modified' (equal write time, different NTFS change time - exactly what a
+        # zip-extracted payload produces) needs /IM. Caught live in the E2E test.
+        Invoke-Robocopy $stage $InstallDir @('/IS', '/IT', '/IM', '/XD', 'data', 'blobs', 'SDP-Backups', 'node_modules', '/XF', '.env')
+        $stNm = Join-Path $stage 'node_modules'
+        $inNm = Join-Path $InstallDir 'node_modules'
+        if ($Mode -eq 'patch') {
+            Log 'Patch mode: node_modules untouched'
+        } elseif (Test-Path $stNm) {
+            if (Test-Path $inNm) {
+                $prev = Join-Path $InstallDir 'node_modules.prev'
+                if (Test-Path $prev) { Remove-Item $prev -Recurse -Force }
+                Log 'node_modules -> node_modules.prev (restored on rollback, deleted on verify OK)'
+                Move-Item $inNm $prev
+            }
+            Log 'Moving payload node_modules into place'
+            Move-Item $stNm $inNm
+        } else {
+            Log 'Bundle carries no node_modules - existing tree kept' 'WARN'
+        }
+        $vj = New-Object psobject -Property @{
+            version = $script:BundleVer; sha = $script:BundleSha
+            installedAt = (Get-Date -Format 's'); mode = $Mode
+        }
+        Set-Content -Path (Join-Path $InstallDir 'version.json') -Value ($vj | ConvertTo-Json) -Encoding ascii
+        Log ("version.json written: " + $script:BundleVer + " (" + $Mode + ")")
+        if ($Mode -eq 'upgrade') { Add-NewEnvKeys $script:BundleVer }
+    } finally { Remove-Item $stage -Recurse -Force -ErrorAction SilentlyContinue }
+}
+
+# =====================================================================
+# Step 7 - orphan-safe restart + verify; automatic rollback on failure.
+# NEVER pm2 reload (EADDRINUSE crash-loop). Restart = pm2 stop -> wait -> if
+# the port is STILL listening, netstat -> PID -> taskkill /F /PID (surgical,
+# mirrors _pm2_recover_prod.cmd - never /IM node.exe) -> pm2 start.
+# NoService test mode (pm2 absent): plain background node for the probe.
+# =====================================================================
+function Stop-AppOrphanSafe {
+    if ($script:Pm2) { cmd /c ('"' + $script:Pm2 + '" stop ' + $SvcName + ' 2>nul') | Out-Null }
+    $pidFile = Join-Path $InstallDir '.sdp-node.pid'
+    if (Test-Path $pidFile) {
+        $tpid = (Get-Content $pidFile | Select-Object -First 1)
+        if ("$tpid" -match '^\d+$') { cmd /c ("taskkill /F /PID $tpid >nul 2>nul") }
+        Remove-Item $pidFile -Force -ErrorAction SilentlyContinue
+    }
+    Start-Sleep -Seconds 5
+    $pids = Get-PortListenerPids $AppPort
+    foreach ($p in $pids) {
+        Log ("Port $AppPort still held by pid $p - surgical taskkill (orphan recovery)") 'WARN'
+        cmd /c ("taskkill /F /PID $p >nul 2>nul")
+    }
+    if ($pids.Count -gt 0) { Start-Sleep -Seconds 3 }
+}
+function Start-App {
+    if ($script:Pm2) {
+        cmd /c ('"' + $script:Pm2 + '" describe ' + $SvcName + ' >nul 2>nul')
+        if ($LASTEXITCODE -eq 0) {
+            cmd /c ('"' + $script:Pm2 + '" start ' + $SvcName + ' 2>nul') | Out-Null
+        } else {
+            Log ("Registering pm2 app " + $SvcName + " (--max-old-space-size=" + $cfg.HeapMB + ")") 'STEP'
+            Push-Location $InstallDir
+            try { cmd /c ('"' + $script:Pm2 + '" start server.js --name ' + $SvcName + ' --node-args="--max-old-space-size=' + $cfg.HeapMB + '" 2>nul') | Out-Null }
+            finally { Pop-Location }
+        }
+        cmd /c ('"' + $script:Pm2 + '" save 2>nul') | Out-Null
+        $deadline = (Get-Date).AddSeconds(30)
+        $online = $false
+        while ((Get-Date) -lt $deadline) {
+            try {
+                $jl = (cmd /c ('"' + $script:Pm2 + '" jlist 2>nul') | Out-String | ConvertFrom-Json)
+                foreach ($p in $jl) { if ($p.name -eq $SvcName -and $p.pm2_env.status -eq 'online') { $online = $true } }
+            } catch { }
+            if ($online) { break }
+            Start-Sleep -Seconds 2
+        }
+        if (-not $online) { Die 'pm2 app did not reach online within 30 s' }
+        Log 'pm2 status: online'
+    } else {
+        # TEST-ONLY fallback, documented in the header: plain background node.
+        Log 'NoService mode: starting a plain background node server.js for the probe (test boxes only)' 'WARN'
+        $proc = Start-Process -FilePath 'node' -ArgumentList 'server.js' -WorkingDirectory $InstallDir -WindowStyle Hidden -PassThru
+        Set-Content -Path (Join-Path $InstallDir '.sdp-node.pid') -Value $proc.Id -Encoding ascii
+        $script:NodeProc = $proc
+        Start-Sleep -Seconds 3
+        if ($proc.HasExited) { Die ('node server.js exited immediately (code ' + $proc.ExitCode + ')') }
+    }
+}
+function Stop-NoServiceProbe {
+    if (-not $script:Pm2 -and $script:NodeProc) {
+        if (-not $script:NodeProc.HasExited) {
+            Log 'NoService mode: stopping the probe node process' 'WARN'
+            Stop-Process -Id $script:NodeProc.Id -Force -ErrorAction SilentlyContinue
+        }
+        Remove-Item (Join-Path $InstallDir '.sdp-node.pid') -Force -ErrorAction SilentlyContinue
+        $script:NodeProc = $null
+    }
+}
+function Test-AppProbe {
+    $url = 'http://localhost:' + $AppPort + '/api/auth/config'
+    for ($i = 1; $i -le 3; $i++) {
+        try {
+            $r = Invoke-WebRequest -UseBasicParsing -Uri $url -TimeoutSec 10
+            if ($r.StatusCode -eq 200) { Log ("HTTP probe OK: $url") 'OK'; return $true }
+            Log ("probe attempt $i/3: HTTP " + $r.StatusCode) 'WARN'
+        } catch { Log ("probe attempt $i/3 failed: " + $_.Exception.Message) 'WARN' }
+        if ($script:NodeProc -and $script:NodeProc.HasExited) { Log 'app process exited - no point retrying the probe' 'WARN'; return $false }
+        if ($i -lt 3) { Start-Sleep -Seconds 10 }
+    }
+    return $false
+}
+function Invoke-Rollback {
+    $stage = Join-Path $env:TEMP ('sdp-rollback-' + (Get-Random))
+    try {
+        Log ("Restoring code + .env from " + $script:RollbackZip) 'STEP'
+        Expand-Archive -LiteralPath $script:RollbackZip -DestinationPath $stage -Force
+        # data-safety exclusions kept; .env IS restored (it is inside the zip).
+        # /IS /IT /IM: unconditional copy (see the step-6 comment).
+        Invoke-Robocopy $stage $InstallDir @('/IS', '/IT', '/IM', '/XD', 'data', 'blobs', 'SDP-Backups', 'node_modules', '/XF', 'raw_cache.json')
+        # the DB dump inside the point is NOT auto-applied (additive schemas;
+        # DB restore stays an explicit Manage-SDP.ps1 -Restore decision)
+        Remove-Item (Join-Path $InstallDir 'sdp_dashboard.sql') -Force -ErrorAction SilentlyContinue
+        $prev = Join-Path $InstallDir 'node_modules.prev'
+        if (Test-Path $prev) {
+            Log 'Restoring node_modules.prev'
+            $nm = Join-Path $InstallDir 'node_modules'
+            if (Test-Path $nm) { Remove-Item $nm -Recurse -Force }
+            Move-Item $prev $nm
+        }
+        Log 'Rollback file restore complete (DB not auto-rolled-back by design)' 'OK'
+    } finally { Remove-Item $stage -Recurse -Force -ErrorAction SilentlyContinue }
+}
+function Step7-Verify {
+    $ok = $false
+    try {
+        Stop-AppOrphanSafe
+        Start-App
+        $ok = Test-AppProbe
+    } catch { Log ('start/verify error: ' + $_.Exception.Message) 'ERROR'; $ok = $false }
+    if ($ok) {
+        $prev = Join-Path $InstallDir 'node_modules.prev'
+        if (Test-Path $prev) { Remove-Item $prev -Recurse -Force; Log 'node_modules.prev deleted (verify passed)' }
+        Stop-NoServiceProbe
+        Log 'Verification PASSED' 'OK'
+        return
+    }
+    Stop-NoServiceProbe
+    if ($NoRollback) { Die 'Verification FAILED - -NoRollback set, broken state left in place for debugging' }
+    if (-not $script:RollbackZip) { Die 'Verification FAILED and there is no step-5 restore point (fresh install) - nothing to roll back to' }
+    Log '*** Verification FAILED - automatic rollback to the step-5 restore point ***' 'ERROR'
+    Invoke-Rollback
+    $ok2 = $false
+    try {
+        Stop-AppOrphanSafe
+        Start-App
+        $ok2 = Test-AppProbe
+    } catch { Log ('rollback restart error: ' + $_.Exception.Message) 'ERROR'; $ok2 = $false }
+    Stop-NoServiceProbe
+    $script:ExitCode = 2
+    if ($ok2) { Die ('ROLLED BACK to ' + (Split-Path $script:RollbackZip -Leaf) + ' - the previous version is serving again') }
+    else { Die ('ROLLED BACK to ' + (Split-Path $script:RollbackZip -Leaf) + ' but the re-probe STILL fails - manual attention required. Log: ' + $LogFile) }
+}
 
 # =====================================================================
 # main
