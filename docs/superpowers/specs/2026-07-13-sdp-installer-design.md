@@ -37,7 +37,7 @@ build-installer.ps1 (new, tools/installer-build/)   Setup.bat            console
        downloaded once, cached under tools/          config.psd1          declarative config + silent-
        installer-build/cache/, gitignored)                                mode answers
   4. + tools/installer/* (the 4 runtime files)       payload/app.zip      code + node_modules
-  5. Compress-Archive → SDP-Dashboard-<v>.7z         payload/installers/  node-v24.x.msi, postgresql-17.exe
+  5. Compress-Archive → SDP-Dashboard-<v>.7z         payload/installers/  node MSI, PG exe, python-embed+wheels
   6. 7z SFX module + config → SDP-Setup-<v>.exe      version.json         {version, sha, builtAt}
 ```
 
@@ -102,7 +102,7 @@ build-installer.ps1 (new, tools/installer-build/)   Setup.bat            console
 AppName, ServiceName (`endeavour-dashboard`), InstallDir (`C:\Apps\SDP-Dashboard`),
 AppPort (3456), NodeMinMajor (24), PgMajor (17), PgHost/PgPort,
 StandardPgSuperPassword (same value/convention as 4MyPeople), DbName/DbUser,
-BackendsDefault (`postgres`), BackupDir, RetentionFull/RetentionDbOnly, and
+BackendsDefault (`postgres`), **HeapMB (4096)**, BackupDir, RetentionFull/RetentionDbOnly, and
 every questionnaire answer for silent mode.
 
 ## Versioning
@@ -122,7 +122,8 @@ every questionnaire answer for silent mode.
 3. **DB is NOT auto-rolled-back**: migrations are additive/idempotent, old code
    reads the same DB safely (proven by the per-module PG cutovers). DB restore
    stays a manual explicit `-Restore`.
-4. `-NoRollback` for on-site debugging.
+4. **Upgrade node_modules safety**: before replacing `node_modules`, the old tree is renamed `node_modules.prev`; rollback restores it (covers a dep change between versions); it is deleted on successful verify.
+5. `-NoRollback` for on-site debugging.
 
 ## Error handling & known-pitfall guards
 
