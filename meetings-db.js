@@ -479,9 +479,14 @@ async function _loadLookupsPg() {
     engagements:        await h.prepare('SELECT * FROM md_engagements                           ORDER BY display_order').all(),
   };
   let sites = [];
-  try {                                       // reports-db stays sqlite/sync — leave bare
+  try {
     const rdb = require('./reports-db.js');
-    const canonical = rdb.listSites() || [];
+    // MUST await: under REPORTS_BACKEND=postgres (live in prod) listSites() is
+    // async — a bare call returns a Promise, .map() throws, the catch swallows
+    // it, and the site dropdown ends up EMPTY on every meetings page. await is
+    // safe under sqlite too (await on a sync array is a no-op). Mirrors the
+    // inspection PG fork, which already did this correctly.
+    const canonical = (await rdb.listSites()) || [];
     sites = canonical.map(cs => ({ id: cs.id, code: _siteNameToCode(cs.name) || cs.name, name: cs.name, active: cs.active === 0 ? 0 : 1 }));
   } catch (e) { /* offline */ }
   lookups.sites = sites;
