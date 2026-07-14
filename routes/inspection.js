@@ -38,12 +38,16 @@ module.exports = function inspectionRoutes(deps) {
 
   // Resolve the user's inspection site code (form code, e.g. 'MGO').
   // Returns null for unrestricted users (super_admin / executive / admin).
-  function _userInspectionSite(user) {
+  async function _userInspectionSite(user) {
     if (!user) return null;
     if (rdb.userHasRole(user, 'admin')) return null;  // admin+ can write any site
     const siteId = user.site_id;
     if (!siteId) return null;
-    const sites = rdb.listSites();
+    // MUST await: listSites() is async under REPORTS_BACKEND=postgres (live in
+    // prod). A bare call returned a Promise, .find() threw, and an editor-role
+    // inspector's cross-site write guard broke (500 / wrong scope). await is a
+    // no-op under sqlite.
+    const sites = (await rdb.listSites()) || [];
     const site  = sites.find(s => s.id === siteId);
     return inspectionDb.siteNameToCode(site ? site.name : null);
   }
@@ -184,7 +188,7 @@ module.exports = function inspectionRoutes(deps) {
       if (!Number.isFinite(actionId)) return res.status(400).json({ error: 'Invalid action id' });
       const parent = await inspectionDb.getActionParent(actionId);
       if (!parent) return res.status(404).json({ error: 'Action not found' });
-      const userSite = _userInspectionSite(req.reportUser);
+      const userSite = await _userInspectionSite(req.reportUser);
       if (userSite && parent.site_code !== userSite) {
         return res.status(403).json({ error: `Action belongs to ${parent.site_code}; you are scoped to ${userSite}` });
       }
@@ -261,7 +265,7 @@ module.exports = function inspectionRoutes(deps) {
         }
       }
 
-      const userSite = _userInspectionSite(req.reportUser);
+      const userSite = await _userInspectionSite(req.reportUser);
       const out      = await inspectionDb.saveInspection(state, userSite, req.reportUser.id || null);
       // Audit log — grep-friendly: pm2 logs … | findstr Inspection
       const itemCount  = Object.keys(state.items || {}).length;
