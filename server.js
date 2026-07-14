@@ -5663,7 +5663,7 @@ app.post('/api/reports/exec-pptx', requireReportSession, requireAdmin, async (re
   // still produces a clean deck.
   let payload;
   try {
-    payload = reportPayloadBuilder.build(browserPayload);
+    payload = await reportPayloadBuilder.build(browserPayload);
     payload.filters = browserPayload.filters;   // preserve route-level shape
     payload.output_filename = browserPayload.output_filename;
   } catch (e) {

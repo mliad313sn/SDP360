@@ -44,6 +44,43 @@ const reportsDb = require('../reports-db');
 let trackerDb = null;
 try { trackerDb = require('../tracker-db'); } catch (_) { /* tracker offline → slides 10/11 stub */ }
 
+// ── Backend-aware DB read helpers ──────────────────────────────────────────
+// Prod now runs reports.db under REPORTS_BACKEND=postgres, where reportsDb.db
+// is the EMPTY sqlite file. Route every raw SELECT through _get/_all so it hits
+// the async pg adapter (reportsDb.pgHandle()) under postgres and the synchronous
+// better-sqlite3 handle under sqlite. _toPg translates the sqlite idioms these
+// queries use to the SAME dialect contract the reports-db.js PG forks apply.
+const _isPg = () => reportsDb.REPORTS_BACKEND === 'postgres';
+
+// SQLite → Postgres dialect translation for the exec-deck queries.
+// Idioms present across the 7 queries: strftime('%Y-%m', X)= / strftime('%Y-%m-%d',…),
+// date(X) BETWEEN, and case-insensitive LIKE.
+//  • strftime('%Y-%m', X)     → to_char(X::timestamptz,'YYYY-MM')   (month bucket compare)
+//  • strftime('%Y-%m-%d', X)  → to_char(X::timestamptz,'YYYY-MM-DD')
+//  • date(X)                  → to_char(X::timestamptz,'YYYY-MM-DD') — kept as a LEXICAL
+//    string compare (NOT ::date) so the lazy 'YYYY-MM-31' upper bound these queries pass
+//    still captures the whole month; casting '2026-06-31'::date would throw in pg.
+//  • LIKE → ILIKE — sqlite LIKE is case-insensitive for ASCII; pg LIKE is case-sensitive.
+//    Both MI LIKEs here (request_type / template '%Major Incident%') rely on that, so
+//    ILIKE preserves identical matching. The GROUP BY <alias> clauses (cat/ch/g) resolve
+//    to the SELECT output alias in pg (extension) — no input column shadows them — so they
+//    pass through unchanged, same as under sqlite.
+function _toPg(sql) {
+  return sql
+    .replace(/strftime\(\s*'%Y-%m-%d'\s*,\s*([^)]+?)\s*\)/gi, "to_char($1::timestamptz,'YYYY-MM-DD')")
+    .replace(/strftime\(\s*'%Y-%m'\s*,\s*([^)]+?)\s*\)/gi,    "to_char($1::timestamptz,'YYYY-MM')")
+    .replace(/\bdate\(\s*([^)]+?)\s*\)/gi,                    "to_char($1::timestamptz,'YYYY-MM-DD')")
+    .replace(/\bLIKE\b/gi, 'ILIKE');
+}
+async function _all(sql, ...params) {
+  if (_isPg()) return await reportsDb.pgHandle().prepare(_toPg(sql)).all(...params);
+  return reportsDb.db.prepare(sql).all(...params);
+}
+async function _get(sql, ...params) {
+  if (_isPg()) return await reportsDb.pgHandle().prepare(_toPg(sql)).get(...params);
+  return reportsDb.db.prepare(sql).get(...params);
+}
+
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December',
@@ -65,7 +102,7 @@ function _pct(num, den) {
 }
 
 // ── Helpdesk KPIs from request_records ─────────────────────────────────────
-function _helpdeskKpis(filters) {
+async function _helpdeskKpis(filters) {
   const out = {
     total: 0, total_apr: 0, total_delta_pct: 0,
     closed: 0, closed_delta_pct: 0,
@@ -81,8 +118,8 @@ function _helpdeskKpis(filters) {
   if (!site_id || !year || !month) return out;
 
   try {
-    const cur  = reportsDb.getCalendarMonthlyHelpdesk(site_id, year, month);
-    const prev = (() => {
+    const cur  = await reportsDb.getCalendarMonthlyHelpdesk(site_id, year, month);
+    const prev = await (async () => {
       const { year: py, month: pm } = _prevMonth(year, month);
       return reportsDb.getCalendarMonthlyHelpdesk(site_id, py, pm);
     })();
@@ -111,14 +148,14 @@ function _helpdeskKpis(filters) {
 }
 
 // ── Distribution + channel breakdowns from request_records ─────────────────
-function _distribution(filters) {
+async function _distribution(filters) {
   const out = { categories: {}, channel: {}, groups: {} };
   const { site_id, year, month } = filters;
   if (!site_id || !year || !month) return out;
 
   // Same group filter as getCalendarMonthlyHelpdesk: derive from sites.zoho_group
   try {
-    const siteRow = reportsDb.db.prepare('SELECT zoho_group FROM sites WHERE id=?').get(site_id);
+    const siteRow = await _get('SELECT zoho_group FROM sites WHERE id=?', site_id);
     if (!siteRow || !siteRow.zoho_group) return out;
     const groups = siteRow.zoho_group.split(',').map(g => g.trim()).filter(Boolean);
     if (!groups.length) return out;
@@ -127,33 +164,33 @@ function _distribution(filters) {
     const dateClauseParams = [`${ym}-01`, `${ym}-31`];
 
     // Categories
-    const catRows = reportsDb.db.prepare(`
+    const catRows = await _all(`
       SELECT COALESCE(NULLIF(TRIM(category), ''), 'Uncategorized') AS cat, COUNT(*) AS n
       FROM request_records
       WHERE tech_group IN (${inClause}) AND date(created_time) BETWEEN ? AND ?
       GROUP BY cat ORDER BY n DESC LIMIT 20
-    `).all(...groups, ...dateClauseParams);
+    `, ...groups, ...dateClauseParams);
     catRows.forEach(r => { out.categories[r.cat] = r.n; });
 
     // Submission channel (mode)
-    const chRows = reportsDb.db.prepare(`
+    const chRows = await _all(`
       SELECT COALESCE(NULLIF(TRIM(mode), ''), 'Unknown') AS ch, COUNT(*) AS n
       FROM request_records
       WHERE tech_group IN (${inClause}) AND date(created_time) BETWEEN ? AND ?
       GROUP BY ch ORDER BY n DESC
-    `).all(...groups, ...dateClauseParams);
+    `, ...groups, ...dateClauseParams);
     chRows.forEach(r => {
       if (r.ch === 'Unknown') return;
       out.channel[r.ch] = r.n;
     });
 
     // Groups breakdown
-    const grpRows = reportsDb.db.prepare(`
+    const grpRows = await _all(`
       SELECT tech_group AS g, COUNT(*) AS n
       FROM request_records
       WHERE tech_group IN (${inClause}) AND date(created_time) BETWEEN ? AND ?
       GROUP BY g ORDER BY n DESC
-    `).all(...groups, ...dateClauseParams);
+    `, ...groups, ...dateClauseParams);
     grpRows.forEach(r => { out.groups[r.g] = r.n; });
   } catch (e) {
     console.warn('[reportPayload] distribution failed:', e.message);
@@ -162,10 +199,10 @@ function _distribution(filters) {
 }
 
 // ── Ageing per IT group ────────────────────────────────────────────────────
-function _ageing() {
+async function _ageing() {
   const out = {};
   try {
-    const rows = reportsDb.getAgeingByGroupDB();
+    const rows = await reportsDb.getAgeingByGroupDB();
     rows.forEach(r => {
       const grp = r.group || r.tech_group || r.grp;
       if (!grp) return;
@@ -183,7 +220,7 @@ function _ageing() {
 }
 
 // ── Major Incidents for the selected month (created OR resolved in month) ─
-function _majorIncidents(filters) {
+async function _majorIncidents(filters) {
   const out = { mi_total: 0, mi_critical: 0, mi_high: 0, mi_records: [] };
   const { year, month, site_id } = filters;
   if (!year || !month) return out;
@@ -216,7 +253,7 @@ function _majorIncidents(filters) {
     // (e.g. "Incident 3rd and 6th February 2026" resolved 2026-05-19
     // was showing up in the May deck) and made the P1/P2 totals not
     // reconcile with the dashboard.
-    const rows = reportsDb.db.prepare(`
+    const rows = await _all(`
       SELECT display_id AS id, site, subject, request_status AS status,
              created_time, resolved_time, completed_time, udf_json,
              impact
@@ -225,7 +262,7 @@ function _majorIncidents(filters) {
         AND strftime('%Y-%m', created_time) = ?
       ORDER BY created_time DESC
       LIMIT ${_siteSel ? 50 : 10}
-    `).all(ym);
+    `, ym);
 
     // Variant-tolerant UDF reader — Zoho ships keys with mixed
     // colon-space conventions. Mirrors the browser-side resolver in
@@ -356,10 +393,10 @@ function _majorIncidents(filters) {
       const _py  = month === 1 ? year - 1 : year;
       const _pym = `${_py}-${String(_pm).padStart(2, '0')}`;
       // Fetch site so the prev-month MoM count respects the same site scope.
-      const _prevRows = reportsDb.db.prepare(`
+      const _prevRows = await _all(`
         SELECT site FROM request_records
         WHERE (request_type LIKE '%Major Incident%' OR template LIKE '%Major Incident%')
-          AND strftime('%Y-%m', created_time) = ?`).all(_pym);
+          AND strftime('%Y-%m', created_time) = ?`, _pym);
       out.mi_prev_total = _prevRows.filter(r => _miSiteOk(r.site)).length;
     } catch (_) { out.mi_prev_total = null; }
   } catch (e) {
@@ -369,7 +406,7 @@ function _majorIncidents(filters) {
 }
 
 // ── Change Management for the selected month ──────────────────────────────
-function _changes(filters) {
+async function _changes(filters) {
   const out = {
     changes_total: 0,
     changes_type: { Standard: 0, Major: 0, Emergency: 0 },
@@ -383,11 +420,11 @@ function _changes(filters) {
 
   try {
     const ym = `${year}-${String(month).padStart(2, '0')}`;
-    const rows = reportsDb.db.prepare(`
+    const rows = await _all(`
       SELECT display_id AS id, subject, change_type, status, emergency, udf_json
       FROM change_records
       WHERE strftime('%Y-%m', created_time) = ?
-    `).all(ym);
+    `, ym);
     rows.forEach(r => {
       out.changes_total++;
       const t = (r.change_type || '').trim();
@@ -576,7 +613,7 @@ function _tracker(filters) {
 }
 
 // ── Public — build() merges DB enrichment over the browser payload ────────
-function build(browserPayload) {
+async function build(browserPayload) {
   const filters = browserPayload.filters || {};
   // Render.py wants the month NAME ('May') + year. Browser sends
   // filters.month_name + filters.year already; mirror to top-level for
@@ -595,12 +632,15 @@ function build(browserPayload) {
     month: monthIdx,
   };
 
-  // Build all sections in parallel — they're independent DB queries.
-  const helpdesk    = _helpdeskKpis(dbFilters);
-  const distribution = _distribution(dbFilters);
-  const ageing      = _ageing();
-  const mi          = _majorIncidents(dbFilters);
-  const changes     = _changes(dbFilters);
+  // Build all sections in parallel — they're independent DB queries. Under
+  // postgres each is an async round-trip; Promise.all keeps them concurrent.
+  const [helpdesk, distribution, ageing, mi, changes] = await Promise.all([
+    _helpdeskKpis(dbFilters),
+    _distribution(dbFilters),
+    _ageing(),
+    _majorIncidents(dbFilters),
+    _changes(dbFilters),
+  ]);
   // Prefer the browser-built tracker block: executive-report.html scores the
   // tracker with the faithful engine (cumulative + per-KPI-type via
   // _trkSiteSummary), whereas _tracker() below scores a single month crudely
