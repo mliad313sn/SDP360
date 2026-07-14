@@ -469,6 +469,14 @@
     sel('miSite',   state.lookups.sites,       'code', 'name',    'All sites');
     sel('miDept',   state.lookups.departments, 'code', 'name_en', 'All departments');
     sel('miStatus', state.lookups.statuses,    'code', 'name_en', 'All statuses');
+    // Restore the active selection — renderFilters() runs on every loadAll(),
+    // and rebuilding a <select>'s innerHTML resets it to the blank option even
+    // though state.filters still holds the choice. Without this the dropdown
+    // snaps back to "All sites" after every pick (looks like the filter is
+    // ignored, though the data IS filtered).
+    document.getElementById('miSite').value   = state.filters.site       || '';
+    document.getElementById('miDept').value   = state.filters.department || '';
+    document.getElementById('miStatus').value = state.filters.status     || '';
   }
 
   function statusCell(r, stsByCode) {

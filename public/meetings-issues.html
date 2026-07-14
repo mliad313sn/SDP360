@@ -335,6 +335,15 @@
     sel('miCat',    state.lookups.categories,   'code', 'name_en', 'All categories');
     sel('miSev',    state.lookups.severities,   'code', 'name_en', 'All severities');
     sel('miStatus', state.lookups.statuses,     'code', 'name_en', 'All statuses');
+    // Restore the active selection — renderFilters() runs on every loadAll(),
+    // and rebuilding a <select>'s innerHTML resets it to the blank option even
+    // though state.filters still holds the choice (dropdown would snap back to
+    // "All ..." after every pick).
+    document.getElementById('miSite').value   = state.filters.site       || '';
+    document.getElementById('miDept').value   = state.filters.department || '';
+    document.getElementById('miCat').value    = state.filters.category   || '';
+    document.getElementById('miSev').value    = state.filters.severity   || '';
+    document.getElementById('miStatus').value = state.filters.status     || '';
   }
 
   function renderTable() {
