@@ -977,6 +977,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         <button type="button" class="admin-rail__item" data-panel="execview"    onclick="showAdminPanel('execview')"><span class="ar-ico">📣</span><span>Exec View<small>Highlights &amp; focus</small></span></button>
         <button type="button" class="admin-rail__item" data-panel="backups" id="admin-rail-backups" style="display:none" onclick="showAdminPanel('backups')"><span class="ar-ico">💾</span><span>Backups<small>Scheduled &amp; manual</small></span></button>
         <button type="button" class="admin-rail__item" data-panel="risk" id="admin-rail-risk" style="display:none" onclick="showAdminPanel('risk')"><span class="ar-ico">🛡</span><span>Risk Register<small>Site code mapping</small></span></button>
+        <button type="button" class="admin-rail__item" data-panel="autoreports" id="admin-rail-autoreports" style="display:none" onclick="showAdminPanel('autoreports')"><span class="ar-ico">📄</span><span>Automated Reports<small>Recipients &amp; delivery</small></span></button>
       </nav>
       <div class="admin-content">
 
@@ -1189,6 +1190,106 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
       </table>
     </div>
 
+    <!-- ─── Automated Reports (super_admin only) ──────────────────────────────
+         Drives the reporting-suite delivery pipeline: who receives each site /
+         group report (Recipients), when the Windows Task Scheduler jobs fire
+         (Schedule), and the SMTP / Graph transport settings (Delivery). The
+         whole card is hidden for non-super-admin users by loadAdminPage(); the
+         /api/reports/* routes are also session + admin gated server-side. -->
+    <div class="card admin-panel" id="ap-autoreports" data-panel="autoreports">
+      <h3>📄 Automated Reports
+        <span style="font-size:0.78rem;font-weight:400;color:#6b7a99;margin-left:8px">
+          Recipients, schedule &amp; delivery settings for the automated site / group reports
+        </span>
+      </h3>
+
+      <!-- Tab strip (active tab = btn-primary, others btn-secondary) -->
+      <div style="display:flex;gap:6px;margin:6px 0 16px">
+        <button type="button" class="btn btn-primary   btn-sm ar-tab" data-artab="recipients" onclick="showAutoReportTab('recipients')">Recipients</button>
+        <button type="button" class="btn btn-secondary btn-sm ar-tab" data-artab="schedule"   onclick="showAutoReportTab('schedule')">Schedule</button>
+        <button type="button" class="btn btn-secondary btn-sm ar-tab" data-artab="delivery"   onclick="showAutoReportTab('delivery')">Delivery settings</button>
+      </div>
+
+      <!-- Tab 1 — Recipients -->
+      <div class="ar-tabpanel" id="ar-tab-recipients">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <span style="font-size:0.8rem;color:#6b7a99">One row per site. A report is only delivered to a <em>confirmed</em> address.</span>
+          <button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="openRecipientModal()">+ Add site</button>
+          <button class="btn btn-secondary btn-sm" disabled title="Coming in a later update">✨ Suggest from meetings</button>
+        </div>
+        <table class="user-table" id="ar-recipients-table">
+          <thead><tr>
+            <th>Site</th>
+            <th>Coordinator</th>
+            <th>Coordinator email</th>
+            <th>Facility manager</th>
+            <th>FM email</th>
+            <th>CC</th>
+            <th style="width:9%">Actions</th>
+          </tr></thead>
+          <tbody id="ar-recipients-tbody"></tbody>
+        </table>
+      </div>
+
+      <!-- Tab 2 — Schedule (rows rendered by loadReportSchedule) -->
+      <div class="ar-tabpanel" id="ar-tab-schedule" style="display:none">
+        <div style="font-size:0.8rem;color:#6b7a99;margin-bottom:10px">
+          Enable a weekly and / or monthly Task Scheduler job per report type. Times are 24-hour HH:mm (server local time).
+        </div>
+        <div id="ar-schedule-body"></div>
+      </div>
+
+      <!-- Tab 3 — Delivery settings (bound to /api/reports/config) -->
+      <div class="ar-tabpanel" id="ar-tab-delivery" style="display:none">
+        <div class="form-row cols-2" style="max-width:720px">
+          <div class="form-group">
+            <label>Transport</label>
+            <select id="cfg-transport">
+              <option value="smtp">SMTP</option>
+              <option value="graph">Microsoft Graph</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Formats <span style="font-weight:400;color:#6b7a99">— comma-separated (e.g. html,pdf)</span></label>
+            <input id="cfg-formats" type="text" placeholder="html,pdf">
+          </div>
+        </div>
+
+        <h4 style="margin:14px 0 6px">SMTP</h4>
+        <div class="form-row cols-2" style="max-width:720px">
+          <div class="form-group"><label>Host</label><input id="cfg-smtp-host" type="text" placeholder="smtp.office365.com"></div>
+          <div class="form-group"><label>Port</label><input id="cfg-smtp-port" type="text" placeholder="587"></div>
+        </div>
+        <div class="form-row cols-2" style="max-width:720px">
+          <div class="form-group"><label>User</label><input id="cfg-smtp-user" type="text"></div>
+          <div class="form-group"><label>Password</label><input id="cfg-smtp-pass" type="password" placeholder="Leave blank to keep the stored password"></div>
+        </div>
+        <div class="form-group"><label style="font-weight:400"><input type="checkbox" id="cfg-smtp-secure"> Use implicit TLS/SSL (secure)</label></div>
+
+        <h4 style="margin:14px 0 6px">Addressing</h4>
+        <div class="form-row cols-2" style="max-width:720px">
+          <div class="form-group"><label>From</label><input id="cfg-from" type="text" placeholder="IT Reports &lt;it-reports@edv-ops.com&gt;"></div>
+          <div class="form-group"><label>Reply-to</label><input id="cfg-reply-to" type="text"></div>
+        </div>
+        <div class="form-group" style="max-width:352px"><label>Default email domain</label><input id="cfg-default-domain" type="text" placeholder="edv-ops.com"></div>
+
+        <h4 style="margin:14px 0 6px">Group report recipients</h4>
+        <div class="form-row cols-2" style="max-width:720px">
+          <div class="form-group"><label>Group report — To</label><input id="cfg-group-to" type="text"></div>
+          <div class="form-group"><label>Group report — CC</label><input id="cfg-group-cc" type="text"></div>
+        </div>
+        <div class="form-group"><label style="font-weight:400"><input type="checkbox" id="cfg-group-to-confirmed"> Group report "To" address is confirmed</label></div>
+
+        <div class="form-group" style="margin-top:6px"><label style="font-weight:400"><input type="checkbox" id="cfg-never-send-unconfirmed" checked> <strong>Safety:</strong> never send to an unconfirmed address</label></div>
+
+        <div class="modal-actions" style="justify-content:flex-start;gap:10px;align-items:center">
+          <button class="btn btn-primary" onclick="saveReportConfig()">Save</button>
+          <button class="btn btn-secondary" onclick="testSmtp(this)">Test connection</button>
+          <span id="cfg-test-msg" style="font-size:0.85rem;color:#6b7a99"></span>
+        </div>
+      </div>
+    </div>
+
     <!-- ─── Meetings reference codes admin card moved to the Meetings module ──
          The 9 lookup tables (intake sources, departments, categories,
          severities, statuses, meeting statuses, escalation reasons, council
@@ -1223,6 +1324,38 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeRrAliasModal()">Cancel</button>
       <button class="btn btn-primary"   onclick="submitRrAlias()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═════════════════════════════════════════════════════════════════
+     REPORT RECIPIENT MODAL (Add / Edit one site's recipients)
+     Same modal-overlay pattern as the User / Site / RR-alias modals.
+     PUTs to /api/reports/recipients/:site (partial patch).
+═════════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="recipient-modal">
+  <div class="modal">
+    <h2 id="recipient-modal-title">Add site recipient</h2>
+    <input type="hidden" id="rcp-original-site">
+    <div class="form-row cols-2">
+      <div class="form-group"><label>Site code *</label><input id="rcp-site-code" type="text" placeholder="e.g. HGO"></div>
+      <div class="form-group"><label>Site name</label><input id="rcp-site-name" type="text" placeholder="e.g. Houndé"></div>
+    </div>
+    <div class="form-row cols-2">
+      <div class="form-group"><label>Coordinator name</label><input id="rcp-coord-name" type="text"></div>
+      <div class="form-group"><label>Coordinator email</label><input id="rcp-coord-email" type="email"></div>
+    </div>
+    <div class="form-group"><label style="font-weight:400"><input type="checkbox" id="rcp-coord-confirmed"> Coordinator email confirmed</label></div>
+    <div class="form-row cols-2">
+      <div class="form-group"><label>Facility manager name</label><input id="rcp-fm-name" type="text"></div>
+      <div class="form-group"><label>Facility manager email</label><input id="rcp-fm-email" type="email"></div>
+    </div>
+    <div class="form-group"><label style="font-weight:400"><input type="checkbox" id="rcp-fm-confirmed"> FM email confirmed</label></div>
+    <div class="form-group"><label>CC emails <span style="font-weight:400;color:#6b7a99">— comma-separated</span></label><input id="rcp-cc" type="text"></div>
+    <div class="form-group"><label style="font-weight:400"><input type="checkbox" id="rcp-active" checked> Active</label></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeRecipientModal()">Cancel</button>
+      <button class="btn btn-primary"   onclick="submitRecipient()">Save</button>
     </div>
   </div>
 </div>
@@ -4394,10 +4527,10 @@ async function downloadAllSitesMonthlyPptx(fromMonthlyPage) {
 //  ADMIN PAGE
 // ══════════════════════════════════════════════════════════════════
 // Admin left-rail: show one settings panel at a time. name ∈ users|sessions|sites|departments|risk.
-const _ADMIN_PANEL_IDS = { users:'ap-users', sessions:'sessions-card', sites:'ap-sites', departments:'ap-depts', execview:'ap-execview', backups:'ap-backups', risk:'rr-aliases-card' };
+const _ADMIN_PANEL_IDS = { users:'ap-users', sessions:'sessions-card', sites:'ap-sites', departments:'ap-depts', execview:'ap-execview', backups:'ap-backups', risk:'rr-aliases-card', autoreports:'ap-autoreports' };
 function showAdminPanel(name) {
-  // Guard: 'risk' is super_admin-only — fall back to Users for everyone else.
-  if ((name === 'risk' || name === 'backups') && currentUser?.role !== 'super_admin') name = 'users';
+  // Guard: 'risk' / 'backups' / 'autoreports' are super_admin-only — fall back to Users for everyone else.
+  if ((name === 'risk' || name === 'backups' || name === 'autoreports') && currentUser?.role !== 'super_admin') name = 'users';
   if (!_ADMIN_PANEL_IDS[name]) name = 'users';
   document.querySelectorAll('#page-admin .admin-panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('#admin-rail .admin-rail__item').forEach(b => b.classList.toggle('active', b.dataset.panel === name));
@@ -4413,6 +4546,8 @@ function showAdminPanel(name) {
   }
   // Fresh data when opening Scheduled Backups.
   if (name === 'backups' && typeof loadBackupSchedule === 'function') loadBackupSchedule();
+  // Fresh data when opening Automated Reports (defaults to the Recipients tab).
+  if (name === 'autoreports' && typeof loadAutoReports === 'function') loadAutoReports();
   // Reflect the section in the hash (deep-linkable); guard avoids re-entrancy with the router.
   const want = '#admin/' + name;
   if (location.hash !== want) { _suppressHashRoute = true; location.hash = want; }
@@ -4432,6 +4567,8 @@ async function loadAdminPage() {
     if (rrRail) rrRail.style.display = isSuperAdmin ? '' : 'none';
     const bkRail = document.getElementById('admin-rail-backups');
     if (bkRail) bkRail.style.display = isSuperAdmin ? '' : 'none';
+    const arRail = document.getElementById('admin-rail-autoreports');
+    if (arRail) arRail.style.display = isSuperAdmin ? '' : 'none';
     if (isSuperAdmin) {
       loadRrAliases();
       // Default the unmapped-sites picker to the previous month
@@ -4444,7 +4581,7 @@ async function loadAdminPage() {
     }
     // Open the panel from the hash sub-section (#admin/<section>) or default to Users.
     const sub = (location.hash.split('/')[1] || '').toLowerCase();
-    showAdminPanel(['users','sessions','sites','departments','execview','risk'].includes(sub) ? sub : 'users');
+    showAdminPanel(['users','sessions','sites','departments','execview','risk','autoreports'].includes(sub) ? sub : 'users');
 
     const deptUrl  = isExecOrSuper ? '/api/reports/departments?include_inactive=1' : '/api/reports/departments';
     const sitesUrl = isExecOrSuper ? '/api/reports/sites?include_inactive=1'        : '/api/reports/sites';
@@ -5210,6 +5347,215 @@ function saveExecEditorial() {
   api('PUT', '/api/exec/editorial?period=' + encodeURIComponent(period), { highlights, focus })
     .then(() => { toast('Saved ✓'); loadExecEditorial(); })
     .catch(err => toast(err || 'Save failed', 'error'));
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  AUTOMATED REPORTS CARD (super_admin only)
+//  Three tabs over the already-built /api/reports/* routes:
+//    Recipients  → GET/PUT /api/reports/recipients[/:site]
+//    Schedule    → GET/PUT /api/reports/schedule
+//    Delivery    → GET/PUT /api/reports/config + POST /api/reports/test-smtp
+//  Mirrors the Risk Register / Exec View cards: same api()/toast()/esc()
+//  helpers, same .modal-overlay.open + .user-table classes.
+// ══════════════════════════════════════════════════════════════════
+const _AR_TYPES = [['coordinator', 'Coordinator'], ['finance', 'Finance'], ['group', 'Group']];
+const _AR_DAYS  = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+function _arYN(v) { return (v === 1 || v === '1' || v === true) ? 1 : 0; }
+
+function showAutoReportTab(name) {
+  ['recipients', 'schedule', 'delivery'].forEach(t => {
+    const p = document.getElementById('ar-tab-' + t);
+    if (p) p.style.display = (t === name) ? '' : 'none';
+  });
+  document.querySelectorAll('#ap-autoreports .ar-tab').forEach(b => {
+    const on = b.dataset.artab === name;
+    b.classList.toggle('btn-primary', on);
+    b.classList.toggle('btn-secondary', !on);
+  });
+  if (name === 'recipients') loadReportRecipients();
+  else if (name === 'schedule') loadReportSchedule();
+  else if (name === 'delivery') loadReportConfig();
+}
+function loadAutoReports() { showAutoReportTab('recipients'); }
+
+// ── Tab 1 · Recipients ──────────────────────────────────────────────
+function loadReportRecipients() {
+  const tbody = document.getElementById('ar-recipients-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="7" style="color:#94a3b8;font-style:italic;text-align:center;padding:14px">Loading…</td></tr>';
+  api('GET', '/api/reports/recipients').then(rows => {
+    if (!rows || !rows.length) {
+      tbody.innerHTML = '<tr><td colspan="7" style="color:#94a3b8;font-style:italic;text-align:center;padding:14px">No recipients yet — click + Add site to create one</td></tr>';
+      return;
+    }
+    const emailCell = (email, conf) => email
+      ? `${esc(email)} ${conf ? '<span style="color:#0F766E;font-weight:700" title="Confirmed">✓</span>' : '<span style="color:#D97706;font-weight:700" title="Not confirmed — will NOT be sent">⚠</span>'}`
+      : '<span style="color:#bbb">—</span>';
+    tbody.innerHTML = rows.map(r => `
+      <tr${_arYN(r.active) ? '' : ' style="opacity:.5"'}>
+        <td><strong>${esc(r.site_code)}</strong>${r.site_name ? `<br><span style="font-size:11px;color:#6b7a99">${esc(r.site_name)}</span>` : ''}</td>
+        <td>${esc(r.coordinator_name || '—')}</td>
+        <td>${emailCell(r.coordinator_email, _arYN(r.coordinator_email_confirmed))}</td>
+        <td>${esc(r.fm_name || '—')}</td>
+        <td>${emailCell(r.fm_email, _arYN(r.fm_email_confirmed))}</td>
+        <td style="font-size:11px;color:#6b7a99">${esc(r.cc_emails || '—')}</td>
+        <td><button class="btn btn-secondary btn-sm" onclick='openRecipientModal(${JSON.stringify(r).replace(/'/g, "&#39;")})'>Edit</button></td>
+      </tr>`).join('');
+  }).catch(e => {
+    tbody.innerHTML = `<tr><td colspan="7" style="color:#b91c1c;font-style:italic;text-align:center;padding:14px">Failed to load: ${esc(e.message || e)}</td></tr>`;
+  });
+}
+
+function openRecipientModal(row) {
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = (v == null ? '' : v); };
+  const chk = (id, v) => { const el = document.getElementById(id); if (el) el.checked = !!v; };
+  const codeInput = document.getElementById('rcp-site-code');
+  if (row) {
+    document.getElementById('recipient-modal-title').textContent = 'Edit site recipient';
+    document.getElementById('rcp-original-site').value = row.site_code;
+    set('rcp-site-code', row.site_code); if (codeInput) codeInput.readOnly = true;   // PK
+    set('rcp-site-name', row.site_name);
+    set('rcp-coord-name', row.coordinator_name); set('rcp-coord-email', row.coordinator_email);
+    chk('rcp-coord-confirmed', _arYN(row.coordinator_email_confirmed));
+    set('rcp-fm-name', row.fm_name); set('rcp-fm-email', row.fm_email);
+    chk('rcp-fm-confirmed', _arYN(row.fm_email_confirmed));
+    set('rcp-cc', row.cc_emails); chk('rcp-active', _arYN(row.active));
+  } else {
+    document.getElementById('recipient-modal-title').textContent = 'Add site recipient';
+    document.getElementById('rcp-original-site').value = '';
+    set('rcp-site-code', ''); if (codeInput) codeInput.readOnly = false;
+    set('rcp-site-name', ''); set('rcp-coord-name', ''); set('rcp-coord-email', '');
+    chk('rcp-coord-confirmed', 0); set('rcp-fm-name', ''); set('rcp-fm-email', '');
+    chk('rcp-fm-confirmed', 0); set('rcp-cc', ''); chk('rcp-active', 1);
+  }
+  document.getElementById('recipient-modal').classList.add('open');
+  setTimeout(() => { const el = document.getElementById(row ? 'rcp-coord-name' : 'rcp-site-code'); if (el) el.focus(); }, 50);
+}
+function closeRecipientModal() { document.getElementById('recipient-modal').classList.remove('open'); }
+
+function submitRecipient() {
+  const orig = document.getElementById('rcp-original-site').value;
+  const site = document.getElementById('rcp-site-code').value.trim();
+  if (!site) { toast('Site code is required', 'error'); return; }
+  const patch = {
+    site_name: document.getElementById('rcp-site-name').value.trim(),
+    coordinator_name: document.getElementById('rcp-coord-name').value.trim(),
+    coordinator_email: document.getElementById('rcp-coord-email').value.trim(),
+    coordinator_email_confirmed: document.getElementById('rcp-coord-confirmed').checked ? 1 : 0,
+    fm_name: document.getElementById('rcp-fm-name').value.trim(),
+    fm_email: document.getElementById('rcp-fm-email').value.trim(),
+    fm_email_confirmed: document.getElementById('rcp-fm-confirmed').checked ? 1 : 0,
+    cc_emails: document.getElementById('rcp-cc').value.trim(),
+    active: document.getElementById('rcp-active').checked ? 1 : 0,
+  };
+  // :site is the PK. On edit it's read-only (orig === site); on add, use the new code.
+  api('PUT', '/api/reports/recipients/' + encodeURIComponent(orig || site), patch)
+    .then(() => { toast(`Recipient saved: ${orig || site} ✓`, 'success'); closeRecipientModal(); loadReportRecipients(); })
+    .catch(e => toast('Save failed: ' + (e.message || e), 'error'));
+}
+
+// ── Tab 2 · Schedule ────────────────────────────────────────────────
+function loadReportSchedule() {
+  const box = document.getElementById('ar-schedule-body');
+  if (!box) return;
+  box.innerHTML = '<div style="color:#94a3b8;font-style:italic;padding:10px">Loading…</div>';
+  api('GET', '/api/reports/schedule').then(rows => {
+    const map = {};
+    (rows || []).forEach(r => { map[r.report_type + '|' + r.cadence] = r; });
+    const dayOpts = sel => _AR_DAYS.map(d => `<option value="${d}"${String(sel || '').toUpperCase() === d ? ' selected' : ''}>${d}</option>`).join('');
+    box.innerHTML = _AR_TYPES.map(([t, label]) => {
+      const wk = map[t + '|weekly'] || {}, mo = map[t + '|monthly'] || {};
+      return `<div style="border:1px solid #E2E5EA;border-radius:8px;padding:12px 14px;margin-bottom:12px">
+        <div style="font-weight:700;margin-bottom:8px">${label} report</div>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:8px">
+          <label style="font-weight:400;min-width:88px"><input type="checkbox" id="sch-${t}-weekly-en"${_arYN(wk.enabled) ? ' checked' : ''}> Weekly</label>
+          <span style="color:#6b7a99">on</span>
+          <select id="sch-${t}-weekly-day" style="padding:3px 6px;border:1px solid #E2E5EA;border-radius:4px">${dayOpts(wk.day || 'MON')}</select>
+          <span style="color:#6b7a99">at</span>
+          <input type="time" id="sch-${t}-weekly-time" value="${esc(wk.time || '07:00')}" style="padding:3px 6px;border:1px solid #E2E5EA;border-radius:4px">
+          <button class="btn btn-secondary btn-sm" onclick="saveScheduleRow('${t}','weekly')">Save</button>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+          <label style="font-weight:400;min-width:88px"><input type="checkbox" id="sch-${t}-monthly-en"${_arYN(mo.enabled) ? ' checked' : ''}> Monthly</label>
+          <span style="color:#6b7a99">day</span>
+          <input type="text" id="sch-${t}-monthly-day" value="${esc(mo.day || '1')}" placeholder="1 or LAST" style="width:78px;padding:3px 6px;border:1px solid #E2E5EA;border-radius:4px">
+          <span style="color:#6b7a99">at</span>
+          <input type="time" id="sch-${t}-monthly-time" value="${esc(mo.time || '07:00')}" style="padding:3px 6px;border:1px solid #E2E5EA;border-radius:4px">
+          <button class="btn btn-secondary btn-sm" onclick="saveScheduleRow('${t}','monthly')">Save</button>
+        </div>
+      </div>`;
+    }).join('');
+  }).catch(e => { box.innerHTML = `<div style="color:#b91c1c;padding:10px">Failed to load: ${esc(e.message || e)}</div>`; });
+}
+function saveScheduleRow(t, cadence) {
+  const enabled = document.getElementById(`sch-${t}-${cadence}-en`).checked;
+  const day  = document.getElementById(`sch-${t}-${cadence}-day`).value.trim();
+  const time = document.getElementById(`sch-${t}-${cadence}-time`).value.trim();
+  // Server 500s on a bad time when enabling — check client-side first.
+  if (enabled && !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) {
+    toast('Enter a valid time (HH:mm) before enabling', 'error');
+    return;
+  }
+  api('PUT', '/api/reports/schedule', { report_type: t, cadence, enabled, day, time })
+    .then(res => {
+      toast((res && res.disabled) ? `${t} ${cadence} schedule disabled` : `${t} ${cadence} schedule saved ✓`, 'success');
+      loadReportSchedule();
+    })
+    .catch(e => toast('Save failed: ' + (e.message || e), 'error'));
+}
+
+// ── Tab 3 · Delivery settings ───────────────────────────────────────
+function loadReportConfig() {
+  api('GET', '/api/reports/config').then(c => {
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = (v == null ? '' : v); };
+    const chk = (id, v) => { const el = document.getElementById(id); if (el) el.checked = (v === '1' || v === 1 || v === true); };
+    set('cfg-transport', c.transport || 'smtp');
+    set('cfg-formats', c.formats);
+    set('cfg-smtp-host', c.smtp_host); set('cfg-smtp-port', c.smtp_port); set('cfg-smtp-user', c.smtp_user);
+    const passEl = document.getElementById('cfg-smtp-pass'); if (passEl) passEl.value = '';   // never echo the stored secret
+    chk('cfg-smtp-secure', c.smtp_secure);
+    set('cfg-from', c.from); set('cfg-reply-to', c.reply_to);
+    set('cfg-default-domain', c.default_email_domain);
+    set('cfg-group-to', c.group_report_to); set('cfg-group-cc', c.group_report_cc);
+    chk('cfg-group-to-confirmed', c.group_report_to_confirmed);
+    chk('cfg-never-send-unconfirmed', c.never_send_unconfirmed);
+  }).catch(e => toast('Could not load settings: ' + (e.message || e), 'error'));
+}
+function saveReportConfig() {
+  const val = id => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
+  const patch = {
+    transport: val('cfg-transport'),
+    formats: val('cfg-formats'),
+    smtp_host: val('cfg-smtp-host'),
+    smtp_port: val('cfg-smtp-port'),
+    smtp_secure: document.getElementById('cfg-smtp-secure').checked ? '1' : '0',
+    smtp_user: val('cfg-smtp-user'),
+    from: val('cfg-from'),
+    reply_to: val('cfg-reply-to'),
+    default_email_domain: val('cfg-default-domain'),
+    group_report_to: val('cfg-group-to'),
+    group_report_cc: val('cfg-group-cc'),
+    group_report_to_confirmed: document.getElementById('cfg-group-to-confirmed').checked ? '1' : '0',
+    never_send_unconfirmed: document.getElementById('cfg-never-send-unconfirmed').checked ? '1' : '0',
+  };
+  const pass = document.getElementById('cfg-smtp-pass').value;
+  if (pass) patch.smtp_pass = pass;   // only overwrite when a new one is typed
+  api('PUT', '/api/reports/config', patch)
+    .then(() => { toast('Delivery settings saved ✓', 'success'); loadReportConfig(); })
+    .catch(e => toast('Save failed: ' + (e.message || e), 'error'));
+}
+function testSmtp(btn) {
+  const msg = document.getElementById('cfg-test-msg');
+  if (btn) btn.disabled = true;
+  if (msg) { msg.style.color = '#6b7a99'; msg.textContent = 'Testing…'; }
+  api('POST', '/api/reports/test-smtp').then(res => {
+    const ok = res && res.ok !== false;
+    if (msg) { msg.style.color = ok ? '#0F766E' : '#b91c1c'; msg.textContent = ok ? '✓ Connection OK' : ('✗ ' + (res.error || 'Failed')); }
+    toast(ok ? 'SMTP connection OK ✓' : ('SMTP test failed: ' + (res.error || 'unknown')), ok ? 'success' : 'error');
+  }).catch(e => {
+    if (msg) { msg.style.color = '#b91c1c'; msg.textContent = '✗ ' + (e.message || e); }
+    toast('SMTP test failed: ' + (e.message || e), 'error');
+  }).finally(() => { if (btn) btn.disabled = false; });
 }
 
 // ══════════════════════════════════════════════════════════════════
