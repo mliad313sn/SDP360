@@ -28,11 +28,11 @@ async function siteReportData(siteCode, period, deps) {
   const ms = await _safe(() => deps.meetingsSummary(siteCode, period), { kpis: {}, departments: [] }, 'meetingsSummary');
   const mk = ms.kpis || {};
   const mActions = await _safe(() => deps.meetingsActions(siteCode), [], 'meetingsActions');
-  const insp = await _safe(() => deps.inspectionAggregate(siteCode), {}, 'inspectionAggregate');
+  const insp = await _safe(() => deps.inspectionAggregate(siteCode, period), {}, 'inspectionAggregate');
   const iActions = await _safe(() => deps.inspectionActions(siteCode), [], 'inspectionActions');
   const hd = await _safe(() => deps.helpdesk(siteCode, period), EMPTY.helpdesk, 'helpdesk');
   const techsRaw = await _safe(() => deps.technicians(siteCode, period), [], 'technicians');
-  const siteStatusRaw = (() => { try { return deps.siteStatus(siteCode) || 'operational'; } catch { return 'operational'; } })();
+  const siteStatusRaw = await _safe(() => deps.siteStatus(siteCode), 'operational', 'siteStatus');
   const prev = await _safe(() => deps.prevComposite(siteCode, period), null, 'prevComposite');
 
   const meetings = {
@@ -42,7 +42,7 @@ async function siteReportData(siteCode, period, deps) {
     overdue_actions: mActions.map(a => ({ description: a.description, owner: a.owner, target_date: a.target_date })),
   };
   const inspection = {
-    inspections_done: insp.total || 0, findings_critical_major: insp.findings_critical_major || 0,
+    inspections_done: insp.inspections_done || 0, findings_critical_major: insp.findings_critical_major || 0,
     overall_risk: insp.overall_risk || '—',
     overdue_actions: iActions.map(a => ({ description: a.description, owner: a.owner, due_date: a.due_date })),
   };

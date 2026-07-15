@@ -10,7 +10,8 @@ const deps = {
     departments: [{ department: 'Maintenance', status: 'on_track', last_pv: '2026-07-05' }],
   }),
   meetingsActions: async () => [{ description: 'Fix X', owner: 'Jean', target_date: '2026-07-20' }],
-  inspectionAggregate: async () => ({ total: 1, findings_critical_major: 0, overall_risk: 'low', overdue: [] }),
+  // adapted shape (siteReportAdapters.adaptInspectionAggregate), period-scoped
+  inspectionAggregate: async (code, period) => ({ inspections_done: 1, findings_critical_major: 0, overall_risk: 'low' }),
   inspectionActions: async () => [{ description: 'Replace UPS', owner: 'Sam', due_date: '2026-07-30' }],
   helpdesk: async () => ({ created: 40, resolved: 35, backlog: 5, sla_overdue: 2, major_incidents: 1, top_categories: [{ category: 'Network', count: 12 }], recurring: [] }),
   technicians: async () => [{ name: 'Tech A', assigned: 20, resolved: 18, avg_resolution_h: 6, reopened: 1, current_load: 4 }],
