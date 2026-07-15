@@ -47,7 +47,11 @@ const _UPSERT = `INSERT INTO report_config (key, value, updated_at, updated_by)
   VALUES (?, ?, {NOW}, ?)
   ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at, updated_by=excluded.updated_by`;
 function setConfig(db, patch, user) {
-  const clean = Object.entries(patch || {}).filter(([k]) => KEYS.includes(k));
+  // A blank smtp_pass means "keep the existing password" — the GET handler
+  // redacts it to '', so a Save that doesn't retype it must NOT wipe the stored value.
+  const clean = Object.entries(patch || {})
+    .filter(([k]) => KEYS.includes(k))
+    .filter(([k, v]) => !(k === 'smtp_pass' && String(v) === ''));
   const { H, isPg } = _h(db);
   if (isPg) return (async () => {
     await H.runTransaction(async () => {

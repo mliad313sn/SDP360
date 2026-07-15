@@ -30,3 +30,25 @@ test('disable removes the task + flips enabled=0', async () => {
   const row = sched.getSchedules(db).find(x => x.report_type === 'finance' && x.cadence === 'weekly');
   assert.strictEqual(row.enabled, 0);
 });
+
+test('monthly schedule passes the day-of-month through to runTask', async () => {
+  const db = freshDb();
+  const calls = [];
+  await sched.setSchedule(db, { report_type: 'finance', cadence: 'monthly', enabled: 1, day: '25', time: '07:30' }, 'a', { runTask: (x) => { calls.push(x); return { ok: true }; } });
+  const create = calls.find(c => c.action === 'create');
+  assert.strictEqual(String(create.day), '25');
+  const row = sched.getSchedules(db).find(x => x.report_type === 'finance' && x.cadence === 'monthly');
+  assert.strictEqual(row.day, '25');
+});
+
+test('monthly LAST is accepted and normalized', async () => {
+  const db = freshDb();
+  const calls = [];
+  await sched.setSchedule(db, { report_type: 'finance', cadence: 'monthly', enabled: 1, day: 'last', time: '07:30' }, 'a', { runTask: (x) => { calls.push(x); return { ok: true }; } });
+  assert.strictEqual(calls.find(c => c.action === 'create').day, 'LAST');
+});
+
+test('invalid monthly day rejected', async () => {
+  const db = freshDb();
+  await assert.rejects(() => sched.setSchedule(db, { report_type: 'finance', cadence: 'monthly', enabled: 1, day: 'xyz', time: '07:30' }, 'a', { runTask: () => ({ ok: true }) }), /monthly day/i);
+});

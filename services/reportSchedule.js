@@ -59,9 +59,14 @@ function _defaultRunTask(spec) {
       args = ['/Delete', '/TN', spec.taskName, '/F'];
     } else {
       const tr = `"${NODE}" "${SEND_CLI}" --type=${spec.report_type} --cadence=${spec.cadence}`;
-      args = spec.cadence === 'weekly'
-        ? ['/Create', '/F', '/SC', 'WEEKLY', '/D', spec.day, '/TN', spec.taskName, '/TR', tr, '/ST', spec.time]
-        : ['/Create', '/F', '/SC', 'MONTHLY', '/D', '1', '/TN', spec.taskName, '/TR', tr, '/ST', spec.time];
+      if (spec.cadence === 'weekly') {
+        args = ['/Create', '/F', '/SC', 'WEEKLY', '/D', spec.day, '/TN', spec.taskName, '/TR', tr, '/ST', spec.time];
+      } else if (String(spec.day).toUpperCase() === 'LAST') {
+        // schtasks LASTDAY requires /MO LASTDAY /D * (NOT /D LAST)
+        args = ['/Create', '/F', '/SC', 'MONTHLY', '/MO', 'LASTDAY', '/D', '*', '/TN', spec.taskName, '/TR', tr, '/ST', spec.time];
+      } else {
+        args = ['/Create', '/F', '/SC', 'MONTHLY', '/D', String(spec.day), '/TN', spec.taskName, '/TR', tr, '/ST', spec.time];
+      }
     }
     execFile('schtasks', args, { windowsHide: true }, (err, stdout, stderr) => {
       if (err && spec.action === 'delete') return resolve({ ok: true, note: 'delete ignored: ' + (stderr || err.message) });
@@ -84,8 +89,19 @@ async function setSchedule(db, { report_type, cadence, enabled, day, time } = {}
     return { ok: true, disabled: true };
   }
   _assertTime(time);
-  const d = String(day || '').toUpperCase();
-  if (cadence === 'weekly' && !DAYS.includes(d)) throw new Error(`invalid weekly day "${day}"`);
+  let d = String(day || '').toUpperCase();
+  if (cadence === 'weekly') {
+    if (!DAYS.includes(d)) throw new Error(`invalid weekly day "${day}"`);
+  } else {
+    // monthly: accept 'LAST' (any case) or an integer 1-31
+    if (d === 'LAST') {
+      d = 'LAST';
+    } else if (/^\d+$/.test(d) && Number(d) >= 1 && Number(d) <= 31) {
+      d = String(Number(d));
+    } else {
+      throw new Error(`invalid monthly day "${day}" (expected 1-31 or LAST)`);
+    }
+  }
   await runTask({ action: 'create', taskName, report_type, cadence, day: d, time });   // throws → no row write
   _writeRow(db, { report_type, cadence, enabled: 1, day: d, time }, user);
   return { ok: true };

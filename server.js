@@ -4035,8 +4035,6 @@ function requireRole(roleOrRoles) {
 const jsonBody = express.json({ limit: '2mb' });
 
 // ── Reporting suite (Foundation) ──────────────────────────────────────
-// NOTE: reportSchedule is required + its route registered in Task 9 (module
-// doesn't exist yet). Only config/recipients/site-data/test-smtp here.
 const reportConfig    = require('./services/reportConfig');
 const reportDirectory = require('./services/reportDirectory');
 const reportSentLog   = require('./services/reportSentLog');
@@ -4052,7 +4050,11 @@ if ((process.env.REPORTS_BACKEND || 'sqlite').toLowerCase() !== 'postgres' && rd
 }
 
 app.get('/api/reports/config', requireReportSession, requireAdmin, async (req, res) => {
-  try { res.json(await reportConfig.getConfig(rdb.db)); }
+  try {
+    const c = await reportConfig.getConfig(rdb.db);
+    if (c && c.smtp_pass) c.smtp_pass = '';   // never expose the stored SMTP password
+    res.json(c);
+  }
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 app.put('/api/reports/config', requireReportSession, requireAdmin, async (req, res) => {
