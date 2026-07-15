@@ -8,6 +8,24 @@
 
 ---
 
+## 0. As-built (sub-project 2 — Coordinator, 2026-07-15)
+
+What the implementation actually settled, where it sharpens or corrects this spec:
+
+- **Cadence is decoupled from report type** (as designed in §1.1) — `period.kind` only tags the send
+  frequency + header wording; the readers called are identical.
+- **`trend_pts` is null when the previous month had no activity.** The `available` flag is NOT a usable
+  discriminator: the reader only sets it false for a falsy site code, so a real site with zero PVs
+  still returns `available:true` with zeroed kpis — and those zeros score ~50 (empty denominators →
+  100), i.e. a confident trend against a month that never happened. `prevComposite` gates on ACTUAL
+  ACTIVITY instead (`pvs_held || open_issues || resolved_month || new_month || escalations_open`).
+- **Inspection data is period-scoped** (`aggregate({site, from, to})` on `inspection_date`). All-time
+  would pin ~30% of the composite to a constant.
+- **Technician stats are helpdesk-only and group-scoped** (`tech_group` from `sites.zoho_group` —
+  never `request_records.site`).
+
+---
+
 ## 1. Purpose
 
 Three complementary reporting products, one shared engine, delivered by email + a live page:
