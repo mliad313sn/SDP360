@@ -4027,6 +4027,58 @@ function requireRole(roleOrRoles) {
 
 const jsonBody = express.json({ limit: '2mb' });
 
+// ── Reporting suite (Foundation) ──────────────────────────────────────
+// NOTE: reportSchedule is required + its route registered in Task 9 (module
+// doesn't exist yet). Only config/recipients/site-data/test-smtp here.
+const reportConfig    = require('./services/reportConfig');
+const reportDirectory = require('./services/reportDirectory');
+const reportSentLog   = require('./services/reportSentLog');
+const { siteReportData } = require('./services/siteReport');
+const { buildSiteReportDeps } = require('./services/siteReportDeps');
+
+if ((process.env.REPORTS_BACKEND || 'sqlite').toLowerCase() !== 'postgres' && rdb && rdb.db) {
+  reportConfig._initSchema(rdb.db);
+  reportDirectory._initSchema(rdb.db);
+  reportSentLog._initSchema(rdb.db);
+}
+
+app.get('/api/reports/config', requireReportSession, requireAdmin, async (req, res) => {
+  try { res.json(await reportConfig.getConfig(rdb.db)); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+app.put('/api/reports/config', requireReportSession, requireAdmin, async (req, res) => {
+  try { res.json(await reportConfig.setConfig(rdb.db, req.body || {}, req.reportUser?.username)); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+app.get('/api/reports/recipients', requireReportSession, requireAdmin, async (req, res) => {
+  try { res.json(await reportDirectory.listRecipients(rdb.db)); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+app.put('/api/reports/recipients/:site', requireReportSession, requireAdmin, async (req, res) => {
+  try { res.json(await reportDirectory.upsertRecipient(rdb.db, req.params.site, req.body || {}, req.reportUser?.username)); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+// (schedule routes are registered in Task 9, after reportSchedule.js exists)
+app.get('/api/reports/site-data', requireReportSession, async (req, res) => {
+  try {
+    const site = String(req.query.site || '');
+    if (site === 'all') return res.json({ site_code: 'all', consolidated: true, note: 'pick a site (consolidated view lands in sub-project 2)' });
+    const now = new Date();
+    const year = +(req.query.year || now.getFullYear());
+    const month = +(req.query.month || (now.getMonth() + 1));
+    const kind = req.query.kind === 'monthly' ? 'monthly' : 'weekly';
+    const data = await siteReportData(site, { year, month, kind }, buildSiteReportDeps());
+    res.json(data);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+app.post('/api/reports/test-smtp', requireReportSession, requireAdmin, async (req, res) => {
+  try {
+    const { buildMailer } = require('./services/mailer');
+    const cfg = await reportConfig.getConfig(rdb.db);
+    res.json(await buildMailer(cfg).verify());
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ── Auth routes ───────────────────────────────────────────────────
 // SECURITY: Login endpoint is rate-limited (10 attempts/15min) to block brute force.
 app.post('/api/reports/auth/login', loginLimiter, jsonBody, async (req, res) => {
