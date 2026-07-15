@@ -8,6 +8,11 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ## ⚡ Current state (as of 2026-07-13)
 
+> **Reporting Suite Foundation (sub-project 1) landed on branch `feat/reporting-suite`** —
+> engine + config module + live `/site-report.html` + Automated Reports admin card; sends
+> no email yet; sub-projects 2-4 (coordinator/FM report composers + scheduling auto-send +
+> SharePoint) pending.
+>
 > **READ FIRST.** Branch `main`. **🏁 The SQLite→PostgreSQL migration is COMPLETE
 > in prod: ALL 4 modules run on PostgreSQL** (`TRACKER_BACKEND` / `MEETINGS_BACKEND`
 > / `INSPECTION_BACKEND` / `REPORTS_BACKEND` = `postgres` in prod `.env`, plus
@@ -1791,6 +1796,7 @@ Then each user presses **Ctrl+F5** once. The packager advances
 | `server.js` | Express API, sync jobs, PM2 entry point. **Being split** — see `routes/` (split-server.js pilot). |
 | `routes/inspection.js` | First module extracted from server.js (split pilot, 2026-06-21). Factory `module.exports = (deps) => router` — DI pattern: server.js passes `{ express, inspectionDb, inspectionPptx, rdb, require* middleware, getRawCache }` and does `app.use(require('./routes/inspection')(deps))`. Handlers byte-identical to the old inline ones. Tested by `tests/inspection-routes.test.js`. **Pattern to copy for future extractions** (meetings, tracker, risk-register…). |
 | `services/blobStore.js` | Filesystem blob store (`<DATA_DIR>/blobs/<module>/<owner>/…`) — keeps inspection photos/signatures (and future blobs) OUT of SQLite. Path-traversal-guarded, SDP_DATA_DIR-aware. |
+| `services/report*.js` + `siteReport*.js` | **Reporting Suite Foundation** (branch `feat/reporting-suite`) — `reportConfig.js` (delivery settings k/v), `reportDirectory.js` (per-site recipients), `reportSchedule.js` (schedules + Task Scheduler bridge), `reportSentLog.js` (dedup/audit send log), `siteScore.js` (composite RAG score + two-moves), `siteReport.js` + `siteReportDeps.js` (per-site report composer + DI deps), `reportRender.js` (PDF), `mailer.js` (SMTP send). All backed by 4 reports.db tables auto-created at boot (sqlite `_initSchema` / pg `005_reporting.sql`); pg copy via `tools/pg/copy-reports-reporting.js`. |
 | `services/pgDb.js` | **Reusable async PostgreSQL adapter** (Chunk 1 of the PG migration). better-sqlite3-shaped surface: `prepare(sql).get/all/run` (async), `exec`, `runTransaction` (AsyncLocalStorage), `?`→`$N` translate, NUMERIC type-parser, `RETURNING *` for bare INSERTs. Module-agnostic — **Chunks 2-4 (meetings/inspection/reports.db) copy this same adapter + recipe.** Selected per-module by a `TRACKER_BACKEND=sqlite\|postgres` style flag; prod stays `sqlite` until cutover. See `tools/pg/README.md`. |
 | `db/postgres/tracker/001_init.sql` + `tools/pg/copy-tracker.js` | Postgres tracker schema (legacy+v2, FK CASCADE, type-preserving `*_json` TEXT / `active` INT / `target` TEXT) + one-shot idempotent `tracker.db`→PG copy. Tests: `tests/pg-tracker.test.js` (+ `tests/pg-helpers.js`) — `PG_ADMIN_URL=… node --test tests/pg-tracker.test.js`; skips cleanly with no PG. |
 | `reports-weekly-pptx.js` | Weekly PPTX **and** all `slideMonthly*` monthly slide functions |

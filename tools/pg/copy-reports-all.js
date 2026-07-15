@@ -7,7 +7,8 @@
 //            + monthly_reports + annual_objectives + site_module_codes + infra_kpi_catalog
 //   hot    → request_records + change_records + cab_approvals + survey_results + survey_answers
 //            + sync_metadata
-// Each phase-copier is idempotent (upsert on PK / Zoho-id) and applies the 001–004 schemas first,
+//   reporting → report_recipients + report_config + report_schedules + report_sent_log (4E)
+// Each phase-copier is idempotent (upsert on PK / Zoho-id) and applies the 001–005 schemas first,
 // so re-running is safe. Used at cutover to load prod data into PG before flipping
 // REPORTS_BACKEND=postgres. The flip itself is a deploy action (NOT done here).
 const fs   = require('fs');
@@ -17,13 +18,16 @@ const { copyReportsAuth }    = require('./copy-reports-auth');
 const { copyReportsConfig }  = require('./copy-reports-config');
 const { copyReportsReports } = require('./copy-reports-reports');
 const { copyReportsHot }     = require('./copy-reports-hot');
+const { copyReportsReporting } = require('./copy-reports-reporting');
 
-// FK-safe order: auth (sites/users) → config → reports (FK→sites) → hot (no inter-table FKs).
+// FK-safe order: auth (sites/users) → config → reports (FK→sites) → hot (no inter-table FKs)
+// → reporting (4E — no inter-table FKs).
 const PHASES = [
-  ['auth',    copyReportsAuth],
-  ['config',  copyReportsConfig],
-  ['reports', copyReportsReports],
-  ['hot',     copyReportsHot],
+  ['auth',      copyReportsAuth],
+  ['config',    copyReportsConfig],
+  ['reports',   copyReportsReports],
+  ['hot',       copyReportsHot],
+  ['reporting', copyReportsReporting],
 ];
 
 async function copyReportsAll(sqlitePath, pg) {

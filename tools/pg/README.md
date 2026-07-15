@@ -58,14 +58,15 @@ CASCADE for `deleteTrackerYear`).
 PG_URL=postgres://…  node tools/pg/copy-reports-all.js  [path/to/reports.db]
 ```
 
-Runs the four phase-copiers over ONE pg connection in **FK-safe order**: `auth` (sites + users +
+Runs the five phase-copiers over ONE pg connection in **FK-safe order**: `auth` (sites + users +
 sessions) → `config` (action_departments + audit_log + dashboard_preset_groups + **rr_site_aliases**)
 → `reports` (weeks/weekly_reports/infra_kpis/helpdesk_data/lights/action_items/monthly_reports/
 annual_objectives/site_module_codes/infra_kpi_catalog) → `hot` (request_records/change_records/
-cab_approvals/survey_results/survey_answers/sync_metadata). Each phase applies its schema (001–004)
+cab_approvals/survey_results/survey_answers/sync_metadata) → `reporting` (report_recipients/
+report_config/report_schedules/report_sent_log — 4E). Each phase applies its schema (001–005)
 first, upserts on PK / Zoho-id (idempotent — safe to re-run), and advances IDENTITY sequences. The
-phase-copiers are also runnable individually (`copy-reports-{auth,config,reports,hot}.js`). Defaults
-the source to `data/reports.db`.
+phase-copiers are also runnable individually (`copy-reports-{auth,config,reports,hot,reporting}.js`).
+Defaults the source to `data/reports.db`.
 
 ## Cutover runbook (`REPORTS_BACKEND=sqlite` → `postgres`)
 
@@ -503,6 +504,23 @@ behind `REPORTS_BACKEND` (default sqlite, prod untouched). **No app code left to
 pure cutover (operator/deploy): run `tools/pg/reconcile-reports.js` on real data (all 21 readers must
 match), `tools/pg/copy-reports-all.js` to load PG, then flip `REPORTS_BACKEND=postgres` + restart —
 see the **Cutover runbook** above.
+
+### 4E — reporting suite (recipients / config / schedules / sent-log)
+
+The Reporting Suite Foundation (branch `feat/reporting-suite`) adds 4 reports.db tables:
+`report_recipients` (PK `site_code`), `report_config` (PK `key`), `report_schedules`
+(PK `report_type, cadence`), `report_sent_log` (`id SERIAL` PK). They **auto-create at
+boot** — sqlite via each service's `_initSchema` (`services/reportDirectory.js` /
+`reportConfig.js` / `reportSchedule.js` / `reportSentLog.js`), pg via
+`db/postgres/reports/005_reporting.sql` applied inside `initPgReports`.
+
+- **Copy script:** `tools/pg/copy-reports-reporting.js` — one-shot idempotent
+  sqlite→PG copy (upsert on PK; `report_sent_log` copies `id` explicitly + advances the
+  SERIAL sequence via `COALESCE(MAX(id),0)`). Applies `005_reporting.sql` first. Guards
+  for tables not yet present in a fresh reports.db (skips with a logged note).
+- **Wired into `copy-reports-all.js`** as the 5th phase (`reporting`), after `hot` (no
+  inter-table FKs). Runnable standalone: `PG_URL=… node tools/pg/copy-reports-reporting.js`.
+- **Test:** `tests/pg-reporting.test.js` (PG-gated; clean-skips with no PG).
 
 ## Prod admin menu + provisioning (2026-07-09)
 
