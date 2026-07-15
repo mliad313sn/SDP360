@@ -1568,6 +1568,67 @@ async function _listSiteModuleCodesPg(module) {
   } catch (e) { console.warn('[site-resolve] listSiteModuleCodes failed:', e.message); return []; }
 }
 
+// Pure aggregation core — exported for tests. `rows` are request_records rows
+// already scoped to the site's groups + the calendar month.
+function _computeSiteHelpdesk(rows) {
+  const out = { created: 0, resolved: 0, backlog: 0, sla_overdue: 0, major_incidents: 0, top_categories: [], recurring: [] };
+  if (!rows || !rows.length) return out;
+  const cat = new Map(), sub = new Map();
+  for (const r of rows) {
+    out.created++;
+    if (r.pending_status === 0) out.resolved++; else out.backlog++;
+    // overdue_status is TRI-state: 1 / 0 / NULL (NULL = no SLA rule applies).
+    // Keep the strict === 1 — do not "simplify" to !== 0, which counts NULLs.
+    if (r.overdue_status === 1) out.sla_overdue++;
+    const isMI = /major/i.test(String(r.request_type || '')) || /major incident/i.test(String(r.template || ''));
+    if (isMI) out.major_incidents++;
+    const c = (r.category || '').trim();
+    if (c) cat.set(c, (cat.get(c) || 0) + 1);
+    const s = (r.sub_category || '').trim();
+    if (c && s) { const k = `${c} / ${s}`; sub.set(k, (sub.get(k) || 0) + 1); }
+  }
+  out.top_categories = [...cat.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, 5).map(([category, count]) => ({ category, count }));
+  out.recurring = [...sub.entries()].filter(([, n]) => n >= 3)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, 5).map(([label, count]) => ({ label, count }));
+  return out;
+}
+
+/**
+ * getSiteHelpdeskMonthly(site_id, year, month) → the site-report helpdesk block.
+ * Scopes by tech_group (from sites.zoho_group) — request_records.site is
+ * free-form and unreliable, so every per-site reader here joins by group.
+ * Returns the all-zero block when the site has no zoho_group.
+ */
+function getSiteHelpdeskMonthly(site_id, year, month) {
+  if (REPORTS_BACKEND === 'postgres') return _getSiteHelpdeskMonthlyPg(site_id, year, month);
+  const site = db.prepare('SELECT zoho_group FROM sites WHERE id=?').get(site_id);
+  const groups = String(site?.zoho_group || '').split(',').map(g => g.trim()).filter(Boolean);
+  if (!groups.length) return _computeSiteHelpdesk([]);
+  const ym = `${year}-${String(month).padStart(2, '0')}`;
+  const ph = groups.map(() => '?').join(',');
+  const rows = db.prepare(`
+    SELECT pending_status, overdue_status, request_type, template, category, sub_category
+    FROM request_records
+    WHERE tech_group IN (${ph}) AND strftime('%Y-%m', created_time) = ?`).all(...groups, ym);
+  return _computeSiteHelpdesk(rows);
+}
+// pg fork — strftime → to_char(created_time::timestamptz,'YYYY-MM').
+async function _getSiteHelpdeskMonthlyPg(site_id, year, month) {
+  const H = pgHandle();
+  const site = await H.prepare('SELECT zoho_group FROM sites WHERE id=?').get(site_id);
+  const groups = String(site?.zoho_group || '').split(',').map(g => g.trim()).filter(Boolean);
+  if (!groups.length) return _computeSiteHelpdesk([]);
+  const ym = `${year}-${String(month).padStart(2, '0')}`;
+  const ph = groups.map(() => '?').join(',');
+  const rows = await H.prepare(`
+    SELECT pending_status, overdue_status, request_type, template, category, sub_category
+    FROM request_records
+    WHERE tech_group IN (${ph}) AND to_char(created_time::timestamptz,'YYYY-MM') = ?`).all(...groups, ym);
+  return _computeSiteHelpdesk(rows);
+}
+
 function updateSiteGroup(site_id, zoho_group) {
   if (REPORTS_BACKEND === 'postgres') return _updateSiteGroupPg(site_id, zoho_group);
   db.prepare(`UPDATE sites SET zoho_group=? WHERE id=?`).run(zoho_group || null, site_id);
@@ -6206,6 +6267,8 @@ module.exports = {
   listSites, updateSiteGroup, createSite, updateSite, setSiteActive,
   // Per-module site codes (site_module_codes) — read path for the reporting suite
   getSiteIdByModuleCode, listSiteModuleCodes,
+  // Per-site report blocks (group-scoped — request_records.site is unreliable)
+  getSiteHelpdeskMonthly, _computeSiteHelpdesk,
   getPreviousWeek, ensureWeek, getWeekRange,
   ensureReport, getReport, listReports,
   saveInfraKpis, saveHelpdeskData, saveLights, saveActionItems,
