@@ -29,6 +29,12 @@ test('resolveRecipient returns to/cc when confirmed', () => {
   assert.deepStrictEqual(r, { to: 'jean@edv-ops.com', cc: ['boss@edv-ops.com'] });
 });
 
+test('resolveFromRows works on a pre-fetched array', () => {
+  const rows = [{ site_code: 'HGO', coordinator_email: 'j@x', coordinator_email_confirmed: 1, cc_emails: '' }];
+  assert.deepStrictEqual(dir.resolveFromRows(rows, 'HGO', 'coordinator', { neverSendUnconfirmed: true }), { to: 'j@x', cc: [] });
+  assert.strictEqual(dir.resolveFromRows(rows, 'HGO', 'fm', { neverSendUnconfirmed: true }), null);
+});
+
 test('suggestFromMeetings never overwrites a confirmed row', () => {
   const db = freshDb();
   dir.upsertRecipient(db, 'HGO', { coordinator_name: 'Confirmed Person', coordinator_email: 'x@edv-ops.com', coordinator_email_confirmed: 1 }, 'a');

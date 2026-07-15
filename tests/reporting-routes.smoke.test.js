@@ -85,6 +85,25 @@ test('GET /api/reports/site-data?site=HGO (admin) → 200 with score present', a
   assert.ok('score' in body, 'site-data body carries a score block');
 });
 
+test('GET /api/reports/schedule (admin) → 200 array', async () => {
+  const res = await fetch(base + '/api/reports/schedule', { headers: authHeaders() });
+  assert.equal(res.status, 200, `expected 200, got ${res.status}`);
+  const body = await res.json();
+  assert.ok(Array.isArray(body), 'schedule body is an array');
+});
+
+test('PUT /api/reports/schedule (admin, disable) → 200', async () => {
+  // enabled:0 only hits the delete path (schtasks /Delete of a likely-absent
+  // task) which the default runner resolves ok — no real create.
+  const res = await fetch(base + '/api/reports/schedule', {
+    method: 'PUT', headers: authHeaders(),
+    body: JSON.stringify({ report_type: 'coordinator', cadence: 'weekly', enabled: 0 }),
+  });
+  assert.equal(res.status, 200, `expected 200, got ${res.status}`);
+  const body = await res.json();
+  assert.ok(body.ok, 'setSchedule returned ok');
+});
+
 test('GET /api/reports/config WITHOUT auth → 401', async () => {
   const res = await fetch(base + '/api/reports/config'); // no token
   assert.equal(res.status, 401, `expected 401, got ${res.status}`);

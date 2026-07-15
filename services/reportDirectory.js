@@ -50,16 +50,19 @@ function upsertRecipient(db, siteCode, patch, user) {
   return { ok: true };
 }
 
-function resolveRecipient(db, siteCode, kind, { neverSendUnconfirmed = true } = {}) {
-  const rows = listRecipients(db);
-  if (typeof rows.then === 'function') throw new Error('resolveRecipient: pass an already-resolved row set');
-  const row = rows.find(r => r.site_code === siteCode);
+function resolveFromRows(rows, siteCode, kind, { neverSendUnconfirmed = true } = {}) {
+  const row = (rows || []).find(r => r.site_code === siteCode);
   if (!row) return null;
   const email = kind === 'fm' ? row.fm_email : row.coordinator_email;
   const confirmed = kind === 'fm' ? row.fm_email_confirmed : row.coordinator_email_confirmed;
   if (!email || (neverSendUnconfirmed && !confirmed)) return null;
   const cc = String(row.cc_emails || '').split(',').map(s => s.trim()).filter(Boolean);
   return { to: email, cc };
+}
+function resolveRecipient(db, siteCode, kind, opts = {}) {
+  const rows = listRecipients(db);
+  if (typeof rows.then === 'function') throw new Error('resolveRecipient: pass an already-resolved row set');
+  return resolveFromRows(rows, siteCode, kind, opts);
 }
 
 function suggestFromMeetings(db, siteCodes, meetingsReader, user) {
@@ -78,4 +81,4 @@ function suggestFromMeetings(db, siteCodes, meetingsReader, user) {
   return { ok: true, filled };
 }
 
-module.exports = { COLS, _initSchema, listRecipients, upsertRecipient, resolveRecipient, suggestFromMeetings };
+module.exports = { COLS, _initSchema, listRecipients, upsertRecipient, resolveRecipient, resolveFromRows, suggestFromMeetings };
