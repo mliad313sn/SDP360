@@ -2573,6 +2573,83 @@ async function _getSiteContactsPg(siteCode) {
   return _pickContacts(rows);
 }
 
+// ── Site score inputs (the user's sbDims model — see the score-alignment plan) ──
+// All date logic is ISO STRING comparison, exactly as the source model. Do not
+// convert to Date: '2026-07-01' <= '2026-07-14' is the contract.
+const MD_OPEN = { open: 1, in_progress: 1, on_hold: 1, blocked: 1 };
+const _d10 = (v) => (v ? String(v).slice(0, 10) : null);
+
+function _effClose(i) {
+  if (i.closed_at) return _d10(i.closed_at);
+  if (i.status === 'resolved' || i.status === 'cancelled') return i.updated_at ? _d10(i.updated_at) : null;
+  return null;
+}
+function _openAt(i, t) {
+  const raised = i.meeting_date;
+  if (!raised || raised > t) return false;
+  const c = _effClose(i);
+  return !c || c > t;
+}
+// rows: { meetings, issues, actions } already scoped to ONE site.
+// meetings/issues are windowed [from,to]; overdue is a point-in-time snapshot at `to`.
+function _computeMeetingsScoreInputs({ meetings, issues, actions }, { from, to }) {
+  const meets = (meetings || []).filter(m => m.meeting_date >= from && m.meeting_date <= to);
+  const isss  = (issues || []).filter(i => i.meeting_date >= from && i.meeting_date <= to);
+  const reviews = meets.length;
+  const resolved = isss.filter(i => { const c = _effClose(i); return i.status === 'resolved' && c && c <= to; }).length;
+  const resolution = isss.length ? Math.round((100 * resolved) / isss.length) : 0;
+  const signed = meets.filter(m => m.dept_head_signed_at && m.site_it_signed_at && _d10(m.dept_head_signed_at) <= to && _d10(m.site_it_signed_at) <= to).length;
+  const signoff = meets.length ? Math.round((100 * signed) / meets.length) : 0;
+  // overdue = open AND past target, AS OF `to` — NOT windowed (matches the source).
+  const odIss = (issues || []).filter(i => _openAt(i, to) && i.target_date && i.target_date < to).length;
+  const odAct = (actions || []).filter(a => a.meeting_date && a.meeting_date <= to && (!a.closed_at || _d10(a.closed_at) > to) && MD_OPEN[a.status] && a.target_date && a.target_date < to).length;
+  return { reviews, raised: isss.length, resolved, resolution, signed, signoff, overdue: odIss + odAct, odIss, odAct };
+}
+
+/**
+ * getSiteScoreInputs(siteCode, from, to) — measures 4 of the 6 sbDims
+ * dimensions for one site: reviews / resolution / signoff over the window
+ * [from, to], and overdue as a point-in-time snapshot at `to`.
+ *
+ * Fetches ALL rows for the site (no SQL date filtering) — the pure core does
+ * the windowing, so the semantics live in ONE place and stay testable.
+ * `md_actions` has no site_code; it reaches the site via meeting_id →
+ * md_meetings. Each collection is its own query, so the JOINs cannot fan out.
+ */
+function getSiteScoreInputs(siteCode, from, to) {
+  if (MEETINGS_BACKEND === 'postgres') return _getSiteScoreInputsPg(siteCode, from, to);
+  const db = getDB();
+  const meetings = db.prepare(`SELECT meeting_date, dept_head_signed_at, site_it_signed_at FROM md_meetings WHERE site_code = ? COLLATE NOCASE`).all(siteCode);
+  const issues = db.prepare(`SELECT i.status, i.target_date, i.closed_at, i.updated_at, m.meeting_date FROM md_issues i JOIN md_meetings m ON m.id = i.meeting_id WHERE m.site_code = ? COLLATE NOCASE`).all(siteCode);
+  const actions = db.prepare(`SELECT a.status, a.target_date, a.closed_at, m.meeting_date FROM md_actions a JOIN md_meetings m ON m.id = a.meeting_id WHERE m.site_code = ? COLLATE NOCASE`).all(siteCode);
+  return _computeMeetingsScoreInputs({ meetings, issues, actions }, { from, to });
+}
+
+async function _getSiteScoreInputsPg(siteCode, from, to) {
+  const H = pgHandle();
+  const meetings = await H.prepare(
+    `SELECT meeting_date, dept_head_signed_at, site_it_signed_at
+       FROM md_meetings WHERE lower(site_code) = lower(?)`).all(siteCode);
+  // ⚠ LOAD-BEARING CAST: md_issues.updated_at is TIMESTAMPTZ (every other date
+  // column here is TEXT). pgDb registers type parsers only for NUMERIC/BIGINT,
+  // so node-pg would hand back a JS Date and _d10 would yield 'Wed Jun 11' —
+  // which loses every ISO string compare ('W' > '2'). That would silently
+  // collapse `resolution` toward 0 and inflate `overdue`, on prod only, with no
+  // error. to_char keeps it a comparable ISO string. Do NOT cast closed_at /
+  // target_date / meeting_date / *_signed_at — those are already TEXT.
+  const issues = await H.prepare(
+    `SELECT i.status, i.target_date, i.closed_at,
+            to_char(i.updated_at, 'YYYY-MM-DD HH24:MI:SS') AS updated_at,
+            m.meeting_date
+       FROM md_issues i JOIN md_meetings m ON m.id = i.meeting_id
+      WHERE lower(m.site_code) = lower(?)`).all(siteCode);
+  const actions = await H.prepare(
+    `SELECT a.status, a.target_date, a.closed_at, m.meeting_date
+       FROM md_actions a JOIN md_meetings m ON m.id = a.meeting_id
+      WHERE lower(m.site_code) = lower(?)`).all(siteCode);
+  return _computeMeetingsScoreInputs({ meetings, issues, actions }, { from, to });
+}
+
 // ── Per-site monthly meeting summary ──────────────────────────────────────
 // Feeds the "Department Meetings — Monthly Status" slide on the weekly report
 // deck. Returns a calendar-month snapshot for one site: cadence KPIs, a
@@ -2846,6 +2923,7 @@ module.exports = {
   siteNameToCode: _siteNameToCode,
   getSiteMonthlyMeetingSummary,
   getSiteContacts, _pickContacts,
+  getSiteScoreInputs, _computeMeetingsScoreInputs, _effClose, _openAt, MD_OPEN,
   listMeetings, countMeetings, getMeeting, saveMeeting, deleteMeeting, getMeetingStatus,
   listIssues, listEscalations, addIssueUpdate,
   listActions, addActionUpdate, listActionUpdates, getActionParent, getIssueParent,
