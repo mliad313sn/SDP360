@@ -1171,7 +1171,7 @@ function loadHtml(name) {
   'inspection.html', 'inspections.html', 'inspection-actions.html',
   'meetings.html', 'meeting.html', 'meetings-issues.html', 'meetings-council.html', 'meetings-compliance.html',
   'meetings-import.html', 'meetings-progress.html', 'meetings-insights.html', 'meetings-setup.html', 'meetings-actions.html',
-  'activity-tracker.html', 'help.html', 'exec-view.html',
+  'activity-tracker.html', 'help.html', 'exec-view.html', 'site-report.html',
 ].forEach(loadHtml);
 
 // Helper: build the per-request HTML, inject api-key + nonce, send. Pages
@@ -1206,6 +1206,13 @@ app.get(['/executive.html'], (req, res) => {
 // /api/exec/summary endpoint, so it never needs window.__ak.
 app.get('/exec-view.html', (req, res) => {
   sendHtmlPage(res, 'exec-view.html', false, 'Executive view unavailable');
+});
+
+// ── Serve site-report.html — live site scoreboard (no api-key injection) ──────
+// It fetches /api/reports/site-data with the browser session cookie
+// (requireReportSession), like exec-view — so it never needs window.__ak.
+app.get('/site-report.html', (req, res) => {
+  sendHtmlPage(res, 'site-report.html', false, 'Site report unavailable');
 });
 
 // ── Serve login.html with CSP nonce injected ─────────────────────────────────
