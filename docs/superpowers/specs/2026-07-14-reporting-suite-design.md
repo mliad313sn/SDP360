@@ -26,17 +26,19 @@ user's original scoreboard, live) goes to the Group IT lead.
 
 ### 1.1 Cadence vs. data grain (resolved)
 
-"Weekly" (Coordinator) and "monthly" (Finance) describe **how often the report is SENT**, not the
-grain of the numbers. Every per-site reader in §2 is **calendar-month** grained, and there are no
-weekly readers. Therefore:
+Cadence describes **how often a report is SENT**, not the grain of the numbers. Every per-site reader
+in §2 is **calendar-month** grained, and there are no weekly readers. Therefore:
 
-- **Both reports show month-to-date (MTD) figures for the current calendar month**, plus the
-  previous-month comparison the monthly readers already provide.
-- The Coordinator report is sent weekly so the coordinator sees the month *building up* and can act
-  mid-month; the Finance report is sent once after month-end for the closed month.
-- `period.kind` = `'weekly'` (Coordinator) / `'monthly'` (Finance) only tags the send cadence and the
-  header wording ("Week of …, month-to-date" vs "<Month> — final"). It does **not** change which
-  readers are called. No true-weekly data source is introduced in v1 (flagged as a v2 follow-up).
+- **Cadence is decoupled from report type.** Each report type (Coordinator, Finance) can be scheduled
+  **weekly, monthly, or both** — the admin chooses per type (§7). Typical: Coordinator weekly; Finance
+  monthly after close AND, if the FM wants it, a weekly touch too. Nothing about the report *content*
+  changes with cadence; only the send frequency and the header wording differ.
+- **Every send shows month-to-date (MTD) figures for the current calendar month**, plus the
+  previous-month comparison the monthly readers already provide. A weekly send lets the reader watch
+  the month *building up* and act mid-month; a monthly send is the closed-month snapshot.
+- `period.kind` = `'weekly'` / `'monthly'` only tags the send cadence and the header wording ("Week
+  of …, month-to-date" vs "<Month> — final"). It does **not** change which readers are called and is
+  independent of the report type. No true-weekly data source is introduced in v1 (v2 follow-up).
 
 ## 2. What already exists (reuse, do not reinvent)
 
@@ -244,17 +246,21 @@ CREATE TABLE report_recipients (
 CREATE TABLE report_config (           -- key/value settings
   key TEXT PRIMARY KEY, value TEXT, updated_at TIMESTAMPTZ DEFAULT now(), updated_by TEXT
 );
-CREATE TABLE report_schedules (        -- one row per report type
-  report_type TEXT PRIMARY KEY,        -- 'coordinator' | 'group' | 'finance'
-  enabled INTEGER DEFAULT 0, day TEXT, time TEXT, updated_at TIMESTAMPTZ DEFAULT now(), updated_by TEXT
+CREATE TABLE report_schedules (        -- one row per (report type × cadence) — a type can have BOTH
+  report_type TEXT,                    -- 'coordinator' | 'group' | 'finance'
+  cadence TEXT,                        -- 'weekly' | 'monthly'  (any type may enable either or both)
+  enabled INTEGER DEFAULT 0,
+  day TEXT,                            -- weekly: 'MON'..'SUN' · monthly: day-of-month or 'LAST'
+  time TEXT, updated_at TIMESTAMPTZ DEFAULT now(), updated_by TEXT,
+  PRIMARY KEY (report_type, cadence)
 );
 CREATE TABLE report_sent_log (         -- idempotency + audit of every send
   id SERIAL PRIMARY KEY, report_type TEXT, site_code TEXT, period TEXT,  -- period = 'YYYY-MM' (both cadences)
   recipients TEXT, result TEXT, sent_at TIMESTAMPTZ DEFAULT now()
 );
--- Dedup is (type,site,period) scoped to the same calendar day, so the four weekly Coordinator
--- sends within one month (same 'YYYY-MM' period) are NOT deduped against each other — only a
--- same-day re-fire is. The audit history stays unambiguous via sent_at.
+-- Dedup is (type,site,period) scoped to the same calendar day, so multiple weekly sends within one
+-- month (same 'YYYY-MM' period — for any type scheduled weekly) are NOT deduped against each other;
+-- only a same-day re-fire is. The audit history stays unambiguous via sent_at.
 CREATE INDEX ix_report_sent_log_dedup ON report_sent_log(report_type, site_code, period);
 ```
 
@@ -284,9 +290,11 @@ to the PG schema files + `copy-reports-config.js` (mirrors the `dashboard_preset
   to `/site-report.html?site=…` (live, interactive). All three from one data object.
 - **Transport** = `report_config.transport` (`smtp` v1 / `graph` later). SMTP via nodemailer; host/
   port/tls/from/reply-to from config. Graph path stubbed behind the same `send()` interface.
-- **Scheduling** = `report_schedules` → two Windows tasks per enabled type (weekly / monthly), via
-  the same `Manage-SDP.ps1 -Schedule` + `services/backupSchedule.js` mechanism, calling a Node CLI
-  `tools/reports/send-reports.js --type=coordinator`. Runs under SYSTEM even if the app is down.
+- **Scheduling** = `report_schedules` → one Windows task per enabled **(type × cadence)** row (so a
+  type scheduled both weekly and monthly gets two tasks), via the same `Manage-SDP.ps1 -Schedule` +
+  `services/backupSchedule.js` mechanism, calling a Node CLI
+  `tools/reports/send-reports.js --type=finance --cadence=weekly`. Runs under SYSTEM even if the app
+  is down. The admin config's Schedule tab exposes a weekly + a monthly toggle for each report type.
 - **Safety**: with `never_send_unconfirmed=1` (default), a site whose recipient email is not
   confirmed is skipped (logged), never emailed a guessed address. "Send now" and scheduled runs both
   honour it. Every send is audit-logged (`logAudit`): type, site, recipients, result.
