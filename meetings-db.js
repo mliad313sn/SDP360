@@ -2525,6 +2525,54 @@ async function _compareDepartmentPg(opts = {}) {
   };
 }
 
+// ── Per-site contact discovery ────────────────────────────────────────────
+// Pure core — exported for tests. rows = md_meetings rows for one site,
+// last 6 months, ordered by meeting_date DESC.
+function _pickContacts(rows) {
+  const freq = new Map();
+  let fm = null, fmDate = '';
+  for (const r of rows || []) {
+    const lead = String(r.site_it_lead || '').trim();
+    if (lead) freq.set(lead, (freq.get(lead) || 0) + 1);
+    if (String(r.department || '').toLowerCase() === 'finance') {
+      const head = String(r.department_head || '').trim();
+      const d = String(r.meeting_date || '');
+      if (head && d >= fmDate) { fm = head; fmDate = d; }   // ISO dates compare lexically
+    }
+  }
+  let coordinator = null, best = 0;
+  for (const [name, n] of freq) if (n > best) { best = n; coordinator = name; }
+  return { coordinator_name: coordinator, fm_name: fm };
+}
+
+/**
+ * getSiteContacts(siteCode) — best-effort contact discovery from PV data:
+ * coordinator ≈ most frequent site_it_lead over the last 6 months;
+ * FM ≈ department_head of the most recent finance-department PV.
+ * These are FREE-TEXT names with no emails — reportDirectory only ever uses
+ * them to PRE-FILL blank fields; an admin confirms before anything is sent.
+ */
+function getSiteContacts(siteCode) {
+  if (MEETINGS_BACKEND === 'postgres') return _getSiteContactsPg(siteCode);
+  if (!siteCode) return { coordinator_name: null, fm_name: null };
+  const db = getDB();
+  const rows = db.prepare(`
+    SELECT site_it_lead, department, department_head, meeting_date
+      FROM md_meetings
+     WHERE site_code = ? COLLATE NOCASE AND date(meeting_date) >= date('now', '-6 months')
+     ORDER BY meeting_date DESC`).all(siteCode);
+  return _pickContacts(rows);
+}
+async function _getSiteContactsPg(siteCode) {
+  if (!siteCode) return { coordinator_name: null, fm_name: null };
+  const rows = await pgHandle().prepare(`
+    SELECT site_it_lead, department, department_head, meeting_date
+      FROM md_meetings
+     WHERE lower(site_code) = lower(?) AND meeting_date::date >= (current_date - interval '6 months')
+     ORDER BY meeting_date DESC`).all(siteCode);
+  return _pickContacts(rows);
+}
+
 // ── Per-site monthly meeting summary ──────────────────────────────────────
 // Feeds the "Department Meetings — Monthly Status" slide on the weekly report
 // deck. Returns a calendar-month snapshot for one site: cadence KPIs, a
@@ -2562,6 +2610,28 @@ function getSiteMonthlyMeetingSummary(siteCode, year, month) {
        FROM md_issues i JOIN md_meetings m ON m.id=i.meeting_id
       WHERE m.site_code=@site`
   ).get({ site: siteCode, ym }) || {};
+
+  // Sign-off discipline: PVs held this month that are BOTH-side signed.
+  // SEPARATE scalar query — never joined into `cad`/`iss` (a join would fan out
+  // and inflate pvs_held / open_issues, moving the report decks' golden).
+  const sign = db.prepare(
+    `SELECT COUNT(*) signed
+       FROM md_meetings
+      WHERE site_code=@site AND substr(meeting_date,1,7)=@ym
+        AND dept_head_signed_at IS NOT NULL AND site_it_signed_at IS NOT NULL`
+  ).get({ site: siteCode, ym }) || {};
+
+  // Overdue actions for the site (md_actions reaches site_code via its meeting).
+  // Also its OWN query, for the same fan-out reason. Terminal statuses match the
+  // md_statuses seed codes — NOT status='open' (that would drop in_progress/
+  // blocked/on_hold, which are overdue too).
+  const actOverdue = db.prepare(
+    `SELECT COUNT(*) n
+       FROM md_actions a JOIN md_meetings m ON m.id=a.meeting_id
+      WHERE m.site_code=@site
+        AND a.target_date IS NOT NULL AND date(a.target_date) < date('now')
+        AND a.status NOT IN ('resolved','cancelled')`
+  ).get({ site: siteCode }) || {};
 
   // Per-department: meeting cadence + issue counts, merged by department.
   const deptMeet = db.prepare(
@@ -2633,6 +2703,8 @@ function getSiteMonthlyMeetingSummary(siteCode, year, month) {
       resolved_month:  iss.resolved_m || 0,
       new_month:       iss.new_m     || 0,
       escalations_open:iss.esc_open  || 0,
+      signoff_pct:     (cad.pvs || 0) > 0 ? Math.round(((sign.signed || 0) / cad.pvs) * 100) : 0,
+      overdue_actions_count: actOverdue.n || 0,
     },
     departments,
     trend: { months, opened, closed },
@@ -2670,6 +2742,23 @@ async function _getSiteMonthlyMeetingSummaryPg(siteCode, year, month) {
        FROM md_issues i JOIN md_meetings m ON m.id=i.meeting_id
       WHERE m.site_code=@site`
   ).get({ site: siteCode, ym })) || {};
+
+  // SEPARATE scalar queries (see the sqlite body) — never joined into the
+  // cadence/issue aggregates above, which a JOIN would fan out.
+  const sign = (await H.prepare(
+    `SELECT COUNT(*) signed
+       FROM md_meetings
+      WHERE site_code=@site AND substr(meeting_date,1,7)=@ym
+        AND dept_head_signed_at IS NOT NULL AND site_it_signed_at IS NOT NULL`
+  ).get({ site: siteCode, ym })) || {};
+
+  const actOverdue = (await H.prepare(
+    `SELECT COUNT(*) n
+       FROM md_actions a JOIN md_meetings m ON m.id=a.meeting_id
+      WHERE m.site_code=@site
+        AND a.target_date IS NOT NULL AND a.target_date::date < current_date
+        AND a.status NOT IN ('resolved','cancelled')`
+  ).get({ site: siteCode })) || {};
 
   const deptMeet = await H.prepare(
     `SELECT department dept, MAX(meeting_date) last_pv,
@@ -2738,6 +2827,8 @@ async function _getSiteMonthlyMeetingSummaryPg(siteCode, year, month) {
       resolved_month:  iss.resolved_m || 0,
       new_month:       iss.new_m     || 0,
       escalations_open:iss.esc_open  || 0,
+      signoff_pct:     Number(cad.pvs || 0) > 0 ? Math.round((Number(sign.signed || 0) / Number(cad.pvs)) * 100) : 0,
+      overdue_actions_count: Number(actOverdue.n || 0),
     },
     departments,
     trend: { months, opened, closed },
@@ -2750,6 +2841,7 @@ module.exports = {
   loadLookups,
   siteNameToCode: _siteNameToCode,
   getSiteMonthlyMeetingSummary,
+  getSiteContacts, _pickContacts,
   listMeetings, countMeetings, getMeeting, saveMeeting, deleteMeeting, getMeetingStatus,
   listIssues, listEscalations, addIssueUpdate,
   listActions, addActionUpdate, listActionUpdates, getActionParent, getIssueParent,
