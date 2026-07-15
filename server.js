@@ -4089,6 +4089,56 @@ app.get('/api/reports/site-data', requireReportSession, async (req, res) => {
     res.json(data);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
+// POST /api/reports/send?type=coordinator&site=<CODE>[&preview=1][&force=1]
+// A THIN wrapper over services/sendCoordinator — the pipeline (safety gate,
+// dedup, best-effort PDF, outcome logging) lives there and is shared with the
+// scheduled CLI. All params are query params: this route needs NO body parser.
+const { sendCoordinatorReport } = require('./services/sendCoordinator');
+const SEND_TYPES = ['coordinator'];   // 'finance' lands in sub-project 4
+app.post('/api/reports/send', requireReportSession, requireAdmin, async (req, res) => {
+  const type = String(req.query.type || '');
+  const site = String(req.query.site || '').trim();
+  if (!SEND_TYPES.includes(type)) return res.status(400).json({ error: `invalid type "${type}" — expected one of: ${SEND_TYPES.join(', ')}` });
+  if (!site) return res.status(400).json({ error: 'site is required' });
+
+  const now = new Date();
+  const year  = +(req.query.year || now.getFullYear());
+  const month = +(req.query.month || (now.getMonth() + 1));
+  const kind  = req.query.kind === 'monthly' ? 'monthly' : 'weekly';
+  const period = `${year}-${String(month).padStart(2, '0')}`;
+
+  // Single latch guarding EVERY exit path — the timer and the pipeline race,
+  // and a double res.* would throw ERR_HTTP_HEADERS_SENT.
+  let responded = false;
+  const t0 = Date.now();
+  // The IIS ARR proxy in front of us is set to 5 min (see CLAUDE.md), so the
+  // Node cap must fire FIRST — otherwise the client gets an opaque 502 from
+  // IIS instead of a diagnosable 504 from us. Same rationale as exec-pptx.
+  const TIMEOUT_MS = parseInt(process.env.REPORT_SEND_TIMEOUT_MS || '120000', 10);
+  const timer = setTimeout(() => {
+    if (responded) return;
+    responded = true;
+    console.error(`[report-send] FAIL site=${site} period=${period} reason=timeout after ${Math.round((Date.now() - t0) / 1000)}s`);
+    res.status(504).json({ error: `report send exceeded ${TIMEOUT_MS / 1000}s budget — raise REPORT_SEND_TIMEOUT_MS in .env if the PDF render is genuinely slow.` });
+  }, TIMEOUT_MS);
+
+  try {
+    const out = await sendCoordinatorReport({
+      db: rdb.db, site, period, kind,
+      preview: req.query.preview === '1',
+      force: req.query.force === '1',
+    });
+    if (responded) return;                 // the timeout already answered
+    responded = true; clearTimeout(timer);
+    res.json(out);                         // {preview}|{skipped}|{ok} all → 200
+  } catch (e) {
+    if (responded) return;
+    responded = true; clearTimeout(timer);
+    console.error(`[report-send] FAIL site=${site} period=${period} reason=${e.message}`);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.post('/api/reports/test-smtp', requireReportSession, requireAdmin, async (req, res) => {
   try {
     const { buildMailer } = require('./services/mailer');
