@@ -979,6 +979,9 @@ async function initPgReports() {            // called once at server boot
   await _pg.exec(require('fs').readFileSync(
     require('path').join(__dirname, 'db', 'postgres', 'reports', '004_hot.sql'), 'utf8'));
   await _seedSyncMetadataPg(_pg);
+  // Chunk 4E — reporting suite tables.
+  await _pg.exec(require('fs').readFileSync(
+    require('path').join(__dirname, 'db', 'postgres', 'reports', '005_reporting.sql'), 'utf8'));
   return _pg;
 }
 
