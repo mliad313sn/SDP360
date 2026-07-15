@@ -35,6 +35,35 @@ test('resolveFromRows works on a pre-fetched array', () => {
   assert.strictEqual(dir.resolveFromRows(rows, 'HGO', 'fm', { neverSendUnconfirmed: true }), null);
 });
 
+// resolveFromRows must fold case like reports-db.getSiteIdByModuleCode does.
+// Case-sensitive, `?site=hgo` composed a full report and then resolved NO
+// recipient — reported as "no confirmed recipient" while the address was on file
+// and confirmed. Fails safe, but the reason lies and the operator chases a
+// directory bug that isn't there.
+test('resolveFromRows matches site_code case-insensitively', () => {
+  const rows = [{ site_code: 'HGO', coordinator_email: 'j@x', coordinator_email_confirmed: 1, cc_emails: '' }];
+  const want = { to: 'j@x', cc: [] };
+  assert.deepStrictEqual(dir.resolveFromRows(rows, 'hgo', 'coordinator', { neverSendUnconfirmed: true }), want, 'lowercase query resolves');
+  assert.deepStrictEqual(dir.resolveFromRows(rows, 'Hgo', 'coordinator', { neverSendUnconfirmed: true }), want, 'mixed case resolves');
+  // ...and the stored value may be the odd one out.
+  const lowerRows = [{ site_code: 'hgo', coordinator_email: 'j@x', coordinator_email_confirmed: 1, cc_emails: '' }];
+  assert.deepStrictEqual(dir.resolveFromRows(lowerRows, 'HGO', 'coordinator', { neverSendUnconfirmed: true }), want, 'lowercase ROW resolves');
+});
+
+test('resolveFromRows never resolves a blank site code', () => {
+  // Folding to lowercase makes '' == '', so a blank/null row could be matched by
+  // a blank query — resolving a recipient for a site nobody named.
+  const rows = [{ site_code: '', coordinator_email: 'j@x', coordinator_email_confirmed: 1, cc_emails: '' }];
+  for (const q of ['', null, undefined]) {
+    assert.strictEqual(dir.resolveFromRows(rows, q, 'coordinator', { neverSendUnconfirmed: true }), null, `blank query ${JSON.stringify(q)} → null`);
+  }
+});
+
+test('resolveFromRows still returns null for a genuinely unknown site', () => {
+  const rows = [{ site_code: 'HGO', coordinator_email: 'j@x', coordinator_email_confirmed: 1, cc_emails: '' }];
+  assert.strictEqual(dir.resolveFromRows(rows, 'MGO', 'coordinator', { neverSendUnconfirmed: true }), null);
+});
+
 test('suggestFromMeetings never overwrites a confirmed row', async () => {
   const db = freshDb();
   dir.upsertRecipient(db, 'HGO', { coordinator_name: 'Confirmed Person', coordinator_email: 'x@edv-ops.com', coordinator_email_confirmed: 1 }, 'a');

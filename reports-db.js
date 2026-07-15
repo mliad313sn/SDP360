@@ -1669,6 +1669,15 @@ function getSiteTechnicianStats(site_id, year, month) {
     WHERE tech_group IN (${ph}) AND strftime('%Y-%m', created_time) = ?`).all(...groups, ym);
   return _computeTechStats(rows);
 }
+// PG fork — NULLIF guards the ''::timestamptz error (same hazard the siblings at
+// _getCalendarMonthlyHelpdeskPg / _getSurveyMetricsPg cover). Their WHERE-style
+// `col IS NOT NULL AND col!=''` guard is WRONG here: those queries AVG over a set,
+// whereas `hours` is a per-row SELECT feeding _computeTechStats, which counts every
+// row (assigned/current_load). Filtering '' in the WHERE would silently drop those
+// tickets from the technician's counts — sqlite's julianday('') yields NULL and
+// KEEPS the row. NULLIF reproduces that: NULL hours, row retained, and
+// _computeTechStats already skips `r.hours != null`. Unguarded, one '' row throws
+// the whole query and _safe swallows it to [] — a silent zero under PG only.
 async function _getSiteTechnicianStatsPg(site_id, year, month) {
   const H = pgHandle();
   const site = await H.prepare('SELECT zoho_group FROM sites WHERE id=?').get(site_id);
@@ -1678,7 +1687,7 @@ async function _getSiteTechnicianStatsPg(site_id, year, month) {
   const ph = groups.map(() => '?').join(',');
   const rows = await H.prepare(`
     SELECT technician, pending_status, overdue_status, reopen_count,
-           EXTRACT(EPOCH FROM (COALESCE(resolved_time, completed_time)::timestamptz - created_time::timestamptz))/3600 AS hours
+           EXTRACT(EPOCH FROM (NULLIF(COALESCE(resolved_time, completed_time),'')::timestamptz - NULLIF(created_time,'')::timestamptz))/3600 AS hours
     FROM request_records
     WHERE tech_group IN (${ph}) AND to_char(created_time::timestamptz,'YYYY-MM') = ?`).all(...groups, ym);
   return _computeTechStats(rows);

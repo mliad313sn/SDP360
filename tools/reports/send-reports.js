@@ -8,6 +8,14 @@
 // Usage: node tools/reports/send-reports.js --type=coordinator --cadence=weekly [--force]
 const reportDirectory = require('../../services/reportDirectory');
 
+// Only the coordinator report exists today. Mirrors server.js's SEND_TYPES gate
+// on POST /api/reports/send — the two callers of sendCoordinatorReport must
+// refuse the same set, or a schedule can do what the route forbids.
+const SUPPORTED_TYPES = ['coordinator'];   // 'finance'/'group' land in sub-projects 3/4
+function isSupportedType(type) {
+  return SUPPORTED_TYPES.includes(String(type || 'coordinator'));
+}
+
 // Pure. The gate that decides who a scheduled run mails, split out from the CLI
 // body so it is testable without booting the app or touching SMTP.
 //   → { sendable: [siteCode], skipped: [{site, reason}] }
@@ -50,6 +58,22 @@ function decideSends(recipients, cfg, kind) {
 
 async function main() {
   const args = Object.fromEntries(process.argv.slice(2).map(a => a.replace(/^--/, '').split('=')));
+
+  // FIRST, before any require/DB/SMTP work: refuse a type we cannot compose.
+  // The admin card can enable a finance/group schedule (reportSchedule accepts
+  // all three), which creates a Task Scheduler job calling us with
+  // --type=finance — and sendCoordinatorReport ALWAYS composes the COORDINATOR
+  // report and resolves the COORDINATOR's address. Gating the population on the
+  // FM's confirmation flag and then mailing the coordinator's report to the
+  // coordinator, logged as report_type='coordinator', is worse than not sending:
+  // it is unattended, silent, and looks successful. Refuse instead.
+  const type = args.type || 'coordinator';
+  if (!isSupportedType(type)) {
+    console.log(`[send-reports] type=${type} not implemented yet (sub-projects 3/4) — exiting without sending`);
+    return;
+  }
+  const kind = 'coordinator';   // guaranteed by the guard above
+
   const reportsDb = require('../../reports-db');
   if ((process.env.REPORTS_BACKEND || 'sqlite').toLowerCase() === 'postgres') await reportsDb.initPgReports();
   const reportConfig = require('../../services/reportConfig');
@@ -57,7 +81,6 @@ async function main() {
 
   const cfg = await reportConfig.getConfig(reportsDb.db);
   const recipients = await reportDirectory.listRecipients(reportsDb.db);
-  const kind = args.type === 'finance' ? 'fm' : 'coordinator';
   const cadence = args.cadence || 'weekly';
   // Bare `--force` parses to {force: undefined}, so test for PRESENCE, not truthiness.
   const force = ('force' in args) && args.force !== '0' && args.force !== 'false';
@@ -66,7 +89,7 @@ async function main() {
   const period = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
   const { sendable, skipped } = decideSends(recipients, cfg, kind);
-  console.log(`[send-reports] type=${args.type || 'coordinator'} cadence=${cadence} period=${period} → ${sendable.length}/${recipients.length} site(s) sendable`);
+  console.log(`[send-reports] type=${type} cadence=${cadence} period=${period} → ${sendable.length}/${recipients.length} site(s) sendable`);
   for (const s of skipped) console.log(`[send-reports] SKIP site=${s.site} reason=${s.reason}`);
 
   let sent = 0, failed = 0;
@@ -85,7 +108,7 @@ async function main() {
     }
   }
 
-  console.log(`[send-reports] DONE type=${args.type || 'coordinator'} period=${period} → sent=${sent} skipped=${skippedCount} failed=${failed}`);
+  console.log(`[send-reports] DONE type=${type} period=${period} → sent=${sent} skipped=${skippedCount} failed=${failed}`);
 }
 
 // Only run when invoked directly — require()-ing this file (from tests) must NOT
@@ -95,4 +118,4 @@ if (require.main === module) {
   main().then(() => process.exit(0)).catch(e => { console.error('[send-reports] fatal:', e.message); process.exit(1); });
 }
 
-module.exports = { decideSends, main };
+module.exports = { decideSends, main, isSupportedType, SUPPORTED_TYPES };

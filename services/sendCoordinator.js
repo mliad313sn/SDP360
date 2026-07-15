@@ -7,6 +7,7 @@
 // run and a manual click disagree about what was sent.
 //
 // Contract — sendCoordinatorReport({db, cfg, site, period, kind, force, preview, deps}):
+//   unresolvable site → { skipped:true, reason:'site "X" has no meetings module code — cannot report' }
 //   preview           → { preview:true, subject, html }   (never sends, never logs)
 //   no confirmed rcpt → { skipped:true, reason:'no confirmed recipient' }
 //   already sent today→ { skipped:true, reason:'already sent today' }
@@ -27,6 +28,7 @@ function _defaults() {
     reportConfig: require('./reportConfig'),
     reportDirectory: require('./reportDirectory'),
     reportSentLog: require('./reportSentLog'),
+    reportsDb: require('../reports-db'),
   };
 }
 
@@ -46,6 +48,20 @@ async function sendCoordinatorReport({ db, cfg, site, period, kind = 'weekly', f
   const { year, month } = _parsePeriod(period);
 
   console.log(`[report-send] START type=${REPORT_TYPE} site=${site} period=${period} kind=${kind}${preview ? ' preview=1' : ''}${force ? ' force=1' : ''}`);
+
+  // 1 · resolve the site BEFORE composing. Every reader downstream degrades
+  // silently on an unknown code: siteReport's _safe() zeroes each failed block,
+  // and getSiteMonthlyMeetingSummary answers {available:true, kpis:0...} for a
+  // well-formed-but-unmapped code. Those zeros score 50/AMBER — a report that
+  // looks measured and is entirely fabricated. The recipients site_code field is
+  // free text (PUT /api/reports/recipients/:site upserts any string), so one
+  // typo would mail that fiction to a confirmed address. Fail CLOSED instead.
+  const resolved = await D.reportsDb.getSiteIdByModuleCode('meetings', site);
+  if (!resolved) {
+    const reason = `site "${site}" has no meetings module code — cannot report`;
+    console.warn(`[report-send] SKIP site=${site} period=${period} reason=${reason}`);
+    return { skipped: true, reason };
+  }
 
   // 2-3 · compose the data, then the document.
   const data = await D.siteReportData(site, { year, month, kind }, D.buildSiteReportDeps());

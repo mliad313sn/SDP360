@@ -50,8 +50,17 @@ function upsertRecipient(db, siteCode, patch, user) {
   return { ok: true };
 }
 
+// Case-INSENSITIVE on site_code, matching reports-db.getSiteIdByModuleCode.
+// A case-sensitive match here would let `?site=hgo` compose a full report and
+// then resolve no recipient — skipped for "no confirmed recipient" when the
+// address is on file and confirmed. Fails safe, but the reason lies.
 function resolveFromRows(rows, siteCode, kind, { neverSendUnconfirmed = true } = {}) {
-  const row = (rows || []).find(r => r.site_code === siteCode);
+  // Guard the empty case explicitly: without it a blank siteCode folds to '' and
+  // would MATCH a row with a blank/null site_code — resolving a recipient for a
+  // site nobody named.
+  const want = String(siteCode || '').toLowerCase();
+  if (!want) return null;
+  const row = (rows || []).find(r => String(r.site_code || '').toLowerCase() === want);
   if (!row) return null;
   const email = kind === 'fm' ? row.fm_email : row.coordinator_email;
   const confirmed = kind === 'fm' ? row.fm_email_confirmed : row.coordinator_email_confirmed;

@@ -110,6 +110,62 @@ test('POST /api/reports/send with an UNCONFIRMED recipient → 200 {skipped} and
   assert.equal(sentLogCount(), before_, 'a gated send writes no report_sent_log row');
 });
 
+// ── the unresolvable-site gate ───────────────────────────────────────────────
+// Regression: sendCoordinatorReport validated only that `site` was non-empty. An
+// unmapped/typo'd code degraded silently at EVERY reader (siteReport's _safe()
+// zeroes each failed block; getSiteMonthlyMeetingSummary answers available:true
+// with zeroed kpis for a well-formed-but-unknown code) and those zeros score
+// 50/AMBER — a fabricated report. With a CONFIRMED address on file it was SENT.
+// The recipients site_code field is free text, so a typo was all it took.
+//
+// This is a deps-injected unit test, per this file's header: it must prove the
+// SITE guard fires, which means the recipient has to be confirmed — i.e. the
+// unfixed code would have gone all the way to the mailer. Every edge is stubbed
+// and asserted un-called, so nothing can reach SMTP or Chrome.
+test('an unresolvable site code → {skipped} — no compose, no mail, no sent-log row', async () => {
+  const { sendCoordinatorReport } = require('../services/sendCoordinator');
+  const called = [];
+  const before_ = sentLogCount();
+
+  const out = await sendCoordinatorReport({
+    db: rdb.db, site: 'ZZZ-TYPO', period: '2026-07', kind: 'weekly',
+    cfg: { never_send_unconfirmed: '1' },
+    deps: {
+      // site_module_codes has no 'ZZZ-TYPO' → the guard must fire here.
+      reportsDb: { getSiteIdByModuleCode: async () => null },
+      // A CONFIRMED recipient: proves the SITE guard skipped, not the safety gate.
+      reportDirectory: {
+        listRecipients: async () => [{ site_code: 'ZZZ-TYPO', coordinator_email: 'real@example.invalid', coordinator_email_confirmed: 1, cc_emails: '' }],
+        resolveFromRows: () => ({ to: 'real@example.invalid', cc: [] }),
+      },
+      siteReportData: async () => { called.push('compose-data'); return {}; },
+      composeCoordinator: () => { called.push('compose-doc'); return { subject: 's', htmlBody: 'b', fullHtml: '<html>' }; },
+      renderPdf: async () => { called.push('pdf'); return { ok: false, reason: 'stub' }; },
+      buildMailer: () => ({ send: async () => { called.push('MAIL'); return { ok: true, messageId: 'x' }; } }),
+      reportSentLog: {
+        alreadySentToday: async () => { called.push('dedup'); return false; },
+        record: async () => { called.push('LOG'); },
+      },
+    },
+  });
+
+  assert.equal(out.skipped, true, 'an unresolvable site must fail CLOSED, not compose a 50/AMBER fiction');
+  assert.match(out.reason || '', /no meetings module code/i, 'reason names the unresolved site');
+  assert.ok(!out.ok && !out.messageId, 'nothing was sent');
+  assert.deepStrictEqual(called, [], `must skip BEFORE compose/pdf/mail/log — reached: ${called.join(', ')}`);
+  assert.equal(sentLogCount(), before_, 'an unresolvable site writes no report_sent_log row');
+});
+
+test('a RESOLVABLE site still composes — the guard is not a blanket refusal', async () => {
+  const { sendCoordinatorReport } = require('../services/sendCoordinator');
+  const out = await sendCoordinatorReport({
+    db: rdb.db, site: 'HGO', period: '2026-07', kind: 'weekly', preview: true,
+    deps: { reportsDb: { getSiteIdByModuleCode: async () => ({ site_id: 1, name: 'Hounde', zoho_group: 'G' }) } },
+  });
+  assert.ok(out.preview, 'a resolvable site reaches the compose stage');
+  assert.ok(out.subject, 'and produces a subject');
+});
+
 test('POST /api/reports/send WITHOUT auth → 401', async () => {
   const res = await fetch(base + '/api/reports/send?type=coordinator&site=HGO', { method: 'POST' });
   assert.equal(res.status, 401, `expected 401, got ${res.status}`);

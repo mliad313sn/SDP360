@@ -5,7 +5,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
 const cli = require('../tools/reports/send-reports');
-const { decideSends } = cli;
+const { decideSends, isSupportedType } = cli;
 
 const SAFE = { never_send_unconfirmed: '1' };   // the prod default
 
@@ -22,6 +22,64 @@ const row = (over = {}) => ({
 test('requiring the CLI is side-effect-free and exports its decision core', () => {
   assert.strictEqual(typeof cli.decideSends, 'function');
   assert.strictEqual(typeof cli.main, 'function', 'main is exported, not auto-invoked');
+});
+
+// ── the type guard ───────────────────────────────────────────────────────────
+// Regression: main() used to do `kind = args.type === 'finance' ? 'fm' : 'coordinator'`
+// and then call sendCoordinatorReport — which hardcodes REPORT_TYPE='coordinator'
+// and re-resolves the recipient itself. So `--type=finance` gated the population
+// on the FM's confirmation flag, then mailed the COORDINATOR report to the
+// COORDINATOR, logged as report_type='coordinator'. Reachable: reports.html lets
+// an admin enable a Finance schedule, and reportSchedule builds the task as
+// `--type=${report_type}`. These tests pin the refusal.
+test('isSupportedType accepts only coordinator — finance/group are not implemented', () => {
+  assert.strictEqual(isSupportedType('coordinator'), true);
+  assert.strictEqual(isSupportedType(undefined), true, 'no --type defaults to coordinator');
+  assert.strictEqual(isSupportedType('finance'), false, 'sub-project 4 — must not send today');
+  assert.strictEqual(isSupportedType('group'), false, 'sub-project 3 — must not send today');
+  assert.strictEqual(isSupportedType('bogus'), false);
+});
+
+// The strongest proof available without SMTP: the guard sits ABOVE every require
+// in main(), so a refused run cannot have composed, resolved, mailed or logged
+// anything — it never even loaded reports-db. Asserting the module stayed out of
+// require.cache is that proof: reaching ANY send code is impossible without it.
+test('main() --type=finance returns without sending — no DB/mailer is even loaded', async () => {
+  const dbPath = require.resolve('../reports-db');
+  assert.ok(!require.cache[dbPath], 'precondition: reports-db not yet loaded by this file');
+
+  const argv = process.argv;
+  const log = console.log;
+  const lines = [];
+  console.log = (...a) => lines.push(a.join(' '));
+  try {
+    process.argv = ['node', 'send-reports.js', '--type=finance', '--cadence=weekly'];
+    await cli.main();
+  } finally {
+    process.argv = argv;
+    console.log = log;
+  }
+
+  assert.ok(!require.cache[dbPath],
+    'a refused run must not load reports-db — if it did, it reached the send pipeline');
+  assert.ok(lines.some(l => /not implemented yet/i.test(l)), `expected a refusal log, got: ${JSON.stringify(lines)}`);
+  assert.ok(!lines.some(l => /SENT/.test(l)), 'nothing was sent');
+});
+
+test('main() --type=group is refused the same way', async () => {
+  const argv = process.argv;
+  const log = console.log;
+  const lines = [];
+  console.log = (...a) => lines.push(a.join(' '));
+  try {
+    process.argv = ['node', 'send-reports.js', '--type=group'];
+    await cli.main();
+  } finally {
+    process.argv = argv;
+    console.log = log;
+  }
+  assert.ok(lines.some(l => /type=group not implemented yet/i.test(l)));
+  assert.ok(!require.cache[require.resolve('../reports-db')], 'no DB loaded');
 });
 
 test('confirmed + active → sendable', () => {

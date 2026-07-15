@@ -2625,12 +2625,16 @@ function getSiteMonthlyMeetingSummary(siteCode, year, month) {
   // Also its OWN query, for the same fan-out reason. Terminal statuses match the
   // md_statuses seed codes — NOT status='open' (that would drop in_progress/
   // blocked/on_hold, which are overdue too).
+  // The set MUST stay identical to listActions({overdue:1}) — this count and
+  // that list appear side by side in the SAME report/email, so any drift shows
+  // as "3 overdue actions" above a list of 4. 'closed' is not in the md_statuses
+  // seed today, but the module's other terminal sets carry it; keep all three.
   const actOverdue = db.prepare(
     `SELECT COUNT(*) n
        FROM md_actions a JOIN md_meetings m ON m.id=a.meeting_id
       WHERE m.site_code=@site
         AND a.target_date IS NOT NULL AND date(a.target_date) < date('now')
-        AND a.status NOT IN ('resolved','cancelled')`
+        AND a.status NOT IN ('resolved','cancelled','closed')`
   ).get({ site: siteCode }) || {};
 
   // Per-department: meeting cadence + issue counts, merged by department.
@@ -2757,7 +2761,7 @@ async function _getSiteMonthlyMeetingSummaryPg(siteCode, year, month) {
        FROM md_actions a JOIN md_meetings m ON m.id=a.meeting_id
       WHERE m.site_code=@site
         AND a.target_date IS NOT NULL AND a.target_date::date < current_date
-        AND a.status NOT IN ('resolved','cancelled')`
+        AND a.status NOT IN ('resolved','cancelled','closed')`
   ).get({ site: siteCode })) || {};
 
   const deptMeet = await H.prepare(
