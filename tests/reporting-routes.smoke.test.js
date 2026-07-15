@@ -11,6 +11,9 @@ const _os = require('os'), _fs = require('fs'), _path = require('path');
 // require of server/reports-db, and before dotenv (which never overrides an
 // already-set process.env var).
 process.env.REPORTS_BACKEND = 'sqlite';
+// Same rationale for meetings: the /recipients/suggest test seeds a PV straight
+// into the sqlite meetings.db, so meetings-db must be on its sqlite fork.
+process.env.MEETINGS_BACKEND = 'sqlite';
 process.env.SDP_DATA_DIR = process.env.SDP_DATA_DIR || _fs.mkdtempSync(_path.join(_os.tmpdir(), 'reporting-smoke-'));
 process.env.DASH_USER = process.env.DASH_USER || 'reporting-smoke-admin';
 process.env.DASH_PASS = process.env.DASH_PASS || 'reporting-smoke-pass-0000';
@@ -40,6 +43,20 @@ before(async () => {
   assert.ok(sess && sess.token, 'login seeded admin + returned a token');
   assert.ok(((sess.user && sess.user.roles) || []).includes('admin'), 'session carries admin role');
   adminToken = sess.token;
+
+  // Seed PV data so /recipients/suggest has something real to fill FROM.
+  // 'HGO' is a real meetings code (site_module_codes seed → Hounde). Two PVs so
+  // both halves of _pickContacts fire: site_it_lead → coordinator_name, and the
+  // finance department_head → fm_name. Dated today so the reader's rolling
+  // 6-month window always covers them.
+  const mdb = require('../meetings-db').getDB();
+  const today = new Date().toISOString().slice(0, 10);
+  const ins = mdb.prepare(`INSERT OR IGNORE INTO md_meetings
+    (reference, site_code, department, meeting_date, department_head, site_it_lead, status)
+    VALUES (?, ?, ?, ?, ?, ?, 'signed')`);
+  ins.run(`HGO_maintenance_PV_${today}`, 'HGO', 'maintenance', today, 'Ops Head', 'Jean Traore');
+  ins.run(`HGO_finance_PV_${today}`, 'HGO', 'finance', today, 'Marie Kone', 'Jean Traore');
+
   await new Promise(r => { server = http.createServer(app).listen(0, '127.0.0.1', r); });
   base = `http://127.0.0.1:${server.address().port}`;
 });
@@ -76,6 +93,23 @@ test('GET /api/reports/recipients (admin) → 200 array including HGO', async ()
   const body = await res.json();
   assert.ok(Array.isArray(body), 'recipients body is an array');
   assert.ok(body.some(r => r.site_code === 'HGO'), 'HGO recipient row present');
+});
+
+// filled MUST be > 0. Asserting only `typeof filled === 'number'` is worthless:
+// {ok:true, filled:0} is precisely what every silent-zero bug on this path
+// returns (unawaited pg promises, a missing reader guarded into a no-op).
+test('POST /api/reports/recipients/suggest (admin) → 200 {ok, filled>0} against a seeded PV', async () => {
+  const res = await fetch(base + '/api/reports/recipients/suggest', { method: 'POST', headers: authHeaders() });
+  assert.equal(res.status, 200, `expected 200, got ${res.status}`);
+  const body = await res.json();
+  assert.equal(body.ok, true, 'suggest reported ok');
+  assert.ok(body.filled > 0, `expected filled > 0 against the seeded HGO PVs, got ${body.filled}`);
+
+  // …and prove the fill is the REAL PV value, not just a non-zero counter.
+  const rows = await (await fetch(base + '/api/reports/recipients', { headers: authHeaders() })).json();
+  const hgo = rows.find(r => r.site_code === 'HGO');
+  assert.ok(hgo, 'HGO recipient row exists after suggest');
+  assert.equal(hgo.fm_name, 'Marie Kone', 'fm_name pre-filled from the finance PV department_head');
 });
 
 test('GET /api/reports/site-data?site=HGO (admin) → 200 with score present', async () => {

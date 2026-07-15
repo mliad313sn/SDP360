@@ -1215,7 +1215,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
           <span style="font-size:0.8rem;color:#6b7a99">One row per site. A report is only delivered to a <em>confirmed</em> address.</span>
           <button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="openRecipientModal()">+ Add site</button>
-          <button class="btn btn-secondary btn-sm" disabled title="Coming in a later update">✨ Suggest from meetings</button>
+          <button class="btn btn-secondary btn-sm" id="ar-suggest-btn" title="Pre-fill blank coordinator / FM names from meeting PV data. Never overwrites a confirmed contact." onclick="suggestRecipientsFromMeetings()">✨ Suggest from meetings</button>
         </div>
         <table class="user-table" id="ar-recipients-table">
           <thead><tr>
@@ -5379,6 +5379,24 @@ function showAutoReportTab(name) {
 function loadAutoReports() { showAutoReportTab('recipients'); }
 
 // ── Tab 1 · Recipients ──────────────────────────────────────────────
+// Pre-fills blank coordinator / FM names from meetings PV data. Only ever
+// fills BLANKS — a confirmed contact is never overwritten server-side — and
+// it fills names only, so an admin still has to add + confirm the address
+// before anything is delivered.
+function suggestRecipientsFromMeetings() {
+  const btn = document.getElementById('ar-suggest-btn');
+  const label = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Suggesting…'; }
+  api('POST', '/api/reports/recipients/suggest')
+    .then(out => {
+      const n = (out && out.filled) || 0;
+      loadReportRecipients();
+      toast(n ? `Pre-filled ${n} site${n === 1 ? '' : 's'} from meetings data — add + confirm the email addresses to enable sending` : 'Nothing to suggest — no blank fields matched meetings PV data', n ? 'success' : 'info');
+    })
+    .catch(e => toast('Suggest failed: ' + e, 'error'))
+    .finally(() => { if (btn) { btn.disabled = false; btn.textContent = label; } });
+}
+
 function loadReportRecipients() {
   const tbody = document.getElementById('ar-recipients-tbody');
   if (!tbody) return;

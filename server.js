@@ -4069,6 +4069,17 @@ app.put('/api/reports/recipients/:site', requireReportSession, requireAdmin, asy
   try { res.json(await reportDirectory.upsertRecipient(rdb.db, req.params.site, req.body || {}, req.reportUser?.username)); }
   catch (e) { res.status(500).json({ error: e.message }); }
 });
+// Pre-fills blank recipient names from meetings PV data. Never overwrites a
+// confirmed value; the admin still confirms every address before any send.
+app.post('/api/reports/recipients/suggest', requireReportSession, requireAdmin, async (req, res) => {
+  try {
+    const meetingsDb = require('./meetings-db');
+    // NO optional chaining — a missing reader must fail loudly, not yield filled:0.
+    const codes = (await rdb.listSiteModuleCodes('meetings')).map(r => r.code).filter(Boolean);
+    const out = await reportDirectory.suggestFromMeetings(rdb.db, codes, meetingsDb, req.reportUser?.username);
+    res.json(out);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
 app.get('/api/reports/schedule', requireReportSession, requireAdmin, async (req, res) => {
   try { res.json(await reportSchedule.getSchedules(rdb.db)); }
   catch (e) { res.status(500).json({ error: e.message }); }

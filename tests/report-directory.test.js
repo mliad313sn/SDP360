@@ -35,12 +35,32 @@ test('resolveFromRows works on a pre-fetched array', () => {
   assert.strictEqual(dir.resolveFromRows(rows, 'HGO', 'fm', { neverSendUnconfirmed: true }), null);
 });
 
-test('suggestFromMeetings never overwrites a confirmed row', () => {
+test('suggestFromMeetings never overwrites a confirmed row', async () => {
   const db = freshDb();
   dir.upsertRecipient(db, 'HGO', { coordinator_name: 'Confirmed Person', coordinator_email: 'x@edv-ops.com', coordinator_email_confirmed: 1 }, 'a');
   const stubMeetings = { getSiteContacts: () => ({ coordinator_name: 'Someone Else', fm_name: 'FM Person' }) };
-  dir.suggestFromMeetings(db, ['HGO'], stubMeetings, 'system');
+  await dir.suggestFromMeetings(db, ['HGO'], stubMeetings, 'system');
   const row = dir.listRecipients(db).find(r => r.site_code === 'HGO');
   assert.strictEqual(row.coordinator_name, 'Confirmed Person');
   assert.strictEqual(row.fm_name, 'FM Person');
+});
+
+// The pg regression guard: under MEETINGS_BACKEND=postgres getSiteContacts
+// returns a PROMISE. The old sync implementation read `.coordinator_name` off
+// that promise → undefined → no patch → {ok:true, filled:0} with NO error.
+// This test is the one that would have caught it.
+test('suggestFromMeetings fills from an ASYNC reader (pg-shaped)', async () => {
+  const db = freshDb();
+  const asyncMeetings = { getSiteContacts: async () => ({ coordinator_name: 'X', fm_name: 'Y' }) };
+  const out = await dir.suggestFromMeetings(db, ['HGO'], asyncMeetings, 'system');
+  assert.strictEqual(out.ok, true);
+  assert.strictEqual(out.filled, 1, 'an async reader must still fill (filled:0 IS the pg bug)');
+  const row = dir.listRecipients(db).find(r => r.site_code === 'HGO');
+  assert.strictEqual(row.coordinator_name, 'X');
+  assert.strictEqual(row.fm_name, 'Y');
+});
+
+test('suggestFromMeetings throws loudly when the reader has no getSiteContacts', async () => {
+  const db = freshDb();
+  await assert.rejects(() => dir.suggestFromMeetings(db, ['HGO'], {}, 'system'));
 });

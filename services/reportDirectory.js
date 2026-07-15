@@ -65,18 +65,26 @@ function resolveRecipient(db, siteCode, kind, opts = {}) {
   return resolveFromRows(rows, siteCode, kind, opts);
 }
 
-function suggestFromMeetings(db, siteCodes, meetingsReader, user) {
-  const existing = listRecipients(db);
-  if (typeof existing.then === 'function') throw new Error('suggestFromMeetings: sqlite-only in Foundation');
+// Fully async — every edge (listRecipients, getSiteContacts, upsertRecipient)
+// returns a PROMISE under postgres, which is what prod runs. Reading a field
+// off an unawaited promise yields `undefined` → no patch → {ok:true, filled:0}
+// with NO error: a silent zero, the worst possible failure mode for a
+// "suggest" button. `await` all three; a missing reader THROWS rather than
+// degrading to a no-op. Never overwrites a confirmed value.
+async function suggestFromMeetings(db, siteCodes, meetingsReader, user) {
+  if (!meetingsReader || typeof meetingsReader.getSiteContacts !== 'function') {
+    throw new Error('suggestFromMeetings: meetingsReader.getSiteContacts is required');
+  }
+  const existing = await listRecipients(db);
   const byCode = Object.fromEntries(existing.map(r => [r.site_code, r]));
   let filled = 0;
   for (const code of siteCodes) {
-    const c = (meetingsReader.getSiteContacts && meetingsReader.getSiteContacts(code)) || {};
+    const c = (await meetingsReader.getSiteContacts(code)) || {};
     const cur = byCode[code] || {};
     const patch = {};
     if (c.coordinator_name && !cur.coordinator_email_confirmed && !cur.coordinator_name) patch.coordinator_name = c.coordinator_name;
     if (c.fm_name && !cur.fm_email_confirmed && !cur.fm_name) patch.fm_name = c.fm_name;
-    if (Object.keys(patch).length) { upsertRecipient(db, code, patch, user || 'system'); filled++; }
+    if (Object.keys(patch).length) { await upsertRecipient(db, code, patch, user || 'system'); filled++; }
   }
   return { ok: true, filled };
 }
