@@ -1514,6 +1514,60 @@ async function _listSitesPg({ includeInactive = false } = {}) {
   return H.prepare(sql).all();
 }
 
+/**
+ * getSiteIdByModuleCode(module, code) — resolves a per-module site code
+ * (e.g. meetings 'HGO') to { site_id, name, zoho_group }. site_module_codes is
+ * written by the boot seed but was never read until now.
+ * Returns null when the code is unknown (e.g. Exploration/Tanda have no
+ * meetings code). Case-insensitive on the code.
+ */
+function getSiteIdByModuleCode(module, code) {
+  if (REPORTS_BACKEND === 'postgres') return _getSiteIdByModuleCodePg(module, code);
+  if (!module || !code) return null;
+  try {
+    const row = db.prepare(`
+      SELECT c.site_id AS site_id, s.name AS name, s.zoho_group AS zoho_group
+      FROM site_module_codes c JOIN sites s ON s.id = c.site_id
+      WHERE c.module = ? AND c.code = ? COLLATE NOCASE`).get(module, code);
+    return row || null;
+  } catch (e) { console.warn('[site-resolve] failed:', e.message); return null; }
+}
+async function _getSiteIdByModuleCodePg(module, code) {
+  if (!module || !code) return null;
+  try {
+    const row = await pgHandle().prepare(`
+      SELECT c.site_id AS site_id, s.name AS name, s.zoho_group AS zoho_group
+      FROM site_module_codes c JOIN sites s ON s.id = c.site_id
+      WHERE c.module = ? AND lower(c.code) = lower(?)`).get(module, code);
+    return row || null;
+  } catch (e) { console.warn('[site-resolve] failed:', e.message); return null; }
+}
+
+/**
+ * listSiteModuleCodes(module) — every (site, code) pair in one module's
+ * namespace, ordered by site name. Sites without a code for that module
+ * (e.g. Exploration/Tanda have no meetings code) simply don't appear.
+ */
+function listSiteModuleCodes(module) {
+  if (REPORTS_BACKEND === 'postgres') return _listSiteModuleCodesPg(module);
+  if (!module) return [];
+  try {
+    return db.prepare(`
+      SELECT c.site_id AS site_id, c.code AS code, s.name AS name
+      FROM site_module_codes c JOIN sites s ON s.id = c.site_id
+      WHERE c.module = ? ORDER BY s.name`).all(module);
+  } catch (e) { console.warn('[site-resolve] listSiteModuleCodes failed:', e.message); return []; }
+}
+async function _listSiteModuleCodesPg(module) {
+  if (!module) return [];
+  try {
+    return await pgHandle().prepare(`
+      SELECT c.site_id AS site_id, c.code AS code, s.name AS name
+      FROM site_module_codes c JOIN sites s ON s.id = c.site_id
+      WHERE c.module = ? ORDER BY s.name`).all(module);
+  } catch (e) { console.warn('[site-resolve] listSiteModuleCodes failed:', e.message); return []; }
+}
+
 function updateSiteGroup(site_id, zoho_group) {
   if (REPORTS_BACKEND === 'postgres') return _updateSiteGroupPg(site_id, zoho_group);
   db.prepare(`UPDATE sites SET zoho_group=? WHERE id=?`).run(zoho_group || null, site_id);
@@ -6150,6 +6204,8 @@ module.exports = {
   ROLE_HIERARCHY, FEATURE_ROLES_KNOWN,
   listUsers, createUser, updateUser, deleteUser, changePassword,
   listSites, updateSiteGroup, createSite, updateSite, setSiteActive,
+  // Per-module site codes (site_module_codes) — read path for the reporting suite
+  getSiteIdByModuleCode, listSiteModuleCodes,
   getPreviousWeek, ensureWeek, getWeekRange,
   ensureReport, getReport, listReports,
   saveInfraKpis, saveHelpdeskData, saveLights, saveActionItems,
