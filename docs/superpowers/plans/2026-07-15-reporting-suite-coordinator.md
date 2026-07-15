@@ -61,6 +61,10 @@
 // tests/site-resolve.test.js
 'use strict';
 process.env.REPORTS_BACKEND = 'sqlite';   // before any require
+// Isolate from the developer's real data/reports.db — point at a throwaway dir
+// (sites + site_module_codes are seeded at boot by INSERT OR IGNORE).
+const os = require('os'); const path = require('path'); const fs = require('fs');
+process.env.SDP_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'sdp-siteresolve-'));
 const test = require('node:test');
 const assert = require('node:assert');
 const rdb = require('../reports-db');
@@ -207,6 +211,8 @@ function _computeSiteHelpdesk(rows) {
   for (const r of rows) {
     out.created++;
     if (r.pending_status === 0) out.resolved++; else out.backlog++;
+    // overdue_status is TRI-state: 1 / 0 / NULL (NULL = no SLA rule applies).
+    // Keep the strict === 1 — do not "simplify" to !== 0, which counts NULLs.
     if (r.overdue_status === 1) out.sla_overdue++;
     const isMI = /major/i.test(String(r.request_type || '')) || /major incident/i.test(String(r.template || ''));
     if (isMI) out.major_incidents++;
@@ -288,6 +294,9 @@ const rows = [
   { technician: 'Amina', pending_status: 0, overdue_status: 0, reopen_count: 0, hours: 4 },
   { technician: 'Amina', pending_status: 0, overdue_status: 1, reopen_count: 1, hours: 8 },
   { technician: 'Amina', pending_status: 1, overdue_status: 0, reopen_count: 0, hours: null },
+  // closed but with NO resolved_time/completed_time → hours NULL. Must NOT
+  // contribute a phantom 0 to the average (+null === 0 passes Number.isFinite).
+  { technician: 'Amina', pending_status: 0, overdue_status: 0, reopen_count: 0, hours: null },
   { technician: 'Bakary', pending_status: 0, overdue_status: 0, reopen_count: 0, hours: 2 },
   { technician: null,    pending_status: 0, overdue_status: 0, reopen_count: 0, hours: 1 },
 ];
@@ -296,12 +305,12 @@ test('aggregates per technician, drops the NULL bucket', () => {
   const r = _computeTechStats(rows);
   assert.strictEqual(r.length, 2);
   const a = r.find(t => t.name === 'Amina');
-  assert.strictEqual(a.assigned, 3);
-  assert.strictEqual(a.resolved, 2);
+  assert.strictEqual(a.assigned, 4);
+  assert.strictEqual(a.resolved, 3);
   assert.strictEqual(a.current_load, 1);      // pending_status = 1
   assert.strictEqual(a.sla_overdue, 1);
   assert.strictEqual(a.reopened, 1);
-  assert.strictEqual(a.avg_resolution_h, 6);  // (4+8)/2, closed only
+  assert.strictEqual(a.avg_resolution_h, 6);  // (4+8)/2 — the NULL-hours closed row is excluded, NOT counted as 0
 });
 
 test('sorted by assigned desc', () => {
@@ -326,7 +335,10 @@ function _computeTechStats(rows) {
     if (!by.has(name)) by.set(name, { name, assigned: 0, resolved: 0, current_load: 0, sla_overdue: 0, reopened: 0, _h: [] });
     const t = by.get(name);
     t.assigned++;
-    if (r.pending_status === 0) { t.resolved++; if (Number.isFinite(+r.hours)) t._h.push(+r.hours); }
+    // `r.hours != null` FIRST: +null === 0 and Number.isFinite(0) is true, so a
+    // closed ticket with no resolved_time/completed_time would push a phantom
+    // 0-hour resolution into the average.
+    if (r.pending_status === 0) { t.resolved++; if (r.hours != null && Number.isFinite(+r.hours)) t._h.push(+r.hours); }
     else t.current_load++;
     if (r.overdue_status === 1) t.sla_overdue++;
     if ((r.reopen_count || 0) > 0) t.reopened++;
@@ -477,8 +489,11 @@ Export `getSiteContacts` + `_pickContacts`.
 
 - [ ] **Step 4: Extend `getSiteMonthlyMeetingSummary`'s kpis** (BOTH the sqlite body ~line 2538 and the pg fork ~2648) with two new keys. Read the existing function first and add, in the same style:
   - `signoff_pct` — of the PVs held in the month, the % that are signed. Definition: a PV counts as signed when `dept_head_signed_at IS NOT NULL AND site_it_signed_at IS NOT NULL`. `round(signed / pvs_held * 100)`; `0` when `pvs_held === 0`.
-  - `overdue_actions_count` — count of `md_actions` rows for that site whose `target_date < today` and `status NOT IN ('resolved','cancelled')` (match the module's `_OPEN_SQL` doctrine, not `status='open'`).
+  - `overdue_actions_count` — count of `md_actions` rows for that site whose `target_date < today` and `status NOT IN ('resolved','cancelled')` (match the seed's `md_statuses` codes — NOT `status='open'`, which would exclude in_progress/blocked/on_hold).
   Add a test asserting both keys exist and compute correctly on a seeded month.
+
+> **⚠ GOLDEN-FINGERPRINT HAZARD — compute both new kpis as SEPARATE SCALAR SUB-QUERIES.** This function feeds the "Department Meetings" slide on all 5 report decks, guarded by `tests/pptx-monthly-golden.test.js`. A purely additive kpi change *cannot* move the golden (the slide only reads existing keys) — which makes the golden a real canary. The realistic way to break it is a **JOIN fan-out**: joining `md_actions` into the existing cadence/issues aggregate would multiply rows and inflate `pvs_held` / `open_issues`. Never join `md_actions` into the existing aggregates; add each kpi as its own scalar sub-query.
+> Also: do NOT reuse `_OPEN_SQL` (`meetings-db.js:2537`) verbatim — it is hardcoded to alias `i` (issues), not actions.
 
 - [ ] **Step 5: Run → PASS.** Paste output.
 - [ ] **Step 6: Commit**
@@ -654,10 +669,10 @@ test('helpdesk dep resolves the code to a site_id and returns the contract block
   assert.strictEqual(hd.created, 40);
 });
 
-test('unknown site code → zeroed helpdesk, no throw', async () => {
+test('unknown site code → null (siteReport._safe turns it into the zeroed block)', async () => {
   const d = buildSiteReportDeps({ ...mods, reportsDb: { ...mods.reportsDb, getSiteIdByModuleCode: () => null } });
   const hd = await d.helpdesk('NOPE', { year: 2026, month: 7 });
-  assert.strictEqual(hd.created, 0);
+  assert.strictEqual(hd, null);   // the dep returns null; _safe substitutes EMPTY.helpdesk
 });
 
 test('siteStatus is major when the site has an active MI', async () => {
@@ -674,6 +689,24 @@ test('prevComposite recomputes the previous month and returns a number', async (
   const d = buildSiteReportDeps(mods);
   const p = await d.prevComposite('HGO', { year: 2026, month: 1 });   // rolls to Dec 2025
   assert.strictEqual(typeof p, 'number');
+});
+
+// REGRESSION GUARD — uses the shape the REAL reader emits for a site with no
+// PVs that month: available:TRUE with zeroed kpis. (A stub returning
+// available:false would pass while proving nothing — the real reader only sets
+// available:false when siteCode is falsy.) Without the noActivity gate these
+// zeros score ~50 and the report shows a trend against a month that never was.
+test('prevComposite → null when the previous month had no activity at all', async () => {
+  const dead = { ...mods, meetingsDb: { ...mods.meetingsDb,
+    getSiteMonthlyMeetingSummary: async () => ({
+      site_code: 'HGO', available: true,
+      kpis: { pvs_held: 0, dept_target: 3, open_issues: 0, high_open: 0,
+              resolved_month: 0, new_month: 0, escalations_open: 0,
+              signoff_pct: 0, overdue_actions_count: 0 },
+      departments: [],
+    }) } };
+  const d = buildSiteReportDeps(dead);
+  assert.strictEqual(await d.prevComposite('HGO', { year: 2026, month: 7 }), null);
 });
 ```
 
@@ -706,8 +739,13 @@ function buildSiteReportDeps(mods) {
   const meetingsSummary = async (code, p) =>
     A.adaptMeetingsSummary(await meetingsDb.getSiteMonthlyMeetingSummary(code, p.year, p.month));
 
-  const inspectionAggregate = async (code) =>
-    A.adaptInspectionAggregate(await inspectionDb.aggregate({ site: code }));
+  // PERIOD-SCOPED. inspection-db.aggregate({site,from,to}) filters on
+  // inspection_date — verified. All-time would pin 30% of the composite to a
+  // constant (inspections dim → always 100 once ever inspected; findings dim →
+  // 0 once lifetime critical+major >= 5), which is exactly the bug this
+  // sub-project exists to kill.
+  const inspectionAggregate = async (code, p) =>
+    A.adaptInspectionAggregate(await inspectionDb.aggregate({ site: code, ..._monthBounds(p) }));
 
   return {
     meetingsSummary,
@@ -741,11 +779,29 @@ function buildSiteReportDeps(mods) {
     },
 
     // No composite is persisted — recompute the previous month from the same
-    // readers. Returns null if the previous month has no meeting data at all.
+    // readers, scoped to the PREVIOUS month on both sides.
+    // Returns null when the previous month has no meeting data (spec §4.1:
+    // trend_pts must be null on a site's first period — otherwise the zeroed
+    // kpis still score ~35-65 via the "no issues → resolution_pct 100" rule and
+    // the report shows a confident trend against a month that never existed).
     prevComposite: async (code, p) => {
-      const { y, mo } = _prevMonth(p.year, p.month);
-      const ms = await meetingsSummary(code, { year: y, month: mo });
-      const insp = await inspectionAggregate(code);
+      const prev = _prevMonth(p.year, p.month);
+      const raw = await meetingsDb.getSiteMonthlyMeetingSummary(code, prev.year, prev.month);
+      // `available` is NOT a usable discriminator here: the reader only sets it
+      // false when siteCode is falsy (meetings-db.js:2545/:2654). A real site
+      // with zero PVs still returns available:true with zeroed kpis — and those
+      // zeros score ~50 (resolution_pct → 100 via the empty-denominator rule +
+      // overdue → 100 + findings → 100), i.e. a confident trend against a month
+      // that never happened. Gate on ACTUAL ACTIVITY instead. (Distinguishing
+      // "first month ever" from "a real but dead month" would need a
+      // MIN(meeting_date) lookup — deliberately not bought here: both cases
+      // should read "no trend".)
+      if (!raw || raw.available === false) return null;
+      const rk = raw.kpis || {};
+      const noActivity = !rk.pvs_held && !rk.open_issues && !rk.resolved_month && !rk.new_month && !rk.escalations_open;
+      if (noActivity) return null;
+      const ms = A.adaptMeetingsSummary(raw);
+      const insp = await inspectionAggregate(code, prev);
       const k = ms.kpis;
       return computeSiteScore(
         { pvs_held: k.pvs_held, pvs_target: k.pvs_target, resolved: k.resolved, open_issues: k.open_issues,
@@ -756,19 +812,30 @@ function buildSiteReportDeps(mods) {
   };
 }
 
-function _prevMonth(y, mo) { return mo <= 1 ? { y: y - 1, mo: 12 } : { y, mo: mo - 1 }; }
+function _prevMonth(y, mo) { return mo <= 1 ? { year: y - 1, month: 12 } : { year: y, month: mo - 1 }; }
 
-module.exports = { buildSiteReportDeps, _prevMonth };
+// {from,to} ISO bounds for a calendar month — inspection-db.aggregate filters
+// inspection_date >= from AND <= to.
+function _monthBounds(p) {
+  const mm = String(p.month).padStart(2, '0');
+  const last = new Date(p.year, p.month, 0).getDate();   // day 0 of next month = last day of this one
+  return { from: `${p.year}-${mm}-01`, to: `${p.year}-${mm}-${String(last).padStart(2, '0')}` };
+}
+
+module.exports = { buildSiteReportDeps, _prevMonth, _monthBounds };
 ```
 
-> **NOTE on `inspectionAggregate`:** `aggregate()` takes `{site, from, to}` but has no period in Foundation's call. Pass the period bounds: `{ site: code, from: '<y>-<mm>-01', to: '<last day>' }` **only if** you confirm `aggregate`'s from/to filter on the right column; otherwise leave all-time and note it. Prefer correctness over guessing — check `inspection-db.js:951` first and do whichever the code actually supports. If you scope it, update `adaptInspectionAggregate`'s test fixture accordingly.
+> **RESOLVED (do not re-decide):** `inspection-db.js:951` `aggregate({site, from, to})` filters `i.inspection_date >= @from AND <= @to` — the right column. So `inspectionAggregate` **is period-scoped** (above). This is NOT optional: all-time data pins ~30% of the composite to a constant. `adaptInspectionAggregate` is shape-only and period-agnostic — its test fixture needs **no** change.
+>
+> **This changes the dep signature to `inspectionAggregate(code, period)`**, so Step 4 MUST also update `services/siteReport.js`, which currently calls `deps.inspectionAggregate(siteCode)` with no period.
 
 - [ ] **Step 4: Fix `services/siteReport.js`** — it must now read the ADAPTED shapes:
   - `ms.kpis` keys are already contract-shaped after the adapter → the existing `mk.pvs_target` / `mk.resolved` / `mk.new` / `mk.escalations` / `mk.signoff_pct` / `mk.overdue_actions_count` reads become CORRECT. **Verify** no further change is needed there.
   - `ms.site_name` now exists (the adapter supplies it) → keep `ms.site_name || siteCode`.
   - `insp.total` → **change to** `insp.inspections_done` (the adapter's key). `insp.findings_critical_major` + `insp.overall_risk` now exist.
+  - **Pass the period to the inspection dep:** `deps.inspectionAggregate(siteCode)` → `deps.inspectionAggregate(siteCode, period)`.
   - `deps.siteStatus` is now **async** → `siteReport.js` currently calls it synchronously in an IIFE (`const siteStatusRaw = (() => { try { return deps.siteStatus(siteCode) ... } })()`). **Change to** `const siteStatusRaw = await _safe(() => deps.siteStatus(siteCode), 'operational', 'siteStatus');`.
-  - Re-run `tests/site-report.test.js` — its stubs are contract-shaped so it should still pass; **update the `inspectionAggregate` stub** to return `{inspections_done, findings_critical_major, overall_risk}` (the adapted shape) and the `siteStatus` stub can stay sync (await on a sync value is a no-op).
+  - Re-run `tests/site-report.test.js` — its stubs are contract-shaped so it should still pass; **update the `inspectionAggregate` stub** to return `{inspections_done, findings_critical_major, overall_risk}` (the adapted shape) and to accept `(code, period)`; the `siteStatus` stub can stay sync (await on a sync value is a no-op).
 
 - [ ] **Step 5: Run both → PASS.** `REPORTS_BACKEND=sqlite node --test --test-force-exit tests/site-report-deps.test.js tests/site-report.test.js`. Paste output.
 - [ ] **Step 6: Commit**
@@ -875,7 +942,13 @@ git commit --no-verify -m "feat(reporting): coordinator report template composer
 
 Mirrors the `POST /api/reports/exec-pptx` discipline (`server.js:5720`): validate early, a single `responded` latch, a hard timeout under the IIS ARR 5-min ceiling, and an explicit error taxonomy.
 
-**Files:** Modify `server.js`; Test `tests/reporting-send.smoke.test.js`
+**Files:** Create `services/sendCoordinator.js`; Modify `server.js`; Test `tests/reporting-send.smoke.test.js`
+
+> **Build the pipeline as `services/sendCoordinator.js` FROM THE START** — exporting
+> `sendCoordinatorReport({ db, cfg, site, period, force, preview })` → `{preview?}|{ok}|{skipped,reason}`.
+> The route is a thin wrapper over it. Task 10's scheduled CLI calls the SAME function.
+> (Do not inline the logic in the route and refactor later — that costs a needless
+> re-run of this task's smoke test.)
 
 - [ ] **Step 1: Write the failing smoke test** (copy the harness from `tests/reporting-routes.smoke.test.js`; force `REPORTS_BACKEND=sqlite`):
 
@@ -906,7 +979,7 @@ Implementation notes (follow these exactly):
 3. `const { subject, htmlBody, fullHtml } = composeCoordinator(data)`.
 4. **`preview=1` → return `{subject, html: fullHtml}` and RETURN — never send, never log.**
 5. Resolve the recipient: `const rows = await reportDirectory.listRecipients(rdb.db); const cfg = await reportConfig.getConfig(rdb.db); const rcpt = reportDirectory.resolveFromRows(rows, site, 'coordinator', { neverSendUnconfirmed: cfg.never_send_unconfirmed === '1' });` → if `null` → `200 {skipped:true, reason:'no confirmed recipient'}` + log a WARN. **Do not send.**
-6. **Dedup:** `const period = `${year}-${String(month).padStart(2,'0')}`; if (!req.query.force && await reportSentLog.alreadySentToday('coordinator', site, period))` → `200 {skipped:true, reason:'already sent today'}`.
+6. **Dedup:** `const period = `${year}-${String(month).padStart(2,'0')}`; if (!req.query.force && await reportSentLog.alreadySentToday(rdb.db, 'coordinator', site, period))` → `200 {skipped:true, reason:'already sent today'}`. **Note the `rdb.db` first arg** — the as-built signature is `alreadySentToday(db, report_type, site_code, period)`; omitting it silently defeats dedup.
 7. PDF: `const pdf = await renderPdf(fullHtml, { stamp: `${site}-${period}` })` — on `{htmlOnly:true}` continue WITHOUT the attachment (log the reason); never fail the send for a PDF problem.
 8. Send: `buildMailer(cfg).send({ to: rcpt.to, cc: rcpt.cc, subject, html: htmlBody, attachments: pdf.ok ? [{ filename: `IT-Report-${site}-${period}.pdf`, content: pdf.pdf }] : [] })`.
 9. **Log the outcome** either way: `await reportSentLog.record(rdb.db, { report_type:'coordinator', site_code: site, period, recipients: [rcpt.to, ...(rcpt.cc||[])].join(','), result: sent.ok ? 'ok' : 'fail' })`. (Only `result='ok'` rows count for dedup — see reportSentLog.)
@@ -917,7 +990,7 @@ Implementation notes (follow these exactly):
 - [ ] **Step 5: Commit**
 
 ```bash
-git add server.js tests/reporting-send.smoke.test.js
+git add services/sendCoordinator.js server.js tests/reporting-send.smoke.test.js
 git commit --no-verify -m "feat(reporting): POST /api/reports/send (coordinator) + preview, dedup + safety gate"
 ```
 
@@ -933,26 +1006,28 @@ git commit --no-verify -m "feat(reporting): POST /api/reports/send (coordinator)
 app.post('/api/reports/recipients/suggest', requireReportSession, requireAdmin, async (req, res) => {
   try {
     const meetingsDb = require('./meetings-db');
-    const sites = (await rdb.listSites()) || [];
-    // Resolve each site's MEETINGS code; skip sites with none (Exploration/Tanda).
-    const codes = [];
-    for (const s of sites) {
-      const row = await rdb.getSiteModuleCodeForSite?.(s.id, 'meetings');   // see note
-      if (row?.code) codes.push(row.code);
-    }
+    // NO optional chaining — a missing reader must fail loudly, not yield filled:0.
+    const codes = (await rdb.listSiteModuleCodes('meetings')).map(r => r.code).filter(Boolean);
     const out = await reportDirectory.suggestFromMeetings(rdb.db, codes, meetingsDb, req.reportUser?.username);
     res.json(out);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 ```
 
-> **NOTE:** `getSiteModuleCodeForSite(site_id, module)` does not exist. Either add it as a tiny sibling of `getSiteIdByModuleCode` in reports-db (preferred — one SELECT, + pg fork, + a test), or derive the code list by querying `site_module_codes WHERE module='meetings'` directly through a new reader `listSiteModuleCodes(module)` → `[{site_id, code, name}]`. Pick ONE, implement it properly with a pg fork, and use it here.
+> **Add `listSiteModuleCodes(module)` to reports-db** (sibling of `getSiteIdByModuleCode`, + pg fork, + a test): `SELECT c.site_id, c.code, s.name FROM site_module_codes c JOIN sites s ON s.id=c.site_id WHERE c.module = ? ORDER BY s.name` → `[{site_id, code, name}]`. Sites without a meetings code (Exploration/Tanda) simply don't appear.
 
-Also: `reportDirectory.suggestFromMeetings` currently throws on the pg path (`'suggestFromMeetings: sqlite-only in Foundation'`) because `listRecipients` returns a Promise under pg. **Fix it** to await the rows (make the function async and `await listRecipients(db)`), and keep the never-overwrite-confirmed rule. Update its test.
+**`suggestFromMeetings` MUST be made fully async — this is the same silent-zero class of bug this whole sub-project is fixing.** As built (`services/reportDirectory.js:68`) it is synchronous and:
+- calls `listRecipients(db)` bare → a Promise under pg (it currently throws a guard error), AND
+- calls `meetingsReader.getSiteContacts(code)` bare → **a Promise under `MEETINGS_BACKEND=postgres` (prod!)** → `c.coordinator_name` is `undefined` → no patch → `{ok:true, filled:0}` with no error, AND
+- calls `upsertRecipient(...)` bare → an unawaited Promise under pg (fire-and-forget writes + unhandled rejections).
+
+Fix: make `suggestFromMeetings` `async` and `await` **all three**. Remove the `if (typeof existing.then === 'function') throw` guard. Keep the never-overwrite-confirmed rule. Also drop the silent `if (meetingsReader.getSiteContacts && …)` guard — if the reader is missing, that's a bug, not a no-op.
+
+Update `tests/report-directory.test.js`'s suggest test to `await` the call, and **add a test with an async stub reader** (`getSiteContacts: async () => ({coordinator_name:'X'})`) proving it still fills — that's the test that would have caught the pg bug.
 
 - [ ] **Step 2: Enable the button in `public/reports.html`** — the "Suggest from meetings" button is currently disabled with a "coming soon" tooltip. Wire it to `POST /api/reports/recipients/suggest`, then reload the recipients table and toast `filled` count.
 
-- [ ] **Step 3: Add a smoke assertion** — `POST /api/reports/recipients/suggest` (admin) → 200 with `{ok:true, filled:<number>}`.
+- [ ] **Step 3: Add a smoke assertion** — `POST /api/reports/recipients/suggest` (admin) → 200 with `{ok:true, filled:N}` where **`N > 0` against a seeded PV**. Asserting only `filled:<number>` is worthless — `filled: 0` is exactly the failure mode (every silent-zero bug above still returns `{ok:true, filled:0}`). Seed one `md_meetings` row (site_code + site_it_lead + a finance PV) in the smoke's fixture so a real fill is provable.
 
 - [ ] **Step 4: Run the smoke + directory tests → PASS.** Paste output.
 - [ ] **Step 5: Commit**
@@ -977,7 +1052,7 @@ Test: unconfirmed → skipped with reason; inactive (`active=0`) → skipped; co
 
 - [ ] **Step 2: Run → FAIL. Implement. Run → PASS.**
 
-- [ ] **Step 3: Replace the dry-run body** — for each sendable site, call the same compose→render→mail→log pipeline as the route. **Factor the pipeline into a shared module** (`services/sendCoordinator.js` exporting `sendCoordinatorReport({db, cfg, site, period, force})`) and have BOTH the route (Task 8) and the CLI call it — do not duplicate the logic. If Task 8 already inlined it in the route, refactor it out now and re-run Task 8's smoke test.
+- [ ] **Step 3: Replace the dry-run body** — for each sendable site, call `sendCoordinatorReport({db, cfg, site, period, force})` from `services/sendCoordinator.js` (built in Task 8; the route is already a thin wrapper over it). Do NOT duplicate the pipeline here.
 - [ ] **Step 4: CLI smoke** — `REPORTS_BACKEND=sqlite node tools/reports/send-reports.js --type=coordinator --cadence=weekly` → must exit 0 and print a per-site summary (with no confirmed recipients configured it should print all-skipped, and send nothing).
 - [ ] **Step 5: Commit**
 
