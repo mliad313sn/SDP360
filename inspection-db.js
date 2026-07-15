@@ -947,6 +947,64 @@ function getInspectionStatus(id) {
   return row ? (row.status || 'draft') : null;
 }
 
+// ── Site score inputs (the user's sbDims model — see the score-alignment plan) ──
+// All date logic is ISO STRING comparison, exactly as the source model.
+// Both dimensions are WINDOWED (sanctioned deviation 2): the source counts them
+// cumulatively to the as-of date, which was invisible while its W0 ≈ the data
+// start, but would saturate forever under a rolling window (`insp >= 3` always
+// true) — the exact thing the rolling window exists to prevent.
+//
+// rows: { inspections, findings } already scoped to ONE site; each finding
+// carries its parent inspection's date.
+function _computeInspectionScoreInputs({ inspections, findings }, { from, to }) {
+  const insp = (inspections || []).filter(i => i.inspection_date >= from && i.inspection_date <= to).length;
+  // STRICT === on the status, exactly as the source. Being case-insensitive
+  // here would be an undeclared deviation from the dashboard the user reads.
+  const finds = (findings || []).filter(f =>
+    f.inspection_date >= from && f.inspection_date <= to &&
+    (f.status === 'critical' || f.status === 'major')).length;
+  return { inspections: insp, findings: finds };
+}
+
+/**
+ * getSiteScoreInputs(siteCode, from, to) — measures 2 of the 6 sbDims
+ * dimensions for one site: inspections run and critical+major findings, both
+ * over the window [from, to].
+ *
+ * Fetches ALL rows for the site (no SQL date filtering) — the pure core does
+ * the windowing, so the semantics live in ONE place and stay testable.
+ * insp_findings has no date of its own; it inherits its parent inspection's
+ * via the JOIN.
+ */
+function getSiteScoreInputs(siteCode, from, to) {
+  if (INSPECTION_BACKEND === 'postgres') return _getSiteScoreInputsPg(siteCode, from, to);
+  const db = getDB();
+  const inspections = db.prepare(
+    `SELECT inspection_date FROM insp_inspections WHERE site_code = ? COLLATE NOCASE`).all(siteCode);
+  const findings = db.prepare(
+    `SELECT f.status, i.inspection_date
+       FROM insp_findings f JOIN insp_inspections i ON i.id = f.inspection_id
+      WHERE i.site_code = ? COLLATE NOCASE`).all(siteCode);
+  return _computeInspectionScoreInputs({ inspections, findings }, { from, to });
+}
+
+async function _getSiteScoreInputsPg(siteCode, from, to) {
+  const H = pgHandle();
+  // No casts needed here: insp_inspections.inspection_date and
+  // insp_findings.status are both TEXT in db/postgres/inspection/001_init.sql,
+  // so they carry over as comparable ISO strings untouched. (Contrast
+  // md_issues.updated_at in meetings-db, which is TIMESTAMPTZ and must be
+  // to_char'd — if inspection_date ever becomes a timestamp type, it needs the
+  // same treatment or every window compare silently fails.)
+  const inspections = await H.prepare(
+    `SELECT inspection_date FROM insp_inspections WHERE lower(site_code) = lower(?)`).all(siteCode);
+  const findings = await H.prepare(
+    `SELECT f.status, i.inspection_date
+       FROM insp_findings f JOIN insp_inspections i ON i.id = f.inspection_id
+      WHERE lower(i.site_code) = lower(?)`).all(siteCode);
+  return _computeInspectionScoreInputs({ inspections, findings }, { from, to });
+}
+
 /** Roll-up counts for the list page KPI tiles + simple time-series. */
 function aggregate(opts = {}) {
   if (INSPECTION_BACKEND === 'postgres') return _aggregatePg(opts);
@@ -1595,6 +1653,7 @@ module.exports = {
   saveInspection,
   deleteInspection,
   aggregate,
+  getSiteScoreInputs, _computeInspectionScoreInputs,
   listActions, addActionUpdate, listActionUpdates, getActionParent,
   exportRows,
   resetLookups,
