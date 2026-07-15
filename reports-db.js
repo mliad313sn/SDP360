@@ -1629,6 +1629,61 @@ async function _getSiteHelpdeskMonthlyPg(site_id, year, month) {
   return _computeSiteHelpdesk(rows);
 }
 
+// Pure core — rows already scoped to the site's groups + month. `hours` is the
+// created→resolved duration for CLOSED tickets (null otherwise).
+function _computeTechStats(rows) {
+  const by = new Map();
+  for (const r of rows || []) {
+    const name = (r.technician || '').trim();
+    if (!name) continue;                       // drop the NULL-technician bucket
+    if (!by.has(name)) by.set(name, { name, assigned: 0, resolved: 0, current_load: 0, sla_overdue: 0, reopened: 0, _h: [] });
+    const t = by.get(name);
+    t.assigned++;
+    // `r.hours != null` FIRST: +null === 0 and Number.isFinite(0) is true, so a
+    // closed ticket with no resolved_time/completed_time would push a phantom
+    // 0-hour resolution into the average.
+    if (r.pending_status === 0) { t.resolved++; if (r.hours != null && Number.isFinite(+r.hours)) t._h.push(+r.hours); }
+    else t.current_load++;
+    if (r.overdue_status === 1) t.sla_overdue++;
+    if ((r.reopen_count || 0) > 0) t.reopened++;
+  }
+  return [...by.values()].map(t => {
+    const avg = t._h.length ? t._h.reduce((s, x) => s + x, 0) / t._h.length : null;
+    delete t._h;
+    return { ...t, avg_resolution_h: avg === null ? null : Math.round(avg * 10) / 10 };
+  }).sort((a, b) => b.assigned - a.assigned || a.name.localeCompare(b.name));
+}
+
+/** getSiteTechnicianStats(site_id, year, month) — group-scoped, per technician. */
+function getSiteTechnicianStats(site_id, year, month) {
+  if (REPORTS_BACKEND === 'postgres') return _getSiteTechnicianStatsPg(site_id, year, month);
+  const site = db.prepare('SELECT zoho_group FROM sites WHERE id=?').get(site_id);
+  const groups = String(site?.zoho_group || '').split(',').map(g => g.trim()).filter(Boolean);
+  if (!groups.length) return [];
+  const ym = `${year}-${String(month).padStart(2, '0')}`;
+  const ph = groups.map(() => '?').join(',');
+  const rows = db.prepare(`
+    SELECT technician, pending_status, overdue_status, reopen_count,
+           (julianday(COALESCE(resolved_time, completed_time)) - julianday(created_time)) * 24 AS hours
+    FROM request_records
+    WHERE tech_group IN (${ph}) AND strftime('%Y-%m', created_time) = ?`).all(...groups, ym);
+  return _computeTechStats(rows);
+}
+async function _getSiteTechnicianStatsPg(site_id, year, month) {
+  const H = pgHandle();
+  const site = await H.prepare('SELECT zoho_group FROM sites WHERE id=?').get(site_id);
+  const groups = String(site?.zoho_group || '').split(',').map(g => g.trim()).filter(Boolean);
+  if (!groups.length) return [];
+  const ym = `${year}-${String(month).padStart(2, '0')}`;
+  const ph = groups.map(() => '?').join(',');
+  const rows = await H.prepare(`
+    SELECT technician, pending_status, overdue_status, reopen_count,
+           EXTRACT(EPOCH FROM (COALESCE(resolved_time, completed_time)::timestamptz - created_time::timestamptz))/3600 AS hours
+    FROM request_records
+    WHERE tech_group IN (${ph}) AND to_char(created_time::timestamptz,'YYYY-MM') = ?`).all(...groups, ym);
+  return _computeTechStats(rows);
+}
+
 function updateSiteGroup(site_id, zoho_group) {
   if (REPORTS_BACKEND === 'postgres') return _updateSiteGroupPg(site_id, zoho_group);
   db.prepare(`UPDATE sites SET zoho_group=? WHERE id=?`).run(zoho_group || null, site_id);
@@ -6269,6 +6324,7 @@ module.exports = {
   getSiteIdByModuleCode, listSiteModuleCodes,
   // Per-site report blocks (group-scoped — request_records.site is unreliable)
   getSiteHelpdeskMonthly, _computeSiteHelpdesk,
+  getSiteTechnicianStats, _computeTechStats,
   getPreviousWeek, ensureWeek, getWeekRange,
   ensureReport, getReport, listReports,
   saveInfraKpis, saveHelpdeskData, saveLights, saveActionItems,
