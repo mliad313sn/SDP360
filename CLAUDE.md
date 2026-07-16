@@ -14,7 +14,14 @@ made so far so that future sessions can pick up exactly where the last one ended
 > the per-site data is now REAL (Foundation's binder silently read zeros — see the
 > Known Pitfalls rows below), + the coordinator report composer + `POST /api/reports/send`
 > (preview / dedup / safety gate) + the scheduled `tools/reports/send-reports.js` CLI.
-> Sub-projects 3-4 (scheduling auto-send verification + the Finance Manager report) pending.
+> **Sub-project 3A landed** (branch `feat/score-sbdims`): the site score is now the
+> user's authoritative `sbDims` model (6 dims × 0/1/2 ÷ 12, RAG 70/45) over a
+> **3-month rolling window**, replacing the earlier INVENTED weighted model.
+> **Scores WILL differ from any report sent before this** — that is the point, the
+> old numbers were ours, not theirs. Pinned to the user's own data by
+> `tests/score-fidelity.test.js` (their 5 sites, their window, their oracle).
+> Sub-projects 3B-5 (the page port + scheduling auto-send + the Finance Manager
+> report) pending.
 >
 > **READ FIRST.** Branch `main`. **🏁 The SQLite→PostgreSQL migration is COMPLETE
 > in prod: ALL 4 modules run on PostgreSQL** (`TRACKER_BACKEND` / `MEETINGS_BACKEND`
@@ -2312,6 +2319,9 @@ In normal use NO request hits this fallback. It's a safety net.
 
 | Pitfall | Rule |
 |---------|------|
+| **The site score is a PORT, not a design of ours — do NOT retune it** | The score is a faithful port of the user's own dashboard model (`IT Review Dashboard.html` → `sbDims`): 6 dims × 0/1/2 ÷ 12, RAG 70/45. Do NOT "improve" the thresholds, the rounding, or the (deliberately asymmetric, technically-invalid-as-a-comparator) moves tie-break — **a score that diverges from the one the team already sees on their dashboard is worse than no score at all.** `tests/score-fidelity.test.js` pins our output to THEIR numbers on THEIR data (`tests/fixtures/em-data.json` = their real `EM_DATA`, 5 sites, their `W0` window). If that test ever fails, our code is wrong — fix the port, never the expectations. |
+| **Score window ≠ report window** | The report's blocks are monthly / MTD; the score is a **3-month rolling window**. This is not an oversight: the user's thresholds (`reviews ≥8`, `inspections ≥3` "quarterly") are calibrated for ~3 months and are meaningless over one. Both windows are surfaced with their window stated — keep it that way, and don't "align" the score to the report month. |
+| **`md_issues.updated_at` is TIMESTAMPTZ in pg, TEXT everywhere else** | Every other date column the score touches is TEXT. The pg fork of `getSiteScoreInputs` MUST `to_char()` it — otherwise `_effClose` yields `'Wed Jun 11'`, every ISO string compare (`c <= to`) silently loses, and resolution/overdue go wrong **in prod only** (sqlite tests stay green). The score's date logic is ISO STRING comparison by contract; anything reaching it must already be a `YYYY-MM-DD…` string. |
 | **A binder that "looks wired" can silently read zeros** | `services/siteReport.js`'s `_safe()` swallows shape mismatches into empty blocks — so a mis-shaped binder degrades to zeros instead of throwing. Foundation's helpdesk/meetings/inspection binders passed EVERY test (all stub-shaped, contract-conformant) while returning zeros against the REAL readers: `getCalendarMonthlyHelpdesk` returns `{inbound, closed, …}`, not `{created, resolved, …}`; the meetings kpis are `dept_target`/`resolved_month`/`new_month`/`escalations_open`, not `pvs_target`/`resolved`/`new`/`escalations`; `aggregate()` nests under `counts:{}`. **Rule: any deps binder needs at least one test against the REAL reader's shape, not just a contract-shaped stub.** A stub proves the contract, never the wiring. |
 | **Per-site helpdesk readers MUST scope by `tech_group`, NEVER `request_records.site`** | `site` is free-form and unreliable (`'HOUNDE'`, `'Hounde Mine'`, `'Ouaga'` vs `'Ouagadougou'`, `'LONDON'`/`'London'`). Scope by `tech_group IN (…)`, comma-split from `sites.zoho_group`. Every existing per-site reader in this codebase already does this — follow it. |
 | **A CLI with an unguarded top-level IIFE cannot be unit-tested** | `require()`-ing `tools/reports/send-reports.js` used to EXECUTE it and call `process.exit(0)` — so the test file reported "1 test passed" having run ZERO of its 10. Guard the entrypoint with `if (require.main === module)` and export the pure core. **Symptom: a test file whose reported test count is far lower than the number of `test()` calls in it.** Whenever a suite's count looks too low, count the `test()` calls before trusting the green. |
