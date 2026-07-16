@@ -11,7 +11,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert');
-const { eMetrics, median, days } = require('../services/siteComposite');
+const { eMetrics, median, days, composite } = require('../services/siteComposite');
 
 const A = '2026-07-14';
 // Minimal D — only the fields eMetrics reads.
@@ -89,4 +89,68 @@ test('e1: cadence = dept-months held / (depts x months since first meeting)', ()
 test('eMetrics ignores other sites', () => {
   const D = { meetings: [mk(), mk({ site_code: 'MGO', department: 'other' })], issues: [] };
   assert.strictEqual(eMetrics('HGO', D, A).cov, 8);   // 1 dept / 12
+});
+
+// ── composite() ─────────────────────────────────────────────────────────────
+
+// QUIRK 5
+test('composite: empty issue log scores 100 on the odRate term', () => {
+  const D = { meetings: [mk()], issues: [], inspections: [], findings: [] };
+  const c = composite('HGO', D, A);
+  assert.strictEqual(c.open, 0);
+  assert.strictEqual(c.odRate, 0);       // empty backlog → 0% overdue → (100-0)*0.4 contributes fully
+});
+
+// QUIRK 3
+test('QUIRK: mttrIdx defaults to 60 when the site has resolved nothing', () => {
+  const D = { meetings: [mk()], issues: [
+    { site_code: 'HGO', meeting_date: '2026-05-02', status: 'open', severity: 'LOW' },
+  ], inspections: [], findings: [] };
+  const c = composite('HGO', D, A);
+  // del = (100-0)*0.4 + 60*0.3 + (100-0)*0.3 = 40 + 18 + 30 = 88
+  assert.strictEqual(c.del, 88);
+});
+
+// QUIRK 2
+test('QUIRK: pen is +5 once for a HIGH open >90d, and +3 per stale escalated issue (uncapped)', () => {
+  const old = '2026-01-01';   // >90d before A
+  const D = { meetings: [mk()], inspections: [], findings: [], issues: [
+    { site_code: 'HGO', meeting_date: old, status: 'open', severity: 'HIGH' },
+  ] };
+  assert.strictEqual(composite('HGO', D, A).pen, 5);
+
+  const D2 = { meetings: [mk()], inspections: [], findings: [], issues: [
+    { site_code: 'HGO', meeting_date: old, status: 'open', severity: 'LOW', escalate: '1' },
+    { site_code: 'HGO', meeting_date: old, status: 'open', severity: 'LOW', escalate: '1' },
+  ] };
+  assert.strictEqual(composite('HGO', D2, A).pen, 6);   // 3+3, no HIGH → no +5
+});
+
+test('composite: score is floored at 0 but has NO upper clamp', () => {
+  // the floor
+  const old = '2026-01-01';
+  const many = Array.from({ length: 40 }, () => ({ site_code: 'HGO', meeting_date: old, status: 'open', severity: 'HIGH', escalate: '1' }));
+  const D = { meetings: [mk()], inspections: [], findings: [], issues: many };
+  assert.strictEqual(composite('HGO', D, A).score, 0);   // Math.max(0, ...) — never negative
+});
+
+// QUIRK 4 — the fleet dependency. This is why composite() takes the whole D.
+// Constructing this test is subtle; get it wrong and it fails against a CORRECT
+// port (which, under this plan's "if it disagrees, our code is wrong" doctrine,
+// would get the PORT broken to satisfy a broken test). Two traps:
+//   a) source line 110 filters allRes with `c && c <= A` — fleet rows closing
+//      AFTER asOf never enter the fleet median at all.
+//   b) source line 112 clamps: mttrIdx = min(100, 100*fleetMttr/max(mttr,1)).
+//      A fleet SLOWER than the site drives the ratio >100 → clamped → no effect.
+// So: the site must be SLOW, the fleet FAST, and everything closed on/before asOf.
+// Verified against the source: alone.del = 100, withFleet.del = 72.
+test('QUIRK: fleetMttr is computed across ALL sites — another site changes this site score', () => {
+  const slow = [{ site_code: 'HGO', meeting_date: '2026-01-01', status: 'resolved', closed_at: '2026-04-11', severity: 'LOW' }];  // 100 d
+  const fast = (s) => ({ site_code: s, meeting_date: '2026-05-01', status: 'resolved', closed_at: '2026-05-06', severity: 'LOW' }); // 5 d
+  const alone = composite('HGO', { meetings: [mk()], issues: slow, inspections: [], findings: [] }, A);
+  const withFleet = composite('HGO', { meetings: [mk()], inspections: [], findings: [],
+    issues: [...slow, fast('MGO'), fast('SGO')] }, A);
+  assert.strictEqual(alone.del, 100);
+  assert.strictEqual(withFleet.del, 72);
+  assert.notStrictEqual(alone.del, withFleet.del);   // the SAME site, scored differently
 });

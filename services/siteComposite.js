@@ -77,6 +77,59 @@ function eMetrics(site, D, asOf) {
   return { e1, e2, e3, e5, cov, nextRate: Math.round(100 * withNext / meets.length) };
 }
 
+// source line 102 — composite v2 at a point in time.
+// NOTE (quirk 4): `D` MUST be the whole fleet's data, not one site's slice —
+// `fleetMttr` below reads D.issues with NO site filter.
+function composite(site, D, asOf) {
+  const A = asOf || ANCHOR;
+  const isss = D.issues.filter(i => i.site_code === site);
+  const openA = isss.filter(i => openAt(i, A));
+  const overdue = openA.filter(i => i.target_date && i.target_date < A).length;
+  const odRate = openA.length ? 100 * overdue / openA.length : 0;   // QUIRK 5
+  const resolved = isss.filter(i => { const c = effClose(i); return i.status === 'resolved' && c && c <= A && i.meeting_date; });
+  const mttr = median(resolved.map(i => days(effClose(i), i.meeting_date)));
+  const allRes = D.issues.filter(i => { const c = effClose(i); return i.status === 'resolved' && c && c <= A && i.meeting_date; });
+  const fleetMttr = median(allRes.map(i => days(effClose(i), i.meeting_date))) || 1;   // QUIRK 4
+  const mttrIdx = mttr == null ? 60 : Math.max(0, Math.min(100, 100 * fleetMttr / Math.max(mttr, 1)));   // QUIRK 3
+  const highOpen = openA.filter(i => i.severity === 'HIGH');
+  const highAging = highOpen.length ? 100 * highOpen.filter(i => days(A, i.meeting_date) > 30).length / highOpen.length : 0;
+  const del = (100 - odRate) * 0.4 + mttrIdx * 0.3 + (100 - highAging) * 0.3;
+  const e = eMetrics(site, D, A);
+  const gov = e.e1 * 0.35 + e.e2 * 0.30 + e.e3 * 0.15 + e.e5 * 0.20;
+  const eng = e.cov * 0.6 + e.nextRate * 0.4;
+  let pen = 0;   // QUIRK 2 — uncapped
+  openA.filter(i => (i.escalate === '1' || i.escalate === 1) && days(A, i.meeting_date) > 60).forEach(() => pen += 3);
+  if (highOpen.some(i => days(A, i.meeting_date) > 90)) pen += 5;
+  const score = Math.max(0, Math.round(del * 0.4 + gov * 0.35 + eng * 0.25 - pen));   // floored at 0, no ceiling
+  return { score, del: Math.round(del), gov: Math.round(gov), eng: Math.round(eng), pen, e, open: openA.length, overdue, high: highOpen.length, odRate: Math.round(odRate), mttr };
+}
+
+// source line 138 — the ranked candidate list (9 branches), top 2 returned.
+function twoMoves(site, D, comp) {
+  const A = ANCHOR;
+  const cands = [];
+  const openA = D.issues.filter(i => i.site_code === site && isOpenNow(i));
+  const od = openA.filter(i => i.target_date && i.target_date < A).sort((a, b) => a.target_date < b.target_date ? -1 : 1);
+  if (comp.odRate > 20 && od.length) cands.push([100 + comp.odRate, 'Clear the overdue backlog — ' + od.length + ' items past target (' + comp.odRate + '% of open). Start with “' + (od[0].title || '').slice(0, 60) + '” (' + days(A, od[0].target_date) + ' d late).']);
+  if (comp.high >= 4) cands.push([90 + comp.high, 'Reduce HIGH exposure: ' + comp.high + ' HIGH items open (red ≥ 4). Review each in the next GM meeting with a dated plan.']);
+  if (comp.e.e2 < 50) cands.push([85, 'Fix PV diffusion: only ' + comp.e.e2 + '% of minutes signed within 48 h. Chase both signatures at the meeting close, not after.']);
+  const noTarget = openA.filter(i => !i.target_date).length;
+  if (noTarget >= 3) cands.push([70 + noTarget, 'Set target dates on ' + noTarget + ' open issues that have none — they are invisible to overdue tracking.']);
+  const insp = D.inspections.filter(i => i.site_code === site).map(i => i.inspection_date).sort();
+  const lastI = insp[insp.length - 1];
+  if (!lastI || days(A, lastI) > 45) cands.push([80, 'Schedule an infrastructure inspection — last one ' + (lastI ? days(A, lastI) + ' days ago' : 'never recorded') + ' (cadence target ≤ 45 d).']);
+  const crit = D.findings.filter(f => f.site_code === site && (f.status === 'critical' || f.status === 'major')).length;
+  if (crit > 0) cands.push([75 + crit, 'Close out ' + crit + ' critical/major inspection findings with dated corrective actions in the register.']);
+  if (comp.e.e1 < 70) cands.push([65, 'Restore review cadence: ' + comp.e.e1 + '% of expected department reviews held. Book next-month PVs for every engaged department now.']);
+  const load = {}; openA.forEach(i => { const c = (i.champion || '').trim(); if (c) load[c] = (load[c] || 0) + 1; });
+  const heavy = Object.entries(load).filter(([, n]) => n >= 7).sort((a, b) => b[1] - a[1]);
+  if (heavy.length) cands.push([88, 'Rebalance workload: ' + heavy[0][0] + ' holds ' + heavy[0][1] + ' open items (alert ≥ 7). Reassign or co-own before dates slip.']);
+  if (comp.e.cov < 60) cands.push([60, 'Widen department coverage: only ' + Math.round(comp.e.cov / 100 * 12) + ' of 12 departments engaged. Book intake meetings with the missing functions.']);
+  cands.sort((a, b) => b[0] - a[0]);
+  while (cands.length < 2) cands.push([0, 'Hold the line: keep closure ratio ≥ 1.0 and sign every PV within 48 h.']);
+  return cands.slice(0, 2).map((c, i) => ({ n: i + 1, text: c[1] }));
+}
+
 // source line 126 — composite RAG bands: GREEN ≥75 · AMBER 55–74 · RED <55
 // (NOT rag2, which is the sbDims model's 70/45.)
 function rag(score) {
@@ -93,4 +146,4 @@ function ragPct(v, g, a) {
   return { bg: 'var(--color-accent-100)', fg: '#c2280f' };
 }
 
-module.exports = { dUTC, days, median, isOpenNow, effClose, openAt, eMetrics, rag, ragPct, ANCHOR };
+module.exports = { dUTC, days, median, isOpenNow, effClose, openAt, eMetrics, composite, twoMoves, rag, ragPct, ANCHOR };
