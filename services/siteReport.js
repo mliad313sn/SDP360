@@ -33,7 +33,11 @@ async function siteReportData(siteCode, period, deps) {
   const hd = await _safe(() => deps.helpdesk(siteCode, period), EMPTY.helpdesk, 'helpdesk');
   const techsRaw = await _safe(() => deps.technicians(siteCode, period), [], 'technicians');
   const siteStatusRaw = await _safe(() => deps.siteStatus(siteCode), 'operational', 'siteStatus');
-  const prev = await _safe(() => deps.prevComposite(siteCode, period), null, 'prevComposite');
+  // The score is measured over its OWN 3-month rolling window by deps.scoreInputs
+  // — it is NOT derived from the meetings/inspection blocks, which stay monthly
+  // narrative content. Both windows are surfaced with the numbers they describe.
+  const si = await _safe(() => deps.scoreInputs(siteCode, period), null, 'scoreInputs');
+  const prev = await _safe(() => deps.prevScore(siteCode, period), null, 'prevScore');
 
   const meetings = {
     pvs_held: mk.pvs_held || 0, pvs_target: mk.pvs_target || 0, open_issues: mk.open_issues || 0,
@@ -52,11 +56,7 @@ async function siteReportData(siteCode, period, deps) {
   const medianLoad = loads.length ? loads[Math.floor(loads.length / 2)] : 0;
   const technicians = techsRaw.map(t => ({ ...t, alerts: _techAlerts(t, medianLoad || 1) }));
 
-  const score = computeSiteScore(
-    { pvs_held: meetings.pvs_held, pvs_target: meetings.pvs_target, resolved: meetings.resolved, open_issues: meetings.open_issues, overdue_actions_count: mk.overdue_actions_count || meetings.overdue_actions.length, signoff_pct: mk.signoff_pct || 0 },
-    { inspections_done: inspection.inspections_done, findings_critical_major: inspection.findings_critical_major },
-    prev,
-  );
+  const score = si ? computeSiteScore(si.inputs, si.window, prev) : computeSiteScore({}, null, null);
 
   const recommended = _recommend(meetings, inspection, helpdesk, technicians);
   const fm = _financeView(meetings, inspection, helpdesk, siteStatusRaw);

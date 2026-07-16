@@ -4,6 +4,7 @@
 // injectable so this is unit-testable without DBs.
 const A = require('./siteReportAdapters');
 const { computeSiteScore } = require('./siteScore');
+const { rollingWindow, prevDay } = require('./scoreWindow');
 const { deriveSiteStatus } = require('./execSummary');
 
 const MODULE_NS = 'meetings';   // the report's site codes come from the meetings/inspection namespace
@@ -61,41 +62,52 @@ function buildSiteReportDeps(mods) {
       return out.length ? out[0].status : 'operational';
     },
 
-    // No composite is persisted — recompute the previous month from the same
-    // readers, scoped to the PREVIOUS month on both sides.
-    // Returns null when the previous month has no meeting data (spec §4.1:
-    // trend_pts must be null on a site's first period — otherwise the zeroed
-    // kpis still score ~35-65 via the "no issues → resolution_pct 100" rule and
-    // the report shows a confident trend against a month that never existed).
-    prevComposite: async (code, p) => {
-      const prev = _prevMonth(p.year, p.month);
-      const raw = await meetingsDb.getSiteMonthlyMeetingSummary(code, prev.year, prev.month);
-      // `available` is NOT a usable discriminator here: the reader only sets it
-      // false when siteCode is falsy (meetings-db.js:2545/:2654). A real site
-      // with zero PVs still returns available:true with zeroed kpis — and those
-      // zeros score ~50 (resolution_pct → 100 via the empty-denominator rule +
-      // overdue → 100 + findings → 100), i.e. a confident trend against a month
-      // that never happened. Gate on ACTUAL ACTIVITY instead. (Distinguishing
-      // "first month ever" from "a real but dead month" would need a
-      // MIN(meeting_date) lookup — deliberately not bought here: both cases
-      // should read "no trend".)
-      if (!raw || raw.available === false) return null;
-      const rk = raw.kpis || {};
-      const noActivity = !rk.pvs_held && !rk.open_issues && !rk.resolved_month && !rk.new_month && !rk.escalations_open;
-      if (noActivity) return null;
-      const ms = A.adaptMeetingsSummary(raw);
-      const insp = await inspectionAggregate(code, prev);
-      const k = ms.kpis;
+    // The score's as-of date + its 3-MONTH ROLLING window. The score is measured
+    // by its own readers, NOT derived from the monthly meetings/inspection
+    // blocks above: the user's thresholds (reviews >= 8, inspections >= 3
+    // "quarterly") are calibrated for ~3 months, so scoring them on one month
+    // would read RED forever.
+    scoreInputs: async (code, p) => {
+      const asOf = p.as_of || _asOfFor(p);                    // 'YYYY-MM-DD'
+      const w = rollingWindow(asOf, 3);
+      const m = await meetingsDb.getSiteScoreInputs(code, w.from, w.to);
+      const i = await inspectionDb.getSiteScoreInputs(code, w.from, w.to);
+      return { window: w, inputs: { reviews: m.reviews, resolution: m.resolution, overdue: m.overdue, inspections: i.inspections, findings: i.findings, signoff: m.signoff } };
+    },
+
+    // The same score recomputed as-of the PREVIOUS window's end, so trend_pts is
+    // like-for-like: asOf 2026-07-14 → this window {2026-04-14 … 2026-07-14} →
+    // prevAsOf 2026-04-13 → prev window {2026-01-13 … 2026-04-13}. Non-overlapping
+    // trailing 3 months. Returns null when the previous window has nothing to score
+    // against, so a site's first quarter shows "no trend" rather than a fabricated
+    // one (zeroed inputs still score 33 — overdue 0 and findings 0 each earn 2 pts
+    // by inversion — which would read as a confident trend against a window that
+    // never happened).
+    prevScore: async (code, p) => {
+      const asOf = p.as_of || _asOfFor(p);
+      const prevAsOf = prevDay(rollingWindow(asOf, 3).from);   // NEVER `new Date(from) - 86400e3`
+      const w = rollingWindow(prevAsOf, 3);
+      const m = await meetingsDb.getSiteScoreInputs(code, w.from, w.to);
+      const i = await inspectionDb.getSiteScoreInputs(code, w.from, w.to);
+      if (!m.reviews && !m.raised && !i.inspections) return null;   // nothing happened → no trend
       return computeSiteScore(
-        { pvs_held: k.pvs_held, pvs_target: k.pvs_target, resolved: k.resolved, open_issues: k.open_issues,
-          overdue_actions_count: k.overdue_actions_count, signoff_pct: k.signoff_pct },
-        { inspections_done: insp.inspections_done, findings_critical_major: insp.findings_critical_major },
-      ).composite;
+        { reviews: m.reviews, resolution: m.resolution, overdue: m.overdue, inspections: i.inspections, findings: i.findings, signoff: m.signoff },
+        w,
+      ).score;
     },
   };
 }
 
-function _prevMonth(y, mo) { return mo <= 1 ? { year: y - 1, month: 12 } : { year: y, month: mo - 1 }; }
+// The report's as-of date: the last day of the period's month, or TODAY if that
+// month is still running — an MTD send must not score against a future date.
+// `now` is injected: an internal new Date() makes the MTD branch untestable.
+function _asOfFor(period, now = new Date()) {
+  const mm = String(period.month).padStart(2, '0');
+  const last = new Date(period.year, period.month, 0).getDate();   // day 0 of next month
+  const monthEnd = `${period.year}-${mm}-${String(last).padStart(2, '0')}`;
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  return today < monthEnd ? today : monthEnd;
+}
 
 // {from,to} ISO bounds for a calendar month — inspection-db.aggregate filters
 // inspection_date >= from AND <= to.
@@ -105,4 +117,4 @@ function _monthBounds(p) {
   return { from: `${p.year}-${mm}-01`, to: `${p.year}-${mm}-${String(last).padStart(2, '0')}` };
 }
 
-module.exports = { buildSiteReportDeps, _prevMonth, _monthBounds };
+module.exports = { buildSiteReportDeps, _monthBounds, _asOfFor };
