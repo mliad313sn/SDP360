@@ -76,12 +76,19 @@ test('_asOfFor: the last day of a running month is the month end, not tomorrow',
   assert.strictEqual(_asOfFor({ year: 2026, month: 7 }, new Date(2026, 6, 31)), '2026-07-31');
 });
 
-// ── scoreInputs — the 3-month rolling window + the six-dim mapping.
-test('scoreInputs windows 3 months back from as_of and maps the six sbDims inputs', async () => {
+// ── scoreInputs — the 3-month rolling window + the six-dim mapping (+ `raised`).
+//
+// `raised` rides along with the six SCORED dimensions but is NEVER scored: it is
+// `resolution`'s denominator (resolution = resolved ÷ raised). Without it the
+// applicability gate in siteScore.js cannot tell "0% of 4 issues resolved" (a real
+// measurement, and a bad one) from "no issues at all" (nothing measured) — and it
+// would call a genuinely bad site "non applicable" on its own report. It is an
+// applicability signal only: it never appears in `dims` and never moves the score.
+test('scoreInputs windows 3 months back from as_of and maps the six sbDims dimensions + the raised applicability signal', async () => {
   const { d, seen } = spying();
   const si = await d.scoreInputs('HGO', { year: 2026, month: 7, as_of: '2026-07-14' });
   assert.deepStrictEqual(si.window, { from: '2026-04-14', to: '2026-07-14' });
-  assert.deepStrictEqual(si.inputs, { reviews: 8, resolution: 50, overdue: 2, inspections: 3, findings: 0, signoff: 80 });
+  assert.deepStrictEqual(si.inputs, { reviews: 8, raised: 10, resolution: 50, overdue: 2, inspections: 3, findings: 0, signoff: 80 });
   // both readers measure the SAME window
   assert.deepStrictEqual(seen.meetings[0], ['HGO', '2026-04-14', '2026-07-14']);
   assert.deepStrictEqual(seen.inspection[0], ['HGO', '2026-04-14', '2026-07-14']);

@@ -155,3 +155,22 @@ test('a scored site still carries applicable:true alongside the full shape', () 
   assert.strictEqual(r.moves.length, 2);
   assert.strictEqual(r.trend_pts, 25);
 });
+
+// `raised` is `resolution`'s DENOMINATOR (resolution = resolved ÷ raised), so the
+// gate needs it to tell "0% of 4 resolved" (a real measurement) from "no issues at
+// all" (nothing measured). It is an APPLICABILITY SIGNAL ONLY — never a dimension.
+test('raised is an applicability signal, not a dimension', () => {
+  const r = computeSiteScore({ raised: 4, resolution: 0 }, win);
+  assert.strictEqual(r.applicable, true);      // 0% of 4 resolved is a MEASUREMENT
+  assert.strictEqual(r.dims.length, 6);        // still six — raised is not one of them
+  assert.ok(!r.dims.some(d => d.key === 'raised'));
+  // and it must not change the score vs the same inputs without `raised`
+  assert.strictEqual(
+    r.points,
+    computeSiteScore({ reviews: 0, resolution: 0, overdue: 0, inspections: 0, findings: 0, signoff: 0, raised: 4 }, win).points,
+  );
+});
+
+test('still N/A when nothing at all was measured (raised absent too)', () => {
+  assert.strictEqual(computeSiteScore({}, win).applicable, false);
+});

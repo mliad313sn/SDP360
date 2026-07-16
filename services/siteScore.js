@@ -56,9 +56,25 @@ function moveText(d) {
 // coverage, and the report says so.
 //
 // Any future dimension that REWARDS a zero must respect this same gate.
+//
+// But the gate cannot be read off the six scored inputs alone, because two of
+// them are RATIOS, and a ratio's zero is ambiguous WITHOUT ITS DENOMINATOR:
+//   • `resolution` = resolved ÷ RAISED  → 0 means either "0% of 4 issues
+//     resolved" (a real measurement, and a bad one) or "no issues were ever
+//     raised" (nothing measured). The six inputs cannot tell those apart.
+//   • `signoff`    = signed ÷ REVIEWS   → same ambiguity, but its denominator
+//     (`reviews`) is already one of the six, so the gate can already see it.
+// The other four (`reviews`, `inspections`, `overdue`, `findings`) are COUNTS —
+// their zeros are unambiguous and need no denominator.
+//
+// So `raised` is passed in purely to disambiguate `resolution`'s zero.
+// `raised` is an APPLICABILITY SIGNAL, NOT A DIMENSION — do not score it.
+// It must never appear in `dims`, never affect `points`/`score`/`rag`, and
+// never change any existing number. The boss's model is untouched by this.
 function hasData(inputs) {
-  return num(inputs.reviews) > 0 || num(inputs.resolution) > 0 || num(inputs.overdue) > 0 ||
-         num(inputs.inspections) > 0 || num(inputs.findings) > 0 || num(inputs.signoff) > 0;
+  return num(inputs.reviews) > 0 || num(inputs.raised) > 0 || num(inputs.resolution) > 0 ||
+         num(inputs.overdue) > 0 || num(inputs.inspections) > 0 || num(inputs.findings) > 0 ||
+         num(inputs.signoff) > 0;
 }
 
 /**

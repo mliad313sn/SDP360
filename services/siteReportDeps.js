@@ -72,7 +72,12 @@ function buildSiteReportDeps(mods) {
       const w = rollingWindow(asOf, 3);
       const m = await meetingsDb.getSiteScoreInputs(code, w.from, w.to);
       const i = await inspectionDb.getSiteScoreInputs(code, w.from, w.to);
-      return { window: w, inputs: { reviews: m.reviews, resolution: m.resolution, overdue: m.overdue, inspections: i.inspections, findings: i.findings, signoff: m.signoff } };
+      // `raised` rides along as an APPLICABILITY SIGNAL, NOT A DIMENSION — it is
+      // never scored. It is `resolution`'s denominator (resolution = resolved ÷
+      // raised), and without it computeSiteScore cannot tell "0% of 4 issues
+      // resolved" (a real, bad measurement) from "no issues at all" (nothing
+      // measured). See the gate rationale in services/siteScore.js.
+      return { window: w, inputs: { reviews: m.reviews, raised: m.raised, resolution: m.resolution, overdue: m.overdue, inspections: i.inspections, findings: i.findings, signoff: m.signoff } };
     },
 
     // The same score recomputed as-of the PREVIOUS window's end, so trend_pts is
@@ -90,8 +95,12 @@ function buildSiteReportDeps(mods) {
       const m = await meetingsDb.getSiteScoreInputs(code, w.from, w.to);
       const i = await inspectionDb.getSiteScoreInputs(code, w.from, w.to);
       if (!m.reviews && !m.raised && !i.inspections) return null;   // nothing happened → no trend
+      // `raised` is passed for APPLICABILITY ONLY (it is `resolution`'s
+      // denominator), never scored — see scoreInputs above + siteScore.js.
+      // Without it, a previous window with issues raised but none resolved reads
+      // as "nothing measured" and the trend silently disappears.
       return computeSiteScore(
-        { reviews: m.reviews, resolution: m.resolution, overdue: m.overdue, inspections: i.inspections, findings: i.findings, signoff: m.signoff },
+        { reviews: m.reviews, raised: m.raised, resolution: m.resolution, overdue: m.overdue, inspections: i.inspections, findings: i.findings, signoff: m.signoff },
         w,
       ).score;
     },
