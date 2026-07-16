@@ -228,13 +228,24 @@ test('composite: score is floored at 0 but has NO upper clamp', () => {
 });
 
 // QUIRK 4 — the fleet dependency. This is why composite() takes the whole D.
+// Constructing this test is subtle; get it wrong and it fails against a CORRECT
+// port (which, under this plan's "if it disagrees, our code is wrong" doctrine,
+// would get the PORT broken to satisfy a broken test). Two traps:
+//   a) source line 110 filters allRes with `c && c <= A` — fleet rows closing
+//      AFTER asOf never enter the fleet median at all.
+//   b) source line 112 clamps: mttrIdx = min(100, 100*fleetMttr/max(mttr,1)).
+//      A fleet SLOWER than the site drives the ratio >100 → clamped → no effect.
+// So: the site must be SLOW, the fleet FAST, and everything closed on/before asOf.
+// Verified against the source: alone.del = 100, withFleet.del = 72.
 test('QUIRK: fleetMttr is computed across ALL sites — another site changes this site score', () => {
-  const base = (site, close) => ({ site_code: site, meeting_date: '2026-05-01', status: 'resolved', closed_at: close, severity: 'LOW' });
-  const mine = [base('HGO', '2026-05-11')];                       // 10 d
-  const alone = composite('HGO', { meetings: [mk()], issues: mine, inspections: [], findings: [] }, A);
+  const slow = [{ site_code: 'HGO', meeting_date: '2026-01-01', status: 'resolved', closed_at: '2026-04-11', severity: 'LOW' }];  // 100 d
+  const fast = (s) => ({ site_code: s, meeting_date: '2026-05-01', status: 'resolved', closed_at: '2026-05-06', severity: 'LOW' }); // 5 d
+  const alone = composite('HGO', { meetings: [mk()], issues: slow, inspections: [], findings: [] }, A);
   const withFleet = composite('HGO', { meetings: [mk()], inspections: [], findings: [],
-    issues: [...mine, base('MGO', '2026-08-01'), base('SGO', '2026-08-01')] }, A);   // slow fleet
-  assert.notStrictEqual(alone.del, withFleet.del);   // the SAME site scores differently
+    issues: [...slow, fast('MGO'), fast('SGO')] }, A);
+  assert.strictEqual(alone.del, 100);
+  assert.strictEqual(withFleet.del, 72);
+  assert.notStrictEqual(alone.del, withFleet.del);   // the SAME site, scored differently
 });
 ```
 
@@ -282,6 +293,7 @@ Also assert `median` of MTTR where the oracle is known: SML 45.5 d · SMI 6 d ·
 
 - [ ] **Step 2: Run → PASS on the first try, or the port is wrong.** Paste the output.
 - [ ] **Step 3: Mutation-check the harness** (3A's implementer did this and it caught a real risk): perturb ONE oracle value by one digit, confirm exactly that assertion fails, restore. A fidelity test that cannot fail is worthless. Report what you did.
+  **Target the `del` column** for the mutation — `mttrIdx`/`del` is the term with the clamp and the fleet dependency, i.e. the easiest to port wrong and the hardest to notice.
 - [ ] **Step 4: Commit**
 ```bash
 git add tests/composite-fidelity.test.js
@@ -327,11 +339,14 @@ test('a REAL zero is still scored — a site that met and resolved nothing is RE
 });
 ```
 
-- [ ] **Step 2: Run → FAIL.**
+- [ ] **Step 2: Run → FAIL.** Note `tests/site-report.test.js:85-88` will ALSO go red here — it currently asserts the fallback `computeSiteScore({}, null, null)` yields `score: 33` / `rag: 'RED'` / `dims.length: 6`, i.e. it pins the very bug this task removes. Update it to the `applicable:false` shape (the file is already in this task's `git add`).
+
 - [ ] **Step 3: Implement.**
   - `computeSiteScore(inputs, window, previousScore)` gains an applicability gate. **The distinction that matters:** "we measured zero" ≠ "we measured nothing". Decide applicability from whether ANY input is present/non-zero — i.e. `hasData = reviews>0 || resolution>0 || overdue>0 || inspections>0 || findings>0 || signoff>0`. When false → `{ applicable:false, score:null, points:null, rag:null, trend_pts:null, dims:[], moves:[], window }`. When true → the existing behaviour + `applicable:true`.
   - **Rationale to put in a comment:** the two inverted dims make absence look like excellence; without this gate an unknown site reads RED-33 and a coordinator gets a report about a site we have no data for.
-  - Propagate through `siteReport.js` (the `score` block passes through — verify nothing downstream assumes `score.score` is a number).
+  - Propagate through `siteReport.js` (the `score` block passes through).
+  - **`services/siteReportDeps.js:93` also reads `.score` — VERIFIED SAFE, do NOT modify it** (it is not on the approved list). Its `prevScore` does `if (!m.reviews && !m.raised && !i.inspections) return null;` before calling `computeSiteScore(...).score`, so it only reaches the call when something happened; and if the gate ever did return `score:null`, it degrades to `prevScore = null` → `trend_pts = null`, which is the correct outcome anyway. Named here so you don't hunt it, panic, and "fix" an unapproved module.
+    (Aside worth one comment in the code: that guard keys on `raised`, which the six `inputs` don't carry, while the new gate can only see the six. The outcomes agree; the asymmetry is deliberate.)
   - `coordinator.js` + `public/site-report.js`: when `!applicable`, render **"Score non applicable — aucune donnée sur la fenêtre"** (+ the window dates) in place of the hero number, and **omit the dims table and the moves block entirely** rather than rendering six empty rows. Do NOT render a grey `—/100`; the point is that no verdict is claimed.
 - [ ] **Step 4: Run → PASS** (all four test files). Paste output.
 - [ ] **Step 5: Commit**
@@ -373,7 +388,7 @@ Plus canaries — `tests/pptx-monthly-golden.test.js`, `tests/meetings-summary.t
 - [ ] `tests/composite-fidelity.test.js` reproduces the author's 5 sites exactly (score, RAG, del/gov/eng/pen, eMetrics). **Acceptance.**
 - [ ] The fidelity harness is mutation-checked — it can actually fail.
 - [ ] A site with no data reports "non applicable", not RED 33.
-- [ ] The 4 documented quirks are pinned by tests, not silently fixed.
+- [ ] The **5** documented quirks are pinned by tests, not silently fixed.
 - [ ] All reporting tests green; canaries unchanged.
 - [ ] No existing module touched beyond the user-approved list.
 
