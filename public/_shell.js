@@ -51,6 +51,10 @@
     sliders:          ICONS.html('sliders'),
     'book-open':      ICONS.html('book-open'),
     'clipboard-check': ICONS.html('clipboard-check'),
+    // ICON_LIB is a hand-curated SUBSET of icons.js, not a mirror of it — a key
+    // present there is still undefined here until it is listed, and NAV then
+    // renders an EMPTY icon span with no error. Add the key when you use it.
+    'bar-chart-3':    ICONS.html('bar-chart-3'),
   };
 
   // Canonical nav. Each item declares the role(s) that grant access.
@@ -116,6 +120,12 @@
         // pattern as Activity Tracker. Keeps Insights ▾ lean and matches
         // the user mental model of "one module = one nav entry".
         { id: 'meetings',    label: 'Meetings Decisions',  icon: ICON_LIB['clipboard-check'], href: 'meetings.html',          roles: ['any']       },
+        // IT Review — the review of what the meetings produce, hence right after
+        // them. target:'_blank' is deliberate (same precedent as `help` below):
+        // it-review.html is a faithful carry of the authoritative dashboard and
+        // deliberately has NO shell mount — no header, no nav. Opening in a new
+        // tab is what makes that a non-issue: this tab stays put behind it.
+        { id: 'it-review',   label: 'IT Review',           icon: ICON_LIB['bar-chart-3'],     href: 'it-review.html',         roles: ['any'], target: '_blank' },
         // scorecard-viewer (feature role, 2026-06-12): READ-ONLY access to the
         // two gated analytical pages for users who must consult them without
         // holding the powerful executive/admin hierarchy tiers. Keep in sync

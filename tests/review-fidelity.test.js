@@ -89,6 +89,22 @@ test('ALL 61 keys are identical to his output (dashboard · week · ALL)', () =>
   assert.deepStrictEqual(P, O);
 });
 
+// ── THE EXTRAS ALLOWLIST ──────────────────────────────────────────────────────
+// The test above is the proof and it must never move: without extras we emit
+// exactly his 61 keys. This one guards the other side of that door — WITH extras
+// we add a DECLARED set and nothing else, so a future accidental key addition
+// fails loudly here instead of silently polluting his contract.
+test('WITH extras, the added keys are exactly the declared allowlist', () => {
+  const st = { view: 'dashboard', period: 'week', site: 'ALL' };
+  const base = Object.keys(ours(st));
+  const withExtras = Object.keys(ours(Object.assign({}, st, {
+    extras: { helpdesk: { HGO: { created: 40, resolved: 35, backlog: 5, sla_overdue: 2, major_incidents: 1 } },
+              changes: { HGO: { total: 4, successful: 3, failed: 1, executed: 4, emergency: 0, success_pct: 75 } } },
+  })));
+  assert.deepStrictEqual(withExtras.filter((k) => !base.includes(k)).sort(), ['hdNote', 'hdRows']);
+  assert.strictEqual(base.length, 61);
+});
+
 // The whole surface, not one screen: every view × period × site combination the
 // controls can reach. `period` drives windows() (4 different cur/prev windows),
 // `site` drives filterSite (rescoping every panel), `view` drives the isX flags.
