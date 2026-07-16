@@ -41,45 +41,103 @@
     el('periodLabel').innerHTML = (kind ? esc(kind) + ' · ' : '') + '<strong>' + esc(lbl || '—') + '</strong>';
   }
 
-  var DIM_LABELS = {
-    reviews: 'Reviews', resolution_pct: 'Resolution', overdue: 'Overdue',
-    inspections: 'Inspections', findings: 'Findings', signoff_pct: 'Sign-off'
-  };
+  // The score's RAG palette — the user's own dashboard colours, so this page and
+  // their dashboard read as the same score. --color-accent is THEIR token; this
+  // page's _tokens.css does not define it, so the source's literal red rides
+  // along as the fallback rather than resolving to nothing.
+  var SCORE_RAG = { green: '#2f7d4f', amber: '#d99a2b', red: 'var(--color-accent, #c2280f)' };
+  // A dim's 0/1/2 rating → its colour. 2 green · 1 amber · 0 red.
+  function ptsColor(pts) { return pts >= 2 ? SCORE_RAG.green : pts >= 1 ? SCORE_RAG.amber : SCORE_RAG.red; }
+
+  // Creates the node on first render if the static markup doesn't carry it, so
+  // the score hero can state its window without an edit to site-report.html.
+  function ensureEl(id, parent, tag, className) {
+    var e = el(id);
+    if (!e && parent) {
+      e = document.createElement(tag || 'div');
+      e.id = id;
+      if (className) e.className = className;
+      parent.appendChild(e);
+    }
+    return e;
+  }
 
   function renderScore(score) {
     score = score || {};
-    var rag = (score.rag === 'green' || score.rag === 'amber' || score.rag === 'red') ? score.rag : 'amber';
+    // rag is UPPERCASE on the wire ('GREEN'|'AMBER'|'RED'); the stylesheet's
+    // classes are lowercase. Fold before matching — a strict compare against
+    // the lowercase literals silently painted every site amber.
+    var rag = String(score.rag || '').toLowerCase();
+    if (rag !== 'green' && rag !== 'amber' && rag !== 'red') rag = 'amber';
+    var color = SCORE_RAG[rag];
+
     var hero = el('heroSection');
     hero.className = 'card hero rag-' + rag;
-    el('scoreVal').textContent = isNum(score.composite) ? score.composite : n(score.composite);
+
+    var sv = el('scoreVal');
+    sv.textContent = n(score.score);
+    sv.style.color = color;
+
+    // points (n/12) — the raw sbDims total behind the 0-100 score.
+    var pts = ensureEl('scorePoints', sv.parentNode && sv.parentNode.parentNode, 'div');
+    if (pts) {
+      pts.style.cssText = 'font-size:.8rem;font-weight:700;color:var(--color-text-muted,#7B7B7B);margin-top:4px';
+      pts.textContent = n(score.points) + ' / 12 pts';
+    }
 
     var chip = el('scoreChip');
     chip.className = 'score-chip chip-' + rag;
+    chip.style.background = color;
+    chip.style.color = '#fff';
     chip.textContent = rag === 'green' ? 'On track' : rag === 'red' ? 'Off track' : 'At risk';
 
     var t = el('scoreTrend');
     if (score.trend_pts == null) {
       t.className = 'score-trend trend-flat';
-      t.textContent = 'No prior period';
+      t.textContent = 'No prior window';
     } else {
       var tp = n(score.trend_pts);
       var cls = tp > 0 ? 'trend-good' : tp < 0 ? 'trend-bad' : 'trend-flat';
       var arrow = tp > 0 ? '▲' : tp < 0 ? '▼' : '·';
       t.className = 'score-trend ' + cls;
-      t.textContent = arrow + ' ' + (tp > 0 ? '+' : '') + tp + ' pts vs last period';
+      t.textContent = arrow + ' ' + (tp > 0 ? '+' : '') + tp + ' pts vs the previous 3 months';
     }
 
-    var dims = score.dimensions || {};
-    el('dimsGrid').innerHTML = Object.keys(DIM_LABELS).map(function (k) {
-      return '<div class="dim"><div class="dim-label">' + esc(DIM_LABELS[k]) + '</div>' +
-        '<div class="dim-val">' + n(dims[k]) + '</div></div>';
-    }).join('');
+    // The score measures a 3-MONTH ROLLING window; every other section on this
+    // page is the report month. Unlabelled, the two read as a contradiction.
+    var grid = el('dimsGrid');
+    var w = score.window || {};
+    var win = ensureEl('scoreWindow', grid && grid.parentNode, 'div');
+    if (win) {
+      win.style.cssText = 'font-size:.72rem;color:var(--color-text-muted,#7B7B7B);margin:-4px 0 10px';
+      win.textContent = w.from && w.to
+        ? 'Scored over the 3 months ' + w.from + ' → ' + w.to + ' — a rolling window. Every other section covers the report period only.'
+        : '';
+      if (grid && win.nextSibling !== grid) grid.parentNode.insertBefore(win, grid);
+    }
 
-    var moves = Array.isArray(score.two_moves) ? score.two_moves : [];
+    var dims = Array.isArray(score.dims) ? score.dims : [];
+    grid.innerHTML = dims.length
+      ? dims.map(function (d) {
+          d = d || {};
+          var c = ptsColor(n(d.pts));
+          return '<div class="dim" style="border-left:3px solid ' + c + '" title="' + esc(d.tip) + '">' +
+            '<div class="dim-label">' + esc(d.label) + '</div>' +
+            '<div class="dim-val">' + esc(d.disp) + ' ' +
+              '<span style="display:inline-block;font-size:.6rem;font-weight:800;color:#fff;background:' + c +
+              ';border-radius:8px;padding:1px 6px;vertical-align:middle">' + n(d.pts) + '/2</span></div>' +
+            '<div style="font-size:.62rem;color:var(--color-text-muted,#7B7B7B);margin-top:3px;line-height:1.35">' + esc(d.tip) + '</div>' +
+          '</div>';
+        }).join('')
+      : '<div class="muted">No score dimensions for this period.</div>';
+
+    // `gain` arrives ALREADY formatted ('+17 pts' / 'sustain') — render verbatim.
+    var moves = Array.isArray(score.moves) ? score.moves : [];
     el('movesList').innerHTML = moves.length
       ? moves.map(function (m) {
+          m = m || {};
           return '<li><span>' + esc(m.text) + '</span>' +
-            '<span class="move-gain">+' + n(m.gain_pts) + ' pts</span></li>';
+            '<span class="move-gain">' + esc(m.gain) + '</span></li>';
         }).join('')
       : '<li><span>No score gaps — this site is at full marks.</span></li>';
   }

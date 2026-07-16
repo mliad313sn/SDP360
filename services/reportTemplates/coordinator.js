@@ -20,6 +20,16 @@
 // EDV brand. Red is #DC2626 (Tailwind red-600), NOT the brand #D90038 — see
 // CLAUDE.md: the brand red is too heavy for filled surfaces.
 const RAG_COLORS = { green: '#16A34A', amber: '#D97706', red: '#DC2626' };
+
+// The SCORE's RAG palette is the user's own dashboard palette, so the score in
+// this email reads as the same score they see on screen. Their red is
+// `var(--color-accent)` — a CSS custom property, which Outlook's Word renderer
+// does NOT resolve (it would paint nothing), so the email uses the source's
+// literal REDT fallback instead. All three take a white foreground.
+const SCORE_RAG = { green: '#2f7d4f', amber: '#d99a2b', red: '#c2280f' };
+const scoreRagColor = (rag) => SCORE_RAG[String(rag || '').toLowerCase()] || MUTED;
+// A dim's 0/1/2 rating → its colour. 2 green · 1 amber · 0 red.
+const ptsColor = (pts) => (pts >= 2 ? SCORE_RAG.green : pts >= 1 ? SCORE_RAG.amber : SCORE_RAG.red);
 const NAVY = '#1E293B';
 const TEAL = '#0D9488';
 const INK = '#334155';
@@ -42,7 +52,6 @@ function escapeHtml(value) {
 const obj = (v) => (v && typeof v === 'object' ? v : {});
 const arr = (v) => (Array.isArray(v) ? v : []);
 const num = (v, d = 0) => (Number.isFinite(+v) ? +v : d);
-const ragColor = (rag) => RAG_COLORS[String(rag || '').toLowerCase()] || MUTED;
 
 /** A titled card with a coloured top rule. `bodyHtml` is pre-escaped markup. */
 function card(title, bodyHtml, accent = TEAL) {
@@ -95,23 +104,61 @@ function chip(text, color) {
 
 // --- sections ---------------------------------------------------------------
 
+/** The six sbDims: `label · disp` + a 0/1/2 rating chip, with the tip beneath. */
+function dimsGrid(dims) {
+  const cells = arr(dims);
+  if (!cells.length) return '';
+  const rows = [];
+  for (let i = 0; i < cells.length; i += 3) rows.push(cells.slice(i, i + 3));
+  const html = rows.map((row) => {
+    const tds = row.map((raw) => {
+      const d = obj(raw);
+      const c = ptsColor(num(d.pts));
+      return `<td width="33%" style="width:33%;padding:0 6px 8px 0;vertical-align:top;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse;background:#FFFFFF;border:1px solid ${BORDER};border-left:3px solid ${c};border-radius:4px;">
+<tr><td style="padding:7px 9px;">
+<div style="font-family:${FONT};font-size:10px;font-weight:bold;color:${MUTED};text-transform:uppercase;letter-spacing:0.5px;">${escapeHtml(d.label)}</div>
+<div style="font-family:${FONT};font-size:15px;font-weight:bold;color:${NAVY};line-height:1.3;padding-top:2px;">${escapeHtml(d.disp)}
+<span style="display:inline-block;font-size:9px;font-weight:bold;color:#FFFFFF;background:${c};border-radius:8px;padding:1px 6px;vertical-align:middle;">${escapeHtml(num(d.pts))}/2</span></div>
+<div style="font-family:${FONT};font-size:10px;color:${MUTED};line-height:1.4;padding-top:3px;">${escapeHtml(d.tip)}</div>
+</td></tr></table></td>`;
+    }).join('');
+    const pad = row.length < 3
+      ? new Array(3 - row.length).fill('<td width="33%" style="width:33%;">&nbsp;</td>').join('')
+      : '';
+    return `<tr>${tds}${pad}</tr>`;
+  }).join('');
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse;">${html}</table>`;
+}
+
 function scoreHero(score) {
   const s = obj(score);
-  const composite = num(s.composite);
+  const value = num(s.score);
   const rag = String(s.rag || '').toLowerCase();
-  const color = ragColor(rag);
+  const color = scoreRagColor(rag);
 
   const trend = s.trend_pts === null || s.trend_pts === undefined
-    ? `<span style="color:${MUTED};">no prior period</span>`
+    ? `<span style="color:${MUTED};">no prior window</span>`
     : (() => {
       const t = num(s.trend_pts);
-      const c = t > 0 ? RAG_COLORS.green : t < 0 ? RAG_COLORS.red : MUTED;
+      const c = t > 0 ? SCORE_RAG.green : t < 0 ? SCORE_RAG.red : MUTED;
       const mark = t > 0 ? '&#9650;' : t < 0 ? '&#9660;' : '&#9644;';
       const sign = t > 0 ? '+' : '';
-      return `<span style="color:${c};font-weight:bold;">${mark} ${sign}${escapeHtml(t)} pts</span> <span style="color:${MUTED};">vs prior period</span>`;
+      return `<span style="color:${c};font-weight:bold;">${mark} ${sign}${escapeHtml(t)} pts</span> <span style="color:${MUTED};">vs the previous 3 months</span>`;
     })();
 
-  const moves = arr(s.two_moves).map((m) => `<span style="color:${INK};">${escapeHtml(obj(m).text)}</span> <span style="display:inline-block;font-size:11px;font-weight:bold;color:${RAG_COLORS.green};white-space:nowrap;">+${escapeHtml(num(obj(m).gain_pts))} pts</span>`);
+  // The score measures a 3-MONTH ROLLING window; every other block in this
+  // report is the report month. Say so, or the two read as a contradiction.
+  const w = obj(s.window);
+  const windowLine = w.from && w.to
+    ? `<div style="font-family:${FONT};font-size:11px;color:${MUTED};line-height:1.5;padding-bottom:8px;">Scored over the 3 months ${escapeHtml(w.from)} &rarr; ${escapeHtml(w.to)} &mdash; a rolling window. Every other section below covers the report period only.</div>`
+    : '';
+
+  // `gain` arrives ALREADY formatted ('+17 pts' / 'sustain') — render verbatim.
+  const moves = arr(s.moves).map((raw) => {
+    const m = obj(raw);
+    return `<span style="color:${INK};">${escapeHtml(m.text)}</span> <span style="display:inline-block;font-size:11px;font-weight:bold;color:${SCORE_RAG.green};white-space:nowrap;">${escapeHtml(m.gain)}</span>`;
+  });
 
   const movesBlock = moves.length
     ? `<div style="font-family:${FONT};font-size:11px;font-weight:bold;color:${NAVY};letter-spacing:0.6px;text-transform:uppercase;padding:4px 0 6px 0;">Two moves that lift the score most</div>${bulletList(moves)}`
@@ -119,12 +166,15 @@ function scoreHero(score) {
 
   const body = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse;">
 <tr>
-<td width="120" style="width:120px;vertical-align:top;padding:0 14px 12px 0;">
-<div style="font-family:${FONT};font-size:40px;font-weight:bold;color:${color};line-height:1;">${escapeHtml(composite)}<span style="font-size:16px;color:${MUTED};font-weight:normal;">/100</span></div>
+<td width="130" style="width:130px;vertical-align:top;padding:0 14px 12px 0;">
+<div style="font-family:${FONT};font-size:40px;font-weight:bold;color:${color};line-height:1;">${escapeHtml(value)}<span style="font-size:16px;color:${MUTED};font-weight:normal;">/100</span></div>
+<div style="font-family:${FONT};font-size:12px;color:${MUTED};padding-top:3px;">${escapeHtml(num(s.points))} / 12 pts</div>
 <div style="padding-top:8px;"><span style="display:inline-block;font-family:${FONT};font-size:11px;font-weight:bold;color:#FFFFFF;background:${color};border-radius:10px;padding:3px 12px;text-transform:uppercase;letter-spacing:0.5px;">${escapeHtml(rag || 'n/a')}</span></div>
 </td>
 <td style="vertical-align:top;padding:0 0 12px 0;">
-<div style="font-family:${FONT};font-size:13px;line-height:1.5;padding-bottom:10px;">${trend}</div>
+<div style="font-family:${FONT};font-size:13px;line-height:1.5;padding-bottom:6px;">${trend}</div>
+${windowLine}
+${dimsGrid(s.dims)}
 ${movesBlock}
 </td>
 </tr></table>`;
