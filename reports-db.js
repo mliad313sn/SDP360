@@ -1629,6 +1629,165 @@ async function _getSiteHelpdeskMonthlyPg(site_id, year, month) {
   return _computeSiteHelpdesk(rows);
 }
 
+/**
+ * getSiteHelpdeskWindow(site_id, from, to) — the window-scoped sibling of
+ * getSiteHelpdeskMonthly. `from`/`to` are INCLUSIVE 'YYYY-MM-DD' strings.
+ * Same group scoping, same pure core (_computeSiteHelpdesk) — only the window
+ * differs. created_time is TEXT holding ISO-with-T-and-Z ('2025-01-09T15:15:14.000Z'),
+ * so a raw `created_time BETWEEN from AND to` LEXICALLY drops the last day
+ * ('2026-07-03T09:12:00.000Z' > '2026-07-03'). substr(...,1,10) is correct AND
+ * identical on both backends — no date() (sqlite-only), no ::date/to_char (the
+ * column is TEXT in pg too, 004_hot.sql:22).
+ * Known trade-off: substr() wraps the column so idx_rr_created can't be used
+ * (seq scan). ~25k rows on a cold route — cheap. `created_time >= ? AND < ?`
+ * with an exclusive to+1day would be correct AND sargable if this ever profiles hot.
+ */
+function getSiteHelpdeskWindow(site_id, from, to) {
+  if (REPORTS_BACKEND === 'postgres') return _getSiteHelpdeskWindowPg(site_id, from, to);
+  const site = db.prepare('SELECT zoho_group FROM sites WHERE id=?').get(site_id);
+  const groups = String(site?.zoho_group || '').split(',').map(g => g.trim()).filter(Boolean);
+  if (!groups.length) return _computeSiteHelpdesk([]);
+  const ph = groups.map(() => '?').join(',');
+  const rows = db.prepare(`
+    SELECT pending_status, overdue_status, request_type, template, category, sub_category
+    FROM request_records
+    WHERE tech_group IN (${ph}) AND substr(created_time,1,10) BETWEEN ? AND ?`).all(...groups, from, to);
+  return _computeSiteHelpdesk(rows);
+}
+// pg fork — SAME SQL. created_time is TEXT in pg (004_hot.sql:22), so substr
+// replaces the monthly fork's to_char(created_time::timestamptz,…) cast entirely.
+async function _getSiteHelpdeskWindowPg(site_id, from, to) {
+  const H = pgHandle();
+  const site = await H.prepare('SELECT zoho_group FROM sites WHERE id=?').get(site_id);
+  const groups = String(site?.zoho_group || '').split(',').map(g => g.trim()).filter(Boolean);
+  if (!groups.length) return _computeSiteHelpdesk([]);
+  const ph = groups.map(() => '?').join(',');
+  const rows = await H.prepare(`
+    SELECT pending_status, overdue_status, request_type, template, category, sub_category
+    FROM request_records
+    WHERE tech_group IN (${ph}) AND substr(created_time,1,10) BETWEEN ? AND ?`).all(...groups, from, to);
+  return _computeSiteHelpdesk(rows);
+}
+
+// ── CHANGE OUTCOME — a VERBATIM port of the SHIPPED classifier at
+// public/executive-report.html:5053-5090 (_changeOutcome / _tallyChanges).
+// DO NOT write a second classifier: its own header comment records the bug a
+// naive status/closure_code reader causes — the deck builder reported a
+// different success number than the live executive.html scorecard.
+// The only adaptation: the shipped code reads raw Zoho keys off a row
+// (r['Change Closure Code'] etc.); our DB row is a `closure_code` COLUMN + a
+// `udf_json` TEXT blob, so we build the three strings first. Everything below
+// that is line-for-line, same order.
+// Three counter-intuitive facts, all deliberate:
+//   1. the success bucket is 'success', not 'successful'          (:5066)
+//   2. no signal at all → 'pending', never null                   (:5074, :5054)
+//   3. UDF:Review decision short-circuits on 'rework' ONLY (:5059) — its
+//      success/cancel checks sit BELOW the outcome checks, so priority is
+//      per-VALUE, not per-field.
+// Returns one of 9 buckets:
+//   success / success_caveat / partial / failed / backed_out
+//   cancelled / deferred / rework / pending
+function _changeOutcome(row) {
+  if (!row) return 'pending';
+  // Parse udf_json in JS, not with json_extract: we need two keys, the blob is
+  // already selected, and a malformed blob must degrade to 'pending', not throw.
+  let u = {};
+  try { u = JSON.parse(row.udf_json || '{}') || {}; } catch { u = {}; }
+  const code    = String(row.closure_code || '').trim().toLowerCase();
+  const outcome = String(u['UDF:Change Implementation Outcome'] || '').trim().toLowerCase();
+  const review  = String(u['UDF:Review decision'] || '').trim().toLowerCase();
+
+  if (review.indexOf('rework') >= 0)                                           return 'rework';
+  if (outcome.indexOf('with issues') >= 0)                                     return 'success_caveat';
+  if (outcome.indexOf('partial')     >= 0)                                     return 'partial';
+  if (outcome.indexOf('failed')      >= 0)                                     return 'failed';
+  if (outcome.indexOf('backed')      >= 0)                                     return 'backed_out';
+  if (outcome === 'deferred')                                                  return 'deferred';
+  if (outcome === 'cancelled' || outcome === 'canceled')                       return 'cancelled';
+  if (outcome.indexOf('successful')  >= 0)                                     return 'success';
+  if (review.indexOf('cancelled') >= 0 || review.indexOf('canceled') >= 0)     return 'cancelled';
+  if (review.indexOf('approved for closure') >= 0)                             return 'success';
+  if (code.indexOf('completed') >= 0)                                          return 'success';
+  if (code.indexOf('approved') >= 0 && code.indexOf('cancel') < 0)             return 'success';
+  if (code.indexOf('cancel') >= 0)                                             return 'cancelled';
+  if (code.indexOf('reject') >= 0)                                             return 'failed';
+  if (code.indexOf('deferred') >= 0)                                           return 'deferred';
+  return 'pending';
+}
+
+/**
+ * _computeSiteChanges(rows) — the pure core. _tallyChanges (:5082-5090) VERBATIM,
+ * plus our three extras (total, emergency, success_pct). THIS IS THE CHANGES
+ * CONTRACT — do not invent a completed/open pair.
+ *
+ * Two outputs are MERGES; the raw counts survive only in `buckets`:
+ *   failed  = failed + backed_out   (:5086) — there is no separate backed_out output
+ *   pending = pending + rework      (:5088) — a non-zero `pending` may be a rework
+ *
+ * executed INCLUDES cancelled (:5087). This DELIBERATELY diverges from CLAUDE.md's
+ * denominator doctrine line (successful + failed + backed_out, cancelled excluded).
+ * Measured over the 295 real rows: shipped → executed=187, 91.4%; doctrine → 175,
+ * 97.7% — a 6.3pp divergence from the deck the team already reads, which is exactly
+ * the failure the shipped classifier's header comment warns about. Follow the code.
+ *
+ * success_pct is null when nothing executed — "nothing to judge" is not "0% success".
+ */
+function _computeSiteChanges(rows) {
+  const b = { success: 0, success_caveat: 0, partial: 0, failed: 0, backed_out: 0, cancelled: 0, deferred: 0, rework: 0, pending: 0 };
+  let total = 0, emergency = 0;
+  (rows || []).forEach(r => {
+    total++;
+    if (Number(r && r.emergency) === 1) emergency++;   // INTEGER column; tolerate '1'
+    const k = _changeOutcome(r);
+    b[k] = (b[k] || 0) + 1;
+  });
+  const successful = b.success + b.success_caveat;
+  const failedTot  = b.failed  + b.backed_out;
+  const executed   = successful + b.partial + failedTot + b.cancelled;
+  const pendingTot = b.pending + b.rework;
+  return {
+    buckets: b, successful, failed: failedTot, cancelled: b.cancelled,
+    deferred: b.deferred, pending: pendingTot, executed,            // ← _tallyChanges, verbatim
+    total, emergency,                                               // ← ours
+    success_pct: executed ? Math.round(100 * successful / executed) : null,
+  };
+}
+
+/**
+ * getSiteChangesWindow(site_id, from, to) → the per-site changes block.
+ * Scopes by change_records.group_name (from sites.zoho_group) — exactly as the
+ * helpdesk readers scope by tech_group. NEVER by change_records.site_id /
+ * request_records.site: the free-form-site pitfall is documented in CLAUDE.md.
+ * `from`/`to` are INCLUSIVE 'YYYY-MM-DD'. See getSiteHelpdeskWindow for why
+ * substr(created_time,1,10) and not a raw BETWEEN / a cast.
+ * Returns the all-zero block when the site has no zoho_group.
+ */
+function getSiteChangesWindow(site_id, from, to) {
+  if (REPORTS_BACKEND === 'postgres') return _getSiteChangesWindowPg(site_id, from, to);
+  const site = db.prepare('SELECT zoho_group FROM sites WHERE id=?').get(site_id);
+  const groups = String(site?.zoho_group || '').split(',').map(g => g.trim()).filter(Boolean);
+  if (!groups.length) return _computeSiteChanges([]);
+  const ph = groups.map(() => '?').join(',');
+  const rows = db.prepare(`
+    SELECT status, closure_code, emergency, udf_json, completed_time, created_time
+    FROM change_records
+    WHERE group_name IN (${ph}) AND substr(created_time,1,10) BETWEEN ? AND ?`).all(...groups, from, to);
+  return _computeSiteChanges(rows);
+}
+// pg fork — SAME SQL (created_time is TEXT in pg too); only await + pgHandle differ.
+async function _getSiteChangesWindowPg(site_id, from, to) {
+  const H = pgHandle();
+  const site = await H.prepare('SELECT zoho_group FROM sites WHERE id=?').get(site_id);
+  const groups = String(site?.zoho_group || '').split(',').map(g => g.trim()).filter(Boolean);
+  if (!groups.length) return _computeSiteChanges([]);
+  const ph = groups.map(() => '?').join(',');
+  const rows = await H.prepare(`
+    SELECT status, closure_code, emergency, udf_json, completed_time, created_time
+    FROM change_records
+    WHERE group_name IN (${ph}) AND substr(created_time,1,10) BETWEEN ? AND ?`).all(...groups, from, to);
+  return _computeSiteChanges(rows);
+}
+
 // Pure core — rows already scoped to the site's groups + month. `hours` is the
 // created→resolved duration for CLOSED tickets (null otherwise).
 function _computeTechStats(rows) {
@@ -6333,6 +6492,10 @@ module.exports = {
   getSiteIdByModuleCode, listSiteModuleCodes,
   // Per-site report blocks (group-scoped — request_records.site is unreliable)
   getSiteHelpdeskMonthly, _computeSiteHelpdesk,
+  // Window-scoped siblings ([from,to] inclusive) — the IT Review panel needs a
+  // window, not a month. Changes carry the VERBATIM port of the shipped
+  // executive-report.html classifier (see _changeOutcome).
+  getSiteHelpdeskWindow, getSiteChangesWindow, _computeSiteChanges, _changeOutcome,
   getSiteTechnicianStats, _computeTechStats,
   getPreviousWeek, ensureWeek, getWeekRange,
   ensureReport, getReport, listReports,
