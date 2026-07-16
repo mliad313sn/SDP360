@@ -43,6 +43,35 @@ function buildSiteReportDeps(mods) {
       return reportsDb.getSiteHelpdeskMonthly(s.site_id, p.year, p.month);
     },
 
+    // THE SITE REPORT IS MONTHLY — every other block here covers the report
+    // month, so the changes block does too. This deliberately differs from the
+    // IT Review panel, which reads changes over a rolling 90 days because its
+    // default WEEK window contains zero of them. Two products, two windows, both
+    // labelled: that is a decision, not a drift.
+    //
+    // Takes s.site_id, NOT s.zoho_group: getSiteChangesWindow resolves the group
+    // ITSELF (SELECT zoho_group FROM sites WHERE id=?). Handing it a group string
+    // matches no row → an all-zero block with NO error, which _safe then swallows
+    // — the "binder that looks wired can silently read zeros" pitfall.
+    changes: async (code, p) => {
+      const s = await resolve(code);
+      if (!s) return null;                       // siteReport._safe → EMPTY.changes
+      const { from, to } = _monthBounds(p);      // returns an OBJECT — destructure, never spread
+      return reportsDb.getSiteChangesWindow(s.site_id, from, to);
+    },
+
+    // Major incidents OPEN RIGHT NOW for the site's groups. A DIFFERENT
+    // population from helpdesk.major_incidents, which counts MIs CREATED in the
+    // report month: an incident opened in May and still running appears here and
+    // not there. Both are surfaced, each labelled with what it counts.
+    majorIncidents: async (code) => {
+      const s = await resolve(code);
+      if (!s || !s.zoho_group) return [];
+      const groups = String(s.zoho_group).split(',').map(g => g.trim()).filter(Boolean);
+      if (!groups.length) return [];
+      return (await reportsDb.getActiveMajorIncidentsForSite(groups)) || [];
+    },
+
     technicians: async (code, p) => {
       const s = await resolve(code);
       if (!s) return [];

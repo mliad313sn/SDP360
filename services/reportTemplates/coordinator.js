@@ -265,6 +265,20 @@ function helpdeskSection(helpdesk) {
     { label: 'Major incidents', value: num(h.major_incidents) },
   ]);
 
+  // The incidents still RUNNING — a different population from the KPI tile above,
+  // which counts the ones raised this month. Labelled so the two never read as a
+  // contradiction when they disagree (an incident opened in May and still open
+  // appears here and not there).
+  const mis = arr(h.major_incidents_open);
+  const miBlock = mis.length
+    ? `<div style="font-family:${FONT};font-size:11px;font-weight:bold;color:${RAG_COLORS.red};letter-spacing:0.6px;text-transform:uppercase;padding:10px 0 6px 0;">Open major incidents (${mis.length}) &mdash; still running now</div>${bulletList(mis.map((raw) => {
+      const mi = obj(raw);
+      const bits = [mi.status && escapeHtml(mi.status), mi.downtime && `${escapeHtml(mi.downtime)} down`, mi.created_time && `opened ${escapeHtml(String(mi.created_time).slice(0, 10))}`].filter(Boolean).join(' &middot; ');
+      const late = mi.overdue ? chip('late', RAG_COLORS.red) : '';
+      return `<strong style="color:${NAVY};">${escapeHtml(mi.display_id)}</strong> ${escapeHtml(mi.subject)} ${late}<span style="color:${MUTED};"> &mdash; ${bits}</span>`;
+    }))}`
+    : '';
+
   const cats = arr(h.top_categories);
   const catBlock = cats.length
     ? `<div style="font-family:${FONT};font-size:11px;font-weight:bold;color:${NAVY};letter-spacing:0.6px;text-transform:uppercase;padding:10px 0 6px 0;">Top categories</div>${bulletList(cats.map((c) => {
@@ -281,7 +295,45 @@ function helpdeskSection(helpdesk) {
     }))}`
     : '';
 
-  return card('Helpdesk', `${kpis}${catBlock}${recBlock}`, NAVY);
+  return card('Helpdesk', `${kpis}${miBlock}${catBlock}${recBlock}`, NAVY);
+}
+
+/**
+ * Planned + emergency work carried out on the site's systems this month.
+ *
+ * PLAIN WORDS ONLY — this email is read by site coordinators, not by ITSM staff.
+ * "Changes", "Emergency", "Backed out". Never "RFC", never "CAB"; a test asserts it.
+ *
+ * `success_pct === null` means nothing was actually carried out — there is no rate
+ * to state, so it renders '—'. It must NEVER print "0%": that is a verdict, and a
+ * site with nothing to judge has not earned one. A genuine 0 (everything failed)
+ * IS a measurement and does print 0%.
+ */
+function changesSection(changes) {
+  const c = obj(changes);
+  const pct = c.success_pct === null || c.success_pct === undefined ? '—' : `${num(c.success_pct)}%`;
+
+  const kpis = kpiGrid([
+    { label: 'Changes', value: num(c.total) },
+    { label: 'Successful', value: num(c.successful) },
+    { label: 'Failed', value: num(c.failed) },
+    { label: 'Emergency', value: num(c.emergency) },
+    { label: 'Success rate', value: pct },
+  ]);
+
+  // The counts next to the rate, not the rate alone: on a thin month the
+  // percentage is computed over a handful of changes and a single failure reads
+  // as "50%". Say what it is measured over.
+  const backedOut = num(obj(c.buckets).backed_out);
+  const notes = [
+    c.success_pct === null || c.success_pct === undefined
+      ? 'No change was carried out this month — there is no success rate to report.'
+      : `Success rate is ${num(c.successful)} of the ${num(c.executed)} change(s) actually carried out this month.`,
+    backedOut ? `${backedOut} change(s) were backed out — counted under Failed.` : '',
+    num(c.pending) ? `${num(c.pending)} change(s) are still in progress.` : '',
+  ].filter(Boolean).join(' ');
+
+  return card('Changes', `${kpis}${emptyNote(notes)}`, NAVY);
 }
 
 function techniciansSection(technicians) {
@@ -365,6 +417,7 @@ function composeCoordinator(data) {
     meetingsSection(d.meetings),
     inspectionSection(d.inspection),
     helpdeskSection(d.helpdesk),
+    changesSection(d.changes),
     techniciansSection(d.technicians),
     recommendedSection(d.recommended),
     footer(d),

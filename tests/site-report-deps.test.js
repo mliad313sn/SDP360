@@ -15,6 +15,8 @@ const mods = {
     getSiteTechnicianStats: () => [{ name: 'A', assigned: 3, resolved: 3, current_load: 0, sla_overdue: 0, reopened: 0, avg_resolution_h: 2 }],
     listSites: () => [{ id: 3, name: 'Hounde', zoho_group: 'Hounde IT Agents, Extra Grp' }],
     getActiveMajorIncidentsForSite: () => [{ request_id: '1' }],
+    getSiteChangesWindow: () => ({ buckets: {}, successful: 1, failed: 0, cancelled: 0, deferred: 0,
+                                   pending: 0, executed: 1, total: 1, emergency: 0, success_pct: 100 }),
   },
   meetingsDb: {
     getSiteMonthlyMeetingSummary: () => ({ site_code: 'HGO', kpis: { pvs_held: 1, dept_target: 3 }, departments: [] }),
@@ -50,6 +52,51 @@ test('unknown site code → null (siteReport._safe turns it into the zeroed bloc
   const d = buildSiteReportDeps({ ...mods, reportsDb: { ...mods.reportsDb, getSiteIdByModuleCode: () => null } });
   const hd = await d.helpdesk('NOPE', { year: 2026, month: 7 });
   assert.strictEqual(hd, null);   // the dep returns null; _safe substitutes EMPTY.helpdesk
+});
+
+// ── the changes dep ─────────────────────────────────────────────────────────
+// The reader takes a site_id and resolves the group ITSELF. Passing s.zoho_group
+// here would hand a group string where an id belongs → the reader's
+// `SELECT zoho_group FROM sites WHERE id=?` matches nothing → an all-zero block
+// with NO error, which siteReport._safe then swallows. That is verbatim the
+// CLAUDE.md pitfall "a binder that looks wired can silently read zeros", so the
+// argument is asserted at the reader boundary rather than inferred from output.
+test('changes dep passes the site_id and the report MONTH bounds', async () => {
+  const seen = [];
+  const d = buildSiteReportDeps({ ...mods, reportsDb: { ...mods.reportsDb,
+    getSiteChangesWindow: (site_id, from, to) => { seen.push([site_id, from, to]); return { total: 1, success_pct: 100 }; } } });
+  const c = await d.changes('HGO', { year: 2026, month: 7 });
+  assert.strictEqual(c.total, 1);
+  assert.deepStrictEqual(seen[0], [3, '2026-07-01', '2026-07-31']);   // site_id — NOT the zoho_group
+});
+
+test('changes dep: February is month-length aware, not a hardcoded 30/31', async () => {
+  const seen = [];
+  const d = buildSiteReportDeps({ ...mods, reportsDb: { ...mods.reportsDb,
+    getSiteChangesWindow: (site_id, from, to) => { seen.push([site_id, from, to]); return {}; } } });
+  await d.changes('HGO', { year: 2026, month: 2 });
+  assert.deepStrictEqual(seen[0], [3, '2026-02-01', '2026-02-28']);
+});
+
+test('changes dep: unknown site code → null (_safe substitutes EMPTY.changes)', async () => {
+  const d = buildSiteReportDeps({ ...mods, reportsDb: { ...mods.reportsDb, getSiteIdByModuleCode: () => null } });
+  assert.strictEqual(await d.changes('NOPE', { year: 2026, month: 7 }), null);
+});
+
+// ── the major-incident detail dep ───────────────────────────────────────────
+test('majorIncidents dep resolves the groups and returns the open list', async () => {
+  const seen = [];
+  const d = buildSiteReportDeps({ ...mods, reportsDb: { ...mods.reportsDb,
+    getActiveMajorIncidentsForSite: (groups) => { seen.push(groups); return [{ display_id: '1' }]; } } });
+  const mi = await d.majorIncidents('HGO');
+  assert.strictEqual(mi.length, 1);
+  assert.deepStrictEqual(seen[0], ['Hounde IT Agents', 'Extra Grp']);   // comma-split + trimmed
+});
+
+test('majorIncidents dep: no zoho_group → empty list, never a throw', async () => {
+  const d = buildSiteReportDeps({ ...mods, reportsDb: { ...mods.reportsDb,
+    getSiteIdByModuleCode: () => ({ site_id: 9, name: 'X', zoho_group: '' }) } });
+  assert.deepStrictEqual(await d.majorIncidents('X'), []);
 });
 
 test('siteStatus is major when the site has an active MI', async () => {

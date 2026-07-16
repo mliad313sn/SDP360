@@ -29,7 +29,12 @@ const data = {
   meetings: { pvs_held: 2, pvs_target: 3, open_issues: 4, high_open: 1, resolved: 6, new: 3, escalations: 1,
               departments: [{ department: 'hse', status: 'blocked' }], overdue_actions: [{ description: 'Fix X', owner: 'Jean', target_date: '2026-07-20' }] },
   inspection: { inspections_done: 1, findings_critical_major: 2, overall_risk: 'major', overdue_actions: [] },
-  helpdesk: { created: 40, resolved: 35, backlog: 5, sla_overdue: 2, major_incidents: 1, top_categories: [{ category: 'Network', count: 12 }], recurring: [{ label: 'Network / WAN', count: 4 }] },
+  helpdesk: { created: 40, resolved: 35, backlog: 5, sla_overdue: 2, major_incidents: 1, top_categories: [{ category: 'Network', count: 12 }], recurring: [{ label: 'Network / WAN', count: 4 }],
+              major_incidents_open: [{ display_id: '311587', subject: 'WAN link down at the plant', status: 'In Progress', overdue: true, created_time: '2026-07-02T08:00:00.000Z', downtime: '4h' }] },
+  // Task 1's changes contract — `failed` already includes backed_out; the raw
+  // counts survive only under `buckets`. success_pct may be null.
+  changes: { buckets: { success: 3, backed_out: 1 }, successful: 3, failed: 1, cancelled: 0, deferred: 0,
+             pending: 2, executed: 4, total: 6, emergency: 1, success_pct: 75 },
   technicians: [{ name: 'Amina', assigned: 20, resolved: 18, avg_resolution_h: 6, reopened: 1, current_load: 4, alerts: ['overloaded'] }],
   recommended: [{ kind: 'escalate', text: '1 HIGH issue(s) open — escalate to council if unresolved' }],
 };
@@ -136,6 +141,71 @@ test('escapes HTML in the score dims and moves', () => {
   assert.ok(!/<script/i.test(htmlBody));
   assert.ok(!/<b>Reviews<\/b>/.test(htmlBody));
   assert.match(htmlBody, /&lt;img/);
+});
+
+// ── the changes card ────────────────────────────────────────────────────────
+test('renders the changes card with its counts and the success rate', () => {
+  const { htmlBody } = composeCoordinator(data);
+  assert.match(htmlBody, /Changes/);
+  assert.match(htmlBody, /Successful/);
+  assert.match(htmlBody, /Emergency/);
+  assert.match(htmlBody, /75%/);
+});
+
+test('success_pct null renders a dash — never "0%"', () => {
+  const nothing = JSON.parse(JSON.stringify(data));
+  nothing.changes = { buckets: {}, successful: 0, failed: 0, cancelled: 0, deferred: 0,
+                      pending: 1, executed: 0, total: 1, emergency: 0, success_pct: null };
+  const { htmlBody } = composeCoordinator(nothing);
+  assert.ok(!/>0%</.test(htmlBody), 'a site with nothing to judge must not read "0% success"');
+  assert.match(htmlBody, /&mdash;|—/);
+});
+
+// A genuine 0% IS a measurement — the dash is only for "nothing executed".
+test('a real 0% still prints 0%, not a dash', () => {
+  const bad = JSON.parse(JSON.stringify(data));
+  bad.changes = { buckets: { failed: 2 }, successful: 0, failed: 2, cancelled: 0, deferred: 0,
+                  pending: 0, executed: 2, total: 2, emergency: 0, success_pct: 0 };
+  assert.match(composeCoordinator(bad).htmlBody, />0%</);
+});
+
+test('a report with no changes block at all still composes', () => {
+  const noChg = JSON.parse(JSON.stringify(data));
+  delete noChg.changes;
+  assert.ok(composeCoordinator(noChg).htmlBody.length > 200);
+});
+
+// PLAIN WORDS. This email goes to site coordinators, not to ITSM staff.
+test('the coordinator email carries no ITSM jargon — no "RFC", no "CAB"', () => {
+  [data, naData].forEach((d) => {
+    const { htmlBody, subject } = composeCoordinator(d);
+    assert.ok(!/\bRFC\b/.test(htmlBody), 'no RFC in the body');
+    assert.ok(!/\bCAB\b/.test(htmlBody), 'no CAB in the body');
+    assert.ok(!/\bRFC\b|\bCAB\b/.test(subject), 'no jargon in the subject');
+  });
+});
+
+// ── major-incident detail ───────────────────────────────────────────────────
+test('open major incidents are listed, not just counted', () => {
+  const { htmlBody } = composeCoordinator(data);
+  assert.match(htmlBody, /WAN link down at the plant/);
+  assert.match(htmlBody, /311587/);
+});
+
+test('open major incidents are escaped like every other free-text field', () => {
+  const evil = JSON.parse(JSON.stringify(data));
+  evil.helpdesk.major_incidents_open[0].subject = '<img src=x onerror=alert(1)>';
+  const { htmlBody } = composeCoordinator(evil);
+  assert.ok(!/<img src=x/i.test(htmlBody));
+  assert.match(htmlBody, /&lt;img/);
+});
+
+test('no open major incidents → the list is simply absent, no empty heading', () => {
+  const none = JSON.parse(JSON.stringify(data));
+  none.helpdesk.major_incidents_open = [];
+  const { htmlBody } = composeCoordinator(none);
+  assert.ok(!/Open major incidents/.test(htmlBody));
+  assert.match(htmlBody, /Major incidents/);   // the KPI tile stays
 });
 
 test('empty/zero data still composes without throwing', () => {

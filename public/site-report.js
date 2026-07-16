@@ -238,6 +238,27 @@
       kpi('Major incidents', n(h.major_incidents), n(h.major_incidents) > 0 ? 'bad' : '')
     ].join('');
 
+    // The incidents still RUNNING — a different population from the tile above,
+    // which counts the ones raised this period. Labelled, so the two never read
+    // as a contradiction when they disagree.
+    var mis = Array.isArray(h.major_incidents_open) ? h.major_incidents_open : [];
+    var miBox = ensureEl('hdMiList', el('hdKpis') && el('hdKpis').parentNode, 'div');
+    if (miBox) {
+      miBox.style.cssText = 'margin-top:14px';
+      miBox.innerHTML = mis.length
+        ? '<div class="card panel"><h2>Open major incidents (' + mis.length + ') — still running now</h2>' +
+          mis.map(function (mi) {
+            mi = mi || {};
+            var bits = [mi.status, mi.downtime ? mi.downtime + ' down' : '',
+              mi.created_time ? 'opened ' + String(mi.created_time).slice(0, 10) : ''].filter(Boolean);
+            return '<div class="oa-row"><span>' +
+              '<strong>' + esc(mi.display_id || '—') + '</strong> ' + esc(mi.subject || '—') +
+              (mi.overdue ? ' <span class="alert-chip">late</span>' : '') + '</span>' +
+              '<span class="oa-meta">' + esc(bits.join(' · ')) + '</span></div>';
+          }).join('') + '</div>'
+        : '';
+    }
+
     var cats = Array.isArray(h.top_categories) ? h.top_categories.filter(function (c) { return c && c.category; }) : [];
     var canvas = el('hdChart');
     var emptyMsg = el('hdChartEmpty');
@@ -274,6 +295,59 @@
         }
       }
     });
+  }
+
+  // Creates the Changes section on first render, right after Helpdesk, so the
+  // block ships without an edit to site-report.html — same reasoning as the
+  // score hero's window line above.
+  function ensureChangesSection() {
+    var host = el('chgKpis');
+    if (host) return host;
+    var hd = el('hdKpis');
+    var after = hd && hd.closest ? hd.closest('section') : null;
+    if (!after || !after.parentNode) return null;
+    var sec = document.createElement('section');
+    sec.className = 'section';
+    sec.id = 'chgSection';
+    sec.innerHTML =
+      '<div class="section-title">Changes</div>' +
+      '<div class="kpis" id="chgKpis"></div>' +
+      '<div id="chgNote" class="muted" style="margin-top:10px;font-size:.72rem;line-height:1.5"></div>';
+    after.parentNode.insertBefore(sec, after.nextSibling);
+    return el('chgKpis');
+  }
+
+  // PLAIN WORDS — this page is read by site coordinators. No "RFC", no "CAB".
+  function renderChanges(c) {
+    c = c || {};
+    var host = ensureChangesSection();
+    if (!host) return;
+
+    // null → '—'. NOT n(success_pct): n(null) is 0, which would state a verdict
+    // ("0% succeeded") for a site with nothing to judge. A real 0 still prints 0%.
+    var hasPct = c.success_pct !== null && c.success_pct !== undefined;
+    var pct = hasPct ? n(c.success_pct) + '%' : '—';
+    var pctCls = !hasPct ? '' : n(c.success_pct) < 75 ? 'bad' : n(c.success_pct) < 90 ? 'warn' : '';
+
+    host.innerHTML = [
+      kpi('Changes', n(c.total)),
+      kpi('Successful', n(c.successful)),
+      kpi('Failed', n(c.failed), n(c.failed) > 0 ? 'bad' : ''),
+      kpi('Emergency', n(c.emergency), n(c.emergency) > 0 ? 'warn' : ''),
+      kpi('Success rate', pct, pctCls)
+    ].join('');
+
+    var backedOut = n((c.buckets || {}).backed_out);
+    var note = el('chgNote');
+    if (note) {
+      note.textContent = [
+        hasPct
+          ? 'Success rate is ' + n(c.successful) + ' of the ' + n(c.executed) + ' change(s) actually carried out this month.'
+          : 'No change was carried out this month — there is no success rate to report.',
+        backedOut ? backedOut + ' change(s) were backed out — counted under Failed.' : '',
+        n(c.pending) ? n(c.pending) + ' change(s) are still in progress.' : ''
+      ].filter(Boolean).join(' ');
+    }
   }
 
   function renderTechnicians(techs) {
@@ -322,6 +396,7 @@
     renderMeetings(data.meetings);
     renderInspection(data.inspection);
     renderHelpdesk(data.helpdesk);
+    renderChanges(data.changes);
     renderTechnicians(data.technicians);
     renderRecommended(data.recommended);
   }

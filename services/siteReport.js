@@ -9,6 +9,12 @@ const EMPTY = {
   meetings: { pvs_held: 0, pvs_target: 0, open_issues: 0, high_open: 0, resolved: 0, new: 0, escalations: 0, departments: [], overdue_actions: [] },
   inspection: { inspections_done: 0, findings_critical_major: 0, overall_risk: '—', overdue_actions: [] },
   helpdesk: { created: 0, resolved: 0, backlog: 0, sla_overdue: 0, major_incidents: 0, top_categories: [], recurring: [] },
+  // A failed changes reader has COUNTED nothing and JUDGED nothing. The counts
+  // are 0; success_pct is `null`, NOT 0 — "0% of the changes succeeded" is a
+  // verdict, and we have no basis for one. Read "degrades to zeros" as: counts
+  // zero, verdict null.
+  changes: { total: 0, successful: 0, failed: 0, cancelled: 0, deferred: 0, pending: 0,
+             executed: 0, emergency: 0, success_pct: null, buckets: {} },
 };
 
 async function _safe(fn, fallback, label) {
@@ -31,6 +37,10 @@ async function siteReportData(siteCode, period, deps) {
   const insp = await _safe(() => deps.inspectionAggregate(siteCode, period), {}, 'inspectionAggregate');
   const iActions = await _safe(() => deps.inspectionActions(siteCode), [], 'inspectionActions');
   const hd = await _safe(() => deps.helpdesk(siteCode, period), EMPTY.helpdesk, 'helpdesk');
+  // Changes over the REPORT MONTH (see siteReportDeps.changes for why this is
+  // not the IT Review's rolling 90-day window).
+  const c = await _safe(() => deps.changes(siteCode, period), EMPTY.changes, 'changes');
+  const miOpen = await _safe(() => deps.majorIncidents(siteCode, period), [], 'majorIncidents');
   const techsRaw = await _safe(() => deps.technicians(siteCode, period), [], 'technicians');
   const siteStatusRaw = await _safe(() => deps.siteStatus(siteCode), 'operational', 'siteStatus');
   // The score is measured over its OWN 3-month rolling window by deps.scoreInputs
@@ -50,7 +60,30 @@ async function siteReportData(siteCode, period, deps) {
     overall_risk: insp.overall_risk || '—',
     overdue_actions: iActions.map(a => ({ description: a.description, owner: a.owner, due_date: a.due_date })),
   };
-  const helpdesk = { created: hd.created || 0, resolved: hd.resolved || 0, backlog: hd.backlog || 0, sla_overdue: hd.sla_overdue || 0, major_incidents: hd.major_incidents || 0, top_categories: hd.top_categories || [], recurring: hd.recurring || [] };
+  const helpdesk = { created: hd.created || 0, resolved: hd.resolved || 0, backlog: hd.backlog || 0, sla_overdue: hd.sla_overdue || 0, major_incidents: hd.major_incidents || 0, top_categories: hd.top_categories || [], recurring: hd.recurring || [],
+    // Detail for the incidents still RUNNING (≠ major_incidents, which counts the
+    // month's). Whitelisted field by field: the reader also carries requester /
+    // technician / site PII that this report has no reason to forward.
+    major_incidents_open: (Array.isArray(miOpen) ? miOpen : []).map(mi => ({
+      display_id: mi.display_id, subject: mi.subject, status: mi.status,
+      overdue: !!mi.overdue, created_time: mi.created_time, downtime: mi.downtime || '',
+    })) };
+
+  // The changes block. `failed` ALREADY includes backed_out and `pending` already
+  // includes rework (reports-db._computeSiteChanges, porting _tallyChanges) — the
+  // raw counts survive only under `buckets`. There is no completed/open pair.
+  //
+  // success_pct takes `?? null`, NOT the `|| 0` used by every count above it.
+  // `null || 0` is 0, which would print "0%" in the coordinator email for a site
+  // with nothing to judge — a verdict fabricated one layer ABOVE the renderers,
+  // where their '—' guards cannot reach it. A genuine 0 (all executed changes
+  // failed) is a real measurement and must still print 0%, which `??` preserves
+  // and `||` would also destroy.
+  const changes = { total: c.total || 0, successful: c.successful || 0, failed: c.failed || 0,
+    cancelled: c.cancelled || 0, deferred: c.deferred || 0, pending: c.pending || 0,
+    executed: c.executed || 0, emergency: c.emergency || 0,
+    success_pct: c.success_pct ?? null,          // ← NEVER `|| 0`
+    buckets: c.buckets || {} };
 
   const loads = techsRaw.map(t => t.current_load || 0).sort((a, b) => a - b);
   const medianLoad = loads.length ? loads[Math.floor(loads.length / 2)] : 0;
@@ -75,7 +108,7 @@ async function siteReportData(siteCode, period, deps) {
   return {
     site_code: siteCode, site_name: ms.site_name || siteCode,
     period: { ...period, label: ms.month_label || '' },
-    score, meetings, inspection, helpdesk, technicians, recommended, fm,
+    score, meetings, inspection, helpdesk, changes, technicians, recommended, fm,
   };
 }
 
