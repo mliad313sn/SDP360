@@ -14,21 +14,30 @@
 
 ---
 
-## THE DECISIVE FACT — `em-data.json` IS our own production data
+## THE DECISIVE FACT — `em-data.json` is a LATER EXPORT of our own production database
 
-Verified this session, row for row against `prod-snapshot/`:
+Verified against `prod-snapshot/`, then re-verified by a reviewer over **1668 field comparisons**:
 
 ```
-meetings   40 / 40   — all 40 identical on (id, reference, site_code, meeting_date)
-issues    132 / 132      status mix identical: submitted 18 · signed 16 · closed 5 · draft 1
-actions    78 /  78
-projects   18 /  18   inspections 12 / 12 (all 'submitted')
+meetings     40 /  40   identical on (id, reference, site_code, meeting_date)
+issues      132 / 132   status mix identical: submitted 18 · signed 16 · closed 5 · draft 1
+actions      78 /  78
+projects     18 /  18
+inspections  12 /  12   (all 'submitted')
+findings    678 / 678
+inspActions  18 /  19   ← ONE ROW OF DRIFT. See below.
 ```
 
-The boss's dashboard was fed an export of **your** snapshot. Three consequences that shape this plan:
+**The drift, precisely:** fixture `inspActions id=84` has `created_at 2026-07-12 22:22:03`; our snapshot's max `insp_actions` id is **83**, latest `created_at 2026-07-07 20:46:09`. So the fixture is **the same database, exported ~5 days later** — not a copy of this snapshot. Everything else matches (1668 comparisons, exactly this 1 mismatch).
 
-1. **`loadReviewData()` is PROVABLE, not merely testable.** Its acceptance test is *equality with `tests/fixtures/em-data.json`* when read from `prod-snapshot/`. That is the strongest possible oracle for the 5 denormalisation joins — if a join is wrong, the diff says exactly which field of which row.
-2. **The draft question is settled by fact, not opinion.** His export contains **1 draft PV**, and his model applies **no status filter** — so he counts it. **We do not filter either.** Filtering would be a silent deviation that makes our numbers disagree with his screen.
+**Do NOT write a bare count-equality test for `inspActions`** — it fails against a CORRECT reader, and this plan's own "never fix the expectation" rule would then send you hunting a phantom bug. Assert `inspActions` over the **18 shared ids** and document the delta.
+
+**Blast radius of the drift: nil for the fidelity test.** Row 84 is `status:'Closed'`, and the only consumer of `D.inspActions` (source `:353`) filters `status !== 'Closed'`. Task 4's oracle is unaffected.
+
+Three consequences that shape this plan:
+
+1. **`loadReviewData()` is PROVABLE, not merely testable.** Its acceptance test is *field-for-field equality with `tests/fixtures/em-data.json`* over shared ids when read from `prod-snapshot/`. That is the strongest possible oracle for the 5 denormalisation joins — a wrong join names the exact field of the exact row.
+2. **The draft question is settled by fact, not opinion.** The export contains **1 draft PV**, and the model applies **no status filter** — so it counts it. **We do not filter either.** Filtering would silently diverge from the screen the team reads.
 3. **`renderVals`'s fidelity test is a direct substitution** on the same data.
 
 ---
@@ -46,16 +55,69 @@ The boss's dashboard was fed an export of **your** snapshot. Three consequences 
 | `services/siteScore.js` | `computeSiteScore, rag2, moveText, hasData, PT_THRESHOLDS` |
 | `meetings-db.js` | `_effClose, _openAt` (same functions; `siteComposite` re-exports them) |
 
-### To port in this slice — 8 methods + statics
-`windows` (:27), `filterSite` (:35), `metrics` (:38), `delta` (:58), `spark` (:66), `fmt` (:20), `addDays` (:19), `pack` (:491); statics `SITES` (:12), `GREEN/AMBER/RED/REDT` (:15); tables `catNames` (:357), `dimColors` (:422).
+### ⚠️ `sbDims` IS ONLY HALF-PORTED — the measurement half does not exist anywhere
+`computeSiteScore(inputs, window, prev)` is **pure arithmetic over already-measured inputs**. The source's `sbDims(site, D, asOf)` (`:165-191`) *measures from `D` first* — lines `:168-179` derive `reviews/resolution/overdue/inspections/findings/signoff`. **That half is unported**, so Task 3 cannot build `sbRows`/`emBubbles`/`gapRows`/`sbMoves` from `computeSiteScore` alone.
+
+**Port it into `services/reviewDashboard.js`** (a NEW file — no approval needed) as:
+```
+sbMeasure(site, D, asOf) → { reviews, resolution, overdue, inspections, findings, signoff }
+```
+verbatim from source `:166-179`, then feed it to `computeSiteScore(inputs, …)`. Keep the raw `inputs` object around — `emBubbles` needs `reviews`/`resolution`/`overdue` from it (bridge gap 1).
+
+> **DO NOT reach for `meetings-db.getSiteScoreInputs` / `inspection-db.getSiteScoreInputs`.** They look like the measurement half but are a **trap on three counts**: (a) they are **existing modules** — off-limits without the user's approval; (b) they **query the DB**, which breaks `buildReviewVals(D)`'s pure contract and makes the fixture-based fidelity test impossible; (c) they use `services/scoreWindow.js`'s **rolling 3-month window**, not `sbDims`'s hardcoded `W0='2026-04-01'` — the numbers would silently diverge from the oracle.
+
+### To port in this slice — 9 methods + statics
+`sbMeasure` (:166-179, see above), `windows` (:27), `filterSite` (:35), `metrics` (:38), `delta` (:58), `spark` (:66), `fmt` (:20), `addDays` (:19), `pack` (:491); statics `SITES` (:12), `GREEN/AMBER/RED/REDT` (:15); tables `catNames` (:357), `dimColors` (:422).
 
 ### TWO BRIDGE GAPS — the ported modules are not drop-in
 1. **`computeSiteScore` does not return `reviews`/`resolution`/`overdue`.** The source's `sbDims` returns them, and `renderVals` reads `sb.resolution`/`sb.reviews`/`sb.overdue` at :442-448 for the effort-matrix bubbles. **Do NOT change `computeSiteScore`'s return** (it is fidelity-pinned and on nobody's approved list) — read them from the `inputs` object you passed in.
 2. **`siteScore.rag2` returns a STRING** (`'GREEN'`); `renderVals` needs `rg.fg` / `rg.solidBg` / `rg.solidFg` (:432, :438, :446, :450, :464, :468, :473). Add a local colour lookup in `reviewDashboard.js` keyed off the string — do NOT modify `siteScore.js`.
    Source colours (:494-498, verbatim): GREEN `fg:#2f7d4f solidBg:#2f7d4f` · AMBER `fg:#b07a17 solidBg:#d99a2b` · RED `fg:#c2280f solidBg:var(--color-accent)`; all `solidFg:'#fff'`.
 
-### `applicable:false` — the new state the source has no concept of
-`computeSiteScore` (3B-1) can return `{applicable:false, dims:[], moves:[]}`. `renderVals`'s `sbRows`/`emBubbles`/`gapRows`/`sbMoves` all do `sb.dims.map(...)` and would render an empty/broken row. **Every panel that consumes a score must handle `applicable:false` by omitting that site's row** (not rendering zeros). Pin it with a test.
+### DECIDED: `codes` derives from `D`, and the two averages become means over what exists
+
+The source hardcodes 5 site codes (`:213`) and divides `sbAvg` by a **literal 5** (`:427`). Both must change — the user's direction is *"tout ce que le HTML couvre + nos ajouts; sites hors des 5 → non applicable là où il n'y a pas de données"*, and our fleet is 11-12 sites, not 5.
+
+- **`sbAvg` = mean over the APPLICABLE sites only**, `null` if none. NOT `/5`, and NOT `/codes.length`. Same for `sbAvgPrev` → `sbAvgDelta`/`sbAvgColor`. (A mean is order-independent, so this cannot disturb the oracle: reviewer-verified `43` either way.)
+
+- **`codes` = HIS 5 IN HIS ORDER, then any unseen site appended, sorted.** ⚠️ **Do NOT just sort — his order is LOAD-BEARING, not incidental.** A reviewer ran the source both ways on the fixture: sorting flips **five panels**.
+  ```
+  --- source codes order (THE ORACLE) ---     --- naive sorted codes ---
+  sbRows      : HGO 58|SML 50|MGO 50|…        HGO 58|MGO 50|SML 50|…   *** DIFFERS
+  eMatrix     : SML|SMI|HGO|MGO|SGO           HGO|MGO|SGO|SMI|SML      *** DIFFERS
+  inspSiteRows: SML|SMI|HGO|MGO|SGO           HGO|MGO|SGO|SMI|SML      *** DIFFERS
+  gapRows     : HGO|SML|MGO|SMI|SGO           HGO|MGO|SML|SMI|SGO      *** DIFFERS
+  sbMoves     : HGO|SML|MGO|SMI|SGO           HGO|MGO|SML|SMI|SGO      *** DIFFERS
+  ```
+  Two mechanisms: `eMatrix` (`:297`) and `inspSiteRows` (`:344`) **iterate `codes` directly** — their row order *is* `codes` order. `sbRows`/`gapRows`/`sbMoves` inherit it through `sbSorted`'s **stable sort** (`:426`) — SML and MGO both score 50, so the tie resolves to whichever comes first in `codes`. (`leaderboard` escapes only by luck: 62/58/48/44/41 are all distinct.)
+
+  ```js
+  // His order is load-bearing: it IS eMatrix/inspSiteRows row order, AND the
+  // sbSorted tie-break (SML/MGO both score 50). Keep his 5 in his order; append
+  // sites he never saw, sorted for determinism.
+  const HIS = ['SML', 'SMI', 'HGO', 'MGO', 'SGO'];              // source :213, verbatim
+  // "present" = the union of the two PARENT tables. issues/actions/projects hang
+  // off meetings; findings/inspActions hang off inspections. Using meetings alone
+  // would drop a site that has an inspection but no PV; using all seven is the
+  // same union with extra work (projects carries only 3 codes, actions only 4).
+  const present = new Set([...D.meetings.map(m => m.site_code),
+                           ...D.inspections.map(i => i.site_code)].filter(Boolean));
+  const codes = [...HIS.filter(c => present.has(c)),
+                 ...[...present].filter(c => !HIS.includes(c)).sort()];
+  ```
+
+**Why this preserves fidelity:** on the fixture the extras set is **empty** (reviewer-verified: no site beyond his 5 in any of the seven arrays), so `codes` is **byte-identical to source `:213`** and all five panel orders match the oracle. On our 11-12 site fleet the unseen sites append without reordering his.
+
+**Pin it:** assert `codes` equals `['SML','SMI','HGO','MGO','SGO']` on the fixture, and that an injected 6th site **appends** rather than reorders.
+
+### `applicable:false` — the state the source has no concept of, and the 0 it would fabricate
+`computeSiteScore` (3B-1) can return `{applicable:false, score:null, dims:[], moves:[]}`. The source never anticipated it:
+
+- `sbRows` / `emBubbles` / `gapRows` / `sbMoves` do `sb.dims.map(...)` → **broken/empty row**. → **Omit that site's row.**
+- **`sbAvg` (`:427`) is the dangerous one:** `codes.reduce((s,c) => s + sbs[c].score, 0) / 5` — `score:null` coerces (`s + null === s + 0`), so a site we know nothing about enters the fleet average as a **fabricated 0**. That is precisely the verdict-on-nothing the `applicable` gate exists to prevent, sneaking back in through an average. Demonstrated by a reviewer: one non-applicable site → `sbAvg` 40 instead of 50, and **omitting the row cannot fix it because the `/5` is hardcoded**. → hence the mean-over-applicable rule above.
+- **`emMaxX`/`emMaxY` (`:442-443`)** are `Math.max(...codes.map(c => sbs[c].resolution), 50)` → `NaN` if any site lacks `resolution`, which poisons **every** bubble's `x/y/r`. Under bridge gap 1 this fires for every site unless you feed the raw `inputs`. Compute them over applicable sites only; test that no bubble coordinate is `NaN`.
+
+Pin all of it: a `D` with one data-less site must yield a `sbAvg` that ignores it, no `NaN` anywhere, and no row for it.
 
 ---
 
@@ -139,13 +201,28 @@ test('returns the 7 EM_DATA arrays', { skip: !hasSnap && 'no prod-snapshot' }, a
     ['actions', 'findings', 'inspActions', 'inspections', 'issues', 'meetings', 'projects']);
 });
 
-// THE PROOF — em-data.json IS this snapshot, exported. Row counts must match exactly.
-test('reproduces the fixture row counts', { skip: !hasSnap && 'no prod-snapshot' }, async () => {
+// THE PROOF — the fixture is a LATER export of this same DB. Six arrays match
+// exactly; inspActions drifted by one row (fixture id=84, created 2026-07-12;
+// snapshot stops at id=83, 2026-07-07). Assert the six, and the drift explicitly
+// — a bare 7-way count test fails against a CORRECT reader.
+test('reproduces the fixture row counts (six arrays)', { skip: !hasSnap && 'no prod-snapshot' }, async () => {
   const EM = require('./fixtures/em-data.json');
   const D = await loadReviewData('2026-07-14', _snapDeps());
-  for (const k of ['meetings', 'issues', 'actions', 'inspections', 'findings', 'projects', 'inspActions']) {
+  for (const k of ['meetings', 'issues', 'actions', 'inspections', 'findings', 'projects']) {
     assert.strictEqual(D[k].length, EM[k].length, `${k}: ours ${D[k].length} vs fixture ${EM[k].length}`);
   }
+});
+
+test('inspActions: the fixture is one row ahead of the snapshot — known, documented drift', { skip: !hasSnap && 'no prod-snapshot' }, async () => {
+  const EM = require('./fixtures/em-data.json');
+  const D = await loadReviewData('2026-07-14', _snapDeps());
+  const ourIds = new Set(D.inspActions.map(a => String(a.id)));
+  const extra = EM.inspActions.filter(a => !ourIds.has(String(a.id))).map(a => a.id);
+  assert.deepStrictEqual(extra, ['84'], 'only id=84 (created 2026-07-12) should be fixture-only');
+  assert.strictEqual(D.inspActions.length, EM.inspActions.length - 1);
+  // and it cannot affect the fidelity oracle: its status is Closed, and the sole
+  // consumer (source :353) filters status !== 'Closed'.
+  assert.strictEqual(EM.inspActions.find(a => String(a.id) === '84').status, 'Closed');
 });
 
 // THE REAL PROOF — the 5 denormalisation joins put the right value on the right row.
@@ -243,8 +320,8 @@ Port `renderVals()` (:206-499). Differences from the source, all forced and all 
 
 Quirks to port AS-IS and pin (all verified):
 - **`pipeline` hardcodes 4 phases** (`scoping/design/build/deploy`) but our seed has 5 (`closeout`) and the fixture has a `null`. Closeout/null projects fall out of the bars but stay in `projs.length`, so `pipelineNote` says "N of M" where the bars sum to < M.
-- **`findCats` conformity counts `opp` in the denominator but not the numerator** (`appl = f.status !== 'na'` vs `ok = f.status === 'ok'`), so `opp` findings depress `conf%`.
-- **`inspSiteRows.actOpen` uses `a.status !== 'Closed'`** — our vocabulary also has `'Cancelled'`, which his fixture lacks, so cancelled inspection actions count as open. Port as-is; pin with a test that documents it.
+- **`inspSiteRows` conformity counts `opp` in the denominator but not the numerator** — source `:348-350`: `appl = fs.filter(f => f.status !== 'na')` vs `ok = fs.filter(f => f.status === 'ok')`, so the 12 `opp` findings in the data depress `conf%`. **Note: this is `inspSiteRows`, NOT `findCats`** — `findCats` (`:363`) computes no conformity at all, so a test written against it would pin nothing.
+- **`inspSiteRows.actOpen` uses `a.status !== 'Closed'`** — our vocabulary also has `'Cancelled'` (see `public/inspection-actions.html` STATUSES/TERMINAL), which his data lacks, so a cancelled inspection action would count as open. **LATENT, not active:** the snapshot has zero Cancelled (Open 7 / Closed 7 / In Progress 4) — don't hunt for a real row. Port as-is; pin with a **synthetic** row.
 - `metrics.closedCur/Prev` computed and unused.
 
 - [ ] **Step 1: Write failing tests** — at least one per panel asserting shape + a representative value, plus a test per quirk above, plus the `applicable:false` omission, plus the unknown-site-code non-throw.
@@ -265,11 +342,16 @@ git commit --no-verify -m "feat(review): port renderVals — the 15 panels"
 
 - [ ] **Step 1: Write it.** Load `tests/fixtures/em-data.json`, call `buildReviewVals(EM, { view:'dashboard', period:'week', site:'ALL', asOf:'2026-07-14' })` and assert against the boss's own output.
 
-**Produce the oracle by RUNNING HIS CODE, not by trusting ours.** `docs/reference/it-review-dashboard.source.js` is `node --check`-clean; instantiate his `Component` with a stub `DCLogic` base (`state = {view:'dashboard', period:'week', site:'ALL', dataReady:true}`, `props={}`) and a `window.EM_DATA` set to the fixture, call `renderVals()`, and dump the 61 keys. Diff ours against that. Commit the harness or the dumped oracle so the next person can re-derive it.
+**Produce the oracle by RUNNING HIS CODE, not by trusting ours.** A reviewer already did this and it **works**: stub the `DCLogic` base (`state = {view:'dashboard', period:'week', site:'ALL', dataReady:true}`, `props={}`), set `window.EM_DATA` to the fixture, call `renderVals()` → **runs clean outside a browser, 61 keys**, no `document` access. **Commit the harness itself** (~10 lines), not just the dumped JSON — that is what makes the fixture-refresh pitfall recoverable.
+
+⚠️ **Strip the 18 function-valued paths before dumping** (the `pick` closures on `viewOpts`/`periodOpts`/`siteOpts`/`leaderboard[].pick`). `JSON.stringify` **silently drops** them rather than throwing, so an unstripped dump "verifies" 61 keys by coincidence. Strip explicitly and assert the count.
+
+**Reviewer-confirmed scalars** (from an actual run): `sbAvg=43 · dqScore=0 · backlogNow=80 · overdueCount=26`.
 
 Assert at minimum, per panel:
-- `leaderboard` — the 5 rows' `code/score/rag/del/gov/eng/penalty/open/overdue/high` (the composite oracle is already known: SML 62 AMBER · SMI 58 AMBER · HGO 48 RED · MGO 41 RED · SGO 44 RED).
-- `sbRows` — the 5 rows' `score/rag` + each row's 6 `cells[].val` (the sbDims oracle is known: SML 50 · SMI 42 · HGO 58 · MGO 50 · SGO 17).
+- `leaderboard` — **rank-sorted desc, NOT `codes` order**: `SML 62 · SMI 58 · HGO 48 · SGO 44 · MGO 41` (SGO precedes MGO). RAG: AMBER · AMBER · RED · RED · RED. Plus each row's `del/gov/eng/penalty/open/overdue/high`.
+- `sbRows` — **also rank-sorted**: `HGO 58 · SML 50 · MGO 50 · SMI 42 · SGO 17` (SML/MGO tie at 50, broken by stable sort on `codes` order). Plus each row's 6 `cells[].val`.
+  **A row-indexed assertion written from the per-site tables in 3A/3B-1 will FAIL** — those tables are in `codes` order; these panels sort.
 - `kpis` — all 8 tiles' `label/value`.
 - `eMatrix` — the 5×5 `val` grid (eMetrics oracle known from 3B-1).
 - `groupRows`, `flowMonths`, `aging`, `champLoad`, `overdueRows`, `inspSiteRows`, `findCats`, `pipeline`, `dqItems`, `dqScore`, `sbMoves`, `gapRows`, `emBubbles`, `sigFunnel`, `briefKpis`, `briefSites` — shape + the scalar values his code produces.
