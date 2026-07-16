@@ -225,8 +225,514 @@ function sbMeasure(site, D, asOf) {
   return { reviews, raised: isss.length, resolution, overdue, inspections: insp, findings, signoff };
 }
 
+// ── lookup tables (source :357, :422) ───────────────────────────────────────
+
+const catNames = {
+  pwr: 'Power / UPS', env: 'Environment', net: 'Network', fire: 'Fire safety',
+  radio: 'Radio', tower: 'Towers', sec: 'Security', srv: 'Servers', sto: 'Storage',
+  cell: 'Cellular', rack: 'Racks', doc: 'Documentation', cctv: 'CCTV',
+  bcp: 'BCP / DR', hse: 'HSE', op: 'Operations', ug: 'Underground',
+};
+
+const dimColors = {
+  reviews: '#1d6b5e', resolution: '#2a9d8f', overdue: '#7fb7d9',
+  inspections: '#2f7d4f', findings: '#d9a13b', signoff: '#8a8a8a',
+};
+
+// The source's 5 codes, in HIS order (source :213). LOAD-BEARING — see DEVIATION 1.
+const HIS_CODES = ['SML', 'SMI', 'HGO', 'MGO', 'SGO'];
+
+// ── buildReviewVals — the port of renderVals() (source :206-499) ────────────
+/**
+ * @param {object} D    the dashboard's data shape (services/reviewData.js).
+ * @param {object} opts { view, period, site, asOf }
+ * @returns {object} the 61-key flat object the template binds (source :471-488).
+ *
+ * The source reads view/period/site off React state and D off window.EM_DATA;
+ * here they are arguments and this function is pure. The 23-key loading stub
+ * (source :206) has no analogue — there is no async boot to guard.
+ */
+function buildReviewVals(D, opts = {}) {
+  const { view = 'dashboard', period = 'week', site = 'ALL', asOf = ANCHOR } = opts;
+  const G = GREEN, AM = AMBER, RD = REDT;
+  const A = asOf || ANCHOR;
+  const win = windows(period);
+
+  // ── DEVIATION 1 — `codes` derives from D instead of source :213's 5 literals.
+  // His order is LOAD-BEARING, not incidental: it IS eMatrix/inspSiteRows row
+  // order AND the sbSorted stable-sort tie-break (SML and MGO both score 50).
+  // Sorting naively flips five panels. So: keep his five in his order, then
+  // append sites he never saw, sorted for determinism.
+  // `present` = the union of the two PARENT tables — issues/actions/projects
+  // hang off meetings, findings/inspActions off inspections. meetings alone
+  // would drop a site with an inspection but no PV.
+  const present = new Set([
+    ...D.meetings.map(m => m.site_code),
+    ...D.inspections.map(i => i.site_code),
+  ].filter(Boolean));
+  const codes = [
+    ...HIS_CODES.filter(c => present.has(c)),
+    ...[...present].filter(c => !HIS_CODES.includes(c)).sort(),
+  ];
+
+  // ── controls ──────────────────────────────────────────────────────────────
+  // The source's `pick` closures are DROPPED: they bound live setState (4
+  // sc-camel-on-click sites) and cannot survive a pure function. `key` carries
+  // the same information declaratively — 3B-2b turns these into links/query
+  // params. (Not derivable from `label`: 'WEEKLY BRIEF' → 'brief'.)
+  const mk = (key, label, active) => ({
+    key, label,
+    bg: active ? 'var(--color-text)' : 'var(--color-bg)',
+    fg: active ? 'var(--color-bg)' : 'var(--color-text)',
+  });
+  const viewOpts = [
+    mk('dashboard', 'DASHBOARD', view === 'dashboard'),
+    mk('scoreboard', 'SCOREBOARD', view === 'scoreboard'),
+    mk('brief', 'WEEKLY BRIEF', view === 'brief'),
+  ];
+  const periodOpts = [['week', 'WEEK'], ['month', 'MONTH'], ['quarter', 'QUARTER'], ['semester', 'SEMESTER']]
+    .map(([k, l]) => mk(k, l, period === k));
+  const siteOpts = [['ALL', 'ALL'], ...codes.map(c => [c, c])].map(([k, l]) => mk(k, l, site === k));
+
+  // ── scope ─────────────────────────────────────────────────────────────────
+  const issues = filterSite(D.issues, site);
+  const meetings = filterSite(D.meetings, site);
+  const M = metrics(issues, meetings, win);
+  const scopeLabel = site === 'ALL' ? 'All sites — group view' : siteOf(site).name + ' (' + site + ')';
+  const scopeSuffix = site === 'ALL' ? '— all sites' : '— ' + siteOf(site).name;
+
+  // ── monthly series for the sparks ─────────────────────────────────────────
+  const months = ['2026-04', '2026-05', '2026-06', '2026-07'];
+  const ends = ['2026-04-30', '2026-05-31', '2026-06-30', A];
+  const serRaised = months.map(mo => issues.filter(i => String(i.meeting_date || '').slice(0, 7) === mo).length);
+  const serOpen = ends.map(e => issues.filter(i => openAt(i, e)).length);
+  const serOver = ends.map(e => issues.filter(i => openAt(i, e) && i.target_date && i.target_date < e).length);
+  const serHigh = ends.map(e => issues.filter(i => openAt(i, e) && i.severity === 'HIGH').length);
+
+  // DEVIATION 2 — the source hardcodes `12 * 5`. Follows `codes` now, so the
+  // denominator stays true on our 11-12 site fleet. Identical on his data.
+  const targetDepts = site === 'ALL' ? 12 * codes.length : 12;
+  const kd = (label, value, unit, dlt, series, note) => {
+    const sp = spark(series);
+    return { label, value, unit, deltaTxt: dlt.txt, deltaColor: dlt.color, spark: sp.pts, sparkX: sp.x, sparkY: sp.y, deltaNote: note || win.note };
+  };
+  const kpis = [
+    kd('Raised', M.raisedCur, 'in window', delta(M.raisedCur, M.raisedPrev, false), serRaised),
+    kd('Open now', M.openNow, 'backlog', delta(M.openNow, M.openPrev, true), serOpen),
+    kd('Overdue', M.overdueNow, 'past target', delta(M.overdueNow, M.overduePrev, true), serOver),
+    kd('HIGH open', M.highNow, 'severity', delta(M.highNow, M.highPrev, true), serHigh),
+    kd('Escalations', M.escNow, 'open', { txt: M.escNow ? '● live' : '· none', color: M.escNow ? RD : G },
+      ends.map(e => issues.filter(i => openAt(i, e) && (i.escalate === '1' || i.escalate === 1)).length), 'to Council'),
+    kd('Actions open', filterSite(D.actions, site).filter(a => OPEN[a.status]).length, 'IT promises',
+      { txt: '', color: 'var(--color-neutral-500)' },
+      ends.map(e => filterSite(D.actions, site).filter(a => {
+        if (!a.meeting_date || a.meeting_date > e) return false;
+        const c = a.closed_at ? String(a.closed_at).slice(0, 10) : null;
+        return !c || c > e;
+      }).length), 'from reviews'),
+    kd('MTTR', M.mttrCur != null ? M.mttrCur : '—', 'days median', delta(M.mttrCur, M.mttrPrev, true, ' d'),
+      months.map(mo => {
+        const v = issues
+          .filter(i => { const c = effClose(i); return i.status === 'resolved' && c && String(c).slice(0, 7) === mo && i.meeting_date; })
+          .map(i => days(effClose(i), i.meeting_date));
+        return median(v) || 0;
+      })),
+    kd('Dept coverage', M.covCur + '/' + targetDepts, 'depts met', delta(M.covCur, M.covPrev, false),
+      months.map(mo => new Set(meetings.filter(m => String(m.meeting_date || '').slice(0, 7) === mo).map(m => m.site_code + '|' + m.department)).size)),
+  ];
+
+  // ── leaderboard (the composite model — RAG 75/55) ─────────────────────────
+  // The source calls this.composite(c, D) bare, which defaults to ANCHOR. We
+  // thread `A` through so the port generalises past his hardcoded date; at
+  // asOf === ANCHOR the two are identical.
+  const comps = {}; const compsPrev = {};
+  codes.forEach(c => { comps[c] = composite(c, D, A); compsPrev[c] = composite(c, D, win.prev[1]); });
+  const leaderboard = codes.map(c => ({ c, comp: comps[c] })).sort((a, b) => b.comp.score - a.comp.score).map((x, idx) => {
+    const { c, comp } = x;
+    const rg = rag(comp.score);
+    const dl = delta(comp.score, compsPrev[c].score, false);
+    const tot = Math.max(comp.del * 0.4 + comp.gov * 0.35 + comp.eng * 0.25, 1);
+    return {
+      rank: idx + 1, code: c, name: siteOf(c).name, country: siteOf(c).country,
+      wDel: Math.round(comp.del * 0.4 / tot * 100), wGov: Math.round(comp.gov * 0.35 / tot * 100), wEng: Math.round(comp.eng * 0.25 / tot * 100),
+      del: comp.del, gov: comp.gov, eng: comp.eng, score: comp.score, delta: dl.txt, deltaColor: dl.color,
+      open: comp.open, overdue: comp.overdue, high: comp.high, penalty: comp.pen ? '−' + comp.pen : '·',
+      overdueColor: comp.odRate > 20 ? RD : 'var(--color-text)', overdueWeight: comp.odRate > 20 ? 700 : 400,
+      highColor: comp.high >= 4 ? RD : 'var(--color-text)', highWeight: comp.high >= 4 ? 700 : 400,
+      rag: rg.label, ragBg: rg.bg, ragFg: rg.fg,
+      rowBg: site === c ? 'var(--color-accent-100)' : 'var(--color-bg)',
+      // `pick` dropped — see the controls note above.
+    };
+  });
+  // The country groups hardcode his 5 codes (source :268). DEVIATION 3 again:
+  // narrow each to the codes actually present, or comps[c] is undefined and the
+  // reduce throws. Identical on his data; drops an empty country on ours.
+  const groups = [
+    ['Côte d’Ivoire', ['SML', 'SMI']],
+    ['Burkina Faso', ['HGO', 'MGO']],
+    ['Senegal', ['SGO']],
+    ['GROUP — ALL SITES', codes],
+  ];
+  const groupRows = groups
+    .map(([name, cs]) => [name, cs.filter(c => comps[c])])
+    .filter(([, cs]) => cs.length)
+    .map(([name, cs]) => {
+      const sc = Math.round(cs.reduce((s, c) => s + comps[c].score, 0) / cs.length);
+      const scP = Math.round(cs.reduce((s, c) => s + compsPrev[c].score, 0) / cs.length);
+      const dl = delta(sc, scP, false);
+      return {
+        name, sites: cs.join(' · '), score: sc, delta: dl.txt, deltaColor: dl.color,
+        open: cs.reduce((s, c) => s + comps[c].open, 0),
+        overdue: cs.reduce((s, c) => s + comps[c].overdue, 0),
+        high: cs.reduce((s, c) => s + comps[c].high, 0),
+      };
+    });
+
+  // ── flow months ───────────────────────────────────────────────────────────
+  const maxFlow = Math.max(...months.map(mo => Math.max(
+    issues.filter(i => String(i.meeting_date || '').slice(0, 7) === mo).length,
+    issues.filter(i => { const c = effClose(i); return i.status !== 'cancelled' && c && String(c).slice(0, 7) === mo; }).length)), 1);
+  const flowMonths = months.map(mo => {
+    const r = issues.filter(i => String(i.meeting_date || '').slice(0, 7) === mo).length;
+    const cl = issues.filter(i => { const c = effClose(i); return i.status !== 'cancelled' && c && String(c).slice(0, 7) === mo; }).length;
+    const ratio = r ? Math.round(cl / r * 100) / 100 : null;
+    return {
+      label: ['APR', 'MAY', 'JUN', 'JUL'][months.indexOf(mo)], raised: r, closed: cl,
+      hRaised: Math.round(r / maxFlow * 100), hClosed: Math.round(cl / maxFlow * 100),
+      ratio: ratio == null ? '—' : ratio.toFixed(2),
+      ratioColor: ratio == null ? 'var(--color-neutral-500)' : ratio >= 1 ? G : ratio >= 0.7 ? AM : RD,
+    };
+  });
+
+  // ── backlog weekly polyline ───────────────────────────────────────────────
+  const wk = []; let t = '2026-04-01';
+  while (t <= A) { wk.push(t); t = addDays(t, 7); }
+  if (wk[wk.length - 1] !== A) wk.push(A);
+  const blSeries = wk.map(e => issues.filter(i => openAt(i, e)).length);
+  const blMax = Math.max(...blSeries, 1);
+  const blPts = blSeries.map((v, i) => (i * (600 / (blSeries.length - 1))).toFixed(1) + ',' + (145 - v / blMax * 135).toFixed(1));
+  const blEnd = blPts[blPts.length - 1].split(',');
+  const blTrend = blSeries[blSeries.length - 1] - blSeries[blSeries.length - 3];
+
+  // ── 5E matrix — rows follow CODES order, not rank ─────────────────────────
+  const eHeaders = [{ label: 'E1', sub: 'cadence' }, { label: 'E2', sub: '48 h diffusion' }, { label: 'E3', sub: 'champions' }, { label: 'E4', sub: 'not measured' }, { label: 'E5', sub: 'discipline' }];
+  const eMatrix = codes.map(c => {
+    const e = comps[c].e;
+    const cell = (v, g, a, tip) => { const rg = ragPct(v, g, a); return { val: v == null ? '—' : v + '%', bg: rg.bg, fg: rg.fg, tip }; };
+    return {
+      site: siteOf(c).name + ' · ' + c,
+      cells: [
+        cell(e.e1, 90, 70, 'PV cadence held'),
+        cell(e.e2, 80, 50, 'both signatures ≤48h'),
+        cell(e.e3, 90, 70, 'issues with champion'),
+        { val: '—', bg: 'var(--color-neutral-200)', fg: 'var(--color-neutral-500)', tip: 'E4 not yet measured' },
+        cell(e.e5, 90, 70, 'next date + priorities set'),
+      ],
+    };
+  });
+
+  // ── signature funnel ──────────────────────────────────────────────────────
+  const subM = meetings.filter(m => m.submitted_at);
+  const dhSigned = subM.filter(m => m.dept_head_signed_at);
+  const itSigned = subM.filter(m => m.site_it_signed_at);
+  const both48 = subM.filter(m => {
+    if (!m.dept_head_signed_at || !m.site_it_signed_at) return false;
+    return (Math.max(new Date(m.dept_head_signed_at.replace(' ', 'T') + 'Z'), new Date(m.site_it_signed_at.replace(' ', 'T') + 'Z'))
+      - new Date(m.submitted_at.replace(' ', 'T') + 'Z')) <= 48 * 3600000;
+  });
+  const medLatH = (list, f) => {
+    const v = list.filter(m => m[f])
+      .map(m => (new Date(m[f].replace(' ', 'T') + 'Z') - new Date(m.submitted_at.replace(' ', 'T') + 'Z')) / 3600000)
+      .filter(h => h >= 0);
+    const md = median(v);
+    return md == null ? null : Math.round(md * 10) / 10;
+  };
+  const dhLat = medLatH(subM, 'dept_head_signed_at');
+  const itLat = medLatH(subM, 'site_it_signed_at');
+  const sigFunnel = [
+    { label: 'PVs submitted', value: subM.length, note: 'of ' + meetings.length + ' meetings', noteColor: 'var(--color-neutral-600)' },
+    { label: 'Dept head signed', value: dhSigned.length, note: dhLat != null ? 'median ' + dhLat + ' h' : 'no data', noteColor: dhLat != null && dhLat <= 48 ? G : RD },
+    { label: 'Site IT signed', value: itSigned.length, note: itLat != null ? 'median ' + itLat + ' h' : 'no data', noteColor: itLat != null && itLat <= 48 ? G : RD },
+    { label: 'Both ≤ 48 h', value: both48.length + ' / ' + subM.length, note: subM.length ? Math.round(100 * both48.length / subM.length) + '% — target ≥ 80%' : '—', noteColor: subM.length && both48.length / subM.length >= 0.8 ? G : RD },
+  ];
+
+  // ── aging ─────────────────────────────────────────────────────────────────
+  const buckets = [['≤ 30 d', 0, 30], ['31–60 d', 31, 60], ['61–90 d', 61, 90], ['> 90 d', 91, 9999]];
+  const openList = M.openList;
+  const maxB = Math.max(...buckets.map(([, lo, hi]) => openList.filter(i => { const a2 = days(A, i.meeting_date); return a2 >= lo && a2 <= hi; }).length), 1);
+  const aging = buckets.map(([label, lo, hi]) => {
+    const rows = openList.filter(i => { const a2 = days(A, i.meeting_date); return a2 >= lo && a2 <= hi; });
+    const h = rows.filter(i => i.severity === 'HIGH').length;
+    const m2 = rows.filter(i => i.severity === 'MEDIUM').length;
+    const l = rows.filter(i => i.severity === 'LOW').length;
+    const scale = 100 / maxB;
+    return { label, total: rows.length, wHigh: (h * scale).toFixed(1), wMed: (m2 * scale).toFixed(1), wLow: (l * scale).toFixed(1), highTxt: h ? '· ' + h + ' HIGH' : '' };
+  });
+
+  // ── champion load ─────────────────────────────────────────────────────────
+  const loadMap = {};
+  openList.forEach(i => { const c = (i.champion || '').trim(); if (c) loadMap[c] = (loadMap[c] || 0) + 1; });
+  const champSorted = Object.entries(loadMap).sort((a, b) => b[1] - a[1]).slice(0, 8);
+  const maxL = Math.max(...champSorted.map(x => x[1]), 1);
+  const champLoad = champSorted.map(([name, n]) => ({
+    name, n, w: Math.round(n / maxL * 100),
+    color: n >= 7 ? 'var(--color-accent)' : n >= 5 ? '#d9a13b' : 'var(--color-neutral-600)',
+    numColor: n >= 7 ? RD : 'var(--color-text)', flag: n >= 7 ? ' ⚠' : '',
+  }));
+
+  // ── overdue register ──────────────────────────────────────────────────────
+  const odAll = openList.filter(i => i.target_date && i.target_date < A).sort((a, b) => a.target_date < b.target_date ? -1 : 1);
+  const sevTag = s => s === 'HIGH' ? { bg: 'var(--color-accent-100)', fg: RD }
+    : s === 'MEDIUM' ? { bg: '#f5e7c8', fg: '#7a5510' }
+      : { bg: 'var(--color-neutral-200)', fg: 'var(--color-neutral-700)' };
+  const overdueRows = odAll.slice(0, 9).map(o => {
+    const dl = days(A, o.target_date);
+    const st = sevTag(o.severity);
+    return {
+      days: dl, dColor: dl > 60 ? RD : dl > 30 ? AM : 'var(--color-text)',
+      title: (o.title || '').slice(0, 80),
+      meta: o.site_code + ' · ' + (o.department || '') + ' · ' + ((o.champion || '').trim() || 'no champion') + ' · due ' + fmt(o.target_date),
+      sev: o.severity, sevBg: st.bg, sevFg: st.fg,
+    };
+  });
+  const noTargetN = openList.filter(i => !i.target_date).length;
+
+  // ── inspections — rows follow CODES order ─────────────────────────────────
+  const findAll = site === 'ALL' ? D.findings : D.findings.filter(f => f.site_code === site);
+  const inspSiteRows = (site === 'ALL' ? codes : [site]).map(c => {
+    const ins = D.inspections.filter(i => i.site_code === c);
+    const fs = D.findings.filter(f => f.site_code === c);
+    const crit = fs.filter(f => f.status === 'critical').length;
+    const maj = fs.filter(f => f.status === 'major').length;
+    const min2 = fs.filter(f => f.status === 'minor').length;
+    // QUIRK: `opp` (opportunity) is in the conformity DENOMINATOR (!== 'na')
+    // but not the NUMERATOR (=== 'ok'), so opportunities depress conf%. His
+    // data carries 12 of them. Ported as-is.
+    const appl = fs.filter(f => f.status !== 'na').length;
+    const ok = fs.filter(f => f.status === 'ok').length;
+    const conf = appl ? Math.round(100 * ok / appl) : null;
+    const last = ins.map(i => i.inspection_date).sort().pop();
+    const dAgo = last ? days(A, last) : null;
+    // QUIRK: only 'Closed' is excluded. Our vocabulary also has 'Cancelled'
+    // (public/inspection-actions.html STATUSES), which his data lacks — a
+    // cancelled action therefore counts as open. LATENT; ported as-is.
+    const acts = D.inspActions.filter(a => a.site_code === c && a.status !== 'Closed').length;
+    const maxD = Math.max(crit + maj + min2, 1);
+    return {
+      site: siteOf(c).name + ' · ' + c, count: ins.length, last: fmt(last),
+      daysAgo: dAgo == null ? '—' : dAgo, daysColor: dAgo == null || dAgo > 45 ? RD : 'var(--color-text)',
+      wCrit: Math.round(crit / maxD * 100), wMaj: Math.round(maj / maxD * 100), wMin: Math.round(min2 / maxD * 100),
+      defTxt: crit + ' / ' + maj + ' / ' + min2,
+      conf: conf == null ? '—' : conf + '%',
+      confColor: conf == null ? 'var(--color-neutral-500)' : conf >= 90 ? G : conf >= 75 ? AM : RD,
+      actOpen: acts,
+    };
+  });
+  const defects = findAll.filter(f => f.status === 'critical' || f.status === 'major' || f.status === 'minor');
+  const byCat = {};
+  defects.forEach(f => {
+    byCat[f.category] = byCat[f.category] || { n: 0, crit: 0 };
+    byCat[f.category].n++;
+    if (f.status !== 'minor') byCat[f.category].crit++;
+  });
+  const catSorted = Object.entries(byCat).sort((a, b) => b[1].n - a[1].n).slice(0, 8);
+  const maxC = Math.max(...catSorted.map(x => x[1].n), 1);
+  const findCats = catSorted.map(([k, v]) => ({
+    label: catNames[k] || k, n: v.n, w: Math.round(v.n / maxC * 100),
+    color: v.crit ? 'var(--color-accent)' : 'var(--color-neutral-600)',
+  }));
+
+  // ── projects pipeline ─────────────────────────────────────────────────────
+  // QUIRK: the four phases are hardcoded. Our seed has a fifth ('closeout') and
+  // the data carries nulls — those projects fall OUT of the bars but stay IN
+  // projs.length, so pipelineNote reads "N of M" where the bars sum to < M.
+  const projs = site === 'ALL' ? D.projects : D.projects.filter(p => p.site_code === site);
+  const phases = [['scoping', 'Scoping'], ['design', 'Design'], ['build', 'Build'], ['deploy', 'Deploy']];
+  const pipeline = phases.map(([k, label], i) => {
+    const n = projs.filter(p => p.phase === k).length;
+    return {
+      label, n, flex: Math.max(n, 1),
+      bg: i === 0 && n > projs.length / 2 ? 'var(--color-accent)' : 'var(--color-neutral-' + (800 - i * 150) + ')',
+      fg: 'var(--color-bg)',
+    };
+  });
+  const scopingN = projs.filter(p => p.phase === 'scoping').length;
+  const pipelineNote = scopingN + ' of ' + projs.length + ' projects still in scoping — uncosted exposure. '
+    + projs.filter(p => !p.target_end).length + ' have no target end date.';
+
+  // ── data quality ──────────────────────────────────────────────────────────
+  const unsigned7 = D.meetings.filter(m => m.submitted_at && (!m.dept_head_signed_at || !m.site_it_signed_at)
+    && (new Date(A) - new Date(m.submitted_at.replace(' ', 'T') + 'Z')) > 7 * 86400000).length;
+  const openNoTarget = D.issues.filter(i => isOpenNow(i) && !i.target_date).length;
+  const noChampEmail = D.issues.filter(i => isOpenNow(i) && (i.champion || '').trim() && !(i.champion_email || '').trim()).length;
+  const nameKeys = {};
+  D.issues.forEach(i => {
+    const c = (i.champion || '').trim();
+    if (c) { const k = c.toLowerCase().replace(/[^a-z]/g, ''); nameKeys[k] = nameKeys[k] || new Set(); nameKeys[k].add(c); }
+  });
+  const variants = Object.values(nameKeys).filter(s => s.size > 1).length;
+  const dqScore = Math.max(0, 100 - unsigned7 * 3 - openNoTarget * 2 - noChampEmail * 1 - variants * 2);
+  const dqItems = [
+    { label: 'PVs unsigned > 7 days', value: unsigned7, color: unsigned7 ? RD : G },
+    { label: 'Open issues without target date', value: openNoTarget, color: openNoTarget ? RD : G },
+    { label: 'Open issues, champion has no email', value: noChampEmail, color: noChampEmail ? AM : G },
+    { label: 'Champion name-spelling variants', value: variants, color: variants ? AM : G },
+  ];
+
+  // ── weekly brief — always fleet-wide, whatever the selected scope ──────────
+  const winW = windows('week');
+  const MF = metrics(D.issues, D.meetings, winW);
+  const briefKpis = [
+    { label: 'Open backlog', value: MF.openNow, ...pack(delta(MF.openNow, MF.openPrev, true)) },
+    { label: 'Overdue', value: MF.overdueNow, ...pack(delta(MF.overdueNow, MF.overduePrev, true)) },
+    { label: 'HIGH open', value: MF.highNow, ...pack(delta(MF.highNow, MF.highPrev, true)) },
+    { label: 'Raised this week', value: MF.raisedCur, ...pack(delta(MF.raisedCur, MF.raisedPrev, false)) },
+  ];
+  // DEVIATION 2 — source :395 divides by a literal 5. composite() always yields
+  // a number (it has no applicability concept), so the mean is over every code.
+  const fleetScore = codes.length ? Math.round(codes.reduce((s, c) => s + comps[c].score, 0) / codes.length) : 0;
+  const worst = [...codes].sort((a, b) => comps[a].score - comps[b].score)[0];
+  // QUIRK (source :397): `comps[b - 0]` is comps[NaN] for any string code →
+  // always undefined → always falsy → the ternary always takes the descending
+  // branch. It works, bizarrely. Ported verbatim.
+  const best = [...codes].sort((a, b) => comps[b - 0] ? 0 : comps[b].score - comps[a].score)[0];
+  const briefNarrative = codes.length
+    ? 'Fleet health stands at ' + fleetScore + '/100. ' + siteOf(best).name + ' leads the board; '
+      + siteOf(worst).name + ' needs the most attention this week with ' + comps[worst].overdue
+      + ' overdue and ' + comps[worst].high + ' HIGH items open. Signature diffusion (E2) remains the '
+      + 'weakest engagement fleet-wide — ' + (subM.length ? Math.round(100 * both48.length / Math.max(subM.length, 1)) : 0)
+      + '% of PVs fully signed within 48 h against a target of 80%.'
+    // The source would throw here (comps[undefined].overdue). No sites → no claim.
+    : 'No site data available for this period.';
+  const briefSites = [...codes].sort((a, b) => comps[b].score - comps[a].score).map(c => {
+    const comp = comps[c];
+    const rg = rag(comp.score);
+    const deltas = ['week', 'month', 'quarter', 'semester'].map((p, i) => {
+      const w = windows(p);
+      const prev = composite(c, D, w.prev[1]);
+      const dl = delta(comp.score, prev.score, false);
+      return { label: ['WoW', 'MoM', 'QoQ', 'HoH'][i], txt: dl.txt, color: dl.color };
+    });
+    const ins = D.inspections.filter(i => i.site_code === c);
+    const lastI = ins.map(i => i.inspection_date).sort().pop();
+    const fs = D.findings.filter(f => f.site_code === c);
+    const crit = fs.filter(f => f.status === 'critical' || f.status === 'major').length;
+    const stats = [
+      { label: 'Open', value: comp.open, color: 'var(--color-text)' },
+      { label: 'Overdue', value: comp.overdue + ' (' + comp.odRate + '%)', color: comp.odRate > 20 ? RD : 'var(--color-text)' },
+      { label: 'HIGH', value: comp.high, color: comp.high >= 4 ? RD : 'var(--color-text)' },
+      { label: 'MTTR', value: comp.mttr != null ? comp.mttr + ' d' : '—', color: 'var(--color-text)' },
+      { label: 'E2 48 h', value: comp.e.e2 + '%', color: comp.e.e2 >= 80 ? G : comp.e.e2 >= 50 ? AM : RD },
+      { label: 'Last inspection', value: lastI ? days(A, lastI) + ' d ago' + (crit ? ' · ' + crit + ' def.' : '') : 'none', color: !lastI || days(A, lastI) > 45 ? RD : 'var(--color-text)' },
+    ];
+    return { code: c, name: siteOf(c).name, country: siteOf(c).country, score: comp.score, rag: rg.label, ragBg: rg.bg, ragFg: rg.fg, deltas, stats, moves: twoMoves(c, D, comp) };
+  });
+
+  // ── scoreboard (the sbDims model — RAG 70/45) ─────────────────────────────
+  const ragPts = p => p === 2 ? { bg: '#dcefe2', fg: G } : p === 1 ? { bg: '#f5e7c8', fg: '#7a5510' } : { bg: 'var(--color-accent-100)', fg: RD };
+  // sbIn keeps the RAW measured inputs alongside the score: computeSiteScore
+  // does NOT return reviews/resolution/overdue, and emBubbles needs all three
+  // (source :442-448 reads them off sbDims' return). Reading them from the
+  // inputs is the bridge — computeSiteScore is fidelity-pinned, don't touch it.
+  const sbIn = {}; const sbs = {}; const sbsPrev = {};
+  codes.forEach(c => {
+    sbIn[c] = sbMeasure(c, D, A);
+    sbs[c] = computeSiteScore(sbIn[c]);
+    sbsPrev[c] = computeSiteScore(sbMeasure(c, D, win.prev[1]));
+  });
+  // DEVIATION 4 — `applicable:false` is a state the source has no concept of.
+  // Its sb.dims is [] and sb.score null, so every scoreboard panel would render
+  // a broken row. Omit the site instead: no data is not a verdict.
+  const sbApplicable = codes.filter(c => sbs[c].applicable);
+  const sbSorted = [...sbApplicable].sort((a, b) => sbs[b].score - sbs[a].score);
+  // DEVIATION 2 + 4 — source :427 does `codes.reduce(...) / 5`, and `score:null`
+  // coerces (s + null === s + 0), so a site we know NOTHING about enters the
+  // fleet average as a fabricated 0 — exactly the verdict-on-nothing the
+  // applicable gate exists to prevent, sneaking back in through an average.
+  // Omitting the row cannot fix it while the /5 is hardcoded. Mean over the
+  // applicable sites; null when there are none.
+  const meanScore = (list, tbl) => list.length ? Math.round(list.reduce((s, c) => s + tbl[c].score, 0) / list.length) : null;
+  const sbAvg = meanScore(sbApplicable, sbs);
+  const sbAvgPrev = meanScore(codes.filter(c => sbsPrev[c].applicable), sbsPrev);
+  const sbAvgD = delta(sbAvg, sbAvgPrev, false);
+  const sbDimHeaders = [{ label: 'REVIEWS', sub: 'held' }, { label: 'RESOLUTION', sub: 'resolved ÷ raised' }, { label: 'OVERDUE', sub: 'issues + actions' }, { label: 'INSPECTIONS', sub: 'run' }, { label: 'FINDINGS', sub: 'crit + major' }, { label: 'SIGN-OFF', sub: 'both signatures' }];
+  const sbRows = sbSorted.map((c, idx) => {
+    const sb = sbs[c];
+    const rg = rag2Full(sb.score);
+    const dl = delta(sb.score, sbsPrev[c].applicable ? sbsPrev[c].score : null, false);
+    return {
+      rank: idx + 1, code: c, name: siteOf(c).name,
+      score: sb.score, scoreColor: rg.fg, delta: dl.txt, deltaColor: dl.color,
+      cells: sb.dims.map(d => { const r = ragPts(d.pts); return { val: d.disp, bg: r.bg, fg: r.fg, tip: d.tip }; }),
+      rag: rg.label, ragBg: rg.solidBg, ragFg: rg.solidFg,
+    };
+  });
+  // effort matrix: x = resolution %, y = overdue, r = reviews.
+  // Over the APPLICABLE sites only — a non-applicable one would drag a
+  // non-number into Math.max and NaN would poison EVERY bubble's x/y/r.
+  const emMaxX = Math.max(...sbApplicable.map(c => sbIn[c].resolution), 50) * 1.15;
+  const emMaxY = Math.max(...sbApplicable.map(c => sbIn[c].overdue), 10) * 1.2;
+  const px = v => 40 + v / emMaxX * 510;
+  const emBubbles = codes.filter(c => sbs[c].applicable).map(c => {
+    const rg = rag2Full(sbs[c].score);
+    const x = px(sbIn[c].resolution);
+    const y = 310 - (sbIn[c].overdue / emMaxY * 300);
+    const r = 8 + sbIn[c].reviews * 1.6;
+    return { x: x.toFixed(1), y: y.toFixed(1), r: r.toFixed(1), fill: rg.solidBg, label: c, lx: (x + r + 4).toFixed(1), ly: (y + 4).toFixed(1) };
+  });
+  const emSplitX = px(30).toFixed(1);
+  const emSplitY = (310 - 10 / emMaxY * 300).toFixed(1);
+  const emQ2x = (px(30) + 12).toFixed(1);
+  // gap to green
+  const gapRows = sbSorted.map(c => {
+    const sb = sbs[c];
+    const segs = sb.dims.filter(d => d.pts > 0).map(d => ({ w: (d.pts / 12 * 100).toFixed(1), color: dimColors[d.key], tip: d.label + ' ' + d.pts + ' pts' }));
+    const loss = 12 - sb.points;
+    return { code: c, segs, loss: loss > 0 ? '−' + Math.round(loss / 12 * 100) + ' pts lost' : 'at max', lossColor: loss >= 6 ? RD : loss >= 3 ? AM : G };
+  });
+  const gapLegend = [['reviews', 'Reviews'], ['resolution', 'Resolution'], ['overdue', 'Overdue'], ['inspections', 'Inspections'], ['findings', 'Findings'], ['signoff', 'Sign-off']]
+    .map(([k, label]) => ({ label, color: dimColors[k] }));
+  // two moves per site (points-ranked). computeSiteScore already builds these
+  // identically to source :465-467 — reuse rather than fork the tie-break.
+  const sbMoves = sbSorted.map(c => {
+    const sb = sbs[c];
+    const rg = rag2Full(sb.score);
+    return { code: c, name: siteOf(c).name, score: sb.score, hdrBg: rg.solidBg, hdrFg: rg.solidFg, moves: sb.moves };
+  });
+
+  return {
+    isDashboard: view === 'dashboard', isBrief: view === 'brief', isScoreboard: view === 'scoreboard',
+    sbAvg,
+    // rag2Full(null) would report a confident RED — the very thing the
+    // applicable gate exists to prevent. No score → no colour verdict.
+    sbAvgColor: sbAvg == null ? 'var(--color-neutral-500)' : rag2Full(sbAvg).fg,
+    sbAvgDelta: sbAvgD.txt, sbAvgDeltaColor: sbAvgD.color,
+    sbDimHeaders, sbRows, emBubbles, emSplitX, emSplitY, emQ2x, gapRows, gapLegend, sbMoves,
+    viewOpts, periodOpts, siteOpts,
+    scopeLabel, scopeSuffix, anchorLabel: fmt(A) + ' 2026', dataThrough: fmt(A),
+    curWinLabel: fmt(win.cur[0]) + ' – ' + fmt(win.cur[1]), prevWinLabel: win.note.replace('vs ', ''),
+    nIssues: D.issues.length, nMeetings: D.meetings.length, nInspections: D.inspections.length,
+    nFindings: D.findings.filter(f => f.status !== 'na').length,
+    defectCount: D.findings.filter(f => f.status === 'critical' || f.status === 'major' || f.status === 'minor').length,
+    periodShort: win.short,
+    kpis, leaderboard, groupRows, flowMonths,
+    backlogPts: blPts.join(' '), backlogEndX: blEnd[0], backlogEndY: blEnd[1],
+    backlogNow: blSeries[blSeries.length - 1], backlogPeak: Math.max(...blSeries), backlogStartLabel: 'Apr 1',
+    backlogTrendTxt: blTrend < 0 ? '▼ falling' : blTrend > 0 ? '▲ rising' : '· flat',
+    backlogTrendColor: blTrend < 0 ? G : blTrend > 0 ? RD : 'var(--color-neutral-500)',
+    eHeaders, eMatrix, sigFunnel, aging, champLoad, overdueRows, overdueCount: odAll.length,
+    noTargetNote: noTargetN
+      ? '+ ' + noTargetN + ' open issues have no target date — invisible to this register (see Data quality).'
+      : 'Every open issue carries a target date.',
+    inspSiteRows, findCats, pipeline, pipelineNote,
+    dqScore, dqColor: dqScore >= 90 ? G : dqScore >= 75 ? AM : RD, dqItems,
+    briefKpis, briefNarrative, briefSites,
+  };
+}
+
 module.exports = {
-  SITES, GREEN, AMBER, RED, REDT, OPEN,
+  SITES, GREEN, AMBER, RED, REDT, OPEN, HIS_CODES, catNames, dimColors,
   siteOf, rag2Full,
   addDays, fmt, windows, filterSite, metrics, delta, spark, pack, sbMeasure,
+  buildReviewVals,
 };

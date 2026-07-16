@@ -22,6 +22,7 @@ const assert = require('node:assert');
 const {
   SITES, GREEN, AMBER, RED, REDT,
   addDays, fmt, windows, filterSite, metrics, delta, spark, pack, sbMeasure,
+  buildReviewVals,
 } = require('../services/reviewDashboard');
 
 const EM = require('./fixtures/em-data.json');
@@ -315,4 +316,569 @@ test('sbMeasure feeds computeSiteScore to the boss\'s own sbDims scores on his d
     assert.strictEqual(got.applicable, true, code);
     assert.strictEqual(got.score, score, `${code}: ours ${got.score} vs the dashboard's ${score}`);
   }
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+// buildReviewVals — the port of renderVals() (source :206-499)
+// ═════════════════════════════════════════════════════════════════════════════
+//
+// The scalars asserted below come from RUNNING HIS CODE, not from ours. They are
+// the oracle. If one fails, OUR code is wrong — never edit the expectation.
+// tests/review-fidelity.test.js is the full acceptance harness.
+
+const OPTS = { view: 'dashboard', period: 'week', site: 'ALL', asOf: A };
+const V = () => buildReviewVals(EM, OPTS);
+
+// ── the 61-key contract ─────────────────────────────────────────────────────
+
+test('buildReviewVals returns the source\'s full 61-key return (:471-488)', () => {
+  const v = V();
+  const KEYS = [
+    'isDashboard', 'isBrief', 'isScoreboard',
+    'sbAvg', 'sbAvgColor', 'sbAvgDelta', 'sbAvgDeltaColor',
+    'sbDimHeaders', 'sbRows', 'emBubbles', 'emSplitX', 'emSplitY', 'emQ2x',
+    'gapRows', 'gapLegend', 'sbMoves',
+    'viewOpts', 'periodOpts', 'siteOpts',
+    'scopeLabel', 'scopeSuffix', 'anchorLabel', 'dataThrough',
+    'curWinLabel', 'prevWinLabel',
+    'nIssues', 'nMeetings', 'nInspections', 'nFindings', 'defectCount',
+    'periodShort', 'kpis', 'leaderboard', 'groupRows', 'flowMonths',
+    'backlogPts', 'backlogEndX', 'backlogEndY', 'backlogNow', 'backlogPeak',
+    'backlogStartLabel', 'backlogTrendTxt', 'backlogTrendColor',
+    'eHeaders', 'eMatrix', 'sigFunnel', 'aging', 'champLoad',
+    'overdueRows', 'overdueCount', 'noTargetNote',
+    'inspSiteRows', 'findCats', 'pipeline', 'pipelineNote',
+    'dqScore', 'dqColor', 'dqItems',
+    'briefKpis', 'briefNarrative', 'briefSites',
+  ];
+  assert.strictEqual(KEYS.length, 61);
+  assert.deepStrictEqual(Object.keys(v).sort(), [...KEYS].sort());
+});
+
+test('view flags are driven by the `view` argument, not React state', () => {
+  const d = V();
+  assert.deepStrictEqual([d.isDashboard, d.isBrief, d.isScoreboard], [true, false, false]);
+  const b = buildReviewVals(EM, { ...OPTS, view: 'brief' });
+  assert.deepStrictEqual([b.isDashboard, b.isBrief, b.isScoreboard], [false, true, false]);
+  const s = buildReviewVals(EM, { ...OPTS, view: 'scoreboard' });
+  assert.deepStrictEqual([s.isDashboard, s.isBrief, s.isScoreboard], [false, false, true]);
+});
+
+// ── DECIDED: codes derives from D, in HIS order ─────────────────────────────
+
+test('codes is HIS 5 in HIS order on his data — byte-identical to source :213', () => {
+  assert.deepStrictEqual(V().siteOpts.map(o => o.key), ['ALL', 'SML', 'SMI', 'HGO', 'MGO', 'SGO']);
+});
+
+test('a site he never saw APPENDS — it must not reorder his five', () => {
+  // His order is load-bearing: it IS eMatrix/inspSiteRows row order AND the
+  // sbSorted tie-break (SML and MGO both score 50).
+  const D = { ...EM, meetings: [...EM.meetings, { site_code: 'KGO', department: 'it', meeting_date: '2026-05-05' }] };
+  assert.deepStrictEqual(buildReviewVals(D, OPTS).siteOpts.map(o => o.key),
+    ['ALL', 'SML', 'SMI', 'HGO', 'MGO', 'SGO', 'KGO']);
+});
+
+test('codes unions BOTH parent tables — a site with an inspection but no PV still counts', () => {
+  const D = { ...EM, inspections: [...EM.inspections, { id: 'X', site_code: 'ZZZ', inspection_date: '2026-05-05', status: 'submitted' }] };
+  assert.ok(buildReviewVals(D, OPTS).siteOpts.map(o => o.key).includes('ZZZ'));
+});
+
+// DEVIATION 3 — the source would throw here (Component.SITES[code].name, :225).
+test('an unknown site code does not throw — it falls back to the code as its name', () => {
+  const D = { ...EM, meetings: [...EM.meetings, { site_code: 'KGO', department: 'it', meeting_date: '2026-05-05' }] };
+  assert.doesNotThrow(() => buildReviewVals(D, OPTS));
+  const v = buildReviewVals(D, { ...OPTS, site: 'KGO' });
+  assert.strictEqual(v.scopeLabel, 'KGO (KGO)');
+  assert.ok(v.eMatrix.some(r => r.site === 'KGO · KGO'));
+});
+
+// ── scope / labels ──────────────────────────────────────────────────────────
+
+test('scope labels, anchor and window labels', () => {
+  const v = V();
+  assert.strictEqual(v.scopeLabel, 'All sites — group view');
+  assert.strictEqual(v.scopeSuffix, '— all sites');
+  assert.strictEqual(v.anchorLabel, '14 Jul 2026');
+  assert.strictEqual(v.dataThrough, '14 Jul');
+  assert.strictEqual(v.curWinLabel, '8 Jul – 14 Jul');
+  assert.strictEqual(v.prevWinLabel, 'prior week');
+  assert.strictEqual(v.periodShort, 'WoW');
+  const h = buildReviewVals(EM, { ...OPTS, site: 'HGO' });
+  assert.strictEqual(h.scopeLabel, 'Houndé (HGO)');
+  assert.strictEqual(h.scopeSuffix, '— Houndé');
+});
+
+// ── the counters ────────────────────────────────────────────────────────────
+
+test('the header counters read straight off D', () => {
+  const v = V();
+  assert.strictEqual(v.nIssues, EM.issues.length);
+  assert.strictEqual(v.nMeetings, EM.meetings.length);
+  assert.strictEqual(v.nInspections, EM.inspections.length);
+  assert.strictEqual(v.nFindings, EM.findings.filter(f => f.status !== 'na').length);
+  assert.strictEqual(v.defectCount, EM.findings.filter(f => ['critical', 'major', 'minor'].includes(f.status)).length);
+});
+
+// ── PANEL: controls ─────────────────────────────────────────────────────────
+
+test('PANEL viewOpts/periodOpts/siteOpts — active styling, and `key` replaces the dropped pick closure', () => {
+  const v = V();
+  assert.deepStrictEqual(v.viewOpts.map(o => o.label), ['DASHBOARD', 'SCOREBOARD', 'WEEKLY BRIEF']);
+  assert.deepStrictEqual(v.periodOpts.map(o => o.label), ['WEEK', 'MONTH', 'QUARTER', 'SEMESTER']);
+  // the active one inverts
+  assert.deepStrictEqual(v.viewOpts[0], { key: 'dashboard', label: 'DASHBOARD', bg: 'var(--color-text)', fg: 'var(--color-bg)' });
+  assert.deepStrictEqual(v.viewOpts[1], { key: 'scoreboard', label: 'SCOREBOARD', bg: 'var(--color-bg)', fg: 'var(--color-text)' });
+  // no function survives — the source's pick closures bound live setState
+  for (const o of [...v.viewOpts, ...v.periodOpts, ...v.siteOpts]) {
+    assert.ok(!Object.values(o).some(x => typeof x === 'function'), 'no pick closure');
+  }
+});
+
+// ── PANEL: kpis ─────────────────────────────────────────────────────────────
+
+test('PANEL kpis — the 8 tiles, in order, with spark geometry', () => {
+  const v = V();
+  assert.deepStrictEqual(v.kpis.map(k => k.label),
+    ['Raised', 'Open now', 'Overdue', 'HIGH open', 'Escalations', 'Actions open', 'MTTR', 'Dept coverage']);
+  for (const k of v.kpis) {
+    assert.deepStrictEqual(Object.keys(k).sort(),
+      ['deltaColor', 'deltaNote', 'deltaTxt', 'label', 'spark', 'sparkX', 'sparkY', 'unit', 'value'].sort());
+    assert.ok(!String(k.spark).includes('NaN'), `${k.label} spark has NaN`);
+  }
+  // Dept coverage renders against the derived fleet size (DEVIATION 2: 12 * codes.length)
+  assert.strictEqual(v.kpis[7].unit, 'depts met');
+  assert.ok(String(v.kpis[7].value).endsWith('/60'), 'his 5 sites × 12 depts');
+  assert.strictEqual(v.kpis[4].deltaNote, 'to Council');
+});
+
+test('PANEL kpis — the tile values agree with metrics() over the same scope', () => {
+  const v = V();
+  const M = metrics(EM.issues, EM.meetings, windows('week'));
+  assert.strictEqual(v.kpis[0].value, M.raisedCur);
+  assert.strictEqual(v.kpis[1].value, M.openNow);
+  assert.strictEqual(v.kpis[2].value, M.overdueNow);
+  assert.strictEqual(v.kpis[3].value, M.highNow);
+  assert.strictEqual(v.kpis[4].value, M.escNow);
+});
+
+// ── PANEL: leaderboard (the composite model — RAG 75/55) ────────────────────
+
+test('PANEL leaderboard — HIS ranking, rank-sorted desc, NOT codes order', () => {
+  const lb = V().leaderboard;
+  assert.deepStrictEqual(lb.map(r => r.code), ['SML', 'SMI', 'HGO', 'SGO', 'MGO']);
+  assert.deepStrictEqual(lb.map(r => r.score), [62, 58, 48, 44, 41]);
+  assert.deepStrictEqual(lb.map(r => r.rag), ['AMBER', 'AMBER', 'RED', 'RED', 'RED']);
+  assert.deepStrictEqual(lb.map(r => r.rank), [1, 2, 3, 4, 5]);
+  assert.deepStrictEqual(lb.map(r => r.name), ['Lafigué', 'Ity', 'Houndé', 'Sabodala-Massawa', 'Mana']);
+});
+
+test('PANEL leaderboard — per-row composite detail matches the 3B-1 oracle', () => {
+  const by = Object.fromEntries(V().leaderboard.map(r => [r.code, r]));
+  assert.deepStrictEqual(
+    (({ del, gov, eng, open, overdue, high, penalty }) => ({ del, gov, eng, open, overdue, high, penalty }))(by.SML),
+    { del: 83, gov: 56, eng: 58, open: 12, overdue: 2, high: 3, penalty: '−5' });
+  assert.strictEqual(by.SMI.penalty, '·', 'no penalty renders as a middot, not 0');
+  // odRate > 20 and high >= 4 drive the emphasis columns
+  assert.strictEqual(by.HGO.overdueColor, REDT);   // odRate 67
+  assert.strictEqual(by.HGO.overdueWeight, 700);
+  assert.strictEqual(by.MGO.highColor, REDT);      // 5 HIGH
+  assert.strictEqual(by.SML.highColor, 'var(--color-text)');  // 3 HIGH
+});
+
+test('PANEL leaderboard — the selected site\'s row is tinted', () => {
+  const lb = buildReviewVals(EM, { ...OPTS, site: 'HGO' }).leaderboard;
+  assert.strictEqual(lb.find(r => r.code === 'HGO').rowBg, 'var(--color-accent-100)');
+  assert.strictEqual(lb.find(r => r.code === 'SML').rowBg, 'var(--color-bg)');
+});
+
+// ── PANEL: groupRows ────────────────────────────────────────────────────────
+
+test('PANEL groupRows — the three countries plus the fleet roll-up', () => {
+  const g = V().groupRows;
+  assert.deepStrictEqual(g.map(r => r.name), ['Côte d’Ivoire', 'Burkina Faso', 'Senegal', 'GROUP — ALL SITES']);
+  assert.deepStrictEqual(g.map(r => r.sites), ['SML · SMI', 'HGO · MGO', 'SGO', 'SML · SMI · HGO · MGO · SGO']);
+  assert.strictEqual(g[0].score, Math.round((62 + 58) / 2));  // 60
+  assert.strictEqual(g[1].score, Math.round((48 + 41) / 2));  // 45 (44.5 → 45)
+  assert.strictEqual(g[2].score, 44);
+  assert.strictEqual(g[3].score, Math.round((62 + 58 + 48 + 41 + 44) / 5)); // 51
+});
+
+// ── PANEL: flowMonths ───────────────────────────────────────────────────────
+
+test('PANEL flowMonths — 4 months, raised/closed bars and the closure ratio', () => {
+  const f = V().flowMonths;
+  assert.deepStrictEqual(f.map(r => r.label), ['APR', 'MAY', 'JUN', 'JUL']);
+  for (const r of f) {
+    assert.deepStrictEqual(Object.keys(r).sort(),
+      ['closed', 'hClosed', 'hRaised', 'label', 'raised', 'ratio', 'ratioColor'].sort());
+    assert.ok(r.hRaised >= 0 && r.hRaised <= 100);
+    assert.match(String(r.ratio), /^(—|\d+\.\d{2})$/);
+  }
+  // raised per month must reconcile with D
+  const apr = EM.issues.filter(i => String(i.meeting_date || '').slice(0, 7) === '2026-04').length;
+  assert.strictEqual(f[0].raised, apr);
+});
+
+// ── PANEL: backlog polyline ─────────────────────────────────────────────────
+
+test('PANEL backlog — weekly polyline from Apr 1, his backlogNow oracle', () => {
+  const v = V();
+  assert.strictEqual(v.backlogNow, 80);   // reviewer-confirmed, from HIS code
+  assert.strictEqual(v.backlogStartLabel, 'Apr 1');
+  assert.ok(v.backlogPeak >= v.backlogNow);
+  assert.ok(!v.backlogPts.includes('NaN'));
+  assert.ok(v.backlogPts.split(' ').length > 10, 'one point per week from Apr 1 to the anchor');
+  assert.match(v.backlogTrendTxt, /^(▼ falling|▲ rising|· flat)$/);
+});
+
+// ── PANEL: eMatrix (5E) ─────────────────────────────────────────────────────
+
+test('PANEL eMatrix — rows follow CODES order (not rank), 5 cells each, E4 never measured', () => {
+  const v = V();
+  assert.deepStrictEqual(v.eHeaders.map(h => h.label), ['E1', 'E2', 'E3', 'E4', 'E5']);
+  assert.deepStrictEqual(v.eMatrix.map(r => r.site),
+    ['Lafigué · SML', 'Ity · SMI', 'Houndé · HGO', 'Mana · MGO', 'Sabodala-Massawa · SGO']);
+  for (const r of v.eMatrix) {
+    assert.strictEqual(r.cells.length, 5);
+    assert.deepStrictEqual(r.cells[3], { val: '—', bg: 'var(--color-neutral-200)', fg: 'var(--color-neutral-500)', tip: 'E4 not yet measured' });
+    for (const c of r.cells) assert.match(String(c.val), /^(\d+%|—)$/);
+  }
+});
+
+// ── PANEL: sigFunnel ────────────────────────────────────────────────────────
+
+test('PANEL sigFunnel — the four signature stages', () => {
+  const s = V().sigFunnel;
+  assert.deepStrictEqual(s.map(r => r.label), ['PVs submitted', 'Dept head signed', 'Site IT signed', 'Both ≤ 48 h']);
+  assert.strictEqual(s[0].value, EM.meetings.filter(m => m.submitted_at).length);
+  assert.strictEqual(s[0].note, 'of ' + EM.meetings.length + ' meetings');
+  assert.match(String(s[3].value), /^\d+ \/ \d+$/);
+  assert.match(s[3].note, /% — target ≥ 80%$/);
+});
+
+// ── PANEL: aging ────────────────────────────────────────────────────────────
+
+test('PANEL aging — the four buckets partition the open list', () => {
+  const a = V().aging;
+  assert.deepStrictEqual(a.map(r => r.label), ['≤ 30 d', '31–60 d', '61–90 d', '> 90 d']);
+  const M = metrics(EM.issues, EM.meetings, windows('week'));
+  assert.strictEqual(a.reduce((s, r) => s + r.total, 0), M.openList.length, 'buckets must cover every open issue');
+  for (const r of a) {
+    assert.match(String(r.wHigh), /^\d+\.\d$/);
+    assert.ok(r.highTxt === '' || /^· \d+ HIGH$/.test(r.highTxt));
+  }
+});
+
+// ── PANEL: champLoad ────────────────────────────────────────────────────────
+
+test('PANEL champLoad — top 8 champions by open load, desc, flagged at ≥ 7', () => {
+  const c = V().champLoad;
+  assert.ok(c.length > 0 && c.length <= 8);
+  for (let i = 1; i < c.length; i++) assert.ok(c[i - 1].n >= c[i].n, 'descending');
+  assert.strictEqual(c[0].w, 100, 'the heaviest bar is full width');
+  for (const r of c) {
+    assert.strictEqual(r.flag, r.n >= 7 ? ' ⚠' : '');
+    assert.strictEqual(r.numColor, r.n >= 7 ? REDT : 'var(--color-text)');
+  }
+});
+
+// ── PANEL: overdueRows ──────────────────────────────────────────────────────
+
+test('PANEL overdueRows — his overdueCount oracle; the register caps at 9, oldest first', () => {
+  const v = V();
+  assert.strictEqual(v.overdueCount, 26);   // reviewer-confirmed, from HIS code
+  assert.strictEqual(v.overdueRows.length, 9, 'capped at 9 even though 26 are overdue');
+  for (let i = 1; i < v.overdueRows.length; i++) {
+    assert.ok(v.overdueRows[i - 1].days >= v.overdueRows[i].days, 'oldest target date first');
+  }
+  const r = v.overdueRows[0];
+  assert.deepStrictEqual(Object.keys(r).sort(), ['dColor', 'days', 'meta', 'sev', 'sevBg', 'sevFg', 'title'].sort());
+  assert.match(r.meta, / · due \d+ \w{3}$/);
+  assert.ok(v.noTargetNote.length > 0);
+});
+
+// ── PANEL: inspSiteRows ─────────────────────────────────────────────────────
+
+test('PANEL inspSiteRows — one row per site in CODES order', () => {
+  const v = V();
+  assert.deepStrictEqual(v.inspSiteRows.map(r => r.site),
+    ['Lafigué · SML', 'Ity · SMI', 'Houndé · HGO', 'Mana · MGO', 'Sabodala-Massawa · SGO']);
+  for (const r of v.inspSiteRows) {
+    assert.strictEqual(r.count, EM.inspections.filter(i => i.site_code === r.site.split(' · ')[1]).length);
+    assert.match(String(r.conf), /^(\d+%|—)$/);
+    assert.match(r.defTxt, /^\d+ \/ \d+ \/ \d+$/);
+  }
+});
+
+test('PANEL inspSiteRows — scoping to one site yields exactly that row', () => {
+  const v = buildReviewVals(EM, { ...OPTS, site: 'HGO' });
+  assert.strictEqual(v.inspSiteRows.length, 1);
+  assert.strictEqual(v.inspSiteRows[0].site, 'Houndé · HGO');
+});
+
+// QUIRK — source :348-350. `opp` is in the conformity DENOMINATOR (status !== 'na')
+// but not the NUMERATOR (status === 'ok'), so opportunities depress conf%.
+// This is inspSiteRows, NOT findCats — findCats computes no conformity at all.
+test('QUIRK: inspSiteRows conformity counts `opp` in the denominator but not the numerator', () => {
+  const D = {
+    meetings: [], issues: [], actions: [], projects: [], inspActions: [],
+    inspections: [{ id: 'i1', site_code: 'HGO', inspection_date: '2026-05-01' }],
+    findings: [
+      { site_code: 'HGO', inspection_date: '2026-05-01', status: 'ok', category: 'net' },
+      { site_code: 'HGO', inspection_date: '2026-05-01', status: 'opp', category: 'net' },
+      { site_code: 'HGO', inspection_date: '2026-05-01', status: 'na', category: 'net' },
+    ],
+  };
+  const row = buildReviewVals(D, OPTS).inspSiteRows[0];
+  assert.strictEqual(row.conf, '50%', 'appl = ok+opp = 2, ok = 1 → 50%. Were opp excluded it would read 100%');
+  // and it bites on the real data:
+  assert.strictEqual(EM.findings.filter(f => f.status === 'opp').length, 12,
+    '12 opportunities in his data depress every conformity reading');
+});
+
+// QUIRK — source :353 filters `a.status !== 'Closed'`. Our inspection-actions
+// vocabulary also has 'Cancelled' (public/inspection-actions.html STATUSES),
+// which his data lacks — so a cancelled action counts as OPEN. LATENT, not
+// active: his snapshot has zero Cancelled. Pinned with a synthetic row.
+test('QUIRK: inspSiteRows.actOpen counts a Cancelled action as open (only \'Closed\' is excluded)', () => {
+  const D = {
+    meetings: [], issues: [], actions: [], projects: [], findings: [],
+    inspections: [{ id: 'i1', site_code: 'HGO', inspection_date: '2026-05-01' }],
+    inspActions: [
+      { id: 1, site_code: 'HGO', status: 'Open' },
+      { id: 2, site_code: 'HGO', status: 'Closed' },
+      { id: 3, site_code: 'HGO', status: 'Cancelled' },  // synthetic — absent from his data
+    ],
+  };
+  assert.strictEqual(buildReviewVals(D, OPTS).inspSiteRows[0].actOpen, 2, 'Open + Cancelled');
+  assert.strictEqual(EM.inspActions.filter(a => a.status === 'Cancelled').length, 0, 'latent on his data');
+});
+
+// ── PANEL: findCats ─────────────────────────────────────────────────────────
+
+test('PANEL findCats — top 8 defect categories, desc, named via catNames', () => {
+  const f = V().findCats;
+  assert.ok(f.length > 0 && f.length <= 8);
+  for (let i = 1; i < f.length; i++) assert.ok(f[i - 1].n >= f[i].n, 'descending');
+  assert.strictEqual(f[0].w, 100);
+  for (const r of f) {
+    assert.deepStrictEqual(Object.keys(r).sort(), ['color', 'label', 'n', 'w'].sort());
+    assert.ok(r.color === 'var(--color-accent)' || r.color === 'var(--color-neutral-600)');
+  }
+  // an unmapped category code falls through to the raw key
+  const D = {
+    meetings: [], issues: [], actions: [], projects: [], inspActions: [],
+    inspections: [{ id: 'i1', site_code: 'HGO', inspection_date: '2026-05-01' }],
+    findings: [
+      { site_code: 'HGO', inspection_date: '2026-05-01', status: 'major', category: 'pwr' },
+      { site_code: 'HGO', inspection_date: '2026-05-01', status: 'minor', category: 'zz_unmapped' },
+    ],
+  };
+  const got = buildReviewVals(D, OPTS).findCats;
+  assert.deepStrictEqual(got.map(r => r.label), ['Power / UPS', 'zz_unmapped']);
+  assert.strictEqual(got[0].color, 'var(--color-accent)', 'a non-minor defect reddens the bar');
+  assert.strictEqual(got[1].color, 'var(--color-neutral-600)', 'minor-only stays neutral');
+});
+
+// ── PANEL: pipeline ─────────────────────────────────────────────────────────
+
+test('PANEL pipeline — the four hardcoded phases', () => {
+  const p = V().pipeline;
+  assert.deepStrictEqual(p.map(r => r.label), ['Scoping', 'Design', 'Build', 'Deploy']);
+  assert.deepStrictEqual(p.map(r => r.bg),
+    ['var(--color-accent)', 'var(--color-neutral-650)', 'var(--color-neutral-500)', 'var(--color-neutral-350)']);
+  for (const r of p) assert.strictEqual(r.flex, Math.max(r.n, 1), 'an empty phase still occupies a slot');
+});
+
+// QUIRK — the source hardcodes 4 phases. Our seed has 5 ('closeout') and the
+// fixture carries a null phase; both fall OUT of the bars but stay IN
+// projs.length, so pipelineNote says "N of M" where the bars sum to < M.
+test('QUIRK: pipeline drops closeout/null projects from the bars but keeps them in the note\'s denominator', () => {
+  const D = {
+    meetings: [], issues: [], actions: [], inspections: [], findings: [], inspActions: [],
+    projects: [
+      { id: 1, site_code: 'HGO', phase: 'scoping', target_end: '2026-12-31' },
+      { id: 2, site_code: 'HGO', phase: 'closeout', target_end: '2026-12-31' },
+      { id: 3, site_code: 'HGO', phase: null, target_end: null },
+    ],
+  };
+  const v = buildReviewVals(D, OPTS);
+  assert.strictEqual(v.pipeline.reduce((s, r) => s + r.n, 0), 1, 'only the scoping project reaches a bar');
+  assert.match(v.pipelineNote, /^1 of 3 projects still in scoping/, 'but all 3 are in the denominator');
+  assert.match(v.pipelineNote, /1 have no target end date\.$/);
+  // and it is live on his data:
+  assert.ok(EM.projects.some(p => !['scoping', 'design', 'build', 'deploy'].includes(p.phase)),
+    'his fixture already carries a project outside the four phases');
+});
+
+// ── PANEL: dqItems ──────────────────────────────────────────────────────────
+
+test('PANEL dqItems / dqScore — his dqScore oracle', () => {
+  const v = V();
+  assert.strictEqual(v.dqScore, 0);   // reviewer-confirmed, from HIS code (floored at 0)
+  assert.strictEqual(v.dqColor, REDT);
+  assert.deepStrictEqual(v.dqItems.map(i => i.label), [
+    'PVs unsigned > 7 days',
+    'Open issues without target date',
+    'Open issues, champion has no email',
+    'Champion name-spelling variants',
+  ]);
+  for (const i of v.dqItems) assert.strictEqual(typeof i.value, 'number');
+});
+
+// ── PANEL: briefKpis / briefNarrative / briefSites ──────────────────────────
+
+test('PANEL briefKpis — always the FLEET week, regardless of the selected scope', () => {
+  const site = buildReviewVals(EM, { ...OPTS, site: 'HGO' });
+  const all = V();
+  assert.deepStrictEqual(site.briefKpis, all.briefKpis, 'the brief is fleet-wide by design');
+  assert.deepStrictEqual(all.briefKpis.map(k => k.label),
+    ['Open backlog', 'Overdue', 'HIGH open', 'Raised this week']);
+  const MF = metrics(EM.issues, EM.meetings, windows('week'));
+  assert.strictEqual(all.briefKpis[0].value, MF.openNow);
+  assert.deepStrictEqual(Object.keys(all.briefKpis[0]).sort(), ['deltaColor', 'deltaTxt', 'label', 'value'].sort());
+});
+
+test('PANEL briefNarrative — names the best and worst site and quotes the fleet score', () => {
+  const n = V().briefNarrative;
+  // fleet = mean of the 5 composite scores = 51
+  assert.match(n, /^Fleet health stands at 51\/100\. /);
+  assert.match(n, /Lafigué leads the board/);      // best = 62
+  assert.match(n, /Mana needs the most attention/); // worst = 41
+  assert.match(n, /against a target of 80%\.$/);
+});
+
+test('PANEL briefSites — rank-sorted, each with 4 period deltas, 6 stats and 2 moves', () => {
+  const b = V().briefSites;
+  assert.deepStrictEqual(b.map(r => r.code), ['SML', 'SMI', 'HGO', 'SGO', 'MGO']);
+  for (const r of b) {
+    assert.deepStrictEqual(r.deltas.map(d => d.label), ['WoW', 'MoM', 'QoQ', 'HoH']);
+    assert.deepStrictEqual(r.stats.map(s => s.label), ['Open', 'Overdue', 'HIGH', 'MTTR', 'E2 48 h', 'Last inspection']);
+    assert.strictEqual(r.moves.length, 2);
+    for (const m of r.moves) assert.ok(m.text.length > 0);
+  }
+  const sgo = b.find(r => r.code === 'SGO');
+  assert.strictEqual(sgo.stats[3].value, '—', 'SGO resolved nothing → MTTR renders as a dash, not 0');
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+// SCOREBOARD (the sbDims model — RAG 70/45). Genuinely disagrees with the
+// leaderboard above; that is the source's design, not a defect to reconcile.
+// ═════════════════════════════════════════════════════════════════════════════
+
+test('PANEL sbRows — HIS ranking; the SML/MGO tie at 50 resolves on codes order', () => {
+  const r = V().sbRows;
+  assert.deepStrictEqual(r.map(x => x.code), ['HGO', 'SML', 'MGO', 'SMI', 'SGO']);
+  assert.deepStrictEqual(r.map(x => x.score), [58, 50, 50, 42, 17]);
+  assert.deepStrictEqual(r.map(x => x.rank), [1, 2, 3, 4, 5]);
+  assert.deepStrictEqual(r.map(x => x.rag), ['AMBER', 'AMBER', 'AMBER', 'RED', 'RED']);
+  // bridge gap 2: rag2 returns a string; the row still carries the source's colours
+  assert.strictEqual(r[0].ragBg, '#d99a2b');
+  assert.strictEqual(r[0].ragFg, '#fff');
+  assert.strictEqual(r[4].ragBg, 'var(--color-accent)');
+});
+
+test('PANEL sbRows — 6 cells per row, in the source\'s dim order', () => {
+  const v = V();
+  assert.deepStrictEqual(v.sbDimHeaders.map(h => h.label),
+    ['REVIEWS', 'RESOLUTION', 'OVERDUE', 'INSPECTIONS', 'FINDINGS', 'SIGN-OFF']);
+  for (const row of v.sbRows) {
+    assert.strictEqual(row.cells.length, 6);
+    for (const c of row.cells) assert.deepStrictEqual(Object.keys(c).sort(), ['bg', 'fg', 'tip', 'val'].sort());
+  }
+  // the cells are the measured dims
+  const hgo = v.sbRows.find(r => r.code === 'HGO');
+  const inputs = sbMeasure('HGO', EM, A);
+  assert.strictEqual(hgo.cells[0].val, String(inputs.reviews));
+  assert.strictEqual(hgo.cells[1].val, inputs.resolution + '%');
+  assert.strictEqual(hgo.cells[2].val, String(inputs.overdue));
+});
+
+test('PANEL sbAvg — his oracle, and the RAG colour off it', () => {
+  const v = V();
+  assert.strictEqual(v.sbAvg, 43);   // reviewer-confirmed, from HIS code
+  assert.strictEqual(v.sbAvgColor, REDT, '43 is below the 45 amber floor');
+  assert.strictEqual(typeof v.sbAvgDelta, 'string');
+});
+
+test('PANEL emBubbles — one per site, in codes order, no NaN coordinate', () => {
+  const v = V();
+  assert.deepStrictEqual(v.emBubbles.map(b => b.label), ['SML', 'SMI', 'HGO', 'MGO', 'SGO']);
+  for (const b of v.emBubbles) {
+    assert.deepStrictEqual(Object.keys(b).sort(), ['fill', 'label', 'lx', 'ly', 'r', 'x', 'y'].sort());
+    for (const k of ['x', 'y', 'r', 'lx', 'ly']) {
+      assert.ok(Number.isFinite(+b[k]), `${b.label}.${k} = ${b[k]} is not finite`);
+    }
+  }
+  for (const k of ['emSplitX', 'emSplitY', 'emQ2x']) assert.ok(Number.isFinite(+v[k]), k);
+});
+
+test('PANEL gapRows / gapLegend — segments for scored dims, loss for the rest', () => {
+  const v = V();
+  assert.deepStrictEqual(v.gapRows.map(r => r.code), ['HGO', 'SML', 'MGO', 'SMI', 'SGO']);
+  assert.deepStrictEqual(v.gapLegend.map(l => l.label),
+    ['Reviews', 'Resolution', 'Overdue', 'Inspections', 'Findings', 'Sign-off']);
+  assert.strictEqual(v.gapLegend[0].color, '#1d6b5e');
+  const sgo = v.gapRows.find(r => r.code === 'SGO');   // score 17 → 2/12 pts
+  assert.strictEqual(sgo.loss, '−83 pts lost');
+  assert.strictEqual(sgo.lossColor, REDT);
+});
+
+test('PANEL sbMoves — two moves per site, gains quoted in points', () => {
+  const v = V();
+  assert.deepStrictEqual(v.sbMoves.map(r => r.code), ['HGO', 'SML', 'MGO', 'SMI', 'SGO']);
+  for (const r of v.sbMoves) {
+    assert.strictEqual(r.moves.length, 2);
+    for (const m of r.moves) assert.match(m.gain, /^(\+\d+ pts|sustain)$/);
+  }
+  assert.strictEqual(v.sbMoves[0].name, 'Houndé');
+  assert.strictEqual(v.sbMoves[0].hdrBg, '#d99a2b');  // AMBER 58
+});
+
+// ── applicable:false — the state the source has no concept of ───────────────
+//
+// A site with a PV outside the W0 window measures all-zero. Two of the six dims
+// are INVERTED, so the source would score it 4/12 = RED 33 — a confident verdict
+// on nothing — and fold that fabricated 0 into sbAvg via the hardcoded /5.
+
+const D_GAP = { ...EM, meetings: [...EM.meetings, { site_code: 'KGO', department: 'it', meeting_date: '2026-01-15' }] };
+
+test('applicable:false — the site is in codes but sbMeasure finds nothing to score', () => {
+  const { computeSiteScore } = require('../services/siteScore');
+  assert.strictEqual(computeSiteScore(sbMeasure('KGO', D_GAP, A)).applicable, false);
+  assert.ok(buildReviewVals(D_GAP, OPTS).siteOpts.map(o => o.key).includes('KGO'));
+});
+
+test('applicable:false — its row is OMITTED from sbRows/emBubbles/gapRows/sbMoves, not rendered broken', () => {
+  const v = buildReviewVals(D_GAP, OPTS);
+  for (const panel of ['sbRows', 'gapRows', 'sbMoves']) {
+    assert.ok(!v[panel].some(r => r.code === 'KGO'), `${panel} must omit the data-less site`);
+    assert.strictEqual(v[panel].length, 5);
+  }
+  assert.ok(!v.emBubbles.some(b => b.label === 'KGO'));
+  assert.strictEqual(v.emBubbles.length, 5);
+});
+
+test('applicable:false — sbAvg IGNORES it rather than averaging in a fabricated 0', () => {
+  const v = buildReviewVals(D_GAP, OPTS);
+  assert.strictEqual(v.sbAvg, 43, 'still the mean of the 5 applicable sites — the source would report 40');
+  assert.strictEqual(v.sbAvgColor, REDT);
+});
+
+test('applicable:false — no bubble coordinate goes NaN', () => {
+  const v = buildReviewVals(D_GAP, OPTS);
+  for (const b of v.emBubbles) {
+    for (const k of ['x', 'y', 'r', 'lx', 'ly']) assert.ok(Number.isFinite(+b[k]), `${b.label}.${k}`);
+  }
+  for (const k of ['emSplitX', 'emSplitY', 'emQ2x']) assert.ok(Number.isFinite(+v[k]), k);
+});
+
+test('a D with no sites at all does not throw and claims no verdict', () => {
+  const EMPTY = { meetings: [], issues: [], actions: [], inspections: [], findings: [], inspActions: [], projects: [] };
+  let v;
+  assert.doesNotThrow(() => { v = buildReviewVals(EMPTY, OPTS); });
+  assert.strictEqual(v.sbAvg, null, 'no applicable site → no fleet score, not a fabricated 0');
+  assert.strictEqual(v.sbAvgColor, 'var(--color-neutral-500)', 'and no RAG verdict off it');
+  assert.deepStrictEqual(v.sbRows, []);
+  assert.deepStrictEqual(v.leaderboard, []);
 });
