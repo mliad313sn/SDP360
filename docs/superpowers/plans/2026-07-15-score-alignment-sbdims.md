@@ -44,6 +44,10 @@ sbDims(site, D, asOf) {
   const points = dims.reduce((s, d) => s + d.pts, 0);
   return { dims, points, score: Math.round(points / 12 * 100), reviews, resolution, overdue };
 }
+// rag2 — DISTILLED, not verbatim: the bands (70/45) are identical; the source
+// also returns the colours below, which Task 6 should use so the report looks
+// like their dashboard:
+//   GREEN #2f7d4f · AMBER #d99a2b · RED var(--color-accent)   (all solidFg #fff)
 rag2(score) { return score >= 70 ? 'GREEN' : score >= 45 ? 'AMBER' : 'RED'; }
 effClose(i) { if (i.closed_at) return String(i.closed_at).slice(0,10); if (i.status === 'resolved' || i.status === 'cancelled') return i.updated_at ? String(i.updated_at).slice(0,10) : null; return null; }
 openAt(i, t) { const raised = i.meeting_date; if (!raised || raised > t) return false; const c = this.effClose(i); return !c || c > t; }
@@ -112,7 +116,7 @@ AFTER:  score: {
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert');
-const { rollingWindow } = require('../services/scoreWindow');
+const { rollingWindow, prevDay } = require('../services/scoreWindow');
 
 test('3-month rolling window ending at asOf', () => {
   assert.deepStrictEqual(rollingWindow('2026-07-14'), { from: '2026-04-14', to: '2026-07-14' });
@@ -132,6 +136,21 @@ test('months param is honoured', () => {
 });
 test('rejects a malformed asOf', () => {
   assert.throws(() => rollingWindow('14/07/2026'), /asOf/i);
+});
+
+// prevDay — needed by prevScore (the previous window ends the day before this
+// one starts). Lives here so NOBODY reaches for `new Date(from) - 86400e3`.
+test('prevDay steps back one day', () => {
+  assert.strictEqual(prevDay('2026-07-14'), '2026-07-13');
+});
+test('prevDay crosses a month boundary', () => {
+  assert.strictEqual(prevDay('2026-03-01'), '2026-02-28');
+});
+test('prevDay crosses a year boundary', () => {
+  assert.strictEqual(prevDay('2026-01-01'), '2025-12-31');
+});
+test('prevDay handles a leap day', () => {
+  assert.strictEqual(prevDay('2024-03-01'), '2024-02-29');
 });
 ```
 
@@ -160,7 +179,17 @@ function rollingWindow(asOf, months = 3) {
   return { from: `${fy}-${p2(fm)}-${p2(fd)}`, to: asOf };
 }
 
-module.exports = { rollingWindow };
+// prevDay(iso) → the ISO date one day earlier. UTC-anchored so there is no
+// local-timezone rollover; returns a string because the whole model compares
+// strings.
+function prevDay(iso) {
+  if (!ISO.test(String(iso || ''))) throw new Error(`prevDay: expected 'YYYY-MM-DD', got "${iso}"`);
+  const t = Date.UTC(...iso.split('-').map(Number).map((n, i) => (i === 1 ? n - 1 : n))) - 86400000;
+  const d = new Date(t);
+  return `${d.getUTCFullYear()}-${p2(d.getUTCMonth() + 1)}-${p2(d.getUTCDate())}`;
+}
+
+module.exports = { rollingWindow, prevDay };
 ```
 
 - [ ] **Step 4: Run → PASS.** Paste output.
@@ -183,7 +212,7 @@ git commit --no-verify -m "feat(score): rollingWindow — 3-month ISO-string win
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert');
-const { computeSiteScore, PT_THRESHOLDS } = require('../services/siteScore');
+const { computeSiteScore, rag2 } = require('../services/siteScore');
 
 // inputs are the RAW measured values, exactly as the user's sbDims computes them.
 const perfect = { reviews: 8, resolution: 40, overdue: 0, inspections: 3, findings: 0, signoff: 70 };
@@ -209,10 +238,15 @@ test('score = round(points/12*100) — only 13 values are realisable', () => {
   assert.strictEqual(computeSiteScore({ reviews: 8, resolution: 40, overdue: 0, inspections: 0, findings: 9, signoff: 0 }, win).score, 50);
 });
 
-test('rag2 bands: GREEN >=70, AMBER >=45, else RED', () => {
-  const at = (pts) => computeSiteScore(_ptsToInputs(pts), win);
-  assert.strictEqual(at(9).rag, 'GREEN');   // 75
-  assert.strictEqual(at(8).rag, 'GREEN');   // 67 → NOT green... see below
+// Only 13 scores are realisable ({0,8,17,25,33,42,50,58,67,75,83,92,100}), so
+// GREEN effectively starts at 9/12 pts and AMBER at 6/12. 8 pts = 67 = AMBER —
+// NOT green. If this test ever goes red, the fix is NEVER to move the band:
+// 70/45 is the user's rag2 and the whole point is agreeing with their dashboard.
+test('rag2 bands over the realisable scores', () => {
+  assert.strictEqual(rag2(42), 'RED');     // 5 pts
+  assert.strictEqual(rag2(50), 'AMBER');   // 6 pts
+  assert.strictEqual(rag2(67), 'AMBER');   // 8 pts — not green
+  assert.strictEqual(rag2(75), 'GREEN');   // 9 pts
 });
 
 test('each dimension bands exactly as the user specified', () => {
@@ -290,11 +324,7 @@ test('missing inputs are treated as 0, never a throw', () => {
   assert.strictEqual(r.points, 4);   // overdue 0 → 2pts, findings 0 → 2pts; rest 0
   assert.strictEqual(r.rag, 'RED');
 });
-
-function _ptsToInputs() { return perfect; }   // placeholder — see the rag band test note
 ```
-
-> **Implementer note on the `rag2 bands` test above:** it is written loosely on purpose. Replace it with a direct table test of the RAG function against realisable scores: 8 pts → 67 → AMBER; 9 pts → 75 → GREEN; 6 pts → 50 → AMBER; 5 pts → 42 → RED. Delete the `_ptsToInputs` placeholder. **Note the consequence worth asserting:** because only `{0,8,17,25,33,42,50,58,67,75,83,92,100}` are realisable, GREEN effectively starts at 9/12 pts and AMBER at 6/12.
 
 - [ ] **Step 2: Run → FAIL.**
 
@@ -320,8 +350,8 @@ const num = (v) => (Number.isFinite(+v) ? +v : 0);
 // pt(value, green, amber, invert) → 2 | 1 | 0   (verbatim from sbDims)
 const pt = (v, g, a, invert) => (invert ? (v <= g ? 2 : v <= a ? 1 : 0) : (v >= g ? 2 : v >= a ? 1 : 0));
 
-// [key, label, green, amber, invert, disp] — order is the user's dims order and
-// is load-bearing (it is the moves tie-break's stable-sort order).
+// [key, label, green, amber, invert, disp, tip] — order is the user's dims order
+// and is load-bearing (it is the moves tie-break's stable-sort order).
 const PT_THRESHOLDS = [
   ['reviews',     'Reviews',     8,  5,  false, (v) => String(v),  'reviews held · G≥8 A5–7 R<5'],
   ['resolution',  'Resolution',  40, 20, false, (v) => v + '%',    'resolved ÷ raised · G≥40 A20–39 R<20'],
@@ -374,7 +404,7 @@ function computeSiteScore(inputs = {}, window = null, previousScore = null) {
 module.exports = { computeSiteScore, rag2, moveText, PT_THRESHOLDS };
 ```
 
-- [ ] **Step 4: Run → PASS.** Paste output. Fix the `rag2 bands` test per the note above.
+- [ ] **Step 4: Run → PASS.** Paste output.
 - [ ] **Step 5: Commit**
 ```bash
 git add services/siteScore.js tests/site-score.test.js
@@ -511,7 +541,29 @@ function getSiteScoreInputs(siteCode, from, to) {
   return _computeMeetingsScoreInputs({ meetings, issues, actions }, { from, to });
 }
 ```
-…plus the pg fork (`lower(site_code) = lower(?)`; `meeting_date` is TEXT so it carries over; `closed_at`/`*_signed_at` may be TIMESTAMPTZ in pg → cast to text with `to_char(x,'YYYY-MM-DD HH24:MI:SS')` so `_d10` behaves identically. **Verify the pg column types in `db/postgres/meetings/*.sql` before writing the fork** — if they are TEXT, no cast is needed).
+…plus the pg fork. **⚠ THE PG FORK HAS ONE LOAD-BEARING CAST — get this wrong and the score is silently wrong in prod only.**
+
+Verified against `db/postgres/meetings/001_init.sql`:
+```sql
+md_meetings:  meeting_date TEXT · dept_head_signed_at TEXT · site_it_signed_at TEXT · updated_at TIMESTAMPTZ
+md_issues:    target_date TEXT  · closed_at TEXT           · updated_at TIMESTAMPTZ
+md_actions:   target_date TEXT  · closed_at TEXT
+```
+Every date column the model compares is TEXT and carries over untouched — **except `md_issues.updated_at`, which is `TIMESTAMPTZ`**, and that is exactly what `_effClose` falls back to when `closed_at` is null. `services/pgDb.js` registers type parsers only for NUMERIC(1700) and BIGINT(20) — **nothing for 1114/1184** — so node-pg hands back a JS `Date`, and `_d10` yields `String(date).slice(0,10)` = `'Wed Jun 11'`. Then:
+- `resolved`: `'Wed Jun 11' <= '2026-07-14'` → `'W'(0x57) > '2'(0x32)` → **false** → resolution collapses toward 0.
+- `_openAt`: `!c || c > t` → `'Wed Jun 11' > '2026-07-14'` → **true** → the issue reads as still open → overdue inflates.
+
+Two dims wrong in opposite directions, prod-only, no error. **So the pg fork MUST cast it:**
+```sql
+SELECT i.status, i.target_date, i.closed_at,
+       to_char(i.updated_at, 'YYYY-MM-DD HH24:MI:SS') AS updated_at,
+       m.meeting_date
+FROM md_issues i JOIN md_meetings m ON m.id = i.meeting_id
+WHERE lower(m.site_code) = lower(?)
+```
+Do NOT cast `closed_at` / `target_date` / `meeting_date` / `*_signed_at` — they are already TEXT.
+
+**And test the fallback path** — neither existing test reaches it: sqlite declares `updated_at TEXT`, and 0 of the 132 fidelity-fixture issues take the fallback (every resolved/cancelled row has a `closed_at`). Add a case with `status='resolved', closed_at=NULL, updated_at=<timestamp>` to the integration test in Step 4 so `_effClose`'s fallback is actually exercised on both backends.
 
 > **`md_actions` has no `site_code`** — it reaches the site via `meeting_id → md_meetings` (confirmed in sub-project 2). The JOINs above are per-collection and cannot fan out the others, since each returns its own row set.
 
@@ -566,8 +618,17 @@ test('counts only critical+major findings, in the window only', () => {
   assert.strictEqual(r.findings, 2);
 });
 
-test('status matching is case-insensitive and tolerant of blanks', () => {
-  const r = _computeInspectionScoreInputs({ inspections: [], findings: [{ inspection_date: '2026-05-01', status: 'CRITICAL' }, { inspection_date: '2026-05-01', status: null }] }, W);
+// STRICT equality, exactly like the source (`f.status === 'critical' || f.status === 'major'`).
+// Being case-insensitive here would be an UNDECLARED deviation: on a mixed-case
+// row our score would silently disagree with the dashboard the user is looking
+// at — the precise failure this sub-project exists to prevent. If mixed case
+// ever appears, fix the DATA, not the comparison.
+test('status matching is strict, like the source', () => {
+  const r = _computeInspectionScoreInputs({ inspections: [], findings: [
+    { inspection_date: '2026-05-01', status: 'CRITICAL' },   // NOT counted — strict, like theirs
+    { inspection_date: '2026-05-01', status: null },
+    { inspection_date: '2026-05-01', status: 'critical' },   // counted
+  ] }, W);
   assert.strictEqual(r.findings, 1);
 });
 
@@ -578,7 +639,8 @@ test('empty → zeros', () => {
 
 - [ ] **Step 2: Run → FAIL.**
 - [ ] **Step 3: Implement** the pure core + `getSiteScoreInputs(siteCode, from, to)` (+pg fork), exporting both. The reader selects `inspection_date` from `insp_inspections` and joins `insp_findings` to its inspection for the date + status, scoped `site_code = ? COLLATE NOCASE` (sqlite) / `lower(site_code)=lower(?)` (pg). Windowing happens in the pure core.
-  - `insp_findings.status` domain is `ok|na|minor|major|critical|opp` — count only `critical`+`major`, case-insensitively.
+  - `insp_findings.status` domain is `ok|na|minor|major|critical|opp` — count only `critical`+`major` with **strict `===`**, matching the source (see the test note).
+  - **Check the pg column type of `inspection_date`** before writing the fork. If it is TIMESTAMPTZ (not TEXT), it must be `to_char(...,'YYYY-MM-DD')`'d — the same class of bug as `md_issues.updated_at` in Task 3. If it is TEXT, no cast.
 - [ ] **Step 4: Add ONE integration test** against a seeded sqlite DB.
 - [ ] **Step 5: Run → PASS.** Paste output. Run `tests/inspection-routes.test.js` + `tests/inspection-blobs.test.js` → unchanged.
 - [ ] **Step 6: Commit**
@@ -603,12 +665,25 @@ scoreInputs: async (code, p) => {
   const i = await inspectionDb.getSiteScoreInputs(code, w.from, w.to);
   return { window: w, inputs: { reviews: m.reviews, resolution: m.resolution, overdue: m.overdue, inspections: i.inspections, findings: i.findings, signoff: m.signoff } };
 },
-// The same score recomputed as-of the PREVIOUS window's end (= from − 1 day),
-// so trend_pts is like-for-like. null when the previous window had no reviews
-// AND no issues AND no inspections (nothing to score against).
-prevScore: async (code, p) => { … },
+// The same score recomputed as-of the PREVIOUS window's end, so trend_pts is
+// like-for-like: asOf 2026-07-14 → this window {2026-04-14 … 2026-07-14} →
+// prevAsOf 2026-04-13 → prev window {2026-01-13 … 2026-04-13}. Non-overlapping
+// trailing 3 months. Returns null when the previous window has nothing to score
+// against, so a site's first quarter shows "no trend" rather than a fabricated one.
+prevScore: async (code, p) => {
+  const asOf = p.as_of || _asOfFor(p);
+  const prevAsOf = prevDay(rollingWindow(asOf, 3).from);   // NEVER `new Date(from) - 86400e3`
+  const w = rollingWindow(prevAsOf, 3);
+  const m = await meetingsDb.getSiteScoreInputs(code, w.from, w.to);
+  const i = await inspectionDb.getSiteScoreInputs(code, w.from, w.to);
+  if (!m.reviews && !m.raised && !i.inspections) return null;   // nothing happened → no trend
+  return computeSiteScore(
+    { reviews: m.reviews, resolution: m.resolution, overdue: m.overdue, inspections: i.inspections, findings: i.findings, signoff: m.signoff },
+    w,
+  ).score;
+},
 ```
-`_asOfFor(period)`: the report's as-of date — the **last day of the period's month, or today if that month is still running** (an MTD send must not score against a future date). Implement + test this helper.
+**`_asOfFor(period, now = new Date())`** — the report's as-of date: the **last day of the period's month, or `now` if that month is still running** (an MTD send must not score against a future date). **The clock MUST be injectable** — an internal `new Date()` makes the MTD branch untestable and the test rots daily. Implement + test both branches (closed month → month end; running month → the injected now).
 
 - [ ] **Step 2: `services/siteReport.js`** — replace the `computeSiteScore(meetings, inspection, prev)` call with:
 ```javascript
@@ -617,6 +692,8 @@ const prev = await _safe(() => deps.prevScore(siteCode, period), null, 'prevScor
 const score = si ? computeSiteScore(si.inputs, si.window, prev) : computeSiteScore({}, null, null);
 ```
 Drop the old derivation from `meetings`/`inspection` blocks entirely — **the score no longer depends on those blocks**, only on `scoreInputs`. Keep the blocks; they are the report's narrative content.
+
+**Also delete the now-false archaeology** in `services/siteReportDeps.js` (~lines 64-85): the carefully-argued `noActivity` comment block is keyed to the OLD monthly kpi names (`pvs_held`, `open_issues`, `resolved_month`…) and to `prevComposite`, both of which this task removes. Leaving it would be misleading comments describing code that no longer exists.
 
 - [ ] **Step 3: Update `tests/site-report.test.js`** — add a `scoreInputs`/`prevScore` stub; assert `r.score.score`, `r.score.rag` (uppercase), `r.score.dims.length === 6`, `r.score.moves.length === 2`, `r.score.window`.
 - [ ] **Step 4: Run → PASS.** Paste output.
@@ -652,10 +729,29 @@ git commit --no-verify -m "feat(score): render the sbDims dims/moves/window in t
 ## Task 7: Fidelity check against the user's own data + docs + regression
 
 - [ ] **Step 1: FIDELITY HARNESS — the point of the whole sub-project.**
-  The user's HTML bundles its dataset (`window.EM_DATA`, gzip+base64 in the artifact manifest). Extract it to `tests/fixtures/em-data.json` (dev-only; add to `.gitignore` if >1 MB, else commit it — it is the oracle).
-  Write `tests/score-fidelity.test.js`: feed EM_DATA through our `_computeMeetingsScoreInputs` + `_computeInspectionScoreInputs` + `computeSiteScore` **with their exact window** (`from='2026-04-01'`, `to='2026-07-14'` — their W0/ANCHOR, NOT our rolling window) for each of their 5 sites (SML, SMI, HGO, MGO, SGO), and assert our `score`/`points`/`dims[].pts`/`moves[].gain` **match their dashboard exactly**.
-  - Their expected values: compute them by running their own `sbDims` — either transcribe the 5 sites' scores from the rendered page, or run their function in Node against the same JSON.
-  - **Deviation 2 caveat:** their `insp`/`findings` are unbounded-cumulative. With their W0 = 2026-04-01 and data starting ~April, unbounded ≈ windowed — but if any inspection predates 2026-04-01 the numbers will differ **legitimately**. If they diverge, verify that is the cause before "fixing" anything, and record it in the test as an expected, explained difference.
+
+  **Extraction recipe (already worked out — do not re-derive).** `EM_DATA` is NOT in the HTML body: the page only ever *reads* `window.EM_DATA` (4 reads, 0 assignments — it polls `setInterval` for an external loader). It lives in the artifact's bundler manifest:
+  1. `JSON.parse(document.querySelector('script[type="__bundler/manifest"]').textContent)` — or the same via regex in Node.
+  2. Take entry **`f74cec2d-0efe-4590-a0ff-4838cfaf7825`** (`application/javascript`, `compressed: true`).
+  3. base64-decode → **gzip-inflate** (`zlib.gunzipSync`) → the payload starts `window.EM_DATA={…}`.
+  4. Brace-match from the `=` to the end → parse → write `tests/fixtures/em-data.json`.
+
+  **335,946 bytes — under 1 MB, so COMMIT it.** It is the oracle; a fidelity test whose fixture isn't in the repo protects nothing. Shape confirmed: `issues`/`actions` carry denormalised `site_code` + `meeting_date`; `findings` carry `site_code` + `inspection_date` — exactly what our pure cores expect.
+
+  Write `tests/score-fidelity.test.js`: feed the fixture through `_computeMeetingsScoreInputs` + `_computeInspectionScoreInputs` + `computeSiteScore` **at THEIR window** (`from='2026-04-01'`, `to='2026-07-14'` — their `W0`/`ANCHOR`, NOT our rolling window) for each of their 5 sites, asserting `points`, `score`, `rag`, and `dims[].pts`:
+
+  | site | points | score | rag | dims pts `[rev,res,ovd,insp,find,sign]` | dims vals |
+  |---|---|---|---|---|---|
+  | SML | 6 | 50 | AMBER | `[1,0,1,2,0,2]` | `[7,14,2,5,6,71]` |
+  | SMI | 5 | 42 | RED | `[1,0,2,0,2,0]` | `[7,12,0,1,0,0]` |
+  | HGO | 7 | 58 | AMBER | `[2,2,0,0,2,1]` | `[10,48,18,1,0,30]` |
+  | MGO | 6 | 50 | AMBER | `[2,2,0,2,0,0]` | `[12,41,20,4,5,17]` |
+  | SGO | 2 | 17 | RED | `[0,0,1,0,1,0]` | `[4,0,3,1,1,0]` |
+
+  These were produced by running the user's own `sbDims` in Node against this exact fixture — they are the oracle, not our output. **If our numbers disagree, our code is wrong. Never edit this table to match us.**
+
+  - **Deviation 2 is moot on this data — confirmed, don't go looking.** Min `inspection_date` in the fixture is `2026-05-18`; **0 of 12** inspections and **0** critical/major findings predate `2026-04-01`, so windowed ≡ unbounded at their `W0`.
+  - **Known weak spot, state it in the test:** every site's top-2 gaps are both 0-pt here, so all 10 moves are `+17 pts` — this data never exercises the `+8` path or the asymmetric tie-break discriminatingly. Those are covered only by Task 2's synthetic tests. Don't mistake a green fidelity run for full moves coverage.
   - **This test is the proof that "implemented identically" is true.** If it cannot be made to pass, report BLOCKED rather than adjusting the expectations to match our output.
 - [ ] **Step 2: Full regression.**
 ```bash
