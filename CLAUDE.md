@@ -138,8 +138,12 @@ made so far so that future sessions can pick up exactly where the last one ended
 > Exec View made PG-ready (5 readers forked, `loadExecSummary` async — this had been
 > silently breaking the strategic block since the tracker flip); **await-precedence
 > pitfall**: a sync→async sweep wrote `await rdb.listSites().find(...)` in 11 places
-> (method chained on the Promise) — always `(await f()).method()`; grep for
-> `await \w+\.\w+\([^)]*\)\.` after any such sweep.
+> (method chained on the Promise) — always `(await f()).method()`.
+> **This row is now ENFORCED, not advisory** — see `tests/await-precedence.test.js`
+> (added 2026-07-16 after the same bug reached prod a second time: `POST /api/reports`
+> threw `rdb.listReports(...).find is not a function` for every admin while the whole
+> sqlite suite stayed green). The test auto-discovers all ~149 dual-backend
+> dispatchers and fails on any caller chaining onto one. **Don't hand-grep; run it.**
 >
 > **QA asset:** `prod-snapshot/` (gitignored) = full prod `data/` copy (2026-07-09) —
 > reports/tracker/meetings/inspection DBs + blobs. Local PG 17 on :5432 mirrors prod
