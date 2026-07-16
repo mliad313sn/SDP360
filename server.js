@@ -1171,7 +1171,7 @@ function loadHtml(name) {
   'inspection.html', 'inspections.html', 'inspection-actions.html',
   'meetings.html', 'meeting.html', 'meetings-issues.html', 'meetings-council.html', 'meetings-compliance.html',
   'meetings-import.html', 'meetings-progress.html', 'meetings-insights.html', 'meetings-setup.html', 'meetings-actions.html',
-  'activity-tracker.html', 'help.html', 'exec-view.html', 'site-report.html',
+  'activity-tracker.html', 'help.html', 'exec-view.html', 'site-report.html', 'it-review.html',
 ].forEach(loadHtml);
 
 // Helper: build the per-request HTML, inject api-key + nonce, send. Pages
@@ -1213,6 +1213,13 @@ app.get('/exec-view.html', (req, res) => {
 // (requireReportSession), like exec-view — so it never needs window.__ak.
 app.get('/site-report.html', (req, res) => {
   sendHtmlPage(res, 'site-report.html', false, 'Site report unavailable');
+});
+
+// ── Serve it-review.html — the live IT Review dashboard (no api-key injection) ─
+// It fetches /api/reports/review-data with the browser session cookie
+// (requireReportSession), like site-report — so it never needs window.__ak.
+app.get('/it-review.html', (req, res) => {
+  sendHtmlPage(res, 'it-review.html', false, 'IT Review dashboard unavailable');
 });
 
 // ── Serve login.html with CSP nonce injected ─────────────────────────────────
@@ -4098,6 +4105,24 @@ app.get('/api/reports/site-data', requireReportSession, async (req, res) => {
     const kind = req.query.kind === 'monthly' ? 'monthly' : 'weekly';
     const data = await siteReportData(site, { year, month, kind }, buildSiteReportDeps());
     res.json(data);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+// GET /api/reports/review-data — the live IT Review dashboard's data (3B-2b).
+// Feeds public/it-review.html: loadReviewData(asOf) → D, then buildReviewVals
+// emits the 61-key flat object the template's bindings read.
+app.get('/api/reports/review-data', requireReportSession, async (req, res) => {
+  try {
+    const { loadReviewData } = require('./services/reviewData');
+    const { buildReviewVals } = require('./services/reviewDashboard');
+    // WHITELIST every param — they reach the model; never pass raw query through.
+    // asOf is inlined, NOT a helper: _todayISO() does not exist in server.js
+    // (verified), and adding one would breach the approved 3-change budget.
+    const asOf   = String(req.query.asOf || '').match(/^\d{4}-\d{2}-\d{2}$/) ? req.query.asOf : new Date().toISOString().slice(0, 10);
+    const view   = ['dashboard', 'scoreboard', 'brief'].includes(req.query.view) ? req.query.view : 'dashboard';
+    const period = ['week', 'month', 'quarter', 'semester'].includes(req.query.period) ? req.query.period : 'week';
+    const site   = String(req.query.site || 'ALL');
+    const D = await loadReviewData(asOf);
+    res.json(buildReviewVals(D, { view, period, site, asOf }));
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 // POST /api/reports/send?type=coordinator&site=<CODE>[&preview=1][&force=1]
