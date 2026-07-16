@@ -41,9 +41,41 @@ made so far so that future sessions can pick up exactly where the last one ended
 > `fleetScore`/`targetDepts` follow `codes.length` not a hardcoded 5; `groupRows`
 > country groups narrow to present codes; option objects carry a declarative `key`
 > replacing his dropped `pick` closure. All four are identical on his fixture.
-> **No page, no server change yet** — 3B-2b does the `{{ }}` renderer + the route.
-> Sub-projects 3B-2b/4/5 (the page + scheduling auto-send + the Finance Manager
-> report) pending.
+> **Sub-project 3B-2b landed** (branch `feat/review-page`): **the live page** —
+> `/it-review.html` serves the author's IT Review Dashboard from our databases.
+> His 15 panels, his numbers, **none of his runtime**: no dc-runtime, no React,
+> no Babel, no CDN, no remote fonts — **zero external requests** (verified in the
+> browser: every request is same-origin). Three parts: (1) `public/it-review.js`
+> — a **3-primitive renderer** (`{{ }}` / `<sc-for>` / `<sc-if>`), ~220 lines,
+> vanilla, `require`-able by the tests AND browser-usable (see the pitfall row —
+> it carries two invariants that each cost a review round); (2) three approved
+> `server.js` additions and nothing else — the `_htmlCache` boot-load entry, the
+> `GET /it-review.html` route (`site-report.html`'s precedent: `injectApiKey=false`,
+> session via cookie), and `GET /api/reports/review-data` (whitelists all 4 of
+> `view`/`period`/`site`/`asOf` — they reach the model; proved un-500-able live on
+> path-traversal + SQLi-shaped input); (3) `public/it-review.html` — his 85 KB of
+> markup carried across verbatim (219 bindings, 32 `<sc-for>`, 3 `<sc-if>`), his
+> `<helmet>` CSS minus its 9 `@font-face` (artifact blobs we don't have; the stacks
+> fall back to system faces). His `sc-raw-*` / `sc-camel-*` aliases become the real
+> tags/attrs; the template lives in a `<script type="text/html">` so the HTML
+> parser never touches his `<table>`/`<svg>` before the renderer sees it. **The 4
+> `pick` closures became links** — the page is stateless, so changing a control
+> navigates (a delegated handler merges the one changed param into the current
+> query string, so switching view doesn't reset period + site).
+> **Two disclosures the page MUST keep** (unexplained, both read as bugs): the
+> score's window (programme start → as-of here, vs a **rolling 3-month window** on
+> the emailed site reports — the two can legitimately differ, and neither is the
+> report month), and that **`?asOf=` moves the scoreboard only** — `windows(period)`
+> pins to `ANCHOR`, not `asOf` (`reviewDashboard.js:110`, his own line, ported for
+> fidelity).
+> **Deploy note:** `server.js` **and `it-review.html`** are server-code /
+> `_htmlCache` surfaces — after the ZIP is applied, `pm2 stop` → `timeout /t 5` →
+> `pm2 start` (**NOT `pm2 reload`** — see the EADDRINUSE crash-loop pitfall, where
+> the orphan keeps serving the OLD `_htmlCache` and your deployed HTML looks
+> "missing"). `it-review.js` is referenced as an external `<script src>` on
+> purpose, so `injectAssetVersion` versions it (`?v=<APP_VERSION>`) and users need
+> no Ctrl+F5 beyond the usual one.
+> Sub-projects 4/5 (scheduling auto-send + the Finance Manager report) pending.
 >
 > **READ FIRST.** Branch `main`. **🏁 The SQLite→PostgreSQL migration is COMPLETE
 > in prod: ALL 4 modules run on PostgreSQL** (`TRACKER_BACKEND` / `MEETINGS_BACKEND`
@@ -2345,6 +2377,7 @@ In normal use NO request hits this fallback. It's a safety net.
 | **`loadReviewData` must NOT filter drafts** | The authoritative export contains **1 draft PV** and the model applies **no status filter** — so it counts it. Filtering here would be a silent deviation from the screen the team actually reads: our numbers would quietly disagree with theirs with no error anywhere. Pinned by `tests/review-data.test.js` ("does NOT filter drafts"). Settled by fact, not opinion — don't "tidy" it. |
 | **`windows('month'\|'quarter'\|'semester')` is hardcoded July 2026 — and is NOT `scoreWindow.js`** | Two DIFFERENT window concepts that must not be merged. (a) The source's `windows()` (`:27`) hardcodes `'2026-07-01'`/`'2026-06-01'`/… — only `'week'` derives from the anchor. Ported **as-is** and pinned; it is his dashboard's behaviour. (b) `services/scoreWindow.js` is the **rolling 3-month** score window that 3A deliberately introduced so the score stays meaningful as time passes. Conflating them silently changes either the panels or the score. Same trap as `getSiteScoreInputs`, which *looks* like `sbDims`' measurement half but uses the rolling window — hence `sbMeasure` was ported into `reviewDashboard.js` instead. |
 | **His `codes` order is LOAD-BEARING — sorting it flips five panels** | `codes` (`source :213`) is not incidental ordering. `eMatrix` (`:297`) and `inspSiteRows` (`:344`) **iterate `codes` directly** — their row order IS `codes` order. `sbRows`/`gapRows`/`sbMoves` inherit it through `sbSorted`'s **stable sort** (`:426`): SML and MGO both score **50**, so the tie resolves to whichever comes first in `codes`. (`leaderboard` escapes only by luck — 62/58/48/44/41 are all distinct.) A reviewer ran the source both ways: naive sorting differs on **five panels**. Rule: keep **his 5 in his order** (`SML,SMI,HGO,MGO,SGO`), then append sites he never saw, sorted for determinism — `const codes = [...HIS.filter(c => present.has(c)), ...[...present].filter(c => !HIS.includes(c)).sort()]`. On his fixture the extras set is empty, so `codes` is byte-identical to `:213` and the oracle holds. |
+| **`public/it-review.js` is a 3-primitive RENDERER, not a template engine — and it has two invariants no unit test can catch** | The authoritative template has **219 pure `{{key}}`/`{{obj.field}}` bindings, ≤1 dot, 32 `<sc-for>`, 3 `<sc-if>`, nesting exactly 2 deep**. Do not generalise it; do not add a raw/unescaped mode — every binding renders untrusted PV/ticket free-text. **Two non-obvious invariants:** (1) the grammar MUST tolerate **arbitrary extra attributes in any order** — every real tag carries `hint-placeholder-*`, and a bare-form grammar **passes its unit tests while matching 0 of 32 loops, shipping the page inert**; (2) **control flow MUST resolve BEFORE interpolation** — `hint-placeholder-val="{{ true }}"` puts a binding *inside* the `sc-if` tag, so interpolating first corrupts the tag and **the gate silently vanishes**. `tests/review-render.test.js`'s **BACKSTOP** runs the renderer over the real template in all 3 views and is **the only test that catches either — never delete it to get green.** |
 | **The site score is a PORT, not a design of ours — do NOT retune it** | The score is a faithful port of the user's own dashboard model (`IT Review Dashboard.html` → `sbDims`): 6 dims × 0/1/2 ÷ 12, RAG 70/45. Do NOT "improve" the thresholds, the rounding, or the (deliberately asymmetric, technically-invalid-as-a-comparator) moves tie-break — **a score that diverges from the one the team already sees on their dashboard is worse than no score at all.** `tests/score-fidelity.test.js` pins our output to THEIR numbers on THEIR data (`tests/fixtures/em-data.json` = their real `EM_DATA`, 5 sites, their `W0` window). If that test ever fails, our code is wrong — fix the port, never the expectations. |
 | **Score window ≠ report window** | The report's blocks are monthly / MTD; the score is a **3-month rolling window**. This is not an oversight: the user's thresholds (`reviews ≥8`, `inspections ≥3` "quarterly") are calibrated for ~3 months and are meaningless over one. Both windows are surfaced with their window stated — keep it that way, and don't "align" the score to the report month. |
 | **`md_issues.updated_at` is TIMESTAMPTZ in pg, TEXT everywhere else** | Every other date column the score touches is TEXT. The pg fork of `getSiteScoreInputs` MUST `to_char()` it — otherwise `_effClose` yields `'Wed Jun 11'`, every ISO string compare (`c <= to`) silently loses, and resolution/overdue go wrong **in prod only** (sqlite tests stay green). The score's date logic is ISO STRING comparison by contract; anything reaching it must already be a `YYYY-MM-DD…` string. |
