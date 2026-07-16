@@ -4112,8 +4112,8 @@ app.get('/api/reports/site-data', requireReportSession, async (req, res) => {
 // emits the 61-key flat object the template's bindings read.
 app.get('/api/reports/review-data', requireReportSession, async (req, res) => {
   try {
-    const { loadReviewData } = require('./services/reviewData');
-    const { buildReviewVals } = require('./services/reviewDashboard');
+    const { loadReviewData, loadReviewExtras } = require('./services/reviewData');
+    const { buildReviewVals, codesOf, extrasWindows } = require('./services/reviewDashboard');
     // WHITELIST every param — they reach the model; never pass raw query through.
     // asOf is inlined, NOT a helper: _todayISO() does not exist in server.js
     // (verified), and adding one would breach the approved 3-change budget.
@@ -4122,7 +4122,16 @@ app.get('/api/reports/review-data', requireReportSession, async (req, res) => {
     const period = ['week', 'month', 'quarter', 'semester'].includes(req.query.period) ? req.query.period : 'week';
     const site   = String(req.query.site || 'ALL');
     const D = await loadReviewData(asOf);
-    res.json(buildReviewVals(D, { view, period, site, asOf }));
+    // OUR Helpdesk & Changes panel — additive, and it never enters his score.
+    // codesOf/extrasWindows are imported, not re-derived: his `codes` ORDER is
+    // load-bearing and the two-window decision lives in ONE place.
+    // The try is NOT optional: a reader failure must degrade to extras:undefined
+    // (→ exactly his 61 keys, panel hidden by its sc-if) rather than 500 his
+    // whole page. His dashboard must not go down because our panel threw.
+    let extras;
+    try { extras = await loadReviewExtras(codesOf(D), extrasWindows(period)); }
+    catch (e) { console.error('[review] extras failed — rendering without the panel:', e.message); }
+    res.json(buildReviewVals(D, { view, period, site, asOf, extras }));
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 // POST /api/reports/send?type=coordinator&site=<CODE>[&preview=1][&force=1]
