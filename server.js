@@ -4647,7 +4647,9 @@ app.post('/api/reports/ensure', requireReportSession, jsonBody, async (req, res)
     // Non-admin editors can only create for their own site
     if (!['admin','executive','super_admin'].includes(req.reportUser.role) && req.reportUser.site_id && req.reportUser.site_id !== parseInt(site_id))
       return res.status(403).json({ error: 'You can only manage reports for your own site' });
-    const isNew = !await rdb.listReports(parseInt(site_id)).find(r => r.year === parseInt(year) && r.week_number === parseInt(week));
+    // (await f()).method() — NOT `await f().method()`: the latter chains onto the
+    // Promise (listReports is async on both backends). See the await-precedence pitfall.
+    const isNew = !(await rdb.listReports(parseInt(site_id))).find(r => r.year === parseInt(year) && r.week_number === parseInt(week));
     const report = await rdb.ensureReport(parseInt(site_id), parseInt(year), parseInt(week));
     if (isNew) {
       await rdb.logAudit({ report_id: report.id, site_id: parseInt(site_id), user_id: req.reportUser.id, username: req.reportUser.username, action: 'created', details: { year, week } });
