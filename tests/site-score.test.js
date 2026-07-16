@@ -109,8 +109,49 @@ test('window provenance is echoed', () => {
   assert.deepStrictEqual(computeSiteScore(perfect, win).window, win);
 });
 
-test('missing inputs are treated as 0, never a throw', () => {
+// The applicability gate. Two of the six dims are INVERTED (overdue, findings —
+// less is better), so a site with nothing measured used to score 4/12 = 33 = RED:
+// a confident verdict on a site we know nothing about. It now declines to score.
+test('no data at all → applicable:false, no fabricated verdict', () => {
   const r = computeSiteScore({}, win);
-  assert.strictEqual(r.points, 4);   // overdue 0 → 2pts, findings 0 → 2pts; rest 0
-  assert.strictEqual(r.rag, 'RED');
+  assert.strictEqual(r.applicable, false);
+  assert.strictEqual(r.score, null);
+  assert.strictEqual(r.points, null);
+  assert.strictEqual(r.rag, null);
+  assert.strictEqual(r.trend_pts, null);
+  assert.deepStrictEqual(r.dims, []);
+  assert.deepStrictEqual(r.moves, []);
+  assert.deepStrictEqual(r.window, win);   // the window is still provenance
+  // The old behaviour was 4 pts / 33 / RED — a confident verdict on nothing.
+  assert.notStrictEqual(r.score, 33);
+});
+
+test('missing inputs never throw', () => {
+  assert.doesNotThrow(() => computeSiteScore({}, win));
+  assert.doesNotThrow(() => computeSiteScore());
+});
+
+test('any activity at all → applicable:true and scored normally', () => {
+  assert.strictEqual(computeSiteScore({ reviews: 1 }, win).applicable, true);
+  assert.strictEqual(computeSiteScore({ inspections: 1 }, win).applicable, true);
+  assert.strictEqual(computeSiteScore({ signoff: 10 }, win).applicable, true);
+  assert.strictEqual(computeSiteScore({ overdue: 3 }, win).applicable, true);
+  assert.strictEqual(computeSiteScore({ findings: 2 }, win).applicable, true);
+  assert.strictEqual(computeSiteScore({ resolution: 5 }, win).applicable, true);
+});
+
+// "We measured zero" is NOT "we measured nothing". This site is a real RED.
+test('a REAL zero is still scored — a site that met and resolved nothing is RED, not N/A', () => {
+  const r = computeSiteScore({ reviews: 2, resolution: 0, overdue: 9, inspections: 0, findings: 4, signoff: 0 }, win);
+  assert.strictEqual(r.applicable, true);
+  assert.strictEqual(r.rag, 'RED');   // measured badness ≠ absence of data
+});
+
+test('a scored site still carries applicable:true alongside the full shape', () => {
+  const r = computeSiteScore(perfect, win, 75);
+  assert.strictEqual(r.applicable, true);
+  assert.strictEqual(r.score, 100);
+  assert.strictEqual(r.dims.length, 6);
+  assert.strictEqual(r.moves.length, 2);
+  assert.strictEqual(r.trend_pts, 25);
 });

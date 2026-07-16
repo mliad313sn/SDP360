@@ -152,3 +152,42 @@ test('a score block missing every field still composes', () => {
     meetings: {}, inspection: {}, helpdesk: {}, technicians: [], recommended: [] });
   assert.ok(r.htmlBody.length > 200);
 });
+
+// applicable:false — the site has no data over the window. Claim no verdict:
+// no hero number, no RAG chip, no dims table, no moves.
+const naScore = {
+  applicable: false, score: null, points: null, rag: null, trend_pts: null,
+  dims: [], moves: [], window: { from: '2026-04-14', to: '2026-07-14' },
+};
+const naData = { ...data, score: naScore };
+
+test('applicable:false renders "non applicable" + the window, and NO number', () => {
+  const { htmlBody } = composeCoordinator(naData);
+  assert.match(htmlBody, /Score non applicable/);
+  assert.match(htmlBody, /aucune donn/);           // "aucune donnée sur la fenêtre"
+  assert.match(htmlBody, /2026-04-14/);
+  assert.match(htmlBody, /2026-07-14/);
+  assert.ok(!/\/100/.test(htmlBody), 'no grey —/100: no verdict is claimed');
+});
+
+test('applicable:false omits the dims table and the moves block entirely', () => {
+  const { htmlBody } = composeCoordinator(naData);
+  assert.ok(!/Two moves that lift the score most/.test(htmlBody), 'no moves block');
+  assert.ok(!/G&#8805;8|G≥8|reviews held/.test(htmlBody), 'no dims table');
+  assert.ok(!/\/2</.test(htmlBody), 'no 0/2 rating chips');
+});
+
+test('applicable:false still composes the rest of the report', () => {
+  const { htmlBody, subject } = composeCoordinator(naData);
+  assert.match(subject, /Hounde/);
+  assert.match(htmlBody, /Network/);               // helpdesk section intact
+  assert.ok(htmlBody.length > 200);
+});
+
+// The gate keys on applicable === false, so a legacy/degraded score block with
+// no `applicable` field renders exactly as before.
+test('a score with no applicable field renders the normal hero', () => {
+  const { htmlBody } = composeCoordinator(data);
+  assert.match(htmlBody, /58/);
+  assert.ok(!/Score non applicable/.test(htmlBody));
+});

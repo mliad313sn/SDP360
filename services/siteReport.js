@@ -56,6 +56,17 @@ async function siteReportData(siteCode, period, deps) {
   const medianLoad = loads.length ? loads[Math.floor(loads.length / 2)] : 0;
   const technicians = techsRaw.map(t => ({ ...t, alerts: _techAlerts(t, medianLoad || 1) }));
 
+  // computeSiteScore now gates on applicability: a site with NO data over the
+  // window returns { applicable:false, score:null, dims:[], moves:[] } rather
+  // than the old fabricated 4/12 = RED 33 (two dims are inverted, so absence of
+  // data used to read as excellence). A failed scoreInputs lands here too — an
+  // unreadable site is an unknown site, not a bad one.
+  //
+  // Deliberate asymmetry worth knowing: deps.prevScore guards with
+  // `if (!m.reviews && !m.raised && !i.inspections) return null` — it keys on
+  // `raised`, which is NOT one of the six `inputs` this gate can see. The
+  // outcomes still agree: prevScore only calls through when something happened,
+  // and a null score there degrades to prev = null → trend_pts = null anyway.
   const score = si ? computeSiteScore(si.inputs, si.window, prev) : computeSiteScore({}, null, null);
 
   const recommended = _recommend(meetings, inspection, helpdesk, technicians);

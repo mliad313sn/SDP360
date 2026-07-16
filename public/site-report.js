@@ -62,8 +62,43 @@
     return e;
   }
 
+  // applicable:false — no number, no RAG, no dims, no moves. The hero states the
+  // absence and the window it looked in, and nothing else. Both hero columns are
+  // rewritten because the '/100' and the two <h3> headings are STATIC markup in
+  // site-report.html: leaving them and blanking the values would render a grey
+  // '—/100' under a "Score dimensions" heading — exactly the false verdict this
+  // removes.
+  function renderScoreNA(score) {
+    var hero = el('heroSection');
+    if (hero) hero.className = 'card hero';
+
+    var sv = el('scoreVal');
+    var numBlock = sv && sv.parentNode && sv.parentNode.parentNode;   // .hero-score
+    if (numBlock) numBlock.style.display = 'none';
+
+    var w = (score && score.window) || {};
+    var side = el('dimsGrid') && el('dimsGrid').parentNode;           // .hero-side
+    if (side) {
+      side.innerHTML =
+        '<h3 style="margin:0">Score non applicable — aucune donnée sur la fenêtre</h3>' +
+        (w.from && w.to
+          ? '<div style="font-size:.78rem;color:var(--color-text-muted,#7B7B7B);margin-top:8px;line-height:1.5">' +
+            'Fenêtre : ' + esc(w.from) + ' → ' + esc(w.to) +
+            ' — aucune réunion, inspection ou action mesurée sur cette période.</div>'
+          : '');
+    }
+  }
+
   function renderScore(score) {
     score = score || {};
+
+    // No data over the window → claim NO verdict. Not a grey '—/100', and no
+    // empty dims/moves lists: both still read as a measurement. The score's two
+    // inverted dims (overdue/findings) meant an unmeasured site scored RED 33.
+    // Keys on applicable === false: the engine always sets the field, so a block
+    // that merely lacks it is a legacy shape and keeps its previous rendering.
+    if (score.applicable === false) { renderScoreNA(score); return; }
+
     // rag is UPPERCASE on the wire ('GREEN'|'AMBER'|'RED'); the stylesheet's
     // classes are lowercase. Fold before matching — a strict compare against
     // the lowercase literals silently painted every site amber.

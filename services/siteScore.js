@@ -42,13 +42,41 @@ function moveText(d) {
   return 'Get minutes counter-signed: sign-off at ' + d.val + '% vs 70% green — capture both signatures at meeting close.';
 }
 
+// The applicability gate.
+//
+// Two of the six dims are INVERTED (`overdue` and `findings` — less is better),
+// so ABSENCE of data looks like excellence: a site with nothing measured scores
+// overdue 0 → 2 pts and findings 0 → 2 pts = 4/12 = 33 = RED. That is a
+// CONFIDENT verdict on a site we know nothing about, and it put sites we have no
+// data for into coordinators' inboxes as a graded RED.
+//
+// The distinction that matters: "we measured zero" is NOT "we measured nothing".
+// A site that held 2 reviews and resolved nothing is a real RED and must stay
+// scored. A site with no data at all is not a verdict — it is a gap in our
+// coverage, and the report says so.
+//
+// Any future dimension that REWARDS a zero must respect this same gate.
+function hasData(inputs) {
+  return num(inputs.reviews) > 0 || num(inputs.resolution) > 0 || num(inputs.overdue) > 0 ||
+         num(inputs.inspections) > 0 || num(inputs.findings) > 0 || num(inputs.signoff) > 0;
+}
+
 /**
  * computeSiteScore(inputs, window, previousScore)
  *   inputs: { reviews, resolution, overdue, inspections, findings, signoff } — raw measured values
  *   window: { from, to } — echoed as provenance
  *   previousScore: number | null — the same score recomputed as-of the previous window's end
+ *
+ * → { applicable, score, points, rag, trend_pts, dims, moves, window }
+ *   When `applicable` is false everything measured is null/[]: no verdict is claimed.
  */
 function computeSiteScore(inputs = {}, window = null, previousScore = null) {
+  if (!hasData(inputs || {})) {
+    // The window still rides along: it is provenance for WHAT we found nothing in.
+    return { applicable: false, score: null, points: null, rag: null, trend_pts: null,
+             dims: [], moves: [], window: window || null };
+  }
+
   const dims = PT_THRESHOLDS.map(([key, label, g, a, invert, disp, tip]) => {
     const val = num(inputs[key]);
     return { key, label, val, disp: disp(val), pts: pt(val, g, a, invert), tip };
@@ -65,7 +93,7 @@ function computeSiteScore(inputs = {}, window = null, previousScore = null) {
   while (moves.length < 2) moves.push({ n: moves.length + 1, gain: 'sustain', text: 'All dimensions green — hold cadence and keep the register clean.' });
 
   const trend_pts = previousScore === null || previousScore === undefined ? null : score - Math.round(num(previousScore));
-  return { score, points, rag: rag2(score), trend_pts, dims, moves, window: window || null };
+  return { applicable: true, score, points, rag: rag2(score), trend_pts, dims, moves, window: window || null };
 }
 
-module.exports = { computeSiteScore, rag2, moveText, PT_THRESHOLDS };
+module.exports = { computeSiteScore, rag2, moveText, hasData, PT_THRESHOLDS };

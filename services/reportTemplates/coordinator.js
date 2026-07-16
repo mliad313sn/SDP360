@@ -133,6 +133,24 @@ function dimsGrid(dims) {
 
 function scoreHero(score) {
   const s = obj(score);
+
+  // No data over the window → claim NO verdict. Not a grey "—/100" and not an
+  // empty six-row dims table: both of those still read as a measurement. The
+  // score's two inverted dims (overdue/findings) mean an unmeasured site used to
+  // score RED 33, which is what this replaces.
+  //
+  // Keys on `applicable === false` specifically: the engine always sets the
+  // field, so a block that simply lacks it is a legacy/degraded shape and keeps
+  // its previous rendering rather than silently becoming "non applicable".
+  if (s.applicable === false) {
+    const nw = obj(s.window);
+    const span = nw.from && nw.to
+      ? `<div style="font-family:${FONT};font-size:11px;color:${MUTED};line-height:1.5;padding-top:6px;">Fen&ecirc;tre&nbsp;: ${escapeHtml(nw.from)} &rarr; ${escapeHtml(nw.to)} &mdash; aucune r&eacute;union, inspection ou action mesur&eacute;e sur cette p&eacute;riode.</div>`
+      : '';
+    const body = `<div style="font-family:${FONT};font-size:16px;font-weight:bold;color:${NAVY};line-height:1.4;">Score non applicable &mdash; aucune donn&eacute;e sur la fen&ecirc;tre</div>${span}`;
+    return card('Site score', body, MUTED);
+  }
+
   const value = num(s.score);
   const rag = String(s.rag || '').toLowerCase();
   const color = scoreRagColor(rag);

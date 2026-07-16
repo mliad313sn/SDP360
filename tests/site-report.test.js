@@ -78,14 +78,18 @@ test('a failing reader degrades to an empty block, not a throw', async () => {
   assert.ok(r.score);
 });
 
-test('a failing scoreInputs degrades to a zeroed score, not a throw', async () => {
+test('a failing scoreInputs degrades to "non applicable", not a fabricated RED', async () => {
   const broken = { ...deps, scoreInputs: async () => { throw new Error('db down'); } };
   const r = await siteReportData('HGO', { year: 2026, month: 7, kind: 'weekly' }, broken);
-  // all six dims at 0 → overdue/findings invert to 2 pts each = 4/12 → 33
-  assert.strictEqual(r.score.score, 33);
-  assert.strictEqual(r.score.rag, 'RED');
+  // This used to assert score 33 / RED / 6 dims — all six inputs at 0, with
+  // overdue+findings INVERTED to 2 pts each = 4/12 = 33. A confident RED for a
+  // site whose reader threw. It now declines to score.
+  assert.strictEqual(r.score.applicable, false);
+  assert.strictEqual(r.score.score, null);
+  assert.strictEqual(r.score.rag, null);
   assert.strictEqual(r.score.window, null);
-  assert.strictEqual(r.score.dims.length, 6);
+  assert.deepStrictEqual(r.score.dims, []);
+  assert.deepStrictEqual(r.score.moves, []);
 });
 
 test('technicians get deterministic alerts', async () => {
