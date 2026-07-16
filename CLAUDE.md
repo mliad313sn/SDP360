@@ -27,7 +27,22 @@ made so far so that future sessions can pick up exactly where the last one ended
 > ships ALONGSIDE `sbDims`, and the two genuinely disagree — see the pitfall rows.
 > Also: a site with **no data on the window now reads "non applicable"** instead of
 > the fabricated RED 33 the two inverted dims used to produce.
-> Sub-projects 3B-2/4/5 (the page port + scheduling auto-send + the Finance Manager
+> **Sub-project 3B-2a landed** (branch `feat/review-data`): the two halves the page
+> needs, both fidelity-pinned. (1) `services/reviewData.js` — `loadReviewData(asOf)`
+> denormalises our schema into the authoritative dashboard's `D` shape (5 joins,
+> fleet-wide, sqlite + PG fork with the `to_char` cast on `md_issues.updated_at`);
+> **proved field-for-field against `tests/fixtures/em-data.json`** read from
+> `prod-snapshot/`. (2) `services/reviewDashboard.js` — the port of his `renderVals()`
+> (15 panels, 61 keys, pure). Its acceptance test derives the oracle **by RUNNING HIS
+> CODE** (`tests/review-oracle.js` compiles `docs/reference/it-review-dashboard.source.js`
+> against the fixture) and asserts **all 61 keys deep-equal across all 72
+> view × period × site combos**. Four approved deviations, each commented at its site:
+> the `SITES` lookup is total (his 5 codes would throw on our 11-12 site fleet);
+> `fleetScore`/`targetDepts` follow `codes.length` not a hardcoded 5; `groupRows`
+> country groups narrow to present codes; option objects carry a declarative `key`
+> replacing his dropped `pick` closure. All four are identical on his fixture.
+> **No page, no server change yet** — 3B-2b does the `{{ }}` renderer + the route.
+> Sub-projects 3B-2b/4/5 (the page + scheduling auto-send + the Finance Manager
 > report) pending.
 >
 > **READ FIRST.** Branch `main`. **🏁 The SQLite→PostgreSQL migration is COMPLETE
@@ -2326,6 +2341,10 @@ In normal use NO request hits this fallback. It's a safety net.
 
 | Pitfall | Rule |
 |---------|------|
+| **`em-data.json` IS our own prod database, exported later — that is why the review-suite asserts EQUALITY, not approximation** | The fixture is not a hand-made sample: it is `window.EM_DATA` from the author's dashboard, and it reconciles field-for-field with `prod-snapshot/` over **1668 comparisons** with exactly ONE row of drift (`inspActions id=84`, created 2026-07-12 — the fixture is the same DB exported ~5 days after our snapshot; blast radius nil, its status is `Closed` and the sole consumer filters `status !== 'Closed'`). That identity is what lets `tests/review-data.test.js` prove the 5 denormalisation joins by equality rather than by shape. **If the snapshot is ever refreshed, the fixture AND the oracles must be re-derived together or the proofs rot silently** — a stale fixture keeps passing while certifying a drifted port. This is also why `tests/review-oracle.js` commits the *harness* (which re-runs his code) instead of a dumped JSON blob. Corollary: **do NOT write a bare count-equality test for `inspActions`** — it fails against a CORRECT reader and sends you hunting a phantom bug. |
+| **`loadReviewData` must NOT filter drafts** | The authoritative export contains **1 draft PV** and the model applies **no status filter** — so it counts it. Filtering here would be a silent deviation from the screen the team actually reads: our numbers would quietly disagree with theirs with no error anywhere. Pinned by `tests/review-data.test.js` ("does NOT filter drafts"). Settled by fact, not opinion — don't "tidy" it. |
+| **`windows('month'\|'quarter'\|'semester')` is hardcoded July 2026 — and is NOT `scoreWindow.js`** | Two DIFFERENT window concepts that must not be merged. (a) The source's `windows()` (`:27`) hardcodes `'2026-07-01'`/`'2026-06-01'`/… — only `'week'` derives from the anchor. Ported **as-is** and pinned; it is his dashboard's behaviour. (b) `services/scoreWindow.js` is the **rolling 3-month** score window that 3A deliberately introduced so the score stays meaningful as time passes. Conflating them silently changes either the panels or the score. Same trap as `getSiteScoreInputs`, which *looks* like `sbDims`' measurement half but uses the rolling window — hence `sbMeasure` was ported into `reviewDashboard.js` instead. |
+| **His `codes` order is LOAD-BEARING — sorting it flips five panels** | `codes` (`source :213`) is not incidental ordering. `eMatrix` (`:297`) and `inspSiteRows` (`:344`) **iterate `codes` directly** — their row order IS `codes` order. `sbRows`/`gapRows`/`sbMoves` inherit it through `sbSorted`'s **stable sort** (`:426`): SML and MGO both score **50**, so the tie resolves to whichever comes first in `codes`. (`leaderboard` escapes only by luck — 62/58/48/44/41 are all distinct.) A reviewer ran the source both ways: naive sorting differs on **five panels**. Rule: keep **his 5 in his order** (`SML,SMI,HGO,MGO,SGO`), then append sites he never saw, sorted for determinism — `const codes = [...HIS.filter(c => present.has(c)), ...[...present].filter(c => !HIS.includes(c)).sort()]`. On his fixture the extras set is empty, so `codes` is byte-identical to `:213` and the oracle holds. |
 | **The site score is a PORT, not a design of ours — do NOT retune it** | The score is a faithful port of the user's own dashboard model (`IT Review Dashboard.html` → `sbDims`): 6 dims × 0/1/2 ÷ 12, RAG 70/45. Do NOT "improve" the thresholds, the rounding, or the (deliberately asymmetric, technically-invalid-as-a-comparator) moves tie-break — **a score that diverges from the one the team already sees on their dashboard is worse than no score at all.** `tests/score-fidelity.test.js` pins our output to THEIR numbers on THEIR data (`tests/fixtures/em-data.json` = their real `EM_DATA`, 5 sites, their `W0` window). If that test ever fails, our code is wrong — fix the port, never the expectations. |
 | **Score window ≠ report window** | The report's blocks are monthly / MTD; the score is a **3-month rolling window**. This is not an oversight: the user's thresholds (`reviews ≥8`, `inspections ≥3` "quarterly") are calibrated for ~3 months and are meaningless over one. Both windows are surfaced with their window stated — keep it that way, and don't "align" the score to the report month. |
 | **`md_issues.updated_at` is TIMESTAMPTZ in pg, TEXT everywhere else** | Every other date column the score touches is TEXT. The pg fork of `getSiteScoreInputs` MUST `to_char()` it — otherwise `_effClose` yields `'Wed Jun 11'`, every ISO string compare (`c <= to`) silently loses, and resolution/overdue go wrong **in prod only** (sqlite tests stay green). The score's date logic is ISO STRING comparison by contract; anything reaching it must already be a `YYYY-MM-DD…` string. |
