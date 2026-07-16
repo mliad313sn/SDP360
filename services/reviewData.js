@@ -128,4 +128,55 @@ async function loadReviewData(asOf, deps = {}) {
   return { meetings, issues, actions, inspections, findings, inspActions, projects };
 }
 
-module.exports = { loadReviewData, MEETINGS_TABLES, INSPECTION_TABLES };
+// ── loadReviewExtras — OUR addition, not the authoritative dashboard's ───────
+//
+// His `D` has no helpdesk concept at all. This loads the Helpdesk & Changes
+// panel's data SEPARATELY and it reaches buildReviewVals via its optional
+// `extras` arg — never folded into `D`, never into the score. That separation
+// is what keeps tests/review-fidelity.test.js proving the port.
+//
+// ⚠ `deps` HERE MEANS SOMETHING DIFFERENT FROM loadReviewData's `deps` above.
+// That one takes raw better-sqlite3 handles ({meetingsHandle, inspectionHandle})
+// because it owns its SQL. This one owns no SQL — it composes three reports-db
+// readers — so injecting handles would be meaningless. It injects the MODULE
+// instead. Deliberate, and the only shape that makes the loader unit-testable:
+// this repo's recorded pitfall is "a binder that looks wired can silently read
+// zeros", and a stub reader is how we prove the codes actually map through.
+const _reportsDb = () => require('../reports-db');   // lazy: same reason as _ctx's
+
+/**
+ * loadReviewExtras(codes, windows, deps?) → { helpdesk: {CODE:{…}}, changes: {CODE:{…}} }
+ *
+ * @param {string[]} codes  review site codes, in buildReviewVals' order
+ *   (reviewDashboard.codesOf(D) — the ONE definition; his order is load-bearing).
+ * @param {object} windows  { hdFrom, hdTo, chgFrom, chgTo } from
+ *   reviewDashboard.extrasWindows(period). TWO windows, so the signature takes
+ *   both: helpdesk follows the period selector, changes are the fixed ~90 days
+ *   (the user's decision #1 — a single from/to pair cannot express it).
+ * @param {object} [deps] `{ reportsDb }` — the reader module, for tests.
+ *
+ * Codes resolve through the MEETINGS namespace: Ity is SMI there but ITY in the
+ * tracker, Kalana KGO vs KLN. Never assume one module's codes work in another.
+ *
+ * A code that doesn't resolve is simply ABSENT from both maps — the panel then
+ * renders dashes for it. It does NOT throw and it does NOT fabricate a zero
+ * block: "we have no data for this site" is not "this site did nothing".
+ */
+async function loadReviewExtras(codes, { hdFrom, hdTo, chgFrom, chgTo }, deps = {}) {
+  const rdb = deps.reportsDb || _reportsDb();
+  const helpdesk = {}, changes = {};
+  for (const code of codes || []) {
+    // await, not a bare call: the sqlite forks are sync, the pg forks async.
+    const site = await rdb.getSiteIdByModuleCode('meetings', code);
+    if (!site) continue;
+    const [hd, chg] = await Promise.all([
+      rdb.getSiteHelpdeskWindow(site.site_id, hdFrom, hdTo),
+      rdb.getSiteChangesWindow(site.site_id, chgFrom, chgTo),
+    ]);
+    helpdesk[code] = hd;
+    changes[code] = chg;
+  }
+  return { helpdesk, changes };
+}
+
+module.exports = { loadReviewData, loadReviewExtras, MEETINGS_TABLES, INSPECTION_TABLES };

@@ -22,11 +22,32 @@ const assert = require('node:assert');
 const {
   SITES, GREEN, AMBER, RED, REDT,
   addDays, fmt, windows, filterSite, metrics, delta, spark, pack, sbMeasure,
-  buildReviewVals,
+  codesOf, extrasWindows, buildReviewVals,
 } = require('../services/reviewDashboard');
 
 const EM = require('./fixtures/em-data.json');
 const A = '2026-07-14'; // the source's ANCHOR
+
+// The source's full 61-key return (:471-488). Module-scope so the extras tests
+// below can diff against it — adding a key without declaring it must fail.
+const KEYS = [
+  'isDashboard', 'isBrief', 'isScoreboard',
+  'sbAvg', 'sbAvgColor', 'sbAvgDelta', 'sbAvgDeltaColor',
+  'sbDimHeaders', 'sbRows', 'emBubbles', 'emSplitX', 'emSplitY', 'emQ2x',
+  'gapRows', 'gapLegend', 'sbMoves',
+  'viewOpts', 'periodOpts', 'siteOpts',
+  'scopeLabel', 'scopeSuffix', 'anchorLabel', 'dataThrough',
+  'curWinLabel', 'prevWinLabel',
+  'nIssues', 'nMeetings', 'nInspections', 'nFindings', 'defectCount',
+  'periodShort', 'kpis', 'leaderboard', 'groupRows', 'flowMonths',
+  'backlogPts', 'backlogEndX', 'backlogEndY', 'backlogNow', 'backlogPeak',
+  'backlogStartLabel', 'backlogTrendTxt', 'backlogTrendColor',
+  'eHeaders', 'eMatrix', 'sigFunnel', 'aging', 'champLoad',
+  'overdueRows', 'overdueCount', 'noTargetNote',
+  'inspSiteRows', 'findCats', 'pipeline', 'pipelineNote',
+  'dqScore', 'dqColor', 'dqItems',
+  'briefKpis', 'briefNarrative', 'briefSites',
+];
 
 // ── statics ─────────────────────────────────────────────────────────────────
 
@@ -333,24 +354,6 @@ const V = () => buildReviewVals(EM, OPTS);
 
 test('buildReviewVals returns the source\'s full 61-key return (:471-488)', () => {
   const v = V();
-  const KEYS = [
-    'isDashboard', 'isBrief', 'isScoreboard',
-    'sbAvg', 'sbAvgColor', 'sbAvgDelta', 'sbAvgDeltaColor',
-    'sbDimHeaders', 'sbRows', 'emBubbles', 'emSplitX', 'emSplitY', 'emQ2x',
-    'gapRows', 'gapLegend', 'sbMoves',
-    'viewOpts', 'periodOpts', 'siteOpts',
-    'scopeLabel', 'scopeSuffix', 'anchorLabel', 'dataThrough',
-    'curWinLabel', 'prevWinLabel',
-    'nIssues', 'nMeetings', 'nInspections', 'nFindings', 'defectCount',
-    'periodShort', 'kpis', 'leaderboard', 'groupRows', 'flowMonths',
-    'backlogPts', 'backlogEndX', 'backlogEndY', 'backlogNow', 'backlogPeak',
-    'backlogStartLabel', 'backlogTrendTxt', 'backlogTrendColor',
-    'eHeaders', 'eMatrix', 'sigFunnel', 'aging', 'champLoad',
-    'overdueRows', 'overdueCount', 'noTargetNote',
-    'inspSiteRows', 'findCats', 'pipeline', 'pipelineNote',
-    'dqScore', 'dqColor', 'dqItems',
-    'briefKpis', 'briefNarrative', 'briefSites',
-  ];
   assert.strictEqual(KEYS.length, 61);
   assert.deepStrictEqual(Object.keys(v).sort(), [...KEYS].sort());
 });
@@ -881,4 +884,201 @@ test('a D with no sites at all does not throw and claims no verdict', () => {
   assert.strictEqual(v.sbAvgColor, 'var(--color-neutral-500)', 'and no RAG verdict off it');
   assert.deepStrictEqual(v.sbRows, []);
   assert.deepStrictEqual(v.leaderboard, []);
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+// OUR EXTRAS — the Helpdesk & Changes panel (sub-project 3C).
+//
+// NOT the source's. His `D` has no helpdesk concept at all. Everything below
+// rides in via the OPTIONAL `opts.extras` so that calling without it still
+// emits exactly his 61 keys and tests/review-fidelity.test.js keeps proving the
+// port. Nothing here may reach the score.
+// ═════════════════════════════════════════════════════════════════════════════
+
+const BASE = { view: 'dashboard', period: 'week', site: 'ALL', asOf: '2026-07-14' };
+
+// Task 1's changes contract VERBATIM — _tallyChanges' output plus total/emergency/
+// success_pct. No `completed`/`open` pair; `failed` already includes backed_out.
+const CHG = (o = {}) => ({ buckets: {}, successful: 0, failed: 0, cancelled: 0, deferred: 0,
+                           pending: 0, executed: 0, total: 0, emergency: 0, success_pct: null, ...o });
+const EXTRAS = {
+  helpdesk: { HGO: { created: 40, resolved: 35, backlog: 5, sla_overdue: 2, major_incidents: 1 } },
+  changes:  { HGO: CHG({ successful: 3, failed: 1, executed: 4, total: 4, success_pct: 75 }) },
+};
+
+test('buildReviewVals WITHOUT extras emits exactly the 61 keys — the fidelity proof must not move', () => {
+  const vals = buildReviewVals(EM, { ...BASE });
+  assert.strictEqual(Object.keys(vals).length, 61);
+  assert.ok(!('hdRows' in vals));
+});
+
+test('buildReviewVals WITH extras adds ONLY the declared keys', () => {
+  const vals = buildReviewVals(EM, { ...BASE, extras: EXTRAS });
+  const added = Object.keys(vals).filter(k => !KEYS.includes(k));
+  assert.deepStrictEqual(added.sort(), ['hdNote', 'hdRows']);   // the declared allowlist
+});
+
+test('hdRows: one row per site in codes order, joined by site code', () => {
+  const vals = buildReviewVals(EM, { ...BASE, extras: EXTRAS });
+  assert.deepStrictEqual(vals.hdRows.map(r => r.code), ['SML', 'SMI', 'HGO', 'MGO', 'SGO']);
+  const hgo = vals.hdRows.find(r => r.code === 'HGO');
+  assert.strictEqual(hgo.name, 'Houndé');
+  assert.strictEqual(hgo.created, 40);
+  assert.strictEqual(hgo.backlog, 5);
+  assert.strictEqual(hgo.changes, 4);
+  assert.strictEqual(hgo.successPct, '75%');
+});
+
+test('hdRows: a site with no helpdesk data renders dashes, not fabricated zeros', () => {
+  const vals = buildReviewVals(EM, { ...BASE, extras: { helpdesk: {}, changes: {} } });
+  assert.strictEqual(vals.hdRows[0].created, '—');
+  assert.strictEqual(vals.hdRows[0].successPct, '—');
+});
+
+test('hdRows: success_pct null renders as a dash, NOT 0%', () => {
+  const extras = { helpdesk: {}, changes: { SML: CHG({ pending: 1, total: 1 }) } };
+  const vals = buildReviewVals(EM, { ...BASE, extras });
+  assert.strictEqual(vals.hdRows.find(r => r.code === 'SML').successPct, '—');
+});
+
+test('hdRows: our declared colour thresholds', () => {
+  const extras = {
+    helpdesk: {
+      SML: { created: 10, resolved: 10, backlog: 0, sla_overdue: 0, major_incidents: 0 },
+      SMI: { created: 10, resolved: 8, backlog: 2, sla_overdue: 3, major_incidents: 0 },
+      HGO: { created: 10, resolved: 8, backlog: 2, sla_overdue: 9, major_incidents: 2 },
+    },
+    changes: {
+      SML: CHG({ successful: 10, executed: 10, total: 10, success_pct: 100 }),
+      SMI: CHG({ successful: 4, failed: 1, executed: 5, total: 5, success_pct: 80 }),
+      HGO: CHG({ successful: 1, failed: 1, executed: 2, total: 2, success_pct: 50 }),
+    },
+  };
+  const by = Object.fromEntries(buildReviewVals(EM, { ...BASE, extras }).hdRows.map(r => [r.code, r]));
+  assert.strictEqual(by.SML.slaColor, 'var(--color-text)');  // 0 overdue
+  assert.strictEqual(by.SMI.slaColor, AMBER);                // 3 → >0
+  assert.strictEqual(by.HGO.slaColor, REDT);                 // 9 → >5
+  assert.strictEqual(by.SML.miColor, 'var(--color-text)');
+  assert.strictEqual(by.HGO.miColor, REDT);                  // any MI
+  assert.strictEqual(by.SML.successColor, GREEN);            // 100
+  assert.strictEqual(by.SMI.successColor, AMBER);            // 80 → <90
+  assert.strictEqual(by.HGO.successColor, REDT);             // 50 → <75
+  // null → no verdict, neutral
+  const none = buildReviewVals(EM, { ...BASE, extras: { helpdesk: {}, changes: {} } });
+  assert.strictEqual(none.hdRows[0].successColor, 'var(--color-neutral-500)');
+});
+
+test('hdNote states BOTH windows and disclaims the score', () => {
+  const note = buildReviewVals(EM, { ...BASE, extras: EXTRAS }).hdNote;
+  assert.match(note, /8 Jul – 14 Jul/, 'the helpdesk window (the period selector)');
+  assert.match(note, /15 Apr – 14 Jul/, 'the fixed changes window');
+  assert.match(note, /not part of the site score/);
+  // and it moves with the selector
+  const q = buildReviewVals(EM, { ...BASE, period: 'quarter', extras: EXTRAS }).hdNote;
+  assert.match(q, /1 Jul – 14 Jul/);
+  assert.match(q, /15 Apr – 14 Jul/, 'the changes window never moves');
+});
+
+test('extras never touch the score', () => {
+  const a = buildReviewVals(EM, { ...BASE, view: 'scoreboard' });
+  const b = buildReviewVals(EM, { ...BASE, view: 'scoreboard', extras: EXTRAS });
+  assert.deepStrictEqual(b.sbRows, a.sbRows);
+  assert.deepStrictEqual(b.leaderboard, a.leaderboard);
+  assert.strictEqual(b.sbAvg, a.sbAvg);
+});
+
+// ── codesOf ─────────────────────────────────────────────────────────────────
+// Lifted out of buildReviewVals so the route derives `codes` from the ONE
+// definition. His order is load-bearing — see DEVIATION 1.
+
+test('codesOf is the single definition of the row order buildReviewVals uses', () => {
+  assert.deepStrictEqual(codesOf(EM), ['SML', 'SMI', 'HGO', 'MGO', 'SGO']);
+  assert.deepStrictEqual(codesOf(EM), V().siteOpts.slice(1).map(o => o.key));
+  const D = { ...EM, meetings: [...EM.meetings, { site_code: 'KGO', department: 'it', meeting_date: '2026-05-05' }] };
+  assert.deepStrictEqual(codesOf(D), ['SML', 'SMI', 'HGO', 'MGO', 'SGO', 'KGO'], 'unseen sites append');
+});
+
+// ── extrasWindows ───────────────────────────────────────────────────────────
+
+test('extrasWindows: helpdesk follows the period, changes are the fixed 90 days', () => {
+  const w = extrasWindows('week');
+  assert.deepStrictEqual([w.chgFrom, w.chgTo], ['2026-04-15', '2026-07-14']);   // 90d ending at ANCHOR
+  assert.strictEqual(w.hdTo, '2026-07-14');
+  // month/quarter/semester share an identical `cur` — only `prev` differs. So the
+  // ONLY period that proves hd* moves is 'week'.
+  assert.notDeepStrictEqual(extrasWindows('month').hdFrom, w.hdFrom);
+  assert.deepStrictEqual(extrasWindows('quarter').chgFrom, w.chgFrom);          // chg never moves
+});
+
+test('extrasWindows emits ISO strings SQL can consume — never fmt\'s display form', () => {
+  // fmt('2026-04-15') is '15 Apr'. Feeding that to
+  // `substr(created_time,1,10) BETWEEN ? AND ?` matches NOTHING and returns 0
+  // rows with no error. This test is the guard against that silent zero.
+  for (const p of ['week', 'month', 'quarter', 'semester']) {
+    for (const [k, v] of Object.entries(extrasWindows(p))) {
+      assert.match(v, /^\d{4}-\d{2}-\d{2}$/, `${p}.${k} = ${v}`);
+    }
+  }
+});
+
+// ── loadReviewExtras — the binder ───────────────────────────────────────────
+//
+// "A binder that looks wired can silently read zeros" (CLAUDE.md). Nothing in
+// the tests above exercises the loader: mis-wire it and the panel renders
+// dashes forever with every test green. Stub the readers and prove the wiring.
+
+const { loadReviewExtras } = require('../services/reviewData');
+
+const stubDeps = (calls = []) => ({
+  reportsDb: {
+    getSiteIdByModuleCode: (mod, code) => {
+      calls.push(['resolve', mod, code]);
+      return code === 'ZZZ' ? null : { site_id: 'id-' + code, name: 'Site ' + code, zoho_group: code + ' IT Agents' };
+    },
+    getSiteHelpdeskWindow: (site_id, from, to) => {
+      calls.push(['hd', site_id, from, to]);
+      return { created: 1, resolved: 1, backlog: 0, sla_overdue: 0, major_incidents: 0 };
+    },
+    getSiteChangesWindow: (site_id, from, to) => {
+      calls.push(['chg', site_id, from, to]);
+      return { total: 2, successful: 2, executed: 2, success_pct: 100 };
+    },
+  },
+});
+
+const WIN = { hdFrom: '2026-07-08', hdTo: '2026-07-14', chgFrom: '2026-04-15', chgTo: '2026-07-14' };
+
+test('loadReviewExtras: maps each code through BOTH readers, in the meetings namespace', async () => {
+  const calls = [];
+  const out = await loadReviewExtras(['HGO', 'MGO'], WIN, stubDeps(calls));
+  assert.deepStrictEqual(Object.keys(out).sort(), ['changes', 'helpdesk']);
+  assert.deepStrictEqual(Object.keys(out.helpdesk), ['HGO', 'MGO']);
+  assert.deepStrictEqual(Object.keys(out.changes), ['HGO', 'MGO']);
+  assert.strictEqual(out.helpdesk.HGO.created, 1);
+  assert.strictEqual(out.changes.MGO.success_pct, 100);
+  // the code namespace is 'meetings' — SMI/ITY, KGO/KLN differ per module
+  assert.ok(calls.filter(c => c[0] === 'resolve').every(c => c[1] === 'meetings'));
+});
+
+test('loadReviewExtras: each reader gets its OWN window — hd follows the period, chg does not', () => {
+  const calls = [];
+  return loadReviewExtras(['HGO'], WIN, stubDeps(calls)).then(() => {
+    assert.deepStrictEqual(calls.find(c => c[0] === 'hd'), ['hd', 'id-HGO', '2026-07-08', '2026-07-14']);
+    assert.deepStrictEqual(calls.find(c => c[0] === 'chg'), ['chg', 'id-HGO', '2026-04-15', '2026-07-14']);
+  });
+});
+
+test('loadReviewExtras: an unresolvable code is ABSENT — not a throw, not a zero', async () => {
+  const out = await loadReviewExtras(['HGO', 'ZZZ'], WIN, stubDeps());
+  assert.deepStrictEqual(Object.keys(out.helpdesk), ['HGO']);
+  assert.deepStrictEqual(Object.keys(out.changes), ['HGO']);
+  // and the panel then renders dashes for it, not a fabricated 0
+  const vals = buildReviewVals(EM, { ...BASE, extras: out });
+  assert.strictEqual(vals.hdRows.find(r => r.code === 'SGO').created, '—');
+});
+
+test('loadReviewExtras: no codes → empty maps, no reader calls', async () => {
+  const calls = [];
+  assert.deepStrictEqual(await loadReviewExtras([], WIN, stubDeps(calls)), { helpdesk: {}, changes: {} });
+  assert.deepStrictEqual(calls, []);
 });

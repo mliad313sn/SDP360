@@ -242,6 +242,100 @@ const dimColors = {
 // The source's 5 codes, in HIS order (source :213). LOAD-BEARING — see DEVIATION 1.
 const HIS_CODES = ['SML', 'SMI', 'HGO', 'MGO', 'SGO'];
 
+// ── codesOf — DEVIATION 1, lifted out of buildReviewVals ────────────────────
+//
+// `codes` derives from D instead of source :213's 5 literals. His order is
+// LOAD-BEARING, not incidental: it IS eMatrix/inspSiteRows row order AND the
+// sbSorted stable-sort tie-break (SML and MGO both score 50). Sorting naively
+// flips five panels. So: keep his five in his order, then append sites he never
+// saw, sorted for determinism.
+//
+// `present` = the union of the two PARENT tables — issues/actions/projects hang
+// off meetings, findings/inspActions off inspections. meetings alone would drop
+// a site with an inspection but no PV.
+//
+// EXPORTED so the route can derive `codes` for loadReviewExtras from the ONE
+// definition. Do not re-derive the order anywhere else.
+function codesOf(D) {
+  const present = new Set([
+    ...D.meetings.map(m => m.site_code),
+    ...D.inspections.map(i => i.site_code),
+  ].filter(Boolean));
+  return [
+    ...HIS_CODES.filter(c => present.has(c)),
+    ...[...present].filter(c => !HIS_CODES.includes(c)).sort(),
+  ];
+}
+
+// ── extrasWindows — OURS, not the source's ──────────────────────────────────
+//
+// The two windows the Helpdesk & Changes panel reads over, in ONE place. This
+// is the user's decision #1 made executable:
+//   • helpdesk FOLLOWS the period selector — windows(period).cur.
+//   • changes are a FIXED ~90 days ending at ANCHOR. The last change in the data
+//     is 2026-07-03 and ANCHOR is 2026-07-14, so the default WEEK window holds
+//     ZERO changes — following the selector would render them as permanent
+//     dashes beside a helpdesk showing hundreds of tickets.
+// Two spans in one panel is confusing unless labelled, hence hdNote states both.
+//
+// ISO STRINGS ONLY — addDays, NEVER fmt. fmt is a DISPLAY formatter:
+// fmt('2026-04-15') is '15 Apr', and feeding that to the readers'
+// `substr(created_time,1,10) BETWEEN ? AND ?` matches nothing and returns 0 rows
+// with NO error. windows() already returns ISO; addDays keeps it ISO.
+//
+// Pedantry: an inclusive BETWEEN over addDays(-90)..ANCHOR spans 91 days. The
+// bounds are exact; just don't write "exactly 90" in the UI note.
+//
+// windows() pins to ANCHOR, not asOf (his line, :109) — so this panel moves with
+// the period selector and NOT with ?asOf=, consistent with the rest of the page.
+function extrasWindows(period) {
+  const cur = windows(period).cur;
+  return { hdFrom: cur[0], hdTo: cur[1], chgFrom: addDays(ANCHOR, -90), chgTo: ANCHOR };
+}
+
+// ── the extras panel — OURS, additive, and it NEVER enters the score ─────────
+//
+// His dashboard has no helpdesk concept at all (its D is meetings/inspection
+// only). This rides in via the OPTIONAL opts.extras precisely so that calling
+// buildReviewVals without it still emits exactly his 61 keys and
+// tests/review-fidelity.test.js keeps proving the port. Never fold it into D.
+//
+// Colour thresholds are OURS — declared here rather than buried at the callsite:
+//   sla_overdue  > 5 → red, > 0 → amber
+//   major_incidents > 0 → red
+//   success_pct  < 75 → red, < 90 → amber, null → NO verdict (neutral)
+// Palette reused from the constants above; the leaderboard uses REDT for exactly
+// this job (emphasising a bad number in a table cell, :360-361).
+const DASH = '—';
+const NEUTRAL = 'var(--color-neutral-500)';
+
+function hdRowsOf(codes, extras, siteName) {
+  const hd = (extras && extras.helpdesk) || {};
+  const ch = (extras && extras.changes) || {};
+  return codes.map(c => {
+    const h = hd[c];
+    const k = ch[c];
+    // success_pct is null when nothing executed — "nothing to judge" is not
+    // "0% success". `?? null` and never `|| 0`: 0 IS a real reading here.
+    const pct = k ? (k.success_pct ?? null) : null;
+    return {
+      code: c, name: siteName(c),
+      created: h ? h.created : DASH,
+      resolved: h ? h.resolved : DASH,
+      backlog: h ? h.backlog : DASH,
+      slaOverdue: h ? h.sla_overdue : DASH,
+      slaColor: !h ? NEUTRAL : h.sla_overdue > 5 ? REDT : h.sla_overdue > 0 ? AMBER : 'var(--color-text)',
+      majorIncidents: h ? h.major_incidents : DASH,
+      miColor: !h ? NEUTRAL : h.major_incidents > 0 ? REDT : 'var(--color-text)',
+      changes: k ? k.total : DASH,
+      failed: k ? k.failed : DASH,          // already INCLUDES backed_out (Task 1's contract)
+      emergency: k ? k.emergency : DASH,
+      successPct: pct == null ? DASH : pct + '%',
+      successColor: pct == null ? NEUTRAL : pct < 75 ? REDT : pct < 90 ? AMBER : GREEN,
+    };
+  });
+}
+
 // ── buildReviewVals — the port of renderVals() (source :206-499) ────────────
 /**
  * @param {object} D    the dashboard's data shape (services/reviewData.js).
@@ -253,27 +347,14 @@ const HIS_CODES = ['SML', 'SMI', 'HGO', 'MGO', 'SGO'];
  * (source :206) has no analogue — there is no async boot to guard.
  */
 function buildReviewVals(D, opts = {}) {
-  const { view = 'dashboard', period = 'week', site = 'ALL', asOf = ANCHOR } = opts;
+  const { view = 'dashboard', period = 'week', site = 'ALL', asOf = ANCHOR, extras } = opts;
   const G = GREEN, AM = AMBER, RD = REDT;
   const A = asOf || ANCHOR;
   const win = windows(period);
 
-  // ── DEVIATION 1 — `codes` derives from D instead of source :213's 5 literals.
-  // His order is LOAD-BEARING, not incidental: it IS eMatrix/inspSiteRows row
-  // order AND the sbSorted stable-sort tie-break (SML and MGO both score 50).
-  // Sorting naively flips five panels. So: keep his five in his order, then
-  // append sites he never saw, sorted for determinism.
-  // `present` = the union of the two PARENT tables — issues/actions/projects
-  // hang off meetings, findings/inspActions off inspections. meetings alone
-  // would drop a site with an inspection but no PV.
-  const present = new Set([
-    ...D.meetings.map(m => m.site_code),
-    ...D.inspections.map(i => i.site_code),
-  ].filter(Boolean));
-  const codes = [
-    ...HIS_CODES.filter(c => present.has(c)),
-    ...[...present].filter(c => !HIS_CODES.includes(c)).sort(),
-  ];
+  // DEVIATION 1 — `codes` derives from D, in HIS order. See codesOf above: it is
+  // the ONE definition, so the route and this function cannot drift apart.
+  const codes = codesOf(D);
 
   // ── controls ──────────────────────────────────────────────────────────────
   // The source's `pick` closures are DROPPED: they bound live setState (4
@@ -700,6 +781,25 @@ function buildReviewVals(D, opts = {}) {
     return { code: c, name: siteOf(c).name, score: sb.score, hdrBg: rg.solidBg, hdrFg: rg.solidFg, moves: sb.moves };
   });
 
+  // ── OUR extras — the Helpdesk & Changes panel ─────────────────────────────
+  // ABSENT → this object is untouched and the return below is exactly his 61
+  // keys, so tests/review-fidelity.test.js keeps proving the port. PRESENT →
+  // exactly two more, hdRows + hdNote (the allowlist that test declares).
+  // Note what this block does NOT do: it reads nothing back into comps/sbs/
+  // codes. Nothing here can reach the score.
+  const ex = {};
+  if (extras) {
+    const w = extrasWindows(period);
+    ex.hdRows = hdRowsOf(codes, extras, c => siteOf(c).name);
+    // BOTH windows, stated plainly: two different spans in one panel reads as a
+    // bug unless labelled (the user's decision #1). And the raw counts sit next
+    // to the percentage on purpose — the panel is thin (some sites have ≤2
+    // executed changes, where one backed-out change reads as "50%").
+    ex.hdNote = 'Helpdesk over ' + fmt(w.hdFrom) + ' – ' + fmt(w.hdTo) + ' (follows the period selector) · '
+      + 'changes over the last 90 days (' + fmt(w.chgFrom) + ' – ' + fmt(w.chgTo) + ', fixed) · '
+      + 'group-scoped · not part of the site score.';
+  }
+
   return {
     isDashboard: view === 'dashboard', isBrief: view === 'brief', isScoreboard: view === 'scoreboard',
     sbAvg,
@@ -727,6 +827,7 @@ function buildReviewVals(D, opts = {}) {
     inspSiteRows, findCats, pipeline, pipelineNote,
     dqScore, dqColor: dqScore >= 90 ? G : dqScore >= 75 ? AM : RD, dqItems,
     briefKpis, briefNarrative, briefSites,
+    ...ex,   // OURS — empty unless opts.extras was supplied. See above.
   };
 }
 
@@ -734,5 +835,5 @@ module.exports = {
   SITES, GREEN, AMBER, RED, REDT, OPEN, HIS_CODES, catNames, dimColors,
   siteOf, rag2Full,
   addDays, fmt, windows, filterSite, metrics, delta, spark, pack, sbMeasure,
-  buildReviewVals,
+  codesOf, extrasWindows, buildReviewVals,
 };
