@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Assets — Endeavour Mining IT</title>
+
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="brand/icons.css">
+<link rel="stylesheet" href="brand/components.css">
+<link rel="stylesheet" href="_shell.css">
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+
+<style nonce="%%CSP_NONCE%%">
+  body {
+    margin: 0;
+    background: var(--color-background, #f4f6f7);
+    color: var(--color-text-primary, #1F2A33);
+    font-family: var(--font-sans, 'Libre Franklin', 'Franklin Gothic', system-ui, sans-serif);
+    font-size: 14px;
+  }
+  .as-wrap        { max-width: 1280px; margin: 0 auto; padding: var(--space-6, 24px); }
+  .as-head        { display: flex; align-items: center; gap: var(--space-4, 16px); margin-bottom: var(--space-5, 20px); flex-wrap: wrap; }
+  .as-head h1     { margin: 0; font-size: 22px; font-weight: 700; color: var(--edv-slate, #3A4A60); }
+  .as-head .sub   { font-size: 13px; color: var(--color-text-muted, #6b7785); }
+  .as-head .spacer { flex: 1; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 14px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-md, 6px);
+    background: var(--edv-orange, #EF631A); color: #fff;
+    font-family: inherit; font-size: 13px; font-weight: 600;
+    cursor: pointer; text-decoration: none;
+    transition: background var(--motion-fast, 120ms);
+  }
+  .btn:hover        { background: var(--edv-orange-700, #C04E10); }
+  .btn-ghost        { background: #fff; color: var(--color-text-secondary, #3a4452); border-color: var(--color-border, #dfe3e8); }
+  .btn-ghost:hover  { background: var(--color-surface-muted, #f4f6f7); color: var(--color-text-primary, #1F2A33); }
+  .btn .icon        { width: 16px; height: 16px; }
+
+  /* Header band: total + one chip per state */
+  .as-band {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
+    background: var(--color-surface, #fff);
+    border: 1px solid var(--color-border, #dfe3e8);
+    border-radius: var(--radius-md, 6px);
+    padding: var(--space-4, 16px);
+    margin-bottom: var(--space-5, 20px);
+  }
+  .as-band .total {
+    display: flex; align-items: baseline; gap: 8px;
+    padding-right: 14px; margin-right: 4px;
+    border-right: 1px solid var(--color-border-subtle, #eef0f3);
+  }
+  .as-band .total .n { font-size: 28px; font-weight: 700; line-height: 1; color: var(--color-text-primary, #1F2A33); }
+  .as-band .total .l { font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--color-text-secondary, #3a4452); font-weight: 600; }
+  .state-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 11px;
+    border-radius: var(--radius-pill, 9999px);
+    background: var(--color-surface-muted, #f4f6f7);
+    border: 1px solid var(--color-border-subtle, #eef0f3);
+    font-size: 12px; font-weight: 600;
+    color: var(--color-text-secondary, #3a4452);
+  }
+  .state-chip .c { font-weight: 700; color: var(--color-text-primary, #1F2A33); }
+  .as-band .fresh { font-size: 11px; color: var(--color-text-muted, #6b7785); margin-left: auto; }
+
+  /* Filter bar */
+  .filter-bar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: var(--space-3, 12px);
+    background: var(--color-surface, #fff);
+    border: 1px solid var(--color-border, #dfe3e8);
+    border-radius: var(--radius-md, 6px);
+    padding: var(--space-4, 16px);
+    margin-bottom: var(--space-5, 20px);
+  }
+  .filter-bar label {
+    display: block;
+    font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.8px;
+    color: var(--color-text-secondary, #3a4452);
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .filter-bar select,
+  .filter-bar input {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--color-border, #dfe3e8);
+    border-radius: var(--radius-sm, 4px);
+    background: #fff;
+    font-family: inherit; font-size: 13px;
+    color: var(--color-text-primary, #1F2A33);
+    box-sizing: border-box;
+  }
+  .filter-bar select:focus,
+  .filter-bar input:focus {
+    outline: none;
+    border-color: var(--edv-orange, #EF631A);
+    box-shadow: 0 0 0 3px rgba(239, 99, 26, 0.15);
+  }
+  .filter-bar .btn { align-self: end; }
+
+  /* Table */
+  .panel {
+    background: var(--color-surface, #fff);
+    border: 1px solid var(--color-border, #dfe3e8);
+    border-radius: var(--radius-md, 6px);
+    margin-bottom: var(--space-5, 20px);
+  }
+  table.list {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    background: var(--color-surface, #fff);
+  }
+  table.list th {
+    text-align: left;
+    padding: 10px 12px;
+    background: var(--edv-slate, #3A4A60);
+    color: #fff;
+    font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.8px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  table.list th.num, table.list td.num { text-align: right; }
+  table.list td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--color-border-subtle, #eef0f3);
+    vertical-align: top;
+  }
+  table.list tr:hover { background: var(--color-surface-muted, #f4f6f7); }
+  .state-pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: var(--radius-pill, 9999px);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.5px;
+    background: var(--color-surface-muted, #f4f6f7);
+    color: var(--color-text-secondary, #3a4452);
+  }
+  /* C: free % — colour the low ones */
+  .free-low  { color: var(--edv-red, #D90038); font-weight: 700; }
+  .free-mid  { color: var(--color-warning, #D97706); font-weight: 600; }
+
+  .empty {
+    text-align: center;
+    padding: var(--space-10, 40px) var(--space-6, 24px);
+    color: var(--color-text-muted, #6b7785);
+  }
+  .count-note { font-size: 12px; color: var(--color-text-muted, #6b7785); padding: 8px 12px; border-top: 1px solid var(--color-border-subtle, #eef0f3); }
+
+  @media (max-width: 640px) {
+    .as-wrap { padding: var(--space-3, 12px); }
+    table.list { font-size: 12px; }
+    table.list th, table.list td { padding: 8px; }
+    .as-head h1 { font-size: 18px; }
+    table.list .col-mfr, table.list .col-serial, table.list .col-scan { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div id="__shell" data-section="performance" data-current="assets"></div>
+
+<div class="as-wrap">
+
+  <div class="as-head">
+    <div>
+      <h1>IT Assets</h1>
+      <div class="sub">Hardware &amp; configuration inventory across all sites</div>
+    </div>
+    <div class="spacer"></div>
+    <a class="btn btn-ghost" id="exportBtn" href="#" title="Download the current inventory (with the filters applied) as an Excel workbook">
+      <span class="icon icon-download"></span> Export Excel
+    </a>
+  </div>
+
+  <div class="as-band" id="band">
+    <div class="total"><span class="n" id="bandTotal">—</span><span class="l">Assets</span></div>
+    <div id="bandStates" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+    <div class="fresh" id="bandFresh"></div>
+  </div>
+
+  <div class="filter-bar">
+    <div>
+      <label for="filterSite">Site</label>
+      <select id="filterSite"><option value="">All sites</option></select>
+    </div>
+    <div>
+      <label for="filterState">State</label>
+      <select id="filterState"><option value="">Any</option></select>
+    </div>
+    <div>
+      <label for="filterType">Product type</label>
+      <select id="filterType"><option value="">Any</option></select>
+    </div>
+    <div>
+      <label for="filterMfr">Manufacturer</label>
+      <select id="filterMfr"><option value="">Any</option></select>
+    </div>
+    <div>
+      <label for="filterQ">Search (name / serial)</label>
+      <input type="text" id="filterQ" placeholder="Type to filter…" />
+    </div>
+    <button class="btn btn-ghost" id="resetBtn"><span class="icon icon-refresh-cw"></span> Reset</button>
+  </div>
+
+  <div class="panel" style="padding:0; overflow:hidden">
+    <div style="overflow-x:auto">
+      <table class="list" id="listTable">
+        <thead>
+          <tr>
+            <th>Asset name</th>
+            <th>Product</th>
+            <th>Site</th>
+            <th>State</th>
+            <th class="num">RAM (GB)</th>
+            <th class="num">C: free %</th>
+            <th class="num">Monitors</th>
+            <th class="col-mfr">Manufacturer</th>
+            <th class="col-serial">Serial</th>
+            <th class="col-scan">Last scan</th>
+          </tr>
+        </thead>
+        <tbody id="listBody"></tbody>
+      </table>
+    </div>
+    <div class="empty" id="emptyMsg" style="display:none">
+      <div style="font-size:32px;margin-bottom:8px">🖥️</div>
+      <div id="emptyText">No assets match these filters.</div>
+      <div class="sub" style="margin-top:8px">If this is unexpected, an asset sync may not have run yet.</div>
+    </div>
+    <div class="count-note" id="countNote" style="display:none"></div>
+  </div>
+
+</div>
+
+<script nonce="%%CSP_NONCE%%">
+(function () {
+  'use strict';
+
+  const API = '/api/assets';
+
+  function authHeaders() {
+    const h = {};
+    // auth.js sets window.__authToken to the token STRING; tolerate the
+    // older function-returning shape too. Never throw "is not a function".
+    let tok = null;
+    const at = window.__authToken;
+    if (typeof at === 'function') { try { tok = at(); } catch(_) {} }
+    else if (typeof at === 'string' && at) { tok = at; }
+    if (!tok) tok = localStorage.getItem('report_token');
+    if (tok) h['x-report-token'] = tok;
+    return h;
+  }
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[c]));
+  }
+
+  function currentFilters() {
+    return {
+      site:         document.getElementById('filterSite').value,
+      state:        document.getElementById('filterState').value,
+      product_type: document.getElementById('filterType').value,
+      manufacturer: document.getElementById('filterMfr').value,
+      q:            document.getElementById('filterQ').value.trim(),
+    };
+  }
+
+  function qs(params) {
+    const sp = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) { if (v) sp.set(k, v); }
+    return sp.toString() ? '?' + sp.toString() : '';
+  }
+
+  // ── Header band (total + per-state chips) from /api/assets/summary ─
+  async function loadSummary() {
+    try {
+      const r = await fetch(API + '/summary', { credentials: 'same-origin', headers: authHeaders() });
+      if (!r.ok) return;
+      const s = await r.json();
+      document.getElementById('bandTotal').textContent = (s.total != null ? s.total : 0).toLocaleString();
+      const by = s.by_state || {};
+      const chips = Object.keys(by).sort((a, b) => by[b] - by[a]).map(st => {
+        const label = st === '' ? '(no state)' : st;
+        return `<span class="state-chip"><span class="c">${escapeHtml(by[st])}</span> ${escapeHtml(label)}</span>`;
+      }).join('');
+      document.getElementById('bandStates').innerHTML = chips || '<span class="fresh">No assets yet.</span>';
+    } catch (e) { /* offline — leave dashes */ }
+  }
+
+  // ── Hydrate the filter dropdowns from /api/assets/lookups ─────────
+  function fill(selId, values, keepFirst) {
+    const sel = document.getElementById(selId);
+    // keep the first <option> (All / Any), drop the rest, repopulate
+    while (sel.options.length > (keepFirst ? 1 : 0)) sel.remove(sel.options.length - 1);
+    (values || []).forEach(v => {
+      const o = document.createElement('option');
+      o.value = v; o.textContent = v;
+      sel.appendChild(o);
+    });
+  }
+  async function loadLookups() {
+    try {
+      const r = await fetch(API + '/lookups', { credentials: 'same-origin', headers: authHeaders() });
+      if (!r.ok) return;
+      const lk = await r.json();
+      fill('filterSite',  lk.sites,          true);
+      fill('filterState', lk.states,         true);
+      fill('filterType',  lk.product_types,  true);
+      fill('filterMfr',   lk.manufacturers,  true);
+    } catch (e) { /* offline — leave "All / Any" only */ }
+  }
+
+  function freePctCell(v) {
+    if (v == null || v === '' || isNaN(v)) return '<td class="num">—</td>';
+    const n = Number(v);
+    const cls = n < 10 ? 'free-low' : (n < 20 ? 'free-mid' : '');
+    return `<td class="num ${cls}">${escapeHtml(n)}%</td>`;
+  }
+
+  function renderTable(rows) {
+    const body  = document.getElementById('listBody');
+    const empty = document.getElementById('emptyMsg');
+    const note  = document.getElementById('countNote');
+    if (!rows.length) {
+      body.innerHTML = '';
+      empty.style.display = 'block';
+      note.style.display = 'none';
+      return;
+    }
+    empty.style.display = 'none';
+    body.innerHTML = rows.map(r => {
+      const ram = r.ram_total_gb ? escapeHtml(r.ram_total_gb) : '—';
+      const mon = (r.monitor_count != null) ? escapeHtml(r.monitor_count) : '—';
+      return `<tr>
+        <td><strong>${escapeHtml(r.asset_name || r.asset_id || '—')}</strong></td>
+        <td>${escapeHtml(r.product || r.product_type || '—')}</td>
+        <td>${escapeHtml(r.site || '—')}</td>
+        <td>${r.state ? `<span class="state-pill">${escapeHtml(r.state)}</span>` : '—'}</td>
+        <td class="num">${ram}</td>
+        ${freePctCell(r.system_disk_free_pct)}
+        <td class="num">${mon}</td>
+        <td class="col-mfr">${escapeHtml(r.manufacturer || '—')}</td>
+        <td class="col-serial">${escapeHtml(r.serial_number || '—')}</td>
+        <td class="col-scan">${escapeHtml(r.last_scan_source || '—')}${r.days_since_scan != null ? ` · ${escapeHtml(r.days_since_scan)}d` : ''}</td>
+      </tr>`;
+    }).join('');
+    note.style.display = 'block';
+    note.textContent = rows.length.toLocaleString() + ' asset' + (rows.length === 1 ? '' : 's') + ' shown.';
+  }
+
+  async function refresh() {
+    const f = currentFilters();
+    // keep the Export button pointed at the current filter set
+    document.getElementById('exportBtn').setAttribute('href', API + '/export.xlsx' + qs(f));
+    try {
+      const r = await fetch(API + '/inventory' + qs(f), { credentials: 'same-origin', headers: authHeaders() });
+      if (!r.ok) { renderTable([]); return; }
+      const rows = await r.json();
+      renderTable(Array.isArray(rows) ? rows : []);
+    } catch (e) {
+      console.warn('assets refresh failed:', e);
+      renderTable([]);
+    }
+  }
+
+  function resetFilters() {
+    ['filterSite', 'filterState', 'filterType', 'filterMfr', 'filterQ'].forEach(id => {
+      document.getElementById(id).value = '';
+    });
+    refresh();
+  }
+
+  // The Export button is an <a>. The href is kept current by refresh(); a
+  // browser navigation carries the session cookie, so the download is
+  // authenticated the same way the fetches are. But if the user is on a
+  // token-only session (no cookie), append it as a header-free fallback is
+  // impossible via <a> — so we intercept, fetch with auth headers, and
+  // blob-download, mirroring inspections.html's Excel path.
+  async function exportExcel(e) {
+    e.preventDefault();
+    const btn = document.getElementById('exportBtn');
+    const orig = btn.innerHTML;
+    btn.innerHTML = '⏳ Preparing…';
+    try {
+      const f = currentFilters();
+      const r = await fetch(API + '/export.xlsx' + qs(f), { credentials: 'same-origin', headers: authHeaders() });
+      if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || ('HTTP ' + r.status)); }
+      const url = URL.createObjectURL(await r.blob());
+      const a = document.createElement('a'); a.href = url; a.download = 'assets.xlsx';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    } catch (err) {
+      alert('Excel export failed: ' + (err.message || ''));
+    } finally {
+      btn.innerHTML = orig;
+    }
+  }
+
+  function wire() {
+    ['filterSite', 'filterState', 'filterType', 'filterMfr'].forEach(id =>
+      document.getElementById(id).addEventListener('change', refresh)
+    );
+    // debounce the text search
+    let t = null;
+    document.getElementById('filterQ').addEventListener('input', () => {
+      clearTimeout(t); t = setTimeout(refresh, 250);
+    });
+    document.getElementById('resetBtn').addEventListener('click', resetFilters);
+    document.getElementById('exportBtn').addEventListener('click', exportExcel);
+  }
+
+  async function boot() {
+    wire();
+    await Promise.all([loadSummary(), loadLookups()]);
+    await refresh();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
+})();
+</script>
+
+</body>
+</html>

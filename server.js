@@ -1184,6 +1184,7 @@ function loadHtml(name) {
   'meetings.html', 'meeting.html', 'meetings-issues.html', 'meetings-council.html', 'meetings-compliance.html',
   'meetings-import.html', 'meetings-progress.html', 'meetings-insights.html', 'meetings-setup.html', 'meetings-actions.html',
   'activity-tracker.html', 'help.html', 'exec-view.html', 'site-report.html', 'it-review.html',
+  'assets.html',
 ].forEach(loadHtml);
 
 // Helper: build the per-request HTML, inject api-key + nonce, send. Pages
@@ -1274,6 +1275,10 @@ app.get('/inspection-actions.html', (req, res) => {
 });
 
 // ── Serve inspections.html (list / dashboard) with CSP nonce ───────────────
+app.get('/assets.html', (req, res) => {
+  sendHtmlPage(res, 'assets.html', false, 'Assets unavailable');
+});
+
 app.get('/inspections.html', (req, res) => {
   sendHtmlPage(res, 'inspections.html', false, 'Inspections dashboard unavailable');
 });
@@ -2254,6 +2259,29 @@ app.get('/api/assets/summary', requireReportSession, async (req, res) => {
     res.json(await require('./assets-db').getAssetSummary());
   } catch (e) {
     console.error('[api/assets/summary]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// GET /api/assets/export.xlsx — the current inventory (SAME whitelisted filters
+// as /inventory) as a two-sheet workbook (Assets + Installed Software). The
+// software sheet is empty for now — the Foundation has no software table (it
+// moved to sub-project C); the sheet is emitted so the contract is stable.
+app.get('/api/assets/export.xlsx', requireReportSession, async (req, res) => {
+  try {
+    const adb = require('./assets-db');
+    const { buildAssetWorkbook } = require('./services/assetExcel');
+    const q = {};
+    for (const k of ['site', 'state', 'product_type', 'manufacturer', 'q']) {
+      if (req.query[k] != null && req.query[k] !== '') q[k] = String(req.query[k]);
+    }
+    const rows = await adb.getEnrichedAssets(q);
+    const buf = buildAssetWorkbook(rows, []);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="assets.xlsx"');
+    res.send(buf);
+  } catch (e) {
+    console.error('[api/assets/export.xlsx]', e.message);
     res.status(500).json({ error: e.message });
   }
 });
