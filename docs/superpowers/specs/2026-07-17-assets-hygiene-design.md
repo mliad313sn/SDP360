@@ -40,7 +40,7 @@ by row — but still exportable for a data-cleanup drive). Counts are the live
 |---|---|---|---|
 | `discovered` | `state = 'Discovered'` | 156 | **worklist** — seen, not enrolled |
 | `never_scanned` | `last_successful_audit_time IS NULL OR last_successful_audit_time = '' OR last_audit_status IS NULL OR lower(last_audit_status) NOT LIKE '%success%'` | 677 | **worklist** — never a clean audit |
-| `ghost` | scanned at least once **and** `CAST(NULLIF(days_since_scan,'') AS INTEGER) > 90` | 103 | **worklist** — stale >90 d |
+| `ghost` | **successfully** scanned before (`lower(last_audit_status) LIKE '%success%'`) **and** `CAST(NULLIF(days_since_scan,'') AS INTEGER) > 90` | ~90 | **worklist** — was healthy, now stale >90 d |
 | `no_owner` | `(user_name IS NULL OR user_name = '') AND (department IS NULL OR department = '')` | ~2 471 | gap |
 | `no_age` | `acquisition_date IS NULL OR acquisition_date = ''` | ~2 246 | gap |
 | `no_cost` | `purchase_cost IS NULL OR purchase_cost IN ('0.00','0','')` | 2 246 | gap |
@@ -48,7 +48,7 @@ by row — but still exportable for a data-cleanup drive). Counts are the live
 **Traps locked into the predicates (from Foundation §3):**
 - `no_cost` uses `IN ('0.00','0','')`, **never `IS NULL`** — cost is present-as-`0.00`, so `IS NULL` returns 0. `purchase_cost` is stored raw TEXT (commas survive); B never parses the amount.
 - `no_age` is genuinely empty at 91 %, so `IS NULL OR = ''` is correct (opposite of cost).
-- `ghost` requires *scanned at least once* so it doesn't double-count `never_scanned`. `days_since_scan` is TEXT → `CAST(NULLIF(...,'') AS INTEGER)`; the `NULLIF` avoids the pg strict-cast 500 on `''` (sqlite is lenient, pg is not — the documented "sqlite-green/pg-500" trap).
+- `ghost` and `never_scanned` are **disjoint by construction**: `never_scanned` fires on any row whose CURRENT `last_audit_status` isn't a success (or has no successful-audit time), while `ghost` requires `last_audit_status LIKE '%success%'` AND >90 d. So a "scanned-once-but-currently-failing, stale" row is `never_scanned`, never both — the three worklist counts sum to their true union. `days_since_scan` is TEXT → `CAST(NULLIF(...,'') AS INTEGER)`; the `NULLIF` avoids the pg strict-cast 500 on `''` (sqlite is lenient, pg is not — the documented "sqlite-green/pg-500" trap). Pin the boundary with a seeded row (status-failed + 120 d) asserting it lands in `never_scanned` only.
 - `no_owner` needs BOTH user and department empty (there is no `user_email` column; Foundation folded ownership into `user_name`+`department`).
 
 All predicates accept the SAME whitelisted filters as `getEnrichedAssets`
@@ -106,6 +106,15 @@ dashboard shows these as bars; the digest states them in one line per site.
 ### 4e. Scheduled send (`tools/reports/send-hygiene.js`, new — mirrors `send-reports.js`)
 - Resolves recipients + gate from `reportConfig` (reuse the existing k/v store):
   `hygiene_recipients` (comma-separated), `hygiene_send_enabled` (`'1'` to arm).
+  **Both keys MUST be added to `reportConfig.DEFAULTS`** — `setConfig` drops any key
+  not in `DEFAULTS`, so without this the admin card's writes vanish silently and the
+  digest is permanently inert (fails safe, but dead). This is a flagged existing-module edit (Task 5).
+- **Sync-freshness for R1** is read by the CLI from `sync_metadata` (job
+  `assets_assets`, written by A's sync via `rdb.markSyncSuccess`) and attached as
+  `summary.sync = { last_success, age_days }` before composing — neither
+  `getHygieneSummary` nor `getAssetSummary` carries it. The composer states it as
+  a "register last synced N days ago" line so a stale-but-non-empty register is
+  visible in the mail.
 - **Safety gate (honours "never send to an unconfirmed address"):** refuses to
   send unless `hygiene_send_enabled === '1'` AND `hygiene_recipients` is non-empty.
   The list is admin-entered; entering it in the admin card is the confirmation act.
