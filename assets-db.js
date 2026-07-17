@@ -85,10 +85,15 @@ FROM assets a
 WHERE 1=1`;
 
 // Coerce the numeric fields the callers rely on; leave purchase_cost RAW.
+// The AP export delivers `Free Space (%)` as a formatted string like '94%'
+// (trailing percent sign, sometimes thousands commas) — a bare Number('94%')
+// is NaN, so every real machine's free-pct silently became NaN→null on the
+// wire. Strip %/comma/space before coercing, and map any residual NaN → null.
 function _coerceEnriched(r) {
   r.ram_total_gb = Number(r.ram_total_gb) || 0;
-  r.system_disk_free_pct = (r.system_disk_free_pct == null || r.system_disk_free_pct === '')
-    ? null : Number(r.system_disk_free_pct);
+  const fp = (r.system_disk_free_pct == null || r.system_disk_free_pct === '')
+    ? null : Number(String(r.system_disk_free_pct).replace(/[%,\s]/g, ''));
+  r.system_disk_free_pct = (fp == null || Number.isNaN(fp)) ? null : fp;
   r.monitor_count = Number(r.monitor_count) || 0;
   return r;
 }
