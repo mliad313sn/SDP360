@@ -63,8 +63,8 @@ prove A prepares the ground for them without doing their work.
 
 - **`software` + `software_installations` moved to sub-project C (user decision
   2026-07-17).** `software_installations` is **121 097 rows and does NOT fetch in
-  one call** — a single `maxRows=200000` fetch ran **> 7 minutes** against the
-  live view, far past `fetchView`'s 120 s timeout (server.js:711). It belongs with
+  one call** — the AP endpoint ignores `maxRows` and returned all **121 117** rows
+  in **13.6 min**, far past `fetchView`'s 120 s timeout (server.js:711). It belongs with
   licence compliance (C) anyway, where it needs a dedicated fetch strategy
   (paging, or a nightly extended-timeout job). Removing it from the Foundation
   **eliminates the module's single largest risk** (former §10.1). `software` (the
@@ -403,9 +403,10 @@ trap is B/C's to resolve.
 1. **~~Paging (`software_installations`, 121 k)~~ — RESOLVED by moving it to C
    (2026-07-17).** Live reconnaissance confirmed a single fetch of the 121 k view
    runs > 7 min (past `fetchView`'s 120 s timeout), so it left A for C. All 5
-   Foundation views are < 5 000 rows and fetch in one call; `fetchAll` keeps only
-   a truncation guard (throw if a result comes back at the `maxRows` ceiling).
-   **A no longer has a paging risk.**
+   Foundation views are < 5 000 rows and fetch in one call. Recon also showed the
+   AP endpoint **ignores `maxRows`** (returns the whole view or times out), so
+   `fetchAll` has no truncation guard — just a data-gone-wrong sanity cap; the
+   real silent-partial protection is `fetchView`'s timeout. **A has no paging risk.**
 2. **Currency.** Confirmed ambiguous (§3 trap 1). A stores raw strings and shows
    no money; the decision (per-table currency, or a `currency` column) is
    deferred to B/C. Noted so it isn't rediscovered.
