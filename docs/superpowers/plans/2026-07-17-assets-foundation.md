@@ -32,7 +32,7 @@
 |---|---|
 | `db/postgres/assets/001_init.sql` | PG schema of the 7 tables (applied at boot by `initPgAssets`) |
 | `assets-db.js` | schema (sqlite `_initSchema` + PG init) · the enriched-asset readers · lookups/summary · `ASSETS_BACKEND` flag · `pgHandle()` |
-| `assets-sync.js` | `fetchAll` (paged, throwing) · the `ASSET_VIEWS` config · `syncAssetView` engine · `syncAllAssets` · `init(fetchView)` |
+| `assets-sync.js` | `fetchAll` (single-fetch, throws on truncation) · `ASSET_VIEWS` config · `syncAssetView` engine · `syncAllAssets` · `init(fetchView, VIEWS)` |
 | `public/assets.html` | the Inventory page (filterable enriched list + Excel button) |
 | `tools/pg/copy-assets.js` | one-shot sqlite→PG copy (mirrors `tools/pg/copy-tracker.js`) |
 | `server.js` (edit) | 7 `VIEWS` ids · `assets-sync.init` + `initPgAssets` at boot · daily cron · `/api/assets/*` routes |
@@ -159,15 +159,52 @@ git commit --no-verify -m "feat(assets): schema + module skeleton (7 tables, bot
 
 ---
 
-## Task 1: `fetchAll` — paged, and throws rather than storing a partial
+## Task 1 (PREREQUISITE — human gate): confirm the fetch capacity against the live views
+
+**This is a reconnaissance step, not code. A subagent cannot do it — it needs the
+7 Analytics-Plus view IDs and a live Zoho token.** It must happen before Task 2's
+engine is wired to real views, because the whole `fetchAll` design hinges on ONE
+unknown: **can the AP `/data` endpoint return all 121 097 `software_installations`
+rows in a single `maxRows` fetch, or does it cap below that?**
+
+The real primitive is `fetchView(viewId, maxRows)` (server.js:710) — a **number**,
+forwarded to Zoho as `params:{responseFormat:'csv', maxRows}`. **It sends no
+offset.** There is no paging anywhere in this repo. So there are only two viable
+shapes, and this gate picks one:
+
+- **Path A — single large fetch (expected, simplest).** `fetchView(SW_INSTALL, 200000)`
+  returns all 121 097 rows. `fetchAll` is then a one-liner with a truncation
+  guard. No `server.js` fetch change.
+- **Path B — paging required.** The AP endpoint caps `maxRows` below 121 097. Then
+  Task 2 needs a **real 5th `server.js` edit**: a `fetchViewPaged(viewId)` that
+  loops the AP offset param (name to be confirmed in this gate) and concatenates.
+  This is net-new, unproven code against an API nobody here has paged.
+
+- [ ] **Gate step:** with the 7 view IDs to hand, fetch `software_installations`
+  at `maxRows=200000` (through the running dev server's token, or a one-off script
+  reusing `refreshAccessToken`) and record: **(a)** the row count returned,
+  **(b)** whether it equals the CSV's 121 097 or a round cap (100 000 etc.),
+  **(c)** if capped, whether the AP v2 `/data` API accepts an offset/`startRow`
+  param. Write the answer into this plan (one line) before Task 2.
+
+> **Owner:** the user (or the controller with the view IDs + token). The result
+> chooses Path A or B. **Everything below assumes Path A** and flags exactly where
+> Path B diverges. Do NOT let a subagent invent an offset param or store a partial.
+
+---
+
+## Task 1b: `fetchAll` — one fetch, and throws on truncation (Path A)
 
 **Files:**
 - Create: `assets-sync.js`
 - Test: `tests/assets-fetchall.test.js`
 
-**Why this is Task 1:** `software_installations` is 121 k rows — 2.4× the largest proven fetch, and **nothing in this repo pages a view** (spec §10.1). The one non-negotiable behaviour: a fetch that cannot retrieve the whole view must **throw**, never return a silent partial (that's the frozen-sync class of bug from 2026-07-17). The real Analytics-Plus paging param name is confirmed against the live view at wiring time (Task 4 note); the code is correct by construction regardless.
+**The non-negotiable behaviour:** a fetch that comes back at the `maxRows` ceiling
+is *assumed truncated* and **throws** — never a silent partial (the frozen-sync
+class of bug from 2026-07-17). Signature matches the REAL `fetchView(viewId,
+maxRows)` — no invented `{startRow}` object.
 
-- [ ] **Step 1: Write the failing test** — `fetchAll(viewId, fetchView)` where `fetchView(viewId, {maxRows, startRow})` is injected.
+- [ ] **Step 1: Write the failing test** — `fetchAll(viewId, fetchView, {maxRows})`, `fetchView(viewId, maxRows)` injected.
 
 ```javascript
 // tests/assets-fetchall.test.js
@@ -176,35 +213,24 @@ const test = require('node:test');
 const assert = require('node:assert');
 const { fetchAll } = require('../assets-sync');
 
-// a fake view of N rows the stub pages through
-const makeFetch = (total, pageSize) => async (viewId, { maxRows, startRow = 0 }) => {
-  const rows = [];
-  for (let i = startRow; i < Math.min(startRow + maxRows, total); i++) rows.push({ id: i });
-  return { rows };
-};
-
-test('concatenates pages and stops on a short final page', async () => {
-  const rows = await fetchAll('v', makeFetch(120000, 50000), { pageSize: 50000 });
-  assert.strictEqual(rows.length, 120000);
-  assert.strictEqual(rows[0].id, 0);
-  assert.strictEqual(rows[119999].id, 119999);
+const makeFetch = (total) => async (viewId, maxRows) => ({
+  rows: Array.from({ length: Math.min(total, maxRows) }, (_, i) => ({ id: i })),
 });
 
-test('a single short page returns immediately (small view)', async () => {
-  const rows = await fetchAll('v', makeFetch(300, 50000), { pageSize: 50000 });
-  assert.strictEqual(rows.length, 300);
+test('returns all rows when the view fits under maxRows', async () => {
+  const rows = await fetchAll('v', makeFetch(121097), { maxRows: 200000 });
+  assert.strictEqual(rows.length, 121097);
 });
 
-test('THROWS rather than storing a partial when paging cannot advance', async () => {
-  // a broken fetch that always returns a FULL page (never advances / ignores startRow)
-  const stuck = async () => ({ rows: Array.from({ length: 50000 }, (_, i) => ({ id: i })) });
-  await assert.rejects(() => fetchAll('v', stuck, { pageSize: 50000, maxPages: 4 }),
-    /paging did not converge|exceeded maxPages/i);
+test('THROWS on a full-ceiling result (assumed truncated — never a silent partial)', async () => {
+  // view has >= maxRows rows → fetch returns exactly maxRows → must be treated as truncated
+  await assert.rejects(() => fetchAll('v', makeFetch(500000), { maxRows: 200000 }),
+    /truncat|>= maxRows|partial/i);
 });
 
 test('propagates a fetch error (never swallows it)', async () => {
-  const boom = async () => { throw new Error('zoho 500'); };
-  await assert.rejects(() => fetchAll('v', boom, { pageSize: 50000 }), /zoho 500/);
+  await assert.rejects(() => fetchAll('v', async () => { throw new Error('zoho 500'); }, { maxRows: 200000 }),
+    /zoho 500/);
 });
 ```
 
@@ -214,37 +240,35 @@ test('propagates a fetch error (never swallows it)', async () => {
 
 ```javascript
 'use strict';
-// fetchView is injected by init() (the server.js primitive). Signature the
-// engine relies on: fetchView(viewId, { maxRows, startRow }) → { rows: [...] }.
-// NOTE: the Analytics-Plus paging param name (startRow vs fromIndex vs …) is
-// confirmed against the live software_installations view at wiring time; the
-// injected fetchView adapter owns that mapping. This helper only decides HOW
-// MANY pages and WHEN to stop — and it throws rather than store a partial.
-async function fetchAll(viewId, fetchView, { pageSize = 50000, maxPages = 40 } = {}) {
-  const all = [];
-  for (let page = 0; page < maxPages; page++) {
-    const startRow = page * pageSize;
-    const { rows } = await fetchView(viewId, { maxRows: pageSize, startRow });
-    all.push(...rows);
-    if (rows.length < pageSize) return all;          // short page = last page
-    // full page → there may be more; loop. Guard against a fetch that never
-    // advances (ignores startRow) via the maxPages cap below.
+// fetchView is the server.js primitive, injected by init(): fetchView(viewId, maxRows) → { rows }.
+// Path A (single fetch). maxRows is set well above the largest view (software_installations
+// ≈ 121k); if a result comes back AT the ceiling we assume the API truncated and THROW,
+// because storing a silent partial is the frozen-sync bug this module's visible page exists
+// to catch. Path B (if the gate proved the API caps below the view size) replaces this with
+// a fetchViewPaged loop — see Task 1's gate.
+async function fetchAll(viewId, fetchView, { maxRows = 200000 } = {}) {
+  const { rows } = await fetchView(viewId, maxRows);
+  if (rows.length >= maxRows) {
+    throw new Error(`fetchAll(${viewId}): returned ${rows.length} rows at the maxRows=${maxRows} ` +
+      `ceiling — assuming truncation. Refusing to store a partial table. Raise maxRows or add paging.`);
   }
-  throw new Error(`fetchAll(${viewId}): paging did not converge — exceeded maxPages=${maxPages}. ` +
-    `Refusing to store a partial table.`);
+  return rows;
 }
 module.exports = { fetchAll };
 ```
 
-> **DRY note:** `maxPages=40 × 50 000 = 2 M` rows — far above any real view, so it only fires on a genuinely broken pager, exactly when we want a throw.
+> **Path B note (only if the gate demanded it):** swap the single `fetchView` call
+> for a `fetchViewPaged(viewId)` (a real `server.js` addition that loops the AP
+> offset param). The truncation-throw contract stays: a page loop that can't
+> advance throws rather than storing a partial.
 
-- [ ] **Step 4: Run → PASS** (4 tests).
+- [ ] **Step 4: Run → PASS** (3 tests).
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add assets-sync.js tests/assets-fetchall.test.js
-git commit --no-verify -m "feat(assets): paged fetchAll that throws on a partial, never stores it"
+git commit --no-verify -m "feat(assets): single-fetch fetchAll that throws on truncation, never a partial"
 ```
 
 ---
@@ -255,7 +279,35 @@ git commit --no-verify -m "feat(assets): paged fetchAll that throws on a partial
 - Modify: `assets-sync.js`
 - Test: `tests/assets-sync.test.js`
 
-- [ ] **Step 1: Write the failing tests.** Engine: `syncAssetView(def, deps)` where `deps = { fetchView, db, markSuccess, markError }`. Full-replace; a failed fetch leaves the table intact; the licence `transform` runs.
+**Engine shape (fixed — ONE form).** `syncAssetView(def, deps)` where
+`deps = { fetchView, replaceTable, markSuccess, markError }`. **`replaceTable(table,
+cols, rows)` is owned by `assets-db.js`** (sqlite sync / PG async, one function) so
+all SQL lives in one module and the PG fork is a single place — not scattered
+through the sync engine. The sync engine is backend-agnostic; it never touches a
+`db` handle directly. This is the ONLY shape; there is no `db`-direct variant.
+
+- [ ] **Step 1: Add `replaceTable` to `assets-db.js` FIRST (its own micro-step).**
+  `replaceTable(table, cols, rows)` — transaction: `DELETE FROM table` then
+  batch `INSERT OR REPLACE`. sqlite sync via `db.transaction()`; PG async via
+  `pgHandle().runTransaction(async () => …)` under the `ASSETS_BACKEND` fork.
+  Test it directly (seed → replaceTable with fewer rows → count drops).
+
+```javascript
+// assets-db.js  (sqlite path shown; add the ASSETS_BACKEND==='postgres' fork)
+function replaceTable(table, cols, rows) {
+  const db = getDB();
+  const ph = cols.map(() => '?').join(', ');
+  const insert = db.prepare(`INSERT OR REPLACE INTO ${table} (${cols.join(', ')}) VALUES (${ph})`);
+  const tx = db.transaction((rs) => {
+    db.prepare(`DELETE FROM ${table}`).run();
+    for (const m of rs) insert.run(...cols.map(c => m[c] ?? null));
+  });
+  tx(rows);
+  return rows.length;
+}
+```
+
+- [ ] **Step 2: Write the failing engine tests.** `deps.replaceTable` comes from `assets-db` (real), `fetchView`/`markSuccess`/`markError` are stubs.
 
 ```javascript
 // tests/assets-sync.test.js
@@ -270,13 +322,14 @@ const { syncAssetView, ASSET_VIEWS } = require('../assets-sync');
 
 const db = adb.getDB();
 const assetsDef = ASSET_VIEWS.find(v => v.name === 'assets');
+const deps = (fetchView, markError = async () => {}) =>
+  ({ fetchView, replaceTable: adb.replaceTable, markSuccess: async () => {}, markError });
 
 const rowsV1 = [{ 'Asset ID':'A1', 'State':'In Store', 'Purchase Cost($)':'0.00', 'Site':'MANA' },
                 { 'Asset ID':'A2', 'State':'Discovered', 'Purchase Cost($)':'1,250,000.00', 'Site':'ITY' }];
 
 test('full-replace inserts the mapped rows', async () => {
-  await syncAssetView(assetsDef, { fetchView: async () => ({ rows: rowsV1 }), db,
-    markSuccess: async () => {}, markError: async () => {} });
+  await syncAssetView(assetsDef, deps(async () => ({ rows: rowsV1 })));
   const got = db.prepare('SELECT asset_id, state, purchase_cost, site FROM assets ORDER BY asset_id').all();
   assert.deepStrictEqual(got, [
     { asset_id:'A1', state:'In Store',   purchase_cost:'0.00',        site:'MANA' },
@@ -285,34 +338,28 @@ test('full-replace inserts the mapped rows', async () => {
 });
 
 test('full-replace REPLACES (a smaller second sync drops the vanished row)', async () => {
-  await syncAssetView(assetsDef, { fetchView: async () => ({ rows: [rowsV1[0]] }), db,
-    markSuccess: async () => {}, markError: async () => {} });
+  await syncAssetView(assetsDef, deps(async () => ({ rows: [rowsV1[0]] })));
   assert.strictEqual(db.prepare('SELECT COUNT(*) c FROM assets').get().c, 1);
 });
 
 test('a failed fetch leaves the existing table UNTOUCHED and calls markError', async () => {
   let errored = false;
-  await assert.rejects(() => syncAssetView(assetsDef, {
-    fetchView: async () => { throw new Error('zoho down'); }, db,
-    markSuccess: async () => {}, markError: async () => { errored = true; } }));
-  assert.strictEqual(db.prepare('SELECT COUNT(*) c FROM assets').get().c, 1, 'table must survive a failed fetch');
+  await assert.rejects(() => syncAssetView(assetsDef,
+    deps(async () => { throw new Error('zoho down'); }, async () => { errored = true; })));
+  assert.strictEqual(db.prepare('SELECT COUNT(*) c FROM assets').get().c, 1, 'table survives a failed fetch');
   assert.ok(errored, 'markError must be called');
 });
 
-test('the licence transform coerces its row (cost + state kept, dates pass through)', async () => {
+test('the licence transform keeps the cost as a RAW string', async () => {
   const licDef = ASSET_VIEWS.find(v => v.name === 'software_licenses');
   assert.strictEqual(typeof licDef.transform, 'function');
   const out = licDef.transform({ 'License ID':'L1', 'License State':'Expired',
-    'Cost($)':'55,920.00', 'Expiry Date':'30 Jan 2025' });
-  assert.strictEqual(out.license_id, 'L1');
-  assert.strictEqual(out.cost, '55,920.00');   // raw string, no numeric coercion
-  assert.strictEqual(out.license_state, 'Expired');
+    'Cost($)':'55,920.00', 'Expiry Date':'30 Jan 2025' }, {});
+  assert.strictEqual(out.cost, '55,920.00');   // no numeric coercion
 });
 ```
 
-- [ ] **Step 2: Run → FAIL.**
-
-- [ ] **Step 3: Implement the engine + `ASSET_VIEWS`.** Add to `assets-sync.js`. Column maps per §5 (write all 7 fully). The engine: `fetchAll` → map each row via `def.columns` (+ optional `def.transform`) → **transaction: DELETE then batch-INSERT** → `markSuccess`. On any throw: `markError` then rethrow, **without touching the table** (the DELETE lives inside the same transaction as the INSERT, and both run only after the fetch succeeds).
+- [ ] **Step 3: Run → FAIL. Step 4: Implement `syncAssetView` + `ASSET_VIEWS`.**
 
 ```javascript
 const DEFAULT_MAP = (row, def) => {
@@ -321,30 +368,24 @@ const DEFAULT_MAP = (row, def) => {
   return def.transform ? def.transform(row, out) : out;
 };
 
-async function syncAssetView(def, { fetchView, db, markSuccess, markError, pageSize }) {
+async function syncAssetView(def, { fetchView, replaceTable, markSuccess, markError }) {
   try {
-    const raw = await fetchAll(def.viewId, fetchView, { pageSize: pageSize || def.pageSize || 50000 });
+    const raw = await fetchAll(def.viewId, fetchView, { maxRows: def.maxRows || 200000 });
     const mapped = raw.map(r => DEFAULT_MAP(r, def)).filter(m => m[def.pkCol]);   // drop rows missing PK
-    const cols = Object.values(def.columns);
-    const ph = cols.map(() => '?').join(', ');
-    const insert = db.prepare(`INSERT OR REPLACE INTO ${def.table} (${cols.join(', ')}) VALUES (${ph})`);
-    const replaceAll = db.transaction((rows) => {
-      db.prepare(`DELETE FROM ${def.table}`).run();
-      for (const m of rows) insert.run(...cols.map(c => m[c] ?? null));
-    });
-    replaceAll(mapped);
-    await markSuccess(def.job, mapped.length);
-    return mapped.length;
+    const n = await replaceTable(def.table, Object.values(def.columns), mapped);  // DELETE+INSERT in one tx
+    await markSuccess(def.job, n);
+    return n;
   } catch (e) {
-    await markError(def.job, e.message);
+    await markError(def.job, e.message);   // table untouched — fetch/replace never ran to completion
     throw e;
   }
 }
 ```
 
-`ASSET_VIEWS` — 7 entries, each `{ name, job, table, viewId, pk (zoho header), pkCol (snake col), columns:{zoho→col}, transform? }`. `transform` only on `software_licenses` (identity-ish for now: it exists so the currency/date handling has a home; keep raw strings). **Note the PG fork:** `syncAssetView`'s sqlite `db.transaction()` becomes `await pgHandle().runTransaction(async () => …)` and `db.prepare().run()` becomes `await …` — add the `if (ASSETS_BACKEND==='postgres')` fork here, OR keep the engine backend-agnostic by passing a small `{ deleteAll, insertMany }` pair from `assets-db.js` (RECOMMENDED — keeps the SQL in one module). Pick the injection approach and note it; the tests above use the sqlite `db` directly, so expose a `db`-shaped adapter for sqlite and a PG one.
+The "table survives a failed fetch" guarantee holds because `fetchAll` runs and
+throws **before** `replaceTable` (which owns the DELETE) is ever called.
 
-> **Guidance:** the cleanest split is `assets-db.js` owning `replaceTable(table, cols, rows)` (sqlite sync / PG async), and `syncAssetView` calling `await deps.replaceTable(...)`. That keeps SQL out of the sync engine and makes the PG fork one function, not scattered. Refactor the Step-3 code to that shape if it reads cleaner — the tests only care about behaviour.
+`ASSET_VIEWS` — 7 entries, each `{ name, job, table, viewId, pkCol, columns:{zoho→col}, transform?, maxRows? }`. Column maps per spec §5 (write all 7 fully). `transform` only on `software_licenses` (keeps raw strings; exists so date/currency handling has a home). Set `maxRows: 200000` on `software_installations` explicitly (the 121 k table); the rest default.
 
 - [ ] **Step 4: Run → PASS** (4 tests).
 
@@ -460,11 +501,11 @@ test('GET /api/assets/inventory returns rows; hostile filter does not 500', asyn
 });
 test('POST /api/sync/trigger/assets responds 200 and reports started', async () => {});
 ```
-(Model this on `tests/server-routes.smoke.test.js` / the exec-routes smoke test for how the app is booted + a token minted.)
+(Model this on `tests/server-routes-smoke.test.js` / the exec-routes smoke test for how the app is booted + a token minted.)
 
 - [ ] **Step 3: Wire `server.js`** (the four edits from spec §4):
   1. Add the 7 asset view IDs to the `VIEWS` map (defaults from workspace `106803000000002012`; the `assets` view is `106803000000002058`, the rest are read off the Analytics Plus tables list — a plan-time note: confirm each view ID from the AP UI before first real sync).
-  2. At boot: `const assetsSync = require('./assets-sync'); assetsSync.init(fetchView);` and, in the PG-init block, `if (ASSETS_BACKEND==='postgres') await require('./assets-db').initPgAssets();`.
+  2. At boot: `const assetsSync = require('./assets-sync'); assetsSync.init(fetchView, VIEWS);` (2-arg, like `zoho-sync.init` — `VIEWS` is the same map extended in edit 1) and, in the PG-init block, `if (ASSETS_BACKEND==='postgres') await require('./assets-db').initPgAssets();`.
   3. `cron.schedule('30 4 * * *', () => assetsSync.syncAllAssets(deps).catch(e => console.error('[Cron:assets]', e.message)));`
   4. The `/api/assets/*` route block (`requireReportSession`) — `inventory`, `lookups`, `summary`, `export.xlsx` (Task 5), and `POST /api/sync/trigger/assets` (`requireAdmin`) that calls `syncAllAssets`. **Every reader call `await`ed.**
 
@@ -494,18 +535,31 @@ git commit --no-verify -m "feat(assets): /api/assets/* routes + daily sync cron 
 
 ```javascript
 // tests/assets-export.test.js
-const { buildAssetWorkbook } = require('../assets-db');   // or a small services/assetExcel.js
-test('workbook has an Assets sheet and a Software sheet', () => {
-  const wb = buildAssetWorkbook([{ asset_id:'A1', site:'MANA', ram_total_gb:16 }], [{ asset_id:'A1', software_name:'Chrome' }]);
-  // assert sheet names / row counts via the tableExcel buildWorkbook(sheets) contract
+const test = require('node:test');
+const assert = require('node:assert');
+const XLSX = require('xlsx');   // already vendored (services/tableExcel.js uses it)
+const { buildAssetWorkbook } = require('../services/assetExcel');
+
+test('workbook is a Buffer with an Assets sheet and a Software sheet', () => {
+  const buf = buildAssetWorkbook([{ asset_id:'A1', site:'MANA', ram_total_gb:16 }],
+                                 [{ asset_id:'A1', software_name:'Chrome' }]);
+  assert.ok(Buffer.isBuffer(buf));                         // buildWorkbook returns a Buffer
+  const wb = XLSX.read(buf, { type: 'buffer' });           // round-trip to inspect
+  assert.deepStrictEqual(wb.SheetNames.sort(), ['Assets', 'Installed Software']);
 });
 ```
+`buildAssetWorkbook` lives in **`services/assetExcel.js`** and calls
+`tableExcel.buildWorkbook(sheets)`, which returns a **Buffer** — assert via an
+`XLSX.read` round-trip, not by poking a workbook object.
 
 - [ ] **Step 2: Run → FAIL. Step 3: Implement** `buildAssetWorkbook` using `services/tableExcel.js` `buildWorkbook(sheets)`; add `GET /api/assets/export.xlsx` (filtered view → workbook → `res` with the xlsx content-type, mirroring `GET /api/inspection/export.xlsx`). **No cost columns formatted as money** — `purchase_cost` ships as the raw string.
 
 - [ ] **Step 4: Build `public/assets.html`** — copy the `inspections.html` skeleton (shell nav, session cookie, filter bar, table). Header band (total · per-state chips · sync freshness from `/api/assets/summary`). Filters: Site/State/Product Type/Manufacturer/search. Table columns: name, product, site, state, **RAM**, **C: free %**, **Monitors (raw)**, last scan, + an **Export Excel** button. Add it to the `_htmlCache` boot list + a `sendHtmlPage` route (`injectApiKey=false`, session via cookie — the `site-report.html` precedent). **No money column.**
 
-- [ ] **Step 5: Nav in `_shell.js`** — an "Assets" entry under the `performance` (Insights) parent, after `meetings`, `roles:['any']`. **Add one `ICON_LIB` key** from `brand/icons.js` (a `box`/`server`/`monitor` glyph — verify it exists in `icons.js` AND add it to the curated `ICON_LIB` subset; `ICON_LIB` is NOT a mirror — a missing key renders an empty span). Don't reuse `clipboard-check` or `bar-chart-3`.
+- [ ] **Step 5: Nav in `_shell.js`** — an "Assets" entry under the `performance` (Insights) parent, after `meetings`, `roles:['any']`. **`brand/icons.js` has NO hardware/asset glyph** (its keys are alert-*, bar-chart-3, book-open, calendar, camera, check, chevron-*, clipboard-check, clock, cloud-off, copy, download, edit, file-text, filter, gauge, headset, info, lightbulb, line-chart, log-out, mic, plus, presentation, refresh-cw, save, search, shield*, sliders, target, trash, trending-up, upload, user, users, wifi-off, x, zap). So the plan **adds a new icon** — TWO edits:
+  1. add a `hard-drive` (or `box`) SVG path to `brand/icons.js` (a simple Lucide-style glyph, e.g. `<rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="18" x2="6.01" y2="18"/>` for a drive);
+  2. add that same key to the curated `ICON_LIB` subset in `_shell.js` (`ICON_LIB` is NOT a mirror of `icons.js` — a key absent there renders an empty span with no error).
+  Don't reuse `clipboard-check` (Inspections/Meetings) or `bar-chart-3` (IT Review).
 
 - [ ] **Step 6: Verify in the browser** (mandatory — the visible page is the proof the sync isn't silently empty). `preview_start` the dev server, seed a few assets (or run a real sync if a token is available), load `/assets.html`, confirm the enriched table renders with real RAM/disk/monitor values, the filters narrow, and the Excel export downloads. Screenshot. **Restart, don't reload** (`_htmlCache`).
 
@@ -526,7 +580,7 @@ git commit --no-verify -m "feat(assets): Inventory page + Excel export + Insight
 
 - [ ] **Step 1: `tools/pg/copy-assets.js`** — mirror `tools/pg/copy-tracker.js` (apply `001_init.sql`, copy the 7 tables by PK upsert). A parity test is optional here (no prod assets.db yet); a smoke that the script loads + the SQL is valid suffices.
 
-- [ ] **Step 2: Real-CSV integration test.** Load the **7 in-scope CSVs** from a fixtures path (copy them into `tests/fixtures/assets/` OR read from an env-pointed dir) through the sync engine into a throwaway sqlite, then assert on real data:
+- [ ] **Step 2: Real-CSV integration test.** Parse the **7 in-scope CSVs** with a **BOM-stripping** reader (`Assets.csv`'s first header is `﻿Asset ID` — `utf-8-sig` / strip the BOM, or every row's `asset_id` maps null and all 2 473 drop). Load them from a fixtures path (copy them into `tests/fixtures/assets/` OR read from an env-pointed dir) through the sync engine into a throwaway sqlite, then assert on real data:
   - all **2 473** assets present; the `Workstation ID = Asset ID` join produces non-null RAM for a known machine;
   - the no-cost filter (`'0.00'`) returns **2 246**, not 0;
   - `software_installations` loads all **121 097** rows (proves the batch insert path at scale — use the CSV directly, not a live fetch);
