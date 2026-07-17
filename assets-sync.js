@@ -34,10 +34,17 @@ const DEFAULT_MAP = (row, def) => {
 
 // Sync ONE view: fetch (before the tx, so a throw never empties the table) -> map -> drop
 // PK-less rows -> full-replace in one transaction -> markSuccess. Any throw -> markError + rethrow.
-async function syncAssetView(def, { fetchView, replaceTable, markSuccess, markError }) {
+async function syncAssetView(def, { fetchView, replaceTable, countRows, markSuccess, markError }) {
   try {
     const raw = await fetchAll(def.viewId, fetchView, { maxRows: def.maxRows || 20000 });
     const mapped = raw.map(r => DEFAULT_MAP(r, def)).filter(m => m[def.pkCol]);   // drop rows missing PK
+    // C1 guard: a fetch that returns [] WITHOUT throwing (header-only CSV body, transient AP glitch,
+    // a view mid-rescan) would otherwise DELETE the live table and insert nothing — total silent data
+    // loss recorded as a clean sync. Refuse to full-replace a currently-POPULATED table with zero rows.
+    // A first-ever sync (existing count 0) with an empty fetch is fine — it writes nothing.
+    if (mapped.length === 0 && (await countRows(def.table)) > 0) {
+      throw new Error(`${def.job}: fetch returned 0 rows but table has rows — refusing to wipe`);
+    }
     const n = await replaceTable(def.table, Object.values(def.columns), mapped);  // DELETE+INSERT, one tx
     await markSuccess(def.job, n);
     return n;
@@ -65,6 +72,7 @@ function _defaultDeps() {
   return {
     fetchView:    _fetchView,
     replaceTable: adb.replaceTable,
+    countRows:    adb.countRows,
     markSuccess:  rdb.markSyncSuccess,
     markError:    rdb.markSyncError,
   };

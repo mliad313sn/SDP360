@@ -53,6 +53,25 @@ async function _replaceTablePg(table, cols, rows) {
     return rows.length;
   });
 }
+// Count rows in one of the Foundation tables. The table name comes from the trusted
+// ASSET_VIEWS config (never user input), but it is still validated against the known
+// set before interpolation so it can never become an injection vector if a future caller
+// passes a variable. Dual-backend: pg fork is async, every caller MUST await it.
+const _ASSET_TABLES = new Set(['assets', 'asset_memory', 'asset_logical_drives', 'asset_monitors', 'software_licenses']);
+function _assertTable(table) {
+  if (!_ASSET_TABLES.has(table)) throw new Error(`countRows: unknown table "${table}" — not an Assets Foundation table`);
+  return table;
+}
+function countRows(table) {
+  if (ASSETS_BACKEND === 'postgres') return _countRowsPg(table);
+  const db = getDB();
+  return db.prepare(`SELECT COUNT(*) AS n FROM ${_assertTable(table)}`).get().n;
+}
+async function _countRowsPg(table) {
+  const h = pgHandle();
+  return Number((await h.prepare(`SELECT COUNT(*) AS n FROM ${_assertTable(table)}`).get()).n);
+}
+
 // ---------------------------------------------------------------------------
 // Read side (Task 3) — enriched assets + lookups + summary. Every reader is
 // dual-backend: the PG fork is async and every caller must await it.
@@ -159,6 +178,6 @@ async function _getAssetSummaryPg() {
 
 if (ASSETS_BACKEND !== 'postgres') getDB();   // eager sqlite init at require, like tracker-db
 module.exports = {
-  getDB, initPgAssets, pgHandle, ASSETS_BACKEND, replaceTable,
+  getDB, initPgAssets, pgHandle, ASSETS_BACKEND, replaceTable, countRows,
   getEnrichedAssets, getAssetLookups, getAssetSummary,
 };
