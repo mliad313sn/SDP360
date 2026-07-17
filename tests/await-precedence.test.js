@@ -31,7 +31,8 @@ const ROOT = path.join(__dirname, '..');
 const DB_MODULES = ['reports-db.js', 'tracker-db.js', 'meetings-db.js', 'inspection-db.js'];
 
 // Files that consume the db modules. Directories are walked one level for .js.
-const CALLER_FILES = ['server.js'];
+// zoho-sync.js earned its place here on 2026-07-17 — see the MISSING-AWAIT test.
+const CALLER_FILES = ['server.js', 'zoho-sync.js', 'risk-register-export.js'];
 const CALLER_DIRS  = ['routes', 'services', path.join('tools', 'reports')];
 
 /** Names of functions that dispatch to a `_<name>Pg` fork — i.e. return a Promise on postgres. */
@@ -110,6 +111,67 @@ test('the scan catches the known-bad form and clears the correct one', () => {
   assert.strictEqual(scan('const rows = await rdb.listReports(id);', d).length, 0, 'a plain await is fine');
   assert.strictEqual(scan('await rdb.listReports(")." + a).find(x => x);', d).length, 1,
     'a paren/dot inside a string arg must not fool the scanner');
+});
+
+// ── The MISSING-AWAIT scan ───────────────────────────────────────────────────
+//
+// The sibling of the chained-method bug, and FAR nastier: it doesn't crash.
+//
+//     const lastSync = getLastSyncAt(JOB);        // ← a Promise on postgres
+//     ...
+//     if (!lastSyncAt) return true;               // a Promise is TRUTHY
+//     return isoDate > lastSyncAt;                // string > Promise → ALWAYS false
+//
+// That is `zoho-sync.js` before 2026-07-17. Every Zoho row was judged "not new",
+// so the hourly sync fetched 25k rows, upserted ZERO, wrote markSyncSuccess and
+// reported green. The dashboard silently froze on the day prod flipped to
+// postgres; four sites lost 91-97% of their tickets and nothing logged an error.
+// The chained-method scan above cannot see this — there's no `.method` to spot.
+//
+// Heuristic: a bare `foo(...)` statement, or `const x = foo(...)`, where foo is a
+// dispatcher and there is no `await`/`return`/`.then`. Restricted to the assignment
+// and bare-statement forms — that's where the damage is; passing a Promise straight
+// into another call is rarer and would false-positive on legitimate composition.
+function scanMissingAwait(src, dispatchers) {
+  const hits = [];
+  const lines = src.split('\n');
+  lines.forEach((raw, i) => {
+    const line = raw.replace(/\/\/.*$/, '');
+    // `const x = foo(` / `let x = foo(` / bare `foo(` at statement start
+    const m = line.match(/^\s*(?:(?:const|let|var)\s+[\w${}[\],:\s]+=\s*)?([a-zA-Z_$][\w$]*)\s*\(/);
+    if (!m) return;
+    const fn = m[1];
+    if (!dispatchers.has(fn)) return;
+    if (/\bawait\b|\breturn\b|\.then\b|\byield\b/.test(line)) return;   // handled
+    // a ternary like `force ? null : getLastSyncAt(JOB)` — the await may precede
+    if (/\bawait\s+[\w$]*\s*\?/.test(line)) return;
+    hits.push({ line: i + 1, expr: line.trim().slice(0, 90) });
+  });
+  return hits;
+}
+
+test('the missing-await scan catches the zoho-sync shape', () => {
+  const d = new Set(['getLastSyncAt', 'markSyncSuccess']);
+  assert.strictEqual(scanMissingAwait('    const lastSync = getLastSyncAt(JOB);', d).length, 1);
+  assert.strictEqual(scanMissingAwait('    markSyncSuccess(JOB, n, {});', d).length, 1, 'bare fire-and-forget statement');
+  assert.strictEqual(scanMissingAwait('    const lastSync = await getLastSyncAt(JOB);', d).length, 0);
+  assert.strictEqual(scanMissingAwait('    const lastSync = force ? null : await getLastSyncAt(JOB);', d).length, 0);
+  assert.strictEqual(scanMissingAwait('    return getLastSyncAt(JOB);', d).length, 0, 'returning the Promise is fine');
+  assert.strictEqual(scanMissingAwait('    // const lastSync = getLastSyncAt(JOB);', d).length, 0, 'comments are not code');
+});
+
+test('NO caller drops the await on a dual-backend call (silent no-op on postgres)', () => {
+  const dispatchers = findDispatchers();
+  const bad = [];
+  for (const file of callerFiles()) {
+    for (const h of scanMissingAwait(fs.readFileSync(file, 'utf8'), dispatchers)) {
+      bad.push(`${path.relative(ROOT, file)}:${h.line}  ${h.expr}`);
+    }
+  }
+  assert.deepStrictEqual(bad, [], `\n\nmissing await — these return a Promise on postgres (prod) and DO NOT crash:\n\n` +
+    bad.map(b => '  ' + b).join('\n') +
+    `\n\nA Promise is truthy, and every comparison against it is false. The 2026-07-17\n` +
+    `sync outage was exactly this. Add the await.\n`);
 });
 
 test('NO caller chains a method onto a dual-backend call (prod-only crash on postgres)', () => {

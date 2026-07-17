@@ -223,7 +223,7 @@ async function syncChangeCab() {
   console.log('[Sync] change_cab — starting…');
 
   try {
-    const lastSync = getLastSyncAt(JOB);
+    const lastSync = await getLastSyncAt(JOB);
     console.log(`[Sync] change_cab — last sync: ${lastSync || 'never (full fetch)'}`);
 
     // ── Fetch Change records ──────────────────────────────────────
@@ -291,7 +291,7 @@ async function syncChangeCab() {
       udf_json:        extractUdf(r),
     })).filter(r => r.change_id); // skip rows missing primary key
 
-    const changeUpserted = upsertChangeBatch(changeMapped);
+    const changeUpserted = await upsertChangeBatch(changeMapped);
     console.log(`[Sync] change_cab — upserted ${changeUpserted} Change records`);
 
     // ── Fetch CAB Approval records ────────────────────────────────
@@ -337,7 +337,7 @@ async function syncChangeCab() {
       comments:                 r['Comments']                          || null,
     })).filter(r => r.approval_id);
 
-    const cabUpserted = upsertCABBatch(cabMapped);
+    const cabUpserted = await upsertCABBatch(cabMapped);
     console.log(`[Sync] change_cab — upserted ${cabUpserted} CAB approval records`);
 
     // ── Reconciliation (deletion detection) ──────────────────────
@@ -370,7 +370,7 @@ async function syncChangeCab() {
       cab:    cabSchemaSnapshot    ? JSON.parse(cabSchemaSnapshot)    : [],
     });
 
-    markSyncSuccess(JOB, totalUpserted, {
+    await markSyncSuccess(JOB, totalUpserted, {
       deleted:        totalDeleted,
       schemaSnapshot: schemaSnap,
       fullSync:       true,   // we always do a full fetch so mark as full
@@ -379,7 +379,7 @@ async function syncChangeCab() {
     return { job: JOB, upserted: totalUpserted, deleted: totalDeleted };
 
   } catch (err) {
-    markSyncError(JOB, err.message);
+    await markSyncError(JOB, err.message);
     console.error(`[Sync] change_cab ❌ error: ${err.message}`);
     throw err;
   }
@@ -393,7 +393,7 @@ async function syncSurveyData() {
   console.log('[Sync] survey — starting…');
 
   try {
-    const lastSync = getLastSyncAt(JOB);
+    const lastSync = await getLastSyncAt(JOB);
     console.log(`[Sync] survey — last sync: ${lastSync || 'never (full fetch)'}`);
 
     // ── Fetch Survey Results ──────────────────────────────────────
@@ -440,7 +440,7 @@ async function syncSurveyData() {
       survey_responded_on: parseZohoDate(r['Survey Responded on'] || r['Survey Respo...']),
     })).filter(r => r.result_id);
 
-    const resultsUpserted = upsertSurveyResultBatch(resultsMapped);
+    const resultsUpserted = await upsertSurveyResultBatch(resultsMapped);
     console.log(`[Sync] survey — upserted ${resultsUpserted} Survey Results`);
 
     // ── Fetch Survey Answers ──────────────────────────────────────
@@ -482,11 +482,11 @@ async function syncSurveyData() {
       skipped:       (r['Skipped by Logi'] || r['Skipped by Logic'] || '').toLowerCase() === 'true' ? 1 : 0,
     })).filter(r => r.response_id && r.result_id);
 
-    const answersUpserted = upsertSurveyAnswerBatch(answersMapped);
+    const answersUpserted = await upsertSurveyAnswerBatch(answersMapped);
     console.log(`[Sync] survey — upserted ${answersUpserted} Survey Answers`);
 
     // ── Reconciliation: purge results deleted in Zoho ────────────
-    const surveyDeleted = reconcileSurveyResults(liveResultIds);
+    const surveyDeleted = await reconcileSurveyResults(liveResultIds);
     if (surveyDeleted > 0) {
       console.log(`[Sync] survey — reconciliation removed ${surveyDeleted} stale Survey Results (+answers)`);
     }
@@ -497,7 +497,7 @@ async function syncSurveyData() {
       answers: answerSchemaSnapshot ? JSON.parse(answerSchemaSnapshot) : [],
     });
 
-    markSyncSuccess(JOB, totalUpserted, {
+    await markSyncSuccess(JOB, totalUpserted, {
       deleted:        surveyDeleted,
       schemaSnapshot: schemaSnap,
       fullSync:       true,
@@ -519,7 +519,7 @@ async function syncSurveyData() {
       } catch (_) { zohoBody = '(unparseable body)'; }
     }
     const httpStatus = err.response ? err.response.status : '';
-    markSyncError(JOB, err.message + (zohoBody ? ` — body=${zohoBody}` : ''));
+    await markSyncError(JOB, err.message + (zohoBody ? ` — body=${zohoBody}` : ''));
     console.error(`[Sync] survey ❌ error: ${err.message}${httpStatus ? ` (HTTP ${httpStatus})` : ''}`);
     if (zohoBody) console.error(`[Sync] survey ❌ Zoho response body: ${zohoBody}`);
     throw err;
@@ -539,7 +539,7 @@ async function syncRequestData({ force = false } = {}) {
   try {
     // force=true → treat lastSync as null so every fetched row is re-upserted,
     // refreshing overdue_status and filling historical data gaps in SQLite.
-    const lastSync = force ? null : getLastSyncAt(JOB);
+    const lastSync = force ? null : await getLastSyncAt(JOB);
     console.log(`[Sync] requests — effective lastSync: ${lastSync || (force ? 'FORCED FULL RE-SYNC' : 'never')}`);
 
     // Request table is large (~47k rows); request up to 50k at a time
@@ -628,11 +628,11 @@ async function syncRequestData({ force = false } = {}) {
       impact:                 r['Impact']                                            || null,
     })).filter(r => r.request_id);
 
-    const upserted = upsertRequestBatch(mapped);
+    const upserted = await upsertRequestBatch(mapped);
     console.log(`[Sync] requests — upserted ${upserted} Request records`);
 
     // ── Reconciliation (deletion detection) ──────────────────────
-    const deleted = reconcileRequestRecords(liveIds);
+    const deleted = await reconcileRequestRecords(liveIds);
     if (deleted > 0) {
       console.log(`[Sync] requests — reconciliation removed ${deleted} stale records`);
     }
@@ -692,7 +692,7 @@ async function syncRequestData({ force = false } = {}) {
       console.warn(`[Sync] requests — UDF backfill failed (continuing): ${udfErr.message}`);
     }
 
-    markSyncSuccess(JOB, upserted, {
+    await markSyncSuccess(JOB, upserted, {
       deleted,
       schemaSnapshot: schemaSnapshot || '[]',
       fullSync: true,
@@ -701,7 +701,7 @@ async function syncRequestData({ force = false } = {}) {
     return { job: JOB, upserted, deleted, udfUpdated };
 
   } catch (err) {
-    markSyncError(JOB, err.message);
+    await markSyncError(JOB, err.message);
     console.error(`[Sync] requests ❌ error: ${err.message}`);
     throw err;
   }
