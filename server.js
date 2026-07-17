@@ -1184,7 +1184,7 @@ function loadHtml(name) {
   'meetings.html', 'meeting.html', 'meetings-issues.html', 'meetings-council.html', 'meetings-compliance.html',
   'meetings-import.html', 'meetings-progress.html', 'meetings-insights.html', 'meetings-setup.html', 'meetings-actions.html',
   'activity-tracker.html', 'help.html', 'exec-view.html', 'site-report.html', 'it-review.html',
-  'assets.html',
+  'assets.html', 'assets-hygiene.html',
 ].forEach(loadHtml);
 
 // Helper: build the per-request HTML, inject api-key + nonce, send. Pages
@@ -1277,6 +1277,10 @@ app.get('/inspection-actions.html', (req, res) => {
 // ── Serve inspections.html (list / dashboard) with CSP nonce ───────────────
 app.get('/assets.html', (req, res) => {
   sendHtmlPage(res, 'assets.html', false, 'Assets unavailable');
+});
+
+app.get('/assets-hygiene.html', (req, res) => {
+  sendHtmlPage(res, 'assets-hygiene.html', false, 'Assets hygiene unavailable');
 });
 
 app.get('/inspections.html', (req, res) => {

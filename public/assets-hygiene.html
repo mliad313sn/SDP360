@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Assets — Hygiene — Endeavour Mining IT</title>
+
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="brand/icons.css">
+<link rel="stylesheet" href="brand/components.css">
+<link rel="stylesheet" href="_shell.css">
+<!-- Chart.js — same CDN + version the rest of the dashboard uses (already CSP-allowed;
+     assets.html itself does NOT ship Chart.js, so this page adds it explicitly). -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js" defer></script>
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+
+<style nonce="%%CSP_NONCE%%">
+  body {
+    margin: 0;
+    background: var(--color-background, #f4f6f7);
+    color: var(--color-text-primary, #1F2A33);
+    font-family: var(--font-sans, 'Libre Franklin', 'Franklin Gothic', system-ui, sans-serif);
+    font-size: 14px;
+  }
+  .as-wrap        { max-width: 1280px; margin: 0 auto; padding: var(--space-6, 24px); }
+  .as-head        { display: flex; align-items: center; gap: var(--space-4, 16px); margin-bottom: var(--space-5, 20px); flex-wrap: wrap; }
+  .as-head h1     { margin: 0; font-size: 22px; font-weight: 700; color: var(--edv-slate, #3A4A60); }
+  .as-head .sub   { font-size: 13px; color: var(--color-text-muted, #6b7785); }
+  .as-head .spacer { flex: 1; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 14px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-md, 6px);
+    background: var(--edv-orange, #EF631A); color: #fff;
+    font-family: inherit; font-size: 13px; font-weight: 600;
+    cursor: pointer; text-decoration: none;
+    transition: background var(--motion-fast, 120ms);
+  }
+  .btn:hover        { background: var(--edv-orange-700, #C04E10); }
+  .btn-ghost        { background: #fff; color: var(--color-text-secondary, #3a4452); border-color: var(--color-border, #dfe3e8); }
+  .btn-ghost:hover  { background: var(--color-surface-muted, #f4f6f7); color: var(--color-text-primary, #1F2A33); }
+  .btn-sm           { padding: 5px 10px; font-size: 12px; }
+  .btn .icon        { width: 16px; height: 16px; }
+
+  /* Header band: completeness + total + freshness note */
+  .as-band {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 18px;
+    background: var(--color-surface, #fff);
+    border: 1px solid var(--color-border, #dfe3e8);
+    border-radius: var(--radius-md, 6px);
+    padding: var(--space-4, 16px) var(--space-5, 20px);
+    margin-bottom: var(--space-5, 20px);
+  }
+  .as-band .stat { display: flex; align-items: baseline; gap: 8px; padding-right: 18px; border-right: 1px solid var(--color-border-subtle, #eef0f3); }
+  .as-band .stat:last-of-type { border-right: none; }
+  .as-band .stat .n { font-size: 28px; font-weight: 700; line-height: 1; color: var(--color-text-primary, #1F2A33); }
+  .as-band .stat .l { font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--color-text-secondary, #3a4452); font-weight: 600; }
+  .as-band .stat .n.good { color: var(--edv-green, #1E8E3E); }
+  .as-band .stat .n.mid  { color: var(--color-warning, #D97706); }
+  .as-band .stat .n.bad  { color: var(--edv-red, #D90038); }
+  .as-band .fresh { font-size: 12px; color: var(--color-text-muted, #6b7785); margin-left: auto; }
+
+  /* Worklist tiles */
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--space-3, 12px); margin-bottom: var(--space-4, 16px); }
+  .tile {
+    background: var(--color-surface, #fff);
+    border: 1px solid var(--color-border, #dfe3e8);
+    border-left: 4px solid var(--edv-slate, #3A4A60);
+    border-radius: var(--radius-md, 6px);
+    padding: var(--space-4, 16px);
+    cursor: pointer;
+    transition: box-shadow var(--motion-fast, 120ms), transform var(--motion-fast, 120ms);
+    text-align: left;
+  }
+  .tile:hover { box-shadow: 0 3px 10px rgba(0,0,0,0.08); transform: translateY(-1px); }
+  .tile.active { box-shadow: 0 0 0 2px var(--edv-orange, #EF631A); }
+  .tile .tn { font-size: 30px; font-weight: 700; line-height: 1; color: var(--color-text-primary, #1F2A33); }
+  .tile .tl { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--color-text-secondary, #3a4452); margin-top: 6px; }
+  .tile .td { font-size: 11px; color: var(--color-text-muted, #6b7785); margin-top: 4px; }
+  .tile.k-discovered    { border-left-color: var(--edv-blue, #1E6FBF); }
+  .tile.k-never_scanned { border-left-color: var(--edv-red, #D90038); }
+  .tile.k-ghost         { border-left-color: var(--color-warning, #D97706); }
+
+  /* Gap stat row (completeness story — huge counts, present as counts) */
+  .gap-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--space-3, 12px); margin-bottom: var(--space-5, 20px); }
+  .gap {
+    background: var(--color-surface-muted, #f4f6f7);
+    border: 1px solid var(--color-border-subtle, #eef0f3);
+    border-radius: var(--radius-md, 6px);
+    padding: 12px 16px; cursor: pointer;
+    display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+    transition: background var(--motion-fast, 120ms);
+  }
+  .gap:hover { background: #eef1f4; }
+  .gap.active { box-shadow: 0 0 0 2px var(--edv-orange, #EF631A); }
+  .gap .gn { font-size: 22px; font-weight: 700; color: var(--color-text-primary, #1F2A33); }
+  .gap .gl { font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--color-text-secondary, #3a4452); font-weight: 600; }
+
+  /* Charts */
+  .chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--space-4, 16px); margin-bottom: var(--space-5, 20px); }
+  .chart-card {
+    background: var(--color-surface, #fff);
+    border: 1px solid var(--color-border, #dfe3e8);
+    border-radius: var(--radius-md, 6px);
+    padding: var(--space-4, 16px);
+    display: flex; flex-direction: column;
+  }
+  .chart-card h3 { margin: 0 0 12px; font-size: 13px; font-weight: 700; color: var(--edv-slate, #3A4A60); text-transform: uppercase; letter-spacing: 0.6px; }
+  .chart-card .cwrap { position: relative; height: 240px; }
+
+  /* Filter bar */
+  .filter-bar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: var(--space-3, 12px);
+    background: var(--color-surface, #fff);
+    border: 1px solid var(--color-border, #dfe3e8);
+    border-radius: var(--radius-md, 6px);
+    padding: var(--space-4, 16px);
+    margin-bottom: var(--space-5, 20px);
+  }
+  .filter-bar label {
+    display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px;
+    color: var(--color-text-secondary, #3a4452); font-weight: 600; margin-bottom: 4px;
+  }
+  .filter-bar select, .filter-bar input {
+    width: 100%; padding: 8px 10px;
+    border: 1px solid var(--color-border, #dfe3e8);
+    border-radius: var(--radius-sm, 4px);
+    background: #fff; font-family: inherit; font-size: 13px;
+    color: var(--color-text-primary, #1F2A33); box-sizing: border-box;
+  }
+  .filter-bar select:focus, .filter-bar input:focus {
+    outline: none; border-color: var(--edv-orange, #EF631A);
+    box-shadow: 0 0 0 3px rgba(239, 99, 26, 0.15);
+  }
+
+  /* Drill panel + table */
+  .panel {
+    background: var(--color-surface, #fff);
+    border: 1px solid var(--color-border, #dfe3e8);
+    border-radius: var(--radius-md, 6px);
+    margin-bottom: var(--space-5, 20px);
+  }
+  .drill-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: var(--space-4, 16px); border-bottom: 1px solid var(--color-border-subtle, #eef0f3); }
+  .drill-head h2 { margin: 0; font-size: 15px; font-weight: 700; color: var(--edv-slate, #3A4A60); }
+  .drill-head .spacer { flex: 1; }
+  table.list { width: 100%; border-collapse: collapse; font-size: 13px; background: var(--color-surface, #fff); }
+  table.list th {
+    text-align: left; padding: 10px 12px;
+    background: var(--edv-slate, #3A4A60); color: #fff;
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px;
+    font-weight: 600; white-space: nowrap;
+  }
+  table.list th.num, table.list td.num { text-align: right; }
+  table.list td { padding: 10px 12px; border-bottom: 1px solid var(--color-border-subtle, #eef0f3); vertical-align: top; }
+  table.list tr:hover { background: var(--color-surface-muted, #f4f6f7); }
+  .state-pill {
+    display: inline-block; padding: 2px 8px;
+    border-radius: var(--radius-pill, 9999px);
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+    background: var(--color-surface-muted, #f4f6f7); color: var(--color-text-secondary, #3a4452);
+  }
+  .stale { color: var(--edv-red, #D90038); font-weight: 700; }
+  .empty { text-align: center; padding: var(--space-10, 40px) var(--space-6, 24px); color: var(--color-text-muted, #6b7785); }
+  .count-note { font-size: 12px; color: var(--color-text-muted, #6b7785); padding: 8px 12px; border-top: 1px solid var(--color-border-subtle, #eef0f3); }
+
+  @media (max-width: 640px) {
+    .as-wrap { padding: var(--space-3, 12px); }
+    table.list { font-size: 12px; }
+    table.list th, table.list td { padding: 8px; }
+    .as-head h1 { font-size: 18px; }
+    table.list .col-mfr, table.list .col-serial, table.list .col-type { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div id="__shell" data-section="performance" data-current="assets-hygiene"></div>
+
+<div class="as-wrap">
+
+  <div class="as-head">
+    <div>
+      <h1>Assets — Hygiene</h1>
+      <div class="sub">Inventory data-quality worklist — completeness &amp; scan staleness across the fleet</div>
+    </div>
+    <div class="spacer"></div>
+    <a class="btn btn-ghost" id="exportAllBtn" href="#" title="Download every hygiene worklist (one sheet per kind, current filters) as Excel">
+      <span class="icon icon-download"></span> Export all
+    </a>
+  </div>
+
+  <div class="as-band" id="band">
+    <div class="stat"><span class="n" id="bandCompleteness">—</span><span class="l">Fleet completeness</span></div>
+    <div class="stat"><span class="n" id="bandTotal">—</span><span class="l">Assets in scope</span></div>
+    <div class="fresh" id="bandFresh"></div>
+  </div>
+
+  <!-- Worklist tiles -->
+  <div class="tiles" id="tiles">
+    <button class="tile k-discovered" data-kind="discovered">
+      <div class="tn" id="cnt-discovered">—</div>
+      <div class="tl">Discovered</div>
+      <div class="td">Newly seen, never brought into inventory state</div>
+    </button>
+    <button class="tile k-never_scanned" data-kind="never_scanned">
+      <div class="tn" id="cnt-never_scanned">—</div>
+      <div class="tl">Never scanned</div>
+      <div class="td">No successful audit on record</div>
+    </button>
+    <button class="tile k-ghost" data-kind="ghost">
+      <div class="tn" id="cnt-ghost">—</div>
+      <div class="tl">Ghost</div>
+      <div class="td">Was healthy, now stale &gt; 90 days</div>
+    </button>
+  </div>
+
+  <!-- Completeness gap counts -->
+  <div class="gap-row" id="gaps">
+    <div class="gap" data-kind="no_owner"><span class="gl">No owner</span><span class="gn" id="cnt-no_owner">—</span></div>
+    <div class="gap" data-kind="no_age"><span class="gl">No acquisition date</span><span class="gn" id="cnt-no_age">—</span></div>
+    <div class="gap" data-kind="no_cost"><span class="gl">No cost data</span><span class="gn" id="cnt-no_cost">—</span></div>
+  </div>
+
+  <!-- Charts -->
+  <div class="chart-grid">
+    <div class="chart-card">
+      <h3>Completeness by site</h3>
+      <div class="cwrap"><canvas id="chartSite"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <h3>Scan freshness</h3>
+      <div class="cwrap"><canvas id="chartFresh"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <h3>State distribution</h3>
+      <div class="cwrap"><canvas id="chartState"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Filter bar -->
+  <div class="filter-bar">
+    <div>
+      <label for="filterSite">Site</label>
+      <select id="filterSite"><option value="">All sites</option></select>
+    </div>
+    <div>
+      <label for="filterState">State</label>
+      <select id="filterState"><option value="">Any</option></select>
+    </div>
+    <div>
+      <label for="filterType">Product type</label>
+      <select id="filterType"><option value="">Any</option></select>
+    </div>
+    <div>
+      <label for="filterMfr">Manufacturer</label>
+      <select id="filterMfr"><option value="">Any</option></select>
+    </div>
+    <div>
+      <label for="filterQ">Search (name / serial)</label>
+      <input type="text" id="filterQ" placeholder="Type to filter…" />
+    </div>
+    <div style="display:flex;align-items:end">
+      <button class="btn btn-ghost" id="resetBtn" style="width:100%"><span class="icon icon-refresh-cw"></span> Reset</button>
+    </div>
+  </div>
+
+  <!-- Drill-down -->
+  <div class="panel">
+    <div class="drill-head">
+      <h2 id="drillTitle">Select a worklist above</h2>
+      <div class="spacer"></div>
+      <a class="btn btn-ghost btn-sm" id="exportKindBtn" href="#" style="display:none" title="Download this worklist (current filters) as Excel">
+        <span class="icon icon-download"></span> Export this list
+      </a>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="list" id="listTable" style="display:none">
+        <thead>
+          <tr>
+            <th>Asset name</th>
+            <th class="col-type">Product</th>
+            <th>Site</th>
+            <th>State</th>
+            <th class="col-mfr">Manufacturer</th>
+            <th class="col-serial">Serial</th>
+            <th class="num">Days since scan</th>
+            <th>Last audit status</th>
+            <th class="col-scan">Last scan source</th>
+          </tr>
+        </thead>
+        <tbody id="listBody"></tbody>
+      </table>
+    </div>
+    <div class="empty" id="emptyMsg">
+      <div style="font-size:32px;margin-bottom:8px">🛡️</div>
+      <div id="emptyText">Click a worklist tile to see the affected assets.</div>
+    </div>
+    <div class="count-note" id="countNote" style="display:none"></div>
+  </div>
+
+</div>
+
+<script nonce="%%CSP_NONCE%%">
+(function () {
+  'use strict';
+
+  const API = '/api/assets/hygiene';
+  // Worklist labels — mirror HYGIENE_KINDS in assets-db.js (single source of truth server-side).
+  const KIND_LABEL = {
+    discovered:    'Discovered',
+    never_scanned: 'Never successfully scanned',
+    ghost:         'Ghost (was healthy, stale > 90d)',
+    no_owner:      'No owner',
+    no_age:        'No acquisition date',
+    no_cost:       'No cost data',
+  };
+
+  let charts = {};      // Chart.js instances, keyed by canvas id
+  let activeKind = null;
+
+  function authHeaders() {
+    const h = {};
+    // auth.js sets window.__authToken to the token STRING; tolerate the older
+    // function-returning shape too. Never throw "is not a function".
+    let tok = null;
+    const at = window.__authToken;
+    if (typeof at === 'function') { try { tok = at(); } catch (_) {} }
+    else if (typeof at === 'string' && at) { tok = at; }
+    if (!tok) tok = localStorage.getItem('report_token');
+    if (tok) h['x-report-token'] = tok;
+    return h;
+  }
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[c]));
+  }
+
+  function currentFilters() {
+    return {
+      site:         document.getElementById('filterSite').value,
+      state:        document.getElementById('filterState').value,
+      product_type: document.getElementById('filterType').value,
+      manufacturer: document.getElementById('filterMfr').value,
+      q:            document.getElementById('filterQ').value.trim(),
+    };
+  }
+
+  function qs(params) {
+    const sp = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) { if (v) sp.set(k, v); }
+    return sp.toString() ? '?' + sp.toString() : '';
+  }
+
+  // completeness → colour class
+  function pctClass(p) {
+    if (p == null) return '';
+    return p >= 80 ? 'good' : (p >= 50 ? 'mid' : 'bad');
+  }
+
+  // ── CSS variable resolution (Chart.js can't read var(...) strings) ──
+  const css = getComputedStyle(document.documentElement);
+  const CV = (name, fallback) => (css.getPropertyValue(name).trim() || fallback);
+  const COL = {
+    slate:  CV('--edv-slate',  '#3A4A60'),
+    blue:   CV('--edv-blue',   '#1E6FBF'),
+    green:  CV('--edv-green',  '#1E8E3E'),
+    amber:  CV('--color-warning', '#D97706'),
+    red:    CV('--edv-red',    '#D90038'),
+    orange: CV('--edv-orange', '#EF631A'),
+    muted:  CV('--color-text-muted', '#6b7785'),
+  };
+
+  // ── Header + tiles + charts from /summary ─────────────────────────
+  async function loadSummary() {
+    const f = currentFilters();
+    let s = null;
+    try {
+      const r = await fetch(API + '/summary' + qs(f), { credentials: 'same-origin', headers: authHeaders() });
+      if (!r.ok) return;
+      s = await r.json();
+    } catch (e) { return; }
+
+    const total = Number(s.total) || 0;
+    const bk = s.by_kind || {};
+
+    // Fleet completeness: weighted over the 4 present-attributes (exact fleet-level,
+    // matches the per-site definition aggregated by asset count).
+    let comp = null;
+    if (total > 0) {
+      const present = (total - (bk.no_cost || 0)) + (total - (bk.no_age || 0))
+                    + (total - (bk.no_owner || 0)) + (total - (bk.never_scanned || 0));
+      comp = Math.round(1000 * present / (4 * total)) / 10;
+    }
+    const bc = document.getElementById('bandCompleteness');
+    bc.textContent = comp == null ? '—' : comp + '%';
+    bc.className = 'n ' + pctClass(comp);
+    document.getElementById('bandTotal').textContent = total.toLocaleString();
+
+    // Tile + gap counts
+    ['discovered','never_scanned','ghost','no_owner','no_age','no_cost'].forEach(k => {
+      const el = document.getElementById('cnt-' + k);
+      if (el) el.textContent = (bk[k] != null ? Number(bk[k]) : 0).toLocaleString();
+    });
+
+    renderCharts(s);
+  }
+
+  // ── Sync-freshness note from /api/assets/summary (no invented field) ─
+  async function loadFreshNote() {
+    try {
+      const r = await fetch('/api/assets/summary', { credentials: 'same-origin', headers: authHeaders() });
+      if (!r.ok) return;
+      const s = await r.json();
+      // /api/assets/summary is {total, by_state} — it carries no sync-freshness
+      // field, so we do NOT invent one. Just restate the fleet size.
+      document.getElementById('bandFresh').textContent =
+        (Number(s.total) || 0).toLocaleString() + ' assets in the register.';
+    } catch (e) { /* offline — leave blank */ }
+  }
+
+  function renderCharts(s) {
+    if (typeof Chart === 'undefined') { console.warn('Chart.js not loaded'); return; }
+
+    // 1) Completeness by site (bar)
+    const bySite = (s.by_site || []).filter(x => x.total > 0);
+    upsertChart('chartSite', {
+      type: 'bar',
+      data: {
+        labels: bySite.map(x => x.site || '(no site)'),
+        datasets: [{
+          label: 'Completeness %',
+          data: bySite.map(x => x.completeness),
+          backgroundColor: bySite.map(x => x.completeness >= 80 ? COL.green : (x.completeness >= 50 ? COL.amber : COL.red)),
+          borderRadius: 3,
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%' } } },
+      },
+    });
+
+    // 2) Scan freshness (donut)
+    const fr = s.scan_freshness || {};
+    upsertChart('chartFresh', {
+      type: 'doughnut',
+      data: {
+        labels: ['Never', '> 90d', '30–90d', '7–30d', '< 7d'],
+        datasets: [{
+          data: [fr.never || 0, fr.over90 || 0, fr.d30_90 || 0, fr.d7_30 || 0, fr.under7 || 0],
+          backgroundColor: [COL.red, COL.orange, COL.amber, COL.blue, COL.green],
+          borderWidth: 1, borderColor: '#fff',
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 } } } },
+      },
+    });
+
+    // 3) State distribution (bar)
+    const bs = s.by_state || {};
+    const stateKeys = Object.keys(bs).sort((a, b) => bs[b] - bs[a]);
+    upsertChart('chartState', {
+      type: 'bar',
+      data: {
+        labels: stateKeys.map(k => k || '(no state)'),
+        datasets: [{
+          label: 'Assets',
+          data: stateKeys.map(k => bs[k]),
+          backgroundColor: COL.slate, borderRadius: 3,
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+      },
+    });
+  }
+
+  function upsertChart(canvasId, config) {
+    if (charts[canvasId]) { charts[canvasId].destroy(); }
+    const ctx = document.getElementById(canvasId);
+    if (ctx) charts[canvasId] = new Chart(ctx, config);
+  }
+
+  // ── Filter dropdowns from /api/assets/lookups ─────────────────────
+  function fill(selId, values) {
+    const sel = document.getElementById(selId);
+    while (sel.options.length > 1) sel.remove(sel.options.length - 1);
+    (values || []).forEach(v => {
+      const o = document.createElement('option');
+      o.value = v; o.textContent = v;
+      sel.appendChild(o);
+    });
+  }
+  async function loadLookups() {
+    try {
+      const r = await fetch('/api/assets/lookups', { credentials: 'same-origin', headers: authHeaders() });
+      if (!r.ok) return;
+      const lk = await r.json();
+      fill('filterSite',  lk.sites);
+      fill('filterState', lk.states);
+      fill('filterType',  lk.product_types);
+      fill('filterMfr',   lk.manufacturers);
+    } catch (e) { /* offline — leave "All / Any" only */ }
+  }
+
+  // ── Drill table for one hygiene kind ──────────────────────────────
+  async function loadDrill(kind) {
+    activeKind = kind;
+    // highlight the active tile / gap
+    document.querySelectorAll('.tile, .gap').forEach(el =>
+      el.classList.toggle('active', el.getAttribute('data-kind') === kind));
+
+    const f = currentFilters();
+    document.getElementById('drillTitle').textContent = KIND_LABEL[kind] || kind;
+    const kb = document.getElementById('exportKindBtn');
+    kb.style.display = 'inline-flex';
+    kb.setAttribute('href', API + '/export.xlsx' + qs(Object.assign({ kind }, f)));
+
+    const table = document.getElementById('listTable');
+    const body  = document.getElementById('listBody');
+    const empty = document.getElementById('emptyMsg');
+    const note  = document.getElementById('countNote');
+    try {
+      const r = await fetch(API + '/exceptions' + qs(Object.assign({ kind }, f)),
+        { credentials: 'same-origin', headers: authHeaders() });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const rows = await r.json();
+      if (!Array.isArray(rows) || !rows.length) {
+        table.style.display = 'none';
+        body.innerHTML = '';
+        empty.style.display = 'block';
+        document.getElementById('emptyText').textContent = 'No assets in this worklist for the current filters. 🎉';
+        note.style.display = 'none';
+        return;
+      }
+      empty.style.display = 'none';
+      table.style.display = 'table';
+      body.innerHTML = rows.map(r => {
+        const dss = r.days_since_scan;
+        const dssN = (dss == null || dss === '') ? null : Number(dss);
+        const dssCls = (dssN != null && dssN > 90) ? 'stale' : '';
+        return `<tr>
+          <td><strong>${escapeHtml(r.asset_name || r.asset_id || '—')}</strong></td>
+          <td class="col-type">${escapeHtml(r.product || r.product_type || '—')}</td>
+          <td>${escapeHtml(r.site || '—')}</td>
+          <td>${r.state ? `<span class="state-pill">${escapeHtml(r.state)}</span>` : '—'}</td>
+          <td class="col-mfr">${escapeHtml(r.manufacturer || '—')}</td>
+          <td class="col-serial">${escapeHtml(r.serial_number || '—')}</td>
+          <td class="num ${dssCls}">${dss == null || dss === '' ? '—' : escapeHtml(dss)}</td>
+          <td>${escapeHtml(r.last_audit_status || '—')}</td>
+          <td class="col-scan">${escapeHtml(r.last_scan_source || '—')}</td>
+        </tr>`;
+      }).join('');
+      note.style.display = 'block';
+      note.textContent = rows.length.toLocaleString() + ' asset' + (rows.length === 1 ? '' : 's') + ' in this worklist.';
+    } catch (e) {
+      console.warn('drill load failed:', e);
+      table.style.display = 'none';
+      body.innerHTML = '';
+      empty.style.display = 'block';
+      document.getElementById('emptyText').textContent = 'Could not load this worklist.';
+      note.style.display = 'none';
+    }
+  }
+
+  // Recompute summary + charts on filter change; refresh the open drill too.
+  async function refresh() {
+    document.getElementById('exportAllBtn').setAttribute('href', API + '/export.xlsx' + qs(Object.assign({ kind: 'all' }, currentFilters())));
+    await loadSummary();
+    if (activeKind) await loadDrill(activeKind);
+  }
+
+  function resetFilters() {
+    ['filterSite', 'filterState', 'filterType', 'filterMfr', 'filterQ'].forEach(id => {
+      document.getElementById(id).value = '';
+    });
+    refresh();
+  }
+
+  function wire() {
+    document.querySelectorAll('.tile, .gap').forEach(el =>
+      el.addEventListener('click', () => loadDrill(el.getAttribute('data-kind'))));
+    ['filterSite', 'filterState', 'filterType', 'filterMfr'].forEach(id =>
+      document.getElementById(id).addEventListener('change', refresh));
+    let t = null;
+    document.getElementById('filterQ').addEventListener('input', () => {
+      clearTimeout(t); t = setTimeout(refresh, 250);
+    });
+    document.getElementById('resetBtn').addEventListener('click', resetFilters);
+    // Export links carry the session cookie on navigation (same-origin <a>).
+    document.getElementById('exportAllBtn').setAttribute('href', API + '/export.xlsx?kind=all');
+  }
+
+  async function boot() {
+    wire();
+    // Chart.js is loaded with defer — it's ready by the time DOMContentLoaded fires,
+    // but guard anyway.
+    await Promise.all([loadSummary(), loadFreshNote(), loadLookups()]);
+    document.getElementById('exportAllBtn').setAttribute('href', API + '/export.xlsx?kind=all');
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
+})();
+</script>
+
+</body>
+</html>

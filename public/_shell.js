@@ -56,6 +56,7 @@
     // renders an EMPTY icon span with no error. Add the key when you use it.
     'bar-chart-3':    ICONS.html('bar-chart-3'),
     'hard-drive':     ICONS.html('hard-drive'),
+    'shield-check':   ICONS.html('shield-check'),
   };
 
   // Canonical nav. Each item declares the role(s) that grant access.
@@ -124,6 +125,10 @@
         // Assets — the IT asset inventory (ManageEngine-synced hardware/config
         // fleet). Read-only inventory view for any logged-in user.
         { id: 'assets',      label: 'Assets',              icon: ICON_LIB['hard-drive'],      href: 'assets.html',            roles: ['any']       },
+        // Assets — Hygiene: the completeness / staleness worklist over the same
+        // fleet (discovered / never-scanned / ghost / missing owner-age-cost).
+        // Sits right after the inventory it complements. No money column.
+        { id: 'assets-hygiene', label: 'Assets — Hygiene', icon: ICON_LIB['shield-check'],   href: 'assets-hygiene.html',    roles: ['any']       },
         // IT Review — the review of what the meetings produce, hence right after
         // them. target:'_blank' is deliberate (same precedent as `help` below):
         // it-review.html is a faithful carry of the authoritative dashboard and
