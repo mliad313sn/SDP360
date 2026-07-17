@@ -2286,6 +2286,67 @@ app.get('/api/assets/export.xlsx', requireReportSession, async (req, res) => {
   }
 });
 
+// ── ASSETS · HYGIENE (sub-project B) ─────────────────────────────
+// Data-quality exception views over the enriched inventory. Same session guard +
+// same whitelisted filters as /inventory; every dual-backend reader is awaited.
+// Exceptions carry identity rows only — NO purchase_cost reaches the wire.
+const _assetHygieneFilters = (req) => {
+  const q = {};
+  for (const k of ['site', 'state', 'product_type', 'manufacturer', 'q']) {
+    if (req.query[k] != null && req.query[k] !== '') q[k] = String(req.query[k]);
+  }
+  return q;
+};
+
+app.get('/api/assets/hygiene/summary', requireReportSession, async (req, res) => {
+  try {
+    res.json(await require('./assets-db').getHygieneSummary(_assetHygieneFilters(req)));
+  } catch (e) {
+    console.error('[api/assets/hygiene/summary]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/assets/hygiene/exceptions', requireReportSession, async (req, res) => {
+  const adb = require('./assets-db');
+  // Pre-validate BEFORE the try/catch: an unknown kind must be a 400, not the
+  // catch's 500 (getHygieneExceptions throws on an unknown kind).
+  const kind = String(req.query.kind || '');
+  if (!adb.HYGIENE_KINDS[kind]) return res.status(400).json({ error: 'unknown kind' });
+  try {
+    res.json(await adb.getHygieneExceptions(kind, _assetHygieneFilters(req)));
+  } catch (e) {
+    console.error('[api/assets/hygiene/exceptions]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// GET /api/assets/hygiene/export.xlsx?kind=all|<kind> — one sheet per hygiene kind
+// (kind=all, the default), or a single sheet for a specific valid kind. An unknown
+// specific kind → 400 (pre-validated). No cost column (getHygieneExceptions excludes it).
+app.get('/api/assets/hygiene/export.xlsx', requireReportSession, async (req, res) => {
+  const adb = require('./assets-db');
+  const kind = String(req.query.kind || 'all');
+  if (kind !== 'all' && !adb.HYGIENE_KINDS[kind]) return res.status(400).json({ error: 'unknown kind' });
+  try {
+    const { buildWorkbook } = require('./services/tableExcel');
+    const filters = _assetHygieneFilters(req);
+    const keys = kind === 'all' ? Object.keys(adb.HYGIENE_KINDS) : [kind];
+    const sheets = [];
+    for (const key of keys) {
+      sheets.push({ name: adb.HYGIENE_KINDS[key].label || key,
+        rows: await adb.getHygieneExceptions(key, filters) });
+    }
+    const buf = buildWorkbook(sheets);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="assets-hygiene.xlsx"');
+    res.send(buf);
+  } catch (e) {
+    console.error('[api/assets/hygiene/export.xlsx]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/health', (req, res) => res.json({
   status: 'ok', tokenValid: Date.now() < tokenState.expiresAt,
   expiresAt: new Date(tokenState.expiresAt).toISOString(),
