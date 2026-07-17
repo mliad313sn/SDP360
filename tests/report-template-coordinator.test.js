@@ -319,6 +319,59 @@ test('the page and the email carry the SAME intro wording', () => {
   assert.ok(plain(page).includes('Commencez par les deux actions'));
 });
 
+// ── The RAG legend ───────────────────────────────────────────────────────────
+// `G≥8 A5–7 R<5` under every dimension is the AUTHOR's own text (source :182) —
+// a faithful port, not ours to reword. So the legend decodes it instead.
+
+test('the legend decodes G/A/R into plain words, in both languages', () => {
+  const { htmlBody } = composeCoordinator(data);
+  assert.match(htmlBody, /Reading the colours \(RAG\)/);
+  assert.match(htmlBody, /reen = on track/);
+  assert.match(htmlBody, /mber = at risk/);
+  assert.match(htmlBody, /ed = off track/);
+  assert.match(htmlBody, /Lire les couleurs \(RAG\)/);
+  assert.match(htmlBody, /dans les clous/);
+  assert.match(htmlBody, /d&eacute;croch&eacute;/);
+});
+
+test('the legend quotes a real dim band and the real score bands', () => {
+  const { htmlBody } = composeCoordinator(data);
+  // The example must be a band that actually appears under a dimension.
+  assert.ok(data.score.dims.some((d) => d.tip.includes('G≥8 A5–7 R<5')),
+    'the fixture must still carry the band the legend quotes');
+  assert.match(htmlBody, /G&#8805;8 A5&ndash;7 R&lt;5/);
+  // rag2(): >=70 GREEN, >=45 AMBER, else RED (services/siteScore.js).
+  assert.match(htmlBody, /green &#8805;70, amber 45&ndash;69, red below 45/);
+});
+
+test('the legend is NOT rendered when there is nothing to colour', () => {
+  // applicable:false → no chip, no dims, no moves. A legend would decode
+  // colours the reader cannot see.
+  const { htmlBody } = composeCoordinator(naData);
+  assert.ok(!/Reading the colours/.test(htmlBody));
+  assert.ok(!/Lire les couleurs/.test(htmlBody));
+});
+
+test('the score chip says what the colour MEANS — the page and email agree', () => {
+  // The email used to print a bare "RED" while the page said "Off track".
+  const red = JSON.parse(JSON.stringify(data)); red.score.rag = 'RED';
+  assert.match(composeCoordinator(red).htmlBody, /Off track/);
+  assert.ok(!/>RED</.test(composeCoordinator(red).htmlBody), 'no bare colour name as the verdict');
+  const green = JSON.parse(JSON.stringify(data)); green.score.rag = 'GREEN';
+  assert.match(composeCoordinator(green).htmlBody, /On track/);
+  assert.match(composeCoordinator(data).htmlBody, /At risk/);   // amber fixture
+  // …and the page's own mapping, so the two cannot drift apart.
+  const js = fs.readFileSync(path.join(__dirname, '..', 'public', 'site-report.js'), 'utf8');
+  ['On track', 'Off track', 'At risk'].forEach((l) => assert.ok(js.includes(l), `page is missing: ${l}`));
+});
+
+test('the page can hide its legend and its moves pointer', () => {
+  const page = fs.readFileSync(path.join(__dirname, '..', 'public', 'site-report.html'), 'utf8');
+  const js = fs.readFileSync(path.join(__dirname, '..', 'public', 'site-report.js'), 'utf8');
+  assert.match(page, /class="intro-p intro-legend"/, 'the legend must be targetable');
+  assert.match(js, /intro-legend/, 'renderScoreNA must hide it');
+});
+
 test('the page can hide its moves pointer — it is a real element, not a bare sentence', () => {
   // The page's intro is static markup: without these hooks, site-report.js
   // cannot drop the pointer on an unscored site the way the email does, and the

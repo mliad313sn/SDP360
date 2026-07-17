@@ -28,6 +28,14 @@ const RAG_COLORS = { green: '#16A34A', amber: '#D97706', red: '#DC2626' };
 // literal REDT fallback instead. All three take a white foreground.
 const SCORE_RAG = { green: '#2f7d4f', amber: '#d99a2b', red: '#c2280f' };
 const scoreRagColor = (rag) => SCORE_RAG[String(rag || '').toLowerCase()] || MUTED;
+// The chip says what the colour MEANS, not the colour's name. Must stay in step
+// with the page (public/site-report.js renderScore) — the email used to print a
+// bare "RED" while the page said "Off track": same report, two vocabularies, and
+// "RED" is exactly the jargon the intro's legend exists to remove.
+const scoreRagLabel = (rag) => {
+  const r = String(rag || '').toLowerCase();
+  return r === 'green' ? 'On track' : r === 'red' ? 'Off track' : r === 'amber' ? 'At risk' : 'n/a';
+};
 // A dim's 0/1/2 rating → its colour. 2 green · 1 amber · 0 red.
 const ptsColor = (pts) => (pts >= 2 ? SCORE_RAG.green : pts >= 1 ? SCORE_RAG.amber : SCORE_RAG.red);
 const NAVY = '#1E293B';
@@ -187,7 +195,7 @@ function scoreHero(score) {
 <td width="130" style="width:130px;vertical-align:top;padding:0 14px 12px 0;">
 <div style="font-family:${FONT};font-size:40px;font-weight:bold;color:${color};line-height:1;">${escapeHtml(value)}<span style="font-size:16px;color:${MUTED};font-weight:normal;">/100</span></div>
 <div style="font-family:${FONT};font-size:12px;color:${MUTED};padding-top:3px;">${escapeHtml(num(s.points))} / 12 pts</div>
-<div style="padding-top:8px;"><span style="display:inline-block;font-family:${FONT};font-size:11px;font-weight:bold;color:#FFFFFF;background:${color};border-radius:10px;padding:3px 12px;text-transform:uppercase;letter-spacing:0.5px;">${escapeHtml(rag || 'n/a')}</span></div>
+<div style="padding-top:8px;"><span style="display:inline-block;font-family:${FONT};font-size:11px;font-weight:bold;color:#FFFFFF;background:${color};border-radius:10px;padding:3px 12px;text-transform:uppercase;letter-spacing:0.5px;">${escapeHtml(scoreRagLabel(rag))}</span></div>
 </td>
 <td style="vertical-align:top;padding:0 0 12px 0;">
 <div style="font-family:${FONT};font-size:13px;line-height:1.5;padding-bottom:6px;">${trend}</div>
@@ -411,6 +419,28 @@ function header(data) {
 // applicable: a site with no data on the window has no score and no moves
 // (see scoreHero's applicable===false branch), so pointing at them would be a
 // lie. The explanation itself still helps there — it says what is missing.
+// The RAG legend. Rendered ONLY when the score is applicable: an unscored site
+// has no score chip, no dims and no moves, so there are no colours on the page
+// to decode — a legend there would explain something that isn't shown.
+// The `G≥8 A5–7 R<5` shorthand under every dimension is the
+// AUTHOR's own text (docs/reference/it-review-dashboard.source.js:182) — it is a
+// faithful port and not ours to reword, so we decode it here instead. Inline
+// <span> chips only: Outlook's Word renderer drops flex/grid.
+function ragLegend() {
+  const p = `font-family:${FONT};font-size:11px;line-height:1.7;color:${MUTED};margin:0;padding-top:7px;`;
+  const chip = (l, c) => `<span style="display:inline-block;font-family:${FONT};font-size:10px;font-weight:bold;color:#FFFFFF;background:${c};border-radius:4px;padding:0 5px;">${l}</span>`;
+  const code = (t) => `<span style="font-family:Consolas,monospace;font-size:11px;background:${WASH};border:1px solid ${BORDER};border-radius:3px;padding:0 3px;white-space:nowrap;">${t}</span>`;
+  const bands = code('G&#8805;8 A5&ndash;7 R&lt;5');
+  return `<p style="${p}"><strong style="color:${NAVY};">Reading the colours (RAG)</strong> &mdash; `
+    + `${chip('G', SCORE_RAG.green)} reen = on track &middot; ${chip('A', SCORE_RAG.amber)} mber = at risk &middot; ${chip('R', SCORE_RAG.red)} ed = off track. `
+    + `The shorthand under each dimension is its band: ${bands} reads &ldquo;green at 8 or more, amber 5 to 7, red below 5&rdquo;. `
+    + `Overall score: green &#8805;70, amber 45&ndash;69, red below 45.</p>`
+    + `<p style="${p}"><strong style="color:${NAVY};">Lire les couleurs (RAG)</strong> &mdash; `
+    + `${chip('G', SCORE_RAG.green)} reen (vert) = dans les clous &middot; ${chip('A', SCORE_RAG.amber)} mber (orange) = &agrave; risque &middot; ${chip('R', SCORE_RAG.red)} ed (rouge) = d&eacute;croch&eacute;. `
+    + `Le raccourci sous chaque dimension donne ses seuils&nbsp;: ${bands} se lit &laquo;&nbsp;vert &agrave; partir de 8, orange de 5 &agrave; 7, rouge en dessous de 5&nbsp;&raquo;. `
+    + `Note globale&nbsp;: vert &#8805;70, orange 45&ndash;69, rouge sous 45.</p>`;
+}
+
 function intro(score) {
   const hasMoves = obj(score).applicable !== false;
   const p = `font-family:${FONT};font-size:12px;line-height:1.55;color:${MUTED};margin:0;`;
@@ -420,6 +450,7 @@ function intro(score) {
 <tr><td style="padding:14px 16px;">
 <p style="${p}"><strong style="color:${NAVY};">What this score measures</strong> &mdash; how well the site keeps up the Group IT operating routine: departmental reviews, issues closed, inspections run, PVs signed. It is <strong>not</strong> a rating of IT service quality: a busy site can score low if it skips its reviews, a quiet one can score well.${enMoves}</p>
 <p style="${p}padding-top:10px;margin-top:10px;border-top:1px solid ${BORDER};"><strong style="color:${NAVY};">Ce que mesure cette note</strong> &mdash; la tenue du dispositif IT du Groupe sur le site&nbsp;: r&eacute;unions d&eacute;partementales tenues, probl&egrave;mes cl&ocirc;tur&eacute;s, inspections r&eacute;alis&eacute;es, PV sign&eacute;s. Ce n&rsquo;est <strong>pas</strong> une note sur la qualit&eacute; du service IT&nbsp;: un site tr&egrave;s sollicit&eacute; peut mal noter s&rsquo;il saute ses r&eacute;unions, un site calme peut bien noter.${frMoves}</p>
+${hasMoves ? ragLegend() : ''}
 </td></tr>
 </table>`;
 }

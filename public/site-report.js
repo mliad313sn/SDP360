@@ -72,14 +72,18 @@
     var hero = el('heroSection');
     if (hero) hero.className = 'card hero';
 
-    // The intro's "start with the two moves" pointer is STATIC markup, so it
-    // would survive into a report that has no moves at all. Drop it — same rule
-    // the email applies in intro() (reportTemplates/coordinator.js). The rest of
-    // the intro still helps here: it says what the score would have measured.
+    // The intro is STATIC markup, so two of its parts would survive into a
+    // report that has none of what they describe. Drop both — the same rule the
+    // email applies in intro()/ragLegend() (reportTemplates/coordinator.js):
+    //   · the "start with the two moves" pointer — there are no moves;
+    //   · the RAG legend — no score chip, no dims, so no colours to decode.
+    // The rest of the intro still helps: it says what the score would measure.
     ['introMovesEn', 'introMovesFr'].forEach(function (id) {
       var s = el(id);
       if (s) s.style.display = 'none';
     });
+    var legends = document.querySelectorAll('.intro-legend');
+    for (var i = 0; i < legends.length; i++) legends[i].style.display = 'none';
 
     var sv = el('scoreVal');
     var numBlock = sv && sv.parentNode && sv.parentNode.parentNode;   // .hero-score
