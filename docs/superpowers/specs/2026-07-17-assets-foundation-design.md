@@ -48,20 +48,37 @@ prove A prepares the ground for them without doing their work.
   into `reports.db` (already 348 KB of code and PG in prod — every new reader
   would need a dual-backend fork). Not sqlite-only (it would be the only non-PG
   module on an all-PG prod).
-- **Tables in v1:** **7 value-bearing** ones (revised down from 8 after spec
-  review — see below). The empty / noise tables (Mobile_Devices=0 rows,
-  Keyboard/Mouse serial=0 %, Physical_Drives manufacturer=0 %,
-  Printer_Info=virtual-printer noise, Hard_Disks=deferred) are excluded. The sync
-  is config-driven, so adding one later is one config entry.
-- **`Network_Adapters` dropped from v1 (spec-review finding #1).** Its two
-  valuable columns — `IP Address`, `MAC Address` — both match
-  `PII_BLOCKED_PATTERNS`'s `/\baddress\b/i` (server.js:69) and are deleted by
-  `stripPiiColumns` **inside** `fetchView` (server.js:741) before the sync sees
-  them. What survives (NIC, DHCP, Gateway) serves none of the three audiences
-  (hygiene / licences / refresh) — network cartography is not one of them. So
-  the table would ship near-empty for no consumer. It goes back in as one config
-  entry the day a network need appears, via a dedicated non-stripping fetch path
-  decided at that time. Net: **7 tables**.
+- **Tables in v1: FIVE** (revised from 8 → 7 → 5 as review + live reconnaissance
+  narrowed it). All five are small (< 5 000 rows live), so they fetch in one call
+  with no paging concern. The sync is config-driven, so adding one later is one
+  config entry.
+
+  | Table | Analytics-Plus view id (verified live 2026-07-17) | live rows |
+  |---|---|---|
+  | `assets` | `106803000000002058` | 2 475 |
+  | `asset_memory` | `106803000000002066` | 4 995 |
+  | `asset_logical_drives` | `106803000000002064` | 3 621 |
+  | `asset_monitors` | `106803000000002067` | 3 373 |
+  | `software_licenses` | `106803000000002074` | ~19 |
+
+- **`software` + `software_installations` moved to sub-project C (user decision
+  2026-07-17).** `software_installations` is **121 097 rows and does NOT fetch in
+  one call** — a single `maxRows=200000` fetch ran **> 7 minutes** against the
+  live view, far past `fetchView`'s 120 s timeout (server.js:711). It belongs with
+  licence compliance (C) anyway, where it needs a dedicated fetch strategy
+  (paging, or a nightly extended-timeout job). Removing it from the Foundation
+  **eliminates the module's single largest risk** (former §10.1). `software` (the
+  ~9 830-title compliance table) goes with it — and its real view id is still
+  unknown (the id the user first gave, `002061`, is **Physical Drives**, confirmed
+  by its columns). C resolves that id.
+- **`Network_Adapters` dropped (spec-review finding #1).** Its two valuable
+  columns — `IP Address`, `MAC Address` — both match `PII_BLOCKED_PATTERNS`'s
+  `/\baddress\b/i` (server.js:69) and are deleted by `stripPiiColumns` **inside**
+  `fetchView` (server.js:741). What survives serves none of the three audiences.
+  Re-add via a dedicated non-stripping fetch the day a network need appears.
+- **Excluded/noise tables** (Mobile_Devices=0 rows, Keyboard/Mouse serial=0 %,
+  Physical_Drives, Printer_Info, Hard_Disks) stay out; each is one config entry
+  when a report needs it.
 - **Scope of A:** backend + **one visible page** (filterable enriched-asset
   inventory + Excel export). Not backend-only — a page that shows the real
   synced assets is the only end-to-end proof the sync works (this codebase has
@@ -146,7 +163,7 @@ pattern but PostgreSQL-native from the start.
 ```
 assets-db.js               schema + readers + PG forks   (ASSETS_BACKEND flag)
 assets-sync.js             the config-driven engine; receives _fetchView via init()
-db/postgres/assets/001_init.sql   PG schema of the 7 tables
+db/postgres/assets/001_init.sql   PG schema of the 5 tables
 tools/pg/copy-assets.js    one-shot sqlite→PG copy (recipe identical to other modules)
 public/assets.html         Inventory page (filterable list + Excel export)
 tests/assets-sync.test.js
@@ -164,10 +181,9 @@ tests/assets-routes.smoke.test.js
   `CALLER_FILES` (so its calls into reports-db are scanned) AND add
   `assets-db.js` to `DB_MODULES` (so `assets-db`'s OWN dual-backend readers —
   `getEnrichedAssets` etc. — are discovered as dispatchers, and any
-  `(await reader()).map(...)` bug in a route is caught). `assets-db.js` is at
-  repo root, so `CALLER_DIRS`' auto-walk of `services/`/`routes/` does not reach
-  it — both edits are required.
-  Note: `sync_metadata` lives in **reports.db**, so the 7 asset jobs are seeded
+  `(await reader()).map(...)` bug in a route is caught). `DB_MODULES` is a hardcoded list (no auto-walk), so a new dispatcher module
+  must be added by name; `CALLER_FILES` likewise. Both edits are required.
+  Note: `sync_metadata` lives in **reports.db**, so the 5 asset jobs are seeded
   there and surface via `/api/sync/status` — the same cross-module coupling
   every existing sync already has.
 - `services/tableExcel.js` → `buildWorkbook(sheets)` for the export.
@@ -175,17 +191,17 @@ tests/assets-routes.smoke.test.js
 
 **`server.js` is touched in exactly four minimal places** (an existing module →
 requires the user's approval at plan time, as always):
-1. the 8 view IDs added to the `VIEWS` map,
+1. the 5 view IDs added to the `VIEWS` map,
 2. `require('./assets-sync').init(fetchView, VIEWS)` + `require('./assets-db')`
    PG init at boot,
 3. one `cron.schedule('30 4 * * *', …)` daily job,
 4. the `/api/assets/*` route block + `POST /api/sync/trigger/assets`.
 
 Config: `ASSETS_BACKEND` (default `sqlite`, prod `postgres`),
-`ASSETS_VIEW_*` optional overrides for the 8 view IDs (defaults hardcoded from
+`ASSETS_VIEW_*` optional overrides for the 5 view IDs (defaults hardcoded from
 the known workspace `106803000000002012`).
 
-## 5. Schema (7 tables, `assets` the hub)
+## 5. Schema (5 tables, `assets` the hub)
 
 We store the value-bearing columns, not all 45. Types are the SQLite shapes;
 `001_init.sql` mirrors them in PG (TEXT dates, NUMERIC costs kept as TEXT to
@@ -206,20 +222,15 @@ asset_logical_drives (drive_id PK)
   workstation_id, drive_letter, capacity_gb, free_gb, free_pct, file_type
 asset_monitors (workstation_id, monitor_id  COMPOSITE PK)
   monitor_type, manufacturer, serial_number   -- monitor_type raw (polluted; D denylists)
-software (software_id PK)
-  software_name, manufacturer, category, compliance_type, installations
-software_installations (software_info_id PK)
-  workstation_id, software_id, version, installed_on, category
 software_licenses (license_id PK)
   license_name, license_type, license_state, expiry_date, cost, site, vendor, software_id
 ```
 
 Indexes: every component table on `workstation_id` (the join); `assets` on
-`site`, `state`; `software_installations` on `software_id`;
-`software_licenses` on `license_state`.
+`site`, `state`; `software_licenses` on `license_state`.
 
-**7 tables:** `assets`, `asset_memory`, `asset_logical_drives`, `asset_monitors`,
-`software`, `software_installations`, `software_licenses`. (`asset_network`
+**5 tables:** `assets`, `asset_memory`, `asset_logical_drives`, `asset_monitors`,
+`software_licenses`. (`software`+`software_installations`→C; `asset_network`
 deferred — §2.)
 
 **Foreign keys are soft** (no enforced FK) — a component can legitimately
@@ -235,9 +246,9 @@ JOINed to its components, aggregated per workstation:
 { …asset fields…,
   ram_total_gb,          -- SUM(asset_memory.capacity_gb)
   system_disk_gb, system_disk_free_pct,  -- the C: drive (WHERE drive_letter='C:')
-  monitor_count,         -- raw COUNT(asset_monitors) — see below
-  software_count }       -- COUNT(software_installations)
+  monitor_count }        -- raw COUNT(asset_monitors) — see below
 ```
+(No `software_count` — `software_installations` is C's table, not A's.)
 
 - **`system_disk_*` is the `C:` drive**, not "primary" (spec-review finding #7 —
   there is no primary flag; machines average ~1.7 logical drives). C: is the OS
@@ -264,7 +275,7 @@ const ASSET_VIEWS = [
   { name:'software_licenses', job:'asset_licenses', viewId: VIEW.SW_LICENSES,
     pk:'License ID', columns:{…},
     transform: coerceLicence },   // the only non-trivial hook: dates + cost
-  … 6 more
+  … 5 more
 ];
 ```
 
@@ -279,49 +290,39 @@ it"). Per view:
    fetch throws, the table is **left untouched** (the frozen-sync lesson from
    2026-07-17: never let a failed fetch write emptiness).
 2. transaction: `DELETE FROM <table>` then batched INSERT of the mapped rows.
-3. `await markSyncSuccess(job, rowCount)` — **awaited**. A Promise written to the
-   INTEGER row-count column throws (`[object Promise]`), and `assets-sync.js` is
-   on the `await-precedence` scanner's list.
+3. `await markSyncSuccess(job, rowCount)` — **awaited** (its PG fork returns a
+   Promise that must be awaited to surface write errors and keep ordering; an
+   unawaited call is the frozen-sync bug that hit this repo on 2026-07-17).
+   `assets-sync.js` is on the `await-precedence` scanner's list.
 
 Full-replace over upsert-and-reconcile because the whole table is refetched
 every run anyway — replace is simpler and cannot leave stale rows.
 
-**Paging is a real design decision, not a footnote (spec-review finding #5).**
-`software_installations` is **121 097 rows** — 2.4× the largest proven fetch
-(requests at `maxRows 50000`), and **there is zero paging precedent anywhere in
-the codebase** (`grep startRow|fromIndex|page` → nothing). `fetchView` forwards
-`maxRows` to the Analytics-Plus API, which **truncates** (no auto-paging). So
-`assets-sync` owns a small paging helper, `fetchAll(viewId)`:
+**No paging needed in A (the 121 k risk left with `software_installations`).**
+All 5 Foundation views are < 5 000 rows live (largest: `asset_memory` at 4 995),
+so each fetches in a single `fetchView(viewId, maxRows)` call. `fetchAll(viewId)`
+is a one-liner with a **truncation guard**: if a result comes back AT the
+`maxRows` ceiling it is assumed truncated and **throws** — never a silent partial
+(the "sync reported success while writing nothing" failure this module's visible
+page exists to catch). Set `maxRows` comfortably above the largest view (e.g.
+20 000). The 121 k `software_installations` — the one table that does NOT fit a
+single fetch (> 7 min live) — is C's problem now, with its own paging/nightly
+strategy.
 
-- fetch in pages of 50 000 via the AP `startRow`/`fromIndex` param (exact param
-  name to be confirmed against the AP v2 API in the plan's first task — a
-  smoke-fetch against the live view, since no code exercises it today);
-- **stop condition:** a page returning `< pageSize` rows is the last. A page
-  returning **exactly** `pageSize` means "there may be more" → fetch the next.
-- **truncation guard:** the helper must NEVER store a partial table silently —
-  if paging cannot be confirmed working, it throws (leaving the table untouched,
-  per step 1) rather than storing the first 50 000 as if complete. Storing a
-  silent partial is exactly the "sync reported success while writing nothing"
-  failure this whole module's visible page exists to catch.
-
-The 6 other views (all ≤ ~10 k rows) take the single-fetch path; only
-`software_installations` (and, if ever re-added, a large view) pages.
-
-**Read consistency during sync (spec-review finding #6).** The 7 views are 7
+**Read consistency during sync (spec-review finding #6).** The 5 views are 5
 independent `DELETE`+`INSERT` transactions (so one table's failure doesn't stop
-the others). A page load *during* the 04:30 sync can therefore see `assets`
-already replaced while the slow `software_installations` is mid-replace →
-transiently inconsistent aggregates (wrong, not corrupt). Accepted for A: the
-daily off-hours cadence makes a mid-sync page load rare, and the alternative (one
-wrapping transaction across all 7) holds a long lock over the 121 k insert. The
-Inventory page's sync-freshness band shows the last-completed time per table, so
-a stale/mid-run state is visible rather than silently wrong.
+the others). A page load *during* the 04:30 sync can see `assets` already
+replaced while another table is mid-replace → transiently inconsistent aggregates
+(wrong, not corrupt). Accepted for A: the daily off-hours cadence makes a
+mid-sync page load rare, and the Inventory page's sync-freshness band shows the
+last-completed time per table, so a stale/mid-run state is visible rather than
+silently wrong. (With all 5 tables now small, each replace is sub-second, so the
+window is tiny.)
 
 **Cadence: daily**, `cron.schedule('30 4 * * *', …)`. A discovery scan doesn't
-run hourly, and 121 k software installations in an hourly full-replace is waste.
-`POST /api/sync/trigger/assets[?view=<name>]` for a manual run.
+run hourly. `POST /api/sync/trigger/assets[?view=<name>]` for a manual run.
 
-**One `sync_metadata` job per view** (`assets`, `asset_memory`, … 8 rows) → per-
+**One `sync_metadata` job per view** (`assets`, `asset_memory`, … 5 rows) → per-
 table status in `/api/sync/status`; a failure on one table doesn't stop the
 others.
 
@@ -399,11 +400,12 @@ trap is B/C's to resolve.
 
 ## 10. Risks & open questions
 
-1. **Paging (`software_installations`, 121 k).** Promoted from a footnote to a
-   real design decision in §6 — the first plan task smoke-fetches the live view
-   to confirm the Analytics-Plus paging param name, because **no code in this
-   repo pages a view**. The `fetchAll` helper must throw rather than store a
-   silent partial. This is the highest-uncertainty part of A.
+1. **~~Paging (`software_installations`, 121 k)~~ — RESOLVED by moving it to C
+   (2026-07-17).** Live reconnaissance confirmed a single fetch of the 121 k view
+   runs > 7 min (past `fetchView`'s 120 s timeout), so it left A for C. All 5
+   Foundation views are < 5 000 rows and fetch in one call; `fetchAll` keeps only
+   a truncation guard (throw if a result comes back at the `maxRows` ceiling).
+   **A no longer has a paging risk.**
 2. **Currency.** Confirmed ambiguous (§3 trap 1). A stores raw strings and shows
    no money; the decision (per-table currency, or a `currency` column) is
    deferred to B/C. Noted so it isn't rediscovered.
@@ -433,9 +435,9 @@ trap is B/C's to resolve.
 
 ## 12. Definition of done (sub-project A)
 
-- `assets.db` with 7 tables; `001_init.sql` PG mirror; `ASSETS_BACKEND` selects
+- `assets.db` with 5 tables; `001_init.sql` PG mirror; `ASSETS_BACKEND` selects
   the backend.
-- `assets-sync.js` full-replaces all 7 views daily; a manual trigger works;
+- `assets-sync.js` full-replaces all 5 views daily; a manual trigger works;
   every write is awaited; a failed fetch never empties a table.
 - `getEnrichedAsset` joins the fleet by `Workstation ID = Asset ID`.
 - `/api/assets/*` serves inventory / lookups / summary / export, filters
