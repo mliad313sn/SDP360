@@ -15,4 +15,109 @@ async function fetchAll(viewId, fetchView, { maxRows = 20000, hardCap = 50000 } 
   }
   return rows;
 }
-module.exports = { fetchAll };
+
+// ── Config-driven full-replace sync engine ─────────────────────────────────────
+// Each ASSET_VIEWS entry declares a Zoho Analytics view -> a local table:
+//   { name, job, table, viewId, pkCol, columns:{ 'Zoho Header':'snake_col' }, transform? }
+// columns keys are the Zoho column headers; values are the snake_case DB columns (order = the
+// column list handed to replaceTable). pkCol is the snake_col that MUST be non-null for a row to
+// survive (drops the header row / blank rows). Every string is stored RAW — no currency/date
+// coercion (purchase_cost/cost stay strings like '1,250,000.00'); a transform hook exists for
+// later date/currency handling but Foundation ships identity/no-op transforms.
+
+// Map one raw Zoho row -> a { snake_col: value } object. Values are trimmed strings, '' -> null.
+const DEFAULT_MAP = (row, def) => {
+  const out = {};
+  for (const [zoho, col] of Object.entries(def.columns)) out[col] = (row[zoho] ?? '').toString().trim() || null;
+  return def.transform ? def.transform(row, out) : out;
+};
+
+// Sync ONE view: fetch (before the tx, so a throw never empties the table) -> map -> drop
+// PK-less rows -> full-replace in one transaction -> markSuccess. Any throw -> markError + rethrow.
+async function syncAssetView(def, { fetchView, replaceTable, markSuccess, markError }) {
+  try {
+    const raw = await fetchAll(def.viewId, fetchView, { maxRows: def.maxRows || 20000 });
+    const mapped = raw.map(r => DEFAULT_MAP(r, def)).filter(m => m[def.pkCol]);   // drop rows missing PK
+    const n = await replaceTable(def.table, Object.values(def.columns), mapped);  // DELETE+INSERT, one tx
+    await markSuccess(def.job, n);
+    return n;
+  } catch (e) {
+    await markError(def.job, e.message);   // table untouched — fetch/replace never completed
+    throw e;
+  }
+}
+
+// Sync every view, each in its OWN try/catch so one view's failure never aborts the others.
+// Returns a per-view summary: [{name, rows} | {name, error}].
+async function syncAllAssets(deps) {
+  const summary = [];
+  for (const def of ASSET_VIEWS) {
+    try {
+      const rows = await syncAssetView(def, deps);
+      summary.push({ name: def.name, rows });
+    } catch (e) {
+      console.error(`[assets-sync] view "${def.name}" failed: ${e.message}`);
+      summary.push({ name: def.name, error: e.message });
+    }
+  }
+  return summary;
+}
+
+// The 5 Foundation views — live Zoho Analytics view IDs, verified 2026-07-17.
+const ASSET_VIEWS = [
+  {
+    name: 'assets', job: 'assets_assets', table: 'assets',
+    viewId: '106803000000002058', pkCol: 'asset_id',
+    columns: {
+      'Asset ID': 'asset_id', 'Asset Name': 'asset_name', 'Product': 'product',
+      'Product Type': 'product_type', 'Product Manufacturer': 'manufacturer', 'State': 'state',
+      'Serial Number': 'serial_number', 'Barcode': 'barcode', 'Site': 'site', 'Site ID': 'site_id',
+      'Purchase Cost($)': 'purchase_cost', 'Acquisition Date': 'acquisition_date',
+      'Warranty Expiry': 'warranty_expiry', 'User': 'user_name', 'Department': 'department',
+      'Last Successful Audit Time': 'last_successful_audit_time', 'Last Audit Status': 'last_audit_status',
+      'Days Since Successful Scan': 'days_since_scan', 'Last Scan Source': 'last_scan_source',
+      'Created Time': 'created_time',
+    },
+  },
+  {
+    name: 'asset_memory', job: 'assets_memory', table: 'asset_memory',
+    viewId: '106803000000002066', pkCol: 'memory_module_id',
+    columns: {
+      'Memory Module ID': 'memory_module_id', 'Workstation ID': 'workstation_id',
+      'Capacity (GB)': 'capacity_gb', 'Socket Label': 'socket_label', 'Module Tag': 'module_tag',
+    },
+  },
+  {
+    name: 'asset_logical_drives', job: 'assets_logical_drives', table: 'asset_logical_drives',
+    viewId: '106803000000002064', pkCol: 'drive_id',
+    columns: {
+      'Drive ID': 'drive_id', 'Workstation ID': 'workstation_id', 'Logical Drive': 'drive_letter',
+      'Drive Capacity (GB)': 'capacity_gb', 'Free Space (GB)': 'free_gb', 'Free Space (%)': 'free_pct',
+      'File Type': 'file_type',
+    },
+  },
+  {
+    name: 'asset_monitors', job: 'assets_monitors', table: 'asset_monitors',
+    viewId: '106803000000002067', pkCol: 'workstation_id',   // composite PK (workstation_id, monitor_id)
+    columns: {
+      'Workstation ID': 'workstation_id', 'Monitor ID': 'monitor_id', 'Monitor Type': 'monitor_type',
+      'Manufacturer': 'manufacturer', 'Serial Number': 'serial_number',
+    },
+  },
+  {
+    name: 'software_licenses', job: 'assets_software_licenses', table: 'software_licenses',
+    viewId: '106803000000002074', pkCol: 'license_id',
+    columns: {
+      'License ID': 'license_id', 'License Name': 'license_name', 'License Type': 'license_type',
+      'License State': 'license_state', 'Expiry Date': 'expiry_date', 'Cost($)': 'cost',
+      'Site': 'site', 'Vendor': 'vendor', 'Software ID': 'software_id',
+    },
+    // Re-derives `cost` as the RAW trimmed string straight from the Zoho row (no currency
+    // coercion). Deliberately reads `row['Cost($)']` rather than trusting `out` so the transform
+    // is self-contained when called directly (not only through DEFAULT_MAP). Exists so future
+    // date/currency handling has a home without touching the engine.
+    transform: (row, out) => ({ ...out, cost: (row['Cost($)'] ?? '').toString().trim() || null }),
+  },
+];
+
+module.exports = { fetchAll, syncAssetView, syncAllAssets, ASSET_VIEWS, DEFAULT_MAP };

@@ -24,5 +24,34 @@ function pgHandle() {
   if (!_pg) throw new Error('pgDb not initialised — await initPgAssets() at boot');
   return _pg;
 }
+
+// Full-replace one table in a single transaction: DELETE everything, then batch-insert `rows`.
+// The caller MUST fetch its data BEFORE calling this — a failed fetch never reaches here, so the
+// table is never emptied on a fetch error. INSERT OR REPLACE (sqlite) / ON CONFLICT DO NOTHING (pg)
+// guard against a duplicate PK WITHIN one fetch. Returns rows.length. Dispatched by ASSETS_BACKEND.
+function replaceTable(table, cols, rows) {
+  if (ASSETS_BACKEND === 'postgres') return _replaceTablePg(table, cols, rows);
+  const db = getDB();
+  const ph = cols.map(() => '?').join(', ');
+  const insert = db.prepare(`INSERT OR REPLACE INTO ${table} (${cols.join(', ')}) VALUES (${ph})`);
+  const tx = db.transaction((rs) => {
+    db.prepare(`DELETE FROM ${table}`).run();
+    for (const m of rs) insert.run(...cols.map(c => m[c] ?? null));
+  });
+  tx(rows);
+  return rows.length;
+}
+async function _replaceTablePg(table, cols, rows) {
+  const h = pgHandle();
+  const ph = cols.map(() => '?').join(', ');   // pgDb translates ? -> $N
+  const insertSql = `INSERT INTO ${table} (${cols.join(', ')}) VALUES (${ph}) ON CONFLICT DO NOTHING`;
+  return h.runTransaction(async () => {
+    const del = h.prepare(`DELETE FROM ${table}`);
+    const ins = h.prepare(insertSql);
+    await del.run();
+    for (const m of rows) await ins.run(...cols.map(c => m[c] ?? null));
+    return rows.length;
+  });
+}
 if (ASSETS_BACKEND !== 'postgres') getDB();   // eager sqlite init at require, like tracker-db
-module.exports = { getDB, initPgAssets, pgHandle, ASSETS_BACKEND };
+module.exports = { getDB, initPgAssets, pgHandle, ASSETS_BACKEND, replaceTable };
