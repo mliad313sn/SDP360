@@ -47,9 +47,33 @@ async function syncAssetView(def, { fetchView, replaceTable, markSuccess, markEr
   }
 }
 
+// ── Server wiring (Task 4) ─────────────────────────────────────────────────────
+// server.js calls init(fetchView, VIEWS) at boot, mirroring zoho-sync's init. The
+// fetchView primitive is stashed here; VIEWS is accepted for signature parity but
+// the view ids are self-contained in ASSET_VIEWS, so it's unused. The cron + the
+// manual trigger call the no-arg syncAllAssets(), which builds live deps from the
+// stashed fetchView + assets-db's replaceTable + reports-db's markSync* helpers.
+let _fetchView = null;
+function init(fetchView /*, VIEWS */) { _fetchView = fetchView; }
+
+// Live deps for the no-arg convenience form. markSyncSuccess upserts the 5 job
+// rows in sync_metadata on first run — no pre-seeding needed.
+function _defaultDeps() {
+  if (!_fetchView) throw new Error('assets-sync: init(fetchView) not called — no fetchView available');
+  const adb = require('./assets-db');
+  const rdb = require('./reports-db');
+  return {
+    fetchView:    _fetchView,
+    replaceTable: adb.replaceTable,
+    markSuccess:  rdb.markSyncSuccess,
+    markError:    rdb.markSyncError,
+  };
+}
+
 // Sync every view, each in its OWN try/catch so one view's failure never aborts the others.
 // Returns a per-view summary: [{name, rows} | {name, error}].
-async function syncAllAssets(deps) {
+// Tests pass explicit deps; server.js calls it no-arg (deps built from the stashed fetchView).
+async function syncAllAssets(deps = _defaultDeps()) {
   const summary = [];
   for (const def of ASSET_VIEWS) {
     try {
@@ -120,4 +144,4 @@ const ASSET_VIEWS = [
   },
 ];
 
-module.exports = { fetchAll, syncAssetView, syncAllAssets, ASSET_VIEWS, DEFAULT_MAP };
+module.exports = { init, fetchAll, syncAssetView, syncAllAssets, ASSET_VIEWS, DEFAULT_MAP };

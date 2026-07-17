@@ -333,6 +333,13 @@ const VIEWS = {
   REQUEST_VOLUME_TREND:  '106803000000644288',
   AGEING_BY_GROUP:       '106803000000141197',
   SLA_BY_GROUP:          '106803000000002448',
+  // Assets module (Foundation) — view ids are also self-contained in assets-sync's
+  // ASSET_VIEWS; listed here for discoverability/parity with the other synced views.
+  ASSET_ASSETS:          '106803000000002058',
+  ASSET_MEMORY:          '106803000000002066',
+  ASSET_LOGICAL_DRIVES:  '106803000000002064',
+  ASSET_MONITORS:        '106803000000002067',
+  ASSET_LICENSES:        '106803000000002074',
 };
 
 // ── TOKEN ─────────────────────────────────────────────────────────
@@ -476,6 +483,11 @@ cron.schedule('*/50 * * * *', () => refreshAccessToken().catch(e => console.erro
 // ── BACKGROUND SYNC JOBS ──────────────────────────────────────────
 const sync = require('./zoho-sync');
 sync.init(fetchView, VIEWS);
+
+// Assets sync (Foundation) — stash fetchView; view ids are self-contained in ASSET_VIEWS.
+require('./assets-sync').init(fetchView, VIEWS);
+// Daily full-replace of the 5 asset views at 04:30 (off-peak, after nightly refresh at 03:15).
+cron.schedule('30 4 * * *', () => require('./assets-sync').syncAllAssets().catch(e => console.error('[Cron:assets]', e.message)));
 
 // Change + CAB: every hour at :30 past the hour (offset to avoid collision with requests at :45)
 // Bumped from `30 */2 * * *` (every 2h) on 2026-05-26 to support the
@@ -2170,6 +2182,15 @@ app.get('/api/sync/status', requireReportSession, async (req, res) => {
  * Add ?force=true to bypass the incremental filter for 'requests' and re-upsert
  * every row from Zoho, refreshing overdue_status and filling historical data gaps.
  */
+// Manual assets sync — admin only. Fire-and-forget; respond immediately (mirrors the
+// :job trigger below). MUST be registered BEFORE /api/sync/trigger/:job or the param
+// route swallows it as job='assets' → 400 (the /:id shadowing pitfall in CLAUDE.md).
+// markSyncSuccess upserts the 5 sync_metadata rows on first run.
+app.post('/api/sync/trigger/assets', requireReportSession, requireAdmin, (req, res) => {
+  res.json({ ok: true, message: 'Assets sync started' });
+  require('./assets-sync').syncAllAssets().catch(e => console.error('[ManualSync:assets]', e.message));
+});
+
 app.post('/api/sync/trigger/:job', requireReportSession, requireAdmin, async (req, res) => {
   const { job } = req.params;
   const force = req.query.force === 'true' || req.body?.force === true;
@@ -2199,6 +2220,42 @@ app.post('/api/sync/trigger/:job', requireReportSession, requireAdmin, async (re
       }
     })
     .catch(e => console.error(`[ManualSync:${job}]`, e.message));
+});
+
+// ── ASSETS (Foundation) ──────────────────────────────────────────
+// Read routes require a session; the sync trigger requires admin. Every dual-backend
+// reader is awaited (Promise on ASSETS_BACKEND=postgres) — see tests/await-precedence.test.js.
+app.get('/api/assets/inventory', requireReportSession, async (req, res) => {
+  try {
+    const adb = require('./assets-db');
+    // Whitelist the filter keys the reader understands; values ride as bound params.
+    const q = {};
+    for (const k of ['site', 'state', 'product_type', 'manufacturer', 'q']) {
+      if (req.query[k] != null && req.query[k] !== '') q[k] = String(req.query[k]);
+    }
+    res.json(await adb.getEnrichedAssets(q));
+  } catch (e) {
+    console.error('[api/assets/inventory]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/assets/lookups', requireReportSession, async (req, res) => {
+  try {
+    res.json(await require('./assets-db').getAssetLookups());
+  } catch (e) {
+    console.error('[api/assets/lookups]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/assets/summary', requireReportSession, async (req, res) => {
+  try {
+    res.json(await require('./assets-db').getAssetSummary());
+  } catch (e) {
+    console.error('[api/assets/summary]', e.message);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.get('/health', (req, res) => res.json({
@@ -6761,6 +6818,10 @@ async function start() {
   if (require('./inspection-db').INSPECTION_BACKEND === 'postgres') {
     await require('./inspection-db').initPgInspection();
     console.log('[Inspection] PostgreSQL backend ready');
+  }
+  if (require('./assets-db').ASSETS_BACKEND === 'postgres') {
+    await require('./assets-db').initPgAssets();
+    console.log('[Assets] PostgreSQL backend ready');
   }
 
   // SECURITY: Bind interface controlled by env var BIND_HOST (see top

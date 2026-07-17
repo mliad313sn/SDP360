@@ -28,11 +28,12 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..');
-const DB_MODULES = ['reports-db.js', 'tracker-db.js', 'meetings-db.js', 'inspection-db.js'];
+const DB_MODULES = ['reports-db.js', 'tracker-db.js', 'meetings-db.js', 'inspection-db.js', 'assets-db.js'];
 
 // Files that consume the db modules. Directories are walked one level for .js.
 // zoho-sync.js earned its place here on 2026-07-17 — see the MISSING-AWAIT test.
-const CALLER_FILES = ['server.js', 'zoho-sync.js', 'risk-register-export.js'];
+// assets-sync.js joined on 2026-07-17 with the Assets module wiring (Task 4).
+const CALLER_FILES = ['server.js', 'zoho-sync.js', 'risk-register-export.js', 'assets-sync.js'];
 const CALLER_DIRS  = ['routes', 'services', path.join('tools', 'reports')];
 
 /** Names of functions that dispatch to a `_<name>Pg` fork — i.e. return a Promise on postgres. */
