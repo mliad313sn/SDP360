@@ -176,8 +176,149 @@ async function _getAssetSummaryPg() {
   return { total: Number(total), by_state };
 }
 
+// ---------------------------------------------------------------------------
+// Hygiene readers (sub-project B, Task 0) — six exception kinds + a completeness
+// summary. Purely additive: nothing above changes. Every fragment is the spec
+// predicate VERBATIM (see docs/superpowers/specs/2026-07-17-assets-hygiene-design.md
+// §2) — the counts are load-bearing, do not "tidy" them.
+//
+// Two invariants worth restating at the code:
+//  - `ghost` requires a SUCCESSFUL prior scan (LIKE '%success%') AND >90d, while
+//    `never_scanned` fires whenever the CURRENT status isn't a success. So a
+//    failing-but-stale row is never_scanned ONLY — the two are disjoint.
+//  - `days_since_scan` is TEXT → CAST(NULLIF(days_since_scan,'') AS INTEGER); the
+//    NULLIF keeps pg's strict cast from 500-ing on '' (sqlite is lenient). The pg
+//    fork carries the identical NULLIF — do not drop it.
+// ---------------------------------------------------------------------------
+
+// Ordered single source of truth. Routes + Excel + digest all read this map, so a
+// kind is defined exactly once. `where` is a bare predicate over the `assets`
+// columns (unqualified — the queries alias `assets AS a`, so unqualified names
+// resolve to it); the shared whitelisted filters are ANDed in separately.
+const HYGIENE_KINDS = {
+  discovered:    { label: 'Discovered',                  where: "state = 'Discovered'" },
+  never_scanned: { label: 'Never successfully scanned',  where: "last_successful_audit_time IS NULL OR last_successful_audit_time = '' OR last_audit_status IS NULL OR lower(last_audit_status) NOT LIKE '%success%'" },
+  ghost:         { label: 'Ghost (was healthy, stale >90d)', where: "lower(last_audit_status) LIKE '%success%' AND CAST(NULLIF(days_since_scan,'') AS INTEGER) > 90" },
+  no_owner:      { label: 'No owner',                    where: "(user_name IS NULL OR user_name = '') AND (department IS NULL OR department = '')" },
+  no_age:        { label: 'No acquisition date',         where: "acquisition_date IS NULL OR acquisition_date = ''" },
+  no_cost:       { label: 'No cost data',                where: "purchase_cost IS NULL OR purchase_cost IN ('0.00','0','')" },
+};
+
+// The kind's predicate ANDed with the SAME whitelisted filters getEnrichedAssets
+// accepts (site/state/product_type/manufacturer/q) — parameter-bound, no interpolation.
+// `_assetWhere` emits `a.`-qualified clauses, so the callers query `assets AS a`.
+function _hygieneWhere(kind, filters) {
+  const k = HYGIENE_KINDS[kind];
+  if (!k) throw new Error(`getHygieneExceptions: unknown hygiene kind "${kind}"`);
+  const { where, params } = _assetWhere(filters);   // ' AND a.site = ?' …  (or '')
+  return { sql: `(${k.where})${where}`, params };
+}
+
+const _HYGIENE_EXC_COLS = 'a.asset_id, a.asset_name, a.product, a.product_type, a.manufacturer, a.state, a.site, a.serial_number, a.days_since_scan, a.last_audit_status, a.last_scan_source';
+
+// The four completeness attributes, expressed as PRESENT-counts. Present = NOT
+// the gap predicate, written as CASE WHEN <gap> THEN 0 ELSE 1 — the exact boolean
+// negation, so Σ_site(present) + by_kind[gap] === total reconciles (the M-4 cross-check).
+const _PRESENT_SELECT =
+  `SUM(CASE WHEN (${HYGIENE_KINDS.no_cost.where})       THEN 0 ELSE 1 END) AS cost_present,
+   SUM(CASE WHEN (${HYGIENE_KINDS.no_age.where})        THEN 0 ELSE 1 END) AS age_present,
+   SUM(CASE WHEN (${HYGIENE_KINDS.no_owner.where})      THEN 0 ELSE 1 END) AS owner_present,
+   SUM(CASE WHEN (${HYGIENE_KINDS.never_scanned.where}) THEN 0 ELSE 1 END) AS scan_present`;
+
+// Scan-freshness buckets over CAST(NULLIF(days_since_scan,'') AS INTEGER). `never`
+// is the never_scanned population; the rest bucket the successfully-scanned rows.
+const _FRESHNESS_SELECT =
+  `SUM(CASE WHEN (${HYGIENE_KINDS.never_scanned.where}) THEN 1 ELSE 0 END) AS never,
+   SUM(CASE WHEN NOT (${HYGIENE_KINDS.never_scanned.where}) AND CAST(NULLIF(days_since_scan,'') AS INTEGER) > 90 THEN 1 ELSE 0 END) AS over90,
+   SUM(CASE WHEN NOT (${HYGIENE_KINDS.never_scanned.where}) AND CAST(NULLIF(days_since_scan,'') AS INTEGER) >= 30 AND CAST(NULLIF(days_since_scan,'') AS INTEGER) <= 90 THEN 1 ELSE 0 END) AS d30_90,
+   SUM(CASE WHEN NOT (${HYGIENE_KINDS.never_scanned.where}) AND CAST(NULLIF(days_since_scan,'') AS INTEGER) >= 7  AND CAST(NULLIF(days_since_scan,'') AS INTEGER) < 30 THEN 1 ELSE 0 END) AS d7_30,
+   SUM(CASE WHEN NOT (${HYGIENE_KINDS.never_scanned.where}) AND CAST(NULLIF(days_since_scan,'') AS INTEGER) < 7  THEN 1 ELSE 0 END) AS under7`;
+
+// pct helper: present/total → 1-decimal percent; total 0 → null (not 0, not NaN).
+function _pct(present, total) { return total ? Math.round(1000 * present / total) / 10 : null; }
+
+function _buildBySite(siteRows) {
+  return siteRows.map(r => {
+    const total = Number(r.total);
+    const cost_present = Number(r.cost_present), age_present = Number(r.age_present),
+          owner_present = Number(r.owner_present), scan_present = Number(r.scan_present);
+    const cost_pct = _pct(cost_present, total), age_pct = _pct(age_present, total),
+          owner_pct = _pct(owner_present, total), scan_pct = _pct(scan_present, total);
+    const completeness = total
+      ? Math.round(1000 * ((cost_present + age_present + owner_present + scan_present) / 4) / total) / 10
+      : null;
+    return { site: r.site, total, cost_present, age_present, owner_present, scan_present,
+      cost_pct, age_pct, owner_pct, scan_pct, completeness };
+  });
+}
+
+function getHygieneSummary(filters) {
+  if (ASSETS_BACKEND === 'postgres') return _getHygieneSummaryPg(filters);
+  const db = getDB();
+  const { where, params } = _assetWhere(filters);         // ' AND a.…' (or '')
+  const filt = `WHERE 1=1${where}`;
+  const total = Number(db.prepare(`SELECT COUNT(*) AS n FROM assets a ${filt}`).get(...params).n);
+  const by_kind = {};
+  for (const kind of Object.keys(HYGIENE_KINDS)) {
+    const w = _hygieneWhere(kind, filters);
+    by_kind[kind] = Number(db.prepare(`SELECT COUNT(*) AS n FROM assets a WHERE ${w.sql}`).get(...w.params).n);
+  }
+  const siteRows = db.prepare(
+    `SELECT COALESCE(a.site,'') AS site, COUNT(*) AS total, ${_PRESENT_SELECT} FROM assets a ${filt} GROUP BY a.site ORDER BY a.site`
+  ).all(...params);
+  const fr = db.prepare(`SELECT ${_FRESHNESS_SELECT} FROM assets a ${filt}`).get(...params);
+  const scan_freshness = { never: Number(fr.never) || 0, over90: Number(fr.over90) || 0,
+    d30_90: Number(fr.d30_90) || 0, d7_30: Number(fr.d7_30) || 0, under7: Number(fr.under7) || 0 };
+  const stateRows = db.prepare(
+    `SELECT COALESCE(a.state,'') AS state, COUNT(*) AS n FROM assets a ${filt} GROUP BY a.state`
+  ).all(...params);
+  const by_state = {};
+  for (const r of stateRows) by_state[r.state] = Number(r.n);
+  return { total, by_kind, by_site: _buildBySite(siteRows), scan_freshness, by_state };
+}
+async function _getHygieneSummaryPg(filters) {
+  const h = pgHandle();
+  const { where, params } = _assetWhere(filters);
+  const filt = `WHERE 1=1${where}`;
+  const total = Number((await h.prepare(`SELECT COUNT(*) AS n FROM assets a ${filt}`).get(...params)).n);
+  const by_kind = {};
+  for (const kind of Object.keys(HYGIENE_KINDS)) {
+    const w = _hygieneWhere(kind, filters);
+    by_kind[kind] = Number((await h.prepare(`SELECT COUNT(*) AS n FROM assets a WHERE ${w.sql}`).get(...w.params)).n);
+  }
+  const siteRows = await h.prepare(
+    `SELECT COALESCE(a.site,'') AS site, COUNT(*) AS total, ${_PRESENT_SELECT} FROM assets a ${filt} GROUP BY a.site ORDER BY a.site`
+  ).all(...params);
+  const fr = await h.prepare(`SELECT ${_FRESHNESS_SELECT} FROM assets a ${filt}`).get(...params);
+  const scan_freshness = { never: Number(fr.never) || 0, over90: Number(fr.over90) || 0,
+    d30_90: Number(fr.d30_90) || 0, d7_30: Number(fr.d7_30) || 0, under7: Number(fr.under7) || 0 };
+  const stateRows = await h.prepare(
+    `SELECT COALESCE(a.state,'') AS state, COUNT(*) AS n FROM assets a ${filt} GROUP BY a.state`
+  ).all(...params);
+  const by_state = {};
+  for (const r of stateRows) by_state[r.state] = Number(r.n);
+  return { total, by_kind, by_site: _buildBySite(siteRows), scan_freshness, by_state };
+}
+
+function getHygieneExceptions(kind, filters) {
+  if (ASSETS_BACKEND === 'postgres') return _getHygieneExceptionsPg(kind, filters);
+  const db = getDB();
+  const { sql, params } = _hygieneWhere(kind, filters);   // throws on unknown kind
+  return db.prepare(
+    `SELECT ${_HYGIENE_EXC_COLS} FROM assets a WHERE ${sql} ORDER BY a.site, a.asset_name`
+  ).all(...params);
+}
+async function _getHygieneExceptionsPg(kind, filters) {
+  const h = pgHandle();
+  const { sql, params } = _hygieneWhere(kind, filters);   // throws on unknown kind
+  return h.prepare(
+    `SELECT ${_HYGIENE_EXC_COLS} FROM assets a WHERE ${sql} ORDER BY a.site, a.asset_name`
+  ).all(...params);
+}
+
 if (ASSETS_BACKEND !== 'postgres') getDB();   // eager sqlite init at require, like tracker-db
 module.exports = {
   getDB, initPgAssets, pgHandle, ASSETS_BACKEND, replaceTable, countRows,
   getEnrichedAssets, getAssetLookups, getAssetSummary,
+  HYGIENE_KINDS, getHygieneSummary, getHygieneExceptions,
 };
