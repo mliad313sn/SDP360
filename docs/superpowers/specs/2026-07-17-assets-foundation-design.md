@@ -300,14 +300,14 @@ every run anyway — replace is simpler and cannot leave stale rows.
 
 **No paging needed in A (the 121 k risk left with `software_installations`).**
 All 5 Foundation views are < 5 000 rows live (largest: `asset_memory` at 4 995),
-so each fetches in a single `fetchView(viewId, maxRows)` call. `fetchAll(viewId)`
-is a one-liner with a **truncation guard**: if a result comes back AT the
-`maxRows` ceiling it is assumed truncated and **throws** — never a silent partial
-(the "sync reported success while writing nothing" failure this module's visible
-page exists to catch). Set `maxRows` comfortably above the largest view (e.g.
-20 000). The 121 k `software_installations` — the one table that does NOT fit a
-single fetch (> 7 min live) — is C's problem now, with its own paging/nightly
-strategy.
+so each fetches in a single `fetchView(viewId, maxRows)` call. **Recon fact: the
+AP `/data` endpoint IGNORES `maxRows`** — asked for 10 000 it returned all 121 117
+`software_installations` rows. So the API never truncates; it returns the whole
+view or **times out** (`software_installations` took 13.6 min, past `fetchView`'s
+120 s cap — which is why it moved to C). `fetchAll` therefore has **no truncation
+guard** (there's nothing to truncate) — only a data-gone-wrong sanity cap. The
+real protection against a silent partial is `fetchView`'s timeout on an over-large
+view (it throws) plus the sync engine's "table survives a failed fetch" order.
 
 **Read consistency during sync (spec-review finding #6).** The 5 views are 5
 independent `DELETE`+`INSERT` transactions (so one table's failure doesn't stop

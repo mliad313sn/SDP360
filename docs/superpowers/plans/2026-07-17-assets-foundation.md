@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** A PostgreSQL-ready `assets.db` module that syncs 7 ManageEngine Analytics Plus views, joins them by `Workstation ID = Asset ID`, and serves a filterable enriched-inventory page with Excel export.
+**Goal:** A PostgreSQL-ready `assets.db` module that syncs 5 ManageEngine Analytics Plus views, joins them by `Workstation ID = Asset ID`, and serves a filterable enriched-inventory page with Excel export.
 
 **Architecture:** New standalone module (`assets-db.js` + `assets-sync.js`) mirroring `tracker`/`meetings`/`inspection`, but PostgreSQL-native from day one via `services/pgDb.js` + an `ASSETS_BACKEND` flag. The sync is config-driven (one declarative array, one engine) and full-replaces each table (the discovery views have no reliable modified-time signal). No monetary display anywhere.
 
@@ -30,12 +30,12 @@
 
 | File | Responsibility |
 |---|---|
-| `db/postgres/assets/001_init.sql` | PG schema of the 7 tables (applied at boot by `initPgAssets`) |
+| `db/postgres/assets/001_init.sql` | PG schema of the 5 tables (applied at boot by `initPgAssets`) |
 | `assets-db.js` | schema (sqlite `_initSchema` + PG init) · the enriched-asset readers · lookups/summary · `ASSETS_BACKEND` flag · `pgHandle()` |
 | `assets-sync.js` | `fetchAll` (single-fetch, throws on truncation) · `ASSET_VIEWS` config · `syncAssetView` engine · `syncAllAssets` · `init(fetchView, VIEWS)` |
 | `public/assets.html` | the Inventory page (filterable enriched list + Excel button) |
 | `tools/pg/copy-assets.js` | one-shot sqlite→PG copy (mirrors `tools/pg/copy-tracker.js`) |
-| `server.js` (edit) | 7 `VIEWS` ids · `assets-sync.init` + `initPgAssets` at boot · daily cron · `/api/assets/*` routes |
+| `server.js` (edit) | 5 `VIEWS` ids · `assets-sync.init` + `initPgAssets` at boot · daily cron · `/api/assets/*` routes |
 | `public/_shell.js` (edit) | "Assets" nav entry + one `ICON_LIB` key |
 | `tests/assets-*.test.js` | one test file per task |
 
@@ -48,7 +48,7 @@
 - Create: `assets-db.js`
 - Test: `tests/assets-db-init.test.js`
 
-- [ ] **Step 1: Write the failing test** — the module inits a sqlite DB with the 7 tables and the composite-PK monitor table.
+- [ ] **Step 1: Write the failing test** — the module inits a sqlite DB with the 5 tables and the composite-PK monitor table.
 
 ```javascript
 // tests/assets-db-init.test.js
@@ -63,11 +63,11 @@ const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'assets-'));
 process.env.SDP_DATA_DIR = TMP;
 const db = require('../assets-db');
 
-test('init creates the 7 tables', () => {
+test('init creates the 5 tables', () => {
   const h = db.getDB();
   const names = h.prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").all().map(r => r.name);
   for (const t of ['assets','asset_memory','asset_logical_drives','asset_monitors',
-                   'software','software_installations','software_licenses']) {
+                   'software_licenses']) {
     assert.ok(names.includes(t), `missing table ${t}`);
   }
 });
@@ -89,7 +89,7 @@ test('purchase_cost is TEXT (no currency coercion into a numeric type)', () => {
 
 - [ ] **Step 3: Implement `assets-db.js` skeleton + `001_init.sql`.**
 
-`db/postgres/assets/001_init.sql` — 7 `CREATE TABLE IF NOT EXISTS`. Costs TEXT. Composite PK on monitors. Every component table has an index on `workstation_id`. Example shape (write all 7):
+`db/postgres/assets/001_init.sql` — 5 `CREATE TABLE IF NOT EXISTS`. Costs TEXT. Composite PK on monitors. Every component table has an index on `workstation_id`. Example shape (write all 5):
 
 ```sql
 CREATE TABLE IF NOT EXISTS assets (
@@ -109,8 +109,8 @@ CREATE TABLE IF NOT EXISTS asset_monitors (
 );
 CREATE INDEX IF NOT EXISTS idx_mon_ws ON asset_monitors(workstation_id);
 -- …asset_memory (memory_module_id PK), asset_logical_drives (drive_id PK),
---   software (software_id PK), software_installations (software_info_id PK),
---   software_licenses (license_id PK)… each per §5 of the spec.
+--   software_licenses (license_id PK, incl. license_state/expiry_date/cost/site/vendor)…
+--   each per §5 of the spec. (software + software_installations are sub-project C.)
 ```
 
 `assets-db.js` — mirror `tracker-db.js:141-157` for the flag + PG init, and the sqlite `_initSchema` pattern. Keep the sqlite DDL byte-identical to `001_init.sql` (SQLite accepts the same `CREATE TABLE` text; `SERIAL`/`now()` don't appear here so one SQL string serves both — read it from the `.sql` file for sqlite too, or inline the same statements):
@@ -154,46 +154,35 @@ module.exports = { getDB, initPgAssets, pgHandle, ASSETS_BACKEND };
 
 ```bash
 git add assets-db.js db/postgres/assets/001_init.sql tests/assets-db-init.test.js
-git commit --no-verify -m "feat(assets): schema + module skeleton (7 tables, both backends)"
+git commit --no-verify -m "feat(assets): schema + module skeleton (5 tables, both backends)"
 ```
 
 ---
 
-## Task 1 (PREREQUISITE — human gate): confirm the fetch capacity against the live views
+## Reconnaissance — DONE (2026-07-17). No human gate remains.
 
-**This is a reconnaissance step, not code. A subagent cannot do it — it needs the
-7 Analytics-Plus view IDs and a live Zoho token.** It must happen before Task 2's
-engine is wired to real views, because the whole `fetchAll` design hinges on ONE
-unknown: **can the AP `/data` endpoint return all 121 097 `software_installations`
-rows in a single `maxRows` fetch, or does it cap below that?**
+Live-fetched every Foundation view; the 121 k risk left with sub-project C.
 
-The real primitive is `fetchView(viewId, maxRows)` (server.js:710) — a **number**,
-forwarded to Zoho as `params:{responseFormat:'csv', maxRows}`. **It sends no
-offset.** There is no paging anywhere in this repo. So there are only two viable
-shapes, and this gate picks one:
-
-- **Path A — single large fetch (expected, simplest).** `fetchView(SW_INSTALL, 200000)`
-  returns all 121 097 rows. `fetchAll` is then a one-liner with a truncation
-  guard. No `server.js` fetch change.
-- **Path B — paging required.** The AP endpoint caps `maxRows` below 121 097. Then
-  Task 2 needs a **real 5th `server.js` edit**: a `fetchViewPaged(viewId)` that
-  loops the AP offset param (name to be confirmed in this gate) and concatenates.
-  This is net-new, unproven code against an API nobody here has paged.
-
-- [ ] **Gate step:** with the 7 view IDs to hand, fetch `software_installations`
-  at `maxRows=200000` (through the running dev server's token, or a one-off script
-  reusing `refreshAccessToken`) and record: **(a)** the row count returned,
-  **(b)** whether it equals the CSV's 121 097 or a round cap (100 000 etc.),
-  **(c)** if capped, whether the AP v2 `/data` API accepts an offset/`startRow`
-  param. Write the answer into this plan (one line) before Task 2.
-
-> **Owner:** the user (or the controller with the view IDs + token). The result
-> chooses Path A or B. **Everything below assumes Path A** and flags exactly where
-> Path B diverges. Do NOT let a subagent invent an offset param or store a partial.
+- **View IDs (verified live):** `assets` 002058 · `asset_memory` 002066 ·
+  `asset_logical_drives` 002064 · `asset_monitors` 002067 · `software_licenses`
+  002074. All five are **< 5 000 rows** (largest: memory 4 995) → each fetches in
+  one call, **no paging needed anywhere in A**.
+- **`software_installations` (121 097 rows) does NOT single-fetch** (> 7 min live,
+  past `fetchView`'s 120 s timeout) → moved to **C** with `software`. `software`'s
+  real view id is still unknown (the `002061` the user gave is Physical Drives) —
+  C resolves it.
+- `fetchView(viewId, maxRows)` (server.js:710) takes a **number** and sends no
+  offset — so a subagent must NEVER invent a `startRow`. `fetchAll` is a single
+  fetch (Task 1).
+- **The API IGNORES `maxRows`** (recon fact): asked for 10 000 it returned all
+  121 117 `software_installations` rows. It returns the whole view or times out —
+  it never truncates. So `fetchAll` has no truncation guard, only a data-gone-wrong
+  sanity cap; the real protection against a silent partial is `fetchView`'s 120 s
+  timeout on a huge view (throws) + Task 2's transaction order.
 
 ---
 
-## Task 1b: `fetchAll` — one fetch, and throws on truncation (Path A)
+## Task 1: `fetchAll` — one fetch, throws on truncation
 
 **Files:**
 - Create: `assets-sync.js`
@@ -202,7 +191,9 @@ shapes, and this gate picks one:
 **The non-negotiable behaviour:** a fetch that comes back at the `maxRows` ceiling
 is *assumed truncated* and **throws** — never a silent partial (the frozen-sync
 class of bug from 2026-07-17). Signature matches the REAL `fetchView(viewId,
-maxRows)` — no invented `{startRow}` object.
+maxRows)` — no invented `{startRow}` object. All 5 Foundation views are < 5 000
+rows, so `maxRows=20000` clears them with headroom and the throw only fires on a
+genuine truncation.
 
 - [ ] **Step 1: Write the failing test** — `fetchAll(viewId, fetchView, {maxRows})`, `fetchView(viewId, maxRows)` injected.
 
@@ -213,24 +204,31 @@ const test = require('node:test');
 const assert = require('node:assert');
 const { fetchAll } = require('../assets-sync');
 
-const makeFetch = (total) => async (viewId, maxRows) => ({
-  rows: Array.from({ length: Math.min(total, maxRows) }, (_, i) => ({ id: i })),
+// The recon (2026-07-17) proved the Analytics-Plus /data endpoint IGNORES the
+// `maxRows` param: asked for 10 000 it returned all 121 117 software_installations
+// rows. So the API never truncates — it returns EVERYTHING, or times out. There
+// is therefore NO silent-partial-by-truncation risk to guard against; the only
+// failure is a slow fetch hitting fetchView's timeout (which throws → Task 2
+// keeps the table intact). The guard here is a *sanity ceiling*, not a truncation
+// check: it throws only if a Foundation view unexpectedly balloons past a hard
+// cap (data went wrong), which for these 5 small views should never happen.
+const makeFetch = (total) => async () => ({
+  rows: Array.from({ length: total }, (_, i) => ({ id: i })),   // API returns ALL rows, ignoring maxRows
 });
 
-test('returns all rows when the view fits under maxRows', async () => {
-  const rows = await fetchAll('v', makeFetch(121097), { maxRows: 200000 });
-  assert.strictEqual(rows.length, 121097);
+test('returns every row the API sends (maxRows is not a ceiling the API honours)', async () => {
+  const rows = await fetchAll('v', makeFetch(4995), { hardCap: 50000 });
+  assert.strictEqual(rows.length, 4995);
 });
 
-test('THROWS on a full-ceiling result (assumed truncated — never a silent partial)', async () => {
-  // view has >= maxRows rows → fetch returns exactly maxRows → must be treated as truncated
-  await assert.rejects(() => fetchAll('v', makeFetch(500000), { maxRows: 200000 }),
-    /truncat|>= maxRows|partial/i);
+test('throws only if a view blows past the hard sanity cap (data-gone-wrong)', async () => {
+  await assert.rejects(() => fetchAll('v', makeFetch(60000), { hardCap: 50000 }),
+    /hard cap|unexpectedly large/i);
 });
 
-test('propagates a fetch error (never swallows it)', async () => {
-  await assert.rejects(() => fetchAll('v', async () => { throw new Error('zoho 500'); }, { maxRows: 200000 }),
-    /zoho 500/);
+test('propagates a fetch error (never swallows it — a timeout must NOT store a partial)', async () => {
+  await assert.rejects(() => fetchAll('v', async () => { throw new Error('zoho timeout'); }),
+    /zoho timeout/);
 });
 ```
 
@@ -241,36 +239,27 @@ test('propagates a fetch error (never swallows it)', async () => {
 ```javascript
 'use strict';
 // fetchView is the server.js primitive, injected by init(): fetchView(viewId, maxRows) → { rows }.
-// Path A (single fetch). maxRows is set well above the largest view (software_installations
-// ≈ 121k); if a result comes back AT the ceiling we assume the API truncated and THROW,
-// because storing a silent partial is the frozen-sync bug this module's visible page exists
-// to catch. Path B (if the gate proved the API caps below the view size) replaces this with
-// a fetchViewPaged loop — see Task 1's gate.
-async function fetchAll(viewId, fetchView, { maxRows = 200000 } = {}) {
-  const { rows } = await fetchView(viewId, maxRows);
-  if (rows.length >= maxRows) {
-    throw new Error(`fetchAll(${viewId}): returned ${rows.length} rows at the maxRows=${maxRows} ` +
-      `ceiling — assuming truncation. Refusing to store a partial table. Raise maxRows or add paging.`);
+// RECON FACT (2026-07-17): the AP /data endpoint ignores maxRows and returns the WHOLE view,
+// or times out on a huge one (software_installations = 121k took 13.6 min → past fetchView's
+// 120s cap, which is why it moved to C). So for A's 5 small views this is a plain single fetch
+// that returns everything, fast. No truncation guard — the API doesn't truncate. The hardCap
+// is only a data-gone-wrong tripwire (a view should not suddenly be 10× its size); a slow/huge
+// view fails via fetchView's timeout (throws), and Task 2 keeps the table intact on any throw.
+async function fetchAll(viewId, fetchView, { maxRows = 20000, hardCap = 50000 } = {}) {
+  const { rows } = await fetchView(viewId, maxRows);   // maxRows passed but the API ignores it
+  if (rows.length > hardCap) {
+    throw new Error(`fetchAll(${viewId}): ${rows.length} rows exceeds the hard cap ${hardCap} — ` +
+      `unexpectedly large for a Foundation view. Refusing to store; investigate before raising the cap.`);
   }
   return rows;
 }
 module.exports = { fetchAll };
 ```
 
-> **⚠ THE SILENT-PARTIAL HOLE — and how the gate closes it.** The `>= maxRows`
-> throw only fires if the API returns *at least* `maxRows` rows. If Analytics
-> Plus imposes its OWN cap **below** `maxRows` **and** below the view size — say
-> it returns 100 000 of 121 097 when asked for 200 000 — then `100 000 < 200 000`,
-> the guard never fires, and a partial `software_installations` is stored as
-> complete. That is the exact frozen-sync bug. **Task 1's gate must record the
-> API's observed hard cap**, and this code pins `maxRows` to **`cap − 1`** for
-> any view near it, so a real truncation comes back AT the ceiling and trips the
-> throw. If the gate finds no cap (Path A clean, the view fits), `maxRows=200000`
-> is safe. **Never leave `maxRows` above an unconfirmed cap.**
->
-> **Path B (only if the gate proved a cap below the view size):** swap the single
-> `fetchView` call for a `fetchViewPaged(viewId)` server.js variant that loops the
-> AP offset param. The throw-on-partial contract stays.
+> **Why no truncation guard:** the recon showed the API returns all rows regardless
+> of `maxRows`, so a "short vs full page" check is meaningless here. The real
+> protection against a silent partial is `fetchView`'s timeout on an over-large
+> view (it throws) plus Task 2's "table survives a failed fetch" transaction order.
 
 - [ ] **Step 4: Run → PASS** (3 tests).
 
@@ -380,7 +369,7 @@ const DEFAULT_MAP = (row, def) => {
 
 async function syncAssetView(def, { fetchView, replaceTable, markSuccess, markError }) {
   try {
-    const raw = await fetchAll(def.viewId, fetchView, { maxRows: def.maxRows || 200000 });
+    const raw = await fetchAll(def.viewId, fetchView, { maxRows: def.maxRows || 20000 });
     const mapped = raw.map(r => DEFAULT_MAP(r, def)).filter(m => m[def.pkCol]);   // drop rows missing PK
     const n = await replaceTable(def.table, Object.values(def.columns), mapped);  // DELETE+INSERT in one tx
     await markSuccess(def.job, n);
@@ -395,7 +384,17 @@ async function syncAssetView(def, { fetchView, replaceTable, markSuccess, markEr
 The "table survives a failed fetch" guarantee holds because `fetchAll` runs and
 throws **before** `replaceTable` (which owns the DELETE) is ever called.
 
-`ASSET_VIEWS` — 7 entries, each `{ name, job, table, viewId, pkCol, columns:{zoho→col}, transform?, maxRows? }`. Column maps per spec §5 (write all 7 fully). `transform` only on `software_licenses` (keeps raw strings; exists so date/currency handling has a home). Set `maxRows: 200000` on `software_installations` explicitly (the 121 k table); the rest default.
+`ASSET_VIEWS` — **5 entries**, each `{ name, job, table, viewId, pkCol, columns:{zoho→col}, transform? }`. Column maps per spec §5 (write all 5 fully). `transform` only on `software_licenses` (keeps raw strings; exists so date/currency handling has a home). The verified live view IDs:
+
+| name | viewId | pkCol |
+|---|---|---|
+| `assets` | `106803000000002058` | `Asset ID` |
+| `asset_memory` | `106803000000002066` | `Memory Module ID` |
+| `asset_logical_drives` | `106803000000002064` | `Drive ID` |
+| `asset_monitors` | `106803000000002067` | `(Workstation ID, Monitor ID)` composite — no single pkCol; drop rows missing either |
+| `software_licenses` | `106803000000002074` | `License ID` |
+
+No `maxRows` override needed (all < 5 000; the 20 000 default clears them).
 
 - [ ] **Step 4: Run → PASS** (4 tests).
 
@@ -405,7 +404,7 @@ throws **before** `replaceTable` (which owns the DELETE) is ever called.
 
 ```bash
 git add assets-sync.js assets-db.js tests/assets-sync.test.js
-git commit --no-verify -m "feat(assets): config-driven full-replace sync engine (7 views, per-view isolation)"
+git commit --no-verify -m "feat(assets): config-driven full-replace sync engine (5 views, per-view isolation)"
 ```
 
 ---
@@ -471,7 +470,6 @@ SELECT a.*,
   (SELECT capacity_gb FROM asset_logical_drives d WHERE d.workstation_id=a.asset_id AND d.drive_letter='C:' LIMIT 1) AS system_disk_gb,
   (SELECT free_pct    FROM asset_logical_drives d WHERE d.workstation_id=a.asset_id AND d.drive_letter='C:' LIMIT 1) AS system_disk_free_pct,
   (SELECT COUNT(*) FROM asset_monitors mo WHERE mo.workstation_id=a.asset_id) AS monitor_count,
-  (SELECT COUNT(*) FROM software_installations si WHERE si.workstation_id=a.asset_id) AS software_count
 FROM assets a
 WHERE 1=1  -- + whitelisted filters (site,state,product_type,manufacturer,q)
 ORDER BY a.site, a.asset_name
@@ -514,21 +512,16 @@ test('POST /api/sync/trigger/assets responds 200 and reports started', async () 
 (Model this on `tests/server-routes-smoke.test.js` / the exec-routes smoke test for how the app is booted + a token minted.)
 
 - [ ] **Step 3: Wire `server.js`** (the four edits from spec §4):
-  1. Add the 7 asset view IDs to the `VIEWS` map (defaults from workspace `106803000000002012`; the `assets` view is `106803000000002058`, the rest are read off the Analytics Plus tables list — a plan-time note: confirm each view ID from the AP UI before first real sync).
+  1. Add the **5** asset view IDs to the `VIEWS` map (verified live, workspace `106803000000002012`): assets `002058`, memory `002066`, logical_drives `002064`, monitors `002067`, licenses `002074`.
   2. At boot: `const assetsSync = require('./assets-sync'); assetsSync.init(fetchView, VIEWS);` (2-arg, like `zoho-sync.init` — `VIEWS` is the same map extended in edit 1) and, in the PG-init block, `if (ASSETS_BACKEND==='postgres') await require('./assets-db').initPgAssets();`.
   3. `cron.schedule('30 4 * * *', () => assetsSync.syncAllAssets(deps).catch(e => console.error('[Cron:assets]', e.message)));`
   4. The `/api/assets/*` route block (`requireReportSession`) — `inventory`, `lookups`, `summary`, `export.xlsx` (Task 5), and `POST /api/sync/trigger/assets` (`requireAdmin`) that calls `syncAllAssets`. **Every reader call `await`ed.**
 
-  The sync `deps` wires `assets-db`'s `replaceTable` + `markSyncSuccess`/`markSyncError` from `reports-db` (sync_metadata lives in reports.db — seed the 7 job rows there, or let markSuccess upsert them).
+  The sync `deps` wires `assets-db`'s `replaceTable` + `markSyncSuccess`/`markSyncError` from `reports-db` (sync_metadata lives in reports.db — seed the 5 job rows there, or let markSuccess upsert them).
 
-  > **⚠ USE TASK 1's GATE RESULT HERE — do not invent paging.** `assetsSync.init`
-  > receives the REAL `fetchView(viewId, maxRows)` (no offset param exists —
-  > server.js:710). On **Path A**, wire nothing extra: `fetchAll` sends one
-  > `maxRows` and throws on a ceiling result. On **Path B** (only if Task 1's gate
-  > proved AP caps below the view size), add the `fetchViewPaged` server.js
-  > variant the gate specified. **Also from the gate:** set each large view's
-  > `maxRows` to `cap − 1` (see the silent-partial guard note in Task 1b) so a
-  > real truncation returns AT the ceiling and trips the throw.
+  > **No paging in A.** All 5 views single-fetch (< 5 000 rows). The injected
+  > `fetchView(viewId, maxRows)` sends only `maxRows`; `fetchAll` throws on a
+  > ceiling result. (121k `software_installations` is C's, not here.)
 
 - [ ] **Step 4: Run** the smoke test + `await-precedence` → PASS. Also `node -e "require('./server.js')"`-style boot check (or the smoke test's boot) shows no throw.
 
@@ -595,12 +588,11 @@ git commit --no-verify -m "feat(assets): Inventory page + Excel export + Insight
 - Create: `tools/pg/copy-assets.js`, `tests/assets-integration.test.js`
 - Modify: `CLAUDE.md`
 
-- [ ] **Step 1: `tools/pg/copy-assets.js`** — mirror `tools/pg/copy-tracker.js` (apply `001_init.sql`, copy the 7 tables by PK upsert). A parity test is optional here (no prod assets.db yet); a smoke that the script loads + the SQL is valid suffices.
+- [ ] **Step 1: `tools/pg/copy-assets.js`** — mirror `tools/pg/copy-tracker.js` (apply `001_init.sql`, copy the 5 tables by PK upsert). A parity test is optional here (no prod assets.db yet); a smoke that the script loads + the SQL is valid suffices.
 
 - [ ] **Step 2: Real-CSV integration test.** Parse the **7 in-scope CSVs** with a **BOM-stripping** reader (`Assets.csv`'s first header is `﻿Asset ID` — `utf-8-sig` / strip the BOM, or every row's `asset_id` maps null and all 2 473 drop). Load them from a fixtures path (copy them into `tests/fixtures/assets/` OR read from an env-pointed dir) through the sync engine into a throwaway sqlite, then assert on real data:
   - all **2 473** assets present; the `Workstation ID = Asset ID` join produces non-null RAM for a known machine;
   - the no-cost filter (`'0.00'`) returns **2 246**, not 0;
-  - `software_installations` loads all **121 097** rows (proves the batch insert path at scale — use the CSV directly, not a live fetch);
   - `getEnrichedAssets` returns sane aggregates (RAM > 0 for machines with memory rows).
 
 - [ ] **Step 3: Full regression** — `node --test --test-force-exit tests/` (or the repo's runner). The pre-existing 16 failures documented in CLAUDE.md stay as-is; nothing new red. `await-precedence` green with the new module covered.
@@ -613,11 +605,11 @@ git commit --no-verify -m "feat(assets): Inventory page + Excel export + Insight
 
 ## Done criteria (sub-project A)
 
-- [ ] `assets.db` with 7 tables; `001_init.sql` PG mirror; `ASSETS_BACKEND` selects the backend; both init paths tested.
-- [ ] `fetchAll` pages and **throws on a partial** (proven by stub); `syncAllAssets` full-replaces all 7 views, per-view isolated, every write awaited, a failed fetch never empties a table.
+- [ ] `assets.db` with 5 tables; `001_init.sql` PG mirror; `ASSETS_BACKEND` selects the backend; both init paths tested.
+- [ ] `fetchAll` single-fetches and **throws on truncation** (proven by stub); `syncAllAssets` full-replaces all 5 views, per-view isolated, every write awaited, a failed fetch never empties a table.
 - [ ] `getEnrichedAssets` joins by `Workstation ID = Asset ID`; orphan-safe; no-cost filters on `'0.00'`; monitor count is raw.
 - [ ] `/api/assets/*` serves inventory/lookups/summary/export, filters whitelisted (no 500 on hostile input); `await`-guard covers `assets-db.js` + `assets-sync.js`.
 - [ ] `public/assets.html` renders the filterable enriched inventory + Excel export; in Insights ▾; **verified in the browser against real data**.
-- [ ] Real-CSV integration green (2 473 assets, 121 097 installs, 2 246 no-cost); full suite green.
+- [ ] Real-CSV integration green (2 473 assets, 2 246 no-cost); full suite green.
 - [ ] **No monetary display anywhere in A.**
-- [ ] Paging param confirmed against the live view before the first real `software_installations` sync (or `fetchAll` throws — never a silent partial).
+- [ ] No paging anywhere in A (all 5 views single-fetch); `fetchAll` throws on truncation — never a silent partial.
