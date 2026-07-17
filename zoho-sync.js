@@ -349,15 +349,15 @@ async function syncChangeCab() {
 
     if (isFullSync || !lastSync) {
       // Always reconcile on first run
-      changeDeleted = reconcileChangeRecords(liveChangeIds);
-      cabDeleted    = reconcileCABApprovals(liveCabIds);
+      changeDeleted = await reconcileChangeRecords(liveChangeIds);
+      cabDeleted    = await reconcileCABApprovals(liveCabIds);
       console.log(`[Sync] change_cab — reconciliation: removed ${changeDeleted} Change + ${cabDeleted} CAB stale records`);
     } else {
       // Check if sync_count divisible by FULL_SYNC_EVERY (passed via side effect)
       // We reconcile on every run since we always fetch ALL rows anyway —
       // cost is minimal (a single SELECT then small deletes if needed).
-      changeDeleted = reconcileChangeRecords(liveChangeIds);
-      cabDeleted    = reconcileCABApprovals(liveCabIds);
+      changeDeleted = await reconcileChangeRecords(liveChangeIds);
+      cabDeleted    = await reconcileCABApprovals(liveCabIds);
       if (changeDeleted + cabDeleted > 0) {
         console.log(`[Sync] change_cab — reconciliation removed ${changeDeleted} Change + ${cabDeleted} CAB stale records`);
       }
@@ -684,7 +684,7 @@ async function syncRequestData({ force = false } = {}) {
         source = 'MAJOR_INCIDENTS(790842) fallback';
       }
 
-      udfUpdated = upsertRequestUdfBatch(udfRows);
+      udfUpdated = await upsertRequestUdfBatch(udfRows);
       console.log(`[Sync] requests — UDF backfill from ${source}: MIs=${_miBase.length}, withUdf=${udfRows.length}, dbUpdated=${udfUpdated}`);
     } catch (udfErr) {
       // Non-fatal: log and continue. UDFs are nice-to-have on top of the

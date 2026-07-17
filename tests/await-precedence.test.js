@@ -137,8 +137,11 @@ function scanMissingAwait(src, dispatchers) {
   const lines = src.split('\n');
   lines.forEach((raw, i) => {
     const line = raw.replace(/\/\/.*$/, '');
-    // `const x = foo(` / `let x = foo(` / bare `foo(` at statement start
-    const m = line.match(/^\s*(?:(?:const|let|var)\s+[\w${}[\],:\s]+=\s*)?([a-zA-Z_$][\w$]*)\s*\(/);
+    // `const x = foo(` / `let x = foo(` / bare `foo(` / plain reassignment `x = foo(`.
+    // The reassignment form is NOT optional: `udfUpdated = upsertRequestUdfBatch(rows)`
+    // (zoho-sync.js:687) slipped through a declaration-only pattern and shipped —
+    // the logs read `dbUpdated=[object Promise]` for a day before anyone noticed.
+    const m = line.match(/^\s*(?:(?:const|let|var)\s+)?(?:[\w${}[\],:\s.]+=\s*)?([a-zA-Z_$][\w$]*)\s*\(/);
     if (!m) return;
     const fn = m[1];
     if (!dispatchers.has(fn)) return;
@@ -158,6 +161,12 @@ test('the missing-await scan catches the zoho-sync shape', () => {
   assert.strictEqual(scanMissingAwait('    const lastSync = force ? null : await getLastSyncAt(JOB);', d).length, 0);
   assert.strictEqual(scanMissingAwait('    return getLastSyncAt(JOB);', d).length, 0, 'returning the Promise is fine');
   assert.strictEqual(scanMissingAwait('    // const lastSync = getLastSyncAt(JOB);', d).length, 0, 'comments are not code');
+  // The one that got away: a plain reassignment, no declaration keyword.
+  const d2 = new Set(['upsertRequestUdfBatch']);
+  assert.strictEqual(scanMissingAwait('      udfUpdated = upsertRequestUdfBatch(udfRows);', d2).length, 1,
+    'reassignment form — this exact line shipped and logged [object Promise]');
+  assert.strictEqual(scanMissingAwait('      udfUpdated = await upsertRequestUdfBatch(udfRows);', d2).length, 0);
+  assert.strictEqual(scanMissingAwait('      obj.count = upsertRequestUdfBatch(rows);', d2).length, 1, 'member assignment too');
 });
 
 test('NO caller drops the await on a dual-backend call (silent no-op on postgres)', () => {
