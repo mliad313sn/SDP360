@@ -393,11 +393,34 @@ function header(data) {
   const label = escapeHtml(obj(data.period).label);
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:separate;background:${NAVY};border-radius:6px;margin:0 0 14px 0;">
 <tr><td style="padding:16px 16px 14px 16px;">
-<div style="font-family:${FONT};font-size:11px;color:#94A3B8;letter-spacing:1px;text-transform:uppercase;padding-bottom:4px;">IT Site Report</div>
+<div style="font-family:${FONT};font-size:11px;color:#94A3B8;letter-spacing:1px;text-transform:uppercase;padding-bottom:4px;">Site IT Scorecard</div>
 <div style="font-family:${FONT};font-size:22px;font-weight:bold;color:#FFFFFF;line-height:1.25;">${site}</div>
 <div style="font-family:${FONT};font-size:13px;color:#CBD5E1;padding-top:3px;">${label}</div>
 </td></tr>
 <tr><td style="background:${TEAL};height:4px;line-height:4px;font-size:0;border-radius:0 0 6px 6px;">&nbsp;</td></tr>
+</table>`;
+}
+
+// What this is — bilingual, both languages stacked. An email cannot carry the
+// meetings module's EN/FR toggle, so the same stacked copy ships here AND on
+// public/site-report.html (#introSection) — one product, one wording. Keep the
+// two in step. Deliberately does NOT repeat the rolling-window disclosure:
+// scoreHero() already prints it with the real dates.
+//
+// The "start with the two moves" pointer is CONDITIONAL on the score being
+// applicable: a site with no data on the window has no score and no moves
+// (see scoreHero's applicable===false branch), so pointing at them would be a
+// lie. The explanation itself still helps there — it says what is missing.
+function intro(score) {
+  const hasMoves = obj(score).applicable !== false;
+  const p = `font-family:${FONT};font-size:12px;line-height:1.55;color:${MUTED};margin:0;`;
+  const enMoves = hasMoves ? ` <strong style="color:${NAVY};">Start with the two moves</strong> &mdash; the highest-value gaps you can close this month.` : '';
+  const frMoves = hasMoves ? ` <strong style="color:${NAVY};">Commencez par les deux actions</strong> &mdash; les &eacute;carts les plus rentables &agrave; combler ce mois-ci.` : '';
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:separate;background:#FFFFFF;border:1px solid ${BORDER};border-radius:6px;margin:0 0 14px 0;">
+<tr><td style="padding:14px 16px;">
+<p style="${p}"><strong style="color:${NAVY};">What this score measures</strong> &mdash; how well the site keeps up the Group IT operating routine: departmental reviews, issues closed, inspections run, PVs signed. It is <strong>not</strong> a rating of IT service quality: a busy site can score low if it skips its reviews, a quiet one can score well.${enMoves}</p>
+<p style="${p}padding-top:10px;margin-top:10px;border-top:1px solid ${BORDER};"><strong style="color:${NAVY};">Ce que mesure cette note</strong> &mdash; la tenue du dispositif IT du Groupe sur le site&nbsp;: r&eacute;unions d&eacute;partementales tenues, probl&egrave;mes cl&ocirc;tur&eacute;s, inspections r&eacute;alis&eacute;es, PV sign&eacute;s. Ce n&rsquo;est <strong>pas</strong> une note sur la qualit&eacute; du service IT&nbsp;: un site tr&egrave;s sollicit&eacute; peut mal noter s&rsquo;il saute ses r&eacute;unions, un site calme peut bien noter.${frMoves}</p>
+</td></tr>
 </table>`;
 }
 
@@ -409,10 +432,11 @@ function composeCoordinator(data) {
   const d = obj(data);
   const siteName = d.site_name || d.site_code || 'Site';
   const label = obj(d.period).label || '';
-  const subject = `IT Site Report — ${siteName} — ${label}`;
+  const subject = `Site IT Scorecard — ${siteName} — ${label}`;
 
   const content = [
     header(d),
+    intro(d.score),
     scoreHero(d.score),
     meetingsSection(d.meetings),
     inspectionSection(d.inspection),

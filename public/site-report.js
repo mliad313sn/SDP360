@@ -72,6 +72,15 @@
     var hero = el('heroSection');
     if (hero) hero.className = 'card hero';
 
+    // The intro's "start with the two moves" pointer is STATIC markup, so it
+    // would survive into a report that has no moves at all. Drop it — same rule
+    // the email applies in intro() (reportTemplates/coordinator.js). The rest of
+    // the intro still helps here: it says what the score would have measured.
+    ['introMovesEn', 'introMovesFr'].forEach(function (id) {
+      var s = el(id);
+      if (s) s.style.display = 'none';
+    });
+
     var sv = el('scoreVal');
     var numBlock = sv && sv.parentNode && sv.parentNode.parentNode;   // .hero-score
     if (numBlock) numBlock.style.display = 'none';

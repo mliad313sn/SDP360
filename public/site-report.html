@@ -55,6 +55,12 @@
   .panel h2{font-size:.95rem;font-weight:800;color:var(--edv-slate,#3A4A60);margin-bottom:14px}
   .muted{font-size:.86rem;color:var(--color-text-muted,#7B7B7B)}
 
+  /* ── Intro — what this page is (bilingual, stacked) ─────────── */
+  .intro{padding:16px 20px;margin-top:24px}
+  .intro-p{font-size:.83rem;line-height:1.55;color:var(--edv-slate,#3A4A60);margin:0}
+  .intro-p strong{color:var(--color-text,#1C2B3A);font-weight:700}
+  .intro-fr{margin-top:10px;padding-top:10px;border-top:1px solid var(--color-border,#E2E8F0)}
+
   /* ── Score hero ─────────────────────────────────────────────── */
   .hero{display:grid;grid-template-columns:auto 1fr;gap:26px;padding:22px 24px;margin-top:24px}
   @media (max-width:760px){.hero{grid-template-columns:1fr}}
@@ -135,7 +141,7 @@
     <div class="sr-logo" aria-hidden="true"></div>
     <div class="sr-titles">
       <div class="sr-title" id="siteName">Site Report</div>
-      <div class="sr-subtitle">Endeavour Mining · Group IT · Live site scoreboard</div>
+      <div class="sr-subtitle">Site IT Scorecard · Endeavour Mining Group IT</div>
     </div>
     <div class="sr-meta">
       <div class="sr-period"><span id="periodLabel">—</span></div>
@@ -160,6 +166,17 @@
 </div>
 
 <main class="wrap" id="content">
+
+  <!-- 0. What this is — bilingual, both languages stacked.
+       NOT a toggle: the same copy ships in the coordinator EMAIL
+       (services/reportTemplates/coordinator.js), and an email cannot toggle.
+       Stacked keeps the page and the email identical. Deliberately does NOT
+       repeat the rolling-window disclosure — that renders below, with the
+       real dates (site-report.js). -->
+  <section class="card intro" id="introSection">
+    <p class="intro-p"><strong>What this score measures</strong> — how well the site keeps up the Group IT operating routine: departmental reviews, issues closed, inspections run, PVs signed. It is <strong>not</strong> a rating of IT service quality: a busy site can score low if it skips its reviews, a quiet one can score well.<span id="introMovesEn"> <strong>Start with the two moves</strong> — the highest-value gaps you can close this month.</span></p>
+    <p class="intro-p intro-fr"><strong>Ce que mesure cette note</strong> — la tenue du dispositif IT du Groupe sur le site : réunions départementales tenues, problèmes clôturés, inspections réalisées, PV signés. Ce n’est <strong>pas</strong> une note sur la qualité du service IT : un site très sollicité peut mal noter s’il saute ses réunions, un site calme peut bien noter.<span id="introMovesFr"> <strong>Commencez par les deux actions</strong> — les écarts les plus rentables à combler ce mois-ci.</span></p>
+  </section>
 
   <!-- 1. Score hero -->
   <section id="heroSection" class="card hero rag-amber">

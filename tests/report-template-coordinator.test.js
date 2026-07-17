@@ -2,6 +2,8 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert');
+const fs = require('node:fs');
+const path = require('node:path');
 const { composeCoordinator } = require('../services/reportTemplates/coordinator');
 
 // The sbDims score contract (services/siteScore.js): `score`/`points`, UPPERCASE
@@ -252,6 +254,81 @@ test('applicable:false still composes the rest of the report', () => {
   assert.match(subject, /Hounde/);
   assert.match(htmlBody, /Network/);               // helpdesk section intact
   assert.ok(htmlBody.length > 200);
+});
+
+// ── The intro ────────────────────────────────────────────────────────────────
+// It exists to stop a coordinator reading "25/100 OFF TRACK" as a verdict on
+// their service while their team is drowning in tickets. The score measures the
+// PROGRAMME, not the service — if that sentence ever goes missing, the number
+// becomes unfair on exactly the sites that need it least.
+
+test('the intro says what the score is — and what it is NOT', () => {
+  const { htmlBody } = composeCoordinator(data);
+  assert.match(htmlBody, /What this score measures/);
+  assert.match(htmlBody, /not<\/strong> a rating of IT service quality/,
+    'the disclaimer is the whole point — a busy site can score low');
+  assert.match(htmlBody, /Ce que mesure cette note/, 'the FR half must ship too');
+  assert.match(htmlBody, /pas<\/strong> une note sur la qualit/);
+});
+
+test('the intro is bilingual in BOTH halves — an email cannot toggle', () => {
+  const { htmlBody } = composeCoordinator(data);
+  // Stacked, not switched: the coordinator email has no JS. If someone later
+  // "tidies" this into a toggle, the FR half silently vanishes in Outlook.
+  for (const fr of [/r&eacute;unions d&eacute;partementales/, /PV sign&eacute;s/, /Commencez par les deux actions/]) {
+    assert.match(htmlBody, fr);
+  }
+});
+
+test('the intro does NOT point at moves when there are none (applicable:false)', () => {
+  const { htmlBody } = composeCoordinator(naData);
+  assert.match(htmlBody, /What this score measures/, 'the explanation still helps — it says what is missing');
+  assert.ok(!/Start with the two moves/.test(htmlBody), 'no moves exist on an unscored site');
+  assert.ok(!/Commencez par les deux actions/.test(htmlBody));
+});
+
+test('the intro does NOT repeat the rolling-window disclosure', () => {
+  // scoreHero already prints it WITH the real dates. Saying it twice, once
+  // without dates, is worse than saying it once.
+  const { htmlBody } = composeCoordinator(data);
+  assert.strictEqual((htmlBody.match(/rolling window/g) || []).length, 1);
+});
+
+test('the page and the email carry the SAME intro wording', () => {
+  // One product, two surfaces. They drift the moment nobody checks — and they
+  // ALREADY did once: an earlier version of this test compared only the four
+  // headline phrases, so the page kept saying "reviews held, issues resolved"
+  // while the email had moved to "reviews, issues closed" and it stayed green.
+  // Compare the WHOLE English sentence, normalised for markup and entities.
+  const page = fs.readFileSync(path.join(__dirname, '..', 'public', 'site-report.html'), 'utf8');
+  const { htmlBody } = composeCoordinator(data);
+  const plain = (html) => html
+    .replace(/<[^>]+>/g, '')
+    .replace(/&mdash;/g, '—').replace(/&nbsp;/g, ' ').replace(/&rsquo;/g, '’')
+    .replace(/\s+/g, ' ');
+  const EN = 'What this score measures — how well the site keeps up the Group IT operating routine: '
+           + 'departmental reviews, issues closed, inspections run, PVs signed. It is not a rating of '
+           + 'IT service quality: a busy site can score low if it skips its reviews, a quiet one can '
+           + 'score well. Start with the two moves — the highest-value gaps you can close this month.';
+  assert.ok(plain(page).includes(EN), 'site-report.html has drifted from the email');
+  assert.ok(plain(htmlBody).includes(EN), 'coordinator.js has drifted from the page');
+
+  // The FR half: compare on the accent-free spine, since the email entity-escapes.
+  const FR = 'Ce que mesure cette note';
+  assert.ok(plain(page).includes(FR) && plain(htmlBody).includes(FR));
+  assert.ok(plain(page).includes('Commencez par les deux actions'));
+});
+
+test('the page can hide its moves pointer — it is a real element, not a bare sentence', () => {
+  // The page's intro is static markup: without these hooks, site-report.js
+  // cannot drop the pointer on an unscored site the way the email does, and the
+  // two surfaces would disagree on exactly the report that needs care.
+  const page = fs.readFileSync(path.join(__dirname, '..', 'public', 'site-report.html'), 'utf8');
+  assert.match(page, /id="introMovesEn"/);
+  assert.match(page, /id="introMovesFr"/);
+  const js = fs.readFileSync(path.join(__dirname, '..', 'public', 'site-report.js'), 'utf8');
+  assert.match(js, /introMovesEn/, 'renderScoreNA must hide it');
+  assert.match(js, /introMovesFr/);
 });
 
 // The gate keys on applicable === false, so a legacy/degraded score block with
