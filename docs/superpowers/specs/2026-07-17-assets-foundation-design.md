@@ -48,10 +48,20 @@ prove A prepares the ground for them without doing their work.
   into `reports.db` (already 348 KB of code and PG in prod — every new reader
   would need a dual-backend fork). Not sqlite-only (it would be the only non-PG
   module on an all-PG prod).
-- **Tables in v1:** the **8 value-bearing** ones. The empty / noise tables
-  (Mobile_Devices=0 rows, Keyboard/Mouse serial=0 %, Physical_Drives
-  manufacturer=0 %, Printer_Info=virtual-printer noise, Hard_Disks=deferred) are
-  excluded. The sync is config-driven, so adding one later is one config entry.
+- **Tables in v1:** **7 value-bearing** ones (revised down from 8 after spec
+  review — see below). The empty / noise tables (Mobile_Devices=0 rows,
+  Keyboard/Mouse serial=0 %, Physical_Drives manufacturer=0 %,
+  Printer_Info=virtual-printer noise, Hard_Disks=deferred) are excluded. The sync
+  is config-driven, so adding one later is one config entry.
+- **`Network_Adapters` dropped from v1 (spec-review finding #1).** Its two
+  valuable columns — `IP Address`, `MAC Address` — both match
+  `PII_BLOCKED_PATTERNS`'s `/\baddress\b/i` (server.js:69) and are deleted by
+  `stripPiiColumns` **inside** `fetchView` (server.js:741) before the sync sees
+  them. What survives (NIC, DHCP, Gateway) serves none of the three audiences
+  (hygiene / licences / refresh) — network cartography is not one of them. So
+  the table would ship near-empty for no consumer. It goes back in as one config
+  entry the day a network need appears, via a dedicated non-stripping fetch path
+  decided at that time. Net: **7 tables**.
 - **Scope of A:** backend + **one visible page** (filterable enriched-asset
   inventory + Excel export). Not backend-only — a page that shows the real
   synced assets is the only end-to-end proof the sync works (this codebase has
@@ -65,14 +75,14 @@ prove A prepares the ground for them without doing their work.
 
 Profiled from the 14 CSV exports the user provided (`~/Downloads/Assets/`).
 
-**The join is the spine of the model — verified 100 %.** The 4 component tables
+**The join is the spine of the model — verified 100 %.** The component tables
 carry `Workstation ID`, which **is** `assets.Asset ID`:
 
 ```
 Memory_Modules        2148/2149 distinct WID match Asset ID (100%)
 Software_Installations 2160/2161 match (100%)
-Network_Adapters       2374/2375 match (100%)
 Monitors               2155/2156 match (100%)
+Logical_Drives         2156/2157 match (100%)
 ```
 (The one non-match per table is a stale component whose parent asset dropped —
 a LEFT join keeps it visible as an orphan, never crashes.)
@@ -84,9 +94,20 @@ a LEFT join keeps it visible as an orphan, never crashes.)
 | Asset ID, Name, Product, Product Type, State, Site, Site ID | 100 % | keep |
 | Manufacturer | 91 % · Serial | 64 % · Barcode | 70 % | keep |
 | Last Successful Audit Time, Last Audit Status, Scan Source | 73–96 % | keep — scan freshness is a real signal |
-| **Purchase Cost / Acquisition Date / Warranty** | **9 %** | keep (B filters on their ABSENCE) |
+| **Acquisition Date / Warranty Expiry** | **9 %** (227) | keep (B filters on their ABSENCE — genuinely empty) |
+| **Purchase Cost** | **100 % present** — 227 real, **2 246 as the string `0.00`** | keep. **NOT a 9 % field, and never NULL.** See below. |
 | **User / User email / Department** | **0.08 %** | keep column, but the CMDB has effectively no ownership |
 | Location, Product Description, Expiry Date, Part No., Loan\*, Acknowledgement\* | 0 % | **drop** |
+
+**⚠ `Purchase Cost($)` is present-as-`0.00`, not empty (spec-review finding #3).**
+The field is filled on 2 473/2 473 rows; 2 246 hold the literal string `0.00` and
+only 227 carry a real amount. So B's "assets with no cost" report must filter
+`purchase_cost IN ('0.00','0','')`, **NOT `IS NULL`** (which returns zero). A
+stores the raw string (`0.00` survives), so it's recoverable — this note exists
+so B's plan doesn't write the wrong predicate. Costs carry comma separators
+(`1,250,000.00`); any later numeric parse strips commas first. (Acquisition Date
+and Warranty ARE genuinely empty at 91 %, so `IS NULL`/`= ''` is correct for
+those.)
 
 **State distribution** (why "In Store" is not deployment): `In Store 2245 ·
 Discovered 156 · In Purchase 65 · In Preparation 3 · In Use 2 · Loan 1 ·
@@ -104,11 +125,18 @@ owned register.
    XOF). Same `$` label, two currencies. **The Foundation stores the raw number
    and displays NO money.** Currency is resolved in B/C, where money is shown.
 
-2. **`Monitors` has no own key.** Its identity is `(Workstation ID, Monitor ID)`
-   where Monitor ID is 1/2 (the monitor index on the workstation, not a global
-   id). PK is composite. `Integrated Monitor` distinguishes a laptop's built-in
-   panel from external monitors → external-screen count per workstation is
-   derivable (a refresh + hygiene signal).
+2. **`Monitors` has no own key AND its `Monitor Type` is polluted with
+   non-monitors (spec-review finding #2).** Identity is `(Workstation ID,
+   Monitor ID)` where Monitor ID runs **1–6** (the device index, not a global
+   id) → composite PK. Crucially, **`Integrated Monitor` is a VALUE of the
+   `Monitor Type` column, not a column of its own**, and that column is polluted:
+   `Intel(R) AVStream Camera` (124), `Integrated Webcam` (31), `HyperVMonitor`,
+   `Parallels Vu`, `No Monitor`. So a raw `COUNT(asset_monitors)` overcounts
+   screens (cameras included), and any "external monitor" split needs a
+   camera/virtual denylist. **The Foundation stores the raw `monitor_type` and
+   exposes only a raw `monitor_count`; the trustworthy external-screen count
+   (with the denylist) is D's job, not A's.** A does not promise
+   `external_monitor_count`.
 
 ## 4. Architecture & files
 
@@ -118,7 +146,7 @@ pattern but PostgreSQL-native from the start.
 ```
 assets-db.js               schema + readers + PG forks   (ASSETS_BACKEND flag)
 assets-sync.js             the config-driven engine; receives _fetchView via init()
-db/postgres/assets/001_init.sql   PG schema of the 8 tables
+db/postgres/assets/001_init.sql   PG schema of the 7 tables
 tools/pg/copy-assets.js    one-shot sqlite→PG copy (recipe identical to other modules)
 public/assets.html         Inventory page (filterable list + Excel export)
 tests/assets-sync.test.js
@@ -131,8 +159,17 @@ tests/assets-routes.smoke.test.js
   `init()`, exactly as `zoho-sync.init(fetchView, VIEWS)` does (server.js:478).
 - `services/pgDb.js` — the async PG adapter (the migration recipe).
 - `sync_metadata` table + `markSyncSuccess`/`markSyncError` — one row per view,
-  **with the `await` this codebase learned the hard way to never drop**
-  (`tests/await-precedence.test.js` scans `assets-sync.js` from day one).
+  **with the `await` this codebase learned the hard way to never drop**. The
+  guard needs TWO edits (spec-review finding #4): add `assets-sync.js` to
+  `CALLER_FILES` (so its calls into reports-db are scanned) AND add
+  `assets-db.js` to `DB_MODULES` (so `assets-db`'s OWN dual-backend readers —
+  `getEnrichedAssets` etc. — are discovered as dispatchers, and any
+  `(await reader()).map(...)` bug in a route is caught). `assets-db.js` is at
+  repo root, so `CALLER_DIRS`' auto-walk of `services/`/`routes/` does not reach
+  it — both edits are required.
+  Note: `sync_metadata` lives in **reports.db**, so the 7 asset jobs are seeded
+  there and surface via `/api/sync/status` — the same cross-module coupling
+  every existing sync already has.
 - `services/tableExcel.js` → `buildWorkbook(sheets)` for the export.
 - the server.js hourly/daily `cron.schedule` block.
 
@@ -148,7 +185,7 @@ Config: `ASSETS_BACKEND` (default `sqlite`, prod `postgres`),
 `ASSETS_VIEW_*` optional overrides for the 8 view IDs (defaults hardcoded from
 the known workspace `106803000000002012`).
 
-## 5. Schema (8 tables, `assets` the hub)
+## 5. Schema (7 tables, `assets` the hub)
 
 We store the value-bearing columns, not all 45. Types are the SQLite shapes;
 `001_init.sql` mirrors them in PG (TEXT dates, NUMERIC costs kept as TEXT to
@@ -168,9 +205,7 @@ asset_memory (memory_module_id PK)
 asset_logical_drives (drive_id PK)
   workstation_id, drive_letter, capacity_gb, free_gb, free_pct, file_type
 asset_monitors (workstation_id, monitor_id  COMPOSITE PK)
-  monitor_type, manufacturer, serial_number
-asset_network (network_id PK)
-  workstation_id, ip_address, mac_address, nic, dhcp_server, gateway
+  monitor_type, manufacturer, serial_number   -- monitor_type raw (polluted; D denylists)
 software (software_id PK)
   software_name, manufacturer, category, compliance_type, installations
 software_installations (software_info_id PK)
@@ -182,6 +217,10 @@ software_licenses (license_id PK)
 Indexes: every component table on `workstation_id` (the join); `assets` on
 `site`, `state`; `software_installations` on `software_id`;
 `software_licenses` on `license_state`.
+
+**7 tables:** `assets`, `asset_memory`, `asset_logical_drives`, `asset_monitors`,
+`software`, `software_installations`, `software_licenses`. (`asset_network`
+deferred — §2.)
 
 **Foreign keys are soft** (no enforced FK) — a component can legitimately
 outlive/precede its parent asset in a discovery dump. The join is LEFT; orphans
@@ -195,11 +234,19 @@ JOINed to its components, aggregated per workstation:
 ```
 { …asset fields…,
   ram_total_gb,          -- SUM(asset_memory.capacity_gb)
-  disk_total_gb, disk_free_pct,  -- from the primary logical drive
-  monitor_count, external_monitor_count,  -- COUNT(asset_monitors), minus Integrated
-  primary_ip, primary_mac,
-  software_count }        -- COUNT(software_installations)
+  system_disk_gb, system_disk_free_pct,  -- the C: drive (WHERE drive_letter='C:')
+  monitor_count,         -- raw COUNT(asset_monitors) — see below
+  software_count }       -- COUNT(software_installations)
 ```
+
+- **`system_disk_*` is the `C:` drive**, not "primary" (spec-review finding #7 —
+  there is no primary flag; machines average ~1.7 logical drives). C: is the OS
+  volume and the meaningful refresh signal; D refines if needed.
+- **`monitor_count` is a RAW count** including the camera/virtual pollution
+  (§3 trap 2). It is deliberately NOT called "screens" and A does not split
+  external vs integrated — that needs D's denylist. The Inventory table labels
+  it "Monitors (raw)" so no one reads it as a trustworthy screen count.
+- **No `primary_ip` / `primary_mac`** — `asset_network` is deferred (§2).
 
 This is the one brick B (hygiene filters) and D (refresh signals) consume. C
 reads `software`/`software_licenses` directly.
@@ -227,8 +274,9 @@ preference. These discovery views expose **no reliable modified-time signal**
 dataset with no modified-time signal can't be synced incrementally — full-upsert
 it"). Per view:
 
-1. `fetchView(viewId, maxRows)` → **all rows into memory first**. If the fetch
-   throws, the table is **left untouched** (the frozen-sync lesson from
+1. `fetchAll(viewId)` → **all rows into memory first** (see the paging design
+   below — this is NOT the shared `fetchAllViewRows`, which caps at 5 000). If the
+   fetch throws, the table is **left untouched** (the frozen-sync lesson from
    2026-07-17: never let a failed fetch write emptiness).
 2. transaction: `DELETE FROM <table>` then batched INSERT of the mapped rows.
 3. `await markSyncSuccess(job, rowCount)` — **awaited**. A Promise written to the
@@ -237,6 +285,37 @@ it"). Per view:
 
 Full-replace over upsert-and-reconcile because the whole table is refetched
 every run anyway — replace is simpler and cannot leave stale rows.
+
+**Paging is a real design decision, not a footnote (spec-review finding #5).**
+`software_installations` is **121 097 rows** — 2.4× the largest proven fetch
+(requests at `maxRows 50000`), and **there is zero paging precedent anywhere in
+the codebase** (`grep startRow|fromIndex|page` → nothing). `fetchView` forwards
+`maxRows` to the Analytics-Plus API, which **truncates** (no auto-paging). So
+`assets-sync` owns a small paging helper, `fetchAll(viewId)`:
+
+- fetch in pages of 50 000 via the AP `startRow`/`fromIndex` param (exact param
+  name to be confirmed against the AP v2 API in the plan's first task — a
+  smoke-fetch against the live view, since no code exercises it today);
+- **stop condition:** a page returning `< pageSize` rows is the last. A page
+  returning **exactly** `pageSize` means "there may be more" → fetch the next.
+- **truncation guard:** the helper must NEVER store a partial table silently —
+  if paging cannot be confirmed working, it throws (leaving the table untouched,
+  per step 1) rather than storing the first 50 000 as if complete. Storing a
+  silent partial is exactly the "sync reported success while writing nothing"
+  failure this whole module's visible page exists to catch.
+
+The 6 other views (all ≤ ~10 k rows) take the single-fetch path; only
+`software_installations` (and, if ever re-added, a large view) pages.
+
+**Read consistency during sync (spec-review finding #6).** The 7 views are 7
+independent `DELETE`+`INSERT` transactions (so one table's failure doesn't stop
+the others). A page load *during* the 04:30 sync can therefore see `assets`
+already replaced while the slow `software_installations` is mid-replace →
+transiently inconsistent aggregates (wrong, not corrupt). Accepted for A: the
+daily off-hours cadence makes a mid-sync page load rare, and the alternative (one
+wrapping transaction across all 7) holds a long lock over the 121 k insert. The
+Inventory page's sync-freshness band shows the last-completed time per table, so
+a stale/mid-run state is visible rather than silently wrong.
 
 **Cadence: daily**, `cron.schedule('30 4 * * *', …)`. A discovery scan doesn't
 run hourly, and 121 k software installations in an hourly full-replace is waste.
@@ -280,9 +359,15 @@ cookie, filterable list). `_htmlCache`'d + `injectAssetVersion`'d like the other
   sheets (Assets + Installed Software). The export the user asked for, delivered
   in the Foundation.
 
-**Nav:** an "Assets" entry under **Insights ▾** in `_shell.js`,
-`roles:['any']`, reusing an existing `ICON_LIB` key (verified present — NOT
-assumed; recall `ICON_LIB` is a curated subset of `brand/icons.js`).
+**Nav:** an "Assets" entry under **Insights ▾** in `_shell.js`, `roles:['any']`.
+**`ICON_LIB` has no hardware/asset icon** (its 11 keys are headset, file-text,
+trending-up, gauge, line-chart, target, presentation, sliders, book-open,
+clipboard-check, bar-chart-3 — spec-review finding #8). So the plan adds one key
+to `ICON_LIB` from `brand/icons.js` (pick a box/server/monitor glyph that exists
+there; verify it renders — recall `ICON_LIB` is a curated SUBSET, and a key
+absent from it renders an empty span with no error). Do NOT reuse
+`clipboard-check` (Inspections/Meetings) or `bar-chart-3` (reserved for the IT
+Review link).
 
 **No money on this page** — inventory shows the fleet, not costs. The currency
 trap is B/C's to resolve.
@@ -294,36 +379,39 @@ trap is B/C's to resolve.
   intact** (not emptied); the `coerceLicence` transform coerces dates + cost;
   `markSyncSuccess` is awaited (a Promise row-count would throw).
 - **`assets-db.test.js`** — `getEnrichedAsset` joins correctly (asset + summed
-  RAM + counted screens + primary drive); an orphan component (workstation_id
-  with no asset) does not break the LEFT join; `external_monitor_count` excludes
-  `Integrated Monitor`.
+  RAM + **raw** `monitor_count` + the **C:** drive); an orphan component
+  (workstation_id with no asset) does not break the LEFT join. It does **not**
+  assert an external-vs-integrated split — that's D's denylist, not A's.
+- **`assets-sync` paging test** — a stubbed `fetchView` returning full pages then
+  a short page proves `fetchAll` concatenates and stops correctly; a stub that
+  keeps returning full pages must not loop forever (a page cap); a stub that
+  can't page must make `fetchAll` **throw**, not store a partial table.
 - **`assets-routes.smoke.test.js`** — routes respond; filters whitelisted (no
   500 on hostile input).
-- **`await-precedence.test.js`** — `assets-sync.js` added to `CALLER_FILES`; the
-  guard covers the new module from day one.
-- **Integration against the real CSVs** — load the 8 provided exports into a
-  throwaway PG (or sqlite), prove all 2 473 assets + the Workstation-ID join
-  hold on the actual data, and that `getEnrichedAsset` produces sane RAM/disk/
-  screen aggregates.
+- **`await-precedence.test.js`** — `assets-sync.js` added to `CALLER_FILES` **and
+  `assets-db.js` added to `DB_MODULES`** (finding #4), so both the sync's calls
+  and assets-db's own PG-forked readers are covered from day one.
+- **Integration against the real CSVs** — load the **7** in-scope exports into a
+  throwaway PG (or sqlite), prove all 2 473 assets + the Workstation-ID join hold
+  on the actual data, that `no-cost` filters on `'0.00'` returns 2 246 (not 0),
+  and that `getEnrichedAsset` produces sane RAM / C:-disk / raw-monitor
+  aggregates.
 
 ## 10. Risks & open questions
 
-1. **`software_installations` is 121 097 rows — larger than any current sync**
-   (requests fetches ~47 k at `maxRows 50000`). `fetchView` passes `maxRows` to
-   the Zoho API, which **truncates** (no auto-paging), with a 120 s timeout above
-   10 k rows. **Decision for the plan:** try a single `maxRows≈150000` fetch
-   first; if the API truncates or times out, add `startRow`/`fromIndex` paging in
-   `assets-sync` (fetch in 50 k pages, concat). The engine must detect truncation
-   (returned rows == maxRows) and page rather than silently store a partial
-   table. **This is the one place the "simple" path may not hold — flagged for
-   the reviewer.**
-2. **Currency.** Confirmed ambiguous (§3). A stores raw strings and shows no
-   money; the decision (per-table currency, or a `currency` column) is deferred
-   to B/C. Noted so it isn't rediscovered.
-3. **`stripPiiColumns` runs inside `fetchView`** and drops any `/email/i` column
-   → `Assets.User email` is stripped. It's 0 % filled, so v1 loses nothing; but
-   if a future sub-project needs owner email, it needs a non-stripping fetch
-   path. Out of scope for A.
+1. **Paging (`software_installations`, 121 k).** Promoted from a footnote to a
+   real design decision in §6 — the first plan task smoke-fetches the live view
+   to confirm the Analytics-Plus paging param name, because **no code in this
+   repo pages a view**. The `fetchAll` helper must throw rather than store a
+   silent partial. This is the highest-uncertainty part of A.
+2. **Currency.** Confirmed ambiguous (§3 trap 1). A stores raw strings and shows
+   no money; the decision (per-table currency, or a `currency` column) is
+   deferred to B/C. Noted so it isn't rediscovered.
+3. **`stripPiiColumns` strips more than email.** It runs inside `fetchView` and
+   drops any column matching `/\baddress\b/i` or `/email/i` → `IP Address`,
+   `MAC Address` (why `asset_network` is deferred, §2) and `Assets.User email`
+   (0 % filled, no loss). Any future sub-project needing those fields needs a
+   non-stripping fetch path decided at that time. Out of scope for A.
 4. **PG-first with no sqlite prod precedent for this module.** Every other module
    started sqlite and migrated. Doing PG from the start means the sqlite path
    exists only for tests/dev. Accepted — it's the point (no migration debt), and
@@ -337,14 +425,17 @@ trap is B/C's to resolve.
 - Software licence compliance logic (expired, under-licensed) → **C**.
 - Hardware refresh signals (RAM<8GB, full disks, monitor gaps) → **D**.
 - Any **monetary** display or currency normalisation → B/C.
-- The 5 excluded tables (Mobile_Devices, Keyboard, Mouse, Physical_Drives,
-  Printer_Info) and Hard_Disks → later config entries when a report needs them.
+- The 6 excluded tables (Mobile_Devices, Keyboard, Mouse, Physical_Drives,
+  Printer_Info, **Network_Adapters**) and Hard_Disks → later config entries when
+  a report needs them (Network_Adapters also needs a non-stripping fetch, §2).
+- The trustworthy external-vs-integrated **screen count** (needs a camera/virtual
+  denylist over the polluted `Monitor Type`) → **D**. A stores raw + a raw count.
 
 ## 12. Definition of done (sub-project A)
 
-- `assets.db` with 8 tables; `001_init.sql` PG mirror; `ASSETS_BACKEND` selects
+- `assets.db` with 7 tables; `001_init.sql` PG mirror; `ASSETS_BACKEND` selects
   the backend.
-- `assets-sync.js` full-replaces all 8 views daily; a manual trigger works;
+- `assets-sync.js` full-replaces all 7 views daily; a manual trigger works;
   every write is awaited; a failed fetch never empties a table.
 - `getEnrichedAsset` joins the fleet by `Workstation ID = Asset ID`.
 - `/api/assets/*` serves inventory / lookups / summary / export, filters
