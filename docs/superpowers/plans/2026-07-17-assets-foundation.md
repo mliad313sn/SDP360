@@ -257,10 +257,20 @@ async function fetchAll(viewId, fetchView, { maxRows = 200000 } = {}) {
 module.exports = { fetchAll };
 ```
 
-> **Path B note (only if the gate demanded it):** swap the single `fetchView` call
-> for a `fetchViewPaged(viewId)` (a real `server.js` addition that loops the AP
-> offset param). The truncation-throw contract stays: a page loop that can't
-> advance throws rather than storing a partial.
+> **⚠ THE SILENT-PARTIAL HOLE — and how the gate closes it.** The `>= maxRows`
+> throw only fires if the API returns *at least* `maxRows` rows. If Analytics
+> Plus imposes its OWN cap **below** `maxRows` **and** below the view size — say
+> it returns 100 000 of 121 097 when asked for 200 000 — then `100 000 < 200 000`,
+> the guard never fires, and a partial `software_installations` is stored as
+> complete. That is the exact frozen-sync bug. **Task 1's gate must record the
+> API's observed hard cap**, and this code pins `maxRows` to **`cap − 1`** for
+> any view near it, so a real truncation comes back AT the ceiling and trips the
+> throw. If the gate finds no cap (Path A clean, the view fits), `maxRows=200000`
+> is safe. **Never leave `maxRows` above an unconfirmed cap.**
+>
+> **Path B (only if the gate proved a cap below the view size):** swap the single
+> `fetchView` call for a `fetchViewPaged(viewId)` server.js variant that loops the
+> AP offset param. The throw-on-partial contract stays.
 
 - [ ] **Step 4: Run → PASS** (3 tests).
 
@@ -511,7 +521,14 @@ test('POST /api/sync/trigger/assets responds 200 and reports started', async () 
 
   The sync `deps` wires `assets-db`'s `replaceTable` + `markSyncSuccess`/`markSyncError` from `reports-db` (sync_metadata lives in reports.db — seed the 7 job rows there, or let markSuccess upsert them).
 
-  > **⚠ CONFIRM THE PAGING PARAM HERE.** The injected `fetchView` adapter passed to `assetsSync.init` must map `{startRow}` to the real Analytics-Plus param. Before the first real `software_installations` sync, smoke-fetch the live view (`maxRows=50000, startRow=50000`) and confirm page 2 differs from page 1. If AP uses a different param or no offset paging, `fetchAll` will throw (by design) rather than store a partial — surface that to the user rather than working around it.
+  > **⚠ USE TASK 1's GATE RESULT HERE — do not invent paging.** `assetsSync.init`
+  > receives the REAL `fetchView(viewId, maxRows)` (no offset param exists —
+  > server.js:710). On **Path A**, wire nothing extra: `fetchAll` sends one
+  > `maxRows` and throws on a ceiling result. On **Path B** (only if Task 1's gate
+  > proved AP caps below the view size), add the `fetchViewPaged` server.js
+  > variant the gate specified. **Also from the gate:** set each large view's
+  > `maxRows` to `cap − 1` (see the silent-partial guard note in Task 1b) so a
+  > real truncation returns AT the ceiling and trips the throw.
 
 - [ ] **Step 4: Run** the smoke test + `await-precedence` → PASS. Also `node -e "require('./server.js')"`-style boot check (or the smoke test's boot) shows no throw.
 
