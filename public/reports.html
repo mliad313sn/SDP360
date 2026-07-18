@@ -232,10 +232,23 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
 .admin-panel{display:none}
 .admin-panel.active{display:block;animation:adminPanelIn .18s ease}
 @keyframes adminPanelIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+/* Rail grouped by scope (Global / Reports / Assets / Risk) */
+.admin-rail__group{display:flex;flex-direction:column;gap:4px}
+.admin-rail__group + .admin-rail__group{margin-top:12px}
+.admin-rail__grouphdr{font-size:0.64rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
+  color:#94a3b8;padding:2px 12px 3px}
+.admin-rail__item .ar-scope{margin-left:auto;flex:0 0 auto;font-size:0.58rem;font-weight:700;
+  text-transform:uppercase;letter-spacing:.04em;padding:1px 6px;border-radius:999px;
+  background:#eef1f6;color:#64748b}
+.admin-rail__item.active .ar-scope{background:rgba(255,255,255,.22);color:#fff}
+.ar-scope--assets{background:#e0f2f1;color:#0f766e}
+.ar-scope--reports{background:#eef2ff;color:#4338ca}
+.ar-scope--risk{background:#fef2f2;color:#b91c1c}
 @media (max-width:880px){
   .admin-layout{flex-direction:column}
   .admin-rail{flex:1 1 auto;position:static;flex-direction:row;flex-wrap:wrap;width:100%}
-  .admin-rail__item{width:auto;flex:1 1 auto;justify-content:center}
+  .admin-rail__group{flex:1 1 100%}
+  .admin-rail__item{width:auto;flex:1 1 auto;justify-content:flex-start}
   .admin-rail__item small{display:none}
 }
 </style>
@@ -970,15 +983,30 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
 
     <div class="admin-layout">
       <nav class="admin-rail" id="admin-rail" aria-label="Admin sections">
-        <button type="button" class="admin-rail__item" data-panel="users"       onclick="showAdminPanel('users')"><span class="ar-ico">👤</span><span>Users<small>Accounts &amp; roles</small></span></button>
-        <button type="button" class="admin-rail__item" data-panel="sessions"    onclick="showAdminPanel('sessions')"><span class="ar-ico">🟢</span><span>Active Sessions<small>Who's online</small></span></button>
-        <button type="button" class="admin-rail__item" data-panel="sites"       onclick="showAdminPanel('sites')"><span class="ar-ico">🏢</span><span>Sites<small>Zoho group mapping</small></span></button>
-        <button type="button" class="admin-rail__item" data-panel="departments" onclick="showAdminPanel('departments')"><span class="ar-ico">🏷</span><span>Departments<small>Action item categories</small></span></button>
-        <button type="button" class="admin-rail__item" data-panel="execview"    onclick="showAdminPanel('execview')"><span class="ar-ico">📣</span><span>Exec View<small>Highlights &amp; focus</small></span></button>
-        <button type="button" class="admin-rail__item" data-panel="backups" id="admin-rail-backups" style="display:none" onclick="showAdminPanel('backups')"><span class="ar-ico">💾</span><span>Backups<small>Scheduled &amp; manual</small></span></button>
-        <button type="button" class="admin-rail__item" data-panel="risk" id="admin-rail-risk" style="display:none" onclick="showAdminPanel('risk')"><span class="ar-ico">🛡</span><span>Risk Register<small>Site code mapping</small></span></button>
-        <button type="button" class="admin-rail__item" data-panel="autoreports" id="admin-rail-autoreports" style="display:none" onclick="showAdminPanel('autoreports')"><span class="ar-ico">📄</span><span>Automated Reports<small>Recipients &amp; delivery</small></span></button>
-        <button type="button" class="admin-rail__item" data-panel="hygiene" id="admin-rail-hygiene" style="display:none" onclick="showAdminPanel('hygiene')"><span class="ar-ico">🛡</span><span>Assets Hygiene<small>Digest &amp; schedule</small></span></button>
+        <div class="admin-rail__group">
+          <div class="admin-rail__grouphdr">⚙ Global</div>
+          <button type="button" class="admin-rail__item" data-panel="users"       onclick="showAdminPanel('users')"><span class="ar-ico">👤</span><span>Users<small>Accounts &amp; roles</small></span><span class="ar-scope">Global</span></button>
+          <button type="button" class="admin-rail__item" data-panel="sessions"    onclick="showAdminPanel('sessions')"><span class="ar-ico">🟢</span><span>Active Sessions<small>Who's online</small></span><span class="ar-scope">Global</span></button>
+          <button type="button" class="admin-rail__item" data-panel="sites"       onclick="showAdminPanel('sites')"><span class="ar-ico">🏢</span><span>Sites<small>Zoho group mapping</small></span><span class="ar-scope">Global</span></button>
+          <button type="button" class="admin-rail__item" data-panel="email"       onclick="showAdminPanel('email')"><span class="ar-ico">✉</span><span>Email / SMTP<small>Transport &amp; addressing</small></span><span class="ar-scope">Global</span></button>
+          <button type="button" class="admin-rail__item" data-panel="backups" id="admin-rail-backups" style="display:none" onclick="showAdminPanel('backups')"><span class="ar-ico">💾</span><span>Backups<small>Scheduled &amp; manual</small></span><span class="ar-scope">Global</span></button>
+        </div>
+        <div class="admin-rail__group">
+          <div class="admin-rail__grouphdr">📊 Reports</div>
+          <button type="button" class="admin-rail__item" data-panel="autoreports" id="admin-rail-autoreports" style="display:none" onclick="showAdminPanel('autoreports')"><span class="ar-ico">📄</span><span>Automated Reports<small>Recipients &amp; schedule</small></span><span class="ar-scope ar-scope--reports">Reports</span></button>
+          <button type="button" class="admin-rail__item" data-panel="departments" onclick="showAdminPanel('departments')"><span class="ar-ico">🏷</span><span>Departments<small>Action item categories</small></span><span class="ar-scope ar-scope--reports">Reports</span></button>
+          <button type="button" class="admin-rail__item" data-panel="execview"    onclick="showAdminPanel('execview')"><span class="ar-ico">📣</span><span>Exec View<small>Highlights &amp; focus</small></span><span class="ar-scope ar-scope--reports">Reports</span></button>
+        </div>
+        <div class="admin-rail__group">
+          <div class="admin-rail__grouphdr">💻 Assets</div>
+          <button type="button" class="admin-rail__item" data-panel="assets-finance" onclick="showAdminPanel('assets-finance')"><span class="ar-ico">💱</span><span>Assets Finance<small>XOF→USD rate</small></span><span class="ar-scope ar-scope--assets">Assets</span></button>
+          <button type="button" class="admin-rail__item" data-panel="assets-deprec"  onclick="showAdminPanel('assets-deprec')"><span class="ar-ico">📉</span><span>Depreciation<small>Method &amp; useful life</small></span><span class="ar-scope ar-scope--assets">Assets</span></button>
+          <button type="button" class="admin-rail__item" data-panel="hygiene" id="admin-rail-hygiene" style="display:none" onclick="showAdminPanel('hygiene')"><span class="ar-ico">🛡</span><span>Assets Hygiene<small>Digest &amp; schedule</small></span><span class="ar-scope ar-scope--assets">Assets</span></button>
+        </div>
+        <div class="admin-rail__group">
+          <div class="admin-rail__grouphdr">🛡 Risk Register</div>
+          <button type="button" class="admin-rail__item" data-panel="risk" id="admin-rail-risk" style="display:none" onclick="showAdminPanel('risk')"><span class="ar-ico">🛡</span><span>Risk Register<small>Site code mapping</small></span><span class="ar-scope ar-scope--risk">Risk</span></button>
+        </div>
       </nav>
       <div class="admin-content">
 
@@ -1204,11 +1232,11 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         </span>
       </h3>
 
-      <!-- Tab strip (active tab = btn-primary, others btn-secondary) -->
+      <!-- Tab strip (active tab = btn-primary, others btn-secondary).
+           SMTP / transport / addressing moved to the Global ▸ Email / SMTP panel. -->
       <div style="display:flex;gap:6px;margin:6px 0 16px">
         <button type="button" class="btn btn-primary   btn-sm ar-tab" data-artab="recipients" onclick="showAutoReportTab('recipients')">Recipients</button>
         <button type="button" class="btn btn-secondary btn-sm ar-tab" data-artab="schedule"   onclick="showAutoReportTab('schedule')">Schedule</button>
-        <button type="button" class="btn btn-secondary btn-sm ar-tab" data-artab="delivery"   onclick="showAutoReportTab('delivery')">Delivery settings</button>
       </div>
 
       <!-- Tab 1 — Recipients -->
@@ -1230,6 +1258,20 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
           </tr></thead>
           <tbody id="ar-recipients-tbody"></tbody>
         </table>
+
+        <!-- Group report recipients — stays under Reports (the site/group
+             report addressing). Bound to /api/reports/config, saved via
+             saveReportConfig (getElementById is document-wide, so the SMTP
+             fields on the Email panel and these fields persist together). -->
+        <h4 style="margin:18px 0 6px">Group report recipients</h4>
+        <div class="form-row cols-2" style="max-width:720px">
+          <div class="form-group"><label>Group report — To</label><input id="cfg-group-to" type="text"></div>
+          <div class="form-group"><label>Group report — CC</label><input id="cfg-group-cc" type="text"></div>
+        </div>
+        <div class="form-group"><label style="font-weight:400"><input type="checkbox" id="cfg-group-to-confirmed"> Group report "To" address is confirmed</label></div>
+        <div class="modal-actions" style="justify-content:flex-start;gap:10px;align-items:center">
+          <button class="btn btn-primary" onclick="saveReportConfig()">Save group report recipients</button>
+        </div>
       </div>
 
       <!-- Tab 2 — Schedule (rows rendered by loadReportSchedule) -->
@@ -1240,54 +1282,116 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         <div id="ar-schedule-body"></div>
       </div>
 
-      <!-- Tab 3 — Delivery settings (bound to /api/reports/config) -->
-      <div class="ar-tabpanel" id="ar-tab-delivery" style="display:none">
-        <div class="form-row cols-2" style="max-width:720px">
-          <div class="form-group">
-            <label>Transport</label>
-            <select id="cfg-transport">
-              <option value="smtp">SMTP</option>
-              <option value="graph">Microsoft Graph</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Formats <span style="font-weight:400;color:#6b7a99">— comma-separated (e.g. html,pdf)</span></label>
-            <input id="cfg-formats" type="text" placeholder="html,pdf">
-          </div>
-        </div>
+    </div>
 
-        <h4 style="margin:14px 0 6px">SMTP</h4>
-        <div class="form-row cols-2" style="max-width:720px">
-          <div class="form-group"><label>Host</label><input id="cfg-smtp-host" type="text" placeholder="smtp.office365.com"></div>
-          <div class="form-group"><label>Port</label><input id="cfg-smtp-port" type="text" placeholder="587"></div>
-        </div>
-        <div class="form-row cols-2" style="max-width:720px">
-          <div class="form-group"><label>User</label><input id="cfg-smtp-user" type="text"></div>
-          <div class="form-group"><label>Password</label><input id="cfg-smtp-pass" type="password" placeholder="Leave blank to keep the stored password"></div>
-        </div>
-        <div class="form-group"><label style="font-weight:400"><input type="checkbox" id="cfg-smtp-secure"> Use implicit TLS/SSL (secure)</label></div>
+    <!-- ─── Email / SMTP (Global) ─────────────────────────────────────────────
+         SMTP transport, credentials & addressing for ALL outbound mail — moved
+         out of the Automated-Reports "Delivery settings" tab so it reads as a
+         GLOBAL concern. Every id is unchanged, so saveReportConfig /
+         loadReportConfig (document-wide getElementById) keep working untouched.
+         group_report_* stay under Reports (Recipients tab). -->
+    <div class="card admin-panel" id="ap-email" data-panel="email">
+      <h3>✉ Email / SMTP
+        <span style="font-size:0.78rem;font-weight:400;color:#6b7a99;margin-left:8px">
+          Transport, SMTP credentials &amp; addressing for all outbound mail
+        </span>
+      </h3>
 
-        <h4 style="margin:14px 0 6px">Addressing</h4>
-        <div class="form-row cols-2" style="max-width:720px">
-          <div class="form-group"><label>From</label><input id="cfg-from" type="text" placeholder="IT Reports &lt;it-reports@edv-ops.com&gt;"></div>
-          <div class="form-group"><label>Reply-to</label><input id="cfg-reply-to" type="text"></div>
+      <div class="form-row cols-2" style="max-width:720px">
+        <div class="form-group">
+          <label>Transport</label>
+          <select id="cfg-transport">
+            <option value="smtp">SMTP</option>
+            <option value="graph">Microsoft Graph</option>
+          </select>
         </div>
-        <div class="form-group" style="max-width:352px"><label>Default email domain</label><input id="cfg-default-domain" type="text" placeholder="edv-ops.com"></div>
-
-        <h4 style="margin:14px 0 6px">Group report recipients</h4>
-        <div class="form-row cols-2" style="max-width:720px">
-          <div class="form-group"><label>Group report — To</label><input id="cfg-group-to" type="text"></div>
-          <div class="form-group"><label>Group report — CC</label><input id="cfg-group-cc" type="text"></div>
+        <div class="form-group">
+          <label>Formats <span style="font-weight:400;color:#6b7a99">— comma-separated (e.g. html,pdf)</span></label>
+          <input id="cfg-formats" type="text" placeholder="html,pdf">
         </div>
-        <div class="form-group"><label style="font-weight:400"><input type="checkbox" id="cfg-group-to-confirmed"> Group report "To" address is confirmed</label></div>
+      </div>
 
-        <div class="form-group" style="margin-top:6px"><label style="font-weight:400"><input type="checkbox" id="cfg-never-send-unconfirmed" checked> <strong>Safety:</strong> never send to an unconfirmed address</label></div>
+      <h4 style="margin:14px 0 6px">SMTP</h4>
+      <div class="form-row cols-2" style="max-width:720px">
+        <div class="form-group"><label>Host</label><input id="cfg-smtp-host" type="text" placeholder="smtp.office365.com"></div>
+        <div class="form-group"><label>Port</label><input id="cfg-smtp-port" type="text" placeholder="587"></div>
+      </div>
+      <div class="form-row cols-2" style="max-width:720px">
+        <div class="form-group"><label>User</label><input id="cfg-smtp-user" type="text"></div>
+        <div class="form-group"><label>Password</label><input id="cfg-smtp-pass" type="password" placeholder="Leave blank to keep the stored password"></div>
+      </div>
+      <div class="form-group"><label style="font-weight:400"><input type="checkbox" id="cfg-smtp-secure"> Use implicit TLS/SSL (secure)</label></div>
 
-        <div class="modal-actions" style="justify-content:flex-start;gap:10px;align-items:center">
-          <button class="btn btn-primary" onclick="saveReportConfig()">Save</button>
-          <button class="btn btn-secondary" onclick="testSmtp(this)">Test connection</button>
-          <span id="cfg-test-msg" style="font-size:0.85rem;color:#6b7a99"></span>
-        </div>
+      <h4 style="margin:14px 0 6px">Addressing</h4>
+      <div class="form-row cols-2" style="max-width:720px">
+        <div class="form-group"><label>From</label><input id="cfg-from" type="text" placeholder="IT Reports &lt;it-reports@edv-ops.com&gt;"></div>
+        <div class="form-group"><label>Reply-to</label><input id="cfg-reply-to" type="text"></div>
+      </div>
+      <div class="form-group" style="max-width:352px"><label>Default email domain</label><input id="cfg-default-domain" type="text" placeholder="edv-ops.com"></div>
+
+      <div class="form-group" style="margin-top:6px"><label style="font-weight:400"><input type="checkbox" id="cfg-never-send-unconfirmed" checked> <strong>Safety:</strong> never send to an unconfirmed address</label></div>
+
+      <div class="modal-actions" style="justify-content:flex-start;gap:10px;align-items:center">
+        <button class="btn btn-primary" onclick="saveReportConfig()">Save</button>
+        <button class="btn btn-secondary" onclick="testSmtp(this)">Test connection</button>
+        <span id="cfg-test-msg" style="font-size:0.85rem;color:#6b7a99"></span>
+      </div>
+    </div>
+
+    <!-- ─── Assets Finance (Global → Assets) ──────────────────────────────────
+         XOF→USD conversion rate for asset cost surfaces. Moved out of the
+         Assets Hygiene card. Keeps id `hyg-xof-usd-rate`; owned now by
+         saveAssetFinanceConfig / loadAssetFinanceConfig (Hygiene's save/load
+         no longer touch it). -->
+    <div class="card admin-panel" id="ap-assets-finance" data-panel="assets-finance">
+      <h3>💱 Assets Finance
+        <span style="font-size:0.78rem;font-weight:400;color:#6b7a99;margin-left:8px">
+          Currency conversion for asset cost surfaces
+        </span>
+      </h3>
+      <div class="form-group" style="max-width:560px">
+        <label>Taux XOF→USD <span style="font-weight:400;color:#6b7a99">— asset costs are in XOF; Finance surfaces show USD</span></label>
+        <input type="number" id="hyg-xof-usd-rate" step="0.00001" min="0" style="width:160px;padding:6px 8px;border:1px solid #E2E5EA;border-radius:4px" placeholder="0.00165">
+      </div>
+      <div class="modal-actions" style="justify-content:flex-start;gap:10px;align-items:center">
+        <button class="btn btn-primary" onclick="saveAssetFinanceConfig()">Save</button>
+      </div>
+    </div>
+
+    <!-- ─── Assets Depreciation (Assets) ──────────────────────────────────────
+         Editor for the depreciation policy blob persisted via
+         /api/assets/depreciation-config. Default policy + per-type overrides.
+         Salvage is shown as a percent (10) and stored as a fraction (0.1). -->
+    <div class="card admin-panel" id="ap-assets-deprec" data-panel="assets-deprec">
+      <h3>📉 Depreciation
+        <span style="font-size:0.78rem;font-weight:400;color:#6b7a99;margin-left:8px">
+          Default policy &amp; per-type overrides
+        </span>
+      </h3>
+
+      <h4 style="margin:6px 0 8px">Default policy</h4>
+      <div class="form-row cols-3" style="max-width:720px">
+        <div class="form-group"><label>Method</label><select id="dep-def-method"></select></div>
+        <div class="form-group"><label>Useful life (months)</label><input type="number" id="dep-def-life" min="1" step="1" placeholder="48"></div>
+        <div class="form-group"><label>Salvage %</label><input type="number" id="dep-def-salvage" min="0" max="100" step="0.1" placeholder="0"></div>
+      </div>
+
+      <h4 style="margin:16px 0 6px">Per-type overrides
+        <button class="btn btn-secondary btn-sm" style="margin-left:10px" onclick="addDeprecTypeRow()">+ Add type</button>
+      </h4>
+      <table class="user-table" id="dep-type-table">
+        <thead><tr>
+          <th style="width:28%">Product type</th>
+          <th>Method</th>
+          <th style="width:18%">Useful life (months)</th>
+          <th style="width:12%">Salvage %</th>
+          <th style="width:8%">Actions</th>
+        </tr></thead>
+        <tbody id="dep-type-tbody"></tbody>
+      </table>
+
+      <div class="modal-actions" style="justify-content:flex-start;gap:10px;align-items:center;margin-top:14px">
+        <button class="btn btn-primary" onclick="saveDeprecConfig()">Save depreciation config</button>
       </div>
     </div>
 
@@ -1315,10 +1419,6 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         <textarea id="hyg-recipients" rows="4" style="width:100%;padding:6px 8px;border:1px solid #E2E5EA;border-radius:4px;font-family:inherit" placeholder="group-it@edv-ops.com&#10;cmdb-owner@edv-ops.com"></textarea>
       </div>
       <div class="form-group"><label style="font-weight:400"><input type="checkbox" id="hyg-enabled"> <strong>Arm sending</strong> — enable the scheduled + send-now digest</label></div>
-      <div class="form-group" style="max-width:560px">
-        <label>Taux XOF→USD (Finance) <span style="font-weight:400;color:#6b7a99">— asset costs are in XOF; Finance surfaces show USD</span></label>
-        <input type="number" id="hyg-xof-usd-rate" step="0.00001" min="0" style="width:160px;padding:6px 8px;border:1px solid #E2E5EA;border-radius:4px" placeholder="0.00165">
-      </div>
       <div class="modal-actions" style="justify-content:flex-start;gap:10px;align-items:center;margin-bottom:10px">
         <button class="btn btn-primary" onclick="saveHygieneConfig()">Save recipients &amp; arm flag</button>
         <button class="btn btn-secondary" onclick="previewHygiene(this)">Preview</button>
@@ -4569,7 +4669,7 @@ async function downloadAllSitesMonthlyPptx(fromMonthlyPage) {
 //  ADMIN PAGE
 // ══════════════════════════════════════════════════════════════════
 // Admin left-rail: show one settings panel at a time. name ∈ users|sessions|sites|departments|risk.
-const _ADMIN_PANEL_IDS = { users:'ap-users', sessions:'sessions-card', sites:'ap-sites', departments:'ap-depts', execview:'ap-execview', backups:'ap-backups', risk:'rr-aliases-card', autoreports:'ap-autoreports', hygiene:'ap-hygiene' };
+const _ADMIN_PANEL_IDS = { users:'ap-users', sessions:'sessions-card', sites:'ap-sites', departments:'ap-depts', execview:'ap-execview', email:'ap-email', backups:'ap-backups', risk:'rr-aliases-card', autoreports:'ap-autoreports', 'assets-finance':'ap-assets-finance', 'assets-deprec':'ap-assets-deprec', hygiene:'ap-hygiene' };
 function showAdminPanel(name) {
   // Guard: 'risk' / 'backups' / 'autoreports' are super_admin-only — fall back to Users for everyone else.
   if ((name === 'risk' || name === 'backups' || name === 'autoreports') && currentUser?.role !== 'super_admin') name = 'users';
@@ -4590,6 +4690,12 @@ function showAdminPanel(name) {
   if (name === 'backups' && typeof loadBackupSchedule === 'function') loadBackupSchedule();
   // Fresh data when opening Automated Reports (defaults to the Recipients tab).
   if (name === 'autoreports' && typeof loadAutoReports === 'function') loadAutoReports();
+  // Fresh SMTP / addressing when opening the Email panel.
+  if (name === 'email' && typeof loadReportConfig === 'function') loadReportConfig();
+  // Fresh XOF→USD rate when opening the Assets Finance panel.
+  if (name === 'assets-finance' && typeof loadAssetFinanceConfig === 'function') loadAssetFinanceConfig();
+  // Fresh depreciation policy when opening the Depreciation panel.
+  if (name === 'assets-deprec' && typeof loadDeprecConfig === 'function') loadDeprecConfig();
   // Fresh data when opening the Assets Hygiene digest card.
   if (name === 'hygiene' && typeof loadHygieneCard === 'function') loadHygieneCard();
   // Reflect the section in the hash (deep-linkable); guard avoids re-entrancy with the router.
@@ -4628,7 +4734,7 @@ async function loadAdminPage() {
     }
     // Open the panel from the hash sub-section (#admin/<section>) or default to Users.
     const sub = (location.hash.split('/')[1] || '').toLowerCase();
-    showAdminPanel(['users','sessions','sites','departments','execview','risk','autoreports','hygiene'].includes(sub) ? sub : 'users');
+    showAdminPanel(['users','sessions','sites','departments','execview','email','backups','risk','autoreports','assets-finance','assets-deprec','hygiene'].includes(sub) ? sub : 'users');
 
     const deptUrl  = isExecOrSuper ? '/api/reports/departments?include_inactive=1' : '/api/reports/departments';
     const sitesUrl = isExecOrSuper ? '/api/reports/sites?include_inactive=1'        : '/api/reports/sites';
@@ -5410,7 +5516,7 @@ const _AR_DAYS  = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 function _arYN(v) { return (v === 1 || v === '1' || v === true) ? 1 : 0; }
 
 function showAutoReportTab(name) {
-  ['recipients', 'schedule', 'delivery'].forEach(t => {
+  ['recipients', 'schedule'].forEach(t => {
     const p = document.getElementById('ar-tab-' + t);
     if (p) p.style.display = (t === name) ? '' : 'none';
   });
@@ -5419,9 +5525,8 @@ function showAutoReportTab(name) {
     b.classList.toggle('btn-primary', on);
     b.classList.toggle('btn-secondary', !on);
   });
-  if (name === 'recipients') loadReportRecipients();
+  if (name === 'recipients') { loadReportRecipients(); loadReportConfig(); }
   else if (name === 'schedule') loadReportSchedule();
-  else if (name === 'delivery') loadReportConfig();
 }
 function loadAutoReports() { showAutoReportTab('recipients'); }
 
@@ -5638,8 +5743,7 @@ function loadHygieneCard() {
     if (rEl) rEl.value = String(c.hygiene_recipients || '').split(',').map(s => s.trim()).filter(Boolean).join('\n');
     const eEl = document.getElementById('hyg-enabled');
     if (eEl) eEl.checked = (c.hygiene_send_enabled === '1' || c.hygiene_send_enabled === 1);
-    const rateEl = document.getElementById('hyg-xof-usd-rate');
-    if (rateEl) rateEl.value = String(c.xof_usd_rate || '');
+    // xof_usd_rate is owned by the Assets Finance panel now — not read here.
   }).catch(e => toast('Could not load hygiene settings: ' + (e.message || e), 'error'));
   const box = document.getElementById('hyg-schedule-body');
   if (box) box.innerHTML = '<div style="color:#94a3b8;font-style:italic;padding:10px">Loading…</div>';
@@ -5672,12 +5776,101 @@ function loadHygieneCard() {
 function saveHygieneConfig() {
   const recips = document.getElementById('hyg-recipients').value.split(/[\n,]+/).map(s => s.trim()).filter(Boolean).join(',');
   const enabled = document.getElementById('hyg-enabled').checked ? '1' : '0';
-  const rate = String(document.getElementById('hyg-xof-usd-rate').value || '').trim();
+  // xof_usd_rate moved to the Assets Finance panel (saveAssetFinanceConfig) —
+  // do NOT read it here (its input no longer lives on this card).
   const body = { hygiene_recipients: recips, hygiene_send_enabled: enabled };
-  if (rate !== '') body.xof_usd_rate = rate;
   api('PUT', '/api/reports/config', body)
     .then(() => { toast('Hygiene digest settings saved ✓', 'success'); loadHygieneCard(); })
     .catch(e => toast('Save failed: ' + (e.message || e), 'error'));
+}
+
+// ── Assets Finance panel — owns the XOF→USD rate (id hyg-xof-usd-rate) ──
+function loadAssetFinanceConfig() {
+  api('GET', '/api/reports/config').then(c => {
+    const el = document.getElementById('hyg-xof-usd-rate');
+    if (el) el.value = String(c.xof_usd_rate || '');
+  }).catch(e => toast('Could not load finance settings: ' + (e.message || e), 'error'));
+}
+function saveAssetFinanceConfig() {
+  const el = document.getElementById('hyg-xof-usd-rate');
+  const rate = String((el ? el.value : '') || '').trim();
+  api('PUT', '/api/reports/config', { xof_usd_rate: rate })
+    .then(() => { toast('Finance settings saved ✓', 'success'); loadAssetFinanceConfig(); })
+    .catch(e => toast('Save failed: ' + (e.message || e), 'error'));
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  ASSETS DEPRECIATION config editor (admin+)
+//    Default policy + per-type overrides → /api/assets/depreciation-config
+//    Salvage shown as percent (10) ↔ stored fraction (0.1).
+// ══════════════════════════════════════════════════════════════════
+const _DEPREC_METHODS = {
+  straight_line: 'Straight Line',
+  declining_balance: 'Declining Balance',
+  double_declining: 'Double Declining Balance',
+  sum_of_years: 'Sum Of The Years Digit'
+};
+function _deprecMethodOptions(sel) {
+  return Object.keys(_DEPREC_METHODS).map(k =>
+    `<option value="${k}"${k === sel ? ' selected' : ''}>${esc(_DEPREC_METHODS[k])}</option>`).join('');
+}
+function _addDeprecRow(type, entry) {
+  const tb = document.getElementById('dep-type-tbody');
+  if (!tb) return;
+  const e = entry || {};
+  const salvagePct = e.salvage_pct != null ? (Number(e.salvage_pct) * 100) : '';
+  const tr = document.createElement('tr');
+  tr.innerHTML =
+    `<td><input type="text" class="dep-type-name" value="${esc(type || '')}" placeholder="Laptop" style="width:100%"></td>` +
+    `<td><select class="dep-type-method" style="width:100%">${_deprecMethodOptions(e.method || 'straight_line')}</select></td>` +
+    `<td><input type="number" class="dep-type-life" min="1" step="1" value="${esc(e.useful_life_months != null ? e.useful_life_months : '')}" style="width:100%"></td>` +
+    `<td><input type="number" class="dep-type-salvage" min="0" max="100" step="0.1" value="${esc(salvagePct)}" style="width:100%"></td>` +
+    `<td><button class="btn btn-secondary btn-sm" title="Remove" onclick="this.closest('tr').remove()">✕</button></td>`;
+  tb.appendChild(tr);
+}
+function addDeprecTypeRow() { _addDeprecRow('', {}); }
+function loadDeprecConfig() {
+  api('GET', '/api/assets/depreciation-config').then(cfg => {
+    const d = (cfg && cfg.default) || {};
+    const setV = (id, v) => { const el = document.getElementById(id); if (el) el.value = (v == null ? '' : v); };
+    const mEl = document.getElementById('dep-def-method');
+    if (mEl) mEl.innerHTML = _deprecMethodOptions(d.method || 'straight_line');
+    setV('dep-def-life', d.useful_life_months);
+    setV('dep-def-salvage', d.salvage_pct != null ? (Number(d.salvage_pct) * 100) : '');
+    const tb = document.getElementById('dep-type-tbody');
+    if (tb) tb.innerHTML = '';
+    const byType = (cfg && cfg.by_type) || {};
+    Object.keys(byType).forEach(t => _addDeprecRow(t, byType[t]));
+  }).catch(e => toast('Could not load depreciation config: ' + (e.message || e), 'error'));
+}
+function saveDeprecConfig() {
+  const num = id => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
+  const mkEntry = (method, life, salvagePctStr) => {
+    const entry = { method, useful_life_months: Number(life) };
+    const sp = String(salvagePctStr || '').trim();
+    entry.salvage_pct = sp === '' ? 0 : (Number(sp) / 100);
+    return entry;
+  };
+  const cfg = {
+    default: mkEntry(num('dep-def-method'), num('dep-def-life'), num('dep-def-salvage')),
+    by_type: {}
+  };
+  const rows = document.querySelectorAll('#dep-type-tbody tr');
+  for (const tr of rows) {
+    const name = (tr.querySelector('.dep-type-name')?.value || '').trim();
+    if (!name) continue;   // skip unnamed rows
+    cfg.by_type[name] = mkEntry(
+      tr.querySelector('.dep-type-method')?.value,
+      tr.querySelector('.dep-type-life')?.value,
+      tr.querySelector('.dep-type-salvage')?.value
+    );
+  }
+  api('PUT', '/api/assets/depreciation-config', cfg)
+    .then(() => { toast('Depreciation config saved ✓', 'success'); loadDeprecConfig(); })
+    .catch(e => {
+      const m = (e && (e.message || e)) + '';
+      toast(/400|invalid/i.test(m) ? 'Invalid config — check method, useful life (> 0) and salvage % (0–100)' : ('Save failed: ' + m), 'error');
+    });
 }
 function previewHygiene(btn) {
   if (btn) btn.disabled = true;
