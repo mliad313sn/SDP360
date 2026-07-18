@@ -2351,6 +2351,22 @@ app.get('/api/assets/hygiene/export.xlsx', requireReportSession, async (req, res
   }
 });
 
+// POST /api/assets/hygiene/send?preview=1|0 — admin-driven Preview / Send-now.
+// send-hygiene.main() resolves db/cfg/summary itself and is disarmed-safe: a
+// disabled config returns {sent:0,reason:'disabled'} WITHOUT touching SMTP.
+app.post('/api/assets/hygiene/send', requireReportSession, requireAdmin, async (req, res) => {
+  const _truthy = v => v === '1' || v === 1 || v === true || v === 'true';
+  const preview = _truthy(req.query.preview) || _truthy(req.body?.preview);
+  const force = _truthy(req.query.force) || _truthy(req.body?.force);
+  try {
+    const sendHygiene = require('./tools/reports/send-hygiene');
+    res.json(await sendHygiene.main({ preview, force }));
+  } catch (e) {
+    console.error('[api/assets/hygiene/send]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/health', (req, res) => res.json({
   status: 'ok', tokenValid: Date.now() < tokenState.expiresAt,
   expiresAt: new Date(tokenState.expiresAt).toISOString(),

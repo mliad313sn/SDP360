@@ -978,6 +978,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         <button type="button" class="admin-rail__item" data-panel="backups" id="admin-rail-backups" style="display:none" onclick="showAdminPanel('backups')"><span class="ar-ico">💾</span><span>Backups<small>Scheduled &amp; manual</small></span></button>
         <button type="button" class="admin-rail__item" data-panel="risk" id="admin-rail-risk" style="display:none" onclick="showAdminPanel('risk')"><span class="ar-ico">🛡</span><span>Risk Register<small>Site code mapping</small></span></button>
         <button type="button" class="admin-rail__item" data-panel="autoreports" id="admin-rail-autoreports" style="display:none" onclick="showAdminPanel('autoreports')"><span class="ar-ico">📄</span><span>Automated Reports<small>Recipients &amp; delivery</small></span></button>
+        <button type="button" class="admin-rail__item" data-panel="hygiene" id="admin-rail-hygiene" style="display:none" onclick="showAdminPanel('hygiene')"><span class="ar-ico">🛡</span><span>Assets Hygiene<small>Digest &amp; schedule</small></span></button>
       </nav>
       <div class="admin-content">
 
@@ -1288,6 +1289,43 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
           <span id="cfg-test-msg" style="font-size:0.85rem;color:#6b7a99"></span>
         </div>
       </div>
+    </div>
+
+    <!-- ─── Assets Hygiene digest (admin+) ────────────────────────────────────
+         The Group-IT CMDB-hygiene digest (Assets sub-project B). Recipients +
+         arm flag ride on /api/reports/config (hygiene_recipients /
+         hygiene_send_enabled); the Task Scheduler jobs on /api/reports/schedule
+         with report_type=hygiene. Preview / Send-now hit the disarm-safe
+         /api/assets/hygiene/send route. Armed OFF by default — nothing mails
+         until an admin ticks "Arm sending" AND a recipient is on file. -->
+    <div class="card admin-panel" id="ap-hygiene" data-panel="hygiene">
+      <h3>🛡 Assets Hygiene digest
+        <span style="font-size:0.78rem;font-weight:400;color:#6b7a99;margin-left:8px">
+          Group-IT CMDB-hygiene email — recipients, arm flag, schedule &amp; preview
+        </span>
+      </h3>
+
+      <div style="font-size:0.8rem;color:#6b7a99;margin:6px 0 12px">
+        Armed <strong>OFF</strong> by default. Nothing is composed or sent unless
+        <em>Arm sending</em> is ticked <strong>and</strong> at least one recipient is on file.
+      </div>
+
+      <div class="form-group" style="max-width:560px">
+        <label>Recipients <span style="font-weight:400;color:#6b7a99">— one address per line (or comma-separated)</span></label>
+        <textarea id="hyg-recipients" rows="4" style="width:100%;padding:6px 8px;border:1px solid #E2E5EA;border-radius:4px;font-family:inherit" placeholder="group-it@edv-ops.com&#10;cmdb-owner@edv-ops.com"></textarea>
+      </div>
+      <div class="form-group"><label style="font-weight:400"><input type="checkbox" id="hyg-enabled"> <strong>Arm sending</strong> — enable the scheduled + send-now digest</label></div>
+      <div class="modal-actions" style="justify-content:flex-start;gap:10px;align-items:center;margin-bottom:10px">
+        <button class="btn btn-primary" onclick="saveHygieneConfig()">Save recipients &amp; arm flag</button>
+        <button class="btn btn-secondary" onclick="previewHygiene(this)">Preview</button>
+        <button class="btn btn-secondary" onclick="sendHygieneNow(this)">Send now</button>
+      </div>
+
+      <h4 style="margin:14px 0 6px">Schedule</h4>
+      <div style="font-size:0.8rem;color:#6b7a99;margin-bottom:10px">
+        Enable a weekly and / or monthly Task Scheduler job. Times are 24-hour HH:mm (server local time).
+      </div>
+      <div id="hyg-schedule-body"></div>
     </div>
 
     <!-- ─── Meetings reference codes admin card moved to the Meetings module ──
@@ -4527,7 +4565,7 @@ async function downloadAllSitesMonthlyPptx(fromMonthlyPage) {
 //  ADMIN PAGE
 // ══════════════════════════════════════════════════════════════════
 // Admin left-rail: show one settings panel at a time. name ∈ users|sessions|sites|departments|risk.
-const _ADMIN_PANEL_IDS = { users:'ap-users', sessions:'sessions-card', sites:'ap-sites', departments:'ap-depts', execview:'ap-execview', backups:'ap-backups', risk:'rr-aliases-card', autoreports:'ap-autoreports' };
+const _ADMIN_PANEL_IDS = { users:'ap-users', sessions:'sessions-card', sites:'ap-sites', departments:'ap-depts', execview:'ap-execview', backups:'ap-backups', risk:'rr-aliases-card', autoreports:'ap-autoreports', hygiene:'ap-hygiene' };
 function showAdminPanel(name) {
   // Guard: 'risk' / 'backups' / 'autoreports' are super_admin-only — fall back to Users for everyone else.
   if ((name === 'risk' || name === 'backups' || name === 'autoreports') && currentUser?.role !== 'super_admin') name = 'users';
@@ -4548,6 +4586,8 @@ function showAdminPanel(name) {
   if (name === 'backups' && typeof loadBackupSchedule === 'function') loadBackupSchedule();
   // Fresh data when opening Automated Reports (defaults to the Recipients tab).
   if (name === 'autoreports' && typeof loadAutoReports === 'function') loadAutoReports();
+  // Fresh data when opening the Assets Hygiene digest card.
+  if (name === 'hygiene' && typeof loadHygieneCard === 'function') loadHygieneCard();
   // Reflect the section in the hash (deep-linkable); guard avoids re-entrancy with the router.
   const want = '#admin/' + name;
   if (location.hash !== want) { _suppressHashRoute = true; location.hash = want; }
@@ -4569,6 +4609,9 @@ async function loadAdminPage() {
     if (bkRail) bkRail.style.display = isSuperAdmin ? '' : 'none';
     const arRail = document.getElementById('admin-rail-autoreports');
     if (arRail) arRail.style.display = isSuperAdmin ? '' : 'none';
+    // Assets Hygiene digest — admin+ (the whole admin page is admin/super_admin only).
+    const hygRail = document.getElementById('admin-rail-hygiene');
+    if (hygRail) hygRail.style.display = '';
     if (isSuperAdmin) {
       loadRrAliases();
       // Default the unmapped-sites picker to the previous month
@@ -4581,7 +4624,7 @@ async function loadAdminPage() {
     }
     // Open the panel from the hash sub-section (#admin/<section>) or default to Users.
     const sub = (location.hash.split('/')[1] || '').toLowerCase();
-    showAdminPanel(['users','sessions','sites','departments','execview','risk','autoreports'].includes(sub) ? sub : 'users');
+    showAdminPanel(['users','sessions','sites','departments','execview','risk','autoreports','hygiene'].includes(sub) ? sub : 'users');
 
     const deptUrl  = isExecOrSuper ? '/api/reports/departments?include_inactive=1' : '/api/reports/departments';
     const sitesUrl = isExecOrSuper ? '/api/reports/sites?include_inactive=1'        : '/api/reports/sites';
@@ -5574,6 +5617,76 @@ function testSmtp(btn) {
     if (msg) { msg.style.color = '#b91c1c'; msg.textContent = '✗ ' + (e.message || e); }
     toast('SMTP test failed: ' + (e.message || e), 'error');
   }).finally(() => { if (btn) btn.disabled = false; });
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  ASSETS HYGIENE DIGEST card (admin+)
+//    Recipients + arm flag → /api/reports/config (hygiene_* keys)
+//    Schedule (report_type=hygiene) → /api/reports/schedule (reuses saveScheduleRow)
+//    Preview / Send-now → /api/assets/hygiene/send (disarm-safe)
+// ══════════════════════════════════════════════════════════════════
+function loadHygieneCard() {
+  api('GET', '/api/reports/config').then(c => {
+    const rEl = document.getElementById('hyg-recipients');
+    if (rEl) rEl.value = String(c.hygiene_recipients || '').split(',').map(s => s.trim()).filter(Boolean).join('\n');
+    const eEl = document.getElementById('hyg-enabled');
+    if (eEl) eEl.checked = (c.hygiene_send_enabled === '1' || c.hygiene_send_enabled === 1);
+  }).catch(e => toast('Could not load hygiene settings: ' + (e.message || e), 'error'));
+  const box = document.getElementById('hyg-schedule-body');
+  if (box) box.innerHTML = '<div style="color:#94a3b8;font-style:italic;padding:10px">Loading…</div>';
+  api('GET', '/api/reports/schedule').then(rows => {
+    if (!box) return;
+    const map = {};
+    (rows || []).forEach(r => { map[r.report_type + '|' + r.cadence] = r; });
+    const wk = map['hygiene|weekly'] || {}, mo = map['hygiene|monthly'] || {};
+    const dayOpts = sel => _AR_DAYS.map(d => `<option value="${d}"${String(sel || '').toUpperCase() === d ? ' selected' : ''}>${d}</option>`).join('');
+    box.innerHTML = `<div style="border:1px solid #E2E5EA;border-radius:8px;padding:12px 14px">
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:8px">
+        <label style="font-weight:400;min-width:88px"><input type="checkbox" id="sch-hygiene-weekly-en"${_arYN(wk.enabled) ? ' checked' : ''}> Weekly</label>
+        <span style="color:#6b7a99">on</span>
+        <select id="sch-hygiene-weekly-day" style="padding:3px 6px;border:1px solid #E2E5EA;border-radius:4px">${dayOpts(wk.day || 'MON')}</select>
+        <span style="color:#6b7a99">at</span>
+        <input type="time" id="sch-hygiene-weekly-time" value="${esc(wk.time || '07:00')}" style="padding:3px 6px;border:1px solid #E2E5EA;border-radius:4px">
+        <button class="btn btn-secondary btn-sm" onclick="saveScheduleRow('hygiene','weekly')">Save</button>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+        <label style="font-weight:400;min-width:88px"><input type="checkbox" id="sch-hygiene-monthly-en"${_arYN(mo.enabled) ? ' checked' : ''}> Monthly</label>
+        <span style="color:#6b7a99">day</span>
+        <input type="text" id="sch-hygiene-monthly-day" value="${esc(mo.day || '1')}" placeholder="1 or LAST" style="width:78px;padding:3px 6px;border:1px solid #E2E5EA;border-radius:4px">
+        <span style="color:#6b7a99">at</span>
+        <input type="time" id="sch-hygiene-monthly-time" value="${esc(mo.time || '07:00')}" style="padding:3px 6px;border:1px solid #E2E5EA;border-radius:4px">
+        <button class="btn btn-secondary btn-sm" onclick="saveScheduleRow('hygiene','monthly')">Save</button>
+      </div>
+    </div>`;
+  }).catch(e => { if (box) box.innerHTML = `<div style="color:#b91c1c;padding:10px">Failed to load: ${esc(e.message || e)}</div>`; });
+}
+function saveHygieneConfig() {
+  const recips = document.getElementById('hyg-recipients').value.split(/[\n,]+/).map(s => s.trim()).filter(Boolean).join(',');
+  const enabled = document.getElementById('hyg-enabled').checked ? '1' : '0';
+  api('PUT', '/api/reports/config', { hygiene_recipients: recips, hygiene_send_enabled: enabled })
+    .then(() => { toast('Hygiene digest settings saved ✓', 'success'); loadHygieneCard(); })
+    .catch(e => toast('Save failed: ' + (e.message || e), 'error'));
+}
+function previewHygiene(btn) {
+  if (btn) btn.disabled = true;
+  api('POST', '/api/assets/hygiene/send?preview=1')
+    .then(r => {
+      if (r && r.reason) toast('Preview — not sending (' + r.reason + ')', 'info');
+      else toast('Preview → to: ' + ((r && r.recipients || []).join(', ') || '(none)') + ' · subject: ' + ((r && r.subject) || ''), 'success');
+    })
+    .catch(e => toast('Preview failed: ' + (e.message || e), 'error'))
+    .finally(() => { if (btn) btn.disabled = false; });
+}
+function sendHygieneNow(btn) {
+  if (!confirm('Send the Assets Hygiene digest now to the configured recipients?')) return;
+  if (btn) btn.disabled = true;
+  api('POST', '/api/assets/hygiene/send?preview=0')
+    .then(r => {
+      if (r && r.reason) toast('Not sent — ' + r.reason, 'info');
+      else toast('Sent ' + ((r && r.sent) || 0) + ' digest' + ((r && r.sent === 1) ? '' : 's') + ' ✓', (r && r.sent) ? 'success' : 'info');
+    })
+    .catch(e => toast('Send failed: ' + (e.message || e), 'error'))
+    .finally(() => { if (btn) btn.disabled = false; });
 }
 
 // ══════════════════════════════════════════════════════════════════

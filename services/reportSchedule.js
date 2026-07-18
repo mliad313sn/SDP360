@@ -8,8 +8,13 @@ const path = require('path');
 const APP_ROOT = path.join(__dirname, '..');
 const NODE = process.execPath;
 const SEND_CLI = path.join(APP_ROOT, 'tools', 'reports', 'send-reports.js');
+const SEND_HYGIENE_CLI = path.join(APP_ROOT, 'tools', 'reports', 'send-hygiene.js');
 const DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
-const TYPES = ['coordinator', 'group', 'finance'];
+const TYPES = ['coordinator', 'group', 'finance', 'hygiene'];
+
+// The hygiene digest has its own CLI (composes the Group-IT digest, no
+// coordinator directory); every other type routes through send-reports.js.
+function cliFor(report_type) { return report_type === 'hygiene' ? SEND_HYGIENE_CLI : SEND_CLI; }
 
 function _h(db) {
   const rdb = require('../reports-db');
@@ -58,7 +63,7 @@ function _defaultRunTask(spec) {
     if (spec.action === 'delete') {
       args = ['/Delete', '/TN', spec.taskName, '/F'];
     } else {
-      const tr = `"${NODE}" "${SEND_CLI}" --type=${spec.report_type} --cadence=${spec.cadence}`;
+      const tr = `"${NODE}" "${cliFor(spec.report_type)}" --type=${spec.report_type} --cadence=${spec.cadence}`;
       if (spec.cadence === 'weekly') {
         args = ['/Create', '/F', '/SC', 'WEEKLY', '/D', spec.day, '/TN', spec.taskName, '/TR', tr, '/ST', spec.time];
       } else if (String(spec.day).toUpperCase() === 'LAST') {
@@ -107,4 +112,4 @@ async function setSchedule(db, { report_type, cadence, enabled, day, time } = {}
   return { ok: true };
 }
 
-module.exports = { _initSchema, getSchedules, setSchedule };
+module.exports = { _initSchema, getSchedules, setSchedule, cliFor };

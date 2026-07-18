@@ -114,3 +114,19 @@ test('GET /api/assets/hygiene/summary without a session → 401/403 (requireRepo
   const res = await fetch(base + '/api/assets/hygiene/summary');
   assert.ok(res.status === 401 || res.status === 403, `expected 401/403, got ${res.status}`);
 });
+
+// Task 5 — POST send-now with the digest disarmed (default config) must be a
+// clean 200 {sent:0, reason:'disabled'}: the arm gate short-circuits BEFORE any
+// SMTP is attempted, so this asserts no real send.
+test('POST /api/assets/hygiene/send?preview=1 (disarmed) → 200 {sent:0, reason:"disabled"}', async () => {
+  const res = await fetch(base + '/api/assets/hygiene/send?preview=1', { method: 'POST', headers: auth() });
+  assert.equal(res.status, 200, `expected 200, got ${res.status}`);
+  const body = await res.json();
+  assert.equal(body.sent, 0, 'nothing sent while disarmed');
+  assert.equal(body.reason, 'disabled', 'arm gate reports disabled');
+});
+
+test('POST /api/assets/hygiene/send without a session → 401/403 (requireReportSession)', async () => {
+  const res = await fetch(base + '/api/assets/hygiene/send?preview=1', { method: 'POST' });
+  assert.ok(res.status === 401 || res.status === 403, `expected 401/403, got ${res.status}`);
+});

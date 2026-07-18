@@ -10,6 +10,7 @@ const DEFAULTS = {
   formats: 'html,pdf',
   never_send_unconfirmed: '1',
   group_report_to: '', group_report_cc: '', group_report_to_confirmed: '0',
+  hygiene_recipients: '', hygiene_send_enabled: '0',
 };
 const KEYS = Object.keys(DEFAULTS);
 
