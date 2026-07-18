@@ -509,6 +509,10 @@ function _aggregateSchedule(rows, { config, rate, asOf } = {}) {
     const d = _computeAssetBook(row, config, asOf);
     for (const s of (d.schedule || [])) {
       if (!Number.isFinite(s.bookValue)) continue;
+      // Skip assets whose acquisition_date didn't parse into a real calendar year —
+      // undated rows (all zero-cost in the AP data) otherwise emit spurious leading
+      // year buckets 1..4 at $0 before the first real year on the fleet chart (review M2).
+      if (!Number.isFinite(s.year) || s.year < 1990) continue;
       byYear.set(s.year, (byYear.get(s.year) || 0) + s.bookValue);
     }
   }
