@@ -11,6 +11,7 @@ const DEFAULTS = {
   never_send_unconfirmed: '1',
   group_report_to: '', group_report_cc: '', group_report_to_confirmed: '0',
   hygiene_recipients: '', hygiene_send_enabled: '0',
+  xof_usd_rate: '0.00165',
 };
 const KEYS = Object.keys(DEFAULTS);
 
