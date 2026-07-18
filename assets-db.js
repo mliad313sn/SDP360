@@ -675,6 +675,125 @@ async function _getLicenceExceptionsPg(kind, filters = {}) {
   return _licenceExceptions(rows, kind, filters);
 }
 
+// ─── Software licence compliance (Assets C-2 Task 1) ────────────────────────
+// COUNT-BASED, NO money. The `software` view's count columns (installations,
+// installations_allowed, …) hold the literal string 'N/A' on 9780 of 9830 real
+// rows — so `CAST(... AS INTEGER)` THROWS on postgres (500) and silently returns
+// 0 on sqlite (→ mass false positives). ALL classification / comparison is done
+// in a shared JS pass via toInt() — NEVER a SQL CAST. Same recipe as the licence
+// readers above: SELECT the text rows, classify + tally in JS.
+
+// Coerce a raw count cell to an int or null. 'N/A' → null, '540' → 540,
+// '1,234' → 1234, '' → null. The single guard against the 'N/A' trap.
+function toInt(v) {
+  const n = Number(String(v == null ? '' : v).replace(/,/g, ''));
+  return Number.isFinite(n) ? n : null;
+}
+
+// Pure classifier — exported. Compliance is declared by the `compliance_type`
+// column (Under Licensed / Over Licensed / Compliant / N/A). Anything that is
+// not one of the three metered verdicts (N/A, empty, unknown) → 'not_metered'.
+function classifySoftwareCompliance(row) {
+  const t = String((row && row.compliance_type) || '').toLowerCase();
+  if (t.includes('under')) return 'under_licensed';
+  if (t.includes('over')) return 'over_licensed';
+  if (t.includes('compliant')) return 'compliant';
+  return 'not_metered';
+}
+
+// The three software exception kinds — the single source of truth. `under/over`
+// are BY COMPLIANCE TYPE ONLY (do NOT OR a raw installs>allowed comparison —
+// the 'N/A' rows would false-positive). `managed` is the metered universe.
+const SOFTWARE_KINDS = {
+  under_licensed: { label: 'Under-licensed', test: (r) => classifySoftwareCompliance(r) === 'under_licensed' },
+  over_licensed:  { label: 'Over-licensed',  test: (r) => classifySoftwareCompliance(r) === 'over_licensed' },
+  managed:        { label: 'Managed (metered)', test: (r) => String(r.software_type || '').toLowerCase() === 'managed' },
+};
+
+// Whitelisted software filters — value NEVER interpolated, always parameter-bound.
+function _softwareWhere(filters) {
+  const clauses = [], params = [];
+  const f = filters || {};
+  if (f.manufacturer != null && f.manufacturer !== '') { clauses.push('manufacturer = ?'); params.push(f.manufacturer); }
+  if (f.software_type != null && f.software_type !== '') { clauses.push('software_type = ?'); params.push(f.software_type); }
+  if (f.q != null && f.q !== '') {
+    clauses.push('(software_name LIKE ? OR manufacturer LIKE ?)');
+    const like = `%${f.q}%`; params.push(like, like);
+  }
+  return { where: clauses.length ? ' WHERE ' + clauses.join(' AND ') : '', params };
+}
+
+const _SOFTWARE_SUMMARY_COLS = 'manufacturer, installations, installations_allowed, compliance_type, software_type';
+const _SOFTWARE_EXC_COLS = 'software_name, manufacturer, installations, installations_allowed, licensed_installations, compliance_type, software_category, software_type';
+
+// SHARED pure aggregator — both backends hand it the same rows → parity by
+// construction. ALL classification / comparison happens here in JS.
+function _aggregateSoftware(rows) {
+  const by_compliance = { under_licensed: 0, over_licensed: 0, compliant: 0, not_metered: 0 };
+  const installs_vs_allowed = { under: 0, over: 0, ok: 0 };
+  const mfr = new Map();   // manufacturer → { manufacturer, managed, under, over }
+  let managed = 0;
+  for (const r of rows) {
+    const bucket = classifySoftwareCompliance(r);
+    by_compliance[bucket]++;
+    const isManaged = String(r.software_type || '').toLowerCase() === 'managed';
+    if (isManaged) managed++;
+    // installs vs allowed — toInt guards the 'N/A' trap; unmetered rows (either
+    // side null) fall into NONE of under/over/ok.
+    const ins = toInt(r.installations), allw = toInt(r.installations_allowed);
+    if (ins != null && allw != null) {
+      if (ins > allw) installs_vs_allowed.under++;
+      else if (ins < allw) installs_vs_allowed.over++;
+      else installs_vs_allowed.ok++;
+    }
+    const name = r.manufacturer == null ? '' : String(r.manufacturer);
+    let m = mfr.get(name);
+    if (!m) { m = { manufacturer: name, managed: 0, under: 0, over: 0 }; mfr.set(name, m); }
+    if (isManaged) m.managed++;
+    if (bucket === 'under_licensed') m.under++;
+    if (bucket === 'over_licensed') m.over++;
+  }
+  const by_manufacturer = [...mfr.values()].sort((a, b) => a.manufacturer.localeCompare(b.manufacturer));
+  return { total: rows.length, managed, by_compliance, by_manufacturer, installs_vs_allowed };
+}
+
+function getSoftwareComplianceSummary(filters = {}) {
+  if (ASSETS_BACKEND === 'postgres') return _getSoftwareComplianceSummaryPg(filters);
+  const db = getDB();
+  const { where, params } = _softwareWhere(filters);
+  const rows = db.prepare(`SELECT ${_SOFTWARE_SUMMARY_COLS} FROM software${where}`).all(...params);
+  return _aggregateSoftware(rows);
+}
+async function _getSoftwareComplianceSummaryPg(filters = {}) {
+  const h = pgHandle();
+  const { where, params } = _softwareWhere(filters);
+  const rows = await h.prepare(`SELECT ${_SOFTWARE_SUMMARY_COLS} FROM software${where}`).all(...params);
+  return _aggregateSoftware(rows);
+}
+
+// Filter fetched rows by kind (throws on unknown). SHARED by both backends.
+function _softwareExceptions(rows, kind) {
+  const k = SOFTWARE_KINDS[kind];
+  if (!k) throw new Error(`getSoftwareComplianceExceptions: unknown software kind "${kind}"`);
+  return rows.filter(r => k.test(r));
+}
+
+function getSoftwareComplianceExceptions(kind, filters = {}) {
+  if (ASSETS_BACKEND === 'postgres') return _getSoftwareComplianceExceptionsPg(kind, filters);
+  const db = getDB();
+  if (!SOFTWARE_KINDS[kind]) throw new Error(`getSoftwareComplianceExceptions: unknown software kind "${kind}"`);
+  const { where, params } = _softwareWhere(filters);
+  const rows = db.prepare(`SELECT ${_SOFTWARE_EXC_COLS} FROM software${where} ORDER BY software_name`).all(...params);
+  return _softwareExceptions(rows, kind);
+}
+async function _getSoftwareComplianceExceptionsPg(kind, filters = {}) {
+  const h = pgHandle();
+  if (!SOFTWARE_KINDS[kind]) throw new Error(`getSoftwareComplianceExceptions: unknown software kind "${kind}"`);
+  const { where, params } = _softwareWhere(filters);
+  const rows = await h.prepare(`SELECT ${_SOFTWARE_EXC_COLS} FROM software${where} ORDER BY software_name`).all(...params);
+  return _softwareExceptions(rows, kind);
+}
+
 if (ASSETS_BACKEND !== 'postgres') getDB();   // eager sqlite init at require, like tracker-db
 module.exports = {
   getDB, initPgAssets, pgHandle, ASSETS_BACKEND, replaceTable, countRows,
@@ -683,4 +802,5 @@ module.exports = {
   getFinanceSummary,
   getAssetDepreciation, getDepreciationSchedule,
   classifyLicenceType, getLicenceSummary, getLicenceExceptions, LICENCE_KINDS,
+  classifySoftwareCompliance, getSoftwareComplianceSummary, getSoftwareComplianceExceptions, SOFTWARE_KINDS,
 };
