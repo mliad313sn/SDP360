@@ -6,7 +6,7 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ---
 
-## ⚡ Current state (as of 2026-07-17)
+## ⚡ Current state (as of 2026-07-18)
 
 > **Assets CMDB Hygiene (sub-project B) landed** (branch `feat/assets-hygiene`, on
 > top of the merged Foundation) — turns "how trustworthy is the register?" into a
