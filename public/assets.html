@@ -191,6 +191,12 @@
   .tile.k-compliant { border-left-color: var(--edv-green, #1E8E3E); }
   .tile.k-managed   { border-left-color: var(--edv-blue, #1E6FBF); }
   .tile.k-under.active { box-shadow: 0 0 0 2px var(--edv-red, #D90038); }
+  /* Hardware health accents */
+  .tile.k-low_ram         { border-left-color: var(--color-warning, #D97706); }
+  .tile.k-full_disk       { border-left-color: var(--edv-red, #D90038); }
+  .tile.k-refresh_due     { border-left-color: var(--edv-blue, #1E6FBF); }
+  .tile.k-no_real_monitor { border-left-color: var(--edv-slate, #3A4A60); }
+  .ram-low { color: var(--edv-red, #D90038); font-weight: 700; }
 
   /* Hygiene completeness gap row */
   .gap-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--space-3, 12px); margin-bottom: var(--space-5, 20px); }
@@ -286,6 +292,7 @@
     <button class="tabbtn active" role="tab" data-tab="inventory" aria-selected="true">Inventory</button>
     <button class="tabbtn" role="tab" data-tab="hygiene" aria-selected="false">Hygiene</button>
     <button class="tabbtn" role="tab" data-tab="finance" aria-selected="false">Finance &amp; Licences</button>
+    <button class="tabbtn" role="tab" data-tab="hardware" aria-selected="false">Hardware</button>
   </div>
 
   <!-- ── Shared filter bar ───────────────────────────────────────── -->
@@ -688,6 +695,116 @@
         <div id="fin-softEmptyText">Click a compliance tile to see the affected software titles.</div>
       </div>
       <div class="count-note" id="fin-softCountNote" style="display:none"></div>
+    </div>
+
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       PANE: HARDWARE HEALTH
+       ══════════════════════════════════════════════════════════════ -->
+  <section id="pane-hardware" class="tabpane">
+
+    <div class="as-head" style="margin-bottom:var(--space-4,16px)">
+      <div class="sub">Fleet hardware health — low RAM, full disks, refresh-due machines &amp; missing monitors</div>
+      <div class="spacer"></div>
+      <a class="btn btn-ghost" id="hw-exportAllBtn" href="#" title="Download every hardware health list (one sheet per kind, current filters) as Excel">
+        <span class="icon icon-download"></span> Export all
+      </a>
+    </div>
+
+    <div class="as-band" id="hw-band">
+      <div class="stat"><span class="n" id="hw-bandTotal">—</span><span class="l">Assets in scope</span></div>
+      <div class="stat"><span class="n" id="hw-bandWithReal">—</span><span class="l">With a real monitor</span></div>
+      <div class="stat"><span class="n" id="hw-bandAvgReal">—</span><span class="l">Avg real monitors</span></div>
+      <div class="fresh" id="hw-bandFresh"></div>
+    </div>
+
+    <!-- Health worklist tiles -->
+    <div class="tiles" id="hw-tiles">
+      <button class="tile k-low_ram" data-kind="low_ram">
+        <div class="tn" id="hw-cnt-low_ram">—</div>
+        <div class="tl">Low RAM</div>
+        <div class="td">Under 8 GB installed memory</div>
+      </button>
+      <button class="tile k-full_disk" data-kind="full_disk">
+        <div class="tn" id="hw-cnt-full_disk">—</div>
+        <div class="tl">Full disk</div>
+        <div class="td">C: drive under 10% free</div>
+      </button>
+      <button class="tile k-refresh_due" data-kind="refresh_due">
+        <div class="tn" id="hw-cnt-refresh_due">—</div>
+        <div class="tl">Refresh due</div>
+        <div class="td">Past its replacement cycle</div>
+      </button>
+      <button class="tile k-no_real_monitor" data-kind="no_real_monitor">
+        <div class="tn" id="hw-cnt-no_real_monitor">—</div>
+        <div class="tl">No real monitor</div>
+        <div class="td">Workstation with no real display</div>
+      </button>
+    </div>
+
+    <!-- Denylist note -->
+    <div class="count-note" id="hw-monNote" style="border:1px solid var(--color-border,#dfe3e8);border-radius:var(--radius-md,6px);margin-bottom:var(--space-5,20px)">
+      Monitor count denylists cameras / virtual devices (Intel AVStream Camera, Integrated Webcam,
+      HyperVMonitor, Parallels Vu, No Monitor); <strong>“No real monitor”</strong> is scoped to
+      workstation-type devices so headless servers aren’t flagged.
+    </div>
+
+    <!-- Chart + per-site table -->
+    <div class="chart-grid">
+      <div class="chart-card">
+        <h3>Health issues by kind</h3>
+        <div class="cwrap"><canvas id="hw-chartKind"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>Health issues by site</h3>
+        <div style="overflow:auto;max-height:260px">
+          <table class="list" id="hw-siteTable">
+            <thead>
+              <tr>
+                <th>Site</th>
+                <th class="num">Low RAM</th>
+                <th class="num">Full disk</th>
+                <th class="num">Refresh due</th>
+                <th class="num">No monitor</th>
+              </tr>
+            </thead>
+            <tbody id="hw-siteBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Drill-down -->
+    <div class="panel">
+      <div class="drill-head">
+        <h2 id="hw-drillTitle">Select a health tile above</h2>
+        <div class="spacer"></div>
+        <a class="btn btn-ghost btn-sm" id="hw-exportKindBtn" href="#" style="display:none" title="Download this list (current filters) as Excel">
+          <span class="icon icon-download"></span> Export this list
+        </a>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="list" id="hw-listTable" style="display:none">
+          <thead>
+            <tr>
+              <th>Asset name</th>
+              <th class="col-type">Product</th>
+              <th>Site</th>
+              <th class="num">RAM (GB)</th>
+              <th class="num">C: free %</th>
+              <th class="num">Real monitors</th>
+              <th class="num">Months since acq.</th>
+            </tr>
+          </thead>
+          <tbody id="hw-listBody"></tbody>
+        </table>
+      </div>
+      <div class="empty" id="hw-emptyMsg">
+        <div style="font-size:32px;margin-bottom:8px">🖥️</div>
+        <div id="hw-emptyText">Click a health tile to see the affected machines.</div>
+      </div>
+      <div class="count-note" id="hw-countNote" style="display:none"></div>
     </div>
 
   </section>
@@ -1520,15 +1637,224 @@
 </script>
 
 <!-- ══════════════════════════════════════════════════════════════════
+     PANE MODULE: HARDWARE HEALTH  (window.HW_PANE)
+     ══════════════════════════════════════════════════════════════════ -->
+<script nonce="%%CSP_NONCE%%">
+(function () {
+  'use strict';
+  const API = '/api/assets/hardware';
+  const KIND_LABEL = {
+    low_ram:         'Low RAM (< 8 GB)',
+    full_disk:       'Full system disk (< 10% free)',
+    refresh_due:     'Refresh due (past replacement cycle)',
+    no_real_monitor: 'No real monitor (workstation)',
+  };
+  const KINDS = ['low_ram', 'full_disk', 'refresh_due', 'no_real_monitor'];
+
+  let charts = {};
+  let activeKind = null;
+
+  function authHeaders() {
+    const h = {};
+    let tok = null;
+    const at = window.__authToken;
+    if (typeof at === 'function') { try { tok = at(); } catch (_) {} }
+    else if (typeof at === 'string' && at) { tok = at; }
+    if (!tok) tok = localStorage.getItem('report_token');
+    if (tok) h['x-report-token'] = tok;
+    return h;
+  }
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[c]));
+  }
+  function qs(params) {
+    const sp = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) { if (v) sp.set(k, v); }
+    return sp.toString() ? '?' + sp.toString() : '';
+  }
+
+  const css = getComputedStyle(document.documentElement);
+  const CV = (name, fallback) => (css.getPropertyValue(name).trim() || fallback);
+  const COL = {
+    slate:  CV('--edv-slate',  '#3A4A60'),
+    blue:   CV('--edv-blue',   '#1E6FBF'),
+    green:  CV('--edv-green',  '#1E8E3E'),
+    amber:  CV('--color-warning', '#D97706'),
+    red:    CV('--edv-red',    '#D90038'),
+  };
+  const KIND_COL = {
+    low_ram: COL.amber, full_disk: COL.red, refresh_due: COL.blue, no_real_monitor: COL.slate,
+  };
+  const KIND_SHORT = { low_ram: 'Low RAM', full_disk: 'Full disk', refresh_due: 'Refresh due', no_real_monitor: 'No monitor' };
+
+  function upsertChart(canvasId, config) {
+    if (charts[canvasId]) { charts[canvasId].destroy(); }
+    const ctx = document.getElementById(canvasId);
+    if (ctx) charts[canvasId] = new Chart(ctx, config);
+  }
+
+  async function loadSummary(f) {
+    let s = null;
+    try {
+      const r = await fetch(API + '/summary' + qs(f), { credentials: 'same-origin', headers: authHeaders() });
+      if (!r.ok) return;
+      s = await r.json();
+    } catch (e) { return; }
+
+    const total = Number(s.total) || 0;
+    const bk = s.by_kind || {};
+    const mon = s.monitors || {};
+
+    document.getElementById('hw-bandTotal').textContent = total.toLocaleString();
+    document.getElementById('hw-bandWithReal').textContent = (Number(mon.with_real) || 0).toLocaleString();
+    document.getElementById('hw-bandAvgReal').textContent = (mon.avg_real != null ? mon.avg_real : 0);
+
+    KINDS.forEach(k => {
+      const el = document.getElementById('hw-cnt-' + k);
+      if (el) el.textContent = (bk[k] != null ? Number(bk[k]) : 0).toLocaleString();
+    });
+
+    renderChart(bk);
+    renderSiteTable(s.by_site || []);
+  }
+
+  async function loadFreshNote() {
+    try {
+      const r = await fetch('/api/assets/summary', { credentials: 'same-origin', headers: authHeaders() });
+      if (!r.ok) return;
+      const s = await r.json();
+      document.getElementById('hw-bandFresh').textContent =
+        (Number(s.total) || 0).toLocaleString() + ' assets in the register.';
+    } catch (e) { /* offline — leave blank */ }
+  }
+
+  function renderChart(bk) {
+    if (typeof Chart === 'undefined') { console.warn('Chart.js not loaded'); return; }
+    upsertChart('hw-chartKind', {
+      type: 'bar',
+      data: {
+        labels: KINDS.map(k => KIND_SHORT[k]),
+        datasets: [{
+          label: 'Machines',
+          data: KINDS.map(k => Number(bk[k]) || 0),
+          backgroundColor: KINDS.map(k => KIND_COL[k]),
+          borderRadius: 3,
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+      },
+    });
+  }
+
+  function renderSiteTable(bySite) {
+    const body = document.getElementById('hw-siteBody');
+    const rows = (bySite || []).filter(x => (Number(x.total) || 0) > 0);
+    if (!rows.length) {
+      body.innerHTML = '<tr><td colspan="5" style="color:var(--color-text-muted,#6b7785)">No assets in scope.</td></tr>';
+      return;
+    }
+    body.innerHTML = rows.map(x => `<tr>
+      <td>${escapeHtml(x.site || '(no site)')}</td>
+      <td class="num">${escapeHtml(Number(x.low_ram) || 0)}</td>
+      <td class="num">${escapeHtml(Number(x.full_disk) || 0)}</td>
+      <td class="num">${escapeHtml(Number(x.refresh_due) || 0)}</td>
+      <td class="num">${escapeHtml(Number(x.no_real_monitor) || 0)}</td>
+    </tr>`).join('');
+  }
+
+  async function loadDrill(kind, f) {
+    if (!kind) return;
+    activeKind = kind;
+    document.querySelectorAll('#hw-tiles .tile').forEach(el =>
+      el.classList.toggle('active', el.getAttribute('data-kind') === kind));
+
+    document.getElementById('hw-drillTitle').textContent = KIND_LABEL[kind] || kind;
+    const kb = document.getElementById('hw-exportKindBtn');
+    kb.style.display = 'inline-flex';
+    kb.setAttribute('href', API + '/export.xlsx' + qs(Object.assign({ kind }, f)));
+
+    const table = document.getElementById('hw-listTable');
+    const body  = document.getElementById('hw-listBody');
+    const empty = document.getElementById('hw-emptyMsg');
+    const note  = document.getElementById('hw-countNote');
+    try {
+      const r = await fetch(API + '/exceptions' + qs(Object.assign({ kind }, f)),
+        { credentials: 'same-origin', headers: authHeaders() });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const rows = await r.json();
+      if (!Array.isArray(rows) || !rows.length) {
+        table.style.display = 'none';
+        body.innerHTML = '';
+        empty.style.display = 'block';
+        document.getElementById('hw-emptyText').textContent = 'No machines in this list for the current filters. 🎉';
+        note.style.display = 'none';
+        return;
+      }
+      empty.style.display = 'none';
+      table.style.display = 'table';
+      body.innerHTML = rows.map(r => {
+        const ram = (r.ram_total_gb != null && Number(r.ram_total_gb) > 0) ? Number(r.ram_total_gb) : null;
+        const ramCls = (ram != null && ram < 8) ? 'ram-low' : '';
+        const free = r.system_disk_free_pct;
+        const freeN = (free == null || free === '') ? null : Number(free);
+        const freeCls = (freeN != null && freeN < 10) ? 'free-low' : (freeN != null && freeN < 20 ? 'free-mid' : '');
+        const real = (r.real_monitor_count != null) ? Number(r.real_monitor_count) : null;
+        const mo = r.months_since_acquisition;
+        return `<tr>
+          <td><strong>${escapeHtml(r.asset_name || r.asset_id || '—')}</strong></td>
+          <td class="col-type">${escapeHtml(r.product || r.product_type || '—')}</td>
+          <td>${escapeHtml(r.site || '—')}</td>
+          <td class="num ${ramCls}">${ram == null ? '—' : escapeHtml(ram)}</td>
+          <td class="num ${freeCls}">${freeN == null ? '—' : escapeHtml(freeN) + '%'}</td>
+          <td class="num">${real == null ? '—' : escapeHtml(real)}</td>
+          <td class="num">${mo == null || mo === '' ? '—' : escapeHtml(mo)}</td>
+        </tr>`;
+      }).join('');
+      note.style.display = 'block';
+      note.textContent = rows.length.toLocaleString() + ' machine' + (rows.length === 1 ? '' : 's') + ' in this list.';
+    } catch (e) {
+      console.warn('hardware drill load failed:', e);
+      table.style.display = 'none';
+      body.innerHTML = '';
+      empty.style.display = 'block';
+      document.getElementById('hw-emptyText').textContent = 'Could not load this list.';
+      note.style.display = 'none';
+    }
+  }
+
+  async function refresh(f) {
+    f = f || {};
+    document.getElementById('hw-exportAllBtn').setAttribute('href', API + '/export.xlsx' + qs(Object.assign({ kind: 'all' }, f)));
+    await loadSummary(f);
+    if (activeKind) await loadDrill(activeKind, f);
+  }
+
+  async function init(f) {
+    document.querySelectorAll('#hw-tiles .tile').forEach(el =>
+      el.addEventListener('click', () => loadDrill(el.getAttribute('data-kind'), window.__assetFilters ? window.__assetFilters() : {})));
+    await Promise.all([loadFreshNote()]);
+    await refresh(f);
+  }
+
+  window.HW_PANE = { init, refresh };
+})();
+</script>
+
+<!-- ══════════════════════════════════════════════════════════════════
      CONTROLLER — shared filter bar + tab switching + lazy-init
      ══════════════════════════════════════════════════════════════════ -->
 <script nonce="%%CSP_NONCE%%">
 (function () {
   'use strict';
 
-  const TABS = ['inventory', 'hygiene', 'finance'];
-  const PANE = { inventory: 'INV_PANE', hygiene: 'HYG_PANE', finance: 'FIN_PANE' };
-  const inited = { inventory: false, hygiene: false, finance: false };
+  const TABS = ['inventory', 'hygiene', 'finance', 'hardware'];
+  const PANE = { inventory: 'INV_PANE', hygiene: 'HYG_PANE', finance: 'FIN_PANE', hardware: 'HW_PANE' };
+  const inited = { inventory: false, hygiene: false, finance: false, hardware: false };
   let activeTab = 'inventory';
 
   function authHeaders() {
