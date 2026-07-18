@@ -357,8 +357,12 @@
 
   // USD money — thousands separators + 2dp, never raw XOF. null/blank → —.
   function usd(v) {
-    if (v == null || v === '' || !Number.isFinite(Number(v))) return '—';
-    return '$' + Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    // Tolerate comma/space/$ separators — licence `cost` arrives as a raw AP string
+    // like '55,920.00', which Number() would turn into NaN (review F1). Finance
+    // table values are already clean numbers, so the strip is harmless there.
+    var n = Number(String(v == null ? '' : v).replace(/[$,\s]/g, ''));
+    if (v == null || v === '' || !Number.isFinite(n)) return '—';
+    return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
   // pct_depreciated is 0..1 or null → NN.N%.
   function pctDep(v) {
