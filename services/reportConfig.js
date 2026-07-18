@@ -12,6 +12,10 @@ const DEFAULTS = {
   group_report_to: '', group_report_cc: '', group_report_to_confirmed: '0',
   hygiene_recipients: '', hygiene_send_enabled: '0',
   xof_usd_rate: '0.00165',
+  // Asset depreciation policy (JSON) — the computed-book-value reader resolves a
+  // method/useful-life/salvage per product_type from this. Must live in DEFAULTS
+  // so setConfig's KEYS filter accepts the admin's write (else silently dropped).
+  asset_depreciation_config: JSON.stringify(require('./depreciation').DEFAULT_DEPRECIATION_CONFIG),
 };
 const KEYS = Object.keys(DEFAULTS);
 

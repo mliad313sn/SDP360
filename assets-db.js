@@ -427,6 +427,109 @@ async function _getFinanceSummaryPg(filters, rate = 1) {
   return _aggregateFinance(rows, rate);
 }
 
+// ─── Depreciation reader (Task 1, Asset Depreciation) ──────────────────────
+// Per-site COMPUTED book value (USD): each asset's current book value is derived
+// by services/depreciation.js (method / useful-life / salvage resolved per
+// product_type from the config), summed per site and ×rate. SDP's own Current
+// Book Value rides alongside as a cross-check. Money is XOF raw TEXT parsed by
+// the ONE money.parseAmount; `rate` applied ONCE to each money total. pct is
+// rate-independent = 1 - Σcomputed/Σpurchase (M-5). A no-cost asset yields a
+// null computed book (→ 0 contribution) but still counts in asset_count.
+const _DEPREC_SELECT =
+  'SELECT a.site, a.product_type, a.purchase_cost, a.acquisition_date, a.current_book_value ' +
+  'FROM assets a WHERE 1=1';
+
+const depreciation = require('./services/depreciation');
+
+// Compute one asset's depreciation result from a resolved-per-type config.
+function _computeAssetBook(row, config, asOf) {
+  const eff = depreciation.resolveForType(config, row.product_type);
+  const cost = money.parseAmount(row.purchase_cost);
+  const salvage = cost != null ? cost * (eff.salvage_pct || 0) : 0;
+  return depreciation.computeDepreciation({
+    cost, salvage, method: eff.method, usefulLifeMonths: eff.useful_life_months,
+    declinePercent: eff.declinePercent, acquisitionDate: row.acquisition_date, asOf,
+  });
+}
+
+// SHARED pure aggregator — both backends hand it the same rows → parity by
+// construction. Groups by site: Σ computed currentBookValue (null → 0), Σ SDP
+// current_book_value (cross-check), Σ purchase (for pct), asset_count.
+function _aggregateDepreciation(rows, { config, rate, asOf } = {}) {
+  const r = Number(rate);
+  const R = Number.isFinite(r) ? r : 1;
+  const acc = new Map();   // site -> {computed,sdp,purchase,count}
+  const fleet = { computed: 0, sdp: 0, purchase: 0, count: 0 };
+  const add = (a, row) => {
+    a.count++;
+    const d = _computeAssetBook(row, config, asOf);
+    if (d.currentBookValue != null && Number.isFinite(d.currentBookValue)) a.computed += d.currentBookValue;
+    const b = money.parseAmount(row.current_book_value); if (b != null) a.sdp += b;
+    const p = money.parseAmount(row.purchase_cost); if (p != null) a.purchase += p;
+  };
+  for (const row of rows) {
+    const site = row.site == null ? '' : String(row.site);
+    if (!acc.has(site)) acc.set(site, { computed: 0, sdp: 0, purchase: 0, count: 0 });
+    add(acc.get(site), row);
+    add(fleet, row);
+  }
+  const shape = (a, site) => ({
+    site,
+    asset_count: a.count,
+    computed_book_value_usd: a.computed * R,
+    sdp_book_value_usd: a.sdp * R,
+    purchase_cost_usd: a.purchase * R,
+    pct_depreciated: a.purchase > 0 ? 1 - a.computed / a.purchase : null,
+  });
+  const by_site = [...acc.keys()].sort().map(site => shape(acc.get(site), site));
+  return { by_site, fleet: shape(fleet, null) };
+}
+
+function getAssetDepreciation(filters, opts = {}) {
+  if (ASSETS_BACKEND === 'postgres') return _getAssetDepreciationPg(filters, opts);
+  const db = getDB();
+  const { where, params } = _assetWhere(filters);
+  const rows = db.prepare(`${_DEPREC_SELECT}${where} ORDER BY a.site, a.asset_name`).all(...params);
+  return _aggregateDepreciation(rows, opts);
+}
+async function _getAssetDepreciationPg(filters, opts = {}) {
+  const h = pgHandle();
+  const { where, params } = _assetWhere(filters);
+  const rows = await h.prepare(`${_DEPREC_SELECT}${where} ORDER BY a.site, a.asset_name`).all(...params);
+  return _aggregateDepreciation(rows, opts);
+}
+
+// SHARED — bucket each asset's schedule[].bookValue by calendar year across the
+// whole fleet, sum, ×rate. Returns aligned {years, book_value_usd} (years sorted).
+function _aggregateSchedule(rows, { config, rate, asOf } = {}) {
+  const r = Number(rate);
+  const R = Number.isFinite(r) ? r : 1;
+  const byYear = new Map();   // year -> Σ bookValue (raw)
+  for (const row of rows) {
+    const d = _computeAssetBook(row, config, asOf);
+    for (const s of (d.schedule || [])) {
+      if (!Number.isFinite(s.bookValue)) continue;
+      byYear.set(s.year, (byYear.get(s.year) || 0) + s.bookValue);
+    }
+  }
+  const years = [...byYear.keys()].sort((a, b) => a - b);
+  return { years, book_value_usd: years.map(y => byYear.get(y) * R) };
+}
+
+function getDepreciationSchedule(filters, opts = {}) {
+  if (ASSETS_BACKEND === 'postgres') return _getDepreciationSchedulePg(filters, opts);
+  const db = getDB();
+  const { where, params } = _assetWhere(filters);
+  const rows = db.prepare(`${_DEPREC_SELECT}${where} ORDER BY a.site, a.asset_name`).all(...params);
+  return _aggregateSchedule(rows, opts);
+}
+async function _getDepreciationSchedulePg(filters, opts = {}) {
+  const h = pgHandle();
+  const { where, params } = _assetWhere(filters);
+  const rows = await h.prepare(`${_DEPREC_SELECT}${where} ORDER BY a.site, a.asset_name`).all(...params);
+  return _aggregateSchedule(rows, opts);
+}
+
 // ─── Licence-compliance readers (Task 3) ───────────────────────────────────
 // Type-family classification + summary + expiry exceptions over software_licenses.
 // `cost` is USD native — never rate-multiplied, never SQL-summed (it isn't summed
@@ -574,5 +677,6 @@ module.exports = {
   getEnrichedAssets, getAssetLookups, getAssetSummary,
   HYGIENE_KINDS, getHygieneSummary, getHygieneExceptions,
   getFinanceSummary,
+  getAssetDepreciation, getDepreciationSchedule,
   classifyLicenceType, getLicenceSummary, getLicenceExceptions, LICENCE_KINDS,
 };
