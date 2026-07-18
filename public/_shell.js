@@ -123,16 +123,11 @@
         // pattern as Activity Tracker. Keeps Insights ▾ lean and matches
         // the user mental model of "one module = one nav entry".
         { id: 'meetings',    label: 'Meetings Decisions',  icon: ICON_LIB['clipboard-check'], href: 'meetings.html',          roles: ['any']       },
-        // Assets — the IT asset inventory (ManageEngine-synced hardware/config
-        // fleet). Read-only inventory view for any logged-in user.
+        // Assets — ONE tabbed module (Inventory · Hygiene · Finance & Licences)
+        // over the ManageEngine-synced fleet, driven by one shared filter bar.
+        // The former standalone Hygiene + Finance pages are now the #hygiene /
+        // #finance tabs of assets.html (their old URLs redirect there).
         { id: 'assets',      label: 'Assets',              icon: ICON_LIB['hard-drive'],      href: 'assets.html',            roles: ['any']       },
-        // Assets — Hygiene: the completeness / staleness worklist over the same
-        // fleet (discovered / never-scanned / ghost / missing owner-age-cost).
-        // Sits right after the inventory it complements. No money column.
-        { id: 'assets-hygiene', label: 'Assets — Hygiene', icon: ICON_LIB['shield-check'],   href: 'assets-hygiene.html',    roles: ['any']       },
-        // Assets — Finance & Licences: fleet value / depreciation / refresh (USD)
-        // + software licence compliance over the same fleet. USD-only (never raw XOF).
-        { id: 'assets-finance', label: 'Assets — Finance & Licences', icon: ICON_LIB['wallet'], href: 'assets-finance.html', roles: ['any']       },
         // IT Review — the review of what the meetings produce, hence right after
         // them. target:'_blank' is deliberate (same precedent as `help` below):
         // it-review.html is a faithful carry of the authoritative dashboard and
