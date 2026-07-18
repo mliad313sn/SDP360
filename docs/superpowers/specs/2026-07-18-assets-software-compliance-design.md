@@ -14,7 +14,7 @@ Columns: `Software ID` (BOM on the first header — `﻿Software ID`, strip it),
 
 - **`Compliance Type`** (SDP's own verdict — the PRIMARY signal): `N/A` 9 780 · **`Under Licensed` 32** · **`Over Licensed` 14** · `Compliant` 4.
 - **`Software Type`**: `UnIdentified` 9 779 · **`Managed` 50** · `Shareware` 1. Only the ~50 **Managed** titles are licence-metered; the rest are `N/A`/unmetered. **Managed is the actionable universe.**
-- Raw `Installations` vs `Installations Allowed`: 2 raw under, 14 raw over, 9 813 with no allowance set. The raw delta ≠ `Compliance Type` (SDP factors CAL/downgrades/allocation), so **trust `Compliance Type` as the verdict** and show the raw counts as supporting detail.
+- Raw `Installations` vs `Installations Allowed`: on this data the raw delta **agrees exactly** with `Compliance Type` (all 32 Under have installs>allowed, all 14 Over have installs<allowed, all 4 Compliant equal). The **9 780 unmetered rows carry the literal string `'N/A'`** in `Installations Allowed` (and the other count columns) — NOT empty. So any numeric compare MUST treat `'N/A'` as null (compute in JS via `toInt`, never `CAST` in SQL — `CAST('N/A' AS INTEGER)` 500s on pg / returns 0 on sqlite). **Trust `Compliance Type` as the verdict** (SDP factors CAL/downgrades — so an ORed raw comparison would falsely flag downgrade-covered titles); show the raw `installs_vs_allowed` counts as supporting detail only.
 - **No cost column** on this view (cost lives on `software_licenses`, USD). C-2 compliance is **count-based, no money** — no currency question here.
 
 ## 3. Deliverables (all additive)
@@ -45,6 +45,6 @@ Columns: `Software ID` (BOM on the first header — `﻿Software ID`, strip it),
 - No per-site software breakdown (the catalog view is fleet-wide; a per-site view `Software Per Site` 002148/001256265 exists but is a separate Pivot/QueryTable — deferred).
 
 ## 5. Risks
-- **R1 — trusting the raw `Installations>Allowed` instead of `Compliance Type`.** SDP's `Compliance Type` already accounts for CAL/downgrades; the raw delta disagrees (2 vs 32 under). The reader must surface `Compliance Type` as the verdict and the raw counts as detail — the exception `under_licensed` predicate ORs both so nothing is missed, but the SUMMARY headline uses `Compliance Type`.
-- **R2 — BOM on `﻿Software ID`.** Same trap as Assets.csv — the integration test asserts 9 830 rows land (proves the strip). The sync's DEFAULT_MAP already strips the BOM (Foundation) — confirm it covers this view.
+- **R1 — the `'N/A'` sentinel + the temptation to OR the raw comparison.** The count columns hold literal `'N/A'` on 9 780 rows → any SQL `CAST` throws on pg / mis-buckets on sqlite; **do all classification in JS with a `toInt`→null helper (no SQL CAST)**. And the `under_licensed` verdict is `Compliance Type` ONLY — do NOT OR the raw `installations>allowed` (on this data it agrees exactly, and SDP's verdict already accounts for CAL/downgrades, so an OR would falsely flag downgrade-covered titles). Raw `installs_vs_allowed` counts are supporting detail only.
+- **R2 — BOM on `﻿Software ID`.** Same trap as Assets.csv — the integration test asserts 9 830 rows land (proves the strip). The BOM strip lives in the **CSV-parse layer** (the test harness parser; prod `fetchView`), NOT `DEFAULT_MAP` — don't "fix" DEFAULT_MAP. Prod coverage holds by the same `fetchView` precedent that lands 2 473 Assets.
 - **R3 — view id wrong → wrong data.** Mitigated: recon-confirmed `002070` = the "Software" Table view whose columns match the profiled CSV exactly.
