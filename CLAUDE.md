@@ -8,6 +8,49 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ## ⚡ Current state (as of 2026-07-17)
 
+> **Assets CMDB Hygiene (sub-project B) landed** (branch `feat/assets-hygiene`, on
+> top of the merged Foundation) — turns "how trustworthy is the register?" into a
+> **Group-IT hygiene dashboard**, six **exception reports** with Excel export, and
+> a **scheduled email digest**, all **additive** — it reuses Foundation's `assets`
+> table + `getEnrichedAssets`/`ASSETS_BACKEND` substrate **untouched**. **Six
+> exception kinds** (`HYGIENE_KINDS` in `assets-db.js` — the single source of truth
+> the routes + Excel + digest all read): 3 **worklists** (`discovered` ·
+> `never_scanned` · `ghost` = stale >90d AFTER a clean audit) and 3 **completeness
+> gaps** (`no_owner` · `no_age` · `no_cost`). New dual-backend readers
+> `getHygieneSummary(filters)` (per-kind counts + per-site completeness % +
+> scan-freshness buckets + by_state) and `getHygieneExceptions(kind, filters)`
+> (identity rows, **NO cost amount**; unknown kind throws) — await-covered.
+> Surfaces: `GET /api/assets/hygiene/{summary,exceptions,export.xlsx}`
+> (`requireReportSession`; unknown kind pre-validated → **400**, never 500) +
+> `POST /api/assets/hygiene/send?preview=1|0` (`requireAdmin`, disarm-safe), page
+> `public/assets-hygiene.html` in **Insights ▾** (icon `shield-check`) — completeness
+> %, 3 worklist tiles (Discovered/Never-scanned/Ghost), 3 Chart.js charts, per-kind
+> drill + Excel. **Browser-verified.** The digest: `services/assetHygieneReport.js`
+> (PURE `buildHygieneDigest` → `{subject, html, attachments[xlsx]}`, freshness line,
+> Δ vs prev, **no money**) + `tools/reports/send-hygiene.js` (**armed-OFF by
+> default**, `decideHygieneSend` gate, dedup via `reportSentLog`
+> `report_type='hygiene' site_code='GROUP'`, `--preview`, reads `assets_assets`
+> last-success via `reports-db.getLastSyncAt` for the freshness line). Existing-module
+> edits kept **additive**: `reportConfig.DEFAULTS` gains
+> `hygiene_recipients`/`hygiene_send_enabled` (else `setConfig` silently drops them),
+> `reportSchedule` gains `'hygiene'` in TYPES + exported `cliFor()`
+> (hygiene→send-hygiene.js, coordinator path **byte-unchanged**), and a
+> "🛡 Assets Hygiene" admin card (admin+) on `reports.html` (recipients + arm toggle
+> + schedule + Preview/Send-now). **NO money displayed anywhere in B** — the `$`
+> label is an unresolved XOF/USD lie (Foundation trap); B lists WHICH assets lack
+> cost, never an amount (deferred to C/D). **software + software_installations still
+> deferred to sub-project C.** **Regression**: new suites (assets-hygiene-readers ·
+> assets-hygiene-routes.smoke · asset-hygiene-report · send-hygiene ·
+> report-config-hygiene · report-schedule-hygiene) all green; existing coordinator
+> tests (report-config/report-schedule/send-reports-cli, **23**) still green;
+> Foundation suite (**27**) no regression. Spec:
+> `docs/superpowers/specs/2026-07-17-assets-hygiene-design.md`.
+> **NOT merged** — branch ready for review.
+>
+> ---
+
+## ⚡ Current state (as of 2026-07-17)
+
 > **Assets Foundation (sub-project A) landed** (branch `feat/assets-foundation`,
 > 7 tasks) — a **read-only IT asset inventory** built from the ManageEngine
 > AssetExplorer (AP) Analytics views, alongside the existing modules, **entirely
@@ -2454,6 +2497,11 @@ In normal use NO request hits this fallback. It's a safety net.
 | **`Purchase Cost` is present-as-`'0.00'`, NEVER NULL — the no-cost filter is `IN ('0.00','0','')`, not `IS NULL`** | The column is **100% present** on the real export; the "no purchase cost" assets are the literal string `'0.00'` (**2246** of 2473 on 2026-07-17), not missing values. The no-cost predicate is `purchase_cost IN ('0.00','0','')` — an `IS NULL` filter matches **zero** rows and looks broken. (Note `DEFAULT_MAP` maps `''→null`, but no purchase-cost cell is empty, so null never occurs here.) |
 | **The AP `/data` endpoint IGNORES `maxRows` — it returns the WHOLE view or times out; it never truncates** | `fetchAll`/`syncAssetView` pass `maxRows` for signature parity but the API disregards it. There is **no paging and no truncation guard** — the only silent-partial protection is `fetchView`'s ~120s timeout (a throw, which keeps the table intact); `hardCap` is a data-gone-wrong tripwire, not a limiter. A huge view therefore fails loudly (timeout) rather than storing a partial. This is exactly why `software_installations` (**121k rows, 13.6 min**) is DEFERRED to sub-project C. Never assume `maxRows` bounds an assets fetch. |
 | **`stripPiiColumns` runs inside `fetchView` on the SYNC path — it eats `IP Address`/`MAC Address`/email** | The sync goes through the helpdesk `fetchView`, whose `stripPiiColumns` deletes any column matching `/\baddress\b/i` or `/email/i` (`server.js:69`). That is WHY `asset_network` (IP/MAC) is deferred (§2) and why `Assets.User email` is unavailable (0% filled, no loss). The assets **readers** (`getEnrichedAssets`/`getAssetLookups`/`getAssetSummary`) do NOT re-run the scrubber — they serve their own **whitelisted** columns. Any future sub-project needing IP/MAC/email must decide a non-stripping fetch path at that time. |
+| **Hygiene `no_cost` predicate is `IN ('0.00','0','')`, NEVER `IS NULL` — and `no_age` is the exact opposite** | Two completeness gaps, two OPPOSITE null-shapes. `purchase_cost` is **100% present** on the real export — the "no cost" assets carry the literal string `'0.00'` (2246 of 2473), so `no_cost = purchase_cost IN ('0.00','0','')`; an `IS NULL` filter matches **zero** and the tile reads a silent `0`. `acquisition_date`, by contrast, is genuinely EMPTY at 91%, so `no_age = acquisition_date IS NULL OR = ''`. Copy one predicate onto the other and the count is wrong with no error. Both live in `HYGIENE_KINDS` (`assets-db.js`) — the single source of truth; never re-derive a predicate inline in a route or the Excel builder. |
+| **Hygiene `ghost` and `never_scanned` are DISJOINT BY CONSTRUCTION — don't "simplify" ghost to just >90d** | The two worklists must never double-count. `never_scanned` fires on any row whose CURRENT `last_audit_status` isn't a success (`lower(last_audit_status) NOT LIKE '%success%'`) OR has no successful-audit time; `ghost` requires a SUCCESSFUL prior scan (`last_audit_status LIKE '%success%'`) **AND** `days_since_scan > 90`. So a scanned-once-but-currently-failing stale row is `never_scanned` ONLY — it can't also be a ghost. Drop the `LIKE '%success%'` gate from `ghost` (or reduce it to bare >90d) and the two worklists overlap, inflating the digest's actionable counts. Pin the boundary with a seeded row (status-failed + 120d) asserting it lands in `never_scanned` only. |
+| **`days_since_scan` is TEXT → `CAST(NULLIF(days_since_scan,'') AS INTEGER)`, never a bare `CAST` — the `NULLIF` is a pg-500 guard, not decoration** | The column is stored raw TEXT and is `''` on many rows. sqlite's `CAST('' AS INTEGER)` is lenient (→ 0), but pg's is **strict** and throws a 500 on `''` — the documented "sqlite-green / pg-500" trap. The `NULLIF(...,'')` turns empty into NULL so the `CAST` never sees `''` on either backend; the **pg fork carries the identical `NULLIF`**. Any new hygiene predicate comparing a TEXT-numeric column MUST wrap it the same way. |
+| **The hygiene digest is ARMED-OFF by default — and `reportConfig.DEFAULTS` MUST list its two keys or the admin's writes vanish silently** | `hygiene_send_enabled` defaults `'0'`; `tools/reports/send-hygiene.js`'s `decideHygieneSend` refuses to send unless it is `'1'` **AND** `hygiene_recipients` is non-empty — nothing mails unattended until an admin sets recipients + arms it in the `reports.html` card (entering the list IS the confirmation act, honouring "never send to an unconfirmed address"). **The catch**: `setConfig` filters on `KEYS.includes(k)`, so `hygiene_recipients`/`hygiene_send_enabled` MUST be present in `reportConfig.DEFAULTS` — omit them and the admin's writes are **silently dropped**, the digest goes permanently inert (fails safe, but dead) with no error anywhere. |
+| **No money is displayed ANYWHERE in sub-project B — B lists WHICH assets lack cost, never an amount** | The `$` in `Purchase Cost($)` is an unresolved XOF/USD currency lie (Foundation trap). B's `no_cost` report + digest name the assets missing cost data; they never render, sum, or coerce the raw `'0.00'`/`'970,000.00'` TEXT. `getHygieneExceptions` deliberately omits the cost column and the Excel/digest have **no cost column**. Any per-table currency decision is deferred to sub-project C/D — do NOT surface an amount here. |
 | **The IT Review's Helpdesk & Changes panel is OUR addition — the authoritative `D` has no helpdesk concept at all** | His dashboard is meetings + inspection only; there is no helpdesk or changes anywhere in `D`. The panel therefore rides in via `buildReviewVals(D, opts)`'s **optional `opts.extras`**, precisely so that calling **without** extras still emits **exactly his 61 keys** and `tests/review-fidelity.test.js` keeps proving the port. **Never fold extras into `D`, and never let them reach the score** — the Leaderboard/Scoreboard keep his numbers. `tests/review-fidelity.test.js` guards **both** sides of that door: the no-extras call deep-equals his oracle at 61 keys, and a second test pins the WITH-extras additions to a **declared allowlist** (`['hdNote','hdRows']`) so a future accidental key silently polluting his contract fails loudly. Label the panel as a complement, never as part of his model. |
 | **Per-site helpdesk AND changes both scope by GROUP — never by `site`** | `request_records.tech_group` and `change_records.group_name`, both comma-split from `sites.zoho_group` (resolved via `getSiteIdByModuleCode('meetings', code)`). **Never `request_records.site` / `change_records.site_id`** — `site` is free-form and unreliable (`'HOUNDE'`, `'Hounde Mine'`, `'Ouaga'` vs `'Ouagadougou'`); `change_records.group_name` is populated on 291/295 rows. The reader takes a **`site_id`** and resolves the group *internally* — so a binder passing `s.zoho_group` where `s.site_id` belongs yields `undefined` → an **all-zero block with no error**, which `_safe` then swallows. Copy the `helpdesk` binder (`siteReportDeps.js:40-44`) and change only the reader call. |
 | **The change outcome is NOT in `status`/`closure_code` — and there is already a classifier; do NOT write a second one** | `closure_code` is **NULL on 82%** of rows, and `'Successful'`/`'Failed'` appear in **neither** `status` nor `closure_code`. The outcome lives in **`udf_json`** (`UDF:Change Implementation Outcome` / `UDF:Review decision`). The shipped classifier is `_changeOutcome`/`_tallyChanges` at **`public/executive-report.html:5053-5090`** — its own header comment documents the exact bug a naive `status`/`closure_code` reader causes ("the deck builder reported a different success number than the live scorecard"). **Port it verbatim** (`reports-db.js` `_changeOutcome`/`_computeSiteChanges`). Three counter-intuitive facts: the bucket is **`'success'`, not `'successful'`**; **no signal → `'pending'`, never `null`**; and `UDF:Review decision` **short-circuits on `'rework'` ONLY** — priority is per-VALUE, not per-field, so outcome beats review's success/cancel. `executed = successful + partial + failed(incl. backed_out) + cancelled` → **187 / 91.4%** on the snapshot, which **deliberately diverges** from this file's own denominator-doctrine line (`175 / 97.7%`, cancelled excluded). **Agreeing with the deck the team already reads beats agreeing with a doc line** — that divergence is the decision, not a bug. `failed` already merges `backed_out` and `pending` already merges `rework`; the raw counts survive only under `buckets`. |
