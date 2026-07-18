@@ -2367,6 +2367,111 @@ app.post('/api/assets/hygiene/send', requireReportSession, requireAdmin, async (
   }
 });
 
+// ── ASSETS · FINANCE + LICENCES (Licence/Finance sub-project) ────────────────
+// Finance shows money in USD ONLY (raw XOF ×xof_usd_rate applied ONCE by the reader).
+// Licences show type families + expiry exceptions. Same session guard + whitelisted,
+// parameter-bound filters as the hygiene block; every dual-backend reader is awaited.
+const _assetFinanceFilters = (req) => {
+  const q = {};
+  for (const k of ['site', 'state', 'product_type', 'manufacturer', 'q']) {
+    if (req.query[k] != null && req.query[k] !== '') q[k] = String(req.query[k]);
+  }
+  return q;
+};
+const _assetLicenceFilters = (req) => {
+  const q = {};
+  for (const k of ['site', 'family', 'state', 'q']) {
+    if (req.query[k] != null && req.query[k] !== '') q[k] = String(req.query[k]);
+  }
+  return q;
+};
+// Resolve the XOF→USD rate from config, falling back to the DEFAULT (never to 1 —
+// rate 1 would mislabel raw XOF as USD). A blank/0/NaN admin value → the default.
+const _assetUsdRate = async () => {
+  const reportConfig = require('./services/reportConfig');
+  const rdb = require('./reports-db');
+  let rate = parseFloat((await reportConfig.getConfig(rdb.db)).xof_usd_rate);
+  if (!(rate > 0)) rate = parseFloat(reportConfig.DEFAULTS.xof_usd_rate);
+  return rate;
+};
+
+app.get('/api/assets/finance/summary', requireReportSession, async (req, res) => {
+  try {
+    const adb = require('./assets-db');
+    const rate = await _assetUsdRate();
+    const s = await adb.getFinanceSummary(_assetFinanceFilters(req), rate);
+    res.json({ ...s, rate });   // echo the applied rate so the page can label it
+  } catch (e) {
+    console.error('[api/assets/finance/summary]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// One-sheet USD-only workbook (no raw XOF ever leaves this route).
+app.get('/api/assets/finance/export.xlsx', requireReportSession, async (req, res) => {
+  try {
+    const adb = require('./assets-db');
+    const { buildWorkbook } = require('./services/tableExcel');
+    const rate = await _assetUsdRate();
+    const s = await adb.getFinanceSummary(_assetFinanceFilters(req), rate);
+    const buf = buildWorkbook([{ name: 'Finance by site', rows: s.by_site }]);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="assets-finance.xlsx"');
+    res.send(buf);
+  } catch (e) {
+    console.error('[api/assets/finance/export.xlsx]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/assets/licences/summary', requireReportSession, async (req, res) => {
+  try {
+    res.json(await require('./assets-db').getLicenceSummary(_assetLicenceFilters(req)));
+  } catch (e) {
+    console.error('[api/assets/licences/summary]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/assets/licences/exceptions', requireReportSession, async (req, res) => {
+  const adb = require('./assets-db');
+  // Pre-validate BEFORE the try/catch: an unknown kind must be 400, not the catch's 500.
+  const kind = String(req.query.kind || '');
+  if (!adb.LICENCE_KINDS[kind]) return res.status(400).json({ error: 'unknown kind' });
+  try {
+    res.json(await adb.getLicenceExceptions(kind, _assetLicenceFilters(req)));
+  } catch (e) {
+    console.error('[api/assets/licences/exceptions]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// GET /api/assets/licences/export.xlsx?kind=all|<kind> — one sheet per licence kind
+// (kind=all, the default), or a single sheet for a specific valid kind. Unknown specific
+// kind → 400 (pre-validated).
+app.get('/api/assets/licences/export.xlsx', requireReportSession, async (req, res) => {
+  const adb = require('./assets-db');
+  const kind = String(req.query.kind || 'all');
+  if (kind !== 'all' && !adb.LICENCE_KINDS[kind]) return res.status(400).json({ error: 'unknown kind' });
+  try {
+    const { buildWorkbook } = require('./services/tableExcel');
+    const filters = _assetLicenceFilters(req);
+    const keys = kind === 'all' ? Object.keys(adb.LICENCE_KINDS) : [kind];
+    const sheets = [];
+    for (const key of keys) {
+      sheets.push({ name: adb.LICENCE_KINDS[key].label || key,
+        rows: await adb.getLicenceExceptions(key, filters) });
+    }
+    const buf = buildWorkbook(sheets);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="assets-licences.xlsx"');
+    res.send(buf);
+  } catch (e) {
+    console.error('[api/assets/licences/export.xlsx]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/health', (req, res) => res.json({
   status: 'ok', tokenValid: Date.now() < tokenState.expiresAt,
   expiresAt: new Date(tokenState.expiresAt).toISOString(),
