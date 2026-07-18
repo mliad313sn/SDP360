@@ -26,6 +26,11 @@ const TABLES = [
   ['asset_logical_drives', ['drive_id','workstation_id','drive_letter','capacity_gb','free_gb','free_pct','file_type'], ['drive_id']],
   ['asset_monitors', ['workstation_id','monitor_id','monitor_type','manufacturer','serial_number'], ['workstation_id','monitor_id']],
   ['software_licenses', ['license_id','license_name','license_type','license_state','expiry_date','cost','site','vendor','software_id'], ['license_id']],
+  ['software', [
+    'software_id','software_name','manufacturer','licensed_installations','installations',
+    'installations_allowed','available_for_allocation','allocated_to_downgrades','purchased',
+    'allocated','purchased_cal','compliance_type','software_category','software_type',
+  ], ['software_id']],
 ];
 
 function _upsertSql(table, cols, pk) {

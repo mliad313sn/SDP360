@@ -84,7 +84,7 @@ async function _replaceTablePg(table, cols, rows) {
 // ASSET_VIEWS config (never user input), but it is still validated against the known
 // set before interpolation so it can never become an injection vector if a future caller
 // passes a variable. Dual-backend: pg fork is async, every caller MUST await it.
-const _ASSET_TABLES = new Set(['assets', 'asset_memory', 'asset_logical_drives', 'asset_monitors', 'software_licenses']);
+const _ASSET_TABLES = new Set(['assets', 'asset_memory', 'asset_logical_drives', 'asset_monitors', 'software_licenses', 'software']);
 function _assertTable(table) {
   if (!_ASSET_TABLES.has(table)) throw new Error(`countRows: unknown table "${table}" — not an Assets Foundation table`);
   return table;

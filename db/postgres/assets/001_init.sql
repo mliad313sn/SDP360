@@ -82,3 +82,21 @@ CREATE TABLE IF NOT EXISTS software_licenses (
   organization_license TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_software_licenses_state ON software_licenses (license_state);
+
+CREATE TABLE IF NOT EXISTS software (
+  software_id TEXT PRIMARY KEY,
+  software_name TEXT,
+  manufacturer TEXT,
+  licensed_installations TEXT,
+  installations TEXT,
+  installations_allowed TEXT,
+  available_for_allocation TEXT,
+  allocated_to_downgrades TEXT,
+  purchased TEXT,
+  allocated TEXT,
+  purchased_cal TEXT,
+  compliance_type TEXT,
+  software_category TEXT,
+  software_type TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_software_compliance_type ON software (compliance_type);

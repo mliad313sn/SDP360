@@ -62,6 +62,7 @@ const CSV_FOR = {
   asset_logical_drives: 'Logical_Drives.csv',
   asset_monitors: 'Monitors.csv',
   software_licenses: 'Software_Licenses.csv',
+  software: 'Software.csv',
 };
 for (const def of ASSET_VIEWS) {
   const raw = readCsvObjects(CSV_FOR[def.name]);
@@ -80,6 +81,38 @@ test('all 2473 assets land — proves the BOM was stripped', () => {
   console.log(`[assets-integration] assets rows loaded = ${n}`);
   assert.ok(n > 2000, `expected >2000 assets, got ${n} (BOM likely unstripped if 0)`);
   assert.strictEqual(n, EXPECTED_ASSETS, `expected exactly ${EXPECTED_ASSETS} assets`);
+});
+
+// Assets C-2 Task 0 (Software compliance) — the software catalog view (002070) must now
+// sync RAW into the new `software` table. These fail until 001_init.sql carries the table
+// AND the ASSET_VIEWS column map + copy-assets TABLES + _ASSET_TABLES + CSV_FOR are extended.
+const EXPECTED_SOFTWARE        = 9830;   // Software.csv = 9831 lines - 1 header
+const EXPECTED_UNDER_LICENSED  = 32;
+
+test('all 9830 software rows land — proves the BOM was stripped', () => {
+  const n = db.prepare('SELECT COUNT(*) c FROM software').get().c;
+  console.log(`[assets-integration] software rows loaded = ${n}`);
+  assert.ok(n > 9000, `expected >9000 software rows, got ${n} (BOM likely unstripped if 0)`);
+  assert.strictEqual(n, EXPECTED_SOFTWARE, `expected exactly ${EXPECTED_SOFTWARE} software rows`);
+});
+
+test('PIX4Dmapper row is captured RAW (compliance / installations / allowed)', () => {
+  const r = db.prepare(
+    "SELECT compliance_type, installations, installations_allowed FROM software " +
+    "WHERE software_name LIKE 'PIX4Dmapper%'"
+  ).get();
+  assert.ok(r, 'PIX4Dmapper row exists');
+  console.log(`[assets-integration] PIX4Dmapper compliance=${r.compliance_type} ` +
+    `installs=${r.installations} allowed=${r.installations_allowed}`);
+  assert.strictEqual(r.compliance_type, 'Under Licensed');
+  assert.strictEqual(r.installations, '24');
+  assert.strictEqual(r.installations_allowed, '1');
+});
+
+test("32 software rows are compliance_type = 'Under Licensed'", () => {
+  const n = db.prepare("SELECT COUNT(*) c FROM software WHERE compliance_type = 'Under Licensed'").get().c;
+  console.log(`[assets-integration] Under Licensed rows = ${n}`);
+  assert.strictEqual(n, EXPECTED_UNDER_LICENSED, `expected exactly ${EXPECTED_UNDER_LICENSED} Under Licensed rows`);
 });
 
 test('no-cost filter (0.00/0/"") matches 2246 rows — NOT via IS NULL', () => {

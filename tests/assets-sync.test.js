@@ -69,8 +69,8 @@ test('the licence transform keeps the cost as a RAW string', async () => {
   assert.strictEqual(out.cost, '55,920.00');   // no numeric coercion
 });
 
-test('ASSET_VIEWS has exactly 5 entries', () => {
-  assert.strictEqual(ASSET_VIEWS.length, 5);
+test('ASSET_VIEWS has exactly 6 entries', () => {
+  assert.strictEqual(ASSET_VIEWS.length, 6);   // 5 Foundation views + software (C-2 Task 0)
 });
 
 test('syncAllAssets isolates a per-view failure — the other views still sync', async () => {
@@ -80,11 +80,11 @@ test('syncAllAssets isolates a per-view failure — the other views still sync',
     return { rows: [_stubRowFor(viewId)] };
   };
   const summary = await syncAllAssets(deps(fetchView));
-  assert.strictEqual(summary.length, 5, 'a summary entry per view');
+  assert.strictEqual(summary.length, 6, 'a summary entry per view');
   const failed = summary.find(s => s.name === 'assets');
   assert.ok(failed && failed.error, 'the assets view reports an error');
   const ok = summary.filter(s => typeof s.rows === 'number');
-  assert.strictEqual(ok.length, 4, 'the other 4 views synced');
+  assert.strictEqual(ok.length, 5, 'the other 5 views synced');
 });
 
 // build a stub Zoho row carrying EVERY header — asset_monitors' monitor_id is TEXT NOT NULL

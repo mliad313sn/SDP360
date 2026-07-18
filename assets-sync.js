@@ -156,6 +156,18 @@ const ASSET_VIEWS = [
     // date/currency handling has a home without touching the engine.
     transform: (row, out) => ({ ...out, cost: (row['Cost($)'] ?? '').toString().trim() || null }),
   },
+  {
+    name: 'software', job: 'assets_software', table: 'software',
+    viewId: '106803000000002070', pkCol: 'software_id',
+    columns: {
+      'Software ID': 'software_id', 'Software Name': 'software_name', 'Manufacturer': 'manufacturer',
+      'Licensed Installations': 'licensed_installations', 'Installations': 'installations',
+      'Installations Allowed': 'installations_allowed', 'Available for Allocation': 'available_for_allocation',
+      'Allocated to Downgrades': 'allocated_to_downgrades', 'Purchased': 'purchased', 'Allocated': 'allocated',
+      'Purchased CAL': 'purchased_cal', 'Compliance Type': 'compliance_type',
+      'Software Category': 'software_category', 'Software Type': 'software_type',
+    },
+  },
 ];
 
 module.exports = { init, fetchAll, syncAssetView, syncAllAssets, ASSET_VIEWS, DEFAULT_MAP };
