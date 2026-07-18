@@ -2475,6 +2475,66 @@ app.get('/api/assets/licences/export.xlsx', requireReportSession, async (req, re
   }
 });
 
+// ── ASSETS · SOFTWARE COMPLIANCE (Assets C-2, Task 2) ───────────────────────
+// Count-based, NO money on the wire. Mirrors the licence route block. Whitelisted,
+// parameter-bound filters (the readers bind); unknown kind PRE-VALIDATED to 400 on
+// both exceptions + export BEFORE the try/catch (never a 500).
+const _assetSoftwareFilters = (req) => {
+  const q = {};
+  for (const k of ['manufacturer', 'software_type', 'q']) {
+    if (req.query[k] != null && req.query[k] !== '') q[k] = String(req.query[k]);
+  }
+  return q;
+};
+
+app.get('/api/assets/software/summary', requireReportSession, async (req, res) => {
+  try {
+    res.json(await require('./assets-db').getSoftwareComplianceSummary(_assetSoftwareFilters(req)));
+  } catch (e) {
+    console.error('[api/assets/software/summary]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/assets/software/exceptions', requireReportSession, async (req, res) => {
+  const adb = require('./assets-db');
+  // Pre-validate BEFORE the try/catch: an unknown kind must be 400, not the catch's 500.
+  const kind = String(req.query.kind || '');
+  if (!adb.SOFTWARE_KINDS[kind]) return res.status(400).json({ error: 'unknown kind' });
+  try {
+    res.json(await adb.getSoftwareComplianceExceptions(kind, _assetSoftwareFilters(req)));
+  } catch (e) {
+    console.error('[api/assets/software/exceptions]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// GET /api/assets/software/export.xlsx?kind=all|<kind> — one sheet per software kind
+// (kind=all, the default), or a single sheet for a specific valid kind. Unknown specific
+// kind → 400 (pre-validated).
+app.get('/api/assets/software/export.xlsx', requireReportSession, async (req, res) => {
+  const adb = require('./assets-db');
+  const kind = String(req.query.kind || 'all');
+  if (kind !== 'all' && !adb.SOFTWARE_KINDS[kind]) return res.status(400).json({ error: 'unknown kind' });
+  try {
+    const { buildWorkbook } = require('./services/tableExcel');
+    const filters = _assetSoftwareFilters(req);
+    const keys = kind === 'all' ? Object.keys(adb.SOFTWARE_KINDS) : [kind];
+    const sheets = [];
+    for (const key of keys) {
+      sheets.push({ name: adb.SOFTWARE_KINDS[key].label || key,
+        rows: await adb.getSoftwareComplianceExceptions(key, filters) });
+    }
+    const buf = buildWorkbook(sheets);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="assets-software.xlsx"');
+    res.send(buf);
+  } catch (e) {
+    console.error('[api/assets/software/export.xlsx]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── ASSETS · DEPRECIATION (Depreciation sub-project, Task 2) ─────────────────
 // Book value + annual schedule computed from purchase_cost + acquisition_date +
 // the admin-managed depreciation config; money CONVERTED to USD via the SAME
