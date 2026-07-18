@@ -8,6 +8,57 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ## ⚡ Current state (as of 2026-07-18)
 
+> **Assets Licence compliance (C-v1) + Finance view landed** (branch
+> `feat/assets-licence-finance`, on top of the merged A+B) — the sibling to Hygiene
+> (B): where B answers "how trustworthy is the register?", this answers **"what is
+> it worth and are we licence-compliant?"** — a **Finance view (money in USD)**, a
+> **licence-compliance view (type families + expiry)**, and **two hygiene
+> enrichments**, all **additive**, driven by the user's ITAM training PPTX +
+> software-licence-types guide. **Money is displayed** for the first time —
+> deliberately, in **USD only**: assets are XOF × a configurable
+> `xof_usd_rate:'0.00165'` (`reportConfig.DEFAULTS`, admin-editable via the Hygiene
+> card), licence cost is native USD; **all conversion + parsing lives in the new
+> PURE `services/money.js`** (`parseAmount` strips `$`/comma/space, `'0.00'`→0,
+> garbage→null; `toUsd(rawXof,rate)`; `fmtUsd` = thousands+2dp, **NO `$` glyph** —
+> USD is conveyed by a text label). New `assets-db.js` readers (dual-backend,
+> additive): `getFinanceSummary(filters, rate)` (per-site USD value/book/TCO/opex +
+> `pct_depreciated` + `refresh_due` — **sums IN JS via `money.parseAmount`, rate
+> applied once, never a SQL `SUM`/`CAST`**) and `getLicenceSummary` /
+> `getLicenceExceptions` / `classifyLicenceType` / `LICENCE_KINDS` (type families
+> per the guide + expiry buckets). Captured columns: finance fields + `asset_tag`
+> on `assets`, `license_option`/`installations_allowed`/`acquisition_date`/
+> `organization_license` on `software_licenses` (`assets-sync.js` extends both view
+> maps; `db/postgres/assets/001_init.sql` adds them to the **one shared CREATE**
+> execed on BOTH backends + a JS-side backend-branched ALTER — sqlite PRAGMA-guarded
+> in `getDB`, pg `IF NOT EXISTS` in `initPgAssets`). Two new `HYGIENE_KINDS` —
+> `no_asset_tag` + `lifecycle_exception` — **NOT in the completeness score** (kept
+> additive so B's pinned numbers hold). Surfaces:
+> `GET /api/assets/finance/{summary,export.xlsx}` +
+> `GET /api/assets/licences/{summary,exceptions,export.xlsx}`
+> (`requireReportSession`; finance reads the config rate, **falls back to DEFAULT,
+> never 1**; unknown kind → **400**), page `public/assets-finance.html`
+> ("Finance & Licences" dashboard) in **Insights ▾** (icon `wallet`) — USD
+> value/book/TCO per site + %depreciated + refresh-due + book-value chart; licence
+> family donut + expiry tiles + drill + Excel. **Browser-verified** (USD, rate
+> labelled, charts, drill, zero console errors). The hygiene digest
+> (`services/assetHygieneReport.js` + `tools/reports/send-hygiene.js`) gains
+> **optional Finance + Licence snapshots** (USD via `fmtUsd`, **no `$`**),
+> backward-compatible. **Decisions**: money is USD-only (conversion only in
+> `money.js`); **C-2 (purchased-vs-installed) is DEFERRED** — needs the 121k
+> `software_installations` table + the software-catalog view id; per-year
+> depreciation schedule is NOT in the SDP export (only Current Book Value ships) →
+> Finance shows **book value + % depreciated**, not a schedule. **Regression**: new
+> suites (money · report-config-rate · assets-finance-readers ·
+> assets-licence-readers · assets-finance-routes.smoke) + extended
+> integration/hygiene/report/send-hygiene = **33 new pass**; Foundation + B (**99**)
+> no regression. Spec:
+> `docs/superpowers/specs/2026-07-18-assets-licence-finance-design.md`.
+> **NOT merged** — branch ready for review.
+>
+> ---
+
+## ⚡ Current state (as of 2026-07-18)
+
 > **Assets CMDB Hygiene (sub-project B) landed** (branch `feat/assets-hygiene`, on
 > top of the merged Foundation) — turns "how trustworthy is the register?" into a
 > **Group-IT hygiene dashboard**, six **exception reports** with Excel export, and
@@ -2502,6 +2553,11 @@ In normal use NO request hits this fallback. It's a safety net.
 | **`days_since_scan` is TEXT → `CAST(NULLIF(days_since_scan,'') AS INTEGER)`, never a bare `CAST` — the `NULLIF` is a pg-500 guard, not decoration** | The column is stored raw TEXT and is `''` on many rows. sqlite's `CAST('' AS INTEGER)` is lenient (→ 0), but pg's is **strict** and throws a 500 on `''` — the documented "sqlite-green / pg-500" trap. The `NULLIF(...,'')` turns empty into NULL so the `CAST` never sees `''` on either backend; the **pg fork carries the identical `NULLIF`**. Any new hygiene predicate comparing a TEXT-numeric column MUST wrap it the same way. |
 | **The hygiene digest is ARMED-OFF by default — and `reportConfig.DEFAULTS` MUST list its two keys or the admin's writes vanish silently** | `hygiene_send_enabled` defaults `'0'`; `tools/reports/send-hygiene.js`'s `decideHygieneSend` refuses to send unless it is `'1'` **AND** `hygiene_recipients` is non-empty — nothing mails unattended until an admin sets recipients + arms it in the `reports.html` card (entering the list IS the confirmation act, honouring "never send to an unconfirmed address"). **The catch**: `setConfig` filters on `KEYS.includes(k)`, so `hygiene_recipients`/`hygiene_send_enabled` MUST be present in `reportConfig.DEFAULTS` — omit them and the admin's writes are **silently dropped**, the digest goes permanently inert (fails safe, but dead) with no error anywhere. |
 | **No money is displayed ANYWHERE in sub-project B — B lists WHICH assets lack cost, never an amount** | The `$` in `Purchase Cost($)` is an unresolved XOF/USD currency lie (Foundation trap). B's `no_cost` report + digest name the assets missing cost data; they never render, sum, or coerce the raw `'0.00'`/`'970,000.00'` TEXT. `getHygieneExceptions` deliberately omits the cost column and the Excel/digest have **no cost column**. Any per-table currency decision is deferred to sub-project C/D — do NOT surface an amount here. |
+| **Money in the Finance view (C-v1) is USD via `xof_usd_rate` — the raw `$` label lies, and conversion lives ONLY in `money.js`** | Asset `purchase_cost` is **XOF** (a desktop is `'2,250,000.00'`), licence `cost` is native **USD**; the `Purchase Cost($)` header's `$` is the Foundation currency lie. The finance view resolves it by converting XOF → USD once via a configurable `xof_usd_rate` (`reportConfig.DEFAULTS` `'0.00165'`, admin-editable). **All conversion + amount parsing is in the PURE `services/money.js`** (`parseAmount`/`toUsd`/`fmtUsd`) — never re-derive it inline. `getFinanceSummary` **sums IN JS via `money.parseAmount`** (no SQL `SUM`/`CAST` — the columns are raw TEXT with commas/`$`, exactly the sqlite-lenient/pg-500 trap Hygiene documents). **A blank or 0 rate falls back to DEFAULT, never 1** — rate `1` would render raw XOF magnitudes mislabelled as USD (a 2.25M "$" desktop). |
+| **`fmtUsd` emits NO `$` glyph — USD is conveyed by a text label, and the hygiene digest asserts its absence** | `services/money.js` `fmtUsd` formats thousands + 2dp with **no currency symbol** (the `$` is the Foundation lie; a bare `$` next to a converted figure re-introduces the ambiguity). The hygiene digest's Finance/Licence snapshots use `fmtUsd`, and a test asserts `!html.includes('$')`. Don't add a `$` to any finance/licence surface — label the column/tile "USD" instead. |
+| **Licence `Expiry Date` is `DD Mon YYYY` (`30 Jun 2025`), NOT ISO — parse with `new Date()`, never `substr`/lexical/SQL-date** | Unlike every other assets date, the software-licence `Expiry Date` ships as `'30 Jun 2025'` (day-month-name-year), so `substr(...,1,10)` / lexical string compare / a SQL `date()` cast **mis-buckets every row** into the wrong expiry tile with no error (same class of trap as the Risk Register `DD Mon YYYY` off-by-one). `classifyLicenceType`/`getLicenceSummary` parse it with `new Date()` and bucket by the resulting timestamp. Any new expiry predicate must do the same. |
+| **The assets schema is ONE shared `db/postgres/assets/001_init.sql` execed on BOTH backends — new columns go in the CREATE, never an ALTER in the shared SQL** | C-v1's new columns (`asset_tag`, `license_option`, …) are added to the **shared CREATE** that runs on sqlite AND pg. **ALTER-for-existing-tables is JS-side and backend-branched** — sqlite has **no `ADD COLUMN IF NOT EXISTS`**, so it's PRAGMA-guarded in `getDB`; pg uses `ADD COLUMN IF NOT EXISTS` in `initPgAssets`. Put an `ALTER` in the shared `001_init.sql` and the sqlite boot throws (`duplicate column`) on every existing DB. |
+| **The 2 new hygiene kinds (`no_asset_tag` / `lifecycle_exception`) are NOT in the completeness score** | C-v1 adds two `HYGIENE_KINDS` but deliberately keeps them **out of the per-site completeness %** — that score stays the 3 B gaps (`no_owner`/`no_age`/`no_cost`) so B's pinned numbers (`tests/assets-hygiene-readers`) hold. The two new kinds surface as their own worklists/exceptions only. Don't fold them into the completeness denominator. |
 | **The IT Review's Helpdesk & Changes panel is OUR addition — the authoritative `D` has no helpdesk concept at all** | His dashboard is meetings + inspection only; there is no helpdesk or changes anywhere in `D`. The panel therefore rides in via `buildReviewVals(D, opts)`'s **optional `opts.extras`**, precisely so that calling **without** extras still emits **exactly his 61 keys** and `tests/review-fidelity.test.js` keeps proving the port. **Never fold extras into `D`, and never let them reach the score** — the Leaderboard/Scoreboard keep his numbers. `tests/review-fidelity.test.js` guards **both** sides of that door: the no-extras call deep-equals his oracle at 61 keys, and a second test pins the WITH-extras additions to a **declared allowlist** (`['hdNote','hdRows']`) so a future accidental key silently polluting his contract fails loudly. Label the panel as a complement, never as part of his model. |
 | **Per-site helpdesk AND changes both scope by GROUP — never by `site`** | `request_records.tech_group` and `change_records.group_name`, both comma-split from `sites.zoho_group` (resolved via `getSiteIdByModuleCode('meetings', code)`). **Never `request_records.site` / `change_records.site_id`** — `site` is free-form and unreliable (`'HOUNDE'`, `'Hounde Mine'`, `'Ouaga'` vs `'Ouagadougou'`); `change_records.group_name` is populated on 291/295 rows. The reader takes a **`site_id`** and resolves the group *internally* — so a binder passing `s.zoho_group` where `s.site_id` belongs yields `undefined` → an **all-zero block with no error**, which `_safe` then swallows. Copy the `helpdesk` binder (`siteReportDeps.js:40-44`) and change only the reader call. |
 | **The change outcome is NOT in `status`/`closure_code` — and there is already a classifier; do NOT write a second one** | `closure_code` is **NULL on 82%** of rows, and `'Successful'`/`'Failed'` appear in **neither** `status` nor `closure_code`. The outcome lives in **`udf_json`** (`UDF:Change Implementation Outcome` / `UDF:Review decision`). The shipped classifier is `_changeOutcome`/`_tallyChanges` at **`public/executive-report.html:5053-5090`** — its own header comment documents the exact bug a naive `status`/`closure_code` reader causes ("the deck builder reported a different success number than the live scorecard"). **Port it verbatim** (`reports-db.js` `_changeOutcome`/`_computeSiteChanges`). Three counter-intuitive facts: the bucket is **`'success'`, not `'successful'`**; **no signal → `'pending'`, never `null`**; and `UDF:Review decision` **short-circuits on `'rework'` ONLY** — priority is per-VALUE, not per-field, so outcome beats review's success/cancel. `executed = successful + partial + failed(incl. backed_out) + cancelled` → **187 / 91.4%** on the snapshot, which **deliberately diverges** from this file's own denominator-doctrine line (`175 / 97.7%`, cancelled excluded). **Agreeing with the deck the team already reads beats agreeing with a doc line** — that divergence is the decision, not a bug. `failed` already merges `backed_out` and `pending` already merges `rework`; the raw counts survive only under `buckets`. |
