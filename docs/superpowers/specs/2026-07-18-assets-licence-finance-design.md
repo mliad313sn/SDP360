@@ -35,7 +35,8 @@ Two new `HYGIENE_KINDS`, purely additive (they flow into the existing hygiene da
 ---
 
 ## 2. Schema additions (additive; full-replace sync repopulates)
-- `assets` (sqlite `_initSchema` + pg `001_init.sql` + **idempotent `ALTER TABLE ADD COLUMN IF NOT EXISTS`** for existing prod tables): `asset_tag`, `total_cost_of_ownership`, `operational_cost`, `current_book_value`, `months_since_acquisition` — all TEXT (raw, like `purchase_cost`).
+> **NB (schema mechanism):** `assets-db.js` reads the single `db/postgres/assets/001_init.sql` and `.exec()`s it on BOTH backends — there is **no separate sqlite `_initSchema`**. New columns go in that shared file's `CREATE TABLE IF NOT EXISTS` (valid on both). For EXISTING tables the migration is **JS-side, backend-branched**: sqlite `PRAGMA table_info` + plain `ALTER TABLE … ADD COLUMN` in `getDB()`; pg `ALTER TABLE … ADD COLUMN IF NOT EXISTS` in `initPgAssets()`. **Never put `ALTER` in the shared SQL** — sqlite has no `ADD COLUMN IF NOT EXISTS` and would crash at require.
+- `assets`: `asset_tag`, `total_cost_of_ownership`, `operational_cost`, `current_book_value`, `months_since_acquisition` — all TEXT (raw, like `purchase_cost`).
 - `software_licenses`: `license_option`, `installations_allowed`, `acquisition_date`, `organization_license` — all TEXT.
 - Mapping (`assets-sync.js`): add the Assets-view columns (`Asset Tag`, `Total Cost of Ownership($)`, `Operational Cost($)`, `Current Book Value($)`, `Months Since Acquisition`) and the Software_Licenses-view columns (`License Option`, `Installations Allowed`, `Acquisition Date`, `Organization License`).
 - The real-CSV integration test extends to assert the new columns land (e.g. a known machine's book value parses; the licence rows carry a family).
