@@ -1,5 +1,6 @@
 'use strict';
 const path = require('path'), fs = require('fs');
+const money = require('./services/money');   // ONE money parser for all finance sums
 const DATA_DIR = process.env.SDP_DATA_DIR || path.join(__dirname, 'data');
 const ASSETS_BACKEND = (process.env.ASSETS_BACKEND || 'sqlite').toLowerCase();
 const SCHEMA = fs.readFileSync(path.join(__dirname, 'db', 'postgres', 'assets', '001_init.sql'), 'utf8');
@@ -350,9 +351,80 @@ async function _getHygieneExceptionsPg(kind, filters) {
   ).all(...params);
 }
 
+// ─── Finance summary (Task 2) ──────────────────────────────────────────────
+// Per-site asset value / book value / TCO / opex in USD (assets are XOF raw
+// TEXT, multiplied by `rate`), % depreciated (rate-independent), and a
+// refresh-due count (product-type replacement cycle). ALL money is summed in JS
+// via money.parseAmount — the ONE parser — never a SQL SUM/CAST/REPLACE.
+const _FINANCE_SELECT =
+  'SELECT a.site, a.purchase_cost, a.current_book_value, a.total_cost_of_ownership, ' +
+  'a.operational_cost, a.months_since_acquisition, a.product_type FROM assets a WHERE 1=1';
+
+// Replacement cycle (months) by product type — refresh is due at/after cycle.
+function _refreshCycleMonths(pt) {
+  const s = String(pt || '').toLowerCase();
+  if (/laptop|desktop|computer/.test(s)) return 36;
+  if (/server|network|switch|firewall/.test(s)) return 60;
+  if (/smartphone|phone|mobile/.test(s)) return 24;
+  return 48;
+}
+
+// SHARED pure aggregator — both backends hand it the same rows, so parity is by
+// construction. Groups by site, sums money via money.parseAmount (nulls skipped),
+// applies `rate` ONCE to each asset-money total, derives rate-independent
+// pct_depreciated (Σpurchase=0 → null) and a refresh-due count.
+function _aggregateFinance(rows, rate) {
+  const r = Number(rate);
+  const R = Number.isFinite(r) ? r : 1;
+  const acc = new Map();   // site -> {purchase,book,tco,opex,count,refresh_due}
+  const fleet = { purchase: 0, book: 0, tco: 0, opex: 0, count: 0, refresh_due: 0 };
+  const add = (a, row) => {
+    a.count++;
+    const p = money.parseAmount(row.purchase_cost); if (p != null) a.purchase += p;
+    const b = money.parseAmount(row.current_book_value); if (b != null) a.book += b;
+    const t = money.parseAmount(row.total_cost_of_ownership); if (t != null) a.tco += t;
+    const o = money.parseAmount(row.operational_cost); if (o != null) a.opex += o;
+    const mo = parseInt(row.months_since_acquisition, 10);
+    if (Number.isFinite(mo) && mo >= _refreshCycleMonths(row.product_type)) a.refresh_due++;
+  };
+  for (const row of rows) {
+    const site = row.site == null ? '' : String(row.site);
+    if (!acc.has(site)) acc.set(site, { purchase: 0, book: 0, tco: 0, opex: 0, count: 0, refresh_due: 0 });
+    add(acc.get(site), row);
+    add(fleet, row);
+  }
+  const shape = (a, site) => ({
+    site,
+    asset_count: a.count,
+    purchase_cost_usd: a.purchase * R,
+    book_value_usd: a.book * R,
+    tco_usd: a.tco * R,
+    operational_cost_usd: a.opex * R,
+    pct_depreciated: a.purchase > 0 ? 1 - a.book / a.purchase : null,
+    refresh_due: a.refresh_due,
+  });
+  const by_site = [...acc.keys()].sort().map(site => shape(acc.get(site), site));
+  return { by_site, fleet: shape(fleet, null) };
+}
+
+function getFinanceSummary(filters, rate = 1) {
+  if (ASSETS_BACKEND === 'postgres') return _getFinanceSummaryPg(filters, rate);
+  const db = getDB();
+  const { where, params } = _assetWhere(filters);
+  const rows = db.prepare(`${_FINANCE_SELECT}${where} ORDER BY a.site, a.asset_name`).all(...params);
+  return _aggregateFinance(rows, rate);
+}
+async function _getFinanceSummaryPg(filters, rate = 1) {
+  const h = pgHandle();
+  const { where, params } = _assetWhere(filters);
+  const rows = await h.prepare(`${_FINANCE_SELECT}${where} ORDER BY a.site, a.asset_name`).all(...params);
+  return _aggregateFinance(rows, rate);
+}
+
 if (ASSETS_BACKEND !== 'postgres') getDB();   // eager sqlite init at require, like tracker-db
 module.exports = {
   getDB, initPgAssets, pgHandle, ASSETS_BACKEND, replaceTable, countRows,
   getEnrichedAssets, getAssetLookups, getAssetSummary,
   HYGIENE_KINDS, getHygieneSummary, getHygieneExceptions,
+  getFinanceSummary,
 };
