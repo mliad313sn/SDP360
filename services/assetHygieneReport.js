@@ -79,15 +79,19 @@ function pctDisp(v) {
   return isNum(num(v)) ? `${(Math.round(num(v) * 10) / 10).toFixed(1)}%` : '&mdash;';
 }
 
-// Mean of by_site completeness (each already a 0-100 number or null). Guards an
-// empty/all-null list to null so the header renders a dash, never NaN.
-function fleetCompleteness(bySite) {
-  const vals = (Array.isArray(bySite) ? bySite : [])
-    .map((r) => num(r && r.completeness))
-    .filter(isNum);
-  if (!vals.length) return null;
-  const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
-  return Math.round(mean * 10) / 10;
+// Fleet completeness — ASSET-WEIGHTED over the four completeness attributes, computed
+// IDENTICALLY to the dashboard header (public/assets-hygiene.html:396-399):
+//   present / (4·total), where the four gaps are no_cost + no_age + no_owner + never_scanned.
+// So the digest headline and the page header show the SAME number, to the decimal (page
+// and email agree). total 0 (or missing) → null → renders a dash, never NaN.
+// NB: this is the fleet HEADLINE only; the per-site completeness TABLE stays per-site.
+function fleetCompleteness(summary) {
+  const total = num(summary && summary.total);
+  if (!isNum(total) || total <= 0) return null;
+  const bk = (summary && summary.by_kind) || {};
+  const g = (k) => { const v = num(bk[k]); return isNum(v) ? v : 0; };
+  const gaps = g('no_cost') + g('no_age') + g('no_owner') + g('never_scanned');
+  return Math.round(1000 * (4 * total - gaps) / (4 * total)) / 10;
 }
 
 // Signed delta indicator vs prev.by_kind[kind]. Returns '' when there's no prior
@@ -118,7 +122,7 @@ function cardClose() {
 
 function headerBlock(summary, period) {
   const total = isNum(num(summary.total)) ? num(summary.total) : 0;
-  const fc = fleetCompleteness(summary.by_site);
+  const fc = fleetCompleteness(summary);
   const sync = summary.sync || {};
   let freshness;
   // NB: `num(null)` === 0 (finite), so guard the null/blank case explicitly —
@@ -159,7 +163,7 @@ function worklistBlock(summary, prev) {
 
 function gapBlock(summary) {
   const bk = summary.by_kind || {};
-  const fc = fleetCompleteness(summary.by_site);
+  const fc = fleetCompleteness(summary);
   const items = GAP_KINDS.map((k) => {
     const c = isNum(num(bk[k])) ? num(bk[k]) : 0;
     return `<tr>
@@ -169,7 +173,7 @@ function gapBlock(summary) {
   }).join('');
   return cardOpen('Completeness gaps', '#E87722') +
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse;">${items}</table>
-<div style="font-family:${FONT};font-size:12px;color:${MUTED};line-height:1.5;padding-top:8px;">Fleet completeness: ${fc === null ? '&mdash;' : `${fc.toFixed(1)}%`} (mean of the four attributes across sites).</div>` +
+<div style="font-family:${FONT};font-size:12px;color:${MUTED};line-height:1.5;padding-top:8px;">Fleet completeness: ${fc === null ? '&mdash;' : `${fc.toFixed(1)}%`} (asset-weighted across the four attributes, fleet-wide).</div>` +
     cardClose();
 }
 

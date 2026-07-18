@@ -29,18 +29,35 @@ const rows = [
   { ...base, asset_id: 'R5', asset_name: 'Asset R5', site: 'SGO', last_audit_status: 'Success', last_successful_audit_time: '2026-01-01', days_since_scan: '120' }, // ghost (was healthy, now >90d)
   { ...base, asset_id: 'R6', asset_name: 'Asset R6', site: 'SGO', purchase_cost: '0.00' },             // no_cost (present-as-0.00, not NULL)
   { ...base, asset_id: 'R7', asset_name: 'Asset R7', site: 'MANA', acquisition_date: '', user_name: '', department: '' }, // no_age AND no_owner (genuinely empty)
+  { ...base, asset_id: 'R8', asset_name: 'Asset R8', site: 'KGO', last_audit_status: 'Success', last_successful_audit_time: '', days_since_scan: '120' }, // CONTRADICTORY: status='Success' but no success-time. Under the OLD ghost predicate this double-fired (never_scanned via blank time + ghost via Success+>90d). Now ghost=NOT(never_scanned) → this is never_scanned ONLY.
 ];
 adb.replaceTable('assets', cols, rows);
 
 test('by_kind counts match the hand-computed seed', () => {
   const bk = adb.getHygieneSummary({}).by_kind;
   assert.strictEqual(bk.discovered, 1, 'R2');
-  assert.strictEqual(bk.never_scanned, 2, 'R3 + R4');
+  assert.strictEqual(bk.never_scanned, 3, 'R3 + R4 + R8');
   assert.strictEqual(bk.ghost, 1, 'R5');
   assert.strictEqual(bk.no_owner, 1, 'R7');
   assert.strictEqual(bk.no_age, 1, 'R7');
   assert.strictEqual(bk.no_cost, 1, 'R6');
-  assert.strictEqual(adb.getHygieneSummary({}).total, 7);
+  assert.strictEqual(adb.getHygieneSummary({}).total, 8);
+});
+
+test('ghost === over90 on ALL data — single-sourced NOT(never_scanned) AND >90d', () => {
+  const s = adb.getHygieneSummary({});
+  // by_kind.ghost (a COUNT over ghost.where) and scan_freshness.over90 (a SUM in the
+  // freshness SELECT) are now the SAME expression, so they reconcile on every dataset —
+  // including the contradictory R8, which lands in never_scanned and in NEITHER of these.
+  assert.strictEqual(s.by_kind.ghost, s.scan_freshness.over90);
+  assert.strictEqual(s.by_kind.ghost, 1, 'R5 only');
+});
+
+test('contradictory row (Success + blank success-time + >90d) is never_scanned ONLY', () => {
+  const never = adb.getHygieneExceptions('never_scanned', {}).map(r => r.asset_id);
+  const ghost = adb.getHygieneExceptions('ghost', {}).map(r => r.asset_id);
+  assert.ok(never.includes('R8'), 'R8 lands in never_scanned (blank success-time wins)');
+  assert.ok(!ghost.includes('R8'), 'R8 is NOT double-listed in ghost');
 });
 
 test('ghost and never_scanned are DISJOINT by construction (R4 proves it)', () => {

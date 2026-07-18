@@ -5560,7 +5560,10 @@ function saveScheduleRow(t, cadence) {
   api('PUT', '/api/reports/schedule', { report_type: t, cadence, enabled, day, time })
     .then(res => {
       toast((res && res.disabled) ? `${t} ${cadence} schedule disabled` : `${t} ${cadence} schedule saved ✓`, 'success');
-      loadReportSchedule();
+      // The hygiene schedule lives on its OWN card (loadHygieneCard), not the
+      // Automated Reports schedule table — refresh whichever owns this row.
+      if (t === 'hygiene' && typeof loadHygieneCard === 'function') loadHygieneCard();
+      else loadReportSchedule();
     })
     .catch(e => toast('Save failed: ' + (e.message || e), 'error'));
 }

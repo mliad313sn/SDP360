@@ -44,8 +44,11 @@ test('returns {subject, html, attachments}; subject carries the period', () => {
 
 test('html shows fleet completeness + the three worklist counts + freshness line', () => {
   const out = buildHygieneDigest(makeSummary(), { period: '2026-07', prev, exceptionsByKind });
-  // fleet completeness = mean(28.0, 24.5) = 26.3 (1 dp)
-  assert.match(out.html, /26\.3/);
+  // Fleet completeness is now ASSET-WEIGHTED (matches the dashboard header exactly),
+  // NOT the old per-site mean (which was 26.3 = mean(28.0, 24.5)). Asset-weighted =
+  //   100 * (4*total - (no_cost + no_age + no_owner + never_scanned)) / (4*total)
+  //   = 100 * (400 - (90 + 90 + 98 + 12)) / 400 = 100 * 110/400 = 27.5
+  assert.match(out.html, /27\.5/);
   // three worklist counts present
   assert.match(out.html, /\b5\b/);
   assert.match(out.html, /\b12\b/);
@@ -53,6 +56,17 @@ test('html shows fleet completeness + the three worklist counts + freshness line
   // freshness line: 7 days + a "synced"/"day" word
   assert.match(out.html, /7/);
   assert.match(out.html, /sync|day/i);
+});
+
+test('headline completeness == the dashboard asset-weighted formula (page=email)', () => {
+  const s = makeSummary();
+  // Replicate public/assets-hygiene.html:396-399 exactly.
+  const bk = s.by_kind, t = s.total;
+  const present = (t - bk.no_cost) + (t - bk.no_age) + (t - bk.no_owner) + (t - bk.never_scanned);
+  const expected = Math.round(1000 * present / (4 * t)) / 10;   // 27.5
+  assert.strictEqual(expected, 27.5);
+  const out = buildHygieneDigest(s, { period: '2026-07', prev, exceptionsByKind });
+  assert.match(out.html, new RegExp(`${expected.toFixed(1)}%`));
 });
 
 test('html contains NO money — no $, no purchase_cost', () => {

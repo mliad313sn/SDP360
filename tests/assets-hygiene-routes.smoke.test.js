@@ -20,7 +20,7 @@ const { test, before, after } = require('node:test');
 const assert = require('node:assert');
 const http = require('http');
 
-let server, base, adminToken;
+let server, base, adminToken, viewerToken;
 
 before(async () => {
   const { app } = require('../server');        // start() guarded → no port bind
@@ -31,19 +31,22 @@ before(async () => {
   //   A1  → Discovered (kind: discovered)
   //   A2  → healthy scan but stale >90d (kind: ghost)
   //   A3  → an ordinary In-Use asset with a full record
+  // A2 is a GENUINE ghost: a prior SUCCESSFUL scan (non-empty last_successful_audit_time)
+  // that is now stale >90d. It must carry a success-time, else NOT(never_scanned) is false
+  // and it would (correctly) fall into never_scanned instead — the disjointness fix.
   adb.replaceTable('assets',
     ['asset_id', 'asset_name', 'site', 'state', 'product_type', 'manufacturer',
-     'serial_number', 'last_audit_status', 'days_since_scan', 'user_name', 'department'],
+     'serial_number', 'last_audit_status', 'last_successful_audit_time', 'days_since_scan', 'user_name', 'department'],
     [
       { asset_id: 'A1', asset_name: 'PC-DISCOVERED-01', site: 'MANA', state: 'Discovered',
         product_type: 'Workstation', manufacturer: 'Dell', serial_number: 'SN-0001',
-        last_audit_status: null, days_since_scan: null, user_name: null, department: null },
+        last_audit_status: null, last_successful_audit_time: null, days_since_scan: null, user_name: null, department: null },
       { asset_id: 'A2', asset_name: 'PC-GHOST-02', site: 'HGO', state: 'In Use',
         product_type: 'Workstation', manufacturer: 'HP', serial_number: 'SN-0002',
-        last_audit_status: 'Success', days_since_scan: '120', user_name: 'jdoe', department: 'IT' },
+        last_audit_status: 'Success', last_successful_audit_time: '2026-01-01', days_since_scan: '120', user_name: 'jdoe', department: 'IT' },
       { asset_id: 'A3', asset_name: 'PC-HEALTHY-03', site: 'MANA', state: 'In Use',
         product_type: 'Workstation', manufacturer: 'Dell', serial_number: 'SN-0003',
-        last_audit_status: 'Success', days_since_scan: '3', user_name: 'asmith', department: 'Ops' },
+        last_audit_status: 'Success', last_successful_audit_time: '2026-07-14', days_since_scan: '3', user_name: 'asmith', department: 'Ops' },
     ]);
 
   const me = (rdb.listUsers() || []).find(u => u.username === process.env.DASH_USER);
@@ -52,6 +55,13 @@ before(async () => {
   const sess = await rdb.login(process.env.DASH_USER, process.env.DASH_PASS);
   assert.ok(sess && sess.token, 'login seeded admin + returned a token');
   adminToken = sess.token;
+
+  // A NON-admin (viewer) session to prove requireAdmin on POST /send.
+  await rdb.createUser({ username: 'assets-hyg-viewer', full_name: 'Hyg Viewer',
+    password: 'assets-hyg-viewer-0000', roles: ['viewer'] });
+  const vsess = await rdb.login('assets-hyg-viewer', 'assets-hyg-viewer-0000');
+  assert.ok(vsess && vsess.token, 'viewer login returned a token');
+  viewerToken = vsess.token;
 
   await new Promise(r => { server = http.createServer(app).listen(0, '127.0.0.1', r); });
   base = `http://127.0.0.1:${server.address().port}`;
@@ -129,4 +139,11 @@ test('POST /api/assets/hygiene/send?preview=1 (disarmed) → 200 {sent:0, reason
 test('POST /api/assets/hygiene/send without a session → 401/403 (requireReportSession)', async () => {
   const res = await fetch(base + '/api/assets/hygiene/send?preview=1', { method: 'POST' });
   assert.ok(res.status === 401 || res.status === 403, `expected 401/403, got ${res.status}`);
+});
+
+// A valid NON-admin session must be rejected by requireAdmin BEFORE the arm gate.
+test('POST /api/assets/hygiene/send as a viewer (non-admin) → 403 (requireAdmin)', async () => {
+  const res = await fetch(base + '/api/assets/hygiene/send?preview=1', {
+    method: 'POST', headers: { 'x-report-token': viewerToken } });
+  assert.equal(res.status, 403, `viewer must be 403 (requireAdmin), got ${res.status}`);
 });

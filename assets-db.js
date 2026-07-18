@@ -183,13 +183,21 @@ async function _getAssetSummaryPg() {
 // §2) — the counts are load-bearing, do not "tidy" them.
 //
 // Two invariants worth restating at the code:
-//  - `ghost` requires a SUCCESSFUL prior scan (LIKE '%success%') AND >90d, while
-//    `never_scanned` fires whenever the CURRENT status isn't a success. So a
-//    failing-but-stale row is never_scanned ONLY — the two are disjoint.
+//  - `ghost` is EXACTLY `NOT(never_scanned) AND >90d` — it reuses the very same
+//    never_scanned predicate string (single-sourced in `_NEVER_SCANNED_WHERE`)
+//    that the `over90` freshness bucket negates. So `by_kind.ghost` and
+//    `scan_freshness.over90` are the SAME expression and reconcile on all data,
+//    and a contradictory row (status='Success' but no success-time) lands in
+//    never_scanned ONLY — never both. The two remain disjoint.
 //  - `days_since_scan` is TEXT → CAST(NULLIF(days_since_scan,'') AS INTEGER); the
 //    NULLIF keeps pg's strict cast from 500-ing on '' (sqlite is lenient). The pg
 //    fork carries the identical NULLIF — do not drop it.
 // ---------------------------------------------------------------------------
+
+// The never_scanned predicate, single-sourced: `never_scanned.where`, `ghost.where`
+// (via NOT(...)), and the `over90` freshness bucket (via NOT(...)) all interpolate
+// this ONE string, so ghost === over90 by construction.
+const _NEVER_SCANNED_WHERE = "last_successful_audit_time IS NULL OR last_successful_audit_time = '' OR last_audit_status IS NULL OR lower(last_audit_status) NOT LIKE '%success%'";
 
 // Ordered single source of truth. Routes + Excel + digest all read this map, so a
 // kind is defined exactly once. `where` is a bare predicate over the `assets`
@@ -197,8 +205,8 @@ async function _getAssetSummaryPg() {
 // resolve to it); the shared whitelisted filters are ANDed in separately.
 const HYGIENE_KINDS = {
   discovered:    { label: 'Discovered',                  where: "state = 'Discovered'" },
-  never_scanned: { label: 'Never successfully scanned',  where: "last_successful_audit_time IS NULL OR last_successful_audit_time = '' OR last_audit_status IS NULL OR lower(last_audit_status) NOT LIKE '%success%'" },
-  ghost:         { label: 'Ghost (was healthy, stale >90d)', where: "lower(last_audit_status) LIKE '%success%' AND CAST(NULLIF(days_since_scan,'') AS INTEGER) > 90" },
+  never_scanned: { label: 'Never successfully scanned',  where: _NEVER_SCANNED_WHERE },
+  ghost:         { label: 'Ghost (was healthy, stale >90d)', where: `NOT (${_NEVER_SCANNED_WHERE}) AND CAST(NULLIF(days_since_scan,'') AS INTEGER) > 90` },
   no_owner:      { label: 'No owner',                    where: "(user_name IS NULL OR user_name = '') AND (department IS NULL OR department = '')" },
   no_age:        { label: 'No acquisition date',         where: "acquisition_date IS NULL OR acquisition_date = ''" },
   no_cost:       { label: 'No cost data',                where: "purchase_cost IS NULL OR purchase_cost IN ('0.00','0','')" },
