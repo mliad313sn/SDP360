@@ -8,6 +8,45 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ## ⚡ Current state (as of 2026-07-18)
 
+> **Assets Hardware Health (sub-project D) landed** (branch
+> `feat/assets-hardware-health`, on top of the merged unified Assets module) — a
+> **hardware-health worklist** added as a **4th tab** on the unified module, all
+> **additive** (reuses Foundation's `assets`/`asset_monitors` substrate + the
+> enriched reader untouched). **Four kinds** (`HARDWARE_KINDS` in `assets-db.js` —
+> the single source of truth the routes + Excel read): `low_ram`
+> (`ram_total_gb>0 && <8`, unknown-RAM excluded) · `full_disk`
+> (`system_disk_free_pct != null && <10`) · `refresh_due`
+> (`months_since_acquisition >= _refreshCycleMonths(product_type)`) ·
+> `no_real_monitor`. New dual-backend readers `getHardwareHealthSummary(filters)`
+> (per-kind counts + per-site) and `getHardwareHealthExceptions(kind, filters)`
+> (identity rows via an **explicit no-money column list `_HARDWARE_EXC_COLS`** —
+> never `a.*`, which would leak `purchase_cost`/`current_book_value`), await-covered.
+> All thresholds computed **IN JS** via a `toNum`→null helper (free-pct may be
+> `'94%'`) — **no SQL CAST on the raw text columns** (pg-safe). **The RAW
+> `monitor_count` over-counts** (cameras/webcams/virtual monitors) → a trustworthy
+> `real_monitor_count` denylist subquery, and `no_real_monitor` is scoped to
+> **workstation-type** devices only (headless servers/network gear not flagged).
+> Surfaces: `GET /api/assets/hardware/{summary,exceptions,export.xlsx}`
+> (`requireReportSession`; unknown kind → **400**) + a **Hardware tab** on the
+> unified `public/assets.html` (4 tiles: Low RAM<8GB / Full disk<10% / Refresh-due /
+> No-real-monitor + per-kind drill + per-site + Excel). The 4th tab required FOUR
+> coordinated edits to the unified shell (the `TABS` array = URL-hash set, the
+> `PANE` map, the `inited` map, and the button+section markup). **Browser-verified**
+> (4 tabs, no regression, zero console errors). **C-3 (which-machines software
+> drill) is BLOCKED** — live recon 2026-07-18 confirmed the AP `software_installations`
+> view (id 002075) TIMES OUT even filtered to a single software_id (>2 min for 24
+> rows — AP does not push the criteria down, it scans all 121k); neither a full
+> 121k sync nor an on-demand per-title fetch is reliable, so the live drill is
+> **deferred** (viable path = periodic bulk CSV import or a pre-aggregated AP pivot).
+> **Regression**: new suites (assets-hardware-readers · assets-hardware-routes.smoke)
+> green; full assets suite (**155**) no regression. Plan:
+> `docs/superpowers/plans/2026-07-18-assets-hardware-health.md`.
+> **NOT merged** — branch ready for review.
+>
+> ---
+
+## ⚡ Current state (as of 2026-07-18)
+
 > **Assets UI unified into ONE tabbed module** (branch `feat/assets-unified-module`,
 > front-end-only) — the three separate Insights nav entries (Assets · Assets — Hygiene ·
 > Assets — Finance & Licences) are collapsed into a **single "Assets" module** with an
@@ -2675,6 +2714,9 @@ In normal use NO request hits this fallback. It's a safety net.
 | **`asset_depreciation_config` is a JSON blob in `reportConfig` — must be in DEFAULTS or `setConfig` drops it** | Same trap as the hygiene keys: `setConfig` filters on `KEYS.includes(k)`, so `asset_depreciation_config` MUST be present in `reportConfig.DEFAULTS` or the admin's writes are **silently dropped** with no error. The blob is **global-default + per-product-type overrides ONLY** (no per-asset — SDP owns per-asset lifecycle; our module is read-only). The `PUT /api/assets/depreciation-config` route validates `method∈METHODS` + `usefulLifeMonths>0` + `salvage 0..1` → **400** on any violation (never persists a policy that would make `computeDepreciation` produce garbage). |
 | **Depreciation `asOf` MUST be resolved to a real date BEFORE the reader call** | The route's `?asOf=` defaults to today — but that default has to be applied **before** the value reaches `getAssetDepreciation` / `computeDepreciation`, not just in the response's echo/label. Passing `undefined` down makes `computeDepreciation` see **0 months elapsed** → book value = full cost, **0% depreciated fleet-wide** (silent, looks like nothing has aged). The trap is a route that echoes `asOf` correctly in the response envelope while still handing `undefined` to the reader — caught + fixed in Task 4. Any new route taking `asOf` resolves the default at the top, then passes the resolved date everywhere. |
 | **Adding/gating an admin panel in `reports.html` touches FOUR surfaces that MUST move together** | The scope-reorganized console keeps the same wiring: a panel is only fully live when it appears in ALL of `_ADMIN_PANEL_IDS` (~4572), the hash/deep-link allowlist (~4631), the rail `display:none` role-gate (~4610-4618), AND the JS super-gate (~4575) — miss one and the panel half-works (opens but no deep-link, or shows for the wrong role, or the rail item is dead). **Relocating a config field between panels is safe ONLY if its `id` is kept identical** (the shared `getElementById` save/load reads by id, so SMTP→`#ap-email` and `xof_usd_rate`→`#ap-assets-finance` moved without touching save/load). But **removing an input without also removing its save-read throws `null.value` and bricks the ENTIRE inline-JS console** (one uncaught TypeError kills the whole `<script>`) — always delete the field's save/load line in the same edit. |
+| **RAW `monitor_count` over-counts — trust `real_monitor_count` (denylist), and scope `no_real_monitor` to workstation-type devices** | `asset_monitors.monitor_type` is polluted with non-displays: `Intel(R) AVStream Camera`, `Integrated Webcam`, `HyperVMonitor`, `Parallels Vu`, `No Monitor`. The raw `COUNT` therefore says a headless machine "has a monitor". The trustworthy `real_monitor_count` (sub-project D) applies a `NOT LIKE` **denylist**: `monitor_type IS NOT NULL AND <> '' AND lower(monitor_type) NOT LIKE '%camera%' AND NOT LIKE '%webcam%' AND NOT LIKE '%hypervmonitor%' AND NOT LIKE '%parallels%' AND NOT LIKE '%no monitor%'`. **Load-bearing: the SPACE in `%no monitor%`** (matches the literal `'No Monitor'` string, not every row containing "monitor") and the `<> ''` empty guard. And `no_real_monitor` is scoped to **workstation-type `product_type`** (`/laptop|desktop|computer|workstation|notebook/i`) so servers/network gear that legitimately have no display aren't flagged. |
+| **`full_disk` MUST keep the `!= null` guard, and free-pct is coerced in JS not SQL** | `system_disk_free_pct != null && <10` — drop the `!= null` and an **unknown** free-pct mis-flags as full, because `null < 10` coerces to **TRUE** in both JS and SQL. Separately, the column is `'94%'`-shaped raw TEXT: coerce it in JS with the `toNum` helper (strips `%`/comma/space, NaN→null), **never a SQL `CAST`** on the raw text (the pg-strict-CAST-500 trap). Both hardware-health facts live in `HARDWARE_KINDS` (`assets-db.js`) — never re-derive a predicate inline in a route or the Excel builder. |
+| **C-3 (which-machines software drill) is BLOCKED — the AP `software_installations` view times out even for one title** | Live recon 2026-07-18: the AP `software_installations` view (id **002075**) TIMES OUT even filtered to a single `software_id` (**>2 min for 24 rows**) — AP does **not** push the criteria down, it scans all **121k** installations. So neither a full 121k sync nor an on-demand per-title fetch is reliable; the live "which machines run title X" drill is **deferred**. Viable paths: a **periodic bulk CSV import** (SDP export → ingest → local join) or a **pre-aggregated AP pivot view** (untested). Don't re-attempt a live filtered fetch expecting AP to bound it. |
 | **Money in the Finance view (C-v1) is USD via `xof_usd_rate` — the raw `$` label lies, and conversion lives ONLY in `money.js`** | Asset `purchase_cost` is **XOF** (a desktop is `'2,250,000.00'`), licence `cost` is native **USD**; the `Purchase Cost($)` header's `$` is the Foundation currency lie. The finance view resolves it by converting XOF → USD once via a configurable `xof_usd_rate` (`reportConfig.DEFAULTS` `'0.00165'`, admin-editable). **All conversion + amount parsing is in the PURE `services/money.js`** (`parseAmount`/`toUsd`/`fmtUsd`) — never re-derive it inline. `getFinanceSummary` **sums IN JS via `money.parseAmount`** (no SQL `SUM`/`CAST` — the columns are raw TEXT with commas/`$`, exactly the sqlite-lenient/pg-500 trap Hygiene documents). **A blank or 0 rate falls back to DEFAULT, never 1** — rate `1` would render raw XOF magnitudes mislabelled as USD (a 2.25M "$" desktop). |
 | **`fmtUsd` emits NO `$` glyph — USD is conveyed by a text label, and the hygiene digest asserts its absence** | `services/money.js` `fmtUsd` formats thousands + 2dp with **no currency symbol** (the `$` is the Foundation lie; a bare `$` next to a converted figure re-introduces the ambiguity). The hygiene digest's Finance/Licence snapshots use `fmtUsd`, and a test asserts `!html.includes('$')`. Don't add a `$` to any finance/licence surface — label the column/tile "USD" instead. |
 | **Licence `Expiry Date` is `DD Mon YYYY` (`30 Jun 2025`), NOT ISO — parse with `new Date()`, never `substr`/lexical/SQL-date** | Unlike every other assets date, the software-licence `Expiry Date` ships as `'30 Jun 2025'` (day-month-name-year), so `substr(...,1,10)` / lexical string compare / a SQL `date()` cast **mis-buckets every row** into the wrong expiry tile with no error (same class of trap as the Risk Register `DD Mon YYYY` off-by-one). `classifyLicenceType`/`getLicenceSummary` parse it with `new Date()` and bucket by the resulting timestamp. Any new expiry predicate must do the same. |
