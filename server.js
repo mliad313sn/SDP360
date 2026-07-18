@@ -2370,6 +2370,68 @@ app.post('/api/assets/hygiene/send', requireReportSession, requireAdmin, async (
   }
 });
 
+// ── ASSETS · HARDWARE HEALTH (sub-project D) ─────────────────────────────
+// Fleet fitness views over the enriched inventory: low RAM, full system disk,
+// refresh-due, and workstations with no real monitor. Same session guard + same
+// whitelisted filters as /hygiene; every dual-backend reader is awaited.
+// Exceptions carry identity rows only — NO money reaches the wire.
+const _assetHardwareFilters = (req) => {
+  const q = {};
+  for (const k of ['site', 'state', 'product_type', 'manufacturer', 'q']) {
+    if (req.query[k] != null && req.query[k] !== '') q[k] = String(req.query[k]);
+  }
+  return q;
+};
+
+app.get('/api/assets/hardware/summary', requireReportSession, async (req, res) => {
+  try {
+    res.json(await require('./assets-db').getHardwareHealthSummary(_assetHardwareFilters(req)));
+  } catch (e) {
+    console.error('[api/assets/hardware/summary]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/assets/hardware/exceptions', requireReportSession, async (req, res) => {
+  const adb = require('./assets-db');
+  // Pre-validate BEFORE the try/catch: an unknown kind must be a 400, not the
+  // catch's 500 (getHardwareHealthExceptions throws on an unknown kind).
+  const kind = String(req.query.kind || '');
+  if (!adb.HARDWARE_KINDS[kind]) return res.status(400).json({ error: 'unknown kind' });
+  try {
+    res.json(await adb.getHardwareHealthExceptions(kind, _assetHardwareFilters(req)));
+  } catch (e) {
+    console.error('[api/assets/hardware/exceptions]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// GET /api/assets/hardware/export.xlsx?kind=all|<kind> — one sheet per hardware kind
+// (kind=all, the default), or a single sheet for a specific valid kind. An unknown
+// specific kind → 400 (pre-validated). No money column (getHardwareHealthExceptions excludes it).
+app.get('/api/assets/hardware/export.xlsx', requireReportSession, async (req, res) => {
+  const adb = require('./assets-db');
+  const kind = String(req.query.kind || 'all');
+  if (kind !== 'all' && !adb.HARDWARE_KINDS[kind]) return res.status(400).json({ error: 'unknown kind' });
+  try {
+    const { buildWorkbook } = require('./services/tableExcel');
+    const filters = _assetHardwareFilters(req);
+    const keys = kind === 'all' ? Object.keys(adb.HARDWARE_KINDS) : [kind];
+    const sheets = [];
+    for (const key of keys) {
+      sheets.push({ name: adb.HARDWARE_KINDS[key].label || key,
+        rows: await adb.getHardwareHealthExceptions(key, filters) });
+    }
+    const buf = buildWorkbook(sheets);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="assets-hardware.xlsx"');
+    res.send(buf);
+  } catch (e) {
+    console.error('[api/assets/hardware/export.xlsx]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── ASSETS · FINANCE + LICENCES (Licence/Finance sub-project) ────────────────
 // Finance shows money in USD ONLY (raw XOF ×xof_usd_rate applied ONCE by the reader).
 // Licences show type families + expiry exceptions. Same session guard + whitelisted,
