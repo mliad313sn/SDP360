@@ -8,6 +8,31 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ## ⚡ Current state (as of 2026-07-18)
 
+> **Assets UI unified into ONE tabbed module** (branch `feat/assets-unified-module`,
+> front-end-only) — the three separate Insights nav entries (Assets · Assets — Hygiene ·
+> Assets — Finance & Licences) are collapsed into a **single "Assets" module** with an
+> internal **tab bar** (Inventory · Hygiene · Finance & Licences) driven by **one shared
+> filter bar** (Site · State · Product Type · Manufacturer · search from
+> `/api/assets/lookups`). `public/assets.html` (now ~1660 ln) is the module shell: one
+> `<head>` (Chart.js once), a hash-synced tab bar (`#inventory|#hygiene|#finance` → deep-link
+> / refresh lands on the right tab), and three panes holding the migrated bodies of the old
+> pages as per-tab modules (`INV_PANE`/`HYG_PANE`/`FIN_PANE`) with `init(f)`/`refresh(f)`
+> reading the shared `filters()`. **Every element id is namespaced `inv-`/`hyg-`/`fin-`** and
+> each Chart has a unique canvas id + destroy-on-refresh (no "Canvas already in use"); tabs
+> **lazy-init** on first activation and the filter **persists across tab switches**. Software
+> compliance stays **fleet-wide** (the catalog view has no site — only manufacturer/q apply,
+> shown with a "site filter N/A" note). `public/_shell.js` now has ONE `assets` child;
+> `public/assets-hygiene.html`/`assets-finance.html` are **12-line redirect stubs** →
+> `assets.html#hygiene`/`#finance` (old bookmarks land right). **Backend untouched** — pure
+> front-end consolidation; the assets test suite (42+) is green. **Browser-verified**: all 3
+> tabs render, the Site filter narrows every tab (Inventory/Hygiene/Finance), Site+Product-Type
+> combine, zero console errors, redirects work. Plan:
+> `docs/superpowers/plans/2026-07-18-assets-unified-module.md`.
+>
+> ---
+
+## ⚡ Current state (as of 2026-07-18)
+
 > **Assets Software Licence Compliance (C-2) landed** (branch
 > `feat/assets-software-compliance`, on top of the merged A+B+C-v1+Depreciation) —
 > the deferred sub-project C, **reframed small after live recon**: it answers
