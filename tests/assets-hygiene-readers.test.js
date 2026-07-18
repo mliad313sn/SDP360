@@ -9,7 +9,7 @@ process.env.SDP_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'hyg-'));
 const adb = require('../assets-db');
 
 const cols = ['asset_id', 'asset_name', 'product', 'product_type', 'manufacturer', 'state',
-  'serial_number', 'barcode', 'site', 'site_id', 'purchase_cost', 'acquisition_date',
+  'serial_number', 'barcode', 'asset_tag', 'site', 'site_id', 'purchase_cost', 'acquisition_date',
   'warranty_expiry', 'user_name', 'department', 'last_successful_audit_time',
   'last_audit_status', 'days_since_scan', 'last_scan_source', 'created_time'];
 
@@ -30,6 +30,11 @@ const rows = [
   { ...base, asset_id: 'R6', asset_name: 'Asset R6', site: 'SGO', purchase_cost: '0.00' },             // no_cost (present-as-0.00, not NULL)
   { ...base, asset_id: 'R7', asset_name: 'Asset R7', site: 'MANA', acquisition_date: '', user_name: '', department: '' }, // no_age AND no_owner (genuinely empty)
   { ...base, asset_id: 'R8', asset_name: 'Asset R8', site: 'KGO', last_audit_status: 'Success', last_successful_audit_time: '', days_since_scan: '120' }, // CONTRADICTORY: status='Success' but no success-time. Under the OLD ghost predicate this double-fired (never_scanned via blank time + ghost via Success+>90d). Now ghost=NOT(never_scanned) → this is never_scanned ONLY.
+  // Task 4 enrichment rows (ITAM training deck) — all on a NEW site (ABJ) and OTHERWISE clean,
+  // so the pre-existing kinds' counts + MANA/HGO/SGO completeness are undisturbed.
+  { ...base, asset_id: 'R9',  asset_name: 'Asset R9',  site: 'ABJ', barcode: '', asset_tag: '' },              // no_asset_tag (no QR AND no tag)
+  { ...base, asset_id: 'R10', asset_name: 'Asset R10', site: 'ABJ', barcode: '', asset_tag: 'EDV-123' },       // TAGGED → EXCLUDED from no_asset_tag (asset_tag present)
+  { ...base, asset_id: 'R11', asset_name: 'Asset R11', site: 'ABJ', state: 'In Repair' },                      // lifecycle_exception
 ];
 adb.replaceTable('assets', cols, rows);
 
@@ -41,7 +46,33 @@ test('by_kind counts match the hand-computed seed', () => {
   assert.strictEqual(bk.no_owner, 1, 'R7');
   assert.strictEqual(bk.no_age, 1, 'R7');
   assert.strictEqual(bk.no_cost, 1, 'R6');
-  assert.strictEqual(adb.getHygieneSummary({}).total, 8);
+  assert.strictEqual(adb.getHygieneSummary({}).total, 11);
+});
+
+test('Task 4 — no_asset_tag counts the untagged row and NOT the tagged one', () => {
+  const bk = adb.getHygieneSummary({}).by_kind;
+  assert.strictEqual(bk.no_asset_tag, 1, 'R9 only (R10 is tagged, existing rows carry a barcode)');
+  const ids = adb.getHygieneExceptions('no_asset_tag', {}).map(r => r.asset_id);
+  assert.deepStrictEqual(ids, ['R9'], 'exception rows = R9 only');
+  assert.ok(!ids.includes('R10'), 'the tagged EDV-123 row is excluded');
+});
+
+test('Task 4 — lifecycle_exception counts the In-Repair row', () => {
+  const bk = adb.getHygieneSummary({}).by_kind;
+  assert.strictEqual(bk.lifecycle_exception, 1, 'R11');
+  const rows = adb.getHygieneExceptions('lifecycle_exception', {});
+  assert.deepStrictEqual(rows.map(r => r.asset_id), ['R11'], 'exception row = R11 (In Repair)');
+});
+
+test('Task 4 — completeness (by_site) is UNCHANGED by the two new kinds', () => {
+  // The new kinds are NOT in _PRESENT_SELECT, and the ABJ rows are present-on-everything,
+  // so the pinned MANA/HGO/SGO completeness numbers below stay exactly as sub-project B shipped.
+  const bySite = adb.getHygieneSummary({}).by_site;
+  const bs = Object.fromEntries(bySite.map(s => [s.site, s]));
+  assert.strictEqual(bs.MANA.completeness, 75);
+  assert.strictEqual(bs.HGO.completeness, 87.5);
+  assert.strictEqual(bs.SGO.completeness, 87.5);
+  assert.strictEqual(bs.ABJ.completeness, 100);   // the 3 new rows are all clean
 });
 
 test('ghost === over90 on ALL data — single-sourced NOT(never_scanned) AND >90d', () => {

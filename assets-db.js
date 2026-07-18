@@ -237,6 +237,12 @@ const HYGIENE_KINDS = {
   no_owner:      { label: 'No owner',                    where: "(user_name IS NULL OR user_name = '') AND (department IS NULL OR department = '')" },
   no_age:        { label: 'No acquisition date',         where: "acquisition_date IS NULL OR acquisition_date = ''" },
   no_cost:       { label: 'No cost data',                where: "purchase_cost IS NULL OR purchase_cost IN ('0.00','0','')" },
+  // Task 4 enrichment (ITAM training deck) — purely additive worklists. NOT completeness
+  // gaps → deliberately absent from _PRESENT_SELECT/_FRESHNESS_SELECT so the shipped B
+  // completeness numbers stay pinned. They flow into summary/routes/export/digest via the
+  // Object.keys(HYGIENE_KINDS) iteration alone.
+  no_asset_tag:        { label: 'No asset tag / QR',           where: "(asset_tag IS NULL OR asset_tag='') AND (barcode IS NULL OR barcode='')" },
+  lifecycle_exception: { label: 'In repair / expired / lost',  where: "state IN ('In Repair','Expired','Lost/Stolen','Lost','Stolen')" },
 };
 
 // The kind's predicate ANDed with the SAME whitelisted filters getEnrichedAssets
