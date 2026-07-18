@@ -218,7 +218,13 @@
       <h3>Book value by site (USD)</h3>
       <div class="cwrap"><canvas id="chartBook"></canvas></div>
     </div>
+    <div class="chart-card">
+      <h3>Fleet net book value over time (USD)</h3>
+      <div class="cwrap"><canvas id="chartSchedule"></canvas></div>
+    </div>
   </div>
+
+  <div class="count-note" id="deprecNote" style="border:1px solid var(--color-border,#dfe3e8);border-radius:var(--radius-md,6px);margin-bottom:var(--space-5,20px)"></div>
 
   <div class="panel">
     <div class="drill-head">
@@ -233,9 +239,10 @@
             <th>Site</th>
             <th class="num">Assets</th>
             <th class="num">Purchase (USD)</th>
-            <th class="num">Book value (USD)</th>
-            <th class="num">TCO (USD)</th>
+            <th class="num" title="Computed by the dashboard from the configured depreciation method / useful-life / salvage (Admin ▸ Assets ▸ Depreciation).">Book value (computed)</th>
+            <th class="num" title="Current Book Value as reported by SDP AssetExplorer — shown for cross-check only.">Book value (SDP)</th>
             <th class="num">% depreciated</th>
+            <th class="num">TCO (USD)</th>
             <th class="num">Refresh due</th>
           </tr>
         </thead>
@@ -398,15 +405,29 @@
     if (ctx) charts[canvasId] = new Chart(ctx, config);
   }
 
-  // ── Finance summary + table + chart ──
+  // Key both finance + depreciation by-site rows on the same normalised site key
+  // so the computed column lines up with the finance row ('' === null === no site).
+  function siteKey(v) { return (v == null || v === '') ? '' : String(v); }
+
+  // ── Finance summary + depreciation summary + table + charts + note ──
   async function loadFinance() {
-    let s = null;
+    let s = null, dep = null;
     try {
-      const r = await fetch('/api/assets/finance/summary' + qs({ site: siteVal() }),
-        { credentials: 'same-origin', headers: authHeaders() });
-      if (!r.ok) return;
-      s = await r.json();
+      const [rf, rd] = await Promise.all([
+        fetch('/api/assets/finance/summary' + qs({ site: siteVal() }),
+          { credentials: 'same-origin', headers: authHeaders() }),
+        fetch('/api/assets/depreciation/summary' + qs({ site: siteVal() }),
+          { credentials: 'same-origin', headers: authHeaders() }),
+      ]);
+      if (!rf.ok) return;
+      s = await rf.json();
+      if (rd.ok) dep = await rd.json();
     } catch (e) { return; }
+
+    // Index computed-depreciation by site (PRIMARY book value + computed % + SDP cross-check).
+    const depBySite = {};
+    (dep && dep.by_site || []).forEach(d => { depBySite[siteKey(d.site)] = d; });
+    const depFleet = (dep && dep.fleet) || {};
 
     USD_RATE = s.rate;
     const rateTxt = 'USD (approx @ ' + (s.rate != null ? Number(s.rate).toLocaleString('en-US', { maximumFractionDigits: 6 }) : '?') + ' XOF→USD)';
@@ -414,8 +435,20 @@
     document.getElementById('finRateInline').textContent =
       'All amounts converted from XOF at ' + (s.rate != null ? Number(s.rate).toLocaleString('en-US', { maximumFractionDigits: 6 }) : '?') + ' (USD, approximate).';
 
+    // Depreciation note — config source + asOf + rate. Honest about computed vs SDP.
+    const noteEl = document.getElementById('deprecNote');
+    if (noteEl) {
+      const asOf = dep && dep.asOf ? dep.asOf : '—';
+      const rateStr = (dep && dep.rate != null) ? Number(dep.rate).toLocaleString('en-US', { maximumFractionDigits: 6 })
+                       : (s.rate != null ? Number(s.rate).toLocaleString('en-US', { maximumFractionDigits: 6 }) : '?');
+      noteEl.innerHTML =
+        '<strong>Book value (computed)</strong> is computed from the configured method / useful-life / salvage — configurable in ' +
+        '<strong>Admin ▸ Assets ▸ Depreciation</strong>. The <strong>SDP</strong> book value is shown for cross-check. ' +
+        'As of <strong>' + escapeHtml(asOf) + '</strong> · USD approx @ <strong>' + escapeHtml(rateStr) + '</strong> XOF→USD.';
+    }
+
     const fleet = s.fleet || {};
-    document.getElementById('finBook').textContent     = usd(fleet.book_value_usd);
+    document.getElementById('finBook').textContent     = usd(depFleet.computed_book_value_usd != null ? depFleet.computed_book_value_usd : fleet.book_value_usd);
     document.getElementById('finPurchase').textContent = usd(fleet.purchase_cost_usd);
     document.getElementById('finTco').textContent      = usd(fleet.tco_usd);
     document.getElementById('finAssets').textContent   = (Number(fleet.asset_count) || 0).toLocaleString();
@@ -431,22 +464,26 @@
     } else {
       table.style.display = 'table';
       empty.style.display = 'none';
-      body.innerHTML = rows.map(x => `<tr>
+      body.innerHTML = rows.map(x => {
+        const d = depBySite[siteKey(x.site)] || {};
+        return `<tr>
         <td><strong>${escapeHtml(x.site || '(no site)')}</strong></td>
         <td class="num">${(Number(x.asset_count) || 0).toLocaleString()}</td>
         <td class="num">${usd(x.purchase_cost_usd)}</td>
+        <td class="num">${usd(d.computed_book_value_usd)}</td>
         <td class="num">${usd(x.book_value_usd)}</td>
+        <td class="num">${pctDep(d.pct_depreciated != null ? d.pct_depreciated : x.pct_depreciated)}</td>
         <td class="num">${usd(x.tco_usd)}</td>
-        <td class="num">${pctDep(x.pct_depreciated)}</td>
         <td class="num">${(Number(x.refresh_due) || 0).toLocaleString()}</td>
-      </tr>`).join('');
+      </tr>`; }).join('');
       foot.innerHTML = `<tr>
         <td>Fleet</td>
         <td class="num">${(Number(fleet.asset_count) || 0).toLocaleString()}</td>
         <td class="num">${usd(fleet.purchase_cost_usd)}</td>
+        <td class="num">${usd(depFleet.computed_book_value_usd)}</td>
         <td class="num">${usd(fleet.book_value_usd)}</td>
+        <td class="num">${pctDep(depFleet.pct_depreciated != null ? depFleet.pct_depreciated : fleet.pct_depreciated)}</td>
         <td class="num">${usd(fleet.tco_usd)}</td>
-        <td class="num">${pctDep(fleet.pct_depreciated)}</td>
         <td class="num">${(Number(fleet.refresh_due) || 0).toLocaleString()}</td>
       </tr>`;
     }
@@ -474,6 +511,41 @@
         },
       });
     }
+  }
+
+  // ── Depreciation schedule (fleet net book value by year, USD) — LINE ──
+  async function loadSchedule() {
+    let sch = null;
+    try {
+      const r = await fetch('/api/assets/depreciation/schedule' + qs({ site: siteVal() }),
+        { credentials: 'same-origin', headers: authHeaders() });
+      if (!r.ok) return;
+      sch = await r.json();
+    } catch (e) { return; }
+
+    if (typeof Chart === 'undefined') return;
+    const years = (sch.years || []).map(String);
+    const vals  = sch.book_value_usd || [];
+    upsertChart('chartSchedule', {
+      type: 'line',
+      data: {
+        labels: years,
+        datasets: [{
+          label: 'Net book value (USD)',
+          data: vals,
+          borderColor: COL.blue, backgroundColor: 'rgba(30,111,191,0.12)',
+          fill: true, tension: 0.25, pointRadius: 3, borderWidth: 2,
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: c => usd(c.parsed.y) } },
+        },
+        scales: { y: { beginAtZero: true, ticks: { callback: v => '$' + Number(v).toLocaleString('en-US') } } },
+      },
+    });
   }
 
   // ── Licence summary + charts + tiles ──
@@ -608,7 +680,7 @@
 
   async function refresh() {
     updateExportLinks();
-    await Promise.all([loadFinance(), loadLicences()]);
+    await Promise.all([loadFinance(), loadSchedule(), loadLicences()]);
     if (activeLicKind) await loadLicDrill(activeLicKind);
   }
 

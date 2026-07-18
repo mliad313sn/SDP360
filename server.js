@@ -2522,9 +2522,13 @@ app.get('/api/assets/depreciation/summary', requireReportSession, async (req, re
     const adb = require('./assets-db');
     const rate = await _assetUsdRate();
     const config = await _deprecConfig();
-    const asOf = req.query.asOf ? String(req.query.asOf) : undefined;
+    // Default asOf to TODAY before it reaches the reader — the pure
+    // computeDepreciation treats an undefined asOf as 0 months elapsed (full
+    // cost, no depreciation), so resolving here is what makes the computed
+    // book value actually depreciate. Echoed unchanged in the response.
+    const asOf = req.query.asOf ? String(req.query.asOf) : new Date().toISOString().slice(0, 10);
     const s = await adb.getAssetDepreciation(_assetDeprecFilters(req), { config, rate, asOf });
-    res.json({ ...s, rate, asOf: asOf || new Date().toISOString().slice(0, 10) });
+    res.json({ ...s, rate, asOf });
   } catch (e) {
     console.error('[api/assets/depreciation/summary]', e.message);
     res.status(500).json({ error: e.message });
@@ -2536,9 +2540,10 @@ app.get('/api/assets/depreciation/schedule', requireReportSession, async (req, r
     const adb = require('./assets-db');
     const rate = await _assetUsdRate();
     const config = await _deprecConfig();
-    const asOf = req.query.asOf ? String(req.query.asOf) : undefined;
+    // Default asOf to TODAY before the reader (see summary route note).
+    const asOf = req.query.asOf ? String(req.query.asOf) : new Date().toISOString().slice(0, 10);
     const sch = await adb.getDepreciationSchedule(_assetDeprecFilters(req), { config, rate, asOf });
-    res.json({ ...sch, rate, asOf: asOf || new Date().toISOString().slice(0, 10) });
+    res.json({ ...sch, rate, asOf });
   } catch (e) {
     console.error('[api/assets/depreciation/schedule]', e.message);
     res.status(500).json({ error: e.message });
