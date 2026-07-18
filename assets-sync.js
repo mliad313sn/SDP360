@@ -104,7 +104,11 @@ const ASSET_VIEWS = [
       'Asset ID': 'asset_id', 'Asset Name': 'asset_name', 'Product': 'product',
       'Product Type': 'product_type', 'Product Manufacturer': 'manufacturer', 'State': 'state',
       'Serial Number': 'serial_number', 'Barcode': 'barcode', 'Site': 'site', 'Site ID': 'site_id',
-      'Purchase Cost($)': 'purchase_cost', 'Acquisition Date': 'acquisition_date',
+      'Asset Tag': 'asset_tag',
+      'Purchase Cost($)': 'purchase_cost', 'Total Cost of Ownership($)': 'total_cost_of_ownership',
+      'Operational Cost($)': 'operational_cost', 'Current Book Value($)': 'current_book_value',
+      'Months Since Acquisition': 'months_since_acquisition',
+      'Acquisition Date': 'acquisition_date',
       'Warranty Expiry': 'warranty_expiry', 'User': 'user_name', 'Department': 'department',
       'Last Successful Audit Time': 'last_successful_audit_time', 'Last Audit Status': 'last_audit_status',
       'Days Since Successful Scan': 'days_since_scan', 'Last Scan Source': 'last_scan_source',
@@ -143,6 +147,8 @@ const ASSET_VIEWS = [
       'License ID': 'license_id', 'License Name': 'license_name', 'License Type': 'license_type',
       'License State': 'license_state', 'Expiry Date': 'expiry_date', 'Cost($)': 'cost',
       'Site': 'site', 'Vendor': 'vendor', 'Software ID': 'software_id',
+      'License Option': 'license_option', 'Installations Allowed': 'installations_allowed',
+      'Acquisition Date': 'acquisition_date', 'Organization License': 'organization_license',
     },
     // Re-derives `cost` as the RAW trimmed string straight from the Zoho row (no currency
     // coercion). Deliberately reads `row['Cost($)']` rather than trusting `out` so the transform

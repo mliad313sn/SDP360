@@ -4,6 +4,18 @@ const DATA_DIR = process.env.SDP_DATA_DIR || path.join(__dirname, 'data');
 const ASSETS_BACKEND = (process.env.ASSETS_BACKEND || 'sqlite').toLowerCase();
 const SCHEMA = fs.readFileSync(path.join(__dirname, 'db', 'postgres', 'assets', '001_init.sql'), 'utf8');
 
+// Additive columns landed by Task 1 (Licence/Finance). The shared 001_init.sql CREATE
+// statements carry these, so fresh DBs get them from CREATE. For an EXISTING table the
+// CREATE-IF-NOT-EXISTS is a no-op, so we ALTER-add any missing column JS-side, backend-
+// branched — NEVER an ALTER in the shared SQL (sqlite has no ALTER … ADD COLUMN IF NOT
+// EXISTS, and the shared .exec would then throw and crash every boot/test). All TEXT.
+const _ADDED_COLS = {
+  assets: ['asset_tag', 'total_cost_of_ownership', 'operational_cost',
+           'current_book_value', 'months_since_acquisition'],
+  software_licenses: ['license_option', 'installations_allowed', 'acquisition_date',
+                      'organization_license'],
+};
+
 let _db = null, _pg = null;
 function getDB() {
   if (_db) return _db;
@@ -12,13 +24,27 @@ function getDB() {
   _db = new Database(path.join(DATA_DIR, 'assets.db'));
   _db.pragma('journal_mode = WAL');
   _db.exec(SCHEMA);
+  // Idempotent additive migration for pre-existing tables (sqlite has no IF NOT EXISTS on
+  // ADD COLUMN, so PRAGMA-check the present columns and plain-ALTER only the missing ones).
+  for (const [table, cols] of Object.entries(_ADDED_COLS)) {
+    const present = new Set(_db.prepare(`PRAGMA table_info(${table})`).all().map(r => r.name));
+    for (const c of cols) {
+      if (present.has(c)) continue;
+      try { _db.exec(`ALTER TABLE ${table} ADD COLUMN ${c} TEXT`); } catch (_) { /* defensive: already added */ }
+    }
+  }
   return _db;
 }
 async function initPgAssets() {
   const { makePgDb } = require('./services/pgDb');
   const url = process.env.PG_URL || process.env.DATABASE_URL;
   if (!url) throw new Error('ASSETS_BACKEND=postgres but PG_URL/DATABASE_URL is not set');
-  _pg = makePgDb(url); await _pg.connect(); await _pg.exec(SCHEMA); return _pg;
+  _pg = makePgDb(url); await _pg.connect(); await _pg.exec(SCHEMA);
+  // pg supports ADD COLUMN IF NOT EXISTS — idempotent additive migration for existing tables.
+  for (const [table, cols] of Object.entries(_ADDED_COLS)) {
+    for (const c of cols) await _pg.exec(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS ${c} TEXT`);
+  }
+  return _pg;
 }
 function pgHandle() {
   if (!_pg) throw new Error('pgDb not initialised — await initPgAssets() at boot');

@@ -111,6 +111,38 @@ test('monitor_count and system_disk_free_pct are sane across the fleet', () => {
   assert.ok(rows.some(r => r.system_disk_free_pct != null), 'at least one asset has a C: free pct');
 });
 
+// Task 1 (Licence/Finance) — the finance columns + licence extras must now be captured
+// RAW from the real CSV. These assertions fail until 001_init.sql carries the new columns
+// AND the ASSET_VIEWS column maps are extended (nothing computes yet — just raw capture).
+test('finance columns populate on a real asset (current_book_value + total_cost_of_ownership)', () => {
+  // pick the assertion target programmatically: the first asset with a non-empty book value
+  const target = db.prepare(
+    "SELECT asset_id, current_book_value, total_cost_of_ownership FROM assets " +
+    "WHERE current_book_value IS NOT NULL AND current_book_value != '' LIMIT 1"
+  ).get();
+  assert.ok(target, 'at least one asset has a non-empty current_book_value');
+  console.log(`[assets-integration] finance sample ${target.asset_id} ` +
+    `book=${target.current_book_value} tco=${target.total_cost_of_ownership}`);
+  assert.ok(target.current_book_value && target.current_book_value !== '',
+    'current_book_value captured (non-empty)');
+  assert.ok(target.total_cost_of_ownership && target.total_cost_of_ownership !== '',
+    'total_cost_of_ownership captured (non-empty)');
+});
+
+test('licence extras populate (installations_allowed + license_option)', () => {
+  const target = db.prepare(
+    "SELECT license_id, installations_allowed, license_option FROM software_licenses " +
+    "WHERE installations_allowed IS NOT NULL AND installations_allowed != '' LIMIT 1"
+  ).get();
+  assert.ok(target, 'at least one licence has a non-empty installations_allowed');
+  console.log(`[assets-integration] licence sample ${target.license_id} ` +
+    `installs=${target.installations_allowed} option=${target.license_option}`);
+  assert.ok(target.installations_allowed && target.installations_allowed !== '',
+    'installations_allowed captured (non-empty)');
+  assert.ok(target.license_option && target.license_option !== '',
+    'license_option captured (non-empty)');
+});
+
 // copy-assets.js is CLI-guarded (require.main === module) so it is require-safe.
 // No prod assets.db exists, so a full parity copy is out of reach here — a require +
 // SQL-parse + table/column-coverage smoke is the guard.

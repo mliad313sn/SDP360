@@ -17,7 +17,12 @@ CREATE TABLE IF NOT EXISTS assets (
   barcode TEXT,
   site TEXT,
   site_id TEXT,
+  asset_tag TEXT,
   purchase_cost TEXT,
+  total_cost_of_ownership TEXT,
+  operational_cost TEXT,
+  current_book_value TEXT,
+  months_since_acquisition TEXT,
   acquisition_date TEXT,
   warranty_expiry TEXT,
   user_name TEXT,
@@ -70,6 +75,10 @@ CREATE TABLE IF NOT EXISTS software_licenses (
   cost TEXT,
   site TEXT,
   vendor TEXT,
-  software_id TEXT
+  software_id TEXT,
+  license_option TEXT,
+  installations_allowed TEXT,
+  acquisition_date TEXT,
+  organization_license TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_software_licenses_state ON software_licenses (license_state);
