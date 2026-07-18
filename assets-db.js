@@ -421,10 +421,152 @@ async function _getFinanceSummaryPg(filters, rate = 1) {
   return _aggregateFinance(rows, rate);
 }
 
+// ─── Licence-compliance readers (Task 3) ───────────────────────────────────
+// Type-family classification + summary + expiry exceptions over software_licenses.
+// `cost` is USD native — never rate-multiplied, never SQL-summed (it isn't summed
+// at all here; the exception rows carry it RAW for reference). The taxonomy is the
+// Endeavour ITAM training-guide licence families, mapped by case-insensitive
+// substring on the raw `license_type`, most-specific-first.
+//
+// CRITICAL: the real `Expiry Date` is DD Mon YYYY ('30 Jun 2025'), NOT ISO. The
+// bucketing is done in JS via `new Date(raw)` (V8 parses that form correctly) —
+// NEVER substr()/lexical/SQL date() on this column (they mis-bucket the format).
+// A `now` is injectable via filters.now (a Date) so tests are deterministic.
+
+// Pure classifier — exported. Most-specific-first so overlapping substrings resolve
+// deterministically ('enterprise' beats a bare 'subscription'; 'cal' matched as a
+// whole word so 'physical'/'individual' never leak into Server).
+function classifyLicenceType(raw) {
+  const s = String(raw == null ? '' : raw).toLowerCase();
+  if (s.includes('trial') || s.includes('free')) return 'Special';
+  if (s.includes('client access') || /\bcal\b/.test(s)) return 'Server';
+  if (s.includes('volume') || s.includes('enterprise')) return 'Enterprise';
+  if (s.includes('named user') || s.includes('concurrent')) return 'User';
+  if (s.includes('individual') || s.includes('node locked') || s.includes('node-locked') || s.includes('oem')) return 'Machine';
+  return 'Other';
+}
+
+const _EXPIRY_HORIZON_MS = 90 * 24 * 60 * 60 * 1000;   // 90 days
+
+// Bucket one raw expiry against `now`. Empty / unparseable → 'no_expiry'. Parsed in
+// JS via new Date so DD Mon YYYY works. expired = valid date < now; expiring_90 =
+// now ≤ date ≤ now+90d; ok = date > now+90d.
+function _licenceExpiryBucket(raw, now) {
+  const s = String(raw == null ? '' : raw).trim();
+  if (s === '') return 'no_expiry';
+  const t = new Date(s).getTime();
+  if (Number.isNaN(t)) return 'no_expiry';
+  const n = now.getTime();
+  if (t < n) return 'expired';
+  if (t <= n + _EXPIRY_HORIZON_MS) return 'expiring_90';
+  return 'ok';
+}
+
+// The four exception kinds — the single source of truth for routes + Excel + digest.
+// Each `test(row, now)` is a pure JS predicate over a fetched row. `no_expiry` covers
+// any empty/unparseable expiry (matches what the summary counts as no_expiry); the
+// bucket already restricts to that population regardless of family.
+const LICENCE_KINDS = {
+  expired:       { label: 'Expired',              test: (r, now) => _licenceExpiryBucket(r.expiry_date, now) === 'expired' },
+  expiring_soon: { label: 'Expiring within 90d',  test: (r, now) => _licenceExpiryBucket(r.expiry_date, now) === 'expiring_90' },
+  no_expiry:     { label: 'No / unparseable expiry', test: (r, now) => _licenceExpiryBucket(r.expiry_date, now) === 'no_expiry' },
+  no_site:       { label: 'No site',              test: (r) => r.site == null || String(r.site).trim() === '' },
+};
+
+// Whitelisted licence filters — value NEVER interpolated, always parameter-bound.
+// `family` is derived JS-side (not a column), so it is applied in the shared JS pass,
+// not in SQL. `now` is not a filter — it rides through to the JS bucketing.
+const _LICENCE_TEXT_COLS = { site: 'site', state: 'license_state' };
+function _licenceWhere(filters) {
+  const clauses = [], params = [];
+  const f = filters || {};
+  for (const [key, col] of Object.entries(_LICENCE_TEXT_COLS)) {
+    if (f[key] != null && f[key] !== '') { clauses.push(`${col} = ?`); params.push(f[key]); }
+  }
+  if (f.q != null && f.q !== '') {
+    clauses.push('(license_name LIKE ? OR vendor LIKE ?)');
+    const like = `%${f.q}%`; params.push(like, like);
+  }
+  return { where: clauses.length ? ' WHERE ' + clauses.join(' AND ') : '', params };
+}
+
+const _LICENCE_SUMMARY_COLS = 'license_type, license_state, expiry_date, site';
+const _LICENCE_EXC_COLS = 'license_id, license_name, license_type, license_state, expiry_date, cost, site, vendor';
+function _licenceNow(filters) {
+  return (filters && filters.now instanceof Date) ? filters.now : new Date();
+}
+// Add the derived `family` and apply an optional family filter. SHARED by both
+// backends, so classification + family filtering are identical regardless of engine.
+function _withFamily(rows, filters) {
+  const fam = (filters && filters.family != null && filters.family !== '') ? String(filters.family) : null;
+  const out = [];
+  for (const r of rows) {
+    const family = classifyLicenceType(r.license_type);
+    if (fam && family !== fam) continue;
+    out.push(Object.assign({ family }, r));
+  }
+  return out;
+}
+// SHARED pure aggregator — both backends hand it the same rows → parity by construction.
+function _aggregateLicence(rows, filters) {
+  const now = _licenceNow(filters);
+  const famRows = _withFamily(rows, filters);
+  const by_family = {}, by_state = {}, by_site = {};
+  const expiry = { expired: 0, expiring_90: 0, ok: 0, no_expiry: 0 };
+  for (const r of famRows) {
+    by_family[r.family] = (by_family[r.family] || 0) + 1;
+    const st = r.license_state == null ? '' : String(r.license_state);
+    by_state[st] = (by_state[st] || 0) + 1;
+    const si = r.site == null ? '' : String(r.site);
+    by_site[si] = (by_site[si] || 0) + 1;
+    expiry[_licenceExpiryBucket(r.expiry_date, now)]++;
+  }
+  return { total: famRows.length, by_family, by_state, by_site, expiry };
+}
+
+function getLicenceSummary(filters = {}) {
+  if (ASSETS_BACKEND === 'postgres') return _getLicenceSummaryPg(filters);
+  const db = getDB();
+  const { where, params } = _licenceWhere(filters);
+  const rows = db.prepare(`SELECT ${_LICENCE_SUMMARY_COLS} FROM software_licenses${where}`).all(...params);
+  return _aggregateLicence(rows, filters);
+}
+async function _getLicenceSummaryPg(filters = {}) {
+  const h = pgHandle();
+  const { where, params } = _licenceWhere(filters);
+  const rows = await h.prepare(`SELECT ${_LICENCE_SUMMARY_COLS} FROM software_licenses${where}`).all(...params);
+  return _aggregateLicence(rows, filters);
+}
+
+// Filter fetched exception rows by kind (throws on unknown) + family. SHARED.
+function _licenceExceptions(rows, kind, filters) {
+  const k = LICENCE_KINDS[kind];
+  if (!k) throw new Error(`getLicenceExceptions: unknown licence kind "${kind}"`);
+  const now = _licenceNow(filters);
+  return _withFamily(rows, filters).filter(r => k.test(r, now));
+}
+
+function getLicenceExceptions(kind, filters = {}) {
+  if (ASSETS_BACKEND === 'postgres') return _getLicenceExceptionsPg(kind, filters);
+  const db = getDB();
+  if (!LICENCE_KINDS[kind]) throw new Error(`getLicenceExceptions: unknown licence kind "${kind}"`);
+  const { where, params } = _licenceWhere(filters);
+  const rows = db.prepare(`SELECT ${_LICENCE_EXC_COLS} FROM software_licenses${where} ORDER BY site, license_name`).all(...params);
+  return _licenceExceptions(rows, kind, filters);
+}
+async function _getLicenceExceptionsPg(kind, filters = {}) {
+  const h = pgHandle();
+  if (!LICENCE_KINDS[kind]) throw new Error(`getLicenceExceptions: unknown licence kind "${kind}"`);
+  const { where, params } = _licenceWhere(filters);
+  const rows = await h.prepare(`SELECT ${_LICENCE_EXC_COLS} FROM software_licenses${where} ORDER BY site, license_name`).all(...params);
+  return _licenceExceptions(rows, kind, filters);
+}
+
 if (ASSETS_BACKEND !== 'postgres') getDB();   // eager sqlite init at require, like tracker-db
 module.exports = {
   getDB, initPgAssets, pgHandle, ASSETS_BACKEND, replaceTable, countRows,
   getEnrichedAssets, getAssetLookups, getAssetSummary,
   HYGIENE_KINDS, getHygieneSummary, getHygieneExceptions,
   getFinanceSummary,
+  classifyLicenceType, getLicenceSummary, getLicenceExceptions, LICENCE_KINDS,
 };
