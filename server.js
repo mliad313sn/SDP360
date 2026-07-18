@@ -1184,7 +1184,7 @@ function loadHtml(name) {
   'meetings.html', 'meeting.html', 'meetings-issues.html', 'meetings-council.html', 'meetings-compliance.html',
   'meetings-import.html', 'meetings-progress.html', 'meetings-insights.html', 'meetings-setup.html', 'meetings-actions.html',
   'activity-tracker.html', 'help.html', 'exec-view.html', 'site-report.html', 'it-review.html',
-  'assets.html', 'assets-hygiene.html',
+  'assets.html', 'assets-hygiene.html', 'assets-finance.html',
 ].forEach(loadHtml);
 
 // Helper: build the per-request HTML, inject api-key + nonce, send. Pages
@@ -1281,6 +1281,9 @@ app.get('/assets.html', (req, res) => {
 
 app.get('/assets-hygiene.html', (req, res) => {
   sendHtmlPage(res, 'assets-hygiene.html', false, 'Assets hygiene unavailable');
+});
+app.get('/assets-finance.html', (req, res) => {
+  sendHtmlPage(res, 'assets-finance.html', false, 'Assets finance unavailable');
 });
 
 app.get('/inspections.html', (req, res) => {

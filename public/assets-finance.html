@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Assets — Finance &amp; Licences — Endeavour Mining IT</title>
+
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="brand/icons.css">
+<link rel="stylesheet" href="brand/components.css">
+<link rel="stylesheet" href="_shell.css">
+<!-- Chart.js — same CDN + version the rest of the dashboard uses (already CSP-allowed). -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js" defer></script>
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+
+<style nonce="%%CSP_NONCE%%">
+  body {
+    margin: 0;
+    background: var(--color-background, #f4f6f7);
+    color: var(--color-text-primary, #1F2A33);
+    font-family: var(--font-sans, 'Libre Franklin', 'Franklin Gothic', system-ui, sans-serif);
+    font-size: 14px;
+  }
+  .as-wrap        { max-width: 1280px; margin: 0 auto; padding: var(--space-6, 24px); }
+  .as-head        { display: flex; align-items: center; gap: var(--space-4, 16px); margin-bottom: var(--space-5, 20px); flex-wrap: wrap; }
+  .as-head h1     { margin: 0; font-size: 22px; font-weight: 700; color: var(--edv-slate, #3A4A60); }
+  .as-head .sub   { font-size: 13px; color: var(--color-text-muted, #6b7785); }
+  .as-head .spacer { flex: 1; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 14px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-md, 6px);
+    background: var(--edv-orange, #EF631A); color: #fff;
+    font-family: inherit; font-size: 13px; font-weight: 600;
+    cursor: pointer; text-decoration: none;
+    transition: background var(--motion-fast, 120ms);
+  }
+  .btn:hover        { background: var(--edv-orange-700, #C04E10); }
+  .btn-ghost        { background: #fff; color: var(--color-text-secondary, #3a4452); border-color: var(--color-border, #dfe3e8); }
+  .btn-ghost:hover  { background: var(--color-surface-muted, #f4f6f7); color: var(--color-text-primary, #1F2A33); }
+  .btn-sm           { padding: 5px 10px; font-size: 12px; }
+  .btn .icon        { width: 16px; height: 16px; }
+
+  /* Section heading */
+  .sec-head { display: flex; align-items: center; gap: 10px; margin: var(--space-6, 24px) 0 var(--space-4, 16px); }
+  .sec-head:first-of-type { margin-top: 0; }
+  .sec-head h2 { margin: 0; font-size: 17px; font-weight: 700; color: var(--edv-slate, #3A4A60); }
+  .sec-head .spacer { flex: 1; }
+
+  /* Header band: fleet USD value + rate label */
+  .as-band {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 18px;
+    background: var(--color-surface, #fff);
+    border: 1px solid var(--color-border, #dfe3e8);
+    border-radius: var(--radius-md, 6px);
+    padding: var(--space-4, 16px) var(--space-5, 20px);
+    margin-bottom: var(--space-5, 20px);
+  }
+  .as-band .stat { display: flex; flex-direction: column; gap: 4px; padding-right: 18px; border-right: 1px solid var(--color-border-subtle, #eef0f3); }
+  .as-band .stat:last-of-type { border-right: none; }
+  .as-band .stat .n { font-size: 26px; font-weight: 700; line-height: 1; color: var(--color-text-primary, #1F2A33); }
+  .as-band .stat .l { font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--color-text-secondary, #3a4452); font-weight: 600; }
+  .as-band .stat .n.usd { color: var(--edv-green, #1E8E3E); }
+  .as-band .rate { font-size: 12px; color: var(--color-text-muted, #6b7785); margin-left: auto; text-align: right; }
+  .as-band .rate strong { color: var(--color-text-secondary, #3a4452); }
+
+  /* Expiry tiles (licences) */
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--space-3, 12px); margin-bottom: var(--space-4, 16px); }
+  .tile {
+    background: var(--color-surface, #fff);
+    border: 1px solid var(--color-border, #dfe3e8);
+    border-left: 4px solid var(--edv-slate, #3A4A60);
+    border-radius: var(--radius-md, 6px);
+    padding: var(--space-4, 16px);
+    cursor: pointer;
+    transition: box-shadow var(--motion-fast, 120ms), transform var(--motion-fast, 120ms);
+    text-align: left;
+  }
+  .tile[data-kind=""] { cursor: default; }
+  .tile:hover { box-shadow: 0 3px 10px rgba(0,0,0,0.08); transform: translateY(-1px); }
+  .tile[data-kind=""]:hover { box-shadow: none; transform: none; }
+  .tile.active { box-shadow: 0 0 0 2px var(--edv-orange, #EF631A); }
+  .tile .tn { font-size: 30px; font-weight: 700; line-height: 1; color: var(--color-text-primary, #1F2A33); }
+  .tile .tl { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--color-text-secondary, #3a4452); margin-top: 6px; }
+  .tile.k-expired       { border-left-color: var(--edv-red, #D90038); }
+  .tile.k-expiring_soon { border-left-color: var(--color-warning, #D97706); }
+  .tile.k-ok            { border-left-color: var(--edv-green, #1E8E3E); }
+  .tile.k-no_expiry     { border-left-color: var(--color-text-muted, #6b7785); }
+
+  /* Charts */
+  .chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--space-4, 16px); margin-bottom: var(--space-5, 20px); }
+  .chart-card {
+    background: var(--color-surface, #fff);
+    border: 1px solid var(--color-border, #dfe3e8);
+    border-radius: var(--radius-md, 6px);
+    padding: var(--space-4, 16px);
+    display: flex; flex-direction: column;
+  }
+  .chart-card h3 { margin: 0 0 12px; font-size: 13px; font-weight: 700; color: var(--edv-slate, #3A4A60); text-transform: uppercase; letter-spacing: 0.6px; }
+  .chart-card .cwrap { position: relative; height: 260px; }
+
+  /* Filter bar */
+  .filter-bar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: var(--space-3, 12px);
+    background: var(--color-surface, #fff);
+    border: 1px solid var(--color-border, #dfe3e8);
+    border-radius: var(--radius-md, 6px);
+    padding: var(--space-4, 16px);
+    margin-bottom: var(--space-5, 20px);
+  }
+  .filter-bar label {
+    display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px;
+    color: var(--color-text-secondary, #3a4452); font-weight: 600; margin-bottom: 4px;
+  }
+  .filter-bar select {
+    width: 100%; padding: 8px 10px;
+    border: 1px solid var(--color-border, #dfe3e8);
+    border-radius: var(--radius-sm, 4px);
+    background: #fff; font-family: inherit; font-size: 13px;
+    color: var(--color-text-primary, #1F2A33); box-sizing: border-box;
+  }
+  .filter-bar select:focus {
+    outline: none; border-color: var(--edv-orange, #EF631A);
+    box-shadow: 0 0 0 3px rgba(239, 99, 26, 0.15);
+  }
+
+  /* Panels + tables */
+  .panel {
+    background: var(--color-surface, #fff);
+    border: 1px solid var(--color-border, #dfe3e8);
+    border-radius: var(--radius-md, 6px);
+    margin-bottom: var(--space-5, 20px);
+  }
+  .drill-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: var(--space-4, 16px); border-bottom: 1px solid var(--color-border-subtle, #eef0f3); }
+  .drill-head h2 { margin: 0; font-size: 15px; font-weight: 700; color: var(--edv-slate, #3A4A60); }
+  .drill-head .spacer { flex: 1; }
+  table.list { width: 100%; border-collapse: collapse; font-size: 13px; background: var(--color-surface, #fff); }
+  table.list th {
+    text-align: left; padding: 10px 12px;
+    background: var(--edv-slate, #3A4A60); color: #fff;
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px;
+    font-weight: 600; white-space: nowrap;
+  }
+  table.list th.num, table.list td.num { text-align: right; white-space: nowrap; }
+  table.list td { padding: 10px 12px; border-bottom: 1px solid var(--color-border-subtle, #eef0f3); vertical-align: top; }
+  table.list tfoot td { font-weight: 700; background: var(--color-surface-muted, #f4f6f7); border-top: 2px solid var(--color-border, #dfe3e8); }
+  table.list tr:hover { background: var(--color-surface-muted, #f4f6f7); }
+  table.list tfoot tr:hover { background: var(--color-surface-muted, #f4f6f7); }
+  .state-pill {
+    display: inline-block; padding: 2px 8px;
+    border-radius: var(--radius-pill, 9999px);
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+    background: var(--color-surface-muted, #f4f6f7); color: var(--color-text-secondary, #3a4452);
+  }
+  .exp-bad  { color: var(--edv-red, #D90038); font-weight: 700; }
+  .exp-warn { color: var(--color-warning, #D97706); font-weight: 700; }
+  .empty { text-align: center; padding: var(--space-10, 40px) var(--space-6, 24px); color: var(--color-text-muted, #6b7785); }
+  .count-note { font-size: 12px; color: var(--color-text-muted, #6b7785); padding: 8px 12px; border-top: 1px solid var(--color-border-subtle, #eef0f3); }
+
+  @media (max-width: 640px) {
+    .as-wrap { padding: var(--space-3, 12px); }
+    table.list { font-size: 12px; }
+    table.list th, table.list td { padding: 8px; }
+    .as-head h1 { font-size: 18px; }
+    table.list .col-vendor, table.list .col-type { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div id="__shell" data-section="performance" data-current="assets-finance"></div>
+
+<div class="as-wrap">
+
+  <div class="as-head">
+    <div>
+      <h1>Assets — Finance &amp; Licences</h1>
+      <div class="sub">Fleet value, depreciation &amp; refresh (USD) and software licence compliance</div>
+    </div>
+    <div class="spacer"></div>
+  </div>
+
+  <!-- Shared site filter -->
+  <div class="filter-bar">
+    <div>
+      <label for="filterSite">Site</label>
+      <select id="filterSite"><option value="">All sites</option></select>
+    </div>
+    <div style="display:flex;align-items:end">
+      <button class="btn btn-ghost" id="resetBtn" style="width:100%"><span class="icon icon-refresh-cw"></span> Reset</button>
+    </div>
+  </div>
+
+  <!-- ══════════════ FINANCE ══════════════ -->
+  <div class="sec-head">
+    <h2>Fleet finance</h2>
+    <div class="spacer"></div>
+    <a class="btn btn-ghost" id="exportFinanceBtn" href="#" title="Download the per-site finance summary (USD) as Excel">
+      <span class="icon icon-download"></span> Export Excel
+    </a>
+  </div>
+
+  <div class="as-band" id="finBand">
+    <div class="stat"><span class="n usd" id="finBook">—</span><span class="l">Fleet book value (USD)</span></div>
+    <div class="stat"><span class="n" id="finPurchase">—</span><span class="l">Purchase cost (USD)</span></div>
+    <div class="stat"><span class="n" id="finTco">—</span><span class="l">Total cost of ownership (USD)</span></div>
+    <div class="stat"><span class="n" id="finAssets">—</span><span class="l">Assets</span></div>
+    <div class="rate" id="finRate">USD (approx)</div>
+  </div>
+
+  <div class="chart-grid" style="grid-template-columns:1fr">
+    <div class="chart-card">
+      <h3>Book value by site (USD)</h3>
+      <div class="cwrap"><canvas id="chartBook"></canvas></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="drill-head">
+      <h2>Per-site finance (USD)</h2>
+      <div class="spacer"></div>
+      <span class="count-note" id="finRateInline" style="border:none;padding:0"></span>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="list" id="finTable">
+        <thead>
+          <tr>
+            <th>Site</th>
+            <th class="num">Assets</th>
+            <th class="num">Purchase (USD)</th>
+            <th class="num">Book value (USD)</th>
+            <th class="num">TCO (USD)</th>
+            <th class="num">% depreciated</th>
+            <th class="num">Refresh due</th>
+          </tr>
+        </thead>
+        <tbody id="finBody"></tbody>
+        <tfoot id="finFoot"></tfoot>
+      </table>
+    </div>
+    <div class="empty" id="finEmpty" style="display:none">No finance data for the current filter.</div>
+  </div>
+
+  <!-- ══════════════ LICENCES ══════════════ -->
+  <div class="sec-head">
+    <h2>Software licences</h2>
+    <div class="spacer"></div>
+    <a class="btn btn-ghost" id="exportLicAllBtn" href="#" title="Download every licence exception list (one sheet per kind) as Excel">
+      <span class="icon icon-download"></span> Export all
+    </a>
+  </div>
+
+  <div class="chart-grid">
+    <div class="chart-card">
+      <h3>Licences by family</h3>
+      <div class="cwrap"><canvas id="chartFamily"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <h3>Expiry status</h3>
+      <div class="cwrap"><canvas id="chartExpiry"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Expiry tiles -->
+  <div class="tiles" id="expTiles">
+    <button class="tile k-expired" data-kind="expired">
+      <div class="tn" id="cnt-expired">—</div>
+      <div class="tl">Expired</div>
+    </button>
+    <button class="tile k-expiring_soon" data-kind="expiring_soon">
+      <div class="tn" id="cnt-expiring_90">—</div>
+      <div class="tl">Expiring ≤ 90d</div>
+    </button>
+    <button class="tile k-ok" data-kind="">
+      <div class="tn" id="cnt-ok">—</div>
+      <div class="tl">OK</div>
+    </button>
+    <button class="tile k-no_expiry" data-kind="no_expiry">
+      <div class="tn" id="cnt-no_expiry">—</div>
+      <div class="tl">No expiry</div>
+    </button>
+  </div>
+
+  <!-- Licence drill -->
+  <div class="panel">
+    <div class="drill-head">
+      <h2 id="licDrillTitle">Select an expiry status above</h2>
+      <div class="spacer"></div>
+      <a class="btn btn-ghost btn-sm" id="exportLicKindBtn" href="#" style="display:none" title="Download this licence list (current filters) as Excel">
+        <span class="icon icon-download"></span> Export this list
+      </a>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="list" id="licTable" style="display:none">
+        <thead>
+          <tr>
+            <th>Licence</th>
+            <th>Family</th>
+            <th class="col-type">Type</th>
+            <th>State</th>
+            <th>Site</th>
+            <th class="col-vendor">Vendor</th>
+            <th>Expiry</th>
+            <th class="num">Cost (USD)</th>
+          </tr>
+        </thead>
+        <tbody id="licBody"></tbody>
+      </table>
+    </div>
+    <div class="empty" id="licEmpty">
+      <div style="font-size:32px;margin-bottom:8px">🔑</div>
+      <div id="licEmptyText">Click an expiry tile to see the affected licences.</div>
+    </div>
+    <div class="count-note" id="licCountNote" style="display:none"></div>
+  </div>
+
+</div>
+
+<script nonce="%%CSP_NONCE%%">
+(function () {
+  'use strict';
+
+  const FAMILIES = ['User', 'Machine', 'Enterprise', 'Server', 'Special', 'Other'];
+  const LIC_KIND_LABEL = {
+    expired:       'Expired licences',
+    expiring_soon: 'Expiring within 90 days',
+    no_expiry:     'No / unparseable expiry',
+  };
+
+  let charts = {};
+  let activeLicKind = null;
+  let USD_RATE = null;
+
+  // auth.js sets window.__authToken to the token STRING; tolerate the older
+  // function-returning shape too. Never throw "is not a function".
+  function authHeaders() {
+    const h = {};
+    let tok = null;
+    const at = window.__authToken;
+    if (typeof at === 'function') { try { tok = at(); } catch (_) {} }
+    else if (typeof at === 'string' && at) { tok = at; }
+    if (!tok) tok = localStorage.getItem('report_token');
+    if (tok) h['x-report-token'] = tok;
+    return h;
+  }
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[c]));
+  }
+
+  // USD money — thousands separators + 2dp, never raw XOF. null/blank → —.
+  function usd(v) {
+    if (v == null || v === '' || !Number.isFinite(Number(v))) return '—';
+    return '$' + Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  // pct_depreciated is 0..1 or null → NN.N%.
+  function pctDep(v) {
+    if (v == null || !Number.isFinite(Number(v))) return '—';
+    return (Number(v) * 100).toFixed(1) + '%';
+  }
+
+  function siteVal() { return document.getElementById('filterSite').value; }
+  function qs(params) {
+    const sp = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) { if (v) sp.set(k, v); }
+    return sp.toString() ? '?' + sp.toString() : '';
+  }
+
+  // ── CSS var resolution for Chart.js ──
+  const css = getComputedStyle(document.documentElement);
+  const CV = (name, fallback) => (css.getPropertyValue(name).trim() || fallback);
+  const COL = {
+    slate:  CV('--edv-slate',  '#3A4A60'),
+    blue:   CV('--edv-blue',   '#1E6FBF'),
+    green:  CV('--edv-green',  '#1E8E3E'),
+    amber:  CV('--color-warning', '#D97706'),
+    red:    CV('--edv-red',    '#D90038'),
+    orange: CV('--edv-orange', '#EF631A'),
+    purple: CV('--edv-purple', '#7A5AF8'),
+    muted:  CV('--color-text-muted', '#6b7785'),
+  };
+  const FAMILY_COLORS = [COL.blue, COL.orange, COL.green, COL.purple, COL.amber, COL.muted];
+
+  function upsertChart(canvasId, config) {
+    if (charts[canvasId]) { charts[canvasId].destroy(); }
+    const ctx = document.getElementById(canvasId);
+    if (ctx) charts[canvasId] = new Chart(ctx, config);
+  }
+
+  // ── Finance summary + table + chart ──
+  async function loadFinance() {
+    let s = null;
+    try {
+      const r = await fetch('/api/assets/finance/summary' + qs({ site: siteVal() }),
+        { credentials: 'same-origin', headers: authHeaders() });
+      if (!r.ok) return;
+      s = await r.json();
+    } catch (e) { return; }
+
+    USD_RATE = s.rate;
+    const rateTxt = 'USD (approx @ ' + (s.rate != null ? Number(s.rate).toLocaleString('en-US', { maximumFractionDigits: 6 }) : '?') + ' XOF→USD)';
+    document.getElementById('finRate').innerHTML = '<strong>' + escapeHtml(rateTxt) + '</strong>';
+    document.getElementById('finRateInline').textContent =
+      'All amounts converted from XOF at ' + (s.rate != null ? Number(s.rate).toLocaleString('en-US', { maximumFractionDigits: 6 }) : '?') + ' (USD, approximate).';
+
+    const fleet = s.fleet || {};
+    document.getElementById('finBook').textContent     = usd(fleet.book_value_usd);
+    document.getElementById('finPurchase').textContent = usd(fleet.purchase_cost_usd);
+    document.getElementById('finTco').textContent      = usd(fleet.tco_usd);
+    document.getElementById('finAssets').textContent   = (Number(fleet.asset_count) || 0).toLocaleString();
+
+    const rows = (s.by_site || []).slice();
+    const body = document.getElementById('finBody');
+    const foot = document.getElementById('finFoot');
+    const empty = document.getElementById('finEmpty');
+    const table = document.getElementById('finTable');
+    if (!rows.length) {
+      table.style.display = 'none';
+      empty.style.display = 'block';
+    } else {
+      table.style.display = 'table';
+      empty.style.display = 'none';
+      body.innerHTML = rows.map(x => `<tr>
+        <td><strong>${escapeHtml(x.site || '(no site)')}</strong></td>
+        <td class="num">${(Number(x.asset_count) || 0).toLocaleString()}</td>
+        <td class="num">${usd(x.purchase_cost_usd)}</td>
+        <td class="num">${usd(x.book_value_usd)}</td>
+        <td class="num">${usd(x.tco_usd)}</td>
+        <td class="num">${pctDep(x.pct_depreciated)}</td>
+        <td class="num">${(Number(x.refresh_due) || 0).toLocaleString()}</td>
+      </tr>`).join('');
+      foot.innerHTML = `<tr>
+        <td>Fleet</td>
+        <td class="num">${(Number(fleet.asset_count) || 0).toLocaleString()}</td>
+        <td class="num">${usd(fleet.purchase_cost_usd)}</td>
+        <td class="num">${usd(fleet.book_value_usd)}</td>
+        <td class="num">${usd(fleet.tco_usd)}</td>
+        <td class="num">${pctDep(fleet.pct_depreciated)}</td>
+        <td class="num">${(Number(fleet.refresh_due) || 0).toLocaleString()}</td>
+      </tr>`;
+    }
+
+    // Book-value-by-site bar (USD)
+    if (typeof Chart !== 'undefined') {
+      const bySite = rows.filter(x => Number(x.book_value_usd) > 0);
+      upsertChart('chartBook', {
+        type: 'bar',
+        data: {
+          labels: bySite.map(x => x.site || '(no site)'),
+          datasets: [{
+            label: 'Book value (USD)',
+            data: bySite.map(x => x.book_value_usd),
+            backgroundColor: COL.green, borderRadius: 3,
+          }],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: c => usd(c.parsed.y) } },
+          },
+          scales: { y: { beginAtZero: true, ticks: { callback: v => '$' + Number(v).toLocaleString('en-US') } } },
+        },
+      });
+    }
+  }
+
+  // ── Licence summary + charts + tiles ──
+  async function loadLicences() {
+    let s = null;
+    try {
+      const r = await fetch('/api/assets/licences/summary' + qs({ site: siteVal() }),
+        { credentials: 'same-origin', headers: authHeaders() });
+      if (!r.ok) return;
+      s = await r.json();
+    } catch (e) { return; }
+
+    const fam = s.by_family || {};
+    const exp = s.expiry || {};
+    document.getElementById('cnt-expired').textContent     = (Number(exp.expired) || 0).toLocaleString();
+    document.getElementById('cnt-expiring_90').textContent = (Number(exp.expiring_90) || 0).toLocaleString();
+    document.getElementById('cnt-ok').textContent          = (Number(exp.ok) || 0).toLocaleString();
+    document.getElementById('cnt-no_expiry').textContent   = (Number(exp.no_expiry) || 0).toLocaleString();
+
+    if (typeof Chart === 'undefined') { console.warn('Chart.js not loaded'); return; }
+
+    // Family donut
+    const famLabels = FAMILIES.filter(f => (fam[f] || 0) > 0);
+    upsertChart('chartFamily', {
+      type: 'doughnut',
+      data: {
+        labels: famLabels,
+        datasets: [{
+          data: famLabels.map(f => fam[f] || 0),
+          backgroundColor: famLabels.map((f, i) => FAMILY_COLORS[FAMILIES.indexOf(f) % FAMILY_COLORS.length]),
+          borderWidth: 1, borderColor: '#fff',
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 } } } },
+      },
+    });
+
+    // Expiry donut
+    upsertChart('chartExpiry', {
+      type: 'doughnut',
+      data: {
+        labels: ['Expired', 'Expiring ≤90d', 'OK', 'No expiry'],
+        datasets: [{
+          data: [exp.expired || 0, exp.expiring_90 || 0, exp.ok || 0, exp.no_expiry || 0],
+          backgroundColor: [COL.red, COL.amber, COL.green, COL.muted],
+          borderWidth: 1, borderColor: '#fff',
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 } } } },
+      },
+    });
+  }
+
+  // ── Licence drill for one kind ──
+  async function loadLicDrill(kind) {
+    if (!kind) return;
+    activeLicKind = kind;
+    document.querySelectorAll('#expTiles .tile').forEach(el =>
+      el.classList.toggle('active', el.getAttribute('data-kind') === kind));
+
+    document.getElementById('licDrillTitle').textContent = LIC_KIND_LABEL[kind] || kind;
+    const kb = document.getElementById('exportLicKindBtn');
+    kb.style.display = 'inline-flex';
+    kb.setAttribute('href', '/api/assets/licences/export.xlsx' + qs({ kind, site: siteVal() }));
+
+    const table = document.getElementById('licTable');
+    const body  = document.getElementById('licBody');
+    const empty = document.getElementById('licEmpty');
+    const note  = document.getElementById('licCountNote');
+    try {
+      const r = await fetch('/api/assets/licences/exceptions' + qs({ kind, site: siteVal() }),
+        { credentials: 'same-origin', headers: authHeaders() });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const rows = await r.json();
+      if (!Array.isArray(rows) || !rows.length) {
+        table.style.display = 'none'; body.innerHTML = '';
+        empty.style.display = 'block';
+        document.getElementById('licEmptyText').textContent = 'No licences in this bucket for the current filter. 🎉';
+        note.style.display = 'none';
+        return;
+      }
+      empty.style.display = 'none';
+      table.style.display = 'table';
+      const expCls = kind === 'expired' ? 'exp-bad' : (kind === 'expiring_soon' ? 'exp-warn' : '');
+      body.innerHTML = rows.map(x => `<tr>
+        <td><strong>${escapeHtml(x.license_name || x.license_id || '—')}</strong></td>
+        <td>${escapeHtml(x.family || '—')}</td>
+        <td class="col-type">${escapeHtml(x.license_type || '—')}</td>
+        <td>${x.license_state ? `<span class="state-pill">${escapeHtml(x.license_state)}</span>` : '—'}</td>
+        <td>${escapeHtml(x.site || '—')}</td>
+        <td class="col-vendor">${escapeHtml(x.vendor || '—')}</td>
+        <td class="${expCls}">${escapeHtml(x.expiry_date || '—')}</td>
+        <td class="num">${usd(x.cost)}</td>
+      </tr>`).join('');
+      note.style.display = 'block';
+      note.textContent = rows.length.toLocaleString() + ' licence' + (rows.length === 1 ? '' : 's') + ' in this bucket. Cost is USD-native (per-licence, not summed).';
+    } catch (e) {
+      console.warn('licence drill failed:', e);
+      table.style.display = 'none'; body.innerHTML = '';
+      empty.style.display = 'block';
+      document.getElementById('licEmptyText').textContent = 'Could not load this licence list.';
+      note.style.display = 'none';
+    }
+  }
+
+  // ── Filter dropdown ──
+  async function loadLookups() {
+    try {
+      const r = await fetch('/api/assets/lookups', { credentials: 'same-origin', headers: authHeaders() });
+      if (!r.ok) return;
+      const lk = await r.json();
+      const sel = document.getElementById('filterSite');
+      (lk.sites || []).forEach(v => {
+        const o = document.createElement('option');
+        o.value = v; o.textContent = v; sel.appendChild(o);
+      });
+    } catch (e) { /* offline — leave "All sites" only */ }
+  }
+
+  function updateExportLinks() {
+    const site = siteVal();
+    document.getElementById('exportFinanceBtn').setAttribute('href', '/api/assets/finance/export.xlsx' + qs({ site }));
+    document.getElementById('exportLicAllBtn').setAttribute('href', '/api/assets/licences/export.xlsx' + qs({ kind: 'all', site }));
+    if (activeLicKind) {
+      document.getElementById('exportLicKindBtn').setAttribute('href', '/api/assets/licences/export.xlsx' + qs({ kind: activeLicKind, site }));
+    }
+  }
+
+  async function refresh() {
+    updateExportLinks();
+    await Promise.all([loadFinance(), loadLicences()]);
+    if (activeLicKind) await loadLicDrill(activeLicKind);
+  }
+
+  function wire() {
+    document.querySelectorAll('#expTiles .tile').forEach(el =>
+      el.addEventListener('click', () => loadLicDrill(el.getAttribute('data-kind'))));
+    document.getElementById('filterSite').addEventListener('change', refresh);
+    document.getElementById('resetBtn').addEventListener('click', () => {
+      document.getElementById('filterSite').value = '';
+      refresh();
+    });
+    updateExportLinks();
+  }
+
+  async function boot() {
+    wire();
+    await loadLookups();
+    await refresh();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
+})();
+</script>
+
+</body>
+</html>
