@@ -8,6 +8,48 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ## ⚡ Current state (as of 2026-07-18)
 
+> **Assets Software Licence Compliance (C-2) landed** (branch
+> `feat/assets-software-compliance`, on top of the merged A+B+C-v1+Depreciation) —
+> the deferred sub-project C, **reframed small after live recon**: it answers
+> **"purchased vs installed — are we under- or over-licensed?"** entirely from the
+> **`software` catalog view** (id **106803000000002070**, ~**9830** rows, single
+> fetch — NOT the 121k installations table), all **additive**. The catalog view
+> **already carries the aggregated compliance columns** (`Installations` detected,
+> `Installations Allowed` purchased, `Compliance Type` verdict), so C-2 needs **NO
+> 121k `software_installations` table** — that "which machines run title X"
+> drill-down is **deferred to C-3** (needs a dedicated long-timeout fetch). New
+> synced `software` table (`assets-sync.js` single fetch → map → DELETE+INSERT tx +
+> `db/postgres/assets/001_init.sql`; `'software'` in `_ASSET_TABLES` +
+> `tools/pg/copy-assets.js` TABLES). `assets-db.js` (additive):
+> `classifySoftwareCompliance` + `getSoftwareComplianceSummary`/
+> `getSoftwareComplianceExceptions` + `SOFTWARE_KINDS`
+> (`under_licensed`/`over_licensed`/`managed`), dual-backend, await-covered.
+> Surfaces: `GET /api/assets/software/{summary,exceptions,export.xlsx}`
+> (`requireReportSession`; unknown kind → **400**), + a **Software compliance
+> section** on `public/assets-finance.html` (Under-Licensed = **risk headline tile**
+> + Over/Compliant/Managed tiles, a **metered-only donut**, by-manufacturer table,
+> drill + Excel). **Browser-verified.** **Key facts**: only ~**50** titles are
+> `Software Type='Managed'` (the metered universe); the other ~9780 are unmetered
+> (`Compliance Type='N/A'`). **The count columns hold the literal string `'N/A'`**
+> (9780 rows), NOT empty — so `CAST('N/A' AS INTEGER)` 500s on pg / returns 0 on
+> sqlite; **all classification/comparison is done IN JS** via a `toInt`→null helper
+> (no SQL CAST, mirroring the licence readers). **Trust SDP's `Compliance Type` as
+> the verdict**, NOT a raw `Installations>Allowed` comparison — the raw delta agrees
+> on this data but SDP factors CAL/downgrades, so an ORed raw comparison would
+> falsely flag downgrade-covered titles (`under_licensed` = Compliance Type only).
+> **BOM on `﻿Software ID`** (same trap as Assets.csv). **Regression**: new suites
+> (assets-software-readers · assets-software-routes.smoke) + extended
+> `assets-integration` (**9830** rows + **32** Under-Licensed on the real
+> `tests/fixtures/assets/Software.csv`) = green; A/B/C-v1/depreciation (**120**) no
+> regression (one combined-run flake from the cross-file getDB-singleton isolation —
+> non-reproducible, each file green alone). Spec:
+> `docs/superpowers/specs/2026-07-18-assets-software-compliance-design.md`.
+> **NOT merged** — branch ready for review.
+>
+> ---
+
+## ⚡ Current state (as of 2026-07-18)
+
 > **Asset Depreciation (computed) + scope-reorganized Admin Config console landed**
 > (branch `feat/assets-depreciation-config`, on top of the merged A+B+C-v1) — the
 > sibling to Finance/Licence (C-v1): where C-v1 shows SDP's Current Book Value as-is,
@@ -2613,6 +2655,10 @@ In normal use NO request hits this fallback. It's a safety net.
 | **Licence `Expiry Date` is `DD Mon YYYY` (`30 Jun 2025`), NOT ISO — parse with `new Date()`, never `substr`/lexical/SQL-date** | Unlike every other assets date, the software-licence `Expiry Date` ships as `'30 Jun 2025'` (day-month-name-year), so `substr(...,1,10)` / lexical string compare / a SQL `date()` cast **mis-buckets every row** into the wrong expiry tile with no error (same class of trap as the Risk Register `DD Mon YYYY` off-by-one). `classifyLicenceType`/`getLicenceSummary` parse it with `new Date()` and bucket by the resulting timestamp. Any new expiry predicate must do the same. |
 | **The assets schema is ONE shared `db/postgres/assets/001_init.sql` execed on BOTH backends — new columns go in the CREATE, never an ALTER in the shared SQL** | C-v1's new columns (`asset_tag`, `license_option`, …) are added to the **shared CREATE** that runs on sqlite AND pg. **ALTER-for-existing-tables is JS-side and backend-branched** — sqlite has **no `ADD COLUMN IF NOT EXISTS`**, so it's PRAGMA-guarded in `getDB`; pg uses `ADD COLUMN IF NOT EXISTS` in `initPgAssets`. Put an `ALTER` in the shared `001_init.sql` and the sqlite boot throws (`duplicate column`) on every existing DB. |
 | **The 2 new hygiene kinds (`no_asset_tag` / `lifecycle_exception`) are NOT in the completeness score** | C-v1 adds two `HYGIENE_KINDS` but deliberately keeps them **out of the per-site completeness %** — that score stays the 3 B gaps (`no_owner`/`no_age`/`no_cost`) so B's pinned numbers (`tests/assets-hygiene-readers`) hold. The two new kinds surface as their own worklists/exceptions only. Don't fold them into the completeness denominator. |
+| **The `software` catalog view (002070) ALREADY has the compliance aggregates — C-2 needs NO 121k `software_installations` table** | The catalog view (id `106803000000002070`, ~**9830** rows, single fetch) carries `Installations` (detected), `Installations Allowed` (purchased), and `Compliance Type` (verdict) pre-aggregated per title — so licence compliance (purchased vs installed) is answerable from ONE cheap fetch. The **121k `software_installations` table is the "which machines run title X" DRILL-DOWN**, deferred to **C-3** (needs a dedicated long-timeout fetch, past `fetchView`'s cap — same reason it was deferred in Foundation). Only ~**50** titles are `Software Type='Managed'` (the metered universe); the other ~9780 are unmetered (`Compliance Type='N/A'`). Don't reach for the 121k table for C-2. |
+| **The software count columns hold the literal string `'N/A'` on ~9780 rows, NOT empty — never `CAST` them in SQL** | `Installations` / `Installations Allowed` are `'N/A'` on every unmetered title (~9780 rows). `CAST('N/A' AS INTEGER)` **500s on pg** (strict) and **returns 0 on sqlite** (lenient) — the documented sqlite-green/pg-500 trap. **All classification and purchased-vs-installed comparison is done IN JS** via a `toInt`→null helper (no SQL `CAST`/`SUM`), mirroring the licence readers. Any new software predicate comparing a count column MUST parse in JS, not SQL. |
+| **Trust SDP's `Compliance Type` as the verdict, NOT a raw `Installations>Allowed` comparison** | The raw delta happens to agree on this data, but SDP's `Compliance Type` factors **CAL / downgrade rights**, so an ORed raw `installed > allowed` comparison would **falsely flag downgrade-covered titles** as under-licensed. `under_licensed` exceptions = **`Compliance Type` only** (no raw-delta OR). `SOFTWARE_KINDS` = `under_licensed`/`over_licensed`/`managed`; the classifier reads the SDP verdict, never re-derives it. |
+| **BOM on `﻿Software ID` — same trap as `Assets.csv`** | The `software` view's first header ships with a leading UTF-8 BOM (`﻿Software ID`, U+FEFF); unstripped, `columns['Software ID']` is `undefined` → every row's pk is null → table replaces to **0** silently. The strip lives in the **CSV-parse layer, NOT `DEFAULT_MAP`**. The single assertion that proves it: `tests/assets-integration` counts **9830** software rows (+ **32** Under-Licensed) off the real `tests/fixtures/assets/Software.csv`. |
 | **The IT Review's Helpdesk & Changes panel is OUR addition — the authoritative `D` has no helpdesk concept at all** | His dashboard is meetings + inspection only; there is no helpdesk or changes anywhere in `D`. The panel therefore rides in via `buildReviewVals(D, opts)`'s **optional `opts.extras`**, precisely so that calling **without** extras still emits **exactly his 61 keys** and `tests/review-fidelity.test.js` keeps proving the port. **Never fold extras into `D`, and never let them reach the score** — the Leaderboard/Scoreboard keep his numbers. `tests/review-fidelity.test.js` guards **both** sides of that door: the no-extras call deep-equals his oracle at 61 keys, and a second test pins the WITH-extras additions to a **declared allowlist** (`['hdNote','hdRows']`) so a future accidental key silently polluting his contract fails loudly. Label the panel as a complement, never as part of his model. |
 | **Per-site helpdesk AND changes both scope by GROUP — never by `site`** | `request_records.tech_group` and `change_records.group_name`, both comma-split from `sites.zoho_group` (resolved via `getSiteIdByModuleCode('meetings', code)`). **Never `request_records.site` / `change_records.site_id`** — `site` is free-form and unreliable (`'HOUNDE'`, `'Hounde Mine'`, `'Ouaga'` vs `'Ouagadougou'`); `change_records.group_name` is populated on 291/295 rows. The reader takes a **`site_id`** and resolves the group *internally* — so a binder passing `s.zoho_group` where `s.site_id` belongs yields `undefined` → an **all-zero block with no error**, which `_safe` then swallows. Copy the `helpdesk` binder (`siteReportDeps.js:40-44`) and change only the reader call. |
 | **The change outcome is NOT in `status`/`closure_code` — and there is already a classifier; do NOT write a second one** | `closure_code` is **NULL on 82%** of rows, and `'Successful'`/`'Failed'` appear in **neither** `status` nor `closure_code`. The outcome lives in **`udf_json`** (`UDF:Change Implementation Outcome` / `UDF:Review decision`). The shipped classifier is `_changeOutcome`/`_tallyChanges` at **`public/executive-report.html:5053-5090`** — its own header comment documents the exact bug a naive `status`/`closure_code` reader causes ("the deck builder reported a different success number than the live scorecard"). **Port it verbatim** (`reports-db.js` `_changeOutcome`/`_computeSiteChanges`). Three counter-intuitive facts: the bucket is **`'success'`, not `'successful'`**; **no signal → `'pending'`, never `null`**; and `UDF:Review decision` **short-circuits on `'rework'` ONLY** — priority is per-VALUE, not per-field, so outcome beats review's success/cancel. `executed = successful + partial + failed(incl. backed_out) + cancelled` → **187 / 91.4%** on the snapshot, which **deliberately diverges** from this file's own denominator-doctrine line (`175 / 97.7%`, cancelled excluded). **Agreeing with the deck the team already reads beats agreeing with a doc line** — that divergence is the decision, not a bug. `failed` already merges `backed_out` and `pending` already merges `rework`; the raw counts survive only under `buckets`. |
