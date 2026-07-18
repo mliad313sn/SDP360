@@ -34,6 +34,7 @@
 //                      caller passes freshly-fetched rows — see report note.)
 
 const tableExcel = require('./tableExcel');
+const { fmtUsd } = require('./money');
 
 // Kept in step with assets-db HYGIENE_KINDS labels (that module is a DB reader
 // we deliberately do NOT require here to stay I/O-free). Only the three
@@ -208,6 +209,64 @@ function freshnessBlock(summary) {
     cardClose();
 }
 
+// ---- Task 7: optional Finance + Licence snapshots --------------------------
+// Both blocks are appended ONLY when their opt is present — absent → skipped
+// entirely (backward-compatible). Money is rendered via money.fmtUsd (thousands
+// + 2dp, NO currency glyph) with a textual "USD" label — the digest still holds
+// the !html.includes('$') invariant. Finance USD figures are already converted
+// by getFinanceSummary(rate); we only display + label the rate.
+
+// finance — { fleet:{book_value_usd, purchase_cost_usd, refresh_due, ...}, rate }
+function financeBlock(finance) {
+  const fleet = (finance && finance.fleet) || {};
+  const rate = finance && finance.rate;
+  const rateLabel = isNum(num(rate))
+    ? `USD (approx @ ${escapeHtml(String(rate))})`
+    : 'USD (approx)';
+  const money = (v) => fmtUsd(isNum(num(v)) ? num(v) : null);
+  const refresh = isNum(num(fleet.refresh_due)) ? num(fleet.refresh_due) : 0;
+  const rowsHtml = [
+    ['Fleet book value', money(fleet.book_value_usd)],
+    ['Fleet purchase value', money(fleet.purchase_cost_usd)],
+  ].map(([label, val]) => `<tr>
+<td style="font-family:${FONT};font-size:13px;color:${NAVY};padding:6px 0;border-bottom:1px solid ${BORDER};">${escapeHtml(label)}</td>
+<td align="right" style="font-family:${FONT};font-size:15px;font-weight:bold;color:${NAVY};padding:6px 0;border-bottom:1px solid ${BORDER};white-space:nowrap;">${val} <span style="font-size:11px;font-weight:normal;color:${MUTED};">USD</span></td>
+</tr>`).join('');
+  return cardOpen('Finance snapshot', TEAL) +
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse;">${rowsHtml}<tr>
+<td style="font-family:${FONT};font-size:13px;color:${NAVY};padding:6px 0;">Assets due for refresh</td>
+<td align="right" style="font-family:${FONT};font-size:15px;font-weight:bold;color:${NAVY};padding:6px 0;white-space:nowrap;">${refresh}</td>
+</tr></table>
+<div style="font-family:${FONT};font-size:12px;color:${MUTED};font-style:italic;line-height:1.5;padding-top:8px;">Values in ${rateLabel}. XOF purchase cost converted at the configured rate.</div>` +
+    cardClose();
+}
+
+// licences — { total, expiry:{expired, expiring_90, ok, no_expiry}, by_family:{...} }
+function licenceBlock(licences) {
+  const total = isNum(num(licences.total)) ? num(licences.total) : 0;
+  const exp = (licences && licences.expiry) || {};
+  const expired = isNum(num(exp.expired)) ? num(exp.expired) : 0;
+  const expiring = isNum(num(exp.expiring_90)) ? num(exp.expiring_90) : 0;
+  const byFam = (licences && licences.by_family) || {};
+  const famLine = Object.keys(byFam)
+    .map((f) => `${escapeHtml(f)} ${isNum(num(byFam[f])) ? num(byFam[f]) : 0}`)
+    .join(' &middot; ');
+  const expiredColor = expired > 0 ? RED : NAVY;
+  return cardOpen('Licence snapshot', '#E87722') +
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse;"><tr>
+<td style="font-family:${FONT};font-size:13px;color:${NAVY};padding:6px 0;border-bottom:1px solid ${BORDER};">Expired</td>
+<td align="right" style="font-family:${FONT};font-size:15px;font-weight:bold;color:${expiredColor};padding:6px 0;border-bottom:1px solid ${BORDER};">${expired}</td>
+</tr><tr>
+<td style="font-family:${FONT};font-size:13px;color:${NAVY};padding:6px 0;border-bottom:1px solid ${BORDER};">Expiring within 90d</td>
+<td align="right" style="font-family:${FONT};font-size:15px;font-weight:bold;color:${NAVY};padding:6px 0;border-bottom:1px solid ${BORDER};">${expiring}</td>
+</tr><tr>
+<td style="font-family:${FONT};font-size:13px;color:${NAVY};padding:6px 0;">Total licences</td>
+<td align="right" style="font-family:${FONT};font-size:15px;font-weight:bold;color:${NAVY};padding:6px 0;">${total}</td>
+</tr></table>
+<div style="font-family:${FONT};font-size:12px;color:${MUTED};line-height:1.5;padding-top:8px;">By family: ${famLine || '&mdash;'}</div>` +
+    cardClose();
+}
+
 // ---- workbook --------------------------------------------------------------
 
 // One sheet per kind present in exceptionsByKind. tableExcel already renders
@@ -229,6 +288,8 @@ function buildHygieneDigest(summary, opts) {
   const period = o.period || 'unknown';
   const prev = o.prev || null;
   const exceptionsByKind = o.exceptionsByKind || s.exceptionsByKind || {};
+  const finance = o.finance && typeof o.finance === 'object' ? o.finance : null;
+  const licences = o.licences && typeof o.licences === 'object' ? o.licences : null;
 
   const subject = `Assets — CMDB hygiene digest · ${period}`;
 
@@ -238,6 +299,8 @@ function buildHygieneDigest(summary, opts) {
     headerBlock(s, period) +
     worklistBlock(s, prev) +
     gapBlock(s) +
+    (finance ? financeBlock(finance) : '') +
+    (licences ? licenceBlock(licences) : '') +
     siteTable(s) +
     freshnessBlock(s) +
     `</div></div>`;

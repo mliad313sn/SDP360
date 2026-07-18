@@ -121,3 +121,51 @@ test('free-text site name is HTML-escaped', () => {
   assert.ok(out.html.includes('&lt;Houndé&gt;') || out.html.includes('&lt;Hound'), 'site name must be escaped');
   assert.ok(!out.html.includes('<Houndé>'), 'raw angle-bracket site name must not appear');
 });
+
+// ── Task 7 — Finance + Licence snapshots (backward-compatible) ────────────────
+
+const FINANCE = {
+  fleet: { book_value_usd: 16912.5, purchase_cost_usd: 32267.14, refresh_due: 7 },
+  rate: 0.00165,
+};
+const LICENCES = {
+  total: 19,
+  expiry: { expired: 3, expiring_90: 5, ok: 10, no_expiry: 1 },
+  by_family: { User: 8, Enterprise: 6, Machine: 3, Server: 1, Special: 1 },
+};
+
+test('with finance opts, html renders a Finance snapshot via fmtUsd + USD label + rate — still NO $', () => {
+  const out = buildHygieneDigest(makeSummary(), { period: '2026-07', finance: FINANCE, licences: LICENCES });
+  // book value via fmtUsd (thousands + 2dp, NO glyph)
+  assert.match(out.html, /16,912\.50/);
+  // a Finance snapshot header + a USD text label + the rate somewhere in the block
+  assert.match(out.html, /Finance snapshot/i);
+  assert.match(out.html, /USD/);
+  assert.match(out.html, /0\.00165/);
+  // CRUCIAL: money uses fmtUsd + USD text, never a $ glyph
+  assert.ok(!out.html.includes('$'), 'html must not contain a $ sign even with finance rendered');
+});
+
+test('with licence opts, html renders a Licence snapshot with expired=3 + expiring=5', () => {
+  const out = buildHygieneDigest(makeSummary(), { period: '2026-07', finance: FINANCE, licences: LICENCES });
+  assert.match(out.html, /Licence snapshot/i);
+  // expired 3 and expiring-soon 5 both surfaced
+  assert.match(out.html, /Expired[^<]*<[^>]*>\s*3\b|>\s*3\s*<[^>]*>[^<]*[Ee]xpired|Expired/);
+  assert.ok(/3/.test(out.html) && /5/.test(out.html), 'expired=3 and expiring=5 present');
+  // total + a by-family one-liner
+  assert.match(out.html, /19/);
+  assert.match(out.html, /User|Enterprise/);
+  assert.ok(!out.html.includes('$'), 'licence block must not contain a $ sign');
+});
+
+test('backward-compat: NO finance/licences opts → valid digest, no Finance/Licence block headers, no throw', () => {
+  const out = buildHygieneDigest(makeSummary(), { period: '2026-07' });
+  assert.strictEqual(typeof out.subject, 'string');
+  assert.strictEqual(typeof out.html, 'string');
+  assert.ok(Array.isArray(out.attachments));
+  // the two new blocks are absent entirely when their opts are missing
+  assert.ok(!/Finance snapshot/i.test(out.html), 'Finance block must be absent without finance opt');
+  assert.ok(!/Licence snapshot/i.test(out.html), 'Licence block must be absent without licences opt');
+  // existing no-money invariant still holds
+  assert.ok(!out.html.includes('$'));
+});

@@ -110,9 +110,20 @@ async function main(deps = {}) {
   const exceptionsByKind = {};
   for (const kind of kinds) exceptionsByKind[kind] = await loadExceptions(kind);
 
+  // Task 7 — Finance + Licence snapshots (both injectable so the test stays
+  // DB-free; the digest renders them only when present). Resolve the XOF→USD
+  // rate from config, falling back to the reportConfig default when unset/≤0.
+  let rate = parseFloat(cfg.xof_usd_rate);
+  if (!(rate > 0)) rate = parseFloat((deps.reportConfig || require('../../services/reportConfig')).DEFAULTS.xof_usd_rate);
+  const loadFinance = deps.loadFinance || ((r) => require('../../assets-db').getFinanceSummary({}, r));
+  const loadLicences = deps.loadLicences || (() => require('../../assets-db').getLicenceSummary({}));
+  const finance = await loadFinance(rate);
+  if (finance && typeof finance === 'object') finance.rate = rate;
+  const licences = await loadLicences();
+
   // Compose (pure — html + xlsx Buffer).
   const buildHygieneDigest = deps.buildHygieneDigest || require('../../services/assetHygieneReport').buildHygieneDigest;
-  const { subject, html, attachments } = buildHygieneDigest(summary, { period, prev: null, exceptionsByKind });
+  const { subject, html, attachments } = buildHygieneDigest(summary, { period, prev: null, exceptionsByKind, finance, licences });
 
   if (preview) {
     console.log(`[send-hygiene] PREVIEW period=${period} to=${recipients.join(',')} subject="${subject}" — not sending`);

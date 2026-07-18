@@ -33,6 +33,9 @@ function stubDeps(over = {}) {
     kinds: KINDS,
     loadSummary: async () => SUMMARY(),
     loadExceptions: async (kind) => [{ asset_id: kind + '-1', asset_name: 'x' }],
+    // Task 7 — finance + licence fetches stubbed so main() stays DB-free.
+    loadFinance: async (rate) => ({ fleet: { book_value_usd: 100, purchase_cost_usd: 200, refresh_due: 1 }, rate }),
+    loadLicences: async () => ({ total: 3, expiry: { expired: 1, expiring_90: 1, ok: 1, no_expiry: 0 }, by_family: { User: 3 } }),
     mailerSend: async (msg) => { captured.sends.push(msg); return { ok: true }; },
     alreadySentToday: async () => false,
     record: async (db, row) => { captured.records.push(row); },
