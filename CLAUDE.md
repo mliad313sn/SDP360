@@ -8,6 +8,57 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ## ⚡ Current state (as of 2026-07-18)
 
+> **Asset Depreciation (computed) + scope-reorganized Admin Config console landed**
+> (branch `feat/assets-depreciation-config`, on top of the merged A+B+C-v1) — the
+> sibling to Finance/Licence (C-v1): where C-v1 shows SDP's Current Book Value as-is,
+> this **computes book value ourselves** from a config-driven depreciation policy, and
+> reorganizes the sprawling admin console **by scope**. Two halves, both **additive**.
+> **(1) Depreciation** — new PURE, **currency-agnostic** `services/depreciation.js`:
+> `computeDepreciation({cost,salvage,method,usefulLifeMonths,declinePercent,
+> acquisitionDate,asOf})` for **4 methods** (`straight_line` · `declining_balance` ·
+> `double_declining` · `sum_of_years`) → `{currentBookValue, accumulated,
+> pctDepreciated, monthsElapsed, monthsRemaining, schedule[]}`, plus
+> `parseDepreciationConfig`/`resolveForType`/`METHODS`/`DEFAULT_DEPRECIATION_CONFIG`.
+> **Pinned to the SDP screenshot case** (2,250,000 / straight-line / 36mo → 62,500/mo,
+> 1.5M @ 12mo, 0 @ 36mo). The annual `schedule` **downsamples the SAME monthly
+> book-value function** so it's consistent with `currentBookValue` at year boundaries
+> (matters for declining/DDB). Currency-agnostic → convert to USD **AFTER** via the
+> `xof_usd_rate`. `reportConfig.DEFAULTS` gains `asset_depreciation_config` (a JSON
+> blob: global default + per-product-type overrides — **no per-asset**, SDP owns that;
+> our module is read-only). `assets-db.js` (additive): `getAssetDepreciation(filters,
+> {config,rate,asOf})` (per-site **COMPUTED** book value in USD + SDP's Current Book
+> Value as a cross-check + `pct_depreciated = 1 − Σcomputed/Σpurchase` + refresh) and
+> `getDepreciationSchedule` (`{years, book_value_usd}` fleet curve), dual-backend,
+> await-covered. Surfaces: `GET /api/assets/depreciation/{summary,schedule}` +
+> `GET/PUT /api/assets/depreciation-config` (config PUT `requireAdmin`, validates
+> `method∈METHODS` + `life>0` + `salvage 0..1` → **400**). `?asOf=` optional (default
+> today), **resolved to a real date BEFORE the reader call** (a bug caught in Task 4:
+> asOf defaulted only in the response label, passing `undefined` to the reader → 0
+> months elapsed → computed = purchase, 0% fleet-wide; fixed). **(2) Admin console**
+> `public/reports.html` **reorganized by scope** — rail grouped **⚙ Global**
+> (users/sessions/sites/**email (NEW: SMTP extracted → `#ap-email`)**/backups) ·
+> **📊 Reports** (autoreports/departments/execview) · **💻 Assets**
+> (**finance (NEW: `xof_usd_rate` moved here → `#ap-assets-finance`)** ·
+> **depreciation (NEW config editor `#ap-assets-deprec`)** · hygiene) · **🛡 Risk**,
+> each item carrying a scope badge. SMTP + rate relocations **kept their ids identical**
+> (shared getElementById save/load untouched; `xof_usd_rate` removed from Hygiene's
+> save/load). `public/assets-finance.html` gains a **Computed book value (USD)** column
+> (primary) next to **Book value (SDP)** (cross-check) + a **fleet net-book-value
+> line chart** over years + a note (config source, asOf, rate). **Browser-verified**:
+> zero console errors, all panels open, SMTP/rate/depreciation/group_report/hygiene
+> saves round-trip, deep-links work. **Decisions**: depreciation config = global
+> default + per-product-type only (no per-asset override); book value = **computed by
+> us (4 methods) as primary**, SDP's Current Book Value shown only as a cross-check.
+> **Regression**: new suites (depreciation · assets-depreciation-readers ·
+> report-config-deprec · assets-depreciation-routes.smoke) = **38 new pass**;
+> A/B/C + reporting (**129**) no regression. Spec:
+> `docs/superpowers/specs/2026-07-18-assets-depreciation-and-config-ia-design.md`.
+> **NOT merged** — branch ready for review.
+>
+> ---
+
+## ⚡ Current state (as of 2026-07-18)
+
 > **Assets Licence compliance (C-v1) + Finance view landed** (branch
 > `feat/assets-licence-finance`, on top of the merged A+B) — the sibling to Hygiene
 > (B): where B answers "how trustworthy is the register?", this answers **"what is
@@ -2553,6 +2604,10 @@ In normal use NO request hits this fallback. It's a safety net.
 | **`days_since_scan` is TEXT → `CAST(NULLIF(days_since_scan,'') AS INTEGER)`, never a bare `CAST` — the `NULLIF` is a pg-500 guard, not decoration** | The column is stored raw TEXT and is `''` on many rows. sqlite's `CAST('' AS INTEGER)` is lenient (→ 0), but pg's is **strict** and throws a 500 on `''` — the documented "sqlite-green / pg-500" trap. The `NULLIF(...,'')` turns empty into NULL so the `CAST` never sees `''` on either backend; the **pg fork carries the identical `NULLIF`**. Any new hygiene predicate comparing a TEXT-numeric column MUST wrap it the same way. |
 | **The hygiene digest is ARMED-OFF by default — and `reportConfig.DEFAULTS` MUST list its two keys or the admin's writes vanish silently** | `hygiene_send_enabled` defaults `'0'`; `tools/reports/send-hygiene.js`'s `decideHygieneSend` refuses to send unless it is `'1'` **AND** `hygiene_recipients` is non-empty — nothing mails unattended until an admin sets recipients + arms it in the `reports.html` card (entering the list IS the confirmation act, honouring "never send to an unconfirmed address"). **The catch**: `setConfig` filters on `KEYS.includes(k)`, so `hygiene_recipients`/`hygiene_send_enabled` MUST be present in `reportConfig.DEFAULTS` — omit them and the admin's writes are **silently dropped**, the digest goes permanently inert (fails safe, but dead) with no error anywhere. |
 | **No money is displayed ANYWHERE in sub-project B — B lists WHICH assets lack cost, never an amount** | The `$` in `Purchase Cost($)` is an unresolved XOF/USD currency lie (Foundation trap). B's `no_cost` report + digest name the assets missing cost data; they never render, sum, or coerce the raw `'0.00'`/`'970,000.00'` TEXT. `getHygieneExceptions` deliberately omits the cost column and the Excel/digest have **no cost column**. Any per-table currency decision is deferred to sub-project C/D — do NOT surface an amount here. |
+| **Depreciation is computed BY US, not read from the SDP export** | Book value on the Finance view is COMPUTED in `services/depreciation.js` (**4 methods**: straight_line / declining_balance / double_declining / sum_of_years), **currency-agnostic** — feed it the raw cost, convert to USD **AFTER** via the `xof_usd_rate`, never before. The annual `schedule` MUST downsample the **SAME monthly book-value function** `currentBookValue` uses, or the curve disagrees with the headline book value at year boundaries (declining/DDB are non-linear — a year-granular re-derivation drifts). SDP's own `Current Book Value` column is shown ONLY as a cross-check next to our computed figure — it is never the source of the number. Pinned to the SDP screenshot case (2,250,000 / straight-line / 36mo → 62,500/mo, 1.5M @ 12mo, 0 @ 36mo). |
+| **`asset_depreciation_config` is a JSON blob in `reportConfig` — must be in DEFAULTS or `setConfig` drops it** | Same trap as the hygiene keys: `setConfig` filters on `KEYS.includes(k)`, so `asset_depreciation_config` MUST be present in `reportConfig.DEFAULTS` or the admin's writes are **silently dropped** with no error. The blob is **global-default + per-product-type overrides ONLY** (no per-asset — SDP owns per-asset lifecycle; our module is read-only). The `PUT /api/assets/depreciation-config` route validates `method∈METHODS` + `usefulLifeMonths>0` + `salvage 0..1` → **400** on any violation (never persists a policy that would make `computeDepreciation` produce garbage). |
+| **Depreciation `asOf` MUST be resolved to a real date BEFORE the reader call** | The route's `?asOf=` defaults to today — but that default has to be applied **before** the value reaches `getAssetDepreciation` / `computeDepreciation`, not just in the response's echo/label. Passing `undefined` down makes `computeDepreciation` see **0 months elapsed** → book value = full cost, **0% depreciated fleet-wide** (silent, looks like nothing has aged). The trap is a route that echoes `asOf` correctly in the response envelope while still handing `undefined` to the reader — caught + fixed in Task 4. Any new route taking `asOf` resolves the default at the top, then passes the resolved date everywhere. |
+| **Adding/gating an admin panel in `reports.html` touches FOUR surfaces that MUST move together** | The scope-reorganized console keeps the same wiring: a panel is only fully live when it appears in ALL of `_ADMIN_PANEL_IDS` (~4572), the hash/deep-link allowlist (~4631), the rail `display:none` role-gate (~4610-4618), AND the JS super-gate (~4575) — miss one and the panel half-works (opens but no deep-link, or shows for the wrong role, or the rail item is dead). **Relocating a config field between panels is safe ONLY if its `id` is kept identical** (the shared `getElementById` save/load reads by id, so SMTP→`#ap-email` and `xof_usd_rate`→`#ap-assets-finance` moved without touching save/load). But **removing an input without also removing its save-read throws `null.value` and bricks the ENTIRE inline-JS console** (one uncaught TypeError kills the whole `<script>`) — always delete the field's save/load line in the same edit. |
 | **Money in the Finance view (C-v1) is USD via `xof_usd_rate` — the raw `$` label lies, and conversion lives ONLY in `money.js`** | Asset `purchase_cost` is **XOF** (a desktop is `'2,250,000.00'`), licence `cost` is native **USD**; the `Purchase Cost($)` header's `$` is the Foundation currency lie. The finance view resolves it by converting XOF → USD once via a configurable `xof_usd_rate` (`reportConfig.DEFAULTS` `'0.00165'`, admin-editable). **All conversion + amount parsing is in the PURE `services/money.js`** (`parseAmount`/`toUsd`/`fmtUsd`) — never re-derive it inline. `getFinanceSummary` **sums IN JS via `money.parseAmount`** (no SQL `SUM`/`CAST` — the columns are raw TEXT with commas/`$`, exactly the sqlite-lenient/pg-500 trap Hygiene documents). **A blank or 0 rate falls back to DEFAULT, never 1** — rate `1` would render raw XOF magnitudes mislabelled as USD (a 2.25M "$" desktop). |
 | **`fmtUsd` emits NO `$` glyph — USD is conveyed by a text label, and the hygiene digest asserts its absence** | `services/money.js` `fmtUsd` formats thousands + 2dp with **no currency symbol** (the `$` is the Foundation lie; a bare `$` next to a converted figure re-introduces the ambiguity). The hygiene digest's Finance/Licence snapshots use `fmtUsd`, and a test asserts `!html.includes('$')`. Don't add a `$` to any finance/licence surface — label the column/tile "USD" instead. |
 | **Licence `Expiry Date` is `DD Mon YYYY` (`30 Jun 2025`), NOT ISO — parse with `new Date()`, never `substr`/lexical/SQL-date** | Unlike every other assets date, the software-licence `Expiry Date` ships as `'30 Jun 2025'` (day-month-name-year), so `substr(...,1,10)` / lexical string compare / a SQL `date()` cast **mis-buckets every row** into the wrong expiry tile with no error (same class of trap as the Risk Register `DD Mon YYYY` off-by-one). `classifyLicenceType`/`getLicenceSummary` parse it with `new Date()` and bucket by the resulting timestamp. Any new expiry predicate must do the same. |
