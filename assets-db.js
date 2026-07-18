@@ -357,6 +357,151 @@ async function _getHygieneExceptionsPg(kind, filters) {
   ).all(...params);
 }
 
+// ─── Hardware-health worklist readers (sub-project D, Task 0) ──────────────
+// Four count-based worklists over already-synced data: low RAM · full disk ·
+// refresh-due · no real monitor. NO money is ever selected or summed here.
+//
+// The RAW `monitor_count` (COUNT(asset_monitors)) OVER-COUNTS — AP records
+// cameras + virtual displays as monitors (`Intel(R) AVStream Camera`,
+// `Integrated Webcam`, `HyperVMonitor`, `Parallels Vu`, `No Monitor`). The
+// trustworthy `real_monitor_count` applies a `monitor_type` DENYLIST. Two
+// load-bearing guards in that chain:
+//  - the SPACE in `%no monitor%` is required — a bare `%monitor%` would exclude
+//    every REAL monitor.
+//  - the `<> ''` is required — `'' NOT LIKE '%camera%'` is TRUE, so an empty
+//    monitor_type would wrongly count as a real monitor.
+// `no_real_monitor` is SCOPED to workstation-type devices (laptop/desktop/…)
+// so headless-by-design servers / network gear / VMs / phones don't flood it.
+//
+// The RAM / disk-free / months columns are TEXT (free-pct may carry `'%'`), so
+// every threshold is computed IN JS via `_toNum` (strip %/comma/space → Number|
+// null) — NO SQL CAST on the raw text (the '94%' free-pct would NaN a bare CAST
+// and pg's strict cast would 500 on it).
+const HARDWARE_KINDS = {
+  low_ram:         { label: 'Low RAM (<8 GB)' },
+  full_disk:       { label: 'Full system disk (<10% free)' },
+  refresh_due:     { label: 'Refresh due (past replacement cycle)' },
+  no_real_monitor: { label: 'No real monitor (workstation)' },
+};
+
+// The real-monitor denylist subquery — shared by summary + exceptions. The
+// LIKE chain is the load-bearing part; keep it byte-identical on both backends.
+const _REAL_MONITOR_SUBQ =
+  `(SELECT COUNT(*) FROM asset_monitors mo WHERE mo.workstation_id = a.asset_id
+      AND mo.monitor_type IS NOT NULL AND mo.monitor_type <> ''
+      AND lower(mo.monitor_type) NOT LIKE '%camera%'
+      AND lower(mo.monitor_type) NOT LIKE '%webcam%'
+      AND lower(mo.monitor_type) NOT LIKE '%hypervmonitor%'
+      AND lower(mo.monitor_type) NOT LIKE '%parallels%'
+      AND lower(mo.monitor_type) NOT LIKE '%no monitor%') AS real_monitor_count`;
+
+// Explicit NO-MONEY column list (I1) — NEVER `a.*` (it carries purchase_cost /
+// current_book_value → money leak). Identity + the 3 computed health subqueries.
+const _HARDWARE_EXC_COLS = `a.asset_id, a.asset_name, a.product, a.product_type,
+  a.manufacturer, a.state, a.site, a.serial_number, a.months_since_acquisition,
+  (SELECT COALESCE(SUM(CAST(capacity_gb AS REAL)),0) FROM asset_memory m WHERE m.workstation_id = a.asset_id) AS ram_total_gb,
+  (SELECT free_pct FROM asset_logical_drives d WHERE d.workstation_id = a.asset_id AND d.drive_letter = 'C:' LIMIT 1) AS system_disk_free_pct,
+  ${_REAL_MONITOR_SUBQ}`;
+
+// Strip %/comma/space → Number, or null when empty/non-numeric (mirrors
+// _coerceEnriched). Used for the RAM + free-pct TEXT columns.
+function _toNum(v) {
+  if (v == null || v === '') return null;
+  const n = Number(String(v).replace(/[%,\s]/g, ''));
+  return Number.isNaN(n) ? null : n;
+}
+
+const _WORKSTATION_TYPE = /laptop|desktop|computer|workstation|notebook/i;
+
+// Coerce the three computed health fields to numbers on a returned row (the AP
+// free-pct arrives as '5%' etc.). Identity columns are untouched; no money is
+// present to begin with (the SELECT never asked for it).
+function _coerceHardwareRow(r) {
+  r.ram_total_gb = Number(r.ram_total_gb) || 0;
+  r.system_disk_free_pct = _toNum(r.system_disk_free_pct);
+  r.real_monitor_count = Number(r.real_monitor_count) || 0;
+  return r;
+}
+
+// Per-row flags for each hardware kind. Thresholds computed in JS on the raw
+// TEXT columns. `real_monitor_count` arrives from the denylist subquery.
+function _hardwareFlags(r) {
+  const ram = _toNum(r.ram_total_gb);
+  const free = _toNum(r.system_disk_free_pct);
+  const months = parseInt(r.months_since_acquisition, 10);
+  const real = Number(r.real_monitor_count);
+  return {
+    low_ram: ram != null && ram > 0 && ram < 8,
+    // keep the `!= null` guard — `null < 10` coerces TRUE, do NOT simplify.
+    full_disk: free != null && free < 10,
+    refresh_due: Number.isFinite(months) && months >= _refreshCycleMonths(r.product_type),
+    no_real_monitor: _WORKSTATION_TYPE.test(String(r.product_type || '')) && real === 0,
+  };
+}
+
+// SHARED pure pass — both backends hand it the same rows → parity by
+// construction. Tallies by_kind + by_site + a monitors block; the rows carry NO
+// money (the SELECT never asked for it).
+function _aggregateHardware(rows) {
+  const KINDS = Object.keys(HARDWARE_KINDS);
+  const by_kind = Object.fromEntries(KINDS.map(k => [k, 0]));
+  const acc = new Map();   // site -> {total, <kind>...}
+  let realSum = 0, withReal = 0;
+  for (const r of rows) {
+    const f = _hardwareFlags(r);
+    const site = r.site == null ? '' : String(r.site);
+    if (!acc.has(site)) acc.set(site, Object.assign({ site, total: 0 }, ...KINDS.map(k => ({ [k]: 0 }))));
+    const a = acc.get(site);
+    a.total++;
+    for (const k of KINDS) if (f[k]) { by_kind[k]++; a[k]++; }
+    const real = Number(r.real_monitor_count) || 0;
+    realSum += real; if (real >= 1) withReal++;
+  }
+  const total = rows.length;
+  const by_site = [...acc.keys()].sort().map(s => acc.get(s));
+  const monitors = { with_real: withReal, avg_real: total ? Math.round(100 * realSum / total) / 100 : 0 };
+  return { total, by_kind, by_site, monitors };
+}
+
+// Every row through the shared _HARDWARE_EXC_COLS SELECT + whitelisted filters.
+function getHardwareHealthSummary(filters) {
+  if (ASSETS_BACKEND === 'postgres') return _getHardwareHealthSummaryPg(filters);
+  const db = getDB();
+  const { where, params } = _assetWhere(filters);
+  const rows = db.prepare(
+    `SELECT ${_HARDWARE_EXC_COLS} FROM assets a WHERE 1=1${where} ORDER BY a.site, a.asset_name`
+  ).all(...params).map(_coerceHardwareRow);
+  return _aggregateHardware(rows);
+}
+async function _getHardwareHealthSummaryPg(filters) {
+  const h = pgHandle();
+  const { where, params } = _assetWhere(filters);
+  const rows = (await h.prepare(
+    `SELECT ${_HARDWARE_EXC_COLS} FROM assets a WHERE 1=1${where} ORDER BY a.site, a.asset_name`
+  ).all(...params)).map(_coerceHardwareRow);
+  return _aggregateHardware(rows);
+}
+
+function getHardwareHealthExceptions(kind, filters) {
+  if (ASSETS_BACKEND === 'postgres') return _getHardwareHealthExceptionsPg(kind, filters);
+  if (!HARDWARE_KINDS[kind]) throw new Error(`getHardwareHealthExceptions: unknown hardware kind "${kind}"`);
+  const db = getDB();
+  const { where, params } = _assetWhere(filters);
+  const rows = db.prepare(
+    `SELECT ${_HARDWARE_EXC_COLS} FROM assets a WHERE 1=1${where} ORDER BY a.site, a.asset_name`
+  ).all(...params).map(_coerceHardwareRow);
+  return rows.filter(r => _hardwareFlags(r)[kind]);
+}
+async function _getHardwareHealthExceptionsPg(kind, filters) {
+  if (!HARDWARE_KINDS[kind]) throw new Error(`getHardwareHealthExceptions: unknown hardware kind "${kind}"`);
+  const h = pgHandle();
+  const { where, params } = _assetWhere(filters);
+  const rows = (await h.prepare(
+    `SELECT ${_HARDWARE_EXC_COLS} FROM assets a WHERE 1=1${where} ORDER BY a.site, a.asset_name`
+  ).all(...params)).map(_coerceHardwareRow);
+  return rows.filter(r => _hardwareFlags(r)[kind]);
+}
+
 // ─── Finance summary (Task 2) ──────────────────────────────────────────────
 // Per-site asset value / book value / TCO / opex in USD (assets are XOF raw
 // TEXT, multiplied by `rate`), % depreciated (rate-independent), and a
@@ -799,6 +944,7 @@ module.exports = {
   getDB, initPgAssets, pgHandle, ASSETS_BACKEND, replaceTable, countRows,
   getEnrichedAssets, getAssetLookups, getAssetSummary,
   HYGIENE_KINDS, getHygieneSummary, getHygieneExceptions,
+  HARDWARE_KINDS, getHardwareHealthSummary, getHardwareHealthExceptions,
   getFinanceSummary,
   getAssetDepreciation, getDepreciationSchedule,
   classifyLicenceType, getLicenceSummary, getLicenceExceptions, LICENCE_KINDS,
