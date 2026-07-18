@@ -2475,6 +2475,100 @@ app.get('/api/assets/licences/export.xlsx', requireReportSession, async (req, re
   }
 });
 
+// ── ASSETS · DEPRECIATION (Depreciation sub-project, Task 2) ─────────────────
+// Book value + annual schedule computed from purchase_cost + acquisition_date +
+// the admin-managed depreciation config; money CONVERTED to USD via the SAME
+// _assetUsdRate the finance routes use (never rate 1). asOf is an optional query
+// (reader defaults to today internally) and is echoed. Whitelisted, param-bound
+// filters; the config PUT validates before persisting (requireAdmin).
+const _assetDeprecFilters = (req) => {
+  const q = {};
+  for (const k of ['site']) {
+    if (req.query[k] != null && req.query[k] !== '') q[k] = String(req.query[k]);
+  }
+  return q;
+};
+// Validate an incoming depreciation config: `default` object required, and for the
+// default AND every by_type entry — method ∈ METHODS, useful_life_months > 0,
+// salvage_pct (optional, default 0) in [0,1]. Any breach → false → 400.
+const _validDeprecCfg = (cfg) => {
+  const { METHODS } = require('./services/depreciation');
+  if (!cfg || typeof cfg !== 'object' || Array.isArray(cfg)) return false;
+  if (!cfg.default || typeof cfg.default !== 'object') return false;
+  const okEntry = (e) => {
+    if (!e || typeof e !== 'object') return false;
+    if (!METHODS[e.method]) return false;
+    const life = Number(e.useful_life_months);
+    if (!Number.isFinite(life) || !(life > 0)) return false;
+    const sv = e.salvage_pct == null ? 0 : Number(e.salvage_pct);
+    if (!Number.isFinite(sv) || sv < 0 || sv > 1) return false;
+    return true;
+  };
+  if (!okEntry(cfg.default)) return false;
+  const byType = cfg.by_type || {};
+  if (typeof byType !== 'object' || Array.isArray(byType)) return false;
+  for (const k of Object.keys(byType)) { if (!okEntry(byType[k])) return false; }
+  return true;
+};
+const _deprecConfig = async () => {
+  const reportConfig = require('./services/reportConfig');
+  const rdb = require('./reports-db');
+  return require('./services/depreciation')
+    .parseDepreciationConfig((await reportConfig.getConfig(rdb.db)).asset_depreciation_config);
+};
+
+app.get('/api/assets/depreciation/summary', requireReportSession, async (req, res) => {
+  try {
+    const adb = require('./assets-db');
+    const rate = await _assetUsdRate();
+    const config = await _deprecConfig();
+    const asOf = req.query.asOf ? String(req.query.asOf) : undefined;
+    const s = await adb.getAssetDepreciation(_assetDeprecFilters(req), { config, rate, asOf });
+    res.json({ ...s, rate, asOf: asOf || new Date().toISOString().slice(0, 10) });
+  } catch (e) {
+    console.error('[api/assets/depreciation/summary]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/assets/depreciation/schedule', requireReportSession, async (req, res) => {
+  try {
+    const adb = require('./assets-db');
+    const rate = await _assetUsdRate();
+    const config = await _deprecConfig();
+    const asOf = req.query.asOf ? String(req.query.asOf) : undefined;
+    const sch = await adb.getDepreciationSchedule(_assetDeprecFilters(req), { config, rate, asOf });
+    res.json({ ...sch, rate, asOf: asOf || new Date().toISOString().slice(0, 10) });
+  } catch (e) {
+    console.error('[api/assets/depreciation/schedule]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/assets/depreciation-config', requireReportSession, async (req, res) => {
+  try {
+    res.json(await _deprecConfig());
+  } catch (e) {
+    console.error('[api/assets/depreciation-config GET]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.put('/api/assets/depreciation-config', requireReportSession, requireAdmin, async (req, res) => {
+  const cfg = req.body;
+  // Validate BEFORE persist — an invalid config must be 400, not the catch's 500.
+  if (!_validDeprecCfg(cfg)) return res.status(400).json({ error: 'invalid depreciation config' });
+  try {
+    const reportConfig = require('./services/reportConfig');
+    const rdb = require('./reports-db');
+    await reportConfig.setConfig(rdb.db, { asset_depreciation_config: JSON.stringify(cfg) }, req.reportUser?.username);
+    res.json(cfg);
+  } catch (e) {
+    console.error('[api/assets/depreciation-config PUT]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/health', (req, res) => res.json({
   status: 'ok', tokenValid: Date.now() < tokenState.expiresAt,
   expiresAt: new Date(tokenState.expiresAt).toISOString(),
