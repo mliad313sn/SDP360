@@ -679,6 +679,66 @@ async function _getDepreciationSchedulePg(filters, opts = {}) {
   return _aggregateSchedule(rows, opts);
 }
 
+// ─── Investment history + forecast readers (Investment tab) ────────────────
+// Thin dual-backend readers that SELECT the columns and delegate to the PURE
+// services/assetForecast.js builders (no math here). Assets are XOF raw TEXT (the
+// builders convert via `rate`); licence cost is native USD. `_assetWhere` emits
+// `a.`-qualified fragments so the assets FROM is aliased + seeded (WHERE 1=1);
+// `_licenceWhere` emits its own ` WHERE …` and whitelists site/state/q only.
+const AF = require('./services/assetForecast');
+
+const _INVEST_HIST_ASSET_SELECT =
+  'SELECT acquisition_date, purchase_cost FROM assets a WHERE 1=1';
+const _INVEST_HIST_LIC_SELECT =
+  'SELECT acquisition_date, cost FROM software_licenses';
+
+function getInvestmentSummary(filters, { rate } = {}) {
+  if (ASSETS_BACKEND === 'postgres') return _getInvestmentSummaryPg(filters, { rate });
+  const db = getDB();
+  const aw = _assetWhere(filters);
+  const lw = _licenceWhere(filters);
+  const aRows = db.prepare(`${_INVEST_HIST_ASSET_SELECT}${aw.where}`).all(...aw.params);
+  const lRows = db.prepare(`${_INVEST_HIST_LIC_SELECT}${lw.where}`).all(...lw.params);
+  return AF.buildInvestmentHistory(aRows, lRows, rate);
+}
+async function _getInvestmentSummaryPg(filters, { rate } = {}) {
+  const h = pgHandle();
+  const aw = _assetWhere(filters);
+  const lw = _licenceWhere(filters);
+  const aRows = await h.prepare(`${_INVEST_HIST_ASSET_SELECT}${aw.where}`).all(...aw.params);
+  const lRows = await h.prepare(`${_INVEST_HIST_LIC_SELECT}${lw.where}`).all(...lw.params);
+  return AF.buildInvestmentHistory(aRows, lRows, rate);
+}
+
+const _INVEST_FCST_ASSET_SELECT =
+  'SELECT acquisition_date, purchase_cost, product_type FROM assets a WHERE 1=1';
+const _INVEST_FCST_LIC_SELECT =
+  'SELECT expiry_date, cost, license_option FROM software_licenses';
+
+function getInvestmentForecast(filters, { config, rate, upliftPct, horizonYears, asOf } = {}) {
+  if (ASSETS_BACKEND === 'postgres') return _getInvestmentForecastPg(filters, { config, rate, upliftPct, horizonYears, asOf });
+  const db = getDB();
+  const aw = _assetWhere(filters);
+  const lw = _licenceWhere(filters);
+  const aRows = db.prepare(`${_INVEST_FCST_ASSET_SELECT}${aw.where}`).all(...aw.params);
+  const lRows = db.prepare(`${_INVEST_FCST_LIC_SELECT}${lw.where}`).all(...lw.params);
+  return {
+    hardware: AF.buildHardwareForecast(aRows, { config, rate, upliftPct, horizonYears, asOf }),
+    software: AF.buildSoftwareForecast(lRows, { horizonYears, asOf }),
+  };
+}
+async function _getInvestmentForecastPg(filters, { config, rate, upliftPct, horizonYears, asOf } = {}) {
+  const h = pgHandle();
+  const aw = _assetWhere(filters);
+  const lw = _licenceWhere(filters);
+  const aRows = await h.prepare(`${_INVEST_FCST_ASSET_SELECT}${aw.where}`).all(...aw.params);
+  const lRows = await h.prepare(`${_INVEST_FCST_LIC_SELECT}${lw.where}`).all(...lw.params);
+  return {
+    hardware: AF.buildHardwareForecast(aRows, { config, rate, upliftPct, horizonYears, asOf }),
+    software: AF.buildSoftwareForecast(lRows, { horizonYears, asOf }),
+  };
+}
+
 // ─── Licence-compliance readers (Task 3) ───────────────────────────────────
 // Type-family classification + summary + expiry exceptions over software_licenses.
 // `cost` is USD native — never rate-multiplied, never SQL-summed (it isn't summed
@@ -1163,6 +1223,7 @@ module.exports = {
   HARDWARE_KINDS, getHardwareHealthSummary, getHardwareHealthExceptions,
   getFinanceSummary,
   getAssetDepreciation, getDepreciationSchedule,
+  getInvestmentSummary, getInvestmentForecast,
   classifyLicenceType, getLicenceSummary, getLicenceExceptions, LICENCE_KINDS,
   classifySoftwareCompliance, getSoftwareComplianceSummary, getSoftwareComplianceExceptions, SOFTWARE_KINDS,
   snapshotEffort,
