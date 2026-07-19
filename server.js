@@ -2770,6 +2770,112 @@ app.put('/api/assets/depreciation-config', requireReportSession, requireAdmin, a
   }
 });
 
+// ── ASSETS · INVESTMENT & FORECAST ───────────────────────────────────────────
+// Historical CAPEX/OPEX curve + forward hardware-replacement & software-renewal
+// forecast. Money is USD (assets XOF ×_assetUsdRate; licence cost native USD).
+// The forecast grows replacement prices by an admin-managed annual uplift %; the
+// response ECHOES uplift_pct (as a percent, e.g. 3 for 0.03) so the UI can label
+// "prices grown X%/yr". Whitelisted, param-bound filters; the depreciation config
+// (already parsed) drives per-product-type useful life. Same session guard as the
+// hardware/finance blocks; every dual-backend reader is awaited.
+const _assetInvestmentFilters = (req) => {
+  const q = {};
+  for (const k of ['site', 'state', 'product_type', 'manufacturer', 'q']) {
+    if (req.query[k] != null && req.query[k] !== '') q[k] = String(req.query[k]);
+  }
+  return q;
+};
+// Annual replacement-price uplift as a FRACTION (config stores a percent). Falls
+// back to 0 (no growth) on a blank/negative/NaN admin value.
+const _assetUpliftPct = async () => {
+  const reportConfig = require('./services/reportConfig');
+  const rdb = require('./reports-db');
+  const p = Number((await reportConfig.getConfig(rdb.db)).asset_replacement_uplift_pct) / 100;
+  return Number.isFinite(p) && p >= 0 ? p : 0;
+};
+
+app.get('/api/assets/investment/history', requireReportSession, async (req, res) => {
+  try {
+    const rate = await _assetUsdRate();
+    res.json(await require('./assets-db').getInvestmentSummary(_assetInvestmentFilters(req), { rate }));
+  } catch (e) {
+    console.error('[api/assets/investment/history]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/assets/investment/forecast', requireReportSession, async (req, res) => {
+  try {
+    const adb = require('./assets-db');
+    const config = await _deprecConfig();          // already parsed → pass straight through
+    const upliftPct = await _assetUpliftPct();
+    let horizon = parseInt(req.query.horizon, 10);
+    if (!Number.isFinite(horizon) || horizon < 1) horizon = 5;   // default
+    if (horizon > 15) horizon = 15;                              // clamp
+    const asOf = new Date().toISOString().slice(0, 10);          // resolve BEFORE the reader
+    const rate = await _assetUsdRate();
+    const out = await adb.getInvestmentForecast(_assetInvestmentFilters(req),
+      { config, rate, upliftPct, horizonYears: horizon, asOf });
+    // Echo the uplift as a percent (e.g. 3 for 0.03) so the UI can label the growth.
+    res.json({ ...out, uplift_pct: Math.round(upliftPct * 10000) / 100 });
+  } catch (e) {
+    console.error('[api/assets/investment/forecast]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Multi-sheet workbook: History + Hardware forecast + Software forecast. Each
+// forecast sheet is the year rows plus a "Due now" and a "Beyond horizon" row
+// (the Year column labels those two). Same horizon-clamp + config/rate/uplift reads
+// as the forecast route.
+app.get('/api/assets/investment/export.xlsx', requireReportSession, async (req, res) => {
+  try {
+    const adb = require('./assets-db');
+    const { buildWorkbook } = require('./services/tableExcel');
+    const filters = _assetInvestmentFilters(req);
+    const rate = await _assetUsdRate();
+    const config = await _deprecConfig();
+    const upliftPct = await _assetUpliftPct();
+    let horizon = parseInt(req.query.horizon, 10);
+    if (!Number.isFinite(horizon) || horizon < 1) horizon = 5;
+    if (horizon > 15) horizon = 15;
+    const asOf = new Date().toISOString().slice(0, 10);
+
+    const history = await adb.getInvestmentSummary(filters, { rate });
+    const fcst = await adb.getInvestmentForecast(filters,
+      { config, rate, upliftPct, horizonYears: horizon, asOf });
+
+    const historyRows = (history.years || []).map(y => ({
+      Year: y.year, 'Hardware (USD)': y.hardware_usd, 'Software (USD)': y.software_usd,
+      'Total (USD)': y.total_usd, 'Cumulative (USD)': y.cumulative_usd,
+    }));
+    const hw = fcst.hardware || {};
+    const hardwareRows = [
+      ...(hw.years || []).map(y => ({ Year: y.year, 'Replacement (USD)': y.replacement_usd, Count: y.count })),
+      { Year: 'Due now', 'Replacement (USD)': hw.due_now && hw.due_now.replacement_usd, Count: hw.due_now && hw.due_now.count },
+      { Year: 'Beyond horizon', 'Replacement (USD)': hw.beyond_horizon && hw.beyond_horizon.usd, Count: hw.beyond_horizon && hw.beyond_horizon.count },
+    ];
+    const sw = fcst.software || {};
+    const softwareRows = [
+      ...(sw.years || []).map(y => ({ Year: y.year, 'Renewal (USD)': y.renewal_usd, Count: y.count })),
+      { Year: 'Due now', 'Renewal (USD)': sw.due_now && sw.due_now.renewal_usd, Count: sw.due_now && sw.due_now.count },
+      { Year: 'Beyond horizon', 'Renewal (USD)': sw.beyond_horizon && sw.beyond_horizon.usd, Count: sw.beyond_horizon && sw.beyond_horizon.count },
+    ];
+
+    const buf = buildWorkbook([
+      { name: 'History', rows: historyRows },
+      { name: 'Hardware forecast', rows: hardwareRows },
+      { name: 'Software forecast', rows: softwareRows },
+    ]);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="assets-investment.xlsx"');
+    res.send(buf);
+  } catch (e) {
+    console.error('[api/assets/investment/export.xlsx]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/health', (req, res) => res.json({
   status: 'ok', tokenValid: Date.now() < tokenState.expiresAt,
   expiresAt: new Date(tokenState.expiresAt).toISOString(),
