@@ -487,7 +487,9 @@ sync.init(fetchView, VIEWS);
 // Assets sync (Foundation) — stash fetchView; view ids are self-contained in ASSET_VIEWS.
 require('./assets-sync').init(fetchView, VIEWS);
 // Daily full-replace of the 5 asset views at 04:30 (off-peak, after nightly refresh at 03:15).
-cron.schedule('30 4 * * *', () => require('./assets-sync').syncAllAssets().catch(e => console.error('[Cron:assets]', e.message)));
+cron.schedule('30 4 * * *', () => require('./assets-sync').syncAllAssets()
+  .then(() => require('./assets-db').snapshotEffort({}))
+  .catch(e => console.error('[Cron:assets]', e && e.message)));
 
 // Change + CAB: every hour at :30 past the hour (offset to avoid collision with requests at :45)
 // Bumped from `30 */2 * * *` (every 2h) on 2026-05-26 to support the
@@ -2200,7 +2202,9 @@ app.get('/api/sync/status', requireReportSession, async (req, res) => {
 // markSyncSuccess upserts the 5 sync_metadata rows on first run.
 app.post('/api/sync/trigger/assets', requireReportSession, requireAdmin, (req, res) => {
   res.json({ ok: true, message: 'Assets sync started' });
-  require('./assets-sync').syncAllAssets().catch(e => console.error('[ManualSync:assets]', e.message));
+  require('./assets-sync').syncAllAssets()
+    .then(() => require('./assets-db').snapshotEffort({}))
+    .catch(e => console.error('[ManualSync:assets]', e && e.message));
 });
 
 app.post('/api/sync/trigger/:job', requireReportSession, requireAdmin, async (req, res) => {
