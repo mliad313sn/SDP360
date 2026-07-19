@@ -8,6 +8,47 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ## ⚡ Current state (as of 2026-07-19)
 
+> **Unified operational Site Scoreboard landed** (branch `feat/site-scoreboard`) — a
+> per-site **operational** scoreboard (a weighted composite of **4 dimensions**:
+> helpdesk SLA · inspections conformity · réunions 5-Engagements · actifs effort)
+> grafted **ADDITIVELY** onto the IT Review Dashboard, plus a **scheduled
+> per-coordinator e-mail** (full leaderboard, own row highlighted) — so the SDM can
+> project one comparable RAG per site in the monthly meeting ("personne ne veut être
+> dernier"). **The author's authoritative models are NEVER touched**: it rides the
+> existing **`opts.extras`** mechanism (allowlist extended `['hdNote','hdRows']` →
+> `['hdNote','hdRows','sbuRows','sbuNote']`), so a no-extras `buildReviewVals` still
+> emits **exactly his 61 keys** (`tests/review-fidelity.test.js`'s 72-combo deep-equals
+> stay green) and it **never enters `sbs`/`comps`/`codes`**; `siteScore.js`/
+> `siteComposite.js` unedited. Pure `services/siteScoreboard.js` (`buildSiteScoreboard`
+> — **weighted 40/20/20/20**, **renormalized over PRESENT dims**, coverage N/4, RAG
+> **75/55**, rank, Δ vs prev month, 0-dims → "non applicable"); glue
+> `services/scoreboardData.js` (`loadScoreboardData` — 4 readers + prev month,
+> null-safe: helpdesk null-OBJECT guard, meetings `.site` key + null-before-×100,
+> inspections `ok/applicable` from `aggregate().findingStatus`, effort via
+> `scoreboardAliases.foldEffortByCode`); `services/scoreboardAliases.js` (in-code AP-label
+> →meetings-code map — NOT a `site_module_codes` namespace, whose PK `(site_id,module)`
+> can't hold Massawa+Sabodala→SGO — folded by **simple mean** since effort rows carry no
+> asset-count). Panel added to **BOTH** `it-review.html` AND
+> `docs/reference/it-review-dashboard.template.html` (with a with-scoreboard
+> render-backstop pass), single-dot `cells` flattening (the renderer resolves ≤1 dot).
+> E-mail: `services/siteScoreboardReport.js` (`buildScoreboardDigest`, no `$`) +
+> `tools/reports/send-scoreboard.js` (**per-coordinator**: arm-flag-only gate,
+> confirmed-recipients-only via `resolveRecipient('coordinator')`, per-(period,site)
+> dedup, `--preview`, `require.main` guard) + `'scoreboard'` in `reportSchedule` +
+> `scoreboard_send_enabled` config + a `#ap-scoreboard` admin card (4 surfaces). It is
+> **clearly labelled** "Scoreboard opérationnel — 4 dimensions" vs his "Score
+> programme" — the two may show a different RAG per site (two lenses, by design, like
+> `sbDims` vs `composite` already do). **Browser-verified** (9 real rows, his panels
+> unchanged, null dims "—", non-applicable site, callouts, absent in scoreboard/brief
+> views, API 65 keys, zero console errors). **Regression**: scoreboard + review suites
+> (**183**) + await-precedence 5/5 green. Plan:
+> `docs/superpowers/plans/2026-07-19-site-scoreboard.md`, spec:
+> `docs/superpowers/specs/2026-07-19-site-scoreboard-design.md`.
+>
+> ---
+
+## ⚡ Current state (as of 2026-07-19)
+
 > **Assets Investment & Forecast dashboard landed** (branch
 > `feat/assets-investment-forecast`, on top of the merged Assets module) — a
 > per-equipment-type **investment picture** to take to the business: a historical
@@ -2828,6 +2869,10 @@ In normal use NO request hits this fallback. It's a safety net.
 
 | Pitfall | Rule |
 |---------|------|
+| **The operational Site Scoreboard is OURS, additive, and MUST NOT touch the author's IT Review model** | It rides `buildReviewVals`'s `opts.extras` (like the Helpdesk & Changes panel) emitting ONLY `sbuRows`/`sbuNote`; the fidelity allowlist is exactly `['hdNote','hdRows','sbuRows','sbuNote']` and a no-extras call must stay his **61 keys** (72-combo deep-equals). NEVER enter `sbs`/`comps`/`codes`; NEVER edit `siteScore.js`/`siteComposite.js`. Gate each panel **null-safe on its own sub-key** (`if (extras && extras.scoreboard)` — `opts.extras` has no default; a bare `extras.helpdesk` throws on the no-extras path) from **independent try/catches** in the route (a scoreboard-gather throw must not drop the helpdesk panel). The panel MUST be added to **BOTH** `public/it-review.html` AND `docs/reference/it-review-dashboard.template.html` with a **with-scoreboard render-backstop pass** (`tests/review-render.test.js`), or it ships **inert** (12/12 unit-green, 0 loops matched). The renderer resolves a plain key or **≤1 dot** and real tags use the **REAL FORM** (`hint-placeholder-*` attrs) — flatten each row to a single-dot `cells` array (mirror his `sbRows` `{val,bg,fg}`), never `{{ dims.x.value }}`. |
+| **Scoreboard: the 4 dimensions have 4 DIFFERENT reader shapes + a null-vs-0 rule** | `services/scoreboardData.js` glue: helpdesk `getCalendarMonthlyHelpdesk` returns **null (the whole object)** when a site has no `zoho_group` → guard the object before `.sla_res_pct`; meetings `insights().site_leaderboard[]` keys the code on **`.site`** (NOT `.site_code`) and `.score` is **0-1 and can be null** → `r.score==null ? null : r.score*100` (null×100=0 would be a false "measured zero"); inspections = the page's `ok/applicable` from `aggregate().findingStatus` (`[{status,n}]`), **month-scoped** (his `inspSiteRows` is all-time — stated in `sbuNote`, not a bug); assets via `scoreboardAliases.foldEffortByCode` (rows have NO asset-count → **simple mean** fold). **null = not measured (excluded from the renormalized weighted mean); 0 = measured zero (counts)** — the whole coverage contract depends on it. `getEffortLeaderboard`/`insights` fetched **once per window**, helpdesk/inspection per-site. |
+| **Scoreboard assets reconciliation is an in-code alias map, NOT a `site_module_codes` namespace** | `site_module_codes` PK is `(site_id, module)` — it CANNOT hold two `assets` labels (`Sabodala`+`MASSAWA`) for one site (SGO). So `services/scoreboardAliases.js` is an in-code map (AP label → meetings code, accent/case-folded) + a `foldEffortByCode` (simple mean when >1 label folds to one code — effort rows carry no asset-count to weight by). Unmatched label → assets dim **null** (coverage 3/4), never 0. |
+| **Scoreboard e-mail is PER-COORDINATOR (send-hygiene is a GROUP sender — copy only its scaffolding)** | `tools/reports/send-scoreboard.js` copies send-hygiene's gate-first/`require.main`-guard/`{decide,main}`-export/pg-init scaffolding but NOT its recipient model: `decideScoreboardSend` gates on the **arm flag ALONE** (`scoreboard_send_enabled==='1'` — recipients come from the directory, there is NO `scoreboard_recipients` config key); it **loops the sites**, `resolveRecipient(db, site, 'coordinator')` per site (null → skip unconfirmed), per-**(period, site)** dedup (`alreadySentToday(db,'scoreboard',site,period)`), per-site `highlightSite`. `record(db, {...})` takes the **leading db arg**. Armed OFF by default; `scoreboard_send_enabled` MUST be in `reportConfig.DEFAULTS`. Adding the `#ap-scoreboard` admin card touches the **4 admin-panel surfaces** (`_ADMIN_PANEL_IDS` + hash allowlist + rail role-gate + JS super-gate). |
 | **The Investment forecast's coverage % is a HEADLINE, not a footnote — and hardware eligibility is thin today** | Hardware forecast eligibility needs BOTH `acquisition_date` (~91% empty on the real export) AND a non-zero `purchase_cost` (~90% are `'0.00'`) AND a resolvable lifecycle policy, so the executive-facing forecast can rest on a **single-digit %** of the fleet. That is by design — the coverage banner (`N of M assets (X%)` + excluded breakdown) is the guardrail; NEVER present the forecast as comprehensive. It sharpens as site/office asset managers fill acquisition date + cost. The **eligibility gate is rate-INDEPENDENT** (`money.parseAmount(cost) > 0`, NOT `toUsd(cost,rate) > 0`) so coverage% can never move with the XOF→USD rate — the rate is applied ONLY to the summed amount. Coverage `pct = total>0 ? round(100×elig/total) : 0` (guard total=0). |
 | **Investment forecast: the two engines differ — hardware = depreciation life, software = expiry renewal (NO depreciation)** | `services/assetForecast.js` (PURE — no DB, `asOf` passed in). Hardware `buildHardwareForecast`: `replacement_year = acqYear + ceil(useful_life_months/12)` (life from `resolveForType(config, product_type)` on `asset_depreciation_config`), budget `= original_cost_usd × (1+uplift)^max(0,years_until)`. Software `buildSoftwareForecast`: a licence's cost falls due in its **expiry year**; a `license_option` matching `/subscription|annual|monthly|saas/i` (NOT `volume`) **recurs each year** through the horizon and NEVER goes to `beyond_horizon`; there is **no depreciation** for software. Three mutually-exclusive buckets on both: `<=cur`→`due_now`, `cur<..<=cur+horizon`→`years[]`, else→`beyond_horizon` (counted, NOT summed into `total_forecast_usd`). Software renewal amounts are `Math.round`ed for parity with hardware/history. |
 | **Investment readers: aliased `FROM assets a WHERE 1=1${_assetWhere}` for hardware, `_licenceWhere` (site/state/q) for software** | `_assetWhere` returns `' AND a.<col> = ?'` (`a.`-qualified) — so the assets SELECT MUST be `FROM assets a WHERE 1=1${_assetWhere(f)}` (a bare `FROM assets ${_assetWhere}` = `FROM assets AND a.site=?` → syntax error). `software_licenses` has **no manufacturer/product_type** column — the software forecast uses **`_licenceWhere`** (whitelists site / state→`license_state` / q→`license_name`,`vendor`), the INVERSE of the `software` catalog (which Software-compliance filters by manufacturer/q). So on the Investment tab **site+state narrow BOTH** hardware+software; **product_type/manufacturer narrow hardware ONLY** (the UI states this). Both `_assetWhere`/`_licenceWhere` return `{where, params}` — spread `...params`. |
