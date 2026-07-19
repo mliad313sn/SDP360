@@ -317,6 +317,7 @@
     <button class="tabbtn" role="tab" data-tab="hygiene" aria-selected="false">Hygiene</button>
     <button class="tabbtn" role="tab" data-tab="finance" aria-selected="false">Finance &amp; Licences</button>
     <button class="tabbtn" role="tab" data-tab="hardware" aria-selected="false">Hardware</button>
+    <button class="tabbtn" role="tab" data-tab="progress" aria-selected="false">Progress</button>
   </div>
 
   <!-- ── Shared filter bar ───────────────────────────────────────── -->
@@ -849,6 +850,104 @@
       </div>
       <div class="count-note" id="hw-countNote" style="display:none"></div>
     </div>
+
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       PANE: PROGRESS  (per-site effort trend)
+       ══════════════════════════════════════════════════════════════ -->
+  <section id="pane-progress" class="tabpane">
+
+    <div class="as-head" style="margin-bottom:var(--space-4,16px)">
+      <div class="sub">Per-site effort trend — data-quality progress over time</div>
+      <div class="spacer"></div>
+      <button class="btn btn-ghost" id="prog-snapBtn" style="display:none" title="Capture an effort snapshot for today (admin)">
+        <span class="icon icon-camera"></span> Capture snapshot now
+      </button>
+    </div>
+
+    <!-- Method note -->
+    <div class="count-note" id="prog-methodNote" style="border:1px solid var(--color-border,#dfe3e8);border-radius:var(--radius-md,6px);margin-bottom:var(--space-4,16px)">
+      Composite <strong>effort score</strong> = mean of six good-state rates
+      (cost · age · owner · scan · tag · enrolled). <strong>Δ vs ~30 days ago</strong> = effort made.
+    </div>
+
+    <!-- Empty / collecting-data state -->
+    <div class="empty" id="prog-empty" style="display:none">
+      <div style="font-size:32px;margin-bottom:8px">📈</div>
+      <div>Effort trends build up as nightly snapshots accumulate — check back after a few days.
+        Admins can capture a baseline now.</div>
+    </div>
+
+    <!-- Live content (hidden while empty) -->
+    <div id="prog-content">
+
+      <!-- Callouts -->
+      <div class="tiles" id="prog-callouts">
+        <div class="tile" id="prog-mostImproved" style="display:none;cursor:default">
+          <div class="tl" style="color:var(--edv-green,#1E8E3E)">Most improved</div>
+          <div class="tn" id="prog-mostImproved-site" style="font-size:22px">—</div>
+          <div class="td" id="prog-mostImproved-detail"></div>
+        </div>
+        <div class="tile" id="prog-needsAttention" style="display:none;cursor:default">
+          <div class="tl" style="color:var(--edv-red,#D90038)">Needs attention</div>
+          <div class="tn" id="prog-needsAttention-site" style="font-size:22px">—</div>
+          <div class="td" id="prog-needsAttention-detail"></div>
+        </div>
+      </div>
+
+      <!-- Leaderboard + trend chart -->
+      <div class="chart-grid">
+        <div class="chart-card">
+          <h3>Effort leaderboard</h3>
+          <div style="overflow:auto;max-height:320px">
+            <table class="list" id="prog-lbTable">
+              <thead>
+                <tr>
+                  <th class="num">Rank</th>
+                  <th>Site</th>
+                  <th class="num">Effort score</th>
+                  <th class="num">Δ (vs ~30d)</th>
+                </tr>
+              </thead>
+              <tbody id="prog-lbBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="chart-card">
+          <h3>Effort score over time</h3>
+          <div class="cwrap"><canvas id="prog-chartTrend"></canvas></div>
+        </div>
+      </div>
+
+      <!-- Per-site component detail (hidden until a row is clicked) -->
+      <div class="panel" id="prog-detail" style="display:none">
+        <div class="drill-head">
+          <h2 id="prog-detailTitle">Site detail</h2>
+          <div class="spacer"></div>
+          <button class="btn btn-ghost btn-sm" id="prog-detailReset" title="Show all sites">
+            <span class="icon icon-refresh-cw"></span> Show all sites
+          </button>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="list" id="prog-detailTable">
+            <thead>
+              <tr><th>Component</th><th class="num">Good-state rate</th></tr>
+            </thead>
+            <tbody id="prog-detailBody"></tbody>
+          </table>
+        </div>
+        <div class="count-note">
+          Latest-in-window good-state rate per component for this site (higher = cleaner register).
+        </div>
+      </div>
+
+      <!-- Filter note -->
+      <div class="count-note" id="prog-filterNote">
+        Effort is a per-site metric — only the <strong>Site</strong> filter applies on this tab.
+      </div>
+
+    </div><!-- /prog-content -->
 
   </section>
 
@@ -2172,15 +2271,246 @@
 </script>
 
 <!-- ══════════════════════════════════════════════════════════════════
+     PANE MODULE: PROGRESS  (window.PROG_PANE)
+     Per-site effort score, Δ (progression), leaderboard + multi-line trend.
+     ══════════════════════════════════════════════════════════════════ -->
+<script nonce="%%CSP_NONCE%%">
+(function () {
+  'use strict';
+  const API = '/api/assets/progress';
+  const TREND_MONTHS = 6;
+
+  let charts = {};
+  let selectedSite = null;
+
+  function authHeaders() {
+    const h = {};
+    let tok = null;
+    const at = window.__authToken;
+    if (typeof at === 'function') { try { tok = at(); } catch (_) {} }
+    else if (typeof at === 'string' && at) { tok = at; }
+    if (!tok) tok = localStorage.getItem('report_token');
+    if (tok) h['x-report-token'] = tok;
+    return h;
+  }
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[c]));
+  }
+  function qs(params) {
+    const sp = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) { if (v) sp.set(k, v); }
+    return sp.toString() ? '?' + sp.toString() : '';
+  }
+
+  const css = getComputedStyle(document.documentElement);
+  const CV = (name, fallback) => (css.getPropertyValue(name).trim() || fallback);
+  const COL = {
+    slate:  CV('--edv-slate',  '#3A4A60'),
+    blue:   CV('--edv-blue',   '#1E6FBF'),
+    green:  CV('--edv-green',  '#1E8E3E'),
+    amber:  CV('--color-warning', '#D97706'),
+    red:    CV('--edv-red',    '#D90038'),
+    purple: '#7C3AED',
+    teal:   '#0D9488',
+    pink:   '#DB2777',
+  };
+  const PALETTE = [COL.blue, COL.green, COL.amber, COL.purple, COL.teal, COL.red, COL.pink, COL.slate];
+  // Deterministic site → colour (hash the name into the palette).
+  function siteColor(site) {
+    let h = 0; const s = String(site || '');
+    for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+    return PALETTE[h % PALETTE.length];
+  }
+
+  function upsertChart(canvasId, config) {
+    if (charts[canvasId]) { charts[canvasId].destroy(); }
+    const ctx = document.getElementById(canvasId);
+    if (ctx) charts[canvasId] = new Chart(ctx, config);
+  }
+
+  // Δ badge markup: ▲ +N green (>0) · ▼ −N red (<0) · – grey (0) · — (null).
+  function deltaBadge(delta) {
+    if (delta == null) return '<span style="color:var(--color-text-muted,#6b7785)">—</span>';
+    if (delta > 0) return '<span style="color:var(--edv-green,#1E8E3E);font-weight:700">▲ +' + delta + '</span>';
+    if (delta < 0) return '<span style="color:var(--edv-red,#D90038);font-weight:700">▼ −' + Math.abs(delta) + '</span>';
+    return '<span style="color:var(--color-text-muted,#6b7785)">–</span>';
+  }
+
+  function renderLeaderboard(lb) {
+    const body = document.getElementById('prog-lbBody');
+    const rows = (lb && Array.isArray(lb.rows)) ? lb.rows : [];
+    if (!rows.length) {
+      body.innerHTML = '<tr><td colspan="4" style="color:var(--color-text-muted,#6b7785)">No effort snapshots yet.</td></tr>';
+      return;
+    }
+    body.innerHTML = rows.map(r => {
+      const sel = (r.site === selectedSite) ? ' style="background:var(--color-surface-alt,#f4f6f8)"' : '';
+      const dot = '<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:'
+        + siteColor(r.site) + ';margin-right:7px;vertical-align:middle"></span>';
+      return '<tr data-site="' + escapeHtml(r.site) + '" style="cursor:pointer"' + sel + '>'
+        + '<td class="num">' + escapeHtml(r.rank) + '</td>'
+        + '<td>' + dot + escapeHtml(r.site || '(no site)') + '</td>'
+        + '<td class="num"><strong>' + escapeHtml(r.effort_score) + '</strong></td>'
+        + '<td class="num">' + deltaBadge(r.delta) + '</td>'
+        + '</tr>';
+    }).join('');
+    body.querySelectorAll('tr[data-site]').forEach(tr =>
+      tr.addEventListener('click', () => selectSite(tr.getAttribute('data-site'))));
+  }
+
+  function renderCallouts(lb) {
+    const mi = document.getElementById('prog-mostImproved');
+    const na = document.getElementById('prog-needsAttention');
+    if (lb && lb.most_improved) {
+      mi.style.display = '';
+      document.getElementById('prog-mostImproved-site').textContent = lb.most_improved.site || '(no site)';
+      document.getElementById('prog-mostImproved-detail').innerHTML =
+        'score ' + escapeHtml(lb.most_improved.effort_score) + ' &nbsp; ' + deltaBadge(lb.most_improved.delta);
+    } else { mi.style.display = 'none'; }
+    if (lb && lb.needs_attention) {
+      na.style.display = '';
+      document.getElementById('prog-needsAttention-site').textContent = lb.needs_attention.site || '(no site)';
+      document.getElementById('prog-needsAttention-detail').innerHTML =
+        'score ' + escapeHtml(lb.needs_attention.effort_score) + ' &nbsp; ' + deltaBadge(lb.needs_attention.delta);
+    } else { na.style.display = 'none'; }
+  }
+
+  function renderTrend(trend) {
+    if (typeof Chart === 'undefined') { console.warn('Chart.js not loaded'); return; }
+    const dates = (trend && trend.dates) || [];
+    const sites = (trend && trend.sites) || [];
+    upsertChart('prog-chartTrend', {
+      type: 'line',
+      data: {
+        labels: dates,
+        datasets: sites.map(s => ({
+          label: s.site || '(no site)',
+          data: (s.scores || []).map(v => (v == null ? null : Number(v))),
+          borderColor: siteColor(s.site),
+          backgroundColor: siteColor(s.site),
+          spanGaps: false,          // null = break, NEVER drop to 0
+          tension: 0.25,
+          pointRadius: 3,
+        })),
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'nearest', intersect: false },
+        plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } },
+        scales: { y: { beginAtZero: true, suggestedMax: 100, ticks: { precision: 0 } } },
+      },
+    });
+  }
+
+  const COMP_LABELS = [
+    ['cost_pct', 'Cost'], ['age_pct', 'Age'], ['owner_pct', 'Owner'],
+    ['scan_pct', 'Scan'], ['tag_pct', 'Tag'], ['enrolled_pct', 'Enrolled'],
+  ];
+  function renderDetail(site, components) {
+    const panel = document.getElementById('prog-detail');
+    if (!site || !components) { panel.style.display = 'none'; return; }
+    panel.style.display = '';
+    document.getElementById('prog-detailTitle').textContent = site + ' — component detail';
+    const body = document.getElementById('prog-detailBody');
+    body.innerHTML = COMP_LABELS.map(([k, lbl]) => {
+      const v = components[k];
+      const pct = (v == null) ? null : Math.round(100 * Number(v));
+      const barW = (pct == null) ? 0 : Math.max(0, Math.min(100, pct));
+      const bar = '<span style="display:inline-block;width:120px;height:8px;border-radius:4px;'
+        + 'background:var(--color-border-subtle,#eef0f3);vertical-align:middle;margin-right:8px;overflow:hidden">'
+        + '<span style="display:block;height:100%;width:' + barW + '%;background:' + siteColor(site) + '"></span></span>';
+      return '<tr><td>' + escapeHtml(lbl) + '</td>'
+        + '<td class="num">' + bar + (pct == null ? '—' : escapeHtml(pct) + '%') + '</td></tr>';
+    }).join('');
+  }
+
+  // Click a leaderboard row → fetch that site's single-site trend (carries components).
+  async function selectSite(site) {
+    selectedSite = site;
+    // re-highlight the leaderboard row
+    document.querySelectorAll('#prog-lbBody tr[data-site]').forEach(tr =>
+      tr.style.background = (tr.getAttribute('data-site') === site) ? 'var(--color-surface-alt,#f4f6f8)' : '');
+    let trend = { dates: [], sites: [] };
+    try {
+      const r = await fetch(API + '/trend' + qs({ site, months: TREND_MONTHS }),
+        { credentials: 'same-origin', headers: authHeaders() });
+      if (r.ok) trend = await r.json();
+    } catch (e) { console.warn('progress site trend failed:', e); }
+    const entry = (trend.sites || []).find(s => s.site === site) || (trend.sites || [])[0];
+    renderDetail(site, entry ? entry.components : null);
+  }
+
+  function resetDetail() {
+    selectedSite = null;
+    document.getElementById('prog-detail').style.display = 'none';
+    document.querySelectorAll('#prog-lbBody tr[data-site]').forEach(tr => tr.style.background = '');
+  }
+
+  async function refresh(f) {
+    f = f || {};
+    let lb = { rows: [], most_improved: null, needs_attention: null };
+    let trend = { dates: [], sites: [] };
+    try {
+      const r = await fetch(API + '/leaderboard', { credentials: 'same-origin', headers: authHeaders() });
+      if (r.ok) lb = await r.json();
+    } catch (e) { console.warn('progress leaderboard failed:', e); }
+    try {
+      // Effort is per-site — only the Site filter applies on this tab.
+      const r = await fetch(API + '/trend' + qs({ site: f.site, months: TREND_MONTHS }),
+        { credentials: 'same-origin', headers: authHeaders() });
+      if (r.ok) trend = await r.json();
+    } catch (e) { console.warn('progress trend failed:', e); }
+
+    const collecting = ((trend.dates || []).length < 2) || !(lb.rows && lb.rows.length);
+    document.getElementById('prog-empty').style.display   = collecting ? 'block' : 'none';
+    document.getElementById('prog-content').style.display = collecting ? 'none' : 'block';
+
+    if (!collecting) {
+      renderLeaderboard(lb);
+      renderCallouts(lb);
+      renderTrend(trend);
+      // keep an open detail in sync (site may have dropped out of scope)
+      if (selectedSite && !(lb.rows || []).some(r => r.site === selectedSite)) resetDetail();
+    }
+  }
+
+  async function snapshotNow() {
+    const btn = document.getElementById('prog-snapBtn');
+    btn.disabled = true;
+    try {
+      const r = await fetch(API + '/snapshot', { method: 'POST', credentials: 'same-origin', headers: authHeaders() });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+    } catch (e) { console.warn('progress snapshot failed:', e); }
+    btn.disabled = false;
+    await refresh(window.__assetFilters ? window.__assetFilters() : {});
+  }
+
+  async function init(f) {
+    const btn = document.getElementById('prog-snapBtn');
+    if (window.__userHasRole && window.__userHasRole('admin')) {
+      btn.style.display = 'inline-flex';
+      btn.addEventListener('click', snapshotNow);
+    }
+    document.getElementById('prog-detailReset').addEventListener('click', resetDetail);
+    await refresh(f);
+  }
+
+  window.PROG_PANE = { init, refresh };
+})();
+</script>
+
+<!-- ══════════════════════════════════════════════════════════════════
      CONTROLLER — shared filter bar + tab switching + lazy-init
      ══════════════════════════════════════════════════════════════════ -->
 <script nonce="%%CSP_NONCE%%">
 (function () {
   'use strict';
 
-  const TABS = ['inventory', 'hygiene', 'finance', 'hardware'];
-  const PANE = { inventory: 'INV_PANE', hygiene: 'HYG_PANE', finance: 'FIN_PANE', hardware: 'HW_PANE' };
-  const inited = { inventory: false, hygiene: false, finance: false, hardware: false };
+  const TABS = ['inventory', 'hygiene', 'finance', 'hardware', 'progress'];
+  const PANE = { inventory: 'INV_PANE', hygiene: 'HYG_PANE', finance: 'FIN_PANE', hardware: 'HW_PANE', progress: 'PROG_PANE' };
+  const inited = { inventory: false, hygiene: false, finance: false, hardware: false, progress: false };
   let activeTab = 'inventory';
 
   function authHeaders() {
