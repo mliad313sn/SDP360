@@ -2393,6 +2393,23 @@ app.post('/api/assets/hygiene/send', requireReportSession, requireAdmin, async (
   }
 });
 
+// POST /api/reports/scoreboard/send?preview=1|0 — admin-driven Preview / Send-now
+// for the per-coordinator operational scoreboard email. send-scoreboard.main()
+// resolves db/cfg/board itself and is disarmed-safe: a disabled config returns
+// {sent:0,reason:'disabled'} WITHOUT touching SMTP or the directory.
+app.post('/api/reports/scoreboard/send', requireReportSession, requireAdmin, async (req, res) => {
+  const _truthy = v => v === '1' || v === 1 || v === true || v === 'true';
+  const preview = _truthy(req.query.preview) || _truthy(req.body?.preview);
+  const force = _truthy(req.query.force) || _truthy(req.body?.force);
+  try {
+    const sendScoreboard = require('./tools/reports/send-scoreboard');
+    res.json(await sendScoreboard.main({ preview, force }));
+  } catch (e) {
+    console.error('[api/reports/scoreboard/send]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── ASSETS · HARDWARE HEALTH (sub-project D) ─────────────────────────────
 // Fleet fitness views over the enriched inventory: low RAM, full system disk,
 // refresh-due, and workstations with no real monitor. Same session guard + same

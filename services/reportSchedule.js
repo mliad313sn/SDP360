@@ -9,12 +9,18 @@ const APP_ROOT = path.join(__dirname, '..');
 const NODE = process.execPath;
 const SEND_CLI = path.join(APP_ROOT, 'tools', 'reports', 'send-reports.js');
 const SEND_HYGIENE_CLI = path.join(APP_ROOT, 'tools', 'reports', 'send-hygiene.js');
+const SEND_SCOREBOARD_CLI = path.join(APP_ROOT, 'tools', 'reports', 'send-scoreboard.js');
 const DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
-const TYPES = ['coordinator', 'group', 'finance', 'hygiene'];
+const TYPES = ['coordinator', 'group', 'finance', 'hygiene', 'scoreboard'];
 
-// The hygiene digest has its own CLI (composes the Group-IT digest, no
-// coordinator directory); every other type routes through send-reports.js.
-function cliFor(report_type) { return report_type === 'hygiene' ? SEND_HYGIENE_CLI : SEND_CLI; }
+// The hygiene digest and the scoreboard email each have their own CLI (the
+// hygiene one composes the Group-IT digest; the scoreboard one loops per-site
+// coordinators); every other type routes through send-reports.js.
+function cliFor(report_type) {
+  if (report_type === 'hygiene') return SEND_HYGIENE_CLI;
+  if (report_type === 'scoreboard') return SEND_SCOREBOARD_CLI;
+  return SEND_CLI;
+}
 
 function _h(db) {
   const rdb = require('../reports-db');
