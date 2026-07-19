@@ -22,27 +22,38 @@ const tableExcel = require('./tableExcel');
 // Curated, ordered Assets columns. json_to_sheet keys off the FIRST row's key
 // order, so we project every asset row through this fixed shape — a stable
 // header row regardless of which enriched fields a given row happens to carry.
+//
+// Each entry is [headerKey, sourceField]. Identity/config columns keep their raw
+// field name as the header (stable contract). The finance + owner columns carry
+// a human-readable header mapping to the source field — money is the USD-CONVERTED
+// number the route computed (purchase_cost_usd/…), NOT the raw XOF string. No `$`
+// glyph is needed in a spreadsheet cell; the value is a plain USD number.
 const ASSET_COLUMNS = [
-  'asset_id',
-  'asset_name',
-  'product',
-  'product_type',
-  'manufacturer',
-  'site',
-  'state',
-  'serial_number',
-  'ram_total_gb',
-  'system_disk_gb',
-  'system_disk_free_pct',
-  'monitor_count',
-  'days_since_scan',
-  'last_scan_source',
-  'purchase_cost',   // RAW string — never money-formatted
+  ['asset_id', 'asset_id'],
+  ['asset_name', 'asset_name'],
+  ['product', 'product'],
+  ['product_type', 'product_type'],
+  ['manufacturer', 'manufacturer'],
+  ['site', 'site'],
+  ['state', 'state'],
+  ['serial_number', 'serial_number'],
+  ['ram_total_gb', 'ram_total_gb'],
+  ['system_disk_gb', 'system_disk_gb'],
+  ['system_disk_free_pct', 'system_disk_free_pct'],
+  ['monitor_count', 'monitor_count'],
+  ['days_since_scan', 'days_since_scan'],
+  ['last_scan_source', 'last_scan_source'],
+  ['Acquisition Date', 'acquisition_date'],
+  ['User', 'user_name'],
+  ['Department', 'department'],
+  ['Purchase (USD)', 'purchase_cost_usd'],   // USD-converted number (route computed)
+  ['Book value (USD)', 'book_value_usd'],
+  ['TCO (USD)', 'tco_usd'],
 ];
 
 function _projectAsset(r) {
   const out = {};
-  for (const c of ASSET_COLUMNS) out[c] = r == null ? null : (r[c] ?? null);
+  for (const [header, field] of ASSET_COLUMNS) out[header] = r == null ? null : (r[field] ?? null);
   return out;
 }
 

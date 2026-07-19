@@ -2240,12 +2240,23 @@ app.post('/api/sync/trigger/:job', requireReportSession, requireAdmin, async (re
 app.get('/api/assets/inventory', requireReportSession, async (req, res) => {
   try {
     const adb = require('./assets-db');
+    const money = require('./services/money');
     // Whitelist the filter keys the reader understands; values ride as bound params.
     const q = {};
     for (const k of ['site', 'state', 'product_type', 'manufacturer', 'q']) {
       if (req.query[k] != null && req.query[k] !== '') q[k] = String(req.query[k]);
     }
-    res.json(await adb.getEnrichedAssets(q));
+    // Response stays a BARE ARRAY (the page consumes Array.isArray(rows)); we add
+    // USD money fields per row. Reader returns raw XOF strings → convert once via
+    // the configured rate (never rate 1). Owner/date fields ride through unchanged.
+    const rows = await adb.getEnrichedAssets(q);
+    const rate = await _assetUsdRate();
+    res.json(rows.map(r => ({
+      ...r,
+      purchase_cost_usd: money.toUsd(r.purchase_cost, rate),
+      book_value_usd:    money.toUsd(r.current_book_value, rate),
+      tco_usd:           money.toUsd(r.total_cost_of_ownership, rate),
+    })));
   } catch (e) {
     console.error('[api/assets/inventory]', e.message);
     res.status(500).json({ error: e.message });
@@ -2277,12 +2288,20 @@ app.get('/api/assets/summary', requireReportSession, async (req, res) => {
 app.get('/api/assets/export.xlsx', requireReportSession, async (req, res) => {
   try {
     const adb = require('./assets-db');
+    const money = require('./services/money');
     const { buildAssetWorkbook } = require('./services/assetExcel');
     const q = {};
     for (const k of ['site', 'state', 'product_type', 'manufacturer', 'q']) {
       if (req.query[k] != null && req.query[k] !== '') q[k] = String(req.query[k]);
     }
-    const rows = await adb.getEnrichedAssets(q);
+    // Same USD conversion as /inventory so the workbook carries USD money, not raw XOF.
+    const rate = await _assetUsdRate();
+    const rows = (await adb.getEnrichedAssets(q)).map(r => ({
+      ...r,
+      purchase_cost_usd: money.toUsd(r.purchase_cost, rate),
+      book_value_usd:    money.toUsd(r.current_book_value, rate),
+      tco_usd:           money.toUsd(r.total_cost_of_ownership, rate),
+    }));
     const buf = buildAssetWorkbook(rows, []);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename="assets.xlsx"');
