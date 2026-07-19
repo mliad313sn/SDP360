@@ -27,9 +27,18 @@ const mk = (snapshot_date, site, effort_score, pcts) => ({
   effort_score,
 });
 
-// D1 is ≥30 days before D3, so the lookback baseline (asOf−30d = 2026-06-01) resolves
-// to D1 for the 3-snapshot sites.
-const D1 = '2026-06-01', D2 = '2026-06-20', D3 = '2026-07-01';
+// Dates are RELATIVE to today so the fixture ages with the clock — getEffortTrend
+// derives its window from new Date() ("last N months ending today"), so absolute
+// seed dates would silently fall out of a 6-month window on a future run. D3 = today
+// (= asOf), D1 = today−30d so it sits exactly on the lookback cutoff (asOf−30d) and
+// resolves as the baseline for the 3-snapshot sites (the `<= cutoff` boundary is
+// inclusive); D2 sits between. All three stay inside the 6-month trend window.
+const iso = (daysAgo) => {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() - daysAgo);
+  return d.toISOString().slice(0, 10);
+};
+const D1 = iso(30), D2 = iso(11), D3 = iso(0), ASOF = D3;
 const rows = [
   mk(D1, 'MANA', 40), mk(D2, 'MANA', 60), mk(D3, 'MANA', 70, { cost_pct: 0.9 }), // rising, known D3 pct
   mk(D1, 'HGO', 80), mk(D2, 'HGO', 75), mk(D3, 'HGO', 55),                        // falling
@@ -39,7 +48,7 @@ const rows = [
 adb.replaceTable('asset_effort_history', cols, rows);
 
 test('getEffortLeaderboard — scores, lookback baseline, delta, rank', () => {
-  const lb = adb.getEffortLeaderboard({ asOf: '2026-07-01' });
+  const lb = adb.getEffortLeaderboard({ asOf: ASOF });
   const by = Object.fromEntries(lb.rows.map(r => [r.site, r]));
 
   assert.strictEqual(by.MANA.effort_score, 70);
@@ -65,7 +74,7 @@ test('getEffortLeaderboard — scores, lookback baseline, delta, rank', () => {
 });
 
 test('getEffortLeaderboard — most_improved + needs_attention', () => {
-  const lb = adb.getEffortLeaderboard({ asOf: '2026-07-01' });
+  const lb = adb.getEffortLeaderboard({ asOf: ASOF });
   assert.ok(lb.most_improved, 'most_improved present');
   assert.strictEqual(lb.most_improved.site, 'MANA', 'max positive delta');
   assert.ok(lb.needs_attention, 'needs_attention present');
