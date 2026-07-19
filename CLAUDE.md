@@ -8,6 +8,52 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ## ⚡ Current state (as of 2026-07-19)
 
+> **Assets Investment & Forecast dashboard landed** (branch
+> `feat/assets-investment-forecast`, on top of the merged Assets module) — a
+> per-equipment-type **investment picture** to take to the business: a historical
+> spend curve + a forward forecast + **coverage-% transparency as a headline**, all
+> **additive**. A new **6th "Investment" tab** on the unified `public/assets.html`,
+> driven by the shared filter bar (filter **by equipment type** — the business ask).
+> Three things: **(1) historical curve** (hardware `purchase_cost` XOF→USD + software
+> licence `cost` by acquisition year, + cumulative). **(2) forward forecast** —
+> **hardware replacement** driven by **depreciation useful life** (each asset replaced
+> the year it passes end-of-life per `resolveForType` on the depreciation config),
+> budgeted **original cost × (1+uplift)^years-to-replacement** where uplift is the new
+> admin config knob **`asset_replacement_uplift_pct`** (default `'0'` = like-for-like);
+> **software renewal** driven by licence **expiry year** (subscriptions recur yearly;
+> **no depreciation** — a different engine, labelled as renewal). Assets/licences past
+> due land in a **"Due now"** bucket; those due after the horizon go to
+> **`beyond_horizon` (counted, not summed)**; the horizon is a **UI selector (3/5/10y,
+> default 5)**. **(3) coverage banners** stating the exact basis: *"Hardware forecast
+> based on N of M assets (X%) — acquisition date + cost + a lifecycle policy"* +
+> *"Software renewal based on N of M licences (Y%) with expiry + cost"* + the
+> excluded-reason breakdown — so a partial dataset is never over-read (it sharpens as
+> the Microsoft-contract data + site/office asset-manager updates land). **All logic is
+> in a PURE `services/assetForecast.js`** (`buildInvestmentHistory` /
+> `buildHardwareForecast` / `buildSoftwareForecast` — currency-agnostic, USD via
+> `money.js`, `asOf` passed in so it's unit-testable without a DB); dual-backend readers
+> `getInvestmentSummary` / `getInvestmentForecast` on `assets-db.js` (aliased
+> `FROM assets a WHERE 1=1${_assetWhere}`; software uses **`_licenceWhere` = site/state/q**,
+> NOT manufacturer/product_type — the licence table has neither); routes
+> `GET /api/assets/investment/{history,forecast,export.xlsx}` (`requireReportSession`,
+> horizon clamped [1,15], `asOf` resolved before the reader, forecast **echoes
+> `uplift_pct`** for the UI label). **Eligibility gates are rate-INDEPENDENT**
+> (`parseAmount>0`, not `toUsd>0`) so coverage% never moves with the FX rate. **Readers
+> exposed for later weekly/monthly report embedding** — NOT wired now. **Browser-verified**
+> (6 tabs, coverage <100% banners, curve + stacked forecast + beyond note, horizon
+> selector, product_type narrows hardware only, uplift 3%/yr label, export, empty-state,
+> zero console errors). **Regression**: `asset-forecast` (20) + `assets-investment-readers`
+> (5) + `assets-investment-routes.smoke` (7) + `report-config-uplift` all green;
+> await-precedence 5/5. **(Data reality: hardware eligibility needs acquisition_date
+> [~91% empty] AND non-zero cost [~90% `'0.00'`], so today's forecast may rest on a
+> single-digit % of the fleet — the coverage banner IS the guardrail.)** Plan:
+> `docs/superpowers/plans/2026-07-19-assets-investment-forecast.md`, spec:
+> `docs/superpowers/specs/2026-07-19-assets-investment-forecast-design.md`.
+>
+> ---
+
+## ⚡ Current state (as of 2026-07-19)
+
 > **Assets effort-trend dashboard landed** (branch `feat/assets-effort-trend`, on top
 > of the merged Assets module) — a per-site **asset-manager effort-over-time** view so
 > sites are visibly comparable in meetings (nobody wants to be the site making no
@@ -2782,6 +2828,10 @@ In normal use NO request hits this fallback. It's a safety net.
 
 | Pitfall | Rule |
 |---------|------|
+| **The Investment forecast's coverage % is a HEADLINE, not a footnote — and hardware eligibility is thin today** | Hardware forecast eligibility needs BOTH `acquisition_date` (~91% empty on the real export) AND a non-zero `purchase_cost` (~90% are `'0.00'`) AND a resolvable lifecycle policy, so the executive-facing forecast can rest on a **single-digit %** of the fleet. That is by design — the coverage banner (`N of M assets (X%)` + excluded breakdown) is the guardrail; NEVER present the forecast as comprehensive. It sharpens as site/office asset managers fill acquisition date + cost. The **eligibility gate is rate-INDEPENDENT** (`money.parseAmount(cost) > 0`, NOT `toUsd(cost,rate) > 0`) so coverage% can never move with the XOF→USD rate — the rate is applied ONLY to the summed amount. Coverage `pct = total>0 ? round(100×elig/total) : 0` (guard total=0). |
+| **Investment forecast: the two engines differ — hardware = depreciation life, software = expiry renewal (NO depreciation)** | `services/assetForecast.js` (PURE — no DB, `asOf` passed in). Hardware `buildHardwareForecast`: `replacement_year = acqYear + ceil(useful_life_months/12)` (life from `resolveForType(config, product_type)` on `asset_depreciation_config`), budget `= original_cost_usd × (1+uplift)^max(0,years_until)`. Software `buildSoftwareForecast`: a licence's cost falls due in its **expiry year**; a `license_option` matching `/subscription|annual|monthly|saas/i` (NOT `volume`) **recurs each year** through the horizon and NEVER goes to `beyond_horizon`; there is **no depreciation** for software. Three mutually-exclusive buckets on both: `<=cur`→`due_now`, `cur<..<=cur+horizon`→`years[]`, else→`beyond_horizon` (counted, NOT summed into `total_forecast_usd`). Software renewal amounts are `Math.round`ed for parity with hardware/history. |
+| **Investment readers: aliased `FROM assets a WHERE 1=1${_assetWhere}` for hardware, `_licenceWhere` (site/state/q) for software** | `_assetWhere` returns `' AND a.<col> = ?'` (`a.`-qualified) — so the assets SELECT MUST be `FROM assets a WHERE 1=1${_assetWhere(f)}` (a bare `FROM assets ${_assetWhere}` = `FROM assets AND a.site=?` → syntax error). `software_licenses` has **no manufacturer/product_type** column — the software forecast uses **`_licenceWhere`** (whitelists site / state→`license_state` / q→`license_name`,`vendor`), the INVERSE of the `software` catalog (which Software-compliance filters by manufacturer/q). So on the Investment tab **site+state narrow BOTH** hardware+software; **product_type/manufacturer narrow hardware ONLY** (the UI states this). Both `_assetWhere`/`_licenceWhere` return `{where, params}` — spread `...params`. |
+| **`asset_replacement_uplift_pct` lives in the FINANCE panel (`#ap-assets-finance`), NOT the deprec panel** | It MUST be in `reportConfig.DEFAULTS` (setConfig KEYS filter) AND its admin input MUST be in `#ap-assets-finance` (saved via the GENERIC `PUT /api/reports/config` → `setConfig`, the only path that persists arbitrary DEFAULTS keys, mirroring `xof_usd_rate`). The deprec panel's dedicated `PUT /api/assets/depreciation-config` writes ONLY `asset_depreciation_config` and would **silently discard** the uplift (forecast stays like-for-like, the "X%/yr" label a lie) — a trap no unit test catches. Both save+load lines required (a save-read with no element → `null.value` bricks the console). The route reads it via `_assetUpliftPct()` (a local-require helper mirroring `_assetUsdRate`, →fraction) and the forecast response **echoes `uplift_pct`** (the % value) for the UI label. |
 | **The effort-trend dashboard has NO history until snapshots accumulate — the source tables are full-replaced nightly, so `snapshotEffort` is the ONLY source of the trend** | `assets`/`asset_*` are DELETE+INSERT full-replaced each night → there is nothing to backfill. `asset_effort_history` grows one row per site **per day going forward**, written by `snapshotEffort()` chained after each assets sync. So on a fresh deploy the Progress tab is legitimately EMPTY until ≥2 snapshots exist — that is the collecting-data state, not a bug. Seed a baseline immediately with the admin **`POST /api/assets/progress/snapshot`** (the "Capture snapshot now" button), and remember the Δ only becomes meaningful once a snapshot ~30 days old exists (Δ = latest − the on/nearest-before-`asOf−30d` baseline; single-snapshot site → Δ null). Do NOT try to reconstruct history from the current tables — the point-in-time hygiene state of past days is gone. |
 | **The effort snapshot MUST `GROUP BY COALESCE(site,'')` and be CHAINED after `syncAllAssets()` — both are silent-failure traps** | `site` is nullable in `assets` (the enriched rollups already use `COALESCE(a.site,'')`); a bare `GROUP BY site` in `snapshotEffort` yields a NULL group → inserting NULL into `asset_effort_history.site` (NOT NULL PK) **throws**, and the sync's `.catch` swallows it → the Progress dashboard is **silently empty forever** with no signal. Always `GROUP BY COALESCE(site,'')` on both backends. Separately, the snapshot is fired via `syncAllAssets().then(() => snapshotEffort({})).catch(...)` — **chained after the sync resolves, never in parallel** (the sync DELETE+INSERTs, so a parallel snapshot reads the previous night's data / an empty table mid-tx / races the replace), and the `.catch` **logs** (a swallowed snapshot failure = a dead dashboard). The effort score reuses the `HYGIENE_KINDS` predicate strings **verbatim** (interpolated, never re-typed) so it can't drift; `ghost` is a stored detail column, NOT part of the score (`scan_pct` uses `never_scanned`). |
 | **BOM in `Assets.csv` / the AP `assets` export — unstripped, all 2473 assets silently drop** | The AP `assets` view's first header ships with a leading UTF-8 BOM: `﻿Asset ID` (U+FEFF). Read raw and the key is `﻿Asset ID`, so `columns['Asset ID']` maps to `undefined` → `asset_id` is null → the `pkCol` filter in `syncAssetView`/`DEFAULT_MAP` drops **every** row, and the table replaces to **0 with no error**. Any code that parses this export (the real-CSV `tests/assets-integration.test.js`, or any future CSV path) MUST strip a leading `﻿` before keying rows. This is the single assertion that proves the pipeline: `SELECT COUNT(*) FROM assets` = **2473**. |
