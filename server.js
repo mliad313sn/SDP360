@@ -2620,6 +2620,54 @@ app.get('/api/assets/software/export.xlsx', requireReportSession, async (req, re
   }
 });
 
+// ── ASSETS · PROGRESS (effort trend) ────────────────────────────────────────
+// Effort-trend views for the Progress dashboard tab. Same session guard as the
+// other assets routes; every dual-backend reader is awaited. The effort-history
+// table has NO product_type/state/manufacturer columns → only `site` narrows the
+// trend (whitelist below returns {} or {site} ONLY). The snapshot POST WRITES, so
+// it is admin-only.
+const _assetProgressFilters = (req) => {
+  const q = {};
+  if (req.query.site != null && req.query.site !== '') q.site = String(req.query.site);
+  return q;
+};
+
+app.get('/api/assets/progress/leaderboard', requireReportSession, async (req, res) => {
+  try {
+    const adb = require('./assets-db');
+    // asOf optional — the reader defaults to today when undefined.
+    res.json(await adb.getEffortLeaderboard({ asOf: req.query.asOf ? String(req.query.asOf) : undefined }));
+  } catch (e) {
+    console.error('[api/assets/progress/leaderboard]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/assets/progress/trend', requireReportSession, async (req, res) => {
+  try {
+    const adb = require('./assets-db');
+    // months: positive int, default 6 (guard NaN/≤0 → 6), capped at 36.
+    let months = parseInt(req.query.months, 10);
+    if (!Number.isFinite(months) || months <= 0) months = 6;
+    if (months > 36) months = 36;
+    res.json(await adb.getEffortTrend(_assetProgressFilters(req), { months }));
+  } catch (e) {
+    console.error('[api/assets/progress/trend]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST — captures an effort snapshot NOW (a manual "capture a point" for demos /
+// first baseline). Writes, so requireAdmin. Returns {date, sites}.
+app.post('/api/assets/progress/snapshot', requireReportSession, requireAdmin, async (req, res) => {
+  try {
+    res.json(await require('./assets-db').snapshotEffort({}));
+  } catch (e) {
+    console.error('[api/assets/progress/snapshot]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── ASSETS · DEPRECIATION (Depreciation sub-project, Task 2) ─────────────────
 // Book value + annual schedule computed from purchase_cost + acquisition_date +
 // the admin-managed depreciation config; money CONVERTED to USD via the SAME
