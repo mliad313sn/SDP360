@@ -32,7 +32,7 @@ All views are filterable by the shared Assets filter bar (**equipment type** = `
 - **`assets`** rows carry `acquisition_date`, `purchase_cost` (RAW XOF text, e.g. `'2,250,000.00'` / `'0.00'`), `product_type`, `site`, `state`, `manufacturer`, `months_since_acquisition`. Money → USD via `_assetUsdRate()` + `services/money.js` `parseAmount`/`toUsd` (never a SQL SUM/CAST — the raw text has commas; sqlite-lenient/pg-500 trap).
 - **Depreciation policy**: `services/depreciation.js` `resolveForType(config, product_type)` → `{ method, useful_life_months, salvage, decline_percent }`. `config` = the `asset_depreciation_config` JSON blob in `reportConfig` (global default + per-product-type overrides). This is the single source of the hardware replacement life.
 - **`software_licenses`** rows carry `cost` (RAW USD text via the sync transform), `expiry_date` (**`DD Mon YYYY`**, e.g. `'30 Jun 2025'` — parse with `new Date()`, NEVER `substr`/lexical/SQL-date, same trap as the licence readers), `license_option`, `installations_allowed`, `acquisition_date`, `organization_license`, `license_state`.
-- `_assetWhere(filters)` whitelists site/state/product_type/manufacturer/q on `assets`. The `software_licenses` table has no product_type/state/site → software honours **manufacturer/q only** (same caveat documented for Software compliance; the UI shows a "site/type filter N/A for software" note).
+- `_assetWhere(filters)` whitelists site/state/product_type/manufacturer/q on `assets`. **`software_licenses` is a SEPARATE table filtered by `_licenceWhere` (assets-db.js) — it whitelists `site`, `state`(→`license_state`), and `q`(→`license_name`/`vendor`); it has NO `manufacturer` or `product_type` column.** So the software forecast reuses `_licenceWhere` and honours **site / state / search** (NOT manufacturer, NOT product_type — the inverse of the `software` *catalog* used by Software-compliance). The UI note reads: "Software honours site / state / search only — the licence table has no product type or manufacturer."
 - `ASSETS_BACKEND=sqlite|postgres`; dual-backend readers dispatch first-statement; `tests/await-precedence.test.js` auto-covers them. New pure logic lives OUTSIDE the readers (in `assetForecast.js`) so it's unit-testable without a DB.
 
 ---
@@ -79,41 +79,46 @@ All logic is here — pure, currency handled by passing already-parsed numbers o
 **B. `buildHardwareForecast(assetRows, {config, rate, upliftPct, horizonYears, asOf})` →**
 ```
 {
-  years: [ { year, replacement_usd, count } ],     // asOf-year … asOf-year+horizon
-  due_now: { replacement_usd, count },             // assets already past end-of-life (year <= current)
-  total_forecast_usd,                              // due_now + horizon sum
+  years: [ { year, replacement_usd, count } ],     // currentYear+1 … currentYear+horizon (see below)
+  due_now: { replacement_usd, count },             // assets already past end-of-life (replacement_year <= currentYear)
+  beyond_horizon: { count, usd },                  // eligible assets whose replacement lands AFTER the horizon (I3 — surfaced, never dropped)
+  total_forecast_usd,                              // due_now + Σyears  (NOT beyond_horizon)
   coverage: { eligible, total, pct, excluded: { no_date, no_cost, no_life } },
 }
 ```
 Per asset:
-- Eligible iff parseable acquisition year AND non-zero parsed cost AND a resolvable `useful_life_months > 0` (from `resolveForType(config, product_type)`).
+- Eligible iff parseable acquisition year AND non-zero parsed cost AND a resolvable `useful_life_months > 0` (from `resolveForType(config, product_type)`). Eligibility is date+cost+life ONLY — it does NOT depend on the horizon (so `coverage.eligible` counts due_now + in-horizon + beyond_horizon assets).
 - `life_years = ceil(useful_life_months / 12)`; `replacement_year = acquisition_year + life_years`.
 - `years_until = replacement_year - currentYear(asOf)`.
 - `cost_usd = toUsd(purchase_cost, rate)`; `replacement_usd = cost_usd × (1 + upliftPct)^max(0, years_until)`.
-- If `replacement_year <= currentYear` → **`due_now`** bucket (`years_until` clamped to 0 for the uplift, i.e. no compounding into the past). Else bucket into `years[replacement_year]` if `replacement_year <= currentYear + horizonYears`; replacements beyond the horizon are omitted from `years` (they'd be a later plan) but the **count of beyond-horizon eligible assets is reported** in coverage/notes so nothing is silently dropped.
-- `excluded` counts assets failing each gate (a row can miss on multiple; count the FIRST failing reason so the buckets sum to `total − eligible`).
+- **Three mutually-exclusive buckets** (an asset is in exactly one): `replacement_year <= currentYear` → **`due_now`** (uplift exponent clamped to 0 — no compounding into the past). Else `currentYear < replacement_year <= currentYear + horizonYears` → **`years[replacement_year]`**. Else (`> currentYear + horizonYears`) → **`beyond_horizon`**. Because due_now absorbs `replacement_year == currentYear`, the `years[]` range is effectively **`currentYear+1 … currentYear+horizon`** (a currentYear column would always be empty — the UI shows a separate "Due now / overdue" column, so this is not a rendering defect).
+- **`coverage.eligible` is a superset of the $ shown**: it counts every date+cost+life asset (incl. beyond_horizon); `total_forecast_usd` only sums due_now + years. The coverage banner must read "% of equipment the forecast is BASED ON", never "% of the $ shown", and surface `beyond_horizon.count` explicitly so nothing looks dropped.
+- `excluded` counts INELIGIBLE assets by their FIRST failing gate (no_date → no_cost → no_life precedence) so `excluded.*` sum to `total − eligible` with no double-count.
 
 **C. `buildSoftwareForecast(licenceRows, {horizonYears, asOf})` →**
 ```
 {
-  years: [ { year, renewal_usd, count } ],         // asOf-year … asOf-year+horizon
-  due_now: { renewal_usd, count },                 // licences already expired (expiry year <= current)
-  total_forecast_usd,
-  recurring_note,                                   // e.g. "N subscription/annual licences recur yearly"
+  years: [ { year, renewal_usd, count } ],         // currentYear+1 … currentYear+horizon
+  due_now: { renewal_usd, count },                 // licences already expired (expiry_year <= current)
+  beyond_horizon: { count, usd },                  // single-renewal licences expiring after the horizon
+  total_forecast_usd,                              // due_now + Σyears
+  recurring_count,                                  // how many licences were treated as recurring subscriptions
   coverage: { eligible, total, pct, excluded: { no_expiry, no_cost } },
 }
 ```
 Per licence:
 - Eligible iff parseable expiry year AND non-zero cost.
-- `expiry_year <= currentYear` → **`due_now`** (already expired = renewal overdue). Else the cost lands in `years[expiry_year]` (if within horizon).
-- If `license_option` matches a subscription/annual pattern (`/subscription|annual|monthly|volume|saas/i` — pragmatic, tuned to the SDP option values) → the cost **recurs each year** from its first due year through the horizon (annualized). Otherwise a single renewal at expiry. `recurring_note` states how many were treated as recurring.
+- **Recurring vs single** by `license_option` regex `/subscription|annual|monthly|saas/i` (pragmatic, tunable — `volume` deliberately EXCLUDED: volume licensing is typically perpetual, not an annual sub; the regex is documented as a first pass to tune against real SDP option values).
+- **Single (non-recurring) licence:** `expiry_year <= currentYear` → `due_now`; `currentYear < expiry_year <= currentYear+horizon` → `years[expiry_year]`; else → `beyond_horizon`.
+- **Recurring (subscription) licence** — an annual cost through the horizon: it contributes ONE renewal to EACH year in `currentYear+1 … currentYear+horizon` (regardless of the exact expiry date — a live subscription renews every year). If ALREADY expired (`expiry_year <= currentYear`) it ALSO contributes its overdue renewal to `due_now` (the M1 interaction: expired sub = due_now once + each horizon year once — no double-count within a single year, because due_now is the current-year slot and `years[]` starts at currentYear+1). `recurring_count` states how many were treated this way.
 - Labelled **partial** everywhere via the coverage %.
 
-`upliftPct` is a fraction (e.g. `0.03`), parsed from the config string once in the reader.
+`upliftPct` is a fraction (e.g. `0.03`), parsed from the config percent string once in the reader (`Number(pctStr)/100`; blank/garbage → 0).
 
 ### Config
 
-- `reportConfig.DEFAULTS` gains **`asset_replacement_uplift_pct`** = `'0'` (string, percent value e.g. `'3'` = 3%/yr). MUST be added to `DEFAULTS` or `setConfig`'s `KEYS.includes` filter silently drops writes (documented trap). Admin-editable in the **Assets → depreciation/finance config** panel of the scope-organized console (`#ap-assets-deprec` or `#ap-assets-finance`), keeping its element id stable. The reader parses it → fraction; blank/garbage → 0 (never NaN).
+- `reportConfig.DEFAULTS` gains **`asset_replacement_uplift_pct`** = `'0'` (string, percent value e.g. `'3'` = 3%/yr). MUST be added to `DEFAULTS` or `setConfig`'s `KEYS.includes` filter silently drops writes (documented trap). Admin-editable in the **`#ap-assets-deprec`** panel (the replacement/life-driven knob belongs with depreciation), input id **`deprec-uplift-pct`** following the `xof_usd_rate` precedent. **Both the `getElementById('deprec-uplift-pct')` SAVE and LOAD lines must be added in the same edit** — an input with no save-read throws `null.value` and bricks the entire inline-JS console (documented trap). The reader parses it → fraction; blank/garbage → 0 (never NaN).
+- Routes read config via **`(await reportConfig.getConfig(rdb.db))`** (the folded DEFAULTS+overrides object — there is NO `reportConfig.get`; mirror `_deprecConfig` at server.js ~2709). `.asset_depreciation_config` → `depreciation.parseDepreciationConfig(...)`; `.asset_replacement_uplift_pct` → fraction.
 - Horizon is NOT config — it's a UI selector passed as `?horizon=` (validated server-side to an int in [1,15], default 5).
 
 ### Readers on `assets-db.js` (dual-backend, additive)
@@ -132,12 +137,12 @@ Per licence:
 
 ### UI — new "Investment" tab (6th) on `public/assets.html`
 
-The four tab-framework edits (`TABS`/`PANE`/`inited` + button + `<section id="pane-investment">`), a self-contained `INVEST_PANE` IIFE (own `authHeaders`/`escapeHtml`/`qs`/`upsertChart`, `inv2-`/`invf-` ids to avoid collision with Inventory's `inv-`, lazy-init, reads shared `filters()`):
+The four tab-framework edits (`TABS` += `'investment'` / `PANE` += `investment:'INVEST_PANE'` / `inited` += `investment:false` + button + `<section id="pane-investment">`), a self-contained `INVEST_PANE` IIFE (own `authHeaders`/`escapeHtml`/`qs`/`upsertChart`, `invf-` ids to avoid collision with Inventory's `inv-`, lazy-init, reads shared `filters()`):
 
 - **Coverage banners (headline)**: two prominent notes stating hardware forecast coverage (`X% of assets — N of M — have acquisition date + cost + a lifecycle policy`) and software renewal coverage (`Y% of licences carry expiry + cost`), each with the excluded-reason breakdown on hover/expand. This is the user's core ask, elevated.
 - **Historical investment curve** (line/area): hardware vs software per year + cumulative line.
 - **Forward forecast** (stacked bar per year over the selected horizon): hardware replacement + software renewal, with a leading **"Due now / overdue"** column. Horizon selector (3/5/10 yr). The uplift% in force is labelled ("prices grown 0%/yr" or "3%/yr").
-- **Filter note for software**: "Software honours manufacturer/search only — the licence catalog has no site/type."
+- **Filter note for software**: "Software honours site / state / search only — the licence table has no product type or manufacturer." (The software forecast uses `_licenceWhere`, NOT `_assetWhere`.)
 - Chart-click → `openAssetDrill` to the underlying rows (a year's replaced/renewing assets) with CSV export.
 - **Excel export** button → `/investment/export.xlsx`.
 - **Empty/insufficient-data state** when coverage is 0 (e.g. no dated+costed assets): a clear "not enough dated/costed records to forecast — see the Hygiene tab" rather than a blank chart.
@@ -152,8 +157,8 @@ The four tab-framework edits (`TABS`/`PANE`/`inited` + button + `<section id="pa
 ## Testing
 
 - **`tests/asset-forecast.test.js`** (pure `assetForecast.js`) — pinned cases:
-  - Hardware: asset acquired `2022`, product_type with 36-mo life, cost `1200`, uplift 0, asOf 2026 → past life → `due_now` count 1, replacement_usd 1200. Same with uplift 0.03 and a FUTURE due (acquired 2024, 60-mo life → 2029; years_until 3 → 1200×1.03^3). Coverage: a no-date + a no-cost + a no-life asset each land in the right excluded bucket and are NOT eligible.
-  - Software: licence expiry `'30 Jun 2027'` cost `500` → `years[2027].renewal_usd 500`; an expired `'30 Jun 2024'` → `due_now`; a subscription option recurs each year to horizon; a no-expiry / no-cost licence excluded. `DD Mon YYYY` parsed correctly (the licence-date trap).
+  - Hardware: asset acquired `2022`, product_type with 36-mo life, cost `1200`, uplift 0, asOf 2026 → past life → `due_now` count 1, replacement_usd 1200. A FUTURE due within horizon (acquired 2024, 60-mo life → 2029; asOf 2026 horizon 5; years_until 3 → `years[2029].replacement_usd = 1200×1.03^3` with uplift 0.03). A due-beyond-horizon asset (acquired 2025, 120-mo life → 2035) → `beyond_horizon.count 1`, NOT in `years`, NOT in `total_forecast_usd`, but IS in `coverage.eligible`. Coverage: a no-date + a no-cost + a no-life asset each land in the right excluded bucket (first-failing-gate) and are NOT eligible; `total===0` → pct 0 no NaN.
+  - Software: single licence expiry `'30 Jun 2027'` cost `500` → `years[2027].renewal_usd 500`; an expired single `'30 Jun 2024'` → `due_now`; a single expiring beyond horizon → `beyond_horizon`. A **recurring** subscription (`license_option='Subscription'`) contributes ONE renewal to EACH `years[currentYear+1..horizon]`; if that sub is already expired it ALSO adds to `due_now` (M1). A `volume` option is NOT treated as recurring. A no-expiry / no-cost licence excluded. `DD Mon YYYY` parsed correctly via `new Date()` (the licence-date trap).
   - History: gap-filled years; cumulative correct; coverage %.
 - **`tests/assets-investment-readers.test.js`** — dual-backend readers over a seeded `assets` + `software_licenses` (sqlite), asserting the reader wires the config/rate/uplift/horizon through to the pure builders and applies `_assetWhere` (product_type filter narrows hardware; manufacturer narrows software).
 - **`tests/assets-investment-routes.smoke.test.js`** — the 3 routes: 200 + shape; hostile `?horizon=abc`/`?q=' OR 1=1` safe; export PK-magic; no-session → 401/403.
@@ -163,6 +168,8 @@ The four tab-framework edits (`TABS`/`PANE`/`inited` + button + `<section id="pa
 
 ## Error handling / edge cases
 
+- **Coverage `pct = total > 0 ? round(100 × eligible/total) : 0`** — guard `total === 0` (no rows at all) so it never NaNs; pct can never exceed 100 (eligible ≤ total by construction).
+- **Data-reality expectation (set it with the user).** Hardware eligibility needs BOTH `acquisition_date` (~91% empty on the real export) AND a non-zero `purchase_cost` (~90% are `'0.00'`), so the hardware forecast may rest on a **single-digit %** of the fleet today. That is exactly why coverage is a headline + the empty-state exists — the deliverable is honest-partial, and it sharpens as the site/office asset managers fill in acquisition dates + costs. Do NOT present it as comprehensive; the coverage banner IS the guardrail.
 - Zero eligible rows → empty-but-valid shapes (`years:[]`, coverage pct 0) → UI empty-state, never a crash or a misleading 0-curve read as "we spent nothing".
 - Unparseable dates/costs → excluded + counted (never a NaN into a sum). `_yearOf`/`_expiryYearOf` return null on garbage.
 - `upliftPct` blank/garbage → 0. `horizonYears` out of range → clamped. `asOf` default today, resolved before the builder (the depreciation-asOf trap).
