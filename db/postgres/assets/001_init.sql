@@ -100,3 +100,29 @@ CREATE TABLE IF NOT EXISTS software (
   software_type TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_software_compliance_type ON software (compliance_type);
+
+-- Append-only daily effort-snapshot history (asset-manager effort trend).
+-- The source tables are full-replaced each night, so this is the ONLY source of
+-- the trend. One row per (snapshot_date, site); the six *_pct are good-state
+-- percentages (1 - worklist/total), effort_score = round(100 * mean of the six).
+-- `ghost` is stored as a detail column but is NOT part of the score.
+CREATE TABLE IF NOT EXISTS asset_effort_history (
+  snapshot_date TEXT NOT NULL,
+  site          TEXT NOT NULL,
+  total         INTEGER,
+  no_cost       INTEGER,
+  no_age        INTEGER,
+  no_owner      INTEGER,
+  never_scanned INTEGER,
+  no_asset_tag  INTEGER,
+  discovered    INTEGER,
+  ghost         INTEGER,
+  cost_pct      REAL,
+  age_pct       REAL,
+  owner_pct     REAL,
+  scan_pct      REAL,
+  tag_pct       REAL,
+  enrolled_pct  REAL,
+  effort_score  REAL,
+  PRIMARY KEY (snapshot_date, site)
+);

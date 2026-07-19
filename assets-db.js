@@ -84,7 +84,7 @@ async function _replaceTablePg(table, cols, rows) {
 // ASSET_VIEWS config (never user input), but it is still validated against the known
 // set before interpolation so it can never become an injection vector if a future caller
 // passes a variable. Dual-backend: pg fork is async, every caller MUST await it.
-const _ASSET_TABLES = new Set(['assets', 'asset_memory', 'asset_logical_drives', 'asset_monitors', 'software_licenses', 'software']);
+const _ASSET_TABLES = new Set(['assets', 'asset_memory', 'asset_logical_drives', 'asset_monitors', 'software_licenses', 'software', 'asset_effort_history']);
 function _assertTable(table) {
   if (!_ASSET_TABLES.has(table)) throw new Error(`countRows: unknown table "${table}" — not an Assets Foundation table`);
   return table;
@@ -939,6 +939,87 @@ async function _getSoftwareComplianceExceptionsPg(kind, filters = {}) {
   return _softwareExceptions(rows, kind);
 }
 
+// ─── Effort snapshot (asset-manager effort trend, Task 0) ───────────────────
+// The nightly job that snapshots each site's data-hygiene state into the
+// append-only asset_effort_history table. The source tables are full-replaced
+// each night → no history to backfill; this snapshot is the ONLY source of the
+// trend. Per site (total>0): six good-state percentages (1 - worklist/total,
+// inherently [0,1]) and effort_score = round(100 × mean of the six). `ghost` is
+// STORED as a detail column but is NOT part of the score (avoids double-counting
+// scan freshness — scan_pct uses never_scanned). The worklist COUNTs reuse the
+// EXACT HYGIENE_KINDS predicate strings (unqualified names resolve against the
+// single `assets` table), so the pg fork is byte-identical.
+//
+// C1: GROUP BY COALESCE(site,'') is MANDATORY — a bare GROUP BY site inserts a
+// NULL into the NOT NULL PK and throws. Null-site assets bucket into ''.
+const _EFFORT_AGG_SELECT = `SELECT COALESCE(site,'') AS site, COUNT(*) AS total,
+  SUM(CASE WHEN (${HYGIENE_KINDS.no_cost.where})       THEN 1 ELSE 0 END) AS no_cost,
+  SUM(CASE WHEN (${HYGIENE_KINDS.no_age.where})        THEN 1 ELSE 0 END) AS no_age,
+  SUM(CASE WHEN (${HYGIENE_KINDS.no_owner.where})      THEN 1 ELSE 0 END) AS no_owner,
+  SUM(CASE WHEN (${HYGIENE_KINDS.never_scanned.where}) THEN 1 ELSE 0 END) AS never_scanned,
+  SUM(CASE WHEN (${HYGIENE_KINDS.no_asset_tag.where})  THEN 1 ELSE 0 END) AS no_asset_tag,
+  SUM(CASE WHEN (${HYGIENE_KINDS.discovered.where})    THEN 1 ELSE 0 END) AS discovered,
+  SUM(CASE WHEN (${HYGIENE_KINDS.ghost.where})         THEN 1 ELSE 0 END) AS ghost
+FROM assets GROUP BY COALESCE(site,'')`;
+
+const _EFFORT_COLS = ['snapshot_date', 'site', 'total', 'no_cost', 'no_age', 'no_owner',
+  'never_scanned', 'no_asset_tag', 'discovered', 'ghost', 'cost_pct', 'age_pct', 'owner_pct',
+  'scan_pct', 'tag_pct', 'enrolled_pct', 'effort_score'];
+
+// Turn one aggregation row into a full history record. Skips total===0 (defensive
+// — a GROUP BY never yields it). Each pct = 1 - worklist/total, clamped to [0,1].
+// effort_score = round(100 × mean of the SIX pcts) — ghost is NOT in the mean.
+function _effortRecord(date, r) {
+  const total = Number(r.total);
+  if (!(total > 0)) return null;
+  const g = {
+    no_cost: Number(r.no_cost), no_age: Number(r.no_age), no_owner: Number(r.no_owner),
+    never_scanned: Number(r.never_scanned), no_asset_tag: Number(r.no_asset_tag),
+    discovered: Number(r.discovered), ghost: Number(r.ghost),
+  };
+  const clamp = (x) => Math.max(0, Math.min(1, x));
+  const cost_pct = clamp(1 - g.no_cost / total);
+  const age_pct = clamp(1 - g.no_age / total);
+  const owner_pct = clamp(1 - g.no_owner / total);
+  const scan_pct = clamp(1 - g.never_scanned / total);   // never_scanned, NEVER ghost
+  const tag_pct = clamp(1 - g.no_asset_tag / total);
+  const enrolled_pct = clamp(1 - g.discovered / total);
+  const effort_score = Math.round(100 * (cost_pct + age_pct + owner_pct + scan_pct + tag_pct + enrolled_pct) / 6);
+  return {
+    snapshot_date: date, site: String(r.site), total, ...g,
+    cost_pct, age_pct, owner_pct, scan_pct, tag_pct, enrolled_pct, effort_score,
+  };
+}
+
+// Snapshot every site's effort state for `asOf` (default today). Upsert per site
+// so re-running the same day is idempotent. Returns {date, sites}.
+function snapshotEffort(opts = {}) {
+  if (ASSETS_BACKEND === 'postgres') return _snapshotEffortPg(opts);
+  const date = (opts && opts.asOf) || new Date().toISOString().slice(0, 10);
+  const db = getDB();
+  const records = db.prepare(_EFFORT_AGG_SELECT).all().map(r => _effortRecord(date, r)).filter(Boolean);
+  const ph = _EFFORT_COLS.map(() => '?').join(', ');
+  const insert = db.prepare(`INSERT OR REPLACE INTO asset_effort_history (${_EFFORT_COLS.join(', ')}) VALUES (${ph})`);
+  const tx = db.transaction((recs) => { for (const m of recs) insert.run(..._EFFORT_COLS.map(c => m[c])); });
+  tx(records);
+  return { date, sites: records.length };
+}
+async function _snapshotEffortPg(opts = {}) {
+  const date = (opts && opts.asOf) || new Date().toISOString().slice(0, 10);
+  const h = pgHandle();
+  const records = (await h.prepare(_EFFORT_AGG_SELECT).all()).map(r => _effortRecord(date, r)).filter(Boolean);
+  const ph = _EFFORT_COLS.map(() => '?').join(', ');   // pgDb translates ? -> $N
+  const setCols = _EFFORT_COLS.filter(c => c !== 'snapshot_date' && c !== 'site')
+    .map(c => `${c} = EXCLUDED.${c}`).join(', ');
+  const insertSql = `INSERT INTO asset_effort_history (${_EFFORT_COLS.join(', ')}) VALUES (${ph})
+    ON CONFLICT (snapshot_date, site) DO UPDATE SET ${setCols}`;
+  return h.runTransaction(async () => {
+    const ins = h.prepare(insertSql);
+    for (const m of records) await ins.run(..._EFFORT_COLS.map(c => m[c]));
+    return { date, sites: records.length };
+  });
+}
+
 if (ASSETS_BACKEND !== 'postgres') getDB();   // eager sqlite init at require, like tracker-db
 module.exports = {
   getDB, initPgAssets, pgHandle, ASSETS_BACKEND, replaceTable, countRows,
@@ -949,4 +1030,5 @@ module.exports = {
   getAssetDepreciation, getDepreciationSchedule,
   classifyLicenceType, getLicenceSummary, getLicenceExceptions, LICENCE_KINDS,
   classifySoftwareCompliance, getSoftwareComplianceSummary, getSoftwareComplianceExceptions, SOFTWARE_KINDS,
+  snapshotEffort,
 };
