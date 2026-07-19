@@ -2624,7 +2624,10 @@ app.get('/api/assets/software/export.xlsx', requireReportSession, async (req, re
 // filters; the config PUT validates before persisting (requireAdmin).
 const _assetDeprecFilters = (req) => {
   const q = {};
-  for (const k of ['site']) {
+  // Honour ALL shared filters (the reader's _assetWhere applies every one). Same
+  // whitelist as _assetFinanceFilters so the Finance book-value band + schedule
+  // chart narrow on Manufacturer / Product Type / State, not just Site.
+  for (const k of ['site', 'state', 'product_type', 'manufacturer', 'q']) {
     if (req.query[k] != null && req.query[k] !== '') q[k] = String(req.query[k]);
   }
   return q;
