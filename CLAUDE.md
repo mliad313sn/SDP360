@@ -8,6 +8,49 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ## ⚡ Current state (as of 2026-07-19)
 
+> **Assets effort-trend dashboard landed** (branch `feat/assets-effort-trend`, on top
+> of the merged Assets module) — a per-site **asset-manager effort-over-time** view so
+> sites are visibly comparable in meetings (nobody wants to be the site making no
+> effort), all **additive**. A new **append-only `asset_effort_history` table** (PK
+> `(snapshot_date, site)`) + a nightly **`snapshotEffort({asOf})`** job that, per site
+> with `total>0`, snapshots the six data-hygiene good-state rates and a **composite
+> effort score = `round(100 × mean(cost_pct, age_pct, owner_pct, scan_pct, tag_pct,
+> enrolled_pct))`** (each pct = `1 − worklist/total`, reusing the **`HYGIENE_KINDS`
+> predicate strings verbatim** so it can't drift; `ghost` is stored as a detail column
+> but is **NOT** in the score — `scan_pct` uses `never_scanned`). **Idempotent per day**
+> (sqlite `INSERT OR REPLACE` / pg `ON CONFLICT (snapshot_date,site) DO UPDATE`) and
+> **`GROUP BY COALESCE(site,'')`** (a bare `GROUP BY site` would insert NULL into the
+> NOT-NULL PK → the snapshot throws → the sync's `.catch` swallows it → the dashboard
+> is silently empty forever). The snapshot is **CHAINED after `syncAllAssets()`
+> resolves** (`.then(() => snapshotEffort({}))`, never in parallel — the sync
+> DELETE+INSERTs, so a parallel snapshot would read the old/empty/mid-tx table) on
+> BOTH the nightly cron (04:30) and the manual `POST /api/sync/trigger/assets`; the
+> `.catch` **logs** (never silently swallows). Readers `getEffortLeaderboard({asOf})`
+> (per-site `{effort_score, baseline_score, delta, rank}` + `most_improved` /
+> `needs_attention`) and `getEffortTrend({site},{months})` (per-site score series
+> aligned to sorted dates, **`null` for gaps NOT 0**, + 6-component detail when a single
+> `site` is given), dual-backend, await-covered. **Δ is a ~30-day LOOKBACK** (baseline =
+> the snapshot on/nearest-before `asOf−30d`, else earliest-in-window; single-snapshot →
+> null) — a day-over-day Δ on nightly cadence would read ≈0 in exactly the meeting this
+> exists for. Surfaces: `GET /api/assets/progress/{leaderboard,trend}` +
+> `POST /api/assets/progress/snapshot` (`requireReportSession`; snapshot `requireAdmin`
+> — a manual "capture a point" for demos/first baseline) + a **5th "Progress" tab** on
+> the unified `public/assets.html` (leaderboard with Δ badges · most-improved /
+> needs-attention callouts · multi-line trend chart `spanGaps:false` · per-site
+> component detail on row-click · empty/collecting-data state · admin "Capture snapshot
+> now"). **Progress is a per-site metric → only the Site filter applies** (the history
+> table has no product_type/state/manufacturer columns; a "site filter only" note is
+> shown). **Readers exposed for later weekly/monthly report integration** ("intégrer
+> plus tard") — NOT wired into reports now. **Browser-verified** (5 tabs, all 4 Δ
+> states, callouts, gap-breaks, component detail, empty-state, admin snapshot, site
+> filter; zero console errors). **Regression**: full assets suite (**154**) +
+> await-precedence 5/5 green. Plan:
+> `docs/superpowers/plans/2026-07-19-assets-effort-trend.md`.
+>
+> ---
+
+## ⚡ Current state (as of 2026-07-19)
+
 > **Assets UI polish (three fixes) landed** (branch `feat/assets-ui-polish`, on top
 > of the merged unified Assets module) — front-end + a small route/Excel change,
 > all **additive**. **(1) Finance charts now honour ALL shared filters** (was
@@ -2739,6 +2782,8 @@ In normal use NO request hits this fallback. It's a safety net.
 
 | Pitfall | Rule |
 |---------|------|
+| **The effort-trend dashboard has NO history until snapshots accumulate — the source tables are full-replaced nightly, so `snapshotEffort` is the ONLY source of the trend** | `assets`/`asset_*` are DELETE+INSERT full-replaced each night → there is nothing to backfill. `asset_effort_history` grows one row per site **per day going forward**, written by `snapshotEffort()` chained after each assets sync. So on a fresh deploy the Progress tab is legitimately EMPTY until ≥2 snapshots exist — that is the collecting-data state, not a bug. Seed a baseline immediately with the admin **`POST /api/assets/progress/snapshot`** (the "Capture snapshot now" button), and remember the Δ only becomes meaningful once a snapshot ~30 days old exists (Δ = latest − the on/nearest-before-`asOf−30d` baseline; single-snapshot site → Δ null). Do NOT try to reconstruct history from the current tables — the point-in-time hygiene state of past days is gone. |
+| **The effort snapshot MUST `GROUP BY COALESCE(site,'')` and be CHAINED after `syncAllAssets()` — both are silent-failure traps** | `site` is nullable in `assets` (the enriched rollups already use `COALESCE(a.site,'')`); a bare `GROUP BY site` in `snapshotEffort` yields a NULL group → inserting NULL into `asset_effort_history.site` (NOT NULL PK) **throws**, and the sync's `.catch` swallows it → the Progress dashboard is **silently empty forever** with no signal. Always `GROUP BY COALESCE(site,'')` on both backends. Separately, the snapshot is fired via `syncAllAssets().then(() => snapshotEffort({})).catch(...)` — **chained after the sync resolves, never in parallel** (the sync DELETE+INSERTs, so a parallel snapshot reads the previous night's data / an empty table mid-tx / races the replace), and the `.catch` **logs** (a swallowed snapshot failure = a dead dashboard). The effort score reuses the `HYGIENE_KINDS` predicate strings **verbatim** (interpolated, never re-typed) so it can't drift; `ghost` is a stored detail column, NOT part of the score (`scan_pct` uses `never_scanned`). |
 | **BOM in `Assets.csv` / the AP `assets` export — unstripped, all 2473 assets silently drop** | The AP `assets` view's first header ships with a leading UTF-8 BOM: `﻿Asset ID` (U+FEFF). Read raw and the key is `﻿Asset ID`, so `columns['Asset ID']` maps to `undefined` → `asset_id` is null → the `pkCol` filter in `syncAssetView`/`DEFAULT_MAP` drops **every** row, and the table replaces to **0 with no error**. Any code that parses this export (the real-CSV `tests/assets-integration.test.js`, or any future CSV path) MUST strip a leading `﻿` before keying rows. This is the single assertion that proves the pipeline: `SELECT COUNT(*) FROM assets` = **2473**. |
 | **`Purchase Cost($)` is XOF, `Software_Licenses.Cost($)` is USD — the `$` in the header LIES** | Two AP columns both labelled `…($)` carry **different currencies** (assets in XOF, licences in USD). Foundation never resolves this: both are stored **RAW TEXT** verbatim (`'970,000.00'`, `'55,920.00'`) and **no money is ever displayed** anywhere in the module. The per-table currency decision (or a `currency` column) is deferred to sub-project B/C. Do NOT coerce either to a number or render it as money in Foundation. |
 | **`Purchase Cost` is present-as-`'0.00'`, NEVER NULL — the no-cost filter is `IN ('0.00','0','')`, not `IS NULL`** | The column is **100% present** on the real export; the "no purchase cost" assets are the literal string `'0.00'` (**2246** of 2473 on 2026-07-17), not missing values. The no-cost predicate is `purchase_cost IN ('0.00','0','')` — an `IS NULL` filter matches **zero** rows and looks broken. (Note `DEFAULT_MAP` maps `''→null`, but no purchase-cost cell is empty, so null never occurs here.) |
