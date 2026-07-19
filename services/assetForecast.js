@@ -192,8 +192,13 @@ function buildSoftwareForecast(licenceRows, { horizonYears, asOf } = {}) {
   }
 
   coverage.pct = _pct(coverage.eligible, coverage.total);
+  // Round money to whole USD for parity with the hardware/history surfaces (Nit-2)
+  // — round each output field, then derive the total from the rounded parts so the
+  // invariant total === due_now + Σyears holds exactly.
   const years = [...yearMap.keys()].sort((a, b) => a - b)
-    .map((year) => ({ year, renewal_usd: yearMap.get(year).renewal_usd, count: yearMap.get(year).count }));
+    .map((year) => ({ year, renewal_usd: Math.round(yearMap.get(year).renewal_usd), count: yearMap.get(year).count }));
+  due_now.renewal_usd = Math.round(due_now.renewal_usd);
+  beyond_horizon.usd = Math.round(beyond_horizon.usd);
   const total_forecast_usd = due_now.renewal_usd + years.reduce((s, y) => s + y.renewal_usd, 0);
 
   return { years, due_now, beyond_horizon, total_forecast_usd, recurring_count, coverage };

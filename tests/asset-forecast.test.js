@@ -113,6 +113,20 @@ test('buildHardwareForecast CALL C — ServerLike 120mo, beyond horizon', () => 
   assert.strictEqual(out.coverage.eligible, 1);
 });
 
+test('buildHardwareForecast — horizon EDGE: ry === cur+horizon is IN years, ry+1 is beyond', () => {
+  // cur=2026, horizon=5 → edge year 2031. Laptop=60mo=5yr.
+  // acquired 2026 → ry 2031 (== cur+horizon) → years[2031]; acquired 2027 → ry 2032 → beyond.
+  const out = AF.buildHardwareForecast(
+    [
+      { acquisition_date: '2026-01-01', purchase_cost: '1000', product_type: 'Laptop' }, // ry 2031
+      { acquisition_date: '2027-01-01', purchase_cost: '1000', product_type: 'Laptop' }, // ry 2032
+    ],
+    { config, rate: 1, upliftPct: 0, horizonYears: 5, asOf: '2026-07-01' });
+  assert.deepStrictEqual(out.years, [{ year: 2031, replacement_usd: 1000, count: 1 }], 'edge year 2031 is IN years, not beyond');
+  assert.strictEqual(out.beyond_horizon.count, 1, 'ry 2032 is beyond');
+  assert.strictEqual(out.total_forecast_usd, 1000);
+});
+
 test('buildHardwareForecast CALL D — exclusions (no_date, no_cost)', () => {
   const out = AF.buildHardwareForecast(
     [
@@ -161,6 +175,19 @@ test('buildSoftwareForecast S3 — perpetual beyond horizon', () => {
   assert.deepStrictEqual(out.years, []);
   assert.strictEqual(out.due_now.count, 0);
   assert.strictEqual(out.total_forecast_usd, 0);
+});
+
+test('buildSoftwareForecast — horizon EDGE: ey === cur+horizon is IN years, ey+1 is beyond', () => {
+  // cur=2026, horizon=5 → edge year 2031. Non-recurring perpetual.
+  const out = AF.buildSoftwareForecast(
+    [
+      { expiry_date: '30 Jun 2031', cost: '300', license_option: 'Perpetual' }, // == cur+horizon
+      { expiry_date: '30 Jun 2032', cost: '400', license_option: 'Perpetual' }, // beyond
+    ],
+    { horizonYears: 5, asOf: '2026-07-01' });
+  assert.deepStrictEqual(out.years, [{ year: 2031, renewal_usd: 300, count: 1 }], 'edge year 2031 is IN years, not beyond');
+  assert.strictEqual(out.beyond_horizon.count, 1, 'ey 2032 is beyond');
+  assert.strictEqual(out.total_forecast_usd, 300);
 });
 
 test('buildSoftwareForecast S4 — recurring (Subscription) in-horizon fills every year', () => {
