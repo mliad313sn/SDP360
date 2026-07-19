@@ -661,6 +661,48 @@ textarea.input { min-height: 90px; resize: vertical; }
     </div>
     </sc-if>
 
+    <!-- 6c. SCOREBOARD OPÉRATIONNEL — OURS, additive. A 4-dimension weighted
+         composite (helpdesk · inspections · réunions · actifs), DISTINCT from
+         his "Score programme" (sbDims) above. Rides in via buildReviewVals'
+         optional `extras` arg and never enters his score. Gated WHOLLY on
+         sbuRows so the degrade path (no extras) renders nothing at all.
+         NB: never write a literal control tag in a comment — the renderer's tag
+         scan reads RAW text and does not skip comments. -->
+    <sc-if value="{{ sbuRows }}" hint-placeholder-val="{{ true }}">
+    <div style="padding:28px 32px; border-bottom:2px solid var(--color-divider)">
+      <div style="display:flex; align-items:baseline; gap:16px; flex-wrap:wrap">
+        <h2 style="font-family:var(--font-heading); font-weight:700; font-size:22px; margin:0">Scoreboard opérationnel — 4 dimensions (helpdesk · inspections · réunions · actifs)</h2>
+        <div style="font-size:13px; color:var(--color-neutral-600)">Moyenne flotte <strong>{{ sbuNote.fleet_avg }}</strong> · Meilleure progression <strong>{{ sbuNote.most_improved }}</strong> · À surveiller <strong>{{ sbuNote.needs_attention }}</strong></div>
+      </div>
+      <table class="table" style="width:100%; margin-top:16px; border-collapse:collapse">
+        <thead><tr>
+          <th style="text-align:left; padding:8px 10px 8px 0; width:34px">#</th>
+          <th style="text-align:left; padding:8px 10px">Site</th>
+          <th style="text-align:right; padding:8px 10px">Global</th>
+          <th style="text-align:center; padding:8px 10px">Helpdesk</th>
+          <th style="text-align:center; padding:8px 10px">Inspections</th>
+          <th style="text-align:center; padding:8px 10px">Réunions</th>
+          <th style="text-align:center; padding:8px 10px">Actifs</th>
+          <th style="text-align:right; padding:8px 0 8px 10px">Δ</th>
+        </tr></thead>
+        <tbody>
+          <sc-for list="{{ sbuRows }}" as="r" hint-placeholder-count="6">
+            <tr style="border-top:1px solid var(--color-neutral-300)">
+              <td style="padding:8px 10px 8px 0; font-weight:700; color:var(--color-neutral-500)">{{ r.rank }}</td>
+              <td style="padding:8px 10px"><span style="font-family:var(--font-heading); font-weight:700">{{ r.name }}</span> <span style="color:var(--color-neutral-500); font-size:12px">{{ r.code }}</span></td>
+              <td style="padding:6px 10px; text-align:right"><span style="display:inline-block; min-width:32px; padding:4px 12px; font-family:var(--font-heading); font-weight:700; font-size:16px; background:{{ r.scoreBg }}; color:{{ r.scoreFg }}">{{ r.score }}</span></td>
+              <sc-for list="{{ r.cells }}" as="c" hint-placeholder-count="4">
+                <td style="padding:6px 4px; text-align:center"><div style="padding:8px 4px; font-weight:700; font-size:14px; background:{{ c.bg }}; color:{{ c.fg }}">{{ c.val }}</div></td>
+              </sc-for>
+              <td style="padding:8px 0 8px 10px; text-align:right; font-weight:700; color:{{ r.deltaColor }}">{{ r.delta }}</td>
+            </tr>
+          </sc-for>
+        </tbody>
+      </table>
+      <div style="font-size:12px; color:var(--color-neutral-600); margin-top:10px">{{ sbuNote.text }}</div>
+    </div>
+    </sc-if>
+
     <!-- 7. PROJECTS + DATA QUALITY -->
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:2px; background:var(--color-divider); border-bottom:2px solid var(--color-divider)">
       <div style="background:var(--color-bg); padding:28px 32px">

@@ -788,7 +788,10 @@ function buildReviewVals(D, opts = {}) {
   // Note what this block does NOT do: it reads nothing back into comps/sbs/
   // codes. Nothing here can reach the score.
   const ex = {};
-  if (extras) {
+  // Null-safe SUB-KEY gates — opts.extras has no default, so a bare
+  // `extras.helpdesk` throws on the no-extras path. Each panel gates on its own
+  // sub-key so a scoreboard-only (or helpdesk-only) call adds only its keys.
+  if (extras && extras.helpdesk) {
     const w = extrasWindows(period);
     ex.hdRows = hdRowsOf(codes, extras, c => siteOf(c).name);
     // BOTH windows, stated plainly: two different spans in one panel reads as a
@@ -798,6 +801,48 @@ function buildReviewVals(D, opts = {}) {
     ex.hdNote = 'Helpdesk over ' + fmt(w.hdFrom) + ' – ' + fmt(w.hdTo) + ' (follows the period selector) · '
       + 'changes over the last 90 days (' + fmt(w.chgFrom) + ' – ' + fmt(w.chgTo) + ', fixed) · '
       + 'group-scoped · not part of the site score.';
+  }
+  // ── OUR extras — the operational Scoreboard panel (additive) ──────────────
+  // A 4-dimension weighted composite (helpdesk · inspections · réunions ·
+  // actifs), DISTINCT from his "Score programme" (sbDims). Exactly TWO added
+  // keys — sbuRows + sbuNote (an object carrying the callouts, bound single-dot
+  // in the template). It reads nothing back into sbs/comps/codes: nothing here
+  // can reach his score.
+  if (extras && extras.scoreboard) {
+    const sb = extras.scoreboard;
+    // RAG → cell colours (mirrors the sbDims panel's ragPts palette).
+    const ragBg = { green: '#dcefe2', amber: '#f5e7c8', red: 'var(--color-accent-100)' };
+    const ragFg = { green: G, amber: '#7a5510', red: RD };
+    ex.sbuRows = sb.rows.map((r) => ({
+      rank: r.rank == null ? DASH : r.rank,
+      name: r.name,
+      code: r.code,
+      score: r.score == null ? DASH : r.score,
+      scoreBg: r.rag ? (ragBg[r.rag] || 'var(--color-bg)') : 'var(--color-bg)',
+      scoreFg: r.rag ? (ragFg[r.rag] || 'var(--color-text)') : NEUTRAL,
+      delta: r.delta == null ? DASH : (r.delta > 0 ? '▲ +' + r.delta : (r.delta < 0 ? '▼ −' + Math.abs(r.delta) : '–')),
+      deltaColor: r.delta == null ? NEUTRAL : (r.delta > 0 ? G : (r.delta < 0 ? RD : NEUTRAL)),
+      // Flatten dims to a single-dot `cells` array (the renderer resolves ≤1
+      // dot — {{ c.val }} works, {{ dims.x.value }} renders empty).
+      cells: ['helpdesk', 'inspections', 'meetings', 'assets'].map((d) => {
+        const c = r.dims[d];
+        return {
+          // Display-only rounding (meetings score×100 can be fractional); the
+          // weighted composite itself keeps full precision upstream.
+          val: c == null ? DASH : Math.round(c.value),
+          bg: c == null ? 'var(--color-bg)' : (ragBg[c.rag] || 'var(--color-bg)'),
+          fg: c == null ? NEUTRAL : (ragFg[c.rag] || 'var(--color-text)'),
+        };
+      }),
+    }));
+    ex.sbuNote = {
+      text: '4 dimensions pondérées (helpdesk 40 % · inspections 20 % · réunions 20 % · actifs 20 %), '
+        + 'renormalisées sur les dimensions présentes · RAG 75/55 · conformité inspections sur le mois '
+        + 'courant (≠ tout-historique) · scoreboard = mois courant · complément additif, hors score programme.',
+      fleet_avg: sb.fleet_avg == null ? DASH : sb.fleet_avg,
+      most_improved: (sb.most_improved && sb.most_improved.name) || DASH,
+      needs_attention: (sb.needs_attention && sb.needs_attention.name) || DASH,
+    };
   }
 
   return {

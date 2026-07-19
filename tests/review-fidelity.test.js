@@ -105,6 +105,27 @@ test('WITH extras, the added keys are exactly the declared allowlist', () => {
   assert.strictEqual(base.length, 61);
 });
 
+// The operational scoreboard rides the SAME extras path, additively. With BOTH
+// helpdesk and scoreboard extras, the added keys extend to exactly four — the
+// two helpdesk keys plus the two scoreboard keys — and nothing else. Guards the
+// allowlist so a future accidental key fails loudly here.
+test('WITH scoreboard extras, the added keys are exactly [hdNote, hdRows, sbuNote, sbuRows]', () => {
+  const { buildSiteScoreboard } = require('../services/siteScoreboard');
+  const st = { view: 'dashboard', period: 'week', site: 'ALL' };
+  const base = Object.keys(ours(st));
+  const withExtras = Object.keys(ours(Object.assign({}, st, {
+    extras: {
+      helpdesk: { HGO: { created: 40, resolved: 35, backlog: 5, sla_overdue: 2, major_incidents: 1 } },
+      changes: {},
+      scoreboard: buildSiteScoreboard(
+        [{ code: 'SML', name: 'Lafigué', helpdesk: 90, inspections: 80, meetings: 70, assets: 60 }], {}),
+    },
+  })));
+  assert.deepStrictEqual(withExtras.filter((k) => !base.includes(k)).sort(),
+    ['hdNote', 'hdRows', 'sbuNote', 'sbuRows']);
+  assert.strictEqual(base.length, 61);
+});
+
 // The whole surface, not one screen: every view × period × site combination the
 // controls can reach. `period` drives windows() (4 different cur/prev windows),
 // `site` drives filterSite (rescoping every panel), `view` drives the isX flags.

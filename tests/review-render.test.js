@@ -136,6 +136,33 @@ test('BACKSTOP: the real template leaves no unprocessed control tags, in any vie
   }
 });
 
+// The additive scoreboard panel adds its own <sc-for>/<sc-if> loops to the real
+// template. Without extras those loops sit inside a FALSY sc-if and are dropped
+// unparsed — so the existing backstop can't catch a broken scoreboard tag. This
+// pass supplies scoreboard extras so the panel's loops are actually rendered
+// against docs/reference/it-review-dashboard.template.html.
+test('BACKSTOP: the scoreboard panel loops render against the real template (with extras)', () => {
+  const fs = require('fs'); const path = require('path');
+  const tpl = fs.readFileSync(path.join(__dirname, '..', 'docs', 'reference', 'it-review-dashboard.template.html'), 'utf8');
+  const markup = tpl.slice(tpl.indexOf('</helmet>') + '</helmet>'.length);
+  assert.ok(markup.length > 50000, 'markup region extraction failed — check the </helmet> marker');
+
+  const EM = require('./fixtures/em-data.json');
+  const { buildReviewVals } = require('../services/reviewDashboard');
+  const { buildSiteScoreboard } = require('../services/siteScoreboard');
+  const scoreboard = buildSiteScoreboard(
+    [{ code: 'SML', name: 'Lafigué', helpdesk: 90, inspections: 80, meetings: 70, assets: 60 }], {});
+  const vals = buildReviewVals(EM, { view: 'dashboard', period: 'week', site: 'ALL', asOf: '2026-07-14', extras: { scoreboard } });
+  const out = renderTemplate(markup, vals);
+  assert.ok(!/<sc-for/.test(out), 'unprocessed sc-for survived — the scoreboard panel loops do not match the real tags');
+  assert.ok(!/<sc-if/.test(out), 'unprocessed sc-if survived');
+  assert.ok(!/\{\{/.test(out), 'unsubstituted binding survived (a two-dot bind?)');
+  assert.ok(!/hint-placeholder/.test(out), 'hint attribute leaked into the output');
+  // Prove the panel actually rendered — its heading and the SML row.
+  assert.ok(out.includes('Scoreboard opérationnel'), 'the scoreboard panel heading did not render');
+  assert.ok(out.includes('Lafigué'), 'the scoreboard row did not render');
+});
+
 test('bindings inside attributes are escaped too', () => {
   assert.strictEqual(renderTemplate('<div style="color:{{ c }}"></div>', { c: '#2f7d4f' }),
     '<div style="color:#2f7d4f"></div>');

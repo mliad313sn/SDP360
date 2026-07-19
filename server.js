@@ -4806,6 +4806,25 @@ app.get('/api/reports/review-data', requireReportSession, async (req, res) => {
     let extras;
     try { extras = await loadReviewExtras(codesOf(D), extrasWindows(period)); }
     catch (e) { console.error('[review] extras failed — rendering without the panel:', e.message); }
+    // OUR operational Scoreboard panel — additive, gathered in a SEPARATE
+    // try/catch so a reader failure drops only this panel (its sc-if hides it),
+    // never his 61-key page. The month is derived from asOf. deps wire the glue
+    // reader to the REAL module functions.
+    try {
+      const d = new Date(asOf + 'T00:00:00Z');
+      const month = { year: d.getUTCFullYear(), m: d.getUTCMonth() + 1 };
+      const rdb = require('./reports-db');
+      const deps = {
+        listSiteModuleCodes: rdb.listSiteModuleCodes,
+        getCalendarMonthlyHelpdesk: rdb.getCalendarMonthlyHelpdesk,
+        getMeetingsInsights: (a) => require('./meetings-db').insights(a),
+        getInspectionAggregate: (a) => require('./inspection-db').aggregate(a),
+        getEffortLeaderboard: require('./assets-db').getEffortLeaderboard,
+      };
+      const sd = await require('./services/scoreboardData').loadScoreboardData({ month, asOf, deps });
+      const sb = require('./services/siteScoreboard').buildSiteScoreboard(sd.perSite, { prev: sd.prev });
+      extras = Object.assign(extras || {}, { scoreboard: sb });
+    } catch (e) { console.error('[review scoreboard]', e && e.message); }
     res.json(buildReviewVals(D, { view, period, site, asOf, extras }));
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
