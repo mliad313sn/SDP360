@@ -6,6 +6,45 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ---
 
+## ⚡ Current state (as of 2026-07-19)
+
+> **Assets UI polish (three fixes) landed** (branch `feat/assets-ui-polish`, on top
+> of the merged unified Assets module) — front-end + a small route/Excel change,
+> all **additive**. **(1) Finance charts now honour ALL shared filters** (was
+> Site-only). Root cause was **TWO layers**: `FIN_PANE` in `public/assets.html`
+> passed only `{site: siteVal()}` to the finance/depreciation endpoints (not the
+> full `window.__assetFilters()`), AND the depreciation route helper
+> `_assetDeprecFilters` in `server.js` whitelisted only `site` (finance's helper
+> already whitelisted all 5) — **fixed both**, so State/Product-Type/Manufacturer
+> now narrow the fleet-finance band + book-value chart + depreciation schedule.
+> Licences/Software deliberately unchanged (product_type/state/hardware-manufacturer
+> don't map to a software catalog). **(2) Inventory table + Excel gained 6 columns**:
+> Acquisition Date · User · Department · Purchase (USD) · Book value (USD) · TCO
+> (USD). The `/api/assets/inventory` route (and `/export.xlsx`) now convert the
+> raw-XOF money columns to USD via `_assetUsdRate()` + `money.toUsd`, adding per-row
+> `purchase_cost_usd`/`book_value_usd`/`tco_usd` (the inventory reader already
+> returned `a.*` incl. `acquisition_date`/`user_name`/`department`).
+> `services/assetExcel.js` `ASSET_COLUMNS` reworked to `[header, field]` pairs with
+> the 6 new columns (raw XOF `purchase_cost` dropped from the sheet in favour of the
+> USD column). The inventory response **stays a BARE ARRAY** (`INV_PANE` consumes
+> `Array.isArray(rows)?rows:[]`) — the `*_usd` fields are added per-row, not wrapped.
+> **(3) Every Assets chart segment is clickable → a drill modal with CSV export**
+> (mirrors index.html's `_openTicketDrillModal`). A shared
+> `openAssetDrill({title,columns,rows,filename})` in `assets.html` renders a modal +
+> an Export CSV (UTF-8 BOM, CRLF, quote-escaped). Charts wired via a label→drill map:
+> by-site bars → `/inventory?site=`, hardware by-kind → `/hardware/exceptions?kind=`,
+> software donut → `/software/exceptions?kind=`, licence expiry donut →
+> `/licences/exceptions?kind=`, hygiene charts → inventory/exceptions. The licence
+> FAMILY donut + the depreciation SCHEDULE line are **intentionally not wired** (no
+> clean per-slice row set); existing tile-click drills preserved. **Browser-verified
+> all three** (Manufacturer=Dell narrows the finance band/chart/schedule; the 6
+> inventory columns show converted USD + owner; chart-click modals export CSV).
+> **Regression**: assets suite (**148**) green. Plan:
+> `docs/superpowers/plans/2026-07-19-assets-ui-polish.md`.
+> **NOT merged** — branch ready for review.
+>
+> ---
+
 ## ⚡ Current state (as of 2026-07-18)
 
 > **Assets Hardware Health (sub-project D) landed** (branch
@@ -2726,6 +2765,9 @@ In normal use NO request hits this fallback. It's a safety net.
 | **The software count columns hold the literal string `'N/A'` on ~9780 rows, NOT empty — never `CAST` them in SQL** | `Installations` / `Installations Allowed` are `'N/A'` on every unmetered title (~9780 rows). `CAST('N/A' AS INTEGER)` **500s on pg** (strict) and **returns 0 on sqlite** (lenient) — the documented sqlite-green/pg-500 trap. **All classification and purchased-vs-installed comparison is done IN JS** via a `toInt`→null helper (no SQL `CAST`/`SUM`), mirroring the licence readers. Any new software predicate comparing a count column MUST parse in JS, not SQL. |
 | **Trust SDP's `Compliance Type` as the verdict, NOT a raw `Installations>Allowed` comparison** | The raw delta happens to agree on this data, but SDP's `Compliance Type` factors **CAL / downgrade rights**, so an ORed raw `installed > allowed` comparison would **falsely flag downgrade-covered titles** as under-licensed. `under_licensed` exceptions = **`Compliance Type` only** (no raw-delta OR). `SOFTWARE_KINDS` = `under_licensed`/`over_licensed`/`managed`; the classifier reads the SDP verdict, never re-derives it. |
 | **BOM on `﻿Software ID` — same trap as `Assets.csv`** | The `software` view's first header ships with a leading UTF-8 BOM (`﻿Software ID`, U+FEFF); unstripped, `columns['Software ID']` is `undefined` → every row's pk is null → table replaces to **0** silently. The strip lives in the **CSV-parse layer, NOT `DEFAULT_MAP`**. The single assertion that proves it: `tests/assets-integration` counts **9830** software rows (+ **32** Under-Licensed) off the real `tests/fixtures/assets/Software.csv`. |
+| **A shared-filter that "doesn't bite" a tab is usually TWO layers** | When a shared filter narrows some Assets tabs but not another, suspect BOTH the front-end pane AND the route helper. The pane must pass the **full `window.__assetFilters()`** (not just `{site}`) to the endpoint, AND the route's filter-whitelist helper must **include the key**. The finance-charts bug (2026-07-19) was exactly this pair: `FIN_PANE` passed only `{site}` to finance/depreciation, and `_assetDeprecFilters` in `server.js` whitelisted only `site` while its reader already applied all 5 via `_assetWhere`. **Fix both** — the reader already supports them; whitelisting a key the reader ignores does nothing, and passing a key the whitelist drops does nothing. |
+| **The `/api/assets/inventory` response is a BARE ARRAY — add per-row fields, never wrap it** | `INV_PANE` consumes `Array.isArray(rows)?rows:[]`, so the inventory route MUST return a bare array. Add new per-row fields (like the `*_usd` money columns) **onto each row**; wrapping the payload in `{rows:[…]}` breaks the page silently (renders empty). Inventory money is converted **XOF→USD in the ROUTE** via `_assetUsdRate` + `money.toUsd` (`purchase_cost_usd`/`book_value_usd`/`tco_usd`) — the raw XOF `purchase_cost`/etc. stay on the row too (only the Excel sheet drops raw XOF in favour of the USD column). |
+| **Assets chart segments drill via `openAssetDrill` (modal + CSV export)** | Every clickable Assets chart segment routes through the shared `openAssetDrill({title,columns,rows,filename})` in `public/assets.html`, wired by a **label→{endpoint,kind,columns} map** (by-site→`/inventory?site=`, hardware→`/hardware/exceptions?kind=`, software→`/software/exceptions?kind=`, licence expiry→`/licences/exceptions?kind=`, hygiene→inventory/exceptions). Slices with **no clean per-slice row set skip silently** (the licence FAMILY donut, the depreciation SCHEDULE line, OK/Compliant slices). The CSV is **UTF-8 BOM + CRLF + quote-escaped** (mirrors index.html's `exportCSV`). Existing tile-click drills are preserved — don't collapse them into the chart map. |
 | **The IT Review's Helpdesk & Changes panel is OUR addition — the authoritative `D` has no helpdesk concept at all** | His dashboard is meetings + inspection only; there is no helpdesk or changes anywhere in `D`. The panel therefore rides in via `buildReviewVals(D, opts)`'s **optional `opts.extras`**, precisely so that calling **without** extras still emits **exactly his 61 keys** and `tests/review-fidelity.test.js` keeps proving the port. **Never fold extras into `D`, and never let them reach the score** — the Leaderboard/Scoreboard keep his numbers. `tests/review-fidelity.test.js` guards **both** sides of that door: the no-extras call deep-equals his oracle at 61 keys, and a second test pins the WITH-extras additions to a **declared allowlist** (`['hdNote','hdRows']`) so a future accidental key silently polluting his contract fails loudly. Label the panel as a complement, never as part of his model. |
 | **Per-site helpdesk AND changes both scope by GROUP — never by `site`** | `request_records.tech_group` and `change_records.group_name`, both comma-split from `sites.zoho_group` (resolved via `getSiteIdByModuleCode('meetings', code)`). **Never `request_records.site` / `change_records.site_id`** — `site` is free-form and unreliable (`'HOUNDE'`, `'Hounde Mine'`, `'Ouaga'` vs `'Ouagadougou'`); `change_records.group_name` is populated on 291/295 rows. The reader takes a **`site_id`** and resolves the group *internally* — so a binder passing `s.zoho_group` where `s.site_id` belongs yields `undefined` → an **all-zero block with no error**, which `_safe` then swallows. Copy the `helpdesk` binder (`siteReportDeps.js:40-44`) and change only the reader call. |
 | **The change outcome is NOT in `status`/`closure_code` — and there is already a classifier; do NOT write a second one** | `closure_code` is **NULL on 82%** of rows, and `'Successful'`/`'Failed'` appear in **neither** `status` nor `closure_code`. The outcome lives in **`udf_json`** (`UDF:Change Implementation Outcome` / `UDF:Review decision`). The shipped classifier is `_changeOutcome`/`_tallyChanges` at **`public/executive-report.html:5053-5090`** — its own header comment documents the exact bug a naive `status`/`closure_code` reader causes ("the deck builder reported a different success number than the live scorecard"). **Port it verbatim** (`reports-db.js` `_changeOutcome`/`_computeSiteChanges`). Three counter-intuitive facts: the bucket is **`'success'`, not `'successful'`**; **no signal → `'pending'`, never `null`**; and `UDF:Review decision` **short-circuits on `'rework'` ONLY** — priority is per-VALUE, not per-field, so outcome beats review's success/cancel. `executed = successful + partial + failed(incl. backed_out) + cancelled` → **187 / 91.4%** on the snapshot, which **deliberately diverges** from this file's own denominator-doctrine line (`175 / 97.7%`, cancelled excluded). **Agreeing with the deck the team already reads beats agreeing with a doc line** — that divergence is the decision, not a bug. `failed` already merges `backed_out` and `pending` already merges `rework`; the raw counts survive only under `buckets`. |
