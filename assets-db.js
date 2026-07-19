@@ -1020,6 +1020,141 @@ async function _snapshotEffortPg(opts = {}) {
   });
 }
 
+// ─── Effort trend readers (Task 2) ─────────────────────────────────────────
+// Consumed by the Progress dashboard (+ later reports). Both dual-backend; the
+// history table is tiny (one row per site per day), so we SELECT the window and
+// aggregate in JS rather than in SQL. Pure builders (_buildLeaderboard/_buildTrend)
+// are shared by both backends → the pg forks stay byte-identical.
+
+function _addDaysStr(dateStr, days) {
+  const d = new Date(dateStr + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+function _monthsAgoStr(months) {
+  const now = new Date();
+  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - months, now.getUTCDate()));
+  return d.toISOString().slice(0, 10);
+}
+
+// Leaderboard = one entry per site with a snapshot on/before asOf: latest effort_score,
+// a 30-day-lookback baseline, delta, and a score-desc rank. Baseline = the snapshot
+// ON or NEAREST-BEFORE (asOf−30d); if none that old, the EARLIEST in window. When the
+// baseline resolves to the SAME snapshot as latest (a single-snapshot site, or a site
+// whose only ≥30d-old snapshot IS the latest) there is nothing to compare against, so
+// baseline_score/delta are null. most_improved = the max POSITIVE delta (null if none);
+// needs_attention = the lowest score<50 with delta<=0 (tie → lowest delta; null if none).
+function _buildLeaderboard(histRows, asOf) {
+  if (!histRows || histRows.length === 0) return { rows: [], most_improved: null, needs_attention: null };
+  const cutoff = _addDaysStr(asOf, -30);
+  const bySite = new Map();   // site -> snaps[] ascending by date (SQL ORDER BY guarantees it)
+  for (const r of histRows) {
+    if (!bySite.has(r.site)) bySite.set(r.site, []);
+    bySite.get(r.site).push({ date: r.snapshot_date, score: Number(r.effort_score) });
+  }
+  const rows = [];
+  for (const [site, snaps] of bySite) {
+    const latest = snaps[snaps.length - 1];
+    const old = snaps.filter(x => x.date <= cutoff);
+    const baselineSnap = old.length ? old[old.length - 1] : snaps[0];
+    let baseline_score = null, delta = null;
+    if (baselineSnap !== latest) {          // reference-equal ⇒ nothing to compare against
+      baseline_score = baselineSnap.score;
+      delta = Math.round(latest.score - baseline_score);
+    }
+    rows.push({ site, effort_score: latest.score, baseline_score, delta, rank: 0 });
+  }
+  rows.sort((a, b) => (b.effort_score - a.effort_score) || (a.site < b.site ? -1 : a.site > b.site ? 1 : 0));
+  rows.forEach((r, i) => { r.rank = i + 1; });
+  let most_improved = null;
+  for (const r of rows) {
+    if (r.delta != null && r.delta > 0 && (most_improved == null || r.delta > most_improved.delta)) most_improved = r;
+  }
+  let needs_attention = null;
+  for (const r of rows) {
+    if (r.effort_score < 50 && r.delta != null && r.delta <= 0) {
+      if (needs_attention == null || r.effort_score < needs_attention.effort_score ||
+          (r.effort_score === needs_attention.effort_score && r.delta < needs_attention.delta)) {
+        needs_attention = r;
+      }
+    }
+  }
+  return { rows, most_improved, needs_attention };
+}
+function getEffortLeaderboard(opts = {}) {
+  if (ASSETS_BACKEND === 'postgres') return _getEffortLeaderboardPg(opts);
+  const asOf = (opts && opts.asOf) || new Date().toISOString().slice(0, 10);
+  const rows = getDB().prepare(
+    `SELECT snapshot_date, site, effort_score FROM asset_effort_history
+     WHERE snapshot_date <= ? ORDER BY site, snapshot_date`).all(asOf);
+  return _buildLeaderboard(rows, asOf);
+}
+async function _getEffortLeaderboardPg(opts = {}) {
+  const asOf = (opts && opts.asOf) || new Date().toISOString().slice(0, 10);
+  const h = pgHandle();
+  const rows = await h.prepare(
+    `SELECT snapshot_date, site, effort_score FROM asset_effort_history
+     WHERE snapshot_date <= ? ORDER BY site, snapshot_date`).all(asOf);
+  return _buildLeaderboard(rows, asOf);
+}
+
+// Trend = {dates, sites}. `dates` are the distinct snapshot_date values in the last
+// `months` months (ascending). Each site's `scores` are ALIGNED to `dates` — a date the
+// site has no snapshot on is `null` (a gap = "no snapshot", NEVER a false 0). The history
+// table has NO product_type/state/manufacturer columns → only `filters.site` can narrow.
+// A single-site filter also attaches `components` = that site's LATEST-in-window six pcts
+// (for the detail-on-click panel).
+function _buildTrend(rows, singleSite) {
+  if (!rows || rows.length === 0) return { dates: [], sites: [] };
+  const dateSet = new Set();
+  const bySite = new Map();   // site -> Map<date, row>
+  for (const r of rows) {
+    dateSet.add(r.snapshot_date);
+    if (!bySite.has(r.site)) bySite.set(r.site, new Map());
+    bySite.get(r.site).set(r.snapshot_date, r);
+  }
+  const dates = [...dateSet].sort();
+  const sites = [];
+  for (const site of [...bySite.keys()].sort()) {
+    const dayMap = bySite.get(site);
+    const scores = dates.map(d => dayMap.has(d) ? Number(dayMap.get(d).effort_score) : null);
+    const entry = { site, scores };
+    if (singleSite) {
+      const latestDate = dates.filter(d => dayMap.has(d)).pop();
+      const lr = dayMap.get(latestDate);
+      entry.components = {
+        cost_pct: Number(lr.cost_pct), age_pct: Number(lr.age_pct), owner_pct: Number(lr.owner_pct),
+        scan_pct: Number(lr.scan_pct), tag_pct: Number(lr.tag_pct), enrolled_pct: Number(lr.enrolled_pct),
+      };
+    }
+    sites.push(entry);
+  }
+  return { dates, sites };
+}
+const _EFFORT_TREND_SELECT = `SELECT snapshot_date, site, effort_score,
+  cost_pct, age_pct, owner_pct, scan_pct, tag_pct, enrolled_pct
+  FROM asset_effort_history WHERE snapshot_date >= ?`;
+function getEffortTrend(filters, opts = {}) {
+  if (ASSETS_BACKEND === 'postgres') return _getEffortTrendPg(filters, opts);
+  const months = (opts && opts.months) || 6;
+  const site = (filters && filters.site != null && filters.site !== '') ? filters.site : null;
+  const cutoff = _monthsAgoStr(months);
+  const clause = site ? ' AND site = ?' : '';
+  const params = site ? [cutoff, site] : [cutoff];
+  const rows = getDB().prepare(`${_EFFORT_TREND_SELECT}${clause} ORDER BY site, snapshot_date`).all(...params);
+  return _buildTrend(rows, !!site);
+}
+async function _getEffortTrendPg(filters, opts = {}) {
+  const months = (opts && opts.months) || 6;
+  const site = (filters && filters.site != null && filters.site !== '') ? filters.site : null;
+  const cutoff = _monthsAgoStr(months);
+  const clause = site ? ' AND site = ?' : '';
+  const params = site ? [cutoff, site] : [cutoff];
+  const h = pgHandle();
+  const rows = await h.prepare(`${_EFFORT_TREND_SELECT}${clause} ORDER BY site, snapshot_date`).all(...params);
+  return _buildTrend(rows, !!site);
+}
+
 if (ASSETS_BACKEND !== 'postgres') getDB();   // eager sqlite init at require, like tracker-db
 module.exports = {
   getDB, initPgAssets, pgHandle, ASSETS_BACKEND, replaceTable, countRows,
@@ -1031,4 +1166,5 @@ module.exports = {
   classifyLicenceType, getLicenceSummary, getLicenceExceptions, LICENCE_KINDS,
   classifySoftwareCompliance, getSoftwareComplianceSummary, getSoftwareComplianceExceptions, SOFTWARE_KINDS,
   snapshotEffort,
+  getEffortLeaderboard, getEffortTrend,
 };
