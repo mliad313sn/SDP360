@@ -318,6 +318,7 @@
     <button class="tabbtn" role="tab" data-tab="finance" aria-selected="false">Finance &amp; Licences</button>
     <button class="tabbtn" role="tab" data-tab="hardware" aria-selected="false">Hardware</button>
     <button class="tabbtn" role="tab" data-tab="progress" aria-selected="false">Progress</button>
+    <button class="tabbtn" role="tab" data-tab="investment" aria-selected="false">Investment</button>
   </div>
 
   <!-- ── Shared filter bar ───────────────────────────────────────── -->
@@ -948,6 +949,81 @@
       </div>
 
     </div><!-- /prog-content -->
+
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       PANE: INVESTMENT  (historical spend + forward forecast by type)
+       ══════════════════════════════════════════════════════════════ -->
+  <section id="pane-investment" class="tabpane">
+
+    <div class="as-head" style="margin-bottom:var(--space-4,16px)">
+      <div class="sub">Investment — historical spend &amp; forward forecast by equipment type</div>
+      <div class="spacer"></div>
+      <label for="invf-horizon" style="font-size:12px;color:var(--color-text-secondary,#3a4452);font-weight:600">Horizon</label>
+      <select id="invf-horizon" style="min-width:110px;padding:7px 10px;border:1px solid var(--color-border,#dfe3e8);border-radius:var(--radius-md,6px);font-size:13px;background:var(--color-surface,#fff);color:var(--color-text-primary,#1F2A33)">
+        <option value="3">3 years</option>
+        <option value="5" selected>5 years</option>
+        <option value="10">10 years</option>
+      </select>
+      <a class="btn btn-ghost" id="invf-exportBtn" href="#" title="Download history + hardware + software forecast (current filters &amp; horizon) as Excel">
+        <span class="icon icon-download"></span> Export Excel
+      </a>
+    </div>
+
+    <!-- Empty / insufficient-data state -->
+    <div class="empty" id="invf-empty" style="display:none">
+      <div style="font-size:32px;margin-bottom:8px">📊</div>
+      <div>Not enough dated/costed records to forecast yet — fill acquisition date + cost
+        on the Inventory / Hygiene tabs, then come back.</div>
+    </div>
+
+    <!-- Live content (hidden while empty) -->
+    <div id="invf-content">
+
+      <!-- COVERAGE BANNERS (the headline — how much of the fleet the forecast covers) -->
+      <div class="as-band" id="invf-coverage" style="flex-direction:column;align-items:stretch;gap:12px">
+        <div class="count-note" id="invf-covHw"
+             style="border:2px solid var(--color-border,#dfe3e8);border-radius:var(--radius-md,6px);border-top:none;font-size:14px;padding:12px 14px">
+          <span id="invf-covHw-line" style="font-weight:700;color:var(--color-text-primary,#1F2A33)">Hardware forecast coverage —</span>
+          <span id="invf-covHw-excl" style="display:block;margin-top:4px;font-size:12px;color:var(--color-text-muted,#6b7785)"></span>
+        </div>
+        <div class="count-note" id="invf-covSw"
+             style="border:2px solid var(--color-border,#dfe3e8);border-radius:var(--radius-md,6px);border-top:none;font-size:14px;padding:12px 14px">
+          <span id="invf-covSw-line" style="font-weight:700;color:var(--color-text-primary,#1F2A33)">Software renewal coverage —</span>
+          <span id="invf-covSw-excl" style="display:block;margin-top:4px;font-size:12px;color:var(--color-text-muted,#6b7785)"></span>
+        </div>
+      </div>
+
+      <!-- Uplift label -->
+      <div class="count-note" id="invf-upliftNote"
+           style="border:1px solid var(--color-border,#dfe3e8);border-radius:var(--radius-md,6px);margin-bottom:var(--space-4,16px)"></div>
+
+      <!-- CHARTS -->
+      <div class="chart-grid" style="grid-template-columns:1fr">
+        <div class="chart-card">
+          <h3>Historical spend (USD)</h3>
+          <div class="cwrap"><canvas id="invf-chartHistory"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <h3>Forward forecast — replacement &amp; renewal (USD)</h3>
+          <div class="cwrap"><canvas id="invf-chartForecast"></canvas></div>
+          <div class="count-note" id="invf-beyondNote" style="display:none"></div>
+        </div>
+      </div>
+
+      <!-- Notes -->
+      <div class="count-note" id="invf-softNote"
+           style="border:1px solid var(--color-border,#dfe3e8);border-radius:var(--radius-md,6px);margin-bottom:var(--space-3,12px)">
+        Software honours <strong>site / state / search</strong> only — the licence table has no product type or manufacturer.
+      </div>
+      <div class="count-note" id="invf-methodNote"
+           style="border:1px solid var(--color-border,#dfe3e8);border-radius:var(--radius-md,6px)">
+        <strong>Hardware</strong> = each asset replaced at its depreciation end-of-life, budgeted at original cost × uplift.
+        <strong>Software</strong> = licence renewals at expiry (no depreciation).
+      </div>
+
+    </div><!-- /invf-content -->
 
   </section>
 
@@ -2502,15 +2578,253 @@
 </script>
 
 <!-- ══════════════════════════════════════════════════════════════════
+     PANE MODULE: INVESTMENT  (window.INVEST_PANE)
+     Historical spend curve + forward CAPEX forecast (hardware replacement +
+     software renewal) + coverage-% transparency headlines, by equipment type.
+     ══════════════════════════════════════════════════════════════════ -->
+<script nonce="%%CSP_NONCE%%">
+(function () {
+  'use strict';
+  const API = '/api/assets/investment';
+
+  let charts = {};
+
+  function authHeaders() {
+    const h = {};
+    let tok = null;
+    const at = window.__authToken;
+    if (typeof at === 'function') { try { tok = at(); } catch (_) {} }
+    else if (typeof at === 'string' && at) { tok = at; }
+    if (!tok) tok = localStorage.getItem('report_token');
+    if (tok) h['x-report-token'] = tok;
+    return h;
+  }
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[c]));
+  }
+  function qs(params) {
+    const sp = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) { if (v) sp.set(k, v); }
+    return sp.toString() ? '?' + sp.toString() : '';
+  }
+  function upsertChart(canvasId, config) {
+    if (charts[canvasId]) { charts[canvasId].destroy(); }
+    const ctx = document.getElementById(canvasId);
+    if (ctx) charts[canvasId] = new Chart(ctx, config);
+  }
+
+  const css = getComputedStyle(document.documentElement);
+  const CV = (name, fallback) => (css.getPropertyValue(name).trim() || fallback);
+  const COL = {
+    blue:  CV('--edv-blue',  '#1E6FBF'),
+    green: CV('--edv-green', '#1E8E3E'),
+    slate: CV('--edv-slate', '#3A4A60'),
+    amber: CV('--color-warning', '#D97706'),
+  };
+
+  // "1,234" USD, no fractional cents (budget figures) with a thousands separator.
+  const usd0 = v => (Number(v) || 0).toLocaleString('en-US', { maximumFractionDigits: 0 });
+  const num  = v => (Number(v) || 0).toLocaleString('en-US');
+  const usdAxis = v => '$' + Number(v).toLocaleString('en-US', { maximumFractionDigits: 0 });
+
+  function horizon() {
+    const n = parseInt(document.getElementById('invf-horizon').value, 10);
+    return Number.isFinite(n) ? n : 5;
+  }
+
+  // ── Coverage banners ──────────────────────────────────────────────
+  function renderCoverage(fc) {
+    const hw = (fc.hardware && fc.hardware.coverage) || {};
+    const sw = (fc.software && fc.software.coverage) || {};
+    const hwEx = hw.excluded || {}, swEx = sw.excluded || {};
+
+    document.getElementById('invf-covHw-line').textContent =
+      'Hardware forecast based on ' + num(hw.eligible) + ' of ' + num(hw.total) +
+      ' assets (' + (hw.pct == null ? '—' : Number(hw.pct)) + '%) — those with acquisition date + cost + a lifecycle policy';
+    document.getElementById('invf-covHw-excl').textContent =
+      'excluded: ' + num(hwEx.no_date) + ' no date · ' + num(hwEx.no_cost) + ' no cost · ' + num(hwEx.no_life) + ' no policy';
+
+    document.getElementById('invf-covSw-line').textContent =
+      'Software renewal based on ' + num(sw.eligible) + ' of ' + num(sw.total) +
+      ' licences (' + (sw.pct == null ? '—' : Number(sw.pct)) + '%) with expiry + cost';
+    document.getElementById('invf-covSw-excl').textContent =
+      'excluded: ' + num(swEx.no_expiry) + ' no expiry · ' + num(swEx.no_cost) + ' no cost';
+  }
+
+  // ── History line chart ────────────────────────────────────────────
+  function renderHistory(hist) {
+    if (typeof Chart === 'undefined') { console.warn('Chart.js not loaded'); return; }
+    const years = (hist.years || []);
+    upsertChart('invf-chartHistory', {
+      type: 'line',
+      data: {
+        labels: years.map(y => y.year),
+        datasets: [
+          { label: 'Hardware (USD)', data: years.map(y => Number(y.hardware_usd) || 0),
+            borderColor: COL.blue, backgroundColor: COL.blue, tension: 0.25, pointRadius: 3 },
+          { label: 'Software (USD)', data: years.map(y => Number(y.software_usd) || 0),
+            borderColor: COL.amber, backgroundColor: COL.amber, tension: 0.25, pointRadius: 3 },
+          { label: 'Cumulative (USD)', data: years.map(y => Number(y.cumulative_usd) || 0),
+            borderColor: COL.green, backgroundColor: COL.green, borderDash: [6, 4], tension: 0.25, pointRadius: 2 },
+        ],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
+          tooltip: { callbacks: { label: c => c.dataset.label + ': ' + usdAxis(c.parsed.y) } },
+        },
+        scales: { y: { beginAtZero: true, title: { display: true, text: 'USD' }, ticks: { callback: usdAxis } } },
+      },
+    });
+  }
+
+  // ── Forecast stacked bar ──────────────────────────────────────────
+  function renderForecast(fc) {
+    if (typeof Chart === 'undefined') { console.warn('Chart.js not loaded'); return; }
+    const hw = fc.hardware || {}, sw = fc.software || {};
+    const hwYears = hw.years || [], swYears = sw.years || [];
+
+    // Union of forecast years (sorted ascending), prefixed by a "Due now" column.
+    const yearSet = new Set();
+    hwYears.forEach(y => yearSet.add(y.year));
+    swYears.forEach(y => yearSet.add(y.year));
+    const years = [...yearSet].sort((a, b) => a - b);
+
+    const hwByYear = {}; hwYears.forEach(y => { hwByYear[y.year] = Number(y.replacement_usd) || 0; });
+    const swByYear = {}; swYears.forEach(y => { swByYear[y.year] = Number(y.renewal_usd) || 0; });
+
+    const labels = ['Due now', ...years.map(String)];
+    const hwData = [Number((hw.due_now || {}).replacement_usd) || 0, ...years.map(y => hwByYear[y] || 0)];
+    const swData = [Number((sw.due_now || {}).renewal_usd) || 0, ...years.map(y => swByYear[y] || 0)];
+
+    upsertChart('invf-chartForecast', {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label: 'Hardware replacement (USD)', data: hwData, backgroundColor: COL.blue, stack: 'spend' },
+          { label: 'Software renewal (USD)', data: swData, backgroundColor: COL.amber, stack: 'spend' },
+        ],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
+          tooltip: { callbacks: { label: c => c.dataset.label + ': ' + usdAxis(c.parsed.y) } },
+        },
+        scales: {
+          x: { stacked: true },
+          y: { stacked: true, beginAtZero: true, title: { display: true, text: 'USD' }, ticks: { callback: usdAxis } },
+        },
+      },
+    });
+
+    // Beyond-horizon note
+    const hwB = hw.beyond_horizon || {}, swB = sw.beyond_horizon || {};
+    const hwCnt = Number(hwB.count) || 0, swCnt = Number(swB.count) || 0;
+    const note = document.getElementById('invf-beyondNote');
+    if (hwCnt === 0 && swCnt === 0) {
+      note.style.display = 'none';
+    } else {
+      note.style.display = '';
+      note.textContent = '+ ' + num(hwCnt) + ' assets / $' + usd0(hwB.usd) +
+        ' hardware and ' + num(swCnt) + ' licences / $' + usd0(swB.usd) +
+        ' software due BEYOND the ' + horizon() + '-year horizon.';
+    }
+  }
+
+  function renderUplift(fc) {
+    const p = Number(fc.uplift_pct) || 0;
+    document.getElementById('invf-upliftNote').innerHTML =
+      p > 0
+        ? 'Replacement prices grown <strong>' + escapeHtml(p) + '%/yr</strong> (compounded from original cost to the forecast year).'
+        : 'Replacement prices budgeted <strong>like-for-like (0%)</strong> — no annual price uplift applied.';
+  }
+
+  function exportHref() {
+    const f = window.__assetFilters ? window.__assetFilters() : {};
+    return API + '/export.xlsx' + qs(Object.assign({ horizon: horizon() }, f));
+  }
+
+  async function exportExcel() {
+    const btn = document.getElementById('invf-exportBtn');
+    const orig = btn.innerHTML;
+    btn.innerHTML = '⏳ Preparing…';
+    try {
+      const r = await fetch(exportHref(), { credentials: 'same-origin', headers: authHeaders() });
+      if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || ('HTTP ' + r.status)); }
+      const url = URL.createObjectURL(await r.blob());
+      const a = document.createElement('a'); a.href = url; a.download = 'assets-investment.xlsx';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    } catch (err) {
+      alert('Excel export failed: ' + (err.message || ''));
+    } finally {
+      btn.innerHTML = orig;
+    }
+  }
+
+  // Refetch only the forecast (history is horizon-independent) + redraw.
+  async function refreshForecast(f) {
+    f = f || (window.__assetFilters ? window.__assetFilters() : {});
+    let fc = { hardware: {}, software: {}, uplift_pct: 0 };
+    try {
+      const r = await fetch(API + '/forecast' + qs(Object.assign({ horizon: horizon() }, f)),
+        { credentials: 'same-origin', headers: authHeaders() });
+      if (r.ok) fc = await r.json();
+    } catch (e) { console.warn('investment forecast failed:', e); }
+    document.getElementById('invf-exportBtn').setAttribute('href', exportHref());
+    renderCoverage(fc);
+    renderForecast(fc);
+    renderUplift(fc);
+    return fc;
+  }
+
+  async function refresh(f) {
+    f = f || {};
+    let hist = { years: [], coverage: {} };
+    try {
+      const r = await fetch(API + '/history' + qs(f), { credentials: 'same-origin', headers: authHeaders() });
+      if (r.ok) hist = await r.json();
+    } catch (e) { console.warn('investment history failed:', e); }
+
+    const fc = await refreshForecast(f);
+
+    // Empty state: no history years AND both forecast coverages have eligible === 0.
+    const hwElig = ((fc.hardware && fc.hardware.coverage) || {}).eligible || 0;
+    const swElig = ((fc.software && fc.software.coverage) || {}).eligible || 0;
+    const empty = !((hist.years || []).length) && hwElig === 0 && swElig === 0;
+    document.getElementById('invf-empty').style.display   = empty ? 'block' : 'none';
+    document.getElementById('invf-content').style.display = empty ? 'none' : 'block';
+
+    if (!empty) renderHistory(hist);
+  }
+
+  async function init(f) {
+    document.getElementById('invf-horizon').addEventListener('change', () => refreshForecast());
+    document.getElementById('invf-exportBtn').addEventListener('click', (e) => { e.preventDefault(); exportExcel(); });
+    await refresh(f);
+  }
+
+  window.INVEST_PANE = { init, refresh };
+})();
+</script>
+
+<!-- ══════════════════════════════════════════════════════════════════
      CONTROLLER — shared filter bar + tab switching + lazy-init
      ══════════════════════════════════════════════════════════════════ -->
 <script nonce="%%CSP_NONCE%%">
 (function () {
   'use strict';
 
-  const TABS = ['inventory', 'hygiene', 'finance', 'hardware', 'progress'];
-  const PANE = { inventory: 'INV_PANE', hygiene: 'HYG_PANE', finance: 'FIN_PANE', hardware: 'HW_PANE', progress: 'PROG_PANE' };
-  const inited = { inventory: false, hygiene: false, finance: false, hardware: false, progress: false };
+  const TABS = ['inventory', 'hygiene', 'finance', 'hardware', 'progress', 'investment'];
+  const PANE = { inventory: 'INV_PANE', hygiene: 'HYG_PANE', finance: 'FIN_PANE', hardware: 'HW_PANE', progress: 'PROG_PANE', investment: 'INVEST_PANE' };
+  const inited = { inventory: false, hygiene: false, finance: false, hardware: false, progress: false, investment: false };
   let activeTab = 'inventory';
 
   function authHeaders() {
