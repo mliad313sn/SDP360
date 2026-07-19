@@ -40,7 +40,7 @@ All views are filterable by the shared Assets filter bar (**equipment type** = `
 ## Architecture
 
 ```
-Browser: Assets module → "Investment" tab (INV_FORECAST_PANE / prog-style)
+Browser: Assets module → "Investment" tab (INVEST_PANE / prog-style)
   ├─ GET /api/assets/investment/history?<filters>            → historical curve + coverage
   ├─ GET /api/assets/investment/forecast?<filters>&horizon=&asOf=  → forward CAPEX + renewals + coverage
   └─ GET /api/assets/investment/export.xlsx?<filters>&horizon=
@@ -123,7 +123,7 @@ Per licence:
 
 ### Readers on `assets-db.js` (dual-backend, additive)
 
-- `getInvestmentSummary(filters, { rate })` → `buildInvestmentHistory(...)`. SELECTs `acquisition_date, purchase_cost` from `assets` (with `_assetWhere`) + `acquisition_date, cost` from `software_licenses` (manufacturer/q only).
+- `getInvestmentSummary(filters, { rate })` → `buildInvestmentHistory(...)`. SELECTs `acquisition_date, purchase_cost` from `assets` (with `_assetWhere`) + `acquisition_date, cost` from `software_licenses` (with **`_licenceWhere`** — site/state/q).
 - `getInvestmentForecast(filters, { config, rate, upliftPct, horizonYears, asOf })` → `{ hardware: buildHardwareForecast(...), software: buildSoftwareForecast(...) }`. SELECTs `acquisition_date, purchase_cost, product_type` from `assets` + `expiry_date, cost, license_option` from `software_licenses`.
 - Both dispatch `if (ASSETS_BACKEND==='postgres') return _fooPg(...)` first-statement; the pg fork runs the SAME SELECTs (parameter-bound, `?`→`$N`) and calls the SAME pure builders. `asOf` resolved to a real date in the reader before the builder.
 - Export both.
@@ -131,7 +131,7 @@ Per licence:
 ### Routes (server.js)
 
 - `GET /api/assets/investment/history` (`requireReportSession`) — `_assetInvestmentFilters(req)` (site/state/product_type/manufacturer/q whitelist); `rate = await _assetUsdRate()`; try/catch→500.
-- `GET /api/assets/investment/forecast` (`requireReportSession`) — same filters + `config = await reportConfig.get('asset_depreciation_config')` parsed via `depreciation.parseDepreciationConfig`, `upliftPct` from `asset_replacement_uplift_pct` (→fraction), `horizonYears` from `?horizon=` (int [1,15] default 5), `asOf` resolved (default today) BEFORE the reader; try/catch→500.
+- `GET /api/assets/investment/forecast` (`requireReportSession`) — same filters + `const cfg = await reportConfig.getConfig(rdb.db)` (the folded object; there is NO `reportConfig.get`), then `config = depreciation.parseDepreciationConfig(cfg.asset_depreciation_config)`, `upliftPct = Number(cfg.asset_replacement_uplift_pct)/100 || 0`, `horizonYears` from `?horizon=` (int [1,15] default 5), `asOf` resolved (default today) BEFORE the reader; try/catch→500.
 - `GET /api/assets/investment/export.xlsx` (`requireReportSession`) — `tableExcel.buildWorkbook` with two/three sheets (History, Hardware Forecast, Software Forecast); same filters/horizon.
 - Whitelisted, parameter-bound → no 500 on hostile input.
 
@@ -190,5 +190,6 @@ The four tab-framework edits (`TABS` += `'investment'` / `PANE` += `investment:'
 - Money is raw XOF text with commas → parse/sum IN JS via `money.js`, no SQL SUM/CAST.
 - `asset_replacement_uplift_pct` MUST be in `reportConfig.DEFAULTS` or `setConfig` drops it.
 - `asOf` resolved before the builder (0-months / 0% trap).
-- Dual-backend dispatch first-statement + await-covered; software honours manufacturer/q only.
+- Dual-backend dispatch first-statement + await-covered; the software forecast uses `_licenceWhere` (site/state/q) — `software_licenses` has NO manufacturer/product_type column.
+- Config read via `reportConfig.getConfig(db)` (folded DEFAULTS+overrides) — there is NO `reportConfig.get`.
 - New pure logic OUTSIDE the readers so it's unit-tested without a DB.
