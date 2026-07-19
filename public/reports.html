@@ -1353,6 +1353,10 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         <label>Taux XOF→USD <span style="font-weight:400;color:#6b7a99">— asset costs are in XOF; Finance surfaces show USD</span></label>
         <input type="number" id="hyg-xof-usd-rate" step="0.00001" min="0" style="width:160px;padding:6px 8px;border:1px solid #E2E5EA;border-radius:4px" placeholder="0.00165">
       </div>
+      <div class="form-group" style="max-width:560px">
+        <label>Uplift prix de remplacement (%/an) <span style="font-weight:400;color:#6b7a99">— Investment forecast: 0 = like-for-like, e.g. 3 = +3%/an</span></label>
+        <input type="number" id="finance-uplift-pct" step="0.5" min="0" style="width:160px;padding:6px 8px;border:1px solid #E2E5EA;border-radius:4px" placeholder="0">
+      </div>
       <div class="modal-actions" style="justify-content:flex-start;gap:10px;align-items:center">
         <button class="btn btn-primary" onclick="saveAssetFinanceConfig()">Save</button>
       </div>
@@ -5789,12 +5793,16 @@ function loadAssetFinanceConfig() {
   api('GET', '/api/reports/config').then(c => {
     const el = document.getElementById('hyg-xof-usd-rate');
     if (el) el.value = String(c.xof_usd_rate || '');
+    const up = document.getElementById('finance-uplift-pct');
+    if (up) up.value = String(c.asset_replacement_uplift_pct ?? '0');
   }).catch(e => toast('Could not load finance settings: ' + (e.message || e), 'error'));
 }
 function saveAssetFinanceConfig() {
   const el = document.getElementById('hyg-xof-usd-rate');
   const rate = String((el ? el.value : '') || '').trim();
-  api('PUT', '/api/reports/config', { xof_usd_rate: rate })
+  const up = document.getElementById('finance-uplift-pct');
+  const uplift = String((up ? up.value : '') || '').trim();
+  api('PUT', '/api/reports/config', { xof_usd_rate: rate, asset_replacement_uplift_pct: uplift })
     .then(() => { toast('Finance settings saved ✓', 'success'); loadAssetFinanceConfig(); })
     .catch(e => toast('Save failed: ' + (e.message || e), 'error'));
 }

@@ -12,6 +12,9 @@ const DEFAULTS = {
   group_report_to: '', group_report_cc: '', group_report_to_confirmed: '0',
   hygiene_recipients: '', hygiene_send_enabled: '0',
   xof_usd_rate: '0.00165',
+  // Annual replacement-price uplift (%) for the investment forecast — 0 = like-for-like.
+  // Must live in DEFAULTS so setConfig's KEYS filter accepts the admin's write.
+  asset_replacement_uplift_pct: '0',
   // Asset depreciation policy (JSON) — the computed-book-value reader resolves a
   // method/useful-life/salvage per product_type from this. Must live in DEFAULTS
   // so setConfig's KEYS filter accepts the admin's write (else silently dropped).
