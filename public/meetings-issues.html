@@ -142,6 +142,27 @@
   .mi-row__open:hover { background: var(--color-bg, #F4F5F7); border-color: var(--edv-blue, #145FAE); }
   .mi-empty { padding: 32px; text-align: center; color: var(--color-text-muted, #7B7B7B); font-size: 13px; font-style: italic; }
 
+  /* Inline status change (mirrors meetings-actions.html) */
+  .mi-status-sel {
+    width: 100%; max-width: 100%;
+    background: var(--color-card, #fff); border: 1px solid var(--color-border, #E2E5EA);
+    border-radius: 6px; padding: 4px 6px;
+    font: 700 10.5px var(--font-sans); text-transform: uppercase; letter-spacing: .4px;
+    cursor: pointer;
+  }
+  .mi-status-sel:focus { outline: none; border-color: var(--edv-orange, #EF631A); box-shadow: 0 0 0 3px rgba(239,99,26,.12); }
+  .mi-status-sel:disabled { cursor: default; opacity: .75; }
+
+  .mi-toast {
+    position: fixed; left: 50%; bottom: 26px; transform: translate(-50%, 12px);
+    background: #1F2A33; color: #fff; font-size: 13px; font-weight: 600;
+    padding: 11px 20px; border-radius: 8px; box-shadow: 0 6px 22px rgba(0,0,0,.22);
+    opacity: 0; pointer-events: none; transition: opacity .18s, transform .18s;
+    z-index: 9999; max-width: 70vw; text-align: center;
+  }
+  .mi-toast.show { opacity: 1; transform: translate(-50%, 0); }
+  .mi-toast.err  { background: #B91C1C; }
+
   @media (max-width: 1100px) {
     .mi-kpis { grid-template-columns: repeat(3, 1fr); }
     .mi-table-head, .mi-row {
@@ -209,8 +230,10 @@
     <div class="mi-eyebrow">Insights · Issues Log</div>
     <h1>Issues across all meetings</h1>
     <p>Flat view of every issue raised in any Department Meeting or IT Survey concern.
-       <strong>Filter</strong> by site, department, category, severity or status — <strong>open in context</strong>
-       to jump to the parent PV. Overdue, HIGH and escalated rows are highlighted.</p>
+       <strong>Filter</strong> by site, department, category, severity, status or champion —
+       <strong>change a status inline</strong> (recorded in the issue's audit trail) or
+       <strong>open in context</strong> to jump to the parent PV.
+       Overdue, HIGH and escalated rows are highlighted.</p>
   </section>
 
   <!-- KPI strip -->
@@ -229,6 +252,7 @@
     <select class="mi-select" id="miCat"><option value="">All categories</option></select>
     <select class="mi-select" id="miSev"><option value="">All severities</option></select>
     <select class="mi-select" id="miStatus"><option value="">All statuses</option></select>
+    <select class="mi-select" id="miChampion"><option value="">All champions</option></select>
     <select class="mi-select" id="miEsc">
       <option value="">All issues</option>
       <option value="1">Escalated only</option>
@@ -249,6 +273,8 @@
   </section>
 
 </div>
+
+<div class="mi-toast" id="miToast"></div>
 
 <script nonce="%%CSP_NONCE%%">
 (function () {
@@ -279,22 +305,87 @@
     return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
   };
   const todayIso = () => new Date().toISOString().slice(0, 10);
+  const TERMINAL = new Set(['resolved', 'cancelled']);
+
+  // ── RBAC (client-side, to avoid dead clicks only — the SERVER is the
+  // enforcement point: POST /issues/:id/update 403s on cross-site writes and
+  // on a closed parent PV for site-scoped users).
+  const canEdit    = !!(window.__userHasRole && window.__userHasRole('editor'));
+  const isAdminPlus = !!(window.__userHasRole && window.__userHasRole('admin'));
+
+  // Mirrors the server's _userMeetingsSite(): admin+ is unscoped; otherwise
+  // resolve the user's reports-db site_id through the lookups site list (which
+  // already carries the meetings `code` for each canonical site id).
+  function userSiteCode() {
+    if (isAdminPlus) return null;
+    const sid = window.__authUser && window.__authUser.site_id;
+    if (!sid) return null;
+    const s = ((state.lookups && state.lookups.sites) || []).find(x => x.id === sid);
+    return s ? s.code : null;
+  }
+  function rowEditable(r) {
+    if (!canEdit) return { ok: false, why: 'Editor role or higher required to change status' };
+    const scope = userSiteCode();
+    if (!scope) return { ok: true, why: '' };
+    if (r.site_code !== scope) return { ok: false, why: `Issue belongs to ${r.site_code}; you are scoped to ${scope}` };
+    return { ok: true, why: '' };
+  }
+
+  let _toastT = null;
+  function toast(msg, isErr) {
+    const el = document.getElementById('miToast');
+    el.textContent = msg;
+    el.className = 'mi-toast show' + (isErr ? ' err' : '');
+    clearTimeout(_toastT);
+    _toastT = setTimeout(() => { el.className = 'mi-toast' + (isErr ? ' err' : ''); }, isErr ? 5200 : 2600);
+  }
 
   const state = {
     lookups: null,
     issues: [],
     aggregate: null,
+    // `champion` is applied CLIENT-side (the /issues endpoint has no champion
+    // param) — it is therefore held apart from the server-side filter set so
+    // it is never serialised into the query string.
     filters: { site: '', department: '', category: '', severity: '', status: '', escalate: '', q: '' },
+    champion: '',
   };
 
+  // Rows after the client-side champion filter. Everything that renders the
+  // table / subcount / champion-scoped KPIs reads through this.
+  function visibleIssues() {
+    if (!state.champion) return state.issues;
+    return state.issues.filter(r => (r.champion || '') === state.champion);
+  }
+
+  // Mirrors the server aggregate's SQL (meetings-db.js:1856-1863) so a
+  // client-side champion filter yields the SAME definitions the server uses.
+  function computeIssueKpis(rows) {
+    const today = todayIso();
+    const open = r => !TERMINAL.has(r.status);
+    return {
+      total_issues:   rows.length,
+      high_issues:    rows.filter(r => r.severity === 'HIGH').length,
+      open_issues:    rows.filter(open).length,
+      escalated_open: rows.filter(r => r.escalate && open(r)).length,
+      overdue_issues: rows.filter(r => r.target_date && r.target_date < today && open(r)).length,
+    };
+  }
+
   function renderKpis() {
-    const i = (state.aggregate && state.aggregate.issues) || {};
+    // No champion filter → trust the server aggregate (authoritative, not
+    // bounded by the /issues LIMIT). Champion filter on → the aggregate cannot
+    // see it, so recompute from the visible rows and say so in the sub-label.
+    const scoped = !!state.champion;
+    const i = scoped ? computeIssueKpis(visibleIssues())
+                     : ((state.aggregate && state.aggregate.issues) || {});
+    const sfx = scoped ? ' · champion' : '';
     const tiles = [
-      { l: 'Total issues',  v: i.total_issues   || 0, k: 'info',    s: 'in scope' },
-      { l: 'HIGH severity', v: i.high_issues    || 0, k: 'danger',  s: 'production-impact' },
-      { l: 'Open',          v: i.open_issues    || 0, k: 'warning', s: 'not yet resolved' },
-      { l: 'Escalated',     v: i.escalated_open || 0, k: 'esc',     s: 'open for Council' },
-      { l: 'Overdue',       v: i.overdue_issues || 0, k: 'danger',  s: 'past target date' },
+      { l: 'Total issues',  v: i.total_issues   || 0, k: 'info',    s: 'in scope' + sfx },
+      { l: 'HIGH severity', v: i.high_issues    || 0, k: 'danger',  s: 'production-impact' + sfx },
+      { l: 'Open',          v: i.open_issues    || 0, k: 'warning', s: 'not yet resolved' + sfx },
+      { l: 'Escalated',     v: i.escalated_open || 0, k: 'esc',     s: 'open for Council' + sfx },
+      { l: 'Overdue',       v: i.overdue_issues || 0, k: 'danger',  s: 'past target date' + sfx },
     ];
     document.getElementById('miKpis').innerHTML = tiles.map(t => `
       <div class="mi-kpi mi-kpi--${t.k}">
@@ -346,8 +437,43 @@
     document.getElementById('miStatus').value = state.filters.status     || '';
   }
 
+  // Champion options come from the DISTINCT non-empty champions of the loaded
+  // issues. `state.issues` is the SERVER-filtered set and is never narrowed by
+  // the champion filter (that one is client-side), so the option list can't
+  // collapse to the single selected name. The active selection is re-added if
+  // another filter moved it out of range — otherwise the <select> would snap
+  // back to "" and silently drop the filter while state.champion still held it.
+  function renderChampionFilter() {
+    const el = document.getElementById('miChampion');
+    const names = Array.from(new Set(
+      state.issues.map(r => (r.champion || '').trim()).filter(Boolean)
+    ));
+    if (state.champion && !names.includes(state.champion)) names.push(state.champion);
+    names.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+    el.innerHTML = '<option value="">All champions</option>'
+      + names.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+    el.value = state.champion || '';
+  }
+
+  // Status cell. A user with no editor role at all keeps the read-only pill
+  // (the whole feature is off for them — same as meetings-actions.html); an
+  // editor whose site doesn't match gets a DISABLED select carrying the reason,
+  // so the row reads as "not yours" rather than as a click that does nothing.
+  function statusCell(r, stsByCode) {
+    const st = stsByCode[r.status] || { color: '#6B7785', name_en: r.status };
+    if (!canEdit) {
+      return `<span class="mi-pill" style="background:${tint(st.color,0.12)};color:${esc(st.color)};border-color:${tint(st.color,0.3)}">${esc(st.name_en)}</span>`;
+    }
+    const gate = rowEditable(r);
+    const opts = (state.lookups.statuses || []).map(s =>
+      `<option value="${esc(s.code)}"${s.code === r.status ? ' selected' : ''}>${esc(s.name_en)}</option>`).join('');
+    return `<select class="mi-status-sel" data-issue="${esc(r.id)}" data-prev="${esc(r.status)}"`
+      + `${gate.ok ? '' : ' disabled'} title="${esc(gate.ok ? 'Change status (audited)' : gate.why)}"`
+      + ` style="color:${esc(st.color)}">${opts}</select>`;
+  }
+
   function renderTable() {
-    const rows = state.issues;
+    const rows = visibleIssues();
     const stsByCode = {}; (state.lookups.statuses   || []).forEach(s => { stsByCode[s.code] = s; });
     const sevByCode = {}; (state.lookups.severities || []).forEach(s => { sevByCode[s.code] = s; });
     const today = todayIso();
@@ -380,12 +506,75 @@
           <span><span class="mi-pill" style="background:${tint(sev.color,0.12)};color:${esc(sev.color)};border-color:${tint(sev.color,0.3)}">${esc(sev.name_en)}</span></span>
           <span style="font-size:12px;color:var(--color-text,#524F4E)">${esc(r.champion || '—')}</span>
           <span class="mi-row__date ${overdue ? 'mi-row__overdue' : ''}">${fmtDate(r.target_date)}</span>
-          <span><span class="mi-pill" style="background:${tint(st.color,0.12)};color:${esc(st.color)};border-color:${tint(st.color,0.3)}">${esc(st.name_en)}</span></span>
+          <span>${statusCell(r, stsByCode)}</span>
           <a class="mi-row__open" href="meeting.html?id=${encodeURIComponent(r.meeting_id_ref)}">Open ›</a>
         </div>`;
     }).join('');
     document.getElementById('miTable').innerHTML = header + body;
-    document.getElementById('miSubcount').textContent = rows.length + ' issue' + (rows.length === 1 ? '' : 's');
+    document.getElementById('miSubcount').textContent = rows.length + ' issue' + (rows.length === 1 ? '' : 's')
+      + (state.champion ? ' · champion: ' + state.champion : '');
+
+    if (canEdit) {
+      document.querySelectorAll('.mi-status-sel:not([disabled])')
+        .forEach(selEl => selEl.addEventListener('change', onStatusChange));
+    }
+  }
+
+  // Refresh ONLY the server aggregate (cheap) and re-render the KPI tiles —
+  // used after a status change so Open / Overdue / Escalated move with it
+  // without refetching the list and losing the user's place in the table.
+  async function refreshAggregate() {
+    const qs = new URLSearchParams();
+    Object.entries(state.filters).forEach(([k, v]) => { if (v !== '' && v != null) qs.set(k, v); });
+    try {
+      const agg = await fetch(API + '/aggregate?' + qs.toString(),
+        { credentials: 'same-origin', headers: authHeaders() }).then(r => r.ok ? r.json() : null);
+      if (agg) state.aggregate = agg;
+    } catch (_) { /* keep the last-known aggregate */ }
+    renderKpis();
+    renderByCategory();
+  }
+
+  // Inline status change. ONE POST both records the audit row and moves the
+  // status (meetings-db addIssueUpdate does both in a single transaction), so
+  // no comment body is needed — the audit row already carries who/when/from→to.
+  async function onStatusChange(e) {
+    const selEl  = e.target;
+    const id     = selEl.getAttribute('data-issue');
+    const prev   = selEl.getAttribute('data-prev');
+    const status = selEl.value;
+    if (status === prev) return;
+    selEl.disabled = true;
+    try {
+      const r = await fetch(API + '/issues/' + encodeURIComponent(id) + '/update', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+        body: JSON.stringify({ status_change: status }),
+      });
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        throw new Error(j.error || ('HTTP ' + r.status));
+      }
+      // Local model → re-render (keeps the badge colours + overdue styling in
+      // step) → KPI refresh from the server aggregate.
+      const row = state.issues.find(x => String(x.id) === String(id));
+      if (row) {
+        row.status = status;
+        if (TERMINAL.has(status)) row.closed_at = row.closed_at || new Date().toISOString();
+        else row.closed_at = null;
+      }
+      toast('Issue updated → ' + status);
+      renderTable();
+      await refreshAggregate();
+    } catch (err) {
+      // Revert the select to the value it held before the failed change, so
+      // the row never shows a status the server did not accept. The 403s here
+      // are meaningful (cross-site / closed parent PV) — surface them verbatim.
+      selEl.value    = prev;
+      selEl.disabled = false;
+      toast('Update failed: ' + (err.message || 'unknown error'), true);
+    }
   }
 
   async function loadAll() {
@@ -401,6 +590,7 @@
     ]);
     state.issues    = list.rows || [];
     state.aggregate = agg;
+    renderChampionFilter();
     renderKpis();
     renderByCategory();
     renderTable();
@@ -412,6 +602,13 @@
   document.getElementById('miSev').addEventListener('change',    e => { state.filters.severity   = e.target.value; loadAll(); });
   document.getElementById('miStatus').addEventListener('change', e => { state.filters.status     = e.target.value; loadAll(); });
   document.getElementById('miEsc').addEventListener('change',    e => { state.filters.escalate   = e.target.value; loadAll(); });
+  // Champion is client-side (no server param) — no refetch needed; just
+  // re-render through visibleIssues() so it composes with the server filters.
+  document.getElementById('miChampion').addEventListener('change', e => {
+    state.champion = e.target.value;
+    renderKpis();
+    renderTable();
+  });
   let _qT = null;
   document.getElementById('miQ').addEventListener('input', e => {
     clearTimeout(_qT); _qT = setTimeout(() => { state.filters.q = e.target.value.trim(); loadAll(); }, 250);
