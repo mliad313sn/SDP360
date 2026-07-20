@@ -1224,9 +1224,14 @@
         history.replaceState(null, '', '?id=' + j.id);
       }
       showBanner('Saved · ' + j.reference);
+      // reload() re-fetches the PV and repaints EVERY field — including the two
+      // signature inputs — from the AUTHORITATIVE stored values, so the screen
+      // can never show a stamp the server didn't accept.
       await reload();
+      return true;
     } catch (e) {
       showBanner(e.message || 'Save failed', 'error');
+      return false;
     } finally {
       btn.disabled = false;
     }
@@ -1300,14 +1305,46 @@
     }
   });
 
-  document.getElementById('pvStampDeptHead').addEventListener('click', () => {
-    state.header.dept_head_signed_at = new Date().toISOString().replace('T', ' ').slice(0, 19);
-    document.getElementById('hDeptHeadSigned').value = state.header.dept_head_signed_at;
-  });
-  document.getElementById('pvStampItLead').addEventListener('click', () => {
-    state.header.site_it_signed_at = new Date().toISOString().replace('T', ' ').slice(0, 19);
-    document.getElementById('hItLeadSigned').value = state.header.site_it_signed_at;
-  });
+  // Stamping a signature PERSISTS the whole PV immediately. Leaving it as a
+  // local-state mutation lost the signature whenever the coordinator forgot to
+  // click Save — and `signoff` is one of the 6 SCORED dimensions of the site
+  // programme score, so a lost stamp silently lowers the site's score.
+  // The value we send is only a "stamp it" signal: the server writes its OWN
+  // timestamp (the browser clock is untrusted) and reload() repaints the input
+  // from the stored value, so the UI never shows a stamp that isn't saved.
+  async function stampSignature(btnId, field, inputId) {
+    const btn   = document.getElementById(btnId);
+    const input = document.getElementById(inputId);
+    const prevState = state.header[field];
+    const prevInput = input.value;
+
+    btn.disabled = true;
+    try {
+      // Optimistic paint so the click feels immediate; the authoritative value
+      // arrives via reload() inside save().
+      state.header[field] = new Date().toISOString().replace('T', ' ').slice(0, 19);
+      input.value = state.header[field];
+
+      const ok = await save();
+      if (!ok) {
+        // save() already surfaced the error — undo the optimistic paint so the
+        // coordinator is never told a signature landed when it didn't.
+        state.header[field] = prevState;
+        input.value = prevInput;
+      }
+    } catch (e) {
+      state.header[field] = prevState;
+      input.value = prevInput;
+      showBanner(e.message || 'Signature save failed', 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  document.getElementById('pvStampDeptHead').addEventListener('click',
+    () => stampSignature('pvStampDeptHead', 'dept_head_signed_at', 'hDeptHeadSigned'));
+  document.getElementById('pvStampItLead').addEventListener('click',
+    () => stampSignature('pvStampItLead', 'site_it_signed_at', 'hItLeadSigned'));
 
   document.getElementById('pvDeleteBtn').addEventListener('click', async () => {
     if (!state.id) return;

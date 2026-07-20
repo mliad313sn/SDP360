@@ -767,8 +767,13 @@ function saveMeeting(state, userSiteCode, userId) {
       next_meeting_location: h.next_meeting_location || '',
       status:          h.status || 'draft',
       submitted_at:        h.submitted_at        || (h.status === 'submitted' || h.status === 'signed' ? new Date().toISOString().replace('T',' ').slice(0,19) : null),
-      dept_head_signed_at: h.dept_head_signed_at || null,
-      site_it_signed_at:   h.site_it_signed_at   || null,
+      // Signatures are SERVER-AUTHORITATIVE. The client only signals "stamp it"
+      // by sending a truthy value; the actual timestamp is ours (the browser
+      // clock is untrusted, and `signoff` is a SCORED dimension of the site
+      // programme score). Combined with the COALESCE on UPDATE below, the
+      // first stamp wins and a re-save never rewrites an existing signature.
+      dept_head_signed_at: h.dept_head_signed_at ? new Date().toISOString().replace('T',' ').slice(0,19) : null,
+      site_it_signed_at:   h.site_it_signed_at   ? new Date().toISOString().replace('T',' ').slice(0,19) : null,
       createdBy:       userId || null,
     };
 
@@ -982,7 +987,12 @@ async function _saveMeetingPg(state, userSiteCode, userId) {
       next_meeting_date: h.next_meeting_date || null, next_meeting_location: h.next_meeting_location || '',
       status: h.status || 'draft',
       submitted_at: h.submitted_at || (h.status === 'submitted' || h.status === 'signed' ? new Date().toISOString().replace('T', ' ').slice(0, 19) : null),
-      dept_head_signed_at: h.dept_head_signed_at || null, site_it_signed_at: h.site_it_signed_at || null, createdBy: userId || null,
+      // Signatures are SERVER-AUTHORITATIVE — see the sqlite fork's note. The
+      // client's truthy value only means "stamp it"; the timestamp is ours,
+      // and the COALESCE below makes the first stamp immutable.
+      dept_head_signed_at: h.dept_head_signed_at ? new Date().toISOString().replace('T', ' ').slice(0, 19) : null,
+      site_it_signed_at:   h.site_it_signed_at   ? new Date().toISOString().replace('T', ' ').slice(0, 19) : null,
+      createdBy: userId || null,
     };
     if (exist) {
       await H.prepare(`UPDATE md_meetings SET reference=@reference, site_code=@site_code, department=@department, meeting_date=@meeting_date,
