@@ -6,6 +6,49 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ---
 
+## ⚡ Current state (as of 2026-07-20)
+
+> **PV signature auto-save + Issues Log inline edits landed** (branch
+> `feat/pv-stamp-and-issues-inline`) — two field-driven fixes on the Meetings module.
+> **(1) Stamping a signature now PERSISTS the PV** — previously the two "Stamp …
+> signature" buttons only mutated local state (`meeting.html:1303-1310`, no network
+> call), so a coordinator who forgot to click Save lost the signature. **That was not
+> cosmetic**: `signoff` is one of the **6 SCORED dimensions** of the site programme
+> score (`services/siteScore.js:28`, G≥70/A30) read from exactly
+> `dept_head_signed_at` + `site_it_signed_at` (`reviewDashboard.js:221-223`) — an
+> unsaved stamp **silently lowered the site's score**. Now the stamp handler calls the
+> page's existing `save()` (which posts the WHOLE PV, so it also rescues other unsaved
+> edits) → `reload()` → `renderHeader()` repaints from the stored values; **on failure
+> it REVERTS** so the UI can never show a stamp that isn't saved. **The timestamp is
+> now SERVER-authoritative** (the UI label already promised "server time" while the
+> code used the browser clock): `meetings-db.js` substitutes its own timestamp whenever
+> the client sends a truthy signature value, on **both** the sqlite and pg forks —
+> combined with the pre-existing `COALESCE(...)` on UPDATE, the first stamp wins and a
+> re-save never rewrites it. Proven in-browser by patching `Date.prototype.toISOString`
+> to 1999: the client sent `1999-01-01`, the stored value was the server's real time.
+> **(2) Issues Log** (`public/meetings-issues.html`) gains a **champion filter**
+> (distinct champions from the loaded rows, accent-folded `localeCompare`, composes
+> with the other filters; KPI tiles recompute from visible rows when it's active) and
+> **per-row status change** posting to the existing `POST /api/meetings/issues/:id/update`
+> — which in ONE transaction writes the `md_issue_updates` audit row AND updates
+> `md_issues.status` (+ `closed_at` on resolved/cancelled), so no DB work was needed.
+> **Per-row RBAC** mirrors the server's `_userMeetingsSite()` (admin+ unscoped; a
+> site-scoped editor gets disabled selects with the reason in `title`), the server
+> stays the enforcement point, and a refused change **reverts the select** and shows
+> the server's message. **Browser-verified both** (champion filter 54 names → narrows +
+> composes; a status change persists across reload, KPI tiles move, the audit shows on
+> the parent PV; a real temp site-scoped editor saw 29 enabled / 103 disabled with an
+> independent server 403; stamps persist + are immutable on re-stamp; zero console
+> errors). **Regression**: meetings suite (**36**) + await-precedence 5/5 green.
+> **Known limits (flagged, not bugs)**: the champion filter is client-side over the
+> loaded set (bounded by `listIssues`' `LIMIT 500`; 135 issues today — a server-side
+> `champion` param is the durable fix if the corpus grows), and rows under a **closed**
+> parent PV can't be pre-disabled because `/api/meetings/issues` doesn't return the
+> parent's status (the actions list does) — the scoped editor learns via the server's
+> readable 403. Plan: `docs/superpowers/plans/2026-07-20-pv-stamp-and-issues-inline.md`.
+>
+> ---
+
 ## ⚡ Current state (as of 2026-07-19)
 
 > **Unified operational Site Scoreboard landed** (branch `feat/site-scoreboard`) — a
@@ -2869,6 +2912,10 @@ In normal use NO request hits this fallback. It's a safety net.
 
 | Pitfall | Rule |
 |---------|------|
+| **An action that produces a SCORED value must persist immediately — a local-only mutation silently corrupts the score** | The PV "Stamp signature" buttons used to mutate `state.header.*_signed_at` + the DOM only. But `signoff` is one of the **6 scored dims** (`siteScore.js:28`) read from `dept_head_signed_at`/`site_it_signed_at` (`reviewDashboard.js:221-223`), so a forgotten Save **lowered the site's programme score** with nothing on screen to show it. Rule: a signature/sign-off/status is an **event**, not a draft field — commit it on the click (reuse the page's full `save()`, which also rescues other unsaved edits), repaint from the STORED value, and **revert the UI if the save fails** (never show a stamp that isn't saved — the same lesson as the Inspection module's "✓ Saved" that only reflected localStorage). |
+| **Signature timestamps are SERVER-authoritative (the browser clock is untrusted) and IMMUTABLE** | `meetings-db.js` substitutes its own timestamp whenever the client sends a truthy `dept_head_signed_at`/`site_it_signed_at` — on **both** the sqlite and pg forks (mirror the `submitted_at` line). The pre-existing `COALESCE(dept_head_signed_at, @dept_head_signed_at)` on UPDATE then makes the **first stamp win**, so a re-save never rewrites a signature (and a clock-skewed value can't be corrected through the normal path — which is exactly why the server must own it). The UI label has always said "server time"; it is now true. |
+| **Inline status edits on the Issues Log MUST go through `POST /api/meetings/issues/:id/update`** | That endpoint's `addIssueUpdate` (`meetings-db.js:1059-1085`) writes the `md_issue_updates` **audit row AND** `UPDATE md_issues SET status/closed_at` in ONE transaction — never write the status directly or the audit trail (who/when/transition) is lost, and `resolution%` is a scored dim. Per-row RBAC must mirror the server's `_userMeetingsSite()` (admin+ unscoped; a site-scoped editor only edits its own site) and **disable** the control elsewhere with the reason in `title` — the server still enforces (403), the client just avoids dead clicks. A refused change **reverts the select** and shows the server's message. Note `/api/meetings/issues` does NOT return the parent meeting's status (the actions list does), so rows under a **closed** PV can't be pre-disabled — the 403 is the signal. |
+| **A meetings test that saves several PVs for one site+month collides on the generated reference** | `saveMeeting` resolves an existing PV by its generated `SITE_Dept_PV_YYYY-MM` reference, so two saves for the same site+department+month are the SAME row — a test asserting "unstamped stays null" can silently pick up a prior test's stamp. Give each test its own department (or month). |
 | **The operational Site Scoreboard is OURS, additive, and MUST NOT touch the author's IT Review model** | It rides `buildReviewVals`'s `opts.extras` (like the Helpdesk & Changes panel) emitting ONLY `sbuRows`/`sbuNote`; the fidelity allowlist is exactly `['hdNote','hdRows','sbuRows','sbuNote']` and a no-extras call must stay his **61 keys** (72-combo deep-equals). NEVER enter `sbs`/`comps`/`codes`; NEVER edit `siteScore.js`/`siteComposite.js`. Gate each panel **null-safe on its own sub-key** (`if (extras && extras.scoreboard)` — `opts.extras` has no default; a bare `extras.helpdesk` throws on the no-extras path) from **independent try/catches** in the route (a scoreboard-gather throw must not drop the helpdesk panel). The panel MUST be added to **BOTH** `public/it-review.html` AND `docs/reference/it-review-dashboard.template.html` with a **with-scoreboard render-backstop pass** (`tests/review-render.test.js`), or it ships **inert** (12/12 unit-green, 0 loops matched). The renderer resolves a plain key or **≤1 dot** and real tags use the **REAL FORM** (`hint-placeholder-*` attrs) — flatten each row to a single-dot `cells` array (mirror his `sbRows` `{val,bg,fg}`), never `{{ dims.x.value }}`. |
 | **Scoreboard: the 4 dimensions have 4 DIFFERENT reader shapes + a null-vs-0 rule** | `services/scoreboardData.js` glue: helpdesk `getCalendarMonthlyHelpdesk` returns **null (the whole object)** when a site has no `zoho_group` → guard the object before `.sla_res_pct`; meetings `insights().site_leaderboard[]` keys the code on **`.site`** (NOT `.site_code`) and `.score` is **0-1 and can be null** → `r.score==null ? null : r.score*100` (null×100=0 would be a false "measured zero"); inspections = the page's `ok/applicable` from `aggregate().findingStatus` (`[{status,n}]`), **month-scoped** (his `inspSiteRows` is all-time — stated in `sbuNote`, not a bug); assets via `scoreboardAliases.foldEffortByCode` (rows have NO asset-count → **simple mean** fold). **null = not measured (excluded from the renormalized weighted mean); 0 = measured zero (counts)** — the whole coverage contract depends on it. `getEffortLeaderboard`/`insights` fetched **once per window**, helpdesk/inspection per-site. |
 | **Scoreboard assets reconciliation is an in-code alias map, NOT a `site_module_codes` namespace** | `site_module_codes` PK is `(site_id, module)` — it CANNOT hold two `assets` labels (`Sabodala`+`MASSAWA`) for one site (SGO). So `services/scoreboardAliases.js` is an in-code map (AP label → meetings code, accent/case-folded) + a `foldEffortByCode` (simple mean when >1 label folds to one code — effort rows carry no asset-count to weight by). Unmatched label → assets dim **null** (coverage 3/4), never 0. |
