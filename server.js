@@ -4787,6 +4787,59 @@ app.put('/api/reports/schedule', requireReportSession, requireAdmin, async (req,
   try { res.json(await reportSchedule.setSchedule(rdb.db, req.body || {}, req.reportUser?.username)); }
   catch (e) { res.status(500).json({ error: e.message }); }
 });
+// ── GET/PUT /api/reports/exec-editorial ──────────────────────────────
+// The Group IT deck builder's monthly analysis (Operations Summary + the
+// Analyze/commentary fields), stored server-side so it survives a cleared
+// cache and is visible to colleagues instead of living only in the author's
+// browser localStorage. Keyed (period, scope) — see reports-db's
+// exec_report_editorial for why the commentary scope carries the site+group
+// filter. Gated the SAME as POST /api/reports/exec-pptx below: anyone who can
+// build the deck can save its analysis.
+//
+// `scope` is a composite KEY, not user prose — validate it tightly so a stray
+// query string can't write an unbounded row the browser will never read back.
+const _EXEC_ED_PERIOD_RE = /^\d{4}-\d{2}$/;
+function _execEditorialKey(req, res) {
+  const period = String(req.query.period || '').trim();
+  const scope  = String(req.query.scope  || '').trim();
+  if (!_EXEC_ED_PERIOD_RE.test(period)) {
+    res.status(400).json({ error: 'period must be YYYY-MM' });
+    return null;
+  }
+  if (!scope || scope.length > 120) {
+    res.status(400).json({ error: 'scope must be non-empty and at most 120 characters' });
+    return null;
+  }
+  return { period, scope };
+}
+
+app.get('/api/reports/exec-editorial', requireReportSession, requireAdmin, async (req, res) => {
+  const key = _execEditorialKey(req, res);
+  if (!key) return;
+  try {
+    const payload = await rdb.getExecReportEditorial(key.period, key.scope);
+    return res.json({ payload: payload ?? null });
+  } catch (e) {
+    console.error('[exec-editorial] read failed:', e);
+    return res.status(500).json({ error: e.message });
+  }
+});
+
+app.put('/api/reports/exec-editorial', requireReportSession, requireAdmin, async (req, res) => {
+  const key = _execEditorialKey(req, res);
+  if (!key) return;
+  try {
+    const who = req.reportUser
+      ? (req.reportUser.username || req.reportUser.full_name || 'unknown')
+      : 'unknown';
+    await rdb.setExecReportEditorial(key.period, key.scope, (req.body || {}).payload, who);
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error('[exec-editorial] write failed:', e);
+    return res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/api/reports/site-data', requireReportSession, async (req, res) => {
   try {
     const site = String(req.query.site || '');
