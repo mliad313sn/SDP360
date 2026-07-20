@@ -64,6 +64,20 @@ CREATE TABLE IF NOT EXISTS exec_view_editorial (
   updated_by      TEXT
 );
 
+-- Group IT deck builder's monthly analysis (Operations Summary + commentary fields),
+-- migrated off the author's browser localStorage. Mirrors reports-db.js sqlite
+-- exec_report_editorial: composite PK (period, scope) where scope is 'ops' or
+-- 'commentary:<site>:<grp>'; payload_json kept TEXT for byte-identical round-trip;
+-- updated_at is writer-managed via now() in the upsert, so no column default.
+CREATE TABLE IF NOT EXISTS exec_report_editorial (
+  period       TEXT NOT NULL,
+  scope        TEXT NOT NULL,
+  payload_json TEXT,
+  updated_at   TIMESTAMPTZ,
+  updated_by   TEXT,
+  PRIMARY KEY (period, scope)
+);
+
 -- Exec View Major-Incident AI-summary cache — keyed by src_hash so summaries
 -- regenerate only when the source RCA/CA/impact/subject text changes.
 -- Mirrors reports-db.js sqlite exec_mi_summary.

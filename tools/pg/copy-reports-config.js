@@ -17,6 +17,7 @@ const TABLES = [
   ['dashboard_preset_groups', ['scope', 'preset_name', 'group_name', 'display_order', 'updated_at', 'updated_by'], ['scope', 'preset_name', 'group_name']],
   ['rr_site_aliases',         ['sdp_label', 'code', 'updated_at', 'updated_by'], ['sdp_label']],   // 4B-RR (added to 002_config.sql after this script's first version)
   ['exec_view_editorial',     ['period', 'highlights_json', 'focus_json', 'updated_at', 'updated_by'], ['period']],                              // Exec View editorial (post-migration feature)
+  ['exec_report_editorial',   ['period', 'scope', 'payload_json', 'updated_at', 'updated_by'], ['period', 'scope']],                            // Deck-builder monthly analysis (post-migration feature)
   ['exec_mi_summary',         ['request_id', 'src_hash', 'root_cause_summary', 'action_summary', 'model', 'updated_at'], ['request_id']],       // Exec View MI-summary cache
 ];
 

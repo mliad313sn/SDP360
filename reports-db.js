@@ -694,6 +694,90 @@ async function _setExecEditorialPg(period, { highlights, focus }, user) {
   return { highlights: H, focus: F };
 }
 
+// ── 1.C-bis exec_report_editorial ─────────────────────────────────
+// The Group IT deck builder's monthly analysis — the Operations Summary and the
+// Analyze/commentary fields, which used to live ONLY in the author's browser
+// localStorage. ONE table, TWO grains discriminated by `scope`:
+//   'ops'                      → the Operations Summary (keyed by month alone)
+//   'commentary:<site>:<grp>'  → the commentary fields (month + site filter + group
+//                                preset — the browser keyed them that way, and
+//                                collapsing the grains would let one filter's text
+//                                overwrite another's).
+// PG fork: db/postgres/reports/002_config.sql + _getExecReportEditorialPg/_setExecReportEditorialPg.
+db.exec(`
+CREATE TABLE IF NOT EXISTS exec_report_editorial (
+  period       TEXT NOT NULL,          -- 'YYYY-MM'
+  scope        TEXT NOT NULL,          -- 'ops' | 'commentary:<site>:<grp>'
+  payload_json TEXT,
+  updated_at   TIMESTAMP,
+  updated_by   TEXT,
+  PRIMARY KEY (period, scope)
+);
+`);
+
+// Shared row→payload mapping (both forks). An absent row AND an unparseable
+// payload both read back as null — the caller can't tell "never saved" from
+// "corrupt", and neither should ever throw on a read path.
+function _mapExecReportEditorial(row) {
+  if (!row) return null;
+  try {
+    const v = JSON.parse(row.payload_json || '');
+    return (v && typeof v === 'object') ? v : null;
+  } catch { return null; }
+}
+
+/**
+ * getExecReportEditorial(period, scope) — reads one deck-builder analysis blob.
+ * Returns the stored object, or null when the (period, scope) pair has never
+ * been set (or the stored JSON is unreadable).
+ */
+function getExecReportEditorial(period, scope) {
+  if (REPORTS_BACKEND === 'postgres') return _getExecReportEditorialPg(period, scope);
+  try {
+    const row = db.prepare('SELECT payload_json FROM exec_report_editorial WHERE period=? AND scope=?')
+      .get(period, scope);
+    return _mapExecReportEditorial(row);
+  } catch { return null; }
+}
+async function _getExecReportEditorialPg(period, scope) {
+  try {
+    const row = await pgHandle().prepare('SELECT payload_json FROM exec_report_editorial WHERE period=? AND scope=?')
+      .get(period, scope);
+    return _mapExecReportEditorial(row);
+  } catch { return null; }
+}
+
+/**
+ * setExecReportEditorial(period, scope, payload, user) — upserts one analysis
+ * blob. The payload is stored verbatim as JSON (no caps, no field filtering —
+ * unlike the Exec View editorial, this IS the author's own prose and the shape
+ * belongs to the deck builder, not to us). Returns the payload.
+ */
+function setExecReportEditorial(period, scope, payload, user) {
+  if (REPORTS_BACKEND === 'postgres') return _setExecReportEditorialPg(period, scope, payload, user);
+  db.prepare(`
+    INSERT INTO exec_report_editorial (period, scope, payload_json, updated_at, updated_by)
+    VALUES (?, ?, ?, datetime('now'), ?)
+    ON CONFLICT(period, scope) DO UPDATE SET
+      payload_json = excluded.payload_json,
+      updated_at   = excluded.updated_at,
+      updated_by   = excluded.updated_by
+  `).run(period, scope, JSON.stringify(payload ?? null), user || 'unknown');
+  return payload;
+}
+// PG fork — datetime('now') → now(); ON CONFLICT … DO UPDATE SET x=excluded.x is pg-valid as-is.
+async function _setExecReportEditorialPg(period, scope, payload, user) {
+  await pgHandle().prepare(`
+    INSERT INTO exec_report_editorial (period, scope, payload_json, updated_at, updated_by)
+    VALUES (?, ?, ?, now(), ?)
+    ON CONFLICT(period, scope) DO UPDATE SET
+      payload_json = excluded.payload_json,
+      updated_at   = excluded.updated_at,
+      updated_by   = excluded.updated_by
+  `).run(period, scope, JSON.stringify(payload ?? null), user || 'unknown');
+  return payload;
+}
+
 // ── 1.D exec_mi_summary ───────────────────────────────────────────
 // AI-generated concise summaries of a Major Incident's root cause +
 // corrective action, for the PUBLIC Exec View card. Cached per incident and
@@ -6550,5 +6634,6 @@ module.exports = {
   getUpcomingChanges,
   // Exec View editorial (SharePoint executive page)
   getExecEditorial, setExecEditorial,
+  getExecReportEditorial, setExecReportEditorial,
   getExecMiSummaries, setExecMiSummary,
 };
