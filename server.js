@@ -4895,10 +4895,22 @@ app.post('/api/reports/send', requireReportSession, requireAdmin, async (req, re
   }
 });
 
+// Tests the settings the admin is LOOKING AT, not only the last-saved ones:
+// the form's values (if posted) are overlaid on the stored config. Previously
+// this read only the saved config, so testing before Save silently probed an
+// empty host — which nodemailer turns into `ECONNREFUSED 127.0.0.1:587`.
+// The password field is deliberately never echoed back to the browser
+// (reports.html), so a blank one means "keep the stored secret" — the exact
+// rule the Save path already uses.
 app.post('/api/reports/test-smtp', requireReportSession, requireAdmin, async (req, res) => {
   try {
     const { buildMailer } = require('./services/mailer');
-    const cfg = await reportConfig.getConfig(rdb.db);
+    const cfg = Object.assign({}, await reportConfig.getConfig(rdb.db));
+    const body = req.body || {};
+    for (const k of ['transport', 'smtp_host', 'smtp_port', 'smtp_secure', 'smtp_user', 'from', 'reply_to']) {
+      if (body[k] !== undefined && body[k] !== null) cfg[k] = String(body[k]);
+    }
+    if (body.smtp_pass) cfg.smtp_pass = String(body.smtp_pass);
     res.json(await buildMailer(cfg).verify());
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

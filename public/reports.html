@@ -1321,7 +1321,14 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         <div class="form-group"><label>User</label><input id="cfg-smtp-user" type="text"></div>
         <div class="form-group"><label>Password</label><input id="cfg-smtp-pass" type="password" placeholder="Leave blank to keep the stored password"></div>
       </div>
-      <div class="form-group"><label style="font-weight:400"><input type="checkbox" id="cfg-smtp-secure"> Use implicit TLS/SSL (secure)</label></div>
+      <div class="form-group">
+        <label style="font-weight:400"><input type="checkbox" id="cfg-smtp-secure"> Use implicit TLS/SSL (secure)</label>
+        <div style="font-size:0.78rem;color:#6b7a99;margin-top:4px">
+          Port <strong>587</strong> (Office 365) = STARTTLS → leave this <strong>unchecked</strong>.
+          Port <strong>465</strong> = implicit TLS → check it.
+          When authenticated, the connection is required to upgrade to TLS either way.
+        </div>
+      </div>
 
       <h4 style="margin:14px 0 6px">Addressing</h4>
       <div class="form-row cols-2" style="max-width:720px">
@@ -5741,33 +5748,51 @@ function loadReportConfig() {
   }).catch(e => toast('Could not load settings: ' + (e.message || e), 'error'));
 }
 function saveReportConfig() {
+  const patch = emailConfigPatch();
+  api('PUT', '/api/reports/config', patch)
+    .then(() => { toast('Delivery settings saved ✓', 'success'); loadReportConfig(); })
+    .catch(e => toast('Save failed: ' + (e.message || e), 'error'));
+}
+// The single source of truth for what the Email/SMTP form currently holds —
+// used both to Save and to Test, so "Test connection" probes exactly what is on
+// screen rather than the last-saved values. The password is included ONLY when
+// freshly typed (the stored one is never echoed back); the server falls back to
+// the stored secret when it is absent.
+function emailConfigPatch() {
   const val = id => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
+  const chk = id => { const el = document.getElementById(id); return el && el.checked ? '1' : '0'; };
   const patch = {
     transport: val('cfg-transport'),
     formats: val('cfg-formats'),
     smtp_host: val('cfg-smtp-host'),
     smtp_port: val('cfg-smtp-port'),
-    smtp_secure: document.getElementById('cfg-smtp-secure').checked ? '1' : '0',
+    smtp_secure: chk('cfg-smtp-secure'),
     smtp_user: val('cfg-smtp-user'),
     from: val('cfg-from'),
     reply_to: val('cfg-reply-to'),
     default_email_domain: val('cfg-default-domain'),
     group_report_to: val('cfg-group-to'),
     group_report_cc: val('cfg-group-cc'),
-    group_report_to_confirmed: document.getElementById('cfg-group-to-confirmed').checked ? '1' : '0',
-    never_send_unconfirmed: document.getElementById('cfg-never-send-unconfirmed').checked ? '1' : '0',
+    group_report_to_confirmed: chk('cfg-group-to-confirmed'),
+    never_send_unconfirmed: chk('cfg-never-send-unconfirmed'),
   };
-  const pass = document.getElementById('cfg-smtp-pass').value;
+  const passEl = document.getElementById('cfg-smtp-pass');
+  const pass = passEl ? passEl.value : '';
   if (pass) patch.smtp_pass = pass;   // only overwrite when a new one is typed
-  api('PUT', '/api/reports/config', patch)
-    .then(() => { toast('Delivery settings saved ✓', 'success'); loadReportConfig(); })
-    .catch(e => toast('Save failed: ' + (e.message || e), 'error'));
+  return patch;
 }
+
 function testSmtp(btn) {
   const msg = document.getElementById('cfg-test-msg');
+  const patch = emailConfigPatch();
+  if (!patch.smtp_host) {
+    if (msg) { msg.style.color = '#b91c1c'; msg.textContent = '✗ Enter an SMTP host first'; }
+    toast('Enter an SMTP host first', 'error');
+    return;
+  }
   if (btn) btn.disabled = true;
   if (msg) { msg.style.color = '#6b7a99'; msg.textContent = 'Testing…'; }
-  api('POST', '/api/reports/test-smtp').then(res => {
+  api('POST', '/api/reports/test-smtp', patch).then(res => {
     const ok = res && res.ok !== false;
     if (msg) { msg.style.color = ok ? '#0F766E' : '#b91c1c'; msg.textContent = ok ? '✓ Connection OK' : ('✗ ' + (res.error || 'Failed')); }
     toast(ok ? 'SMTP connection OK ✓' : ('SMTP test failed: ' + (res.error || 'unknown')), ok ? 'success' : 'error');
