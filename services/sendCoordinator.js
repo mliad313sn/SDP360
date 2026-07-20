@@ -10,8 +10,15 @@
 //   unresolvable site → { skipped:true, reason:'site "X" has no meetings module code — cannot report' }
 //   preview           → { preview:true, subject, html }   (never sends, never logs)
 //   no confirmed rcpt → { skipped:true, reason:'no confirmed recipient' }
+//   bad selection     → { skipped:true, reason:'"<addr>" is not a confirmed recipient for <site>' }
 //   already sent today→ { skipped:true, reason:'already sent today' }
 //   otherwise         → { ok:true, to, cc, pdf:boolean, messageId }
+//
+// `recipients` ({to, cc}) is OPTIONAL and lets an admin narrow the send to a
+// SUBSET of that site's directory row. It is re-validated here against the row
+// itself — the client is never trusted — so a foreign address, or one that is
+// on the row but NOT confirmed, is refused before any mail or log write. Omit
+// it and the behaviour is byte-identical to the scheduled CLI's.
 //
 // Every external edge (data, template, pdf, mail, directory, log) is injectable
 // via `deps` so tests never hit real SMTP or spawn Chrome.
@@ -40,7 +47,37 @@ function _parsePeriod(period) {
   return { year: +m[1], month: +m[2] };
 }
 
-async function sendCoordinatorReport({ db, cfg, site, period, kind = 'weekly', force = false, preview = false, deps } = {}) {
+const _norm = (x) => String(x == null ? '' : x).trim().toLowerCase();
+
+// The set of addresses a selection may name for this site: the coordinator and
+// the FM each ONLY when their address is confirmed, plus every cc_emails entry.
+// Confirmation is re-checked HERE rather than trusted from the UI — a checkbox
+// the client managed to enable must still not bypass never_send_unconfirmed.
+function _allowedFor(rows, site) {
+  const want = _norm(site);
+  const row = (rows || []).find(r => _norm(r.site_code) === want);
+  if (!row) return new Set();
+  const out = new Set();
+  if (row.coordinator_email && row.coordinator_email_confirmed) out.add(_norm(row.coordinator_email));
+  if (row.fm_email && row.fm_email_confirmed) out.add(_norm(row.fm_email));
+  for (const cc of String(row.cc_emails || '').split(',')) {
+    const v = _norm(cc);
+    if (v) out.add(v);
+  }
+  return out;
+}
+
+// → null when the selection is valid, else the offending address.
+function _firstDisallowed(recipients, allowed) {
+  const to = _norm(recipients && recipients.to);
+  if (!to || !allowed.has(to)) return (recipients && recipients.to) || '(none)';
+  for (const cc of (recipients.cc || [])) {
+    if (!allowed.has(_norm(cc))) return cc;
+  }
+  return null;
+}
+
+async function sendCoordinatorReport({ db, cfg, site, period, kind = 'weekly', force = false, preview = false, recipients: pick, deps } = {}) {
   const D = { ..._defaults(), ...(deps || {}) };
   const t0 = Date.now();
 
@@ -83,6 +120,22 @@ async function sendCoordinatorReport({ db, cfg, site, period, kind = 'weekly', f
     return { skipped: true, reason };
   }
 
+  // 5b · an optional admin SELECTION, re-validated against the SAME row. The
+  // gate above already proved the site has some confirmed recipient; this
+  // proves every address the client named is on that row AND confirmed.
+  // Refuse BEFORE dedup/pdf/mail/log so a rejected selection has no trace and
+  // no side effect.
+  let target = rcpt;
+  if (pick) {
+    const bad = _firstDisallowed(pick, _allowedFor(rows, site));
+    if (bad) {
+      const reason = `"${bad}" is not a confirmed recipient for ${site}`;
+      console.warn(`[report-send] SKIP site=${site} period=${period} reason=${reason}`);
+      return { skipped: true, reason };
+    }
+    target = { to: pick.to, cc: pick.cc || [] };
+  }
+
   // 6 · dedup — note the db FIRST arg; omitting it silently defeats the check.
   if (!force && await D.reportSentLog.alreadySentToday(db, REPORT_TYPE, site, period)) {
     const reason = 'already sent today';
@@ -97,28 +150,32 @@ async function sendCoordinatorReport({ db, cfg, site, period, kind = 'weekly', f
 
   // 8 · send.
   const sent = await D.buildMailer(config).send({
-    to: rcpt.to,
-    cc: rcpt.cc,
+    to: target.to,
+    cc: target.cc,
     subject,
     html: htmlBody,
     attachments: pdf.ok ? [{ filename: `IT-Report-${site}-${period}.pdf`, content: pdf.pdf }] : [],
   });
 
-  // 9 · record the outcome EITHER WAY. Only result='ok' rows count for dedup,
-  // so a logged failure stays retryable while still leaving an audit trail.
-  const recipients = [rcpt.to, ...(rcpt.cc || [])].join(',');
+  // 9 · record the outcome EITHER WAY. Only the SUCCESS results ('ok' and
+  // 'resent') count for dedup, so a logged failure stays retryable while still
+  // leaving an audit trail. A deliberate force=1 re-send is tagged 'resent' so
+  // it is distinguishable in the log — NOT renamed away from a dedup-visible
+  // value, or "already sent today" would never fire again (reportSentLog
+  // filters on the result column).
+  const recipientLine = [target.to, ...(target.cc || [])].join(',');
   await D.reportSentLog.record(db, {
-    report_type: REPORT_TYPE, site_code: site, period, recipients,
-    result: sent.ok ? 'ok' : 'fail',
+    report_type: REPORT_TYPE, site_code: site, period, recipients: recipientLine,
+    result: sent.ok ? (force ? 'resent' : 'ok') : 'fail',
   });
 
   const dur = Date.now() - t0;
   if (!sent.ok) {
-    console.error(`[report-send] FAIL site=${site} period=${period} to=${rcpt.to} reason=${sent.error} (${dur}ms)`);
+    console.error(`[report-send] FAIL site=${site} period=${period} to=${target.to} reason=${sent.error} (${dur}ms)`);
     throw new Error(`send failed: ${sent.error}`);
   }
-  console.log(`[report-send] OK site=${site} period=${period} to=${rcpt.to} pdf=${pdf.ok ? pdf.pdf.length + 'B' : 'none'} (${dur}ms)`);
-  return { ok: true, to: rcpt.to, cc: rcpt.cc, pdf: !!pdf.ok, messageId: sent.messageId };
+  console.log(`[report-send] OK site=${site} period=${period} to=${target.to} pdf=${pdf.ok ? pdf.pdf.length + 'B' : 'none'} (${dur}ms)`);
+  return { ok: true, to: target.to, cc: target.cc, pdf: !!pdf.ok, messageId: sent.messageId };
 }
 
 module.exports = { sendCoordinatorReport, _parsePeriod, REPORT_TYPE };

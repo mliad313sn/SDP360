@@ -29,14 +29,19 @@ function record(db, { report_type, site_code, period, recipients, result }) {
   return { ok: true };
 }
 
+// The SUCCESS results are 'ok' (a normal send) and 'resent' (a deliberate
+// force=1 re-send). BOTH must count here: tagging a re-send 'resent' purely for
+// traceability, while dedup looked only for 'ok', would make a force-first send
+// leave the period looking un-sent — the very skip this function exists for
+// would then never fire. 'fail' stays excluded so a failure is retryable.
 function alreadySentToday(db, report_type, site_code, period) {
   const { H, isPg } = _h(db);
   if (isPg) return (async () => {
-    const r = await H.prepare(`SELECT 1 FROM report_sent_log WHERE report_type=? AND site_code=? AND period=? AND result='ok' AND sent_at::date = current_date LIMIT 1`).get(report_type, site_code, period);
+    const r = await H.prepare(`SELECT 1 FROM report_sent_log WHERE report_type=? AND site_code=? AND period=? AND result IN ('ok','resent') AND sent_at::date = current_date LIMIT 1`).get(report_type, site_code, period);
     return !!r;
   })();
   _initSchema(db);
-  const r = H.prepare(`SELECT 1 FROM report_sent_log WHERE report_type=? AND site_code=? AND period=? AND result='ok' AND date(sent_at)=date('now') LIMIT 1`).get(report_type, site_code, period);
+  const r = H.prepare(`SELECT 1 FROM report_sent_log WHERE report_type=? AND site_code=? AND period=? AND result IN ('ok','resent') AND date(sent_at)=date('now') LIMIT 1`).get(report_type, site_code, period);
   return !!r;
 }
 
