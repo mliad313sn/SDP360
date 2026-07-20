@@ -4848,7 +4848,12 @@ app.get('/api/reports/review-data', requireReportSession, async (req, res) => {
 // POST /api/reports/send?type=coordinator&site=<CODE>[&preview=1][&force=1]
 // A THIN wrapper over services/sendCoordinator — the pipeline (safety gate,
 // dedup, best-effort PDF, outcome logging) lives there and is shared with the
-// scheduled CLI. All params are query params: this route needs NO body parser.
+// scheduled CLI. Everything that identifies the send is a query param; the only
+// body is the OPTIONAL recipient selection {recipients:{to,cc}}, which the
+// global express.json() already parses — no route-specific parser is needed.
+// The selection is passed straight through and re-validated inside the pipeline
+// against that site's directory row: this route does NOT vet it, and must not
+// be mistaken for the enforcement point.
 const { sendCoordinatorReport } = require('./services/sendCoordinator');
 const SEND_TYPES = ['coordinator'];   // 'finance' lands in sub-project 4
 app.post('/api/reports/send', requireReportSession, requireAdmin, async (req, res) => {
@@ -4862,6 +4867,8 @@ app.post('/api/reports/send', requireReportSession, requireAdmin, async (req, re
   const month = +(req.query.month || (now.getMonth() + 1));
   const kind  = req.query.kind === 'monthly' ? 'monthly' : 'weekly';
   const period = `${year}-${String(month).padStart(2, '0')}`;
+  // Optional — omit it and the send behaves exactly as the scheduled CLI's.
+  const recipients = (req.body && req.body.recipients) || undefined;
 
   // Single latch guarding EVERY exit path — the timer and the pipeline race,
   // and a double res.* would throw ERR_HTTP_HEADERS_SENT.
@@ -4880,7 +4887,7 @@ app.post('/api/reports/send', requireReportSession, requireAdmin, async (req, re
 
   try {
     const out = await sendCoordinatorReport({
-      db: rdb.db, site, period, kind,
+      db: rdb.db, site, period, kind, recipients,
       preview: req.query.preview === '1',
       force: req.query.force === '1',
     });
