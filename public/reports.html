@@ -1549,6 +1549,52 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
   </div>
 </div>
 
+<!-- ══════════════════════════════════════════════════════════════
+     MANUAL SEND MODAL  (Automated Reports ▸ Recipients ▸ Send ›)
+     Pick the period, preview, and choose WHICH of that site's
+     already-confirmed addresses receive it. There is deliberately NO
+     free-text address field — a new address goes through Edit (where
+     it is confirmed). The server re-validates every selection against
+     the directory row, so the UI can never bypass the rule.
+══════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="send-report-modal">
+  <div class="modal" style="max-width:820px">
+    <h2 id="send-report-title">Send report</h2>
+    <input type="hidden" id="snd-site-code">
+
+    <div class="form-row cols-3">
+      <div class="form-group"><label>Month</label><select id="snd-month"></select></div>
+      <div class="form-group"><label>Year</label><select id="snd-year"></select></div>
+      <div class="form-group"><label>Kind</label>
+        <select id="snd-kind"><option value="weekly">Weekly</option><option value="monthly">Monthly</option></select>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>Recipient (To) <span style="font-weight:400;color:#6b7a99">— only confirmed addresses can be selected</span></label>
+      <div id="snd-to-list" style="border:1px solid #E2E5EA;border-radius:6px;padding:8px 10px"></div>
+    </div>
+
+    <div class="form-group">
+      <label>CC</label>
+      <div id="snd-cc-list" style="border:1px solid #E2E5EA;border-radius:6px;padding:8px 10px"></div>
+    </div>
+
+    <div id="snd-result" style="display:none;margin:6px 0 2px;padding:9px 11px;border-radius:6px;font-size:0.85rem"></div>
+
+    <div id="snd-preview-box" style="display:none;margin-top:10px">
+      <div style="font-weight:700;font-size:0.85rem;margin-bottom:4px">Preview — <span id="snd-preview-subject" style="font-weight:400;color:#334155"></span></div>
+      <iframe id="snd-preview-frame" style="width:100%;height:340px;border:1px solid #E2E5EA;border-radius:6px;background:#fff"></iframe>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeSendReportModal()">Close</button>
+      <button class="btn btn-secondary" id="snd-preview-btn" onclick="previewReportSend()">Preview</button>
+      <button class="btn btn-primary"   id="snd-send-btn"    onclick="submitReportSend(false)" disabled>Send</button>
+    </div>
+  </div>
+</div>
+
 <!-- Meetings lookup modal moved to /meetings-setup.html (super_admin only). -->
 
 <!-- ══════════════════════════════════════════════════════════════
@@ -5621,7 +5667,10 @@ function loadReportRecipients() {
         <td>${esc(r.fm_name || '—')}</td>
         <td>${emailCell(r.fm_email, _arYN(r.fm_email_confirmed))}</td>
         <td style="font-size:11px;color:#6b7a99">${esc(r.cc_emails || '—')}</td>
-        <td><button class="btn btn-secondary btn-sm" onclick='openRecipientModal(${JSON.stringify(r).replace(/'/g, "&#39;")})'>Edit</button></td>
+        <td style="white-space:nowrap">
+          <button class="btn btn-secondary btn-sm" onclick='openRecipientModal(${JSON.stringify(r).replace(/'/g, "&#39;")})'>Edit</button>
+          <button class="btn btn-secondary btn-sm" style="margin-left:4px" onclick='openSendReportModal(${JSON.stringify(r).replace(/'/g, "&#39;")})'>Send ›</button>
+        </td>
       </tr>`).join('');
   }).catch(e => {
     tbody.innerHTML = `<tr><td colspan="7" style="color:#b91c1c;font-style:italic;text-align:center;padding:14px">Failed to load: ${esc(e.message || e)}</td></tr>`;
@@ -5674,6 +5723,149 @@ function submitRecipient() {
   api('PUT', '/api/reports/recipients/' + encodeURIComponent(orig || site), patch)
     .then(() => { toast(`Recipient saved: ${orig || site} ✓`, 'success'); closeRecipientModal(); loadReportRecipients(); })
     .catch(e => toast('Save failed: ' + (e.message || e), 'error'));
+}
+
+// ── Manual send (Recipients ▸ Send ›) ───────────────────────────────
+// The dialog is built ENTIRELY from the directory row already in the table —
+// no extra API call. The candidate To addresses are the coordinator and the
+// FM; each is shown only if it EXISTS, and is selectable only if it is
+// CONFIRMED (an unconfirmed one renders disabled, with the reason in title).
+// The CCs come from cc_emails. There is no free-text field: an address that
+// is not on this row cannot be expressed in the UI at all — and the server
+// re-validates the selection anyway, so a hand-crafted POST is refused too.
+const _MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+let _sndRow = null;
+
+function openSendReportModal(row) {
+  _sndRow = row || {};
+  document.getElementById('snd-site-code').value = _sndRow.site_code || '';
+  document.getElementById('send-report-title').textContent = `Send report — ${_sndRow.site_code || ''}`;
+
+  const now = new Date();
+  const mSel = document.getElementById('snd-month');
+  mSel.innerHTML = _MONTHS.map((m, i) => `<option value="${i + 1}"${i === now.getMonth() ? ' selected' : ''}>${m}</option>`).join('');
+  const y = now.getFullYear();
+  document.getElementById('snd-year').innerHTML = [y - 1, y, y + 1]
+    .map(v => `<option value="${v}"${v === y ? ' selected' : ''}>${v}</option>`).join('');
+  document.getElementById('snd-kind').value = 'weekly';
+
+  // ── To candidates: coordinator + FM, each gated on its own confirmed flag.
+  const cands = [
+    { email: _sndRow.coordinator_email, name: _sndRow.coordinator_name, role: 'Coordinator', ok: _arYN(_sndRow.coordinator_email_confirmed) },
+    { email: _sndRow.fm_email,          name: _sndRow.fm_name,          role: 'Facility manager', ok: _arYN(_sndRow.fm_email_confirmed) },
+  ].filter(c => c.email && String(c.email).trim());
+
+  const toBox = document.getElementById('snd-to-list');
+  if (!cands.length) {
+    toBox.innerHTML = '<span style="color:#b91c1c;font-size:0.85rem">No address on this site\'s directory row — add one via Edit, and confirm it.</span>';
+  } else {
+    let firstConfirmed = true;
+    toBox.innerHTML = cands.map((c, i) => {
+      const checked = (c.ok && firstConfirmed) ? (firstConfirmed = false, ' checked') : '';
+      const title = c.ok ? 'Confirmed — can be sent to' : 'Address not confirmed — confirm it in Edit first';
+      return `<label style="display:block;font-weight:400;margin:3px 0${c.ok ? '' : ';opacity:.6'}" title="${esc(title)}">
+        <input type="radio" name="snd-to" value="${esc(c.email)}" id="snd-to-${i}"${checked}${c.ok ? '' : ' disabled'} onchange="_sndSyncSend()">
+        <strong>${esc(c.role)}</strong> — ${esc(c.name || '—')} &lt;${esc(c.email)}&gt;
+        ${c.ok ? '<span style="color:#0F766E;font-weight:700" title="Confirmed">✓</span>'
+               : '<span style="color:#D97706;font-weight:700">⚠ non confirmé</span>'}
+      </label>`;
+    }).join('');
+  }
+
+  // ── CCs: every cc_emails entry, all checked by default.
+  const ccs = String(_sndRow.cc_emails || '').split(',').map(s => s.trim()).filter(Boolean);
+  const ccBox = document.getElementById('snd-cc-list');
+  ccBox.innerHTML = ccs.length
+    ? ccs.map((e, i) => `<label style="display:block;font-weight:400;margin:3px 0">
+        <input type="checkbox" class="snd-cc" value="${esc(e)}" id="snd-cc-${i}" checked> ${esc(e)}
+      </label>`).join('')
+    : '<span style="color:#6b7a99;font-size:0.85rem">No CC addresses on this row.</span>';
+
+  _sndResetOutput();
+  _sndSyncSend();
+  document.getElementById('send-report-modal').classList.add('open');
+}
+function closeSendReportModal() { document.getElementById('send-report-modal').classList.remove('open'); }
+
+function _sndResetOutput() {
+  const r = document.getElementById('snd-result'); r.style.display = 'none'; r.innerHTML = '';
+  document.getElementById('snd-preview-box').style.display = 'none';
+}
+// Send stays disabled until a (necessarily confirmed) To radio is selected.
+function _sndSyncSend() {
+  const sel = document.querySelector('input[name="snd-to"]:checked');
+  document.getElementById('snd-send-btn').disabled = !sel;
+}
+function _sndSelection() {
+  const to = document.querySelector('input[name="snd-to"]:checked');
+  return {
+    to: to ? to.value : '',
+    cc: Array.from(document.querySelectorAll('input.snd-cc:checked')).map(el => el.value),
+  };
+}
+function _sndUrl(extra) {
+  const site = document.getElementById('snd-site-code').value;
+  const q = [
+    'type=coordinator',
+    'site=' + encodeURIComponent(site),
+    'year=' + encodeURIComponent(document.getElementById('snd-year').value),
+    'month=' + encodeURIComponent(document.getElementById('snd-month').value),
+    'kind=' + encodeURIComponent(document.getElementById('snd-kind').value),
+  ].concat(extra || []);
+  return '/api/reports/send?' + q.join('&');
+}
+function _sndMsg(html, tone) {
+  const bg = { ok: '#ECFDF5', warn: '#FFFBEB', err: '#FEF2F2' }[tone] || '#F1F5F9';
+  const fg = { ok: '#065F46', warn: '#92400E', err: '#991B1B' }[tone] || '#334155';
+  const el = document.getElementById('snd-result');
+  el.style.background = bg; el.style.color = fg; el.innerHTML = html; el.style.display = '';
+}
+
+// Preview never sends and never writes the log — the server returns
+// {preview:true, subject, html} before recipient resolution / PDF / mail.
+function previewReportSend() {
+  const btn = document.getElementById('snd-preview-btn');
+  btn.disabled = true; btn.textContent = 'Loading…';
+  _sndResetOutput();
+  api('POST', _sndUrl(['preview=1']))
+    .then(out => {
+      if (out && out.preview) {
+        document.getElementById('snd-preview-subject').textContent = out.subject || '(no subject)';
+        document.getElementById('snd-preview-frame').srcdoc = out.html || '';
+        document.getElementById('snd-preview-box').style.display = '';
+      } else if (out && out.skipped) {
+        _sndMsg('Preview unavailable: ' + esc(out.reason || 'skipped'), 'warn');
+      } else {
+        _sndMsg('Unexpected preview response.', 'warn');
+      }
+    })
+    .catch(e => _sndMsg('Preview failed: ' + esc(e.message || e), 'err'))
+    .finally(() => { btn.disabled = false; btn.textContent = 'Preview'; });
+}
+
+// force=true is the deliberate re-send after "already sent today" — the
+// server logs it with result:'resent' so it stays traceable.
+function submitReportSend(force) {
+  const sel = _sndSelection();
+  if (!sel.to) { toast('Pick a recipient first', 'error'); return; }
+  const btn = document.getElementById('snd-send-btn');
+  btn.disabled = true; btn.textContent = force ? 'Re-sending…' : 'Sending…';
+  api('POST', _sndUrl(force ? ['force=1'] : []), { recipients: sel })
+    .then(out => {
+      if (out && out.ok) {
+        const cc = (out.cc || []).length;
+        _sndMsg(`✓ Sent to <strong>${esc(out.to || sel.to)}</strong>${cc ? ` (+${cc} CC)` : ''}${force ? ' — re-send logged as <em>resent</em>' : ''}`, 'ok');
+        toast(`Report sent to ${out.to || sel.to}${cc ? ` (+${cc} CC)` : ''} ✓`, 'success');
+      } else if (out && out.skipped && /already sent today/i.test(out.reason || '')) {
+        _sndMsg(`Already sent today for this site + period. <button class="btn btn-secondary btn-sm" style="margin-left:8px" onclick="submitReportSend(true)">Renvoyer quand même</button>`, 'warn');
+      } else if (out && out.skipped) {
+        _sndMsg('Not sent — ' + esc(out.reason || 'skipped'), 'warn');   // safety refusals, shown verbatim
+      } else {
+        _sndMsg('Unexpected response from the server.', 'warn');
+      }
+    })
+    .catch(e => _sndMsg('Send failed: ' + esc(e.message || e), 'err'))
+    .finally(() => { btn.textContent = 'Send'; _sndSyncSend(); });
 }
 
 // ── Tab 2 · Schedule ────────────────────────────────────────────────
