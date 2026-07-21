@@ -4918,7 +4918,6 @@ app.post('/api/reports/send', requireReportSession, requireAdmin, async (req, re
   const now = new Date();
   const year  = +(req.query.year || now.getFullYear());
   const month = +(req.query.month || (now.getMonth() + 1));
-  const kind  = req.query.kind === 'monthly' ? 'monthly' : 'weekly';
   const period = `${year}-${String(month).padStart(2, '0')}`;
   // Optional — omit it and the send behaves exactly as the scheduled CLI's.
   const recipients = (req.body && req.body.recipients) || undefined;
@@ -4940,7 +4939,7 @@ app.post('/api/reports/send', requireReportSession, requireAdmin, async (req, re
 
   try {
     const out = await sendCoordinatorReport({
-      db: rdb.db, site, period, kind, recipients,
+      db: rdb.db, site, period, recipients,
       preview: req.query.preview === '1',
       force: req.query.force === '1',
     });

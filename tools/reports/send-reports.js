@@ -97,7 +97,7 @@ async function main() {
 
   for (const site of sendable) {
     try {
-      const res = await sendCoordinatorReport({ db: reportsDb.db, cfg, site, period, kind: cadence, force });
+      const res = await sendCoordinatorReport({ db: reportsDb.db, cfg, site, period, force });
       if (res.ok) { sent++; console.log(`[send-reports] SENT site=${site} to=${res.to} pdf=${res.pdf ? 'yes' : 'no'}`); }
       else if (res.skipped) { skippedCount++; console.log(`[send-reports] SKIP site=${site} reason=${res.reason}`); }
     } catch (e) {
