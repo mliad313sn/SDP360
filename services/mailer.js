@@ -12,6 +12,14 @@ function smtpConfigError(config = {}) {
   if (!String(config.smtp_host || '').trim()) {
     return 'SMTP host is not configured — set it in Admin → Email / SMTP, then Save.';
   }
+  // An empty From is not a soft default. Office 365 answers it with a
+  // Send-On-Behalf-Of / SendAs rights rejection whose body carries server names
+  // (PA4PR01MB…), SIDs and hex diagnostics — tens of kilobytes that never name
+  // the real cause. Fail here instead, where we can name the field.
+  if (!String(config.from || '').trim()) {
+    return 'Sender address (From) is not configured — set it in Admin → Email / SMTP, then Save. '
+         + 'It must be an address the SMTP account is allowed to send as.';
+  }
   return null;
 }
 

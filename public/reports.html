@@ -1857,8 +1857,15 @@ function api(method, path, body) {
   if (body !== undefined) opts.body = JSON.stringify(body);
   return fetch(API + path, opts).then(async r => {
     if (r.status === 401) { doLogout(); return Promise.reject('Session expired'); }
-    const data = await r.json();
-    if (!r.ok) return Promise.reject(data.error || 'Error');
+    // A 5xx from a proxy (IIS/ARR) or a crashed handler is HTML, not JSON.
+    // r.json() would throw a SyntaxError whose own message embeds a slice of the
+    // body — an unreadable error ABOUT an error. Read text, then try to parse.
+    const raw = await r.text();
+    let data = null;
+    try { data = raw ? JSON.parse(raw) : null; } catch (_) { /* not JSON */ }
+    if (!r.ok) {
+      return Promise.reject((data && data.error) || `HTTP ${r.status} ${r.statusText || ''}`.trim());
+    }
     return data;
   });
 }
@@ -5828,6 +5835,34 @@ function _sndMsg(html, tone) {
   el.style.background = bg; el.style.color = fg; el.innerHTML = html; el.style.display = '';
 }
 
+// An SMTP rejection from Office 365 can be TENS OF KILOBYTES — it embeds server
+// names (PA4PR01MB…), SIDs, and hex diagnostic blobs. Rendering it raw painted a
+// wall of binary over the whole admin page and buried the one line that matters.
+//
+// The diagnosis is ALWAYS at the front ("535 5.7.3 Authentication unsuccessful",
+// "550 5.7.60 … not allowed to send as this sender"), so show the first line,
+// and put the rest behind a collapsed, scroll-capped <details>. The FULL text is
+// still in the server log (`[report-send] FAIL … reason=`) and in console.error.
+//
+// Rule: never interpolate an error of unbounded length into the DOM. esc() makes
+// it safe; it does not make it small.
+function _errBrief(msg, max) {
+  const s = String(msg == null ? '' : msg).trim();
+  const head = s.split(/\r?\n/)[0].slice(0, max || 200);
+  return { head, rest: s.length > head.length ? s : '' };
+}
+function _sndErr(prefix, e) {
+  const raw = (e && e.message) || e;
+  console.error('[report-send] full error:', raw);           // never lose the detail
+  const { head, rest } = _errBrief(raw);
+  const more = rest
+    ? `<details style="margin-top:6px"><summary style="cursor:pointer">Détails techniques</summary>
+         <pre style="max-height:180px;overflow:auto;white-space:pre-wrap;word-break:break-all;
+                     font-size:11px;margin:6px 0 0">${esc(rest.slice(0, 4000))}</pre></details>`
+    : '';
+  _sndMsg(`${esc(prefix)} ${esc(head)}${more}`, 'err');
+}
+
 // Preview never sends and never writes the log — the server returns
 // {preview:true, subject, html} before recipient resolution / PDF / mail.
 function previewReportSend() {
@@ -5846,7 +5881,7 @@ function previewReportSend() {
         _sndMsg('Unexpected preview response.', 'warn');
       }
     })
-    .catch(e => _sndMsg('Preview failed: ' + esc(e.message || e), 'err'))
+    .catch(e => _sndErr('Preview failed:', e))
     .finally(() => { btn.disabled = false; btn.textContent = 'Preview'; });
 }
 
@@ -5871,7 +5906,7 @@ function submitReportSend(force) {
         _sndMsg('Unexpected response from the server.', 'warn');
       }
     })
-    .catch(e => _sndMsg('Send failed: ' + esc(e.message || e), 'err'))
+    .catch(e => _sndErr('Send failed:', e))
     .finally(() => { btn.textContent = 'Send'; _sndSyncSend(); });
 }
 

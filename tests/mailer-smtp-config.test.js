@@ -14,6 +14,9 @@ const { buildMailer, smtpOptions, smtpConfigError } = require('../services/maile
 const O365 = {
   smtp_host: 'smtp.office365.com', smtp_port: '587', smtp_secure: '0',
   smtp_user: 'manapop@endeavourmining.com', smtp_pass: 'secret',
+  // A COMPLETE config carries a From — an empty one is a configuration error,
+  // not a default (see the SOBO test below).
+  from: 'IT Reports <manapop@endeavourmining.com>',
 };
 
 test('smtpConfigError names the missing host instead of letting it fall back to localhost', () => {
@@ -61,4 +64,22 @@ test('host is trimmed and the port defaults to 587', () => {
   const o = smtpOptions({ smtp_host: '  smtp.office365.com  ' });
   assert.strictEqual(o.host, 'smtp.office365.com');
   assert.strictEqual(o.port, 587);
+});
+
+// An empty `from` reaches Office 365 as a Send-On-Behalf-Of / SendAs rights
+// rejection whose message embeds server names, SIDs and hex diagnostics — tens
+// of KB that say nothing about the actual cause. Same class as the empty-host
+// localhost fallback: fail fast, name the field.
+test('smtpConfigError names an empty From — O365 answers it with a SOBO rights dump', () => {
+  const noFrom = { smtp_host: 'smtp.office365.com', smtp_user: 'x@y.com', from: '' };
+  assert.match(smtpConfigError(noFrom), /from/i);
+  assert.strictEqual(smtpConfigError({ ...noFrom, from: 'IT <it@y.com>' }), null);
+});
+
+test('send() fails fast when From is empty, without contacting SMTP', async () => {
+  const r = await buildMailer({ smtp_host: 'smtp.office365.com', smtp_user: 'x@y.com', from: '   ' })
+    .send({ to: 'a@b.c', subject: 's', html: 'h' });
+  assert.strictEqual(r.ok, false);
+  assert.match(r.error, /from/i);
+  assert.ok(!/SOBO|PA4PR01MB/i.test(r.error), 'must not surface an O365 diagnostic blob');
 });
