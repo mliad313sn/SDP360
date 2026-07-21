@@ -188,6 +188,9 @@ for (const name of ['full', 'nonApplicable']) {
 ```js
 // loadWeeklyReportData({ siteCode, year, week, deps }) →
 //   { ok:true, report, week:{year,week,label,start,end}, assets }
+// `week.label` / `start` / `end` come from the `getReport` RESULT
+// (`week_label`, `start_date`, `end_date`) — there is no weeks reader to call,
+// and none is to be written (see the spec amendment collapsing 'unknown week').
 //   | { ok:false, reason:'<english, operator-facing>' }
 ```
 
@@ -219,8 +222,10 @@ widen `getSiteIdByModuleCode`** — it is shared with `sendCoordinator.js:96`.
       stays broken.
   11. Zero-count kinds are **absent** from the worklist, not present as `0`.
   12. No AP label maps to the code → `assets` is `null`, **not** zeros.
-  13. Effort: assert `assets.effort_score` and `assets.rank` **equal expected values**
-      *and* `'delta' in assets === false`. (Absence-only would pass for a no-op.)
+  13. Effort: use a fixture with **at least THREE distinct codes** (with one code,
+      rank is trivially 1 and the recomputation is never exercised). Assert
+      `assets.effort_score` and `assets.rank` **equal expected values** *and*
+      `'delta' in assets === false`. (Absence-only would pass for a no-op.)
   Run → FAIL.
 - [ ] **Step 2** Confirm FAIL. **Step 3 — implement.**
   - Chain: `getSiteIdByModuleCode('meetings', siteCode)` → **guard `!row || !row.site_id`**
@@ -232,7 +237,10 @@ widen `getSiteIdByModuleCode`** — it is shared with `sendCoordinator.js:96`.
   - **Effort fold:** `getEffortLeaderboard({asOf})` returns
     **`{rows, most_improved, needs_attention}`** — take `.rows`, which are keyed per
     **AP label**. Fold the score with `aliases.foldEffortByCode`
-    (`scoreboardAliases.js:32` — an **unweighted mean**, which is correct for a score).
+    (`scoreboardAliases.js:32` — an **unweighted mean**, correct for a score).
+    ⚠ **It returns a `Map`, not a plain object** (`:42`) — use **`.get(code)`**;
+    `folded[code]` is `undefined` **silently**. It keys on **`row.site`** (the AP
+    label, `assets-db.js:1125`) and **silently drops unaliased labels** (`:36`).
     **`rank` must be RECOMPUTED after folding** — a mean of two ranks is meaningless.
     Rank = position of this code's folded score among all folded codes, descending.
     Carry `{effort_score, rank}` only; **drop `delta`** (spec D4).
@@ -250,10 +258,18 @@ widen `getSiteIdByModuleCode`** — it is shared with `sendCoordinator.js:96`.
 | Child | Columns to render |
 |---|---|
 | `infra_kpis[]` | `service`, `kpi`, `target`, `status_value`, **`status_color`**, `trend` (`up`\|`down`\|`stable`\|`no_change`) |
-| `helpdesk{}` | Render **`comments_metrics`** and **`comments_sla`** (the human-authored text) + `techs_on_duty`, `tech_on_break`. **Ignore** `time_to_assign`/`first_reply`/`resolution_time`/`closing_time` and their `_prev` twins — they are **dormant, NULL on every row** (superseded by `chart_data`). Do not render `chart_data`/`group_metrics`/`all_groups` (chart payloads, not email content). |
+| `helpdesk{}` | Render **`comments_metrics`** and **`comments_sla`** (the human-authored text) + `techs_on_duty`, `tech_on_break`. For the timing columns `time_to_assign`/`first_reply`/`resolution_time`/`closing_time` (+ `_prev` twins): **render each row only when the value is non-null, omit it when null.** Do not render `chart_data`/`group_metrics`/`all_groups` (chart payloads, not email content). |
 | `lights[]` | `content`, grouped by **`type`**: `low_light`, `high_light`, `change_in_progress`, `change_pending` (four groups, labelled) |
 | `action_items[]` | `task`, `priority`, `due_date`, `owner`, `status` |
 
+> **On the timing columns — do NOT hard-code them as absent.** An earlier draft of
+> this plan told the executor to *ignore* them, citing them as "dormant, NULL on
+> every row". **That claim was unverified and is probably wrong**: `saveHelpdesk`
+> writes all eight (`reports-db.js:2107`, `:2113`). The evidence behind it was that
+> they have no *code references* outside the schema — which is a statement about
+> renderers, not about data. Render-if-non-null is correct either way and cannot
+> silently discard authored content.
+>
 > **🔴 `status_color` is `green | orange | red | none` — NOT `amber`.**
 > `reports-db.js:90` stores `orange`; `reports.html:2358` *labels* it
 > `🟡 Amber` while storing `orange`; `RAG_COLORS` (`_primitives.js`) is keyed
@@ -307,9 +323,20 @@ Mirror `sendCoordinator.js`'s DI shape. **Do not modify `sendCoordinator.js`.**
 ### Order (resolves the spec's ambiguity — this is authoritative)
 
 ```
-data → preview short-circuit → recipients → dedup short-circuit
-     → PPTX (60 s timeout) → composeWeekly({...data, pptxFailed}) → mail → log
+PREVIEW path:  data → composeWeekly({...data, pptxFailed:false}) → return {preview, subject, html}
+               (no recipients, no dedup, no PPTX, no mail, no log)
+
+SEND path:     data → recipients → dedup short-circuit
+               → PPTX (60 s timeout) → composeWeekly({...data, pptxFailed}) → mail → log
 ```
+
+**Composition happens ONCE PER PATH — this is the resolution of an ambiguity that
+bit an earlier draft.** `subject` and `html` are *outputs of `composeWeekly`*, so a
+preview that short-circuits before composing cannot return them. But `pptxFailed`
+is an *input* to `composeWeekly`, so the send path must compose after the PPTX
+attempt. The two constraints are irreconcilable in one linear order — hence two.
+(`sendCoordinator.js` avoids the split only because its PDF outcome never feeds its
+composer: it composes `:105`, previews `:109`, PDFs `:148`.)
 
 **PPTX comes AFTER dedup, not before.** `sendCoordinator.js:140-148` deliberately
 puts its expensive PDF after the dedup check so an already-sent run costs nothing; a
