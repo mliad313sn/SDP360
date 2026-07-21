@@ -1562,13 +1562,21 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
     <h2 id="send-report-title">Send report</h2>
     <input type="hidden" id="snd-site-code">
 
-    <div class="form-row cols-3">
+    <!-- The site report is composed for a CALENDAR MONTH end to end
+         (siteReportData takes {year, month}; _asOfFor derives the as-of date
+         from them). There is no weekly variant of the content, so this dialog
+         offers no weekly/monthly toggle — one existed briefly and changed
+         nothing, which is worse than no control at all. The weekly/monthly
+         choice on the Schedule tab is a CADENCE (how often the CLI runs),
+         not a different report. -->
+    <div class="form-row cols-2">
       <div class="form-group"><label>Month</label><select id="snd-month"></select></div>
       <div class="form-group"><label>Year</label><select id="snd-year"></select></div>
-      <div class="form-group"><label>Kind</label>
-        <select id="snd-kind"><option value="weekly">Weekly</option><option value="monthly">Monthly</option></select>
-      </div>
     </div>
+    <p style="margin:-4px 0 12px;font-size:0.8rem;color:#6b7a99">
+      Monthly site report for the selected month. The Schedule tab's weekly/monthly
+      setting controls how often it is sent automatically — not its content.
+    </p>
 
     <div class="form-group">
       <label>Recipient (To) <span style="font-weight:400;color:#6b7a99">— only confirmed addresses can be selected</span></label>
@@ -5747,7 +5755,6 @@ function openSendReportModal(row) {
   const y = now.getFullYear();
   document.getElementById('snd-year').innerHTML = [y - 1, y, y + 1]
     .map(v => `<option value="${v}"${v === y ? ' selected' : ''}>${v}</option>`).join('');
-  document.getElementById('snd-kind').value = 'weekly';
 
   // ── To candidates: coordinator + FM, each gated on its own confirmed flag.
   const cands = [
@@ -5810,7 +5817,7 @@ function _sndUrl(extra) {
     'site=' + encodeURIComponent(site),
     'year=' + encodeURIComponent(document.getElementById('snd-year').value),
     'month=' + encodeURIComponent(document.getElementById('snd-month').value),
-    'kind=' + encodeURIComponent(document.getElementById('snd-kind').value),
+    // no `kind` — the composer is month-based; see the dialog markup comment.
   ].concat(extra || []);
   return '/api/reports/send?' + q.join('&');
 }
