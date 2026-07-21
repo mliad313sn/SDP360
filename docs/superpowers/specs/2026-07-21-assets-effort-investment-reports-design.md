@@ -1,7 +1,7 @@
 # Intégrer effort + investissement dans les rapports — design
 
 **Date:** 2026-07-21
-**Statut:** spec, en revue
+**Statut:** spec, révisé après revue — prêt à planifier
 **Branche (prévue):** `feat/assets-reports-integration`
 
 ## Problème
@@ -53,8 +53,9 @@ Le scoreboard IT Review reste inchangé — complémentaire.
 portent le **libellé AP** (mine name / code), pas forcément le code meetings. Le bloc
 per-site (Pièce 1) doit résoudre le site → libellé(s) via `getAssetLookups().sites` +
 `assetLabelToCode` **FORWARD** (jamais inverser `ALIAS`), exactement comme
-`services/weeklyReportData.js` le fait déjà pour l'hygiène. **Réutiliser ce helper**, ne
-pas le ré-inventer.
+`services/weeklyReportData.js` le fait déjà pour l'hygiène. Cette logique y est
+**privée** → on l'**EXTRAIT** dans un helper partagé (voir Glue Pièce 1), on ne
+« réutilise » pas un privé inexistant à l'export.
 
 ## Pièce 1 — Bloc effort dans le rapport coordinateur per-site
 
