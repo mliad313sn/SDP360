@@ -65,8 +65,8 @@ So the most common real-world skip is a coordinator who **filled in everything a
 never clicked Submit**. Telling them "not submitted" is technically true and
 actively unhelpful.
 
-**Six non-send outcomes, each distinguishable.** The reason *strings* are the
-implementer's to write — what is pinned is that these six are told apart, and that
+**Five non-send outcomes, each distinguishable.** The reason *strings* are the
+implementer's to write — what is pinned is that these five are told apart, and that
 `ready` is never reported merely as "not submitted". Skip reasons are
 **operator-facing** (CLI log + admin card, read by the SDM — the coordinator gets no
 email at all), so they follow `sendCoordinator.js:98`'s existing **English**
@@ -78,7 +78,6 @@ vocabulary. The *email* is French; the log is not.
 | `ready` | skip — complete but not submitted ← **the nudge that matters** |
 | `in_progress` / `draft` | skip — not finished |
 | no row for the week | skip — no report for that week |
-| week absent from `weeks` | skip — unknown week (see D6) |
 | site code unresolvable in the `meetings` namespace | skip — no meetings module code |
 | site inactive (`sites.active=0`) | skip — site inactive |
 
@@ -195,9 +194,16 @@ on.
 
 > `getWeekRange` has **no bound check** — `getWeekRange(2026,53)` silently returns
 > January-2027 dates still labelled `"W53 2026"`. And `getPreviousWeek()` **can
-> legitimately return week 53** via the rollback branch (`:917`). Behaviour: resolve
-> the pair from `getISOWeek`, look the week up in `weeks`; **no row → skip with
-> "semaine inconnue"**. Do not fabricate a range.
+> legitimately return week 53** via the rollback branch (`:917`). Behaviour: take the pair from the
+> **exported** `getPreviousWeek()` (`:948`, returns `{year, week}`) — `getISOWeek`
+> itself is **module-private and NOT exported**. A W53 with no `weeks` row simply
+> yields no report and resolves into the ordinary "no report for that week" skip.
+>
+> **Amendment (plan review):** an earlier draft gave "unknown week" its own reason.
+> Distinguishing it from "no report" requires a NEW dual-backend `weeks` reader —
+> there is none exported — and **both conditions produce the identical operator
+> action: nothing to send.** A reader built to serve a distinction nobody acts on is
+> cost without benefit. Collapsed into "no report for that week".
 
 > `alreadySentToday` filters `result IN ('ok','resent')`. Write that exact
 > vocabulary — `'ok'` normal, `'resent'` under `force`, `'fail'` excluded so it stays
@@ -300,7 +306,7 @@ No weekly PDF. No live re-query (D1). No change to how weekly reports are author
 
 - A **submitted** weekly report composes to HTML and mails to that site's
   **confirmed** recipients, PPTX attached.
-- Each of the **six** non-send conditions is distinguishable and produces its own
+- Each of the **five** non-send conditions is distinguishable and produces its own
   stated reason (`ready` never reported merely as "not submitted").
 - Assets block: score + rank + non-zero worklists, both alias folds correct, summed.
 - Dedup per (type, site, week); re-send is `force`, logged `'resent'`.
