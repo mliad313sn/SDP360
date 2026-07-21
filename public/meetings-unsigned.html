@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Unsigned PVs — Endeavour Mining IT</title>
+
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="brand/icons.css">
+<link rel="stylesheet" href="brand/components.css">
+<link rel="stylesheet" href="_shell.css">
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+
+<style nonce="%%CSP_NONCE%%">
+  body {
+    margin: 0;
+    background: var(--color-bg, #F4F5F7);
+    color: var(--color-text-strong, #1F2A33);
+    font-family: var(--font-sans, 'Libre Franklin', sans-serif);
+    font-size: 14px; line-height: 1.45;
+  }
+  .mi-wrap { max-width: 1300px; margin: 0 auto; padding: 24px 28px 48px; }
+
+  .mi-hero {
+    background: var(--color-card, #fff);
+    border: 1px solid var(--color-border, #E2E5EA);
+    border-radius: 14px; box-shadow: 0 1px 2px rgba(58,74,96,.04);
+    padding: 22px 26px; margin-bottom: 18px;
+    position: relative; overflow: hidden;
+  }
+  .mi-hero::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 6px;
+    background: linear-gradient(180deg, #EF631A, #D90038);
+  }
+  .mi-eyebrow {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1.4px; color: var(--edv-orange, #EF631A); margin-bottom: 8px;
+  }
+  .mi-hero h1 { margin: 0 0 6px; font-size: 24px; font-weight: 800; color: var(--edv-slate, #3A4A60); }
+  .mi-hero p  { margin: 0; font-size: 13px; color: var(--color-text, #524F4E); max-width: 78ch; line-height: 1.55; }
+  .mi-hero p strong { color: var(--color-text-strong, #1F2A33); font-weight: 600; }
+
+  .mi-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 18px; }
+  .mi-kpi {
+    background: var(--color-card, #fff); border: 1px solid var(--color-border, #E2E5EA);
+    border-radius: 8px; padding: 12px 14px; position: relative; overflow: hidden;
+  }
+  .mi-kpi::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--color-border, #E2E5EA); }
+  .mi-kpi--info::before    { background: var(--edv-blue, #145FAE); }
+  .mi-kpi--warning::before { background: var(--color-warning, #D97706); }
+  .mi-kpi--danger::before  { background: var(--edv-red, #D90038); }
+  .mi-kpi--ok::before      { background: #16A34A; }
+  .mi-kpi__label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--color-text-muted, #7B7B7B); margin-bottom: 4px; }
+  .mi-kpi__value { font-size: 26px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+  .mi-kpi__sub   { font-size: 10px; color: var(--color-text-muted, #7B7B7B); margin-top: 6px; }
+
+  .mi-section-head { font-size: 11.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.1px; color: var(--edv-slate, #3A4A60); margin-bottom: 10px; }
+
+  .mi-filters { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; align-items: center; }
+  .mi-select {
+    background: var(--color-card, #fff); border: 1px solid var(--color-border, #E2E5EA);
+    border-radius: 6px; padding: 9px 12px; padding-right: 24px; min-width: 160px;
+    font: 500 13px var(--font-sans); color: var(--color-text-strong, #1F2A33);
+  }
+  .mi-select:focus { outline: none; border-color: var(--edv-orange, #EF631A); box-shadow: 0 0 0 3px rgba(239,99,26,.12); }
+  .mi-scope-note { font-size: 12px; color: var(--color-text-muted, #7B7B7B); font-style: italic; }
+
+  .mi-table-card {
+    background: var(--color-card, #fff); border: 1px solid var(--color-border, #E2E5EA);
+    border-radius: 12px; box-shadow: 0 1px 2px rgba(58,74,96,.04); overflow: hidden;
+  }
+  .mi-table-card__head {
+    padding: 14px 18px 12px; border-bottom: 1px solid var(--color-border-subtle, #EEF0F3);
+  }
+  .mi-table-head, .mi-row {
+    display: grid;
+    grid-template-columns: 70px minmax(0, 1.3fr) 120px minmax(0, 1.9fr) minmax(0, 1.9fr) 70px;
+    gap: 10px; align-items: center;
+    padding: 11px 18px; font-size: 12.5px;
+  }
+  .mi-table-head {
+    font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;
+    color: var(--color-text-muted, #7B7B7B);
+    background: var(--color-bg, #F4F5F7);
+    border-bottom: 1px solid var(--color-border-subtle, #EEF0F3);
+  }
+  .mi-row { border-top: 1px solid var(--color-border-subtle, #EEF0F3); transition: background 120ms, opacity 200ms; }
+  .mi-row:hover { background: var(--color-bg, #F4F5F7); }
+  .mi-row.mi-row--done { opacity: .45; }
+  .mi-row__site {
+    font-family: var(--font-mono, monospace); font-size: 11px; font-weight: 800;
+    color: #fff; background: var(--edv-slate, #3A4A60);
+    padding: 3px 7px; border-radius: 4px; text-align: center; justify-self: start;
+  }
+  .mi-row__dept strong { display: block; font-weight: 600; color: var(--color-text-strong, #1F2A33); line-height: 1.35; }
+  .mi-row__dept small  { display: block; font-size: 10.5px; color: var(--color-text-muted, #7B7B7B); margin-top: 2px; font-family: var(--font-mono, monospace); }
+  .mi-row__date { font-size: 11.5px; color: var(--color-text, #524F4E); font-variant-numeric: tabular-nums; }
+
+  /* Signature slot — either the sign button or the stamped timestamp */
+  .mi-sign {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 700; cursor: pointer;
+    border-radius: 6px; padding: 6px 11px; white-space: nowrap;
+    border: 1px solid var(--edv-blue, #145FAE); background: rgba(20,95,174,.06); color: var(--edv-blue, #145FAE);
+  }
+  .mi-sign:hover { background: var(--edv-blue, #145FAE); color: #fff; }
+  .mi-sign[disabled] { opacity: .6; cursor: default; }
+  .mi-signed {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 700; color: #16A34A;
+  }
+  .mi-signed small { color: var(--color-text-muted, #7B7B7B); font-weight: 500; font-variant-numeric: tabular-nums; }
+  .mi-row__open {
+    text-decoration: none; color: var(--edv-blue, #145FAE);
+    font-size: 11px; font-weight: 700;
+    border: 1px solid var(--color-border, #E2E5EA);
+    padding: 5px 9px; border-radius: 6px; text-align: center; white-space: nowrap; justify-self: end;
+  }
+  .mi-row__open:hover { background: var(--color-bg, #F4F5F7); border-color: var(--edv-blue, #145FAE); }
+  .mi-complete { font-size: 10.5px; font-weight: 800; color: #16A34A; letter-spacing: .4px; }
+  .mi-empty { padding: 32px; text-align: center; color: var(--color-text-muted, #7B7B7B); font-size: 13px; font-style: italic; }
+  .mi-toast {
+    position: fixed; right: 20px; bottom: 20px; z-index: 999;
+    background: #16A34A; color: #fff; font-weight: 700; font-size: 13px;
+    padding: 12px 18px; border-radius: 8px; box-shadow: 0 6px 18px rgba(0,0,0,.18);
+    opacity: 0; transform: translateY(8px); transition: opacity .18s, transform .18s;
+  }
+  .mi-toast.show { opacity: 1; transform: translateY(0); }
+  .mi-toast.err  { background: #B91C1C; }
+
+  @media (max-width: 1000px) {
+    .mi-kpis { grid-template-columns: repeat(2, 1fr); }
+    .mi-table-head { display: none; }
+    .mi-row { grid-template-columns: 1fr; gap: 6px; }
+  }
+
+  /* ── Module tabs ── */
+  .mtg-tabs {
+    display: inline-flex; gap: 2px; background: #F3F4F6; border: 1px solid #E5E7EB;
+    border-radius: 10px; padding: 3px; margin: 0 0 16px 0; flex-wrap: wrap;
+  }
+  .mtg-tabs__btn {
+    display: inline-flex; align-items: center; gap: 7px; padding: 8px 16px;
+    font-size: 13px; font-weight: 600; color: #6B7280; background: transparent;
+    border: 0; border-radius: 7px; cursor: pointer; text-decoration: none;
+    transition: background-color .12s, color .12s;
+  }
+  .mtg-tabs__btn:hover { color: #1F2937; background: #FFFFFF; }
+  .mtg-tabs__btn--active {
+    color: #1F2937; background: #FFFFFF; box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+    border-bottom: 2px solid var(--edv-orange, #E87722); padding-bottom: 6px;
+  }
+</style>
+</head>
+<body>
+
+<div id="__shell" data-section="performance" data-current="meetings"></div>
+
+<div class="mi-wrap">
+
+  <nav class="mtg-tabs" aria-label="Meetings module sections">
+    <a class="mtg-tabs__btn" href="meetings.html">📋 Meetings</a>
+    <a class="mtg-tabs__btn" href="meetings-insights.html">📊 Dashboard</a>
+    <a class="mtg-tabs__btn" href="meetings-issues.html">📌 Issues</a>
+    <a class="mtg-tabs__btn" href="meetings-actions.html">✔ Actions</a>
+    <a class="mtg-tabs__btn mtg-tabs__btn--active" href="meetings-unsigned.html" aria-current="page">✍ Unsigned</a>
+    <a class="mtg-tabs__btn" href="meetings-council.html">⚖ Council</a>
+    <a class="mtg-tabs__btn" href="meetings-compliance.html">✅ Compliance</a>
+    <a class="mtg-tabs__btn mtg-tabs__btn--admin" href="meetings-setup.html" style="display:none">⚙ Setup</a>
+  </nav>
+
+  <section class="mi-hero">
+    <div class="mi-eyebrow">Insights · Unsigned PVs</div>
+    <h1>PVs awaiting signature</h1>
+    <p>Every meeting report (PV) still missing the <strong>department head</strong> or <strong>site IT</strong> signature,
+       across all sites, in one list — so you can validate them in place without opening each PV.
+       Signing is a validation act in the tool: <strong>signing today = validated today</strong>; the timestamp is the
+       server's and the first stamp is final. A signed signature can't be changed. Signing feeds the site programme score
+       (<strong>sign-off</strong> is a scored dimension).</p>
+  </section>
+
+  <section class="mi-kpis" id="miKpis"></section>
+
+  <section class="mi-filters">
+    <select class="mi-select" id="miSite"><option value="">All sites</option></select>
+    <span class="mi-scope-note" id="miScopeNote"></span>
+  </section>
+
+  <section class="mi-table-card">
+    <div class="mi-table-card__head">
+      <div class="mi-section-head">Unsigned PVs</div>
+      <div id="miSubcount" style="font-size:11px;color:var(--color-text-muted,#7B7B7B);margin-top:2px">Loading…</div>
+    </div>
+    <div id="miTable"></div>
+  </section>
+
+</div>
+
+<div class="mi-toast" id="miToast"></div>
+
+<script nonce="%%CSP_NONCE%%">
+(function () {
+  'use strict';
+  const API = '/api/meetings';
+
+  function authHeaders(extra) {
+    const h = extra || {};
+    const at = window.__authToken;
+    let tok = null;
+    if (typeof at === 'function') { try { tok = at(); } catch(_) {} }
+    else if (typeof at === 'string' && at) { tok = at; }
+    if (!tok) tok = localStorage.getItem('report_token');
+    if (tok) h['x-report-token'] = tok;
+    return h;
+  }
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const fmtDate = iso => {
+    if (!iso) return '—';
+    const M = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const [y, m, d] = String(iso).slice(0, 10).split('-');
+    return `${d} ${M[parseInt(m, 10) - 1]} ${y}`;
+  };
+  const fmtStamp = ts => {
+    if (!ts) return '';
+    const s = String(ts).replace('T', ' ');
+    return fmtDate(s) + ' ' + s.slice(11, 16);
+  };
+  const canEdit = !!(window.__userHasRole && window.__userHasRole('editor'));
+  const isAdmin = !!(window.__userHasRole && window.__userHasRole('admin'));
+
+  const state = {
+    lookups: null,
+    rows: [],
+    scope: 'all',
+    filters: { site: '' },
+  };
+
+  let _toastT = null;
+  function toast(msg, isErr) {
+    const el = document.getElementById('miToast');
+    el.textContent = msg;
+    el.className = 'mi-toast show' + (isErr ? ' err' : '');
+    clearTimeout(_toastT);
+    _toastT = setTimeout(() => { el.className = 'mi-toast' + (isErr ? ' err' : ''); }, 2600);
+  }
+
+  function deptName(code) {
+    const d = ((state.lookups && state.lookups.departments) || []).find(x => x.code === code);
+    return (d && d.name_en) || code || '—';
+  }
+
+  function renderKpis() {
+    const rows = state.rows;
+    const neither = rows.filter(r => !r.dept_head_signed_at && !r.site_it_signed_at).length;
+    const deptMissing = rows.filter(r => !r.dept_head_signed_at).length;
+    const itMissing = rows.filter(r => !r.site_it_signed_at).length;
+    const tiles = [
+      { l: 'Unsigned PVs', v: rows.length,  k: 'danger',  s: 'missing ≥1 signature' },
+      { l: 'Neither signed', v: neither,    k: 'warning', s: 'not yet validated' },
+      { l: 'Dept head pending', v: deptMissing, k: 'info', s: 'awaiting dept head' },
+      { l: 'Site IT pending',   v: itMissing,   k: 'ok',   s: 'awaiting site IT' },
+    ];
+    document.getElementById('miKpis').innerHTML = tiles.map(t => `
+      <div class="mi-kpi mi-kpi--${t.k}">
+        <div class="mi-kpi__label">${esc(t.l)}</div>
+        <div class="mi-kpi__value">${esc(t.v)}</div>
+        <div class="mi-kpi__sub">${esc(t.s)}</div>
+      </div>`).join('');
+  }
+
+  // One signature slot: the stamped timestamp OR a sign button (editor+).
+  function signSlot(r, which, label) {
+    const field = which === 'dept_head' ? 'dept_head_signed_at' : 'site_it_signed_at';
+    const val = r[field];
+    if (val) {
+      return `<span class="mi-signed"><i class="icon icon-check"></i>${esc(label)} <small>${esc(fmtStamp(val))}</small></span>`;
+    }
+    if (!canEdit) return `<span class="mi-scope-note">${esc(label)} pending</span>`;
+    return `<button class="mi-sign" data-id="${esc(r.id)}" data-which="${which}">✍ Sign ${esc(label)}</button>`;
+  }
+
+  function renderTable() {
+    const rows = state.rows;
+    const header = `
+      <div class="mi-table-head" role="row">
+        <span>Site</span><span>Department</span><span>Meeting date</span>
+        <span>Dept head</span><span>Site IT</span><span></span>
+      </div>`;
+    if (!rows.length) {
+      document.getElementById('miTable').innerHTML = header + '<div class="mi-empty">No unsigned PVs — every meeting report in scope is validated. ✓</div>';
+      document.getElementById('miSubcount').textContent = '0 unsigned PVs';
+      return;
+    }
+    const body = rows.map(r => `
+        <div class="mi-row" role="row" data-row="${esc(r.id)}">
+          <span class="mi-row__site">${esc(r.site_code)}</span>
+          <span class="mi-row__dept"><strong>${esc(deptName(r.department))}</strong><small>${esc(r.reference || '')}</small></span>
+          <span class="mi-row__date">${esc(fmtDate(r.meeting_date))}</span>
+          <span data-slot="dept_head-${esc(r.id)}">${signSlot(r, 'dept_head', 'dept head')}</span>
+          <span data-slot="site_it-${esc(r.id)}">${signSlot(r, 'site_it', 'site IT')}</span>
+          <a class="mi-row__open" href="meeting.html?id=${encodeURIComponent(r.id)}">Open ›</a>
+        </div>`).join('');
+    document.getElementById('miTable').innerHTML = header + body;
+    document.getElementById('miSubcount').textContent = rows.length + ' unsigned PV' + (rows.length === 1 ? '' : 's');
+
+    if (canEdit) {
+      document.querySelectorAll('.mi-sign').forEach(b => b.addEventListener('click', onSign));
+    }
+  }
+
+  async function onSign(e) {
+    const btn = e.currentTarget;
+    const id = btn.getAttribute('data-id');
+    const which = btn.getAttribute('data-which');
+    btn.disabled = true;
+    try {
+      const r = await fetch(API + '/' + encodeURIComponent(id) + '/sign', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ which }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
+      // Update the in-memory row from the server's authoritative response.
+      const row = state.rows.find(x => String(x.id) === String(id));
+      if (row) {
+        row.dept_head_signed_at = j.dept_head_signed_at;
+        row.site_it_signed_at   = j.site_it_signed_at;
+      }
+      toast('Signature stamped (' + (which === 'dept_head' ? 'dept head' : 'site IT') + ')');
+      // Repaint the two slots for this row from the stored values.
+      if (row) {
+        const rowEl = document.querySelector(`[data-row="${CSS.escape(String(id))}"]`);
+        if (rowEl) {
+          rowEl.querySelector(`[data-slot="dept_head-${CSS.escape(String(id))}"]`).innerHTML = signSlot(row, 'dept_head', 'dept head');
+          rowEl.querySelector(`[data-slot="site_it-${CSS.escape(String(id))}"]`).innerHTML   = signSlot(row, 'site_it', 'site IT');
+          rowEl.querySelectorAll('.mi-sign').forEach(b => b.addEventListener('click', onSign));
+          // Both signed → fade the row out and drop it after the transition.
+          if (row.dept_head_signed_at && row.site_it_signed_at) {
+            rowEl.classList.add('mi-row--done');
+            setTimeout(() => loadAll(), 700);
+          }
+        }
+      }
+    } catch (err) {
+      toast('Sign failed: ' + (err.message || ''), true);
+      btn.disabled = false;
+    }
+  }
+
+  function renderFilters() {
+    const el = document.getElementById('miSite');
+    // Editors are scoped server-side — hide the site filter for them.
+    if (!isAdmin) { document.querySelector('.mi-filters').style.display = 'none'; return; }
+    el.innerHTML = '<option value="">All sites</option>'
+      + (state.lookups.sites || []).map(s => `<option value="${esc(s.code)}">${esc(s.name)}</option>`).join('');
+    el.value = state.filters.site || '';
+  }
+
+  async function loadAll() {
+    state.lookups = state.lookups || await fetch(API + '/lookups', { credentials: 'same-origin', headers: authHeaders() }).then(r => r.json());
+    renderFilters();
+    const qs = new URLSearchParams();
+    if (isAdmin && state.filters.site) qs.set('site', state.filters.site);
+    const data = await fetch(API + '/unsigned?' + qs.toString(), { credentials: 'same-origin', headers: authHeaders() })
+      .then(r => r.ok ? r.json() : { rows: [], scope: 'all' });
+    state.rows = data.rows || [];
+    state.scope = data.scope || 'all';
+    const note = document.getElementById('miScopeNote');
+    if (note) note.textContent = state.scope === 'all' ? '' : 'Scoped to your site (' + state.scope + ')';
+    renderKpis();
+    renderTable();
+  }
+
+  const siteEl = document.getElementById('miSite');
+  if (siteEl) siteEl.addEventListener('change', e => { state.filters.site = e.target.value; loadAll(); });
+
+  loadAll().catch(err => {
+    console.error('[unsigned] load failed:', err);
+    document.getElementById('miTable').innerHTML = '<div class="mi-empty">Failed to load unsigned PVs. ' + esc(err.message || '') + '</div>';
+  });
+})();
+</script>
+
+<script nonce="%%CSP_NONCE%%">
+// Reveal the Setup tab for super_admin only (hidden by default).
+(function () {
+  function reveal() {
+    try {
+      if (window.__userHasRole && window.__userHasRole("super_admin")) {
+        document.querySelectorAll(".mtg-tabs__btn--admin").forEach(function (el) { el.style.display = ""; });
+      }
+    } catch (_) {}
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", reveal);
+  else reveal();
+})();
+</script>
+</body>
+</html>

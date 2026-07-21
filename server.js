@@ -1185,6 +1185,7 @@ function loadHtml(name) {
   'inspection.html', 'inspections.html', 'inspection-actions.html',
   'meetings.html', 'meeting.html', 'meetings-issues.html', 'meetings-council.html', 'meetings-compliance.html',
   'meetings-import.html', 'meetings-progress.html', 'meetings-insights.html', 'meetings-setup.html', 'meetings-actions.html',
+  'meetings-unsigned.html',
   'activity-tracker.html', 'help.html', 'exec-view.html', 'site-report.html', 'it-review.html',
   'assets.html', 'assets-hygiene.html', 'assets-finance.html',
 ].forEach(loadHtml);
@@ -1319,6 +1320,7 @@ app.get('/meetings.html',            (req, res) => sendHtmlPage(res, 'meetings.h
 app.get('/meeting.html',             (req, res) => sendHtmlPage(res, 'meeting.html',             false, 'Meeting editor unavailable'));
 app.get('/meetings-issues.html',     (req, res) => sendHtmlPage(res, 'meetings-issues.html',     false, 'Issues Log unavailable'));
 app.get('/meetings-actions.html',    (req, res) => sendHtmlPage(res, 'meetings-actions.html',    false, 'Actions Register unavailable'));
+app.get('/meetings-unsigned.html',   (req, res) => sendHtmlPage(res, 'meetings-unsigned.html',   false, 'Unsigned PVs unavailable'));
 app.get('/meetings-council.html',    (req, res) => sendHtmlPage(res, 'meetings-council.html',    false, 'Council escalations unavailable'));
 app.get('/meetings-compliance.html', (req, res) => sendHtmlPage(res, 'meetings-compliance.html', false, '5 Engagements monitor unavailable'));
 app.get('/meetings-import.html',     (req, res) => sendHtmlPage(res, 'meetings-import.html',     false, 'Bulk import unavailable'));
@@ -7175,6 +7177,61 @@ app.post('/api/meetings/actions/:id/update', requireReportSession, meetingsJsonB
   } catch(e) {
     console.error('[Meetings] action update error:', e.message);
     res.status(500).json({ error: e.message });
+  }
+});
+
+// GET /api/meetings/unsigned — flat worklist of PVs missing at least one
+// signature, so a coordinator can stamp them without opening each one.
+// viewer+. Editors are scoped to their own site (site forced server-side);
+// admin+ see all, with an optional ?site= narrow. Registered BEFORE /:id (and
+// /:id carries a numeric guard) so "unsigned" is never parsed as a meeting id.
+app.get('/api/meetings/unsigned', requireReportSession, async (req, res) => {
+  try {
+    if (!meetingsDb) return res.status(503).json({ error: 'Meetings module not available' });
+    const userSite = await _userMeetingsSite(req.reportUser);
+    // Scoped editor → forced to their own site. admin+ → optional ?site=.
+    const site = userSite || (req.query.site || undefined);
+    const rows = await meetingsDb.listMeetings({ unsigned: 1, site, limit: 500 });
+    res.json({ scope: userSite || 'all', rows: rows.map(m => ({
+      id: m.id, reference: m.reference, site_code: m.site_code, department: m.department,
+      meeting_date: m.meeting_date, status: m.status,
+      dept_head_signed_at: m.dept_head_signed_at, site_it_signed_at: m.site_it_signed_at,
+    })) });
+  } catch (e) {
+    console.error('[Meetings] unsigned list error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST /api/meetings/:id/sign — stamp ONE signature (dept_head | site_it) on a
+// PV. editor+ ; editors scoped to their own site. The timestamp is
+// server-authoritative and immutable (first stamp wins — COALESCE in the DB
+// layer). Distinct method+path from GET /:id, so no shadowing; the id is guarded
+// numeric here too.
+app.post('/api/meetings/:id/sign', requireReportSession, meetingsJsonBody, async (req, res) => {
+  try {
+    if (!meetingsDb) return res.status(503).json({ error: 'Meetings module not available' });
+    if (!rdb.userHasRole(req.reportUser, 'editor')) {
+      return res.status(403).json({ error: 'editor role or higher required' });
+    }
+    const meetingId = parseInt(req.params.id, 10);
+    if (!Number.isFinite(meetingId)) return res.status(400).json({ error: 'Invalid meeting id' });
+    const which = (req.body && req.body.which) || '';
+    if (which !== 'dept_head' && which !== 'site_it') {
+      return res.status(400).json({ error: 'Invalid which — expected dept_head|site_it' });
+    }
+    const status = await meetingsDb.getMeetingStatus(meetingId);
+    if (!status) return res.status(404).json({ error: 'Meeting not found' });
+    const userSite = await _userMeetingsSite(req.reportUser);
+    if (userSite && status.site_code !== userSite) {
+      return res.status(403).json({ error: `Meeting belongs to ${status.site_code}; you are scoped to ${userSite}` });
+    }
+    const out = await meetingsDb.signMeeting(meetingId, which, { user: req.reportUser });
+    res.json({ ok: true, ...out });
+  } catch (e) {
+    console.error('[Meetings] sign error:', e.message);
+    const isNF = /not found/i.test(e.message);
+    res.status(isNF ? 404 : 500).json({ error: e.message });
   }
 });
 
