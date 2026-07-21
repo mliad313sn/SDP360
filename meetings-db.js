@@ -502,6 +502,7 @@ function _meetingsWhere(opts) {
   if (opts.intake)     { where.push('m.intake_source = @intake');  params.intake = opts.intake; }
   if (opts.from)       { where.push('m.meeting_date >= @from');    params.from = opts.from; }
   if (opts.to)         { where.push('m.meeting_date <= @to');      params.to = opts.to; }
+  if (opts.unsigned)   { where.push('(m.dept_head_signed_at IS NULL OR m.site_it_signed_at IS NULL)'); }
   if (opts.q) {
     where.push('(m.reference ILIKE @q OR m.department_head ILIKE @q OR m.site_it_lead ILIKE @q OR m.priority_1 ILIKE @q OR m.priority_2 ILIKE @q OR m.priority_3 ILIKE @q)');
     params.q = '%' + opts.q + '%';
@@ -571,6 +572,7 @@ function listMeetings(opts = {}) {
   if (opts.intake)      { where.push('m.intake_source = @intake');   params.intake = opts.intake; }
   if (opts.from)        { where.push('m.meeting_date >= @from');     params.from = opts.from; }
   if (opts.to)          { where.push('m.meeting_date <= @to');       params.to = opts.to; }
+  if (opts.unsigned)    { where.push('(m.dept_head_signed_at IS NULL OR m.site_it_signed_at IS NULL)'); }
   if (opts.q) {
     where.push('(m.reference LIKE @q OR m.department_head LIKE @q OR m.site_it_lead LIKE @q OR m.priority_1 LIKE @q OR m.priority_2 LIKE @q OR m.priority_3 LIKE @q)');
     params.q = '%' + opts.q + '%';
@@ -613,6 +615,7 @@ function countMeetings(opts = {}) {
   if (opts.intake)      { where.push('m.intake_source = @intake');   params.intake = opts.intake; }
   if (opts.from)        { where.push('m.meeting_date >= @from');     params.from = opts.from; }
   if (opts.to)          { where.push('m.meeting_date <= @to');       params.to = opts.to; }
+  if (opts.unsigned)    { where.push('(m.dept_head_signed_at IS NULL OR m.site_it_signed_at IS NULL)'); }
   if (opts.q) {
     where.push('(m.reference LIKE @q OR m.department_head LIKE @q OR m.site_it_lead LIKE @q OR m.priority_1 LIKE @q OR m.priority_2 LIKE @q OR m.priority_3 LIKE @q)');
     params.q = '%' + opts.q + '%';
@@ -1201,6 +1204,55 @@ function getActionParent(actionId) {
       FROM md_actions a JOIN md_meetings m ON m.id = a.meeting_id
      WHERE a.id = ?
   `).get(actionId) || null;
+}
+
+// Map the caller's `which` token to the DB column. The ONLY two accepted
+// values — anything else throws (never lets an arbitrary column name reach
+// the SQL).
+const _SIGN_COLS = { dept_head: 'dept_head_signed_at', site_it: 'site_it_signed_at' };
+
+/**
+ * Stamp ONE signature on a meeting. SERVER-AUTHORITATIVE + IMMUTABLE — the
+ * timestamp is the server's clock (the browser's is untrusted; `signoff` is a
+ * SCORED dimension) and COALESCE(<col>, @now) makes the FIRST stamp win, so a
+ * re-sign never rewrites an existing signature. Mirrors saveMeeting's contract.
+ *
+ * @param {number} id      meeting id
+ * @param {string} which   'dept_head' | 'site_it'
+ * @param {object} [opts]  { user } — reserved for future audit; NOT stored (no
+ *                         provenance / audit table by design).
+ * @returns {{dept_head_signed_at, site_it_signed_at}} the post-update state.
+ */
+function signMeeting(id, which, opts = {}) {
+  const col = _SIGN_COLS[which];
+  if (!col) throw new Error(`Invalid which "${which}" — expected dept_head|site_it`);
+  if (MEETINGS_BACKEND === 'postgres') return _signMeetingPg(id, col);
+  const db  = getDB();
+  const mid = parseInt(id, 10);
+  const exist = db.prepare('SELECT id FROM md_meetings WHERE id = ?').get(mid);
+  if (!exist) throw new Error('Meeting not found');
+  const now = new Date().toISOString().replace('T', ' ').slice(0, 19);
+  db.prepare(`
+    UPDATE md_meetings
+       SET ${col} = COALESCE(${col}, @now),
+           updated_at = datetime('now')
+     WHERE id = @id
+  `).run({ now, id: mid });
+  return db.prepare('SELECT dept_head_signed_at, site_it_signed_at FROM md_meetings WHERE id = ?').get(mid);
+}
+async function _signMeetingPg(id, col) {
+  const H   = pgHandle();
+  const mid = parseInt(id, 10);
+  const exist = await H.prepare('SELECT id FROM md_meetings WHERE id = ?').get(mid);
+  if (!exist) throw new Error('Meeting not found');
+  const now = new Date().toISOString().replace('T', ' ').slice(0, 19);
+  await H.prepare(`
+    UPDATE md_meetings
+       SET ${col} = COALESCE(${col}, @now),
+           updated_at = now()
+     WHERE id = @id
+  `).run({ now, id: mid });
+  return H.prepare('SELECT dept_head_signed_at, site_it_signed_at FROM md_meetings WHERE id = ?').get(mid);
 }
 
 // ── Async postgres forks: issue/action updates + parents (Chunk 2) ──────────
@@ -2934,7 +2986,7 @@ module.exports = {
   getSiteMonthlyMeetingSummary,
   getSiteContacts, _pickContacts,
   getSiteScoreInputs, _computeMeetingsScoreInputs, _effClose, _openAt, MD_OPEN,
-  listMeetings, countMeetings, getMeeting, saveMeeting, deleteMeeting, getMeetingStatus,
+  listMeetings, countMeetings, getMeeting, saveMeeting, deleteMeeting, getMeetingStatus, signMeeting,
   listIssues, listEscalations, addIssueUpdate,
   listActions, addActionUpdate, listActionUpdates, getActionParent, getIssueParent,
   exportRows,
