@@ -837,8 +837,9 @@ function buildReviewVals(D, opts = {}) {
     }));
     ex.sbuNote = {
       text: '4 dimensions pondérées (helpdesk 40 % · inspections 20 % · réunions 20 % · actifs 20 %), '
-        + 'renormalisées sur les dimensions présentes · RAG 75/55 · conformité inspections sur le mois '
-        + 'courant (≠ tout-historique) · scoreboard = mois courant · complément additif, hors score programme.',
+        + 'renormalisées sur les dimensions présentes · RAG 75/55 · helpdesk & réunions = mois courant, '
+        + 'inspections = trimestre glissant (cadence trimestrielle), actifs = état courant · le sélecteur de '
+        + 'période ne pilote PAS ce panneau · complément additif, hors score programme.',
       fleet_avg: sb.fleet_avg == null ? DASH : sb.fleet_avg,
       most_improved: (sb.most_improved && sb.most_improved.name) || DASH,
       needs_attention: (sb.needs_attention && sb.needs_attention.name) || DASH,

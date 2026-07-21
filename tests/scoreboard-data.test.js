@@ -125,3 +125,29 @@ test('loadScoreboardData does not throw when readers return null/empty', async (
   // Jan → prev month is Dec of previous year.
   assert.deepStrictEqual(result.window, { from: '2026-01-01', to: '2026-01-31' });
 });
+
+// ── Régression Houndé — l'inspection est TRIMESTRIELLE, pas mensuelle ─────────
+// Un coordonnateur a signalé "—" en inspections sur le trimestre alors qu'une
+// inspection avait bien été faite ce trimestre (mais pas le mois courant). La
+// conformité inspections doit se mesurer sur une fenêtre glissante de 3 mois —
+// la même cadence que le score programme calibre (inspections >= 3 "quarterly").
+test('inspections use a rolling 3-month window ending at the reference date, not the current month', async () => {
+  const seen = [];
+  const deps = {
+    listSiteModuleCodes: async () => [{ code: 'HGO', name: 'Houndé', site_id: 1 }],
+    getCalendarMonthlyHelpdesk: async () => ({ sla_res_pct: 74 }),
+    getMeetingsInsights: async () => ({ site_leaderboard: [] }),
+    getEffortLeaderboard: async () => ({ rows: [] }),
+    getInspectionAggregate: async ({ from, to }) => {
+      seen.push({ from, to });
+      return { findingStatus: [{ status: 'ok', n: 4 }] };
+    },
+  };
+  // asOf in July; the inspection window must reach back to include May.
+  const r = await loadScoreboardData({ month: { year: 2026, m: 7 }, asOf: '2026-07-14', deps });
+  assert.strictEqual(r.perSite[0].inspections, 100, 'a quarter inspection must count in July');
+  // The CURRENT-month gather's inspection window: from = 2026-05-01, to = 2026-07-31
+  // (3 calendar months ending in the reference month), NOT 2026-07-01.
+  assert.strictEqual(seen[0].from, '2026-05-01', 'inspection window starts 2 months before the reference month');
+  assert.strictEqual(seen[0].to, '2026-07-31', 'inspection window ends at the reference month-end');
+});

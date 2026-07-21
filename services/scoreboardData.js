@@ -21,6 +21,24 @@ function monthWindow({ year, m }) {
   return { from: `${year}-${pad2(m)}-01`, to: `${year}-${pad2(m)}-${pad2(lastDay)}` };
 }
 
+// The inspection dimension is measured over a ROLLING 3-MONTH window ending at the
+// reference month, NOT the current month like helpdesk/meetings. Inspections are a
+// QUARTERLY cadence — the site programme score itself calibrates them that way
+// (`inspections >= 3 "quarterly"`, a rolling 3-month window). A month-only window
+// structurally reports "—" for every site whose one inspection wasn't in the
+// current month (a real coordinator complaint: a June inspection vanished in July).
+// Helpdesk stays month-keyed and meetings stay monthly on purpose — those ARE their
+// correct cadences (helpdesk daily, the 5-Engagements target is "3 depts/MONTH").
+// Returns the first day of the month two months before `to`'s month → a 3-calendar-
+// month span ending at `to`.
+function inspectionWindow(to) {
+  const d = new Date(to + 'T00:00:00Z');
+  const y = d.getUTCFullYear();
+  const m0 = d.getUTCMonth();               // 0-based
+  const start = new Date(Date.UTC(y, m0 - 2, 1));
+  return { from: start.toISOString().slice(0, 10), to };
+}
+
 function prevMonthOf({ year, m }) {
   return m === 1 ? { year: year - 1, m: 12 } : { year, m: m - 1 };
 }
@@ -47,8 +65,10 @@ async function assembleMonth({ monthObj, from, to, asOf, deps }) {
     const hd = await deps.getCalendarMonthlyHelpdesk(s.site_id, monthObj.year, monthObj.m);
     const helpdesk = hd ? hd.sla_res_pct : null;
 
-    // Inspections — conformity from findingStatus (month-scoped): ok / applicable.
-    const agg = (await deps.getInspectionAggregate({ site: code, from, to })) || {};
+    // Inspections — conformity from findingStatus over a ROLLING 3-MONTH window
+    // (quarterly cadence — see inspectionWindow), NOT the current month.
+    const iw = inspectionWindow(to);
+    const agg = (await deps.getInspectionAggregate({ site: code, from: iw.from, to: iw.to })) || {};
     const fs = agg.findingStatus || [];
     const applicable = fs.filter(x => x.status !== 'na').reduce((a, x) => a + x.n, 0);
     const ok = fs.filter(x => x.status === 'ok').reduce((a, x) => a + x.n, 0);
