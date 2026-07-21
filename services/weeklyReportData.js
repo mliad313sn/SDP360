@@ -38,18 +38,30 @@ function _resolveDeps(deps) {
 }
 
 /**
- * Invert aliases.ALIAS (AP asset label → site code, MANY-to-one) into
- * code → labels[]. SGO is fed by both `sabodala` and `massawa`, OUA by both
- * `ouagadougou` and `ouaga` — a code-keyed lookup is the only way to reach every
- * label a site owns, and missing one silently under-reports that site's worklist.
+ * Which REAL `assets.site` labels belong to this site code.
+ *
+ * ⚠ Do NOT invert `aliases.ALIAS` to get these. Its KEYS are accent-folded
+ * lowercase (`sabodala`, `massawa`) because they exist to be looked up AFTER
+ * folding the input — they are not the spellings stored in the database. But
+ * `_assetWhere` (assets-db.js:116) filters with exact `a.site = ?`, so feeding
+ * a folded key back as a filter matches ZERO rows against a real `'Sabodala'`,
+ * and every site's worklist silently reads empty. An empty worklist looks like
+ * a clean site, which is the exact failure the block exists to prevent.
+ *
+ * So we go the direction the map was designed for: take the ACTUAL distinct
+ * labels from the data and fold each one FORWARD through assetLabelToCode.
+ *
+ * Two label vocabularies are in play and both must match:
+ *   • the AP export's mine names — 'Sabodala', 'MASSAWA', 'Houndé'  → via ALIAS
+ *   • a site CODE used directly as the label — 'HGO', 'MGO'         → ALIAS has
+ *     no 'hgo' key, so these resolve to null and need the direct comparison.
  */
-function _labelsByCode(ALIAS) {
-  const out = new Map();
-  for (const [label, code] of Object.entries(ALIAS || {})) {
-    if (!out.has(code)) out.set(code, []);
-    out.get(code).push(label);
-  }
-  return out;
+function _labelsForCode(siteLabels, siteCode, assetLabelToCode) {
+  const code = String(siteCode || '').trim().toUpperCase();
+  return (siteLabels || []).filter((label) => {
+    if (assetLabelToCode(label) === code) return true;              // mine name
+    return String(label || '').trim().toUpperCase() === code;        // literal code
+  });
 }
 
 /**
@@ -176,7 +188,10 @@ async function loadWeeklyReportData({ siteCode, year, week, deps } = {}) {
 
   // 6 · assets. A code with no AP label gets `assets: null` so the composer omits
   // the block entirely — zeros would read as a clean site rather than an unmeasured one.
-  const labels = _labelsByCode(aliases.ALIAS).get(siteCode) || [];
+  // Real labels from the data, folded FORWARD to this code — never ALIAS inverted
+  // (its keys are folded lookup keys, not DB spellings). See _labelsForCode.
+  const lookups = (await assetsDb.getAssetLookups()) || {};
+  const labels = _labelsForCode(lookups.sites, siteCode, aliases.assetLabelToCode);
   let assets = null;
   if (labels.length) {
     assets = {

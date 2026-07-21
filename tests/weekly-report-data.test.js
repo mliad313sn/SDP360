@@ -11,7 +11,7 @@ const aliases = require('../services/scoreboardAliases.js');
 // ones return promises, so the stubs must too or the tests would prove nothing
 // about the await discipline.
 function makeDeps(over = {}) {
-  const calls = { resolve: [], listSites: 0, listReports: [], getReport: [], hygiene: [], effort: 0 };
+  const calls = { resolve: [], listSites: 0, listReports: [], getReport: [], hygiene: [], effort: 0, lookups: 0};
 
   const deps = {
     reportsDb: {
@@ -38,12 +38,21 @@ function makeDeps(over = {}) {
       },
     },
     assetsDb: {
+      // The real distinct `assets.site` labels. These are DB spellings, NOT the
+      // accent-folded lowercase keys of scoreboardAliases.ALIAS.
+      async getAssetLookups() {
+        calls.lookups++;
+        return { sites: over.siteLabels || ['Sabodala', 'MASSAWA'], states: [], product_types: [], manufacturers: [] };
+      },
       async getHygieneSummary(filters) {
         calls.hygiene.push(filters);
         const table = over.hygiene || {};
-        // stub keys are folded so a test can spell a label however it likes
-        const key = String(filters && filters.site).toLowerCase().trim();
-        return table[key] || { total: 0, by_kind: {} };
+        // ⚠ EXACT key match, deliberately — `_assetWhere` (assets-db.js:116)
+        // filters with `a.site = ?`, case-sensitively. A stub that folded the
+        // key would accept 'sabodala' and hide the fact that the real query
+        // matches nothing against a stored 'Sabodala'. That is how the original
+        // ALIAS-inversion bug survived its own test.
+        return table[String(filters && filters.site)] || { total: 0, by_kind: {} };
       },
       async getEffortLeaderboard() {
         calls.effort++;
@@ -144,8 +153,8 @@ test('site absent from the active listSites() → skip', async () => {
 test('hygiene worklist SUMS by_kind across every AP label folding to the code', async () => {
   const { deps, calls } = makeDeps({
     hygiene: {
-      sabodala: { total: 10, by_kind: { no_owner: 3, ghost: 1 } },
-      massawa:  { total: 20, by_kind: { no_owner: 4, ghost: 0 } },
+      'Sabodala': { total: 10, by_kind: { no_owner: 3, ghost: 1 } },
+      'MASSAWA': { total: 20, by_kind: { no_owner: 4, ghost: 0 } },
     },
   });
   const r = await loadWeeklyReportData({ siteCode: 'SGO', ...WEEK, deps });
@@ -160,9 +169,11 @@ test('hygiene fold works for OUA too (ouagadougou + ouaga)', async () => {
   const { deps, calls } = makeDeps({
     resolved: { site_id: 3, name: 'Ouagadougou', zoho_group: 'OUA IT Agents' },
     sites: [{ id: 3, name: 'Ouagadougou', active: 1 }],
+    siteLabels: ['Ouagadougou', 'Ouaga', 'Sabodala'],   // real DB spellings; Sabodala must NOT leak in
     hygiene: {
-      ouagadougou: { total: 5, by_kind: { no_cost: 2, discovered: 1 } },
-      ouaga:       { total: 6, by_kind: { no_cost: 5, discovered: 0 } },
+      'Ouagadougou': { total: 5, by_kind: { no_cost: 2, discovered: 1 } },
+      'Ouaga':       { total: 6, by_kind: { no_cost: 5, discovered: 0 } },
+      'Sabodala':    { total: 99, by_kind: { no_cost: 99 } },
     },
   });
   const r = await loadWeeklyReportData({ siteCode: 'OUA', ...WEEK, deps });
@@ -176,8 +187,8 @@ test('hygiene fold works for OUA too (ouagadougou + ouaga)', async () => {
 test('zero-count kinds are absent from the worklist, not present as 0', async () => {
   const { deps } = makeDeps({
     hygiene: {
-      sabodala: { total: 10, by_kind: { no_owner: 3, ghost: 0, no_cost: 0 } },
-      massawa:  { total: 20, by_kind: { no_owner: 0, ghost: 0, no_cost: 0 } },
+      'Sabodala': { total: 10, by_kind: { no_owner: 3, ghost: 0, no_cost: 0 } },
+      'MASSAWA': { total: 20, by_kind: { no_owner: 0, ghost: 0, no_cost: 0 } },
     },
   });
   const r = await loadWeeklyReportData({ siteCode: 'SGO', ...WEEK, deps });
@@ -216,4 +227,22 @@ test('effort score is folded and rank is recomputed across folded codes', async 
   assert.strictEqual(r.assets.effort.effort_score, 71);
   assert.strictEqual(r.assets.effort.rank, 2);
   assert.strictEqual('delta' in r.assets.effort, false, 'delta is a ~30-day lookback — it barely moves week to week');
+});
+
+// ── 14 · a label that IS the site code ──────────────────────────────────────
+// Two label vocabularies exist. The AP export uses mine names ('Sabodala'), but
+// the dev assets DB stores site CODES directly ('HGO', 'MGO'). ALIAS has no
+// 'hgo' key, so assetLabelToCode('HGO') is null — without the direct
+// code comparison this site's worklist silently reads empty.
+test('a label that is literally the site code still resolves', async () => {
+  const { deps, calls } = makeDeps({
+    resolved: { site_id: 5, name: 'Hounde', zoho_group: 'HGO IT Agents' },
+    sites: [{ id: 5, name: 'Hounde', active: 1 }],
+    siteLabels: ['HGO', 'MGO'],
+    hygiene: { 'HGO': { total: 8, by_kind: { no_owner: 2 } } },
+  });
+  const r = await loadWeeklyReportData({ siteCode: 'HGO', ...WEEK, deps });
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(r.assets.hygiene.no_owner, 2, 'code-as-label must not fall through to null');
+  assert.strictEqual(calls.hygiene.length, 1, 'only HGO, never MGO');
 });
