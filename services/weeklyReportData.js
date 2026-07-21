@@ -200,7 +200,12 @@ async function loadWeeklyReportData({ siteCode, year, week, deps } = {}) {
     };
   }
 
-  return { ok: true, report, week: weekBlock, assets };
+  // Echo site_code back. Nothing downstream can re-derive it: `sites` has no code
+  // column (reports-db.js:30) and getReport() returns only `site_name`. The
+  // composer needs it for the subject line, and a sender that forgot to thread it
+  // through would silently degrade every subject to the site name — a defect with
+  // no failing test anywhere. Closing it here means the caller cannot get it wrong.
+  return { ok: true, site_code: siteCode, report, week: weekBlock, assets };
 }
 
 module.exports = { loadWeeklyReportData };

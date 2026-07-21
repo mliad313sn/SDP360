@@ -246,3 +246,14 @@ test('a label that is literally the site code still resolves', async () => {
   assert.strictEqual(r.assets.hygiene.no_owner, 2, 'code-as-label must not fall through to null');
   assert.strictEqual(calls.hygiene.length, 1, 'only HGO, never MGO');
 });
+
+// ── 15 · site_code is echoed back ───────────────────────────────────────────
+// Nothing downstream can re-derive it: `sites` has no code column and getReport()
+// returns only site_name. The composer needs it for the subject; without the echo
+// a sender that forgot to thread it through degrades every subject silently.
+test('the loader echoes site_code so the composer cannot be starved of it', async () => {
+  const { deps } = makeDeps({});
+  const r = await loadWeeklyReportData({ siteCode: 'SGO', ...WEEK, deps });
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(r.site_code, 'SGO');
+});
