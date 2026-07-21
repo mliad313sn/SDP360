@@ -6,7 +6,7 @@
 // gate + the outcome logging must be identical on both paths or a scheduled
 // run and a manual click disagree about what was sent.
 //
-// Contract — sendCoordinatorReport({db, cfg, site, period, kind, force, preview, deps}):
+// Contract — sendCoordinatorReport({db, cfg, site, period, force, preview, deps}):
 //   unresolvable site → { skipped:true, reason:'site "X" has no meetings module code — cannot report' }
 //   preview           → { preview:true, subject, html }   (never sends, never logs)
 //   no confirmed rcpt → { skipped:true, reason:'no confirmed recipient' }
@@ -77,14 +77,14 @@ function _firstDisallowed(recipients, allowed) {
   return null;
 }
 
-async function sendCoordinatorReport({ db, cfg, site, period, kind = 'weekly', force = false, preview = false, recipients: pick, deps } = {}) {
+async function sendCoordinatorReport({ db, cfg, site, period, force = false, preview = false, recipients: pick, deps } = {}) {
   const D = { ..._defaults(), ...(deps || {}) };
   const t0 = Date.now();
 
   if (!site) throw new Error('site is required');
   const { year, month } = _parsePeriod(period);
 
-  console.log(`[report-send] START type=${REPORT_TYPE} site=${site} period=${period} kind=${kind}${preview ? ' preview=1' : ''}${force ? ' force=1' : ''}`);
+  console.log(`[report-send] START type=${REPORT_TYPE} site=${site} period=${period}${preview ? ' preview=1' : ''}${force ? ' force=1' : ''}`);
 
   // 1 · resolve the site BEFORE composing. Every reader downstream degrades
   // silently on an unknown code: siteReport's _safe() zeroes each failed block,
@@ -101,7 +101,7 @@ async function sendCoordinatorReport({ db, cfg, site, period, kind = 'weekly', f
   }
 
   // 2-3 · compose the data, then the document.
-  const data = await D.siteReportData(site, { year, month, kind }, D.buildSiteReportDeps());
+  const data = await D.siteReportData(site, { year, month }, D.buildSiteReportDeps());
   const { subject, htmlBody, fullHtml } = D.composeCoordinator(data);
 
   // 4 · preview short-circuits BEFORE recipient resolution, PDF and mail.

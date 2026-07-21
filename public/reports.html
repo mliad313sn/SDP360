@@ -996,6 +996,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
           <button type="button" class="admin-rail__item" data-panel="autoreports" id="admin-rail-autoreports" style="display:none" onclick="showAdminPanel('autoreports')"><span class="ar-ico">📄</span><span>Automated Reports<small>Recipients &amp; schedule</small></span><span class="ar-scope ar-scope--reports">Reports</span></button>
           <button type="button" class="admin-rail__item" data-panel="departments" onclick="showAdminPanel('departments')"><span class="ar-ico">🏷</span><span>Departments<small>Action item categories</small></span><span class="ar-scope ar-scope--reports">Reports</span></button>
           <button type="button" class="admin-rail__item" data-panel="execview"    onclick="showAdminPanel('execview')"><span class="ar-ico">📣</span><span>Exec View<small>Highlights &amp; focus</small></span><span class="ar-scope ar-scope--reports">Reports</span></button>
+          <button type="button" class="admin-rail__item" data-panel="weekly" id="admin-rail-weekly" style="display:none" onclick="showAdminPanel('weekly')"><span class="ar-ico">🗓</span><span>Weekly Report<small>Coordinator email</small></span><span class="ar-scope ar-scope--reports">Reports</span></button>
         </div>
         <div class="admin-rail__group">
           <div class="admin-rail__grouphdr">💻 Assets</div>
@@ -1477,6 +1478,40 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         Enable a weekly and / or monthly Task Scheduler job. Times are 24-hour HH:mm (server local time).
       </div>
       <div id="sbd-schedule-body"></div>
+    </div>
+
+    <div class="card admin-panel" id="ap-weekly" data-panel="weekly">
+      <h3>🗓 Weekly Report
+        <span style="font-size:0.78rem;font-weight:400;color:#6b7a99;margin-left:8px">
+          Per-coordinator email — the AUTHORED weekly report for the week just ended
+        </span>
+      </h3>
+
+      <div style="font-size:0.8rem;color:#6b7a99;margin:6px 0 12px">
+        Armed <strong>OFF</strong> by default. When armed, each site's authored weekly
+        report is mailed to that site's <strong>confirmed coordinator</strong> from the
+        Sites / Directory admin. A site whose coordinator never submitted the week's
+        report is skipped, and the reason is listed below after a Preview or Send.
+        <strong>No recipients field here</strong> — recipients come from the directory.
+      </div>
+
+      <div class="form-group"><label style="font-weight:400"><input type="checkbox" id="wk-enabled"> <strong>Arm sending</strong> — enable the scheduled + send-now weekly report email</label></div>
+      <div class="modal-actions" style="justify-content:flex-start;gap:10px;align-items:center;margin-bottom:10px">
+        <button class="btn btn-primary" onclick="saveWeeklyConfig()">Save arm flag</button>
+        <button class="btn btn-secondary" onclick="previewWeekly(this)">Preview</button>
+        <button class="btn btn-secondary" onclick="sendWeeklyNow(this)">Send now</button>
+      </div>
+
+      <!-- Per-site outcomes. The sender words each skip reason for the Service
+           Desk Manager (e.g. "never submitted"); they are rendered VERBATIM
+           here — a generic "nothing sent" would destroy their entire value. -->
+      <div id="wk-result"></div>
+
+      <h4 style="margin:14px 0 6px">Schedule</h4>
+      <div style="font-size:0.8rem;color:#6b7a99;margin-bottom:10px">
+        Weekly only — this report covers one ISO week. Times are 24-hour HH:mm (server local time).
+      </div>
+      <div id="wk-schedule-body"></div>
     </div>
 
     <!-- ─── Meetings reference codes admin card moved to the Meetings module ──
@@ -4777,7 +4812,7 @@ async function downloadAllSitesMonthlyPptx(fromMonthlyPage) {
 //  ADMIN PAGE
 // ══════════════════════════════════════════════════════════════════
 // Admin left-rail: show one settings panel at a time. name ∈ users|sessions|sites|departments|risk.
-const _ADMIN_PANEL_IDS = { users:'ap-users', sessions:'sessions-card', sites:'ap-sites', departments:'ap-depts', execview:'ap-execview', email:'ap-email', backups:'ap-backups', risk:'rr-aliases-card', autoreports:'ap-autoreports', 'assets-finance':'ap-assets-finance', 'assets-deprec':'ap-assets-deprec', hygiene:'ap-hygiene', scoreboard:'ap-scoreboard' };
+const _ADMIN_PANEL_IDS = { users:'ap-users', sessions:'sessions-card', sites:'ap-sites', departments:'ap-depts', execview:'ap-execview', email:'ap-email', backups:'ap-backups', risk:'rr-aliases-card', autoreports:'ap-autoreports', 'assets-finance':'ap-assets-finance', 'assets-deprec':'ap-assets-deprec', hygiene:'ap-hygiene', scoreboard:'ap-scoreboard', weekly:'ap-weekly' };
 function showAdminPanel(name) {
   // Guard: 'risk' / 'backups' / 'autoreports' are super_admin-only — fall back to Users for everyone else.
   if ((name === 'risk' || name === 'backups' || name === 'autoreports') && currentUser?.role !== 'super_admin') name = 'users';
@@ -4808,6 +4843,8 @@ function showAdminPanel(name) {
   if (name === 'hygiene' && typeof loadHygieneCard === 'function') loadHygieneCard();
   // Fresh data when opening the Operational Scoreboard email card.
   if (name === 'scoreboard' && typeof loadScoreboardCard === 'function') loadScoreboardCard();
+  // Fresh arm flag + schedule when opening the authored Weekly Report card.
+  if (name === 'weekly' && typeof loadWeeklyCard === 'function') loadWeeklyCard();
   // Reflect the section in the hash (deep-linkable); guard avoids re-entrancy with the router.
   const want = '#admin/' + name;
   if (location.hash !== want) { _suppressHashRoute = true; location.hash = want; }
@@ -4835,6 +4872,9 @@ async function loadAdminPage() {
     // Operational Scoreboard email — admin+ (same gate as hygiene).
     const sbdRail = document.getElementById('admin-rail-scoreboard');
     if (sbdRail) sbdRail.style.display = '';
+    // Authored Weekly Report email — admin+ (same gate as hygiene / scoreboard).
+    const wkRail = document.getElementById('admin-rail-weekly');
+    if (wkRail) wkRail.style.display = '';
     if (isSuperAdmin) {
       loadRrAliases();
       // Default the unmapped-sites picker to the previous month
@@ -4847,7 +4887,7 @@ async function loadAdminPage() {
     }
     // Open the panel from the hash sub-section (#admin/<section>) or default to Users.
     const sub = (location.hash.split('/')[1] || '').toLowerCase();
-    showAdminPanel(['users','sessions','sites','departments','execview','email','backups','risk','autoreports','assets-finance','assets-deprec','hygiene','scoreboard'].includes(sub) ? sub : 'users');
+    showAdminPanel(['users','sessions','sites','departments','execview','email','backups','risk','autoreports','assets-finance','assets-deprec','hygiene','scoreboard','weekly'].includes(sub) ? sub : 'users');
 
     const deptUrl  = isExecOrSuper ? '/api/reports/departments?include_inactive=1' : '/api/reports/departments';
     const sitesUrl = isExecOrSuper ? '/api/reports/sites?include_inactive=1'        : '/api/reports/sites';
@@ -5624,7 +5664,23 @@ function saveExecEditorial() {
 //  Mirrors the Risk Register / Exec View cards: same api()/toast()/esc()
 //  helpers, same .modal-overlay.open + .user-table classes.
 // ══════════════════════════════════════════════════════════════════
-const _AR_TYPES = [['coordinator', 'Coordinator'], ['finance', 'Finance'], ['group', 'Group']];
+// [type, label, capabilities] — the 3rd element declares which CADENCES this
+// report type actually supports; the generic renderer below emits a row only
+// for a supported cadence. Absent ⇒ both.
+//
+// Coordinator is MONTHLY-ONLY on purpose. The coordinator pipeline composes a
+// MONTHLY report and always did — the weekly cadence used to schedule a job
+// that mailed that monthly report every week, which was meaningless. The
+// authored WEEKLY report is a different pipeline entirely and lives on its own
+// admin card (report_type='weekly_report', see loadWeeklyCard). Do NOT
+// re-enable {weekly:true} here to "restore" the checkbox.
+const _AR_TYPES = [
+  ['coordinator', 'Coordinator', { weekly: false, monthly: true }],
+  ['finance',     'Finance'],
+  ['group',       'Group'],
+];
+// Absent capabilities default to supported — keeps the two untouched types as-is.
+function _arSupports(caps, cadence) { return !caps || caps[cadence] !== false; }
 const _AR_DAYS  = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 function _arYN(v) { return (v === 1 || v === '1' || v === true) ? 1 : 0; }
 
@@ -5919,34 +5975,52 @@ function loadReportSchedule() {
     const map = {};
     (rows || []).forEach(r => { map[r.report_type + '|' + r.cadence] = r; });
     const dayOpts = sel => _AR_DAYS.map(d => `<option value="${d}"${String(sel || '').toUpperCase() === d ? ' selected' : ''}>${d}</option>`).join('');
-    box.innerHTML = _AR_TYPES.map(([t, label]) => {
+    box.innerHTML = _AR_TYPES.map(([t, label, caps]) => {
       const wk = map[t + '|weekly'] || {}, mo = map[t + '|monthly'] || {};
-      return `<div style="border:1px solid #E2E5EA;border-radius:8px;padding:12px 14px;margin-bottom:12px">
-        <div style="font-weight:700;margin-bottom:8px">${label} report</div>
-        <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:8px">
+      // A cadence the type does not support renders NO checkbox, NO inputs and
+      // NO Save button — so saveScheduleRow can never be called for it.
+      const weeklyRow = !_arSupports(caps, 'weekly') ? '' :
+        `<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:8px">
           <label style="font-weight:400;min-width:88px"><input type="checkbox" id="sch-${t}-weekly-en"${_arYN(wk.enabled) ? ' checked' : ''}> Weekly</label>
           <span style="color:#6b7a99">on</span>
           <select id="sch-${t}-weekly-day" style="padding:3px 6px;border:1px solid #E2E5EA;border-radius:4px">${dayOpts(wk.day || 'MON')}</select>
           <span style="color:#6b7a99">at</span>
           <input type="time" id="sch-${t}-weekly-time" value="${esc(wk.time || '07:00')}" style="padding:3px 6px;border:1px solid #E2E5EA;border-radius:4px">
           <button class="btn btn-secondary btn-sm" onclick="saveScheduleRow('${t}','weekly')">Save</button>
-        </div>
-        <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+        </div>`;
+      const monthlyRow = !_arSupports(caps, 'monthly') ? '' :
+        `<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">
           <label style="font-weight:400;min-width:88px"><input type="checkbox" id="sch-${t}-monthly-en"${_arYN(mo.enabled) ? ' checked' : ''}> Monthly</label>
           <span style="color:#6b7a99">day</span>
           <input type="text" id="sch-${t}-monthly-day" value="${esc(mo.day || '1')}" placeholder="1 or LAST" style="width:78px;padding:3px 6px;border:1px solid #E2E5EA;border-radius:4px">
           <span style="color:#6b7a99">at</span>
           <input type="time" id="sch-${t}-monthly-time" value="${esc(mo.time || '07:00')}" style="padding:3px 6px;border:1px solid #E2E5EA;border-radius:4px">
           <button class="btn btn-secondary btn-sm" onclick="saveScheduleRow('${t}','monthly')">Save</button>
-        </div>
+        </div>`;
+      // Says WHY the missing cadence is missing, so the absence doesn't read as a bug.
+      const note = _arSupports(caps, 'weekly') ? '' :
+        `<div style="font-size:0.76rem;color:#6b7a99;margin-bottom:8px">Monthly only — the authored <strong>weekly</strong> report has its own card (Weekly Report).</div>`;
+      return `<div style="border:1px solid #E2E5EA;border-radius:8px;padding:12px 14px;margin-bottom:12px">
+        <div style="font-weight:700;margin-bottom:8px">${label} report</div>
+        ${note}${weeklyRow}${monthlyRow}
       </div>`;
     }).join('');
   }).catch(e => { box.innerHTML = `<div style="color:#b91c1c;padding:10px">Failed to load: ${esc(e.message || e)}</div>`; });
 }
 function saveScheduleRow(t, cadence) {
-  const enabled = document.getElementById(`sch-${t}-${cadence}-en`).checked;
-  const day  = document.getElementById(`sch-${t}-${cadence}-day`).value.trim();
-  const time = document.getElementById(`sch-${t}-${cadence}-time`).value.trim();
+  // Belt-and-braces: an unsupported cadence renders no controls, so this
+  // should be unreachable — but reading .checked off a null would throw an
+  // uncaught TypeError, and ONE of those kills this entire inline <script>.
+  const enEl = document.getElementById(`sch-${t}-${cadence}-en`);
+  const dayEl = document.getElementById(`sch-${t}-${cadence}-time`) && document.getElementById(`sch-${t}-${cadence}-day`);
+  const timeEl = document.getElementById(`sch-${t}-${cadence}-time`);
+  if (!enEl || !dayEl || !timeEl) {
+    toast(`${t} has no ${cadence} schedule`, 'warn');
+    return;
+  }
+  const enabled = enEl.checked;
+  const day  = dayEl.value.trim();
+  const time = timeEl.value.trim();
   // Server 500s on a bad time when enabling — check client-side first.
   if (enabled && !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) {
     toast('Enter a valid time (HH:mm) before enabling', 'error');
@@ -5959,6 +6033,7 @@ function saveScheduleRow(t, cadence) {
       // Automated Reports schedule table — refresh whichever owns this row.
       if (t === 'hygiene' && typeof loadHygieneCard === 'function') loadHygieneCard();
       else if (t === 'scoreboard' && typeof loadScoreboardCard === 'function') loadScoreboardCard();
+      else if (t === 'weekly_report' && typeof loadWeeklyCard === 'function') loadWeeklyCard();
       else loadReportSchedule();
     })
     .catch(e => toast('Save failed: ' + (e.message || e), 'error'));
@@ -6266,6 +6341,88 @@ function sendScoreboardNow(btn) {
       if (r && r.reason) toast('Not sent — ' + r.reason, 'info');
       else toast('Sent ' + ((r && r.sent) || 0) + ' email' + ((r && r.sent === 1) ? '' : 's') + ' ✓', (r && r.sent) ? 'success' : 'info');
     })
+    .catch(e => toast('Send failed: ' + (e.message || e), 'error'))
+    .finally(() => { if (btn) btn.disabled = false; });
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  🗓 WEEKLY REPORT — per-coordinator email of the AUTHORED weekly report
+//  Its own route (/api/reports/weekly/send), NOT /api/reports/send: that
+//  handler hardcodes the COORDINATOR composer regardless of ?type=, so
+//  routing the weekly through it would mail a MONTHLY report and log it as
+//  weekly_report — a wrong-content success that poisons the dedup lane.
+// ══════════════════════════════════════════════════════════════════
+function loadWeeklyCard() {
+  api('GET', '/api/reports/config').then(c => {
+    const eEl = document.getElementById('wk-enabled');
+    if (eEl) eEl.checked = (c.weekly_report_send_enabled === '1' || c.weekly_report_send_enabled === 1);
+  }).catch(e => toast('Could not load weekly settings: ' + (e.message || e), 'error'));
+
+  const box = document.getElementById('wk-schedule-body');
+  if (box) box.innerHTML = '<div style="color:#94a3b8;font-style:italic;padding:10px">Loading…</div>';
+  api('GET', '/api/reports/schedule').then(rows => {
+    if (!box) return;
+    const map = {};
+    (rows || []).forEach(r => { map[r.report_type + '|' + r.cadence] = r; });
+    const wk = map['weekly_report|weekly'] || {};
+    const dayOpts = sel => _AR_DAYS.map(d => `<option value="${d}"${String(sel || '').toUpperCase() === d ? ' selected' : ''}>${d}</option>`).join('');
+    // Weekly cadence ONLY. This report covers one week; a monthly cadence would
+    // mail the same single week's report once a month and silently skip three.
+    box.innerHTML = `<div style="border:1px solid #E2E5EA;border-radius:8px;padding:12px 14px">
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+        <label style="font-weight:400;min-width:88px"><input type="checkbox" id="sch-weekly_report-weekly-en"${_arYN(wk.enabled) ? ' checked' : ''}> Weekly</label>
+        <span style="color:#6b7a99">on</span>
+        <select id="sch-weekly_report-weekly-day" style="padding:3px 6px;border:1px solid #E2E5EA;border-radius:4px">${dayOpts(wk.day || 'MON')}</select>
+        <span style="color:#6b7a99">at</span>
+        <input type="time" id="sch-weekly_report-weekly-time" value="${esc(wk.time || '07:00')}" style="padding:3px 6px;border:1px solid #E2E5EA;border-radius:4px">
+        <button class="btn btn-secondary btn-sm" onclick="saveScheduleRow('weekly_report','weekly')">Save</button>
+      </div>
+    </div>`;
+  }).catch(e => { if (box) box.innerHTML = `<div style="color:#b91c1c;font-style:italic;padding:10px">Failed to load: ${esc(e.message || e)}</div>`; });
+}
+
+function saveWeeklyConfig() {
+  const enabled = document.getElementById('wk-enabled').checked ? '1' : '0';
+  api('PUT', '/api/reports/config', { weekly_report_send_enabled: enabled })
+    .then(() => { toast('Weekly report email settings saved ✓', 'success'); loadWeeklyCard(); })
+    .catch(e => toast('Save failed: ' + (e.message || e), 'error'));
+}
+
+// Render the per-site outcomes VERBATIM. The sender distinguishes five non-send
+// conditions and words each for the Service Desk Manager — notably "complete but
+// never submitted", which tells them to nudge a coordinator who thinks they are
+// done. Collapsing these into "nothing sent" destroys the whole point.
+function _wkRender(r, previewing) {
+  const box = document.getElementById('wk-result');
+  if (!box) return;
+  if (r && r.reason && !(r.results || r.previews)) {
+    box.innerHTML = `<div style="background:#FFFBEB;color:#92400E;padding:9px 11px;border-radius:6px;font-size:0.85rem">
+      ${previewing ? 'Preview' : 'Not sent'} — ${esc(r.reason)}</div>`;
+    return;
+  }
+  const rows = (r && (r.results || r.previews)) || [];
+  if (!rows.length) { box.innerHTML = '<div style="color:#6b7a99;font-style:italic;padding:8px 0">No sites returned.</div>'; return; }
+  const li = rows.map(x => {
+    const site = esc(x.site || x.site_code || '?');
+    if (x.ok || x.preview) return `<li><strong>${site}</strong> — <span style="color:#065F46">${previewing ? 'ready to send' : 'sent'}</span>${x.to ? ' → ' + esc(x.to) : ''}</li>`;
+    return `<li><strong>${site}</strong> — <span style="color:#92400E">${esc(x.reason || 'skipped')}</span></li>`;
+  }).join('');
+  box.innerHTML = `<ul style="margin:6px 0 0;padding-left:18px;font-size:0.85rem;line-height:1.6">${li}</ul>`;
+}
+
+function previewWeekly(btn) {
+  if (btn) btn.disabled = true;
+  api('POST', '/api/reports/weekly/send?preview=1')
+    .then(r => { _wkRender(r, true); toast('Preview complete — nothing was sent', 'info'); })
+    .catch(e => toast('Preview failed: ' + (e.message || e), 'error'))
+    .finally(() => { if (btn) btn.disabled = false; });
+}
+
+function sendWeeklyNow(btn) {
+  if (!confirm('Send the authored weekly report now to every site\'s confirmed coordinator?')) return;
+  if (btn) btn.disabled = true;
+  api('POST', '/api/reports/weekly/send?preview=0')
+    .then(r => { _wkRender(r, false); toast('Sent ' + ((r && r.sent) || 0) + ' email' + ((r && r.sent === 1) ? '' : 's'), (r && r.sent) ? 'success' : 'info'); })
     .catch(e => toast('Send failed: ' + (e.message || e), 'error'))
     .finally(() => { if (btn) btn.disabled = false; });
 }

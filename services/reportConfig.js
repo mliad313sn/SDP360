@@ -15,6 +15,10 @@ const DEFAULTS = {
   // default. Arm flag ONLY (recipients come from the coordinator directory, not
   // a config list). Must live in DEFAULTS so setConfig's KEYS filter accepts it.
   scoreboard_send_enabled: '0',
+  // Scheduled per-coordinator WEEKLY report email — armed OFF by default. Arm
+  // flag ONLY (recipients come from the coordinator directory, not a config
+  // list). Must live in DEFAULTS so setConfig's KEYS filter accepts it.
+  weekly_report_send_enabled: '0',
   xof_usd_rate: '0.00165',
   // Annual replacement-price uplift (%) for the investment forecast — 0 = like-for-like.
   // Must live in DEFAULTS so setConfig's KEYS filter accepts the admin's write.

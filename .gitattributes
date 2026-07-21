@@ -1,0 +1,10 @@
+# Byte-equality golden fixtures — NEVER let core.autocrlf rewrite these.
+#
+# tests/report-template-primitives.test.js asserts the monthly email HTML is
+# byte-identical to these files. Git for Windows ships core.autocrlf=true in the
+# SYSTEM gitconfig, so without this rule a fresh clone (or any branch checkout
+# round-trip) materialises them as CRLF while the composer emits LF — and both
+# goldens fail for a reason that has nothing to do with the code under test.
+#
+# -text = no end-of-line conversion in either direction.
+tests/__golden__/*.html -text

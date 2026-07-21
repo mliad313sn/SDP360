@@ -6,6 +6,47 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ---
 
+## ⚡ Current state (as of 2026-07-21)
+
+> **Weekly report e-mail landed** (branch `feat/weekly-report-email`, merged) — the
+> coordinator's **weekly** site report now goes out by e-mail, alongside the existing
+> monthly one, **entirely additive**. **The decisive design choice: the weekly e-mail
+> delivers the AUTHORED report, replayed from the frozen snapshot** — `services/
+> weeklyReportData.js` loads `weekly_reports` + its **4 children** through the existing
+> `getReport`, and `helpdesk_data` is **computed once at save time and carries
+> `fetched_at`**, so the e-mail and the coordinator's PPTX can **never disagree about
+> the same week**. It **never re-queries live data** — a live re-query would silently
+> re-date the numbers a human already signed off. New: `services/reportTemplates/
+> weekly.js` (composer), `services/sendWeeklyReport.js` (sender), `tools/reports/
+> send-weekly.js` (CLI), a `'weekly_report'` schedule type, `weekly_report_send_enabled`
+> (**armed OFF**, in `reportConfig.DEFAULTS`), its **OWN** `POST` route + an admin card.
+> **The monthly path is byte-for-byte untouched**: the shared e-mail primitives were
+> extracted to `services/reportTemplates/_primitives.js` under **two byte-equality
+> goldens** (`tests/__golden__/monthly-email-*.html`) — necessary because
+> `tests/report-template-coordinator.test.js:305-314` **strips all markup** before
+> asserting and therefore cannot catch a refactor regression. **The coordinator sender
+> is now monthly-only** (a dead cadence kind used to make a weekly schedule mail the
+> **monthly** report — fixed in `693c728`). **Status is FOUR values**
+> (`draft|in_progress|ready|submitted`, `server.js:5993`) and the client auto-sets
+> `ready` (`reports.html:3787`) — so the common real case is a coordinator who filled
+> everything in and **never clicked Submit**, reported as **"complete but not
+> submitted"**, never merely "not submitted". Asset labels resolve **FORWARD** through
+> `assetLabelToCode` over `getAssetLookups().sites` (`b2ebdb5` — inverting `ALIAS`
+> matched **zero** rows and every worklist read empty, which looks like a *clean* site).
+> Also fixed this session: the two goldens were **CRLF-mangled on every fresh Windows
+> clone** (Git-for-Windows ships `core.autocrlf=true` in the SYSTEM gitconfig) — a new
+> **`.gitattributes`** pins `tests/__golden__/*.html` to `-text`; the assertion itself is
+> untouched. **Regression**: branch suites **174/174**; report/site-report/reporting/
+> exec/mailer **223/226** (the 3 failures are the **pre-existing** `exec-routes.smoke`
+> `pgDb not initialised`, **verified failing identically on `main`**); the
+> reports-db-consumer sweep (review/score/composite/pptx/meetings) **326/326** incl. the
+> PPTX golden fingerprint; `await-precedence` **5/5**. Plan:
+> `docs/superpowers/plans/2026-07-21-weekly-report-email.md`, specs:
+> `docs/superpowers/specs/2026-07-21-weekly-report-email-design.md` +
+> `…-coordinator-weekly-report-design.md`.
+>
+> ---
+
 ## ⚡ Current state (as of 2026-07-20)
 
 > **PV signature auto-save + Issues Log inline edits landed** (branch
@@ -2912,6 +2953,16 @@ In normal use NO request hits this fallback. It's a safety net.
 
 | Pitfall | Rule |
 |---------|------|
+| **`getSiteIdByModuleCode` returns `{site_id}`, NOT `{id}` — a falsy id makes `listReports` leak EVERY site's report** | `listReports` filters with a bare **`if (site_id)`** on **both** backends (`reports-db.js:2072` sqlite, **`:2556` pg**), so a falsy id doesn't narrow to nothing — it **drops the filter entirely** and returns the whole fleet's reports. Reading `.id` off `getSiteIdByModuleCode` yields `undefined` → a weekly send addressed to one site would compose from **another site's** authored report, and nothing errors. **Resolve the id and guard it before calling** (`weeklyReportData.js` throws on an unresolvable code rather than passing a falsy id down). |
+| **`weekly_reports.status` is FOUR values — and the schema comment at `reports-db.js:73` is STALE** | The real vocabulary is **`draft \| in_progress \| ready \| submitted`** (`server.js:5993-5994` validates exactly these), and the client **auto-sets `ready`** once 4 sections are done (`reports.html:3787`) — the coordinator never types it. The inline comment `-- draft \| submitted` at `reports-db.js:73` predates that and is wrong; don't gate on it. Consequence for any consumer: the common real case is a report that is **complete but never Submitted**, so a status gate must report it as **"complete but not submitted"**, never merely "not submitted" (which reads as "they did nothing" and sends the coordinator hunting for work that is already done). |
+| **`infra_kpis.status_color` is `orange`, NOT `amber` — a bare `RAG_COLORS[status_color]` is `undefined` for every warning KPI** | The column stores **`green \| orange \| red \| none`** (`reports-db.js:90`), the admin UI merely **labels** it "🟡 Amber" (`public/reports.html:2400` — `<option value="orange">`), while `RAG_COLORS` is keyed **`{green, amber, red}`** (`services/reportTemplates/_primitives.js:17`). So `RAG_COLORS[k.status_color]` silently yields `undefined` on exactly the rows that matter (the at-risk ones) and the swatch renders colourless — no error, no test failure unless you assert on the colour. **Map the two vocabularies explicitly** (`orange → RAG_COLORS.amber`); never index one with the other. |
+| **`POST /api/reports/send` HARDCODES `sendCoordinatorReport` regardless of `?type=` — a new report type needs its OWN route** | The route validates `type` against `SEND_TYPES` (`server.js:4935`) but then unconditionally calls **`sendCoordinatorReport`** (`server.js:4966`). Adding a new type to the `SEND_TYPES` array therefore does **not** wire it up — it makes the endpoint accept the new type and then **mail the coordinator's monthly content under that type's name**, *and* stamp the dedup lane (`report_sent_log`) for that period, so the correct send is afterwards skipped as "already sent today". The weekly sender got its **own route** for exactly this reason. Never route a second report type through this one. |
+| **Asset labels resolve FORWARD through `assetLabelToCode` — NEVER by inverting `ALIAS`** | `ALIAS`'s keys are **accent-folded lowercase lookup keys**, not DB spellings, while `_assetWhere` filters an exact **`a.site = ?`**. Invert the map to get "the label for code X" and you produce a folded key that matches **zero** rows — every asset worklist reads empty, which renders as a **clean site**, the most dangerous possible failure mode (silently good news). Instead enumerate the real labels from **`getAssetLookups().sites`** and fold each one **forward** through `assetLabelToCode`, keeping those that land on your code. **Two vocabularies coexist** and both must be accepted: AP mine names (`Sabodala`) and site codes used verbatim as labels (`HGO`). |
+| **`getHygieneSummary`'s `by_site` is NOT a shortcut for per-site hygiene counts** | It carries only **4 columns**, they are **present-counts (the INVERSE of the gaps)**, and it is missing **4 of the 8** `HYGIENE_KINDS` — so a per-site worklist built from it is both inverted and incomplete, while looking plausible. Fold **`by_kind`** per label and **SUM** across the labels that map to the site instead. |
+| **`foldEffortByCode` returns a `Map` and an UNWEIGHTED mean — and rank must be RECOMPUTED after folding** | It is `.get(code)`, not index access (`rows[code]` is `undefined`). The fold is a **simple mean**, which is correct for a *score* but **wrong for counts** (two folded labels don't average their asset totals — they sum them). And a folded site's **rank cannot be carried over**: a mean of two ranks is meaningless. **Recompute rank after folding**, over the folded set. |
+| **`getISOWeek` is module-private — `getPreviousWeek()` is the exported entry point** | `reports-db.js:948`. The report period is deliberately the **PREVIOUS** week (the one being filled in during the current week), so a consumer that reaches for "this week" is off by one and will load an empty/unauthored report. Don't re-derive ISO weeks locally. |
+| **The monthly e-mail HTML is pinned by TWO byte-equality goldens — never regenerate one to get green** | `tests/report-template-coordinator.test.js:305-314` **strips all markup** (`replace(/<[^>]+>/g,'')`) before asserting, so it verifies wording only and is **structurally blind** — it cannot catch a refactor that changes markup. `tests/report-template-primitives.test.js` closes that hole with byte-equality against `tests/__golden__/monthly-email-{full,nonApplicable}.html`. A golden failing means **the monthly e-mail changed**; regenerating it just launders the regression into the baseline. **Those goldens are also LF-pinned via `.gitattributes`** (`tests/__golden__/*.html -text`) — Git-for-Windows sets `core.autocrlf=true` in the SYSTEM gitconfig, so without that rule a fresh clone (or any branch checkout round-trip) hands the test CRLF while the composer emits LF, and both goldens fail for a reason unrelated to the code. |
+| **`weekly_report_send_enabled` must be in `reportConfig.DEFAULTS` or the admin's save is SILENTLY dropped** | Same trap as the hygiene/scoreboard keys: `setConfig` filters on `KEYS.includes(k)`, so a key absent from `DEFAULTS` is discarded with **no error anywhere** — the toggle appears to save, re-reads as `'0'`, and the weekly digest is permanently inert. It defaults to **`'0'` (armed OFF)**; `services/reportConfig.js:21`. |
 | **The deck builder's monthly analysis is SERVER-side now (`exec_report_editorial`), keyed `(period, scope)` — do not collapse the two grains** | The Operations Summary is month-level (`scope='ops'`), but the commentary was always keyed by **month + site filter + group preset** in the browser (`exec_pptx_commentary_<yr>_<mo>_<site>_<grp>`) — so its scope is `'commentary:<site>:<grp>'`. Collapsing them into one month-level row would let one filter's text silently overwrite another's. `localStorage` is now a **cache + offline fallback**, migrated once on first load (server empty + local present → apply local AND PUT it) — never re-promote it to the source of truth. A failed save must SAY it failed (`#actionStatus`), never claim a save that didn't reach the server. |
 | **`_opsSummaryApply` merged instead of replacing → one month's text bled into another (data corruption, pre-existing)** | It skipped blank/absent fields (`if (v != null && v !== '')`), so switching Jun→May left June's goal in the box — and a Save then wrote **June's text into May**. Any per-period editor must **always assign**, falling back to a snapshot of the page defaults, and must reset when the period changes. The same class of bleed applies to the commentary fields (their placeholders are snapshotted at boot since they carry no `data-placeholder`). |
 | **`analyze-lite.js` writes `el.textContent` directly and NEVER calls `setCommentary`** | It is shared with `executive.html`, whose field ids differ — so it bypasses the persistence hook entirely (lines ~482/566/761). Consequence: Analyze output was persisted **nowhere**, not even to localStorage, until the persist call was hooked onto the Analyze buttons themselves. Anything that must capture Analyze output has to hook the button, not `setCommentary` — or teach `analyze-lite.js` to call `window.setCommentary` when it exists (touches a file shared with another page). |

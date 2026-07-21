@@ -2410,6 +2410,31 @@ app.post('/api/reports/scoreboard/send', requireReportSession, requireAdmin, asy
   }
 });
 
+// POST /api/reports/weekly/send?preview=1|0 — admin-driven Preview / Send-now
+// for the per-coordinator AUTHORED WEEKLY report email. Same shape as the
+// scoreboard route above: send-weekly.main() resolves db/cfg/period itself and
+// is disarmed-safe — a disabled config returns {sent:0,reason:'disabled'}
+// WITHOUT touching the directory or SMTP.
+//
+// This is DELIBERATELY its own route and NOT a new entry in SEND_TYPES below.
+// POST /api/reports/send hardcodes sendCoordinatorReport regardless of `type`,
+// so whitelisting 'weekly_report' there would compose a MONTHLY report, mail
+// it, and log it under report_type='weekly_report' — a wrong-content success
+// that would poison the dedup lane so the real weekly could never send for
+// that period. Keep the two pipelines apart.
+app.post('/api/reports/weekly/send', requireReportSession, requireAdmin, async (req, res) => {
+  const _truthy = v => v === '1' || v === 1 || v === true || v === 'true';
+  const preview = _truthy(req.query.preview) || _truthy(req.body?.preview);
+  const force = _truthy(req.query.force) || _truthy(req.body?.force);
+  try {
+    const sendWeekly = require('./tools/reports/send-weekly');
+    res.json(await sendWeekly.main({ preview, force }));
+  } catch (e) {
+    console.error('[api/reports/weekly/send]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── ASSETS · HARDWARE HEALTH (sub-project D) ─────────────────────────────
 // Fleet fitness views over the enriched inventory: low RAM, full system disk,
 // refresh-due, and workstations with no real monitor. Same session guard + same
@@ -4918,7 +4943,6 @@ app.post('/api/reports/send', requireReportSession, requireAdmin, async (req, re
   const now = new Date();
   const year  = +(req.query.year || now.getFullYear());
   const month = +(req.query.month || (now.getMonth() + 1));
-  const kind  = req.query.kind === 'monthly' ? 'monthly' : 'weekly';
   const period = `${year}-${String(month).padStart(2, '0')}`;
   // Optional — omit it and the send behaves exactly as the scheduled CLI's.
   const recipients = (req.body && req.body.recipients) || undefined;
@@ -4940,7 +4964,7 @@ app.post('/api/reports/send', requireReportSession, requireAdmin, async (req, re
 
   try {
     const out = await sendCoordinatorReport({
-      db: rdb.db, site, period, kind, recipients,
+      db: rdb.db, site, period, recipients,
       preview: req.query.preview === '1',
       force: req.query.force === '1',
     });
