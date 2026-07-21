@@ -10,15 +10,20 @@ const NODE = process.execPath;
 const SEND_CLI = path.join(APP_ROOT, 'tools', 'reports', 'send-reports.js');
 const SEND_HYGIENE_CLI = path.join(APP_ROOT, 'tools', 'reports', 'send-hygiene.js');
 const SEND_SCOREBOARD_CLI = path.join(APP_ROOT, 'tools', 'reports', 'send-scoreboard.js');
+const SEND_WEEKLY_CLI = path.join(APP_ROOT, 'tools', 'reports', 'send-weekly.js');
 const DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
-const TYPES = ['coordinator', 'group', 'finance', 'hygiene', 'scoreboard'];
+const TYPES = ['coordinator', 'group', 'finance', 'hygiene', 'scoreboard', 'weekly_report'];
 
-// The hygiene digest and the scoreboard email each have their own CLI (the
-// hygiene one composes the Group-IT digest; the scoreboard one loops per-site
-// coordinators); every other type routes through send-reports.js.
+// The hygiene digest, the scoreboard email and the weekly report each have their
+// own CLI (hygiene composes the Group-IT digest; scoreboard and weekly_report
+// each loop per-site coordinators); every other type routes through
+// send-reports.js. weekly_report MUST route here — send-reports.js's
+// SUPPORTED_TYPES deliberately excludes it, so falling through would make the
+// scheduled task print "not implemented yet" and silently never send.
 function cliFor(report_type) {
   if (report_type === 'hygiene') return SEND_HYGIENE_CLI;
   if (report_type === 'scoreboard') return SEND_SCOREBOARD_CLI;
+  if (report_type === 'weekly_report') return SEND_WEEKLY_CLI;
   return SEND_CLI;
 }
 
