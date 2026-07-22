@@ -2437,6 +2437,26 @@ app.post('/api/reports/weekly/send', requireReportSession, requireAdmin, async (
   }
 });
 
+// POST /api/reports/asset-group/send?preview=1|0 — admin-driven Preview / Send-now
+// for the GROUP Assets digest (effort leaderboard + investment forecast) email.
+// Same shape as the scoreboard/weekly routes above: send-asset-group.main()
+// resolves db/cfg/period itself and is disarmed-safe — a disabled config returns
+// {sent:0,reason:'disabled'} WITHOUT touching the directory or SMTP. It is its
+// OWN route deliberately: POST /api/reports/send hardcodes sendCoordinatorReport,
+// so whitelisting 'asset_group' there would mail wrong content + poison dedup.
+app.post('/api/reports/asset-group/send', requireReportSession, requireAdmin, async (req, res) => {
+  const _truthy = v => v === '1' || v === 1 || v === true || v === 'true';
+  const preview = _truthy(req.query.preview) || _truthy(req.body?.preview);
+  const force = _truthy(req.query.force) || _truthy(req.body?.force);
+  try {
+    const sendAssetGroup = require('./tools/reports/send-asset-group');
+    res.json(await sendAssetGroup.main({ preview, force }));
+  } catch (e) {
+    console.error('[api/reports/asset-group/send]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── ASSETS · HARDWARE HEALTH (sub-project D) ─────────────────────────────
 // Fleet fitness views over the enriched inventory: low RAM, full system disk,
 // refresh-due, and workstations with no real monitor. Same session guard + same
