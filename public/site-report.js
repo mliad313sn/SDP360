@@ -379,11 +379,16 @@
         var alertHtml = alerts.length
           ? alerts.map(function (a) { return '<span class="alert-chip">' + esc(String(a).replace(/_/g, ' ')) + '</span>'; }).join('')
           : '<span class="muted">—</span>';
+        // null → '—'. NOT n(avg_resolution_h): n(null) is 0, which states "0h"
+        // — the best possible resolution time — for a technician who closed
+        // nothing (reports-db.js:1896 returns null there on purpose). `== null`
+        // covers undefined too; `||` would also swallow a genuine measured 0h.
+        var avg = t.avg_resolution_h == null ? '—' : n(t.avg_resolution_h);
         return '<tr>' +
           '<td>' + esc(t.name || '—') + '</td>' +
           '<td class="num">' + n(t.assigned) + '</td>' +
           '<td class="num">' + n(t.resolved) + '</td>' +
-          '<td class="num">' + n(t.avg_resolution_h) + '</td>' +
+          '<td class="num">' + avg + '</td>' +
           '<td class="num">' + n(t.reopened) + '</td>' +
           '<td class="num">' + n(t.current_load) + '</td>' +
           '<td>' + alertHtml + '</td>' +
@@ -391,14 +396,22 @@
       }).join('') + '</tbody></table>';
   }
 
-  function renderRecommended(recs) {
+  // An EMPTY list has two meanings that must not share a sentence. _recommend
+  // (services/siteReport.js) only pushes on a POSITIVE signal, so a site with no
+  // data produces the same empty list as a site measured and found clean — and
+  // the reassuring line then contradicted the hero's "Score non applicable —
+  // aucune donnée sur la fenêtre" further up the very same page.
+  function renderRecommended(recs, score) {
     var list = Array.isArray(recs) ? recs : [];
+    var unscored = !!score && score.applicable === false;
     el('recList').innerHTML = list.length
       ? list.map(function (r) {
           return '<li><span class="rec-kind">' + esc(r.kind || 'note') + '</span>' +
             '<span>' + esc(r.text || '') + '</span></li>';
         }).join('')
-      : '<li><span class="rec-kind">ok</span><span>No recommended actions — nothing flagged this period.</span></li>';
+      : unscored
+        ? '<li><span class="rec-kind">n/a</span><span>Aucune donnée sur la période — rien à recommander.</span></li>'
+        : '<li><span class="rec-kind">ok</span><span>No recommended actions — nothing flagged this period.</span></li>';
   }
 
   // ── Main render ──────────────────────────────────────────────
@@ -411,7 +424,7 @@
     renderHelpdesk(data.helpdesk);
     renderChanges(data.changes);
     renderTechnicians(data.technicians);
-    renderRecommended(data.recommended);
+    renderRecommended(data.recommended, data.score);
   }
 
   function showEmpty() { body().className = 'state-empty'; }

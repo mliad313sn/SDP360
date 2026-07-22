@@ -239,6 +239,34 @@ test('no open major incidents → the list is simply absent, no empty heading', 
   assert.match(htmlBody, /Major incidents/);   // the KPI tile stays
 });
 
+// ── Technicians: an unknown average is not a fast one ────────────────────────
+// reports-db.js:1896 emits avg_resolution_h: null DELIBERATELY (the `+null === 0`
+// trap is commented at its site). num(null) is 0, so the row used to read
+// "Resolved 0 · 0h" — the best possible average handed to whoever closed
+// nothing at all.
+
+test('a technician with NO resolution average renders "—", never "0h"', () => {
+  const d = JSON.parse(JSON.stringify(data));
+  d.technicians = [{ name: 'Amina', assigned: 4, resolved: 0, avg_resolution_h: null, reopened: 0, current_load: 4, alerts: [] }];
+  const { htmlBody } = composeCoordinator(d);
+  assert.ok(!/>0h</.test(htmlBody), 'nothing was resolved — there is no average to state');
+  assert.match(htmlBody, />&mdash;<\/td>|>—<\/td>/, 'the cell states the absence');
+});
+
+test('a technician with a genuine 0h average still prints 0h', () => {
+  const d = JSON.parse(JSON.stringify(data));
+  d.technicians = [{ name: 'Amina', assigned: 4, resolved: 4, avg_resolution_h: 0, reopened: 0, current_load: 1, alerts: [] }];
+  const { htmlBody } = composeCoordinator(d);
+  assert.match(htmlBody, />0h</, 'a real measured 0 is a measurement, not an absence');
+});
+
+test('an undefined resolution average is treated as absent too', () => {
+  const d = JSON.parse(JSON.stringify(data));
+  d.technicians = [{ name: 'Amina', assigned: 4, resolved: 0, reopened: 0, current_load: 4, alerts: [] }];
+  const { htmlBody } = composeCoordinator(d);
+  assert.ok(!/>0h</.test(htmlBody));
+});
+
 test('empty/zero data still composes without throwing', () => {
   const r = composeCoordinator({ site_code: 'X', period: { label: 'Aug 2026' },
     score: { score: 0, points: 0, rag: 'RED', dims: [], moves: [], window: null },
@@ -276,6 +304,25 @@ test('applicable:false omits the dims table and the moves block entirely', () =>
   assert.ok(!/Two moves that lift the score most/.test(htmlBody), 'no moves block');
   assert.ok(!/G&#8805;8|G≥8|reviews held/.test(htmlBody), 'no dims table');
   assert.ok(!/\/2</.test(htmlBody), 'no 0/2 rating chips');
+});
+
+// ── Recommendations: silence is not good news on an unmeasured site ──────────
+// _recommend (siteReport.js:120-127) only pushes on a POSITIVE signal, so zero
+// data yields an empty list — and the renderer used to reward that with
+// "Nothing needs your attention this period." in the same email whose first card
+// reads "Score non applicable — aucune donnée".
+
+test('no recommendations + an UNSCORED site → says there is no data, not "nothing to do"', () => {
+  const { htmlBody } = composeCoordinator({ ...naData, recommended: [] });
+  assert.ok(!/Nothing needs your attention/.test(htmlBody),
+    'the same email says "aucune donnée" in card 1 — it cannot reassure in card 8');
+  assert.match(htmlBody, /Aucune donn&eacute;e sur la p&eacute;riode/);
+});
+
+test('no recommendations + a SCORED site keeps the reassuring message', () => {
+  const { htmlBody } = composeCoordinator({ ...data, recommended: [] });
+  assert.match(htmlBody, /Nothing needs your attention this period/,
+    'the site WAS measured and nothing was flagged — that is real good news');
 });
 
 test('applicable:false still composes the rest of the report', () => {

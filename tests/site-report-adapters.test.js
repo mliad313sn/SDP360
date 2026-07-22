@@ -46,6 +46,29 @@ test('adaptInspectionAggregate with no findings → 0 / low', () => {
   assert.strictEqual(r.overall_risk, 'low');
 });
 
+// 'low' is NOT in the finding-status vocabulary (inspection-init.json:
+// ok · minor · major · critical · opp · na), so _RISK_ORDER.find() can never
+// return it — every 'low' came from the fallback. On a site with ZERO
+// inspections that fallback printed a GREEN "Overall risk: low" over nothing
+// measured. No inspections → no verdict.
+test('adaptInspectionAggregate with ZERO inspections → overall_risk null, never "low"', () => {
+  const r = A.adaptInspectionAggregate({ counts: { total: 0 }, findingStatus: [] });
+  assert.strictEqual(r.inspections_done, 0);
+  assert.strictEqual(r.overall_risk, null, 'no inspection was run — there is no risk verdict to state');
+});
+
+test('adaptInspectionAggregate on junk → null risk (a failed read is not "low")', () => {
+  assert.strictEqual(A.adaptInspectionAggregate(null).overall_risk, null);
+  assert.strictEqual(A.adaptInspectionAggregate({}).overall_risk, null);
+});
+
+// The other half of the rule: inspections DID run and turned up nothing
+// serious — that is a real measurement and 'low' is legitimate.
+test('adaptInspectionAggregate with inspections but no findings keeps "low"', () => {
+  const r = A.adaptInspectionAggregate({ counts: { total: 3 }, findingStatus: [{ status: 'ok', n: 5 }] });
+  assert.strictEqual(r.overall_risk, 'low');
+});
+
 test('adaptInspectionAggregate on junk → zeros, never throws', () => {
   const r = A.adaptInspectionAggregate(null);
   assert.strictEqual(r.inspections_done, 0);

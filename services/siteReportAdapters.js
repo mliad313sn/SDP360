@@ -30,14 +30,28 @@ function adaptMeetingsActions(rows) {
 }
 
 // inspection aggregate: counts.* is nested; findings live in findingStatus[].
+//
+// `'low'` is NOT part of the finding-status vocabulary (inspection-init.json:
+// ok · minor · major · critical · opp · na) — the `.find()` below can never
+// return it, so every 'low' this ever produced came from the fallback. On a site
+// with ZERO inspections that fallback rendered a GREEN "Overall risk: low" over
+// nothing measured at all: absence of data presented as good news.
+//
+// So the fallback is now conditional on something having been inspected:
+//   · inspections run, none of them critical/major/minor → 'low' is a REAL
+//     "nothing serious found" verdict, kept as-is;
+//   · no inspection run (or an unreadable aggregate) → `null`, "we did not
+//     measure". Both renderers already print null as a muted '—'
+//     (coordinator.js inspectionSection, public/site-report.js renderInspection).
 const _RISK_ORDER = ['critical', 'major', 'minor', 'low'];
 function adaptInspectionAggregate(agg) {
   const a = agg || {}; const c = a.counts || {};
   const fs = Array.isArray(a.findingStatus) ? a.findingStatus : [];
   const byStatus = Object.fromEntries(fs.map(f => [String(f.status || '').toLowerCase(), n(f.n)]));
-  const worst = _RISK_ORDER.find(s => (byStatus[s] || 0) > 0) || 'low';
+  const done = n(c.total);
+  const worst = _RISK_ORDER.find(s => (byStatus[s] || 0) > 0) || (done > 0 ? 'low' : null);
   return {
-    inspections_done: n(c.total),
+    inspections_done: done,
     findings_critical_major: (byStatus.critical || 0) + (byStatus.major || 0),
     overall_risk: worst,
   };

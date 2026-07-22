@@ -298,11 +298,17 @@ function techniciansSection(technicians) {
   const rows = techs.map((t) => {
     const it = obj(t);
     const alerts = arr(it.alerts).map((a) => chip(String(a).replace(/_/g, ' '), RAG_COLORS.amber)).join('') || `<span style="color:${MUTED};font-family:${FONT};font-size:11px;">&mdash;</span>`;
+    // reports-db.js:1896 emits `avg_resolution_h: null` DELIBERATELY (the
+    // `+null === 0` trap is commented at its site) when the technician closed
+    // nothing — there is no average. num(null) is 0, which printed "0h": the
+    // best possible resolution time awarded to whoever resolved nothing.
+    // `== null` covers null AND undefined; `||` would also swallow a genuine 0h.
+    const avg = it.avg_resolution_h == null ? '&mdash;' : `${escapeHtml(num(it.avg_resolution_h))}h`;
     return `<tr>
 ${td(`<strong style="color:${NAVY};">${escapeHtml(it.name)}</strong>`)}
 ${td(escapeHtml(num(it.assigned)), 'right')}
 ${td(escapeHtml(num(it.resolved)), 'right')}
-${td(`${escapeHtml(num(it.avg_resolution_h))}h`, 'right')}
+${td(avg, 'right')}
 ${td(escapeHtml(num(it.reopened)), 'right')}
 ${td(escapeHtml(num(it.current_load)), 'right')}
 ${td(alerts)}
@@ -349,9 +355,24 @@ function assetEffortSection(effort) {
   return card('Tenue du parc — actifs', `${kpis}${deltaLine}${note}`, NAVY);
 }
 
-/** The point of the report — the coordinator's "what do I do now". */
-function recommendedSection(recommended) {
+/**
+ * The point of the report — the coordinator's "what do I do now".
+ *
+ * An EMPTY list has two very different meanings and they must not share a
+ * sentence. _recommend (siteReport.js:120-127) only ever pushes on a POSITIVE
+ * signal (HIGH issues open, findings, PVs missing, an overloaded tech), so a
+ * site with no data at all produces exactly the same empty list as a site that
+ * was measured and came out clean. Printing the reassuring line for both put
+ * "Nothing needs your attention" in the very same email whose first card reads
+ * "Score non applicable — aucune donnée sur la fenêtre".
+ *
+ * Keyed on `score.applicable === false` — the same flag scoreHero() and intro()
+ * use, and for the same reason: the engine always sets the field, so a block
+ * that merely lacks it is a legacy/degraded shape and keeps the old wording.
+ */
+function recommendedSection(recommended, score) {
   const items = arr(recommended);
+  const unscored = obj(score).applicable === false;
   const inner = items.length
     ? items.map((r, ix) => {
       const it = obj(r);
@@ -362,7 +383,9 @@ function recommendedSection(recommended) {
 <td style="vertical-align:top;padding:10px 12px 10px 4px;">${kind}<div style="font-family:${FONT};font-size:14px;font-weight:bold;color:${NAVY};line-height:1.45;">${escapeHtml(it.text)}</div></td>
 </tr></table>`;
     }).join('')
-    : `<div style="font-family:${FONT};font-size:13px;color:${INK};background:#FFFFFF;border:1px solid ${BORDER};border-radius:4px;padding:12px;">Nothing needs your attention this period.</div>`;
+    : `<div style="font-family:${FONT};font-size:13px;color:${INK};background:#FFFFFF;border:1px solid ${BORDER};border-radius:4px;padding:12px;">${unscored
+      ? 'Aucune donn&eacute;e sur la p&eacute;riode &mdash; rien &agrave; recommander.'
+      : 'Nothing needs your attention this period.'}</div>`;
 
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:separate;border:2px solid ${TEAL};border-radius:6px;margin:0 0 14px 0;">
 <tr><td style="background:${TEAL};padding:9px 14px;border-radius:4px 4px 0 0;">
@@ -450,7 +473,7 @@ function composeCoordinator(data) {
     helpdeskSection(d.helpdesk),
     changesSection(d.changes),
     techniciansSection(d.technicians),
-    recommendedSection(d.recommended),
+    recommendedSection(d.recommended, d.score),
     // SPREAD, never a ternary-into-'' — composeCoordinator joins WITHOUT
     // .filter(Boolean), so an empty string here would add a stray '\n' and break
     // the byte-for-byte monthly goldens. Absent assetEffort → nothing inserted.
