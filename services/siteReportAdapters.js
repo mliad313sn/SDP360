@@ -7,6 +7,14 @@ const n = (v) => (Number.isFinite(+v) ? +v : 0);
 
 // getSiteMonthlyMeetingSummary: kpis are dept_target/resolved_month/new_month/
 // escalations_open; there is no site_name (only site_code).
+//
+// `dept_target` is Engagement #1: THREE DISTINCT DEPARTMENTS met this month.
+// Its numerator is therefore `depts_with_pv` (COUNT DISTINCT department), NOT
+// `pvs_held` (COUNT of PVs) — the reader emits both, side by side
+// (meetings-db.js:2841-2843), and pairing the wrong one against the target made
+// five PVs of the SAME department read "5 / 3 — target met" while Engagement #1
+// was not held. Both are carried through: the target comparison uses
+// depts_with_pv, `pvs_held` is still reported as the volume of PVs.
 function adaptMeetingsSummary(ms) {
   const s = ms || {}; const k = s.kpis || {};
   return {
@@ -14,7 +22,7 @@ function adaptMeetingsSummary(ms) {
     month_label: s.month_label || '',
     departments: Array.isArray(s.departments) ? s.departments : [],
     kpis: {
-      pvs_held: n(k.pvs_held), pvs_target: n(k.dept_target),
+      pvs_held: n(k.pvs_held), depts_with_pv: n(k.depts_with_pv), pvs_target: n(k.dept_target),
       open_issues: n(k.open_issues), high_open: n(k.high_open),
       resolved: n(k.resolved_month), new: n(k.new_month),
       escalations: n(k.escalations_open),
