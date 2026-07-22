@@ -142,3 +142,59 @@ test('getSiteChangesWindow: the panel window (2026-04-15..2026-07-14) is group-s
   // is per-site and group-scoped; it can never return 43.
   assert.strictEqual(per.reduce((s, n) => s + n, 0), 17);
 });
+
+// ── _computeOpenChanges — the "what is stuck right now" aggregator ───────────
+// The month block above can read 0/0/0 for a site that is carrying a change open
+// since last year. This is the reader that makes that visible, so its edges
+// matter more than its happy path.
+const { _computeOpenChanges, getSiteOpenChanges } = rdb;
+
+test('_computeOpenChanges: overdue needs BOTH a planned end AND asOf', () => {
+  const out = _computeOpenChanges([
+    { change_id: 'a', display_id: '1', stage: 'Implementation', status: 'In Progress',
+      scheduled_end: '2026-05-01T00:00:00.000Z', created_time: '2026-01-01T00:00:00.000Z' },
+    // No planned end. NOT overdue — it is UNPLANNED, counted separately. Treating
+    // a missing date as late would flag half the register on a data gap.
+    { change_id: 'b', display_id: '2', stage: 'Close', status: 'In Progress',
+      scheduled_end: '', created_time: '2026-06-01T00:00:00.000Z' },
+    { change_id: 'c', display_id: '3', stage: 'Review', status: 'In Progress',
+      scheduled_end: '2026-12-31T00:00:00.000Z', created_time: '2026-07-01T00:00:00.000Z' },
+  ], '2026-07-22');
+
+  assert.strictEqual(out.total, 3);
+  assert.strictEqual(out.overdue, 1, 'only the past-dated one');
+  assert.strictEqual(out.no_planned_end, 1);
+  assert.strictEqual(out.oldest_days, 202, 'age is measured to asOf, never to a live clock');
+  // Worklist order: overdue first, then oldest. Creation order would bury the
+  // 200-day-old change under this week's noise.
+  assert.deepStrictEqual(out.rows.map(r => r.display_id), ['1', '2', '3']);
+});
+
+test('_computeOpenChanges: stages follow the ITIL pipeline, not the alphabet', () => {
+  const out = _computeOpenChanges([
+    { change_id: 'a', stage: 'Close',          status: 'In Progress', created_time: '2026-07-01' },
+    { change_id: 'b', stage: 'Submission',     status: 'Requested',   created_time: '2026-07-01' },
+    { change_id: 'c', stage: 'Implementation', status: 'In Progress', created_time: '2026-07-01' },
+    { change_id: 'd', stage: 'Implementation', status: 'On Hold',     created_time: '2026-07-01' },
+    { change_id: 'e', stage: 'Weird',          status: 'In Progress', created_time: '2026-07-01' },
+  ], '2026-07-22');
+  // A stage the data invents later is APPENDED, never dropped — losing a stuck
+  // change because its stage is unknown is the one failure this must not have.
+  assert.deepStrictEqual(out.by_stage,
+    [{ stage: 'Submission', n: 1 }, { stage: 'Implementation', n: 2 }, { stage: 'Close', n: 1 }, { stage: 'Weird', n: 1 }]);
+});
+
+test('_computeOpenChanges: no rows → zeros and a null oldest, never NaN', () => {
+  const out = _computeOpenChanges([], '2026-07-22');
+  assert.deepStrictEqual(
+    { total: out.total, overdue: out.overdue, no_planned_end: out.no_planned_end, oldest: out.oldest_days, rows: out.rows.length },
+    { total: 0, overdue: 0, no_planned_end: 0, oldest: null, rows: 0 });
+});
+
+test('getSiteOpenChanges is GROUP-scoped and returns zeros for an unmapped site', { skip: !hasSnap }, () => {
+  // No zoho_group → no groups → an empty (not throwing, not fleet-wide) result.
+  // Reading change_records.site_id instead would return the wrong site's changes.
+  const out = getSiteOpenChanges(-1, '2026-07-22');
+  assert.strictEqual(out.total, 0);
+  assert.deepStrictEqual(out.by_stage, []);
+});

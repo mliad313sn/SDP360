@@ -81,6 +81,17 @@ function buildSiteReportDeps(mods) {
       return reportsDb.getSiteChangesWindow(s.site_id, from, to);
     },
 
+    // Changes STILL OPEN right now — no date window, deliberately. The `changes`
+    // block above covers the report month, which is exactly why stalled work can
+    // hide: a site reads "0 changes" in July while carrying one open since April
+    // 2025. asOf is the report's own as-of date, never a live clock, so the page
+    // and the emailed PDF of the same report agree on what is overdue.
+    openChanges: async (code, p) => {
+      const s = await resolve(code);
+      if (!s) return null;                       // siteReport._safe → null → block omitted
+      return reportsDb.getSiteOpenChanges(s.site_id, p.as_of || _asOfFor(p));
+    },
+
     // Major incidents OPEN RIGHT NOW for the site's groups. A DIFFERENT
     // population from helpdesk.major_incidents, which counts MIs CREATED in the
     // report month: an incident opened in May and still running appears here and

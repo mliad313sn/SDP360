@@ -56,6 +56,9 @@ async function siteReportData(siteCode, period, deps) {
   // maps to no AP label. Same dep guard as assetEffort: a deps object built
   // before this block existed degrades to null instead of a spurious warn.
   const assetHygiene = await _safe(() => (deps.assetHygiene ? deps.assetHygiene(siteCode) : null), null, 'assetHygiene');
+  // Changes still open right now — a different population from `changes` above,
+  // which covers the report month. Dep-guarded like the two asset blocks.
+  const openChanges = await _safe(() => (deps.openChanges ? deps.openChanges(siteCode, period) : null), null, 'openChanges');
 
   // `pvs_held` (how many PVs) and `depts_with_pv` (how many DISTINCT departments
   // met) are different measures and only the second one faces `pvs_target`
@@ -122,7 +125,7 @@ async function siteReportData(siteCode, period, deps) {
     site_code: siteCode, site_name: ms.site_name || siteCode,
     period: { ...period, label: ms.month_label || '' },
     score, meetings, inspection, helpdesk, changes, technicians, recommended, fm,
-    assetEffort, assetHygiene,
+    assetEffort, assetHygiene, openChanges,
   };
 }
 

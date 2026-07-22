@@ -440,18 +440,134 @@
     sec.innerHTML =
       '<div class="section-title">Changes</div>' +
       '<div class="kpis" id="chgKpis"></div>' +
-      '<div id="chgNote" class="muted" style="margin-top:10px;font-size:.72rem;line-height:1.5"></div>';
+      '<div id="chgNote" class="muted" style="margin-top:10px;font-size:.72rem;line-height:1.5"></div>' +
+      '<div id="chgOpen"></div>';
     after.parentNode.insertBefore(sec, after.nextSibling);
     return el('chgKpis');
   }
 
-  // PLAIN WORDS — this page is read by site coordinators. No "RFC", no "CAB".
-  function renderChanges(c, ctx) {
+  // Deep link into ServiceDesk Plus, where the status actually gets changed.
+  // Built on the SAME host + shape as the requests link the helpdesk pages have
+  // used for years (public/lib/dashboard-shared.js:260), with `changes` in place
+  // of `requests` — the sibling route in the SDP UI. Uses `change_id` (the long
+  // internal id), NOT display_id, exactly like the requests link uses longId.
+  var SDP_CHANGE_URL_BASE = 'https://oneitsupport.endeavourmining.com/app/itdesk/ui/changes/';
+
+  // The table is a preview, capped so the report stays readable; the CSV export
+  // always carries EVERY row. Never silently truncate without saying so.
+  var OPEN_CHG_PREVIEW = 25;
+
+  // Client-side CSV — no new route needed, the rows are already in the payload.
+  // UTF-8 BOM + CRLF + quote-escaped, same recipe as the Assets drill export, so
+  // Excel opens accented names correctly on a French Windows.
+  function downloadCsv(filename, columns, rows) {
+    var esc2 = function (v) { return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; };
+    var lines = [columns.map(function (col) { return esc2(col[0]); }).join(',')];
+    rows.forEach(function (r) { lines.push(columns.map(function (col) { return esc2(r[col[1]]); }).join(',')); });
+    var blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+  }
+
+  // The whole reason this block exists: the month tiles above can read 0/0/0 for
+  // a site that is carrying changes open since last year. A monthly figure alone
+  // lets stalled work stay invisible indefinitely.
+  function renderOpenChanges(oc, ctx) {
+    var host = el('chgOpen');
+    if (!host) return;
+    // null = the site could not be resolved (no group). Not "nothing open".
+    if (!oc) { host.innerHTML = ''; return; }
+
+    var rows = Array.isArray(oc.rows) ? oc.rows : [];
+    if (!n(oc.total)) {
+      host.innerHTML = '<div class="muted" style="margin-top:12px;font-size:.78rem">' +
+        'Aucun changement en cours pour ce site — rien à faire avancer. 🎉</div>';
+      return;
+    }
+
+    var stages = Array.isArray(oc.by_stage) ? oc.by_stage : [];
+    var pipeline = stages.map(function (s) {
+      return '<span style="display:inline-block;background:#fff;border:1px solid var(--color-border,#E2E5EA);' +
+        'border-radius:20px;padding:3px 11px;margin:0 6px 6px 0;font-size:.78rem">' +
+        esc(s.stage) + ' <strong style="color:var(--edv-slate,#3A4A60)">' + n(s.n) + '</strong></span>';
+    }).join('');
+
+    var shown = rows.slice(0, OPEN_CHG_PREVIEW);
+    var table = '<table class="tbl"><thead><tr>' +
+      '<th>Réf</th><th>Sujet</th><th>Étape · statut</th><th>Fin prévue</th><th class="num">Âge</th>' +
+      '</tr></thead><tbody>' +
+      shown.map(function (r) {
+        var ref = r.change_id
+          ? '<a href="' + esc(SDP_CHANGE_URL_BASE + r.change_id + '/details') + '" target="_blank" rel="noopener" ' +
+            'style="color:var(--edv-blue,#145FAE);font-weight:700">' + esc(r.display_id || r.change_id) + ' ↗</a>'
+          : esc(r.display_id || '—');
+        return '<tr>' +
+          '<td>' + ref + (r.emergency ? ' <span class="alert-chip">urgence</span>' : '') + '</td>' +
+          '<td>' + esc(r.subject || '—') + '</td>' +
+          '<td>' + esc(r.stage) + ' · ' + esc(r.status) + '</td>' +
+          '<td>' + (r.scheduled_end
+            ? esc(r.scheduled_end) + (r.overdue ? ' <span class="alert-chip">dépassée</span>' : '')
+            : '<span class="muted">non planifiée</span>') + '</td>' +
+          '<td class="num">' + (r.age_days == null ? '—' : n(r.age_days) + ' j') + '</td>' +
+          '</tr>';
+      }).join('') + '</tbody></table>';
+
+    host.innerHTML =
+      subHead('En cours — état actuel, hors période du rapport') +
+      '<div class="kpis" style="margin-bottom:12px">' + [
+        kpi('Changements ouverts', n(oc.total)),
+        kpi('Fin prévue dépassée', n(oc.overdue), n(oc.overdue) > 0 ? 'bad' : ''),
+        kpi('Sans date de fin', n(oc.no_planned_end), n(oc.no_planned_end) > 0 ? 'warn' : ''),
+        kpi('Le plus ancien', oc.oldest_days == null ? '—' : n(oc.oldest_days) + ' j',
+          n(oc.oldest_days) > 180 ? 'bad' : n(oc.oldest_days) > 90 ? 'warn' : '')
+      ].join('') + '</div>' +
+      '<div style="margin-bottom:10px">' + pipeline + '</div>' +
+      '<div class="card panel"><h2>Changements à faire avancer</h2>' + table +
+        (rows.length > shown.length
+          ? '<div class="muted" style="margin-top:8px;font-size:.74rem">' +
+            shown.length + ' des ' + rows.length + ' changements ouverts affichés (les plus en retard d’abord) — l’export CSV les contient tous.</div>'
+          : '') +
+        '<div style="margin-top:12px"><button type="button" id="chgCsvBtn" class="sr-refresh" ' +
+          'style="background:var(--edv-orange,#EF631A);border:none">⬇ Exporter la liste (CSV)</button></div>' +
+        howTo('Changement déjà réalisé, mais toujours ouvert ici ?',
+          'Un changement reste « en cours » tant que son statut n’a pas bougé dans SDP — c’est ce qui laisse des demandes ouvertes depuis plus d’un an.<br>' +
+          '<strong>En <em>Implementation</em> et le travail est fait</strong> : passez-le en <em>Completed</em> dans SDP (cliquez la référence ci-dessus), ou demandez au change manager de le faire.<br>' +
+          '<strong>En <em>Close · In Progress</em></strong> : il ne manque plus que la clôture finale.<br>' +
+          '<strong>Une fois complété</strong> : poussez-le au stade <em>Review</em> pour qu’il passe au prochain comité de revue des changements (CAB) — sans cela il n’y entre jamais.<br>' +
+          '<strong>Fin prévue dépassée ou non planifiée</strong> : convenez d’une date réaliste avec l’équipe et corrigez-la, plutôt que de la laisser courir.<br>' +
+          '<span style="color:#8a6d1f">Exportez la liste et passez-la en revue avec votre équipe : c’est le point d’avancement à tenir chaque mois.</span>') +
+      '</div>';
+
+    var btn = el('chgCsvBtn');
+    if (btn) btn.addEventListener('click', function () {
+      downloadCsv('Changements-ouverts_' + (ctx.code || 'site') + '.csv', [
+        ['Reference', 'display_id'], ['Sujet', 'subject'], ['Etape', 'stage'], ['Statut', 'status'],
+        ['Risque', 'risk'], ['Urgence', 'emergency'], ['Change manager', 'manager'], ['Demandeur', 'requester'],
+        ['Fin prevue', 'scheduled_end'], ['Fin depassee', 'overdue'], ['Cree le', 'created_time'], ['Age (jours)', 'age_days'],
+      ], rows);
+    });
+  }
+
+  // PLAIN WORDS — this page is read by site coordinators. No "RFC"; "CAB" appears
+  // once, in the open-changes how-to, spelled out as "comité de revue des
+  // changements (CAB)" because the instruction IS to get the change into that
+  // committee and there is no other name for it. The coordinator EMAIL keeps the
+  // stricter rule (tests/report-template-coordinator.test.js:185 asserts it).
+  // Stage names stay in English on purpose: they are the literal values shown in
+  // SDP, and translating them would send the reader looking for a status that
+  // does not exist in the tool they are about to open.
+  function renderChanges(c, oc, ctx) {
     c = c || {};
     ctx = ctx || {};
     var host = ensureChangesSection();
     if (!host) return;
-    setWindowNote('chgWindow', 'chgKpis', 'Période : ' + ctx.period + '.');
+    // TWO windows in this section now, so the label may no longer claim only one:
+    // the tiles are the report month, the "En cours" block below is current state.
+    setWindowNote('chgWindow', 'chgKpis',
+      'Période : ' + ctx.period + ' · « En cours » ci-dessous : état actuel, hors période.');
 
     // null → '—'. NOT n(success_pct): n(null) is 0, which would state a verdict
     // ("0% succeeded") for a site with nothing to judge. A real 0 still prints 0%.
@@ -478,6 +594,8 @@
         n(c.pending) ? n(c.pending) + ' change(s) are still in progress.' : ''
       ].filter(Boolean).join(' ');
     }
+
+    renderOpenChanges(oc, ctx);
   }
 
   function renderTechnicians(techs, ctx) {
@@ -681,7 +799,7 @@
     renderMeetings(data.meetings, ctx);
     renderInspection(data.inspection, ctx);
     renderHelpdesk(data.helpdesk, ctx);
-    renderChanges(data.changes, ctx);
+    renderChanges(data.changes, data.openChanges, ctx);
     renderTechnicians(data.technicians, ctx);
     renderAssets(data.assetHygiene, data.assetEffort);
     renderRecommended(data.recommended, data.score);

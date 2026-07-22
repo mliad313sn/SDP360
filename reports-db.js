@@ -1872,6 +1872,94 @@ async function _getSiteChangesWindowPg(site_id, from, to) {
   return _computeSiteChanges(rows);
 }
 
+/**
+ * getSiteOpenChanges(site_id) → the changes that are STILL OPEN for a site.
+ *
+ * Deliberately has NO date window, unlike getSiteChangesWindow above. The month
+ * block answers "what did we carry out in July"; this one answers "what is stuck
+ * right now" — and a site can read `0 changes` for the month while carrying a
+ * change that has been open since April 2025. That gap is the whole point: the
+ * monthly figure alone lets stalled work stay invisible for a year.
+ *
+ * Same GROUP scoping as every other per-site reader (`group_name` from
+ * sites.zoho_group) — NEVER change_records.site_id, which is unreliable.
+ */
+function getSiteOpenChanges(site_id, asOf) {
+  if (REPORTS_BACKEND === 'postgres') return _getSiteOpenChangesPg(site_id, asOf);
+  const site = db.prepare('SELECT zoho_group FROM sites WHERE id=?').get(site_id);
+  const groups = String(site?.zoho_group || '').split(',').map(g => g.trim()).filter(Boolean);
+  if (!groups.length) return _computeOpenChanges([], asOf);
+  const ph = groups.map(() => '?').join(',');
+  const rows = db.prepare(`
+    SELECT change_id, display_id, subject, stage, status, risk, emergency,
+           manager, requester, scheduled_end, created_time
+    FROM change_records
+    WHERE group_name IN (${ph}) AND lower(coalesce(status,'')) NOT IN ('completed','cancelled')`).all(...groups);
+  return _computeOpenChanges(rows, asOf);
+}
+// pg fork — SAME SQL; only await + pgHandle differ.
+async function _getSiteOpenChangesPg(site_id, asOf) {
+  const H = pgHandle();
+  const site = await H.prepare('SELECT zoho_group FROM sites WHERE id=?').get(site_id);
+  const groups = String(site?.zoho_group || '').split(',').map(g => g.trim()).filter(Boolean);
+  if (!groups.length) return _computeOpenChanges([], asOf);
+  const ph = groups.map(() => '?').join(',');
+  const rows = await H.prepare(`
+    SELECT change_id, display_id, subject, stage, status, risk, emergency,
+           manager, requester, scheduled_end, created_time
+    FROM change_records
+    WHERE group_name IN (${ph}) AND lower(coalesce(status,'')) NOT IN ('completed','cancelled')`).all(...groups);
+  return _computeOpenChanges(rows, asOf);
+}
+
+// The ITIL lifecycle order, so the block reads as a pipeline rather than an
+// alphabetical list — the reader needs to see WHERE work is piling up. Stages
+// the data invents later are appended after these, never dropped.
+const _CHANGE_STAGE_ORDER = ['Submission', 'Planning', 'Approval', 'Implementation', 'UAT', 'Release', 'Review', 'Close'];
+
+/**
+ * Pure core — rows already scoped to the site's groups and already filtered to
+ * open. `asOf` is INJECTED ('YYYY-MM-DD'): an internal new Date() would make the
+ * overdue branch untestable and re-date the report every time it is opened.
+ */
+function _computeOpenChanges(rows, asOf) {
+  const today = String(asOf || '').slice(0, 10);
+  const list = (rows || []).map((r) => {
+    const end = String(r.scheduled_end || '').slice(0, 10);
+    const created = String(r.created_time || '').slice(0, 10);
+    return {
+      change_id: r.change_id, display_id: r.display_id, subject: r.subject || '',
+      stage: r.stage || '—', status: r.status || '—',
+      risk: r.risk || '', emergency: r.emergency ? 1 : 0,
+      manager: r.manager || '', requester: r.requester || '',
+      scheduled_end: end || null, created_time: created || null,
+      // Overdue needs BOTH dates present. A change with no planned end date is
+      // not "on time" — it is unplanned, which the caller surfaces separately;
+      // calling it overdue would flag half the register on a data gap.
+      overdue: !!(end && today && end < today),
+      age_days: created && today ? Math.max(0, Math.round((Date.parse(today) - Date.parse(created)) / 86400000)) : null,
+    };
+  });
+  const byStage = new Map();
+  for (const c of list) byStage.set(c.stage, (byStage.get(c.stage) || 0) + 1);
+  const order = (s) => { const i = _CHANGE_STAGE_ORDER.indexOf(s); return i === -1 ? _CHANGE_STAGE_ORDER.length : i; };
+  const stages = [...byStage.entries()]
+    .map(([stage, n]) => ({ stage, n }))
+    .sort((a, b) => order(a.stage) - order(b.stage) || a.stage.localeCompare(b.stage));
+
+  // Worst first: overdue, then oldest. That ordering IS the worklist — a
+  // creation-order list buries the 15-month-old change under this week's noise.
+  list.sort((a, b) => (b.overdue - a.overdue) || ((b.age_days || 0) - (a.age_days || 0)));
+  return {
+    total: list.length,
+    overdue: list.filter(c => c.overdue).length,
+    no_planned_end: list.filter(c => !c.scheduled_end).length,
+    oldest_days: list.length ? Math.max(...list.map(c => c.age_days || 0)) : null,
+    by_stage: stages,
+    rows: list,
+  };
+}
+
 // Pure core — rows already scoped to the site's groups + month. `hours` is the
 // created→resolved duration for CLOSED tickets (null otherwise).
 function _computeTechStats(rows) {
@@ -6580,6 +6668,7 @@ module.exports = {
   // window, not a month. Changes carry the VERBATIM port of the shipped
   // executive-report.html classifier (see _changeOutcome).
   getSiteHelpdeskWindow, getSiteChangesWindow, _computeSiteChanges, _changeOutcome,
+  getSiteOpenChanges, _computeOpenChanges,
   getSiteTechnicianStats, _computeTechStats,
   getPreviousWeek, ensureWeek, getWeekRange,
   ensureReport, getReport, listReports,
