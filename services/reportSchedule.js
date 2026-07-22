@@ -11,8 +11,9 @@ const SEND_CLI = path.join(APP_ROOT, 'tools', 'reports', 'send-reports.js');
 const SEND_HYGIENE_CLI = path.join(APP_ROOT, 'tools', 'reports', 'send-hygiene.js');
 const SEND_SCOREBOARD_CLI = path.join(APP_ROOT, 'tools', 'reports', 'send-scoreboard.js');
 const SEND_WEEKLY_CLI = path.join(APP_ROOT, 'tools', 'reports', 'send-weekly.js');
+const SEND_ASSET_GROUP_CLI = path.join(APP_ROOT, 'tools', 'reports', 'send-asset-group.js');
 const DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
-const TYPES = ['coordinator', 'group', 'finance', 'hygiene', 'scoreboard', 'weekly_report'];
+const TYPES = ['coordinator', 'group', 'finance', 'hygiene', 'scoreboard', 'weekly_report', 'asset_group'];
 
 // The hygiene digest, the scoreboard email and the weekly report each have their
 // own CLI (hygiene composes the Group-IT digest; scoreboard and weekly_report
@@ -24,6 +25,7 @@ function cliFor(report_type) {
   if (report_type === 'hygiene') return SEND_HYGIENE_CLI;
   if (report_type === 'scoreboard') return SEND_SCOREBOARD_CLI;
   if (report_type === 'weekly_report') return SEND_WEEKLY_CLI;
+  if (report_type === 'asset_group') return SEND_ASSET_GROUP_CLI;
   return SEND_CLI;
 }
 
