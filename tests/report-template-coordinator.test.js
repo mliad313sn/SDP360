@@ -16,12 +16,12 @@ const data = {
     score: 58, points: 7, rag: 'AMBER', trend_pts: -8,
     window: { from: '2026-04-14', to: '2026-07-14' },
     dims: [
-      { key: 'reviews', label: 'Reviews', val: 7, disp: '7', pts: 1, tip: 'reviews held · G≥8 A5–7 R<5' },
-      { key: 'resolution', label: 'Resolution', val: 14, disp: '14%', pts: 0, tip: 'resolved ÷ raised · G≥40 A20–39 R<20' },
-      { key: 'overdue', label: 'Overdue', val: 2, disp: '2', pts: 1, tip: 'overdue issues + actions · G0 A1–5 R>5' },
-      { key: 'inspections', label: 'Inspections', val: 5, disp: '5', pts: 2, tip: 'inspections run · G≥3 A2 R≤1' },
-      { key: 'findings', label: 'Findings', val: 6, disp: '6', pts: 0, tip: 'critical+major findings · G0 A1–2 R≥3' },
-      { key: 'signoff', label: 'Sign-off', val: 71, disp: '71%', pts: 2, tip: 'minutes fully signed % · G≥70 A30–69 R<30' },
+      { key: 'reviews', label: 'Reviews', val: 7, disp: '7', pts: 1, tip: 'reviews held — green from 8, amber 5 to 7, red below 5' },
+      { key: 'resolution', label: 'Resolution', val: 14, disp: '14%', pts: 0, tip: 'resolved ÷ raised — green from 40%, amber 20 to 39%, red below 20%' },
+      { key: 'overdue', label: 'Overdue', val: 2, disp: '2', pts: 1, tip: 'overdue issues + actions — green if none, amber 1 to 5, red above 5' },
+      { key: 'inspections', label: 'Inspections', val: 5, disp: '5', pts: 2, tip: 'inspections run — green from 3, amber 2, red 1 or none' },
+      { key: 'findings', label: 'Findings', val: 6, disp: '6', pts: 0, tip: 'critical + major findings — green if none, amber 1 or 2, red from 3' },
+      { key: 'signoff', label: 'Sign-off', val: 71, disp: '71%', pts: 2, tip: 'minutes fully signed — green from 70%, amber 30 to 69%, red below 30%' },
     ],
     moves: [
       { n: 1, gain: '+17 pts', text: 'Lift resolution from 14% toward 40%: run a weekly closure sprint on the oldest in-progress items.' },
@@ -302,7 +302,9 @@ test('applicable:false renders "non applicable" + the window, and NO number', ()
 test('applicable:false omits the dims table and the moves block entirely', () => {
   const { htmlBody } = composeCoordinator(naData);
   assert.ok(!/Two moves that lift the score most/.test(htmlBody), 'no moves block');
-  assert.ok(!/G&#8805;8|G≥8|reviews held/.test(htmlBody), 'no dims table');
+  // 'reviews held' opens the reviews band caption; the legend that also quotes
+  // it is suppressed on this path too, so its absence covers both.
+  assert.ok(!/reviews held|amber 5 to 7/.test(htmlBody), 'no dims table');
   assert.ok(!/\/2</.test(htmlBody), 'no 0/2 rating chips');
 });
 
@@ -396,8 +398,11 @@ test('the page and the email carry the SAME intro wording', () => {
 });
 
 // ── The RAG legend ───────────────────────────────────────────────────────────
-// `G≥8 A5–7 R<5` under every dimension is the AUTHOR's own text (source :182) —
-// a faithful port, not ours to reword. So the legend decodes it instead.
+// The band under every dimension USED to be the author's `G≥8 A5–7 R<5`
+// shorthand, and this legend existed to decode it. On the SDM's instruction the
+// bands are now spelled out in plain English (services/siteScore.js), so the
+// legend's remaining job is the part no dimension line carries: what G/A/R mean
+// as words, and the OVERALL score bands.
 
 test('the legend decodes G/A/R into plain words, in both languages', () => {
   const { htmlBody } = composeCoordinator(data);
@@ -412,10 +417,17 @@ test('the legend decodes G/A/R into plain words, in both languages', () => {
 
 test('the legend quotes a real dim band and the real score bands', () => {
   const { htmlBody } = composeCoordinator(data);
-  // The example must be a band that actually appears under a dimension.
-  assert.ok(data.score.dims.some((d) => d.tip.includes('G≥8 A5–7 R<5')),
+  // The example must still be a band that ACTUALLY appears under a dimension —
+  // otherwise the legend teaches a format the reader will never see. It is the
+  // live PT_THRESHOLDS wording, not a copy that can drift.
+  const { PT_THRESHOLDS } = require('../services/siteScore');
+  const reviewsTip = PT_THRESHOLDS.find(([k]) => k === 'reviews')[6];
+  assert.strictEqual(reviewsTip, 'reviews held — green from 8, amber 5 to 7, red below 5');
+  assert.ok(data.score.dims.some((d) => d.tip === reviewsTip),
     'the fixture must still carry the band the legend quotes');
-  assert.match(htmlBody, /G&#8805;8 A5&ndash;7 R&lt;5/);
+  assert.match(htmlBody, /reviews held &mdash; green from 8, amber 5 to 7, red below 5/);
+  // No G/A/R shorthand survives in the rendered email.
+  assert.ok(!/G&#8805;8|G≥8|A5&ndash;7|R&lt;5/.test(htmlBody), 'shorthand band leaked into the email');
   // rag2(): >=70 GREEN, >=45 AMBER, else RED (services/siteScore.js).
   assert.match(htmlBody, /green &#8805;70, amber 45&ndash;69, red below 45/);
 });
