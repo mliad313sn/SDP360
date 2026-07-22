@@ -398,6 +398,10 @@
     const el = document.getElementById('miSite');
     el.innerHTML = '<option value="">All sites</option>'
       + (state.lookups.sites || []).map(s => `<option value="${esc(s.code)}">${esc(s.name)}</option>`).join('');
+    // Rebuilding innerHTML resets the select to the blank option, so restore the
+    // active filter — otherwise a deep link (?site=MGO) filters the DATA while
+    // the control still reads "All sites", which looks like a broken register.
+    el.value = state.filters.site || '';
   }
 
   function statusCell(r) {
@@ -691,6 +695,22 @@
       } catch (e) { toast('Excel export failed: ' + (e.message || ''), true); }
       finally { b.disabled = false; b.innerHTML = lbl; }
     });
+  })();
+
+  // Deep link from the site report — ?site=CODE&overdue=1. Applied BEFORE the
+  // first loadAll(); renderFilters() restores the <select> from state.filters.
+  // The site report resolves its code in the meetings namespace, which the
+  // inspection module shares for the mine sites (SMI, MGO, HGO…), so the same
+  // code works on both registers. An unknown code yields an empty list, never
+  // an error.
+  (function applyDeepLink() {
+    const q = new URLSearchParams(location.search);
+    const site = (q.get('site') || '').trim();
+    if (site) state.filters.site = site;
+    if (q.get('overdue') === '1') {
+      state.filters.overdue = '1';
+      const c = document.getElementById('miOverdue'); if (c) c.checked = true;
+    }
   })();
 
   loadAll().catch(err => {

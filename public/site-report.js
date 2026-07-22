@@ -240,9 +240,39 @@
     var w = ((data || {}).score || {}).window || {};
     var p = (data || {}).period || {};
     return {
+      code: (data || {}).site_code || SITE || '',
       period: p.label || 'le mois du rapport',
       history: w.to ? "tout l'historique, au " + w.to : "tout l'historique, à ce jour"
     };
+  }
+
+  // ── "What do I do about this?" callouts ──────────────────────
+  // The single most common reason a figure on this report is wrong is that the
+  // WORK WAS DONE and never recorded. Reading that as a performance problem
+  // wastes the coordinator's month and quietly lowers the site's score, because
+  // `overdue` is one of the six scored dimensions. So each block that can be
+  // stale says, in place, exactly where to go and what to click.
+  function howTo(title, body) {
+    return '<div style="margin-top:12px;background:var(--color-warning-bg,#FEF3C7);' +
+      'border:1px solid #f0dca4;border-left:4px solid var(--color-warning,#D97706);' +
+      'border-radius:9px;padding:10px 13px;font-size:.8rem;line-height:1.55;color:var(--edv-slate,#3A4A60)">' +
+      '<strong>' + esc(title) + '</strong><br>' + body + '</div>';
+  }
+  function actionLink(href, label) {
+    return '<a href="' + esc(href) + '" style="color:var(--edv-blue,#145FAE);font-weight:700">' + esc(label) + ' →</a>';
+  }
+  // The two registers close an action even when its parent PV / inspection is
+  // already submitted or closed — an action outlives the meeting that raised it —
+  // so "the PV is signed, I can't touch it any more" is not a reason to leave a
+  // done action open. Both writes are audited (who / when / transition).
+  function overdueHowTo(register, code) {
+    var href = register + '.html?site=' + encodeURIComponent(code || '') + '&overdue=1';
+    return howTo('Déjà fait sur le terrain, mais toujours en retard ici ?',
+      'Une action reste comptée en retard tant qu’elle n’est pas clôturée dans le système — et « en retard » est l’une des six dimensions notées, donc cela pèse sur le score du site.<br>' +
+      '<strong>1.</strong> Ouvrez le registre : ' + actionLink(href, 'Registre des actions (filtré sur ce site)') + '<br>' +
+      '<strong>2.</strong> Sur la ligne concernée, passez le statut à <em>Terminé / Résolu</em>. La clôture est horodatée et tracée à votre nom.<br>' +
+      '<strong>3.</strong> Si l’action n’est PAS faite : convenez d’une nouvelle échéance réaliste avec le responsable et corrigez la date, plutôt que de la laisser courir.<br>' +
+      '<span style="color:#8a6d1f">Le PV signé ou clôturé ne bloque pas : une action se ferme après la réunion qui l’a créée.</span>');
   }
 
   function renderMeetings(m, ctx) {
@@ -284,7 +314,12 @@
         }).join('') + '</tbody></table>'
       : '<div class="muted">No departments on record for this period.</div>';
 
-    el('mtgActions').innerHTML = renderActionList(m.overdue_actions, 'target_date');
+    // The how-to rides only when there IS something overdue: on a clean site it
+    // would be a permanent block of instructions nobody needs, and readers who
+    // learn to skip a box skip it on the week it matters.
+    var mOverdue = Array.isArray(m.overdue_actions) ? m.overdue_actions : [];
+    el('mtgActions').innerHTML = renderActionList(m.overdue_actions, 'target_date') +
+      (mOverdue.length ? overdueHowTo('meetings-actions', ctx.code) : '');
   }
 
   function renderActionList(actions, dateKey) {
@@ -311,7 +346,9 @@
     // _monthBounds); the overdue list below them is not.
     setWindowNote('inspWindow', 'inspKpis',
       'Période : ' + ctx.period + ' · actions en retard : ' + ctx.history + '.');
-    el('inspActions').innerHTML = renderActionList(i.overdue_actions, 'due_date');
+    var iOverdue = Array.isArray(i.overdue_actions) ? i.overdue_actions : [];
+    el('inspActions').innerHTML = renderActionList(i.overdue_actions, 'due_date') +
+      (iOverdue.length ? overdueHowTo('inspection-actions', ctx.code) : '');
   }
 
   var hdChart = null;
@@ -600,7 +637,19 @@
     }).join('') +
       '<div class="muted" style="font-size:.72rem;line-height:1.5">' +
       'Chaque ligne ouvre la liste des machines concernées dans le module Assets (filtre site déjà appliqué), ' +
-      'avec export Excel.</div>';
+      'avec export Excel.</div>' +
+      // The parc block CANNOT point at a button on this dashboard: the assets
+      // module is a read-only mirror of ManageEngine AssetExplorer, replaced
+      // wholesale every night at 04:30. Sending a coordinator here to "close"
+      // an item would waste their time and teach them the report lies. The fix
+      // is always upstream, and the delay before it shows is real — say both.
+      howTo('Déjà corrigé, mais toujours listé ici ?',
+        'Le parc n’est <strong>pas modifiable depuis ce tableau de bord</strong> : il est recopié chaque nuit (04h30) depuis <strong>ManageEngine AssetExplorer</strong>. ' +
+        'Une correction faite aujourd’hui apparaît donc <strong>au rapport du lendemain</strong>, pas immédiatement.<br>' +
+        '<strong>Fiche incomplète</strong> (propriétaire, date d’acquisition, coût, étiquette) : ouvrez l’actif dans AssetExplorer et renseignez le champ manquant. Utilisez l’export Excel ci-dessus comme liste de travail.<br>' +
+        '<strong>Jamais scanné / fantôme (&gt;90 j)</strong> : la machine n’a pas remonté d’audit. Vérifiez que l’agent tourne et relancez un scan. Si le poste n’existe plus, passez-le en <em>Disposed</em> dans AssetExplorer — sinon il restera compté indéfiniment.<br>' +
+        '<strong>En réparation / expiré / perdu</strong> : si le matériel est revenu en service, changez son état dans AssetExplorer ; sinon confirmez la sortie d’inventaire.<br>' +
+        '<strong>Découvert</strong> : l’actif a été détecté sur le réseau mais jamais qualifié — affectez-lui un site, un état et un propriétaire.');
   }
 
   // An EMPTY list has two meanings that must not share a sentence. _recommend

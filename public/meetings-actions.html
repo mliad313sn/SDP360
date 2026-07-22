@@ -752,6 +752,22 @@
     });
   })();
 
+  // Deep link from the site report — ?site=CODE&overdue=1 — so a coordinator
+  // whose report says "8 overdue actions" lands on exactly those 8 instead of
+  // the whole fleet. Applied BEFORE the first loadAll(); renderFilters() then
+  // restores the <select> from state.filters (line ~478), so no option juggling
+  // is needed here. An unknown code simply yields an empty list — the register
+  // stays usable and the operator can clear the filter.
+  (function applyDeepLink() {
+    const q = new URLSearchParams(location.search);
+    const site = (q.get('site') || '').trim();
+    if (site) state.filters.site = site;
+    if (q.get('overdue') === '1') {
+      state.filters.overdue = '1';
+      const c = document.getElementById('miOverdue'); if (c) c.checked = true;
+    }
+  })();
+
   loadAll().catch(err => {
     console.error('[actions] load failed:', err);
     document.getElementById('miTable').innerHTML = '<div class="mi-empty">Failed to load actions. ' + esc(err.message || '') + '</div>';
