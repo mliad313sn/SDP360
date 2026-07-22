@@ -18,12 +18,12 @@ const full = {
     score: 58, points: 7, rag: 'AMBER', trend_pts: -8,
     window: { from: '2026-04-14', to: '2026-07-14' },
     dims: [
-      { key: 'reviews', label: 'Reviews', val: 7, disp: '7', pts: 1, tip: 'reviews held — green from 8, amber 5 to 7, red below 5' },
-      { key: 'resolution', label: 'Resolution', val: 14, disp: '14%', pts: 0, tip: 'resolved ÷ raised — green from 40%, amber 20 to 39%, red below 20%' },
-      { key: 'overdue', label: 'Overdue', val: 2, disp: '2', pts: 1, tip: 'overdue issues + actions — green if none, amber 1 to 5, red above 5' },
-      { key: 'inspections', label: 'Inspections', val: 5, disp: '5', pts: 2, tip: 'inspections run — green from 3, amber 2, red 1 or none' },
-      { key: 'findings', label: 'Findings', val: 6, disp: '6', pts: 0, tip: 'critical + major findings — green if none, amber 1 or 2, red from 3' },
-      { key: 'signoff', label: 'Sign-off', val: 71, disp: '71%', pts: 2, tip: 'minutes fully signed — green from 70%, amber 30 to 69%, red below 30%' },
+      { key: 'reviews', label: 'Reviews', val: 7, disp: '7', pts: 1, tip: 'reviews held · G≥8 A5–7 R<5' },
+      { key: 'resolution', label: 'Resolution', val: 14, disp: '14%', pts: 0, tip: 'resolved ÷ raised · G≥40 A20–39 R<20' },
+      { key: 'overdue', label: 'Overdue', val: 2, disp: '2', pts: 1, tip: 'overdue issues + actions · G0 A1–5 R>5' },
+      { key: 'inspections', label: 'Inspections', val: 5, disp: '5', pts: 2, tip: 'inspections run · G≥3 A2 R≤1' },
+      { key: 'findings', label: 'Findings', val: 6, disp: '6', pts: 0, tip: 'critical+major findings · G0 A1–2 R≥3' },
+      { key: 'signoff', label: 'Sign-off', val: 71, disp: '71%', pts: 2, tip: 'minutes fully signed % · G≥70 A30–69 R<30' },
     ],
     moves: [
       { n: 1, gain: '+17 pts', text: 'Lift resolution from 14% toward 40%: run a weekly closure sprint on the oldest in-progress items.' },

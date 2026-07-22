@@ -508,30 +508,22 @@ function header(data) {
 // The RAG legend. Rendered ONLY when the score is applicable: an unscored site
 // has no score chip, no dims and no moves, so there are no colours on the page
 // to decode — a legend there would explain something that isn't shown.
-// This legend used to carry a SECOND job: decoding the author's `G≥8 A5–7 R<5`
-// shorthand, which we shipped verbatim under every dimension. That shorthand is
-// gone — on the SDM's instruction PT_THRESHOLDS now states each band in plain
-// English (services/siteScore.js), so there is nothing left to decode and the
-// old "reads …" sentence would now gloss a sentence with itself.
-//
-// The legend STAYS, because it still does the job the band lines cannot: it
-// names what G/A/R mean as words+colour, and it gives the OVERALL score bands
-// (green ≥70 / amber 45–69 / red below 45, rag2()) which appear on no dimension
-// line at all. The example it quotes is now a real plain-English band, so the
-// two wordings can't drift apart unnoticed — a test pins that.
-// Inline <span> chips only: Outlook's Word renderer drops flex/grid.
+// The `G≥8 A5–7 R<5` shorthand under every dimension is the
+// AUTHOR's own text (docs/reference/it-review-dashboard.source.js:182) — it is a
+// faithful port and not ours to reword, so we decode it here instead. Inline
+// <span> chips only: Outlook's Word renderer drops flex/grid.
 function ragLegend() {
   const p = `font-family:${FONT};font-size:11px;line-height:1.7;color:${MUTED};margin:0;padding-top:7px;`;
   const chip = (l, c) => `<span style="display:inline-block;font-family:${FONT};font-size:10px;font-weight:bold;color:#FFFFFF;background:${c};border-radius:4px;padding:0 5px;">${l}</span>`;
-  const code = (t) => `<span style="font-family:Consolas,monospace;font-size:11px;background:${WASH};border:1px solid ${BORDER};border-radius:3px;padding:0 3px;">${t}</span>`;
-  const bandEn = code('reviews held &mdash; green from 8, amber 5 to 7, red below 5');
+  const code = (t) => `<span style="font-family:Consolas,monospace;font-size:11px;background:${WASH};border:1px solid ${BORDER};border-radius:3px;padding:0 3px;white-space:nowrap;">${t}</span>`;
+  const bands = code('G&#8805;8 A5&ndash;7 R&lt;5');
   return `<p style="${p}"><strong style="color:${NAVY};">Reading the colours (RAG)</strong> &mdash; `
     + `${chip('G', SCORE_RAG.green)} reen = on track &middot; ${chip('A', SCORE_RAG.amber)} mber = at risk &middot; ${chip('R', SCORE_RAG.red)} ed = off track. `
-    + `The line under each dimension spells out its own band, e.g. ${bandEn}. `
+    + `The shorthand under each dimension is its band: ${bands} reads &ldquo;green at 8 or more, amber 5 to 7, red below 5&rdquo;. `
     + `Overall score: green &#8805;70, amber 45&ndash;69, red below 45.</p>`
     + `<p style="${p}"><strong style="color:${NAVY};">Lire les couleurs (RAG)</strong> &mdash; `
     + `${chip('G', SCORE_RAG.green)} reen (vert) = dans les clous &middot; ${chip('A', SCORE_RAG.amber)} mber (orange) = &agrave; risque &middot; ${chip('R', SCORE_RAG.red)} ed (rouge) = d&eacute;croch&eacute;. `
-    + `La ligne sous chaque dimension donne ses seuils en toutes lettres&nbsp;: ${bandEn} se lit &laquo;&nbsp;vert &agrave; partir de 8, orange de 5 &agrave; 7, rouge en dessous de 5&nbsp;&raquo;. `
+    + `Le raccourci sous chaque dimension donne ses seuils&nbsp;: ${bands} se lit &laquo;&nbsp;vert &agrave; partir de 8, orange de 5 &agrave; 7, rouge en dessous de 5&nbsp;&raquo;. `
     + `Note globale&nbsp;: vert &#8805;70, orange 45&ndash;69, rouge sous 45.</p>`;
 }
 

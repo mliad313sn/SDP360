@@ -19,43 +19,13 @@ const pt = (v, g, a, invert) => (invert ? (v <= g ? 2 : v <= a ? 1 : 0) : (v >= 
 
 // [key, label, green, amber, invert, disp, tip] — order is the user's dims order
 // and is load-bearing (it is the moves tie-break's stable-sort order).
-//
-// ⚠️ `tip` IS A DELIBERATE DIVERGENCE FROM THE PORTED SOURCE — everything else
-// on this line is verbatim.
-//
-// The author writes the bands as shorthand (`G≥8 A5–7 R<5`,
-// docs/reference/it-review-dashboard.source.js:182-187). The Service Desk
-// Manager judged that shorthand too costly to decode for the coordinators and
-// executives who read the emailed site report, and asked for it in plain
-// English everywhere it is shown. This is his call, made knowing it breaks
-// TEXT fidelity with the source.
-//
-// What is given up and what is NOT:
-//   • GIVEN UP — the exact wording of `tip`, and only `tip`. It is a caption:
-//     nothing computes from it.
-//   • KEPT — every NUMBER. Each phrase below is derived from the `green`/`amber`
-//     columns on its own row read through pt() above, NOT translated from the
-//     old caption (a caption that had already drifted would otherwise propagate
-//     its error). tests/review-fidelity.test.js re-extracts the numbers from the
-//     AUTHOR's own shorthand and asserts they still equal these columns, so a
-//     threshold drift fails loudly even though the text no longer matches.
-//
-// Reading pt(v, green, amber, invert):
-//   invert=false → 2 at v ≥ green · 1 at v ≥ amber · 0 below amber
-//   invert=true  → 2 at v ≤ green · 1 at v ≤ amber · 0 above amber
 const PT_THRESHOLDS = [
-  // g=8,  a=5,  up   → 2 at ≥8 · 1 at 5–7 · 0 at <5
-  ['reviews',     'Reviews',     8,  5,  false, (v) => String(v),  'reviews held — green from 8, amber 5 to 7, red below 5'],
-  // g=40, a=20, up   → 2 at ≥40% · 1 at 20–39% · 0 at <20%
-  ['resolution',  'Resolution',  40, 20, false, (v) => v + '%',    'resolved ÷ raised — green from 40%, amber 20 to 39%, red below 20%'],
-  // g=0,  a=5,  down → 2 at 0 · 1 at 1–5 · 0 at >5
-  ['overdue',     'Overdue',     0,  5,  true,  (v) => String(v),  'overdue issues + actions — green if none, amber 1 to 5, red above 5'],
-  // g=3,  a=2,  up   → 2 at ≥3 · 1 at exactly 2 · 0 at 0 or 1
-  ['inspections', 'Inspections', 3,  2,  false, (v) => String(v),  'inspections run — green from 3, amber 2, red 1 or none'],
-  // g=0,  a=2,  down → 2 at 0 · 1 at 1–2 · 0 at ≥3
-  ['findings',    'Findings',    0,  2,  true,  (v) => String(v),  'critical + major findings — green if none, amber 1 or 2, red from 3'],
-  // g=70, a=30, up   → 2 at ≥70% · 1 at 30–69% · 0 at <30%
-  ['signoff',     'Sign-off',    70, 30, false, (v) => v + '%',    'minutes fully signed — green from 70%, amber 30 to 69%, red below 30%'],
+  ['reviews',     'Reviews',     8,  5,  false, (v) => String(v),  'reviews held · G≥8 A5–7 R<5'],
+  ['resolution',  'Resolution',  40, 20, false, (v) => v + '%',    'resolved ÷ raised · G≥40 A20–39 R<20'],
+  ['overdue',     'Overdue',     0,  5,  true,  (v) => String(v),  'overdue issues + actions · G0 A1–5 R>5'],
+  ['inspections', 'Inspections', 3,  2,  false, (v) => String(v),  'inspections run · G≥3 A2 R≤1'],
+  ['findings',    'Findings',    0,  2,  true,  (v) => String(v),  'critical+major findings · G0 A1–2 R≥3'],
+  ['signoff',     'Sign-off',    70, 30, false, (v) => v + '%',    'minutes fully signed % · G≥70 A30–69 R<30'],
 ];
 
 // rag2() — bands on the composite score.
