@@ -205,3 +205,53 @@ test('technicians get deterministic alerts', async () => {
   const busy = r.technicians.find(t => t.name === 'Busy');
   assert.ok(busy.alerts.includes('overloaded') || busy.alerts.includes('low_closure'));
 });
+
+// ── departments vs PVs against the Engagement #1 target ──────────────────────
+// `pvs_target` is Engagement #1: THREE DISTINCT DEPARTMENTS met this month. Its
+// numerator is `depts_with_pv`, never `pvs_held`. With the wrong one, a site
+// that met ONE department five times was told "5 / 3 — target met", no
+// recommendation was raised, and the routine read "On track" — while two
+// departments had not been seen at all.
+const oneDeptFiveTimes = { ...deps,
+  meetingsSummary: async () => ({
+    site_code: 'HGO', month_label: 'July 2026', available: true,
+    kpis: { pvs_held: 5, depts_with_pv: 1, pvs_target: 3, open_issues: 0, high_open: 0,
+            resolved: 0, new: 0, escalations: 0 },
+    departments: [{ department: 'Maintenance', status: 'on_track' }],
+  }) };
+
+test('meetings carries pvs_held AND depts_with_pv — the two are never merged', async () => {
+  const r = await siteReportData('HGO', { year: 2026, month: 7, kind: 'weekly' }, oneDeptFiveTimes);
+  assert.strictEqual(r.meetings.pvs_held, 5, 'PV volume survives');
+  assert.strictEqual(r.meetings.depts_with_pv, 1, 'department coverage survives');
+  assert.strictEqual(r.meetings.pvs_target, 3);
+});
+
+test('the PV recommendation counts DEPARTMENTS still to meet, not PVs still to hold', async () => {
+  const r = await siteReportData('HGO', { year: 2026, month: 7, kind: 'weekly' }, oneDeptFiveTimes);
+  const rec = r.recommended.find(x => x.kind === 'meeting');
+  assert.ok(rec, '5 PVs in ONE department does NOT meet a 3-DEPARTMENT target');
+  assert.match(rec.text, /remaining 2 department/,
+    '3 target − 1 department covered = 2; the old code did 3 − 5 PVs and raised nothing');
+});
+
+test('routine discipline is judged on departments covered, not PV volume', async () => {
+  const r = await siteReportData('HGO', { year: 2026, month: 7, kind: 'weekly' }, oneDeptFiveTimes);
+  assert.strictEqual(r.fm.routine_discipline_label, 'Slipping');
+  // …and the honest case still passes: 3 departments covered + an inspection run.
+  const covered = { ...deps,
+    meetingsSummary: async () => ({
+      site_code: 'HGO', month_label: 'July 2026', available: true,
+      kpis: { pvs_held: 3, depts_with_pv: 3, pvs_target: 3 }, departments: [],
+    }) };
+  const ok = await siteReportData('HGO', { year: 2026, month: 7, kind: 'weekly' }, covered);
+  assert.strictEqual(ok.fm.routine_discipline_label, 'On track');
+  assert.strictEqual(ok.recommended.find(x => x.kind === 'meeting'), undefined);
+});
+
+test('a failing meetings reader degrades depts_with_pv to 0, never to pvs_held', async () => {
+  const broken = { ...deps, meetingsSummary: async () => { throw new Error('db down'); } };
+  const r = await siteReportData('HGO', { year: 2026, month: 7, kind: 'weekly' }, broken);
+  assert.strictEqual(r.meetings.depts_with_pv, 0);
+  assert.strictEqual(r.meetings.pvs_held, 0);
+});

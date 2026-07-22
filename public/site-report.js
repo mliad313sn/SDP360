@@ -151,15 +151,20 @@
       t.textContent = arrow + ' ' + (tp > 0 ? '+' : '') + tp + ' pts vs the previous 3 months';
     }
 
-    // The score measures a 3-MONTH ROLLING window; every other section on this
-    // page is the report month. Unlabelled, the two read as a contradiction.
+    // The score measures a 3-MONTH ROLLING window, which is NOT the report
+    // period. This line may only speak for the SCORE: it used to end "Every
+    // other section covers the report period only", which is false for four
+    // blocks — the meetings backlog counters carry no date filter at all, both
+    // overdue-action lists run over the whole history up to today, and the
+    // asset-parc figures are today's snapshot. Each section now states its own
+    // window; this line points at them.
     var grid = el('dimsGrid');
     var w = score.window || {};
     var win = ensureEl('scoreWindow', grid && grid.parentNode, 'div');
     if (win) {
       win.style.cssText = 'font-size:.72rem;color:var(--color-text-muted,#7B7B7B);margin:-4px 0 10px';
       win.textContent = w.from && w.to
-        ? 'Scored over the 3 months ' + w.from + ' → ' + w.to + ' — a rolling window. Every other section covers the report period only.'
+        ? 'Scored over the 3 months ' + w.from + ' → ' + w.to + ' — a rolling window, not the report period. Each section below states the window its own figures cover.'
         : '';
       if (grid && win.nextSibling !== grid) grid.parentNode.insertBefore(win, grid);
     }
@@ -195,15 +200,79 @@
       '<div class="kpi-val' + (cls ? ' ' + cls : '') + '">' + esc(val) + '</div></div>';
   }
 
-  function renderMeetings(m) {
+  // ── Window labelling ─────────────────────────────────────────
+  // This page mixes THREE grains and used to say so nowhere near the numbers:
+  // the report month (helpdesk / changes / technicians / inspections run / PVs
+  // held / issues resolved+new), the whole history (open issues, HIGH open,
+  // escalations — no date filter at all — plus BOTH overdue-action lists, which
+  // stop at today), and today (the asset parc). Unlabelled, six pairs of those
+  // read as contradictions. Same copy as the email: one product, one wording —
+  // keep services/reportTemplates/coordinator.js in step.
+  //
+  // The note node is created on first render so this ships without an edit to
+  // site-report.html, exactly like the score hero's window line above.
+  function setWindowNote(id, hostId, text) {
+    var host = el(hostId);
+    var sec = host && host.closest ? host.closest('section') : null;
+    if (!sec) return;
+    var e = el(id);
+    if (!e) {
+      e = document.createElement('div');
+      e.id = id;
+      e.className = 'win-note';
+      e.style.cssText = 'font-size:.68rem;font-style:italic;color:var(--color-text-muted,#7B7B7B);margin:-4px 0 11px;line-height:1.45';
+      var title = sec.querySelector('.section-title');
+      if (title && title.nextSibling) sec.insertBefore(e, title.nextSibling);
+      else sec.insertBefore(e, sec.firstChild);
+    }
+    e.textContent = text;   // textContent, not innerHTML — the label carries no markup
+  }
+
+  function subHead(text) {
+    return '<div style="font-size:.68rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;' +
+      'color:var(--color-text-muted,#7B7B7B);margin:2px 0 8px">' + esc(text) + '</div>';
+  }
+
+  // The report's as-of date: the SCORE window's end, i.e. _asOfFor(period) — the
+  // last day of the report month, or today for an MTD send. Never a live clock,
+  // so the page and the emailed PDF of the same report agree.
+  function windowCtx(data) {
+    var w = ((data || {}).score || {}).window || {};
+    var p = (data || {}).period || {};
+    return {
+      period: p.label || 'le mois du rapport',
+      history: w.to ? "tout l'historique, au " + w.to : "tout l'historique, à ce jour"
+    };
+  }
+
+  function renderMeetings(m, ctx) {
     m = m || {};
-    el('mtgKpis').innerHTML = [
-      kpi('PVs held', n(m.pvs_held) + ' / ' + n(m.pvs_target)),
-      kpi('Open issues', n(m.open_issues)),
-      kpi('HIGH open', n(m.high_open), n(m.high_open) > 0 ? 'bad' : ''),
-      kpi('Resolved / New', n(m.resolved) + ' / ' + n(m.new)),
-      kpi('Escalations', n(m.escalations), n(m.escalations) > 0 ? 'warn' : '')
-    ].join('');
+    ctx = ctx || {};
+    // THREE windows in this one section. `Departments with a PV / target` — NOT
+    // `PVs held / target`: the target is Engagement #1, three DISTINCT
+    // DEPARTMENTS, so five PVs of the same department used to read "5 / 3 —
+    // target met". The PV volume keeps its own tile so nothing is lost.
+    var host = el('mtgKpis');
+    host.className = '';                     // wraps two grids now, is not one itself
+    host.innerHTML =
+      subHead('Ce mois-ci — ' + ctx.period) +
+      '<div class="kpis">' + [
+        kpi('Departments with a PV / target', n(m.depts_with_pv) + ' / ' + n(m.pvs_target),
+          n(m.depts_with_pv) < n(m.pvs_target) ? 'warn' : ''),
+        kpi('PVs held', n(m.pvs_held)),
+        kpi('Issues resolved', n(m.resolved)),
+        kpi('New issues', n(m.new))
+      ].join('') + '</div>' +
+      subHead("Encours — cumul depuis l'origine, toutes périodes confondues") +
+      '<div class="kpis" style="margin-top:2px">' + [
+        kpi('Open issues', n(m.open_issues)),
+        kpi('HIGH open', n(m.high_open), n(m.high_open) > 0 ? 'bad' : ''),
+        kpi('Escalations open', n(m.escalations), n(m.escalations) > 0 ? 'warn' : '')
+      ].join('') + '</div>';
+
+    setWindowNote('mtgWindow', 'mtgKpis',
+      'Trois fenêtres dans cette section — chaque bloc indique la sienne. Période du rapport : ' +
+      ctx.period + ' · actions en retard : ' + ctx.history + '.');
 
     var depts = Array.isArray(m.departments) ? m.departments : [];
     el('mtgDepts').innerHTML = depts.length
@@ -230,19 +299,25 @@
     }).join('');
   }
 
-  function renderInspection(i) {
+  function renderInspection(i, ctx) {
     i = i || {};
+    ctx = ctx || {};
     el('inspKpis').innerHTML = [
       kpi('Inspections done', n(i.inspections_done)),
       kpi('Critical / major findings', n(i.findings_critical_major), n(i.findings_critical_major) > 0 ? 'bad' : ''),
       kpi('Overall risk', i.overall_risk || '—')
     ].join('');
+    // Inspections run + findings are month-scoped (siteReportDeps passes
+    // _monthBounds); the overdue list below them is not.
+    setWindowNote('inspWindow', 'inspKpis',
+      'Période : ' + ctx.period + ' · actions en retard : ' + ctx.history + '.');
     el('inspActions').innerHTML = renderActionList(i.overdue_actions, 'due_date');
   }
 
   var hdChart = null;
-  function renderHelpdesk(h) {
+  function renderHelpdesk(h, ctx) {
     h = h || {};
+    ctx = ctx || {};
     el('hdKpis').innerHTML = [
       kpi('Created', n(h.created)),
       kpi('Resolved', n(h.resolved)),
@@ -250,6 +325,9 @@
       kpi('SLA overdue', n(h.sla_overdue), n(h.sla_overdue) > 0 ? 'bad' : ''),
       kpi('Major incidents', n(h.major_incidents), n(h.major_incidents) > 0 ? 'bad' : '')
     ].join('');
+
+    setWindowNote('hdWindow', 'hdKpis',
+      'Période : ' + ctx.period + ' · « Open major incidents » ci-dessous : état actuel, hors période.');
 
     // The incidents still RUNNING — a different population from the tile above,
     // which counts the ones raised this period. Labelled, so the two never read
@@ -331,10 +409,12 @@
   }
 
   // PLAIN WORDS — this page is read by site coordinators. No "RFC", no "CAB".
-  function renderChanges(c) {
+  function renderChanges(c, ctx) {
     c = c || {};
+    ctx = ctx || {};
     var host = ensureChangesSection();
     if (!host) return;
+    setWindowNote('chgWindow', 'chgKpis', 'Période : ' + ctx.period + '.');
 
     // null → '—'. NOT n(success_pct): n(null) is 0, which would state a verdict
     // ("0% succeeded") for a site with nothing to judge. A real 0 still prints 0%.
@@ -363,8 +443,9 @@
     }
   }
 
-  function renderTechnicians(techs) {
+  function renderTechnicians(techs, ctx) {
     var list = Array.isArray(techs) ? techs : [];
+    setWindowNote('techWindow', 'techArea', 'Période : ' + ((ctx || {}).period || '') + '.');
     if (!list.length) {
       el('techArea').innerHTML = '<div class="muted">No technician activity for this period.</div>';
       return;
@@ -379,11 +460,16 @@
         var alertHtml = alerts.length
           ? alerts.map(function (a) { return '<span class="alert-chip">' + esc(String(a).replace(/_/g, ' ')) + '</span>'; }).join('')
           : '<span class="muted">—</span>';
+        // null → '—'. NOT n(avg_resolution_h): n(null) is 0, which states "0h"
+        // — the best possible resolution time — for a technician who closed
+        // nothing (reports-db.js:1896 returns null there on purpose). `== null`
+        // covers undefined too; `||` would also swallow a genuine measured 0h.
+        var avg = t.avg_resolution_h == null ? '—' : n(t.avg_resolution_h);
         return '<tr>' +
           '<td>' + esc(t.name || '—') + '</td>' +
           '<td class="num">' + n(t.assigned) + '</td>' +
           '<td class="num">' + n(t.resolved) + '</td>' +
-          '<td class="num">' + n(t.avg_resolution_h) + '</td>' +
+          '<td class="num">' + avg + '</td>' +
           '<td class="num">' + n(t.reopened) + '</td>' +
           '<td class="num">' + n(t.current_load) + '</td>' +
           '<td>' + alertHtml + '</td>' +
@@ -391,27 +477,38 @@
       }).join('') + '</tbody></table>';
   }
 
-  function renderRecommended(recs) {
+  // An EMPTY list has two meanings that must not share a sentence. _recommend
+  // (services/siteReport.js) only pushes on a POSITIVE signal, so a site with no
+  // data produces the same empty list as a site measured and found clean — and
+  // the reassuring line then contradicted the hero's "Score non applicable —
+  // aucune donnée sur la fenêtre" further up the very same page.
+  function renderRecommended(recs, score) {
     var list = Array.isArray(recs) ? recs : [];
+    var unscored = !!score && score.applicable === false;
     el('recList').innerHTML = list.length
       ? list.map(function (r) {
           return '<li><span class="rec-kind">' + esc(r.kind || 'note') + '</span>' +
             '<span>' + esc(r.text || '') + '</span></li>';
         }).join('')
-      : '<li><span class="rec-kind">ok</span><span>No recommended actions — nothing flagged this period.</span></li>';
+      : unscored
+        ? '<li><span class="rec-kind">n/a</span><span>Aucune donnée sur la période — rien à recommander.</span></li>'
+        : '<li><span class="rec-kind">ok</span><span>No recommended actions — nothing flagged this period.</span></li>';
   }
 
   // ── Main render ──────────────────────────────────────────────
   function render(data) {
     body().className = '';
+    // One window context, built once and handed to every section — same shape
+    // and same copy as composeCoordinator's `ctx`.
+    var ctx = windowCtx(data);
     renderHeader(data);
     renderScore(data.score);
-    renderMeetings(data.meetings);
-    renderInspection(data.inspection);
-    renderHelpdesk(data.helpdesk);
-    renderChanges(data.changes);
-    renderTechnicians(data.technicians);
-    renderRecommended(data.recommended);
+    renderMeetings(data.meetings, ctx);
+    renderInspection(data.inspection, ctx);
+    renderHelpdesk(data.helpdesk, ctx);
+    renderChanges(data.changes, ctx);
+    renderTechnicians(data.technicians, ctx);
+    renderRecommended(data.recommended, data.score);
   }
 
   function showEmpty() { body().className = 'state-empty'; }

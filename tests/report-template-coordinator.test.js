@@ -28,7 +28,7 @@ const data = {
       { n: 2, gain: '+17 pts', text: 'Close out 6 critical/major inspection findings with dated corrective actions.' },
     ],
   },
-  meetings: { pvs_held: 2, pvs_target: 3, open_issues: 4, high_open: 1, resolved: 6, new: 3, escalations: 1,
+  meetings: { pvs_held: 2, depts_with_pv: 2, pvs_target: 3, open_issues: 4, high_open: 1, resolved: 6, new: 3, escalations: 1,
               departments: [{ department: 'hse', status: 'blocked' }], overdue_actions: [{ description: 'Fix X', owner: 'Jean', target_date: '2026-07-20' }] },
   inspection: { inspections_done: 1, findings_critical_major: 2, overall_risk: 'major', overdue_actions: [] },
   helpdesk: { created: 40, resolved: 35, backlog: 5, sla_overdue: 2, major_incidents: 1, top_categories: [{ category: 'Network', count: 12 }], recurring: [{ label: 'Network / WAN', count: 4 }],
@@ -239,6 +239,34 @@ test('no open major incidents → the list is simply absent, no empty heading', 
   assert.match(htmlBody, /Major incidents/);   // the KPI tile stays
 });
 
+// ── Technicians: an unknown average is not a fast one ────────────────────────
+// reports-db.js:1896 emits avg_resolution_h: null DELIBERATELY (the `+null === 0`
+// trap is commented at its site). num(null) is 0, so the row used to read
+// "Resolved 0 · 0h" — the best possible average handed to whoever closed
+// nothing at all.
+
+test('a technician with NO resolution average renders "—", never "0h"', () => {
+  const d = JSON.parse(JSON.stringify(data));
+  d.technicians = [{ name: 'Amina', assigned: 4, resolved: 0, avg_resolution_h: null, reopened: 0, current_load: 4, alerts: [] }];
+  const { htmlBody } = composeCoordinator(d);
+  assert.ok(!/>0h</.test(htmlBody), 'nothing was resolved — there is no average to state');
+  assert.match(htmlBody, />&mdash;<\/td>|>—<\/td>/, 'the cell states the absence');
+});
+
+test('a technician with a genuine 0h average still prints 0h', () => {
+  const d = JSON.parse(JSON.stringify(data));
+  d.technicians = [{ name: 'Amina', assigned: 4, resolved: 4, avg_resolution_h: 0, reopened: 0, current_load: 1, alerts: [] }];
+  const { htmlBody } = composeCoordinator(d);
+  assert.match(htmlBody, />0h</, 'a real measured 0 is a measurement, not an absence');
+});
+
+test('an undefined resolution average is treated as absent too', () => {
+  const d = JSON.parse(JSON.stringify(data));
+  d.technicians = [{ name: 'Amina', assigned: 4, resolved: 0, reopened: 0, current_load: 4, alerts: [] }];
+  const { htmlBody } = composeCoordinator(d);
+  assert.ok(!/>0h</.test(htmlBody));
+});
+
 test('empty/zero data still composes without throwing', () => {
   const r = composeCoordinator({ site_code: 'X', period: { label: 'Aug 2026' },
     score: { score: 0, points: 0, rag: 'RED', dims: [], moves: [], window: null },
@@ -276,6 +304,25 @@ test('applicable:false omits the dims table and the moves block entirely', () =>
   assert.ok(!/Two moves that lift the score most/.test(htmlBody), 'no moves block');
   assert.ok(!/G&#8805;8|G≥8|reviews held/.test(htmlBody), 'no dims table');
   assert.ok(!/\/2</.test(htmlBody), 'no 0/2 rating chips');
+});
+
+// ── Recommendations: silence is not good news on an unmeasured site ──────────
+// _recommend (siteReport.js:120-127) only pushes on a POSITIVE signal, so zero
+// data yields an empty list — and the renderer used to reward that with
+// "Nothing needs your attention this period." in the same email whose first card
+// reads "Score non applicable — aucune donnée".
+
+test('no recommendations + an UNSCORED site → says there is no data, not "nothing to do"', () => {
+  const { htmlBody } = composeCoordinator({ ...naData, recommended: [] });
+  assert.ok(!/Nothing needs your attention/.test(htmlBody),
+    'the same email says "aucune donnée" in card 1 — it cannot reassure in card 8');
+  assert.match(htmlBody, /Aucune donn&eacute;e sur la p&eacute;riode/);
+});
+
+test('no recommendations + a SCORED site keeps the reassuring message', () => {
+  const { htmlBody } = composeCoordinator({ ...data, recommended: [] });
+  assert.match(htmlBody, /Nothing needs your attention this period/,
+    'the site WAS measured and nothing was flagged — that is real good news');
 });
 
 test('applicable:false still composes the rest of the report', () => {
@@ -419,4 +466,118 @@ test('a score with no applicable field renders the normal hero', () => {
   const { htmlBody } = composeCoordinator(data);
   assert.match(htmlBody, /58/);
   assert.ok(!/Score non applicable/.test(htmlBody));
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// WINDOW LABELLING
+// The report mixes THREE grains: the report month, the whole history (open
+// issues / HIGH open / escalations — no date filter at all — plus BOTH
+// overdue-action lists, which stop at today) and today (the asset parc). Six
+// pairs of those read as contradictions when set side by side unlabelled, and a
+// coordinator reported exactly that. Every card must state its own window.
+// ════════════════════════════════════════════════════════════════════════════
+
+// THE regression this section exists for: the score card used to promise, for
+// the whole report, "Every other section below covers the report period only".
+// That is FALSE for four blocks. It may only speak for the score.
+test('the score card no longer promises anything about the other sections', () => {
+  const { htmlBody } = composeCoordinator(data);
+  assert.ok(!/Every other section below covers the report period only/.test(htmlBody),
+    'the sentence was false for the meetings backlog, both overdue lists and the parc');
+  assert.match(htmlBody, /a rolling window, not the report period/);
+  assert.match(htmlBody, /Each card below states the window its own figures cover/);
+});
+
+test('every card states the window its own figures cover', () => {
+  const { htmlBody } = composeCoordinator(data);
+  // One note per card: Meetings · Inspection · Helpdesk · Changes · Technicians.
+  const notes = htmlBody.match(/font-style:italic;line-height:1\.45/g) || [];
+  assert.strictEqual(notes.length, 5, 'Meetings, Inspection, Helpdesk, Changes, Technicians');
+  assert.match(htmlBody, /Trois fen&ecirc;tres dans cette carte/);        // Meetings
+  assert.match(htmlBody, /P&eacute;riode&nbsp;: July 2026 &middot; actions en retard/);  // Inspection
+  assert.match(htmlBody, /incidents majeurs ci-dessous est un &eacute;tat actuel, hors p&eacute;riode/);  // Helpdesk
+});
+
+// The quietest of the six contradictions: "Resolved 6" (this month) sat in the
+// SAME undivided grid as "Open issues 4" (carried since the site opened).
+test('the meetings card separates the month from the standing backlog', () => {
+  const { htmlBody } = composeCoordinator(data);
+  const month = htmlBody.indexOf('Ce mois-ci &mdash; July 2026');
+  const standing = htmlBody.indexOf('Encours &mdash; cumul depuis l&rsquo;origine');
+  assert.ok(month > 0 && standing > month, 'both sub-groups present, month first');
+  // month-scoped tiles land in the first group, historical ones in the second
+  assert.ok(htmlBody.indexOf('Issues resolved') < standing);
+  assert.ok(htmlBody.indexOf('New issues') < standing);
+  assert.ok(htmlBody.indexOf('Open issues') > standing);
+  assert.ok(htmlBody.indexOf('HIGH open') > standing);
+  assert.ok(htmlBody.indexOf('Escalations open') > standing);
+});
+
+test('both overdue-action lists say they span the whole history, up to the as-of date', () => {
+  const withBoth = JSON.parse(JSON.stringify(data));
+  withBoth.inspection.overdue_actions = [{ description: 'Replace UPS', owner: 'Sam', due_date: '2026-06-01' }];
+  const { htmlBody } = composeCoordinator(withBoth);
+  const headers = htmlBody.match(/Overdue actions \(1\) &mdash; tout l&rsquo;historique, au 2026-07-14/g) || [];
+  assert.strictEqual(headers.length, 2, 'the meetings list AND the inspection list');
+});
+
+// The stamp is derived from the SCORE window's end (= _asOfFor(period)), never
+// from a live clock — the composer must stay a pure function of its input or the
+// byte-for-byte goldens would change every day.
+test('the as-of stamp comes from the score window, and degrades without one', () => {
+  const noWindow = JSON.parse(JSON.stringify(data));
+  delete noWindow.score.window;
+  const { htmlBody } = composeCoordinator(noWindow);
+  assert.match(htmlBody, /tout l&rsquo;historique, &agrave; ce jour/);
+  assert.ok(!/tout l&rsquo;historique, au /.test(htmlBody),
+    'no date invented when the report carries none');
+});
+
+// The parc is the LATEST daily effort snapshot — not the report month, and not
+// the score's as-of date. Stamping it with either would be a more precise lie.
+test('the asset-parc card says it is today, independent of the report period', () => {
+  const withParc = { ...data, assetEffort: { score: 72, rank: 3, of: 9, delta: 4 } };
+  const { htmlBody } = composeCoordinator(withParc);
+  assert.match(htmlBody, /&eacute;tat actuel \(dernier relev&eacute; quotidien\), ind&eacute;pendant de la p&eacute;riode/);
+  assert.ok(!/Parc&nbsp;: &eacute;tat actuel[^<]*2026-07-14/.test(htmlBody), 'no fabricated date on the parc');
+});
+
+// Outlook renders htmlBody with no <meta charset> — the French copy must ship as
+// HTML entities, never as raw accented bytes.
+test('the French window labels are entity-encoded (no charset in the email body)', () => {
+  const { htmlBody } = composeCoordinator(data);
+  const notes = htmlBody.match(/font-style:italic;line-height:1\.45[^>]*>([^<]*)</g) || [];
+  assert.ok(notes.length >= 5);
+  notes.forEach((s) => assert.ok(!/[^\x00-\x7F]/.test(s), `raw non-ASCII in a window label: ${s}`));
+});
+
+// ── departments, not PVs, against the Engagement #1 target ───────────────────
+test('the meetings card compares DEPARTMENTS to the target, and still shows the PV volume', () => {
+  const oneDept = JSON.parse(JSON.stringify(data));
+  oneDept.meetings.pvs_held = 5;
+  oneDept.meetings.depts_with_pv = 2;      // 5 PVs, but only 2 departments seen
+  const { htmlBody } = composeCoordinator(oneDept);
+  assert.match(htmlBody, /2 \/ 3<\/div>\s*<div[^>]*>Departments with a PV \/ target/,
+    'the target numerator is depts_with_pv — "5 / 3 — target met" was the bug');
+  assert.match(htmlBody, /5<\/div>\s*<div[^>]*>PVs held/, 'the PV volume is still reported');
+  assert.ok(!/PVs held \/ target/.test(htmlBody), 'the misleading pairing is gone');
+});
+
+// One product, two surfaces — and public/site-report.js has NO automated
+// backstop of its own (CLAUDE.md), so this source-level parity check is the only
+// thing standing between the page and a silent drift away from the email.
+test('the page carries the SAME window labels as the email', () => {
+  const js = fs.readFileSync(path.join(__dirname, '..', 'public', 'site-report.js'), 'utf8');
+  [
+    'a rolling window, not the report period',        // the corrected score line
+    'Ce mois-ci — ',                                  // month sub-group
+    "Encours — cumul depuis l'origine",               // standing sub-group
+    "tout l'historique, au ",                         // the overdue-list stamp
+    "tout l'historique, à ce jour",                   // …and its dateless fallback
+    'Departments with a PV / target',                 // Engagement #1 numerator
+    'PVs held',                                       // the PV volume, kept
+  ].forEach((s) => assert.ok(js.includes(s), `public/site-report.js is missing: ${s}`));
+  // The false promise must be gone from BOTH surfaces.
+  assert.ok(!/Every other section covers the report period only/.test(js));
+  assert.ok(!/PVs held' *, *n\(m\.pvs_held\) *\+ *' \/ '/.test(js), 'the misleading pairing is gone');
 });

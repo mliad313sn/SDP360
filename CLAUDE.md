@@ -6,6 +6,41 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ---
 
+## ⚡ Current state (as of 2026-07-22, later)
+
+> **Zero-data verdicts purged from the site report + every card now states its own
+> window** (branch `fix/report-zero-data-verdicts`). A coordinator asked why the score
+> said "INSPECTIONS 7" while the Inspection card said "0" — the numbers were both right
+> (score = **3-month rolling**, cards = **report month**), but the audit that followed
+> found the report was **asserting favourable verdicts on zero data**, all from ONE root
+> cause: *a `null` correctly produced upstream is destroyed downstream by `|| 'default'`
+> or `num()`.* **The score half was already hardened (`applicable` gate, `?? null`); the
+> report half was not.** Fixed:
+> **(a) `overall_risk: 'low'` was ALWAYS fabricated** — `'low'` is **not in the
+> finding-status vocabulary** (`ok·minor·major·critical·opp·na`, `inspection-init.json`),
+> so `_RISK_ORDER.find()` could never return it; every "Overall risk: low" ever printed
+> meant *"nothing found"*, in green. Now `null` (→ "—") when `inspections_done === 0`;
+> a real "inspected, nothing serious" still reads `low`. The asymmetry was the tell: a
+> reader that **threw** produced the honest "—", one that **read zero** produced green.
+> **(b) `avg_resolution_h`** — `reports-db.js:1896` returns `null` deliberately, both
+> renderers did `num(null)→0` → "**0h**", the best possible score, for a technician who
+> resolved nothing. **(c)** "Nothing needs your attention" no longer appears in the same
+> e-mail as "Score non applicable — no data".
+> **(d) `pvs_held` (PVs) was compared against `dept_target` (DEPARTMENTS)** — 5 PVs from
+> one department read "5 / 3 — target met" while Engagement #1 (3 *distinct* departments)
+> was not met. `depts_with_pv` was computed right beside it (`meetings-db.js:2842`) and
+> **thrown away by the adapter**; now it is the numerator, in `_recommend` AND
+> `_financeView`.
+> **(e) Each card now carries its OWN window line**, because the single global sentence
+> ("every other section covers the report period only") was **factually false for four
+> blocks**: `Open issues`/`HIGH open`/`Escalations` are **all-time, no date filter**
+> (`meetings-db.js:2742`), both *Overdue actions* lists are all-time-as-of-today, and the
+> asset-effort block is **today** regardless of the report month. The Meetings KPI grid
+> is split into a labelled *month* group and an *all-time* group — they were side by side,
+> undistinguished. **Regression 126 green; the two monthly goldens diff is label-only +
+> exactly ONE added value** (verified independently: 29→30 numbers, no existing figure
+> changed) and stayed LF.
+
 ## ⚡ Current state (as of 2026-07-22)
 
 > **Effort + investment wired into the reports landed** (branch

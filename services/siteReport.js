@@ -6,7 +6,7 @@
 const { computeSiteScore } = require('./siteScore');
 
 const EMPTY = {
-  meetings: { pvs_held: 0, pvs_target: 0, open_issues: 0, high_open: 0, resolved: 0, new: 0, escalations: 0, departments: [], overdue_actions: [] },
+  meetings: { pvs_held: 0, depts_with_pv: 0, pvs_target: 0, open_issues: 0, high_open: 0, resolved: 0, new: 0, escalations: 0, departments: [], overdue_actions: [] },
   inspection: { inspections_done: 0, findings_critical_major: 0, overall_risk: '—', overdue_actions: [] },
   helpdesk: { created: 0, resolved: 0, backlog: 0, sla_overdue: 0, major_incidents: 0, top_categories: [], recurring: [] },
   // A failed changes reader has COUNTED nothing and JUDGED nothing. The counts
@@ -53,8 +53,13 @@ async function siteReportData(siteCode, period, deps) {
   // rather than logging a spurious warn. null → composeCoordinator omits the block.
   const assetEffort = await _safe(() => (deps.assetEffort ? deps.assetEffort(siteCode) : null), null, 'assetEffort');
 
+  // `pvs_held` (how many PVs) and `depts_with_pv` (how many DISTINCT departments
+  // met) are different measures and only the second one faces `pvs_target`
+  // (Engagement #1 = three DEPARTMENTS). Both travel: the report states the PV
+  // volume AND the department coverage, so neither is inferred from the other.
   const meetings = {
-    pvs_held: mk.pvs_held || 0, pvs_target: mk.pvs_target || 0, open_issues: mk.open_issues || 0,
+    pvs_held: mk.pvs_held || 0, depts_with_pv: mk.depts_with_pv || 0,
+    pvs_target: mk.pvs_target || 0, open_issues: mk.open_issues || 0,
     high_open: mk.high_open || 0, resolved: mk.resolved || 0, new: mk.new || 0, escalations: mk.escalations || 0,
     departments: ms.departments || [],
     overdue_actions: mActions.map(a => ({ description: a.description, owner: a.owner, target_date: a.target_date })),
@@ -121,14 +126,20 @@ function _recommend(m, i, h, techs) {
   const out = [];
   if (m.high_open > 0) out.push({ kind: 'escalate', text: `${m.high_open} HIGH issue(s) open — escalate to council if unresolved` });
   if (i.findings_critical_major > 0) out.push({ kind: 'visit', text: `${i.findings_critical_major} critical/major inspection finding(s) — schedule a fix visit` });
-  if (m.pvs_held < m.pvs_target) out.push({ kind: 'meeting', text: `Hold the remaining ${m.pvs_target - m.pvs_held} department PV(s) this month` });
+  // Engagement #1 counts DEPARTMENTS, not PVs — `depts_with_pv` is the only
+  // numerator that belongs against `pvs_target`. With `pvs_held` a site that met
+  // one department five times was told the target was met (and no recommendation
+  // was raised) while two departments had never been seen.
+  if (m.depts_with_pv < m.pvs_target) out.push({ kind: 'meeting', text: `Hold a PV in the remaining ${m.pvs_target - m.depts_with_pv} department(s) this month` });
   if (techs.some(t => t.alerts.includes('overloaded'))) out.push({ kind: 'support', text: 'One or more technicians overloaded — rebalance assignments' });
   return out;
 }
 
 function _financeView(m, i, h, siteStatus) {
   const svc = siteStatus === 'major' ? 'At risk' : siteStatus === 'degraded' ? 'Under strain' : 'Stable';
-  const routine = (m.pvs_held >= m.pvs_target && i.inspections_done > 0) ? 'On track' : 'Slipping';
+  // Same numerator rule as _recommend: the routine is "on track" when three
+  // DEPARTMENTS were met, not when three PVs were held (see adaptMeetingsSummary).
+  const routine = (m.depts_with_pv >= m.pvs_target && i.inspections_done > 0) ? 'On track' : 'Slipping';
   const supportPct = h.created ? Math.round((h.resolved / h.created) * 100) : 100;
   return {
     service_level_label: svc, major_incidents: h.major_incidents, routine_discipline_label: routine,

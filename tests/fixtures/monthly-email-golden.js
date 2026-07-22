@@ -30,7 +30,12 @@ const full = {
       { n: 2, gain: '+17 pts', text: 'Close out 6 critical/major inspection findings with dated corrective actions.' },
     ],
   },
-  meetings: { pvs_held: 2, pvs_target: 3, open_issues: 4, high_open: 1, resolved: 6, new: 3, escalations: 1,
+  // depts_with_pv is the numerator that faces pvs_target (Engagement #1 counts
+  // DEPARTMENTS, not PVs). Here 2 PVs across 2 departments, so the displayed
+  // "2 / 3" is unchanged by the fix — the golden diff stays label-only.
+  // tests/report-template-coordinator.test.js pins the divergent case (5 PVs,
+  // 2 departments) separately.
+  meetings: { pvs_held: 2, depts_with_pv: 2, pvs_target: 3, open_issues: 4, high_open: 1, resolved: 6, new: 3, escalations: 1,
               departments: [{ department: 'hse', status: 'blocked' }], overdue_actions: [{ description: 'Fix X', owner: 'Jean', target_date: '2026-07-20' }] },
   inspection: { inspections_done: 1, findings_critical_major: 2, overall_risk: 'major', overdue_actions: [] },
   helpdesk: { created: 40, resolved: 35, backlog: 5, sla_overdue: 2, major_incidents: 1, top_categories: [{ category: 'Network', count: 12 }], recurring: [{ label: 'Network / WAN', count: 4 }],

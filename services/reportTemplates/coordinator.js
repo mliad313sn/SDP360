@@ -54,6 +54,47 @@ const scoreRagLabel = (rag) => {
 // A dim's 0/1/2 rating → its colour. 2 green · 1 amber · 0 red.
 const ptsColor = (pts) => (pts >= 2 ? SCORE_RAG.green : pts >= 1 ? SCORE_RAG.amber : SCORE_RAG.red);
 
+// --- window labelling --------------------------------------------------------
+// This report deliberately mixes THREE grains and used to say so nowhere near
+// the numbers:
+//   · the report month      — helpdesk / changes / technicians / inspections run
+//                             / PVs held / issues resolved+new;
+//   · the whole history     — open issues, HIGH open, escalations (no date
+//                             filter at all, meetings-db.js:2742-2752) and BOTH
+//                             overdue-action lists (listActions has no from/to,
+//                             it stops at date('now'));
+//   · today                 — the asset-parc standing, which ignores the period.
+// Six pairs of those read as contradictions when set side by side unlabelled.
+// So every card states the window ITS OWN figures cover, in the same discreet
+// style as the helpdesk block's "still running now" — the one label that was
+// already there and the model for these.
+//
+// Both helpers take PRE-ESCAPED markup, like card()/bulletList() — the French
+// copy is written with HTML entities (&eacute;, &ecirc;, …) because htmlBody
+// ships without a <meta charset> and Outlook must not have to guess. Escape
+// every INTERPOLATED value at the call site instead.
+function windowNote(html) {
+  return `<div style="font-family:${FONT};font-size:10px;color:${MUTED};font-style:italic;line-height:1.45;padding:0 0 9px 0;">${html}</div>`;
+}
+
+// Small uppercase heading used to split a card's KPI grid into sub-groups that
+// do NOT share a window. Same visual weight as the existing "Departments" /
+// "Overdue actions" headings inside the cards.
+function subHead(html, color = NAVY) {
+  return `<div style="font-family:${FONT};font-size:11px;font-weight:bold;color:${color};letter-spacing:0.6px;text-transform:uppercase;padding:2px 0 6px 0;">${html}</div>`;
+}
+
+// The report's as-of date. Taken from the SCORE's window end, which is
+// _asOfFor(period) — the last day of the report month, or today for an MTD send.
+// It is NOT re-derived from a live clock here: this composer must stay a pure
+// function of its input, or the byte-for-byte monthly goldens would change every
+// day. Absent (unscored site) → the lists say "à ce jour" with no date.
+const asOfOf = (data) => obj(obj(obj(data).score).window).to || '';
+const periodOf = (data) => escapeHtml(obj(obj(data).period).label || 'le mois du rapport');
+const historyStamp = (asOf) => (asOf
+  ? `tout l&rsquo;historique, au ${escapeHtml(asOf)}`
+  : 'tout l&rsquo;historique, &agrave; ce jour');
+
 // --- sections ---------------------------------------------------------------
 
 /** The six sbDims: `label · disp` + a 0/1/2 rating chip, with the tip beneath. */
@@ -117,11 +158,16 @@ function scoreHero(score) {
       return `<span style="color:${c};font-weight:bold;">${mark} ${sign}${escapeHtml(t)} pts</span> <span style="color:${MUTED};">vs the previous 3 months</span>`;
     })();
 
-  // The score measures a 3-MONTH ROLLING window; every other block in this
-  // report is the report month. Say so, or the two read as a contradiction.
+  // The score measures a 3-MONTH ROLLING window, which is NOT the report period.
+  // This line may only speak for the SCORE: it used to end "Every other section
+  // below covers the report period only", which is false for four blocks — the
+  // meetings backlog counters (open issues / HIGH open / escalations) carry no
+  // date filter at all, BOTH overdue-action lists run over the whole history up
+  // to today, and the asset-parc block is today's snapshot whatever the period.
+  // Each card now states its own window instead; this line points at them.
   const w = obj(s.window);
   const windowLine = w.from && w.to
-    ? `<div style="font-family:${FONT};font-size:11px;color:${MUTED};line-height:1.5;padding-bottom:8px;">Scored over the 3 months ${escapeHtml(w.from)} &rarr; ${escapeHtml(w.to)} &mdash; a rolling window. Every other section below covers the report period only.</div>`
+    ? `<div style="font-family:${FONT};font-size:11px;color:${MUTED};line-height:1.5;padding-bottom:8px;">Scored over the 3 months ${escapeHtml(w.from)} &rarr; ${escapeHtml(w.to)} &mdash; a rolling window, not the report period. Each card below states the window its own figures cover.</div>`
     : '';
 
   // `gain` arrives ALREADY formatted ('+17 pts' / 'sustain') — render verbatim.
@@ -152,16 +198,37 @@ ${movesBlock}
   return card('Site score', body, color);
 }
 
-function meetingsSection(meetings) {
+/**
+ * THREE windows live in this one card and they must not be read as comparable:
+ *   · PVs / departments / Resolved / New — the report MONTH;
+ *   · Open issues / HIGH open / Escalations — the WHOLE HISTORY (meetings-db.js
+ *     filters those on `m.site_code` alone, no date at all);
+ *   · Overdue actions — the whole history, stopped at TODAY.
+ * They used to sit in ONE undivided six-tile grid, which is the quietest and
+ * most-read of the six contradictions the audit found (a site can show
+ * "Resolved 6" for the month next to "Open issues 4" carried from 2024).
+ *
+ * `Departments with a PV / target` — NOT `PVs held / target`. The target is
+ * Engagement #1, three DISTINCT DEPARTMENTS; see adaptMeetingsSummary. The PV
+ * volume keeps its own tile so nothing is lost.
+ */
+function meetingsSection(meetings, ctx) {
   const m = obj(meetings);
-  const kpis = kpiGrid([
-    { label: 'PVs held / target', value: `${num(m.pvs_held)} / ${num(m.pvs_target)}` },
+  const c = obj(ctx);
+  const monthKpis = kpiGrid([
+    { label: 'Departments with a PV / target', value: `${num(m.depts_with_pv)} / ${num(m.pvs_target)}` },
+    { label: 'PVs held', value: num(m.pvs_held) },
+    { label: 'Issues resolved', value: num(m.resolved) },
+    { label: 'New issues', value: num(m.new) },
+  ]);
+  const standingKpis = kpiGrid([
     { label: 'Open issues', value: num(m.open_issues) },
     { label: 'HIGH open', value: num(m.high_open) },
-    { label: 'Resolved', value: num(m.resolved) },
-    { label: 'New', value: num(m.new) },
-    { label: 'Escalations', value: num(m.escalations) },
+    { label: 'Escalations open', value: num(m.escalations) },
   ]);
+
+  const kpis = `${subHead(`Ce mois-ci &mdash; ${c.period}`)}${monthKpis}`
+    + `${subHead('Encours &mdash; cumul depuis l&rsquo;origine, toutes p&eacute;riodes confondues', MUTED)}${standingKpis}`;
 
   const depts = arr(m.departments);
   const deptBlock = depts.length
@@ -174,17 +241,19 @@ function meetingsSection(meetings) {
 
   const overdue = arr(m.overdue_actions);
   const overdueBlock = overdue.length
-    ? `<div style="font-family:${FONT};font-size:11px;font-weight:bold;color:${RAG_COLORS.red};letter-spacing:0.6px;text-transform:uppercase;padding:10px 0 6px 0;">Overdue actions (${overdue.length})</div>${bulletList(overdue.map((a) => {
+    ? `<div style="font-family:${FONT};font-size:11px;font-weight:bold;color:${RAG_COLORS.red};letter-spacing:0.6px;text-transform:uppercase;padding:10px 0 6px 0;">Overdue actions (${overdue.length}) &mdash; ${c.history}</div>${bulletList(overdue.map((a) => {
       const it = obj(a);
       return `${escapeHtml(it.description)} <span style="color:${MUTED};">&mdash; ${escapeHtml(it.owner)}, due ${escapeHtml(it.target_date || it.due_date)}</span>`;
     }), INK)}`
     : '';
 
-  return card('Meetings', `${kpis}${deptBlock}${overdueBlock}`, NAVY);
+  const note = windowNote(`Trois fen&ecirc;tres dans cette carte &mdash; chaque bloc indique la sienne. P&eacute;riode du rapport&nbsp;: ${c.period}.`);
+  return card('Meetings', `${note}${kpis}${deptBlock}${overdueBlock}`, NAVY);
 }
 
-function inspectionSection(inspection) {
+function inspectionSection(inspection, ctx) {
   const i = obj(inspection);
+  const c = obj(ctx);
   const risk = String(i.overall_risk || '—');
   const riskColor = /critical|major/i.test(risk) ? RAG_COLORS.red
     : /minor|moderate/i.test(risk) ? RAG_COLORS.amber
@@ -198,17 +267,21 @@ function inspectionSection(inspection) {
 
   const overdue = arr(i.overdue_actions);
   const overdueBlock = overdue.length
-    ? `<div style="font-family:${FONT};font-size:11px;font-weight:bold;color:${RAG_COLORS.red};letter-spacing:0.6px;text-transform:uppercase;padding:10px 0 6px 0;">Overdue actions (${overdue.length})</div>${bulletList(overdue.map((a) => {
+    ? `<div style="font-family:${FONT};font-size:11px;font-weight:bold;color:${RAG_COLORS.red};letter-spacing:0.6px;text-transform:uppercase;padding:10px 0 6px 0;">Overdue actions (${overdue.length}) &mdash; ${c.history}</div>${bulletList(overdue.map((a) => {
       const it = obj(a);
       return `${escapeHtml(it.description)} <span style="color:${MUTED};">&mdash; ${escapeHtml(it.owner)}, due ${escapeHtml(it.due_date || it.target_date)}</span>`;
     }))}`
     : '';
 
-  return card('Inspection', `${kpis}${riskLine}${overdueBlock}`, NAVY);
+  // Inspections run + findings are month-scoped (siteReportDeps passes
+  // _monthBounds); the overdue list below them is not.
+  const note = windowNote(`P&eacute;riode&nbsp;: ${c.period} &middot; actions en retard&nbsp;: ${c.history}.`);
+  return card('Inspection', `${note}${kpis}${riskLine}${overdueBlock}`, NAVY);
 }
 
-function helpdeskSection(helpdesk) {
+function helpdeskSection(helpdesk, ctx) {
   const h = obj(helpdesk);
+  const c = obj(ctx);
   const kpis = kpiGrid([
     { label: 'Created', value: num(h.created) },
     { label: 'Resolved', value: num(h.resolved) },
@@ -247,7 +320,13 @@ function helpdeskSection(helpdesk) {
     }))}`
     : '';
 
-  return card('Helpdesk', `${kpis}${miBlock}${catBlock}${recBlock}`, NAVY);
+  // The "état actuel" clause is CONDITIONAL on there being an open-incident list
+  // below: with no list it would point at nothing. (It also must not quote the
+  // English heading verbatim — a test asserts that string is absent when the
+  // list is empty, and it would then match the label instead.)
+  const note = windowNote(`P&eacute;riode&nbsp;: ${c.period}.`
+    + (mis.length ? ' La liste des incidents majeurs ci-dessous est un &eacute;tat actuel, hors p&eacute;riode.' : ''));
+  return card('Helpdesk', `${note}${kpis}${miBlock}${catBlock}${recBlock}`, NAVY);
 }
 
 /**
@@ -261,8 +340,9 @@ function helpdeskSection(helpdesk) {
  * site with nothing to judge has not earned one. A genuine 0 (everything failed)
  * IS a measurement and does print 0%.
  */
-function changesSection(changes) {
+function changesSection(changes, ctx) {
   const c = obj(changes);
+  const cx = obj(ctx);
   const pct = c.success_pct === null || c.success_pct === undefined ? '—' : `${num(c.success_pct)}%`;
 
   const kpis = kpiGrid([
@@ -285,12 +365,13 @@ function changesSection(changes) {
     num(c.pending) ? `${num(c.pending)} change(s) are still in progress.` : '',
   ].filter(Boolean).join(' ');
 
-  return card('Changes', `${kpis}${emptyNote(notes)}`, NAVY);
+  return card('Changes', `${windowNote(`P&eacute;riode&nbsp;: ${cx.period}.`)}${kpis}${emptyNote(notes)}`, NAVY);
 }
 
-function techniciansSection(technicians) {
+function techniciansSection(technicians, ctx) {
   const techs = arr(technicians);
-  if (!techs.length) return card('Technicians', emptyNote('No technician activity this period.'), NAVY);
+  const note = windowNote(`P&eacute;riode&nbsp;: ${obj(ctx).period}.`);
+  if (!techs.length) return card('Technicians', `${note}${emptyNote('No technician activity this period.')}`, NAVY);
 
   const th = (label, align = 'left') => `<th align="${align}" style="font-family:${FONT};font-size:10px;font-weight:bold;color:${MUTED};text-transform:uppercase;letter-spacing:0.5px;text-align:${align};padding:0 6px 6px 0;border-bottom:1px solid ${BORDER};">${escapeHtml(label)}</th>`;
   const td = (html, align = 'left') => `<td align="${align}" style="font-family:${FONT};font-size:12px;color:${INK};text-align:${align};padding:7px 6px 7px 0;border-bottom:1px solid ${BORDER};vertical-align:top;">${html}</td>`;
@@ -298,11 +379,17 @@ function techniciansSection(technicians) {
   const rows = techs.map((t) => {
     const it = obj(t);
     const alerts = arr(it.alerts).map((a) => chip(String(a).replace(/_/g, ' '), RAG_COLORS.amber)).join('') || `<span style="color:${MUTED};font-family:${FONT};font-size:11px;">&mdash;</span>`;
+    // reports-db.js:1896 emits `avg_resolution_h: null` DELIBERATELY (the
+    // `+null === 0` trap is commented at its site) when the technician closed
+    // nothing — there is no average. num(null) is 0, which printed "0h": the
+    // best possible resolution time awarded to whoever resolved nothing.
+    // `== null` covers null AND undefined; `||` would also swallow a genuine 0h.
+    const avg = it.avg_resolution_h == null ? '&mdash;' : `${escapeHtml(num(it.avg_resolution_h))}h`;
     return `<tr>
 ${td(`<strong style="color:${NAVY};">${escapeHtml(it.name)}</strong>`)}
 ${td(escapeHtml(num(it.assigned)), 'right')}
 ${td(escapeHtml(num(it.resolved)), 'right')}
-${td(`${escapeHtml(num(it.avg_resolution_h))}h`, 'right')}
+${td(avg, 'right')}
 ${td(escapeHtml(num(it.reopened)), 'right')}
 ${td(escapeHtml(num(it.current_load)), 'right')}
 ${td(alerts)}
@@ -314,7 +401,7 @@ ${td(alerts)}
 ${rows}
 </table>`;
 
-  return card('Technicians', table, NAVY);
+  return card('Technicians', `${note}${table}`, NAVY);
 }
 
 /**
@@ -346,12 +433,33 @@ function assetEffortSection(effort) {
 
   const note = `<div style="${p}font-style:italic;padding-top:6px;">Score composite de bonne tenue du parc informatique (co&ucirc;t, &acirc;ge, propri&eacute;taire, scan, &eacute;tiquetage, enr&ocirc;lement)&nbsp;&mdash; de 0 &agrave; 100, compar&eacute; aux autres sites.</div>`;
 
-  return card('Tenue du parc — actifs', `${kpis}${deltaLine}${note}`, NAVY);
+  // Deliberately dateless: assetEffort reads the LATEST effort snapshot
+  // (siteReportDeps → getEffortLeaderboard({})), i.e. today — never the report
+  // month, and never the score's as-of date. Stamping it with either would be a
+  // more precise lie than saying "état actuel".
+  const win = windowNote('Parc&nbsp;: &eacute;tat actuel (dernier relev&eacute; quotidien), ind&eacute;pendant de la p&eacute;riode du rapport.');
+
+  return card('Tenue du parc — actifs', `${win}${kpis}${deltaLine}${note}`, NAVY);
 }
 
-/** The point of the report — the coordinator's "what do I do now". */
-function recommendedSection(recommended) {
+/**
+ * The point of the report — the coordinator's "what do I do now".
+ *
+ * An EMPTY list has two very different meanings and they must not share a
+ * sentence. _recommend (siteReport.js:120-127) only ever pushes on a POSITIVE
+ * signal (HIGH issues open, findings, PVs missing, an overloaded tech), so a
+ * site with no data at all produces exactly the same empty list as a site that
+ * was measured and came out clean. Printing the reassuring line for both put
+ * "Nothing needs your attention" in the very same email whose first card reads
+ * "Score non applicable — aucune donnée sur la fenêtre".
+ *
+ * Keyed on `score.applicable === false` — the same flag scoreHero() and intro()
+ * use, and for the same reason: the engine always sets the field, so a block
+ * that merely lacks it is a legacy/degraded shape and keeps the old wording.
+ */
+function recommendedSection(recommended, score) {
   const items = arr(recommended);
+  const unscored = obj(score).applicable === false;
   const inner = items.length
     ? items.map((r, ix) => {
       const it = obj(r);
@@ -362,7 +470,9 @@ function recommendedSection(recommended) {
 <td style="vertical-align:top;padding:10px 12px 10px 4px;">${kind}<div style="font-family:${FONT};font-size:14px;font-weight:bold;color:${NAVY};line-height:1.45;">${escapeHtml(it.text)}</div></td>
 </tr></table>`;
     }).join('')
-    : `<div style="font-family:${FONT};font-size:13px;color:${INK};background:#FFFFFF;border:1px solid ${BORDER};border-radius:4px;padding:12px;">Nothing needs your attention this period.</div>`;
+    : `<div style="font-family:${FONT};font-size:13px;color:${INK};background:#FFFFFF;border:1px solid ${BORDER};border-radius:4px;padding:12px;">${unscored
+      ? 'Aucune donn&eacute;e sur la p&eacute;riode &mdash; rien &agrave; recommander.'
+      : 'Nothing needs your attention this period.'}</div>`;
 
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:separate;border:2px solid ${TEAL};border-radius:6px;margin:0 0 14px 0;">
 <tr><td style="background:${TEAL};padding:9px 14px;border-radius:4px 4px 0 0;">
@@ -441,16 +551,21 @@ function composeCoordinator(data) {
   const label = obj(d.period).label || '';
   const subject = `Site IT Scorecard — ${siteName} — ${label}`;
 
+  // One window context, built once and handed to every card. `period` is the
+  // report month's label; `history` is the stamp the two overdue-action lists
+  // carry (whole history, stopped at the report's as-of date).
+  const ctx = { period: periodOf(d), history: historyStamp(asOfOf(d)) };
+
   const content = [
     header(d),
     intro(d.score),
     scoreHero(d.score),
-    meetingsSection(d.meetings),
-    inspectionSection(d.inspection),
-    helpdeskSection(d.helpdesk),
-    changesSection(d.changes),
-    techniciansSection(d.technicians),
-    recommendedSection(d.recommended),
+    meetingsSection(d.meetings, ctx),
+    inspectionSection(d.inspection, ctx),
+    helpdeskSection(d.helpdesk, ctx),
+    changesSection(d.changes, ctx),
+    techniciansSection(d.technicians, ctx),
+    recommendedSection(d.recommended, d.score),
     // SPREAD, never a ternary-into-'' — composeCoordinator joins WITHOUT
     // .filter(Boolean), so an empty string here would add a stray '\n' and break
     // the byte-for-byte monthly goldens. Absent assetEffort → nothing inserted.

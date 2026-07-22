@@ -6,7 +6,7 @@ const A = require('../services/siteReportAdapters');
 test('adaptMeetingsSummary maps the real kpi keys to the contract', () => {
   const real = {
     site_code: 'HGO', month_label: 'July 2026', available: true,
-    kpis: { pvs_held: 2, dept_target: 3, open_issues: 4, high_open: 1,
+    kpis: { pvs_held: 2, depts_with_pv: 2, dept_target: 3, open_issues: 4, high_open: 1,
             resolved_month: 6, new_month: 3, escalations_open: 1,
             signoff_pct: 80, overdue_actions_count: 2 },
     departments: [{ department: 'hse', status: 'on_track' }],
@@ -24,7 +24,24 @@ test('adaptMeetingsSummary maps the real kpi keys to the contract', () => {
 test('adaptMeetingsSummary tolerates the unavailable shape', () => {
   const r = A.adaptMeetingsSummary({ available: false, kpis: {}, departments: [] });
   assert.strictEqual(r.kpis.pvs_target, 0);
+  assert.strictEqual(r.kpis.depts_with_pv, 0);
   assert.deepStrictEqual(r.departments, []);
+});
+
+// `dept_target` is Engagement #1 — THREE DISTINCT DEPARTMENTS met this month.
+// Its numerator is `depts_with_pv` (COUNT DISTINCT department), never `pvs_held`
+// (COUNT of PVs): five PVs of the SAME department used to read "5 / 3 — target
+// met" while two departments had never been seen. The reader emits both; the
+// adapter must carry both through, unswapped.
+test('adaptMeetingsSummary carries depts_with_pv SEPARATELY from pvs_held', () => {
+  const r = A.adaptMeetingsSummary({
+    kpis: { pvs_held: 5, depts_with_pv: 2, dept_target: 3 }, departments: [],
+  });
+  assert.strictEqual(r.kpis.pvs_held, 5, 'PV volume');
+  assert.strictEqual(r.kpis.depts_with_pv, 2, 'departments covered — the target numerator');
+  assert.strictEqual(r.kpis.pvs_target, 3);
+  assert.notStrictEqual(r.kpis.depts_with_pv, r.kpis.pvs_held,
+    'the two must not be conflated — that is the bug this pins');
 });
 
 test('adaptMeetingsActions maps owner_it → owner', () => {
@@ -43,6 +60,29 @@ test('adaptInspectionAggregate lifts counts.* and derives findings_critical_majo
 test('adaptInspectionAggregate with no findings → 0 / low', () => {
   const r = A.adaptInspectionAggregate({ counts: { total: 1 }, findingStatus: [{ status: 'ok', n: 5 }] });
   assert.strictEqual(r.findings_critical_major, 0);
+  assert.strictEqual(r.overall_risk, 'low');
+});
+
+// 'low' is NOT in the finding-status vocabulary (inspection-init.json:
+// ok · minor · major · critical · opp · na), so _RISK_ORDER.find() can never
+// return it — every 'low' came from the fallback. On a site with ZERO
+// inspections that fallback printed a GREEN "Overall risk: low" over nothing
+// measured. No inspections → no verdict.
+test('adaptInspectionAggregate with ZERO inspections → overall_risk null, never "low"', () => {
+  const r = A.adaptInspectionAggregate({ counts: { total: 0 }, findingStatus: [] });
+  assert.strictEqual(r.inspections_done, 0);
+  assert.strictEqual(r.overall_risk, null, 'no inspection was run — there is no risk verdict to state');
+});
+
+test('adaptInspectionAggregate on junk → null risk (a failed read is not "low")', () => {
+  assert.strictEqual(A.adaptInspectionAggregate(null).overall_risk, null);
+  assert.strictEqual(A.adaptInspectionAggregate({}).overall_risk, null);
+});
+
+// The other half of the rule: inspections DID run and turned up nothing
+// serious — that is a real measurement and 'low' is legitimate.
+test('adaptInspectionAggregate with inspections but no findings keeps "low"', () => {
+  const r = A.adaptInspectionAggregate({ counts: { total: 3 }, findingStatus: [{ status: 'ok', n: 5 }] });
   assert.strictEqual(r.overall_risk, 'low');
 });
 
