@@ -317,6 +317,38 @@ ${rows}
   return card('Technicians', table, NAVY);
 }
 
+/**
+ * The site's asset-effort standing — a composite "how well is the parc kept?"
+ * score (0–100) with the site's rank across the fleet and its ~30-day evolution.
+ *
+ * `effort` is effortForSite()'s output: { score, rank, of, delta } (delta may be
+ * null when there is no prior baseline). It is NEVER the empty string — the block
+ * is spread-inserted only when data.assetEffort is present, so this renderer is
+ * only ever called with a real object. NO money here — this is a 0–100 score.
+ */
+function assetEffortSection(effort) {
+  const e = obj(effort);
+  const kpis = kpiGrid([
+    { label: 'Score de tenue', value: `${num(e.score)}/100` },
+    { label: 'Rang du site', value: `#${num(e.rank)} / ${num(e.of)} sites` },
+  ]);
+  const p = `font-family:${FONT};font-size:12px;color:${MUTED};line-height:1.5;`;
+
+  // delta is a ~30-day lookback and may be null (no baseline yet). A mean-of-nothing
+  // must print no line at all — never a fabricated "0".
+  let deltaLine = '';
+  if (e.delta !== null && e.delta !== undefined) {
+    const dv = num(e.delta);
+    const c = dv > 0 ? SCORE_RAG.green : dv < 0 ? SCORE_RAG.red : MUTED;
+    const signed = dv > 0 ? `+${dv}` : dv < 0 ? `&minus;${Math.abs(dv)}` : '0';
+    deltaLine = `<div style="${p}padding-top:4px;">&Eacute;volution sur ~30&nbsp;jours&nbsp;: <span style="color:${c};font-weight:bold;">${signed} pts</span></div>`;
+  }
+
+  const note = `<div style="${p}font-style:italic;padding-top:6px;">Score composite de bonne tenue du parc informatique (co&ucirc;t, &acirc;ge, propri&eacute;taire, scan, &eacute;tiquetage, enr&ocirc;lement)&nbsp;&mdash; de 0 &agrave; 100, compar&eacute; aux autres sites.</div>`;
+
+  return card('Tenue du parc — actifs', `${kpis}${deltaLine}${note}`, NAVY);
+}
+
 /** The point of the report — the coordinator's "what do I do now". */
 function recommendedSection(recommended) {
   const items = arr(recommended);
@@ -419,6 +451,10 @@ function composeCoordinator(data) {
     changesSection(d.changes),
     techniciansSection(d.technicians),
     recommendedSection(d.recommended),
+    // SPREAD, never a ternary-into-'' — composeCoordinator joins WITHOUT
+    // .filter(Boolean), so an empty string here would add a stray '\n' and break
+    // the byte-for-byte monthly goldens. Absent assetEffort → nothing inserted.
+    ...(d.assetEffort ? [assetEffortSection(d.assetEffort)] : []),
     footer(d),
   ].join('\n');
 

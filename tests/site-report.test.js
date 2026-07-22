@@ -176,6 +176,26 @@ test('a failing scoreInputs degrades to "non applicable", not a fabricated RED',
   assert.deepStrictEqual(r.score.moves, []);
 });
 
+// ── asset-effort attachment (Task 1) ─────────────────────────────────────────
+// composeCoordinator reads data.assetEffort, so siteReportData must attach it.
+test('attaches assetEffort from the dep for the composer to read', async () => {
+  const withEffort = { ...deps, assetEffort: async () => ({ score: 71, rank: 3, of: 9, delta: 5 }) };
+  const r = await siteReportData('HGO', { year: 2026, month: 7, kind: 'weekly' }, withEffort);
+  assert.deepStrictEqual(r.assetEffort, { score: 71, rank: 3, of: 9, delta: 5 });
+});
+
+test('assetEffort null → data.assetEffort is null, report still composes', async () => {
+  const r = await siteReportData('HGO', { year: 2026, month: 7, kind: 'weekly' }, { ...deps, assetEffort: async () => null });
+  assert.strictEqual(r.assetEffort, null);
+});
+
+// A deps object built before this block existed (no assetEffort key) degrades to
+// null rather than throwing the whole report.
+test('a deps object with no assetEffort reader still composes', async () => {
+  const r = await siteReportData('HGO', { year: 2026, month: 7, kind: 'weekly' }, deps);   // base deps has no assetEffort
+  assert.strictEqual(r.assetEffort, null);
+});
+
 test('technicians get deterministic alerts', async () => {
   const overloaded = { ...deps, technicians: async () => [
     { name: 'Busy', assigned: 30, resolved: 12, avg_resolution_h: 9, reopened: 0, current_load: 20 },

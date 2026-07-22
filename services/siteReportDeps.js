@@ -6,6 +6,10 @@ const A = require('./siteReportAdapters');
 const { computeSiteScore } = require('./siteScore');
 const { rollingWindow, prevDay } = require('./scoreWindow');
 const { deriveSiteStatus } = require('./execSummary');
+// Both PURE (no DB): safe to require at module load. assets-db is NOT — it opens
+// a connection as a side effect — so it is lazy-required inside the binder only.
+const { effortForSite } = require('./assetEffortForSite');
+const scoreboardAliases = require('./scoreboardAliases');
 
 const MODULE_NS = 'meetings';   // the report's site codes come from the meetings/inspection namespace
 
@@ -16,6 +20,17 @@ function buildSiteReportDeps(mods) {
     reportsDb: require('../reports-db'),
   };
   const { meetingsDb, inspectionDb, reportsDb } = m;
+  const aliases = m.aliases || scoreboardAliases;
+  // Lazy so a fully-injected test that never touches assetEffort never opens the
+  // assets DB. Injectable via mods.assetsDb.
+  const _assetsDb = () => m.assetsDb || require('../assets-db');
+
+  // The FLEET effort leaderboard is identical for every site (no site filter), so
+  // fetch it ONCE per deps object and memoise the PROMISE — a batch send reusing
+  // one deps object across sites must not refetch it, and concurrent callers share
+  // the one in-flight fetch.
+  let _effortBoard = null;
+  const effortBoard = () => (_effortBoard || (_effortBoard = Promise.resolve(_assetsDb().getEffortLeaderboard({}))));
 
   // code (HGO) → { site_id, name, zoho_group } | null
   const resolve = async (code) => (await reportsDb.getSiteIdByModuleCode(MODULE_NS, code)) || null;
@@ -77,6 +92,12 @@ function buildSiteReportDeps(mods) {
       if (!s) return [];
       return reportsDb.getSiteTechnicianStats(s.site_id, p.year, p.month);
     },
+
+    // The site's asset-effort standing out of the memoised fleet leaderboard.
+    // effortForSite folds AP labels → codes (aliases) and re-derives rank; a code
+    // with no label / no effort history → null, so the composer omits the block
+    // (zeros would read as a well-kept site rather than an unmeasured one).
+    assetEffort: async (code) => effortForSite(code, { leaderboard: await effortBoard(), aliases }),
 
     // Incident-derived (documented in the spec — NOT live uptime).
     // deriveSiteStatus omits healthy sites → absent means 'operational'.

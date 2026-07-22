@@ -187,6 +187,35 @@ test('the coordinator email carries no ITSM jargon — no "RFC", no "CAB"', () =
   });
 });
 
+// ── the asset-effort block (Task 1) ──────────────────────────────────────────
+// effortForSite → { score, rank, of, delta } | null. When present, the block
+// states the site's parc-hygiene standing; when absent, NOTHING is emitted —
+// the section must be spread-inserted, never injected as an empty string (that
+// would add a stray '\n' and break the byte-for-byte monthly goldens).
+test('renders the asset-effort block with score, rank, of, and signed delta', () => {
+  const withEffort = { ...data, assetEffort: { score: 71, rank: 3, of: 9, delta: 5 } };
+  const { htmlBody } = composeCoordinator(withEffort);
+  assert.match(htmlBody, /Tenue du parc/);        // the section marker
+  assert.match(htmlBody, /71/);                    // score /100
+  assert.match(htmlBody, /#3/);                    // rank
+  assert.match(htmlBody, /9 sites/);               // of
+  assert.match(htmlBody, /\+5/);                   // signed delta
+});
+
+test('a report with NO assetEffort emits no effort section at all', () => {
+  const { htmlBody } = composeCoordinator(data);   // base fixture carries no assetEffort
+  assert.ok(!/Tenue du parc/.test(htmlBody), 'the effort section must be absent, not an empty stub');
+});
+
+test('assetEffort with null delta omits the delta line but still renders score+rank', () => {
+  const withEffort = { ...data, assetEffort: { score: 44, rank: 8, of: 9, delta: null } };
+  const { htmlBody } = composeCoordinator(withEffort);
+  assert.match(htmlBody, /Tenue du parc/);
+  assert.match(htmlBody, /44/);
+  assert.match(htmlBody, /#8/);
+  assert.ok(!/~30/.test(htmlBody), 'no evolution line when delta is null');
+});
+
 // ── major-incident detail ───────────────────────────────────────────────────
 test('open major incidents are listed, not just counted', () => {
   const { htmlBody } = composeCoordinator(data);

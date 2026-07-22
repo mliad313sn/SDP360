@@ -109,6 +109,39 @@ test('siteStatus is operational when no active MI', async () => {
   assert.strictEqual(await d.siteStatus('HGO'), 'operational');
 });
 
+// ── the asset-effort dep (Task 1) ────────────────────────────────────────────
+// assetEffort(code) folds the FLEET effort leaderboard by code + re-ranks via the
+// shared, synchronous effortForSite. The leaderboard is the same for every site
+// (getEffortLeaderboard takes no site filter), so it is fetched ONCE per deps
+// object and memoised in the closure — a batch send reusing one deps object must
+// not refetch it per site.
+test('assetEffort folds+ranks the fleet leaderboard, fetched ONCE and memoised', async () => {
+  let boardCalls = 0;
+  const board = { rows: [
+    { site: 'Hounde', effort_score: 80, delta: 3 },
+    { site: 'Sabodala', effort_score: 71, delta: 5 },   // Sabodala + MASSAWA
+    { site: 'MASSAWA', effort_score: 71, delta: 9 },     //   both fold to SGO
+    { site: 'Mana', effort_score: 60, delta: -2 },
+  ] };
+  const d = buildSiteReportDeps({ ...mods,
+    assetsDb: { getEffortLeaderboard: async () => { boardCalls++; return board; } } });
+
+  const sgo = await d.assetEffort('SGO');
+  // SGO = mean(71,71)=71, ranks 2nd of 3 folded codes (HGO 80 > SGO 71 > MGO 60).
+  // delta = the first Sabodala/MASSAWA row folding to SGO (5), never a mean.
+  assert.deepStrictEqual(sgo, { score: 71, rank: 2, of: 3, delta: 5 });
+
+  const hgo = await d.assetEffort('HGO');
+  assert.strictEqual(hgo.rank, 1);
+  assert.strictEqual(boardCalls, 1, 'the fleet leaderboard is fetched once, not per site');
+});
+
+test('assetEffort → null for a code with no AP label / no effort history', async () => {
+  const d = buildSiteReportDeps({ ...mods,
+    assetsDb: { getEffortLeaderboard: async () => ({ rows: [{ site: 'Hounde', effort_score: 80, delta: 1 }] }) } });
+  assert.strictEqual(await d.assetEffort('KGO'), null);   // Kalana absent from the board
+});
+
 // ── _asOfFor — the report's as-of date. The clock is injected: an internal
 // new Date() would make the MTD branch untestable and rot the test daily.
 test('_asOfFor: a closed month scores as-of that month\'s last day', () => {
