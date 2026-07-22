@@ -52,6 +52,10 @@ async function siteReportData(siteCode, period, deps) {
   // the dep so a deps object built before this block existed degrades to null
   // rather than logging a spurious warn. null → composeCoordinator omits the block.
   const assetEffort = await _safe(() => (deps.assetEffort ? deps.assetEffort(siteCode) : null), null, 'assetEffort');
+  // The site's out-of-compliance assets per hygiene kind, or null when the code
+  // maps to no AP label. Same dep guard as assetEffort: a deps object built
+  // before this block existed degrades to null instead of a spurious warn.
+  const assetHygiene = await _safe(() => (deps.assetHygiene ? deps.assetHygiene(siteCode) : null), null, 'assetHygiene');
 
   // `pvs_held` (how many PVs) and `depts_with_pv` (how many DISTINCT departments
   // met) are different measures and only the second one faces `pvs_target`
@@ -118,7 +122,7 @@ async function siteReportData(siteCode, period, deps) {
     site_code: siteCode, site_name: ms.site_name || siteCode,
     period: { ...period, label: ms.month_label || '' },
     score, meetings, inspection, helpdesk, changes, technicians, recommended, fm,
-    assetEffort,
+    assetEffort, assetHygiene,
   };
 }
 

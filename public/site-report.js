@@ -477,6 +477,132 @@
       }).join('') + '</tbody></table>';
   }
 
+  // ── IT assets — compliance ───────────────────────────────────
+  // The point of this block is ACTION, not information: every count links
+  // straight into the Assets module's hygiene worklist, pre-filtered on this
+  // site and that kind, where the per-asset list and the Excel export already
+  // live. A count with no way through is a count nobody works.
+  //
+  // Labels mirror HYGIENE_KINDS (assets-db.js) and the Assets tab they link to —
+  // deliberately English even though the sub-heads are French, so the coordinator
+  // lands on the same words they just clicked.
+  var HYG_LABEL = {
+    discovered:          'Discovered — never brought into inventory',
+    never_scanned:       'Never successfully scanned',
+    ghost:               'Ghost — was healthy, stale > 90 days',
+    lifecycle_exception: 'In repair / expired / lost',
+    no_owner:            'No owner',
+    no_age:              'No acquisition date',
+    no_cost:             'No cost data',
+    no_asset_tag:        'No asset tag / QR'
+  };
+  var HYG_GROUPS = [
+    { title: 'À traiter — sur le matériel',      kinds: ['discovered', 'never_scanned', 'ghost', 'lifecycle_exception'] },
+    { title: 'À compléter — sur la fiche',       kinds: ['no_owner', 'no_age', 'no_cost', 'no_asset_tag'] }
+  ];
+
+  function hygHref(label, kind) {
+    return 'assets.html?site=' + encodeURIComponent(label) + '&kind=' + encodeURIComponent(kind) + '#hygiene';
+  }
+
+  // One site code can fold SEVERAL AP labels (SGO ← Sabodala + MASSAWA), and the
+  // Assets filter is a single-select. So the count is the SUM across labels and
+  // the link is only on the number when there is exactly one label; otherwise
+  // each label gets its own link. Linking a multi-label site to just the first
+  // label would show a smaller list than the number promises.
+  function hygCell(count, labels, kind) {
+    var num = '<strong>' + esc(count) + '</strong>';
+    if (labels.length === 1) {
+      return '<a href="' + esc(hygHref(labels[0], kind)) + '" style="color:var(--edv-blue,#145FAE);font-weight:800">' + num + ' →</a>';
+    }
+    return num + ' <span style="font-size:.74rem">' + labels.map(function (l) {
+      return '<a href="' + esc(hygHref(l, kind)) + '" style="color:var(--edv-blue,#145FAE)">' + esc(l) + '</a>';
+    }).join(' · ') + '</span>';
+  }
+
+  function ensureAssetsSection() {
+    var host = el('astBody');
+    if (host) return host;
+    var rec = el('recList');
+    var before = rec && rec.closest ? rec.closest('section') : null;
+    if (!before || !before.parentNode) return null;
+    var sec = document.createElement('section');
+    sec.className = 'section';
+    sec.id = 'astSection';
+    sec.innerHTML =
+      '<div class="section-title">IT assets — compliance</div>' +
+      '<div id="astKpis"></div>' +
+      '<div class="card panel" style="margin-top:14px" id="astPanel">' +
+        '<h2>Assets not in compliance</h2><div id="astBody"></div></div>';
+    before.parentNode.insertBefore(sec, before);
+    return el('astBody');
+  }
+
+  function renderAssets(hyg, effort) {
+    // Neither measured → no section at all. A code that maps to no AP label gets
+    // null from the binder, and rendering zeros would read as a spotless parc
+    // rather than an unmeasured one — the same rule the weekly e-mail applies.
+    if (!hyg && !effort) return;
+    var host = ensureAssetsSection();
+    if (!host) return;
+
+    var kpis = el('astKpis');
+    if (kpis) {
+      kpis.innerHTML = effort
+        ? '<div class="kpis">' + [
+            kpi('Tenue du parc', n(effort.score) + ' / 100', n(effort.score) < 55 ? 'bad' : n(effort.score) < 75 ? 'warn' : ''),
+            kpi('Rang', effort.rank ? effort.rank + (effort.of ? ' / ' + effort.of : '') : '—'),
+            kpi('Δ 30 jours', effort.delta == null ? '—' : (effort.delta > 0 ? '+' : '') + n(effort.delta),
+              effort.delta != null && effort.delta < 0 ? 'bad' : '')
+          ].join('') + '</div>'
+        : '';
+    }
+
+    // The parc is a LIVE snapshot: `assets` is DELETE+INSERT full-replaced every
+    // night and only the composite effort score is historised, so there is no
+    // per-kind state for the report month to look back at. Said plainly rather
+    // than implied by an unlabelled block sitting among month-scoped ones.
+    setWindowNote('astWindow', 'astKpis',
+      "État du parc AUJOURD'HUI, pas celui du mois du rapport — l'inventaire est remplacé chaque nuit " +
+      "et seul le score de tenue est historisé.");
+
+    var byKind = (hyg && hyg.by_kind) || {};
+    var labels = (hyg && Array.isArray(hyg.labels) ? hyg.labels : []).filter(Boolean);
+    var kinds = Object.keys(byKind);
+    if (!hyg) {
+      host.innerHTML = '<div class="muted">Aucun inventaire rattaché à ce site — rien à contrôler ici.</div>';
+      return;
+    }
+    if (!kinds.length) {
+      host.innerHTML = '<div class="muted">Aucune non-conformité — inventaire complet et à jour. 🎉</div>';
+      return;
+    }
+
+    // Grouped, then ANY leftover kind under "Autres". A kind the reader gains
+    // later must never be silently dropped: dropping a non-conformity is the
+    // exact failure this block exists to prevent.
+    var placed = {};
+    var groups = HYG_GROUPS.map(function (g) {
+      var rows = g.kinds.filter(function (k) { return byKind[k] > 0; });
+      rows.forEach(function (k) { placed[k] = 1; });
+      return { title: g.title, kinds: rows };
+    });
+    var rest = kinds.filter(function (k) { return !placed[k]; });
+    if (rest.length) groups.push({ title: 'Autres', kinds: rest });
+
+    host.innerHTML = groups.filter(function (g) { return g.kinds.length; }).map(function (g) {
+      return subHead(g.title) +
+        '<table class="tbl" style="margin-bottom:14px"><tbody>' +
+        g.kinds.map(function (k) {
+          return '<tr><td>' + esc(HYG_LABEL[k] || k) + '</td>' +
+            '<td class="num">' + hygCell(n(byKind[k]), labels, k) + '</td></tr>';
+        }).join('') + '</tbody></table>';
+    }).join('') +
+      '<div class="muted" style="font-size:.72rem;line-height:1.5">' +
+      'Chaque ligne ouvre la liste des machines concernées dans le module Assets (filtre site déjà appliqué), ' +
+      'avec export Excel.</div>';
+  }
+
   // An EMPTY list has two meanings that must not share a sentence. _recommend
   // (services/siteReport.js) only pushes on a POSITIVE signal, so a site with no
   // data produces the same empty list as a site measured and found clean — and
@@ -508,6 +634,7 @@
     renderHelpdesk(data.helpdesk, ctx);
     renderChanges(data.changes, ctx);
     renderTechnicians(data.technicians, ctx);
+    renderAssets(data.assetHygiene, data.assetEffort);
     renderRecommended(data.recommended, data.score);
   }
 

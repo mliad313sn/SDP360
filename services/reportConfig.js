@@ -7,6 +7,12 @@ const DEFAULTS = {
   smtp_host: '', smtp_port: '587', smtp_secure: '0', smtp_user: '', smtp_pass: '',
   from: '', reply_to: '',
   default_email_domain: 'edv-ops.com',
+  // Public origin of this dashboard (e.g. https://itops-dashboard.edv-ops.com),
+  // used to turn e-mail figures into links the reader can act on. EMPTY BY
+  // DEFAULT and every consumer must degrade to plain text: a guessed or stale
+  // origin produces dead links in an e-mail that has already left the building,
+  // which is worse than no link. No trailing slash — consumers append '/…'.
+  public_base_url: '',
   formats: 'html,pdf',
   never_send_unconfirmed: '1',
   group_report_to: '', group_report_cc: '', group_report_to_confirmed: '0',

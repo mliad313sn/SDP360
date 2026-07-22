@@ -459,6 +459,14 @@
       <div class="gap" data-kind="no_owner"><span class="gl">No owner</span><span class="gn" id="hyg-cnt-no_owner">—</span></div>
       <div class="gap" data-kind="no_age"><span class="gl">No acquisition date</span><span class="gn" id="hyg-cnt-no_age">—</span></div>
       <div class="gap" data-kind="no_cost"><span class="gl">No cost data</span><span class="gn" id="hyg-cnt-no_cost">—</span></div>
+      <!-- The two kinds C-v1 added to HYGIENE_KINDS. The reader, the /exceptions
+           route and the Excel export have always supported them and the weekly
+           coordinator e-mail reports their counts — but they had no screen, so a
+           coordinator told "No asset tag / QR: 42" had nowhere to go. Both stay
+           OUT of the completeness score (that is still the three B gaps above);
+           they are worklists shown beside it. -->
+      <div class="gap" data-kind="no_asset_tag"><span class="gl">No asset tag / QR</span><span class="gn" id="hyg-cnt-no_asset_tag">—</span></div>
+      <div class="gap" data-kind="lifecycle_exception"><span class="gl">In repair / expired / lost</span><span class="gn" id="hyg-cnt-lifecycle_exception">—</span></div>
     </div>
 
     <!-- Charts -->
@@ -1294,6 +1302,11 @@
     no_owner:      'No owner',
     no_age:        'No acquisition date',
     no_cost:       'No cost data',
+    // Mirrors HYGIENE_KINDS (assets-db.js) — the single source of truth the
+    // routes and the Excel builder read. Keep this map in step with it: a kind
+    // absent here is refused by openKind and renders an unlabelled drill header.
+    no_asset_tag:        'No asset tag / QR',
+    lifecycle_exception: 'In repair / expired / lost',
   };
 
   let charts = {};
@@ -1566,7 +1579,19 @@
     await refresh(f);
   }
 
-  window.HYG_PANE = { init, refresh };
+  // openKind — the deep-link entry point. A site report links straight to the
+  // worklist it just told the coordinator about (…/assets.html?site=X&kind=no_owner),
+  // so acting on a non-conformity is one click from the report instead of four
+  // navigation steps. Guarded on a KNOWN kind: an unknown one would set
+  // activeKind and leave every refresh fetching an endpoint that 400s.
+  async function openKind(kind, f) {
+    if (!kind || !KIND_LABEL[kind]) return;
+    await loadDrill(kind, f || (window.__assetFilters ? window.__assetFilters() : {}));
+    const host = document.getElementById('hyg-drillTitle');
+    if (host && host.scrollIntoView) host.scrollIntoView({ block: 'center' });
+  }
+
+  window.HYG_PANE = { init, refresh, openKind };
 })();
 </script>
 
@@ -2936,11 +2961,42 @@
     });
   }
 
+  // Deep link — ?site=<AP label>&kind=<hygiene kind>[#hygiene]
+  //
+  // Exists so a site report can send a coordinator straight to the worklist it
+  // just named. The site value is the AP LABEL as stored in `assets.site`
+  // ('Sabodala', 'MGO'), NOT the report's site code: the filter is a <select>
+  // built from getAssetLookups().sites, so anything else silently selects
+  // nothing and the tab reads FLEET-WIDE — a far worse outcome than no filter,
+  // because the coordinator would act on other sites' machines. Hence the
+  // option-exists check: an unknown label is ignored, loudly in the console.
+  function applyDeepLink() {
+    const q = new URLSearchParams(location.search);
+    const site = (q.get('site') || '').trim();
+    if (site) {
+      const sel = document.getElementById('filterSite');
+      const known = Array.prototype.some.call(sel.options, o => o.value === site);
+      if (known) sel.value = site;
+      else console.warn('assets: ?site="' + site + '" is not a known asset site label — ignored');
+    }
+    return (q.get('kind') || '').trim();
+  }
+
   async function boot() {
     wire();
     await loadLookups();
+    // AFTER loadLookups (the <option>s must exist) and BEFORE activate, so the
+    // pane's first init() already receives the narrowed filters() — setting the
+    // select afterwards would render the fleet once, then flip.
+    const kind = applyDeepLink();
     const initialTab = (location.hash || '').replace('#', '');
     await activate(TABS.includes(initialTab) ? initialTab : 'inventory', { skipHash: !!TABS.includes(initialTab) });
+    // A pane opts in by exporting openKind; one that does not simply ignores the
+    // parameter rather than erroring.
+    if (kind) {
+      const p = pane(activeTab);
+      if (p && typeof p.openKind === 'function') await p.openKind(kind, filters());
+    }
   }
 
   if (document.readyState === 'loading') {

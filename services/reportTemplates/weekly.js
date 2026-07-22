@@ -274,16 +274,36 @@ const HYGIENE_LABELS = {
  * unmeasured one. `effort` carries {effort_score, rank} only — there is
  * deliberately no delta (a ~30-day lookback barely moves week to week).
  */
-function assetsSection(assets) {
+function assetsSection(assets, baseUrl, labels) {
   const a = obj(assets);
   const hygiene = obj(a.hygiene);
   const effort = a.effort === null || a.effort === undefined ? null : obj(a.effort);
+
+  // A count the reader cannot act on is a count nobody works. When a public
+  // origin is configured, each figure links into the Assets hygiene worklist
+  // pre-filtered on this site and kind; without one it stays plain text (see
+  // reportConfig.public_base_url — a guessed origin ships dead links).
+  //
+  // The link needs the AP LABEL, not the site code, because the target's site
+  // filter is built from getAssetLookups().sites. A code folding to SEVERAL
+  // labels (SGO ← Sabodala + MASSAWA) gets NO link at all: the count is the sum
+  // across labels, so linking one of them would open a list smaller than the
+  // number promises — a quieter wrong answer than no link.
+  const linkable = baseUrl && Array.isArray(labels) && labels.length === 1;
+  const countCell = (k) => {
+    const v = `<span style="color:${NAVY};font-weight:bold;">${escapeHtml(num(hygiene[k]))}</span>`;
+    if (!linkable) return v;
+    // Built with a plain '&' and escaped ONCE — escapeHtml turns it into the
+    // &amp; an HTML attribute requires. Pre-escaping it here would double-encode.
+    const href = `${baseUrl}/assets.html?site=${encodeURIComponent(labels[0])}&kind=${encodeURIComponent(k)}#hygiene`;
+    return `<a href="${escapeHtml(href)}" style="color:${NAVY};text-decoration:underline;">${v}</a>`;
+  };
 
   const kinds = Object.keys(hygiene).filter((k) => num(hygiene[k]) > 0);
   const list = kinds.length
     ? bulletList(kinds.map((k) => {
       const label = HYGIENE_LABELS[k] || escapeHtml(String(k).replace(/_/g, ' '));
-      return `${label} <span style="color:${NAVY};font-weight:bold;">${escapeHtml(num(hygiene[k]))}</span>`;
+      return `${label} ${countCell(k)}`;
     }))
     : staticNote('Aucun &eacute;cart de qualit&eacute; de donn&eacute;es &agrave; corriger. Merci&nbsp;!');
 
@@ -352,7 +372,9 @@ function composeWeekly(data) {
     lightsSection(r.lights),
     actionsSection(r.action_items),
     // …then the CMDB reminder. `null` omits it entirely.
-    d.assets ? assetsSection(d.assets) : '',
+    // base_url is the configured public origin (reportConfig.public_base_url) or
+    // '' — absent, the counts render as plain text exactly as before.
+    d.assets ? assetsSection(d.assets, d.base_url, d.assets.labels) : '',
     footer(d),
   ].filter(Boolean).join('\n');
 

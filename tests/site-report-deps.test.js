@@ -142,6 +142,50 @@ test('assetEffort → null for a code with no AP label / no effort history', asy
   assert.strictEqual(await d.assetEffort('KGO'), null);   // Kalana absent from the board
 });
 
+// ── the asset-hygiene dep ────────────────────────────────────────────────────
+// assetHygiene(code) answers "which of this site's assets are out of compliance"
+// so the report can be ACTED on. Same fold rule as assetEffort: real labels from
+// getAssetLookups(), folded FORWARD through assetLabelToCode — never ALIAS
+// inverted, whose folded keys match zero rows and read as a spotless site.
+test('assetHygiene sums by_kind across EVERY label folding to the code', async () => {
+  let lookupCalls = 0;
+  const perLabel = {
+    Sabodala: { by_kind: { no_owner: 4, ghost: 1, no_cost: 0 } },
+    MASSAWA:  { by_kind: { no_owner: 3, never_scanned: 2 } },
+  };
+  const d = buildSiteReportDeps({ ...mods, assetsDb: {
+    getAssetLookups: async () => { lookupCalls++; return { sites: ['Sabodala', 'MASSAWA', 'Hounde'] }; },
+    getHygieneSummary: async ({ site }) => perLabel[site] || { by_kind: {} },
+  } });
+
+  const sgo = await d.assetHygiene('SGO');
+  assert.deepStrictEqual(sgo.labels.sort(), ['MASSAWA', 'Sabodala']);
+  // Summed across both labels; the ZERO kind is dropped, not shown as 0 — a
+  // block of zeros trains the reader to skip the section.
+  assert.deepStrictEqual(sgo.by_kind, { no_owner: 7, ghost: 1, never_scanned: 2 });
+
+  await d.assetHygiene('HGO');
+  assert.strictEqual(lookupCalls, 1, 'the fleet label list is fetched once, not per site');
+});
+
+test('assetHygiene → null when the code maps to no AP label (never zeros)', async () => {
+  const d = buildSiteReportDeps({ ...mods, assetsDb: {
+    getAssetLookups: async () => ({ sites: ['Sabodala', 'Hounde'] }),
+    getHygieneSummary: async () => ({ by_kind: { no_owner: 9 } }),
+  } });
+  // null, NOT {by_kind:{}} — "no inventory attached" and "inventory is clean"
+  // are different statements and the renderer prints a different sentence for each.
+  assert.strictEqual(await d.assetHygiene('KGO'), null);
+});
+
+test('assetHygiene resolves a label that is literally the site code', async () => {
+  const d = buildSiteReportDeps({ ...mods, assetsDb: {
+    getAssetLookups: async () => ({ sites: ['MGO', 'Sabodala'] }),   // AP stores the code itself
+    getHygieneSummary: async ({ site }) => ({ by_kind: site === 'MGO' ? { no_age: 5 } : {} }),
+  } });
+  assert.deepStrictEqual((await d.assetHygiene('MGO')).by_kind, { no_age: 5 });
+});
+
 // ── _asOfFor — the report's as-of date. The clock is injected: an internal
 // new Date() would make the MTD branch untestable and rot the test daily.
 test('_asOfFor: a closed month scores as-of that month\'s last day', () => {

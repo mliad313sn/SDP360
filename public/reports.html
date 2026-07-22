@@ -1338,6 +1338,14 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         <div class="form-group"><label>Reply-to</label><input id="cfg-reply-to" type="text"></div>
       </div>
       <div class="form-group" style="max-width:352px"><label>Default email domain</label><input id="cfg-default-domain" type="text" placeholder="edv-ops.com"></div>
+      <!-- Turns figures in the emails into links the reader can act on (today:
+           the weekly report's asset non-conformities → the Assets worklist).
+           LEAVE IT EMPTY rather than guess: every consumer degrades to plain
+           text, and a wrong origin ships dead links in mail already delivered. -->
+      <div class="form-group" style="max-width:520px">
+        <label>Public dashboard URL <span style="font-weight:400;color:#6b7a99">— used for links inside emails; leave empty to send plain figures</span></label>
+        <input id="cfg-public-base-url" type="text" placeholder="https://itops-dashboard.edv-ops.com">
+      </div>
 
       <div class="form-group" style="margin-top:6px"><label style="font-weight:400"><input type="checkbox" id="cfg-never-send-unconfirmed" checked> <strong>Safety:</strong> never send to an unconfirmed address</label></div>
 
@@ -6096,6 +6104,7 @@ function loadReportConfig() {
     chk('cfg-smtp-secure', c.smtp_secure);
     set('cfg-from', c.from); set('cfg-reply-to', c.reply_to);
     set('cfg-default-domain', c.default_email_domain);
+    set('cfg-public-base-url', c.public_base_url);
     set('cfg-group-to', c.group_report_to); set('cfg-group-cc', c.group_report_cc);
     chk('cfg-group-to-confirmed', c.group_report_to_confirmed);
     chk('cfg-never-send-unconfirmed', c.never_send_unconfirmed);
@@ -6125,6 +6134,10 @@ function emailConfigPatch() {
     from: val('cfg-from'),
     reply_to: val('cfg-reply-to'),
     default_email_domain: val('cfg-default-domain'),
+    // Saved with the same generic PUT /api/reports/config → setConfig. The key
+    // MUST be in reportConfig.DEFAULTS or setConfig's KEYS filter drops it
+    // silently: the field would appear to save and re-read empty forever.
+    public_base_url: val('cfg-public-base-url'),
     group_report_to: val('cfg-group-to'),
     group_report_cc: val('cfg-group-cc'),
     group_report_to_confirmed: chk('cfg-group-to-confirmed'),

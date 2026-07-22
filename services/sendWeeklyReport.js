@@ -149,15 +149,21 @@ async function sendWeeklyReport({ db, cfg, site, year, week, force = false, prev
   // no log row: a preview must be free of side effects. pptxFailed is false
   // because no deck was attempted, and the preview is not an e-mail with a
   // missing attachment.
+  // Config is resolved BEFORE the preview branch, not after: the composer reads
+  // public_base_url from it to link the asset figures, and a preview that
+  // silently dropped those links would not be a preview of what gets sent. It is
+  // a read, so the preview stays side-effect-free.
+  const config = cfg || await D.reportConfig.getConfig(db);
+  const baseUrl = String(config.public_base_url || '').replace(/\/+$/, '');
+
   if (preview) {
-    const { subject, fullHtml } = D.composeWeekly({ ...data, pptxFailed: false });
+    const { subject, fullHtml } = D.composeWeekly({ ...data, base_url: baseUrl, pptxFailed: false });
     return { preview: true, subject, html: fullHtml };
   }
 
   // 3 · safety gate: no confirmed recipient → never send. Same rule as the
   // monthly sender; the weekly must not become the loophole that mails an
   // unconfirmed address.
-  const config = cfg || await D.reportConfig.getConfig(db);
   const rows = await D.reportDirectory.listRecipients(db);
   const rcpt = D.reportDirectory.resolveFromRows(rows, site, 'coordinator', {
     neverSendUnconfirmed: config.never_send_unconfirmed === '1',
@@ -185,7 +191,7 @@ async function sendWeeklyReport({ db, cfg, site, year, week, force = false, prev
   }
 
   // 6 · compose, now that the deck's fate is known — pptxFailed is an INPUT.
-  const { subject, htmlBody } = D.composeWeekly({ ...data, pptxFailed: !pptx });
+  const { subject, htmlBody } = D.composeWeekly({ ...data, base_url: baseUrl, pptxFailed: !pptx });
 
   // 7 · send.
   const sent = await D.buildMailer(config).send({

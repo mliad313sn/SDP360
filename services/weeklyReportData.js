@@ -37,57 +37,11 @@ function _resolveDeps(deps) {
   return out;
 }
 
-/**
- * Which REAL `assets.site` labels belong to this site code.
- *
- * ⚠ Do NOT invert `aliases.ALIAS` to get these. Its KEYS are accent-folded
- * lowercase (`sabodala`, `massawa`) because they exist to be looked up AFTER
- * folding the input — they are not the spellings stored in the database. But
- * `_assetWhere` (assets-db.js:116) filters with exact `a.site = ?`, so feeding
- * a folded key back as a filter matches ZERO rows against a real `'Sabodala'`,
- * and every site's worklist silently reads empty. An empty worklist looks like
- * a clean site, which is the exact failure the block exists to prevent.
- *
- * So we go the direction the map was designed for: take the ACTUAL distinct
- * labels from the data and fold each one FORWARD through assetLabelToCode.
- *
- * Two label vocabularies are in play and both must match:
- *   • the AP export's mine names — 'Sabodala', 'MASSAWA', 'Houndé'  → via ALIAS
- *   • a site CODE used directly as the label — 'HGO', 'MGO'         → ALIAS has
- *     no 'hgo' key, so these resolve to null and need the direct comparison.
- */
-function _labelsForCode(siteLabels, siteCode, assetLabelToCode) {
-  const code = String(siteCode || '').trim().toUpperCase();
-  return (siteLabels || []).filter((label) => {
-    if (assetLabelToCode(label) === code) return true;              // mine name
-    return String(label || '').trim().toUpperCase() === code;        // literal code
-  });
-}
-
-/**
- * Sum by_kind across every label folding to this code, then DROP the zeros.
- *
- * The sum has to come from per-label getHygieneSummary calls: the summary's own
- * `by_site` carries only four columns and they are present-counts (inverted
- * gaps), so it has no discovered / ghost / no_asset_tag / lifecycle_exception —
- * folding it would ship a worklist missing half its kinds.
- *
- * Zero-count kinds are dropped entirely. A block of zeros trains the reader to
- * skip the section, which costs us the non-zero weeks too.
- */
-async function _loadHygiene(assetsDb, labels) {
-  const totals = {};
-  for (const label of labels) {
-    const summary = await assetsDb.getHygieneSummary({ site: label });
-    const byKind = (summary && summary.by_kind) || {};
-    for (const [kind, n] of Object.entries(byKind)) {
-      totals[kind] = (totals[kind] || 0) + (Number(n) || 0);
-    }
-  }
-  const out = {};
-  for (const [kind, n] of Object.entries(totals)) if (n > 0) out[kind] = n;
-  return out;
-}
+// The label fold + the per-kind sum now live in services/assetHygieneForSite.js
+// so the site-report page and the monthly report reuse them rather than growing
+// a third copy. Behaviour here is unchanged — the two functions moved verbatim,
+// including the "never invert ALIAS" warning that guards the fold direction.
+const { labelsForCode: _labelsForCode, sumHygieneByKind: _loadHygiene } = require('./assetHygieneForSite.js');
 
 /**
  * Fold the effort leaderboard by code and RECOMPUTE the rank.
@@ -185,6 +139,10 @@ async function loadWeeklyReportData({ siteCode, year, week, deps } = {}) {
   let assets = null;
   if (labels.length) {
     assets = {
+      // The AP labels ride along so the composer can deep-link each count into
+      // the Assets hygiene worklist. It needs the LABEL, not the site code: the
+      // target's site filter is built from getAssetLookups().sites.
+      labels,
       hygiene: await _loadHygiene(assetsDb, labels),
       effort:  await _loadEffort(assetsDb, aliases, siteCode),
     };

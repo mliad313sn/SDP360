@@ -153,6 +153,39 @@ test('the authored report appears BEFORE the assets block', () => {
   assert.ok(authored < assets, "the coordinator's report must lead, not the CMDB reminder");
 });
 
+// ── 6b · the hygiene counts are ACTIONABLE when a public origin is configured ─
+// A count with no way through is a count nobody works. The link carries the AP
+// LABEL (the Assets site filter is built from getAssetLookups().sites, so a site
+// CODE would select nothing and the target would read fleet-wide).
+test('with base_url + one label, each hygiene count links to its worklist', () => {
+  const d = fixture();
+  d.base_url = 'https://itops-dashboard.edv-ops.com';
+  d.assets.labels = ['Hounde'];
+  const { htmlBody } = composeWeekly(d);
+  assert.ok(htmlBody.includes('/assets.html?site=Hounde&amp;kind=no_owner#hygiene'),
+    'links to the no_owner worklist, & escaped once for the attribute');
+  assert.ok(!htmlBody.includes('&amp;amp;'), 'the href must not be double-encoded');
+});
+
+test('without base_url the counts stay plain text — never a guessed origin', () => {
+  const d = fixture();
+  d.assets.labels = ['Hounde'];                 // labels present, origin absent
+  const { htmlBody } = composeWeekly(d);
+  assert.ok(!htmlBody.includes('assets.html?'), 'no link at all');
+  assert.ok(htmlBody.includes('14'), 'the count itself is still reported');
+});
+
+// A code folding to SEVERAL labels gets NO link: the count is the SUM across
+// them, so linking one label would open a list smaller than the number promises.
+test('a multi-label site (SGO ← Sabodala + MASSAWA) is not linked', () => {
+  const d = fixture();
+  d.base_url = 'https://itops-dashboard.edv-ops.com';
+  d.assets.labels = ['Sabodala', 'MASSAWA'];
+  const { htmlBody } = composeWeekly(d);
+  assert.ok(!htmlBody.includes('assets.html?'), 'no partial link');
+  assert.ok(htmlBody.includes('14'), 'the summed count is still reported');
+});
+
 // ── 7 · no assets → no section at all (zeros would read as a clean site) ─────
 test('assets:null omits the assets section entirely', () => {
   const d = fixture();

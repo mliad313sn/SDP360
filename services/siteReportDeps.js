@@ -9,6 +9,7 @@ const { deriveSiteStatus } = require('./execSummary');
 // Both PURE (no DB): safe to require at module load. assets-db is NOT — it opens
 // a connection as a side effect — so it is lazy-required inside the binder only.
 const { effortForSite } = require('./assetEffortForSite');
+const { labelsForCode, sumHygieneByKind } = require('./assetHygieneForSite');
 const scoreboardAliases = require('./scoreboardAliases');
 
 const MODULE_NS = 'meetings';   // the report's site codes come from the meetings/inspection namespace
@@ -31,6 +32,11 @@ function buildSiteReportDeps(mods) {
   // the one in-flight fetch.
   let _effortBoard = null;
   const effortBoard = () => (_effortBoard || (_effortBoard = Promise.resolve(_assetsDb().getEffortLeaderboard({}))));
+
+  // Same reasoning for the distinct `assets.site` labels: fleet-wide, identical
+  // for every site, so fetch once per deps object and share the in-flight promise.
+  let _lookups = null;
+  const assetLookups = () => (_lookups || (_lookups = Promise.resolve(_assetsDb().getAssetLookups())));
 
   // code (HGO) → { site_id, name, zoho_group } | null
   const resolve = async (code) => (await reportsDb.getSiteIdByModuleCode(MODULE_NS, code)) || null;
@@ -98,6 +104,24 @@ function buildSiteReportDeps(mods) {
     // with no label / no effort history → null, so the composer omits the block
     // (zeros would read as a well-kept site rather than an unmeasured one).
     assetEffort: async (code) => effortForSite(code, { leaderboard: await effortBoard(), aliases }),
+
+    // The site's OUT-OF-COMPLIANCE assets, per hygiene kind, so the report can be
+    // acted on rather than merely read. Same contract as the weekly e-mail's
+    // block: labels folded FORWARD (never ALIAS inverted — see
+    // assetHygieneForSite.labelsForCode), zero-count kinds dropped, and a code
+    // that maps to NO label returns null so the renderer omits the section
+    // entirely. Zeros would read as a spotless parc rather than an unmeasured one.
+    //
+    // TODAY'S SNAPSHOT, not the report month: `assets` is DELETE+INSERT
+    // full-replaced nightly and asset_effort_history keeps only the composite
+    // score, so no per-kind history exists to look back at. The renderer says so.
+    assetHygiene: async (code) => {
+      const lookups = (await assetLookups()) || {};
+      const labels = labelsForCode(lookups.sites, code, aliases.assetLabelToCode);
+      if (!labels.length) return null;
+      const byKind = await sumHygieneByKind(_assetsDb(), labels);
+      return { labels, by_kind: byKind };
+    },
 
     // Incident-derived (documented in the spec — NOT live uptime).
     // deriveSiteStatus omits healthy sites → absent means 'operational'.
