@@ -6,6 +6,48 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ---
 
+## ⚡ Current state (as of 2026-07-22)
+
+> **Effort + investment wired into the reports landed** (branch
+> `feat/assets-reports-integration`) — the two Assets dashboards whose readers were
+> "exposed for later report integration" are now **in the reports**, all additive.
+> **Two pieces, consolidated:** effort and investment have different grains (effort is
+> per-site, investment is per-equipment-type/business-planning), so a **single new
+> "Assets — Groupe" management digest** carries BOTH the full effort leaderboard AND the
+> investment forecast + coverage% banners, plus a **small effort block in the per-site
+> coordinator MONTHLY report** (its own rank, the "ne pas être dernier" lever). **Piece 1
+> is monthly-ONLY** — the weekly e-mail (shipped 2026-07-21) already renders effort via
+> `weeklyReportData._loadEffort`; adding a block to it would double-render. The
+> label→code fold+rank logic (previously private in `weeklyReportData`) was **extracted**
+> to a shared PURE `services/assetEffortForSite.js` (`effortForSite(code,{leaderboard,
+> aliases})` → `{score,rank,of,delta}|null`, rank **recomputed on folded codes** — a mean
+> of label ranks is meaningless; `of`=folded-code count; `null` (not zeros) when the code
+> maps to no AP label). The new group digest is a **pure composer**
+> `services/assetGroupReport.js` + a **`send-asset-group` CLI** (moule hygiène: gate-first,
+> `require.main` guard, armed OFF via `asset_group_send_enabled`, recipients from
+> `asset_group_recipients` config — a GROUP artifact, NOT per-coordinator
+> `resolveRecipient`) + `'asset_group'` schedule type + a **`#ap-asset-group` admin card**
+> (4 surfaces) + its **OWN route** `POST /api/reports/asset-group/send` (NEVER `SEND_TYPES`
+> — that handler hardcodes the coordinator composer). **Regression**: 162 green across the
+> touched + neighbouring suites; the **two monthly-email goldens stay byte-identical** (the
+> effort block is spread-inserted `...(x?[b]:[])`, never an empty-string that would add a
+> `\n`); await-precedence 5/5. Spec + plan in `docs/superpowers/`. **NOT merged as of this
+> line — branch ready.**
+>
+> **Known limits (flagged, not bugs):** (a) the investment forecast reader gives
+> **fleet totals + per-year only, NO per-equipment-type grain** — the per-type filtering
+> the user asked for lives on the interactive Investment tab; the emailed digest shows the
+> fleet total + coverage, with a top-N-by-type table a possible fast-follow. (b) The
+> `foldEffortByCode` mean treats a **null-effort label as 0**, dragging a code's mean down
+> when one of its AP labels has never been scored — pre-existing behaviour shared with the
+> scoreboard/weekly, surfaced here, not changed. (c) The CLI **re-reads config itself**
+> (`xof_usd_rate`→rate never 1, `asset_replacement_uplift_pct`→**÷100 to a fraction**,
+> `asset_depreciation_config`→`parseDepreciationConfig(rawString)`) because
+> `_assetUsdRate`/`_assetUpliftPct`/`_deprecConfig` are **server.js-private** — a naive
+> reuse would pass a percent as +300%/yr.
+>
+> ---
+
 ## ⚡ Current state (as of 2026-07-21)
 
 > **Weekly report e-mail landed** (branch `feat/weekly-report-email`, merged) — the

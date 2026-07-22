@@ -19,6 +19,12 @@ const DEFAULTS = {
   // flag ONLY (recipients come from the coordinator directory, not a config
   // list). Must live in DEFAULTS so setConfig's KEYS filter accepts it.
   weekly_report_send_enabled: '0',
+  // Scheduled monthly "Assets — Groupe" management digest — armed OFF by default.
+  // A GROUP sender (like hygiene): arm flag + a recipients comma-list (no directory).
+  // Both must live in DEFAULTS so setConfig's KEYS filter accepts the admin's write
+  // (else silently dropped and the digest is permanently inert).
+  asset_group_send_enabled: '0',
+  asset_group_recipients: '',
   xof_usd_rate: '0.00165',
   // Annual replacement-price uplift (%) for the investment forecast — 0 = like-for-like.
   // Must live in DEFAULTS so setConfig's KEYS filter accepts the admin's write.

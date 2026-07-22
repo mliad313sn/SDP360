@@ -48,6 +48,10 @@ async function siteReportData(siteCode, period, deps) {
   // narrative content. Both windows are surfaced with the numbers they describe.
   const si = await _safe(() => deps.scoreInputs(siteCode, period), null, 'scoreInputs');
   const prev = await _safe(() => deps.prevScore(siteCode, period), null, 'prevScore');
+  // The site's asset-effort standing (0–100 + rank + ~30-day delta) or null. Guard
+  // the dep so a deps object built before this block existed degrades to null
+  // rather than logging a spurious warn. null → composeCoordinator omits the block.
+  const assetEffort = await _safe(() => (deps.assetEffort ? deps.assetEffort(siteCode) : null), null, 'assetEffort');
 
   const meetings = {
     pvs_held: mk.pvs_held || 0, pvs_target: mk.pvs_target || 0, open_issues: mk.open_issues || 0,
@@ -109,6 +113,7 @@ async function siteReportData(siteCode, period, deps) {
     site_code: siteCode, site_name: ms.site_name || siteCode,
     period: { ...period, label: ms.month_label || '' },
     score, meetings, inspection, helpdesk, changes, technicians, recommended, fm,
+    assetEffort,
   };
 }
 

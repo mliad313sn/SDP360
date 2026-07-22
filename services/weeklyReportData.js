@@ -92,28 +92,18 @@ async function _loadHygiene(assetsDb, labels) {
 /**
  * Fold the effort leaderboard by code and RECOMPUTE the rank.
  *
- * foldEffortByCode returns a Map (use .get, not index access) and means the
- * score across a code's labels. The raw per-label `rank` cannot survive that —
- * averaging two ranks is meaningless — so rank is re-derived as this code's
- * position among all folded codes, score-descending (code asc breaks ties so the
- * result is deterministic).
+ * The fold+rank logic now lives in the shared, synchronous
+ * services/assetEffortForSite.js so the monthly report can reuse it. This wrapper
+ * fetches the board (async under PostgreSQL) and maps the shared shape onto the
+ * weekly contract, which is `{ effort_score, rank }` and NOTHING else.
  *
- * `delta` is deliberately dropped: it is a ~30-day lookback, so on a weekly
- * cadence it barely moves and would read as a dead number.
+ * `delta`/`of` are deliberately dropped here: delta is a ~30-day lookback, so on a
+ * weekly cadence it barely moves and would read as a dead number.
  */
 async function _loadEffort(assetsDb, aliases, code) {
   const board = await assetsDb.getEffortLeaderboard({});
-  const rows = (board && board.rows) || [];
-  const folded = aliases.foldEffortByCode(rows);      // Map<code, score|null>
-
-  const score = folded.get(code);
-  if (score == null) return null;
-
-  const ordered = [...folded.entries()]
-    .filter(([, s]) => s != null)
-    .sort((a, b) => (b[1] - a[1]) || (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
-
-  return { effort_score: score, rank: ordered.findIndex(([c]) => c === code) + 1 };
+  const e = require('./assetEffortForSite.js').effortForSite(code, { leaderboard: board, aliases });
+  return e ? { effort_score: e.score, rank: e.rank } : null;
 }
 
 async function loadWeeklyReportData({ siteCode, year, week, deps } = {}) {
