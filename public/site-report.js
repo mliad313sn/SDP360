@@ -447,11 +447,24 @@
   }
 
   // Deep link into ServiceDesk Plus, where the status actually gets changed.
-  // Built on the SAME host + shape as the requests link the helpdesk pages have
-  // used for years (public/lib/dashboard-shared.js:260), with `changes` in place
-  // of `requests` — the sibling route in the SDP UI. Uses `change_id` (the long
-  // internal id), NOT display_id, exactly like the requests link uses longId.
-  var SDP_CHANGE_URL_BASE = 'https://oneitsupport.endeavourmining.com/app/itdesk/ui/changes/';
+  //
+  // VERIFIED against a live change (CHG 164 → CHANGEID=212627000012820152), not
+  // inferred. Changes do NOT follow the requests route
+  // (/app/itdesk/ui/requests/<id>/details, dashboard-shared.js:260) — they use
+  // the older .cc handler with the id as a QUERY parameter. Assuming the two
+  // were siblings produced a dead link, so do not "tidy" this back into the
+  // requests shape.
+  //
+  // `CHANGEID` is our `change_id` column (the long internal id), NOT display_id
+  // — 164 is what the human sees, 212627000012820152 is what the URL needs.
+  //
+  // The trailing tab params are kept exactly as SDP itself emits them. Deriving
+  // the tab from the change's stage would mean guessing tab names, which is the
+  // mistake this comment exists to prevent; a change opened on a tab that is not
+  // its current stage is a small annoyance, a wrong tab name is a broken link.
+  var SDP_CHANGE_URL_BASE = 'https://oneitsupport.endeavourmining.com/app/itdesk/ChangeDetails.cc?CHANGEID=';
+  var SDP_CHANGE_URL_TAIL = '&selectTab=implementation&subTab=details';
+  function sdpChangeUrl(changeId) { return SDP_CHANGE_URL_BASE + encodeURIComponent(changeId) + SDP_CHANGE_URL_TAIL; }
 
   // The table is a preview, capped so the report stays readable; the CSV export
   // always carries EVERY row. Never silently truncate without saying so.
@@ -501,7 +514,7 @@
       '</tr></thead><tbody>' +
       shown.map(function (r) {
         var ref = r.change_id
-          ? '<a href="' + esc(SDP_CHANGE_URL_BASE + r.change_id + '/details') + '" target="_blank" rel="noopener" ' +
+          ? '<a href="' + esc(sdpChangeUrl(r.change_id)) + '" target="_blank" rel="noopener" ' +
             'style="color:var(--edv-blue,#145FAE);font-weight:700">' + esc(r.display_id || r.change_id) + ' ↗</a>'
           : esc(r.display_id || '—');
         return '<tr>' +
