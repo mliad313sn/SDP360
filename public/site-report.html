@@ -46,6 +46,19 @@
     padding:7px 12px;font-size:.8rem;font-weight:600;cursor:pointer;font-family:inherit;transition:background .15s;
   }
   .sr-refresh:hover{background:rgba(255,255,255,.20)}
+  /* Back link — this page carries NO app shell (it has its own branded header
+     and loads no auth.js), so without this it is a dead end: arrive by link or
+     bookmark and the browser Back button is the only way out. Hidden on print
+     alongside Refresh — neither is meaningful on paper. */
+  .sr-back{
+    display:inline-flex;align-items:center;gap:6px;
+    background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.22);color:#fff;border-radius:8px;
+    padding:7px 12px;font-size:.8rem;font-weight:600;transition:background .15s;
+  }
+  .sr-back:hover{background:rgba(255,255,255,.20);color:#fff}
+  @media print{
+    .sr-back,.sr-refresh{display:none !important}
+  }
 
   /* ── Section scaffolding ────────────────────────────────────── */
   .section{margin-top:26px}
@@ -152,6 +165,7 @@
     </div>
     <div class="sr-meta">
       <div class="sr-period"><span id="periodLabel">—</span></div>
+      <a class="sr-back" href="reports.html">&#8592; Site Reports</a>
       <button class="sr-refresh" id="refreshBtn" type="button">&#8635; Refresh</button>
     </div>
   </div>

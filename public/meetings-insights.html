@@ -149,6 +149,25 @@
     font-style: italic; max-width: 50%; text-align: right;
   }
   .mi-chart-body { position: relative; height: 280px; }
+
+  /* Page-foot legend — the same composite-score rule that sub-titles the
+     leaderboard above, repeated at the foot so a reader who scrolled past
+     the header still finds it. Mirrors meetings-compliance.html. */
+  .mi-legend {
+    margin-top: 22px; padding: 14px 18px;
+    background: var(--color-card, #fff);
+    border: 1px solid var(--color-border, #E2E5EA);
+    border-left: 4px solid var(--edv-slate, #3A4A60);
+    border-radius: 10px;
+    font-size: 12px; line-height: 1.6; color: var(--color-text-muted, #7B7B7B);
+  }
+  .mi-legend__t {
+    font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.1px;
+    color: var(--edv-slate, #3A4A60); margin-bottom: 6px;
+  }
+  .mi-legend p { margin: 0 0 6px; }
+  .mi-legend p:last-child { margin-bottom: 0; }
+  .mi-legend strong { color: var(--color-text-strong, #1F2A33); font-weight: 700; }
   .mi-chart-empty {
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     height: 100%; color: var(--color-text-muted, #7B7B7B);
@@ -529,6 +548,20 @@
       </td></tr></tbody>
     </table>
   </section>
+
+  <!-- Page-foot legend. The identical sentence also sub-titles the leaderboard
+       above (it qualifies that table); repeated here because the user asked for
+       an engagements legend "at the bottom of the page". -->
+  <aside class="mi-legend" id="miLegend">
+    <div class="mi-legend__t"><span data-lng="en">Legend</span><span data-lng="fr">Légende</span></div>
+    <p data-lng-block="en"><strong>Composite score = simple average of available engagements (E1+E2+E3+E5; E4 placeholder excluded).</strong></p>
+    <p data-lng-block="en">Engagement&nbsp;4 (monthly feedback loop) has no outbound-communication log yet, so it
+       cannot be measured and is left out of the average — it shows as <strong>N/A</strong>, never as a zero.</p>
+    <p data-lng-block="fr"><strong>Score composite = moyenne simple des engagements disponibles (E1+E2+E3+E5&nbsp;; E4 placeholder exclu).</strong></p>
+    <p data-lng-block="fr">L'engagement&nbsp;4 (boucle de retour mensuelle) n'a pas encore de journal de
+       communication sortante&nbsp;: il n'est pas mesurable et reste hors moyenne — il s'affiche
+       <strong>N/D</strong>, jamais zéro.</p>
+  </aside>
 </div>
 
 <script nonce="%%CSP_NONCE%%">
