@@ -219,3 +219,41 @@ for (const panel of ['groupRows', 'flowMonths', 'eMatrix', 'eHeaders', 'sigFunne
     assert.deepStrictEqual(ours(st)[panel], oracle(st)[panel]);
   });
 }
+
+// ── Threshold-drift guard ────────────────────────────────────────────────────
+// The deep-equals above prove our 61 keys match his oracle ON HIS FIXTURE — but
+// they CANNOT see a threshold that drifts into a gap his data never lands on.
+// Proven by injection: changing `reviews` green 8 -> 9 leaves every deep-equal
+// combo green (no site in the fixture scores exactly 8), so the port would be
+// silently wrong with a fully green suite.
+//
+// So compare the NUMBERS directly, parsing them out of the author's own caption.
+// Those captions are a verbatim port of his text (kept deliberately — the RAG
+// legend decodes them instead of rewording them), which is exactly what makes
+// them usable as the reference for his thresholds.
+//
+// Parse the G and A GROUPS — never "the first/last number in the string". The
+// red band contributes its own digits (`A1-2 R>=3`), so a naive last-number rule
+// reads findings' amber as 3 instead of 2.
+test('PT_THRESHOLDS still encode the AUTHOR own bands, dim for dim', () => {
+  const { PT_THRESHOLDS } = require('../services/siteScore');
+  assert.ok(Array.isArray(PT_THRESHOLDS) && PT_THRESHOLDS.length === 6,
+    'PT_THRESHOLDS must be exported for this guard to see it');
+
+  for (const row of PT_THRESHOLDS) {
+    const key = row[0], green = row[2], amber = row[3], invert = row[4], tip = String(row[6]);
+    const g = tip.match(/G[^0-9]*(\d+)/);                       // G>=8 · G0 · G>=70
+    const a = tip.match(/A[^0-9]*(\d+)(?:[^0-9]+(\d+))?/);      // A5-7 · A2 · A1-5
+    assert.ok(g && a, key + ': could not parse bands from "' + tip + '"');
+
+    assert.strictEqual(Number(g[1]), green,
+      key + ': green threshold drifted from his band "' + tip + '"');
+
+    // The amber boundary that matters is the one TOUCHING red: the low end when
+    // more is better (A5-7 -> 5), the high end when less is better (A1-2 -> 2).
+    const lo = Number(a[1]);
+    const hi = a[2] === undefined ? lo : Number(a[2]);
+    assert.strictEqual(invert ? hi : lo, amber,
+      key + ': amber threshold drifted from his band "' + tip + '"');
+  }
+});
