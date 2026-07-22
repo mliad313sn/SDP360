@@ -300,9 +300,29 @@ textarea.input { min-height: 90px; resize: vertical; }
                   margin-top: 6px; max-width: 96ch; }
     .disclosure code { font-size: 11px; background: var(--color-neutral-200); padding: 1px 4px; }
     #review-fallback { padding: 32px; font-size: 14px; }
+    /* Back link. This page deliberately mounts NO app shell (it is opened with
+       target:'_blank' from the Insights menu — see _shell.js), but a user who
+       arrives by bookmark or a pasted URL is otherwise trapped. Fixed + floating
+       so it disturbs neither the sticky header nor the panel grid, and it lives
+       OUTSIDE #review-template: the renderer overwrites #review-root.innerHTML,
+       so anything placed inside would be destroyed on first render. It carries
+       none of the renderer's three primitives (moustache bindings, sc-for,
+       sc-if) — and it-review.js reads only review-template.innerHTML anyway. */
+    .rv-back {
+      position: fixed; left: 16px; bottom: 16px; z-index: 60;
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 8px 14px; border-radius: 999px;
+      font-size: 12px; font-weight: 600; text-decoration: none;
+      color: var(--color-neutral-700, #374151);
+      background: #fff; border: 1px solid var(--color-divider, #E5E7EB);
+      box-shadow: 0 2px 8px rgba(0,0,0,.12);
+    }
+    .rv-back:hover { color: #111827; background: #F9FAFB; }
 </style>
 </head>
 <body>
+
+<a class="rv-back no-print" href="index.html">&#8592; Back to the dashboard</a>
 
 <div id="review-root"><div id="review-fallback">Loading the IT Review&hellip;</div></div>
 

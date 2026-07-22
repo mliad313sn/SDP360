@@ -223,10 +223,41 @@
   .mp-action:first-child { border-top: 0; }
   .mp-action:hover { background: var(--color-bg, #F4F5F7); }
 
+  /* ── Module tabs (Meetings ↔ Dashboard ↔ Issues ↔ Council ↔ Compliance) ──
+     Copied verbatim from meetings-compliance.html so every page in the module
+     carries the same bar. This page is reached by deep-link from meeting.html
+     and used to have NO intra-module link at all — Back was the only way out. */
+  .mtg-tabs {
+    display: inline-flex; gap: 2px;
+    background: #F3F4F6;
+    border: 1px solid #E5E7EB;
+    border-radius: 10px;
+    padding: 3px;
+    margin: 0 0 16px 0;
+  }
+  .mtg-tabs__btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 8px 16px;
+    font-size: 13px; font-weight: 600;
+    color: #6B7280;
+    background: transparent;
+    border: 0; border-radius: 7px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background-color .12s, color .12s;
+  }
+  .mtg-tabs__btn:hover { color: #1F2937; background: #FFFFFF; }
+  .mtg-tabs__btn--active {
+    color: #1F2937; background: #FFFFFF;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+    border-bottom: 2px solid var(--edv-orange, #E87722);
+    padding-bottom: 6px;
+  }
+
   /* ── PRINT / PDF EXPORT ──────────────────────────────────────────── */
   .mp-print-header { display: none; }
   @media print {
-    #__shell, .mp-pickers, .mp-hero p, button {
+    #__shell, .mtg-tabs, .mp-pickers, .mp-hero p, button {
       display: none !important;
     }
     .mp-print-header { display: block !important; }
@@ -258,6 +289,20 @@
 <div id="__shell" data-section="performance" data-current="meetings"></div>
 
 <div class="mp-wrap">
+
+  <!-- No tab carries --active: "Pre-brief" is not one of the seven tabs, and the
+       active state is a "you are here" marker — highlighting Meetings would point
+       at a page you are NOT on. The hero eyebrow below already says where you are. -->
+  <nav class="mtg-tabs" aria-label="Meetings module sections">
+    <a class="mtg-tabs__btn" href="meetings.html">📋 Meetings</a>
+    <a class="mtg-tabs__btn" href="meetings-insights.html">📊 Dashboard</a>
+    <a class="mtg-tabs__btn" href="meetings-issues.html">📌 Issues</a>
+    <a class="mtg-tabs__btn" href="meetings-actions.html">✔ Actions</a>
+    <a class="mtg-tabs__btn" href="meetings-unsigned.html">✍ Unsigned</a>
+    <a class="mtg-tabs__btn" href="meetings-council.html">⚖ Council</a>
+    <a class="mtg-tabs__btn" href="meetings-compliance.html">✅ Compliance</a>
+    <a class="mtg-tabs__btn mtg-tabs__btn--admin" href="meetings-setup.html" style="display:none">⚙ Setup</a>
+  </nav>
 
   <section class="mp-hero">
     <div class="mp-eyebrow">Insights · Meetings · Pre-brief</div>
@@ -646,6 +691,22 @@
   loadLookups().then(() => {
     if (state.filters.site && state.filters.department) load();
   });
+})();
+</script>
+
+<script nonce="%%CSP_NONCE%%">
+// Reveal the Setup tab for super_admin only (hidden by default — admin
+// tooling stays out of view for editor / viewer / admin / executive).
+(function () {
+  function reveal() {
+    try {
+      if (window.__userHasRole && window.__userHasRole("super_admin")) {
+        document.querySelectorAll(".mtg-tabs__btn--admin").forEach(function (el) { el.style.display = ""; });
+      }
+    } catch (_) {}
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", reveal);
+  else reveal();
 })();
 </script>
 

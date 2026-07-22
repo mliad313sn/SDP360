@@ -224,6 +224,37 @@
   /* Items that should be display:list-item, etc. when shown */
   body.lang-fr li[data-lng-block="fr"] { display: list-item; }
 
+  /* ── Module tabs (Meetings ↔ Dashboard ↔ Issues ↔ Council ↔ Compliance) ──
+     Copied verbatim from meetings-compliance.html. This page previously had a
+     single "Back to list" link buried at the bottom of the commit card, so a
+     coordinator who landed here had no way across the module. */
+  .mtg-tabs {
+    display: inline-flex; gap: 2px;
+    background: #F3F4F6;
+    border: 1px solid #E5E7EB;
+    border-radius: 10px;
+    padding: 3px;
+    margin: 0 0 16px 0;
+  }
+  .mtg-tabs__btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 8px 16px;
+    font-size: 13px; font-weight: 600;
+    color: #6B7280;
+    background: transparent;
+    border: 0; border-radius: 7px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background-color .12s, color .12s;
+  }
+  .mtg-tabs__btn:hover { color: #1F2937; background: #FFFFFF; }
+  .mtg-tabs__btn--active {
+    color: #1F2937; background: #FFFFFF;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+    border-bottom: 2px solid var(--edv-orange, #E87722);
+    padding-bottom: 6px;
+  }
+
   .mim-lang-toggle {
     position: absolute; top: 18px; right: 22px;
     display: inline-flex; gap: 2px;
@@ -311,7 +342,7 @@
     @page { size: A4 portrait; margin: 14mm 14mm 16mm 14mm; }
     body { background: #fff !important; color: #000 !important; font-size: 11pt; }
     /* Hide app chrome + interactive zones — nothing useful in a printed doc */
-    #__shell, #mimBanner, .mim-lang-toggle, .mim-drop, #mimFilePill,
+    #__shell, .mtg-tabs, #mimBanner, .mim-lang-toggle, .mim-drop, #mimFilePill,
     .mim-actions, #mimCommitCard, #mimCreateLookupBg { display: none !important; }
     /* When printed in FR, the guide is the document — hide everything else */
     body.lang-fr .mim-hero, body.lang-fr .mim-grid { display: none !important; }
@@ -352,6 +383,44 @@
 <div id="__shell" data-section="performance" data-current="meetings"></div>
 
 <div class="mim-wrap">
+
+  <!-- No tab carries --active: "Bulk import" is not one of the seven tabs, and
+       the active state is a "you are here" marker — highlighting Meetings would
+       point at a page you are NOT on. The hero eyebrow says where you are. -->
+  <nav class="mtg-tabs" aria-label="Meetings module sections">
+    <a class="mtg-tabs__btn" href="meetings.html">
+      <span data-lng="en">📋 Meetings</span>
+      <span data-lng="fr">📋 Réunions</span>
+    </a>
+    <a class="mtg-tabs__btn" href="meetings-insights.html">
+      <span data-lng="en">📊 Dashboard</span>
+      <span data-lng="fr">📊 Tableau de bord</span>
+    </a>
+    <a class="mtg-tabs__btn" href="meetings-issues.html">
+      <span data-lng="en">📌 Issues</span>
+      <span data-lng="fr">📌 Enjeux</span>
+    </a>
+    <a class="mtg-tabs__btn" href="meetings-actions.html">
+      <span data-lng="en">✔ Actions</span>
+      <span data-lng="fr">✔ Actions</span>
+    </a>
+    <a class="mtg-tabs__btn" href="meetings-unsigned.html">
+      <span data-lng="en">✍ Unsigned</span>
+      <span data-lng="fr">✍ Non signés</span>
+    </a>
+    <a class="mtg-tabs__btn" href="meetings-council.html">
+      <span data-lng="en">⚖ Council</span>
+      <span data-lng="fr">⚖ Conseil</span>
+    </a>
+    <a class="mtg-tabs__btn" href="meetings-compliance.html">
+      <span data-lng="en">✅ Compliance</span>
+      <span data-lng="fr">✅ Conformité</span>
+    </a>
+    <a class="mtg-tabs__btn mtg-tabs__btn--admin" href="meetings-setup.html" style="display:none">
+      <span data-lng="en">⚙ Setup</span>
+      <span data-lng="fr">⚙ Réglages</span>
+    </a>
+  </nav>
 
   <section class="mim-hero">
     <div class="mim-lang-toggle" id="mimLangToggle">
@@ -1116,6 +1185,22 @@ HGO_Mining_PV_2026-05-24        │ 2026-05-24</div>
       btn.disabled = false;
     }
   });
+})();
+</script>
+
+<script nonce="%%CSP_NONCE%%">
+// Reveal the Setup tab for super_admin only (hidden by default — admin
+// tooling stays out of view for editor / viewer / admin / executive).
+(function () {
+  function reveal() {
+    try {
+      if (window.__userHasRole && window.__userHasRole("super_admin")) {
+        document.querySelectorAll(".mtg-tabs__btn--admin").forEach(function (el) { el.style.display = ""; });
+      }
+    } catch (_) {}
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", reveal);
+  else reveal();
 })();
 </script>
 

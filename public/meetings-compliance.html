@@ -124,6 +124,28 @@
 
   .me-empty { padding: 32px; text-align: center; color: var(--color-text-muted, #7B7B7B); font-size: 13px; font-style: italic; }
 
+  /* ── Page-foot legend — how the composite score is built ──────────
+     The same sentence qualifies the leaderboard on meetings-insights.html
+     (site-leaderboard sub-title). It lives at the FOOT here because this is
+     the 5-Engagements page: readers come looking for what the engagements
+     are and how they roll up, and the answer belongs under the numbers. */
+  .me-legend {
+    margin-top: 22px; padding: 14px 18px;
+    background: var(--color-card, #fff);
+    border: 1px solid var(--color-border, #E2E5EA);
+    border-left: 4px solid var(--edv-slate, #3A4A60);
+    border-radius: 10px;
+    font-size: 12px; line-height: 1.6; color: var(--color-text-muted, #7B7B7B);
+  }
+  .me-legend__t {
+    font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.1px;
+    color: var(--edv-slate, #3A4A60); margin-bottom: 6px;
+  }
+  .me-legend p { margin: 0 0 6px; }
+  .me-legend p:last-child { margin-bottom: 0; }
+  .me-legend strong { color: var(--color-text-strong, #1F2A33); font-weight: 700; }
+  .me-legend__fr { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--color-border-subtle, #EEF0F3); }
+
   /* ── Module tabs (Meetings ↔ Dashboard ↔ Issues ↔ Council ↔ Compliance) ── */
   .mtg-tabs {
     display: inline-flex; gap: 2px;
@@ -217,6 +239,23 @@
     </div>
 
   </div>
+
+  <!-- Page-foot legend. EN then FR stacked — this page carries no data-lng
+       toggle, it labels bilingually inline (see the Engagement card subs),
+       so the legend follows the same "both languages, always visible" rule
+       used on site-report.html's intro. -->
+  <aside class="me-legend" id="meLegend">
+    <div class="me-legend__t">Legend · Légende</div>
+    <p><strong>Composite score = simple average of available engagements (E1+E2+E3+E5; E4 placeholder excluded).</strong></p>
+    <p>Engagement&nbsp;4 (monthly feedback loop) has no outbound-communication log yet, so it cannot be
+       measured and is left out of the average — it shows as <strong>—</strong> above, never as a zero.</p>
+    <div class="me-legend__fr">
+      <p><strong>Score composite = moyenne simple des engagements disponibles (E1+E2+E3+E5&nbsp;; E4 placeholder exclu).</strong></p>
+      <p>L'engagement&nbsp;4 (boucle de retour mensuelle) n'a pas encore de journal de communication
+         sortante&nbsp;: il n'est pas mesurable et reste hors moyenne — il s'affiche <strong>—</strong>
+         ci-dessus, jamais zéro.</p>
+    </div>
+  </aside>
 
 </div>
 
