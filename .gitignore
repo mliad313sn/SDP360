@@ -132,3 +132,6 @@ prod-snapshot/
 tools/installer-build/cache/
 SDP-Setup-*.exe
 SDP-Dashboard-*.7z
+
+# stray local scratch script (Higgsfield desktop shortcut) — not part of the app
+add-higgsfield-to-desktop.ps1
