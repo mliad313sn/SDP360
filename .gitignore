@@ -138,3 +138,4 @@ add-higgsfield-to-desktop.ps1
 
 # installer checksum sidecar (the .exe itself is already ignored)
 *.exe.sha256
+*.zip.sha256
