@@ -46,10 +46,24 @@ function _ts(v) {
   return Number.isFinite(t) ? t : null;
 }
 
+/**
+ * `asOf` compte comme la FIN de sa journée.
+ *
+ * Load-bearing : `'2026-07-23'` se lit minuit. Une machine vue le même jour à
+ * 8 h serait donc à −1 jour, c'est-à-dire « dans le futur », et la règle qui
+ * exclut les observations postérieures à `asOf` l'écarterait — les machines du
+ * jour même, exactement celles qui comptent le plus.
+ */
+function _endOfDay(asOf) {
+  const t = _ts(asOf);
+  if (t == null) return null;
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(asOf).trim()) ? t + 86400000 - 1 : t;
+}
+
 /** Jours écoulés entre `iso` et `asOf`, ou null si l'un des deux manque. */
 function _daysBetween(iso, asOf) {
   const a = _ts(iso);
-  const b = _ts(asOf);
+  const b = _endOfDay(asOf);
   if (a == null || b == null) return null;
   return Math.floor((b - a) / 86400000);
 }
@@ -111,7 +125,7 @@ function reconcile(opts) {
 
   // Les trois clés sont TOUJOURS présentes, même à zéro : un objet dont les
   // clés apparaissent et disparaissent casse l'affichage qui les lit.
-  const excluded = { disabled: 0, stale: 0, no_date: 0 };
+  const excluded = { disabled: 0, stale: 0, no_date: 0, future: 0 };
 
   // Une machine peut être vue par plusieurs sources : on regroupe par clé.
   const byKey = new Map();
@@ -139,6 +153,10 @@ function reconcile(opts) {
     seenAtAll.set(key, newest.last_seen);
 
     const age = _daysBetween(newest.last_seen, asOf);
+    // Une observation POSTÉRIEURE à `asOf` n'existait pas à `asOf`. Sans cette
+    // règle, un rapport rejoué sur une date passée compte comme « écart
+    // courant » des machines apparues depuis — un anachronisme muet.
+    if (age != null && age < 0) { excluded.future++; continue; }
     if (age == null || age > recentDays) { excluded.stale++; continue; }
     seenRecently.add(key);
 

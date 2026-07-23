@@ -882,6 +882,14 @@ app.use('/api/meetings/lookups/:table',     express.json({ limit: '10mb'  }));
 // for inspection silently regressed tracker saves to the global parser.
 app.use('/api/tracker/save',                express.json({ limit: '5mb'   }));
 app.use('/api/dashboard/presets',           express.json({ limit: '1mb'   }));
+// Réconciliation : le corps est un CSV BRUT, pas du JSON. Un export AD de
+// 5 000 machines pèse ~1 Mo, un export Entra bien plus. Monté AVANT le parseur
+// JSON global, sinon celui-ci consomme le corps et le rejette à 100 Ko — le
+// même piège que l'import Réunions (§ ci-dessus). `type: '*/*'` parce que le
+// navigateur envoie tantôt text/csv, tantôt application/octet-stream selon
+// qu'on lit un File ou un ArrayBuffer.
+app.use('/api/assets/reconcile/preview',    express.raw({ type: '*/*', limit: '30mb' }));
+app.use('/api/assets/reconcile/import',     express.raw({ type: '*/*', limit: '30mb' }));
 
 // Global JSON parser — Express default limit (~100 KB). Covers the
 // long tail of small REST calls. Large endpoints are handled by the
@@ -2728,6 +2736,215 @@ app.post('/api/assets/progress/snapshot', requireReportSession, requireAdmin, as
     res.json(await require('./assets-db').snapshotEffort({}));
   } catch (e) {
     console.error('[api/assets/progress/snapshot]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── ASSETS · RÉCONCILIATION (SDP × AD × Entra × Defender) ───────────────────
+// Répond à « quelles machines vues récemment ailleurs sont absentes de SDP ? »
+// — l'angle mort de SelfScan : un inventaire ne peut pas signaler ce qu'il
+// ignore. Et au sens inverse : quels actifs SDP plus personne ne voit.
+//
+// Tout l'assemblage vit dans le service PUR `services/reconcileView.js`, pas
+// ici : écrit dans un handler il ne serait vérifiable que par un smoke test
+// HTTP, donc pas vérifiable contre les vraies données.
+const RECONCILE_SOURCES = ['ad', 'entra', 'defender'];
+
+/**
+ * `asOf` et les fenêtres, résolus UNE fois, en haut, puis passés partout.
+ *
+ * Le piège documenté de la dépréciation : `asOf` correct dans l'enveloppe de
+ * réponse et `undefined` passé au lecteur. Ici c'est pire — `asOf` pilote la
+ * fenêtre de fraîcheur, donc `undefined` ferait passer TOUTES les machines
+ * pour « jamais vues » et le rapport serait absurde sans rien signaler.
+ */
+async function _reconcileWindow(req) {
+  const raw = String(req.query.asOf || '').trim();
+  const asOf = /^\d{4}-\d{2}-\d{2}/.test(raw) ? raw.slice(0, 10) : new Date().toISOString().slice(0, 10);
+  // `getConfig` prend le handle DB et est ASYNCHRONE (double backend) — même
+  // forme que `_assetUsdRate`. L'appeler sans argument jette sur `db.exec`.
+  const cfg = require('./services/reportConfig');
+  const rdb = require('./reports-db');
+  const cfgDays = parseInt((await cfg.getConfig(rdb.db)).reconcile_recent_days, 10);
+  let recentDays = parseInt(req.query.recentDays, 10);
+  if (!Number.isFinite(recentDays) || recentDays <= 0) recentDays = Number.isFinite(cfgDays) && cfgDays > 0 ? cfgDays : 30;
+  if (recentDays > 365) recentDays = 365;
+  let staleDays = parseInt(req.query.staleDays, 10);
+  if (!Number.isFinite(staleDays) || staleDays <= 0) staleDays = 90;
+  if (staleDays > 730) staleDays = 730;
+  return { asOf, recentDays, staleDays };
+}
+
+/** Charge les trois entrées de la vue. Le filtre Site s'applique APRÈS. */
+async function _reconcileView(req) {
+  const adb = require('./assets-db');
+  const { buildReconcileView } = require('./services/reconcileView');
+  const w = await _reconcileWindow(req);
+  const [external, decisions] = await Promise.all([
+    adb.listExternalDevices(),
+    adb.listDecisions(),
+  ]);
+  // Le parc SDP en entier : la comparaison a besoin de TOUT pour décider
+  // qu'une machine est absente. Filtrer ici transformerait « pas à ce site »
+  // en « absente de l'inventaire ».
+  const sdpAssets = await adb.getEnrichedAssets({});
+  const v = buildReconcileView(Object.assign({ sdpAssets, externalDevices: external, decisions }, w));
+  const site = String(req.query.site || '').trim();
+  if (!site) return v;
+  const keep = (s) => String(s || '').toUpperCase() === site.toUpperCase();
+  return Object.assign({}, v, {
+    gaps: v.gaps.filter((g) => keep(g.site)),
+    by_site: v.by_site.filter((r) => keep(r.site)),
+    by_ou: v.by_ou.filter((r) => keep(r.site)),
+    retirement_candidates: v.retirement_candidates.filter((r) => keep(r.site)),
+    filtered_site: site,
+  });
+}
+
+// Le collecteur PowerShell et la requête KQL, servis depuis le dépôt pour que
+// la page n'en héberge aucune copie — deux copies divergent.
+const _RECONCILE_FILES = {
+  'collector.ps1': ['tools/reconcile/Collect-ADComputers.ps1', 'Collect-ADComputers.ps1'],
+  'defender.kql': ['tools/reconcile/DeviceInfo.kql', 'DeviceInfo.kql'],
+};
+for (const [route, [rel, filename]] of Object.entries(_RECONCILE_FILES)) {
+  app.get('/api/assets/reconcile/' + route, requireReportSession, (req, res) => {
+    try {
+      const body = fs.readFileSync(path.join(__dirname, rel), 'utf8');
+      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.send(body);
+    } catch (e) {
+      console.error('[api/assets/reconcile/' + route + ']', e.message);
+      res.status(500).json({ error: e.message });
+    }
+  });
+}
+
+app.get('/api/assets/reconcile/summary', requireReportSession, async (req, res) => {
+  try {
+    const adb = require('./assets-db');
+    const v = await _reconcileView(req);
+    res.json({
+      counts: v.counts, by_site: v.by_site, by_ou: v.by_ou, by_type: v.by_type,
+      excluded: v.excluded, window: v.window,
+      // La fraîcheur des imports fait partie du chiffre : un écart calculé sur
+      // un export d'il y a trois mois ne dit rien d'aujourd'hui.
+      imports: await adb.listImportRuns(),
+    });
+  } catch (e) {
+    console.error('[api/assets/reconcile/summary]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/assets/reconcile/gaps', requireReportSession, async (req, res) => {
+  try {
+    const v = await _reconcileView(req);
+    res.json({ gaps: v.gaps, retirement_candidates: v.retirement_candidates, window: v.window });
+  } catch (e) {
+    console.error('[api/assets/reconcile/gaps]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/**
+ * Prévisualisation et import partagent le même parseur ; seule la
+ * prévisualisation NE PERSISTE RIEN. C'est ce qui permet de vérifier un export
+ * inconnu sans risquer d'écraser une source entière.
+ */
+function _reconcileParse(req) {
+  const src = String(req.query.source || '').trim().toLowerCase();
+  if (!RECONCILE_SOURCES.includes(src)) {
+    const e = new Error(`source inconnue « ${src || '(vide)'} » — attendu : ${RECONCILE_SOURCES.join(', ')}`);
+    e.status = 400;
+    throw e;
+  }
+  const imp = require('./services/reconcileImport');
+  const text = Buffer.isBuffer(req.body) ? req.body.toString('utf8') : String(req.body || '');
+  const fn = { ad: imp.parseAdCsv, entra: imp.parseEntraCsv, defender: imp.parseDefenderCsv }[src];
+  return { src, parsed: fn(text) };
+}
+
+function _reconcileError(res, e, where) {
+  const { MissingColumnError } = require('./services/reconcileImport');
+  // Une colonne absente est une erreur de FICHIER, pas de serveur : 400 qui
+  // NOMME la colonne. Un 500 enverrait l'opérateur chercher une panne.
+  if (e instanceof MissingColumnError) return res.status(400).json({ error: e.message, column: e.column, source: e.source });
+  if (e && e.status === 400) return res.status(400).json({ error: e.message });
+  console.error(where, e.message);
+  return res.status(500).json({ error: e.message });
+}
+
+app.post('/api/assets/reconcile/preview', requireReportSession, requireAdmin, (req, res) => {
+  try {
+    const { src, parsed } = _reconcileParse(req);
+    res.json({
+      source: src, rows: parsed.rows.length, skipped_no_name: parsed.skipped_no_name,
+      warnings: parsed.warnings, header: parsed.header,
+      sample: parsed.rows.slice(0, 20).map((r) => ({
+        device_name: r.device_name, os: r.os, last_seen: r.last_seen, enabled: r.enabled, ou_dn: r.ou_dn,
+      })),
+    });
+  } catch (e) { _reconcileError(res, e, '[api/assets/reconcile/preview]'); }
+});
+
+app.post('/api/assets/reconcile/import', requireReportSession, requireAdmin, async (req, res) => {
+  try {
+    const { src, parsed } = _reconcileParse(req);
+    const adb = require('./assets-db');
+    // Le remplacement est porté PAR SOURCE : importer AD ne doit jamais
+    // toucher Entra ni Defender.
+    await adb.replaceExternalDevices(src, parsed.rows);
+    console.log(`[Reconcile] import ${src} rows=${parsed.rows.length} by=${req.reportUser && req.reportUser.username}`);
+    res.json({ source: src, imported: parsed.rows.length, skipped_no_name: parsed.skipped_no_name, warnings: parsed.warnings });
+  } catch (e) { _reconcileError(res, e, '[api/assets/reconcile/import]'); }
+});
+
+// Poser une décision est un acte d'ÉDITEUR (le coordinateur traite sa liste),
+// pas d'administrateur — contrairement à l'import, qui remplace une source
+// entière pour tout le monde.
+app.post('/api/assets/reconcile/decision', requireReportSession, async (req, res) => {
+  try {
+    const b = req.body || {};
+    const who = (req.reportUser && (req.reportUser.username || req.reportUser.full_name)) || null;
+    const adb = require('./assets-db');
+    if (b.decision === null || b.decision === '') { await adb.clearDecision(b.device_key); return res.json({ ok: true, cleared: true }); }
+    await adb.setDecision(b.device_key, b.decision, b.reason, who);
+    res.json({ ok: true });
+  } catch (e) {
+    // `setDecision` refuse une décision inconnue et un hors-périmètre sans
+    // motif : ce sont des erreurs d'appelant, donc 400.
+    console.error('[api/assets/reconcile/decision]', e.message);
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.get('/api/assets/reconcile/export.xlsx', requireReportSession, async (req, res) => {
+  try {
+    const v = await _reconcileView(req);
+    const XLSX = require('xlsx');
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(v.gaps.map((g) => ({
+      'Machine': g.device_name, 'Site présumé': g.site || '', 'Origine du site': g.site_source || '',
+      'Type': g.type || '', 'Origine du type': g.type_source || '',
+      'Système': g.os || '', 'Vue le': g.last_seen || '', 'Jours': g.age_days,
+      'Sources': (g.sources || []).join(' + '), 'Conteneur AD': g.container_dn || '',
+      'Décision': g.decision || '', 'Motif': g.reason || '',
+    }))), 'Écarts');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(v.by_ou.map((r) => ({
+      'Conteneur AD (unité GPO)': r.ou_dn, 'Écarts': r.gaps, 'Total AD': r.total, 'Site': r.site || '',
+    }))), 'Par OU');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(v.retirement_candidates.map((r) => ({
+      'Actif SDP': r.asset_name, 'Site': r.site || '', 'Vu ailleurs le': r.last_seen_external || 'jamais',
+      'Jours': r.age_days == null ? '' : r.age_days,
+    }))), 'Candidats au retrait');
+    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="reconciliation_${v.window.as_of}.xlsx"`);
+    res.send(buf);
+  } catch (e) {
+    console.error('[api/assets/reconcile/export.xlsx]', e.message);
     res.status(500).json({ error: e.message });
   }
 });

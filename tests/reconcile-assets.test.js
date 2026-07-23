@@ -77,10 +77,29 @@ test('une machine ancienne ou desactivee n est pas un ecart', () => {
 
 // La ventilation des exclusions est aussi importante que le resultat : sans
 // elle personne ne fera confiance au chiffre retenu.
-test('les exclusions portent toujours leurs trois cles, meme a zero', () => {
+test('les exclusions portent toujours toutes leurs cles, meme a zero', () => {
   const r = reconcile({ sdpAssets: [], externalDevices: [], asOf: '2026-07-23', recentDays: 30 });
-  assert.deepStrictEqual(Object.keys(r.excluded).sort(), ['disabled', 'no_date', 'stale']);
+  assert.deepStrictEqual(Object.keys(r.excluded).sort(), ['disabled', 'future', 'no_date', 'stale']);
   assert.strictEqual(r.excluded.stale, 0);
+});
+
+test('une observation POSTERIEURE a asOf n est pas un ecart courant', () => {
+  // Rejouer un rapport sur une date passee ne doit pas compter comme "ecart"
+  // des machines apparues depuis.
+  const ext = [{ source: 'ad', device_name: 'FUTURE-1', last_seen: '2026-07-22T00:00:00Z', enabled: true }];
+  const r = reconcile({ sdpAssets: [], externalDevices: ext, asOf: '2020-01-01', recentDays: 30 });
+  assert.strictEqual(r.gaps.length, 0);
+  assert.strictEqual(r.excluded.future, 1);
+});
+
+test('une machine vue le JOUR MEME de asOf reste un ecart', () => {
+  // asOf est une date a minuit : sans traiter asOf comme fin de journee, une
+  // machine vue a 8h aurait un age negatif et serait rejetee comme "future" —
+  // exactement les machines qui comptent le plus.
+  const ext = [{ source: 'ad', device_name: 'TODAY-1', last_seen: '2026-07-23T08:00:00Z', enabled: true }];
+  const r = reconcile({ sdpAssets: [], externalDevices: ext, asOf: '2026-07-23', recentDays: 30 });
+  assert.strictEqual(r.gaps.length, 1);
+  assert.strictEqual(r.excluded.future, 0);
 });
 
 test('vue par les deux sources est un signal plus fort, et il est conserve', () => {
