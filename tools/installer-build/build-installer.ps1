@@ -34,7 +34,8 @@
 param(
     [switch]$DevBuild,
     [switch]$KeepWork,
-    [switch]$Clean
+    [switch]$Clean,
+    [string]$DemoData       # data-only restore point to bundle; default: newest sdp-restore_demo-*.zip in the repo root
 )
 $ErrorActionPreference = 'Stop'
 
@@ -163,6 +164,44 @@ try {
             if ($f) { Copy-Item $f.FullName $payloadInst -Force; Ok ("payload: " + $f.Name) }
             else { Warn ("payload MISSING (optional): " + $o.Name + " - target servers must already have it") }
         }
+    }
+
+    # --- optional demo dataset -> payload\demo\ -----------------------------------
+    # A restore point bundled INSIDE the exe. With it present, Setup.bat offers
+    # option D (fresh install + seed) and the operator copies nothing anywhere -
+    # the SFX has already put the archive on disk. Absent, option D is hidden and
+    # the package behaves exactly as before, which is what a production build wants.
+    #
+    # The archive must carry DATA ONLY (sdp_dashboard.sql + data\). One containing
+    # a .env would overwrite the .env the questionnaire just wrote; one containing
+    # code would overwrite the code step 6 just deployed. This build REFUSES both
+    # rather than shipping an exe that quietly undoes its own install.
+    $demoSrc = $DemoData
+    if (-not $demoSrc) {
+        $auto = Get-ChildItem $repo -Filter 'sdp-restore_demo-*.zip' -File -ErrorAction SilentlyContinue |
+                Sort-Object LastWriteTime -Descending | Select-Object -First 1
+        if ($auto) { $demoSrc = $auto.FullName }
+    }
+    if ($demoSrc -and (Test-Path $demoSrc)) {
+        $bad = @()
+        $dz = [IO.Compression.ZipFile]::OpenRead($demoSrc)
+        try {
+            foreach ($e in $dz.Entries) {
+                $n = $e.FullName -replace '/', '\'
+                if ($n -match '(^|\\)\.env')                                        { $bad += $n }
+                elseif ($n -match '^(services|public|tools|tests|routes|db|docs)\\') { $bad += $n }
+                elseif ($n -match '^[^\\]+\.js$')                                    { $bad += $n }
+            }
+        } finally { $dz.Dispose() }
+        if ($bad.Count -gt 0) {
+            Die ("demo dataset is not data-only - it would overwrite the install. Offending entries (first 5): " + (($bad | Select-Object -First 5) -join ', '))
+        }
+        $demoDir = Join-Path $payload 'demo'
+        New-Item -ItemType Directory -Path $demoDir -Force | Out-Null
+        Copy-Item $demoSrc (Join-Path $demoDir (Split-Path $demoSrc -Leaf)) -Force
+        Ok ("payload: demo dataset " + (Split-Path $demoSrc -Leaf) + " (" + [math]::Round((Get-Item $demoSrc).Length/1MB,1) + " MB) - Setup.bat option D enabled")
+    } else {
+        Warn 'payload MISSING (optional): demo dataset - Setup.bat option D will be hidden'
     }
 
     # --- 7z the bundle -------------------------------------------------------------

@@ -7,7 +7,9 @@
 #       [-ConfigureEnvOnly]                         (questionnaire only)
 #       [-Config <psd1>]     merge overrides (config.test.psd1 = :3457 test instance)
 #       [-BundleRoot <dir>]  bundle root holding payload\ (default: script dir)
-#       [-StopAfterStep <n>] stop after step n (1,2,3,4,4b,5,6,7) - staged runs / tests
+#       [-StopAfterStep <n>] stop after step n (1,2,3,4,4b,5,6,7,8) - staged runs / tests
+#       [-SeedData]          Fresh only: load payload\demo\*.zip after the install
+#       [-NoBrowser]         do not open the dashboard when a fresh install ends
 #       [-NoRollback]        keep the broken state for on-site debugging
 #       [-Force]             override downgrade refusal / fresh-into-nonempty
 #       [-ConfirmDataLoss]   Reinstall only: DROP + recreate the database
@@ -22,6 +24,10 @@
 #   6  deploy code + node_modules; exclusions HARD-CODED: data\ blobs\ SDP-Backups\ .env
 #   7  orphan-safe restart + verify (pm2 online + HTTP probe); FAILURE -> automatic
 #      rollback to the step-5 restore point, exit code 2 'ROLLED BACK'
+#   8  OPTIONAL seed data (-SeedData, fresh only): copy payload\demo\*.zip into
+#      the backup dir and restore it, so a demo machine needs zero manual file
+#      handling. NON-FATAL by design - the app is already installed and working,
+#      so a seed failure WARNs and the run still exits 0.
 #
 # Exit codes: 0 = OK, 1 = failed, 2 = failed AND rolled back.
 #
@@ -51,7 +57,9 @@ param(
     [switch]$ConfirmDataLoss,
     [string]$Config,
     [string]$BundleRoot,
-    [string]$StopAfterStep
+    [string]$StopAfterStep,
+    [switch]$SeedData,
+    [switch]$NoBrowser
 )
 $ErrorActionPreference = 'Stop'
 
@@ -925,6 +933,68 @@ function Step7-Verify {
 }
 
 # =====================================================================
+# Step 8 - OPTIONAL seed data. Turns "install, then create a folder, copy a
+# zip into it, reopen the menu, pick Restore, type the file name" into nothing
+# at all: the demo restore point rides inside the bundle, so it is already on
+# disk (the SFX extracted it) and this step does the file handling itself.
+#
+# NON-FATAL ON PURPOSE. Steps 1-7 already produced a working install; a seed
+# problem must not fail the run or trigger a rollback, or a laptop would be
+# left broken over a demo dataset. Every failure path here WARNs and returns.
+#
+# The seed archive is expected to carry DATA ONLY (sdp_dashboard.sql + data\).
+# Manage-SDP's restore robocopies the archive over InstallDir with /E and no
+# /MIR, so a data-only archive cannot delete or downgrade the code just
+# deployed by step 6 - but an archive containing code WOULD overwrite it, and
+# one containing .env would overwrite the .env the questionnaire just wrote.
+# Build the archive accordingly; this step does not police its contents.
+# =====================================================================
+function Step8-SeedData {
+    $demoDir = Join-Path $PayloadDir 'demo'
+    if (-not (Test-Path $demoDir)) { Log 'No payload\demo\ in this bundle - nothing to seed.' 'WARN'; return }
+    $seed = Get-ChildItem $demoDir -Filter '*.zip' -File -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    if (-not $seed) { Log 'payload\demo\ holds no .zip - nothing to seed.' 'WARN'; return }
+
+    # Manage-SDP resolves -Name against ITS backup dir only, so the archive has
+    # to live there. Creating that directory is exactly the manual step this
+    # removes - do it here rather than asking a human to.
+    if (-not (Test-Path $BackupDir)) { New-Item -ItemType Directory -Path $BackupDir -Force | Out-Null }
+    $dest = Join-Path $BackupDir $seed.Name
+    Copy-Item -LiteralPath $seed.FullName -Destination $dest -Force
+    Log ("Seed archive staged: " + $dest + " (" + [math]::Round($seed.Length/1MB,1) + " MB)") 'OK'
+
+    $manage = Join-Path $here 'Manage-SDP.ps1'
+    if (-not (Test-Path $manage)) { Log "Manage-SDP.ps1 not found - seed skipped." 'WARN'; return }
+    # -Force skips the interactive 'type YES' prompt: the operator already chose
+    # this by picking the seeded menu entry, and a second confirmation in an
+    # unattended flow just stalls on a closed stdin.
+    $mArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $manage, '-Restore', '-Name', $seed.Name, '-Force')
+    if ($Config) { $mArgs += @('-Config', $Config) }
+    & powershell @mArgs
+    if ($LASTEXITCODE -ne 0) {
+        Log 'Seed restore FAILED - the app is installed and running, just empty. Load a restore point from the menu (option 6).' 'WARN'
+        return
+    }
+    Log 'Seed data loaded.' 'OK'
+    # The restore replaced the users table, so the account created by the
+    # questionnaire minutes ago no longer exists. Saying this here is the
+    # difference between "it works" and a locked-out demo.
+    Log 'NOTE: the seed replaced the accounts - sign in with the dashboard credentials that come WITH the data, not the admin created during setup.' 'WARN'
+}
+
+# Opens the dashboard once everything is up. Runs elevated (Setup.bat self-
+# elevates), which is cosmetically odd but harmless on a demo machine.
+# -NoBrowser exists because the installer is also driven headlessly by the
+# smoke tests, where spawning a browser would hang the run.
+function Open-Dashboard {
+    if ($NoBrowser) { return }
+    $url = 'http://localhost:' + $AppPort + '/'
+    try { Start-Process $url | Out-Null; Log ("Opened " + $url) 'OK' }
+    catch { Log ("Could not open a browser - go to " + $url) 'WARN' }
+}
+
+# =====================================================================
 # main
 # =====================================================================
 try {
@@ -939,7 +1009,7 @@ try {
 
     $plan = @()
     switch ($Mode) {
-        'fresh'     { $plan = @('1','2','3','4','4b','6','7') }
+        'fresh'     { $plan = @('1','2','3','4','4b','6','7'); if ($SeedData) { $plan += '8' } }
         'upgrade'   { $plan = @('1','2','3','4','5','6','7') }   # 4 = verify only; new .env keys appended in 6
         'patch'     { $plan = @('1','2','3','5','6','7') }
         'reinstall' { $plan = @('1','2','3','4','4b','5','6','7') }
@@ -954,6 +1024,7 @@ try {
             '5'  { Invoke-Step '5'  'Pre-change backup'        { Step5-Backup } }
             '6'  { Invoke-Step '6'  'Deploy code'              { Step6-Deploy } }
             '7'  { Invoke-Step '7'  'Restart + verify'         { Step7-Verify } }
+            '8'  { Invoke-Step '8'  'Seed demo data'           { Step8-SeedData } }
         }
         if ($StopAfterStep -and $n -eq $StopAfterStep) {
             Log "StopAfterStep $StopAfterStep reached - stopping here (staged run)" 'WARN'
@@ -962,6 +1033,10 @@ try {
     }
     Complete-Run 'OK'
     Log "Install ($Mode) finished OK. Summary: $SummaryFile" 'OK'
+    # Only on a fresh install, and only when the whole plan ran: a staged run
+    # (-StopAfterStep) has not verified the service, so opening a browser at a
+    # port nothing is listening on would just show an error page.
+    if ($Mode -eq 'fresh' -and -not $StopAfterStep) { Open-Dashboard }
     exit 0
 }
 catch {

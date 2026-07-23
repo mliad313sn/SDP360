@@ -79,6 +79,7 @@ echo      1.  Patch                Code only - node_modules + DB untouched.
 echo      2.  Upgrade              Code + node_modules; DB kept + verified.
 echo      3.  Reinstall            Redeploy everything; DB kept unless asked.
 echo      4.  Fresh install        First-time install on a new machine.
+if exist "%HERE%\payload\demo\*.zip" echo      D.  Demo laptop         Fresh install + load the bundled dataset. Nothing to copy.
 echo.
 echo    Maintenance
 echo      5.  Backup now           Full restore point (code + data + DB dump).
@@ -104,6 +105,7 @@ if "%CH%"=="1" goto patch
 if "%CH%"=="2" goto upgrade
 if "%CH%"=="3" goto reinstall
 if "%CH%"=="4" goto fresh
+if /i "%CH%"=="D" goto demo
 if "%CH%"=="5" goto backup
 if "%CH%"=="6" goto restorept
 if "%CH%"=="7" goto listrp
@@ -181,6 +183,27 @@ echo   ^>^> FRESH INSTALL - prerequisites, PostgreSQL, .env questionnaire, app.
 echo   ^>^> %PS% "%INSTALL%" -Fresh
 %PS% "%INSTALL%" -Fresh -BundleRoot "%HERE%"
 call :slog "Fresh install - finished (exit %errorlevel%)"
+goto done
+
+rem ---------------------------------------------------------------- D
+rem  Demo laptop: option 4 plus the bundled dataset, end to end. The archive
+rem  travels INSIDE this bundle (payload\demo\), so the SFX has already put it
+rem  on disk - the operator creates no folder and copies no file. The entry is
+rem  hidden when a bundle carries no demo payload, so a production package
+rem  never advertises an action it cannot perform.
+:demo
+if not exist "%HERE%\payload\demo\*.zip" (
+  echo   This package carries no demo dataset.
+  goto menu
+)
+call :slog "Demo laptop install - start"
+echo.
+echo   ^>^> DEMO LAPTOP - fresh install, then the bundled dataset is loaded.
+echo   ^>^> The dataset REPLACES the accounts: sign in with the credentials
+echo   ^>^> that ship with the data, not the admin created during setup.
+echo   ^>^> %PS% "%INSTALL%" -Fresh -SeedData
+%PS% "%INSTALL%" -Fresh -SeedData -BundleRoot "%HERE%"
+call :slog "Demo laptop install - finished (exit %errorlevel%)"
 goto done
 
 rem ---------------------------------------------------------------- 5
