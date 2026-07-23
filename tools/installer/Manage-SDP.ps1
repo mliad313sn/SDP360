@@ -100,6 +100,17 @@ function Get-EnvValue($key) {
 }
 function Resolve-SuperPassword {
     # Same convention as provision-prod.js: the standard appliance value.
+    #
+    # PG_SUPER_PASSWORD (env, then EnvAnswers) overrides it, because a cluster
+    # this installer did NOT create - 4MyPeople's, or one the operator set up -
+    # has its own postgres password, and a restore that assumes the appliance
+    # default fails at DROP DATABASE with an authentication error that names
+    # nothing useful. Install-SDP prompts for it; here, where restores also run
+    # unattended from Task Scheduler, it is read from the environment.
+    if ($env:PG_SUPER_PASSWORD) { return $env:PG_SUPER_PASSWORD }
+    if ($cfg.EnvAnswers -and $cfg.EnvAnswers.ContainsKey('PG_SUPER_PASSWORD') -and $cfg.EnvAnswers.PG_SUPER_PASSWORD) {
+        return [string]$cfg.EnvAnswers.PG_SUPER_PASSWORD
+    }
     return $cfg.StandardPgSuperPassword
 }
 function Find-PgBin($exe) {

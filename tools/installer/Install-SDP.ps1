@@ -625,13 +625,51 @@ function Find-ProvisionScript {
     if ((Test-Path $c) -and (Test-Path (Join-Path $repo 'node_modules\pg'))) { return @{ Script = $c; Cwd = $repo } }
     return $null
 }
+# Resolved ONCE and cached, so a password typed at the cohabitation prompt below
+# is reused by every later superuser call instead of falling back to the
+# appliance default and failing again.
+$script:SuperPw = $null
+function Get-SuperPassword {
+    if ($script:SuperPw) { return $script:SuperPw }
+    $script:SuperPw = if ($cfg.EnvAnswers -and $cfg.EnvAnswers.ContainsKey('PG_SUPER_PASSWORD') -and $cfg.EnvAnswers.PG_SUPER_PASSWORD) {
+        [string]$cfg.EnvAnswers.PG_SUPER_PASSWORD
+    } else { [string]$cfg.StandardPgSuperPassword }
+    return $script:SuperPw
+}
 function Invoke-PsqlSuper([string]$sql) {
     $psql = Find-PgBin 'psql.exe'
     if (-not $psql) { Die 'psql.exe not found under Program Files\PostgreSQL' }
-    $superPw = if ($cfg.EnvAnswers -and $cfg.EnvAnswers.ContainsKey('PG_SUPER_PASSWORD') -and $cfg.EnvAnswers.PG_SUPER_PASSWORD) { $cfg.EnvAnswers.PG_SUPER_PASSWORD } else { $cfg.StandardPgSuperPassword }
-    $env:PGPASSWORD = $superPw
+    $env:PGPASSWORD = Get-SuperPassword
     try { return (& $psql -h $cfg.PgHost -p $cfg.PgPort -U postgres -d postgres -v ON_ERROR_STOP=1 -t -A -c $sql) }
     finally { $env:PGPASSWORD = '' }
+}
+
+# Probe the cluster we will ACTUALLY use - host+port+superuser credentials -
+# rather than trusting that a service named postgresql* is the one answering on
+# PgPort. On a machine where another product (4MyPeople) already ships a
+# cluster, those two can easily be different things.
+#
+# -w so psql NEVER prompts: an interactive password prompt on a closed stdin
+# hangs the installer forever. $ErrorActionPreference is dropped to Continue
+# around the call because psql writes its diagnostics to stderr, which under
+# 'Stop' becomes a terminating NativeCommandError and hides the real message.
+function Test-PgSuper {
+    $psql = Find-PgBin 'psql.exe'
+    if (-not $psql) { return @{ Ok = $false; Err = 'psql.exe not found under Program Files\PostgreSQL' } }
+    $env:PGPASSWORD = Get-SuperPassword
+    $old = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $out = & $psql -h $cfg.PgHost -p $cfg.PgPort -U postgres -d postgres -w -t -A -c 'SHOW server_version_num' 2>&1
+        $code = $LASTEXITCODE
+    } finally { $ErrorActionPreference = $old; $env:PGPASSWORD = '' }
+    $text = (($out | ForEach-Object { $_.ToString() }) -join ' ').Trim()
+    if ($code -eq 0) {
+        $num = 0
+        if ($text -match '(\d{5,6})') { $num = [int]$Matches[1] }
+        return @{ Ok = $true; Version = $num }
+    }
+    return @{ Ok = $false; Err = $text }
 }
 function Step4-Postgres {
     # ---- cluster present? ----
@@ -650,12 +688,58 @@ function Step4-Postgres {
         if (-not $svc) { Die 'PostgreSQL installed but no postgresql* service found' }
         Log 'PostgreSQL installed' 'OK'
     }
+
+    # ---- COHABITATION GUARD ------------------------------------------------
+    # A service named postgresql* existing is NOT proof that the cluster we are
+    # about to provision into is reachable, is the right one, or accepts our
+    # credentials. Three ways that goes wrong on a machine that already runs
+    # someone else's PostgreSQL (typically 4MyPeople's bundled cluster):
+    #   * it listens on another port  -> every psql call fails against PgPort
+    #   * several clusters coexist    -> Select-Object -First 1 picked the wrong
+    #                                    service, and the port decides anyway
+    #   * it is not an appliance box  -> the standard superuser password is not
+    #                                    that cluster's password
+    # Probing once, here, turns all three into one readable sentence instead of
+    # an opaque failure three steps later.
+    #
+    # SKIPPED in upgrade mode, deliberately: an upgrade provisions nothing, and
+    # a sqlite-only install has no superuser to probe with. Making it fatal
+    # there would fail upgrades that used to pass. The early return below keeps
+    # upgrade on its old, lenient path.
     if ($Mode -eq 'upgrade') {
         # verify only - the DB and .env already exist; nothing is provisioned.
         $url = Get-EnvValue 'PG_URL'
         if ($url) { Log 'Upgrade mode: PostgreSQL verify only (PG_URL present in .env)' } else { Log 'Upgrade mode: no PG_URL in .env (sqlite-only install?) - skipping DB checks' 'WARN' }
         return
     }
+
+    $probe = Test-PgSuper
+    if (-not $probe.Ok -and $probe.Err -match 'password|authentication|role .* does not exist') {
+        if ($cfg.ContainsKey('EnvSilent') -and $cfg.EnvSilent) {
+            Die ("PostgreSQL on port " + $cfg.PgPort + " refused the superuser credentials. This cluster was not installed by us - put its postgres password in config EnvAnswers.PG_SUPER_PASSWORD. (" + $probe.Err + ")")
+        }
+        Log 'The existing PostgreSQL did not accept the standard superuser password.' 'WARN'
+        Write-Host '     where: this machine already runs a PostgreSQL we did not install (4MyPeople, or one you set up).' -ForegroundColor DarkGray
+        Write-Host '     We only ADD a sdp_app role + a sdp_dashboard database; nothing else is touched.' -ForegroundColor DarkGray
+        $inp = Read-Secret ('  postgres superuser password for the cluster on port ' + $cfg.PgPort)
+        if ($inp) { $script:SuperPw = $inp; $probe = Test-PgSuper }
+    }
+    if (-not $probe.Ok) {
+        $listening = @(Get-PortListenerPids ([int]$cfg.PgPort))
+        $svcNames = ((Get-Service postgresql* -ErrorAction SilentlyContinue | ForEach-Object { $_.Name + '=' + $_.Status }) -join ', ')
+        $hint = if ($listening.Count -eq 0) {
+            "NOTHING is listening on port $($cfg.PgPort). The existing cluster almost certainly uses another port - set PgPort in config.psd1 to match it."
+        } else {
+            "Something IS listening on port $($cfg.PgPort) but rejected us."
+        }
+        Die ("Cannot reach PostgreSQL at " + $cfg.PgHost + ":" + $cfg.PgPort + " as superuser. " + $hint + " Services found: " + $svcNames + ". psql said: " + $probe.Err)
+    }
+    $pgMin = [int]$cfg.PgMinMajor
+    $pgMajor = [math]::Floor($probe.Version / 10000)
+    if ($probe.Version -gt 0 -and $pgMajor -lt $pgMin) {
+        Die ("The existing PostgreSQL is major " + $pgMajor + "; this application needs " + $pgMin + " or later (restore uses DROP DATABASE ... WITH (FORCE), a 13+ feature). Refusing to provision into a cluster whose restore path would fail later.")
+    }
+    Log ("PostgreSQL major " + $pgMajor + " reachable on " + $cfg.PgHost + ":" + $cfg.PgPort + " - reusing this cluster") 'OK'
 
     # ---- sdp_app password: EnvAnswers > reuse from existing PG_URL > prompt/generate ----
     $appPw = $null

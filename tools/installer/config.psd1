@@ -13,7 +13,13 @@
     HeapMB         = 4096                      # --max-old-space-size (OOM crash-loop guard)
 
     NodeMinMajor   = 24
-    PgMajor        = 17
+    PgMajor        = 17                        # version BUNDLED in payload\installers (installed only when no cluster exists)
+    # Minimum major an EXISTING cluster must be for us to reuse it. 13, because
+    # both the -ConfirmDataLoss path and Manage-SDP's restore use
+    # 'DROP DATABASE ... WITH (FORCE)', which is PostgreSQL 13+. On an older
+    # cluster the install would look fine and then a restore would fail on a
+    # syntax error, long after anyone connects the two events.
+    PgMinMajor     = 13
     PgHost         = 'localhost'
     PgPort         = 5432
     # Same appliance convention as the 4MyPeople installer: a BLANK password
