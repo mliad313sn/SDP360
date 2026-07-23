@@ -1216,6 +1216,137 @@ async function _getEffortTrendPg(filters, opts = {}) {
 }
 
 if (ASSETS_BACKEND !== 'postgres') getDB();   // eager sqlite init at require, like tracker-db
+// ── Réconciliation SDP × AD × Entra ─────────────────────────────────────────
+
+/** Les seules décisions acceptées. Une valeur libre rendrait le compteur ininterprétable. */
+const DECISIONS = ['handled', 'out_of_scope'];
+
+const _AED_COLS = ['source', 'device_key', 'device_name', 'dns_name', 'os', 'os_version',
+  'last_seen', 'enabled', 'join_type', 'ou_dn', 'model', 'raw_json', 'import_id', 'imported_at'];
+
+/**
+ * Remplace la photo d'UNE source. La suppression est portée par `source` :
+ * réimporter AD ne doit jamais toucher Entra, et l'inverse.
+ *
+ * Tout se fait dans UNE transaction — un import interrompu laisserait sinon la
+ * source vidée, donc zéro écart, donc un rapport rassurant et faux.
+ */
+function replaceExternalDevices(source, rows, importId) {
+  if (ASSETS_BACKEND === 'postgres') return _replaceExternalDevicesPg(source, rows, importId);
+  const db = getDB();
+  const at = new Date().toISOString();
+  const ins = db.prepare(
+    `INSERT OR REPLACE INTO asset_external_devices (${_AED_COLS.join(',')})
+     VALUES (${_AED_COLS.map(() => '?').join(',')})`);
+  const tx = db.transaction(() => {
+    db.prepare('DELETE FROM asset_external_devices WHERE source = ?').run(source);
+    for (const r of rows || []) ins.run(..._aedValues(source, r, importId, at));
+  });
+  tx();
+  return (rows || []).length;
+}
+async function _replaceExternalDevicesPg(source, rows, importId) {
+  const h = pgHandle();
+  const at = new Date().toISOString();
+  await h.runTransaction(async () => {
+    await h.prepare('DELETE FROM asset_external_devices WHERE source = ?').run(source);
+    for (const r of rows || []) {
+      await h.prepare(
+        `INSERT INTO asset_external_devices (${_AED_COLS.join(',')})
+         VALUES (${_AED_COLS.map(() => '?').join(',')})
+         ON CONFLICT (source, device_key) DO NOTHING`).run(..._aedValues(source, r, importId, at));
+    }
+  });
+  return (rows || []).length;
+}
+function _aedValues(source, r, importId, at) {
+  return [
+    source,
+    String(r.device_key || r.device_name || '').toUpperCase(),
+    r.device_name || '',
+    r.dns_name || null, r.os || null, r.os_version || null, r.last_seen || null,
+    r.enabled === false || r.enabled === 0 ? 0 : 1,
+    r.join_type || null, r.ou_dn || null, r.model || null,
+    r.raw_json || null, importId || null, at,
+  ];
+}
+
+function listExternalDevices(source) {
+  if (ASSETS_BACKEND === 'postgres') return _listExternalDevicesPg(source);
+  const db = getDB();
+  return source
+    ? db.prepare('SELECT * FROM asset_external_devices WHERE source = ?').all(source)
+    : db.prepare('SELECT * FROM asset_external_devices').all();
+}
+async function _listExternalDevicesPg(source) {
+  const h = pgHandle();
+  return source
+    ? h.prepare('SELECT * FROM asset_external_devices WHERE source = ?').all(source)
+    : h.prepare('SELECT * FROM asset_external_devices').all();
+}
+
+/** La fraîcheur par source — sans elle personne ne sait sur quoi il regarde. */
+function listImportRuns() {
+  if (ASSETS_BACKEND === 'postgres') return _listImportRunsPg();
+  return getDB().prepare(
+    `SELECT source, MAX(imported_at) AS imported_at, MAX(import_id) AS import_id, COUNT(*) AS n
+     FROM asset_external_devices GROUP BY source`).all();
+}
+async function _listImportRunsPg() {
+  return pgHandle().prepare(
+    `SELECT source, MAX(imported_at) AS imported_at, MAX(import_id) AS import_id, COUNT(*) AS n
+     FROM asset_external_devices GROUP BY source`).all();
+}
+
+/**
+ * Pose une décision sur un écart.
+ *
+ * `out_of_scope` EXIGE un motif : sortir une machine du compteur sans dire
+ * pourquoi est exactement ce qui vide un indicateur de son sens.
+ */
+function setDecision(deviceKey, decision, reason, who) {
+  if (!DECISIONS.includes(decision)) throw new Error(`decision inconnue: ${decision}`);
+  if (decision === 'out_of_scope' && !String(reason || '').trim()) {
+    throw new Error('un motif est obligatoire pour sortir une machine du périmètre');
+  }
+  const key = String(deviceKey || '').toUpperCase();
+  if (!key) throw new Error('device_key manquant');
+  if (ASSETS_BACKEND === 'postgres') return _setDecisionPg(key, decision, reason, who);
+  getDB().prepare(
+    `INSERT OR REPLACE INTO asset_reconcile_decisions (device_key, decision, reason, decided_by, decided_at)
+     VALUES (?,?,?,?,?)`).run(key, decision, reason || null, who || null, new Date().toISOString());
+  return true;
+}
+async function _setDecisionPg(key, decision, reason, who) {
+  await pgHandle().prepare(
+    `INSERT INTO asset_reconcile_decisions (device_key, decision, reason, decided_by, decided_at)
+     VALUES (?,?,?,?,?)
+     ON CONFLICT (device_key) DO UPDATE SET
+       decision = EXCLUDED.decision, reason = EXCLUDED.reason,
+       decided_by = EXCLUDED.decided_by, decided_at = EXCLUDED.decided_at`
+  ).run(key, decision, reason || null, who || null, new Date().toISOString());
+  return true;
+}
+
+function clearDecision(deviceKey) {
+  const key = String(deviceKey || '').toUpperCase();
+  if (ASSETS_BACKEND === 'postgres') return _clearDecisionPg(key);
+  getDB().prepare('DELETE FROM asset_reconcile_decisions WHERE device_key = ?').run(key);
+  return true;
+}
+async function _clearDecisionPg(key) {
+  await pgHandle().prepare('DELETE FROM asset_reconcile_decisions WHERE device_key = ?').run(key);
+  return true;
+}
+
+function listDecisions() {
+  if (ASSETS_BACKEND === 'postgres') return _listDecisionsPg();
+  return getDB().prepare('SELECT * FROM asset_reconcile_decisions').all();
+}
+async function _listDecisionsPg() {
+  return pgHandle().prepare('SELECT * FROM asset_reconcile_decisions').all();
+}
+
 module.exports = {
   getDB, initPgAssets, pgHandle, ASSETS_BACKEND, replaceTable, countRows,
   getEnrichedAssets, getAssetLookups, getAssetSummary,
@@ -1228,4 +1359,6 @@ module.exports = {
   classifySoftwareCompliance, getSoftwareComplianceSummary, getSoftwareComplianceExceptions, SOFTWARE_KINDS,
   snapshotEffort,
   getEffortLeaderboard, getEffortTrend,
+  DECISIONS, replaceExternalDevices, listExternalDevices, listImportRuns,
+  setDecision, clearDecision, listDecisions,
 };
