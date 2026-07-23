@@ -319,6 +319,7 @@
     <button class="tabbtn" role="tab" data-tab="hardware" aria-selected="false">Hardware</button>
     <button class="tabbtn" role="tab" data-tab="progress" aria-selected="false">Progress</button>
     <button class="tabbtn" role="tab" data-tab="investment" aria-selected="false">Investment</button>
+    <button class="tabbtn" role="tab" data-tab="reconcile" aria-selected="false">Réconciliation</button>
   </div>
 
   <!-- ── Shared filter bar ───────────────────────────────────────── -->
@@ -1032,6 +1033,102 @@
       </div>
 
     </div><!-- /invf-content -->
+
+  </section>
+
+  <!-- ════════════════ PANE: RÉCONCILIATION (SDP × AD × Entra × Defender) ══════ -->
+  <section id="pane-reconcile" class="tabpane">
+
+    <div class="as-head" style="margin-bottom:var(--space-4,16px)">
+      <div class="sub">Réconciliation — machines vues ailleurs, absentes de SDP</div>
+      <div class="spacer"></div>
+      <a class="btn btn-ghost" id="rec-exportBtn" href="#" title="Écarts, liste par OU et candidats au retrait, au filtre courant">
+        <span class="icon icon-download"></span> Export Excel
+      </a>
+    </div>
+
+    <!-- Fraîcheur des imports : un écart calculé sur un export d'il y a trois
+         mois ne dit rien d'aujourd'hui. -->
+    <div class="count-note" id="rec-freshness"
+         style="border:1px solid var(--color-border,#dfe3e8);border-radius:var(--radius-md,6px);margin-bottom:var(--space-4,16px)"></div>
+
+    <!-- État initial : aucune source importée -->
+    <div class="empty" id="rec-empty" style="display:none">
+      <div style="font-size:32px;margin-bottom:8px">🔍</div>
+      <div>Aucune source externe importée. Téléchargez le collecteur ci-dessous,
+        exécutez-le, puis déposez le CSV obtenu.</div>
+    </div>
+
+    <!-- ── Collecte + import ─────────────────────────────────────────── -->
+    <div class="chart-card" style="margin-bottom:var(--space-4,16px)">
+      <h3>1 · Collecter &nbsp;→&nbsp; 2 · Déposer</h3>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin:10px 0 14px">
+        <a class="btn btn-ghost" id="rec-dlCollector" href="#">
+          <span class="icon icon-download"></span> Collect-ADComputers.ps1
+        </a>
+        <a class="btn btn-ghost" id="rec-dlKql" href="#">
+          <span class="icon icon-download"></span> DeviceInfo.kql (Defender)
+        </a>
+      </div>
+      <div id="rec-importRow" style="display:flex;gap:14px;flex-wrap:wrap">
+        <label class="count-note" style="border:1px dashed var(--color-border,#dfe3e8);border-radius:var(--radius-md,6px);padding:12px 14px;cursor:pointer;flex:1 1 200px">
+          <strong>Active Directory</strong><br><span style="font-size:12px">CSV du collecteur</span>
+          <input type="file" id="rec-fileAd" accept=".csv,text/csv" data-source="ad" style="display:block;margin-top:8px;font-size:12px">
+        </label>
+        <label class="count-note" style="border:1px dashed var(--color-border,#dfe3e8);border-radius:var(--radius-md,6px);padding:12px 14px;cursor:pointer;flex:1 1 200px">
+          <strong>Entra ID</strong><br><span style="font-size:12px">export « Appareils »</span>
+          <input type="file" id="rec-fileEntra" accept=".csv,text/csv" data-source="entra" style="display:block;margin-top:8px;font-size:12px">
+        </label>
+        <label class="count-note" style="border:1px dashed var(--color-border,#dfe3e8);border-radius:var(--radius-md,6px);padding:12px 14px;cursor:pointer;flex:1 1 200px">
+          <strong>Defender</strong><br><span style="font-size:12px">export de la requête KQL</span>
+          <input type="file" id="rec-fileDef" accept=".csv,text/csv" data-source="defender" style="display:block;margin-top:8px;font-size:12px">
+        </label>
+      </div>
+      <!-- La prévisualisation ne persiste RIEN : elle permet de vérifier un
+           export inconnu sans risquer d'écraser une source. -->
+      <div id="rec-preview" style="display:none;margin-top:14px"></div>
+    </div>
+
+    <!-- ── Tuiles ────────────────────────────────────────────────────── -->
+    <div class="tiles" id="rec-tiles"></div>
+
+    <!-- ── Liste de travail GPO (par OU) — l'unité d'ACTION ──────────── -->
+    <div class="chart-card" style="margin-top:var(--space-4,16px)">
+      <h3>Par unité d'organisation — où rattacher la GPO</h3>
+      <div class="count-note" style="border:none;padding:0 0 10px;font-size:12px">
+        On rattache une GPO à une OU, pas à un site : un site couvre plusieurs OU.
+        Le total AD du conteneur accompagne le nombre d'écarts — 2 sur 2 et 2 sur 400
+        n'appellent pas la même action.
+      </div>
+      <div class="tablewrap"><table class="list" id="rec-ouTable">
+        <thead><tr><th>Conteneur AD</th><th>Site</th><th class="num">Écarts</th><th class="num">Total AD</th><th class="num">Non couvert</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+    </div>
+
+    <!-- ── Écarts par site, dépliables ───────────────────────────────── -->
+    <div class="chart-card" style="margin-top:var(--space-4,16px)">
+      <h3>Écarts par site</h3>
+      <div class="count-note" style="border:none;padding:0 0 10px;font-size:12px">
+        Le site est <strong>présumé</strong> : sa provenance est indiquée sur chaque ligne.
+        Un site venant d'un libellé d'OU ne se corrige pas comme un site appris.
+      </div>
+      <div id="rec-siteList"></div>
+    </div>
+
+    <!-- ── Sens inverse ──────────────────────────────────────────────── -->
+    <div class="chart-card" style="margin-top:var(--space-4,16px)">
+      <h3>Candidats au retrait — dans SDP, vus nulle part ailleurs</h3>
+      <div class="count-note" style="border:none;padding:0 0 10px;font-size:12px">
+        Le matériel qui ne rejoint jamais un domaine (commutateurs, bornes, pare-feux,
+        imprimantes) est <strong>exclu</strong> : absent d'AD par nature, il serait
+        candidat à tort et pour toujours.
+      </div>
+      <div class="tablewrap"><table class="list" id="rec-retTable">
+        <thead><tr><th>Actif SDP</th><th>Site</th><th>Vu ailleurs le</th><th class="num">Jours</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+    </div>
 
   </section>
 
@@ -2841,15 +2938,322 @@
 </script>
 
 <!-- ══════════════════════════════════════════════════════════════════
+     PANE MODULE: RÉCONCILIATION  (window.REC_PANE)
+     Machines vues récemment dans AD / Entra / Defender et absentes de SDP —
+     l'angle mort de SelfScan. Plus le sens inverse : actifs SDP que plus
+     personne ne voit.
+     Tout le calcul est côté serveur (services/reconcileView.js) ; ce module
+     n'affiche que ce qu'on lui envoie.
+     ══════════════════════════════════════════════════════════════════ -->
+<script nonce="%%CSP_NONCE%%">
+(function () {
+  'use strict';
+  const API = '/api/assets/reconcile';
+
+  function authHeaders() {
+    const h = {};
+    let tok = null;
+    const at = window.__authToken;
+    if (typeof at === 'function') { try { tok = at(); } catch (_) {} }
+    else if (typeof at === 'string' && at) { tok = at; }
+    if (!tok) tok = localStorage.getItem('report_token');
+    if (tok) h['x-report-token'] = tok;
+    return h;
+  }
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[c]));
+  }
+  function qs(params) {
+    const sp = new URLSearchParams();
+    for (const [k, v] of Object.entries(params || {})) { if (v) sp.set(k, v); }
+    return sp.toString() ? '?' + sp.toString() : '';
+  }
+  const num = v => (Number(v) || 0).toLocaleString('fr-FR');
+  const isAdmin = () => !!(window.__userHasRole && (window.__userHasRole('admin') ||
+                        window.__userHasRole('executive') || window.__userHasRole('super_admin')));
+
+  let last = null;          // dernière vue reçue
+  let siteFilter = null;    // filtre Site partagé, mémorisé pour l'export
+
+  // ── Provenances, en clair. Les afficher est le contrat : un site venant
+  //    d'un libellé d'OU n'a pas la même valeur qu'un site appris.
+  const SRC_LABEL = {
+    ou_learned: 'OU apprise', ou_label: 'libellé d\'OU', name: 'nom de machine',
+    product_type: 'type SDP', product: 'modèle', os: 'système',
+  };
+  const srcTag = (s) => s
+    ? '<span style="display:inline-block;padding:1px 6px;border-radius:10px;background:var(--color-surface-muted,#f4f6f7);border:1px solid var(--color-border,#dfe3e8);font-size:10px;opacity:.85">' + escapeHtml(SRC_LABEL[s] || s) + '</span>'
+    : '<span style="display:inline-block;padding:1px 6px;border-radius:10px;background:var(--color-surface-muted,#f4f6f7);border:1px solid var(--color-border,#dfe3e8);font-size:10px;opacity:.55">indéterminé</span>';
+
+  // ── Fraîcheur des imports ──────────────────────────────────────────
+  function renderFreshness(imports) {
+    const el = document.getElementById('rec-freshness');
+    if (!imports || !imports.length) {
+      el.innerHTML = '<strong>Aucune source importée.</strong> Les chiffres ci-dessous sont vides tant qu\'un export n\'a pas été déposé.';
+      return;
+    }
+    const NAMES = { ad: 'Active Directory', entra: 'Entra ID', defender: 'Defender' };
+    el.innerHTML = 'Dernier import — ' + imports.map(i =>
+      '<strong>' + escapeHtml(NAMES[i.source] || i.source) + '</strong> : ' +
+      num(i.n) + ' machines, le ' + escapeHtml(String(i.imported_at || '').slice(0, 16).replace('T', ' '))
+    ).join(' &nbsp;·&nbsp; ');
+  }
+
+  // ── Tuiles ─────────────────────────────────────────────────────────
+  function renderTiles(v) {
+    const c = v.counts || {};
+    const w = v.window || {};
+    // Mêmes classes que les autres onglets (.tiles / .tile / .tn / .tl / .td) —
+    // inventer des noms de classes rend des tuiles en texte brut.
+    const tile = (label, value, note) =>
+      '<div class="tile" data-kind=""><div class="tn">' + escapeHtml(String(value)) + '</div>' +
+      '<div class="tl">' + escapeHtml(label) + '</div>' +
+      (note ? '<div class="td">' + escapeHtml(note) + '</div>' : '') + '</div>';
+    document.getElementById('rec-tiles').innerHTML =
+      tile('Écarts à traiter', num(c.gaps_open), 'vus il y a ≤ ' + (w.recent_days || 30) + ' j, absents de SDP') +
+      tile('Sites touchés', num(c.sites_touched), (c.gaps_open - 0) && c.sites_touched === 0 ? 'tous indéterminés' : 'sites nommés') +
+      tile('OU à rattacher', num(c.ous_touched), 'unités d\'action GPO') +
+      tile('Candidats au retrait', num(c.retirement_candidates),
+           num(c.retirement_excluded_not_joinable) + ' exclus (non joignables au domaine)');
+  }
+
+  // ── Liste de travail GPO ───────────────────────────────────────────
+  function renderOu(v) {
+    const tb = document.querySelector('#rec-ouTable tbody');
+    const rows = v.by_ou || [];
+    if (!rows.length) { tb.innerHTML = '<tr><td colspan="5" style="color:var(--color-text-muted,#6b7785)">Aucun écart porteur d\'une OU. Entra et Defender n\'en fournissent pas.</td></tr>'; return; }
+    tb.innerHTML = rows.map(r => {
+      const pct = r.total ? Math.round(100 * r.gaps / r.total) : null;
+      return '<tr><td style="font-family:var(--font-mono,monospace);font-size:11px">' + escapeHtml(r.ou_dn) + '</td>' +
+        '<td>' + escapeHtml(r.site || '—') + '</td>' +
+        '<td class="num"><strong>' + num(r.gaps) + '</strong></td>' +
+        '<td class="num">' + num(r.total) + '</td>' +
+        '<td class="num">' + (pct == null ? '—' : pct + ' %') + '</td></tr>';
+    }).join('');
+  }
+
+  // ── Écarts par site, dépliables ────────────────────────────────────
+  function renderSites(v) {
+    const host = document.getElementById('rec-siteList');
+    const groups = v.by_site || [];
+    if (!groups.length) { host.innerHTML = '<div style="color:var(--color-text-muted,#6b7785)">Aucun écart.</div>'; return; }
+    const byKey = new Map();
+    for (const g of (v.gaps || [])) {
+      if (g.decision) continue;
+      const k = g.site || '';
+      if (!byKey.has(k)) byKey.set(k, []);
+      byKey.get(k).push(g);
+    }
+    host.innerHTML = groups.map((grp, i) => {
+      const key = grp.site || '';
+      const label = grp.site || 'Site indéterminé';
+      const items = byKey.get(key) || [];
+      return '<details style="border:1px solid var(--color-border,#dfe3e8);border-radius:var(--radius-md,6px);margin-bottom:8px">' +
+        '<summary style="padding:10px 12px;cursor:pointer;font-weight:600">' +
+        escapeHtml(label) + ' — ' + num(grp.n) + ' ' +
+        (grp.site_sources || []).map(s => srcTag(s)).join(' ') + '</summary>' +
+        '<div class="tablewrap"><table class="list"><thead><tr>' +
+        '<th>Machine</th><th>Type</th><th>Système</th><th>Vue il y a</th><th>Sources</th><th>Décision</th>' +
+        '</tr></thead><tbody>' +
+        items.map(g =>
+          '<tr><td style="font-family:var(--font-mono,monospace);font-size:11px">' + escapeHtml(g.device_name) + '</td>' +
+          '<td>' + escapeHtml(g.type || '—') + ' ' + srcTag(g.type_source) + '</td>' +
+          '<td>' + escapeHtml(g.os || '—') + '</td>' +
+          '<td class="num">' + num(g.age_days) + ' j</td>' +
+          '<td>' + escapeHtml((g.sources || []).join(' + ')) + '</td>' +
+          '<td>' + decisionControl(g) + '</td></tr>'
+        ).join('') +
+        '</tbody></table></div></details>';
+    }).join('');
+    host.querySelectorAll('select[data-key]').forEach(sel => sel.addEventListener('change', onDecision));
+  }
+
+  function decisionControl(g) {
+    const opts = [['', '—'], ['handled', 'Traitée'], ['out_of_scope', 'Hors périmètre']];
+    return '<select data-key="' + escapeHtml(g.device_key) + '" style="font-size:12px;padding:3px 6px">' +
+      opts.map(([v, l]) => '<option value="' + v + '"' + (g.decision === v ? ' selected' : '') + '>' + l + '</option>').join('') +
+      '</select>';
+  }
+
+  async function onDecision(e) {
+    const sel = e.target;
+    const prev = sel.getAttribute('data-prev') || '';
+    const decision = sel.value;
+    let reason = '';
+    // Un hors-périmètre sans motif est refusé par le serveur : sortir une
+    // machine du compteur sans dire pourquoi vide l'indicateur de son sens.
+    if (decision === 'out_of_scope') {
+      reason = window.prompt('Motif — pourquoi cette machine sort-elle du périmètre ?', '') || '';
+      if (!reason.trim()) { sel.value = prev; return; }
+    }
+    try {
+      const r = await fetch(API + '/decision', {
+        method: 'POST', credentials: 'same-origin',
+        headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+        body: JSON.stringify({ device_key: sel.getAttribute('data-key'), decision: decision || null, reason }),
+      });
+      if (!r.ok) {
+        // Un refus doit REVENIR en arrière : afficher une décision non
+        // enregistrée est le pire des deux mondes.
+        const b = await r.json().catch(() => ({}));
+        sel.value = prev;
+        alert(b.error || 'Décision refusée par le serveur.');
+        return;
+      }
+      sel.setAttribute('data-prev', decision);
+      await refresh();
+    } catch (err) { sel.value = prev; alert('Réseau indisponible — décision non enregistrée.'); }
+  }
+
+  // ── Sens inverse ───────────────────────────────────────────────────
+  function renderRetirement(v) {
+    const tb = document.querySelector('#rec-retTable tbody');
+    const rows = v.retirement_candidates || [];
+    if (!rows.length) { tb.innerHTML = '<tr><td colspan="4" style="color:var(--color-text-muted,#6b7785)">Aucun candidat.</td></tr>'; return; }
+    tb.innerHTML = rows.slice(0, 300).map(r =>
+      '<tr><td style="font-family:var(--font-mono,monospace);font-size:11px">' + escapeHtml(r.asset_name) + '</td>' +
+      '<td>' + escapeHtml(r.site || '—') + '</td>' +
+      '<td>' + escapeHtml(r.last_seen_external ? String(r.last_seen_external).slice(0, 10) : 'jamais') + '</td>' +
+      '<td class="num">' + (r.age_days == null ? '—' : num(r.age_days)) + '</td></tr>'
+    ).join('') + (rows.length > 300
+      ? '<tr><td colspan="4" style="color:var(--color-text-muted,#6b7785)">… ' + num(rows.length - 300) + ' de plus — voir l\'export Excel</td></tr>' : '');
+  }
+
+  // ── Import ─────────────────────────────────────────────────────────
+  async function sendFile(source, file, commit) {
+    const buf = await file.arrayBuffer();
+    const r = await fetch(API + (commit ? '/import' : '/preview') + '?source=' + encodeURIComponent(source), {
+      method: 'POST', credentials: 'same-origin',
+      headers: Object.assign({ 'Content-Type': 'text/csv' }, authHeaders()),
+      body: buf,
+    });
+    const body = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(body.error || ('HTTP ' + r.status));
+    return body;
+  }
+
+  async function onFile(e) {
+    const input = e.target;
+    const file = input.files && input.files[0];
+    if (!file) return;
+    const source = input.getAttribute('data-source');
+    const host = document.getElementById('rec-preview');
+    host.style.display = 'block';
+    host.innerHTML = '<div style="color:var(--color-text-muted,#6b7785)">Lecture de ' + escapeHtml(file.name) + '…</div>';
+    try {
+      const p = await sendFile(source, file, false);
+      host.innerHTML =
+        '<div class="count-note" style="border:1px solid var(--color-border,#dfe3e8);border-radius:var(--radius-md,6px)">' +
+        '<strong>' + escapeHtml(file.name) + '</strong> — ' + num(p.rows) + ' machines lues' +
+        (p.skipped_no_name ? ', ' + num(p.skipped_no_name) + ' lignes sans nom ignorées' : '') +
+        (p.warnings && p.warnings.length
+          ? '<ul style="margin:8px 0 0;padding-left:18px;font-size:12px">' +
+            p.warnings.map(w => '<li>' + escapeHtml(w) + '</li>').join('') + '</ul>'
+          : '') +
+        '<div style="margin-top:10px"><button class="btn btn-primary" id="rec-commitBtn">' +
+        'Importer et remplacer la source « ' + escapeHtml(source) + ' »</button></div>' +
+        '<div style="margin-top:6px;font-size:12px;color:var(--color-text-muted,#6b7785)">' +
+        'Rien n\'est encore enregistré. L\'import remplace <strong>uniquement</strong> cette source.</div></div>';
+      document.getElementById('rec-commitBtn').addEventListener('click', async () => {
+        try {
+          const c = await sendFile(source, file, true);
+          host.innerHTML = '<div class="count-note" style="border:1px solid var(--edv-green,#1E8E3E);border-radius:var(--radius-md,6px)">' +
+            '✓ ' + num(c.imported) + ' machines importées pour « ' + escapeHtml(source) +' ».</div>';
+          input.value = '';
+          await refresh();
+        } catch (err) { host.innerHTML = '<div class="count-note" style="border:1px solid var(--edv-red,#D90038);border-radius:var(--radius-md,6px)">' + escapeHtml(err.message) + '</div>'; }
+      });
+    } catch (err) {
+      // Le serveur NOMME la colonne absente — on la répercute telle quelle.
+      host.innerHTML = '<div class="count-note" style="border:1px solid var(--edv-red,#D90038);border-radius:var(--radius-md,6px)">' +
+        escapeHtml(err.message) + '</div>';
+    }
+  }
+
+  // ── Cycle ──────────────────────────────────────────────────────────
+  async function refresh(f) {
+    if (f) siteFilter = f.site || null;
+    const p = siteFilter ? { site: siteFilter } : {};
+    try {
+      const [sr, gr] = await Promise.all([
+        fetch(API + '/summary' + qs(p), { credentials: 'same-origin', headers: authHeaders() }),
+        fetch(API + '/gaps' + qs(p), { credentials: 'same-origin', headers: authHeaders() }),
+      ]);
+      if (!sr.ok || !gr.ok) throw new Error('HTTP');
+      const s = await sr.json(), g = await gr.json();
+      last = Object.assign({}, s, g);
+    } catch (e) { last = null; }
+
+    const empty = !last || !(last.imports || []).length;
+    document.getElementById('rec-empty').style.display = empty ? 'block' : 'none';
+    renderFreshness(last && last.imports);
+    if (empty) {
+      document.getElementById('rec-tiles').innerHTML = '';
+      document.querySelector('#rec-ouTable tbody').innerHTML = '';
+      document.querySelector('#rec-retTable tbody').innerHTML = '';
+      document.getElementById('rec-siteList').innerHTML = '';
+      return;
+    }
+    renderTiles(last); renderOu(last); renderSites(last); renderRetirement(last);
+  }
+
+  function init(f) {
+    // Les collecteurs sont servis par le serveur — la page n'en héberge
+    // aucune copie, deux copies divergent.
+    document.getElementById('rec-dlCollector').addEventListener('click', (e) => {
+      e.preventDefault(); download(API + '/collector.ps1');
+    });
+    document.getElementById('rec-dlKql').addEventListener('click', (e) => {
+      e.preventDefault(); download(API + '/defender.kql');
+    });
+    document.getElementById('rec-exportBtn').addEventListener('click', (e) => {
+      e.preventDefault(); download(API + '/export.xlsx' + qs(siteFilter ? { site: siteFilter } : {}));
+    });
+    // L'import remplace une source pour tout le monde : réservé aux admins.
+    if (!isAdmin()) {
+      const row = document.getElementById('rec-importRow');
+      row.querySelectorAll('input[type=file]').forEach(i => { i.disabled = true; i.title = 'Réservé aux administrateurs'; });
+      row.style.opacity = '.55';
+    } else {
+      document.querySelectorAll('#rec-importRow input[type=file]').forEach(i => i.addEventListener('change', onFile));
+    }
+    return refresh(f);
+  }
+
+  async function download(url) {
+    try {
+      const r = await fetch(url, { credentials: 'same-origin', headers: authHeaders() });
+      if (!r.ok) { alert('Téléchargement indisponible (HTTP ' + r.status + ')'); return; }
+      const blob = await r.blob();
+      const cd = r.headers.get('content-disposition') || '';
+      const m = /filename="?([^"]+)"?/.exec(cd);
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = m ? m[1] : 'download';
+      document.body.appendChild(a); a.click();
+      setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+    } catch (e) { alert('Téléchargement indisponible.'); }
+  }
+
+  window.REC_PANE = { init, refresh };
+})();
+</script>
+
+<!-- ══════════════════════════════════════════════════════════════════
      CONTROLLER — shared filter bar + tab switching + lazy-init
      ══════════════════════════════════════════════════════════════════ -->
 <script nonce="%%CSP_NONCE%%">
 (function () {
   'use strict';
 
-  const TABS = ['inventory', 'hygiene', 'finance', 'hardware', 'progress', 'investment'];
-  const PANE = { inventory: 'INV_PANE', hygiene: 'HYG_PANE', finance: 'FIN_PANE', hardware: 'HW_PANE', progress: 'PROG_PANE', investment: 'INVEST_PANE' };
-  const inited = { inventory: false, hygiene: false, finance: false, hardware: false, progress: false, investment: false };
+  // Ajouter un onglet impose QUATRE éditions coordonnées — ces trois tables
+  // plus le balisage bouton + section. En oublier une donne un onglet à moitié
+  // vivant : il s'ouvre mais le lien profond ne marche pas, ou l'inverse.
+  const TABS = ['inventory', 'hygiene', 'finance', 'hardware', 'progress', 'investment', 'reconcile'];
+  const PANE = { inventory: 'INV_PANE', hygiene: 'HYG_PANE', finance: 'FIN_PANE', hardware: 'HW_PANE', progress: 'PROG_PANE', investment: 'INVEST_PANE', reconcile: 'REC_PANE' };
+  const inited = { inventory: false, hygiene: false, finance: false, hardware: false, progress: false, investment: false, reconcile: false };
   let activeTab = 'inventory';
 
   function authHeaders() {
