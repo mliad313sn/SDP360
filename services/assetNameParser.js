@@ -13,6 +13,28 @@
  * C'est ce module qui permet d'attribuer un site à une machine ABSENTE de SDP —
  * le nom est alors la seule information dont on dispose.
  *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * CE QUE LE NOM DIT, ET CE QU'IL NE DIT PAS
+ *
+ * Le nom porte le site où la machine a été PROVISIONNÉE. Il ne porte pas le site
+ * où elle se trouve. Quand un utilisateur est muté, son poste le suit, et c'est
+ * la fiche SDP — qui suit l'utilisateur — qui devient exacte pendant que le nom
+ * reste figé sur l'ancien site. `ABJ-LAP-531` enregistré à MANA n'est pas une
+ * erreur de saisie : c'est un poste d'Abidjan dont l'utilisateur a bougé.
+ *
+ * Conséquences, toutes les deux à respecter :
+ *
+ *   • Pour un actif PRÉSENT dans SDP, la colonne `site` est autoritaire. Ce
+ *     module ne doit jamais servir à la corriger ni à la contredire.
+ *   • Pour un ÉCART (machine absente de SDP), le nom est tout ce qu'on a, et le
+ *     site rendu est donc un site D'ORIGINE PRÉSUMÉ. L'appelant doit l'afficher
+ *     comme tel — jamais comme la localisation courante, qui dépend d'un
+ *     utilisateur que SDP ne connaît pas encore.
+ *
+ * Mesuré sur le parc : 99 % des attributions coïncident avec la colonne `site`.
+ * Les ~1 % restants sont, pour l'essentiel, des utilisateurs mutés.
+ * ─────────────────────────────────────────────────────────────────────────────
+ *
  * PUR : aucune base de données, aucune horloge, aucun effet de bord.
  */
 
@@ -89,6 +111,10 @@ function typeToken(name) {
 
 /**
  * → { site, purity, typeToken, head, reason }
+ *
+ * ⚠ `site` est le site d'ORIGINE présumé, déduit du nom — pas la localisation
+ * courante. Voir l'en-tête du module : le site réel suit l'utilisateur, et le
+ * nom reste figé quand celui-ci est muté.
  *
  * `site === null` signifie TOUJOURS « indéterminé », jamais « aucun site ».
  * `reason` dit pourquoi, pour que l'interface puisse l'expliquer :
