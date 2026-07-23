@@ -295,7 +295,44 @@
   .adrill-body table.list th { position: sticky; top: 0; }
   .adrill-foot { display: flex; gap: 10px; justify-content: flex-end; padding: 12px 16px; border-top: 1px solid var(--color-border-subtle, #eef0f3); }
   .as-clickable { cursor: pointer; }
+
+  /* ── Guide de réconciliation ───────────────────────────────────────── */
+  .rec-guide-body h4 { font-size: 14px; font-weight: 700; margin: 18px 0 6px;
+    color: var(--color-text-primary, #1F2A33); }
+  .rec-guide-body h4:first-child { margin-top: 10px; }
+  .rec-guide-body p, .rec-guide-body li { margin: 6px 0; }
+  .rec-guide-body ol, .rec-guide-body ul { padding-left: 22px; }
+  .rec-guide-body code { font-family: var(--font-mono, ui-monospace, Consolas, monospace);
+    font-size: 12px; background: var(--color-surface-muted, #f4f6f7);
+    border: 1px solid var(--color-border-subtle, #eef0f3); border-radius: 4px; padding: 1px 5px; }
+
+  /* Ctrl+P depuis l'onglet Réconciliation -> un PDF A4 ne contenant QUE le
+     guide. Les coordinateurs l'impriment et le transmettent aux sites ; une
+     capture du tableau de bord entier serait illisible et périmée le lendemain.
+     Le <details> est forcé ouvert : replié, il n'imprimerait qu'un titre. */
+  @media print {
+    @page { size: A4 portrait; margin: 14mm; }
+    body * { visibility: hidden; }
+    #rec-guide, #rec-guide * { visibility: visible; }
+    #rec-guide { position: absolute; left: 0; top: 0; width: 100%;
+      border: none; box-shadow: none; padding: 0; margin: 0; }
+    #rec-guide[open] > summary, #rec-guide > summary { list-style: none; font-size: 18px; margin-bottom: 10px; }
+    #rec-guide > summary::-webkit-details-marker { display: none; }
+    #rec-guide .rec-guide-body { display: block !important; max-width: none; font-size: 11pt; }
+    #rec-guide h4 { break-after: avoid; page-break-after: avoid; }
+    #rec-guide li, #rec-guide p { break-inside: avoid; page-break-inside: avoid; }
+    #rec-guide a[href^="http"]::after { content: " (" attr(href) ")"; font-size: 9pt; }
+  }
 </style>
+<script nonce="%%CSP_NONCE%%">
+// Un <details> replié n'imprime que son titre. On l'ouvre avant l'impression
+// et on le laisse tel quel après — l'utilisateur qui vient d'imprimer le guide
+// veut le voir à l'écran.
+window.addEventListener('beforeprint', function () {
+  var g = document.getElementById('rec-guide');
+  if (g) g.open = true;
+});
+</script>
 </head>
 <body>
 
@@ -1129,6 +1166,114 @@
         <tbody></tbody>
       </table></div>
     </div>
+
+    <!-- ── Guide complet — imprimable (Ctrl+P) ───────────────────────── -->
+    <details id="rec-guide" class="chart-card" style="margin-top:var(--space-4,16px)">
+      <summary style="cursor:pointer;font-weight:700;font-size:15px">📘 Guide complet — collecter, déposer, agir</summary>
+      <div class="rec-guide-body" style="font-size:13px;line-height:1.65;max-width:920px">
+
+        <h4>À quoi sert cette page</h4>
+        <p>SelfScan alimente l'inventaire SDP. Mais <strong>un inventaire ne peut pas
+        signaler ce qu'il ignore</strong> : une machine où l'agent ne s'est jamais installé
+        est simplement absente, et rien ne le dit. Cette page compare SDP à des sources
+        qui, elles, voient la machine — Active Directory, Entra ID, Defender — et affiche
+        la différence.</p>
+        <p>Elle répond aussi à la question inverse : quels actifs SDP <em>plus personne</em>
+        ne voit, et sont donc probablement partis.</p>
+
+        <h4>1 · Collecter Active Directory</h4>
+        <ol>
+          <li>Cliquez sur <strong>Collect-ADComputers.ps1</strong> ci-dessus.</li>
+          <li><strong>Débloquez le fichier</strong> — Windows marque tout fichier
+            téléchargé et refuse de l'exécuter. Clic droit → Propriétés → cocher
+            <em>Débloquer</em> → OK. Ou, dans PowerShell :
+            <code>Unblock-File .\Collect-ADComputers.ps1</code></li>
+          <li>Exécutez-le depuis un poste joint au domaine, avec un compte
+            utilisateur ordinaire — <strong>aucun droit administrateur n'est requis</strong>,
+            le script ne fait que lire l'annuaire :
+            <br><code>powershell -ExecutionPolicy Bypass -File .\Collect-ADComputers.ps1</code>
+            <br>Le paramètre <code>-ExecutionPolicy Bypass</code> ne vaut que pour ce
+            lancement ; il ne change aucun réglage de la machine.</li>
+          <li>Un fichier <code>AD-computers_AAAAMMJJ.csv</code> est écrit à côté du script.</li>
+        </ol>
+
+        <h4>2 · Exporter Entra ID</h4>
+        <ol>
+          <li><a href="https://entra.microsoft.com" target="_blank" rel="noopener">entra.microsoft.com</a>
+            → <strong>Identité</strong> → <strong>Appareils</strong> → <strong>Tous les appareils</strong>.</li>
+          <li><strong>Télécharger les appareils</strong> (bouton en haut). L'export arrive
+            par e-mail ou dans le centre de notifications.</li>
+          <li>Déposez le CSV tel quel : <strong>gardez toutes les colonnes</strong>. La page
+            lit par nom d'en-tête, pas par position — les colonnes en trop ne gênent pas.</li>
+        </ol>
+
+        <h4>3 · Exporter Defender (facultatif, mais précieux)</h4>
+        <ol>
+          <li>Cliquez sur <strong>DeviceInfo.kql</strong> ci-dessus.</li>
+          <li>Portail Defender XDR → <strong>Chasse avancée</strong> → collez la requête →
+            <strong>Exécuter</strong> → <strong>Exporter</strong> en CSV.</li>
+        </ol>
+        <p>Defender apporte deux choses que ni AD ni Entra ne donnent : le
+        <strong>modèle et le fabricant</strong> — donc le type d'équipement d'une machine
+        pourtant absente de SDP — et <strong>l'utilisateur connecté</strong>.
+        <em>Angle mort à connaître</em> : Defender ne voit que les machines onboardées,
+        même limite que SelfScan. Cette source complète AD, elle ne le remplace pas.</p>
+
+        <h4>4 · Déposer</h4>
+        <p>Chaque dépôt affiche d'abord une <strong>prévisualisation</strong> : rien n'est
+        enregistré tant que vous n'avez pas confirmé. Un import
+        <strong>remplace uniquement sa propre source</strong> — importer AD ne touche ni
+        Entra ni Defender.</p>
+        <p>Si une colonne obligatoire manque, le message <strong>nomme la colonne</strong>.
+        C'est une erreur de fichier, pas une panne : réexportez sans retirer de colonnes.</p>
+
+        <h4>Lire les résultats</h4>
+        <p><strong>« Site présumé »</strong> — le site affiché est déduit, et sa provenance
+        est écrite à côté de chaque ligne :</p>
+        <ul>
+          <li><em>OU apprise</em> — déduite en comparant AD et SDP sur les machines connues
+            des deux. C'est la plus fiable.</li>
+          <li><em>libellé d'OU</em> — le nom de l'unité d'organisation tel quel. Utilisable,
+            mais ce n'est pas forcément le code site de SDP.</li>
+          <li><em>nom de machine</em> — déduit de la nomenclature. Attention : le nom porte
+            le site de <strong>provisionnement</strong>. Si l'utilisateur a été muté, la
+            machine est ailleurs — <strong>c'est l'utilisateur qui commande le site</strong>.</li>
+          <li><em>indéterminé</em> — aucun signal. Affiché comme tel, jamais deviné.</li>
+        </ul>
+
+        <h4>Que faire d'un écart</h4>
+        <ol>
+          <li><strong>Regardez d'abord la table « par unité d'organisation ».</strong> Une OU
+            à 50 % non couverte n'est pas une histoire de machines oubliées une par une :
+            c'est une GPO qui ne s'applique pas à ce conteneur. On rattache une GPO à une
+            OU, d'où cette table — et le total AD à côté du nombre d'écarts, parce que
+            2 sur 2 et 2 sur 400 n'appellent pas la même action.</li>
+          <li>Pour une machine isolée : vérifiez qu'elle existe encore, installez SelfScan,
+            ou créez l'actif à la main dans SDP.</li>
+          <li>Marquez-la ensuite <strong>Traitée</strong>. Elle sort du compteur mais reste
+            visible — pour pouvoir revenir dessus.</li>
+          <li><strong>Hors périmètre</strong> exige un motif. Sortir une machine du compteur
+            sans dire pourquoi vide l'indicateur de son sens.</li>
+        </ol>
+
+        <h4>Candidats au retrait</h4>
+        <p>Actifs présents dans SDP que personne n'a vus ailleurs depuis 90 jours. Le
+        matériel qui ne rejoint jamais un domaine — commutateurs, bornes Wi-Fi, pare-feux,
+        imprimantes — est <strong>exclu</strong> : absent d'AD par nature, il serait
+        candidat à tort et pour toujours. Le nombre d'exclus est affiché, pas seulement
+        soustrait.</p>
+
+        <h4>À quelle fréquence</h4>
+        <p>Une fois par mois suffit. La fenêtre par défaut retient les machines vues dans
+        les <strong>30 derniers jours</strong> ; la date du dernier import de chaque source
+        est affichée en haut de l'onglet, parce qu'un écart calculé sur un export périmé ne
+        dit rien d'aujourd'hui.</p>
+
+        <p style="margin-top:18px;font-style:italic;color:var(--color-text-muted,#6b7785)">
+          Ce guide s'imprime seul : <strong>Ctrl+P</strong> depuis cet onglet produit un PDF
+          A4 ne contenant que ces instructions.</p>
+      </div>
+    </details>
 
   </section>
 
