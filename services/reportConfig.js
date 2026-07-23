@@ -31,6 +31,13 @@ const DEFAULTS = {
   // (else silently dropped and the digest is permanently inert).
   asset_group_send_enabled: '0',
   asset_group_recipients: '',
+  // Fenêtre « vu récemment » de la réconciliation AD/Entra, en jours. Il n'existe
+  // pas de bonne valeur universelle — un site à rotation lente voudra 60, une
+  // campagne de déploiement 7 — et la valeur retenue est affichée dans l'en-tête
+  // du rapport : un seuil implicite rend deux rapports incomparables.
+  // DOIT figurer ici ou setConfig filtre la clé sur KEYS.includes(k) et l'écriture
+  // de l'admin disparaît sans erreur.
+  reconcile_recent_days: '30',
   xof_usd_rate: '0.00165',
   // Annual replacement-price uplift (%) for the investment forecast — 0 = like-for-like.
   // Must live in DEFAULTS so setConfig's KEYS filter accepts the admin's write.

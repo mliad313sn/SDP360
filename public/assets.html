@@ -295,7 +295,44 @@
   .adrill-body table.list th { position: sticky; top: 0; }
   .adrill-foot { display: flex; gap: 10px; justify-content: flex-end; padding: 12px 16px; border-top: 1px solid var(--color-border-subtle, #eef0f3); }
   .as-clickable { cursor: pointer; }
+
+  /* ── Guide de réconciliation ───────────────────────────────────────── */
+  .rec-guide-body h4 { font-size: 14px; font-weight: 700; margin: 18px 0 6px;
+    color: var(--color-text-primary, #1F2A33); }
+  .rec-guide-body h4:first-child { margin-top: 10px; }
+  .rec-guide-body p, .rec-guide-body li { margin: 6px 0; }
+  .rec-guide-body ol, .rec-guide-body ul { padding-left: 22px; }
+  .rec-guide-body code { font-family: var(--font-mono, ui-monospace, Consolas, monospace);
+    font-size: 12px; background: var(--color-surface-muted, #f4f6f7);
+    border: 1px solid var(--color-border-subtle, #eef0f3); border-radius: 4px; padding: 1px 5px; }
+
+  /* Ctrl+P depuis l'onglet Réconciliation -> un PDF A4 ne contenant QUE le
+     guide. Les coordinateurs l'impriment et le transmettent aux sites ; une
+     capture du tableau de bord entier serait illisible et périmée le lendemain.
+     Le <details> est forcé ouvert : replié, il n'imprimerait qu'un titre. */
+  @media print {
+    @page { size: A4 portrait; margin: 14mm; }
+    body * { visibility: hidden; }
+    #rec-guide, #rec-guide * { visibility: visible; }
+    #rec-guide { position: absolute; left: 0; top: 0; width: 100%;
+      border: none; box-shadow: none; padding: 0; margin: 0; }
+    #rec-guide[open] > summary, #rec-guide > summary { list-style: none; font-size: 18px; margin-bottom: 10px; }
+    #rec-guide > summary::-webkit-details-marker { display: none; }
+    #rec-guide .rec-guide-body { display: block !important; max-width: none; font-size: 11pt; }
+    #rec-guide h4 { break-after: avoid; page-break-after: avoid; }
+    #rec-guide li, #rec-guide p { break-inside: avoid; page-break-inside: avoid; }
+    #rec-guide a[href^="http"]::after { content: " (" attr(href) ")"; font-size: 9pt; }
+  }
 </style>
+<script nonce="%%CSP_NONCE%%">
+// Un <details> replié n'imprime que son titre. On l'ouvre avant l'impression
+// et on le laisse tel quel après — l'utilisateur qui vient d'imprimer le guide
+// veut le voir à l'écran.
+window.addEventListener('beforeprint', function () {
+  var g = document.getElementById('rec-guide');
+  if (g) g.open = true;
+});
+</script>
 </head>
 <body>
 
@@ -319,6 +356,7 @@
     <button class="tabbtn" role="tab" data-tab="hardware" aria-selected="false">Hardware</button>
     <button class="tabbtn" role="tab" data-tab="progress" aria-selected="false">Progress</button>
     <button class="tabbtn" role="tab" data-tab="investment" aria-selected="false">Investment</button>
+    <button class="tabbtn" role="tab" data-tab="reconcile" aria-selected="false">Réconciliation</button>
   </div>
 
   <!-- ── Shared filter bar ───────────────────────────────────────── -->
@@ -1032,6 +1070,210 @@
       </div>
 
     </div><!-- /invf-content -->
+
+  </section>
+
+  <!-- ════════════════ PANE: RÉCONCILIATION (SDP × AD × Entra × Defender) ══════ -->
+  <section id="pane-reconcile" class="tabpane">
+
+    <div class="as-head" style="margin-bottom:var(--space-4,16px)">
+      <div class="sub">Réconciliation — machines vues ailleurs, absentes de SDP</div>
+      <div class="spacer"></div>
+      <a class="btn btn-ghost" id="rec-exportBtn" href="#" title="Écarts, liste par OU et candidats au retrait, au filtre courant">
+        <span class="icon icon-download"></span> Export Excel
+      </a>
+    </div>
+
+    <!-- Fraîcheur des imports : un écart calculé sur un export d'il y a trois
+         mois ne dit rien d'aujourd'hui. -->
+    <div class="count-note" id="rec-freshness"
+         style="border:1px solid var(--color-border,#dfe3e8);border-radius:var(--radius-md,6px);margin-bottom:var(--space-4,16px)"></div>
+
+    <!-- État initial : aucune source importée -->
+    <div class="empty" id="rec-empty" style="display:none">
+      <div style="font-size:32px;margin-bottom:8px">🔍</div>
+      <div>Aucune source externe importée. Téléchargez le collecteur ci-dessous,
+        exécutez-le, puis déposez le CSV obtenu.</div>
+    </div>
+
+    <!-- ── Collecte + import ─────────────────────────────────────────── -->
+    <div class="chart-card" style="margin-bottom:var(--space-4,16px)">
+      <h3>1 · Collecter &nbsp;→&nbsp; 2 · Déposer</h3>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin:10px 0 14px">
+        <a class="btn btn-ghost" id="rec-dlCollector" href="#">
+          <span class="icon icon-download"></span> Collect-ADComputers.ps1
+        </a>
+        <a class="btn btn-ghost" id="rec-dlKql" href="#">
+          <span class="icon icon-download"></span> DeviceInfo.kql (Defender)
+        </a>
+      </div>
+      <div id="rec-importRow" style="display:flex;gap:14px;flex-wrap:wrap">
+        <label class="count-note" style="border:1px dashed var(--color-border,#dfe3e8);border-radius:var(--radius-md,6px);padding:12px 14px;cursor:pointer;flex:1 1 200px">
+          <strong>Active Directory</strong><br><span style="font-size:12px">CSV du collecteur</span>
+          <input type="file" id="rec-fileAd" accept=".csv,text/csv" data-source="ad" style="display:block;margin-top:8px;font-size:12px">
+        </label>
+        <label class="count-note" style="border:1px dashed var(--color-border,#dfe3e8);border-radius:var(--radius-md,6px);padding:12px 14px;cursor:pointer;flex:1 1 200px">
+          <strong>Entra ID</strong><br><span style="font-size:12px">export « Appareils »</span>
+          <input type="file" id="rec-fileEntra" accept=".csv,text/csv" data-source="entra" style="display:block;margin-top:8px;font-size:12px">
+        </label>
+        <label class="count-note" style="border:1px dashed var(--color-border,#dfe3e8);border-radius:var(--radius-md,6px);padding:12px 14px;cursor:pointer;flex:1 1 200px">
+          <strong>Defender</strong><br><span style="font-size:12px">export de la requête KQL</span>
+          <input type="file" id="rec-fileDef" accept=".csv,text/csv" data-source="defender" style="display:block;margin-top:8px;font-size:12px">
+        </label>
+      </div>
+      <!-- La prévisualisation ne persiste RIEN : elle permet de vérifier un
+           export inconnu sans risquer d'écraser une source. -->
+      <div id="rec-preview" style="display:none;margin-top:14px"></div>
+    </div>
+
+    <!-- ── Tuiles ────────────────────────────────────────────────────── -->
+    <div class="tiles" id="rec-tiles"></div>
+
+    <!-- ── Liste de travail GPO (par OU) — l'unité d'ACTION ──────────── -->
+    <div class="chart-card" style="margin-top:var(--space-4,16px)">
+      <h3>Par unité d'organisation — où rattacher la GPO</h3>
+      <div class="count-note" style="border:none;padding:0 0 10px;font-size:12px">
+        On rattache une GPO à une OU, pas à un site : un site couvre plusieurs OU.
+        Le total AD du conteneur accompagne le nombre d'écarts — 2 sur 2 et 2 sur 400
+        n'appellent pas la même action.
+      </div>
+      <div class="tablewrap"><table class="list" id="rec-ouTable">
+        <thead><tr><th>Conteneur AD</th><th>Site</th><th class="num">Écarts</th><th class="num">Total AD</th><th class="num">Non couvert</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+    </div>
+
+    <!-- ── Écarts par site, dépliables ───────────────────────────────── -->
+    <div class="chart-card" style="margin-top:var(--space-4,16px)">
+      <h3>Écarts par site</h3>
+      <div class="count-note" style="border:none;padding:0 0 10px;font-size:12px">
+        Le site est <strong>présumé</strong> : sa provenance est indiquée sur chaque ligne.
+        Un site venant d'un libellé d'OU ne se corrige pas comme un site appris.
+      </div>
+      <div id="rec-siteList"></div>
+    </div>
+
+    <!-- ── Sens inverse ──────────────────────────────────────────────── -->
+    <div class="chart-card" style="margin-top:var(--space-4,16px)">
+      <h3>Candidats au retrait — dans SDP, vus nulle part ailleurs</h3>
+      <div class="count-note" style="border:none;padding:0 0 10px;font-size:12px">
+        Le matériel qui ne rejoint jamais un domaine (commutateurs, bornes, pare-feux,
+        imprimantes) est <strong>exclu</strong> : absent d'AD par nature, il serait
+        candidat à tort et pour toujours.
+      </div>
+      <div class="tablewrap"><table class="list" id="rec-retTable">
+        <thead><tr><th>Actif SDP</th><th>Site</th><th>Vu ailleurs le</th><th class="num">Jours</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+    </div>
+
+    <!-- ── Guide complet — imprimable (Ctrl+P) ───────────────────────── -->
+    <details id="rec-guide" class="chart-card" style="margin-top:var(--space-4,16px)">
+      <summary style="cursor:pointer;font-weight:700;font-size:15px">📘 Guide complet — collecter, déposer, agir</summary>
+      <div class="rec-guide-body" style="font-size:13px;line-height:1.65;max-width:920px">
+
+        <h4>À quoi sert cette page</h4>
+        <p>SelfScan alimente l'inventaire SDP. Mais <strong>un inventaire ne peut pas
+        signaler ce qu'il ignore</strong> : une machine où l'agent ne s'est jamais installé
+        est simplement absente, et rien ne le dit. Cette page compare SDP à des sources
+        qui, elles, voient la machine — Active Directory, Entra ID, Defender — et affiche
+        la différence.</p>
+        <p>Elle répond aussi à la question inverse : quels actifs SDP <em>plus personne</em>
+        ne voit, et sont donc probablement partis.</p>
+
+        <h4>1 · Collecter Active Directory</h4>
+        <ol>
+          <li>Cliquez sur <strong>Collect-ADComputers.ps1</strong> ci-dessus.</li>
+          <li><strong>Débloquez le fichier</strong> — Windows marque tout fichier
+            téléchargé et refuse de l'exécuter. Clic droit → Propriétés → cocher
+            <em>Débloquer</em> → OK. Ou, dans PowerShell :
+            <code>Unblock-File .\Collect-ADComputers.ps1</code></li>
+          <li>Exécutez-le depuis un poste joint au domaine, avec un compte
+            utilisateur ordinaire — <strong>aucun droit administrateur n'est requis</strong>,
+            le script ne fait que lire l'annuaire :
+            <br><code>powershell -ExecutionPolicy Bypass -File .\Collect-ADComputers.ps1</code>
+            <br>Le paramètre <code>-ExecutionPolicy Bypass</code> ne vaut que pour ce
+            lancement ; il ne change aucun réglage de la machine.</li>
+          <li>Un fichier <code>AD-computers_AAAAMMJJ.csv</code> est écrit à côté du script.</li>
+        </ol>
+
+        <h4>2 · Exporter Entra ID</h4>
+        <ol>
+          <li><a href="https://entra.microsoft.com" target="_blank" rel="noopener">entra.microsoft.com</a>
+            → <strong>Identité</strong> → <strong>Appareils</strong> → <strong>Tous les appareils</strong>.</li>
+          <li><strong>Télécharger les appareils</strong> (bouton en haut). L'export arrive
+            par e-mail ou dans le centre de notifications.</li>
+          <li>Déposez le CSV tel quel : <strong>gardez toutes les colonnes</strong>. La page
+            lit par nom d'en-tête, pas par position — les colonnes en trop ne gênent pas.</li>
+        </ol>
+
+        <h4>3 · Exporter Defender (facultatif, mais précieux)</h4>
+        <ol>
+          <li>Cliquez sur <strong>DeviceInfo.kql</strong> ci-dessus.</li>
+          <li>Portail Defender XDR → <strong>Chasse avancée</strong> → collez la requête →
+            <strong>Exécuter</strong> → <strong>Exporter</strong> en CSV.</li>
+        </ol>
+        <p>Defender apporte deux choses que ni AD ni Entra ne donnent : le
+        <strong>modèle et le fabricant</strong> — donc le type d'équipement d'une machine
+        pourtant absente de SDP — et <strong>l'utilisateur connecté</strong>.
+        <em>Angle mort à connaître</em> : Defender ne voit que les machines onboardées,
+        même limite que SelfScan. Cette source complète AD, elle ne le remplace pas.</p>
+
+        <h4>4 · Déposer</h4>
+        <p>Chaque dépôt affiche d'abord une <strong>prévisualisation</strong> : rien n'est
+        enregistré tant que vous n'avez pas confirmé. Un import
+        <strong>remplace uniquement sa propre source</strong> — importer AD ne touche ni
+        Entra ni Defender.</p>
+        <p>Si une colonne obligatoire manque, le message <strong>nomme la colonne</strong>.
+        C'est une erreur de fichier, pas une panne : réexportez sans retirer de colonnes.</p>
+
+        <h4>Lire les résultats</h4>
+        <p><strong>« Site présumé »</strong> — le site affiché est déduit, et sa provenance
+        est écrite à côté de chaque ligne :</p>
+        <ul>
+          <li><em>OU apprise</em> — déduite en comparant AD et SDP sur les machines connues
+            des deux. C'est la plus fiable.</li>
+          <li><em>libellé d'OU</em> — le nom de l'unité d'organisation tel quel. Utilisable,
+            mais ce n'est pas forcément le code site de SDP.</li>
+          <li><em>nom de machine</em> — déduit de la nomenclature. Attention : le nom porte
+            le site de <strong>provisionnement</strong>. Si l'utilisateur a été muté, la
+            machine est ailleurs — <strong>c'est l'utilisateur qui commande le site</strong>.</li>
+          <li><em>indéterminé</em> — aucun signal. Affiché comme tel, jamais deviné.</li>
+        </ul>
+
+        <h4>Que faire d'un écart</h4>
+        <ol>
+          <li><strong>Regardez d'abord la table « par unité d'organisation ».</strong> Une OU
+            à 50 % non couverte n'est pas une histoire de machines oubliées une par une :
+            c'est une GPO qui ne s'applique pas à ce conteneur. On rattache une GPO à une
+            OU, d'où cette table — et le total AD à côté du nombre d'écarts, parce que
+            2 sur 2 et 2 sur 400 n'appellent pas la même action.</li>
+          <li>Pour une machine isolée : vérifiez qu'elle existe encore, installez SelfScan,
+            ou créez l'actif à la main dans SDP.</li>
+          <li>Marquez-la ensuite <strong>Traitée</strong>. Elle sort du compteur mais reste
+            visible — pour pouvoir revenir dessus.</li>
+          <li><strong>Hors périmètre</strong> exige un motif. Sortir une machine du compteur
+            sans dire pourquoi vide l'indicateur de son sens.</li>
+        </ol>
+
+        <h4>Candidats au retrait</h4>
+        <p>Actifs présents dans SDP que personne n'a vus ailleurs depuis 90 jours. Le
+        matériel qui ne rejoint jamais un domaine — commutateurs, bornes Wi-Fi, pare-feux,
+        imprimantes — est <strong>exclu</strong> : absent d'AD par nature, il serait
+        candidat à tort et pour toujours. Le nombre d'exclus est affiché, pas seulement
+        soustrait.</p>
+
+        <h4>À quelle fréquence</h4>
+        <p>Une fois par mois suffit. La fenêtre par défaut retient les machines vues dans
+        les <strong>30 derniers jours</strong> ; la date du dernier import de chaque source
+        est affichée en haut de l'onglet, parce qu'un écart calculé sur un export périmé ne
+        dit rien d'aujourd'hui.</p>
+
+        <p style="margin-top:18px;font-style:italic;color:var(--color-text-muted,#6b7785)">
+          Ce guide s'imprime seul : <strong>Ctrl+P</strong> depuis cet onglet produit un PDF
+          A4 ne contenant que ces instructions.</p>
+      </div>
+    </details>
 
   </section>
 
@@ -2841,15 +3083,322 @@
 </script>
 
 <!-- ══════════════════════════════════════════════════════════════════
+     PANE MODULE: RÉCONCILIATION  (window.REC_PANE)
+     Machines vues récemment dans AD / Entra / Defender et absentes de SDP —
+     l'angle mort de SelfScan. Plus le sens inverse : actifs SDP que plus
+     personne ne voit.
+     Tout le calcul est côté serveur (services/reconcileView.js) ; ce module
+     n'affiche que ce qu'on lui envoie.
+     ══════════════════════════════════════════════════════════════════ -->
+<script nonce="%%CSP_NONCE%%">
+(function () {
+  'use strict';
+  const API = '/api/assets/reconcile';
+
+  function authHeaders() {
+    const h = {};
+    let tok = null;
+    const at = window.__authToken;
+    if (typeof at === 'function') { try { tok = at(); } catch (_) {} }
+    else if (typeof at === 'string' && at) { tok = at; }
+    if (!tok) tok = localStorage.getItem('report_token');
+    if (tok) h['x-report-token'] = tok;
+    return h;
+  }
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[c]));
+  }
+  function qs(params) {
+    const sp = new URLSearchParams();
+    for (const [k, v] of Object.entries(params || {})) { if (v) sp.set(k, v); }
+    return sp.toString() ? '?' + sp.toString() : '';
+  }
+  const num = v => (Number(v) || 0).toLocaleString('fr-FR');
+  const isAdmin = () => !!(window.__userHasRole && (window.__userHasRole('admin') ||
+                        window.__userHasRole('executive') || window.__userHasRole('super_admin')));
+
+  let last = null;          // dernière vue reçue
+  let siteFilter = null;    // filtre Site partagé, mémorisé pour l'export
+
+  // ── Provenances, en clair. Les afficher est le contrat : un site venant
+  //    d'un libellé d'OU n'a pas la même valeur qu'un site appris.
+  const SRC_LABEL = {
+    ou_learned: 'OU apprise', ou_label: 'libellé d\'OU', name: 'nom de machine',
+    product_type: 'type SDP', product: 'modèle', os: 'système',
+  };
+  const srcTag = (s) => s
+    ? '<span style="display:inline-block;padding:1px 6px;border-radius:10px;background:var(--color-surface-muted,#f4f6f7);border:1px solid var(--color-border,#dfe3e8);font-size:10px;opacity:.85">' + escapeHtml(SRC_LABEL[s] || s) + '</span>'
+    : '<span style="display:inline-block;padding:1px 6px;border-radius:10px;background:var(--color-surface-muted,#f4f6f7);border:1px solid var(--color-border,#dfe3e8);font-size:10px;opacity:.55">indéterminé</span>';
+
+  // ── Fraîcheur des imports ──────────────────────────────────────────
+  function renderFreshness(imports) {
+    const el = document.getElementById('rec-freshness');
+    if (!imports || !imports.length) {
+      el.innerHTML = '<strong>Aucune source importée.</strong> Les chiffres ci-dessous sont vides tant qu\'un export n\'a pas été déposé.';
+      return;
+    }
+    const NAMES = { ad: 'Active Directory', entra: 'Entra ID', defender: 'Defender' };
+    el.innerHTML = 'Dernier import — ' + imports.map(i =>
+      '<strong>' + escapeHtml(NAMES[i.source] || i.source) + '</strong> : ' +
+      num(i.n) + ' machines, le ' + escapeHtml(String(i.imported_at || '').slice(0, 16).replace('T', ' '))
+    ).join(' &nbsp;·&nbsp; ');
+  }
+
+  // ── Tuiles ─────────────────────────────────────────────────────────
+  function renderTiles(v) {
+    const c = v.counts || {};
+    const w = v.window || {};
+    // Mêmes classes que les autres onglets (.tiles / .tile / .tn / .tl / .td) —
+    // inventer des noms de classes rend des tuiles en texte brut.
+    const tile = (label, value, note) =>
+      '<div class="tile" data-kind=""><div class="tn">' + escapeHtml(String(value)) + '</div>' +
+      '<div class="tl">' + escapeHtml(label) + '</div>' +
+      (note ? '<div class="td">' + escapeHtml(note) + '</div>' : '') + '</div>';
+    document.getElementById('rec-tiles').innerHTML =
+      tile('Écarts à traiter', num(c.gaps_open), 'vus il y a ≤ ' + (w.recent_days || 30) + ' j, absents de SDP') +
+      tile('Sites touchés', num(c.sites_touched), (c.gaps_open - 0) && c.sites_touched === 0 ? 'tous indéterminés' : 'sites nommés') +
+      tile('OU à rattacher', num(c.ous_touched), 'unités d\'action GPO') +
+      tile('Candidats au retrait', num(c.retirement_candidates),
+           num(c.retirement_excluded_not_joinable) + ' exclus (non joignables au domaine)');
+  }
+
+  // ── Liste de travail GPO ───────────────────────────────────────────
+  function renderOu(v) {
+    const tb = document.querySelector('#rec-ouTable tbody');
+    const rows = v.by_ou || [];
+    if (!rows.length) { tb.innerHTML = '<tr><td colspan="5" style="color:var(--color-text-muted,#6b7785)">Aucun écart porteur d\'une OU. Entra et Defender n\'en fournissent pas.</td></tr>'; return; }
+    tb.innerHTML = rows.map(r => {
+      const pct = r.total ? Math.round(100 * r.gaps / r.total) : null;
+      return '<tr><td style="font-family:var(--font-mono,monospace);font-size:11px">' + escapeHtml(r.ou_dn) + '</td>' +
+        '<td>' + escapeHtml(r.site || '—') + '</td>' +
+        '<td class="num"><strong>' + num(r.gaps) + '</strong></td>' +
+        '<td class="num">' + num(r.total) + '</td>' +
+        '<td class="num">' + (pct == null ? '—' : pct + ' %') + '</td></tr>';
+    }).join('');
+  }
+
+  // ── Écarts par site, dépliables ────────────────────────────────────
+  function renderSites(v) {
+    const host = document.getElementById('rec-siteList');
+    const groups = v.by_site || [];
+    if (!groups.length) { host.innerHTML = '<div style="color:var(--color-text-muted,#6b7785)">Aucun écart.</div>'; return; }
+    const byKey = new Map();
+    for (const g of (v.gaps || [])) {
+      if (g.decision) continue;
+      const k = g.site || '';
+      if (!byKey.has(k)) byKey.set(k, []);
+      byKey.get(k).push(g);
+    }
+    host.innerHTML = groups.map((grp, i) => {
+      const key = grp.site || '';
+      const label = grp.site || 'Site indéterminé';
+      const items = byKey.get(key) || [];
+      return '<details style="border:1px solid var(--color-border,#dfe3e8);border-radius:var(--radius-md,6px);margin-bottom:8px">' +
+        '<summary style="padding:10px 12px;cursor:pointer;font-weight:600">' +
+        escapeHtml(label) + ' — ' + num(grp.n) + ' ' +
+        (grp.site_sources || []).map(s => srcTag(s)).join(' ') + '</summary>' +
+        '<div class="tablewrap"><table class="list"><thead><tr>' +
+        '<th>Machine</th><th>Type</th><th>Système</th><th>Vue il y a</th><th>Sources</th><th>Décision</th>' +
+        '</tr></thead><tbody>' +
+        items.map(g =>
+          '<tr><td style="font-family:var(--font-mono,monospace);font-size:11px">' + escapeHtml(g.device_name) + '</td>' +
+          '<td>' + escapeHtml(g.type || '—') + ' ' + srcTag(g.type_source) + '</td>' +
+          '<td>' + escapeHtml(g.os || '—') + '</td>' +
+          '<td class="num">' + num(g.age_days) + ' j</td>' +
+          '<td>' + escapeHtml((g.sources || []).join(' + ')) + '</td>' +
+          '<td>' + decisionControl(g) + '</td></tr>'
+        ).join('') +
+        '</tbody></table></div></details>';
+    }).join('');
+    host.querySelectorAll('select[data-key]').forEach(sel => sel.addEventListener('change', onDecision));
+  }
+
+  function decisionControl(g) {
+    const opts = [['', '—'], ['handled', 'Traitée'], ['out_of_scope', 'Hors périmètre']];
+    return '<select data-key="' + escapeHtml(g.device_key) + '" style="font-size:12px;padding:3px 6px">' +
+      opts.map(([v, l]) => '<option value="' + v + '"' + (g.decision === v ? ' selected' : '') + '>' + l + '</option>').join('') +
+      '</select>';
+  }
+
+  async function onDecision(e) {
+    const sel = e.target;
+    const prev = sel.getAttribute('data-prev') || '';
+    const decision = sel.value;
+    let reason = '';
+    // Un hors-périmètre sans motif est refusé par le serveur : sortir une
+    // machine du compteur sans dire pourquoi vide l'indicateur de son sens.
+    if (decision === 'out_of_scope') {
+      reason = window.prompt('Motif — pourquoi cette machine sort-elle du périmètre ?', '') || '';
+      if (!reason.trim()) { sel.value = prev; return; }
+    }
+    try {
+      const r = await fetch(API + '/decision', {
+        method: 'POST', credentials: 'same-origin',
+        headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+        body: JSON.stringify({ device_key: sel.getAttribute('data-key'), decision: decision || null, reason }),
+      });
+      if (!r.ok) {
+        // Un refus doit REVENIR en arrière : afficher une décision non
+        // enregistrée est le pire des deux mondes.
+        const b = await r.json().catch(() => ({}));
+        sel.value = prev;
+        alert(b.error || 'Décision refusée par le serveur.');
+        return;
+      }
+      sel.setAttribute('data-prev', decision);
+      await refresh();
+    } catch (err) { sel.value = prev; alert('Réseau indisponible — décision non enregistrée.'); }
+  }
+
+  // ── Sens inverse ───────────────────────────────────────────────────
+  function renderRetirement(v) {
+    const tb = document.querySelector('#rec-retTable tbody');
+    const rows = v.retirement_candidates || [];
+    if (!rows.length) { tb.innerHTML = '<tr><td colspan="4" style="color:var(--color-text-muted,#6b7785)">Aucun candidat.</td></tr>'; return; }
+    tb.innerHTML = rows.slice(0, 300).map(r =>
+      '<tr><td style="font-family:var(--font-mono,monospace);font-size:11px">' + escapeHtml(r.asset_name) + '</td>' +
+      '<td>' + escapeHtml(r.site || '—') + '</td>' +
+      '<td>' + escapeHtml(r.last_seen_external ? String(r.last_seen_external).slice(0, 10) : 'jamais') + '</td>' +
+      '<td class="num">' + (r.age_days == null ? '—' : num(r.age_days)) + '</td></tr>'
+    ).join('') + (rows.length > 300
+      ? '<tr><td colspan="4" style="color:var(--color-text-muted,#6b7785)">… ' + num(rows.length - 300) + ' de plus — voir l\'export Excel</td></tr>' : '');
+  }
+
+  // ── Import ─────────────────────────────────────────────────────────
+  async function sendFile(source, file, commit) {
+    const buf = await file.arrayBuffer();
+    const r = await fetch(API + (commit ? '/import' : '/preview') + '?source=' + encodeURIComponent(source), {
+      method: 'POST', credentials: 'same-origin',
+      headers: Object.assign({ 'Content-Type': 'text/csv' }, authHeaders()),
+      body: buf,
+    });
+    const body = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(body.error || ('HTTP ' + r.status));
+    return body;
+  }
+
+  async function onFile(e) {
+    const input = e.target;
+    const file = input.files && input.files[0];
+    if (!file) return;
+    const source = input.getAttribute('data-source');
+    const host = document.getElementById('rec-preview');
+    host.style.display = 'block';
+    host.innerHTML = '<div style="color:var(--color-text-muted,#6b7785)">Lecture de ' + escapeHtml(file.name) + '…</div>';
+    try {
+      const p = await sendFile(source, file, false);
+      host.innerHTML =
+        '<div class="count-note" style="border:1px solid var(--color-border,#dfe3e8);border-radius:var(--radius-md,6px)">' +
+        '<strong>' + escapeHtml(file.name) + '</strong> — ' + num(p.rows) + ' machines lues' +
+        (p.skipped_no_name ? ', ' + num(p.skipped_no_name) + ' lignes sans nom ignorées' : '') +
+        (p.warnings && p.warnings.length
+          ? '<ul style="margin:8px 0 0;padding-left:18px;font-size:12px">' +
+            p.warnings.map(w => '<li>' + escapeHtml(w) + '</li>').join('') + '</ul>'
+          : '') +
+        '<div style="margin-top:10px"><button class="btn btn-primary" id="rec-commitBtn">' +
+        'Importer et remplacer la source « ' + escapeHtml(source) + ' »</button></div>' +
+        '<div style="margin-top:6px;font-size:12px;color:var(--color-text-muted,#6b7785)">' +
+        'Rien n\'est encore enregistré. L\'import remplace <strong>uniquement</strong> cette source.</div></div>';
+      document.getElementById('rec-commitBtn').addEventListener('click', async () => {
+        try {
+          const c = await sendFile(source, file, true);
+          host.innerHTML = '<div class="count-note" style="border:1px solid var(--edv-green,#1E8E3E);border-radius:var(--radius-md,6px)">' +
+            '✓ ' + num(c.imported) + ' machines importées pour « ' + escapeHtml(source) +' ».</div>';
+          input.value = '';
+          await refresh();
+        } catch (err) { host.innerHTML = '<div class="count-note" style="border:1px solid var(--edv-red,#D90038);border-radius:var(--radius-md,6px)">' + escapeHtml(err.message) + '</div>'; }
+      });
+    } catch (err) {
+      // Le serveur NOMME la colonne absente — on la répercute telle quelle.
+      host.innerHTML = '<div class="count-note" style="border:1px solid var(--edv-red,#D90038);border-radius:var(--radius-md,6px)">' +
+        escapeHtml(err.message) + '</div>';
+    }
+  }
+
+  // ── Cycle ──────────────────────────────────────────────────────────
+  async function refresh(f) {
+    if (f) siteFilter = f.site || null;
+    const p = siteFilter ? { site: siteFilter } : {};
+    try {
+      const [sr, gr] = await Promise.all([
+        fetch(API + '/summary' + qs(p), { credentials: 'same-origin', headers: authHeaders() }),
+        fetch(API + '/gaps' + qs(p), { credentials: 'same-origin', headers: authHeaders() }),
+      ]);
+      if (!sr.ok || !gr.ok) throw new Error('HTTP');
+      const s = await sr.json(), g = await gr.json();
+      last = Object.assign({}, s, g);
+    } catch (e) { last = null; }
+
+    const empty = !last || !(last.imports || []).length;
+    document.getElementById('rec-empty').style.display = empty ? 'block' : 'none';
+    renderFreshness(last && last.imports);
+    if (empty) {
+      document.getElementById('rec-tiles').innerHTML = '';
+      document.querySelector('#rec-ouTable tbody').innerHTML = '';
+      document.querySelector('#rec-retTable tbody').innerHTML = '';
+      document.getElementById('rec-siteList').innerHTML = '';
+      return;
+    }
+    renderTiles(last); renderOu(last); renderSites(last); renderRetirement(last);
+  }
+
+  function init(f) {
+    // Les collecteurs sont servis par le serveur — la page n'en héberge
+    // aucune copie, deux copies divergent.
+    document.getElementById('rec-dlCollector').addEventListener('click', (e) => {
+      e.preventDefault(); download(API + '/collector.ps1');
+    });
+    document.getElementById('rec-dlKql').addEventListener('click', (e) => {
+      e.preventDefault(); download(API + '/defender.kql');
+    });
+    document.getElementById('rec-exportBtn').addEventListener('click', (e) => {
+      e.preventDefault(); download(API + '/export.xlsx' + qs(siteFilter ? { site: siteFilter } : {}));
+    });
+    // L'import remplace une source pour tout le monde : réservé aux admins.
+    if (!isAdmin()) {
+      const row = document.getElementById('rec-importRow');
+      row.querySelectorAll('input[type=file]').forEach(i => { i.disabled = true; i.title = 'Réservé aux administrateurs'; });
+      row.style.opacity = '.55';
+    } else {
+      document.querySelectorAll('#rec-importRow input[type=file]').forEach(i => i.addEventListener('change', onFile));
+    }
+    return refresh(f);
+  }
+
+  async function download(url) {
+    try {
+      const r = await fetch(url, { credentials: 'same-origin', headers: authHeaders() });
+      if (!r.ok) { alert('Téléchargement indisponible (HTTP ' + r.status + ')'); return; }
+      const blob = await r.blob();
+      const cd = r.headers.get('content-disposition') || '';
+      const m = /filename="?([^"]+)"?/.exec(cd);
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = m ? m[1] : 'download';
+      document.body.appendChild(a); a.click();
+      setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+    } catch (e) { alert('Téléchargement indisponible.'); }
+  }
+
+  window.REC_PANE = { init, refresh };
+})();
+</script>
+
+<!-- ══════════════════════════════════════════════════════════════════
      CONTROLLER — shared filter bar + tab switching + lazy-init
      ══════════════════════════════════════════════════════════════════ -->
 <script nonce="%%CSP_NONCE%%">
 (function () {
   'use strict';
 
-  const TABS = ['inventory', 'hygiene', 'finance', 'hardware', 'progress', 'investment'];
-  const PANE = { inventory: 'INV_PANE', hygiene: 'HYG_PANE', finance: 'FIN_PANE', hardware: 'HW_PANE', progress: 'PROG_PANE', investment: 'INVEST_PANE' };
-  const inited = { inventory: false, hygiene: false, finance: false, hardware: false, progress: false, investment: false };
+  // Ajouter un onglet impose QUATRE éditions coordonnées — ces trois tables
+  // plus le balisage bouton + section. En oublier une donne un onglet à moitié
+  // vivant : il s'ouvre mais le lien profond ne marche pas, ou l'inverse.
+  const TABS = ['inventory', 'hygiene', 'finance', 'hardware', 'progress', 'investment', 'reconcile'];
+  const PANE = { inventory: 'INV_PANE', hygiene: 'HYG_PANE', finance: 'FIN_PANE', hardware: 'HW_PANE', progress: 'PROG_PANE', investment: 'INVEST_PANE', reconcile: 'REC_PANE' };
+  const inited = { inventory: false, hygiene: false, finance: false, hardware: false, progress: false, investment: false, reconcile: false };
   let activeTab = 'inventory';
 
   function authHeaders() {

@@ -6,6 +6,54 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ---
 
+## ⚡ Current state (as of 2026-07-23)
+
+> **Réconciliation Assets SDP × AD × Entra × Defender landed** (branche
+> `feat/assets-reconciliation`) — la fonctionnalité répond à l'angle mort de
+> SelfScan : **un inventaire ne peut pas signaler ce qu'il ignore**. Elle compare
+> le parc SDP à ce que voient trois sources externes et produit **deux listes** :
+> les **ÉCARTS** (vus récemment ailleurs, absents de SDP) et les **CANDIDATS AU
+> RETRAIT** (dans SDP, vus nulle part depuis 90 j).
+>
+> **Architecture en trois couches, seule l'acquisition est remplaçable** :
+> `tools/reconcile/Collect-ADComputers.ps1` (DirectorySearcher, aucun droit
+> admin, FILETIME→ISO **et depuis ce jour whenCreated→ISO**) + `DeviceInfo.kql`
+> (Defender Advanced Hunting) → `services/reconcileImport.js` (parseurs **pilotés
+> par en-tête**, 3 sources, **une seule forme de sortie**) → les purs
+> `reconcileAssets.js` (clé normalisée, dédup par source, `asOf` injecté),
+> `assetNameParser.js` (carte préfixe→site **apprise**), `assetSiteResolver.js`
+> (cascade `ou_learned → ou_label → name → null`), `assetTypeClassifier.js`
+> (cascade 4 sources, vocabulaire canonique FR) → `services/reconcileView.js`
+> (l'assemblage, **pur**) → 8 routes `/api/assets/reconcile/*` → **7ᵉ onglet**
+> `#reconcile` + **guide FR imprimable A4**.
+>
+> **Le résultat opérationnel, sur les vraies données** (export AD réel 4805
+> machines × parc SDP 2471) : **545 écarts**, **66 OU** concernées, **751**
+> candidats au retrait (dont **214 exclus** comme non joignables au domaine).
+> Trois OU concentrent l'essentiel — **Ouaga Office 68/152, Tanda (Exploration
+> Sites) 39/80, EDV Project Team (Abidjan) 32/43** — et **HGO est le témoin à
+> 16/748 (2 %)** : c'est ce rapport qui transforme les 45-100 % ailleurs en
+> *défaut de déploiement démontré* plutôt qu'en soupçon. **L'utilisateur a
+> conclu qu'il devait rattacher ces OU à la bonne GPO SelfScan** — d'où le
+> groupement **par OU** au premier plan du rapport : **on rattache une GPO à une
+> OU, pas à un site**, et un site couvre plusieurs OU (`Exploration Sites` porte
+> Tanda, Ity et Hounde dans trois conteneurs distincts).
+>
+> **Trois défauts trouvés en confrontant le code aux vraies données, pas aux
+> tests** : (a) l'attribution du site par le **nom seul échouait à 83 %**
+> (453/545) → cascade par OU → **25 indéterminés** ; (b) le sens inverse
+> comptait **194 commutateurs/bornes/pare-feux** comme candidats au retrait —
+> faux positifs **permanents** (ce matériel ne rejoint jamais un domaine) → un
+> prédicat `retirementEligible` **injecté** ; (c) l'export AD réel porte des
+> dates **`10/01/2024`** indécidables (jj/mm ou mm/jj) → refusées, pas devinées,
+> **et corrigées à la source**.
+> **Régression** : suite reconcile **112**, suite assets complète **161**,
+> await-precedence 5/5. **T11 (export au format d'import SDP) reste BLOQUÉ** —
+> le gabarit d'import SDP n'a pas été fourni et ne sera pas deviné. Plan :
+> `docs/superpowers/plans/2026-07-23-assets-reconciliation.md`, spec :
+> `docs/superpowers/specs/2026-07-23-assets-reconciliation-design.md`.
+> **NON fusionnée — branche prête.**
+
 ## ⚡ Current state (as of 2026-07-22, later)
 
 > **Zero-data verdicts purged from the site report + every card now states its own
@@ -3030,6 +3078,13 @@ In normal use NO request hits this fallback. It's a safety net.
 
 | Pitfall | Rule |
 |---------|------|
+| **Le nom d'hôte porte le site de PROVISIONNEMENT, pas le site actuel — et c'est l'UTILISATEUR qui commande le site** | Une machine nommée `HGO-LT-045` peut être à Sabodala : le nom est figé à la fabrication, l'utilisateur a été muté, et **le site du matériel suit le site de l'utilisateur**. Donc : pour un actif **connu de SDP**, la colonne `site` de SDP fait foi — ne jamais la « corriger » depuis le nom. Pour un **écart** (absent de SDP), le nom ne donne qu'une **origine présumée**, et c'est pourquoi `resolveSite` rend TOUJOURS un `source` (`ou_learned` / `ou_label` / `name` / `null`) que l'interface **doit** afficher : `'Hounde Gold Operations'` (libellé d'OU) et `'HOUNDE'` (site SDP) ne se corrigent pas de la même façon. Mesuré : le nom seul échoue sur **83 %** des écarts réels (453/545) ; la cascade par OU ramène à 25 indéterminés. |
+| **Le sens inverse DOIT exclure le matériel non joignable au domaine, sinon 20 % de faux positifs PERMANENTS** | Un commutateur, une borne Wi-Fi, un pare-feu ou une imprimante ne rejoint **jamais** un domaine : absent d'AD **par nature**, donc « jamais vu », donc candidat au retrait à tort **et pour toujours**. Mesuré sur le parc réel : **214 des 965** candidats bruts. `reconcile()` prend un prédicat **`retirementEligible` injecté** (le module reste pur et ignore la classification) et **affiche** `retirement_excluded_not_joinable` — un chiffre qui baisse sans explication se lit comme une perte de données. Par défaut tout est éligible, pour ne pas changer le comportement des appelants existants. |
+| **`asOf` compte comme la FIN de sa journée — et une observation postérieure à `asOf` n'est pas un écart** | Deux pièges qui se neutralisent mal. (a) Sans exclure les observations postérieures, un rapport rejoué sur une date passée signale comme « non inventoriées » des machines apparues depuis — un anachronisme muet. (b) Mais `'2026-07-23'` se lit **minuit**, donc une machine vue le même jour à 8 h est à **−1 jour** et une règle naïve « âge < 0 → futur » l'écarterait — exactement les machines qui comptent le plus. D'où `_endOfDay()` : `asOf` bare-date devient fin de journée. Clé d'exclusion **`future`**, toujours présente même à zéro. |
+| **Un booléen illisible rend `null`, JAMAIS `false` — un `false` inventé fait DISPARAÎTRE la machine** | `reconcileAssets` traite `enabled === false` comme « compte désactivé, donc exclu ». Un parseur qui coerce un `enabled` illisible en `false` retire donc silencieusement la machine du rapport — l'inverse exact du service rendu. Même règle côté Defender, qui **n'a aucune notion** de compte désactivé : `enabled` y vaut `null`, jamais `false`, sinon toute la source disparaît. |
+| **Les parseurs d'import lisent par NOM d'en-tête, jamais par position — et une colonne absente est NOMMÉE, en 400** | On ne contrôle ni l'ordre ni le nombre de colonnes d'un export de portail, et Microsoft en renomme au fil des versions (`trustType` ≡ `joinType`). C'est aussi ce qui rend acceptable de **pré-câbler les en-têtes Entra sans avoir vu d'export** : le pari, s'il est faux, échoue immédiatement avec le nom de la colonne. Un parseur silencieux rendrait **« 0 écart » — la meilleure nouvelle possible — sur un fichier illisible**. Corollaire : le CSV est découpé à la main, jamais `split(',')`, car un `distinguishedName` **contient** des virgules et un split naïf décale toute la ligne sans que rien ne proteste. Et le **BOM UTF-8** doit être retiré avant de découper l'en-tête (même piège qu'`Assets.csv`) : ici la 1ʳᵉ colonne EST le nom de machine, donc tout le fichier partirait à la poubelle en silence. |
+| **Une date `jj/mm/aaaa` est indécidable dès que les deux nombres sont ≤ 12 — refuser, jamais deviner** | L'export AD réel porte `10/01/2024` : 10 janvier ou 1ᵉʳ octobre ? Le format vient du **réglage régional de la machine qui collecte**, pas des données. `reconcileImport` refuse la valeur et le signale ; `Collect-ADComputers.ps1` a été corrigé pour émettre `whenCreated` **en ISO à la source** — c'est le seul endroit où l'ambiguïté peut encore être levée avec certitude. |
+| **Ajouter un onglet à `public/assets.html` = QUATRE éditions coordonnées, et inventer une classe CSS ne casse rien mais ne rend rien** | Les quatre : le tableau `TABS` (= l'ensemble des ancres d'URL), la table `PANE`, la table `inited`, le balisage bouton + `<section id="pane-…">`. En oublier une donne un onglet à moitié vivant (il s'ouvre mais le lien profond ne marche pas, ou l'inverse). **Les classes existantes sont `tiles`/`tile`/`tn`/`tl`/`td` et `table.list`** — écrire `kpi-grid`/`kpi`/`dt`/`muted`/`pill` produit un HTML valide, un JS sans erreur, et des tuiles en **texte brut empilé** : seul un contrôle visuel le voit. Et le serveur sert la page **mise en cache au démarrage** (`_htmlCache`) : en vérification locale comme en prod, il faut **redémarrer**, sinon on débogue une version qu'on n'a pas écrite. |
 | **`getSiteIdByModuleCode` returns `{site_id}`, NOT `{id}` — a falsy id makes `listReports` leak EVERY site's report** | `listReports` filters with a bare **`if (site_id)`** on **both** backends (`reports-db.js:2072` sqlite, **`:2556` pg**), so a falsy id doesn't narrow to nothing — it **drops the filter entirely** and returns the whole fleet's reports. Reading `.id` off `getSiteIdByModuleCode` yields `undefined` → a weekly send addressed to one site would compose from **another site's** authored report, and nothing errors. **Resolve the id and guard it before calling** (`weeklyReportData.js` throws on an unresolvable code rather than passing a falsy id down). |
 | **`weekly_reports.status` is FOUR values — and the schema comment at `reports-db.js:73` is STALE** | The real vocabulary is **`draft \| in_progress \| ready \| submitted`** (`server.js:5993-5994` validates exactly these), and the client **auto-sets `ready`** once 4 sections are done (`reports.html:3787`) — the coordinator never types it. The inline comment `-- draft \| submitted` at `reports-db.js:73` predates that and is wrong; don't gate on it. Consequence for any consumer: the common real case is a report that is **complete but never Submitted**, so a status gate must report it as **"complete but not submitted"**, never merely "not submitted" (which reads as "they did nothing" and sends the coordinator hunting for work that is already done). |
 | **`infra_kpis.status_color` is `orange`, NOT `amber` — a bare `RAG_COLORS[status_color]` is `undefined` for every warning KPI** | The column stores **`green \| orange \| red \| none`** (`reports-db.js:90`), the admin UI merely **labels** it "🟡 Amber" (`public/reports.html:2400` — `<option value="orange">`), while `RAG_COLORS` is keyed **`{green, amber, red}`** (`services/reportTemplates/_primitives.js:17`). So `RAG_COLORS[k.status_color]` silently yields `undefined` on exactly the rows that matter (the at-risk ones) and the swatch renders colourless — no error, no test failure unless you assert on the colour. **Map the two vocabularies explicitly** (`orange → RAG_COLORS.amber`); never index one with the other. |

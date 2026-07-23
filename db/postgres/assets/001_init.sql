@@ -126,3 +126,47 @@ CREATE TABLE IF NOT EXISTS asset_effort_history (
   effort_score  REAL,
   PRIMARY KEY (snapshot_date, site)
 );
+
+-- ── Réconciliation SDP × Active Directory × Entra ID ────────────────────────
+-- L'inventaire externe de référence : la DERNIÈRE photo par source, jamais un
+-- historique. Ce qui compte est « AD d'aujourd'hui contre SDP d'aujourd'hui » ;
+-- conserver l'import rend le rapport reproductible et permet d'afficher sa date.
+--
+-- device_key est la clé NORMALISÉE (majuscules, FQDN coupé, $ final ôté) —
+-- device_name garde la forme d'origine pour l'affichage. La PK porte la source
+-- pour qu'un remplacement d'AD ne touche jamais Entra.
+--
+-- raw_json conserve VERBATIM la ligne source. Tant que les noms de colonnes
+-- réels d'AD et d'Entra ne sont pas figés, c'est ce qui permettra de remapper
+-- sans imposer un ré-import complet.
+CREATE TABLE IF NOT EXISTS asset_external_devices (
+  source      TEXT NOT NULL,
+  device_key  TEXT NOT NULL,
+  device_name TEXT NOT NULL,
+  dns_name    TEXT,
+  os          TEXT,
+  os_version  TEXT,
+  last_seen   TEXT,
+  enabled     INTEGER DEFAULT 1,
+  join_type   TEXT,
+  ou_dn       TEXT,
+  model       TEXT,
+  raw_json    TEXT,
+  import_id   TEXT,
+  imported_at TEXT,
+  PRIMARY KEY (source, device_key)
+);
+CREATE INDEX IF NOT EXISTS idx_aed_name ON asset_external_devices(device_name);
+CREATE INDEX IF NOT EXISTS idx_aed_seen ON asset_external_devices(last_seen);
+
+-- La décision d'un coordonnateur sur un écart. Sans état, les mêmes machines
+-- reviennent à chaque import et la liste perd sa crédibilité en deux itérations.
+-- Clé = device_key : une machine renommée perd sa décision, limite assumée
+-- (aucune source externe ne fournit de numéro de série pour recouper).
+CREATE TABLE IF NOT EXISTS asset_reconcile_decisions (
+  device_key TEXT PRIMARY KEY,
+  decision   TEXT NOT NULL,
+  reason     TEXT,
+  decided_by TEXT,
+  decided_at TEXT
+);

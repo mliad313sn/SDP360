@@ -59,6 +59,34 @@ site ; `BF` résout vers MANA ; `WENCO` et `SMC` sont Sabodala.
   éclatées entre deux sites dans SDP.
 - `HND-LAP-743` coexiste avec `HGO-LAP-*` : deux préfixes pour Hounde.
 
+### 2.1 bis — Ce que le nom dit, et ce qu'il ne dit pas
+
+**Le nom porte le site de PROVISIONNEMENT, pas la localisation courante.** Quand
+un utilisateur est muté, son poste le suit et la fiche SDP suit l'utilisateur ;
+le nom, lui, reste figé sur l'ancien site.
+
+Validation du parseur contre le parc : **99 % des attributions coïncident avec la
+colonne `site`** (2 183 sur 2 198). Les 15 divergences — `ABJ-LAP-531` enregistré
+à MANA, `EM-LON-L134` à ABIDJAN, `ITY-LTOP-5453` à ABIDJAN — **ne sont pas des
+erreurs de saisie** : ce sont des utilisateurs mutés.
+
+Deux règles en découlent, non négociables :
+
+- **Pour un actif présent dans SDP**, la colonne `site` est autoritaire. Le
+  parseur ne sert jamais à la corriger ni à la contredire.
+- **Pour un écart**, le nom est tout ce dont on dispose : le site rendu est un
+  **site d'origine présumé**, affiché comme tel. Le site réel dépend d'un
+  utilisateur que SDP ne connaît pas encore — c'est précisément ce que SelfScan
+  ira établir.
+
+Conséquence pratique sur le rapport : le regroupement par site oriente le
+coordonnateur vers qui interroger en premier, il n'affirme pas où se trouve la
+machine.
+
+Quand l'export AD fournit `distinguishedName`, **l'OU prime sur le nom** :
+l'unité d'organisation suit le compte machine et se corrige plus souvent qu'un
+nom d'hôte, qui ne change quasiment jamais.
+
 ### 2.2 `product_type` est inutilisable pour les ordinateurs
 
 SDP écrase 2 000+ lignes en `Computer`. Il est en revanche **fiable à 100 %** sur
