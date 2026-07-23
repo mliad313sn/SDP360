@@ -146,7 +146,10 @@ test('sens inverse : le materiel non joignable au domaine est exclu, et compte',
     { asset_name: 'LAP-01', site: 'ITY', product_type: 'Computer' },
   ];
   const joinable = (a) => !/switch|access point|firewall|printer/i.test(a.product_type || '');
-  const r = reconcile({ sdpAssets: sdp, externalDevices: [], asOf: '2026-07-23',
+  // Une source EST importee — sinon le garde d applicabilite rend zero candidat
+  // et le test ne prouverait plus rien sur l exclusion.
+  const ext = [{ source: 'ad', device_name: 'AUTRE-1', last_seen: '2026-07-22T00:00:00Z', enabled: true }];
+  const r = reconcile({ sdpAssets: sdp, externalDevices: ext, asOf: '2026-07-23',
     recentDays: 30, staleDays: 90, retirementEligible: joinable });
   assert.deepStrictEqual(r.retirementCandidates.map((x) => x.asset_name), ['LAP-01']);
   assert.strictEqual(r.counts.retirement_excluded_not_joinable, 2,
@@ -155,9 +158,62 @@ test('sens inverse : le materiel non joignable au domaine est exclu, et compte',
 
 test('sans predicat, tout reste eligible — les appelants existants ne changent pas', () => {
   const sdp = [{ asset_name: 'SW-01', site: 'ITY', product_type: 'Cisco Switch' }];
-  const r = reconcile({ sdpAssets: sdp, externalDevices: [], asOf: '2026-07-23', recentDays: 30, staleDays: 90 });
+  const ext = [{ source: 'ad', device_name: 'AUTRE-1', last_seen: '2026-07-22T00:00:00Z', enabled: true }];
+  const r = reconcile({ sdpAssets: sdp, externalDevices: ext, asOf: '2026-07-23', recentDays: 30, staleDays: 90 });
   assert.strictEqual(r.retirementCandidates.length, 1);
   assert.strictEqual(r.counts.retirement_excluded_not_joinable, 0);
+});
+
+// ── Le sens inverse EXIGE d'avoir mesure quelque chose ──────────────────────
+test('AUCUNE source importee : ZERO candidat au retrait, et non applicable', () => {
+  // Sans source externe, "vu nulle part" ne veut rien dire — on n a rien
+  // regarde. Le compter donnerait "2264 candidats au retrait" sur un parc
+  // entier, c est-a-dire un verdict confiant sur zero donnee. C est la faute
+  // que ce depot documente ailleurs : null = pas mesure, 0 = mesure a zero.
+  const sdp = [];
+  for (let i = 0; i < 50; i++) sdp.push({ asset_name: 'PC-' + i, site: 'ITY' });
+  const r = reconcile({ sdpAssets: sdp, externalDevices: [], asOf: '2026-07-23', recentDays: 30, staleDays: 90 });
+  assert.strictEqual(r.retirementCandidates.length, 0, 'aucun candidat sans mesure');
+  assert.strictEqual(r.counts.retirement_applicable, false);
+  assert.strictEqual(r.counts.retirement_candidates, 0);
+});
+
+test('des lignes externes toutes perimees comptent quand meme comme une MESURE', () => {
+  // On a bien regarde : la source a ete importee, ses machines sont anciennes.
+  // C est un vrai signal de retrait, pas une absence de mesure.
+  const sdp = [{ asset_name: 'GONE-1', site: 'ITY' }];
+  const ext = [{ source: 'ad', device_name: 'AUTRE-1', last_seen: '2024-01-01T00:00:00Z', enabled: true }];
+  const r = reconcile({ sdpAssets: sdp, externalDevices: ext, asOf: '2026-07-23', recentDays: 30, staleDays: 90 });
+  assert.strictEqual(r.counts.retirement_applicable, true);
+  assert.deepStrictEqual(r.retirementCandidates.map((x) => x.asset_name), ['GONE-1']);
+});
+
+test('une source importee SANS AUCUNE DATE exploitable ne rend pas le retrait applicable', () => {
+  // Le cas reel : l operateur depose le mauvais fichier — l export Entra dans
+  // la case AD, ou un CSV sans colonne de derniere connexion. Des lignes sont
+  // bien ecrites, donc un garde sur "des lignes existent" se laisserait
+  // convaincre et annoncerait le parc entier a retirer. Sans une seule date,
+  // on ne sait toujours RIEN de la presence de quoi que ce soit.
+  const sdp = [];
+  for (let i = 0; i < 40; i++) sdp.push({ asset_name: 'PC-' + i, site: 'ITY' });
+  const ext = [
+    { source: 'ad', device_name: 'X1', last_seen: null, enabled: true },
+    { source: 'ad', device_name: 'X2', last_seen: '', enabled: true },
+    { source: 'ad', device_name: 'X3', last_seen: 'pas une date', enabled: true },
+  ];
+  const r = reconcile({ sdpAssets: sdp, externalDevices: ext, asOf: '2026-07-23', recentDays: 30, staleDays: 90 });
+  assert.strictEqual(r.counts.retirement_applicable, false);
+  assert.strictEqual(r.retirementCandidates.length, 0);
+});
+
+test('les sources ayant servi a juger sont NOMMEES', () => {
+  // "vu nulle part" n a de sens qu accompagne de "ou a-t-on regarde".
+  const ext = [
+    { source: 'ad', device_name: 'A', last_seen: '2026-07-22T00:00:00Z', enabled: true },
+    { source: 'entra', device_name: 'B', last_seen: '2026-07-22T00:00:00Z', enabled: true },
+  ];
+  const r = reconcile({ sdpAssets: [], externalDevices: ext, asOf: '2026-07-23', recentDays: 30 });
+  assert.deepStrictEqual(r.counts.sources_present.sort(), ['ad', 'entra']);
 });
 
 // ── asOf ────────────────────────────────────────────────────────────────────

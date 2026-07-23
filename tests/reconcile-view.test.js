@@ -146,6 +146,9 @@ test('le materiel reseau n est jamais candidat au retrait, et l exclusion est ch
       { asset_name: 'SW-01', site: 'ITY', product_type: 'Cisco Switch' },
       { asset_name: 'LAP-01', site: 'ITY', product_type: 'Computer' },
     ],
+    // Une source EST importee : sans elle, le garde d applicabilite rend zero
+    // candidat et le test ne prouverait plus rien sur l exclusion.
+    externalDevices: [{ source: 'ad', device_name: 'AUTRE-1', enabled: true, last_seen: seen(1, 2) }],
   });
   assert.deepStrictEqual(v.retirement_candidates.map((x) => x.asset_name), ['LAP-01']);
   assert.strictEqual(v.counts.retirement_excluded_not_joinable, 1);

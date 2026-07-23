@@ -113,6 +113,21 @@ test('l import ecrit, et le resume voit l ecart', async () => {
   assert.equal(sum.counts.gaps, 1, 'PC-99 est l ecart, PC-01 est inventorie');
   assert.ok(Array.isArray(sum.by_site) && Array.isArray(sum.by_ou));
   assert.ok(sum.window && sum.window.as_of, 'la fenetre accompagne toujours le chiffre');
+  // Le retrait est applicable des qu une source datee est presente.
+  assert.equal(sum.counts.retirement_applicable, true);
+  assert.deepStrictEqual(sum.counts.sources_present, ['ad']);
+});
+
+test('l export porte une feuille Synthese en tete + les trois feuilles de detail', async () => {
+  const res = await fetch(base + '/api/assets/reconcile/export.xlsx', { headers: auth() });
+  assert.equal(res.status, 200);
+  const buf = Buffer.from(await res.arrayBuffer());
+  // Un .xlsx est un zip : signature 'PK'. On confirme le fichier bien forme,
+  // puis on lit les noms de feuilles avec le meme SheetJS que la route.
+  assert.equal(buf[0], 0x50); assert.equal(buf[1], 0x4B);
+  const XLSX = require('xlsx');
+  const wb = XLSX.read(buf, { type: 'buffer' });
+  assert.deepStrictEqual(wb.SheetNames, ['Synthèse', 'Écarts', 'Par OU', 'Candidats au retrait']);
 });
 
 test('les ecarts sont listables et portent site + type + leurs sources', async () => {

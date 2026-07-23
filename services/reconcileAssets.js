@@ -188,10 +188,34 @@ function reconcile(opts) {
   // Le prédicat est INJECTÉ pour que ce module reste pur et ignore la
   // classification. Par défaut tout est éligible, ce qui préserve le
   // comportement des appelants qui ne le fournissent pas.
+  // ⚠ GATE D'APPLICABILITÉ. « Vu nulle part » ne veut rien dire quand on n'a
+  // regardé nulle part. Sans une seule source importée, CHAQUE actif SDP
+  // remplit la condition « jamais vu » et le rapport annonce un parc entier à
+  // retirer — un verdict confiant sur zéro donnée, exactement la faute que ce
+  // dépôt documente ailleurs (`overall_risk:'low'` fabriqué, dimensions
+  // inversées qui font passer l'absence de mesure pour l'excellence).
+  //
+  // null = pas mesuré ≠ 0 = mesuré à zéro.
+  //
+  // Le seuil est « au moins une OBSERVATION DATÉE », pas « au moins une ligne
+  // ingérée ». La nuance est celle qui compte en vrai : un opérateur qui dépose
+  // le mauvais fichier — l'export Entra dans la case AD, un CSV sans colonne de
+  // dernière connexion — écrit bien des lignes, et un garde sur « des lignes
+  // existent » se laisserait convaincre. Sans une seule date, on ne sait
+  // toujours RIEN de la présence de quoi que ce soit.
+  //
+  // Volontairement INDÉPENDANT de `enabled` et de la fraîcheur. Un compte
+  // désactivé mais daté est une observation réelle — la machine existe, son
+  // compte est fermé, ce qui va VERS le retrait. Une source entièrement périmée
+  // aussi : on a regardé, les machines sont anciennes.
+  const sourcesPresent = [...new Set(external.map((d) => d.source))];
+  const datedObservations = external.filter((d) => _ts(d.last_seen) != null).length;
+  const retirementApplicable = datedObservations > 0;
+
   const eligible = typeof o.retirementEligible === 'function' ? o.retirementEligible : () => true;
   const retirementCandidates = [];
   let excludedNotJoinable = 0;
-  for (const a of sdpAssets) {
+  for (const a of retirementApplicable ? sdpAssets : []) {
     const k = normaliseKey(a && a.asset_name);
     if (!k) continue;
     if (!eligible(a)) { excludedNotJoinable++; continue; }
@@ -224,6 +248,11 @@ function reconcile(opts) {
       // Affiché, pas seulement soustrait : un chiffre qui baisse sans explication
       // se lit comme une perte de données.
       retirement_excluded_not_joinable: excludedNotJoinable,
+      // `false` = on n'a rien mesuré. L'interface DOIT dire « non applicable »
+      // et non « 0 candidat », qui se lirait « parc entièrement sain ».
+      retirement_applicable: retirementApplicable,
+      // « Vu nulle part » n'a de sens qu'accompagné de « où a-t-on regardé ».
+      sources_present: sourcesPresent,
     },
     window: { as_of: asOf, recent_days: recentDays, stale_days: staleDays },
   };

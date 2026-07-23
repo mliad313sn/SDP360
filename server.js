@@ -2925,6 +2925,34 @@ app.get('/api/assets/reconcile/export.xlsx', requireReportSession, async (req, r
     const v = await _reconcileView(req);
     const XLSX = require('xlsx');
     const wb = XLSX.utils.book_new();
+
+    // Feuille de SYNTHÈSE en tête — le fichier doit se lire sans revenir à
+    // l'écran, et surtout dire quand une section est « non applicable » plutôt
+    // que de laisser croire à un zéro mesuré.
+    const c = v.counts || {};
+    const NM = { ad: 'Active Directory', entra: 'Entra ID', defender: 'Defender' };
+    const srcLbl = (c.sources_present || []).map((s) => NM[s] || s).join(', ') || '(aucune)';
+    const summaryRows = [
+      { Indicateur: 'Généré le (as-of)', Valeur: v.window.as_of },
+      { Indicateur: 'Fenêtre de fraîcheur (jours)', Valeur: v.window.recent_days },
+      { Indicateur: 'Seuil de retrait (jours sans vue)', Valeur: v.window.stale_days },
+      { Indicateur: 'Sources importées', Valeur: srcLbl },
+      { Indicateur: '— Écarts à traiter', Valeur: c.gaps_open },
+      { Indicateur: '— Écarts tranchés (traités / hors périmètre)', Valeur: c.gaps_decided },
+      { Indicateur: '— Sites nommés touchés', Valeur: c.sites_touched },
+      { Indicateur: '— OU à rattacher à une GPO', Valeur: c.ous_touched },
+      {
+        Indicateur: '— Candidats au retrait',
+        // « Non applicable » explicite, jamais un 0 qui se lirait « rien à retirer ».
+        Valeur: c.retirement_applicable === false ? 'Non applicable (aucune observation datée)' : c.retirement_candidates,
+      },
+      { Indicateur: '— dont exclus (non joignables au domaine)', Valeur: c.retirement_excluded_not_joinable },
+    ];
+    if (v.filtered_site) summaryRows.unshift({ Indicateur: 'Filtre site appliqué', Valeur: v.filtered_site });
+    const sumWs = XLSX.utils.json_to_sheet(summaryRows);
+    sumWs['!cols'] = [{ wch: 46 }, { wch: 40 }];
+    XLSX.utils.book_append_sheet(wb, sumWs, 'Synthèse');
+
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(v.gaps.map((g) => ({
       'Machine': g.device_name, 'Site présumé': g.site || '', 'Origine du site': g.site_source || '',
       'Type': g.type || '', 'Origine du type': g.type_source || '',

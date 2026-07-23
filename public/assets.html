@@ -3116,6 +3116,15 @@ window.addEventListener('beforeprint', function () {
     return sp.toString() ? '?' + sp.toString() : '';
   }
   const num = v => (Number(v) || 0).toLocaleString('fr-FR');
+  // Date lisible + heure : deux connexions le même jour se distinguent, et
+  // c'est cette valeur qu'on recoupe avec AD ou Entra quand on doute.
+  const fmtDate = (iso) => {
+    if (!iso) return 'jamais';
+    const d = new Date(iso);
+    if (!Number.isFinite(d.getTime())) return String(iso);
+    const p = n => String(n).padStart(2, '0');
+    return p(d.getDate()) + '/' + p(d.getMonth() + 1) + '/' + d.getFullYear() + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+  };
   const isAdmin = () => !!(window.__userHasRole && (window.__userHasRole('admin') ||
                         window.__userHasRole('executive') || window.__userHasRole('super_admin')));
 
@@ -3156,12 +3165,26 @@ window.addEventListener('beforeprint', function () {
       '<div class="tile" data-kind=""><div class="tn">' + escapeHtml(String(value)) + '</div>' +
       '<div class="tl">' + escapeHtml(label) + '</div>' +
       (note ? '<div class="td">' + escapeHtml(note) + '</div>' : '') + '</div>';
+    // « Non applicable » et « 0 » ne disent PAS la même chose : sans source
+    // importée, on n'a rien mesuré, et afficher « 0 candidat » se lirait
+    // « parc entièrement sain ». Le contraire de la vérité.
+    const retApplicable = c.retirement_applicable !== false;
+    const srcs = (c.sources_present || []);
+    const SRC = { ad: 'AD', entra: 'Entra', defender: 'Defender' };
     document.getElementById('rec-tiles').innerHTML =
       tile('Écarts à traiter', num(c.gaps_open), 'vus il y a ≤ ' + (w.recent_days || 30) + ' j, absents de SDP') +
       tile('Sites touchés', num(c.sites_touched), (c.gaps_open - 0) && c.sites_touched === 0 ? 'tous indéterminés' : 'sites nommés') +
       tile('OU à rattacher', num(c.ous_touched), 'unités d\'action GPO') +
-      tile('Candidats au retrait', num(c.retirement_candidates),
-           num(c.retirement_excluded_not_joinable) + ' exclus (non joignables au domaine)');
+      (retApplicable
+        ? tile('Candidats au retrait', num(c.retirement_candidates),
+               'jugés sur ' + srcs.map(s => SRC[s] || s).join(' + ') + ' · '
+               + num(c.retirement_excluded_not_joinable) + ' exclus (non joignables)')
+        // Deux causes, deux messages : sans distinction, un opérateur qui a
+        // BIEN importé un fichier irait chercher un problème d'import alors
+        // que son fichier n'a pas de colonne de dernière connexion.
+        : tile('Candidats au retrait', '—', srcs.length
+               ? 'non applicable — source importée mais aucune date de connexion exploitable'
+               : 'non applicable — aucune source importée'));
   }
 
   // ── Liste de travail GPO ───────────────────────────────────────────
@@ -3200,14 +3223,17 @@ window.addEventListener('beforeprint', function () {
         escapeHtml(label) + ' — ' + num(grp.n) + ' ' +
         (grp.site_sources || []).map(s => srcTag(s)).join(' ') + '</summary>' +
         '<div class="tablewrap"><table class="list"><thead><tr>' +
-        '<th>Machine</th><th>Type</th><th>Système</th><th>Vue il y a</th><th>Sources</th><th>Décision</th>' +
+        '<th>Machine</th><th>Type</th><th>Système</th><th>Dernière connexion</th><th class="num">Il y a</th><th>Vue par</th><th>Décision</th>' +
         '</tr></thead><tbody>' +
         items.map(g =>
           '<tr><td style="font-family:var(--font-mono,monospace);font-size:11px">' + escapeHtml(g.device_name) + '</td>' +
           '<td>' + escapeHtml(g.type || '—') + ' ' + srcTag(g.type_source) + '</td>' +
           '<td>' + escapeHtml(g.os || '—') + '</td>' +
+          // La DATE, pas seulement l'ancienneté : c'est elle qu'on recoupe avec
+          // AD ou Entra quand on doute d'une ligne.
+          '<td style="white-space:nowrap">' + escapeHtml(fmtDate(g.last_seen)) + '</td>' +
           '<td class="num">' + num(g.age_days) + ' j</td>' +
-          '<td>' + escapeHtml((g.sources || []).join(' + ')) + '</td>' +
+          '<td>' + escapeHtml((g.sources || []).map(s => ({ad:'AD',entra:'Entra',defender:'Defender'}[s] || s)).join(' + ')) + '</td>' +
           '<td>' + decisionControl(g) + '</td></tr>'
         ).join('') +
         '</tbody></table></div></details>';
@@ -3256,11 +3282,26 @@ window.addEventListener('beforeprint', function () {
   function renderRetirement(v) {
     const tb = document.querySelector('#rec-retTable tbody');
     const rows = v.retirement_candidates || [];
+    // Même règle que la tuile : dire qu'on n'a pas mesuré, pas qu'il n'y a rien.
+    if ((v.counts || {}).retirement_applicable === false) {
+      const had = ((v.counts || {}).sources_present || []).length;
+      tb.innerHTML = '<tr><td colspan="4" style="color:var(--color-text-muted,#6b7785)">'
+        + '<strong>Non applicable.</strong> '
+        + (had
+            ? 'Une source est bien importée, mais aucune de ses lignes ne porte de date de '
+              + 'connexion exploitable — vérifiez que le fichier déposé contient bien la colonne '
+              + '<code>lastLogonTimestamp</code> (AD), <code>approximateLastSignInDateTime</code> '
+              + '(Entra) ou <code>LastSeen</code> (Defender), et qu\'il a été déposé dans la bonne case.'
+            : 'Aucune source externe n\'a été importée.')
+        + ' Sans une seule observation datée, « vu nulle part » ne veut rien dire : '
+        + 'ce serait le parc entier.</td></tr>';
+      return;
+    }
     if (!rows.length) { tb.innerHTML = '<tr><td colspan="4" style="color:var(--color-text-muted,#6b7785)">Aucun candidat.</td></tr>'; return; }
     tb.innerHTML = rows.slice(0, 300).map(r =>
       '<tr><td style="font-family:var(--font-mono,monospace);font-size:11px">' + escapeHtml(r.asset_name) + '</td>' +
       '<td>' + escapeHtml(r.site || '—') + '</td>' +
-      '<td>' + escapeHtml(r.last_seen_external ? String(r.last_seen_external).slice(0, 10) : 'jamais') + '</td>' +
+      '<td style="white-space:nowrap">' + escapeHtml(fmtDate(r.last_seen_external)) + '</td>' +
       '<td class="num">' + (r.age_days == null ? '—' : num(r.age_days)) + '</td></tr>'
     ).join('') + (rows.length > 300
       ? '<tr><td colspan="4" style="color:var(--color-text-muted,#6b7785)">… ' + num(rows.length - 300) + ' de plus — voir l\'export Excel</td></tr>' : '');
