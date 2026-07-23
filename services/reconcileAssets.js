@@ -160,10 +160,23 @@ function reconcile(opts) {
   }
 
   // Sens inverse : dans SDP, plus vue nulle part depuis staleDays.
+  //
+  // ⚠ FILTRE OBLIGATOIRE. Un switch, une borne Wi-Fi ou un pare-feu ne rejoint
+  // JAMAIS un domaine : il est absent d'AD par nature, donc « jamais vu », donc
+  // candidat au retrait — à tort, et pour toujours. Mesuré sur le parc réel :
+  // 194 des 965 candidats bruts étaient du matériel réseau, soit 20 % de faux
+  // positifs permanents qui auraient discrédité la liste dès le premier envoi.
+  //
+  // Le prédicat est INJECTÉ pour que ce module reste pur et ignore la
+  // classification. Par défaut tout est éligible, ce qui préserve le
+  // comportement des appelants qui ne le fournissent pas.
+  const eligible = typeof o.retirementEligible === 'function' ? o.retirementEligible : () => true;
   const retirementCandidates = [];
+  let excludedNotJoinable = 0;
   for (const a of sdpAssets) {
     const k = normaliseKey(a && a.asset_name);
     if (!k) continue;
+    if (!eligible(a)) { excludedNotJoinable++; continue; }
     const last = seenAtAll.get(k) || null;
     const age = last ? _daysBetween(last, asOf) : null;
     if (age != null && age <= staleDays) continue;   // vue assez récemment
@@ -190,6 +203,9 @@ function reconcile(opts) {
       external_kept: seenRecently.size,
       gaps: gaps.length,
       retirement_candidates: retirementCandidates.length,
+      // Affiché, pas seulement soustrait : un chiffre qui baisse sans explication
+      // se lit comme une perte de données.
+      retirement_excluded_not_joinable: excludedNotJoinable,
     },
     window: { as_of: asOf, recent_days: recentDays, stale_days: staleDays },
   };

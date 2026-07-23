@@ -117,6 +117,30 @@ test('sens inverse : une machine desactivee cote AD compte comme non vue', () =>
   assert.strictEqual(r.retirementCandidates.length, 1);
 });
 
+// Un switch ne rejoint jamais un domaine : absent d'AD par nature, donc
+// "jamais vu", donc candidat au retrait a tort et pour toujours. Mesure sur le
+// parc reel : 194 des 965 candidats bruts etaient du materiel reseau.
+test('sens inverse : le materiel non joignable au domaine est exclu, et compte', () => {
+  const sdp = [
+    { asset_name: 'SW-01', site: 'ITY', product_type: 'Cisco Switch' },
+    { asset_name: 'AP-01', site: 'ITY', product_type: 'Wireless Access Point' },
+    { asset_name: 'LAP-01', site: 'ITY', product_type: 'Computer' },
+  ];
+  const joinable = (a) => !/switch|access point|firewall|printer/i.test(a.product_type || '');
+  const r = reconcile({ sdpAssets: sdp, externalDevices: [], asOf: '2026-07-23',
+    recentDays: 30, staleDays: 90, retirementEligible: joinable });
+  assert.deepStrictEqual(r.retirementCandidates.map((x) => x.asset_name), ['LAP-01']);
+  assert.strictEqual(r.counts.retirement_excluded_not_joinable, 2,
+    'le nombre exclu est affiche, pas seulement soustrait');
+});
+
+test('sans predicat, tout reste eligible — les appelants existants ne changent pas', () => {
+  const sdp = [{ asset_name: 'SW-01', site: 'ITY', product_type: 'Cisco Switch' }];
+  const r = reconcile({ sdpAssets: sdp, externalDevices: [], asOf: '2026-07-23', recentDays: 30, staleDays: 90 });
+  assert.strictEqual(r.retirementCandidates.length, 1);
+  assert.strictEqual(r.counts.retirement_excluded_not_joinable, 0);
+});
+
 // ── asOf ────────────────────────────────────────────────────────────────────
 test('asOf est injecte — aucune horloge interne', () => {
   const ext = [{ source: 'ad', device_name: 'X', last_seen: '2026-06-01T00:00:00Z', enabled: true }];
