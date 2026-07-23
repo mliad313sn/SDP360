@@ -44,12 +44,16 @@ DeviceInfo
 | extend HostName = toupper(tostring(split(DeviceName, ".")[0]))
 | where isnotempty(HostName)
 | summarize arg_max(Timestamp, *) by HostName
-// LoggedOnUsers est un tableau JSON ; on en extrait le premier compte pour
-// que le CSV reste lisible dans Excel.
-| extend PrimaryUser = iff(array_length(LoggedOnUsers) > 0,
-                           tostring(LoggedOnUsers[0].UserName), "")
-| extend PrimaryUserDomain = iff(array_length(LoggedOnUsers) > 0,
-                                 tostring(LoggedOnUsers[0].DomainName), "")
+// LoggedOnUsers est une CHAÎNE contenant du JSON, PAS un tableau dynamique —
+// c'est le piège de ce schéma. Sans todynamic(), array_length() refuse
+// l'argument ("argument #1 must be a dynamic") et la requête entière échoue.
+//
+// Une fois converti, on indexe directement : un dynamique vide ou absent rend
+// null, et tostring(null) rend une chaîne vide. Aucun garde de longueur n'est
+// donc nécessaire — on supprime l'appel fautif au lieu de le contourner.
+| extend _users = todynamic(LoggedOnUsers)
+| extend PrimaryUser       = tostring(_users[0].UserName)
+| extend PrimaryUserDomain = tostring(_users[0].DomainName)
 | project
     DeviceName,
     HostName,          // la clé de jointure, exportée telle quelle
