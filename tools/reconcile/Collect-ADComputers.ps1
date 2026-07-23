@@ -79,6 +79,19 @@ try {
             } catch { $lastLogon = '' }
         }
 
+        # whenCreated arrive en DateTime et sortirait au format REGIONAL de la
+        # machine qui collecte : '12/16/2022' ici, '16/12/2022' sur un poste FR.
+        # Les deux sont indiscernables des que le jour est <= 12 - '01/02/2024'
+        # est janvier pour l'un, fevrier pour l'autre, sans aucun signe.
+        # On force ISO a la source : c'est le seul endroit ou l'ambiguite peut
+        # encore etre levee avec certitude.
+        $created = ''
+        if ($p.Contains('whencreated') -and $p['whencreated'].Count -gt 0) {
+            try {
+                $created = ([DateTime]$p['whencreated'][0]).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+            } catch { $created = '' }
+        }
+
         $uac = 0
         if ($p.Contains('useraccountcontrol') -and $p['useraccountcontrol'].Count -gt 0) {
             $uac = [int]$p['useraccountcontrol'][0]
@@ -90,7 +103,7 @@ try {
             operatingSystem        = (& $first 'operatingsystem')
             operatingSystemVersion = (& $first 'operatingsystemversion')
             lastLogonTimestamp     = $lastLogon
-            whenCreated            = (& $first 'whencreated')
+            whenCreated            = $created
             distinguishedName      = (& $first 'distinguishedname')
             enabled                = (-not ($uac -band 0x2))   # bit 2 = ACCOUNTDISABLE
         })
