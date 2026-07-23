@@ -165,7 +165,43 @@ les 2 478 actifs existants (aujourd'hui indistinctement `Computer`), et il fourn
 le référentiel qui permettra de comparer à l'identique quand la machine manquante
 sera enfin scannée.
 
-### 3.4 Persistance
+### 3.4 La jointure — la partie que rien ne rattrape si elle est fausse
+
+Le nom est la seule clé commune aux trois systèmes. Trois formes différentes du
+même nom circulent, et une comparaison naïve les traiterait comme trois machines
+distinctes :
+
+| Source | Champ | Forme observée |
+|---|---|---|
+| SDP | `asset_name` | `EDVSABLT409112` |
+| AD | `name` / `dNSHostName` | `EDVSABLT409112` / `edvsablt409112.edv-ops.com` |
+| Entra | `displayName` | `EDVSABLT409112` |
+
+**Clé normalisée** : passage en majuscules, suppression du suffixe DNS après le
+premier point, suppression d'un `$` final (forme compte-machine d'AD), espaces
+retirés. `edvsablt409112.edv-ops.com` → `EDVSABLT409112`.
+
+**Déduplication obligatoire côté source.** Une machine réenregistrée apparaît
+plusieurs fois dans Entra sous le même `displayName` — 21 413 lignes n'égalent
+pas 21 413 machines. On conserve, par clé normalisée et par source, **la ligne
+dont l'activité est la plus récente**. Sans cela, le compteur d'écarts gonfle sans
+qu'aucune machine supplémentaire n'existe.
+
+**Limite acceptée** : une machine renommée depuis son dernier scan apparaît comme
+un écart, et son ancien nom comme un candidat au retrait. Ni AD ni Entra ne
+fournissent le numéro de série, donc aucune confirmation croisée n'est possible.
+Le cas est rare et se résout au scan suivant ; le signaler vaut mieux que de
+prétendre le résoudre.
+
+### 3.5 Fraîcheur — un seuil, configurable
+
+« Vue récemment » vaut **30 jours** par défaut, dans `reportConfig.DEFAULTS`
+(`reconcile_recent_days`). Configurable parce qu'il n'existe pas de bonne valeur
+universelle : un site à rotation lente voudra 60 jours, une campagne de
+déploiement 7. La valeur retenue est affichée dans l'en-tête du rapport — un
+seuil implicite rend deux rapports incomparables.
+
+### 3.6 Persistance
 
 Table `asset_external_devices` : le **dernier import par source**, pas
 d'historique complet. Ce qui compte est « la photo AD d'aujourd'hui contre SDP
@@ -333,7 +369,38 @@ tableau `TABS`, table `PANE`, table `inited`, et le balisage bouton + section.
 
 ---
 
-## 7. Ce qui manque avant l'implémentation
+## 7. Droits
+
+| Action | Rôle minimum | Raison |
+|---|---|---|
+| Voir le rapport, exporter | `requireReportSession` | même niveau que les autres onglets Assets |
+| Télécharger le collecteur `.ps1` | `requireReportSession` | aucun secret, mais hors de portée anonyme |
+| Prévisualiser un import | `requireAdmin` | lit un fichier fourni par l'opérateur |
+| **Valider un import** | `requireAdmin` | remplace l'inventaire externe de référence |
+| Poser une décision (traité / hors périmètre) | éditeur | geste de terrain, pas d'administration |
+
+Un import remplace la photo de référence pour tout le monde : c'est une action
+d'administration, pas un geste de coordonnateur. Poser une décision sur une
+machine, en revanche, est exactement le travail qu'on cherche à provoquer chez le
+coordonnateur — l'exiger d'un administrateur tuerait la boucle.
+
+## 8. Tests
+
+| Niveau | Ce qui est couvert |
+|---|---|
+| Pur, sans base | `assetNameParser` — apprentissage de la carte, seuil <3 machines → « indéterminé », pureté remontée, les deux dialectes (`HGO-LAP-01`, `BFDSK397`, `TGZSABWS703009`) |
+| Pur, sans base | `assetTypeClassifier` — les trois sources dans l'ordre, `Precision Tower 3620` → Desktop et non Portable (l'ordre des règles compte), `ProLiant` → serveur physique, vocabulaire canonique sans doublon |
+| Pur, sans base | `reconcileAssets` — écarts, sens inverse, clé normalisée (`edvsablt409112.edv-ops.com` == `EDVSABLT409112`), déduplication par activité la plus récente |
+| Parseur | `reconcileImport` — lecture par en-tête et non par position, colonnes dans le désordre, colonne requise manquante nommée, `lastLogonTimestamp` FILETIME converti, BOM toléré |
+| Lecteurs | double backend sqlite/pg, couverts par `await-precedence` |
+| Route | smoke : sans session → 401/403, non-admin sur import → 403, format invalide → 400 jamais 500 |
+
+**Fixture pinnée sur données réelles** : le parseur de noms est vérifié contre un
+extrait anonymisé du parc, avec les chiffres mesurés dans ce document (89 % de
+couverture, `EDVDKRLT` à 78 % de pureté). Une régression sur la carte apprise se
+verrait immédiatement — c'est la pièce dont dépendent toutes les attributions.
+
+## 9. Ce qui manque avant l'implémentation
 
 | # | Échantillon | Bloque |
 |---|---|---|
@@ -347,7 +414,7 @@ pour produire l'échantillon 1.
 
 ---
 
-## 8. Pièges connus, à respecter
+## 10. Pièges connus, à respecter
 
 - **`_assetWhere` renvoie `' AND a.<col> = ?'`** — toute requête sur `assets` doit
   être `FROM assets a WHERE 1=1${_assetWhere(f)}`.
