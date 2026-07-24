@@ -118,6 +118,24 @@ test('l import ecrit, et le resume voit l ecart', async () => {
   assert.deepStrictEqual(sum.counts.sources_present, ['ad']);
 });
 
+test('l import laisse une trace dans le journal ET capture un point de courbe', async () => {
+  // L'import precedent a deja ecrit ; on verifie que /history voit les deux.
+  const res = await fetch(base + '/api/assets/reconcile/history', { headers: auth() });
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.ok(Array.isArray(body.points) && body.points.length >= 1, 'au moins un point de courbe');
+  assert.ok(Array.isArray(body.imports) && body.imports.some((i) => i.source === 'ad'), 'le journal porte l import AD');
+  const ad = body.imports.find((i) => i.source === 'ad');
+  assert.ok(ad.row_count >= 2, 'le nombre de lignes est trace');
+  const pt = body.points[body.points.length - 1];
+  assert.ok('gaps_open' in pt && 'retirement_candidates' in pt, 'le point porte les compteurs');
+});
+
+test('la capture manuelle est reservee aux admins', async () => {
+  const res = await fetch(base + '/api/assets/reconcile/snapshot', { method: 'POST', headers: auth(viewerToken) });
+  assert.equal(res.status, 403, `attendu 403, recu ${res.status}`);
+});
+
 test('l export porte une feuille Synthese en tete + les trois feuilles de detail', async () => {
   const res = await fetch(base + '/api/assets/reconcile/export.xlsx', { headers: auth() });
   assert.equal(res.status, 200);

@@ -2896,7 +2896,21 @@ app.post('/api/assets/reconcile/import', requireReportSession, requireAdmin, asy
     // Le remplacement est porté PAR SOURCE : importer AD ne doit jamais
     // toucher Entra ni Defender.
     await adb.replaceExternalDevices(src, parsed.rows);
-    console.log(`[Reconcile] import ${src} rows=${parsed.rows.length} by=${req.reportUser && req.reportUser.username}`);
+    const who = (req.reportUser && (req.reportUser.username || req.reportUser.full_name)) || null;
+    // Journal append-only : une trace par dépôt, qui survit au remplacement.
+    // `dated_count` — les lignes portant une date exploitable — est le seul
+    // chiffre qui rende le sens inverse applicable.
+    const datedCount = parsed.rows.filter((r) => r && r.last_seen && Number.isFinite(Date.parse(r.last_seen))).length;
+    try { await adb.logImport({ source: src, row_count: parsed.rows.length, dated_count: datedCount, imported_by: who }); }
+    catch (e) { console.error('[Reconcile] logImport', e.message); }
+    // Capture du point de courbe pour aujourd'hui, APRÈS le remplacement, à
+    // partir de la vue complète (idempotent par jour : le dernier import du
+    // jour fige l'image complète des sources chargées). Non bloquant.
+    try {
+      const view = await _reconcileView({ query: {} });
+      await adb.snapshotReconcile(view, who, {});
+    } catch (e) { console.error('[Reconcile] snapshot', e.message); }
+    console.log(`[Reconcile] import ${src} rows=${parsed.rows.length} dated=${datedCount} by=${req.reportUser && req.reportUser.username}`);
     res.json({ source: src, imported: parsed.rows.length, skipped_no_name: parsed.skipped_no_name, warnings: parsed.warnings });
   } catch (e) { _reconcileError(res, e, '[api/assets/reconcile/import]'); }
 });
@@ -2917,6 +2931,39 @@ app.post('/api/assets/reconcile/decision', requireReportSession, async (req, res
     // motif : ce sont des erreurs d'appelant, donc 400.
     console.error('[api/assets/reconcile/decision]', e.message);
     res.status(400).json({ error: e.message });
+  }
+});
+
+// Historique de la réconciliation — la courbe des écarts dans le temps, +
+// le journal des imports. C'est ce qui transforme « 545 écarts » en « 545 →
+// 210 sur trois mois » : la preuve chiffrée que rattacher les GPO fonctionne.
+app.get('/api/assets/reconcile/history', requireReportSession, async (req, res) => {
+  try {
+    const adb = require('./assets-db');
+    let months = parseInt(req.query.months, 10);
+    if (!Number.isFinite(months) || months <= 0) months = 12;
+    const [history, imports] = await Promise.all([
+      adb.getReconcileHistory({ months }),
+      adb.listImportLog(50),
+    ]);
+    res.json({ months, points: history.points, series_by_site: history.series_by_site, imports });
+  } catch (e) {
+    console.error('[api/assets/reconcile/history]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Capture manuelle — un point de secours (démo, première ligne de base) quand
+// on ne veut pas attendre le prochain import. Écrit, donc requireAdmin.
+app.post('/api/assets/reconcile/snapshot', requireReportSession, requireAdmin, async (req, res) => {
+  try {
+    const adb = require('./assets-db');
+    const who = (req.reportUser && (req.reportUser.username || req.reportUser.full_name)) || null;
+    const v = await _reconcileView({ query: {} });
+    res.json(await adb.snapshotReconcile(v, who, {}));
+  } catch (e) {
+    console.error('[api/assets/reconcile/snapshot]', e.message);
+    res.status(500).json({ error: e.message });
   }
 });
 

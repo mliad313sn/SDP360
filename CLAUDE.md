@@ -52,7 +52,20 @@ made so far so that future sessions can pick up exactly where the last one ended
 > le gabarit d'import SDP n'a pas été fourni et ne sera pas deviné. Plan :
 > `docs/superpowers/plans/2026-07-23-assets-reconciliation.md`, spec :
 > `docs/superpowers/specs/2026-07-23-assets-reconciliation-design.md`.
-> **NON fusionnée — branche prête.**
+> **Suite (2026-07-23, plus tard) — historique + courbe des écarts livrés**
+> (branche `feat/reconcile-history`, fusionnée) : transforme « 545 écarts » en
+> « 545 → 380 → 210 sur trois mois », la preuve chiffrée que rattacher les GPO
+> marche. **Même principe que le retrait fabriqué : on ne peut PAS reconstituer
+> l'historique après coup** (fenêtre ancrée à aujourd'hui, sources remplacées),
+> donc capture au fil de l'eau — patron `asset_effort_history`. **Deux tables** :
+> `asset_import_log` (append-only, une ligne/dépôt, **sans clé surrogate** car
+> `AUTOINCREMENT` casse sur pg) et `asset_reconcile_history` (une ligne/jour
+> idempotente ; `retirement_candidates` **null quand non applicable** — un 0
+> ferait une fausse chute ; `by_site_json` pour la courbe par site). Capture
+> **automatique après chaque import** (non bloquante) + bouton admin de secours.
+> Lecteurs double backend, route `GET /history` + `POST /snapshot`, bloc
+> « Progression » sur l'onglet (courbe parc/par-site + journal). Régression :
+> reconcile **127**, await 5/5. Vérifié navigateur.
 
 ## ⚡ Current state (as of 2026-07-22, later)
 

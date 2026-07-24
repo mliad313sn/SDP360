@@ -170,3 +170,42 @@ CREATE TABLE IF NOT EXISTS asset_reconcile_decisions (
   decided_by TEXT,
   decided_at TEXT
 );
+
+-- Journal des imports — APPEND-ONLY, une ligne par dépôt. Distinct de la table
+-- des appareils (remplacée à chaque import) : celle-ci ne se vide jamais, donc
+-- elle répond à « quand AD/Entra/Defender a-t-il été rafraîchi ? » sur la durée.
+-- dated_count = lignes portant une date exploitable (le seul chiffre qui rende
+-- le sens inverse applicable).
+-- Pas de clé surrogate : un AUTOINCREMENT casserait sur pg (le même schéma
+-- s'exécute sur les deux backends). C'est un log en lecture seule, lu par
+-- ORDER BY imported_at DESC — aucune PK nécessaire.
+CREATE TABLE IF NOT EXISTS asset_import_log (
+  source      TEXT NOT NULL,
+  imported_at TEXT NOT NULL,
+  row_count   INTEGER,
+  dated_count INTEGER,
+  imported_by TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_ail_at ON asset_import_log(imported_at);
+
+-- Historique de la réconciliation — UNE LIGNE PAR JOUR, le point de courbe FIGÉ.
+-- On ne peut pas le reconstituer après coup : le nombre d'écarts dépend de la
+-- fenêtre ancrée à « aujourd'hui » et les sources sont remplacées. Il faut donc
+-- capturer au fil de l'eau (même patron qu'asset_effort_history).
+--
+-- retirement_candidates est NULL quand non applicable (aucune observation
+-- datée) — un 0 dessinerait une fausse chute. by_site_json porte le détail par
+-- site pour qu'une équipe voie SA courbe, pas seulement le total flotte.
+CREATE TABLE IF NOT EXISTS asset_reconcile_history (
+  snapshot_date          TEXT NOT NULL,
+  gaps_open              INTEGER,
+  gaps_decided           INTEGER,
+  sites_touched          INTEGER,
+  ous_touched            INTEGER,
+  retirement_candidates  INTEGER,
+  retirement_applicable  INTEGER,
+  sources_present        TEXT,
+  by_site_json           TEXT,
+  captured_by            TEXT,
+  PRIMARY KEY (snapshot_date)
+);
