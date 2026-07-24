@@ -154,6 +154,72 @@ test('le materiel reseau n est jamais candidat au retrait, et l exclusion est ch
   assert.strictEqual(v.counts.retirement_excluded_not_joinable, 1);
 });
 
+// ── Le sens inverse trie les VRAIS retraits des artefacts de fiche SDP ───────
+// Une machine absente d'AD n'est pas forcement partie : SDP dedoublonne par
+// SERVICE TAG (doc ManageEngine), donc un renommage / une reinstallation cree
+// souvent un doublon ou une fiche "_old", pas un retrait. Et un actif "In Store"
+// est deliberement hors reseau. Ces cas polluent la liste.
+const IN_USE = (a) => Object.assign({ state: 'In Use', last_audit_status: 'Scan Success',
+  last_successful_audit_time: '2026-07-20T00:00:00Z', serial_number: 'SN-' + a.asset_name }, a);
+// Une source datee pour rendre le retrait applicable.
+const ONE_SRC = [{ source: 'ad', device_name: 'AUTRE-1', enabled: true, last_seen: seen(1, 2) }];
+
+test('un actif In Use, scanne, service tag unique -> vrai candidat au retrait', () => {
+  const v = REC({ sdpAssets: [IN_USE({ asset_name: 'PC-01', site: 'ITY' })], externalDevices: ONE_SRC });
+  assert.deepStrictEqual(v.retirement_candidates.map((x) => x.asset_name), ['PC-01']);
+});
+
+test('un actif "In Store" est ECARTE — il est deliberement hors reseau', () => {
+  const v = REC({ sdpAssets: [IN_USE({ asset_name: 'DSK-628', site: 'HGO', state: 'In Store' })], externalDevices: ONE_SRC });
+  assert.strictEqual(v.retirement_candidates.length, 0);
+  assert.strictEqual(v.counts.retirement_excluded_off_network, 1);
+  const r = v.retirement_review.find((x) => x.asset_name === 'DSK-628');
+  assert.strictEqual(r.reason, 'off_network');
+});
+
+test('un service tag partage par un AUTRE actif = renommage probable, pas un retrait', () => {
+  // SDP identifie par service tag : deux fiches, meme tag -> la machine vit sous
+  // l'autre. C'est une fiche a corriger, pas une machine perdue.
+  const v = REC({
+    sdpAssets: [
+      IN_USE({ asset_name: 'PC-OLD', site: 'ITY', serial_number: '9HKJSM2' }),   // absente d'AD
+      IN_USE({ asset_name: 'PC-NEW', site: 'ITY', serial_number: '9HKJSM2' }),   // le meme materiel, actif
+    ],
+    externalDevices: [{ source: 'ad', device_name: 'PC-NEW', enabled: true, last_seen: seen(1, 2) }],
+  });
+  assert.ok(!v.retirement_candidates.some((x) => x.asset_name === 'PC-OLD'), 'pas un candidat');
+  assert.strictEqual(v.counts.retirement_excluded_renamed, 1);
+  assert.strictEqual(v.retirement_review.find((x) => x.asset_name === 'PC-OLD').reason, 'renamed');
+});
+
+test('une fiche dont le nom finit par _old = signature de renommage SDP', () => {
+  const v = REC({ sdpAssets: [IN_USE({ asset_name: 'HGO-DSK-628_old', site: 'HGO' })], externalDevices: ONE_SRC });
+  assert.strictEqual(v.retirement_candidates.length, 0);
+  assert.strictEqual(v.counts.retirement_excluded_renamed, 1);
+});
+
+test('un actif jamais scanne avec succes est ECARTE — sa presence n a jamais ete confirmee', () => {
+  const v = REC({ sdpAssets: [IN_USE({ asset_name: 'PC-GHOST', site: 'ITY',
+    last_audit_status: '', last_successful_audit_time: '' })], externalDevices: ONE_SRC });
+  assert.strictEqual(v.retirement_candidates.length, 0);
+  assert.strictEqual(v.counts.retirement_excluded_never_scanned, 1);
+});
+
+test('sans metadonnee SDP (fixtures), on ne SUR-ecarte pas : l actif reste candidat', () => {
+  // Un actif sans state/serial/scan connus ne doit pas etre exclu par defaut —
+  // sinon la moindre donnee incomplete viderait la liste.
+  const v = REC({ sdpAssets: [{ asset_name: 'BARE-1', site: 'ITY' }], externalDevices: ONE_SRC });
+  assert.deepStrictEqual(v.retirement_candidates.map((x) => x.asset_name), ['BARE-1']);
+});
+
+test('les exclusions du retrait portent toutes leurs cles, meme a zero', () => {
+  const v = REC({ externalDevices: ONE_SRC });
+  for (const k of ['retirement_excluded_not_joinable', 'retirement_excluded_renamed',
+    'retirement_excluded_off_network', 'retirement_excluded_never_scanned']) {
+    assert.ok(k in v.counts, k + ' present');
+  }
+});
+
 // ── Fenetre et compteurs ────────────────────────────────────────────────────
 test('asOf est injecte de bout en bout — aucune horloge interne', () => {
   const ext = [{ source: 'ad', device_name: 'X', enabled: true, last_seen: '2026-06-01T00:00:00Z' }];

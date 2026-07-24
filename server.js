@@ -2841,7 +2841,8 @@ app.get('/api/assets/reconcile/summary', requireReportSession, async (req, res) 
 app.get('/api/assets/reconcile/gaps', requireReportSession, async (req, res) => {
   try {
     const v = await _reconcileView(req);
-    res.json({ gaps: v.gaps, retirement_candidates: v.retirement_candidates, window: v.window });
+    res.json({ gaps: v.gaps, retirement_candidates: v.retirement_candidates,
+      retirement_review: v.retirement_review, window: v.window });
   } catch (e) {
     console.error('[api/assets/reconcile/gaps]', e.message);
     res.status(500).json({ error: e.message });
@@ -2993,7 +2994,10 @@ app.get('/api/assets/reconcile/export.xlsx', requireReportSession, async (req, r
         // « Non applicable » explicite, jamais un 0 qui se lirait « rien à retirer ».
         Valeur: c.retirement_applicable === false ? 'Non applicable (aucune observation datée)' : c.retirement_candidates,
       },
-      { Indicateur: '— dont exclus (non joignables au domaine)', Valeur: c.retirement_excluded_not_joinable },
+      { Indicateur: '— écartés : renommés (à corriger, pas à retirer)', Valeur: c.retirement_excluded_renamed },
+      { Indicateur: '— écartés : hors réseau (état ≠ In Use)', Valeur: c.retirement_excluded_off_network },
+      { Indicateur: '— écartés : jamais scannés avec succès', Valeur: c.retirement_excluded_never_scanned },
+      { Indicateur: '— écartés : matériel non joignable au domaine', Valeur: c.retirement_excluded_not_joinable },
     ];
     if (v.filtered_site) summaryRows.unshift({ Indicateur: 'Filtre site appliqué', Valeur: v.filtered_site });
     const sumWs = XLSX.utils.json_to_sheet(summaryRows);
@@ -3014,6 +3018,13 @@ app.get('/api/assets/reconcile/export.xlsx', requireReportSession, async (req, r
       'Actif SDP': r.asset_name, 'Site': r.site || '', 'Vu ailleurs le': r.last_seen_external || 'jamais',
       'Jours': r.age_days == null ? '' : r.age_days,
     }))), 'Candidats au retrait');
+    // Feuille « À vérifier » — les écartés, avec le motif : renommage (fiche à
+    // corriger), hors réseau, jamais scanné. Rien ne disparaît sans explication.
+    const RLBL = { renamed: 'Renommage probable', off_network: 'Hors réseau (état ≠ In Use)', never_scanned: 'Jamais scanné' };
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet((v.retirement_review || []).map((r) => ({
+      'Actif SDP': r.asset_name, 'Site': r.site || '', 'Motif': RLBL[r.reason] || r.reason,
+      'État SDP': r.state || '', 'Service tag': r.serial_number || '',
+    }))), 'À vérifier');
     const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="reconciliation_${v.window.as_of}.xlsx"`);

@@ -145,7 +145,16 @@ test('l export porte une feuille Synthese en tete + les trois feuilles de detail
   assert.equal(buf[0], 0x50); assert.equal(buf[1], 0x4B);
   const XLSX = require('xlsx');
   const wb = XLSX.read(buf, { type: 'buffer' });
-  assert.deepStrictEqual(wb.SheetNames, ['Synthèse', 'Écarts', 'Par OU', 'Candidats au retrait']);
+  assert.deepStrictEqual(wb.SheetNames, ['Synthèse', 'Écarts', 'Par OU', 'Candidats au retrait', 'À vérifier']);
+});
+
+test('la liste de retrait triee expose le detail des ecartes + retirement_review', async () => {
+  const s = await (await fetch(base + '/api/assets/reconcile/summary', { headers: auth() })).json();
+  for (const k of ['retirement_excluded_renamed', 'retirement_excluded_off_network', 'retirement_excluded_never_scanned']) {
+    assert.ok(k in s.counts, k + ' present dans les compteurs');
+  }
+  const g = await (await fetch(base + '/api/assets/reconcile/gaps', { headers: auth() })).json();
+  assert.ok(Array.isArray(g.retirement_review), 'la liste "a verifier" accompagne les candidats');
 });
 
 test('les ecarts sont listables et portent site + type + leurs sources', async () => {

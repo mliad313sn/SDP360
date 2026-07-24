@@ -1187,12 +1187,30 @@ window.addEventListener('beforeprint', function () {
     <div class="chart-card" style="margin-top:var(--space-4,16px)">
       <h3>Candidats au retrait — dans SDP, vus nulle part ailleurs</h3>
       <div class="count-note" style="border:none;padding:0 0 10px;font-size:12px">
-        Le matériel qui ne rejoint jamais un domaine (commutateurs, bornes, pare-feux,
-        imprimantes) est <strong>exclu</strong> : absent d'AD par nature, il serait
-        candidat à tort et pour toujours.
+        Liste <strong>triée</strong> : uniquement les actifs <strong>« In Use »</strong>,
+        déjà scannés, au service tag unique. Le matériel réseau (absent d'AD par nature),
+        les fiches renommées, les actifs hors réseau et jamais scannés sont écartés — voir
+        « à vérifier » plus bas.
       </div>
       <div class="tablewrap"><table class="list" id="rec-retTable">
         <thead><tr><th>Actif SDP</th><th>Site</th><th>Vu ailleurs le</th><th class="num">Jours</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+    </div>
+
+    <!-- ── À vérifier — probablement pas à retirer ────────────────────── -->
+    <div class="chart-card" id="rec-reviewCard" style="margin-top:var(--space-4,16px);display:none">
+      <h3>À vérifier — probablement pas à retirer</h3>
+      <div class="count-note" style="border:none;padding:0 0 10px;font-size:12px">
+        SDP identifie une machine par son <strong>service tag</strong> (doc ManageEngine :
+        Service Tag → Nom → MAC). Ces actifs sont absents d'AD mais portent un signe qu'ils
+        ne sont pas partis : un <strong>service tag partagé</strong> ou un nom en
+        <code>_old</code> (renommage / réinstallation → fiche à corriger), un état
+        <strong>hors « In Use »</strong> (délibérément hors réseau), ou aucun scan réussi
+        (présence jamais confirmée).
+      </div>
+      <div class="tablewrap"><table class="list" id="rec-reviewTable">
+        <thead><tr><th>Actif SDP</th><th>Site</th><th>Motif</th><th>État SDP</th><th>Service tag</th></tr></thead>
         <tbody></tbody>
       </table></div>
     </div>
@@ -3207,8 +3225,11 @@ window.addEventListener('beforeprint', function () {
       tile('OU à rattacher', num(c.ous_touched), 'unités d\'action GPO') +
       (retApplicable
         ? tile('Candidats au retrait', num(c.retirement_candidates),
-               'jugés sur ' + srcs.map(s => SRC[s] || s).join(' + ') + ' · '
-               + num(c.retirement_excluded_not_joinable) + ' exclus (non joignables)')
+               'jugés sur ' + srcs.map(s => SRC[s] || s).join(' + ') + ' · écartés : '
+               + num(c.retirement_excluded_renamed) + ' renommés · '
+               + num(c.retirement_excluded_off_network) + ' hors réseau · '
+               + num(c.retirement_excluded_never_scanned) + ' jamais scannés · '
+               + num(c.retirement_excluded_not_joinable) + ' réseau')
         // Deux causes, deux messages : sans distinction, un opérateur qui a
         // BIEN importé un fichier irait chercher un problème d'import alors
         // que son fichier n'a pas de colonne de dernière connexion.
@@ -3335,6 +3356,28 @@ window.addEventListener('beforeprint', function () {
       '<td class="num">' + (r.age_days == null ? '—' : num(r.age_days)) + '</td></tr>'
     ).join('') + (rows.length > 300
       ? '<tr><td colspan="4" style="color:var(--color-text-muted,#6b7785)">… ' + num(rows.length - 300) + ' de plus — voir l\'export Excel</td></tr>' : '');
+    renderReview(v);
+  }
+
+  // ── À vérifier (renommés / hors réseau / jamais scannés) ─────────────
+  const REVIEW_LABEL = {
+    renamed: 'renommage probable (service tag partagé ou nom _old)',
+    off_network: 'hors réseau (état ≠ In Use)',
+    never_scanned: 'jamais scanné avec succès',
+  };
+  function renderReview(v) {
+    const rows = v.retirement_review || [];
+    const card = document.getElementById('rec-reviewCard');
+    card.style.display = rows.length ? 'block' : 'none';
+    if (!rows.length) return;
+    document.querySelector('#rec-reviewTable tbody').innerHTML = rows.slice(0, 300).map(r =>
+      '<tr><td style="font-family:var(--font-mono,monospace);font-size:11px">' + escapeHtml(r.asset_name) + '</td>' +
+      '<td>' + escapeHtml(r.site || '—') + '</td>' +
+      '<td>' + escapeHtml(REVIEW_LABEL[r.reason] || r.reason) + '</td>' +
+      '<td>' + escapeHtml(r.state || '—') + '</td>' +
+      '<td style="font-family:var(--font-mono,monospace);font-size:11px">' + escapeHtml(r.serial_number || '—') + '</td></tr>'
+    ).join('') + (rows.length > 300
+      ? '<tr><td colspan="5" style="color:var(--color-text-muted,#6b7785)">… ' + num(rows.length - 300) + ' de plus — voir l\'export Excel</td></tr>' : '');
   }
 
   // ── Import ─────────────────────────────────────────────────────────

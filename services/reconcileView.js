@@ -39,6 +39,60 @@ function _parentDn(dn) {
 
 function _num(v, dflt) { return Number.isFinite(+v) ? +v : dflt; }
 
+// ── Tri des VRAIS retraits contre les artefacts de fiche SDP ─────────────────
+// « Absent d'AD » ne veut pas dire « machine partie ». SDP identifie une machine
+// par son SERVICE TAG en priorité (doc ManageEngine : Service Tag → Nom → MAC),
+// donc un renommage ou une réinstallation crée une fiche « _old » ou un doublon
+// de tag — pas un retrait. Et un actif « In Store » / « Disposed » est
+// délibérément hors réseau. On écarte ces cas de la liste de retrait et on les
+// range dans une liste « à vérifier » (ils NE disparaissent PAS — un chiffre qui
+// baisse sans explication se lit comme une perte de données).
+
+const { normaliseKey } = require('./reconcileAssets');
+
+function _serialKey(a) { return String((a && a.serial_number) || '').trim().toUpperCase(); }
+
+/** Un tag partagé par une AUTRE fiche = la machine vit ailleurs (renommage). */
+function _isRenamed(a, serialCount) {
+  if (/_old$/i.test(String((a && a.asset_name) || ''))) return true;   // marqueur SDP lui-même
+  const s = _serialKey(a);
+  return !!s && (serialCount.get(s) || 0) > 1;
+}
+
+/** État hors « In Use » = délibérément hors réseau (In Store, Disposed, …). */
+function _isOffNetwork(a) {
+  const st = String((a && a.state) || '').trim().toLowerCase();
+  return st !== '' && st !== 'in use';
+}
+
+/**
+ * Jamais scanné avec succès — présence jamais confirmée par SelfScan.
+ * Miroir du prédicat hygiène `_NEVER_SCANNED_WHERE`. Ne décide QUE si le champ
+ * existe : sur des fixtures sans métadonnée, on ne sur-écarte pas.
+ */
+function _isNeverScanned(a) {
+  if (!a) return false;
+  const hasFields = ('last_successful_audit_time' in a) || ('last_audit_status' in a);
+  if (!hasFields) return false;
+  const t = a.last_successful_audit_time;
+  const s = a.last_audit_status;
+  const noTime = t == null || String(t).trim() === '';
+  const noSuccess = s == null || !/success/i.test(String(s));
+  return noTime || noSuccess;
+}
+
+/**
+ * Motif d'écartement d'un candidat au retrait, ou null (= vrai candidat).
+ * Ordre = explication la plus forte d'abord : un renommage/doublon prime sur
+ * l'état, qui prime sur l'absence de scan.
+ */
+function _retirementReason(asset, serialCount) {
+  if (_isRenamed(asset, serialCount)) return 'renamed';
+  if (_isOffNetwork(asset)) return 'off_network';
+  if (_isNeverScanned(asset)) return 'never_scanned';
+  return null;
+}
+
 /**
  * Clé de regroupement d'un site — casse et accents neutralisés.
  *
@@ -154,12 +208,42 @@ function buildReconcileView(opts) {
   const by_type = {};
   for (const g of open) { const k = g.type || 'inconnu'; by_type[k] = (by_type[k] || 0) + 1; }
 
+  // ── Tri des candidats au retrait ───────────────────────────────────────────
+  // Carte SERVICE TAG → nombre de fiches, sur tout le parc SDP : un tag partagé
+  // trahit un renommage (la machine vit sous une autre fiche).
+  const serialCount = new Map();
+  for (const a of sdpAssets) { const s = _serialKey(a); if (s) serialCount.set(s, (serialCount.get(s) || 0) + 1); }
+  // Retrouver la fiche SDP complète derrière chaque candidat (elle porte état,
+  // service tag et statut de scan ; le candidat, lui, n'a que l'identité).
+  const sdpByKey = new Map();
+  for (const a of sdpAssets) { const k = normaliseKey(a && a.asset_name); if (k && !sdpByKey.has(k)) sdpByKey.set(k, a); }
+
+  const retire = [];
+  const review = [];
+  const exCounts = { renamed: 0, off_network: 0, never_scanned: 0 };
+  for (const c of base.retirementCandidates) {
+    const asset = sdpByKey.get(c.device_key) || null;
+    const reason = _retirementReason(asset, serialCount);
+    if (!reason) { retire.push(c); continue; }
+    exCounts[reason]++;
+    // Écarté du compteur À RETIRER, mais CONSERVÉ dans « à vérifier » : la fiche
+    // reste actionnable (un renommage se corrige, il ne se retire pas).
+    review.push(Object.assign({}, c, {
+      reason,
+      state: asset ? (asset.state || null) : null,
+      serial_number: asset ? (asset.serial_number || null) : null,
+    }));
+  }
+
   return {
     gaps,
     by_site,
     by_ou,
     by_type,
-    retirement_candidates: base.retirementCandidates,
+    // Ne contient plus que les VRAIS candidats : In Use, scannés, tag unique.
+    retirement_candidates: retire,
+    // Les écartés, avec leur motif — rien ne disparaît en silence.
+    retirement_review: review,
     excluded: base.excluded,
     counts: Object.assign({}, base.counts, {
       gaps_open: open.length,
@@ -168,6 +252,11 @@ function buildReconcileView(opts) {
       // doit vouloir dire trois sites nommés.
       sites_touched: by_site.filter((r) => r.site).length,
       ous_touched: by_ou.length,
+      // Le compteur reflète maintenant la liste triée.
+      retirement_candidates: retire.length,
+      retirement_excluded_renamed: exCounts.renamed,
+      retirement_excluded_off_network: exCounts.off_network,
+      retirement_excluded_never_scanned: exCounts.never_scanned,
     }),
     window: base.window,
   };
