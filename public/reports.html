@@ -3880,6 +3880,7 @@ function scheduleAutoSave(n) {
 
 async function autoSaveSection(n) {
   clearTimeout(_autoSaveTimers[n]);
+  _autoSaveTimers[n] = null;   // timer consumed — no longer "pending" (see _hasPendingSave)
   if (!_reportEditable() || _autoSaveBusy) return;
   const id = currentReport.id;
   try {
@@ -3940,6 +3941,27 @@ function flushAutoSave(n) {
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', attach);
   else attach();
 })();
+
+// True only when an edit has NOT yet reached the server: a debounce timer is
+// still pending, or a save is in flight. Timers are nulled on consume
+// (autoSaveSection), so a truthy value here is a genuine scheduled-but-unsent
+// save — never a stale id.
+function _hasPendingSave() {
+  if (_autoSaveBusy) return true;
+  return Object.keys(_autoSaveTimers).some(k => !!_autoSaveTimers[k]);
+}
+
+// beforeunload safety net — the ONE gap autosave can't close: leaving the whole
+// page (close tab / navigate away) within the ~1.5s debounce window, before the
+// last edit was sent. Fires the browser's native "changes may not be saved"
+// prompt ONLY when a save is genuinely pending, so it never cries wolf. Tab
+// switches are already safe (showSection flushes), so this deliberately does NOT
+// prompt on tab changes — only on real page unload.
+window.addEventListener('beforeunload', (e) => {
+  if (!_reportEditable() || !_hasPendingSave()) return;
+  e.preventDefault();
+  e.returnValue = '';   // required to trigger the native prompt in most browsers
+});
 
 // ══════════════════════════════════════════════════════════════════
 //  SUBMIT / REVERT
