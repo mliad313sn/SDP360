@@ -1143,6 +1143,36 @@ window.addEventListener('beforeprint', function () {
       </table></div>
     </div>
 
+    <!-- ── Progression dans le temps — la preuve que l'effort paie ──────── -->
+    <div class="chart-card" id="rec-progressCard" style="margin-top:var(--space-4,16px);display:none">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <h3 style="margin:0">Progression — écarts dans le temps</h3>
+        <div class="spacer" style="flex:1"></div>
+        <select id="rec-histMonths" style="font-size:12px;padding:5px 8px;border:1px solid var(--color-border,#dfe3e8);border-radius:var(--radius-md,6px)">
+          <option value="6">6 mois</option>
+          <option value="12" selected>12 mois</option>
+          <option value="24">24 mois</option>
+        </select>
+        <button class="btn btn-ghost" id="rec-snapBtn" style="display:none" title="Figer un point aujourd'hui (démo / première ligne de base)">
+          <span class="icon icon-camera"></span> Capturer un point
+        </button>
+      </div>
+      <div class="count-note" style="border:none;padding:6px 0 10px;font-size:12px">
+        Un point est figé à chaque import — on ne peut pas reconstituer l'historique après coup.
+        Filtrez sur un <strong>site</strong> pour voir SA courbe ; sinon, le total du parc.
+      </div>
+      <div class="cwrap" style="height:280px"><canvas id="rec-histChart"></canvas></div>
+    </div>
+
+    <!-- ── Journal des imports ───────────────────────────────────────── -->
+    <div class="chart-card" id="rec-importLogCard" style="margin-top:var(--space-4,16px);display:none">
+      <h3>Journal des imports</h3>
+      <div class="tablewrap"><table class="list" id="rec-importLog">
+        <thead><tr><th>Source</th><th>Déposé le</th><th class="num">Lignes</th><th class="num">Dont datées</th><th>Par</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+    </div>
+
     <!-- ── Écarts par site, dépliables ───────────────────────────────── -->
     <div class="chart-card" style="margin-top:var(--space-4,16px)">
       <h3>Écarts par site</h3>
@@ -3375,6 +3405,9 @@ window.addEventListener('beforeprint', function () {
     const empty = !last || !(last.imports || []).length;
     document.getElementById('rec-empty').style.display = empty ? 'block' : 'none';
     renderFreshness(last && last.imports);
+    // La progression + le journal ne s'affichent qu'une fois une source importée.
+    document.getElementById('rec-progressCard').style.display = empty ? 'none' : 'block';
+    document.getElementById('rec-importLogCard').style.display = empty ? 'none' : 'block';
     if (empty) {
       document.getElementById('rec-tiles').innerHTML = '';
       document.querySelector('#rec-ouTable tbody').innerHTML = '';
@@ -3383,6 +3416,67 @@ window.addEventListener('beforeprint', function () {
       return;
     }
     renderTiles(last); renderOu(last); renderSites(last); renderRetirement(last);
+    renderHistory();
+  }
+
+  // ── Progression : courbe des écarts + journal des imports ────────────
+  let histChart = null;
+  async function renderHistory() {
+    const months = parseInt(document.getElementById('rec-histMonths').value, 10) || 12;
+    let h;
+    try {
+      const r = await fetch(API + '/history?months=' + months, { credentials: 'same-origin', headers: authHeaders() });
+      if (!r.ok) return;
+      h = await r.json();
+    } catch (e) { return; }
+
+    renderImportLog(h.imports);
+
+    const css = getComputedStyle(document.documentElement);
+    const CV = (n, f) => (css.getPropertyValue(n).trim() || f);
+    const orange = CV('--edv-orange', '#EF631A');
+    const site = siteFilter && siteFilter.toUpperCase();
+    // Filtre site actif -> SA courbe (par la clé normalisée casse) ; sinon le total.
+    let series, label;
+    if (site) {
+      const key = Object.keys(h.series_by_site || {}).find(k => String(k).toUpperCase() === site);
+      series = key ? h.series_by_site[key] : [];
+      label = 'Écarts — ' + siteFilter;
+    } else {
+      series = (h.points || []).map(p => ({ date: p.date, n: p.gaps_open }));
+      label = 'Écarts (parc entier)';
+    }
+    const labels = series.map(x => x.date);
+    const data = series.map(x => x.n);
+
+    if (histChart) histChart.destroy();
+    const ctx = document.getElementById('rec-histChart');
+    if (!ctx || typeof Chart === 'undefined') return;
+    histChart = new Chart(ctx, {
+      type: 'line',
+      data: { labels, datasets: [{ label, data, borderColor: orange, backgroundColor: orange + '22',
+        fill: true, tension: 0.25, pointRadius: 3, spanGaps: false }] },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        scales: { y: { beginAtZero: true, title: { display: true, text: 'Écarts à traiter' } } },
+        plugins: { legend: { display: true } },
+      },
+    });
+  }
+
+  function renderImportLog(imports) {
+    const tb = document.querySelector('#rec-importLog tbody');
+    const rows = imports || [];
+    const NM = { ad: 'Active Directory', entra: 'Entra ID', defender: 'Defender' };
+    tb.innerHTML = rows.length
+      ? rows.map(r =>
+          '<tr><td>' + escapeHtml(NM[r.source] || r.source) + '</td>' +
+          '<td style="white-space:nowrap">' + escapeHtml(String(r.imported_at || '').slice(0, 16).replace('T', ' ')) + '</td>' +
+          '<td class="num">' + num(r.row_count) + '</td>' +
+          '<td class="num">' + (r.dated_count == null ? '—' : num(r.dated_count)) + '</td>' +
+          '<td>' + escapeHtml(r.imported_by || '—') + '</td></tr>'
+        ).join('')
+      : '<tr><td colspan="5" style="color:var(--color-text-muted,#6b7785)">Aucun import journalisé.</td></tr>';
   }
 
   function init(f) {
@@ -3397,6 +3491,21 @@ window.addEventListener('beforeprint', function () {
     document.getElementById('rec-exportBtn').addEventListener('click', (e) => {
       e.preventDefault(); download(API + '/export.xlsx' + qs(siteFilter ? { site: siteFilter } : {}));
     });
+    // La fenêtre de la courbe — re-rend sans recharger tout le reste.
+    document.getElementById('rec-histMonths').addEventListener('change', renderHistory);
+    // Capture manuelle (admin) — un point de secours quand on ne veut pas
+    // attendre le prochain import.
+    if (isAdmin()) {
+      const snap = document.getElementById('rec-snapBtn');
+      snap.style.display = '';
+      snap.addEventListener('click', async () => {
+        try {
+          const r = await fetch(API + '/snapshot', { method: 'POST', credentials: 'same-origin', headers: authHeaders() });
+          if (!r.ok) { alert('Capture indisponible (HTTP ' + r.status + ')'); return; }
+          await renderHistory();
+        } catch (e) { alert('Capture indisponible.'); }
+      });
+    }
     // L'import remplace une source pour tout le monde : réservé aux admins.
     if (!isAdmin()) {
       const row = document.getElementById('rec-importRow');

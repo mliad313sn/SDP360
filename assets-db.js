@@ -1347,6 +1347,122 @@ async function _listDecisionsPg() {
   return pgHandle().prepare('SELECT * FROM asset_reconcile_decisions').all();
 }
 
+// ─── Historique de la réconciliation + journal des imports ──────────────────
+// On ne peut pas reconstituer l'historique après coup (fenêtre ancrée à
+// aujourd'hui, sources remplacées), donc on capture au fil de l'eau — même
+// patron qu'asset_effort_history.
+
+const _RECHIST_COLS = ['snapshot_date', 'gaps_open', 'gaps_decided', 'sites_touched',
+  'ous_touched', 'retirement_candidates', 'retirement_applicable', 'sources_present',
+  'by_site_json', 'captured_by'];
+
+/** La ligne à écrire, dérivée d'une vue buildReconcileView. Pur, testable. */
+function _recHistRecord(view, who, date) {
+  const c = (view && view.counts) || {};
+  const applicable = c.retirement_applicable !== false;
+  const bySite = {};
+  for (const r of (view && view.by_site) || []) { if (r && r.site) bySite[r.site] = r.n; }
+  return {
+    snapshot_date: date,
+    gaps_open: c.gaps_open || 0,
+    gaps_decided: c.gaps_decided || 0,
+    sites_touched: c.sites_touched || 0,
+    ous_touched: c.ous_touched || 0,
+    // NULL quand non applicable — un 0 dessinerait une fausse chute sur la courbe.
+    retirement_candidates: applicable ? (c.retirement_candidates || 0) : null,
+    retirement_applicable: applicable ? 1 : 0,
+    sources_present: JSON.stringify(c.sources_present || []),
+    by_site_json: JSON.stringify(bySite),
+    captured_by: who || null,
+  };
+}
+
+/** Capture UN point pour la journée (idempotent : le dernier du jour gagne). */
+function snapshotReconcile(view, who, opts = {}) {
+  const date = (opts && opts.asOf) || new Date().toISOString().slice(0, 10);
+  const rec = _recHistRecord(view, who, date);
+  if (ASSETS_BACKEND === 'postgres') return _snapshotReconcilePg(rec);
+  const db = getDB();
+  const ph = _RECHIST_COLS.map(() => '?').join(', ');
+  db.prepare(`INSERT OR REPLACE INTO asset_reconcile_history (${_RECHIST_COLS.join(', ')}) VALUES (${ph})`)
+    .run(..._RECHIST_COLS.map((k) => rec[k]));
+  return { date };
+}
+async function _snapshotReconcilePg(rec) {
+  const h = pgHandle();
+  const ph = _RECHIST_COLS.map(() => '?').join(', ');
+  const setCols = _RECHIST_COLS.filter((c) => c !== 'snapshot_date').map((c) => `${c} = EXCLUDED.${c}`).join(', ');
+  await h.prepare(`INSERT INTO asset_reconcile_history (${_RECHIST_COLS.join(', ')}) VALUES (${ph})
+    ON CONFLICT (snapshot_date) DO UPDATE SET ${setCols}`).run(..._RECHIST_COLS.map((k) => rec[k]));
+  return { date: rec.snapshot_date };
+}
+
+/** Reconstitue une ligne d'historique en objet lisible (JSON reparsé, null préservé). */
+function _recHistPoint(r) {
+  const bySite = (() => { try { return JSON.parse(r.by_site_json || '{}'); } catch (_) { return {}; } })();
+  return {
+    date: r.snapshot_date,
+    gaps_open: r.gaps_open,
+    gaps_decided: r.gaps_decided,
+    sites_touched: r.sites_touched,
+    ous_touched: r.ous_touched,
+    // Vient de la base NULL quand non applicable — surtout ne pas coalescer en 0.
+    retirement_candidates: r.retirement_candidates == null ? null : Number(r.retirement_candidates),
+    retirement_applicable: Number(r.retirement_applicable) === 1,
+    sources_present: (() => { try { return JSON.parse(r.sources_present || '[]'); } catch (_) { return []; } })(),
+    by_site: bySite,
+  };
+}
+
+const _RECHIST_SELECT = (fromDate) =>
+  `SELECT * FROM asset_reconcile_history WHERE snapshot_date >= '${fromDate}' ORDER BY snapshot_date ASC`;
+
+function _buildReconcileHistory(rows) {
+  const points = rows.map(_recHistPoint);
+  // Une série par site, alignée sur les points présents — chaque équipe trace SA courbe.
+  const seriesBySite = {};
+  for (const p of points) {
+    for (const [site, n] of Object.entries(p.by_site)) {
+      if (!seriesBySite[site]) seriesBySite[site] = [];
+      seriesBySite[site].push({ date: p.date, n });
+    }
+  }
+  return { points, series_by_site: seriesBySite };
+}
+
+function getReconcileHistory(opts = {}) {
+  const months = Number.isFinite(+opts.months) && +opts.months > 0 ? Math.min(+opts.months, 60) : 12;
+  const from = _monthsAgoStr(months);
+  if (ASSETS_BACKEND === 'postgres') return _getReconcileHistoryPg(from);
+  return _buildReconcileHistory(getDB().prepare(_RECHIST_SELECT(from)).all());
+}
+async function _getReconcileHistoryPg(from) {
+  return _buildReconcileHistory(await pgHandle().prepare(_RECHIST_SELECT(from)).all());
+}
+
+/** Journal des imports — append-only, une ligne par dépôt. */
+function logImport(o) {
+  const at = (o && o.at) || new Date().toISOString();
+  const args = [o.source, at, o.row_count == null ? null : o.row_count,
+    o.dated_count == null ? null : o.dated_count, o.imported_by || null];
+  if (ASSETS_BACKEND === 'postgres') return _logImportPg(args);
+  getDB().prepare(`INSERT INTO asset_import_log (source, imported_at, row_count, dated_count, imported_by)
+    VALUES (?,?,?,?,?)`).run(...args);
+  return true;
+}
+async function _logImportPg(args) {
+  await pgHandle().prepare(`INSERT INTO asset_import_log (source, imported_at, row_count, dated_count, imported_by)
+    VALUES (?,?,?,?,?)`).run(...args);
+  return true;
+}
+
+function listImportLog(limit = 50) {
+  const n = Number.isFinite(+limit) && +limit > 0 ? Math.min(+limit, 500) : 50;
+  const sql = `SELECT * FROM asset_import_log ORDER BY imported_at DESC LIMIT ${n}`;
+  if (ASSETS_BACKEND === 'postgres') return pgHandle().prepare(sql).all();
+  return getDB().prepare(sql).all();
+}
+
 module.exports = {
   getDB, initPgAssets, pgHandle, ASSETS_BACKEND, replaceTable, countRows,
   getEnrichedAssets, getAssetLookups, getAssetSummary,
@@ -1361,4 +1477,5 @@ module.exports = {
   getEffortLeaderboard, getEffortTrend,
   DECISIONS, replaceExternalDevices, listExternalDevices, listImportRuns,
   setDecision, clearDecision, listDecisions,
+  snapshotReconcile, getReconcileHistory, logImport, listImportLog,
 };
