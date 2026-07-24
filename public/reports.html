@@ -2254,8 +2254,8 @@ function showFormPage() {
 
 function showSection(n) {
   // Flush a pending autosave on the tab we're leaving so edits aren't lost
-  // if the debounce hasn't fired yet (Lights = 2, Action Items = 3).
-  if ((currentSection === 2 || currentSection === 3) && currentSection !== n) {
+  // if the debounce hasn't fired yet. All 4 sections autosave now.
+  if (currentSection !== n) {
     try { flushAutoSave(currentSection); } catch(_) {}
   }
   for (let i=0;i<4;i++) {
@@ -3828,31 +3828,42 @@ async function saveSection(n) {
     toast('Saved ✓', 'success');
     setTimeout(() => setSaving(''), 3000);
     loadAuditLog(); // refresh audit trail after each save
-    // Auto-advance status: draft → in_progress (any section saved) → ready (all 4 done)
-    if (['draft','in_progress'].includes(currentReport.status)) {
-      const doneCnt = document.querySelectorAll('.stab.done').length;
-      const newStatus = doneCnt >= 4 ? 'ready' : (doneCnt >= 1 ? 'in_progress' : null);
-      if (newStatus && newStatus !== currentReport.status) {
-        try {
-          await api('PUT', `/api/reports/${id}/status`, { status: newStatus });
-          currentReport.status = newStatus;
-          updateStatusBar();
-        } catch(e) { /* status auto-advance failed silently */ }
-      }
-    }
+    await _afterSectionSaved(n);   // mark section done + auto-advance status
   } catch(e) {
     setSaving('');
     toast('Save failed: ' + e, 'error');
   }
 }
 
+// Mark a saved section done (✓ on its tab) and auto-advance the report status
+// draft → in_progress (≥1 section saved) → ready (all 4 saved). Shared by the
+// manual Save button AND autosave, so a report filled without ever clicking
+// Save still reaches "ready". Never advances to "submitted" — that stays a
+// deliberate manual gate. Idempotent: classList.add + the status guard make it
+// safe to call repeatedly.
+async function _afterSectionSaved(n) {
+  const tab = document.getElementById('stab-' + n);
+  if (tab) tab.classList.add('done');
+  if (!currentReport || !['draft','in_progress'].includes(currentReport.status)) return;
+  const doneCnt = document.querySelectorAll('.stab.done').length;
+  const newStatus = doneCnt >= 4 ? 'ready' : (doneCnt >= 1 ? 'in_progress' : null);
+  if (newStatus && newStatus !== currentReport.status) {
+    try {
+      await api('PUT', `/api/reports/${currentReport.id}/status`, { status: newStatus });
+      currentReport.status = newStatus;
+      updateStatusBar();
+    } catch(e) { /* status auto-advance failed silently */ }
+  }
+}
+
 // ══════════════════════════════════════════════════════════════════
-//  AUTOSAVE — Lights (section 2) + Action Items (section 3)
-//  Technicians sometimes forget to click Save on these two tabs. A
-//  debounced, SILENT save fires ~1.5s after the last edit so nothing is
-//  lost. The manual "Save" buttons stay as the authoritative path (full
-//  validation + toast + status auto-advance); autosave never changes
-//  status, never toasts, and never blocks.
+//  AUTOSAVE — all 4 sections (Infra KPIs · Helpdesk · Lights · Actions)
+//  Coordinators sometimes forget to click Save. A debounced, SILENT save
+//  fires ~1.5s after the last edit so nothing is lost, and — like the
+//  manual Save — it marks the section done and auto-advances the status
+//  (draft → in_progress → ready) via _afterSectionSaved, so a report
+//  filled without ever clicking Save still reaches "ready". Autosave never
+//  toasts, never blocks, and never submits (Submit stays a manual gate).
 // ══════════════════════════════════════════════════════════════════
 const _autoSaveTimers = {};      // { 2: timeoutId, 3: timeoutId }
 let   _autoSaveBusy    = false;  // prevents overlapping autosaves
@@ -3872,7 +3883,17 @@ async function autoSaveSection(n) {
   if (!_reportEditable() || _autoSaveBusy) return;
   const id = currentReport.id;
   try {
-    if (n === 2) {
+    if (n === 0) {
+      const kpis = collectInfra();
+      _autoSaveBusy = true; setSaving('saving');
+      await api('PUT', `/api/reports/${id}/infra`, kpis);
+      currentReport.infra_kpis = kpis;
+    } else if (n === 1) {
+      const hd = collectHelpdesk();
+      _autoSaveBusy = true; setSaving('saving');
+      await api('PUT', `/api/reports/${id}/helpdesk`, hd);
+      currentReport.helpdesk = hd;
+    } else if (n === 2) {
       const lights = collectLights();
       _autoSaveBusy = true; setSaving('saving');
       await api('PUT', `/api/reports/${id}/lights`, lights);
@@ -3889,6 +3910,7 @@ async function autoSaveSection(n) {
       currentReport.action_items = actions;
     } else { return; }
     setSaving('saved');
+    await _afterSectionSaved(n);   // mark section done + auto-advance status
     setTimeout(() => setSaving(''), 1500);
   } catch (e) {
     // Silent: the manual Save remains the authoritative path that reports errors.
@@ -3910,7 +3932,7 @@ function flushAutoSave(n) {
 // does NOT fire input/change, so opening a report never triggers a spurious save.
 (function wireAutoSave() {
   function attach() {
-    [['section-2', 2], ['section-3', 3]].forEach(([elId, n]) => {
+    [['section-0', 0], ['section-1', 1], ['section-2', 2], ['section-3', 3]].forEach(([elId, n]) => {
       const el = document.getElementById(elId);
       if (el) ['input', 'change'].forEach(ev => el.addEventListener(ev, () => scheduleAutoSave(n)));
     });
