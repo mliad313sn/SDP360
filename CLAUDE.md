@@ -6,6 +6,36 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ---
 
+## ⚡ Current state (as of 2026-07-27)
+
+> **Hub « Registre des actions du site » (SP1a) landed** (branche
+> `feat/site-actions-register`) — répond à deux plaintes terrain : « trop de
+> lignes non fermées par site » et « on ne sait pas quel rapport ouvrir pour
+> aller les fermer ». Les actions d'un site vivent dans **3 endroits séparés**
+> (`md_actions` réunions · `insp_actions` inspections · `action_items` suivi du
+> rapport hebdo) ; le hub les **agrège en lecture**, groupées par thème, avec
+> **âge/retard**. Pur `services/siteActionsRegister.js` (`buildSiteActions` —
+> filtre les statuts terminaux par vocabulaire, `asOf` injecté, `age_days` null
+> pour le suivi car `action_items` n'a **pas** d'horodatage de création) +
+> `GET /api/reports/site-actions?site=CODE` (compose les 3 lecteurs dual-backend
+> EXISTANTS — meetings/inspection `listActions` + les `action_items` du **dernier
+> rapport** via `listReports(site_id)[0]` → `getReport`) + page
+> `public/site-actions.html` (entrée Insights). Fermeture **en ligne** pour
+> réunions/inspections (POST aux `/api/{meetings,inspection}/actions/:id/update`
+> existants, RBAC serveur, revert au 403) ; **lien profond** pour le suivi via un
+> nouveau `reports.html?report=<id>` (additif — `await openReportById` PUIS
+> `showSection(3)`, sinon atterrit onglet 0). **Zéro schéma, zéro touche au save
+> du rapport** (`action_items` = DELETE+reINSERT → pas d'identité stable, donc la
+> **fusion/référence = SP1b**, l'e-mail par thème + lien vers le hub = **SP2**,
+> l'import cross-module dans la section Actions = **SP3**). Limites assumées : le
+> suivi montré = le dernier rapport seulement ; pas d'âge pour le suivi ; pas de
+> dédup des doublons cachés (SP1b) ; Exploration/Tanda (sans code réunion/
+> inspection) → groupes vides. Régression : site-actions **13** (6 pur + 2 smoke
+> boot-serveur + 5 await). **E2E navigateur non déroulé** (éditeur derrière une
+> session). Spec+plan : `docs/superpowers/{specs,plans}/2026-07-27-site-actions-register*`.
+> **Séparé, non fait** : le graphe hebdo volume+SLA sur le bloc Helpdesk du
+> rapport de site (demande 1).
+
 ## ⚡ Current state (as of 2026-07-23)
 
 > **Réconciliation Assets SDP × AD × Entra × Defender landed** (branche
