@@ -6,6 +6,39 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ---
 
+## ⚡ Current state (as of 2026-07-27, later — SP1b)
+
+> **Identité stable + fusion cross-source des actions (SP1b) landed** (branche
+> `feat/site-actions-merge`, sur SP1a) — répond au « merger les items anciens du
+> suivi qui sont en fait des doublons de réunion/inspection ». **Le hot-path a
+> changé** : `saveActionItems` (2 forks) passe de **DELETE-all+INSERT-all** à un
+> **upsert-par-uid** — `action_items` gagne `uid` (stable, serveur,
+> `crypto.randomUUID`) + `source`/`origin_id`. L'upsert UPDATE les champs
+> éditables par `uid`, INSERT les nouveaux, DELETE les retirés (`uid NOT IN (…)`
+> **gardé contre la liste vide**), et **n'écrit JAMAIS `source`/`origin_id`** —
+> écrits uniquement par `setActionMerge`/`clearActionMerge`. Résultat : **une
+> fusion survit à toute re-sauvegarde du rapport, même d'un client périmé**
+> (prouvé par smoke via la vraie route PUT). **Backfill des uid existants REQUIS**
+> (sqlite `_backfillActionUids` après l'ALTER ; pg dans `initPgReports`) — un uid
+> NULL échappe au `NOT IN` et dupliquerait. Le **client `reports.html` round-trip
+> le uid** (`addActionRow` planque `tr.dataset.uid`, `collectActions` le renvoie ;
+> `validateActionItems` le propage déjà via `{...a}`) — **sans ce round-trip,
+> chaque save re-minte les uid et efface la fusion**. Routes
+> `POST /api/reports/action/:uid/{merge,unmerge}` (editor, valide
+> `source∈{meetings,inspection}`+`origin_id>0`→400, au-dessus de `:id`). Le **hub
+> replie** les lignes du rapport avec `source` (`buildSiteActions` filtre
+> `!a.source`) — elles apparaissent sous leur origine. **UI de fusion** sur
+> `site-actions.html` : bouton « ⇄ same as… » → modal des actions
+> Réunion/Inspection du site, **suggestions** (recouvrement de mots, ★) en tête,
+> **Undo** au toast. **Goldens PPTX/e-mail non lus par les nouvelles colonnes →
+> additif sûr** (vérifié : golden vert). Régression SP1b **19** (schema + upsert
+> + register 7 + 2 smokes + await 5 + golden). **E2E navigateur non déroulé**
+> (éditeur derrière une session). Spec+plan :
+> `docs/superpowers/{specs,plans}/2026-07-27-site-actions-merge-sp1b*`.
+> **Différé (SP1b-lignée)** : dédup inter-semaines par `carried_from` (le `uid`
+> posé ici en est la fondation). **SP2** (e-mail par thème + lien hub) / **SP3**
+> (import cross-module dans la section Actions) restent à faire.
+
 ## ⚡ Current state (as of 2026-07-27)
 
 > **Hub « Registre des actions du site » (SP1a) landed** (branche
