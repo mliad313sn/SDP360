@@ -6,6 +6,36 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ---
 
+## ⚡ Current state (as of 2026-07-27, later — SP3)
+
+> **Import Réunions/Inspections dans la section Actions du rapport (SP3) landed**
+> (branche `feat/import-cross-module-actions`) — le rédacteur coche des actions
+> ouvertes de Réunions/Inspections pour les tirer dans « Actions & Follow-ups »
+> comme **références** (`source`/`origin_id`). **Décision d'archi qui réconcilie
+> SP1b et SP3** : `source`/`origin_id` sont écrits **à la création (INSERT,
+> client-set depuis le sélecteur)** OU par l'endpoint de fusion (UPDATE) ;
+> **jamais par un UPDATE de re-sauvegarde**. Donc `saveActionItems` écrit
+> `source`/`origin_id` **à l'INSERT** (les 2 forks) mais continue de ne JAMAIS
+> les toucher à l'UPDATE → une fusion/référence existante reste indestructible
+> (c'est un UPDATE par uid). `addActionRow`/`collectActions` round-trip
+> `source`/`origin_id`. Endpoint de LECTURE `GET /api/reports/:id/importable-actions`
+> (résout rapport→site→code meetings via `listSiteModuleCodes`, liste les actions
+> Réunions+Inspections OUVERTES avec `origin_id`+libellé). UI : bouton « Import
+> from Meetings / Inspections » réutilisant le modal carry-over (listes à cocher) ;
+> « Import selected » ajoute chaque ligne via `addActionRow({source, origin_id,
+> uid:''})` (uid neuf) → référence persistée à l'INSERT au Save ; le rédacteur
+> **assigne un département** à chaque avant d'enregistrer (règle standard).
+> **Conséquences déjà gérées** : la référence porte `source` → le hub la replie
+> (`buildSiteActions !a.source`) et l'e-mail SP2 ne la double-compte pas
+> (`getSiteOpenReportActions source IS NULL`) ; elle s'affiche dans le
+> rapport/PPTX/e-mail comme un suivi normal. **Goldens intacts** (source interne).
+> Régression **26** (upsert 3 + importable smoke + register + merge smoke +
+> dedup + coordinator block + golden PPTX + goldens byte-exact + await).
+> **E2E navigateur non déroulé** (éditeur derrière une session). Plan :
+> `docs/superpowers/plans/2026-07-27-import-cross-module-actions-sp3.md`.
+> **Reste** : le graphe hebdo Helpdesk (demande 1) + le bloc actions dans
+> l'e-mail weekly (follow-on trivial).
+
 ## ⚡ Current state (as of 2026-07-27, later — SP2)
 
 > **Bloc « Actions ouvertes par thème » + lien hub dans l'e-mail coordinateur
