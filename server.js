@@ -5223,20 +5223,17 @@ app.get('/api/reports/site-actions', requireReportSession, async (req, res) => {
     // meetings + inspection share the 'meetings' namespace code (SMI/MGO/HGO…).
     const meetings = await meetingsDb.listActions({ site: code });
     const inspection = await inspectionDb.listActions({ site: code });
-    // Report follow-ups = the LATEST report's non-closed action_items. listReports
-    // is lightweight (no action_items) → getReport hydrates. resolved.site_id (NOT
-    // .id) or listReports leaks every site (the documented falsy-id pitfall).
+    // Report follow-ups = every open, non-merged follow-up across ALL the site's
+    // reports, deduped by carry-forward lineage (SP1b-lignée) — so an open item
+    // on an old report never carried forward still surfaces, once. Each row
+    // carries its own report_id/week_label. resolved.site_id (NOT .id) — the
+    // documented falsy-id pitfall.
     let report = null;
     const resolved = await rdb.getSiteIdByModuleCode('meetings', code);
     if (resolved && resolved.site_id) {
-      const reps = await rdb.listReports(resolved.site_id);
-      if (Array.isArray(reps) && reps.length) {
-        const full = await rdb.getReport(reps[0].id); // ordered year DESC, week DESC → [0] latest
-        if (full) report = { report_id: full.id, week_label: full.week_label, actions: full.action_items || [] };
-      }
+      report = { actions: (await rdb.getSiteOpenReportActions(resolved.site_id)).actions };
     }
-    res.json({ site: code, week_label: report ? report.week_label : null,
-      ...buildSiteActions({ meetings, inspection, report, asOf }) });
+    res.json({ site: code, ...buildSiteActions({ meetings, inspection, report, asOf }) });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 // SP1b — merge a report follow-up into its Meetings/Inspection twin (a reference)

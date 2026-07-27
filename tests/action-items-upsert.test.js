@@ -66,3 +66,16 @@ test('upsert: mint uid, preserve merge on re-save, delete/insert, empty', async 
   await rdb.saveActionItems(rid, []);
   assert.equal((await load()).length, 0);
 });
+
+test('lineage is written on INSERT and immutable on UPDATE', async () => {
+  await rdb.saveActionItems(rid, []);
+  await rdb.saveActionItems(rid, [{ task: 'carried', status: 'open', lineage: 'root-42' }]);
+  let row = (await load())[0];
+  assert.equal(row.lineage, 'root-42', 'lineage stored on insert');
+  const uid = row.uid;
+  // re-save the same row (by uid) with a DIFFERENT lineage → must not change
+  await rdb.saveActionItems(rid, [{ uid, task: 'carried (edited)', status: 'open', lineage: 'HACK' }]);
+  row = (await load())[0];
+  assert.equal(row.task, 'carried (edited)', 'editable field updated');
+  assert.equal(row.lineage, 'root-42', 'lineage UNCHANGED on re-save (immutable)');
+});

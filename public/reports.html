@@ -3478,8 +3478,13 @@ async function _importFromWeek(sourceReportId, weekLabel) {
       toast(`No pending actions found in ${weekLabel}`, 'info');
       return;
     }
-    data.actions.forEach(a => addActionRow(a));
-    toast(`↩ Imported ${data.actions.length} action(s) from ${weekLabel} — review then save`, 'success');
+    // SP1b-lignée: a carried copy is a NEW row — clear the source uid (so a fresh
+    // one is minted; reusing it would make a later merge hit BOTH rows) and record
+    // its carry-forward lineage. Merged follow-ups (source set) live at their
+    // origin now, so skip them.
+    const carried = data.actions.filter(a => !a.source);
+    carried.forEach(a => addActionRow({ ...a, uid: '', lineage: a.lineage || a.uid }));
+    toast(`↩ Imported ${carried.length} action(s) from ${weekLabel} — review then save`, 'success');
   } catch(e) {
     toast('Could not import actions: ' + (e.message || e), 'error');
   } finally {
@@ -3671,6 +3676,7 @@ function addActionRow(a) {
   const tr = document.createElement('tr');
   tr.dataset.rowId = rowId;
   tr.dataset.uid = (a && a.uid) || '';   // SP1b: round-trip the stable uid so a re-save matches by uid (never wipes a merge)
+  tr.dataset.lineage = (a && a.lineage) || '';   // SP1b-lignée: carry-forward chain root (immutable server-side)
   tr.innerHTML = `
     <td><input type="text" value="${esc(a.task)}" placeholder="Describe the action…"></td>
     <td>
@@ -3776,6 +3782,7 @@ function collectActions() {
     const comment   = commentTr?.querySelector('textarea')?.value.trim() || '';
     return {
       uid:        tr.dataset.uid || undefined,      // SP1b: preserved so saveActionItems upserts by uid
+      lineage:    tr.dataset.lineage || undefined,  // SP1b-lignée: set on carried copies (server writes it once)
       task:       inputs[0].value.trim(),
       department: selects[0].value,                 // '' if not picked
       priority:   selects[1].value,

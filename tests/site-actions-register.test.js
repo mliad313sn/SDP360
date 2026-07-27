@@ -90,6 +90,15 @@ test('merged report rows (source set) are folded out of the report group', () =>
   assert.equal(r.groups.report.items[0].title, 'native follow-up');
 });
 
+test('report rows carry their OWN report_id/week_label (cross-week aggregation)', () => {
+  const r = buildSiteActions({ report: { actions: [
+    { task: 'x', status: 'open', uid: 'u1', report_id: 77, week_label: 'W5 2026' },
+  ] }, asOf });
+  const it = r.groups.report.items[0];
+  assert.equal(it.close.url, 'reports.html?report=77');
+  assert.equal(it.origin_label, 'W5 2026');
+});
+
 test('empty / missing sources → empty groups, no throw', () => {
   const r = buildSiteActions({ asOf });
   assert.equal(r.groups.meetings.count, 0);

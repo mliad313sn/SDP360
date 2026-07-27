@@ -350,6 +350,9 @@ try { db.exec(`ALTER TABLE action_items ADD COLUMN comment    TEXT`); } catch(e)
 try { db.exec(`ALTER TABLE action_items ADD COLUMN uid       TEXT`); } catch(e) {}
 try { db.exec(`ALTER TABLE action_items ADD COLUMN source    TEXT`); } catch(e) {}
 try { db.exec(`ALTER TABLE action_items ADD COLUMN origin_id INTEGER`); } catch(e) {}
+// SP1b-lignée — carry-forward chain root (a carried copy stores the root's uid);
+// NULL = native row (its own root). Immutable once set. No backfill needed.
+try { db.exec(`ALTER TABLE action_items ADD COLUMN lineage   TEXT`); } catch(e) {}
 // Backfill uids for rows that predate the column — REQUIRED before the upsert
 // runs: a NULL uid never matches `uid NOT IN (…)`, so an unbackfilled row would
 // escape the delete step and duplicate on the first save.
@@ -1077,7 +1080,7 @@ async function initPgReports() {            // called once at server boot
     require('path').join(__dirname, 'db', 'postgres', 'reports', '003_reports.sql'), 'utf8'));
   // SP1b — action_items stable uid + merge columns (idempotent for existing PG DBs)
   // + backfill uids on rows that predate the column (see the sqlite note above).
-  for (const c of ['uid TEXT', 'source TEXT', 'origin_id INTEGER']) {
+  for (const c of ['uid TEXT', 'source TEXT', 'origin_id INTEGER', 'lineage TEXT']) {
     await _pg.exec(`ALTER TABLE action_items ADD COLUMN IF NOT EXISTS ${c}`);
   }
   { const nulls = await _pg.prepare('SELECT id FROM action_items WHERE uid IS NULL').all();
@@ -2310,7 +2313,7 @@ function getPreviousWeekOpenActions(site_id, current_report_id) {
   `).get(site_id, current_report_id);
   if (!prev) return { week_label: null, actions: [] };
   const actions = db.prepare(`
-    SELECT task, priority, due_date, owner, status, department, comment, sort_order, uid, source, origin_id
+    SELECT task, priority, due_date, owner, status, department, comment, sort_order, uid, source, origin_id, lineage
     FROM action_items
     WHERE report_id = ? AND status != 'closed'
     ORDER BY sort_order
@@ -2348,7 +2351,7 @@ function getActionsForReport(report_id) {
   `).get(report_id);
   if (!meta) return { week_label: null, actions: [] };
   const actions = db.prepare(`
-    SELECT task, priority, due_date, owner, status, department, comment, sort_order, uid, source, origin_id
+    SELECT task, priority, due_date, owner, status, department, comment, sort_order, uid, source, origin_id, lineage
     FROM action_items
     WHERE report_id = ? AND status != 'closed'
     ORDER BY sort_order
@@ -2522,6 +2525,36 @@ function getPreviousWeekInfraKpis(site_id, current_report_id) {
   return { week_label: prev.week_label, kpis };
 }
 
+// SP1b-lignée — every open, NON-merged report follow-up for a site across ALL
+// its reports, deduped by carry-forward lineage (latest week wins), each row
+// carrying its own report_id + week_label. Feeds the Site Actions hub so an
+// open follow-up on an OLD report never carried forward still surfaces, once.
+function _dedupLineage(rows) {
+  const best = new Map();
+  for (const r of rows) {
+    const key = r.lineage || r.uid;
+    const cur = best.get(key);
+    if (!cur || r._y > cur._y || (r._y === cur._y && r._w > cur._w)) best.set(key, r);
+  }
+  return [...best.values()].map(r => { const { _y, _w, ...rest } = r; return rest; });
+}
+const _SORA_SQL = `
+  SELECT ai.uid, ai.lineage, ai.task, ai.priority, ai.due_date, ai.owner, ai.status,
+         ai.department, ai.comment, ai.source, ai.origin_id,
+         wr.id AS report_id, w.label AS week_label, w.year AS _y, w.week_number AS _w
+  FROM action_items ai
+  JOIN weekly_reports wr ON wr.id = ai.report_id
+  JOIN weeks w ON w.id = wr.week_id
+  WHERE wr.site_id = ? AND ai.status != 'closed' AND ai.source IS NULL`;
+function getSiteOpenReportActions(site_id) {
+  if (REPORTS_BACKEND === 'postgres') return _getSiteOpenReportActionsPg(site_id);
+  return { actions: _dedupLineage(db.prepare(_SORA_SQL).all(site_id)) };
+}
+async function _getSiteOpenReportActionsPg(site_id) {
+  const rows = await pgHandle().prepare(_SORA_SQL).all(site_id);
+  return { actions: _dedupLineage(rows) };
+}
+
 function saveActionItems(report_id, items) {
   if (REPORTS_BACKEND === 'postgres') return _saveActionItemsPg(report_id, items);
   return _saveActionItemsSqlite(report_id, items);
@@ -2542,12 +2575,12 @@ const _saveActionItemsSqlite = db.transaction((report_id, items) => {
   }
   const exists = db.prepare(`SELECT 1 FROM action_items WHERE report_id=? AND uid=?`);
   const upd = db.prepare(`UPDATE action_items SET task=?,priority=?,due_date=?,owner=?,status=?,department=?,comment=?,sort_order=? WHERE report_id=? AND uid=?`);
-  const ins = db.prepare(`INSERT INTO action_items (report_id,task,priority,due_date,owner,status,department,comment,sort_order,uid) VALUES (?,?,?,?,?,?,?,?,?,?)`);
+  const ins = db.prepare(`INSERT INTO action_items (report_id,task,priority,due_date,owner,status,department,comment,sort_order,uid,lineage) VALUES (?,?,?,?,?,?,?,?,?,?,?)`);
   items.forEach((a, i) => {
     if (a.uid && exists.get(report_id, a.uid)) {
       upd.run(a.task, a.priority||'Medium', a.due_date||null, a.owner||null, a.status||'open', a.department||null, a.comment||null, i, report_id, a.uid);
     } else {
-      ins.run(report_id, a.task, a.priority||'Medium', a.due_date||null, a.owner||null, a.status||'open', a.department||null, a.comment||null, i, a.uid || crypto.randomUUID());
+      ins.run(report_id, a.task, a.priority||'Medium', a.due_date||null, a.owner||null, a.status||'open', a.department||null, a.comment||null, i, a.uid || crypto.randomUUID(), a.lineage || null);
     }
   });
 });
@@ -2568,8 +2601,8 @@ async function _saveActionItemsPg(report_id, items) {
         await H.prepare('UPDATE action_items SET task=?,priority=?,due_date=?,owner=?,status=?,department=?,comment=?,sort_order=? WHERE report_id=? AND uid=?')
           .run(a.task, a.priority||'Medium', a.due_date||null, a.owner||null, a.status||'open', a.department||null, a.comment||null, i, report_id, a.uid);
       } else {
-        await H.prepare('INSERT INTO action_items (report_id,task,priority,due_date,owner,status,department,comment,sort_order,uid) VALUES (?,?,?,?,?,?,?,?,?,?)')
-          .run(report_id, a.task, a.priority||'Medium', a.due_date||null, a.owner||null, a.status||'open', a.department||null, a.comment||null, i, a.uid || crypto.randomUUID());
+        await H.prepare('INSERT INTO action_items (report_id,task,priority,due_date,owner,status,department,comment,sort_order,uid,lineage) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
+          .run(report_id, a.task, a.priority||'Medium', a.due_date||null, a.owner||null, a.status||'open', a.department||null, a.comment||null, i, a.uid || crypto.randomUUID(), a.lineage || null);
       }
       i++;
     }
@@ -2734,7 +2767,7 @@ async function _getPreviousWeekOpenActionsPg(site_id, current_report_id) {
     JOIN weeks w ON w.id = wr.week_id WHERE wr.site_id = ? AND wr.id != ?
     ORDER BY w.year DESC, w.week_number DESC LIMIT 1`).get(site_id, current_report_id);
   if (!prev) return { week_label: null, actions: [] };
-  const actions = await H.prepare(`SELECT task, priority, due_date, owner, status, department, comment, sort_order, uid, source, origin_id
+  const actions = await H.prepare(`SELECT task, priority, due_date, owner, status, department, comment, sort_order, uid, source, origin_id, lineage
     FROM action_items WHERE report_id = ? AND status != 'closed' ORDER BY sort_order`).all(prev.id);
   return { week_label: prev.week_label, actions };
 }
@@ -2751,7 +2784,7 @@ async function _getActionsForReportPg(report_id) {
   const meta = await H.prepare(`SELECT wr.id, w.label as week_label FROM weekly_reports wr
     JOIN weeks w ON w.id = wr.week_id WHERE wr.id = ?`).get(report_id);
   if (!meta) return { week_label: null, actions: [] };
-  const actions = await H.prepare(`SELECT task, priority, due_date, owner, status, department, comment, sort_order, uid, source, origin_id
+  const actions = await H.prepare(`SELECT task, priority, due_date, owner, status, department, comment, sort_order, uid, source, origin_id, lineage
     FROM action_items WHERE report_id = ? ORDER BY sort_order`).all(report_id);
   return { week_label: meta.week_label, actions };
 }
@@ -6744,7 +6777,7 @@ module.exports = {
   getPreviousWeek, ensureWeek, getWeekRange,
   ensureReport, getReport, listReports,
   saveInfraKpis, saveHelpdeskData, saveLights, saveActionItems, _backfillActionUids,
-  setActionMerge, clearActionMerge,
+  setActionMerge, clearActionMerge, getSiteOpenReportActions,
   getPreviousWeekOpenActions, listAllWeeksWithActions, getActionsForReport,
   listAllWeeksWithLights, getLightsForReport,
   // Action departments (editable dropdown for action items)

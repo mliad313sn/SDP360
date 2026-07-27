@@ -6,6 +6,32 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ---
 
+## ⚡ Current state (as of 2026-07-27, later — SP1b-lignée)
+
+> **Dédup inter-semaines par lignée + fix collision uid du carry-forward
+> (SP1b-lignée) landed** (branche `feat/site-actions-lineage`, sur SP1b) — le hub
+> montre enfin **tous les suivis ouverts d'un site, toutes semaines confondues,
+> chacun une fois** (y compris ceux d'anciens rapports **jamais reportés** — la
+> limite n°1 de SP1a). **Corrige aussi un bug latent introduit par SP1b** : le
+> carry-forward (`_importFromWeek`) recopiait les lignes avec le **uid de la
+> source** (car `addActionRow` round-trip le uid depuis SP1b) → deux lignes
+> partageaient un uid → `setActionMerge` (`WHERE uid=?`, sans report_id) aurait
+> touché **les deux**. Désormais une copie reçoit un **uid neuf** + enregistre sa
+> **lignée** (`lineage` = uid racine de la chaîne de report), et le carry-forward
+> **saute les lignes fusionnées** (elles vivent à leur origine). Colonne
+> `action_items.lineage` (additive, pas de backfill — native = NULL) ; écrite à
+> l'INSERT, **immuable** à l'UPDATE (comme `source`). Reader
+> `getSiteOpenReportActions(site_id)` (dual-backend, `_dedupLineage` en JS :
+> `COALESCE(lineage,uid)`, semaine la plus récente gagne ; exclut closed +
+> `source IS NULL`) remplace le « dernier rapport seulement » de la route.
+> `buildSiteActions` : chaque ligne du rapport porte **son propre**
+> `report_id`/`week_label` (lien profond par ligne ; fallback rétro-compatible
+> pour les fixtures). `addActionRow`/`collectActions` round-trip `lineage`.
+> Régression SP1b-lignée **22** (schema + upsert 3 + dedup + register 8 + 2
+> smokes + await + golden). **E2E navigateur non déroulé**. Plan :
+> `docs/superpowers/plans/2026-07-27-site-actions-lineage-sp1b2.md`. **SP2**
+> (e-mail par thème + lien hub) / **SP3** (import cross-module) restent à faire.
+
 ## ⚡ Current state (as of 2026-07-27, later — SP1b)
 
 > **Identité stable + fusion cross-source des actions (SP1b) landed** (branche

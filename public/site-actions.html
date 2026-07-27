@@ -226,10 +226,8 @@
 
   function render() {
     document.getElementById('saGroups').innerHTML = GROUPS.map(groupHtml).join('');
-    const wl = state.data && state.data.week_label;
-    document.getElementById('saNote').innerHTML = wl
-      ? `Report follow-ups shown are from the latest weekly report <strong>${esc(wl)}</strong>. Age is unavailable for report follow-ups (no created timestamp) — they show the due date only.`
-      : 'Report follow-ups appear once this site has a weekly report.';
+    document.getElementById('saNote').innerHTML =
+      'Report follow-ups are gathered across all weeks and de-duplicated — carried-forward copies of the same action collapse into one (its latest week). Merged follow-ups fold under their Meetings/Inspection origin. Age is unavailable for report follow-ups (no created timestamp) — they show the due date only.';
     if (canEdit) document.querySelectorAll('.sa-status-sel').forEach(el => el.addEventListener('change', onStatusChange));
     document.querySelectorAll('.sa-mergebtn').forEach(b => b.addEventListener('click', () => openMergePicker(b.dataset.uid, b.dataset.title)));
   }
