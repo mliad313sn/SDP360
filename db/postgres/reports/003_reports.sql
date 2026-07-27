@@ -54,7 +54,8 @@ CREATE TABLE IF NOT EXISTS action_items (
   task TEXT NOT NULL, priority TEXT DEFAULT 'Medium', due_date TEXT, owner TEXT,
   status TEXT DEFAULT 'open', sort_order INTEGER DEFAULT 0,
   department TEXT, comment TEXT,
-  uid TEXT, source TEXT, origin_id INTEGER   -- SP1b: stable id + cross-source merge link
+  uid TEXT, source TEXT, origin_id INTEGER,  -- SP1b: stable id + cross-source merge link
+  lineage TEXT                               -- SP1b-lignée: carry-forward chain root
 );
 
 CREATE TABLE IF NOT EXISTS monthly_reports (
