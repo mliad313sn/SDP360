@@ -59,6 +59,9 @@ async function siteReportData(siteCode, period, deps) {
   // Changes still open right now — a different population from `changes` above,
   // which covers the report month. Dep-guarded like the two asset blocks.
   const openChanges = await _safe(() => (deps.openChanges ? deps.openChanges(siteCode, period) : null), null, 'openChanges');
+  // SP2 — open-actions-by-theme summary for the email's actions block. Dep-guarded
+  // like the asset blocks: a deps object built before this existed → null (block omitted).
+  const actions = await _safe(() => (deps.openActions ? deps.openActions(siteCode, period) : null), null, 'openActions');
 
   // `pvs_held` (how many PVs) and `depts_with_pv` (how many DISTINCT departments
   // met) are different measures and only the second one faces `pvs_target`
@@ -125,7 +128,7 @@ async function siteReportData(siteCode, period, deps) {
     site_code: siteCode, site_name: ms.site_name || siteCode,
     period: { ...period, label: ms.month_label || '' },
     score, meetings, inspection, helpdesk, changes, technicians, recommended, fm,
-    assetEffort, assetHygiene, openChanges,
+    assetEffort, assetHygiene, openChanges, actions,
   };
 }
 
