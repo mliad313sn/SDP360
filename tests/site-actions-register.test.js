@@ -81,6 +81,15 @@ test('oldest_days per group (report null since no created ts)', () => {
   assert.equal(r.groups.report.oldest_days, null);
 });
 
+test('report terminal statuses closed AND cancelled are excluded', () => {
+  const r = buildSiteActions({ report: { report_id: 3, week_label: 'W2', actions: [
+    { task: 'open one', status: 'open' },
+    { task: 'cancelled one', status: 'cancelled' },
+    { task: 'closed one', status: 'closed' },
+  ] }, asOf });
+  assert.deepEqual(r.groups.report.items.map((x) => x.title), ['open one']);
+});
+
 test('merged report rows (source set) are folded out of the report group', () => {
   const r = buildSiteActions({ report: { report_id: 9, week_label: 'W1 2026', actions: [
     { id: 1, task: 'native follow-up', status: 'open' },

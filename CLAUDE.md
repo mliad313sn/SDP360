@@ -6,6 +6,26 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ---
 
+## ⚡ Current state (as of 2026-07-27, later — hub statut suivi éditable)
+
+> **Statut éditable en ligne pour « Report follow-ups » dans le hub Site Actions
+> landed** (branche `feat/report-action-inline-status`) — Réunions/Inspections
+> étaient déjà éditables en ligne (SP1a) ; le suivi ne l'était pas (SP1a l'avait
+> laissé en lecture seule car `action_items` n'avait pas d'identité stable). SP1b
+> a levé ça (le `uid`), donc : reader `setActionStatus(uid, status)` (dual-backend,
+> `UPDATE status WHERE uid` — ne touche NI `source`/`origin_id` NI `lineage`) +
+> route `POST /api/reports/action/:uid/status {status}` (editor, valide le
+> vocabulaire rapport `open·in_progress·on_hold·closed·cancelled`→400). Le hub
+> rend un `<select>` en ligne pour le suivi (même patron que les 2 autres ;
+> `onStatusChange` branche : suivi→`/status {status}`, réunions/inspections→
+> `/update {status_change}`) ; revert au 403, reload au succès. **Cohérence
+> incluse** : `cancelled` devient terminal pour le suivi (comme `closed`) dans
+> `buildSiteActions` **et** `getSiteOpenReportActions` (`NOT IN ('closed',
+> 'cancelled')`) — l'e-mail SP2 ne compte donc plus les annulées. Les 3 sections
+> du hub sont maintenant éditables en ligne uniformément. Régression **18**
+> (status smoke + register cancelled + dedup + merge smoke + await). **E2E
+> navigateur non déroulé** (session).
+
 ## ⚡ Current state (as of 2026-07-27, later — SP3)
 
 > **Import Réunions/Inspections dans la section Actions du rapport (SP3) landed**

@@ -5262,6 +5262,21 @@ app.post('/api/reports/action/:uid/unmerge', requireReportSession, async (req, r
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
+// Inline status change for a report follow-up from the Site Actions hub. Editor
+// role; keyed by the stable uid (UPDATE never touches source/origin_id/lineage).
+app.post('/api/reports/action/:uid/status', requireReportSession, async (req, res) => {
+  try {
+    const rdb = require('./reports-db');
+    if (!rdb.userHasRole(req.reportUser, 'editor')) return res.status(403).json({ error: 'editor role required' });
+    const status = String((req.body && req.body.status) || '');
+    if (!['open', 'in_progress', 'on_hold', 'closed', 'cancelled'].includes(status)) {
+      return res.status(400).json({ error: 'invalid status' });
+    }
+    const r = await rdb.setActionStatus(String(req.params.uid || ''), status);
+    if (!r.ok) return res.status(404).json({ error: 'action not found' });
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
 // SP3 — GET /api/reports/:id/importable-actions — the report site's OPEN Meetings
 // + Inspection actions, so the editor can pull them into the report's Actions
 // section as references. Registered ABOVE /api/reports/:id (the shadowing trap).
