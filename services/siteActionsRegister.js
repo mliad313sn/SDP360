@@ -110,6 +110,7 @@ function buildSiteActions(input) {
           overdue: _overdue(a.due_date, asOfMs, false),
           origin_label: report.week_label || null,
           action_id: null,
+          uid: a.uid || null,   // SP1b: the report action's stable uid — merge target for the hub
           close: { kind: 'link', url: 'reports.html?report=' + report.report_id },
         }))
     : [];
