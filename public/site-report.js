@@ -425,6 +425,40 @@
     });
   }
 
+  // demande 1 — weekly volume + resolution-SLA combo below the category chart.
+  // Independent of renderHelpdesk's early returns (called separately). Res SLA
+  // only (request_records has no first-reply); missed_pct null → line gap.
+  var hdWeeklyChart = null;
+  function renderHelpdeskWeekly(weekly) {
+    var wrap = el('hdWeeklyWrap');
+    var canvas = el('hdWeeklyChart');
+    if (hdWeeklyChart) { hdWeeklyChart.destroy(); hdWeeklyChart = null; }
+    var rows = Array.isArray(weekly) ? weekly : [];
+    if (!rows.length || typeof Chart === 'undefined' || !canvas) { if (wrap) wrap.style.display = 'none'; return; }
+    if (wrap) wrap.style.display = '';
+    hdWeeklyChart = new Chart(canvas.getContext('2d'), {
+      data: {
+        labels: rows.map(function (r) { return r.label; }),
+        datasets: [
+          { type: 'bar', label: 'Inbound', data: rows.map(function (r) { return n(r.inbound); }), backgroundColor: '#145FAE', borderRadius: 3, maxBarThickness: 26, order: 2 },
+          { type: 'bar', label: 'Closed', data: rows.map(function (r) { return n(r.closed); }), backgroundColor: '#16A34A', borderRadius: 3, maxBarThickness: 26, order: 2 },
+          { type: 'line', label: 'Res. SLA missed %', yAxisID: 'pct', data: rows.map(function (r) { return r.missed_pct; }), borderColor: '#D90038', backgroundColor: 'rgba(217,0,56,.10)', borderWidth: 2, pointRadius: 3, tension: 0.25, spanGaps: false, order: 1 },
+        ],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } },
+        scales: {
+          y: { beginAtZero: true, ticks: { precision: 0 }, title: { display: true, text: 'Tickets' } },
+          pct: { position: 'right', beginAtZero: true, max: 100, grid: { drawOnChartArea: false }, title: { display: true, text: '% SLA missed' } },
+          x: { ticks: { font: { size: 10 } } },
+        },
+      },
+    });
+    var note = el('hdWeeklyNote');
+    if (note) note.textContent = 'Résolution SLA uniquement (source request_records — le first-reply n\'y figure pas). Chiffres cohérents avec les KPIs du bloc ci-dessus.';
+  }
+
   // Creates the Changes section on first render, right after Helpdesk, so the
   // block ships without an edit to site-report.html — same reasoning as the
   // score hero's window line above.
@@ -812,6 +846,7 @@
     renderMeetings(data.meetings, ctx);
     renderInspection(data.inspection, ctx);
     renderHelpdesk(data.helpdesk, ctx);
+    renderHelpdeskWeekly(data.helpdesk_weekly);
     renderChanges(data.changes, data.openChanges, ctx);
     renderTechnicians(data.technicians, ctx);
     renderAssets(data.assetHygiene, data.assetEffort);
