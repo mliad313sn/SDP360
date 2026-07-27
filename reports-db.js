@@ -2310,7 +2310,7 @@ function getPreviousWeekOpenActions(site_id, current_report_id) {
   `).get(site_id, current_report_id);
   if (!prev) return { week_label: null, actions: [] };
   const actions = db.prepare(`
-    SELECT task, priority, due_date, owner, status, department, comment, sort_order
+    SELECT task, priority, due_date, owner, status, department, comment, sort_order, uid, source, origin_id
     FROM action_items
     WHERE report_id = ? AND status != 'closed'
     ORDER BY sort_order
@@ -2348,7 +2348,7 @@ function getActionsForReport(report_id) {
   `).get(report_id);
   if (!meta) return { week_label: null, actions: [] };
   const actions = db.prepare(`
-    SELECT task, priority, due_date, owner, status, department, comment, sort_order
+    SELECT task, priority, due_date, owner, status, department, comment, sort_order, uid, source, origin_id
     FROM action_items
     WHERE report_id = ? AND status != 'closed'
     ORDER BY sort_order
@@ -2526,31 +2526,78 @@ function saveActionItems(report_id, items) {
   if (REPORTS_BACKEND === 'postgres') return _saveActionItemsPg(report_id, items);
   return _saveActionItemsSqlite(report_id, items);
 }
+// SP1b — upsert-by-uid (was DELETE-all+INSERT-all). Matches incoming rows to
+// existing ones by `uid`: UPDATE the EDITABLE fields in place, INSERT new rows
+// (minting a uid), DELETE rows whose uid isn't in the incoming set. It NEVER
+// writes `source`/`origin_id` — those are owned by setActionMerge — so a report
+// re-save (even from a stale client) can never wipe a merge. Empty incoming →
+// delete all. `uid NOT IN (…)` is guarded against the empty list (invalid SQL).
 const _saveActionItemsSqlite = db.transaction((report_id, items) => {
-  db.prepare(`DELETE FROM action_items WHERE report_id=?`).run(report_id);
-  const ins = db.prepare(`INSERT INTO action_items (report_id,task,priority,due_date,owner,status,department,comment,sort_order) VALUES (?,?,?,?,?,?,?,?,?)`);
-  items.forEach((a, i) => ins.run(
-    report_id,
-    a.task,
-    a.priority   || 'Medium',
-    a.due_date   || null,
-    a.owner      || null,
-    a.status     || 'open',
-    a.department || null,
-    a.comment    || null,
-    i
-  ));
-});
-async function _saveActionItemsPg(report_id, items) {
-  const H = pgHandle();
-  await H.runTransaction(async () => {
-    await H.prepare('DELETE FROM action_items WHERE report_id=?').run(report_id);
-    let i = 0;
-    for (const a of (items || [])) {
-      await H.prepare('INSERT INTO action_items (report_id,task,priority,due_date,owner,status,department,comment,sort_order) VALUES (?,?,?,?,?,?,?,?,?)')
-        .run(report_id, a.task, a.priority||'Medium', a.due_date||null, a.owner||null, a.status||'open', a.department||null, a.comment||null, i); i++;
+  items = items || [];
+  const keep = items.filter(a => a.uid).map(a => a.uid);
+  if (keep.length) {
+    db.prepare(`DELETE FROM action_items WHERE report_id=? AND uid NOT IN (${keep.map(() => '?').join(',')})`).run(report_id, ...keep);
+  } else {
+    db.prepare(`DELETE FROM action_items WHERE report_id=?`).run(report_id);
+  }
+  const exists = db.prepare(`SELECT 1 FROM action_items WHERE report_id=? AND uid=?`);
+  const upd = db.prepare(`UPDATE action_items SET task=?,priority=?,due_date=?,owner=?,status=?,department=?,comment=?,sort_order=? WHERE report_id=? AND uid=?`);
+  const ins = db.prepare(`INSERT INTO action_items (report_id,task,priority,due_date,owner,status,department,comment,sort_order,uid) VALUES (?,?,?,?,?,?,?,?,?,?)`);
+  items.forEach((a, i) => {
+    if (a.uid && exists.get(report_id, a.uid)) {
+      upd.run(a.task, a.priority||'Medium', a.due_date||null, a.owner||null, a.status||'open', a.department||null, a.comment||null, i, report_id, a.uid);
+    } else {
+      ins.run(report_id, a.task, a.priority||'Medium', a.due_date||null, a.owner||null, a.status||'open', a.department||null, a.comment||null, i, a.uid || crypto.randomUUID());
     }
   });
+});
+async function _saveActionItemsPg(report_id, items) {
+  items = items || [];
+  const H = pgHandle();
+  await H.runTransaction(async () => {
+    const keep = items.filter(a => a.uid).map(a => a.uid);
+    if (keep.length) {
+      await H.prepare(`DELETE FROM action_items WHERE report_id=? AND uid NOT IN (${keep.map(() => '?').join(',')})`).run(report_id, ...keep);
+    } else {
+      await H.prepare('DELETE FROM action_items WHERE report_id=?').run(report_id);
+    }
+    let i = 0;
+    for (const a of items) {
+      const has = a.uid ? await H.prepare('SELECT 1 FROM action_items WHERE report_id=? AND uid=?').get(report_id, a.uid) : null;
+      if (has) {
+        await H.prepare('UPDATE action_items SET task=?,priority=?,due_date=?,owner=?,status=?,department=?,comment=?,sort_order=? WHERE report_id=? AND uid=?')
+          .run(a.task, a.priority||'Medium', a.due_date||null, a.owner||null, a.status||'open', a.department||null, a.comment||null, i, report_id, a.uid);
+      } else {
+        await H.prepare('INSERT INTO action_items (report_id,task,priority,due_date,owner,status,department,comment,sort_order,uid) VALUES (?,?,?,?,?,?,?,?,?,?)')
+          .run(report_id, a.task, a.priority||'Medium', a.due_date||null, a.owner||null, a.status||'open', a.department||null, a.comment||null, i, a.uid || crypto.randomUUID());
+      }
+      i++;
+    }
+  });
+}
+
+// SP1b — merge link writers (the ONLY writers of source/origin_id). A merged
+// report follow-up references its Meetings/Inspection twin; the hub folds it
+// under the origin. Both dual-backend, keyed by the stable uid.
+function setActionMerge(uid, opts) {
+  if (REPORTS_BACKEND === 'postgres') return _setActionMergePg(uid, opts);
+  const info = db.prepare(`UPDATE action_items SET source=?, origin_id=? WHERE uid=?`).run(opts.source, opts.origin_id, uid);
+  return { ok: info.changes > 0 };
+}
+async function _setActionMergePg(uid, opts) {
+  const H = pgHandle();
+  const info = await H.prepare('UPDATE action_items SET source=?, origin_id=? WHERE uid=?').run(opts.source, opts.origin_id, uid);
+  return { ok: (info.changes || info.rowCount || 0) > 0 };
+}
+function clearActionMerge(uid) {
+  if (REPORTS_BACKEND === 'postgres') return _clearActionMergePg(uid);
+  const info = db.prepare(`UPDATE action_items SET source=NULL, origin_id=NULL WHERE uid=?`).run(uid);
+  return { ok: info.changes > 0 };
+}
+async function _clearActionMergePg(uid) {
+  const H = pgHandle();
+  const info = await H.prepare('UPDATE action_items SET source=NULL, origin_id=NULL WHERE uid=?').run(uid);
+  return { ok: (info.changes || info.rowCount || 0) > 0 };
 }
 
 function updateReportStatus(report_id, status, user_id) {
@@ -2687,7 +2734,7 @@ async function _getPreviousWeekOpenActionsPg(site_id, current_report_id) {
     JOIN weeks w ON w.id = wr.week_id WHERE wr.site_id = ? AND wr.id != ?
     ORDER BY w.year DESC, w.week_number DESC LIMIT 1`).get(site_id, current_report_id);
   if (!prev) return { week_label: null, actions: [] };
-  const actions = await H.prepare(`SELECT task, priority, due_date, owner, status, department, comment, sort_order
+  const actions = await H.prepare(`SELECT task, priority, due_date, owner, status, department, comment, sort_order, uid, source, origin_id
     FROM action_items WHERE report_id = ? AND status != 'closed' ORDER BY sort_order`).all(prev.id);
   return { week_label: prev.week_label, actions };
 }
@@ -2704,7 +2751,7 @@ async function _getActionsForReportPg(report_id) {
   const meta = await H.prepare(`SELECT wr.id, w.label as week_label FROM weekly_reports wr
     JOIN weeks w ON w.id = wr.week_id WHERE wr.id = ?`).get(report_id);
   if (!meta) return { week_label: null, actions: [] };
-  const actions = await H.prepare(`SELECT task, priority, due_date, owner, status, department, comment, sort_order
+  const actions = await H.prepare(`SELECT task, priority, due_date, owner, status, department, comment, sort_order, uid, source, origin_id
     FROM action_items WHERE report_id = ? ORDER BY sort_order`).all(report_id);
   return { week_label: meta.week_label, actions };
 }
@@ -6697,6 +6744,7 @@ module.exports = {
   getPreviousWeek, ensureWeek, getWeekRange,
   ensureReport, getReport, listReports,
   saveInfraKpis, saveHelpdeskData, saveLights, saveActionItems, _backfillActionUids,
+  setActionMerge, clearActionMerge,
   getPreviousWeekOpenActions, listAllWeeksWithActions, getActionsForReport,
   listAllWeeksWithLights, getLightsForReport,
   // Action departments (editable dropdown for action items)
