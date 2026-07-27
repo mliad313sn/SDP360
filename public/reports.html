@@ -2106,6 +2106,16 @@ async function initApp() {
   }
 
   loadReportList();
+
+  // Deep-link: ?report=<id> opens that report straight on the Action Items tab.
+  // Used by the Site Actions Register hub to jump to where a report follow-up is
+  // actually closed. Additive + independent of the #admin hash routing above.
+  // openReportById is async and lands on section 0 (showFormPage), so we MUST
+  // await it BEFORE switching to section 3, or the tab switch races/loses.
+  const _rp = parseInt(new URLSearchParams(location.search).get('report'), 10);
+  if (Number.isInteger(_rp) && _rp > 0) {
+    openReportById(_rp).then(() => { try { showSection(3); } catch (_) {} }).catch(() => {});
+  }
 }
 
 function populateSiteSelects() {
