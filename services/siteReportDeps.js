@@ -58,6 +58,26 @@ function buildSiteReportDeps(mods) {
     inspectionAggregate,
     inspectionActions: async (code) => A.adaptInspectionActions(await inspectionDb.listActions({ site: code, overdue: 1 })),
 
+    // SP2 — open-actions-by-theme summary for the email block. Reuses the PURE
+    // buildSiteActions over the 3 sources (ALL non-closed, not overdue-only like
+    // the two adapters above) and keeps only the counts + oldest. report follow-ups
+    // come from the SP1b-lignée reader (deduped across weeks, merged folded out).
+    openActions: async (code, p) => {
+      const s = await resolve(code);
+      if (!s) return null;
+      const asOf = p.as_of || _asOfFor(p);
+      const meetings = await meetingsDb.listActions({ site: code });
+      const inspection = await inspectionDb.listActions({ site: code });
+      const report = { actions: (await reportsDb.getSiteOpenReportActions(s.site_id)).actions };
+      const { buildSiteActions } = require('./siteActionsRegister');
+      const g = buildSiteActions({ meetings, inspection, report, asOf }).groups;
+      const pick = (x) => ({ count: x.count, oldest: x.oldest_days });
+      return {
+        meetings: pick(g.meetings), inspection: pick(g.inspection), report: pick(g.report),
+        total: g.meetings.count + g.inspection.count + g.report.count,
+      };
+    },
+
     helpdesk: async (code, p) => {
       const s = await resolve(code);
       if (!s) return null;                       // siteReport._safe → zeroed block

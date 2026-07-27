@@ -6,6 +6,31 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ---
 
+## ⚡ Current state (as of 2026-07-27, later — SP2)
+
+> **Bloc « Actions ouvertes par thème » + lien hub dans l'e-mail coordinateur
+> (SP2) landed** (branche `feat/coordinator-actions-block`) — répond à « dans le
+> mail il faut qu'ils sachent quel rapport ouvrir pour aller les fermer ».
+> `actionsSection` dans `coordinator.js` : comptes par source
+> (Réunions/Inspections/Suivi du rapport) + la plus ancienne + un CTA vers
+> `{base_url}/site-actions.html?site=CODE`. **Optionnel** (spread `...(d.actions ?
+> […] : [])`, **exactement le patron `assetEffort`**) → les fixtures golden ne
+> fournissent pas `actions`, donc **les deux goldens byte-exact restent
+> identiques, NON régénérés** ; un test dédié (`coordinator-actions-block`) couvre
+> le bloc. **Lien omis si `public_base_url` vide** (convention du weekly : pas de
+> lien deviné/mort). Données : binder `openActions` (`siteReportDeps.js`) qui
+> réutilise le **pur** `buildSiteActions` sur les 3 sources (toutes non-fermées,
+> pas overdue-only ; suivi via `getSiteOpenReportActions` dédupliqué) → comptes +
+> oldest ; `siteReportData` porte `actions` (dep-guardé comme les blocs assets) ;
+> `sendCoordinator.js` injecte `data.base_url` depuis `cfg.public_base_url`.
+> Régression **90** (bloc 3 + goldens byte-exact + coordinator wording + siteReport
+> 3 + sender 23 + await). **E2E e-mail non déroulé** (nécessite un envoi réel).
+> **Périmètre : e-mail coordinateur MENSUEL** ; le weekly (qui rend déjà l'effort)
+> pourrait recevoir le même bloc en follow-on trivial. Plan :
+> `docs/superpowers/plans/2026-07-27-coordinator-actions-block-sp2.md`. **SP3**
+> (import cross-module dans la section Actions) reste à faire ; le graphe hebdo
+> Helpdesk (demande 1) aussi.
+
 ## ⚡ Current state (as of 2026-07-27, later — SP1b-lignée)
 
 > **Dédup inter-semaines par lignée + fix collision uid du carry-forward

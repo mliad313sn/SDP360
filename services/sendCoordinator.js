@@ -102,6 +102,10 @@ async function sendCoordinatorReport({ db, cfg, site, period, force = false, pre
 
   // 2-3 · compose the data, then the document.
   const data = await D.siteReportData(site, { year, month }, D.buildSiteReportDeps());
+  // SP2 — the public origin for the "open your Site Actions register" link in the
+  // actions block. Empty (unconfigured) → the composer omits the link rather than
+  // ship a guessed, dead URL (the weekly report's convention).
+  data.base_url = String((cfg && cfg.public_base_url) || '').replace(/\/+$/, '');
   const { subject, htmlBody, fullHtml } = D.composeCoordinator(data);
 
   // 4 · preview short-circuits BEFORE recipient resolution, PDF and mail.
