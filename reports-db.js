@@ -2525,6 +2525,36 @@ function getPreviousWeekInfraKpis(site_id, current_report_id) {
   return { week_label: prev.week_label, kpis };
 }
 
+// SP1b-lignée — every open, NON-merged report follow-up for a site across ALL
+// its reports, deduped by carry-forward lineage (latest week wins), each row
+// carrying its own report_id + week_label. Feeds the Site Actions hub so an
+// open follow-up on an OLD report never carried forward still surfaces, once.
+function _dedupLineage(rows) {
+  const best = new Map();
+  for (const r of rows) {
+    const key = r.lineage || r.uid;
+    const cur = best.get(key);
+    if (!cur || r._y > cur._y || (r._y === cur._y && r._w > cur._w)) best.set(key, r);
+  }
+  return [...best.values()].map(r => { const { _y, _w, ...rest } = r; return rest; });
+}
+const _SORA_SQL = `
+  SELECT ai.uid, ai.lineage, ai.task, ai.priority, ai.due_date, ai.owner, ai.status,
+         ai.department, ai.comment, ai.source, ai.origin_id,
+         wr.id AS report_id, w.label AS week_label, w.year AS _y, w.week_number AS _w
+  FROM action_items ai
+  JOIN weekly_reports wr ON wr.id = ai.report_id
+  JOIN weeks w ON w.id = wr.week_id
+  WHERE wr.site_id = ? AND ai.status != 'closed' AND ai.source IS NULL`;
+function getSiteOpenReportActions(site_id) {
+  if (REPORTS_BACKEND === 'postgres') return _getSiteOpenReportActionsPg(site_id);
+  return { actions: _dedupLineage(db.prepare(_SORA_SQL).all(site_id)) };
+}
+async function _getSiteOpenReportActionsPg(site_id) {
+  const rows = await pgHandle().prepare(_SORA_SQL).all(site_id);
+  return { actions: _dedupLineage(rows) };
+}
+
 function saveActionItems(report_id, items) {
   if (REPORTS_BACKEND === 'postgres') return _saveActionItemsPg(report_id, items);
   return _saveActionItemsSqlite(report_id, items);
@@ -6747,7 +6777,7 @@ module.exports = {
   getPreviousWeek, ensureWeek, getWeekRange,
   ensureReport, getReport, listReports,
   saveInfraKpis, saveHelpdeskData, saveLights, saveActionItems, _backfillActionUids,
-  setActionMerge, clearActionMerge,
+  setActionMerge, clearActionMerge, getSiteOpenReportActions,
   getPreviousWeekOpenActions, listAllWeeksWithActions, getActionsForReport,
   listAllWeeksWithLights, getLightsForReport,
   // Action departments (editable dropdown for action items)
