@@ -678,6 +678,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         <datalist id="ai-tech-datalist"></datalist>
         <button class="btn btn-secondary btn-sm btn-add-row" onclick="addActionRow()">+ Add Action</button>
         <button class="btn btn-secondary btn-sm" id="btn-carry-over" onclick="carryOverActions()" style="margin-left:10px">&#8629; Import all (except closed) from previous week</button>
+        <button class="btn btn-secondary btn-sm" id="btn-import-modules" onclick="openImportFromModules()" style="margin-left:8px">&#8629; Import from Meetings / Inspections</button>
         <button class="btn btn-secondary btn-sm" onclick="downloadActionsTemplate()" style="margin-left:10px" title="Download a CSV template with column headers + 3 sample rows"><i class="icon icon-download"></i>CSV Template</button>
         <button class="btn btn-secondary btn-sm" onclick="document.getElementById('actions-csv-file').click()" style="margin-left:6px" title="Bulk-import action items from a CSV file">⬆ Import CSV</button>
         <input type="file" id="actions-csv-file" accept=".csv,text/csv" style="display:none" onchange="onActionsCsvSelected(event)">
@@ -3376,6 +3377,50 @@ async function carryOverLights() {
     btn.disabled = false;
     btn.innerHTML = orig;
   }
+}
+
+// SP3 — import open Meetings/Inspection actions into the report's Actions section
+// as REFERENCES (source/origin_id). Reuses the carry-over modal. Ticked rows are
+// appended via addActionRow with a fresh uid (no uid) + source/origin_id, so
+// saveActionItems writes the reference on INSERT; the coordinator assigns a
+// department to each before saving (standard action-row rule).
+async function openImportFromModules() {
+  if (!currentReport) return;
+  const btn = document.getElementById('btn-import-modules');
+  const orig = btn.innerHTML; btn.disabled = true; btn.textContent = '…loading';
+  try {
+    const data = await api('GET', `/api/reports/${currentReport.id}/importable-actions`);
+    document.getElementById('carry-over-modal-title').textContent = '↩ Import actions from Meetings / Inspections';
+    document.getElementById('carry-over-modal-sub').textContent = 'Tick the open actions to add as references. Assign a department to each before saving.';
+    _renderImportModules(data.meetings || [], data.inspection || []);
+    document.getElementById('carry-over-modal').style.display = 'flex';
+  } catch (e) {
+    toast('Could not load importable actions: ' + (e.message || e), 'error');
+  } finally { btn.disabled = false; btn.innerHTML = orig; }
+}
+function _renderImportModules(meetings, inspection) {
+  const e2 = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+  const section = (label, src, items) => {
+    const head = `<div style="font-weight:700;color:#334155;margin:10px 0 4px">${label}${items.length ? ' (' + items.length + ')' : ''}</div>`;
+    if (!items.length) return head + '<div style="color:#94a3b8;font-style:italic;font-size:.78rem;padding:2px 0 6px">No open actions.</div>';
+    return head + items.map(a => `<label style="display:flex;gap:8px;align-items:flex-start;padding:7px 8px;border:1px solid #e2e8f0;border-radius:7px;margin-bottom:4px;cursor:pointer">
+        <input type="checkbox" class="imp-chk" data-src="${src}" data-oid="${a.origin_id}" data-title="${e2(a.title)}" data-owner="${e2(a.owner || '')}" data-due="${e2(a.due_date || '')}" style="margin-top:3px">
+        <span><strong style="font-size:.85rem">${e2(a.title)}</strong><br><span style="font-size:.72rem;color:#64748b">${e2(a.owner || '—')}${a.due_date ? ' · due ' + e2(a.due_date) : ''}${a.origin_label ? ' · ' + e2(a.origin_label) : ''}</span></span>
+      </label>`).join('');
+  };
+  document.getElementById('carry-over-week-list').innerHTML =
+    section('Meetings', 'meetings', meetings) + section('Inspections', 'inspection', inspection) +
+    '<div style="text-align:right;padding-top:12px"><button class="btn btn-primary btn-sm" onclick="_importSelectedModules()">Import selected</button></div>';
+}
+function _importSelectedModules() {
+  const checked = Array.from(document.querySelectorAll('.imp-chk:checked'));
+  if (!checked.length) { toast('Tick at least one action to import', 'info'); return; }
+  checked.forEach(ch => addActionRow({
+    task: ch.dataset.title, owner: ch.dataset.owner || '', due_date: ch.dataset.due || '',
+    status: 'open', source: ch.dataset.src, origin_id: parseInt(ch.dataset.oid, 10),
+  }));
+  closeCarryOverModal();
+  toast(`↩ ${checked.length} action(s) added as references — assign a department to each, then Save`, 'success');
 }
 
 async function carryOverActions() {
