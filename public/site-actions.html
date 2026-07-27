@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Site Actions Register — Endeavour Mining IT</title>
+
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="brand/icons.css">
+<link rel="stylesheet" href="brand/components.css">
+<link rel="stylesheet" href="_shell.css">
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+
+<style nonce="%%CSP_NONCE%%">
+  body { margin: 0; background: var(--color-bg, #F4F5F7); color: var(--color-text-strong, #1F2A33);
+    font-family: var(--font-sans, 'Libre Franklin', sans-serif); font-size: 14px; line-height: 1.45; }
+  .sa-wrap { max-width: 1400px; margin: 0 auto; padding: 24px 28px 48px; }
+  .sa-hero { background: var(--color-card, #fff); border: 1px solid var(--color-border, #E2E5EA); border-radius: 14px;
+    box-shadow: 0 1px 2px rgba(58,74,96,.04); padding: 22px 26px; margin-bottom: 18px; position: relative; overflow: hidden; }
+  .sa-hero::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 6px; background: linear-gradient(180deg, #EF631A, #D90038); }
+  .sa-eyebrow { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.4px; color: var(--edv-orange, #EF631A); margin-bottom: 8px; }
+  .sa-hero h1 { margin: 0 0 6px; font-size: 24px; font-weight: 800; color: var(--edv-slate, #3A4A60); }
+  .sa-hero p  { margin: 0; font-size: 13px; color: var(--color-text, #524F4E); max-width: 78ch; line-height: 1.55; }
+
+  .sa-filters { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; align-items: center; }
+  .sa-select, .sa-search { background: var(--color-card, #fff); border: 1px solid var(--color-border, #E2E5EA);
+    border-radius: 6px; padding: 9px 12px; font: 500 13px var(--font-sans); color: var(--color-text-strong, #1F2A33); }
+  .sa-select { padding-right: 24px; min-width: 200px; }
+  .sa-search { flex: 1; min-width: 220px; }
+  .sa-select:focus, .sa-search:focus { outline: none; border-color: var(--edv-orange, #EF631A); box-shadow: 0 0 0 3px rgba(239,99,26,.12); }
+  .sa-chk { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 500; color: var(--color-text, #524F4E); padding: 0 6px; }
+
+  .sa-group { background: var(--color-card, #fff); border: 1px solid var(--color-border, #E2E5EA); border-radius: 12px;
+    box-shadow: 0 1px 2px rgba(58,74,96,.04); overflow: hidden; margin-bottom: 16px; }
+  .sa-group__head { display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--color-border, #E2E5EA); }
+  .sa-group__dot { width: 10px; height: 10px; border-radius: 3px; flex: 0 0 auto; }
+  .sa-group__title { font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; color: var(--edv-slate, #3A4A60); }
+  .sa-group__count { font-size: 12px; font-weight: 700; color: var(--color-text-muted, #7B7B7B); }
+  .sa-badge { font-size: 10.5px; font-weight: 700; border-radius: 999px; padding: 2px 9px; margin-left: auto; }
+  .sa-badge--old { background: rgba(217,0,56,.10); color: #B00030; }
+
+  .sa-head, .sa-row { display: grid; grid-template-columns: 2.6fr 1.1fr 0.9fr 0.7fr 1.2fr 1fr; gap: 10px; align-items: center; padding: 10px 18px; }
+  .sa-head { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.7px; color: var(--color-text-muted, #7B7B7B); background: #FAFBFC; border-bottom: 1px solid var(--color-border, #E2E5EA); }
+  .sa-row { border-bottom: 1px solid #F0F2F5; font-size: 13px; }
+  .sa-row:last-child { border-bottom: none; }
+  .sa-row__title strong { font-weight: 600; color: var(--color-text-strong, #1F2A33); }
+  .sa-row__title small { display: block; color: var(--color-text-muted, #7B7B7B); font-size: 11px; margin-top: 2px; }
+  .sa-date.overdue { color: #B00030; font-weight: 700; }
+  .sa-pill { display: inline-block; font-size: 11px; font-weight: 700; border: 1px solid; border-radius: 6px; padding: 2px 8px; }
+  .sa-status-sel { border: 1px solid var(--color-border, #E2E5EA); border-radius: 6px; padding: 5px 8px; font: 600 12px var(--font-sans); background: #fff; }
+  .sa-open { font-size: 12px; font-weight: 700; text-decoration: none; color: var(--edv-blue, #145FAE); white-space: nowrap; }
+  .sa-open:hover { text-decoration: underline; }
+  .sa-overdue-tag { display: inline-block; margin-left: 6px; font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: #B00030; background: rgba(217,0,56,.10); border-radius: 4px; padding: 1px 5px; }
+  .sa-empty { padding: 18px; text-align: center; color: var(--color-text-muted, #7B7B7B); font-size: 13px; font-style: italic; }
+  .sa-note { font-size: 11.5px; color: var(--color-text-muted, #7B7B7B); margin: -4px 0 16px; line-height: 1.5; }
+
+  .sa-toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%) translateY(20px); opacity: 0; pointer-events: none;
+    background: #1F2A33; color: #fff; font-size: 13px; font-weight: 600; padding: 10px 18px; border-radius: 8px; transition: all .2s; z-index: 9999; }
+  .sa-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .sa-toast.err { background: #B00030; }
+
+  @media (prefers-color-scheme: dark) {
+    .sa-head { background: rgba(255,255,255,.03); }
+    .sa-row { border-bottom-color: rgba(255,255,255,.06); }
+  }
+</style>
+</head>
+<body>
+<div id="app-shell" data-section="performance" data-current="site-actions"></div>
+
+<div class="sa-wrap">
+  <div class="sa-hero">
+    <div class="sa-eyebrow">Insights · Actions</div>
+    <h1>Site Actions Register</h1>
+    <p>Every still-open action for one site, gathered from the three places they live — <strong>Meetings</strong>,
+      <strong>Inspections</strong> and the weekly <strong>Report follow-ups</strong> — so you can see it all in one
+      place and close it (or jump to where it is closed). Report follow-ups show the latest weekly report.</p>
+  </div>
+
+  <div class="sa-filters">
+    <select id="saSite" class="sa-select"><option value="">— Select a site —</option></select>
+    <input id="saQ" class="sa-search" type="text" placeholder="Filter by text…">
+    <label class="sa-chk"><input type="checkbox" id="saOverdue"> Overdue only</label>
+  </div>
+  <div class="sa-note" id="saNote"></div>
+
+  <div id="saGroups"></div>
+</div>
+<div class="sa-toast" id="saToast"></div>
+
+<script nonce="%%CSP_NONCE%%">
+(function () {
+  'use strict';
+  function authHeaders(extra) {
+    const h = extra || {};
+    const at = window.__authToken; let tok = null;
+    if (typeof at === 'function') { try { tok = at(); } catch (_) {} }
+    else if (typeof at === 'string' && at) { tok = at; }
+    if (!tok) tok = localStorage.getItem('report_token');
+    if (tok) h['x-report-token'] = tok;
+    if (window.__ak) h['x-dash-key'] = window.__ak;
+    return h;
+  }
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+  const fmtDate = iso => {
+    if (!iso) return '—';
+    const M = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const p = String(iso).slice(0, 10).split('-');
+    if (p.length !== 3) return esc(String(iso).slice(0, 10));
+    return `${p[2]} ${M[parseInt(p[1], 10) - 1] || '?'} ${p[0]}`;
+  };
+  const todayIso = () => new Date().toISOString().slice(0, 10);
+
+  let _toastT = null;
+  function toast(msg, isErr) {
+    const el = document.getElementById('saToast');
+    el.textContent = msg; el.className = 'sa-toast show' + (isErr ? ' err' : '');
+    clearTimeout(_toastT); _toastT = setTimeout(() => { el.className = 'sa-toast' + (isErr ? ' err' : ''); }, 2600);
+  }
+
+  const canEdit = !!(window.__userHasRole && window.__userHasRole('editor'));
+  const GROUPS = [
+    { key: 'meetings',   title: 'Meetings',          color: '#145FAE', api: '/api/meetings/actions/',   statuses: ['open', 'in_progress', 'resolved', 'cancelled'] },
+    { key: 'inspection', title: 'Inspections',       color: '#EF631A', api: '/api/inspection/actions/', statuses: ['Open', 'In Progress', 'Closed', 'Cancelled'] },
+    { key: 'report',     title: 'Report follow-ups', color: '#16A34A', api: null,                       statuses: [] },
+  ];
+
+  const state = { site: '', q: '', overdue: false, data: null };
+
+  async function loadSites() {
+    // Meetings + inspection share the mine-site code namespace the hub uses.
+    try {
+      const r = await fetch('/api/inspection/lookups', { credentials: 'same-origin', headers: authHeaders() });
+      const j = await r.json();
+      const sites = (j && j.sites) || [];
+      const sel = document.getElementById('saSite');
+      sel.innerHTML = '<option value="">— Select a site —</option>'
+        + sites.map(s => `<option value="${esc(s.code)}">${esc(s.name || s.code)}</option>`).join('');
+    } catch (e) { /* deep-link ?site= still works without the dropdown */ }
+  }
+
+  async function loadActions() {
+    const groupsEl = document.getElementById('saGroups');
+    if (!state.site) { groupsEl.innerHTML = '<div class="sa-group"><div class="sa-empty">Pick a site to see its open actions.</div></div>'; document.getElementById('saNote').textContent = ''; return; }
+    groupsEl.innerHTML = '<div class="sa-group"><div class="sa-empty">Loading…</div></div>';
+    try {
+      const r = await fetch('/api/reports/site-actions?site=' + encodeURIComponent(state.site), { credentials: 'same-origin', headers: authHeaders() });
+      if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || ('HTTP ' + r.status)); }
+      state.data = await r.json();
+      render();
+    } catch (e) {
+      groupsEl.innerHTML = '<div class="sa-group"><div class="sa-empty">Failed to load: ' + esc(e.message || '') + '</div></div>';
+    }
+  }
+
+  function matchQ(it) {
+    if (!state.q) return true;
+    const hay = (it.title + ' ' + (it.owner || '') + ' ' + (it.origin_label || '')).toLowerCase();
+    return hay.indexOf(state.q.toLowerCase()) !== -1;
+  }
+
+  function statusCell(it, g) {
+    if (it.source === 'report' || !canEdit || !g.api) {
+      return `<span class="sa-pill" style="background:rgba(107,119,133,.12);color:#556;border-color:rgba(107,119,133,.3)">${esc(it.status)}</span>`;
+    }
+    const opts = g.statuses.slice();
+    if (!opts.some(s => s.toLowerCase() === String(it.status).toLowerCase())) opts.unshift(it.status);
+    return `<select class="sa-status-sel" data-src="${g.key}" data-id="${esc(it.action_id)}" data-prev="${esc(it.status)}">`
+      + opts.map(s => `<option value="${esc(s)}"${s === it.status ? ' selected' : ''}>${esc(s)}</option>`).join('') + '</select>';
+  }
+
+  function rowHtml(it, g) {
+    const overdue = it.overdue;
+    const age = it.age_days == null ? '—' : (it.age_days + 'd');
+    const closeCell = it.close && it.close.kind === 'link'
+      ? `<a class="sa-open" href="${esc(it.close.url)}">↗ open report</a>`
+      : '';
+    return `<div class="sa-row">
+      <span class="sa-row__title"><strong>${esc(it.title)}</strong><small>${esc(it.origin_label || '')}</small></span>
+      <span>${esc(it.owner || '—')}</span>
+      <span class="sa-date ${overdue ? 'overdue' : ''}">${fmtDate(it.due_date)}${overdue ? '<span class="sa-overdue-tag">late</span>' : ''}</span>
+      <span>${esc(age)}</span>
+      <span>${statusCell(it, g)}</span>
+      <span>${closeCell}</span>
+    </div>`;
+  }
+
+  function groupHtml(g) {
+    const grp = (state.data && state.data.groups && state.data.groups[g.key]) || { items: [], count: 0, oldest_days: null };
+    let items = grp.items.filter(matchQ);
+    if (state.overdue) items = items.filter(it => it.overdue);
+    const oldest = grp.oldest_days != null ? `<span class="sa-badge sa-badge--old">oldest ${grp.oldest_days}d</span>` : '';
+    const head = `<div class="sa-group__head">
+        <span class="sa-group__dot" style="background:${g.color}"></span>
+        <span class="sa-group__title">${g.title}</span>
+        <span class="sa-group__count">${items.length} open</span>${oldest}
+      </div>`;
+    if (!items.length) return `<div class="sa-group">${head}<div class="sa-empty">No open actions${state.q || state.overdue ? ' match the filter' : ''}.</div></div>`;
+    const table = `<div class="sa-head"><span>Action</span><span>Owner</span><span>Due</span><span>Age</span><span>Status</span><span></span></div>`
+      + items.map(it => rowHtml(it, g)).join('');
+    return `<div class="sa-group">${head}${table}</div>`;
+  }
+
+  function render() {
+    document.getElementById('saGroups').innerHTML = GROUPS.map(groupHtml).join('');
+    const wl = state.data && state.data.week_label;
+    document.getElementById('saNote').innerHTML = wl
+      ? `Report follow-ups shown are from the latest weekly report <strong>${esc(wl)}</strong>. Age is unavailable for report follow-ups (no created timestamp) — they show the due date only.`
+      : 'Report follow-ups appear once this site has a weekly report.';
+    if (canEdit) document.querySelectorAll('.sa-status-sel').forEach(el => el.addEventListener('change', onStatusChange));
+  }
+
+  async function onStatusChange(e) {
+    const el = e.target;
+    const g = GROUPS.find(x => x.key === el.getAttribute('data-src'));
+    const id = el.getAttribute('data-id');
+    const prev = el.getAttribute('data-prev');
+    const status = el.value;
+    el.disabled = true;
+    try {
+      const r = await fetch(g.api + encodeURIComponent(id) + '/update', {
+        method: 'POST', credentials: 'same-origin',
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ status_change: status }),
+      });
+      if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || ('HTTP ' + r.status)); }
+      toast('Action updated → ' + status);
+      await loadActions();
+    } catch (err) {
+      el.value = prev;                 // revert — the server refused (RBAC / closed parent)
+      el.disabled = false;
+      toast('Update refused: ' + (err.message || ''), true);
+    }
+  }
+
+  // Wire filters
+  document.getElementById('saSite').addEventListener('change', e => { state.site = e.target.value; loadActions(); });
+  let _qT = null;
+  document.getElementById('saQ').addEventListener('input', e => { clearTimeout(_qT); _qT = setTimeout(() => { state.q = e.target.value.trim(); render(); }, 200); });
+  document.getElementById('saOverdue').addEventListener('change', e => { state.overdue = e.target.checked; render(); });
+
+  // Deep link ?site=CODE — the coordinator email + the site report link here.
+  (function applyDeepLink() {
+    const site = (new URLSearchParams(location.search).get('site') || '').trim();
+    if (site) state.site = site;
+  })();
+
+  (async function init() {
+    await loadSites();
+    if (state.site) { const sel = document.getElementById('saSite'); if (sel) sel.value = state.site; }
+    loadActions();
+  })();
+})();
+</script>
+</body>
+</html>

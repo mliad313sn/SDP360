@@ -1194,7 +1194,7 @@ function loadHtml(name) {
   'meetings.html', 'meeting.html', 'meetings-issues.html', 'meetings-council.html', 'meetings-compliance.html',
   'meetings-import.html', 'meetings-progress.html', 'meetings-insights.html', 'meetings-setup.html', 'meetings-actions.html',
   'meetings-unsigned.html',
-  'activity-tracker.html', 'help.html', 'exec-view.html', 'site-report.html', 'it-review.html',
+  'activity-tracker.html', 'help.html', 'exec-view.html', 'site-report.html', 'it-review.html', 'site-actions.html',
   'assets.html', 'assets-hygiene.html', 'assets-finance.html',
 ].forEach(loadHtml);
 
@@ -1328,6 +1328,8 @@ app.get('/meetings.html',            (req, res) => sendHtmlPage(res, 'meetings.h
 app.get('/meeting.html',             (req, res) => sendHtmlPage(res, 'meeting.html',             false, 'Meeting editor unavailable'));
 app.get('/meetings-issues.html',     (req, res) => sendHtmlPage(res, 'meetings-issues.html',     false, 'Issues Log unavailable'));
 app.get('/meetings-actions.html',    (req, res) => sendHtmlPage(res, 'meetings-actions.html',    false, 'Actions Register unavailable'));
+// SP1a — per-site Actions Register hub (meetings + inspection + report follow-ups).
+app.get('/site-actions.html',        (req, res) => sendHtmlPage(res, 'site-actions.html',        false, 'Site Actions Register unavailable'));
 app.get('/meetings-unsigned.html',   (req, res) => sendHtmlPage(res, 'meetings-unsigned.html',   false, 'Unsigned PVs unavailable'));
 app.get('/meetings-council.html',    (req, res) => sendHtmlPage(res, 'meetings-council.html',    false, 'Council escalations unavailable'));
 app.get('/meetings-compliance.html', (req, res) => sendHtmlPage(res, 'meetings-compliance.html', false, '5 Engagements monitor unavailable'));
@@ -5200,6 +5202,41 @@ app.get('/api/reports/site-data', requireReportSession, async (req, res) => {
     const kind = req.query.kind === 'monthly' ? 'monthly' : 'weekly';
     const data = await siteReportData(site, { year, month, kind }, buildSiteReportDeps());
     res.json(data);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+// GET /api/reports/site-actions?site=CODE — SP1a per-site Actions Register hub.
+// Composes THREE existing dual-backend readers (meetings/inspection listActions
+// + the latest report's action_items) through the pure buildSiteActions. No
+// schema change, no touch to the report save path. Registered ABOVE
+// /api/reports/:id (the :id shadowing trap). Unknown/absent site → empty groups.
+app.get('/api/reports/site-actions', requireReportSession, async (req, res) => {
+  try {
+    const { buildSiteActions } = require('./services/siteActionsRegister');
+    const rdb = require('./reports-db');
+    const meetingsDb = require('./meetings-db');
+    const inspectionDb = require('./inspection-db');
+    const code = String(req.query.site || '').trim();
+    const asOf = new Date().toISOString().slice(0, 10);
+    if (!code || code === 'all') {
+      return res.json({ site: code || null, week_label: null, ...buildSiteActions({ asOf }) });
+    }
+    // meetings + inspection share the 'meetings' namespace code (SMI/MGO/HGO…).
+    const meetings = await meetingsDb.listActions({ site: code });
+    const inspection = await inspectionDb.listActions({ site: code });
+    // Report follow-ups = the LATEST report's non-closed action_items. listReports
+    // is lightweight (no action_items) → getReport hydrates. resolved.site_id (NOT
+    // .id) or listReports leaks every site (the documented falsy-id pitfall).
+    let report = null;
+    const resolved = await rdb.getSiteIdByModuleCode('meetings', code);
+    if (resolved && resolved.site_id) {
+      const reps = await rdb.listReports(resolved.site_id);
+      if (Array.isArray(reps) && reps.length) {
+        const full = await rdb.getReport(reps[0].id); // ordered year DESC, week DESC → [0] latest
+        if (full) report = { report_id: full.id, week_label: full.week_label, actions: full.action_items || [] };
+      }
+    }
+    res.json({ site: code, week_label: report ? report.week_label : null,
+      ...buildSiteActions({ meetings, inspection, report, asOf }) });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 // GET /api/reports/review-data — the live IT Review dashboard's data (3B-2b).
