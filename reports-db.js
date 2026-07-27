@@ -344,6 +344,23 @@ try { db.exec(`ALTER TABLE change_records ADD COLUMN stage_status TEXT`); } catc
 // department feature — action_items: nullable department + comment columns
 try { db.exec(`ALTER TABLE action_items ADD COLUMN department TEXT`); } catch(e) {}
 try { db.exec(`ALTER TABLE action_items ADD COLUMN comment    TEXT`); } catch(e) {}
+// SP1b — action_items: stable uid + cross-source merge link (source/origin_id).
+// The uid lets a per-row merge survive report re-saves (saveActionItems became
+// an upsert-by-uid). source/origin_id are written ONLY by the merge endpoint.
+try { db.exec(`ALTER TABLE action_items ADD COLUMN uid       TEXT`); } catch(e) {}
+try { db.exec(`ALTER TABLE action_items ADD COLUMN source    TEXT`); } catch(e) {}
+try { db.exec(`ALTER TABLE action_items ADD COLUMN origin_id INTEGER`); } catch(e) {}
+// Backfill uids for rows that predate the column — REQUIRED before the upsert
+// runs: a NULL uid never matches `uid NOT IN (…)`, so an unbackfilled row would
+// escape the delete step and duplicate on the first save.
+function _backfillActionUids(database) {
+  const rows = database.prepare(`SELECT id FROM action_items WHERE uid IS NULL`).all();
+  if (!rows.length) return 0;
+  const upd = database.prepare(`UPDATE action_items SET uid=? WHERE id=?`);
+  database.transaction(() => { for (const r of rows) upd.run(crypto.randomUUID(), r.id); })();
+  return rows.length;
+}
+try { _backfillActionUids(db); } catch(e) {}
 // 2026-07-09 — survey_answers duplicate purge + UNIQUE key. The writer used
 // "ON CONFLICT DO NOTHING" but the table had NO unique constraint, so every
 // survey sync re-INSERTed every answer row (prod audit: 70% of 16,991 rows
@@ -1058,6 +1075,13 @@ async function initPgReports() {            // called once at server boot
   // Chunk 4C — report-editor tables (weeks / weekly_reports / kpis / lights / actions / monthly / objectives / catalogs).
   await _pg.exec(require('fs').readFileSync(
     require('path').join(__dirname, 'db', 'postgres', 'reports', '003_reports.sql'), 'utf8'));
+  // SP1b — action_items stable uid + merge columns (idempotent for existing PG DBs)
+  // + backfill uids on rows that predate the column (see the sqlite note above).
+  for (const c of ['uid TEXT', 'source TEXT', 'origin_id INTEGER']) {
+    await _pg.exec(`ALTER TABLE action_items ADD COLUMN IF NOT EXISTS ${c}`);
+  }
+  { const nulls = await _pg.prepare('SELECT id FROM action_items WHERE uid IS NULL').all();
+    for (const r of nulls) await _pg.prepare('UPDATE action_items SET uid=? WHERE id=?').run(crypto.randomUUID(), r.id); }
   await _seedReportsCatalogsPg(_pg);
   // Chunk 4D-1 — hot-path Zoho tables (request_records / change_records / cab_approvals / survey_* / sync_metadata).
   await _pg.exec(require('fs').readFileSync(
@@ -6672,7 +6696,7 @@ module.exports = {
   getSiteTechnicianStats, _computeTechStats,
   getPreviousWeek, ensureWeek, getWeekRange,
   ensureReport, getReport, listReports,
-  saveInfraKpis, saveHelpdeskData, saveLights, saveActionItems,
+  saveInfraKpis, saveHelpdeskData, saveLights, saveActionItems, _backfillActionUids,
   getPreviousWeekOpenActions, listAllWeeksWithActions, getActionsForReport,
   listAllWeeksWithLights, getLightsForReport,
   // Action departments (editable dropdown for action items)
