@@ -139,7 +139,7 @@
   const GROUPS = [
     { key: 'meetings',   title: 'Meetings',          color: '#145FAE', api: '/api/meetings/actions/',   statuses: ['open', 'in_progress', 'resolved', 'cancelled'] },
     { key: 'inspection', title: 'Inspections',       color: '#EF631A', api: '/api/inspection/actions/', statuses: ['Open', 'In Progress', 'Closed', 'Cancelled'] },
-    { key: 'report',     title: 'Report follow-ups', color: '#16A34A', api: null,                       statuses: [] },
+    { key: 'report',     title: 'Report follow-ups', color: '#16A34A', api: null,                       statuses: ['open', 'in_progress', 'on_hold', 'closed', 'cancelled'] },
   ];
 
   const state = { site: '', q: '', overdue: false, data: null };
@@ -177,12 +177,15 @@
   }
 
   function statusCell(it, g) {
-    if (it.source === 'report' || !canEdit || !g.api) {
+    // report rows carry a uid (SP1b) and post to the per-row report-status
+    // endpoint; meetings/inspection carry an action_id and post to their /update.
+    const id = it.source === 'report' ? it.uid : it.action_id;
+    if (!canEdit || !id || !g.statuses.length) {
       return `<span class="sa-pill" style="background:rgba(107,119,133,.12);color:#556;border-color:rgba(107,119,133,.3)">${esc(it.status)}</span>`;
     }
     const opts = g.statuses.slice();
     if (!opts.some(s => s.toLowerCase() === String(it.status).toLowerCase())) opts.unshift(it.status);
-    return `<select class="sa-status-sel" data-src="${g.key}" data-id="${esc(it.action_id)}" data-prev="${esc(it.status)}">`
+    return `<select class="sa-status-sel" data-src="${it.source}" data-id="${esc(id)}" data-prev="${esc(it.status)}">`
       + opts.map(s => `<option value="${esc(s)}"${s === it.status ? ' selected' : ''}>${esc(s)}</option>`).join('') + '</select>';
   }
 
@@ -304,16 +307,21 @@
 
   async function onStatusChange(e) {
     const el = e.target;
-    const g = GROUPS.find(x => x.key === el.getAttribute('data-src'));
+    const src = el.getAttribute('data-src');
     const id = el.getAttribute('data-id');
     const prev = el.getAttribute('data-prev');
     const status = el.value;
+    // report → /api/reports/action/:uid/status {status}; meetings/inspection →
+    // their existing /actions/:id/update {status_change}.
+    let url, body;
+    if (src === 'report') { url = '/api/reports/action/' + encodeURIComponent(id) + '/status'; body = { status }; }
+    else { const g = GROUPS.find(x => x.key === src); url = g.api + encodeURIComponent(id) + '/update'; body = { status_change: status }; }
     el.disabled = true;
     try {
-      const r = await fetch(g.api + encodeURIComponent(id) + '/update', {
+      const r = await fetch(url, {
         method: 'POST', credentials: 'same-origin',
         headers: authHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ status_change: status }),
+        body: JSON.stringify(body),
       });
       if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || ('HTTP ' + r.status)); }
       toast('Action updated → ' + status);

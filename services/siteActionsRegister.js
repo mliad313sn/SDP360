@@ -14,7 +14,7 @@
 const TERMINAL = {
   meetings: new Set(['resolved', 'cancelled', 'closed']),
   inspection: new Set(['closed', 'cancelled']),
-  report: new Set(['closed']),
+  report: new Set(['closed', 'cancelled']),
 };
 
 function _isTerminal(source, status) {

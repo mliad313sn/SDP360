@@ -2545,7 +2545,7 @@ const _SORA_SQL = `
   FROM action_items ai
   JOIN weekly_reports wr ON wr.id = ai.report_id
   JOIN weeks w ON w.id = wr.week_id
-  WHERE wr.site_id = ? AND ai.status != 'closed' AND ai.source IS NULL`;
+  WHERE wr.site_id = ? AND ai.status NOT IN ('closed','cancelled') AND ai.source IS NULL`;
 function getSiteOpenReportActions(site_id) {
   if (REPORTS_BACKEND === 'postgres') return _getSiteOpenReportActionsPg(site_id);
   return { actions: _dedupLineage(db.prepare(_SORA_SQL).all(site_id)) };
@@ -2633,6 +2633,21 @@ function clearActionMerge(uid) {
 async function _clearActionMergePg(uid) {
   const H = pgHandle();
   const info = await H.prepare('UPDATE action_items SET source=NULL, origin_id=NULL WHERE uid=?').run(uid);
+  return { ok: (info.changes || info.rowCount || 0) > 0 };
+}
+
+// Per-row status change for a report follow-up, keyed by the stable uid — the
+// hub's inline status control for the Report section (Meetings/Inspection have
+// their own /update endpoints). An UPDATE by uid: it never touches
+// source/origin_id/lineage, so a merge/reference/carry-lineage stays intact.
+function setActionStatus(uid, status) {
+  if (REPORTS_BACKEND === 'postgres') return _setActionStatusPg(uid, status);
+  const info = db.prepare(`UPDATE action_items SET status=? WHERE uid=?`).run(status, uid);
+  return { ok: info.changes > 0 };
+}
+async function _setActionStatusPg(uid, status) {
+  const H = pgHandle();
+  const info = await H.prepare('UPDATE action_items SET status=? WHERE uid=?').run(status, uid);
   return { ok: (info.changes || info.rowCount || 0) > 0 };
 }
 
@@ -6780,7 +6795,7 @@ module.exports = {
   getPreviousWeek, ensureWeek, getWeekRange,
   ensureReport, getReport, listReports,
   saveInfraKpis, saveHelpdeskData, saveLights, saveActionItems, _backfillActionUids,
-  setActionMerge, clearActionMerge, getSiteOpenReportActions,
+  setActionMerge, clearActionMerge, setActionStatus, getSiteOpenReportActions,
   getPreviousWeekOpenActions, listAllWeeksWithActions, getActionsForReport,
   listAllWeeksWithLights, getLightsForReport,
   // Action departments (editable dropdown for action items)
