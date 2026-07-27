@@ -108,10 +108,13 @@ function buildSiteActions(input) {
           status: a.status,
           age_days: null, // action_items has no created timestamp
           overdue: _overdue(a.due_date, asOfMs, false),
-          origin_label: report.week_label || null,
+          // SP1b-lignée: each report action carries its OWN report_id/week_label
+          // (the hub aggregates across weeks). Fall back to the wrapper for the
+          // legacy single-report shape (kept for the unit fixtures).
+          origin_label: a.week_label || report.week_label || null,
           action_id: null,
           uid: a.uid || null,   // SP1b: the report action's stable uid — merge target for the hub
-          close: { kind: 'link', url: 'reports.html?report=' + report.report_id },
+          close: { kind: 'link', url: 'reports.html?report=' + (a.report_id || report.report_id) },
         }))
     : [];
 
