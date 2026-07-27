@@ -123,6 +123,7 @@
         // pattern as Activity Tracker. Keeps Insights ▾ lean and matches
         // the user mental model of "one module = one nav entry".
         { id: 'meetings',    label: 'Meetings Decisions',  icon: ICON_LIB['clipboard-check'], href: 'meetings.html',          roles: ['any']       },
+        { id: 'site-actions', label: 'Site Actions',       icon: ICON_LIB['clipboard-check'], href: 'site-actions.html',      roles: ['any']       },
         // Assets — ONE tabbed module (Inventory · Hygiene · Finance & Licences)
         // over the ManageEngine-synced fleet, driven by one shared filter bar.
         // The former standalone Hygiene + Finance pages are now the #hygiene /
