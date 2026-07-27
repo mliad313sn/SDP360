@@ -545,6 +545,35 @@ function footer(data) {
   return `<div style="font-family:${FONT};font-size:11px;color:${MUTED};line-height:1.5;padding:4px 2px 8px 2px;">Endeavour Mining &middot; IT Operations &middot; generated from the SDP Dashboard for ${escapeHtml(data.site_code)}. Reply to this email to reach the IT coordinator.</div>`;
 }
 
+// SP2 — open actions by theme (Meetings / Inspections / Report follow-ups) + a
+// link to the site's Actions Register hub, so the coordinator knows what's open
+// AND where to close it. Optional (spread only when data.actions is present), so
+// the byte-equality monthly goldens — whose fixtures have no `actions` — are
+// unchanged. The link is omitted when base_url is unset (the weekly pattern: a
+// guessed origin ships dead links).
+function actionsSection(actions, baseUrl, siteCode) {
+  const a = obj(actions);
+  const kpis = kpiGrid([
+    { label: 'R&eacute;unions', value: num(obj(a.meetings).count) },
+    { label: 'Inspections', value: num(obj(a.inspection).count) },
+    { label: 'Suivi rapport', value: num(obj(a.report).count) },
+  ]);
+  const p = `font-family:${FONT};font-size:12px;color:${MUTED};line-height:1.5;`;
+  const oldests = [obj(a.meetings).oldest, obj(a.inspection).oldest].filter((o) => o != null);
+  const oldestLine = oldests.length
+    ? `<div style="${p}padding-top:4px;">La plus ancienne action ouverte&nbsp;: <span style="color:${INK};font-weight:bold;">${Math.max(...oldests)}&nbsp;jours</span></div>`
+    : '';
+  let cta;
+  if (baseUrl && siteCode) {
+    const url = `${baseUrl}/site-actions.html?site=${encodeURIComponent(siteCode)}`;
+    cta = `<div style="${p}padding-top:8px;"><a href="${escapeHtml(url)}" style="color:${TEAL};font-weight:bold;text-decoration:none;">Ouvrez votre Registre des actions du site &rarr;</a></div>`;
+  } else {
+    cta = `<div style="${p}padding-top:8px;font-style:italic;">Ouvrez le Registre des actions du site (menu Insights &rsaquo; Site Actions) pour les fermer.</div>`;
+  }
+  const note = `<div style="${p}font-style:italic;padding-top:6px;">Actions encore ouvertes, regroup&eacute;es par source &mdash; on ferme chacune l&agrave; o&ugrave; elle vit (r&eacute;union, inspection, ou l'&eacute;diteur du rapport).</div>`;
+  return card('Actions ouvertes — par source', `${kpis}${oldestLine}${cta}${note}`, TEAL);
+}
+
 function composeCoordinator(data) {
   const d = obj(data);
   const siteName = d.site_name || d.site_code || 'Site';
@@ -566,6 +595,9 @@ function composeCoordinator(data) {
     changesSection(d.changes, ctx),
     techniciansSection(d.technicians, ctx),
     recommendedSection(d.recommended, d.score),
+    // SP2 — open-actions block. Same spread guard as assetEffort below: absent
+    // `actions` inserts NOTHING, so the byte-for-byte goldens are untouched.
+    ...(d.actions ? [actionsSection(d.actions, d.base_url, d.site_code)] : []),
     // SPREAD, never a ternary-into-'' — composeCoordinator joins WITHOUT
     // .filter(Boolean), so an empty string here would add a stray '\n' and break
     // the byte-for-byte monthly goldens. Absent assetEffort → nothing inserted.
