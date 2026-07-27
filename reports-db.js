@@ -2575,12 +2575,15 @@ const _saveActionItemsSqlite = db.transaction((report_id, items) => {
   }
   const exists = db.prepare(`SELECT 1 FROM action_items WHERE report_id=? AND uid=?`);
   const upd = db.prepare(`UPDATE action_items SET task=?,priority=?,due_date=?,owner=?,status=?,department=?,comment=?,sort_order=? WHERE report_id=? AND uid=?`);
-  const ins = db.prepare(`INSERT INTO action_items (report_id,task,priority,due_date,owner,status,department,comment,sort_order,uid,lineage) VALUES (?,?,?,?,?,?,?,?,?,?,?)`);
+  // SP3: source/origin_id are written HERE on INSERT (client-set from the import
+  // picker) — the UPDATE branch never writes them, so a re-save can't wipe an
+  // existing merge/reference (SP1b durability holds).
+  const ins = db.prepare(`INSERT INTO action_items (report_id,task,priority,due_date,owner,status,department,comment,sort_order,uid,lineage,source,origin_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`);
   items.forEach((a, i) => {
     if (a.uid && exists.get(report_id, a.uid)) {
       upd.run(a.task, a.priority||'Medium', a.due_date||null, a.owner||null, a.status||'open', a.department||null, a.comment||null, i, report_id, a.uid);
     } else {
-      ins.run(report_id, a.task, a.priority||'Medium', a.due_date||null, a.owner||null, a.status||'open', a.department||null, a.comment||null, i, a.uid || crypto.randomUUID(), a.lineage || null);
+      ins.run(report_id, a.task, a.priority||'Medium', a.due_date||null, a.owner||null, a.status||'open', a.department||null, a.comment||null, i, a.uid || crypto.randomUUID(), a.lineage || null, a.source || null, a.origin_id || null);
     }
   });
 });
@@ -2601,8 +2604,8 @@ async function _saveActionItemsPg(report_id, items) {
         await H.prepare('UPDATE action_items SET task=?,priority=?,due_date=?,owner=?,status=?,department=?,comment=?,sort_order=? WHERE report_id=? AND uid=?')
           .run(a.task, a.priority||'Medium', a.due_date||null, a.owner||null, a.status||'open', a.department||null, a.comment||null, i, report_id, a.uid);
       } else {
-        await H.prepare('INSERT INTO action_items (report_id,task,priority,due_date,owner,status,department,comment,sort_order,uid,lineage) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
-          .run(report_id, a.task, a.priority||'Medium', a.due_date||null, a.owner||null, a.status||'open', a.department||null, a.comment||null, i, a.uid || crypto.randomUUID(), a.lineage || null);
+        await H.prepare('INSERT INTO action_items (report_id,task,priority,due_date,owner,status,department,comment,sort_order,uid,lineage,source,origin_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)')
+          .run(report_id, a.task, a.priority||'Medium', a.due_date||null, a.owner||null, a.status||'open', a.department||null, a.comment||null, i, a.uid || crypto.randomUUID(), a.lineage || null, a.source || null, a.origin_id || null);
       }
       i++;
     }

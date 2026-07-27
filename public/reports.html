@@ -3677,6 +3677,8 @@ function addActionRow(a) {
   tr.dataset.rowId = rowId;
   tr.dataset.uid = (a && a.uid) || '';   // SP1b: round-trip the stable uid so a re-save matches by uid (never wipes a merge)
   tr.dataset.lineage = (a && a.lineage) || '';   // SP1b-lignée: carry-forward chain root (immutable server-side)
+  tr.dataset.source = (a && a.source) || '';     // SP3: reference to a Meetings/Inspection action (written on INSERT only)
+  tr.dataset.originId = (a && a.origin_id != null) ? String(a.origin_id) : '';
   tr.innerHTML = `
     <td><input type="text" value="${esc(a.task)}" placeholder="Describe the action…"></td>
     <td>
@@ -3783,6 +3785,8 @@ function collectActions() {
     return {
       uid:        tr.dataset.uid || undefined,      // SP1b: preserved so saveActionItems upserts by uid
       lineage:    tr.dataset.lineage || undefined,  // SP1b-lignée: set on carried copies (server writes it once)
+      source:     tr.dataset.source || undefined,   // SP3: Meetings/Inspection reference (INSERT-only server-side)
+      origin_id:  tr.dataset.originId ? parseInt(tr.dataset.originId, 10) : undefined,
       task:       inputs[0].value.trim(),
       department: selects[0].value,                 // '' if not picked
       priority:   selects[1].value,

@@ -67,6 +67,24 @@ test('upsert: mint uid, preserve merge on re-save, delete/insert, empty', async 
   assert.equal((await load()).length, 0);
 });
 
+test('source/origin_id written on INSERT (SP3 import ref), immutable on UPDATE', async () => {
+  await rdb.saveActionItems(rid, []);
+  await rdb.saveActionItems(rid, [{ task: 'ref', status: 'open', source: 'meetings', origin_id: 9 }]);
+  let row = (await load())[0];
+  assert.equal(row.source, 'meetings', 'source stored on insert');
+  assert.equal(row.origin_id, 9);
+  const uid = row.uid;
+  // re-save by uid with a DIFFERENT source claim → must NOT change (UPDATE never writes it)
+  await rdb.saveActionItems(rid, [{ uid, task: 'ref edited', status: 'open', source: 'HACK', origin_id: 999 }]);
+  row = (await load())[0];
+  assert.equal(row.task, 'ref edited', 'editable field updated');
+  assert.equal(row.source, 'meetings', 'source IMMUTABLE on re-save');
+  assert.equal(row.origin_id, 9);
+  // a native new row → source null
+  await rdb.saveActionItems(rid, [{ uid, task: 'ref edited', status: 'open' }, { task: 'native', status: 'open' }]);
+  assert.equal((await load()).find(x => x.task === 'native').source, null);
+});
+
 test('lineage is written on INSERT and immutable on UPDATE', async () => {
   await rdb.saveActionItems(rid, []);
   await rdb.saveActionItems(rid, [{ task: 'carried', status: 'open', lineage: 'root-42' }]);
