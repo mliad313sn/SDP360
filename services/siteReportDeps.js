@@ -78,6 +78,27 @@ function buildSiteReportDeps(mods) {
       };
     },
 
+    // demande 1 — weekly volume + resolution-SLA trend for the site-report page's
+    // HELPDESK chart. Built from the SAME getSiteHelpdeskWindow the block's KPIs
+    // use, per ISO week, so the chart reconciles with the headline numbers. Only
+    // resolution SLA (overdue_status) exists on request_records — no first-reply,
+    // so no first-reply line is fabricated. missed_pct = overdue/inbound (null on
+    // an empty week). 6 window reads per render (bounded; a single-span reader is
+    // the optimisation if this ever profiles hot).
+    helpdeskWeekly: async (code, p) => {
+      const s = await resolve(code);
+      if (!s) return null;
+      const asOf = p.as_of || _asOfFor(p);
+      const out = [];
+      for (const w of _lastIsoWeeks(asOf, 6)) {
+        const hd = (await reportsDb.getSiteHelpdeskWindow(s.site_id, w.from, w.to)) || {};
+        const inbound = hd.created || 0, closed = hd.resolved || 0, overdue = hd.sla_overdue || 0;
+        out.push({ label: w.label, inbound, closed, overdue,
+          missed_pct: inbound > 0 ? Math.round((overdue / inbound) * 1000) / 10 : null });
+      }
+      return out;
+    },
+
     helpdesk: async (code, p) => {
       const s = await resolve(code);
       if (!s) return null;                       // siteReport._safe → zeroed block
@@ -231,4 +252,32 @@ function _monthBounds(p) {
   return { from: `${p.year}-${mm}-01`, to: `${p.year}-${mm}-${String(last).padStart(2, '0')}` };
 }
 
-module.exports = { buildSiteReportDeps, _monthBounds, _asOfFor };
+// ISO-8601 week number (UTC). Standard nearest-Thursday algorithm.
+function _isoWeek(date) {
+  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const day = d.getUTCDay() || 7;                 // 1..7 (Mon..Sun)
+  d.setUTCDate(d.getUTCDate() + 4 - day);         // shift to the week's Thursday
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const week = Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
+  return { year: d.getUTCFullYear(), week };
+}
+const _isoDate = (d) => d.toISOString().slice(0, 10);
+
+// The last `n` ISO weeks ending at (and including) asOf's week — Monday-aligned,
+// ascending, each `{year, week, from, to, label:'W## YYYY'}`. Deterministic
+// (no new Date()) so it is unit-testable.
+function _lastIsoWeeks(asOfIso, n) {
+  const base = new Date(asOfIso + 'T00:00:00Z');
+  const dow = (base.getUTCDay() + 6) % 7;         // 0=Mon..6=Sun
+  const monday = new Date(base); monday.setUTCDate(base.getUTCDate() - dow);
+  const out = [];
+  for (let i = n - 1; i >= 0; i--) {
+    const start = new Date(monday); start.setUTCDate(monday.getUTCDate() - i * 7);
+    const end = new Date(start); end.setUTCDate(start.getUTCDate() + 6);
+    const { year, week } = _isoWeek(start);
+    out.push({ year, week, from: _isoDate(start), to: _isoDate(end), label: `W${week} ${year}` });
+  }
+  return out;
+}
+
+module.exports = { buildSiteReportDeps, _monthBounds, _asOfFor, _lastIsoWeeks };
