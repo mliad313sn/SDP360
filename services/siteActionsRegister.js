@@ -97,7 +97,9 @@ function buildSiteActions(input) {
 
   const rItems = report
     ? report.actions
-        .filter((a) => !_isTerminal('report', a.status))
+        // SP1b: a merged follow-up (source set) is a duplicate of an origin
+        // already listed under Meetings/Inspections — fold it away here.
+        .filter((a) => !_isTerminal('report', a.status) && !a.source)
         .map((a) => ({
           source: 'report',
           title: a.task || '—',

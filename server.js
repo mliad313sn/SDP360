@@ -5239,6 +5239,32 @@ app.get('/api/reports/site-actions', requireReportSession, async (req, res) => {
       ...buildSiteActions({ meetings, inspection, report, asOf }) });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
+// SP1b — merge a report follow-up into its Meetings/Inspection twin (a reference)
+// / undo. Editor role (matches the report side's posture — no per-site helper).
+// Keyed by the stable action uid; registered ABOVE /api/reports/:id.
+app.post('/api/reports/action/:uid/merge', requireReportSession, async (req, res) => {
+  try {
+    const rdb = require('./reports-db');
+    if (!rdb.userHasRole(req.reportUser, 'editor')) return res.status(403).json({ error: 'editor role required' });
+    const uid = String(req.params.uid || '');
+    const source = String((req.body && req.body.source) || '');
+    const origin_id = parseInt(req.body && req.body.origin_id, 10);
+    if (!['meetings', 'inspection'].includes(source)) return res.status(400).json({ error: 'source must be meetings|inspection' });
+    if (!Number.isInteger(origin_id) || origin_id <= 0) return res.status(400).json({ error: 'origin_id must be a positive integer' });
+    const r = await rdb.setActionMerge(uid, { source, origin_id });
+    if (!r.ok) return res.status(404).json({ error: 'action not found' });
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+app.post('/api/reports/action/:uid/unmerge', requireReportSession, async (req, res) => {
+  try {
+    const rdb = require('./reports-db');
+    if (!rdb.userHasRole(req.reportUser, 'editor')) return res.status(403).json({ error: 'editor role required' });
+    const r = await rdb.clearActionMerge(String(req.params.uid || ''));
+    if (!r.ok) return res.status(404).json({ error: 'action not found' });
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
 // GET /api/reports/review-data — the live IT Review dashboard's data (3B-2b).
 // Feeds public/it-review.html: loadReviewData(asOf) → D, then buildReviewVals
 // emits the 61-key flat object the template's bindings read.
