@@ -6,6 +6,36 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ---
 
+## ⚡ Current state (as of 2026-07-27, plus tard — graphe hebdo Helpdesk du rapport site)
+
+> **Demande 1 : courbe hebdomadaire volume + SLA sur le bloc HELPDESK du rapport
+> site landed** (branche `feat/site-report-helpdesk-weekly-chart`, fusionnée) —
+> le bloc Helpdesk du rapport site (`site-report.html`) ne montrait qu'un
+> instantané mensuel ; on ajoute **sous le graphe des catégories** un combo
+> Chart.js **6 dernières semaines ISO** : barres Inbound/Closed + **ligne
+> « Res. SLA missed % » sur axe secondaire** (`pct` 0-100). **Uniquement dans la
+> page** (le rapport authored) — **pas dans l'email** : les goldens
+> `monthly-email-{full,nonApplicable}.html` et le fingerprint PPTX restent
+> **byte-identiques** (aucune touche au composeur email/PPTX ; câblage additif).
+> **Trois pièges honorés** : (a) `missed_pct` vaut **`null` quand `inbound === 0`**
+> (jamais un faux 0) → `spanGaps:false` coupe la ligne sur les semaines vides ;
+> (b) le périmètre est **résolution SLA seulement** (`request_records` porte
+> `overdue_status`, PAS le first-reply) — une note l'indique dans la page ;
+> (c) le calcul des 6 semaines est de l'**ISO-8601 vrai** (algorithme du jeudi le
+> plus proche, UTC, aligné lundi) via `_isoWeek`/`_lastIsoWeeks` (exportés de
+> `siteReportDeps.js`, ancrés à l'as-of). Nouveau binder **`helpdeskWeekly`** :
+> boucle `_lastIsoWeeks(asOf, 6)` → `getSiteHelpdeskWindow(site_id, from, to)` par
+> semaine → `{label, inbound, closed, overdue, missed_pct}` ; **null si le site
+> est irrésoluble** (même garde que les autres binders). `siteReport.js` le porte
+> via `_safe` (dep-gardé → `helpdesk_weekly:null` quand absent → graphe caché).
+> Client : `renderHelpdeskWeekly(data.helpdesk_weekly)` (destroy-on-rerender,
+> caché si vide/pas de Chart.js). **Régression** : `site-report-helpdesk-weekly`
+> (4) + goldens (`report-template-primitives`, `report-template-coordinator`,
+> `pptx-monthly-golden`) + `await-precedence` = **verts, goldens NON régénérés**.
+> **Vérif navigateur E2E impossible** (`site-report.html` derrière login de
+> session, identifiants jamais saisis) — prouvé par tests unitaires + syntaxe.
+> Plan : `docs/superpowers/plans/2026-07-27-site-report-helpdesk-weekly-chart.md`.
+
 ## ⚡ Current state (as of 2026-07-27, later — hub statut suivi éditable)
 
 > **Statut éditable en ligne pour « Report follow-ups » dans le hub Site Actions
