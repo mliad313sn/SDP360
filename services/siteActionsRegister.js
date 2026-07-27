@@ -97,7 +97,9 @@ function buildSiteActions(input) {
 
   const rItems = report
     ? report.actions
-        .filter((a) => !_isTerminal('report', a.status))
+        // SP1b: a merged follow-up (source set) is a duplicate of an origin
+        // already listed under Meetings/Inspections — fold it away here.
+        .filter((a) => !_isTerminal('report', a.status) && !a.source)
         .map((a) => ({
           source: 'report',
           title: a.task || '—',
@@ -108,6 +110,7 @@ function buildSiteActions(input) {
           overdue: _overdue(a.due_date, asOfMs, false),
           origin_label: report.week_label || null,
           action_id: null,
+          uid: a.uid || null,   // SP1b: the report action's stable uid — merge target for the hub
           close: { kind: 'link', url: 'reports.html?report=' + report.report_id },
         }))
     : [];

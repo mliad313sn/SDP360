@@ -53,7 +53,8 @@ CREATE TABLE IF NOT EXISTS action_items (
   report_id INTEGER NOT NULL REFERENCES weekly_reports(id) ON DELETE CASCADE,
   task TEXT NOT NULL, priority TEXT DEFAULT 'Medium', due_date TEXT, owner TEXT,
   status TEXT DEFAULT 'open', sort_order INTEGER DEFAULT 0,
-  department TEXT, comment TEXT
+  department TEXT, comment TEXT,
+  uid TEXT, source TEXT, origin_id INTEGER   -- SP1b: stable id + cross-source merge link
 );
 
 CREATE TABLE IF NOT EXISTS monthly_reports (

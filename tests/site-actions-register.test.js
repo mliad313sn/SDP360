@@ -81,6 +81,15 @@ test('oldest_days per group (report null since no created ts)', () => {
   assert.equal(r.groups.report.oldest_days, null);
 });
 
+test('merged report rows (source set) are folded out of the report group', () => {
+  const r = buildSiteActions({ report: { report_id: 9, week_label: 'W1 2026', actions: [
+    { id: 1, task: 'native follow-up', status: 'open' },
+    { id: 2, task: 'retyped from a meeting', status: 'open', source: 'meetings', origin_id: 5 },
+  ] }, asOf });
+  assert.equal(r.groups.report.count, 1, 'merged row folded away (shown under its origin instead)');
+  assert.equal(r.groups.report.items[0].title, 'native follow-up');
+});
+
 test('empty / missing sources → empty groups, no throw', () => {
   const r = buildSiteActions({ asOf });
   assert.equal(r.groups.meetings.count, 0);

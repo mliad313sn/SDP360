@@ -61,6 +61,21 @@
   .sa-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
   .sa-toast.err { background: #B00030; }
 
+  .sa-mergebtn { font-size: 11px; font-weight: 700; color: var(--edv-orange, #EF631A); background: none; border: 1px solid rgba(239,99,26,.3); border-radius: 6px; padding: 2px 7px; cursor: pointer; margin-left: 8px; white-space: nowrap; }
+  .sa-mergebtn:hover { background: rgba(239,99,26,.08); }
+  .sa-modal-bg { position: fixed; inset: 0; background: rgba(15,23,42,.55); display: flex; align-items: center; justify-content: center; z-index: 9998; }
+  .sa-modal { background: var(--color-card, #fff); border-radius: 12px; max-width: 560px; width: 92%; max-height: 82vh; overflow: auto; box-shadow: 0 20px 60px rgba(0,0,0,.3); }
+  .sa-modal__head { padding: 16px 20px; border-bottom: 1px solid var(--color-border, #E2E5EA); font-weight: 800; color: var(--edv-slate, #3A4A60); font-size: 15px; }
+  .sa-modal__head small { display: block; font-weight: 500; color: var(--color-text-muted, #7B7B7B); font-size: 12px; margin-top: 4px; }
+  .sa-cand { display: flex; align-items: center; gap: 10px; padding: 11px 20px; border-bottom: 1px solid #F0F2F5; cursor: pointer; }
+  .sa-cand:hover { background: #F8FAFC; }
+  .sa-cand__src { font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; border-radius: 4px; padding: 2px 6px; flex: 0 0 auto; color: #fff; }
+  .sa-cand__body strong { font-weight: 600; font-size: 13px; }
+  .sa-cand__body small { display: block; color: var(--color-text-muted, #7B7B7B); font-size: 11px; }
+  .sa-star { color: #EF631A; font-weight: 800; margin-left: 4px; }
+  .sa-modal__foot { padding: 12px 20px; text-align: right; }
+  .sa-modal__foot button { font-size: 13px; font-weight: 600; padding: 8px 14px; border-radius: 7px; border: 1px solid var(--color-border, #E2E5EA); background: #fff; cursor: pointer; }
+  .sa-toast .sa-undo { margin-left: 12px; color: #7DD3FC; font-weight: 800; cursor: pointer; text-decoration: underline; }
   @media (prefers-color-scheme: dark) {
     .sa-head { background: rgba(255,255,255,.03); }
     .sa-row { border-bottom-color: rgba(255,255,255,.06); }
@@ -174,9 +189,15 @@
   function rowHtml(it, g) {
     const overdue = it.overdue;
     const age = it.age_days == null ? '—' : (it.age_days + 'd');
-    const closeCell = it.close && it.close.kind === 'link'
-      ? `<a class="sa-open" href="${esc(it.close.url)}">↗ open report</a>`
-      : '';
+    let closeCell = '';
+    if (it.close && it.close.kind === 'link') {
+      closeCell = `<a class="sa-open" href="${esc(it.close.url)}">↗ open</a>`;
+      // SP1b: a report follow-up may be a hidden duplicate of a Meetings/Inspection
+      // action — let an editor merge it into its twin (it then folds under the origin).
+      if (canEdit && it.uid) {
+        closeCell += `<button class="sa-mergebtn" data-uid="${esc(it.uid)}" data-title="${esc(it.title)}">⇄ same as…</button>`;
+      }
+    }
     return `<div class="sa-row">
       <span class="sa-row__title"><strong>${esc(it.title)}</strong><small>${esc(it.origin_label || '')}</small></span>
       <span>${esc(it.owner || '—')}</span>
@@ -210,6 +231,77 @@
       ? `Report follow-ups shown are from the latest weekly report <strong>${esc(wl)}</strong>. Age is unavailable for report follow-ups (no created timestamp) — they show the due date only.`
       : 'Report follow-ups appear once this site has a weekly report.';
     if (canEdit) document.querySelectorAll('.sa-status-sel').forEach(el => el.addEventListener('change', onStatusChange));
+    document.querySelectorAll('.sa-mergebtn').forEach(b => b.addEventListener('click', () => openMergePicker(b.dataset.uid, b.dataset.title)));
+  }
+
+  // ── SP1b merge: pick the Meetings/Inspection twin this follow-up duplicates ──
+  const _norm = s => String(s || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(w => w.length > 2);
+  function _score(a, b) {
+    const A = new Set(_norm(a)), B = new Set(_norm(b));
+    if (!A.size || !B.size) return 0;
+    let hit = 0; B.forEach(w => { if (A.has(w)) hit++; });
+    return hit / Math.max(A.size, B.size);
+  }
+  function _candidates() {
+    const out = [];
+    (['meetings', 'inspection']).forEach(src => {
+      const grp = state.data && state.data.groups && state.data.groups[src];
+      (grp ? grp.items : []).forEach(i => { if (i.action_id) out.push({ source: src, origin_id: i.action_id, title: i.title, sub: i.origin_label }); });
+    });
+    return out;
+  }
+  function openMergePicker(uid, title) {
+    const cands = _candidates()
+      .map(c => Object.assign({ score: _score(title, c.title) }, c))
+      .sort((a, b) => b.score - a.score);
+    const col = { meetings: '#145FAE', inspection: '#EF631A' };
+    const rows = cands.length ? cands.map(c => `
+      <div class="sa-cand" data-src="${c.source}" data-oid="${c.origin_id}">
+        <span class="sa-cand__src" style="background:${col[c.source]}">${c.source === 'meetings' ? 'Réunion' : 'Inspection'}</span>
+        <span class="sa-cand__body"><strong>${esc(c.title)}</strong>${c.score >= 0.34 ? '<span class="sa-star">★ likely</span>' : ''}<small>${esc(c.sub || '')}</small></span>
+      </div>`).join('')
+      : '<div class="sa-empty">No Meetings or Inspection actions on this site to match against.</div>';
+    const bg = document.createElement('div');
+    bg.className = 'sa-modal-bg';
+    bg.innerHTML = `<div class="sa-modal">
+      <div class="sa-modal__head">Same as which action?<small>“${esc(title)}” will become a reference — it folds under the action you pick, closed there.</small></div>
+      ${rows}
+      <div class="sa-modal__foot"><button id="sa-cancel">Cancel</button></div></div>`;
+    document.body.appendChild(bg);
+    const close = () => bg.remove();
+    bg.addEventListener('click', e => { if (e.target === bg) close(); });
+    bg.querySelector('#sa-cancel').addEventListener('click', close);
+    bg.querySelectorAll('.sa-cand').forEach(el => el.addEventListener('click', () => {
+      close(); doMerge(uid, el.dataset.src, parseInt(el.dataset.oid, 10));
+    }));
+  }
+  async function doMerge(uid, source, origin_id) {
+    try {
+      const r = await fetch('/api/reports/action/' + encodeURIComponent(uid) + '/merge', {
+        method: 'POST', credentials: 'same-origin',
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ source, origin_id }),
+      });
+      if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || ('HTTP ' + r.status)); }
+      toastUndo('Merged — folded under its ' + (source === 'meetings' ? 'meeting' : 'inspection'), () => undoMerge(uid));
+      await loadActions();
+    } catch (e) { toast('Merge refused: ' + (e.message || ''), true); }
+  }
+  async function undoMerge(uid) {
+    try {
+      const r = await fetch('/api/reports/action/' + encodeURIComponent(uid) + '/unmerge', { method: 'POST', credentials: 'same-origin', headers: authHeaders() });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      toast('Merge undone');
+      await loadActions();
+    } catch (e) { toast('Undo failed: ' + (e.message || ''), true); }
+  }
+  function toastUndo(msg, fn) {
+    const el = document.getElementById('saToast');
+    el.innerHTML = esc(msg) + ' <span class="sa-undo">Undo</span>';
+    el.className = 'sa-toast show';
+    const u = el.querySelector('.sa-undo');
+    if (u) u.addEventListener('click', () => { el.className = 'sa-toast'; fn(); });
+    clearTimeout(_toastT); _toastT = setTimeout(() => { el.className = 'sa-toast'; }, 6000);
   }
 
   async function onStatusChange(e) {
