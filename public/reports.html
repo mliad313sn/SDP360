@@ -3670,6 +3670,7 @@ function addActionRow(a) {
 
   const tr = document.createElement('tr');
   tr.dataset.rowId = rowId;
+  tr.dataset.uid = (a && a.uid) || '';   // SP1b: round-trip the stable uid so a re-save matches by uid (never wipes a merge)
   tr.innerHTML = `
     <td><input type="text" value="${esc(a.task)}" placeholder="Describe the action…"></td>
     <td>
@@ -3774,6 +3775,7 @@ function collectActions() {
     const commentTr = document.querySelector(`tr.action-comment-row[data-comment-for="${rowId}"]`);
     const comment   = commentTr?.querySelector('textarea')?.value.trim() || '';
     return {
+      uid:        tr.dataset.uid || undefined,      // SP1b: preserved so saveActionItems upserts by uid
       task:       inputs[0].value.trim(),
       department: selects[0].value,                 // '' if not picked
       priority:   selects[1].value,
