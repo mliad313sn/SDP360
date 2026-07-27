@@ -5262,6 +5262,32 @@ app.post('/api/reports/action/:uid/unmerge', requireReportSession, async (req, r
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
+// SP3 — GET /api/reports/:id/importable-actions — the report site's OPEN Meetings
+// + Inspection actions, so the editor can pull them into the report's Actions
+// section as references. Registered ABOVE /api/reports/:id (the shadowing trap).
+app.get('/api/reports/:id/importable-actions', requireReportSession, async (req, res) => {
+  try {
+    const rdb = require('./reports-db');
+    const meetingsDb = require('./meetings-db');
+    const inspectionDb = require('./inspection-db');
+    const rep = await rdb.getReport(parseInt(req.params.id, 10));
+    if (!rep) return res.status(404).json({ error: 'report not found' });
+    const codes = await rdb.listSiteModuleCodes('meetings');
+    const match = (codes || []).find((c) => c.site_id === rep.site_id);
+    const code = match ? match.code : null;
+    if (!code) return res.json({ site: null, meetings: [], inspection: [] });
+    const TERM_M = new Set(['resolved', 'cancelled', 'closed']);
+    const TERM_I = new Set(['closed', 'cancelled']);
+    const open = (rows, term) => (rows || []).filter((a) => !term.has(String(a.status || '').toLowerCase()));
+    const m = open(await meetingsDb.listActions({ site: code }), TERM_M);
+    const i = open(await inspectionDb.listActions({ site: code }), TERM_I);
+    res.json({
+      site: code,
+      meetings: m.map((a) => ({ origin_id: a.id, title: a.description || '—', owner: a.owner_it || a.owner_email || null, due_date: a.target_date || null, origin_label: a.meeting_reference || null })),
+      inspection: i.map((a) => ({ origin_id: a.id, title: a.description || '—', owner: a.owner || null, due_date: a.due_date || null, origin_label: a.inspection_label || null })),
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
 // GET /api/reports/review-data — the live IT Review dashboard's data (3B-2b).
 // Feeds public/it-review.html: loadReviewData(asOf) → D, then buildReviewVals
 // emits the 61-key flat object the template's bindings read.
