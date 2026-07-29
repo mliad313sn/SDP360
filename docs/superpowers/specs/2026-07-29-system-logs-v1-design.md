@@ -38,7 +38,7 @@ reports.db (sqlite `_initSchema` CREATE + pg `db/postgres/reports/00X_system_log
 
 | Column | Type | Meaning |
 |---|---|---|
-| `id` | INTEGER PK (sqlite AUTOINCREMENT-free) / BIGSERIAL-free per house rule | surrogate |
+| `id` | **sqlite `INTEGER PRIMARY KEY`** (rowid, no `AUTOINCREMENT` keyword) / **pg `BIGINT GENERATED ALWAYS AS IDENTITY`** | surrogate. Identity ≠ BIGSERIAL → house-rule-safe on pg; sqlite rowid auto-fills. `logEvent` never supplies `id`. |
 | `ts` | TEXT ISO-8601 (UTC) | event time; TEXT on both backends (house rule — no `::date` casts) |
 | `category` | TEXT | `auth` \| `identity` \| `config` \| `report` |
 | `action` | TEXT | typed slug (see §5) |
@@ -61,7 +61,7 @@ Indexes: `(ts)`, `(category)`, `(action)`, `(actor)`, `(risk)`. (sqlite: plain i
 
 `reports-db.js` exports `logEvent({ category, action, actor, actor_id, target, details, ip, risk })` — dual-backend, **fire-and-forget**:
 
-- Wrapped so a logging failure is caught and swallowed (a dead log must never 500 a real request); it `console.warn`s once on failure.
+- Wrapped so a logging failure is caught and swallowed (a dead log must never 500 a real request); it `console.warn`s once on failure. **The swallow wraps the pg async path too**: the `_…Pg` fork returns a Promise, so the `.catch` lives INSIDE `logEvent` (not on the caller) or an unawaited call becomes an `unhandledRejection`. Callers ALWAYS invoke `logEvent(...)` **bare** (fire-and-forget) — never `await`ed, never chained — so it also stays clear of the `await-precedence` test.
 - `risk` is derived from `action` via a pure `_isRiskAction(action)` predicate if not passed explicitly, so callers can't forget to flag a security event.
 - `ts` server-authoritative (never a client clock).
 - `details` is `JSON.stringify`'d if an object.
@@ -71,6 +71,8 @@ A tiny `req`→context helper (`_logCtx(req)` → `{actor, actor_id, ip}`) reads
 ---
 
 ## 5. Instrumented events (the four categories)
+
+> **`_logCtx(req)` is NOT usable pre-auth.** It reads `req.reportUser`, which does not exist on the login route. So `login_success`/`login_failed` set `actor = req.body.username` (or `anonymous`), `actor_id = null`, and IP only — they build context by hand, not via `_logCtx`. Every other (authenticated) call site uses `_logCtx`.
 
 **auth**
 - `login_success` — on successful login (`req.body.username`).
@@ -83,8 +85,13 @@ A tiny `req`→context helper (`_logCtx(req)` → `{actor, actor_id, ip}`) reads
 - `user_role_changed` *(risk)*, `user_site_changed` — when role/site changes (privilege change is security-relevant).
 - `password_reset` *(risk)* — admin password reset for a user.
 
-**config**
-- `config_saved` — target = the config surface (e.g. `report_config`, `smtp`, `group_presets`, `sites`, `departments`, `rr_aliases`, `schedule`, `assets_finance`, `deprec`). details = changed key names (never values).
+**config** — `config_saved`, target = the config surface, details = changed **key names** (never values). **Criterion:** instrument every admin route that persists a config/admin setting. Concrete v1 call sites (verified in `server.js`):
+- `PUT /api/reports/config` (`server.js:5103`) — the generic `setConfig` surface (carries `smtp_*`, `xof_usd_rate`, `asset_replacement_uplift_pct`, weekly/coordinator/scoreboard/hygiene arm-flags, `public_base_url`…) → target `report_config`, details = the posted keys.
+- `PUT /api/assets/depreciation-config` (`:3134` `setConfig`) → target `deprec`.
+- Risk-Register alias CRUD (`/api/risk-register-config/*`, `:3778+`) → target `rr_aliases`.
+- Backup-schedule save (`/api/admin/backup-schedule`, `:1094+`) → target `schedule`.
+- Sites / Departments / Group-Presets admin writes (existing `reports.html#admin` routes) → target `sites` / `departments` / `group_presets`.
+Each is one `logEvent({category:'config', action:'config_saved', target, details:{keys}, ..._logCtx(req)})` line at the persistence point.
 
 **report** (mirrored from existing `logAudit`, no re-instrumentation)
 - `report_deleted` *(risk)*, `report_edited_infra`, `report_edited_helpdesk`, `report_edited_lights`, `report_edited_actions`, `report_status_changed`, `report_reassigned_week`. `logAudit` maps its `action` → a `report_*` slug and calls `logEvent(category:'report', target: report_id, actor: username, details: {...})`.
@@ -98,12 +105,12 @@ A tiny `req`→context helper (`_logCtx(req)` → `{actor, actor_id, ip}`) reads
 ## 6. Read path — readers + API (super_admin only)
 
 `reports-db.js` (dual-backend, await-covered):
-- `listSystemLog(filters, {limit=50, offset=0})` → rows, newest first. Filters: `actor` (exact/like), `category`, `action`, `risk` (1 = risk only), `from`/`to` (ISO date, `substr(ts,1,10) BETWEEN` — house rule, correct on both backends), `q` (free-text over action/target/details/actor).
+- `listSystemLog(filters, {limit=50, offset=0})` → rows, newest first. Filters: `actor` (exact/like), `category`, `action`, `risk` (1 = risk only), `from`/`to` (ISO date, `substr(ts,1,10) BETWEEN ? AND ?` — house rule, correct on both backends; **note: this defeats the `(ts)` index → seq scan, accepted at v1 volume, do NOT "optimise" it into a broken `::date` later**), `q` (free-text over action/target/details/actor).
 - `countSystemLog(filters)` → total for pagination.
 - `getSystemLogAnalytics({window})` → `{ totals: {events, risk_events, distinct_actors, distinct_ips}, series[], risk_series[], top_actions[], top_actors[], by_hour[24], top_ips[] }` over `window` (7/30/90 days).
 
-Routes (server.js, `requireReportSession` + super-admin gate; registered ABOVE `/api/reports/:id` to avoid the documented `:id` shadowing):
-- `GET /api/reports/system-log` (list + `X-Total-Count` or `{rows,total}`).
+Routes (server.js; registered ABOVE `/api/reports/:id` to avoid the documented `:id` shadowing). **Gate = the EXACT pattern the force-logout route uses** (no `requireSuperAdmin` middleware exists): `requireReportSession` then inline `if (!rdb.userHasRole(req.reportUser, 'super_admin')) return res.status(403).json({error:'super_admin only'})`, applied identically to all four routes so admin ≠ super_admin is enforced server-side.
+- `GET /api/reports/system-log` → **`{rows, total}` JSON** (chosen contract; UI + route test agree on this — not a header).
 - `GET /api/reports/system-log/analytics?window=`.
 - `GET /api/reports/system-log/export.csv` and `…/export.json` (UTF-8 BOM + CRLF for CSV, mirroring the existing export helpers).
 
@@ -113,14 +120,14 @@ All four `list` filter params are whitelisted; the readers use parameterised SQL
 
 ## 7. UI — `public/system-logs.html`
 
-Standalone page, **app shell (`#__shell`) + module-tabs** (consistent with the just-landed navigation work), served from `_htmlCache` + a `sendHtmlPage` route.
+Standalone page with the **app shell (`#__shell`)** top banner (consistent with the just-landed navigation work), served from `_htmlCache` + a `sendHtmlPage` route.
 
-- **Tab bar (module-tabs, `data-module="system_logs"`):** *Log entries* · *Analytics & trends* · *Events & reconciliation* (disabled, `title="v2"`).
+- **Tabs are IN-PAGE**, not the shared `module-tabs` component. System Logs is a **single page** with internal tab switching — same pattern as `assets.html` (`data-tab`/JS), NOT sibling pages. So there is **no** `data-module="system_logs"` registration in `module-tabs.js`. Tabs: *Log entries* · *Analytics & trends* · *Events & reconciliation* (disabled, `title="v2"`).
 - **Log entries:** filter bar (actor / category / action / risk-only / from / to / search + Clear), total count, paginated table (Date/time · Actor · Category · Action · Target · IP · Risk badge), **Export CSV / JSON** buttons. "Problems only" = risk filter.
-- **Analytics & trends:** window selector (7/30/90d) + KPI tiles (Events · Risk events (red) · Distinct actors · Distinct IPs) + Chart.js charts (activity over time, risk over time, top actions, most active actors, activity by hour, top source IPs) — the 4MyPeople layout, brand-styled.
-- **Access:** **super_admin only** (rail entry + page gate). *Decision to confirm/revisit: admin read-only could later be a config toggle; v1 is super_admin.* Reached via a nav entry (super-admin-gated) **and** a link from `reports.html#admin`.
+- **Analytics & trends:** window selector (7/30/90d) + KPI tiles (Events · Risk events (red) · Distinct actors · Distinct IPs) + Chart.js charts (activity over time, risk over time, top actions, most active actors, activity by hour, top source IPs) — the 4MyPeople layout, brand-styled. *(`by_hour[24]` and `top_ips` will read thin on curated low-volume v1 data — kept deliberately for layout parity with the reference, not an oversight.)*
+- **Access:** **super_admin only.** *(Confirmed default; admin read-only could later be a config toggle — not v1.)* Reached via **(a)** a `_shell.js` `NAV` entry gated `roles:['super_admin']`, reusing the existing **`ICON_LIB['shield-check']`** key (already present — no new asset; `ICON_LIB` is a curated subset so an unlisted key would render an empty span), **and (b)** a link from `reports.html#admin`.
 
-RBAC is enforced **server-side** on every route (the page gate is convenience only).
+RBAC is enforced **server-side** on every route (§6 gate); the nav/page gate is convenience only.
 
 ---
 
@@ -128,6 +135,7 @@ RBAC is enforced **server-side** on every route (the page gate is convenience on
 
 - **Pure/unit:** `_isRiskAction` predicate (each action → expected risk), `logEvent` detail/JSON coercion, analytics aggregation shape on a seeded in-memory set.
 - **Dual-backend readers:** `listSystemLog`/`countSystemLog`/`getSystemLogAnalytics` covered by the auto-discovering `await-precedence` test + a sqlite round-trip test (insert via `logEvent`, read back with filters).
+- **The `logAudit → logEvent` mirror (Approach A hinges on this):** an integration test that drives a `logAudit(...)` path and then reads back a `category:'report'`, `action:'report_*'` row from `system_log` — proving the one added line actually mirrors.
 - **Route smoke:** boots the app (sqlite), asserts super_admin gate (403 for lesser roles), filter whitelist un-500-able on hostile input, CSV/JSON export shape.
 - **Non-blocking guarantee:** a test that `logEvent` with a broken DB handle does NOT throw to the caller.
 - **No golden/PPTX/email impact** — this module touches none of those surfaces.
@@ -137,8 +145,9 @@ RBAC is enforced **server-side** on every route (the page gate is convenience on
 ## 9. Deploy notes
 
 - `system_log` table auto-created at boot (sqlite `_initSchema` / pg `initPgReports`), idempotent; no backfill required for correctness.
-- `server.js` + `system-logs.html` are server-code / `_htmlCache` surfaces → after the ZIP is applied, `pm2 stop` → wait → `pm2 start` (not reload), then one Ctrl+F5.
-- pg schema shipped as a numbered `db/postgres/reports/*.sql` + added to the reports copy tooling.
+- **pg schema = `db/postgres/reports/006_system_log.sql`** (next free number after `005_reporting.sql`), execed by `initPgReports`.
+- **pg copy:** add `system_log` (single append-only table, straight `SELECT *`→insert copy) to the **`tools/pg/copy-reports-all.js`** orchestrator (same recipe as the other reports tables); a dedicated `copy-reports-syslog.js` is optional but not required.
+- `server.js` + `system-logs.html` are server-code / `_htmlCache` surfaces → after the ZIP is applied, `pm2 stop` → wait → `pm2 start` (not reload), then one Ctrl+F5. **`system-logs.html` must be added to the `_htmlCache` boot-load list.**
 
 ---
 
