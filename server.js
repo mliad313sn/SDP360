@@ -1194,7 +1194,7 @@ function loadHtml(name) {
   'meetings.html', 'meeting.html', 'meetings-issues.html', 'meetings-council.html', 'meetings-compliance.html',
   'meetings-import.html', 'meetings-progress.html', 'meetings-insights.html', 'meetings-setup.html', 'meetings-actions.html',
   'meetings-unsigned.html',
-  'activity-tracker.html', 'help.html', 'exec-view.html', 'site-report.html', 'it-review.html', 'site-actions.html',
+  'activity-tracker.html', 'help.html', 'exec-view.html', 'site-report.html', 'it-review.html', 'site-actions.html', 'system-logs.html',
   'assets.html', 'assets-hygiene.html', 'assets-finance.html',
 ].forEach(loadHtml);
 
@@ -1330,6 +1330,7 @@ app.get('/meetings-issues.html',     (req, res) => sendHtmlPage(res, 'meetings-i
 app.get('/meetings-actions.html',    (req, res) => sendHtmlPage(res, 'meetings-actions.html',    false, 'Actions Register unavailable'));
 // SP1a — per-site Actions Register hub (meetings + inspection + report follow-ups).
 app.get('/site-actions.html',        (req, res) => sendHtmlPage(res, 'site-actions.html',        false, 'Site Actions Register unavailable'));
+app.get('/system-logs.html',         (req, res) => sendHtmlPage(res, 'system-logs.html',         false, 'System Logs unavailable'));
 app.get('/meetings-unsigned.html',   (req, res) => sendHtmlPage(res, 'meetings-unsigned.html',   false, 'Unsigned PVs unavailable'));
 app.get('/meetings-council.html',    (req, res) => sendHtmlPage(res, 'meetings-council.html',    false, 'Council escalations unavailable'));
 app.get('/meetings-compliance.html', (req, res) => sendHtmlPage(res, 'meetings-compliance.html', false, '5 Engagements monitor unavailable'));
@@ -5439,7 +5440,11 @@ app.post('/api/reports/auth/login', loginLimiter, jsonBody, async (req, res) => 
   }
   try {
     const result = await rdb.login(username, password);
-    if (!result) return res.status(401).json({ error: 'Invalid credentials' });
+    if (!result) {
+      rdb.logEvent({ category:'auth', action:'login_failed', actor: username || 'anonymous', ip: req.ip, details:{ reason:'invalid_credentials' } });
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    rdb.logEvent({ category:'auth', action:'login_success', actor:(result.user && result.user.username) || username, actor_id:(result.user && result.user.id) || null, ip: req.ip });
     // SECURITY: If token is also set as a cookie, apply httpOnly + Secure + SameSite flags.
     // httpOnly prevents JavaScript from reading the cookie (XSS protection).
     // Secure ensures it is only sent over HTTPS in production.
@@ -5457,7 +5462,7 @@ app.post('/api/reports/auth/login', loginLimiter, jsonBody, async (req, res) => 
 
 app.post('/api/reports/auth/logout', requireReportSession, async (req, res) => {
   const token = req.headers['x-report-token'];
-  try { await rdb.logout(token); res.json({ ok: true }); }
+  try { await rdb.logout(token); rdb.logEvent({ category:'auth', action:'logout', ...rdb._logCtx(req) }); res.json({ ok: true }); }
   catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -5787,6 +5792,7 @@ app.delete('/api/reports/sessions/:token', requireReportSession, (req, res, next
     const r = await rdb.forceLogoutByToken(token);
     const who = req.reportUser?.username || 'unknown';
     console.log(`[sessions] force-logout token=${token.slice(0,8)}… by ${who} — rows=${r.deleted}`);
+    rdb.logEvent({ category:'auth', action:'session_killed', target:(r && r.username) || token.slice(0,8), details:{ rows:r.deleted }, ...rdb._logCtx(req) });
     res.json(r);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -6237,6 +6243,47 @@ app.get('/api/reports/technicians', requireReportSession, async (req, res) => {
     )].sort();
     res.json({ technicians: techs });
   } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── System Logs (v1) — super_admin only. Registered ABOVE /api/reports/:id so
+//    'system-log' is not swallowed by the :id param route. Gate = the verbatim
+//    check from DELETE /api/reports/sessions/:token.
+function _syslogGate(req, res, next) {
+  if (!rdb.userHasRole(req.reportUser, 'super_admin')) return res.status(403).json({ error: 'super_admin only' });
+  next();
+}
+function _syslogFilters(req) {
+  return { actor:req.query.actor, category:req.query.category, action:req.query.action,
+           risk: req.query.risk === '1' ? 1 : undefined, from:req.query.from, to:req.query.to, q:req.query.q };
+}
+app.get('/api/reports/system-log', requireReportSession, _syslogGate, async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit) || 50, 500), offset = parseInt(req.query.offset) || 0;
+    res.json(await rdb.listSystemLog(_syslogFilters(req), { limit, offset }));
+  } catch (e) { res.status(500).json({ error: IS_DEV ? e.message : 'system-log error' }); }
+});
+app.get('/api/reports/system-log/analytics', requireReportSession, _syslogGate, async (req, res) => {
+  try { res.json(await rdb.getSystemLogAnalytics({ window: req.query.window || '30d' })); }
+  catch (e) { res.status(500).json({ error: IS_DEV ? e.message : 'system-log analytics error' }); }
+});
+app.get('/api/reports/system-log/export.json', requireReportSession, _syslogGate, async (req, res) => {
+  try {
+    const { rows } = await rdb.listSystemLog(_syslogFilters(req), { limit: 100000, offset: 0 });
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', 'attachment; filename="system-log.json"');
+    res.send(JSON.stringify(rows));
+  } catch (e) { res.status(500).json({ error: 'export error' }); }
+});
+app.get('/api/reports/system-log/export.csv', requireReportSession, _syslogGate, async (req, res) => {
+  try {
+    const { rows } = await rdb.listSystemLog(_syslogFilters(req), { limit: 100000, offset: 0 });
+    const COLS = ['ts','category','action','actor','actor_id','target','ip','risk','details'];
+    const esc = v => { const s = v == null ? '' : String(v); return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+    const csv = '﻿' + [COLS.join(','), ...rows.map(r => COLS.map(c => esc(r[c])).join(','))].join('\r\n');
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="system-log.csv"');
+    res.send(csv);
+  } catch (e) { res.status(500).json({ error: 'export error' }); }
 });
 
 // GET /api/reports/:id  — full report with all sections
@@ -8042,6 +8089,9 @@ async function start() {
     await require('./reports-db').initPgReports();
     console.log('[Reports] PostgreSQL auth backend ready');
   }
+  // System Logs v1 — one-time idempotent backfill of the report audit trail into
+  // system_log (non-blocking; runs after the pg schema exists / sqlite is ready).
+  require('./reports-db')._backfillSystemLogFromAudit().catch(() => {});
   if (require('./meetings-db').MEETINGS_BACKEND === 'postgres') {
     await require('./meetings-db').initPgMeetings();
     console.log('[Meetings] PostgreSQL backend ready');

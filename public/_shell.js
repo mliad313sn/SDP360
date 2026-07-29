@@ -145,7 +145,10 @@
         // holding the powerful executive/admin hierarchy tiers. Keep in sync
         // with the data-require attributes in analytics.html + executive.html.
         { id: 'analytics',   label: 'Analytics',           icon: ICON_LIB['line-chart'],      href: 'analytics.html',         roles: ['admin', 'scorecard-viewer']     },
-        { id: 'scorecard',   label: 'Executive Scorecard', icon: ICON_LIB.gauge,              href: 'executive.html',         roles: ['executive', 'scorecard-viewer'] }
+        { id: 'scorecard',   label: 'Executive Scorecard', icon: ICON_LIB.gauge,              href: 'executive.html',         roles: ['executive', 'scorecard-viewer'] },
+        // System Logs — security/audit console (super_admin only). shield-check
+        // is already in ICON_LIB (curated subset) so the icon renders.
+        { id: 'system-logs', label: 'System Logs',         icon: ICON_LIB['shield-check'],    href: 'system-logs.html',       roles: ['super_admin'] }
       ]
     },
     {

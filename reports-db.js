@@ -304,6 +304,20 @@ try { db.exec(`ALTER TABLE helpdesk_data ADD COLUMN chart_data      TEXT`); } ca
 try { db.exec(`ALTER TABLE sync_metadata ADD COLUMN last_full_sync_at TEXT`);           } catch(e) {}
 try { db.exec(`ALTER TABLE sync_metadata ADD COLUMN schema_snapshot   TEXT`);           } catch(e) {}
 try { db.exec(`ALTER TABLE sync_metadata ADD COLUMN deleted_count     INTEGER DEFAULT 0`); } catch(e) {}
+
+// System Logs v1 — unified security/audit event log (auth · identity · config ·
+// report). Written by logEvent() (fire-and-forget). sqlite id = rowid.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS system_log (
+    id INTEGER PRIMARY KEY, ts TEXT NOT NULL, category TEXT NOT NULL, action TEXT NOT NULL,
+    actor TEXT, actor_id INTEGER, target TEXT, details TEXT, ip TEXT, risk INTEGER NOT NULL DEFAULT 0
+  );
+  CREATE INDEX IF NOT EXISTS idx_syslog_ts       ON system_log(ts);
+  CREATE INDEX IF NOT EXISTS idx_syslog_category ON system_log(category);
+  CREATE INDEX IF NOT EXISTS idx_syslog_action   ON system_log(action);
+  CREATE INDEX IF NOT EXISTS idx_syslog_actor    ON system_log(actor);
+  CREATE INDEX IF NOT EXISTS idx_syslog_risk     ON system_log(risk);
+`);
 // request_records: add request_type text column (stores "Major Incident" etc.)
 try { db.exec(`ALTER TABLE request_records ADD COLUMN request_type TEXT`); } catch(e) {}
 // request_records: add template column. The team marks a Major Incident via the
@@ -1093,6 +1107,9 @@ async function initPgReports() {            // called once at server boot
   // Chunk 4E — reporting suite tables.
   await _pg.exec(require('fs').readFileSync(
     require('path').join(__dirname, 'db', 'postgres', 'reports', '005_reporting.sql'), 'utf8'));
+  // System Logs v1 — unified security/audit event log.
+  await _pg.exec(require('fs').readFileSync(
+    require('path').join(__dirname, 'db', 'postgres', 'reports', '006_system_log.sql'), 'utf8'));
   return _pg;
 }
 
@@ -6461,6 +6478,11 @@ async function _getYearlySummaryPg(site_id, year) {
  *         'edited_monthly' | 'edited_objectives'
  */
 function logAudit({ report_id, site_id, user_id, username, action, details } = {}) {
+  // System Logs v1 — mirror this report event into the unified system_log
+  // (fire-and-forget; covers both backends since logEvent branches internally).
+  logEvent({ category: 'report', action: /^report_/.test(action) ? action : 'report_' + action,
+    actor: username, actor_id: user_id, target: report_id != null ? String(report_id) : null,
+    details, risk: action === 'deleted' ? 1 : undefined });
   if (REPORTS_BACKEND === 'postgres') return _logAuditPg({ report_id, site_id, user_id, username, action, details });
   try {
     db.prepare(
@@ -6768,9 +6790,133 @@ async function _getRequestFilterOptionsPg() {
   };
 }
 
+// ══ SYSTEM LOGS v1 ══════════════════════════════════════════════════════════
+// Unified security/audit event log. logEvent() is fire-and-forget: it NEVER
+// throws/rejects to a caller (a dead log must not break a request). Callers
+// invoke it BARE (never awaited, never chained → clear of await-precedence).
+const _RISK_ACTIONS = new Set([
+  'login_failed','session_killed','user_deleted','user_role_changed','password_reset','report_deleted',
+]);
+function _isRiskAction(action) { return _RISK_ACTIONS.has(String(action || '')); }
+
+const _SECRET_KEY = /pass|secret|token|password|key$|_key|auth/i;
+function _redactKeys(keys) { return (keys || []).filter(k => !_SECRET_KEY.test(String(k))); }
+
+function _logCtx(req) {                       // authenticated call sites only
+  const u = (req && req.reportUser) || {};
+  const ip = (req && (req.ip || (req.headers && String(req.headers['x-forwarded-for'] || '').split(',')[0].trim()))) || null;
+  return { actor: u.username || 'anonymous', actor_id: (u.id != null ? u.id : null), ip };
+}
+
+async function _logEventPg(row) {
+  await pgHandle().prepare(
+    `INSERT INTO system_log (ts,category,action,actor,actor_id,target,details,ip,risk)
+     VALUES (?,?,?,?,?,?,?,?,?)`
+  ).run(row.ts,row.category,row.action,row.actor,row.actor_id,row.target,row.details,row.ip,row.risk);
+}
+async function logEvent(ev = {}) {
+  try {
+    const row = {
+      ts: new Date().toISOString(),
+      category: String(ev.category || 'system'),
+      action: String(ev.action || 'unknown'),
+      actor: ev.actor != null ? String(ev.actor) : 'system',
+      actor_id: ev.actor_id != null ? ev.actor_id : null,
+      target: ev.target != null ? String(ev.target) : null,
+      details: ev.details == null ? null : (typeof ev.details === 'string' ? ev.details : JSON.stringify(ev.details)),
+      ip: ev.ip != null ? String(ev.ip) : null,
+      risk: ev.risk != null ? (ev.risk ? 1 : 0) : (_isRiskAction(ev.action) ? 1 : 0),
+    };
+    if (REPORTS_BACKEND === 'postgres') { await _logEventPg(row); }
+    else {
+      db.prepare(
+        `INSERT INTO system_log (ts,category,action,actor,actor_id,target,details,ip,risk)
+         VALUES (@ts,@category,@action,@actor,@actor_id,@target,@details,@ip,@risk)`
+      ).run(row);
+    }
+  } catch (e) { console.warn('[system-log] logEvent failed (swallowed):', e.message); }
+}
+
+// WHERE builder — present keys only, parameterised. Unknown keys ignored.
+function _syslogWhere(f = {}) {
+  const c = [], p = [];
+  if (f.category) { c.push('category = ?'); p.push(f.category); }
+  if (f.action)   { c.push('action = ?');   p.push(f.action); }
+  if (f.actor)    { c.push('actor LIKE ?');  p.push('%' + f.actor + '%'); }
+  if (f.risk === 1 || f.risk === '1') { c.push('risk = 1'); }
+  if (f.from && f.to) { c.push('substr(ts,1,10) BETWEEN ? AND ?'); p.push(f.from, f.to); }
+  else if (f.from)    { c.push('substr(ts,1,10) >= ?'); p.push(f.from); }
+  else if (f.to)      { c.push('substr(ts,1,10) <= ?'); p.push(f.to); }
+  if (f.q) { c.push('(action LIKE ? OR target LIKE ? OR details LIKE ? OR actor LIKE ?)');
+             const like = '%' + f.q + '%'; p.push(like, like, like, like); }
+  return { where: c.length ? 'WHERE ' + c.join(' AND ') : '', params: p };
+}
+async function countSystemLog(filters = {}) {
+  const { where, params } = _syslogWhere(filters);
+  const sql = `SELECT COUNT(*) AS n FROM system_log ${where}`;
+  if (REPORTS_BACKEND === 'postgres') return Number((await pgHandle().prepare(sql).get(...params)).n);
+  return db.prepare(sql).get(...params).n;
+}
+async function listSystemLog(filters = {}, { limit = 50, offset = 0 } = {}) {
+  const { where, params } = _syslogWhere(filters);
+  const sql = `SELECT * FROM system_log ${where} ORDER BY ts DESC, id DESC LIMIT ? OFFSET ?`;
+  const rows = REPORTS_BACKEND === 'postgres'
+    ? await pgHandle().prepare(sql).all(...params, limit, offset)
+    : db.prepare(sql).all(...params, limit, offset);
+  return { rows, total: await countSystemLog(filters) };
+}
+async function getSystemLogAnalytics({ window: win = '30d' } = {}) {
+  const days = { '7d':7, '30d':30, '90d':90 }[win] || 30;
+  const since = new Date(Date.now() - days * 86400000).toISOString();
+  const q = async (sql, ...a) => (REPORTS_BACKEND === 'postgres'
+    ? pgHandle().prepare(sql).all(...a) : db.prepare(sql).all(...a));
+  const g = async (sql, ...a) => (REPORTS_BACKEND === 'postgres'
+    ? pgHandle().prepare(sql).get(...a) : db.prepare(sql).get(...a));
+  const t = await g(`SELECT COUNT(*) AS events, COALESCE(SUM(risk),0) AS risk_events,
+      COUNT(DISTINCT actor) AS distinct_actors, COUNT(DISTINCT ip) AS distinct_ips
+      FROM system_log WHERE ts >= ?`, since);
+  const series      = await q(`SELECT substr(ts,1,10) AS d, COUNT(*) AS n FROM system_log WHERE ts >= ? GROUP BY substr(ts,1,10) ORDER BY d`, since);
+  const risk_series = await q(`SELECT substr(ts,1,10) AS d, COUNT(*) AS n FROM system_log WHERE ts >= ? AND risk=1 GROUP BY substr(ts,1,10) ORDER BY d`, since);
+  const top_actions = await q(`SELECT action, COUNT(*) AS n FROM system_log WHERE ts >= ? GROUP BY action ORDER BY n DESC LIMIT 12`, since);
+  const top_actors  = await q(`SELECT actor, COUNT(*) AS n FROM system_log WHERE ts >= ? GROUP BY actor ORDER BY n DESC LIMIT 12`, since);
+  const top_ips     = await q(`SELECT ip, COUNT(*) AS n FROM system_log WHERE ts >= ? AND ip IS NOT NULL GROUP BY ip ORDER BY n DESC LIMIT 12`, since);
+  const hourRows    = await q(`SELECT substr(ts,12,2) AS h, COUNT(*) AS n FROM system_log WHERE ts >= ? GROUP BY substr(ts,12,2)`, since);
+  const by_hour = Array.from({ length: 24 }, () => 0);
+  for (const r of hourRows) { const h = parseInt(r.h, 10); if (h >= 0 && h < 24) by_hour[h] = Number(r.n); }
+  const num = a => a.map(x => ({ ...x, n: Number(x.n) }));
+  return {
+    totals: { events: Number(t.events), risk_events: Number(t.risk_events),
+              distinct_actors: Number(t.distinct_actors), distinct_ips: Number(t.distinct_ips) },
+    series: num(series), risk_series: num(risk_series),
+    top_actions: num(top_actions), top_actors: num(top_actors), top_ips: num(top_ips), by_hour,
+  };
+}
+
+// One-time backfill of the existing report audit_log into system_log. Idempotent
+// via the zero-report-rows guard (NO setConfig marker — DEFAULTS filter trap).
+async function _backfillSystemLogFromAudit() {
+  try {
+    const have = await countSystemLog({ category: 'report' });
+    if (have > 0) return;
+    const rows = REPORTS_BACKEND === 'postgres'
+      ? await pgHandle().prepare(`SELECT report_id, user_id, username, action, details, created_at FROM audit_log`).all()
+      : db.prepare(`SELECT report_id, user_id, username, action, details, created_at FROM audit_log`).all();
+    for (const r of rows) {
+      await logEvent({ category: 'report',
+        action: /^report_/.test(r.action) ? r.action : 'report_' + r.action,
+        actor: r.username, actor_id: r.user_id, target: r.report_id != null ? String(r.report_id) : null,
+        details: r.details, risk: r.action === 'deleted' ? 1 : undefined });
+    }
+    if (rows.length) console.log(`[system-log] backfilled ${rows.length} report audit rows`);
+  } catch (e) { console.warn('[system-log] backfill skipped:', e.message); }
+}
+
 module.exports = {
   db,
   REPORTS_BACKEND, initPgReports, pgHandle,
+  // System Logs v1
+  _isRiskAction, _redactKeys, _logCtx, logEvent,
+  listSystemLog, countSystemLog, getSystemLogAnalytics, _backfillSystemLogFromAudit,
   hashPassword, makeSession,
   login, validateSession, logout, safeUser,
   findUserByEntra, linkUserEntra, createSessionForUser,
