@@ -6,6 +6,43 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ---
 
+## ⚡ Current state (as of 2026-07-30 — module System Logs v1, audit sécurité)
+
+> **System Logs v1 landed** (branche `feat/system-logs`, NON mergée — attend la QA
+> navigateur super_admin) — inspiré du module System Logs de 4MyPeople. **Hybride
+> étagé** : v1 = **journal de sécurité + analytics** sur des événements curés ; v2
+> (différé) = log par requête HTTP + onglet Events/reconciliation (perf/5xx/slow).
+> **Découverte cadrante** : `logAudit`/`audit_log` est **limité aux rapports** et le
+> SDP **ne journalisait PAS les authentifications** — v1 a donc dû **instrumenter**
+> les événements, pas juste afficher l'existant. **Table unique `system_log`**
+> (reports.db, dual sqlite/pg — sqlite `INTEGER PRIMARY KEY` rowid, pg
+> `db/postgres/reports/006_system_log.sql` `BIGINT GENERATED ALWAYS AS IDENTITY`).
+> Helper **`logEvent`** **fire-and-forget** (try/catch avale tout — un log mort ne
+> casse JAMAIS une requête ; appelé **bare**, jamais await/chain → clear de
+> await-precedence). Prédicat `_isRiskAction` (login_failed·session_killed·
+> user_deleted·user_role_changed·password_reset·report_deleted → flag `risk`).
+> `_redactKeys` retire les clés secrètes (`*_pass`/`*_secret`/`token`…) avant
+> `details` (test prouve qu'aucune valeur NI clé sensible n'atterrit). Instrumenté :
+> **auth** (login_success/failed, logout, session_killed) ; **report** via UNE ligne
+> ajoutée à `logAudit` (mirror `report_*`). *(identity/config : câblage prévu au plan,
+> instrumentés incrémentalement — le mirror report couvre déjà les rapports.)*
+> Readers dual-backend `listSystemLog`/`countSystemLog`/`getSystemLogAnalytics`
+> (filtres `substr(ts,1,10) BETWEEN` — pas de `::date`) ; **4 routes** super_admin
+> `GET /api/reports/system-log[/analytics|/export.{csv,json}]` **au-dessus de `/:id`**
+> (garde = check `super_admin` **verbatim** de force-logout). Backfill idempotent de
+> `audit_log`→`system_log` au boot (garde zéro-ligne-report, PAS de marker setConfig).
+> Page **`system-logs.html`** (shell + onglets **in-page** comme assets — PAS
+> module-tabs ; Events grisé v2) + entrée nav **super_admin** (`shield-check`,
+> vérifié : admin ne la voit pas). **Tests** : `system-log.test.js` (8, predicate +
+> redaction + round-trip + filtres + analytics + non-blocking + mirror) +
+> `system-log-routes.smoke.test.js` (5 : gate 403, `{rows,total}`, hostile-input
+> non-500, analytics, export) + await-precedence 5/5. Voisins report-config/schedule
+> **verts en isolation** (le « 1 fail » combiné = flake cross-fichier getDB-singleton
+> connu). **pg copy de system_log DÉFÉRÉE** (table auto-créée + backfill au boot +
+> prod déjà pg → pas de migration de données pendante ; YAGNI). **QA navigateur =
+> étape utilisateur** (page super_admin derrière session) AVANT merge. Spec+plan :
+> `docs/superpowers/{specs,plans}/2026-07-29-system-logs-v1*`.
+
 ## ⚡ Current state (as of 2026-07-29 — navigation homogène : bandeau + onglets intra-module)
 
 > **Standardisation navigation landed** (branche `feat/module-tabs-standardization`,
