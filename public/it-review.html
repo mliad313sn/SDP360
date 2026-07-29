@@ -29,6 +29,14 @@
   raw text and is only parsed once, on assignment to #review-root.innerHTML.
 -->
 <link rel="stylesheet" href="_tokens.css">
+<!-- App shell — same top banner as every other page. Scripts carry NO nonce
+     (this page is served without the %%CSP_NONCE%% substitution, like it-review.js
+     below). auth.js gives the role-gated nav + user pill; _shell.js renders the
+     banner into #__shell. Opens in-place now (no target=_blank in the nav). -->
+<link rel="stylesheet" href="_shell.css">
+<script src="brand/icons.js"></script>
+<script src="auth.js" data-require="any" data-redirect="login.html"></script>
+<script src="_shell.js"></script>
 <style>
     /* --- carried from the source's <helmet>, minus its 9 web-font rules ---
        His fonts are artifact blobs we do not have; the stacks below fall back
@@ -322,7 +330,9 @@ textarea.input { min-height: 90px; resize: vertical; }
 </head>
 <body>
 
-<a class="rv-back no-print" href="index.html">&#8592; Back to the dashboard</a>
+<!-- Top banner — same shell as every other page (replaces the old floating
+     back pill; the banner's brand mark is the way home). -->
+<div id="__shell" data-section="performance" data-current="it-review"></div>
 
 <div id="review-root"><div id="review-fallback">Loading the IT Review&hellip;</div></div>
 
@@ -331,7 +341,7 @@ textarea.input { min-height: 90px; resize: vertical; }
 <div style="min-height:100vh">
 
   <!-- ============ HEADER ============ -->
-  <div class="no-print" style="display:flex; align-items:center; gap:24px; padding:16px 32px; border-bottom:2px solid var(--color-divider); background:var(--color-bg); position:sticky; top:0; z-index:50; flex-wrap:wrap">
+  <div class="no-print" style="display:flex; align-items:center; gap:24px; padding:16px 32px; border-bottom:2px solid var(--color-divider); background:var(--color-bg); position:static; flex-wrap:wrap">
     <div style="display:flex; align-items:baseline; gap:12px">
       <div style="width:14px; height:14px; background:var(--color-accent); align-self:center"></div>
       <div style="font-family:var(--font-heading); font-weight:700; font-size:16px; letter-spacing:0.06em">ENDEAVOUR MINING — GROUP IT</div>
