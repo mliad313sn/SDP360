@@ -136,11 +136,10 @@
         // #finance tabs of assets.html (their old URLs redirect there).
         { id: 'assets',      label: 'Assets',              icon: ICON_LIB['hard-drive'],      href: 'assets.html',            roles: ['any']       },
         // IT Review — the review of what the meetings produce, hence right after
-        // them. target:'_blank' is deliberate (same precedent as `help` below):
-        // it-review.html is a faithful carry of the authoritative dashboard and
-        // deliberately has NO shell mount — no header, no nav. Opening in a new
-        // tab is what makes that a non-issue: this tab stays put behind it.
-        { id: 'it-review',   label: 'IT Review',           icon: ICON_LIB['bar-chart-3'],     href: 'it-review.html',         roles: ['any'], target: '_blank' },
+        // them. It now mounts the app shell (#__shell) like every other page and
+        // opens IN-PLACE (no target:'_blank'): its own internal header was
+        // de-stickied so the app banner is the sole sticky top bar.
+        { id: 'it-review',   label: 'IT Review',           icon: ICON_LIB['bar-chart-3'],     href: 'it-review.html',         roles: ['any'] },
         // scorecard-viewer (feature role, 2026-06-12): READ-ONLY access to the
         // two gated analytical pages for users who must consult them without
         // holding the powerful executive/admin hierarchy tiers. Keep in sync
