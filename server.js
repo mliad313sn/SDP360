@@ -1194,7 +1194,7 @@ function loadHtml(name) {
   'meetings.html', 'meeting.html', 'meetings-issues.html', 'meetings-council.html', 'meetings-compliance.html',
   'meetings-import.html', 'meetings-progress.html', 'meetings-insights.html', 'meetings-setup.html', 'meetings-actions.html',
   'meetings-unsigned.html',
-  'activity-tracker.html', 'help.html', 'exec-view.html', 'site-report.html', 'it-review.html', 'site-actions.html',
+  'activity-tracker.html', 'help.html', 'exec-view.html', 'site-report.html', 'it-review.html', 'site-actions.html', 'system-logs.html',
   'assets.html', 'assets-hygiene.html', 'assets-finance.html',
 ].forEach(loadHtml);
 
@@ -1330,6 +1330,7 @@ app.get('/meetings-issues.html',     (req, res) => sendHtmlPage(res, 'meetings-i
 app.get('/meetings-actions.html',    (req, res) => sendHtmlPage(res, 'meetings-actions.html',    false, 'Actions Register unavailable'));
 // SP1a — per-site Actions Register hub (meetings + inspection + report follow-ups).
 app.get('/site-actions.html',        (req, res) => sendHtmlPage(res, 'site-actions.html',        false, 'Site Actions Register unavailable'));
+app.get('/system-logs.html',         (req, res) => sendHtmlPage(res, 'system-logs.html',         false, 'System Logs unavailable'));
 app.get('/meetings-unsigned.html',   (req, res) => sendHtmlPage(res, 'meetings-unsigned.html',   false, 'Unsigned PVs unavailable'));
 app.get('/meetings-council.html',    (req, res) => sendHtmlPage(res, 'meetings-council.html',    false, 'Council escalations unavailable'));
 app.get('/meetings-compliance.html', (req, res) => sendHtmlPage(res, 'meetings-compliance.html', false, '5 Engagements monitor unavailable'));
