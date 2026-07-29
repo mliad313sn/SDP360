@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Intégration ManageEngine × SDP — Auto-ticketing OPManager → ServiceDesk Plus Cloud</title>
+<style>
+  :root{
+    --navy:#1E3A5F; --blue:#145FAE; --green:#16A34A; --amber:#D97706; --red:#D90038;
+    --ink:#1f2933; --muted:#5b6773; --line:#d7dde3; --bg:#f4f6f8; --box:#ffffff;
+  }
+  *{box-sizing:border-box}
+  body{font-family:"Segoe UI",Calibri,Arial,sans-serif;color:var(--ink);line-height:1.5;margin:0;background:var(--bg)}
+  .page{max-width:900px;margin:0 auto;padding:32px 40px 64px;background:var(--box)}
+  h1{font-size:1.7rem;color:var(--navy);margin:0 0 4px;line-height:1.2}
+  .sub{color:var(--muted);font-size:.95rem;margin:0 0 6px}
+  .meta{font-size:.78rem;color:var(--muted);border-bottom:2px solid var(--navy);padding-bottom:14px;margin-bottom:22px}
+  h2{font-size:1.22rem;color:var(--navy);margin:30px 0 8px;border-left:5px solid var(--blue);padding-left:10px}
+  h3{font-size:1.02rem;color:var(--navy);margin:20px 0 6px}
+  p{margin:8px 0}
+  ul,ol{margin:8px 0 8px 4px;padding-left:22px}
+  li{margin:4px 0}
+  table{border-collapse:collapse;width:100%;margin:12px 0;font-size:.86rem}
+  th,td{border:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top}
+  th{background:var(--navy);color:#fff;font-weight:600}
+  tbody tr:nth-child(even){background:#f7f9fb}
+  code{background:#eef2f6;border:1px solid #e0e6ec;border-radius:3px;padding:1px 5px;font-family:Consolas,monospace;font-size:.85em}
+  .tag{display:inline-block;font-size:.72rem;font-weight:700;border-radius:10px;padding:2px 9px;color:#fff;white-space:nowrap}
+  .ok{background:var(--green)} .part{background:var(--amber)} .no{background:var(--red)} .info{background:var(--blue)}
+  .callout{border:1px solid var(--line);border-left:5px solid var(--amber);background:#fff8ef;padding:12px 14px;border-radius:6px;margin:14px 0}
+  .callout.risk{border-left-color:var(--red);background:#fff2f5}
+  .callout.win{border-left-color:var(--green);background:#f1faf3}
+  .callout b{color:var(--navy)}
+  .flow{background:#0f1b2b;color:#e6edf5;border-radius:8px;padding:14px 16px;font-family:Consolas,monospace;font-size:.82rem;white-space:pre-wrap;line-height:1.55;margin:12px 0}
+  .lead{font-size:1rem;background:#eef4fb;border:1px solid #d5e3f3;border-radius:6px;padding:12px 16px}
+  .src{font-size:.78rem;color:var(--muted);word-break:break-word}
+  .toc{background:#f7f9fb;border:1px solid var(--line);border-radius:6px;padding:12px 18px;font-size:.9rem}
+  .toc ol{margin:4px 0}
+  footer{margin-top:34px;border-top:1px solid var(--line);padding-top:12px;font-size:.78rem;color:var(--muted)}
+  @media print{body{background:#fff}.page{max-width:none;padding:0 8mm}h2{break-after:avoid}table,.callout,.flow{break-inside:avoid}}
+</style>
+</head>
+<body>
+<div class="page">
+
+<h1>Auto-ticketing OPManager&nbsp;→&nbsp;ServiceDesk Plus Cloud</h1>
+<p class="sub">Étude de faisabilité, cas d'usage &amp; plan d'implémentation progressif — avec pré-classement automatique du Risk Register</p>
+<div class="meta">
+  Programme : Intégration ManageEngine × SDP Dashboard &nbsp;·&nbsp; Sous-projet <b>SP-B</b> (supervision → ticket) &nbsp;·&nbsp;
+  Version 1 (brouillon pour validation) &nbsp;·&nbsp; 28 juillet 2026<br>
+  Périmètre outils : OPManager (on-prem) · ServiceDesk Plus Cloud · Analytics Plus · + volets ADManager Plus / ADAudit Plus (sous-projets voisins)
+</div>
+
+<div class="toc">
+<b>Sommaire</b>
+<ol>
+  <li>Objectif &amp; périmètre</li>
+  <li>Architecture cible (hybride on-prem / cloud)</li>
+  <li>Preuve de faisabilité — sourcée</li>
+  <li>Matrice de sélection des événements (anti-surcharge)</li>
+  <li>Pré-classement automatique du Risk Register</li>
+  <li>Cycle de vie du ticket</li>
+  <li>Plan d'implémentation progressif</li>
+  <li>Garde-fous, risques &amp; rollback</li>
+  <li>Métriques de succès</li>
+  <li>Sources</li>
+</ol>
+</div>
+
+<h2>1. Objectif &amp; périmètre</h2>
+<p class="lead">Transformer les alarmes d'OPManager en <b>tickets SDP actionnables et auto-classés</b>, pour rendre l'IT <b>proactif</b> — agir avant que l'utilisateur ne remonte le problème — <b>sans noyer le service desk</b> sous des tickets bruités.</p>
+<p>Trois résultats attendus :</p>
+<ul>
+  <li><b>Proactivité</b> : un incident d'infrastructure (lien WAN, onduleur, serveur critique) ouvre un ticket <b>routé au bon groupe du site</b> dès la détection, avant l'appel utilisateur.</li>
+  <li><b>Qualité de donnée Risk Register</b> : le ticket porte <b>déjà</b> le champ « Services affected » (Internet · Mobile · Électricité · Infrastructure · Radio) — l'occurrence Risk Register se classe <b>toute seule</b>, là où aujourd'hui la classification est majoritairement manuelle / vide.</li>
+  <li><b>Discipline</b> : le ticket est la <b>fonction de forçage</b> qui garantit qu'aucun incident infra ne se perd, avec un SLA mesurable par site.</li>
+</ul>
+<p><b>Hors périmètre de ce document</b> (sous-projets voisins, mêmes fondations) : le pipeline « leaver » MyPath → SDP → ADManager Plus (SP-A) et les tickets sécurité ADAudit Plus. Leur faisabilité est confirmée ici (§3) mais leur conception fait l'objet de documents dédiés.</p>
+
+<h2>2. Architecture cible (hybride on-prem / cloud)</h2>
+<p>La pile est <b>hybride</b> : OPManager, ADAudit, ADManager Plus, l'Active Directory et <b>ce dashboard</b> vivent sur le LAN ; ServiceDesk Plus est dans le <b>cloud</b>. Le dashboard, seul composant qui parle à SDP Cloud <b>et</b> vit sur le LAN, est le <b>broker on-prem + cerveau de corrélation</b>.</p>
+
+<p>Deux chemins techniques sont possibles — et le bon choix dépend du besoin de pré-tag Risk Register :</p>
+
+<h3>Chemin A — Intégration native « Log a Ticket → SDP Cloud » <span class="tag info">baseline</span></h3>
+<div class="flow">Alarme OPManager
+   → Profil de notification « Log a Ticket → ServiceDesk Plus Cloud » (OAuth Zoho)
+   → Requête SDP créée depuis le « Default Request Incident Template » (device → CI)
+   → réouverture si l'alarme resurgit</div>
+<p><b>Avantage :</b> zéro code, livré par l'éditeur. <b>Limite :</b> le template natif mappe un jeu de champs fixe (priorité, département, sévérité, groupe) — il <b>ne permet pas de poser de façon fiable un champ multi-select spécifique</b> (le « Services affected » du Risk Register) dérivé de la catégorie d'alarme. C'est donc le <b>socle rapide</b>, pas le porteur du pré-tag.</p>
+
+<h3>Chemin B — Webhook OPManager → broker dashboard → API SDP Cloud <span class="tag ok">recommandé pour le pré-tag</span></h3>
+<div class="flow">Alarme OPManager (critique, soutenue, dédupliquée)
+   → Profil « Invoke a Webhook » (POST JSON, variables d'alarme)
+   → Broker dashboard (on-prem) :
+        • résout site → groupe via notre mapping (sites.zoho_group)
+        • dérive « Services affected » depuis la catégorie d'alarme (→ domaine Risk Register)
+        • déduplique contre nos propres données
+   → POST /api/v3/requests SDP Cloud (champ multi-select pré-rempli + groupe)
+   → (option) N × POST .../tasks : fan-out par équipe applicative
+   → au rétablissement : webhook « on-clear » → clôture la requête via l'API</div>
+<p><b>Avantage :</b> contrôle total du payload → <b>le pré-tag Risk Register est possible</b>, plus notre corrélation maison. <b>Coût :</b> une route broker à écrire et à sécuriser (elle réutilise notre pile OAuth Zoho existante).</p>
+
+<div class="callout win"><b>Décision d'architecture.</b> Puisque tu veux le <b>pré-tag Risk Register</b>, le <b>Chemin B</b> est le porteur principal. Le Chemin A reste le <b>socle de démarrage</b> (Phase&nbsp;1) pour prouver le tuyau et le comportement d'auto-clôture avant d'écrire le broker (Phase&nbsp;2).</p></div>
+
+<h2>3. Preuve de faisabilité — sourcée</h2>
+<p>Chaque capacité ci-dessous est <b>confirmée sur la documentation officielle ManageEngine / SDP Cloud</b> (liens en §10). Verdicts : <span class="tag ok">confirmé</span> <span class="tag part">partiel / à vérifier</span>.</p>
+
+<table>
+<thead><tr><th style="width:34%">Capacité</th><th style="width:12%">Verdict</th><th>Preuve (résumé)</th></tr></thead>
+<tbody>
+<tr><td>OPManager — profil natif « Log a Ticket → ServiceDesk Plus Cloud »</td><td><span class="tag ok">confirmé</span></td><td>Page d'aide dédiée « Integrating with ServiceDesk Plus Cloud » ; auth <b>OAuth grant-token Zoho</b> ; crée une <b>Requête</b> (Default Request Incident Template) ; device → CI.</td></tr>
+<tr><td>OPManager — réouverture sur récurrence</td><td><span class="tag ok">confirmé</span></td><td>« Ticket Settings » : créer une nouvelle requête <b>ou rouvrir</b> une requête close ; les changements de sévérité s'ajoutent en <b>notes</b>.</td></tr>
+<tr><td>OPManager — <b>auto-clôture</b> quand l'alarme se rétablit</td><td><span class="tag part">on-prem oui / Cloud à vérifier</span></td><td>Confirmé pour SDP <b>on-prem</b> (« alarme clear → ticket fermé »). <b>Non documenté explicitement pour le Cloud.</b> → à valider en essai ; repli = webhook « on-clear » (§7).</td></tr>
+<tr><td>OPManager — « Invoke a Webhook » (POST REST, variables d'alarme)</td><td><span class="tag ok">confirmé</span></td><td>Type de notification dédié ; payload JSON avec variables (<code>$message</code>, <code>$displayName</code>, <code>$stringseverity</code>, <code>$DeviceField(...)</code>).</td></tr>
+<tr><td>OPManager — « Run a Program » (script local)</td><td><span class="tag ok">confirmé</span></td><td>Exécute un programme avec chemin absolu ; utilisable comme dernier recours pour un broker script.</td></tr>
+<tr><td>OPManager — dédup &amp; suppression parent-enfant (topologie)</td><td><span class="tag ok">confirmé</span></td><td>Corrélation des doublons vers <b>un</b> incident racine ; <b>uplink dependency mapping</b> : une panne amont supprime les alarmes aval (1 lien WAN = 1 ticket).</td></tr>
+<tr><td>SDP Cloud — créer une requête via API v3</td><td><span class="tag ok">confirmé</span></td><td><code>POST /app/&lt;portal&gt;/api/v3/requests</code> ; auth <b>OAuth Zoho</b> (scope <code>SDPOnDemand.requests.ALL</code>) — <b>même pile que notre intégration Analytics</b>.</td></tr>
+<tr><td>SDP Cloud — poser un champ <b>multi-select</b> (UDF) à la création</td><td><span class="tag ok">confirmé</span></td><td><code>udf_fields</code> accepte des tableaux JSON : <code>"txt_multi_select":["Internet","Electrical"]</code>. Les valeurs doivent correspondre à des options pré-configurées.</td></tr>
+<tr><td>SDP Cloud — fan-out de <b>tâches</b> par équipe</td><td><span class="tag ok">confirmé</span></td><td><code>POST .../requests/{id}/tasks</code> par tâche, chacune avec son <code>group</code> / <code>owner</code>. (Pas d'appel « bulk » — N POST orchestrés par le broker.)</td></tr>
+<tr><td>SDP Cloud — Business Rules : routage groupe à la création</td><td><span class="tag ok">confirmé</span></td><td>S'appliquent à <b>toutes</b> les requêtes entrantes (API comprise) ; assignation au groupe support selon les champs.</td></tr>
+<tr><td>SDP Cloud — Webhooks / Custom Triggers (sens inverse)</td><td><span class="tag ok">confirmé</span></td><td>Appel d'URL externe sur changement d'état → permet le déclenchement d'une action broker (ex. disable AD).</td></tr>
+<tr><td>ADManager Plus — disable AD via API REST + intégration native SDP + <b>SDP Cloud</b></td><td><span class="tag ok">confirmé</span></td><td>Endpoint API « disable AD user » ; actions AD depuis la console SDP via API ADMP ; intégration <b>SDP Cloud</b> supportée (onboarding/offboarding, enable/disable/unlock/delete).</td></tr>
+<tr><td>ADAudit Plus — Execute Script + auto-ticketing SDP + détection « logon compte désactivé »</td><td><span class="tag ok">confirmé</span></td><td>Action « Execute Script » (PowerShell…) ; case « Configure Auto Ticketing » (SDP) ; alerte native « Disabled Users Logon Attempt ».</td></tr>
+</tbody>
+</table>
+
+<div class="callout"><b>Prérequis techniques (sourcés).</b> SDP Cloud <b>édition Enterprise</b> ; OPManager build <b>≥ 125315</b> (<b>≥ 126131</b> pour la synchro de relations niveau 2) ; rôles OPManager Admin + Technicien SDP Cloud ; <b>HTTPS sortant</b> depuis le serveur OPManager vers les domaines Zoho / <code>*.sdpondemand.com</code> ; sélection du <b>bon datacenter Zoho</b> (un mauvais DC casse l'auth). Ne pas rendre <b>obligatoires</b> les champs personnalisés du template natif (sinon la conversion échoue).</div>
+
+<h2>4. Matrice de sélection des événements (anti-surcharge)</h2>
+<p class="lead">« Tout ticketiser » tue un service desk. Règle directrice <b>ITIL Event Management</b> : seuls les événements <b>Exception</b> (impact métier) ouvrent un ticket. <b>Informational</b> et <b>Warning</b> restent en alerte/tableau de bord.</p>
+
+<h3>Les 6 filtres entre l'alarme et le ticket</h3>
+<ol>
+  <li><b>Gating de sévérité</b> — seulement Critical/Trouble, jamais Info/Warning.</li>
+  <li><b>Durée soutenue / anti-flapping</b> — l'alarme doit persister <b>N sondes consécutives</b> (≈ intervalle × 2-3, soit ≥ 3-5 min pour l'infra critique) : un flap de 30 s ou une sonde ratée n'ouvre rien.</li>
+  <li><b>Déduplication</b> — plusieurs symptômes d'un même incident → <b>un</b> ticket racine.</li>
+  <li><b>Corrélation parent-enfant</b> — une panne amont (lien WAN, routeur cœur) <b>supprime</b> les alarmes des équipements aval. <b>Le levier n°1 pour un réseau minier hub-and-spoke.</b></li>
+  <li><b>Fenêtre de maintenance</b> — alarmes supprimées pendant les interventions planifiées ; sauter si l'alarme est acquittée.</li>
+  <li><b>Auto-clôture</b> — le ticket se ferme quand l'alarme se rétablit (bidirectionnel).</li>
+</ol>
+
+<h3>Schéma de paliers — NOC central + sites miniers distants</h3>
+<table>
+<thead><tr><th style="width:14%">Palier</th><th style="width:30%">Classes d'équipement</th><th style="width:26%">Déclencheur ticket</th><th>Priorité</th></tr></thead>
+<tbody>
+<tr><td><b>T1 — auto-ticket</b></td><td>Routeurs/switchs cœur &amp; distribution · liens WAN/MPLS/VSAT · onduleurs/énergie/environnement · serveurs &amp; services critiques (AD DC, DNS, DHCP, hyperviseurs, app/DB core) · pare-feux/VPN</td><td>Down / critique, soutenu ≥ 3-5 min, avec suppression aval</td><td>P1 / P2</td></tr>
+<tr><td><b>T2 — auto-ticket</b></td><td>Liens/PSU redondants (perte de redondance) · serveurs applicatifs non-core, impression/backup · contrôleurs WLAN · capacité disque sur volumes critiques</td><td>Service down soutenu ≥ 10 min</td><td>P3</td></tr>
+<tr><td><b>T3 — <u>pas</u> de ticket</b></td><td>Ports switch d'accès / interfaces individuelles · postes/portables utilisateurs · pics CPU/mémoire/latence transitoires · AP Wi-Fi isolé · événements informationnels · équipements en maintenance</td><td>Tableau de bord / notification seulement (le desk arrive par l'utilisateur)</td><td>—</td></tr>
+</tbody>
+</table>
+
+<h3>Checklist par règle d'alarme (répondre OUI à tout avant d'autoriser l'auto-ticket)</h3>
+<ol>
+  <li><b>Sévérité</b> Critical/Trouble (Exception), pas Info/Warning ?</li>
+  <li><b>Palier</b> T1 ou T2 (équipement partagé/infra), pas un poste/port d'accès ?</li>
+  <li><b>Soutenu</b> ≥ N sondes / N minutes ?</li>
+  <li><b>Dédupliqué</b> (suppression des doublons active) ?</li>
+  <li><b>Corrélé</b> (l'équipement est dans la carte de dépendances) ?</li>
+  <li><b>Conscient de la maintenance</b> (respecte la fenêtre + acquittement) ?</li>
+  <li><b>Actionnable &amp; assigné</b> (un humain doit agir, groupe/priorité clairs) ?</li>
+  <li><b>Auto-clôturable</b> au rétablissement ?</li>
+</ol>
+<p>Une règle qui échoue à #1, #2 ou #7 → <b>tableau de bord seulement</b>.</p>
+
+<h2>5. Pré-classement automatique du Risk Register</h2>
+<p>OPManager <b>connaît la nature</b> de l'alarme (catégorie / type d'équipement). Le broker (Chemin B) traduit cette nature en valeur(s) du champ SDP <b>« Services affected »</b>, qui correspond 1:1 aux <b>5 domaines du Risk Register</b> déjà en place (<code>risk-register-export.js</code>). L'occurrence se classe sans geste humain — exactement la donnée aujourd'hui majoritairement absente.</p>
+<table>
+<thead><tr><th style="width:44%">Catégorie d'alarme OPManager (exemples)</th><th style="width:28%">Services affected (SDP)</th><th>Domaine Risk Register</th></tr></thead>
+<tbody>
+<tr><td>Onduleur / énergie / environnement (temp, ATS, générateur)</td><td>Électricité</td><td>Indisponibilité énergie électrique</td></tr>
+<tr><td>Lien WAN / MPLS / VSAT / Internet down</td><td>Internet + Infrastructure</td><td>Indisponibilité Internet (+ Infrastructure)</td></tr>
+<tr><td>Passerelle GSM / 3G-4G / SIM</td><td>Mobile</td><td>Indisponibilité téléphonie mobile</td></tr>
+<tr><td>Équipement radio / faisceau / télécom</td><td>Radio</td><td>Indisponibilité système radio</td></tr>
+<tr><td>Serveur/service core (AD DC, DNS, DHCP, mail, DB, hyperviseur), pare-feu</td><td>Infrastructure</td><td>Indisponibilité infrastructure</td></tr>
+</tbody>
+</table>
+<div class="callout"><b>Contrainte technique.</b> Les valeurs posées via l'API doivent <b>pré-exister</b> comme options du champ multi-select SDP. Il faut donc garder <b>en phase</b> le vocabulaire « Services affected » côté SDP et notre table de domaines Risk Register — une table de correspondance versionnée dans le broker.</div>
+
+<h2>6. Cycle de vie du ticket</h2>
+<div class="flow">1. DÉTECTION   Alarme critique, soutenue, dédupliquée, hors maintenance
+2. ENRICHIS.   Broker : site→groupe · Services affected→domaine RR · dédup
+3. CRÉATION    POST /api/v3/requests  (priorité selon palier, groupe, UDF pré-rempli, CI)
+4. ROUTAGE     Assignée au groupe technicien du site/bureau (payload explicite)
+5. (OPTION)    Fan-out de tâches par équipe applicative si pertinent
+6. VIE         Changements de sévérité → notes (pas de nouveau ticket)
+7. CLÔTURE     Rétablissement → auto-clôture (natif on-prem) ou webhook on-clear (Cloud)
+8. PREUVE      Occurrence Risk Register auto-classée ; SLA de traitement mesuré</div>
+
+<h2>7. Plan d'implémentation progressif</h2>
+<p>Principe : <b>commencer très petit, prouver, élargir</b>. Chaque phase est additive et réversible ; on ne passe à la suivante que si les critères de sortie sont verts.</p>
+
+<h3>Phase 0 — Prérequis &amp; validation du risque ouvert</h3>
+<ul>
+  <li>Vérifier : SDP Cloud <b>Enterprise</b>, build OPManager, rôles, HTTPS sortant, bon DC Zoho.</li>
+  <li>Établir l'app OAuth Zoho (réutiliser la pile existante ; ajouter le scope requêtes).</li>
+  <li><b>Tester explicitement l'auto-clôture au rétablissement sur le Cloud</b> (le seul point non documenté) sur <b>un</b> équipement de labo.</li>
+</ul>
+<p><b>Sortie :</b> prérequis confirmés + verdict clair sur l'auto-clôture Cloud (native OK, ou repli webhook on-clear retenu).</p>
+
+<h3>Phase 1 — Socle natif (Chemin A)</h3>
+<ul>
+  <li>Un <b>seul site</b>, une <b>seule classe T1</b> (ex. lien WAN + onduleur), profil natif « Log a Ticket → SDP Cloud ».</li>
+  <li>Activer dédup + suppression parent-enfant + fenêtre de maintenance + gating sévérité.</li>
+  <li>Prouver en réel : auto-ticket, routage, réouverture, auto-clôture (ou webhook on-clear).</li>
+</ul>
+<p><b>Sortie :</b> le tuyau fonctionne en prod sur un périmètre minuscule, zéro flot parasite.</p>
+
+<h3>Phase 2 — Broker + pré-tag Risk Register (Chemin B)</h3>
+<ul>
+  <li>Écrire la route broker (dashboard) : « Invoke a Webhook » OPManager → enrichissement → API SDP Cloud.</li>
+  <li>Poser le champ « Services affected » depuis la catégorie d'alarme ; routage site→groupe via notre mapping ; dédup contre nos données.</li>
+  <li>Valider que l'occurrence Risk Register se classe automatiquement.</li>
+</ul>
+<p><b>Sortie :</b> tickets auto-classés Risk Register sur le périmètre pilote ; corrélation maison en place.</p>
+
+<h3>Phase 3 — Extension paliers &amp; sites</h3>
+<ul>
+  <li>Étendre à tous les T1 puis T2, site par site ; caler les seuils de durée par intervalle de sonde.</li>
+  <li>Synchroniser les fenêtres de maintenance ; ajouter le fan-out de tâches là où c'est pertinent.</li>
+</ul>
+<p><b>Sortie :</b> couverture infra complète, volume de tickets maîtrisé (mesuré, cf. §9).</p>
+
+<h3>Phase 4 — Corrélation &amp; scorecard de proactivité</h3>
+<ul>
+  <li>Fusionner les signaux (OPManager + SDP + inspections + AD) en un score <b>« site à risque »</b> sur le dashboard.</li>
+  <li>Publier la scorecard de proactivité (temps d'accusé, tickets évités par dédup, % occurrences RR auto-taggées).</li>
+</ul>
+<p><b>Sortie :</b> le dashboard alerte le SDM <b>avant</b> la crise — la valeur que seul lui apporte.</p>
+
+<h2>8. Garde-fous, risques &amp; rollback</h2>
+<table>
+<thead><tr><th style="width:30%">Risque</th><th>Parade</th></tr></thead>
+<tbody>
+<tr><td><b>Auto-clôture Cloud non garantie</b> (seul point non documenté)</td><td>Validé en Phase 0 ; repli = webhook « on-clear » qui ferme via l'API. Ne pas le promettre aux parties prenantes avant l'essai.</td></tr>
+<tr><td><b>Flot de tickets</b> (fatigue d'alerte)</td><td>La checklist §4 barre chaque règle ; démarrage sur un périmètre minuscule ; dédup + suppression parent-enfant obligatoires.</td></tr>
+<tr><td><b>Le broker détient un secret OAuth SDP</b></td><td>Moindre privilège (scope requêtes), stockage sécurisé, réutilisation des leçons circuit-breaker / rate-limit déjà éprouvées sur notre pile Zoho.</td></tr>
+<tr><td><b>Rigidité du template natif</b></td><td>Ne pas rendre obligatoires ses champs personnalisés (sinon la conversion échoue).</td></tr>
+<tr><td><b>Mauvais DC Zoho</b></td><td>Sélectionner le datacenter correct au moment du grant-token.</td></tr>
+<tr><td><b>Options du champ multi-select non alignées</b></td><td>Table de correspondance versionnée dans le broker ; les valeurs doivent pré-exister côté SDP.</td></tr>
+</tbody>
+</table>
+<div class="callout"><b>Rollback.</b> Chaque phase est <b>additive et réversible</b> : désactiver le profil de notification (Chemin A) ou la route broker (Chemin B) suffit — aucune modification destructive de SDP ni du dashboard. On peut arrêter à n'importe quelle phase sans dette.</div>
+
+<h2>9. Métriques de succès</h2>
+<ul>
+  <li><b>Tickets auto-créés</b> / auto-clôturés par palier et par site.</li>
+  <li><b>Ratio de dédup</b> (alarmes reçues ÷ tickets créés) — mesure directe de l'anti-surcharge.</li>
+  <li><b>% d'occurrences Risk Register auto-taggées</b> (vs saisie manuelle) — le gain de qualité de donnée.</li>
+  <li><b>MTTA</b> (temps moyen d'accusé) sur les tickets auto-créés.</li>
+  <li><b>Taux de faux tickets</b> (créés puis clos sans action) — doit tendre vers zéro ; sinon resserrer les seuils.</li>
+</ul>
+
+<h2>10. Sources</h2>
+<p class="src"><b>OPManager → SDP Cloud :</b>
+manageengine.com/network-monitoring/help/integrate-sdp-cloud.html ·
+help.sdpondemand.com/opmanager-integration ·
+manageengine.com/network-monitoring/integrate-sdp-with-opmanager.html ·
+manageengine.com/network-monitoring/webhook-integration.html ·
+manageengine.com/network-monitoring/help/configuring-notifications.html ·
+manageengine.com/network-monitoring/help/run-program.html ·
+manageengine.com/network-monitoring/network-monitoring-alerts.html ·
+manageengine.com/network-monitoring/log-a-ticket.html ·
+manageengine.com/network-monitoring/help/suppress-alarms.html</p>
+<p class="src"><b>ServiceDesk Plus Cloud API :</b>
+manageengine.com/products/service-desk/sdpod-v3-api/requests/request.html ·
+…/requests/request_task.html ·
+…/getting-started/oauth-2.0.html ·
+help.sdpondemand.com/adding-tasks ·
+help.sdpondemand.com/configuring-business-rules-new ·
+help.sdpondemand.com/webhooks · help.sdpondemand.com/triggers ·
+help.sdpondemand.com/email-command</p>
+<p class="src"><b>ITIL Event Management :</b>
+wiki.octopus-itsm.com/en/articles/event-management-itilr-process ·
+wiki.en.it-processmaps.com/index.php/Event_Management ·
+blog.invgate.com/event-management-itil</p>
+<p class="src"><b>ADManager Plus / ADAudit Plus :</b>
+manageengine.com/products/ad-manager/active-directory-api/disable-ad-user.html ·
+manageengine.com/products/ad-manager/help/admin-settings/third-party-integrations/servicedeskplus.html ·
+manageengine.com/products/active-directory-audit/help/general-config/ticketing-tool-integration-auto-ticketing-configuration.html ·
+manageengine.com/products/active-directory-audit/how-to/verify-logon-failure-account-currently-disabled.html</p>
+
+<footer>
+Document de travail — v1 pour validation. Les capacités sont sourcées sur la documentation officielle ManageEngine / ServiceDesk Plus Cloud (juillet 2026, pages non datées / à révision continue). Les paliers d'équipement et les seuils sont des recommandations d'ingénierie à caler sur vos intervalles de sonde et SLA de site. Le seul point à valider en essai avant engagement : l'auto-clôture au rétablissement côté SDP Cloud.<br>
+Programme Intégration ManageEngine × SDP Dashboard — SP-B.
+</footer>
+
+</div>
+</body>
+</html>

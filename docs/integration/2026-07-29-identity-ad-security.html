@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Identité &amp; Sécurité AD — Actions gouvernées depuis le ticket SDP (ADManager Plus / ADAudit Plus)</title>
+<style>
+  :root{--navy:#1E3A5F;--blue:#145FAE;--green:#16A34A;--amber:#D97706;--red:#D90038;--ink:#1f2933;--muted:#5b6773;--line:#d7dde3;--bg:#f4f6f8;--box:#fff;}
+  *{box-sizing:border-box}
+  body{font-family:"Segoe UI",Calibri,Arial,sans-serif;color:var(--ink);line-height:1.5;margin:0;background:var(--bg)}
+  .page{max-width:900px;margin:0 auto;padding:32px 40px 64px;background:var(--box)}
+  h1{font-size:1.7rem;color:var(--navy);margin:0 0 4px;line-height:1.2}
+  .sub{color:var(--muted);font-size:.95rem;margin:0 0 6px}
+  .meta{font-size:.78rem;color:var(--muted);border-bottom:2px solid var(--navy);padding-bottom:14px;margin-bottom:22px}
+  h2{font-size:1.22rem;color:var(--navy);margin:30px 0 8px;border-left:5px solid var(--blue);padding-left:10px}
+  h3{font-size:1.02rem;color:var(--navy);margin:20px 0 6px}
+  p{margin:8px 0} ul,ol{margin:8px 0 8px 4px;padding-left:22px} li{margin:4px 0}
+  table{border-collapse:collapse;width:100%;margin:12px 0;font-size:.86rem}
+  th,td{border:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top}
+  th{background:var(--navy);color:#fff;font-weight:600} tbody tr:nth-child(even){background:#f7f9fb}
+  code{background:#eef2f6;border:1px solid #e0e6ec;border-radius:3px;padding:1px 5px;font-family:Consolas,monospace;font-size:.85em}
+  .tag{display:inline-block;font-size:.72rem;font-weight:700;border-radius:10px;padding:2px 9px;color:#fff;white-space:nowrap}
+  .ok{background:var(--green)} .part{background:var(--amber)} .no{background:var(--red)} .info{background:var(--blue)}
+  .callout{border:1px solid var(--line);border-left:5px solid var(--amber);background:#fff8ef;padding:12px 14px;border-radius:6px;margin:14px 0}
+  .callout.risk{border-left-color:var(--red);background:#fff2f5}.callout.win{border-left-color:var(--green);background:#f1faf3}
+  .callout b{color:var(--navy)}
+  .flow{background:#0f1b2b;color:#e6edf5;border-radius:8px;padding:14px 16px;font-family:Consolas,monospace;font-size:.82rem;white-space:pre-wrap;line-height:1.55;margin:12px 0}
+  .lead{font-size:1rem;background:#eef4fb;border:1px solid #d5e3f3;border-radius:6px;padding:12px 16px}
+  .src{font-size:.78rem;color:var(--muted);word-break:break-word}
+  .toc{background:#f7f9fb;border:1px solid var(--line);border-radius:6px;padding:12px 18px;font-size:.9rem}
+  footer{margin-top:34px;border-top:1px solid var(--line);padding-top:12px;font-size:.78rem;color:var(--muted)}
+  @media print{body{background:#fff}.page{max-width:none;padding:0 8mm}h2{break-after:avoid}table,.callout,.flow{break-inside:avoid}}
+</style>
+</head>
+<body>
+<div class="page">
+
+<h1>Identité &amp; Sécurité AD — actions gouvernées depuis le ticket SDP</h1>
+<p class="sub">ADManager Plus (création / désactivation / reset) et ADAudit Plus (cleanup &amp; sécurité) pilotés depuis ServiceDesk Plus Cloud — étude de faisabilité, cas d'usage &amp; plan progressif</p>
+<div class="meta">
+  Programme : Intégration ManageEngine × SDP Dashboard &nbsp;·&nbsp; Sous-projet <b>SP-A + Sécurité AD</b> &nbsp;·&nbsp;
+  Lot v1 : <b>A1 disable leaver · A2 reset/unlock · B1 logon compte désactivé · B2 digest dormants</b> &nbsp;·&nbsp; 29 juillet 2026<br>
+  Principe directeur : <b>l'action vit dans les outils (SDP + ADManager Plus + ADAudit Plus) ; le dashboard supervise et corrèle.</b>
+</div>
+
+<div class="toc">
+<b>Sommaire</b>
+<ol>
+  <li>Objectif &amp; parti pris d'architecture</li>
+  <li>Répartition SDP-natif / dashboard-supervision</li>
+  <li>Connectivité SDP Cloud → ADManager Plus on-prem (derrière le VPN)</li>
+  <li>Preuve de faisabilité — sourcée</li>
+  <li>Le lot de cas d'usage (A1 · A2 · B1 · B2)</li>
+  <li>Matrice anti-surcharge ADAudit (immédiat vs digest)</li>
+  <li>Colonne vertébrale sécurité (anti-usurpation)</li>
+  <li>Plan d'implémentation progressif</li>
+  <li>Zones à valider en tenant · risques · rollback</li>
+  <li>Métriques de succès · Sources</li>
+</ol>
+</div>
+
+<h2>1. Objectif &amp; parti pris d'architecture</h2>
+<p class="lead"><b>Centraliser et fiabiliser les actions d'identité et de sécurité AD</b> — pour que le technicien du site agisse <b>en un clic gouverné</b>, sans rien oublier, <b>sans jamais détenir de privilège élevé</b>, et <b>sans quitter les outils qu'il utilise déjà</b>.</p>
+<p><b>Parti pris (validé) :</b> on ne reconstruit pas une console d'action maison. L'action d'identité se fait <b>nativement dans le ticket SDP</b>, exécutée par <b>ADManager Plus</b> (délégation + approbation + audit). Le dashboard n'est <b>pas le bouton d'action</b> — il est la <b>couche de supervision et de corrélation</b> au-dessus (complétude « rien ne se perd », SLA, corrélation leaver→matériel, digests d'hygiène AD). Ce parti pris respecte l'investissement outillage et colle à la réalité réseau (VPN site-à-site vers les outils on-prem).</p>
+<p><b>Lot de ce document :</b></p>
+<ul>
+  <li><b>A1 — Désactivation d'un leaver</b> (le besoin actuel) : ticket MyPath → approbation → clic « Disable » dans le ticket.</li>
+  <li><b>A2 — Reset mot de passe / déverrouillage</b> : faible risque, gros volume déflecté — le gain rapide.</li>
+  <li><b>B1 — Connexion d'un compte désactivé</b> : ticket sécurité <b>immédiat</b> (signal fort).</li>
+  <li><b>B2 — Comptes dormants</b> : <b>digest hebdomadaire par site</b> (pas un ticket par compte).</li>
+</ul>
+<p>Le provisioning joiner (A3) et les autres événements sécurité (changement de groupe privilégié…) sont en feuille de route, hors lot v1.</p>
+
+<h2>2. Répartition SDP-natif / dashboard-supervision</h2>
+<table>
+<thead><tr><th style="width:50%">Dans SDP + ADManager Plus / ADAudit Plus (natif, dans le ticket)</th><th>Dans le dashboard (la couche que seul lui apporte)</th></tr></thead>
+<tbody>
+<tr><td><b>L'action</b> : create / disable / unlock / reset depuis le ticket SDP</td><td><b>Complétude</b> : quels leavers pas encore désactivés, par site (« rien ne se perd »)</td></tr>
+<tr><td><b>L'approbation</b> : Workflow ADManager Plus (Demandeur→Réviseur→Approbateur→Exécuteur)</td><td><b>SLA</b> : temps-de-désactivation par site, board de suivi</td></tr>
+<tr><td><b>Le step-up / 2FA</b> : 2FA technicien ADManager Plus</td><td><b>Corrélation croisée</b> : leaver → ses assets à récupérer, ses tickets ouverts</td></tr>
+<tr><td><b>La détection sécurité</b> : alertes natives ADAudit Plus → ticket SDP</td><td><b>Les digests</b> : hygiène AD par site (dormants…) — réutilise le patron <code>send-hygiene</code></td></tr>
+<tr><td><b>L'audit / preuve</b> : logs ADManager Plus + ADAudit Plus (double preuve)</td><td><b>La fusion</b> : signal « site à risque » (AD + helpdesk + inspections)</td></tr>
+</tbody>
+</table>
+<div class="callout win"><b>Conséquence.</b> Le dashboard ne fait que <b>lire et agréger</b> — il n'exécute aucune action privilégiée, ne détient aucun secret d'action AD. Zéro nouvelle surface sensible à exposer sur le réseau.</div>
+
+<h2>3. Connectivité SDP Cloud → ADManager Plus on-prem (derrière le VPN)</h2>
+<p>SDP est <b>Cloud</b> ; ADManager Plus est <b>on-prem</b>, derrière le VPN site-à-site. Le pont officiel et recommandé est le <b>modèle « probe »</b> :</p>
+<div class="flow">Technicien (sur le VPN) ── clic « Disable » dans le ticket ──▶ SDP Cloud
+        │
+        │   (la sonde interroge le cloud toutes les ~5 min — SORTANT uniquement)
+        ▼
+   Probe SDP Cloud (installée on-prem, à côté d'ADManager Plus)
+        │   HTTPS 443 SORTANT vers SDP Cloud ; relaie les appels REST en LAN
+        ▼
+   ADManager Plus on-prem ── écrit dans AD (compte de service délégué, audité)</div>
+<ul>
+  <li><b>Sortie seule</b> : la sonde initie une connexion <b>HTTPS 443 sortante</b> vers SDP Cloud ; <b>rien n'est ouvert en entrée</b> vers le réseau on-prem. <b>ADManager Plus n'est jamais exposé à Internet.</b> C'est le modèle VPN-friendly.</li>
+  <li><b>Prérequis</b> : ADManager Plus <b>build ≥ 7064</b> ; l'<b>Authtoken</b> admin/technicien ADMP saisi côté SDP Cloud ; la sonde co-localisée avec ADMP.</li>
+  <li><b>À éviter</b> : l'ancien modèle « exposition Internet » (DMZ / héberger ADMP sur AWS/Azure) — inutile et moins sûr dès qu'on utilise la sonde.</li>
+</ul>
+<div class="callout"><b>À vérifier en tenant.</b> La documentation publique est <b>incohérente</b> entre le modèle sonde (actuel) et le modèle DMZ (ancien) — confirmer que <b>votre build</b> relève du modèle sonde, et le <b>port du saut sonde→ADMP</b> (probablement console ADMP <code>8080/8443</code>, à n'ouvrir qu'en LAN/VPN, jamais sur Internet).</div>
+
+<h2>4. Preuve de faisabilité — sourcée</h2>
+<p>Verdicts : <span class="tag ok">confirmé</span> <span class="tag part">partiel / à vérifier</span>. Sources officielles ManageEngine en §10.</p>
+<table>
+<thead><tr><th style="width:36%">Capacité</th><th style="width:14%">Verdict</th><th>Preuve (résumé)</th></tr></thead>
+<tbody>
+<tr><td>Connectivité par <b>sonde</b> (sortie seule, ADMP non exposé)</td><td><span class="tag ok">confirmé</span></td><td>« La sonde doit être installée sur le même réseau qu'ADManager Plus » ; elle « contacte SDP Cloud toutes les 5 min » (poll sortant). ADMP ≥ 7064.</td></tr>
+<tr><td>Modèle sonde vs modèle DMZ (docs incohérentes)</td><td><span class="tag part">à confirmer sur votre build</span></td><td>Une KB plus ancienne documente une exposition DMZ/AWS/Azure — à ne pas utiliser si la sonde est disponible.</td></tr>
+<tr><td>Actions AD <b>depuis le ticket SDP</b> : enable / disable / reset / create</td><td><span class="tag ok">confirmé</span></td><td>« activer ou désactiver des comptes au fur et à mesure des tickets » ; « réinitialiser les mots de passe AD depuis la console du help desk » ; création confirmée sur la page d'intégration.</td></tr>
+<tr><td>Action <b>unlock</b> (déverrouillage) depuis le ticket</td><td><span class="tag part">à confirmer (version plugin)</span></td><td>Action standard ADMP déléguée, mais non citée verbatim ; confirmer la tuile dans votre version du plugin SDP.</td></tr>
+<tr><td>Écriture AD sous <b>délégation moindre privilège</b> + audit ; <b>pas de domain-admin</b> hors ADMP</td><td><span class="tag ok">confirmé</span></td><td>« les droits AD natifs des techniciens restent inchangés… pas besoin de domain admin » ; restriction par OU ; chaque action journalisée (qui/quoi/quand).</td></tr>
+<tr><td><b>Workflow / approbation</b> ADManager Plus (exécution barrée par l'approbation)</td><td><span class="tag ok">confirmé</span></td><td>4 niveaux Demandeur→Réviseur→Approbateur→Exécuteur ; « garder le contrôle à chaque étape : revue, approbation, exécution ».</td></tr>
+<tr><td>Approbation <b>liée à l'action initiée depuis le ticket</b> (vs console)</td><td><span class="tag part">à vérifier en tenant</span></td><td>La doc ne l'affirme pas explicitement — <b>c'est la plus grosse hypothèse à valider</b> avant tout engagement « approval-gated ».</td></tr>
+<tr><td><b>2FA technicien</b> ADManager Plus</td><td><span class="tag ok">confirmé</span></td><td>« accès bloqué tant que la 2FA n'est pas complétée » ; 6 méthodes : Duo, Google Authenticator, OTP email, RSA, Microsoft Authenticator, SMS.</td></tr>
+<tr><td>ADManager Plus — API REST <b>disable</b> AD user</td><td><span class="tag ok">confirmé</span></td><td>Endpoint API dédié (cible par sAMAccountName / UPN).</td></tr>
+<tr><td>ADAudit Plus — <b>logon compte désactivé</b> (détection native)</td><td><span class="tag ok">confirmé</span></td><td>Alerte / rapport « Disabled Users Logon Attempt » ; peut auto-créer un ticket ITSM.</td></tr>
+<tr><td>ADAudit Plus — <b>auto-ticketing SDP</b> + Execute Script + échecs de logon</td><td><span class="tag ok">confirmé</span></td><td>Case « Configure Auto Ticketing » (SDP) ; action « Execute Script » (PowerShell…) ; rapports d'échecs/lockout.</td></tr>
+<tr><td>Limite : appels REST de l'intégration <b>plafonnés par le nombre de licences technicien</b></td><td><span class="tag part">à dimensionner</span></td><td>Le débit d'actions dépend du nombre de licences — à calibrer.</td></tr>
+</tbody>
+</table>
+
+<h2>5. Le lot de cas d'usage (A1 · A2 · B1 · B2)</h2>
+
+<h3>A1 — Désactivation d'un leaver <span class="tag info">flagship</span></h3>
+<div class="flow">MyPath (leaver) → ticket SDP → Business Rule : routage groupe du site
+   → (Workflow ADMP : approbation)
+   → le technicien clique « Disable » DANS le ticket → ADManager Plus exécute (délégué, audité)
+   → ADAudit Plus atteste la désactivation
+   → fan-out de tâches SDP aux équipes applicatives (révocation d'accès)
+Dashboard : board de complétude + SLA de désactivation par site + corrélation leaver→assets</div>
+
+<h3>A2 — Reset mot de passe / déverrouillage <span class="tag ok">gain rapide</span></h3>
+<p>Ticket (ou self-service) → le technicien <b>reset/unlock depuis le ticket</b> → ADManager Plus. <b>Faible risque, gros volume déflecté</b> — idéal pour démarrer et prouver l'action native in-ticket + l'audit. Dashboard : métriques de volume et de déflexion.</p>
+
+<h3>B1 — Connexion d'un compte désactivé <span class="tag no">sécurité — immédiat</span></h3>
+<p>Alerte native ADAudit Plus « Disabled Users Logon Attempt » → <b>ticket SDP immédiat</b> au groupe sécurité/technicien du site → investigation. Signal à fort ratio signal/bruit (rare et grave). Dashboard : flux des événements sécurité par site.</p>
+
+<h3>B2 — Comptes dormants <span class="tag info">hygiène — digest</span></h3>
+<p>Rapport d'inactivité ADAudit Plus → <b>digest hebdomadaire par site</b> (réutilise le patron <code>send-hygiene</code> déjà en place) listant les comptes dormants avec <b>liens profonds pour agir</b> → le technicien revoit et désactive via l'action in-ticket. <b>Jamais un ticket par compte</b> — un digest par site. Dashboard : générateur du digest + liste par site.</p>
+
+<h2>6. Matrice anti-surcharge ADAudit (immédiat vs digest)</h2>
+<p class="lead">Même discipline que pour OPManager : <b>ticket immédiat uniquement pour les vrais signaux sécurité</b> ; <b>digest par site</b> pour l'hygiène. Sinon on noie le service desk.</p>
+<table>
+<thead><tr><th style="width:40%">Événement ADAudit Plus</th><th style="width:24%">Mode</th><th>Nature</th></tr></thead>
+<tbody>
+<tr><td><b>Connexion d'un compte désactivé</b> (B1)</td><td>Ticket <b>immédiat</b></td><td>Sécurité — signal fort</td></tr>
+<tr><td>Changement de groupe privilégié (Domain Admins…) <span class="tag info">roadmap</span></td><td>Ticket <b>immédiat</b> de revue</td><td>Sécurité — très sensible</td></tr>
+<tr><td>Échecs d'authentification répétés / lockouts</td><td><b>Immédiat</b> si seuil franchi, sinon digest</td><td>Sécurité / brute-force</td></tr>
+<tr><td><b>Comptes dormants</b> (pas de logon N jours) (B2)</td><td><b>Digest hebdo par site</b></td><td>Hygiène</td></tr>
+<tr><td>Comptes jamais connectés / actifs après création <span class="tag info">roadmap</span></td><td>Digest</td><td>Hygiène (trou d'onboarding)</td></tr>
+<tr><td>password-never-expires / not-required (actifs) <span class="tag info">roadmap</span></td><td>Digest</td><td>Hygiène</td></tr>
+</tbody>
+</table>
+<p><b>Règle :</b> un événement qui n'exige pas d'action humaine immédiate → <b>digest</b>, jamais un ticket unitaire. Le digest est <b>dédupliqué et groupé par site</b>.</p>
+
+<h2>7. Colonne vertébrale sécurité (anti-usurpation)</h2>
+<ol>
+  <li><b>Pas de compte god dans le dashboard.</b> Il ne fait que lire/agréger. L'écriture AD passe <b>uniquement</b> par ADManager Plus.</li>
+  <li><b>Moindre privilège délégué</b> : le technicien agit via ADManager Plus, restreint à ses OU ; ses droits AD natifs restent inchangés — le compte privilégié vit <b>seulement</b> dans ADMP.</li>
+  <li><b>Approbation avant exécution</b> : Workflow ADManager Plus barre l'action tant qu'elle n'est pas approuvée (à confirmer sur le chemin ticket — §9).</li>
+  <li><b>Step-up / 2FA</b> au moment de l'action : 2FA technicien ADManager Plus (6 méthodes). Pas de MFA maison. Option : re-challenge via le <b>SSO Entra déjà codé (dormant)</b> du dashboard si un déclenchement passe par lui.</li>
+  <li><b>Double preuve</b> : ADManager Plus journalise l'action, ADAudit Plus atteste le changement dans AD — qui/quoi/quand, des deux côtés.</li>
+</ol>
+
+<h2>8. Plan d'implémentation progressif</h2>
+<p>Principe : <b>commencer par le moins risqué, prouver, élargir.</b> Chaque phase est additive et réversible.</p>
+
+<h3>Phase 0 — Prérequis &amp; validation des zones grises</h3>
+<ul>
+  <li>Déployer/confirmer la <b>sonde</b> (sortie seule) ; ADManager Plus ≥ 7064 ; Authtoken ; port sonde→ADMP en LAN.</li>
+  <li><b>Vérifier que l'approbation Workflow s'interpose sur une action initiée depuis le ticket</b> (la plus grosse hypothèse).</li>
+  <li>Confirmer : tuile <b>unlock</b> dans le plugin, <b>2FA</b> sur le rôle délégué OU, <b>plafond de licences</b> REST.</li>
+  <li>Test labo : une désactivation de bout en bout depuis un ticket, approuvée + 2FA + auditée.</li>
+</ul>
+<p class="src"><b>Sortie :</b> connectivité prouvée, comportement d'approbation-sur-ticket tranché.</p>
+
+<h3>Phase 1 — A2 reset / unlock (le moins risqué)</h3>
+<ul><li>Un site : action reset/unlock <b>in-ticket</b> via ADManager Plus, avec 2FA + audit.</li><li>Prouver l'action native + la déflexion de volume + la trace d'audit.</li></ul>
+
+<h3>Phase 2 — A1 désactivation leaver</h3>
+<ul><li>MyPath leaver → routage groupe → approbation → clic « Disable » in-ticket → fan-out de tâches applicatives.</li><li>Dashboard : board de complétude + SLA de désactivation par site.</li></ul>
+
+<h3>Phase 3 — B1 (immédiat) + B2 (digest dormants)</h3>
+<ul><li>ADAudit : ticket immédiat « logon compte désactivé » ; digest hebdo « dormants » par site (patron <code>send-hygiene</code>).</li></ul>
+
+<h3>Phase 4 — Corrélation &amp; extension</h3>
+<ul><li>Corrélation leaver→assets (récupération matériel) ; extension sécurité (groupe privilégié…) ; scorecard.</li></ul>
+
+<h2>9. Zones à valider en tenant · risques · rollback</h2>
+<table>
+<thead><tr><th style="width:34%">Zone / risque</th><th>Parade</th></tr></thead>
+<tbody>
+<tr><td><b>Approbation liée à l'action ticket</b> (hypothèse n°1)</td><td>Validée en Phase 0 avant tout engagement « approval-gated » ; sinon, l'approbation se fait dans SDP (approbation de requête) en amont de l'action.</td></tr>
+<tr><td>Modèle sonde vs DMZ (docs incohérentes)</td><td>Confirmer le modèle sonde sur votre build ; ne pas exposer ADMP à Internet.</td></tr>
+<tr><td>Tuile unlock / 2FA sur rôle délégué / plafond licences</td><td>Vérifiés en Phase 0 ; dimensionner les licences selon le débit d'actions.</td></tr>
+<tr><td>Flot de tickets sécurité (ADAudit)</td><td>Matrice §6 : immédiat = vrais signaux ; hygiène = digest par site, jamais unitaire.</td></tr>
+<tr><td>Usurpation de privilège</td><td>Colonne vertébrale §7 : pas de compte god ; délégation + approbation + 2FA + audit.</td></tr>
+</tbody>
+</table>
+<div class="callout"><b>Rollback.</b> Tout est additif et réversible : désactiver l'intégration / le profil d'alerte / le digest suffit. Aucune modification destructive d'AD, de SDP ni du dashboard. L'action AD reste toujours un geste humain approuvé — jamais une automatisation autonome.</div>
+
+<h2>10. Métriques de succès · Sources</h2>
+<ul>
+  <li><b>Temps de désactivation leaver</b> par site (SLA).</li>
+  <li><b>Volume reset/unlock déflecté</b> (self-service + in-ticket).</li>
+  <li><b>Comptes dormants nettoyés</b> par site (digest → action).</li>
+  <li><b>MTTA « logon compte désactivé »</b> (signal sécurité).</li>
+  <li><b>% d'actions AD avec approbation + 2FA</b> (preuve de gouvernance) ; <b>0</b> action AD hors ADManager Plus.</li>
+</ul>
+<p class="src"><b>ADManager Plus :</b>
+manageengine.com/products/ad-manager/help/admin-settings/third-party-integrations/servicedesk-plus-on-demand.html ·
+…/admanager-kb/how-to-configure-sdp-od-with-admanager-plus.html ·
+…/admanagerplus-servicedeskplus-on-demand-integration.html ·
+…/help/workflow/workflow.html · …/active-directory-workflow.html ·
+…/help/admin-settings/two-factor-authentication.html ·
+…/active_directory_security_delegation.html ·
+…/active-directory-api/disable-ad-user.html ·
+manageengine.com/products/service-desk/cloud/help-desk-architecture.html (sonde)</p>
+<p class="src"><b>ADAudit Plus :</b>
+…/active-directory-audit/help/general-config/ticketing-tool-integration-auto-ticketing-configuration.html ·
+…/how-to/verify-logon-failure-account-currently-disabled.html ·
+…/active-directory-change-alerts.html (Execute Script)</p>
+
+<footer>
+Document de travail — v1 pour validation. Capacités sourcées sur la documentation officielle ManageEngine (juillet 2026, pages à révision continue). Trois points restent à valider en tenant avant engagement : (1) que l'approbation Workflow s'interpose sur les actions <b>initiées depuis le ticket</b> ; (2) le modèle de connectivité (sonde) sur votre build ; (3) la tuile unlock / la 2FA du rôle délégué / le plafond de licences REST. Aucune action AD n'est jamais automatisée sans humain approbateur.<br>
+Programme Intégration ManageEngine × SDP Dashboard — SP-A + Sécurité AD.
+</footer>
+
+</div>
+</body>
+</html>
