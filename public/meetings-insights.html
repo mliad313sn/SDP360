@@ -318,6 +318,11 @@
 </head>
 <body data-section="performance" data-current="meetings">
 
+<!-- Top banner mount — _shell.js renders into #__shell (the body-level
+     data-section/data-current alone never rendered a banner: same bug class as
+     the app-shell typo on site-actions.html). -->
+<div id="__shell" data-section="performance" data-current="meetings"></div>
+
 <div class="mi-wrap">
 
   <!-- Module tabs — 5 primary views. Active tab = Dashboard.
