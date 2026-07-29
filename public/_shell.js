@@ -58,6 +58,12 @@
     'hard-drive':     ICONS.html('hard-drive'),
     'shield-check':   ICONS.html('shield-check'),
     wallet:           ICONS.html('wallet'),
+    // Distinct icons so the Insights dropdown items don't collide visually:
+    // Inspections keeps clipboard-check; Meetings → users (a council of people);
+    // Site Actions → check (a register of actions to close). All three were
+    // clipboard-check before, which made them indistinguishable at a glance.
+    users:            ICONS.html('users'),
+    check:            ICONS.html('check'),
   };
 
   // Canonical nav. Each item declares the role(s) that grant access.
@@ -122,8 +128,8 @@
         // reached through the module's own intra-module tab strip, same
         // pattern as Activity Tracker. Keeps Insights ▾ lean and matches
         // the user mental model of "one module = one nav entry".
-        { id: 'meetings',    label: 'Meetings Decisions',  icon: ICON_LIB['clipboard-check'], href: 'meetings.html',          roles: ['any']       },
-        { id: 'site-actions', label: 'Site Actions',       icon: ICON_LIB['clipboard-check'], href: 'site-actions.html',      roles: ['any']       },
+        { id: 'meetings',    label: 'Meetings Decisions',  icon: ICON_LIB.users,              href: 'meetings.html',          roles: ['any']       },
+        { id: 'site-actions', label: 'Site Actions',       icon: ICON_LIB.check,              href: 'site-actions.html',      roles: ['any']       },
         // Assets — ONE tabbed module (Inventory · Hygiene · Finance & Licences)
         // over the ManageEngine-synced fleet, driven by one shared filter bar.
         // The former standalone Hygiene + Finance pages are now the #hygiene /
