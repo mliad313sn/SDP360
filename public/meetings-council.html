@@ -12,6 +12,8 @@
 <script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
 <script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any" data-redirect="login.html"></script>
 <script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<link rel="stylesheet" href="module-tabs.css">
+<script nonce="%%CSP_NONCE%%" src="module-tabs.js"></script>
 
 <style nonce="%%CSP_NONCE%%">
   body {
@@ -187,16 +189,7 @@
 
 <div class="mc-wrap">
 
-  <nav class="mtg-tabs" aria-label="Meetings module sections">
-    <a class="mtg-tabs__btn" href="meetings.html">📋 Meetings</a>
-    <a class="mtg-tabs__btn" href="meetings-insights.html">📊 Dashboard</a>
-    <a class="mtg-tabs__btn" href="meetings-issues.html">📌 Issues</a>
-    <a class="mtg-tabs__btn" href="meetings-actions.html">✔ Actions</a>
-    <a class="mtg-tabs__btn" href="meetings-unsigned.html">✍ Unsigned</a>
-    <a class="mtg-tabs__btn mtg-tabs__btn--active" href="meetings-council.html" aria-current="page">⚖ Council</a>
-    <a class="mtg-tabs__btn" href="meetings-compliance.html">✅ Compliance</a>
-    <a class="mtg-tabs__btn mtg-tabs__btn--admin" href="meetings-setup.html" style="display:none">⚙ Setup</a>
-  </nav>
+  <div id="__moduletabs" data-module="meetings" data-current="council"></div>
 
   <section class="mc-hero">
     <div class="mc-eyebrow">Insights · Mine IT Council escalations</div>

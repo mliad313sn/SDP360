@@ -12,6 +12,8 @@
 <script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
 <script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any" data-redirect="login.html"></script>
 <script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<link rel="stylesheet" href="module-tabs.css">
+<script nonce="%%CSP_NONCE%%" src="module-tabs.js"></script>
 
 <style nonce="%%CSP_NONCE%%">
   body {
@@ -354,32 +356,7 @@
   <!-- Module tabs — 5 primary views of the meetings module. Active tab
        matches the current page. Same pattern as the Activity Tracker's
        intra-module navigation. Count badges hydrate after loadAll(). -->
-  <nav class="mtg-tabs" aria-label="Meetings module sections">
-    <a class="mtg-tabs__btn mtg-tabs__btn--active" href="meetings.html" aria-current="page">
-      📋 Meetings <span class="mtg-tabs__count" id="mdTabCount">—</span>
-    </a>
-    <a class="mtg-tabs__btn" href="meetings-insights.html">
-      📊 Dashboard
-    </a>
-    <a class="mtg-tabs__btn" href="meetings-issues.html">
-      📌 Issues
-    </a>
-    <a class="mtg-tabs__btn" href="meetings-actions.html">
-      ✔ Actions
-    </a>
-    <a class="mtg-tabs__btn" href="meetings-unsigned.html">
-      ✍ Unsigned
-    </a>
-    <a class="mtg-tabs__btn" href="meetings-council.html">
-      ⚖ Council
-    </a>
-    <a class="mtg-tabs__btn" href="meetings-compliance.html">
-      ✅ Compliance
-    </a>
-    <a class="mtg-tabs__btn mtg-tabs__btn--admin" href="meetings-setup.html" style="display:none">
-      ⚙ Setup
-    </a>
-  </nav>
+  <div id="__moduletabs" data-module="meetings" data-current="list"></div>
 
   <!-- Hero -->
   <section class="md-hero">

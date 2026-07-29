@@ -13,6 +13,8 @@
 <script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
 <script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any" data-redirect="login.html"></script>
 <script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<link rel="stylesheet" href="module-tabs.css">
+<script nonce="%%CSP_NONCE%%" src="module-tabs.js"></script>
 
 <style nonce="%%CSP_NONCE%%">
   body {
@@ -321,40 +323,7 @@
   <!-- Module tabs — 5 primary views. Active tab = Dashboard.
        Mirror of meetings.html / meetings-issues.html / meetings-council.html
        / meetings-compliance.html so users can flip between views in one click. -->
-  <nav class="mtg-tabs" aria-label="Meetings module sections">
-    <a class="mtg-tabs__btn" href="meetings.html">
-      <span data-lng="en">📋 Meetings</span>
-      <span data-lng="fr">📋 Réunions</span>
-    </a>
-    <a class="mtg-tabs__btn mtg-tabs__btn--active" href="meetings-insights.html" aria-current="page">
-      <span data-lng="en">📊 Dashboard</span>
-      <span data-lng="fr">📊 Tableau de bord</span>
-    </a>
-    <a class="mtg-tabs__btn" href="meetings-issues.html">
-      <span data-lng="en">📌 Issues</span>
-      <span data-lng="fr">📌 Enjeux</span>
-    </a>
-    <a class="mtg-tabs__btn" href="meetings-actions.html">
-      <span data-lng="en">✔ Actions</span>
-      <span data-lng="fr">✔ Actions</span>
-    </a>
-    <a class="mtg-tabs__btn" href="meetings-unsigned.html">
-      <span data-lng="en">✍ Unsigned</span>
-      <span data-lng="fr">✍ Non signés</span>
-    </a>
-    <a class="mtg-tabs__btn" href="meetings-council.html">
-      <span data-lng="en">⚖ Council</span>
-      <span data-lng="fr">⚖ Conseil</span>
-    </a>
-    <a class="mtg-tabs__btn" href="meetings-compliance.html">
-      <span data-lng="en">✅ Compliance</span>
-      <span data-lng="fr">✅ Conformité</span>
-    </a>
-    <a class="mtg-tabs__btn mtg-tabs__btn--admin" href="meetings-setup.html" style="display:none">
-      <span data-lng="en">⚙ Setup</span>
-      <span data-lng="fr">⚙ Réglages</span>
-    </a>
-  </nav>
+  <div id="__moduletabs" data-module="meetings" data-current="dashboard"></div>
 
   <section class="mi-hero">
     <div>
