@@ -12,6 +12,8 @@
 <script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
 <script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any" data-redirect="login.html"></script>
 <script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<link rel="stylesheet" href="module-tabs.css">
+<script nonce="%%CSP_NONCE%%" src="module-tabs.js"></script>
 
 <style nonce="%%CSP_NONCE%%">
   body { margin: 0; background: var(--color-bg, #F4F5F7); color: var(--color-text-strong, #1F2A33);
@@ -83,7 +85,9 @@
 </style>
 </head>
 <body>
-<div id="app-shell" data-section="performance" data-current="site-actions"></div>
+<div id="__shell" data-section="performance" data-current="site-actions"></div>
+
+<div id="__moduletabs" data-module="site_actions" data-current="site"></div>
 
 <div class="sa-wrap">
   <div class="sa-hero">

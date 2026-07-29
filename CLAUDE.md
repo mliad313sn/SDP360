@@ -6,6 +6,40 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ---
 
+## ⚡ Current state (as of 2026-07-29 — navigation homogène : bandeau + onglets intra-module)
+
+> **Standardisation navigation landed** (branche `feat/module-tabs-standardization`,
+> NON mergée — attend la QA navigateur de l'utilisateur) — suite à une plainte
+> « nav des nouveaux modules pas aisée + garder le bandeau homogène partout ».
+> **Trois choses** : (1) **icônes distinctes** dans le menu Insights du bandeau —
+> Inspections/Meetings/Site Actions partageaient toutes `clipboard-check`
+> (indistinguables) → Meetings=`users`, Site Actions=`check` (dans `_shell.js`
+> `ICON_LIB` + NAV ; vérifié par harness Node). (2) **Composant partagé
+> `public/module-tabs.js` + `.css`** (patron `_shell.js` : rend un strip dans
+> `<div id="__moduletabs" data-module data-current>` depuis une config `MODULES`
+> unique ; icônes de marque, `aria-current`, gating par rôle, badge de compte
+> préservé). Appliqué à **Meetings** (11 pages — remplace les strips emoji
+> **dupliqués** `.mtg-tabs` + **ajoute le strip à l'éditeur de PV `meeting.html`**
+> qui n'en avait pas), **Inspections** (3 pages — n'avait AUCUN strip), et
+> **Site Actions** (strip « famille Actions » : Site Actions · Meetings Actions ·
+> Inspection Actions — le hub mono-page n'est plus orphelin). Test
+> `tests/module-tabs.test.js` (7, DOM stubbé) : jeu d'onglets, actif, icônes
+> non-vides, intégrité des href, gating admin sur Setup, degrade sûr, current
+> vide = strip inactif (fix du trou éditeur). (3) **DEUX bugs latents de bandeau
+> manquant réparés** — `site-actions.html` montait le shell dans **`id="app-shell"`**
+> et `meetings-insights.html` mettait `data-section`/`data-current` **sur `<body>`**,
+> alors que `_shell.js` ne rend QUE dans `#__shell` → **le bandeau du haut ne
+> s'affichait PAS sur ces deux pages** (aucun JS ne référençait le mauvais id ;
+> pures typos). Corrigés → un balayage d'homogénéité prouve que **toute page
+> chargeant `_shell.js` a `#__shell`** (seul `login.html` sans nav, par design).
+> **Les 3 pages standalone restent volontairement sans shell** (exec-view
+> publique · site-report imprimable · it-review portage fidèle — chacune avec un
+> lien retour). **Assets/Tracker** gardent leurs onglets in-page (mono-page ;
+> alignement visuel = Task 4 optionnelle, non faite). Régression : module-tabs
+> **7/7** + review-render + await = verts. **QA navigateur = étape utilisateur**
+> (pages derrière login de session que l'agent ne peut pas exercer) AVANT merge.
+> Plan : `docs/superpowers/plans/2026-07-29-module-tabs-standardization.md`.
+
 ## ⚡ Current state (as of 2026-07-27, plus tard — graphe hebdo Helpdesk du rapport site)
 
 > **Demande 1 : courbe hebdomadaire volume + SLA sur le bloc HELPDESK du rapport
