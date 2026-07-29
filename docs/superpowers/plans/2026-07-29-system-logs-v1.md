@@ -153,7 +153,27 @@ module.exports = { ...module.exports, _isRiskAction, _logCtx, logEvent };
 ```
 (The whole body is inside `try/catch` → **never rejects**; callers invoke it bare.)
 
-- [ ] **Step 6: Run — expect PASS** (needs `listSystemLog` stub returning `{rows,total}` — implement a minimal version now, full filters in Task 2, or land Task 2 first). Simplest: implement `listSystemLog`/`countSystemLog` in Task 2 and run Task 1 + 2 tests together at the end of Task 2.
+Also implement a **self-contained** `countSystemLog(filters={})` + a minimal filter-less `listSystemLog({}, {limit,offset})` here so Task 1 goes red→green ON ITS OWN (Task 2 extends `listSystemLog` with filters + adds analytics — it does NOT reimplement these):
+
+```js
+async function countSystemLog(filters = {}) {
+  const { where, params } = _syslogWhere(filters);   // _syslogWhere returns {where:'',params:[]} for {} in Task 1; Task 2 fills it
+  const sql = `SELECT COUNT(*) AS n FROM system_log ${where}`;
+  if (REPORTS_BACKEND === 'postgres') return (await pgDb.prepare(sql).get(...params)).n;
+  return getDB().prepare(sql).get(...params).n;
+}
+async function listSystemLog(filters = {}, { limit = 50, offset = 0 } = {}) {
+  const { where, params } = _syslogWhere(filters);
+  const sql = `SELECT * FROM system_log ${where} ORDER BY ts DESC, id DESC LIMIT ? OFFSET ?`;
+  const rows = REPORTS_BACKEND === 'postgres'
+    ? await pgDb.prepare(sql).all(...params, limit, offset)
+    : getDB().prepare(sql).all(...params, limit, offset);
+  return { rows, total: await countSystemLog(filters) };
+}
+```
+In Task 1, `_syslogWhere` is a stub returning `{ where:'', params:[] }`.
+
+- [ ] **Step 6: Run — expect PASS** (Task 1's tests use only filter-less list/count).
 
 - [ ] **Step 7: Commit**
 
@@ -191,14 +211,16 @@ test('getSystemLogAnalytics returns the expected shape', async () => {
     assert.ok(k in a.totals, `missing totals.${k}`);
   assert.ok(a.totals.events >= 2 && a.totals.risk_events >= 1);
   assert.equal(a.by_hour.length, 24);
+  // value-level check catches a broken GROUP BY / ORDER, not just shape:
+  assert.ok(a.top_actions.length >= 1 && typeof a.top_actions[0].n === 'number');
+  assert.ok(a.top_actions.every((x,i,arr) => i===0 || arr[i-1].n >= x.n), 'top_actions desc by n');
 });
 ```
 
 - [ ] **Step 2: Run — expect FAIL** (analytics/filters missing).
 
-- [ ] **Step 3: Implement `listSystemLog`/`countSystemLog`/`getSystemLogAnalytics`** (sqlite + `_…Pg` forks).
-  - Build a WHERE from filters: `category=?`, `action=?`, `actor LIKE ?` (or `=`), `risk=1`, `substr(ts,1,10) BETWEEN ? AND ?` (from/to), `q` → `(action LIKE ? OR target LIKE ? OR details LIKE ? OR actor LIKE ?)`. Parameterised only.
-  - `listSystemLog` → `{ rows: SELECT … ORDER BY ts DESC, id DESC LIMIT ? OFFSET ?, total: countSystemLog(filters) }`.
+- [ ] **Step 3: Implement `_syslogWhere(filters)` (fill the Task-1 stub) + `getSystemLogAnalytics`** (sqlite + `_…Pg` forks). `list`/`count` from Task 1 already consume `_syslogWhere`, so filling it turns filters on.
+  - `_syslogWhere` builds a WHERE + params from present keys only: `category=?`, `action=?`, `actor LIKE ?`, `risk=1`, `substr(ts,1,10) BETWEEN ? AND ?` (from/to), `q` → `(action LIKE ? OR target LIKE ? OR details LIKE ? OR actor LIKE ?)`. Parameterised only; unknown keys ignored. Returns `{where:'WHERE …'|'' , params:[]}`.
   - `getSystemLogAnalytics({window})` → window = `now - {7|30|90}d`; aggregate over `system_log WHERE ts >= ?`:
     - `totals`: `COUNT(*)`, `SUM(risk)`, `COUNT(DISTINCT actor)`, `COUNT(DISTINCT ip)`.
     - `series` / `risk_series`: `GROUP BY substr(ts,1,10)` (all + risk-only), ascending.
@@ -232,6 +254,19 @@ git commit -m "feat(syslog): list/count/analytics readers (dual-backend, paramet
 - [ ] **Step 1: Add the mirror test** (append)
 
 ```js
+test('config_saved stores redacted key names — NO secret key OR value ever lands', async () => {
+  // Simulate the config instrumentation: it must run posted keys through _redactKeys.
+  const body = { smtp_host:'mail', smtp_pass:'hunter2', report_config:'x', api_token:'abc' };
+  await rdb.logEvent({ category:'config', action:'config_saved', target:'report_config',
+    details:{ keys: rdb._redactKeys(Object.keys(body)) } });
+  const r = await rdb.listSystemLog({ category:'config' }, {limit:50,offset:0});
+  const row = r.rows.find(x => x.target === 'report_config');
+  const blob = row.details;
+  assert.ok(!blob.includes('hunter2') && !blob.includes('abc'), 'no secret VALUES');
+  assert.ok(!/smtp_pass|api_token/.test(blob), 'no sensitive KEY names');
+  assert.ok(blob.includes('smtp_host') && blob.includes('report_config'), 'safe keys kept');
+});
+
 test('logAudit mirrors a report_* row into system_log', async () => {
   await rdb.logAudit({ report_id: 42, site_id: 1, user_id: 7, username: 'coord', action: 'deleted', details: { week_label:'W30' } });
   const r = await rdb.listSystemLog({ category:'report' }, {limit:50,offset:0});
@@ -245,7 +280,15 @@ test('logAudit mirrors a report_* row into system_log', async () => {
 
 - [ ] **Step 2: Run — expect FAIL.**
 
-- [ ] **Step 3: Add ONE line to `logAudit`** (after its existing insert; map action → `report_<action>` unless already prefixed):
+- [ ] **Step 3a: Add `_redactKeys` to `reports-db.js`** (exported; drops secret-ish keys so they never reach `details`):
+
+```js
+const _SECRET_KEY = /pass|secret|token|password|key$|_key|auth/i;
+function _redactKeys(keys) { return (keys || []).filter(k => !_SECRET_KEY.test(String(k))); }
+module.exports = { ...module.exports, _redactKeys };
+```
+
+- [ ] **Step 3b: Add ONE line to `logAudit`** — first VERIFY its current signature (it is `logAudit({ report_id, site_id, user_id, username, action, details } = {})` in `reports-db.js`); then after its existing insert, map action → `report_<action>` unless already prefixed:
 
 ```js
 // mirror into the unified system log (fire-and-forget)
@@ -260,7 +303,7 @@ logEvent({ category:'report',
 - [ ] **Step 5: Instrument the call sites in `server.js`** (bare `logEvent(...)`, one line each; grep the anchors):
   - **auth:** login success → `login_success`; login rejected → `login_failed` (actor = `req.body.username || 'anonymous'`, `actor_id:null`, ip by hand — NOT `_logCtx`); logout → `logout`; force-logout route `DELETE /api/reports/sessions/:token` → `session_killed` (target = killed user).
   - **identity:** user create/update/delete/role-change/site-change/password-reset routes → `user_created|user_updated|user_deleted|user_role_changed|user_site_changed|password_reset` (use `_logCtx(req)`, target = affected username).
-  - **config:** at each enumerated persistence point (`PUT /api/reports/config` :5103, `PUT /api/assets/depreciation-config` :3134, `/api/risk-register-config/*`, `/api/admin/backup-schedule`, sites/departments/group-presets writes) → `config_saved` with `target` = the surface, `details:{ keys: Object.keys(body) }` (**never values; never `smtp_pass`**), `_logCtx(req)`.
+  - **config:** at each enumerated persistence point (`PUT /api/reports/config` :5103, `PUT /api/assets/depreciation-config` :3134, `/api/risk-register-config/*`, `/api/admin/backup-schedule`, sites/departments/group-presets writes) → `config_saved` with `target` = the surface, **`details:{ keys: rdb._redactKeys(Object.keys(body)) }`** (redacted key names only — never values, never `smtp_pass`/tokens), `_logCtx(req)`.
 
 - [ ] **Step 6: Commit**
 
@@ -275,7 +318,7 @@ git commit -m "feat(syslog): instrument auth/identity/config events + mirror rep
 
 **Files:** Modify `server.js`; Create `tests/system-log-routes.smoke.test.js`.
 
-- [ ] **Step 1: Write the smoke test** — boots the app (sqlite), a super_admin session + a lesser session; assert:
+- [ ] **Step 1: Write the smoke test** — **MUST set `process.env.REPORTS_BACKEND='sqlite'` + `process.env.SDP_DATA_DIR=<tempdir>` BEFORE `require('../server.js')`** (dev `.env` is `postgres`; without this the boot fails with `pgDb not initialised` — documented pitfall). Boots the app, a super_admin session + a lesser session; assert:
   - `GET /api/reports/system-log` as admin (not super) → **403 `{error:'super_admin only'}`**.
   - as super_admin → **200 `{rows:[...], total:n}`**.
   - hostile filters (`?actor=' OR 1=1--`, `?from=../../etc`) → **not 500** (200 with empty/whitelisted).
@@ -287,6 +330,8 @@ git commit -m "feat(syslog): instrument auth/identity/config events + mirror rep
 - [ ] **Step 3: Add routes in `server.js` ABOVE `app.get('/api/reports/:id')`**, each gated with the force-logout pattern:
 
 ```js
+// gate = the VERBATIM check from DELETE /api/reports/sessions/:token (server.js:5774,
+// verified — rdb.userHasRole(req.reportUser, 'super_admin') exists with this arity):
 function _syslogGate(req, res, next) {
   if (!rdb.userHasRole(req.reportUser, 'super_admin')) return res.status(403).json({ error: 'super_admin only' });
   next();
@@ -299,10 +344,23 @@ app.get('/api/reports/system-log', requireReportSession, _syslogGate, async (req
 });
 app.get('/api/reports/system-log/analytics', requireReportSession, _syslogGate, async (req,res) =>
   res.json(await rdb.getSystemLogAnalytics({ window: req.query.window || '30d' })));
-app.get('/api/reports/system-log/export.csv',  requireReportSession, _syslogGate, /* CSV: BOM+CRLF, mirror existing export helper */ …);
-app.get('/api/reports/system-log/export.json', requireReportSession, _syslogGate, /* rows as JSON */ …);
+app.get('/api/reports/system-log/export.json', requireReportSession, _syslogGate, async (req,res) => {
+  const { rows } = await rdb.listSystemLog(_filtersFrom(req), { limit: 100000, offset: 0 });
+  res.setHeader('Content-Type','application/json');
+  res.setHeader('Content-Disposition','attachment; filename="system-log.json"');
+  res.send(JSON.stringify(rows));
+});
+app.get('/api/reports/system-log/export.csv', requireReportSession, _syslogGate, async (req,res) => {
+  const { rows } = await rdb.listSystemLog(_filtersFrom(req), { limit: 100000, offset: 0 });
+  const COLS = ['ts','category','action','actor','actor_id','target','ip','risk','details'];
+  const esc = v => { const s = v==null ? '' : String(v); return /[",\r\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s; };
+  const csv = '﻿' + [COLS.join(','), ...rows.map(r => COLS.map(c => esc(r[c])).join(','))].join('\r\n');
+  res.setHeader('Content-Type','text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition','attachment; filename="system-log.csv"');
+  res.send(csv);
+});
 ```
-Whitelist-only filter keys (the reader ignores unknown keys); parameterised SQL makes the hostile-input cases 200-empty, not 500.
+`_filtersFrom(req)` = the same whitelisted filter object built in the list route (factor it into one helper). CSV columns are fixed = `ts,category,action,actor,actor_id,target,ip,risk,details`; **UTF-8 BOM + CRLF + quote-escape inlined** (no server-side CSV helper exists to reuse — the codebase's CSV pattern is client-side). Whitelist-only filter keys + parameterised SQL make hostile input 200-empty, not 500.
 
 - [ ] **Step 4: Run — expect PASS.**
 
@@ -340,7 +398,7 @@ git commit -m "feat(syslog): System Logs page (in-page tabs) + super_admin nav +
 **Files:** Modify `tools/pg/copy-reports-all.js`, `reports-db.js` (backfill), `CLAUDE.md`.
 
 - [ ] **Step 1:** `copy-reports-all.js` — include `system_log` (straight `SELECT *`→insert) in the copy set.
-- [ ] **Step 2:** `_backfillSystemLogFromAudit()` in `reports-db.js` — idempotent (guard: run only if `system_log` has zero `category='report'` rows AND a `_syslog_backfilled` config marker is unset); maps existing `report_audit` rows → `logEvent(category:'report', …)`; sets the marker. Called once at boot after schema init. **Additive; if it throws, swallow + log (a dead backfill must not block boot).**
+- [ ] **Step 2:** `_backfillSystemLogFromAudit()` in `reports-db.js` — idempotent via a **single guard: run only if `system_log` has zero `category='report'` rows** (do NOT use a `setConfig` marker — the documented DEFAULTS/KEYS filter would silently drop it; the zero-row guard alone is sufficient and simpler). Maps existing `report_audit` rows → `logEvent(category:'report', action:'report_'+action, actor:username, actor_id:user_id, target:report_id, details, risk: action==='deleted'?1:undefined)`. Called once at boot after schema init. **Additive; if it throws, swallow + log (a dead backfill must not block boot).**
 - [ ] **Step 3: Full regression (all green):**
 
 ```bash
