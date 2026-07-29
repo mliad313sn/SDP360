@@ -145,19 +145,23 @@
         // holding the powerful executive/admin hierarchy tiers. Keep in sync
         // with the data-require attributes in analytics.html + executive.html.
         { id: 'analytics',   label: 'Analytics',           icon: ICON_LIB['line-chart'],      href: 'analytics.html',         roles: ['admin', 'scorecard-viewer']     },
-        { id: 'scorecard',   label: 'Executive Scorecard', icon: ICON_LIB.gauge,              href: 'executive.html',         roles: ['executive', 'scorecard-viewer'] },
-        // System Logs — security/audit console (super_admin only). shield-check
-        // is already in ICON_LIB (curated subset) so the icon renders.
-        { id: 'system-logs', label: 'System Logs',         icon: ICON_LIB['shield-check'],    href: 'system-logs.html',       roles: ['super_admin'] }
+        { id: 'scorecard',   label: 'Executive Scorecard', icon: ICON_LIB.gauge,              href: 'executive.html',         roles: ['executive', 'scorecard-viewer'] }
       ]
     },
     {
-      id:    'admin',
-      label: 'Admin',
-      icon:  ICON_LIB.sliders,
-      href:  'reports.html#admin',
-      roles: ['admin'],
-      title: 'User management & system settings'
+      // Admin is a dropdown for super_admins (Settings + System Logs). A plain
+      // admin sees only ONE visible child (Settings) → renderNavItem collapses it
+      // to a flat link to reports.html#admin, so their nav is unchanged.
+      id:       'admin',
+      label:    'Admin',
+      icon:     ICON_LIB.sliders,
+      href:     'reports.html#admin',
+      roles:    ['admin'],
+      title:    'User management & system settings',
+      children: [
+        { id: 'admin-settings', label: 'Settings',    icon: ICON_LIB.sliders,          href: 'reports.html#admin', roles: ['admin'] },
+        { id: 'system-logs',    label: 'System Logs',  icon: ICON_LIB['shield-check'],  href: 'system-logs.html',   roles: ['super_admin'] }
+      ]
     },
     {
       id:     'help',
