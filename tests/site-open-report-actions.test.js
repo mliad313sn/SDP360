@@ -18,16 +18,18 @@ before(async () => {
   siteId = site.id;
   w30 = (await rdb.ensureReport(siteId, 2026, 30)).id;
   w31 = (await rdb.ensureReport(siteId, 2026, 31)).id;
-  // W30: A (lineage L) + a closed one
+  // W30: A (lineage L) + a closed one + K (lineage LK, still open in W30)
   await rdb.saveActionItems(w30, [
     { task: 'A', status: 'open', lineage: 'L' },
     { task: 'C closed', status: 'closed', lineage: 'L2' },
+    { task: 'K open old', status: 'open', lineage: 'LK' },
   ]);
-  // W31: A' (carried, lineage L) + native B + M (to be merged)
+  // W31: A' (carried, lineage L) + native B + M (to be merged) + K carried-then-CLOSED (lineage LK)
   await rdb.saveActionItems(w31, [
     { task: 'A carried', status: 'open', lineage: 'L' },
     { task: 'B native', status: 'open' },
     { task: 'M merged', status: 'open' },
+    { task: 'K closed', status: 'closed', lineage: 'LK' },
   ]);
   const mUid = (await rdb.getReport(w31)).action_items.find(x => x.task === 'M merged').uid;
   await rdb.setActionMerge(mUid, { source: 'meetings', origin_id: 1 });
@@ -41,4 +43,11 @@ test('dedups by lineage (latest week), drops closed + merged, keeps per-row repo
   assert.equal(a.report_id, w31, 'kept the latest-week instance');
   assert.ok(a.week_label, 'carries its own week_label');
   assert.equal(a.lineage, 'L');
+});
+
+test('newest-wins: a lineage whose latest entry is closed is dropped — older open row does NOT resurface', async () => {
+  const res = await rdb.getSiteOpenReportActions(siteId);
+  const titles = res.actions.map(a => a.task);
+  assert.ok(!titles.includes('K open old'),
+    'K was carried to W31 and closed → the whole lineage is closed; the W30 open copy must not reappear');
 });
