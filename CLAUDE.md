@@ -6,6 +6,49 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ---
 
+## ⚡ Current state (as of 2026-07-31, plus tard — reconduction auto + garde anti-doublon des actions)
+
+> **Reconduction automatique des actions + garde anti-doublon landed** (branche
+> `feat/report-actions-reconduct-dedup`, **mergée**) — répond au constat terrain :
+> le hub Site Actions montrait la MÊME action plusieurs fois (ex. « Helix underground
+> surveillance software deployment » sur W10→W16, libellés divergents) parce que les
+> éditeurs **re-saisissaient** un suivi non résolu chaque semaine au lieu de le
+> reconduire → chaque re-saisie = uid neuve + **pas de lineage** → le dédoublonnage
+> du hub (`_dedupLineage`, par lineage) les voyait comme distincts. **Les DEUX
+> correctifs greffent sur la mécanique lineage EXISTANTE — `saveActionItems`
+> (upsert-par-uid) et `_dedupLineage` NE sont PAS touchés, zéro schéma, rapports
+> existants intacts.** **A — reconduction auto (client seul)** : à l'ouverture d'une
+> semaine **vierge** (`action_items` vide + statut `draft`/`in_progress`),
+> `maybeReconductActions()` (dans `reports.html`) pré-remplit la section Actions avec
+> les actions **non résolues** (open+in_progress+on_hold, = tout sauf closed/cancelled)
+> de la semaine précédente — **uid neuve, lineage CONSERVÉE** (`{...a, uid:'',
+> lineage:a.lineage||a.uid}`, exactement `_importFromWeek`) — en **brouillon
+> révisable** + bandeau « ↩ N reconduites de W-X ». Réutilise les endpoints existants
+> `/action-weeks` (renvoie DESC → la plus récente d'abord ; filtrée à
+> `start_date < currentReport.start_date`) + `/actions-from`. **Garde SANS état** :
+> ne se déclenche QUE section vide à l'ouverture (pas de colonne DB) → si l'éditeur
+> quitte sans sauver, re-proposé (correct) ; s'il sauve avec des lignes, non-vide →
+> ne re-déclenche plus. `undoReconduct()` annule. **B — garde anti-doublon** :
+> module **pur** `public/lib/actionSimilarity.js` (UMD Node+navigateur ;
+> `normalizeTask` accent/casse/stopwords FR+EN, `similarity` = Jaccard de jetons,
+> `findBestMatch(task,candidats,{threshold:0.5,excludeLineage})`) — calé sur les
+> vraies chaînes (re-saisies identiques →1.0, variante Helix →0.625, actions
+> différentes →~0). Sur le **blur** d'une action **neuve** (ni uid ni lineage ni
+> source), compare au cache des actions ouvertes du site (nouvelle route
+> `GET /api/reports/:id/site-open-actions` réutilisant `getSiteOpenReportActions`,
+> chargée à l'ouverture) → dialogue **non bloquant** « ressemble à ‹X› · [lier]
+> [garder séparé] ». **Lier** pose la lineage de X sur la ligne (round-trip
+> `tr.dataset.lineage` déjà géré par `collectActions`, écrite à l'INSERT) → le hub
+> les replie. « Garder séparé » mémorise le texte pour ne pas re-prompter.
+> **Surface backend = 1 route GET** (réutilise un lecteur existant, sœur de
+> `/action-weeks`, pas de shadowing `/:id`). Tests : `action-similarity` (8) +
+> `site-open-actions-route.smoke` (3) ; régression verte (action-items-upsert,
+> site-open-report-actions, importable/status/merge smokes, await-precedence).
+> **E2E navigateur = étape utilisateur** (éditeur derrière session). **C (fusion des
+> doublons DÉJÀ existants) = suivi différé** (choix utilisateur : A+B d'abord).
+> Déployé via ZIP (server.js + reports.html `_htmlCache` → `pm2 stop`→wait→`start`).
+> Spec : `docs/superpowers/specs/2026-07-31-report-actions-reconduct-dedup-design.md`.
+
 ## ⚡ Current state (as of 2026-07-31 — slide Infrastructure KPIs en 2 colonnes)
 
 > **Slide « Infrastructure KPIs — Last Week of » sur deux colonnes pour les longues
