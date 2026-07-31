@@ -5287,7 +5287,10 @@ app.post('/api/reports/action/:uid/relineage', requireReportSession, async (req,
     if (!rdb.userHasRole(req.reportUser, 'editor')) return res.status(403).json({ error: 'editor role required' });
     const lineage = String((req.body && req.body.lineage) || '').trim();
     if (!lineage) return res.status(400).json({ error: 'lineage required' });
-    const r = await rdb.setActionLineage(String(req.params.uid || ''), lineage);
+    // Optional: also rename the task to unify a merged group's label onto the winner.
+    const rawTask = req.body && req.body.task;
+    const task = (typeof rawTask === 'string' && rawTask.trim()) ? rawTask.trim() : undefined;
+    const r = await rdb.setActionLineage(String(req.params.uid || ''), lineage, task);
     if (!r.ok) return res.status(404).json({ error: 'action not found' });
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
