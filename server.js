@@ -5278,6 +5278,20 @@ app.post('/api/reports/action/:uid/status', requireReportSession, async (req, re
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
+// Merge an already-saved follow-up into another's carry-forward lineage (the
+// per-row "Fusionner avec…" button). Editor role; keyed by the stable uid. The
+// body carries the TARGET lineage string (the canonical action's lineage||uid).
+app.post('/api/reports/action/:uid/relineage', requireReportSession, async (req, res) => {
+  try {
+    const rdb = require('./reports-db');
+    if (!rdb.userHasRole(req.reportUser, 'editor')) return res.status(403).json({ error: 'editor role required' });
+    const lineage = String((req.body && req.body.lineage) || '').trim();
+    if (!lineage) return res.status(400).json({ error: 'lineage required' });
+    const r = await rdb.setActionLineage(String(req.params.uid || ''), lineage);
+    if (!r.ok) return res.status(404).json({ error: 'action not found' });
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
 // SP3 — GET /api/reports/:id/importable-actions — the report site's OPEN Meetings
 // + Inspection actions, so the editor can pull them into the report's Actions
 // section as references. Registered ABOVE /api/reports/:id (the shadowing trap).

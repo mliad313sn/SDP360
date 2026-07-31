@@ -2555,6 +2555,22 @@ function _dedupLineage(rows) {
   }
   return [...best.values()].map(r => { const { _y, _w, ...rest } = r; return rest; });
 }
+// Newest-wins semantics: for each lineage keep only its MOST RECENT row (across
+// weeks), then treat the group as open iff that latest row is not terminal. This
+// is why the SQL does NOT pre-filter by status — a lineage whose latest entry was
+// closed must drop entirely, so an older still-open copy can never resurface.
+const _TERMINAL_STATUS = new Set(['closed', 'cancelled']);
+function _dedupLineageNewestOpen(rows) {
+  const best = new Map();
+  for (const r of rows) {
+    const key = r.lineage || r.uid;
+    const cur = best.get(key);
+    if (!cur || r._y > cur._y || (r._y === cur._y && r._w > cur._w)) best.set(key, r);
+  }
+  return [...best.values()]
+    .filter(r => !_TERMINAL_STATUS.has(r.status))
+    .map(r => { const { _y, _w, ...rest } = r; return rest; });
+}
 const _SORA_SQL = `
   SELECT ai.uid, ai.lineage, ai.task, ai.priority, ai.due_date, ai.owner, ai.status,
          ai.department, ai.comment, ai.source, ai.origin_id,
@@ -2562,14 +2578,14 @@ const _SORA_SQL = `
   FROM action_items ai
   JOIN weekly_reports wr ON wr.id = ai.report_id
   JOIN weeks w ON w.id = wr.week_id
-  WHERE wr.site_id = ? AND ai.status NOT IN ('closed','cancelled') AND ai.source IS NULL`;
+  WHERE wr.site_id = ? AND ai.source IS NULL`;
 function getSiteOpenReportActions(site_id) {
   if (REPORTS_BACKEND === 'postgres') return _getSiteOpenReportActionsPg(site_id);
-  return { actions: _dedupLineage(db.prepare(_SORA_SQL).all(site_id)) };
+  return { actions: _dedupLineageNewestOpen(db.prepare(_SORA_SQL).all(site_id)) };
 }
 async function _getSiteOpenReportActionsPg(site_id) {
   const rows = await pgHandle().prepare(_SORA_SQL).all(site_id);
-  return { actions: _dedupLineage(rows) };
+  return { actions: _dedupLineageNewestOpen(rows) };
 }
 
 function saveActionItems(report_id, items) {
@@ -2661,6 +2677,20 @@ function setActionStatus(uid, status) {
   if (REPORTS_BACKEND === 'postgres') return _setActionStatusPg(uid, status);
   const info = db.prepare(`UPDATE action_items SET status=? WHERE uid=?`).run(status, uid);
   return { ok: info.changes > 0 };
+}
+// Deliberate merge of an ALREADY-SAVED follow-up into another's carry-forward
+// lineage (the per-row "Fusionner avec…" button). Unlike a report re-save (which
+// leaves lineage immutable to protect a merge), this is an explicit, editor-driven
+// re-lineage. New/unsaved rows set lineage client-side at INSERT and don't need it.
+function setActionLineage(uid, lineage) {
+  if (REPORTS_BACKEND === 'postgres') return _setActionLineagePg(uid, lineage);
+  const info = db.prepare(`UPDATE action_items SET lineage=? WHERE uid=?`).run(lineage, uid);
+  return { ok: info.changes > 0 };
+}
+async function _setActionLineagePg(uid, lineage) {
+  const H = pgHandle();
+  const info = await H.prepare('UPDATE action_items SET lineage=? WHERE uid=?').run(lineage, uid);
+  return { ok: (info.changes || info.rowCount || 0) > 0 };
 }
 async function _setActionStatusPg(uid, status) {
   const H = pgHandle();
@@ -6941,7 +6971,7 @@ module.exports = {
   getPreviousWeek, ensureWeek, getWeekRange,
   ensureReport, getReport, listReports,
   saveInfraKpis, saveHelpdeskData, saveLights, saveActionItems, _backfillActionUids,
-  setActionMerge, clearActionMerge, setActionStatus, getSiteOpenReportActions,
+  setActionMerge, clearActionMerge, setActionStatus, setActionLineage, getSiteOpenReportActions,
   getPreviousWeekOpenActions, listAllWeeksWithActions, getActionsForReport,
   listAllWeeksWithLights, getLightsForReport,
   // Action departments (editable dropdown for action items)

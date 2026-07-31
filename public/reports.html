@@ -737,6 +737,21 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
       </div>
     </div>
 
+    <!-- Merge picker (per-row "⚯ Fusionner avec…"): link this row to an existing
+         open action of the site (share lineage → the hub folds them, newest wins). -->
+    <div id="merge-modal" style="display:none;position:fixed;inset:0;z-index:2100;background:rgba(0,0,0,.45);align-items:center;justify-content:center" onclick="if(event.target===this)closeMergeModal()">
+      <div style="background:#fff;border-radius:10px;width:560px;max-width:95vw;max-height:82vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.25)">
+        <div style="padding:16px 20px 12px;border-bottom:1px solid #e5e7eb">
+          <div style="font-weight:700;font-size:1rem;color:#1e293b">⚯ Fusionner avec une action existante</div>
+          <div style="font-size:0.78rem;color:#64748b;margin-top:2px">Choisis l'action ouverte du site à laquelle rattacher cette ligne — elles seront regroupées dans le hub Site Actions (la plus récente fait foi).</div>
+        </div>
+        <div id="merge-list" style="overflow-y:auto;flex:1;padding:10px 12px"></div>
+        <div style="padding:12px 20px;border-top:1px solid #e5e7eb;text-align:right">
+          <button onclick="closeMergeModal()" class="btn btn-secondary btn-sm">Annuler</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Submit bar -->
     <div class="submit-bar">
       <div class="report-info">
@@ -3474,6 +3489,49 @@ function resolveDupModal(choice) {
   }
 }
 
+// ── Per-row "⚯ Fusionner avec…" — explicit editor-driven merge ───────
+// Link a row to an existing open action of the site (share lineage). A NEW/unsaved
+// row sets lineage client-side (persists at INSERT on Save); an already-saved row
+// (has uid, lineage is immutable on re-save) goes through /relineage.
+function openMergePicker(rowId) {
+  const tr = document.querySelector(`#action-body tr[data-row-id="${rowId}"]`);
+  if (!tr) return;
+  const ownKey = tr.dataset.lineage || tr.dataset.uid || '';
+  const ownUid = tr.dataset.uid || '';
+  const cands = (_siteOpenActions || []).filter(a =>
+    (a.lineage || a.uid) !== ownKey && a.uid !== ownUid);
+  const list = document.getElementById('merge-list');
+  list.innerHTML = cands.length
+    ? cands.map(a => {
+        const lin = esc(a.lineage || a.uid);
+        return `<div onclick="mergeRowInto('${rowId}','${lin}')" style="padding:10px 12px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:8px;cursor:pointer" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
+          <div style="font-weight:600;color:#1e293b">${esc(a.task)}</div>
+          <div style="font-size:0.76rem;color:#64748b;margin-top:2px">${esc(a.week_label || '')} · ${esc(a.status || '')}${a.owner ? ' · ' + esc(a.owner) : ''}</div>
+        </div>`;
+      }).join('')
+    : '<p style="color:#64748b;padding:16px;text-align:center">Aucune autre action ouverte pour ce site.</p>';
+  document.getElementById('merge-modal').style.display = 'flex';
+}
+
+function closeMergeModal() { document.getElementById('merge-modal').style.display = 'none'; }
+
+async function mergeRowInto(rowId, targetLineage) {
+  const tr = document.querySelector(`#action-body tr[data-row-id="${rowId}"]`);
+  if (!tr) { closeMergeModal(); return; }
+  const uid = tr.dataset.uid || '';
+  try {
+    if (uid) await api('POST', `/api/reports/action/${encodeURIComponent(uid)}/relineage`, { lineage: targetLineage });
+    tr.dataset.lineage = targetLineage;   // unsaved rows persist this at INSERT on Save
+    const input = tr.querySelector('input[type="text"]');
+    if (input) { input.style.borderLeft = '3px solid #2563eb'; input.title = 'Fusionnée (même lignée) — regroupée dans le hub'; }
+    toast(uid ? '⚯ Fusionnée — regroupées dans le hub' : '⚯ Liée — révise puis Enregistre', 'success');
+    await loadSiteOpenActions();   // refresh the candidate cache after a merge
+  } catch (e) {
+    toast('Fusion impossible : ' + (e.message || e), 'error');
+  }
+  closeMergeModal();
+}
+
 async function carryOverLights() {
   if (!currentReport) return;
   const btn = document.getElementById('btn-carry-over-lights');
@@ -3874,7 +3932,10 @@ function addActionRow(a) {
     <td>
       <span class="comment-preview ${commentText ? '' : 'empty'}" onclick="toggleCommentRow('${rowId}')" title="Click to edit">${esc(previewText)}</span>
     </td>
-    <td><button class="btn-remove" onclick="removeActionRow('${rowId}')">✕</button></td>
+    <td style="white-space:nowrap">
+      <button class="btn-remove" title="Fusionner avec une action existante" onclick="openMergePicker('${rowId}')" style="color:#2563eb">⚯</button>
+      <button class="btn-remove" onclick="removeActionRow('${rowId}')">✕</button>
+    </td>
   `;
   tbody.appendChild(tr);
 

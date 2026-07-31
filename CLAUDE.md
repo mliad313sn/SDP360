@@ -6,6 +6,37 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ---
 
+## ⚡ Current state (as of 2026-07-31, encore plus tard — bouton de fusion par ligne + statut « le plus récent fait foi »)
+
+> **Fusion manuelle des actions (bouton par ligne) + sémantique newest-wins landed**
+> (branche `feat/site-actions-merge-newest-wins`, **mergée**) — suite directe de la
+> reconduction/dedup : un outil de **nettoyage à la demande** dans la section Actions
+> du rapport (le C différé, version éditeur-piloté et forward). **Deux pièces.**
+> **(1) Bouton « ⚯ Fusionner avec… » par ligne** (`reports.html`) → modal listant les
+> actions **ouvertes du site** (cache `_siteOpenActions`, hors lignée/uid propres) →
+> au clic, la ligne prend la **lignée** de l'action choisie → le hub les replie.
+> Mécanique : ligne **neuve/non enregistrée** → lignée posée côté client (persistée à
+> l'INSERT au Save, la lignée est immuable à l'UPDATE) ; ligne **déjà enregistrée**
+> (a un uid) → nouvelle route **`POST /api/reports/action/:uid/relineage`** (rôle
+> editor, réutilise `setActionLineage`, dual-backend) car un re-save ne réécrit jamais
+> la lignée. Ça nettoie le doublon **inter-semaines** sans toucher aux autres semaines.
+> **(2) Statut « le plus récent fait foi »** — corrige un trou que l'utilisateur a
+> repéré : lier ne regroupait que l'**affichage**, chaque ligne gardait son statut
+> indépendant → fermer la plus récente faisait **ressurgir** l'ancienne (toujours
+> ouverte). `getSiteOpenReportActions` passe de **filtre-puis-dedup** à
+> **dedup-la-plus-récente-puis-filtre** : pour chaque lignée on garde la ligne la
+> plus récente (tous statuts), puis on la garde ssi non terminale. Donc **fermer la
+> dernière ferme le groupe**, les anciennes ne reviennent jamais, **sans réécrire
+> l'historique** (les vieilles lignes gardent leur statut d'époque, juste ignorées
+> pour « est-ce encore ouvert »). `_SORA_SQL` perd son `status NOT IN (...)` ; nouveau
+> `_dedupLineageNewestOpen`. **Consommateurs vérifiés** (hub, e-mail coordinateur SP2,
+> site report) — verts. Tests : `site-open-report-actions` (cas distinctif newest-wins,
+> échouait en filtre-puis-dedup) + `action-relineage.smoke` (4 : fusion replie /
+> fermeture ferme le groupe / 400·404). Régression verte (action-items-upsert,
+> site-report-actions, coordinator-actions-block, status/merge/route smokes,
+> await-precedence). **E2E navigateur = étape utilisateur.** Déployé via ZIP
+> (server.js + reports.html `_htmlCache` → `pm2 stop`→wait→`start`).
+
 ## ⚡ Current state (as of 2026-07-31, plus tard — reconduction auto + garde anti-doublon des actions)
 
 > **Reconduction automatique des actions + garde anti-doublon landed** (branche
