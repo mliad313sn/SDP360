@@ -17,7 +17,7 @@ const { C, EDV, FONTS } = require('./public/brand/brand-tokens');
 // Shared RAG/trend helpers — single source of truth, also used by
 // reports-monthly-pptx.js (see reports-pptx-shared.js).
 const { statusColor, trendArrow, trendColor, computeTrends, autoStatusColor,
-        slideDepartmentMeetings, hasDeptMeetingData } = require('./reports-pptx-shared');
+        slideDepartmentMeetings, hasDeptMeetingData, splitInfraKpiColumns } = require('./reports-pptx-shared');
 
 // ── SLIDE HELPERS ─────────────────────────────────────────────────
 function addTitle(slide, text, subtitle) {
@@ -168,36 +168,62 @@ function slideInfraKpis(pptx, report, label, prevKpis) {
 
   // Auto-compute trend direction from current vs previous week values
   const kpis = computeTrends(report.infra_kpis || [], prevKpis || []);
-  const rows = [
-    [
-      { text: 'Service',  options: { bold: true, color: C.white, fill: { color: C.tableHead }, align: 'left' } },
-      { text: 'KPI',      options: { bold: true, color: C.white, fill: { color: C.tableHead }, align: 'left' } },
-      { text: 'Target',   options: { bold: true, color: C.white, fill: { color: C.tableHead }, align: 'center' } },
-      { text: 'Status',   options: { bold: true, color: C.white, fill: { color: C.tableHead }, align: 'center' } },
-      { text: 'Trend',    options: { bold: true, color: C.white, fill: { color: C.tableHead }, align: 'center' } },
-    ],
-    ...(kpis.length ? kpis : [{service:'—', kpi:'—', target:'—', status_value:'—', status_color:'none', trend:'no_change'}]).map((k, i) => {
-      const { color: sc, hasColor } = autoStatusColor(k.status_value, k.target, k.status_color);
-      const ta = trendArrow(k.trend);
-      const tc = trendColor(k.trend);
-      const rowFill = i % 2 === 0 ? C.lightGrey : C.white;
-      return [
-        { text: k.service,           options: { fill: { color: rowFill }, align: 'left', bold: true } },
-        { text: k.kpi,               options: { fill: { color: rowFill }, align: 'left' } },
-        { text: k.target||'—',       options: { fill: { color: rowFill }, align: 'center' } },
-        { text: k.status_value||'—', options: { fill: { color: hasColor ? sc : rowFill }, color: hasColor ? C.white : C.darkGrey, bold: true, align: 'center' } },
-        { text: ta,                  options: { fill: { color: rowFill }, color: tc, bold: true, align: 'center', fontSize: 14 } },
-      ];
-    })
-  ];
 
-  slide.addTable(rows, {
-    x: 0.5, y: 1.1, w: 9.0, h: 5.4,
-    fontFace: 'Calibri', fontSize: 12,
-    border: { type: 'solid', color: 'CCCCCC', pt: 0.5 },
-    rowH: kpis.length > 0 ? Math.min(0.7, 5.4 / (kpis.length + 1)) : 0.6,
-    colW: [1.8, 2.2, 1.2, 1.8, 2.0],
+  const headerRow = () => [
+    { text: 'Service',  options: { bold: true, color: C.white, fill: { color: C.tableHead }, align: 'left' } },
+    { text: 'KPI',      options: { bold: true, color: C.white, fill: { color: C.tableHead }, align: 'left' } },
+    { text: 'Target',   options: { bold: true, color: C.white, fill: { color: C.tableHead }, align: 'center' } },
+    { text: 'Status',   options: { bold: true, color: C.white, fill: { color: C.tableHead }, align: 'center' } },
+    { text: 'Trend',    options: { bold: true, color: C.white, fill: { color: C.tableHead }, align: 'center' } },
+  ];
+  // Body rows for a KPI sub-list; zebra-stripes restart per list so each
+  // column of the two-column layout stripes independently.
+  const bodyRows = list => list.map((k, i) => {
+    const { color: sc, hasColor } = autoStatusColor(k.status_value, k.target, k.status_color);
+    const ta = trendArrow(k.trend);
+    const tc = trendColor(k.trend);
+    const rowFill = i % 2 === 0 ? C.lightGrey : C.white;
+    return [
+      { text: k.service,           options: { fill: { color: rowFill }, align: 'left', bold: true } },
+      { text: k.kpi,               options: { fill: { color: rowFill }, align: 'left' } },
+      { text: k.target||'—',       options: { fill: { color: rowFill }, align: 'center' } },
+      { text: k.status_value||'—', options: { fill: { color: hasColor ? sc : rowFill }, color: hasColor ? C.white : C.darkGrey, bold: true, align: 'center' } },
+      { text: ta,                  options: { fill: { color: rowFill }, color: tc, bold: true, align: 'center', fontSize: 14 } },
+    ];
   });
+
+  const displayKpis = kpis.length
+    ? kpis
+    : [{ service:'—', kpi:'—', target:'—', status_value:'—', status_color:'none', trend:'no_change' }];
+  const { twoCol, columns } = splitInfraKpiColumns(displayKpis);
+
+  if (!twoCol) {
+    // Unchanged single-column layout (every site except the rare long list).
+    slide.addTable([headerRow(), ...bodyRows(columns[0])], {
+      x: 0.5, y: 1.1, w: 9.0, h: 5.4,
+      fontFace: 'Calibri', fontSize: 12,
+      border: { type: 'solid', color: 'CCCCCC', pt: 0.5 },
+      rowH: kpis.length > 0 ? Math.min(0.7, 5.4 / (kpis.length + 1)) : 0.6,
+      colW: [1.8, 2.2, 1.2, 1.8, 2.0],
+    });
+    return slide;
+  }
+
+  // Two-column layout for a long KPI list (e.g. Exploration tracks 30 KPIs
+  // across its sub-sites) so the table no longer overflows the slide bottom.
+  const gap = 0.33, tableW = (12.73 - gap) / 2;      // 6.20" each
+  const leftX = 0.3, rightX = leftX + tableW + gap;  // 6.83"
+  const perColRows = columns[0].length + 1;          // larger half + header
+  const rowH = Math.min(0.42, 5.4 / perColRows);
+  const tblOpts = x => ({
+    x, y: 1.1, w: tableW, h: 5.4,
+    fontFace: 'Calibri', fontSize: 11,
+    border: { type: 'solid', color: 'CCCCCC', pt: 0.5 },
+    rowH,
+    colW: [2.5, 1.3, 0.7, 0.9, 0.8],                 // sums to 6.20" (Trend wide enough for its header)
+  });
+  slide.addTable([headerRow(), ...bodyRows(columns[0])], tblOpts(leftX));
+  slide.addTable([headerRow(), ...bodyRows(columns[1])], tblOpts(rightX));
   return slide;
 }
 

@@ -189,5 +189,26 @@ function hasDeptMeetingData(summary) {
     ((summary.departments && summary.departments.length) || (summary.kpis && summary.kpis.pvs_held)));
 }
 
+/**
+ * Decide the layout for the "Infrastructure KPIs" table. Most sites carry a
+ * handful of KPIs (one column is fine). A few coordinators — Exploration most
+ * of all — track infra across several sub-sites (WAN/LAN/WLAN/Servers/Backup ×
+ * N sites = 30+ rows), which overflows a single column off the bottom of the
+ * slide. Above `threshold` KPIs we split the list into two balanced side-by-side
+ * columns; at or below it we return a single column so short lists render
+ * exactly as before (byte-identical — the golden fingerprint must not move).
+ *
+ * Returns { twoCol, columns } where `columns` is [list] (single) or
+ * [firstHalf, secondHalf] (two). Order is preserved; concatenating the columns
+ * reproduces the input. A non-array or empty input is a single (empty) column.
+ */
+const INFRA_TWO_COL_THRESHOLD = 12;
+function splitInfraKpiColumns(kpis, threshold = INFRA_TWO_COL_THRESHOLD) {
+  const list = Array.isArray(kpis) ? kpis : [];
+  if (list.length <= threshold) return { twoCol: false, columns: [list] };
+  const half = Math.ceil(list.length / 2);
+  return { twoCol: true, columns: [list.slice(0, half), list.slice(half)] };
+}
+
 module.exports = { statusColor, trendArrow, trendColor, computeTrends, autoStatusColor,
-  slideDepartmentMeetings, hasDeptMeetingData };
+  slideDepartmentMeetings, hasDeptMeetingData, splitInfraKpiColumns, INFRA_TWO_COL_THRESHOLD };
