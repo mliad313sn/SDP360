@@ -6,6 +6,37 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ---
 
+## ⚡ Current state (as of 2026-07-31 — slide Infrastructure KPIs en 2 colonnes)
+
+> **Slide « Infrastructure KPIs — Last Week of » sur deux colonnes pour les longues
+> listes landed** (branche `fix/infra-kpi-two-column`, **mergée** dans `main`) — la
+> slide infra du rapport **mensuel all-sites** (`generateAllSitesMonthlyPptx` →
+> `slideMonthlyLastWeekInfra`, `reports-monthly-pptx.js`) ET son équivalent du
+> **weekly summary** (`generateWeeklySummaryPptx` → `slideInfraKpis`,
+> `reports-weekly-pptx.js`) **débordaient du bas de la slide pour Exploration**, qui
+> suit **30 KPIs** (WAN/LAN/WLAN/Servers/Backup × 6 sous-sites FETEKRO/TANDA/MANA/
+> MASSAWA/HOUNDE/ITY) là où **tous les autres sites en ont 6-7** — 30 lignes tassées
+> dans une table de 5.6"/5.4" → texte illisible + débordement. **Fix chirurgical,
+> conditionnel** : nouveau helper **pur** `splitInfraKpiColumns(kpis, threshold=12)`
+> dans `reports-pptx-shared.js` (retourne `{twoCol, columns}` — `[list]` si ≤12,
+> `[moitié1, moitié2]` équilibrées si >12 ; ordre préservé ; testé
+> `tests/pptx-infra-two-column.test.js`, 6). Les deux renderers appellent le helper :
+> **au-dessous du seuil → chemin mono-colonne INCHANGÉ octet-pour-octet** (même
+> x/y/w/h/colW/rowH/fontSize), donc **tous les autres sites + toutes les autres
+> slides intacts — le golden fingerprint reste vert SANS régénération** (aucun site
+> de fixture ne dépasse 12). **Au-dessus du seuil → deux tables côte-à-côte** (x=0.3
+> & x=6.83, w=6.20 chacune, gap 0.33, fontSize 11, `colW:[2.5,1.3,0.7,0.9,0.8]` —
+> Trend assez large pour son en-tête ; rowH `min(0.42, H/(moitié+1))`). Refactor DRY :
+> chaque fonction extrait un `headerRow()` + `bodyRows(list)` local (zebra restart
+> par colonne). **Vérifié LibreOffice** : stress 36 KPIs → 18+18 tient dans la slide,
+> en-têtes sur une ligne, couleurs/tendances OK ; site normal 5 KPIs rendu identique.
+> Régression : **21 tests PPTX verts** (infra-two-column 6 + golden 1 +
+> shared-helpers + meetings-slide + meetings-all-decks). Déployé via ZIP (les
+> `reports-*-pptx.js` sont du code serveur requis par server.js → `pm2 stop`→wait→
+> `start`). **QA navigateur non requise** (génération PPTX, pas de page). *(Le ZIP
+> embarque aussi `_shell.js`+`system-logs.html` de la nav System-Logs — marker de
+> déploiement non avancé alors ; re-déploiement no-op.)*
+
 ## ⚡ Current state (as of 2026-07-30 — module System Logs v1, audit sécurité)
 
 > **System Logs v1 landed** (branche `feat/system-logs`, NON mergée — attend la QA
