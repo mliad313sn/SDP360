@@ -6,20 +6,27 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ---
 
-## ⚡ Current state (as of 2026-07-31, encore plus tard — bouton de fusion par ligne + statut « le plus récent fait foi »)
+## ⚡ Current state (as of 2026-07-31, encore plus tard — fenêtre de fusion des doublons + statut « le plus récent fait foi »)
 
-> **Fusion manuelle des actions (bouton par ligne) + sémantique newest-wins landed**
-> (branche `feat/site-actions-merge-newest-wins`, **mergée**) — suite directe de la
-> reconduction/dedup : un outil de **nettoyage à la demande** dans la section Actions
-> du rapport (le C différé, version éditeur-piloté et forward). **Deux pièces.**
-> **(1) Bouton « ⚯ Fusionner avec… » par ligne** (`reports.html`) → modal listant les
-> actions **ouvertes du site** (cache `_siteOpenActions`, hors lignée/uid propres) →
-> au clic, la ligne prend la **lignée** de l'action choisie → le hub les replie.
-> Mécanique : ligne **neuve/non enregistrée** → lignée posée côté client (persistée à
-> l'INSERT au Save, la lignée est immuable à l'UPDATE) ; ligne **déjà enregistrée**
-> (a un uid) → nouvelle route **`POST /api/reports/action/:uid/relineage`** (rôle
-> editor, réutilise `setActionLineage`, dual-backend) car un re-save ne réécrit jamais
-> la lignée. Ça nettoie le doublon **inter-semaines** sans toucher aux autres semaines.
+> **Fenêtre de fusion des doublons (à cocher, toutes semaines) + sémantique
+> newest-wins landed** (branches `feat/site-actions-merge-newest-wins` puis
+> `feat/merge-cleanup-window`, **mergées**) — suite directe de la reconduction/dedup :
+> un outil de **nettoyage à la demande** dans la section Actions (le C différé, version
+> éditeur-pilotée, forward). **Deux pièces.** **(1) Bouton « ⚯ Fusionner des doublons »**
+> (section Actions de `reports.html`) → fenêtre listant les actions **ouvertes du site,
+> TOUTES semaines confondues** (cache `_siteOpenActions`), **une case à cocher par
+> action**, triées par libellé normalisé (module de similarité) pour que les doublons
+> probables soient côte à côte. *(Refonte du bouton ⚯ par-ligne initial : depuis une
+> ligne on ne voyait pas les autres semaines pour savoir quoi fusionner — constat
+> utilisateur.)* Coche ≥2 → le **canonique = le plus récent** (year/week_number,
+> désormais exposés par `getSiteOpenReportActions`) ; les autres adoptent sa **lignée**
+> (le hub les replie) **ET** leur **libellé est renommé** sur celui du gagnant (les noms
+> divergents deviennent identiques). Route **`POST /api/reports/action/:uid/relineage`**
+> (editor, dual-backend) : `setActionLineage(uid, lineage, task?)` — `task` optionnel
+> renomme aussi ; sinon lignée seule. Une ligne du rapport courant touchée par la fusion
+> est mise à jour en place (libellé + lignée) sans perdre les autres saisies. Libellé du
+> bouton Import corrigé (« Import open actions from a previous week » — c'est un
+> sélecteur de semaine ; la reconduction auto tire déjà la semaine précédente).
 > **(2) Statut « le plus récent fait foi »** — corrige un trou que l'utilisateur a
 > repéré : lier ne regroupait que l'**affichage**, chaque ligne gardait son statut
 > indépendant → fermer la plus récente faisait **ressurgir** l'ancienne (toujours

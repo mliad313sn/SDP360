@@ -52,10 +52,12 @@ before(async () => {
 });
 after(() => { try { server && server.close(); } catch {} });
 
-test('two separate follow-ups before merge', async () => {
+test('two separate follow-ups before merge, each carrying year + week_number', async () => {
   const rdb = require('../reports-db');
   const { actions } = await rdb.getSiteOpenReportActions(siteId);
   assert.equal(actions.length, 2, 'both visible before merge');
+  assert.ok(actions.every(a => Number.isInteger(a.year) && Number.isInteger(a.week_number)),
+    'the merge-cleanup window needs year/week_number to pick the most-recent canonical');
 });
 
 test('relineage merges them → hub shows only the newest', async () => {
@@ -79,4 +81,16 @@ test('closing the newest closes the group — the older open copy does NOT resur
 test('validation: empty lineage 400, unknown uid 404', async () => {
   assert.equal((await post(`/api/reports/action/${newestUid}/relineage`, { lineage: '' })).status, 400);
   assert.equal((await post(`/api/reports/action/nope-uid/relineage`, { lineage: 'HX' })).status, 404);
+});
+
+// Runs LAST — mutates w40's lineage/task, so it must not disturb the merge/close
+// sequence above. Proves the optional task-rename (unify a group onto the winner).
+test('relineage can also RENAME the task (unify a merged group onto the winner label)', async () => {
+  const rdb = require('../reports-db');
+  const w40Uid = (await rdb.getReport(w40)).action_items[0].uid;
+  const r = await post(`/api/reports/action/${w40Uid}/relineage`, { lineage: 'GRP', task: 'Helix (canonical)' });
+  assert.equal(r.status, 200);
+  const row = (await rdb.getReport(w40)).action_items[0];
+  assert.equal(row.task, 'Helix (canonical)', 'older row renamed to the winner label');
+  assert.equal(row.lineage, 'GRP', 'lineage set');
 });

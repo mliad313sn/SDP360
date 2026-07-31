@@ -2569,7 +2569,9 @@ function _dedupLineageNewestOpen(rows) {
   }
   return [...best.values()]
     .filter(r => !_TERMINAL_STATUS.has(r.status))
-    .map(r => { const { _y, _w, ...rest } = r; return rest; });
+    // keep year/week_number so callers (the merge-cleanup window) can pick the
+    // most-recent as canonical without re-parsing week_label.
+    .map(r => { const { _y, _w, ...rest } = r; return { ...rest, year: _y, week_number: _w }; });
 }
 const _SORA_SQL = `
   SELECT ai.uid, ai.lineage, ai.task, ai.priority, ai.due_date, ai.owner, ai.status,
@@ -2682,14 +2684,21 @@ function setActionStatus(uid, status) {
 // lineage (the per-row "Fusionner avec…" button). Unlike a report re-save (which
 // leaves lineage immutable to protect a merge), this is an explicit, editor-driven
 // re-lineage. New/unsaved rows set lineage client-side at INSERT and don't need it.
-function setActionLineage(uid, lineage) {
-  if (REPORTS_BACKEND === 'postgres') return _setActionLineagePg(uid, lineage);
-  const info = db.prepare(`UPDATE action_items SET lineage=? WHERE uid=?`).run(lineage, uid);
+// Optionally also rename the task, so the merge-cleanup window can unify a
+// group's divergent labels onto the most-recent (winning) one. `task`
+// undefined/null → lineage only (leaves the label untouched).
+function setActionLineage(uid, lineage, task) {
+  if (REPORTS_BACKEND === 'postgres') return _setActionLineagePg(uid, lineage, task);
+  const info = (task == null)
+    ? db.prepare(`UPDATE action_items SET lineage=? WHERE uid=?`).run(lineage, uid)
+    : db.prepare(`UPDATE action_items SET lineage=?, task=? WHERE uid=?`).run(lineage, task, uid);
   return { ok: info.changes > 0 };
 }
-async function _setActionLineagePg(uid, lineage) {
+async function _setActionLineagePg(uid, lineage, task) {
   const H = pgHandle();
-  const info = await H.prepare('UPDATE action_items SET lineage=? WHERE uid=?').run(lineage, uid);
+  const info = (task == null)
+    ? await H.prepare('UPDATE action_items SET lineage=? WHERE uid=?').run(lineage, uid)
+    : await H.prepare('UPDATE action_items SET lineage=?, task=? WHERE uid=?').run(lineage, task, uid);
   return { ok: (info.changes || info.rowCount || 0) > 0 };
 }
 async function _setActionStatusPg(uid, status) {

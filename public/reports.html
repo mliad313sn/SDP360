@@ -682,7 +682,8 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         <!-- Technician autocomplete source (populated by loadTechnicianList) -->
         <datalist id="ai-tech-datalist"></datalist>
         <button class="btn btn-secondary btn-sm btn-add-row" onclick="addActionRow()">+ Add Action</button>
-        <button class="btn btn-secondary btn-sm" id="btn-carry-over" onclick="carryOverActions()" style="margin-left:10px">&#8629; Import all (except closed) from previous week</button>
+        <button class="btn btn-secondary btn-sm" id="btn-carry-over" onclick="carryOverActions()" style="margin-left:10px">&#8629; Import open actions from a previous week</button>
+        <button class="btn btn-secondary btn-sm" id="btn-merge-dupes" onclick="openMergeCleanup()" style="margin-left:8px" title="Regrouper des actions en double du site (toutes semaines)">⚯ Fusionner des doublons</button>
         <button class="btn btn-secondary btn-sm" id="btn-import-modules" onclick="openImportFromModules()" style="margin-left:8px">&#8629; Import from Meetings / Inspections</button>
         <button class="btn btn-secondary btn-sm" onclick="downloadActionsTemplate()" style="margin-left:10px" title="Download a CSV template with column headers + 3 sample rows"><i class="icon icon-download"></i>CSV Template</button>
         <button class="btn btn-secondary btn-sm" onclick="document.getElementById('actions-csv-file').click()" style="margin-left:6px" title="Bulk-import action items from a CSV file">⬆ Import CSV</button>
@@ -737,17 +738,22 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
       </div>
     </div>
 
-    <!-- Merge picker (per-row "⚯ Fusionner avec…"): link this row to an existing
-         open action of the site (share lineage → the hub folds them, newest wins). -->
+    <!-- Merge-cleanup window: check the site's open actions (across ALL weeks) that
+         are duplicates of each other → they share a lineage (hub folds them, the
+         most-recent survives) and the others' labels are renamed onto the winner. -->
     <div id="merge-modal" style="display:none;position:fixed;inset:0;z-index:2100;background:rgba(0,0,0,.45);align-items:center;justify-content:center" onclick="if(event.target===this)closeMergeModal()">
-      <div style="background:#fff;border-radius:10px;width:560px;max-width:95vw;max-height:82vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.25)">
+      <div style="background:#fff;border-radius:10px;width:640px;max-width:96vw;max-height:84vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.25)">
         <div style="padding:16px 20px 12px;border-bottom:1px solid #e5e7eb">
-          <div style="font-weight:700;font-size:1rem;color:#1e293b">⚯ Fusionner avec une action existante</div>
-          <div style="font-size:0.78rem;color:#64748b;margin-top:2px">Choisis l'action ouverte du site à laquelle rattacher cette ligne — elles seront regroupées dans le hub Site Actions (la plus récente fait foi).</div>
+          <div style="font-weight:700;font-size:1rem;color:#1e293b">⚯ Fusionner des doublons</div>
+          <div style="font-size:0.78rem;color:#64748b;margin-top:2px">Coche les actions ouvertes du site (toutes semaines) qui sont en réalité la même chose. Elles seront regroupées — la plus récente est conservée et les autres prennent son libellé.</div>
         </div>
         <div id="merge-list" style="overflow-y:auto;flex:1;padding:10px 12px"></div>
-        <div style="padding:12px 20px;border-top:1px solid #e5e7eb;text-align:right">
-          <button onclick="closeMergeModal()" class="btn btn-secondary btn-sm">Annuler</button>
+        <div style="padding:12px 20px;border-top:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;gap:8px">
+          <span id="merge-count" style="font-size:0.78rem;color:#64748b"></span>
+          <span>
+            <button onclick="closeMergeModal()" class="btn btn-secondary btn-sm">Annuler</button>
+            <button id="btn-do-merge" onclick="doMergeSelection()" class="btn btn-primary btn-sm" disabled>Fusionner la sélection</button>
+          </span>
         </div>
       </div>
     </div>
@@ -3489,47 +3495,74 @@ function resolveDupModal(choice) {
   }
 }
 
-// ── Per-row "⚯ Fusionner avec…" — explicit editor-driven merge ───────
-// Link a row to an existing open action of the site (share lineage). A NEW/unsaved
-// row sets lineage client-side (persists at INSERT on Save); an already-saved row
-// (has uid, lineage is immutable on re-save) goes through /relineage.
-function openMergePicker(rowId) {
-  const tr = document.querySelector(`#action-body tr[data-row-id="${rowId}"]`);
-  if (!tr) return;
-  const ownKey = tr.dataset.lineage || tr.dataset.uid || '';
-  const ownUid = tr.dataset.uid || '';
-  const cands = (_siteOpenActions || []).filter(a =>
-    (a.lineage || a.uid) !== ownKey && a.uid !== ownUid);
+// ── Merge-cleanup window (⚯ Fusionner des doublons) ─────────────────
+// Check the site's open actions (across ALL weeks) that are duplicates → they
+// adopt the most-recent one's lineage (the hub folds them, newest wins) and the
+// others' labels are renamed onto the winner. Operates on the saved
+// site-open-actions cache; sorted by normalized task so dupes sit adjacent.
+function closeMergeModal() { document.getElementById('merge-modal').style.display = 'none'; }
+
+function openMergeCleanup() {
   const list = document.getElementById('merge-list');
-  list.innerHTML = cands.length
-    ? cands.map(a => {
-        const lin = esc(a.lineage || a.uid);
-        return `<div onclick="mergeRowInto('${rowId}','${lin}')" style="padding:10px 12px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:8px;cursor:pointer" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
-          <div style="font-weight:600;color:#1e293b">${esc(a.task)}</div>
-          <div style="font-size:0.76rem;color:#64748b;margin-top:2px">${esc(a.week_label || '')} · ${esc(a.status || '')}${a.owner ? ' · ' + esc(a.owner) : ''}</div>
-        </div>`;
-      }).join('')
-    : '<p style="color:#64748b;padding:16px;text-align:center">Aucune autre action ouverte pour ce site.</p>';
+  const items = (_siteOpenActions || []).slice();
+  if (items.length < 2) {
+    list.innerHTML = '<p style="color:#64748b;padding:16px;text-align:center">Moins de deux actions ouvertes pour ce site — rien à fusionner.</p>';
+  } else {
+    const norm = t => (window.ActionSim ? ActionSim.normalizeTask(t).join(' ') : String(t || '').toLowerCase());
+    items.sort((a, b) => norm(a.task).localeCompare(norm(b.task)) || ((b.year || 0) - (a.year || 0)) || ((b.week_number || 0) - (a.week_number || 0)));
+    list.innerHTML = items.map(a => {
+      const key = esc(a.lineage || a.uid);
+      const meta = `${esc(a.week_label || '')} · ${esc(a.status || '')}${a.owner ? ' · ' + esc(a.owner) : ''}`;
+      return `<label style="display:flex;gap:10px;align-items:flex-start;padding:9px 10px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:6px;cursor:pointer">
+        <input type="checkbox" class="merge-cb" data-key="${key}" data-uid="${esc(a.uid || '')}" data-year="${a.year || 0}" data-week="${a.week_number || 0}" data-task="${esc(a.task || '')}" onchange="_mergeSelChanged()" style="margin-top:3px">
+        <span><span style="font-weight:600;color:#1e293b">${esc(a.task)}</span><br><span style="font-size:0.76rem;color:#64748b">${meta}</span></span>
+      </label>`;
+    }).join('');
+  }
+  document.getElementById('merge-count').textContent = '';
+  document.getElementById('btn-do-merge').disabled = true;
   document.getElementById('merge-modal').style.display = 'flex';
 }
 
-function closeMergeModal() { document.getElementById('merge-modal').style.display = 'none'; }
+function _mergeSelChanged() {
+  const n = document.querySelectorAll('#merge-list .merge-cb:checked').length;
+  document.getElementById('merge-count').textContent = n ? `${n} sélectionnée(s)` : '';
+  document.getElementById('btn-do-merge').disabled = n < 2;
+}
 
-async function mergeRowInto(rowId, targetLineage) {
-  const tr = document.querySelector(`#action-body tr[data-row-id="${rowId}"]`);
-  if (!tr) { closeMergeModal(); return; }
-  const uid = tr.dataset.uid || '';
-  try {
-    if (uid) await api('POST', `/api/reports/action/${encodeURIComponent(uid)}/relineage`, { lineage: targetLineage });
-    tr.dataset.lineage = targetLineage;   // unsaved rows persist this at INSERT on Save
-    const input = tr.querySelector('input[type="text"]');
-    if (input) { input.style.borderLeft = '3px solid #2563eb'; input.title = 'Fusionnée (même lignée) — regroupée dans le hub'; }
-    toast(uid ? '⚯ Fusionnée — regroupées dans le hub' : '⚯ Liée — révise puis Enregistre', 'success');
-    await loadSiteOpenActions();   // refresh the candidate cache after a merge
-  } catch (e) {
-    toast('Fusion impossible : ' + (e.message || e), 'error');
+async function doMergeSelection() {
+  const checked = Array.from(document.querySelectorAll('#merge-list .merge-cb:checked'));
+  if (checked.length < 2) return;
+  const rows = checked.map(cb => ({
+    uid: cb.dataset.uid, key: cb.dataset.key, task: cb.dataset.task,
+    year: parseInt(cb.dataset.year, 10) || 0, week: parseInt(cb.dataset.week, 10) || 0,
+  }));
+  rows.sort((a, b) => (b.year - a.year) || (b.week - a.week));   // canonical = most recent
+  const canonical = rows[0];
+  const others = rows.slice(1);
+  const btn = document.getElementById('btn-do-merge');
+  btn.disabled = true; btn.textContent = '…fusion';
+  let done = 0, failed = 0;
+  for (const o of others) {
+    if (!o.uid || o.key === canonical.key) { done++; continue; }   // already same group
+    try {
+      await api('POST', `/api/reports/action/${encodeURIComponent(o.uid)}/relineage`, { lineage: canonical.key, task: canonical.task });
+      done++;
+    } catch (_) { failed++; }
   }
+  btn.textContent = 'Fusionner la sélection';
   closeMergeModal();
+  toast(failed ? `⚯ Fusion partielle : ${done} ok, ${failed} en échec` : `⚯ ${done} action(s) regroupée(s) sous « ${canonical.task} »`, failed ? 'error' : 'success');
+  await loadSiteOpenActions();   // refresh the candidate cache
+  // Reflect any renamed/re-lineaged rows that belong to the CURRENT report.
+  const affected = new Set(others.map(o => o.uid));
+  document.querySelectorAll('#action-body tr[data-row-id]').forEach(tr => {
+    if (tr.dataset.uid && affected.has(tr.dataset.uid)) {
+      tr.dataset.lineage = canonical.key;
+      const input = tr.querySelector('input[type="text"]');
+      if (input) { input.value = canonical.task; input.style.borderLeft = '3px solid #2563eb'; }
+    }
+  });
 }
 
 async function carryOverLights() {
@@ -3932,10 +3965,7 @@ function addActionRow(a) {
     <td>
       <span class="comment-preview ${commentText ? '' : 'empty'}" onclick="toggleCommentRow('${rowId}')" title="Click to edit">${esc(previewText)}</span>
     </td>
-    <td style="white-space:nowrap">
-      <button class="btn-remove" title="Fusionner avec une action existante" onclick="openMergePicker('${rowId}')" style="color:#2563eb">⚯</button>
-      <button class="btn-remove" onclick="removeActionRow('${rowId}')">✕</button>
-    </td>
+    <td><button class="btn-remove" onclick="removeActionRow('${rowId}')">✕</button></td>
   `;
   tbody.appendChild(tr);
 
