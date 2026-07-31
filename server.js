@@ -5932,6 +5932,17 @@ app.get('/api/reports/:id/actions-from/:source_report_id', requireReportSession,
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// GET /api/reports/:id/site-open-actions  — the report site's currently-open report
+// follow-ups (lineage-deduped), for the client-side near-duplicate guard on entry.
+app.get('/api/reports/:id/site-open-actions', requireReportSession, async (req, res) => {
+  try {
+    const report = await rdb.getReport(parseInt(req.params.id));
+    if (!report) return res.status(404).json({ error: 'Report not found' });
+    const result = await rdb.getSiteOpenReportActions(report.site_id);
+    res.json(result);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 // GET /api/reports/:id/light-weeks  — list all past weeks with lights counts
 app.get('/api/reports/:id/light-weeks', requireReportSession, async (req, res) => {
   try {

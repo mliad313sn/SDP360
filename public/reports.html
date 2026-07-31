@@ -255,6 +255,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js" defer></script>
 <script src="lib/parse-actions-csv.js"></script>
+<script src="lib/actionSimilarity.js"></script>
 <!-- Unified auth (data-require="any" — any logged-in user). auth.js redirects
      to login.html?next=reports.html when no/invalid session, so the inline
      login screen this page used to ship is no longer needed. All other pages
@@ -659,6 +660,10 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
     <div id="section-3" style="display:none">
       <div class="card">
         <h3><span class="section-num">4</span> Action Items &amp; Follow-ups</h3>
+        <div id="reconduct-banner" style="display:none;margin:0 0 12px;padding:10px 14px;background:#eff6ff;border:1px solid #bfdbfe;border-left:4px solid #2563eb;border-radius:8px;font-size:0.85rem;color:#1e3a5f;align-items:center;gap:12px">
+          <span id="reconduct-banner-text" style="flex:1"></span>
+          <button class="btn btn-secondary btn-sm" onclick="undoReconduct()" style="white-space:nowrap">Annuler la reconduction</button>
+        </div>
         <table class="action-table">
           <thead>
             <tr>
@@ -705,6 +710,29 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         <!-- footer -->
         <div style="padding:12px 20px;border-top:1px solid #e5e7eb;text-align:right">
           <button onclick="closeCarryOverModal()" class="btn btn-secondary btn-sm">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Near-duplicate action modal (prong B): a newly-typed action looks like an
+         already-open one for this site — offer to link (share lineage) or keep. -->
+    <div id="dup-modal" style="display:none;position:fixed;inset:0;z-index:2100;background:rgba(0,0,0,.45);align-items:center;justify-content:center">
+      <div style="background:#fff;border-radius:10px;width:540px;max-width:95vw;box-shadow:0 8px 40px rgba(0,0,0,.25)">
+        <div style="padding:16px 20px 12px;border-bottom:1px solid #e5e7eb">
+          <div style="font-weight:700;font-size:1rem;color:#1e293b">⚠ Action similaire déjà ouverte</div>
+          <div style="font-size:0.78rem;color:#64748b;margin-top:2px">Cette action ressemble à un suivi déjà ouvert pour ce site. Lie-la pour éviter un doublon dans le hub Site Actions.</div>
+        </div>
+        <div style="padding:14px 20px;font-size:0.85rem;color:#334155">
+          <div style="margin-bottom:8px"><span style="color:#64748b">Ta saisie :</span><br><b id="dup-new-task"></b></div>
+          <div style="padding:10px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px">
+            <span style="color:#64748b">Action existante :</span><br>
+            <b id="dup-existing-task"></b>
+            <div id="dup-existing-meta" style="font-size:0.78rem;color:#64748b;margin-top:4px"></div>
+          </div>
+        </div>
+        <div style="padding:12px 20px;border-top:1px solid #e5e7eb;text-align:right;display:flex;gap:8px;justify-content:flex-end">
+          <button onclick="resolveDupModal('keep')" class="btn btn-secondary btn-sm">Non, garder séparé</button>
+          <button onclick="resolveDupModal('link')" class="btn btn-primary btn-sm">C'est la même — lier</button>
         </div>
       </div>
     </div>
@@ -3349,9 +3377,101 @@ function collectLights() {
 function renderActions() {
   const tbody = document.getElementById('action-body');
   tbody.innerHTML = '';
+  const banner = document.getElementById('reconduct-banner');
+  if (banner) banner.style.display = 'none';
   const items = currentReport.action_items || [];
   items.forEach(a => addActionRow(a));
   if (!items.length) addActionRow();
+  loadSiteOpenActions();     // cache the site's open follow-ups for the near-duplicate guard (prong B)
+  maybeReconductActions();   // pre-fill from the previous week when this section is blank (prong A)
+}
+
+// ── Prong A: auto-reconduction ──────────────────────────────────────
+// When a new week's Actions section is blank, pre-fill it with the previous
+// week's still-open follow-ups (fresh uid, PRESERVED lineage — so the hub folds
+// them). Reviewable draft: nothing persists until the editor saves. State-free
+// guard: only fires when the section is empty on open (see design doc).
+let _reconductedRowIds = [];
+async function maybeReconductActions() {
+  const r = currentReport;
+  if (!r || (r.action_items || []).length) return;              // only a blank section
+  if (!['draft', 'in_progress'].includes(r.status)) return;     // not for ready/submitted
+  try {
+    const wk = await api('GET', `/api/reports/${r.id}/action-weeks`);
+    // Most recent week STRICTLY before the current one that still has open actions.
+    const weeks = (wk.weeks || []).filter(w =>
+      (w.action_count || 0) > 0 && w.start_date && r.start_date && w.start_date < r.start_date);
+    if (!weeks.length) return;                                   // list is year/week DESC → weeks[0] is most recent
+    const src = weeks[0];
+    const data = await api('GET', `/api/reports/${r.id}/actions-from/${src.report_id}`);
+    const carried = ((data && data.actions) || []).filter(a => !a.source);  // module refs live at their origin
+    if (!carried.length) return;
+    // Re-check the section is still blank (guard a race with fast typing).
+    const rows = Array.from(document.querySelectorAll('#action-body tr[data-row-id]'));
+    if (!rows.every(tr => !(tr.querySelector('input[type="text"]')?.value.trim()))) return;
+    document.getElementById('action-body').innerHTML = '';       // drop the single empty row
+    carried.forEach(a => addActionRow({ ...a, uid: '', lineage: a.lineage || a.uid }));
+    _reconductedRowIds = Array.from(document.querySelectorAll('#action-body tr[data-row-id]')).map(tr => tr.dataset.rowId);
+    document.getElementById('reconduct-banner-text').innerHTML =
+      `↩ <b>${carried.length}</b> action(s) non résolue(s) reconduite(s) de <b>${esc(src.week_label)}</b> — révise (responsable, échéance, statut) puis <b>Enregistre</b>.`;
+    document.getElementById('reconduct-banner').style.display = 'flex';
+  } catch (_) { /* non-fatal: no reconduction, editor works normally */ }
+}
+
+function undoReconduct() {
+  document.getElementById('action-body').innerHTML = '';
+  addActionRow();
+  _reconductedRowIds = [];
+  document.getElementById('reconduct-banner').style.display = 'none';
+}
+
+// ── Prong B: near-duplicate guard ───────────────────────────────────
+let _siteOpenActions = [];
+let _dupPendingTr = null;
+async function loadSiteOpenActions() {
+  _siteOpenActions = [];
+  if (!currentReport) return;
+  try {
+    const data = await api('GET', `/api/reports/${currentReport.id}/site-open-actions`);
+    _siteOpenActions = (data && data.actions) || [];
+  } catch (_) { /* non-fatal: guard just won't fire */ }
+}
+
+// On blur of a NEWLY-typed action, if it looks like an already-open action for the
+// site, offer to link (share lineage) rather than create a divergent duplicate.
+function checkRowForDuplicate(tr) {
+  if (!tr || !window.ActionSim) return;
+  if (tr.dataset.uid || tr.dataset.lineage || tr.dataset.source) return;   // only brand-new rows
+  const input = tr.querySelector('input[type="text"]');
+  const task = input ? input.value.trim() : '';
+  if (!task) return;
+  const normKey = ActionSim.normalizeTask(task).join(' ');
+  if (!normKey || tr.dataset.dupDismissed === normKey) return;             // already "kept separate"
+  const hit = ActionSim.findBestMatch(task, _siteOpenActions);
+  if (!hit) return;
+  _dupPendingTr = tr;
+  tr._dupMatch = hit.candidate;
+  document.getElementById('dup-new-task').textContent = task;
+  document.getElementById('dup-existing-task').textContent = hit.candidate.task;
+  document.getElementById('dup-existing-meta').textContent =
+    `${hit.candidate.week_label ? 'Ouverte en ' + hit.candidate.week_label : 'Déjà ouverte'} · statut ${hit.candidate.status || '—'}`;
+  document.getElementById('dup-modal').style.display = 'flex';
+}
+
+function resolveDupModal(choice) {
+  const tr = _dupPendingTr;
+  document.getElementById('dup-modal').style.display = 'none';
+  _dupPendingTr = null;
+  if (!tr) return;
+  const input = tr.querySelector('input[type="text"]');
+  const normKey = ActionSim.normalizeTask(input ? input.value.trim() : '').join(' ');
+  if (choice === 'link' && tr._dupMatch) {
+    tr.dataset.lineage = tr._dupMatch.lineage || tr._dupMatch.uid || '';   // share lineage → hub folds them
+    if (input) { input.style.borderLeft = '3px solid #2563eb'; input.title = 'Liée à une action existante (même lignée) — regroupée dans le hub'; }
+    toast('↔ Liée à l\'action existante — elles seront regroupées', 'success');
+  } else {
+    tr.dataset.dupDismissed = normKey;   // don't re-prompt for this exact text
+  }
 }
 
 async function carryOverLights() {
@@ -3769,6 +3889,10 @@ function addActionRow(a) {
     </td>
   `;
   tbody.appendChild(commentTr);
+
+  // Prong B: warn on blur if a newly-typed action duplicates an already-open one.
+  const _taskInput = tr.querySelector('input[type="text"]');
+  if (_taskInput) _taskInput.addEventListener('blur', () => { try { checkRowForDuplicate(tr); } catch (_) {} });
 }
 
 function toggleCommentRow(rowId) {
