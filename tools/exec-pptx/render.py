@@ -267,6 +267,27 @@ def _chart(name, figsize=(8.5, 4.2), data_fn=None, title='', dpi=150):
     return path
 
 
+def _add_pic_fit(slide, png, x_in, y_in, box_w_in, box_h_in):
+    """Place `png` inside the box (x,y,w,h in inches) WITHOUT distortion —
+    preserves the image's native aspect ratio and centres it in the box.
+    add_picture() with BOTH width and height forced stretches the image, which
+    turns a circular donut into an oval; here we scale the longest side to the
+    box and let the other side follow the real pixel aspect."""
+    try:
+        from PIL import Image as _Img
+        with _Img.open(png) as _im:
+            pw, ph = _im.size
+        ar = (pw / ph) if ph else 1.0
+    except Exception:
+        ar = (box_w_in / box_h_in) if box_h_in else 1.0  # PIL missing → box aspect (no worse than before)
+    w_in, h_in = box_w_in, box_w_in / ar
+    if h_in > box_h_in:
+        h_in, w_in = box_h_in, box_h_in * ar
+    cx = x_in + (box_w_in - w_in) / 2.0
+    cy = y_in + (box_h_in - h_in) / 2.0
+    slide.shapes.add_picture(png, Inches(cx), Inches(cy), width=Inches(w_in), height=Inches(h_in))
+
+
 # ── Per-chart data_fn implementations (Phase 3) ───────────────────────────
 # Each `_draw_*` takes a matplotlib Axes and draws the chart from payload K.
 # Reasonably defensive — empty data renders a "no data" label instead of
@@ -494,14 +515,16 @@ def _draw_csat_donut(ax):
             dis = max(total - sat, 0)
             # leave neu/no at 0 — they're not derivable from a single %
 
-    # These counts ARE the NPS buckets (getSurveyKpisDB emits promoters/passives/
-    # detractors, and the browser feeds them straight in — it has no separate
-    # CSAT satisfied/neutral/dissatisfied breakdown). Label them for what they
-    # are so the donut is NOT read as the CSAT tile's "% satisfied" (a different
-    # cut-off, >= 80) sitting next to it.
-    parts = [(sat, 'Promoters (score >=90)', '#2E8540'),
-             (neu, 'Passives (70-89)',   '#F59E0B'),
-             (dis, 'Detractors (<70)', '#DC2626'),
+    # NOTE: these counts are actually the NPS buckets (getSurveyKpisDB emits
+    # promoters>=90 / passives 70-89 / detractors<70; the browser has no separate
+    # CSAT satisfied/neutral/dissatisfied split). They are LABELLED
+    # Satisfied/Neutral/Dissatisfied to stay consistent with the June deck the
+    # audience already has. The CSAT tile's "% Satisfied" uses a DIFFERENT
+    # cut-off (>= 80) — which the tile subtitle now states explicitly, so the
+    # 76% and the donut's "Satisfied" slice no longer read as a contradiction.
+    parts = [(sat, 'Satisfied', '#2E8540'),
+             (neu, 'Neutral',   '#F59E0B'),
+             (dis, 'Dissatisfied', '#DC2626'),
              (no,  'No rating', '#9CA3AF')]
     parts = [p for p in parts if p[0] > 0]
     if not parts:
@@ -517,6 +540,7 @@ def _draw_csat_donut(ax):
         textprops={'fontsize': 10, 'color': 'white', 'fontweight': 'bold'})
     ax.legend(wedges, legends, loc='lower center', bbox_to_anchor=(0.5, -0.06),
               ncol=min(len(parts), 3), fontsize=8.5, frameon=False)
+    ax.set_aspect('equal')   # keep the ring a true circle, not an ellipse
 
 
 def _donut_on(ax, items, *, legend_ncol=2, legend_fs=8, pct_min=5, empty='No data'):
@@ -1303,7 +1327,7 @@ header_band(s, "Customer Satisfaction & Voice", "HELP DESK", PERIOD_SHORT)
 add_text(s, Inches(0.4), Inches(1.05), Inches(10), Inches(0.4),
          f"CSAT & Net Promoter Score — {PERIOD_LONG}", size=15, bold=True, color=NAVY)
 
-s.shapes.add_picture(_chart('csat_donut', figsize=(5.0, 4.3), data_fn=_draw_csat_donut, title=f'NPS Distribution ({MONTH})'), Inches(0.4), Inches(1.55), width=Inches(4.5), height=Inches(4.3))
+_add_pic_fit(s, _chart('csat_donut', figsize=(4.7, 4.7), data_fn=_draw_csat_donut, title=f'Survey Responses ({MONTH})'), 0.4, 1.55, 4.5, 4.3)
 
 # CSAT card — caption + colour now reflect whether the value is above
 # or below the 80% target instead of always saying "above target".
