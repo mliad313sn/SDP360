@@ -6,6 +6,26 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ---
 
+## ⚡ Current state (as of 2026-08-03, plus tard — vrais deltas MoM sur le rapport exec)
+
+> **Deltas MoM (mois-sur-mois) branchés sur la slide 1 (cover « At a Glance ») + la
+> slide 3 (Executive Overview) du rapport Group IT** (branche `fix/exec-mom-deltas`,
+> **mergée**). Constat : ces deltas étaient des **placeholders** — backlog/FCR
+> montraient un « 0.0% » trompeur (défaut serveur 0), le reste « — MoM ». **Jamais
+> câblés (depuis 2026-06-04), PAS une régression PG.** Les 4 qui marchaient (TOTAL,
+> CLOSED, SLA, FRT) viennent des tickets ; les autres envoyaient `null`.
+> **Navigateur (`_buildExecPptxPayload`)** : juin est déjà en mémoire (`prev`,
+> `chgRows`), donc on calcule les équivalents du mois précédent avec la MÊME logique
+> que le mois courant → vrais deltas pour open backlog, FCR, avg MTTR, support groups,
+> changes (nombre), taux emergency. `null` seulement si juin n'a pas de base → « — »
+> honnête. **Serveur (`reportPayload.js`)** : `mi_total_delta = mi_total −
+> mi_prev_total` (déjà dispo, MI est serveur-owned) + suppression des défauts `0`
+> trompeurs de `open_backlog_delta_pct`/`fcr_delta_pp` (→ null). **Les deux slides
+> lisent les mêmes champs K → corrigées ensemble ; `render.py` inchangé.** Test
+> exec-pptx vert, les 2 fichiers parsent. Chiffres MoM à vérifier au regénérer
+> (E2E navigateur derrière session). Déployé via ZIP (executive-report.html en
+> `_htmlCache` + reportPayload.js code serveur → `pm2 stop`→wait→`start` + Ctrl+F5).
+
 ## ⚡ Current state (as of 2026-08-03 — fix ageing >60j : pending_status PG + garde readers)
 
 > **Bug prod diagnostiqué + corrigé : la slide « Ticket Ageing by Group » du rapport
