@@ -6,6 +6,37 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ---
 
+## ⚡ Current state (as of 2026-08-03 — fix ageing >60j : pending_status PG + garde readers)
+
+> **Bug prod diagnostiqué + corrigé : la slide « Ticket Ageing by Group » du rapport
+> mensuel Group IT comptait ~6709 tickets ouverts (~6000 en >60j) alors que le vrai
+> backlog ouvert était 245** (branche `fix/pg-pending-status-ageing`, **mergée**).
+> **Cause racine (exposée par le cutover PG)** : dans PG, `request_records.pending_status`
+> était bloqué à **1 (ouvert)** pour des milliers d'anciens tickets FERMÉS. La sync
+> (`zoho-sync.js`) dérivait `pending_status` **uniquement** du champ Zoho
+> `Request Pending Status` et **défaultait à OUVERT** quand il était vide ; les vieux
+> tickets le portent vide, et un full re-sync (qui a repeuplé PG au cutover) les a
+> basculés. Le navigateur ne voyait jamais le bug car `isClosed()` **retombe sur
+> Request Status**. **Confirmé** : snapshot SQLite (9 juil.) = `pending_status=1` → **549**
+> (fiable) ; le deck (PG) = **6709**. **Blast radius** : SEULS les lecteurs DB qui font
+> confiance à `pending_status` (ageing-by-group/site, comptes « closed » de
+> getCalendarMonthlyHelpdesk/getMonthlyHelpdeskHistory) étaient faux ; **les KPI du
+> deck (open 245, closed 1307, closure 84,2 %) sont client-side via `isClosed` et
+> étaient déjà justes**. **Fix #1 (sync)** : `computePendingStatus(pendingRaw, requestStatus)`
+> — dual-source calqué sur `isClosed` (flag d'abord ; vide → CLOSED_STATUSES sur
+> Request Status). **Fix #3 (défense en profondeur)** : les readers ageing (group+site,
+> 2 backends) comptent « ouvert » ssi `pending_status=1 AND request_status NOT IN
+> (closed set)` → la slide ageing est juste même si `pending_status` re-dérive un jour.
+> **Fix #2 (réparation données, à lancer par l'utilisateur sur PG prod)** :
+> `UPDATE request_records SET pending_status=0 WHERE pending_status=1 AND
+> lower(trim(request_status)) IN ('closed','resolved','confirmed resolution',
+> 'confirm resolution','cancelled')` — corrige la colonne stockée pour les AUTRES
+> lecteurs. **Après déploiement** : la slide ageing est déjà correcte (fix #3) au
+> regénérer ; lancer la réparation + une sync requests fixe le reste. Tests :
+> `pending-status-derivation` (5) + `ageing-excludes-closed` (2, seed pending=1+Closed).
+> Régression verte (await-precedence, zoho-sync-udf, risk-register-classify). Déployé
+> via ZIP (zoho-sync.js + reports-db.js = code serveur → `pm2 stop`→wait→`start`).
+
 ## ⚡ Current state (as of 2026-07-31, encore plus tard — fenêtre de fusion des doublons + statut « le plus récent fait foi »)
 
 > **Fenêtre de fusion des doublons (à cocher, toutes semaines) + sémantique

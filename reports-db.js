@@ -3336,6 +3336,7 @@ function getAgeingBySiteDB() {
              CAST((julianday('now') - julianday(created_time)) AS INTEGER) AS age_days
       FROM request_records
       WHERE pending_status = 1
+        AND LOWER(TRIM(COALESCE(request_status,''))) NOT IN ('closed','resolved','confirmed resolution','confirm resolution','cancelled')
         AND site IS NOT NULL
         AND TRIM(site) != ''
         AND LOWER(TRIM(site)) NOT IN ('-no value-', '-no value', 'no value', '(blank)')
@@ -3363,6 +3364,7 @@ async function _getAgeingBySiteDBPg() {
              TRUNC(EXTRACT(EPOCH FROM (now() - created_time::timestamptz)) / 86400)::integer AS age_days
       FROM request_records
       WHERE pending_status = 1
+        AND LOWER(TRIM(COALESCE(request_status,''))) NOT IN ('closed','resolved','confirmed resolution','confirm resolution','cancelled')
         AND site IS NOT NULL
         AND TRIM(site) != ''
         AND LOWER(TRIM(site)) NOT IN ('-no value-', '-no value', 'no value', '(blank)')
@@ -3415,6 +3417,10 @@ function getAgeingByGroupDB() {
                   THEN 0 ELSE 1 END AS frt_ok
       FROM request_records
       WHERE pending_status = 1
+        -- defence-in-depth: a ticket is open only if its Request Status is not
+        -- terminal (mirrors the browser isClosed). Guards against a stale/corrupt
+        -- pending_status marking closed tickets as open (July-2026 PG diagnosis).
+        AND LOWER(TRIM(COALESCE(request_status,''))) NOT IN ('closed','resolved','confirmed resolution','confirm resolution','cancelled')
         AND tech_group IS NOT NULL
         AND TRIM(tech_group) != ''
         AND created_time IS NOT NULL
@@ -3443,6 +3449,10 @@ async function _getAgeingByGroupDBPg() {
                   THEN 0 ELSE 1 END AS frt_ok
       FROM request_records
       WHERE pending_status = 1
+        -- defence-in-depth: a ticket is open only if its Request Status is not
+        -- terminal (mirrors the browser isClosed). Guards against a stale/corrupt
+        -- pending_status marking closed tickets as open (July-2026 PG diagnosis).
+        AND LOWER(TRIM(COALESCE(request_status,''))) NOT IN ('closed','resolved','confirmed resolution','confirm resolution','cancelled')
         AND tech_group IS NOT NULL
         AND TRIM(tech_group) != ''
         AND created_time IS NOT NULL
@@ -4018,6 +4028,10 @@ function getAgeingSummaryDB() {
              CAST((julianday('now') - julianday(created_time)) AS INTEGER) AS age_days
       FROM request_records
       WHERE pending_status = 1
+        -- defence-in-depth: a ticket is open only if its Request Status is not
+        -- terminal (mirrors the browser isClosed). Guards against a stale/corrupt
+        -- pending_status marking closed tickets as open (July-2026 PG diagnosis).
+        AND LOWER(TRIM(COALESCE(request_status,''))) NOT IN ('closed','resolved','confirmed resolution','confirm resolution','cancelled')
         AND tech_group IS NOT NULL
         AND TRIM(tech_group) != ''
         AND created_time IS NOT NULL
@@ -4041,6 +4055,10 @@ async function _getAgeingSummaryDBPg() {
              TRUNC(EXTRACT(EPOCH FROM (now() - created_time::timestamptz)) / 86400)::integer AS age_days
       FROM request_records
       WHERE pending_status = 1
+        -- defence-in-depth: a ticket is open only if its Request Status is not
+        -- terminal (mirrors the browser isClosed). Guards against a stale/corrupt
+        -- pending_status marking closed tickets as open (July-2026 PG diagnosis).
+        AND LOWER(TRIM(COALESCE(request_status,''))) NOT IN ('closed','resolved','confirmed resolution','confirm resolution','cancelled')
         AND tech_group IS NOT NULL
         AND TRIM(tech_group) != ''
         AND created_time IS NOT NULL
