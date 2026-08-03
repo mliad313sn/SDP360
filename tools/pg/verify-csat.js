@@ -1,71 +1,88 @@
 'use strict';
-// CSAT / NPS raw-data verifier (2026-08-03). Reproduces EXACTLY what
-// getSurveyKpisDB (reports-db.js) computes for one month, straight off the raw
-// survey_results rows, so the deck's Customer Satisfaction slide (slide 7) can be
-// reconciled against the source of truth.
+// CSAT / NPS raw-data verifier (2026-08-03, v2). Reproduces EXACTLY what the deck
+// computes on slide 7 — including the two things v1 missed:
+//   1) the Operations GROUP FILTER (survey joined to its ticket's tech_group),
+//   2) the month rule COALESCE(responded_on, sent_on)  [responded first].
+// getSurveyKpisDB q1 (reports-db.js) is: survey_results sr LEFT JOIN request_records
+// rr ON sr.request_id = rr.request_id, WHERE overall_score NOT NULL, month = ?,
+// AND rr.tech_group IN (<selected groups>). CSAT% = (>=80)/n, NPS = (>=90 minus <70)/n.
 //
-// Run ON THE PROD SERVER from C:\Apps\SDP-Dashboard (where `pg` + `.env` live):
-//     node tools\pg\verify-csat.js            (current month)
-//     node tools\pg\verify-csat.js 2026-07     (a specific YYYY-MM)
-//
-// It prints the raw score buckets + the three DIFFERENT cut-offs the slide mixes:
-//   • CSAT tile %  = responses scoring >= 80          (the "76%" tile value)
-//   • Donut/subtitle counts = NPS buckets >=90/70-89/<70 (the "74 / 33 / 33")
-//   • NPS          = (promoters - detractors) / base
-// so you can see at a glance why "74 satisfied" and "76%" don't reconcile.
+// Run ON PROD from C:\Apps\SDP-Dashboard:
+//     node tools\pg\verify-csat.js               (current month, OPS scope)
+//     node tools\pg\verify-csat.js 2026-07        (a month, OPS scope)
+//     node tools\pg\verify-csat.js 2026-07 all    ('all' = no group filter = org-wide)
+//     node tools\pg\verify-csat.js 2026-07 "Hounde IT Agents,Mana IT Agent"  (custom groups)
 const fs = require('fs');
 const path = require('path');
 const { Client } = require('pg');
 
-const MONTH = (process.argv[2] || new Date().toISOString().slice(0, 7)); // YYYY-MM
+// The Operations preset (mirrors public/lib/dashboard-shared.js OPS_GROUPS_DEFAULT).
+const OPS_GROUPS = [
+  'Abidjan IT Agents', 'Exploration BF Support', 'Exploration CI Support',
+  'Exploration IT Support', 'Hounde IT Agents', 'ITY IT Agents', 'Kalana IT Agents',
+  'Lafigue IT Agents', 'Mana IT Agent', 'Ouaga IT Agents', 'Sabodala IT Agents',
+  'Tanda IT Agents',
+];
+
+const MONTH = (process.argv[2] || new Date().toISOString().slice(0, 7));
+const GROUP_ARG = process.argv[3];
+const GROUPS = !GROUP_ARG ? OPS_GROUPS
+  : (GROUP_ARG.toLowerCase() === 'all' ? null
+    : GROUP_ARG.split(',').map(s => s.trim()).filter(Boolean));
 
 function pgUrl() {
   if (process.env.PG_URL) return process.env.PG_URL;
   try {
-    const envPath = path.join(__dirname, '..', '..', '.env');
-    const line = fs.readFileSync(envPath, 'utf8').split(/\r?\n/).find(l => /^\s*PG_URL\s*=/.test(l));
+    const line = fs.readFileSync(path.join(__dirname, '..', '..', '.env'), 'utf8')
+      .split(/\r?\n/).find(l => /^\s*PG_URL\s*=/.test(l));
     if (line) return line.replace(/^\s*PG_URL\s*=\s*/, '').replace(/^["']|["']$/g, '').trim();
-  } catch (_) { /* fall through */ }
+  } catch (_) {}
   return null;
+}
+
+function kpis(rows) {
+  let n = 0, sat = 0, pro = 0, det = 0;
+  rows.forEach(r => { const s = +r.overall_score; n++; if (s >= 80) sat++; if (s >= 90) pro++; else if (s < 70) det++; });
+  const csat = n ? Math.round(sat / n * 100) : null;
+  const nps = n ? Math.round((pro - det) / n * 100) : null;
+  return { n, sat, pro, det, csat, nps };
 }
 
 (async () => {
   const url = pgUrl();
-  if (!url) { console.error('✖ PG_URL not found (env or .env). Aborting.'); process.exit(1); }
+  if (!url) { console.error('✖ PG_URL not found.'); process.exit(1); }
   const c = new Client({ connectionString: url });
   await c.connect();
   try {
-    const r = (await c.query(`
-      SELECT COUNT(*) FILTER (WHERE overall_score IS NOT NULL)                         AS scored,
-             ROUND(AVG(overall_score)::numeric, 1)                                     AS avg_score,
-             COUNT(*) FILTER (WHERE overall_score >= 80)                               AS sat80,
-             COUNT(*) FILTER (WHERE overall_score >= 90)                               AS pro90,
-             COUNT(*) FILTER (WHERE overall_score >= 70 AND overall_score < 90)        AS pas7089,
-             COUNT(*) FILTER (WHERE overall_score < 70)                                AS det70
-      FROM survey_results
-      WHERE substr(COALESCE(survey_sent_on, survey_responded_on), 1, 7) = $1
-    `, [MONTH])).rows[0];
+    // month = COALESCE(responded_on, sent_on) — the deck's rule
+    const monthExpr = `substr(COALESCE(sr.survey_responded_on, sr.survey_sent_on),1,7)`;
+    const base = `FROM survey_results sr LEFT JOIN request_records rr ON sr.request_id = rr.request_id
+                  WHERE sr.overall_score IS NOT NULL AND ${monthExpr} = $1`;
 
-    const sc = +r.scored || 0, sat = +r.sat80 || 0, pr = +r.pro90 || 0, pa = +r.pas7089 || 0, de = +r.det70 || 0;
-    const base = pr + pa + de;
-    const csatPct = sc ? Math.round(sat / sc * 100) : null;
-    const nps = base ? Math.round((pr - de) / base * 100) : null;
-    const satShare = sc ? Math.round(pr / sc * 100) : null; // what the donut "Satisfied" slice ACTUALLY is as a %
+    // 1) per-group breakdown (all groups)
+    const grp = (await c.query(
+      `SELECT COALESCE(NULLIF(TRIM(rr.tech_group),''),'(no ticket / no group)') AS grp,
+              COUNT(*) AS n, COUNT(*) FILTER (WHERE sr.overall_score>=80) AS sat
+       ${base} GROUP BY grp ORDER BY n DESC`, [MONTH])).rows;
 
-    console.log(`\n=== survey_results — ${MONTH} ===`);
-    console.log(`scored responses      : ${sc}`);
-    console.log(`avg overall_score     : ${r.avg_score}`);
-    console.log(`--- score buckets ---`);
-    console.log(`>= 80  (CSAT satisfied): ${sat}`);
-    console.log(`>= 90  (NPS promoter)  : ${pr}   <-- donut "Satisfied" slice`);
-    console.log(`70-89  (NPS passive)   : ${pa}   <-- donut "Neutral" slice`);
-    console.log(`<  70  (NPS detractor) : ${de}   <-- donut "Dissatisfied" slice`);
-    console.log(`--- what the slide shows ---`);
-    console.log(`CSAT tile %  = ${sat}/${sc} = ${csatPct}%           (cut-off >= 80)`);
-    console.log(`Donut counts = ${pr} / ${pa} / ${de}  (sum ${base})   (cut-offs >=90 / 70-89 / <70)`);
-    console.log(`NPS          = (${pr}-${de})/${base} = ${nps > 0 ? '+' : ''}${nps}`);
-    console.log(`\n>> The donut "Satisfied ${pr}" is ${satShare}% of ${sc} — NOT the ${csatPct}% on the tile,`);
-    console.log(`   because they use different cut-offs (>=90 vs >=80). Same word, two definitions.`);
+    // 2) all groups + 3) the selected scope
+    const allRows = (await c.query(`SELECT sr.overall_score ${base}`, [MONTH])).rows;
+    const scoped = GROUPS
+      ? (await c.query(`SELECT sr.overall_score ${base} AND rr.tech_group = ANY($2)`, [MONTH, GROUPS])).rows
+      : allRows;
+
+    const A = kpis(allRows), S = kpis(scoped);
+    console.log(`\n=== survey_results — ${MONTH}  (month = COALESCE(responded, sent)) ===`);
+    console.log(`by ticket tech_group:`);
+    grp.forEach(r => console.log(`  ${String(r.n).padStart(4)}  ${r.grp}`));
+    console.log(`\nALL GROUPS (org-wide) : n=${A.n}  CSAT=${A.csat}%  NPS=${A.nps>0?'+':''}${A.nps}   (donut ${A.pro}/${A.n-A.pro-A.det}/${A.det})`);
+    if (GROUPS) {
+      console.log(`OPS SCOPE (the deck)  : n=${S.n}  CSAT=${S.csat}%  NPS=${S.nps>0?'+':''}${S.nps}   (donut ${S.pro}/${S.n-S.pro-S.det}/${S.det})`);
+      console.log(`  scope = ${GROUPS.length} groups: ${GROUPS.join(', ')}`);
+      console.log(`\n>> The deck's slide 7 should match the OPS SCOPE line above.`);
+    } else {
+      console.log(`(no group filter applied — 'all' = org-wide)`);
+    }
   } catch (e) {
     console.error('✖ query failed:', e.message);
     process.exitCode = 1;
