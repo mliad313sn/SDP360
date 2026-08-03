@@ -7554,7 +7554,13 @@ function _buildExecPptxPayload() {
   const _emgRatePrev = _chgPrev ? chgInPrevMonth.filter(_isEmergency).length / _chgPrev * 100 : null;
 
   return {
-    voice_themes: { pain: _painPoints },
+    voice_themes: {
+      pain: _painPoints,
+      // Count of negative verbatims actually mined for themes — the deck's pain-
+      // points header reports THIS, not the detractor count (different populations).
+      analysed: ((_data.voice && Array.isArray(_data.voice.allComments)) ? _data.voice.allComments : [])
+                  .filter(c => (c.sentiment || '').toLowerCase() === 'negative').length,
+    },
     backlog_themes: _backlogThemes,
     filters: {
       period_label:      periodLabel,

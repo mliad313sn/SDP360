@@ -494,9 +494,14 @@ def _draw_csat_donut(ax):
             dis = max(total - sat, 0)
             # leave neu/no at 0 — they're not derivable from a single %
 
-    parts = [(sat, 'Satisfied', '#2E8540'),
-             (neu, 'Neutral',   '#F59E0B'),
-             (dis, 'Dissatisfied', '#DC2626'),
+    # These counts ARE the NPS buckets (getSurveyKpisDB emits promoters/passives/
+    # detractors, and the browser feeds them straight in — it has no separate
+    # CSAT satisfied/neutral/dissatisfied breakdown). Label them for what they
+    # are so the donut is NOT read as the CSAT tile's "% satisfied" (a different
+    # cut-off, >= 80) sitting next to it.
+    parts = [(sat, 'Promoters (score >=90)', '#2E8540'),
+             (neu, 'Passives (70-89)',   '#F59E0B'),
+             (dis, 'Detractors (<70)', '#DC2626'),
              (no,  'No rating', '#9CA3AF')]
     parts = [p for p in parts if p[0] > 0]
     if not parts:
@@ -1298,7 +1303,7 @@ header_band(s, "Customer Satisfaction & Voice", "HELP DESK", PERIOD_SHORT)
 add_text(s, Inches(0.4), Inches(1.05), Inches(10), Inches(0.4),
          f"CSAT & Net Promoter Score — {PERIOD_LONG}", size=15, bold=True, color=NAVY)
 
-s.shapes.add_picture(_chart('csat_donut', figsize=(5.0, 4.3), data_fn=_draw_csat_donut, title=f'Survey Responses ({MONTH})'), Inches(0.4), Inches(1.55), width=Inches(4.5), height=Inches(4.3))
+s.shapes.add_picture(_chart('csat_donut', figsize=(5.0, 4.3), data_fn=_draw_csat_donut, title=f'NPS Distribution ({MONTH})'), Inches(0.4), Inches(1.55), width=Inches(4.5), height=Inches(4.3))
 
 # CSAT card — caption + colour now reflect whether the value is above
 # or below the 80% target instead of always saying "above target".
@@ -1311,10 +1316,14 @@ _csat_accent  = GREEN if _csat_above else AMBER
 kpi_tile(s, Inches(5.1), Inches(1.55), Inches(3.85), Inches(2.0),
          "CSAT (% Satisfied)", f"{_csat_pct_val}%",
          _csat_caption, accent=_csat_accent, value_color=_csat_accent, value_size=42)
-# Sub-line: survey-level breakdown
+# Sub-line: survey-level context. Deliberately does NOT print a "N satisfied /
+# M dissatisfied" count — those counts are the NPS buckets (>=90 / <70), so
+# quoting them next to a "% Satisfied" tile that uses a >=80 cut-off reads as a
+# contradiction (e.g. "74 satisfied" is 53% of 140, not the 76% on the tile).
+# State the tile's actual basis instead.
 _csat_sub = (
     f"{MONTH} survey · {K['csat_total_responses']} responses · "
-    f"{K.get('csat_satisfied', 0)} satisfied / {K.get('csat_dissatisfied', 0)} dissatisfied"
+    f"CSAT% = share scoring >= 80/100"
 )
 add_text(s, Inches(5.30), Inches(3.10), Inches(3.6), Inches(0.3),
          _csat_sub, size=9, color=GRAY)
@@ -1347,8 +1356,18 @@ else:
 
 # Pain points panel
 add_rect(s, Inches(5.1), Inches(3.7), Inches(7.85), Inches(2.2), WHITE, line=RGBColor(0xE5,0xE7,0xEB))
+# Header counts the verbatims ACTUALLY mined for themes (negative comments),
+# not the detractor count — those are different populations. "33 dissatisfied
+# responses analysed" overstated it when only 2 verbatims carried themes.
+_pp_vt = K.get('voice_themes', {}) or {}
+_pp_analysed = _pp_vt.get('analysed')
+if _pp_analysed is None:   # older payloads without the count → fall back to the shown mentions
+    _pp_analysed = sum(int((p or {}).get('count', 0) or 0) for p in (_pp_vt.get('pain') or []))
+_pp_hdr = (f"TOP PAIN POINTS  ({MONTH} survey · {_pp_analysed} negative verbatim"
+           f"{'s' if _pp_analysed != 1 else ''} analysed)") if _pp_analysed \
+          else f"TOP PAIN POINTS  ({MONTH} survey)"
 add_text(s, Inches(5.25), Inches(3.78), Inches(7.7), Inches(0.3),
-         f"TOP PAIN POINTS  ({MONTH} survey · {K['csat_dissatisfied']} dissatisfied responses analysed)", size=10, bold=True, color=NAVY)
+         _pp_hdr, size=10, bold=True, color=NAVY)
 
 # Top-3 pain themes come from K['voice_themes']['pain'] — derived
 # DETERMINISTICALLY in the browser (executive-report.html _buildExecPptxPayload)
