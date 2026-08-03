@@ -83,6 +83,28 @@ function isNew(isoDate, lastSyncAt) {
   return isoDate > lastSyncAt;  // ISO string comparison works lexicographically
 }
 
+// Request Status values that mean "the ticket is done" — mirrors
+// public/lib/dashboard-shared.js CLOSED_STATUSES (the browser's isClosed). Server
+// code can't import the browser file, so keep the two lists in sync by hand.
+const CLOSED_STATUSES = new Set([
+  'closed', 'resolved', 'confirmed resolution', 'confirm resolution', 'cancelled',
+]);
+
+// Derive the stored pending_status (1=open, 0=closed) with the SAME dual-source
+// rule the browser's isClosed() uses: trust Zoho's "Request Pending Status" first,
+// but when it is EMPTY — legacy tickets never carried that field — fall back to the
+// always-present "Request Status". Without the fallback an old *Closed* ticket
+// whose pending field is blank was stored as OPEN (=1); a full re-sync (which
+// repopulated PG around the cutover) flipped thousands of them, so the ageing
+// chart counted ~6000 closed tickets as open >60d. See the July-2026 diagnosis.
+function computePendingStatus(pendingRaw, requestStatus) {
+  const p = String(pendingRaw || '').toLowerCase().trim();
+  if (p === 'no')  return 0;   // explicitly not pending → closed
+  if (p === 'yes') return 1;   // explicitly pending → open
+  // empty/unknown → the status field decides (open unless it is a terminal status)
+  return CLOSED_STATUSES.has(String(requestStatus || '').toLowerCase().trim()) ? 0 : 1;
+}
+
 // ── UDF FIELD DETECTION ───────────────────────────────────────────
 // Known UDF prefixes from the Change table study
 const UDF_PREFIXES = [
@@ -597,7 +619,7 @@ async function syncRequestData({ force = false } = {}) {
       display_id:             r['Request Display ID']                                || null,
       subject:                r['Subject']                                           || null,
       request_status:         r['Request Status']                                    || null,
-      pending_status:         (r['Request Pending Status']||'yes').toLowerCase().trim()==='no' ? 0 : 1,
+      pending_status:         computePendingStatus(r['Request Pending Status'], r['Request Status']),
       overdue_status:         !(r['Overdue Status']||'').trim() ? null   // NULL = no SLA rule (automated tickets — matches AP filter)
                               : ['yes','true','1'].includes((r['Overdue Status']||'').toLowerCase().trim()) ? 1 : 0,
       request_type:           r['Request Type']                                 || null,
@@ -716,4 +738,6 @@ module.exports = {
   syncRequestData,
   // Exposed for unit tests
   buildUdfRows,
+  computePendingStatus,
+  CLOSED_STATUSES,
 };
