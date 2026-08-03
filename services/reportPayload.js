@@ -873,6 +873,11 @@ async function build(browserPayload) {
         'In Progress': _safeNum(bc.in_progress),
       };
     }
+    // Scoped emergency-change list → the slide-8 glance. Prefer the browser's
+    // group-scoped list (empty when the OPS scope has 0 emergencies) over the
+    // server's month-only UNSCOPED list, which leaked an Applications change
+    // (IVALUA) into an OPS-scoped deck.
+    if (Array.isArray(bc.emergency_changes)) enriched.emergency_changes = bc.emergency_changes;
   }
 
   return enriched;

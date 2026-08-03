@@ -1024,7 +1024,7 @@ _emerg_pct = (_emerg_n / max(K.get('changes_total', 0), 1) * 100) if K.get('chan
 # Row 1 — Volume & SLA
 x,y = get_pos(0,0); kpi_tile(s,x,y,TILE_W,TILE_H,"TOTAL TICKETS", f"{K['total']:,}", f"Created in {MONTH}", accent=BLUE, value_size=24);                  tile_delta(x,y,_d_total[0],   _d_total[1])
 x,y = get_pos(0,1); kpi_tile(s,x,y,TILE_W,TILE_H,"CLOSED TICKETS", f"{K['closed']:,}", f"{K['closure_rate']:.1f}% closure rate", accent=GREEN, value_size=24); tile_delta(x,y,_d_closed[0],  _d_closed[1])
-x,y = get_pos(0,2); kpi_tile(s,x,y,TILE_W,TILE_H,"SLA COMPLIANCE (Res)", f"{K['sla_compliance']:.1f}%", "Target ≥ 90%  ⚠", accent=AMBER, value_color=NAVY, value_size=24); tile_delta(x,y,_d_sla[0],     _d_sla[1])
+x,y = get_pos(0,2); kpi_tile(s,x,y,TILE_W,TILE_H,"SLA COMPLIANCE (Res)", f"{K['sla_compliance']:.1f}%", f"Target ≥ 90%  {'✓' if K.get('sla_compliance', 0) >= 90 else '⚠'}", accent=(GREEN if K.get('sla_compliance', 0) >= 90 else AMBER), value_color=NAVY, value_size=24); tile_delta(x,y,_d_sla[0],     _d_sla[1])
 x,y = get_pos(0,3); kpi_tile(s,x,y,TILE_W,TILE_H,"OPEN BACKLOG", f"{K['open_backlog']}", "Active open tickets", accent=ORANGE, value_size=24);          tile_delta(x,y,_d_backlog[0], _d_backlog[1])
 
 # Row 2 — Quality: FCR · FRT · Resolution · SLA Violations (4 tiles, May-final layout)
@@ -1087,7 +1087,7 @@ kpi_tile(s, Inches(9.2), Inches(1.55), Inches(1.80), Inches(1.4),
          "FRT SLA", f"{K['frt_sla']:.1f}%", f"Target ≥ {_FRT_TARGET}%  {'✓' if _frt_ok else '⚠'}",
          accent=(GREEN if _frt_ok else RED), value_size=24)
 kpi_tile(s, Inches(11.10), Inches(1.55), Inches(1.80), Inches(1.4),
-         "RES. SLA", f"{K['sla_compliance']:.0f}%", "Target ≥ 90%  ⚠", accent=AMBER, value_color=NAVY, value_size=24)
+         "RES. SLA", f"{K['sla_compliance']:.0f}%", f"Target ≥ 90%  {'✓' if K.get('sla_compliance', 0) >= 90 else '⚠'}", accent=(GREEN if K.get('sla_compliance', 0) >= 90 else AMBER), value_color=NAVY, value_size=24)
 
 s.shapes.add_picture(_chart('sla_trend', figsize=(5.0, 4.0), data_fn=_draw_sla_trend, title='SLA Compliance — 12 Months'), Inches(9.2), Inches(3.10), width=Inches(3.7), height=Inches(2.95))
 
