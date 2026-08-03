@@ -7591,7 +7591,7 @@ function _buildExecPptxPayload() {
       avg_mttr_days:      _avgMttrCur,
       mom_avg_mttr_d:     (_avgMttrCur != null && _avgMttrPrev != null) ? (_avgMttrCur - _avgMttrPrev) : null,
       mom_fcr_pp:         (fcrPct != null && _fcrPctPrev != null) ? Math.round((fcrPct - _fcrPctPrev) * 10) / 10 : null,
-      mom_backlog_pct:    _openBacklogPrev ? Math.round((openBacklog - _openBacklogPrev) / _openBacklogPrev * 100) : null,
+      mom_backlog_pct:    null,    // open-backlog is a point-in-time count; a true MoM needs last month's snapshot (not reconstructible from created-time), and "open-of-created-this-month vs last" is structurally inflated (June's tickets are fully aged) → keep "—"
       mom_changes:        _chgPrev ? (_chgCur - _chgPrev) : null,
       mom_emergency_pp:   (_emgRateCur != null && _emgRatePrev != null) ? Math.round((_emgRateCur - _emgRatePrev) * 10) / 10 : null,
       mom_mi:             null,    // Major Incidents delta is computed server-side (mi_total - mi_prev_total)
@@ -7643,6 +7643,13 @@ function _buildExecPptxPayload() {
       standard:     chgByType('standard') || (chgInMonth.length - chgByType('emergency') - chgByType('major')),
       completed:    chgInMonth.filter(c => /completed|closed/i.test(c['Stage']||c.stage||'')).length,
       in_progress:  chgInMonth.filter(c => /progress|implement|review/i.test(c['Stage']||c.stage||'')).length,
+      // Scoped emergency-change list for the slide-8 glance — replaces the
+      // server's month-only (UNSCOPED) emergency_changes, which leaked an
+      // Applications-team change (e.g. IVALUA) into an OPS-scoped deck.
+      emergency_changes: chgInMonth.filter(_isEmergency).slice(0, 6).map(c => ({
+        subject: (c['Subject'] || c['Change Title'] || c['Title'] || '').trim(),
+        status:  (c['Stage'] || c.stage || c['Status'] || c.status || '—'),
+      })),
     },
     // Recent change titles → slide 8 yellow-box "at a glance" line
     recent_changes: chgInMonth.slice(0, 6)
