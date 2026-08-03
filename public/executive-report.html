@@ -7516,6 +7516,35 @@ function _buildExecPptxPayload() {
       .map(([theme, count]) => ({ theme, count }));
   })();
 
+  // ── Real MoM (previous-month) equivalents ────────────────────────────
+  // These deltas were null placeholders (slide-1 cover + slide-3 tiles showed
+  // "— MoM", and backlog/FCR a misleading "0.0%"). June data is already in
+  // memory (`prev`, `chgRows`), so compute the true previous-month values with
+  // the SAME logic as the current-month figures and derive the deltas.
+  const _MNUM = { Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12 };
+  const _isEmergency = c => (c['Change Type'] || c['Type'] || c.changeType || c.type || '').toLowerCase().includes('emergency');
+  const chgInPrevMonth = chgRows.filter(c => {
+    const ct = c['Created Time'] || c.createdTime || c.created_time || '';
+    const re = ct.match(/(\d+)\s+(\w+)\s+(\d{4})/);
+    if (!re) return false;
+    const inM = parseInt(re[3]) === prevYr && (_MNUM[re[2]] || 0) === prevMo;
+    return inM && _chgGroupOk(c) && siteMatch(c['Site'] || c['Site Name'] || '');
+  });
+  const _mttrOf = rows => { let s=0,n=0; rows.forEach(t => { const c=parseZohoDT(t['Created Time']); const r=parseZohoDT(t['Resolved Time']); if (c && r) { const d=(r-c)/86400000; if (d>=0 && d<365) { s+=Math.floor(d); n++; } } }); return n ? Math.round(s/n) : null; };
+  const _fcrClosedOf = rows => rows.filter(r => {
+    const s=(r['Request Status']||'').toLowerCase(); if (s!=='closed' && s!=='resolved') return false;
+    if (parseInt(r['Reopen Count']||0) > 0) return false;
+    const esc=(r['Is Escalated']||r['IsEscalated']||r['Escalated']||'no').toString().toLowerCase();
+    return !(esc==='true'||esc==='yes'||esc==='1');
+  }).length;
+  const _openBacklogPrev = prev.filter(r => !isClosed(r)).length;
+  const _grpPrev = new Set(); prev.forEach(t => { const g=(t['Group']||t['Assigned Group']||'').trim(); if (g) _grpPrev.add(g); });
+  const _fcrPctPrev = closedPrev ? _fcrClosedOf(prev)/closedPrev*100 : null;
+  const _avgMttrCur = _mttrOf(cur), _avgMttrPrev = _mttrOf(prev);
+  const _chgCur = chgInMonth.length, _chgPrev = chgInPrevMonth.length;
+  const _emgRateCur  = _chgCur  ? chgInMonth.filter(_isEmergency).length / _chgCur  * 100 : null;
+  const _emgRatePrev = _chgPrev ? chgInPrevMonth.filter(_isEmergency).length / _chgPrev * 100 : null;
+
   return {
     voice_themes: { pain: _painPoints },
     backlog_themes: _backlogThemes,
@@ -7557,21 +7586,16 @@ function _buildExecPptxPayload() {
       // (FCR / AVG RES / OPEN BACKLOG / CHANGES NEW / EMERGENCY / MAJOR INC).
       // Browser sends nulls when previous-period data isn't loaded yet;
       // render.py renders "— MoM" in that case (instead of inventing a delta).
-      avg_mttr_days:      (function() {
-        let s=0,n=0;
-        cur.forEach(t => {
-          const c=parseZohoDT(t['Created Time']); const r=parseZohoDT(t['Resolved Time']);
-          if (c && r) { const d=(r-c)/86400000; if (d>=0 && d<365) { s += Math.floor(d); n++; } }
-        });
-        return n ? Math.round(s/n) : null;
-      })(),
-      mom_avg_mttr_d:     null,    // placeholder — would need prev period MTTR; OK to leave neutral
-      mom_fcr_pp:         (csat.fcrPct != null && csat.prevFcrPct != null) ? Math.round((csat.fcrPct - csat.prevFcrPct) * 10) / 10 : null,
-      mom_backlog_pct:    null,    // would need prev openBacklog snapshot — neutral for now
-      mom_changes:        null,    // would need prev change count — neutral for now
-      mom_emergency_pp:   null,    // ditto
-      mom_mi:             null,    // ditto
-      mom_groups:         null,    // ditto
+      // 2026-08-03 — real MoM deltas from the previous-month equivalents computed
+      // above. Null when June has no basis → render.py shows "— MoM".
+      avg_mttr_days:      _avgMttrCur,
+      mom_avg_mttr_d:     (_avgMttrCur != null && _avgMttrPrev != null) ? (_avgMttrCur - _avgMttrPrev) : null,
+      mom_fcr_pp:         (fcrPct != null && _fcrPctPrev != null) ? Math.round((fcrPct - _fcrPctPrev) * 10) / 10 : null,
+      mom_backlog_pct:    _openBacklogPrev ? Math.round((openBacklog - _openBacklogPrev) / _openBacklogPrev * 100) : null,
+      mom_changes:        _chgPrev ? (_chgCur - _chgPrev) : null,
+      mom_emergency_pp:   (_emgRateCur != null && _emgRatePrev != null) ? Math.round((_emgRateCur - _emgRatePrev) * 10) / 10 : null,
+      mom_mi:             null,    // Major Incidents delta is computed server-side (mi_total - mi_prev_total)
+      mom_groups:         _grpPrev.size ? (supportGroupsActive - _grpPrev.size) : null,
       support_groups:     supportGroupsActive,
 
       email_pct:          cur.length ? Math.round(emailCur / cur.length * 1000) / 10 : null,

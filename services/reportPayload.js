@@ -109,8 +109,8 @@ async function _helpdeskKpis(filters) {
     closure_rate: 0, closure_rate_delta_pp: 0,
     sla_compliance: 0, sla_compliance_delta_pp: 0,
     frt_sla: 0, frt_sla_delta_pp: 0,
-    open_backlog: 0, open_backlog_delta_pct: 0,
-    fcr_rate: 0, fcr_delta_pp: 0,
+    open_backlog: 0, open_backlog_delta_pct: null,
+    fcr_rate: 0, fcr_delta_pp: null,
     avg_res_days: 0,
     time_to_assign_h: 0, first_reply_h: 0, closing_time_d: 0,
   };
@@ -763,6 +763,12 @@ async function build(browserPayload) {
     }
     enriched[renderKey] = v;
   });
+
+  // Major Incidents MoM — server-owned (the browser can't reliably re-derive the
+  // MI definition). _majorIncidents already computes mi_total + mi_prev_total.
+  if (mi && mi.mi_total != null && mi.mi_prev_total != null) {
+    enriched.mi_total_delta = mi.mi_total - mi.mi_prev_total;
+  }
 
   // 12-month trend — browser shape matches render.py expectation
   if (Array.isArray(browserPayload.monthly_trend) && browserPayload.monthly_trend.length) {
