@@ -7430,14 +7430,24 @@ function _buildExecPptxPayload() {
     const g = (c['Group'] || c['Assigned Group'] || c['Group Name'] || c.group || c.group_name || '').trim().toLowerCase();
     return _chgScope.some(ag => String(ag).trim().toLowerCase() === g);
   };
-  const chgInMonth = chgRows.filter(c => {
-    const ct = c['Created Time'] || c.createdTime || c.created_time || '';
-    const re = ct.match(/(\d+)\s+(\w+)\s+(\d{4})/);
-    if (!re) return false;
-    const inM = parseInt(re[3]) === yr && ({Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12}[re[2]] || 0) === mo;
-    // Same site scope as the rest of the deck.
-    return inM && _chgGroupOk(c) && siteMatch(c['Site'] || c['Site Name'] || '');
-  });
+  // Mirror the ON-SCREEN Change scorecard (renderChangeKpis → monthRows) EXACTLY
+  // so the deck's change counts can NEVER diverge from the page the coordinator
+  // reviews. The two paths used to disagree (on-screen 9 RFCs vs deck 14) because
+  // this builder scoped changes with _chgGroupOk (single month · DROPS blank-group
+  // rows · extra Operations fallback) while the scorecard uses changeGroupMatch
+  // (KEEPS blank-group rows), parseDT on Created OR Planned Start, and the whole
+  // _reportMonth.mos month SET. Use the scorecard's predicate verbatim → identical
+  // row set → every change figure on every slide matches the scorecard.
+  const _chgMos = _reportMonth ? (_reportMonth.mos || [_reportMonth.mo]) : [mo];
+  const _chgInScope = (c, y, mset) => {
+    const d = parseDT(c['Created Time'] || c.createdTime || c.created_time || c['Planned Start Time'] || '');
+    if (!(d && d.yr === y && mset.includes(d.mo))) return false;
+    if (!siteMatch(c['Site'] || c['Site Name'] || '')) return false;   // siteMatch short-circuits on 'all'
+    const grp = (c['Group'] || c['Assigned Group'] || '').trim();
+    if (grp && !changeGroupMatch(grp)) return false;
+    return true;
+  };
+  const chgInMonth = chgRows.filter(c => _chgInScope(c, yr, _chgMos));
   // ── Change-type bucketing (audit-fixed 2026-05-28) ───────────────────
   // Was: substring `.includes(type)` — matched "Emergency" AND "Non-Emergency"
   // AND "Major" AND "Non-Major" (false positives in taxonomies that include
@@ -7523,13 +7533,11 @@ function _buildExecPptxPayload() {
   // the SAME logic as the current-month figures and derive the deltas.
   const _MNUM = { Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12 };
   const _isEmergency = c => (c['Change Type'] || c['Type'] || c.changeType || c.type || '').toLowerCase().includes('emergency');
-  const chgInPrevMonth = chgRows.filter(c => {
-    const ct = c['Created Time'] || c.createdTime || c.created_time || '';
-    const re = ct.match(/(\d+)\s+(\w+)\s+(\d{4})/);
-    if (!re) return false;
-    const inM = parseInt(re[3]) === prevYr && (_MNUM[re[2]] || 0) === prevMo;
-    return inM && _chgGroupOk(c) && siteMatch(c['Site'] || c['Site Name'] || '');
-  });
+  // Previous-month changes for the CHANGES MoM — SAME scoped predicate as
+  // chgInMonth (_chgInScope), just the previous month, so current vs prior are
+  // measured identically. "—" MoM means June simply has 0 in-scope changes (or
+  // the change feed doesn't reach that far back), not a scoping mismatch.
+  const chgInPrevMonth = chgRows.filter(c => _chgInScope(c, prevYr, [prevMo]));
   const _mttrOf = rows => { let s=0,n=0; rows.forEach(t => { const c=parseZohoDT(t['Created Time']); const r=parseZohoDT(t['Resolved Time']); if (c && r) { const d=(r-c)/86400000; if (d>=0 && d<365) { s+=Math.floor(d); n++; } } }); return n ? Math.round(s/n) : null; };
   const _fcrClosedOf = rows => rows.filter(r => {
     const s=(r['Request Status']||'').toLowerCase(); if (s!=='closed' && s!=='resolved') return false;
