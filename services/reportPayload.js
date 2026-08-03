@@ -851,33 +851,42 @@ async function build(browserPayload) {
   // render.py flat `changes_total` + `changes_type` + `changes_emergency`
   if (browserPayload.changes && typeof browserPayload.changes === 'object') {
     const bc = browserPayload.changes;
-    // Only override the server's change counts when the browser sent a
-    // positive number — a 0 from the browser is almost always a sign
-    // the CHANGES GRP filter excluded everything (the canonical seed is
-    // empty per services/groupPresets.js), and we'd rather show the
-    // DB-authoritative count than zeros on the deck.
-    if (bc.total != null && bc.total > 0)     enriched.changes_total      = bc.total;
-    if (bc.emergency != null && bc.emergency > 0) enriched.changes_emergency = bc.emergency;
-    if (bc.emergency_pct != null && bc.emergency_pct > 0) enriched.emergency_pct = bc.emergency_pct;
-    const _bcHasAnyPositive = (bc.standard > 0) || (bc.major > 0) || (bc.emergency > 0);
-    if (_bcHasAnyPositive) {
+    // When the browser has changes IN SCOPE (total > 0), its group-scoped counts
+    // are authoritative for EVERY change sub-field — INCLUDING a legitimate 0
+    // (e.g. an OPS scope with 0 emergencies). Previously changes_emergency and
+    // emergency_pct kept the server's UNSCOPED value on a 0, so slide 3's
+    // EMERGENCY tile (reads the scalar changes_emergency) showed 1 (an Apps
+    // emergency like IVALUA) while slide 8's donut (reads the dict
+    // changes_type.Emergency) showed 0 — the SAME metric contradicting itself
+    // across slides. One scoped source now, so every slide agrees.
+    //
+    // A browser total of 0 still means "the CHANGES GRP scope excluded
+    // everything" (the canonical Operations seed is empty per
+    // services/groupPresets.js) → keep the DB-authoritative server counts
+    // rather than zeroing the whole change section on the deck.
+    if (bc.total != null && bc.total > 0) {
+      enriched.changes_total     = bc.total;
+      enriched.changes_emergency = _safeNum(bc.emergency);
+      enriched.emergency_pct     = (bc.emergency_pct != null)
+        ? bc.emergency_pct
+        : (bc.total ? (_safeNum(bc.emergency) / bc.total * 100) : 0);
       enriched.changes_type = {
         Standard:  _safeNum(bc.standard),
         Major:     _safeNum(bc.major),
         Emergency: _safeNum(bc.emergency),
       };
+      if (bc.completed > 0 || bc.in_progress > 0) {
+        enriched.changes_status = {
+          Completed:     _safeNum(bc.completed),
+          'In Progress': _safeNum(bc.in_progress),
+        };
+      }
+      // Scoped emergency-change list → the slide-8 glance. The browser's
+      // group-scoped list is empty when the OPS scope has 0 emergencies; using
+      // it (over the server's month-only UNSCOPED list) is what keeps an
+      // Applications change (IVALUA) out of an OPS-scoped deck.
+      if (Array.isArray(bc.emergency_changes)) enriched.emergency_changes = bc.emergency_changes;
     }
-    if (bc.completed > 0 || bc.in_progress > 0) {
-      enriched.changes_status = {
-        Completed:    _safeNum(bc.completed),
-        'In Progress': _safeNum(bc.in_progress),
-      };
-    }
-    // Scoped emergency-change list → the slide-8 glance. Prefer the browser's
-    // group-scoped list (empty when the OPS scope has 0 emergencies) over the
-    // server's month-only UNSCOPED list, which leaked an Applications change
-    // (IVALUA) into an OPS-scoped deck.
-    if (Array.isArray(bc.emergency_changes)) enriched.emergency_changes = bc.emergency_changes;
   }
 
   return enriched;
