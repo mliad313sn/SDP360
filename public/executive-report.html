@@ -7533,6 +7533,13 @@ function _buildExecPptxPayload() {
   // the SAME logic as the current-month figures and derive the deltas.
   const _MNUM = { Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12 };
   const _isEmergency = c => (c['Change Type'] || c['Type'] || c.changeType || c.type || '').toLowerCase().includes('emergency');
+  const _isMajor     = c => /(^|[^a-z])major([^a-z]|$)/i.test(c['Change Type'] || c['Type'] || c.changeType || c.type || '');
+  // Change lifecycle status lives in the STATUS field ('Completed' / 'In Progress'),
+  // NOT Stage (which is 'Close'/'Implementation'/… — 'Close' doesn't even match
+  // /closed/). The old Stage-regex returned 0 completed on real data.
+  const _chgStat = c => String(c['Status'] || c['Change Status'] || c.status || c['Stage'] || c.stage || '');
+  const _chgDone = c => /complet/i.test(_chgStat(c));                          // Status 'Completed'
+  const _chgWip  = c => /in\s*progress|implement|\breview\b/i.test(_chgStat(c)); // Status 'In Progress'
   // Previous-month changes for the CHANGES MoM — SAME scoped predicate as
   // chgInMonth (_chgInScope), just the previous month, so current vs prior are
   // measured identically. "—" MoM means June simply has 0 in-scope changes (or
@@ -7569,11 +7576,11 @@ function _buildExecPptxPayload() {
     emergency_pct:chgInYear.length ? Math.round(_chgTypeY('emergency') / chgInYear.length * 1000) / 10 : 0,
     major:        _chgTypeY('major'),
     standard:     _chgTypeY('standard') || Math.max(0, chgInYear.length - _chgTypeY('emergency') - _chgTypeY('major')),
-    completed:    chgInYear.filter(c => /completed|closed/i.test(c['Stage'] || c.stage || '')).length,
-    in_progress:  chgInYear.filter(c => /progress|implement|review/i.test(c['Stage'] || c.stage || '')).length,
+    completed:    chgInYear.filter(_chgDone).length,
+    in_progress:  chgInYear.filter(_chgWip).length,
     by_month:     _chgYMonths.map(m => {
       const inM = chgRows.filter(c => _chgInScope(c, yr, [m]));
-      return { m, total: inM.length, emergency: inM.filter(_isEmergency).length };
+      return { m, total: inM.length, emergency: inM.filter(_isEmergency).length, major: inM.filter(_isMajor).length };
     }),
   };
 
@@ -7679,8 +7686,8 @@ function _buildExecPptxPayload() {
       emergency_pct:chgInMonth.length ? Math.round(chgByType('emergency') / chgInMonth.length * 1000) / 10 : 0,
       major:        chgByType('major'),
       standard:     chgByType('standard') || (chgInMonth.length - chgByType('emergency') - chgByType('major')),
-      completed:    chgInMonth.filter(c => /completed|closed/i.test(c['Stage']||c.stage||'')).length,
-      in_progress:  chgInMonth.filter(c => /progress|implement|review/i.test(c['Stage']||c.stage||'')).length,
+      completed:    chgInMonth.filter(_chgDone).length,
+      in_progress:  chgInMonth.filter(_chgWip).length,
       // Scoped emergency-change list for the slide-8 glance — replaces the
       // server's month-only (UNSCOPED) emergency_changes, which leaked an
       // Applications-team change (e.g. IVALUA) into an OPS-scoped deck.
