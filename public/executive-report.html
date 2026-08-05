@@ -7553,6 +7553,30 @@ function _buildExecPptxPayload() {
   const _emgRateCur  = _chgCur  ? chgInMonth.filter(_isEmergency).length / _chgCur  * 100 : null;
   const _emgRatePrev = _chgPrev ? chgInPrevMonth.filter(_isEmergency).length / _chgPrev * 100 : null;
 
+  // ── Year-to-date changes (slide 8b companion) ────────────────────────
+  // Same group-scoped predicate as the monthly block, over months 1..current.
+  // by_month drives the yearly trend bar so the reader can "balance" the
+  // monthly emergency rate against the year (Mohamed's ask, 2026-08-03).
+  const _chgYMonths = Array.from({ length: mo }, (_, i) => i + 1);
+  const chgInYear = chgRows.filter(c => _chgInScope(c, yr, _chgYMonths));
+  const _chgTypeY = (t) => {
+    const re = new RegExp('(^|[^a-z])' + t + '([^a-z]|$)', 'i');
+    return chgInYear.filter(c => re.test(c['Change Type'] || c['Type'] || c.changeType || c.type || '')).length;
+  };
+  const _changesYearly = {
+    total:        chgInYear.length,
+    emergency:    _chgTypeY('emergency'),
+    emergency_pct:chgInYear.length ? Math.round(_chgTypeY('emergency') / chgInYear.length * 1000) / 10 : 0,
+    major:        _chgTypeY('major'),
+    standard:     _chgTypeY('standard') || Math.max(0, chgInYear.length - _chgTypeY('emergency') - _chgTypeY('major')),
+    completed:    chgInYear.filter(c => /completed|closed/i.test(c['Stage'] || c.stage || '')).length,
+    in_progress:  chgInYear.filter(c => /progress|implement|review/i.test(c['Stage'] || c.stage || '')).length,
+    by_month:     _chgYMonths.map(m => {
+      const inM = chgRows.filter(c => _chgInScope(c, yr, [m]));
+      return { m, total: inM.length, emergency: inM.filter(_isEmergency).length };
+    }),
+  };
+
   return {
     voice_themes: {
       pain: _painPoints,
@@ -7671,6 +7695,8 @@ function _buildExecPptxPayload() {
       .filter(Boolean),
     // Changes by Division (UDF:Division) → slide 8, 2nd donut. {division: count}.
     changes_division: _chgDivisions,
+    // Year-to-date changes → slide 8b companion (group-scoped, months 1..current).
+    changes_yearly: _changesYearly,
     // ── AI-generated commentary (Phase B) ───────────────────────────
     // The 6 named fields are filled by runAnalysis() — cloud Anthropic
     // path — or by AnalyzeLite (deterministic). Render.py reads these

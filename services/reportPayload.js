@@ -41,6 +41,7 @@
 'use strict';
 
 const reportsDb = require('../reports-db');
+const { aggregateYearlyMI } = require('./execYearly');   // slide 9b (Major Incidents — YTD)
 let trackerDb = null;
 try { trackerDb = require('../tracker-db'); } catch (_) { /* tracker offline → slides 10/11 stub */ }
 
@@ -405,6 +406,30 @@ async function _majorIncidents(filters) {
   return out;
 }
 
+// Year-to-date major incidents (slide 9b companion). Fetches every MI created
+// from Jan → the report month and aggregates with the pure aggregateYearlyMI
+// (P1/P2 + downtime + resolved + per-month), scoped by site the same way as the
+// monthly path. Kept separate so the monthly _majorIncidents stays untouched.
+async function _majorIncidentsYearly(filters) {
+  const empty = { mi_total: 0, mi_critical: 0, mi_high: 0, mi_downtime_h: 0, mi_resolved: 0, by_month: [] };
+  const { year, month, site } = filters;
+  if (!year || !month) return empty;
+  try {
+    const from = `${year}-01`;
+    const to   = `${year}-${String(month).padStart(2, '0')}`;
+    const rows = await _all(`
+      SELECT site, request_status, created_time, resolved_time, completed_time, udf_json, impact
+      FROM request_records
+      WHERE (request_type LIKE '%Major Incident%' OR template LIKE '%Major Incident%')
+        AND strftime('%Y-%m', created_time) BETWEEN ? AND ?
+    `, from, to);
+    return aggregateYearlyMI(rows, { site });
+  } catch (e) {
+    console.warn('[reportPayload] majorIncidentsYearly failed:', e.message);
+    return empty;
+  }
+}
+
 // ── Change Management for the selected month ──────────────────────────────
 async function _changes(filters) {
   const out = {
@@ -634,12 +659,13 @@ async function build(browserPayload) {
 
   // Build all sections in parallel — they're independent DB queries. Under
   // postgres each is an async round-trip; Promise.all keeps them concurrent.
-  const [helpdesk, distribution, ageing, mi, changes] = await Promise.all([
+  const [helpdesk, distribution, ageing, mi, changes, incidentsYearly] = await Promise.all([
     _helpdeskKpis(dbFilters),
     _distribution(dbFilters),
     _ageing(),
     _majorIncidents(dbFilters),
     _changes(dbFilters),
+    _majorIncidentsYearly(dbFilters),
   ]);
   // Prefer the browser-built tracker block: executive-report.html scores the
   // tracker with the faithful engine (cumulative + per-KPI-type via
@@ -663,6 +689,13 @@ async function build(browserPayload) {
     // Slides 7-9
     ...mi,
     ...changes,
+    // Companion year-to-date views (slides 8b + 9b). Changes-YTD is browser-
+    // computed (group-scoped, like the monthly changes block); Incidents-YTD is
+    // server-computed here (MI are server-owned). Both null/empty when absent →
+    // render.py skips the companion slide.
+    changes_yearly: (browserPayload.changes_yearly && typeof browserPayload.changes_yearly === 'object')
+      ? browserPayload.changes_yearly : null,
+    incidents_yearly: incidentsYearly,
     // Pain themes are derived deterministically in the browser from the negative
     // survey verbatims (voice_themes.pain) — pass them through. Fall back to
     // empty so render.py shows its clean no-data line.
