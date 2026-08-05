@@ -120,6 +120,8 @@ _DEFAULTS = {
     'mi_total': 0, 'mi_critical': 0, 'mi_high': 0, 'mi_records': [],
     'changes_total': 0, 'changes_type': {}, 'changes_status': {},
     'changes_emergency': 0, 'emergency_changes': [],
+    # Year-to-date companion slides (8b Changes YTD, 9b Major Incidents YTD)
+    'changes_yearly': {}, 'incidents_yearly': {},
     # CSAT block (slide 7)
     'csat_pct': 0, 'csat_total_responses': 0, 'csat_satisfied': 0,
     'csat_neutral': 0, 'csat_dissatisfied': 0, 'csat_no_rating': 0,
@@ -541,6 +543,48 @@ def _draw_csat_donut(ax):
     ax.legend(wedges, legends, loc='lower center', bbox_to_anchor=(0.5, -0.06),
               ncol=min(len(parts), 3), fontsize=8.5, frameon=False)
     ax.set_aspect('equal')   # keep the ring a true circle, not an ellipse
+
+
+_MN3 = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+
+def _draw_changes_ytd_bars(ax):
+    bm = (K.get('changes_yearly') or {}).get('by_month') or []
+    if not bm:
+        ax.text(0.5, 0.5, 'No year-to-date change data', ha='center', va='center',
+                fontsize=11, color='#6B7280'); return
+    labels = [_MN3[(m.get('m', 1) - 1) % 12] for m in bm]
+    totals = [m.get('total', 0) for m in bm]
+    emerg  = [m.get('emergency', 0) for m in bm]
+    xs = list(range(len(labels)))
+    ax.bar(xs, totals, color='#2E5C8A', label='Total changes')
+    ax.bar(xs, emerg,  color='#DC2626', label='Emergency')
+    for i, t in enumerate(totals):
+        if t:
+            ax.text(i, t, str(t), ha='center', va='bottom', fontsize=8, color='#1A3A5F')
+    ax.set_xticks(xs); ax.set_xticklabels(labels, fontsize=8)
+    ax.legend(fontsize=8, loc='upper left', frameon=False)
+    ax.spines[['top', 'right']].set_visible(False)
+    ax.grid(axis='y', alpha=0.2, linestyle='--')
+    ax.tick_params(axis='y', labelsize=8)
+
+
+def _draw_mi_ytd_bars(ax):
+    bm = (K.get('incidents_yearly') or {}).get('by_month') or []
+    if not bm:
+        ax.text(0.5, 0.5, 'No year-to-date incident data', ha='center', va='center',
+                fontsize=11, color='#6B7280'); return
+    labels = [_MN3[(m.get('m', 1) - 1) % 12] for m in bm]
+    counts = [m.get('count', 0) for m in bm]
+    xs = list(range(len(labels)))
+    ax.bar(xs, counts, color='#DC2626')
+    for i, c in enumerate(counts):
+        if c:
+            ax.text(i, c, str(c), ha='center', va='bottom', fontsize=8, color='#1A3A5F')
+    ax.set_xticks(xs); ax.set_xticklabels(labels, fontsize=8)
+    ax.spines[['top', 'right']].set_visible(False)
+    ax.grid(axis='y', alpha=0.2, linestyle='--')
+    ax.tick_params(axis='y', labelsize=8)
 
 
 def _donut_on(ax, items, *, legend_ncol=2, legend_fs=8, pct_min=5, empty='No data'):
@@ -1561,6 +1605,40 @@ add_text(s, Inches(0.55), Inches(6.27), Inches(12.3), Inches(0.75),
 footer_bar(s, 8)
 
 # ====================================================================
+# SLIDE 8b - Change Management (Year to Date)
+# ====================================================================
+s = prs.slides.add_slide(BLANK)
+header_band(s, "Change Management — Year to Date", "HELP DESK", f"Jan–{MONTH} {YEAR}")
+add_text(s, Inches(0.4), Inches(1.05), Inches(12), Inches(0.4),
+         f"Change activity year-to-date — {YEAR}", size=15, bold=True, color=NAVY)
+_cy = K.get('changes_yearly') or {}
+_cyt  = _cy.get('total', 0); _cye = _cy.get('emergency', 0); _cyep = _cy.get('emergency_pct', 0) or 0
+_cym  = _cy.get('major', 0); _cys = _cy.get('standard', 0)
+_cyc  = _cy.get('completed', 0); _cyp = _cy.get('in_progress', 0)
+_cy_cards = [
+    ("TOTAL CHANGES (YTD)", str(_cyt), f"Jan–{MONTH}", BLUE),
+    ("EMERGENCY (YTD)", str(_cye), f"{_cyep:.1f}% — Target < 5% {'✓' if _cyep < 5 else '⚠'}", RED if _cyep >= 5 else GREEN),
+    ("MAJOR (YTD)", str(_cym), "Require CAB review", AMBER),
+    ("STANDARD (YTD)", str(_cys), "Pre-approved process", GREEN),
+    ("COMPLETED (YTD)", str(_cyc), "Closed year-to-date", GREEN),
+    ("IN PROGRESS (YTD)", str(_cyp), "Currently executing", BLUE),
+]
+_cgx = Inches(0.4); _cgy = Inches(1.55); _ccw = Inches(4.13); _cch = Inches(1.05); _cgap = Inches(0.08); _crg = Inches(0.10)
+for _i, (_lbl, _val, _sub, _ac) in enumerate(_cy_cards):
+    _r, _c = divmod(_i, 3)
+    kpi_tile(s, _cgx + (_ccw + _cgap) * _c, _cgy + (_cch + _crg) * _r, _ccw, _cch, _lbl, _val, _sub, accent=_ac, value_size=26)
+s.shapes.add_picture(_chart('changes_ytd_bars', figsize=(12.0, 2.5), data_fn=_draw_changes_ytd_bars,
+                            title=f'Changes by month — {YEAR} year-to-date'),
+                     Inches(0.4), Inches(3.95), width=Inches(12.55), height=Inches(2.15))
+_cy_band = (f"Year-to-date {YEAR}: {_cyt} changes — {_cys} standard, {_cym} major, {_cye} emergency ({_cyep:.1f}%). "
+            + ("Emergency rate within the <5% governance target — changes under control."
+               if _cyep < 5 else "Emergency rate ABOVE the 5% target — review change control."))
+add_rect(s, Inches(0.4), Inches(6.20), Inches(12.55), Inches(0.85), DARK_NAVY)
+add_text(s, Inches(0.55), Inches(6.27), Inches(12.3), Inches(0.75), _cy_band,
+         size=_fit_footer_size(_cy_band, 11.5), color=WHITE, anchor=MSO_ANCHOR.MIDDLE)
+footer_bar(s, 9)
+
+# ====================================================================
 # SLIDE 9 — Major Incidents & Escalations
 # ====================================================================
 s = prs.slides.add_slide(BLANK)
@@ -1712,7 +1790,38 @@ add_rect(s, Inches(0.4), Inches(6.25), Inches(12.55), Inches(0.85), DARK_NAVY)
 add_text(s, Inches(0.55), Inches(6.32), Inches(12.3), Inches(0.75),
          _inc_comment,
          size=_fit_footer_size(_inc_comment, 11.5), color=WHITE, anchor=MSO_ANCHOR.MIDDLE)
-footer_bar(s, 9)
+footer_bar(s, 10)
+
+# ====================================================================
+# SLIDE 9b - Major Incidents (Year to Date)
+# ====================================================================
+s = prs.slides.add_slide(BLANK)
+header_band(s, "Major Incidents — Year to Date", "HELP DESK", f"Jan–{MONTH} {YEAR}")
+add_text(s, Inches(0.4), Inches(1.05), Inches(12), Inches(0.4),
+         f"Major incidents year-to-date — {YEAR}", size=15, bold=True, color=NAVY)
+_iy = K.get('incidents_yearly') or {}
+_iyt = _iy.get('mi_total', 0); _iyc = _iy.get('mi_critical', 0); _iyh = _iy.get('mi_high', 0)
+_iyd = _iy.get('mi_downtime_h', 0); _iyr = _iy.get('mi_resolved', 0)
+_iy_cards = [
+    ("MAJOR INCIDENTS (YTD)", str(_iyt), f"Jan–{MONTH}", RED),
+    ("P1 CRITICAL (YTD)", str(_iyc), "Highest severity", RED),
+    ("P2 HIGH (YTD)", str(_iyh), "High severity", AMBER),
+    ("DOWNTIME (YTD)", f"{_iyd}h", "Cumulative outage", ORANGE),
+    ("RESOLVED (YTD)", str(_iyr), f"{_iyr} of {_iyt} closed" if _iyt else "None this year", GREEN),
+]
+_imw = Inches(2.43); _img = Inches(0.10); _imx0 = Inches(0.4); _imy = Inches(1.55); _imh = Inches(1.2)
+for _i, (_lbl, _val, _sub, _ac) in enumerate(_iy_cards):
+    kpi_tile(s, _imx0 + (_imw + _img) * _i, _imy, _imw, _imh, _lbl, _val, _sub,
+             accent=_ac, value_color=(NAVY if _ac == ORANGE else _ac), value_size=28)
+s.shapes.add_picture(_chart('mi_ytd_bars', figsize=(12.0, 2.6), data_fn=_draw_mi_ytd_bars,
+                            title=f'Major incidents by month — {YEAR} year-to-date'),
+                     Inches(0.4), Inches(3.10), width=Inches(12.55), height=Inches(2.95))
+_iy_band = (f"Year-to-date {YEAR}: {_iyt} major incident{'s' if _iyt != 1 else ''} "
+            f"({_iyc} P1, {_iyh} P2) · {_iyd}h cumulative downtime · {_iyr} resolved.")
+add_rect(s, Inches(0.4), Inches(6.20), Inches(12.55), Inches(0.85), DARK_NAVY)
+add_text(s, Inches(0.55), Inches(6.27), Inches(12.3), Inches(0.75), _iy_band,
+         size=_fit_footer_size(_iy_band, 11.5), color=WHITE, anchor=MSO_ANCHOR.MIDDLE)
+footer_bar(s, 11)
 
 # ====================================================================
 # ── Slides 10 + 11: Activity Tracker — Phase 3.5 wired ──────────────
@@ -1859,7 +1968,7 @@ else:
 add_text(s, Inches(0.4), Inches(6.48), Inches(12.55), Inches(0.25),
          f"Source: IT Ops Objectives Tracker — {PERIOD_SHORT} vs {PREV_PERIOD_TICK}  |  Endeavour Mining PLC",
          size=9, italic=True, color=GRAY)
-footer_bar(s, 10)
+footer_bar(s, 12)
 
 # ────────────────────────────────────────────────────────────────────
 # SLIDE 11 — Executive Commentary & Site Summaries
@@ -1876,7 +1985,7 @@ if not sites:
     add_text(s, Inches(0.55), Inches(3.0), Inches(12.3), Inches(0.5),
              "No site-level tracker data for this period",
              size=16, bold=True, color=NAVY, align=PP_ALIGN.CENTER)
-    footer_bar(s, 11)
+    footer_bar(s, 13)
 else:
     _pill = _tk.get('pillars') or {}
     # ── Pillar banners (full-colour, weight + MoM Δ) ─────────────────
@@ -1974,7 +2083,7 @@ else:
     add_text(s, Inches(0.4), Inches(6.95), Inches(12.55), Inches(0.25),
              f"Source: IT Ops Objectives Tracker — {PERIOD_SHORT} vs {PREV_PERIOD_TICK}  |  Endeavour Mining PLC",
              size=9, italic=True, color=GRAY)
-    footer_bar(s, 11)
+    footer_bar(s, 13)
 
 # ────────────────────────────────────────────────────────────────────
 # SLIDE 11b — Pillar Trends (6-month fleet avg per pillar)
@@ -2106,7 +2215,7 @@ if _tr_months and _tr_pillars:
     add_rect(s, Inches(0.4), Inches(6.35), Inches(12.55), Inches(0.70), DARK_NAVY)
     add_text(s, Inches(0.55), Inches(6.40), Inches(12.3), Inches(0.65),
              _s11b_comment, size=_fit_footer_size(_s11b_comment, 11.5), color=WHITE, anchor=MSO_ANCHOR.MIDDLE)
-    footer_bar(s, 12)
+    footer_bar(s, 14)
 
 # ── Save to stdout (Node spawn contract) ──────────────────────────────
 # Server.js streams stdout to the browser as the PPTX download. The
