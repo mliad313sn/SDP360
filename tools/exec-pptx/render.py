@@ -556,14 +556,18 @@ def _draw_changes_ytd_bars(ax):
     labels = [_MN3[(m.get('m', 1) - 1) % 12] for m in bm]
     totals = [m.get('total', 0) for m in bm]
     emerg  = [m.get('emergency', 0) for m in bm]
+    major  = [m.get('major', 0) for m in bm]
+    # Stacked composition: Standard (blue) + Major (amber) + Emergency (red) = Total.
+    std = [max(0, t - e - mj) for t, e, mj in zip(totals, emerg, major)]
     xs = list(range(len(labels)))
-    ax.bar(xs, totals, color='#2E5C8A', label='Total changes')
-    ax.bar(xs, emerg,  color='#DC2626', label='Emergency')
+    ax.bar(xs, std,   color='#2E5C8A', label='Standard')
+    ax.bar(xs, major, bottom=std, color='#F59E0B', label='Major')
+    ax.bar(xs, emerg, bottom=[s + mj for s, mj in zip(std, major)], color='#DC2626', label='Emergency')
     for i, t in enumerate(totals):
         if t:
             ax.text(i, t, str(t), ha='center', va='bottom', fontsize=8, color='#1A3A5F')
     ax.set_xticks(xs); ax.set_xticklabels(labels, fontsize=8)
-    ax.legend(fontsize=8, loc='upper left', frameon=False)
+    ax.legend(fontsize=8, loc='upper left', frameon=False, ncol=3)
     ax.spines[['top', 'right']].set_visible(False)
     ax.grid(axis='y', alpha=0.2, linestyle='--')
     ax.tick_params(axis='y', labelsize=8)
