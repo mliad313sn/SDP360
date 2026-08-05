@@ -373,6 +373,7 @@
     <div class="md-hero__actions">
       <a class="btn-primary" href="meeting.html" id="mdNewBtn">+ New meeting</a>
       <a class="btn-ghost" href="meetings-import.html" id="mdImportBtn">↑ Bulk import</a>
+      <button class="btn-ghost" type="button" id="mdExportBtn" style="display:none" title="Download all meetings data (Meetings · Issues · Actions · Projects) as Excel">⬇ Export Excel</button>
       <button class="btn-ghost" type="button" id="mdRefreshBtn">↻ Refresh</button>
     </div>
   </section>
@@ -693,6 +694,29 @@
     }, 250);
   });
   document.getElementById('mdRefreshBtn').addEventListener('click', () => loadAll());
+
+  // Excel full-table export (admin+). Revealed only for admins; the server
+  // (GET /api/meetings/export.xlsx, requireAdmin) enforces regardless. Dumps
+  // every table — Meetings · Issues · Actions · Projects — like the inspection
+  // module's full export.
+  (function wireExport() {
+    const xl = document.getElementById('mdExportBtn');
+    if (!xl || !(window.__userHasRole && window.__userHasRole('admin'))) return;
+    xl.style.display = '';
+    xl.addEventListener('click', async () => {
+      const orig = xl.innerHTML; xl.disabled = true; xl.innerHTML = '⏳ Preparing…';
+      try {
+        const r = await fetch(API + '/export.xlsx', { credentials: 'same-origin', headers: authHeaders() });
+        if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || ('HTTP ' + r.status)); }
+        const url = URL.createObjectURL(await r.blob());
+        const a = document.createElement('a');
+        a.href = url; a.download = 'Meetings_full_' + new Date().toISOString().slice(0, 10) + '.xlsx';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
+      } catch (e) { alert('Excel export failed: ' + (e.message || '')); }
+      finally { xl.innerHTML = orig; xl.disabled = false; }
+    });
+  })();
 
   // Pagination controls — persist page-size so the choice survives reloads.
   document.getElementById('mdPageSize').value = String(state.pager.pageSize);
