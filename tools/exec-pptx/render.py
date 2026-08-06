@@ -2306,7 +2306,7 @@ if DECK == 'v14' and (_GOV_PROBE.get('rows') or []):
             str(r.get('meetings', '')), "%.1f · %s%%" % (float(r.get('capture') or 0), r.get('closePct', '')),
             str(r.get('overdue', '')), str(r.get('inspections', '')),
             "%.1f · %s%%" % (float(r.get('findPerInsp') or 0), r.get('fixPct', '')), "%s%%" % r.get('signoff', ''),
-            str(r.get('incubation', '')), r.get('groundRules', ''),
+            (str(r.get('incubation')) if r.get('incubation') not in (None, '') else '—'), r.get('groundRules', ''),
             (r.get('overall', '') + ('*' if r.get('capped') else '')),
         ]
         for ci, ((label, w), val) in enumerate(zip(_COLS, vals)):

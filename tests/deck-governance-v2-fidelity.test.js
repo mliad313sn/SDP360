@@ -46,6 +46,16 @@ test('group average = 72 (deck: "72")', () => {
   assert.equal(Math.round(scores.reduce((a, b) => a + b, 0) / scores.length), 72);
 });
 
+test('ground rules: incubation NOT provided is not assessed (passes on meetings + inspection)', () => {
+  const r = scoreV2({ meetings: 16, capture: 6.9, overdue: 0, inspections: 10, findPerInsp: 2.4, fixPct: 100, signoff: 100 });
+  assert.equal(r.groundRules, 'PASS');   // no incubation key → not assessed, not failed
+  assert.equal(r.overall, 'GREEN');
+  // …but an explicit 0 IS enforced:
+  const r0 = scoreV2({ meetings: 16, capture: 6.9, overdue: 0, inspections: 10, findPerInsp: 2.4, fixPct: 100, signoff: 100, incubation: 0 });
+  assert.equal(r0.groundRules, 'FAIL');
+  assert.equal(r0.overall, 'AMBER');     // GREEN capped to AMBER*
+});
+
 test('RED band: an all-zero site scores 0/RED, not applicable-green', () => {
   const r = scoreV2({ meetings: 0, capture: 0, overdue: 0, inspections: 0, findPerInsp: 0, fixPct: 0, signoff: 0, incubation: 0 });
   // overdue 0 still earns 2 (an empty backlog is not overdue) — but nothing else scores.

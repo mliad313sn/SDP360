@@ -62,7 +62,11 @@ function rag(score) {
 // AND at least 1 business incubation AND at least 1 inspection. A miss caps the
 // OVERALL rating at AMBER (the "*" on the deck) — never at GREEN.
 function groundRules(m) {
-  return ((Number(m.meetings) || 0) >= 12 && (Number(m.incubation) || 0) >= 1 && (Number(m.inspections) || 0) >= 1)
+  // Incubation is an editorial input (not in our data). When NOT provided
+  // (null/undefined) we cannot assess it, so it does not fail the rule; when
+  // provided (even 0) it is enforced. Meetings + inspections are always assessed.
+  const incOk = (m.incubation == null) || (Number(m.incubation) >= 1);
+  return ((Number(m.meetings) || 0) >= 12 && incOk && (Number(m.inspections) || 0) >= 1)
     ? 'PASS' : 'FAIL';
 }
 
@@ -152,7 +156,7 @@ function buildScoreboardV2(D, opts = {}) {
   const codes = opts.codes || _activeCodes(D, from, to);
   const rows = codes.map((c) => {
     const m = siteMeasuresV2(c, D, { from, to });
-    m.incubation = Number(inc[c]) || 0;
+    if (inc[c] != null) m.incubation = Number(inc[c]);   // editorial; else left unassessed
     const v = scoreV2(m);
     return {
       code: c, name: name(c),
