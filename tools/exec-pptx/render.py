@@ -161,6 +161,13 @@ PERIOD_TICK  = f"{MONTH_SHORT} '{YEAR[-2:]}" # "May '26"
 PREV_MONTH_SHORT = K.get('prev_month_short', 'Mar')
 PREV_PERIOD_TICK = f"{PREV_MONTH_SHORT} '{YEAR[-2:]}"
 
+# ── Deck variant ──────────────────────────────────────────────────────
+# 'classic' (default / absent) = the deck exactly as before — the golden
+# fingerprint test stays green and it is the guaranteed fallback. 'v14'
+# appends the OPS manager's board-deck Governance slides (Site Position &
+# Effort Scoreboard, Effort Matrix). Everything above this is untouched.
+DECK = str(K.get('deck', 'classic')).lower()
+
 # ── Asset paths — relative to this script for prod portability ────────
 SCRIPT_DIR = Path(__file__).resolve().parent
 # Brand assets shipped at public/brand/exec-pptx/ on prod.
@@ -2220,6 +2227,191 @@ if _tr_months and _tr_pillars:
     add_text(s, Inches(0.55), Inches(6.40), Inches(12.3), Inches(0.65),
              _s11b_comment, size=_fit_footer_size(_s11b_comment, 11.5), color=WHITE, anchor=MSO_ANCHOR.MIDDLE)
     footer_bar(s, 14)
+
+# ====================================================================
+# v14 DECK — Governance slides (appended ONLY when deck=='v14').
+# Reproduces the OPS manager's board-deck slides 13/14 from the
+# scoring-v2 governance block (services/deckGovernanceV2.js). The
+# classic deck above is byte-identical without this block.
+# ====================================================================
+if DECK == 'v14':
+    GOV = K.get('governance') or {}
+    _SB = GOV.get('scoreboard') or {}
+    _SBROWS = _SB.get('rows') or []
+    _EF = GOV.get('effort') or {}
+    _WIN = GOV.get('window_label') or PERIOD_LONG
+    RAG_HEX = {'GREEN': '#2E8540', 'AMBER': '#E87722', 'RED': '#DC2626'}
+    RAG_RGB = {'GREEN': GREEN, 'AMBER': ORANGE, 'RED': RED}
+    DIMHEX = {'meetings': '#1A3A5F', 'capture': '#2E5C8A', 'overdue': '#7FB7D9',
+              'inspections': '#2E8540', 'findfix': '#E8A33D', 'signoff': '#8A8A8A'}
+    # Per-cell tint reflecting each scored dimension's points (2→green, 1→amber,
+    # 0→red) — matches the board deck, where the cell colour IS the score.
+    PT_BG = {2: RGBColor(0xDC, 0xEF, 0xE2), 1: RGBColor(0xF5, 0xE7, 0xC8), 0: RGBColor(0xFD, 0xE0, 0xE0)}
+    COL_PTKEY = {'Meet': 'meetings', 'Capture·Closed': 'capture', 'Overdue': 'overdue',
+                 'Insp': 'inspections', 'Find·Fix': 'findfix', 'Sign-off': 'signoff'}
+
+    def _gov_footer(slide, bullets, y=6.15, h=0.88):
+        add_rect(slide, Inches(0.4), Inches(y), Inches(12.55), Inches(h), DARK_NAVY,
+                 shape=MSO_SHAPE.ROUNDED_RECTANGLE)
+        lines = [('•  ' + str(b), 9.5, False, WHITE) for b in (bullets or [])[:3]]
+        if lines:
+            add_multi_text(slide, Inches(0.65), Inches(y + 0.06), Inches(12.05), Inches(h - 0.12),
+                           lines, anchor=MSO_ANCHOR.MIDDLE, line_space=1.15)
+
+    # ---------- SLIDE 13 — Site Position & Effort Scoreboard ----------
+    def _draw_gov_composite(ax):
+        rows = list(reversed(_SBROWS))
+        vals = [r.get('score', 0) for r in rows]
+        cols = [RAG_HEX.get(r.get('overall'), '#9CA3AF') for r in rows]
+        yy = list(range(len(rows)))
+        ax.barh(yy, vals, color=cols, height=0.62)
+        for i, v in zip(yy, vals):
+            ax.text(v + 1.5, i, str(v), va='center', ha='left', fontsize=11, fontweight='bold', color='#1A3A5F')
+        ga = _SB.get('groupAvg')
+        if ga is not None:
+            ax.axvline(ga, color='#1A3A5F', ls='--', lw=1.2)
+            ax.text(ga, len(rows) - 0.35, 'Group avg %d' % ga, fontsize=8, ha='center', color='#1A3A5F')
+        ax.axvline(70, color='#2E8540', ls=':', lw=1.0)
+        ax.set_yticks(yy); ax.set_yticklabels([r.get('code', '') for r in rows], fontsize=10)
+        ax.set_xlim(0, 108); ax.set_xticks([0, 20, 40, 60, 80, 100])
+        ax.tick_params(labelsize=8)
+        for sp in ('top', 'right'):
+            ax.spines[sp].set_visible(False)
+
+    s = prs.slides.add_slide(BLANK)
+    header_band(s, "Site Position & Effort Scoreboard", "GOVERNANCE", PERIOD_SHORT)
+    add_text(s, Inches(0.4), Inches(1.05), Inches(8.6), Inches(0.35),
+             "League Table — %s · scoring v2: finding & fixing problems is rewarded" % _WIN,
+             size=13, bold=True, color=NAVY)
+    add_text(s, Inches(9.4), Inches(1.05), Inches(3.6), Inches(0.35),
+             "Composite Score / 100", size=12, bold=True, color=NAVY, align=PP_ALIGN.CENTER)
+    _COLS = [('Rank', 0.45), ('Site', 1.35), ('Score', 0.6), ('Meet', 0.5), ('Capture·Closed', 1.15),
+             ('Overdue', 0.55), ('Insp', 0.45), ('Find·Fix', 1.0), ('Sign-off', 0.6), ('Incub', 0.5),
+             ('Ground', 0.6), ('Overall', 0.75)]
+    _tx0, _ty = 0.4, 1.5
+    cx = _tx0
+    for label, w in _COLS:
+        add_rect(s, Inches(cx), Inches(_ty), Inches(w), Inches(0.4), NAVY)
+        add_text(s, Inches(cx), Inches(_ty), Inches(w), Inches(0.4), label, size=7.5, bold=True,
+                 color=WHITE, align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE)
+        cx += w
+    _rowh = 0.44
+    ry = _ty + 0.4
+    for idx, r in enumerate(_SBROWS):
+        cx = _tx0
+        bg = WHITE if idx % 2 == 0 else LIGHTER_GRAY
+        vals = [
+            str(r.get('rank', '')), "%s · %s" % (r.get('code', ''), r.get('name', '')), str(r.get('score', '')),
+            str(r.get('meetings', '')), "%.1f · %s%%" % (float(r.get('capture') or 0), r.get('closePct', '')),
+            str(r.get('overdue', '')), str(r.get('inspections', '')),
+            "%.1f · %s%%" % (float(r.get('findPerInsp') or 0), r.get('fixPct', '')), "%s%%" % r.get('signoff', ''),
+            str(r.get('incubation', '')), r.get('groundRules', ''),
+            (r.get('overall', '') + ('*' if r.get('capped') else '')),
+        ]
+        for ci, ((label, w), val) in enumerate(zip(_COLS, vals)):
+            is_overall = (label == 'Overall')
+            if is_overall:
+                add_rect(s, Inches(cx), Inches(ry), Inches(w), Inches(_rowh), RAG_RGB.get(r.get('overall'), GRAY))
+                add_text(s, Inches(cx), Inches(ry), Inches(w), Inches(_rowh), val, size=7.5, bold=True,
+                         color=WHITE, align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE)
+            else:
+                _ptk = COL_PTKEY.get(label)
+                _pts = r.get('pts') if isinstance(r.get('pts'), dict) else None
+                cellbg = PT_BG[_pts[_ptk]] if (_ptk and _pts and _ptk in _pts) else bg
+                add_rect(s, Inches(cx), Inches(ry), Inches(w), Inches(_rowh), cellbg, line=RGBColor(0xE5, 0xE7, 0xEB))
+                is_site = (label == 'Site')
+                add_text(s, Inches(cx + (0.06 if is_site else 0)), Inches(ry), Inches(w - (0.06 if is_site else 0)),
+                         Inches(_rowh), val, size=(7.5 if is_site else 8),
+                         bold=(label in ('Score', 'Site')),
+                         color=(NAVY if label == 'Score' else CHARCOAL),
+                         align=(PP_ALIGN.LEFT if is_site else PP_ALIGN.CENTER), anchor=MSO_ANCHOR.MIDDLE)
+            cx += w
+        ry += _rowh
+    s.shapes.add_picture(_chart('gov_composite', figsize=(4.2, 3.0), data_fn=_draw_gov_composite),
+                         Inches(9.35), Inches(1.5), width=Inches(3.65), height=Inches(2.9))
+    _note = ("Capture·Closed = items logged per meeting · % resolved.  Find·Fix = findings per inspection · "
+             "% of high/critical closed.  Scoring v2: an inspection programme that finds nothing scores RED, "
+             "not GREEN.  Ground rules: 3 meetings/month · 1 incubation · 1 inspection; a miss caps at AMBER (*).")
+    add_text(s, Inches(0.4), Inches(ry + 0.08), Inches(8.6), Inches(0.9), _note, size=8, italic=True, color=GRAY)
+    _gov_footer(s, GOV.get('scoreboard_footer'))
+    footer_bar(s, 15)
+
+    # ---------- SLIDE 14 — Effort Matrix & Two Moves ----------
+    def _draw_gov_bubbles(ax):
+        bubs = _EF.get('bubbles') or []
+        xs = [b.get('x', 0) for b in bubs]
+        maxy = max([b.get('y', 0) for b in bubs] + [10]) * 1.15
+        # Stagger labels vertically by rank so bubbles clustered at low overdue
+        # (all near y=0) don't collide horizontally.
+        for _bi, b in enumerate(sorted(bubs, key=lambda z: (z.get('y', 0), z.get('x', 0)))):
+            col = RAG_HEX.get(b.get('overall'), '#9CA3AF')
+            sz = 120 + (b.get('size', 0) or 0) * 34
+            ax.scatter([b.get('x', 0)], [b.get('y', 0)], s=sz, c=col, alpha=0.85,
+                       edgecolors=('#1A3A5F' if b.get('dashed') else col),
+                       linewidths=(1.6 if b.get('dashed') else 0),
+                       linestyle=('dashed' if b.get('dashed') else 'solid'), zorder=3)
+            dl = b.get('delta')
+            lab = b.get('code', '') + (' %+dpp' % dl if dl is not None else '')
+            ax.text(b.get('x', 0), b.get('y', 0) + maxy * (0.055 + (_bi % 2) * 0.075), lab,
+                    fontsize=7, ha='center', color='#1A3A5F', zorder=4)
+        ax.axvline(30, color='#cccccc', lw=0.8); ax.axhline(10, color='#cccccc', lw=0.8)
+        ax.text(2, maxy * 0.96, 'SLIPPING', fontsize=7.5, color='#c2280f', fontweight='bold')
+        ax.text(98, maxy * 0.96, 'DELIVERING·LATE', fontsize=7.5, color='#b07a17', fontweight='bold', ha='right')
+        ax.text(2, maxy * 0.02, 'QUIET LOG', fontsize=7.5, color='#b07a17', fontweight='bold')
+        ax.text(98, maxy * 0.02, 'ON TOP', fontsize=7.5, color='#2f7d4f', fontweight='bold', ha='right')
+        ax.set_xlim(-3, 105); ax.set_ylim(-maxy * 0.06, maxy)
+        ax.set_xlabel('Resolution rate %  →  close more', fontsize=8)
+        ax.set_ylabel('Overdue  →  fewer is better', fontsize=8)
+        ax.tick_params(labelsize=8)
+        for sp in ('top', 'right'):
+            ax.spines[sp].set_visible(False)
+
+    def _draw_gov_gap(ax):
+        rows = list(reversed(_EF.get('gap') or []))
+        yy = list(range(len(rows)))
+        for i, g in zip(yy, rows):
+            left = 0
+            for seg in g.get('segs') or []:
+                ax.barh(i, seg.get('pts', 0), left=left, color=DIMHEX.get(seg.get('key'), '#ccc'), height=0.6)
+                left += seg.get('pts', 0)
+        ax.axvline(8.4, color='#2E8540', ls='--', lw=1.2)
+        ax.text(8.4, len(rows) - 0.3, 'GREEN 8.4/12', fontsize=7.5, ha='center', color='#2E8540')
+        ax.set_yticks(yy); ax.set_yticklabels([g.get('code', '') for g in rows], fontsize=10)
+        ax.set_xlim(0, 12); ax.set_xticks([0, 2, 4, 6, 8, 10, 12])
+        ax.set_xlabel('Points earned (max 12 = 2 per dimension)', fontsize=8)
+        ax.tick_params(labelsize=8)
+        for sp in ('top', 'right'):
+            ax.spines[sp].set_visible(False)
+
+    s = prs.slides.add_slide(BLANK)
+    header_band(s, "Effort Matrix — Where Each Site Stands & Its Two Moves", "GOVERNANCE", PERIOD_SHORT)
+    add_text(s, Inches(0.4), Inches(1.05), Inches(4.3), Inches(0.35), "Effort Matrix — where the energy goes",
+             size=12, bold=True, color=NAVY)
+    add_text(s, Inches(5.0), Inches(1.05), Inches(4.0), Inches(0.35), "Gap to Green — what costs each site points",
+             size=12, bold=True, color=NAVY)
+    add_text(s, Inches(9.3), Inches(1.05), Inches(3.7), Inches(0.35), "Your Two Moves — biggest gain per site",
+             size=12, bold=True, color=NAVY)
+    s.shapes.add_picture(_chart('gov_bubbles', figsize=(4.4, 3.7), data_fn=_draw_gov_bubbles),
+                         Inches(0.3), Inches(1.45), width=Inches(4.5), height=Inches(3.8))
+    s.shapes.add_picture(_chart('gov_gap', figsize=(4.2, 3.7), data_fn=_draw_gov_gap),
+                         Inches(4.95), Inches(1.45), width=Inches(4.2), height=Inches(3.8))
+    _moves = _EF.get('moves') or []
+    my = 1.45
+    ch = min(0.74, (5.05 - 0.0) / max(len(_moves), 1))
+    for mv in _moves:
+        rag_rgb = RAG_RGB.get(mv.get('overall'), GRAY)
+        add_rect(s, Inches(9.3), Inches(my), Inches(0.95), Inches(ch - 0.06), rag_rgb, shape=MSO_SHAPE.ROUNDED_RECTANGLE)
+        add_multi_text(s, Inches(9.3), Inches(my + 0.04), Inches(0.95), Inches(ch - 0.14),
+                       [(mv.get('code', ''), 11, True, WHITE), (str(mv.get('score', '')), 13, True, WHITE)],
+                       anchor=MSO_ANCHOR.MIDDLE, align=PP_ALIGN.CENTER)
+        _CIRC = {1: '①', 2: '②', 3: '③'}
+        txt = '  '.join('%s %s' % (_CIRC.get(m.get('n'), str(m.get('n'))), m.get('text', '')) for m in (mv.get('moves') or []))
+        add_rect(s, Inches(10.35), Inches(my), Inches(2.65), Inches(ch - 0.06), WHITE, line=RGBColor(0xE5, 0xE7, 0xEB))
+        add_text(s, Inches(10.45), Inches(my + 0.03), Inches(2.5), Inches(ch - 0.12), txt, size=7, color=CHARCOAL,
+                 anchor=MSO_ANCHOR.MIDDLE)
+        my += ch
+    _gov_footer(s, GOV.get('effort_footer'))
+    footer_bar(s, 16)
 
 # ── Save to stdout (Node spawn contract) ──────────────────────────────
 # Server.js streams stdout to the browser as the PPTX download. The
