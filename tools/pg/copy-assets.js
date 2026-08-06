@@ -112,8 +112,16 @@ module.exports = { copyAssets, _upsertSql, TABLES };
 if (require.main === module) {
   (async () => {
     const { makePgDb } = require('../../services/pgDb');
+    // Operator convenience: this is the one copy-* script run BY HAND from the
+    // app root during the final cutover. If PG_URL isn't already exported in the
+    // shell, load it from the app's .env (same file server.js reads) so
+    // `node tools\pg\copy-assets.js` "just works" from C:\Apps\SDP-Dashboard.
+    // Never overrides an explicitly-set env var; silent no-op if .env/dotenv absent.
+    if (!process.env.PG_URL && !process.env.DATABASE_URL) {
+      try { require('dotenv').config({ path: path.join(__dirname, '../../.env') }); } catch (_) {}
+    }
     const url = process.env.PG_URL || process.env.DATABASE_URL;
-    if (!url) { console.error('Set PG_URL or DATABASE_URL'); process.exit(2); }
+    if (!url) { console.error('Set PG_URL or DATABASE_URL (or run from the app root where .env lives)'); process.exit(2); }
     const src = process.argv[2] || path.join(__dirname, '../../data/assets.db');
     if (!fs.existsSync(src)) { console.error('assets.db not found at ' + src); process.exit(2); }
     const pg = makePgDb(url); await pg.connect();

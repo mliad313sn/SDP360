@@ -109,10 +109,16 @@ primary-key rows** instead of aborting the whole transaction, and (b) copies the
 `software_licenses`, `software`) are re-syncable, so they're a warm start.
 
 **Prod runbook** (in `C:\Apps\SDP-Dashboard`):
+0. **DEPLOY THE HARDENED SCRIPT FIRST.** The cutover MUST run the 2026-08-06
+   version of `copy-assets.js` (5 history tables + NULL-PK skip). The pre-history
+   version would silently **drop** `asset_effort_history` etc. Apply the pending
+   deploy ZIP + restart before step 2, else the effort trend is lost.
 1. Backup PG first — `_sdp_admin.cmd` option 5 (`pg_dump`).
-2. Copy the SQLite data into PG (preserves the history):
+2. Copy the SQLite data into PG (preserves the history). The script auto-loads
+   `PG_URL` from `.env` when run from the app root, so simply:
    `node tools\pg\copy-assets.js`  → check the printed counts; a large
    `skipped … NULL-PK` count on REAL data means a malformed export, investigate.
+   *(If run from another dir, first: `for /f "tokens=1,* delims==" %A in ('findstr /b "PG_URL=" .env') do set "PG_URL=%B"`.)*
 3. Parity check (sqlite `data\assets.db` vs pg): `assets` ≈ 2473,
    `asset_effort_history` = every captured snapshot.
 4. `.env` → `ASSETS_BACKEND=postgres`.
