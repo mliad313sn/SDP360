@@ -84,4 +84,123 @@ function scoreV2(m) {
   };
 }
 
-module.exports = { scoreV2, rag, groundRules, dimPts, DIMS };
+// ─────────────────────────────────────────────────────────────────────────────
+// Derive a site's raw v2 measures from the live review data `D`
+// (services/reviewData.loadReviewData shape: meetings/issues/actions/inspections/
+// findings/inspActions). PURE — operates on the arrays, no DB. `incubation` is
+// NOT here: it is not in our data model, so the composer injects it from the
+// editorial store before scoring (it feeds only the ground-rules cap).
+//
+// Windowed to the programme (default Apr 1 → asOf), matching the deck and the
+// sbDims sbMeasure() convention. Date helpers come from meetings-db (the same
+// port siteComposite.js reuses — never a second copy that could drift).
+// `inspActions` must carry { site_code, priority, status } for the fix% column.
+// ─────────────────────────────────────────────────────────────────────────────
+const { _effClose: effClose, _openAt: openAt, MD_OPEN } = require('../meetings-db');
+
+const _r1 = (v) => Math.round(v * 10) / 10;   // one decimal, as the deck prints
+function _isFound(f) { const s = String(f.status || '').toLowerCase(); return s === 'critical' || s === 'major' || s === 'minor'; }
+function _isHighAction(a) { const p = String(a.priority || '').toLowerCase(); return p === 'critical' || p === 'high'; }
+function _isClosedAction(a) { const s = String(a.status || '').toLowerCase(); return s === 'closed' || s === 'resolved' || s === 'done' || s === 'completed'; }
+
+function siteMeasuresV2(site, D, { from = '2026-04-01', to } = {}) {
+  const A = to;
+  const meets = (D.meetings || []).filter((m) => m.site_code === site && m.meeting_date >= from && m.meeting_date <= A);
+  const isss = (D.issues || []).filter((i) => i.site_code === site && i.meeting_date >= from && i.meeting_date <= A);
+  const reviews = meets.length;
+  const capture = reviews ? isss.length / reviews : 0;               // items logged per meeting
+  const resolved = isss.filter((i) => { const c = effClose(i); return i.status === 'resolved' && c && c <= A; }).length;
+  const closePct = isss.length ? Math.round(100 * resolved / isss.length) : 0;
+  // overdue = open issues + open meeting-actions past their target (sbMeasure convention)
+  const odIss = (D.issues || []).filter((i) => i.site_code === site && openAt(i, A) && i.target_date && i.target_date < A).length;
+  const odAct = (D.actions || []).filter((a) => a.site_code === site && a.meeting_date && a.meeting_date <= A
+    && (!a.closed_at || String(a.closed_at).slice(0, 10) > A) && MD_OPEN[a.status] && a.target_date && a.target_date < A).length;
+  const overdue = odIss + odAct;
+  const insps = (D.inspections || []).filter((i) => i.site_code === site && i.inspection_date <= A);
+  const inspections = insps.length;
+  const found = (D.findings || []).filter((f) => f.site_code === site && f.inspection_date <= A && _isFound(f)).length;
+  const findPerInsp = inspections ? found / inspections : 0;
+  const highActions = (D.inspActions || []).filter((a) => a.site_code === site && _isHighAction(a));
+  const fixPct = highActions.length ? Math.round(100 * highActions.filter(_isClosedAction).length / highActions.length) : 0;
+  const signed = meets.filter((m) => m.dept_head_signed_at && m.site_it_signed_at
+    && String(m.dept_head_signed_at).slice(0, 10) <= A && String(m.site_it_signed_at).slice(0, 10) <= A).length;
+  const signoff = meets.length ? Math.round(100 * signed / meets.length) : 0;
+  return {
+    meetings: reviews, raised: isss.length, capture: _r1(capture), closePct,
+    overdue, inspections, found, findPerInsp: _r1(findPerInsp), fixPct, signoff,
+  };
+}
+
+const ANCHOR = '2026-07-14';
+
+// Distinct sites that held ≥1 department meeting in the window — the governance
+// programme's participating sites (the deck's 5). Deterministic order: by score
+// is applied later; here we just collect.
+function _activeCodes(D, from, to) {
+  const set = new Set();
+  (D.meetings || []).forEach((m) => { if (m.meeting_date >= from && m.meeting_date <= to) set.add(m.site_code); });
+  return [...set];
+}
+
+// Slide 13 — the league table + composite bar chart.
+//   opts: { asOf, from, codes, incubation:{code:n}, siteName:code=>string }
+function buildScoreboardV2(D, opts = {}) {
+  const to = opts.asOf || ANCHOR;
+  const from = opts.from || '2026-04-01';
+  const inc = opts.incubation || {};
+  const name = opts.siteName || ((c) => c);
+  const codes = opts.codes || _activeCodes(D, from, to);
+  const rows = codes.map((c) => {
+    const m = siteMeasuresV2(c, D, { from, to });
+    m.incubation = Number(inc[c]) || 0;
+    const v = scoreV2(m);
+    return {
+      code: c, name: name(c),
+      score: v.score, overall: v.overall, capped: v.capped, groundRules: v.groundRules, pts: v.pts,
+      meetings: m.meetings, capture: m.capture, closePct: m.closePct, overdue: m.overdue,
+      inspections: m.inspections, findPerInsp: m.findPerInsp, fixPct: m.fixPct,
+      signoff: m.signoff, incubation: m.incubation,
+    };
+  }).sort((a, b) => b.score - a.score);
+  rows.forEach((r, i) => { r.rank = i + 1; });
+  const groupAvg = rows.length ? Math.round(rows.reduce((s, r) => s + r.score, 0) / rows.length) : null;
+  return { rows, groupAvg, window: { from, to } };
+}
+
+// Deterministic "two moves" per site — biggest gaps first, plain sentences.
+// These are the EDITABLE DEFAULTS (the author overrides the human framing).
+function _movesFor(r) {
+  const cands = [];
+  if (r.groundRules === 'FAIL' && r.incubation < 1) cands.push([95, 'Hold a first business incubation — none logged this quarter (a ground rule).']);
+  if (r.overdue > 0) cands.push([90 + r.overdue, 'Clear the overdue backlog — ' + r.overdue + ' item(s) past their target date.']);
+  if (r.pts.signoff < 2) cands.push([80, 'Sign the minutes — only ' + r.signoff + '% of meetings have both signatures.']);
+  if (r.pts.findfix < 2) cands.push([78, 'Inspect deeper and close findings — ' + r.findPerInsp + ' found/inspection, ' + r.fixPct + '% of high/critical closed.']);
+  if (r.pts.inspections < 2) cands.push([72, 'Run more inspections — ' + r.inspections + ' this quarter (target ≥ 4).']);
+  if (r.pts.meetings < 2) cands.push([70, 'Hold more department meetings — ' + r.meetings + ' this quarter (target 3/month).']);
+  if (r.pts.capture < 2) cands.push([60, 'Capture more per meeting — ' + r.capture + ' items logged/meeting.']);
+  cands.sort((a, b) => b[0] - a[0]);
+  while (cands.length < 2) cands.push([0, 'Hold the line — keep every routine and sign every PV.']);
+  return cands.slice(0, 2).map((x, i) => ({ n: i + 1, text: x[1] }));
+}
+
+// Slide 14 — effort matrix bubbles + gap-to-green stacked points + two moves.
+//   opts: same as buildScoreboardV2, plus roadmap:{code:deltaPP}
+function buildEffortMatrixV2(D, opts = {}) {
+  const sb = buildScoreboardV2(D, opts);
+  const roadmap = opts.roadmap || {};
+  const GREEN_PTS = 8.4;   // 70% of 12 — the deck's GREEN line
+  const bubbles = sb.rows.map((r) => ({
+    code: r.code, x: r.closePct, y: r.overdue, size: r.meetings,
+    dashed: r.groundRules === 'FAIL', delta: roadmap[r.code] == null ? null : roadmap[r.code],
+    score: r.score, overall: r.overall,
+  }));
+  const gap = sb.rows.map((r) => ({
+    code: r.code, score: r.score,
+    segs: DIMS.map((d) => ({ key: d.key, label: d.label, pts: r.pts[d.key] })),
+    points: DIMS.reduce((s, d) => s + r.pts[d.key], 0),
+  }));
+  const moves = sb.rows.map((r) => ({ code: r.code, name: r.name, score: r.score, overall: r.overall, moves: _movesFor(r) }));
+  return { bubbles, gap, moves, greenPts: GREEN_PTS, groupAvg: sb.groupAvg, window: sb.window };
+}
+
+module.exports = { scoreV2, rag, groundRules, dimPts, DIMS, siteMeasuresV2, buildScoreboardV2, buildEffortMatrixV2, ANCHOR };
