@@ -1,0 +1,349 @@
+<title>SDP Dashboard — Database Schema</title>
+<style>
+  :root{
+    --ground:#EEF1F5; --surface:#FFFFFF; --surface-2:#F7F9FB;
+    --ink:#16202C; --muted:#586675; --faint:#8A98A8;
+    --line:#DCE2EA; --gold:#B9821F; --gold-soft:#F1E3C6;
+    --brand:#2A5490; --link:#B85C13;
+    --hero-1:#1B3552; --hero-2:#25476B; --hero-ink:#EAF1F9; --hero-gold:#E8B65A;
+    --h-identity:#3B6EA5; --h-helpdesk:#1F8A8A; --h-meetings:#7C5CB8;
+    --h-inspection:#3E8E5A; --h-tracker:#B9821F; --h-assets:#C1662F;
+    --h-reports:#4066B0; --h-config:#647689; --h-exec:#B5527A;
+    --key:#B9821F;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --ground:#0C131C; --surface:#141E2A; --surface-2:#1A2533;
+      --ink:#E7EEF6; --muted:#93A2B4; --faint:#647689;
+      --line:#26313F; --gold:#E8B65A; --gold-soft:#3A2E16;
+      --brand:#5C8AC4; --link:#E8934A;
+      --hero-1:#0E1C2C; --hero-2:#16304A; --hero-ink:#EAF1F9; --hero-gold:#E8B65A;
+      --h-identity:#5E90C4; --h-helpdesk:#3AAFAF; --h-meetings:#9E80D8;
+      --h-inspection:#5FB07C; --h-tracker:#E0A94A; --h-assets:#DC8A52;
+      --h-reports:#6A92D8; --h-config:#8A9AAD; --h-exec:#D2789C;
+      --key:#E8B65A;
+    }
+  }
+  :root[data-theme="light"]{
+    --ground:#EEF1F5; --surface:#FFFFFF; --surface-2:#F7F9FB;
+    --ink:#16202C; --muted:#586675; --faint:#8A98A8;
+    --line:#DCE2EA; --gold:#B9821F; --gold-soft:#F1E3C6;
+    --brand:#2A5490; --link:#B85C13;
+    --hero-1:#1B3552; --hero-2:#25476B; --hero-ink:#EAF1F9; --hero-gold:#E8B65A;
+    --h-identity:#3B6EA5; --h-helpdesk:#1F8A8A; --h-meetings:#7C5CB8;
+    --h-inspection:#3E8E5A; --h-tracker:#B9821F; --h-assets:#C1662F;
+    --h-reports:#4066B0; --h-config:#647689; --h-exec:#B5527A; --key:#B9821F;
+  }
+  :root[data-theme="dark"]{
+    --ground:#0C131C; --surface:#141E2A; --surface-2:#1A2533;
+    --ink:#E7EEF6; --muted:#93A2B4; --faint:#647689;
+    --line:#26313F; --gold:#E8B65A; --gold-soft:#3A2E16;
+    --brand:#5C8AC4; --link:#E8934A;
+    --hero-1:#0E1C2C; --hero-2:#16304A; --hero-ink:#EAF1F9; --hero-gold:#E8B65A;
+    --h-identity:#5E90C4; --h-helpdesk:#3AAFAF; --h-meetings:#9E80D8;
+    --h-inspection:#5FB07C; --h-tracker:#E0A94A; --h-assets:#DC8A52;
+    --h-reports:#6A92D8; --h-config:#8A9AAD; --h-exec:#D2789C; --key:#E8B65A;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--ground); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.5; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1180px; margin:0 auto; padding:clamp(16px,3vw,40px);}
+  code,.mono{font-family:ui-monospace,"Cascadia Code","SF Mono",Menlo,Consolas,"Liberation Mono",monospace;}
+
+  /* HERO */
+  .hero{
+    background:linear-gradient(135deg,var(--hero-1),var(--hero-2));
+    color:var(--hero-ink); border-radius:16px; padding:clamp(22px,4vw,40px);
+    position:relative; overflow:hidden; border:1px solid rgba(255,255,255,.06);
+  }
+  .hero::after{
+    content:""; position:absolute; inset:0;
+    background:radial-gradient(120% 120% at 92% -10%,rgba(232,182,90,.18),transparent 55%);
+    pointer-events:none;
+  }
+  .kicker{
+    font-size:12px; letter-spacing:.18em; text-transform:uppercase;
+    color:var(--hero-gold); font-weight:700; margin:0 0 10px;
+  }
+  .hero h1{
+    margin:0 0 6px; font-size:clamp(26px,4.4vw,42px); line-height:1.08;
+    font-weight:800; letter-spacing:-.015em; text-wrap:balance;
+  }
+  .hero .sub{margin:0; color:#C6D6E7; max-width:60ch; font-size:clamp(14px,1.6vw,16px);}
+  .stats{
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(128px,1fr));
+    gap:14px; margin-top:26px; position:relative;
+  }
+  .stat{
+    background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08);
+    border-radius:11px; padding:14px 16px;
+  }
+  .stat .n{font-size:clamp(22px,3vw,30px); font-weight:800; color:#fff; font-variant-numeric:tabular-nums; letter-spacing:-.02em;}
+  .stat .n em{color:var(--hero-gold); font-style:normal;}
+  .stat .l{font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:#9FB4CB; margin-top:3px;}
+
+  /* SPINE */
+  .band{margin-top:30px;}
+  .band-h{display:flex; align-items:baseline; gap:12px; margin:0 0 4px;}
+  .band-h h2{margin:0; font-size:19px; font-weight:750; letter-spacing:-.01em;}
+  .band-h .hint{color:var(--faint); font-size:13px;}
+  .spine{
+    display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:14px;
+  }
+  @media(max-width:680px){.spine{grid-template-columns:1fr;}}
+  .spine-card{
+    background:var(--surface); border:1px solid var(--line); border-radius:13px;
+    padding:16px 18px; border-left:4px solid var(--h-identity);
+  }
+  .spine-card h3{margin:0 0 4px; font-size:15px;}
+  .spine-card h3 code{font-size:14px; color:var(--h-identity); font-weight:700;}
+  .spine-card p{margin:0; color:var(--muted); font-size:13.5px;}
+  .spine-card .to{margin-top:10px; display:flex; flex-wrap:wrap; gap:6px;}
+  .chip{
+    font:600 11.5px/1 ui-monospace,Menlo,Consolas,monospace; color:var(--muted);
+    background:var(--surface-2); border:1px solid var(--line);
+    padding:5px 8px; border-radius:6px; white-space:nowrap;
+  }
+
+  /* MODULE GRID */
+  .grid{
+    display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr));
+    gap:16px; margin-top:16px; align-items:start;
+  }
+  .mod{
+    background:var(--surface); border:1px solid var(--line); border-radius:14px;
+    border-top:3px solid var(--hue); overflow:hidden;
+  }
+  .mod-h{padding:15px 17px 12px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+  .badge{
+    font-size:10.5px; font-weight:800; letter-spacing:.1em; text-transform:uppercase;
+    color:var(--hue); background:color-mix(in srgb,var(--hue) 13%,transparent);
+    padding:4px 8px; border-radius:6px;
+  }
+  .mod-h .title{font-size:15.5px; font-weight:750; letter-spacing:-.01em; flex:1; min-width:120px;}
+  .mod-h .cnt{font-size:12px; color:var(--faint); font-variant-numeric:tabular-nums;}
+  .mod-desc{padding:0 17px 12px; margin:0; color:var(--muted); font-size:13px;}
+  .rows{border-top:1px solid var(--line);}
+  .row{
+    display:grid; grid-template-columns:1fr auto; gap:8px 12px; align-items:center;
+    padding:8px 17px; border-bottom:1px solid var(--line);
+  }
+  .row:last-child{border-bottom:none;}
+  .row:nth-child(even){background:var(--surface-2);}
+  .tname{font:600 13px/1.3 ui-monospace,Menlo,Consolas,monospace; color:var(--ink); word-break:break-word;}
+  .tmeta{display:flex; align-items:center; gap:7px; margin-top:3px; flex-wrap:wrap;}
+  .pk{
+    display:inline-flex; align-items:center; gap:4px;
+    font:600 10.5px/1 ui-monospace,Menlo,Consolas,monospace; color:var(--key);
+    background:var(--gold-soft); border-radius:5px; padding:3px 6px;
+  }
+  .pk svg{width:9px; height:9px; fill:var(--key);}
+  .lk{font:600 10px/1 sans-serif; letter-spacing:.06em; text-transform:uppercase; color:var(--faint); border:1px solid var(--line); border-radius:4px; padding:2px 5px;}
+  .tnote{color:var(--faint); font-size:11.5px; font-weight:400;}
+  .rcount{font:600 12.5px/1 ui-monospace,Menlo,Consolas,monospace; color:var(--muted); font-variant-numeric:tabular-nums; text-align:right; white-space:nowrap;}
+
+  /* NOTES */
+  .notes{display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:14px; margin-top:16px;}
+  .note{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:15px 17px;}
+  .note h4{margin:0 0 6px; font-size:14px; display:flex; align-items:center; gap:7px;}
+  .note h4 .dot{width:9px; height:9px; border-radius:50%; background:var(--gold);}
+  .note p{margin:0; color:var(--muted); font-size:13px;}
+  .note code{background:var(--surface-2); border:1px solid var(--line); border-radius:4px; padding:1px 5px; font-size:12px; color:var(--ink);}
+
+  footer{margin-top:30px; padding-top:16px; border-top:1px solid var(--line); color:var(--faint); font-size:12.5px; display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px;}
+  footer .mono{color:var(--muted);}
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <p class="kicker">Endeavour Mining · SDP Dashboard · Data Layer</p>
+    <h1>One database, every ops module</h1>
+    <p class="sub">After the SQLite&nbsp;→&nbsp;PostgreSQL migration — completed with the Assets cutover on 6&nbsp;Aug&nbsp;2026 — all six operational modules share a single PostgreSQL&nbsp;17 database, <code style="color:var(--hero-gold);background:none;border:none;padding:0;font-family:ui-monospace,Menlo,monospace">sdp_dashboard</code>, on the 4MyPeople-managed cluster. Not a database-per-app: one database, per-module table namespaces.</p>
+    <div class="stats">
+      <div class="stat"><div class="n">1</div><div class="l">PostgreSQL DB</div></div>
+      <div class="stat"><div class="n">78</div><div class="l">Tables</div></div>
+      <div class="stat"><div class="n">6</div><div class="l">Modules unified</div></div>
+      <div class="stat"><div class="n">28</div><div class="l">Foreign keys</div></div>
+      <div class="stat"><div class="n" id="s-mig"><em>100%</em></div><div class="l">Migration complete</div></div>
+    </div>
+  </header>
+
+  <section class="band">
+    <div class="band-h"><h2>The identity spine</h2><span class="hint">two hubs every module hangs off — the only cross-module links</span></div>
+    <div class="spine">
+      <div class="spine-card">
+        <h3><code>sites</code> — the site of record</h3>
+        <p>13 canonical sites. Modules that don't FK to it are joined by <em>code</em> via <code>site_module_codes</code> (Ity is <code>SMI</code> in meetings, <code>ITY</code> in tracker…).</p>
+        <div class="to">
+          <span class="chip">← users</span><span class="chip">← site_module_codes</span>
+          <span class="chip">← weekly_reports</span><span class="chip">← monthly_reports</span>
+          <span class="chip">← annual_objectives</span>
+        </div>
+      </div>
+      <div class="spine-card" style="border-left-color:var(--h-config)">
+        <h3><code style="color:var(--h-config)">users</code> — auth &amp; access</h3>
+        <p>Gates every module. Sessions bump <code>last_seen</code> per request; roles are many-to-many. Entra SSO columns present, dormant.</p>
+        <div class="to">
+          <span class="chip">← sessions</span><span class="chip">← user_roles</span>
+          <span class="chip">created_by → md_/insp_/reports</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="band-h"><h2>Modules</h2><span class="hint" id="prov">row counts are indicative volume · dev snapshot, Assets at prod-cutover counts</span></div>
+    <div class="grid" id="grid"></div>
+  </section>
+
+  <section class="band">
+    <div class="band-h"><h2>How the pieces connect</h2></div>
+    <div class="notes">
+      <div class="note">
+        <h4><span class="dot"></span>FK-linked internally</h4>
+        <p>Each module is a small tree: <code>md_meetings→md_issues→md_actions</code>, <code>insp_inspections→findings/actions/photos/signatures</code>, <code>tracker_years→pillars→activities→inputs_v2</code>, <code>weeks→weekly_reports→infra_kpis/lights/action_items</code>.</p>
+      </div>
+      <div class="note">
+        <h4><span class="dot"></span>Soft-linked by code (no FK)</h4>
+        <p>Helpdesk hot data (<code>request_records</code>, <code>change_records</code>, <code>survey_*</code>) and <code>assets</code> carry free-text site/group columns matched in application code — never a DB FK. Lookup tables (PK on <code>code</code>) are referenced by value.</p>
+      </div>
+      <div class="note">
+        <h4><span class="dot"></span>Backup &amp; rollback</h4>
+        <p>One <code>pg_dump</code> of <code>sdp_dashboard</code> is the whole backup unit (<code>_sdp_admin</code> option&nbsp;5). Per-module rollback = unset its <code>*_BACKEND</code> flag + restart; the frozen SQLite <code>.db</code> files are kept as archives.</p>
+      </div>
+      <div class="note">
+        <h4><span class="dot"></span>Cohabitation</h4>
+        <p><code>sdp_dashboard</code> is a peer of <code>fmp_v2</code> (the 4MyPeople appliance) on the same cluster. 4MyPeople's destructive ops are scoped to <code>fmp_*</code> — never the SDP database.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <span>Introspected live from <span class="mono">information_schema</span> · PostgreSQL&nbsp;17 · <span class="mono">public</span> schema</span>
+    <span class="mono">sdp_dashboard · 78 tables · 2026-08-06</span>
+  </footer>
+</div>
+
+<script>
+const KEY = '<svg viewBox="0 0 24 24"><path d="M14 6a4 4 0 1 0-3.9 5H14v2h2v2h2v-2h2v-2h1v-2h-9.1A4 4 0 0 0 14 6zm-6 3a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/></svg>';
+const MODS = [
+  { key:'identity', badge:'Auth & Identity', hue:'--h-identity',
+    desc:'Users, roles, sessions, and the site register — the access + identity core.',
+    tables:[
+      ['users','id',25,'+ Entra SSO cols',0],['user_roles','user_id, role',78,'',0],
+      ['sessions','token',23,'live logins',0],['sites','id',13,'+ zoho_group',0],
+      ['site_module_codes','site_id, module',37,'cross-module code map',0],
+      ['rr_site_aliases','sdp_label',12,'Risk Register aliases',1],
+    ]},
+  { key:'helpdesk', badge:'Helpdesk · Zoho-synced', hue:'--h-helpdesk',
+    desc:'The hot path. Nightly Zoho sync; the largest table by far. Soft-linked to sites by code.',
+    tables:[
+      ['request_records','id',56589,'tickets + Major Incidents',0],
+      ['change_records','id',304,'changes / CAB',0],
+      ['survey_results','id',2541,'CSAT responses',0],
+      ['survey_answers','id',5246,'per-question answers',0],
+      ['helpdesk_data','id',153,'frozen report snapshots',0],
+      ['sync_metadata','job_name',4,'sync watermarks',1],
+    ]},
+  { key:'meetings', badge:'Meetings (md_)', hue:'--h-meetings',
+    desc:'Department-meeting PVs → issues → actions, with an audit thread and 11 bilingual lookups.',
+    tables:[
+      ['md_meetings','id',40,'signed PV header',0],['md_issues','id',132,'',0],
+      ['md_actions','id',78,'',0],['md_issue_updates','id',241,'audit thread',0],
+      ['md_action_updates','id',9,'',0],['md_meeting_projects','id',18,'',0],
+      ['md_meeting_attachments','id',0,'',0],
+      ['md_departments','code',17,'',1],['md_categories','code',9,'',1],
+      ['md_council_themes','code',6,'',1],['md_engagements','code',5,'',1],
+      ['md_escalation_reasons','code',6,'',1],['md_intake_sources','code',5,'',1],
+      ['md_it_involvement','code',5,'',1],['md_meeting_statuses','code',4,'',1],
+      ['md_project_phases','code',5,'',1],['md_severities','code',3,'',1],
+      ['md_statuses','code',6,'',1],
+    ]},
+  { key:'inspection', badge:'Inspection (insp_)', hue:'--h-inspection',
+    desc:'Site IT inspections → findings + corrective actions + photos/signatures; blobs on the filesystem.',
+    tables:[
+      ['insp_inspections','id',12,'',0],['insp_findings','id',678,'',0],
+      ['insp_actions','id',18,'corrective register',0],['insp_action_updates','id',0,'',0],
+      ['insp_photos','id',8,'blob refs',0],['insp_signatures','inspection_id, signer_type',16,'',0],
+      ['insp_areas','code',26,'',1],['insp_categories','code',17,'173 items',1],
+      ['insp_sites','code',10,'',1],['insp_types','code',6,'',1],
+    ]},
+  { key:'tracker', badge:'Activity Tracker (tracker_)', hue:'--h-tracker',
+    desc:'Per-year IT activity scoring. v2 tables are live (year-scoped); the legacy pair is a frozen archive.',
+    tables:[
+      ['tracker_activities','id',61,'',0],['tracker_pillars','id',8,'',0],
+      ['tracker_years','year',2,'',0],['tracker_config','id',1,'legacy config',0],
+      ['tracker_inputs_v2','year, site, activity_id',640,'live inputs',0],
+      ['tracker_targets_v2','year, site, activity_id',671,'live targets',0],
+      ['tracker_inputs','year, site, activity_ix',651,'legacy archive',1],
+      ['tracker_targets','site, activity_ix',341,'legacy archive',1],
+    ]},
+  { key:'assets', badge:'Assets (asset_ / software)', hue:'--h-assets',
+    desc:'Just migrated. 6 AP-synced tables (nightly full-replace) + 5 append-only capture tables that a re-sync can’t rebuild.',
+    tables:[
+      ['assets','asset_id',2528,'AP inventory',0],
+      ['asset_memory','memory_module_id',5151,'',0],
+      ['asset_logical_drives','drive_id',3693,'',0],
+      ['asset_monitors','workstation_id, monitor_id',3431,'',0],
+      ['software','software_id',9999,'licence compliance',0],
+      ['software_licenses','license_id',124,'',0],
+      ['asset_external_devices','source, device_key',18393,'AD/Entra/Defender · capture',0],
+      ['asset_effort_history','snapshot_date, site',198,'effort trend · capture',0],
+      ['asset_reconcile_history','snapshot_date',1,'capture',0],
+      ['asset_reconcile_decisions','device_key',0,'capture',0],
+      ['asset_import_log','— (append-only)',0,'capture',0],
+    ]},
+  { key:'reports', badge:'Weekly / Monthly reports', hue:'--h-reports',
+    desc:'The authored site-report suite: week/report headers with their infra KPIs, RAG lights, and action items.',
+    tables:[
+      ['weekly_reports','id',153,'',0],['monthly_reports','id',9,'',0],
+      ['weeks','id',18,'',0],['infra_kpis','id',1306,'',0],
+      ['infra_kpi_catalog','id',47,'',1],['lights','id',463,'RAG',0],
+      ['action_items','id',388,'',0],['action_departments','id',10,'',1],
+      ['annual_objectives','id',19,'',0],['cab_approvals','id',325,'',0],
+    ]},
+  { key:'config', badge:'Reporting-suite config', hue:'--h-config',
+    desc:'Delivery config for the scheduled reports — recipients, schedules, dedup send log, dashboard presets.',
+    tables:[
+      ['report_config','key',18,'k/v settings',0],['report_recipients','site_code',1,'',0],
+      ['report_schedules','report_type, cadence',0,'',0],['report_sent_log','id',0,'dedup / audit',0],
+      ['dashboard_preset_groups','scope, preset_name, group_name',52,'group presets',0],
+    ]},
+  { key:'exec', badge:'Exec surfaces & audit', hue:'--h-exec',
+    desc:'Editorial overrides for the exec views + the app-wide audit log.',
+    tables:[
+      ['audit_log','id',2936,'',0],['exec_report_editorial','period, scope',2,'',0],
+      ['exec_view_editorial','period',0,'',0],['exec_mi_summary','request_id',0,'AI MI cache',0],
+    ]},
+];
+const fmt = n => (typeof n==='number' ? n.toLocaleString('en-US') : n);
+const grid = document.getElementById('grid');
+for(const m of MODS){
+  const el = document.createElement('div');
+  el.className='mod'; el.style.setProperty('--hue',`var(${m.hue})`);
+  const rows = m.tables.map(([n,pk,rc,note,lk])=>`
+    <div class="row">
+      <div>
+        <div class="tname">${n}</div>
+        <div class="tmeta">
+          <span class="pk">${KEY}${pk}</span>
+          ${lk?'<span class="lk">lookup</span>':''}
+          ${note?`<span class="tnote">${note}</span>`:''}
+        </div>
+      </div>
+      <div class="rcount">${fmt(rc)}</div>
+    </div>`).join('');
+  el.innerHTML = `
+    <div class="mod-h">
+      <span class="badge">${m.badge}</span>
+      <span class="title"></span>
+      <span class="cnt">${m.tables.length} tables</span>
+    </div>
+    <p class="mod-desc">${m.desc}</p>
+    <div class="rows">${rows}</div>`;
+  grid.appendChild(el);
+}
+</script>

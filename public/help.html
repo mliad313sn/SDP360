@@ -168,6 +168,10 @@
       <a class="toc-sub" href="#en-14-1">Analyze (Quick) — standard</a>
       <a class="toc-sub" href="#en-14-2">Cloud / on-prem AI (optional)</a>
       <a href="#en-15">15. Public IT Status (SharePoint)</a>
+      <a href="#en-16">16. Architecture &amp; Database</a>
+      <a class="toc-sub" href="#en-16-1">One database, six modules</a>
+      <a class="toc-sub" href="#en-16-2">How the modules connect</a>
+      <a class="toc-sub" href="#en-16-3">Backup, rollback &amp; cohabitation</a>
     </div>
 
     <!-- Content -->
@@ -856,6 +860,42 @@
         <div class="info">ℹ️ SharePoint Quick Link target: <code>https://itops-dashboard.edv-ops.com/exec-view.html</code>. The page caches for 60 seconds server-side, so it stays fast even under heavy embed traffic.</div>
       </div>
 
+      <!-- 16 EN — Architecture & Database -->
+      <div class="section" id="en-16">
+        <h2><span class="section-num">16</span>Architecture &amp; Database</h2>
+        <p>A technical reference for administrators and IT. As of August 2026, after the SQLite&nbsp;→&nbsp;PostgreSQL migration completed (Assets was the last module, cut over on 6&nbsp;Aug&nbsp;2026), <strong>all six operational modules share a single PostgreSQL&nbsp;17 database</strong> named <code>sdp_dashboard</code>, hosted on the 4MyPeople-managed cluster. It is <em>not</em> a database-per-app — it is one database with a table-name prefix per module.</p>
+
+        <h3 id="en-16-1">16.1 One database, six modules</h3>
+        <p><strong>78 tables</strong> in total, grouped by module. The volumes below are indicative.</p>
+        <table>
+          <tr><th>Group</th><th>Prefix</th><th>Tables</th><th>Anchor tables</th></tr>
+          <tr><td>Auth &amp; Identity</td><td>—</td><td>6</td><td>sites, users, site_module_codes</td></tr>
+          <tr><td>Helpdesk (Zoho-synced)</td><td>—</td><td>6</td><td>request_records (~56k), change_records, survey_*</td></tr>
+          <tr><td>Meetings</td><td><code>md_</code></td><td>18</td><td>md_meetings → md_issues → md_actions</td></tr>
+          <tr><td>Inspection</td><td><code>insp_</code></td><td>10</td><td>insp_inspections → findings / actions / photos</td></tr>
+          <tr><td>Activity Tracker</td><td><code>tracker_</code></td><td>8</td><td>tracker_years → pillars → activities → inputs_v2</td></tr>
+          <tr><td>Assets</td><td><code>asset_</code> / <code>software</code></td><td>11</td><td>assets, software, + 5 capture tables</td></tr>
+          <tr><td>Weekly / Monthly reports</td><td>—</td><td>10</td><td>weeks → weekly_reports → infra_kpis / lights</td></tr>
+          <tr><td>Reporting config</td><td><code>report_</code></td><td>5</td><td>report_config, schedules, sent log</td></tr>
+          <tr><td>Exec surfaces &amp; audit</td><td><code>exec_</code></td><td>4</td><td>audit_log, editorial overrides</td></tr>
+        </table>
+
+        <h3 id="en-16-2">16.2 How the modules connect</h3>
+        <ul>
+          <li><strong>Two identity hubs</strong> — <code>sites</code> and <code>users</code> — are the only cross-module links. <code>site_module_codes</code> maps one site to its per-module code (Ity is <code>SMI</code> in Meetings but <code>ITY</code> in the Tracker).</li>
+          <li><strong>FK-linked internally</strong> — each module is a small tree: a meeting owns its issues, which own their actions; a report owns its KPIs, lights and action items.</li>
+          <li><strong>Soft-linked by code</strong> — Helpdesk hot data and Assets carry free-text site / group columns matched in application code, never a database foreign key. This is why site-name spelling consistency matters.</li>
+        </ul>
+
+        <h3 id="en-16-3">16.3 Backup, rollback &amp; cohabitation</h3>
+        <ul>
+          <li><strong>One backup unit</strong> — a single <code>pg_dump</code> of <code>sdp_dashboard</code> captures everything (<code>_sdp_admin</code> → option&nbsp;5).</li>
+          <li><strong>Per-module rollback</strong> — each module has a <code>*_BACKEND</code> flag; unsetting it and restarting falls back to that module's frozen SQLite archive.</li>
+          <li><strong>Cohabitation</strong> — <code>sdp_dashboard</code> is a peer of the 4MyPeople appliance database <code>fmp_v2</code> on the same cluster; the appliance's destructive operations are scoped to <code>fmp_*</code> and never touch the SDP database.</li>
+        </ul>
+        <div class="info">ℹ️ A live, always-current one-page visual map of all 78 tables — with primary keys and relationships — is maintained as a shareable "SDP Database Schema" reference. Ask IT for the link.</div>
+      </div>
+
     </div><!-- /content -->
   </div><!-- /doc-layout -->
 </div><!-- /sec-en -->
@@ -933,6 +973,10 @@
       <a class="toc-sub" href="#fr-14-1">Analyze (Quick) — standard</a>
       <a class="toc-sub" href="#fr-14-2">IA cloud / sur site (optionnelle)</a>
       <a href="#fr-15">15. Statut IT public (SharePoint)</a>
+      <a href="#fr-16">16. Architecture &amp; Base de données</a>
+      <a class="toc-sub" href="#fr-16-1">Une base, six modules</a>
+      <a class="toc-sub" href="#fr-16-2">Comment les modules se relient</a>
+      <a class="toc-sub" href="#fr-16-3">Sauvegarde &amp; retour arrière</a>
     </div>
 
     <div class="content">
@@ -1618,6 +1662,42 @@
           <li><strong>Éditorial</strong> — les admins définissent les Points forts et Axes du mois sur <code>reports.html#admin → Exec View</code>.</li>
         </ul>
         <div class="info">ℹ️ Cible du lien rapide SharePoint : <code>https://itops-dashboard.edv-ops.com/exec-view.html</code>. La page est mise en cache 60 secondes côté serveur, elle reste donc rapide même sous forte charge d'intégration.</div>
+      </div>
+
+      <!-- 16 FR — Architecture & Base de données -->
+      <div class="section" id="fr-16">
+        <h2><span class="section-num">16</span>Architecture &amp; Base de données</h2>
+        <p>Référence technique pour les administrateurs et l'IT. Depuis août 2026, après l'achèvement de la migration SQLite&nbsp;→&nbsp;PostgreSQL (Assets fut le dernier module, basculé le 6&nbsp;août&nbsp;2026), <strong>les six modules opérationnels partagent une seule base PostgreSQL&nbsp;17</strong> nommée <code>sdp_dashboard</code>, hébergée sur le cluster géré par 4MyPeople. Ce n'est <em>pas</em> une base par application — c'est une seule base avec un préfixe de table par module.</p>
+
+        <h3 id="fr-16-1">16.1 Une base, six modules</h3>
+        <p><strong>78 tables</strong> au total, regroupées par module. Les volumes ci-dessous sont indicatifs.</p>
+        <table>
+          <tr><th>Groupe</th><th>Préfixe</th><th>Tables</th><th>Tables pivot</th></tr>
+          <tr><td>Auth &amp; Identité</td><td>—</td><td>6</td><td>sites, users, site_module_codes</td></tr>
+          <tr><td>Helpdesk (sync Zoho)</td><td>—</td><td>6</td><td>request_records (~56k), change_records, survey_*</td></tr>
+          <tr><td>Réunions</td><td><code>md_</code></td><td>18</td><td>md_meetings → md_issues → md_actions</td></tr>
+          <tr><td>Inspection</td><td><code>insp_</code></td><td>10</td><td>insp_inspections → findings / actions / photos</td></tr>
+          <tr><td>Suivi des Activités</td><td><code>tracker_</code></td><td>8</td><td>tracker_years → pillars → activities → inputs_v2</td></tr>
+          <tr><td>Assets</td><td><code>asset_</code> / <code>software</code></td><td>11</td><td>assets, software, + 5 tables de capture</td></tr>
+          <tr><td>Rapports hebdo / mensuel</td><td>—</td><td>10</td><td>weeks → weekly_reports → infra_kpis / lights</td></tr>
+          <tr><td>Config reporting</td><td><code>report_</code></td><td>5</td><td>report_config, planifications, journal d'envoi</td></tr>
+          <tr><td>Surfaces exec &amp; audit</td><td><code>exec_</code></td><td>4</td><td>audit_log, éditoriaux</td></tr>
+        </table>
+
+        <h3 id="fr-16-2">16.2 Comment les modules se relient</h3>
+        <ul>
+          <li><strong>Deux hubs d'identité</strong> — <code>sites</code> et <code>users</code> — sont les seuls liens inter-modules. <code>site_module_codes</code> mappe un site vers son code par module (Ity est <code>SMI</code> dans Réunions mais <code>ITY</code> dans le Suivi).</li>
+          <li><strong>Liés par FK en interne</strong> — chaque module est un petit arbre : une réunion possède ses issues, qui possèdent leurs actions ; un rapport possède ses KPIs, lights et actions.</li>
+          <li><strong>Liés par code (sans FK)</strong> — le hot data Helpdesk et les Assets portent des colonnes site / groupe en texte libre, rapprochées dans le code applicatif, jamais par une clé étrangère. D'où l'importance de l'orthographe cohérente des noms de site.</li>
+        </ul>
+
+        <h3 id="fr-16-3">16.3 Sauvegarde, retour arrière &amp; cohabitation</h3>
+        <ul>
+          <li><strong>Une seule unité de sauvegarde</strong> — un <code>pg_dump</code> de <code>sdp_dashboard</code> capture tout (<code>_sdp_admin</code> → option&nbsp;5).</li>
+          <li><strong>Retour arrière par module</strong> — chaque module a un flag <code>*_BACKEND</code> ; le retirer et redémarrer revient à l'archive SQLite gelée de ce module.</li>
+          <li><strong>Cohabitation</strong> — <code>sdp_dashboard</code> est un pair de la base <code>fmp_v2</code> de l'appliance 4MyPeople sur le même cluster ; les opérations destructrices de l'appliance sont limitées à <code>fmp_*</code> et ne touchent jamais la base SDP.</li>
+        </ul>
+        <div class="info">ℹ️ Une carte visuelle d'une page, toujours à jour, des 78 tables — avec clés primaires et relations — est maintenue comme référence partageable « Schéma de la base SDP ». Demandez le lien à l'IT.</div>
       </div>
 
     </div><!-- /content -->
