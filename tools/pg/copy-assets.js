@@ -31,18 +31,38 @@ const TABLES = [
     'installations_allowed','available_for_allocation','allocated_to_downgrades','purchased',
     'allocated','purchased_cal','compliance_type','software_category','software_type',
   ], ['software_id']],
+  // ── IRREPLACEABLE capture tables — append-only / point-in-time. Unlike the 6
+  // AP-synced tables above, these CANNOT be rebuilt by a re-sync, so the cutover
+  // MUST copy them or the effort/reconcile history is lost forever. ────────────
+  ['asset_effort_history', [
+    'snapshot_date','site','total','no_cost','no_age','no_owner','never_scanned',
+    'no_asset_tag','discovered','ghost','cost_pct','age_pct','owner_pct','scan_pct',
+    'tag_pct','enrolled_pct','effort_score',
+  ], ['snapshot_date','site']],
+  ['asset_reconcile_history', [
+    'snapshot_date','gaps_open','gaps_decided','sites_touched','ous_touched',
+    'retirement_candidates','retirement_applicable','sources_present','by_site_json','captured_by',
+  ], ['snapshot_date']],
+  ['asset_reconcile_decisions', ['device_key','decision','reason','decided_by','decided_at'], ['device_key']],
+  ['asset_external_devices', [
+    'source','device_key','device_name','dns_name','os','os_version','last_seen',
+    'enabled','join_type','ou_dn','model','raw_json','import_id','imported_at',
+  ], ['source','device_key']],
+  // asset_import_log has NO primary key (append-only log) — copied only into an
+  // empty target (re-run guard below) so a second run can't duplicate the log.
+  ['asset_import_log', ['source','imported_at','row_count','dated_count','imported_by'], []],
 ];
 
 function _upsertSql(table, cols, pk) {
   const ph = cols.map(() => '?').join(', ');
-  const setCols = cols.filter(c => !pk.includes(c));
-  const setClause = setCols.length
-    ? setCols.map(c => `${c}=EXCLUDED.${c}`).join(', ')
-    : null;
-  const conflict = setClause
-    ? `ON CONFLICT (${pk.join(',')}) DO UPDATE SET ${setClause}`
-    : `ON CONFLICT (${pk.join(',')}) DO NOTHING`;
-  return `INSERT INTO ${table} (${cols.join(', ')}) VALUES (${ph}) ${conflict}`;
+  let conflict = '';
+  if (pk && pk.length) {   // no PK (append-only log) → plain INSERT, no ON CONFLICT
+    const setCols = cols.filter(c => !pk.includes(c));
+    conflict = setCols.length
+      ? `ON CONFLICT (${pk.join(',')}) DO UPDATE SET ${setCols.map(c => `${c}=EXCLUDED.${c}`).join(', ')}`
+      : `ON CONFLICT (${pk.join(',')}) DO NOTHING`;
+  }
+  return `INSERT INTO ${table} (${cols.join(', ')}) VALUES (${ph}) ${conflict}`.trim();
 }
 
 // Copy from an open better-sqlite3 handle into a connected pgDb. Returns row counts.
@@ -56,10 +76,30 @@ async function copyAssets(sqlitePath, pg) {
         let rows = [];
         try { rows = sdb.prepare(`SELECT ${cols.join(', ')} FROM ${table}`).all(); }
         catch (_) { rows = []; }                 // table absent in this sqlite snapshot → skip
+        // Append-only tables with NO PK aren't idempotent — copy them only into
+        // an EMPTY target so a second run can't duplicate the log.
+        if (rows.length && (!pk || pk.length === 0)) {
+          const ex = await pg.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get();
+          if (ex && Number(ex.n) > 0) {
+            counts[table] = { copied: 0, skipped: rows.length, note: 'target not empty' };
+            console.warn(`[copy-assets] ${table}: target already has ${ex.n} row(s) — skipped (append-only re-run guard)`);
+            continue;
+          }
+        }
         const sql = _upsertSql(table, cols, pk);
         const ins = pg.prepare(sql);
-        for (const r of rows) await ins.run(...cols.map(c => r[c]));
-        counts[table] = rows.length;
+        let copied = 0, skipped = 0;
+        for (const r of rows) {
+          // A row with a NULL/empty primary key can't be inserted (PG rejects
+          // the NOT-NULL PK) and would abort the WHOLE transaction — one
+          // malformed AP-export row must not block the entire cutover. Skip it
+          // and log the count instead.
+          if (pk.some(k => r[k] === null || r[k] === undefined || r[k] === '')) { skipped++; continue; }
+          await ins.run(...cols.map(c => r[c]));
+          copied++;
+        }
+        counts[table] = { copied, skipped };
+        if (skipped) console.warn(`[copy-assets] ${table}: skipped ${skipped} row(s) with a NULL/empty primary key`);
       }
     });
   } finally { sdb.close(); }
