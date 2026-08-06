@@ -6997,6 +6997,45 @@ app.post('/api/tracker/save', requireReportSession, requireRole(['super_admin', 
   }
 });
 
+// POST /api/tracker/import-dept-meetings — Piste 1 (2026-08-05): pull the REAL
+// per-month departmental-meeting (PV) counts from the Meetings module into the
+// tracker's "Monthly Department Meeting" activity for {year, site}. Reversible:
+// writes ONLY that one activity's 12-month input (value stays editable after).
+// Same RBAC as save — a tracker-editor may only import for its OWN site.
+app.post('/api/tracker/import-dept-meetings', requireReportSession, requireRole(['super_admin', 'tracker-admin', 'tracker-editor']), async (req, res) => {
+  try {
+    if (!trackerDb) return res.status(503).json({ error: 'Tracker module not available' });
+    const meetingsDb = require('./meetings-db');
+    const { trackerToMeetingsCode, deptMeetingCounts } = require('./services/deptMeetingsTracker');
+
+    const year = parseInt(req.body?.year, 10);
+    const site = String(req.body?.site || '').trim().toUpperCase();
+    if (!Number.isFinite(year) || !site) return res.status(400).json({ error: 'year and site are required' });
+
+    // tracker-editor is scoped to its own site (mirrors /api/tracker/save).
+    const isUnrestricted = rdb.userHasRole(req.reportUser, 'super_admin') || rdb.userHasRole(req.reportUser, 'tracker-admin');
+    if (!isUnrestricted) {
+      const sites = await rdb.listSites();
+      const own = trackerDb.siteNameToCode((sites.find(s => s.id === req.reportUser.site_id) || {}).name || null);
+      if (!own) return res.status(403).json({ error: 'Your account has no site assigned.' });
+      if (own !== site) return res.status(403).json({ error: `You may only import for your own site (${own}).` });
+    }
+
+    const meetingsCode = trackerToMeetingsCode(site);
+    if (!meetingsCode) return res.status(400).json({ error: `No Meetings module for site "${site}" — nothing to import.` });
+
+    const { months } = await deptMeetingCounts({ trackerCode: site, year, countFn: (o) => meetingsDb.countMeetings(o) });
+    const r = await trackerDb.setActivityMonthsByName(year, site, 'Monthly Department Meeting', months);
+    if (!r || !r.ok) return res.status(404).json({ error: 'Tracker has no "Monthly Department Meeting" activity for this year.' });
+
+    console.log(`[Tracker] import-dept-meetings user=${req.reportUser?.username || '?'} site=${site} year=${year} months=${JSON.stringify(months)}`);
+    res.json({ ok: true, site, year, meetingsCode, months, total: months.reduce((a, b) => a + b, 0) });
+  } catch (e) {
+    console.error('[Tracker] import-dept-meetings error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // POST /api/tracker/export — generate PPTX server-side and return as download
 // Requires executive or super_admin role (same as exec report export)
 app.post('/api/tracker/export', requireReportSession, requireAdmin, async (req, res) => {
