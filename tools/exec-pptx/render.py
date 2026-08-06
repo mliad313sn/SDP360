@@ -2234,7 +2234,8 @@ if _tr_months and _tr_pillars:
 # scoring-v2 governance block (services/deckGovernanceV2.js). The
 # classic deck above is byte-identical without this block.
 # ====================================================================
-if DECK == 'v14':
+_GOV_PROBE = (K.get('governance') or {}).get('scoreboard') or {}
+if DECK == 'v14' and (_GOV_PROBE.get('rows') or []):
     GOV = K.get('governance') or {}
     _SB = GOV.get('scoreboard') or {}
     _SBROWS = _SB.get('rows') or []
