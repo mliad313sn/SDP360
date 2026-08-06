@@ -907,7 +907,31 @@ function InputPanel({ D, S, setS, roles, onMutate }) {
   const [site, setSite] = useState(initialSite);
 
   const canSave = roles.CAN_SAVE;
+  const [importing, setImporting] = useState(false);
   const tg = D.targets?.[site] || [];
+
+  // Piste 1 — pull the REAL departmental-meeting counts from the Meetings
+  // module into the "Monthly Department Meeting" row for this site + year.
+  // On success we write the returned 12-month array straight into D (immediate
+  // UI + score update; the server already persisted it). Still fully editable
+  // afterward. Sites with no Meetings module (Exploration/Tanda) 400 → alert.
+  async function importDeptMeetings() {
+    if (!window.confirm('Import the real departmental-meeting counts from the Meetings module into the '
+      + '"Monthly Department Meeting" row for ' + site + ' / ' + S.year + '? This overwrites that row '
+      + '(it stays editable afterward).')) return;
+    setImporting(true);
+    try {
+      const res = await window.TRApi.importDeptMeetings(S.year, site);
+      const ai = D.activities.findIndex(a => /monthly department meeting/i.test(a.name || ''));
+      if (ai >= 0 && Array.isArray(res.months)) {
+        res.months.forEach((v, mi) => TR.si2(D, S.year, site, ai, mi, v));
+        onMutate();
+      }
+      window.alert('Imported ' + (res.total || 0) + ' meeting(s) for ' + site + ' (' + S.year + ') from the Meetings module.');
+    } catch (e) {
+      window.alert('Import failed: ' + (e.message || ''));
+    } finally { setImporting(false); }
+  }
 
   function setCell(ai, mi, raw) {
     // BOOLEAN cells: parse 0 / 0.5 / 1 only. Others: float.
@@ -933,6 +957,18 @@ function InputPanel({ D, S, setS, roles, onMutate }) {
       )}
       <div className="ip-toolbar">
         <SitePicker D={D} value={site} onChange={setSite} lockSite={lockSite} />
+        {canSave && (
+          <button
+            type="button"
+            className="tt-btn tt-btn--ghost"
+            disabled={importing}
+            onClick={importDeptMeetings}
+            title="Pull the real departmental-meeting counts from the Meetings module into the Monthly Department Meeting row (still editable after)"
+            style={{ whiteSpace: 'nowrap' }}
+          >
+            {importing ? '⏳ Importing…' : '⬇ Import dept meetings'}
+          </button>
+        )}
         <span className="ip-legend">
           <b style={{ color: 'var(--tracker-p3)' }}>BOOLEAN:</b> 0 = Not Started · 0.5 = In Progress · 1 = Done
           {'  ·  '}

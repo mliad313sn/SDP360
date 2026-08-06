@@ -94,5 +94,21 @@
     return r.json();
   }
 
-  global.TRApi = { load, save, reset, exportPptx, previewDeleteYear, deleteYear };
+  // Piste 1 — pull the real per-month departmental-meeting counts from the
+  // Meetings module into the tracker's "Monthly Department Meeting" activity
+  // for {year, site}. Reversible: writes only that one activity's input.
+  async function importDeptMeetings(year, site) {
+    const r = await fetch('/api/tracker/import-dept-meetings', {
+      method: 'POST', credentials: 'same-origin',
+      headers: headers(true),
+      body: JSON.stringify({ year, site }),
+    });
+    if (!r.ok) {
+      const e = await r.json().catch(() => ({}));
+      throw new Error(e.error || ('HTTP ' + r.status));
+    }
+    return r.json();
+  }
+
+  global.TRApi = { load, save, reset, exportPptx, previewDeleteYear, deleteYear, importDeptMeetings };
 })(window);

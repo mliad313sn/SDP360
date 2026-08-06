@@ -1829,4 +1829,42 @@ function deleteTrackerYear(year) {
   };
 }
 
-module.exports = { loadTracker, saveTracker, resetTracker, deleteTrackerYear, previewDeleteTrackerYear, backupDatabase, siteNameToCode, getActivityCode, TRACKER_BACKEND, initPgTracker, pgHandle };
+// ── Targeted per-activity input writer (Piste 1 — auto-import dept meetings) ──
+// Upserts the 12-month array for ONE (year, site, activity-by-name) into
+// tracker_inputs_v2, WITHOUT touching any other row. Used by
+// POST /api/tracker/import-dept-meetings to write the real Meetings-module
+// counts into the "Monthly Department Meeting" activity. Returns
+// { ok, activity_id, year, site, months } or { ok:false, reason }.
+function _setActivityMonthsSqlite(year, siteCode, activityName, months) {
+  const db = getDB();
+  const act = db.prepare(`
+    SELECT a.id FROM tracker_activities a JOIN tracker_pillars p ON p.id = a.pillar_id
+    WHERE p.year = ? AND lower(a.name) = lower(?) ORDER BY a.display_order, a.id LIMIT 1`
+  ).get(year, activityName);
+  if (!act) return { ok: false, reason: 'activity-not-found', activityName, year };
+  db.prepare(`
+    INSERT INTO tracker_inputs_v2 (year, site, activity_id, months_json) VALUES (?, ?, ?, ?)
+    ON CONFLICT (year, site, activity_id) DO UPDATE SET months_json=excluded.months_json, updated_at=datetime('now')`
+  ).run(year, siteCode, act.id, JSON.stringify(months));
+  return { ok: true, activity_id: act.id, year, site: siteCode, months };
+}
+async function _setActivityMonthsPg(year, siteCode, activityName, months) {
+  const h = pgHandle();
+  const act = await h.prepare(`
+    SELECT a.id FROM tracker_activities a JOIN tracker_pillars p ON p.id = a.pillar_id
+    WHERE p.year = ? AND lower(a.name) = lower(?) ORDER BY a.display_order, a.id LIMIT 1`
+  ).get(year, activityName);
+  if (!act) return { ok: false, reason: 'activity-not-found', activityName, year };
+  await h.prepare(`
+    INSERT INTO tracker_inputs_v2 (year, site, activity_id, months_json) VALUES (?, ?, ?, ?)
+    ON CONFLICT (year, site, activity_id) DO UPDATE SET months_json=EXCLUDED.months_json, updated_at=now()`
+  ).run(year, siteCode, act.id, JSON.stringify(months));
+  return { ok: true, activity_id: act.id, year, site: siteCode, months };
+}
+function setActivityMonthsByName(year, siteCode, activityName, months) {
+  return TRACKER_BACKEND === 'postgres'
+    ? _setActivityMonthsPg(year, siteCode, activityName, months)
+    : _setActivityMonthsSqlite(year, siteCode, activityName, months);
+}
+
+module.exports = { loadTracker, saveTracker, resetTracker, deleteTrackerYear, previewDeleteTrackerYear, backupDatabase, siteNameToCode, getActivityCode, setActivityMonthsByName, getDB, TRACKER_BACKEND, initPgTracker, pgHandle };
