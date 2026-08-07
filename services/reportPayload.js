@@ -706,6 +706,44 @@ async function _governance(browserPayload, filters) {
   }
 }
 
+// ── v14 deck — Site Impact block (slide 7) ────────────────────────────────
+function _autoOperatingContext(si) {
+  const c = (si && si.cards) || {};
+  const out = [];
+  if (c.most_stretched) out.push(c.most_stretched.name + ': ' + c.most_stretched.caption + '.');
+  if (c.under_dual_pressure) out.push(c.under_dual_pressure.name + ': ' + c.under_dual_pressure.caption + '.');
+  if (c.proof) out.push(c.proof.name + ': ' + c.proof.caption + ' — the standard.');
+  return out;
+}
+function _autoSiteImpactFooter(si) {
+  const c = (si && si.cards) || {};
+  return [
+    c.most_stretched ? (c.most_stretched.name + ' carries ' + c.most_stretched.caption + ' — a capacity gap, not a capability one.') : '',
+    c.proof ? (c.proof.name + ' shows the standard: ' + c.proof.caption + '.') : '',
+  ].filter(Boolean);
+}
+async function _siteImpact(browserPayload, monthName, year, monthIdx) {
+  try {
+    const mm = String(monthIdx).padStart(2, '0');
+    const from = `${year}-${mm}-01`;
+    const to = `${year}-${mm}-31`;   // substr(created_time,1,10) BETWEEN — 31 is a safe upper bound
+    const perSite = await reportsDb.getSiteImpactCounts(from, to);
+    const ed = (browserPayload.site_impact_editorial && typeof browserPayload.site_impact_editorial === 'object')
+      ? browserPayload.site_impact_editorial : {};
+    const si = require('./deckSiteImpact').buildSiteImpact(perSite, { prizeDeltaPP: ed.prize_delta_pp });
+    if (!si.rows.length) return null;   // no data → render.py skips slide 7
+    return {
+      ...si,
+      month_label: `${monthName} ${year}`,
+      operating_context: Array.isArray(ed.operating_context) ? ed.operating_context : _autoOperatingContext(si),
+      footer: Array.isArray(ed.footer) ? ed.footer : _autoSiteImpactFooter(si),
+    };
+  } catch (e) {
+    console.error('[reportPayload] site_impact block failed:', e && e.message);
+    return null;
+  }
+}
+
 // ── Public — build() merges DB enrichment over the browser payload ────────
 async function build(browserPayload) {
   const filters = browserPayload.filters || {};
@@ -745,7 +783,9 @@ async function build(browserPayload) {
   // v14 deck — Governance (slides 13/14). Only computed for deck='v14'
   // (loadReviewData is a heavier query); null otherwise → render.py skips them.
   const deck = String(browserPayload.deck || 'classic').toLowerCase();
-  const governance = deck === 'v14' ? await _governance(browserPayload, dbFilters) : null;
+  const [governance, site_impact] = deck === 'v14'
+    ? await Promise.all([_governance(browserPayload, dbFilters), _siteImpact(browserPayload, monthName, year, monthIdx)])
+    : [null, null];
 
   // Assemble final payload. Browser fields take precedence so the
   // operator can override anything via the dashboard UI.
@@ -799,6 +839,7 @@ async function build(browserPayload) {
     // Absent/'classic' → render.py builds the classic deck unchanged.
     deck,
     governance,
+    site_impact,
 
     // Operator overrides (browser → DB → defaults)
     commentary: (browserPayload.commentary || {}),

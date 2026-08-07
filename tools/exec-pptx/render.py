@@ -2234,6 +2234,86 @@ if _tr_months and _tr_pillars:
 # scoring-v2 governance block (services/deckGovernanceV2.js). The
 # classic deck above is byte-identical without this block.
 # ====================================================================
+# Shared navy rounded footer for the v14 slides (bullets, editorial).
+def _v14_footer(slide, bullets, y=6.15, h=0.88):
+    add_rect(slide, Inches(0.4), Inches(y), Inches(12.55), Inches(h), DARK_NAVY, shape=MSO_SHAPE.ROUNDED_RECTANGLE)
+    lines = [('•  ' + str(b), 9.5, False, WHITE) for b in (bullets or [])[:3]]
+    if lines:
+        add_multi_text(slide, Inches(0.65), Inches(y + 0.06), Inches(12.05), Inches(h - 0.12),
+                       lines, anchor=MSO_ANCHOR.MIDDLE, line_space=1.15)
+
+# ====================================================================
+# v14 DECK — SLIDE 7 Site Impact Analysis (HELP DESK). Guarded on its
+# own data so it renders independently of the Governance slides.
+# ====================================================================
+_SI = K.get('site_impact') or {}
+if DECK == 'v14' and (_SI.get('rows') or []):
+    _si_cards = _SI.get('cards') or {}
+    _si_miss = _SI.get('missBars') or []
+    _si_inc = _SI.get('incidentBars') or []
+    _si_fleet = _SI.get('fleet_incident_pct', 0)
+
+    def _draw_si_miss(ax):
+        rows = list(reversed(_si_miss))
+        yy = list(range(len(rows)))
+        hh = 0.38
+        ax.barh([y + hh / 2 for y in yy], [r.get('miss_pct', 0) for r in rows], height=hh, color='#DC2626', label='Missed deadlines')
+        ax.barh([y - hh / 2 for y in yy], [r.get('workload_pct', 0) for r in rows], height=hh, color='#1A3A5F', label='Workload (tickets)')
+        for y, r in zip(yy, rows):
+            ax.text(r.get('miss_pct', 0) + 1, y + hh / 2, str(r.get('miss_pct', 0)) + '%', va='center', fontsize=7, color='#DC2626', fontweight='bold')
+            ax.text(r.get('workload_pct', 0) + 1, y - hh / 2, str(r.get('workload_pct', 0)) + '%', va='center', fontsize=7, color='#1A3A5F')
+        ax.set_yticks(yy); ax.set_yticklabels([r.get('name', '') for r in rows], fontsize=8)
+        ax.set_xlim(0, max([r.get('miss_pct', 0) for r in rows] + [10]) * 1.3)
+        ax.legend(fontsize=7, loc='lower right', frameon=False); ax.tick_params(labelsize=7)
+        for sp in ('top', 'right'):
+            ax.spines[sp].set_visible(False)
+
+    def _draw_si_inc(ax):
+        bars = _si_inc
+        xs = list(range(len(bars)))
+        cols = ['#E87722' if b.get('above') else '#1A3A5F' for b in bars]
+        ax.bar(xs, [b.get('incident_pct', 0) for b in bars], color=cols, width=0.62)
+        for x, b in zip(xs, bars):
+            ax.text(x, b.get('incident_pct', 0) + 0.4, str(b.get('incident_pct', 0)) + '%', ha='center', fontsize=6.5, color='#1A3A5F')
+        ax.axhline(_si_fleet, color='#888888', ls='--', lw=1)
+        ax.text(len(bars) - 0.4, _si_fleet + 0.4, 'Fleet avg ' + str(_si_fleet) + '%', ha='right', fontsize=7, color='#666666')
+        ax.set_xticks(xs); ax.set_xticklabels([b.get('name', '') for b in bars], fontsize=7, rotation=25, ha='right')
+        ax.tick_params(labelsize=7)
+        for sp in ('top', 'right'):
+            ax.spines[sp].set_visible(False)
+
+    s = prs.slides.add_slide(BLANK)
+    header_band(s, "Site Impact Analysis", "HELP DESK", PERIOD_SHORT)
+    add_text(s, Inches(0.4), Inches(1.05), Inches(9.0), Inches(0.35),
+             "Which Sites Move the Needle — Resolution & Incidents, %s" % (_SI.get('month_label') or PERIOD_LONG),
+             size=13, bold=True, color=NAVY)
+    _card_defs = [
+        ('MOST STRETCHED TEAM', _si_cards.get('most_stretched'), RED),
+        ('UNDER DUAL PRESSURE', _si_cards.get('under_dual_pressure'), ORANGE),
+        ('PROOF IT CAN BE DONE', _si_cards.get('proof'), GREEN),
+        ('THE PRIZE', _si_cards.get('the_prize'), BLUE),
+    ]
+    _cw = 3.02
+    for i, (label, card, accent) in enumerate(_card_defs):
+        cx = 0.4 + i * (_cw + 0.12)
+        add_rect(s, Inches(cx), Inches(1.5), Inches(0.08), Inches(1.15), accent)
+        add_rect(s, Inches(cx + 0.08), Inches(1.5), Inches(_cw - 0.08), Inches(1.15), WHITE, line=RGBColor(0xE5, 0xE7, 0xEB))
+        add_text(s, Inches(cx + 0.2), Inches(1.58), Inches(_cw - 0.3), Inches(0.22), label, size=8, bold=True, color=NAVY)
+        val = ((card.get('name') if card and card.get('name') else (card.get('value') if card else None)) or '—')
+        add_text(s, Inches(cx + 0.2), Inches(1.82), Inches(_cw - 0.3), Inches(0.42), val, size=22, bold=True, color=accent)
+        add_text(s, Inches(cx + 0.2), Inches(2.28), Inches(_cw - 0.3), Inches(0.34), (card.get('caption') if card else '') or '', size=7.5, color=GRAY)
+    s.shapes.add_picture(_chart('si_miss', figsize=(4.6, 3.0), data_fn=_draw_si_miss, title='Missed deadlines vs workload'),
+                         Inches(0.4), Inches(2.85), width=Inches(4.6), height=Inches(2.95))
+    s.shapes.add_picture(_chart('si_inc', figsize=(4.2, 3.0), data_fn=_draw_si_inc, title='Incidents as share of site tickets'),
+                         Inches(5.1), Inches(2.85), width=Inches(4.3), height=Inches(2.95))
+    add_rect(s, Inches(9.55), Inches(2.85), Inches(3.4), Inches(2.95), LIGHTER_GRAY, line=RGBColor(0xE5, 0xE7, 0xEB))
+    add_text(s, Inches(9.72), Inches(2.95), Inches(3.1), Inches(0.25), "OPERATING CONTEXT", size=9, bold=True, color=NAVY)
+    _si_ctx = _SI.get('operating_context') or []
+    add_multi_text(s, Inches(9.72), Inches(3.28), Inches(3.15), Inches(2.4),
+                   ([('•  ' + str(x), 8, False, CHARCOAL) for x in _si_ctx[:6]] or [('—', 8, False, GRAY)]), line_space=1.12)
+    _v14_footer(s, _SI.get('footer'))
+    footer_bar(s, 17)
+
 _GOV_PROBE = (K.get('governance') or {}).get('scoreboard') or {}
 if DECK == 'v14' and (_GOV_PROBE.get('rows') or []):
     GOV = K.get('governance') or {}
@@ -2250,14 +2330,6 @@ if DECK == 'v14' and (_GOV_PROBE.get('rows') or []):
     PT_BG = {2: RGBColor(0xDC, 0xEF, 0xE2), 1: RGBColor(0xF5, 0xE7, 0xC8), 0: RGBColor(0xFD, 0xE0, 0xE0)}
     COL_PTKEY = {'Meet': 'meetings', 'Capture·Closed': 'capture', 'Overdue': 'overdue',
                  'Insp': 'inspections', 'Find·Fix': 'findfix', 'Sign-off': 'signoff'}
-
-    def _gov_footer(slide, bullets, y=6.15, h=0.88):
-        add_rect(slide, Inches(0.4), Inches(y), Inches(12.55), Inches(h), DARK_NAVY,
-                 shape=MSO_SHAPE.ROUNDED_RECTANGLE)
-        lines = [('•  ' + str(b), 9.5, False, WHITE) for b in (bullets or [])[:3]]
-        if lines:
-            add_multi_text(slide, Inches(0.65), Inches(y + 0.06), Inches(12.05), Inches(h - 0.12),
-                           lines, anchor=MSO_ANCHOR.MIDDLE, line_space=1.15)
 
     # ---------- SLIDE 13 — Site Position & Effort Scoreboard ----------
     def _draw_gov_composite(ax):
@@ -2334,7 +2406,7 @@ if DECK == 'v14' and (_GOV_PROBE.get('rows') or []):
              "% of high/critical closed.  Scoring v2: an inspection programme that finds nothing scores RED, "
              "not GREEN.  Ground rules: 3 meetings/month · 1 incubation · 1 inspection; a miss caps at AMBER (*).")
     add_text(s, Inches(0.4), Inches(ry + 0.08), Inches(8.6), Inches(0.9), _note, size=8, italic=True, color=GRAY)
-    _gov_footer(s, GOV.get('scoreboard_footer'))
+    _v14_footer(s, GOV.get('scoreboard_footer'))
     footer_bar(s, 15)
 
     # ---------- SLIDE 14 — Effort Matrix & Two Moves ----------
@@ -2411,7 +2483,7 @@ if DECK == 'v14' and (_GOV_PROBE.get('rows') or []):
         add_text(s, Inches(10.45), Inches(my + 0.03), Inches(2.5), Inches(ch - 0.12), txt, size=7, color=CHARCOAL,
                  anchor=MSO_ANCHOR.MIDDLE)
         my += ch
-    _gov_footer(s, GOV.get('effort_footer'))
+    _v14_footer(s, GOV.get('effort_footer'))
     footer_bar(s, 16)
 
 # ── Save to stdout (Node spawn contract) ──────────────────────────────
