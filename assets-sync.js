@@ -38,20 +38,6 @@ async function syncAssetView(def, { fetchView, replaceTable, countRows, markSucc
   try {
     const raw = await fetchAll(def.viewId, fetchView, { maxRows: def.maxRows || 20000 });
     const mapped = raw.map(r => DEFAULT_MAP(r, def)).filter(m => m[def.pkCol]);   // drop rows missing PK
-    // [assets-debug] Temporary instrumentation for the acquisition-date-not-syncing
-    // investigation (2026-08-07). Reveals the EXACT column headers the /data API
-    // returns and where acquisition_date is lost (raw-fetch vs after-map). Scoped to
-    // the assets view only. Remove once diagnosed.
-    if (def.name === 'assets') {
-      const hdrs = raw.length ? Object.keys(raw[0]) : [];
-      const nonEmpty = (rows, key) => rows.filter(r => ((r[key] ?? '').toString().trim())).length;
-      console.log(`[assets-debug] headers(${hdrs.length}): ${hdrs.join(' | ')}`);
-      console.log(`[assets-debug] rawRows=${raw.length} ` +
-        `raw['Acquisition Date']filled=${nonEmpty(raw, 'Acquisition Date')} ` +
-        `raw['Months Since Acquisition']filled=${nonEmpty(raw, 'Months Since Acquisition')} ` +
-        `raw['Purchase Cost($)']filled=${nonEmpty(raw, 'Purchase Cost($)')} ` +
-        `mapped.acquisition_date filled=${nonEmpty(mapped, 'acquisition_date')}`);
-    }
     // C1 guard: a fetch that returns [] WITHOUT throwing (header-only CSV body, transient AP glitch,
     // a view mid-rescan) would otherwise DELETE the live table and insert nothing — total silent data
     // loss recorded as a clean sync. Refuse to full-replace a currently-POPULATED table with zero rows.
