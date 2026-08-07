@@ -637,6 +637,113 @@ function _tracker(filters) {
   return out;
 }
 
+// ── v14 deck — Governance block (slides 13/14) ────────────────────────────
+// Meetings site-code → friendly name for the scoreboard table. In-code (like
+// scoreboardAliases) — the 5 governance sites are stable; falls back to code.
+const _GOV_NAMES = { SML: 'Lafigué', SMI: 'Ity', HGO: 'Houndé', MGO: 'Mana', SGO: 'Sabodala',
+                     DKR: 'Dakar', ABJ: 'Abidjan', OUA: 'Ouaga', KGO: 'Kalana' };
+
+// Roadmap Δpp per meetings-code, derived from the browser's tracker block
+// (tracker codes → meetings codes). Best-effort; {} if unavailable.
+function _govRoadmap(browserPayload) {
+  try {
+    const { trackerToMeetingsCode } = require('./deptMeetingsTracker');
+    const sites = (browserPayload.tracker && browserPayload.tracker.sites) || [];
+    const out = {};
+    sites.forEach((s) => {
+      const mc = trackerToMeetingsCode(s.code);
+      if (mc && s.delta_pp != null) out[mc] = Math.round(s.delta_pp);
+    });
+    return out;
+  } catch (_) { return {}; }
+}
+
+// Deterministic default footers (used when the operator hasn't authored them).
+function _autoScoreboardFooter(sb) {
+  const rows = (sb && sb.rows) || [];
+  if (!rows.length) return [];
+  const top = rows[0];
+  return [
+    'Scoring v2 rewards finding & fixing: sites that log what they find and close it score GREEN; inspections that report "all fine" every visit are treated as a warning sign.',
+    top ? (top.name + ' leads at ' + top.score + '/100' + (top.groundRules === 'PASS' ? ' — all ground rules met.' : '.')) : '',
+    'Group average ' + (sb.groupAvg != null ? sb.groupAvg : '—') + '/100  ·  GREEN ≥70 · AMBER 45–69 · RED <45.',
+  ].filter(Boolean);
+}
+function _autoEffortFooter() {
+  return [
+    'How to read this: sites to the right close more of what they log; lower means fewer late commitments; bigger bubbles held more meetings.',
+    'Each site\'s two moves are its biggest available point gains — clear the reds first.',
+  ];
+}
+
+// Compose the governance block from live review data. Returns null on any
+// failure so render.py degrades gracefully (skips slides 13/14).
+async function _governance(browserPayload, filters) {
+  try {
+    const { loadReviewData } = require('./reviewData');
+    const { buildScoreboardV2, buildEffortMatrixV2, ANCHOR } = require('./deckGovernanceV2');
+    const asOf = ANCHOR;                       // programme as-of (the deck's Apr–Jul window)
+    const D = await loadReviewData(asOf);
+    const ed = (browserPayload.governance_editorial && typeof browserPayload.governance_editorial === 'object')
+      ? browserPayload.governance_editorial : {};
+    const opts = {
+      asOf,
+      incubation: ed.incubation || {},         // editorial (not in our data model)
+      roadmap: ed.roadmap || _govRoadmap(browserPayload),
+      siteName: (c) => _GOV_NAMES[c] || c,
+    };
+    const scoreboard = buildScoreboardV2(D, opts);
+    const effort = buildEffortMatrixV2(D, opts);
+    return {
+      scoreboard, effort,
+      window_label: 'Apr–Jul ' + String(filters.year || asOf.slice(0, 4)),
+      scoreboard_footer: Array.isArray(ed.scoreboard_footer) ? ed.scoreboard_footer : _autoScoreboardFooter(scoreboard),
+      effort_footer: Array.isArray(ed.effort_footer) ? ed.effort_footer : _autoEffortFooter(),
+    };
+  } catch (e) {
+    console.error('[reportPayload] governance block failed:', e && e.message);
+    return null;
+  }
+}
+
+// ── v14 deck — Site Impact block (slide 7) ────────────────────────────────
+function _autoOperatingContext(si) {
+  const c = (si && si.cards) || {};
+  const out = [];
+  if (c.most_stretched) out.push(c.most_stretched.name + ': ' + c.most_stretched.caption + '.');
+  if (c.under_dual_pressure) out.push(c.under_dual_pressure.name + ': ' + c.under_dual_pressure.caption + '.');
+  if (c.proof) out.push(c.proof.name + ': ' + c.proof.caption + ' — the standard.');
+  return out;
+}
+function _autoSiteImpactFooter(si) {
+  const c = (si && si.cards) || {};
+  return [
+    c.most_stretched ? (c.most_stretched.name + ' carries ' + c.most_stretched.caption + ' — a capacity gap, not a capability one.') : '',
+    c.proof ? (c.proof.name + ' shows the standard: ' + c.proof.caption + '.') : '',
+  ].filter(Boolean);
+}
+async function _siteImpact(browserPayload, monthName, year, monthIdx) {
+  try {
+    const mm = String(monthIdx).padStart(2, '0');
+    const from = `${year}-${mm}-01`;
+    const to = `${year}-${mm}-31`;   // substr(created_time,1,10) BETWEEN — 31 is a safe upper bound
+    const perSite = await reportsDb.getSiteImpactCounts(from, to);
+    const ed = (browserPayload.site_impact_editorial && typeof browserPayload.site_impact_editorial === 'object')
+      ? browserPayload.site_impact_editorial : {};
+    const si = require('./deckSiteImpact').buildSiteImpact(perSite, { prizeDeltaPP: ed.prize_delta_pp });
+    if (!si.rows.length) return null;   // no data → render.py skips slide 7
+    return {
+      ...si,
+      month_label: `${monthName} ${year}`,
+      operating_context: Array.isArray(ed.operating_context) ? ed.operating_context : _autoOperatingContext(si),
+      footer: Array.isArray(ed.footer) ? ed.footer : _autoSiteImpactFooter(si),
+    };
+  } catch (e) {
+    console.error('[reportPayload] site_impact block failed:', e && e.message);
+    return null;
+  }
+}
+
 // ── Public — build() merges DB enrichment over the browser payload ────────
 async function build(browserPayload) {
   const filters = browserPayload.filters || {};
@@ -672,6 +779,13 @@ async function build(browserPayload) {
   // _trkSiteSummary), whereas _tracker() below scores a single month crudely
   // (all-red). Fall back to _tracker() only when the browser didn't send one.
   const tracker     = browserPayload.tracker || _tracker(dbFilters);
+
+  // v14 deck — Governance (slides 13/14). Only computed for deck='v14'
+  // (loadReviewData is a heavier query); null otherwise → render.py skips them.
+  const deck = String(browserPayload.deck || 'classic').toLowerCase();
+  const [governance, site_impact] = deck === 'v14'
+    ? await Promise.all([_governance(browserPayload, dbFilters), _siteImpact(browserPayload, monthName, year, monthIdx)])
+    : [null, null];
 
   // Assemble final payload. Browser fields take precedence so the
   // operator can override anything via the dashboard UI.
@@ -720,6 +834,12 @@ async function build(browserPayload) {
 
     // Slides 10-11
     tracker,
+
+    // v14 deck — selector for render.py + Governance block (slides 13/14).
+    // Absent/'classic' → render.py builds the classic deck unchanged.
+    deck,
+    governance,
+    site_impact,
 
     // Operator overrides (browser → DB → defaults)
     commentary: (browserPayload.commentary || {}),

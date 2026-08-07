@@ -497,6 +497,7 @@
        original label "📤 Export PPTX". Code path (exportExecPptxV2 →
        /api/reports/exec-pptx) is unchanged. -->
   <button class="btn btn-gold"    onclick="exportExecPptxV2()"  id="btnExport" title="11-slide Group IT Operations Report — template-based, matplotlib charts + python-pptx. Faithful to the brand template (cover + summary stay editable for manual fill-in). Takes ~25-45 s.">📋 Group IT Report</button>
+  <button class="btn btn-gold" style="background:#1B3552;border-color:#1B3552" onclick="exportExecPptxV2('v14')" id="btnExportV14" title="Board deck (v14) — the classic report PLUS the OPS manager's Governance Scoreboard + Effort Matrix (slides 13-14), built from live meetings/inspection data. The classic button stays as the fallback.">📋 Group IT Report (v14)</button>
   <button class="btn" style="background:#2F5597;color:#fff;border:1px solid #2F5597;font-size:11.5px;padding:5px 10px" onclick="exportExecNewPptx()" id="btnExecNew" title="8-slide Executive Report — native charts, server-side Node + pptxgenjs. Fast (~3-8 s) and works through HTTPS today.">📊 Executive New Report</button>
 </div>
 
@@ -965,6 +966,7 @@ Example:
            IIS ARR proxy timeout was raised to 5 min (see CLAUDE.md "Fix PPTX export 502")
            which now lets this finish before IIS gives up. -->
       <button class="btn btn-gold"    onclick="exportExecPptxV2()"  id="btnExport2" title="11-slide Group IT Operations Report — template-based, matplotlib charts + python-pptx. Faithful to the brand template (cover + summary stay editable for manual fill-in). Takes ~25-45 s.">📋 Group IT Report</button>
+      <button class="btn btn-gold" style="background:#1B3552;border-color:#1B3552" onclick="exportExecPptxV2('v14')" id="btnExportV142" title="Board deck (v14) — the classic report PLUS the OPS manager's Governance Scoreboard + Effort Matrix (slides 13-14), built from live meetings/inspection data. The classic button stays as the fallback.">📋 Group IT Report (v14)</button>
       <button class="btn" style="background:#2F5597;color:#fff;border:1px solid #2F5597" onclick="exportExecNewPptx()" id="btnExecNew2" title="8-slide Executive Report — native charts, server-side Node + pptxgenjs. Fast (~3-8 s) and works through HTTPS today.">📊 Executive New Report</button>
     </div>
   </div>
@@ -7026,12 +7028,13 @@ async function exportPptx() {
 //  No more screenshot of live Chart.js canvases — charts are crisp, sized
 //  for the slide, and use brand-correct colours.
 // ═══════════════════════════════════════════════════════════════════════════════
-async function exportExecPptxV2() {
+async function exportExecPptxV2(deck) {
   if (!_reportMonth) {
     alert('No reporting period selected. Pick a month first.');
     return;
   }
-  const btns = ['btnExport','btnExport2','btnExecNew','btnExecNew2']
+  const v14 = (deck === 'v14');
+  const btns = ['btnExport','btnExport2','btnExportV14','btnExportV142','btnExecNew','btnExecNew2']
     .map(id => document.getElementById(id)).filter(Boolean);
   const orig = btns.map(b => b.textContent);
   btns.forEach((b, i) => { b.disabled = true; b.textContent = '⏳ Building…'; });
@@ -7039,7 +7042,15 @@ async function exportExecPptxV2() {
 
   try {
     const payload = _buildExecPptxPayload();
-    const fname = `Group_IT_Operations_Report_${(payload.filters.month_name || 'Period').replace(/\s+/g,'_')}_${payload.filters.year || ''}.pptx`;
+    if (v14) {
+      // Board-deck variant: adds Governance Scoreboard + Effort Matrix (slides
+      // 13/14). Server computes them from live meetings/inspection data; the
+      // classic button (no deck) stays byte-identical as the fallback.
+      payload.deck = 'v14';
+      try { payload.governance_editorial = JSON.parse(localStorage.getItem('exec_gov_editorial_v1') || '{}'); }
+      catch (_) { payload.governance_editorial = {}; }
+    }
+    const fname = `Group_IT_Operations_Report_${(payload.filters.month_name || 'Period').replace(/\s+/g,'_')}_${payload.filters.year || ''}${v14 ? '_v14' : ''}.pptx`;
     payload.output_filename = fname;
 
     // Tracker block (slides 10/11). Built with the faithful client-side engine

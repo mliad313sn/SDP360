@@ -1,0 +1,477 @@
+{
+  "deck": "v14",
+  "month": "July",
+  "year": "2026",
+  "prev_month_short": "Jun",
+  "governance": {
+    "scoreboard": {
+      "rows": [
+        {
+          "code": "MGO",
+          "name": "Mana",
+          "score": 100,
+          "overall": "GREEN",
+          "capped": false,
+          "groundRules": "PASS",
+          "meetings": 16,
+          "capture": 6.9,
+          "closePct": 40,
+          "overdue": 0,
+          "inspections": 10,
+          "findPerInsp": 2.4,
+          "fixPct": 100,
+          "signoff": 100,
+          "incubation": 2,
+          "pts": {
+            "meetings": 2,
+            "capture": 2,
+            "overdue": 2,
+            "inspections": 2,
+            "findfix": 2,
+            "signoff": 2
+          },
+          "rank": 1
+        },
+        {
+          "code": "SML",
+          "name": "Lafigué",
+          "score": 75,
+          "overall": "AMBER",
+          "capped": true,
+          "groundRules": "FAIL",
+          "meetings": 7,
+          "capture": 2,
+          "closePct": 43,
+          "overdue": 0,
+          "inspections": 8,
+          "findPerInsp": 1.6,
+          "fixPct": 75,
+          "signoff": 0,
+          "incubation": 0,
+          "pts": {
+            "meetings": 1,
+            "capture": 2,
+            "overdue": 2,
+            "inspections": 2,
+            "findfix": 2,
+            "signoff": 0
+          },
+          "rank": 2
+        },
+        {
+          "code": "SGO",
+          "name": "Sabodala",
+          "score": 67,
+          "overall": "AMBER",
+          "capped": false,
+          "groundRules": "FAIL",
+          "meetings": 5,
+          "capture": 0.8,
+          "closePct": 100,
+          "overdue": 0,
+          "inspections": 12,
+          "findPerInsp": 0.3,
+          "fixPct": 100,
+          "signoff": 100,
+          "incubation": 0,
+          "pts": {
+            "meetings": 0,
+            "capture": 1,
+            "overdue": 2,
+            "inspections": 2,
+            "findfix": 1,
+            "signoff": 2
+          },
+          "rank": 3
+        },
+        {
+          "code": "HGO",
+          "name": "Houndé",
+          "score": 58,
+          "overall": "AMBER",
+          "capped": false,
+          "groundRules": "FAIL",
+          "meetings": 10,
+          "capture": 5.4,
+          "closePct": 73,
+          "overdue": 12,
+          "inspections": 1,
+          "findPerInsp": 3,
+          "fixPct": 33,
+          "signoff": 100,
+          "incubation": 1,
+          "pts": {
+            "meetings": 2,
+            "capture": 2,
+            "overdue": 0,
+            "inspections": 0,
+            "findfix": 1,
+            "signoff": 2
+          },
+          "rank": 4
+        },
+        {
+          "code": "SMI",
+          "name": "Ity",
+          "score": 58,
+          "overall": "AMBER",
+          "capped": false,
+          "groundRules": "FAIL",
+          "meetings": 7,
+          "capture": 6.3,
+          "closePct": 60,
+          "overdue": 0,
+          "inspections": 6,
+          "findPerInsp": 0.2,
+          "fixPct": 0,
+          "signoff": 0,
+          "incubation": 1,
+          "pts": {
+            "meetings": 1,
+            "capture": 2,
+            "overdue": 2,
+            "inspections": 2,
+            "findfix": 0,
+            "signoff": 0
+          },
+          "rank": 5
+        }
+      ],
+      "groupAvg": 72,
+      "window": {
+        "from": "2026-04-01",
+        "to": "2026-07-14"
+      }
+    },
+    "effort": {
+      "bubbles": [
+        {
+          "code": "MGO",
+          "x": 40,
+          "y": 0,
+          "size": 16,
+          "dashed": false,
+          "delta": 2,
+          "overall": "GREEN"
+        },
+        {
+          "code": "SML",
+          "x": 43,
+          "y": 0,
+          "size": 7,
+          "dashed": true,
+          "delta": -6,
+          "overall": "AMBER"
+        },
+        {
+          "code": "SGO",
+          "x": 100,
+          "y": 0,
+          "size": 5,
+          "dashed": true,
+          "delta": -6,
+          "overall": "AMBER"
+        },
+        {
+          "code": "HGO",
+          "x": 73,
+          "y": 12,
+          "size": 10,
+          "dashed": true,
+          "delta": -5,
+          "overall": "AMBER"
+        },
+        {
+          "code": "SMI",
+          "x": 60,
+          "y": 0,
+          "size": 7,
+          "dashed": true,
+          "delta": -6,
+          "overall": "AMBER"
+        }
+      ],
+      "gap": [
+        {
+          "code": "MGO",
+          "score": 100,
+          "segs": [
+            {
+              "key": "meetings",
+              "label": "Meetings",
+              "pts": 2
+            },
+            {
+              "key": "capture",
+              "label": "Capture",
+              "pts": 2
+            },
+            {
+              "key": "overdue",
+              "label": "Overdue",
+              "pts": 2
+            },
+            {
+              "key": "inspections",
+              "label": "Inspections",
+              "pts": 2
+            },
+            {
+              "key": "findfix",
+              "label": "Find · Fix",
+              "pts": 2
+            },
+            {
+              "key": "signoff",
+              "label": "Sign-off",
+              "pts": 2
+            }
+          ],
+          "points": 12
+        },
+        {
+          "code": "SML",
+          "score": 75,
+          "segs": [
+            {
+              "key": "meetings",
+              "label": "Meetings",
+              "pts": 1
+            },
+            {
+              "key": "capture",
+              "label": "Capture",
+              "pts": 2
+            },
+            {
+              "key": "overdue",
+              "label": "Overdue",
+              "pts": 2
+            },
+            {
+              "key": "inspections",
+              "label": "Inspections",
+              "pts": 2
+            },
+            {
+              "key": "findfix",
+              "label": "Find · Fix",
+              "pts": 2
+            },
+            {
+              "key": "signoff",
+              "label": "Sign-off",
+              "pts": 0
+            }
+          ],
+          "points": 9
+        },
+        {
+          "code": "SGO",
+          "score": 67,
+          "segs": [
+            {
+              "key": "meetings",
+              "label": "Meetings",
+              "pts": 0
+            },
+            {
+              "key": "capture",
+              "label": "Capture",
+              "pts": 1
+            },
+            {
+              "key": "overdue",
+              "label": "Overdue",
+              "pts": 2
+            },
+            {
+              "key": "inspections",
+              "label": "Inspections",
+              "pts": 2
+            },
+            {
+              "key": "findfix",
+              "label": "Find · Fix",
+              "pts": 1
+            },
+            {
+              "key": "signoff",
+              "label": "Sign-off",
+              "pts": 2
+            }
+          ],
+          "points": 8
+        },
+        {
+          "code": "HGO",
+          "score": 58,
+          "segs": [
+            {
+              "key": "meetings",
+              "label": "Meetings",
+              "pts": 2
+            },
+            {
+              "key": "capture",
+              "label": "Capture",
+              "pts": 2
+            },
+            {
+              "key": "overdue",
+              "label": "Overdue",
+              "pts": 0
+            },
+            {
+              "key": "inspections",
+              "label": "Inspections",
+              "pts": 0
+            },
+            {
+              "key": "findfix",
+              "label": "Find · Fix",
+              "pts": 1
+            },
+            {
+              "key": "signoff",
+              "label": "Sign-off",
+              "pts": 2
+            }
+          ],
+          "points": 7
+        },
+        {
+          "code": "SMI",
+          "score": 58,
+          "segs": [
+            {
+              "key": "meetings",
+              "label": "Meetings",
+              "pts": 1
+            },
+            {
+              "key": "capture",
+              "label": "Capture",
+              "pts": 2
+            },
+            {
+              "key": "overdue",
+              "label": "Overdue",
+              "pts": 2
+            },
+            {
+              "key": "inspections",
+              "label": "Inspections",
+              "pts": 2
+            },
+            {
+              "key": "findfix",
+              "label": "Find · Fix",
+              "pts": 0
+            },
+            {
+              "key": "signoff",
+              "label": "Sign-off",
+              "pts": 0
+            }
+          ],
+          "points": 7
+        }
+      ],
+      "moves": [
+        {
+          "code": "MGO",
+          "name": "Mana",
+          "score": 100,
+          "overall": "GREEN",
+          "moves": [
+            {
+              "n": 1,
+              "text": "Keep finding — 24 issues raised, every action closed."
+            },
+            {
+              "n": 2,
+              "text": "Share your inspection method with Sabodala & Ity."
+            }
+          ]
+        },
+        {
+          "code": "SML",
+          "name": "Lafigué",
+          "score": 75,
+          "overall": "AMBER",
+          "moves": [
+            {
+              "n": 1,
+              "text": "Sign the minutes and hold a first incubation — the only blocks to GREEN."
+            },
+            {
+              "n": 2,
+              "text": "Keep the find-and-fix pace (13 found, 9 of 11 closed)."
+            }
+          ]
+        },
+        {
+          "code": "SGO",
+          "name": "Sabodala",
+          "score": 67,
+          "overall": "AMBER",
+          "moves": [
+            {
+              "n": 1,
+              "text": "Inspect deeper — 10 of 12 visits found nothing."
+            },
+            {
+              "n": 2,
+              "text": "Restart monthly meetings and log commitments (only 4 all quarter)."
+            }
+          ]
+        },
+        {
+          "code": "HGO",
+          "name": "Houndé",
+          "score": 58,
+          "overall": "AMBER",
+          "moves": [
+            {
+              "n": 1,
+              "text": "Restart reviews (none since June); clear the 12 late items."
+            },
+            {
+              "n": 2,
+              "text": "More inspections — 1 all quarter; close its 2 open actions."
+            }
+          ]
+        },
+        {
+          "code": "SMI",
+          "name": "Ity",
+          "score": 58,
+          "overall": "AMBER",
+          "moves": [
+            {
+              "n": 1,
+              "text": "Sign the 7 sets of minutes."
+            },
+            {
+              "n": 2,
+              "text": "Inspect deeper — 1 finding in 6 visits — close the 3 open actions."
+            }
+          ]
+        }
+      ],
+      "greenPts": 8.4
+    },
+    "window_label": "Apr–Jul 2026",
+    "scoreboard_footer": [
+      "We changed the scoring so finding problems is rewarded, not punished. Sites that look hard, log what they find and fix it score GREEN; inspections that report 'all fine' every visit are a warning sign.",
+      "Mana scores 100 — it found 24 issues across 10 inspections and closed every action, while keeping every routine. Lafigué jumps to 75 for the same find-and-fix behaviour.",
+      "The concern moves to inspection depth: 10 of Sabodala's 12 visits and 5 of Ity's 6 found nothing. Group avg 72 (70 under the old method)."
+    ],
+    "effort_footer": [
+      "How to read this: sites to the right close more of what they log; lower means fewer late commitments; bigger bubbles held more meetings.",
+      "Mana has earned its spot — high activity, nothing overdue, roadmap up 2 points. Houndé works hard but late: 12 items past their date and no reviews since June.",
+      "Sabodala, Lafigué and Ity look clean partly because they log little. Lafigué is proving the model — it finds and fixes."
+    ]
+  }
+}

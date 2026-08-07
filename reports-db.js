@@ -1797,6 +1797,48 @@ async function _getSiteHelpdeskWindowPg(site_id, from, to) {
   return _computeSiteHelpdesk(rows);
 }
 
+// ── SITE IMPACT (slide 7) — per-site helpdesk counts for the report window ──
+// Buckets ALL sites in ONE query (mapped in JS by tech_group→site), returning
+// the counts services/deckSiteImpact.buildSiteImpact needs. Same SLA doctrine as
+// _computeSiteHelpdesk: closed = pending_status===0, missed-resolution-SLA =
+// overdue_status===1 (strict — NULL means no SLA rule). on_time = closed AND not
+// overdue. incidents = request_type contains 'Incident' (REGULAR incidents, per
+// the deck's per-site incident bars — not just major).
+function _bucketSiteImpact(sites, rows) {
+  const byGroup = new Map();   // tech_group → site id
+  const acc = new Map();       // site id → counts
+  for (const s of (sites || [])) {
+    if (!acc.has(s.id)) acc.set(s.id, { code: s.name, name: s.name, tickets: 0, missed: 0, closed: 0, on_time: 0, incidents: 0 });
+    String(s.zoho_group || '').split(',').map((g) => g.trim()).filter(Boolean).forEach((g) => byGroup.set(g, s.id));
+  }
+  for (const r of (rows || [])) {
+    const id = byGroup.get(String(r.tech_group || '').trim());
+    if (id == null) continue;
+    const c = acc.get(id);
+    c.tickets++;
+    const closed = r.pending_status === 0;
+    const overdue = r.overdue_status === 1;
+    if (closed) { c.closed++; if (!overdue) c.on_time++; }
+    if (overdue) c.missed++;
+    if (/incident/i.test(String(r.request_type || ''))) c.incidents++;
+  }
+  return [...acc.values()].filter((s) => s.tickets > 0);
+}
+const _SITE_IMPACT_SITES_SQL = "SELECT id, name, zoho_group FROM sites WHERE zoho_group IS NOT NULL AND zoho_group != ''";
+const _SITE_IMPACT_ROWS_SQL = 'SELECT tech_group, request_type, pending_status, overdue_status FROM request_records WHERE substr(created_time,1,10) BETWEEN ? AND ?';
+function getSiteImpactCounts(from, to) {
+  if (REPORTS_BACKEND === 'postgres') return _getSiteImpactCountsPg(from, to);
+  const sites = db.prepare(_SITE_IMPACT_SITES_SQL).all();
+  const rows = db.prepare(_SITE_IMPACT_ROWS_SQL).all(from, to);
+  return _bucketSiteImpact(sites, rows);
+}
+async function _getSiteImpactCountsPg(from, to) {
+  const H = pgHandle();
+  const sites = await H.prepare(_SITE_IMPACT_SITES_SQL).all();
+  const rows = await H.prepare(_SITE_IMPACT_ROWS_SQL).all(from, to);
+  return _bucketSiteImpact(sites, rows);
+}
+
 // ── CHANGE OUTCOME — a VERBATIM port of the SHIPPED classifier at
 // public/executive-report.html:5053-5090 (_changeOutcome / _tallyChanges).
 // DO NOT write a second classifier: its own header comment records the bug a
@@ -6993,6 +7035,7 @@ module.exports = {
   // window, not a month. Changes carry the VERBATIM port of the shipped
   // executive-report.html classifier (see _changeOutcome).
   getSiteHelpdeskWindow, getSiteChangesWindow, _computeSiteChanges, _changeOutcome,
+  getSiteImpactCounts, _bucketSiteImpact,
   getSiteOpenChanges, _computeOpenChanges,
   getSiteTechnicianStats, _computeTechStats,
   getPreviousWeek, ensureWeek, getWeekRange,

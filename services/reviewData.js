@@ -76,7 +76,7 @@ const SQL_FINDINGS = `
 // insp_actions has NO site_code column of its own (confirmed against the
 // schema) — it hangs off the inspection, hence the join.
 const SQL_INSP_ACTIONS = `
-  SELECT a.id, a.status, i.site_code
+  SELECT a.id, a.status, a.priority, i.site_code
     FROM insp_actions a JOIN insp_inspections i ON i.id = a.inspection_id`;
 
 // ── Handle resolution ───────────────────────────────────────────────────────
