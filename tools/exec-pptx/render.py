@@ -2412,10 +2412,15 @@ if DECK == 'v14' and (_GOV_PROBE.get('rows') or []):
     # ---------- SLIDE 14 — Effort Matrix & Two Moves ----------
     def _draw_gov_bubbles(ax):
         bubs = _EF.get('bubbles') or []
-        xs = [b.get('x', 0) for b in bubs]
-        maxy = max([b.get('y', 0) for b in bubs] + [10]) * 1.15
-        # Stagger labels vertically by rank so bubbles clustered at low overdue
-        # (all near y=0) don't collide horizontally.
+        maxy = max([b.get('y', 0) for b in bubs] + [10]) * 1.25
+        # Quadrant guides — vertical at 30% resolution, horizontal at mid-overdue.
+        _ysplit = maxy * 0.42
+        ax.axvline(30, color='#cccccc', lw=0.8)
+        ax.axhline(_ysplit, color='#cccccc', lw=0.8)
+        # Bubbles. Labels go to the RIGHT of each point (data clusters on the left,
+        # so the space is on the right) with an alternating vertical nudge so
+        # co-located points don't overprint. Quadrant captions are pinned to the
+        # AXES corners (transAxes) so they never collide with the data.
         for _bi, b in enumerate(sorted(bubs, key=lambda z: (z.get('y', 0), z.get('x', 0)))):
             col = RAG_HEX.get(b.get('overall'), '#9CA3AF')
             sz = 120 + (b.get('size', 0) or 0) * 34
@@ -2425,14 +2430,15 @@ if DECK == 'v14' and (_GOV_PROBE.get('rows') or []):
                        linestyle=('dashed' if b.get('dashed') else 'solid'), zorder=3)
             dl = b.get('delta')
             lab = b.get('code', '') + (' %+dpp' % dl if dl is not None else '')
-            ax.text(b.get('x', 0), b.get('y', 0) + maxy * (0.055 + (_bi % 2) * 0.075), lab,
-                    fontsize=7, ha='center', color='#1A3A5F', zorder=4)
-        ax.axvline(30, color='#cccccc', lw=0.8); ax.axhline(10, color='#cccccc', lw=0.8)
-        ax.text(2, maxy * 0.96, 'SLIPPING', fontsize=7.5, color='#c2280f', fontweight='bold')
-        ax.text(98, maxy * 0.96, 'DELIVERING·LATE', fontsize=7.5, color='#b07a17', fontweight='bold', ha='right')
-        ax.text(2, maxy * 0.02, 'QUIET LOG', fontsize=7.5, color='#b07a17', fontweight='bold')
-        ax.text(98, maxy * 0.02, 'ON TOP', fontsize=7.5, color='#2f7d4f', fontweight='bold', ha='right')
-        ax.set_xlim(-3, 105); ax.set_ylim(-maxy * 0.06, maxy)
+            _dy = 9 if (_bi % 2 == 0) else -11
+            ax.annotate(lab, (b.get('x', 0), b.get('y', 0)), xytext=(11, _dy),
+                        textcoords='offset points', fontsize=7, color='#1A3A5F',
+                        ha='left', va='center', zorder=4)
+        ax.text(0.015, 0.985, 'SLIPPING', transform=ax.transAxes, fontsize=7.5, color='#c2280f', fontweight='bold', va='top', ha='left')
+        ax.text(0.985, 0.985, 'DELIVERING·LATE', transform=ax.transAxes, fontsize=7.5, color='#b07a17', fontweight='bold', va='top', ha='right')
+        ax.text(0.015, 0.015, 'QUIET LOG', transform=ax.transAxes, fontsize=7.5, color='#b07a17', fontweight='bold', va='bottom', ha='left')
+        ax.text(0.985, 0.015, 'ON TOP', transform=ax.transAxes, fontsize=7.5, color='#2f7d4f', fontweight='bold', va='bottom', ha='right')
+        ax.set_xlim(-4, 112); ax.set_ylim(-maxy * 0.06, maxy)
         ax.set_xlabel('Resolution rate %  →  close more', fontsize=8)
         ax.set_ylabel('Overdue  →  fewer is better', fontsize=8)
         ax.tick_params(labelsize=8)
