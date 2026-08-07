@@ -32,7 +32,7 @@ const INSPECTION_TABLES = 'insp_inspections / insp_findings / insp_actions';
 const SQL_MEETINGS = `
   SELECT m.id, m.reference, m.site_code, m.department, m.meeting_date,
          m.submitted_at, m.dept_head_signed_at, m.site_it_signed_at,
-         m.next_meeting_date, m.priority_1, m.status
+         m.next_meeting_date, m.priority_1, m.status, m.intake_source
     FROM md_meetings m`;
 
 // ⚠ LOAD-BEARING CAST (pg fork only): md_issues.updated_at is TIMESTAMPTZ while

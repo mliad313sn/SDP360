@@ -15,6 +15,7 @@ const D = {
     // both signed → signoff 100%
     { site_code: 'X', meeting_date: md, dept_head_signed_at: '2026-04-16 09:00', site_it_signed_at: '2026-04-16 10:00' },
     { site_code: 'X', meeting_date: md, dept_head_signed_at: '2026-04-16 09:00', site_it_signed_at: '2026-04-16 10:00' },
+    { site_code: 'X', meeting_date: md, intake_source: 'business_incubation' },   // incubation, NOT a dept meeting
     { site_code: 'Y', meeting_date: md },   // other site — must be ignored
   ],
   issues: [
@@ -47,7 +48,8 @@ const D = {
 
 test('siteMeasuresV2 derives all six measures correctly', () => {
   const m = siteMeasuresV2('X', D, W);
-  assert.equal(m.meetings, 2, 'meetings');
+  assert.equal(m.meetings, 2, 'meetings (business_incubation excluded)');
+  assert.equal(m.incubation, 1, 'incubation = business_incubation meetings');
   assert.equal(m.raised, 4, 'issues raised');
   assert.equal(m.capture, 2.0, 'capture = raised/meetings');
   assert.equal(m.closePct, 50, 'close% = resolved/raised');

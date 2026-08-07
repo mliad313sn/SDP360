@@ -106,10 +106,17 @@ const _r1 = (v) => Math.round(v * 10) / 10;   // one decimal, as the deck prints
 function _isFound(f) { const s = String(f.status || '').toLowerCase(); return s === 'critical' || s === 'major' || s === 'minor'; }
 function _isHighAction(a) { const p = String(a.priority || '').toLowerCase(); return p === 'critical' || p === 'high'; }
 function _isClosedAction(a) { const s = String(a.status || '').toLowerCase(); return s === 'closed' || s === 'resolved' || s === 'done' || s === 'completed'; }
+// A "business incubation" is a meeting whose intake_source marks it as such
+// (md_meetings.intake_source = 'business_incubation'). It is NOT a department
+// meeting, so it is counted as the incubation measure and excluded from the
+// department-meeting count (the "Meet" column + the 3-meetings/month rule).
+function _isIncub(m) { return /incub/i.test(String(m.intake_source || '')); }
 
 function siteMeasuresV2(site, D, { from = '2026-04-01', to } = {}) {
   const A = to;
-  const meets = (D.meetings || []).filter((m) => m.site_code === site && m.meeting_date >= from && m.meeting_date <= A);
+  const allMeets = (D.meetings || []).filter((m) => m.site_code === site && m.meeting_date >= from && m.meeting_date <= A);
+  const incubation = allMeets.filter(_isIncub).length;
+  const meets = allMeets.filter((m) => !_isIncub(m));   // department meetings only
   const isss = (D.issues || []).filter((i) => i.site_code === site && i.meeting_date >= from && i.meeting_date <= A);
   const reviews = meets.length;
   const capture = reviews ? isss.length / reviews : 0;               // items logged per meeting
@@ -130,7 +137,7 @@ function siteMeasuresV2(site, D, { from = '2026-04-01', to } = {}) {
     && String(m.dept_head_signed_at).slice(0, 10) <= A && String(m.site_it_signed_at).slice(0, 10) <= A).length;
   const signoff = meets.length ? Math.round(100 * signed / meets.length) : 0;
   return {
-    meetings: reviews, raised: isss.length, capture: _r1(capture), closePct,
+    meetings: reviews, incubation, raised: isss.length, capture: _r1(capture), closePct,
     overdue, inspections, found, findPerInsp: _r1(findPerInsp), fixPct, signoff,
   };
 }
@@ -156,7 +163,9 @@ function buildScoreboardV2(D, opts = {}) {
   const codes = opts.codes || _activeCodes(D, from, to);
   const rows = codes.map((c) => {
     const m = siteMeasuresV2(c, D, { from, to });
-    if (inc[c] != null) m.incubation = Number(inc[c]);   // editorial; else left unassessed
+    // incubation now comes from the data (business_incubation meetings); an
+    // explicit editorial value still overrides it if the operator provides one.
+    if (inc[c] != null) m.incubation = Number(inc[c]);
     const v = scoreV2(m);
     return {
       code: c, name: name(c),
