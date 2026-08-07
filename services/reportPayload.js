@@ -682,12 +682,20 @@ async function _governance(browserPayload, filters) {
   try {
     const { loadReviewData } = require('./reviewData');
     const { buildScoreboardV2, buildEffortMatrixV2, ANCHOR } = require('./deckGovernanceV2');
-    const asOf = ANCHOR;                       // programme as-of (the deck's Apr–Jul window)
+    // As-of = the report MONTH-END (the deck is "as at 31 <Month>"), not the
+    // dashboard's hardcoded mid-month ANCHOR — a mid-month as-of undercounts the
+    // second half of the month and diverges from the board deck. Programme
+    // window starts Apr of the report year.
+    const _y = Number(filters.year) || Number(ANCHOR.slice(0, 4));
+    const _m = Number(filters.month) || 7;
+    const _last = new Date(Date.UTC(_y, _m, 0)).getUTCDate();   // day 0 of next month = last day of this month
+    const asOf = `${_y}-${String(_m).padStart(2, '0')}-${String(_last).padStart(2, '0')}`;
+    const from = `${_y}-04-01`;
     const D = await loadReviewData(asOf);
     const ed = (browserPayload.governance_editorial && typeof browserPayload.governance_editorial === 'object')
       ? browserPayload.governance_editorial : {};
     const opts = {
-      asOf,
+      asOf, from,
       incubation: ed.incubation || {},         // editorial (not in our data model)
       roadmap: ed.roadmap || _govRoadmap(browserPayload),
       siteName: (c) => _GOV_NAMES[c] || c,
@@ -696,7 +704,7 @@ async function _governance(browserPayload, filters) {
     const effort = buildEffortMatrixV2(D, opts);
     return {
       scoreboard, effort,
-      window_label: 'Apr–Jul ' + String(filters.year || asOf.slice(0, 4)),
+      window_label: 'Apr–' + (MONTH_SHORT[_m - 1] || 'Jul') + ' ' + _y,
       scoreboard_footer: Array.isArray(ed.scoreboard_footer) ? ed.scoreboard_footer : _autoScoreboardFooter(scoreboard),
       effort_footer: Array.isArray(ed.effort_footer) ? ed.effort_footer : _autoEffortFooter(),
     };
