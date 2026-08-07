@@ -564,8 +564,15 @@ async function syncRequestData({ force = false } = {}) {
     const lastSync = force ? null : await getLastSyncAt(JOB);
     console.log(`[Sync] requests — effective lastSync: ${lastSync || (force ? 'FORCED FULL RE-SYNC' : 'never')}`);
 
-    // Request table is large (~47k rows); request up to 50k at a time
-    const requestResult = await _fetchView(_VIEWS.REQUEST_TABLE, 50000);
+    // Request table is the full ticket archive (56.6k rows as of 2026-08, back to
+    // 2022, growing). The ceiling MUST stay comfortably above the live row count:
+    // if the Analytics API ever honours maxRows, a value below the archive size
+    // would truncate to the newest N and the reconciliation pass (liveIds) would
+    // then DELETE the oldest tickets from the DB. 200k = ~14 years of headroom at
+    // the current volume. force=true re-upserts every row fetched here, so this is
+    // what makes "force sync = the entire ticket history". fetchView already scales
+    // its timeout to 120s for maxRows > 10000.
+    const requestResult = await _fetchView(_VIEWS.REQUEST_TABLE, 200000);
     if (!requestResult || !Array.isArray(requestResult.rows)) {
       throw new Error('Request table fetch returned no rows array');
     }
