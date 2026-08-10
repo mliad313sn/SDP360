@@ -25,6 +25,20 @@ const report = {
   ],
 };
 
+test('report follow-up age derives from first_logged (its earliest report week)', () => {
+  const rep = { report_id: 500, week_label: 'W29 2026', actions: [
+    { id: 9, uid: 'u9', task: 'Old radio', owner: 'K', due_date: '2026-09-30',
+      status: 'in_progress', first_logged: '2026-06-01' },   // logged 56 days before asOf
+    { id: 10, uid: 'u10', task: 'No week', owner: 'K', status: 'open' }, // no first_logged → age null
+  ]};
+  const r = buildSiteActions({ report: rep, asOf });          // asOf = 2026-07-27
+  const it = r.groups.report.items.find(x => x.title === 'Old radio');
+  assert.equal(it.age_days, 56, '2026-06-01 → 2026-07-27 = 56 days');
+  const nw = r.groups.report.items.find(x => x.title === 'No week');
+  assert.equal(nw.age_days, null, 'no first_logged → age null (never faked)');
+  assert.equal(r.groups.report.oldest_days, 56, 'group oldest reflects report ages now');
+});
+
 test('excludes terminal statuses per source', () => {
   const r = buildSiteActions({ meetings, inspection, report, asOf });
   assert.equal(r.groups.meetings.count, 1);

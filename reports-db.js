@@ -2603,17 +2603,28 @@ function _dedupLineage(rows) {
 // closed must drop entirely, so an older still-open copy can never resurface.
 const _TERMINAL_STATUS = new Set(['closed', 'cancelled']);
 function _dedupLineageNewestOpen(rows) {
-  const best = new Map();
+  const best = new Map();    // lineage -> most-recent row (open-check + canonical)
+  const first = new Map();   // lineage -> {y, w} of the EARLIEST week it appeared
   for (const r of rows) {
     const key = r.lineage || r.uid;
     const cur = best.get(key);
     if (!cur || r._y > cur._y || (r._y === cur._y && r._w > cur._w)) best.set(key, r);
+    const f = first.get(key);
+    if (!f || r._y < f.y || (r._y === f.y && r._w < f.w)) first.set(key, { y: r._y, w: r._w });
   }
-  return [...best.values()]
-    .filter(r => !_TERMINAL_STATUS.has(r.status))
+  return [...best.entries()]
+    .filter(([, r]) => !_TERMINAL_STATUS.has(r.status))
     // keep year/week_number so callers (the merge-cleanup window) can pick the
-    // most-recent as canonical without re-parsing week_label.
-    .map(r => { const { _y, _w, ...rest } = r; return { ...rest, year: _y, week_number: _w }; });
+    // most-recent as canonical without re-parsing week_label. first_logged = the
+    // ISO start date of the EARLIEST week in the lineage — the honest "open since"
+    // date for age (action_items has no created_at); measured from first appearance,
+    // not the latest carry-forward.
+    .map(([key, r]) => {
+      const { _y, _w, ...rest } = r;
+      const f = first.get(key);
+      const first_logged = (f && f.y && f.w) ? getWeekRange(f.y, f.w).start : null;
+      return { ...rest, year: _y, week_number: _w, first_logged };
+    });
 }
 const _SORA_SQL = `
   SELECT ai.uid, ai.lineage, ai.task, ai.priority, ai.due_date, ai.owner, ai.status,

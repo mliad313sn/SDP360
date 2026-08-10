@@ -51,3 +51,15 @@ test('newest-wins: a lineage whose latest entry is closed is dropped — older o
   assert.ok(!titles.includes('K open old'),
     'K was carried to W31 and closed → the whole lineage is closed; the W30 open copy must not reappear');
 });
+
+test('first_logged = start of the EARLIEST week in the lineage (honest open-since age)', async () => {
+  const res = await rdb.getSiteOpenReportActions(siteId);
+  // lineage L appeared in W30 (first) and was carried to W31 (latest kept):
+  // age must be measured from W30, not W31.
+  const a = res.actions.find(x => x.task === 'A carried');
+  assert.equal(a.first_logged, rdb.getWeekRange(2026, 30).start,
+    'measured from the FIRST week the follow-up appeared, not the latest touch');
+  // B is native to W31 only → first_logged = W31.
+  const b = res.actions.find(x => x.task === 'B native');
+  assert.equal(b.first_logged, rdb.getWeekRange(2026, 31).start);
+});

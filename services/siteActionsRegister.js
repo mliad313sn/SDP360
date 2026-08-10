@@ -106,7 +106,11 @@ function buildSiteActions(input) {
           owner: a.owner || null,
           due_date: a.due_date || null,
           status: a.status,
-          age_days: null, // action_items has no created timestamp
+          // action_items has no created_at; age is measured from first_logged —
+          // the start of the EARLIEST report week the follow-up appeared in (its
+          // lineage root), supplied by getSiteOpenReportActions. null when absent
+          // (legacy fixtures) → never faked.
+          age_days: _ageDays(a.first_logged, asOfMs),
           overdue: _overdue(a.due_date, asOfMs, false),
           // SP1b-lignée: each report action carries its OWN report_id/week_label
           // (the hub aggregates across weeks). Fall back to the wrapper for the
