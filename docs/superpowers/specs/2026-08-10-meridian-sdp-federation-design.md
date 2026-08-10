@@ -31,7 +31,7 @@ Meridian beyond the single Endeavour tenant.
 | Decision | Choice |
 |---|---|
 | Coupling | **Federation** — two apps, same PG cluster, linked by reference. NOT a merge or rewrite. |
-| Auth | **Microsoft Entra SSO for both** (single IdP). Gated on the Entra app registration (pending). |
+| Auth | **Microsoft Entra SSO for all three** (SDP + Meridian + 4MyPeople — single IdP → true single sign-on). Gated on the Entra app registration (pending). |
 | Action↔Project link direction | **Driven from Meridian** — the PMO attaches SDP actions to a project; the link lives Meridian-side; SDP reads it back for display. |
 | Meeting decks overlap | **Coexist by usage** — Meridian = project steering decks; SDP = department PVs + Group IT report. Nothing to build. |
 | Hosting | **Same box + 4MyPeople PG cluster** — a `meridian` database alongside `sdp_dashboard` / `fmp_v2`. Redis optional (in-memory fallback to start). |
@@ -40,13 +40,15 @@ Meridian beyond the single Endeavour tenant.
 
 ```
 IIS reverse proxy (TLS) — itops-dashboard.edv-ops.com
- ├── /            → SDP (Node/Express :3456)        ── PG: sdp_dashboard
- └── /meridian/*  → Meridian
-                     ├── web  (Next.js :3000, pm2)
-                     └── api  (Fastify :4000, pm2)   ── PG: meridian   (Redis optional)
+ ├── /             → SDP        (Node/Express :3456)     ── PG: sdp_dashboard
+ ├── /4mypeople/*  → 4MyPeople  (Node :3000)             ── PG: fmp_v2   (existing appliance)
+ └── /meridian/*   → Meridian
+                      ├── web   (Next.js :3100, pm2)     ⚠ NOT :3000 — 4MyPeople owns :3000
+                      └── api   (Fastify :4000, pm2)      ── PG: meridian   (Redis optional)
 
-IdP: Microsoft Entra — SSO for SDP AND Meridian
-PG cluster (4MyPeople): fmp_v2 · sdp_dashboard · meridian   (one backup/ops story)
+IdP: Microsoft Entra — ONE app registration → SSO for SDP + 4MyPeople + Meridian
+PG cluster (4MyPeople-managed): fmp_v2 · sdp_dashboard · meridian   (one backup/ops story)
+Data: SDP already consumes 4MyPeople /api/v1 read-only (services/fmpClient.js, FMP_API_KEY).
 ```
 
 - Meridian runs **as-is** (two pm2 processes: `meridian-api`, `meridian-web`),
@@ -96,21 +98,33 @@ Actions hub already computes.
 - Capacity ↔ real workload (feed SDP's actual technician load into Meridian's
   capacity view).
 
-## 5. Identity — Entra SSO (both apps)
+## 5. Identity — Entra SSO (all THREE apps)
 
-Target: both SDP and Meridian authenticate via **Microsoft Entra** (one IdP →
-single sign-on). SDP's OIDC auth-code+PKCE engine already exists (`services/
-ssoEntra.js`, dormant behind `SSO_MODE`); Meridian currently uses its own JWT
-auth and would gain an Entra login (Tranche 2 auth work).
+Target: SDP, 4MyPeople **and** Meridian authenticate via **Microsoft Entra** —
+**one app registration, three redirect URIs → true single sign-on**. Readiness
+differs per app:
 
-**Dependency:** this is gated on the **Entra app registration**, still pending
-with the customer's Entra admin (the same blocker that keeps SDP's SSO dormant).
+| App | SSO state | Work to enable |
+|---|---|---|
+| **SDP** | OIDC auth-code+PKCE engine **written**, dormant behind `SSO_MODE` (`services/ssoEntra.js`) | Config only: `.env` + map user emails + flip `SSO_MODE`. See `docs/SSO_ENTRA_SETUP.md`. |
+| **4MyPeople** | Identity **mapping done** — `SsoService.resolveIdentity('entra', profile)` maps OIDC `oid`/`sub` (or SAML nameID) + email → local admin/employee, links on first email match, **denies unknowns (no JIT)**; gated by `SSO_ENABLED`. Only the **OIDC transport is unwired**. | Wire the OIDC redirect/callback/token-validation transport that calls `resolveIdentity`. Vendor code — vendor finishes their own scaffold (preferred), or we port SDP's transport (upgrade-overwrite caveat). |
+| **Meridian** | Own JWT auth; no Entra login yet | Build an Entra login (reuse SDP's transport pattern). Tranche F2. |
 
-**Interim (does NOT block Tranche 1):** Meridian keeps its own login until Entra
-is live; SDP keeps password login. When the app registration lands, both switch
-to Entra (SDP flips `SSO_MODE`; Meridian gets its Entra login wired). One app
-registration with two redirect URIs (SDP callback + Meridian callback) serves
-both. See `docs/SSO_ENTRA_SETUP.md` for the SDP side.
+Both SDP and 4MyPeople converge on the **same security posture** (pre-provisioned
+only, deny unknowns, link external id by email) — no design reconciliation needed;
+they just need the same tenant + client + a redirect URI each.
+
+**Dependency:** all three are gated on the **Entra app registration**, pending
+with the Entra admin. Ask for it **once**, with all three redirect URIs (SDP's is
+firm; 4MyPeople's and Meridian's are confirmed at wiring time — redirect URIs can
+be added later without recreating the app). See the vendor memo
+`docs/4MYPEOPLE_ENTRA_SSO_VENDOR_MEMO.md` for the exact 4MyPeople interface.
+
+**Interim (does NOT block Tranche 1 / F1):** each app keeps its current login
+until Entra is live; the resource-sync + Action↔Project link do not depend on SSO.
+The historical blocker for SDP↔4MyPeople shared SSO (the dashboard's reports.db
+auth migration, per `docs/FMP_INTEGRATION.md`) is now **resolved** (PG cutover
+complete).
 
 ## 6. Data flow (MVP)
 
@@ -173,6 +187,8 @@ Meridian response.
 ## 11. Sub-projects (each its own spec→plan→build later)
 
 - **F1 (MVP):** resource sync + SDP action read API + Meridian link + SDP read-back badge.
-- **F2:** Entra SSO for both (after the app registration).
+- **F2:** Entra SSO across all three (after the app registration) — SDP flips
+  `SSO_MODE`; 4MyPeople's OIDC transport gets wired (vendor); Meridian gains its
+  Entra login. One tenant, one app, three redirect URIs.
 - **F3:** project-health rollup into SDP reports.
 - **F4:** capacity ↔ real workload.
