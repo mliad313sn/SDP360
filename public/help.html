@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>User Manual — Endeavour IT Dashboard</title>
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="_shell.css">
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
 <style>
   :root{
     --navy:#0d2b4e;--orange:#E8600A;--amber:#F59E0B;
@@ -17,8 +22,11 @@
   .hdr{display:flex;align-items:center;gap:12px;background:var(--orange);padding:0 20px;height:52px;color:#fff;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.25)}
   .hdr-logo{font-size:16px;font-weight:700;letter-spacing:.4px;white-space:nowrap}
   .hdr-sep{flex:1}
-  .lang-btn{background:rgba(255,255,255,.18);border:none;border-radius:4px;padding:5px 12px;color:#fff;cursor:pointer;font-size:12px;font-weight:600;transition:background .2s}
-  .lang-btn:hover,.lang-btn.active{background:rgba(255,255,255,.35)}
+  /* Manual sub-bar (title + language toggle) — sits under the shared nav banner */
+  .manual-bar{display:flex;align-items:center;gap:8px;max-width:1000px;margin:16px auto 0;padding:0 20px}
+  .manual-title{font-size:15px;font-weight:700;color:var(--navy)}
+  .lang-btn{background:#eef2f7;border:1px solid var(--border);border-radius:4px;padding:5px 12px;color:var(--slate);cursor:pointer;font-size:12px;font-weight:600;transition:background .2s,color .2s}
+  .lang-btn:hover,.lang-btn.active{background:var(--navy);color:#fff;border-color:var(--navy)}
   .back-btn{background:rgba(255,255,255,.18);border:none;border-radius:4px;padding:5px 12px;color:#fff;cursor:pointer;font-size:12px;text-decoration:none;display:inline-flex;align-items:center;gap:5px}
   .back-btn:hover{background:rgba(255,255,255,.3)}
 
@@ -85,14 +93,15 @@
 </head>
 <body>
 
-<!-- HEADER -->
-<div class="hdr">
-  <div class="hdr-logo">📘 Endeavour Mining — IT Dashboard · User Manual</div>
+<!-- Standard navigation banner (shared shell) -->
+<div id="__shell" data-section="help" data-current="help"></div>
+
+<!-- Manual title + language toggle -->
+<div class="manual-bar">
+  <div class="manual-title">📘 User Manual · Manuel utilisateur</div>
   <div class="hdr-sep"></div>
   <button class="lang-btn active" id="btn-en" onclick="setLang('en')">🇬🇧 English</button>
   <button class="lang-btn" id="btn-fr" onclick="setLang('fr')">🇫🇷 Français</button>
-  &nbsp;
-  <a class="back-btn" href="javascript:history.back()">← Back</a>
 </div>
 
 <div class="container">
