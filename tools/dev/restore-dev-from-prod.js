@@ -25,18 +25,45 @@ const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
 
-const REPO = path.join(__dirname, '../..');
-require('dotenv').config({ path: path.join(REPO, '.env') });
-
 // ── args ─────────────────────────────────────────────────────────────────────
 const argv = process.argv.slice(2);
 const getArg = (k, d) => { const i = argv.indexOf(k); return i >= 0 ? argv[i + 1] : d; };
-const SRC = getArg('--src', path.join(process.env.USERPROFILE || 'C:\\Users\\Admin', 'Desktop', 'SDP'));
+
+// Locate the repo whether this runs from inside it (tools/dev/) OR from a
+// standalone copy dropped next to the export (e.g. C:\SDP). --repo overrides.
+function resolveRepo() {
+  const cand = [path.join(__dirname, '../..'), getArg('--repo', null), 'C:\\Users\\Admin\\Documents\\SDP-Dashboard'];
+  for (const c of cand) if (c && fs.existsSync(path.join(c, 'server.js'))) return c;
+  console.error('✖ SDP-Dashboard repo not found — pass --repo <path-to-repo>.');
+  process.exit(1);
+}
+const REPO = resolveRepo();
+
+// Zero-dependency .env parse (so this can run standalone with plain `node`, no node_modules).
+function loadDotEnv(p) {
+  const out = {};
+  try {
+    fs.readFileSync(p, 'utf8').split(/\r?\n/).forEach(line => {
+      if (line.trim().startsWith('#')) return;
+      const m = line.match(/^\s*([A-Za-z0-9_]+)\s*=\s*(.*)\s*$/);
+      if (m) out[m[1]] = m[2].replace(/^["']|["']$/g, '');
+    });
+  } catch (_) {}
+  return out;
+}
+const ENV = loadDotEnv(path.join(REPO, '.env'));
+
+// Source of the export zips: default to this script's own folder if the zips are
+// there (standalone copy in C:\SDP), else Desktop\SDP.
+const defaultSrc = fs.existsSync(path.join(__dirname, 'sdp_dashboard_full.zip'))
+  ? __dirname
+  : path.join(process.env.USERPROFILE || 'C:\\Users\\Admin', 'Desktop', 'SDP');
+const SRC = getArg('--src', defaultSrc);
 const DUMP_ZIP = getArg('--dump', path.join(SRC, 'sdp_dashboard_full.zip'));
 const BLOBS_ZIP = getArg('--blobs', path.join(SRC, 'data-blobs.zip'));
 
 // ── PG target + guard ─────────────────────────────────────────────────────────
-const url = process.env.PG_URL || process.env.DATABASE_URL;
+const url = process.env.PG_URL || process.env.DATABASE_URL || ENV.PG_URL || ENV.DATABASE_URL;
 if (!url) { console.error('✖ PG_URL not set in .env'); process.exit(1); }
 const U = new URL(url);
 const DB = U.pathname.slice(1);
