@@ -3649,10 +3649,27 @@ window.addEventListener('beforeprint', function () {
     } catch (e) { /* offline — leave "All / Any" only */ }
   }
 
+  // Progress (effort trend) is a per-site metric — only the Site filter applies
+  // (the history table has no state/type/manufacturer/serial columns). Grey out
+  // the inapplicable controls on that tab so they don't read as broken; the note
+  // in the Progress pane explains why. Every other tab keeps all filters live.
+  function applyFilterAvailability(tab) {
+    const siteOnly = (tab === 'progress');
+    ['filterState', 'filterType', 'filterMfr', 'filterQ'].forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.disabled = siteOnly;
+      el.title = siteOnly ? "Not applicable on Progress — effort is a per-site metric (only Site applies)." : '';
+      el.style.opacity = siteOnly ? '0.5' : '';
+      el.style.cursor = siteOnly ? 'not-allowed' : '';
+    });
+  }
+
   async function activate(tab, opts) {
     opts = opts || {};
     if (!TABS.includes(tab)) tab = 'inventory';
     activeTab = tab;
+    applyFilterAvailability(tab);
 
     // Tab button + pane visibility
     document.querySelectorAll('.tabbtn').forEach(b => {

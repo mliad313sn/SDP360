@@ -64,8 +64,10 @@ async function main(deps = {}) {
     cfg = await require('../../services/reportConfig').getConfig(db);
   }
 
-  // GATE FIRST — a disarmed run must not gather, compose, mail, or log anything.
-  if (!decideWeeklySend(cfg)) {
+  // GATE — a disarmed SEND must not gather, compose, mail, or log anything. A
+  // PREVIEW is exempt: it composes a dry-run (never mails/logs) so an admin can
+  // check the report before arming. The per-site sender enforces preview-vs-send.
+  if (!preview && !decideWeeklySend(cfg)) {
     console.log(`[send-weekly] cadence=${cadence} → not sending (reason=disabled)`);
     return { sent: 0, reason: 'disabled' };
   }

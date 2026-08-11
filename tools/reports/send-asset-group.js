@@ -64,17 +64,23 @@ async function main(deps = {}) {
   const now = deps.now || new Date();
   const period = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}`;
 
-  // GATE FIRST — a disarmed / no-recipient run must not gather, compose, mail, or log.
+  // GATE — a disarmed / no-recipient SEND must not gather, compose, mail, or log.
+  // A PREVIEW is exempt: it composes a dry-run (never mails/logs) so an admin can
+  // check the digest before arming.
   const gate = decideAssetGroupSend(cfg);
-  if (!gate.send) {
+  if (!preview && !gate.send) {
     console.log(`[send-asset-group] cadence=${cadence} period=${period} → not sending (reason=${gate.reason})`);
     return { sent: 0, reason: gate.reason };
   }
-  const recipients = gate.recipients;
+  // Recipients ride in the gate when armed; a disarmed preview resolves them from
+  // config directly (empty is fine — a preview never sends).
+  const recipients = gate.recipients || String((cfg || {}).asset_group_recipients || '')
+    .split(',').map(s => s.trim()).filter(Boolean);
 
-  // Dedup: one digest per period per calendar day, unless --force.
+  // Dedup: one digest per period per calendar day, unless --force. Skipped for a
+  // preview (a preview must never be blocked by a prior send).
   const alreadySentToday = deps.alreadySentToday || require('../../services/reportSentLog').alreadySentToday;
-  if (!force && await alreadySentToday(db, 'asset_group', 'GROUP', period)) {
+  if (!preview && !force && await alreadySentToday(db, 'asset_group', 'GROUP', period)) {
     console.log(`[send-asset-group] already sent today for period=${period} — skipping (use --force to override)`);
     return { sent: 0, skipped: true, reason: 'already sent' };
   }

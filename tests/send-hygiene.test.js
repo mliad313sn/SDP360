@@ -132,3 +132,13 @@ test('dedup — --force overrides the same-day guard and sends', async () => {
   assert.strictEqual(captured.sends.length, 1, 'force sends despite the dedup guard');
   assert.strictEqual(res.sent, 1);
 });
+
+// ── disarmed + PREVIEW → composes a dry-run, never mails/logs (Preview unarmed) ──
+test('disarmed + preview → composes a dry-run, mails/logs NOTHING', async () => {
+  const { deps, captured } = stubDeps({ cfg: { hygiene_send_enabled: '0', hygiene_recipients: 'a@x.com' }, preview: true });
+  const res = await main(deps);
+  assert.notStrictEqual(res.reason, 'disabled', 'preview must NOT be gated by the arm flag');
+  assert.ok(res.previewed, 'preview composed the digest');
+  assert.strictEqual(captured.sends.length, 0, 'preview never mails');
+  assert.strictEqual(captured.records.length, 0, 'preview never logs');
+});

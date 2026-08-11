@@ -50,8 +50,10 @@ async function main(deps = {}) {
   const now = deps.now || new Date();
   const period = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}`;
 
-  // GATE FIRST — a disarmed run must not gather, compose, mail, or log anything.
-  if (!decideScoreboardSend(cfg)) {
+  // GATE — a disarmed SEND must not gather, compose, mail, or log anything. A
+  // PREVIEW is exempt: it composes a dry-run (never mails/logs) so an admin can
+  // check the board before arming.
+  if (!preview && !decideScoreboardSend(cfg)) {
     console.log(`[send-scoreboard] cadence=${cadence} period=${period} → not sending (reason=disabled)`);
     return { sent: 0, reason: 'disabled' };
   }
@@ -97,7 +99,8 @@ async function main(deps = {}) {
     if (!rcpt || !rcpt.to) { skipped++; continue; }
 
     // Per-(period, site) dedup — one board per coordinator per period per day.
-    if (!force && await alreadySentToday(db, 'scoreboard', siteCode, period)) { skipped++; continue; }
+    // Skipped for a preview (a preview must never be blocked by a prior send).
+    if (!preview && !force && await alreadySentToday(db, 'scoreboard', siteCode, period)) { skipped++; continue; }
 
     const { subject, html } = buildScoreboardDigest(scoreboard, { period, highlightSite: siteCode });
 

@@ -132,3 +132,14 @@ test('dedup — --force overrides the same-day guard and logs result=resent', as
   assert.strictEqual(captured.records[0].result, 'resent', 'a forced re-send is logged as resent');
   assert.strictEqual(res.sent, 1);
 });
+
+// ── disarmed + PREVIEW → composes a dry-run, never mails/logs (Preview unarmed) ──
+test('disarmed + preview → composes a dry-run, mails/logs NOTHING', async () => {
+  const { deps, captured } = stubDeps({ cfg: { asset_group_send_enabled: '0', asset_group_recipients: 'm@x.com', xof_usd_rate: '0.00165', asset_replacement_uplift_pct: '0' }, preview: true });
+  const res = await main(deps);
+  assert.notStrictEqual(res.reason, 'disabled', 'preview must NOT be gated by the arm flag');
+  assert.ok(res.preview, 'preview composed the digest');
+  assert.ok(captured.gathered, 'preview gathered the data');
+  assert.strictEqual(captured.sends.length, 0, 'preview never mails');
+  assert.strictEqual(captured.records.length, 0, 'preview never logs');
+});

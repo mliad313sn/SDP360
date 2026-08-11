@@ -183,3 +183,12 @@ test('an empty directory is a clean no-op, not a crash', async () => {
   assert.strictEqual(res.skipped, 0);
   assert.strictEqual(captured.sent.length, 0);
 });
+
+// ── disarmed + PREVIEW → reaches the per-site loop in preview mode (Preview unarmed) ──
+test('disarmed + preview → composes a dry-run, is NOT gated by the arm flag', async () => {
+  const { deps, captured } = stubDeps({ cfg: { weekly_report_send_enabled: '0' }, preview: true, getPreviousWeek: () => ({ year: 2026, week: 28 }) });
+  const res = await main(deps);
+  assert.notStrictEqual(res.reason, 'disabled', 'preview must NOT be gated by the arm flag');
+  assert.ok(captured.sent.length > 0, 'preview reached the per-site loop');
+  assert.ok(captured.sent.every(o => o.preview === true), 'each site composed in preview mode');
+});

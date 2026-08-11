@@ -106,3 +106,13 @@ test('--preview composes but never mails or logs', async () => {
   assert.strictEqual(captured.records.length, 0, 'preview must not log');
   assert.strictEqual(res.previewed, true);
 });
+
+// ── disarmed + PREVIEW → composes a dry-run, never mails/logs (Preview unarmed) ──
+test('disarmed + preview → composes a dry-run, mails/logs NOTHING', async () => {
+  const { deps, captured } = stubDeps({ cfg: { scoreboard_send_enabled: '0' }, preview: true });
+  const res = await main(deps);
+  assert.notStrictEqual(res.reason, 'disabled', 'preview must NOT be gated by the arm flag');
+  assert.ok(captured.loaded > 0, 'preview gathered the board');
+  assert.strictEqual(captured.sends.length, 0, 'preview never mails');
+  assert.strictEqual(captured.records.length, 0, 'preview never logs');
+});

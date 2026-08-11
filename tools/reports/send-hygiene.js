@@ -79,17 +79,23 @@ async function main(deps = {}) {
   const now = deps.now || new Date();
   const period = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
-  // GATE FIRST — a disarmed run must not compose, mail, or log anything.
+  // GATE — a disarmed SEND must not compose, mail, or log. A PREVIEW is exempt:
+  // it composes a dry-run (never mails/logs) so an admin can check the digest
+  // before arming.
   const gate = decideHygieneSend(cfg);
-  if (!gate.send) {
+  if (!preview && !gate.send) {
     console.log(`[send-hygiene] cadence=${cadence} period=${period} → not sending (reason=${gate.reason})`);
     return { sent: 0, reason: gate.reason };
   }
-  const recipients = gate.recipients;
+  // Recipients ride in the gate when armed; a disarmed preview resolves them from
+  // config directly (empty is fine — a preview never sends).
+  const recipients = gate.recipients || String((cfg || {}).hygiene_recipients || '')
+    .split(',').map(s => s.trim()).filter(Boolean);
 
-  // Dedup: one digest per period per calendar day, unless --force.
+  // Dedup: one digest per period per calendar day, unless --force. Skipped for a
+  // preview (a preview must never be blocked by a prior send).
   const alreadySentToday = deps.alreadySentToday || require('../../services/reportSentLog').alreadySentToday;
-  if (!force && await alreadySentToday(db, 'hygiene', 'GROUP', period)) {
+  if (!preview && !force && await alreadySentToday(db, 'hygiene', 'GROUP', period)) {
     console.log(`[send-hygiene] already sent today for period=${period} — skipping (use --force to override)`);
     return { sent: 0, skipped: true, reason: 'already sent' };
   }
