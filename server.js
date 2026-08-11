@@ -5257,7 +5257,18 @@ app.get('/api/reports/site-actions', requireReportSession, async (req, res) => {
     if (resolved && resolved.site_id) {
       report = { actions: (await rdb.getSiteOpenReportActions(resolved.site_id)).actions };
     }
-    res.json({ site: code, ...buildSiteActions({ meetings, inspection, report, asOf }) });
+    const sa = buildSiteActions({ meetings, inspection, report, asOf });
+    // Best-effort: fold Meridian project links onto matching rows for the "▸ Projet: X"
+    // badge (F1). NEVER blocks the hub — a Meridian outage/misconfig leaves every
+    // it.project null. getConfig is a Promise on pg → await it.
+    let links = {}, baseUrl = '';
+    try {
+      const cfg = await reportConfig.getConfig(rdb.db);
+      baseUrl = cfg.meridian_base_url || '';
+      links = await require('./services/meridianLinks').getLinksForSite(code, { config: cfg });
+    } catch (_) { links = {}; }
+    require('./services/meridianActions').attachProjectLinks(sa, links, baseUrl);
+    res.json({ site: code, ...sa });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 // SP1b — merge a report follow-up into its Meetings/Inspection twin (a reference)

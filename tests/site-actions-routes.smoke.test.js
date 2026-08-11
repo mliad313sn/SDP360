@@ -63,6 +63,7 @@ test('200 + three-group shape + the meetings action flows through', async () => 
   assert.ok(item, 'seeded action normalized into the payload');
   assert.equal(item.close.kind, 'inline');
   assert.ok(Number.isInteger(item.action_id) && item.action_id > 0, 'carries a real meetings action id for inline close');
+  assert.strictEqual(item.project, null, 'F1: Meridian unconfigured → project badge absent (best-effort degrade, hub not blocked)');
   assert.equal(typeof r.body.totals.open, 'number');
 });
 

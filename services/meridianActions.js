@@ -30,4 +30,26 @@ function flattenOpenActions(site, sa, asOf) {
   return { site, as_of: asOf, actions };
 }
 
-module.exports = { flattenOpenActions, actionId };
+// Fold a Meridian links map (ext_id → link row, from meridianLinks.getLinksForSite)
+// onto a buildSiteActions() result IN PLACE: each item gets `it.project =
+// {id,name,activity_id,url}` when linked, else null (never fabricated). Returns sa.
+// Used by the Site Actions hub route to render the "▸ Projet: X" badge.
+function attachProjectLinks(sa, linksMap, baseUrl) {
+  const map = linksMap || {};
+  const groups = (sa && sa.groups) || {};
+  const trim = String(baseUrl || '').replace(/\/$/, '');
+  for (const g of ['meetings', 'inspection', 'report']) {
+    for (const it of ((groups[g] && groups[g].items) || [])) {
+      const l = map[actionId(it)];
+      it.project = l ? {
+        id: l.project_id,
+        name: l.project_name || l.project_id,
+        activity_id: l.activity_id || null,
+        url: (trim && l.project_id) ? `${trim}/projects/${encodeURIComponent(l.project_id)}` : null,
+      } : null;
+    }
+  }
+  return sa;
+}
+
+module.exports = { flattenOpenActions, actionId, attachProjectLinks };

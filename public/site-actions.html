@@ -42,6 +42,8 @@
   .sa-group__count { font-size: 12px; font-weight: 700; color: var(--color-text-muted, #7B7B7B); }
   .sa-badge { font-size: 10.5px; font-weight: 700; border-radius: 999px; padding: 2px 9px; margin-left: auto; }
   .sa-badge--old { background: rgba(217,0,56,.10); color: #B00030; }
+  .sa-badge--pmo { display: inline-block; margin-left: 8px; background: rgba(42,84,144,.10); color: #1F3D5C; text-decoration: none; vertical-align: middle; }
+  a.sa-badge--pmo:hover { background: rgba(42,84,144,.18); }
 
   .sa-head, .sa-row { display: grid; grid-template-columns: 2.6fr 1.1fr 0.9fr 0.7fr 1.2fr 1fr; gap: 10px; align-items: center; padding: 10px 18px; }
   .sa-head { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.7px; color: var(--color-text-muted, #7B7B7B); background: #FAFBFC; border-bottom: 1px solid var(--color-border, #E2E5EA); }
@@ -206,7 +208,7 @@
       }
     }
     return `<div class="sa-row">
-      <span class="sa-row__title"><strong>${esc(it.title)}</strong><small>${esc(it.origin_label || '')}</small></span>
+      <span class="sa-row__title"><strong>${esc(it.title)}</strong><small>${esc(it.origin_label || '')}</small>${it.project ? `<a class="sa-badge sa-badge--pmo" ${it.project.url ? `href="${esc(it.project.url)}" target="_blank" rel="noopener"` : ''} title="Meridian project — click to open">▸ Projet: ${esc(it.project.name || it.project.id)}</a>` : ''}</span>
       <span>${esc(it.owner || '—')}</span>
       <span class="sa-date ${overdue ? 'overdue' : ''}">${fmtDate(it.due_date)}${overdue ? '<span class="sa-overdue-tag">late</span>' : ''}</span>
       <span>${esc(age)}</span>

@@ -3,7 +3,7 @@
 // API shape, with a stable "<source>:<action_id|uid>" id and a PII-safe whitelist.
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { flattenOpenActions, actionId } = require('../services/meridianActions');
+const { flattenOpenActions, actionId, attachProjectLinks } = require('../services/meridianActions');
 
 const sa = { groups: {
   meetings:   { items: [{ source:'meetings', action_id:1234, title:'Fix radio', owner:'Koffi',
@@ -38,4 +38,26 @@ test('actionId prefers action_id, falls back to uid', () => {
 test('empty / missing groups → empty actions, never throws', () => {
   assert.deepEqual(flattenOpenActions('X', {}, '2026-01-01').actions, []);
   assert.deepEqual(flattenOpenActions('X', { groups:{} }, '2026-01-01').actions, []);
+});
+
+test('attachProjectLinks: sets it.project on matching rows, null elsewhere, builds url', () => {
+  const s = JSON.parse(JSON.stringify(sa));
+  const links = { 'meetings:1234': { project_id:'PR-3', project_name:'WAN upgrade', activity_id:'AC-7' } };
+  attachProjectLinks(s, links, 'https://m.example/');   // trailing slash trimmed
+  const m = s.groups.meetings.items[0];
+  assert.equal(m.project.name, 'WAN upgrade');
+  assert.equal(m.project.id, 'PR-3');
+  assert.equal(m.project.activity_id, 'AC-7');
+  assert.equal(m.project.url, 'https://m.example/projects/PR-3');
+  assert.equal(s.groups.report.items[0].project, null);   // unmatched → null, never fabricated
+});
+
+test('attachProjectLinks: empty map → all project null; missing base_url → url null', () => {
+  const s = JSON.parse(JSON.stringify(sa));
+  attachProjectLinks(s, {}, '');
+  assert.equal(s.groups.meetings.items[0].project, null);
+  const s2 = JSON.parse(JSON.stringify(sa));
+  attachProjectLinks(s2, { 'meetings:1234': { project_id:'PR-3', project_name:'X' } }, '');
+  assert.equal(s2.groups.meetings.items[0].project.url, null);   // no base_url → no deep-link
+  assert.equal(s2.groups.meetings.items[0].project.name, 'X');
 });
