@@ -5106,6 +5106,8 @@ app.get('/api/reports/config', requireReportSession, requireAdmin, async (req, r
     const c = await reportConfig.getConfig(rdb.db);
     if (c && c.smtp_pass) c.smtp_pass = '';   // never expose the stored SMTP password
     if (c && c.entra_client_secret) c.entra_client_secret = '';   // never expose the stored SSO secret
+    if (c && c.meridian_out_key) c.meridian_out_key = '';   // never expose the stored Meridian keys
+    if (c && c.meridian_in_key) c.meridian_in_key = '';
     res.json(c);
   }
   catch (e) { res.status(500).json({ error: e.message }); }
@@ -5119,6 +5121,11 @@ app.put('/api/reports/config', requireReportSession, requireAdmin, async (req, r
     const SSO_KEYS = ['sso_mode','entra_tenant_id','entra_client_id','entra_client_secret','entra_redirect_uri','sso_breakglass_user'];
     if (SSO_KEYS.some(k => k in body) && req.reportUser?.role !== 'super_admin') {
       return res.status(403).json({ error: 'SSO settings require super_admin' });
+    }
+    // Meridian federation keys carry a service secret (out/in API keys) → super_admin only.
+    const MERIDIAN_KEYS = ['meridian_base_url','meridian_out_key','meridian_in_key'];
+    if (MERIDIAN_KEYS.some(k => k in body) && req.reportUser?.role !== 'super_admin') {
+      return res.status(403).json({ error: 'Meridian settings require super_admin' });
     }
     const out = await reportConfig.setConfig(rdb.db, body, req.reportUser?.username);
     require('./services/ssoSettings')._invalidate();   // config changed → re-read next request

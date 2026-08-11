@@ -1041,6 +1041,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
           <button type="button" class="admin-rail__item" data-panel="email"       onclick="showAdminPanel('email')"><span class="ar-ico">✉</span><span>Email / SMTP<small>Transport &amp; addressing</small></span><span class="ar-scope">Global</span></button>
           <button type="button" class="admin-rail__item" data-panel="backups" id="admin-rail-backups" style="display:none" onclick="showAdminPanel('backups')"><span class="ar-ico">💾</span><span>Backups<small>Scheduled &amp; manual</small></span><span class="ar-scope">Global</span></button>
           <button type="button" class="admin-rail__item" data-panel="sso" id="admin-rail-sso" style="display:none" onclick="showAdminPanel('sso')"><span class="ar-ico">🔐</span><span>Microsoft SSO<small>Entra sign-in</small></span><span class="ar-scope">Global</span></button>
+          <button type="button" class="admin-rail__item" data-panel="meridian" id="admin-rail-meridian" style="display:none" onclick="showAdminPanel('meridian')"><span class="ar-ico">🔗</span><span>Meridian (PMO)<small>Federation link</small></span><span class="ar-scope">Global</span></button>
         </div>
         <div class="admin-rail__group">
           <div class="admin-rail__grouphdr">📊 Reports</div>
@@ -1455,6 +1456,39 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
       <div class="modal-actions" style="justify-content:flex-start;gap:10px;align-items:center">
         <button class="btn btn-primary" onclick="saveSsoConfig()">Save</button>
         <span id="cfg-sso-msg" style="font-size:0.85rem;color:#6b7a99"></span>
+      </div>
+    </div>
+
+    <!-- ─── Meridian PMO federation (Global) · super_admin only ───────────────
+         F1: SDP↔Meridian link. base_url + two API keys. out_key = SDP presents
+         it to Meridian (resource sync + link read-back); in_key = SDP requires
+         it inbound on /api/actions/open. Both keys redacted on GET, blank-kept
+         on save (like the SMTP password / SSO secret). -->
+    <div class="card admin-panel" id="ap-meridian" data-panel="meridian">
+      <h3 style="margin-top:0">🔗 Meridian (PMO) — Federation</h3>
+      <p style="color:#6b7a99;font-size:0.9rem;margin-top:-4px">
+        Links SDP to the Meridian project-management app. The <strong>outbound key</strong> is what SDP presents to
+        Meridian (resource sync + reading project links back); the <strong>inbound key</strong> is what SDP requires
+        from Meridian on its open-actions read API. Leave a key blank to keep the stored one. Contract:
+        <code>docs/MERIDIAN_INTEGRATION_CONTRACT.md</code>.
+      </p>
+      <div class="form-group">
+        <label>Meridian base URL</label>
+        <input type="text" id="cfg-meridian-base" placeholder="https://meridian.edv-ops.com" autocomplete="off">
+        <small style="color:#6b7a99">Origin only, no trailing slash. SDP appends <code>/v1/resources/sync</code> and <code>/v1/links</code>.</small>
+      </div>
+      <div class="form-group">
+        <label>Outbound API key (SDP → Meridian)</label>
+        <input type="password" id="cfg-meridian-out" placeholder="leave blank to keep the stored key" autocomplete="new-password">
+      </div>
+      <div class="form-group">
+        <label>Inbound API key (Meridian → SDP)</label>
+        <input type="password" id="cfg-meridian-in" placeholder="leave blank to keep the stored key" autocomplete="new-password">
+        <small style="color:#6b7a99">Meridian must send this as <code>X-API-Key</code> to <code>GET /api/actions/open</code>. Unset ⇒ that endpoint is inert (401).</small>
+      </div>
+      <div class="modal-actions" style="justify-content:flex-start;gap:10px;align-items:center">
+        <button class="btn btn-primary" onclick="saveMeridianConfig()">Save</button>
+        <span id="cfg-meridian-msg" style="font-size:0.85rem;color:#6b7a99"></span>
       </div>
     </div>
 
@@ -5238,10 +5272,10 @@ async function downloadAllSitesMonthlyPptx(fromMonthlyPage) {
 //  ADMIN PAGE
 // ══════════════════════════════════════════════════════════════════
 // Admin left-rail: show one settings panel at a time. name ∈ users|sessions|sites|departments|risk.
-const _ADMIN_PANEL_IDS = { users:'ap-users', sessions:'sessions-card', sites:'ap-sites', departments:'ap-depts', execview:'ap-execview', email:'ap-email', backups:'ap-backups', sso:'ap-sso', risk:'rr-aliases-card', autoreports:'ap-autoreports', 'assets-finance':'ap-assets-finance', 'assets-deprec':'ap-assets-deprec', hygiene:'ap-hygiene', scoreboard:'ap-scoreboard', weekly:'ap-weekly', 'asset-group':'ap-asset-group' };
+const _ADMIN_PANEL_IDS = { users:'ap-users', sessions:'sessions-card', sites:'ap-sites', departments:'ap-depts', execview:'ap-execview', email:'ap-email', backups:'ap-backups', sso:'ap-sso', meridian:'ap-meridian', risk:'rr-aliases-card', autoreports:'ap-autoreports', 'assets-finance':'ap-assets-finance', 'assets-deprec':'ap-assets-deprec', hygiene:'ap-hygiene', scoreboard:'ap-scoreboard', weekly:'ap-weekly', 'asset-group':'ap-asset-group' };
 function showAdminPanel(name) {
-  // Guard: 'risk' / 'backups' / 'autoreports' / 'sso' are super_admin-only — fall back to Users for everyone else.
-  if ((name === 'risk' || name === 'backups' || name === 'autoreports' || name === 'sso') && currentUser?.role !== 'super_admin') name = 'users';
+  // Guard: 'risk' / 'backups' / 'autoreports' / 'sso' / 'meridian' are super_admin-only — fall back to Users for everyone else.
+  if ((name === 'risk' || name === 'backups' || name === 'autoreports' || name === 'sso' || name === 'meridian') && currentUser?.role !== 'super_admin') name = 'users';
   if (!_ADMIN_PANEL_IDS[name]) name = 'users';
   document.querySelectorAll('#page-admin .admin-panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('#admin-rail .admin-rail__item').forEach(b => b.classList.toggle('active', b.dataset.panel === name));
@@ -5263,6 +5297,8 @@ function showAdminPanel(name) {
   if (name === 'email' && typeof loadReportConfig === 'function') loadReportConfig();
   // Fresh Entra SSO settings when opening the Microsoft SSO panel.
   if (name === 'sso' && typeof loadSsoConfig === 'function') loadSsoConfig();
+  // Fresh Meridian federation settings when opening the Meridian panel.
+  if (name === 'meridian' && typeof loadMeridianConfig === 'function') loadMeridianConfig();
   // Fresh XOF→USD rate when opening the Assets Finance panel.
   if (name === 'assets-finance' && typeof loadAssetFinanceConfig === 'function') loadAssetFinanceConfig();
   // Fresh depreciation policy when opening the Depreciation panel.
@@ -5297,6 +5333,9 @@ async function loadAdminPage() {
     // Microsoft Entra SSO — super_admin only (stores a client secret).
     const ssoRail = document.getElementById('admin-rail-sso');
     if (ssoRail) ssoRail.style.display = isSuperAdmin ? '' : 'none';
+    // Meridian federation — super_admin only (stores service API keys).
+    const merRail = document.getElementById('admin-rail-meridian');
+    if (merRail) merRail.style.display = isSuperAdmin ? '' : 'none';
     const arRail = document.getElementById('admin-rail-autoreports');
     if (arRail) arRail.style.display = isSuperAdmin ? '' : 'none';
     // Assets Hygiene digest — admin+ (the whole admin page is admin/super_admin only).
@@ -6532,6 +6571,28 @@ function saveSsoConfig() {
   if (sec) patch.entra_client_secret = sec;   // only overwrite when a new one is typed (blank = keep stored)
   api('PUT', '/api/reports/config', patch)
     .then(() => { toast('SSO settings saved ✓', 'success'); loadSsoConfig(); })
+    .catch(e => toast('Save failed: ' + (e.message || e), 'error'));
+}
+
+// ── Meridian PMO federation (F1) — same generic /api/reports/config store ───
+// out_key / in_key are secrets: redacted on GET, blank-kept on save (server-side).
+// The PUT is super_admin-gated on the Meridian keys.
+function loadMeridianConfig() {
+  api('GET', '/api/reports/config').then(c => {
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = (v == null ? '' : v); };
+    set('cfg-meridian-base', c.meridian_base_url);
+    const outEl = document.getElementById('cfg-meridian-out'); if (outEl) outEl.value = '';  // never echo the stored keys
+    const inEl = document.getElementById('cfg-meridian-in'); if (inEl) inEl.value = '';
+    const msg = document.getElementById('cfg-meridian-msg'); if (msg) msg.textContent = '';
+  }).catch(e => toast('Could not load Meridian settings: ' + (e.message || e), 'error'));
+}
+function saveMeridianConfig() {
+  const val = id => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
+  const patch = { meridian_base_url: val('cfg-meridian-base') };
+  const out = val('cfg-meridian-out'); if (out) patch.meridian_out_key = out;  // blank = keep stored
+  const inn = val('cfg-meridian-in');  if (inn) patch.meridian_in_key = inn;
+  api('PUT', '/api/reports/config', patch)
+    .then(() => { toast('Meridian settings saved ✓', 'success'); loadMeridianConfig(); })
     .catch(e => toast('Save failed: ' + (e.message || e), 'error'));
 }
 // The single source of truth for what the Email/SMTP form currently holds —

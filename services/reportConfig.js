@@ -51,6 +51,11 @@ const DEFAULTS = {
   //    on save, exactly like smtp_pass. Must live in DEFAULTS or setConfig drops them.
   sso_mode: '', entra_tenant_id: '', entra_client_id: '', entra_client_secret: '',
   entra_redirect_uri: '', sso_breakglass_user: '',
+  // ── F1: Meridian PMO federation. base_url + two API keys. out_key = SDP presents
+  //    it to Meridian (sync + link read-back); in_key = SDP requires it inbound on
+  //    /api/actions/open. Both keys are secrets: redacted on GET, blank-kept on save
+  //    like smtp_pass / entra_client_secret. Must live here or setConfig drops them.
+  meridian_base_url: '', meridian_out_key: '', meridian_in_key: '',
 };
 const KEYS = Object.keys(DEFAULTS);
 
@@ -92,7 +97,7 @@ function setConfig(db, patch, user) {
   // redacts it to '', so a Save that doesn't retype it must NOT wipe the stored value.
   const clean = Object.entries(patch || {})
     .filter(([k]) => KEYS.includes(k))
-    .filter(([k, v]) => !((k === 'smtp_pass' || k === 'entra_client_secret') && String(v) === ''));
+    .filter(([k, v]) => !((k === 'smtp_pass' || k === 'entra_client_secret' || k === 'meridian_out_key' || k === 'meridian_in_key') && String(v) === ''));
   const { H, isPg } = _h(db);
   if (isPg) return (async () => {
     await H.runTransaction(async () => {
