@@ -30,9 +30,9 @@ async function resolveSsoSettings(db, deps = {}) {
   // pg getConfig has no try/catch (reportConfig.js) and can reject; /api/auth/config
   // is hit on every login-page load. Degrade to env/defaults on failure — this also
   // reinforces the "env still wins" safety property.
-  let c = {};
+  let c = {}, degraded = false;
   try { c = (await getConfig(db)) || {}; }
-  catch (e) { console.warn('[sso-settings] config read failed, using .env/defaults:', e.message); }
+  catch (e) { degraded = true; console.warn('[sso-settings] config read failed, using .env/defaults:', e.message); }
 
   let mode = _pick(c.sso_mode, env.SSO_MODE, '').toLowerCase();
   if (!/^(off|available|only)$/.test(mode)) {
@@ -58,7 +58,12 @@ async function resolveSsoSettings(db, deps = {}) {
     cfg,
     ready: !!(cfg.tenantId && cfg.clientId && cfg.clientSecret),
   };
-  _cache = settings; _at = now;
+  // Do NOT cache a degraded read. A degraded result means the DB was unreachable
+  // (e.g. the best-effort boot log firing before initPgReports() resolves, or a
+  // transient PG outage). Caching it would keep serving the .env/default fallback
+  // for the full TTL even after the DB recovers — so a restart could make SSO read
+  // 'off' for 60s. Only a real read is cached; a degraded one re-tries next call.
+  if (!degraded) { _cache = settings; _at = now; }
   return settings;
 }
 

@@ -52,6 +52,18 @@ test('getConfig rejection degrades to env/defaults (no throw)', async () => {
   assert.equal(s.cfg.tenantId, 'T-env');
 });
 
+test('a degraded (getConfig threw) read is NOT cached — next call re-tries the DB', async () => {
+  _invalidate();
+  let calls = 0, up = false;
+  const getConfig = async () => { calls++; if (!up) throw new Error('pg not ready'); return { sso_mode: 'available' }; };
+  const s1 = await resolveSsoSettings({}, { env: {}, getConfig });   // degraded → mode off, NOT cached
+  assert.equal(s1.mode, 'off');
+  up = true;
+  const s2 = await resolveSsoSettings({}, { env: {}, getConfig });   // must re-read (cache not poisoned by the failure)
+  assert.equal(calls, 2, 'degraded read must not be cached');
+  assert.equal(s2.mode, 'available');
+});
+
 test('cache: second call within TTL does not re-read; invalidate forces re-read', async () => {
   _invalidate();
   let calls = 0; const getConfig = async () => { calls++; return { sso_mode: 'available' }; };

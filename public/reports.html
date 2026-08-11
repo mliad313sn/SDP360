@@ -1040,6 +1040,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
           <button type="button" class="admin-rail__item" data-panel="sites"       onclick="showAdminPanel('sites')"><span class="ar-ico">🏢</span><span>Sites<small>Zoho group mapping</small></span><span class="ar-scope">Global</span></button>
           <button type="button" class="admin-rail__item" data-panel="email"       onclick="showAdminPanel('email')"><span class="ar-ico">✉</span><span>Email / SMTP<small>Transport &amp; addressing</small></span><span class="ar-scope">Global</span></button>
           <button type="button" class="admin-rail__item" data-panel="backups" id="admin-rail-backups" style="display:none" onclick="showAdminPanel('backups')"><span class="ar-ico">💾</span><span>Backups<small>Scheduled &amp; manual</small></span><span class="ar-scope">Global</span></button>
+          <button type="button" class="admin-rail__item" data-panel="sso" id="admin-rail-sso" style="display:none" onclick="showAdminPanel('sso')"><span class="ar-ico">🔐</span><span>Microsoft SSO<small>Entra sign-in</small></span><span class="ar-scope">Global</span></button>
         </div>
         <div class="admin-rail__group">
           <div class="admin-rail__grouphdr">📊 Reports</div>
@@ -1403,6 +1404,57 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         <button class="btn btn-primary" onclick="saveReportConfig()">Save</button>
         <button class="btn btn-secondary" onclick="testSmtp(this)">Test connection</button>
         <span id="cfg-test-msg" style="font-size:0.85rem;color:#6b7a99"></span>
+      </div>
+    </div>
+
+    <!-- ─── Microsoft Entra SSO (Global) · super_admin only ────────────────────
+         F2a: configure Entra sign-in from the admin page instead of only .env.
+         Resolved at request time by services/ssoSettings.js as DB ?? .env ??
+         default, so a save takes effect without a restart (cache invalidated on
+         PUT). The client secret is redacted on GET and blank-kept on save,
+         exactly like the SMTP password. -->
+    <div class="card admin-panel" id="ap-sso" data-panel="sso">
+      <h3 style="margin-top:0">🔐 Microsoft Entra SSO</h3>
+      <p style="color:#6b7a99;font-size:0.9rem;margin-top:-4px">
+        Single sign-on with Microsoft Entra ID. These override the server's <code>.env</code> once set;
+        leave a field blank to fall back to <code>.env</code> / the default. Full setup guide:
+        <code>docs/SSO_ENTRA_SETUP.md</code>. Changes apply within a minute (no restart).
+      </p>
+      <div class="form-group">
+        <label>Mode</label>
+        <select id="cfg-sso-mode">
+          <option value="">— (use .env / default: off)</option>
+          <option value="off">off — password login only</option>
+          <option value="available">available — both password &amp; Microsoft (cutover window)</option>
+          <option value="only">only — Microsoft required (break-glass user excepted)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Directory (tenant) ID</label>
+        <input type="text" id="cfg-entra-tenant" placeholder="e.g. 12345678-90ab-cdef-1234-567890abcdef" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label>Application (client) ID</label>
+        <input type="text" id="cfg-entra-client" placeholder="app registration client ID" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label>Client secret</label>
+        <input type="password" id="cfg-entra-secret" placeholder="leave blank to keep the stored secret" autocomplete="new-password">
+        <small style="color:#6b7a99">Stored encrypted-at-rest in the DB config; never echoed back. Blank on save = keep the existing value.</small>
+      </div>
+      <div class="form-group">
+        <label>Redirect URI</label>
+        <input type="text" id="cfg-entra-redirect" placeholder="https://itops-dashboard.edv-ops.com/api/auth/sso/callback" autocomplete="off">
+        <small style="color:#6b7a99">Must exactly match a Redirect URI registered on the Entra app.</small>
+      </div>
+      <div class="form-group">
+        <label>Break-glass user</label>
+        <input type="text" id="cfg-sso-breakglass" placeholder="admin" autocomplete="off">
+        <small style="color:#6b7a99">This username can still sign in with a password when mode is <strong>only</strong>.</small>
+      </div>
+      <div class="modal-actions" style="justify-content:flex-start;gap:10px;align-items:center">
+        <button class="btn btn-primary" onclick="saveSsoConfig()">Save</button>
+        <span id="cfg-sso-msg" style="font-size:0.85rem;color:#6b7a99"></span>
       </div>
     </div>
 
@@ -5186,10 +5238,10 @@ async function downloadAllSitesMonthlyPptx(fromMonthlyPage) {
 //  ADMIN PAGE
 // ══════════════════════════════════════════════════════════════════
 // Admin left-rail: show one settings panel at a time. name ∈ users|sessions|sites|departments|risk.
-const _ADMIN_PANEL_IDS = { users:'ap-users', sessions:'sessions-card', sites:'ap-sites', departments:'ap-depts', execview:'ap-execview', email:'ap-email', backups:'ap-backups', risk:'rr-aliases-card', autoreports:'ap-autoreports', 'assets-finance':'ap-assets-finance', 'assets-deprec':'ap-assets-deprec', hygiene:'ap-hygiene', scoreboard:'ap-scoreboard', weekly:'ap-weekly', 'asset-group':'ap-asset-group' };
+const _ADMIN_PANEL_IDS = { users:'ap-users', sessions:'sessions-card', sites:'ap-sites', departments:'ap-depts', execview:'ap-execview', email:'ap-email', backups:'ap-backups', sso:'ap-sso', risk:'rr-aliases-card', autoreports:'ap-autoreports', 'assets-finance':'ap-assets-finance', 'assets-deprec':'ap-assets-deprec', hygiene:'ap-hygiene', scoreboard:'ap-scoreboard', weekly:'ap-weekly', 'asset-group':'ap-asset-group' };
 function showAdminPanel(name) {
-  // Guard: 'risk' / 'backups' / 'autoreports' are super_admin-only — fall back to Users for everyone else.
-  if ((name === 'risk' || name === 'backups' || name === 'autoreports') && currentUser?.role !== 'super_admin') name = 'users';
+  // Guard: 'risk' / 'backups' / 'autoreports' / 'sso' are super_admin-only — fall back to Users for everyone else.
+  if ((name === 'risk' || name === 'backups' || name === 'autoreports' || name === 'sso') && currentUser?.role !== 'super_admin') name = 'users';
   if (!_ADMIN_PANEL_IDS[name]) name = 'users';
   document.querySelectorAll('#page-admin .admin-panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('#admin-rail .admin-rail__item').forEach(b => b.classList.toggle('active', b.dataset.panel === name));
@@ -5209,6 +5261,8 @@ function showAdminPanel(name) {
   if (name === 'autoreports' && typeof loadAutoReports === 'function') loadAutoReports();
   // Fresh SMTP / addressing when opening the Email panel.
   if (name === 'email' && typeof loadReportConfig === 'function') loadReportConfig();
+  // Fresh Entra SSO settings when opening the Microsoft SSO panel.
+  if (name === 'sso' && typeof loadSsoConfig === 'function') loadSsoConfig();
   // Fresh XOF→USD rate when opening the Assets Finance panel.
   if (name === 'assets-finance' && typeof loadAssetFinanceConfig === 'function') loadAssetFinanceConfig();
   // Fresh depreciation policy when opening the Depreciation panel.
@@ -5240,6 +5294,9 @@ async function loadAdminPage() {
     if (rrRail) rrRail.style.display = isSuperAdmin ? '' : 'none';
     const bkRail = document.getElementById('admin-rail-backups');
     if (bkRail) bkRail.style.display = isSuperAdmin ? '' : 'none';
+    // Microsoft Entra SSO — super_admin only (stores a client secret).
+    const ssoRail = document.getElementById('admin-rail-sso');
+    if (ssoRail) ssoRail.style.display = isSuperAdmin ? '' : 'none';
     const arRail = document.getElementById('admin-rail-autoreports');
     if (arRail) arRail.style.display = isSuperAdmin ? '' : 'none';
     // Assets Hygiene digest — admin+ (the whole admin page is admin/super_admin only).
@@ -6441,6 +6498,40 @@ function saveReportConfig() {
   const patch = emailConfigPatch();
   api('PUT', '/api/reports/config', patch)
     .then(() => { toast('Delivery settings saved ✓', 'success'); loadReportConfig(); })
+    .catch(e => toast('Save failed: ' + (e.message || e), 'error'));
+}
+
+// ── Microsoft Entra SSO (F2a) — same generic /api/reports/config store ──────
+// The client secret is redacted on GET and blank-kept on save (server-side, in
+// reportConfig.js), exactly like smtp_pass. The PUT is super_admin-gated on the
+// server; setConfig invalidates the ssoSettings cache so a save takes effect
+// within a minute without a restart.
+function loadSsoConfig() {
+  api('GET', '/api/reports/config').then(c => {
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = (v == null ? '' : v); };
+    set('cfg-sso-mode', c.sso_mode);
+    set('cfg-entra-tenant', c.entra_tenant_id);
+    set('cfg-entra-client', c.entra_client_id);
+    set('cfg-entra-redirect', c.entra_redirect_uri);
+    set('cfg-sso-breakglass', c.sso_breakglass_user);
+    const secEl = document.getElementById('cfg-entra-secret'); if (secEl) secEl.value = '';  // never echo the stored secret
+    const msg = document.getElementById('cfg-sso-msg'); if (msg) msg.textContent = '';
+  }).catch(e => toast('Could not load SSO settings: ' + (e.message || e), 'error'));
+}
+function saveSsoConfig() {
+  const val = id => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
+  const patch = {
+    sso_mode: val('cfg-sso-mode'),
+    entra_tenant_id: val('cfg-entra-tenant'),
+    entra_client_id: val('cfg-entra-client'),
+    entra_redirect_uri: val('cfg-entra-redirect'),
+    sso_breakglass_user: val('cfg-sso-breakglass'),
+  };
+  const secEl = document.getElementById('cfg-entra-secret');
+  const sec = secEl ? secEl.value : '';
+  if (sec) patch.entra_client_secret = sec;   // only overwrite when a new one is typed (blank = keep stored)
+  api('PUT', '/api/reports/config', patch)
+    .then(() => { toast('SSO settings saved ✓', 'success'); loadSsoConfig(); })
     .catch(e => toast('Save failed: ' + (e.message || e), 'error'));
 }
 // The single source of truth for what the Email/SMTP form currently holds —
