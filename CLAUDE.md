@@ -6,6 +6,38 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ---
 
+## ⚡ Current state (as of 2026-08-11 — F2a : réglages Entra SSO configurables depuis l'admin)
+
+> **F2a landed on `main`** (commits `8790a88`→`c7b402e`→`8d3972a`→`7b50a3c`, NOT
+> yet deployed) — les 6 réglages Entra SSO (`sso_mode`, `entra_tenant_id`,
+> `entra_client_id`, `entra_client_secret`, `entra_redirect_uri`,
+> `sso_breakglass_user`) se règlent depuis **Admin → 🔐 Microsoft SSO**
+> (`reports.html#admin/sso`, **super_admin only**) EN PLUS de `.env`, sans
+> redémarrage. **Cœur = `services/ssoSettings.js` `resolveSsoSettings(db)`** : pour
+> chaque champ **DB ?? .env ?? défaut** (le pur `ssoEntra.js` prend toujours un
+> `cfg` en argument — inchangé). Résolu **à la requête**, caché 60 s ; `_invalidate()`
+> appelé par le PUT de config. **Le secret est stocké en DB (`report_config`) comme
+> `smtp_pass`** : redacté au GET (`server.js:5108`, jamais renvoyé au navigateur),
+> **blank-kept** au save (vide = garder l'existant ; filtre dans `reportConfig.js:95`).
+> ⚠️ **Option A choisie par l'utilisateur** = le secret voyage donc dans les dumps DB
+> (compromis accepté). Les 6 clés SONT dans `reportConfig.DEFAULTS` (sinon `setConfig`
+> les jette). **Route config PUT super_admin-gated sur les clés SSO** (`server.js:5119`,
+> 403) + `_invalidate()`. Les 3 routes auth (`/api/auth/{config,sso/login,sso/callback}`)
+> sont **async** et lisent `s.mode/s.ready/s.cfg` du resolver ; la garde break-glass du
+> login mot-de-passe lit `_sso.mode==='only'`. **Carte admin** = 4 surfaces
+> (`_ADMIN_PANEL_IDS`, super-gate `showAdminPanel`, rail role-gate, bouton rail
+> `admin-rail-sso`) + `loadSsoConfig`/`saveSsoConfig`. **Durcissement (7b50a3c)** :
+> un read **dégradé** (getConfig a throw — course boot avant `initPgReports()`, ou PG
+> transitoirement KO) **n'est PLUS caché** — sinon un restart lisait SSO 'off' pendant
+> 60 s même avec une config DB. Tests : `sso-settings` (7), `report-config-sso` (2),
+> `sso-routes.smoke` (4, sqlite), `sso-db`/`sso-entra` (verts) + await-precedence 5/5.
+> **Prouvé sur le VRAI PG** : blank-keep secret, DB→resolver (mode=available,
+> ready=true), `/api/auth/config` répond, `_htmlCache` sert la carte + rail + 4 surfaces.
+> **E2E navigateur login-gated (clic dans la carte) = étape utilisateur** (pas de saisie
+> de mot de passe par l'agent). Plan : `docs/superpowers/plans/2026-08-10-f2a-admin-sso-config.md`,
+> guide : `docs/SSO_ENTRA_SETUP.md` §5 « Option A ». **Reste : F1** (intégration Meridian
+> MVP — sync ressources SDP→Meridian + lien Action↔Projet ; touche le code du boss).
+
 ## ⚡ Current state (as of 2026-08-03, plus tard — vrais deltas MoM sur le rapport exec)
 
 > **Deltas MoM (mois-sur-mois) branchés sur la slide 1 (cover « At a Glance ») + la
@@ -3519,6 +3551,9 @@ In normal use NO request hits this fallback. It's a safety net.
 
 | Pitfall | Rule |
 |---------|------|
+| **Entra SSO settings resolve DB ?? .env ?? default at REQUEST time — never read `.env` directly for SSO** | Since F2a the six SSO values are admin-configurable (`report_config`), so `process.env.ENTRA_*`/`SSO_MODE` are only the FALLBACK. Read them through **`services/ssoSettings.js` `resolveSsoSettings(db)`** (async — `getConfig` is a Promise on pg), which returns `{mode, ssoEnabled, breakglassUser, cfg, ready}`. The three `/api/auth/*` routes + the password-login break-glass gate all go through it. A new consumer that reads `process.env` directly will ignore the admin page. |
+| **`entra_client_secret` is a stored secret: redacted on GET, blank-kept on save, invalidate-on-write — and it travels in DB dumps** | Same contract as `smtp_pass`. The config **GET blanks it** (`server.js:5108`) so it's never echoed to the browser; **save with a blank value KEEPS the stored one** (`reportConfig.js:95` filter covers `entra_client_secret`+`smtp_pass`); the config **PUT is super_admin-gated on any SSO key** (`server.js:5119`, 403) and calls **`ssoSettings._invalidate()`** so a change takes effect within the 60 s TTL. ⚠️ Option A (user's choice): the secret lives in `report_config`, so it **is inside `pg_dump` backups** — treat dumps as secret. Any new secret-shaped config key must join BOTH the GET redact list AND the blank-keep filter, or it leaks / gets wiped on every save. |
+| **A DEGRADED SSO config read (getConfig threw) must NOT be cached** | `resolveSsoSettings` caches for 60 s, but only a REAL read. The best-effort boot log fires before `initPgReports()` resolves → `getConfig` rejects → it degrades to `.env`/defaults; caching that would make a restart read SSO **'off' for 60 s** even with DB config set (and prolong any transient PG outage). `services/ssoSettings.js` only sets `_cache` when `!degraded`; a degraded call re-tries next request. Pinned by `tests/sso-settings.test.js`. |
 | **Le nom d'hôte porte le site de PROVISIONNEMENT, pas le site actuel — et c'est l'UTILISATEUR qui commande le site** | Une machine nommée `HGO-LT-045` peut être à Sabodala : le nom est figé à la fabrication, l'utilisateur a été muté, et **le site du matériel suit le site de l'utilisateur**. Donc : pour un actif **connu de SDP**, la colonne `site` de SDP fait foi — ne jamais la « corriger » depuis le nom. Pour un **écart** (absent de SDP), le nom ne donne qu'une **origine présumée**, et c'est pourquoi `resolveSite` rend TOUJOURS un `source` (`ou_learned` / `ou_label` / `name` / `null`) que l'interface **doit** afficher : `'Hounde Gold Operations'` (libellé d'OU) et `'HOUNDE'` (site SDP) ne se corrigent pas de la même façon. Mesuré : le nom seul échoue sur **83 %** des écarts réels (453/545) ; la cascade par OU ramène à 25 indéterminés. |
 | **Le sens inverse (candidats au retrait) n'est PAS applicable sans une observation datée — sinon il annonce le parc entier** | Sans une seule source importée, CHAQUE actif SDP remplit « jamais vu ailleurs » et le rapport affichait **« 2 264 candidats au retrait »** — un verdict confiant sur zéro donnée. Exactement la faute que ce fichier documente ailleurs (`overall_risk:'low'` fabriqué, dimensions inversées). **`null` = pas mesuré ≠ `0` = mesuré à zéro.** `reconcile()` pose `counts.retirement_applicable`, vrai **ssi ≥ 1 observation DATÉE** (`_ts(last_seen) != null`) — pas « ≥ 1 ligne ingérée » : un opérateur qui dépose le mauvais fichier (l'export Entra dans la case AD, un CSV sans colonne de dernière connexion) écrit bien des lignes, et un garde plus laxiste se laisse convaincre. Volontairement **indépendant de `enabled` et de la fraîcheur** : un compte désactivé mais daté EST une observation, une source entièrement périmée aussi. L'UI doit dire **« non applicable »** et distinguer les deux causes (aucune source vs source sans date) — un `0` se lirait « parc entièrement sain », le contraire de la vérité. `counts.sources_present` nomme où l'on a regardé, car « vu nulle part » n'a de sens qu'avec « où ». |
 | **« Absent d'AD » ≠ « machine partie » — SDP dédoublonne par SERVICE TAG, donc trier les renommages / hors-réseau / jamais-scannés hors de la liste de retrait** | Cas terrain : `HGO-DSK-628`, actif `In Store` jamais scanné, absent d'AD, sortait comme candidat au retrait. Faux : machine délibérément hors réseau. Et un **renommage/réinstallation** crée dans SDP une fiche `_old` ou un **doublon de service tag** (doc ManageEngine : uniqueness = **Service Tag → Nom → MAC**), pas un retrait. `reconcileView` classe chaque candidat brut : **`retire`** (In Use + déjà scanné + tag unique) reste seul dans la liste ; **`renamed`** (nom `_old` OU `serial_number` partagé par une autre fiche), **`off_network`** (`state` ≠ `In Use`), **`never_scanned`** (miroir du prédicat hygiène `_NEVER_SCANNED_WHERE`) sont **écartés ET conservés dans `retirement_review`** avec leur motif — rien ne disparaît en silence. Robuste aux fixtures sans métadonnée (champ absent → NE pas sur-écarter). Colonnes déjà synchronisées, zéro re-sync. Ordre des motifs = explication la plus forte d'abord (renommage > état > absence de scan). |

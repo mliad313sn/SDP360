@@ -81,6 +81,29 @@ stays completely dormant, so deploying it changes nothing until you set it.
 After editing `.env`: `pm2 restart` (stop → wait → start); the boot log prints
 `[SSO] mode=… (Entra ready)`.
 
+### Option A — configure from the admin page (no `.env` edit, no restart)
+
+Since **F2a** you can set all six values from the dashboard instead of touching
+`.env`: **Admin → left rail → 🔐 Microsoft SSO** (`reports.html#admin/sso`,
+**super_admin only**). Fields: Mode, Directory (tenant) ID, Application (client)
+ID, Client secret, Redirect URI, Break-glass user. Click **Save** — changes take
+effect **within a minute, no restart**.
+
+- **Precedence:** for each field the resolver (`services/ssoSettings.js`) uses the
+  **DB value if set, else `.env`, else a built-in default**. So a blank field on
+  the admin page falls back to `.env` — the two can be mixed (e.g. leave the
+  secret in `.env`, set only the tenant/client in the DB), and **`.env` still wins
+  whenever the DB config is unreadable** (fail-safe).
+- **The client secret is stored in the DB config** (`report_config`, like the SMTP
+  password): it is **redacted on read** (never sent back to the browser) and
+  **blank-kept on save** (leave it empty to keep the stored one). ⚠️ It therefore
+  travels inside DB dumps/backups — treat those as secret, and prefer rotating the
+  secret via this page over emailing it around.
+- **Which to use?** `.env` is the durable baseline (survives a DB wipe, set once at
+  install). The admin page is for **changing SSO without a deploy** — flipping the
+  cutover mode `off → available → only`, fixing a mistyped tenant, rotating the
+  secret. Do the initial setup in whichever you prefer; they interoperate.
+
 ### The cutover (recommended order)
 
 1. **`SSO_MODE=off`** — deploy the code. Nothing changes; password login as today.
