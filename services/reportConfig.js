@@ -46,6 +46,11 @@ const DEFAULTS = {
   // method/useful-life/salvage per product_type from this. Must live in DEFAULTS
   // so setConfig's KEYS filter accepts the admin's write (else silently dropped).
   asset_depreciation_config: JSON.stringify(require('./depreciation').DEFAULT_DEPRECIATION_CONFIG),
+  // ── F2a: Entra SSO (admin-configurable; resolved by services/ssoSettings.js as
+  //    DB ?? .env ?? default). entra_client_secret is redacted on GET and blank-kept
+  //    on save, exactly like smtp_pass. Must live in DEFAULTS or setConfig drops them.
+  sso_mode: '', entra_tenant_id: '', entra_client_id: '', entra_client_secret: '',
+  entra_redirect_uri: '', sso_breakglass_user: '',
 };
 const KEYS = Object.keys(DEFAULTS);
 
@@ -87,7 +92,7 @@ function setConfig(db, patch, user) {
   // redacts it to '', so a Save that doesn't retype it must NOT wipe the stored value.
   const clean = Object.entries(patch || {})
     .filter(([k]) => KEYS.includes(k))
-    .filter(([k, v]) => !(k === 'smtp_pass' && String(v) === ''));
+    .filter(([k, v]) => !((k === 'smtp_pass' || k === 'entra_client_secret') && String(v) === ''));
   const { H, isPg } = _h(db);
   if (isPg) return (async () => {
     await H.runTransaction(async () => {
