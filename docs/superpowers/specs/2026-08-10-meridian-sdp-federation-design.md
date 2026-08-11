@@ -106,7 +106,7 @@ differs per app:
 
 | App | SSO state | Work to enable |
 |---|---|---|
-| **SDP** | OIDC auth-code+PKCE engine **written**, dormant behind `SSO_MODE` (`services/ssoEntra.js`) | Config only: `.env` + map user emails + flip `SSO_MODE`. See `docs/SSO_ENTRA_SETUP.md`. |
+| **SDP** | OIDC auth-code+PKCE engine **written**, dormant behind `SSO_MODE` (`services/ssoEntra.js`) | Config only: map user emails + set the Entra settings — either in the **admin config page** (F2a, DB-backed, no restart) or `.env`; `SSO_MODE` off→available→only. See `docs/SSO_ENTRA_SETUP.md`. |
 | **4MyPeople** | Identity **mapping done** — `SsoService.resolveIdentity('entra', profile)` maps OIDC `oid`/`sub` (or SAML nameID) + email → local admin/employee, links on first email match, **denies unknowns (no JIT)**; gated by `SSO_ENABLED`. Only the **OIDC transport is unwired**. | Wire the OIDC redirect/callback/token-validation transport that calls `resolveIdentity`. Vendor code — vendor finishes their own scaffold (preferred), or we port SDP's transport (upgrade-overwrite caveat). |
 | **Meridian** | Own JWT auth; no Entra login yet | Build an Entra login (reuse SDP's transport pattern). Tranche F2. |
 
@@ -190,5 +190,20 @@ Meridian response.
 - **F2:** Entra SSO across all three (after the app registration) — SDP flips
   `SSO_MODE`; 4MyPeople's OIDC transport gets wired (vendor); Meridian gains its
   Entra login. One tenant, one app, three redirect URIs.
+  - **F2a (SDP — admin-configurable SSO):** move the Entra SSO settings out of
+    `.env`-only into the **admin config page** (`reports.html#admin`, super_admin),
+    stored in `report_config` (new `reportConfig.DEFAULTS` keys: `sso_mode`,
+    `entra_tenant_id`, `entra_client_id`, `entra_client_secret`,
+    `entra_redirect_uri`, `sso_breakglass_user`). The SSO engine resolves each
+    setting as **`DB config ?? process.env (.env) ?? default`** — both paths work,
+    the UI wins when set, and existing `.env` deployments keep working untouched.
+    Settings are read **at request time** (login/callback), so a change in the UI
+    takes effect **without a pm2 restart**. The **client secret is handled exactly
+    like the existing SMTP password** — never echoed to the browser, blank-on-save
+    = keep the stored value (mirrors the `smtp_pass` pattern). **Decision (Option A):**
+    the secret IS stored in `report_config` (self-service, matches SMTP); accepted
+    tradeoff — it travels in DB dumps/backups (unlike `.env`). Card wiring touches
+    the 4 admin-panel surfaces (`_ADMIN_PANEL_IDS` + hash allowlist + rail role-gate
+    + JS super-gate), same as every other admin card.
 - **F3:** project-health rollup into SDP reports.
 - **F4:** capacity ↔ real workload.
