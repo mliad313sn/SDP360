@@ -1488,6 +1488,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
       </div>
       <div class="modal-actions" style="justify-content:flex-start;gap:10px;align-items:center">
         <button class="btn btn-primary" onclick="saveMeridianConfig()">Save</button>
+        <button class="btn btn-secondary" onclick="syncMeridianNow(this)">Sync resources now</button>
         <span id="cfg-meridian-msg" style="font-size:0.85rem;color:#6b7a99"></span>
       </div>
     </div>
@@ -6594,6 +6595,18 @@ function saveMeridianConfig() {
   api('PUT', '/api/reports/config', patch)
     .then(() => { toast('Meridian settings saved ✓', 'success'); loadMeridianConfig(); })
     .catch(e => toast('Save failed: ' + (e.message || e), 'error'));
+}
+function syncMeridianNow(btn) {
+  const msg = document.getElementById('cfg-meridian-msg');
+  if (btn) btn.disabled = true; if (msg) msg.textContent = 'Syncing…';
+  api('POST', '/api/meridian/sync', {})
+    .then(r => {
+      if (r && r.skipped) { if (msg) msg.textContent = 'Not configured — set base URL + outbound key, then Save.'; toast('Meridian not configured', 'error'); }
+      else if (r && r.ok) { if (msg) msg.textContent = `Pushed ${r.sites} sites · ${r.people} people ✓`; toast('Resources synced to Meridian ✓', 'success'); }
+      else { if (msg) msg.textContent = 'Push failed: ' + ((r && r.error) || 'unknown'); toast('Sync failed', 'error'); }
+    })
+    .catch(e => { if (msg) msg.textContent = 'Sync failed: ' + (e.message || e); toast('Sync failed: ' + (e.message || e), 'error'); })
+    .finally(() => { if (btn) btn.disabled = false; });
 }
 // The single source of truth for what the Email/SMTP form currently holds —
 // used both to Save and to Test, so "Test connection" probes exactly what is on

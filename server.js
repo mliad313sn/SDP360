@@ -491,6 +491,11 @@ cron.schedule('30 4 * * *', () => require('./assets-sync').syncAllAssets()
   .then(() => require('./assets-db').snapshotEffort({}))
   .catch(e => console.error('[Cron:assets]', e && e.message)));
 
+// Meridian resource sync (F1) — nightly at 05:00. Self-skips when unconfigured
+// (no meridian_base_url / meridian_out_key), non-blocking on a Meridian outage.
+cron.schedule('0 5 * * *', () => require('./tools/meridian/sync-resources').main()
+  .catch(e => console.error('[Cron:meridian-sync]', e && e.message)));
+
 // Change + CAB: every hour at :30 past the hour (offset to avoid collision with requests at :45)
 // Bumped from `30 */2 * * *` (every 2h) on 2026-05-26 to support the
 // executive.html rewrite — DB-direct mode means data freshness IS the
@@ -5134,6 +5139,12 @@ app.put('/api/reports/config', requireReportSession, requireAdmin, async (req, r
     require('./services/ssoSettings')._invalidate();   // config changed → re-read next request
     res.json(out);
   }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+// Meridian resource sync — on-demand (admin+). Runs the same job as the nightly cron;
+// self-skips when unconfigured. Behind the /api/ dash-key gate + session/admin.
+app.post('/api/meridian/sync', requireReportSession, requireAdmin, async (req, res) => {
+  try { res.json(await require('./tools/meridian/sync-resources').main()); }
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 app.get('/api/reports/recipients', requireReportSession, requireAdmin, async (req, res) => {
