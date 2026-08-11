@@ -183,21 +183,22 @@ module.exports = { flattenOpenActions, actionId };
 
 - [ ] **Step 2: Run — expect FAIL.**
 
-- [ ] **Step 3: Implement `routes/meridian.js`.** The factory receives `{ express, buildSiteActions, meetingsDb, inspectionDb, rdb, getConfig, flattenOpenActions, resolveSite }`. Handler for `GET /api/actions/open`:
-  1. Read `X-API-Key`; compare to `getConfig().meridian_in_key`; missing/mismatch → `401`.
-  2. `const code = String(req.query.site||'').trim()`; resolve to `site_id` via `rdb.getSiteIdByModuleCode('meetings', code)` (use `.site_id`, **not** `.id` — documented pitfall). Unknown → return `{site:code, as_of, actions:[]}`.
-  3. Compose exactly like the hub route (`server.js:5226`): `meetingsDb.listActions({site})`, `inspectionDb.listActions({site})`, `rdb.getSiteOpenReportActions(site_id)`, then `buildSiteActions({asOf, meetings, inspection, report})`.
+- [ ] **Step 3: Implement `routes/meridian.js`.** The factory receives `{ express, buildSiteActions, meetingsDb, inspectionDb, rdb, reportConfig, flattenOpenActions }`. Handler for `GET /api/actions/open` (the handler is **async** — config reads are awaited):
+  1. `const cfg = await reportConfig.getConfig(rdb.db);` — **MUST `await`**: `getConfig` returns a **Promise on postgres** (prod). Read `X-API-Key`; if `!cfg.meridian_in_key` **or** it mismatches → `401`. (Handler-level gate, so setting the key via the admin card takes effect immediately — see Step 4.)
+  2. `const code = String(req.query.site||'').trim()`; resolve via `const resolved = await rdb.getSiteIdByModuleCode('meetings', code)` (both readers are async on pg — await them). Unknown (`!resolved || !resolved.site_id`) → return `{site:code, as_of, actions:[]}`. Use `resolved.site_id`, **not** `.id` — documented pitfall.
+  3. Compose exactly like the hub route (`server.js:5245-5250`): `const meetings = await meetingsDb.listActions({site: code})`, `const inspection = await inspectionDb.listActions({site: code})`, `const report = { actions: (await rdb.getSiteOpenReportActions(resolved.site_id)).actions }`, then `const sa = buildSiteActions({ asOf, meetings, inspection, report })`. (Pass `report` as `{actions:[…]}`, not the raw reader result — the composer expects that shape.)
   4. `return res.json(flattenOpenActions(code, sa, asOf))`.
   Wrap in try/catch → `res.status(500)` only on a real internal error (never on unknown site).
 
-- [ ] **Step 4: Mount it in `server.js`** next to the fourmypeople router:
+- [ ] **Step 4: Mount it in `server.js`** next to the fourmypeople router — **always mount** (the handler's own key check is the sole gate, so an admin who sets `meridian_in_key` from the card gets a live endpoint with no pm2 restart; when the key is unset the handler simply 401s, i.e. inert):
 ```js
-// Meridian inbound read API — only mounted when an inbound key is configured.
-if ((await rdb_getConfig()).meridian_in_key) {
-  app.use(require('./routes/meridian')({ express, buildSiteActions, meetingsDb, inspectionDb, rdb, getConfig: /* sync/async accessor */, flattenOpenActions: require('./services/meridianActions').flattenOpenActions }));
-}
+app.use(require('./routes/meridian')({
+  express, buildSiteActions, meetingsDb, inspectionDb, rdb,
+  reportConfig: require('./services/reportConfig'),
+  flattenOpenActions: require('./services/meridianActions').flattenOpenActions,
+}));
 ```
-(Match the actual config accessor already used in that region; the fourmypeople mount at `:7431` shows the idiom.)
+(`reportConfig` is already required at `server.js:5090`; the fourmypeople mount at `:7431` shows the DI idiom.)
 
 - [ ] **Step 5: Run — expect PASS.**  **Step 6: Commit.**
 
@@ -266,14 +267,14 @@ module.exports = { getLinksForSite };
 
 - [ ] **Step 2: Run — expect FAIL.**
 
-- [ ] **Step 3: Enrich the route.** After `const sa = buildSiteActions(...)` in the site-actions handler:
+- [ ] **Step 3: Enrich the route.** The `GET /api/reports/site-actions` handler (`server.js:5226`) reads **no config today** — there is no `cfg`/`getConfig` in that scope, so add the awaited read yourself (`reportConfig` is required at `server.js:5090`; `getConfig` is a **Promise on postgres** — `await` it). After `const sa = buildSiteActions(...)`:
 ```js
 // Best-effort: fold Meridian project links onto matching rows (never blocks the hub).
-let links = {};
+let links = {}, cfg = {};
 try {
-  const cfg = await getConfigAsync();               // the config accessor already in scope
+  cfg = await require('./services/reportConfig').getConfig(rdb.db);   // MUST await (pg → Promise)
   links = await require('./services/meridianLinks').getLinksForSite(code, { config: cfg });
-} catch (_) { links = {}; }
+} catch (_) { links = {}; cfg = cfg || {}; }
 const { actionId } = require('./services/meridianActions');
 for (const g of ['meetings','inspection','report']) {
   for (const it of (sa.groups[g] && sa.groups[g].items) || []) {
@@ -451,6 +452,7 @@ CREATE TRIGGER audit_external_action_link
 
 **Files:** a route in `apps/api/src/routes/resources.ts` (or a new `routes/sync-resources.ts` registered under `/v1/resources`).
 
+- [ ] **Confirm the target columns before writing the upsert:** the C1 upsert assumes `pmo.site` has `name`/`country`/`region` columns and a `(tenant_id, id)` PK/unique, and `pmo.person` has `name`/`role`/`site_id`/`active` + `(tenant_id, id)` PK. Verify against the live `0003_domain.sql` (the migration report confirms `pmo.site` = `id,name,country,region,tz,…` and `pmo.person` = `id,name,role,site_id,rate,capacity_pct,active`, both PK `(tenant_id,id)`), and drop any column the schema doesn't actually have.
 - [ ] Auth: a **service API key** (header `X-API-Key`) → resolves to the Endeavour tenant + a superadmin principal for `req.db`/context. (Meridian decides: a dedicated service-token table, or a config-mapped key → tenant. This is the `meridian_out_key` SDP presents.)
 - [ ] Zod-validate the C1 body (`sites[]`, `people[]`). In one `req.db` txn: upsert sites (`INSERT … ON CONFLICT (tenant_id,id) DO UPDATE SET name=…, country=…, region=…`), then people (`… site_id …`, `active`). Sites first (person FKs site). Count upserts; count `skipped_unknown_site` where a person's `site_id` isn't present. Respond `{sites:{upserted},people:{upserted,skipped_unknown_site}}`.
 - [ ] Idempotent (re-POST → same result). Vitest: POST twice → second is a no-op-equivalent; a person with an unknown site is skipped, not a 500.
@@ -474,7 +476,7 @@ CREATE TRIGGER audit_external_action_link
 
 ## Risks / open items
 
-1. **Boss coordination (Part B).** B1–B4 are his codebase. Nothing in Part A depends on B to *build/test*; it degrades until B ships. Agree the three contracts (the doc from A7) first.
+1. **Boss coordination (Part B) — BLOCKING pre-condition before B2 is built.** B1–B4 are his codebase. Nothing in Part A depends on B to *build/test* (it degrades until B ships), but this plan **changed the spec's sync mechanism from direct-DB to a Meridian ingest API** (the RLS-`FORCE` rationale). That changes *his* surface — he must **agree to add `POST /v1/resources/sync`** (and the `meridian_out_key`→tenant service-token model) before B2 starts. Agree the three contracts (the A7 doc) with him first; the spec edit in A7 Step 4 records the decision but does not substitute for his sign-off.
 2. **Service-token model on Meridian (B2/B3 auth).** SDP presents one `meridian_out_key`; Meridian must map it → the Endeavour tenant + a write-capable context. The boss owns that design.
 3. **Tenant provisioning.** The single Endeavour tenant + a first `npm run seed` (or an empty tenant) must exist before the first sync POST, or C1 has nowhere to upsert.
 4. **Person source is the user directory, not every technician** (decision above) — staff who never became dashboard users won't appear as Meridian resources. Revisit in Tranche 2 if the PMO needs the full ticket-technician roster.
