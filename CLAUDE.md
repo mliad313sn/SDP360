@@ -6,6 +6,40 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ---
 
+## ⚡ Current state (as of 2026-08-11, plus tard — F1 Part A : fédération Meridian ⇄ SDP côté SDP)
+
+> **F1 Part A landed on `main`** (commits `8d7adf6`→`0bf9003`→`f26f65b`→`d34e384`→
+> `6ef47ad`→`ac58a4d`, NOT déployé) — le **côté SDP** de l'intégration avec **Meridian**
+> (l'app PMO du boss). Décision utilisateur : **sync par API d'ingestion Meridian** (pas
+> d'écriture DB directe — Meridian a **RLS `FORCE` partout** + tenant via `set_context`,
+> donc une écriture directe exigerait des creds owner sur SA base). **3 contrats JSON**
+> (`docs/MERIDIAN_INTEGRATION_CONTRACT.md`) : **C1** sync ressources SDP→Meridian
+> (`POST {base}/v1/resources/sync`), **C2** actions ouvertes Meridian→SDP
+> (`GET /api/actions/open`), **C3** lien projet lu en retour (`GET {base}/v1/links`).
+> **Deux clés** : `meridian_out_key` (SDP→Meridian, présentée) + `meridian_in_key`
+> (Meridian→SDP, exigée) — secrets dans `report_config` (redactées/blank-kept comme
+> smtp_pass), carte admin `🔗 Meridian (PMO)` super_admin. **Ce qui est construit (A1-A6)** :
+> les 3 clés config + carte ; `services/meridianActions.js` (`flattenOpenActions` + id
+> stable `"<source>:<action_id|uid>"` + `attachProjectLinks`) ; **route C2** `routes/meridian.js`
+> `GET /api/actions/open` (**always-mounted**, sa propre garde X-API-Key = `meridian_in_key`
+> **awaited** — pg Promise ; **exemptée du gate global `/api/`** comme `/exec/summary`) qui
+> **ressert `buildSiteActions`** (aucune logique action neuve, PII-safe owner seul) ;
+> `services/meridianLinks.js` (client read-back best-effort, degrade→{}) ; **badge
+> `▸ Projet: X`** sur le hub Site Actions (route enrichie best-effort + `site-actions.html`) ;
+> `tools/meridian/sync-resources.js` (+ `services/meridianResources.js` pur) → **cron 05:00
+> + `POST /api/meridian/sync` + bouton « Sync now »**. **Décisions verrouillées** : source
+> personnes = **annuaire utilisateurs** (`listPeople`, seuls ids stables ; les
+> « techniciens » = noms sur tickets, pas d'entité) ; `pmo.site.id` = **code module
+> meetings** (satisfait le CHECK `^[A-Z0-9_-]{2,16}$`). **Tout best-effort** : Meridian KO
+> = pas de badge, hub jamais bloqué ; sync self-skip si non configuré. **Prouvé** : boot
+> postgres propre, route 401-inerte sans clé, page servie porte le badge. Tests : 19
+> unités meridian + smoke route (4) + smoke hub degrade (project=null) + await 5/5.
+> **Part B = code du boss** (migration `0015_external_action_link` + RLS/GRANT/trigger,
+> endpoint ingest C1, routes attach/links C3, picker web) — **pré-condition bloquante** :
+> il doit accepter d'ajouter `POST /v1/resources/sync`. Plan :
+> `docs/superpowers/plans/2026-08-11-f1-meridian-integration-mvp.md`. **E2E badge complet
+> = étape utilisateur** (nécessite Meridian live + login de session).
+
 ## ⚡ Current state (as of 2026-08-11 — F2a : réglages Entra SSO configurables depuis l'admin)
 
 > **F2a landed on `main`** (commits `8790a88`→`c7b402e`→`8d3972a`→`7b50a3c`, NOT
@@ -3551,6 +3585,10 @@ In normal use NO request hits this fallback. It's a safety net.
 
 | Pitfall | Rule |
 |---------|------|
+| **The Meridian read API `GET /api/actions/open` is EXEMPT from the global `/api/` gate — its own X-API-Key is the sole gate** | Meridian calls SDP server-to-server with `meridian_in_key` (header `X-API-Key`), NOT the dash key or a session token. The global `app.use('/api/', …)` (`server.js:979`) would 401 it first, so `/actions/open` is exempted there (`req.path === '/actions/open'`, mirroring `/exec/summary`) and `routes/meridian.js` does the key check itself. **That key check MUST `await reportConfig.getConfig(rdb.db)`** — `getConfig` returns a **Promise on postgres** (prod), so reading it sync compares against `undefined` → 401 in prod while the sqlite smoke passes green (the documented sqlite-green/pg-broken trap). The route is **always mounted** (no boot-time config gate), so setting the key from the admin card makes it live with no restart; unset ⇒ inert (401). |
+| **All Meridian cross-system calls are best-effort + config-gated — a Meridian outage must never touch SDP or block the hub** | The Site Actions hub badge folds in `meridianLinks.getLinksForSite` inside the route's try; any error → every `it.project` null, hub renders normally (proven by the site-actions smoke asserting `project === null` when unconfigured). `getLinksForSite` + `sync-resources.main` return `{}`/`{skipped}` and NEVER throw. The sync self-skips when `meridian_base_url`/`meridian_out_key` is empty. Never make a hub render or a report depend on a Meridian response. |
+| **Meridian resource sync: person id is `SDP-U<userId>` from the USER directory, site id is the MEETINGS module code — not ticket-techs, not `sites.id`** | `pmo.person` needs stable ids, and the only stable roster is dashboard **users** (`inspection-db.js listPeople` → `{id,full_name,role,site_code}`); ticket "technicians" are just names on `request_records` with no id and can't be a PK. Sites come from `listSiteModuleCodes('meetings')` (codes HGO/MGO/SMI…) because `pmo.site.id` has a CHECK `^[A-Z0-9_-]{2,16}$` that `sites.id` may not satisfy, and `listPeople().site_code` is in that same namespace so people FK cleanly. A person whose `site_code` isn't in the synced site set is **dropped** (Meridian person→site FK is RESTRICT) — counted in `_skipped_unknown_site`, never sent. The stable action id shared with Meridian is `"<source>:<action_id ?? uid>"`. |
+| **The Meridian `out`/`in` keys are secrets — same redact/blank-keep/super_admin contract as `entra_client_secret`** | `meridian_out_key` + `meridian_in_key` join the GET-redact list (`server.js:5108-5110`) AND the blank-keep filter (`reportConfig.js:95`) AND the super_admin PUT gate (`server.js` MERIDIAN_KEYS, 403). `meridian_base_url` is non-secret (not redacted). Any new secret-shaped config key must join all three or it leaks / gets wiped on every save. |
 | **Entra SSO settings resolve DB ?? .env ?? default at REQUEST time — never read `.env` directly for SSO** | Since F2a the six SSO values are admin-configurable (`report_config`), so `process.env.ENTRA_*`/`SSO_MODE` are only the FALLBACK. Read them through **`services/ssoSettings.js` `resolveSsoSettings(db)`** (async — `getConfig` is a Promise on pg), which returns `{mode, ssoEnabled, breakglassUser, cfg, ready}`. The three `/api/auth/*` routes + the password-login break-glass gate all go through it. A new consumer that reads `process.env` directly will ignore the admin page. |
 | **`entra_client_secret` is a stored secret: redacted on GET, blank-kept on save, invalidate-on-write — and it travels in DB dumps** | Same contract as `smtp_pass`. The config **GET blanks it** (`server.js:5108`) so it's never echoed to the browser; **save with a blank value KEEPS the stored one** (`reportConfig.js:95` filter covers `entra_client_secret`+`smtp_pass`); the config **PUT is super_admin-gated on any SSO key** (`server.js:5119`, 403) and calls **`ssoSettings._invalidate()`** so a change takes effect within the 60 s TTL. ⚠️ Option A (user's choice): the secret lives in `report_config`, so it **is inside `pg_dump` backups** — treat dumps as secret. Any new secret-shaped config key must join BOTH the GET redact list AND the blank-keep filter, or it leaks / gets wiped on every save. |
 | **A DEGRADED SSO config read (getConfig threw) must NOT be cached** | `resolveSsoSettings` caches for 60 s, but only a REAL read. The best-effort boot log fires before `initPgReports()` resolves → `getConfig` rejects → it degrades to `.env`/defaults; caching that would make a restart read SSO **'off' for 60 s** even with DB config set (and prolong any transient PG outage). `services/ssoSettings.js` only sets `_cache` when `!degraded`; a degraded call re-tries next request. Pinned by `tests/sso-settings.test.js`. |
