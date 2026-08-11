@@ -181,7 +181,12 @@ async function resolveSsoSettings(db, deps = {}) {
   const now = deps.now ? deps.now() : Date.now();
   if (_cache && (now - _at) < TTL_MS) return _cache;
 
-  const c = (await getConfig(db)) || {};
+  // pg getConfig has no try/catch (reportConfig.js:76) and can reject; /api/auth/config
+  // is hit on every login-page load. Degrade to env/defaults on failure — this also
+  // strengthens the "env still wins" safety property.
+  let c = {};
+  try { c = (await getConfig(db)) || {}; }
+  catch (e) { console.warn('[sso-settings] config read failed, using .env/defaults:', e.message); }
   let mode = _pick(c.sso_mode, env.SSO_MODE, '').toLowerCase();
   if (!/^(off|available|only)$/.test(mode)) {
     // legacy SSO_ENABLED=true → 'only', else 'off'
@@ -192,6 +197,10 @@ async function resolveSsoSettings(db, deps = {}) {
     clientId:     _pick(c.entra_client_id,     env.ENTRA_CLIENT_ID,     ''),
     clientSecret: _pick(c.entra_client_secret, env.ENTRA_CLIENT_SECRET, ''),
     redirectUri:  _pick(c.entra_redirect_uri,  env.ENTRA_REDIRECT_URI,  DEFAULT_REDIRECT),
+    // The current boot cfg sets scopes='openid profile email' (server.js:5511), but the
+    // callback's updateUserProfileFromEntra reads Graph /me → needs User.Read, which is
+    // in the app registration. Set it explicitly (intentional, documented behaviour).
+    scopes: 'openid profile email User.Read',
   };
   const settings = {
     mode,
@@ -255,12 +264,18 @@ Password login handler (`5455`): resolve `s`, replace `SSO_MODE`→`s.mode`, `SS
     if (c && c.entra_client_secret) c.entra_client_secret = '';   // never expose the stored secret
 ```
 
-- [ ] **Step 4:** In `PUT /api/reports/config` (`5112`), invalidate the cache after save so UI changes are immediate:
+- [ ] **Step 4:** In `PUT /api/reports/config` (`5112`): (a) **enforce a server-side super_admin boundary for the SSO keys** — the endpoint is `requireAdmin`, but SSO settings (mode / secret / tenant) are auth-critical, so a plain admin must not change them via the API (the UI hide alone is not a boundary — reviewer finding #5); (b) invalidate the cache so UI changes are immediate:
 ```js
-    const out = await reportConfig.setConfig(rdb.db, req.body || {}, req.reportUser?.username);
+    const body = req.body || {};
+    const SSO_KEYS = ['sso_mode','entra_tenant_id','entra_client_id','entra_client_secret','entra_redirect_uri','sso_breakglass_user'];
+    if (SSO_KEYS.some(k => k in body) && req.reportUser?.role !== 'super_admin') {
+      return res.status(403).json({ error: 'SSO settings require super_admin' });
+    }
+    const out = await reportConfig.setConfig(rdb.db, body, req.reportUser?.username);
     require('./services/ssoSettings')._invalidate();
     res.json(out);
 ```
+> Existing non-SSO admin saves are unaffected (the guard only fires when a body contains an SSO key). Add a smoke assert: a plain-admin PUT with `sso_mode` → 403; a super_admin PUT → 200.
 
 - [ ] **Step 5:** Boot-check + smoke:
 ```
@@ -299,11 +314,16 @@ Mirror the SMTP card exactly (structure, save/load-by-id, secret placeholder "Le
 </div>
 ```
 
-- [ ] **Step 2:** Register the panel in **all four** surfaces (grep `ap-scoreboard` to find each):
+- [ ] **Step 1b: Add the rail BUTTON** (a net-new card needs a hand-written rail entry — mirror a `super_admin`-only item like `backups`, around `reports.html:1042`; it starts hidden and is shown by the role-gate):
+```html
+<button type="button" class="admin-rail__item" data-panel="sso" id="admin-rail-sso" style="display:none" onclick="showAdminPanel('sso')">🔐 Entra SSO</button>
+```
+
+- [ ] **Step 2:** Register the panel across the surfaces — **use `backups`/`autoreports`/`risk` as the super_admin exemplar, NOT `scoreboard` (that's admin+) and NOT System Logs (that lives in `system-logs.html`/`_shell.js`, not here)**:
   1. `_ADMIN_PANEL_IDS` (`:5189`) — add `sso:'ap-sso'`.
   2. Hash/deep-link allowlist — add `sso`.
-  3. Rail role-gate (`display:none` for non-super_admin) — add `#ap-sso` to the super_admin-only set (like System Logs / scoreboard).
-  4. JS super-gate — add `ap-sso` where the other super_admin panels are gated.
+  3. **Rail role-gate** (`reports.html:5239-5244`, the block that sets `railEl.style.display = isSuperAdmin ? '' : 'none'` for `backups`/`autoreports`/`risk`) — add `admin-rail-sso` to that super_admin-only set.
+  4. **JS super-gate** (`reports.html:5192` — `if ((name === 'risk' || name === 'backups' || name === 'autoreports') && …)`): add **`name === 'sso'`** (match on the panel NAME, **not** `'ap-sso'` — the id never matches `name`, which would silently leave the panel un-gated).
 
 - [ ] **Step 3:** Load values in the existing config-load function (where `cfg-smtp-*` are populated from `GET /api/reports/config`): set `cfg-sso-mode`, `cfg-entra-tenant`, `cfg-entra-client`, `cfg-entra-redirect`, `cfg-sso-breakglass` from the response; leave `cfg-entra-secret` blank (server redacts it).
 
