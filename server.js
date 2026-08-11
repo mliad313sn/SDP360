@@ -5105,12 +5105,25 @@ app.get('/api/reports/config', requireReportSession, requireAdmin, async (req, r
   try {
     const c = await reportConfig.getConfig(rdb.db);
     if (c && c.smtp_pass) c.smtp_pass = '';   // never expose the stored SMTP password
+    if (c && c.entra_client_secret) c.entra_client_secret = '';   // never expose the stored SSO secret
     res.json(c);
   }
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 app.put('/api/reports/config', requireReportSession, requireAdmin, async (req, res) => {
-  try { res.json(await reportConfig.setConfig(rdb.db, req.body || {}, req.reportUser?.username)); }
+  try {
+    const body = req.body || {};
+    // SSO settings (mode / secret / tenant) are auth-critical. The endpoint is
+    // requireAdmin (shared with SMTP etc.), so enforce super_admin server-side for
+    // the SSO keys — the UI hide alone is not a boundary.
+    const SSO_KEYS = ['sso_mode','entra_tenant_id','entra_client_id','entra_client_secret','entra_redirect_uri','sso_breakglass_user'];
+    if (SSO_KEYS.some(k => k in body) && req.reportUser?.role !== 'super_admin') {
+      return res.status(403).json({ error: 'SSO settings require super_admin' });
+    }
+    const out = await reportConfig.setConfig(rdb.db, body, req.reportUser?.username);
+    require('./services/ssoSettings')._invalidate();   // config changed → re-read next request
+    res.json(out);
+  }
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 app.get('/api/reports/recipients', requireReportSession, requireAdmin, async (req, res) => {
@@ -5452,7 +5465,8 @@ app.post('/api/reports/auth/login', loginLimiter, jsonBody, async (req, res) => 
   // 'only' mode: password sign-in is reserved for the break-glass account so an
   // Entra outage can't lock everyone out. 'available' mode keeps password login
   // open for everyone (the hybrid transition window). 'off' → unrestricted.
-  if (SSO_MODE === 'only' && username !== SSO_BREAKGLASS_USER) {
+  const _sso = await require('./services/ssoSettings').resolveSsoSettings(rdb.db);
+  if (_sso.mode === 'only' && username !== _sso.breakglassUser) {
     return res.status(403).json({ error: 'Password sign-in is disabled — use "Sign in with Microsoft".' });
   }
   try {
@@ -5496,22 +5510,14 @@ app.get('/api/reports/auth/me', requireReportSession, (req, res) => {
 // Microsoft + password — the hybrid transition window), 'only' (Microsoft
 // required; password reserved for the break-glass account). Back-compat:
 // SSO_ENABLED=true maps to 'only'.
-const SSO_MODE = (() => {
-  const m = String(process.env.SSO_MODE || '').toLowerCase();
-  if (m === 'off' || m === 'available' || m === 'only') return m;
-  return /^(1|true|yes)$/i.test(process.env.SSO_ENABLED || '') ? 'only' : 'off';
-})();
-const SSO_ENABLED         = SSO_MODE !== 'off';   // SSO routes active (available + only)
-const SSO_BREAKGLASS_USER = process.env.SSO_BREAKGLASS_USER || 'admin';
-const _ssoCfg = {
-  tenantId:     process.env.ENTRA_TENANT_ID     || '',
-  clientId:     process.env.ENTRA_CLIENT_ID     || '',
-  clientSecret: process.env.ENTRA_CLIENT_SECRET || '',
-  redirectUri:  process.env.ENTRA_REDIRECT_URI  || 'https://itops-dashboard.edv-ops.com/api/auth/sso/callback',
-  scopes:       'openid profile email',
-};
-const _ssoReady = SSO_ENABLED && _ssoCfg.tenantId && _ssoCfg.clientId && _ssoCfg.clientSecret;
-console.log(`[SSO] mode=${SSO_MODE} ${SSO_ENABLED ? (_ssoReady ? '(Entra ready)' : '(MISCONFIGURED — check ENTRA_* vars)') : ''}`);
+// F2a: SSO settings are resolved PER-REQUEST from report_config (DB) ?? .env ??
+// default (services/ssoSettings.js), so the admin config page (reports.html#ap-sso)
+// takes effect without a restart; .env still works as a fallback. Boot log is
+// best-effort — the live values can change at runtime.
+const ssoSettings = require('./services/ssoSettings');
+ssoSettings.resolveSsoSettings(rdb.db).then(s =>
+  console.log(`[SSO] mode=${s.mode} ${s.ssoEnabled ? (s.ready ? '(Entra ready)' : '(NOT configured — set it in reports.html#admin or .env)') : ''}`)
+).catch(() => {});
 
 // Pending logins: state → {nonce, codeVerifier, at}. In-memory (single pm2
 // process); 10-min TTL. A pm2 restart drops in-flight logins — the user just
@@ -5525,21 +5531,23 @@ setInterval(() => {
 // Public: drives the login page — show the Microsoft button? show the password
 // form? password_login is false only in 'only' mode (break-glass still works via
 // ?breakglass=1, which the server allows for SSO_BREAKGLASS_USER).
-app.get('/api/auth/config', (req, res) => {
+app.get('/api/auth/config', async (req, res) => {
+  const s = await ssoSettings.resolveSsoSettings(rdb.db);
   res.json({
-    sso_enabled:    !!_ssoReady,
-    mode:           SSO_MODE,
-    password_login: SSO_MODE !== 'only',
-    breakglass_user: SSO_MODE === 'only' ? SSO_BREAKGLASS_USER : null,
+    sso_enabled:    !!s.ready,
+    mode:           s.mode,
+    password_login: s.mode !== 'only',
+    breakglass_user: s.mode === 'only' ? s.breakglassUser : null,
   });
 });
 
 // Kick off the login: build the authorize URL, stash PKCE bits, redirect to Entra.
-app.get('/api/auth/sso/login', (req, res) => {
-  if (!_ssoReady) return res.status(404).send('SSO is not enabled on this server.');
+app.get('/api/auth/sso/login', async (req, res) => {
+  const s = await ssoSettings.resolveSsoSettings(rdb.db);
+  if (!s.ready) return res.status(404).send('SSO is not enabled on this server.');
   try {
     const ssoEntra = require('./services/ssoEntra');
-    const { url, state, nonce, codeVerifier } = ssoEntra.beginLogin(_ssoCfg);
+    const { url, state, nonce, codeVerifier } = ssoEntra.beginLogin(s.cfg);
     _ssoPending.set(state, { nonce, codeVerifier, at: Date.now() });
     res.redirect(url);
   } catch (e) {
@@ -5550,7 +5558,8 @@ app.get('/api/auth/sso/login', (req, res) => {
 
 // Entra redirects back here with ?code=&state=. Validate, map to a user, mint.
 app.get('/api/auth/sso/callback', async (req, res) => {
-  if (!_ssoReady) return res.status(404).send('SSO is not enabled on this server.');
+  const s = await ssoSettings.resolveSsoSettings(rdb.db);
+  if (!s.ready) return res.status(404).send('SSO is not enabled on this server.');
   const _fail = (code) => res.redirect('/login.html?sso_error=' + encodeURIComponent(code));
   try {
     if (req.query.error) { console.warn('[SSO] Entra returned error:', req.query.error, req.query.error_description || ''); return _fail(String(req.query.error)); }
@@ -5562,7 +5571,7 @@ app.get('/api/auth/sso/callback', async (req, res) => {
 
     const ssoEntra = require('./services/ssoEntra');
     const claims = await ssoEntra.completeLogin({
-      code, codeVerifier: pending.codeVerifier, expectedNonce: pending.nonce, cfg: _ssoCfg,
+      code, codeVerifier: pending.codeVerifier, expectedNonce: pending.nonce, cfg: s.cfg,
     });
 
     // Pre-provisioned only: the identity must match an active dashboard user.
