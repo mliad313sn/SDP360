@@ -985,6 +985,9 @@ app.use('/api/', async (req, res, next) => {
   // Public SSO endpoints — the user isn't authenticated yet during login.
   // /auth/config (is SSO on?) + /auth/sso/login + /auth/sso/callback.
   if (req.path === '/auth/config' || req.path.startsWith('/auth/sso/')) return next();
+  // Meridian inbound read API — server-to-server, authed by its OWN X-API-Key
+  // (report_config meridian_in_key) inside routes/meridian.js, NOT the dash key.
+  if (req.method === 'GET' && req.path === '/actions/open') return next();
   const key   = req.headers['x-dash-key'];
   if (key === DASH_API_KEY) return next(); // API key present — allow
   // Fallback: accept valid session token (for Editor/Viewer users on index.html)
@@ -7441,6 +7444,13 @@ if (process.env.FMP_API_KEY) {
   }));
   console.log('[FMP] 4MyPeople integration routes mounted (/api/integration/fmp/*)');
 }
+
+// ── Meridian (PMO) integration — inbound read API (F1, contract C2) ──────────
+// GET /api/actions/open?site= re-serves buildSiteActions to Meridian. ALWAYS
+// mounted: the handler's X-API-Key check (report_config meridian_in_key) is the
+// sole gate, so setting the key from the admin card makes it live with no restart;
+// unset ⇒ inert (401). A distinct /api prefix, so /api/reports/:id can't shadow it.
+app.use(require('./routes/meridian')({ express }));
 
 // ══════════════════════════════════════════════════════════════════
 // MEETINGS — Department Meetings & Council Escalations (v2 schema)
