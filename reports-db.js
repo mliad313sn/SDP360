@@ -93,6 +93,31 @@ CREATE TABLE IF NOT EXISTS infra_kpis (
   FOREIGN KEY (report_id) REFERENCES weekly_reports(id) ON DELETE CASCADE
 );
 
+-- OPManager infra availability snapshots (V1a). Automated measurement history,
+-- SEPARATE from infra_kpis (per-report rows). Keyed by the composite PK (no
+-- surrogate id → avoids the sqlite/pg autoinc divergence). status_color uses the
+-- same green|orange|red|none vocabulary. metric_value null = no data (never 0).
+CREATE TABLE IF NOT EXISTS infra_metric_snapshots (
+  site_id               INTEGER NOT NULL,
+  period_type           TEXT NOT NULL,        -- 'week' | 'month'
+  period_start          TEXT NOT NULL,
+  period_end            TEXT NOT NULL,
+  kpi_family            TEXT NOT NULL,        -- 'lan' | 'wifi' | 'wan' | 'servers'
+  metric_name           TEXT NOT NULL,        -- 'availability'
+  metric_value          REAL,
+  target_value          REAL,
+  status_color          TEXT,
+  trend                 TEXT,
+  source                TEXT,
+  source_view           TEXT,
+  data_through          TEXT,
+  device_count          INTEGER,
+  included_device_count INTEGER,
+  collected_at          TEXT NOT NULL,
+  raw_json              TEXT,
+  PRIMARY KEY (site_id, period_type, period_start, kpi_family, metric_name)
+);
+
 CREATE TABLE IF NOT EXISTS helpdesk_data (
   id                    INTEGER PRIMARY KEY AUTOINCREMENT,
   report_id             INTEGER NOT NULL UNIQUE,
@@ -1110,6 +1135,9 @@ async function initPgReports() {            // called once at server boot
   // System Logs v1 — unified security/audit event log.
   await _pg.exec(require('fs').readFileSync(
     require('path').join(__dirname, 'db', 'postgres', 'reports', '006_system_log.sql'), 'utf8'));
+  // V1a — OPManager infra availability snapshots.
+  await _pg.exec(require('fs').readFileSync(
+    require('path').join(__dirname, 'db', 'postgres', 'reports', '007_infra_snapshots.sql'), 'utf8'));
   return _pg;
 }
 
@@ -2269,6 +2297,54 @@ async function _saveInfraKpisPg(report_id, kpis) {
         .run(report_id, k.service, k.kpi, k.target, k.status_value, k.status_color||'green', k.trend||'stable', i); i++;
     }
   });
+}
+
+// ── OPManager infra availability snapshots (V1a) — dual-backend upsert/read ──
+const _INFRA_SNAP_COLS = ['site_id','period_type','period_start','period_end','kpi_family','metric_name',
+  'metric_value','target_value','status_color','trend','source','source_view','data_through',
+  'device_count','included_device_count','collected_at','raw_json'];
+const _INFRA_SNAP_UPSERT =
+  `INSERT INTO infra_metric_snapshots (${_INFRA_SNAP_COLS.join(',')}) VALUES (${_INFRA_SNAP_COLS.map(() => '?').join(',')})
+   ON CONFLICT(site_id,period_type,period_start,kpi_family,metric_name) DO UPDATE SET
+     period_end=excluded.period_end, metric_value=excluded.metric_value, target_value=excluded.target_value,
+     status_color=excluded.status_color, trend=excluded.trend, source=excluded.source, source_view=excluded.source_view,
+     data_through=excluded.data_through, device_count=excluded.device_count, included_device_count=excluded.included_device_count,
+     collected_at=excluded.collected_at, raw_json=excluded.raw_json`;
+const _snapVals = (r) => _INFRA_SNAP_COLS.map(c => (r[c] === undefined ? null : r[c]));
+function _snapWhere(f) {
+  const w = [], p = [];
+  if (f && f.site_id != null)   { w.push('site_id=?');      p.push(f.site_id); }
+  if (f && f.period_type)       { w.push('period_type=?');  p.push(f.period_type); }
+  if (f && f.kpi_family)        { w.push('kpi_family=?');   p.push(f.kpi_family); }
+  if (f && f.period_start)      { w.push('period_start=?'); p.push(f.period_start); }
+  if (f && f.metric_name)       { w.push('metric_name=?');  p.push(f.metric_name); }
+  return { where: w.length ? ' WHERE ' + w.join(' AND ') : '', params: p };
+}
+function upsertInfraSnapshots(rows) {
+  if (REPORTS_BACKEND === 'postgres') return _upsertInfraSnapshotsPg(rows);
+  return _upsertInfraSnapshotsSqlite(rows);
+}
+const _upsertInfraSnapshotsSqlite = db.transaction((rows) => {
+  const st = db.prepare(_INFRA_SNAP_UPSERT);
+  for (const r of (rows || [])) st.run(..._snapVals(r));
+});
+async function _upsertInfraSnapshotsPg(rows) {
+  const H = pgHandle();
+  await H.runTransaction(async () => {
+    for (const r of (rows || [])) await H.prepare(_INFRA_SNAP_UPSERT).run(..._snapVals(r));
+  });
+}
+function getInfraSnapshots(f) {
+  if (REPORTS_BACKEND === 'postgres') return _getInfraSnapshotsPg(f);
+  return _getInfraSnapshotsSqlite(f);
+}
+function _getInfraSnapshotsSqlite(f) {
+  const { where, params } = _snapWhere(f);
+  return db.prepare(`SELECT * FROM infra_metric_snapshots${where} ORDER BY period_start DESC, kpi_family`).all(...params);
+}
+async function _getInfraSnapshotsPg(f) {
+  const { where, params } = _snapWhere(f);
+  return pgHandle().prepare(`SELECT * FROM infra_metric_snapshots${where} ORDER BY period_start DESC, kpi_family`).all(...params);
 }
 
 function saveHelpdeskData(report_id, data) {
@@ -7051,7 +7127,7 @@ module.exports = {
   getSiteTechnicianStats, _computeTechStats,
   getPreviousWeek, ensureWeek, getWeekRange,
   ensureReport, getReport, listReports,
-  saveInfraKpis, saveHelpdeskData, saveLights, saveActionItems, _backfillActionUids,
+  saveInfraKpis, upsertInfraSnapshots, getInfraSnapshots, saveHelpdeskData, saveLights, saveActionItems, _backfillActionUids,
   setActionMerge, clearActionMerge, setActionStatus, setActionLineage, getSiteOpenReportActions,
   getPreviousWeekOpenActions, listAllWeeksWithActions, getActionsForReport,
   listAllWeeksWithLights, getLightsForReport,
