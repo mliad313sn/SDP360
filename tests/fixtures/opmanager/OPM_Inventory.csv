@@ -1,0 +1,692 @@
+﻿Type,Category,Vendor,Interface Count,SNMP Enabled?,Ram Size (MB),Polling Interval (Mins),Availability Protocol,Performance Protocol,Ping Enabled?,Packet Loss,Health Status,Management Status,Availability,Probe Name
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Windows 2022,Server,Microsoft,0,false,32767,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,LAFIGUE
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,No,,Critical,Managed,Down,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ity
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,No,,Critical,Managed,Down,Sabodala
+Meraki MR Series,Meraki Radio,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,HOUNDE
+Meraki MR Series,Meraki Radio,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ouagadougou
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Linux,Server,net-snmp,0,false,0,5,DNSNAME,ICMP,Yes,,Attention,Managed,Up,LAFIGUE
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Meraki MX Series,Meraki Security,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Mana
+Meraki MR Series,Meraki Radio,Cisco,0,false,0,15,DNSNAME,ICMP,No,,Critical,Managed,Down,ABJ
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Windows 2022,Server,Microsoft,0,false,12287,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,HOUNDE
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,No,,Critical,Managed,Down,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,No,,Critical,Managed,Down,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Mana
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ity
+Meraki MX Series,Meraki Security,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Meraki MX Series,Meraki Security,Cisco,0,false,0,15,DNSNAME,ICMP,No,,Critical,Managed,Down,Tanda
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,No,,Critical,Managed,Down,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Meraki MX Series,Meraki Security,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ity
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Meraki MR Series,Meraki Radio,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Windows 2022,Server,Microsoft,0,false,16383,5,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ouagadougou
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,HOUNDE
+Windows 2022,DomainController,Microsoft,24,false,8192,5,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ity
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Meraki MR Series,Meraki Radio,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ouagadougou
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Mana
+Windows 2019,Server,Microsoft,24,false,16384,5,DNSNAME,ICMP,No,,Critical,Managed,Down,Ouagadougou
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Meraki MR Series,Meraki Radio,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,No,,Critical,Managed,Down,Ity
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Windows 2022,Server,Microsoft,24,false,24576,5,DNSNAME,ICMP,No,,Critical,Managed,Down,HOUNDE
+Windows 2019,Server,Microsoft,10,false,6144,5,DNSNAME,ICMP,Yes,,Clear,Managed,Up,HOUNDE
+Meraki MX Series,Meraki Security,Cisco,0,false,0,15,DNSNAME,ICMP,No,,Critical,Managed,Down,Mana
+Windows 2016,Server,Microsoft,0,false,16383,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,HOUNDE
+Windows 2022,Server,Microsoft,0,false,32767,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,HOUNDE
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ouagadougou
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ouagadougou
+Windows 2016,Server,Microsoft,7,false,65536,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,Mana
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ity
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,No,,Critical,Managed,Down,Mana
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,No,,Critical,Managed,Down,Sabodala
+Windows 2022,Server,Microsoft,0,false,16383,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,LAFIGUE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Windows 2022,Server,Microsoft,0,false,32767,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,HOUNDE
+Windows 2019,Server,Microsoft,0,false,8191,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,ABJ
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Mana
+Windows 2019,Server,Microsoft,26,false,10240,5,DNSNAME,ICMP,No,,Critical,Managed,Down,Ity
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Tanda
+Windows 2016,Server,Microsoft,9,false,8191,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,Mana
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ouagadougou
+Meraki MR Series,Meraki Radio,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Windows 2022,Server,Microsoft,0,false,16383,5,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Mana
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Windows 2022,Server,Microsoft,0,false,16383,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,LAFIGUE
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,HOUNDE
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Windows 2019,Server,Microsoft,26,false,32768,5,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Mana
+Meraki MR Series,Meraki Radio,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ouagadougou
+Windows 2022,Server,Microsoft,0,false,0,5,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Mana
+Meraki MR Series,Meraki Radio,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,HOUNDE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Windows 2019,Server,Microsoft,0,false,16382,5,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Mana
+Meraki MR Series,Meraki Radio,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,No,,Critical,Managed,Down,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Meraki MX Series,Meraki Security,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Critical,Managed,Up,Mana
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,HOUNDE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ity
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,No,,Attention,Managed,Down,Ity
+Windows 2019,Server,Microsoft,24,false,16384,5,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Mana
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Windows 2016,Server,Microsoft,0,false,8191,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,HOUNDE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Windows 2019,Server,Microsoft,0,false,8191,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,ABJ
+Windows 2022,Server,Microsoft,0,false,0,5,DNSNAME,ICMP,Yes,,Attention,Managed,Up,LAFIGUE
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ity
+Meraki MR Series,Meraki Radio,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ouagadougou
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Linux,Server,net-snmp,0,false,0,5,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Linux,Server,net-snmp,2,true,209,5,DNSNAME,ICMP,No,,Critical,Managed,Dependent Unavailable,LAFIGUE
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,No,,Critical,Managed,Down,Sabodala
+Windows 2022,DomainController,Microsoft,0,false,4095,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,LAFIGUE
+Windows 2016,Server,Microsoft,8,false,16383,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,Mana
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ouagadougou
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,HOUNDE
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ouagadougou
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,No,,Critical,Managed,Down,Sabodala
+Meraki MR Series,Meraki Radio,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Meraki MR Series,Meraki Radio,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ity
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,HOUNDE
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ity
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,HOUNDE
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,HOUNDE
+Windows 2019,Server,Microsoft,0,false,4095,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,HOUNDE
+Cyber Power System Device_1,Unknown,Cyber Power System,0,true,0,60,DNSNAME,ICMP,No,,Critical,Managed,Down,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,No,,Critical,Managed,Down,Ouagadougou
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,No,,Critical,Managed,Down,Ouagadougou
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Linux,Server,net-snmp,0,false,0,5,DNSNAME,ICMP,Yes,,Attention,Managed,Up,LAFIGUE
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,No,,Critical,Managed,Down,Ouagadougou
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ity
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,No,,Critical,Managed,Down,Sabodala
+Meraki MR Series,Meraki Radio,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,HOUNDE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,No,,Critical,Managed,Down,Ity
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Mana
+Linux,Wireless,net-snmp,3,true,209,5,DNSNAME,ICMP,No,,Critical,Managed,Dependent Unavailable,LAFIGUE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Mana
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Mana
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Meraki MR Series,Meraki Radio,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,No,,Critical,Managed,Down,Mana
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Tanda
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Meraki MR Series,Meraki Radio,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Mana
+Windows 2016,Server,Microsoft,0,false,14191,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,HOUNDE
+Windows 2019,Server,Microsoft,0,false,16382,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Windows 2019,Server,Microsoft,24,false,8192,5,DNSNAME,ICMP,Yes,,Clear,Managed,Up,HOUNDE
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Meraki MR Series,Meraki Radio,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ity
+Meraki MR Series,Meraki Radio,Cisco,0,false,0,15,DNSNAME,ICMP,No,,Critical,Managed,Down,ABJ
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,HOUNDE
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ity
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ity
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Windows 2022,Server,Microsoft,24,false,32768,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,Ity
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Windows 2019,Server,Microsoft,0,false,16383,5,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Tanda
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,HOUNDE
+Windows 2019,Server,Microsoft,0,false,8191,5,DNSNAME,ICMP,No,,Critical,Managed,Down,ABJ
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ity
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Windows 2016,Server,Microsoft,9,false,16384,5,DNSNAME,ICMP,No,,Critical,Managed,Down,Mana
+Meraki MR Series,Meraki Radio,Cisco,0,false,0,15,DNSNAME,ICMP,No,,Critical,Managed,Down,ABJ
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ity
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Mana
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,No,,Critical,Managed,Down,Mana
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,No,,Critical,Managed,Down,Sabodala
+Windows 2022,Server,Microsoft,24,false,16384,5,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ity
+Windows 2016,Server,Microsoft,0,false,4095,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,ABJ
+Windows 2019,Server,Microsoft,24,false,16384,5,DNSNAME,ICMP,Yes,,Attention,Managed,Up,Mana
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,HOUNDE
+Windows 2019,Server,Microsoft,9,false,97152,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Mana
+Meraki MX Series,Meraki Security,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ity
+Windows 2019,Server,Microsoft,0,false,6143,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,ABJ
+ESXServer,Server,VMware,0,false,0,5,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Windows 2019,Server,Microsoft,24,false,12288,5,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Tanda
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Meraki MR Series,Meraki Radio,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Windows 2016,Server,Microsoft,8,false,8192,5,DNSNAME,ICMP,No,,Critical,Managed,Down,Mana
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ouagadougou
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,HOUNDE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Mana
+Windows 2019,Server,Microsoft,0,false,26623,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,HOUNDE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,No,,Critical,Managed,Down,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Meraki MR Series,Meraki Radio,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Windows 2019,DomainController,Microsoft,0,false,6143,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,Tanda
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,No,,Critical,Managed,Down,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ouagadougou
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Mana
+Meraki MR Series,Meraki Radio,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Windows 2022,Server,Microsoft,0,false,32767,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,LAFIGUE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ity
+Meraki MR Series,Meraki Radio,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Meraki MR Series,Meraki Radio,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ouagadougou
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Mana
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Meraki MR Series,Meraki Radio,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Windows 2019,DomainController,Microsoft,0,false,8191,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,ABJ
+Windows 2016,Server,Microsoft,8,false,8191,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,Mana
+Windows 2022,Server,Microsoft,24,false,32768,5,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Windows 2022,Server,Microsoft,9,false,24576,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,Ouagadougou
+Windows 2019,Server,Microsoft,0,false,24575,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,ABJ
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,No,,Critical,Managed,Down,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ouagadougou
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,No,,Critical,Managed,Down,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,HOUNDE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ity
+Windows 2019,Server,Microsoft,31,false,16384,5,DNSNAME,ICMP,No,,Critical,Managed,Down,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,No,,Critical,Managed,Down,Sabodala
+Windows 2019,Server,Microsoft,0,false,16383,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,ABJ
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,HOUNDE
+ESXServer,Server,VMware,0,false,0,5,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Meraki MX Series,Meraki Security,Cisco,0,false,0,15,DNSNAME,ICMP,No,,Critical,Managed,Down,Sabodala
+Meraki MR Series,Meraki Radio,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Windows 2019,Server,Microsoft,28,false,6144,5,DNSNAME,ICMP,Yes,,Clear,Managed,Up,HOUNDE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,No,,Critical,Managed,Down,Ouagadougou
+Windows 2016,Server,Microsoft,0,false,8191,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,ABJ
+Windows 2019,Server,Microsoft,24,false,2220,5,DNSNAME,ICMP,No,,UnManaged,UnManaged,On Hold,Sabodala
+Windows 2022,Server,Microsoft,0,false,6143,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,ABJ
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ity
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,HOUNDE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,No,,Critical,Managed,Down,Sabodala
+Windows 2019,Server,Microsoft,9,false,8191,5,DNSNAME,ICMP,Yes,,Trouble,Managed,Up,Mana
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Windows 2016,Server,Microsoft,0,false,16383,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,HOUNDE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ity
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,No,,Critical,Managed,Down,Ity
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,No,,Critical,Managed,Down,Mana
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ouagadougou
+Windows 2019,Server,Microsoft,24,false,4096,5,DNSNAME,ICMP,No,,Critical,Managed,Down,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,No,,Critical,Managed,Down,Sabodala
+Windows 2019,Server,Microsoft,25,false,16384,5,DNSNAME,ICMP,No,,Critical,Managed,Down,Ouagadougou
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,No,,Critical,Managed,Down,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,No,,Critical,Managed,Down,Sabodala
+Meraki MR Series,Meraki Radio,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,No,,Critical,Managed,Down,Sabodala
+Windows 2022,DomainController,Microsoft,0,false,16275,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,HOUNDE
+Linux,Server,net-snmp,4,true,64,5,DNSNAME,ICMP,No,,Critical,Managed,Down,LAFIGUE
+Linux,Wireless,net-snmp,11,true,209,5,DNSNAME,ICMP,No,,Critical,Managed,Dependent Unavailable,LAFIGUE
+Windows 2022,Server,Microsoft,0,false,12287,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,HOUNDE
+Meraki Z Series,Meraki Security,Cisco,0,false,0,15,DNSNAME,ICMP,No,,Critical,Managed,Down,Ouagadougou
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Tanda
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ity
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ouagadougou
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,No,,Critical,Managed,Down,Ity
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ity
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Mana
+Windows 2016,Server,Microsoft,8,false,16383,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,Mana
+Meraki MR Series,Meraki Radio,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Windows 2019,Server,Microsoft,0,false,20479,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,ABJ
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ity
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,No,,Critical,Managed,Down,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ity
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,No,,Critical,Managed,Down,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,HOUNDE
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Tanda
+Windows 2022,Server,Microsoft,24,false,8192,5,DNSNAME,ICMP,No,,UnManaged,UnManaged,On Hold,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ouagadougou
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,No,,Critical,Managed,Down,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,No,,Critical,Managed,Down,Ouagadougou
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,HOUNDE
+Windows 2019,Server,Microsoft,24,false,32767,5,DNSNAME,ICMP,No,,Critical,Managed,Down,Mana
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,HOUNDE
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Windows 2016,Server,Microsoft,18,false,16383,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,Mana
+Windows 2016,Server,Microsoft,20,false,12288,5,DNSNAME,ICMP,No,,Critical,Managed,Down,Tanda
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ity
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Meraki MR Series,Meraki Radio,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,No,,Critical,Managed,Down,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Meraki MX Series,Meraki Security,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Critical,Managed,Up,Tanda
+Windows 2016,Server,Microsoft,17,false,8192,5,DNSNAME,ICMP,No,,Critical,Managed,Down,Tanda
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ity
+Meraki MR Series,Meraki Radio,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,No,,Critical,Managed,Down,Ity
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,No,,Critical,Managed,Down,Sabodala
+Windows 2019,Server,Microsoft,30,false,16384,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,Mana
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Mana
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Windows 2019,Server,Microsoft,24,false,8191,5,DNSNAME,ICMP,No,,Critical,Managed,Down,Tanda
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Windows 2019,Server,Microsoft,25,false,8191,5,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Mana
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ouagadougou
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,HOUNDE
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ity
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ouagadougou
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ity
+Windows 2016,Server,Microsoft,9,false,4095,5,DNSNAME,ICMP,Yes,,Trouble,Managed,Up,Mana
+Windows 2022,Server,Microsoft,0,false,32767,5,DNSNAME,ICMP,No,,Critical,Managed,Down,LAFIGUE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Mana
+Windows 2022,Server,Microsoft,0,false,8191,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,LAFIGUE
+Windows 2016,Server,Microsoft,8,false,4096,5,DNSNAME,ICMP,Yes,,Trouble,Managed,Up,Mana
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ity
+Windows 2016,Server,Microsoft,7,false,4096,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,Mana
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ouagadougou
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ity
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,No,,Critical,Managed,Down,Ouagadougou
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Tanda
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Tanda
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Windows 2019,Server,Microsoft,24,false,8192,5,DNSNAME,ICMP,No,,Critical,Managed,Down,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,HOUNDE
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ity
+Windows 2019,Server,Microsoft,0,false,8191,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,ABJ
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Meraki MR Series,Meraki Radio,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Windows 2022,Server,Microsoft,0,false,0,5,DNSNAME,ICMP,Yes,,Attention,Managed,Up,LAFIGUE
+Meraki Controller,Meraki Controller,Cisco,0,false,0,30,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ouagadougou
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ity
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,HOUNDE
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,No,,Critical,Managed,Down,Ouagadougou
+Meraki Controller,Meraki Controller,Cisco,0,false,0,30,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ity
+Windows 2019,Server,Microsoft,24,false,16384,5,DNSNAME,ICMP,No,,Critical,Managed,Down,Ouagadougou
+Linux,Server,net-snmp,0,false,0,5,DNSNAME,ICMP,Yes,,Attention,Managed,Up,LAFIGUE
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,HOUNDE
+Linux,Server,net-snmp,0,false,0,5,DNSNAME,ICMP,Yes,,Attention,Managed,Up,LAFIGUE
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,HOUNDE
+Windows 2022,Server,Microsoft,0,false,16383,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,HOUNDE
+Meraki MX Series,Meraki Security,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,HOUNDE
+Meraki Controller,Meraki Controller,Cisco,0,false,0,30,DNSNAME,ICMP,Yes,,Clear,Managed,Up,HOUNDE
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Mana
+Meraki MX Series,Meraki Security,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,No,,Critical,Managed,Down,Mana
+Windows 2019,Server,Microsoft,25,false,16383,5,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Mana
+Windows 2019,Server,Microsoft,34,false,16384,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,Ity
+Windows 2022,Server,Microsoft,0,false,8191,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,ABJ
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ity
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Mana
+Windows 2022,Server,Microsoft,24,false,16384,5,DNSNAME,ICMP,Yes,,Clear,Managed,Up,HOUNDE
+Meraki MR Series,Meraki Radio,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Windows 2022,Server,Microsoft,0,false,32767,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,HOUNDE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ity
+Windows 2019,Server,Microsoft,0,false,24575,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,HOUNDE
+Windows 2019,Server,Microsoft,24,false,6144,5,DNSNAME,ICMP,Yes,,Clear,Managed,Up,HOUNDE
+Windows 2016,Server,Microsoft,0,false,6143,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,ABJ
+Meraki Controller,Meraki Controller,Cisco,0,false,0,30,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Tanda
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,No,,Critical,Managed,Down,Ouagadougou
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Mana
+Meraki MR Series,Meraki Radio,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Windows 2022,Server,Microsoft,0,false,32767,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,LAFIGUE
+Windows 2022,Server,Microsoft,0,false,0,5,DNSNAME,ICMP,Yes,,Trouble,Managed,Up,LAFIGUE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Mana
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,HOUNDE
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,No,,Critical,Managed,Down,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ouagadougou
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Mana
+Windows 2019,Server,Microsoft,24,false,16384,5,DNSNAME,ICMP,No,,Critical,Managed,Down,Ity
+Meraki MR Series,Meraki Radio,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Windows 2022,Server,Microsoft,0,false,4094,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,Sabodala
+Windows 2019,Server,Microsoft,28,false,16384,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,Tanda
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ity
+Meraki MR Series,Meraki Radio,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Windows 2022,Server,Microsoft,24,false,98304,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,HOUNDE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Mana
+Windows 2022,Server,Microsoft,0,false,16383,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,LAFIGUE
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,HOUNDE
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,No,,Critical,Managed,Down,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ouagadougou
+Meraki MX Series,Meraki Security,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Critical,Managed,Up,Ouagadougou
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Meraki Controller,Meraki Controller,Cisco,0,false,0,30,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Meraki MX Series,Meraki Security,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Tanda
+Windows 2016,Server,Microsoft,8,false,12288,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,Mana
+Windows 11,Desktop,Microsoft,0,false,16383,30,DNSNAME,ICMP,Yes,,Critical,Managed,Up,ABJ
+Meraki MX Series,Meraki Security,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ouagadougou
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Mana
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,No,,Critical,Managed,Down,Sabodala
+Windows 2016,Server,Microsoft,33,false,65407,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,Mana
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,No,,Critical,Managed,Down,Sabodala
+Windows 2019,Server,Microsoft,24,false,16384,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,Ity
+Windows 2022,Server,Microsoft,0,false,8191,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,LAFIGUE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ouagadougou
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ity
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,No,,Critical,Managed,Down,Ity
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,HOUNDE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Windows 2016,Server,Microsoft,21,false,8192,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,Mana
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,No,,Critical,Managed,Down,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,No,,Critical,Managed,Down,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,No,,Critical,Managed,Down,Sabodala
+Windows 2019,Server,Microsoft,24,false,6144,5,DNSNAME,ICMP,No,,Critical,Managed,Down,Tanda
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,HOUNDE
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Windows 2012 R2,Server,Microsoft,0,false,130942,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,HOUNDE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ity
+Meraki MR Series,Meraki Radio,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ity
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ity
+Meraki MR Series,Meraki Radio,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Windows 2022,Server,Microsoft,0,false,16383,5,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ity
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ouagadougou
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ouagadougou
+Windows 2022,Server,Microsoft,0,false,32638,5,DNSNAME,ICMP,No,,Critical,Managed,Down,HOUNDE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Mana
+Windows 2019,Server,Microsoft,24,false,24576,5,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Mana
+ESXServer,Server,VMware,0,false,0,5,DNSNAME,ICMP,Yes,,Attention,Managed,Up,LAFIGUE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ity
+Windows 2019,Server,Microsoft,28,false,16384,5,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Tanda
+Windows 2019,Server,Microsoft,0,false,16383,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,No,,Critical,Managed,Down,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,No,,Critical,Managed,Down,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Windows 2019,Server,Microsoft,0,false,32767,5,DNSNAME,ICMP,No,,Critical,Managed,Down,ABJ
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,No,,Critical,Managed,Down,Ity
+Windows 2016,Server,Microsoft,0,false,16383,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,HOUNDE
+Windows 2022,Server,Microsoft,25,false,32767,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,Mana
+Meraki MX Series,Meraki Security,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Windows 2019,Server,Microsoft,0,false,97151,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,Sabodala
+Windows 2019,Server,Microsoft,0,false,8191,5,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Linux,Server,net-snmp,0,false,0,5,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Linux,Server,net-snmp,0,false,0,5,DNSNAME,ICMP,Yes,,Attention,Managed,Up,LAFIGUE
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Tanda
+Windows 2016,Server,Microsoft,17,false,16384,5,DNSNAME,ICMP,No,,Critical,Managed,Down,Mana
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Windows 2022,Server,Microsoft,24,false,16384,5,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ity
+Meraki Controller,Meraki Controller,Cisco,0,false,0,30,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Windows 2019,Server,Microsoft,0,false,8191,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,ABJ
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,No,,Critical,Managed,Down,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,HOUNDE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,HOUNDE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,HOUNDE
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ity
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Mana
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,HOUNDE
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Windows 2016,Server,Microsoft,8,false,4096,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,Mana
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,HOUNDE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ity
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,No,,Critical,Managed,Down,Mana
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,No,,Critical,Managed,Down,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,No,,Critical,Managed,Down,Sabodala
+Meraki MR Series,Meraki Radio,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ouagadougou
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Linux,Server,net-snmp,7,true,64,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,LAFIGUE
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ouagadougou
+Meraki MR Series,Meraki Radio,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Meraki MR Series,Meraki Radio,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Windows 2019,Server,Microsoft,0,false,8191,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,ABJ
+Meraki MR Series,Meraki Radio,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Windows 2016,Server,Microsoft,7,false,8192,5,DNSNAME,ICMP,Yes,,Trouble,Managed,Up,Mana
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,HOUNDE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,HOUNDE
+Windows 2019,Server,Microsoft,24,false,16384,5,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Tanda
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Tanda
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Mana
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ouagadougou
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ouagadougou
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ity
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Meraki MR Series,Meraki Radio,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Meraki MR Series,Meraki Radio,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Windows 2019,Server,Microsoft,0,false,8191,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,Ouagadougou
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Mana
+Meraki MX Series,Meraki Security,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Windows 2022,Server,Microsoft,24,false,16384,5,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,HOUNDE
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,HOUNDE
+Windows 2019,Server,Microsoft,25,false,16384,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,Tanda
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Mana
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ity
+Meraki MX Series,Meraki Security,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Critical,Managed,Up,LAFIGUE
+Windows 2022,Server,Microsoft,25,false,65536,5,DNSNAME,ICMP,Yes,,Attention,Managed,Up,Ity
+Windows 2022,Server,Microsoft,0,false,16383,5,DNSNAME,ICMP,No,,Critical,Managed,Down,LAFIGUE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ity
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Windows 2022,Server,Microsoft,0,false,16383,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,LAFIGUE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,HOUNDE
+Windows 2019,Server,Microsoft,24,false,32768,5,DNSNAME,ICMP,No,,Critical,Managed,Down,Ouagadougou
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,No,,Critical,Managed,Down,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,No,,Critical,Managed,Down,Ouagadougou
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Windows 2022,Server,Microsoft,0,false,32767,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,HOUNDE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Mana
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Meraki MR Series,Meraki Radio,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Windows 2019,Server,Microsoft,0,false,8191,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,ABJ
+Windows 2022,Server,Microsoft,0,false,32767,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,HOUNDE
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,No,,Critical,Managed,Down,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Windows 2019,Server,Microsoft,0,false,16234,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,ABJ
+Meraki MR Series,Meraki Radio,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Meraki MR Series,Meraki Radio,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Windows 2022,Server,Microsoft,0,false,16383,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,HOUNDE
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,No,,Critical,Managed,Down,Sabodala
+Windows 2019,Server,Microsoft,24,false,16384,5,DNSNAME,ICMP,No,,Critical,Managed,Down,Tanda
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,No,,Critical,Managed,Down,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Windows 2019,Server,Microsoft,0,false,16383,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,ABJ
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ity
+Windows 2019,Server,Microsoft,26,false,16384,5,DNSNAME,ICMP,No,,Critical,Managed,Down,Ity
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Mana
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Mana
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,HOUNDE
+Meraki MR Series,Meraki Radio,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Meraki Controller,Meraki Controller,Cisco,0,false,0,30,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Mana
+Meraki MX Series,Meraki Security,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ouagadougou
+Windows 2016,Server,Microsoft,12,false,7915,5,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Tanda
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,No,,Critical,Managed,Down,ABJ
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Mana
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,No,,Critical,Managed,Down,HOUNDE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Windows 2022,Server,Microsoft,0,false,8191,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,LAFIGUE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ity
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,No,,Critical,Managed,Down,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,HOUNDE
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Mana
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,No,,Critical,Managed,Down,Mana
+Windows 2019,DomainController,Microsoft,0,false,8191,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,ABJ
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Mana
+Meraki Controller,Meraki Controller,Cisco,0,false,0,30,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Windows 2019,Server,Microsoft,0,false,8191,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,ABJ
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,No,,Critical,Managed,Down,Mana
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ity
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,LAFIGUE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,ABJ
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Sabodala
+Windows 2022,Server,Microsoft,24,false,24576,5,DNSNAME,ICMP,No,,Critical,Managed,Down,Mana
+Windows 2016,Server,Microsoft,0,false,16106,5,DNSNAME,ICMP,Yes,,Critical,Managed,Up,HOUNDE
+Windows 2022,Server,Microsoft,38,false,16303,5,DNSNAME,ICMP,No,,Critical,Managed,Down,Ouagadougou
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ity
+Unknown,Unknown,Unknown,0,false,0,60,DNSNAME,ICMP,Yes,,Clear,Managed,Up,Ity
+Linux,Server,net-snmp,0,false,0,5,DNSNAME,ICMP,Yes,,Attention,Managed,Up,LAFIGUE
+Meraki MS Series,Meraki Switch,Cisco,0,false,0,15,DNSNAME,ICMP,No,,Critical,Managed,Down,Sabodala
