@@ -128,7 +128,7 @@ Compared to the same family/site's **previous period** snapshot: `up` if higher,
 
 ### 4.8 Read API (session-guarded)
 - `GET /api/analytics/opmanager/availability?site=<code>&period=week|month` → normalized rows:
-  `{ site_id, site_name, period_type, period_start, period_end, kpi_family, metric_name, metric_value, target, status_color, trend, source, data_through, collected_at, stale }`. The `site=` param is the **meetings module code** (`HGO`/`MGO`/… — same key the Site Actions hub uses), resolved to `site_id` via `getSiteIdByModuleCode('meetings', code)`; no site → all sites. `stale` = `data_through` (or `collected_at` if absent) older than `opm_stale_days`. **Absent data → the family row is `metric_value:null, status_color:'none'` ("No data"), NEVER `0`.**
+  `{ site_id, site_name, period_type, period_start, period_end, kpi_family, metric_name, metric_value, target, status_color, trend, source, data_through, collected_at, stale }`. The `site=` param is resolved **tolerantly** to `site_id`: the **probe name / opmanager code** first (the complete namespace — covers every OPManager site incl. Tanda/Abidjan), else a **meetings code** (`HGO`/`MGO`/… convenience), else the site name; no site → all sites. (Not all sites have a meetings short code — e.g. Tanda has only a tracker code — so the opmanager/probe namespace is the reliable one.) `stale` = `data_through` (or `collected_at` if absent) older than `opm_stale_days`. **Absent data → the family row is `metric_value:null, status_color:'none'` ("No data"), NEVER `0`.**
 - `GET /api/analytics/opmanager/coverage` → governance: per site + overall — `included`, `excluded` (by family + Unknown), `unclassified` device count, `unmapped_probes` (probe names with no site mapping), `stale` snapshots, `last_sync_at`. This is the "Unclassified Devices / cleanup" surface (progressive cleanup, per the brief).
 
 ## 5. Config (reportConfig.DEFAULTS — must be there or setConfig drops them)
@@ -167,7 +167,7 @@ Compared to the same family/site's **previous period** snapshot: `up` if higher,
 
 ## 10. Open items / risks
 1. **Join key (Phase 1, blocking for LIVE data only, not for build/test):** Analytics must expose the same `Device Key` on Availability History + Inventory. OPS is buildable/testable against fixtures before this lands; it just can't show live numbers until the view exists.
-2. **Tanda site code — CONFIRMED `TDA`** (probe `Tanda` → the site whose meetings code is `TDA`).
+2. **Site codes:** probes resolve to `site_id` **by site name** (the codebase has no `TDA` for Tanda — only tracker `TND` — and Ouagadougou's meetings code is `OUA` not `EDV`, so borrowing module codes would false-green). The API `site=` is tolerant (probe/opmanager code, else meetings code, else site name). Tanda is addressed as `Tanda`; adding a human short code is a V1b nicety.
 3. **Availability denominator — CONFIRMED:** `maintenance` + `on_hold` excluded (planned/paused ≠ downtime); **`unmonitored` counted as unavailable** (a monitoring gap = down). On-Hold/UnManaged devices surface in coverage regardless.
 4. **Daily granularity assumption:** the sample is per-device-per-day; if the real view is a different granularity, `aggregate` buckets by whatever `Day` resolves to — but the contract asks for daily.
 5. Whether the OPManager availability view is truly in workspace `106803000000002012` (the assets one) — the brief says so; confirm the view id at Phase-1 time.

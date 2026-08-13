@@ -150,10 +150,10 @@ Add: `parseDuration` tolerant (garbage→null); `aggregate` month path; AVG-fall
   - `aggregate(dailyRows, { probeToSite, classify, targets, periodType, asOf })`:
     1. per row: `family = classify(type,category).family`; skip `excluded`.
     2. `site_id = probeToSite(probe)`; skip null.
-    3. `bucket = periodType==='week' ? weekOf(day) : monthBounds(day)` (import `weekOf` from siteReportDeps; month bounds inline `YYYY-MM-01`..end).
+    3. `bucket = periodType==='week' ? weekOf(day) : monthBoundsOf(day)`, where both return **`{period_start, period_end}`** (`YYYY-MM-DD`). `weekOf` is imported from siteReportDeps (Task 3); `monthBoundsOf` is a tiny local helper (`YYYY-MM-01`..last day) — do NOT reuse `_monthBounds` directly (it returns `{from,to}`; either map it or inline). Day parse: the contract `Day` is a real date, but the raw Availability-History value is `"May 28, 2026 12:00:00 AM"` — parse tolerantly with `new Date(...)` and format to `YYYY-MM-DD`.
     4. group `(site_id, family, bucket.period_start)`; per group sum `uptime/downtime/dependent/unmonitored` secs and collect uptime%.
     5. `avail = sumDenoms>0 ? 100*upSec/(up+down+dep+unmon) : (validPcts.length ? mean(validPcts) : null)`.
-    6. `status_color` via §4.5 (target = `targets[family]`); `trend` left `null` (computed by the reader/route vs prior snapshot — Task 5/8); `device_count`, `included_device_count`, `data_through=max(day)`, `raw_json` = the sums.
+    6. Emit per group: `metric_value=avail`, **`target_value = targets[family]`**, `status_color` via §4.5 (`none` when `avail===null`), `trend:null` (filled by the sync vs prior snapshot — Task 7), `device_count`, `included_device_count`, `data_through = max(day)`, `metric_name:'availability'`, `period_end = bucket.period_end`, `raw_json` = the summed seconds + counts.
   - All pure, `asOf` injected, no `Date.now`.
 - [ ] **Step 4: run → PASS. Step 5: commit.**
 
@@ -187,21 +187,34 @@ assert.equal(rows.length, 1); assert.equal(rows[0].metric_value, 98.0);
 
 ## Task 6: Probe → site seed (`site_module_codes` module='opmanager')
 
-**Files:** Modify `reports-db.js` `_SITE_MODULE_CODES_SEED`. Test `tests/opm-probe-map.test.js`.
+**Files:** Modify `reports-db.js` — BOTH seed literals: the sqlite `_SITE_MODULE_CODES_SEED` AND the pg `_seedReportsCatalogsPg` `SEED` literal (`~reports-db.js:1126`, `ON CONFLICT (site_id,module) DO NOTHING`). Test `tests/opm-probe-map.test.js`.
 
-- [ ] **Step 1: failing test** — probes resolve to the SAME site_id as the meetings code:
+> **Do NOT borrow another module's code for the site_id** — the reviewer confirmed several probes have no matching meetings code (Ouagadougou's meetings code is `OUA` not `EDV`; **Tanda has NO meetings code**, only tracker `TND`; ABJ's site is named `Abidjan`). Resolve each probe to its site **by the `sites.name`** (exactly as the boot seed resolves sites via a case-insensitive name lookup) — this is robust for all 8 probes and needs no borrowed codes.
+
+- [ ] **Step 1: failing test** — each probe resolves to the id of the correctly-named site:
 ```js
 const rdb = require('../reports-db');  // sqlite tmp, seeded
-const same = (probe, meetingsCode) =>
-  assert.equal(rdb.getSiteIdByModuleCode('opmanager', probe)?.site_id,
-               rdb.getSiteIdByModuleCode('meetings', meetingsCode)?.site_id, `${probe}→${meetingsCode}`);
-same('Sabodala','SGO'); same('LAFIGUE','SML'); same('HOUNDE','HGO'); same('Mana','MGO');
-same('Ity','SMI'); same('Ouagadougou','EDV'); same('Tanda','TDA');
+const sites = rdb.listSites({ includeInactive: true });
+const idOf = name => (sites.find(s => s.name.toLowerCase() === name.toLowerCase()) || {}).id;
+const maps = { Sabodala:'Sabodala', LAFIGUE:'Lafigue', HOUNDE:'Hounde', Mana:'MANA',
+               Ity:'Ity', Ouagadougou:'Ouagadougou', ABJ:'Abidjan', Tanda:'Tanda' };
+for (const [probe, siteName] of Object.entries(maps)) {
+  const r = rdb.getSiteIdByModuleCode('opmanager', probe);
+  assert.ok(r && r.site_id === idOf(siteName), `${probe} → site "${siteName}" (${idOf(siteName)})`);
+}
 assert.equal(rdb.getSiteIdByModuleCode('opmanager','NoSuchProbe'), null); // unmapped → null (coverage)
-// ABJ → the Abidjan site (confirm its meetings code exists; else map by site name)
 ```
 - [ ] **Step 2: run → FAIL.**
-- [ ] **Step 3: seed.** For each `(probe → meetings code)` pair below, add a row `{ site_id: <same site_id the meetings row uses>, module:'opmanager', code:<probe> }` to `_SITE_MODULE_CODES_SEED` (read the existing meetings rows to reuse each site_id — do NOT invent ids): `Sabodala→SGO · LAFIGUE→SML · HOUNDE→HGO · Mana→MGO · Ity→SMI · Ouagadougou→EDV · Tanda→TDA · ABJ→(Abidjan's site)`. Case-insensitive resolution is already provided by `getSiteIdByModuleCode`. (Confirm the pg seed path seeds the same rows — mirror wherever the sqlite seed is mirrored for pg.)
+- [ ] **Step 3: seed.** The seed is a **per-site-name map of `module → code`** (sqlite `~reports-db.js:595`, pg `~reports-db.js:1132`), so the seeder already resolves site-name → `site_id`. Just add an **`opmanager: '<probe name>'`** entry to each site's map, in **both** literals:
+  - `'Sabodala': { …, opmanager:'Sabodala' }`
+  - `'Lafigue':  { …, opmanager:'LAFIGUE' }`   *(probe is upper-case; resolution is case-insensitive)*
+  - `'Hounde':   { …, opmanager:'HOUNDE' }`
+  - `'MANA':     { …, opmanager:'Mana' }`
+  - `'Ity':      { …, opmanager:'Ity' }`
+  - `'Ouagadougou': { …, opmanager:'Ouagadougou' }`
+  - `'Abidjan':  { …, opmanager:'ABJ' }`   *(the probe is `ABJ`)*
+  - `'Tanda':    { tracker:'TND', opmanager:'Tanda' }`
+  The stored `code` is the probe string as it appears in the OPManager data (so `getSiteIdByModuleCode('opmanager', probe)` matches at read time). All 8 site names exist in the `sites` seed (lines 521-531).
 - [ ] **Step 4: run → PASS. Step 5: commit.**
 
 ## Task 7: Analytics adapter + sync CLI
@@ -215,7 +228,17 @@ assert.equal(rdb.getSiteIdByModuleCode('opmanager','NoSuchProbe'), null); // unm
 - [ ] **Step 2: run → FAIL.**
 - [ ] **Step 3: implement.**
   - `opmAnalytics.js`: `readDailyRows` maps `fetchView(viewId)` rows (header→contract). `coverageSummary` pure. Header names per §3 (`Probe Name`, `Type`, `Category`, `Day`/`Time Period`, `Uptime Percentage`, `Uptime Duration`, …) — tolerant to `Day` vs `Time Period`.
-  - `tools/opmanager/sync-availability.js` `main(deps)`: gate on `opm_availability_view_id`; `rows = readDailyRows(...)`; build `probeToSite` from `getSiteIdByModuleCode('opmanager', …)`; `classify` from opmClassify; `targets` from `JSON.parse(cfg.opm_targets)`; `wk = aggregate(rows, {…, periodType:'week'})`, `mo = aggregate(rows, {…, periodType:'month'})`; fill `trend` per group vs `getInfraSnapshots` prior period; `collected_at=now` (injectable), `source='analytics_opmanager'`, `source_view=viewId`; `upsertInfraSnapshots([...wk, ...mo])`. Best-effort try/catch → `{ok:false,error}`. `require.main` guard; deps injectable (mirror `tools/meridian/sync-resources.js` + `tools/reports/send-*`).
+  - `tools/opmanager/sync-availability.js` `main(deps)`:
+    1. **`const cfg = await getConfig(db)`** — `getConfig` is a **Promise on postgres**; a sync read yields `undefined` targets/view id.
+    2. gate on `cfg.opm_availability_view_id` (empty → `{skipped:true}`, no fetch).
+    3. `const rows = await readDailyRows({ fetchView, viewId })`.
+    4. **Pre-resolve a PLAIN sync map — `getSiteIdByModuleCode` returns a Promise on pg**, so it MUST NOT be passed as a live resolver into the pure `aggregate`. Do: `const codes = await rdb.listSiteModuleCodes('opmanager')` (awaited); `const byProbe = {}; for (const c of codes) byProbe[normProbe(c.code)] = c.site_id;` then `const probeToSite = p => byProbe[normProbe(p)] ?? null` (a pure, synchronous lookup). `normProbe` = trim+lowercase.
+    5. `const targets = JSON.parse(cfg.opm_targets || '{}')`; `classify` from opmClassify.
+    6. `const wk = aggregate(rows, { probeToSite, classify, targets, periodType:'week', asOf })`, `mo = aggregate(rows, { …, periodType:'month' })`.
+    7. **Trend BEFORE upsert:** for each group, `const prior = await getInfraSnapshots({ site_id, period_type, kpi_family })` (awaited) covering the *previous* period → set `trend` (up/down/stable vs prior; `no_change`/null when no prior). Read prior BEFORE writing the current so it never compares to itself.
+    8. stamp `collected_at=now` (injectable `deps.now`), `source='analytics_opmanager'`, `source_view=viewId`, `data_through` (already on each group).
+    9. `await upsertInfraSnapshots([...wk, ...mo])`.
+    Wrap in try/catch → `{ ok:false, error }` (best-effort, never throws; cron `.catch` logs). `require.main` guard; deps injectable (mirror `tools/meridian/sync-resources.js` + `tools/reports/send-*`).
 - [ ] **Step 4: run → PASS. Step 5: commit.**
 
 ## Task 8: Read API + coverage + cron + mount
@@ -228,11 +251,12 @@ assert.equal(rdb.getSiteIdByModuleCode('opmanager','NoSuchProbe'), null); // unm
   - `GET …/coverage` → 200 with `{included, excluded, unclassified, unmapped_probes}` shape (Analytics stubbed/unconfigured → degrades to a well-formed empty summary, not 500).
   - auth gate: no token → 401.
 - [ ] **Step 2: run → FAIL.**
-- [ ] **Step 3: implement `routes/opmanager.js`** (factory `{ express }`, `requireReportSession` from deps):
-  - `GET /api/analytics/opmanager/availability` — resolve `site=` (meetings code) → `site_id` via `getSiteIdByModuleCode('meetings', code)`; `getInfraSnapshots({site_id, period_type})`; **fill the 4 families** (`lan/wifi/wan/servers`) — present → the snapshot row; absent → `{kpi_family, metric_value:null, status_color:'none'}`; compute `stale` from `data_through`/`collected_at` vs `opm_targets`… vs `opm_stale_days`. No `site` → all sites. Await config (pg Promise).
-  - `GET /api/analytics/opmanager/coverage` — best-effort: `readDailyRows` (config-gated) → `coverageSummary` → JSON; Analytics unconfigured/down → `{ available:false, … }` (never 500).
-  - `POST /api/analytics/opmanager/sync` — `requireAdmin`; runs `sync-availability.main()`; returns its result.
-- [ ] **Step 4: mount in `server.js`** next to the meridian router: `app.use(require('./routes/opmanager')({ express, requireReportSession, requireAdmin }))`. **These `/api/analytics/*` routes are NOT under `/api/reports/:id`** so no shadowing; the global `/api/` gate applies (session/dash-key) — availability + coverage are session-guarded (NOT exempted), sync is admin. Add nightly cron after the assets window: `cron.schedule('0 5 * * *' or '30 4', () => require('./tools/opmanager/sync-availability').main({ fetchView }).catch(e=>console.error('[Cron:opm]', e&&e.message)))` — pass the boot `fetchView`.
+- [ ] **Step 3: implement `routes/opmanager.js`** (factory `{ express, requireReportSession, requireAdmin }`). **Every `getSiteIdByModuleCode`/`getInfraSnapshots`/`getConfig` call MUST be `await`ed — all return Promises on postgres.**
+  - Helper `resolveSiteParam(code)` — tolerant, so it works for sites with no meetings code (Tanda/Abidjan): `await getSiteIdByModuleCode('opmanager', code)` (the probe name — the complete namespace), else `await getSiteIdByModuleCode('meetings', code)` (HGO/MGO/… convenience), else match `listSites` by name; → `site_id` or null.
+  - `GET /api/analytics/opmanager/availability?site=&period=week|month` — resolve `site=` via `resolveSiteParam` (no `site` → all sites); `await getInfraSnapshots({ site_id, period_type })`; **fill the 4 families** (`lan/wifi/wan/servers`): present → the snapshot row mapped to the response shape (rename `target_value`→`target`, add `site_name`, add `stale`); absent → `{ kpi_family, metric_value:null, status_color:'none', target:<from opm_targets>, trend:null, source:'analytics_opmanager' }`. **`stale` is computed ONLY from `data_through` (or `collected_at` if absent) vs `opm_stale_days`** (`opm_targets` drives `status_color`, NOT staleness). Never emit `0` for absence.
+  - `GET /api/analytics/opmanager/coverage` — best-effort: `await getConfig`, if `opm_availability_view_id` set → `readDailyRows` → `coverageSummary`; else/on error → `{ available:false, reason }` (never 500).
+  - `POST /api/analytics/opmanager/sync` — `requireAdmin`; `await require('../tools/opmanager/sync-availability').main({ fetchView: deps.fetchView })`; returns its result.
+- [ ] **Step 4: mount in `server.js`** next to the meridian router, passing the boot `fetchView` (coverage + sync need it): `app.use(require('./routes/opmanager')({ express, requireReportSession, requireAdmin, fetchView }))`. **These `/api/analytics/*` routes are NOT under `/api/reports/:id`** so no shadowing; the global `/api/` gate applies (session/dash-key) — availability + coverage are session-guarded (NOT exempted), sync is admin. Add nightly cron after the assets window: `cron.schedule('0 5 * * *', () => require('./tools/opmanager/sync-availability').main({ fetchView }).catch(e=>console.error('[Cron:opm]', e&&e.message)))` (05:00 collides with the Meridian sync — use `10 5` to stagger).
 - [ ] **Step 5: run → PASS** (`REPORTS_BACKEND=sqlite`). **Step 6: commit.**
 
 ## Task 9: Regression + docs + finish
@@ -253,6 +277,6 @@ Expected all green; the weekly-report/`infra_kpis` goldens **unchanged** (V1a to
 
 ## Risks / open items
 1. **Analytics Phase 1 (blocking for LIVE data only):** the `OPS_OPM_Device_Availability_Daily` view + a shared `Device Key` on both source tables must exist for real numbers; OPS is fully built/tested on fixtures before that. Set `opm_availability_view_id` once the view exists.
-2. **`ABJ` probe → the Abidjan site:** confirm Abidjan has a meetings code (else seed by site name). Others confirmed.
+2. **Site codes:** probes are resolved to `site_id` **by site name** (not by borrowing meetings/tracker codes) — the codebase has no `TDA` for Tanda (only tracker `TND`) and Ouagadougou's meetings code is `OUA` not `EDV`, so borrowing codes would false-green. The API `site=` accepts the probe name (opmanager code) OR a meetings code OR the site name (tolerant resolver). So **Tanda is addressed as `Tanda`** in the API; the user's "TDA" is not an existing code and is not needed (surface this — if human short codes in the URL are wanted, that's a V1b nicety, and would require adding a code to `site_module_codes` for Tanda + Abidjan).
 3. **`AP` substring match** in classification may over-match — tighten to a word boundary in V2 if real data shows false positives (not needed for V1a).
 4. **Deploy** = user's ZIP step; needs `pm2 stop→start` (server code).
