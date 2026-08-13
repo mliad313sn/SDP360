@@ -280,4 +280,15 @@ function _lastIsoWeeks(asOfIso, n) {
   return out;
 }
 
-module.exports = { buildSiteReportDeps, _monthBounds, _asOfFor, _lastIsoWeeks };
+// Bucket an arbitrary date into ITS Monday-anchored ISO week → { period_start,
+// period_end } (YYYY-MM-DD, UTC). Extracted from the Monday logic above so the
+// OPManager aggregation (and anything else) can bucket a single date into a week.
+function weekOf(dateIso) {
+  const base = new Date(String(dateIso).slice(0, 10) + 'T00:00:00Z');
+  const dow = (base.getUTCDay() + 6) % 7;                 // 0=Mon..6=Sun
+  const monday = new Date(base); monday.setUTCDate(base.getUTCDate() - dow);
+  const sunday = new Date(monday); sunday.setUTCDate(monday.getUTCDate() + 6);
+  return { period_start: _isoDate(monday), period_end: _isoDate(sunday) };
+}
+
+module.exports = { buildSiteReportDeps, _monthBounds, _asOfFor, _lastIsoWeeks, weekOf };
