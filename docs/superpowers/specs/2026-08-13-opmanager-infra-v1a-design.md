@@ -167,7 +167,7 @@ Compared to the same family/site's **previous period** snapshot: `up` if higher,
 
 ## 10. Open items / risks
 1. **Join key (Phase 1, blocking for LIVE data only, not for build/test):** Analytics must expose the same `Device Key` on Availability History + Inventory. OPS is buildable/testable against fixtures before this lands; it just can't show live numbers until the view exists.
-2. **Tanda site code** to confirm for the probe seed (others are known).
-3. **Availability denominator — confirm two modelling choices:** (a) `maintenance` + `on_hold` are excluded (planned/paused ≠ downtime); (b) **`unmonitored` is counted as unavailable** (a monitoring gap = down). Both follow the brief's stated formula, but `unmonitored` materially moves the % — confirm it should count as down rather than be excluded like maintenance. On-Hold/UnManaged devices surface in coverage regardless.
+2. **Tanda site code — CONFIRMED `TDA`** (probe `Tanda` → the site whose meetings code is `TDA`).
+3. **Availability denominator — CONFIRMED:** `maintenance` + `on_hold` excluded (planned/paused ≠ downtime); **`unmonitored` counted as unavailable** (a monitoring gap = down). On-Hold/UnManaged devices surface in coverage regardless.
 4. **Daily granularity assumption:** the sample is per-device-per-day; if the real view is a different granularity, `aggregate` buckets by whatever `Day` resolves to — but the contract asks for daily.
 5. Whether the OPManager availability view is truly in workspace `106803000000002012` (the assets one) — the brief says so; confirm the view id at Phase-1 time.
