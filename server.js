@@ -496,6 +496,12 @@ cron.schedule('30 4 * * *', () => require('./assets-sync').syncAllAssets()
 cron.schedule('0 5 * * *', () => require('./tools/meridian/sync-resources').main()
   .catch(e => console.error('[Cron:meridian-sync]', e && e.message)));
 
+// OPManager availability sync (V1a) — 05:10, staggered from the Meridian sync at 05:00.
+// Config-gated (skips until opm_availability_view_id is set) + best-effort (a failure
+// keeps prior snapshots). fetchView reads the prepared daily Analytics view.
+cron.schedule('10 5 * * *', () => require('./tools/opmanager/sync-availability').main({ fetchView })
+  .catch(e => console.error('[Cron:opm-availability]', e && e.message)));
+
 // Change + CAB: every hour at :30 past the hour (offset to avoid collision with requests at :45)
 // Bumped from `30 */2 * * *` (every 2h) on 2026-05-26 to support the
 // executive.html rewrite — DB-direct mode means data freshness IS the
@@ -7473,6 +7479,13 @@ if (process.env.FMP_API_KEY) {
 // sole gate, so setting the key from the admin card makes it live with no restart;
 // unset ⇒ inert (401). A distinct /api prefix, so /api/reports/:id can't shadow it.
 app.use(require('./routes/meridian')({ express }));
+
+// ── OPManager infrastructure availability — read API (V1a, /api/analytics/opmanager/*) ──
+// Serves the snapshots the nightly sync composes from the prepared Analytics view. OPS
+// never polls devices. availability + coverage are session-guarded (global /api/ gate +
+// requireReportSession); sync is admin. A distinct /api/analytics prefix, so /api/reports/:id
+// can't shadow it. fetchView is passed for coverage + on-demand sync.
+app.use(require('./routes/opmanager')({ express, requireReportSession, requireAdmin, fetchView }));
 
 // ══════════════════════════════════════════════════════════════════
 // MEETINGS — Department Meetings & Council Escalations (v2 schema)
