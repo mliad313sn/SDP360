@@ -56,6 +56,12 @@ const DEFAULTS = {
   //    /api/actions/open. Both keys are secrets: redacted on GET, blank-kept on save
   //    like smtp_pass / entra_client_secret. Must live here or setConfig drops them.
   meridian_base_url: '', meridian_out_key: '', meridian_in_key: '',
+  // ── OPManager infra availability (V1a). The Analytics Plus view id OPS reads via
+  //    fetchView; per-family availability targets (JSON); staleness threshold (days).
+  //    Non-secret. Must live here or setConfig's KEYS filter silently drops them.
+  opm_availability_view_id: '',
+  opm_targets: JSON.stringify({ lan: 99, wifi: 98, wan: 98, servers: 99 }),
+  opm_stale_days: '9',
 };
 const KEYS = Object.keys(DEFAULTS);
 
