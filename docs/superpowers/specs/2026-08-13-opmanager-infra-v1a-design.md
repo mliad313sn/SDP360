@@ -53,7 +53,7 @@ Hard rules (verbatim from the brief): OPS does **not** poll devices, **not** rec
 ## 4. OPS components
 
 ### 4.1 `services/opmClassify.js` — pure classification
-`classifyKpiFamily(type, category)` → `{ family: 'servers'|'lan'|'wifi'|'wan'|'excluded', reason: string }`. Case-insensitive, trimmed. **Ordered rule list, first match wins; Category-equality rules are evaluated BEFORE Type-contains rules** so the authoritative Category wins the one real conflict (a `Type=Linux` device with `Category=Wireless` → WiFi, not Servers):
+`classifyKpiFamily(type, category)` → `{ family: 'servers'|'lan'|'wifi'|'wan'|'excluded', reason: string }`. Case-insensitive, trimmed. **The family ORDER is authoritative — the rules are evaluated top-to-bottom and the first family whose (Category-equals OR Type-contains) test matches wins.** The order below (excluded → wan → wifi → lan → servers) is chosen so the one real conflict in the data resolves correctly: a `Type=Linux` device with `Category=Wireless` hits `wifi (3)` before `servers (5)` → WiFi. (It is *not* a blanket "all Category rules before all Type rules"; it is family precedence.)
 
 ```
 1. excluded : Category ∈ {Unknown, Meraki Controller}  OR  Type = Unknown
@@ -70,26 +70,28 @@ Helpers: `parsePercent('95.8%')→95.8`, `parseDuration('0 days 22 hrs 59 mins 3
 
 `aggregate(dailyRows, { probeToSite, classify, targets, periodType, asOf })` → array of snapshot-shaped rows. Steps:
 1. Classify each row (`family`); drop `excluded` from KPI math (kept for coverage).
-2. Resolve `site_code` = `probeToSite(probe)`; a row whose probe is unmapped is dropped from KPI math (kept for coverage as `unmapped_probe`).
-3. Bucket `Day` → **ISO week** (Monday-anchored `period_start`/`period_end`) for `periodType:'week'`, or calendar **month** for `periodType:'month'`. Reuse the existing ISO-week helper (`siteReportDeps._isoWeek`/`_lastIsoWeeks`) so week math matches the rest of the reporting suite.
-4. Group by `(site_code, family, period_start)`. Per group:
-   - **Availability %** = `100 × Σ(uptime_sec) / Σ(uptime + downtime + dependent + unmonitored)_sec` (maintenance + on-hold excluded from the denominator — planned/paused time isn't "unavailable"). **Fallback** = `mean(uptime_pct)` when durations are unparseable for the group.
+2. Resolve `site_id` = `probeToSite(probe)`; a row whose probe is unmapped is dropped from KPI math (kept for coverage as `unmapped_probe`).
+3. Bucket `Day` → **ISO week** (Monday-anchored `{period_start, period_end}`) for `periodType:'week'`, or calendar **month** for `periodType:'month'`. **The month helper `_monthBounds` is already exported from `siteReportDeps.js`; the week helper is NOT** — `_isoWeek` is unexported and `_lastIsoWeeks(asOf,n)` returns a *trailing window* with `{from,to}`, not a "bucket this date" function. So the plan extracts a small **exported pure `weekOf(date) → {period_start, period_end}`** (Monday-anchored — the inline Monday logic already lives at `siteReportDeps.js:271-272` over `_isoWeek:256`) and reuses it here and in the rest of the suite. (Field names `period_start`/`period_end` are this feature's own; `_monthBounds`/`weekOf` return them or are adapted.)
+4. Group by `(site_id, family, period_start)`. Per group:
+   - **Availability %** = `100 × Σ(uptime_sec) / Σ(uptime + downtime + dependent + unmonitored)_sec`. Per the brief's formula: `maintenance` + `on_hold` are **excluded** from the denominator (planned/paused ≠ unavailable), while **`unmonitored` IS counted as unavailable** (a monitoring gap is treated as down — a deliberate, conservative choice; flagged in §10 for confirmation since it materially moves the %). **Fallback** = `mean(uptime_pct)` when durations are unparseable for the group.
    - `device_count` (distinct devices seen), `included_device_count` (distinct with usable data).
    - `status_color`, `trend` (§4.5, §4.6).
 
 Pure, `asOf` injected, no DB, no `Date.now()` — fully unit-testable against fixtures.
 
 ### 4.3 Probe → site mapping (existing table, no schema change)
-Store in `site_module_codes` with `module='opmanager'`, `code=<Probe Name>`. Resolve with the existing `getSiteIdByModuleCode('opmanager', probe)` (case-insensitive). Seed the observed probes → SDP site codes:
-`Sabodala→SGO · LAFIGUE→SML · HOUNDE→HGO · Mana→MGO · Ity→SMI · Ouagadougou→EDV · ABJ→ABJ · Tanda→<Tanda code>`. Unmapped probe → **never guessed**; surfaces in the coverage report so the operator adds the mapping. (Editing this mapping via the admin UI is V1b/governance; V1a ships the seed + read path + the coverage signal.)
+Store in `site_module_codes` with `module='opmanager'`, `code=<Probe Name>`, pointing at the **`sites.id`** primary key — the same `site_id` the rest of the reporting suite resolves via `getSiteIdByModuleCode`. Resolve with the existing `getSiteIdByModuleCode('opmanager', probe)` (case-insensitive) → `{site_id, name, zoho_group}`.
+
+**Site identity is `site_id` throughout** (snapshots key on it; the API resolves its `site=` param to it — §4.8). This avoids the two-code confusion: `sites` has no short-code column (columns are `id, name, zoho_group, active, sort_order`); the short codes (`HGO`, `MGO`, …) live per-module in `site_module_codes`, so they are a *URL alias*, never the storage key.
+
+Seed the observed probes → the correct `site_id` for each: `Sabodala, LAFIGUE, HOUNDE, Mana, Ity, Ouagadougou, ABJ, Tanda` (case-insensitive; the seed resolves each probe name to its site's `id`, it does NOT invent a new code). A probe with no mapping → **never guessed**; it surfaces in the coverage report so the operator adds it. (Editing the mapping via the admin UI is V1b/governance; V1a ships the seed + read path + the coverage signal.)
 
 ### 4.4 `infra_metric_snapshots` table (dual sqlite/pg, in reports.db)
 The automated history, **separate from `infra_kpis`** (raw measurement ≠ per-report row):
 
 ```sql
 CREATE TABLE infra_metric_snapshots (
-  id                  <autoinc>,
-  site_code           TEXT NOT NULL,
+  site_id             <site key>,         -- = sites.id (the reporting-suite site key)
   period_type         TEXT NOT NULL,      -- 'week' | 'month'
   period_start        TEXT NOT NULL,      -- ISO date (Mon for week / 1st for month)
   period_end          TEXT NOT NULL,
@@ -100,16 +102,18 @@ CREATE TABLE infra_metric_snapshots (
   status_color        TEXT,               -- green | orange | red | none
   trend               TEXT,               -- up | down | stable | no_change
   source              TEXT,               -- 'analytics_opmanager'
-  source_view         TEXT,               -- the Analytics view id/name
-  source_refreshed_at TEXT,               -- when Analytics last refreshed the data
+  source_view         TEXT,               -- the Analytics view id
+  data_through        TEXT,               -- newest Day present in the fetched data (freshness signal, OPS-derived)
   device_count        INTEGER,
   included_device_count INTEGER,
-  collected_at        TEXT,               -- when OPS ran the sync
+  collected_at        TEXT NOT NULL,      -- when OPS successfully ran the sync
   raw_json            TEXT,               -- durations + counts for audit/debug
-  UNIQUE (site_code, period_type, period_start, kpi_family, metric_name)
+  PRIMARY KEY (site_id, period_type, period_start, kpi_family, metric_name)
 );
 ```
-Idempotent upsert on the UNIQUE key (sqlite `INSERT … ON CONFLICT DO UPDATE`; pg the same via `pgDb`). Mirrors the Assets `infra`-style dual-backend + `tools/pg/copy-*` parity. Added to `initPgReports` + a copy script.
+**No surrogate `id`** — the composite `(site_id, period_type, period_start, kpi_family, metric_name)` IS the primary key + the idempotency key (avoids the sqlite-`AUTOINCREMENT`-vs-pg-`IDENTITY` divergence documented for `system_log`). `site_id` typed to match `sites.id`. Idempotent upsert on the PK (sqlite `INSERT … ON CONFLICT DO UPDATE`; pg the same via `pgDb`). Mirrors the Assets dual-backend + `tools/pg/copy-*` parity; added to `initPgReports` + a copy script.
+
+**Freshness (fix for "no refresh timestamp"):** the Analytics contract exposes no view-refresh time and `fetchView` returns rows only, so OPS derives freshness itself: `collected_at` = when OPS last synced (always set); `data_through` = `MAX(Day)` across the fetched rows for that site = the newest data OPManager/Analytics actually holds. `stale` (§4.8) is derived from these, no contract change needed.
 
 ### 4.5 Status (existing vocabulary — `orange`, never `amber`)
 `green` if `value ≥ target`; `orange` if `value ≥ target − 2`; `red` if `value < target − 2`; **`none` if `value` is null (no data)**. Targets per family from config `opm_targets` (JSON, default `{lan:99, wifi:98, wan:98, servers:99}`).
@@ -123,8 +127,8 @@ Compared to the same family/site's **previous period** snapshot: `up` if higher,
 - Scheduling: nightly `cron.schedule` (after the assets sync window) + on-demand `POST /api/analytics/opmanager/sync` (admin).
 
 ### 4.8 Read API (session-guarded)
-- `GET /api/analytics/opmanager/availability?site=MANA&period=week|month` → normalized rows:
-  `{ site_code, period_type, period_start, period_end, kpi_family, metric_name, metric_value, target, status_color, trend, source, source_refreshed_at, stale }` (`stale` = refreshed_at older than `opm_stale_days`). No site → all sites. **Absent data → the family row is `metric_value:null, status_color:'none'` ("No data"), NEVER `0`.**
+- `GET /api/analytics/opmanager/availability?site=<code>&period=week|month` → normalized rows:
+  `{ site_id, site_name, period_type, period_start, period_end, kpi_family, metric_name, metric_value, target, status_color, trend, source, data_through, collected_at, stale }`. The `site=` param is the **meetings module code** (`HGO`/`MGO`/… — same key the Site Actions hub uses), resolved to `site_id` via `getSiteIdByModuleCode('meetings', code)`; no site → all sites. `stale` = `data_through` (or `collected_at` if absent) older than `opm_stale_days`. **Absent data → the family row is `metric_value:null, status_color:'none'` ("No data"), NEVER `0`.**
 - `GET /api/analytics/opmanager/coverage` → governance: per site + overall — `included`, `excluded` (by family + Unknown), `unclassified` device count, `unmapped_probes` (probe names with no site mapping), `stale` snapshots, `last_sync_at`. This is the "Unclassified Devices / cleanup" surface (progressive cleanup, per the brief).
 
 ## 5. Config (reportConfig.DEFAULTS — must be there or setConfig drops them)
@@ -152,9 +156,9 @@ Compared to the same family/site's **previous period** snapshot: `up` if higher,
 - No OPManager groups (V2).
 
 ## 9. Acceptance criteria (V1a subset of the brief)
-1. For a site (e.g. MANA), `GET …/availability?site=MANA&period=week` returns LAN / WiFi / WAN / Servers availability rows (and `period=month` the monthly).
+1. For a site (e.g. Mana, meetings code `MGO`), `GET …/availability?site=MGO&period=week` returns LAN / WiFi / WAN / Servers availability rows (and `period=month` the monthly).
 2. Values derive from the Analytics view (OPManager-sourced), via `fetchView`.
-3. Each row carries `source` + `source_refreshed_at` (+ `stale`).
+3. Each row carries `source` + `collected_at` + `data_through` (+ `stale`).
 4. `Unknown` devices are excluded from KPIs and listed in `…/coverage`; unmapped probes too.
 5. Existing reports keep working — V1a touches none of the report code.
 6. Analytics unavailability produces **"No data" / `none`, never `0%`**.
@@ -164,6 +168,6 @@ Compared to the same family/site's **previous period** snapshot: `up` if higher,
 ## 10. Open items / risks
 1. **Join key (Phase 1, blocking for LIVE data only, not for build/test):** Analytics must expose the same `Device Key` on Availability History + Inventory. OPS is buildable/testable against fixtures before this lands; it just can't show live numbers until the view exists.
 2. **Tanda site code** to confirm for the probe seed (others are known).
-3. **On-Hold / UnManaged devices:** excluded from the availability denominator by the formula (planned/paused time isn't downtime); flagged in coverage. Confirm this matches expectation.
+3. **Availability denominator — confirm two modelling choices:** (a) `maintenance` + `on_hold` are excluded (planned/paused ≠ downtime); (b) **`unmonitored` is counted as unavailable** (a monitoring gap = down). Both follow the brief's stated formula, but `unmonitored` materially moves the % — confirm it should count as down rather than be excluded like maintenance. On-Hold/UnManaged devices surface in coverage regardless.
 4. **Daily granularity assumption:** the sample is per-device-per-day; if the real view is a different granularity, `aggregate` buckets by whatever `Day` resolves to — but the contract asks for daily.
 5. Whether the OPManager availability view is truly in workspace `106803000000002012` (the assets one) — the brief says so; confirm the view id at Phase-1 time.
