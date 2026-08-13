@@ -6,6 +6,45 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ---
 
+## ⚡ Current state (as of 2026-08-13 — OPManager Infra Availability V1a : lecture + snapshots + API + gouvernance)
+
+> **V1a landed on `main`** (commits `b9e751e`→`63d1dbd`→`9c93204`→`31c2033`→`086e1ea`→
+> `5b36608`→`01eb9be`→`763d282`, NOT déployé) — la **fondation lecture-seule** de
+> l'intégration **OPManager → Analytics Plus → OPS** pour les KPIs de disponibilité infra
+> (LAN/WiFi/WAN/Servers). **Décisions verrouillées (user)** : « **OPS classe + agrège** »
+> (Analytics ne fait QUE la jointure device↔probe ; OPS classe + agrège en JS pur),
+> « **Découper, V1a d'abord** », « **unmonitored = indisponible** », « **Tanda = TDA**
+> (n'existe pas → adressé par le nom `Tanda`) ». **Contrat Analytics** = UNE vue quotidienne
+> par device `OPS_OPM_Device_Availability_Daily` (device_key, probe, type, category, day,
+> uptime% + durées) ; l'id de la vue = config `opm_availability_view_id` (vide → tout est
+> **inerte**, la Phase 1 Analytics est côté user). **Ce qui est construit (T1-T8)** :
+> **config** (`opm_availability_view_id`, `opm_targets` JSON {lan:99,wifi:98,wan:98,servers:99},
+> `opm_stale_days:'9'`) ; **`services/opmClassify.js`** (pur : `classifyKpiFamily(type,category)`
+> → famille par table de règles ordonnée, premier-match ; excluded/wan/wifi/lan/servers ;
+> Unknown/UPS→excluded ≈40% du parc réel) ; **`weekOf(date)`** exporté de `siteReportDeps`
+> (Monday-anchored UTC `{period_start,period_end}`) ; **`services/opmAvailability.js`** (pur :
+> `parseDuration`/`parsePercent`/`aggregate` → `100×Σuptime/Σ(uptime+downtime+dependent+unmonitored)`,
+> maintenance+onhold exclus, fallback `AVG(uptime%)`, **null-pas-zéro** → status `none`) ;
+> **`infra_metric_snapshots`** (PK composite, PAS de surrogate id ; `ON CONFLICT DO UPDATE`
+> même SQL 2 backends ; `007_infra_snapshots.sql` pg) + lecteurs duaux `upsertInfraSnapshots`/
+> `getInfraSnapshots` ; **seed probe→site** dans `site_module_codes` module=`opmanager`
+> (`_OPM_PROBE_CODES`, résolu par **NOM de site** — pas d'emprunt de codes meetings/tracker
+> qui false-greeneraient : Ouaga=EDV≠OUA, Tanda n'a pas de TDA) ; **`services/opmAnalytics.js`**
+> (`readDailyRows` header→contrat + `coverageSummary` pur gouvernance) ;
+> **`tools/opmanager/sync-availability.js`** (best-effort : await getConfig, config-gated,
+> pré-résout une map plate probe→site_id, agrège week+month, trend vs période précédente
+> lue AVANT l'upsert, échec→prior gardés) ; **`routes/opmanager.js`** `GET /api/analytics/
+> opmanager/{availability,coverage}` + `POST /sync` (résolveur `site=` tolérant probe→meetings
+> →nom ; remplit les 4 familles, absent→`{null,'none'}` jamais 0 ; stale depuis `data_through`
+> vs `opm_stale_days`) monté à côté de Meridian + **cron 05:10** (staggered de Meridian 05:00).
+> **Tout best-effort + config-gated** : vue non réglée = sync self-skip, API sert `none`/vide.
+> **NE touche RIEN** de `infra_kpis`/reports (c'est V1b). Tests : 29 unités opm + 6 smoke
+> route + await-precedence (couvre les 2 dispatchers duaux) ; goldens weekly **inchangés**.
+> **Reste V1b** (auto-remplissage du rapport site depuis les snapshots + override éditeur) ;
+> **V1c** (qualité WAN + gouvernance). **Data LIVE = étape user** (créer la vue Analytics +
+> régler `opm_availability_view_id`). Plan : `docs/superpowers/plans/2026-08-13-opmanager-infra-v1a.md`,
+> spec : `docs/superpowers/specs/2026-08-13-opmanager-infra-v1a-design.md`.
+
 ## ⚡ Current state (as of 2026-08-11, plus tard — F1 Part A : fédération Meridian ⇄ SDP côté SDP)
 
 > **F1 Part A landed on `main`** (commits `8d7adf6`→`0bf9003`→`f26f65b`→`d34e384`→
@@ -3585,6 +3624,9 @@ In normal use NO request hits this fallback. It's a safety net.
 
 | Pitfall | Rule |
 |---------|------|
+| **OPManager availability comes via Analytics Plus `fetchView` — OPS classifies + aggregates in JS ; `infra_metric_snapshots` ≠ `infra_kpis`** | V1a is read-only : la vue quotidienne préparée `OPS_OPM_Device_Availability_Daily` (id = config `opm_availability_view_id`) fait SEULEMENT la jointure device↔probe ; **OPS classe** (`opmClassify.classifyKpiFamily`) **et agrège** (`opmAvailability.aggregate`) en JS pur, puis upserte dans **`infra_metric_snapshots`** (table NEUVE, PK composite, PAS de surrogate id — évite la divergence sqlite-AUTOINCREMENT/pg-IDENTITY). Ça **ne touche RIEN** de `infra_kpis`/`weekly_reports` (le rapport site les lit encore à la main ; l'auto-remplissage = V1b). OPS ne poll JAMAIS un device, ne recrée pas d'alerte. `opm_availability_view_id` vide → sync self-skip + API sert `none`/vide (tout config-gated + best-effort : un échec Analytics garde les snapshots précédents, ne vide jamais). |
+| **Disponibilité : `unmonitored` compte comme INDISPONIBLE ; l'absence de mesure = status `none`, JAMAIS `0`** | La formule (`opmAvailability.aggregate`) = `100×Σuptime/Σ(uptime+downtime+dependent+unmonitored)` — `unmonitored` est au dénominateur (décision user : « unmonitored = indisponible »), `maintenance`+`onhold` sont EXCLUS du dénominateur ; fallback `AVG(uptime%)` si les durées manquent. **Une famille sans snapshot rend `{metric_value:null, status_color:'none'}` — jamais `0`** (un 0 se lirait « 0% dispo », le pire score possible, sur une absence de données) : `routes/opmanager.js` `fillFamilies` remplit toujours les 4 familles (lan/wifi/wan/servers), présent→ligne mappée, absent→null/none. `opm_targets` pilote la COULEUR (green≥target, orange≥target-2, red<target-2 ; stocker `orange`, JAMAIS `amber`), PAS la fraîcheur — le `stale` vient de `data_through` (ou `collected_at`) vs `opm_stale_days`. |
+| **La clé site est `site_id` ; le seed probe→site se fait par NOM de site, pas en empruntant un code meetings/tracker** | `_OPM_PROBE_CODES` (`reports-db.js`) mappe chaque probe OPManager (Sabodala/Mana/HOUNDE/Ity/LAFIGUE/Ouagadougou/ABJ/Tanda) vers `site_module_codes` module=`opmanager` **résolu par le NOM du site** — car emprunter les codes d'un autre module false-greenerait : **Ouagadougou = `EDV` en tracker mais `OUA` en meetings**, et **Tanda n'a AUCUN code court** (seulement tracker `TND` ; le « TDA » du user n'existe pas). L'API `site=` (`resolveSiteParam`) est **tolérante** : probe (namespace opmanager complet) → code meetings (HGO/MGO… commodité) → nom de site — donc **Tanda s'adresse par `Tanda`**, pas par un code inventé. Un `getSiteIdByModuleCode` rend `{site_id}` (pas `.id`) et **c'est une Promise sur pg** : tout appel (+ `getConfig`/`getInfraSnapshots`/`listSites`) DOIT être `await`é, et le sync **pré-résout une map plate probe→site_id** avant l'agrégat pur (jamais passer un résolveur-Promise dans le pur). `weekOf(date)` est exporté de `siteReportDeps` (Monday-anchored UTC) — ne pas re-dériver l'ISO-week localement. |
 | **The Meridian read API `GET /api/actions/open` is EXEMPT from the global `/api/` gate — its own X-API-Key is the sole gate** | Meridian calls SDP server-to-server with `meridian_in_key` (header `X-API-Key`), NOT the dash key or a session token. The global `app.use('/api/', …)` (`server.js:979`) would 401 it first, so `/actions/open` is exempted there (`req.path === '/actions/open'`, mirroring `/exec/summary`) and `routes/meridian.js` does the key check itself. **That key check MUST `await reportConfig.getConfig(rdb.db)`** — `getConfig` returns a **Promise on postgres** (prod), so reading it sync compares against `undefined` → 401 in prod while the sqlite smoke passes green (the documented sqlite-green/pg-broken trap). The route is **always mounted** (no boot-time config gate), so setting the key from the admin card makes it live with no restart; unset ⇒ inert (401). |
 | **All Meridian cross-system calls are best-effort + config-gated — a Meridian outage must never touch SDP or block the hub** | The Site Actions hub badge folds in `meridianLinks.getLinksForSite` inside the route's try; any error → every `it.project` null, hub renders normally (proven by the site-actions smoke asserting `project === null` when unconfigured). `getLinksForSite` + `sync-resources.main` return `{}`/`{skipped}` and NEVER throw. The sync self-skips when `meridian_base_url`/`meridian_out_key` is empty. Never make a hub render or a report depend on a Meridian response. |
 | **Meridian resource sync: person id is `SDP-U<userId>` from the USER directory, site id is the MEETINGS module code — not ticket-techs, not `sites.id`** | `pmo.person` needs stable ids, and the only stable roster is dashboard **users** (`inspection-db.js listPeople` → `{id,full_name,role,site_code}`); ticket "technicians" are just names on `request_records` with no id and can't be a PK. Sites come from `listSiteModuleCodes('meetings')` (codes HGO/MGO/SMI…) because `pmo.site.id` has a CHECK `^[A-Z0-9_-]{2,16}$` that `sites.id` may not satisfy, and `listPeople().site_code` is in that same namespace so people FK cleanly. A person whose `site_code` isn't in the synced site set is **dropped** (Meridian person→site FK is RESTRICT) — counted in `_skipped_unknown_site`, never sent. The stable action id shared with Meridian is `"<source>:<action_id ?? uid>"`. |
