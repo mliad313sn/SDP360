@@ -624,6 +624,16 @@ const _SITE_MODULE_CODES_SEED = {
   'Kalana':      { tracker: 'KLN', inspection: 'KGO', meetings: 'KGO', risk_register: 'KGO' },
   'Tanda':       { tracker: 'TND' },
 };
+// V1a — OPManager probe names per site (the `Probe Name` column in the OPManager
+// data = the code stored under module='opmanager'). Site resolved by NAME below, so
+// Tanda/Abidjan (no meetings code) map cleanly. Augments the seed map in one place.
+const _OPM_PROBE_CODES = {
+  Sabodala: 'Sabodala', MANA: 'Mana', Hounde: 'HOUNDE', Ity: 'Ity',
+  Lafigue: 'LAFIGUE', Ouagadougou: 'Ouagadougou', Abidjan: 'ABJ', Tanda: 'Tanda',
+};
+for (const [siteName, probe] of Object.entries(_OPM_PROBE_CODES)) {
+  if (_SITE_MODULE_CODES_SEED[siteName]) _SITE_MODULE_CODES_SEED[siteName].opmanager = probe;
+}
 {
   const upsertCode = db.prepare(
     `INSERT OR IGNORE INTO site_module_codes (site_id, module, code) VALUES (?, ?, ?)`
@@ -1164,6 +1174,10 @@ async function _seedReportsCatalogsPg(H) {
     'Kalana':      { tracker:'KLN', inspection:'KGO', meetings:'KGO', risk_register:'KGO' },
     'Tanda':       { tracker:'TND' },
   };
+  // V1a — augment with OPManager probe codes (same table as the sqlite seed).
+  for (const [siteName, probe] of Object.entries(_OPM_PROBE_CODES)) {
+    if (SEED[siteName]) SEED[siteName].opmanager = probe;
+  }
   await H.runTransaction(async () => {
     for (const [siteName, modCodes] of Object.entries(SEED)) {
       const row = await H.prepare('SELECT id FROM sites WHERE lower(name)=lower(?)').get(siteName);
