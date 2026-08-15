@@ -120,9 +120,12 @@ backends (pgDb `?`→`$N`).
 
 ### 5.2 Reuse `infra_metric_snapshots` (V1a) for LAN/WLAN/Servers
 
-Device-grain families keep V1a's table + readers (`upsertInfraSnapshots` / `getInfraSnapshots`).
-**WAN is NOT written here** — its PK `(site,period_type,period_start,kpi_family,metric_name)`
-cannot hold wan1+wan2 as two `wan` rows; per-link WAN lives in `wan_link_snapshots`.
+Device-grain families keep V1a's table + readers (`upsertInfraSnapshots` / `getInfraSnapshots` —
+`_snapWhere` already filters by `period_start`). **WAN is NOT written here** — its PK
+`(site,period_type,period_start,kpi_family,metric_name)` cannot hold wan1+wan2 as two `wan` rows;
+per-link WAN lives in `wan_link_snapshots`. One **additive** column `basis TEXT` (`'window'`|`'recent'`,
+see §10) is added to `infra_metric_snapshots` (backend-branched ALTER — sqlite PRAGMA-guarded, pg
+`ADD COLUMN IF NOT EXISTS`, never in the shared CREATE) so the fill can label recent-vs-window.
 
 ### 5.3 Site mapping
 
@@ -137,14 +140,14 @@ V1a's `_OPM_PROBE_CODES`, resolved by site NAME (Ity→"Ity Gold Operations", Ma
 | File | Responsibility |
 |---|---|
 | `services/merakiClient.js` | Pure-ish read-only Meraki REST client. Header `X-Cisco-Meraki-API-Key`. Methods: `orgUplinkStatuses({networkIds})`, `orgUplinksLossLatency({serials})` (for `ip` discovery), `deviceLossLatencyHistory({serial,uplink,ip,t0,t1,resolution})`. Rate-limit aware (≤5 req/s, 429-backoff). Injectable `fetch` for tests. |
-| `services/merakiWanQuality.js` | **Pure.** `deriveAvailability(timeSeries, window)` → `% Time Up` (interval up iff a sample exists with `lossPercent < 100`; missing interval = down), + `avg(loss/latency/jitter/goodput)`. `statusColor(pct, target)` (green≥t, orange≥t-2, red<t-2; null→none). No I/O. |
+| `services/merakiWanQuality.js` | **Pure.** `deriveAvailability(timeSeries, window, {missing})` → `% Time Up` (see §7), + `avg(loss/latency/jitter/goodput)`. `statusColor(pct, target)` — **uses the report's own band** `≥target→green, ≥target×0.90→orange, else red, null→none` (NOT V1a's ±2 band). No I/O. |
 | `tools/meraki/sync-wan.js` | Collector. Config-gated (`meraki_api_key`). For each mapped MX: discover uplinks + `ip` (org endpoints) → pull `deviceLossLatencyHistory` for the **current Zoho week** (t0=Sunday,t1=Saturday) and the **current month** → derive → upsert `wan_link_snapshots` (week+month). Best-effort (failure keeps prior snapshots). `require.main`-guarded. Pre-resolves a plain network→site_id map (await) before the pure derive. |
 | `services/opmanagerClient.js` | Read-only OpManager REST client. `listDevices({rows})`, `getDeviceCompleteDetails({name})`. Self-signed TLS tolerated via `opmanager_tls_insecure`. Injectable `fetch`. |
 | `tools/opmanager/sync-availability.js` (**reworked**) | Replace the Analytics `fetchView` acquisition with `opmanagerClient`: list devices → for each non-firewall device read `getDeviceCompleteDetails.availdata.Up` → classify family (`opmClassify` on OpManager `category`/`type`) → aggregate per site per family → upsert `infra_metric_snapshots`. Zoho-week + month buckets. WAN family **skipped here** (comes from Meraki). |
 | `services/opmReportFill.js` | **Pure.** `serviceToFamily(name)` (normalized substring; wifi/wlan before wan; backup/radio→none) + `fillRows(seedRows, {wanByUplink, familyByName})` → per-row `{value, status_color, trend, stale, data_through, source}`; rows with no mapping left untouched. |
 | `routes/wan.js` (or extend `routes/opmanager.js`) | `GET /api/analytics/wan/summary?site=&period=` + `/trend?site=&months=` (session-guarded) reading `wan_link_snapshots`; `POST /sync` (admin). |
-| `GET /api/reports/:id/infra-auto` (server.js, above `/:id`) | Resolve report → `site_id` + `start_date` (Zoho Sunday) → read `wan_link_snapshots(week, start_date)` + `infra_metric_snapshots(week, start_date)` → `opmReportFill.fillRows` → `{week_label, rows:[…]}`. Best-effort (unconfigured/no snapshot → `{rows:[]}`, never 500). Editor-guarded. |
-| `public/reports.html` | On opening an **editable** report, after `renderInfra()`, call `/infra-auto`; for each row whose Current Value is **empty** and whose service maps, set value + trend, reuse `autoInfraStatusTrend` for colour. Banner "⚡ N values auto-filled — override any cell" + per-cell "Auto · data through YYYY-MM-DD / stale" tooltip. A "⚡ Fill from OPManager/Meraki" button re-runs it. |
+| `GET /api/reports/:id/infra-auto` (server.js) | Resolve report → `site_id` + `start_date` (Zoho Sunday) → read `wan_link_snapshots(week, start_date)` + `infra_metric_snapshots(week, start_date)` (both readers filter by `period_start` — the PK/`_snapWhere` already support it) → `opmReportFill.fillRows` → `{week_label, rows:[…]}`. Best-effort (unconfigured/no snapshot → `{rows:[]}`, never 500). Editor-guarded. *(Two-segment path — `/api/reports/:id` matches one trailing segment and does NOT shadow it; register alongside the other `/:id/<word>` siblings.)* |
+| `public/reports.html` | On opening an **editable** report, after `renderInfra()`, call `/infra-auto`; for each row whose Current Value is **empty** and whose service maps, set value + **status_color + trend from the snapshot** (NOT `autoInfraStatusTrend` — so the cell colour agrees with the WAN dashboard; both use the §6 band). Banner "⚡ N values auto-filled — override any cell" + per-cell "Auto · data through YYYY-MM-DD · basis: window/recent · provisional?" tooltip. A "⚡ Fill from OPManager/Meraki" button re-runs it. |
 | `public/wan-health.html` | Insights ▸ WAN Health — per-site availability + quality trends (weekly/monthly) from `wan_link_snapshots`. Pattern = Assets effort-trend. |
 | `db/postgres/reports/008_wan_link_snapshots.sql` | pg CREATE (composite PK, `DOUBLE PRECISION`). |
 
@@ -152,23 +155,36 @@ V1a's `_OPM_PROBE_CODES`, resolved by site NAME (Ity→"Ity Gold Operations", Ma
 
 ## 7. The % Time Up derivation (the crux)
 
-`getDeviceLossAndLatencyHistory` returns loss/latency samples, **not** uptime. We derive:
+`getDeviceLossAndLatencyHistory` returns loss/latency samples to **one monitored destination `ip`**,
+**not** uptime. Deriving uptime is genuinely uncertain and must be **calibrated, not assumed**:
 
 - Query the exact window (Zoho week = Sunday→Saturday; or the month) at **hourly resolution**
-  (`resolution=3600`) per uplink/destination `ip`.
-- **An interval is "up"** iff it has a sample with `lossPercent < 100`; **"down"** iff `lossPercent == 100`
-  **or the interval has no sample** (Meraki drops samples when the link is fully down — verified
-  empirically, see below).
-- `availability_pct = 100 × up_intervals / total_intervals`. Rounded to 2 dp.
-- If the whole window has **no samples at all** → `availability_pct = null` → status `none` (never 0).
+  (`resolution=3600`) per uplink. Discover the destination `ip`(s) via the org loss/latency
+  endpoint; if an uplink monitors **multiple destinations**, a link is "down" for an interval only
+  if **all** its destinations are down (a single destination unreachable ≠ link down — Google
+  outage, blocked host).
+- **Down signal = `lossPercent == 100` across the interval.** A **missing interval** is
+  **ambiguous** — it can mean the link was down (Meraki drops samples) OR an API/collection gap.
+  The pure `deriveAvailability(series, window, {missing})` is **parameterized** on how to treat a
+  missing interval — `'down'` or `'unknown'` (excluded from the denominator). **Which one is
+  correct is LOCKED BY CALIBRATION, not chosen up front.**
+- `availability_pct = 100 × up_intervals / counted_intervals`. Rounded to 2 dp.
+- If the whole window has **no counted intervals** → `availability_pct = null` → status `none`
+  (never 0).
 
-**Calibration (required at build time):** run against **ITY-F/W-01** (Meraki says 99.86 / 97.87)
-to confirm the up/down rule, and against **MANA-F/W-02/03** ("Critical" — a real down case) to
-confirm a down window derives a low %. If Meraki represents "down" as missing samples rather than
-loss=100, the pure function already treats missing intervals as down.
+**Calibration is a HARD GATE — V1b-A is not "done" until it passes:**
+1. Run against **ITY-F/W-01** and reconcile the derived % to Meraki's Summary Report (99.86 / 97.87)
+   **within a small tolerance**; whichever `missing` policy reconciles is the one we ship.
+   Control for **timezone** — `getWeekRange` is **UTC** while Meraki's org/report may use a local
+   tz; align the window or the numbers won't match.
+2. Run against **MANA-F/W-02/03** ("Critical" — a real down case) and confirm a low %.
+3. **Cross-check every derived interval against `getOrganizationUplinksStatuses`** (the real
+   active/failed signal the collector already fetches) so a destination-only outage isn't scored
+   as a link outage.
 
-`deriveAvailability` is a **pure function unit-tested with fixtures** (all-up, all-down,
-partial-loss, missing-intervals, empty→null).
+Until the gate passes, the collector may store `availability_pct` but the fill/dashboard must
+**label it provisional**. `deriveAvailability` is a **pure function unit-tested with fixtures**
+(all-up, all-down, partial-loss, missing→down, missing→unknown, empty→null).
 
 ---
 
@@ -186,8 +202,16 @@ partial-loss, missing-intervals, empty→null).
 
 **Everything config-gated:** no `meraki_api_key` → the WAN collector self-skips and `/infra-auto`
 serves no WAN rows; no `opmanager_*` → LAN/WLAN/Servers empty; both unset → the report behaves
-exactly as today. Each secret joins the GET-redact list AND the blank-keep filter AND the
-super_admin PUT gate (or it leaks / gets wiped on save).
+exactly as today.
+
+**The two secrets must be wired at all THREE concrete touch-points** (miss one → leak or wipe-on-save):
+1. **GET redact** — add `meraki_api_key` + `opmanager_api_key` to the blank-on-GET list (`server.js`
+   ~5121, beside `smtp_pass`/`entra_client_secret`/`meridian_*_key`).
+2. **Blank-keep on save** — add both to the blank-kept filter (`services/reportConfig.js` ~106).
+3. **super_admin PUT gate** — add both to a secret-keys gate (new `INFRA_SECRET_KEYS` array or extend
+   the existing `MERIDIAN_KEYS`-style check, `server.js` ~5140) → non-super_admin PUT = 403.
+Both keys (and all non-secret keys above) MUST also be in `reportConfig.DEFAULTS` or `setConfig`
+silently drops them.
 
 ---
 
@@ -198,6 +222,12 @@ super_admin PUT gate (or it leaks / gets wiped on save).
   week+month snapshots. The completed week's snapshot naturally freezes once the week ends.
 - The reworked OpManager availability sync keeps its **05:10** slot.
 - Both best-effort + config-gated. `POST …/sync` for on-demand.
+- **No past-week backfill** (§9 captures only the current rolling window): a week during which the
+  collector never ran leaves no snapshot → that report week gets a silent no-op fill (behaves as
+  today). Acceptable; stated so it isn't read as a bug. On-demand `POST …/sync` can capture a still-
+  in-retention week if run before Meraki purges (~60 d).
+- `wan_link_snapshots` also stores `cellular`/`wan3`/`wan4` uplinks when present — **dashboard-only**;
+  the report surfaces only `wan1`/`wan2`.
 
 ---
 
@@ -208,8 +238,15 @@ super_admin PUT gate (or it leaks / gets wiped on save).
 - **Week anchoring resolved:** the collector stores WAN snapshots keyed to the **Zoho week**
   (`period_start == weeks.start_date`), so `/infra-auto` joins by `report.start_date` directly.
 - **Row mapping:** WAN1→`wan1`, WAN2→`wan2`, LAN→lan, WLAN→wifi, Servers→servers; **Backup + Radio
-  stay manual** (no source). Value = availability_pct + '%'; colour derived from the row's own
-  target via the existing `autoInfraStatusTrend`; trend from the snapshot.
+  stay manual** (no source). Value = availability_pct + '%'; **colour + trend come from the snapshot**
+  (single canonical band, §6) so the report cell and WAN dashboard never show different colours for
+  the same number.
+- **LAN/WLAN/Servers basis honesty:** because OpManager `availdata` may be a *recent/default* window
+  rather than the exact Sun–Sat week, each `infra_metric_snapshots` row carries a **`basis`**
+  (`'window'` if the source truly covers the period, `'recent'` otherwise) that the fill tooltip and
+  the dashboard **display** — never present a recent number as "the week's" silently. If the build
+  confirms `availdata` is today-only and no windowed device-availability source exists, LAN/WLAN/
+  Servers auto-fill is labelled "recent availability" (still better than blank; coordinator overrides).
 - **Does NOT touch the scored path:** prefill is client-side on the editor's draft; once saved they
   are ordinary `infra_kpis` rows. PPTX / email / site-score read `infra_kpis` unchanged → **no
   golden changes, no score-logic change.** Only server addition is one READ endpoint.
@@ -243,10 +280,16 @@ long-term book of record, not a second monitor.
 
 ## 13. Decomposition & sequencing (sub-projects, each independently shippable)
 
-1. **V1b-A — Meraki WAN store + collector** (foundation): `merakiClient` + config + `wan_link_snapshots`
-   (+pg 008) + `merakiWanQuality` (pure derive) + `sync-wan.js` (week+month) + tests. **Calibrate.**
+1. **V1b-A — Meraki WAN store + collector** (foundation): `merakiClient` + config (all 3 secret
+   touch-points) + `wan_link_snapshots` (+pg 008) + **the `module='meraki'` network→site seed**
+   (in scope here — the collector needs it or snapshots have no `site_id`) + `merakiWanQuality`
+   (pure derive) + `sync-wan.js` (week+month) + tests. **Calibration gate (§7) must pass before A ships.**
 2. **V1b-B — OpManager device availability**: `opmanagerClient` + rework `sync-availability.js`
-   (Analytics→REST) → `infra_metric_snapshots` for LAN/WLAN/Servers. (Parallelizable with A.)
+   (Analytics→REST) → `infra_metric_snapshots` for LAN/WLAN/Servers, **including re-pointing the
+   live `/api/analytics/opmanager/coverage` governance route off `fetchView`/Analytics onto the REST
+   device list** (else coverage goes stale) + **confirming the REST `type`/`category` strings match
+   `opmClassify`'s rule table** (validated against Analytics CSV, not REST) + the `basis` column.
+   (Parallelizable with A.)
 3. **V1b-C — Report auto-fill**: `opmReportFill` + `/api/reports/:id/infra-auto` + `reports.html`
    prefill/override. (Reads A + B.)
 4. **V1b-D — WAN Health dashboard**: `/api/analytics/wan/*` + `wan-health.html` + nav. (Reads A.)
@@ -257,10 +300,12 @@ Each sub-project gets its own plan → TDD → finish.
 
 ## 14. Risks / open items
 
-- **OpManager `availdata` window** may be default/today, not a configurable period — so LAN/WLAN/Servers
-  availability could be a *recent* figure, not the exact Sun–Sat week. Flag to the coordinator
-  ("recent availability"); a fuller device-availability history is a later refinement. (Confirm at build.)
-- **% Time Up derivation** needs the empirical calibration above before we trust the number.
+- **OpManager `availdata` window** may be default/today, not a configurable period — **resolved** by
+  the `basis` column + labelling (§5.2/§10): a recent figure is stored as `basis='recent'` and shown
+  as "recent availability", never silently presented as the week's. Confirm the actual window at build.
+- **% Time Up derivation** is **not trusted until the §7 calibration gate passes** (Ity reconciliation,
+  Mana down-case, status cross-check, timezone control). The `missing`-interval policy is chosen by
+  that gate, not assumed. This is a hard dependency inside V1b-A, not a post-hoc check.
 - **`ip` discovery** for `deviceLossLatencyHistory` — via the org loss/latency endpoint; if an uplink
   reports multiple destinations, aggregate across them.
 - **Meraki rate limit** (5 req/s per org) — fleet is small (~8 MX × 2 uplinks); sequential with backoff.
