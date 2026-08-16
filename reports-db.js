@@ -676,6 +676,14 @@ const _MERAKI_NETWORK_CODES = {
   Abidjan: 'Abidjan Office', Tanda: 'Assafou Dibingano Temp Office',
   Dakar: 'Dakar Office', Kalana: 'Kalana Mine',
 };
+// One-time correction of the 3 V1b-A guessed names that changed once the real
+// Meraki networks were known. Matched by the OLD string EXACTLY, so it never
+// touches a value an admin set via the Site↔Meraki editor.
+const _MERAKI_RENAMES = [
+  ['Lafigue Gold Operations', 'Société des Mines de Lafigué'],
+  ['Ouagadougou Office', 'Ouaga Office'],
+  ['Tanda', 'Assafou Dibingano Temp Office'],
+];
 for (const [siteName, net] of Object.entries(_MERAKI_NETWORK_CODES)) {
   if (_SITE_MODULE_CODES_SEED[siteName]) _SITE_MODULE_CODES_SEED[siteName].meraki = net;
 }
@@ -694,15 +702,10 @@ for (const [siteName, net] of Object.entries(_MERAKI_NETWORK_CODES)) {
     }
   }
   if (inserted > 0) console.log(`[seed] site_module_codes — inserted ${inserted} (site,module,code) mappings`);
-  // Self-heal meraki network names: the V1b-A values were guesses; once the real
-  // Meraki network names were known they changed. INSERT OR IGNORE won't update an
-  // existing row, so force the current _MERAKI_NETWORK_CODES value (site_module_codes
-  // has no edit UI, so the seed is authoritative for the meraki module).
-  const fixMeraki = db.prepare(`UPDATE site_module_codes SET code = ? WHERE module = 'meraki' AND site_id = ? AND code != ?`);
-  for (const [siteName, net] of Object.entries(_MERAKI_NETWORK_CODES)) {
-    const row = findSite.get(siteName);
-    if (row) fixMeraki.run(net, row.id, net);
-  }
+  // Correct the 3 stale V1b-A guesses by exact old-string match (INSERT OR IGNORE
+  // won't update). Scoped to module='meraki'; never touches an admin-edited value.
+  const renameMeraki = db.prepare(`UPDATE site_module_codes SET code = ? WHERE module = 'meraki' AND code = ?`);
+  for (const [oldN, newN] of _MERAKI_RENAMES) renameMeraki.run(newN, oldN);
 }
 
 // ── 1.B infra_kpi_catalog ─────────────────────────────────────────
@@ -1249,11 +1252,10 @@ async function _seedReportsCatalogsPg(H) {
           ON CONFLICT (site_id, module) DO NOTHING`).run(row.id, mod, code);
       }
     }
-    // Self-heal meraki network names (see sqlite note) — force the current seed value,
-    // since DO NOTHING would keep a stale V1b-A guess. Scoped to the meraki module.
-    for (const [siteName, net] of Object.entries(_MERAKI_NETWORK_CODES)) {
-      const r = await H.prepare('SELECT id FROM sites WHERE lower(name)=lower(?)').get(siteName);
-      if (r) await H.prepare(`UPDATE site_module_codes SET code = ? WHERE module = 'meraki' AND site_id = ? AND code != ?`).run(net, r.id, net);
+    // Correct the 3 stale V1b-A guesses by exact old-string match (see sqlite note);
+    // scoped to module='meraki', never touches an admin-edited value.
+    for (const [oldN, newN] of _MERAKI_RENAMES) {
+      await H.prepare(`UPDATE site_module_codes SET code = ? WHERE module = 'meraki' AND code = ?`).run(newN, oldN);
     }
   });
   // infra_kpi_catalog — backfill from existing infra_kpis (empty on a fresh DB).
@@ -1804,6 +1806,41 @@ async function _listSiteModuleCodesPg(module) {
       FROM site_module_codes c JOIN sites s ON s.id = c.site_id
       WHERE c.module = ? ORDER BY s.name`).all(module);
   } catch (e) { console.warn('[site-resolve] listSiteModuleCodes failed:', e.message); return []; }
+}
+
+// V1b — the editable Site ↔ Meraki-network map for the admin UI. LEFT JOIN so
+// EVERY active site shows, mapped or not (a null code = "not yet mapped"). This
+// is the sync's own source (site_module_codes, module='meraki'); the seed only
+// pre-fills defaults.
+function listSiteMerakiMap() {
+  if (REPORTS_BACKEND === 'postgres') return _listSiteMerakiMapPg();
+  return db.prepare(`
+    SELECT s.id AS site_id, s.name AS name, c.code AS network
+    FROM sites s LEFT JOIN site_module_codes c ON c.site_id = s.id AND c.module = 'meraki'
+    WHERE s.active = 1 ORDER BY s.name`).all();
+}
+async function _listSiteMerakiMapPg() {
+  return await pgHandle().prepare(`
+    SELECT s.id AS site_id, s.name AS name, c.code AS network
+    FROM sites s LEFT JOIN site_module_codes c ON c.site_id = s.id AND c.module = 'meraki'
+    WHERE s.active = 1 ORDER BY s.name`).all();
+}
+// Set (or clear, when network is blank) one site's Meraki network name.
+function setSiteMerakiCode(site_id, network) {
+  if (REPORTS_BACKEND === 'postgres') return _setSiteMerakiCodePg(site_id, network);
+  const net = String(network == null ? '' : network).trim();
+  if (!net) { db.prepare(`DELETE FROM site_module_codes WHERE site_id = ? AND module = 'meraki'`).run(site_id); return { site_id, network: null }; }
+  db.prepare(`INSERT INTO site_module_codes (site_id, module, code) VALUES (?, 'meraki', ?)
+    ON CONFLICT (site_id, module) DO UPDATE SET code = excluded.code`).run(site_id, net);
+  return { site_id, network: net };
+}
+async function _setSiteMerakiCodePg(site_id, network) {
+  const H = pgHandle();
+  const net = String(network == null ? '' : network).trim();
+  if (!net) { await H.prepare(`DELETE FROM site_module_codes WHERE site_id = ? AND module = 'meraki'`).run(site_id); return { site_id, network: null }; }
+  await H.prepare(`INSERT INTO site_module_codes (site_id, module, code) VALUES (?, 'meraki', ?)
+    ON CONFLICT (site_id, module) DO UPDATE SET code = EXCLUDED.code`).run(site_id, net);
+  return { site_id, network: net };
 }
 
 // Pure aggregation core — exported for tests. `rows` are request_records rows
@@ -7247,7 +7284,7 @@ module.exports = {
   listUsers, createUser, updateUser, deleteUser, changePassword,
   listSites, updateSiteGroup, createSite, updateSite, setSiteActive,
   // Per-module site codes (site_module_codes) — read path for the reporting suite
-  getSiteIdByModuleCode, listSiteModuleCodes,
+  getSiteIdByModuleCode, listSiteModuleCodes, listSiteMerakiMap, setSiteMerakiCode,
   // Per-site report blocks (group-scoped — request_records.site is unreliable)
   getSiteHelpdeskMonthly, _computeSiteHelpdesk,
   // Window-scoped siblings ([from,to] inclusive) — the IT Review panel needs a

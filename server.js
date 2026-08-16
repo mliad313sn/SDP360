@@ -7538,7 +7538,7 @@ app.use(require('./routes/meridian')({ express }));
 // never polls devices. availability + coverage are session-guarded (global /api/ gate +
 // requireReportSession); sync is admin. A distinct /api/analytics prefix, so /api/reports/:id
 // can't shadow it. fetchView is passed for coverage + on-demand sync.
-app.use(require('./routes/opmanager')({ express, requireReportSession, requireAdmin, fetchView }));
+app.use(require('./routes/opmanager')({ express, requireReportSession, requireAdmin, requireSuperAdmin, fetchView }));
 
 // ══════════════════════════════════════════════════════════════════
 // MEETINGS — Department Meetings & Council Escalations (v2 schema)

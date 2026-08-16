@@ -72,3 +72,11 @@ test('operational requireAdmin route still works for admin (surgical, not blanke
   const ad = await req('POST', '/api/sync/trigger/assets', adminToken);
   assert.notEqual(ad.status, 403, 'admin can still trigger operational sync');
 });
+
+test('WAN site↔network mapping is super_admin only, and lists every active site', async () => {
+  const su = await req('GET', '/api/analytics/wan/mappings', superToken);
+  assert.equal(su.status, 200);
+  assert.ok(Array.isArray(su.body.sites), 'returns the sites array');
+  const ad = await req('GET', '/api/analytics/wan/mappings', adminToken);
+  assert.equal(ad.status, 403, 'admin is blocked from the WAN mapping editor');
+});

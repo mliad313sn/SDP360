@@ -1561,6 +1561,20 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         <button class="btn btn-secondary" onclick="syncInfraNow('opm', this)">Sync OpManager now</button>
         <span id="cfg-infra-msg" style="font-size:0.85rem;color:#6b7a99"></span>
       </div>
+
+      <h4 style="margin:18px 0 6px;color:#3A4A60">Site ↔ Meraki network</h4>
+      <p style="color:#6b7a99;font-size:0.85rem;margin:-2px 0 8px">
+        Maps each reporting site to its Meraki <strong>network name</strong> (the WAN join key). Editable here so
+        you can add new sites without a deploy — add the site in <strong>Admin → Sites</strong> first, then map it.
+        The <code>- appliance</code>/<code>- switch</code> product suffix is matched automatically. Leave blank to unmap.
+      </p>
+      <table class="user-table" style="font-size:0.86rem"><thead><tr><th>Site</th><th>Meraki network name</th></tr></thead>
+        <tbody id="wan-map-rows"><tr><td colspan="2" style="color:#6b7a99">Loading…</td></tr></tbody>
+      </table>
+      <div class="modal-actions" style="justify-content:flex-start;gap:10px;align-items:center;margin-top:8px">
+        <button class="btn btn-primary" onclick="saveWanMap()">Save mapping</button>
+        <span id="wan-map-msg" style="font-size:0.85rem;color:#6b7a99"></span>
+      </div>
     </div>
 
     <!-- ─── Assets Finance (Global → Assets) ──────────────────────────────────
@@ -6769,6 +6783,25 @@ function loadInfraConfig() {
     const stale = document.getElementById('cfg-opm-stale'); if (stale) stale.value = (c.opm_stale_days == null || c.opm_stale_days === '' ? '9' : c.opm_stale_days);
     const msg = document.getElementById('cfg-infra-msg'); if (msg) msg.textContent = '';
   }).catch(e => toast('Could not load Infra settings: ' + (e.message || e), 'error'));
+  loadWanMap();
+}
+function loadWanMap() {
+  const tb = document.getElementById('wan-map-rows'); if (!tb) return;
+  api('GET', '/api/analytics/wan/mappings').then(r => {
+    const sites = (r && r.sites) || [];
+    tb.innerHTML = sites.length ? sites.map(s =>
+      `<tr><td>${esc(s.name || ('#' + s.site_id))}</td>
+        <td><input type="text" data-site="${s.site_id}" value="${esc(s.network || '')}" placeholder="(unmapped)" style="width:100%;box-sizing:border-box" autocomplete="off"></td></tr>`).join('')
+      : '<tr><td colspan="2" style="color:#6b7a99">No active sites.</td></tr>';
+    const m = document.getElementById('wan-map-msg'); if (m) m.textContent = '';
+  }).catch(e => { tb.innerHTML = `<tr><td colspan="2" style="color:#c0392b">Could not load: ${esc(e.message || e)}</td></tr>`; });
+}
+function saveWanMap() {
+  const mappings = [...document.querySelectorAll('#wan-map-rows input[data-site]')].map(i => ({ site_id: Number(i.dataset.site), network: i.value.trim() }));
+  const m = document.getElementById('wan-map-msg'); if (m) m.textContent = 'Saving…';
+  api('PUT', '/api/analytics/wan/mappings', { mappings })
+    .then(() => { if (m) m.textContent = 'Saved ✓ — run Sync WAN now to pick up new sites'; toast('Site↔Meraki mapping saved ✓', 'success'); })
+    .catch(e => { if (m) m.textContent = 'Save failed: ' + (e.message || e); toast('Save failed: ' + (e.message || e), 'error'); });
 }
 function saveInfraConfig() {
   const val = id => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };

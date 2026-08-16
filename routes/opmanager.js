@@ -8,6 +8,7 @@
 // data_through vs opm_stale_days; opm_targets drives status_color, not staleness.
 module.exports = function opmanagerRoutes(deps) {
   const { express, requireReportSession, requireAdmin } = deps;
+  const requireSuperAdmin = deps.requireSuperAdmin || requireAdmin;   // fallback if not injected
   const router = express.Router();
   const rdb = require('../reports-db');
   const reportConfig = require('../services/reportConfig');
@@ -164,6 +165,23 @@ module.exports = function opmanagerRoutes(deps) {
     try {
       const r = await require('../tools/meraki/sync-wan').main({});
       res.json(r);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  // Editable Site ↔ Meraki-network map (the sync's own source). super_admin — this
+  // is admin config. GET lists every active site (mapped or not); PUT saves rows.
+  router.get('/api/analytics/wan/mappings', requireReportSession, requireSuperAdmin, async (req, res) => {
+    try { res.json({ sites: (await rdb.listSiteMerakiMap()) || [] }); }
+    catch (e) { res.status(500).json({ error: e.message }); }
+  });
+  router.put('/api/analytics/wan/mappings', requireReportSession, requireSuperAdmin, express.json(), async (req, res) => {
+    try {
+      const list = Array.isArray(req.body && req.body.mappings) ? req.body.mappings : [];
+      for (const m of list) {
+        const sid = Number(m && m.site_id);
+        if (Number.isFinite(sid)) await rdb.setSiteMerakiCode(sid, m.network);
+      }
+      res.json({ ok: true, sites: (await rdb.listSiteMerakiMap()) || [] });
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
 
