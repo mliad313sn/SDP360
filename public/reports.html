@@ -1524,7 +1524,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
       <div class="form-group">
         <label>Meraki organization ID</label>
         <input type="text" id="cfg-meraki-org" placeholder="e.g. 123456" autocomplete="off">
-        <small style="color:#6b7a99">From the dashboard URL <code>.../o/&lt;org&gt;/...</code> or Organization → Settings.</small>
+        <small style="color:#6b7a99">The <strong>numeric</strong> id from Organization → Settings, or from <code>GET /organizations</code> with your API key. NOT the <code>/o/&lt;slug&gt;</code> in the dashboard URL — that's a different id.</small>
       </div>
       <div class="form-group">
         <label>Meraki API key (read-only)</label>
