@@ -30,7 +30,8 @@ function buildFills({ wan = [], infra = [], staleDays = 9, nowMs = Date.now() } 
     const value = _fmtPct(r.availability_pct);
     if (value == null) continue;                               // nothing to fill
     fills.push({
-      match: r.uplink, value, status_color: r.status_color || 'none', trend: r.trend || null,
+      match: r.uplink, sub_site: r.sub_site || '',
+      value, status_color: r.status_color || 'none', trend: r.trend || null,
       stale: _isStale(r.data_through, staleDays, nowMs), basis: r.basis || null,
       source: 'meraki', data_through: r.data_through || null,
     });
@@ -42,7 +43,8 @@ function buildFills({ wan = [], infra = [], staleDays = 9, nowMs = Date.now() } 
     const value = _fmtPct(r.metric_value);
     if (value == null) continue;
     fills.push({
-      match: r.kpi_family, value, status_color: r.status_color || 'none', trend: r.trend || null,
+      match: r.kpi_family, sub_site: '',   // OpManager has no sub-site source
+      value, status_color: r.status_color || 'none', trend: r.trend || null,
       stale: _isStale(r.data_through, staleDays, nowMs), basis: r.basis || null,
       source: 'opmanager', data_through: r.data_through || null,
     });

@@ -61,3 +61,21 @@ test('buildFills: only week-period wan rows are used', () => {
   const fills = buildFills({ wan, infra: [], staleDays: 9, nowMs: NOW });
   assert.equal(fills.length, 0);
 });
+
+test('WAN sub-site fill matches by (uplink, sub_site) when a token is configured', () => {
+  const wan = [
+    { period_type:'week', uplink:'wan1', sub_site:'',        availability_pct:99, status_color:'green' },
+    { period_type:'week', uplink:'wan1', sub_site:'FETEKRO', availability_pct:80, status_color:'red' },
+  ];
+  const fills = buildFills({ wan, tokens: ['FETEKRO'] });
+  const f = fills.find(x => x.match === 'wan1' && x.sub_site === 'FETEKRO');
+  assert.equal(f.value, '80%');
+  assert.ok(fills.find(x => x.match === 'wan1' && x.sub_site === ''), 'main wan1 still emitted');
+});
+
+test('no tokens → only sub_site="" fills produced (normal site unchanged)', () => {
+  const wan = [{ period_type:'week', uplink:'wan1', sub_site:'', availability_pct:99 }];
+  const fills = buildFills({ wan, tokens: [] });
+  assert.equal(fills.length, 1);
+  assert.equal(fills[0].sub_site, '');
+});
