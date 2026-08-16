@@ -1507,11 +1507,12 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
       <h3 style="margin-top:0">📡 Infra WAN / Availability — Meraki &amp; OpManager</h3>
       <p style="color:#6b7a99;font-size:0.9rem;margin-top:-4px">
         Feeds the <strong>WAN Health</strong> dashboard and the report's infra auto-fill.
-        <strong>Meraki</strong> supplies per-uplink WAN availability/quality; <strong>OpManager REST</strong>
-        supplies LAN / WLAN / Servers device availability. Leave an API key blank to keep the stored one.
-        The module is <strong>inert until keyed</strong>, and the numbers are only trustworthy after the two
-        one-time gates: <code>node tools/meraki/calibrate.js</code> (locks the missing-interval policy) and
-        <code>node tools/opmanager/discover.js</code> (confirms the device→site mapping).
+        <strong>Meraki</strong> supplies per-uplink WAN availability/quality — WAN is the one thing OpManager
+        can't see (MX firewalls have no SNMP interfaces). <strong>LAN / WLAN / Servers</strong> flow the usual
+        way: <strong>OpManager → Analytics&nbsp;Plus → OPS</strong> (OPS reads the prepared view, it never polls
+        OpManager directly). The module is <strong>inert until configured</strong>; the Meraki numbers are only
+        trustworthy after the one-time calibration <code>node tools/meraki/calibrate.js</code> (locks the
+        missing-interval policy against Meraki's own "% Time Up").
       </p>
 
       <h4 style="margin:14px 0 6px;color:#3A4A60">Meraki (WAN)</h4>
@@ -1538,21 +1539,20 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         <small style="color:#6b7a99">Set to whichever value <code>calibrate.js</code> reconciles against Meraki's own "% Time Up".</small>
       </div>
 
-      <h4 style="margin:16px 0 6px;color:#3A4A60">OpManager (LAN / WLAN / Servers)</h4>
+      <h4 style="margin:16px 0 6px;color:#3A4A60">OpManager (LAN / WLAN / Servers) — via Analytics Plus</h4>
+      <p style="color:#6b7a99;font-size:0.85rem;margin:-2px 0 8px">
+        Prepare the daily device-availability view <code>OPS_OPM_Device_Availability_Daily</code> in Analytics Plus
+        (device↔probe join only — OPS classifies + aggregates), then paste its view id here. Unset ⇒ LAN/WLAN/Servers
+        stays empty.
+      </p>
       <div class="form-group">
-        <label>OpManager base URL</label>
-        <input type="text" id="cfg-opm-base" placeholder="https://opmanager-host:8443/api/json" autocomplete="off">
+        <label>Analytics availability view id</label>
+        <input type="text" id="cfg-opm-view" placeholder="e.g. 106803000000123456" autocomplete="off">
       </div>
       <div class="form-group">
-        <label>OpManager API key</label>
-        <input type="password" id="cfg-opm-key" placeholder="leave blank to keep the stored key" autocomplete="new-password">
-      </div>
-      <div class="form-group">
-        <label>TLS certificate</label>
-        <select id="cfg-opm-tls">
-          <option value="1">Allow self-signed certificate (default for on-prem)</option>
-          <option value="0">Require a valid certificate</option>
-        </select>
+        <label>Stale after (days)</label>
+        <input type="number" id="cfg-opm-stale" min="1" placeholder="9" autocomplete="off" style="max-width:120px">
+        <small style="color:#6b7a99">A KPI whose <code>data_through</code> is older than this is flagged stale in the report/dashboard.</small>
       </div>
 
       <div class="modal-actions" style="justify-content:flex-start;gap:10px;align-items:center;flex-wrap:wrap">
@@ -6745,9 +6745,10 @@ function syncMeridianNow(btn) {
     .finally(() => { if (btn) btn.disabled = false; });
 }
 // ── Infra WAN / Availability (V1b) — same generic /api/reports/config store ─
-// meraki_api_key / opmanager_api_key are secrets: redacted on GET, blank-kept on
-// save (server-side). The PUT is super_admin-gated on these keys. The module is
-// inert until keyed; numbers are only trustworthy after calibrate.js + discover.js.
+// WAN = Meraki (meraki_api_key is a secret: redacted on GET, blank-kept on save,
+// super_admin-gated PUT). LAN/WLAN/Servers = OpManager → Analytics Plus → OPS, so
+// OPS reads the prepared view (opm_availability_view_id), NOT OpManager REST. The
+// module is inert until configured; Meraki numbers need the calibrate.js gate first.
 function loadInfraConfig() {
   api('GET', '/api/reports/config').then(c => {
     const set = (id, v, dflt) => { const el = document.getElementById(id); if (el) el.value = (v == null || v === '' ? (dflt || '') : v); };
@@ -6755,9 +6756,8 @@ function loadInfraConfig() {
     set('cfg-meraki-org', c.meraki_org_id);
     const mk = document.getElementById('cfg-meraki-key'); if (mk) mk.value = '';  // never echo the stored key
     const pol = document.getElementById('cfg-meraki-policy'); if (pol) pol.value = (c.meraki_missing_policy === 'unknown' ? 'unknown' : 'down');
-    set('cfg-opm-base', c.opmanager_base_url);
-    const ok = document.getElementById('cfg-opm-key'); if (ok) ok.value = '';     // never echo the stored key
-    const tls = document.getElementById('cfg-opm-tls'); if (tls) tls.value = (c.opmanager_tls_insecure === '0' ? '0' : '1');
+    set('cfg-opm-view', c.opm_availability_view_id);
+    const stale = document.getElementById('cfg-opm-stale'); if (stale) stale.value = (c.opm_stale_days == null || c.opm_stale_days === '' ? '9' : c.opm_stale_days);
     const msg = document.getElementById('cfg-infra-msg'); if (msg) msg.textContent = '';
   }).catch(e => toast('Could not load Infra settings: ' + (e.message || e), 'error'));
 }
@@ -6767,11 +6767,10 @@ function saveInfraConfig() {
     meraki_base_url: val('cfg-meraki-base'),
     meraki_org_id: val('cfg-meraki-org'),
     meraki_missing_policy: val('cfg-meraki-policy') || 'down',
-    opmanager_base_url: val('cfg-opm-base'),
-    opmanager_tls_insecure: val('cfg-opm-tls') || '1',
+    opm_availability_view_id: val('cfg-opm-view'),
+    opm_stale_days: val('cfg-opm-stale') || '9',
   };
   const mk = val('cfg-meraki-key'); if (mk) patch.meraki_api_key = mk;     // blank = keep stored
-  const ok = val('cfg-opm-key');    if (ok) patch.opmanager_api_key = ok;  // blank = keep stored
   api('PUT', '/api/reports/config', patch)
     .then(() => { toast('Infra settings saved ✓', 'success'); loadInfraConfig(); })
     .catch(e => toast('Save failed: ' + (e.message || e), 'error'));
