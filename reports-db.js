@@ -26,6 +26,38 @@ db.pragma('foreign_keys = ON');
 db.pragma('synchronous = NORMAL');
 
 // ── SCHEMA ────────────────────────────────────────────────────────
+// Meraki WAN link availability & quality snapshots (V1b / V1b-E). Per-LINK (wan1/wan2)
+// AND per-SUB-SITE (sub_site='' for normal sites; 'FETEKRO'/'TANDA'/… for the multi-
+// location Exploration report). Kept SEPARATE from infra_metric_snapshots (whose PK
+// can't hold two 'wan' rows). availability_pct is DERIVED (calibration-gated); null =
+// no data (never 0). Archives the vendor's numbers before Meraki purges (~60d).
+// Composite PK, no surrogate id. Factored into a const so the initial CREATE and the
+// one-time sub_site rebuild below use the SAME schema.
+const _WAN_CREATE_SQL = `
+CREATE TABLE IF NOT EXISTS wan_link_snapshots (
+  site_id          INTEGER NOT NULL,
+  sub_site         TEXT NOT NULL DEFAULT '',  -- '' for normal sites; sub-site token for Exploration
+  uplink           TEXT NOT NULL,        -- 'wan1' | 'wan2' | 'wan3' | 'cellular'
+  period_type      TEXT NOT NULL,        -- 'week' | 'month'
+  period_start     TEXT NOT NULL,
+  period_end       TEXT,
+  availability_pct REAL,
+  status_color     TEXT,
+  loss_pct_avg     REAL,
+  latency_ms_avg   REAL,
+  jitter_ms_avg    REAL,
+  goodput_avg      REAL,
+  status_current   TEXT,
+  uplink_label     TEXT,
+  device_serial    TEXT,
+  network_id       TEXT,
+  data_through     TEXT,
+  collected_at     TEXT,
+  source           TEXT,
+  raw_json         TEXT,
+  PRIMARY KEY (site_id, sub_site, uplink, period_type, period_start)
+);`;
+
 db.exec(`
 CREATE TABLE IF NOT EXISTS sites (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -118,32 +150,8 @@ CREATE TABLE IF NOT EXISTS infra_metric_snapshots (
   PRIMARY KEY (site_id, period_type, period_start, kpi_family, metric_name)
 );
 
--- Meraki WAN link availability & quality snapshots (V1b). Per-LINK (wan1/wan2) — kept
--- SEPARATE from infra_metric_snapshots (whose PK can't hold two 'wan' rows). availability_pct
--- is DERIVED (calibration-gated); null = no data (never 0). Archives the vendor's numbers
--- before Meraki purges (~60d). Composite PK, no surrogate id.
-CREATE TABLE IF NOT EXISTS wan_link_snapshots (
-  site_id          INTEGER NOT NULL,
-  uplink           TEXT NOT NULL,        -- 'wan1' | 'wan2' | 'wan3' | 'cellular'
-  period_type      TEXT NOT NULL,        -- 'week' | 'month'
-  period_start     TEXT NOT NULL,
-  period_end       TEXT,
-  availability_pct REAL,
-  status_color     TEXT,
-  loss_pct_avg     REAL,
-  latency_ms_avg   REAL,
-  jitter_ms_avg    REAL,
-  goodput_avg      REAL,
-  status_current   TEXT,
-  uplink_label     TEXT,
-  device_serial    TEXT,
-  network_id       TEXT,
-  data_through     TEXT,
-  collected_at     TEXT,
-  source           TEXT,
-  raw_json         TEXT,
-  PRIMARY KEY (site_id, uplink, period_type, period_start)
-);
+-- wan_link_snapshots is created below from the _WAN_CREATE_SQL const (factored so the
+-- initial CREATE and the one-time sub_site rebuild share one schema).
 
 CREATE TABLE IF NOT EXISTS helpdesk_data (
   id                    INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -388,6 +396,25 @@ try { db.exec(`ALTER TABLE request_records ADD COLUMN impact TEXT`); } catch(e) 
 try { db.exec(`ALTER TABLE sessions ADD COLUMN last_seen TEXT`); } catch(e) {}
 // V1b-B — recent-vs-window label for device-availability snapshots (OpManager REST).
 try { db.exec(`ALTER TABLE infra_metric_snapshots ADD COLUMN basis TEXT`); } catch(e) {}
+// V1b / V1b-E — WAN link snapshots. Create (fresh DBs) from the shared const, then a
+// guarded one-time rebuild adds sub_site to the PK on DBs created before V1b-E. The table
+// has NO secondary indexes and NO foreign keys, so the rebuild recreates nothing else.
+// The INSERT below omits sub_site so its DEFAULT '' applies (kept column-explicit and
+// _WAN_SNAP_COLS-free — that const is in the temporal dead zone at module load).
+try {
+  db.exec(_WAN_CREATE_SQL);
+  const _wanCols = db.prepare(`PRAGMA table_info(wan_link_snapshots)`).all().map(c => c.name);
+  if (!_wanCols.includes('sub_site')) {
+    db.exec('ALTER TABLE wan_link_snapshots RENAME TO _wan_old');
+    db.exec(_WAN_CREATE_SQL);
+    db.exec(`INSERT INTO wan_link_snapshots
+      (site_id,uplink,period_type,period_start,period_end,availability_pct,status_color,loss_pct_avg,latency_ms_avg,jitter_ms_avg,goodput_avg,status_current,uplink_label,device_serial,network_id,data_through,collected_at,source,raw_json)
+      SELECT
+      site_id,uplink,period_type,period_start,period_end,availability_pct,status_color,loss_pct_avg,latency_ms_avg,jitter_ms_avg,goodput_avg,status_current,uplink_label,device_serial,network_id,data_through,collected_at,source,raw_json
+      FROM _wan_old`);
+    db.exec('DROP TABLE _wan_old');
+  }
+} catch(e) {}
 try { db.exec(`CREATE INDEX IF NOT EXISTS idx_sessions_last_seen ON sessions(last_seen)`); } catch(e) {}
 // sites: add zoho_group column for group-based helpdesk filtering
 try { db.exec(`ALTER TABLE sites ADD COLUMN zoho_group TEXT`); } catch(e) {}
@@ -1208,6 +1235,17 @@ async function initPgReports() {            // called once at server boot
   // V1b — Meraki WAN link availability & quality snapshots.
   await _pg.exec(require('fs').readFileSync(
     require('path').join(__dirname, 'db', 'postgres', 'reports', '008_wan_link_snapshots.sql'), 'utf8'));
+  // V1b-E — add sub_site to wan_link_snapshots + swap its PK to the 5-col key (guarded so
+  // it runs once on DBs created before V1b-E; fresh installs get it from 008.sql directly).
+  await _pg.exec(`ALTER TABLE wan_link_snapshots ADD COLUMN IF NOT EXISTS sub_site TEXT NOT NULL DEFAULT ''`);
+  await _pg.exec(`DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='wan_link_snapshots_pkey'
+                   AND conrelid='wan_link_snapshots'::regclass
+                   AND array_length(conkey,1)=5) THEN
+      ALTER TABLE wan_link_snapshots DROP CONSTRAINT IF EXISTS wan_link_snapshots_pkey;
+      ALTER TABLE wan_link_snapshots ADD PRIMARY KEY (site_id, sub_site, uplink, period_type, period_start);
+    END IF;
+  END $$;`);
   // V1b-B — additive recent-vs-window label on infra_metric_snapshots (device availability).
   await _pg.exec(`ALTER TABLE infra_metric_snapshots ADD COLUMN IF NOT EXISTS basis TEXT`);
   return _pg;
@@ -2469,18 +2507,19 @@ async function _getInfraSnapshotsPg(f) {
 // ── Meraki WAN link snapshots (V1b) — per-link (wan1/wan2), archived weekly/monthly.
 //    Mirrors the infra_metric_snapshots pattern: composite PK, one shared upsert SQL for
 //    both backends (can't desync), dual dispatcher.
-const _WAN_SNAP_COLS = ['site_id','uplink','period_type','period_start','period_end',
+const _WAN_SNAP_COLS = ['site_id','sub_site','uplink','period_type','period_start','period_end',
   'availability_pct','status_color','loss_pct_avg','latency_ms_avg','jitter_ms_avg','goodput_avg',
   'status_current','uplink_label','device_serial','network_id','data_through','collected_at','source','raw_json'];
 const _WAN_SNAP_UPSERT =
   `INSERT INTO wan_link_snapshots (${_WAN_SNAP_COLS.join(',')}) VALUES (${_WAN_SNAP_COLS.map(() => '?').join(',')})
-   ON CONFLICT(site_id,uplink,period_type,period_start) DO UPDATE SET
+   ON CONFLICT(site_id,sub_site,uplink,period_type,period_start) DO UPDATE SET
      period_end=excluded.period_end, availability_pct=excluded.availability_pct, status_color=excluded.status_color,
      loss_pct_avg=excluded.loss_pct_avg, latency_ms_avg=excluded.latency_ms_avg, jitter_ms_avg=excluded.jitter_ms_avg,
      goodput_avg=excluded.goodput_avg, status_current=excluded.status_current, uplink_label=excluded.uplink_label,
      device_serial=excluded.device_serial, network_id=excluded.network_id, data_through=excluded.data_through,
      collected_at=excluded.collected_at, source=excluded.source, raw_json=excluded.raw_json`;
-const _wanVals = (r) => _WAN_SNAP_COLS.map(c => (r[c] === undefined ? null : r[c]));
+const _wanVals = (r) => _WAN_SNAP_COLS.map(c =>
+  c === 'sub_site' ? (r.sub_site == null ? '' : r.sub_site) : (r[c] === undefined ? null : r[c]));
 function _wanWhere(f) {
   const w = [], p = [];
   if (f && f.site_id != null)  { w.push('site_id=?');      p.push(f.site_id); }

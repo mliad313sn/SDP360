@@ -46,3 +46,21 @@ test('getWanSnapshots filters by uplink + period_start', async () => {
   assert.equal(only.length, 1);
   assert.equal(only[0].availability_pct, 97.87);
 });
+
+// ── V1b-E T1 — sub_site joins the PK (Exploration per-sub-site WAN). ──────────
+test('sub_site is part of the key: FETEKRO and "" coexist for the same site/uplink/period', () => {
+  rdb.upsertWanSnapshots([
+    { site_id: 42, sub_site: '',        uplink: 'wan1', period_type: 'week', period_start: '2026-08-09', availability_pct: 99.9 },
+    { site_id: 42, sub_site: 'FETEKRO', uplink: 'wan1', period_type: 'week', period_start: '2026-08-09', availability_pct: 88.8 },
+  ]);
+  const rows = rdb.getWanSnapshots({ site_id: 42, period_type: 'week' });
+  const main = rows.find(r => r.sub_site === '' && r.uplink === 'wan1');
+  const sub  = rows.find(r => r.sub_site === 'FETEKRO' && r.uplink === 'wan1');
+  assert.equal(main.availability_pct, 99.9, 'main row survives');
+  assert.equal(sub.availability_pct, 88.8, 'FETEKRO row coexists (not overwritten)');
+});
+test('a row that omits sub_site stores "" not NULL', () => {
+  rdb.upsertWanSnapshots([{ site_id: 43, uplink: 'wan2', period_type: 'week', period_start: '2026-08-09', availability_pct: 50 }]);
+  const r = rdb.getWanSnapshots({ site_id: 43 })[0];
+  assert.equal(r.sub_site, '', 'undefined sub_site coerced to ""');
+});

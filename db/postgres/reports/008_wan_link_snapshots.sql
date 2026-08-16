@@ -2,8 +2,11 @@
 -- Separate from infra_metric_snapshots (whose PK cannot hold wan1+wan2 as two 'wan' rows).
 -- availability_pct is DERIVED (calibration-gated); NULL = no data, never 0. Composite PK,
 -- no surrogate id (avoids the sqlite/pg autoinc divergence). Idempotent.
+-- V1b-E: sub_site (default '') joins the PK so the multi-location Exploration report can
+-- carry per-sub-site WAN rows; normal sites use '' and are unchanged.
 CREATE TABLE IF NOT EXISTS wan_link_snapshots (
   site_id          INTEGER NOT NULL,
+  sub_site         TEXT NOT NULL DEFAULT '',
   uplink           TEXT NOT NULL,
   period_type      TEXT NOT NULL,
   period_start     TEXT NOT NULL,
@@ -22,5 +25,5 @@ CREATE TABLE IF NOT EXISTS wan_link_snapshots (
   collected_at     TEXT,
   source           TEXT,
   raw_json         TEXT,
-  PRIMARY KEY (site_id, uplink, period_type, period_start)
+  PRIMARY KEY (site_id, sub_site, uplink, period_type, period_start)
 );
