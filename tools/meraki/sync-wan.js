@@ -6,7 +6,7 @@
 // (a failure writes NOTHING and keeps prior snapshots). All deps injectable — no DB/network
 // in tests. NEVER passes a Promise-returning resolver into the pure derive (pg-Promise trap):
 // the network→site map + destination ips are pre-resolved with awaited calls first.
-const { deriveAvailability, statusColor } = require('../../services/merakiWanQuality');
+const { deriveAvailability, statusColor, mergeDestinationSeries } = require('../../services/merakiWanQuality');
 
 function _safeParse(s, d) { try { return JSON.parse(s); } catch { return d; } }
 function _lc(x) { return String(x == null ? '' : x).trim().toLowerCase(); }
@@ -56,6 +56,23 @@ async function main(deps = {}) {
     const ll = (await client.orgUplinksLossLatency({})) || [];
     const ipByKey = {}; for (const r of ll) if (r && r.serial && r.uplink && !(`${r.serial}|${r.uplink}` in ipByKey)) ipByKey[`${r.serial}|${r.uplink}`] = r.ip;
 
+    // Per-network monitored destinations (the MX pings SEVERAL). Cached per network; falls
+    // back to the org-sampled ip if the network has none / the call fails. `ip` is REQUIRED
+    // by deviceLossLatencyHistory, and using only one destination would false-flag a link as
+    // down on a single-destination outage — so we merge across all destinations.
+    const destsByNet = {};
+    async function destIpsFor(dev, up) {
+      if (!(dev.networkId in destsByNet)) {
+        let ips = [];
+        try { const r = await client.networkConnectivityDestinations({ networkId: dev.networkId }); ips = ((r && r.destinations) || []).map(d => d.ip).filter(Boolean); }
+        catch { ips = []; }
+        destsByNet[dev.networkId] = ips;
+      }
+      if (destsByNet[dev.networkId].length) return destsByNet[dev.networkId];
+      const fb = ipByKey[`${dev.serial}|${up.interface}`];   // fallback: the sampled destination
+      return fb ? [fb] : [];
+    }
+
     const rows = [];
     for (const dev of statuses) {
       const netName = networkNameById(dev.networkId);
@@ -63,12 +80,14 @@ async function main(deps = {}) {
       if (site_id == null) continue;                        // unmapped network → skip (never guess)
       for (const up of (dev.uplinks || [])) {
         if (!/^wan\d$/.test(String(up.interface || ''))) continue;   // wan1/wan2/… (cellular not a report family)
-        const ip = ipByKey[`${dev.serial}|${up.interface}`];
+        const destIps = await destIpsFor(dev, up);
         for (const [ptype, win] of [['week', week], ['month', month]]) {
           const t0 = `${win.period_start}T00:00:00Z`, t1 = `${win.period_end}T23:59:59Z`;
           const resolution = 3600;
           const totalIntervals = Math.max(1, Math.round((Date.parse(t1) - Date.parse(t0)) / (resolution * 1000)));
-          const series = ip ? (await client.deviceLossLatencyHistory({ serial: dev.serial, uplink: up.interface, ip, t0, t1, resolution })) : [];
+          const seriesList = [];
+          for (const ip of destIps) seriesList.push((await client.deviceLossLatencyHistory({ serial: dev.serial, uplink: up.interface, ip, t0, t1, resolution })) || []);
+          const series = mergeDestinationSeries(seriesList);   // up if ANY destination responded
           const q = deriveAvailability(series, { totalIntervals, missing });
           rows.push({
             site_id, uplink: up.interface, period_type: ptype, period_start: win.period_start, period_end: win.period_end,

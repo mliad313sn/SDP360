@@ -14,7 +14,7 @@
 //   node tools/meraki/calibrate.js
 // Paste back ONLY the printed %s (not the key).
 const { makeMerakiClient } = require('../../services/merakiClient');
-const { deriveAvailability } = require('../../services/merakiWanQuality');
+const { deriveAvailability, mergeDestinationSeries } = require('../../services/merakiWanQuality');
 
 function _win() {
   const t0 = process.env.MERAKI_CAL_T0, t1 = process.env.MERAKI_CAL_T1;
@@ -37,17 +37,25 @@ function _win() {
   // current status (cross-check: a destination-only outage must NOT read as a link outage)
   const statuses = (await client.orgUplinkStatuses({ serials: [serial] })) || [];
   const dev = statuses.find(d => d.serial === serial) || statuses[0];
-  const ll = (await client.orgUplinksLossLatency({ serials: [serial] })) || [];
-  const ipByUplink = {}; for (const r of ll) if (r && r.uplink && !(r.uplink in ipByUplink)) ipByUplink[r.uplink] = r.ip;
+
+  // ALL monitored destinations (the MX pings several) — derive across all of them.
+  let destIps = [];
+  try { const cd = await client.networkConnectivityDestinations({ networkId: dev && dev.networkId }); destIps = ((cd && cd.destinations) || []).map(d => d.ip).filter(Boolean); } catch { destIps = []; }
+  if (!destIps.length) {   // fallback: the org-sampled destination
+    const ll = (await client.orgUplinksLossLatency({ serials: [serial] })) || [];
+    destIps = [...new Set(ll.map(r => r && r.ip).filter(Boolean))];
+  }
+  console.log(`monitored destinations: ${destIps.join(', ') || '(none found)'}\n`);
 
   for (const uplink of ['wan1', 'wan2']) {
     const cur = dev && (dev.uplinks || []).find(u => u.interface === uplink);
-    const ip = ipByUplink[uplink];
-    if (!ip) { console.log(`${uplink}: no monitored destination ip found (skip)`); continue; }
-    const series = (await client.deviceLossLatencyHistory({ serial, uplink, ip, t0, t1, resolution })) || [];
+    if (!destIps.length) { console.log(`${uplink}: no monitored destination ip found (skip)`); continue; }
+    const seriesList = [];
+    for (const ip of destIps) seriesList.push((await client.deviceLossLatencyHistory({ serial, uplink, ip, t0, t1, resolution })) || []);
+    const series = mergeDestinationSeries(seriesList);   // up if ANY destination responded
     const down = deriveAvailability(series, { totalIntervals, missing: 'down' });
     const unknown = deriveAvailability(series, { totalIntervals, missing: 'unknown' });
-    console.log(`${uplink}  (status now: ${cur ? cur.status : '?'}, dest ${ip}, ${series.length}/${totalIntervals} samples present)`);
+    console.log(`${uplink}  (status now: ${cur ? cur.status : '?'}, ${destIps.length} dest(s), ${series.length}/${totalIntervals} merged intervals present)`);
     console.log(`   % Time Up  missing='down'    : ${down.availability_pct}`);
     console.log(`   % Time Up  missing='unknown' : ${unknown.availability_pct}`);
     console.log(`   avg loss ${down.loss_pct_avg}% · latency ${down.latency_ms_avg}ms · jitter ${down.jitter_ms_avg}ms`);
