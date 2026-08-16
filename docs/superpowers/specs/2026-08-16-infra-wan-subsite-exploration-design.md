@@ -96,7 +96,7 @@ foreign keys** on either backend → a clean rebuild):
 site, sub-site `FETEKRO` uses Meraki network *Exploration Fetekro*." A **separate table**
 because `site_module_codes` PK `(site_id, module)` holds only one network per site, whereas
 sub-sites are inherently many-per-site. Empty for every normal site. Created on both backends
-(shared CREATE + pg migration file), copied by the pg copy path.
+(shared CREATE + pg `initPgReports`); NOT in any `copy-reports-*` path (prod is already pg).
 
 ## 5. Config editor (admin, super_admin)
 
@@ -104,9 +104,10 @@ Extends the existing "Site ↔ Meraki network" editor in the Infra card; one Sav
 
 - **Main table (unchanged):** site → its one network (`sub_site=''`).
 - **New "Exploration sub-sites (own-WAN locations)" table:** rows of **Site · Sub-site token ·
-  Meraki network · ✕** + an **"+ Add sub-site"** button. The **token is exactly the suffix on
-  the report line** (`WAN1 **FETEKRO**`), matched case-insensitively. Sub-sites without their
-  own WAN (MANA) get no row.
+  Meraki network · ✕** + an **"+ Add sub-site"** button. The **token is the suffix on the
+  report line** (`WAN1 **FETEKRO**`); matching uses the §7 shared normalizer (case-folded,
+  whitespace/accent-normalized) and, if tokens ever overlap as substrings, the **longest**
+  matching token wins. Sub-sites without their own WAN (MANA) get no row.
 - **Wiring:** the existing `GET/PUT /api/analytics/wan/mappings` is extended to also
   return/accept a `subsites` array (one editor, one save). Backend: `listWanSubsiteNetworks()`
   + `setWanSubsiteNetworks(rows)` (replace-all: add/update/delete in one shot), dual-backend,
@@ -134,7 +135,8 @@ This is the load-bearing rule (it prevents a normal-site regression — see belo
 - **Family** is matched as today (`wlan/wifi` before `wan`, then `wan1/wan2/servers/lan`).
 - **Sub-site** = the line's normalized remainder **iff it contains a token configured in
   `wan_subsite_networks` for this report's site** (case-folded, whitespace/accent-normalized
-  via a single shared helper). Otherwise `sub_site = ''`.
+  via a single shared helper; on overlap, the **longest** matching token wins). Otherwise
+  `sub_site = ''`.
   - `WAN1 FETEKRO` with `FETEKRO` configured → `{wan1, FETEKRO}`.
   - `WAN1 Fetekro Explo` with `FETEKRO` configured → `{wan1, FETEKRO}` (contains the token).
   - `LAN Main` / `WAN1 Primary` / `Servers DC` on a **normal** site (no configured tokens) →
