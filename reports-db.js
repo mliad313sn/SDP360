@@ -661,6 +661,18 @@ const _OPM_PROBE_CODES = {
 for (const [siteName, probe] of Object.entries(_OPM_PROBE_CODES)) {
   if (_SITE_MODULE_CODES_SEED[siteName]) _SITE_MODULE_CODES_SEED[siteName].opmanager = probe;
 }
+// Meraki network name per site (V1b — WAN). Resolved by site NAME. Ity/Mana confirmed
+// from the dashboard; the rest follow the "<Site> Gold Operations" / office pattern and
+// are corrected at calibration (Task 7). No CHECK on `code`, so names with spaces store fine.
+const _MERAKI_NETWORK_CODES = {
+  Ity: 'Ity Gold Operations', MANA: 'Mana Gold Operations',
+  Hounde: 'Hounde Gold Operations', Sabodala: 'Sabodala Gold Operations',
+  Lafigue: 'Lafigue Gold Operations', Ouagadougou: 'Ouagadougou Office',
+  Abidjan: 'Abidjan Office', Tanda: 'Tanda',
+};
+for (const [siteName, net] of Object.entries(_MERAKI_NETWORK_CODES)) {
+  if (_SITE_MODULE_CODES_SEED[siteName]) _SITE_MODULE_CODES_SEED[siteName].meraki = net;
+}
 {
   const upsertCode = db.prepare(
     `INSERT OR IGNORE INTO site_module_codes (site_id, module, code) VALUES (?, ?, ?)`
@@ -1207,6 +1219,9 @@ async function _seedReportsCatalogsPg(H) {
   // V1a — augment with OPManager probe codes (same table as the sqlite seed).
   for (const [siteName, probe] of Object.entries(_OPM_PROBE_CODES)) {
     if (SEED[siteName]) SEED[siteName].opmanager = probe;
+  }
+  for (const [siteName, net] of Object.entries(_MERAKI_NETWORK_CODES)) {
+    if (SEED[siteName]) SEED[siteName].meraki = net;
   }
   await H.runTransaction(async () => {
     for (const [siteName, modCodes] of Object.entries(SEED)) {
