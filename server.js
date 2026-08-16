@@ -1081,7 +1081,7 @@ app.get('/api/exec/summary', async (req, res) => {
 // GET /api/exec/editorial?period=YYYY-MM — admin-only editorial reader.
 // Sibling of the PUT below; used by the reports.html#admin card to prefill.
 // Behind the /api/ gate (NOT exempted) + requireReportSession + requireAdmin.
-app.get('/api/exec/editorial', requireReportSession, requireAdmin, async (req, res) => {
+app.get('/api/exec/editorial', requireReportSession, requireSuperAdmin, async (req, res) => {
   const period = String(req.query.period || '').trim();
   if (!/^\d{4}-\d{2}$/.test(period)) return res.status(400).json({ error: 'period YYYY-MM required' });
   const rdb2 = require('./reports-db');
@@ -1090,7 +1090,7 @@ app.get('/api/exec/editorial', requireReportSession, requireAdmin, async (req, r
 
 // PUT /api/exec/editorial?period=YYYY-MM — admin-only editorial persistence.
 // Behind the /api/ gate (NOT exempted) + requireReportSession + requireAdmin.
-app.put('/api/exec/editorial', requireReportSession, requireAdmin, express.json(), async (req, res) => {
+app.put('/api/exec/editorial', requireReportSession, requireSuperAdmin, express.json(), async (req, res) => {
   const period = String(req.query.period || '').trim();
   if (!/^\d{4}-\d{2}$/.test(period)) return res.status(400).json({ error: 'period YYYY-MM required' });
   const rdb2 = require('./reports-db');
@@ -2417,7 +2417,7 @@ app.get('/api/assets/hygiene/export.xlsx', requireReportSession, async (req, res
 // POST /api/assets/hygiene/send?preview=1|0 — admin-driven Preview / Send-now.
 // send-hygiene.main() resolves db/cfg/summary itself and is disarmed-safe: a
 // disabled config returns {sent:0,reason:'disabled'} WITHOUT touching SMTP.
-app.post('/api/assets/hygiene/send', requireReportSession, requireAdmin, async (req, res) => {
+app.post('/api/assets/hygiene/send', requireReportSession, requireSuperAdmin, async (req, res) => {
   const _truthy = v => v === '1' || v === 1 || v === true || v === 'true';
   const preview = _truthy(req.query.preview) || _truthy(req.body?.preview);
   const force = _truthy(req.query.force) || _truthy(req.body?.force);
@@ -2434,7 +2434,7 @@ app.post('/api/assets/hygiene/send', requireReportSession, requireAdmin, async (
 // for the per-coordinator operational scoreboard email. send-scoreboard.main()
 // resolves db/cfg/board itself and is disarmed-safe: a disabled config returns
 // {sent:0,reason:'disabled'} WITHOUT touching SMTP or the directory.
-app.post('/api/reports/scoreboard/send', requireReportSession, requireAdmin, async (req, res) => {
+app.post('/api/reports/scoreboard/send', requireReportSession, requireSuperAdmin, async (req, res) => {
   const _truthy = v => v === '1' || v === 1 || v === true || v === 'true';
   const preview = _truthy(req.query.preview) || _truthy(req.body?.preview);
   const force = _truthy(req.query.force) || _truthy(req.body?.force);
@@ -2459,7 +2459,7 @@ app.post('/api/reports/scoreboard/send', requireReportSession, requireAdmin, asy
 // it, and log it under report_type='weekly_report' — a wrong-content success
 // that would poison the dedup lane so the real weekly could never send for
 // that period. Keep the two pipelines apart.
-app.post('/api/reports/weekly/send', requireReportSession, requireAdmin, async (req, res) => {
+app.post('/api/reports/weekly/send', requireReportSession, requireSuperAdmin, async (req, res) => {
   const _truthy = v => v === '1' || v === 1 || v === true || v === 'true';
   const preview = _truthy(req.query.preview) || _truthy(req.body?.preview);
   const force = _truthy(req.query.force) || _truthy(req.body?.force);
@@ -2479,7 +2479,7 @@ app.post('/api/reports/weekly/send', requireReportSession, requireAdmin, async (
 // {sent:0,reason:'disabled'} WITHOUT touching the directory or SMTP. It is its
 // OWN route deliberately: POST /api/reports/send hardcodes sendCoordinatorReport,
 // so whitelisting 'asset_group' there would mail wrong content + poison dedup.
-app.post('/api/reports/asset-group/send', requireReportSession, requireAdmin, async (req, res) => {
+app.post('/api/reports/asset-group/send', requireReportSession, requireSuperAdmin, async (req, res) => {
   const _truthy = v => v === '1' || v === 1 || v === true || v === 'true';
   const preview = _truthy(req.query.preview) || _truthy(req.body?.preview);
   const force = _truthy(req.query.force) || _truthy(req.body?.force);
@@ -3149,7 +3149,7 @@ app.get('/api/assets/depreciation-config', requireReportSession, async (req, res
   }
 });
 
-app.put('/api/assets/depreciation-config', requireReportSession, requireAdmin, async (req, res) => {
+app.put('/api/assets/depreciation-config', requireReportSession, requireSuperAdmin, async (req, res) => {
   const cfg = req.body;
   // Validate BEFORE persist — an invalid config must be 400, not the catch's 500.
   if (!_validDeprecCfg(cfg)) return res.status(400).json({ error: 'invalid depreciation config' });
@@ -5080,6 +5080,19 @@ function requireAdmin(req, res, next) {
   next();
 }
 
+// Admin SETTINGS (the reports.html#admin console + its owned routes: config,
+// users, sessions, sites/:id, recipients, schedule, sends, meridian, exec-view
+// editorial, depreciation-config) are super_admin ONLY. This is the real
+// boundary — the nav/page guard in reports.html is defence-in-depth. Operational
+// requireAdmin routes (tracker, deck builder, assets sync/reconcile, meetings
+// export, sync triggers, cache clears) are deliberately left at admin+.
+function requireSuperAdmin(req, res, next) {
+  if (!rdb || !rdb.userHasRole(req.reportUser, 'super_admin')) {
+    return res.status(403).json({ error: 'super_admin only' });
+  }
+  next();
+}
+
 function requireExecutiveOrSuperAdmin(req, res, next) {
   if (!rdb || !rdb.userHasRole(req.reportUser, 'executive')) {
     return res.status(403).json({ error: 'Executive or super_admin only' });
@@ -5125,7 +5138,7 @@ if ((process.env.REPORTS_BACKEND || 'sqlite').toLowerCase() !== 'postgres' && rd
   reportSchedule._initSchema(rdb.db);
 }
 
-app.get('/api/reports/config', requireReportSession, requireAdmin, async (req, res) => {
+app.get('/api/reports/config', requireReportSession, requireSuperAdmin, async (req, res) => {
   try {
     const c = await reportConfig.getConfig(rdb.db);
     if (c && c.smtp_pass) c.smtp_pass = '';   // never expose the stored SMTP password
@@ -5138,7 +5151,7 @@ app.get('/api/reports/config', requireReportSession, requireAdmin, async (req, r
   }
   catch (e) { res.status(500).json({ error: e.message }); }
 });
-app.put('/api/reports/config', requireReportSession, requireAdmin, async (req, res) => {
+app.put('/api/reports/config', requireReportSession, requireSuperAdmin, async (req, res) => {
   try {
     const body = req.body || {};
     // SSO settings (mode / secret / tenant) are auth-critical. The endpoint is
@@ -5170,21 +5183,21 @@ app.put('/api/reports/config', requireReportSession, requireAdmin, async (req, r
 });
 // Meridian resource sync — on-demand (admin+). Runs the same job as the nightly cron;
 // self-skips when unconfigured. Behind the /api/ dash-key gate + session/admin.
-app.post('/api/meridian/sync', requireReportSession, requireAdmin, async (req, res) => {
+app.post('/api/meridian/sync', requireReportSession, requireSuperAdmin, async (req, res) => {
   try { res.json(await require('./tools/meridian/sync-resources').main()); }
   catch (e) { res.status(500).json({ error: e.message }); }
 });
-app.get('/api/reports/recipients', requireReportSession, requireAdmin, async (req, res) => {
+app.get('/api/reports/recipients', requireReportSession, requireSuperAdmin, async (req, res) => {
   try { res.json(await reportDirectory.listRecipients(rdb.db)); }
   catch (e) { res.status(500).json({ error: e.message }); }
 });
-app.put('/api/reports/recipients/:site', requireReportSession, requireAdmin, async (req, res) => {
+app.put('/api/reports/recipients/:site', requireReportSession, requireSuperAdmin, async (req, res) => {
   try { res.json(await reportDirectory.upsertRecipient(rdb.db, req.params.site, req.body || {}, req.reportUser?.username)); }
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 // Pre-fills blank recipient names from meetings PV data. Never overwrites a
 // confirmed value; the admin still confirms every address before any send.
-app.post('/api/reports/recipients/suggest', requireReportSession, requireAdmin, async (req, res) => {
+app.post('/api/reports/recipients/suggest', requireReportSession, requireSuperAdmin, async (req, res) => {
   try {
     const meetingsDb = require('./meetings-db');
     // NO optional chaining — a missing reader must fail loudly, not yield filled:0.
@@ -5193,11 +5206,11 @@ app.post('/api/reports/recipients/suggest', requireReportSession, requireAdmin, 
     res.json(out);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
-app.get('/api/reports/schedule', requireReportSession, requireAdmin, async (req, res) => {
+app.get('/api/reports/schedule', requireReportSession, requireSuperAdmin, async (req, res) => {
   try { res.json(await reportSchedule.getSchedules(rdb.db)); }
   catch (e) { res.status(500).json({ error: e.message }); }
 });
-app.put('/api/reports/schedule', requireReportSession, requireAdmin, async (req, res) => {
+app.put('/api/reports/schedule', requireReportSession, requireSuperAdmin, async (req, res) => {
   try { res.json(await reportSchedule.setSchedule(rdb.db, req.body || {}, req.reportUser?.username)); }
   catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -5450,7 +5463,7 @@ app.get('/api/reports/review-data', requireReportSession, async (req, res) => {
 // be mistaken for the enforcement point.
 const { sendCoordinatorReport } = require('./services/sendCoordinator');
 const SEND_TYPES = ['coordinator'];   // 'finance' lands in sub-project 4
-app.post('/api/reports/send', requireReportSession, requireAdmin, async (req, res) => {
+app.post('/api/reports/send', requireReportSession, requireSuperAdmin, async (req, res) => {
   const type = String(req.query.type || '');
   const site = String(req.query.site || '').trim();
   if (!SEND_TYPES.includes(type)) return res.status(400).json({ error: `invalid type "${type}" — expected one of: ${SEND_TYPES.join(', ')}` });
@@ -5502,7 +5515,7 @@ app.post('/api/reports/send', requireReportSession, requireAdmin, async (req, re
 // The password field is deliberately never echoed back to the browser
 // (reports.html), so a blank one means "keep the stored secret" — the exact
 // rule the Save path already uses.
-app.post('/api/reports/test-smtp', requireReportSession, requireAdmin, async (req, res) => {
+app.post('/api/reports/test-smtp', requireReportSession, requireSuperAdmin, async (req, res) => {
   try {
     const { buildMailer } = require('./services/mailer');
     const cfg = Object.assign({}, await reportConfig.getConfig(rdb.db));
@@ -5697,7 +5710,7 @@ app.get('/api/reports/sites', requireReportSession, async (req, res) => {
 // - admin/executive/super_admin can update zoho_group (existing behavior, used by inline Save).
 // - executive+ required for sort_order or active changes (broader site config).
 // `name` is intentionally NOT editable here — see reports-db.js updateSite() comment.
-app.put('/api/reports/sites/:id', requireReportSession, requireAdmin, jsonBody, async (req, res) => {
+app.put('/api/reports/sites/:id', requireReportSession, requireSuperAdmin, jsonBody, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const { zoho_group, sort_order, active } = req.body || {};
@@ -5762,12 +5775,12 @@ app.delete('/api/reports/sites/:id', requireReportSession, requireExecutiveOrSup
 });
 
 // ── Users (admin only) ────────────────────────────────────────────
-app.get('/api/reports/users', requireReportSession, requireAdmin, async (req, res) => {
+app.get('/api/reports/users', requireReportSession, requireSuperAdmin, async (req, res) => {
   try { res.json(await rdb.listUsers()); }
   catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-app.post('/api/reports/users', requireReportSession, requireAdmin, jsonBody, async (req, res) => {
+app.post('/api/reports/users', requireReportSession, requireSuperAdmin, jsonBody, async (req, res) => {
   try {
     // Accept both legacy `role: 'admin'` (string) and new `roles: ['admin', 'tracker-editor']` (array).
     const { username, full_name, password, site_id, role, roles, email } = req.body || {};
@@ -5784,7 +5797,7 @@ app.post('/api/reports/users', requireReportSession, requireAdmin, jsonBody, asy
 // Bulk email mapping for the SSO transition — set many users' emails at once.
 // Body: { updates: [{ id, email }] }. admin+. Registered BEFORE /users/:id so
 // "emails" isn't parsed as an :id.
-app.put('/api/reports/users/emails', requireReportSession, requireAdmin, jsonBody, async (req, res) => {
+app.put('/api/reports/users/emails', requireReportSession, requireSuperAdmin, jsonBody, async (req, res) => {
   try {
     const updates = (req.body && req.body.updates) || [];
     if (!Array.isArray(updates)) return res.status(400).json({ error: 'updates[] required' });
@@ -5800,7 +5813,7 @@ app.put('/api/reports/users/emails', requireReportSession, requireAdmin, jsonBod
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-app.put('/api/reports/users/:id', requireReportSession, requireAdmin, jsonBody, async (req, res) => {
+app.put('/api/reports/users/:id', requireReportSession, requireSuperAdmin, jsonBody, async (req, res) => {
   try {
     // Accept both legacy `role` (string) and new `roles` (array) — see createUser comment.
     const { full_name, password, site_id, role, roles, active, email } = req.body || {};
@@ -5810,7 +5823,7 @@ app.put('/api/reports/users/:id', requireReportSession, requireAdmin, jsonBody, 
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-app.delete('/api/reports/users/:id', requireReportSession, requireAdmin, async (req, res) => {
+app.delete('/api/reports/users/:id', requireReportSession, requireSuperAdmin, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     if (req.reportUser.id === id) return res.status(400).json({ error: 'Cannot delete your own account' });
@@ -5827,7 +5840,7 @@ app.delete('/api/reports/users/:id', requireReportSession, requireAdmin, async (
 // View: admin+ (matches the Users-card RBAC — same operational scope).
 // Force-logout: super_admin only (destructive action; could kick the
 // wrong session in a multi-tab scenario).
-app.get('/api/reports/sessions/active', requireReportSession, requireAdmin, async (req, res) => {
+app.get('/api/reports/sessions/active', requireReportSession, requireSuperAdmin, async (req, res) => {
   try {
     const idle = Math.max(1, Math.min(1440, parseInt(req.query.idle_minutes || '5', 10) || 5));
     const sessions = await rdb.listActiveSessions(idle);

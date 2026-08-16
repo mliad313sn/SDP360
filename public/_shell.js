@@ -152,17 +152,17 @@
       ]
     },
     {
-      // Admin is a dropdown for super_admins (Settings + System Logs). A plain
-      // admin sees only ONE visible child (Settings) → renderNavItem collapses it
-      // to a flat link to reports.html#admin, so their nav is unchanged.
+      // Admin (Settings + System Logs) is super_admin ONLY — the whole admin
+      // console + its routes are super_admin-gated server-side. A plain admin /
+      // executive no longer sees this entry at all.
       id:       'admin',
       label:    'Admin',
       icon:     ICON_LIB.sliders,
       href:     'reports.html#admin',
-      roles:    ['admin'],
+      roles:    ['super_admin'],
       title:    'User management & system settings',
       children: [
-        { id: 'admin-settings', label: 'Settings',    icon: ICON_LIB.sliders,          href: 'reports.html#admin', roles: ['admin'] },
+        { id: 'admin-settings', label: 'Settings',    icon: ICON_LIB.sliders,          href: 'reports.html#admin', roles: ['super_admin'] },
         { id: 'system-logs',    label: 'System Logs',  icon: ICON_LIB['shield-check'],  href: 'system-logs.html',   roles: ['super_admin'] }
       ]
     },

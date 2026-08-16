@@ -2388,8 +2388,8 @@ function showPage(name) {
   const navEl = document.getElementById(`nav-${name}`);
   if (navEl) navEl.classList.add('active');
 
-  // Always keep admin tab visible for admin / super_admin users
-  if (currentUser && (currentUser.role === 'admin' || currentUser.role === 'super_admin')) {
+  // Admin console is super_admin only — keep the legacy nav-admin span in step.
+  if (currentUser && currentUser.role === 'super_admin') {
     document.getElementById('nav-admin').style.display = 'inline-block';
   }
 
@@ -5452,6 +5452,15 @@ function showAdminPanel(name) {
 let _suppressHashRoute = false;
 
 async function loadAdminPage() {
+  // Admin settings are super_admin ONLY. A non-super_admin who force-navigates to
+  // #admin is bounced back to the report list. The server enforces the same on
+  // every admin-console route (403 super_admin only), so this is defence-in-depth.
+  if (currentUser?.role !== 'super_admin') {
+    toast('Admin settings are restricted to super_admin', 'error');
+    if (location.hash) { _suppressHashRoute = true; location.hash = ''; }
+    showPage('reports');
+    return;
+  }
   try {
     const isExecOrSuper = ['executive','super_admin'].includes(currentUser?.role);
     const isSuperAdmin  = currentUser?.role === 'super_admin';
