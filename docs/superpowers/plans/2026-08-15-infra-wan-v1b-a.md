@@ -30,11 +30,12 @@ const assert = require('node:assert');
 const rc = require('../services/reportConfig');
 
 test('meraki config keys are in DEFAULTS', () => {
-  for (const k of ['meraki_api_key', 'meraki_org_id', 'meraki_base_url']) {
+  for (const k of ['meraki_api_key', 'meraki_org_id', 'meraki_base_url', 'meraki_missing_policy']) {
     assert.ok(Object.prototype.hasOwnProperty.call(rc.DEFAULTS, k), `${k} missing from DEFAULTS`);
   }
   assert.equal(rc.DEFAULTS.meraki_base_url, 'https://api.meraki.com/api/v1');
   assert.equal(rc.DEFAULTS.meraki_api_key, '');
+  assert.equal(rc.DEFAULTS.meraki_missing_policy, 'down');   // calibration may flip to 'unknown'
 });
 
 test('meraki_api_key is blank-kept on save (empty value keeps stored secret)', () => {
@@ -46,7 +47,7 @@ test('meraki_api_key is blank-kept on save (empty value keeps stored secret)', (
 - [ ] **Step 2: Run → FAIL.** `node --test --test-force-exit tests/report-config-meraki.test.js`  → Expected FAIL (keys absent).
 
 - [ ] **Step 3: Implement.**
-  - `services/reportConfig.js`: add to `DEFAULTS` → `meraki_api_key: '', meraki_org_id: '', meraki_base_url: 'https://api.meraki.com/api/v1'`. Find the existing blank-keep filter (the `smtp_pass`/`entra_client_secret`/`meridian_*_key` set, ~line 106); if it is an inline array/condition, extract it to an exported `const _SECRET_BLANK_KEEP = new Set([... , 'meraki_api_key'])` and use it in the filter (so the test can assert membership). Keep existing members.
+  - `services/reportConfig.js`: add to `DEFAULTS` → `meraki_api_key: '', meraki_org_id: '', meraki_base_url: 'https://api.meraki.com/api/v1', meraki_missing_policy: 'down'`. **`meraki_missing_policy` MUST be here** — Task 6 reads it and Task 7's calibration sets it; a key absent from DEFAULTS is silently dropped by `setConfig`'s `KEYS` filter, so the calibrated policy would be un-saveable (the whole gate's output lost). The blank-keep filter (~line 106) is an **inline hardcoded condition** — extract it to an exported `const _SECRET_BLANK_KEEP = new Set([...existing, 'meraki_api_key'])`, use it in the filter, AND add it to `module.exports`. Keep existing members.
   - `server.js`: add `meraki_api_key` to the **GET redact** blanking (~5121, beside `smtp_pass`) and to the **super_admin PUT gate** key set (~5140, the `MERIDIAN_KEYS`-style check — extend it or add `meraki_api_key` to a shared secret-keys array). `meraki_org_id` / `meraki_base_url` are non-secret (not redacted, not gated).
 
 - [ ] **Step 4: Run → PASS.** `node --test --test-force-exit tests/report-config-meraki.test.js`
@@ -245,7 +246,7 @@ test('Ity Meraki network code resolves to a site_id via module=meraki', async ()
 > The seed keys are the Meraki **network names** per site (confirmed from the dashboard: Ity→"Ity Gold Operations", Mana→"Mana Gold Operations"). The final list of network names is confirmed with the user during calibration (Task 7); seed the known ones now, resolved by site NAME (never probe), exactly like `_OPM_PROBE_CODES`.
 
 - [ ] **Step 2: Run → FAIL.**
-- [ ] **Step 3: Implement** — `const _MERAKI_NETWORK_CODES = { Ity:'Ity Gold Operations', Mana:'Mana Gold Operations', Hounde:'…', Sabodala:'…', Lafigue:'…', Ouagadougou:'…', Abidjan:'…', Tanda:'…' }` (placeholders where unknown — filled at calibration). Two loops (`.meraki = code`) augmenting `_SITE_MODULE_CODES_SEED` AND the pg `SEED` literal, mirroring the `_OPM_PROBE_CODES` loops. Values must satisfy the `site_module_codes` CHECK on `code` (`^[A-Z0-9_-]{2,16}$`?) — **verify the constraint**: if network names with spaces violate it, store the **Meraki network ID** (`N_…`) as the code instead and keep a name→id map, OR relax the resolution to match by name. (Decide at build; the collector resolves by whatever is seeded.)
+- [ ] **Step 3: Implement** — `const _MERAKI_NETWORK_CODES = { Ity:'Ity Gold Operations', Mana:'Mana Gold Operations', Hounde:'…', Sabodala:'…', Lafigue:'…', Ouagadougou:'…', Abidjan:'…', Tanda:'…' }` (placeholders where unknown — filled at calibration). Two loops (`.meraki = code`) augmenting `_SITE_MODULE_CODES_SEED` AND the pg `SEED` literal, mirroring the `_OPM_PROBE_CODES` loops. **Store the Meraki network NAME directly** — `site_module_codes.code` has **no CHECK constraint** on either backend (verified: `'OUAGA OFF1'` with a space is already seeded), and resolution is case-insensitive equality, so `"Ity Gold Operations"` stores + resolves cleanly. No network-id fallback needed.
 - [ ] **Step 4: Run → PASS.**
 - [ ] **Step 5: Commit** `feat(wan): V1b-A T5 — meraki network→site seed (site_module_codes)`.
 
@@ -307,7 +308,7 @@ test('fetch failure → best-effort {ok:false}, no upsert, no throw', async () =
 ```
 
 - [ ] **Step 2: Run → FAIL.**
-- [ ] **Step 3: Implement `tools/meraki/sync-wan.js`** (mirror `tools/opmanager/sync-availability.js`): `main(deps)` — `await getConfig`; gate on `meraki_api_key` (empty → `{skipped:true}`); build the client (injected or from config); resolve `await rdb.listSiteModuleCodes('meraki')` → plain map `networkCode→site_id`; `orgUplinkStatuses` → per device/uplink current status; `orgUplinksLossLatency` → per-(serial,uplink) destination `ip`; for each uplink, `deviceLossLatencyHistory` for the **week window** (t0=period_start 00:00Z, t1=period_end 23:59Z, resolution 3600) and the **month window** → `deriveAvailability(series, {totalIntervals, missing})` (missing policy from config `meraki_missing_policy` default `'down'`; **the calibrated value is locked in Task 7**) + `statusColor(pct, targets.wan)` → build rows → `upsertWanSnapshots(all)`. Wrap the whole body in try/catch → `{ok:false, error}` (best-effort; prior snapshots kept). Pre-resolve the network→site map with awaited calls BEFORE the pure derive. `require.main`-guard. Export `{ main }`.
+- [ ] **Step 3: Implement `tools/meraki/sync-wan.js`** (mirror `tools/opmanager/sync-availability.js`): `main(deps)` — `await getConfig`; gate on `meraki_api_key` (empty → `{skipped:true}`); build the client (injected or from config); resolve `await rdb.listSiteModuleCodes('meraki')` → plain map `networkCode→site_id`; `orgUplinkStatuses` → per device/uplink current status; `orgUplinksLossLatency` → per-(serial,uplink) destination `ip`; for each uplink, `deviceLossLatencyHistory` for the **week window** (t0=period_start 00:00Z, t1=period_end 23:59Z, resolution 3600) and the **month window** → `deriveAvailability(series, {totalIntervals, missing})` + `statusColor(pct, targets.wan)` → build rows → `upsertWanSnapshots(all)`. **`totalIntervals` is computed from the WINDOW, not `series.length`**: `Math.round((Date.parse(t1) − Date.parse(t0)) / (resolution*1000))` — else `missing:'down'` degenerates to `'unknown'`. `missing` policy from config `meraki_missing_policy` (default `'down'`; **calibrated value locked in Task 7**). Wrap the whole body in try/catch → `{ok:false, error}` (best-effort; prior snapshots kept). Pre-resolve the network→site map with awaited calls BEFORE the pure derive. `require.main`-guard: the **cron/entrypoint computes `asOfWeek` via the Zoho-week helper (`getWeekRange`, UTC) so `period_start === weeks.start_date`** (the report join key AND the tz control the calibration needs); `asOfMonth` = current month bounds. Export `{ main }`.
 - [ ] **Step 4: Run → PASS.** Then `node -c tools/meraki/sync-wan.js`.
 - [ ] **Step 5: Commit** `feat(wan): V1b-A T6 — sync-wan collector (config-gated, best-effort, week+month)`.
 
@@ -325,8 +326,9 @@ test('fetch failure → best-effort {ok:false}, no upsert, no throw', async () =
 ```
 node --test --test-force-exit tests/report-config-meraki.test.js tests/meraki-client.test.js tests/meraki-wan-quality.test.js tests/wan-snapshots.test.js tests/meraki-seed.test.js tests/meraki-sync.test.js
 node --test --test-force-exit tests/await-precedence.test.js tests/report-config-opm.test.js tests/opm-classify.test.js
+node --test --test-force-exit tests/pptx-monthly-golden.test.js
 ```
-Expected all green; V1a suites unaffected.
+Expected all green; V1a suites unaffected; **PPTX goldens unchanged** (cheap insurance — V1b-A writes nothing to the scored/PPTX path).
 
 - [ ] **Step 3: pg smoke** (local PG) — `initPgReports()` applies `008`, `upsertWanSnapshots`/`getWanSnapshots` round-trip + ON CONFLICT idempotent on postgres (same one-off pattern used for V1a's `007`). Clean up the seeded row.
 
