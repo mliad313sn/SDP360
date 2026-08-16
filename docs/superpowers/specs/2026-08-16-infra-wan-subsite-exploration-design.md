@@ -62,14 +62,34 @@ New column **`sub_site TEXT NOT NULL DEFAULT ''`**, added to the **composite pri
 - Exploration own-WAN sub-sites → `sub_site = 'FETEKRO' | 'TANDA' | 'MASSAWA'`.
 - In the PK so `WAN1 FETEKRO` and `WAN1 TANDA` coexist under one `site_id`.
 
-**Migration** (the table is tiny and nightly-resyncable → low risk):
+**Three coupled edits, or the nightly sync throws** (called out because they must land together):
+1. **`_WAN_SNAP_COLS`** gains `sub_site` AND the **upsert `ON CONFLICT` target** becomes
+   `(site_id, sub_site, uplink, period_type, period_start)` — the current 4-tuple
+   (`reports-db.js:~2477`) would no longer match any unique constraint and every upsert would
+   error on both backends. Same edit.
+2. **`_wanVals` coerces `sub_site` null/undefined → `''`** (not the generic `undefined→null`),
+   since the column is `NOT NULL` — one careless caller otherwise hits a NOT-NULL violation.
+3. **`getWanSnapshots` needs NO new filter** — `SELECT *` already surfaces the column and the
+   pure functions group by `sub_site`; `_wanWhere` is untouched (returning all sub_sites for a
+   site is exactly the Exploration intent).
+
+**Migration** (the table is tiny, nightly-resyncable, and has **no secondary indexes and no
+foreign keys** on either backend → a clean rebuild):
 - **sqlite** cannot alter a PK in place → a **guarded one-time rebuild**: if `sub_site` is
   absent (PRAGMA check), `CREATE` the new-PK table, `INSERT…SELECT` existing rows with
-  `sub_site=''`, drop old, rename. Idempotent.
-- **pg**: `ADD COLUMN sub_site … DEFAULT ''` + `DROP CONSTRAINT`/`ADD PRIMARY KEY` to include
-  `sub_site`. Idempotent (`IF NOT EXISTS` / guarded).
-- The pg copy script (`copy-reports-*`) and the shared `008_wan_link_snapshots.sql` CREATE are
-  updated to the new shape for fresh installs.
+  `sub_site=''`, drop old, rename. Nothing to recreate (no indexes/FKs). Also update the
+  **inline sqlite CREATE** to the new PK so fresh dev/test DBs skip the rebuild.
+- **pg**: the migration is a **JS-side step in `initPgReports`** (like the existing
+  `ADD COLUMN IF NOT EXISTS basis`, `reports-db.js:~1212`) — editing `008_*.sql` alone is a
+  no-op on the existing prod table. Steps: `ADD COLUMN IF NOT EXISTS sub_site TEXT NOT NULL
+  DEFAULT ''`; then a **no-op-safe PK swap** — `DROP CONSTRAINT IF EXISTS
+  wan_link_snapshots_pkey` then `ADD PRIMARY KEY (…)` wrapped in a `pg_constraint` existence
+  check / `DO` guard (`ADD PRIMARY KEY` has no `IF NOT EXISTS`, so a second boot would throw
+  "multiple primary keys" without the guard). The `008` CREATE also carries the new-PK shape
+  for fresh installs.
+- **Not a copy-script concern:** `wan_link_snapshots` is in **none** of the `copy-reports-*`
+  `TABLES` lists (it's `008`-created + nightly-resynced), and `wan_subsite_networks` is a
+  post-cutover admin table on already-pg prod — so no copy-script edits.
 
 ### 4b. New config table `wan_subsite_networks`
 `(site_id INTEGER, sub_site TEXT, network TEXT)`, PK `(site_id, sub_site)`. Holds "for this
@@ -108,23 +128,36 @@ Config-gated + best-effort unchanged.
 
 ## 7. Auto-fill matcher (`services/opmReportFill.js` + reports.html mirror)
 
-- **Parse the line into `(family, sub_site)`:** match the family keyword as today
-  (`wlan/wifi` before `wan`, then `wan1/wan2/servers/lan`); the **normalized remainder** is the
-  sub-site token. `WAN1 FETEKRO → {wan1, FETEKRO}`; plain `WAN1 → {wan1, ''}`;
-  `LAN MANA → {lan, MANA}`.
+**`sub_site` is resolved against the CONFIGURED token set, never by "any trailing word."**
+This is the load-bearing rule (it prevents a normal-site regression — see below).
+
+- **Family** is matched as today (`wlan/wifi` before `wan`, then `wan1/wan2/servers/lan`).
+- **Sub-site** = the line's normalized remainder **iff it contains a token configured in
+  `wan_subsite_networks` for this report's site** (case-folded, whitespace/accent-normalized
+  via a single shared helper). Otherwise `sub_site = ''`.
+  - `WAN1 FETEKRO` with `FETEKRO` configured → `{wan1, FETEKRO}`.
+  - `WAN1 Fetekro Explo` with `FETEKRO` configured → `{wan1, FETEKRO}` (contains the token).
+  - `LAN Main` / `WAN1 Primary` / `Servers DC` on a **normal** site (no configured tokens) →
+    `sub_site=''` → **matched by family exactly as today**. This is why the rule is
+    token-gated, not "trailing word = sub-site": a site with zero sub-site config behaves
+    byte-for-byte as before.
 - **`buildFills` matches by family AND sub_site:**
-  - **WAN + any sub_site** → match the wan snapshot row by `(uplink, sub_site)`; the fill
-    descriptor gains a `sub_site` field.
-  - **LAN/WLAN/Servers + non-empty sub_site** → **no fill** (no correct per-sub-site source);
+  - **WAN + a configured sub_site** → match the wan snapshot row by `(uplink, sub_site)`; the
+    fill descriptor gains a `sub_site` field.
+  - **WAN + `sub_site=''`** → match `(uplink, '')`, exactly as today.
+  - **LAN/WLAN/Servers + a configured sub_site** → **no fill** (no correct per-sub-site source);
     the cell stays blank + editable.
-  - **LAN/WLAN/Servers + empty sub_site** → matched by family, exactly as today.
-- **Client mirror** (`_serviceToFill`) extends identically: parse `(family, sub_site)` per
-  rendered row, match the fill where `family` **and** `sub_site` agree. Fills only empty cells;
-  typed overrides untouched.
+  - **LAN/WLAN/Servers + `sub_site=''`** → matched by family, exactly as today.
+- **Client mirror** (`_serviceToFill`): the server hands the client the **token list for that
+  site inside the `infra-auto` payload**, so the client resolves `(family, sub_site)` with the
+  same token-gated rule + the same shared normalizer — no independently-maintained token logic.
+  A test drives both the server `serviceToFill` and the client parse over one line-name fixture
+  set to pin them identical (closing the mirror-drift gap). Fills only empty cells; typed
+  overrides untouched.
 
 Net: the Exploration report's `WANx <subsite>` cells fill from each sub-site's network; the
-LAN/WLAN/Servers/Backup sub-site cells stay blank+editable; every normal report is byte-for-byte
-unchanged (`sub_site=''`).
+LAN/WLAN/Servers/Backup sub-site cells stay blank+editable; **every normal report is
+byte-for-byte unchanged** because a site with no configured tokens always yields `sub_site=''`.
 
 ## 8. WAN Health dashboard (`services/wanDashboard.js` + wan-health.html) — second slice
 
@@ -137,11 +170,17 @@ unchanged (`sub_site=''`).
 
 ## 9. Testing
 
-- **Pure:** `wanDashboard` sub_site grouping; `opmReportFill` parse `(family, sub_site)` +
-  WAN-by-sub_site + infra-with-token→no-fill; existing behaviour for `sub_site=''`.
+- **Pure:** `wanDashboard` sub_site grouping; `opmReportFill` — **token-gated** parse (a
+  configured token yields the sub_site; NO configured tokens → `sub_site=''` even on a line
+  with a trailing word, proving normal sites don't regress), WAN-by-sub_site,
+  infra-with-token→no-fill; multi-word suffix (`WAN1 Fetekro Explo` → `FETEKRO`).
 - **Sync:** `netToTargets` fans a shared network to two targets from one fetch; unmapped logs.
-- **Store:** `wan_subsite_networks` reader/writer round-trip; the `sub_site` migration (existing
-  rows → `''`, sub-site rows coexist); upsert keyed on the new PK.
+- **Store:** `wan_subsite_networks` reader/writer round-trip; **upsert round-trip asserting a
+  `sub_site='FETEKRO'` row coexists with a `sub_site=''` row for the same
+  `(site_id, uplink, period)`** (proves the new ON CONFLICT target); the `sub_site` migration
+  (existing rows → `''`).
+- **Mirror:** one line-name fixture set driven through BOTH `serviceToFill` and the client
+  parse → identical `(family, sub_site)` (closes the mirror-drift gap).
 - **Route smoke:** `mappings` GET/PUT carries `subsites` (super_admin gate); `infra-auto`
   returns sub-site WAN fills.
 - **Regression:** `await-precedence` (new dual-backend dispatchers), **pptx-golden unchanged**,
@@ -160,12 +199,12 @@ unchanged (`sub_site=''`).
 
 | File | Change |
 |---|---|
-| `reports-db.js` | `sub_site` column + PK (sqlite rebuild + pg migration); `wan_subsite_networks` table; `_WAN_SNAP_*`/`upsertWanSnapshots`/`getWanSnapshots` carry `sub_site`; `listWanSubsiteNetworks`/`setWanSubsiteNetworks` (dual-backend). |
-| `db/postgres/reports/008_wan_link_snapshots.sql` + a new migration file | new-PK shape + `wan_subsite_networks` CREATE. |
-| `tools/meraki/sync-wan.js` | `siteByNet` → `netToTargets`; derive-once/row-per-target. |
-| `services/opmReportFill.js` | parse `(family, sub_site)`; `buildFills` matches by `(uplink, sub_site)`; infra-with-token → no fill. |
+| `reports-db.js` | `sub_site` column added to `_WAN_SNAP_COLS` + upsert `ON CONFLICT` target + `_wanVals` `''`-coercion; sqlite inline CREATE new-PK + guarded rebuild; pg `initPgReports` `ADD COLUMN IF NOT EXISTS` + guarded PK swap; `wan_subsite_networks` table (shared CREATE + pg init); `listWanSubsiteNetworks`/`setWanSubsiteNetworks` (dual-backend). `getWanSnapshots`/`_wanWhere` unchanged (column flows via `SELECT *`). |
+| `db/postgres/reports/008_wan_link_snapshots.sql` | new-PK CREATE (fresh installs) + `wan_subsite_networks` CREATE. (No `copy-reports-*` edits — table isn't copied.) |
+| `tools/meraki/sync-wan.js` | `siteByNet` → `netToTargets` (list); derive-once/row-per-target; each row tagged `sub_site`. |
+| `services/opmReportFill.js` | token-gated `(family, sub_site)` parse (shared normalizer); `buildFills` matches WAN by `(uplink, sub_site)`, infra-with-token → no fill. |
 | `services/wanDashboard.js` | `latestPerSite`/`trendSeries` gain the `sub_site` group key. |
-| `routes/opmanager.js` | `mappings` GET/PUT carry `subsites`. |
-| `public/reports.html` | sub-site editor table; `_serviceToFill` mirror parses `(family, sub_site)`. |
+| `routes/opmanager.js` | `mappings` GET/PUT carry `subsites`; `infra-auto` payload carries the site's token list for the client mirror. |
+| `public/reports.html` | sub-site editor table; `_serviceToFill` mirror uses the payload token list + shared normalizer. |
 | `public/wan-health.html` | sub-site sub-groups + labelled trend. |
 | `tests/*` | as §9. |
