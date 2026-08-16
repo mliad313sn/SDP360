@@ -6419,6 +6419,25 @@ app.get('/api/reports/:id/active-incidents', requireReportSession, async (req, r
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// GET /api/reports/:id/infra-auto — V1b-C. Pre-fill values for the Infrastructure KPIs
+// Current Value cells, from the OPManager/Meraki snapshots for THIS report's site + Zoho
+// week. Best-effort: unconfigured / no snapshot → { fills: [] }, never 500. The client fills
+// only EMPTY cells (editor override) — nothing is persisted here; no infra_kpis change.
+app.get('/api/reports/:id/infra-auto', requireReportSession, async (req, res) => {
+  try {
+    const report = await rdb.getReport(parseInt(req.params.id));
+    if (!report) return res.status(404).json({ error: 'Report not found', fills: [] });
+    const { buildFills } = require('./services/opmReportFill');
+    const cfg = await reportConfig.getConfig(rdb.db);
+    const staleDays = parseInt(cfg.opm_stale_days, 10) || 9;
+    const start = report.start_date;                       // Zoho Sunday = weeks.start_date
+    const wan = await rdb.getWanSnapshots({ site_id: report.site_id, period_type: 'week', period_start: start });
+    const infra = await rdb.getInfraSnapshots({ site_id: report.site_id, period_type: 'week', period_start: start });
+    const fills = buildFills({ wan, infra, staleDays, nowMs: Date.now() });
+    res.json({ week_label: report.week_label, period_start: start, fills });
+  } catch (e) { res.json({ fills: [], reason: e.message }); }
+});
+
 // GET /api/sites/:siteId/active-incidents — same payload, looked up by
 // site id. Used by the monthly editor (which doesn't have a report id
 // at hand) and by any future "site dashboard" that wants the panel.
