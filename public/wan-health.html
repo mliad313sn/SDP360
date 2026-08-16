@@ -35,6 +35,7 @@
   .g{background:#27AE60}.o{background:#E8A100}.r{background:#DC2626}.n{background:#b6bdc7}
   .wh-up { font-weight:700; min-width:44px; } .wh-lbl { color:#6b7785; min-width:52px; }
   .wh-q { color:#6b7785; font-size:12px; margin-left:auto; }
+  .wh-subhdr { font-size:11px; font-weight:700; color:#556; margin:6px 0 2px; text-transform:uppercase; letter-spacing:.03em; }
   .wh-panel { background:#fff; border:1px solid #e4e8ee; border-radius:12px; padding:16px; }
   .wh-empty { background:#fff7ed; border:1px solid #f0c9a0; color:#7a3d12; border-radius:12px; padding:16px; }
   .wh-note { font-size:12px; color:#6b7785; margin-top:6px; }
@@ -91,17 +92,32 @@
     let data; try { data = await api('/api/analytics/wan/summary?period=' + period); } catch { data = { sites: [] }; }
     sites = data.sites || [];
     $('wh-empty').style.display = sites.length ? 'none' : 'block';
-    $('wh-grid').innerHTML = sites.map(s => `
-      <div class="wh-card">
-        <h3>${s.site_name || ('Site ' + s.site_id)}</h3>
-        ${(s.uplinks || []).map(u => `
+    const linkRow = u => `
           <div class="wh-link">
             <span class="wh-dot ${dotClass(u.status_color)}"></span>
             <span class="wh-lbl">${u.uplink_label || u.uplink}</span>
             <span class="wh-up">${u.availability_pct == null ? '—' : fmt(u.availability_pct) + '%'}</span>
             <span class="wh-q">loss ${fmt(u.loss_pct_avg)}% · ${fmt(u.latency_ms_avg)}ms · jit ${fmt(u.jitter_ms_avg)}ms</span>
-          </div>`).join('')}
-      </div>`).join('');
+          </div>`;
+    $('wh-grid').innerHTML = sites.map(s => {
+      const uplinks = s.uplinks || [];
+      const groups = {};
+      uplinks.forEach(u => { const k = u.sub_site || ''; (groups[k] = groups[k] || []).push(u); });
+      const keys = Object.keys(groups);
+      let body;
+      if (keys.length === 1 && keys[0] === '') {
+        body = uplinks.map(linkRow).join('');
+      } else {
+        body = keys.filter(k => k !== '').sort().map(k =>
+          `<div class="wh-subhdr">${k}</div>` + groups[k].map(linkRow).join('')
+        ).join('');
+      }
+      return `
+      <div class="wh-card">
+        <h3>${s.site_name || ('Site ' + s.site_id)}</h3>
+        ${body}
+      </div>`;
+    }).join('');
     // populate the site selector (keep current if still present)
     const sel = $('wh-site'), cur = sel.value;
     sel.innerHTML = sites.map(s => `<option value="${s.site_id}">${s.site_name || ('Site ' + s.site_id)}</option>`).join('');
@@ -124,10 +140,10 @@
       data: {
         labels,
         datasets: [
-          ...series.map(s => ({ label: (s.uplink || '') + ' availability %', yAxisID: 'y',
+          ...series.map(s => ({ label: (s.sub_site ? s.sub_site + ' ' : '') + (s.uplink || '') + ' availability %', yAxisID: 'y',
             data: labels.map(l => { const p = s.points.find(x => x.period_start === l); return p ? p.availability_pct : null; }),
             borderColor: colors[s.uplink] || '#3A4A60', backgroundColor: 'transparent', spanGaps: false, tension: 0.2 })),
-          ...series.map(s => ({ label: (s.uplink || '') + ' loss %', yAxisID: 'y1', borderDash: [4, 3],
+          ...series.map(s => ({ label: (s.sub_site ? s.sub_site + ' ' : '') + (s.uplink || '') + ' loss %', yAxisID: 'y1', borderDash: [4, 3],
             data: labels.map(l => { const p = s.points.find(x => x.period_start === l); return p ? p.loss_pct_avg : null; }),
             borderColor: colors[s.uplink] || '#999', backgroundColor: 'transparent', spanGaps: false, tension: 0.2 })),
         ],
