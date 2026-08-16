@@ -128,7 +128,7 @@ module.exports = function opmanagerRoutes(deps) {
     } catch (e) { return res.json({ available: false, reason: e.message }); }
   });
 
-  router.post('/api/analytics/opmanager/sync', requireAdmin, async (req, res) => {
+  router.post('/api/analytics/opmanager/sync', requireReportSession, requireAdmin, async (req, res) => {
     try {
       const r = await require('../tools/opmanager/sync-availability').main({ fetchView: deps.fetchView });
       res.json(r);
@@ -160,7 +160,7 @@ module.exports = function opmanagerRoutes(deps) {
     } catch (e) { res.json({ series: [], reason: e.message }); }
   });
 
-  router.post('/api/analytics/wan/sync', requireAdmin, async (req, res) => {
+  router.post('/api/analytics/wan/sync', requireReportSession, requireAdmin, async (req, res) => {
     try {
       const r = await require('../tools/meraki/sync-wan').main({});
       res.json(r);

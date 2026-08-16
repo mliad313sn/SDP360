@@ -166,3 +166,31 @@ test('wan trend unknown site → empty, not 500; no token → 401', async () => 
   const r2 = await get('/api/analytics/wan/summary?period=week', null);
   assert.equal(r2.status, 401);
 });
+
+function post(path, token) {
+  return new Promise((resolve, reject) => {
+    const headers = { 'x-dash-key': process.env.DASHBOARD_API_KEY, 'content-type': 'application/json' };
+    if (token) headers['x-report-token'] = token;
+    const req = http.request(base + path, { method: 'POST', headers },
+      (res) => { let b = ''; res.on('data', (d) => (b += d)); res.on('end', () => resolve({ status: res.statusCode, body: b ? JSON.parse(b) : null })); });
+    req.on('error', reject); req.end('{}');
+  });
+}
+
+// The sync routes need requireReportSession BEFORE requireAdmin — without it
+// req.reportUser is undefined and requireAdmin 403s "Admin only" for EVERYONE
+// (incl. super_admin). A valid admin session must pass the gate (config-gated
+// sync then self-skips → 200 {skipped}); no token must be 401, not 403.
+test('wan + opmanager sync: admin session passes the gate (not 403); no token → 401', async () => {
+  const wan = await post('/api/analytics/wan/sync', adminToken);
+  assert.notEqual(wan.status, 403, 'admin session must NOT get 403 Admin only');
+  assert.equal(wan.status, 200);
+  assert.equal(wan.body.skipped, true, 'meraki unconfigured → self-skips');
+
+  const opm = await post('/api/analytics/opmanager/sync', adminToken);
+  assert.notEqual(opm.status, 403, 'admin session must NOT get 403 Admin only');
+  assert.equal(opm.status, 200);
+
+  const noTok = await post('/api/analytics/wan/sync', null);
+  assert.equal(noTok.status, 401, 'no session → 401 (requireReportSession runs first), not 403');
+});
