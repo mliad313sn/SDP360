@@ -64,3 +64,50 @@ test('round2 rounds to 2 dp', () => {
   assert.equal(round2(66.666666), 66.67);
   assert.equal(round2(100), 100);
 });
+
+// ── multi-destination merge (connectivityMonitoringDestinations) ──────────────
+const { mergeDestinationSeries } = require('../services/merakiWanQuality');
+const T = (ts, loss, lat) => ({ startTime: ts, endTime: ts, lossPercent: loss, latencyMs: lat, jitter: 2, goodput: 1000 });
+
+test('mergeDestinationSeries: interval is up if ANY destination responded (min loss)', () => {
+  // dest A: up then down ; dest B: down then up  → both intervals up
+  const merged = mergeDestinationSeries([
+    [T('t1', 0, 20), T('t2', 100, null)],
+    [T('t1', 100, null), T('t2', 5, 30)],
+  ]);
+  const byTs = Object.fromEntries(merged.map(m => [m.startTime, m]));
+  assert.equal(byTs.t1.lossPercent, 0);      // best of {0,100}
+  assert.equal(byTs.t2.lossPercent, 5);      // best of {100,5}
+  const r = deriveAvailability(merged, { totalIntervals: 2, missing: 'down' });
+  assert.equal(r.availability_pct, 100);     // up on both intervals via the good destination
+});
+
+test('mergeDestinationSeries: interval down only if ALL destinations down', () => {
+  const merged = mergeDestinationSeries([
+    [T('t1', 100, null), T('t2', 0, 20)],
+    [T('t1', 100, null), T('t2', 0, 20)],
+  ]);
+  const r = deriveAvailability(merged, { totalIntervals: 2, missing: 'down' });
+  assert.equal(r.availability_pct, 50);      // t1 down (both dests down), t2 up
+});
+
+test('mergeDestinationSeries: single destination is a no-op passthrough', () => {
+  const merged = mergeDestinationSeries([[T('t1', 0, 20), T('t2', 2, 25)]]);
+  assert.equal(merged.length, 2);
+  assert.equal(merged[0].lossPercent, 0);
+  assert.equal(merged[1].latencyMs, 25);
+});
+
+test('mergeDestinationSeries: latency/jitter averaged across present destinations; sorted', () => {
+  const merged = mergeDestinationSeries([
+    [T('t2', 0, 40)],
+    [T('t1', 0, 10), T('t2', 0, 20)],
+  ]);
+  assert.deepEqual(merged.map(m => m.startTime), ['t1', 't2']);   // sorted
+  assert.equal(merged[1].latencyMs, 30);   // avg(40,20)
+});
+
+test('mergeDestinationSeries: empty → []', () => {
+  assert.deepEqual(mergeDestinationSeries([]), []);
+  assert.deepEqual(mergeDestinationSeries([[], []]), []);
+});

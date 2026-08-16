@@ -54,4 +54,36 @@ function statusColor(pct, target) {
   return 'red';
 }
 
-module.exports = { deriveAvailability, statusColor, round2 };
+// A Meraki MX pings SEVERAL destinations per uplink (connectivityMonitoringDestinations).
+// Merge the per-destination loss/latency series into ONE, aligned by startTime, so the WAN
+// link is "up" for an interval iff it responded to ANY destination — otherwise a single
+// destination outage (e.g. Google unreachable) would read as a link outage and the derived
+// % Time Up would under-report vs Meraki's own number. lossPercent = MIN across destinations
+// (best path → drives up/down); latency/jitter/goodput = average across present destinations.
+function mergeDestinationSeries(seriesList) {
+  const byTs = new Map();
+  for (const series of (seriesList || [])) {
+    for (const s of (series || [])) {
+      const ts = s && (s.startTime || s.ts);
+      if (!ts) continue;
+      let b = byTs.get(ts);
+      if (!b) { b = { startTime: ts, endTime: s.endTime || null, loss: [], lat: [], jit: [], good: [] }; byTs.set(ts, b); }
+      if (s.lossPercent != null && Number.isFinite(+s.lossPercent)) b.loss.push(+s.lossPercent);
+      if (s.latencyMs != null && Number.isFinite(+s.latencyMs)) b.lat.push(+s.latencyMs);
+      if (s.jitter != null && Number.isFinite(+s.jitter)) b.jit.push(+s.jitter);
+      if (s.goodput != null && Number.isFinite(+s.goodput)) b.good.push(+s.goodput);
+    }
+  }
+  const out = [];
+  for (const b of byTs.values()) {
+    out.push({
+      startTime: b.startTime, endTime: b.endTime,
+      lossPercent: b.loss.length ? Math.min(...b.loss) : null,   // best-of → up if any dest up
+      latencyMs: _avg(b.lat), jitter: _avg(b.jit), goodput: _avg(b.good),
+    });
+  }
+  out.sort((a, b) => String(a.startTime).localeCompare(String(b.startTime)));
+  return out;
+}
+
+module.exports = { deriveAvailability, statusColor, round2, mergeDestinationSeries };

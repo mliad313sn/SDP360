@@ -46,6 +46,14 @@ test('returns res.data', async () => {
   assert.deepEqual(await c.orgUplinkStatuses({}), [{ serial: 'X' }]);
 });
 
+test('networkConnectivityDestinations hits the network appliance path', async () => {
+  const calls = [];
+  const c = makeMerakiClient({ apiKey: 'K', orgId: 'O', get: fakeGet(calls, { destinations: [{ ip: '8.8.8.8', default: true }] }) });
+  const r = await c.networkConnectivityDestinations({ networkId: 'N_1' });
+  assert.match(calls[0].url, /\/networks\/N_1\/appliance\/connectivityMonitoringDestinations$/);
+  assert.deepEqual(r.destinations, [{ ip: '8.8.8.8', default: true }]);
+});
+
 test('inert without apiKey/orgId (returns [], no call)', async () => {
   const calls = [];
   const c = makeMerakiClient({ apiKey: '', orgId: '', get: fakeGet(calls) });

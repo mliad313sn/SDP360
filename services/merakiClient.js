@@ -33,6 +33,9 @@ function makeMerakiClient({ apiKey, orgId, baseUrl = 'https://api.meraki.com/api
   return {
     configured,
     orgNetworks: () => _get(`/organizations/${orgId}/networks`, { perPage: 1000 }),
+    // The configured destinations the MX pings per network → { destinations:[{ip,default,...}] }.
+    networkConnectivityDestinations: ({ networkId } = {}) =>
+      _get(`/networks/${networkId}/appliance/connectivityMonitoringDestinations`, {}),
     orgUplinkStatuses: ({ networkIds, serials } = {}) =>
       _get(`/organizations/${orgId}/uplinks/statuses`, { networkIds, serials, perPage: 1000 }),
     orgUplinksLossLatency: ({ serials } = {}) =>
