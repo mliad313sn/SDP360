@@ -118,6 +118,33 @@ CREATE TABLE IF NOT EXISTS infra_metric_snapshots (
   PRIMARY KEY (site_id, period_type, period_start, kpi_family, metric_name)
 );
 
+-- Meraki WAN link availability & quality snapshots (V1b). Per-LINK (wan1/wan2) — kept
+-- SEPARATE from infra_metric_snapshots (whose PK can't hold two 'wan' rows). availability_pct
+-- is DERIVED (calibration-gated); null = no data (never 0). Archives the vendor's numbers
+-- before Meraki purges (~60d). Composite PK, no surrogate id.
+CREATE TABLE IF NOT EXISTS wan_link_snapshots (
+  site_id          INTEGER NOT NULL,
+  uplink           TEXT NOT NULL,        -- 'wan1' | 'wan2' | 'wan3' | 'cellular'
+  period_type      TEXT NOT NULL,        -- 'week' | 'month'
+  period_start     TEXT NOT NULL,
+  period_end       TEXT,
+  availability_pct REAL,
+  status_color     TEXT,
+  loss_pct_avg     REAL,
+  latency_ms_avg   REAL,
+  jitter_ms_avg    REAL,
+  goodput_avg      REAL,
+  status_current   TEXT,
+  uplink_label     TEXT,
+  device_serial    TEXT,
+  network_id       TEXT,
+  data_through     TEXT,
+  collected_at     TEXT,
+  source           TEXT,
+  raw_json         TEXT,
+  PRIMARY KEY (site_id, uplink, period_type, period_start)
+);
+
 CREATE TABLE IF NOT EXISTS helpdesk_data (
   id                    INTEGER PRIMARY KEY AUTOINCREMENT,
   report_id             INTEGER NOT NULL UNIQUE,
@@ -1148,6 +1175,9 @@ async function initPgReports() {            // called once at server boot
   // V1a — OPManager infra availability snapshots.
   await _pg.exec(require('fs').readFileSync(
     require('path').join(__dirname, 'db', 'postgres', 'reports', '007_infra_snapshots.sql'), 'utf8'));
+  // V1b — Meraki WAN link availability & quality snapshots.
+  await _pg.exec(require('fs').readFileSync(
+    require('path').join(__dirname, 'db', 'postgres', 'reports', '008_wan_link_snapshots.sql'), 'utf8'));
   return _pg;
 }
 
@@ -2359,6 +2389,56 @@ function _getInfraSnapshotsSqlite(f) {
 async function _getInfraSnapshotsPg(f) {
   const { where, params } = _snapWhere(f);
   return pgHandle().prepare(`SELECT * FROM infra_metric_snapshots${where} ORDER BY period_start DESC, kpi_family`).all(...params);
+}
+
+// ── Meraki WAN link snapshots (V1b) — per-link (wan1/wan2), archived weekly/monthly.
+//    Mirrors the infra_metric_snapshots pattern: composite PK, one shared upsert SQL for
+//    both backends (can't desync), dual dispatcher.
+const _WAN_SNAP_COLS = ['site_id','uplink','period_type','period_start','period_end',
+  'availability_pct','status_color','loss_pct_avg','latency_ms_avg','jitter_ms_avg','goodput_avg',
+  'status_current','uplink_label','device_serial','network_id','data_through','collected_at','source','raw_json'];
+const _WAN_SNAP_UPSERT =
+  `INSERT INTO wan_link_snapshots (${_WAN_SNAP_COLS.join(',')}) VALUES (${_WAN_SNAP_COLS.map(() => '?').join(',')})
+   ON CONFLICT(site_id,uplink,period_type,period_start) DO UPDATE SET
+     period_end=excluded.period_end, availability_pct=excluded.availability_pct, status_color=excluded.status_color,
+     loss_pct_avg=excluded.loss_pct_avg, latency_ms_avg=excluded.latency_ms_avg, jitter_ms_avg=excluded.jitter_ms_avg,
+     goodput_avg=excluded.goodput_avg, status_current=excluded.status_current, uplink_label=excluded.uplink_label,
+     device_serial=excluded.device_serial, network_id=excluded.network_id, data_through=excluded.data_through,
+     collected_at=excluded.collected_at, source=excluded.source, raw_json=excluded.raw_json`;
+const _wanVals = (r) => _WAN_SNAP_COLS.map(c => (r[c] === undefined ? null : r[c]));
+function _wanWhere(f) {
+  const w = [], p = [];
+  if (f && f.site_id != null)  { w.push('site_id=?');      p.push(f.site_id); }
+  if (f && f.uplink)           { w.push('uplink=?');       p.push(f.uplink); }
+  if (f && f.period_type)      { w.push('period_type=?');  p.push(f.period_type); }
+  if (f && f.period_start)     { w.push('period_start=?'); p.push(f.period_start); }
+  return { where: w.length ? ' WHERE ' + w.join(' AND ') : '', params: p };
+}
+function upsertWanSnapshots(rows) {
+  if (REPORTS_BACKEND === 'postgres') return _upsertWanSnapshotsPg(rows);
+  return _upsertWanSnapshotsSqlite(rows);
+}
+const _upsertWanSnapshotsSqlite = db.transaction((rows) => {
+  const st = db.prepare(_WAN_SNAP_UPSERT);
+  for (const r of (rows || [])) st.run(..._wanVals(r));
+});
+async function _upsertWanSnapshotsPg(rows) {
+  const H = pgHandle();
+  await H.runTransaction(async () => {
+    for (const r of (rows || [])) await H.prepare(_WAN_SNAP_UPSERT).run(..._wanVals(r));
+  });
+}
+function getWanSnapshots(f) {
+  if (REPORTS_BACKEND === 'postgres') return _getWanSnapshotsPg(f);
+  return _getWanSnapshotsSqlite(f);
+}
+function _getWanSnapshotsSqlite(f) {
+  const { where, params } = _wanWhere(f);
+  return db.prepare(`SELECT * FROM wan_link_snapshots${where} ORDER BY period_start DESC, uplink`).all(...params);
+}
+async function _getWanSnapshotsPg(f) {
+  const { where, params } = _wanWhere(f);
+  return pgHandle().prepare(`SELECT * FROM wan_link_snapshots${where} ORDER BY period_start DESC, uplink`).all(...params);
 }
 
 function saveHelpdeskData(report_id, data) {
@@ -7141,7 +7221,7 @@ module.exports = {
   getSiteTechnicianStats, _computeTechStats,
   getPreviousWeek, ensureWeek, getWeekRange,
   ensureReport, getReport, listReports,
-  saveInfraKpis, upsertInfraSnapshots, getInfraSnapshots, saveHelpdeskData, saveLights, saveActionItems, _backfillActionUids,
+  saveInfraKpis, upsertInfraSnapshots, getInfraSnapshots, upsertWanSnapshots, getWanSnapshots, saveHelpdeskData, saveLights, saveActionItems, _backfillActionUids,
   setActionMerge, clearActionMerge, setActionStatus, setActionLineage, getSiteOpenReportActions,
   getPreviousWeekOpenActions, listAllWeeksWithActions, getActionsForReport,
   listAllWeeksWithLights, getLightsForReport,
