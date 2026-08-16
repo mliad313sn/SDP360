@@ -386,6 +386,8 @@ try { db.exec(`ALTER TABLE request_records ADD COLUMN impact TEXT`); } catch(e) 
 // validateSession() bumps it on every authenticated request. Defaults to
 // created_at for historical rows so the first read works without backfill.
 try { db.exec(`ALTER TABLE sessions ADD COLUMN last_seen TEXT`); } catch(e) {}
+// V1b-B — recent-vs-window label for device-availability snapshots (OpManager REST).
+try { db.exec(`ALTER TABLE infra_metric_snapshots ADD COLUMN basis TEXT`); } catch(e) {}
 try { db.exec(`CREATE INDEX IF NOT EXISTS idx_sessions_last_seen ON sessions(last_seen)`); } catch(e) {}
 // sites: add zoho_group column for group-based helpdesk filtering
 try { db.exec(`ALTER TABLE sites ADD COLUMN zoho_group TEXT`); } catch(e) {}
@@ -1190,6 +1192,8 @@ async function initPgReports() {            // called once at server boot
   // V1b — Meraki WAN link availability & quality snapshots.
   await _pg.exec(require('fs').readFileSync(
     require('path').join(__dirname, 'db', 'postgres', 'reports', '008_wan_link_snapshots.sql'), 'utf8'));
+  // V1b-B — additive recent-vs-window label on infra_metric_snapshots (device availability).
+  await _pg.exec(`ALTER TABLE infra_metric_snapshots ADD COLUMN IF NOT EXISTS basis TEXT`);
   return _pg;
 }
 
@@ -2361,14 +2365,14 @@ async function _saveInfraKpisPg(report_id, kpis) {
 // ── OPManager infra availability snapshots (V1a) — dual-backend upsert/read ──
 const _INFRA_SNAP_COLS = ['site_id','period_type','period_start','period_end','kpi_family','metric_name',
   'metric_value','target_value','status_color','trend','source','source_view','data_through',
-  'device_count','included_device_count','collected_at','raw_json'];
+  'device_count','included_device_count','collected_at','raw_json','basis'];
 const _INFRA_SNAP_UPSERT =
   `INSERT INTO infra_metric_snapshots (${_INFRA_SNAP_COLS.join(',')}) VALUES (${_INFRA_SNAP_COLS.map(() => '?').join(',')})
    ON CONFLICT(site_id,period_type,period_start,kpi_family,metric_name) DO UPDATE SET
      period_end=excluded.period_end, metric_value=excluded.metric_value, target_value=excluded.target_value,
      status_color=excluded.status_color, trend=excluded.trend, source=excluded.source, source_view=excluded.source_view,
      data_through=excluded.data_through, device_count=excluded.device_count, included_device_count=excluded.included_device_count,
-     collected_at=excluded.collected_at, raw_json=excluded.raw_json`;
+     collected_at=excluded.collected_at, raw_json=excluded.raw_json, basis=excluded.basis`;
 const _snapVals = (r) => _INFRA_SNAP_COLS.map(c => (r[c] === undefined ? null : r[c]));
 function _snapWhere(f) {
   const w = [], p = [];
