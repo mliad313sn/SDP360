@@ -67,7 +67,8 @@ test('round2 rounds to 2 dp', () => {
 
 // ── multi-destination merge (connectivityMonitoringDestinations) ──────────────
 const { mergeDestinationSeries } = require('../services/merakiWanQuality');
-const T = (ts, loss, lat) => ({ startTime: ts, endTime: ts, lossPercent: loss, latencyMs: lat, jitter: 2, goodput: 1000 });
+// Real getDeviceLossAndLatencyHistory field names: startTs/endTs (NOT startTime).
+const T = (ts, loss, lat) => ({ startTs: ts, endTs: ts, lossPercent: loss, latencyMs: lat, jitter: 2, goodput: 1000 });
 
 test('mergeDestinationSeries: interval is up if ANY destination responded (min loss)', () => {
   // dest A: up then down ; dest B: down then up  → both intervals up
@@ -110,4 +111,15 @@ test('mergeDestinationSeries: latency/jitter averaged across present destination
 test('mergeDestinationSeries: empty → []', () => {
   assert.deepEqual(mergeDestinationSeries([]), []);
   assert.deepEqual(mergeDestinationSeries([[], []]), []);
+});
+
+test('mergeDestinationSeries: keys on the REAL startTs field (prod bug 2026-08-16)', () => {
+  // A raw Meraki sample uses startTs/endTs; keying on startTime dropped every one →
+  // empty merge → null metrics. Must merge to a non-empty series carrying the values.
+  const raw = [{ startTs: '2026-08-09T21:00:00Z', endTs: '2026-08-09T22:00:00Z', lossPercent: 0, latencyMs: 2.05, jitter: 0.99, goodput: 100000 }];
+  const merged = mergeDestinationSeries([raw]);
+  assert.equal(merged.length, 1, 'startTs sample is NOT dropped');
+  assert.equal(merged[0].lossPercent, 0);
+  assert.equal(merged[0].latencyMs, 2.05);
+  assert.equal(merged[0].jitter, 0.99);
 });

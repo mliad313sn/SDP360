@@ -64,10 +64,13 @@ function mergeDestinationSeries(seriesList) {
   const byTs = new Map();
   for (const series of (seriesList || [])) {
     for (const s of (series || [])) {
-      const ts = s && (s.startTime || s.ts);
+      // getDeviceLossAndLatencyHistory returns startTs/endTs (NOT startTime) — accept
+      // the real field first, keep startTime/ts as defensive fallbacks. Missing this
+      // dropped every real sample → empty merge → null metrics (prod bug 2026-08-16).
+      const ts = s && (s.startTs || s.startTime || s.ts);
       if (!ts) continue;
       let b = byTs.get(ts);
-      if (!b) { b = { startTime: ts, endTime: s.endTime || null, loss: [], lat: [], jit: [], good: [] }; byTs.set(ts, b); }
+      if (!b) { b = { startTime: ts, endTime: s.endTs || s.endTime || null, loss: [], lat: [], jit: [], good: [] }; byTs.set(ts, b); }
       if (s.lossPercent != null && Number.isFinite(+s.lossPercent)) b.loss.push(+s.lossPercent);
       if (s.latencyMs != null && Number.isFinite(+s.latencyMs)) b.lat.push(+s.latencyMs);
       if (s.jitter != null && Number.isFinite(+s.jitter)) b.jit.push(+s.jitter);

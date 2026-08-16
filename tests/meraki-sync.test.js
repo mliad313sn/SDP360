@@ -13,7 +13,7 @@ function stub(over = {}) {
       uplinks: [{ interface: 'wan1', status: 'active' }, { interface: 'wan2', status: 'active' }] }],
     orgUplinksLossLatency: async () => [{ serial: 'Q2-AB', uplink: 'wan1', ip: '8.8.8.8' },
       { serial: 'Q2-AB', uplink: 'wan2', ip: '8.8.4.4' }],
-    deviceLossLatencyHistory: async () => Array.from({ length: 168 }, (_, i) => ({ startTime: `t${i}`, endTime: `t${i}`, lossPercent: 0, latencyMs: 20, jitter: 2, goodput: 1000 })),
+    deviceLossLatencyHistory: async () => Array.from({ length: 168 }, (_, i) => ({ startTs: `t${i}`, endTs: `t${i}`, lossPercent: 0, latencyMs: 20, jitter: 2, goodput: 1000 })),
     ...(over.client || {}),
   };
   const rdb = {
@@ -79,7 +79,7 @@ test('multi-destination: fetches history per destination and merges (up if any d
     orgUplinksLossLatency: async () => [{ serial: 'Q2-AB', uplink: 'wan1', ip: '8.8.8.8' }],
     networkConnectivityDestinations: async ({ networkId }) => ({ destinations: [{ ip: '8.8.8.8', default: true }, { ip: '1.1.1.1', default: false }] }),
     // dest 8.8.8.8: fully up ; dest 1.1.1.1: fully down → merged is up (any dest up)
-    deviceLossLatencyHistory: async ({ ip }) => { cap.histCalls.push(ip); return Array.from({ length: 168 }, (_, i) => ({ startTime: `t${i}`, endTime: `t${i}`, lossPercent: ip === '8.8.8.8' ? 0 : 100, latencyMs: 20, jitter: 2, goodput: 1000 })); },
+    deviceLossLatencyHistory: async ({ ip }) => { cap.histCalls.push(ip); return Array.from({ length: 168 }, (_, i) => ({ startTs: `t${i}`, endTs: `t${i}`, lossPercent: ip === '8.8.8.8' ? 0 : 100, latencyMs: 20, jitter: 2, goodput: 1000 })); },
   };
   const rdb = {
     listSiteModuleCodes: async () => [{ code: 'Ity Gold Operations', site_id: 7, module: 'meraki' }],
