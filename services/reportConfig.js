@@ -62,8 +62,21 @@ const DEFAULTS = {
   opm_availability_view_id: '',
   opm_targets: JSON.stringify({ lan: 99, wifi: 98, wan: 98, servers: 99 }),
   opm_stale_days: '9',
+  // ── Meraki Dashboard API (V1b — WAN availability & quality). api_key is a SECRET
+  //    (redacted on GET, blank-kept on save like smtp_pass); org_id + base_url are not.
+  //    missing_policy is the calibration output ('down'|'unknown', §7) — MUST live here
+  //    or setConfig's KEYS filter silently drops the calibrated value.
+  meraki_api_key: '', meraki_org_id: '',
+  meraki_base_url: 'https://api.meraki.com/api/v1',
+  meraki_missing_policy: 'down',
 };
 const KEYS = Object.keys(DEFAULTS);
+
+// Secrets that the GET handler redacts to '' — a Save that doesn't retype them must
+// NOT wipe the stored value (blank = keep). Any new secret-shaped key joins this set.
+const _SECRET_BLANK_KEEP = new Set([
+  'smtp_pass', 'entra_client_secret', 'meridian_out_key', 'meridian_in_key', 'meraki_api_key',
+]);
 
 function _h(db) {
   const rdb = require('../reports-db');
@@ -103,7 +116,7 @@ function setConfig(db, patch, user) {
   // redacts it to '', so a Save that doesn't retype it must NOT wipe the stored value.
   const clean = Object.entries(patch || {})
     .filter(([k]) => KEYS.includes(k))
-    .filter(([k, v]) => !((k === 'smtp_pass' || k === 'entra_client_secret' || k === 'meridian_out_key' || k === 'meridian_in_key') && String(v) === ''));
+    .filter(([k, v]) => !(_SECRET_BLANK_KEEP.has(k) && String(v) === ''));
   const { H, isPg } = _h(db);
   if (isPg) return (async () => {
     await H.runTransaction(async () => {
@@ -117,4 +130,4 @@ function setConfig(db, patch, user) {
   return getConfig(db);
 }
 
-module.exports = { DEFAULTS, KEYS, _initSchema, getConfig, setConfig };
+module.exports = { DEFAULTS, KEYS, _SECRET_BLANK_KEEP, _initSchema, getConfig, setConfig };

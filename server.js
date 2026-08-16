@@ -5122,6 +5122,7 @@ app.get('/api/reports/config', requireReportSession, requireAdmin, async (req, r
     if (c && c.entra_client_secret) c.entra_client_secret = '';   // never expose the stored SSO secret
     if (c && c.meridian_out_key) c.meridian_out_key = '';   // never expose the stored Meridian keys
     if (c && c.meridian_in_key) c.meridian_in_key = '';
+    if (c && c.meraki_api_key) c.meraki_api_key = '';   // never expose the stored Meraki API key
     res.json(c);
   }
   catch (e) { res.status(500).json({ error: e.message }); }
@@ -5140,6 +5141,11 @@ app.put('/api/reports/config', requireReportSession, requireAdmin, async (req, r
     const MERIDIAN_KEYS = ['meridian_base_url','meridian_out_key','meridian_in_key'];
     if (MERIDIAN_KEYS.some(k => k in body) && req.reportUser?.role !== 'super_admin') {
       return res.status(403).json({ error: 'Meridian settings require super_admin' });
+    }
+    // Meraki API key carries a service secret → super_admin only (org_id/base_url/policy too, kept simple).
+    const MERAKI_KEYS = ['meraki_api_key','meraki_org_id','meraki_base_url','meraki_missing_policy'];
+    if (MERAKI_KEYS.some(k => k in body) && req.reportUser?.role !== 'super_admin') {
+      return res.status(403).json({ error: 'Meraki settings require super_admin' });
     }
     const out = await reportConfig.setConfig(rdb.db, body, req.reportUser?.username);
     require('./services/ssoSettings')._invalidate();   // config changed → re-read next request
