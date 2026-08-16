@@ -6457,7 +6457,11 @@ app.get('/api/reports/:id/infra-auto', requireReportSession, async (req, res) =>
     const wan = await rdb.getWanSnapshots({ site_id: report.site_id, period_type: 'week', period_start: start });
     const infra = await rdb.getInfraSnapshots({ site_id: report.site_id, period_type: 'week', period_start: start });
     const fills = buildFills({ wan, infra, staleDays, nowMs: Date.now() });
-    res.json({ week_label: report.week_label, period_start: start, fills });
+    // Per-site sub-site tokens (Exploration) — for the client to token-gate its line
+    // matching. Row-driven; NOT passed into buildFills (buildFills is snapshot-driven).
+    const tokens = ((await rdb.listWanSubsiteNetworks()) || [])
+      .filter(r => r.site_id === report.site_id).map(r => r.sub_site);
+    res.json({ week_label: report.week_label, period_start: start, fills, tokens });
   } catch (e) { res.json({ fills: [], reason: e.message }); }
 });
 

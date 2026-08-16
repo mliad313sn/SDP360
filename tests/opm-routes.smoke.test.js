@@ -22,7 +22,7 @@ const { test, before, after } = require('node:test');
 const assert = require('node:assert');
 const http = require('http');
 
-let server, base, adminToken, mgoSiteId;
+let server, base, adminToken, superToken, mgoSiteId;
 
 function get(path, token) {
   return new Promise((resolve, reject) => {
@@ -31,6 +31,16 @@ function get(path, token) {
     const req = http.get(base + path, { headers },
       (res) => { let b = ''; res.on('data', (d) => (b += d)); res.on('end', () => resolve({ status: res.statusCode, body: b ? JSON.parse(b) : null })); });
     req.on('error', reject);
+  });
+}
+
+function put(path, body, token) {
+  return new Promise((resolve, reject) => {
+    const headers = { 'x-dash-key': process.env.DASHBOARD_API_KEY, 'content-type': 'application/json' };
+    if (token) headers['x-report-token'] = token;
+    const req = http.request(base + path, { method: 'PUT', headers },
+      (res) => { let b = ''; res.on('data', (d) => (b += d)); res.on('end', () => resolve({ status: res.statusCode, body: b ? JSON.parse(b) : null })); });
+    req.on('error', reject); req.end(JSON.stringify(body || {}));
   });
 }
 
@@ -56,6 +66,10 @@ before(async () => {
   assert.ok(me, 'seeded admin user exists');
   rdb.setUserRoles(me.id, ['admin']);
   adminToken = (await rdb.login(process.env.DASH_USER, process.env.DASH_PASS)).token;
+
+  // a super_admin for the mapping routes (they require super_admin, not admin)
+  await rdb.createUser({ username: 'opm-super', full_name: 'OPM Super', password: 'opm-super-pass-1111', role: 'super_admin' });
+  superToken = (await rdb.login('opm-super', 'opm-super-pass-1111')).token;
 
   await new Promise((r) => { server = http.createServer(app).listen(0, '127.0.0.1', r); });
   base = `http://127.0.0.1:${server.address().port}`;
@@ -193,4 +207,13 @@ test('wan + opmanager sync: admin session passes the gate (not 403); no token �
 
   const noTok = await post('/api/analytics/wan/sync', null);
   assert.equal(noTok.status, 401, 'no session → 401 (requireReportSession runs first), not 403');
+});
+
+// V1b-E T6a — the mapping editor also carries per-sub-site WAN networks (Exploration).
+test('mappings PUT/GET round-trips subsites (super_admin)', async () => {
+  const res = await put('/api/analytics/wan/mappings',
+    { mappings: [], subsites: [{ site_id: mgoSiteId, sub_site: 'FETEKRO', network: 'Exploration Fetekro' }] }, superToken);
+  assert.equal(res.status, 200);
+  const got = await get('/api/analytics/wan/mappings', superToken);
+  assert.ok((got.body.subsites || []).find(s => s.sub_site === 'FETEKRO'));
 });

@@ -171,8 +171,12 @@ module.exports = function opmanagerRoutes(deps) {
   // Editable Site ↔ Meraki-network map (the sync's own source). super_admin — this
   // is admin config. GET lists every active site (mapped or not); PUT saves rows.
   router.get('/api/analytics/wan/mappings', requireReportSession, requireSuperAdmin, async (req, res) => {
-    try { res.json({ sites: (await rdb.listSiteMerakiMap()) || [] }); }
-    catch (e) { res.status(500).json({ error: e.message }); }
+    try {
+      res.json({
+        sites: (await rdb.listSiteMerakiMap()) || [],
+        subsites: (await rdb.listWanSubsiteNetworks()) || [],
+      });
+    } catch (e) { res.status(500).json({ error: e.message }); }
   });
   router.put('/api/analytics/wan/mappings', requireReportSession, requireSuperAdmin, express.json(), async (req, res) => {
     try {
@@ -181,7 +185,12 @@ module.exports = function opmanagerRoutes(deps) {
         const sid = Number(m && m.site_id);
         if (Number.isFinite(sid)) await rdb.setSiteMerakiCode(sid, m.network);
       }
-      res.json({ ok: true, sites: (await rdb.listSiteMerakiMap()) || [] });
+      await rdb.setWanSubsiteNetworks((req.body && req.body.subsites) || []);
+      res.json({
+        ok: true,
+        sites: (await rdb.listSiteMerakiMap()) || [],
+        subsites: (await rdb.listWanSubsiteNetworks()) || [],
+      });
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
 

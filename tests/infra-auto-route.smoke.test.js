@@ -33,6 +33,9 @@ before(async () => {
   const site = (rdb.listSites() || [])[0];
   assert.ok(site, 'a seeded site exists');
 
+  // V1b-E T6a — a sub-site network for this site so infra-auto emits its tokens list.
+  await rdb.setWanSubsiteNetworks([{ site_id: site.id, sub_site: 'FETEKRO', network: 'Explo Fetekro' }]);
+
   // a report WITH snapshots
   const rep = rdb.ensureReport(site.id, 2026, 32);
   reportId = rep.id;
@@ -91,4 +94,11 @@ test('unknown report → 404 with empty fills, not 500', async () => {
 test('no token → 401', async () => {
   const r = await get(`/api/reports/${reportId}/infra-auto`, null);
   assert.equal(r.status, 401);
+});
+
+test('infra-auto payload carries the site tokens list', async () => {
+  const r = await get(`/api/reports/${reportId}/infra-auto`, adminToken);
+  assert.equal(r.status, 200);
+  assert.ok(Array.isArray(r.body.tokens), 'tokens is an array');
+  assert.ok(r.body.tokens.includes('FETEKRO'), 'tokens includes the configured sub-site');
 });
