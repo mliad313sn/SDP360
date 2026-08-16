@@ -45,10 +45,18 @@ async function main(deps = {}) {
     if (!week) { const pw = rdb.getPreviousWeek(); const r = rdb.getWeekRange(pw.year, pw.week); week = { period_start: r.start, period_end: r.end }; }
     if (!month) month = _currentMonthBounds(now);
 
-    // Pre-resolve network name → site_id (seed) and network id → name, with awaited calls,
-    // BEFORE the pure derive.
+    // Pre-resolve network name → targets and network id → name, with awaited calls,
+    // BEFORE the pure derive. A network can feed MULTIPLE {site_id, sub_site} targets:
+    // the main meraki seed (sub_site '') plus any sub-site rows sharing that network — so
+    // one Exploration network fans to per-sub-site rows from a SINGLE fetch.
     const codes = (await rdb.listSiteModuleCodes('meraki')) || [];
-    const siteByNet = {}; for (const c of codes) siteByNet[_normNet(c.code)] = c.site_id;
+    const netToTargets = new Map();
+    const _pushTarget = (net, t) => { const k = _normNet(net); const a = netToTargets.get(k) || []; a.push(t); netToTargets.set(k, a); };
+    for (const c of codes) _pushTarget(c.code, { site_id: c.site_id, sub_site: '' });
+    // Guard the optional sub-site call: callers/tests may inject a minimal rdb without it,
+    // and best-effort ethos means an absent fn is tolerated (no sub-sites → normal behaviour).
+    const subs = (typeof rdb.listWanSubsiteNetworks === 'function' ? await rdb.listWanSubsiteNetworks() : []) || [];
+    for (const s of subs) _pushTarget(s.network, { site_id: s.site_id, sub_site: s.sub_site });
     let networkNameById = deps.networkNameById;
     if (!networkNameById) {
       const nets = (await client.orgNetworks()) || [];
@@ -81,8 +89,8 @@ async function main(deps = {}) {
     const unmapped = new Set();   // networks that returned uplinks but map to no site (seed gap)
     for (const dev of statuses) {
       const netName = networkNameById(dev.networkId);
-      const site_id = netName != null ? siteByNet[_normNet(netName)] : null;
-      if (site_id == null) { if (netName) unmapped.add(netName); continue; }   // unmapped → skip (never guess)
+      const targets = netName != null ? (netToTargets.get(_normNet(netName)) || []) : [];
+      if (targets.length === 0) { if (netName) unmapped.add(netName); continue; }   // unmapped → skip (never guess)
       for (const up of (dev.uplinks || [])) {
         if (!/^wan\d$/.test(String(up.interface || ''))) continue;   // wan1/wan2/… (cellular not a report family)
         const destIps = await destIpsFor(dev, up);
@@ -93,14 +101,16 @@ async function main(deps = {}) {
           const seriesList = [];
           for (const ip of destIps) seriesList.push((await client.deviceLossLatencyHistory({ serial: dev.serial, uplink: up.interface, ip, t0, t1, resolution })) || []);
           const series = mergeDestinationSeries(seriesList);   // up if ANY destination responded
-          const q = deriveAvailability(series, { totalIntervals, missing });
-          rows.push({
-            site_id, uplink: up.interface, period_type: ptype, period_start: win.period_start, period_end: win.period_end,
-            availability_pct: q.availability_pct, status_color: statusColor(q.availability_pct, wanTarget),
-            loss_pct_avg: q.loss_pct_avg, latency_ms_avg: q.latency_ms_avg, jitter_ms_avg: q.jitter_ms_avg, goodput_avg: q.goodput_avg,
-            status_current: up.status || null, uplink_label: up.label || null, device_serial: dev.serial, network_id: dev.networkId,
-            data_through: win.period_end, collected_at: now, source: 'meraki_api', raw_json: null,
-          });
+          const q = deriveAvailability(series, { totalIntervals, missing });   // derived ONCE per uplink/period; fanned to every target
+          for (const t of targets) {
+            rows.push({
+              site_id: t.site_id, sub_site: t.sub_site, uplink: up.interface, period_type: ptype, period_start: win.period_start, period_end: win.period_end,
+              availability_pct: q.availability_pct, status_color: statusColor(q.availability_pct, wanTarget),
+              loss_pct_avg: q.loss_pct_avg, latency_ms_avg: q.latency_ms_avg, jitter_ms_avg: q.jitter_ms_avg, goodput_avg: q.goodput_avg,
+              status_current: up.status || null, uplink_label: up.label || null, device_serial: dev.serial, network_id: dev.networkId,
+              data_through: win.period_end, collected_at: now, source: 'meraki_api', raw_json: null,
+            });
+          }
         }
       }
     }

@@ -18,6 +18,7 @@ function stub(over = {}) {
   };
   const rdb = {
     listSiteModuleCodes: async (m) => (m === 'meraki' ? [{ code: 'Ity Gold Operations', site_id: 7, module: 'meraki' }] : []),
+    listWanSubsiteNetworks: async () => [],
     upsertWanSnapshots: async (rows) => { cap.upserts.push(...rows); },
     ...(over.rdb || {}),
   };
@@ -100,6 +101,21 @@ test('multi-destination: fetches history per destination and merges (up if any d
   assert.ok(cap.histCalls.filter(ip => ip === '8.8.8.8').length >= 1 && cap.histCalls.filter(ip => ip === '1.1.1.1').length >= 1, 'both destinations queried');
   const wk = cap.upserts.find(u => u.period_type === 'week' && u.uplink === 'wan1');
   assert.equal(wk.availability_pct, 100, 'up because one destination (8.8.8.8) responded on every interval');
+});
+
+test('a network in BOTH the main map and a sub-site map fans to two rows from one fetch', async () => {
+  const { deps, cap } = stub({
+    rdb: {
+      listSiteModuleCodes: async (m) => (m === 'meraki' ? [{ code: 'Massawa Gold Operations', site_id: 5, module: 'meraki' }] : []),
+      listWanSubsiteNetworks: async () => [{ site_id: 9, sub_site: 'MASSAWA', network: 'Massawa Gold Operations' }],
+    },
+    networkNameById: () => 'Massawa Gold Operations',
+  });
+  const r = await main(deps);
+  assert.equal(r.ok, true);
+  const wk = cap.upserts.filter(u => u.period_type === 'week' && u.uplink === 'wan1');
+  assert.ok(wk.find(u => u.site_id === 5 && u.sub_site === ''),        'Massawa mine row');
+  assert.ok(wk.find(u => u.site_id === 9 && u.sub_site === 'MASSAWA'), 'Exploration MASSAWA row');
 });
 
 test('suffix-tolerant site match: a "... - appliance" network maps to the base-name seed', async () => {
