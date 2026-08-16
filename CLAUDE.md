@@ -6,6 +6,30 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ---
 
+## ⚡ Current state (as of 2026-08-15, encore plus tard — Infra V1b-C : auto-remplissage du rapport site, sur `main`, PAS déployé)
+
+> **V1b-C landed on `main`** (commits `00cf7dd`→`0d15794`→`d164ddb`→`T4`, NOT déployé) — l'**auto-
+> remplissage** des cellules *Current Value* des Infrastructure KPIs du rapport site depuis les
+> snapshots A (`wan_link_snapshots`) + B (`infra_metric_snapshots`). **Ce qui est construit** :
+> **`services/opmReportFill.js`** (pur : `serviceToFill(name)` → `wan1|wan2|lan|wifi|servers|null`,
+> wlan/wifi AVANT wan, Backup/Radio→null ; `buildFills({wan,infra,staleDays,nowMs})` → cellules
+> `{match,value '%',status_color,trend,stale,basis,source}`, metric null → **pas d'entrée** de fill) ;
+> **`GET /api/reports/:id/infra-auto`** (résout rapport → `site_id`+`start_date` semaine Zoho →
+> lit les 2 stores pour cette semaine → `buildFills` ; best-effort `{fills:[]}` jamais 500 ; 404
+> rapport inconnu ; chemin 2-segments donc pas de shadow `/:id` ; tous les rdb awaités) ;
+> **`reports.html`** — à l'ouverture d'un rapport **éditable**, après `renderInfra()`,
+> `maybeAutoFillInfra()` remplit **UNIQUEMENT les cellules vides** (jamais un override tapé),
+> couleur+trend depuis le snapshot (accord avec le dashboard WAN), fond léger + tooltip
+> (source·data through·basis·stale), bandeau, + bouton « ⚡ Fill from OPManager/Meraki ».
+> `_serviceToFill` client = **mirror** de `services/opmReportFill.serviceToFill` (vérifié identique).
+> **Override = stateless, cellule-vide-seulement, ZÉRO schéma `infra_kpis`** → une fois sauvé =
+> lignes `infra_kpis` ordinaires → **PPTX/email/score inchangés** (goldens verts sans régénération).
+> Backup/Radio jamais touchés. Tests : 5 unités fill + 4 route smoke (fills / no-snapshot vide /
+> 404 / 401) ; goldens weekly+pptx **inchangés**. **E2E navigateur = étape user** (éditeur derrière
+> login). **Reste V1b** : V1b-D (dashboard WAN Health, lit A) — indépendant. Les valeurs ne sont
+> fiables qu'après les gates calibration (A) + découverte (B) ; le tooltip le dit (basis/stale).
+> Plan : `docs/superpowers/plans/2026-08-15-infra-wan-v1b-c.md`.
+
 ## ⚡ Current state (as of 2026-08-15, plus tard — Infra V1b-B : dispo device OpManager REST → LAN/WLAN/Servers, sur `main`, PAS déployé)
 
 > **V1b-B landed on `main`** (commits `2a08901`→`a7bd304`→`f027300`→`130d319`→`2f38dba`→
