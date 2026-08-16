@@ -666,11 +666,15 @@ for (const [siteName, probe] of Object.entries(_OPM_PROBE_CODES)) {
 // Meraki network name per site (V1b — WAN). Resolved by site NAME. Ity/Mana confirmed
 // from the dashboard; the rest follow the "<Site> Gold Operations" / office pattern and
 // are corrected at calibration (Task 7). No CHECK on `code`, so names with spaces store fine.
+// Real Meraki network names confirmed from the org's network selector (2026-08-16).
+// Sabodala is stored as the base name; the sync's suffix-tolerant match handles the
+// live "Sabodala Gold Operations - appliance" product-split network.
 const _MERAKI_NETWORK_CODES = {
   Ity: 'Ity Gold Operations', MANA: 'Mana Gold Operations',
   Hounde: 'Hounde Gold Operations', Sabodala: 'Sabodala Gold Operations',
-  Lafigue: 'Lafigue Gold Operations', Ouagadougou: 'Ouagadougou Office',
-  Abidjan: 'Abidjan Office', Tanda: 'Tanda',
+  Lafigue: 'Société des Mines de Lafigué', Ouagadougou: 'Ouaga Office',
+  Abidjan: 'Abidjan Office', Tanda: 'Assafou Dibingano Temp Office',
+  Dakar: 'Dakar Office', Kalana: 'Kalana Mine',
 };
 for (const [siteName, net] of Object.entries(_MERAKI_NETWORK_CODES)) {
   if (_SITE_MODULE_CODES_SEED[siteName]) _SITE_MODULE_CODES_SEED[siteName].meraki = net;
@@ -690,6 +694,15 @@ for (const [siteName, net] of Object.entries(_MERAKI_NETWORK_CODES)) {
     }
   }
   if (inserted > 0) console.log(`[seed] site_module_codes — inserted ${inserted} (site,module,code) mappings`);
+  // Self-heal meraki network names: the V1b-A values were guesses; once the real
+  // Meraki network names were known they changed. INSERT OR IGNORE won't update an
+  // existing row, so force the current _MERAKI_NETWORK_CODES value (site_module_codes
+  // has no edit UI, so the seed is authoritative for the meraki module).
+  const fixMeraki = db.prepare(`UPDATE site_module_codes SET code = ? WHERE module = 'meraki' AND site_id = ? AND code != ?`);
+  for (const [siteName, net] of Object.entries(_MERAKI_NETWORK_CODES)) {
+    const row = findSite.get(siteName);
+    if (row) fixMeraki.run(net, row.id, net);
+  }
 }
 
 // ── 1.B infra_kpi_catalog ─────────────────────────────────────────
@@ -1235,6 +1248,12 @@ async function _seedReportsCatalogsPg(H) {
         await H.prepare(`INSERT INTO site_module_codes (site_id, module, code) VALUES (?, ?, ?)
           ON CONFLICT (site_id, module) DO NOTHING`).run(row.id, mod, code);
       }
+    }
+    // Self-heal meraki network names (see sqlite note) — force the current seed value,
+    // since DO NOTHING would keep a stale V1b-A guess. Scoped to the meraki module.
+    for (const [siteName, net] of Object.entries(_MERAKI_NETWORK_CODES)) {
+      const r = await H.prepare('SELECT id FROM sites WHERE lower(name)=lower(?)').get(siteName);
+      if (r) await H.prepare(`UPDATE site_module_codes SET code = ? WHERE module = 'meraki' AND site_id = ? AND code != ?`).run(net, r.id, net);
     }
   });
   // infra_kpi_catalog — backfill from existing infra_kpis (empty on a fresh DB).

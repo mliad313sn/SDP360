@@ -101,3 +101,15 @@ test('multi-destination: fetches history per destination and merges (up if any d
   const wk = cap.upserts.find(u => u.period_type === 'week' && u.uplink === 'wan1');
   assert.equal(wk.availability_pct, 100, 'up because one destination (8.8.8.8) responded on every interval');
 });
+
+test('suffix-tolerant site match: a "... - appliance" network maps to the base-name seed', async () => {
+  // Meraki splits a site into product networks; the seed stores the base name.
+  const { deps, cap } = stub({
+    rdb: { listSiteModuleCodes: async (m) => (m === 'meraki' ? [{ code: 'Sabodala Gold Operations', site_id: 9, module: 'meraki' }] : []) },
+    networkNameById: () => 'Sabodala Gold Operations - appliance',
+  });
+  const r = await main(deps);
+  assert.equal(r.ok, true);
+  assert.ok(cap.upserts.length > 0, 'appliance-suffixed network resolves to the site');
+  assert.equal(cap.upserts[0].site_id, 9);
+});

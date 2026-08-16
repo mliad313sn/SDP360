@@ -19,3 +19,10 @@ test('resolution is case-insensitive (network names with spaces store fine — n
   const r = await rdb.getSiteIdByModuleCode('meraki', 'ity gold operations');
   assert.ok(r && r.site_id, 'case-insensitive match');
 });
+
+test('corrected real network names resolve (Lafigue accented, Tanda=Assafou)', async () => {
+  const laf = await rdb.getSiteIdByModuleCode('meraki', 'Société des Mines de Lafigué');
+  assert.ok(laf && laf.site_id, 'Lafigue resolves via its real accented network name');
+  const tan = await rdb.getSiteIdByModuleCode('meraki', 'Assafou Dibingano Temp Office');
+  assert.ok(tan && tan.site_id, 'Tanda resolves via the Assafou network name');
+});

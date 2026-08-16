@@ -10,6 +10,10 @@ const { deriveAvailability, statusColor, mergeDestinationSeries } = require('../
 
 function _safeParse(s, d) { try { return JSON.parse(s); } catch { return d; } }
 function _lc(x) { return String(x == null ? '' : x).trim().toLowerCase(); }
+// Meraki splits a site into product-typed networks ("Sabodala Gold Operations - appliance"
+// / "- switch"). Normalise both the seed name and the live network name by stripping that
+// product suffix, so the base-name seed still maps the appliance network to its site.
+function _normNet(x) { return _lc(x).replace(/\s*-\s*(appliance|switch|wireless|combined|cellular ?gateway|sensor|camera)\s*$/, ''); }
 
 // Prod entrypoint window helpers (not used when windows are injected).
 function _currentMonthBounds(nowIso) {
@@ -44,7 +48,7 @@ async function main(deps = {}) {
     // Pre-resolve network name → site_id (seed) and network id → name, with awaited calls,
     // BEFORE the pure derive.
     const codes = (await rdb.listSiteModuleCodes('meraki')) || [];
-    const siteByNet = {}; for (const c of codes) siteByNet[_lc(c.code)] = c.site_id;
+    const siteByNet = {}; for (const c of codes) siteByNet[_normNet(c.code)] = c.site_id;
     let networkNameById = deps.networkNameById;
     if (!networkNameById) {
       const nets = (await client.orgNetworks()) || [];
@@ -74,10 +78,11 @@ async function main(deps = {}) {
     }
 
     const rows = [];
+    const unmapped = new Set();   // networks that returned uplinks but map to no site (seed gap)
     for (const dev of statuses) {
       const netName = networkNameById(dev.networkId);
-      const site_id = netName != null ? siteByNet[_lc(netName)] : null;
-      if (site_id == null) continue;                        // unmapped network → skip (never guess)
+      const site_id = netName != null ? siteByNet[_normNet(netName)] : null;
+      if (site_id == null) { if (netName) unmapped.add(netName); continue; }   // unmapped → skip (never guess)
       for (const up of (dev.uplinks || [])) {
         if (!/^wan\d$/.test(String(up.interface || ''))) continue;   // wan1/wan2/… (cellular not a report family)
         const destIps = await destIpsFor(dev, up);
@@ -101,6 +106,7 @@ async function main(deps = {}) {
     }
     await rdb.upsertWanSnapshots(rows);
     log(`[meraki-wan] devices=${statuses.length} rows=${rows.length} → upserted (week ${week.period_start})`);
+    if (unmapped.size) log(`[meraki-wan] ${unmapped.size} network(s) unmapped to a site (add to the meraki seed / fix the site name): ${[...unmapped].join(' | ')}`);
     return { ok: true, rows: rows.length,
       week: rows.filter(r => r.period_type === 'week').length, month: rows.filter(r => r.period_type === 'month').length };
   } catch (e) {
