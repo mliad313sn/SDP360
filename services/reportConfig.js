@@ -69,13 +69,17 @@ const DEFAULTS = {
   meraki_api_key: '', meraki_org_id: '',
   meraki_base_url: 'https://api.meraki.com/api/v1',
   meraki_missing_policy: 'down',
+  // ── OpManager REST API (V1b-B — LAN/WLAN/Servers device availability). api_key is a
+  //    SECRET (redact/blank-keep/super_admin); base_url points at the on-prem server;
+  //    tls_insecure tolerates its self-signed cert. '1' = insecure (default).
+  opmanager_base_url: '', opmanager_api_key: '', opmanager_tls_insecure: '1',
 };
 const KEYS = Object.keys(DEFAULTS);
 
 // Secrets that the GET handler redacts to '' — a Save that doesn't retype them must
 // NOT wipe the stored value (blank = keep). Any new secret-shaped key joins this set.
 const _SECRET_BLANK_KEEP = new Set([
-  'smtp_pass', 'entra_client_secret', 'meridian_out_key', 'meridian_in_key', 'meraki_api_key',
+  'smtp_pass', 'entra_client_secret', 'meridian_out_key', 'meridian_in_key', 'meraki_api_key', 'opmanager_api_key',
 ]);
 
 function _h(db) {

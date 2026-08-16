@@ -5123,6 +5123,7 @@ app.get('/api/reports/config', requireReportSession, requireAdmin, async (req, r
     if (c && c.meridian_out_key) c.meridian_out_key = '';   // never expose the stored Meridian keys
     if (c && c.meridian_in_key) c.meridian_in_key = '';
     if (c && c.meraki_api_key) c.meraki_api_key = '';   // never expose the stored Meraki API key
+    if (c && c.opmanager_api_key) c.opmanager_api_key = '';   // never expose the stored OpManager API key
     res.json(c);
   }
   catch (e) { res.status(500).json({ error: e.message }); }
@@ -5146,6 +5147,10 @@ app.put('/api/reports/config', requireReportSession, requireAdmin, async (req, r
     const MERAKI_KEYS = ['meraki_api_key','meraki_org_id','meraki_base_url','meraki_missing_policy'];
     if (MERAKI_KEYS.some(k => k in body) && req.reportUser?.role !== 'super_admin') {
       return res.status(403).json({ error: 'Meraki settings require super_admin' });
+    }
+    const OPMANAGER_KEYS = ['opmanager_api_key','opmanager_base_url','opmanager_tls_insecure'];
+    if (OPMANAGER_KEYS.some(k => k in body) && req.reportUser?.role !== 'super_admin') {
+      return res.status(403).json({ error: 'OpManager settings require super_admin' });
     }
     const out = await reportConfig.setConfig(rdb.db, body, req.reportUser?.username);
     require('./services/ssoSettings')._invalidate();   // config changed → re-read next request
