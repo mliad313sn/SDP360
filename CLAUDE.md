@@ -6,6 +6,51 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ---
 
+## ⚡ Current state (as of 2026-08-16, plus tard — Infra V1b-E : WAN par sous-site (Exploration), sur `main`, PAS déployé)
+
+> **V1b-E landed on `main`** (8 commits `e37c13a`→`3710945`→`40b950b`→`7a8c1fe`→`5281c71`→
+> `ef1cd27`→`540ac1e`→`998076c`→`2ec38ed`, NOT déployé) — l'extension **WAN par sous-site** pour
+> le rapport **Exploration** (UN site de reporting, PLUSIEURS sous-sites dont les lignes infra-KPI
+> encodent le sous-site dans le nom : `WAN1 FETEKRO`, `WAN2 TANDA`). Un sous-site avec une ligne
+> `WANx <SOUS-SITE>` a **son propre network Meraki** ; un sous-site sans ligne WAN cohabite le WAN
+> de la mine (WiFi/LAN/serveurs/backup séparés — hors périmètre ici). **Token-gaté = la garantie
+> que les sites normaux ne bougent pas d'un octet** : sans token configuré, `parseServiceLine`
+> rend `sub_site:''`, tout se comporte comme avant. **Ce qui est construit (T1-T8, TDD, dual-backend)** :
+> **T1** — `sub_site TEXT NOT NULL DEFAULT ''` rejoint la **PK** de `wan_link_snapshots`
+> (`(site_id, sub_site, uplink, period_type, period_start)`) ; `_WAN_CREATE_SQL` factorisé (pas de
+> TDZ), rebuild sqlite gardé + `ADD COLUMN IF NOT EXISTS`/swap-PK pg via `DO $…$`. **T2** — store
+> **`wan_subsite_networks`** `(site_id, sub_site, network, PK(site_id,sub_site))` + lecteurs duaux
+> `listWanSubsiteNetworks` (INNER JOIN sites → seuls les sites existants, porte `site_name`) /
+> `setWanSubsiteNetworks` (transaction réelle, replace-all par site touché). **T3** — matcher UMD
+> **`public/lib/wanLineMatch.js`** (`parseServiceLine(name, tokens)` → `{family, sub_site}`,
+> **token-gaté**, longest-token-wins, strip diacritiques `[̀-ͯ]`, wifi/wlan AVANT wan) ;
+> `services/opmReportFill.serviceToFill` **délègue** au matcher (source unique de la famille). **T4** —
+> `buildFills` porte `sub_site` par descripteur (WAN = `r.sub_site||''`, infra = `''` ; PAS de param
+> `tokens` — le gating vit dans le match client). **T5** — `sync-wan.js` : `siteByNet` → **`netToTargets`**
+> (Map network→[{site_id, sub_site}]), un network fanne à N cibles depuis UNE seule collecte Meraki
+> (dérive `q` UNE fois par uplink/période, puis fan-out) ; appel `listWanSubsiteNetworks` **gardé**
+> (`typeof …==='function'`) pour les rdb injectés minimaux. **T6a** — routes : `GET/PUT
+> /api/analytics/wan/mappings` portent `subsites` (super_admin) ; `GET /api/reports/:id/infra-auto`
+> ajoute **`tokens`** (les sous-sites du site du rapport) sans toucher `buildFills`. **T6b** —
+> `reports.html` : charge `wanLineMatch.js`, **remplace le `byMatch` qui collapsait** `wan1('')` et
+> `wan1('FETEKRO')` par un match sur **`(family, sub_site)`** via `WanLineMatch.parseServiceLine(svc,
+> data.tokens)` (fallback `_serviceToFill` si la lib échoue ; garde « ne jamais écraser une valeur
+> tapée » intacte) + éditeur « Exploration sub-sites » (Site·token·network·✕) sauvé via le PUT
+> mappings étendu. **T7** — `wanDashboard.js` groupe par `(sub_site, uplink)` (`latestPerSite` clé
+> `site|sub_site|uplink`, `trendSeries` clé `sub_site||uplink` + champ `sub_site`). **T8** —
+> `wan-health.html` : sous-en-têtes par sous-site dans la carte résumé (émis SEULEMENT si un
+> `sub_site` non vide existe → sites normaux identiques), labels de courbe préfixés du sous-site.
+> Tests : **54/54** (wan-snapshots, wan-subsite-map, wan-line-match, opm-report-fill, meraki-sync,
+> wan-dashboard, opm-routes.smoke 9/9, infra-auto-route.smoke 5/5, admin-superadmin-gate.smoke,
+> await-precedence 5/5) + **`pptx-monthly-golden` 1/1 INCHANGÉ** (preuve « sites normaux byte-for-byte
+> intacts »). **Activation = étape user** : mapper les sous-sites Exploration dans Admin →
+> ⚡ Infra → « Exploration sub-sites » (chaque sous-site avec ligne WANx → son network Meraki), puis
+> Sync WAN. **E2E navigateur = étape user** (éditeur + dashboard derrière login). **Non-goals** :
+> auto-fill LAN/WLAN/Servers par sous-site (pas de source sous-site OpManager), généralité au-delà
+> d'Exploration, tout changement PPTX/email/score. Plan :
+> `docs/superpowers/plans/2026-08-16-infra-wan-subsite-exploration.md`, spec :
+> `docs/superpowers/specs/2026-08-16-infra-wan-subsite-exploration-design.md`.
+
 ## ⚡ Current state (as of 2026-08-16 — Infra V1b-D : dashboard WAN Health, sur `main`, PAS déployé)
 
 > **V1b-D landed on `main`** (commits `b58b93b`→`c65fd1b`→`T3`→`T4`, NOT déployé) — le **dashboard
@@ -3742,6 +3787,7 @@ In normal use NO request hits this fallback. It's a safety net.
 
 | Pitfall | Rule |
 |---------|------|
+| **WAN par sous-site (V1b-E) est TOKEN-GATÉ — c'est LA garantie que les sites normaux ne bougent pas ; et le match client NE PEUT PAS collapser par `uplink` seul** | Le rapport Exploration a UN site mais des lignes `WAN1 FETEKRO`/`WAN2 TANDA` = plusieurs networks Meraki. `wan_link_snapshots` porte `sub_site` DANS sa PK ; `wan_subsite_networks` mappe `(site_id, sub_site)→network`. **`public/lib/wanLineMatch.js parseServiceLine(name, tokens)` : SANS token → `sub_site:''` TOUJOURS** — donc un site normal (aucun sous-site configuré) matche exactement les fills `sub_site:''`, comportement inchangé (prouvé par `pptx-monthly-golden` inchangé + les tests « no tokens »). Le token-gating vit dans le **match client** (`reports.html`) et la route (`infra-auto` renvoie `tokens` = les sous-sites du site) — **JAMAIS dans `buildFills`** (row-driven, pas de param `tokens` : le param serait mort — plan review M4). **Piège dur** : l'ancien `byMatch = Object.fromEntries(fills.map(f=>[f.match,f]))` collapse `wan1('')` et `wan1('FETEKRO')` en UNE entrée → remplacé par `fills.find(x => x.match===family && (x.sub_site||'')===subSite)`. Idem `wanDashboard` clé sur `(sub_site, uplink)`, PAS `uplink` seul. `serviceToFill` = **délègue** à `wanLineMatch.family` (source unique) ; `sync-wan.js` fanne un network→N cibles depuis UNE collecte (dérive `q` une fois puis fan-out) avec l'appel `listWanSubsiteNetworks` **gardé** (`typeof`) pour les rdb injectés. **Activation user** : Admin → ⚡ Infra → « Exploration sub-sites ». |
 | **LAN/WLAN/Servers = OpManager REST `getDeviceCompleteDetails.availdata` (device-grain), `basis='recent'` ; WAN JAMAIS ici (Meraki) ; site = probe par défaut mais INJECTABLE** | La branche REST de `sync-availability.js` (prioritaire quand `opmanager_api_key`+`opmanager_base_url` réglés) liste les devices, **écarte les firewalls** (`_isFirewall` : nom `*F/W*` ou catégorie/type Meraki Security/MX — le WAN vient de Meraki, V1b-A), lit `availdata.Up` par device, et `aggregateDeviceAvail` (pur) fait la **moyenne par site×famille** pour **lan/wifi/servers uniquement** (wan+excluded droppés). **null-pas-zéro** partout (device illisible pas compté ; famille sans lecture → `metric_value:null`/`status:none`). Écrit dans `infra_metric_snapshots` (V1a) avec `source='opmanager_rest'` + **`basis='recent'`** : la fenêtre `availdata` n'est probablement PAS la semaine exacte (today/défaut) → **étiquetée `recent`, JAMAIS présentée comme « la semaine »** (V1b-C l'affiche). La colonne `basis` est un **ALTER additif backend-branché** (sqlite try/catch, pg `IF NOT EXISTS`), **PAS dans le CREATE partagé** (sinon boot sqlite throw duplicate). `deviceToSite` par défaut = **probeName** via le seed `site_module_codes` opmanager, mais **injectable** (`deps.deviceToSite`) car **probe ≠ site** (Dakar est sur la probe Sabodala) → la stratégie probe-vs-préfixe-de-nom est la **décision de découverte** (`tools/opmanager/discover.js`), pas un rewrite. Le chemin Analytics `fetchView` reste en fallback dormant. `getDeviceCompleteDetails` = **N appels** (un par device non-firewall) — on-prem, séquentiel, tolérable. La route `/coverage` doit dériver de la **même source** que les snapshots (re-pointée sur REST quand configurée) sinon gouvernance périmée. |
 | **WAN = Meraki API, PAS OpManager : les MX ont 0 interface SNMP ; le « % Time Up » est DÉRIVÉ + calibré, jamais servi tel quel** | Les firewalls Meraki MX ont **0 interface SNMP** dans OpManager (vérifié : colonne Interfaces=0) → l'API interfaces OpManager (`getInterfaces`/`getIntfAtAGlanceReportDetails`) est une **impasse pour le WAN**, et le widget « WAN Link » est de la donnée Meraki interne (endpoint non documenté — à éviter). La source WAN est l'**API Cloud Meraki** : `getDeviceLossAndLatencyHistory` (**≤31 j** par uplink — pas l'org `uplinksLossAndLatency` qui est **5 min max**). Elle rend loss/latence, **pas l'uptime** → OPS **dérive** le « % Time Up » (`merakiWanQuality.deriveAvailability` : interval up ssi `lossPercent<100` ; **intervalle manquant = `'down'` ou `'unknown'` selon `meraki_missing_policy`, choisi par CALIBRATION** contre le Summary Report Meraki (Ity 99.86/97.87), **jamais supposé** ; **zéro échantillon → `null`, jamais `0`** — no data ≠ dispo 0%). `getDeviceLossAndLatencyHistory` exige une **destination `ip`** — et le MX en surveille **PLUSIEURS** : on récupère la liste via **`getNetworkApplianceConnectivityMonitoringDestinations`** (`/networks/{id}/appliance/connectivityMonitoringDestinations`, autoritaire ; fallback = l'ip échantillonnée par l'org `uplinksLossAndLatency`), on tire une série par destination, et **`merakiWanQuality.mergeDestinationSeries`** les fusionne par `startTime` : `lossPercent = MIN` (**up si UNE destination a répondu**) — sinon une panne d'une seule destination (Google injoignable) ferait un faux « lien down » et le % Time Up sous-estimerait vs Meraki. `totalIntervals` vient de la **FENÊTRE** (`round((t1−t0)/resolution)`), pas de `series.length`, sinon `'down'` dégénère en `'unknown'`. Cross-check aussi `getOrganizationUplinksStatuses`. |
 | **WAN est PAR LIEN dans `wan_link_snapshots` (≠ `infra_metric_snapshots`) ; site = network Meraki via `site_module_codes` module=`meraki` ; fenêtre = semaine Zoho précédente** | Le WAN a besoin de **deux lignes** (wan1+wan2) par site/semaine — impossible dans `infra_metric_snapshots` dont la PK `(site,period_type,period_start,kpi_family,metric_name)` ne tient qu'**une** ligne `wan`. D'où **`wan_link_snapshots`** (PK `site_id,uplink,period_type,period_start`, colonnes qualité loss/latence/jitter/goodput + `availability_pct` DÉRIVÉ null-pas-zéro + `status_color` **bande rapport** `≥t/≥t×0.9/else`, PAS la bande ±2 de V1a — pour que la cellule du rapport et le dashboard WAN affichent la MÊME couleur pour le même nombre). Le **site = le network Meraki** (ex. `"Ity Gold Operations"`), seedé dans `site_module_codes` module=`meraki` **résolu par NOM de site** (Ity/Mana confirmés ; les autres pattern-guess corrigés à la calibration). Le collecteur mappe `networkId→name` (via `getOrganizationNetworks`) puis `name→site_id` (seed), tout **awaité AVANT** le pur (piège pg-Promise). La fenêtre hebdo = la **semaine Zoho PRÉCÉDENTE** (`getPreviousWeek`→`getWeekRange`, UTC) = `weeks.start_date` — la clé de jointure du rapport (V1b-C) ET le contrôle tz de la calibration. Tout config-gated + best-effort : sans `meraki_api_key`, sync self-skip, rien de touché. |
