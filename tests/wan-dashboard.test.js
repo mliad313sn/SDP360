@@ -45,3 +45,21 @@ test('empty inputs → empty outputs', () => {
   assert.deepEqual(trendSeries([]), []);
   assert.deepEqual(latestPerSite(null), []);
 });
+
+// V1b-E T7 — Exploration sub-sites: one uplink label appears once per sub_site.
+test('latestPerSite carries sub_site on each uplink cell', () => {
+  const out = latestPerSite([
+    { site_id: 9, sub_site: 'FETEKRO', uplink: 'wan1', period_start: '2026-08-09', availability_pct: 80 },
+    { site_id: 9, sub_site: 'TANDA',   uplink: 'wan1', period_start: '2026-08-09', availability_pct: 90 },
+  ]);
+  const site = out.find(s => s.site_id === 9);
+  assert.ok(site.uplinks.find(u => u.sub_site === 'FETEKRO'));
+  assert.ok(site.uplinks.find(u => u.sub_site === 'TANDA'));
+});
+test('trendSeries separates the same uplink by sub_site', () => {
+  const s = trendSeries([
+    { sub_site: 'FETEKRO', uplink: 'wan1', period_start: '2026-08-09', availability_pct: 80 },
+    { sub_site: 'TANDA',   uplink: 'wan1', period_start: '2026-08-09', availability_pct: 90 },
+  ]);
+  assert.equal(s.length, 2, 'one series per (sub_site, uplink)');
+});
