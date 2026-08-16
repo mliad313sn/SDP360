@@ -6,6 +6,35 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ---
 
+## ⚡ Current state (as of 2026-08-16 — Infra V1b-D : dashboard WAN Health, sur `main`, PAS déployé)
+
+> **V1b-D landed on `main`** (commits `b58b93b`→`c65fd1b`→`T3`→`T4`, NOT déployé) — le **dashboard
+> WAN Health** qui lit l'archive `wan_link_snapshots` (V1b-A) et la sert **par site × uplink**,
+> conservée **au-delà de la fenêtre ~60 j de Meraki**. **Lecture-seule, best-effort, config-gated
+> comme tout V1b.** **Ce qui est construit (T1-T4)** : **`services/wanDashboard.js`** (pur, ZÉRO I/O :
+> `latestPerSite(rows)` = la ligne au `period_start` MAX par `(site_id,uplink)`, groupée par site
+> ordonné par id, uplinks triés ; `trendSeries(rows)` = série par uplink ordonnée par `period_start`) ;
+> **3 routes** dans `routes/opmanager.js` — `GET /api/analytics/wan/summary` (`latestPerSite` + noms
+> de site via `listSites`), `GET /api/analytics/wan/trend?site=` (`resolveSiteParam` tolérant probe→
+> meetings→nom, puis `trendSeries`), `POST /api/analytics/wan/sync` (admin, lance `sync-wan.main({})`) —
+> tous best-effort `{sites:[]}`/`{series:[]}` jamais 500, rdb awaités ; **`public/wan-health.html`**
+> (page standalone : shell `#__shell` performance/wan-health, toggle Weekly/Month, grille de cartes
+> par site avec pastilles RAG wan1/wan2 + dispo% + loss/latency/jitter, courbe Chart.js dispo+loss
+> sur double axe `spanGaps:false`, bouton admin « ⚡ Sync now », état vide ; session par cookie via
+> `x-report-token`, `injectApiKey=false`) montée dans `_htmlCache` + route `sendHtmlPage` ; **entrée
+> Insights** dans `_shell.js` (`WAN Health`, icône `bar-chart-3` — distincte du parent `trending-up`,
+> ajoutée à `ICON_LIB`) ; **cron nocturne 05:20** (`tools/meraki/sync-wan`, staggered après
+> opm-availability 05:10 ; construit son propre client Meraki → pas de deps injectées). **Le report
+> band `statusColor` de V1b-A est la SEULE bande canonique** (≥target→green, ≥target×0.9→orange,
+> else red, null→none) → la cellule du rapport (V1b-C) et le dashboard WAN s'accordent. Tests :
+> 3 unités `wan-dashboard` + 2 smoke route (summary/trend + unknown-site vide + 401) ; **goldens
+> pptx-monthly + await-precedence 5/5 inchangés**. **E2E navigateur = étape user** (page derrière
+> login de session). **V1b complet (A-D)** ; les valeurs ne sont fiables qu'après les gates
+> **calibration** (`tools/meraki/calibrate.js`, verrouille `meraki_missing_policy`) + **découverte
+> OpManager** (`tools/opmanager/discover.js`, verrouille `deviceToSite`), tous deux = étape user
+> (clés lues en ENV, jamais imprimées ; l'agent ne saisit pas de secret). Plan :
+> `docs/superpowers/plans/2026-08-15-infra-wan-v1b-d.md`.
+
 ## ⚡ Current state (as of 2026-08-15, encore plus tard — Infra V1b-C : auto-remplissage du rapport site, sur `main`, PAS déployé)
 
 > **V1b-C landed on `main`** (commits `00cf7dd`→`0d15794`→`d164ddb`→`T4`, NOT déployé) — l'**auto-

@@ -502,6 +502,13 @@ cron.schedule('0 5 * * *', () => require('./tools/meridian/sync-resources').main
 cron.schedule('10 5 * * *', () => require('./tools/opmanager/sync-availability').main({ fetchView })
   .catch(e => console.error('[Cron:opm-availability]', e && e.message)));
 
+// Meraki WAN availability/quality sync (V1b) — 05:20, staggered after opm-availability.
+// Config-gated (skips until meraki_api_key is set) + best-effort. Builds its own Meraki
+// client from config, so it needs no injected deps. Archives the previous Zoho week +
+// current month into wan_link_snapshots (kept beyond Meraki's ~60-day retention window).
+cron.schedule('20 5 * * *', () => require('./tools/meraki/sync-wan').main({})
+  .catch(e => console.error('[Cron:meraki-wan]', e && e.message)));
+
 // Change + CAB: every hour at :30 past the hour (offset to avoid collision with requests at :45)
 // Bumped from `30 */2 * * *` (every 2h) on 2026-05-26 to support the
 // executive.html rewrite — DB-direct mode means data freshness IS the
