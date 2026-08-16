@@ -6,15 +6,10 @@
 // mirror in reports.html in sync with this). Backup/Radio (no source) → null (never filled).
 // A null metric produces NO fill entry (nothing to fill; the report stays blank there).
 
+// Delegates to the shared UMD matcher so there is exactly ONE family classifier
+// (no divergeable regex copies). Kept exported for back-compat.
 function serviceToFill(name) {
-  const n = String(name == null ? '' : name).trim().toLowerCase();
-  if (!n) return null;
-  if (/wlan|wifi|wireless/.test(n)) return 'wifi';   // BEFORE wan (wlan must not read as wan)
-  if (/wan\s*1/.test(n)) return 'wan1';
-  if (/wan\s*2/.test(n)) return 'wan2';
-  if (/\bserver/.test(n)) return 'servers';
-  if (/\blan\b/.test(n)) return 'lan';
-  return null;                                        // backup / radio / custom → manual
+  return require('../public/lib/wanLineMatch').parseServiceLine(name, []).family;
 }
 
 function _round1(x) { return x == null || Number.isNaN(+x) ? null : Math.round(+x * 10) / 10; }
