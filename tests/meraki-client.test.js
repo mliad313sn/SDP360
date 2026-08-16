@@ -24,13 +24,20 @@ test('deviceLossLatencyHistory shapes the request (path, key header, params)', a
   assert.ok(!('timespan' in opts.params), 'undefined params are dropped');
 });
 
-test('orgUplinkStatuses hits the org path with the org id + networkIds', async () => {
+test('orgUplinkStatuses hits the MX appliance uplink path (v1), with org id + networkIds', async () => {
   const calls = [];
   const c = makeMerakiClient({ apiKey: 'K', orgId: 'O', get: fakeGet(calls) });
   await c.orgUplinkStatuses({ networkIds: ['N1'] });
-  assert.match(calls[0].url, /\/organizations\/O\/uplinks\/statuses$/);
+  // Correct Meraki v1 endpoint is /appliance/uplink/statuses — the bare
+  // /uplinks/statuses path 404s (regression: WAN sync failed 404 in prod).
+  assert.match(calls[0].url, /\/organizations\/O\/appliance\/uplink\/statuses$/);
   assert.deepEqual(calls[0].opts.params.networkIds, ['N1']);
   assert.equal(calls[0].opts.params.perPage, 1000);
+});
+
+test('_get surfaces the failing path + HTTP status on error (404 diagnosis)', async () => {
+  const c = makeMerakiClient({ apiKey: 'K', orgId: 'O', get: async () => { const e = new Error('Request failed with status code 404'); e.response = { status: 404 }; throw e; } });
+  await assert.rejects(() => c.orgUplinkStatuses({}), /Meraki GET \/organizations\/O\/appliance\/uplink\/statuses → HTTP 404/);
 });
 
 test('orgUplinksLossLatency hits the org devices path', async () => {

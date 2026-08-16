@@ -4,8 +4,8 @@
 // (defaults to axios) so tests never hit the network. Inert when unconfigured
 // (no apiKey/orgId → returns [], makes no call) so the collector self-skips cleanly.
 //
-// Endpoints used (all GET, all documented):
-//   /organizations/{org}/uplinks/statuses                  — current per-uplink state
+// Endpoints used (all GET, all documented Meraki API v1):
+//   /organizations/{org}/appliance/uplink/statuses         — current per-uplink state (MX)
 //   /organizations/{org}/devices/uplinksLossAndLatency     — discover monitored dest ip
 //   /devices/{serial}/lossAndLatencyHistory                — per-uplink loss/latency ≤31d
 let _axios = null;
@@ -26,8 +26,15 @@ function makeMerakiClient({ apiKey, orgId, baseUrl = 'https://api.meraki.com/api
 
   async function _get(path, params) {
     if (!configured) return [];
-    const res = await transport(`${baseUrl}${path}`, { headers, params: _clean(params) });
-    return res && res.data !== undefined ? res.data : [];
+    try {
+      const res = await transport(`${baseUrl}${path}`, { headers, params: _clean(params) });
+      return res && res.data !== undefined ? res.data : [];
+    } catch (e) {
+      // Surface WHICH path failed + the HTTP status, so a 404 tells you org-id vs
+      // endpoint at a glance instead of a bare "status code 404".
+      const status = e && e.response && e.response.status;
+      throw new Error(`Meraki GET ${path}${status ? ` → HTTP ${status}` : ` → ${e.message}`}`);
+    }
   }
 
   return {
@@ -37,7 +44,7 @@ function makeMerakiClient({ apiKey, orgId, baseUrl = 'https://api.meraki.com/api
     networkConnectivityDestinations: ({ networkId } = {}) =>
       _get(`/networks/${networkId}/appliance/connectivityMonitoringDestinations`, {}),
     orgUplinkStatuses: ({ networkIds, serials } = {}) =>
-      _get(`/organizations/${orgId}/uplinks/statuses`, { networkIds, serials, perPage: 1000 }),
+      _get(`/organizations/${orgId}/appliance/uplink/statuses`, { networkIds, serials, perPage: 1000 }),
     orgUplinksLossLatency: ({ serials } = {}) =>
       _get(`/organizations/${orgId}/devices/uplinksLossAndLatency`, { serials }),
     deviceLossLatencyHistory: ({ serial, uplink, ip, t0, t1, timespan, resolution } = {}) =>
