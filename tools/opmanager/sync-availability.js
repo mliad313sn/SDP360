@@ -1,9 +1,13 @@
 'use strict';
-// V1a — OPManager availability sync. Reads the prepared daily Analytics view, classifies
-// + aggregates (week + month) in pure JS, and upserts infra_metric_snapshots. Config-gated
-// (skips when opm_availability_view_id unset), best-effort (a fetch/parse failure writes
-// NOTHING and keeps prior snapshots — never a partial/empty replace). Deps injectable.
+// OPManager availability sync. Two acquisition paths, one downstream store:
+//   • V1b-B REST (preferred when opmanager_api_key+base_url set) — read device availability
+//     via getDeviceCompleteDetails.availdata and aggregate device-grain per site per family
+//     (LAN/WLAN/Servers; WAN is Meraki, skipped). Stored basis='recent'.
+//   • V1a Analytics (fallback, gated on opm_availability_view_id) — the prepared daily view.
+// Both config-gated + best-effort (a failure writes NOTHING, keeps prior snapshots). Deps
+// injectable. Never passes a Promise-returning resolver into a pure aggregate (pg trap).
 const { aggregate } = require('../../services/opmAvailability');
+const { aggregateDeviceAvail } = require('../../services/opmanagerAvailability');
 const { classifyKpiFamily } = require('../../services/opmClassify');
 
 function _safeParse(s, d) { try { return JSON.parse(s); } catch { return d; } }
@@ -17,11 +21,57 @@ function _prevMonthStart(dateIso) {
   m -= 1; if (m < 1) { m = 12; y -= 1; }
   return `${y}-${String(m).padStart(2, '0')}-01`;
 }
+function _currentMonthBounds(nowIso) {
+  const d = new Date(nowIso); const y = d.getUTCFullYear(), m = d.getUTCMonth();
+  const last = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+  const mm = String(m + 1).padStart(2, '0');
+  return { period_type: 'month', period_start: `${y}-${mm}-01`, period_end: `${y}-${mm}-${String(last).padStart(2, '0')}` };
+}
+function _isFirewall(d) {
+  return /F\/?W/i.test(String(d.name || d.deviceName || d.displayName || '')) ||
+    /meraki\s*security|meraki\s*mx/i.test(String(d.category || '') + ' ' + String(d.type || ''));
+}
 function _trendOf(cur, prev) {
   if (cur == null || prev == null) return 'no_change';
   const d = cur - prev;
   if (Math.abs(d) < 0.1) return 'stable';
   return d > 0 ? 'up' : 'down';
+}
+
+// V1b-B — REST device-grain path (LAN/WLAN/Servers). Config-gated on opmanager_api_key+base_url.
+async function _restPath(deps, cfg, rdb, now, log) {
+  const client = deps.opmanagerClient || require('../../services/opmanagerClient').makeOpmanagerClient({
+    apiKey: cfg.opmanager_api_key, baseUrl: cfg.opmanager_base_url, tlsInsecure: cfg.opmanager_tls_insecure !== '0' });
+  const targets = _safeParse(cfg.opm_targets, {});
+
+  // Pre-resolve a PLAIN device→site map (default: probeName via the opmanager seed; the
+  // probe-vs-name strategy is the discovery decision, overridable via deps.deviceToSite).
+  const codes = (await rdb.listSiteModuleCodes('opmanager')) || [];
+  const byProbe = {}; for (const c of codes) byProbe[String(c.code).trim().toLowerCase()] = c.site_id;
+  const deviceToSite = deps.deviceToSite ||
+    (d => { const k = String(d.probeName == null ? '' : d.probeName).trim().toLowerCase(); return byProbe[k] != null ? byProbe[k] : null; });
+
+  // Windows: the report's PREVIOUS Zoho week + the current month.
+  let week = deps.asOfWeek;
+  if (!week) { const pw = rdb.getPreviousWeek(); const r = rdb.getWeekRange(pw.year, pw.week); week = { period_type: 'week', period_start: r.start, period_end: r.end }; }
+  const month = deps.asOfMonth || _currentMonthBounds(now);
+
+  const raw = (await client.listDevices({ rows: 5000, page: 1 })) || [];
+  const devices = [];
+  for (const d of raw) {
+    if (_isFirewall(d)) continue;                                   // WAN = Meraki
+    const name = d.name || d.deviceName || d.displayName;
+    const details = await client.getDeviceCompleteDetails({ name });
+    const availUp = details && details.availdata ? details.availdata.Up : null;
+    devices.push({ name, type: d.type, category: d.category, probeName: d.probeName, availUp });
+  }
+
+  const wk = aggregateDeviceAvail(devices, { classify: classifyKpiFamily, deviceToSite, targets, period: week, collected_at: now });
+  const mo = aggregateDeviceAvail(devices, { classify: classifyKpiFamily, deviceToSite, targets, period: month, collected_at: now });
+  const all = [...wk, ...mo];
+  await rdb.upsertInfraSnapshots(all);
+  log(`[opm-sync:rest] devices=${devices.length} week=${wk.length} month=${mo.length} → upserted (recent)`);
+  return { ok: true, mode: 'rest', devices: devices.length, week: wk.length, month: mo.length };
 }
 
 async function main(deps = {}) {
@@ -31,8 +81,15 @@ async function main(deps = {}) {
   const now = deps.now || new Date().toISOString();
 
   const cfg = await getConfig();                      // Promise on postgres — MUST await
+
+  // V1b-B REST path takes precedence when configured.
+  if (cfg && cfg.opmanager_api_key && cfg.opmanager_base_url) {
+    try { return await _restPath(deps, cfg, rdb, now, log); }
+    catch (e) { console.warn('[opm-sync:rest] failed (non-blocking, prior snapshots kept):', e.message); return { ok: false, error: e.message }; }
+  }
+
   const viewId = cfg && cfg.opm_availability_view_id;
-  if (!viewId) { log('[opm-sync] not configured (opm_availability_view_id) — skipping'); return { skipped: true }; }
+  if (!viewId) { log('[opm-sync] not configured (opmanager REST or opm_availability_view_id) — skipping'); return { skipped: true }; }
 
   const readDailyRows = deps.readDailyRows || ((a) => require('../../services/opmAnalytics').readDailyRows(a));
   const targets = _safeParse(cfg.opm_targets, {});
@@ -71,4 +128,4 @@ async function main(deps = {}) {
 }
 
 if (require.main === module) { main().then(r => process.exit(r && r.ok !== false ? 0 : 1)).catch(() => process.exit(1)); }
-module.exports = { main, _shiftDays, _prevMonthStart, _trendOf };
+module.exports = { main, _shiftDays, _prevMonthStart, _trendOf, _currentMonthBounds, _isFirewall };
