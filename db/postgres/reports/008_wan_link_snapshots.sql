@@ -27,3 +27,12 @@ CREATE TABLE IF NOT EXISTS wan_link_snapshots (
   raw_json         TEXT,
   PRIMARY KEY (site_id, sub_site, uplink, period_type, period_start)
 );
+
+-- V1b-E — editable map of a site's sub-site tokens to Meraki networks (Exploration).
+-- One fetched network fans out to multiple {site_id, sub_site} targets in the sync.
+CREATE TABLE IF NOT EXISTS wan_subsite_networks (
+  site_id  INTEGER NOT NULL,
+  sub_site TEXT NOT NULL,
+  network  TEXT NOT NULL,
+  PRIMARY KEY (site_id, sub_site)
+);

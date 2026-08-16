@@ -415,6 +415,13 @@ try {
     db.exec('DROP TABLE _wan_old');
   }
 } catch(e) {}
+// V1b-E — editable map of a site's sub-site tokens to Meraki networks (Exploration).
+try { db.exec(`CREATE TABLE IF NOT EXISTS wan_subsite_networks (
+  site_id  INTEGER NOT NULL,
+  sub_site TEXT NOT NULL,
+  network  TEXT NOT NULL,
+  PRIMARY KEY (site_id, sub_site)
+)`); } catch(e) {}
 try { db.exec(`CREATE INDEX IF NOT EXISTS idx_sessions_last_seen ON sessions(last_seen)`); } catch(e) {}
 // sites: add zoho_group column for group-based helpdesk filtering
 try { db.exec(`ALTER TABLE sites ADD COLUMN zoho_group TEXT`); } catch(e) {}
@@ -1246,6 +1253,13 @@ async function initPgReports() {            // called once at server boot
       ALTER TABLE wan_link_snapshots ADD PRIMARY KEY (site_id, sub_site, uplink, period_type, period_start);
     END IF;
   END $$;`);
+  // V1b-E — editable sub-site → Meraki network map (Exploration).
+  await _pg.exec(`CREATE TABLE IF NOT EXISTS wan_subsite_networks (
+    site_id  INTEGER NOT NULL,
+    sub_site TEXT NOT NULL,
+    network  TEXT NOT NULL,
+    PRIMARY KEY (site_id, sub_site)
+  )`);
   // V1b-B — additive recent-vs-window label on infra_metric_snapshots (device availability).
   await _pg.exec(`ALTER TABLE infra_metric_snapshots ADD COLUMN IF NOT EXISTS basis TEXT`);
   return _pg;
@@ -1879,6 +1893,59 @@ async function _setSiteMerakiCodePg(site_id, network) {
   await H.prepare(`INSERT INTO site_module_codes (site_id, module, code) VALUES (?, 'meraki', ?)
     ON CONFLICT (site_id, module) DO UPDATE SET code = EXCLUDED.code`).run(site_id, net);
   return { site_id, network: net };
+}
+
+// V1b-E — the editable sub-site → Meraki-network map (Exploration). INNER JOIN sites so
+// only rows for existing sites are returned. Normal sites simply have no rows here.
+function listWanSubsiteNetworks() {
+  if (REPORTS_BACKEND === 'postgres') return _listWanSubsiteNetworksPg();
+  return db.prepare(`
+    SELECT wsn.site_id AS site_id, wsn.sub_site AS sub_site, wsn.network AS network, s.name AS site_name
+    FROM wan_subsite_networks wsn JOIN sites s ON s.id = wsn.site_id
+    ORDER BY s.name, wsn.sub_site`).all();
+}
+async function _listWanSubsiteNetworksPg() {
+  return await pgHandle().prepare(`
+    SELECT wsn.site_id AS site_id, wsn.sub_site AS sub_site, wsn.network AS network, s.name AS site_name
+    FROM wan_subsite_networks wsn JOIN sites s ON s.id = wsn.site_id
+    ORDER BY s.name, wsn.sub_site`).all();
+}
+// Replace-all per touched site, in a real transaction: for each site_id present in `rows`,
+// DELETE its existing rows then INSERT the well-formed ones (both sub_site + network
+// non-blank after trim). Re-saving a site's set drops any sub_site no longer listed.
+function _wanSubsiteBySite(rows) {
+  const bySite = new Map();
+  for (const r of (rows || [])) {
+    if (r == null || r.site_id == null) continue;
+    const sub = String(r.sub_site == null ? '' : r.sub_site).trim();
+    const net = String(r.network == null ? '' : r.network).trim();
+    if (!bySite.has(r.site_id)) bySite.set(r.site_id, []);
+    if (sub && net) bySite.get(r.site_id).push({ sub_site: sub, network: net });
+  }
+  return bySite;
+}
+function setWanSubsiteNetworks(rows) {
+  if (REPORTS_BACKEND === 'postgres') return _setWanSubsiteNetworksPg(rows);
+  return _setWanSubsiteNetworksSqlite(rows);
+}
+const _setWanSubsiteNetworksSqlite = db.transaction((rows) => {
+  const bySite = _wanSubsiteBySite(rows);
+  const del = db.prepare(`DELETE FROM wan_subsite_networks WHERE site_id = ?`);
+  const ins = db.prepare(`INSERT INTO wan_subsite_networks (site_id, sub_site, network) VALUES (?, ?, ?)`);
+  for (const [site_id, list] of bySite) {
+    del.run(site_id);
+    for (const r of list) ins.run(site_id, r.sub_site, r.network);
+  }
+});
+async function _setWanSubsiteNetworksPg(rows) {
+  const H = pgHandle();
+  const bySite = _wanSubsiteBySite(rows);
+  await H.runTransaction(async () => {
+    for (const [site_id, list] of bySite) {
+      await H.prepare(`DELETE FROM wan_subsite_networks WHERE site_id = ?`).run(site_id);
+      for (const r of list) await H.prepare(`INSERT INTO wan_subsite_networks (site_id, sub_site, network) VALUES (?, ?, ?)`).run(site_id, r.sub_site, r.network);
+    }
+  });
 }
 
 // Pure aggregation core — exported for tests. `rows` are request_records rows
@@ -7324,6 +7391,7 @@ module.exports = {
   listSites, updateSiteGroup, createSite, updateSite, setSiteActive,
   // Per-module site codes (site_module_codes) — read path for the reporting suite
   getSiteIdByModuleCode, listSiteModuleCodes, listSiteMerakiMap, setSiteMerakiCode,
+  listWanSubsiteNetworks, setWanSubsiteNetworks,
   // Per-site report blocks (group-scoped — request_records.site is unreliable)
   getSiteHelpdeskMonthly, _computeSiteHelpdesk,
   // Window-scoped siblings ([from,to] inclusive) — the IT Review panel needs a
