@@ -60,33 +60,33 @@ Run: `DASH_USER=x DASH_PASS=xxxxxxxxxxxx node --test --test-force-exit tests/wan
 
 - [ ] **Step 3: Implement.**
   - **sqlite inline CREATE** (`reports-db.js:125-146`): add `sub_site TEXT NOT NULL DEFAULT '',` after `site_id`, and change the PK to `PRIMARY KEY (site_id, sub_site, uplink, period_type, period_start)`.
-  - **Guarded sqlite rebuild** (right after that CREATE runs): if the column is absent, rebuild (the table has no indexes/FKs, so nothing to recreate):
+  - **Guarded sqlite rebuild** — runs in the BOOT region (near the existing sqlite `basis` ALTER, `reports-db.js:~390`), so it **must NOT reference `_WAN_SNAP_COLS`** (that `const` is defined ~2000 lines later at `:2472` → referencing it at load = a temporal-dead-zone `ReferenceError`). **Hardcode the column list, and omit `sub_site` from the INSERT so its `DEFAULT ''` fills** (the table has no indexes/FKs, so nothing else to recreate):
 
 ```js
-// V1b-E — add sub_site to the WAN PK. Guarded one-time rebuild (no indexes/FKs to recreate).
+// V1b-E — add sub_site to the WAN PK. Guarded one-time rebuild (no indexes/FKs). Boot region.
 const _wanCols = db.prepare(`PRAGMA table_info(wan_link_snapshots)`).all().map(c => c.name);
 if (!_wanCols.includes('sub_site')) {
-  db.exec(`
-    ALTER TABLE wan_link_snapshots RENAME TO _wan_old;
-    ${/* the NEW create with sub_site + new PK */''}`);
-  // Recreate with the new schema, copy old rows as sub_site='', drop old.
-  // (Re-run the same CREATE string used above, then:)
-  db.exec(`INSERT INTO wan_link_snapshots (${_WAN_SNAP_COLS.join(',')})
-           SELECT ${_WAN_SNAP_COLS.map(c => c === 'sub_site' ? `''` : c).join(',')} FROM _wan_old;
-           DROP TABLE _wan_old;`);
+  db.exec(`ALTER TABLE wan_link_snapshots RENAME TO _wan_old;`);
+  db.exec(_WAN_CREATE_SQL);   // the new CREATE (sub_site + 5-col PK), defined as a literal in the boot region
+  db.exec(`INSERT INTO wan_link_snapshots
+     (site_id,uplink,period_type,period_start,period_end,availability_pct,status_color,loss_pct_avg,latency_ms_avg,jitter_ms_avg,goodput_avg,status_current,uplink_label,device_serial,network_id,data_through,collected_at,source,raw_json)
+   SELECT
+     site_id,uplink,period_type,period_start,period_end,availability_pct,status_color,loss_pct_avg,latency_ms_avg,jitter_ms_avg,goodput_avg,status_current,uplink_label,device_serial,network_id,data_through,collected_at,source,raw_json
+   FROM _wan_old;
+   DROP TABLE _wan_old;`);
 }
 ```
-  > Practical form: factor the CREATE into a `const _WAN_CREATE_SQL = '...'` so it's used by both the initial `CREATE TABLE IF NOT EXISTS` and the rebuild. Keep it simple.
+  > `_WAN_CREATE_SQL` is a plain string literal declared IN the boot region (not near `:2472`), used by both the initial `CREATE TABLE IF NOT EXISTS` and this rebuild. `sub_site` is intentionally absent from the INSERT/SELECT so its `DEFAULT ''` applies to migrated rows.
   - **`_WAN_SNAP_COLS`**: insert `'sub_site'` right after `'site_id'`.
   - **Upsert `ON CONFLICT`**: change to `ON CONFLICT(site_id,sub_site,uplink,period_type,period_start)`.
   - **`_wanVals`**: coerce sub_site → `''`:
     `const _wanVals = (r) => _WAN_SNAP_COLS.map(c => c === 'sub_site' ? (r.sub_site == null ? '' : r.sub_site) : (r[c] === undefined ? null : r[c]));`
   - **`008_wan_link_snapshots.sql`**: add `sub_site TEXT NOT NULL DEFAULT '',` after `site_id` and update the PK (for fresh installs).
-  - **pg migration in `initPgReports`** (near the `basis` ALTER): after `008` is applied, run the guarded add + PK swap:
+  - **pg migration in `initPgReports`** (near the `basis` ALTER; the handle in this scope is **`_pg`**, NOT `H`): after `008` is applied, run the guarded add + PK swap:
 
 ```js
-await H.exec(`ALTER TABLE wan_link_snapshots ADD COLUMN IF NOT EXISTS sub_site TEXT NOT NULL DEFAULT ''`);
-await H.exec(`DO $$ BEGIN
+await _pg.exec(`ALTER TABLE wan_link_snapshots ADD COLUMN IF NOT EXISTS sub_site TEXT NOT NULL DEFAULT ''`);
+await _pg.exec(`DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='wan_link_snapshots_pkey'
                  AND conrelid='wan_link_snapshots'::regclass
                  AND array_length(conkey,1)=5) THEN
@@ -132,7 +132,7 @@ test('setWanSubsiteNetworks upserts + deletes (replace-all for the given set)', 
   - CREATE (shared shape, in the sqlite inline schema block AND `008.sql` AND pg init):
     `CREATE TABLE IF NOT EXISTS wan_subsite_networks (site_id INTEGER NOT NULL, sub_site TEXT NOT NULL, network TEXT NOT NULL, PRIMARY KEY (site_id, sub_site));`
   - Dual-backend `listWanSubsiteNetworks()` → `SELECT wsn.site_id, wsn.sub_site, wsn.network, s.name AS site_name FROM wan_subsite_networks wsn JOIN sites s ON s.id=wsn.site_id ORDER BY s.name, wsn.sub_site`.
-  - Dual-backend `setWanSubsiteNetworks(rows)`: **replace-all per touched site** — group `rows` by `site_id`; in a transaction, for each touched site `DELETE … WHERE site_id=?`, then INSERT each `{sub_site, network}` where both are non-blank (trim). Mirror the `_setSiteMerakiCodePg` transaction style.
+  - Dual-backend `setWanSubsiteNetworks(rows)`: **replace-all per touched site** — group `rows` by `site_id`; in a **real transaction**, for each touched site `DELETE … WHERE site_id=?`, then INSERT each `{sub_site, network}` where both are non-blank (trim). ⚠️ `_setSiteMerakiCodePg` is **NOT** transactional — do NOT copy it for the txn. Copy the transaction wrapper from the WAN upsert helpers instead: sqlite `db.transaction((rows)=>{…})`, pg `await pgHandle().runTransaction(async ()=>{…})` (see `_upsertWanSnapshotsSqlite`/`_upsertWanSnapshotsPg`, `reports-db.js:2496-2505`).
   - Export both from `module.exports`.
 - [ ] **Step 4: Run — expect PASS.** Then `node --test … tests/await-precedence.test.js` (new dispatchers).
 - [ ] **Step 5: Commit** — `"feat(wan): wan_subsite_networks store + reader/writer (V1b-E T2)"`
@@ -204,7 +204,8 @@ test('longest token wins on overlap', () => {
 ```
 
 - [ ] **Step 4: Run — expect PASS.**
-- [ ] **Step 5: Commit** — `"feat(wan): shared UMD wan-line matcher, token-gated (V1b-E T3)"`
+- [ ] **Step 4b: Single family source.** Make `services/opmReportFill.js` `serviceToFill(name)` **delegate** to the shared module: `serviceToFill = (name) => require('../public/lib/wanLineMatch').parseServiceLine(name, []).family` (so there is exactly ONE family classifier; no divergeable regex copies). Keep the export for back-compat. Its existing test in `tests/opm-report-fill.test.js` stays green.
+- [ ] **Step 5: Commit** — `"feat(wan): shared UMD wan-line matcher, token-gated; serviceToFill delegates (V1b-E T3)"`
 
 ---
 
@@ -237,7 +238,7 @@ test('no tokens → only sub_site="" fills produced (normal site unchanged)', ()
   > Note: `buildFills` now carries a `sub_site` field on each descriptor; the report line→fill match happens in the client using the same token list (Task 5). `buildFills` simply emits one descriptor per snapshot row it can fill.
 
 - [ ] **Step 2: Run — expect FAIL** (`sub_site` undefined on descriptors).
-- [ ] **Step 3: Implement.** In `buildFills({ wan, infra, staleDays, nowMs, tokens })`: for each WAN row emit `sub_site: r.sub_site || ''` on the descriptor (keep the `match: r.uplink`, value/status/trend/stale/basis as-is). Infra descriptors keep `sub_site: ''` (OpManager has no sub-site source). `tokens` is accepted for forward-compat but WAN rows already carry their `sub_site` from the store, so buildFills just passes it through. (The token gating lives in the client match — Task 5 — where the line name is known.)
+- [ ] **Step 3: Implement.** In `buildFills({ wan, infra, staleDays, nowMs })` (do NOT add a `tokens` param — it would be dead; the token gating lives in the client match in Task 6 where the line name is known): for each WAN row emit `sub_site: r.sub_site || ''` on the descriptor (keep `match: r.uplink`, value/status/trend/stale/basis as-is). Infra descriptors keep `sub_site: ''` (OpManager has no sub-site source). buildFills is purely row-driven — it emits one descriptor per fillable snapshot row and carries `sub_site` through; it does NOT decide which report line consumes it.
 - [ ] **Step 4: Run — expect PASS** + existing opm-report-fill tests green.
 - [ ] **Step 5: Commit** — `"feat(wan): buildFills carries sub_site per descriptor (V1b-E T4)"`
 
@@ -271,44 +272,53 @@ test('a network in BOTH the main map and a sub-site map fans to two rows from on
 
 - [ ] **Step 2: Run — expect FAIL** (only one target today).
 - [ ] **Step 3: Implement** in `tools/meraki/sync-wan.js`:
-  - Build `netToTargets`: `Map(normNet(network) → [{site_id, sub_site}...])` merged from `listSiteModuleCodes('meraki')` (`sub_site:''`) and `listWanSubsiteNetworks()` (`sub_site: r.sub_site`). Both awaited before the loop.
+  - Build `netToTargets`: `Map(normNet(network) → [{site_id, sub_site}...])` merged from `listSiteModuleCodes('meraki')` (`sub_site:''`) and `listWanSubsiteNetworks()` (`sub_site: r.sub_site`). Both awaited before the loop. **Guard the sub-site call** so it doesn't break callers/tests that inject a minimal `rdb` without it (e.g. `tests/meraki-sync.test.js:84` builds `rdb` inline): `const subs = (typeof rdb.listWanSubsiteNetworks === 'function' ? await rdb.listWanSubsiteNetworks() : []) || [];` (also matches the best-effort ethos if the fn is ever absent in prod).
   - In the device loop: `const targets = netToTargets.get(_normNet(netName)) || [];` if empty → `unmapped.add(netName); continue;`. Derive `q` once per uplink/period (unchanged), then `for (const t of targets) rows.push({ site_id: t.site_id, sub_site: t.sub_site, uplink: up.interface, ...q fields... })`.
 - [ ] **Step 4: Run — expect PASS** + existing meraki-sync tests green.
 - [ ] **Step 5: Commit** — `"feat(wan): sync fans one network to many targets (V1b-E T5)"`
 
 ---
 
-### Task 6: routes + editor UI + client mirror, then Slice-1 regression
+### Task 6a: routes — `mappings` subsites + `infra-auto` tokens
 
 **Files:**
-- Modify: `routes/opmanager.js` — `mappings` GET/PUT carry `subsites`; `infra-auto` (in `server.js:~6449`) payload adds the site's `tokens`.
-- Modify: `public/reports.html` — sub-site editor table + save; `_serviceToFill` mirror replaced by `WanLineMatch.parseServiceLine(name, tokens)`; load `public/lib/wanLineMatch.js`.
+- Modify: `routes/opmanager.js` — `mappings` GET/PUT carry `subsites`.
+- Modify: `server.js:~6449` — `infra-auto` payload adds the site's `tokens` list.
 - Test: `tests/opm-routes.smoke.test.js` (extend), `tests/infra-auto-route.smoke.test.js` (extend)
 
-- [ ] **Step 1: Failing route test** — `mappings` round-trips subsites (super_admin), `infra-auto` returns `tokens`:
+- [ ] **Step 1: Failing route test** — `mappings` round-trips subsites (super_admin):
 
 ```js
 test('mappings PUT/GET round-trips subsites (super_admin)', async () => {
-  const put = await put('/api/analytics/wan/mappings',
+  const res = await put('/api/analytics/wan/mappings',   // NB: result var is `res`, NOT `put` (would shadow the helper)
     { mappings: [], subsites: [{ site_id: mgoSiteId, sub_site: 'FETEKRO', network: 'Exploration Fetekro' }] }, superToken);
-  assert.equal(put.status, 200);
+  assert.equal(res.status, 200);
   const got = await get('/api/analytics/wan/mappings', superToken);
   assert.ok((got.body.subsites || []).find(s => s.sub_site === 'FETEKRO'));
 });
 ```
-  (Add a `put()` helper + a super_admin token to the smoke harness as in `tests/admin-superadmin-gate.smoke.test.js`.)
+  (Add a `put()` body-capable helper + a super_admin token to the smoke harness as in `tests/admin-superadmin-gate.smoke.test.js`.)
 
 - [ ] **Step 2: Run — expect FAIL.**
 - [ ] **Step 3: Implement.**
-  - `routes/opmanager.js`: `GET /api/analytics/wan/mappings` also returns `subsites: await rdb.listWanSubsiteNetworks()`. `PUT` also calls `await rdb.setWanSubsiteNetworks(req.body.subsites || [])`.
-  - `infra-auto` route (`server.js`): after resolving the report's `site_id`, add `tokens: (await rdb.listWanSubsiteNetworks()).filter(r => r.site_id === site_id).map(r => r.sub_site)` to the JSON. Pass `tokens` into `buildFills({ …, tokens })` too (forward-compat).
-  - `public/reports.html`:
-    - `<script src="lib/wanLineMatch.js?v=…">` (the injector versions it) in `<head>` — actually reference it plainly; `injectAssetVersion` adds `?v=`.
-    - Add the "Exploration sub-sites" editor table under the mapping editor (Site select + token input + network input + ✕ + "Add sub-site"), loaded/saved via the extended `mappings` GET/PUT (extend `loadWanMap`/`saveWanMap`).
-    - Replace the inline `_serviceToFill` mirror: the auto-fill uses `WanLineMatch.parseServiceLine(serviceName, data.tokens || [])` → `{family, sub_site}`, then finds the fill where `match===family && (fill.sub_site||'')===sub_site`. Fills only empty cells (unchanged).
-- [ ] **Step 4: Run** the two smoke suites + `tests/wan-line-match.test.js`; all green.
-- [ ] **Step 5: Slice-1 regression** — run: `wan-snapshots`, `wan-subsite-map`, `wan-line-match`, `opm-report-fill`, `meraki-sync`, `opm-routes.smoke`, `infra-auto-route.smoke`, `await-precedence`, and **`pptx-monthly-golden` (must stay unchanged)**. Update the CLAUDE.md Current-State with a V1b-E block.
-- [ ] **Step 6: Commit + checkpoint ZIP** — `"feat(wan): V1b-E slice 1 — Exploration sub-site auto-fill (routes+editor+mirror)"`; mention a deploy ZIP is available.
+  - `routes/opmanager.js`: `GET /api/analytics/wan/mappings` also returns `subsites: (await rdb.listWanSubsiteNetworks()) || []`. `PUT` also calls `await rdb.setWanSubsiteNetworks(req.body.subsites || [])`.
+  - `infra-auto` route (`server.js`): after resolving `site_id`, add `tokens: ((await rdb.listWanSubsiteNetworks()) || []).filter(r => r.site_id === site_id).map(r => r.sub_site)` to the JSON response. (Do NOT pass `tokens` into `buildFills` — buildFills is row-driven; tokens are for the client match only.)
+- [ ] **Step 4: Run** the two smoke suites + `await-precedence`; green.
+- [ ] **Step 5: Commit** — `"feat(wan): mappings carries subsites + infra-auto carries tokens (V1b-E T6a)"`
+
+### Task 6b: editor UI + client match, then Slice-1 regression
+
+**Files:**
+- Modify: `public/reports.html` — sub-site editor table; load `public/lib/wanLineMatch.js`; the auto-fill uses `WanLineMatch.parseServiceLine` + the payload tokens.
+- Test: browser E2E behind login = user step; regression suites.
+
+- [ ] **Step 1: Implement.**
+  - Add `<script src="lib/wanLineMatch.js"></script>` in `<head>` (the boot `injectAssetVersion` appends `?v=`).
+  - Add the "Exploration sub-sites" editor table under the existing mapping editor (Site `<select>` + token input + network input + ✕ + "Add sub-site"), loaded/saved via the extended `mappings` GET/PUT (extend `loadWanMap`/`saveWanMap` to also read/write `subsites`).
+  - **Replace the collapsing `byMatch` map** (`reports.html:~2760` `Object.fromEntries(fills.map(f=>[f.match,f]))` and its `byMatch[key]` lookup at `~2769`) — it would collapse `wan1('')` and `wan1('FETEKRO')` into one. Instead, per rendered infra row: `const { family, sub_site } = WanLineMatch.parseServiceLine(serviceName, data.tokens || []);` then `const fill = fills.find(f => f.match === family && (f.sub_site||'') === sub_site);`. Fills only empty cells (unchanged).
+- [ ] **Step 2: Verify** — inline-script parse-check `public/reports.html` (`new Function` over the single inline block); browser E2E is the user's step.
+- [ ] **Step 3: Slice-1 regression** — run: `wan-snapshots`, `wan-subsite-map`, `wan-line-match`, `opm-report-fill`, `meraki-sync`, `opm-routes.smoke`, `infra-auto-route.smoke`, `await-precedence`, and **`pptx-monthly-golden` (must stay unchanged)**. Update CLAUDE.md with a V1b-E slice-1 block.
+- [ ] **Step 4: Commit + checkpoint ZIP** — `"feat(wan): V1b-E slice 1 — Exploration sub-site editor + client match (T6b)"`; mention a deploy ZIP is available.
 
 ---
 
