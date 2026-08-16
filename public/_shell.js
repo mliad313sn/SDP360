@@ -135,6 +135,9 @@
         // The former standalone Hygiene + Finance pages are now the #hygiene /
         // #finance tabs of assets.html (their old URLs redirect there).
         { id: 'assets',      label: 'Assets',              icon: ICON_LIB['hard-drive'],      href: 'assets.html',            roles: ['any']       },
+        // WAN Health — per-site availability + quality trends from the Meraki
+        // archive (wan_link_snapshots). Read-only; empty until meraki is configured.
+        { id: 'wan-health', label: 'WAN Health',           icon: ICON_LIB['bar-chart-3'],     href: 'wan-health.html',        roles: ['any']       },
         // IT Review — the review of what the meetings produce, hence right after
         // them. It now mounts the app shell (#__shell) like every other page and
         // opens IN-PLACE (no target:'_blank'): its own internal header was
