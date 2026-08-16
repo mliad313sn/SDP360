@@ -6,6 +6,42 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ---
 
+## ⚡ Current state (as of 2026-08-15 — Infra WAN dispo & qualité V1b-A : store Meraki + collecteur, sur `main`, PAS déployé)
+
+> **V1b-A landed on `main`** (commits `ff1a17a`→`67ab704`→`b56337c`→`7638d2e`→`66cc29e`→
+> `362491d`→T7, NOT déployé) — la **fondation** du module **Disponibilité & Qualité WAN** :
+> lit l'**API Cloud Meraki** (read-only) pour la dispo/qualité par lien (wan1/wan2) et
+> **archive** des snapshots **hebdo + mensuels** (Meraki purge ~60 j → OPS = livre de
+> référence long terme). **Découverte cadrante** (6 rounds de tests API avec l'user) :
+> les **firewalls Meraki MX ont 0 interface SNMP** dans OpManager → l'API interfaces OpManager
+> est une **impasse pour le WAN** ; les wan1/wan2 sont de la **donnée Meraki cloud** (widget
+> WAN Link). **Décision (user)** : source WAN = **API Meraki** (`getDeviceLossAndLatencyHistory`,
+> **≤31 j**, par uplink) ; **Piste 2** pour le remplissage (état courant + le coordinateur
+> valide) ; LAN/WLAN/Servers viendront d'OpManager REST (V1b-B). **Piège clé** : Meraki donne
+> loss/latence, **PAS l'uptime** — le **« % Time Up » est DÉRIVÉ** (interval up ssi
+> `lossPercent<100` ; intervalle manquant = `'down'`|`'unknown'` **verrouillé par CALIBRATION**,
+> pas supposé ; zéro échantillon → `null`, jamais `0`) et **calibré** contre le Summary Report
+> Meraki (Ity 99.86/97.87). **Ce qui est construit (T1-T7)** : **config** (`meraki_api_key`
+> secret + `meraki_org_id`/`meraki_base_url`/`meraki_missing_policy`, 3 touch-points secret :
+> redact GET + blank-keep `_SECRET_BLANK_KEEP` + gate super_admin) ; **`services/merakiClient.js`**
+> (REST read-only, transport injectable, inerte sans clé) ; **`services/merakiWanQuality.js`**
+> (pur : `deriveAvailability(series,{totalIntervals,missing})` + `statusColor` **bande rapport**
+> `≥t/≥t×0.9/else`, PAS la bande ±2 de V1a) ; **`wan_link_snapshots`** (PK composite
+> site×uplink×period, PAS de surrogate ; `008_wan_link_snapshots.sql` pg ; upsert/read duaux) ;
+> **seed** `site_module_codes` module=`meraki` (network name par site, résolu par NOM,
+> Ity/Mana confirmés) ; **`tools/meraki/sync-wan.js`** (config-gated, best-effort, pré-résout
+> network→site + id→name + ip AVANT le pur, fenêtre = **semaine Zoho précédente** via
+> `getPreviousWeek`→`getWeekRange` = `weeks.start_date`, `totalIntervals` depuis la FENÊTRE pas
+> `series.length`) ; **`tools/meraki/calibrate.js`** (harness user, clé en ENV jamais affichée).
+> Tests : 33 unités (config/client/quality/snapshots/seed/sync) + await-precedence + pptx golden
+> **inchangé** ; pg 008 + upsert idempotent prouvés. **NE touche RIEN** de `infra_kpis`/score/PPTX.
+> **⚠️ GATE DUR non franchi** : V1b-A n'est « fini » qu'après que l'user lance `calibrate.js` et
+> confirme quelle politique `missing` reconcilie 99.86/97.87 → régler `meraki_missing_policy`.
+> **Reste** : V1b-B (OpManager device dispo → LAN/WLAN/Servers + re-point `/coverage`), V1b-C
+> (auto-remplissage rapport + override), V1b-D (dashboard WAN Health). Plan :
+> `docs/superpowers/plans/2026-08-15-infra-wan-v1b-a.md`, spec :
+> `docs/superpowers/specs/2026-08-15-infra-wan-availability-quality-design.md`.
+
 ## ⚡ Current state (as of 2026-08-13 — OPManager Infra Availability V1a : lecture + snapshots + API + gouvernance)
 
 > **V1a landed on `main`** (commits `b9e751e`→`63d1dbd`→`9c93204`→`31c2033`→`086e1ea`→
@@ -3624,6 +3660,8 @@ In normal use NO request hits this fallback. It's a safety net.
 
 | Pitfall | Rule |
 |---------|------|
+| **WAN = Meraki API, PAS OpManager : les MX ont 0 interface SNMP ; le « % Time Up » est DÉRIVÉ + calibré, jamais servi tel quel** | Les firewalls Meraki MX ont **0 interface SNMP** dans OpManager (vérifié : colonne Interfaces=0) → l'API interfaces OpManager (`getInterfaces`/`getIntfAtAGlanceReportDetails`) est une **impasse pour le WAN**, et le widget « WAN Link » est de la donnée Meraki interne (endpoint non documenté — à éviter). La source WAN est l'**API Cloud Meraki** : `getDeviceLossAndLatencyHistory` (**≤31 j** par uplink — pas l'org `uplinksLossAndLatency` qui est **5 min max**). Elle rend loss/latence, **pas l'uptime** → OPS **dérive** le « % Time Up » (`merakiWanQuality.deriveAvailability` : interval up ssi `lossPercent<100` ; **intervalle manquant = `'down'` ou `'unknown'` selon `meraki_missing_policy`, choisi par CALIBRATION** contre le Summary Report Meraki (Ity 99.86/97.87), **jamais supposé** ; **zéro échantillon → `null`, jamais `0`** — no data ≠ dispo 0%). `getDeviceLossAndLatencyHistory` exige une **destination `ip`** (découverte via l'org `uplinksLossAndLatency`). `totalIntervals` vient de la **FENÊTRE** (`round((t1−t0)/resolution)`), pas de `series.length`, sinon `'down'` dégénère en `'unknown'`. Une destination unique en panne ≠ lien down → cross-check avec `getOrganizationUplinksStatuses`. |
+| **WAN est PAR LIEN dans `wan_link_snapshots` (≠ `infra_metric_snapshots`) ; site = network Meraki via `site_module_codes` module=`meraki` ; fenêtre = semaine Zoho précédente** | Le WAN a besoin de **deux lignes** (wan1+wan2) par site/semaine — impossible dans `infra_metric_snapshots` dont la PK `(site,period_type,period_start,kpi_family,metric_name)` ne tient qu'**une** ligne `wan`. D'où **`wan_link_snapshots`** (PK `site_id,uplink,period_type,period_start`, colonnes qualité loss/latence/jitter/goodput + `availability_pct` DÉRIVÉ null-pas-zéro + `status_color` **bande rapport** `≥t/≥t×0.9/else`, PAS la bande ±2 de V1a — pour que la cellule du rapport et le dashboard WAN affichent la MÊME couleur pour le même nombre). Le **site = le network Meraki** (ex. `"Ity Gold Operations"`), seedé dans `site_module_codes` module=`meraki` **résolu par NOM de site** (Ity/Mana confirmés ; les autres pattern-guess corrigés à la calibration). Le collecteur mappe `networkId→name` (via `getOrganizationNetworks`) puis `name→site_id` (seed), tout **awaité AVANT** le pur (piège pg-Promise). La fenêtre hebdo = la **semaine Zoho PRÉCÉDENTE** (`getPreviousWeek`→`getWeekRange`, UTC) = `weeks.start_date` — la clé de jointure du rapport (V1b-C) ET le contrôle tz de la calibration. Tout config-gated + best-effort : sans `meraki_api_key`, sync self-skip, rien de touché. |
 | **OPManager availability comes via Analytics Plus `fetchView` — OPS classifies + aggregates in JS ; `infra_metric_snapshots` ≠ `infra_kpis`** | V1a is read-only : la vue quotidienne préparée `OPS_OPM_Device_Availability_Daily` (id = config `opm_availability_view_id`) fait SEULEMENT la jointure device↔probe ; **OPS classe** (`opmClassify.classifyKpiFamily`) **et agrège** (`opmAvailability.aggregate`) en JS pur, puis upserte dans **`infra_metric_snapshots`** (table NEUVE, PK composite, PAS de surrogate id — évite la divergence sqlite-AUTOINCREMENT/pg-IDENTITY). Ça **ne touche RIEN** de `infra_kpis`/`weekly_reports` (le rapport site les lit encore à la main ; l'auto-remplissage = V1b). OPS ne poll JAMAIS un device, ne recrée pas d'alerte. `opm_availability_view_id` vide → sync self-skip + API sert `none`/vide (tout config-gated + best-effort : un échec Analytics garde les snapshots précédents, ne vide jamais). |
 | **Disponibilité : `unmonitored` compte comme INDISPONIBLE ; l'absence de mesure = status `none`, JAMAIS `0`** | La formule (`opmAvailability.aggregate`) = `100×Σuptime/Σ(uptime+downtime+dependent+unmonitored)` — `unmonitored` est au dénominateur (décision user : « unmonitored = indisponible »), `maintenance`+`onhold` sont EXCLUS du dénominateur ; fallback `AVG(uptime%)` si les durées manquent. **Une famille sans snapshot rend `{metric_value:null, status_color:'none'}` — jamais `0`** (un 0 se lirait « 0% dispo », le pire score possible, sur une absence de données) : `routes/opmanager.js` `fillFamilies` remplit toujours les 4 familles (lan/wifi/wan/servers), présent→ligne mappée, absent→null/none. `opm_targets` pilote la COULEUR (green≥target, orange≥target-2, red<target-2 ; stocker `orange`, JAMAIS `amber`), PAS la fraîcheur — le `stale` vient de `data_through` (ou `collected_at`) vs `opm_stale_days`. |
 | **La clé site est `site_id` ; le seed probe→site se fait par NOM de site, pas en empruntant un code meetings/tracker** | `_OPM_PROBE_CODES` (`reports-db.js`) mappe chaque probe OPManager (Sabodala/Mana/HOUNDE/Ity/LAFIGUE/Ouagadougou/ABJ/Tanda) vers `site_module_codes` module=`opmanager` **résolu par le NOM du site** — car emprunter les codes d'un autre module false-greenerait : **Ouagadougou = `EDV` en tracker mais `OUA` en meetings**, et **Tanda n'a AUCUN code court** (seulement tracker `TND` ; le « TDA » du user n'existe pas). L'API `site=` (`resolveSiteParam`) est **tolérante** : probe (namespace opmanager complet) → code meetings (HGO/MGO… commodité) → nom de site — donc **Tanda s'adresse par `Tanda`**, pas par un code inventé. Un `getSiteIdByModuleCode` rend `{site_id}` (pas `.id`) et **c'est une Promise sur pg** : tout appel (+ `getConfig`/`getInfraSnapshots`/`listSites`) DOIT être `await`é, et le sync **pré-résout une map plate probe→site_id** avant l'agrégat pur (jamais passer un résolveur-Promise dans le pur). `weekOf(date)` est exporté de `siteReportDeps` (Monday-anchored UTC) — ne pas re-dériver l'ISO-week localement. |
