@@ -490,7 +490,12 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
             onclick="copyInfraFromPrevWeek()"
             title="Pre-fill all rows from the previous week's report — only update Current Value"
             style="background:#f0f4ff;border-color:#c5cde0;color:#1c3a5e"><i class="icon icon-copy"></i>Copy from Previous Week</button>
+          <button class="btn btn-secondary btn-sm" id="btn-fill-infra-auto"
+            onclick="maybeAutoFillInfra(true)"
+            title="Fill empty Current Value cells from OPManager / Meraki for this week (WAN1/WAN2/LAN/WLAN/Servers) — never overwrites a value you typed"
+            style="background:#fff7ed;border-color:#f0c9a0;color:#9a4b12">⚡ Fill from OPManager / Meraki</button>
         </div>
+        <div id="infra-auto-banner" style="display:none;margin-top:8px;padding:8px 12px;border-radius:8px;background:#fff7ed;border:1px solid #f0c9a0;color:#7a3d12;font-size:0.85rem"></div>
         <div style="margin-top:14px;display:flex;gap:10px;align-items:center">
           <button class="btn btn-primary" onclick="saveSection(0)"><i class="icon icon-save"></i>Save Infrastructure KPIs</button>
           <button class="btn btn-secondary btn-sm" onclick="resetInfraDefaults()"
@@ -2424,6 +2429,7 @@ function renderForm() {
 
   updateStatusBar();
   renderInfra();
+  maybeAutoFillInfra(false);   // V1b-C: pre-fill empty Current Value cells from OPManager/Meraki
   renderHelpdesk();
   renderLights();
   renderActions();
@@ -2642,6 +2648,67 @@ function autoInfraStatusTrend(input) {
       if (val > prev)      trendSelect.value = 'up';
       else if (val < prev) trendSelect.value = 'down';
       else                 trendSelect.value = 'stable';
+    }
+  }
+}
+
+// V1b-C — map an infra row's service name to a snapshot key. MIRROR of
+// services/opmReportFill.js serviceToFill — keep in sync. Backup/Radio/custom → null.
+function _serviceToFill(name) {
+  const n = String(name == null ? '' : name).trim().toLowerCase();
+  if (!n) return null;
+  if (/wlan|wifi|wireless/.test(n)) return 'wifi';   // before wan
+  if (/wan\s*1/.test(n)) return 'wan1';
+  if (/wan\s*2/.test(n)) return 'wan2';
+  if (/\bserver/.test(n)) return 'servers';
+  if (/\blan\b/.test(n)) return 'lan';
+  return null;
+}
+
+// V1b-C — pre-fill EMPTY Current Value cells from the OPManager/Meraki snapshots for this
+// report's site + week. Never overwrites a typed value (editor override). Colour + trend
+// come from the snapshot (agrees with the WAN Health dashboard). manual=true → the button
+// (always fills empty cells); manual=false → silent on open. No-op unless the report is
+// editable and there is data (unconfigured → empty fills → nothing happens).
+async function maybeAutoFillInfra(manual) {
+  if (!currentReport || currentReport.status === 'submitted') return;
+  const banner = document.getElementById('infra-auto-banner');
+  let data;
+  try { data = await api('GET', `/api/reports/${currentReport.id}/infra-auto`); }
+  catch (e) { if (manual) toast('Could not reach OPManager/Meraki data: ' + e.message, 'error'); return; }
+  const fills = (data && data.fills) || [];
+  if (!fills.length) { if (manual) toast('No OPManager/Meraki data for this week yet', 'info'); return; }
+  const byMatch = Object.fromEntries(fills.map(f => [f.match, f]));
+
+  let filled = 0;
+  document.querySelectorAll('#infra-body tr').forEach(tr => {
+    const svc = tr.querySelector('input');                 // first input = Service name
+    const valInput = tr.querySelector('.infra-value-input');
+    if (!svc || !valInput) return;
+    if (valInput.value && valInput.value.trim() !== '') return;   // NEVER clobber a typed value
+    const key = _serviceToFill(svc.value);
+    const f = key && byMatch[key];
+    if (!f) return;
+    valInput.value = f.value;
+    const statusSel = tr.querySelector('.infra-status-select');
+    const trendSel  = tr.querySelector('.infra-trend-select');
+    if (statusSel && f.status_color) { statusSel.value = f.status_color; updateStatusDot(statusSel); }
+    if (trendSel  && f.trend) trendSel.value = f.trend;
+    valInput.style.background = '#fff7ed';                  // subtle "auto-filled" cue
+    const bits = [`Auto · ${f.source}`];
+    if (f.data_through) bits.push(`data through ${f.data_through}`);
+    if (f.basis) bits.push(`basis: ${f.basis}`);
+    if (f.stale) bits.push('⚠ stale');
+    valInput.title = bits.join(' · ');
+    filled++;
+  });
+
+  if (banner) {
+    if (filled > 0) {
+      banner.innerHTML = `⚡ ${filled} value${filled > 1 ? 's' : ''} auto-filled from OPManager / Meraki (${data.week_label || 'this week'}) — override any cell, then <b>Save</b>.`;
+      banner.style.display = 'block';
+    } else if (manual) {
+      toast('All measurable cells already have a value', 'info');
     }
   }
 }
