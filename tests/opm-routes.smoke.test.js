@@ -132,3 +132,37 @@ test('coverage: REST device list when opmanager configured (available:true, sour
     devSrv.close();
   }
 });
+
+test('wan summary + trend read wan_link_snapshots (V1b-D)', async () => {
+  const rdb = require('../reports-db');
+  const today = new Date().toISOString().slice(0, 10);
+  await rdb.upsertWanSnapshots([
+    { site_id: mgoSiteId, uplink: 'wan1', period_type: 'week', period_start: today, period_end: today,
+      availability_pct: 99.86, status_color: 'green', loss_pct_avg: 0.08, latency_ms_avg: 26.1, jitter_ms_avg: 2.17,
+      device_serial: 'Q2-AB', network_id: 'N1', data_through: today, collected_at: today + 'T05:20:00Z', source: 'meraki_api', raw_json: null },
+    { site_id: mgoSiteId, uplink: 'wan2', period_type: 'week', period_start: today, period_end: today,
+      availability_pct: 97.87, status_color: 'orange', loss_pct_avg: 1.79, latency_ms_avg: 33.5, jitter_ms_avg: 6.0,
+      device_serial: 'Q2-AB', network_id: 'N1', data_through: today, collected_at: today + 'T05:20:00Z', source: 'meraki_api', raw_json: null },
+  ]);
+
+  const sum = await get('/api/analytics/wan/summary?period=week', adminToken);
+  assert.equal(sum.status, 200);
+  const site = (sum.body.sites || []).find(s => s.site_id === mgoSiteId);
+  assert.ok(site, 'seeded site in summary');
+  assert.equal(site.uplinks.length, 2);
+  assert.ok(site.uplinks.find(u => u.uplink === 'wan1' && u.availability_pct === 99.86));
+
+  const tr = await get('/api/analytics/wan/trend?site=MGO&period=week', adminToken);
+  assert.equal(tr.status, 200);
+  assert.equal(tr.body.site_id, mgoSiteId);
+  const wan1 = (tr.body.series || []).find(s => s.uplink === 'wan1');
+  assert.ok(wan1 && wan1.points.length >= 1, 'wan1 trend series present');
+});
+
+test('wan trend unknown site → empty, not 500; no token → 401', async () => {
+  const r = await get('/api/analytics/wan/trend?site=ZZZNOPE&period=week', adminToken);
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.body.series, []);
+  const r2 = await get('/api/analytics/wan/summary?period=week', null);
+  assert.equal(r2.status, 401);
+});

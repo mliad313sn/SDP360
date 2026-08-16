@@ -135,5 +135,37 @@ module.exports = function opmanagerRoutes(deps) {
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
 
+  // ── V1b-D — WAN Health dashboard (reads wan_link_snapshots, the Meraki WAN archive) ──
+  router.get('/api/analytics/wan/summary', requireReportSession, async (req, res) => {
+    try {
+      const { latestPerSite } = require('../services/wanDashboard');
+      const period = req.query.period === 'month' ? 'month' : 'week';
+      const rows = await rdb.getWanSnapshots({ period_type: period });
+      const siteList = (await rdb.listSites({ includeInactive: true })) || [];
+      const nameById = {}; for (const s of siteList) nameById[s.id] = s.name;
+      const sites = latestPerSite(rows).map(s => ({ ...s, site_name: nameById[s.site_id] || null }));
+      res.json({ period, as_of: new Date().toISOString().slice(0, 10), sites });
+    } catch (e) { res.json({ sites: [], reason: e.message }); }
+  });
+
+  router.get('/api/analytics/wan/trend', requireReportSession, async (req, res) => {
+    try {
+      const { trendSeries } = require('../services/wanDashboard');
+      const period = req.query.period === 'month' ? 'month' : 'week';
+      const code = String(req.query.site || '').trim();
+      const site = await resolveSiteParam(code);
+      if (!site) return res.json({ site: code, site_id: null, period, series: [] });
+      const rows = await rdb.getWanSnapshots({ site_id: site.site_id, period_type: period });
+      res.json({ site: code, site_id: site.site_id, site_name: site.name, period, series: trendSeries(rows) });
+    } catch (e) { res.json({ series: [], reason: e.message }); }
+  });
+
+  router.post('/api/analytics/wan/sync', requireAdmin, async (req, res) => {
+    try {
+      const r = await require('../tools/meraki/sync-wan').main({});
+      res.json(r);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
   return router;
 };
