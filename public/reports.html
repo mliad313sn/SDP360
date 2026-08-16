@@ -256,6 +256,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js" defer></script>
 <script src="lib/parse-actions-csv.js"></script>
 <script src="lib/actionSimilarity.js"></script>
+<script src="lib/wanLineMatch.js"></script>
 <!-- Unified auth (data-require="any" — any logged-in user). auth.js redirects
      to login.html?next=reports.html when no/invalid session, so the inline
      login screen this page used to ship is no longer needed. All other pages
@@ -1575,6 +1576,19 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         <button class="btn btn-primary" onclick="saveWanMap()">Save mapping</button>
         <span id="wan-map-msg" style="font-size:0.85rem;color:#6b7a99"></span>
       </div>
+
+      <h4 style="margin:18px 0 6px;color:#3A4A60">Exploration sub-sites (WAN per sub-site)</h4>
+      <p style="color:#6b7a99;font-size:0.85rem;margin:-2px 0 8px">
+        For a multi-site report (e.g. Exploration) whose infra lines name a sub-site — <code>WAN1 FETEKRO</code>, <code>WAN2 TANDA</code> —
+        map each <strong>sub-site token</strong> to its own Meraki network. Only sites listed here get per-sub-site WAN matching; every other site is unaffected.
+      </p>
+      <table class="user-table" style="font-size:0.86rem"><thead><tr><th>Site</th><th>Sub-site token</th><th>Meraki network name</th><th></th></tr></thead>
+        <tbody id="wan-subsite-rows"></tbody></table>
+      <div class="modal-actions" style="justify-content:flex-start;gap:10px;align-items:center;margin-top:8px">
+        <button class="btn btn-secondary" onclick="addWanSubsiteRow()">+ Add sub-site</button>
+        <button class="btn btn-primary" onclick="saveWanMap()">Save sub-sites</button>
+        <span id="wan-subsite-msg" style="font-size:0.85rem;color:#6b7a99"></span>
+      </div>
     </div>
 
     <!-- ─── Assets Finance (Global → Assets) ──────────────────────────────────
@@ -2757,7 +2771,7 @@ async function maybeAutoFillInfra(manual) {
   catch (e) { if (manual) toast('Could not reach OPManager/Meraki data: ' + e.message, 'error'); return; }
   const fills = (data && data.fills) || [];
   if (!fills.length) { if (manual) toast('No OPManager/Meraki data for this week yet', 'info'); return; }
-  const byMatch = Object.fromEntries(fills.map(f => [f.match, f]));
+  const tokens = (data && data.tokens) || [];
 
   let filled = 0;
   document.querySelectorAll('#infra-body tr').forEach(tr => {
@@ -2765,8 +2779,12 @@ async function maybeAutoFillInfra(manual) {
     const valInput = tr.querySelector('.infra-value-input');
     if (!svc || !valInput) return;
     if (valInput.value && valInput.value.trim() !== '') return;   // NEVER clobber a typed value
-    const key = _serviceToFill(svc.value);
-    const f = key && byMatch[key];
+    const svcName = svc.value;
+    const parsed = (window.WanLineMatch && window.WanLineMatch.parseServiceLine)
+      ? window.WanLineMatch.parseServiceLine(svcName, tokens)
+      : { family: _serviceToFill(svcName), sub_site: '' };   // fallback if the lib failed to load
+    const family = parsed.family, subSite = parsed.sub_site || '';
+    const f = family && fills.find(x => x.match === family && (x.sub_site || '') === subSite);
     if (!f) return;
     valInput.value = f.value;
     const statusSel = tr.querySelector('.infra-status-select');
@@ -6785,23 +6803,64 @@ function loadInfraConfig() {
   }).catch(e => toast('Could not load Infra settings: ' + (e.message || e), 'error'));
   loadWanMap();
 }
+let _wanSites = [];   // active sites, for the sub-site Site <select>
+function _wanSiteSelect(selectedId) {
+  return `<select class="ws-site" style="width:100%;box-sizing:border-box">` +
+    _wanSites.map(s => `<option value="${s.site_id}"${Number(selectedId) === Number(s.site_id) ? ' selected' : ''}>${esc(s.name || ('#' + s.site_id))}</option>`).join('') +
+    `</select>`;
+}
+function _wanSubsiteRowHtml(sub) {
+  sub = sub || {};
+  return `<tr>
+    <td>${_wanSiteSelect(sub.site_id)}</td>
+    <td><input type="text" class="ws-token" value="${esc(sub.sub_site || '')}" placeholder="FETEKRO" style="width:100%;box-sizing:border-box" autocomplete="off"></td>
+    <td><input type="text" class="ws-net" value="${esc(sub.network || '')}" placeholder="(network name)" style="width:100%;box-sizing:border-box" autocomplete="off"></td>
+    <td><button class="btn btn-secondary" onclick="this.closest('tr').remove()" title="Remove">✕</button></td>
+  </tr>`;
+}
 function loadWanMap() {
   const tb = document.getElementById('wan-map-rows'); if (!tb) return;
   api('GET', '/api/analytics/wan/mappings').then(r => {
     const sites = (r && r.sites) || [];
+    _wanSites = sites;
     tb.innerHTML = sites.length ? sites.map(s =>
       `<tr><td>${esc(s.name || ('#' + s.site_id))}</td>
         <td><input type="text" data-site="${s.site_id}" value="${esc(s.network || '')}" placeholder="(unmapped)" style="width:100%;box-sizing:border-box" autocomplete="off"></td></tr>`).join('')
       : '<tr><td colspan="2" style="color:#6b7a99">No active sites.</td></tr>';
     const m = document.getElementById('wan-map-msg'); if (m) m.textContent = '';
+    const stb = document.getElementById('wan-subsite-rows');
+    if (stb) {
+      const subs = (r && r.subsites) || [];
+      stb.innerHTML = subs.length ? subs.map(_wanSubsiteRowHtml).join('') : '';
+      const sm = document.getElementById('wan-subsite-msg'); if (sm) sm.textContent = '';
+    }
   }).catch(e => { tb.innerHTML = `<tr><td colspan="2" style="color:#c0392b">Could not load: ${esc(e.message || e)}</td></tr>`; });
+}
+function addWanSubsiteRow() {
+  const stb = document.getElementById('wan-subsite-rows'); if (!stb) return;
+  stb.insertAdjacentHTML('beforeend', _wanSubsiteRowHtml(null));
 }
 function saveWanMap() {
   const mappings = [...document.querySelectorAll('#wan-map-rows input[data-site]')].map(i => ({ site_id: Number(i.dataset.site), network: i.value.trim() }));
-  const m = document.getElementById('wan-map-msg'); if (m) m.textContent = 'Saving…';
-  api('PUT', '/api/analytics/wan/mappings', { mappings })
-    .then(() => { if (m) m.textContent = 'Saved ✓ — run Sync WAN now to pick up new sites'; toast('Site↔Meraki mapping saved ✓', 'success'); })
-    .catch(e => { if (m) m.textContent = 'Save failed: ' + (e.message || e); toast('Save failed: ' + (e.message || e), 'error'); });
+  const subsites = [...document.querySelectorAll('#wan-subsite-rows tr')].map(tr => ({
+    site_id: Number(tr.querySelector('.ws-site') && tr.querySelector('.ws-site').value),
+    sub_site: (tr.querySelector('.ws-token') && tr.querySelector('.ws-token').value || '').trim(),
+    network: (tr.querySelector('.ws-net') && tr.querySelector('.ws-net').value || '').trim(),
+  })).filter(s => s.sub_site && s.network);
+  const m = document.getElementById('wan-map-msg');
+  const sm = document.getElementById('wan-subsite-msg');
+  if (m) m.textContent = 'Saving…'; if (sm) sm.textContent = 'Saving…';
+  api('PUT', '/api/analytics/wan/mappings', { mappings, subsites })
+    .then(() => {
+      if (m) m.textContent = 'Saved ✓ — run Sync WAN now to pick up new sites';
+      if (sm) sm.textContent = 'Saved ✓ — run Sync WAN now to pick up sub-sites';
+      toast('Site↔Meraki mapping saved ✓', 'success');
+    })
+    .catch(e => {
+      if (m) m.textContent = 'Save failed: ' + (e.message || e);
+      if (sm) sm.textContent = 'Save failed: ' + (e.message || e);
+      toast('Save failed: ' + (e.message || e), 'error');
+    });
 }
 function saveInfraConfig() {
   const val = id => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
