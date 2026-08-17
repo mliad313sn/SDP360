@@ -1049,6 +1049,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
           <button type="button" class="admin-rail__item" data-panel="sso" id="admin-rail-sso" style="display:none" onclick="showAdminPanel('sso')"><span class="ar-ico">🔐</span><span>Microsoft SSO<small>Entra sign-in</small></span><span class="ar-scope">Global</span></button>
           <button type="button" class="admin-rail__item" data-panel="meridian" id="admin-rail-meridian" style="display:none" onclick="showAdminPanel('meridian')"><span class="ar-ico">🔗</span><span>Meridian (PMO)<small>Federation link</small></span><span class="ar-scope">Global</span></button>
           <button type="button" class="admin-rail__item" data-panel="infra" id="admin-rail-infra" style="display:none" onclick="showAdminPanel('infra')"><span class="ar-ico">📡</span><span>Infra WAN / Availability<small>Meraki &amp; OpManager</small></span><span class="ar-scope">Global</span></button>
+          <button type="button" class="admin-rail__item" data-panel="sla" id="admin-rail-sla" style="display:none" onclick="showAdminPanel('sla')"><span class="ar-ico">📶</span><span>SLA WAN<small>ISP chargeback</small></span><span class="ar-scope">Global</span></button>
         </div>
         <div class="admin-rail__group">
           <div class="admin-rail__grouphdr">📊 Reports</div>
@@ -1588,6 +1589,89 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         <button class="btn btn-secondary" onclick="addWanSubsiteRow()">+ Add sub-site</button>
         <button class="btn btn-primary" onclick="saveWanMap()">Save sub-sites</button>
         <span id="wan-subsite-msg" style="font-size:0.85rem;color:#6b7a99"></span>
+      </div>
+    </div>
+
+    <!-- ─── SLA WAN (Global) — super_admin only ───────────────────────────────
+         Editor over the sla_wan_config blob (GET/PUT /api/analytics/wan/sla/config).
+         Availability targets are measured only WITHIN each tier's service hours.
+         Auto-notify to the ISP stays OFF until the arm box is ticked AND each
+         circuit carries an ISP email. -->
+    <div class="card admin-panel" id="ap-sla" data-panel="sla">
+      <h3 style="margin-top:0">📶 SLA WAN — ISP chargeback</h3>
+      <p style="color:#6b7a99;font-size:0.9rem;margin-top:-4px">
+        Availability targets, service-hour calendars, credit schedules and per-circuit ISP contracts
+        for the WAN SLA / chargeback engine. <strong>97% is measured only within the service hours.</strong>
+        Auto-notify stays <strong>OFF</strong> until you tick the arm box <em>and</em> set an ISP email per circuit.
+      </p>
+
+      <h4 style="margin:14px 0 6px;color:#3A4A60">Global</h4>
+      <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end">
+        <div class="form-group">
+          <label>Clock start</label>
+          <select id="sla-clock-start">
+            <option value="notification">notification — clock starts when the ISP is notified</option>
+            <option value="detection">detection — clock starts at outage detection</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Simultaneous overlap (min)</label>
+          <input type="number" id="sla-overlap" min="0" style="width:120px" placeholder="5" autocomplete="off">
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-top:6px">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" id="sla-notify-enabled" style="width:auto">
+          <span>⚠ Auto-notify ISP (armed)</span>
+        </label>
+        <small style="color:#6b7a99">When unticked, no notification email is ever sent — regardless of per-circuit ISP addresses.</small>
+      </div>
+      <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end">
+        <div class="form-group"><label>Trigger after (min)</label><input type="number" id="sla-notify-trigger" min="0" style="width:120px" placeholder="15" autocomplete="off"></div>
+        <div class="form-group"><label>Poll every (min)</label><input type="number" id="sla-notify-poll" min="1" style="width:120px" placeholder="5" autocomplete="off"></div>
+        <div class="form-group"><label>From name</label><input type="text" id="sla-notify-from" style="width:180px" placeholder="SDP NOC" autocomplete="off"></div>
+      </div>
+
+      <div class="form-group">
+        <label>Event types <small style="color:#6b7a99">comma-separated</small></label>
+        <input type="text" id="sla-event-types" style="width:100%;box-sizing:border-box" placeholder="wan_1_up, wan_1_down, wan_2_up, wan_2_down, uplink_change" autocomplete="off">
+      </div>
+      <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end">
+        <div class="form-group"><label>Reconcile tolerance (min)</label><input type="number" id="sla-ingest-reconcile" min="0" style="width:150px" placeholder="60" autocomplete="off"></div>
+        <div class="form-group"><label>Stale open (hours)</label><input type="number" id="sla-ingest-stale" min="0" style="width:150px" placeholder="24" autocomplete="off"></div>
+      </div>
+
+      <h4 style="margin:18px 0 6px;color:#3A4A60">Tiers</h4>
+      <p style="color:#6b7a99;font-size:0.85rem;margin:-2px 0 8px">Service hours are per weekday as <code>08:00-13:00,14:00-17:00</code> (empty = closed). Credit schedule is <code>min%:credit%</code> pairs.</p>
+      <div id="sla-tiers"></div>
+
+      <h4 style="margin:18px 0 6px;color:#3A4A60">Circuits</h4>
+      <p style="color:#6b7a99;font-size:0.85rem;margin:-2px 0 8px">One row per ISP link. <strong>MRC</strong> is a plain amount; the currency is a text field (no symbol). Calendar preset maps to the circuit's own <code>hours</code> (Inherit = uses the tier calendar).</p>
+      <div style="overflow-x:auto">
+        <table class="user-table" style="font-size:0.82rem"><thead><tr>
+          <th>Site id</th><th>Sub-site</th><th>Uplink</th><th>ISP</th><th>Circuit id</th><th>Tier</th>
+          <th>MRC</th><th>Currency</th><th>ISP notify email</th><th>Calendar</th><th></th>
+        </tr></thead><tbody id="sla-circuit-rows"></tbody></table>
+      </div>
+      <div class="modal-actions" style="justify-content:flex-start;gap:10px;align-items:center;margin-top:8px">
+        <button class="btn btn-secondary" onclick="addSlaCircuitRow()">+ Add circuit</button>
+      </div>
+
+      <h4 style="margin:18px 0 6px;color:#3A4A60">Maintenance windows</h4>
+      <p style="color:#6b7a99;font-size:0.85rem;margin:-2px 0 8px">Planned windows excluded from availability. <code>from</code>/<code>to</code> are local datetimes.</p>
+      <div style="overflow-x:auto">
+        <table class="user-table" style="font-size:0.82rem"><thead><tr>
+          <th>Site id</th><th>Uplink</th><th>From</th><th>To</th><th>Reason</th><th></th>
+        </tr></thead><tbody id="sla-maint-rows"></tbody></table>
+      </div>
+      <div class="modal-actions" style="justify-content:flex-start;gap:10px;align-items:center;margin-top:8px">
+        <button class="btn btn-secondary" onclick="addSlaMaintRow()">+ Add window</button>
+      </div>
+
+      <div class="modal-actions" style="justify-content:flex-start;gap:10px;align-items:center;margin-top:16px;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="saveSlaConfig()">Save</button>
+        <span id="sla-msg" style="font-size:0.85rem;color:#6b7a99"></span>
       </div>
     </div>
 
@@ -5437,10 +5521,10 @@ async function downloadAllSitesMonthlyPptx(fromMonthlyPage) {
 //  ADMIN PAGE
 // ══════════════════════════════════════════════════════════════════
 // Admin left-rail: show one settings panel at a time. name ∈ users|sessions|sites|departments|risk.
-const _ADMIN_PANEL_IDS = { users:'ap-users', sessions:'sessions-card', sites:'ap-sites', departments:'ap-depts', execview:'ap-execview', email:'ap-email', backups:'ap-backups', sso:'ap-sso', meridian:'ap-meridian', infra:'ap-infra', risk:'rr-aliases-card', autoreports:'ap-autoreports', 'assets-finance':'ap-assets-finance', 'assets-deprec':'ap-assets-deprec', hygiene:'ap-hygiene', scoreboard:'ap-scoreboard', weekly:'ap-weekly', 'asset-group':'ap-asset-group' };
+const _ADMIN_PANEL_IDS = { users:'ap-users', sessions:'sessions-card', sites:'ap-sites', departments:'ap-depts', execview:'ap-execview', email:'ap-email', backups:'ap-backups', sso:'ap-sso', meridian:'ap-meridian', infra:'ap-infra', sla:'ap-sla', risk:'rr-aliases-card', autoreports:'ap-autoreports', 'assets-finance':'ap-assets-finance', 'assets-deprec':'ap-assets-deprec', hygiene:'ap-hygiene', scoreboard:'ap-scoreboard', weekly:'ap-weekly', 'asset-group':'ap-asset-group' };
 function showAdminPanel(name) {
   // Guard: 'risk' / 'backups' / 'autoreports' / 'sso' / 'meridian' / 'infra' are super_admin-only — fall back to Users for everyone else.
-  if ((name === 'risk' || name === 'backups' || name === 'autoreports' || name === 'sso' || name === 'meridian' || name === 'infra') && currentUser?.role !== 'super_admin') name = 'users';
+  if ((name === 'risk' || name === 'backups' || name === 'autoreports' || name === 'sso' || name === 'meridian' || name === 'infra' || name === 'sla') && currentUser?.role !== 'super_admin') name = 'users';
   if (!_ADMIN_PANEL_IDS[name]) name = 'users';
   document.querySelectorAll('#page-admin .admin-panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('#admin-rail .admin-rail__item').forEach(b => b.classList.toggle('active', b.dataset.panel === name));
@@ -5465,6 +5549,7 @@ function showAdminPanel(name) {
   // Fresh Meridian federation settings when opening the Meridian panel.
   if (name === 'meridian' && typeof loadMeridianConfig === 'function') loadMeridianConfig();
   if (name === 'infra' && typeof loadInfraConfig === 'function') loadInfraConfig();
+  if (name === 'sla' && typeof loadSlaConfig === 'function') loadSlaConfig();
   // Fresh XOF→USD rate when opening the Assets Finance panel.
   if (name === 'assets-finance' && typeof loadAssetFinanceConfig === 'function') loadAssetFinanceConfig();
   // Fresh depreciation policy when opening the Depreciation panel.
@@ -5514,6 +5599,9 @@ async function loadAdminPage() {
     // Infra WAN / Availability — super_admin only (stores Meraki + OpManager API keys).
     const infraRail = document.getElementById('admin-rail-infra');
     if (infraRail) infraRail.style.display = isSuperAdmin ? '' : 'none';
+    // SLA WAN / ISP chargeback — super_admin only (arms auto-notify to ISPs).
+    const slaRail = document.getElementById('admin-rail-sla');
+    if (slaRail) slaRail.style.display = isSuperAdmin ? '' : 'none';
     const arRail = document.getElementById('admin-rail-autoreports');
     if (arRail) arRail.style.display = isSuperAdmin ? '' : 'none';
     // Assets Hygiene digest — admin+ (the whole admin page is admin/super_admin only).
@@ -5540,7 +5628,7 @@ async function loadAdminPage() {
     }
     // Open the panel from the hash sub-section (#admin/<section>) or default to Users.
     const sub = (location.hash.split('/')[1] || '').toLowerCase();
-    showAdminPanel(['users','sessions','sites','departments','execview','email','backups','sso','meridian','infra','risk','autoreports','assets-finance','assets-deprec','hygiene','scoreboard','weekly','asset-group'].includes(sub) ? sub : 'users');
+    showAdminPanel(['users','sessions','sites','departments','execview','email','backups','sso','meridian','infra','sla','risk','autoreports','assets-finance','assets-deprec','hygiene','scoreboard','weekly','asset-group'].includes(sub) ? sub : 'users');
 
     const deptUrl  = isExecOrSuper ? '/api/reports/departments?include_inactive=1' : '/api/reports/departments';
     const sitesUrl = isExecOrSuper ? '/api/reports/sites?include_inactive=1'        : '/api/reports/sites';
@@ -6889,6 +6977,270 @@ function syncInfraNow(which, btn) {
     .catch(e => { if (msg) msg.textContent = `${label} sync failed: ` + (e.message || e); toast('Sync failed: ' + (e.message || e), 'error'); })
     .finally(() => { if (btn) btn.disabled = false; });
 }
+
+// ══════════════════════════════════════════════════════════════════
+//  SLA WAN / ISP chargeback (super_admin card)
+//  Reads / writes the sla_wan_config blob via
+//  GET/PUT /api/analytics/wan/sla/config. The editor round-trips the
+//  whole object; loadSlaConfig tolerates missing sub-keys (falls back to
+//  the defaults below), and none of the render helpers throw if an
+//  element is absent (they no-op when their container is missing).
+// ══════════════════════════════════════════════════════════════════
+const _SLA_DAYS  = ['mon','tue','wed','thu','fri','sat','sun'];
+const _SLA_TIERS = ['SILVER','GOLD','PLATINUM'];
+
+function _slaOfficeHours() {
+  // Mon–Fri two windows, weekend closed.
+  const wk = [['08:00','13:00'],['14:00','17:00']];
+  return { mon:wk.map(w=>w.slice()), tue:wk.map(w=>w.slice()), wed:wk.map(w=>w.slice()),
+           thu:wk.map(w=>w.slice()), fri:wk.map(w=>w.slice()), sat:[], sun:[] };
+}
+function _slaMineHours() {
+  // 24/7 — every day one full window.
+  const full = [['00:00','23:59']];
+  const h = {}; _SLA_DAYS.forEach(d => { h[d] = full.map(w=>w.slice()); }); return h;
+}
+function _slaDefaultConfig() {
+  return {
+    notify: { enabled:false, trigger_minutes:15, from_name:'SDP NOC', poll_minutes:5 },
+    clock_start:'notification', simultaneous_overlap_minutes:5,
+    event_types:['wan_1_up','wan_1_down','wan_2_up','wan_2_down','uplink_change'],
+    ingest:{ reconcile_tolerance_minutes:60, stale_open_hours:24 },
+    maintenance:[],
+    tiers:{
+      SILVER:{ hours_default:_slaOfficeHours(), availability_target_pct:97, min_outage_minutes:15,
+               credit_schedule:[{min:97,credit:0},{min:95,credit:10},{min:90,credit:25},{min:0,credit:50}],
+               credit_cap_pct:100, credit_model:'tiered',
+               response:{ info_min:30, first_feedback_h:8, resolution_h:{crit1:12,crit2:24,crit3:48} } },
+      GOLD:{}, PLATINUM:{}
+    },
+    circuits:[]
+  };
+}
+
+// ── serialize / parse helpers (round-trip the calendar + credit schedule) ──
+function _slaSerHoursDay(arr) { return (arr||[]).map(w => `${w[0]}-${w[1]}`).join(', '); }
+function _slaParseHoursDay(str) {
+  return String(str||'').split(',').map(s => s.trim()).filter(Boolean).map(seg => {
+    const p = seg.split('-').map(x => x.trim());
+    return (p.length === 2 && p[0] && p[1]) ? [p[0], p[1]] : null;
+  }).filter(Boolean);
+}
+function _slaSerCredit(arr) { return (arr||[]).map(r => `${r.min}:${r.credit}`).join(', '); }
+function _slaParseCredit(str) {
+  return String(str||'').split(',').map(s => s.trim()).filter(Boolean).map(seg => {
+    const p = seg.split(':').map(x => Number(x.trim()));
+    return (p.length === 2 && Number.isFinite(p[0]) && Number.isFinite(p[1])) ? { min:p[0], credit:p[1] } : null;
+  }).filter(Boolean);
+}
+function _slaNum(v, dflt) { const n = Number(v); return Number.isFinite(n) ? n : (dflt == null ? null : dflt); }
+
+// ── tier editor ──
+function _slaTierEditorHtml(name, t) {
+  t = t || {};
+  const r = t.response || {}; const rh = r.resolution_h || {};
+  const hd = t.hours_default || {};
+  const dayRows = _SLA_DAYS.map(d =>
+    `<div style="display:flex;gap:6px;align-items:center;margin:2px 0">
+       <label style="width:44px;text-transform:capitalize;margin:0">${d}</label>
+       <input type="text" class="slt-hours" data-day="${d}" value="${esc(_slaSerHoursDay(hd[d]||[]))}" placeholder="closed" style="flex:1;box-sizing:border-box" autocomplete="off">
+     </div>`).join('');
+  return `<div class="sla-tier" data-tier="${esc(name)}" style="border:1px solid #E2E5EA;border-radius:6px;padding:10px 12px;margin:8px 0">
+    <h5 style="margin:0 0 8px;color:#3A4A60">${esc(name)}</h5>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+      <label style="display:block">Availability %<br><input type="number" class="slt-target" value="${esc(t.availability_target_pct)}" style="width:90px" autocomplete="off"></label>
+      <label style="display:block">Min outage (min)<br><input type="number" class="slt-minout" value="${esc(t.min_outage_minutes)}" style="width:110px" autocomplete="off"></label>
+      <label style="display:block">Credit cap %<br><input type="number" class="slt-cap" value="${esc(t.credit_cap_pct)}" style="width:90px" autocomplete="off"></label>
+      <label style="display:block">Credit model<br><select class="slt-model"><option value="tiered"${t.credit_model!=='prorata'?' selected':''}>tiered</option><option value="prorata"${t.credit_model==='prorata'?' selected':''}>prorata</option></select></label>
+    </div>
+    <div class="form-group" style="margin-top:8px">
+      <label>Credit schedule <small style="color:#6b7a99">min%:credit% pairs, comma-separated</small></label>
+      <input type="text" class="slt-credit" value="${esc(_slaSerCredit(t.credit_schedule))}" placeholder="97:0, 95:10, 90:25, 0:50" style="width:100%;box-sizing:border-box" autocomplete="off">
+    </div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-top:6px">
+      <label style="display:block">Info (min)<br><input type="number" class="slt-info" value="${esc(r.info_min)}" style="width:90px" autocomplete="off"></label>
+      <label style="display:block">First feedback (h)<br><input type="number" class="slt-feedback" value="${esc(r.first_feedback_h)}" style="width:120px" autocomplete="off"></label>
+      <label style="display:block">Resolve crit1 (h)<br><input type="number" class="slt-c1" value="${esc(rh.crit1)}" style="width:110px" autocomplete="off"></label>
+      <label style="display:block">Resolve crit2 (h)<br><input type="number" class="slt-c2" value="${esc(rh.crit2)}" style="width:110px" autocomplete="off"></label>
+      <label style="display:block">Resolve crit3 (h)<br><input type="number" class="slt-c3" value="${esc(rh.crit3)}" style="width:110px" autocomplete="off"></label>
+    </div>
+    <div style="margin-top:10px">
+      <div style="font-weight:600;color:#3A4A60;font-size:0.85rem;margin-bottom:2px">Service hours <span style="font-weight:400;color:#6b7a99">(empty = closed)</span></div>
+      ${dayRows}
+    </div>
+  </div>`;
+}
+function _slaReadTier(el) {
+  const num = (sel, dflt) => { const i = el.querySelector(sel); return i ? _slaNum(i.value, dflt) : dflt; };
+  const str = (sel) => { const i = el.querySelector(sel); return i ? i.value : ''; };
+  const hours = {};
+  el.querySelectorAll('.slt-hours').forEach(i => { hours[i.dataset.day] = _slaParseHoursDay(i.value); });
+  _SLA_DAYS.forEach(d => { if (!hours[d]) hours[d] = []; });
+  return {
+    hours_default: hours,
+    availability_target_pct: num('.slt-target', null),
+    min_outage_minutes: num('.slt-minout', null),
+    credit_schedule: _slaParseCredit(str('.slt-credit')),
+    credit_cap_pct: num('.slt-cap', null),
+    credit_model: (str('.slt-model') === 'prorata') ? 'prorata' : 'tiered',
+    response: {
+      info_min: num('.slt-info', null),
+      first_feedback_h: num('.slt-feedback', null),
+      resolution_h: { crit1: num('.slt-c1', null), crit2: num('.slt-c2', null), crit3: num('.slt-c3', null) }
+    }
+  };
+}
+
+// ── circuit rows ──
+function _slaTierSelect(sel) {
+  return `<select class="slc-tier">` + _SLA_TIERS.map(t => `<option value="${t}"${sel===t?' selected':''}>${t}</option>`).join('') + `</select>`;
+}
+function _slaCircuitRowHtml(c) {
+  c = c || {};
+  // preset: null hours = inherit; office/mine matched by a light fingerprint; else custom.
+  let preset = 'inherit';
+  if (c.hours && typeof c.hours === 'object') {
+    const sat = _slaSerHoursDay(c.hours.sat || []);
+    preset = (sat ? 'mine' : 'office');
+  }
+  const presetSel = `<select class="slc-preset"><option value="inherit"${preset==='inherit'?' selected':''}>Inherit tier</option><option value="office"${preset==='office'?' selected':''}>Office Mon–Fri</option><option value="mine"${preset==='mine'?' selected':''}>Mine Mon–Sun</option><option value="custom"${preset==='custom'?' selected':''}>Custom</option></select>`;
+  return `<tr data-hours='${esc(JSON.stringify(c.hours || null))}'>
+    <td><input type="number" class="slc-site" value="${esc(c.site_id)}" style="width:80px" autocomplete="off"></td>
+    <td><input type="text" class="slc-sub" value="${esc(c.sub_site || '')}" style="width:90px" autocomplete="off"></td>
+    <td><select class="slc-uplink"><option value="wan1"${c.uplink!=='wan2'?' selected':''}>wan1</option><option value="wan2"${c.uplink==='wan2'?' selected':''}>wan2</option></select></td>
+    <td><input type="text" class="slc-isp" value="${esc(c.isp || '')}" style="width:100px" autocomplete="off"></td>
+    <td><input type="text" class="slc-cid" value="${esc(c.circuit_id || '')}" style="width:100px" autocomplete="off"></td>
+    <td>${_slaTierSelect(c.tier || 'SILVER')}</td>
+    <td><input type="number" class="slc-mrc" value="${esc(c.mrc_amount)}" style="width:90px" autocomplete="off"></td>
+    <td><input type="text" class="slc-cur" value="${esc(c.currency || 'XOF')}" style="width:70px" autocomplete="off"></td>
+    <td><input type="text" class="slc-email" value="${esc(c.isp_notify_email || '')}" placeholder="noc@isp" style="width:150px" autocomplete="off"></td>
+    <td>${presetSel}</td>
+    <td><button class="btn btn-secondary" onclick="this.closest('tr').remove()" title="Remove">✕</button></td>
+  </tr>`;
+}
+function addSlaCircuitRow() {
+  const tb = document.getElementById('sla-circuit-rows'); if (!tb) return;
+  tb.insertAdjacentHTML('beforeend', _slaCircuitRowHtml(null));
+}
+function _slaReadCircuit(tr) {
+  const num = (sel) => { const i = tr.querySelector(sel); return i ? _slaNum(i.value, null) : null; };
+  const str = (sel) => { const i = tr.querySelector(sel); return i ? i.value.trim() : ''; };
+  const sel = (sel) => { const i = tr.querySelector(sel); return i ? i.value : ''; };
+  // Resolve hours from the preset: inherit → null, office/mine → filled calendar,
+  // custom → keep the original blob stashed on the row.
+  const preset = sel('.slc-preset');
+  let hours = null;
+  if (preset === 'office') hours = _slaOfficeHours();
+  else if (preset === 'mine') hours = _slaMineHours();
+  else if (preset === 'custom') { try { hours = JSON.parse(tr.dataset.hours || 'null'); } catch (_) { hours = null; } }
+  return {
+    site_id: num('.slc-site'),
+    sub_site: str('.slc-sub'),
+    uplink: sel('.slc-uplink') || 'wan1',
+    isp: str('.slc-isp'),
+    circuit_id: str('.slc-cid'),
+    tier: sel('.slc-tier') || 'SILVER',
+    hours,
+    mrc_amount: num('.slc-mrc') || 0,
+    currency: str('.slc-cur') || 'XOF',
+    credit_schedule: null,
+    isp_notify_email: str('.slc-email')
+  };
+}
+
+// ── maintenance rows ──
+function _slaMaintRowHtml(m) {
+  m = m || {};
+  return `<tr>
+    <td><input type="number" class="slm-site" value="${esc(m.site_id)}" style="width:80px" autocomplete="off"></td>
+    <td><select class="slm-uplink"><option value="wan1"${m.uplink!=='wan2'?' selected':''}>wan1</option><option value="wan2"${m.uplink==='wan2'?' selected':''}>wan2</option></select></td>
+    <td><input type="datetime-local" class="slm-from" value="${esc(m.from || '')}" autocomplete="off"></td>
+    <td><input type="datetime-local" class="slm-to" value="${esc(m.to || '')}" autocomplete="off"></td>
+    <td><input type="text" class="slm-reason" value="${esc(m.reason || '')}" style="width:170px" autocomplete="off"></td>
+    <td><button class="btn btn-secondary" onclick="this.closest('tr').remove()" title="Remove">✕</button></td>
+  </tr>`;
+}
+function addSlaMaintRow() {
+  const tb = document.getElementById('sla-maint-rows'); if (!tb) return;
+  tb.insertAdjacentHTML('beforeend', _slaMaintRowHtml(null));
+}
+function _slaReadMaint(tr) {
+  const str = (sel) => { const i = tr.querySelector(sel); return i ? i.value.trim() : ''; };
+  const sel = (sel) => { const i = tr.querySelector(sel); return i ? i.value : ''; };
+  const site = tr.querySelector('.slm-site');
+  return {
+    site_id: site ? _slaNum(site.value, null) : null,
+    uplink: sel('.slm-uplink') || 'wan1',
+    from: str('.slm-from'),
+    to: str('.slm-to'),
+    reason: str('.slm-reason')
+  };
+}
+
+function loadSlaConfig() {
+  api('GET', '/api/analytics/wan/sla/config').then(raw => {
+    const dflt = _slaDefaultConfig();
+    const c = (raw && typeof raw === 'object') ? raw : {};
+    const notify = Object.assign({}, dflt.notify, c.notify || {});
+    const ingest = Object.assign({}, dflt.ingest, c.ingest || {});
+    const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = (v == null ? '' : v); };
+    const csEl = document.getElementById('sla-clock-start'); if (csEl) csEl.value = (c.clock_start === 'detection' ? 'detection' : 'notification');
+    setVal('sla-overlap', c.simultaneous_overlap_minutes == null ? dflt.simultaneous_overlap_minutes : c.simultaneous_overlap_minutes);
+    const armEl = document.getElementById('sla-notify-enabled'); if (armEl) armEl.checked = !!notify.enabled;
+    setVal('sla-notify-trigger', notify.trigger_minutes);
+    setVal('sla-notify-poll', notify.poll_minutes);
+    setVal('sla-notify-from', notify.from_name);
+    const etEl = document.getElementById('sla-event-types'); if (etEl) etEl.value = (Array.isArray(c.event_types) ? c.event_types : dflt.event_types).join(', ');
+    setVal('sla-ingest-reconcile', ingest.reconcile_tolerance_minutes);
+    setVal('sla-ingest-stale', ingest.stale_open_hours);
+
+    // Tiers — render all three so GOLD/PLATINUM round-trip too. SILVER falls
+    // back to its full default; GOLD/PLATINUM to an empty object.
+    const tiersHost = document.getElementById('sla-tiers');
+    if (tiersHost) {
+      const tiers = c.tiers || {};
+      tiersHost.innerHTML = _SLA_TIERS.map(name => {
+        const t = tiers[name] || (name === 'SILVER' ? dflt.tiers.SILVER : {});
+        return _slaTierEditorHtml(name, t);
+      }).join('');
+    }
+
+    const ctb = document.getElementById('sla-circuit-rows');
+    if (ctb) { const circuits = Array.isArray(c.circuits) ? c.circuits : []; ctb.innerHTML = circuits.map(_slaCircuitRowHtml).join(''); }
+    const mtb = document.getElementById('sla-maint-rows');
+    if (mtb) { const mnt = Array.isArray(c.maintenance) ? c.maintenance : []; mtb.innerHTML = mnt.map(_slaMaintRowHtml).join(''); }
+    const msg = document.getElementById('sla-msg'); if (msg) msg.textContent = '';
+  }).catch(e => toast('Could not load SLA WAN settings: ' + (e.message || e), 'error'));
+}
+
+function saveSlaConfig() {
+  const val = id => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
+  const chk = id => { const el = document.getElementById(id); return !!(el && el.checked); };
+  const cfg = {
+    notify: {
+      enabled: chk('sla-notify-enabled'),
+      trigger_minutes: _slaNum(val('sla-notify-trigger'), 15),
+      from_name: val('sla-notify-from') || 'SDP NOC',
+      poll_minutes: _slaNum(val('sla-notify-poll'), 5)
+    },
+    clock_start: (val('sla-clock-start') === 'detection') ? 'detection' : 'notification',
+    simultaneous_overlap_minutes: _slaNum(val('sla-overlap'), 5),
+    event_types: val('sla-event-types').split(',').map(s => s.trim()).filter(Boolean),
+    ingest: {
+      reconcile_tolerance_minutes: _slaNum(val('sla-ingest-reconcile'), 60),
+      stale_open_hours: _slaNum(val('sla-ingest-stale'), 24)
+    },
+    maintenance: [...document.querySelectorAll('#sla-maint-rows tr')].map(_slaReadMaint).filter(m => m.site_id != null),
+    tiers: {},
+    circuits: [...document.querySelectorAll('#sla-circuit-rows tr')].map(_slaReadCircuit).filter(c => c.site_id != null)
+  };
+  document.querySelectorAll('#sla-tiers .sla-tier').forEach(el => { cfg.tiers[el.dataset.tier] = _slaReadTier(el); });
+  const msg = document.getElementById('sla-msg'); if (msg) msg.textContent = 'Saving…';
+  api('PUT', '/api/analytics/wan/sla/config', cfg)
+    .then(() => { if (msg) msg.textContent = 'Saved ✓'; toast('SLA WAN settings saved ✓', 'success'); })
+    .catch(e => { if (msg) msg.textContent = 'Save failed: ' + (e.message || e); toast('Save failed: ' + (e.message || e), 'error'); });
+}
+
 // The single source of truth for what the Email/SMTP form currently holds —
 // used both to Save and to Test, so "Test connection" probes exactly what is on
 // screen rather than the last-saved values. The password is included ONLY when
