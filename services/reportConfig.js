@@ -73,6 +73,11 @@ const DEFAULTS = {
   //    SECRET (redact/blank-keep/super_admin); base_url points at the on-prem server;
   //    tls_insecure tolerates its self-signed cert. '1' = insecure (default).
   opmanager_base_url: '', opmanager_api_key: '', opmanager_tls_insecure: '1',
+  // ── WAN SLA / ISP chargeback (V1c). The tier/circuit policy (JSON) that the SLA
+  //    engine + credit reader resolve per (site_id, sub_site, uplink). Seeded as a
+  //    JSON string (like asset_depreciation_config). Must live here or setConfig's
+  //    KEYS filter silently drops the admin's write and the module stays inert.
+  sla_wan_config: JSON.stringify(require('./slaWanConfig').DEFAULT_SLA_WAN_CONFIG),
 };
 const KEYS = Object.keys(DEFAULTS);
 
