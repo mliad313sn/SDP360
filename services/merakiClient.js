@@ -8,6 +8,7 @@
 //   /organizations/{org}/appliance/uplink/statuses         — current per-uplink state (MX)
 //   /organizations/{org}/devices/uplinksLossAndLatency     — discover monitored dest ip
 //   /devices/{serial}/lossAndLatencyHistory                — per-uplink loss/latency ≤31d
+//   /networks/{network}/events                             — event log (PAGINATED object, not array)
 let _axios = null;
 function _defaultGet() {
   if (!_axios) _axios = require('axios');
@@ -49,7 +50,39 @@ function makeMerakiClient({ apiKey, orgId, baseUrl = 'https://api.meraki.com/api
       _get(`/organizations/${orgId}/devices/uplinksLossAndLatency`, { serials }),
     deviceLossLatencyHistory: ({ serial, uplink, ip, t0, t1, timespan, resolution } = {}) =>
       _get(`/devices/${serial}/lossAndLatencyHistory`, { uplink, ip, t0, t1, timespan, resolution }),
+    // Event log. UNLIKE every other method here, this endpoint returns a PAGINATED OBJECT
+    // { events:[...], pageStartAt, pageEndAt } — NOT a bare array. Return it as-is; the caller
+    // (fetchAllNetworkEvents) walks the pages. Backward paging via endingBefore/startingAfter.
+    networkEvents: ({ networkId, productType = 'appliance', startingAfter, endingBefore, perPage = 1000 } = {}) =>
+      _get(`/networks/${networkId}/events`, { productType, startingAfter, endingBefore, perPage }),
   };
 }
 
-module.exports = { makeMerakiClient };
+// Cursor helper: page backward through /networks/{id}/events accumulating .events.
+// Backward paging → each page carries pageStartAt (the earliest event boundary); feed it back
+// as endingBefore to fetch the next-older page. Stop when: a page result is falsy or lacks
+// .events (an unconfigured client returns [] → treated as no events), a page yields 0 events,
+// or pageStartAt stops moving. Capped at maxPages as a runaway backstop. Never throws on empty.
+// NOTE: exact Meraki backward-paging semantics (endingBefore vs pageStartAt) are confirmed at
+// integration time; this loops on the pageStartAt cursor as the documented backward boundary.
+async function fetchAllNetworkEvents(client, { networkId, productType = 'appliance', since } = {}, maxPages = 200) {
+  const out = [];
+  let cursor = undefined; // first call: no endingBefore → newest page
+  let lastCursor = null;
+  for (let i = 0; i < maxPages; i += 1) {
+    const page = await client.networkEvents({ networkId, productType, endingBefore: cursor });
+    // Empty guard: unconfigured client returns [] (array, no .events); a bad page is falsy.
+    if (!page || !Array.isArray(page.events)) break;
+    if (page.events.length === 0) break;
+    out.push(...page.events);
+    const next = page.pageStartAt;
+    // Stop if the boundary is absent or hasn't advanced (would loop forever on the same page).
+    if (!next || next === lastCursor) break;
+    if (since && next <= since) break; // reached the requested lower bound
+    lastCursor = next;
+    cursor = next;
+  }
+  return out;
+}
+
+module.exports = { makeMerakiClient, fetchAllNetworkEvents };
