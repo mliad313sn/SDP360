@@ -184,11 +184,130 @@ function resolutionBreaches(outages = [], tier) {
   return n;
 }
 
+// Direction ('up' | 'down') from a Meraki event `type` — tolerates both
+// underscore styles (`wan1_down`, `wan_1_up`). Anything else → null (skipped).
+function _eventDirection(type) {
+  const m = /_(up|down)$/.exec(String(type || ''));
+  return m ? m[1] : null;
+}
+
+// Pair a Meraki appliance event log (up/down) into outage intervals. Pure.
+// For each (site_id, sub_site, uplink) the events are sorted by time, then each
+// `down` is paired with the NEXT `up` after it (restored_end = that up's time).
+// A trailing `down` with no following `up` → restored_end null (still open).
+// An `up` with no open `down` is ignored. Tolerates out-of-order input.
+function pairEvents(events = []) {
+  const groups = new Map();
+  for (const ev of events) {
+    if (!ev) continue;
+    const dir = _eventDirection(ev.type);
+    if (!dir) continue;
+    const key = `${ev.site_id} ${ev.sub_site} ${ev.uplink}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push({ ev, dir, ms: _toMs(ev.occurredAt) });
+  }
+  const outages = [];
+  for (const list of groups.values()) {
+    list.sort((a, b) => a.ms - b.ms);
+    let open = null;   // the currently-open `down` event, or null
+    for (const { ev, dir } of list) {
+      if (dir === 'down') {
+        if (open == null) open = ev;   // first down wins until an up closes it
+      } else if (open != null) {       // up closes the open down
+        outages.push({
+          site_id: open.site_id,
+          sub_site: open.sub_site,
+          uplink: open.uplink,
+          detected_start: open.occurredAt,
+          restored_end: ev.occurredAt,
+        });
+        open = null;
+      }
+      // else: orphan up → ignored
+    }
+    if (open != null) {
+      outages.push({
+        site_id: open.site_id,
+        sub_site: open.sub_site,
+        uplink: open.uplink,
+        detected_start: open.occurredAt,
+        restored_end: null,   // still open
+      });
+    }
+  }
+  return outages;
+}
+
+// Intersection of two [start,end] ms spans, in minutes (0 if disjoint/touching).
+// An open span (end === Infinity) overlaps anything after its start.
+function _intersectMinutes(aStart, aEnd, bStart, bEnd) {
+  const s = Math.max(aStart, bStart);
+  const e = Math.min(aEnd, bEnd);
+  return e > s ? (e - s) / 60000 : 0;
+}
+
+// Assign attribution to each outage. Pure — returns a NEW array, inputs untouched.
+//   'site'        — overlaps (≥ overlapMinutes) a DIFFERENT uplink outage at the
+//                   same (site_id, sub_site). Open outages (restored_end null)
+//                   are treated as running forever from their start.
+//   'maintenance' — the outage window intersects a maintenance entry for its
+//                   site_id (and uplink, if the entry specifies one).
+//   'isp'         — everything else (attributable to the ISP circuit).
+function attributeOutages(outages = [], { overlapMinutes = 0, maintenance = [] } = {}) {
+  const spans = outages.map((o) => ({
+    start: _toMs(o.detected_start),
+    end: o.restored_end != null ? _toMs(o.restored_end) : Infinity,
+  }));
+  return outages.map((o, i) => {
+    const a = spans[i];
+
+    // 1. cross-uplink simultaneity at the same site/sub_site.
+    let otherUplink = null;
+    for (let j = 0; j < outages.length; j += 1) {
+      if (j === i) continue;
+      const b = outages[j];
+      if (b.site_id !== o.site_id || b.sub_site !== o.sub_site) continue;
+      if (b.uplink === o.uplink) continue;
+      const inter = _intersectMinutes(a.start, a.end, spans[j].start, spans[j].end);
+      if (inter > 0 && inter >= overlapMinutes) { otherUplink = b.uplink; break; }
+    }
+
+    let attribution;
+    let attribution_reason;
+    if (otherUplink != null) {
+      attribution = 'site';
+      attribution_reason = `${o.uplink}+${otherUplink} simultaneous (site/power)`;
+    } else if (_intersectsMaintenance(o, a, maintenance)) {
+      attribution = 'maintenance';
+      attribution_reason = 'maintenance window';
+    } else {
+      attribution = 'isp';
+      attribution_reason = 'attributable to ISP circuit';
+    }
+    return { ...o, attribution, attribution_reason };
+  });
+}
+
+// True if outage span `a` intersects a maintenance entry matching the outage's
+// site_id (and uplink, when the entry pins one).
+function _intersectsMaintenance(o, a, maintenance) {
+  for (const m of maintenance || []) {
+    if (!m || m.site_id !== o.site_id) continue;
+    if (m.uplink && m.uplink !== o.uplink) continue;
+    const ms = _toMs(m.from);
+    const me = _toMs(m.to);
+    if (a.end > ms && me > a.start) return true;
+  }
+  return false;
+}
+
 module.exports = {
   serviceSecondsBetween,
   clipToService,
   computeCircuitSla,
   resolutionBreaches,
+  pairEvents,
+  attributeOutages,
   hmToMinutes,
   utcMidnight,
 };
