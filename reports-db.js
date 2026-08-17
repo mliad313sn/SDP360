@@ -58,6 +58,30 @@ CREATE TABLE IF NOT EXISTS wan_link_snapshots (
   PRIMARY KEY (site_id, sub_site, uplink, period_type, period_start)
 );`;
 
+// WAN SLA / ISP chargeback — one row per detected WAN outage. Composite PK (no surrogate
+// id → sqlite/pg parity). detected_start/restored_end are TEXT timestamps; duration_s is
+// computed in JS (never date math in SQL — the pg-strict trap). Mirrors _WAN_CREATE_SQL so
+// the sqlite boot CREATE and initPgReports share one schema.
+const _WAN_OUTAGES_CREATE_SQL = `
+CREATE TABLE IF NOT EXISTS wan_outages (
+  site_id            INTEGER NOT NULL,
+  sub_site           TEXT NOT NULL DEFAULT '',
+  uplink             TEXT NOT NULL,
+  isp                TEXT,
+  circuit_id         TEXT,
+  detected_start     TEXT NOT NULL,
+  restored_end       TEXT,
+  notified_at        TEXT,
+  duration_s         INTEGER,
+  attribution        TEXT,
+  attribution_reason TEXT,
+  network_id         TEXT,
+  device_serial      TEXT,
+  source             TEXT,
+  raw_json           TEXT,
+  PRIMARY KEY (site_id, sub_site, uplink, detected_start)
+);`;
+
 db.exec(`
 CREATE TABLE IF NOT EXISTS sites (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -422,6 +446,8 @@ try { db.exec(`CREATE TABLE IF NOT EXISTS wan_subsite_networks (
   network  TEXT NOT NULL,
   PRIMARY KEY (site_id, sub_site)
 )`); } catch(e) {}
+// WAN SLA / ISP chargeback — one row per detected WAN outage (created from _WAN_OUTAGES_CREATE_SQL).
+try { db.exec(_WAN_OUTAGES_CREATE_SQL); } catch(e) {}
 try { db.exec(`CREATE INDEX IF NOT EXISTS idx_sessions_last_seen ON sessions(last_seen)`); } catch(e) {}
 // sites: add zoho_group column for group-based helpdesk filtering
 try { db.exec(`ALTER TABLE sites ADD COLUMN zoho_group TEXT`); } catch(e) {}
@@ -1242,6 +1268,9 @@ async function initPgReports() {            // called once at server boot
   // V1b — Meraki WAN link availability & quality snapshots.
   await _pg.exec(require('fs').readFileSync(
     require('path').join(__dirname, 'db', 'postgres', 'reports', '008_wan_link_snapshots.sql'), 'utf8'));
+  // WAN SLA / ISP chargeback — one row per detected WAN outage.
+  await _pg.exec(require('fs').readFileSync(
+    require('path').join(__dirname, 'db', 'postgres', 'reports', '009_wan_outages.sql'), 'utf8'));
   // V1b-E — add sub_site to wan_link_snapshots + swap its PK to the 5-col key (guarded so
   // it runs once on DBs created before V1b-E; fresh installs get it from 008.sql directly).
   await _pg.exec(`ALTER TABLE wan_link_snapshots ADD COLUMN IF NOT EXISTS sub_site TEXT NOT NULL DEFAULT ''`);
@@ -2620,6 +2649,82 @@ function _getWanSnapshotsSqlite(f) {
 async function _getWanSnapshotsPg(f) {
   const { where, params } = _wanWhere(f);
   return pgHandle().prepare(`SELECT * FROM wan_link_snapshots${where} ORDER BY period_start DESC, uplink`).all(...params);
+}
+
+// ── WAN outages (WAN SLA / ISP chargeback) — one row per detected outage. Composite PK
+//    (site_id, sub_site, uplink, detected_start), no surrogate id. Same dual-backend shape
+//    as wan_link_snapshots: one shared upsert SQL for both backends, dual dispatcher.
+const _WAN_OUTAGE_COLS = ['site_id','sub_site','uplink','isp','circuit_id','detected_start','restored_end',
+  'notified_at','duration_s','attribution','attribution_reason','network_id','device_serial','source','raw_json'];
+const _WAN_OUTAGE_UPSERT =
+  `INSERT INTO wan_outages (${_WAN_OUTAGE_COLS.join(',')}) VALUES (${_WAN_OUTAGE_COLS.map(() => '?').join(',')})
+   ON CONFLICT(site_id,sub_site,uplink,detected_start) DO UPDATE SET
+     isp=excluded.isp, circuit_id=excluded.circuit_id, restored_end=excluded.restored_end,
+     notified_at=excluded.notified_at, duration_s=excluded.duration_s, attribution=excluded.attribution,
+     attribution_reason=excluded.attribution_reason, network_id=excluded.network_id,
+     device_serial=excluded.device_serial, source=excluded.source, raw_json=excluded.raw_json`;
+const _wanOutageVals = (r) => _WAN_OUTAGE_COLS.map(c =>
+  c === 'sub_site' ? (r.sub_site == null ? '' : r.sub_site) : (r[c] === undefined ? null : r[c]));
+function _wanOutageWhere(f) {
+  const w = [], p = [];
+  if (f && f.site_id != null) { w.push('site_id=?'); p.push(f.site_id); }
+  if (f && f.uplink)          { w.push('uplink=?');  p.push(f.uplink); }
+  if (f && f.from)            { w.push('detected_start>=?'); p.push(f.from); }
+  if (f && f.to)              { w.push('detected_start<=?'); p.push(f.to); }
+  return { where: w.length ? ' WHERE ' + w.join(' AND ') : '', params: p };
+}
+function upsertWanOutage(row) {
+  if (REPORTS_BACKEND === 'postgres') return _upsertWanOutagePg(row);
+  return _upsertWanOutageSqlite(row);
+}
+function _upsertWanOutageSqlite(row) {
+  return db.prepare(_WAN_OUTAGE_UPSERT).run(..._wanOutageVals(row));
+}
+async function _upsertWanOutagePg(row) {
+  return pgHandle().prepare(_WAN_OUTAGE_UPSERT).run(..._wanOutageVals(row));
+}
+function getWanOutages(f) {
+  if (REPORTS_BACKEND === 'postgres') return _getWanOutagesPg(f);
+  return _getWanOutagesSqlite(f);
+}
+function _getWanOutagesSqlite(f) {
+  const { where, params } = _wanOutageWhere(f);
+  return db.prepare(`SELECT * FROM wan_outages${where} ORDER BY detected_start`).all(...params);
+}
+async function _getWanOutagesPg(f) {
+  const { where, params } = _wanOutageWhere(f);
+  return pgHandle().prepare(`SELECT * FROM wan_outages${where} ORDER BY detected_start`).all(...params);
+}
+function listOpenWanOutages() {
+  if (REPORTS_BACKEND === 'postgres') return _listOpenWanOutagesPg();
+  return _listOpenWanOutagesSqlite();
+}
+function _listOpenWanOutagesSqlite() {
+  return db.prepare(`SELECT * FROM wan_outages WHERE restored_end IS NULL ORDER BY detected_start`).all();
+}
+async function _listOpenWanOutagesPg() {
+  return pgHandle().prepare(`SELECT * FROM wan_outages WHERE restored_end IS NULL ORDER BY detected_start`).all();
+}
+// duration_s is computed in JS (never date math in SQL — the pg-strict trap).
+const _WAN_OUTAGE_CLOSE_SQL =
+  `UPDATE wan_outages SET restored_end=?, duration_s=?
+   WHERE site_id=? AND sub_site=? AND uplink=? AND detected_start=?`;
+function _wanOutageCloseArgs(o) {
+  const sub = o.sub_site == null ? '' : o.sub_site;
+  let dur = null;
+  const t0 = Date.parse(o.detected_start), t1 = Date.parse(o.restored_end);
+  if (Number.isFinite(t0) && Number.isFinite(t1)) dur = Math.round((t1 - t0) / 1000);
+  return [o.restored_end, dur, o.site_id, sub, o.uplink, o.detected_start];
+}
+function closeWanOutage(o) {
+  if (REPORTS_BACKEND === 'postgres') return _closeWanOutagePg(o);
+  return _closeWanOutageSqlite(o);
+}
+function _closeWanOutageSqlite(o) {
+  return db.prepare(_WAN_OUTAGE_CLOSE_SQL).run(..._wanOutageCloseArgs(o));
+}
+async function _closeWanOutagePg(o) {
+  return pgHandle().prepare(_WAN_OUTAGE_CLOSE_SQL).run(..._wanOutageCloseArgs(o));
 }
 
 function saveHelpdeskData(report_id, data) {
@@ -7403,7 +7508,7 @@ module.exports = {
   getSiteTechnicianStats, _computeTechStats,
   getPreviousWeek, ensureWeek, getWeekRange,
   ensureReport, getReport, listReports,
-  saveInfraKpis, upsertInfraSnapshots, getInfraSnapshots, upsertWanSnapshots, getWanSnapshots, saveHelpdeskData, saveLights, saveActionItems, _backfillActionUids,
+  saveInfraKpis, upsertInfraSnapshots, getInfraSnapshots, upsertWanSnapshots, getWanSnapshots, upsertWanOutage, getWanOutages, listOpenWanOutages, closeWanOutage, saveHelpdeskData, saveLights, saveActionItems, _backfillActionUids,
   setActionMerge, clearActionMerge, setActionStatus, setActionLineage, getSiteOpenReportActions,
   getPreviousWeekOpenActions, listAllWeeksWithActions, getActionsForReport,
   listAllWeeksWithLights, getLightsForReport,
