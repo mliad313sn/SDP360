@@ -27,8 +27,9 @@
 
 ## SLICE 1 — pure engine + storage (no UI)
 
-### Task 1: service-hours calendar helpers (`wanSla.js`)
-**Files:** Create `services/wanSla.js`; Test `tests/wan-sla-engine.test.js`.
+### Task 1: service-hours calendar helpers (`wanSla.js`) + shared fixtures
+**Files:** Create `services/wanSla.js`; Create `tests/_wanSlaFixtures.js`; Test `tests/wan-sla-engine.test.js`.
+- [ ] **Step 0 — shared fixtures** (`tests/_wanSlaFixtures.js`, derived from spec §4.2, reused by every engine/route test so nothing drifts): export `SILVER` (the full tier object: `availability_target_pct:97`, `min_outage_minutes:15`, `credit_schedule:[{min:97,credit:0},{min:95,credit:10},{min:90,credit:25},{min:0,credit:50}]`, `credit_cap_pct:100`, `credit_model:'tiered'`, `response:{resolution_h:{crit1:12,crit2:24,crit3:48}}`, `hours_default`), `SILVER_OFFICE` (Mon–Fri 08-13/14-17), `SILVER_MINE` (Mon–Sun 08-13/14-17), and `AUG1`/`SEP1` month-boundary ms constants.
 - [ ] **Step 1 — failing test.** A calendar `cal = {mon:[['08:00','13:00'],['14:00','17:00']], …fri same, sat:[], sun:[]}`.
 ```js
 const { serviceSecondsBetween, clipToService } = require('../services/wanSla');
@@ -76,8 +77,9 @@ test('SILVER office: one 3h in-hours ISP outage → availability + credit tier',
 ```
 - [ ] **Step 2 — FAIL.**
 - [ ] **Step 3 — implement** exactly per §7 pseudocode (intersect-with-month on both branches; read stored `attribution`; `triggerMinutes` for the notification offset; `min_outage_minutes` only as the count floor; both credit models; cap-then-round; return `{availability_pct, met, credit_pct, credit_due, gap_pp, gap_hours, counted_downtime_s, allowed_s, amount, currency}` plus a second `detection`-based `availability_pct_objective`).
+- [ ] **Step 3b — resolution-SLA (relève) breach, per-outage.** Add a small pure `resolutionBreaches(outages, tier)`: for each `'isp'` outage with a `restored_end`, `resolution_time = restored_end − detected_start`; **all event-log outages are total interruption = Niveau 1**, so compare to `tier.response.resolution_h.crit1` (12 h) → per-outage `{breach:boolean}`; return the count. (crit2/crit3 need degraded detection → Phase 2, noted.) Test: a 13 h outage breaches, an 11 h does not; the count aggregates.
 - [ ] **Step 4 — PASS** (all engine tests).
-- [ ] **Step 5 — commit** `feat(wan-sla): computeCircuitSla — availability, credit, gap (pure)`
+- [ ] **Step 5 — commit** `feat(wan-sla): computeCircuitSla + relève-SLA breach (pure)`
 
 ### Task 3: `wan_outages` store (dual-backend)
 **Files:** Modify `reports-db.js`; Create `db/postgres/reports/009_wan_outages.sql`; Test `tests/wan-outages-store.test.js`.
@@ -91,7 +93,7 @@ test('SILVER office: one 3h in-hours ISP outage → availability + credit tier',
 **Files:** Modify `services/reportConfig.js` (DEFAULTS); Create `services/slaWanConfig.js`; Test `tests/wan-sla-config.test.js`.
 - [ ] **Step 1 — failing test:** `parseSlaWanConfig(raw)` returns defaults on empty/garbage; `resolveCircuit(config, {site_id,sub_site,uplink})` merges tier defaults with circuit overrides (`hours ?? tier.hours_default`, `credit_schedule ?? tier.credit_schedule`), returns null for an unmapped circuit; `sla_wan_config` present in `reportConfig.DEFAULTS`.
 - [ ] **Step 2 — FAIL.**
-- [ ] **Step 3 — implement.** Add `sla_wan_config: JSON.stringify(DEFAULT_SLA_WAN_CONFIG)` to `DEFAULTS` (SILVER seeded per §4.2; GOLD/PLATINUM empty-ish). `slaWanConfig.js`: `DEFAULT_SLA_WAN_CONFIG`, `parseSlaWanConfig`, `resolveCircuit`.
+- [ ] **Step 3 — implement.** Add `sla_wan_config: JSON.stringify(DEFAULT_SLA_WAN_CONFIG)` to `DEFAULTS` (SILVER seeded per §4.2; GOLD/PLATINUM empty-ish). `slaWanConfig.js`: `DEFAULT_SLA_WAN_CONFIG`, `parseSlaWanConfig`, `resolveCircuit`. **DEFAULT_SLA_WAN_CONFIG additionally carries** (beyond §4.2): `event_types: ['wan_1_up','wan_1_down','wan_2_up','wan_2_down','uplink_change']` (appliance uplink up/down defaults — **exact Meraki strings are confirmed via discovery = user step**, hence config-driven not hardcoded) and `ingest: { reconcile_tolerance_minutes: 60, stale_open_hours: 24 }`. Test asserts both are present with defaults.
 - [ ] **Step 4 — PASS.**
 - [ ] **Step 5 — commit** `feat(wan-sla): sla_wan_config default + resolver`
 
@@ -105,7 +107,7 @@ test('SILVER office: one 3h in-hours ISP outage → availability + credit tier',
 
 ### Task 6: `merakiClient.networkEvents` (paginated object)
 **Files:** Modify `services/merakiClient.js`; Test `tests/meraki-networkevents.test.js`.
-- [ ] **Step 1 — failing test** (injected `get`): the method returns the `{events, pageStartAt, pageEndAt}` object and a helper `fetchAllNetworkEvents(client, {networkId, since})` cursor-loops via `startingAfter`/`endingBefore` until exhausted.
+- [ ] **Step 1 — failing test** (injected `get`): the method returns the `{events, pageStartAt, pageEndAt}` object and a helper `fetchAllNetworkEvents(client, {networkId, since})` cursor-loops via `startingAfter`/`endingBefore` until exhausted. **Also test the unconfigured/empty case**: an unconfigured client's `_get` returns `[]` (array), so `fetchAllNetworkEvents` must guard `result && result.events` being undefined → return `[]`, not throw.
 - [ ] **Step 2 — FAIL.**
 - [ ] **Step 3 — implement** `networkEvents({networkId, productType='appliance', startingAfter, endingBefore, perPage})` (returns the object, NOT `res.data`-as-array) + the cursor helper (in the ingester or client).
 - [ ] **Step 4 — PASS.**
@@ -119,15 +121,15 @@ test('SILVER office: one 3h in-hours ISP outage → availability + credit tier',
 **Files:** Create `tools/meraki/sync-wan-events.js`; Test `tests/wan-events-ingest.test.js`.
 - [ ] **Step 1 — failing test** (injected client + rdb): fetch events → `pairEvents` → `attributeOutages` → upsert; the **reconcile** updates the poller's open provisional row in place (targeted UPDATE by non-PK predicate; tolerance 60min) instead of duplicating; config-gated (no key → `{skipped}`); best-effort (throw → prior kept).
 - [ ] **Step 2 — FAIL.**
-- [ ] **Step 3 — implement** per §5 + §4.1 reconcile (pre-resolve networkId→site/sub via `listSiteMerakiMap`+`listWanSubsiteNetworks`, awaited BEFORE the pure calls — pg-Promise trap). `main(deps)` injectable.
+- [ ] **Step 3 — implement** per §5 + §4.1 reconcile (pre-resolve networkId→site/sub via `listSiteMerakiMap`+`listWanSubsiteNetworks`, awaited BEFORE the pure calls — pg-Promise trap). Filter events by **`config.event_types`** (Task 4), not hardcoded strings. Reconcile tolerance = **`config.ingest.reconcile_tolerance_minutes`** (60). `main(deps)` injectable.
 - [ ] **Step 4 — PASS.**
 - [ ] **Step 5 — commit** `feat(wan-sla): nightly event-log ingester`
 
 ### Task 8: 5-min open-outage poller + notification
 **Files:** Create `tools/meraki/poll-wan-outages.js`; Test `tests/wan-outage-poller.test.js`.
-- [ ] **Step 1 — failing test** (injected `orgUplinkStatuses` + injected mailer + rdb): a down uplink opens exactly one row (invariant); after ≥`trigger_minutes` still down + armed + contact set → mailer called ONCE, `notified_at` stamped; **never sends if `restored_end` set**; disarmed (`notify.enabled=false`) → no send; recovery closes the open row.
+- [ ] **Step 1 — failing test** (injected `orgUplinkStatuses` + injected mailer + rdb): a down uplink opens exactly one row (invariant); after ≥`trigger_minutes` still down + armed + contact set → mailer called ONCE, `notified_at` stamped; **never sends if `restored_end` set**; disarmed (`notify.enabled=false`) → no send; recovery closes the open row. **Stale-open guard**: an open row older than `config.ingest.stale_open_hours` (24 h) with no recovery is closed with `source='stale_open'`, AND a subsequent new down on the same `(site,sub_site,uplink)` can then open a fresh row (proves the invariant is unblocked).
 - [ ] **Step 2 — FAIL.**
-- [ ] **Step 3 — implement** per §6 (open-row tracking, 15-min guard, never-after-restore, `mailer.send` via `services/mailer.js`, armed-OFF gate). `main(deps)` injectable.
+- [ ] **Step 3 — implement** per §6 (open-row tracking, 15-min guard, never-after-restore, `mailer.send` via `services/mailer.js`, armed-OFF gate, **24 h stale-open close** — run each poll before opening new rows so the invariant never permanently blocks). `main(deps)` injectable.
 - [ ] **Step 4 — PASS.**
 - [ ] **Step 5 — commit** `feat(wan-sla): 5-min poller + armed-off ISP notification`
 
@@ -135,7 +137,7 @@ test('SILVER office: one 3h in-hours ISP outage → availability + credit tier',
 **Files:** Modify `routes/opmanager.js` (or new `routes/wanSla.js`) + `server.js`; Test `tests/wan-sla-routes.smoke.test.js`.
 - [ ] **Step 1 — failing smoke** (boot app, sqlite): `GET /summary?month=` returns per-circuit rows incl. an **unmapped-circuit** row when an outage has no circuit; `GET /outages`; `GET/PUT /config` **super_admin-gated** (admin→403); `POST /sync` (admin); best-effort (never 500).
 - [ ] **Step 2 — FAIL.**
-- [ ] **Step 3 — implement** the 5 routes (summary composes `getWanOutages`+`resolveCircuit`+`computeCircuitSla` per circuit + unmapped rows; export.csv/xlsx evidence). Wire cron: `*/5 * * * *` poller + nightly (staggered ~05:25) ingester in `server.js`.
+- [ ] **Step 3 — implement** the 5 routes (summary composes `getWanOutages`+`resolveCircuit`+`computeCircuitSla` per circuit + the `resolutionBreaches` count + unmapped rows; export.csv/xlsx evidence). Wire cron: `*/5 * * * *` poller + nightly (staggered ~05:25) ingester in `server.js`. **NOTE (serialize): `server.js` is edited here AND in Task 11 (`_htmlCache` + view route) — run these two tasks sequentially, never parallel implementers on `server.js`.**
 - [ ] **Step 4 — PASS** + `await-precedence` + **`pptx-monthly-golden` unchanged**.
 - [ ] **Step 5 — commit** `feat(wan-sla): routes + cron (poller 5min, ingester nightly)`
 
