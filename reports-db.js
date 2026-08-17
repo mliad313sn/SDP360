@@ -2727,6 +2727,36 @@ async function _closeWanOutagePg(o) {
   return pgHandle().prepare(_WAN_OUTAGE_CLOSE_SQL).run(..._wanOutageCloseArgs(o));
 }
 
+// Reconcile a poller-created PROVISIONAL open row (source='meraki_status', restored_end
+// IS NULL) up to AUTHORITATIVE event-log values, in place — a targeted UPDATE by a non-PK
+// predicate. This legitimately mutates the detected_start PK column via a non-PK WHERE
+// (valid on both backends — no FK references it). notified_at is DELIBERATELY not in the
+// SET: the poller owns it, so a reconcile must preserve it. Returns the number of rows
+// updated (0 → the caller inserts a fresh authoritative row instead). Nightly ingester only.
+const _WAN_OUTAGE_RECONCILE_SQL =
+  `UPDATE wan_outages SET detected_start=?, restored_end=?, duration_s=?, attribution=?, attribution_reason=?,
+       isp=?, circuit_id=?, network_id=?, device_serial=?, source=?
+   WHERE site_id=? AND sub_site=? AND uplink=? AND restored_end IS NULL AND source='meraki_status'`;
+function _wanOutageReconcileArgs(key, a) {
+  const sub = key.sub_site == null ? '' : key.sub_site;
+  const g = (v) => (v === undefined ? null : v);
+  return [
+    g(a.detected_start), g(a.restored_end), g(a.duration_s), g(a.attribution), g(a.attribution_reason),
+    g(a.isp), g(a.circuit_id), g(a.network_id), g(a.device_serial), g(a.source),
+    key.site_id, sub, key.uplink,
+  ];
+}
+function reconcileProvisionalOutage(key, a) {
+  if (REPORTS_BACKEND === 'postgres') return _reconcileProvisionalOutagePg(key, a);
+  return _reconcileProvisionalOutageSqlite(key, a);
+}
+function _reconcileProvisionalOutageSqlite(key, a) {
+  return db.prepare(_WAN_OUTAGE_RECONCILE_SQL).run(..._wanOutageReconcileArgs(key, a)).changes;
+}
+async function _reconcileProvisionalOutagePg(key, a) {
+  return (await pgHandle().prepare(_WAN_OUTAGE_RECONCILE_SQL).run(..._wanOutageReconcileArgs(key, a))).changes;
+}
+
 function saveHelpdeskData(report_id, data) {
   if (REPORTS_BACKEND === 'postgres') return _saveHelpdeskDataPg(report_id, data);
   const sla = data.sla_violations ? JSON.stringify(data.sla_violations) : null;
@@ -7508,7 +7538,7 @@ module.exports = {
   getSiteTechnicianStats, _computeTechStats,
   getPreviousWeek, ensureWeek, getWeekRange,
   ensureReport, getReport, listReports,
-  saveInfraKpis, upsertInfraSnapshots, getInfraSnapshots, upsertWanSnapshots, getWanSnapshots, upsertWanOutage, getWanOutages, listOpenWanOutages, closeWanOutage, saveHelpdeskData, saveLights, saveActionItems, _backfillActionUids,
+  saveInfraKpis, upsertInfraSnapshots, getInfraSnapshots, upsertWanSnapshots, getWanSnapshots, upsertWanOutage, getWanOutages, listOpenWanOutages, closeWanOutage, reconcileProvisionalOutage, saveHelpdeskData, saveLights, saveActionItems, _backfillActionUids,
   setActionMerge, clearActionMerge, setActionStatus, setActionLineage, getSiteOpenReportActions,
   getPreviousWeekOpenActions, listAllWeeksWithActions, getActionsForReport,
   listAllWeeksWithLights, getLightsForReport,
