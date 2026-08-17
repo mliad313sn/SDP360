@@ -63,7 +63,11 @@ Accumulated forward (mirrors `asset_effort_history`; can't reconstruct the past)
 | `raw_json` TEXT | raw event/status (evidence) |
 | **PK** | `(site_id, sub_site, uplink, detected_start)` — composite, no surrogate id (sqlite/pg parity) |
 
-Idempotent upsert on the PK: the poller opens a row; the event-log pass corrects `detected_start`→exact (an upsert may therefore *insert a corrected row + leave the provisional one*; the ingester reconciles by matching the open provisional row on `(site,sub_site,uplink)` with NULL `restored_end` within a tolerance and updating it in place rather than inserting a duplicate — the reconcile rule is specified in the plan). Closing an open outage updates `restored_end`/`duration_s`.
+Idempotent upsert on the PK, plus a reconcile rule with a stated invariant:
+- **INVARIANT: at most ONE open row (`restored_end IS NULL`) per `(site_id, sub_site, uplink)`** at any time. The poller enforces it — it opens a row only if none is open for that key.
+- **Reconcile (event-log pass corrects the poller's provisional `detected_start`→exact):** this is a **targeted `UPDATE … WHERE site_id=? AND sub_site=? AND uplink=? AND restored_end IS NULL`** — updating the PK column `detected_start` in place by a *non-PK* predicate (valid on both sqlite and pg; NOT a PK-upsert, so no duplicate row). The invariant guarantees the predicate hits exactly one row. The event is matched to the open provisional row only if the event's `down` time is within **`reconcile_tolerance_minutes` = 60** of the provisional `detected_start` (a sanity guard against pairing an unrelated stale-open row); otherwise the event inserts its own authoritative row.
+- **Stale-open guard:** a provisional open row with no matching `up` event and older than **24 h** is closed with `attribution` unchanged and `source='stale_open'` rather than left open forever (prevents the invariant from blocking a genuine new outage on the same uplink).
+- Closing an outage sets `restored_end`/`duration_s`. Re-ingesting the same paired event is idempotent (same PK → DO UPDATE).
 
 ### 4.2 `sla_wan_config` — JSON blob in `report_config` (admin-editable)
 **MUST be added to `reportConfig.DEFAULTS`** — `setConfig` filters on `KEYS = Object.keys(DEFAULTS)` (`reportConfig.js`), so a key absent from DEFAULTS is silently dropped. Shape:
@@ -121,7 +125,8 @@ A dedicated **`*/poll_minutes * * * *`** cron (default 5 min), separate from the
 
 ## 7. Pure SLA engine (`services/wanSla.js`) — no I/O
 
-`computeCircuitSla({ outages, circuit, tier, maintenance, monthStart, monthEnd, clockStart, simultaneousDropped, nowMs })` →
+`computeCircuitSla({ outages, circuit, tier, maintenance, monthStart, monthEnd, clockStart, triggerMinutes, nowMs })` →
+(`triggerMinutes` = `notify.trigger_minutes` from config, injected so the pure engine has it — it is the *notification-fired* offset, a DIFFERENT knob from `tier.min_outage_minutes` which is only the "does this outage count" floor. Do NOT couple them.)
 ```
 cal            = circuit.hours ?? tier.hours_default
 target         = tier.availability_target_pct
@@ -131,9 +136,9 @@ allowed_s      = (1 − target/100) × service_seconds
 counted_downtime_s = 0
 for outage in outages:                       // already this circuit's rows
    if outage.attribution !== 'isp': continue         // 'site' / 'maintenance' excluded (read stored flag)
-   if outage.duration/… < min_outage_minutes: continue
+   if outage.duration/… < tier.min_outage_minutes: continue     // min-outage FLOOR (distinct knob)
    chosenStart = clockStart==='notification'
-                 ? (outage.notified_at ?? addMin(outage.detected_start, tier.min_outage_minutes))
+                 ? (outage.notified_at ?? addMin(outage.detected_start, triggerMinutes))   // notif-fired offset
                  : outage.detected_start
    chosenEnd   = outage.restored_end ?? min(nowMs, monthEnd)
    # INTERSECT with the month on BOTH branches (I1 fix):
