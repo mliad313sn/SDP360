@@ -509,6 +509,15 @@ cron.schedule('10 5 * * *', () => require('./tools/opmanager/sync-availability')
 cron.schedule('20 5 * * *', () => require('./tools/meraki/sync-wan').main({})
   .catch(e => console.error('[Cron:meraki-wan]', e && e.message)));
 
+// WAN SLA / ISP chargeback (V1c). Nightly event-log INGESTER at 05:25 (staggered after the WAN
+// quality sync) pairs down/up events into authoritative wan_outages rows; the 5-minute POLLER
+// opens/closes provisional rows from current uplink state + fires the ISP auto-notification.
+// Both config-gated inside .main (self-skip until meraki_api_key is set) + best-effort.
+cron.schedule('25 5 * * *', () => require('./tools/meraki/sync-wan-events').main({})
+  .catch(e => console.error('[Cron:wan-events]', e && e.message)));
+cron.schedule('*/5 * * * *', () => require('./tools/meraki/poll-wan-outages').main({})
+  .catch(e => console.error('[Cron:wan-poller]', e && e.message)));
+
 // Change + CAB: every hour at :30 past the hour (offset to avoid collision with requests at :45)
 // Bumped from `30 */2 * * *` (every 2h) on 2026-05-26 to support the
 // executive.html rewrite — DB-direct mode means data freshness IS the

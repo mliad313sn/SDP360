@@ -13,8 +13,24 @@ module.exports = function opmanagerRoutes(deps) {
   const rdb = require('../reports-db');
   const reportConfig = require('../services/reportConfig');
   const { classifyKpiFamily } = require('../services/opmClassify');
+  const { computeCircuitSla, resolutionBreaches } = require('../services/wanSla');
+  const { parseSlaWanConfig, resolveCircuit } = require('../services/slaWanConfig');
 
   const FAMILIES = ['lan', 'wifi', 'wan', 'servers'];
+
+  // month=YYYY-MM → UTC [monthStart, monthEnd) ms. Garbage/absent → current UTC month.
+  function _monthBounds(raw) {
+    const now = new Date();
+    const m = /^(\d{4})-(\d{2})$/.exec(String(raw || '').trim());
+    const y = m ? Number(m[1]) : now.getUTCFullYear();
+    const mo = m ? Number(m[2]) - 1 : now.getUTCMonth();       // 0-based
+    const monthStart = Date.UTC(y, mo, 1);
+    const monthEnd = Date.UTC(y, mo + 1, 1);                   // exclusive
+    const label = `${y}-${String(mo + 1).padStart(2, '0')}`;
+    return { monthStart, monthEnd, label,
+      fromISO: new Date(monthStart).toISOString(), toISO: new Date(monthEnd).toISOString() };
+  }
+  function _csvCell(v) { return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; }
 
   function _safeParse(s, d) { try { return JSON.parse(s); } catch { return d; } }
   function _numOrNull(v) { const n = Number(v); return Number.isFinite(n) ? n : null; }
@@ -192,6 +208,105 @@ module.exports = function opmanagerRoutes(deps) {
         subsites: (await rdb.listWanSubsiteNetworks()) || [],
       });
     } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  // ── V1c — WAN SLA / ISP chargeback. Reads wan_outages (the poller + ingester archive) and
+  //    the sla_wan_config policy; computes the monthly binding availability + credit per mapped
+  //    circuit, and surfaces UNMAPPED outages so no ISP interruption goes unaccounted. All
+  //    best-effort — never 500 (on throw, return the safe empty shape). ──
+  router.get('/api/analytics/wan/sla/summary', requireReportSession, async (req, res) => {
+    const { monthStart, monthEnd, label, fromISO, toISO } = _monthBounds(req.query.month);
+    try {
+      const cfg = parseSlaWanConfig((await reportConfig.getConfig(rdb.db)).sla_wan_config);
+      const nowMs = Date.now();
+      const clockStart = cfg.clock_start;
+      const triggerMinutes = (cfg.notify && cfg.notify.trigger_minutes) || 15;
+
+      const circuits = [];
+      for (const c of (Array.isArray(cfg.circuits) ? cfg.circuits : [])) {
+        if (!c) continue;
+        const site_id = c.site_id, sub_site = c.sub_site || '', uplink = c.uplink;
+        const resolved = resolveCircuit(cfg, { site_id, sub_site, uplink });
+        if (!resolved) continue;
+        const rows = (await rdb.getWanOutages({ site_id, from: fromISO, to: toISO, uplink })) || [];
+        const outages = rows.filter(o => (o.sub_site || '') === sub_site);   // getWanOutages has no sub_site filter
+        const sla = computeCircuitSla({
+          outages, circuit: resolved, tier: resolved.tier, maintenance: cfg.maintenance,
+          monthStart, monthEnd, clockStart, triggerMinutes, nowMs });
+        circuits.push({
+          site_id, sub_site, uplink, tier: c.tier, isp: resolved.isp || null,
+          circuit_id: resolved.circuit_id || null, outage_count: outages.length,
+          resolution_breaches: resolutionBreaches(outages, resolved.tier), ...sla });
+      }
+
+      // UNMAPPED — distinct (site_id, sub_site, uplink) with month outages that match no circuit.
+      const seen = new Map();
+      for (const o of ((await rdb.getWanOutages({ from: fromISO, to: toISO })) || [])) {
+        const site_id = o.site_id, sub_site = o.sub_site || '', uplink = o.uplink;
+        if (resolveCircuit(cfg, { site_id, sub_site, uplink })) continue;
+        const k = `${site_id}|${sub_site}|${uplink}`;
+        const e = seen.get(k) || { unmapped: true, site_id, sub_site, uplink, outage_count: 0, availability_pct: null };
+        e.outage_count += 1;
+        seen.set(k, e);
+      }
+      res.json({ month: label, circuits, unmapped: [...seen.values()] });
+    } catch (e) { res.json({ month: label, circuits: [], unmapped: [], reason: e.message }); }
+  });
+
+  // Raw outage evidence. Tolerant `site` (numeric id, probe/meetings code, or site name) → site_id.
+  router.get('/api/analytics/wan/sla/outages', requireReportSession, async (req, res) => {
+    try {
+      const f = {};
+      const code = String(req.query.site || '').trim();
+      if (code) {
+        if (/^\d+$/.test(code)) f.site_id = Number(code);
+        else { const s = await resolveSiteParam(code); if (!s) return res.json({ outages: [] }); f.site_id = s.site_id; }
+      }
+      if (req.query.from) f.from = String(req.query.from);
+      if (req.query.to) f.to = String(req.query.to);
+      if (req.query.uplink) f.uplink = String(req.query.uplink);
+      res.json({ outages: (await rdb.getWanOutages(f)) || [] });
+    } catch (e) { res.json({ outages: [], reason: e.message }); }
+  });
+
+  // Policy read — super_admin (admin config). No redaction (isp_notify_email is not a secret).
+  router.get('/api/analytics/wan/sla/config', requireReportSession, requireSuperAdmin, async (req, res) => {
+    try {
+      res.json(parseSlaWanConfig((await reportConfig.getConfig(rdb.db)).sla_wan_config));
+    } catch (e) { res.json(parseSlaWanConfig('')); }   // safe defaults, never 500
+  });
+  router.put('/api/analytics/wan/sla/config', requireReportSession, requireSuperAdmin, express.json(), async (req, res) => {
+    try {
+      const body = req.body;
+      if (!body || typeof body !== 'object' || Array.isArray(body)) return res.status(400).json({ error: 'body must be an object' });
+      await reportConfig.setConfig(rdb.db, { sla_wan_config: JSON.stringify(body) }, req.reportUser && req.reportUser.username);
+      res.json({ ok: true });
+    } catch (e) { res.json({ ok: false, error: e.message }); }
+  });
+
+  // Run the nightly event-log ingester on demand. Config-gated (self-skips) + best-effort.
+  router.post('/api/analytics/wan/sla/sync', requireReportSession, requireAdmin, async (req, res) => {
+    try {
+      res.json(await require('../tools/meraki/sync-wan-events').main({}));
+    } catch (e) { res.json({ ok: false, error: e.message }); }
+  });
+
+  // CSV evidence export for the month — UTF-8 BOM + CRLF + quote-escaped (index.html convention).
+  router.get('/api/analytics/wan/sla/export.csv', requireReportSession, async (req, res) => {
+    const cols = ['site_id', 'sub_site', 'uplink', 'isp', 'circuit_id', 'detected_start', 'restored_end',
+      'notified_at', 'duration_s', 'attribution', 'attribution_reason'];
+    try {
+      const { label, fromISO, toISO } = _monthBounds(req.query.month);
+      const outages = (await rdb.getWanOutages({ from: fromISO, to: toISO })) || [];
+      const lines = [cols.map(_csvCell).join(',')];
+      for (const o of outages) lines.push(cols.map(c => _csvCell(o[c])).join(','));
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="wan-sla-outages-${label}.csv"`);
+      res.send('﻿' + lines.join('\r\n'));
+    } catch (e) {
+      res.setHeader('Content-Type', 'text/csv');
+      res.send('﻿' + cols.join(','));
+    }
   });
 
   return router;
