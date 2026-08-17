@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SLA / Chargeback — Endeavour Mining IT</title>
+
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="brand/icons.css">
+<link rel="stylesheet" href="brand/components.css">
+<link rel="stylesheet" href="_shell.css">
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-require="admin|executive|super_admin" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+
+<style nonce="%%CSP_NONCE%%">
+  body { margin:0; background:var(--color-background,#f4f6f7); color:var(--color-text-primary,#1F2A33);
+    font-family:var(--font-sans,'Libre Franklin',system-ui,sans-serif); font-size:14px; }
+  .sl-wrap { max-width:1360px; margin:0 auto; padding:var(--space-6,24px); }
+  .sl-head { display:flex; align-items:center; gap:16px; margin-bottom:16px; flex-wrap:wrap; }
+  .sl-head h1 { margin:0; font-size:22px; font-weight:700; color:var(--edv-slate,#3A4A60); }
+  .sl-head .sub { font-size:13px; color:var(--color-text-muted,#6b7785); }
+  .sl-controls { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-left:auto; }
+  select, .sl-btn, input[type=month] { padding:7px 12px; border:1px solid #cfd6e0; border-radius:8px; background:#fff; font-size:13px; cursor:pointer; color:inherit; }
+  .sl-badge { display:inline-block; font-size:11px; font-weight:700; padding:3px 9px; border-radius:999px; letter-spacing:.02em; }
+  .sl-prov { background:#fff7ed; border:1px solid #f0c9a0; color:#7a3d12; }
+  .sl-panel { background:#fff; border:1px solid #e4e8ee; border-radius:12px; padding:16px; margin-bottom:22px; }
+  .sl-panel h2 { margin:0 0 12px; font-size:16px; color:var(--edv-slate,#3A4A60); }
+  table.sl-tbl { width:100%; border-collapse:collapse; font-size:13px; }
+  table.sl-tbl th { text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:#6b7785; border-bottom:2px solid #eef1f5; padding:8px 10px; white-space:nowrap; }
+  table.sl-tbl td { padding:8px 10px; border-bottom:1px solid #f2f4f7; vertical-align:middle; }
+  table.sl-tbl tr:last-child td { border-bottom:0; }
+  .sl-num { text-align:right; font-variant-numeric:tabular-nums; }
+  .sl-muted { color:#8a94a2; }
+  .sl-pill { display:inline-block; font-size:11px; font-weight:700; padding:2px 8px; border-radius:999px; }
+  .sl-ok  { background:#e7f6ec; color:#1e7a44; }
+  .sl-bad { background:#fbe7e7; color:#b02020; }
+  .sl-neu { background:#eef1f5; color:#556; }
+  .sl-empty { background:#fff7ed; border:1px solid #f0c9a0; color:#7a3d12; border-radius:12px; padding:16px; margin-bottom:22px; }
+  .sl-note { font-size:12px; color:#6b7785; margin:8px 0 0; }
+  .sl-collapse-hd { display:flex; align-items:center; gap:10px; cursor:pointer; user-select:none; }
+  .sl-collapse-hd h2 { margin:0; }
+  .sl-caret { font-size:12px; color:#6b7785; }
+  .sl-scroll { overflow-x:auto; }
+  .sl-cfg { background:#fff7ed; border:1px solid #f0c9a0; color:#7a3d12; border-radius:10px; padding:10px 12px; font-size:12px; }
+</style>
+</head>
+<body>
+<div id="__shell" data-section="performance" data-current="wan-sla"></div>
+
+<div class="sl-wrap">
+  <div class="sl-head">
+    <div>
+      <h1>SLA / Chargeback <span id="sl-prov" class="sl-badge sl-prov" style="display:none">Provisoire</span></h1>
+      <div class="sub">Contractual WAN SLA attainment, credit tiers &amp; ISP chargeback — a management instrument on top of the WAN archive</div>
+    </div>
+    <div class="sl-controls">
+      <label class="sl-muted" for="sl-month" style="font-size:12px">Month</label>
+      <input type="month" id="sl-month">
+      <button class="sl-btn" id="sl-export">⬇ Export CSV</button>
+    </div>
+  </div>
+
+  <div id="sl-empty" class="sl-empty" style="display:none">
+    No SLA circuits configured yet — set them up in <b>Admin → SLA WAN</b>.
+  </div>
+
+  <div id="sl-circuits-panel" class="sl-panel" style="display:none">
+    <h2>Circuits — <span id="sl-month-lbl"></span></h2>
+    <div class="sl-scroll">
+      <table class="sl-tbl">
+        <thead>
+          <tr>
+            <th>ISP</th><th>Circuit</th><th>Site / Sub-site</th><th>Uplink</th>
+            <th class="sl-num">Availability (contract)</th><th class="sl-num">Objective</th>
+            <th class="sl-num">Credit tier</th><th>Credit due</th>
+            <th class="sl-num">Gap</th><th class="sl-num">Amount</th>
+          </tr>
+        </thead>
+        <tbody id="sl-circuits"></tbody>
+      </table>
+    </div>
+    <p class="sl-note">Availability is measured only within each circuit's service hours; the objective column is the detection-based upper bound.</p>
+  </div>
+
+  <div id="sl-unmapped-panel" class="sl-panel" style="display:none">
+    <h2>Unmapped circuits</h2>
+    <div class="sl-cfg" style="margin-bottom:12px">⚙ These outages could not be matched to a configured SLA circuit. Configure each in <b>Admin → SLA WAN</b>.</div>
+    <div class="sl-scroll">
+      <table class="sl-tbl">
+        <thead>
+          <tr><th>Site / Sub-site</th><th>Uplink</th><th class="sl-num">Outages</th><th class="sl-num">Availability</th></tr>
+        </thead>
+        <tbody id="sl-unmapped"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="sl-outages-panel" class="sl-panel" style="display:none">
+    <div class="sl-collapse-hd" id="sl-outages-toggle">
+      <span class="sl-caret" id="sl-outages-caret">▶</span>
+      <h2>Evidence — outages this month</h2>
+    </div>
+    <div id="sl-outages-body" style="display:none;margin-top:12px">
+      <div class="sl-scroll">
+        <table class="sl-tbl">
+          <thead>
+            <tr><th>Site / Sub-site</th><th>Uplink</th><th>ISP</th><th>Circuit</th><th>Detected</th><th>Restored</th><th>Notified</th><th class="sl-num">Duration</th><th>Attribution</th><th>Reason</th></tr>
+          </thead>
+          <tbody id="sl-outages"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script nonce="%%CSP_NONCE%%">
+(function () {
+  const $ = id => document.getElementById(id);
+  let month = '', outagesLoaded = false;
+
+  function currentMonth() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+  }
+
+  async function api(path) {
+    const h = {}; const at = window.__authToken; if (at) h['x-report-token'] = at;
+    const r = await fetch(path, { headers: h });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  }
+
+  function fmtPct(v) { return v == null ? '—' : (Math.round(v * 100) / 100) + '%'; }
+  function fmtNum(v, d) { if (v == null) return '—'; const m = Math.pow(10, d || 0); return String(Math.round(v * m) / m); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+  function fmtAmount(a, cur) { return a == null ? '—' : (a.toLocaleString() + ' ' + esc(cur || '')); }
+  function fmtDur(s) {
+    if (s == null) return '—';
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+    return h ? (h + 'h ' + m + 'm') : (m + 'm');
+  }
+  function fmtTs(t) { if (!t) return '—'; const d = new Date(t); return isNaN(d) ? esc(t) : d.toLocaleString(); }
+
+  async function loadSummary() {
+    let data;
+    try { data = await api('/api/analytics/wan/sla/summary?month=' + encodeURIComponent(month)); }
+    catch { data = { month: month, circuits: [], unmapped: [] }; }
+    const circuits = data.circuits || [], unmapped = data.unmapped || [];
+    $('sl-month-lbl').textContent = data.month || month;
+
+    // Provisoire badge when the selected month is the in-progress current month
+    $('sl-prov').style.display = (month === currentMonth()) ? 'inline-block' : 'none';
+
+    const hasAny = circuits.length || unmapped.length;
+    $('sl-empty').style.display = hasAny ? 'none' : 'block';
+
+    $('sl-circuits-panel').style.display = circuits.length ? '' : 'none';
+    $('sl-circuits').innerHTML = circuits.map(c => {
+      const met = c.met === true;
+      const ragClass = c.met == null ? 'sl-neu' : (met ? 'sl-ok' : 'sl-bad');
+      const availTxt = c.availability_pct == null ? '—' : fmtPct(c.availability_pct);
+      const gap = [];
+      if (c.gap_pp != null) gap.push(fmtNum(c.gap_pp, 2) + ' pts');
+      if (c.gap_hours != null) gap.push(fmtNum(c.gap_hours, 1) + ' h');
+      const creditBadge = c.credit_due
+        ? '<span class="sl-pill sl-bad">Yes</span>'
+        : '<span class="sl-pill sl-ok">No</span>';
+      return `<tr>
+        <td>${esc(c.isp)}</td>
+        <td>${esc(c.circuit_id)}</td>
+        <td>${esc(c.site_id)}${c.sub_site ? ' / ' + esc(c.sub_site) : ''}</td>
+        <td>${esc(c.uplink)}</td>
+        <td class="sl-num"><span class="sl-pill ${ragClass}">${availTxt}</span>
+          <span class="sl-muted"> / ${c.availability_pct_objective == null ? '—' : fmtPct(c.availability_pct_objective) + ' tgt'}</span></td>
+        <td class="sl-num sl-muted">${c.availability_pct_objective == null ? '—' : fmtPct(c.availability_pct_objective)}</td>
+        <td class="sl-num">${c.credit_pct == null ? '—' : fmtNum(c.credit_pct, 1) + '%'}</td>
+        <td>${creditBadge}</td>
+        <td class="sl-num">${gap.length ? gap.join(' · ') : '—'}</td>
+        <td class="sl-num">${fmtAmount(c.amount, c.currency)}</td>
+      </tr>`;
+    }).join('');
+
+    $('sl-unmapped-panel').style.display = unmapped.length ? '' : 'none';
+    $('sl-unmapped').innerHTML = unmapped.map(u => `<tr>
+        <td>${esc(u.site_id)}${u.sub_site ? ' / ' + esc(u.sub_site) : ''}</td>
+        <td>${esc(u.uplink)}</td>
+        <td class="sl-num">${u.outage_count == null ? '—' : esc(u.outage_count)}</td>
+        <td class="sl-num sl-muted">—</td>
+      </tr>`).join('');
+
+    // Outages panel is available whenever there is anything to show at all
+    $('sl-outages-panel').style.display = hasAny ? '' : 'none';
+    // reset collapse state on month change
+    outagesLoaded = false;
+    $('sl-outages-body').style.display = 'none';
+    $('sl-outages-caret').textContent = '▶';
+    $('sl-outages').innerHTML = '';
+  }
+
+  function monthRange(m) {
+    // m = 'YYYY-MM' → { from:'YYYY-MM-01', to:'YYYY-MM-<lastDay>' }
+    const [y, mo] = m.split('-').map(Number);
+    const last = new Date(y, mo, 0).getDate();
+    return { from: m + '-01', to: m + '-' + String(last).padStart(2, '0') };
+  }
+
+  async function loadOutages() {
+    const r = monthRange(month);
+    let data;
+    try { data = await api('/api/analytics/wan/sla/outages?from=' + r.from + '&to=' + r.to); }
+    catch { data = { outages: [] }; }
+    const rows = data.outages || [];
+    $('sl-outages').innerHTML = rows.length ? rows.map(o => `<tr>
+        <td>${esc(o.site_id)}${o.sub_site ? ' / ' + esc(o.sub_site) : ''}</td>
+        <td>${esc(o.uplink)}</td>
+        <td>${esc(o.isp)}</td>
+        <td>${esc(o.circuit_id)}</td>
+        <td>${fmtTs(o.detected_start)}</td>
+        <td>${fmtTs(o.restored_end)}</td>
+        <td>${fmtTs(o.notified_at)}</td>
+        <td class="sl-num">${fmtDur(o.duration_s)}</td>
+        <td>${esc(o.attribution)}</td>
+        <td class="sl-muted">${esc(o.attribution_reason)}</td>
+      </tr>`).join('') : '<tr><td colspan="10" class="sl-muted">No outages recorded for this month.</td></tr>';
+    outagesLoaded = true;
+  }
+
+  function reload() {
+    outagesLoaded = false;
+    loadSummary();
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    month = currentMonth();
+    $('sl-month').value = month;
+    $('sl-month').addEventListener('change', function () {
+      month = this.value || currentMonth();
+      reload();
+    });
+    $('sl-export').addEventListener('click', function () {
+      window.location.href = '/api/analytics/wan/sla/export.csv?month=' + encodeURIComponent(month);
+    });
+    $('sl-outages-toggle').addEventListener('click', async function () {
+      const body = $('sl-outages-body');
+      const open = body.style.display !== 'none';
+      if (open) { body.style.display = 'none'; $('sl-outages-caret').textContent = '▶'; return; }
+      body.style.display = 'block'; $('sl-outages-caret').textContent = '▼';
+      if (!outagesLoaded) await loadOutages();
+    });
+    reload();
+  });
+})();
+</script>
+</body>
+</html>

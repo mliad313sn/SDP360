@@ -138,6 +138,9 @@
         // WAN Health — per-site availability + quality trends from the Meraki
         // archive (wan_link_snapshots). Read-only; empty until meraki is configured.
         { id: 'wan-health', label: 'WAN Health',           icon: ICON_LIB['bar-chart-3'],     href: 'wan-health.html',        roles: ['any']       },
+        // SLA / Chargeback — the management/financial instrument on top of the WAN
+        // archive: contractual SLA attainment, credit tiers, and ISP chargeback.
+        { id: 'wan-sla',    label: 'SLA / Chargeback',     icon: ICON_LIB.wallet,             href: 'wan-sla.html',           roles: ['admin']     },
         // IT Review — the review of what the meetings produce, hence right after
         // them. It now mounts the app shell (#__shell) like every other page and
         // opens IN-PLACE (no target:'_blank'): its own internal header was

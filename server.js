@@ -1225,7 +1225,7 @@ function loadHtml(name) {
   'meetings-import.html', 'meetings-progress.html', 'meetings-insights.html', 'meetings-setup.html', 'meetings-actions.html',
   'meetings-unsigned.html',
   'activity-tracker.html', 'help.html', 'exec-view.html', 'site-report.html', 'it-review.html', 'site-actions.html', 'system-logs.html',
-  'assets.html', 'assets-hygiene.html', 'assets-finance.html', 'wan-health.html',
+  'assets.html', 'assets-hygiene.html', 'assets-finance.html', 'wan-health.html', 'wan-sla.html',
 ].forEach(loadHtml);
 
 // Helper: build the per-request HTML, inject api-key + nonce, send. Pages
@@ -1321,6 +1321,9 @@ app.get('/assets.html', (req, res) => {
 });
 app.get('/wan-health.html', (req, res) => {
   sendHtmlPage(res, 'wan-health.html', false, 'WAN Health unavailable');
+});
+app.get('/wan-sla.html', (req, res) => {
+  sendHtmlPage(res, 'wan-sla.html', false, 'SLA / Chargeback unavailable');
 });
 
 app.get('/assets-hygiene.html', (req, res) => {
