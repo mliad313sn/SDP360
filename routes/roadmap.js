@@ -9,6 +9,7 @@ module.exports = function roadmapRoutes(deps) {
   const { express, requireReportSession, requireSuperAdmin } = deps;
   const router = express.Router();
   const rdb = require('../reports-db');
+  const roadmapEvidence = require('../services/roadmapEvidence');
   const jsonBody = express.json();
 
   // GET the whole roadmap (lazy-seeds the 4 default objectives on first hit).
@@ -16,6 +17,14 @@ module.exports = function roadmapRoutes(deps) {
   router.get('/api/roadmap', requireReportSession, requireSuperAdmin, async (req, res) => {
     try { res.json(await rdb.getRoadmap(req.reportUser.id)); }
     catch (e) { res.json({ objectives: [], deliverables: [] }); }
+  });
+
+  // Obj-2 (Plateforme ITSM & actifs) live evidence: CMDB completeness + SDP asset total +
+  // asset-class coverage, composed from existing assets-db readers. Best-effort → honest
+  // empty (completeness null, never a fabricated 0/100) on throw, never 500.
+  router.get('/api/roadmap/evidence/platform', requireReportSession, requireSuperAdmin, async (req, res) => {
+    try { res.json(await roadmapEvidence.loadPlatformEvidence()); }
+    catch (e) { res.json({ cmdb_completeness_pct: null, sdp_total: 0, asset_class_count: 0, asset_classes: [] }); }
   });
 
   router.put('/api/roadmap/objective/:key', requireReportSession, requireSuperAdmin, jsonBody, async (req, res) => {

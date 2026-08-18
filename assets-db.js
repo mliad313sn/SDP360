@@ -203,6 +203,24 @@ async function _getAssetSummaryPg() {
   return { total: Number(total), by_state };
 }
 
+// Asset-class coverage — [{ product_type, count }] grouped by product_type, count desc.
+// COALESCE(NULLIF(product_type,''),'Unknown') folds BOTH null and '' into 'Unknown'.
+// Mirrors getAssetSummary's ASSETS_BACKEND fork (sqlite sync + pg async). Feeds the
+// Roadmap Obj-2 platform evidence composer (services/roadmapEvidence.js).
+const _COUNTS_BY_TYPE_SQL =
+  "SELECT COALESCE(NULLIF(product_type,''),'Unknown') AS product_type, COUNT(*) AS count " +
+  "FROM assets GROUP BY COALESCE(NULLIF(product_type,''),'Unknown') ORDER BY count DESC";
+function getAssetCountsByType() {
+  if (ASSETS_BACKEND === 'postgres') return _getAssetCountsByTypePg();
+  const db = getDB();
+  return db.prepare(_COUNTS_BY_TYPE_SQL).all().map(r => ({ product_type: r.product_type, count: Number(r.count) }));
+}
+async function _getAssetCountsByTypePg() {
+  const h = pgHandle();
+  const rows = await h.prepare(_COUNTS_BY_TYPE_SQL).all();
+  return rows.map(r => ({ product_type: r.product_type, count: Number(r.count) }));
+}
+
 // ---------------------------------------------------------------------------
 // Hygiene readers (sub-project B, Task 0) — six exception kinds + a completeness
 // summary. Purely additive: nothing above changes. Every fragment is the spec
@@ -1465,7 +1483,7 @@ function listImportLog(limit = 50) {
 
 module.exports = {
   getDB, initPgAssets, pgHandle, ASSETS_BACKEND, replaceTable, countRows,
-  getEnrichedAssets, getAssetLookups, getAssetSummary,
+  getEnrichedAssets, getAssetLookups, getAssetSummary, getAssetCountsByType,
   HYGIENE_KINDS, getHygieneSummary, getHygieneExceptions,
   HARDWARE_KINDS, getHardwareHealthSummary, getHardwareHealthExceptions,
   getFinanceSummary,
