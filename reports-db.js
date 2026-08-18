@@ -2827,6 +2827,37 @@ const _ROADMAP_DEFAULT_OBJECTIVES = [
     evidence:"Formations SDP (module ITAM) pour techniciens d'ITY, Mana, Lafigue; 3 articles KB + guides FR/EN.",
     gap_note:"Consolider dates, participants, taux de complétion, conformité process, stats d'usage.", sort_order:4 },
 ];
+// Default deliverables per objective — pre-fill of realised work (status 'done')
+// + upcoming items ('todo') with proposed delivery dates. Lazy-seeded once per user
+// when they have zero deliverables (same idiom as the objectives seed); fully editable
+// afterwards. Status vocabulary is exactly 'todo'|'done' (the page's DELIV_STATUS).
+const _ROADMAP_DEFAULT_DELIVERABLES = [
+  // Obj 1 — Catalogue & formulaires
+  { obj_key:'catalogue', label:'Publier le catalogue de services (102 services / 13 catégories)', delivery_date:'2026-06-30', status:'done', sort_order:1 },
+  { obj_key:'catalogue', label:'Identifier les propriétaires applicatifs des services',            delivery_date:'2026-06-30', status:'done', sort_order:2 },
+  { obj_key:'catalogue', label:'Déployer les formulaires self-service sur le portail',             delivery_date:'2026-09-30', status:'todo', sort_order:3 },
+  { obj_key:'catalogue', label:'Porter l’adoption du portail self-service à ≥ 50 % (vs 26 %)',     delivery_date:'2026-11-30', status:'todo', sort_order:4 },
+  { obj_key:'catalogue', label:'Publier le rapport mensuel adoption + précision des demandes',     delivery_date:'2026-09-15', status:'todo', sort_order:5 },
+  // Obj 2 — Plateforme ITSM & actifs
+  { obj_key:'platform', label:'Scanner & taguer QR le parc serveurs + laptops dans SDP',           delivery_date:'2026-06-30', status:'done', sort_order:1 },
+  { obj_key:'platform', label:'Livrer la réconciliation SDP × AD × Entra × Defender',              delivery_date:'2026-07-23', status:'done', sort_order:2 },
+  { obj_key:'platform', label:'Rattacher les OU concernées à la GPO SelfScan (discovery)',         delivery_date:'2026-09-30', status:'todo', sort_order:3 },
+  { obj_key:'platform', label:'Publier discovery accuracy + complétude CMDB',                      delivery_date:'2026-10-15', status:'todo', sort_order:4 },
+  { obj_key:'platform', label:'Étendre l’inventaire aux actifs réseau & imprimantes',              delivery_date:'2026-12-15', status:'todo', sort_order:5 },
+  // Obj 3 — Incidents & gouvernance CAB
+  { obj_key:'incidents', label:'Tenir 8 CAB & revoir 90 changements',                              delivery_date:'2026-07-31', status:'done', sort_order:1 },
+  { obj_key:'incidents', label:'Réaliser 9 PIR (7 réussis)',                                       delivery_date:'2026-07-31', status:'done', sort_order:2 },
+  { obj_key:'incidents', label:'Clôturer les 14 actions CAB encore actives',                       delivery_date:'2026-09-30', status:'todo', sort_order:3 },
+  { obj_key:'incidents', label:'Relever la conformité RCA / template des incidents majeurs',       delivery_date:'2026-10-31', status:'todo', sort_order:4 },
+  { obj_key:'incidents', label:'Formaliser le processus Problem Management',                       delivery_date:'2026-11-30', status:'todo', sort_order:5 },
+  // Obj 4 — Transfert de connaissance
+  { obj_key:'knowledge', label:'Formation ITAM — techniciens ITY',                                 delivery_date:'2026-07-17', status:'done', sort_order:1 },
+  { obj_key:'knowledge', label:'Formation ITAM — techniciens Mana',                                delivery_date:'2026-07-22', status:'done', sort_order:2 },
+  { obj_key:'knowledge', label:'Formation ITAM — techniciens Lafigue',                             delivery_date:'2026-07-29', status:'done', sort_order:3 },
+  { obj_key:'knowledge', label:'Publier 3 articles KB + guides FR/EN',                             delivery_date:'2026-07-31', status:'done', sort_order:4 },
+  { obj_key:'knowledge', label:'Étendre les formations ITAM aux autres sites',                     delivery_date:'2026-11-30', status:'todo', sort_order:5 },
+  { obj_key:'knowledge', label:'Consolider taux de complétion + stats d’usage KB',                 delivery_date:'2026-10-31', status:'todo', sort_order:6 },
+];
 const _ROADMAP_OBJ_SEED_SQL =
   `INSERT INTO roadmap_objectives (user_id,obj_key,title,weight,progress_pct,status,confidence,evidence,gap_note,target_date,sort_order,updated_at)
    VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`;
@@ -2844,6 +2875,13 @@ function _getRoadmapSqlite(user_id) {
     const ins = db.prepare(_ROADMAP_OBJ_SEED_SQL);
     db.transaction(() => { for (const o of _ROADMAP_DEFAULT_OBJECTIVES) ins.run(..._roadmapObjSeedArgs(user_id, o, now)); })();
   }
+  // Lazy-seed the default deliverables once (when the user has none). Resurrection-safe:
+  // only re-fires if every deliverable is deleted (a deliberate reset).
+  const nd = db.prepare('SELECT COUNT(*) AS n FROM roadmap_deliverables WHERE user_id=?').get(user_id).n;
+  if (!Number(nd)) {
+    const insD = db.prepare(_ROADMAP_DELIV_INSERT_SQL);
+    db.transaction(() => { for (const d of _ROADMAP_DEFAULT_DELIVERABLES) insD.run(..._roadmapDelivInsertArgs(crypto.randomUUID(), user_id, d)); })();
+  }
   const objectives   = db.prepare('SELECT * FROM roadmap_objectives WHERE user_id=? ORDER BY sort_order').all(user_id);
   const deliverables = db.prepare('SELECT * FROM roadmap_deliverables WHERE user_id=? ORDER BY obj_key, sort_order').all(user_id);
   return { objectives, deliverables };
@@ -2855,6 +2893,14 @@ async function _getRoadmapPg(user_id) {
     const now = new Date().toISOString();
     await H.runTransaction(async () => {
       for (const o of _ROADMAP_DEFAULT_OBJECTIVES) await H.prepare(_ROADMAP_OBJ_SEED_SQL).run(..._roadmapObjSeedArgs(user_id, o, now));
+    });
+  }
+  // Lazy-seed the default deliverables once (when the user has none). Resurrection-safe:
+  // only re-fires if every deliverable is deleted (a deliberate reset).
+  const nd = Number((await H.prepare('SELECT COUNT(*) AS n FROM roadmap_deliverables WHERE user_id=?').get(user_id)).n);
+  if (!nd) {
+    await H.runTransaction(async () => {
+      for (const d of _ROADMAP_DEFAULT_DELIVERABLES) await H.prepare(_ROADMAP_DELIV_INSERT_SQL).run(..._roadmapDelivInsertArgs(crypto.randomUUID(), user_id, d));
     });
   }
   const objectives   = await H.prepare('SELECT * FROM roadmap_objectives WHERE user_id=? ORDER BY sort_order').all(user_id);

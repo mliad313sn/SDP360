@@ -25,7 +25,11 @@ test('lazy-seed: a fresh user gets the 4 default objectives (35/25/25/15)', () =
   assert.equal(rm.objectives.length, 4, 'exactly 4 seeded objectives');
   assert.deepEqual(rm.objectives.map((o) => o.weight), [35, 25, 25, 15], 'weights in sort_order');
   assert.deepEqual(rm.objectives.map((o) => o.obj_key), ['catalogue', 'platform', 'incidents', 'knowledge']);
-  assert.deepEqual(rm.deliverables, [], 'no deliverables seeded');
+  // Deliverables are now pre-filled (realised 'done' + upcoming 'todo'), lazy-seeded once.
+  assert.equal(rm.deliverables.length, 21, '21 default deliverables seeded');
+  assert.equal(rm.deliverables.filter((d) => d.status === 'done').length, 10, '10 realised (done)');
+  assert.ok(rm.deliverables.every((d) => d.status === 'todo' || d.status === 'done'), 'status vocabulary todo|done');
+  assert.ok(rm.deliverables.every((d) => ['catalogue', 'platform', 'incidents', 'knowledge'].includes(d.obj_key)), 'every deliverable maps to an objective');
 });
 
 test('lazy-seed is idempotent — second call still returns exactly 4', () => {
