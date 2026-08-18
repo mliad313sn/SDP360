@@ -125,6 +125,31 @@ CREATE TABLE IF NOT EXISTS roadmap_training (
   sort_order   INTEGER,
   updated_at   TEXT,
   PRIMARY KEY (uid)
+);
+CREATE TABLE IF NOT EXISTS roadmap_actions (
+  uid         TEXT NOT NULL,
+  user_id     INTEGER NOT NULL,
+  workstream  TEXT,
+  label       TEXT,
+  owner       TEXT,
+  target_date TEXT,
+  effort      TEXT,
+  status      TEXT,
+  notes       TEXT,
+  sort_order  INTEGER,
+  updated_at  TEXT,
+  PRIMARY KEY (uid)
+);
+CREATE TABLE IF NOT EXISTS roadmap_resources (
+  uid        TEXT NOT NULL,
+  user_id    INTEGER NOT NULL,
+  name       TEXT,
+  kind       TEXT,
+  detail     TEXT,
+  status     TEXT,
+  sort_order INTEGER,
+  updated_at TEXT,
+  PRIMARY KEY (uid)
 );`;
 
 db.exec(`
@@ -1321,6 +1346,9 @@ async function initPgReports() {            // called once at server boot
   // Personal Roadmap Manager — per-user objectives + deliverables (super_admin tool).
   await _pg.exec(require('fs').readFileSync(
     require('path').join(__dirname, 'db', 'postgres', 'reports', '010_roadmap.sql'), 'utf8'));
+  // Roadmap Manager — "Projet Intégrations" tab: actionable items + resources.
+  await _pg.exec(require('fs').readFileSync(
+    require('path').join(__dirname, 'db', 'postgres', 'reports', '011_roadmap_project.sql'), 'utf8'));
   // V1b-E — add sub_site to wan_link_snapshots + swap its PK to the 5-col key (guarded so
   // it runs once on DBs created before V1b-E; fresh installs get it from 008.sql directly).
   await _pg.exec(`ALTER TABLE wan_link_snapshots ADD COLUMN IF NOT EXISTS sub_site TEXT NOT NULL DEFAULT ''`);
@@ -3074,6 +3102,98 @@ function _deleteRoadmapTrainingSqlite(user_id, uid) {
 async function _deleteRoadmapTrainingPg(user_id, uid) {
   return pgHandle().prepare('DELETE FROM roadmap_training WHERE uid=? AND user_id=?').run(uid, user_id);
 }
+
+// ── Roadmap "Projet Intégrations" tab — actionable items + resources ───────────────
+// Two per-user CRUD stores sharing one parameterized core (config objects carry the
+// table + insert SQL + editable whitelist + seed). Lazy-seeded from the integration
+// project plan the first time the user has none (resurrection-safe: only re-fires if
+// the whole list is deleted). Status vocabulary for actions is 'todo'|'in_progress'|
+// 'done'; resources keep a free-text status. All user-scoped (uid AND user_id).
+const _ROADMAP_ACTION_EDITABLE = ['workstream','label','owner','target_date','effort','status','notes','sort_order'];
+const _ROADMAP_ACTION_INSERT_SQL =
+  `INSERT INTO roadmap_actions (uid,user_id,workstream,label,owner,target_date,effort,status,notes,sort_order,updated_at)
+   VALUES (?,?,?,?,?,?,?,?,?,?,?)`;
+const _roadmapActionInsertArgs = (uid, user_id, a) =>
+  [uid, user_id, a.workstream ?? null, a.label ?? null, a.owner ?? null, a.target_date ?? null,
+   a.effort ?? null, a.status ?? null, a.notes ?? null, a.sort_order == null ? null : a.sort_order,
+   new Date().toISOString()];
+const _ROADMAP_ACTION_SEED = [
+  { workstream:'Infra WAN & supervision', label:'Meraki WAN — calibrer la dispo (fidèle au Summary Report) + corriger la dérivation', target_date:'2026-09-30', effort:'2-3 j',            status:'doing'      , sort_order:1 },
+  { workstream:'Infra WAN & supervision', label:'Meraki WAN — auto-fill mensuel + sélecteur (jour/semaine/personnalisé)',              target_date:'2026-10-15', effort:'1-2 j',            status:'todo',        sort_order:2 },
+  { workstream:'Infra WAN & supervision', label:'OpManager — dispo LAN/WLAN/Serveurs (créer la vue Analytics + probe)',               target_date:'2026-10-31', effort:'1-2 j (après vue)', status:'todo',        sort_order:3 },
+  { workstream:'Infra WAN & supervision', label:'SLA WAN / refacturation ISP — activer (mapper circuits + armer la notif)',           target_date:'2026-10-15', effort:'≈ 0 (config)',     status:'todo',        sort_order:4 },
+  { workstream:'Identité & sécurité',     label:'SSO Microsoft — app registration Entra + mapping des emails',                        target_date:'2026-09-30', effort:'≈ 0 (config)',     status:'todo',        sort_order:5 },
+  { workstream:'Identité & sécurité',     label:'SSO Microsoft — bascule available → only',                                          target_date:'2026-11-15', effort:'≈ 0',              status:'todo',        sort_order:6 },
+  { workstream:'Identité & sécurité',     label:'Self-service password reset (ADSelfService Plus) + auto-ticket',                     target_date:'2026-11-30', effort:'config produit',   status:'todo',        sort_order:7 },
+  { workstream:'Identité & sécurité',     label:'Offboarding gouverné : départ → disable AD + révocation tracée dans le ticket',     target_date:'2026-12-15', effort:'à cadrer',         status:'todo',        sort_order:8 },
+  { workstream:'Identité & sécurité',     label:'Alerte : connexion d’un compte désactivé → ticket sécurité immédiat',               target_date:'2026-12-15', effort:'à cadrer',         status:'todo',        sort_order:9 },
+  { workstream:'Automatisation & proactivité', label:'Webhook Meraki « WAN Uplink status » → auto-ticket (1 lien = 1 ticket)',        target_date:'2026-11-30', effort:'webhook',          status:'todo',        sort_order:10 },
+  { workstream:'Automatisation & proactivité', label:'Auto-catégorisation + routage du ticket au bon groupe',                        target_date:'2026-12-31', effort:'à cadrer',         status:'todo',        sort_order:11 },
+  { workstream:'Automatisation & proactivité', label:'Outreach proactif « on a détecté un souci sur ton site »',                     target_date:'2027-01-31', effort:'à cadrer',         status:'todo',        sort_order:12 },
+  { workstream:'Plateforme & gouvernance', label:'Fédération PMO (Meridian) — Phase 1 native',                                       target_date:'2026-10-31', effort:'Ph.1',             status:'doing'      , sort_order:13 },
+  { workstream:'Plateforme & gouvernance', label:'SDP Cloud édition Enterprise + rôles OPManager/SDP',                               target_date:'2026-12-31', effort:'licence',          status:'todo',        sort_order:14 },
+];
+const _ACTION_CFG = { table:'roadmap_actions', insertSql:_ROADMAP_ACTION_INSERT_SQL, insertArgs:_roadmapActionInsertArgs, editable:_ROADMAP_ACTION_EDITABLE, seed:_ROADMAP_ACTION_SEED, orderBy:'sort_order' };
+
+const _ROADMAP_RESOURCE_EDITABLE = ['name','kind','detail','status','sort_order'];
+const _ROADMAP_RESOURCE_INSERT_SQL =
+  `INSERT INTO roadmap_resources (uid,user_id,name,kind,detail,status,sort_order,updated_at)
+   VALUES (?,?,?,?,?,?,?,?)`;
+const _roadmapResourceInsertArgs = (uid, user_id, r) =>
+  [uid, user_id, r.name ?? null, r.kind ?? null, r.detail ?? null, r.status ?? null,
+   r.sort_order == null ? null : r.sort_order, new Date().toISOString()];
+const _ROADMAP_RESOURCE_SEED = [
+  { name:'Manager Service & Support',            kind:'Personne', detail:'Pilote du projet',                              status:'en place',      sort_order:1 },
+  { name:'Techniciens site (ITY, Mana, Lafigue…)', kind:'Personne', detail:'Exécution terrain',                            status:'en place',      sort_order:2 },
+  { name:'Clé API Meraki + Org ID',              kind:'Accès',    detail:'Requis pour la dispo/SLA WAN',                  status:'à fournir',     sort_order:3 },
+  { name:'Meraki Dashboard (organisation)',      kind:'Outil',    detail:'Supervision WAN cloud',                         status:'en place',      sort_order:4 },
+  { name:'ManageEngine OpManager',               kind:'Outil',    detail:'Supervision LAN/WLAN/serveurs',                 status:'à configurer',  sort_order:5 },
+  { name:'ManageEngine ADSelfService Plus',      kind:'Licence',  detail:'Self-service password (100 licences gratuites)', status:'à acquérir',    sort_order:6 },
+  { name:'Entra ID / Microsoft 365',             kind:'Accès',    detail:'App registration pour le SSO',                  status:'à cadrer',      sort_order:7 },
+  { name:'SDP Cloud édition Enterprise',         kind:'Licence',  detail:'Édition cible + rôles',                         status:'à évaluer',     sort_order:8 },
+];
+const _RESOURCE_CFG = { table:'roadmap_resources', insertSql:_ROADMAP_RESOURCE_INSERT_SQL, insertArgs:_roadmapResourceInsertArgs, editable:_ROADMAP_RESOURCE_EDITABLE, seed:_ROADMAP_RESOURCE_SEED, orderBy:'sort_order' };
+
+// Parameterized core (NOT dispatchers) — sqlite + pg, shared by both stores.
+function _rmSeedGetSqlite(cfg, user_id) {
+  const n = db.prepare(`SELECT COUNT(*) AS n FROM ${cfg.table} WHERE user_id=?`).get(user_id).n;
+  if (!Number(n) && cfg.seed.length) {
+    const ins = db.prepare(cfg.insertSql);
+    db.transaction(() => { for (const s of cfg.seed) ins.run(...cfg.insertArgs(crypto.randomUUID(), user_id, s)); })();
+  }
+  return db.prepare(`SELECT * FROM ${cfg.table} WHERE user_id=? ORDER BY ${cfg.orderBy}`).all(user_id);
+}
+async function _rmSeedGetPg(cfg, user_id) {
+  const H = pgHandle();
+  const n = Number((await H.prepare(`SELECT COUNT(*) AS n FROM ${cfg.table} WHERE user_id=?`).get(user_id)).n);
+  if (!n && cfg.seed.length) {
+    await H.runTransaction(async () => {
+      for (const s of cfg.seed) await H.prepare(cfg.insertSql).run(...cfg.insertArgs(crypto.randomUUID(), user_id, s));
+    });
+  }
+  return H.prepare(`SELECT * FROM ${cfg.table} WHERE user_id=? ORDER BY ${cfg.orderBy}`).all(user_id);
+}
+function _rmAddSqlite(cfg, user_id, row) { const uid = crypto.randomUUID(); db.prepare(cfg.insertSql).run(...cfg.insertArgs(uid, user_id, row || {})); return uid; }
+async function _rmAddPg(cfg, user_id, row) { const uid = crypto.randomUUID(); await pgHandle().prepare(cfg.insertSql).run(...cfg.insertArgs(uid, user_id, row || {})); return uid; }
+function _rmUpdSqlite(cfg, user_id, uid, patch) { const { setSql, params } = _roadmapSet(cfg.editable, patch); return db.prepare(`UPDATE ${cfg.table} SET ${setSql} WHERE uid=? AND user_id=?`).run(...params, uid, user_id); }
+async function _rmUpdPg(cfg, user_id, uid, patch) { const { setSql, params } = _roadmapSet(cfg.editable, patch); return pgHandle().prepare(`UPDATE ${cfg.table} SET ${setSql} WHERE uid=? AND user_id=?`).run(...params, uid, user_id); }
+function _rmDelSqlite(cfg, user_id, uid) { return db.prepare(`DELETE FROM ${cfg.table} WHERE uid=? AND user_id=?`).run(uid, user_id); }
+async function _rmDelPg(cfg, user_id, uid) { return pgHandle().prepare(`DELETE FROM ${cfg.table} WHERE uid=? AND user_id=?`).run(uid, user_id); }
+
+// Public dispatchers (backend selector shape kept explicit for the await-precedence test).
+function getRoadmapProject(user_id) {
+  if (REPORTS_BACKEND === 'postgres') return _getRoadmapProjectPg(user_id);
+  return { actions: _rmSeedGetSqlite(_ACTION_CFG, user_id), resources: _rmSeedGetSqlite(_RESOURCE_CFG, user_id) };
+}
+async function _getRoadmapProjectPg(user_id) {
+  return { actions: await _rmSeedGetPg(_ACTION_CFG, user_id), resources: await _rmSeedGetPg(_RESOURCE_CFG, user_id) };
+}
+function addRoadmapAction(user_id, a)          { if (REPORTS_BACKEND === 'postgres') return _rmAddPg(_ACTION_CFG, user_id, a);          return _rmAddSqlite(_ACTION_CFG, user_id, a); }
+function updateRoadmapAction(user_id, uid, p)  { if (REPORTS_BACKEND === 'postgres') return _rmUpdPg(_ACTION_CFG, user_id, uid, p);      return _rmUpdSqlite(_ACTION_CFG, user_id, uid, p); }
+function deleteRoadmapAction(user_id, uid)     { if (REPORTS_BACKEND === 'postgres') return _rmDelPg(_ACTION_CFG, user_id, uid);         return _rmDelSqlite(_ACTION_CFG, user_id, uid); }
+function addRoadmapResource(user_id, r)        { if (REPORTS_BACKEND === 'postgres') return _rmAddPg(_RESOURCE_CFG, user_id, r);        return _rmAddSqlite(_RESOURCE_CFG, user_id, r); }
+function updateRoadmapResource(user_id, uid, p){ if (REPORTS_BACKEND === 'postgres') return _rmUpdPg(_RESOURCE_CFG, user_id, uid, p);    return _rmUpdSqlite(_RESOURCE_CFG, user_id, uid, p); }
+function deleteRoadmapResource(user_id, uid)   { if (REPORTS_BACKEND === 'postgres') return _rmDelPg(_RESOURCE_CFG, user_id, uid);       return _rmDelSqlite(_RESOURCE_CFG, user_id, uid); }
 
 function saveHelpdeskData(report_id, data) {
   if (REPORTS_BACKEND === 'postgres') return _saveHelpdeskDataPg(report_id, data);
@@ -7895,6 +8015,8 @@ module.exports = {
   saveInfraKpis, upsertInfraSnapshots, getInfraSnapshots, upsertWanSnapshots, getWanSnapshots, upsertWanOutage, getWanOutages, listOpenWanOutages, closeWanOutage, reconcileProvisionalOutage, saveHelpdeskData, saveLights, saveActionItems, _backfillActionUids,
   getRoadmap, upsertRoadmapObjective, addRoadmapDeliverable, updateRoadmapDeliverable, deleteRoadmapDeliverable,
   getRoadmapTraining, addRoadmapTraining, updateRoadmapTraining, deleteRoadmapTraining,
+  getRoadmapProject, addRoadmapAction, updateRoadmapAction, deleteRoadmapAction,
+  addRoadmapResource, updateRoadmapResource, deleteRoadmapResource,
   setActionMerge, clearActionMerge, setActionStatus, setActionLineage, getSiteOpenReportActions,
   getPreviousWeekOpenActions, listAllWeeksWithActions, getActionsForReport,
   listAllWeeksWithLights, getLightsForReport,

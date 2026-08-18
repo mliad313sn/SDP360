@@ -69,6 +69,26 @@ test('deliverable add → uid, then update, then user-scoped guards, then delete
   assert.ok(!rm.deliverables.find((x) => x.uid === uid), 'deleted by owner');
 });
 
+test('project tab: lazy-seeds 14 actions + 8 resources, CRUD + user-scoped', () => {
+  const p = rdb.getRoadmapProject(4242);
+  assert.equal(p.actions.length, 14, '14 seeded actions');
+  assert.equal(p.resources.length, 8, '8 seeded resources');
+  assert.equal([...new Set(p.actions.map((a) => a.workstream))].length, 4, '4 workstreams');
+  // add → update → user-scoped guard → delete
+  const uid = rdb.addRoadmapAction(4242, { workstream: 'X', label: 'T', status: 'todo', sort_order: 99 });
+  rdb.updateRoadmapAction(4242, uid, { status: 'done' });
+  rdb.updateRoadmapAction(111, uid, { status: 'HACK' });                       // other user must not touch
+  assert.equal(rdb.getRoadmapProject(4242).actions.find((x) => x.uid === uid).status, 'done', 'update user-scoped');
+  rdb.deleteRoadmapAction(111, uid);                                          // other user cannot delete
+  assert.ok(rdb.getRoadmapProject(4242).actions.find((x) => x.uid === uid), 'delete user-scoped');
+  rdb.deleteRoadmapAction(4242, uid);
+  assert.ok(!rdb.getRoadmapProject(4242).actions.find((x) => x.uid === uid), 'deleted by owner');
+  // resource add/delete
+  const ruid = rdb.addRoadmapResource(4242, { name: 'R', kind: 'Outil', sort_order: 9 });
+  assert.ok(rdb.getRoadmapProject(4242).resources.find((x) => x.uid === ruid), 'resource added');
+  rdb.deleteRoadmapResource(4242, ruid);
+});
+
 // ── Part B: routes with fake middlewares ───────────────────────────────
 let server, base;
 

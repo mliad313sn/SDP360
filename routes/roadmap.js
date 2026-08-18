@@ -87,5 +87,38 @@ module.exports = function roadmapRoutes(deps) {
     catch (e) { res.status(500).json({ error: e.message }); }
   });
 
+  // "Projet Intégrations" tab — actionable items + resources CRUD. GET lazy-seeds both
+  // lists from the integration project plan. Best-effort → honest empty on throw, never 500.
+  router.get('/api/roadmap/project', requireReportSession, requireSuperAdmin, async (req, res) => {
+    try { res.json(await rdb.getRoadmapProject(req.reportUser.id)); }
+    catch (e) { res.json({ actions: [], resources: [] }); }
+  });
+
+  router.post('/api/roadmap/action', requireReportSession, requireSuperAdmin, jsonBody, async (req, res) => {
+    try { const uid = await rdb.addRoadmapAction(req.reportUser.id, req.body || {}); res.json({ ok: true, uid }); }
+    catch (e) { res.status(500).json({ error: e.message }); }
+  });
+  router.put('/api/roadmap/action/:uid', requireReportSession, requireSuperAdmin, jsonBody, async (req, res) => {
+    try { await rdb.updateRoadmapAction(req.reportUser.id, req.params.uid, req.body || {}); res.json({ ok: true }); }
+    catch (e) { res.status(500).json({ error: e.message }); }
+  });
+  router.delete('/api/roadmap/action/:uid', requireReportSession, requireSuperAdmin, async (req, res) => {
+    try { await rdb.deleteRoadmapAction(req.reportUser.id, req.params.uid); res.json({ ok: true }); }
+    catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  router.post('/api/roadmap/resource', requireReportSession, requireSuperAdmin, jsonBody, async (req, res) => {
+    try { const uid = await rdb.addRoadmapResource(req.reportUser.id, req.body || {}); res.json({ ok: true, uid }); }
+    catch (e) { res.status(500).json({ error: e.message }); }
+  });
+  router.put('/api/roadmap/resource/:uid', requireReportSession, requireSuperAdmin, jsonBody, async (req, res) => {
+    try { await rdb.updateRoadmapResource(req.reportUser.id, req.params.uid, req.body || {}); res.json({ ok: true }); }
+    catch (e) { res.status(500).json({ error: e.message }); }
+  });
+  router.delete('/api/roadmap/resource/:uid', requireReportSession, requireSuperAdmin, async (req, res) => {
+    try { await rdb.deleteRoadmapResource(req.reportUser.id, req.params.uid); res.json({ ok: true }); }
+    catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
   return router;
 };

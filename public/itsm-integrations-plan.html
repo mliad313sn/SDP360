@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SDP Dashboard — Plan projet des intégrations (réunion)</title>
+<style>
+  :root{
+    --navy:#1E3A5F; --blue:#145FAE; --green:#16A34A; --amber:#D97706; --red:#D90038; --grey:#5b6773;
+    --ink:#1f2933; --muted:#5b6773; --line:#d7dde3; --bg:#f4f6f8; --box:#ffffff;
+  }
+  *{box-sizing:border-box}
+  body{font-family:"Segoe UI",Calibri,Arial,sans-serif;color:var(--ink);line-height:1.5;margin:0;background:var(--bg)}
+  .page{max-width:1040px;margin:0 auto;padding:32px 40px 64px;background:var(--box)}
+  h1{font-size:1.7rem;color:var(--navy);margin:0 0 4px;line-height:1.2}
+  .sub{color:var(--muted);font-size:.95rem;margin:0 0 6px}
+  .meta{font-size:.78rem;color:var(--muted);border-bottom:2px solid var(--navy);padding-bottom:14px;margin-bottom:22px}
+  h2{font-size:1.22rem;color:var(--navy);margin:30px 0 8px;border-left:5px solid var(--blue);padding-left:10px}
+  h3{font-size:1.02rem;color:var(--navy);margin:20px 0 6px}
+  p{margin:8px 0}
+  ul{margin:8px 0 8px 4px;padding-left:22px} li{margin:4px 0}
+  table{border-collapse:collapse;width:100%;margin:12px 0;font-size:.82rem}
+  th,td{border:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top}
+  th{background:var(--navy);color:#fff;font-weight:600}
+  tbody tr:nth-child(even){background:#f7f9fb}
+  code{background:#eef2f6;border:1px solid #e0e6ec;border-radius:3px;padding:1px 5px;font-family:Consolas,monospace;font-size:.85em}
+  .tag{display:inline-block;font-size:.70rem;font-weight:700;border-radius:10px;padding:2px 9px;color:#fff;white-space:nowrap}
+  .live{background:var(--green)} .built{background:var(--blue)} .partial{background:var(--amber)} .todo{background:var(--grey)} .blocked{background:var(--red)}
+  .who{display:inline-block;font-size:.70rem;font-weight:700;border-radius:4px;padding:1px 6px;border:1px solid var(--line);background:#eef2f6;color:var(--navy)}
+  .callout{border:1px solid var(--line);border-left:5px solid var(--amber);background:#fff8ef;padding:12px 14px;border-radius:6px;margin:14px 0}
+  .callout.win{border-left-color:var(--green);background:#f1faf3}
+  .callout.risk{border-left-color:var(--red);background:#fff2f5}
+  .callout b{color:var(--navy)}
+  .legend{font-size:.8rem;background:#f7f9fb;border:1px solid var(--line);border-radius:6px;padding:10px 14px;margin:10px 0}
+  .legend .tag{margin-right:4px}
+  .gantt td{font-family:Consolas,monospace;font-size:.78rem;text-align:center}
+  .g1{background:#16A34A;color:#fff} .g2{background:#145FAE;color:#fff} .g3{background:#D97706;color:#fff} .g4{background:#8b5cf6;color:#fff} .gx{background:#e6ebf0}
+  footer{margin-top:34px;border-top:1px solid var(--line);padding-top:12px;font-size:.78rem;color:var(--muted)}
+  @media print{body{background:#fff}.page{max-width:none;padding:0 8mm}h2{break-after:avoid}table,.callout{break-inside:avoid}}
+</style>
+</head>
+<body>
+<div class="page">
+
+<h1>Plan projet — Intégrations SDP Dashboard</h1>
+<p class="sub">Vue consolidée pour la réunion : état, tâches restantes, propriétaire du blocage, effort &amp; timing</p>
+<div class="meta">
+  SDP Dashboard (Endeavour Mining) &nbsp;·&nbsp; 18 août 2026 &nbsp;·&nbsp; Document de pilotage (réunion)<br>
+  Périmètre : toutes les intégrations de supervision / identité / PMO branchées au dashboard.
+</div>
+
+<div class="legend">
+<b>Légende statut :</b>
+<span class="tag live">LIVE</span> déployé en prod &nbsp;
+<span class="tag built">CONSTRUIT</span> codé + testé, pas déployé &nbsp;
+<span class="tag partial">PARTIEL</span> une partie faite, gate externe &nbsp;
+<span class="tag todo">À FAIRE</span> conçu, pas codé &nbsp;
+<span class="tag blocked">BLOQUÉ</span> attend un tiers<br>
+<b>Propriétaire :</b> <span class="who">DEV</span> équipe SDP &nbsp; <span class="who">CLIENT</span> action utilisateur (clé, config, app registration) &nbsp; <span class="who">TIERS</span> partenaire externe (boss PMO, ISP…)
+</div>
+
+<h2>1. Tableau de bord des intégrations</h2>
+<table>
+<thead><tr><th style="width:16%">Intégration</th><th>Statut</th><th>Ce qui est fait</th><th>Reste à faire</th><th>Bloqueur / propriétaire</th><th>Effort DEV</th></tr></thead>
+<tbody>
+<tr>
+  <td><b>Zoho</b><br>Helpdesk + Analytics Plus</td>
+  <td><span class="tag live">LIVE</span></td>
+  <td>Sync tickets/changes/incidents/survey ; toute la donnée du dashboard.</td>
+  <td>RAS (maintenance). Rotation du refresh-token à surveiller.</td>
+  <td>—</td>
+  <td>—</td>
+</tr>
+<tr>
+  <td><b>Meraki WAN</b><br>dispo/qualité + SLA chargeback</td>
+  <td><span class="tag built">CONSTRUIT</span></td>
+  <td>WAN Health + auto-fill hebdo ; SLA/refacturation ISP V1 (moteur, store, poller, ingester, routes, carte admin, vue Chargeback).</td>
+  <td>Déployer ; <b>calibrer</b> vs Summary Report ; corriger la dérivation « fidèle Meraki » (résolution 5 min + destination primaire + 100 %-5 min) ; auto-fill <b>mensuel</b> + sélecteur de dates ; (opt.) SLA par webhook.</td>
+  <td><span class="who">CLIENT</span> clé Meraki + calibration + mapping circuits/ISP + arme notif</td>
+  <td>≈ 4–6 j</td>
+</tr>
+<tr>
+  <td><b>OpManager → dispo</b><br>LAN/WLAN/Serveurs (Analytics Plus)</td>
+  <td><span class="tag partial">PARTIEL</span></td>
+  <td>Snapshots + classement + agrégation + auto-fill rapport ; carte admin.</td>
+  <td>Créer la vue Analytics <code>OPS_OPM_Device_Availability_Daily</code> + renseigner <code>opm_availability_view_id</code> ; découverte (probe vs préfixe de nom).</td>
+  <td><span class="who">CLIENT</span> vue Analytics + gate découverte</td>
+  <td>≈ 1–2 j (après la vue)</td>
+</tr>
+<tr>
+  <td><b>OpManager → SDP</b><br>Auto-ticketing proactif</td>
+  <td><span class="tag todo">À FAIRE</span></td>
+  <td>Étude de faisabilité sourcée + plan progressif (doc du 28/07).</td>
+  <td>Phase 1 profil natif « Log a Ticket » ; Phase 2 broker + pré-tag Risk Register ; matrice anti-surcharge.</td>
+  <td><span class="who">CLIENT</span> édition SDP Enterprise + rôles &nbsp; <span class="who">DEV</span> broker</td>
+  <td>≈ 8–12 j (par phases)</td>
+</tr>
+<tr>
+  <td><b>Entra SSO</b><br>Microsoft sign-in</td>
+  <td><span class="tag partial">PARTIEL</span></td>
+  <td>Toute la pile OIDC + carte admin ; configurable sans redémarrage ; inerte tant que non activé.</td>
+  <td>App registration Entra ; mapper les emails ; passer <code>available</code> → <code>only</code>.</td>
+  <td><span class="who">CLIENT</span> admin M365 (app registration)</td>
+  <td>≈ 0 (config)</td>
+</tr>
+<tr>
+  <td><b>Meridian (PMO)</b><br>fédération ressources ⇄ actions</td>
+  <td><span class="tag blocked">BLOQUÉ</span></td>
+  <td>Côté SDP (Part A) : sync ressources, API actions ouvertes, lien projet, carte admin.</td>
+  <td>Part B = code du boss (migration + endpoint ingest + routes attach). Pré-condition : il accepte <code>POST /v1/resources/sync</code>.</td>
+  <td><span class="who">TIERS</span> équipe Meridian (boss)</td>
+  <td>≈ 0 côté SDP</td>
+</tr>
+<tr>
+  <td><b>Réconciliation parc</b><br>SDP × AD × Entra × Defender</td>
+  <td><span class="tag built">CONSTRUIT</span></td>
+  <td>Réconciliation du parc ; écarts + candidats retrait ; historique livré.</td>
+  <td>Lancer les collecteurs (AD/Defender) régulièrement ; rattacher les GPO SelfScan aux OU concernées.</td>
+  <td><span class="who">CLIENT</span> collecteurs + GPO</td>
+  <td>≈ 0 (opérationnel)</td>
+</tr>
+<tr>
+  <td><b>Identité &amp; Sécurité AD</b><br>actions gouvernées depuis le ticket SDP</td>
+  <td><span class="tag todo">À FAIRE</span></td>
+  <td>Étude de faisabilité sourcée + plan progressif (doc du 29/07) : A1 désactivation leaver · A2 reset/unlock assisté · B1 alerte login compte désactivé · B2 dormants.</td>
+  <td>Ph.1 A2 reset/unlock (le moins risqué) → Ph.2 A1 leaver → Ph.3 B1/B2, via ADManager Plus / ADAudit Plus + broker.</td>
+  <td><span class="who">CLIENT</span> ADManager+/ADAudit+ + VPN &nbsp; <span class="who">DEV</span> broker</td>
+  <td>≈ 6–10 j (par phases)</td>
+</tr>
+<tr>
+  <td><b>AD self-service reset</b><br>reset mot de passe / unlock par l'utilisateur</td>
+  <td><span class="tag partial">PRODUIT à activer</span></td>
+  <td>—</td>
+  <td>Activer <b>ADSelfService Plus</b> (intégration native SDP, SSO, auto-ticket) — <b>100 licences gratuites</b> pour les clients SDP. Complète le A2 « assisté » ci-dessus par le self-service.</td>
+  <td><span class="who">CLIENT</span> déploiement ADSelfService+ (produit ManageEngine)</td>
+  <td>≈ 0 dev (config produit)</td>
+</tr>
+</tbody>
+</table>
+
+<div class="callout"><b>Lecture clé pour la réunion.</b> Le <b>chemin critique n'est presque jamais du dev</b> — c'est une <b>action côté client/tiers</b> : clé Meraki, vue Analytics, app registration Entra, code Meridian du boss, édition SDP Enterprise. Le dev SDP est prêt ou rapide sur chaque volet ; l'ordonnancement ci-dessous se cale sur la levée de ces gates.</div>
+
+<h2>2. Gates externes (le vrai chemin critique)</h2>
+<table>
+<thead><tr><th>Gate</th><th>Propriétaire</th><th>Débloque</th><th>Statut</th></tr></thead>
+<tbody>
+<tr><td>Clé API Meraki + Org ID + calibration</td><td><span class="who">CLIENT</span></td><td>Meraki WAN (dispo fidèle + SLA)</td><td><span class="tag partial">en cours (mapping fait, calibration à lancer)</span></td></tr>
+<tr><td>Vue Analytics <code>OPS_OPM_Device_Availability_Daily</code></td><td><span class="who">CLIENT</span></td><td>OpManager dispo LAN/WLAN/Serveurs</td><td><span class="tag todo">à créer</span></td></tr>
+<tr><td>App registration Entra</td><td><span class="who">CLIENT</span> (admin M365)</td><td>SSO Microsoft</td><td><span class="tag todo">à faire</span></td></tr>
+<tr><td>Code Meridian Part B + accord <code>POST /v1/resources/sync</code></td><td><span class="who">TIERS</span></td><td>Fédération PMO complète</td><td><span class="tag blocked">attend le boss</span></td></tr>
+<tr><td>SDP Cloud édition Enterprise + rôles OPManager/SDP</td><td><span class="who">CLIENT</span></td><td>Auto-ticketing proactif</td><td><span class="tag todo">à confirmer</span></td></tr>
+<tr><td>Webhook Meraki « WAN Uplink status » → endpoint dashboard</td><td><span class="who">CLIENT</span></td><td>SLA temps-réel (Phase 3)</td><td><span class="tag todo">optionnel</span></td></tr>
+</tbody>
+</table>
+
+<h2>3. Ordonnancement proposé (timing indicatif)</h2>
+<p>Fenêtres de ~2 semaines. Une case colorée = travail actif ; l'effort dev réel par volet est faible (voir tableau §1), la durée est surtout portée par la levée des gates.</p>
+<table class="gantt">
+<thead><tr><th style="text-align:left">Volet</th><th>S1–S2</th><th>S3–S4</th><th>S5–S6</th><th>S7–S8</th></tr></thead>
+<tbody>
+<tr><td style="text-align:left"><b>Meraki WAN</b> — déploiement + calibration + dispo fidèle</td><td class="g1">calibrer + fix</td><td class="g1">autofill mensuel + sélecteur</td><td class="gx"></td><td class="gx"></td></tr>
+<tr><td style="text-align:left"><b>OpManager dispo</b> — vue Analytics + activation</td><td class="gx"></td><td class="g2">vue + probe</td><td class="g2">activer</td><td class="gx"></td></tr>
+<tr><td style="text-align:left"><b>Entra SSO</b> — app registration + cutover</td><td class="g2">app reg + emails</td><td class="g2">available→only</td><td class="gx"></td><td class="gx"></td></tr>
+<tr><td style="text-align:left"><b>Auto-ticketing OpManager→SDP</b> — Phase 1 puis 2</td><td class="gx"></td><td class="gx"></td><td class="g3">Ph.1 natif</td><td class="g3">Ph.2 broker+Risk</td></tr>
+<tr><td style="text-align:left"><b>SLA WAN temps-réel</b> — webhook (optionnel)</td><td class="gx"></td><td class="gx"></td><td class="g4">webhook</td><td class="gx"></td></tr>
+<tr><td style="text-align:left"><b>Meridian PMO</b> — attend Part B (tiers)</td><td class="gx"></td><td class="gx"></td><td class="gx"></td><td class="gx"></td></tr>
+</tbody>
+</table>
+<p style="font-size:.78rem;color:var(--muted)">Meridian n'est pas planifié tant que le code Part B du boss n'est pas confirmé — placé hors calendrier, réactivé à la levée du gate tiers.</p>
+
+<h2>4. Décisions attendues en réunion</h2>
+<ul>
+  <li><b>Meraki</b> : valider la source « dispo fidèle » = <b>dérivation loss/latence calibrée</b> (résolution 5 min + destination primaire + 100 %-5 min) plutôt que event-log/Insight. Lancer la calibration.</li>
+  <li><b>OpManager</b> : qui crée la vue Analytics et quand ? (débloque LAN/WLAN/Serveurs).</li>
+  <li><b>SSO</b> : caler l'app registration Entra (admin M365).</li>
+  <li><b>Meridian</b> : relancer le boss sur l'accord <code>POST /v1/resources/sync</code>.</li>
+  <li><b>Auto-ticketing</b> : confirmer l'édition SDP Enterprise + valider la matrice anti-surcharge avant Phase 1.</li>
+</ul>
+
+<h2>5. Automatismes proposés — feuille de route « service » <span class="tag info">vue Service &amp; Support Manager</span></h2>
+<p class="lead">Objectif d'un Service &amp; Support Manager : <b>moins de tickets</b> (déflection), <b>MTTR plus court</b>, <b>proactivité</b> (agir avant l'appel), <b>posture sécurité</b>, et des <b>métriques démontrables</b>. Voici les leviers, priorisés — la plupart s'appuient sur des outils déjà en place (SDP · OpManager · Meraki · AD/Entra/Defender · le dashboard).</p>
+<table>
+<thead><tr><th style="width:20%">Automatisme</th><th>Ce que ça fait</th><th>Bénéfice (facilite qui)</th><th>Effort / statut</th></tr></thead>
+<tbody>
+<tr><td colspan="4" style="background:#eef4fb;font-weight:700;color:var(--navy)">🟢 Quick wins — fort impact, faible effort</td></tr>
+<tr><td><b>Self-service reset mot de passe / unlock</b> (ADSelfService+)</td><td>L'utilisateur reset/déverrouille seul, 24/7, avec auto-ticket.</td><td><b>User</b> (dépannage immédiat) + <b>tech</b> (20–40 % des tickets = resets, éliminés).</td><td><span class="tag partial">produit gratuit à activer</span></td></tr>
+<tr><td><b>Auto-ticketing proactif</b> (OpManager → SDP)</td><td>Une alarme critique, soutenue, dédupliquée ouvre un ticket auto-classé + auto-clôture au rétablissement.</td><td><b>Tech</b> (agir avant l'appel) + <b>user</b> (panne traitée avant qu'il la subisse).</td><td><span class="tag todo">conçu (doc 28/07)</span></td></tr>
+<tr><td><b>Notif ISP auto + SLA chargeback</b> (Meraki)</td><td>Notifie l'ISP à 15 min de coupure ; mesure le crédit dû dans l'horaire de service.</td><td><b>Manager</b> (levier contractuel, refacturation) + <b>fiabilité</b>.</td><td><span class="tag built">construit</span></td></tr>
+<tr><td><b>Rapports auto</b> (hebdo/mensuel, Group IT, scoreboard)</td><td>Composition + envoi sans saisie manuelle.</td><td><b>Manager</b> + coordinateurs (zéro corvée de reporting).</td><td><span class="tag built">construit</span></td></tr>
+<tr><td colspan="4" style="background:#fff2f5;font-weight:700;color:var(--navy)">🛡 Sécurité &amp; gouvernance identité</td></tr>
+<tr><td><b>Désactivation leaver 1-clic / auto</b> (ADManager+ depuis le ticket)</td><td>Le départ déclenche disable AD + révocation d'accès, tracé dans le ticket.</td><td><b>Sécurité</b> (fenêtre d'exposition fermée) + <b>tech</b> (checklist automatisée).</td><td><span class="tag todo">conçu (doc 29/07)</span></td></tr>
+<tr><td><b>Alerte « login compte désactivé »</b> (ADAudit+)</td><td>Tentative de connexion d'un compte désactivé → ticket sécurité immédiat.</td><td><b>Sécurité</b> (détection intrusion / usurpation).</td><td><span class="tag todo">conçu (doc 29/07)</span></td></tr>
+<tr><td><b>Digest comptes dormants + réconciliation parc</b></td><td>Revue périodique des comptes/machines inactifs et hors AD/SelfScan.</td><td><b>Sécurité</b> (réduction surface) + <b>hygiène CMDB</b>.</td><td><span class="tag built">réconciliation construite</span> · digest conçu</td></tr>
+<tr><td><b>Signaux Defender / Entra risk → ticket</b></td><td>Compte à risque ou machine non conforme ouvre une action gouvernée.</td><td><b>Sécurité</b> proactive.</td><td><span class="tag todo">idée (extension)</span></td></tr>
+<tr><td><b>Alertes d'expiration</b> (licences, certificats, domaines)</td><td>Prévenir avant l'expiration (déjà fait pour les licences/actifs).</td><td><b>Manager</b> (éviter les ruptures).</td><td><span class="tag partial">licences OK · certs à ajouter</span></td></tr>
+<tr><td colspan="4" style="background:#f1faf3;font-weight:700;color:var(--navy)">⚡ Fiabilité infra &amp; expérience</td></tr>
+<tr><td><b>Corrélation panne amont</b> (uplink dependency OpManager)</td><td>Une panne WAN supprime les alarmes aval → 1 lien = 1 ticket, pas N.</td><td><b>Tech</b> (anti-bruit) + <b>manager</b> (signal net).</td><td><span class="tag todo">dans le design auto-ticketing</span></td></tr>
+<tr><td><b>Pré-classement / pré-tag auto</b> (Risk Register, Services affected)</td><td>Le ticket arrive déjà catégorisé + routé au bon groupe.</td><td><b>Tech</b> (moins de saisie) + <b>manager</b> (données propres).</td><td><span class="tag todo">Phase 2 broker</span></td></tr>
+<tr><td><b>Notifications proactives à l'utilisateur</b></td><td>« On a détecté un souci sur ton site, on intervient » avant qu'il appelle.</td><td><b>User</b> (confiance) + <b>helpdesk</b> (moins d'appels entrants).</td><td><span class="tag todo">idée (sur auto-ticketing)</span></td></tr>
+<tr><td><b>Onboarding / provisioning joiner</b> (ADManager+ depuis SDP)</td><td>La demande d'arrivée crée le compte + groupes + mailbox.</td><td><b>Tech</b> (gain de temps) + <b>user</b> (prêt au jour 1).</td><td><span class="tag todo">extension du lot identité</span></td></tr>
+<tr><td><b>Base de connaissances + déflection</b></td><td>Réponses suggérées / articles avant l'ouverture d'un ticket.</td><td><b>User</b> (autonomie) + <b>tech</b> (moins de répétitif).</td><td><span class="tag todo">idée (SDP KB)</span></td></tr>
+<tr><td><b>Score de proactivité</b> (dashboard)</td><td>Mesure : % de tickets ouverts par la supervision vs par l'utilisateur.</td><td><b>Manager</b> (piloter la bascule réactif → proactif).</td><td><span class="tag todo">idée (métrique)</span></td></tr>
+</tbody>
+</table>
+<div class="callout win"><b>Recommandation de séquence.</b> Commencer par les <b>Quick wins</b> : (1) <b>self-service reset</b> (gratuit, déflection immédiate massive), (2) <b>auto-ticketing proactif</b> (le socle « agir avant l'appel »), (3) <b>lot identité A2/A1</b> (sécurité + gain tech). Le reste s'empile dessus. Chaque automatisme est <b>additif et réversible</b> — on peut s'arrêter à tout moment sans dette.</div>
+
+<h2>6. Inventaire des modules du dashboard — but &amp; valeur</h2>
+<p>Vue d'ensemble de ce que le dashboard fait déjà (au-delà des intégrations), pour situer chaque brique en réunion.</p>
+<table>
+<thead><tr><th style="width:22%">Module</th><th>But — pourquoi ça existe</th><th>Statut</th></tr></thead>
+<tbody>
+<tr><td colspan="3" style="background:#eef4fb;font-weight:700;color:var(--navy)">Helpdesk &amp; direction</td></tr>
+<tr><td><b>Helpdesk Dashboard</b></td><td>Piloter l'opérationnel des tickets SDP : volume, SLA résolution/1er réponse, ageing, incidents majeurs.</td><td><span class="tag live">LIVE</span></td></tr>
+<tr><td><b>Executive Scorecard</b></td><td>Vue exécutive 5 onglets (snapshot KPI, plan d'action, scorecard technicien, changes/incidents, voix client).</td><td><span class="tag live">LIVE</span></td></tr>
+<tr><td><b>Group IT Report (PPTX)</b></td><td>Deck mensuel Group IT auto-généré pour la direction.</td><td><span class="tag live">LIVE</span></td></tr>
+<tr><td><b>Exec View (SharePoint)</b></td><td>Snapshot public « exception-only » pour tout employé (santé IT en un coup d'œil, sans login).</td><td><span class="tag live">LIVE</span></td></tr>
+<tr><td colspan="3" style="background:#eef4fb;font-weight:700;color:var(--navy)">Terrain &amp; gouvernance site</td></tr>
+<tr><td><b>Activity Tracker</b></td><td>Pilotage stratégique IT par site (4 piliers, RAG, roadmap 12 mois) — « personne ne veut être dernier ».</td><td><span class="tag live">LIVE</span></td></tr>
+<tr><td><b>Inspections IT</b></td><td>Inspections site (17 catégories, photos, signatures, actions correctives, PPTX).</td><td><span class="tag live">LIVE</span></td></tr>
+<tr><td><b>Meetings &amp; Council</b></td><td>PV départementaux, escalations, 5 Engagements, conformité — jumeau numérique de l'operating system Mines × IT.</td><td><span class="tag live">LIVE</span></td></tr>
+<tr><td><b>Site Actions Register</b></td><td>Hub des actions ouvertes par site (réunions + inspections + suivi rapport) — « quel rapport ouvrir pour les fermer ».</td><td><span class="tag live">LIVE</span></td></tr>
+<tr><td><b>Rapports de site (coordinateur)</b></td><td>Rapport hebdo/mensuel par site auto-composé + email — l'authored report rejoué depuis le snapshot figé.</td><td><span class="tag live">LIVE</span></td></tr>
+<tr><td><b>IT Review + Site Scoreboard</b></td><td>Revue IT (score programme du boss) + scoreboard opérationnel comparable (4 dimensions) pour la réunion mensuelle.</td><td><span class="tag live">LIVE</span></td></tr>
+<tr><td colspan="3" style="background:#eef4fb;font-weight:700;color:var(--navy)">Actifs (ITAM)</td></tr>
+<tr><td><b>Assets</b> (Inventaire · Hygiène · Finance/Licences · Dépréciation · Software · Hardware · Investissement · Progrès)</td><td>Inventaire IT + hygiène CMDB + valeur/conformité licences + dépréciation calculée + santé matériel + prévision d'investissement + effort dans le temps.</td><td><span class="tag live">LIVE</span></td></tr>
+<tr><td><b>Réconciliation</b></td><td>SDP × AD × Entra × Defender — combler l'angle mort SelfScan (ce que l'inventaire ignore).</td><td><span class="tag built">CONSTRUIT</span></td></tr>
+<tr><td colspan="3" style="background:#eef4fb;font-weight:700;color:var(--navy)">Risque, infra &amp; plateforme</td></tr>
+<tr><td><b>Risk Register</b></td><td>Export mensuel Occurrence (5 domaines de risque opérationnel) depuis les incidents SDP.</td><td><span class="tag live">LIVE</span></td></tr>
+<tr><td><b>System Logs</b></td><td>Journal de sécurité + analytics (auth, événements report) — traçabilité.</td><td><span class="tag built">CONSTRUIT</span></td></tr>
+<tr><td><b>WAN Health · SLA WAN · OpManager dispo</b></td><td>Dispo/qualité WAN par lien (Meraki) · refacturation ISP · dispo LAN/WLAN/Serveurs (OpManager).</td><td><span class="tag built">CONSTRUIT</span> / <span class="tag partial">PARTIEL</span></td></tr>
+<tr><td><b>Plateforme</b> (SSO Entra · Meridian · Installer &amp; backups)</td><td>Sign-in Microsoft · lien PMO · déploiement autonome + sauvegardes planifiées.</td><td><span class="tag partial">PARTIEL</span> / <span class="tag live">LIVE</span></td></tr>
+</tbody>
+</table>
+
+<h2>7. Alignement roadmap — chaque brique dans son objectif</h2>
+<p>Classement de chaque outil / automatisme sous l'objectif manager qu'il sert en premier. Certaines briques servent aussi un objectif secondaire (noté). Le bloc « transversal » = pilotage &amp; communication qui sert les 4.</p>
+<table>
+<thead><tr><th style="width:30%">Outil / action</th><th>Rôle vis-à-vis l'objectif</th><th>Statut</th></tr></thead>
+<tbody>
+<tr><td colspan="3" style="background:#eef4fb;font-weight:700;color:var(--navy)">🎯 Objectif 1 — Catalogue &amp; formulaires <span style="font-weight:400">(35 % · 70 % 🟢 — mesurer adoption &amp; précision)</span></td></tr>
+<tr><td><b>Helpdesk Dashboard</b></td><td>Mesure l'usage réel des catégories / intake sources = base de l'adoption.</td><td><span class="tag live">LIVE</span></td></tr>
+<tr><td><b>Analytics adoption formulaires + précision</b></td><td>% de tickets via le bon formulaire vs free-text + taux de mauvaise catégorisation → chiffre l'écart critique.</td><td><span class="tag todo">À FAIRE</span></td></tr>
+<tr><td><b>Auto-ticketing pré-taggé</b> <span class="who">aussi Obj 3</span></td><td>Structure la demande dès la création (catégorie + services affectés) → précision.</td><td><span class="tag todo">conçu</span></td></tr>
+<tr><td><b>Self-service reset / unlock</b> <span class="who">aussi Obj 4</span></td><td>Déflection + demandes structurées (auto-ticket) → moins de bruit, plus de précision.</td><td><span class="tag partial">produit à activer</span></td></tr>
+<tr><td><b>Base de connaissances / déflection</b> <span class="who">aussi Obj 4</span></td><td>Réponses suggérées avant l'ouverture → oriente vers le bon formulaire.</td><td><span class="tag todo">idée</span></td></tr>
+
+<tr><td colspan="3" style="background:#eef4fb;font-weight:700;color:var(--navy)">🎯 Objectif 2 — Plateforme ITSM &amp; actifs <span style="font-weight:400">(25 % · 80 % 🟢 — publier discovery accuracy &amp; complétude CMDB)</span></td></tr>
+<tr><td><b>Assets</b> (inventaire · hygiène · finance · dépréciation · software · hardware · investissement · progrès)</td><td>Le cœur ITAM : complétude CMDB (hygiène %), couverture par classe d'actif, valeur/cycle de vie.</td><td><span class="tag live">LIVE</span></td></tr>
+<tr><td><b>Réconciliation</b> (SDP×AD×Entra×Defender)</td><td><b>Discovery accuracy</b> : ce que voient AD/Defender mais pas SDP = l'angle mort à publier.</td><td><span class="tag built">CONSTRUIT</span></td></tr>
+<tr><td><b>OpManager dispo</b> (LAN/WLAN/Serveurs)</td><td>Santé de la plateforme infra hors WAN.</td><td><span class="tag partial">PARTIEL</span></td></tr>
+<tr><td><b>WAN Health / Meraki</b> · <b>SLA WAN</b></td><td>Dispo/qualité WAN par lien + fiabilité/coût ISP (refacturation).</td><td><span class="tag built">CONSTRUIT</span></td></tr>
+<tr><td><b>Installer &amp; backups</b></td><td>Robustesse &amp; continuité de la plateforme dashboard.</td><td><span class="tag live">LIVE</span></td></tr>
+<tr><td><b>Scorecard « ITSM &amp; actifs »</b></td><td>Publie discovery accuracy + complétude CMDB + couverture → coche l'écart, confirme le Vert.</td><td><span class="tag todo">À FAIRE (gain rapide)</span></td></tr>
+
+<tr><td colspan="3" style="background:#eef4fb;font-weight:700;color:var(--navy)">🎯 Objectif 3 — Incidents &amp; gouvernance CAB <span style="font-weight:400">(25 % · 75 % 🟠 — finaliser 14 actions, relever conformité RCA)</span></td></tr>
+<tr><td><b>Executive Scorecard</b> (onglet Change &amp; Incidents)</td><td>Vue KPI changes + incidents majeurs.</td><td><span class="tag live">LIVE</span></td></tr>
+<tr><td><b>Group IT Report</b> (MI + RCA/CA/PIR/LL + changes)</td><td>Porte déjà les UDF de conformité des incidents majeurs.</td><td><span class="tag live">LIVE</span></td></tr>
+<tr><td><b>Risk Register</b></td><td>Occurrence de risque opérationnel depuis les incidents.</td><td><span class="tag live">LIVE</span></td></tr>
+<tr><td><b>Tracker conformité RCA/template MI + 14 actions</b></td><td>% d'incidents majeurs avec RCA/CA/PIR/LL complet + suivi des actions ouvertes → <b>fait passer Orange→Vert</b>.</td><td><span class="tag todo">À FAIRE (gain rapide)</span></td></tr>
+<tr><td><b>Corrélation panne amont</b> (uplink dependency)</td><td>1 lien WAN = 1 ticket (anti-bruit incidents).</td><td><span class="tag todo">conçu</span></td></tr>
+<tr><td><b>Identité &amp; Sécurité AD</b> (login désactivé, leaver) <span class="who">aussi Obj 2</span></td><td>Incidents de sécurité gouvernés depuis le ticket.</td><td><span class="tag todo">conçu (doc 29/07)</span></td></tr>
+
+<tr><td colspan="3" style="background:#eef4fb;font-weight:700;color:var(--navy)">🎯 Objectif 4 — Transfert de connaissance <span style="font-weight:400">(15 % · 45 % 🟠 — consolider formations, KB, usage)</span></td></tr>
+<tr><td><b>help.html bilingue + guides FR/EN</b></td><td>Base de connaissance utilisateur/coordinateur (KB de fait).</td><td><span class="tag live">LIVE</span></td></tr>
+<tr><td><b>Meetings &amp; Council</b></td><td>Partage de connaissance vers les départements (5 Engagements, feedback loop).</td><td><span class="tag live">LIVE</span></td></tr>
+<tr><td><b>Inspections</b> <span class="who">aussi Obj 2</span></td><td>Conformité process via checklists = transfert de bonnes pratiques terrain.</td><td><span class="tag live">LIVE</span></td></tr>
+<tr><td><b>Tracker formation / KB</b></td><td>Dates, participants, taux de complétion, usage KB → consolide l'écart.</td><td><span class="tag todo">À FAIRE</span></td></tr>
+
+<tr><td colspan="3" style="background:#f7f9fb;font-weight:700;color:var(--navy)">🧭 Transversal — pilotage &amp; communication (sert les 4 objectifs)</td></tr>
+<tr><td><b>Site Reports coordinateur</b> (hebdo/mensuel)</td><td>Reporting site auto = preuve d'avancement sur tous les objectifs.</td><td><span class="tag live">LIVE</span></td></tr>
+<tr><td><b>IT Review + Site Scoreboard</b></td><td>Gouvernance comparable par site = « personne ne veut être dernier ».</td><td><span class="tag live">LIVE</span></td></tr>
+<tr><td><b>Exec View (SharePoint)</b> · <b>Rapports auto</b></td><td>Communication direction + envoi automatique (zéro corvée).</td><td><span class="tag live">LIVE</span></td></tr>
+<tr><td><b>System Logs · SSO Entra · Meridian</b></td><td>Audit/sécurité · sign-in · lien PMO = socle transversal.</td><td><span class="tag built">CONSTRUIT</span> / <span class="tag partial">PARTIEL</span></td></tr>
+<tr><td><b>Score de proactivité</b></td><td>Métrique de pilotage : bascule réactif → proactif (transverse).</td><td><span class="tag todo">idée</span></td></tr>
+</tbody>
+</table>
+<div class="callout win"><b>Lecture « délivrer le max ».</b> Deux <b>À FAIRE « gain rapide »</b> ressortent car ils s'appuient sur des données déjà présentes et <b>font bouger les couleurs</b> : le <b>Scorecard ITSM &amp; actifs</b> (Objectif 2 → confirme Vert) et le <b>Tracker conformité RCA + 14 actions</b> (Objectif 3 → Orange→Vert). Puis l'<b>analytics adoption/précision</b> (Objectif 1, plus gros poids) et le <b>tracker formation/KB</b> (Objectif 4).</div>
+
+<footer>
+Document de pilotage interne — SDP Dashboard. Les efforts DEV sont des estimations ; le calendrier réel est porté par la levée des gates externes (colonne « propriétaire »).
+Détail technique de chaque intégration : voir les fiches <code>docs/integration/*.html</code> et les specs <code>docs/superpowers/</code>.
+</footer>
+</div>
+</body>
+</html>
