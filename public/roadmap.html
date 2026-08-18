@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Roadmap Manager — outil personnel</title>
+
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-require="super_admin" data-redirect="login.html"></script>
+
+<style nonce="%%CSP_NONCE%%">
+  :root {
+    --navy:#1E3A5F; --blue:#145FAE; --green:#16A34A; --amber:#D97706; --red:#D90038;
+    --bg:#f4f6f7; --card:#ffffff; --line:#e2e8f0; --ink:#1F2A33; --muted:#64748b;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink);
+    font-family:'Libre Franklin',system-ui,-apple-system,Segoe UI,Roboto,sans-serif; font-size:14px; }
+
+  /* Own minimal chrome — NOT the shared _shell.js nav */
+  .rm-topbar { background:var(--navy); color:#fff; padding:14px 24px; display:flex; align-items:center; gap:14px; }
+  .rm-topbar h1 { margin:0; font-size:19px; font-weight:800; letter-spacing:.2px; }
+  .rm-topbar .sub { margin:0; font-size:12px; color:#cbd5e1; }
+  .rm-priv { margin-left:auto; background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.3);
+    color:#fff; font-size:11px; font-weight:700; padding:3px 10px; border-radius:999px; text-transform:uppercase; letter-spacing:.6px; }
+
+  .rm-wrap { max-width:1120px; margin:0 auto; padding:22px 24px 60px; }
+
+  .rm-scorebar { background:var(--card); border:1px solid var(--line); border-radius:12px;
+    padding:16px 20px; margin-bottom:20px; display:flex; align-items:center; gap:20px; box-shadow:0 1px 2px rgba(0,0,0,.04); }
+  .rm-scorebar .num { font-size:34px; font-weight:800; color:var(--navy); line-height:1; }
+  .rm-scorebar .lbl { font-size:13px; color:var(--muted); }
+  .rm-scorebar .track { flex:1; height:10px; background:#eef2f5; border-radius:999px; overflow:hidden; min-width:120px; }
+  .rm-scorebar .fill { height:100%; background:linear-gradient(90deg,var(--blue),var(--green)); border-radius:999px; transition:width .3s; }
+  .rm-actions { display:flex; gap:10px; }
+  .rm-btn { border:1px solid var(--line); background:#fff; color:var(--ink); font-size:13px; font-weight:600;
+    padding:7px 13px; border-radius:8px; cursor:pointer; }
+  .rm-btn:hover { background:#f8fafc; }
+  .rm-btn.primary { background:var(--blue); border-color:var(--blue); color:#fff; }
+  .rm-btn.primary:hover { background:#0f4f92; }
+
+  .rm-card { background:var(--card); border:1px solid var(--line); border-radius:12px; margin-bottom:18px;
+    box-shadow:0 1px 2px rgba(0,0,0,.04); overflow:hidden; }
+  .rm-card > .head { display:flex; align-items:flex-start; gap:12px; padding:16px 20px; border-bottom:1px solid var(--line); }
+  .rm-card .title { font-size:16px; font-weight:800; color:var(--navy); margin:0; }
+  .rm-card .head .prog { margin-left:auto; text-align:right; min-width:130px; }
+  .rm-card .head .prog .pct { font-size:22px; font-weight:800; color:var(--navy); }
+  .rm-card .head .track { height:8px; background:#eef2f5; border-radius:999px; overflow:hidden; margin-top:5px; }
+  .rm-card .head .fill { height:100%; border-radius:999px; }
+
+  .rm-fields { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px 16px; padding:16px 20px; }
+  .rm-field { display:flex; flex-direction:column; gap:4px; }
+  .rm-field.wide { grid-column:1 / -1; }
+  .rm-field label { font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; }
+  .rm-field input, .rm-field select, .rm-field textarea {
+    border:1px solid var(--line); border-radius:7px; padding:7px 9px; font-size:13px; font-family:inherit; color:var(--ink); background:#fff; }
+  .rm-field textarea { resize:vertical; min-height:52px; }
+  .rm-field input:focus, .rm-field select:focus, .rm-field textarea:focus { outline:2px solid var(--blue); outline-offset:-1px; border-color:var(--blue); }
+
+  .rm-deliv { padding:4px 20px 18px; }
+  .rm-deliv h4 { margin:8px 0 8px; font-size:12px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; }
+  .rm-drow { display:grid; grid-template-columns:1fr 130px 140px auto auto; gap:8px; align-items:center;
+    padding:7px 0; border-top:1px solid #f1f5f9; }
+  .rm-drow input, .rm-drow select { border:1px solid var(--line); border-radius:6px; padding:6px 8px; font-size:13px; font-family:inherit; }
+  .rm-drow input.lbl { width:100%; }
+  .rm-exec { border:1px solid var(--green); background:#fff; color:var(--green); font-weight:700; font-size:12px;
+    padding:5px 9px; border-radius:6px; cursor:pointer; white-space:nowrap; }
+  .rm-exec.done { background:var(--green); color:#fff; }
+  .rm-del { border:none; background:transparent; color:var(--red); font-size:16px; cursor:pointer; padding:2px 6px; line-height:1; }
+  .rm-del:hover { color:#a80030; }
+  .rm-addbtn { margin-top:10px; border:1px dashed var(--blue); background:#f5f9ff; color:var(--blue);
+    font-size:13px; font-weight:600; padding:7px 13px; border-radius:7px; cursor:pointer; }
+  .rm-addbtn:hover { background:#eaf2ff; }
+
+  .rm-toast { position:fixed; bottom:22px; left:50%; transform:translateX(-50%) translateY(20px);
+    background:var(--navy); color:#fff; padding:9px 18px; border-radius:8px; font-size:13px; font-weight:600;
+    opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; z-index:50; }
+  .rm-toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+  .rm-toast.err { background:var(--red); }
+
+  .rm-gate { max-width:520px; margin:80px auto; text-align:center; background:var(--card);
+    border:1px solid var(--line); border-radius:12px; padding:40px 30px; }
+  .rm-gate h2 { color:var(--navy); margin:0 0 8px; }
+  .rm-gate p { color:var(--muted); margin:0; }
+  .rm-badge-dot { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:5px; vertical-align:middle; }
+</style>
+</head>
+<body>
+
+<div class="rm-topbar">
+  <div>
+    <h1>🎯 Roadmap Manager</h1>
+    <p class="sub">Outil personnel de pilotage — objectifs &amp; livraisons</p>
+  </div>
+  <span class="rm-priv">privé</span>
+</div>
+
+<div class="rm-wrap">
+  <div id="rm-content" style="display:none;">
+    <div class="rm-scorebar">
+      <div>
+        <div class="num" id="rm-score">—</div>
+        <div class="lbl">Progression pondérée</div>
+      </div>
+      <div class="track"><div class="fill" id="rm-scorefill" style="width:0%"></div></div>
+      <div class="rm-actions">
+        <button class="rm-btn" id="rm-csv">⬇ Export CSV</button>
+      </div>
+    </div>
+    <div id="rm-objectives"></div>
+  </div>
+
+  <div id="rm-gate" class="rm-gate" style="display:none;">
+    <h2>Accès réservé</h2>
+    <p>Cet outil personnel est réservé au Service &amp; Support Manager (super_admin).</p>
+  </div>
+
+  <div id="rm-loading" style="text-align:center; padding:60px; color:var(--muted);">Chargement…</div>
+</div>
+
+<div class="rm-toast" id="rm-toast"></div>
+
+<script nonce="%%CSP_NONCE%%">
+(function () {
+  'use strict';
+
+  var OBJ_STATUS = [
+    { v:'green',  t:'🟢 En bonne voie', c:'#16A34A' },
+    { v:'orange', t:'🟠 À surveiller',  c:'#D97706' },
+    { v:'red',    t:'🔴 Bloqué',        c:'#D90038' }
+  ];
+  var CONFIDENCE = [
+    { v:'high',   t:'Élevée' },
+    { v:'medium', t:'Moyenne' },
+    { v:'low',    t:'Faible' }
+  ];
+  var DELIV_STATUS = [
+    { v:'todo',  t:'À faire' },
+    { v:'doing', t:'En cours' },
+    { v:'done',  t:'✓ Exécuté' }
+  ];
+
+  var STATE = { objectives: [], deliverables: [] };
+
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+  function $(id) { return document.getElementById(id); }
+
+  function authHeaders(json) {
+    var h = {};
+    var at = window.__authToken;
+    if (at) h['x-report-token'] = at;
+    if (json) h['Content-Type'] = 'application/json';
+    return h;
+  }
+
+  var toastTimer = null;
+  function toast(msg, isErr) {
+    var el = $('rm-toast');
+    el.textContent = msg;
+    el.className = 'rm-toast show' + (isErr ? ' err' : '');
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.className = 'rm-toast'; }, 1800);
+  }
+
+  function statusColor(v) {
+    for (var i = 0; i < OBJ_STATUS.length; i++) if (OBJ_STATUS[i].v === v) return OBJ_STATUS[i].c;
+    return '#64748b';
+  }
+  function num(x) { var n = Number(x); return isFinite(n) ? n : 0; }
+
+  function computeScore() {
+    var wSum = 0, wp = 0;
+    STATE.objectives.forEach(function (o) {
+      var w = num(o.weight);
+      wSum += w;
+      wp += w * num(o.progress_pct);
+    });
+    if (wSum <= 0) return 0;
+    return Math.round(wp / wSum);
+  }
+
+  function renderScore() {
+    var s = computeScore();
+    $('rm-score').textContent = s + ' %';
+    $('rm-scorefill').style.width = Math.max(0, Math.min(100, s)) + '%';
+  }
+
+  function selectOptions(list, cur) {
+    return list.map(function (o) {
+      return '<option value="' + esc(o.v) + '"' + (o.v === cur ? ' selected' : '') + '>' + esc(o.t) + '</option>';
+    }).join('');
+  }
+
+  function delivRow(d) {
+    var isDone = d.status === 'done';
+    return '<div class="rm-drow" data-uid="' + esc(d.uid) + '">' +
+      '<input class="lbl" data-f="label" value="' + esc(d.label) + '" placeholder="Livrable…">' +
+      '<input type="date" data-f="delivery_date" value="' + esc(d.delivery_date) + '">' +
+      '<select data-f="status">' + selectOptions(DELIV_STATUS, d.status || 'todo') + '</select>' +
+      '<button class="rm-exec' + (isDone ? ' done' : '') + '" data-act="exec">' + (isDone ? '✓ Exécuté' : '✓ Exécuté') + '</button>' +
+      '<button class="rm-del" data-act="del" title="Supprimer">✕</button>' +
+      '</div>';
+  }
+
+  function objCard(o) {
+    var delivs = STATE.deliverables.filter(function (d) { return d.obj_key === o.obj_key; });
+    var col = statusColor(o.status);
+    var pct = Math.max(0, Math.min(100, num(o.progress_pct)));
+    return '<div class="rm-card" data-key="' + esc(o.obj_key) + '">' +
+      '<div class="head">' +
+        '<div style="flex:1;">' +
+          '<p class="title">' + esc(o.title) + '</p>' +
+          '<span style="font-size:12px;color:#64748b;"><span class="rm-badge-dot" style="background:' + col + '"></span>Poids ' + esc(o.weight) + ' %</span>' +
+        '</div>' +
+        '<div class="prog">' +
+          '<span class="pct">' + pct + ' %</span>' +
+          '<div class="track"><div class="fill" style="width:' + pct + '%;background:' + col + '"></div></div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="rm-fields">' +
+        field('Poids %', '<input type="number" min="0" step="1" data-f="weight" value="' + esc(o.weight) + '">') +
+        field('Progression %', '<input type="number" min="0" max="100" step="1" data-f="progress_pct" value="' + esc(o.progress_pct) + '">') +
+        field('Statut', '<select data-f="status">' + selectOptions(OBJ_STATUS, o.status) + '</select>') +
+        field('Confiance', '<select data-f="confidence">' + selectOptions(CONFIDENCE, o.confidence) + '</select>') +
+        field('Date cible', '<input type="date" data-f="target_date" value="' + esc(o.target_date) + '">') +
+        field('Preuve', '<textarea data-f="evidence">' + esc(o.evidence) + '</textarea>', true) +
+        field('Écart critique', '<textarea data-f="gap_note">' + esc(o.gap_note) + '</textarea>', true) +
+      '</div>' +
+      '<div class="rm-deliv">' +
+        '<h4>Livrables</h4>' +
+        '<div class="rm-delivlist">' + (delivs.length ? delivs.map(delivRow).join('') : '<div style="color:#94a3b8;font-size:13px;padding:6px 0;">Aucun livrable.</div>') + '</div>' +
+        '<button class="rm-addbtn" data-act="add">+ Ajouter un livrable</button>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function field(label, control, wide) {
+    return '<div class="rm-field' + (wide ? ' wide' : '') + '"><label>' + esc(label) + '</label>' + control + '</div>';
+  }
+
+  function render() {
+    $('rm-objectives').innerHTML = STATE.objectives.map(objCard).join('');
+    renderScore();
+  }
+
+  // ── Auto-save wiring (event delegation on the objectives container) ──
+  function objKeyOf(el) { var c = el.closest('.rm-card'); return c && c.getAttribute('data-key'); }
+  function objOf(key) { return STATE.objectives.filter(function (o) { return o.obj_key === key; })[0]; }
+  function delivUidOf(el) { var r = el.closest('.rm-drow'); return r && r.getAttribute('data-uid'); }
+
+  function saveObjective(key, patch) {
+    return fetch('/api/roadmap/objective/' + encodeURIComponent(key), {
+      method: 'PUT', headers: authHeaders(true), body: JSON.stringify(patch)
+    }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
+  }
+  function saveDeliv(uid, patch) {
+    return fetch('/api/roadmap/deliverable/' + encodeURIComponent(uid), {
+      method: 'PUT', headers: authHeaders(true), body: JSON.stringify(patch)
+    }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
+  }
+
+  function onObjChange(e) {
+    var t = e.target;
+    var f = t.getAttribute && t.getAttribute('data-f');
+    if (!f) return;
+    var uid = delivUidOf(t);
+    if (uid) {
+      // deliverable field
+      var d = STATE.deliverables.filter(function (x) { return x.uid === uid; })[0];
+      if (d) d[f] = t.value;
+      var patch = {}; patch[f] = t.value;
+      saveDeliv(uid, patch).then(function () { toast('enregistré ✓'); }).catch(function () { toast('échec', true); });
+      return;
+    }
+    var key = objKeyOf(t);
+    if (!key) return;
+    var o = objOf(key);
+    var val = (f === 'weight' || f === 'progress_pct') ? num(t.value) : t.value;
+    if (o) o[f] = val;
+    var op = {}; op[f] = val;
+    saveObjective(key, op).then(function () { toast('enregistré ✓'); }).catch(function () { toast('échec', true); });
+    if (f === 'weight' || f === 'progress_pct') renderScore();
+    if (f === 'status') {
+      // repaint the dot + progress bar colour without a full re-render
+      var card = t.closest('.rm-card');
+      var col = statusColor(t.value);
+      var dot = card.querySelector('.rm-badge-dot'); if (dot) dot.style.background = col;
+      var fill = card.querySelector('.head .fill'); if (fill) fill.style.background = col;
+    }
+  }
+
+  function onObjClick(e) {
+    var t = e.target;
+    var act = t.getAttribute && t.getAttribute('data-act');
+    if (!act) return;
+    var key = objKeyOf(t);
+
+    if (act === 'add') {
+      var so = STATE.deliverables.filter(function (d) { return d.obj_key === key; }).length + 1;
+      fetch('/api/roadmap/deliverable', {
+        method: 'POST', headers: authHeaders(true),
+        body: JSON.stringify({ obj_key: key, label: 'Nouveau livrable', delivery_date: '', status: 'todo', notes: '', sort_order: so })
+      }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function () { toast('ajouté ✓'); return reload(); })
+        .catch(function () { toast('échec', true); });
+      return;
+    }
+
+    var uid = delivUidOf(t);
+    if (!uid) return;
+
+    if (act === 'del') {
+      fetch('/api/roadmap/deliverable/' + encodeURIComponent(uid), { method: 'DELETE', headers: authHeaders(false) })
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function () { toast('supprimé ✓'); return reload(); })
+        .catch(function () { toast('échec', true); });
+      return;
+    }
+
+    if (act === 'exec') {
+      var d = STATE.deliverables.filter(function (x) { return x.uid === uid; })[0];
+      var next = (d && d.status === 'done') ? 'todo' : 'done';
+      if (d) d.status = next;
+      saveDeliv(uid, { status: next })
+        .then(function () { toast(next === 'done' ? 'exécuté ✓' : 'enregistré ✓'); render(); })
+        .catch(function () { toast('échec', true); });
+      return;
+    }
+  }
+
+  // ── CSV export (UTF-8 BOM + CRLF + quote-escaped) ──
+  function csvCell(v) { return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; }
+  function exportCsv() {
+    var rows = [];
+    rows.push(['type', 'obj_key', 'title/label', 'weight', 'progress_pct', 'status', 'confidence', 'target/delivery_date', 'evidence/notes', 'gap_note', 'sort_order']);
+    STATE.objectives.forEach(function (o) {
+      rows.push(['objective', o.obj_key, o.title, o.weight, o.progress_pct, o.status, o.confidence, o.target_date, o.evidence, o.gap_note, o.sort_order]);
+    });
+    STATE.deliverables.forEach(function (d) {
+      rows.push(['deliverable', d.obj_key, d.label, '', '', d.status, '', d.delivery_date, d.notes, '', d.sort_order]);
+    });
+    var body = rows.map(function (r) { return r.map(csvCell).join(','); }).join('\r\n');
+    var blob = new Blob(['﻿' + body], { type: 'text/csv;charset=utf-8;' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = 'roadmap_' + new Date().toISOString().slice(0, 10) + '.csv';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  }
+
+  function showGate() {
+    $('rm-loading').style.display = 'none';
+    $('rm-content').style.display = 'none';
+    $('rm-gate').style.display = 'block';
+  }
+
+  function reload() {
+    return fetch('/api/roadmap', { headers: authHeaders(false) })
+      .then(function (r) {
+        if (r.status === 401 || r.status === 403) { showGate(); throw new Error('gate'); }
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
+      .then(function (data) {
+        STATE.objectives = (data && data.objectives) || [];
+        STATE.deliverables = (data && data.deliverables) || [];
+        $('rm-loading').style.display = 'none';
+        $('rm-gate').style.display = 'none';
+        $('rm-content').style.display = 'block';
+        render();
+      });
+  }
+
+  function boot() {
+    var host = $('rm-objectives');
+    host.addEventListener('change', onObjChange);
+    host.addEventListener('click', onObjClick);
+    $('rm-csv').addEventListener('click', exportCsv);
+    reload().catch(function (e) {
+      if (e && e.message === 'gate') return; // gate already shown
+      // Best-effort: any other failure → clean gate rather than a blank page.
+      showGate();
+    });
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+})();
+</script>
+</body>
+</html>

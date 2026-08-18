@@ -1225,7 +1225,7 @@ function loadHtml(name) {
   'meetings-import.html', 'meetings-progress.html', 'meetings-insights.html', 'meetings-setup.html', 'meetings-actions.html',
   'meetings-unsigned.html',
   'activity-tracker.html', 'help.html', 'exec-view.html', 'site-report.html', 'it-review.html', 'site-actions.html', 'system-logs.html',
-  'assets.html', 'assets-hygiene.html', 'assets-finance.html', 'wan-health.html', 'wan-sla.html',
+  'assets.html', 'assets-hygiene.html', 'assets-finance.html', 'wan-health.html', 'wan-sla.html', 'roadmap.html',
 ].forEach(loadHtml);
 
 // Helper: build the per-request HTML, inject api-key + nonce, send. Pages
@@ -1324,6 +1324,11 @@ app.get('/wan-health.html', (req, res) => {
 });
 app.get('/wan-sla.html', (req, res) => {
   sendHtmlPage(res, 'wan-sla.html', false, 'SLA / Chargeback unavailable');
+});
+// Personal Roadmap Manager — private super_admin tool, standalone page (own chrome,
+// NOT on the shared _shell.js nav), reachable by direct URL / bookmark only.
+app.get('/roadmap.html', (req, res) => {
+  sendHtmlPage(res, 'roadmap.html', false, 'Roadmap unavailable');
 });
 
 app.get('/assets-hygiene.html', (req, res) => {
@@ -7555,6 +7560,11 @@ app.use(require('./routes/meridian')({ express }));
 // requireReportSession); sync is admin. A distinct /api/analytics prefix, so /api/reports/:id
 // can't shadow it. fetchView is passed for coverage + on-demand sync.
 app.use(require('./routes/opmanager')({ express, requireReportSession, requireAdmin, requireSuperAdmin, fetchView }));
+
+// ── Personal Roadmap Manager — private super_admin tool (/api/roadmap/*) ──────
+// Per-user objectives + deliverables for the Service & Support Manager. user_id is
+// always req.reportUser.id (never trusted from body). Distinct /api/roadmap prefix.
+app.use(require('./routes/roadmap')({ express, requireReportSession, requireSuperAdmin }));
 
 // ══════════════════════════════════════════════════════════════════
 // MEETINGS — Department Meetings & Council Escalations (v2 schema)
