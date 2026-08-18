@@ -140,7 +140,45 @@ async function loadIncidentsEvidence(deps = {}) {
   return incidentsEvidence({ majorIncidents, changeMetrics });
 }
 
+// ── Objective 1 — Catalogue & formulaires ──────────────────────────────
+// Écart measured from the helpdesk: form/portal adoption + request precision.
+//   web_form_pct       = self-service portal share of submissions (adoption)
+//   categorized_pct    = share of requests carrying a category (precision)
+//   subcategorized_pct = share carrying a sub_category (precision)
+// Honesty rule: null (never a fabricated 0/100) when the window has no tickets —
+// a 0 would read "0% adoption" rather than "nothing in the window to judge".
+//
+// PURE. No I/O. Composes the getCatalogueStats reader output.
+function catalogueEvidence(stats) {
+  stats = stats || {};
+  const total = Number(stats.total) || 0;
+  const pct = (n) => (total > 0 ? Math.round((100 * (Number(n) || 0)) / total) : null);
+  const by_mode = (Array.isArray(stats.by_mode) ? stats.by_mode.slice() : [])
+    .sort((a, b) => (Number(b && b.n) || 0) - (Number(a && a.n) || 0));
+  return {
+    total,
+    web_form_pct: pct(stats.web_form),
+    categorized_pct: pct(stats.categorized),
+    subcategorized_pct: pct(stats.subcategorized),
+    by_mode,
+  };
+}
+
+// Glue: window = the last 90 days ("3 derniers mois"). Awaits the reader, then the
+// pure compose, and adds window_days for the UI label. Deps injectable for tests
+// (default require('../reports-db')); nowMs injectable too (default Date.now()).
+// AWAIT the reader before the pure call (the pg fork returns a Promise — pg-Promise trap).
+async function loadCatalogueEvidence(deps = {}) {
+  const pick = (name) => deps[name] || (deps.reportsDb || require('../reports-db'))[name];
+  const getCatalogueStats = pick('getCatalogueStats');
+  const nowMs = deps.nowMs != null ? deps.nowMs : Date.now();
+  const since = new Date(nowMs - 90 * 24 * 60 * 60 * 1000).toISOString();
+  const stats = await getCatalogueStats({ since });
+  return { ...catalogueEvidence(stats), window_days: 90 };
+}
+
 module.exports = {
   platformEvidence, loadPlatformEvidence, kindCount, COMPLETENESS_KINDS,
   incidentsEvidence, loadIncidentsEvidence, _fieldFilled, INCIDENT_UDF_VARIANTS,
+  catalogueEvidence, loadCatalogueEvidence,
 };

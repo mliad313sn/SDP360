@@ -7,6 +7,9 @@
 const _os = require('os'), _fs = require('fs'), _path = require('path');
 process.env.SDP_DATA_DIR = process.env.SDP_DATA_DIR || _fs.mkdtempSync(_path.join(_os.tmpdir(), 'roadmap-evidence-'));
 process.env.ASSETS_BACKEND = 'sqlite';
+process.env.REPORTS_BACKEND = process.env.REPORTS_BACKEND || 'sqlite';
+process.env.DASH_USER = process.env.DASH_USER || 'roadmap-super';
+process.env.DASH_PASS = process.env.DASH_PASS || 'roadmap-pass-0000';
 
 const { test } = require('node:test');
 const assert = require('node:assert');
@@ -160,4 +163,86 @@ test('loadIncidentsEvidence: composes from injected async stub readers', async (
   assert.equal(out.ca_pct, 50);
   assert.equal(out.change_success_rate, 88.5);
   assert.equal(out.changes_count, 12);
+});
+
+// ── Obj-1: catalogue & forms evidence (form adoption + request precision) ──
+// (a) pure composer `catalogueEvidence`
+
+test('catalogueEvidence: pct = round(100*n/total) per measure, by_mode passthrough', () => {
+  const by_mode = [{ mode: 'Web Portal', n: 120 }, { mode: 'Email', n: 80 }];
+  const out = ev.catalogueEvidence({ total: 200, web_form: 120, categorized: 180, subcategorized: 150, by_mode });
+  assert.equal(out.total, 200);
+  assert.equal(out.web_form_pct, 60, 'form/portal adoption');
+  assert.equal(out.categorized_pct, 90, 'request precision (category)');
+  assert.equal(out.subcategorized_pct, 75);
+  assert.deepEqual(out.by_mode, by_mode, 'by_mode passthrough (already desc)');
+});
+
+test('catalogueEvidence: total 0 → all *_pct are null, NOT 0', () => {
+  const out = ev.catalogueEvidence({ total: 0, web_form: 0, categorized: 0, subcategorized: 0, by_mode: [] });
+  assert.equal(out.total, 0);
+  assert.strictEqual(out.web_form_pct, null);
+  assert.strictEqual(out.categorized_pct, null);
+  assert.strictEqual(out.subcategorized_pct, null);
+  assert.deepEqual(out.by_mode, []);
+});
+
+test('catalogueEvidence: by_mode sorted desc by n when handed out of order', () => {
+  const out = ev.catalogueEvidence({ total: 3, web_form: 1, categorized: 3, subcategorized: 2, by_mode: [{ mode: 'Email', n: 1 }, { mode: 'Web Portal', n: 2 }] });
+  assert.equal(out.by_mode[0].mode, 'Web Portal', 'highest n first');
+  assert.equal(out.by_mode[1].mode, 'Email');
+});
+
+// (b) glue: awaits reader, passes since ~90d before nowMs (ISO), labels window_days
+test('loadCatalogueEvidence: composes + passes since = 90d before nowMs (ISO), window_days=90', async () => {
+  const nowMs = Date.parse('2026-08-18T00:00:00.000Z');
+  let capturedArg = null;
+  const deps = {
+    nowMs,
+    getCatalogueStats: async (arg) => {
+      capturedArg = arg;
+      return { total: 200, web_form: 120, categorized: 180, subcategorized: 150, by_mode: [{ mode: 'Web Portal', n: 120 }, { mode: 'Email', n: 80 }] };
+    },
+  };
+  const out = await ev.loadCatalogueEvidence(deps);
+  assert.equal(out.web_form_pct, 60);
+  assert.equal(out.categorized_pct, 90);
+  assert.equal(out.subcategorized_pct, 75);
+  assert.equal(out.window_days, 90, 'window label for the UI');
+  const expectedSince = new Date(nowMs - 90 * 24 * 60 * 60 * 1000).toISOString();
+  assert.equal(capturedArg.since, expectedSince, 'since = 90 days before nowMs, ISO');
+});
+
+// (c) reader `getCatalogueStats` against a temp sqlite — mode classification IN JS
+test('getCatalogueStats: web_form via JS /web|portal|self-service/, categorized counts, window + by_mode', () => {
+  const Database = require('better-sqlite3');
+  const rdb = require('../reports-db'); // ensures request_records table exists
+  const raw = new Database(_path.join(process.env.SDP_DATA_DIR, 'reports.db'));
+  raw.prepare('DELETE FROM request_records').run();
+  const ins = raw.prepare(
+    `INSERT INTO request_records (request_id, created_time, mode, category, sub_category) VALUES (?,?,?,?,?)`
+  );
+  const rows = [
+    ['c1', '2026-08-01T00:00:00Z', 'Web Portal', 'Network', 'WAN'],
+    ['c2', '2026-08-02T00:00:00Z', 'Web Portal', 'Network', ''],   // no sub_category
+    ['c3', '2026-08-03T00:00:00Z', 'Email', 'Hardware', 'Laptop'],
+    ['c4', '2026-08-04T00:00:00Z', 'Phone', '', null],             // no category/sub
+    ['c5', '2026-08-05T00:00:00Z', 'Self Service', 'Software', 'Office'],
+    ['c6', '2020-01-01T00:00:00Z', 'Web Portal', 'Old', 'Old'],    // BEFORE the window
+  ];
+  for (const r of rows) ins.run(...r);
+  raw.close();
+
+  const stats = rdb.getCatalogueStats({ since: '2026-01-01T00:00:00Z' });
+  assert.equal(stats.total, 5, 'only rows within created_time >= since');
+  assert.equal(stats.web_form, 3, 'Web Portal(2) + Self Service(1) — classified in JS');
+  assert.equal(stats.categorized, 4, 'non-empty category: c1,c2,c3,c5');
+  assert.equal(stats.subcategorized, 3, 'non-empty sub_category: c1,c3,c5');
+  assert.ok(Array.isArray(stats.by_mode));
+  const wp = stats.by_mode.find((m) => m.mode === 'Web Portal');
+  assert.equal(wp.n, 2);
+  // by_mode descending by n
+  for (let i = 1; i < stats.by_mode.length; i++) {
+    assert.ok(Number(stats.by_mode[i - 1].n) >= Number(stats.by_mode[i].n), 'by_mode desc by n');
+  }
 });

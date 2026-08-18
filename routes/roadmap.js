@@ -19,6 +19,14 @@ module.exports = function roadmapRoutes(deps) {
     catch (e) { res.json({ objectives: [], deliverables: [] }); }
   });
 
+  // Obj-1 (Catalogue & formulaires) live evidence: form/portal adoption + request precision
+  // (category/sub_category), over the last 90 days of request_records. Best-effort → honest
+  // empty (all pct null, never a fabricated 0/100) on throw, never 500.
+  router.get('/api/roadmap/evidence/catalogue', requireReportSession, requireSuperAdmin, async (req, res) => {
+    try { res.json(await roadmapEvidence.loadCatalogueEvidence()); }
+    catch (e) { res.json({ total: 0, web_form_pct: null, categorized_pct: null, subcategorized_pct: null, by_mode: [], window_days: 90 }); }
+  });
+
   // Obj-2 (Plateforme ITSM & actifs) live evidence: CMDB completeness + SDP asset total +
   // asset-class coverage, composed from existing assets-db readers. Best-effort → honest
   // empty (completeness null, never a fabricated 0/100) on throw, never 500.

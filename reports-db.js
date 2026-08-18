@@ -7051,6 +7051,42 @@ async function _getRequestMetricsPg({ site, since, statuses, rtypes, impacts, mo
   };
 }
 
+// ── Roadmap Obj-1 (Catalogue & formulaires) — form-adoption + request-precision
+// evidence from the helpdesk. Over request_records with created_time >= since
+// (ISO string, TEXT compare — NO cast; mirrors getRequestMetrics's fork shape).
+//   total          = COUNT(*)
+//   web_form       = tickets whose submission channel is the self-service portal —
+//                    classified IN JS from by_mode (/web|portal|self.?service/i) to
+//                    avoid SQL-dialect regex differences.
+//   categorized    = has a non-empty category (a better-formed request)
+//   subcategorized = has a non-empty sub_category
+//   by_mode        = per-channel counts, blank/NULL folded to '(unknown)'
+function getCatalogueStats(opts = {}) {
+  if (REPORTS_BACKEND === 'postgres') return _getCatalogueStatsPg(opts);
+  const { since } = opts;
+  let where = 'WHERE 1=1';
+  const p = [];
+  if (since) { where += ' AND created_time>=?'; p.push(since); }
+  const total          = db.prepare(`SELECT COUNT(*) as n FROM request_records ${where}`).get(...p).n;
+  const categorized    = db.prepare(`SELECT COUNT(*) as n FROM request_records ${where} AND category IS NOT NULL AND TRIM(category)<>''`).get(...p).n;
+  const subcategorized = db.prepare(`SELECT COUNT(*) as n FROM request_records ${where} AND sub_category IS NOT NULL AND TRIM(sub_category)<>''`).get(...p).n;
+  const by_mode        = db.prepare(`SELECT COALESCE(NULLIF(TRIM(mode),''),'(unknown)') AS mode, COUNT(*) n FROM request_records ${where} GROUP BY 1 ORDER BY n DESC`).all(...p);
+  const web_form = by_mode.filter((r) => /web|portal|self.?service/i.test(r.mode)).reduce((a, r) => a + (Number(r.n) || 0), 0);
+  return { total, web_form, categorized, subcategorized, by_mode };
+}
+async function _getCatalogueStatsPg({ since } = {}) {
+  const H = pgHandle();
+  let where = 'WHERE 1=1';
+  const p = [];
+  if (since) { where += ' AND created_time>=?'; p.push(since); }
+  const total          = (await H.prepare(`SELECT COUNT(*) as n FROM request_records ${where}`).get(...p)).n;
+  const categorized    = (await H.prepare(`SELECT COUNT(*) as n FROM request_records ${where} AND category IS NOT NULL AND TRIM(category)<>''`).get(...p)).n;
+  const subcategorized = (await H.prepare(`SELECT COUNT(*) as n FROM request_records ${where} AND sub_category IS NOT NULL AND TRIM(sub_category)<>''`).get(...p)).n;
+  const by_mode        = await H.prepare(`SELECT COALESCE(NULLIF(TRIM(mode),''),'(unknown)') AS mode, COUNT(*) n FROM request_records ${where} GROUP BY 1 ORDER BY n DESC`).all(...p);
+  const web_form = by_mode.filter((r) => /web|portal|self.?service/i.test(r.mode)).reduce((a, r) => a + (Number(r.n) || 0), 0);
+  return { total, web_form, categorized, subcategorized, by_mode };
+}
+
 // ── MONTHLY REPORT HELPERS ────────────────────────────────────────
 
 /**
@@ -7856,6 +7892,7 @@ module.exports = {
   getRequestRecordsSince, getSubmissionChannelsDB, getSurveyKpisDB,
   // Computed metrics (replicate Zoho Analytics aggregate formulas)
   getChangeMetrics, getCABMetrics, getSurveyMetrics, getRequestMetrics,
+  getCatalogueStats,
   getRequestFilterOptions,
   // Open changes for PPTX slide
   getOpenChangesForSite,
