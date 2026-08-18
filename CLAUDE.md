@@ -31,10 +31,15 @@ made so far so that future sessions can pick up exactly where the last one ended
 > 2026-07-17/22/29 × ITY/Mana/Lafigue, `module='Module ITAM SDP'`, **`technicians=null` non-fabriqué**) +
 > `getRoadmapTraining`/add/update/delete (`technicians_total` sommé EN JS, jamais SQL CAST) + 4 routes
 > super_admin + panneau **ÉDITABLE** (log sessions × sites × techniciens, auto-save, add/delete) + stats
-> (sessions/sites/techniciens) sous la carte `knowledge`. **Phase 2 COMPLÈTE (Obj 2-3-4)** ; tests roadmap
-> **36/36** (smoke/evidence/training + await + wan-sla boot) + **golden inchangé**. Les 3 panneaux
-> (`rm-ev-platform`/`incidents`/`training`) coexistent sans se toucher ; obj 1 (adoption/précision) = suivi
-> manuel pour l'instant. **Ce qui est construit
+> (sessions/sites/techniciens) sous la carte `knowledge`. **Obj 1 LIVRÉ** (`571e096`→`4146f05`) : `getCatalogueStats({since})`
+> (dual-backend, group-by `mode` + comptes catégorisés, fenêtre 90 j, `created_time>=?` TEXT sans cast) +
+> `catalogueEvidence` (**adoption formulaire** = part via `mode` self-service `/web|portal|self.?service/i`
+> classée EN JS ; **précision** = part catégorisée/sous-catégorisée ; **null si 0 ticket**) + route
+> `/api/roadmap/evidence/catalogue` + panneau read-only sous la carte `catalogue` (adoption · précision ·
+> volume · répartition canal). **Phase 2 COMPLÈTE — les 4 objectifs ont leur preuve auto** (`rm-ev-platform`/
+> `incidents`/`training`/`catalogue`, coexistent sans se toucher) ; tests roadmap **41/41** (smoke/evidence/
+> training + await + wan-sla boot) + **golden inchangé**. Preuve Obj 1-2-3 = auto read-only + preuve manuelle
+> par-dessus ; Obj 4 = tracker éditable. **Ce qui est construit
 > (dual-backend)** : store `roadmap_objectives` (PK `(user_id, obj_key)`) + `roadmap_deliverables` (PK `uid`
 > = `crypto.randomUUID`) dans reports.db + `010_roadmap.sql` ; **lazy-seed** des 4 objectifs à la 1ʳᵉ lecture ;
 > `routes/roadmap.js` (factory, **5 routes `requireReportSession`+`requireSuperAdmin`**, **user_id = session
