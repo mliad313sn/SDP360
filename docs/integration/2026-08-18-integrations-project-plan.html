@@ -232,6 +232,50 @@
 </tbody>
 </table>
 
+<h2>7. Alignement roadmap — chaque brique dans son objectif</h2>
+<p>Classement de chaque outil / automatisme sous l'objectif manager qu'il sert en premier. Certaines briques servent aussi un objectif secondaire (noté). Le bloc « transversal » = pilotage &amp; communication qui sert les 4.</p>
+<table>
+<thead><tr><th style="width:30%">Outil / action</th><th>Rôle vis-à-vis l'objectif</th><th>Statut</th></tr></thead>
+<tbody>
+<tr><td colspan="3" style="background:#eef4fb;font-weight:700;color:var(--navy)">🎯 Objectif 1 — Catalogue &amp; formulaires <span style="font-weight:400">(35 % · 70 % 🟢 — mesurer adoption &amp; précision)</span></td></tr>
+<tr><td><b>Helpdesk Dashboard</b></td><td>Mesure l'usage réel des catégories / intake sources = base de l'adoption.</td><td><span class="tag live">LIVE</span></td></tr>
+<tr><td><b>Analytics adoption formulaires + précision</b></td><td>% de tickets via le bon formulaire vs free-text + taux de mauvaise catégorisation → chiffre l'écart critique.</td><td><span class="tag todo">À FAIRE</span></td></tr>
+<tr><td><b>Auto-ticketing pré-taggé</b> <span class="who">aussi Obj 3</span></td><td>Structure la demande dès la création (catégorie + services affectés) → précision.</td><td><span class="tag todo">conçu</span></td></tr>
+<tr><td><b>Self-service reset / unlock</b> <span class="who">aussi Obj 4</span></td><td>Déflection + demandes structurées (auto-ticket) → moins de bruit, plus de précision.</td><td><span class="tag partial">produit à activer</span></td></tr>
+<tr><td><b>Base de connaissances / déflection</b> <span class="who">aussi Obj 4</span></td><td>Réponses suggérées avant l'ouverture → oriente vers le bon formulaire.</td><td><span class="tag todo">idée</span></td></tr>
+
+<tr><td colspan="3" style="background:#eef4fb;font-weight:700;color:var(--navy)">🎯 Objectif 2 — Plateforme ITSM &amp; actifs <span style="font-weight:400">(25 % · 80 % 🟢 — publier discovery accuracy &amp; complétude CMDB)</span></td></tr>
+<tr><td><b>Assets</b> (inventaire · hygiène · finance · dépréciation · software · hardware · investissement · progrès)</td><td>Le cœur ITAM : complétude CMDB (hygiène %), couverture par classe d'actif, valeur/cycle de vie.</td><td><span class="tag live">LIVE</span></td></tr>
+<tr><td><b>Réconciliation</b> (SDP×AD×Entra×Defender)</td><td><b>Discovery accuracy</b> : ce que voient AD/Defender mais pas SDP = l'angle mort à publier.</td><td><span class="tag built">CONSTRUIT</span></td></tr>
+<tr><td><b>OpManager dispo</b> (LAN/WLAN/Serveurs)</td><td>Santé de la plateforme infra hors WAN.</td><td><span class="tag partial">PARTIEL</span></td></tr>
+<tr><td><b>WAN Health / Meraki</b> · <b>SLA WAN</b></td><td>Dispo/qualité WAN par lien + fiabilité/coût ISP (refacturation).</td><td><span class="tag built">CONSTRUIT</span></td></tr>
+<tr><td><b>Installer &amp; backups</b></td><td>Robustesse &amp; continuité de la plateforme dashboard.</td><td><span class="tag live">LIVE</span></td></tr>
+<tr><td><b>Scorecard « ITSM &amp; actifs »</b></td><td>Publie discovery accuracy + complétude CMDB + couverture → coche l'écart, confirme le Vert.</td><td><span class="tag todo">À FAIRE (gain rapide)</span></td></tr>
+
+<tr><td colspan="3" style="background:#eef4fb;font-weight:700;color:var(--navy)">🎯 Objectif 3 — Incidents &amp; gouvernance CAB <span style="font-weight:400">(25 % · 75 % 🟠 — finaliser 14 actions, relever conformité RCA)</span></td></tr>
+<tr><td><b>Executive Scorecard</b> (onglet Change &amp; Incidents)</td><td>Vue KPI changes + incidents majeurs.</td><td><span class="tag live">LIVE</span></td></tr>
+<tr><td><b>Group IT Report</b> (MI + RCA/CA/PIR/LL + changes)</td><td>Porte déjà les UDF de conformité des incidents majeurs.</td><td><span class="tag live">LIVE</span></td></tr>
+<tr><td><b>Risk Register</b></td><td>Occurrence de risque opérationnel depuis les incidents.</td><td><span class="tag live">LIVE</span></td></tr>
+<tr><td><b>Tracker conformité RCA/template MI + 14 actions</b></td><td>% d'incidents majeurs avec RCA/CA/PIR/LL complet + suivi des actions ouvertes → <b>fait passer Orange→Vert</b>.</td><td><span class="tag todo">À FAIRE (gain rapide)</span></td></tr>
+<tr><td><b>Corrélation panne amont</b> (uplink dependency)</td><td>1 lien WAN = 1 ticket (anti-bruit incidents).</td><td><span class="tag todo">conçu</span></td></tr>
+<tr><td><b>Identité &amp; Sécurité AD</b> (login désactivé, leaver) <span class="who">aussi Obj 2</span></td><td>Incidents de sécurité gouvernés depuis le ticket.</td><td><span class="tag todo">conçu (doc 29/07)</span></td></tr>
+
+<tr><td colspan="3" style="background:#eef4fb;font-weight:700;color:var(--navy)">🎯 Objectif 4 — Transfert de connaissance <span style="font-weight:400">(15 % · 45 % 🟠 — consolider formations, KB, usage)</span></td></tr>
+<tr><td><b>help.html bilingue + guides FR/EN</b></td><td>Base de connaissance utilisateur/coordinateur (KB de fait).</td><td><span class="tag live">LIVE</span></td></tr>
+<tr><td><b>Meetings &amp; Council</b></td><td>Partage de connaissance vers les départements (5 Engagements, feedback loop).</td><td><span class="tag live">LIVE</span></td></tr>
+<tr><td><b>Inspections</b> <span class="who">aussi Obj 2</span></td><td>Conformité process via checklists = transfert de bonnes pratiques terrain.</td><td><span class="tag live">LIVE</span></td></tr>
+<tr><td><b>Tracker formation / KB</b></td><td>Dates, participants, taux de complétion, usage KB → consolide l'écart.</td><td><span class="tag todo">À FAIRE</span></td></tr>
+
+<tr><td colspan="3" style="background:#f7f9fb;font-weight:700;color:var(--navy)">🧭 Transversal — pilotage &amp; communication (sert les 4 objectifs)</td></tr>
+<tr><td><b>Site Reports coordinateur</b> (hebdo/mensuel)</td><td>Reporting site auto = preuve d'avancement sur tous les objectifs.</td><td><span class="tag live">LIVE</span></td></tr>
+<tr><td><b>IT Review + Site Scoreboard</b></td><td>Gouvernance comparable par site = « personne ne veut être dernier ».</td><td><span class="tag live">LIVE</span></td></tr>
+<tr><td><b>Exec View (SharePoint)</b> · <b>Rapports auto</b></td><td>Communication direction + envoi automatique (zéro corvée).</td><td><span class="tag live">LIVE</span></td></tr>
+<tr><td><b>System Logs · SSO Entra · Meridian</b></td><td>Audit/sécurité · sign-in · lien PMO = socle transversal.</td><td><span class="tag built">CONSTRUIT</span> / <span class="tag partial">PARTIEL</span></td></tr>
+<tr><td><b>Score de proactivité</b></td><td>Métrique de pilotage : bascule réactif → proactif (transverse).</td><td><span class="tag todo">idée</span></td></tr>
+</tbody>
+</table>
+<div class="callout win"><b>Lecture « délivrer le max ».</b> Deux <b>À FAIRE « gain rapide »</b> ressortent car ils s'appuient sur des données déjà présentes et <b>font bouger les couleurs</b> : le <b>Scorecard ITSM &amp; actifs</b> (Objectif 2 → confirme Vert) et le <b>Tracker conformité RCA + 14 actions</b> (Objectif 3 → Orange→Vert). Puis l'<b>analytics adoption/précision</b> (Objectif 1, plus gros poids) et le <b>tracker formation/KB</b> (Objectif 4).</div>
+
 <footer>
 Document de pilotage interne — SDP Dashboard. Les efforts DEV sont des estimations ; le calendrier réel est porté par la levée des gates externes (colonne « propriétaire »).
 Détail technique de chaque intégration : voir les fiches <code>docs/integration/*.html</code> et les specs <code>docs/superpowers/</code>.
