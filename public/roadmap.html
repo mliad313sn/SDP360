@@ -71,7 +71,7 @@
     font-size:13px; font-weight:600; padding:7px 13px; border-radius:7px; cursor:pointer; }
   .rm-addbtn:hover { background:#eaf2ff; }
 
-  /* Read-only "Preuve vivante" auto-evidence panel (platform objective only) */
+  /* Read-only "Preuve vivante" auto-evidence panel (platform + incidents objectives) */
   .rm-evidence { padding:4px 20px 18px; border-top:1px solid var(--line); background:#fafcff; }
   .rm-evidence h4 { margin:12px 0 10px; font-size:12px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; }
   .rm-ev-tiles { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; }
@@ -220,12 +220,17 @@
     var delivs = STATE.deliverables.filter(function (d) { return d.obj_key === o.obj_key; });
     var col = statusColor(o.status);
     var pct = Math.max(0, Math.min(100, num(o.progress_pct)));
-    // Read-only auto-evidence panel — platform objective (Objectif 2) only.
-    var evHtml = (o.obj_key === 'platform')
-      ? '<div class="rm-evidence"><h4>🔎 Preuve vivante (auto)</h4>' +
+    // Read-only auto-evidence panels — platform (Objectif 2) + incidents (Objectif 3).
+    var evHtml = '';
+    if (o.obj_key === 'platform') {
+      evHtml = '<div class="rm-evidence"><h4>🔎 Preuve vivante (auto)</h4>' +
           '<div id="rm-ev-platform"><div class="rm-ev-loading">Chargement des KPI…</div></div>' +
-        '</div>'
-      : '';
+        '</div>';
+    } else if (o.obj_key === 'incidents') {
+      evHtml = '<div class="rm-evidence"><h4>🔎 Preuve vivante (auto)</h4>' +
+          '<div id="rm-ev-incidents"><div class="rm-ev-loading">Chargement des KPI…</div></div>' +
+        '</div>';
+    }
     return '<div class="rm-card" data-key="' + esc(o.obj_key) + '">' +
       '<div class="head">' +
         '<div style="flex:1;">' +
@@ -259,9 +264,9 @@
     return '<div class="rm-field' + (wide ? ' wide' : '') + '"><label>' + esc(label) + '</label>' + control + '</div>';
   }
 
-  // ── Read-only "Preuve vivante" auto-evidence (platform objective only) ──
-  // EV.plat / EV.rec: undefined = not yet fetched, null = fetch failed, object = loaded.
-  var EV = { plat: undefined, rec: undefined };
+  // ── Read-only "Preuve vivante" auto-evidence (platform + incidents objectives) ──
+  // EV.plat / EV.rec / EV.inc: undefined = not yet fetched, null = fetch failed, object = loaded.
+  var EV = { plat: undefined, rec: undefined, inc: undefined };
 
   function evRag(p) { if (p >= 90) return 'var(--green)'; if (p >= 75) return 'var(--amber)'; return 'var(--red)'; }
 
@@ -324,6 +329,45 @@
       'complétude = propriétaire/âge/coût/scan renseignés. Chiffres vivants — tu gardes ta preuve manuelle au-dessus.</div>';
   }
 
+  // Incidents objective (Objectif 3) — RCA/template conformity + change success.
+  function renderIncidentsEvidence() {
+    var host = $('rm-ev-incidents');
+    if (!host) return;                 // panel not on the page
+    if (EV.inc === undefined) return;  // still loading → keep placeholder
+
+    var d = EV.inc;                    // null on fetch failure → tiles show '—'
+
+    // Tile 1 — RCA/template conformity headline + per-field breakdown.
+    var conf = (d && d.conformity_pct != null) ? num(d.conformity_pct) : null;
+    var t1val = (conf == null) ? '—' : (esc(conf) + ' %');
+    var t1style = (conf == null) ? '' : ' style="color:' + evRag(conf) + '"';
+    var pf = function (v) { return (d && v != null) ? (esc(num(v)) + '%') : '—'; };
+    var breakdown = 'RCA ' + pf(d && d.rca_pct) + ' · CA ' + pf(d && d.ca_pct) +
+      ' · PIR ' + pf(d && d.pir_pct) + ' · LL ' + pf(d && d.ll_pct);
+    var t1 = '<div class="rm-ev-tile"><div class="rm-ev-lbl">Conformité RCA/template</div>' +
+      '<div class="rm-ev-val"' + t1style + '>' + t1val + '</div>' +
+      '<div class="rm-ev-sub">' + breakdown + '</div></div>';
+
+    // Tile 2 — major incidents over the trailing 12 months.
+    var totalMi = (d && d.total_mi != null) ? num(d.total_mi) : null;
+    var t2 = '<div class="rm-ev-tile"><div class="rm-ev-lbl">Incidents majeurs (12 mois)</div>' +
+      '<div class="rm-ev-val">' + (totalMi == null ? '—' : esc(totalMi)) + '</div></div>';
+
+    // Tile 3 — change success rate (secondary).
+    var csr = (d && d.change_success_rate != null) ? num(d.change_success_rate) : null;
+    var cc = (d && d.changes_count != null) ? num(d.changes_count) : null;
+    var t3val = (csr == null) ? '—' : (esc(csr) + ' %');
+    var t3sub = (csr != null && cc != null) ? (esc(cc) + ' changes') : '';
+    var t3 = '<div class="rm-ev-tile"><div class="rm-ev-lbl">Changes — taux de succès</div>' +
+      '<div class="rm-ev-val">' + t3val + '</div>' +
+      (t3sub ? '<div class="rm-ev-sub">' + t3sub + '</div>' : '') + '</div>';
+
+    host.innerHTML = '<div class="rm-ev-tiles">' + t1 + t2 + t3 + '</div>' +
+      '<div class="rm-ev-cap">Conformité = part des incidents majeurs dont le post-mortem ' +
+      '(RCA/CA/PIR/LL) est renseigné, sur 12 mois. <b>Les 14 actions actives se suivent dans ' +
+      'tes livrables ci-dessous</b> (marque « Exécuté » au fur et à mesure).</div>';
+  }
+
   function fetchEvidence() {
     fetch('/api/roadmap/evidence/platform', { headers: authHeaders(false) })
       .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
@@ -333,12 +377,17 @@
       .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function (d) { EV.rec = d || null; }, function () { EV.rec = null; })
       .then(function () { renderEvidence(); });
+    fetch('/api/roadmap/evidence/incidents', { headers: authHeaders(false) })
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function (d) { EV.inc = d || null; }, function () { EV.inc = null; })
+      .then(function () { renderIncidentsEvidence(); });
   }
 
   function render() {
     $('rm-objectives').innerHTML = STATE.objectives.map(objCard).join('');
     renderScore();
-    renderEvidence(); // repopulate the auto-evidence panel after any re-render
+    renderEvidence();          // repopulate the platform auto-evidence panel after any re-render
+    renderIncidentsEvidence(); // repopulate the incidents auto-evidence panel after any re-render
   }
 
   // ── Auto-save wiring (event delegation on the objectives container) ──
