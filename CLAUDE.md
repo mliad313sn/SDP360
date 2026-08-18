@@ -15,9 +15,15 @@ made so far so that future sessions can pick up exactly where the last one ended
 > de connaissance 15 %) éditables (poids · progression · statut 🟢🟠🔴 · confiance · preuve · écart · date cible)
 > + des **livrables par objectif** (libellé · date de livraison · statut à faire/en cours/**exécuté** · ✕),
 > avec **score pondéré** `Σ(weight×progress)/Σweight`, auto-save par champ, **export CSV**. **Phase 1 = manuel**
-> (l'utilisateur saisit) ; **Phase 2 (à venir)** = brancher les **KPIs auto en PREUVE** (Obj 2 discovery
-> accuracy + complétude CMDB depuis Réconciliation/Hygiène ; Obj 3 conformité RCA + 14 actions ; Obj 4 les 3
-> sessions de formation ITAM des 17/22/29 juillet 2026 pour ITY/Mana/Lafigue). **Ce qui est construit
+> (l'utilisateur saisit). **Phase 2 = KPIs auto en PREUVE** — **Obj 2 LIVRÉ** (commits `2c297b5`→`da916aa`) :
+> `services/roadmapEvidence.js` (pur `platformEvidence` — complétude CMDB = moyenne des present-pct
+> owner/age/cost/scan depuis `getHygieneSummary`, **null si total 0** ; `by_kind` toléré objet OU tableau) +
+> `assets-db.getAssetCountsByType` (fork ASSETS_BACKEND) + route `GET /api/roadmap/evidence/platform`
+> (super_admin, best-effort) + panneau « 🔎 Preuve vivante » **read-only sous la carte `platform` uniquement**
+> (complétude CMDB · **couverture discovery** = `sdp/(sdp+gaps_open)` **calculée côté page** depuis
+> `/api/assets/reconcile/summary`, **JAMAIS 100 % sans import** → `—` + fraîcheur de l'import · N classes
+> d'actifs). **Reste Phase 2** : Obj 3 (conformité RCA/template MI + 14 actions), Obj 4 (les 3 sessions ITAM
+> des 17/22/29 juillet 2026 pour ITY/Mana/Lafigue). **Ce qui est construit
 > (dual-backend)** : store `roadmap_objectives` (PK `(user_id, obj_key)`) + `roadmap_deliverables` (PK `uid`
 > = `crypto.randomUUID`) dans reports.db + `010_roadmap.sql` ; **lazy-seed** des 4 objectifs à la 1ʳᵉ lecture ;
 > `routes/roadmap.js` (factory, **5 routes `requireReportSession`+`requireSuperAdmin`**, **user_id = session
