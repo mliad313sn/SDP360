@@ -22,8 +22,19 @@ made so far so that future sessions can pick up exactly where the last one ended
 > (super_admin, best-effort) + panneau « 🔎 Preuve vivante » **read-only sous la carte `platform` uniquement**
 > (complétude CMDB · **couverture discovery** = `sdp/(sdp+gaps_open)` **calculée côté page** depuis
 > `/api/assets/reconcile/summary`, **JAMAIS 100 % sans import** → `—` + fraîcheur de l'import · N classes
-> d'actifs). **Reste Phase 2** : Obj 3 (conformité RCA/template MI + 14 actions), Obj 4 (les 3 sessions ITAM
-> des 17/22/29 juillet 2026 pour ITY/Mana/Lafigue). **Ce qui est construit
+> d'actifs). **Obj 3 LIVRÉ** (`86709ad`→`8dee856`) : `incidentsEvidence` (conformité RCA/CA/PIR/LL des
+> incidents majeurs depuis `getMajorIncidentsHistory` — filled ssi UNE variante de clé UDF non-vide, tolérance
+> variantes ; `conformity_pct` = % avec les 4 complets, **null si 0 MI** ; + `change_success_rate`/`changes_count`
+> depuis `getChangeMetrics`) + route `/api/roadmap/evidence/incidents` + panneau read-only sous la carte
+> `incidents` (les **14 actions = livrables manuels**, pas auto-dérivables). **Obj 4 LIVRÉ** (`7234c67`→`3ea5ac5`)
+> : store **`roadmap_training`** (PK `uid`, per-user, dual-backend) **lazy-seedé 9 lignes** (3 sessions
+> 2026-07-17/22/29 × ITY/Mana/Lafigue, `module='Module ITAM SDP'`, **`technicians=null` non-fabriqué**) +
+> `getRoadmapTraining`/add/update/delete (`technicians_total` sommé EN JS, jamais SQL CAST) + 4 routes
+> super_admin + panneau **ÉDITABLE** (log sessions × sites × techniciens, auto-save, add/delete) + stats
+> (sessions/sites/techniciens) sous la carte `knowledge`. **Phase 2 COMPLÈTE (Obj 2-3-4)** ; tests roadmap
+> **36/36** (smoke/evidence/training + await + wan-sla boot) + **golden inchangé**. Les 3 panneaux
+> (`rm-ev-platform`/`incidents`/`training`) coexistent sans se toucher ; obj 1 (adoption/précision) = suivi
+> manuel pour l'instant. **Ce qui est construit
 > (dual-backend)** : store `roadmap_objectives` (PK `(user_id, obj_key)`) + `roadmap_deliverables` (PK `uid`
 > = `crypto.randomUUID`) dans reports.db + `010_roadmap.sql` ; **lazy-seed** des 4 objectifs à la 1ʳᵉ lecture ;
 > `routes/roadmap.js` (factory, **5 routes `requireReportSession`+`requireSuperAdmin`**, **user_id = session
