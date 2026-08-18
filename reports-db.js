@@ -113,6 +113,18 @@ CREATE TABLE IF NOT EXISTS roadmap_deliverables (
   sort_order    INTEGER,
   updated_at    TEXT,
   PRIMARY KEY (uid)
+);
+CREATE TABLE IF NOT EXISTS roadmap_training (
+  uid          TEXT NOT NULL,
+  user_id      INTEGER NOT NULL,
+  session_date TEXT,
+  module       TEXT,
+  site         TEXT,
+  technicians  INTEGER,
+  notes        TEXT,
+  sort_order   INTEGER,
+  updated_at   TEXT,
+  PRIMARY KEY (uid)
 );`;
 
 db.exec(`
@@ -2915,6 +2927,106 @@ function _deleteRoadmapDeliverableSqlite(user_id, uid) {
 }
 async function _deleteRoadmapDeliverablePg(user_id, uid) {
   return pgHandle().prepare('DELETE FROM roadmap_deliverables WHERE uid=? AND user_id=?').run(uid, user_id);
+}
+
+// ── Roadmap Obj-4 (Transfert de connaissance) — ITAM training tracker ──────────────
+// No auto data source: training is data the manager RECORDS. Small per-user CRUD store,
+// lazy-seeded with 3 known sessions × 3 sites (technicians left NULL — the "2 à 4 / site"
+// range is to be CONSOLIDATED, never a fabricated number). Stats computed in JS (technicians
+// is INTEGER but summed as Number(r.technicians)||0 over non-null rows → no pg CAST trap).
+const _ROADMAP_TRAINING_EDITABLE = ['session_date','module','site','technicians','notes','sort_order'];
+const _ROADMAP_TRAINING_SEED = (() => {
+  const rows = [];
+  const dates = ['2026-07-17', '2026-07-22', '2026-07-29'];
+  const sites = ['ITY', 'Mana', 'Lafigue'];
+  let n = 1;
+  for (const d of dates) for (const s of sites)
+    rows.push({ session_date: d, module: 'Module ITAM SDP', site: s, technicians: null, notes: null, sort_order: n++ });
+  return rows;
+})();
+const _ROADMAP_TRAINING_INSERT_SQL =
+  `INSERT INTO roadmap_training (uid,user_id,session_date,module,site,technicians,notes,sort_order,updated_at)
+   VALUES (?,?,?,?,?,?,?,?,?)`;
+const _roadmapTrainingInsertArgs = (uid, user_id, t) =>
+  [uid, user_id, t.session_date ?? null, t.module ?? null, t.site ?? null,
+   t.technicians == null ? null : t.technicians, t.notes ?? null, t.sort_order == null ? null : t.sort_order,
+   new Date().toISOString()];
+
+// Compute the KPI roll-up in JS so an INTEGER-typed technicians column never hits a SQL
+// CAST/SUM (the pg-strict trap). sessions/sites = distinct non-null; total = SUM of non-null.
+function _roadmapTrainingStats(entries) {
+  const dates = new Set(), sites = new Set();
+  let total = 0;
+  for (const e of entries) {
+    if (e.session_date != null && e.session_date !== '') dates.add(e.session_date);
+    if (e.site != null && e.site !== '') sites.add(e.site);
+    if (e.technicians != null) total += Number(e.technicians) || 0;
+  }
+  return { sessions_count: dates.size, sites_count: sites.size, technicians_total: total, entries_count: entries.length };
+}
+
+function getRoadmapTraining(user_id) {
+  if (REPORTS_BACKEND === 'postgres') return _getRoadmapTrainingPg(user_id);
+  return _getRoadmapTrainingSqlite(user_id);
+}
+function _getRoadmapTrainingSqlite(user_id) {
+  const n = db.prepare('SELECT COUNT(*) AS n FROM roadmap_training WHERE user_id=?').get(user_id).n;
+  if (!Number(n)) {
+    const ins = db.prepare(_ROADMAP_TRAINING_INSERT_SQL);
+    db.transaction(() => { for (const t of _ROADMAP_TRAINING_SEED) ins.run(..._roadmapTrainingInsertArgs(crypto.randomUUID(), user_id, t)); })();
+  }
+  const entries = db.prepare('SELECT * FROM roadmap_training WHERE user_id=? ORDER BY session_date, site').all(user_id);
+  return { entries, stats: _roadmapTrainingStats(entries) };
+}
+async function _getRoadmapTrainingPg(user_id) {
+  const H = pgHandle();
+  const n = Number((await H.prepare('SELECT COUNT(*) AS n FROM roadmap_training WHERE user_id=?').get(user_id)).n);
+  if (!n) {
+    await H.runTransaction(async () => {
+      for (const t of _ROADMAP_TRAINING_SEED) await H.prepare(_ROADMAP_TRAINING_INSERT_SQL).run(..._roadmapTrainingInsertArgs(crypto.randomUUID(), user_id, t));
+    });
+  }
+  const entries = await H.prepare('SELECT * FROM roadmap_training WHERE user_id=? ORDER BY session_date, site').all(user_id);
+  return { entries, stats: _roadmapTrainingStats(entries) };
+}
+
+function addRoadmapTraining(user_id, t) {
+  if (REPORTS_BACKEND === 'postgres') return _addRoadmapTrainingPg(user_id, t);
+  return _addRoadmapTrainingSqlite(user_id, t);
+}
+function _addRoadmapTrainingSqlite(user_id, t) {
+  const uid = crypto.randomUUID();
+  db.prepare(_ROADMAP_TRAINING_INSERT_SQL).run(..._roadmapTrainingInsertArgs(uid, user_id, t || {}));
+  return uid;
+}
+async function _addRoadmapTrainingPg(user_id, t) {
+  const uid = crypto.randomUUID();
+  await pgHandle().prepare(_ROADMAP_TRAINING_INSERT_SQL).run(..._roadmapTrainingInsertArgs(uid, user_id, t || {}));
+  return uid;
+}
+
+function updateRoadmapTraining(user_id, uid, patch) {
+  if (REPORTS_BACKEND === 'postgres') return _updateRoadmapTrainingPg(user_id, uid, patch);
+  return _updateRoadmapTrainingSqlite(user_id, uid, patch);
+}
+function _updateRoadmapTrainingSqlite(user_id, uid, patch) {
+  const { setSql, params } = _roadmapSet(_ROADMAP_TRAINING_EDITABLE, patch);
+  return db.prepare(`UPDATE roadmap_training SET ${setSql} WHERE uid=? AND user_id=?`).run(...params, uid, user_id);
+}
+async function _updateRoadmapTrainingPg(user_id, uid, patch) {
+  const { setSql, params } = _roadmapSet(_ROADMAP_TRAINING_EDITABLE, patch);
+  return pgHandle().prepare(`UPDATE roadmap_training SET ${setSql} WHERE uid=? AND user_id=?`).run(...params, uid, user_id);
+}
+
+function deleteRoadmapTraining(user_id, uid) {
+  if (REPORTS_BACKEND === 'postgres') return _deleteRoadmapTrainingPg(user_id, uid);
+  return _deleteRoadmapTrainingSqlite(user_id, uid);
+}
+function _deleteRoadmapTrainingSqlite(user_id, uid) {
+  return db.prepare('DELETE FROM roadmap_training WHERE uid=? AND user_id=?').run(uid, user_id);
+}
+async function _deleteRoadmapTrainingPg(user_id, uid) {
+  return pgHandle().prepare('DELETE FROM roadmap_training WHERE uid=? AND user_id=?').run(uid, user_id);
 }
 
 function saveHelpdeskData(report_id, data) {
@@ -7700,6 +7812,7 @@ module.exports = {
   ensureReport, getReport, listReports,
   saveInfraKpis, upsertInfraSnapshots, getInfraSnapshots, upsertWanSnapshots, getWanSnapshots, upsertWanOutage, getWanOutages, listOpenWanOutages, closeWanOutage, reconcileProvisionalOutage, saveHelpdeskData, saveLights, saveActionItems, _backfillActionUids,
   getRoadmap, upsertRoadmapObjective, addRoadmapDeliverable, updateRoadmapDeliverable, deleteRoadmapDeliverable,
+  getRoadmapTraining, addRoadmapTraining, updateRoadmapTraining, deleteRoadmapTraining,
   setActionMerge, clearActionMerge, setActionStatus, setActionLineage, getSiteOpenReportActions,
   getPreviousWeekOpenActions, listAllWeeksWithActions, getActionsForReport,
   listAllWeeksWithLights, getLightsForReport,

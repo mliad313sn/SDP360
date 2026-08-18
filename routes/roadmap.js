@@ -56,5 +56,28 @@ module.exports = function roadmapRoutes(deps) {
     catch (e) { res.status(500).json({ error: e.message }); }
   });
 
+  // Obj-4 (Transfert de connaissance) — ITAM training tracker CRUD. GET lazy-seeds the 9
+  // default rows (3 sessions × 3 sites). Best-effort → honest empty on throw, never 500
+  // (mirrors GET /api/roadmap). technicians_total is a real 0, not fabricated.
+  router.get('/api/roadmap/training', requireReportSession, requireSuperAdmin, async (req, res) => {
+    try { res.json(await rdb.getRoadmapTraining(req.reportUser.id)); }
+    catch (e) { res.json({ entries: [], stats: { sessions_count: 0, sites_count: 0, technicians_total: 0, entries_count: 0 } }); }
+  });
+
+  router.post('/api/roadmap/training', requireReportSession, requireSuperAdmin, jsonBody, async (req, res) => {
+    try { const uid = await rdb.addRoadmapTraining(req.reportUser.id, req.body || {}); res.json({ ok: true, uid }); }
+    catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  router.put('/api/roadmap/training/:uid', requireReportSession, requireSuperAdmin, jsonBody, async (req, res) => {
+    try { await rdb.updateRoadmapTraining(req.reportUser.id, req.params.uid, req.body || {}); res.json({ ok: true }); }
+    catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  router.delete('/api/roadmap/training/:uid', requireReportSession, requireSuperAdmin, async (req, res) => {
+    try { await rdb.deleteRoadmapTraining(req.reportUser.id, req.params.uid); res.json({ ok: true }); }
+    catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
   return router;
 };
