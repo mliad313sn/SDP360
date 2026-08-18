@@ -229,9 +229,13 @@
     var delivs = STATE.deliverables.filter(function (d) { return d.obj_key === o.obj_key; });
     var col = statusColor(o.status);
     var pct = Math.max(0, Math.min(100, num(o.progress_pct)));
-    // Read-only auto-evidence panels — platform (Objectif 2) + incidents (Objectif 3).
+    // Read-only auto-evidence panels — catalogue (Objectif 1) + platform (Objectif 2) + incidents (Objectif 3).
     var evHtml = '';
-    if (o.obj_key === 'platform') {
+    if (o.obj_key === 'catalogue') {
+      evHtml = '<div class="rm-evidence"><h4>🔎 Preuve vivante (auto)</h4>' +
+          '<div id="rm-ev-catalogue"><div class="rm-ev-loading">Chargement des KPI…</div></div>' +
+        '</div>';
+    } else if (o.obj_key === 'platform') {
       evHtml = '<div class="rm-evidence"><h4>🔎 Preuve vivante (auto)</h4>' +
           '<div id="rm-ev-platform"><div class="rm-ev-loading">Chargement des KPI…</div></div>' +
         '</div>';
@@ -279,10 +283,11 @@
   }
 
   // ── Read-only "Preuve vivante" auto-evidence (platform + incidents objectives) ──
-  // EV.plat / EV.rec / EV.inc: undefined = not yet fetched, null = fetch failed, object = loaded.
-  var EV = { plat: undefined, rec: undefined, inc: undefined };
+  // EV.plat / EV.rec / EV.inc / EV.cat: undefined = not yet fetched, null = fetch failed, object = loaded.
+  var EV = { plat: undefined, rec: undefined, inc: undefined, cat: undefined };
 
   function evRag(p) { if (p >= 90) return 'var(--green)'; if (p >= 75) return 'var(--amber)'; return 'var(--red)'; }
+  function evRagAdopt(p) { if (p >= 70) return 'var(--green)'; if (p >= 50) return 'var(--amber)'; return 'var(--red)'; }
 
   function renderEvidence() {
     var host = $('rm-ev-platform');
@@ -382,6 +387,51 @@
       'tes livrables ci-dessous</b> (marque « Exécuté » au fur et à mesure).</div>';
   }
 
+  // Catalogue objective (Objectif 1) — self-service form adoption + request precision.
+  function renderCatalogueEvidence() {
+    var host = $('rm-ev-catalogue');
+    if (!host) return;                 // panel not on the page
+    if (EV.cat === undefined) return;  // still loading → keep placeholder
+
+    var d = EV.cat;                    // null on fetch failure → tiles show '—'
+    var wd = (d && d.window_days != null) ? num(d.window_days) : 90;
+
+    // Tile 1 — form (portal) adoption headline.
+    var adopt = (d && d.web_form_pct != null) ? num(d.web_form_pct) : null;
+    var t1val = (adopt == null) ? '—' : (esc(adopt) + ' %');
+    var t1style = (adopt == null) ? '' : ' style="color:' + evRagAdopt(adopt) + '"';
+    var t1 = '<div class="rm-ev-tile"><div class="rm-ev-lbl">Adoption formulaire (portail)</div>' +
+      '<div class="rm-ev-val"' + t1style + '>' + t1val + '</div>' +
+      '<div class="rm-ev-sub">part soumise via le portail self-service (vs email/téléphone)</div></div>';
+
+    // Tile 2 — categorization precision + sub-categorization line.
+    var catPct = (d && d.categorized_pct != null) ? num(d.categorized_pct) : null;
+    var subPct = (d && d.subcategorized_pct != null) ? num(d.subcategorized_pct) : null;
+    var t2val = (catPct == null) ? '—' : (esc(catPct) + ' %');
+    var t2sub = 'sous-catégorisés ' + (subPct == null ? '—' : (esc(subPct) + '%'));
+    var t2 = '<div class="rm-ev-tile"><div class="rm-ev-lbl">Précision — catégorisés</div>' +
+      '<div class="rm-ev-val">' + t2val + '</div>' +
+      '<div class="rm-ev-sub">' + t2sub + '</div></div>';
+
+    // Tile 3 — volume over the window.
+    var total = (d && d.total != null) ? num(d.total) : null;
+    var t3 = '<div class="rm-ev-tile"><div class="rm-ev-lbl">Volume (période)</div>' +
+      '<div class="rm-ev-val">' + (total == null ? '—' : esc(total)) + '</div>' +
+      '<div class="rm-ev-sub">' + esc(wd) + ' derniers jours</div></div>';
+
+    // Compact channel breakdown (top 3-4 modes) — read-only.
+    var modes = (d && Array.isArray(d.by_mode)) ? d.by_mode : [];
+    var chan = modes.slice(0, 4).map(function (m) {
+      return esc(m.mode) + ' (' + esc(num(m.n)) + ')';
+    }).join(' · ');
+    var chanHtml = chan ? '<div class="rm-ev-sub" style="margin-top:8px;" title="' + chan + '"><b>Répartition par canal :</b> ' + chan + '</div>' : '';
+
+    host.innerHTML = '<div class="rm-ev-tiles">' + t1 + t2 + t3 + '</div>' + chanHtml +
+      '<div class="rm-ev-cap">Adoption = part soumise via le portail (formulaires) ; ' +
+      'précision = part de demandes catégorisées. Sur les ' + esc(wd) + ' derniers jours. ' +
+      'Ta preuve manuelle reste au-dessus.</div>';
+  }
+
   // ── Editable ITAM training tracker (knowledge objective, Objectif 4) ──
   // TR.entries: undefined = not yet fetched, null = fetch failed, array = loaded.
   var TR = { entries: undefined, stats: undefined };
@@ -465,6 +515,10 @@
       .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function (d) { EV.inc = d || null; }, function () { EV.inc = null; })
       .then(function () { renderIncidentsEvidence(); });
+    fetch('/api/roadmap/evidence/catalogue', { headers: authHeaders(false) })
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function (d) { EV.cat = d || null; }, function () { EV.cat = null; })
+      .then(function () { renderCatalogueEvidence(); });
     fetch('/api/roadmap/training', { headers: authHeaders(false) })
       .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function (d) { TR.entries = (d && d.entries) || []; TR.stats = (d && d.stats) || {}; },
@@ -475,6 +529,7 @@
   function render() {
     $('rm-objectives').innerHTML = STATE.objectives.map(objCard).join('');
     renderScore();
+    renderCatalogueEvidence(); // repopulate the catalogue auto-evidence panel after any re-render
     renderEvidence();          // repopulate the platform auto-evidence panel after any re-render
     renderIncidentsEvidence(); // repopulate the incidents auto-evidence panel after any re-render
     renderTraining();          // repopulate the editable ITAM training panel after any re-render
