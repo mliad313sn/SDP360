@@ -6,6 +6,29 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ---
 
+## ⚡ Current state (as of 2026-08-18 — Roadmap Manager (outil perso du manager), Phase 1, sur `main`, PAS déployé)
+
+> **Roadmap Manager landed on `main`** (commits `a507c13`→`bdfa0a8`, NOT déployé) — un **outil PERSONNEL** de
+> pilotage de roadmap pour le Service & Support Manager (super_admin), délibérément **HORS de la nav partagée
+> IT OPS** (« c'est un outil personnel »). Version web de sa feuille *Synthèse Manager* : ses **4 objectifs**
+> (Catalogue & formulaires 35 % · Plateforme ITSM & actifs 25 % · Incidents & gouvernance CAB 25 % · Transfert
+> de connaissance 15 %) éditables (poids · progression · statut 🟢🟠🔴 · confiance · preuve · écart · date cible)
+> + des **livrables par objectif** (libellé · date de livraison · statut à faire/en cours/**exécuté** · ✕),
+> avec **score pondéré** `Σ(weight×progress)/Σweight`, auto-save par champ, **export CSV**. **Phase 1 = manuel**
+> (l'utilisateur saisit) ; **Phase 2 (à venir)** = brancher les **KPIs auto en PREUVE** (Obj 2 discovery
+> accuracy + complétude CMDB depuis Réconciliation/Hygiène ; Obj 3 conformité RCA + 14 actions ; Obj 4 les 3
+> sessions de formation ITAM des 17/22/29 juillet 2026 pour ITY/Mana/Lafigue). **Ce qui est construit
+> (dual-backend)** : store `roadmap_objectives` (PK `(user_id, obj_key)`) + `roadmap_deliverables` (PK `uid`
+> = `crypto.randomUUID`) dans reports.db + `010_roadmap.sql` ; **lazy-seed** des 4 objectifs à la 1ʳᵉ lecture ;
+> `routes/roadmap.js` (factory, **5 routes `requireReportSession`+`requireSuperAdmin`**, **user_id = session
+> uniquement**, jamais le body ; update/delete scoping `WHERE uid=? AND user_id=?`) monté dans server.js à
+> côté d'opmanager ; page **standalone `public/roadmap.html`** (chrome propre, PAS `_shell.js`, gate
+> `auth.js data-require="super_admin"`, état « Accès réservé » si 403). **Accès = URL directe `/roadmap.html`
+> (favori), PAS dans la nav.** Tests : `roadmap.smoke` (6, lecteurs + gate super_admin) + await 5/5 + wan-sla
+> smoke (boot app) + **`pptx-monthly-golden` inchangé**. **NE touche RIEN** du reste du dashboard.
+> **E2E navigateur = étape user** (login super_admin). Doc de réunion associé (mapping objectifs↔outils,
+> automatismes, inventaire) : `docs/integration/2026-08-18-integrations-project-plan.html`.
+
 ## ⚡ Current state (as of 2026-08-17 — WAN SLA / ISP Chargeback V1, sur `main`, PAS déployé)
 
 > **WAN SLA landed on `main`** (11 commits `990cb55`→`3954f59`→`9ed9d69`→`d04f37a`→`bdc92fe`→
