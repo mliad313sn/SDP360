@@ -82,6 +82,15 @@
   .rm-ev-cap { margin-top:10px; font-size:11px; color:#94a3b8; line-height:1.5; font-style:italic; }
   .rm-ev-loading { font-size:13px; color:#94a3b8; padding:6px 0; }
 
+  /* Editable ITAM training tracker (knowledge objective) */
+  .rm-training { padding:4px 20px 18px; border-top:1px solid var(--line); background:#fafcff; }
+  .rm-training h4 { margin:12px 0 10px; font-size:12px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; }
+  .rm-thead, .rm-trow { display:grid; grid-template-columns:132px 1fr 120px 96px 1.4fr auto; gap:8px; align-items:center; }
+  .rm-thead { padding:8px 0 4px; font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.4px; }
+  .rm-trow { padding:7px 0; border-top:1px solid #f1f5f9; }
+  .rm-trow input { border:1px solid var(--line); border-radius:6px; padding:6px 8px; font-size:13px; font-family:inherit; width:100%; }
+  .rm-trow input:focus { outline:2px solid var(--blue); outline-offset:-1px; border-color:var(--blue); }
+
   .rm-toast { position:fixed; bottom:22px; left:50%; transform:translateX(-50%) translateY(20px);
     background:var(--navy); color:#fff; padding:9px 18px; border-radius:8px; font-size:13px; font-weight:600;
     opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; z-index:50; }
@@ -230,6 +239,11 @@
       evHtml = '<div class="rm-evidence"><h4>🔎 Preuve vivante (auto)</h4>' +
           '<div id="rm-ev-incidents"><div class="rm-ev-loading">Chargement des KPI…</div></div>' +
         '</div>';
+    } else if (o.obj_key === 'knowledge') {
+      // Editable ITAM training tracker (records training sessions).
+      evHtml = '<div class="rm-training"><h4>🎓 Formations ITAM (SDP)</h4>' +
+          '<div id="rm-ev-training"><div class="rm-ev-loading">Chargement des formations…</div></div>' +
+        '</div>';
     }
     return '<div class="rm-card" data-key="' + esc(o.obj_key) + '">' +
       '<div class="head">' +
@@ -368,6 +382,76 @@
       'tes livrables ci-dessous</b> (marque « Exécuté » au fur et à mesure).</div>';
   }
 
+  // ── Editable ITAM training tracker (knowledge objective, Objectif 4) ──
+  // TR.entries: undefined = not yet fetched, null = fetch failed, array = loaded.
+  var TR = { entries: undefined, stats: undefined };
+
+  function trainRow(t) {
+    return '<div class="rm-trow" data-tuid="' + esc(t.uid) + '">' +
+      '<input type="date" data-f="session_date" value="' + esc(t.session_date) + '">' +
+      '<input type="text" data-f="module" value="' + esc(t.module) + '" placeholder="Module…">' +
+      '<input type="text" data-f="site" value="' + esc(t.site) + '" placeholder="Site…">' +
+      '<input type="number" min="0" step="1" data-f="technicians" value="' + esc(t.technicians == null ? '' : t.technicians) + '" placeholder="—">' +
+      '<input type="text" data-f="notes" value="' + esc(t.notes) + '" placeholder="Notes…">' +
+      '<button class="rm-del" data-act="del-training" title="Supprimer">✕</button>' +
+      '</div>';
+  }
+
+  function renderTraining() {
+    var host = $('rm-ev-training');
+    if (!host) return;                 // panel not on the page
+    if (TR.entries === undefined) return; // still loading → keep placeholder
+
+    if (TR.entries === null) {         // fetch failed — clean empty state, never break
+      host.innerHTML = '<div class="rm-ev-loading">— formations indisponibles</div>';
+      return;
+    }
+
+    var entries = Array.isArray(TR.entries) ? TR.entries : [];
+    var stats = TR.stats || {};
+
+    // Stats tiles (read-only) — null → '—', never fabricated.
+    var sc  = (stats.sessions_count     != null) ? num(stats.sessions_count)     : null;
+    var sic = (stats.sites_count        != null) ? num(stats.sites_count)        : null;
+    var tt  = (stats.technicians_total  != null) ? num(stats.technicians_total)  : null;
+    var ec  = (stats.entries_count      != null) ? num(stats.entries_count)      : entries.length;
+    var techHint = (tt === 0 && ec > 0) ? '<div class="rm-ev-sub">à compléter</div>' : '';
+    var tiles = '<div class="rm-ev-tiles">' +
+      '<div class="rm-ev-tile"><div class="rm-ev-lbl">Sessions</div><div class="rm-ev-val">' + (sc == null ? '—' : esc(sc)) + '</div></div>' +
+      '<div class="rm-ev-tile"><div class="rm-ev-lbl">Sites couverts</div><div class="rm-ev-val">' + (sic == null ? '—' : esc(sic)) + '</div></div>' +
+      '<div class="rm-ev-tile"><div class="rm-ev-lbl">Techniciens formés</div><div class="rm-ev-val">' + (tt == null ? '—' : esc(tt)) + '</div>' + techHint + '</div>' +
+      '</div>';
+
+    // Editable log table.
+    var thead = entries.length
+      ? '<div class="rm-thead"><span>Date</span><span>Module</span><span>Site</span><span>Techniciens</span><span>Notes</span><span></span></div>'
+      : '';
+    var rows = entries.length
+      ? entries.map(trainRow).join('')
+      : '<div style="color:#94a3b8;font-size:13px;padding:6px 0;">Aucune session.</div>';
+
+    host.innerHTML = tiles +
+      '<div class="rm-trlist">' + thead + rows + '</div>' +
+      '<button class="rm-addbtn" data-act="add-training">+ Ajouter une session</button>' +
+      '<div class="rm-ev-cap">Consolide les dates, participants et le taux de complétion des formations ITAM. ' +
+      'Les 3 sessions (17/22/29 juillet, ITY·Mana·Lafigue) sont pré-remplies — complète le nombre de techniciens par site.</div>';
+  }
+
+  function saveTraining(uid, patch) {
+    return fetch('/api/roadmap/training/' + encodeURIComponent(uid), {
+      method: 'PUT', headers: authHeaders(true), body: JSON.stringify(patch)
+    }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
+  }
+
+  // Lightweight re-fetch + re-render of the training panel only (add/delete flow),
+  // so the other objective/deliverable/evidence panels are left untouched.
+  function reloadTraining() {
+    return fetch('/api/roadmap/training', { headers: authHeaders(false) })
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function (d) { TR.entries = (d && d.entries) || []; TR.stats = (d && d.stats) || {}; renderTraining(); },
+            function () { toast('échec', true); });
+  }
+
   function fetchEvidence() {
     fetch('/api/roadmap/evidence/platform', { headers: authHeaders(false) })
       .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
@@ -381,6 +465,11 @@
       .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function (d) { EV.inc = d || null; }, function () { EV.inc = null; })
       .then(function () { renderIncidentsEvidence(); });
+    fetch('/api/roadmap/training', { headers: authHeaders(false) })
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function (d) { TR.entries = (d && d.entries) || []; TR.stats = (d && d.stats) || {}; },
+            function () { TR.entries = null; TR.stats = null; })
+      .then(function () { renderTraining(); });
   }
 
   function render() {
@@ -388,12 +477,14 @@
     renderScore();
     renderEvidence();          // repopulate the platform auto-evidence panel after any re-render
     renderIncidentsEvidence(); // repopulate the incidents auto-evidence panel after any re-render
+    renderTraining();          // repopulate the editable ITAM training panel after any re-render
   }
 
   // ── Auto-save wiring (event delegation on the objectives container) ──
   function objKeyOf(el) { var c = el.closest('.rm-card'); return c && c.getAttribute('data-key'); }
   function objOf(key) { return STATE.objectives.filter(function (o) { return o.obj_key === key; })[0]; }
   function delivUidOf(el) { var r = el.closest('.rm-drow'); return r && r.getAttribute('data-uid'); }
+  function trainUidOf(el) { var r = el.closest('.rm-trow'); return r && r.getAttribute('data-tuid'); }
 
   function saveObjective(key, patch) {
     return fetch('/api/roadmap/objective/' + encodeURIComponent(key), {
@@ -410,6 +501,16 @@
     var t = e.target;
     var f = t.getAttribute && t.getAttribute('data-f');
     if (!f) return;
+    var tuid = trainUidOf(t);
+    if (tuid) {
+      // training-session field — auto-save the changed field only
+      var te = (TR.entries || []).filter(function (x) { return x.uid === tuid; })[0];
+      var tval = (f === 'technicians') ? (t.value === '' ? null : num(t.value)) : t.value;
+      if (te) te[f] = tval;
+      var tp = {}; tp[f] = tval;
+      saveTraining(tuid, tp).then(function () { toast('enregistré ✓'); }).catch(function () { toast('échec', true); });
+      return;
+    }
     var uid = delivUidOf(t);
     if (uid) {
       // deliverable field
@@ -449,6 +550,28 @@
         body: JSON.stringify({ obj_key: key, label: 'Nouveau livrable', delivery_date: '', status: 'todo', notes: '', sort_order: so })
       }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
         .then(function () { toast('ajouté ✓'); return reload(); })
+        .catch(function () { toast('échec', true); });
+      return;
+    }
+
+    if (act === 'add-training') {
+      var tso = (TR.entries || []).length + 1;
+      var today = new Date().toISOString().slice(0, 10);
+      fetch('/api/roadmap/training', {
+        method: 'POST', headers: authHeaders(true),
+        body: JSON.stringify({ session_date: today, module: 'Module ITAM SDP', site: '', technicians: null, notes: '', sort_order: tso })
+      }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function () { toast('ajouté ✓'); return reloadTraining(); })
+        .catch(function () { toast('échec', true); });
+      return;
+    }
+
+    if (act === 'del-training') {
+      var tuid = trainUidOf(t);
+      if (!tuid) return;
+      fetch('/api/roadmap/training/' + encodeURIComponent(tuid), { method: 'DELETE', headers: authHeaders(false) })
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function () { toast('supprimé ✓'); return reloadTraining(); })
         .catch(function () { toast('échec', true); });
       return;
     }
