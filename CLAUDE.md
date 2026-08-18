@@ -44,8 +44,9 @@ made so far so that future sessions can pick up exactly where the last one ended
 > = `crypto.randomUUID`) dans reports.db + `010_roadmap.sql` ; **lazy-seed** des 4 objectifs à la 1ʳᵉ lecture ;
 > `routes/roadmap.js` (factory, **5 routes `requireReportSession`+`requireSuperAdmin`**, **user_id = session
 > uniquement**, jamais le body ; update/delete scoping `WHERE uid=? AND user_id=?`) monté dans server.js à
-> côté d'opmanager ; page **standalone `public/roadmap.html`** (chrome propre, PAS `_shell.js`, gate
-> `auth.js data-require="super_admin"`, état « Accès réservé » si 403). **Accès = URL directe `/roadmap.html`
+> côté d'opmanager ; page **standalone `public/itsm-roadmap.html`** (renommée de `roadmap.html` en `d137454`
+> pour un nom distinctif ; chrome propre, PAS `_shell.js`, gate
+> `auth.js data-require="super_admin"`, état « Accès réservé » si 403). **Accès = URL directe `/itsm-roadmap.html`
 > (favori), PAS dans la nav.** Tests : `roadmap.smoke` (6, lecteurs + gate super_admin) + await 5/5 + wan-sla
 > smoke (boot app) + **`pptx-monthly-golden` inchangé**. **NE touche RIEN** du reste du dashboard.
 > **E2E navigateur = étape user** (login super_admin). Doc de réunion associé (mapping objectifs↔outils,
