@@ -86,3 +86,78 @@ test('getAssetCountsByType: grouped by product_type desc, null/empty folds to Un
   assert.ok(unknown, "null and '' fold to Unknown");
   assert.equal(unknown.count, 2);
 });
+
+// ── Obj-3: incidents & CAB governance evidence ─────────────────────────
+// (a) pure composer `incidentsEvidence`
+
+test('incidentsEvidence: RCA/CA/PIR/LL conformity across MIXED variant keys', () => {
+  const majorIncidents = [
+    // all-4 filled, canonical trailing-space+colon variants
+    { 'UDF:RCA:': 'root', 'UDF:Corrective Action:': 'fix', 'UDF:PIR Required:': 'Yes', 'UDF:Lessons Learned:': 'learned' },
+    // all-4 filled, NO-prefix short variants
+    { 'Root Cause Analysis': 'root', 'CA': 'fix', 'PIR': 'Yes', 'LL': 'learned' },
+    // all-4 filled, another mix of canonical variants
+    { 'UDF:Root Cause Analysis :': 'root', 'UDF:Corrective action:': 'fix', 'UDF:PIR Required': 'Yes', 'UDF:Lessons Learned': 'learned' },
+    // none filled
+    {},
+  ];
+  const out = ev.incidentsEvidence({ majorIncidents, changeMetrics: null });
+  assert.equal(out.total_mi, 4, 'total_mi = array length');
+  assert.equal(out.conformity_pct, 75, '3 of 4 have ALL of rca/ca/pir/ll → 75');
+  assert.equal(out.rca_pct, 75, 'per-field rca count = 3/4');
+  assert.equal(out.ca_pct, 75);
+  assert.equal(out.pir_pct, 75);
+  assert.equal(out.ll_pct, 75);
+});
+
+test('incidentsEvidence: empty MI array → conformity + all *_pct are null (NOT 0)', () => {
+  const out = ev.incidentsEvidence({ majorIncidents: [], changeMetrics: { change_success_rate: 91.4, total: 5 } });
+  assert.equal(out.total_mi, 0);
+  assert.strictEqual(out.conformity_pct, null);
+  assert.strictEqual(out.rca_pct, null);
+  assert.strictEqual(out.ca_pct, null);
+  assert.strictEqual(out.pir_pct, null);
+  assert.strictEqual(out.ll_pct, null);
+  // change fields still resolve — they are independent of the MI window
+  assert.equal(out.change_success_rate, 91.4);
+  assert.equal(out.changes_count, 5);
+});
+
+test('incidentsEvidence: variant tolerance — RCA blank in canonical key but filled via a variant counts', () => {
+  const majorIncidents = [
+    { 'UDF:Root Cause Analysis :': '   ', 'RCA': 'the actual root cause' },
+  ];
+  const out = ev.incidentsEvidence({ majorIncidents, changeMetrics: null });
+  assert.equal(out.total_mi, 1);
+  assert.equal(out.rca_pct, 100, 'blank canonical + non-blank variant → filled');
+  // ca/pir/ll are absent → 0%, and conformity requires ALL four → 0
+  assert.equal(out.ca_pct, 0);
+  assert.equal(out.conformity_pct, 0);
+});
+
+test('incidentsEvidence: change_success_rate + changes_count from changeMetrics, null when absent', () => {
+  const withCm = ev.incidentsEvidence({ majorIncidents: [{}], changeMetrics: { change_success_rate: 91.4, total: 42 } });
+  assert.equal(withCm.change_success_rate, 91.4);
+  assert.equal(withCm.changes_count, 42);
+  const noCm = ev.incidentsEvidence({ majorIncidents: [{}], changeMetrics: null });
+  assert.strictEqual(noCm.change_success_rate, null);
+  assert.strictEqual(noCm.changes_count, null);
+});
+
+// (b) glue with injected async stub deps (await-safe, DB-free)
+test('loadIncidentsEvidence: composes from injected async stub readers', async () => {
+  const deps = {
+    getMajorIncidentsHistory: async () => ([
+      { 'UDF:RCA:': 'r', 'UDF:Corrective Action:': 'c', 'UDF:PIR Required:': 'Yes', 'UDF:Lessons Learned:': 'l' },
+      { 'RCA': 'r' }, // only rca filled
+    ]),
+    getChangeMetrics: async () => ({ change_success_rate: 88.5, total: 12 }),
+  };
+  const out = await ev.loadIncidentsEvidence(deps);
+  assert.equal(out.total_mi, 2);
+  assert.equal(out.conformity_pct, 50, '1 of 2 fully conformant');
+  assert.equal(out.rca_pct, 100, 'both have rca');
+  assert.equal(out.ca_pct, 50);
+  assert.equal(out.change_success_rate, 88.5);
+  assert.equal(out.changes_count, 12);
+});

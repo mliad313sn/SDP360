@@ -27,6 +27,15 @@ module.exports = function roadmapRoutes(deps) {
     catch (e) { res.json({ cmdb_completeness_pct: null, sdp_total: 0, asset_class_count: 0, asset_classes: [] }); }
   });
 
+  // Obj-3 (Incidents & gouvernance CAB) live evidence: RCA/template conformity of major
+  // incidents (primary KPI) + change success rate (secondary), composed from reports-db
+  // readers. Best-effort → honest empty (all pct null, never a fabricated 0/100) on throw,
+  // never 500. The "14 active actions" are MANUAL deliverables, not derived here.
+  router.get('/api/roadmap/evidence/incidents', requireReportSession, requireSuperAdmin, async (req, res) => {
+    try { res.json(await roadmapEvidence.loadIncidentsEvidence()); }
+    catch (e) { res.json({ total_mi: 0, conformity_pct: null, rca_pct: null, ca_pct: null, pir_pct: null, ll_pct: null, change_success_rate: null, changes_count: null }); }
+  });
+
   router.put('/api/roadmap/objective/:key', requireReportSession, requireSuperAdmin, jsonBody, async (req, res) => {
     try { await rdb.upsertRoadmapObjective(req.reportUser.id, req.params.key, req.body || {}); res.json({ ok: true }); }
     catch (e) { res.status(500).json({ error: e.message }); }
