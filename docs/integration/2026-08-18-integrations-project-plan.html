@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SDP Dashboard — Plan projet des intégrations (réunion)</title>
+<style>
+  :root{
+    --navy:#1E3A5F; --blue:#145FAE; --green:#16A34A; --amber:#D97706; --red:#D90038; --grey:#5b6773;
+    --ink:#1f2933; --muted:#5b6773; --line:#d7dde3; --bg:#f4f6f8; --box:#ffffff;
+  }
+  *{box-sizing:border-box}
+  body{font-family:"Segoe UI",Calibri,Arial,sans-serif;color:var(--ink);line-height:1.5;margin:0;background:var(--bg)}
+  .page{max-width:1040px;margin:0 auto;padding:32px 40px 64px;background:var(--box)}
+  h1{font-size:1.7rem;color:var(--navy);margin:0 0 4px;line-height:1.2}
+  .sub{color:var(--muted);font-size:.95rem;margin:0 0 6px}
+  .meta{font-size:.78rem;color:var(--muted);border-bottom:2px solid var(--navy);padding-bottom:14px;margin-bottom:22px}
+  h2{font-size:1.22rem;color:var(--navy);margin:30px 0 8px;border-left:5px solid var(--blue);padding-left:10px}
+  h3{font-size:1.02rem;color:var(--navy);margin:20px 0 6px}
+  p{margin:8px 0}
+  ul{margin:8px 0 8px 4px;padding-left:22px} li{margin:4px 0}
+  table{border-collapse:collapse;width:100%;margin:12px 0;font-size:.82rem}
+  th,td{border:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top}
+  th{background:var(--navy);color:#fff;font-weight:600}
+  tbody tr:nth-child(even){background:#f7f9fb}
+  code{background:#eef2f6;border:1px solid #e0e6ec;border-radius:3px;padding:1px 5px;font-family:Consolas,monospace;font-size:.85em}
+  .tag{display:inline-block;font-size:.70rem;font-weight:700;border-radius:10px;padding:2px 9px;color:#fff;white-space:nowrap}
+  .live{background:var(--green)} .built{background:var(--blue)} .partial{background:var(--amber)} .todo{background:var(--grey)} .blocked{background:var(--red)}
+  .who{display:inline-block;font-size:.70rem;font-weight:700;border-radius:4px;padding:1px 6px;border:1px solid var(--line);background:#eef2f6;color:var(--navy)}
+  .callout{border:1px solid var(--line);border-left:5px solid var(--amber);background:#fff8ef;padding:12px 14px;border-radius:6px;margin:14px 0}
+  .callout.win{border-left-color:var(--green);background:#f1faf3}
+  .callout.risk{border-left-color:var(--red);background:#fff2f5}
+  .callout b{color:var(--navy)}
+  .legend{font-size:.8rem;background:#f7f9fb;border:1px solid var(--line);border-radius:6px;padding:10px 14px;margin:10px 0}
+  .legend .tag{margin-right:4px}
+  .gantt td{font-family:Consolas,monospace;font-size:.78rem;text-align:center}
+  .g1{background:#16A34A;color:#fff} .g2{background:#145FAE;color:#fff} .g3{background:#D97706;color:#fff} .g4{background:#8b5cf6;color:#fff} .gx{background:#e6ebf0}
+  footer{margin-top:34px;border-top:1px solid var(--line);padding-top:12px;font-size:.78rem;color:var(--muted)}
+  @media print{body{background:#fff}.page{max-width:none;padding:0 8mm}h2{break-after:avoid}table,.callout{break-inside:avoid}}
+</style>
+</head>
+<body>
+<div class="page">
+
+<h1>Plan projet — Intégrations SDP Dashboard</h1>
+<p class="sub">Vue consolidée pour la réunion : état, tâches restantes, propriétaire du blocage, effort &amp; timing</p>
+<div class="meta">
+  SDP Dashboard (Endeavour Mining) &nbsp;·&nbsp; 18 août 2026 &nbsp;·&nbsp; Document de pilotage (réunion)<br>
+  Périmètre : toutes les intégrations de supervision / identité / PMO branchées au dashboard.
+</div>
+
+<div class="legend">
+<b>Légende statut :</b>
+<span class="tag live">LIVE</span> déployé en prod &nbsp;
+<span class="tag built">CONSTRUIT</span> codé + testé, pas déployé &nbsp;
+<span class="tag partial">PARTIEL</span> une partie faite, gate externe &nbsp;
+<span class="tag todo">À FAIRE</span> conçu, pas codé &nbsp;
+<span class="tag blocked">BLOQUÉ</span> attend un tiers<br>
+<b>Propriétaire :</b> <span class="who">DEV</span> équipe SDP &nbsp; <span class="who">CLIENT</span> action utilisateur (clé, config, app registration) &nbsp; <span class="who">TIERS</span> partenaire externe (boss PMO, ISP…)
+</div>
+
+<h2>1. Tableau de bord des intégrations</h2>
+<table>
+<thead><tr><th style="width:16%">Intégration</th><th>Statut</th><th>Ce qui est fait</th><th>Reste à faire</th><th>Bloqueur / propriétaire</th><th>Effort DEV</th></tr></thead>
+<tbody>
+<tr>
+  <td><b>Zoho</b><br>Helpdesk + Analytics Plus</td>
+  <td><span class="tag live">LIVE</span></td>
+  <td>Sync tickets/changes/incidents/survey ; toute la donnée du dashboard.</td>
+  <td>RAS (maintenance). Rotation du refresh-token à surveiller.</td>
+  <td>—</td>
+  <td>—</td>
+</tr>
+<tr>
+  <td><b>Meraki WAN</b><br>dispo/qualité + SLA chargeback</td>
+  <td><span class="tag built">CONSTRUIT</span></td>
+  <td>WAN Health + auto-fill hebdo ; SLA/refacturation ISP V1 (moteur, store, poller, ingester, routes, carte admin, vue Chargeback).</td>
+  <td>Déployer ; <b>calibrer</b> vs Summary Report ; corriger la dérivation « fidèle Meraki » (résolution 5 min + destination primaire + 100 %-5 min) ; auto-fill <b>mensuel</b> + sélecteur de dates ; (opt.) SLA par webhook.</td>
+  <td><span class="who">CLIENT</span> clé Meraki + calibration + mapping circuits/ISP + arme notif</td>
+  <td>≈ 4–6 j</td>
+</tr>
+<tr>
+  <td><b>OpManager → dispo</b><br>LAN/WLAN/Serveurs (Analytics Plus)</td>
+  <td><span class="tag partial">PARTIEL</span></td>
+  <td>Snapshots + classement + agrégation + auto-fill rapport ; carte admin.</td>
+  <td>Créer la vue Analytics <code>OPS_OPM_Device_Availability_Daily</code> + renseigner <code>opm_availability_view_id</code> ; découverte (probe vs préfixe de nom).</td>
+  <td><span class="who">CLIENT</span> vue Analytics + gate découverte</td>
+  <td>≈ 1–2 j (après la vue)</td>
+</tr>
+<tr>
+  <td><b>OpManager → SDP</b><br>Auto-ticketing proactif</td>
+  <td><span class="tag todo">À FAIRE</span></td>
+  <td>Étude de faisabilité sourcée + plan progressif (doc du 28/07).</td>
+  <td>Phase 1 profil natif « Log a Ticket » ; Phase 2 broker + pré-tag Risk Register ; matrice anti-surcharge.</td>
+  <td><span class="who">CLIENT</span> édition SDP Enterprise + rôles &nbsp; <span class="who">DEV</span> broker</td>
+  <td>≈ 8–12 j (par phases)</td>
+</tr>
+<tr>
+  <td><b>Entra SSO</b><br>Microsoft sign-in</td>
+  <td><span class="tag partial">PARTIEL</span></td>
+  <td>Toute la pile OIDC + carte admin ; configurable sans redémarrage ; inerte tant que non activé.</td>
+  <td>App registration Entra ; mapper les emails ; passer <code>available</code> → <code>only</code>.</td>
+  <td><span class="who">CLIENT</span> admin M365 (app registration)</td>
+  <td>≈ 0 (config)</td>
+</tr>
+<tr>
+  <td><b>Meridian (PMO)</b><br>fédération ressources ⇄ actions</td>
+  <td><span class="tag blocked">BLOQUÉ</span></td>
+  <td>Côté SDP (Part A) : sync ressources, API actions ouvertes, lien projet, carte admin.</td>
+  <td>Part B = code du boss (migration + endpoint ingest + routes attach). Pré-condition : il accepte <code>POST /v1/resources/sync</code>.</td>
+  <td><span class="who">TIERS</span> équipe Meridian (boss)</td>
+  <td>≈ 0 côté SDP</td>
+</tr>
+<tr>
+  <td><b>Identité AD / Entra / Defender</b><br>réconciliation parc</td>
+  <td><span class="tag built">CONSTRUIT</span></td>
+  <td>Réconciliation SDP × AD × Entra × Defender ; écarts + candidats retrait ; historique.</td>
+  <td>Lancer les collecteurs (AD/Defender) régulièrement ; rattacher les GPO SelfScan aux OU concernées.</td>
+  <td><span class="who">CLIENT</span> collecteurs + GPO</td>
+  <td>≈ 0 (opérationnel)</td>
+</tr>
+</tbody>
+</table>
+
+<div class="callout"><b>Lecture clé pour la réunion.</b> Le <b>chemin critique n'est presque jamais du dev</b> — c'est une <b>action côté client/tiers</b> : clé Meraki, vue Analytics, app registration Entra, code Meridian du boss, édition SDP Enterprise. Le dev SDP est prêt ou rapide sur chaque volet ; l'ordonnancement ci-dessous se cale sur la levée de ces gates.</div>
+
+<h2>2. Gates externes (le vrai chemin critique)</h2>
+<table>
+<thead><tr><th>Gate</th><th>Propriétaire</th><th>Débloque</th><th>Statut</th></tr></thead>
+<tbody>
+<tr><td>Clé API Meraki + Org ID + calibration</td><td><span class="who">CLIENT</span></td><td>Meraki WAN (dispo fidèle + SLA)</td><td><span class="tag partial">en cours (mapping fait, calibration à lancer)</span></td></tr>
+<tr><td>Vue Analytics <code>OPS_OPM_Device_Availability_Daily</code></td><td><span class="who">CLIENT</span></td><td>OpManager dispo LAN/WLAN/Serveurs</td><td><span class="tag todo">à créer</span></td></tr>
+<tr><td>App registration Entra</td><td><span class="who">CLIENT</span> (admin M365)</td><td>SSO Microsoft</td><td><span class="tag todo">à faire</span></td></tr>
+<tr><td>Code Meridian Part B + accord <code>POST /v1/resources/sync</code></td><td><span class="who">TIERS</span></td><td>Fédération PMO complète</td><td><span class="tag blocked">attend le boss</span></td></tr>
+<tr><td>SDP Cloud édition Enterprise + rôles OPManager/SDP</td><td><span class="who">CLIENT</span></td><td>Auto-ticketing proactif</td><td><span class="tag todo">à confirmer</span></td></tr>
+<tr><td>Webhook Meraki « WAN Uplink status » → endpoint dashboard</td><td><span class="who">CLIENT</span></td><td>SLA temps-réel (Phase 3)</td><td><span class="tag todo">optionnel</span></td></tr>
+</tbody>
+</table>
+
+<h2>3. Ordonnancement proposé (timing indicatif)</h2>
+<p>Fenêtres de ~2 semaines. Une case colorée = travail actif ; l'effort dev réel par volet est faible (voir tableau §1), la durée est surtout portée par la levée des gates.</p>
+<table class="gantt">
+<thead><tr><th style="text-align:left">Volet</th><th>S1–S2</th><th>S3–S4</th><th>S5–S6</th><th>S7–S8</th></tr></thead>
+<tbody>
+<tr><td style="text-align:left"><b>Meraki WAN</b> — déploiement + calibration + dispo fidèle</td><td class="g1">calibrer + fix</td><td class="g1">autofill mensuel + sélecteur</td><td class="gx"></td><td class="gx"></td></tr>
+<tr><td style="text-align:left"><b>OpManager dispo</b> — vue Analytics + activation</td><td class="gx"></td><td class="g2">vue + probe</td><td class="g2">activer</td><td class="gx"></td></tr>
+<tr><td style="text-align:left"><b>Entra SSO</b> — app registration + cutover</td><td class="g2">app reg + emails</td><td class="g2">available→only</td><td class="gx"></td><td class="gx"></td></tr>
+<tr><td style="text-align:left"><b>Auto-ticketing OpManager→SDP</b> — Phase 1 puis 2</td><td class="gx"></td><td class="gx"></td><td class="g3">Ph.1 natif</td><td class="g3">Ph.2 broker+Risk</td></tr>
+<tr><td style="text-align:left"><b>SLA WAN temps-réel</b> — webhook (optionnel)</td><td class="gx"></td><td class="gx"></td><td class="g4">webhook</td><td class="gx"></td></tr>
+<tr><td style="text-align:left"><b>Meridian PMO</b> — attend Part B (tiers)</td><td class="gx"></td><td class="gx"></td><td class="gx"></td><td class="gx"></td></tr>
+</tbody>
+</table>
+<p style="font-size:.78rem;color:var(--muted)">Meridian n'est pas planifié tant que le code Part B du boss n'est pas confirmé — placé hors calendrier, réactivé à la levée du gate tiers.</p>
+
+<h2>4. Décisions attendues en réunion</h2>
+<ul>
+  <li><b>Meraki</b> : valider la source « dispo fidèle » = <b>dérivation loss/latence calibrée</b> (résolution 5 min + destination primaire + 100 %-5 min) plutôt que event-log/Insight. Lancer la calibration.</li>
+  <li><b>OpManager</b> : qui crée la vue Analytics et quand ? (débloque LAN/WLAN/Serveurs).</li>
+  <li><b>SSO</b> : caler l'app registration Entra (admin M365).</li>
+  <li><b>Meridian</b> : relancer le boss sur l'accord <code>POST /v1/resources/sync</code>.</li>
+  <li><b>Auto-ticketing</b> : confirmer l'édition SDP Enterprise + valider la matrice anti-surcharge avant Phase 1.</li>
+</ul>
+
+<footer>
+Document de pilotage interne — SDP Dashboard. Les efforts DEV sont des estimations ; le calendrier réel est porté par la levée des gates externes (colonne « propriétaire »).
+Détail technique de chaque intégration : voir les fiches <code>docs/integration/*.html</code> et les specs <code>docs/superpowers/</code>.
+</footer>
+</div>
+</body>
+</html>
