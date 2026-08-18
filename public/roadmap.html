@@ -71,6 +71,17 @@
     font-size:13px; font-weight:600; padding:7px 13px; border-radius:7px; cursor:pointer; }
   .rm-addbtn:hover { background:#eaf2ff; }
 
+  /* Read-only "Preuve vivante" auto-evidence panel (platform objective only) */
+  .rm-evidence { padding:4px 20px 18px; border-top:1px solid var(--line); background:#fafcff; }
+  .rm-evidence h4 { margin:12px 0 10px; font-size:12px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; }
+  .rm-ev-tiles { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; }
+  .rm-ev-tile { border:1px solid var(--line); background:#fff; border-radius:9px; padding:11px 13px; }
+  .rm-ev-lbl { font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.4px; }
+  .rm-ev-val { font-size:26px; font-weight:800; color:var(--navy); line-height:1.1; margin:3px 0 2px; }
+  .rm-ev-sub { font-size:11px; color:var(--muted); line-height:1.4; }
+  .rm-ev-cap { margin-top:10px; font-size:11px; color:#94a3b8; line-height:1.5; font-style:italic; }
+  .rm-ev-loading { font-size:13px; color:#94a3b8; padding:6px 0; }
+
   .rm-toast { position:fixed; bottom:22px; left:50%; transform:translateX(-50%) translateY(20px);
     background:var(--navy); color:#fff; padding:9px 18px; border-radius:8px; font-size:13px; font-weight:600;
     opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; z-index:50; }
@@ -209,6 +220,12 @@
     var delivs = STATE.deliverables.filter(function (d) { return d.obj_key === o.obj_key; });
     var col = statusColor(o.status);
     var pct = Math.max(0, Math.min(100, num(o.progress_pct)));
+    // Read-only auto-evidence panel — platform objective (Objectif 2) only.
+    var evHtml = (o.obj_key === 'platform')
+      ? '<div class="rm-evidence"><h4>🔎 Preuve vivante (auto)</h4>' +
+          '<div id="rm-ev-platform"><div class="rm-ev-loading">Chargement des KPI…</div></div>' +
+        '</div>'
+      : '';
     return '<div class="rm-card" data-key="' + esc(o.obj_key) + '">' +
       '<div class="head">' +
         '<div style="flex:1;">' +
@@ -234,6 +251,7 @@
         '<div class="rm-delivlist">' + (delivs.length ? delivs.map(delivRow).join('') : '<div style="color:#94a3b8;font-size:13px;padding:6px 0;">Aucun livrable.</div>') + '</div>' +
         '<button class="rm-addbtn" data-act="add">+ Ajouter un livrable</button>' +
       '</div>' +
+      evHtml +
     '</div>';
   }
 
@@ -241,9 +259,86 @@
     return '<div class="rm-field' + (wide ? ' wide' : '') + '"><label>' + esc(label) + '</label>' + control + '</div>';
   }
 
+  // ── Read-only "Preuve vivante" auto-evidence (platform objective only) ──
+  // EV.plat / EV.rec: undefined = not yet fetched, null = fetch failed, object = loaded.
+  var EV = { plat: undefined, rec: undefined };
+
+  function evRag(p) { if (p >= 90) return 'var(--green)'; if (p >= 75) return 'var(--amber)'; return 'var(--red)'; }
+
+  function renderEvidence() {
+    var host = $('rm-ev-platform');
+    if (!host) return;                                   // panel not on the page
+    if (EV.plat === undefined && EV.rec === undefined) return; // still loading → keep placeholder
+
+    var plat = EV.plat, rec = EV.rec;
+
+    // Tile 1 — CMDB completeness (from platform endpoint; null → '—', never fabricated)
+    var cmdbPct = (plat && plat.cmdb_completeness_pct != null) ? num(plat.cmdb_completeness_pct) : null;
+    var t1val = (cmdbPct == null) ? '—' : (esc(cmdbPct) + ' %');
+    var t1style = (cmdbPct == null) ? '' : ' style="color:' + evRag(cmdbPct) + '"';
+    var t1 = '<div class="rm-ev-tile"><div class="rm-ev-lbl">Complétude CMDB</div>' +
+      '<div class="rm-ev-val"' + t1style + '>' + t1val + '</div>' +
+      '<div class="rm-ev-sub">propriétaire · âge · coût · scan renseignés</div></div>';
+
+    // Tile 2 — discovery coverage, computed CLIENT-SIDE from the reconcile summary.
+    // Never 100 % without an import → '—' when there are no imports.
+    var sdpTotal = (plat && plat.sdp_total != null) ? num(plat.sdp_total) : null;
+    var imports  = (rec && Array.isArray(rec.imports)) ? rec.imports : null;
+    var gapsOpen = (rec && rec.counts && rec.counts.gaps_open != null) ? num(rec.counts.gaps_open) : null;
+    var t2val = '—', t2sub = '';
+    if (rec == null) {
+      t2sub = 'réconciliation indisponible';
+    } else if (!imports || imports.length === 0) {
+      t2sub = 'aucun import de réconciliation';
+    } else if (sdpTotal == null || gapsOpen == null) {
+      t2sub = 'données incomplètes';
+    } else {
+      var denom = sdpTotal + gapsOpen;
+      var cov = denom > 0 ? Math.round(100 * sdpTotal / denom) : null;
+      t2val = (cov == null) ? '—' : (cov + ' %');
+      var latest = '';
+      imports.forEach(function (im) {
+        var d = im && im.imported_at;
+        if (d && (!latest || String(d) > String(latest))) latest = String(d);
+      });
+      var fresh = latest ? ('import AD/Defender du ' + esc(latest.slice(0, 10))) : '';
+      t2sub = 'SDP ' + esc(sdpTotal) + ' · ' + esc(gapsOpen) + ' vus ailleurs absents de SDP' +
+        (fresh ? '<br>' + fresh : '');
+    }
+    var t2 = '<div class="rm-ev-tile"><div class="rm-ev-lbl">Couverture parc (discovery)</div>' +
+      '<div class="rm-ev-val">' + t2val + '</div>' +
+      (t2sub ? '<div class="rm-ev-sub">' + t2sub + '</div>' : '') + '</div>';
+
+    // Tile 3 — asset classes covered (+ inline list of top product_types)
+    var classCount = (plat && plat.asset_class_count != null) ? num(plat.asset_class_count) : null;
+    var classes = (plat && Array.isArray(plat.asset_classes)) ? plat.asset_classes : [];
+    var top = classes.slice(0, 6).map(function (c) {
+      return esc(c.product_type) + ' (' + esc(c.count) + ')';
+    }).join(', ');
+    var t3 = '<div class="rm-ev-tile"><div class="rm-ev-lbl">Classes d\'actifs couvertes</div>' +
+      '<div class="rm-ev-val">' + (classCount == null ? '—' : esc(classCount)) + '</div>' +
+      (top ? '<div class="rm-ev-sub" title="' + top + '">' + top + '</div>' : '') + '</div>';
+
+    host.innerHTML = '<div class="rm-ev-tiles">' + t1 + t2 + t3 + '</div>' +
+      '<div class="rm-ev-cap">Couverture = part du parc vu par AD/Defender qui est présent dans SDP ; ' +
+      'complétude = propriétaire/âge/coût/scan renseignés. Chiffres vivants — tu gardes ta preuve manuelle au-dessus.</div>';
+  }
+
+  function fetchEvidence() {
+    fetch('/api/roadmap/evidence/platform', { headers: authHeaders(false) })
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function (d) { EV.plat = d || null; }, function () { EV.plat = null; })
+      .then(function () { renderEvidence(); });
+    fetch('/api/assets/reconcile/summary', { headers: authHeaders(false) })
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function (d) { EV.rec = d || null; }, function () { EV.rec = null; })
+      .then(function () { renderEvidence(); });
+  }
+
   function render() {
     $('rm-objectives').innerHTML = STATE.objectives.map(objCard).join('');
     renderScore();
+    renderEvidence(); // repopulate the auto-evidence panel after any re-render
   }
 
   // ── Auto-save wiring (event delegation on the objectives container) ──
@@ -379,11 +474,13 @@
     host.addEventListener('change', onObjChange);
     host.addEventListener('click', onObjClick);
     $('rm-csv').addEventListener('click', exportCsv);
-    reload().catch(function (e) {
-      if (e && e.message === 'gate') return; // gate already shown
-      // Best-effort: any other failure → clean gate rather than a blank page.
-      showGate();
-    });
+    reload()
+      .then(function () { fetchEvidence(); }) // load auto-evidence once objectives render
+      .catch(function (e) {
+        if (e && e.message === 'gate') return; // gate already shown
+        // Best-effort: any other failure → clean gate rather than a blank page.
+        showGate();
+      });
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
