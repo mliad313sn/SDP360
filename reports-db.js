@@ -82,6 +82,39 @@ CREATE TABLE IF NOT EXISTS wan_outages (
   PRIMARY KEY (site_id, sub_site, uplink, detected_start)
 );`;
 
+// Personal Roadmap Manager — a private, per-user, super_admin-only tool. Composite PK
+// (user_id, obj_key) for objectives / stable uid PK for deliverables (no surrogate id →
+// sqlite/pg parity). updated_at is a TEXT ISO stamp; mirrored into 010_roadmap.sql for
+// fresh pg installs and initPgReports for existing ones.
+const _ROADMAP_CREATE_SQL = `
+CREATE TABLE IF NOT EXISTS roadmap_objectives (
+  user_id      INTEGER NOT NULL,
+  obj_key      TEXT NOT NULL,
+  title        TEXT,
+  weight       INTEGER,
+  progress_pct INTEGER,
+  status       TEXT,
+  confidence   TEXT,
+  evidence     TEXT,
+  gap_note     TEXT,
+  target_date  TEXT,
+  sort_order   INTEGER,
+  updated_at   TEXT,
+  PRIMARY KEY (user_id, obj_key)
+);
+CREATE TABLE IF NOT EXISTS roadmap_deliverables (
+  uid           TEXT NOT NULL,
+  user_id       INTEGER NOT NULL,
+  obj_key       TEXT,
+  label         TEXT,
+  delivery_date TEXT,
+  status        TEXT,
+  notes         TEXT,
+  sort_order    INTEGER,
+  updated_at    TEXT,
+  PRIMARY KEY (uid)
+);`;
+
 db.exec(`
 CREATE TABLE IF NOT EXISTS sites (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -448,6 +481,8 @@ try { db.exec(`CREATE TABLE IF NOT EXISTS wan_subsite_networks (
 )`); } catch(e) {}
 // WAN SLA / ISP chargeback — one row per detected WAN outage (created from _WAN_OUTAGES_CREATE_SQL).
 try { db.exec(_WAN_OUTAGES_CREATE_SQL); } catch(e) {}
+// Personal Roadmap Manager — per-user objectives + deliverables (created from _ROADMAP_CREATE_SQL).
+try { db.exec(_ROADMAP_CREATE_SQL); } catch(e) {}
 try { db.exec(`CREATE INDEX IF NOT EXISTS idx_sessions_last_seen ON sessions(last_seen)`); } catch(e) {}
 // sites: add zoho_group column for group-based helpdesk filtering
 try { db.exec(`ALTER TABLE sites ADD COLUMN zoho_group TEXT`); } catch(e) {}
@@ -1271,6 +1306,9 @@ async function initPgReports() {            // called once at server boot
   // WAN SLA / ISP chargeback — one row per detected WAN outage.
   await _pg.exec(require('fs').readFileSync(
     require('path').join(__dirname, 'db', 'postgres', 'reports', '009_wan_outages.sql'), 'utf8'));
+  // Personal Roadmap Manager — per-user objectives + deliverables (super_admin tool).
+  await _pg.exec(require('fs').readFileSync(
+    require('path').join(__dirname, 'db', 'postgres', 'reports', '010_roadmap.sql'), 'utf8'));
   // V1b-E — add sub_site to wan_link_snapshots + swap its PK to the 5-col key (guarded so
   // it runs once on DBs created before V1b-E; fresh installs get it from 008.sql directly).
   await _pg.exec(`ALTER TABLE wan_link_snapshots ADD COLUMN IF NOT EXISTS sub_site TEXT NOT NULL DEFAULT ''`);
@@ -2755,6 +2793,128 @@ function _reconcileProvisionalOutageSqlite(key, a) {
 }
 async function _reconcileProvisionalOutagePg(key, a) {
   return (await pgHandle().prepare(_WAN_OUTAGE_RECONCILE_SQL).run(..._wanOutageReconcileArgs(key, a))).changes;
+}
+
+// ── Personal Roadmap Manager (per-user, super_admin) ───────────────────────────────
+// Two tables (roadmap_objectives PK (user_id,obj_key), roadmap_deliverables PK (uid)).
+// user_id ALWAYS comes from the session, never the body — enforced in routes/roadmap.js.
+// getRoadmap lazy-seeds the 4 default manager objectives on a user's first read.
+const _ROADMAP_OBJ_EDITABLE   = ['title','weight','progress_pct','status','confidence','evidence','gap_note','target_date','sort_order'];
+const _ROADMAP_DELIV_EDITABLE = ['label','delivery_date','status','notes','sort_order'];
+const _ROADMAP_DEFAULT_OBJECTIVES = [
+  { obj_key:'catalogue', title:'Catalogue & formulaires', weight:35, progress_pct:70, status:'green', confidence:'high',
+    evidence:"Catalogue OK: 102 services / 13 catégories, propriétaires applicatifs connus.",
+    gap_note:"Mesurer l'adoption des formulaires et la précision des demandes.", sort_order:1 },
+  { obj_key:'platform', title:'Plateforme ITSM & actifs', weight:25, progress_pct:80, status:'green', confidence:'high',
+    evidence:"Parc serveurs & laptops scanné et tagué QR dans SDP.",
+    gap_note:"Publier discovery accuracy + complétude CMDB; confirmer la couverture des autres classes d'actifs.", sort_order:2 },
+  { obj_key:'incidents', title:'Incidents & gouvernance CAB', weight:25, progress_pct:75, status:'orange', confidence:'high',
+    evidence:"8 CAB, 90 changements revus, 72 actions (57 terminées / 12 en cours / 2 ouvertes / 1 annulée), 9 PIR dont 7 réussis.",
+    gap_note:"Finaliser les 14 actions actives et relever la conformité template/RCA des incidents majeurs.", sort_order:3 },
+  { obj_key:'knowledge', title:'Transfert de connaissance', weight:15, progress_pct:45, status:'orange', confidence:'medium',
+    evidence:"Formations SDP (module ITAM) pour techniciens d'ITY, Mana, Lafigue; 3 articles KB + guides FR/EN.",
+    gap_note:"Consolider dates, participants, taux de complétion, conformité process, stats d'usage.", sort_order:4 },
+];
+const _ROADMAP_OBJ_SEED_SQL =
+  `INSERT INTO roadmap_objectives (user_id,obj_key,title,weight,progress_pct,status,confidence,evidence,gap_note,target_date,sort_order,updated_at)
+   VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`;
+const _roadmapObjSeedArgs = (user_id, o, now) =>
+  [user_id, o.obj_key, o.title, o.weight, o.progress_pct, o.status, o.confidence, o.evidence, o.gap_note, null, o.sort_order, now];
+
+function getRoadmap(user_id) {
+  if (REPORTS_BACKEND === 'postgres') return _getRoadmapPg(user_id);
+  return _getRoadmapSqlite(user_id);
+}
+function _getRoadmapSqlite(user_id) {
+  const n = db.prepare('SELECT COUNT(*) AS n FROM roadmap_objectives WHERE user_id=?').get(user_id).n;
+  if (!Number(n)) {
+    const now = new Date().toISOString();
+    const ins = db.prepare(_ROADMAP_OBJ_SEED_SQL);
+    db.transaction(() => { for (const o of _ROADMAP_DEFAULT_OBJECTIVES) ins.run(..._roadmapObjSeedArgs(user_id, o, now)); })();
+  }
+  const objectives   = db.prepare('SELECT * FROM roadmap_objectives WHERE user_id=? ORDER BY sort_order').all(user_id);
+  const deliverables = db.prepare('SELECT * FROM roadmap_deliverables WHERE user_id=? ORDER BY obj_key, sort_order').all(user_id);
+  return { objectives, deliverables };
+}
+async function _getRoadmapPg(user_id) {
+  const H = pgHandle();
+  const n = Number((await H.prepare('SELECT COUNT(*) AS n FROM roadmap_objectives WHERE user_id=?').get(user_id)).n);
+  if (!n) {
+    const now = new Date().toISOString();
+    await H.runTransaction(async () => {
+      for (const o of _ROADMAP_DEFAULT_OBJECTIVES) await H.prepare(_ROADMAP_OBJ_SEED_SQL).run(..._roadmapObjSeedArgs(user_id, o, now));
+    });
+  }
+  const objectives   = await H.prepare('SELECT * FROM roadmap_objectives WHERE user_id=? ORDER BY sort_order').all(user_id);
+  const deliverables = await H.prepare('SELECT * FROM roadmap_deliverables WHERE user_id=? ORDER BY obj_key, sort_order').all(user_id);
+  return { objectives, deliverables };
+}
+
+// Build the dynamic "SET col=?, …, updated_at=?" clause + params from a whitelist + patch.
+function _roadmapSet(editable, patch) {
+  const sets = [], params = [];
+  for (const c of editable) if (patch && patch[c] !== undefined) { sets.push(`${c}=?`); params.push(patch[c]); }
+  sets.push('updated_at=?'); params.push(new Date().toISOString());
+  return { setSql: sets.join(', '), params };
+}
+
+function upsertRoadmapObjective(user_id, obj_key, patch) {
+  if (REPORTS_BACKEND === 'postgres') return _upsertRoadmapObjectivePg(user_id, obj_key, patch);
+  return _upsertRoadmapObjectiveSqlite(user_id, obj_key, patch);
+}
+function _upsertRoadmapObjectiveSqlite(user_id, obj_key, patch) {
+  const { setSql, params } = _roadmapSet(_ROADMAP_OBJ_EDITABLE, patch);
+  return db.prepare(`UPDATE roadmap_objectives SET ${setSql} WHERE user_id=? AND obj_key=?`).run(...params, user_id, obj_key);
+}
+async function _upsertRoadmapObjectivePg(user_id, obj_key, patch) {
+  const { setSql, params } = _roadmapSet(_ROADMAP_OBJ_EDITABLE, patch);
+  return pgHandle().prepare(`UPDATE roadmap_objectives SET ${setSql} WHERE user_id=? AND obj_key=?`).run(...params, user_id, obj_key);
+}
+
+const _ROADMAP_DELIV_INSERT_SQL =
+  `INSERT INTO roadmap_deliverables (uid,user_id,obj_key,label,delivery_date,status,notes,sort_order,updated_at)
+   VALUES (?,?,?,?,?,?,?,?,?)`;
+const _roadmapDelivInsertArgs = (uid, user_id, d) =>
+  [uid, user_id, d.obj_key ?? null, d.label ?? null, d.delivery_date ?? null, d.status ?? null, d.notes ?? null,
+   d.sort_order == null ? null : d.sort_order, new Date().toISOString()];
+
+function addRoadmapDeliverable(user_id, d) {
+  if (REPORTS_BACKEND === 'postgres') return _addRoadmapDeliverablePg(user_id, d);
+  return _addRoadmapDeliverableSqlite(user_id, d);
+}
+function _addRoadmapDeliverableSqlite(user_id, d) {
+  const uid = crypto.randomUUID();
+  db.prepare(_ROADMAP_DELIV_INSERT_SQL).run(..._roadmapDelivInsertArgs(uid, user_id, d || {}));
+  return uid;
+}
+async function _addRoadmapDeliverablePg(user_id, d) {
+  const uid = crypto.randomUUID();
+  await pgHandle().prepare(_ROADMAP_DELIV_INSERT_SQL).run(..._roadmapDelivInsertArgs(uid, user_id, d || {}));
+  return uid;
+}
+
+function updateRoadmapDeliverable(user_id, uid, patch) {
+  if (REPORTS_BACKEND === 'postgres') return _updateRoadmapDeliverablePg(user_id, uid, patch);
+  return _updateRoadmapDeliverableSqlite(user_id, uid, patch);
+}
+function _updateRoadmapDeliverableSqlite(user_id, uid, patch) {
+  const { setSql, params } = _roadmapSet(_ROADMAP_DELIV_EDITABLE, patch);
+  return db.prepare(`UPDATE roadmap_deliverables SET ${setSql} WHERE uid=? AND user_id=?`).run(...params, uid, user_id);
+}
+async function _updateRoadmapDeliverablePg(user_id, uid, patch) {
+  const { setSql, params } = _roadmapSet(_ROADMAP_DELIV_EDITABLE, patch);
+  return pgHandle().prepare(`UPDATE roadmap_deliverables SET ${setSql} WHERE uid=? AND user_id=?`).run(...params, uid, user_id);
+}
+
+function deleteRoadmapDeliverable(user_id, uid) {
+  if (REPORTS_BACKEND === 'postgres') return _deleteRoadmapDeliverablePg(user_id, uid);
+  return _deleteRoadmapDeliverableSqlite(user_id, uid);
+}
+function _deleteRoadmapDeliverableSqlite(user_id, uid) {
+  return db.prepare('DELETE FROM roadmap_deliverables WHERE uid=? AND user_id=?').run(uid, user_id);
+}
+async function _deleteRoadmapDeliverablePg(user_id, uid) {
+  return pgHandle().prepare('DELETE FROM roadmap_deliverables WHERE uid=? AND user_id=?').run(uid, user_id);
 }
 
 function saveHelpdeskData(report_id, data) {
@@ -7539,6 +7699,7 @@ module.exports = {
   getPreviousWeek, ensureWeek, getWeekRange,
   ensureReport, getReport, listReports,
   saveInfraKpis, upsertInfraSnapshots, getInfraSnapshots, upsertWanSnapshots, getWanSnapshots, upsertWanOutage, getWanOutages, listOpenWanOutages, closeWanOutage, reconcileProvisionalOutage, saveHelpdeskData, saveLights, saveActionItems, _backfillActionUids,
+  getRoadmap, upsertRoadmapObjective, addRoadmapDeliverable, updateRoadmapDeliverable, deleteRoadmapDeliverable,
   setActionMerge, clearActionMerge, setActionStatus, setActionLineage, getSiteOpenReportActions,
   getPreviousWeekOpenActions, listAllWeeksWithActions, getActionsForReport,
   listAllWeeksWithLights, getLightsForReport,
