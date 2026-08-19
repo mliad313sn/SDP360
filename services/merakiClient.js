@@ -41,6 +41,9 @@ function makeMerakiClient({ apiKey, orgId, baseUrl = 'https://api.meraki.com/api
   return {
     configured,
     orgNetworks: () => _get(`/organizations/${orgId}/networks`, { perPage: 1000 }),
+    // Devices with their name/notes/tags — the appliance `notes` carries the ISP+bandwidth
+    // per uplink (e.g. "WAN 1 (ORANGE): 200Mbps"). Filter to appliances via productTypes.
+    orgDevices: ({ productTypes } = {}) => _get(`/organizations/${orgId}/devices`, { perPage: 1000, productTypes }),
     // The configured destinations the MX pings per network → { destinations:[{ip,default,...}] }.
     networkConnectivityDestinations: ({ networkId } = {}) =>
       _get(`/networks/${networkId}/appliance/connectivityMonitoringDestinations`, {}),
