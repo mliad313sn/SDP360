@@ -55,20 +55,27 @@ async function main(deps = {}) {
 
     // Build the set of currently-DOWN (site_id, sub_site, uplink) from current uplink state.
     const statuses = (await client.orgUplinkStatuses({})) || [];
-    const downNow = new Map();   // key → {site_id, sub_site, uplink, network_id, device_serial}
+    // A (site,sub_site,uplink) is DOWN only if NO appliance reports it up — warm-spare /
+    // dual-MX aware: a network can carry a master + a warm spare whose uplinks read
+    // 'not connected', and the site's uplink is up whenever the ACTIVE MX reports it up.
+    // (SGO BACKUP etc. that live in a SEPARATE, unmapped network are excluded upstream.)
+    const upKeys = new Set();
+    const downCand = new Map();   // key → {site_id, sub_site, uplink, network_id, device_serial}
     for (const dev of statuses) {
       const netName = networkNameById(dev.networkId);
       const targets = netName != null ? (netToTargets.get(_normNet(netName)) || []) : [];
       if (!targets.length) continue;                          // unmapped network → never guess
       for (const up of (dev.uplinks || [])) {
         if (!/^wan\d$/.test(String(up.interface || ''))) continue;   // wan1/wan2/… only
-        if (_isUp(up.status)) continue;                       // up → not an outage
         for (const t of targets) {
           const k = _key(t.site_id, t.sub_site, up.interface);
-          if (!downNow.has(k)) downNow.set(k, { site_id: t.site_id, sub_site: t.sub_site, uplink: up.interface, network_id: dev.networkId, device_serial: dev.serial });
+          if (_isUp(up.status)) upKeys.add(k);
+          else if (!downCand.has(k)) downCand.set(k, { site_id: t.site_id, sub_site: t.sub_site, uplink: up.interface, network_id: dev.networkId, device_serial: dev.serial });
         }
       }
     }
+    const downNow = new Map();
+    for (const [k, v] of downCand) if (!upKeys.has(k)) downNow.set(k, v);
 
     const open = (await rdb.listOpenWanOutages()) || [];
     const openByKey = new Map();

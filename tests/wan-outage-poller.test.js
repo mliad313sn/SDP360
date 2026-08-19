@@ -64,6 +64,32 @@ const poll = (site, now, opts, mailer) => main({
   mailer, now,
 });
 
+// Warm-spare / dual-MX: two appliances in the SAME network (a master + a warm spare whose
+// uplinks read 'not connected'). A (site,uplink) is DOWN only if NO appliance reports it up.
+function makeClientTwoDev(site, s1, s2) {
+  return {
+    orgNetworks: async () => [{ id: site.networkId, name: site.network }],
+    orgUplinkStatuses: async () => [
+      { networkId: site.networkId, serial: 'Q2-MASTER-01', uplinks: [{ interface: 'wan1', status: s1 }] },
+      { networkId: site.networkId, serial: 'Q2-SPARE-02', uplinks: [{ interface: 'wan1', status: s2 }] },
+    ],
+  };
+}
+
+test('warm-spare: master wan1 up + spare wan1 not-connected → NO false outage', async () => {
+  const s = seedSite();
+  await main({ rdb, getConfig: getConfig(s.siteId, {}), client: makeClientTwoDev(s, 'active', 'not connected'), mailer: makeMailer(), now: '2026-08-10T08:00:00Z' });
+  const rows = await rdb.getWanOutages({ site_id: s.siteId });
+  assert.equal(rows.length, 0, 'the site uplink is UP because the master reports it up — no outage from the spare');
+});
+
+test('dual-MX: BOTH appliances report wan1 down → exactly one real outage', async () => {
+  const s = seedSite();
+  await main({ rdb, getConfig: getConfig(s.siteId, {}), client: makeClientTwoDev(s, 'failed', 'not connected'), mailer: makeMailer(), now: '2026-08-10T08:00:00Z' });
+  const rows = await rdb.getWanOutages({ site_id: s.siteId });
+  assert.equal(rows.length, 1, 'a real outage opens only when NO appliance reports the uplink up');
+});
+
 test('a down uplink opens exactly ONE provisional row; a 2nd poll while still down opens no second', async () => {
   const s = seedSite();
   const T0 = '2026-08-10T08:00:00Z';
