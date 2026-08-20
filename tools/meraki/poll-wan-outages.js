@@ -86,12 +86,17 @@ async function main(deps = {}) {
 
     // Recovery + stale-open guard — BEFORE opening new rows, so the one-open-row invariant
     // can never permanently block a fresh outage.
+    // (B) Close ONLY on an EXPLICIT 'up' reading (upKeys). NEVER close on mere absence: when the
+    // MX loses power it drops out of the status response entirely, and closing then would fake a
+    // recovery and end the outage early. An unseen uplink (offline) is kept open; the stale-open
+    // guard still bounds it so it can't stay open forever.
     for (const r of open) {
       const k = _key(r.site_id, r.sub_site, r.uplink);
-      if (!downNow.has(k)) {
+      if (upKeys.has(k)) {
         await rdb.closeWanOutage({ site_id: r.site_id, sub_site: r.sub_site, uplink: r.uplink, detected_start: r.detected_start, restored_end: now });
         openByKey.delete(k); closed++;
       } else {
+        // still down, OR not seen this poll (MX offline) → keep the outage open
         const ageH = _minutesSince(now, r.detected_start) / 60;
         if (Number.isFinite(ageH) && ageH >= staleHours) {
           await rdb.upsertWanOutage({ ...r, restored_end: now, source: 'stale_open' });

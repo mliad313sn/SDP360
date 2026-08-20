@@ -157,6 +157,28 @@ test('recovery: an open row whose uplink is now up → closed (restored_end set)
   assert.ok(!open.find(r => r.site_id === s.siteId), 'recovered outage is no longer open');
 });
 
+test('B: an open outage whose device DROPPED from the poll (MX offline) stays OPEN — no false recovery', async () => {
+  const s = seedSite();
+  const T0 = '2026-08-10T08:00:00Z';
+  await poll(s, T0, { status: 'failed' }, makeMailer());              // open
+  assert.equal((await rdb.getWanOutages({ site_id: s.siteId }))[0].restored_end, null, 'opened');
+
+  // T1: the appliance is GONE from the org status response (power outage → dropped out entirely).
+  const T1 = '2026-08-10T08:05:00Z';
+  const goneClient = { orgNetworks: async () => [{ id: s.networkId, name: s.network }], orgUplinkStatuses: async () => [] };
+  await main({ rdb, getConfig: getConfig(s.siteId, {}), client: goneClient, mailer: makeMailer(), now: T1 });
+  const mid = (await rdb.getWanOutages({ site_id: s.siteId }))[0];
+  assert.equal(mid.restored_end, null, 'an UNSEEN uplink is NOT closed — closing on absence would fake a recovery');
+  assert.equal(mid.detected_start, T0, 'the original outage is preserved');
+
+  // T2: the uplink is explicitly back up → NOW it closes.
+  const T2 = '2026-08-10T08:20:00Z';
+  await poll(s, T2, { status: 'active' }, makeMailer());
+  const done = (await rdb.getWanOutages({ site_id: s.siteId }))[0];
+  assert.equal(done.restored_end, T2, 'closes only on an explicit up reading');
+  assert.equal(done.duration_s, 1200, '08:00 → 08:20 = 1200s');
+});
+
 test('stale-open guard: a 25h-open still-down row is closed with source "stale_open", and a fresh outage then opens', async () => {
   const s = seedSite();
   const T0 = '2026-08-10T08:00:00Z';

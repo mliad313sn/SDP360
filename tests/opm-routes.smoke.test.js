@@ -171,20 +171,25 @@ test('wan summary + trend read wan_link_snapshots (V1b-D)', async () => {
   assert.equal(w1Pend.basis, 'pending_poller');
   assert.equal(w1Pend.loss_pct_avg, 0.08, 'loss/latency quality still served from the snapshot');
 
-  // (B) Poller active (heartbeat set) + a 1h outage today → event-based availability (~95.83%),
-  // basis 'event'. wan2 (no outage) reads 100%.
+  // (B) Poller active (heartbeat) + a 24h outage 2–3 days ago (inside the LIVE 7-day window,
+  // always in the past regardless of run time) → event-based availability ~85.71%; wan2 100%.
+  // The availability window is LIVE and ends now — NOT the archived snapshot week (that lag is
+  // exactly what made every link read 100% while outages were recorded this week).
   await require('../services/reportConfig').setConfig(rdb.db, { wan_poll_last_run: today + 'T05:00:00Z' });
+  const nowMs = Date.now();
+  const isoAgo = d => new Date(nowMs - d * 86400000).toISOString();
   await rdb.upsertWanOutage({ site_id: mgoSiteId, sub_site: '', uplink: 'wan1',
-    detected_start: today + 'T02:00:00Z', restored_end: today + 'T03:00:00Z', source: 'meraki_status' });
+    detected_start: isoAgo(3), restored_end: isoAgo(2), source: 'meraki_status' });   // 24h down, in the past
   const sum = await get('/api/analytics/wan/summary?period=week', adminToken);
   assert.equal(sum.status, 200);
   assert.equal(sum.body.poll_active, true, 'heartbeat → poll_active true');
+  assert.ok(sum.body.window && sum.body.window.from && sum.body.window.to, 'response carries the live availability window');
   const site = (sum.body.sites || []).find(s => s.site_id === mgoSiteId);
   assert.ok(site, 'seeded site in summary');
   assert.equal(site.uplinks.length, 2);
   const w1 = site.uplinks.find(u => u.uplink === 'wan1');
   assert.equal(w1.basis, 'event', 'availability now event-based');
-  assert.ok(w1.availability_pct > 95 && w1.availability_pct < 96, `1h down of a day → ~95.83%, got ${w1.availability_pct}`);
+  assert.ok(w1.availability_pct > 85 && w1.availability_pct < 86, `24h down of the 7-day live window → ~85.71%, got ${w1.availability_pct}`);
   const w2 = site.uplinks.find(u => u.uplink === 'wan2');
   assert.equal(w2.availability_pct, 100, 'wan2 has no outage → 100% event-based');
 

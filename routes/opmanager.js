@@ -156,7 +156,9 @@ module.exports = function opmanagerRoutes(deps) {
   router.get('/api/analytics/wan/summary', requireReportSession, async (req, res) => {
     try {
       const { latestPerSite } = require('../services/wanDashboard');
-      const { applyEventAvailability } = require('../services/wanEventAvailability');
+      const { eventAvailability } = require('../services/wanEventAvailability');
+      const { statusColor } = require('../services/merakiWanQuality');
+      const { parseSlaWanConfig, resolveCircuit } = require('../services/slaWanConfig');
       const period = req.query.period === 'month' ? 'month' : 'week';
       const rows = await rdb.getWanSnapshots({ period_type: period });
       const siteList = (await rdb.listSites({ includeInactive: true })) || [];
@@ -168,30 +170,44 @@ module.exports = function opmanagerRoutes(deps) {
       // run (heartbeat wan_poll_last_run); otherwise availability is '—' (never a fabricated %).
       // loss/latency/jitter stay from the snapshot (they are quality, and accurate).
       let pollActive = false;
+      let win = null;
       try {
         const cfg = await require('../services/reportConfig').getConfig(rdb.db);
         pollActive = !!(cfg && cfg.wan_poll_last_run);
         let target = 98; try { const t = JSON.parse(cfg && cfg.opm_targets || '{}'); if (t && t.wan != null) target = Number(t.wan); } catch (_) {}
         if (pollActive && sites.length) {
-          // Flatten to circuit cells carrying site_id, then apply the ONE shared event-based
-          // path (same helper the site-report auto-fill uses → the two can never disagree).
-          const cells = [];
-          for (const s of sites) for (const u of s.uplinks) { u.site_id = s.site_id; cells.push(u); }
-          let minFrom = null, maxTo = null;
-          for (const u of cells) {
-            const f = (u.period_start || '') + 'T00:00:00Z'; if (u.period_start && (!minFrom || f < minFrom)) minFrom = f;
-            const end = u.period_end || u.period_start; const t = (end || '') + 'T23:59:59Z'; if (end && (!maxTo || t > maxTo)) maxTo = t;
-          }
+          // Availability window is LIVE and ends NOW (Weekly = last 7 days, Monthly = this
+          // calendar month), aligned to the toggle — so THIS week's outages show. The loss/
+          // latency snapshot is an archive of a PAST week and must NOT bound availability: that
+          // lag is why every link read 100% while outages were being recorded this week.
+          const nowD = new Date();
+          const toISO = nowD.toISOString();
+          const fromISO = (period === 'month')
+            ? toISO.slice(0, 8) + '01T00:00:00.000Z'
+            : new Date(nowD.getTime() - 7 * 86400000).toISOString();
+          win = { from: fromISO, to: toISO };
+          const fMs = Date.parse(fromISO), tMs = Date.parse(toISO);
           let outages = [];
-          if (minFrom && maxTo) { try { outages = (await rdb.getWanOutagesOverlapping(minFrom, maxTo)) || []; } catch (_) { outages = []; } }
-          applyEventAvailability(cells, outages, { target });
+          try { outages = (await rdb.getWanOutagesOverlapping(fromISO, toISO)) || []; } catch (_) { outages = []; }
+          const circuits = parseSlaWanConfig(cfg.sla_wan_config);   // to name each link by its ISP once mapped
+          for (const s of sites) for (const u of s.uplinks) {
+            const mine = outages.filter(o => o.site_id === s.site_id && (o.sub_site || '') === (u.sub_site || '') && o.uplink === u.uplink);
+            const av = eventAvailability(mine, fMs, tMs);            // the ONE shared event-based core (report cell uses it too)
+            u.availability_pct = av;
+            u.status_color = (av == null) ? 'none' : statusColor(av, target);
+            u.basis = 'event';
+            const circ = resolveCircuit(circuits, { site_id: s.site_id, sub_site: u.sub_site, uplink: u.uplink });
+            if (circ && (circ.isp || circ.circuit_id)) {
+              u.uplink_label = circ.isp ? (circ.circuit_id ? circ.isp + ' (' + circ.circuit_id + ')' : circ.isp) : circ.circuit_id;
+            }
+          }
         } else {
           // poller not yet active → do NOT present the disqualified loss-based figure as availability
           for (const s of sites) for (const u of s.uplinks) { u.availability_pct = null; u.status_color = 'none'; u.basis = 'pending_poller'; }
         }
       } catch (_) { /* availability override is best-effort; quality data already stands */ }
 
-      res.json({ period, as_of: new Date().toISOString().slice(0, 10), poll_active: pollActive, sites });
+      res.json({ period, as_of: new Date().toISOString().slice(0, 10), poll_active: pollActive, window: win, sites });
     } catch (e) { res.json({ sites: [], reason: e.message }); }
   });
 
