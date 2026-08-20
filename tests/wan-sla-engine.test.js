@@ -129,3 +129,21 @@ test('resolutionBreaches: >12h total-interruption breaches crit1, <12h does not'
   const o11 = { attribution: 'isp', detected_start: '2026-08-12T00:00:00Z', restored_end: '2026-08-12T11:00:00Z' };
   assert.equal(resolutionBreaches([o13, o11], SILVER), 1);
 });
+
+// Per-circuit overrides (parametrable per site AND per ISP): a circuit may override the
+// tier's availability target / credit cap / model / min-outage, so two ISPs on the same
+// tier can carry different contractual realities. Circuit wins, tier is the default.
+test('per-circuit overrides win over the tier (target %, credit cap)', () => {
+  const o = { attribution: 'isp', detected_start: '2026-08-05T09:00:00Z', restored_end: '2026-08-05T12:00:00Z' }; // 3h, Wed, office hours
+  const common = { outages: [o], tier: SILVER, maintenance: [], monthStart: AUG1, monthEnd: SEP1, clockStart: 'detection', nowMs: Date.parse('2026-09-15T00:00:00Z') };
+  // Circuit A — stricter ISP contract: target 99.9 %, credit capped at 20 %.
+  const rA = computeCircuitSla({ ...common, circuit: { hours: SILVER_OFFICE, availability_target_pct: 99.9, credit_cap_pct: 20, mrc_amount: 1000 } });
+  assert.equal(rA.met, rA.availability_pct >= 99.9, 'met is measured against the CIRCUIT target (99.9), not the tier (97)');
+  assert.equal(rA.gap_pp, Math.round((99.9 - rA.availability_pct) * 100) / 100, 'gap_pp uses the circuit target');
+  assert.ok(rA.credit_pct <= 20, 'credit capped at the per-circuit cap (20), not the tier cap (100)');
+  // Circuit B — no override → tier default (97) → the SAME outage now MEETS.
+  const rB = computeCircuitSla({ ...common, circuit: { hours: SILVER_OFFICE, mrc_amount: 1000 } });
+  assert.equal(rB.availability_pct, rA.availability_pct, 'same outage → same availability');
+  assert.equal(rB.met, rB.availability_pct >= 97, 'without override, the tier target (97) applies');
+  assert.notEqual(rA.met, rB.met, 'the per-circuit target changes the verdict for the same outage');
+});

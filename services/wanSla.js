@@ -97,6 +97,10 @@ function _clockedDowntime(outages, cal, clockMode, ctx) {
   return counted;
 }
 
+// A field is per-circuit-overridable: the circuit value wins, the tier is the default —
+// so two ISPs on the same tier can carry different realities (parametrable per circuit).
+function _pick(circuit, tier, key) { return (circuit && circuit[key] != null) ? circuit[key] : tier[key]; }
+
 // Pure monthly SLA / chargeback for ONE circuit. No I/O — nowMs/monthStart/
 // monthEnd/maintenance are injected. Returns the binding contract figure
 // (per `clockStart`) plus the objective (`detection`) upper bound.
@@ -112,8 +116,8 @@ function computeCircuitSla({
   nowMs,
 }) {
   const cal = (circuit && circuit.hours) || tier.hours_default;
-  const target = tier.availability_target_pct;
-  const minOutageMinutes = tier.min_outage_minutes;
+  const target = _pick(circuit, tier, 'availability_target_pct');
+  const minOutageMinutes = _pick(circuit, tier, 'min_outage_minutes');
 
   // Completed month → full service hours; in-progress → elapsed (no elapsed-fraction artifact).
   const denomEnd = Math.min(monthEnd, nowMs);
@@ -134,18 +138,19 @@ function computeCircuitSla({
 
   const schedule = (circuit && circuit.credit_schedule) || tier.credit_schedule || [];
   const bands = schedule.slice().sort((a, b) => b.min - a.min);   // min DESC (unsorted-schedule guard)
-  const model = tier.credit_model || 'tiered';
+  const creditCap = _pick(circuit, tier, 'credit_cap_pct');
+  const model = _pick(circuit, tier, 'credit_model') || 'tiered';
   let credit_pct;
   if (availability_pct == null) {
     credit_pct = 0;
   } else if (model === 'prorata') {
     credit_pct = Math.min(
-      tier.credit_cap_pct,
+      creditCap,
       round2(100 * Math.max(0, (counted - allowed_s) / service_seconds)),
     );
   } else {
     const band = bands.find((b) => availability_pct >= b.min);
-    credit_pct = Math.min(band ? band.credit : 0, tier.credit_cap_pct);   // cap % first…
+    credit_pct = Math.min(band ? band.credit : 0, creditCap);   // cap % first…
   }
   const credit_due = credit_pct > 0;
   const gap_pp = availability_pct == null ? null : round2(target - availability_pct);
