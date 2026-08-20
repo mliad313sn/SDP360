@@ -157,3 +157,16 @@ test('per-circuit relève: circuit overrides response.resolution_h.crit1 (tier i
   assert.equal(resolutionBreaches([o13, o11], SILVER, { response: { resolution_h: { crit1: 24 } } }), 0, 'circuit crit1=24h → neither breaches');
   assert.equal(resolutionBreaches([o13, o11], SILVER, { response: { resolution_h: { crit1: 10 } } }), 2, 'circuit crit1=10h → both breach');
 });
+
+const { availability24x7 } = require('../services/wanSla');
+test('availability24x7: 24/7 % up, clamped to the window (event-based, all attributions)', () => {
+  const from = Date.parse('2026-08-09T00:00:00Z'), to = Date.parse('2026-08-16T00:00:00Z'); // 7d = 604800s
+  assert.equal(availability24x7([], from, to), 100, 'no outages → 100%');
+  const o = { detected_start: '2026-08-10T00:00:00Z', restored_end: '2026-08-11T00:00:00Z' }; // 24h
+  assert.equal(availability24x7([o], from, to), 85.71, '24h down of a 7d window');
+  const open = { detected_start: '2026-08-15T00:00:00Z', restored_end: null }; // → clamps to `to` = 24h
+  assert.equal(availability24x7([open], from, to), 85.71, 'open outage clamps to window end');
+  const span = { detected_start: '2026-08-08T00:00:00Z', restored_end: '2026-08-10T00:00:00Z' }; // 1d inside
+  assert.equal(availability24x7([span], from, to), 85.71, 'outage spanning the start clamps to from');
+  assert.equal(availability24x7([o], to, from), null, 'empty/inverted window → null');
+});

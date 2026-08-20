@@ -178,3 +178,11 @@ test('stale-open guard: a 25h-open still-down row is closed with source "stale_o
   assert.equal(openForSite.length, 1, 'exactly one open row — the fresh one');
   assert.equal(openForSite[0].detected_start, T1);
 });
+
+test('heartbeat: a successful poll stamps wan_poll_last_run via setConfig (now)', async () => {
+  const s = seedSite();
+  const stamped = [];
+  await main({ rdb, getConfig: getConfig(s.siteId, {}), client: makeClient(s, 'active'), mailer: makeMailer(),
+    now: '2026-08-10T08:00:00Z', setConfig: async (kv) => stamped.push(kv) });
+  assert.deepEqual(stamped, [{ wan_poll_last_run: '2026-08-10T08:00:00Z' }]);
+});

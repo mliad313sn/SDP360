@@ -81,3 +81,18 @@ test('getWanOutages filters by uplink and detected_start BETWEEN from/to', async
   assert.equal(onlyWan1.length, 1);
   assert.equal(onlyWan1[0].uplink, 'wan1');
 });
+
+test('getWanOutagesOverlapping: returns outages overlapping [from,to] (open + spanning-start), excludes before/after', async () => {
+  rdb.db.exec('DELETE FROM wan_outages');
+  const mk = (start, end) => ({ site_id: 1, sub_site: '', uplink: 'wan1', detected_start: start, restored_end: end,
+    isp: null, circuit_id: null, notified_at: null, duration_s: null, attribution: null, attribution_reason: null,
+    network_id: null, device_serial: null, source: 'meraki_status', raw_json: null });
+  await rdb.upsertWanOutage(mk('2026-08-05T00:00:00Z', '2026-08-06T00:00:00Z')); // before → excluded
+  await rdb.upsertWanOutage(mk('2026-08-08T00:00:00Z', '2026-08-11T00:00:00Z')); // spans start → included
+  await rdb.upsertWanOutage(mk('2026-08-12T00:00:00Z', '2026-08-12T06:00:00Z')); // inside → included
+  await rdb.upsertWanOutage(mk('2026-08-15T00:00:00Z', null));                    // open, inside → included
+  await rdb.upsertWanOutage(mk('2026-08-20T00:00:00Z', '2026-08-21T00:00:00Z')); // after → excluded
+  const got = await rdb.getWanOutagesOverlapping('2026-08-09T00:00:00Z', '2026-08-16T23:59:59Z');
+  assert.deepEqual(got.map(o => o.detected_start).sort(),
+    ['2026-08-08T00:00:00Z', '2026-08-12T00:00:00Z', '2026-08-15T00:00:00Z']);
+});

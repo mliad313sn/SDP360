@@ -106,6 +106,8 @@
       No WAN snapshots yet. Set <b>meraki_api_key</b> in Admin → config and run the sync (nightly, or the <b>Sync now</b> button). Numbers become trustworthy once the calibration step is done.
     </div>
 
+    <div id="wh-basis" class="wh-note" style="margin-bottom:12px"></div>
+
     <div id="wh-grid" class="wh-grid"></div>
 
     <div class="wh-panel">
@@ -207,6 +209,9 @@
     let data; try { data = await api('/api/analytics/wan/summary?period=' + period); } catch { data = { sites: [] }; }
     sites = data.sites || [];
     $('wh-empty').style.display = sites.length ? 'none' : 'block';
+    $('wh-basis').innerHTML = data.poll_active
+      ? 'Disponibilité = <b>event-based</b> (statut uplink Meraki, via le poller SLA). Loss / latence / jitter = qualité (archive Meraki).'
+      : '⏳ Disponibilité event-based <b>en attente du 1<sup>er</sup> passage du poller SLA</b> — les valeurs affichent « — ». Loss / latence / jitter (qualité) restent disponibles.';
     const linkRow = u => `
           <div class="wh-link">
             <span class="wh-dot ${dotClass(u.status_color)}"></span>

@@ -142,6 +142,13 @@ async function main(deps = {}) {
       }
     }
 
+    // Heartbeat: stamp the last successful poll so WAN Health knows monitoring is live
+    // (a mapped circuit with no outages then reads 100%, not '—'). Best-effort.
+    try {
+      const setConfig = deps.setConfig || ((kv) => require('../../services/reportConfig').setConfig(rdb.db, kv));
+      await setConfig({ wan_poll_last_run: now });
+    } catch (e) { /* heartbeat is non-blocking */ }
+
     log(`[wan-poll] down=${downNow.size} opened=${opened} closed=${closed} stale=${staleClosed} notified=${notified} (${now})`);
     return { ok: true, down: downNow.size, opened, closed, stale_closed: staleClosed, notified };
   } catch (e) {

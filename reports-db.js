@@ -2773,6 +2773,19 @@ async function _getWanOutagesPg(f) {
   const { where, params } = _wanOutageWhere(f);
   return pgHandle().prepare(`SELECT * FROM wan_outages${where} ORDER BY detected_start`).all(...params);
 }
+// Outages OVERLAPPING [from,to] (not just detected within it) — for event-based availability
+// over a window: an outage counts if it started at/before `to` AND is still open OR restored
+// at/after `from`. from/to are ISO strings; TEXT-column string compare (no ::date).
+function getWanOutagesOverlapping(from, to) {
+  if (REPORTS_BACKEND === 'postgres') return _getWanOutagesOverlappingPg(from, to);
+  return _getWanOutagesOverlappingSqlite(from, to);
+}
+function _getWanOutagesOverlappingSqlite(from, to) {
+  return db.prepare('SELECT * FROM wan_outages WHERE detected_start<=? AND (restored_end IS NULL OR restored_end>=?) ORDER BY detected_start').all(to, from);
+}
+async function _getWanOutagesOverlappingPg(from, to) {
+  return pgHandle().prepare('SELECT * FROM wan_outages WHERE detected_start<=? AND (restored_end IS NULL OR restored_end>=?) ORDER BY detected_start').all(to, from);
+}
 function listOpenWanOutages() {
   if (REPORTS_BACKEND === 'postgres') return _listOpenWanOutagesPg();
   return _listOpenWanOutagesSqlite();
@@ -8012,7 +8025,7 @@ module.exports = {
   getSiteTechnicianStats, _computeTechStats,
   getPreviousWeek, ensureWeek, getWeekRange,
   ensureReport, getReport, listReports,
-  saveInfraKpis, upsertInfraSnapshots, getInfraSnapshots, upsertWanSnapshots, getWanSnapshots, upsertWanOutage, getWanOutages, listOpenWanOutages, closeWanOutage, reconcileProvisionalOutage, saveHelpdeskData, saveLights, saveActionItems, _backfillActionUids,
+  saveInfraKpis, upsertInfraSnapshots, getInfraSnapshots, upsertWanSnapshots, getWanSnapshots, upsertWanOutage, getWanOutages, getWanOutagesOverlapping, listOpenWanOutages, closeWanOutage, reconcileProvisionalOutage, saveHelpdeskData, saveLights, saveActionItems, _backfillActionUids,
   getRoadmap, upsertRoadmapObjective, addRoadmapDeliverable, updateRoadmapDeliverable, deleteRoadmapDeliverable,
   getRoadmapTraining, addRoadmapTraining, updateRoadmapTraining, deleteRoadmapTraining,
   getRoadmapProject, addRoadmapAction, updateRoadmapAction, deleteRoadmapAction,

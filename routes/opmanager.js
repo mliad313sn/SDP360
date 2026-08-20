@@ -156,12 +156,46 @@ module.exports = function opmanagerRoutes(deps) {
   router.get('/api/analytics/wan/summary', requireReportSession, async (req, res) => {
     try {
       const { latestPerSite } = require('../services/wanDashboard');
+      const { availability24x7 } = require('../services/wanSla');
+      const { statusColor } = require('../services/merakiWanQuality');
       const period = req.query.period === 'month' ? 'month' : 'week';
       const rows = await rdb.getWanSnapshots({ period_type: period });
       const siteList = (await rdb.listSites({ includeInactive: true })) || [];
       const nameById = {}; for (const s of siteList) nameById[s.id] = s.name;
       const sites = latestPerSite(rows).map(s => ({ ...s, site_name: nameById[s.site_id] || null }));
-      res.json({ period, as_of: new Date().toISOString().slice(0, 10), sites });
+
+      // FAITHFUL availability = event-based, from the poller's outage log (Meraki uplink
+      // status) — NOT the disqualified loss-derived snapshot value. Only when the poller has
+      // run (heartbeat wan_poll_last_run); otherwise availability is '—' (never a fabricated %).
+      // loss/latency/jitter stay from the snapshot (they are quality, and accurate).
+      let pollActive = false;
+      try {
+        const cfg = await require('../services/reportConfig').getConfig(rdb.db);
+        pollActive = !!(cfg && cfg.wan_poll_last_run);
+        let target = 98; try { const t = JSON.parse(cfg && cfg.opm_targets || '{}'); if (t && t.wan != null) target = Number(t.wan); } catch (_) {}
+        if (pollActive && sites.length) {
+          let minFrom = null, maxTo = null;
+          for (const s of sites) for (const u of s.uplinks) {
+            const f = (u.period_start || '') + 'T00:00:00Z'; if (u.period_start && (!minFrom || f < minFrom)) minFrom = f;
+            const end = u.period_end || u.period_start; const t = (end || '') + 'T23:59:59Z'; if (end && (!maxTo || t > maxTo)) maxTo = t;
+          }
+          let outages = [];
+          if (minFrom && maxTo) { try { outages = (await rdb.getWanOutagesOverlapping(minFrom, maxTo)) || []; } catch (_) { outages = []; } }
+          for (const s of sites) for (const u of s.uplinks) {
+            const fMs = Date.parse((u.period_start || '') + 'T00:00:00Z'), tMs = Date.parse((u.period_end || u.period_start || '') + 'T23:59:59Z');
+            const mine = outages.filter(o => o.site_id === s.site_id && (o.sub_site || '') === (u.sub_site || '') && o.uplink === u.uplink);
+            const av = (tMs > fMs) ? availability24x7(mine, fMs, tMs) : null;
+            u.availability_pct = av;
+            u.status_color = (av == null) ? 'none' : statusColor(av, target);
+            u.basis = 'event';
+          }
+        } else {
+          // poller not yet active → do NOT present the disqualified loss-based figure as availability
+          for (const s of sites) for (const u of s.uplinks) { u.availability_pct = null; u.status_color = 'none'; u.basis = 'pending_poller'; }
+        }
+      } catch (_) { /* availability override is best-effort; quality data already stands */ }
+
+      res.json({ period, as_of: new Date().toISOString().slice(0, 10), poll_active: pollActive, sites });
     } catch (e) { res.json({ sites: [], reason: e.message }); }
   });
 

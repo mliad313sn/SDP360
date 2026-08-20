@@ -78,6 +78,10 @@ const DEFAULTS = {
   //    JSON string (like asset_depreciation_config). Must live here or setConfig's
   //    KEYS filter silently drops the admin's write and the module stays inert.
   sla_wan_config: JSON.stringify(require('./slaWanConfig').DEFAULT_SLA_WAN_CONFIG),
+  // Heartbeat: the WAN outage poller stamps its last-run ISO timestamp here. WAN Health uses
+  // it to know monitoring is live → a circuit with no outages reads 100% (not '—'); if unset
+  // (poller never ran), event-based availability is '—' rather than a fabricated 100%.
+  wan_poll_last_run: '',
 };
 const KEYS = Object.keys(DEFAULTS);
 

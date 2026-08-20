@@ -309,10 +309,31 @@ function _intersectsMaintenance(o, a, maintenance) {
   return false;
 }
 
+// Plain 24/7 availability over a window from the poller's outage log — the FAITHFUL
+// availability for WAN Health / the report (Meraki's uplink status, event-based), as
+// opposed to the disqualified loss-derived snapshot. Counts EVERY outage (any attribution:
+// this is raw uplink availability, not the ISP-chargeback figure). Each outage is clamped to
+// [fromMs,toMs]; an open outage (restored_end null) runs to toMs. null if the window is empty.
+function availability24x7(outages, fromMs, toMs) {
+  const win = toMs - fromMs;
+  if (!(win > 0)) return null;
+  let down = 0;
+  for (const o of (outages || [])) {
+    if (!o) continue;
+    const s = _toMs(o.detected_start);
+    if (s == null) continue;
+    const e = o.restored_end == null ? toMs : _toMs(o.restored_end);
+    const cs = Math.max(s, fromMs), ce = Math.min(e == null ? toMs : e, toMs);
+    if (ce > cs) down += (ce - cs);
+  }
+  return round2(100 * (1 - down / win));
+}
+
 module.exports = {
   serviceSecondsBetween,
   clipToService,
   computeCircuitSla,
+  availability24x7,
   resolutionBreaches,
   pairEvents,
   attributeOutages,

@@ -7,7 +7,8 @@ function _cell(r) {
     uplink: r.uplink, sub_site: r.sub_site || '', availability_pct: r.availability_pct, status_color: r.status_color || 'none',
     loss_pct_avg: r.loss_pct_avg, latency_ms_avg: r.latency_ms_avg, jitter_ms_avg: r.jitter_ms_avg,
     goodput_avg: r.goodput_avg, uplink_label: r.uplink_label || null,
-    period_start: r.period_start, data_through: r.data_through || null, basis: r.basis || null,
+    period_start: r.period_start, period_end: r.period_end || null,
+    data_through: r.data_through || null, basis: r.basis || null,
   };
 }
 
