@@ -6491,7 +6491,9 @@ app.get('/api/reports/:id/infra-auto', requireReportSession, async (req, res) =>
       }
       let outages = [];
       if (minFrom && maxTo) { try { outages = (await rdb.getWanOutagesOverlapping(minFrom, maxTo)) || []; } catch (_) { outages = []; } }
-      require('./services/wanEventAvailability').applyEventAvailability(wan, outages, { target: wanTarget });
+      const wanFirstRunMs = cfg.wan_poll_first_run ? Date.parse(cfg.wan_poll_first_run) : null;
+      require('./services/wanEventAvailability').applyEventAvailability(wan, outages, {
+        target: wanTarget, minFromMs: (wanFirstRunMs && Number.isFinite(wanFirstRunMs)) ? wanFirstRunMs : undefined });
       for (const u of wan) u.trend = null;   // no event-based trend yet — don't show a loss-derived arrow next to an event figure
     } else {
       for (const u of wan) { u.availability_pct = null; u.status_color = 'none'; u.basis = 'pending_poller'; }

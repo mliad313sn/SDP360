@@ -5,7 +5,64 @@
 // target-driven RAG, and null (never a fabricated %) on an invalid window.
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { applyEventAvailability, eventAvailability } = require('../services/wanEventAvailability');
+const { applyEventAvailability, applySiteEventAvailability, eventAvailability, siteEventAvailability } = require('../services/wanEventAvailability');
+
+// ── On-the-fly device-offline: when BOTH uplinks of a device are down at once, that overlap is
+// excluded from the denominator IMMEDIATELY (no wait for the nightly 'site' attribution). This
+// is what makes a MANA-style both-down (both uplinks identical, e.g. 60.7%) read ~100% again.
+const _W_FROM = Date.parse('2026-08-09T00:00:00Z'), _W_TO = Date.parse('2026-08-16T00:00:00Z'); // 7d
+const _DAY = ['2026-08-10T00:00:00Z', '2026-08-11T00:00:00Z'];
+const _row = (uplink, start, end, attribution) => ({ uplink, detected_start: start, restored_end: end, attribution });
+const _byUplink = (os) => (u) => os.filter(o => o.uplink === u.uplink);
+
+test('cross-uplink: BOTH uplinks down the same 24h = device offline → both stay 100% (on the fly, no attribution)', () => {
+  const os = [_row('wan1', ..._DAY), _row('wan2', ..._DAY)];
+  assert.deepEqual(siteEventAvailability([{ uplink: 'wan1' }, { uplink: 'wan2' }], _byUplink(os), _W_FROM, _W_TO), [100, 100]);
+});
+
+test('one uplink down while the other is up = ISP fault → that uplink counts (85.71%), the other 100%', () => {
+  const os = [_row('wan1', ..._DAY)];   // only wan1 down
+  assert.deepEqual(siteEventAvailability([{ uplink: 'wan1' }, { uplink: 'wan2' }], _byUplink(os), _W_FROM, _W_TO), [85.71, 100]);
+});
+
+test('partial overlap: only the both-down window is excluded; each keeps its ISP-only downtime', () => {
+  const os = [
+    _row('wan1', '2026-08-09T00:00:00Z', '2026-08-11T00:00:00Z'),   // 0–48h
+    _row('wan2', '2026-08-10T00:00:00Z', '2026-08-12T00:00:00Z'),   // 24–72h  → overlap 24–48h (24h) excluded
+  ];
+  // denom = 168h − 24h = 144h; each counts 24h ISP-only → (144−24)/144 = 83.33%
+  assert.deepEqual(siteEventAvailability([{ uplink: 'wan1' }, { uplink: 'wan2' }], _byUplink(os), _W_FROM, _W_TO), [83.33, 83.33]);
+});
+
+test('a single-uplink device cannot infer device-offline → its down time counts (like Meraki)', () => {
+  assert.equal(siteEventAvailability([{ uplink: 'wan1' }], _byUplink([_row('wan1', ..._DAY)]), _W_FROM, _W_TO)[0], 85.71);
+});
+
+test('applySiteEventAvailability mutates cells; both-down → 100% event, green', () => {
+  const cells = [{ site_id: 1, sub_site: '', uplink: 'wan1' }, { site_id: 1, sub_site: '', uplink: 'wan2' }];
+  const os = [{ site_id: 1, sub_site: '', uplink: 'wan1', detected_start: _DAY[0], restored_end: _DAY[1] },
+              { site_id: 1, sub_site: '', uplink: 'wan2', detected_start: _DAY[0], restored_end: _DAY[1] }];
+  applySiteEventAvailability(cells, os, { target: 98, fromMs: _W_FROM, toMs: _W_TO });
+  assert.equal(cells[0].availability_pct, 100); assert.equal(cells[0].status_color, 'green'); assert.equal(cells[0].basis, 'event');
+  assert.equal(cells[1].availability_pct, 100);
+});
+
+// ── minFromMs: availability is only meaningful over the time actually COLLECTED. Clamp the
+// denominator to when monitoring began, so a not-yet-full week/month isn't inflated by counting
+// the un-monitored span as up (the user's proportional-to-collection-time point).
+test('minFromMs clamps the denominator to the collected time (24h of a 3-day collected window → 66.67%, not 85.71% of a fabricated 7-day one)', () => {
+  const cells = [{ site_id: 1, sub_site: '', uplink: 'wan1' }];
+  const os = [{ site_id: 1, sub_site: '', uplink: 'wan1', detected_start: '2026-08-14T00:00:00Z', restored_end: '2026-08-15T00:00:00Z' }]; // 24h
+  applySiteEventAvailability(cells, os, { target: 98, fromMs: _W_FROM, toMs: _W_TO, minFromMs: Date.parse('2026-08-13T00:00:00Z') });
+  assert.equal(cells[0].availability_pct, 66.67);
+});
+
+test('minFromMs at/after the window end → null (no coverage, never a fabricated 100%)', () => {
+  const cells = [{ site_id: 1, sub_site: '', uplink: 'wan1' }];
+  applySiteEventAvailability(cells, [], { target: 98, fromMs: _W_FROM, toMs: _W_TO, minFromMs: _W_TO + 86400000 });
+  assert.equal(cells[0].availability_pct, null);
+  assert.equal(cells[0].status_color, 'none');
+});
 
 // ── Meraki-aligned denominator: availability = uplink up WHILE THE MX IS ONLINE ÷ time MX online.
 // Device-offline ('site' = both uplinks down / power) + planned 'maintenance' leave the denominator;

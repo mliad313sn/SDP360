@@ -151,7 +151,11 @@ async function main(deps = {}) {
     // (a mapped circuit with no outages then reads 100%, not '—'). Best-effort.
     try {
       const setConfig = deps.setConfig || ((kv) => require('../../services/reportConfig').setConfig(rdb.db, kv));
-      await setConfig({ wan_poll_last_run: now });
+      const hb = { wan_poll_last_run: now };
+      // Stamp when monitoring BEGAN (once, never overwritten) — availability is only meaningful
+      // over the time actually collected, so the denominator is clamped to this.
+      if (!config.wan_poll_first_run) hb.wan_poll_first_run = now;
+      await setConfig(hb);
     } catch (e) { /* heartbeat is non-blocking */ }
 
     log(`[wan-poll] down=${downNow.size} opened=${opened} closed=${closed} stale=${staleClosed} notified=${notified} (${now})`);

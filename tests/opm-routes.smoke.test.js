@@ -193,6 +193,17 @@ test('wan summary + trend read wan_link_snapshots (V1b-D)', async () => {
   const w2 = site.uplinks.find(u => u.uplink === 'wan2');
   assert.equal(w2.availability_pct, 100, 'wan2 has no outage → 100% event-based');
 
+  // (C) device-offline on the fly: seed the SAME 24h outage on wan2 too → BOTH uplinks down
+  // together = power/site outage → the overlap is excluded → both read ~100% (the MANA-style
+  // symmetric case, corrected without waiting for the nightly 'site' attribution).
+  await rdb.upsertWanOutage({ site_id: mgoSiteId, sub_site: '', uplink: 'wan2',
+    detected_start: isoAgo(3), restored_end: isoAgo(2), source: 'meraki_status' });
+  const both = await get('/api/analytics/wan/summary?period=week', adminToken);
+  const siteB = (both.body.sites || []).find(s => s.site_id === mgoSiteId);
+  const b1 = siteB.uplinks.find(u => u.uplink === 'wan1'), b2 = siteB.uplinks.find(u => u.uplink === 'wan2');
+  assert.equal(b1.availability_pct, 100, 'both uplinks down together = device offline → wan1 excluded → 100%');
+  assert.equal(b2.availability_pct, 100, 'wan2 likewise → 100%');
+
   const tr = await get('/api/analytics/wan/trend?site=MGO&period=week', adminToken);
   assert.equal(tr.status, 200);
   assert.equal(tr.body.site_id, mgoSiteId);

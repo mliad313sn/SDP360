@@ -82,6 +82,7 @@ const DEFAULTS = {
   // it to know monitoring is live → a circuit with no outages reads 100% (not '—'); if unset
   // (poller never ran), event-based availability is '—' rather than a fabricated 100%.
   wan_poll_last_run: '',
+  wan_poll_first_run: '',   // when WAN monitoring began — availability denominator is clamped to it
 };
 const KEYS = Object.keys(DEFAULTS);
 

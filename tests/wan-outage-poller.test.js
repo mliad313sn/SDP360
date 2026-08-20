@@ -201,10 +201,21 @@ test('stale-open guard: a 25h-open still-down row is closed with source "stale_o
   assert.equal(openForSite[0].detected_start, T1);
 });
 
-test('heartbeat: a successful poll stamps wan_poll_last_run via setConfig (now)', async () => {
+test('heartbeat: the FIRST poll stamps both wan_poll_last_run AND wan_poll_first_run (now)', async () => {
   const s = seedSite();
   const stamped = [];
   await main({ rdb, getConfig: getConfig(s.siteId, {}), client: makeClient(s, 'active'), mailer: makeMailer(),
     now: '2026-08-10T08:00:00Z', setConfig: async (kv) => stamped.push(kv) });
-  assert.deepEqual(stamped, [{ wan_poll_last_run: '2026-08-10T08:00:00Z' }]);
+  assert.deepEqual(stamped, [{ wan_poll_last_run: '2026-08-10T08:00:00Z', wan_poll_first_run: '2026-08-10T08:00:00Z' }]);
+});
+
+test('heartbeat: a later poll updates last_run but NEVER overwrites first_run', async () => {
+  const s = seedSite();
+  const stamped = [];
+  const getCfg = async () => ({ meraki_api_key: 'k',
+    sla_wan_config: JSON.stringify({ tiers: { SILVER: {} }, circuits: [] }),
+    wan_poll_first_run: '2026-08-01T00:00:00Z' });   // monitoring already begun
+  await main({ rdb, getConfig: getCfg, client: makeClient(s, 'active'), mailer: makeMailer(),
+    now: '2026-08-10T08:00:00Z', setConfig: async (kv) => stamped.push(kv) });
+  assert.deepEqual(stamped, [{ wan_poll_last_run: '2026-08-10T08:00:00Z' }], 'first_run kept — only last_run updated');
 });

@@ -156,8 +156,7 @@ module.exports = function opmanagerRoutes(deps) {
   router.get('/api/analytics/wan/summary', requireReportSession, async (req, res) => {
     try {
       const { latestPerSite } = require('../services/wanDashboard');
-      const { eventAvailability } = require('../services/wanEventAvailability');
-      const { statusColor } = require('../services/merakiWanQuality');
+      const { applySiteEventAvailability } = require('../services/wanEventAvailability');
       const { parseSlaWanConfig, resolveCircuit } = require('../services/slaWanConfig');
       const period = req.query.period === 'month' ? 'month' : 'week';
       const rows = await rdb.getWanSnapshots({ period_type: period });
@@ -185,17 +184,29 @@ module.exports = function opmanagerRoutes(deps) {
           const fromISO = (period === 'month')
             ? toISO.slice(0, 8) + '01T00:00:00.000Z'
             : new Date(nowD.getTime() - 7 * 86400000).toISOString();
-          win = { from: fromISO, to: toISO };
+          // Denominator = time actually COLLECTED: clamp the window start to when monitoring began
+          // (wan_poll_first_run), so a not-yet-full week/month isn't inflated by counting the
+          // un-monitored span as up. requested_from is kept for the UI.
+          const firstRun = cfg.wan_poll_first_run ? Date.parse(cfg.wan_poll_first_run) : null;
           const fMs = Date.parse(fromISO), tMs = Date.parse(toISO);
+          const effFromMs = (firstRun && Number.isFinite(firstRun)) ? Math.max(fMs, firstRun) : fMs;
+          const effFromISO = new Date(effFromMs).toISOString();
+          win = { from: effFromISO, to: toISO, requested_from: fromISO };
           let outages = [];
-          try { outages = (await rdb.getWanOutagesOverlapping(fromISO, toISO)) || []; } catch (_) { outages = []; }
+          try { outages = (await rdb.getWanOutagesOverlapping(effFromISO, toISO)) || []; } catch (_) { outages = []; }
           const circuits = parseSlaWanConfig(cfg.sla_wan_config);   // to name each link by its ISP once mapped
+          // Group uplinks by DEVICE (site_id, sub_site) so a both-down period (device offline /
+          // power) is excluded on the fly — the symmetric both-uplinks-identical figures were real
+          // SITE outages that A must exclude, but the nightly 'site' attribution hadn't run yet.
+          const groups = new Map();
           for (const s of sites) for (const u of s.uplinks) {
-            const mine = outages.filter(o => o.site_id === s.site_id && (o.sub_site || '') === (u.sub_site || '') && o.uplink === u.uplink);
-            const av = eventAvailability(mine, fMs, tMs);            // the ONE shared event-based core (report cell uses it too)
-            u.availability_pct = av;
-            u.status_color = (av == null) ? 'none' : statusColor(av, target);
-            u.basis = 'event';
+            u.site_id = s.site_id;
+            const k = s.site_id + '|' + (u.sub_site || '');
+            if (!groups.has(k)) groups.set(k, []);
+            groups.get(k).push(u);
+          }
+          for (const g of groups.values()) applySiteEventAvailability(g, outages, { target, fromMs: effFromMs, toMs: tMs });
+          for (const s of sites) for (const u of s.uplinks) {
             const circ = resolveCircuit(circuits, { site_id: s.site_id, sub_site: u.sub_site, uplink: u.uplink });
             if (circ && (circ.isp || circ.circuit_id)) {
               u.uplink_label = circ.isp ? (circ.circuit_id ? circ.isp + ' (' + circ.circuit_id + ')' : circ.isp) : circ.circuit_id;
