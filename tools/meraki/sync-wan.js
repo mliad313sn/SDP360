@@ -101,6 +101,11 @@ async function main(deps = {}) {
           const seriesList = [];
           for (const ip of destIps) seriesList.push((await client.deviceLossLatencyHistory({ serial: dev.serial, uplink: up.interface, ip, t0, t1, resolution })) || []);
           const series = mergeDestinationSeries(seriesList);   // up if ANY destination responded
+          // No samples at all (a warm-spare MX whose uplinks read 'not connected', or an API
+          // gap) → skip: don't push a null row that would OVERWRITE the active MX's good data
+          // for the same (site, uplink, period) key. (Fixes MANA reading '—' — two MX in one
+          // network, the spare clobbering the master.)
+          if (!series.length) continue;
           const q = deriveAvailability(series, { totalIntervals, missing });   // derived ONCE per uplink/period; fanned to every target
           for (const t of targets) {
             rows.push({

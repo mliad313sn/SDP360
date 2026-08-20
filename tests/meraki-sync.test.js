@@ -129,3 +129,34 @@ test('suffix-tolerant site match: a "... - appliance" network maps to the base-n
   assert.ok(cap.upserts.length > 0, 'appliance-suffixed network resolves to the site');
   assert.equal(cap.upserts[0].site_id, 9);
 });
+
+test('two MX in one network (master + warm spare): the spare empty result does not overwrite master data', async () => {
+  const cap = { upserts: [] };
+  const client = {
+    // master FIRST, spare (empty) LAST — so the old last-wins upsert would clobber master with null.
+    orgUplinkStatuses: async () => [
+      { networkId: 'N1', serial: 'Q2-MASTER', uplinks: [{ interface: 'wan1', status: 'active' }] },
+      { networkId: 'N1', serial: 'Q2-SPARE',  uplinks: [{ interface: 'wan1', status: 'not connected' }] },
+    ],
+    orgUplinksLossLatency: async () => [{ serial: 'Q2-MASTER', uplink: 'wan1', ip: '8.8.8.8' }],
+    deviceLossLatencyHistory: async ({ serial }) => serial === 'Q2-MASTER'
+      ? Array.from({ length: 168 }, (_, i) => ({ startTs: `t${i}`, endTs: `t${i}`, lossPercent: 0, latencyMs: 20, jitter: 2, goodput: 1000 }))
+      : [],   // warm spare: no samples
+  };
+  const rdb = {
+    listSiteModuleCodes: async (m) => (m === 'meraki' ? [{ code: 'Mana Gold Operations', site_id: 3, module: 'meraki' }] : []),
+    upsertWanSnapshots: async (rows) => { cap.upserts.push(...rows); },
+  };
+  const deps = {
+    client, rdb,
+    getConfig: async () => ({ meraki_api_key: 'K', meraki_org_id: 'O', opm_targets: JSON.stringify({ wan: 98 }), meraki_missing_policy: 'down' }),
+    networkNameById: () => 'Mana Gold Operations', now: '2026-08-16T05:20:00Z',
+    asOfWeek: { period_start: '2026-08-09', period_end: '2026-08-15' }, asOfMonth: { period_start: '2026-08-01', period_end: '2026-08-31' }, log: () => {},
+  };
+  const r = await main(deps);
+  assert.equal(r.ok, true);
+  const wk = cap.upserts.filter(u => u.period_type === 'week' && u.uplink === 'wan1');
+  assert.equal(wk.length, 1, 'only the master (with data) produced a row — the empty spare is skipped');
+  assert.equal(wk[0].availability_pct, 100, 'master data preserved, not overwritten by the spare null');
+  assert.equal(wk[0].device_serial, 'Q2-MASTER');
+});
