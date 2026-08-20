@@ -147,3 +147,13 @@ test('per-circuit overrides win over the tier (target %, credit cap)', () => {
   assert.equal(rB.met, rB.availability_pct >= 97, 'without override, the tier target (97) applies');
   assert.notEqual(rA.met, rB.met, 'the per-circuit target changes the verdict for the same outage');
 });
+
+// Per-circuit relève (response SLA): a circuit may override the tier's resolution_h.crit1,
+// so an ISP with a different repair-time commitment is honoured (parametrable per circuit).
+test('per-circuit relève: circuit overrides response.resolution_h.crit1 (tier is the default)', () => {
+  const o13 = { attribution: 'isp', detected_start: '2026-08-05T00:00:00Z', restored_end: '2026-08-05T13:00:00Z' }; // 13h
+  const o11 = { attribution: 'isp', detected_start: '2026-08-06T00:00:00Z', restored_end: '2026-08-06T11:00:00Z' }; // 11h
+  assert.equal(resolutionBreaches([o13, o11], SILVER), 1, 'tier default crit1=12h → only the 13h breaches');
+  assert.equal(resolutionBreaches([o13, o11], SILVER, { response: { resolution_h: { crit1: 24 } } }), 0, 'circuit crit1=24h → neither breaches');
+  assert.equal(resolutionBreaches([o13, o11], SILVER, { response: { resolution_h: { crit1: 10 } } }), 2, 'circuit crit1=10h → both breach');
+});

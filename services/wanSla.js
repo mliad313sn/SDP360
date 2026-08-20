@@ -178,8 +178,11 @@ function computeCircuitSla({
 // Count 'isp' outages whose TOTAL-interruption duration (wall-clock, unclipped —
 // every event-log outage is Niveau-1 total interruption) exceeds the tier's
 // resolution (relève) SLA for crit1. Still-open outages don't breach.
-function resolutionBreaches(outages = [], tier) {
-  const limit = tier.response.resolution_h.crit1;
+function resolutionBreaches(outages = [], tier, circuit) {
+  // relève (repair-time) SLA is per-circuit-overridable: the circuit's
+  // response.resolution_h.crit1 wins, the tier is the default.
+  const c = circuit && circuit.response && circuit.response.resolution_h;
+  const limit = (c && c.crit1 != null) ? c.crit1 : tier.response.resolution_h.crit1;
   let n = 0;
   for (const o of outages) {
     if (!o || o.attribution !== 'isp' || !o.restored_end) continue;

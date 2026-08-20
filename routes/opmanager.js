@@ -236,7 +236,7 @@ module.exports = function opmanagerRoutes(deps) {
         circuits.push({
           site_id, sub_site, uplink, tier: c.tier, isp: resolved.isp || null,
           circuit_id: resolved.circuit_id || null, outage_count: outages.length,
-          resolution_breaches: resolutionBreaches(outages, resolved.tier), ...sla });
+          resolution_breaches: resolutionBreaches(outages, resolved.tier, resolved), ...sla });
       }
 
       // UNMAPPED — distinct (site_id, sub_site, uplink) with month outages that match no circuit.
