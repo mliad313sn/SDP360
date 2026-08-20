@@ -46,6 +46,11 @@ before(async () => {
     availability_pct: 99.86, status_color: 'green', trend: 'up', device_serial: 'Q2-AB', network_id: 'N1',
     data_through: start, collected_at: start + 'T05:20:00Z', source: 'meraki_api', raw_json: null,
   }]);
+  // V1b-C event-based: the WAN cell fills from the poller's outage log, NOT the loss-derived
+  // snapshot %. Activate the poller heartbeat + seed a 1h outage in the report week → 95.83%.
+  await require('../services/reportConfig').setConfig(rdb.db, { wan_poll_last_run: start + 'T05:00:00Z' });
+  await rdb.upsertWanOutage({ site_id: site.id, sub_site: '', uplink: 'wan1',
+    detected_start: start + 'T02:00:00Z', restored_end: start + 'T03:00:00Z', source: 'meraki_status' });
   await rdb.upsertInfraSnapshots([{
     site_id: site.id, period_type: 'week', period_start: start, period_end: start,
     kpi_family: 'lan', metric_name: 'availability', metric_value: 98, target_value: 99,
@@ -65,13 +70,14 @@ before(async () => {
 });
 after(() => { try { server && server.close(); } catch {} });
 
-test('report with snapshots → wan1 + lan fills', async () => {
+test('report with snapshots → wan1 (event-based) + lan fills', async () => {
   const r = await get(`/api/reports/${reportId}/infra-auto`, adminToken);
   assert.equal(r.status, 200);
   assert.ok(Array.isArray(r.body.fills));
   const by = Object.fromEntries(r.body.fills.map(f => [f.match, f]));
   assert.ok(by.wan1, 'wan1 fill present');
-  assert.equal(by.wan1.value, '99.9%');
+  assert.equal(by.wan1.value, '95.8%', 'event-based: 1h down of the report day → 95.8% (not the loss-derived 99.86)');
+  assert.equal(by.wan1.basis, 'event');
   assert.equal(by.wan1.source, 'meraki');
   assert.ok(by.lan, 'lan fill present');
   assert.equal(by.lan.value, '98%');
@@ -101,4 +107,16 @@ test('infra-auto payload carries the site tokens list', async () => {
   assert.equal(r.status, 200);
   assert.ok(Array.isArray(r.body.tokens), 'tokens is an array');
   assert.ok(r.body.tokens.includes('FETEKRO'), 'tokens includes the configured sub-site');
+});
+
+// Runs last (it unsets the heartbeat): with no poller run, the WAN cell must NOT auto-fill —
+// the report stays blank rather than showing the disqualified loss-derived % or a fabricated one.
+test('poller inactive → NO wan fill (never a fabricated %), lan still fills', async () => {
+  const rdb = require('../reports-db');
+  await require('../services/reportConfig').setConfig(rdb.db, { wan_poll_last_run: '' });
+  const r = await get(`/api/reports/${reportId}/infra-auto`, adminToken);
+  assert.equal(r.status, 200);
+  const by = Object.fromEntries(r.body.fills.map(f => [f.match, f]));
+  assert.ok(!by.wan1, 'no wan fill until the poller has run — the cell stays blank, honest');
+  assert.ok(by.lan, 'lan fill still present (OpManager, unaffected by the WAN poller)');
 });

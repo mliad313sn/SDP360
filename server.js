@@ -6476,6 +6476,27 @@ app.get('/api/reports/:id/infra-auto', requireReportSession, async (req, res) =>
     const start = report.start_date;                       // Zoho Sunday = weeks.start_date
     const wan = await rdb.getWanSnapshots({ site_id: report.site_id, period_type: 'week', period_start: start });
     const infra = await rdb.getInfraSnapshots({ site_id: report.site_id, period_type: 'week', period_start: start });
+
+    // FAITHFUL WAN availability = event-based (the poller's Meraki uplink-status outage log),
+    // the SAME shared path the WAN Health dashboard uses so the report cell and the dashboard
+    // can never disagree — NOT the disqualified loss-derived snapshot %. Only when the poller
+    // has run (heartbeat wan_poll_last_run); otherwise WAN availability is null → no wan fill
+    // (never a fabricated %). loss/latency quality is unaffected (the report cell shows a %).
+    if (wan.length && cfg.wan_poll_last_run) {
+      let wanTarget = 98; try { const t = JSON.parse(cfg.opm_targets || '{}'); if (t && t.wan != null) wanTarget = Number(t.wan); } catch (_) {}
+      let minFrom = null, maxTo = null;
+      for (const u of wan) {
+        const f = (u.period_start || '') + 'T00:00:00Z'; if (u.period_start && (!minFrom || f < minFrom)) minFrom = f;
+        const end = u.period_end || u.period_start; const tt = (end || '') + 'T23:59:59Z'; if (end && (!maxTo || tt > maxTo)) maxTo = tt;
+      }
+      let outages = [];
+      if (minFrom && maxTo) { try { outages = (await rdb.getWanOutagesOverlapping(minFrom, maxTo)) || []; } catch (_) { outages = []; } }
+      require('./services/wanEventAvailability').applyEventAvailability(wan, outages, { target: wanTarget });
+      for (const u of wan) u.trend = null;   // no event-based trend yet — don't show a loss-derived arrow next to an event figure
+    } else {
+      for (const u of wan) { u.availability_pct = null; u.status_color = 'none'; u.basis = 'pending_poller'; }
+    }
+
     const fills = buildFills({ wan, infra, staleDays, nowMs: Date.now() });
     // Per-site sub-site tokens (Exploration) — for the client to token-gate its line
     // matching. Row-driven; NOT passed into buildFills (buildFills is snapshot-driven).

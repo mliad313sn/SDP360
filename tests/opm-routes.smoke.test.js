@@ -159,12 +159,34 @@ test('wan summary + trend read wan_link_snapshots (V1b-D)', async () => {
       device_serial: 'Q2-AB', network_id: 'N1', data_through: today, collected_at: today + 'T05:20:00Z', source: 'meraki_api', raw_json: null },
   ]);
 
+  // (A) Poller not yet run → availability is '—' (null / pending_poller), NEVER the
+  // disqualified loss-derived snapshot %. Quality (loss/latency) still comes from the snapshot.
+  const pending = await get('/api/analytics/wan/summary?period=week', adminToken);
+  assert.equal(pending.status, 200);
+  assert.equal(pending.body.poll_active, false, 'no heartbeat → poll_active false');
+  const sitePend = (pending.body.sites || []).find(s => s.site_id === mgoSiteId);
+  assert.ok(sitePend && sitePend.uplinks.length === 2, 'seeded site with 2 uplinks');
+  const w1Pend = sitePend.uplinks.find(u => u.uplink === 'wan1');
+  assert.equal(w1Pend.availability_pct, null, 'availability null until the poller has run');
+  assert.equal(w1Pend.basis, 'pending_poller');
+  assert.equal(w1Pend.loss_pct_avg, 0.08, 'loss/latency quality still served from the snapshot');
+
+  // (B) Poller active (heartbeat set) + a 1h outage today → event-based availability (~95.83%),
+  // basis 'event'. wan2 (no outage) reads 100%.
+  await require('../services/reportConfig').setConfig(rdb.db, { wan_poll_last_run: today + 'T05:00:00Z' });
+  await rdb.upsertWanOutage({ site_id: mgoSiteId, sub_site: '', uplink: 'wan1',
+    detected_start: today + 'T02:00:00Z', restored_end: today + 'T03:00:00Z', source: 'meraki_status' });
   const sum = await get('/api/analytics/wan/summary?period=week', adminToken);
   assert.equal(sum.status, 200);
+  assert.equal(sum.body.poll_active, true, 'heartbeat → poll_active true');
   const site = (sum.body.sites || []).find(s => s.site_id === mgoSiteId);
   assert.ok(site, 'seeded site in summary');
   assert.equal(site.uplinks.length, 2);
-  assert.ok(site.uplinks.find(u => u.uplink === 'wan1' && u.availability_pct === 99.86));
+  const w1 = site.uplinks.find(u => u.uplink === 'wan1');
+  assert.equal(w1.basis, 'event', 'availability now event-based');
+  assert.ok(w1.availability_pct > 95 && w1.availability_pct < 96, `1h down of a day → ~95.83%, got ${w1.availability_pct}`);
+  const w2 = site.uplinks.find(u => u.uplink === 'wan2');
+  assert.equal(w2.availability_pct, 100, 'wan2 has no outage → 100% event-based');
 
   const tr = await get('/api/analytics/wan/trend?site=MGO&period=week', adminToken);
   assert.equal(tr.status, 200);

@@ -2847,6 +2847,30 @@ function _serviceToFill(name) {
 // come from the snapshot (agrees with the WAN Health dashboard). manual=true → the button
 // (always fills empty cells); manual=false → silent on open. No-op unless the report is
 // editable and there is data (unconfigured → empty fills → nothing happens).
+// Explanatory hover for an auto-filled Infrastructure value — says WHAT the number is and
+// how it was measured, so the coordinator understands (esp. the WAN event-based nuance).
+function _infraFillTooltip(f, family) {
+  const lines = [];
+  if (family === 'wan1' || family === 'wan2') {
+    if (f.basis === 'event') {
+      lines.push('Disponibilité WAN mesurée par événement : calculée sur le journal des coupures (statut de l’uplink relevé par Meraki toutes les 5 min), sur la fenêtre de la semaine.');
+      lines.push('Ce n’est PAS le « % Time Up » officiel du rapport Meraki (non exposé par API) — c’est notre mesure OPS : automatique, opposable, et cohérente avec le dashboard WAN Health.');
+    } else if (f.basis === 'pending_poller') {
+      lines.push('Collecteur WAN pas encore actif — aucun chiffre event-based (cellule laissée vide plutôt qu’un % fabriqué).');
+    } else {
+      lines.push('Disponibilité WAN (Meraki).');
+    }
+  } else {
+    lines.push('Disponibilité des équipements (OpManager).');
+    if (f.basis === 'recent') lines.push('Fenêtre récente — pas exactement la semaine du rapport.');
+  }
+  const meta = ['source : ' + (f.source || '—')];
+  if (f.data_through) meta.push('données jusqu’au ' + f.data_through);
+  if (f.stale) meta.push('⚠ donnée périmée');
+  lines.push(meta.join(' · '));
+  return lines.join('\n');
+}
+
 async function maybeAutoFillInfra(manual) {
   if (!currentReport || currentReport.status === 'submitted') return;
   const banner = document.getElementById('infra-auto-banner');
@@ -2876,11 +2900,7 @@ async function maybeAutoFillInfra(manual) {
     if (statusSel && f.status_color) { statusSel.value = f.status_color; updateStatusDot(statusSel); }
     if (trendSel  && f.trend) trendSel.value = f.trend;
     valInput.style.background = '#fff7ed';                  // subtle "auto-filled" cue
-    const bits = [`Auto · ${f.source}`];
-    if (f.data_through) bits.push(`data through ${f.data_through}`);
-    if (f.basis) bits.push(`basis: ${f.basis}`);
-    if (f.stale) bits.push('⚠ stale');
-    valInput.title = bits.join(' · ');
+    valInput.title = _infraFillTooltip(f, family);          // explanatory hover on the number
     filled++;
   });
 
