@@ -135,12 +135,11 @@
         // The former standalone Hygiene + Finance pages are now the #hygiene /
         // #finance tabs of assets.html (their old URLs redirect there).
         { id: 'assets',      label: 'Assets',              icon: ICON_LIB['hard-drive'],      href: 'assets.html',            roles: ['any']       },
-        // WAN Health — per-site availability + quality trends from the Meraki
-        // archive (wan_link_snapshots). Read-only; empty until meraki is configured.
-        { id: 'wan-health', label: 'WAN Health',           icon: ICON_LIB['bar-chart-3'],     href: 'wan-health.html',        roles: ['any']       },
-        // SLA / Chargeback — the management/financial instrument on top of the WAN
-        // archive: contractual SLA attainment, credit tiers, and ISP chargeback.
-        { id: 'wan-sla',    label: 'SLA / Chargeback',     icon: ICON_LIB.wallet,             href: 'wan-sla.html',           roles: ['admin']     },
+        // WAN — one module, two tabs: "Santé & Qualité" (per-site availability +
+        // quality from the Meraki archive, any role) and "SLA & Refacturation"
+        // (contractual SLA + ISP chargeback, admin-gated inside). Old wan-health.html
+        // / wan-sla.html URLs redirect to wan.html#health / #sla.
+        { id: 'wan',        label: 'WAN',                  icon: ICON_LIB['bar-chart-3'],     href: 'wan.html',               roles: ['any']       },
         // IT Review — the review of what the meetings produce, hence right after
         // them. It now mounts the app shell (#__shell) like every other page and
         // opens IN-PLACE (no target:'_blank'): its own internal header was

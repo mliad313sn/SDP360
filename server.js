@@ -1225,7 +1225,7 @@ function loadHtml(name) {
   'meetings-import.html', 'meetings-progress.html', 'meetings-insights.html', 'meetings-setup.html', 'meetings-actions.html',
   'meetings-unsigned.html',
   'activity-tracker.html', 'help.html', 'exec-view.html', 'site-report.html', 'it-review.html', 'site-actions.html', 'system-logs.html',
-  'assets.html', 'assets-hygiene.html', 'assets-finance.html', 'wan-health.html', 'wan-sla.html', 'itsm-roadmap.html',
+  'assets.html', 'assets-hygiene.html', 'assets-finance.html', 'wan.html', 'wan-health.html', 'wan-sla.html', 'itsm-roadmap.html',
 ].forEach(loadHtml);
 
 // Helper: build the per-request HTML, inject api-key + nonce, send. Pages
@@ -1318,6 +1318,9 @@ app.get('/inspection-actions.html', (req, res) => {
 // ── Serve inspections.html (list / dashboard) with CSP nonce ───────────────
 app.get('/assets.html', (req, res) => {
   sendHtmlPage(res, 'assets.html', false, 'Assets unavailable');
+});
+app.get('/wan.html', (req, res) => {
+  sendHtmlPage(res, 'wan.html', false, 'WAN unavailable');
 });
 app.get('/wan-health.html', (req, res) => {
   sendHtmlPage(res, 'wan-health.html', false, 'WAN Health unavailable');

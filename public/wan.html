@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WAN — Endeavour Mining IT</title>
+
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="brand/icons.css">
+<link rel="stylesheet" href="brand/components.css">
+<link rel="stylesheet" href="_shell.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js" defer></script>
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+
+<style nonce="%%CSP_NONCE%%">
+  body { margin:0; background:var(--color-background,#f4f6f7); color:var(--color-text-primary,#1F2A33);
+    font-family:var(--font-sans,'Libre Franklin',system-ui,sans-serif); font-size:14px; }
+
+  /* Module tab bar */
+  .wan-tabs { max-width:1360px; margin:0 auto; padding:16px 24px 0; display:flex; gap:4px; border-bottom:2px solid #e4e8ee; }
+  .wan-tab { border:none; background:transparent; color:#6b7785; font-size:14px; font-weight:700; padding:10px 18px; cursor:pointer; border-bottom:3px solid transparent; margin-bottom:-2px; font-family:inherit; }
+  .wan-tab:hover { color:#3A4A60; }
+  .wan-tab.on { color:#3A4A60; border-bottom-color:var(--edv-slate,#3A4A60); }
+
+  /* — WAN Health (Santé & Qualité) — */
+  .wh-wrap { max-width:1280px; margin:0 auto; padding:var(--space-6,24px); }
+  .wh-head { display:flex; align-items:center; gap:16px; margin-bottom:16px; flex-wrap:wrap; }
+  .wh-head h1 { margin:0; font-size:22px; font-weight:700; color:var(--edv-slate,#3A4A60); }
+  .wh-head .sub { font-size:13px; color:var(--color-text-muted,#6b7785); }
+  .wh-controls { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-left:auto; }
+  select, .wh-btn { padding:7px 12px; border:1px solid #cfd6e0; border-radius:8px; background:#fff; font-size:13px; cursor:pointer; }
+  .wh-toggle button { border:1px solid #cfd6e0; background:#fff; padding:7px 12px; cursor:pointer; }
+  .wh-toggle button:first-child { border-radius:8px 0 0 8px; } .wh-toggle button:last-child { border-radius:0 8px 8px 0; border-left:0; }
+  .wh-toggle button.on { background:var(--edv-slate,#3A4A60); color:#fff; border-color:var(--edv-slate,#3A4A60); }
+  .wh-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:14px; margin-bottom:22px; }
+  .wh-card { background:#fff; border:1px solid #e4e8ee; border-radius:12px; padding:14px 16px; }
+  .wh-card h3 { margin:0 0 10px; font-size:15px; color:var(--edv-slate,#3A4A60); }
+  .wh-link { display:flex; align-items:center; gap:8px; padding:6px 0; border-top:1px solid #f0f2f5; }
+  .wh-link:first-of-type { border-top:0; }
+  .wh-dot { width:10px; height:10px; border-radius:50%; flex:0 0 auto; }
+  .g{background:#27AE60}.o{background:#E8A100}.r{background:#DC2626}.n{background:#b6bdc7}
+  .wh-up { font-weight:700; min-width:44px; } .wh-lbl { color:#6b7785; min-width:52px; }
+  .wh-q { color:#6b7785; font-size:12px; margin-left:auto; }
+  .wh-subhdr { font-size:11px; font-weight:700; color:#556; margin:6px 0 2px; text-transform:uppercase; letter-spacing:.03em; }
+  .wh-panel { background:#fff; border:1px solid #e4e8ee; border-radius:12px; padding:16px; }
+  .wh-empty { background:#fff7ed; border:1px solid #f0c9a0; color:#7a3d12; border-radius:12px; padding:16px; }
+  .wh-note { font-size:12px; color:#6b7785; margin-top:6px; }
+
+  /* — WAN SLA (SLA & Refacturation) — */
+  .sl-wrap { max-width:1360px; margin:0 auto; padding:var(--space-6,24px); }
+  .sl-head { display:flex; align-items:center; gap:16px; margin-bottom:16px; flex-wrap:wrap; }
+  .sl-head h1 { margin:0; font-size:22px; font-weight:700; color:var(--edv-slate,#3A4A60); }
+  .sl-head .sub { font-size:13px; color:var(--color-text-muted,#6b7785); }
+  .sl-controls { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-left:auto; }
+  .sl-controls select, .sl-btn, input[type=month] { padding:7px 12px; border:1px solid #cfd6e0; border-radius:8px; background:#fff; font-size:13px; cursor:pointer; color:inherit; }
+  .sl-badge { display:inline-block; font-size:11px; font-weight:700; padding:3px 9px; border-radius:999px; letter-spacing:.02em; }
+  .sl-prov { background:#fff7ed; border:1px solid #f0c9a0; color:#7a3d12; }
+  .sl-panel { background:#fff; border:1px solid #e4e8ee; border-radius:12px; padding:16px; margin-bottom:22px; }
+  .sl-panel h2 { margin:0 0 12px; font-size:16px; color:var(--edv-slate,#3A4A60); }
+  table.sl-tbl { width:100%; border-collapse:collapse; font-size:13px; }
+  table.sl-tbl th { text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:#6b7785; border-bottom:2px solid #eef1f5; padding:8px 10px; white-space:nowrap; }
+  table.sl-tbl td { padding:8px 10px; border-bottom:1px solid #f2f4f7; vertical-align:middle; }
+  table.sl-tbl tr:last-child td { border-bottom:0; }
+  .sl-num { text-align:right; font-variant-numeric:tabular-nums; }
+  .sl-muted { color:#8a94a2; }
+  .sl-pill { display:inline-block; font-size:11px; font-weight:700; padding:2px 8px; border-radius:999px; }
+  .sl-ok  { background:#e7f6ec; color:#1e7a44; }
+  .sl-bad { background:#fbe7e7; color:#b02020; }
+  .sl-neu { background:#eef1f5; color:#556; }
+  .sl-empty { background:#fff7ed; border:1px solid #f0c9a0; color:#7a3d12; border-radius:12px; padding:16px; margin-bottom:22px; }
+  .sl-note { font-size:12px; color:#6b7785; margin:8px 0 0; }
+  .sl-collapse-hd { display:flex; align-items:center; gap:10px; cursor:pointer; user-select:none; }
+  .sl-collapse-hd h2 { margin:0; }
+  .sl-caret { font-size:12px; color:#6b7785; }
+  .sl-scroll { overflow-x:auto; }
+  .sl-cfg { background:#fff7ed; border:1px solid #f0c9a0; color:#7a3d12; border-radius:10px; padding:10px 12px; font-size:12px; }
+</style>
+</head>
+<body>
+<div id="__shell" data-section="performance" data-current="wan"></div>
+
+<div class="wan-tabs" id="wan-tabs">
+  <button class="wan-tab on" id="wtab-health" data-tab="health">Santé &amp; Qualité</button>
+  <button class="wan-tab" id="wtab-sla" data-tab="sla">SLA &amp; Refacturation</button>
+</div>
+
+<!-- ════ Pane: Santé & Qualité (WAN Health) ════ -->
+<div id="pane-health">
+  <div class="wh-wrap">
+    <div class="wh-head">
+      <div>
+        <h1>WAN Health</h1>
+        <div class="sub">Per-site WAN availability &amp; quality — archived from Meraki (kept beyond Meraki's ~60-day window)</div>
+      </div>
+      <div class="wh-controls">
+        <div class="wh-toggle" id="wh-period">
+          <button data-p="week" class="on">Weekly</button><button data-p="month">Monthly</button>
+        </div>
+        <button class="wh-btn" id="wh-sync" style="display:none">⚡ Sync now</button>
+      </div>
+    </div>
+
+    <div id="wh-empty" class="wh-empty" style="display:none">
+      No WAN snapshots yet. Set <b>meraki_api_key</b> in Admin → config and run the sync (nightly, or the <b>Sync now</b> button). Numbers become trustworthy once the calibration step is done.
+    </div>
+
+    <div id="wh-grid" class="wh-grid"></div>
+
+    <div class="wh-panel">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap">
+        <b>Trend</b>
+        <select id="wh-site"></select>
+        <span class="wh-q" id="wh-trend-note"></span>
+      </div>
+      <div style="position:relative;height:340px"><canvas id="wh-chart"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════ Pane: SLA & Refacturation (WAN SLA / Chargeback) ════ -->
+<div id="pane-sla" style="display:none">
+  <div class="sl-wrap">
+    <div class="sl-head">
+      <div>
+        <h1>SLA / Chargeback <span id="sl-prov" class="sl-badge sl-prov" style="display:none">Provisoire</span></h1>
+        <div class="sub">Contractual WAN SLA attainment, credit tiers &amp; ISP chargeback — a management instrument on top of the WAN archive</div>
+      </div>
+      <div class="sl-controls">
+        <label class="sl-muted" for="sl-month" style="font-size:12px">Month</label>
+        <input type="month" id="sl-month">
+        <button class="sl-btn" id="sl-export">⬇ Export CSV</button>
+      </div>
+    </div>
+
+    <div id="sl-empty" class="sl-empty" style="display:none">
+      No SLA circuits configured yet — set them up in <b>Admin → SLA WAN</b>.
+    </div>
+
+    <div id="sl-circuits-panel" class="sl-panel" style="display:none">
+      <h2>Circuits — <span id="sl-month-lbl"></span></h2>
+      <div class="sl-scroll">
+        <table class="sl-tbl">
+          <thead>
+            <tr>
+              <th>ISP</th><th>Circuit</th><th>Site / Sub-site</th><th>Uplink</th>
+              <th class="sl-num">Availability (contract)</th><th class="sl-num">Objective</th>
+              <th class="sl-num">Credit tier</th><th>Credit due</th>
+              <th class="sl-num">Gap</th><th class="sl-num">Amount</th>
+            </tr>
+          </thead>
+          <tbody id="sl-circuits"></tbody>
+        </table>
+      </div>
+      <p class="sl-note">Availability is measured only within each circuit's service hours; the objective column is the detection-based upper bound.</p>
+    </div>
+
+    <div id="sl-unmapped-panel" class="sl-panel" style="display:none">
+      <h2>Unmapped circuits</h2>
+      <div class="sl-cfg" style="margin-bottom:12px">⚙ These outages could not be matched to a configured SLA circuit. Configure each in <b>Admin → SLA WAN</b>.</div>
+      <div class="sl-scroll">
+        <table class="sl-tbl">
+          <thead>
+            <tr><th>Site / Sub-site</th><th>Uplink</th><th class="sl-num">Outages</th><th class="sl-num">Availability</th></tr>
+          </thead>
+          <tbody id="sl-unmapped"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="sl-outages-panel" class="sl-panel" style="display:none">
+      <div class="sl-collapse-hd" id="sl-outages-toggle">
+        <span class="sl-caret" id="sl-outages-caret">▶</span>
+        <h2>Evidence — outages this month</h2>
+      </div>
+      <div id="sl-outages-body" style="display:none;margin-top:12px">
+        <div class="sl-scroll">
+          <table class="sl-tbl">
+            <thead>
+              <tr><th>Site / Sub-site</th><th>Uplink</th><th>ISP</th><th>Circuit</th><th>Detected</th><th>Restored</th><th>Notified</th><th class="sl-num">Duration</th><th>Attribution</th><th>Reason</th></tr>
+            </thead>
+            <tbody id="sl-outages"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════ Santé & Qualité logic (init exposed, called lazily on tab activation) ════ -->
+<script nonce="%%CSP_NONCE%%">
+(function () {
+  let period = 'week', chart = null, sites = [];
+  const $ = id => document.getElementById(id);
+  const dotClass = c => c === 'green' ? 'g' : c === 'orange' ? 'o' : c === 'red' ? 'r' : 'n';
+  const fmt = v => v == null ? '—' : (typeof v === 'number' ? (Math.round(v * 10) / 10) : v);
+
+  async function api(path) {
+    const h = {}; const at = window.__authToken; if (at) h['x-report-token'] = at;
+    const r = await fetch(path, { headers: h });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  }
+
+  async function loadSummary() {
+    let data; try { data = await api('/api/analytics/wan/summary?period=' + period); } catch { data = { sites: [] }; }
+    sites = data.sites || [];
+    $('wh-empty').style.display = sites.length ? 'none' : 'block';
+    const linkRow = u => `
+          <div class="wh-link">
+            <span class="wh-dot ${dotClass(u.status_color)}"></span>
+            <span class="wh-lbl">${u.uplink_label || u.uplink}</span>
+            <span class="wh-up">${u.availability_pct == null ? '—' : fmt(u.availability_pct) + '%'}</span>
+            <span class="wh-q">loss ${fmt(u.loss_pct_avg)}% · ${fmt(u.latency_ms_avg)}ms · jit ${fmt(u.jitter_ms_avg)}ms</span>
+          </div>`;
+    $('wh-grid').innerHTML = sites.map(s => {
+      const uplinks = s.uplinks || [];
+      const groups = {};
+      uplinks.forEach(u => { const k = u.sub_site || ''; (groups[k] = groups[k] || []).push(u); });
+      const keys = Object.keys(groups);
+      let body;
+      if (keys.length === 1 && keys[0] === '') {
+        body = uplinks.map(linkRow).join('');
+      } else {
+        body = keys.filter(k => k !== '').sort().map(k =>
+          `<div class="wh-subhdr">${k}</div>` + groups[k].map(linkRow).join('')
+        ).join('');
+      }
+      return `
+      <div class="wh-card">
+        <h3>${s.site_name || ('Site ' + s.site_id)}</h3>
+        ${body}
+      </div>`;
+    }).join('');
+    // populate the site selector (keep current if still present)
+    const sel = $('wh-site'), cur = sel.value;
+    sel.innerHTML = sites.map(s => `<option value="${s.site_id}">${s.site_name || ('Site ' + s.site_id)}</option>`).join('');
+    if (cur && sites.some(s => String(s.site_id) === cur)) sel.value = cur;
+    if (sel.value) loadTrend(sel.options[sel.selectedIndex].text);
+    else { if (chart) { chart.destroy(); chart = null; } $('wh-trend-note').textContent = ''; }
+  }
+
+  async function loadTrend(siteName) {
+    if (!$('wh-site').value) return;
+    let data; try { data = await api('/api/analytics/wan/trend?period=' + period + '&site=' + encodeURIComponent(siteName)); } catch { data = { series: [] }; }
+    const series = data.series || [];
+    $('wh-trend-note').textContent = series.length ? `${series.length} uplink(s) · ${period}` : 'no data for this site';
+    const labels = [...new Set(series.flatMap(s => s.points.map(p => p.period_start)))].sort();
+    const colors = { wan1: '#2A5490', wan2: '#E8A100', wan3: '#6D2E46' };
+    if (typeof Chart === 'undefined') return;
+    if (chart) chart.destroy();
+    chart = new Chart($('wh-chart').getContext('2d'), {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          ...series.map(s => ({ label: (s.sub_site ? s.sub_site + ' ' : '') + (s.uplink || '') + ' availability %', yAxisID: 'y',
+            data: labels.map(l => { const p = s.points.find(x => x.period_start === l); return p ? p.availability_pct : null; }),
+            borderColor: colors[s.uplink] || '#3A4A60', backgroundColor: 'transparent', spanGaps: false, tension: 0.2 })),
+          ...series.map(s => ({ label: (s.sub_site ? s.sub_site + ' ' : '') + (s.uplink || '') + ' loss %', yAxisID: 'y1', borderDash: [4, 3],
+            data: labels.map(l => { const p = s.points.find(x => x.period_start === l); return p ? p.loss_pct_avg : null; }),
+            borderColor: colors[s.uplink] || '#999', backgroundColor: 'transparent', spanGaps: false, tension: 0.2 })),
+        ],
+      },
+      options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+        scales: { y: { title: { display: true, text: 'Availability %' }, suggestedMin: 90, suggestedMax: 100 },
+          y1: { position: 'right', title: { display: true, text: 'Loss %' }, grid: { drawOnChartArea: false }, suggestedMin: 0 } } },
+    });
+  }
+
+  window.__wanHealthInit = function () {
+    $('wh-period').addEventListener('click', function (e) {
+      const b = e.target.closest('button'); if (!b) return;
+      period = b.dataset.p;
+      [...this.children].forEach(x => x.classList.toggle('on', x === b));
+      loadSummary();
+    });
+    $('wh-site').addEventListener('change', function () { loadTrend(this.options[this.selectedIndex].text); });
+    if (window.__userHasRole && (window.__userHasRole('admin') || window.__userHasRole('super_admin'))) {
+      const btn = $('wh-sync'); btn.style.display = '';
+      btn.addEventListener('click', async function () {
+        btn.disabled = true; btn.textContent = '⏳ Syncing…';
+        try { await fetch('/api/analytics/wan/sync', { method: 'POST', headers: window.__authToken ? { 'x-report-token': window.__authToken } : {} }); } catch {}
+        btn.disabled = false; btn.textContent = '⚡ Sync now'; loadSummary();
+      });
+    }
+    loadSummary();
+  };
+})();
+</script>
+
+<!-- ════ SLA & Refacturation logic (init exposed, called lazily on tab activation) ════ -->
+<script nonce="%%CSP_NONCE%%">
+(function () {
+  const $ = id => document.getElementById(id);
+  let month = '', outagesLoaded = false;
+
+  function currentMonth() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+  }
+
+  async function api(path) {
+    const h = {}; const at = window.__authToken; if (at) h['x-report-token'] = at;
+    const r = await fetch(path, { headers: h });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  }
+
+  function fmtPct(v) { return v == null ? '—' : (Math.round(v * 100) / 100) + '%'; }
+  function fmtNum(v, d) { if (v == null) return '—'; const m = Math.pow(10, d || 0); return String(Math.round(v * m) / m); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+  function fmtAmount(a, cur) { return a == null ? '—' : (a.toLocaleString() + ' ' + esc(cur || '')); }
+  function fmtDur(s) {
+    if (s == null) return '—';
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+    return h ? (h + 'h ' + m + 'm') : (m + 'm');
+  }
+  function fmtTs(t) { if (!t) return '—'; const d = new Date(t); return isNaN(d) ? esc(t) : d.toLocaleString(); }
+
+  async function loadSummary() {
+    let data;
+    try { data = await api('/api/analytics/wan/sla/summary?month=' + encodeURIComponent(month)); }
+    catch { data = { month: month, circuits: [], unmapped: [] }; }
+    const circuits = data.circuits || [], unmapped = data.unmapped || [];
+    $('sl-month-lbl').textContent = data.month || month;
+
+    // Provisoire badge when the selected month is the in-progress current month
+    $('sl-prov').style.display = (month === currentMonth()) ? 'inline-block' : 'none';
+
+    const hasAny = circuits.length || unmapped.length;
+    $('sl-empty').style.display = hasAny ? 'none' : 'block';
+
+    $('sl-circuits-panel').style.display = circuits.length ? '' : 'none';
+    $('sl-circuits').innerHTML = circuits.map(c => {
+      const met = c.met === true;
+      const ragClass = c.met == null ? 'sl-neu' : (met ? 'sl-ok' : 'sl-bad');
+      const availTxt = c.availability_pct == null ? '—' : fmtPct(c.availability_pct);
+      const gap = [];
+      if (c.gap_pp != null) gap.push(fmtNum(c.gap_pp, 2) + ' pts');
+      if (c.gap_hours != null) gap.push(fmtNum(c.gap_hours, 1) + ' h');
+      const creditBadge = c.credit_due
+        ? '<span class="sl-pill sl-bad">Yes</span>'
+        : '<span class="sl-pill sl-ok">No</span>';
+      return `<tr>
+        <td>${esc(c.isp)}</td>
+        <td>${esc(c.circuit_id)}</td>
+        <td>${esc(c.site_id)}${c.sub_site ? ' / ' + esc(c.sub_site) : ''}</td>
+        <td>${esc(c.uplink)}</td>
+        <td class="sl-num"><span class="sl-pill ${ragClass}">${availTxt}</span>
+          <span class="sl-muted"> / ${c.availability_pct_objective == null ? '—' : fmtPct(c.availability_pct_objective) + ' tgt'}</span></td>
+        <td class="sl-num sl-muted">${c.availability_pct_objective == null ? '—' : fmtPct(c.availability_pct_objective)}</td>
+        <td class="sl-num">${c.credit_pct == null ? '—' : fmtNum(c.credit_pct, 1) + '%'}</td>
+        <td>${creditBadge}</td>
+        <td class="sl-num">${gap.length ? gap.join(' · ') : '—'}</td>
+        <td class="sl-num">${fmtAmount(c.amount, c.currency)}</td>
+      </tr>`;
+    }).join('');
+
+    $('sl-unmapped-panel').style.display = unmapped.length ? '' : 'none';
+    $('sl-unmapped').innerHTML = unmapped.map(u => `<tr>
+        <td>${esc(u.site_id)}${u.sub_site ? ' / ' + esc(u.sub_site) : ''}</td>
+        <td>${esc(u.uplink)}</td>
+        <td class="sl-num">${u.outage_count == null ? '—' : esc(u.outage_count)}</td>
+        <td class="sl-num sl-muted">—</td>
+      </tr>`).join('');
+
+    // Outages panel is available whenever there is anything to show at all
+    $('sl-outages-panel').style.display = hasAny ? '' : 'none';
+    // reset collapse state on month change
+    outagesLoaded = false;
+    $('sl-outages-body').style.display = 'none';
+    $('sl-outages-caret').textContent = '▶';
+    $('sl-outages').innerHTML = '';
+  }
+
+  function monthRange(m) {
+    // m = 'YYYY-MM' → { from:'YYYY-MM-01', to:'YYYY-MM-<lastDay>' }
+    const [y, mo] = m.split('-').map(Number);
+    const last = new Date(y, mo, 0).getDate();
+    return { from: m + '-01', to: m + '-' + String(last).padStart(2, '0') };
+  }
+
+  async function loadOutages() {
+    const r = monthRange(month);
+    let data;
+    try { data = await api('/api/analytics/wan/sla/outages?from=' + r.from + '&to=' + r.to); }
+    catch { data = { outages: [] }; }
+    const rows = data.outages || [];
+    $('sl-outages').innerHTML = rows.length ? rows.map(o => `<tr>
+        <td>${esc(o.site_id)}${o.sub_site ? ' / ' + esc(o.sub_site) : ''}</td>
+        <td>${esc(o.uplink)}</td>
+        <td>${esc(o.isp)}</td>
+        <td>${esc(o.circuit_id)}</td>
+        <td>${fmtTs(o.detected_start)}</td>
+        <td>${fmtTs(o.restored_end)}</td>
+        <td>${fmtTs(o.notified_at)}</td>
+        <td class="sl-num">${fmtDur(o.duration_s)}</td>
+        <td>${esc(o.attribution)}</td>
+        <td class="sl-muted">${esc(o.attribution_reason)}</td>
+      </tr>`).join('') : '<tr><td colspan="10" class="sl-muted">No outages recorded for this month.</td></tr>';
+    outagesLoaded = true;
+  }
+
+  function reload() {
+    outagesLoaded = false;
+    loadSummary();
+  }
+
+  window.__wanSlaInit = function () {
+    month = currentMonth();
+    $('sl-month').value = month;
+    $('sl-month').addEventListener('change', function () {
+      month = this.value || currentMonth();
+      reload();
+    });
+    $('sl-export').addEventListener('click', function () {
+      window.location.href = '/api/analytics/wan/sla/export.csv?month=' + encodeURIComponent(month);
+    });
+    $('sl-outages-toggle').addEventListener('click', async function () {
+      const body = $('sl-outages-body');
+      const open = body.style.display !== 'none';
+      if (open) { body.style.display = 'none'; $('sl-outages-caret').textContent = '▶'; return; }
+      body.style.display = 'block'; $('sl-outages-caret').textContent = '▼';
+      if (!outagesLoaded) await loadOutages();
+    });
+    reload();
+  };
+})();
+</script>
+
+<!-- ════ Tab controller — lazy-init each pane on first activation, hash-synced, SLA admin-gated ════ -->
+<script nonce="%%CSP_NONCE%%">
+(function () {
+  const $ = id => document.getElementById(id);
+  const isAdmin = !!(window.__userHasRole && (window.__userHasRole('admin') || window.__userHasRole('executive') || window.__userHasRole('super_admin')));
+  const TABS = ['health', 'sla'];
+  const inited = {};
+  function init(name) {
+    if (inited[name]) return;
+    inited[name] = 1;
+    try { (name === 'health' ? window.__wanHealthInit : window.__wanSlaInit)(); } catch (e) { /* pane init best-effort */ }
+  }
+  function show(name) {
+    if (name === 'sla' && !isAdmin) name = 'health';
+    if (!TABS.includes(name)) name = 'health';
+    TABS.forEach(t => {
+      const b = $('wtab-' + t), p = $('pane-' + t);
+      if (b) b.classList.toggle('on', t === name);
+      if (p) p.style.display = (t === name) ? '' : 'none';
+    });
+    init(name);
+    if (location.hash.slice(1) !== name) history.replaceState(null, '', '#' + name);
+  }
+  document.addEventListener('DOMContentLoaded', function () {
+    if (!isAdmin) { const b = $('wtab-sla'); if (b) b.style.display = 'none'; }
+    $('wan-tabs').addEventListener('click', function (e) { const b = e.target.closest('[data-tab]'); if (b) show(b.dataset.tab); });
+    window.addEventListener('hashchange', function () { show(location.hash.slice(1) || 'health'); });
+    show(location.hash.slice(1) || 'health');
+  });
+})();
+</script>
+</body>
+</html>
