@@ -177,6 +177,14 @@
         <h2>Evidence — outages this month</h2>
       </div>
       <div id="sl-outages-body" style="display:none;margin-top:12px">
+        <div class="sl-filterbar" style="display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;margin-bottom:10px">
+          <label class="sl-muted" style="font-size:12px">Durée min (min)<br><input type="number" id="sl-of-min" min="0" step="1" value="15" style="width:78px"></label>
+          <label class="sl-muted" style="font-size:12px">ISP<br><select id="sl-of-isp"><option value="">Tous</option></select></label>
+          <label class="sl-muted" style="font-size:12px">Uplink<br><select id="sl-of-uplink"><option value="">Tous</option></select></label>
+          <label class="sl-muted" style="font-size:12px">Attribution<br><select id="sl-of-attr"><option value="">Toutes</option></select></label>
+          <button class="sl-btn" id="sl-of-export">⬇ Export (filtré)</button>
+          <span class="sl-muted" id="sl-of-count" style="font-size:12px"></span>
+        </div>
         <div class="sl-scroll">
           <table class="sl-tbl">
             <thead>
@@ -392,12 +400,38 @@
     return { from: m + '-01', to: m + '-' + String(last).padStart(2, '0') };
   }
 
-  async function loadOutages() {
-    const r = monthRange(month);
-    let data;
-    try { data = await api('/api/analytics/wan/sla/outages?from=' + r.from + '&to=' + r.to); }
-    catch { data = { outages: [] }; }
-    const rows = data.outages || [];
+  // ── Evidence filter (client-side over the loaded month) — the export honours the filter ──
+  let outageRows = [];
+  function _distinct(arr, key) {
+    return [...new Set(arr.map(o => (o[key] == null ? '' : String(o[key]))).filter(v => v !== ''))].sort();
+  }
+  function _fillSel(id, vals, allLabel) {
+    const sel = $(id); if (!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = `<option value="">${allLabel}</option>` + vals.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
+    if (vals.includes(cur)) sel.value = cur;   // preserve the choice across month changes
+  }
+  function populateOutageFilters() {
+    _fillSel('sl-of-isp', _distinct(outageRows, 'isp'), 'Tous');
+    _fillSel('sl-of-uplink', _distinct(outageRows, 'uplink'), 'Tous');
+    _fillSel('sl-of-attr', _distinct(outageRows, 'attribution'), 'Toutes');
+  }
+  function filteredOutages() {
+    const minSec = Math.max(0, parseInt(($('sl-of-min') || {}).value, 10) || 0) * 60;
+    const isp = ($('sl-of-isp') || {}).value || '';
+    const up  = ($('sl-of-uplink') || {}).value || '';
+    const at  = ($('sl-of-attr') || {}).value || '';
+    return outageRows.filter(o => {
+      // closed outage shorter than the min → drop; an OPEN (ongoing) outage is always kept
+      if (o.restored_end && (o.duration_s == null || o.duration_s < minSec)) return false;
+      if (isp && String(o.isp || '') !== isp) return false;
+      if (up  && String(o.uplink || '') !== up) return false;
+      if (at  && String(o.attribution || '') !== at) return false;
+      return true;
+    });
+  }
+  function renderOutages() {
+    const rows = filteredOutages();
     $('sl-outages').innerHTML = rows.length ? rows.map(o => `<tr>
         <td>${esc(o.site_id)}${o.sub_site ? ' / ' + esc(o.sub_site) : ''}</td>
         <td>${esc(o.uplink)}</td>
@@ -409,7 +443,30 @@
         <td class="sl-num">${fmtDur(o.duration_s)}</td>
         <td>${esc(o.attribution)}</td>
         <td class="sl-muted">${esc(o.attribution_reason)}</td>
-      </tr>`).join('') : '<tr><td colspan="10" class="sl-muted">No outages recorded for this month.</td></tr>';
+      </tr>`).join('') : '<tr><td colspan="10" class="sl-muted">Aucune coupure ne correspond au filtre.</td></tr>';
+    const c = $('sl-of-count'); if (c) c.textContent = rows.length + ' / ' + outageRows.length + ' coupure(s)';
+  }
+  function _csvCell(v) { const s = v == null ? '' : String(v); return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
+  function exportFilteredOutages() {
+    const cols = ['site_id', 'sub_site', 'uplink', 'isp', 'circuit_id', 'detected_start', 'restored_end', 'notified_at', 'duration_s', 'attribution', 'attribution_reason'];
+    const rows = filteredOutages();
+    const lines = [cols.join(',')].concat(rows.map(o => cols.map(c => _csvCell(o[c])).join(',')));
+    const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'wan-outages-' + month + '-filtered.csv';
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 0);
+  }
+
+  async function loadOutages() {
+    const r = monthRange(month);
+    let data;
+    try { data = await api('/api/analytics/wan/sla/outages?from=' + r.from + '&to=' + r.to); }
+    catch { data = { outages: [] }; }
+    outageRows = data.outages || [];
+    populateOutageFilters();
+    renderOutages();
     outagesLoaded = true;
   }
 
@@ -435,6 +492,10 @@
       body.style.display = 'block'; $('sl-outages-caret').textContent = '▼';
       if (!outagesLoaded) await loadOutages();
     });
+    ['sl-of-min', 'sl-of-isp', 'sl-of-uplink', 'sl-of-attr'].forEach(function (id) {
+      const el = $(id); if (el) el.addEventListener('input', renderOutages);
+    });
+    const ofx = $('sl-of-export'); if (ofx) ofx.addEventListener('click', exportFilteredOutages);
     reload();
   };
 })();
