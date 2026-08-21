@@ -6,7 +6,14 @@
 // (a failure writes NOTHING and keeps prior snapshots). All deps injectable — no DB/network
 // in tests. NEVER passes a Promise-returning resolver into the pure derive (pg-Promise trap):
 // the network→site map + destination ips are pre-resolved with awaited calls first.
-const { deriveAvailability, statusColor, mergeDestinationSeries } = require('../../services/merakiWanQuality');
+const { deriveAvailability, qualityAvailability, statusColor, mergeDestinationSeries } = require('../../services/merakiWanQuality');
+
+// Fine resolution can't span a whole week in one call — split [t0,t1] into ≤1-day chunks.
+function _dayChunks(t0Ms, t1Ms) {
+  const DAY = 86400000, out = [];
+  for (let s = t0Ms; s < t1Ms; s += DAY) out.push([s, Math.min(s + DAY, t1Ms)]);
+  return out.length ? out : [[t0Ms, t1Ms]];
+}
 
 function _safeParse(s, d) { try { return JSON.parse(s); } catch { return d; } }
 function _lc(x) { return String(x == null ? '' : x).trim().toLowerCase(); }
@@ -38,6 +45,7 @@ async function main(deps = {}) {
       apiKey: cfg.meraki_api_key, orgId: cfg.meraki_org_id, baseUrl: cfg.meraki_base_url });
     const wanTarget = _safeParse(cfg.opm_targets, {}).wan;
     const missing = cfg.meraki_missing_policy === 'unknown' ? 'unknown' : 'down';
+    const qThresholds = _safeParse(cfg.wan_quality_thresholds, {});   // quality-weighted availability calibration
 
     // Windows: the report's PREVIOUS Zoho week (Sunday→Saturday, = weeks.start_date, the
     // report join key + tz control) and the current month. Injected in tests.
@@ -96,8 +104,9 @@ async function main(deps = {}) {
         const destIps = await destIpsFor(dev, up);
         for (const [ptype, win] of [['week', week], ['month', month]]) {
           const t0 = `${win.period_start}T00:00:00Z`, t1 = `${win.period_end}T23:59:59Z`;
+          const t0Ms = Date.parse(t0), t1Ms = Date.parse(t1);
           const resolution = 3600;
-          const totalIntervals = Math.max(1, Math.round((Date.parse(t1) - Date.parse(t0)) / (resolution * 1000)));
+          const totalIntervals = Math.max(1, Math.round((t1Ms - t0Ms) / (resolution * 1000)));
           const seriesList = [];
           for (const ip of destIps) seriesList.push((await client.deviceLossLatencyHistory({ serial: dev.serial, uplink: up.interface, ip, t0, t1, resolution })) || []);
           const series = mergeDestinationSeries(seriesList);   // up if ANY destination responded
@@ -106,12 +115,30 @@ async function main(deps = {}) {
           // for the same (site, uplink, period) key. (Fixes MANA reading '—' — two MX in one
           // network, the spare clobbering the master.)
           if (!series.length) continue;
-          const q = deriveAvailability(series, { totalIntervals, missing });   // derived ONCE per uplink/period; fanned to every target
+          const q = deriveAvailability(series, { totalIntervals, missing });   // binary % Time Up (loss<100)
+
+          // Quality-weighted (Meraki-aligned) availability needs FINE resolution: a loss burst
+          // averaged into an hour reads clean. For the WEEK, take an extra 600s (10-min) pull,
+          // day-chunked; for the month, reuse the 3600s series (coarser, acceptable). Best-effort.
+          let qSeries = series, qTotal = totalIntervals;
+          if (ptype === 'week') {
+            const fine = 600;
+            qTotal = Math.max(1, Math.round((t1Ms - t0Ms) / (fine * 1000)));
+            const parts = [];
+            for (const [c0, c1] of _dayChunks(t0Ms, t1Ms)) {
+              const sl = [];
+              for (const ip of destIps) sl.push((await client.deviceLossLatencyHistory({ serial: dev.serial, uplink: up.interface, ip, t0: new Date(c0).toISOString(), t1: new Date(c1).toISOString(), resolution: fine })) || []);
+              parts.push(...mergeDestinationSeries(sl));
+            }
+            if (parts.length) qSeries = parts; else qTotal = totalIntervals;
+          }
+          const qq = qualityAvailability(qSeries, { totalIntervals: qTotal, missing, thresholds: qThresholds });
           for (const t of targets) {
             rows.push({
               site_id: t.site_id, sub_site: t.sub_site, uplink: up.interface, period_type: ptype, period_start: win.period_start, period_end: win.period_end,
               availability_pct: q.availability_pct, status_color: statusColor(q.availability_pct, wanTarget),
               loss_pct_avg: q.loss_pct_avg, latency_ms_avg: q.latency_ms_avg, jitter_ms_avg: q.jitter_ms_avg, goodput_avg: q.goodput_avg,
+              avail_quality_pct: qq.effective_pct, loss_pct_max: qq.loss_pct_max, latency_ms_max: qq.latency_ms_max,
               status_current: up.status || null, uplink_label: up.label || null, device_serial: dev.serial, network_id: dev.networkId,
               data_through: win.period_end, collected_at: now, source: 'meraki_api', raw_json: null,
             });
