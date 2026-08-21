@@ -85,7 +85,7 @@ const DEFAULTS = {
   wan_poll_first_run: '',   // when WAN monitoring began — availability denominator is clamped to it
   // Quality-weighted availability thresholds (loss/latency/jitter → 0..1 health). Calibrated to
   // Meraki's % Time Up (Sabodala) + VoIP grade; loss.bad=5 → >5% loss reads as unusable.
-  wan_quality_thresholds: '{"loss":{"good":1,"bad":5},"latency":{"good":100,"bad":400},"jitter":{"good":30,"bad":100}}',
+  wan_quality_thresholds: '{"loss":{"good":1,"bad":7},"latency":{"good":100,"bad":400},"jitter":{"good":30,"bad":100}}',
 };
 const KEYS = Object.keys(DEFAULTS);
 
