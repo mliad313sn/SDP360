@@ -70,6 +70,12 @@ for (const period of ['day', 'week', 'month']) {
     assert.ok(r.body.window, 'window present');
     assert.equal(r.body.window.days, w.days);
     assert.equal(r.body.window.to, w.toISO, 'window ends at start-of-today (UTC), i.e. yesterday complete');
+    // PRIMARY = the snapshot's loss<100 "% Time Up" (99), preserved — NOT overwritten by the
+    // event-based figure; the event value (no outage seeded → 100) becomes the secondary.
+    const u = r.body.sites[0].uplinks[0];
+    assert.equal(u.availability_pct, 99, '% Time Up = snapshot value, preserved as primary');
+    assert.equal(u.avail_event_pct, 100, 'event-based (no outage) → secondary avail_event_pct');
+    assert.equal(u.basis, 'timeup');
   });
 }
 

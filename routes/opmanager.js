@@ -207,7 +207,22 @@ module.exports = function opmanagerRoutes(deps) {
             if (!groups.has(k)) groups.set(k, []);
             groups.get(k).push(u);
           }
-          for (const g of groups.values()) applySiteEventAvailability(g, outages, { target, fromMs: effFromMs, toMs: tMs });
+          // PRIMARY = the snapshot's loss<100 "% Time Up" (deriveAvailability, Meraki's own
+          // method — ≈ the Summary Report figure). applySiteEventAvailability overwrites
+          // availability_pct with the EVENT-based value, so stash the % Time Up first and restore
+          // it after; the event figure becomes the secondary "· up X%" (avail_event_pct).
+          const { statusColor: _sc } = require('../services/merakiWanQuality');
+          for (const g of groups.values()) {
+            for (const u of g) u.__timeup = u.availability_pct;
+            applySiteEventAvailability(g, outages, { target, fromMs: effFromMs, toMs: tMs });
+            for (const u of g) {
+              u.avail_event_pct = u.availability_pct;                       // event-based (rolling) → secondary
+              u.availability_pct = (u.__timeup == null) ? null : u.__timeup; // restore % Time Up as primary
+              u.status_color = (u.availability_pct == null) ? 'none' : _sc(u.availability_pct, target);
+              u.basis = 'timeup';
+              delete u.__timeup;
+            }
+          }
           for (const s of sites) for (const u of s.uplinks) {
             const circ = resolveCircuit(circuits, { site_id: s.site_id, sub_site: u.sub_site, uplink: u.uplink });
             if (circ && (circ.isp || circ.circuit_id)) {
@@ -215,8 +230,13 @@ module.exports = function opmanagerRoutes(deps) {
             }
           }
         } else {
-          // poller not yet active → do NOT present the disqualified loss-based figure as availability
-          for (const s of sites) for (const u of s.uplinks) { u.availability_pct = null; u.status_color = 'none'; u.basis = 'pending_poller'; }
+          // % Time Up comes from the snapshot (loss/latence), INDEPENDENT of the poller → keep it
+          // as the primary even before the poller runs; only the event-based "· up X%" is absent.
+          const { statusColor: _sc2 } = require('../services/merakiWanQuality');
+          for (const s of sites) for (const u of s.uplinks) {
+            u.status_color = (u.availability_pct == null) ? 'none' : _sc2(u.availability_pct, target);
+            u.basis = 'timeup';
+          }
         }
       } catch (_) { /* availability override is best-effort; quality data already stands */ }
 
