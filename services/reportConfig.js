@@ -86,6 +86,12 @@ const DEFAULTS = {
   // Quality-weighted availability thresholds (loss/latency/jitter → 0..1 health). Calibrated to
   // Meraki's % Time Up (Sabodala) + VoIP grade; loss.bad=5 → >5% loss reads as unusable.
   wan_quality_thresholds: '{"loss":{"good":1,"bad":7},"latency":{"good":100,"bad":400},"jitter":{"good":30,"bad":100}}',
+  // "% Time Up" down-thresholds (approximate Meraki's Summary Report, which counts high-loss /
+  // timeout samples as down — NOT only 100% loss). loss_pct = an interval with loss ≥ this is
+  // down (default 100 = the plain loss<100 rule); latency_ms = an interval slower than this is
+  // down (blank = no latency cap). Tune loss_pct down (~15-25) to land on Meraki's % Time Up.
+  wan_timeup_loss_pct: '100',
+  wan_timeup_latency_ms: '',
 };
 const KEYS = Object.keys(DEFAULTS);
 

@@ -46,6 +46,9 @@ async function main(deps = {}) {
     const wanTarget = _safeParse(cfg.opm_targets, {}).wan;
     const missing = cfg.meraki_missing_policy === 'unknown' ? 'unknown' : 'down';
     const qThresholds = _safeParse(cfg.wan_quality_thresholds, {});   // quality-weighted availability calibration
+    // "% Time Up" down-thresholds — approximate Meraki (high-loss/timeout = down, not only 100% loss).
+    const tu = { lossDownPct: cfg.wan_timeup_loss_pct != null && cfg.wan_timeup_loss_pct !== '' ? Number(cfg.wan_timeup_loss_pct) : 100,
+                 latencyDownMs: cfg.wan_timeup_latency_ms != null && cfg.wan_timeup_latency_ms !== '' ? Number(cfg.wan_timeup_latency_ms) : null };
 
     // Windows: the report's PREVIOUS Zoho week (Sunday→Saturday, = weeks.start_date, the
     // report join key + tz control) and the current month. Injected in tests.
@@ -115,7 +118,7 @@ async function main(deps = {}) {
           // for the same (site, uplink, period) key. (Fixes MANA reading '—' — two MX in one
           // network, the spare clobbering the master.)
           if (!series.length) continue;
-          const q = deriveAvailability(series, { totalIntervals, missing });   // binary % Time Up (loss<100)
+          const q = deriveAvailability(series, { totalIntervals, missing, ...tu });   // % Time Up (loss/latency thresholds)
 
           // Quality-weighted (Meraki-aligned) availability needs FINE resolution: a loss burst
           // averaged into an hour reads clean. For the WEEK, take an extra 600s (10-min) pull,
@@ -137,7 +140,7 @@ async function main(deps = {}) {
           // bursts aren't averaged away inside an hour: at 3600s a bursty link reads ~100%, at
           // fine resolution it drops to Meraki's figure (MANA wan1 ~84%). Month keeps 3600s.
           const conn = (ptype === 'week' && qSeries !== series)
-            ? deriveAvailability(qSeries, { totalIntervals: qTotal, missing })
+            ? deriveAvailability(qSeries, { totalIntervals: qTotal, missing, ...tu })
             : q;
           for (const t of targets) {
             rows.push({

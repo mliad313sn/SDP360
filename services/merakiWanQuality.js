@@ -22,10 +22,21 @@ function _avg(nums) {
 
 // series: [{ lossPercent, latencyMs, jitter, goodput }, …] (present samples only)
 // opts: { totalIntervals, missing:'down'|'unknown' }
-function deriveAvailability(series, { totalIntervals, missing = 'down' } = {}) {
+function deriveAvailability(series, { totalIntervals, missing = 'down', lossDownPct = 100, latencyDownMs = null } = {}) {
   const rows = Array.isArray(series) ? series : [];
   const present = rows.length;
-  const up = rows.filter((s) => s && s.lossPercent != null && Number(s.lossPercent) < 100).length;
+  // An interval is "up" iff loss is BELOW the down-threshold AND (if a latency timeout is set)
+  // latency is within it. Default lossDownPct=100 / no latency cap = the plain loss<100 rule.
+  // Meraki's own "% Time Up" counts high-loss/timeout samples as down (MANA wan1: 4.48% avg loss
+  // but 84% up), so a lower lossDownPct (~15-25%) + a latency cap approximates the Summary Report.
+  const lossCap = Number(lossDownPct);
+  const latCap = (latencyDownMs == null || latencyDownMs === '' ) ? null : Number(latencyDownMs);
+  const up = rows.filter((s) => {
+    if (!s || s.lossPercent == null) return false;
+    if (Number(s.lossPercent) >= lossCap) return false;
+    if (latCap != null && Number.isFinite(latCap) && s.latencyMs != null && Number(s.latencyMs) > latCap) return false;
+    return true;
+  }).length;
 
   // Zero samples at all = no data (collection/API gap), NOT a measured total outage —
   // absence is `null` → status `none`, never a fabricated 0% (spec §7). The `missing`

@@ -35,6 +35,18 @@ test('empty → null (never 0)', () => {
   assert.strictEqual(deriveAvailability([], { totalIntervals: 5, missing: 'down' }).availability_pct, null);
 });
 
+const L = (loss, lat) => ({ startTime: 'x', endTime: 'y', lossPercent: loss, latencyMs: lat, jitter: 2, goodput: 1000 });
+
+test('lossDownPct: loss >= threshold counts down (28% loss, threshold 20 → down); default 100 keeps it up', () => {
+  assert.equal(deriveAvailability([S(0), S(28), S(0)], { totalIntervals: 3, missing: 'down', lossDownPct: 20 }).availability_pct, 66.67);
+  assert.equal(deriveAvailability([S(0), S(28), S(0)], { totalIntervals: 3, missing: 'down' }).availability_pct, 100);
+});
+
+test('latencyDownMs: latency over the timeout counts down (2000ms, cap 1000 → down); no cap keeps it up', () => {
+  assert.equal(deriveAvailability([L(0, 20), L(0, 2000), L(0, 20)], { totalIntervals: 3, missing: 'down', latencyDownMs: 1000 }).availability_pct, 66.67);
+  assert.equal(deriveAvailability([L(0, 20), L(0, 2000), L(0, 20)], { totalIntervals: 3, missing: 'down' }).availability_pct, 100);
+});
+
 test('averages are over PRESENT samples; null when none', () => {
   const r = deriveAvailability([S(0), S(2)], { totalIntervals: 2, missing: 'down' });
   assert.equal(r.latency_ms_avg, 20);

@@ -1540,6 +1540,16 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         </select>
         <small style="color:#6b7a99">Set to whichever value <code>calibrate.js</code> reconciles against Meraki's own "% Time Up".</small>
       </div>
+      <div class="form-group">
+        <label>« % Time Up » — seuil de perte (down si perte ≥ %)</label>
+        <input type="number" id="cfg-wan-timeup-loss" min="1" max="100" placeholder="100" autocomplete="off" style="max-width:120px">
+        <small style="color:#6b7a99"><b>100</b> = règle « loss&lt;100 » (défaut, trop tolérant). Baisse (~15-25) pour approcher le « % Time Up » de Meraki, qui compte les fortes pertes comme down. Puis <b>Sync WAN now</b> et recharge WAN Health.</small>
+      </div>
+      <div class="form-group">
+        <label>« % Time Up » — timeout latence (down si latence &gt; ms ; vide = aucun)</label>
+        <input type="number" id="cfg-wan-timeup-lat" min="100" placeholder="(aucun)" autocomplete="off" style="max-width:140px">
+        <small style="color:#6b7a99">Optionnel — compte un intervalle très lent comme down (les timeouts que Meraki voit, ex. &gt; 1000).</small>
+      </div>
 
       <h4 style="margin:16px 0 6px;color:#3A4A60">OpManager (LAN / WLAN / Servers) — via Analytics Plus</h4>
       <p style="color:#6b7a99;font-size:0.85rem;margin:-2px 0 8px">
@@ -6912,6 +6922,8 @@ function loadInfraConfig() {
     const pol = document.getElementById('cfg-meraki-policy'); if (pol) pol.value = (c.meraki_missing_policy === 'unknown' ? 'unknown' : 'down');
     set('cfg-opm-view', c.opm_availability_view_id);
     const stale = document.getElementById('cfg-opm-stale'); if (stale) stale.value = (c.opm_stale_days == null || c.opm_stale_days === '' ? '9' : c.opm_stale_days);
+    set('cfg-wan-timeup-loss', c.wan_timeup_loss_pct, '100');
+    set('cfg-wan-timeup-lat', c.wan_timeup_latency_ms);
     const msg = document.getElementById('cfg-infra-msg'); if (msg) msg.textContent = '';
   }).catch(e => toast('Could not load Infra settings: ' + (e.message || e), 'error'));
   loadWanMap();
@@ -6983,6 +6995,8 @@ function saveInfraConfig() {
     meraki_missing_policy: val('cfg-meraki-policy') || 'down',
     opm_availability_view_id: val('cfg-opm-view'),
     opm_stale_days: val('cfg-opm-stale') || '9',
+    wan_timeup_loss_pct: val('cfg-wan-timeup-loss') || '100',
+    wan_timeup_latency_ms: val('cfg-wan-timeup-lat'),
   };
   const mk = val('cfg-meraki-key'); if (mk) patch.meraki_api_key = mk;     // blank = keep stored
   api('PUT', '/api/reports/config', patch)
