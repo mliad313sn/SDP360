@@ -37,11 +37,16 @@
   .wh-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:14px; margin-bottom:22px; }
   .wh-card { background:#fff; border:1px solid #e4e8ee; border-radius:12px; padding:14px 16px; }
   .wh-card h3 { margin:0 0 10px; font-size:15px; color:var(--edv-slate,#3A4A60); }
-  .wh-link { display:flex; align-items:center; gap:8px; padding:6px 0; border-top:1px solid #f0f2f5; }
+  .wh-link { padding:8px 0; border-top:1px solid #f0f2f5; }
   .wh-link:first-of-type { border-top:0; }
-  .wh-dot { width:10px; height:10px; border-radius:50%; flex:0 0 auto; }
+  .wh-l1 { display:flex; align-items:center; gap:8px; }
+  .wh-dot, .wh-qdot { width:10px; height:10px; border-radius:50%; flex:0 0 auto; display:inline-block; }
   .g{background:#27AE60}.o{background:#E8A100}.r{background:#DC2626}.n{background:#b6bdc7}
-  .wh-up { font-weight:700; min-width:44px; } .wh-lbl { color:#6b7785; min-width:52px; }
+  .wh-lbl { color:#6b7785; min-width:46px; font-size:13px; }
+  .wh-up { font-size:13px; color:#3A4A60; } .wh-up b { font-weight:700; }
+  .wh-qual { display:flex; align-items:center; gap:5px; font-size:12.5px; color:#5a6472; margin-left:auto; white-space:nowrap; }
+  .wh-qual b { font-weight:700; }
+  .wh-l2 { margin-left:18px; margin-top:3px; color:#9aa3b0; font-size:11.5px; }
   .wh-q { color:#6b7785; font-size:12px; margin-left:auto; }
   .wh-subhdr { font-size:11px; font-weight:700; color:#556; margin:6px 0 2px; text-transform:uppercase; letter-spacing:.03em; }
   .wh-panel { background:#fff; border:1px solid #e4e8ee; border-radius:12px; padding:16px; }
@@ -223,17 +228,23 @@
     // pondérée qualité (perte/latence/gigue). L'ancien "· up" (event) est retiré (source de confusion).
     const dispoTitle = 'Disponible = pourcentage du temps où le lien RÉPONDAIT (une connexion passait), règle perte < 100 %. Ce n’est PAS le « % Time Up » propriétaire de Meraki (leur logique de bascule SD-WAN est interne, non exposée par l’API) — c’est notre mesure OPS, sur la semaine/mois archivé.';
     const qualiTitle = 'Qualité = pourcentage du temps où le lien était de BONNE QUALITÉ. Chaque intervalle de 10 min est noté 0..1 sur perte/latence/gigue (on garde la PIRE des 3), puis moyenné. Un lien peut RÉPONDRE (Disponible élevé) tout en étant DÉGRADÉ (Qualité basse).';
+    // Pastille Dispo : verte ≥90, orange ≥70, rouge sinon. Pastille Qualité : verte ≥80 (bon VoIP),
+    // orange ≥50 (dégradé), rouge <50 (mauvais pour temps réel).
     const primDot = p => p == null ? 'none' : (p >= 90 ? 'green' : p >= 70 ? 'orange' : 'red');
+    const qualDot = q => q == null ? 'none' : (q >= 80 ? 'green' : q >= 50 ? 'orange' : 'red');
     const linkRow = u => {
       const prim = u.availability_pct;      // Disponible (loss<100)
       const ql = u.avail_quality_pct;       // Qualité (pondérée)
+      const noData = prim == null && ql == null;
       return `
           <div class="wh-link">
-            <span class="wh-dot ${dotClass(primDot(prim))}"></span>
-            <span class="wh-lbl">${u.uplink_label || u.uplink}</span>
-            <span class="wh-up" title="${dispoTitle}">${prim == null ? '—' : 'Dispo ' + fmt(prim) + '%'}</span>
-            <span class="wh-eff" title="${qualiTitle}" style="font-size:12px;color:#6b7a99;margin-left:6px">${ql == null ? '' : '· Qualité ' + fmt(ql) + '%'}</span>
-            <span class="wh-q" title="Perte de paquets moyenne · latence moyenne · gigue.">loss ${fmt(u.loss_pct_avg)}% · ${fmt(u.latency_ms_avg)}ms · jit ${fmt(u.jitter_ms_avg)}ms</span>
+            <div class="wh-l1">
+              <span class="wh-dot ${dotClass(primDot(prim))}" title="${dispoTitle}"></span>
+              <span class="wh-lbl">${u.uplink_label || u.uplink}</span>
+              <span class="wh-up" title="${dispoTitle}">Dispo <b>${prim == null ? '—' : fmt(prim) + '%'}</b></span>
+              ${noData ? '' : `<span class="wh-qual" title="${qualiTitle}"><span class="wh-qdot ${dotClass(qualDot(ql))}"></span>Qualité <b>${ql == null ? '—' : fmt(ql) + '%'}</b></span>`}
+            </div>
+            <div class="wh-l2" title="Perte de paquets · latence · gigue (moyennes).">${noData ? 'pas de données' : `perte ${fmt(u.loss_pct_avg)}% · ${fmt(u.latency_ms_avg)} ms · gigue ${fmt(u.jitter_ms_avg)} ms`}</div>
           </div>`;
     };
     $('wh-grid').innerHTML = sites.map(s => {
