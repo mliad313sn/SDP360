@@ -219,12 +219,6 @@
     $('wh-empty').style.display = sites.length ? 'none' : 'block';
     $('wh-basis').innerHTML = '<b>Dispo</b> (le gros chiffre) = % du temps où le lien <b>répondait</b> (une connexion passait). <b>Qualité</b> = % du temps où il était de <b>bonne qualité</b> (perte / latence / gigue faibles — bon pour VoIP / visio). Un lien peut être <b>Dispo</b> mais de <b>Qualité</b> basse (il répond mais « grésille »). Ce n’est <b>pas</b> le « % Time Up » propriétaire de Meraki (leur logique de bascule interne n’est pas exposée par l’API). Chaque lien porte son <b>ISP</b> une fois le circuit mappé (Admin → SLA WAN).';
     $('wh-basis').innerHTML += ` <span style="display:inline-block;margin-top:4px;color:#6b7a99">🗓 Période : <b>${period === 'month' ? 'mois' : (period === 'day' ? 'jour' : 'semaine')} archivé(e)</b> — dernière collecte Meraki.</span>`;
-    const upTitle = u => u.basis === 'event'
-      ? 'Disponibilité mesurée par événement : statut de l’uplink relevé par Meraki toutes les 5 min, agrégé sur la fenêtre affichée. Aligné sur la méthode Meraki : les pannes boîtier hors-ligne (site / électricité) sont exclues du dénominateur. Ce n’est pas le « % Time Up » officiel du rapport Meraki (non exposé par API) — c’est notre mesure OPS, opposable et identique à la cellule WAN du rapport de site.'
-      : (u.availability_pct == null
-          ? 'Collecteur WAN pas encore actif — aucun chiffre event-based (« — » plutôt qu’un % fabriqué).'
-          : 'Disponibilité WAN (Meraki).');
-    const effTitle = 'Disponibilité EFFECTIVE (pondérée qualité) — le chiffre principal : chaque intervalle est noté 0..1 selon perte/latence/gigue (seuils VoIP calibrés sur Meraki), moyenné dans le temps. Reflète l’usabilité réelle et s’aligne sur le « % Time Up » de Meraki — un lien « up » mais à forte perte/gigue tombe bas. (Qualité = snapshot Meraki archivé ; « — » = pas encore de donnée qualité.)';
     // Le gros chiffre = "Disponible" (le lien répondait, loss<100). "· Qualité" = disponibilité
     // pondérée qualité (perte/latence/gigue). L'ancien "· up" (event) est retiré (source de confusion).
     const dispoTitle = 'Disponible = pourcentage du temps où le lien RÉPONDAIT (une connexion passait), règle perte < 100 %. Ce n’est PAS le « % Time Up » propriétaire de Meraki (leur logique de bascule SD-WAN est interne, non exposée par l’API) — c’est notre mesure OPS, sur la semaine/mois archivé.';
