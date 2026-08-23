@@ -158,8 +158,13 @@ module.exports = function opmanagerRoutes(deps) {
       const { latestPerSite } = require('../services/wanDashboard');
       const { applySiteEventAvailability } = require('../services/wanEventAvailability');
       const { parseSlaWanConfig, resolveCircuit } = require('../services/slaWanConfig');
-      const period = req.query.period === 'month' ? 'month' : 'week';
-      const rows = await rdb.getWanSnapshots({ period_type: period });
+      const { merakiWindow } = require('../services/wanWindow');
+      const periodRaw = String(req.query.period || 'week');
+      const period = (periodRaw === 'month' || periodRaw === 'day') ? periodRaw : 'week';
+      // No daily snapshot exists → 'day' borrows the 'week' snapshot for the site/uplink structure
+      // and quality (loss/latency); only the availability WINDOW differs (computed on the fly).
+      const snapPeriod = period === 'day' ? 'week' : period;
+      const rows = await rdb.getWanSnapshots({ period_type: snapPeriod });
       const siteList = (await rdb.listSites({ includeInactive: true })) || [];
       const nameById = {}; for (const s of siteList) nameById[s.id] = s.name;
       const sites = latestPerSite(rows).map(s => ({ ...s, site_name: nameById[s.site_id] || null }));
@@ -175,23 +180,20 @@ module.exports = function opmanagerRoutes(deps) {
         pollActive = !!(cfg && cfg.wan_poll_last_run);
         let target = 98; try { const t = JSON.parse(cfg && cfg.opm_targets || '{}'); if (t && t.wan != null) target = Number(t.wan); } catch (_) {}
         if (pollActive && sites.length) {
-          // Availability window is LIVE and ends NOW (Weekly = last 7 days, Monthly = this
-          // calendar month), aligned to the toggle — so THIS week's outages show. The loss/
-          // latency snapshot is an archive of a PAST week and must NOT bound availability: that
-          // lag is why every link read 100% while outages were being recorded this week.
-          const nowD = new Date();
-          const toISO = nowD.toISOString();
-          const fromISO = (period === 'month')
-            ? toISO.slice(0, 8) + '01T00:00:00.000Z'
-            : new Date(nowD.getTime() - 7 * 86400000).toISOString();
+          // Availability window MIRRORS Meraki's Summary Report presets (Day/Week/Month = rolling
+          // N complete days ENDING YESTERDAY), so this number reconciles with what the editor sees
+          // when they click the matching preset in Meraki (they use presets, never Custom).
+          // Computed on-demand from the event-fed outage log — the loss/latency snapshot is a
+          // PAST-week archive and must NOT bound availability (that lag once read every link 100%).
+          const w = merakiWindow(period, Date.now());
           // Denominator = time actually COLLECTED: clamp the window start to when monitoring began
-          // (wan_poll_first_run), so a not-yet-full week/month isn't inflated by counting the
+          // (wan_poll_first_run), so a not-yet-full window isn't inflated by counting the
           // un-monitored span as up. requested_from is kept for the UI.
           const firstRun = cfg.wan_poll_first_run ? Date.parse(cfg.wan_poll_first_run) : null;
-          const fMs = Date.parse(fromISO), tMs = Date.parse(toISO);
-          const effFromMs = (firstRun && Number.isFinite(firstRun)) ? Math.max(fMs, firstRun) : fMs;
+          const toISO = w.toISO, tMs = w.toMs;
+          const effFromMs = (firstRun && Number.isFinite(firstRun)) ? Math.max(w.fromMs, firstRun) : w.fromMs;
           const effFromISO = new Date(effFromMs).toISOString();
-          win = { from: effFromISO, to: toISO, requested_from: fromISO };
+          win = { from: effFromISO, to: toISO, requested_from: w.fromISO, days: w.days };
           let outages = [];
           try { outages = (await rdb.getWanOutagesOverlapping(effFromISO, toISO)) || []; } catch (_) { outages = []; }
           const circuits = parseSlaWanConfig(cfg.sla_wan_config);   // to name each link by its ISP once mapped
