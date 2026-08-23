@@ -300,6 +300,10 @@ module.exports = function opmanagerRoutes(deps) {
       const nowMs = Date.now();
       const clockStart = cfg.clock_start;
       const triggerMinutes = (cfg.notify && cfg.notify.trigger_minutes) || 15;
+      // Resolve site_id → name for display (the raw numeric id is meaningless to a reader).
+      const _siteList = (await rdb.listSites({ includeInactive: true })) || [];
+      const _nameById = {}; for (const s of _siteList) _nameById[s.id] = s.name;
+      const _siteName = (id) => _nameById[id] || null;
 
       const circuits = [];
       for (const c of (Array.isArray(cfg.circuits) ? cfg.circuits : [])) {
@@ -313,7 +317,7 @@ module.exports = function opmanagerRoutes(deps) {
           outages, circuit: resolved, tier: resolved.tier, maintenance: cfg.maintenance,
           monthStart, monthEnd, clockStart, triggerMinutes, nowMs });
         circuits.push({
-          site_id, sub_site, uplink, tier: c.tier, isp: resolved.isp || null,
+          site_id, site_name: _siteName(site_id), sub_site, uplink, tier: c.tier, isp: resolved.isp || null,
           circuit_id: resolved.circuit_id || null, outage_count: outages.length,
           resolution_breaches: resolutionBreaches(outages, resolved.tier, resolved), ...sla });
       }
@@ -324,7 +328,7 @@ module.exports = function opmanagerRoutes(deps) {
         const site_id = o.site_id, sub_site = o.sub_site || '', uplink = o.uplink;
         if (resolveCircuit(cfg, { site_id, sub_site, uplink })) continue;
         const k = `${site_id}|${sub_site}|${uplink}`;
-        const e = seen.get(k) || { unmapped: true, site_id, sub_site, uplink, outage_count: 0, availability_pct: null };
+        const e = seen.get(k) || { unmapped: true, site_id, site_name: _siteName(site_id), sub_site, uplink, outage_count: 0, availability_pct: null };
         e.outage_count += 1;
         seen.set(k, e);
       }
@@ -344,7 +348,10 @@ module.exports = function opmanagerRoutes(deps) {
       if (req.query.from) f.from = String(req.query.from);
       if (req.query.to) f.to = String(req.query.to);
       if (req.query.uplink) f.uplink = String(req.query.uplink);
-      res.json({ outages: (await rdb.getWanOutages(f)) || [] });
+      const siteList = (await rdb.listSites({ includeInactive: true })) || [];
+      const nameById = {}; for (const s of siteList) nameById[s.id] = s.name;
+      const outages = ((await rdb.getWanOutages(f)) || []).map(o => ({ ...o, site_name: nameById[o.site_id] || null }));
+      res.json({ outages });
     } catch (e) { res.json({ outages: [], reason: e.message }); }
   });
 

@@ -111,6 +111,7 @@ test('GET /sla/summary → {circuits,unmapped}; seeded unmapped uplink surfaces 
   const um = r.body.unmapped.find((u) => u.site_id === mgoSiteId && u.uplink === 'wan1');
   assert.ok(um, 'seeded (site,wan1) appears under unmapped');
   assert.equal(um.unmapped, true);
+  assert.ok(um.site_name, 'unmapped row carries the resolved site name (not just the numeric id)');
   assert.strictEqual(um.availability_pct, null, 'unmapped carries no availability (null, never 0)');
   assert.ok(um.outage_count >= 1, 'outage_count counts the seeded row');
 });

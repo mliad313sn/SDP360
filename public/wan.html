@@ -368,7 +368,7 @@
       return `<tr>
         <td>${esc(c.isp)}</td>
         <td>${esc(c.circuit_id)}</td>
-        <td>${esc(c.site_id)}${c.sub_site ? ' / ' + esc(c.sub_site) : ''}</td>
+        <td>${esc(c.site_name || ('#' + c.site_id))}${c.sub_site ? ' / ' + esc(c.sub_site) : ''}</td>
         <td>${esc(c.uplink)}</td>
         <td class="sl-num"><span class="sl-pill ${ragClass}">${availTxt}</span>
           <span class="sl-muted"> / ${c.availability_pct_objective == null ? '—' : fmtPct(c.availability_pct_objective) + ' tgt'}</span></td>
@@ -382,7 +382,7 @@
 
     $('sl-unmapped-panel').style.display = unmapped.length ? '' : 'none';
     $('sl-unmapped').innerHTML = unmapped.map(u => `<tr>
-        <td>${esc(u.site_id)}${u.sub_site ? ' / ' + esc(u.sub_site) : ''}</td>
+        <td>${esc(u.site_name || ('#' + u.site_id))}${u.sub_site ? ' / ' + esc(u.sub_site) : ''}</td>
         <td>${esc(u.uplink)}</td>
         <td class="sl-num">${u.outage_count == null ? '—' : esc(u.outage_count)}</td>
         <td class="sl-num sl-muted">—</td>
@@ -437,7 +437,7 @@
   function renderOutages() {
     const rows = filteredOutages();
     $('sl-outages').innerHTML = rows.length ? rows.map(o => `<tr>
-        <td>${esc(o.site_id)}${o.sub_site ? ' / ' + esc(o.sub_site) : ''}</td>
+        <td>${esc(o.site_name || ('#' + o.site_id))}${o.sub_site ? ' / ' + esc(o.sub_site) : ''}</td>
         <td>${esc(o.uplink)}</td>
         <td>${esc(o.isp)}</td>
         <td>${esc(o.circuit_id)}</td>
