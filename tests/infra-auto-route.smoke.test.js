@@ -85,6 +85,15 @@ test('report with snapshots → wan1 (event-based) + lan fills', async () => {
   assert.equal(by.lan.source, 'opmanager');
 });
 
+test('infra-auto exposes the report-week window (for Meraki cross-check without Custom)', async () => {
+  const r = await get(`/api/reports/${reportId}/infra-auto`, adminToken);
+  assert.equal(r.status, 200);
+  assert.ok(r.body.window, 'window present');
+  assert.equal(r.body.window.from, r.body.period_start, 'window.from = the report week start');
+  assert.ok(r.body.window.to, 'window.to present');
+  assert.ok(r.body.window.days >= 1, 'window.days is a positive day count');
+});
+
 test('report without snapshots → empty fills, not 500', async () => {
   const r = await get(`/api/reports/${noSnapReportId}/infra-auto`, adminToken);
   assert.equal(r.status, 200);

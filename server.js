@@ -6477,6 +6477,20 @@ app.get('/api/reports/:id/infra-auto', requireReportSession, async (req, res) =>
     const wan = await rdb.getWanSnapshots({ site_id: report.site_id, period_type: 'week', period_start: start });
     const infra = await rdb.getInfraSnapshots({ site_id: report.site_id, period_type: 'week', period_start: start });
 
+    // The report cell covers the report's OWN week (fixed & reproducible — an archived weekly
+    // report must NOT drift with a rolling "as of today" window). Expose it so the editor can
+    // cross-check Meraki WITHOUT Custom: Meraki "Past Week" opened the day AFTER this week ends
+    // is the same period (Zoho weeks are Sun→Sat; Meraki's presets end yesterday).
+    let winFrom = null, winTo = null;
+    for (const u of wan) {
+      const ps = u.period_start || null, pe = u.period_end || u.period_start || null;
+      if (ps && (!winFrom || ps < winFrom)) winFrom = ps;
+      if (pe && (!winTo || pe > winTo)) winTo = pe;
+    }
+    const window = (winFrom && winTo)
+      ? { from: winFrom, to: winTo, days: Math.round((Date.parse(winTo) - Date.parse(winFrom)) / 86400000) + 1 }
+      : null;
+
     // FAITHFUL WAN availability = event-based (the poller's Meraki uplink-status outage log),
     // the SAME shared path the WAN Health dashboard uses so the report cell and the dashboard
     // can never disagree — NOT the disqualified loss-derived snapshot %. Only when the poller
@@ -6504,7 +6518,7 @@ app.get('/api/reports/:id/infra-auto', requireReportSession, async (req, res) =>
     // matching. Row-driven; NOT passed into buildFills (buildFills is snapshot-driven).
     const tokens = ((await rdb.listWanSubsiteNetworks()) || [])
       .filter(r => r.site_id === report.site_id).map(r => r.sub_site);
-    res.json({ week_label: report.week_label, period_start: start, fills, tokens });
+    res.json({ week_label: report.week_label, period_start: start, window, fills, tokens });
   } catch (e) { res.json({ fills: [], reason: e.message }); }
 });
 
