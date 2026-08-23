@@ -23,6 +23,7 @@ const { mergeDestinationSeries, deriveAvailability, qualityAvailability } = requ
 const DAYS = Number(process.env.MERAKI_CAL_DAYS || 7);
 const RES = Number(process.env.MERAKI_CAL_RES || 60);
 const LOSS_BAD = [5, 8, 10, 15, 20, 30];   // candidate "h=0" loss thresholds (good fixed at 1%)
+const TIMEUP_THRESH = [10, 15, 20, 25, 30, 40, 50, 60, 80, 100];   // candidate wan_timeup_loss_pct (down if loss ≥ thr)
 const DAY = 86400000;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const iso = (ms) => new Date(ms).toISOString();
@@ -46,9 +47,16 @@ async function history(client, args) {
 }
 
 (async () => {
-  const apiKey = process.env.MERAKI_API_KEY, orgId = process.env.MERAKI_ORG_ID;
-  if (!apiKey || !orgId) { console.error('Set MERAKI_API_KEY and MERAKI_ORG_ID (numeric) in ENV first.'); process.exit(2); }
-  const client = makeMerakiClient({ apiKey, orgId, baseUrl: process.env.MERAKI_BASE_URL });
+  let apiKey = process.env.MERAKI_API_KEY, orgId = process.env.MERAKI_ORG_ID, baseUrl = process.env.MERAKI_BASE_URL;
+  if (!apiKey || !orgId) {   // fall back to the stored config (so it runs on prod without setting ENV)
+    try {
+      const rdb = require('../../reports-db');
+      const cfg = await require('../../services/reportConfig').getConfig(rdb.db);
+      apiKey = apiKey || cfg.meraki_api_key; orgId = orgId || cfg.meraki_org_id; baseUrl = baseUrl || cfg.meraki_base_url;
+    } catch (_) { /* fall through to the error below */ }
+  }
+  if (!apiKey || !orgId) { console.error('No Meraki key/org — set MERAKI_API_KEY + MERAKI_ORG_ID in ENV, or configure them in Admin → Infra WAN.'); process.exit(2); }
+  const client = makeMerakiClient({ apiKey, orgId, baseUrl });
 
   const statuses = (await client.orgUplinkStatuses()) || [];
   const nets = (await client.orgNetworks()) || [];
@@ -96,6 +104,13 @@ async function history(client, args) {
     console.log(`── ${uplink}  ${tv != null ? `⟵ Meraki % Time Up = ${tv}` : ''}`);
     console.log(`   present ${merged.length}/${expected} · loss avg ${f2(q0.loss_pct_avg)} max ${f2(q0.loss_pct_max)} · lat avg ${f2(q0.latency_ms_avg)} max ${f2(q0.latency_ms_max)}` + (chunkErr ? ` · ${chunkErr} chunk err` : ''));
     console.log(`   binary %TimeUp (loss<100): ${f2(binary.availability_pct)}`);
+    // % Time Up under candidate LOSS DOWN-THRESHOLDS (down if loss ≥ thr) — this is the knob
+    // wan_timeup_loss_pct (Admin → Infra WAN). Pick the thr whose value lands on Meraki % Time Up.
+    const tuRow = TIMEUP_THRESH.map((thr) => {
+      const a = deriveAvailability(merged, { totalIntervals: expected, missing: 'down', lossDownPct: thr });
+      return `${String(thr).padStart(3)}→${f2(a.availability_pct)}`;
+    }).join('  ');
+    console.log(`   %TimeUp @ loss-thresh  ${tuRow}`);
     const row = LOSS_BAD.map((bad) => {
       const q = qualityAvailability(merged, { totalIntervals: expected, missing: 'down', thresholds: { loss: { good: 1, bad } } });
       return `bad=${String(bad).padStart(2)}→${f2(q.effective_pct)}`;
