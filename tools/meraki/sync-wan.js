@@ -133,10 +133,16 @@ async function main(deps = {}) {
             if (parts.length) qSeries = parts; else qTotal = totalIntervals;
           }
           const qq = qualityAvailability(qSeries, { totalIntervals: qTotal, missing, thresholds: qThresholds });
+          // % Time Up (loss<100) — for the WEEK use the FINE (600s) series so short total-loss
+          // bursts aren't averaged away inside an hour: at 3600s a bursty link reads ~100%, at
+          // fine resolution it drops to Meraki's figure (MANA wan1 ~84%). Month keeps 3600s.
+          const conn = (ptype === 'week' && qSeries !== series)
+            ? deriveAvailability(qSeries, { totalIntervals: qTotal, missing })
+            : q;
           for (const t of targets) {
             rows.push({
               site_id: t.site_id, sub_site: t.sub_site, uplink: up.interface, period_type: ptype, period_start: win.period_start, period_end: win.period_end,
-              availability_pct: q.availability_pct, status_color: statusColor(q.availability_pct, wanTarget),
+              availability_pct: conn.availability_pct, status_color: statusColor(conn.availability_pct, wanTarget),
               loss_pct_avg: q.loss_pct_avg, latency_ms_avg: q.latency_ms_avg, jitter_ms_avg: q.jitter_ms_avg, goodput_avg: q.goodput_avg,
               avail_quality_pct: qq.effective_pct, loss_pct_max: qq.loss_pct_max, latency_ms_max: qq.latency_ms_max,
               status_current: up.status || null, uplink_label: up.label || null, device_serial: dev.serial, network_id: dev.networkId,

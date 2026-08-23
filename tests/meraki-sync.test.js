@@ -6,6 +6,13 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const { main } = require('../tools/meraki/sync-wan');
 
+// Interval count sized to the requested window/resolution (realistic — the day-chunked fine
+// (600s) week pull must not multiply a fixed-length series). Falls back to 168 (a ~week @ 3600s).
+function _nIntervals(a = {}) {
+  if (a.t0 && a.t1 && a.resolution) return Math.max(1, Math.round((Date.parse(a.t1) - Date.parse(a.t0)) / (a.resolution * 1000)));
+  return 168;
+}
+
 function stub(over = {}) {
   const cap = { upserts: [] };
   const client = {
@@ -13,7 +20,7 @@ function stub(over = {}) {
       uplinks: [{ interface: 'wan1', status: 'active' }, { interface: 'wan2', status: 'active' }] }],
     orgUplinksLossLatency: async () => [{ serial: 'Q2-AB', uplink: 'wan1', ip: '8.8.8.8' },
       { serial: 'Q2-AB', uplink: 'wan2', ip: '8.8.4.4' }],
-    deviceLossLatencyHistory: async () => Array.from({ length: 168 }, (_, i) => ({ startTs: `t${i}`, endTs: `t${i}`, lossPercent: 0, latencyMs: 20, jitter: 2, goodput: 1000 })),
+    deviceLossLatencyHistory: async (a = {}) => Array.from({ length: _nIntervals(a) }, (_, i) => ({ startTs: `t${i}`, endTs: `t${i}`, lossPercent: 0, latencyMs: 20, jitter: 2, goodput: 1000 })),
     ...(over.client || {}),
   };
   const rdb = {
@@ -50,6 +57,25 @@ test('armed → composes week + month per uplink and upserts', async () => {
   assert.ok(cap.upserts.some(u => u.period_type === 'month' && u.uplink === 'wan2'));
 });
 
+test('week % Time Up uses FINE (600s) resolution: a bursty link hidden at 3600s drops', async () => {
+  // Coarse (3600s) hour-averages hide bursts (loss 50 < 100 → up → 100%); the fine (600s) week
+  // pull exposes 1-in-6 fully-lost 10-min intervals → ~83% — Meraki's own % Time Up behaviour.
+  const { deps, cap } = stub({ client: {
+    deviceLossLatencyHistory: async (a = {}) => Array.from({ length: _nIntervals(a) }, (_, i) => ({
+      startTs: `t${i}`, endTs: `t${i}`,
+      lossPercent: a.resolution === 3600 ? 50 : (i % 6 === 0 ? 100 : 0),
+      latencyMs: 20, jitter: 2, goodput: 1000,
+    })),
+  } });
+  const r = await main(deps);
+  assert.equal(r.ok, true);
+  const wk1 = cap.upserts.find(u => u.period_type === 'week' && u.uplink === 'wan1');
+  assert.ok(wk1.availability_pct < 90, `fine-res caught the bursts (got ${wk1.availability_pct})`);
+  assert.ok(Math.abs(wk1.availability_pct - 83.33) < 1, `~5/6 up (got ${wk1.availability_pct})`);
+  const mo1 = cap.upserts.find(u => u.period_type === 'month' && u.uplink === 'wan1');
+  assert.equal(mo1.availability_pct, 100, 'month keeps 3600s → sub-hour bursts stay hidden');
+});
+
 test('config-gated: no api key → skips, no upsert', async () => {
   const { deps, cap } = stub({ getConfig: async () => ({ meraki_api_key: '' }) });
   const r = await main(deps);
@@ -80,7 +106,7 @@ test('multi-destination: fetches history per destination and merges (up if any d
     orgUplinksLossLatency: async () => [{ serial: 'Q2-AB', uplink: 'wan1', ip: '8.8.8.8' }],
     networkConnectivityDestinations: async ({ networkId }) => ({ destinations: [{ ip: '8.8.8.8', default: true }, { ip: '1.1.1.1', default: false }] }),
     // dest 8.8.8.8: fully up ; dest 1.1.1.1: fully down → merged is up (any dest up)
-    deviceLossLatencyHistory: async ({ ip }) => { cap.histCalls.push(ip); return Array.from({ length: 168 }, (_, i) => ({ startTs: `t${i}`, endTs: `t${i}`, lossPercent: ip === '8.8.8.8' ? 0 : 100, latencyMs: 20, jitter: 2, goodput: 1000 })); },
+    deviceLossLatencyHistory: async (a = {}) => { cap.histCalls.push(a.ip); return Array.from({ length: _nIntervals(a) }, (_, i) => ({ startTs: `t${i}`, endTs: `t${i}`, lossPercent: a.ip === '8.8.8.8' ? 0 : 100, latencyMs: 20, jitter: 2, goodput: 1000 })); },
   };
   const rdb = {
     listSiteModuleCodes: async () => [{ code: 'Ity Gold Operations', site_id: 7, module: 'meraki' }],
@@ -139,8 +165,8 @@ test('two MX in one network (master + warm spare): the spare empty result does n
       { networkId: 'N1', serial: 'Q2-SPARE',  uplinks: [{ interface: 'wan1', status: 'not connected' }] },
     ],
     orgUplinksLossLatency: async () => [{ serial: 'Q2-MASTER', uplink: 'wan1', ip: '8.8.8.8' }],
-    deviceLossLatencyHistory: async ({ serial }) => serial === 'Q2-MASTER'
-      ? Array.from({ length: 168 }, (_, i) => ({ startTs: `t${i}`, endTs: `t${i}`, lossPercent: 0, latencyMs: 20, jitter: 2, goodput: 1000 }))
+    deviceLossLatencyHistory: async (a = {}) => a.serial === 'Q2-MASTER'
+      ? Array.from({ length: _nIntervals(a) }, (_, i) => ({ startTs: `t${i}`, endTs: `t${i}`, lossPercent: 0, latencyMs: 20, jitter: 2, goodput: 1000 }))
       : [],   // warm spare: no samples
   };
   const rdb = {
