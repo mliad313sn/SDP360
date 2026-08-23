@@ -34,5 +34,14 @@ config-gated (availability still gated on `wan_poll_last_run`), normal sites una
 - [ ] `node --test tests/wan-window.test.js tests/wan-window-route.smoke.test.js tests/wan-event-availability.test.js tests/wan-dashboard.test.js tests/await-precedence.test.js` green.
 - [ ] `node --test --test-force-exit tests/pptx-monthly-golden.test.js` unchanged.
 
-**Follow-up (separate):** align the report WAN cell (`opmReportFill`/`infra-auto`) to the same
-`merakiWindow('week', reportAsOf)` after reviewing the infra-auto override path.
+### Task 5: Report WAN cell (DONE) — expose the report-week window
+**Files:** Modify `server.js` (`/api/reports/:id/infra-auto`), `public/reports.html`; Test `tests/infra-auto-route.smoke.test.js`.
+Review finding: the cell is **already** event-based over the report's **own week** (via
+`applyEventAvailability` on the snapshot's `period_start`/`period_end`) — Meraki's *method*, and a
+**fixed, reproducible** window, which is correct for an archived report (a rolling as-of-today
+window would let the number drift across two Zoho weeks). Its window equals `merakiWindow('week')`
+opened the day after the week closes. So we **keep the fixed week** and instead **expose it**:
+- [x] `infra-auto` returns `window {from,to,days}` (the report week); test asserts it.
+- [x] Client tooltip + banner show the dates + "in Meraki, open Past Week the day after = same
+  period (no Custom needed)".
+- [x] Goldens byte-identical (the cell is an editor override, never persisted).

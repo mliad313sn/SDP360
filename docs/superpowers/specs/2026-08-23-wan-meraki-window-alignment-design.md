@@ -50,8 +50,10 @@ computation and the `wan_poll_first_run` collected-time clamp. **SLA / chargebac
 
 ## Non-goals
 - SLA / chargeback windows (unchanged, calendar month).
-- Report WAN cell alignment — **separate follow-up task** (needs the `infra-auto` path reviewed;
-  it touches authored reports, so it ships after the dashboard is verified).
+- Report WAN cell = a **rolling as-of-today** window. Review showed the cell is already
+  event-based over the report's **own week** (fixed & reproducible — correct for an archived
+  report; rolling would drift). We keep the fixed week and only **expose** it (`window` in
+  `infra-auto` + tooltip/banner) so the editor can cross-check Meraki without Custom.
 - Live per-request Meraki event-log fetch — unnecessary: the outage store already mirrors the
   ingested event log and reading it on-demand is efficient and cron-independent for the current
   window (poller keeps today fresh; nightly ingester reconciles history).
