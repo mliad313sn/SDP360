@@ -92,11 +92,11 @@
     <div class="wh-head">
       <div>
         <h1>WAN Health</h1>
-        <div class="sub">Per-site WAN availability &amp; quality — archived from Meraki (kept beyond Meraki's ~60-day window)</div>
+        <div class="sub">Disponibilité &amp; qualité WAN par site. Les fenêtres de disponibilité <b>reproduisent les presets du Summary Report Meraki</b> (Jour / Semaine / Mois = jours glissants finissant hier). La qualité (perte/latence/gigue) est l’archive du snapshot Meraki.</div>
       </div>
       <div class="wh-controls">
         <div class="wh-toggle" id="wh-period">
-          <button data-p="week" class="on">Weekly</button><button data-p="month">Monthly</button>
+          <button data-p="day">Daily</button><button data-p="week" class="on">Weekly</button><button data-p="month">Monthly</button>
         </div>
         <button class="wh-btn" id="wh-sync" style="display:none">⚡ Sync now</button>
       </div>
@@ -218,14 +218,22 @@
     sites = data.sites || [];
     $('wh-empty').style.display = sites.length ? 'none' : 'block';
     $('wh-basis').innerHTML = data.poll_active
-      ? 'Chiffre principal = disponibilité <b>effective (qualité)</b> — chaque intervalle 10 min de la semaine noté selon perte/latence/gigue, moyenné : reflète l’usabilité réelle et s’aligne sur le « % Time Up » de Meraki (un lien « up » mais dégradé tombe bas). Le petit <b>« · up X% »</b> = statut event-based (lien pas totalement coupé) sur les 7 derniers jours, pannes boîtier hors-ligne exclues. Loss / latence / jitter = moyennes. Chaque lien s’affiche avec son <b>ISP</b> une fois le circuit mappé (Admin → SLA WAN) ; sinon « wan1 / wan2 ».'
+      ? 'Chiffre principal = disponibilité <b>effective (qualité)</b> — chaque intervalle noté selon perte/latence/gigue, moyenné : reflète l’usabilité réelle et s’aligne sur le « % Time Up » de Meraki (un lien « up » mais dégradé tombe bas). Le petit <b>« · up X% »</b> = statut event-based (lien pas totalement coupé) sur la fenêtre affichée, pannes boîtier hors-ligne exclues. Loss / latence / jitter = moyennes. Chaque lien s’affiche avec son <b>ISP</b> une fois le circuit mappé (Admin → SLA WAN) ; sinon « wan1 / wan2 ».'
       : '⏳ Disponibilité event-based <b>en attente du 1<sup>er</sup> passage du poller SLA</b> — les valeurs affichent « — ». Loss / latence / jitter (qualité) restent disponibles.';
+    if (data.window) {
+      const preset = { day: 'Past Day', week: 'Past Week', month: 'Past Month' }[period] || 'Past Week';
+      const fromD = String(data.window.requested_from || data.window.from || '').slice(0, 10);
+      const lastD = new Date(Date.parse(data.window.to) - 86400000).toISOString().slice(0, 10);
+      const clamp = (data.window.from && data.window.from.slice(0, 10) > fromD)
+        ? ` · données depuis ${data.window.from.slice(0, 10)}` : '';
+      $('wh-basis').innerHTML += ` <span style="display:inline-block;margin-top:4px;color:#6b7a99">🗓 Fenêtre de disponibilité : <b>${fromD} → ${lastD}</b> (${data.window.days} j — comme Meraki « ${preset} »)${clamp}.</span>`;
+    }
     const upTitle = u => u.basis === 'event'
       ? 'Disponibilité mesurée par événement : statut de l’uplink relevé par Meraki toutes les 5 min, agrégé sur la fenêtre affichée. Aligné sur la méthode Meraki : les pannes boîtier hors-ligne (site / électricité) sont exclues du dénominateur. Ce n’est pas le « % Time Up » officiel du rapport Meraki (non exposé par API) — c’est notre mesure OPS, opposable et identique à la cellule WAN du rapport de site.'
       : (u.availability_pct == null
           ? 'Collecteur WAN pas encore actif — aucun chiffre event-based (« — » plutôt qu’un % fabriqué).'
           : 'Disponibilité WAN (Meraki).');
-    const effTitle = 'Disponibilité EFFECTIVE (pondérée qualité) — le chiffre principal : chaque intervalle 10 min de la semaine est noté 0..1 selon perte/latence/gigue (seuils VoIP calibrés sur Meraki), moyenné dans le temps. Reflète l’usabilité réelle et s’aligne sur le « % Time Up » de Meraki — un lien « up » mais à forte perte/gigue tombe bas. (Fenêtre : semaine archivée. « — » = pas encore de donnée qualité.)';
+    const effTitle = 'Disponibilité EFFECTIVE (pondérée qualité) — le chiffre principal : chaque intervalle est noté 0..1 selon perte/latence/gigue (seuils VoIP calibrés sur Meraki), moyenné dans le temps. Reflète l’usabilité réelle et s’aligne sur le « % Time Up » de Meraki — un lien « up » mais à forte perte/gigue tombe bas. (Qualité = snapshot Meraki archivé ; « — » = pas encore de donnée qualité.)';
     // Big number = the quality-EFFECTIVE availability (Meraki-aligned); falls back to the
     // event-based up% only when quality data isn't in yet. Dot coloured by the effective value.
     const effOf = u => (u.avail_quality_pct != null ? u.avail_quality_pct : u.availability_pct);
