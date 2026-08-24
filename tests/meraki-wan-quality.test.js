@@ -111,18 +111,36 @@ test('mergeDestinationSeries: single destination is a no-op passthrough', () => 
   assert.equal(merged[1].latencyMs, 25);
 });
 
-test('mergeDestinationSeries: latency/jitter averaged across present destinations; sorted', () => {
+test('mergeDestinationSeries: latency/jitter from the BEST (lowest-latency) destination; sorted', () => {
+  // Meraki's Summary Report reports ONE reference destination; averaging the far AWS/internal
+  // targets a MX also pings inflated our latency (Ouaga: 8.8.8.8 32ms averaged with 91/145ms → 89ms).
   const merged = mergeDestinationSeries([
     [T('t2', 0, 40)],
     [T('t1', 0, 10), T('t2', 0, 20)],
   ]);
   assert.deepEqual(merged.map(m => m.startTime), ['t1', 't2']);   // sorted
-  assert.equal(merged[1].latencyMs, 30);   // avg(40,20)
+  assert.equal(merged[1].latencyMs, 20);   // best path = min(40,20)
 });
 
 test('mergeDestinationSeries: empty → []', () => {
   assert.deepEqual(mergeDestinationSeries([]), []);
   assert.deepEqual(mergeDestinationSeries([[], []]), []);
+});
+
+test('mergeDestinationSeries: best-path takes latency AND jitter from the SAME (nearest) destination; loss best-of', () => {
+  // The Ouaga case: a near public destination (32ms, jitter 2) + two far AWS ones (91/145ms,
+  // higher jitter) + dead internal targets (100% loss, no latency). Merged must read the near
+  // destination's latency+jitter as a pair, and loss = best-of (min).
+  const S = (ts, loss, lat, jit) => ({ startTs: ts, endTs: ts, lossPercent: loss, latencyMs: lat, jitter: jit, goodput: 1000 });
+  const near = [S('t1', 0.09, 32, 1.9)];
+  const far1 = [S('t1', 0.21, 91, 5.0)];
+  const far2 = [S('t1', 0.59, 145, 8.0)];
+  const dead = [S('t1', 100, null, null)];
+  const merged = mergeDestinationSeries([near, far1, far2, dead]);
+  assert.equal(merged.length, 1);
+  assert.equal(merged[0].latencyMs, 32, 'nearest destination latency, not the ~89ms average');
+  assert.equal(merged[0].jitter, 1.9, 'jitter from that same nearest destination, not averaged');
+  assert.equal(merged[0].lossPercent, 0.09, 'best-of loss (min across all)');
 });
 
 test('mergeDestinationSeries: keys on the REAL startTs field (prod bug 2026-08-16)', () => {

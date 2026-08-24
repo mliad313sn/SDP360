@@ -146,8 +146,13 @@ function statusColor(pct, target) {
 // Merge the per-destination loss/latency series into ONE, aligned by startTime, so the WAN
 // link is "up" for an interval iff it responded to ANY destination — otherwise a single
 // destination outage (e.g. Google unreachable) would read as a link outage and the derived
-// % Time Up would under-report vs Meraki's own number. lossPercent = MIN across destinations
-// (best path → drives up/down); latency/jitter/goodput = average across present destinations.
+// % Time Up would under-report vs Meraki's own number.
+//   lossPercent = MIN across destinations (best-of → drives up/down, robust).
+//   latency/jitter/goodput = from the BEST PATH = the responding destination with the LOWEST
+//     latency this interval. Meraki's Summary Report reports ONE reference destination; the far
+//     AWS/internal targets a MX also pings (91/145ms, or 100%-loss dead IPs) would otherwise
+//     inflate an AVERAGE (Ouaga proof: 8.8.8.8 32ms averaged with 91/145ms → 89ms vs Meraki 32).
+//     Taking the nearest responding destination reads latency AND jitter as a matched pair.
 function mergeDestinationSeries(seriesList) {
   const byTs = new Map();
   for (const series of (seriesList || [])) {
@@ -158,19 +163,28 @@ function mergeDestinationSeries(seriesList) {
       const ts = s && (s.startTs || s.startTime || s.ts);
       if (!ts) continue;
       let b = byTs.get(ts);
-      if (!b) { b = { startTime: ts, endTime: s.endTs || s.endTime || null, loss: [], lat: [], jit: [], good: [] }; byTs.set(ts, b); }
-      if (s.lossPercent != null && Number.isFinite(+s.lossPercent)) b.loss.push(+s.lossPercent);
-      if (s.latencyMs != null && Number.isFinite(+s.latencyMs)) b.lat.push(+s.latencyMs);
-      if (s.jitter != null && Number.isFinite(+s.jitter)) b.jit.push(+s.jitter);
-      if (s.goodput != null && Number.isFinite(+s.goodput)) b.good.push(+s.goodput);
+      if (!b) { b = { startTime: ts, endTime: s.endTs || s.endTime || null, samples: [] }; byTs.set(ts, b); }
+      b.samples.push({
+        loss: (s.lossPercent != null && Number.isFinite(+s.lossPercent)) ? +s.lossPercent : null,
+        lat: (s.latencyMs != null && Number.isFinite(+s.latencyMs)) ? +s.latencyMs : null,
+        jit: (s.jitter != null && Number.isFinite(+s.jitter)) ? +s.jitter : null,
+        good: (s.goodput != null && Number.isFinite(+s.goodput)) ? +s.goodput : null,
+      });
     }
   }
   const out = [];
   for (const b of byTs.values()) {
+    const losses = b.samples.map((x) => x.loss).filter((v) => v != null);
+    // best path = responding destination with the lowest latency (dead 100%-loss targets carry
+    // null latency and are naturally excluded); its latency/jitter/goodput move together.
+    let best = null;
+    for (const x of b.samples) { if (x.lat == null) continue; if (best == null || x.lat < best.lat) best = x; }
     out.push({
       startTime: b.startTime, endTime: b.endTime,
-      lossPercent: b.loss.length ? Math.min(...b.loss) : null,   // best-of → up if any dest up
-      latencyMs: _avg(b.lat), jitter: _avg(b.jit), goodput: _avg(b.good),
+      lossPercent: losses.length ? Math.min(...losses) : null,   // best-of → up if any dest up
+      latencyMs: best ? round2(best.lat) : null,
+      jitter: best && best.jit != null ? round2(best.jit) : null,
+      goodput: best && best.good != null ? round2(best.good) : null,
     });
   }
   out.sort((a, b) => String(a.startTime).localeCompare(String(b.startTime)));
