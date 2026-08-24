@@ -45,7 +45,7 @@ async function main(deps = {}) {
       apiKey: cfg.meraki_api_key, orgId: cfg.meraki_org_id, baseUrl: cfg.meraki_base_url });
     const wanTarget = _safeParse(cfg.opm_targets, {}).wan;
     const missing = cfg.meraki_missing_policy === 'unknown' ? 'unknown' : 'down';
-    const qThresholds = _safeParse(cfg.wan_quality_thresholds, {});   // quality-weighted availability calibration
+    const mosCfg = _safeParse(cfg.wan_mos_config, {});   // ITU-T E-model config (R-factor → MOS)
     // "% Time Up" down-thresholds — approximate Meraki (high-loss/timeout = down, not only 100% loss).
     const tu = { lossDownPct: cfg.wan_timeup_loss_pct != null && cfg.wan_timeup_loss_pct !== '' ? Number(cfg.wan_timeup_loss_pct) : 100,
                  latencyDownMs: cfg.wan_timeup_latency_ms != null && cfg.wan_timeup_latency_ms !== '' ? Number(cfg.wan_timeup_latency_ms) : null };
@@ -141,7 +141,7 @@ async function main(deps = {}) {
             }
             if (parts.length) qSeries = parts; else qTotal = totalIntervals;
           }
-          const qq = qualityAvailability(qSeries, { totalIntervals: qTotal, missing, thresholds: qThresholds });
+          const qq = qualityAvailability(qSeries, { totalIntervals: qTotal, missing, mos: mosCfg });
           // % Time Up (loss<100) — for the WEEK use the FINE (600s) series so short total-loss
           // bursts aren't averaged away inside an hour: at 3600s a bursty link reads ~100%, at
           // fine resolution it drops to Meraki's figure (MANA wan1 ~84%). Month keeps 3600s.

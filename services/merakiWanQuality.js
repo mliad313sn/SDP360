@@ -58,62 +58,71 @@ function _max(nums) {
   return xs.length ? round2(Math.max(...xs)) : null;
 }
 
-// Quality-weighted availability from a fine-resolution (ideally 60s) loss/latency series.
-// The binary "% Time Up" (loss<100) treats a badly-degraded link as up — Meraki's own % Time
-// Up does NOT: a bursty-loss uplink reads e.g. 24% up even though it's never fully down. So we
-// score EACH interval's usability 0..1 from loss/latency/jitter (piecewise-linear between a
-// "good" and a "bad" threshold, weakest-link = min across present metrics), and the effective
-// availability is the time-mean of that score. A missing interval (totalIntervals > present)
-// counts as down (health 0), like deriveAvailability. Thresholds are CALIBRATED against Meraki's
-// Summary Report — the defaults are VoIP-grade starting points, overridable via opts.thresholds.
-const DEFAULT_QUALITY_THRESHOLDS = {
-  loss: { good: 1, bad: 20 },       // % packet loss: h=1 at <=1%, h=0 at >=20%
-  latency: { good: 100, bad: 400 }, // ms RTT:        h=1 at <=100, h=0 at >=400
-  jitter: { good: 30, bad: 100 },   // ms jitter:     h=1 at <=30,  h=0 at >=100
+// ── ITU-T G.107 "E-model" quality (R-factor → MOS) ───────────────────────────
+// The recognised industry model for turning loss/latency/jitter into a call-quality score
+// (used by Cisco IP SLA, ntopng, etc). Per interval: effective latency = latency + 2·jitter +
+// base_delay (dejitter-buffer approximation); R = r0 − delay_impairment − codec_loss_factor·loss
+// + advantage_factor, clamped 0..100. R (0-100) IS the quality index (our "Qualité %"), and
+// R→MOS gives the familiar 1..4.5 score. Defaults are G.711 wired (advantage_factor 0),
+// overridable via wan_mos_config. NOT the same as Meraki's proprietary "% Time Up".
+const DEFAULT_MOS_CONFIG = {
+  r0: 93.2,                 // narrowband baseline R (G.711 best ≈ MOS 4.4)
+  codec_loss_factor: 2.5,   // R points lost per 1% packet loss (G.711 ≈ 2.5)
+  jitter_buffer_factor: 2,  // jitter × this ≈ added dejitter-buffer delay
+  base_delay_ms: 10,        // fixed codec/packetisation delay
+  advantage_factor: 0,      // A: 0 wired; 10-20 for satellite/VSAT user tolerance
 };
 
-// Piecewise-linear health for one metric; null (unknown metric) does not constrain the min.
-function _health1(v, good, bad) {
-  if (v == null || !Number.isFinite(+v)) return null;
-  const x = +v;
-  if (bad === good) return x <= good ? 1 : 0;
-  const h = (bad - x) / (bad - good);
-  return h < 0 ? 0 : h > 1 ? 1 : h;
+// R-factor (0..100) for ONE interval. Missing delay metrics add no delay penalty (loss and
+// latency/jitter arrive together in practice). loss null → treated 0 (caller decides "down").
+function rFactor(lossPercent, latencyMs, jitterMs, cfg = {}) {
+  const c = { ...DEFAULT_MOS_CONFIG, ...(cfg || {}) };
+  const lat = (latencyMs == null || !Number.isFinite(+latencyMs)) ? 0 : +latencyMs;
+  const jit = (jitterMs == null || !Number.isFinite(+jitterMs)) ? 0 : +jitterMs;
+  const loss = (lossPercent == null || !Number.isFinite(+lossPercent)) ? 0 : +lossPercent;
+  const effLat = lat + c.jitter_buffer_factor * jit + c.base_delay_ms;
+  let R = (effLat < 160) ? c.r0 - effLat / 40 : c.r0 - (effLat - 120) / 10;
+  R = R - c.codec_loss_factor * loss + c.advantage_factor;
+  return R < 0 ? 0 : R > 100 ? 100 : R;
+}
+
+// R-factor (0..100) → MOS (1..4.5), the ITU-T G.107 mapping.
+function rToMos(R) {
+  if (R == null || !Number.isFinite(+R)) return null;
+  const r = +R;
+  if (r < 0) return 1;
+  if (r > 100) return 4.5;
+  return round2(1 + 0.035 * r + 7e-6 * r * (r - 60) * (100 - r));
 }
 
 // series: merged per-interval [{ lossPercent, latencyMs, jitter, goodput }, …] (present only).
-// opts: { totalIntervals, missing:'down'|'unknown', thresholds }
+// opts: { totalIntervals, missing:'down'|'unknown', mos } — mos overrides DEFAULT_MOS_CONFIG.
+// effective_pct = mean R-factor over the window (a responding-but-degraded interval scores its
+// R; a fully-down or MISSING interval scores 0), and mos = R→MOS of that mean.
 function qualityAvailability(series, opts = {}) {
   const rows = Array.isArray(series) ? series : [];
   const present = rows.length;
-  const th = {
-    loss: { ...DEFAULT_QUALITY_THRESHOLDS.loss, ...((opts.thresholds || {}).loss) },
-    latency: { ...DEFAULT_QUALITY_THRESHOLDS.latency, ...((opts.thresholds || {}).latency) },
-    jitter: { ...DEFAULT_QUALITY_THRESHOLDS.jitter, ...((opts.thresholds || {}).jitter) },
-  };
+  const mosCfg = { ...DEFAULT_MOS_CONFIG, ...(opts.mos || {}) };
   const missing = opts.missing || 'down';
   const denom = missing === 'unknown' ? present : (opts.totalIntervals != null ? opts.totalIntervals : present);
 
-  let sumH = 0, up = 0;
+  let sumR = 0, up = 0;
   const lossArr = [], latArr = [], jitArr = [];
   for (const s of rows) {
     const loss = s && s.lossPercent, lat = s && s.latencyMs, jit = s && s.jitter;
-    if (loss != null && Number(loss) < 100) up++;                    // binary probe-responded
-    const hs = [
-      _health1(loss, th.loss.good, th.loss.bad),
-      _health1(lat, th.latency.good, th.latency.bad),
-      _health1(jit, th.jitter.good, th.jitter.bad),
-    ].filter((h) => h != null);
-    sumH += hs.length ? Math.min(...hs) : (loss != null && Number(loss) < 100 ? 1 : 0);
+    const responded = loss != null && Number(loss) < 100;
+    if (responded) up++;                                             // binary probe-responded
+    sumR += responded ? rFactor(loss, lat, jit, mosCfg) : 0;        // down/absent interval → R 0
     if (loss != null) lossArr.push(+loss);
     if (lat != null) latArr.push(+lat);
     if (jit != null) jitArr.push(+jit);
   }
 
   const availability_pct = (present === 0 || denom <= 0) ? null : round2((100 * up) / denom);   // binary (loss<100)
-  const effective_pct = (present === 0 || denom <= 0) ? null : round2((100 * sumH) / denom);    // quality-weighted
+  const effective_pct = (present === 0 || denom <= 0) ? null : round2(sumR / denom);            // mean R-factor (0-100)
+  const mos = rToMos(effective_pct);                                                             // ITU-T MOS 1..4.5
   return {
-    availability_pct, effective_pct,
+    availability_pct, effective_pct, mos,
     up_intervals: up, total_intervals: denom, present,
     loss_pct_avg: _avg(lossArr), loss_pct_max: _max(lossArr),
     latency_ms_avg: _avg(latArr), latency_ms_max: _max(latArr),
@@ -168,4 +177,4 @@ function mergeDestinationSeries(seriesList) {
   return out;
 }
 
-module.exports = { deriveAvailability, qualityAvailability, DEFAULT_QUALITY_THRESHOLDS, statusColor, round2, mergeDestinationSeries };
+module.exports = { deriveAvailability, qualityAvailability, rFactor, rToMos, DEFAULT_MOS_CONFIG, statusColor, round2, mergeDestinationSeries };

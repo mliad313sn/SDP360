@@ -2,10 +2,13 @@
 // V1b-D — PURE WAN dashboard shaping. No I/O. Turns wan_link_snapshots rows into a
 // per-site summary (latest period per uplink) and per-uplink trend series.
 
+const { rToMos } = require('./merakiWanQuality');
+
 function _cell(r) {
   return {
     uplink: r.uplink, sub_site: r.sub_site || '', availability_pct: r.availability_pct, status_color: r.status_color || 'none',
     avail_quality_pct: r.avail_quality_pct == null ? null : r.avail_quality_pct,
+    quality_mos: rToMos(r.avail_quality_pct),   // ITU-T MOS (1..4.5) derived from the R-factor quality %
     loss_pct_max: r.loss_pct_max == null ? null : r.loss_pct_max, latency_ms_max: r.latency_ms_max == null ? null : r.latency_ms_max,
     loss_pct_avg: r.loss_pct_avg, latency_ms_avg: r.latency_ms_avg, jitter_ms_avg: r.jitter_ms_avg,
     goodput_avg: r.goodput_avg, uplink_label: r.uplink_label || null,

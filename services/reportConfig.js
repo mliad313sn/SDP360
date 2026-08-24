@@ -83,9 +83,12 @@ const DEFAULTS = {
   // (poller never ran), event-based availability is '—' rather than a fabricated 100%.
   wan_poll_last_run: '',
   wan_poll_first_run: '',   // when WAN monitoring began — availability denominator is clamped to it
-  // Quality-weighted availability thresholds (loss/latency/jitter → 0..1 health). Calibrated to
-  // Meraki's % Time Up (Sabodala) + VoIP grade; loss.bad=5 → >5% loss reads as unusable.
+  // Quality-weighted availability thresholds — LEGACY min-model, superseded by wan_mos_config below.
   wan_quality_thresholds: '{"loss":{"good":1,"bad":7},"latency":{"good":100,"bad":400},"jitter":{"good":30,"bad":100}}',
+  // WAN Quality = ITU-T G.107 "E-model": loss/latency/jitter → R-factor (0-100, the "Qualité %") → MOS
+  // (1..4.5). Defaults are G.711 wired. codec_loss_factor: R lost per 1% loss (G.711 2.5 / G.729 ~4);
+  // advantage_factor: 0 wired, 10-20 for satellite/VSAT tolerance.
+  wan_mos_config: '{"r0":93.2,"codec_loss_factor":2.5,"jitter_buffer_factor":2,"base_delay_ms":10,"advantage_factor":0}',
   // "% Time Up" down-thresholds (approximate Meraki's Summary Report, which counts high-loss /
   // timeout samples as down — NOT only 100% loss). loss_pct = an interval with loss ≥ this is
   // down (default 100 = the plain loss<100 rule); latency_ms = an interval slower than this is

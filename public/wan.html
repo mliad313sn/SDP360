@@ -227,19 +227,26 @@
     let data; try { data = await api('/api/analytics/wan/summary?period=' + period); } catch { data = { sites: [] }; }
     sites = data.sites || [];
     $('wh-empty').style.display = sites.length ? 'none' : 'block';
-    $('wh-basis').innerHTML = '<b>Dispo</b> (le gros chiffre) = % du temps où le lien <b>répondait</b> (une connexion passait). <b>Qualité</b> = % du temps où il était de <b>bonne qualité</b> (perte / latence / gigue faibles — bon pour VoIP / visio). Un lien peut être <b>Dispo</b> mais de <b>Qualité</b> basse (il répond mais « grésille »). Ce n’est <b>pas</b> le « % Time Up » propriétaire de Meraki (leur logique de bascule interne n’est pas exposée par l’API). Chaque lien porte son <b>ISP</b> une fois le circuit mappé (Admin → SLA WAN).';
+    $('wh-basis').innerHTML = '<b>Dispo</b> (le gros chiffre) = % du temps où le lien <b>répondait</b> (une connexion passait). <b>Qualité</b> = indice <b>R (0-100)</b> du <b>modèle E de l’ITU-T (G.107)</b> sur perte / latence / gigue, converti en <b>MOS</b> (score voix standard 1 à 5 : Excellent ≥4.3 · Bon ≥4.0 · Correct ≥3.6 · Médiocre ≥3.1 · Mauvais). Un lien peut être <b>Dispo</b> mais de <b>Qualité/MOS</b> basse (il répond mais la voix passe mal). La <b>Dispo</b> n’est <b>pas</b> le « % Time Up » propriétaire de Meraki (logique de bascule interne non exposée par l’API). Chaque lien porte son <b>ISP</b> une fois le circuit mappé (Admin → SLA WAN).';
     $('wh-basis').innerHTML += ` <span style="display:inline-block;margin-top:4px;color:#6b7a99">🗓 Période : <b>${period === 'month' ? 'mois' : (period === 'day' ? 'jour' : 'semaine')} archivé(e)</b> — dernière collecte Meraki.</span>`;
     // Le gros chiffre = "Disponible" (le lien répondait, loss<100). "· Qualité" = disponibilité
     // pondérée qualité (perte/latence/gigue). L'ancien "· up" (event) est retiré (source de confusion).
     const dispoTitle = 'Disponible = pourcentage du temps où le lien RÉPONDAIT (une connexion passait), règle perte < 100 %. Ce n’est PAS le « % Time Up » propriétaire de Meraki (leur logique de bascule SD-WAN est interne, non exposée par l’API) — c’est notre mesure OPS, sur la semaine/mois archivé.';
-    const qualiTitle = 'Qualité = pourcentage du temps où le lien était de BONNE QUALITÉ. Chaque intervalle de 10 min est noté 0..1 sur perte/latence/gigue (on garde la PIRE des 3), puis moyenné. Un lien peut RÉPONDRE (Disponible élevé) tout en étant DÉGRADÉ (Qualité basse).';
-    // Pastille Dispo : verte ≥90, orange ≥70, rouge sinon. Pastille Qualité : verte ≥80 (bon VoIP),
-    // orange ≥50 (dégradé), rouge <50 (mauvais pour temps réel).
+    const qualiTitle = 'Qualité = indice R (0-100) du modèle E de l’ITU-T (G.107), calculé sur perte/latence/gigue, converti en score MOS (1 à 5, la note voix standard). La gigue gonfle la latence, la perte baisse la note. Un lien peut RÉPONDRE (Disponible élevé) tout en ayant une Qualité/MOS basse (il répond mais la voix passe mal). Codec G.711.';
+    // Pastille Dispo : verte ≥90, orange ≥70, rouge sinon. Pastille Qualité : sur le MOS —
+    // ≥4.0 vert (Bon/Excellent), ≥3.1 orange (Correct/Médiocre), <3.1 rouge (Mauvais).
     const primDot = p => p == null ? 'none' : (p >= 90 ? 'green' : p >= 70 ? 'orange' : 'red');
-    const qualDot = q => q == null ? 'none' : (q >= 80 ? 'green' : q >= 50 ? 'orange' : 'red');
+    const mosBand = m => m == null ? { label: '—', cls: 'none' }
+      : m >= 4.3 ? { label: 'Excellent', cls: 'green' }
+      : m >= 4.0 ? { label: 'Bon', cls: 'green' }
+      : m >= 3.6 ? { label: 'Correct', cls: 'orange' }
+      : m >= 3.1 ? { label: 'Médiocre', cls: 'orange' }
+      : { label: 'Mauvais', cls: 'red' };
     const linkRow = u => {
       const prim = u.availability_pct;      // Disponible (loss<100)
-      const ql = u.avail_quality_pct;       // Qualité (pondérée)
+      const ql = u.avail_quality_pct;       // Qualité = R-factor (0-100)
+      const mos = u.quality_mos;            // MOS 1..4.5
+      const band = mosBand(mos);
       const noData = prim == null && ql == null;
       return `
           <div class="wh-link">
@@ -247,7 +254,7 @@
               <span class="wh-dot ${dotClass(primDot(prim))}" title="${dispoTitle}"></span>
               <span class="wh-lbl">${u.uplink_label || u.uplink}</span>
               <span class="wh-up" title="${dispoTitle}">Dispo <b>${prim == null ? '—' : fmt(prim) + '%'}</b></span>
-              ${noData ? '' : `<span class="wh-qual" title="${qualiTitle}"><span class="wh-qdot ${dotClass(qualDot(ql))}"></span>Qualité <b>${ql == null ? '—' : fmt(ql) + '%'}</b></span>`}
+              ${noData ? '' : `<span class="wh-qual" title="${qualiTitle}"><span class="wh-qdot ${dotClass(band.cls)}"></span>Qualité <b>${ql == null ? '—' : fmt(ql) + '%'}</b>${mos == null ? '' : ` · MOS <b>${mos.toFixed(2)}</b> <span style="color:#6b7a99">(${band.label})</span>`}</span>`}
             </div>
             <div class="wh-l2" title="Perte de paquets · latence · gigue (moyennes).">${noData ? 'pas de données' : `perte ${fmt(u.loss_pct_avg)}% · ${fmt(u.latency_ms_avg)} ms · gigue ${fmt(u.jitter_ms_avg)} ms`}</div>
           </div>`;
