@@ -25,8 +25,12 @@ const DEFAULT_SLA_WAN_CONFIG = {
   // the DOWN email; recovery_enabled sends a RESTORED email when the link comes back (only if a
   // down email was sent); cc_coordinator adds the site coordinator to cc; servicedesk_email is
   // always cc'd. NEVER emails an ISP for a site/power outage (both uplinks down) — see wanAlert.js.
+  // recovery_cc_servicedesk=false → the RECOVERY email does NOT go to the service desk inbox, so it
+  // never opens a 2nd ticket; it still reaches the ISP + coordinator. Turn it ON only if you want
+  // the recovery ON the ticket (technicians then merge/close the down+recovery pair).
   notify: { enabled: false, trigger_minutes: 15, from_name: 'SDP NOC', poll_minutes: 5,
-    recovery_enabled: true, cc_coordinator: true, servicedesk_email: 'oneitsupport@endeavourmining.com' },
+    recovery_enabled: true, cc_coordinator: true, recovery_cc_servicedesk: false,
+    servicedesk_email: 'oneitsupport@endeavourmining.com' },
   clock_start: 'notification',
   maintenance: [],
   simultaneous_overlap_minutes: 5,

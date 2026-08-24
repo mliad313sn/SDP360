@@ -170,6 +170,7 @@ test('recovery: a NOTIFIED outage that recovers → one RESTORED email', async (
   assert.equal(m.calls.length, 1, 'recovery email on close of a notified outage');
   assert.match(String(m.calls[0].subject || ''), /RESTORED/);
   assert.match(String(m.calls[0].html || ''), /30m/, 'total duration in the recovery body');
+  assert.ok(!/oneitsupport/.test(String(m.calls[0].cc || '')), 'recovery does NOT cc the service desk by default → no 2nd ticket');
 });
 
 test('disarmed (notify.enabled=false) → mailer NEVER called even past 15 min', async () => {

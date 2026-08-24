@@ -98,7 +98,10 @@ async function main(deps = {}) {
       if (wanAlert.isSiteOutage(r.site_id, r.sub_site, downKeys)) return false;
       const circuit = resolveCircuit(cfg, { site_id: r.site_id, sub_site: r.sub_site, uplink: r.uplink });
       const coord = (cfg.notify && cfg.notify.cc_coordinator !== false) ? _coordEmail(r.site_id) : null;
-      const rcpt = wanAlert.alertRecipients(circuit, coord, _sdEmail);
+      // A RECOVERY email skips the service desk by default so it never opens a 2nd ticket
+      // (recovery_cc_servicedesk to include it). The DOWN email always cc's the service desk.
+      const sd = (kind === 'recovery' && !(cfg.notify && cfg.notify.recovery_cc_servicedesk)) ? '' : _sdEmail;
+      const rcpt = wanAlert.alertRecipients(circuit, coord, sd);
       if (!rcpt) return false;
       const base = { site_id: r.site_id, sub_site: r.sub_site, siteName: nameById[r.site_id],
         uplink: r.uplink, isp: circuit.isp, circuit_id: circuit.circuit_id, detectedStart: r.detected_start };

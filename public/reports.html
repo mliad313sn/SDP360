@@ -1642,6 +1642,15 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         <div class="form-group"><label>Poll every (min)</label><input type="number" id="sla-notify-poll" min="1" style="width:120px" placeholder="5" autocomplete="off"></div>
         <div class="form-group"><label>From name</label><input type="text" id="sla-notify-from" style="width:180px" placeholder="SDP NOC" autocomplete="off"></div>
       </div>
+      <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end">
+        <div class="form-group" style="min-width:300px"><label>Service desk (en copie) <small style="color:#6b7a99">crée / alimente le ticket</small></label><input type="email" id="sla-notify-sd" style="width:100%;box-sizing:border-box" placeholder="oneitsupport@endeavourmining.com" autocomplete="off"></div>
+      </div>
+      <div style="display:flex;gap:18px;flex-wrap:wrap;margin:4px 0 2px">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="sla-notify-cc-coord" style="width:auto"><span>Coordinateur du site en copie</span></label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="sla-notify-recovery" style="width:auto"><span>Email de rétablissement (à la reprise du lien)</span></label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="sla-notify-recovery-sd" style="width:auto"><span>Rétablissement aussi au service desk <small style="color:#9a6a12">(⚠ ouvre un 2ᵉ ticket)</small></span></label>
+      </div>
+      <small style="color:#6b7a99;display:block;margin-bottom:8px">Coupure → à l'<b>ISP</b>, avec coordinateur + service desk en copie. Rétablissement → à l'ISP + coordinateur (pas au service desk par défaut, pour ne pas créer de 2ᵉ ticket). Jamais d'email à l'ISP si les <b>2 uplinks</b> tombent (panne site/électrique).</small>
 
       <div class="form-group">
         <label>Event types <small style="color:#6b7a99">comma-separated</small></label>
@@ -7041,7 +7050,7 @@ function _slaMineHours() {
 }
 function _slaDefaultConfig() {
   return {
-    notify: { enabled:false, trigger_minutes:15, from_name:'SDP NOC', poll_minutes:5 },
+    notify: { enabled:false, trigger_minutes:15, from_name:'SDP NOC', poll_minutes:5, servicedesk_email:'oneitsupport@endeavourmining.com', cc_coordinator:true, recovery_enabled:true, recovery_cc_servicedesk:false },
     clock_start:'notification', simultaneous_overlap_minutes:5,
     event_types:['wan_1_up','wan_1_down','wan_2_up','wan_2_down','uplink_change'],
     ingest:{ reconcile_tolerance_minutes:60, stale_open_hours:24 },
@@ -7229,6 +7238,10 @@ function loadSlaConfig() {
     setVal('sla-notify-trigger', notify.trigger_minutes);
     setVal('sla-notify-poll', notify.poll_minutes);
     setVal('sla-notify-from', notify.from_name);
+    setVal('sla-notify-sd', notify.servicedesk_email);
+    const _ccC = document.getElementById('sla-notify-cc-coord'); if (_ccC) _ccC.checked = notify.cc_coordinator !== false;
+    const _rec = document.getElementById('sla-notify-recovery'); if (_rec) _rec.checked = notify.recovery_enabled !== false;
+    const _recSd = document.getElementById('sla-notify-recovery-sd'); if (_recSd) _recSd.checked = !!notify.recovery_cc_servicedesk;
     const etEl = document.getElementById('sla-event-types'); if (etEl) etEl.value = (Array.isArray(c.event_types) ? c.event_types : dflt.event_types).join(', ');
     setVal('sla-ingest-reconcile', ingest.reconcile_tolerance_minutes);
     setVal('sla-ingest-stale', ingest.stale_open_hours);
@@ -7260,7 +7273,11 @@ function saveSlaConfig() {
       enabled: chk('sla-notify-enabled'),
       trigger_minutes: _slaNum(val('sla-notify-trigger'), 15),
       from_name: val('sla-notify-from') || 'SDP NOC',
-      poll_minutes: _slaNum(val('sla-notify-poll'), 5)
+      poll_minutes: _slaNum(val('sla-notify-poll'), 5),
+      servicedesk_email: val('sla-notify-sd') || 'oneitsupport@endeavourmining.com',
+      cc_coordinator: chk('sla-notify-cc-coord'),
+      recovery_enabled: chk('sla-notify-recovery'),
+      recovery_cc_servicedesk: chk('sla-notify-recovery-sd')
     },
     clock_start: (val('sla-clock-start') === 'detection') ? 'detection' : 'notification',
     simultaneous_overlap_minutes: _slaNum(val('sla-overlap'), 5),
