@@ -231,6 +231,13 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
 .admin-content{flex:1 1 auto;min-width:0}
 .admin-panel{display:none}
 .admin-panel.active{display:block;animation:adminPanelIn .18s ease}
+/* In-panel tab strip — grouped configs (WAN Link, Intégrations, Valorisation, Envois) */
+.ap-tabs{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:0 0 14px}
+.ap-tabs__lbl{font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#6b7a99;margin-right:4px}
+.ap-tab{border:1px solid #d7deea;background:#fff;color:#3A4A60;border-radius:999px;padding:5px 14px;
+  font-size:0.82rem;font-weight:600;cursor:pointer;transition:background .15s,border-color .15s,color .15s}
+.ap-tab:hover{background:#f1f5fb;border-color:#b9c6da}
+.ap-tab.active{background:var(--dark-blue);color:#fff;border-color:var(--dark-blue)}
 @keyframes adminPanelIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 /* Rail grouped by scope (Global / Reports / Assets / Risk) */
 .admin-rail__group{display:flex;flex-direction:column;gap:4px}
@@ -1046,25 +1053,18 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
           <button type="button" class="admin-rail__item" data-panel="sites"       onclick="showAdminPanel('sites')"><span class="ar-ico">🏢</span><span>Sites<small>Zoho group mapping</small></span><span class="ar-scope">Global</span></button>
           <button type="button" class="admin-rail__item" data-panel="email"       onclick="showAdminPanel('email')"><span class="ar-ico">✉</span><span>Email / SMTP<small>Transport &amp; addressing</small></span><span class="ar-scope">Global</span></button>
           <button type="button" class="admin-rail__item" data-panel="backups" id="admin-rail-backups" style="display:none" onclick="showAdminPanel('backups')"><span class="ar-ico">💾</span><span>Backups<small>Scheduled &amp; manual</small></span><span class="ar-scope">Global</span></button>
-          <button type="button" class="admin-rail__item" data-panel="sso" id="admin-rail-sso" style="display:none" onclick="showAdminPanel('sso')"><span class="ar-ico">🔐</span><span>Microsoft SSO<small>Entra sign-in</small></span><span class="ar-scope">Global</span></button>
-          <button type="button" class="admin-rail__item" data-panel="meridian" id="admin-rail-meridian" style="display:none" onclick="showAdminPanel('meridian')"><span class="ar-ico">🔗</span><span>Meridian (PMO)<small>Federation link</small></span><span class="ar-scope">Global</span></button>
-          <button type="button" class="admin-rail__item" data-panel="infra" id="admin-rail-infra" style="display:none" onclick="showAdminPanel('infra')"><span class="ar-ico">📡</span><span>Infra WAN / Availability<small>Meraki &amp; OpManager</small></span><span class="ar-scope">Global</span></button>
-          <button type="button" class="admin-rail__item" data-panel="sla" id="admin-rail-sla" style="display:none" onclick="showAdminPanel('sla')"><span class="ar-ico">📶</span><span>SLA WAN<small>ISP chargeback</small></span><span class="ar-scope">Global</span></button>
+          <button type="button" class="admin-rail__item" data-group="integrations" id="admin-rail-grp-integrations" style="display:none" onclick="showAdminGroup('integrations')"><span class="ar-ico">🔗</span><span>Intégrations<small>SSO &amp; Meridian</small></span><span class="ar-scope">Global</span></button>
+          <button type="button" class="admin-rail__item" data-group="wan" id="admin-rail-grp-wan" style="display:none" onclick="showAdminGroup('wan')"><span class="ar-ico">📡</span><span>WAN Link<small>Availability &amp; SLA</small></span><span class="ar-scope">Global</span></button>
         </div>
         <div class="admin-rail__group">
           <div class="admin-rail__grouphdr">📊 Reports</div>
-          <button type="button" class="admin-rail__item" data-panel="autoreports" id="admin-rail-autoreports" style="display:none" onclick="showAdminPanel('autoreports')"><span class="ar-ico">📄</span><span>Automated Reports<small>Recipients &amp; schedule</small></span><span class="ar-scope ar-scope--reports">Reports</span></button>
+          <button type="button" class="admin-rail__item" data-group="sends" id="admin-rail-grp-sends" style="display:none" onclick="showAdminGroup('sends')"><span class="ar-ico">📤</span><span>Envois automatiques<small>Digests programmés</small></span><span class="ar-scope ar-scope--reports">Reports</span></button>
           <button type="button" class="admin-rail__item" data-panel="departments" onclick="showAdminPanel('departments')"><span class="ar-ico">🏷</span><span>Departments<small>Action item categories</small></span><span class="ar-scope ar-scope--reports">Reports</span></button>
           <button type="button" class="admin-rail__item" data-panel="execview"    onclick="showAdminPanel('execview')"><span class="ar-ico">📣</span><span>Exec View<small>Highlights &amp; focus</small></span><span class="ar-scope ar-scope--reports">Reports</span></button>
-          <button type="button" class="admin-rail__item" data-panel="weekly" id="admin-rail-weekly" style="display:none" onclick="showAdminPanel('weekly')"><span class="ar-ico">🗓</span><span>Weekly Report<small>Coordinator email</small></span><span class="ar-scope ar-scope--reports">Reports</span></button>
         </div>
         <div class="admin-rail__group">
           <div class="admin-rail__grouphdr">💻 Assets</div>
-          <button type="button" class="admin-rail__item" data-panel="assets-finance" onclick="showAdminPanel('assets-finance')"><span class="ar-ico">💱</span><span>Assets Finance<small>XOF→USD rate</small></span><span class="ar-scope ar-scope--assets">Assets</span></button>
-          <button type="button" class="admin-rail__item" data-panel="assets-deprec"  onclick="showAdminPanel('assets-deprec')"><span class="ar-ico">📉</span><span>Depreciation<small>Method &amp; useful life</small></span><span class="ar-scope ar-scope--assets">Assets</span></button>
-          <button type="button" class="admin-rail__item" data-panel="hygiene" id="admin-rail-hygiene" style="display:none" onclick="showAdminPanel('hygiene')"><span class="ar-ico">🛡</span><span>Assets Hygiene<small>Digest &amp; schedule</small></span><span class="ar-scope ar-scope--assets">Assets</span></button>
-          <button type="button" class="admin-rail__item" data-panel="scoreboard" id="admin-rail-scoreboard" style="display:none" onclick="showAdminPanel('scoreboard')"><span class="ar-ico">📊</span><span>Scoreboard<small>Coordinator email</small></span><span class="ar-scope ar-scope--assets">Assets</span></button>
-          <button type="button" class="admin-rail__item" data-panel="asset-group" id="admin-rail-asset-group" style="display:none" onclick="showAdminPanel('asset-group')"><span class="ar-ico">📈</span><span>Assets — Groupe<small>Group digest email</small></span><span class="ar-scope ar-scope--assets">Assets</span></button>
+          <button type="button" class="admin-rail__item" data-group="assets-val" id="admin-rail-grp-assets-val" onclick="showAdminGroup('assets-val')"><span class="ar-ico">💱</span><span>Assets — Valorisation<small>Finance &amp; dépréciation</small></span><span class="ar-scope ar-scope--assets">Assets</span></button>
         </div>
         <div class="admin-rail__group">
           <div class="admin-rail__grouphdr">🛡 Risk Register</div>
@@ -1072,6 +1072,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         </div>
       </nav>
       <div class="admin-content">
+        <div id="ap-grouptabs" class="ap-tabs" style="display:none"></div>
 
     <div class="card admin-panel" id="ap-users" data-panel="users">
       <h3>👤 Users
@@ -5585,12 +5586,39 @@ async function downloadAllSitesMonthlyPptx(fromMonthlyPage) {
 // ══════════════════════════════════════════════════════════════════
 // Admin left-rail: show one settings panel at a time. name ∈ users|sessions|sites|departments|risk.
 const _ADMIN_PANEL_IDS = { users:'ap-users', sessions:'sessions-card', sites:'ap-sites', departments:'ap-depts', execview:'ap-execview', email:'ap-email', backups:'ap-backups', sso:'ap-sso', meridian:'ap-meridian', infra:'ap-infra', sla:'ap-sla', risk:'rr-aliases-card', autoreports:'ap-autoreports', 'assets-finance':'ap-assets-finance', 'assets-deprec':'ap-assets-deprec', hygiene:'ap-hygiene', scoreboard:'ap-scoreboard', weekly:'ap-weekly', 'asset-group':'ap-asset-group' };
+// Related config panels merged behind ONE rail item + an in-panel tab strip. The panel cards
+// themselves are untouched (ids, load functions, deep-links all intact) — only the rail entry
+// and the tab strip on top change. member → group is derived once.
+const PANEL_GROUPS = {
+  wan:          { label: 'WAN Link', ico: '📡', members: ['infra', 'sla'],
+                  labels: { infra: 'Disponibilité', sla: 'SLA / Refacturation' } },
+  integrations: { label: 'Intégrations', ico: '🔗', members: ['sso', 'meridian'],
+                  labels: { sso: 'Microsoft SSO', meridian: 'Meridian (PMO)' } },
+  'assets-val': { label: 'Assets — Valorisation', ico: '💱', members: ['assets-finance', 'assets-deprec'],
+                  labels: { 'assets-finance': 'Finance', 'assets-deprec': 'Dépréciation' } },
+  sends:        { label: 'Envois automatiques', ico: '📤', members: ['autoreports', 'weekly', 'hygiene', 'scoreboard', 'asset-group'],
+                  labels: { autoreports: 'Auto Reports', weekly: 'Weekly', hygiene: 'Hygiène', scoreboard: 'Scoreboard', 'asset-group': 'Groupe' } },
+};
+const _MEMBER_GROUP = {}; for (const [g, cfg] of Object.entries(PANEL_GROUPS)) cfg.members.forEach(m => { _MEMBER_GROUP[m] = g; });
+function showAdminGroup(g) { const cfg = PANEL_GROUPS[g]; if (cfg) showAdminPanel(cfg.members[0]); }
+function _renderGroupTabs(name) {
+  const host = document.getElementById('ap-grouptabs'); if (!host) return;
+  const g = _MEMBER_GROUP[name];
+  if (!g) { host.style.display = 'none'; host.innerHTML = ''; return; }
+  const cfg = PANEL_GROUPS[g];
+  host.innerHTML = `<span class="ap-tabs__lbl">${cfg.ico} ${cfg.label}</span>` +
+    cfg.members.map(m => `<button type="button" class="ap-tab${m === name ? ' active' : ''}" onclick="showAdminPanel('${m}')">${cfg.labels[m] || m}</button>`).join('');
+  host.style.display = 'flex';
+}
 function showAdminPanel(name) {
   // Guard: 'risk' / 'backups' / 'autoreports' / 'sso' / 'meridian' / 'infra' are super_admin-only — fall back to Users for everyone else.
   if ((name === 'risk' || name === 'backups' || name === 'autoreports' || name === 'sso' || name === 'meridian' || name === 'infra' || name === 'sla') && currentUser?.role !== 'super_admin') name = 'users';
   if (!_ADMIN_PANEL_IDS[name]) name = 'users';
   document.querySelectorAll('#page-admin .admin-panel').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('#admin-rail .admin-rail__item').forEach(b => b.classList.toggle('active', b.dataset.panel === name));
+  const _grp = _MEMBER_GROUP[name];
+  document.querySelectorAll('#admin-rail .admin-rail__item').forEach(b =>
+    b.classList.toggle('active', b.dataset.panel === name || (b.dataset.group && b.dataset.group === _grp)));
+  _renderGroupTabs(name);
   const panel = document.getElementById(_ADMIN_PANEL_IDS[name]);
   if (panel) panel.classList.add('active');
   // Fresh data when opening Active Sessions.
@@ -5653,32 +5681,11 @@ async function loadAdminPage() {
     if (rrRail) rrRail.style.display = isSuperAdmin ? '' : 'none';
     const bkRail = document.getElementById('admin-rail-backups');
     if (bkRail) bkRail.style.display = isSuperAdmin ? '' : 'none';
-    // Microsoft Entra SSO — super_admin only (stores a client secret).
-    const ssoRail = document.getElementById('admin-rail-sso');
-    if (ssoRail) ssoRail.style.display = isSuperAdmin ? '' : 'none';
-    // Meridian federation — super_admin only (stores service API keys).
-    const merRail = document.getElementById('admin-rail-meridian');
-    if (merRail) merRail.style.display = isSuperAdmin ? '' : 'none';
-    // Infra WAN / Availability — super_admin only (stores Meraki + OpManager API keys).
-    const infraRail = document.getElementById('admin-rail-infra');
-    if (infraRail) infraRail.style.display = isSuperAdmin ? '' : 'none';
-    // SLA WAN / ISP chargeback — super_admin only (arms auto-notify to ISPs).
-    const slaRail = document.getElementById('admin-rail-sla');
-    if (slaRail) slaRail.style.display = isSuperAdmin ? '' : 'none';
-    const arRail = document.getElementById('admin-rail-autoreports');
-    if (arRail) arRail.style.display = isSuperAdmin ? '' : 'none';
-    // Assets Hygiene digest — admin+ (the whole admin page is admin/super_admin only).
-    const hygRail = document.getElementById('admin-rail-hygiene');
-    if (hygRail) hygRail.style.display = '';
-    // Operational Scoreboard email — admin+ (same gate as hygiene).
-    const sbdRail = document.getElementById('admin-rail-scoreboard');
-    if (sbdRail) sbdRail.style.display = '';
-    // Authored Weekly Report email — admin+ (same gate as hygiene / scoreboard).
-    const wkRail = document.getElementById('admin-rail-weekly');
-    if (wkRail) wkRail.style.display = '';
-    // Assets — Group digest email — admin+ (same gate as hygiene / scoreboard).
-    const agpRail = document.getElementById('admin-rail-asset-group');
-    if (agpRail) agpRail.style.display = '';
+    // Grouped rail items (WAN Link = infra+sla, Intégrations = sso+meridian, Envois = the
+    // scheduled-email digests). The whole admin page is super_admin-only, so show them all.
+    ['admin-rail-grp-wan', 'admin-rail-grp-integrations', 'admin-rail-grp-sends'].forEach(id => {
+      const el = document.getElementById(id); if (el) el.style.display = isSuperAdmin ? '' : 'none';
+    });
     if (isSuperAdmin) {
       loadRrAliases();
       // Default the unmapped-sites picker to the previous month
@@ -5690,8 +5697,10 @@ async function loadAdminPage() {
       loadRrUnmappedSites();
     }
     // Open the panel from the hash sub-section (#admin/<section>) or default to Users.
+    // A group name (#admin/wan) opens the group's first tab; a member name still deep-links.
     const sub = (location.hash.split('/')[1] || '').toLowerCase();
-    showAdminPanel(['users','sessions','sites','departments','execview','email','backups','sso','meridian','infra','sla','risk','autoreports','assets-finance','assets-deprec','hygiene','scoreboard','weekly','asset-group'].includes(sub) ? sub : 'users');
+    if (PANEL_GROUPS[sub]) showAdminGroup(sub);
+    else showAdminPanel(['users','sessions','sites','departments','execview','email','backups','sso','meridian','infra','sla','risk','autoreports','assets-finance','assets-deprec','hygiene','scoreboard','weekly','asset-group'].includes(sub) ? sub : 'users');
 
     const deptUrl  = isExecOrSuper ? '/api/reports/departments?include_inactive=1' : '/api/reports/departments';
     const sitesUrl = isExecOrSuper ? '/api/reports/sites?include_inactive=1'        : '/api/reports/sites';
