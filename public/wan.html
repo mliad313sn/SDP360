@@ -183,11 +183,14 @@
       </div>
       <div id="sl-outages-body" style="display:none;margin-top:12px">
         <div class="sl-filterbar" style="display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;margin-bottom:10px">
+          <label class="sl-muted" style="font-size:12px">Période<br><select id="sl-of-period"><option value="month">Mois</option><option value="week">Semaine</option><option value="day">Jour</option></select></label>
+          <label class="sl-muted" style="font-size:12px" id="sl-of-date-wrap" hidden>Date<br><input type="date" id="sl-of-date"></label>
           <label class="sl-muted" style="font-size:12px">Durée min (min)<br><input type="number" id="sl-of-min" min="0" step="1" value="15" style="width:78px"></label>
           <label class="sl-muted" style="font-size:12px">ISP<br><select id="sl-of-isp"><option value="">Tous</option></select></label>
           <label class="sl-muted" style="font-size:12px">Uplink<br><select id="sl-of-uplink"><option value="">Tous</option></select></label>
           <label class="sl-muted" style="font-size:12px">Attribution<br><select id="sl-of-attr"><option value="">Toutes</option></select></label>
           <button class="sl-btn" id="sl-of-export">⬇ Export (filtré)</button>
+          <button class="sl-btn" id="sl-reconcile" title="Relance l'ingester sur le journal d'événements Meraki (30 j) — corrige les durées + l'attribution des coupures historiques">🔄 Réconcilier</button>
           <span class="sl-muted" id="sl-of-count" style="font-size:12px"></span>
         </div>
         <div class="sl-scroll">
@@ -474,8 +477,19 @@
     setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 0);
   }
 
+  function _isoD(d) { return d.toISOString().slice(0, 10); }
+  // Evidence date range from the Période selector: Mois = the month selector; Semaine = the 7 days
+  // ending at the picked date; Jour = that single day. (The SLA credit summary stays monthly.)
+  function evidenceRange() {
+    const period = ($('sl-of-period') && $('sl-of-period').value) || 'month';
+    if (period === 'month') return monthRange(month);
+    const dv = ($('sl-of-date') && $('sl-of-date').value) || new Date().toISOString().slice(0, 10);
+    const d = new Date(dv + 'T00:00:00Z');
+    if (period === 'day') return { from: _isoD(d), to: _isoD(new Date(d.getTime() + 86400000)) };
+    return { from: _isoD(new Date(d.getTime() - 6 * 86400000)), to: _isoD(new Date(d.getTime() + 86400000)) };
+  }
   async function loadOutages() {
-    const r = monthRange(month);
+    const r = evidenceRange();
     let data;
     try { data = await api('/api/analytics/wan/sla/outages?from=' + r.from + '&to=' + r.to); }
     catch { data = { outages: [] }; }
@@ -511,6 +525,23 @@
       const el = $(id); if (el) el.addEventListener('input', renderOutages);
     });
     const ofx = $('sl-of-export'); if (ofx) ofx.addEventListener('click', exportFilteredOutages);
+    // Période Jour/Semaine/Mois → re-load the Evidence over the chosen range.
+    const _pd = $('sl-of-period'), _dt = $('sl-of-date'), _dtw = $('sl-of-date-wrap');
+    if (_dt) _dt.value = new Date().toISOString().slice(0, 10);
+    if (_pd) _pd.addEventListener('change', function () { if (_dtw) _dtw.hidden = (this.value === 'month'); loadOutages(); });
+    if (_dt) _dt.addEventListener('change', function () { if (_pd && _pd.value !== 'month') loadOutages(); });
+    // Réconcilier — re-run the event-log ingester (30 j) to fix historical durations + attribution.
+    const _rec = $('sl-reconcile');
+    if (_rec) _rec.addEventListener('click', async function () {
+      this.disabled = true; const old = this.textContent; this.textContent = '⏳ Réconciliation…';
+      try {
+        const res = await fetch('/api/analytics/wan/sla/sync?days=30', { method: 'POST', headers: window.__authToken ? { 'x-report-token': window.__authToken } : {} });
+        const r = await res.json().catch(() => ({}));
+        this.textContent = (r && r.ok !== false) ? '✓ Réconcilié' : '⚠ ' + ((r && (r.reason || r.error)) || 'non configuré');
+        outagesLoaded = false; reload();
+      } catch (e) { this.textContent = '⚠ échec'; }
+      setTimeout(() => { this.textContent = old; this.disabled = false; }, 4000);
+    });
     reload();
   };
 })();

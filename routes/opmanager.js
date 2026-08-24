@@ -373,7 +373,11 @@ module.exports = function opmanagerRoutes(deps) {
   // Run the nightly event-log ingester on demand. Config-gated (self-skips) + best-effort.
   router.post('/api/analytics/wan/sla/sync', requireReportSession, requireAdmin, async (req, res) => {
     try {
-      res.json(await require('../tools/meraki/sync-wan-events').main({}));
+      // ?days=N → reconcile the last N days from Meraki's event log (default 3; up to 90 for a
+      // one-time historical cleanup that fixes poller-inflated durations + sets attribution).
+      const days = Math.max(1, Math.min(90, parseInt(req.query.days, 10) || 3));
+      const since = new Date(Date.now() - days * 86400000).toISOString();
+      res.json(await require('../tools/meraki/sync-wan-events').main({ since }));
     } catch (e) { res.json({ ok: false, error: e.message }); }
   });
 
