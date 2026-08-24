@@ -1551,6 +1551,25 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         <small style="color:#6b7a99">Optionnel — compte un intervalle très lent comme down (les timeouts que Meraki voit, ex. &gt; 1000).</small>
       </div>
 
+      <h4 style="margin:16px 0 6px;color:#3A4A60">Qualité voix — modèle E (ITU-T G.107) → MOS</h4>
+      <p style="color:#6b7a99;font-size:0.85rem;margin:-2px 0 8px">
+        La <b>Qualité</b> (onglet WAN Health) est l'indice <b>R (0-100)</b> du modèle E converti en <b>MOS</b> (1 à 5).
+        Défauts <b>G.711 filaire</b>. Après tout changement : <b>Sync WAN now</b> puis recharge WAN Health.
+      </p>
+      <div class="form-group">
+        <label>Codec de référence <small style="color:#6b7a99">sensibilité à la perte</small></label>
+        <select id="cfg-mos-codec" style="max-width:260px">
+          <option value="2.5">G.711 (2.5 pts R / 1 % perte) — défaut</option>
+          <option value="4">G.729 (4 pts R / 1 % perte) — plus sévère</option>
+        </select>
+        <small style="color:#6b7a99">G.711 = téléphonie « pleine bande » (cas normal en entreprise). G.729 = codec compressé, plus sensible à la perte.</small>
+      </div>
+      <div class="form-group">
+        <label>Facteur d'avantage <b>A</b> (satellite / VSAT)</label>
+        <input type="number" id="cfg-mos-advantage" min="0" max="20" step="1" placeholder="0" autocomplete="off" style="max-width:120px">
+        <small style="color:#6b7a99"><b>0</b> = filaire (défaut). Un lien <b>satellite/VSAT</b> tolère plus de latence → mettre <b>10-20</b> remonte le MOS. S'applique à <b>tous</b> les liens (pas encore par site).</small>
+      </div>
+
       <h4 style="margin:16px 0 6px;color:#3A4A60">OpManager (LAN / WLAN / Servers) — via Analytics Plus</h4>
       <p style="color:#6b7a99;font-size:0.85rem;margin:-2px 0 8px">
         Prepare the daily device-availability view <code>OPS_OPM_Device_Availability_Daily</code> in Analytics Plus
@@ -6917,6 +6936,7 @@ function syncMeridianNow(btn) {
     .catch(e => { if (msg) msg.textContent = 'Sync failed: ' + (e.message || e); toast('Sync failed: ' + (e.message || e), 'error'); })
     .finally(() => { if (btn) btn.disabled = false; });
 }
+let _mosCfgLoaded = {};   // full wan_mos_config from the last load — merged on save so custom r0/buffer survive
 // ── Infra WAN / Availability (V1b) — same generic /api/reports/config store ─
 // WAN = Meraki (meraki_api_key is a secret: redacted on GET, blank-kept on save,
 // super_admin-gated PUT). LAN/WLAN/Servers = OpManager → Analytics Plus → OPS, so
@@ -6933,6 +6953,11 @@ function loadInfraConfig() {
     const stale = document.getElementById('cfg-opm-stale'); if (stale) stale.value = (c.opm_stale_days == null || c.opm_stale_days === '' ? '9' : c.opm_stale_days);
     set('cfg-wan-timeup-loss', c.wan_timeup_loss_pct, '100');
     set('cfg-wan-timeup-lat', c.wan_timeup_latency_ms);
+    // MOS (E-model) config — preserve the full object, edit only codec + advantage from the UI.
+    try { _mosCfgLoaded = JSON.parse(c.wan_mos_config || '{}') || {}; } catch (_) { _mosCfgLoaded = {}; }
+    const codecSel = document.getElementById('cfg-mos-codec');
+    if (codecSel) { const clf = String(_mosCfgLoaded.codec_loss_factor != null ? _mosCfgLoaded.codec_loss_factor : '2.5'); codecSel.value = (clf === '4' ? '4' : '2.5'); }
+    const advEl = document.getElementById('cfg-mos-advantage'); if (advEl) advEl.value = (_mosCfgLoaded.advantage_factor != null ? _mosCfgLoaded.advantage_factor : 0);
     const msg = document.getElementById('cfg-infra-msg'); if (msg) msg.textContent = '';
   }).catch(e => toast('Could not load Infra settings: ' + (e.message || e), 'error'));
   loadWanMap();
@@ -7007,6 +7032,11 @@ function saveInfraConfig() {
     wan_timeup_loss_pct: val('cfg-wan-timeup-loss') || '100',
     wan_timeup_latency_ms: val('cfg-wan-timeup-lat'),
   };
+  // MOS (E-model): merge edited codec + advantage onto the loaded object (keeps r0/jitter_buffer/base_delay).
+  const mos = Object.assign({ r0: 93.2, codec_loss_factor: 2.5, jitter_buffer_factor: 2, base_delay_ms: 10, advantage_factor: 0 }, _mosCfgLoaded || {});
+  mos.codec_loss_factor = Number(val('cfg-mos-codec')) || 2.5;
+  mos.advantage_factor = Number(val('cfg-mos-advantage')) || 0;
+  patch.wan_mos_config = JSON.stringify(mos);
   const mk = val('cfg-meraki-key'); if (mk) patch.meraki_api_key = mk;     // blank = keep stored
   api('PUT', '/api/reports/config', patch)
     .then(() => { toast('Infra settings saved ✓', 'success'); loadInfraConfig(); })
