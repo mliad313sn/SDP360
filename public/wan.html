@@ -98,6 +98,7 @@
       <div>
         <h1>WAN Health</h1>
         <div class="sub">Disponibilité &amp; qualité des liens WAN par site (source Meraki — semaine / mois archivé). <b>Dispo</b> = le lien répondait ; <b>Qualité</b> = il était de bonne qualité (perte / latence / gigue faibles).</div>
+        <div class="sub" style="margin-top:4px">📊 <b>Chiffres statistiques</b> calculés depuis l'historique perte/latence Meraki — rafraîchis par <b>⚡ Sync now</b> (ou la sync nocturne 05:20). <i>Indépendant de l'onglet SLA.</i></div>
       </div>
       <div class="wh-controls">
         <div class="wh-toggle" id="wh-period">
@@ -133,6 +134,7 @@
       <div>
         <h1>SLA / Chargeback <span id="sl-prov" class="sl-badge sl-prov" style="display:none">Provisoire</span></h1>
         <div class="sub">Contractual WAN SLA attainment, credit tiers &amp; ISP chargeback — a management instrument on top of the WAN archive</div>
+        <div class="sub" style="margin-top:4px">🔌 <b>Coupures détectées</b> depuis le journal d'événements Meraki + le poller 5 min (rafraîchi automatiquement). Le bouton <b>🔄 Réconcilier</b> nettoie l'historique (durées + attribution). <i>Indépendant de l'onglet Santé &amp; Qualité.</i></div>
       </div>
       <div class="sl-controls">
         <label class="sl-muted" for="sl-month" style="font-size:12px">Month</label>
