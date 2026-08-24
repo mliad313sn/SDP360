@@ -76,6 +76,23 @@ test('week % Time Up uses FINE (600s) resolution: a bursty link hidden at 3600s 
   assert.equal(mo1.availability_pct, 100, 'month keeps 3600s → sub-hour bursts stay hidden');
 });
 
+test('in-progress month: window END clamped to NOW → future days not counted as down', async () => {
+  // Meraki only has data up to now (never the future). Without the END clamp the current month
+  // reads ~elapsed/total (Aug 1-16 of 31 ≈ 51%); with it, a fully-up link reads 100%.
+  const NOW = Date.parse('2026-08-16T05:20:00Z');
+  const { deps, cap } = stub({ client: {
+    deviceLossLatencyHistory: async (a = {}) => {
+      const end = Math.min(Date.parse(a.t1), NOW);   // Meraki has no future data
+      const n = Math.max(0, Math.round((end - Date.parse(a.t0)) / ((a.resolution || 3600) * 1000)));
+      return Array.from({ length: n }, (_, i) => ({ startTs: `t${i}`, endTs: `t${i}`, lossPercent: 0, latencyMs: 20, jitter: 2, goodput: 1000 }));
+    },
+  } });
+  const r = await main(deps);
+  assert.equal(r.ok, true);
+  const mo1 = cap.upserts.find(u => u.period_type === 'month' && u.uplink === 'wan1');
+  assert.equal(mo1.availability_pct, 100, 'month clamped to elapsed time → not dragged down by future days');
+});
+
 test('config-gated: no api key → skips, no upsert', async () => {
   const { deps, cap } = stub({ getConfig: async () => ({ meraki_api_key: '' }) });
   const r = await main(deps);

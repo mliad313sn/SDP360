@@ -106,8 +106,14 @@ async function main(deps = {}) {
         if (!/^wan\d$/.test(String(up.interface || ''))) continue;   // wan1/wan2/… (cellular not a report family)
         const destIps = await destIpsFor(dev, up);
         for (const [ptype, win] of [['week', week], ['month', month]]) {
-          const t0 = `${win.period_start}T00:00:00Z`, t1 = `${win.period_end}T23:59:59Z`;
-          const t0Ms = Date.parse(t0), t1Ms = Date.parse(t1);
+          const t0 = `${win.period_start}T00:00:00Z`;
+          // Clamp the window END to NOW: an IN-PROGRESS period (the current month) must NOT count
+          // its FUTURE days as "down". Without this, every link reads ~elapsed/total of the month
+          // (e.g. 23 of 31 days ≈ 75%) — the unrealistic Monthly figure. The week is a past
+          // complete window so min(...) leaves it unchanged.
+          const t0Ms = Date.parse(t0);
+          const t1Ms = Math.min(Date.parse(`${win.period_end}T23:59:59Z`), Date.parse(now));
+          const t1 = new Date(t1Ms).toISOString();
           const resolution = 3600;
           const totalIntervals = Math.max(1, Math.round((t1Ms - t0Ms) / (resolution * 1000)));
           const seriesList = [];
