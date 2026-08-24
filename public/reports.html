@@ -5617,7 +5617,9 @@ function showAdminPanel(name) {
   document.querySelectorAll('#page-admin .admin-panel').forEach(p => p.classList.remove('active'));
   const _grp = _MEMBER_GROUP[name];
   document.querySelectorAll('#admin-rail .admin-rail__item').forEach(b =>
-    b.classList.toggle('active', b.dataset.panel === name || (b.dataset.group && b.dataset.group === _grp)));
+    // NB: coerce to a real boolean — classList.toggle(token, undefined) FLIPS the class in
+    // Chrome (treats undefined as "no force"), which would turn every non-active item navy.
+    b.classList.toggle('active', !!(b.dataset.panel === name || (b.dataset.group && b.dataset.group === _grp))));
   _renderGroupTabs(name);
   const panel = document.getElementById(_ADMIN_PANEL_IDS[name]);
   if (panel) panel.classList.add('active');
