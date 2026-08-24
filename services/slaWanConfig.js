@@ -21,7 +21,12 @@ const SILVER_OFFICE = {
 };
 
 const DEFAULT_SLA_WAN_CONFIG = {
-  notify: { enabled: false, trigger_minutes: 15, from_name: 'SDP NOC', poll_minutes: 5 },
+  // ISP outage alerting — ARMED-OFF (enabled:false). trigger_minutes = the down-duration gate for
+  // the DOWN email; recovery_enabled sends a RESTORED email when the link comes back (only if a
+  // down email was sent); cc_coordinator adds the site coordinator to cc; servicedesk_email is
+  // always cc'd. NEVER emails an ISP for a site/power outage (both uplinks down) — see wanAlert.js.
+  notify: { enabled: false, trigger_minutes: 15, from_name: 'SDP NOC', poll_minutes: 5,
+    recovery_enabled: true, cc_coordinator: true, servicedesk_email: 'oneitsupport@endeavourmining.com' },
   clock_start: 'notification',
   maintenance: [],
   simultaneous_overlap_minutes: 5,

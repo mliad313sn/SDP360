@@ -44,6 +44,17 @@ function makeMailer() {
   return { calls, send: async (msg) => { calls.push(msg); return { ok: true, messageId: 'm' }; } };
 }
 
+// ONE device on this site's network with BOTH uplinks down = a site/power outage.
+function makeClientBothDown(site) {
+  return {
+    orgNetworks: async () => [{ id: site.networkId, name: site.network }],
+    orgUplinkStatuses: async () => [{
+      networkId: site.networkId, serial: 'Q2-POLL-0001',
+      uplinks: [{ interface: 'wan1', status: 'failed', label: 'ISP1' }, { interface: 'wan2', status: 'failed', label: 'ISP2' }],
+    }],
+  };
+}
+
 // getConfig returning a meraki-configured + sla_wan_config blob binding this site's
 // wan1 circuit to an ISP with a notify contact.
 function getConfig(siteId, { notifyEnabled = false, staleHours = 24 } = {}) {
@@ -127,6 +138,38 @@ test('armed + open ≥15min + contact set → mailer.send once + notified_at sta
   const m2 = makeMailer();
   await poll(s, T2, { status: 'failed', notifyEnabled: true }, m2);
   assert.equal(m2.calls.length, 0, 'not re-sent once notified_at is set');
+});
+
+test('armed down email → cc includes the service desk + body is HTML carrying the ISP', async () => {
+  const s = seedSite();
+  await poll(s, '2026-08-10T08:00:00Z', { status: 'failed', notifyEnabled: true }, makeMailer());
+  const m = makeMailer();
+  await poll(s, '2026-08-10T08:20:00Z', { status: 'failed', notifyEnabled: true }, m);
+  assert.equal(m.calls.length, 1);
+  assert.match(String(m.calls[0].cc || ''), /oneitsupport@endeavourmining\.com/, 'service desk is cc');
+  assert.match(String(m.calls[0].html || ''), /Orange/, 'HTML body (not text) carries the ISP');
+  assert.ok(!m.calls[0].text, 'no text field (mailer only sends html)');
+});
+
+test('BOTH uplinks down = site/power outage → NO ISP email (never blame the operator)', async () => {
+  const s = seedSite();
+  const cfg = getConfig(s.siteId, { notifyEnabled: true });
+  await main({ rdb, getConfig: cfg, client: makeClientBothDown(s), mailer: makeMailer(), now: '2026-08-10T08:00:00Z' });
+  const m = makeMailer();
+  await main({ rdb, getConfig: cfg, client: makeClientBothDown(s), mailer: m, now: '2026-08-10T08:20:00Z' });
+  assert.equal(m.calls.length, 0, 'both-down is a site outage → suppressed');
+});
+
+test('recovery: a NOTIFIED outage that recovers → one RESTORED email', async () => {
+  const s = seedSite();
+  const cfg = getConfig(s.siteId, { notifyEnabled: true });
+  await main({ rdb, getConfig: cfg, client: makeClient(s, 'failed'), mailer: makeMailer(), now: '2026-08-10T08:00:00Z' });
+  await main({ rdb, getConfig: cfg, client: makeClient(s, 'failed'), mailer: makeMailer(), now: '2026-08-10T08:20:00Z' }); // down email → notified_at set
+  const m = makeMailer();
+  await main({ rdb, getConfig: cfg, client: makeClient(s, 'active'), mailer: m, now: '2026-08-10T08:30:00Z' });   // recovers
+  assert.equal(m.calls.length, 1, 'recovery email on close of a notified outage');
+  assert.match(String(m.calls[0].subject || ''), /RESTORED/);
+  assert.match(String(m.calls[0].html || ''), /30m/, 'total duration in the recovery body');
 });
 
 test('disarmed (notify.enabled=false) → mailer NEVER called even past 15 min', async () => {

@@ -77,12 +77,44 @@ async function main(deps = {}) {
     const downNow = new Map();
     for (const [k, v] of downCand) if (!upKeys.has(k)) downNow.set(k, v);
 
+    // ── ISP alert scaffolding (best-effort) — recipients + a send helper the loops call. ──
+    const wanAlert = require('../../services/wanAlert');
+    const reportDir = require('../../services/reportDirectory');
+    const downKeys = new Set(downNow.keys());
+    const nameById = {}, codeById = {}; let dirRows = [];
+    try {
+      for (const s of ((await rdb.listSites({ includeInactive: true })) || [])) nameById[s.id] = s.name;
+      for (const c of ((typeof rdb.listSiteModuleCodes === 'function' ? await rdb.listSiteModuleCodes('meetings') : []) || [])) codeById[c.site_id] = c.code;
+      dirRows = (await reportDir.listRecipients(rdb.db)) || [];
+    } catch (_) { /* alerting recipients are best-effort */ }
+    const _sdEmail = String((cfg.notify && cfg.notify.servicedesk_email) || '').trim();
+    const _coordEmail = (site_id) => {
+      try { const r = reportDir.resolveFromRows(dirRows, codeById[site_id], 'coordinator'); return r && r.to; }
+      catch (_) { return null; }
+    };
+    // Send a 'down' | 'recovery' alert for one outage. Returns true iff an email was sent. NEVER
+    // emails an ISP for a site/power outage (both uplinks of the device down) — user-confirmed rule.
+    async function _sendAlert(kind, r) {
+      if (wanAlert.isSiteOutage(r.site_id, r.sub_site, downKeys)) return false;
+      const circuit = resolveCircuit(cfg, { site_id: r.site_id, sub_site: r.sub_site, uplink: r.uplink });
+      const coord = (cfg.notify && cfg.notify.cc_coordinator !== false) ? _coordEmail(r.site_id) : null;
+      const rcpt = wanAlert.alertRecipients(circuit, coord, _sdEmail);
+      if (!rcpt) return false;
+      const base = { site_id: r.site_id, sub_site: r.sub_site, siteName: nameById[r.site_id],
+        uplink: r.uplink, isp: circuit.isp, circuit_id: circuit.circuit_id, detectedStart: r.detected_start };
+      const mail = kind === 'recovery'
+        ? wanAlert.buildRecoveryEmail({ ...base, restoredEnd: now })
+        : wanAlert.buildDownEmail({ ...base, nowIso: now });
+      await mailer.send({ to: rcpt.to, cc: rcpt.cc, subject: mail.subject, html: mail.html });
+      return true;
+    }
+
     const open = (await rdb.listOpenWanOutages()) || [];
     const openByKey = new Map();
     for (const r of open) openByKey.set(_key(r.site_id, r.sub_site, r.uplink), r);
 
     const staleHours = (cfg.ingest && cfg.ingest.stale_open_hours) || 24;
-    let closed = 0, staleClosed = 0, opened = 0, notified = 0;
+    let closed = 0, staleClosed = 0, opened = 0, notified = 0, recovered = 0;
 
     // Recovery + stale-open guard — BEFORE opening new rows, so the one-open-row invariant
     // can never permanently block a fresh outage.
@@ -93,6 +125,10 @@ async function main(deps = {}) {
     for (const r of open) {
       const k = _key(r.site_id, r.sub_site, r.uplink);
       if (upKeys.has(k)) {
+        // Recovery email — ONLY if a DOWN alert was actually sent for this outage (notified_at).
+        if (cfg.notify && cfg.notify.enabled && cfg.notify.recovery_enabled !== false && r.notified_at != null) {
+          try { if (await _sendAlert('recovery', r)) recovered++; } catch (_) { /* recovery mail best-effort */ }
+        }
         await rdb.closeWanOutage({ site_id: r.site_id, sub_site: r.sub_site, uplink: r.uplink, detected_start: r.detected_start, restored_end: now });
         openByKey.delete(k); closed++;
       } else {
@@ -120,6 +156,9 @@ async function main(deps = {}) {
     }
 
     // ISP auto-notification — ARMED-OFF by default. Send NOTHING unless cfg.notify.enabled.
+    // DOWN email: single-uplink ISP outage, open ≥ trigger_minutes, not yet notified (both-down
+    // site outages are skipped inside _sendAlert). The exact down time comes from the (ingester-
+    // refined) detected_start; coordinator + service desk are cc'd. Stamp notified_at → send once.
     if (cfg.notify && cfg.notify.enabled) {
       const trigMin = cfg.notify.trigger_minutes || 15;
       const openNow = (await rdb.listOpenWanOutages()) || [];   // re-read: excludes just-closed, ages just-opened at 0
@@ -127,23 +166,13 @@ async function main(deps = {}) {
         if (r.restored_end != null) continue;                   // NEVER send if restored
         if (r.notified_at != null) continue;                    // send once
         const ageMin = _minutesSince(now, r.detected_start);
-        if (!Number.isFinite(ageMin) || ageMin < trigMin) continue;   // not yet at the 15-min gate
-        const circuit = resolveCircuit(cfg, { site_id: r.site_id, sub_site: r.sub_site, uplink: r.uplink });
-        const email = circuit && String(circuit.isp_notify_email || '').trim();
-        if (!email) continue;                                   // no ISP contact → nothing to send
-        const where = r.sub_site ? `${r.site_id}/${r.sub_site}` : `site ${r.site_id}`;
-        const subject = `[WAN OUTAGE] ${circuit.isp || 'ISP'} ${circuit.circuit_id || ''} ${r.uplink} down`.replace(/\s+/g, ' ').trim();
-        const text = [
-          `A WAN uplink has been continuously down for ${Math.floor(ageMin)} minutes.`,
-          `Site: ${where}`,
-          `Circuit: ${circuit.circuit_id || '(unmapped)'}  ISP: ${circuit.isp || '(unknown)'}`,
-          `Uplink: ${r.uplink}`,
-          `Detected down at: ${r.detected_start}`,
-          `Still down as of: ${now}`,
-        ].join('\n');
-        await mailer.send({ to: email, subject, text });
-        await rdb.upsertWanOutage({ ...r, notified_at: now });  // stamp so we never re-send
-        notified++;
+        if (!Number.isFinite(ageMin) || ageMin < trigMin) continue;   // not yet at the gate
+        try {
+          if (await _sendAlert('down', r)) {
+            await rdb.upsertWanOutage({ ...r, notified_at: now });
+            notified++;
+          }
+        } catch (_) { /* down mail best-effort */ }
       }
     }
 
@@ -158,8 +187,8 @@ async function main(deps = {}) {
       await setConfig(hb);
     } catch (e) { /* heartbeat is non-blocking */ }
 
-    log(`[wan-poll] down=${downNow.size} opened=${opened} closed=${closed} stale=${staleClosed} notified=${notified} (${now})`);
-    return { ok: true, down: downNow.size, opened, closed, stale_closed: staleClosed, notified };
+    log(`[wan-poll] down=${downNow.size} opened=${opened} closed=${closed} stale=${staleClosed} notified=${notified} recovered=${recovered} (${now})`);
+    return { ok: true, down: downNow.size, opened, closed, stale_closed: staleClosed, notified, recovered };
   } catch (e) {
     console.warn('[wan-poll] failed (non-blocking):', e.message);
     return { ok: false, error: e.message };

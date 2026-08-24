@@ -509,10 +509,15 @@ cron.schedule('10 5 * * *', () => require('./tools/opmanager/sync-availability')
 cron.schedule('20 5 * * *', () => require('./tools/meraki/sync-wan').main({})
   .catch(e => console.error('[Cron:meraki-wan]', e && e.message)));
 
-// WAN SLA / ISP chargeback (V1c). Nightly event-log INGESTER at 05:25 (staggered after the WAN
-// quality sync) pairs down/up events into authoritative wan_outages rows; the 5-minute POLLER
-// opens/closes provisional rows from current uplink state + fires the ISP auto-notification.
-// Both config-gated inside .main (self-skip until meraki_api_key is set) + best-effort.
+// WAN SLA / ISP chargeback (V1c). The event-log INGESTER (getNetworkEvents) queries Meraki's
+// authoritative event history — exact down/up timestamps — and reconciles the poller's provisional
+// rows. It runs EVERY 5 MIN with a short (3h) lookback so the outage log stays accurate to ±5 min
+// (durations corrected + attributed throughout the day, not only overnight), PLUS a nightly
+// full-lookback (3d) backfill at 05:25 for anything missed. The 5-minute POLLER opens/closes
+// provisional rows from current uplink state (fast detection) + fires the ISP down/recovery emails.
+// All config-gated inside .main (self-skip until meraki_api_key is set) + best-effort.
+cron.schedule('*/5 * * * *', () => require('./tools/meraki/sync-wan-events').main({ since: new Date(Date.now() - 3 * 3600 * 1000).toISOString() })
+  .catch(e => console.error('[Cron:wan-events-5m]', e && e.message)));
 cron.schedule('25 5 * * *', () => require('./tools/meraki/sync-wan-events').main({})
   .catch(e => console.error('[Cron:wan-events]', e && e.message)));
 cron.schedule('*/5 * * * *', () => require('./tools/meraki/poll-wan-outages').main({})
