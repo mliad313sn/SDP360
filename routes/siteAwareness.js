@@ -33,7 +33,7 @@ module.exports = function siteAwarenessRoutes({ express, requireReportSession, r
       res.json({
         site_id: gate.site_id, site_name: rs.site_name || null, is_group_view: !!isGroup,
         authorized_sites: gate.authorized,
-        tabs: { helpdesk: true, inspections: true, meetings: false, actions: false, tracker: false },
+        tabs: { helpdesk: true, inspections: true, meetings: true, actions: false, tracker: false },
       });
     } catch (_) { res.json({ site_id: null, authorized_sites: [], tabs: { helpdesk: true } }); }
   });
@@ -132,6 +132,45 @@ module.exports = function siteAwarenessRoutes({ express, requireReportSession, r
           due_date: a.due_date || null, owner: a.owner || null, status: a.status || null })),
       });
     } catch (_) { res.json({ applicable: true, snapshot: null, findings: {}, recent: [], open_actions: [] }); }
+  });
+
+  router.get('/api/site-awareness/meetings', requireReportSession, async (req, res) => {
+    try {
+      const gate = authorizedSiteId(req.reportUser, req.query.site);
+      if (gate.status) return res.status(gate.status).json({ error: 'forbidden' });
+      const rs = resolveSite(deps, gate.site_id) || {};
+      const code = rs.meetings_code;
+      // No meetings code → the site runs no departmental-meetings programme. Non applicable
+      // (never a false 0 — a fabricated cadence would false-green an unmonitored site).
+      if (!code) return res.json({ applicable: false, site_id: gate.site_id, site_name: rs.site_name || null });
+
+      // Current calendar month (the reader's cadence window).
+      const now = new Date();
+      const y = now.getUTCFullYear();
+      const mo = now.getUTCMonth() + 1;
+      const sum = (meetingsDb && typeof meetingsDb.getSiteMonthlyMeetingSummary === 'function'
+        ? await meetingsDb.getSiteMonthlyMeetingSummary(code, y, mo) : {}) || {};
+
+      // Whitelist: kpis are all counts (PII-safe); departments carry a dept name + status;
+      // commentary is an auto-generated justification string. No requester/technician free-text.
+      const k = sum.kpis || {};
+      res.json({
+        applicable: true, site_id: gate.site_id, site_name: rs.site_name || null,
+        month_label: sum.month_label || null,
+        snapshot: {
+          pvs: k.pvs_held || 0,
+          dept_target: (k.dept_target != null ? k.dept_target : (k.depts_with_pv != null ? k.depts_with_pv : null)),
+          open: k.open_issues || 0,
+          high_open: k.high_open || 0,
+          escalations: k.escalations_open || 0,
+          resolved: k.resolved_month || 0,
+          new: k.new_month || 0,
+        },
+        departments: (Array.isArray(sum.departments) ? sum.departments : []).map((d) => ({ department: d.department || null, status: d.status || null })),
+        trend: { months: (sum.trend && sum.trend.months) || [], opened: (sum.trend && sum.trend.opened) || [], closed: (sum.trend && sum.trend.closed) || [] },
+        commentary: sum.commentary || null,
+      });
+    } catch (_) { res.json({ applicable: true, snapshot: null, departments: [], trend: { months: [], opened: [], closed: [] } }); }
   });
 
   return router;

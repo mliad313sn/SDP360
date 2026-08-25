@@ -224,10 +224,24 @@
       </div>
     </div>
   </div>
-  <div id="pane-meetings" style="display:none"><div class="sa-panel"><div class="sa-soon">
-    <span data-lng="en">Department Meetings &amp; Decisions — coming soon.</span>
-    <span data-lng="fr">Réunions départementales &amp; Décisions — bientôt disponible.</span>
-  </div></div></div>
+  <!-- ════ Department Meetings & Decisions (meetings) ════ -->
+  <div id="pane-meetings" style="display:none">
+    <div id="sa-mtg-na" class="sa-empty" style="display:none"></div>
+    <div id="sa-mtg-body">
+      <div id="sa-mtg-tiles" class="sa-tiles"></div>
+      <div class="sa-sub" id="sa-mtg-commentary" style="margin:-8px 0 18px; font-style:italic"></div>
+
+      <div class="sa-panel" id="sa-mtg-chart-panel">
+        <h2 id="sa-mtg-trend-h"></h2>
+        <div class="sa-chart-wrap"><canvas id="sa-mtg-chart"></canvas></div>
+      </div>
+
+      <div class="sa-panel">
+        <h2 id="sa-mtg-depts-h"></h2>
+        <ul class="sa-list" id="sa-mtg-depts"></ul>
+      </div>
+    </div>
+  </div>
   <div id="pane-actions" style="display:none"><div class="sa-panel"><div class="sa-soon">
     <span data-lng="en">Actions &amp; Follow-up — coming soon.</span>
     <span data-lng="fr">Actions &amp; Suivi — bientôt disponible.</span>
@@ -293,6 +307,20 @@
     c_owner:         { fr: 'Responsable',                            en: 'Owner' },
     c_status:        { fr: 'Statut',                                 en: 'Status' },
     c_date:          { fr: 'Date',                                   en: 'Date' },
+    // meetings (department meetings & decisions)
+    m_pvs:           { fr: 'PV ce mois',                             en: 'PVs this month' },
+    m_open:          { fr: 'Issues ouvertes',                        en: 'Open issues' },
+    m_high:          { fr: 'HIGH ouvertes',                          en: 'HIGH open' },
+    m_esc:           { fr: 'Escalations',                            en: 'Escalations' },
+    m_resolved:      { fr: 'Résolues',                               en: 'Resolved' },
+    m_new:           { fr: 'Nouvelles',                              en: 'New' },
+    m_depts:         { fr: 'Départements',                           en: 'Departments' },
+    m_opened:        { fr: 'Ouvertes',                               en: 'Opened' },
+    m_closed:        { fr: 'Fermées',                                en: 'Closed' },
+    m_trend:         { fr: 'Issues ouvertes vs fermées — 3 mois',    en: 'Issues opened vs closed — 3 months' },
+    st_on_track:     { fr: 'Sur les rails',                          en: 'On track' },
+    st_blocked:      { fr: 'Bloqué',                                 en: 'Blocked' },
+    st_no_pv:        { fr: 'Pas de PV',                              en: 'No PV' },
     not_applicable:  { fr: 'Non applicable pour ce site',            en: 'Not applicable for this site' },
     // empty / error states
     none:            { fr: 'Aucun',                                   en: 'None' },
@@ -312,7 +340,7 @@
   let siteId = null, tabsAvail = { helpdesk: true }, current = 'helpdesk';
   // Chart.js instances — kept module-scoped so each render destroys before recreate.
   // A language toggle re-calls renderHelpdesk(cache), which rebuilds them in the new language.
-  let _hdChart = null, _chgChart = null, _inspChart = null;
+  let _hdChart = null, _chgChart = null, _inspChart = null, _mtgChart = null;
 
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
   function fmtNum(v) { return v == null ? '—' : String(v); }
@@ -350,6 +378,7 @@
     if (location.hash.slice(1) !== name) history.replaceState(null, '', '#' + name);
     if (name === 'helpdesk') loadHelpdesk();
     if (name === 'inspections') loadInspections();
+    if (name === 'meetings') loadMeetings();
   }
 
   // Render the helpdesk pane from data (fetched or cached). Kept separate
@@ -544,6 +573,75 @@
     renderInspections(data);
   }
 
+  // ── Department Meetings & Decisions (meetings) ─────────────────────
+  // Render from data (fetched or cached) so a language toggle re-renders without re-fetching.
+  const DEPT_STATUS = { on_track: { key: 'st_on_track', color: '#27AE60' }, blocked: { key: 'st_blocked', color: '#E74C3C' }, no_pv: { key: 'st_no_pv', color: '#9aa4b2' } };
+  function renderMeetings(data) {
+    data = data || { applicable: true, snapshot: null, departments: [], trend: { months: [], opened: [], closed: [] } };
+    const na = data.applicable === false;
+    const naN = $('sa-mtg-na'), body = $('sa-mtg-body');
+    if (naN) { naN.style.display = na ? 'block' : 'none'; naN.textContent = na ? T('not_applicable') + '.' : ''; }
+    if (body) body.style.display = na ? 'none' : '';
+    if (na) { if (_mtgChart) { _mtgChart.destroy(); _mtgChart = null; } return; }
+
+    const snap = data.snapshot || {};
+    const pvsVal = snap.dept_target != null ? (fmtNum(snap.pvs) + ' / ' + snap.dept_target) : fmtNum(snap.pvs);
+    const tiles = [
+      { lbl: T('m_pvs'),      val: pvsVal },
+      { lbl: T('m_open'),     val: fmtNum(snap.open) },
+      { lbl: T('m_high'),     val: fmtNum(snap.high_open) },
+      { lbl: T('m_esc'),      val: fmtNum(snap.escalations) },
+      { lbl: T('m_resolved'), val: fmtNum(snap.resolved) },
+      { lbl: T('m_new'),      val: fmtNum(snap.new) },
+    ];
+    $('sa-mtg-tiles').innerHTML = tiles.map(t =>
+      `<div class="sa-tile"><div class="lbl">${esc(t.lbl)}</div><div class="val">${esc(t.val)}</div></div>`).join('');
+
+    $('sa-mtg-commentary').textContent = data.commentary || '';
+    $('sa-mtg-trend-h').textContent = T('m_trend');
+    $('sa-mtg-depts-h').textContent = T('m_depts');
+
+    const depts = data.departments || [];
+    $('sa-mtg-depts').innerHTML = depts.length ? depts.map(d => {
+      const st = DEPT_STATUS[d.status] || { key: null, color: '#9aa4b2' };
+      const lbl = st.key ? T(st.key) : (d.status || '—');
+      return `<li><span class="cat">${esc(d.department) || '<span class="sa-muted">—</span>'}</span>`
+        + `<span class="sa-pill" style="background:${st.color}22;color:${st.color}">${esc(lbl)}</span></li>`;
+    }).join('') : `<li class="sa-muted">${esc(T('none'))}.</li>`;
+
+    renderMtgChart(data.trend || { months: [], opened: [], closed: [] });
+  }
+
+  // 3-month trend: bars Opened vs Closed.
+  function renderMtgChart(trend) {
+    if (_mtgChart) { _mtgChart.destroy(); _mtgChart = null; }
+    const panel = $('sa-mtg-chart-panel');
+    const months = trend.months || [];
+    if (typeof Chart === 'undefined' || !months.length) { if (panel) panel.style.display = 'none'; return; }
+    if (panel) panel.style.display = '';
+    _mtgChart = new Chart($('sa-mtg-chart').getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels: months,
+        datasets: [
+          { label: T('m_opened'), data: trend.opened || [], backgroundColor: '#E87722' },
+          { label: T('m_closed'), data: trend.closed || [], backgroundColor: '#27AE60' },
+        ],
+      },
+      options: { responsive: true, maintainAspectRatio: false,
+        plugins: { title: { display: true, text: T('m_trend') }, legend: { position: 'bottom' } },
+        scales: { y: { beginAtZero: true, title: { display: true, text: '#' } } } },
+    });
+  }
+
+  async function loadMeetings() {
+    let data;
+    try { data = await api('/api/site-awareness/meetings?site=' + encodeURIComponent(siteId == null ? '' : siteId)); }
+    catch { data = { applicable: true, snapshot: null, departments: [], trend: { months: [], opened: [], closed: [] } }; }
+    window._saLastMeetings = data;   // cache so the language toggle re-renders without re-fetching
+    renderMeetings(data);
+  }
+
   async function loadSummary(requested) {
     let data;
     try { data = await api('/api/site-awareness/summary' + (requested != null ? '?site=' + encodeURIComponent(requested) : '')); }
@@ -579,6 +677,7 @@
     renderTabs();
     if (current === 'helpdesk' && window._saLastHelpdesk) renderHelpdesk(window._saLastHelpdesk);
     if (current === 'inspections' && window._saLastInspections) renderInspections(window._saLastInspections);
+    if (current === 'meetings' && window._saLastMeetings) renderMeetings(window._saLastMeetings);
   }
   // Boot from localStorage if set, else default FR.
   (function _initLang() {

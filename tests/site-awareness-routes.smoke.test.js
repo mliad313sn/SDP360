@@ -11,6 +11,7 @@ function makeApp(sessionUser) {
       { id: 2, name: 'Mana', zoho_group: 'Mana IT Agent' },
     ],
     userHasRole: (u, r) => (u.roles || []).includes(r),
+    listSiteModuleCodes: (m) => (m === 'meetings' ? [{ site_id: 1, code: 'HGO' }, { site_id: 2, code: 'MGO' }] : []),
     getSiteHelpdeskWindow: () => ({ created: 10, resolved: 8, backlog: 2, sla_overdue: 1, major_incidents: 0, top_categories: [], recurring: [] }),
     getActiveMajorIncidentsForSite: () => [{ id: 42, subject: 'X', requester: 'SECRET PERSON', technician: 'SECRET TECH', status: 'Open', created_time: '2026-08-01' }],
     getSiteChangesWindow: () => ({ total: 5, executed: 4, successful: 3, failed: 1, cancelled: 0, pending: 1, emergency: 1, success_pct: 75 }),
@@ -21,9 +22,16 @@ function makeApp(sessionUser) {
     listInspections: () => [{ id: 'EM-IT-1', inspection_date: '2026-08-01', area_text: 'Datacenter', overall_risk: 'Low', status: 'submitted' }],
     listActions: () => [{ id: 7, description: 'Fix UPS', priority: 'High', due_date: '2026-09-01', owner: 'Site IT', status: 'open' }],
   };
+  const meetingsDb = {
+    siteNameToCode: (n) => ({ Hounde: 'HGO', Mana: 'MGO' }[n] || null),
+    getSiteMonthlyMeetingSummary: () => ({ site_code: 'HGO', month_label: 'Aug 2026', available: true,
+      kpis: { pvs_held: 3, depts_with_pv: 3, dept_target: 3, open_issues: 12, high_open: 2, escalations_open: 1, resolved_month: 5, new_month: 4 },
+      departments: [{ department: 'Maintenance', status: 'on_track' }],
+      trend: { months: ['Jun', 'Jul', 'Aug'], opened: [4, 5, 4], closed: [3, 4, 5] }, commentary: 'ok' }),
+  };
   const requireReportSession = (req, _res, next) => { req.reportUser = sessionUser; next(); };
   const app = express();
-  app.use(require('../routes/siteAwareness')({ express, requireReportSession, rdb, inspectionDb }));
+  app.use(require('../routes/siteAwareness')({ express, requireReportSession, rdb, meetingsDb, inspectionDb }));
   return app;
 }
 // Core http (not fetch) — undici's global keep-alive pool leaves an open handle that
@@ -89,4 +97,14 @@ test('inspections tab returns a whitelisted per-site block', async () => {
   assert.equal(body.snapshot.open_actions, 1);
   assert.ok(body.findings.ok === 30);
   assert.ok(Array.isArray(body.recent) && body.recent[0].area === 'Datacenter');
+});
+
+test('meetings tab returns a whitelisted per-site block', async () => {
+  const app = makeApp({ id: 5, roles: ['site-business'], site_id: 1 });
+  const { status, body } = await call(app, '/api/site-awareness/meetings');
+  assert.equal(status, 200);
+  assert.equal(body.applicable, true);
+  assert.equal(body.snapshot.pvs, 3);
+  assert.equal(body.snapshot.open, 12);
+  assert.ok(Array.isArray(body.trend.months) && body.trend.months.length === 3);
 });
