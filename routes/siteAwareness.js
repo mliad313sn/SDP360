@@ -33,7 +33,7 @@ module.exports = function siteAwarenessRoutes({ express, requireReportSession, r
       res.json({
         site_id: gate.site_id, site_name: rs.site_name || null, is_group_view: !!isGroup,
         authorized_sites: gate.authorized,
-        tabs: { helpdesk: true, inspections: true, meetings: true, actions: true, tracker: false },
+        tabs: { helpdesk: true, inspections: true, meetings: true, actions: true, tracker: true },
       });
     } catch (_) { res.json({ site_id: null, authorized_sites: [], tabs: { helpdesk: true } }); }
   });
@@ -228,6 +228,57 @@ module.exports = function siteAwarenessRoutes({ express, requireReportSession, r
         })),
       });
     } catch (_) { res.json({ applicable: true, snapshot: null, actions: [] }); }
+  });
+
+  router.get('/api/site-awareness/tracker', requireReportSession, async (req, res) => {
+    try {
+      const gate = authorizedSiteId(req.reportUser, req.query.site);
+      if (gate.status) return res.status(gate.status).json({ error: 'forbidden' });
+      const rs = resolveSite(deps, gate.site_id) || {};
+      const code = rs.tracker_code;
+      // No tracker code → the site isn't on the Activity Tracker programme. Non applicable
+      // (never a false 0 — a fabricated scorecard would false-green an unmonitored site).
+      if (!code) return res.json({ applicable: false, site_id: gate.site_id, site_name: rs.site_name || null });
+
+      const D = (trackerDb && typeof trackerDb.loadTracker === 'function') ? await trackerDb.loadTracker() : null;
+      if (!D || !trackerScore) return res.json({ applicable: false, site_id: gate.site_id, site_name: rs.site_name || null });
+
+      const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const yr = D.year || new Date().getUTCFullYear();
+      const mo = D.currentMonth || (new Date().getUTCMonth() + 1);
+
+      // ss().avg is a 0-1 FRACTION → ×100 for %. Previous month rolls the year.
+      const cur = trackerScore.ss(D, code, yr, mo) || {};
+      const overall_pct = cur.avg != null ? Math.round(cur.avg * 100) : null;
+      let pm = mo - 1, py = yr;
+      if (pm < 1) { pm = 12; py = yr - 1; }
+      const prev = trackerScore.ss(D, code, py, pm) || {};
+      const delta_pp = (prev.avg != null && overall_pct != null) ? Math.round(cur.avg * 100 - prev.avg * 100) : null;
+
+      // Pillars — gP() may not be exported (production tracker-pptx exports fleetStats/ps2/ss/score
+      // only); fall back to pillarWeights keys. ps2() is a 0-1 fraction too.
+      let pillars = [];
+      try { pillars = trackerScore.gP(D) || []; } catch (_) {}
+      if (!pillars.length && D.pillarWeights) pillars = Object.keys(D.pillarWeights);
+      const pillarScores = pillars.map((p) => ({ name: p, pct: Math.round((trackerScore.ps2(D, code, p, yr, mo) || 0) * 100) }));
+
+      // 6-month trend — null months break the line, never a false 0.
+      const trend = [];
+      for (let i = 5; i >= 0; i--) {
+        let mm = mo - i, yy = yr;
+        while (mm < 1) { mm += 12; yy--; }
+        const v = trackerScore.ss(D, code, yy, mm) || {};
+        trend.push({ label: MON[mm - 1] + ' ' + String(yy).slice(2), pct: (v.avg != null ? Math.round(v.avg * 100) : null) });
+      }
+
+      // WHITELIST — all numbers, PII-safe (no person/free-text anywhere in the tracker).
+      res.json({
+        applicable: true, site_id: gate.site_id, site_name: rs.site_name || null,
+        period_label: (D && D.currentMonth ? (MON[mo - 1] + ' ' + yr) : null),
+        snapshot: { overall_pct, delta_pp, green: cur.g || 0, amber: cur.a || 0, red: cur.r || 0, active: cur.active || 0 },
+        pillars: pillarScores, trend,
+      });
+    } catch (_) { res.json({ applicable: true, snapshot: null, pillars: [], trend: [] }); }
   });
 
   return router;

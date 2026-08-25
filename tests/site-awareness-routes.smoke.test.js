@@ -32,9 +32,18 @@ function makeApp(sessionUser) {
       departments: [{ department: 'Maintenance', status: 'on_track' }],
       trend: { months: ['Jun', 'Jul', 'Aug'], opened: [4, 5, 4], closed: [3, 4, 5] }, commentary: 'ok' }),
   };
+  const trackerDb = {
+    siteNameToCode: (n) => ({ Hounde: 'HGO', Mana: 'MGO' }[n] || null),
+    loadTracker: () => ({ year: 2026, currentMonth: 8, pillarWeights: { P1: 0.25, P2: 0.25, P3: 0.25, P4: 0.25 } }),
+  };
+  const trackerScore = {
+    ss: () => ({ avg: 0.72, g: 5, a: 3, r: 1, active: 9, pScores: {} }),
+    ps2: () => 0.7,
+    gP: () => ['P1', 'P2', 'P3', 'P4'],
+  };
   const requireReportSession = (req, _res, next) => { req.reportUser = sessionUser; next(); };
   const app = express();
-  app.use(require('../routes/siteAwareness')({ express, requireReportSession, rdb, meetingsDb, inspectionDb }));
+  app.use(require('../routes/siteAwareness')({ express, requireReportSession, rdb, meetingsDb, inspectionDb, trackerDb, trackerScore }));
   return app;
 }
 // Core http (not fetch) — undici's global keep-alive pool leaves an open handle that
@@ -121,4 +130,14 @@ test('actions tab returns a whitelisted per-site register', async () => {
   assert.equal(body.snapshot.total_open, 3);
   assert.deepEqual(body.snapshot.by_source, { meetings: 1, inspection: 1, report: 1 });
   assert.ok(Array.isArray(body.actions) && body.actions.length === 3);
+});
+
+test('tracker tab returns a whitelisted per-site scorecard', async () => {
+  const app = makeApp({ id: 5, roles: ['site-business'], site_id: 1 });
+  const { status, body } = await call(app, '/api/site-awareness/tracker');
+  assert.equal(status, 200);
+  assert.equal(body.applicable, true);
+  assert.equal(body.snapshot.overall_pct, 72);
+  assert.equal(body.pillars.length, 4);
+  assert.equal(body.trend.length, 6);
 });

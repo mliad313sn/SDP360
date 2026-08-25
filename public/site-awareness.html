@@ -272,10 +272,23 @@
       </div>
     </div>
   </div>
-  <div id="pane-tracker" style="display:none"><div class="sa-panel"><div class="sa-soon">
-    <span data-lng="en">Projects &amp; Roadmap — coming soon.</span>
-    <span data-lng="fr">Projets &amp; Roadmap — bientôt disponible.</span>
-  </div></div></div>
+  <!-- ════ Projects & Roadmap (activity tracker) ════ -->
+  <div id="pane-tracker" style="display:none">
+    <div id="sa-trk-na" class="sa-empty" style="display:none"></div>
+    <div id="sa-trk-body">
+      <div id="sa-trk-tiles" class="sa-tiles"></div>
+
+      <div class="sa-panel" id="sa-trk-pillars-panel">
+        <h2 id="sa-trk-pillars-h"></h2>
+        <div class="sa-chart-wrap"><canvas id="sa-trk-pillars"></canvas></div>
+      </div>
+
+      <div class="sa-panel" id="sa-trk-trend-panel">
+        <h2 id="sa-trk-trend-h"></h2>
+        <div class="sa-chart-wrap"><canvas id="sa-trk-trend"></canvas></div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script nonce="%%CSP_NONCE%%">
@@ -360,6 +373,14 @@
     c_age:           { fr: 'Âge',                                    en: 'Age' },
     a_overdue:       { fr: 'En retard',                              en: 'Overdue' },
     not_applicable:  { fr: 'Non applicable pour ce site',            en: 'Not applicable for this site' },
+    // tracker (projects & roadmap)
+    t_overall:       { fr: 'Score global',                           en: 'Overall score' },
+    t_delta:         { fr: 'Δ vs mois préc.',                        en: 'Δ vs prev month' },
+    t_green:         { fr: 'Vert',                                   en: 'Green' },
+    t_amber:         { fr: 'Ambre',                                  en: 'Amber' },
+    t_red:           { fr: 'Rouge',                                  en: 'Red' },
+    t_pillars:       { fr: 'Piliers',                                en: 'Pillars' },
+    t_trend:         { fr: 'Tendance 6 mois',                        en: '6-month trend' },
     // empty / error states
     none:            { fr: 'Aucun',                                   en: 'None' },
     nodata:          { fr: 'Aucune donnée',                           en: 'No data' },
@@ -379,6 +400,7 @@
   // Chart.js instances — kept module-scoped so each render destroys before recreate.
   // A language toggle re-calls renderHelpdesk(cache), which rebuilds them in the new language.
   let _hdChart = null, _chgChart = null, _inspChart = null, _mtgChart = null, _actChart = null;
+  let _trkPillarsChart = null, _trkTrendChart = null;
 
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
   function fmtNum(v) { return v == null ? '—' : String(v); }
@@ -418,6 +440,7 @@
     if (name === 'inspections') loadInspections();
     if (name === 'meetings') loadMeetings();
     if (name === 'actions') loadActions();
+    if (name === 'tracker') loadTracker_();
   }
 
   // Render the helpdesk pane from data (fetched or cached). Kept separate
@@ -762,6 +785,88 @@
     renderActions(data);
   }
 
+  // ── Projects & Roadmap (activity tracker) ──────────────────────────
+  // Render from data (fetched or cached) so a language toggle re-renders without re-fetching.
+  // RAG DISPLAY thresholds (≥65 green / ≥50 amber / else red) colour the pillar bars.
+  function ragColor(pct) { return pct == null ? '#9aa4b2' : (pct >= 65 ? '#27AE60' : (pct >= 50 ? '#E8A100' : '#DC2626')); }
+  function renderTracker(data) {
+    data = data || { applicable: true, snapshot: null, pillars: [], trend: [] };
+    const na = data.applicable === false;
+    const naN = $('sa-trk-na'), body = $('sa-trk-body');
+    if (naN) { naN.style.display = na ? 'block' : 'none'; naN.textContent = na ? T('not_applicable') + '.' : ''; }
+    if (body) body.style.display = na ? 'none' : '';
+    if (na) {
+      if (_trkPillarsChart) { _trkPillarsChart.destroy(); _trkPillarsChart = null; }
+      if (_trkTrendChart) { _trkTrendChart.destroy(); _trkTrendChart = null; }
+      return;
+    }
+
+    const snap = data.snapshot || {};
+    const deltaVal = snap.delta_pp == null ? '—' : ((snap.delta_pp >= 0 ? '+' : '') + snap.delta_pp + 'pp');
+    const deltaColor = snap.delta_pp == null ? '#8a94a2' : (snap.delta_pp >= 0 ? '#27AE60' : '#DC2626');
+    const tiles = [
+      { lbl: T('t_overall'), val: snap.overall_pct == null ? '—' : snap.overall_pct + '%' },
+      { lbl: T('t_delta'),   val: deltaVal, color: deltaColor },
+      { lbl: T('t_green'),   val: fmtNum(snap.green) },
+      { lbl: T('t_amber'),   val: fmtNum(snap.amber) },
+      { lbl: T('t_red'),     val: fmtNum(snap.red) },
+    ];
+    $('sa-trk-tiles').innerHTML = tiles.map(t =>
+      `<div class="sa-tile"><div class="lbl">${esc(t.lbl)}</div><div class="val"${t.color ? ` style="color:${t.color}"` : ''}>${esc(t.val)}</div></div>`).join('');
+
+    $('sa-trk-pillars-h').textContent = T('t_pillars');
+    $('sa-trk-trend-h').textContent = T('t_trend');
+
+    renderTrkPillars(data.pillars || []);
+    renderTrkTrend(data.trend || []);
+  }
+
+  // Pillar bars — one RAG-coloured bar per pillar (display thresholds).
+  function renderTrkPillars(pillars) {
+    if (_trkPillarsChart) { _trkPillarsChart.destroy(); _trkPillarsChart = null; }
+    const panel = $('sa-trk-pillars-panel');
+    if (typeof Chart === 'undefined' || !pillars.length) { if (panel) panel.style.display = 'none'; return; }
+    if (panel) panel.style.display = '';
+    _trkPillarsChart = new Chart($('sa-trk-pillars').getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels: pillars.map(p => p.name),
+        datasets: [{ label: T('t_pillars'), data: pillars.map(p => p.pct),
+          backgroundColor: pillars.map(p => ragColor(p.pct)) }],
+      },
+      options: { responsive: true, maintainAspectRatio: false,
+        plugins: { title: { display: true, text: T('t_pillars') }, legend: { display: false } },
+        scales: { y: { beginAtZero: true, suggestedMax: 100, title: { display: true, text: '%' } } } },
+    });
+  }
+
+  // 6-month trend line — spanGaps:false so a null month breaks the line, never a false 0.
+  function renderTrkTrend(trend) {
+    if (_trkTrendChart) { _trkTrendChart.destroy(); _trkTrendChart = null; }
+    const panel = $('sa-trk-trend-panel');
+    if (typeof Chart === 'undefined' || !trend.length) { if (panel) panel.style.display = 'none'; return; }
+    if (panel) panel.style.display = '';
+    _trkTrendChart = new Chart($('sa-trk-trend').getContext('2d'), {
+      type: 'line',
+      data: {
+        labels: trend.map(t => t.label),
+        datasets: [{ label: T('t_overall'), data: trend.map(t => t.pct),
+          borderColor: '#2A5490', backgroundColor: 'transparent', spanGaps: false, tension: 0.2, pointRadius: 3 }],
+      },
+      options: { responsive: true, maintainAspectRatio: false,
+        plugins: { title: { display: true, text: T('t_trend') }, legend: { display: false } },
+        scales: { y: { beginAtZero: true, suggestedMax: 100, title: { display: true, text: '%' } } } },
+    });
+  }
+
+  async function loadTracker_() {
+    let data;
+    try { data = await api('/api/site-awareness/tracker?site=' + encodeURIComponent(siteId == null ? '' : siteId)); }
+    catch { data = { applicable: true, snapshot: null, pillars: [], trend: [] }; }
+    window._saLastTracker = data;   // cache so the language toggle re-renders without re-fetching
+    renderTracker(data);
+  }
+
   async function loadSummary(requested) {
     let data;
     try { data = await api('/api/site-awareness/summary' + (requested != null ? '?site=' + encodeURIComponent(requested) : '')); }
@@ -799,6 +904,7 @@
     if (current === 'inspections' && window._saLastInspections) renderInspections(window._saLastInspections);
     if (current === 'meetings' && window._saLastMeetings) renderMeetings(window._saLastMeetings);
     if (current === 'actions' && window._saLastActions) renderActions(window._saLastActions);
+    if (current === 'tracker' && window._saLastTracker) renderTracker(window._saLastTracker);
   }
   // Boot from localStorage if set, else default FR.
   (function _initLang() {
