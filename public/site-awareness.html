@@ -189,7 +189,7 @@ W.defaults=O.defaults;window.Chart=W;});
               <th><span data-lng="en">Week</span><span data-lng="fr">Semaine</span></th>
               <th class="sa-num"><span data-lng="en">Received</span><span data-lng="fr">Reçus</span></th>
               <th class="sa-num"><span data-lng="en">Closed</span><span data-lng="fr">Clôturés</span></th>
-              <th class="sa-num"><span data-lng="en">SLA missed %</span><span data-lng="fr">SLA manqué %</span></th>
+              <th class="sa-num"><span data-lng="en">SLA compliance %</span><span data-lng="fr">Conformité SLA %</span></th>
             </tr>
           </thead>
           <tbody id="sa-weekly"></tbody>
@@ -295,6 +295,7 @@ W.defaults=O.defaults;window.Chart=W;});
       <div class="sa-panel">
         <h2 id="sa-mtg-depts-h"></h2>
         <ul class="sa-list" id="sa-mtg-depts"></ul>
+        <p class="sa-sub" style="margin:12px 0 0;font-size:12px"><span data-lng="en"><strong>Reading the statuses —</strong> <span style="color:#27AE60;font-weight:700">On track</span>: department met and progressing · <span style="color:#E74C3C;font-weight:700">Blocked</span>: an issue is holding it up · <span style="color:#7a8699;font-weight:700">No PV</span>: no meeting this month — neutral, not a failure (departments rotate; the site target is 3 PVs/month).</span><span data-lng="fr"><strong>Lecture des statuts —</strong> <span style="color:#27AE60;font-weight:700">Sur les rails</span> : réunion tenue, ça avance · <span style="color:#E74C3C;font-weight:700">Bloqué</span> : un point bloque le département · <span style="color:#7a8699;font-weight:700">Pas de PV</span> : aucune réunion ce mois — neutre, pas un échec (les départements tournent ; la cible du site est de 3 PV/mois).</span></p>
       </div>
     </div>
   </div>
@@ -374,6 +375,8 @@ W.defaults=O.defaults;window.Chart=W;});
     // combo chart (6-week volume + SLA)
     hd_volume:       { fr: 'Volume & SLA — 6 semaines',              en: 'Volume & SLA — 6 weeks' },
     c_sla_missed:    { fr: 'SLA manqué %',                           en: 'SLA missed %' },
+    c_sla_comp:      { fr: 'Conformité SLA %',                       en: 'SLA compliance %' },
+    c_sla_target:    { fr: 'Cible 90%',                              en: 'Target 90%' },
     // changes (90-day) section
     h_changes:       { fr: 'Changements — 90 jours',                 en: 'Changes — 90 days' },
     h_changes_sub:   { fr: 'Fenêtre glissante de 90 jours (volume faible).', en: 'Rolling 90-day window (low volume).' },
@@ -539,7 +542,7 @@ W.defaults=O.defaults;window.Chart=W;});
         <td>${esc(w.label)}</td>
         <td class="sa-num">${fmtNum(w.inbound)}</td>
         <td class="sa-num">${fmtNum(w.closed)}</td>
-        <td class="sa-num">${w.missed_pct == null ? '<span class="sa-muted">—</span>' : fmtPct(w.missed_pct)}</td>
+        <td class="sa-num">${w.missed_pct == null ? '<span class="sa-muted">—</span>' : fmtPct(Math.max(0, Math.min(100, 100 - w.missed_pct)))}</td>
       </tr>`).join('') : `<tr><td colspan="4" class="sa-muted">${esc(T('nodata'))}.</td></tr>`;
 
     const mi = data.major_incidents || [];
@@ -559,14 +562,16 @@ W.defaults=O.defaults;window.Chart=W;});
     renderChanges(data.changes);
   }
 
-  // 6-week combo: bars Received + Closed (left axis) + line SLA missed % (right axis, 0-100).
-  // spanGaps:false so a null week breaks the line — never a false 0.
+  // 6-week combo: bars Received + Closed (left axis) + line Resolution SLA compliance % (right axis,
+  // 0-100) with a dashed 90% target line — same framing as the deck report (compliance, not "missed").
+  // compliance = 100 − missed_pct; spanGaps:false so a null week breaks the line, never a false 0.
   function renderHdChart(weekly) {
     if (_hdChart) { _hdChart.destroy(); _hdChart = null; }
     const panel = $('sa-hd-chart-panel');
     if (typeof Chart === 'undefined' || !weekly.length) { if (panel) panel.style.display = 'none'; return; }
     if (panel) panel.style.display = '';
     const labels = weekly.map(w => w.label);
+    const comp = weekly.map(w => w.missed_pct == null ? null : Math.max(0, Math.min(100, 100 - w.missed_pct)));
     _hdChart = new Chart($('sa-hd-chart').getContext('2d'), {
       type: 'bar',
       data: {
@@ -574,8 +579,10 @@ W.defaults=O.defaults;window.Chart=W;});
         datasets: [
           { type: 'bar',  label: T('t_received'),   yAxisID: 'y',  data: weekly.map(w => w.inbound), backgroundColor: '#2A5490' },
           { type: 'bar',  label: T('t_closed'),     yAxisID: 'y',  data: weekly.map(w => w.closed),  backgroundColor: '#27AE60' },
-          { type: 'line', label: T('c_sla_missed'), yAxisID: 'y1', data: weekly.map(w => w.missed_pct),
-            borderColor: '#E74C3C', backgroundColor: 'transparent', spanGaps: false, tension: 0.2, pointRadius: 3 },
+          { type: 'line', label: T('c_sla_comp'),   yAxisID: 'y1', data: comp,
+            borderColor: '#7C3AED', backgroundColor: 'transparent', spanGaps: false, tension: 0.2, pointRadius: 3, borderWidth: 2 },
+          { type: 'line', label: T('c_sla_target'), yAxisID: 'y1', data: labels.map(() => 90),
+            borderColor: '#9aa4b2', borderDash: [6, 4], pointRadius: 0, borderWidth: 1.5, fill: false },
         ],
       },
       options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
