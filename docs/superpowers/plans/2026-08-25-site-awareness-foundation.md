@@ -342,7 +342,9 @@ module.exports = function siteAwarenessRoutes({ express, requireReportSession, r
       // 6 ISO weeks (volume + missed-SLA), like siteReportDeps.helpdeskWeekly.
       const { _lastIsoWeeks } = require('../services/siteReportDeps');
       const weekly = [];
-      for (const w of _lastIsoWeeks(now.toISOString(), 6)) {
+      // _lastIsoWeeks expects a BARE 'YYYY-MM-DD' (it does new Date(asOf + 'T00:00:00Z') internally);
+      // a full ISO timestamp → Invalid Date → throw. Use .slice(0,10).
+      for (const w of _lastIsoWeeks(now.toISOString().slice(0, 10), 6)) {
         const h = await rdb.getSiteHelpdeskWindow(gate.site_id, w.from, w.to); // w.{from,to,label} — confirm field names in _lastIsoWeeks
         weekly.push({ label: w.label, inbound: h.created, closed: h.resolved,
           missed_pct: h.created ? Math.round((h.sla_overdue / h.created) * 1000) / 10 : null }); // null when inbound 0 (never a false 0)
@@ -367,7 +369,9 @@ module.exports = function siteAwarenessRoutes({ express, requireReportSession, r
 };
 ```
 
-> **NB for the implementer:** confirm `_lastIsoWeeks(asOfIso, n)`'s element field names (it returns week descriptors — likely `{year, week, from, to, label}` or `{start_date,...}`); adapt `w.from`/`w.to`/`w.label` to the real shape (read `services/siteReportDeps.js:269`). If it returns `{year, week}` only, derive the range with the same `getWeekRange` the deps use.
+> **NB for the implementer:** (1) `_lastIsoWeeks` takes a **bare `YYYY-MM-DD`** (already handled above via `.slice(0,10)`) — a full ISO timestamp throws Invalid Date. (2) Confirm its element field names (week descriptors — likely `{year, week, from, to, label}` or `{start_date,...}`); adapt `w.from`/`w.to`/`w.label` to the real shape (read `services/siteReportDeps.js:269`). If it returns `{year, week}` only, derive the range with the same `getWeekRange` the deps use.
+>
+> **NB (SP2 forward-note):** `inspectionSiteCode` / `trackerSiteCode` are injected into `deps` here from `rdb.*`, but they **do not exist on `reports-db.js`** — the real name→code maps live in `inspection-db.js` / `tracker-db.js` as `siteNameToCode`. Harmless in SP1 (the Helpdesk tab uses only `helpdesk_group`, and `siteResolve`'s test injects them directly), but **SP2 must inject those two resolvers from their own module DBs**, not from `rdb`, or inspection/tracker codes silently resolve to `null`.
 
 - [ ] **Step 4: Run the test to verify it passes**
 
