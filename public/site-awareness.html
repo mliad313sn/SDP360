@@ -177,11 +177,53 @@
     </div>
   </div>
 
-  <!-- ════ Placeholder panes for the "soon" tabs ════ -->
-  <div id="pane-inspections" style="display:none"><div class="sa-panel"><div class="sa-soon">
-    <span data-lng="en">Facilities Status — coming soon.</span>
-    <span data-lng="fr">État des installations — bientôt disponible.</span>
-  </div></div></div>
+  <!-- ════ Facilities Status (inspections) ════ -->
+  <div id="pane-inspections" style="display:none">
+    <div id="sa-insp-na" class="sa-empty" style="display:none"></div>
+    <div id="sa-insp-body">
+      <div id="sa-insp-tiles" class="sa-tiles"></div>
+
+      <div class="sa-panel" id="sa-insp-chart-panel">
+        <h2><span data-lng="en">Findings breakdown</span><span data-lng="fr">Répartition des constats</span></h2>
+        <div class="sa-chart-wrap sa-chart-wrap--donut"><canvas id="sa-insp-chart"></canvas></div>
+      </div>
+
+      <div class="sa-panel">
+        <h2 id="sa-insp-recent-h"></h2>
+        <div class="sa-scroll">
+          <table class="sa-tbl">
+            <thead>
+              <tr>
+                <th id="sa-insp-th-date"></th>
+                <th id="sa-insp-th-area"></th>
+                <th id="sa-insp-th-risk"></th>
+                <th id="sa-insp-th-status"></th>
+              </tr>
+            </thead>
+            <tbody id="sa-insp-recent"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="sa-panel">
+        <h2 id="sa-insp-actions-h"></h2>
+        <div class="sa-scroll">
+          <table class="sa-tbl">
+            <thead>
+              <tr>
+                <th id="sa-insp-ath-desc"></th>
+                <th id="sa-insp-ath-prio"></th>
+                <th id="sa-insp-ath-due"></th>
+                <th id="sa-insp-ath-owner"></th>
+                <th id="sa-insp-ath-status"></th>
+              </tr>
+            </thead>
+            <tbody id="sa-insp-actions"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
   <div id="pane-meetings" style="display:none"><div class="sa-panel"><div class="sa-soon">
     <span data-lng="en">Department Meetings &amp; Decisions — coming soon.</span>
     <span data-lng="fr">Réunions départementales &amp; Décisions — bientôt disponible.</span>
@@ -231,6 +273,27 @@
     o_failed:        { fr: 'Échoués',                                en: 'Failed' },
     o_cancelled:     { fr: 'Annulés',                                en: 'Cancelled' },
     o_pending:       { fr: 'En cours',                               en: 'Pending' },
+    // inspections (facilities status)
+    i_conformity:    { fr: 'Conformité',                             en: 'Compliance' },
+    i_inspections:   { fr: 'Inspections',                            en: 'Inspections' },
+    i_critical:      { fr: 'Critiques',                              en: 'Critical' },
+    i_open_actions:  { fr: 'Actions ouvertes',                       en: 'Open actions' },
+    i_findings:      { fr: 'Répartition des constats',               en: 'Findings breakdown' },
+    i_recent:        { fr: 'Inspections récentes',                   en: 'Recent inspections' },
+    i_corrective:    { fr: 'Actions correctives ouvertes',           en: 'Open corrective actions' },
+    f_ok:            { fr: 'Conforme',                               en: 'OK' },
+    f_minor:         { fr: 'Mineur',                                 en: 'Minor' },
+    f_major:         { fr: 'Majeur',                                 en: 'Major' },
+    f_critical:      { fr: 'Critique',                               en: 'Critical' },
+    f_opp:           { fr: 'Opportunité',                            en: 'Opportunity' },
+    c_area:          { fr: 'Zone',                                   en: 'Area' },
+    c_risk:          { fr: 'Risque',                                 en: 'Risk' },
+    c_priority:      { fr: 'Priorité',                               en: 'Priority' },
+    c_due:           { fr: 'Échéance',                               en: 'Due' },
+    c_owner:         { fr: 'Responsable',                            en: 'Owner' },
+    c_status:        { fr: 'Statut',                                 en: 'Status' },
+    c_date:          { fr: 'Date',                                   en: 'Date' },
+    not_applicable:  { fr: 'Non applicable pour ce site',            en: 'Not applicable for this site' },
     // empty / error states
     none:            { fr: 'Aucun',                                   en: 'None' },
     nodata:          { fr: 'Aucune donnée',                           en: 'No data' },
@@ -249,7 +312,7 @@
   let siteId = null, tabsAvail = { helpdesk: true }, current = 'helpdesk';
   // Chart.js instances — kept module-scoped so each render destroys before recreate.
   // A language toggle re-calls renderHelpdesk(cache), which rebuilds them in the new language.
-  let _hdChart = null, _chgChart = null;
+  let _hdChart = null, _chgChart = null, _inspChart = null;
 
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
   function fmtNum(v) { return v == null ? '—' : String(v); }
@@ -286,6 +349,7 @@
     renderTabs();
     if (location.hash.slice(1) !== name) history.replaceState(null, '', '#' + name);
     if (name === 'helpdesk') loadHelpdesk();
+    if (name === 'inspections') loadInspections();
   }
 
   // Render the helpdesk pane from data (fetched or cached). Kept separate
@@ -398,6 +462,88 @@
     renderHelpdesk(data);
   }
 
+  // ── Facilities Status (inspections) ────────────────────────────────
+  // Render from data (fetched or cached) so a language toggle re-renders without re-fetching.
+  const FINDING_COLORS = { ok: '#27AE60', minor: '#E8A100', major: '#E87722', critical: '#E74C3C', opp: '#2A5490' };
+  function renderInspections(data) {
+    data = data || { applicable: true, snapshot: null, findings: {}, recent: [], open_actions: [] };
+    const na = data.applicable === false;
+    const naN = $('sa-insp-na'), body = $('sa-insp-body');
+    if (naN) { naN.style.display = na ? 'block' : 'none'; naN.textContent = na ? T('not_applicable') + '.' : ''; }
+    if (body) body.style.display = na ? 'none' : '';
+    if (na) { if (_inspChart) { _inspChart.destroy(); _inspChart = null; } return; }
+
+    const snap = data.snapshot || {};
+    const tiles = [
+      { lbl: T('i_conformity'),   val: snap.conformity_pct == null ? '—' : snap.conformity_pct + '%' },
+      { lbl: T('i_inspections'),  val: fmtNum(snap.inspections) },
+      { lbl: T('i_critical'),     val: fmtNum(snap.critical) },
+      { lbl: T('i_open_actions'), val: fmtNum(snap.open_actions) },
+    ];
+    $('sa-insp-tiles').innerHTML = tiles.map(t =>
+      `<div class="sa-tile"><div class="lbl">${esc(t.lbl)}</div><div class="val">${esc(t.val)}</div></div>`).join('');
+
+    // Section headers + table column headers (JS-built so the language toggle re-renders them).
+    $('sa-insp-recent-h').textContent = T('i_recent');
+    $('sa-insp-actions-h').textContent = T('i_corrective');
+    $('sa-insp-th-date').textContent = T('c_date');
+    $('sa-insp-th-area').textContent = T('c_area');
+    $('sa-insp-th-risk').textContent = T('c_risk');
+    $('sa-insp-th-status').textContent = T('c_status');
+    $('sa-insp-ath-desc').textContent = T('i_corrective');
+    $('sa-insp-ath-prio').textContent = T('c_priority');
+    $('sa-insp-ath-due').textContent = T('c_due');
+    $('sa-insp-ath-owner').textContent = T('c_owner');
+    $('sa-insp-ath-status').textContent = T('c_status');
+
+    const recent = data.recent || [];
+    $('sa-insp-recent').innerHTML = recent.length ? recent.map(r => `<tr>
+        <td>${fmtTs(r.date)}</td>
+        <td>${esc(r.area) || '<span class="sa-muted">—</span>'}</td>
+        <td>${r.risk ? '<span class="sa-pill">' + esc(r.risk) + '</span>' : '<span class="sa-muted">—</span>'}</td>
+        <td>${esc(r.status) || '<span class="sa-muted">—</span>'}</td>
+      </tr>`).join('') : `<tr><td colspan="4" class="sa-muted">${esc(T('none'))}.</td></tr>`;
+
+    const acts = data.open_actions || [];
+    $('sa-insp-actions').innerHTML = acts.length ? acts.map(a => `<tr>
+        <td>${esc(a.description) || '<span class="sa-muted">—</span>'}</td>
+        <td>${a.priority ? '<span class="sa-pill">' + esc(a.priority) + '</span>' : '<span class="sa-muted">—</span>'}</td>
+        <td>${fmtTs(a.due_date)}</td>
+        <td>${esc(a.owner) || '<span class="sa-muted">—</span>'}</td>
+        <td>${esc(a.status) || '<span class="sa-muted">—</span>'}</td>
+      </tr>`).join('') : `<tr><td colspan="5" class="sa-muted">${esc(T('none'))}.</td></tr>`;
+
+    renderInspChart(data.findings || {});
+  }
+
+  // Findings donut: ok/minor/major/critical/opp (na excluded — it's not a conformity signal).
+  function renderInspChart(f) {
+    if (_inspChart) { _inspChart.destroy(); _inspChart = null; }
+    const panel = $('sa-insp-chart-panel');
+    const order = ['ok', 'minor', 'major', 'critical', 'opp'];
+    const vals = order.map(k => Number(f[k]) || 0);
+    const total = vals.reduce((a, b) => a + b, 0);
+    if (typeof Chart === 'undefined' || !total) { if (panel) panel.style.display = 'none'; return; }
+    if (panel) panel.style.display = '';
+    _inspChart = new Chart($('sa-insp-chart').getContext('2d'), {
+      type: 'doughnut',
+      data: {
+        labels: [T('f_ok'), T('f_minor'), T('f_major'), T('f_critical'), T('f_opp')],
+        datasets: [{ data: vals, backgroundColor: order.map(k => FINDING_COLORS[k]), borderColor: '#fff', borderWidth: 1 }],
+      },
+      options: { responsive: true, maintainAspectRatio: false,
+        plugins: { title: { display: true, text: T('i_findings') }, legend: { position: 'bottom' } } },
+    });
+  }
+
+  async function loadInspections() {
+    let data;
+    try { data = await api('/api/site-awareness/inspections?site=' + encodeURIComponent(siteId == null ? '' : siteId)); }
+    catch { data = { applicable: true, snapshot: null, findings: {}, recent: [], open_actions: [] }; }
+    window._saLastInspections = data;   // cache so the language toggle re-renders without re-fetching
+    renderInspections(data);
+  }
+
   async function loadSummary(requested) {
     let data;
     try { data = await api('/api/site-awareness/summary' + (requested != null ? '?site=' + encodeURIComponent(requested) : '')); }
@@ -432,6 +578,7 @@
     // Re-render JS-built surfaces in the new language, WITHOUT re-fetching.
     renderTabs();
     if (current === 'helpdesk' && window._saLastHelpdesk) renderHelpdesk(window._saLastHelpdesk);
+    if (current === 'inspections' && window._saLastInspections) renderInspections(window._saLastInspections);
   }
   // Boot from localStorage if set, else default FR.
   (function _initLang() {

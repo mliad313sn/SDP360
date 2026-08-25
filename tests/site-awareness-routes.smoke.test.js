@@ -15,9 +15,15 @@ function makeApp(sessionUser) {
     getActiveMajorIncidentsForSite: () => [{ id: 42, subject: 'X', requester: 'SECRET PERSON', technician: 'SECRET TECH', status: 'Open', created_time: '2026-08-01' }],
     getSiteChangesWindow: () => ({ total: 5, executed: 4, successful: 3, failed: 1, cancelled: 0, pending: 1, emergency: 1, success_pct: 75 }),
   };
+  const inspectionDb = {
+    siteNameToCode: (n) => ({ Hounde: 'HGO', Mana: 'MGO' }[n] || null),
+    aggregate: () => ({ counts: { total: 4, critical_count: 1, draft_count: 0, submitted_count: 4, closed_count: 0, sites_covered: 1 }, findingStatus: [{ status: 'ok', n: 30 }, { status: 'minor', n: 5 }, { status: 'critical', n: 1 }, { status: 'na', n: 10 }] }),
+    listInspections: () => [{ id: 'EM-IT-1', inspection_date: '2026-08-01', area_text: 'Datacenter', overall_risk: 'Low', status: 'submitted' }],
+    listActions: () => [{ id: 7, description: 'Fix UPS', priority: 'High', due_date: '2026-09-01', owner: 'Site IT', status: 'open' }],
+  };
   const requireReportSession = (req, _res, next) => { req.reportUser = sessionUser; next(); };
   const app = express();
-  app.use(require('../routes/siteAwareness')({ express, requireReportSession, rdb }));
+  app.use(require('../routes/siteAwareness')({ express, requireReportSession, rdb, inspectionDb }));
   return app;
 }
 // Core http (not fetch) — undici's global keep-alive pool leaves an open handle that
@@ -42,7 +48,7 @@ test('site-business summary is scoped to the user site; selector lists only that
   assert.equal(body.site_id, 1);
   assert.deepEqual(body.authorized_sites.map(s => s.site_id), [1]);
   assert.equal(body.tabs.helpdesk, true);
-  assert.equal(body.tabs.inspections, false);
+  assert.equal(body.tabs.inspections, true);
 });
 
 test('site-business requesting a FOREIGN ?site is refused (403)', async () => {
@@ -72,4 +78,15 @@ test('helpdesk payload includes a whitelisted 90-day changes block', async () =>
   assert.equal(body.changes.total, 5);
   assert.equal(body.changes.success_pct, 75);
   assert.equal(body.changes.window_days, 90);
+});
+
+test('inspections tab returns a whitelisted per-site block', async () => {
+  const app = makeApp({ id: 5, roles: ['site-business'], site_id: 1 });
+  const { status, body } = await call(app, '/api/site-awareness/inspections');
+  assert.equal(status, 200);
+  assert.equal(body.applicable, true);
+  assert.equal(body.snapshot.inspections, 4);
+  assert.equal(body.snapshot.open_actions, 1);
+  assert.ok(body.findings.ok === 30);
+  assert.ok(Array.isArray(body.recent) && body.recent[0].area === 'Datacenter');
 });

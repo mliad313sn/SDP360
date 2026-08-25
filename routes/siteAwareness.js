@@ -33,7 +33,7 @@ module.exports = function siteAwarenessRoutes({ express, requireReportSession, r
       res.json({
         site_id: gate.site_id, site_name: rs.site_name || null, is_group_view: !!isGroup,
         authorized_sites: gate.authorized,
-        tabs: { helpdesk: true, inspections: false, meetings: false, actions: false, tracker: false },
+        tabs: { helpdesk: true, inspections: true, meetings: false, actions: false, tracker: false },
       });
     } catch (_) { res.json({ site_id: null, authorized_sites: [], tabs: { helpdesk: true } }); }
   });
@@ -79,6 +79,59 @@ module.exports = function siteAwarenessRoutes({ express, requireReportSession, r
           emergency: chg.emergency || 0, success_pct: (chg.success_pct == null ? null : chg.success_pct), window_days: 90 },
       });
     } catch (_) { res.json({ applicable: true, snapshot: null, weekly: [], major_incidents: [] }); }
+  });
+
+  router.get('/api/site-awareness/inspections', requireReportSession, async (req, res) => {
+    try {
+      const gate = authorizedSiteId(req.reportUser, req.query.site);
+      if (gate.status) return res.status(gate.status).json({ error: 'forbidden' });
+      const rs = resolveSite(deps, gate.site_id) || {};
+      const code = rs.inspection_code;
+      // No inspection code → the site has no facilities-inspection programme. Non applicable
+      // (never a false 0 — a fabricated conformity would false-green an unmonitored site).
+      if (!code) return res.json({ applicable: false, site_id: gate.site_id, site_name: rs.site_name || null });
+
+      // 90-day window (house convention, mirrors the changes block).
+      const _d = (ms) => new Date(ms).toISOString().slice(0, 10);
+      const to = _d(Date.now());
+      const from = _d(Date.now() - 90 * 86400000);
+
+      const agg = (inspectionDb && typeof inspectionDb.aggregate === 'function'
+        ? await inspectionDb.aggregate({ site: code, from, to }) : {}) || {};
+      const recent = (inspectionDb && typeof inspectionDb.listInspections === 'function'
+        ? await inspectionDb.listInspections({ site: code, limit: 5 }) : []) || [];
+      const acts = (inspectionDb && typeof inspectionDb.listActions === 'function'
+        ? await inspectionDb.listActions({ site: code }) : []) || [];
+
+      // Conformity % = ok findings / (all findings EXCLUDING 'na'). null when the applicable
+      // base is 0 — never a false 0. findingStatus is [{status, n}], status ∈ ok/minor/major/critical/opp/na.
+      const fs = Array.isArray(agg.findingStatus) ? agg.findingStatus : [];
+      const findings = { ok: 0, minor: 0, major: 0, critical: 0, opp: 0, na: 0 };
+      for (const r of fs) { const k = String(r.status || '').toLowerCase(); if (k in findings) findings[k] += Number(r.n) || 0; }
+      const base = findings.ok + findings.minor + findings.major + findings.critical + findings.opp;
+      const conformity_pct = base > 0 ? Math.round((findings.ok / base) * 1000) / 10 : null;
+
+      // Open corrective actions — non-terminal (exclude Closed/Cancelled, the aggregate's own vocabulary).
+      const _term = (s) => { const t = String(s || '').toLowerCase(); return t === 'closed' || t === 'cancelled'; };
+      const openActs = acts.filter((a) => !_term(a.status));
+
+      const counts = agg.counts || {};
+      res.json({
+        applicable: true, site_id: gate.site_id, site_name: rs.site_name || null,
+        snapshot: {
+          conformity_pct,
+          inspections: (counts.total != null ? counts.total : (agg.total || 0)),
+          critical: (counts.critical_count != null ? counts.critical_count : (agg.critical_count || 0)),
+          open_actions: openActs.length,
+        },
+        findings,
+        recent: recent.map((r) => ({ id: r.id, date: r.inspection_date || null,
+          area: r.area_text || r.area_code || null, risk: r.overall_risk || null, status: r.status || null })),
+        // owner = internal staff accountability (allowed). No requester/technician free-text — inspections carry none.
+        open_actions: openActs.map((a) => ({ id: a.id, description: a.description || null, priority: a.priority || null,
+          due_date: a.due_date || null, owner: a.owner || null, status: a.status || null })),
+      });
+    } catch (_) { res.json({ applicable: true, snapshot: null, findings: {}, recent: [], open_actions: [] }); }
   });
 
   return router;
