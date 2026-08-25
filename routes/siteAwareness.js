@@ -79,6 +79,21 @@ module.exports = function siteAwarenessRoutes({ express, requireReportSession, r
     return pct >= 0.75 ? 'green' : (pct >= 0.5 ? 'amber' : 'red');
   }
 
+  // The tracker is PER-YEAR and the config's currentMonth is unreliable (prod points at an EMPTY
+  // 2027-03 structure while the real scores sit in 2026). So anchor on the CURRENT calendar month
+  // and scan BACK to the latest month that actually has SCORED data (avg > 0) for the site — the
+  // tracker UI's "last month with data" behaviour (which showed e.g. Jul 2026 = 73%). Starting from
+  // "now" also avoids the future 2027 structure entirely. Falls back to the current month if none.
+  function latestTrackerPeriod(D, code) {
+    const now = new Date();
+    let y = now.getUTCFullYear(), m = now.getUTCMonth() + 1;
+    for (let i = 0; i < 24; i++) {
+      try { const s = trackerScore && trackerScore.ss(D, code, y, m); if (s && s.avg > 0) return { yr: y, mo: m }; } catch (_) {}
+      m--; if (m < 1) { m = 12; y--; }
+    }
+    return { yr: now.getUTCFullYear(), mo: now.getUTCMonth() + 1 };
+  }
+
   function authorizedSiteId(deps, user, requestedRaw) {
     const authorized = listAuthorizedSites(deps, user);
     if (!authorized.length) return { status: 403 };
@@ -316,8 +331,7 @@ module.exports = function siteAwarenessRoutes({ express, requireReportSession, r
       if (!D || !trackerScore) return res.json({ applicable: false, site_id: gate.site_id, site_name: rs.site_name || null });
 
       const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      const yr = D.year || new Date().getUTCFullYear();
-      const mo = D.currentMonth || (new Date().getUTCMonth() + 1);
+      const { yr, mo } = latestTrackerPeriod(D, code);   // most recent month WITH data for this site
 
       // ss().avg is a 0-1 FRACTION → ×100 for %. Previous month rolls the year.
       const cur = trackerScore.ss(D, code, yr, mo) || {};
@@ -367,8 +381,9 @@ module.exports = function siteAwarenessRoutes({ express, requireReportSession, r
       let D = null;
       try { D = (trackerDb && trackerDb.loadTracker) ? await trackerDb.loadTracker() : null; } catch (_) {}
       const now = new Date();
-      const yr = (D && D.year) || now.getUTCFullYear();
-      const mo = (D && D.currentMonth) || (now.getUTCMonth() + 1);
+      // Meetings cadence = the CURRENT calendar month (NOT the tracker config's period, which can be
+      // an empty/future 2027-03). Tracker period is resolved per-site (latestTrackerPeriod) below.
+      const cy = now.getUTCFullYear(), cm = now.getUTCMonth() + 1;
 
       const _d = (ms) => new Date(ms).toISOString().slice(0, 10);
       const h1 = _d(Date.now()), h0 = _d(Date.now() - 30 * 86400000);   // helpdesk 30-day
@@ -400,7 +415,7 @@ module.exports = function siteAwarenessRoutes({ express, requireReportSession, r
           // meetings — PVs vs target this month.
           try {
             if (rs.meetings_code && meetingsDb && typeof meetingsDb.getSiteMonthlyMeetingSummary === 'function') {
-              const sum = (await meetingsDb.getSiteMonthlyMeetingSummary(rs.meetings_code, yr, mo)) || {};
+              const sum = (await meetingsDb.getSiteMonthlyMeetingSummary(rs.meetings_code, cy, cm)) || {};
               cells.meetings = ragMeetings(sum.kpis);
             }
           } catch (_) {}
@@ -428,7 +443,8 @@ module.exports = function siteAwarenessRoutes({ express, requireReportSession, r
           // tracker — ss().avg.
           try {
             if (rs.tracker_code && D && trackerScore) {
-              const cur = trackerScore.ss(D, rs.tracker_code, yr, mo) || {};
+              const tp = latestTrackerPeriod(D, rs.tracker_code);   // most recent month WITH data
+              const cur = trackerScore.ss(D, rs.tracker_code, tp.yr, tp.mo) || {};
               cells.tracker = ragTracker(cur.avg == null ? null : cur.avg);
             }
           } catch (_) {}
