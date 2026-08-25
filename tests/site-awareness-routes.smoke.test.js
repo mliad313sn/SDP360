@@ -2,6 +2,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 const express = require('express');
+const http = require('node:http');
 
 function makeApp(sessionUser) {
   const rdb = {
@@ -18,10 +19,19 @@ function makeApp(sessionUser) {
   app.use(require('../routes/siteAwareness')({ express, requireReportSession, rdb }));
   return app;
 }
-async function call(app, path) {
-  const srv = app.listen(0); const port = srv.address().port;
-  try { const r = await fetch(`http://127.0.0.1:${port}${path}`); return { status: r.status, body: await r.json().catch(() => ({})) }; }
-  finally { srv.close(); }
+// Core http (not fetch) — undici's global keep-alive pool leaves an open handle that
+// --test-force-exit flags as a file-level failure. Mirrors tests/wan-sla-routes.smoke.
+function call(app, path) {
+  return new Promise((resolve, reject) => {
+    const server = http.createServer(app).listen(0, '127.0.0.1', () => {
+      const port = server.address().port;
+      http.get(`http://127.0.0.1:${port}${path}`, (res) => {
+        let data = '';
+        res.on('data', (c) => (data += c));
+        res.on('end', () => { server.close(); let body = {}; try { body = JSON.parse(data); } catch (_) {} resolve({ status: res.statusCode, body }); });
+      }).on('error', (e) => { server.close(); reject(e); });
+    });
+  });
 }
 
 test('site-business summary is scoped to the user site; selector lists only that site', async () => {
