@@ -14,89 +14,112 @@
 <script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js" defer></script>
 
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style nonce="%%CSP_NONCE%%">
-  body { margin:0; background:var(--color-background,#f4f6f7); color:var(--color-text-primary,#1F2A33);
-    font-family:var(--font-sans,'Libre Franklin',system-ui,sans-serif); font-size:14px; }
+[data-lng="fr"]{display:none}[data-lng-block="fr"]{display:none}
+body.lang-fr [data-lng="en"]{display:none}body.lang-fr [data-lng-block="en"]{display:none}
+body.lang-fr [data-lng="fr"]{display:inline}body.lang-fr [data-lng-block="fr"]{display:block}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:#EFF2F5;color:#33435A;font:14px/1.5 'Libre Franklin',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#E87722}a:hover{color:#1B2530}
+.sa-wrap{max-width:1340px;margin:0 auto;padding:28px 32px 56px}
+.sa-head{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.sa-head h1{margin:0;font-size:21px;font-weight:700;letter-spacing:-.01em;color:#3A4A60}
+#sa-site-name{color:#E87722}
+.sa-ro{font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;padding:4px 10px;border-radius:999px;border:1px solid #DEE5EC;color:#66738A;background:#FFFFFF}
+.sa-sub{font-size:13.5px;color:#66738A;margin:6px 0 20px;max-width:880px;text-wrap:pretty}
+.sa-controls{display:flex;gap:10px;align-items:center;margin-left:auto}
+.sa-controls label{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#66738A}
+select{padding:8px 12px;border:1px solid #DEE5EC;border-radius:8px;background:#FFFFFF;font:600 13px 'Libre Franklin',system-ui,sans-serif;color:#1B2530;cursor:pointer}
+select:disabled{opacity:.55;cursor:not-allowed}
+.sa-lang-toggle{display:inline-flex;gap:2px;background:#E4E9EF;border-radius:8px;padding:3px;border:1px solid #DEE5EC}
+.sa-lang-toggle button{background:transparent;border:0;cursor:pointer;padding:5px 11px;border-radius:6px;font:700 11px 'Libre Franklin',system-ui,sans-serif;letter-spacing:.04em;color:#66738A}
+.sa-lang-toggle button.active{background:#FFFFFF;color:#1B2530;box-shadow:0 1px 2px rgba(0,0,0,.15)}
+.sa-tabs{display:flex;gap:2px;border-bottom:1px solid #DEE5EC;margin:2px 0 22px;flex-wrap:wrap;position:sticky;top:0;background:#EFF2F5;z-index:5;padding-top:6px}
+.sa-tab{border:0;background:none;color:#66738A;font:600 13.5px 'Libre Franklin',system-ui,sans-serif;padding:11px 13px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
+.sa-tab:hover:not(.disabled){color:#3A4A60}
+.sa-tab.on{color:#3A4A60;border-bottom-color:#E87722}
+.sa-tab.disabled{opacity:.45;cursor:not-allowed}
+.sa-chip{font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:999px;background:#FFF3E7;color:#A85A14;border:1px solid #F3D9BC}
+.sa-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px}
+.sa-tile{background:#FFFFFF;border:1px solid #DEE5EC;border-radius:10px;padding:14px 16px;box-shadow:0 1px 2px rgba(27,37,48,.05)}
+.sa-tile .lbl{font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#66738A}
+.sa-tile .val{font:800 27px/1.1 'Libre Franklin',sans-serif;color:#3A4A60;margin-top:7px;font-variant-numeric:tabular-nums}
+.sa-panel{background:#FFFFFF;border:1px solid #DEE5EC;border-radius:10px;padding:18px 20px;box-shadow:0 1px 2px rgba(27,37,48,.05);min-width:0}
+.sa-panel h2{margin:0 0 14px;font-size:15px;font-weight:700;color:#3A4A60}
+.sa-scroll{overflow-x:auto}
+table.sa-tbl{width:100%;border-collapse:collapse;font-size:13px}
+table.sa-tbl th{text-align:left;font-size:10.5px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:#66738A;border-bottom:1px solid #DEE5EC;padding:0 10px 9px;white-space:nowrap}
+table.sa-tbl td{padding:9px 10px;border-bottom:1px solid #EEF2F6;vertical-align:middle}
+table.sa-tbl tr:last-child td{border-bottom:0}
+.sa-num{text-align:right;font-variant-numeric:tabular-nums}
+.sa-muted{color:#66738A}
+.sa-pill{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;background:#EDF1F5;color:#4A5A70}
+.sa-empty{background:#FFF6EA;border:1px solid #F0D5AE;color:#7A4A12;border-radius:10px;padding:14px 16px;font-size:13.5px}
+.sa-list{list-style:none;margin:0;padding:0}
+.sa-list li{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid #EEF2F6}
+.sa-list li:first-child{border-top:0;padding-top:0}
+.sa-list .cat{flex:1}
+.sa-list .cnt{font-weight:700;font-variant-numeric:tabular-nums}
+table.sa-fleet-tbl tbody tr{cursor:pointer}
+table.sa-fleet-tbl tbody tr:hover td{background:#F5F8FB}
+.sa-rag{display:inline-flex;align-items:center;gap:7px}
+.sa-rag-dot{width:9px;height:9px;border-radius:50%;flex:none}
+.sa-rag-val{font-variant-numeric:tabular-nums}
+.sa-rag-pill{display:inline-block;min-width:52px;text-align:center;font-size:10.5px;font-weight:700;padding:3px 10px;border-radius:999px;letter-spacing:.05em;text-transform:uppercase}
+.sa-chart-wrap{position:relative;height:280px}
+.sa-chart-wrap--donut{height:250px}
+.sa-chg-note{color:#66738A;padding:6px 0}
+.sa-soon{padding:26px 16px;text-align:center;color:#66738A}
+#sa-mtg-commentary{font-style:italic;margin:-6px 0 4px}
+#sa-fleet-hint{margin:0 0 4px}
+#sa-chg-sub{margin:-8px 0 14px}
+#pane-helpdesk,#pane-fleet,#sa-insp-body,#sa-mtg-body,#sa-act-body,#sa-trk-body{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:14px;align-items:stretch}
+#pane-helpdesk>*,#pane-fleet>*,#sa-insp-body>*,#sa-mtg-body>*,#sa-act-body>*,#sa-trk-body>*{grid-column:1/-1;margin:0;min-width:0}
+#sa-hd-chart-panel{grid-column:span 7}
+#pane-helpdesk>div:nth-child(4){grid-column:span 5}
+#pane-helpdesk>div:nth-child(5),#pane-helpdesk>div:nth-child(6){grid-column:span 6}
+#sa-insp-chart-panel{grid-column:span 5}
+#sa-insp-body>div:nth-child(3){grid-column:span 7}
+#sa-mtg-chart-panel{grid-column:span 7}
+#sa-mtg-body>div:nth-child(4){grid-column:span 5}
+#sa-act-chart-panel{grid-column:span 5}
+#sa-act-body>div:nth-child(3){grid-column:span 7}
+#sa-trk-pillars-panel,#sa-trk-trend-panel{grid-column:span 6}
+#sa-chg-body{display:grid;grid-template-columns:minmax(220px,300px) minmax(0,1fr);gap:22px;align-items:center}
+#sa-chg-body .sa-tiles{grid-template-columns:1fr}
+#sa-chg-body .sa-chart-wrap--donut{height:230px}
+@media(max-width:1080px){#sa-hd-chart-panel,#pane-helpdesk>div:nth-child(4),#pane-helpdesk>div:nth-child(5),#pane-helpdesk>div:nth-child(6),#sa-insp-chart-panel,#sa-insp-body>div:nth-child(3),#sa-mtg-chart-panel,#sa-mtg-body>div:nth-child(4),#sa-act-chart-panel,#sa-act-body>div:nth-child(3),#sa-trk-pillars-panel,#sa-trk-trend-panel{grid-column:1/-1}#sa-chg-body{grid-template-columns:1fr}#sa-chg-body .sa-tiles{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}}
+@media(max-width:720px){.sa-wrap{padding:18px 16px 40px}.sa-head h1{font-size:18px}.sa-controls{margin-left:0;width:100%}.sa-chart-wrap{height:240px}}
+.sa-list .cat{color:#3A4A60}</style>
+<script nonce="%%CSP_NONCE%%" id="design-chart-theme">
+/* DESIGN — theme Chart.js applique via les options Chart uniquement ; le script applicatif reste intact. */
+(function(){var MAP={"#2A5490":"#3A4A60","#27AE60":"#2E9E63","#E74C3C":"#D6493C","#E8A100":"#E3A008","#E87722":"#E87722","#9aa4b2":"#B7C0CC","#DC2626":"#D6493C","#fff":"#FFFFFF"},FONT="Libre Franklin",MUT='#5C6B80',GRID='#E9EDF2';
+function mc(c){return typeof c==='string'&&MAP[c]?MAP[c]:c}
+document.addEventListener('DOMContentLoaded',function(){
+if(!window.Chart)return;var O=window.Chart;
+O.defaults.font.family=FONT;O.defaults.color=MUT;
+var W=function(ctx,cfg){cfg=cfg||{};
+((cfg.data||{}).datasets||[]).forEach(function(d){
+['backgroundColor','borderColor'].forEach(function(k){var x=d[k];if(x==null)return;d[k]=Array.isArray(x)?x.map(mc):mc(x)});
+var t=d.type||cfg.type;
+if(t==='bar'){d.borderRadius=3;d.maxBarThickness=30}
+if(t==='line'){d.borderWidth=2;if(d.borderColor)d.pointBackgroundColor=d.borderColor}
+if(cfg.type==='doughnut'){d.borderWidth=2}});
+var o=cfg.options=cfg.options||{},p=o.plugins=o.plugins||{};
+if(p.title)p.title.display=false;
+p.legend=p.legend||{};
+p.legend.labels=Object.assign({usePointStyle:true,pointStyle:'circle',boxWidth:7,boxHeight:7,padding:14,color:MUT,font:{family:FONT,size:11.5}},p.legend.labels);
+if(cfg.type==='doughnut'){o.cutout='66%'}
+if(o.scales)Object.keys(o.scales).forEach(function(k){var s=o.scales[k];
+s.grid=Object.assign({color:GRID},s.grid);s.border=Object.assign({color:GRID},s.border);
+s.ticks=Object.assign({color:MUT,font:{family:FONT,size:11}},s.ticks);
+if(s.title){s.title.color=MUT;s.title.font={family:FONT,size:10}}});
+return new O(ctx,cfg)};
+W.defaults=O.defaults;window.Chart=W;});
+})();
+</script>
 
-  /* ── Bilingual EN|FR pattern (mirror of meetings-import.html) ────────
-     Default is French (body carries .lang-fr). Inline text uses
-     <span data-lng="en"> / <span data-lng="fr"> pairs; block-level content
-     uses <div|p|li data-lng-block="en|fr">. JS-rendered strings go through
-     the T() helper. */
-  [data-lng="fr"]       { display: none; }
-  [data-lng-block="fr"] { display: none; }
-  body.lang-fr [data-lng="en"]       { display: none; }
-  body.lang-fr [data-lng-block="en"] { display: none; }
-  body.lang-fr [data-lng="fr"]       { display: inline; }
-  body.lang-fr [data-lng-block="fr"] { display: block; }
-
-  .sa-wrap { max-width:1280px; margin:0 auto; padding:var(--space-6,24px); }
-  .sa-head { display:flex; align-items:center; gap:16px; margin-bottom:6px; flex-wrap:wrap; }
-  .sa-head h1 { margin:0; font-size:22px; font-weight:700; color:var(--edv-slate,#3A4A60); }
-  .sa-ro { font-size:11px; font-weight:700; padding:3px 10px; border-radius:999px; letter-spacing:.02em;
-           background:#eef1f5; color:#556; border:1px solid #e2e6ec; }
-  .sa-sub { font-size:13px; color:var(--color-text-muted,#6b7785); margin-bottom:16px; }
-  .sa-controls { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-left:auto; }
-  .sa-controls label { font-size:12px; color:#6b7785; }
-  select { padding:7px 12px; border:1px solid #cfd6e0; border-radius:8px; background:#fff; font-size:13px; cursor:pointer; color:inherit; }
-  select:disabled { background:#f2f4f7; color:#8a94a2; cursor:not-allowed; }
-
-  /* Language toggle */
-  .sa-lang-toggle { display:inline-flex; gap:2px; background:var(--color-bg,#F4F5F7); border-radius:6px; padding:3px; }
-  .sa-lang-toggle button { background:transparent; border:0; cursor:pointer; padding:5px 11px; border-radius:4px;
-    font-weight:700; font-family:var(--font-sans); font-size:11.5px; color:var(--color-text-muted,#7B7B7B); letter-spacing:.3px; }
-  .sa-lang-toggle button.active { background:#fff; color:var(--edv-slate,#3A4A60); box-shadow:0 1px 2px rgba(58,74,96,.10); }
-
-  /* Tab bar */
-  .sa-tabs { display:flex; gap:4px; border-bottom:2px solid #e4e8ee; margin-bottom:18px; flex-wrap:wrap; }
-  .sa-tab { border:none; background:transparent; color:#6b7785; font-size:14px; font-weight:700; padding:10px 16px;
-            cursor:pointer; border-bottom:3px solid transparent; margin-bottom:-2px; font-family:inherit;
-            display:inline-flex; align-items:center; gap:7px; }
-  .sa-tab:hover:not(.disabled) { color:#3A4A60; }
-  .sa-tab.on { color:#3A4A60; border-bottom-color:var(--edv-slate,#3A4A60); }
-  .sa-tab.disabled { color:#aab2bd; cursor:not-allowed; }
-  .sa-chip { font-size:10px; font-weight:700; padding:2px 7px; border-radius:999px; background:#fff7ed;
-             color:#a9670a; border:1px solid #f3dcae; text-transform:uppercase; letter-spacing:.03em; }
-
-  /* Snapshot tiles */
-  .sa-tiles { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:14px; margin-bottom:22px; }
-  .sa-tile { background:#fff; border:1px solid #e4e8ee; border-radius:12px; padding:14px 16px; }
-  .sa-tile .lbl { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; color:#6b7785; }
-  .sa-tile .val { font-size:28px; font-weight:700; color:var(--edv-slate,#3A4A60); margin-top:4px; font-variant-numeric:tabular-nums; }
-
-  .sa-panel { background:#fff; border:1px solid #e4e8ee; border-radius:12px; padding:16px; margin-bottom:22px; }
-  .sa-panel h2 { margin:0 0 12px; font-size:16px; color:var(--edv-slate,#3A4A60); }
-  .sa-scroll { overflow-x:auto; }
-  table.sa-tbl { width:100%; border-collapse:collapse; font-size:13px; }
-  table.sa-tbl th { text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:#6b7785;
-                    border-bottom:2px solid #eef1f5; padding:8px 10px; white-space:nowrap; }
-  table.sa-tbl td { padding:8px 10px; border-bottom:1px solid #f2f4f7; vertical-align:middle; }
-  table.sa-tbl tr:last-child td { border-bottom:0; }
-  .sa-num { text-align:right; font-variant-numeric:tabular-nums; }
-  .sa-muted { color:#8a94a2; }
-  .sa-pill { display:inline-block; font-size:11px; font-weight:700; padding:2px 8px; border-radius:999px; background:#eef1f5; color:#556; }
-  .sa-empty { background:#fff7ed; border:1px solid #f0c9a0; color:#7a3d12; border-radius:12px; padding:16px; margin-bottom:22px; }
-  .sa-list { list-style:none; margin:0; padding:0; }
-  .sa-list li { display:flex; align-items:center; gap:10px; padding:8px 0; border-top:1px solid #f2f4f7; }
-  .sa-list li:first-child { border-top:0; }
-  .sa-list .cat { flex:1; color:#3A4A60; }
-  .sa-list .cnt { font-weight:700; font-variant-numeric:tabular-nums; color:var(--edv-slate,#3A4A60); }
-  .sa-soon { padding:26px 16px; text-align:center; color:#8a94a2; }
-
-  /* Fleet (Vue Groupe) RAG grid */
-  table.sa-fleet-tbl tbody tr { cursor:pointer; }
-  table.sa-fleet-tbl tbody tr:hover { background:#f6f8fb; }
-  .sa-rag { display:inline-flex; align-items:center; gap:7px; }
-  .sa-rag-dot { width:11px; height:11px; border-radius:50%; flex:none; }
-  .sa-rag-val { font-variant-numeric:tabular-nums; color:#3A4A60; }
-  .sa-rag-pill { display:inline-block; min-width:52px; text-align:center; font-size:11px; font-weight:700;
-                 padding:3px 10px; border-radius:999px; text-transform:uppercase; letter-spacing:.03em; }
-
-  /* Chart.js canvases — the charts are the prominent element ("les charts sont plus parlants") */
-  .sa-chart-wrap { position:relative; height:300px; }
-  .sa-chart-wrap--donut { height:280px; max-width:520px; margin:0 auto; }
-  .sa-chg-note { color:#8a94a2; padding:8px 0; }
-</style>
 </head>
 <body>
 <div id="__shell" data-section="performance" data-current="site-awareness"></div>
@@ -129,7 +152,7 @@
 
   <!-- ════ Group View (fleet RAG grid) — GROUP-only ════ -->
   <div id="pane-fleet" style="display:none">
-    <div class="sa-sub" id="sa-fleet-hint" style="margin:-4px 0 14px"></div>
+    <div class="sa-sub" id="sa-fleet-hint"></div>
     <div class="sa-panel">
       <div class="sa-scroll">
         <table class="sa-tbl sa-fleet-tbl">
@@ -196,10 +219,10 @@
     <!-- ════ Changes — 90-day window (read-only, counts only) ════ -->
     <div class="sa-panel">
       <h2 id="sa-chg-h"></h2>
-      <div class="sa-sub" id="sa-chg-sub" style="margin:-4px 0 12px"></div>
+      <div class="sa-sub" id="sa-chg-sub"></div>
       <div id="sa-chg-empty" class="sa-chg-note" style="display:none"></div>
       <div id="sa-chg-body">
-        <div id="sa-chg-tiles" class="sa-tiles" style="margin-bottom:16px"></div>
+        <div id="sa-chg-tiles" class="sa-tiles"></div>
         <div class="sa-chart-wrap sa-chart-wrap--donut"><canvas id="sa-chg-chart"></canvas></div>
       </div>
     </div>
@@ -257,7 +280,7 @@
     <div id="sa-mtg-na" class="sa-empty" style="display:none"></div>
     <div id="sa-mtg-body">
       <div id="sa-mtg-tiles" class="sa-tiles"></div>
-      <div class="sa-sub" id="sa-mtg-commentary" style="margin:-8px 0 18px; font-style:italic"></div>
+      <div class="sa-sub" id="sa-mtg-commentary"></div>
 
       <div class="sa-panel" id="sa-mtg-chart-panel">
         <h2 id="sa-mtg-trend-h"></h2>
