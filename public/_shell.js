@@ -58,6 +58,7 @@
     'hard-drive':     ICONS.html('hard-drive'),
     'shield-check':   ICONS.html('shield-check'),
     wallet:           ICONS.html('wallet'),
+    building:         ICONS.html('building'),
     // Distinct icons so the Insights dropdown items don't collide visually:
     // Inspections keeps clipboard-check; Meetings → users (a council of people);
     // Site Actions → check (a register of actions to close). All three were
@@ -121,6 +122,9 @@
       roles:    ['any'],
       title:    'Analytics, scorecards, inspections, and strategic activity tracking',
       children: [
+        // Site Awareness — read-only per-site business view (GM/FM). site-business sees only
+        // their site; group-business (CIO/CFO) + executive see all. super_admin passes via hierarchy.
+        { id: 'site-awareness', label: 'Ma Vue Site',       icon: ICON_LIB.building,           href: 'site-awareness.html',    roles: ['site-business', 'group-business', 'executive'] },
         { id: 'inspections', label: 'Inspections',         icon: ICON_LIB['clipboard-check'], href: 'inspections.html',       roles: ['any']       },
         { id: 'tracker',     label: 'Activity Tracker',    icon: ICON_LIB.target,             href: 'activity-tracker.html',  roles: ['any']       },
         // Single Meetings entry — lands on meetings.html (List active by
