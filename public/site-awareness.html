@@ -242,10 +242,36 @@
       </div>
     </div>
   </div>
-  <div id="pane-actions" style="display:none"><div class="sa-panel"><div class="sa-soon">
-    <span data-lng="en">Actions &amp; Follow-up — coming soon.</span>
-    <span data-lng="fr">Actions &amp; Suivi — bientôt disponible.</span>
-  </div></div></div>
+  <!-- ════ Actions & Follow-up (site actions register) ════ -->
+  <div id="pane-actions" style="display:none">
+    <div id="sa-act-na" class="sa-empty" style="display:none"></div>
+    <div id="sa-act-body">
+      <div id="sa-act-tiles" class="sa-tiles"></div>
+
+      <div class="sa-panel" id="sa-act-chart-panel">
+        <h2 id="sa-act-chart-h"></h2>
+        <div class="sa-chart-wrap sa-chart-wrap--donut"><canvas id="sa-act-chart"></canvas></div>
+      </div>
+
+      <div class="sa-panel">
+        <h2 id="sa-act-list-h"></h2>
+        <div class="sa-scroll">
+          <table class="sa-tbl">
+            <thead>
+              <tr>
+                <th id="sa-act-th-task"></th>
+                <th id="sa-act-th-source"></th>
+                <th id="sa-act-th-dept"></th>
+                <th class="sa-num" id="sa-act-th-age"></th>
+                <th id="sa-act-th-status"></th>
+              </tr>
+            </thead>
+            <tbody id="sa-act-list"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
   <div id="pane-tracker" style="display:none"><div class="sa-panel"><div class="sa-soon">
     <span data-lng="en">Projects &amp; Roadmap — coming soon.</span>
     <span data-lng="fr">Projets &amp; Roadmap — bientôt disponible.</span>
@@ -321,6 +347,18 @@
     st_on_track:     { fr: 'Sur les rails',                          en: 'On track' },
     st_blocked:      { fr: 'Bloqué',                                 en: 'Blocked' },
     st_no_pv:        { fr: 'Pas de PV',                              en: 'No PV' },
+    // actions & follow-up (site actions register)
+    a_open:          { fr: 'Actions ouvertes',                       en: 'Open actions' },
+    a_oldest:        { fr: 'Plus ancienne',                          en: 'Oldest' },
+    a_days:          { fr: 'jours',                                  en: 'days' },
+    src_meetings:    { fr: 'Réunions',                               en: 'Meetings' },
+    src_inspection:  { fr: 'Inspections',                            en: 'Inspections' },
+    src_report:      { fr: 'Suivi rapport',                          en: 'Report follow-up' },
+    c_task:          { fr: 'Tâche',                                  en: 'Task' },
+    c_source:        { fr: 'Source',                                 en: 'Source' },
+    c_dept:          { fr: 'Département',                            en: 'Department' },
+    c_age:           { fr: 'Âge',                                    en: 'Age' },
+    a_overdue:       { fr: 'En retard',                              en: 'Overdue' },
     not_applicable:  { fr: 'Non applicable pour ce site',            en: 'Not applicable for this site' },
     // empty / error states
     none:            { fr: 'Aucun',                                   en: 'None' },
@@ -340,7 +378,7 @@
   let siteId = null, tabsAvail = { helpdesk: true }, current = 'helpdesk';
   // Chart.js instances — kept module-scoped so each render destroys before recreate.
   // A language toggle re-calls renderHelpdesk(cache), which rebuilds them in the new language.
-  let _hdChart = null, _chgChart = null, _inspChart = null, _mtgChart = null;
+  let _hdChart = null, _chgChart = null, _inspChart = null, _mtgChart = null, _actChart = null;
 
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
   function fmtNum(v) { return v == null ? '—' : String(v); }
@@ -379,6 +417,7 @@
     if (name === 'helpdesk') loadHelpdesk();
     if (name === 'inspections') loadInspections();
     if (name === 'meetings') loadMeetings();
+    if (name === 'actions') loadActions();
   }
 
   // Render the helpdesk pane from data (fetched or cached). Kept separate
@@ -642,6 +681,87 @@
     renderMeetings(data);
   }
 
+  // ── Actions & Follow-up (site actions register) ────────────────────
+  // Render from data (fetched or cached) so a language toggle re-renders without re-fetching.
+  const ACT_SOURCE = { meetings: { key: 'src_meetings', color: '#2A5490' }, inspection: { key: 'src_inspection', color: '#E87722' }, report: { key: 'src_report', color: '#27AE60' } };
+  function renderActions(data) {
+    data = data || { applicable: true, snapshot: null, actions: [] };
+    const na = data.applicable === false;
+    const naN = $('sa-act-na'), body = $('sa-act-body');
+    if (naN) { naN.style.display = na ? 'block' : 'none'; naN.textContent = na ? T('not_applicable') + '.' : ''; }
+    if (body) body.style.display = na ? 'none' : '';
+    if (na) { if (_actChart) { _actChart.destroy(); _actChart = null; } return; }
+
+    const snap = data.snapshot || {};
+    const by = snap.by_source || {};
+    const oldest = snap.oldest_days == null ? '—' : (snap.oldest_days + ' ' + T('a_days'));
+    const tiles = [
+      { lbl: T('a_open'),          val: fmtNum(snap.total_open) },
+      { lbl: T('a_oldest'),        val: oldest },
+      { lbl: T('src_meetings'),    val: fmtNum(by.meetings) },
+      { lbl: T('src_inspection'),  val: fmtNum(by.inspection) },
+      { lbl: T('src_report'),      val: fmtNum(by.report) },
+    ];
+    $('sa-act-tiles').innerHTML = tiles.map(t =>
+      `<div class="sa-tile"><div class="lbl">${esc(t.lbl)}</div><div class="val">${esc(t.val)}</div></div>`).join('');
+
+    // Section + column headers (JS-built so the language toggle re-renders them).
+    $('sa-act-chart-h').textContent = T('a_open');
+    $('sa-act-list-h').textContent = T('a_open');
+    $('sa-act-th-task').textContent = T('c_task');
+    $('sa-act-th-source').textContent = T('c_source');
+    $('sa-act-th-dept').textContent = T('c_owner');
+    $('sa-act-th-age').textContent = T('c_age');
+    $('sa-act-th-status').textContent = T('c_status');
+
+    const acts = data.actions || [];
+    $('sa-act-list').innerHTML = acts.length ? acts.map(a => {
+      const src = ACT_SOURCE[a.source] || { key: null, color: '#9aa4b2' };
+      const srcLbl = src.key ? T(src.key) : (a.source || '—');
+      const age = a.age_days == null ? '<span class="sa-muted">—</span>' : String(a.age_days);
+      const statusCell = a.overdue
+        ? `<span class="sa-pill" style="background:#fdecea;color:#c0392b">${esc(a.status || T('a_overdue'))} · ${esc(T('a_overdue'))}</span>`
+        : (esc(a.status) || '<span class="sa-muted">—</span>');
+      return `<tr>
+        <td>${esc(a.task) || '<span class="sa-muted">—</span>'}</td>
+        <td><span class="sa-pill" style="background:${src.color}22;color:${src.color}">${esc(srcLbl)}</span></td>
+        <td>${esc(a.owner) || '<span class="sa-muted">—</span>'}</td>
+        <td class="sa-num">${age}</td>
+        <td>${statusCell}</td>
+      </tr>`;
+    }).join('') : `<tr><td colspan="5" class="sa-muted">${esc(T('none'))}.</td></tr>`;
+
+    renderActChart(by);
+  }
+
+  // Source donut: Meetings / Inspections / Report follow-up. Empty → hide the panel.
+  function renderActChart(by) {
+    if (_actChart) { _actChart.destroy(); _actChart = null; }
+    const panel = $('sa-act-chart-panel');
+    const order = ['meetings', 'inspection', 'report'];
+    const vals = order.map(k => Number(by[k]) || 0);
+    const total = vals.reduce((a, b) => a + b, 0);
+    if (typeof Chart === 'undefined' || !total) { if (panel) panel.style.display = 'none'; return; }
+    if (panel) panel.style.display = '';
+    _actChart = new Chart($('sa-act-chart').getContext('2d'), {
+      type: 'doughnut',
+      data: {
+        labels: order.map(k => T(ACT_SOURCE[k].key)),
+        datasets: [{ data: vals, backgroundColor: order.map(k => ACT_SOURCE[k].color), borderColor: '#fff', borderWidth: 1 }],
+      },
+      options: { responsive: true, maintainAspectRatio: false,
+        plugins: { title: { display: true, text: T('a_open') }, legend: { position: 'bottom' } } },
+    });
+  }
+
+  async function loadActions() {
+    let data;
+    try { data = await api('/api/site-awareness/actions?site=' + encodeURIComponent(siteId == null ? '' : siteId)); }
+    catch { data = { applicable: true, snapshot: null, actions: [] }; }
+    window._saLastActions = data;   // cache so the language toggle re-renders without re-fetching
+    renderActions(data);
+  }
+
   async function loadSummary(requested) {
     let data;
     try { data = await api('/api/site-awareness/summary' + (requested != null ? '?site=' + encodeURIComponent(requested) : '')); }
@@ -678,6 +798,7 @@
     if (current === 'helpdesk' && window._saLastHelpdesk) renderHelpdesk(window._saLastHelpdesk);
     if (current === 'inspections' && window._saLastInspections) renderInspections(window._saLastInspections);
     if (current === 'meetings' && window._saLastMeetings) renderMeetings(window._saLastMeetings);
+    if (current === 'actions' && window._saLastActions) renderActions(window._saLastActions);
   }
   // Boot from localStorage if set, else default FR.
   (function _initLang() {

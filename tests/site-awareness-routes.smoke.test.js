@@ -15,6 +15,8 @@ function makeApp(sessionUser) {
     getSiteHelpdeskWindow: () => ({ created: 10, resolved: 8, backlog: 2, sla_overdue: 1, major_incidents: 0, top_categories: [], recurring: [] }),
     getActiveMajorIncidentsForSite: () => [{ id: 42, subject: 'X', requester: 'SECRET PERSON', technician: 'SECRET TECH', status: 'Open', created_time: '2026-08-01' }],
     getSiteChangesWindow: () => ({ total: 5, executed: 4, successful: 3, failed: 1, cancelled: 0, pending: 1, emergency: 1, success_pct: 75 }),
+    getSiteIdByModuleCode: () => ({ site_id: 1 }),
+    getSiteOpenReportActions: () => ({ actions: [{ uid: 'x', task: 'Report follow-up', owner: 'IT', status: 'open' }] }),
   };
   const inspectionDb = {
     siteNameToCode: (n) => ({ Hounde: 'HGO', Mana: 'MGO' }[n] || null),
@@ -24,6 +26,7 @@ function makeApp(sessionUser) {
   };
   const meetingsDb = {
     siteNameToCode: (n) => ({ Hounde: 'HGO', Mana: 'MGO' }[n] || null),
+    listActions: () => [{ id: 1, description: 'Deploy Helix', owner_it: 'Engineering', target_date: '2026-09-15', status: 'open', created_at: '2026-08-05', meeting_reference: 'HGO_Maintenance_PV_2026-08' }],
     getSiteMonthlyMeetingSummary: () => ({ site_code: 'HGO', month_label: 'Aug 2026', available: true,
       kpis: { pvs_held: 3, depts_with_pv: 3, dept_target: 3, open_issues: 12, high_open: 2, escalations_open: 1, resolved_month: 5, new_month: 4 },
       departments: [{ department: 'Maintenance', status: 'on_track' }],
@@ -107,4 +110,15 @@ test('meetings tab returns a whitelisted per-site block', async () => {
   assert.equal(body.snapshot.pvs, 3);
   assert.equal(body.snapshot.open, 12);
   assert.ok(Array.isArray(body.trend.months) && body.trend.months.length === 3);
+});
+
+test('actions tab returns a whitelisted per-site register', async () => {
+  const app = makeApp({ id: 5, roles: ['site-business'], site_id: 1 });
+  const { status, body } = await call(app, '/api/site-awareness/actions');
+  assert.equal(status, 200);
+  assert.equal(body.applicable, true);
+  assert.ok(body.snapshot && typeof body.snapshot.total_open === 'number');
+  assert.equal(body.snapshot.total_open, 3);
+  assert.deepEqual(body.snapshot.by_source, { meetings: 1, inspection: 1, report: 1 });
+  assert.ok(Array.isArray(body.actions) && body.actions.length === 3);
 });

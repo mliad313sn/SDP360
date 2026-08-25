@@ -33,7 +33,7 @@ module.exports = function siteAwarenessRoutes({ express, requireReportSession, r
       res.json({
         site_id: gate.site_id, site_name: rs.site_name || null, is_group_view: !!isGroup,
         authorized_sites: gate.authorized,
-        tabs: { helpdesk: true, inspections: true, meetings: true, actions: false, tracker: false },
+        tabs: { helpdesk: true, inspections: true, meetings: true, actions: true, tracker: false },
       });
     } catch (_) { res.json({ site_id: null, authorized_sites: [], tabs: { helpdesk: true } }); }
   });
@@ -171,6 +171,63 @@ module.exports = function siteAwarenessRoutes({ express, requireReportSession, r
         commentary: sum.commentary || null,
       });
     } catch (_) { res.json({ applicable: true, snapshot: null, departments: [], trend: { months: [], opened: [], closed: [] } }); }
+  });
+
+  router.get('/api/site-awareness/actions', requireReportSession, async (req, res) => {
+    try {
+      const gate = authorizedSiteId(req.reportUser, req.query.site);
+      if (gate.status) return res.status(gate.status).json({ error: 'forbidden' });
+      const rs = resolveSite(deps, gate.site_id) || {};
+      const code = rs.meetings_code;
+      // The Site Actions register keys on the MEETINGS namespace code (SMI/MGO/HGO…).
+      // No meetings code → the site runs no departmental-meetings/actions programme.
+      // Non applicable (never a false 0 — a fabricated register would false-green a site).
+      if (!code) return res.json({ applicable: false, site_id: gate.site_id, site_name: rs.site_name || null });
+
+      const { buildSiteActions } = require('../services/siteActionsRegister');
+      const asOf = new Date().toISOString().slice(0, 10);
+
+      // Compose the same three sources as /api/reports/site-actions — best-effort,
+      // each guarded so a missing reader degrades to an empty list, not a 500.
+      const meetings = (meetingsDb && typeof meetingsDb.listActions === 'function' ? await meetingsDb.listActions({ site: code }) : []) || [];
+      const inspection = (inspectionDb && typeof inspectionDb.listActions === 'function' ? await inspectionDb.listActions({ site: code }) : []) || [];
+      let report = null;
+      if (typeof rdb.getSiteIdByModuleCode === 'function') {
+        // resolved.site_id (NOT .id) — the documented falsy-id pitfall.
+        const resolved = await rdb.getSiteIdByModuleCode('meetings', code);
+        if (resolved && resolved.site_id && typeof rdb.getSiteOpenReportActions === 'function') {
+          report = { actions: (await rdb.getSiteOpenReportActions(resolved.site_id)).actions };
+        }
+      }
+      const sa = buildSiteActions({ meetings, inspection, report, asOf });
+
+      // buildSiteActions returns { groups:{meetings,inspection,report:{items,count,oldest_days}}, totals:{open} }.
+      // Flatten to a single list + derive by_source/total_open/oldest_days for the tab.
+      const g = sa.groups || {};
+      const grp = (name) => g[name] || { items: [], count: 0, oldest_days: null };
+      const flat = [].concat(grp('meetings').items, grp('inspection').items, grp('report').items);
+      const oldestVals = ['meetings', 'inspection', 'report'].map((n) => grp(n).oldest_days).filter((v) => v != null);
+
+      // WHITELIST — PII-safe. title/owner/origin_label are internal accountability text (allowed);
+      // no requester/technician free-text (the action sources carry none).
+      res.json({
+        applicable: true, site_id: gate.site_id, site_name: rs.site_name || null,
+        snapshot: {
+          total_open: (sa.totals && sa.totals.open) || 0,
+          by_source: { meetings: grp('meetings').count, inspection: grp('inspection').count, report: grp('report').count },
+          oldest_days: oldestVals.length ? Math.max(...oldestVals) : null,
+        },
+        actions: flat.map((a) => ({
+          task: a.title || null,
+          source: a.source || null,
+          owner: a.owner || null,
+          origin: a.origin_label || null,
+          age_days: (a.age_days == null ? null : a.age_days),
+          overdue: !!a.overdue,
+          status: a.status || null,
+        })),
+      });
+    } catch (_) { res.json({ applicable: true, snapshot: null, actions: [] }); }
   });
 
   return router;
