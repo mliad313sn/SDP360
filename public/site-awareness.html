@@ -115,8 +115,14 @@
     </div>
   </div>
   <div class="sa-sub">
-    <span data-lng="en">A synthetic view of your site's IT activity: user support &amp; incidents, and soon facilities status, meetings, actions and projects.</span>
-    <span data-lng="fr">Vue synthétique de l'activité IT de votre site : support &amp; incidents, et bientôt inspections, réunions, actions et projets.</span>
+    <span data-lng="en">A synthetic, read-only view of your site's IT activity: user support &amp; incidents, facilities status, department meetings &amp; decisions, actions and projects.</span>
+    <span data-lng="fr">Vue synthétique et en lecture seule de l'activité IT de votre site : support &amp; incidents, état des installations, réunions départementales &amp; décisions, actions et projets.</span>
+  </div>
+
+  <!-- Shown when the signed-in user has no site assigned (server returned no authorized site). -->
+  <div id="sa-nosite" class="sa-empty" style="display:none">
+    <span data-lng="en"><b>No site is assigned to your account.</b> Ask an administrator to set your Site (Admin → Users) so this view can show your site's data.</span>
+    <span data-lng="fr"><b>Aucun site n'est attribué à votre compte.</b> Demandez à un administrateur de renseigner votre Site (Admin → Utilisateurs) pour que cette vue affiche les données de votre site.</span>
   </div>
 
   <div class="sa-tabs" id="sa-tabs"></div>
@@ -964,6 +970,12 @@
       `<option value="${s.site_id}"${String(s.site_id) === String(siteId) ? ' selected' : ''}>${esc(s.site_name || ('Site ' + s.site_id))}</option>`).join('')
       || '<option>—</option>';
     sel.disabled = authorized.length <= 1;
+
+    // No authorized site (unassigned account, or server 403) → show a clear message, hide the tabs.
+    const noSite = authorized.length === 0;
+    const nb = $('sa-nosite'); if (nb) nb.style.display = noSite ? 'block' : 'none';
+    const tabsEl = $('sa-tabs'); if (tabsEl) tabsEl.style.display = noSite ? 'none' : '';
+    if (noSite) { document.querySelectorAll('[id^="pane-"]').forEach(p => { p.style.display = 'none'; }); return; }
 
     renderTabs();
     // Land on the hash tab if it's available, else helpdesk.
