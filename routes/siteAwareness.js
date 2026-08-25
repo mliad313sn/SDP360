@@ -9,9 +9,22 @@ module.exports = function siteAwarenessRoutes({ express, requireReportSession, r
   // Module DBs are injected (SP2). inspection/tracker site CODES come from THOSE modules'
   // own name→code maps (siteNameToCode), NOT rdb — reports-db has no such function.
   meetingsDb = meetingsDb || null; inspectionDb = inspectionDb || null; trackerDb = trackerDb || null; trackerScore = trackerScore || null;
-  const deps = { listSites: rdb.listSites, listSiteModuleCodes: rdb.listSiteModuleCodes, userHasRole: rdb.userHasRole,
-                 inspectionSiteCode: inspectionDb ? inspectionDb.siteNameToCode : rdb.inspectionSiteCode,
-                 trackerSiteCode: trackerDb ? trackerDb.siteNameToCode : rdb.trackerSiteCode };
+
+  // siteResolve is PURE/SYNC, but rdb.listSites / listSiteModuleCodes return a **Promise on
+  // postgres** (prod). So we PRE-FETCH them here (awaited) and hand siteResolve sync wrappers over
+  // the resolved arrays — otherwise `.map` on a Promise throws and every response degrades to the
+  // empty fallback (the documented dual-backend sync-vs-async pitfall). Built per request.
+  async function siteDeps() {
+    const sites = (await rdb.listSites({ includeInactive: false })) || [];
+    const meetingsCodes = (typeof rdb.listSiteModuleCodes === 'function' ? (await rdb.listSiteModuleCodes('meetings')) : []) || [];
+    return {
+      listSites: () => sites,
+      listSiteModuleCodes: (m) => (m === 'meetings' ? meetingsCodes : []),
+      userHasRole: rdb.userHasRole,
+      inspectionSiteCode: inspectionDb ? inspectionDb.siteNameToCode : rdb.inspectionSiteCode,
+      trackerSiteCode: trackerDb ? trackerDb.siteNameToCode : rdb.trackerSiteCode,
+    };
+  }
 
   // ── Fleet-view RAG helpers (DISPLAY-only thresholds; grey 'na' when no code/no data) ──
   const _cell = (rag, value) => ({ rag: rag || 'na', value: (value == null ? null : value) });
@@ -65,7 +78,7 @@ module.exports = function siteAwarenessRoutes({ express, requireReportSession, r
     return pct >= 0.75 ? 'green' : (pct >= 0.5 ? 'amber' : 'red');
   }
 
-  function authorizedSiteId(user, requestedRaw) {
+  function authorizedSiteId(deps, user, requestedRaw) {
     const authorized = listAuthorizedSites(deps, user);
     if (!authorized.length) return { status: 403 };
     const ids = new Set(authorized.map((s) => s.site_id));
@@ -78,7 +91,8 @@ module.exports = function siteAwarenessRoutes({ express, requireReportSession, r
 
   router.get('/api/site-awareness/summary', requireReportSession, async (req, res) => {
     try {
-      const gate = authorizedSiteId(req.reportUser, req.query.site);
+      const deps = await siteDeps();
+      const gate = authorizedSiteId(deps, req.reportUser, req.query.site);
       if (gate.status) return res.status(gate.status).json({ error: 'forbidden' });
       const rs = resolveSite(deps, gate.site_id) || {};
       const isGroup = rdb.userHasRole(req.reportUser, 'group-business') || rdb.userHasRole(req.reportUser, 'executive') || rdb.userHasRole(req.reportUser, 'super_admin');
@@ -92,7 +106,8 @@ module.exports = function siteAwarenessRoutes({ express, requireReportSession, r
 
   router.get('/api/site-awareness/helpdesk', requireReportSession, async (req, res) => {
     try {
-      const gate = authorizedSiteId(req.reportUser, req.query.site);
+      const deps = await siteDeps();
+      const gate = authorizedSiteId(deps, req.reportUser, req.query.site);
       if (gate.status) return res.status(gate.status).json({ error: 'forbidden' });
       const rs = resolveSite(deps, gate.site_id) || {};
       const now = new Date();
@@ -135,7 +150,8 @@ module.exports = function siteAwarenessRoutes({ express, requireReportSession, r
 
   router.get('/api/site-awareness/inspections', requireReportSession, async (req, res) => {
     try {
-      const gate = authorizedSiteId(req.reportUser, req.query.site);
+      const deps = await siteDeps();
+      const gate = authorizedSiteId(deps, req.reportUser, req.query.site);
       if (gate.status) return res.status(gate.status).json({ error: 'forbidden' });
       const rs = resolveSite(deps, gate.site_id) || {};
       const code = rs.inspection_code;
@@ -188,7 +204,8 @@ module.exports = function siteAwarenessRoutes({ express, requireReportSession, r
 
   router.get('/api/site-awareness/meetings', requireReportSession, async (req, res) => {
     try {
-      const gate = authorizedSiteId(req.reportUser, req.query.site);
+      const deps = await siteDeps();
+      const gate = authorizedSiteId(deps, req.reportUser, req.query.site);
       if (gate.status) return res.status(gate.status).json({ error: 'forbidden' });
       const rs = resolveSite(deps, gate.site_id) || {};
       const code = rs.meetings_code;
@@ -227,7 +244,8 @@ module.exports = function siteAwarenessRoutes({ express, requireReportSession, r
 
   router.get('/api/site-awareness/actions', requireReportSession, async (req, res) => {
     try {
-      const gate = authorizedSiteId(req.reportUser, req.query.site);
+      const deps = await siteDeps();
+      const gate = authorizedSiteId(deps, req.reportUser, req.query.site);
       if (gate.status) return res.status(gate.status).json({ error: 'forbidden' });
       const rs = resolveSite(deps, gate.site_id) || {};
       const code = rs.meetings_code;
@@ -284,7 +302,8 @@ module.exports = function siteAwarenessRoutes({ express, requireReportSession, r
 
   router.get('/api/site-awareness/tracker', requireReportSession, async (req, res) => {
     try {
-      const gate = authorizedSiteId(req.reportUser, req.query.site);
+      const deps = await siteDeps();
+      const gate = authorizedSiteId(deps, req.reportUser, req.query.site);
       if (gate.status) return res.status(gate.status).json({ error: 'forbidden' });
       const rs = resolveSite(deps, gate.site_id) || {};
       const code = rs.tracker_code;
@@ -340,6 +359,7 @@ module.exports = function siteAwarenessRoutes({ express, requireReportSession, r
       const isGroup = rdb.userHasRole(u, 'group-business') || rdb.userHasRole(u, 'executive') || rdb.userHasRole(u, 'super_admin');
       if (!isGroup) return res.status(403).json({ error: 'forbidden' });
 
+      const deps = await siteDeps();
       const sites = listAuthorizedSites(deps, u);
 
       // Load the tracker ONCE (shared across all sites); derive the tracker period.

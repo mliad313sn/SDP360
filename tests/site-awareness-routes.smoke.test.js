@@ -155,3 +155,26 @@ test('fleet view returns a per-site RAG grid for a group user', async () => {
   const r = body.sites[0];
   assert.ok(r.cells && r.cells.helpdesk && r.cells.tracker && r.overall_rag);
 });
+
+// REGRESSION (prod bug 2026-08-25): on postgres, rdb.listSites / listSiteModuleCodes return a
+// PROMISE. siteResolve is pure/sync — the route MUST pre-await them, else `.map` on a Promise
+// throws → every response degrades to the empty fallback (authorized_sites: []) and the page shows
+// "no site assigned" for EVERY user, including a group/super_admin. This test drives ASYNC fakes.
+test('dual-backend: async (postgres-style) listSites/listSiteModuleCodes are awaited, not treated as arrays', async () => {
+  const SITES = [{ id: 1, name: 'Hounde', zoho_group: 'Hounde IT Agents' }, { id: 2, name: 'Mana', zoho_group: 'Mana IT Agent' }];
+  const CODES = [{ site_id: 1, code: 'HGO' }, { site_id: 2, code: 'MGO' }];
+  const rdb = {
+    listSites: () => Promise.resolve(SITES),                                   // async, like pg
+    listSiteModuleCodes: (m) => Promise.resolve(m === 'meetings' ? CODES : []), // async, like pg
+    userHasRole: (u, r) => (u.roles || []).includes(r),
+  };
+  const requireReportSession = (req, _res, next) => { req.reportUser = { id: 9, roles: ['group-business'] }; next(); };
+  const app = express();
+  app.use(require('../routes/siteAwareness')({ express, requireReportSession, rdb }));
+  const { status, body } = await call(app, '/api/site-awareness/summary');
+  assert.equal(status, 200);
+  assert.equal(body.is_group_view, true);
+  assert.ok(Array.isArray(body.authorized_sites) && body.authorized_sites.length === 2,
+    'async listSites must be awaited → both sites, not the empty fallback');
+  assert.equal(body.site_name, 'Hounde');
+});
