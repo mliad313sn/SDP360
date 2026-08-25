@@ -1,63 +1,53 @@
-// tests/site-resolve.test.js
 'use strict';
-process.env.REPORTS_BACKEND = 'sqlite';   // before any require
-// Isolate from the developer's real data/reports.db — point at a throwaway dir
-// (sites + site_module_codes are seeded at boot by INSERT OR IGNORE).
-const os = require('os'); const path = require('path'); const fs = require('fs');
-process.env.SDP_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'sdp-siteresolve-'));
-// A fresh data dir means a first boot — reports-db refuses to mint its default
-// admin without these. Same harness convention as tests/db-schema-smoke.test.js.
-process.env.DASH_USER = process.env.DASH_USER || 'smoke-admin';
-process.env.DASH_PASS = process.env.DASH_PASS || 'smoke-pass-0000';
-const test = require('node:test');
+const { test } = require('node:test');
 const assert = require('node:assert');
-const rdb = require('../reports-db');
+const { resolveSite, listAuthorizedSites } = require('../services/siteResolve');
 
-test('getSiteIdByModuleCode resolves a meetings code to a site row', () => {
-  // reports.db seeds sites + site_module_codes at boot.
-  const r = rdb.getSiteIdByModuleCode('meetings', 'HGO');
-  assert.ok(r, 'expected a row for meetings/HGO');
-  assert.strictEqual(typeof r.site_id, 'number');
-  assert.strictEqual(r.name, 'Hounde');
-  assert.ok(typeof r.zoho_group === 'string' || r.zoho_group === null);
+const SITES = [
+  { id: 1, name: 'Hounde', zoho_group: 'Hounde IT Agents' },
+  { id: 2, name: 'Mana', zoho_group: 'Mana IT Agent' },
+  { id: 3, name: 'Exploration', zoho_group: 'Exploration BF Support,Exploration CI Support' },
+];
+const MEETINGS_CODES = [{ site_id: 1, code: 'HGO' }, { site_id: 2, code: 'MGO' }];
+const deps = {
+  listSites: () => SITES,
+  listSiteModuleCodes: (m) => (m === 'meetings' ? MEETINGS_CODES : []),
+  userHasRole: (u, r) => (u.roles || []).includes(r),
+  inspectionSiteCode: (name) => ({ Hounde: 'HGO', Mana: 'MGO' }[name] || null),
+  trackerSiteCode: (name) => ({ Hounde: 'HGO', Mana: 'MGO' }[name] || null),
+};
+
+test('resolveSite maps a canonical site_id to every module code', () => {
+  const r = resolveSite(deps, 1);
+  assert.equal(r.site_id, 1);
+  assert.equal(r.site_name, 'Hounde');
+  assert.equal(r.helpdesk_group, 'Hounde IT Agents');
+  assert.equal(r.meetings_code, 'HGO');
+  assert.equal(r.inspection_code, 'HGO');
+  assert.equal(r.tracker_code, 'HGO');
 });
 
-test('is case-insensitive on the code', () => {
-  assert.strictEqual(rdb.getSiteIdByModuleCode('meetings', 'hgo')?.site_id,
-                     rdb.getSiteIdByModuleCode('meetings', 'HGO')?.site_id);
+test('a missing module code stays null — never guessed (Exploration has no meetings code)', () => {
+  const r = resolveSite(deps, 3);
+  assert.equal(r.helpdesk_group, 'Exploration BF Support,Exploration CI Support');
+  assert.strictEqual(r.meetings_code, null, 'no meetings code → null, not borrowed');
 });
 
-test('returns null for an unknown code', () => {
-  assert.strictEqual(rdb.getSiteIdByModuleCode('meetings', 'NOPE'), null);
+test('resolveSite returns null for an unknown site_id', () => {
+  assert.strictEqual(resolveSite(deps, 999), null);
 });
 
-test('Ity uses SMI in the meetings namespace (not the tracker ITY)', () => {
-  assert.strictEqual(rdb.getSiteIdByModuleCode('meetings', 'SMI')?.name, 'Ity');
-  assert.strictEqual(rdb.getSiteIdByModuleCode('meetings', 'ITY'), null);
+test('listAuthorizedSites: site-business sees only their site_id', () => {
+  const got = listAuthorizedSites(deps, { roles: ['site-business'], site_id: 2 });
+  assert.deepEqual(got, [{ site_id: 2, site_name: 'Mana' }]);
 });
 
-// ── listSiteModuleCodes (Task 9's reader — same table, implemented alongside) ──
-
-test('listSiteModuleCodes returns the meetings codes ordered by site name', () => {
-  const rows = rdb.listSiteModuleCodes('meetings');
-  assert.ok(Array.isArray(rows));
-  assert.ok(rows.length > 0, 'expected meetings codes to be seeded');
-  for (const r of rows) {
-    assert.strictEqual(typeof r.site_id, 'number');
-    assert.strictEqual(typeof r.code, 'string');
-    assert.strictEqual(typeof r.name, 'string');
-  }
-  const hgo = rows.find(r => r.code === 'HGO');
-  assert.ok(hgo, 'expected HGO among the meetings codes');
-  assert.strictEqual(hgo.name, 'Hounde');
-  // Ity is SMI in the meetings namespace — the tracker ITY must not appear.
-  assert.ok(rows.some(r => r.code === 'SMI'));
-  assert.ok(!rows.some(r => r.code === 'ITY'));
-  // ordered by site name
-  const names = rows.map(r => r.name);
-  assert.deepStrictEqual(names, [...names].sort((a, b) => a.localeCompare(b)));
+test('listAuthorizedSites: group-business (and executive) see all sites', () => {
+  const all = listAuthorizedSites(deps, { roles: ['group-business'] });
+  assert.equal(all.length, 3);
+  assert.deepEqual(listAuthorizedSites(deps, { roles: ['executive'] }).map(s => s.site_id), [1, 2, 3]);
 });
 
-test('listSiteModuleCodes returns [] for an unknown module', () => {
-  assert.deepStrictEqual(rdb.listSiteModuleCodes('nope'), []);
+test('listAuthorizedSites: site-business with no site_id sees nothing (fails safe)', () => {
+  assert.deepEqual(listAuthorizedSites(deps, { roles: ['site-business'] }), []);
 });
