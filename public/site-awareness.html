@@ -152,6 +152,8 @@ W.defaults=O.defaults;window.Chart=W;});
 
   <!-- ════ Group View (fleet RAG grid) — GROUP-only ════ -->
   <div id="pane-fleet" style="display:none">
+    <p class="sa-sub" style="margin-top:0"><span data-lng="en">Compare the IT health of every site at a glance. Each dot sums up one area — green: healthy · amber: keep an eye on it · red: needs action · “—”: the site isn't concerned by this area. The Overall column blends the areas that apply.</span><span data-lng="fr">Comparez la santé IT de tous les sites d'un coup d'œil. Chaque pastille résume un domaine — vert : bon · orange : à surveiller · rouge : à traiter · « — » : site non concerné par ce domaine. La colonne Global agrège les domaines applicables.</span></p>
+    <p class="sa-sub" style="margin-top:2px;font-size:12.5px"><span data-lng="en"><strong>How to read the columns —</strong> Support: tickets late / received (30 d) · Facilities: compliance rate · Meetings: held / expected this month · Actions: open items overdue · Projects: roadmap progress.</span><span data-lng="fr"><strong>Comment lire les colonnes —</strong> Assistance : tickets en retard / reçus (30 j) · Installations : taux de conformité · Réunions : tenues / prévues ce mois · Actions : en retard · Projets : avancement de la feuille de route.</span></p>
     <div class="sa-sub" id="sa-fleet-hint"></div>
     <div class="sa-panel">
       <div class="sa-scroll">
@@ -165,6 +167,7 @@ W.defaults=O.defaults;window.Chart=W;});
 
   <!-- ════ User Support (helpdesk) ════ -->
   <div id="pane-helpdesk">
+    <p class="sa-sub" style="margin-top:0"><span data-lng="en">Your site's IT support: tickets and incidents received, how quickly they're handled (SLA), and the technical changes planned. Answers the question: are my teams being well supported day to day?</span><span data-lng="fr">L'assistance informatique de votre site : demandes et incidents reçus, rapidité de traitement (SLA) et changements techniques planifiés. Répond à la question : mes équipes sont-elles bien dépannées au quotidien ?</span></p>
     <div id="sa-hd-empty" class="sa-empty" style="display:none">
       <span data-lng="en">No support data available for this site yet.</span>
       <span data-lng="fr">Aucune donnée de support disponible pour ce site pour le moment.</span>
@@ -230,6 +233,7 @@ W.defaults=O.defaults;window.Chart=W;});
 
   <!-- ════ Facilities Status (inspections) ════ -->
   <div id="pane-inspections" style="display:none">
+    <p class="sa-sub" style="margin-top:0"><span data-lng="en">The condition of your IT facilities — server room, network, radio — as found during on-site inspections. The compliance rate and open corrective actions tell you whether the infrastructure is sound and safe.</span><span data-lng="fr">L'état de vos installations IT — salle serveur, réseau, radio — constaté lors des inspections terrain. Le taux de conformité et les actions correctives ouvertes indiquent si l'infrastructure est saine et sûre.</span></p>
     <div id="sa-insp-na" class="sa-empty" style="display:none"></div>
     <div id="sa-insp-body">
       <div id="sa-insp-tiles" class="sa-tiles"></div>
@@ -277,6 +281,7 @@ W.defaults=O.defaults;window.Chart=W;});
   </div>
   <!-- ════ Department Meetings & Decisions (meetings) ════ -->
   <div id="pane-meetings" style="display:none">
+    <p class="sa-sub" style="margin-top:0"><span data-lng="en">The IT ↔ departments dialogue at your site: meetings held, issues raised, and how decisions are followed up. Answers the question: are business needs being heard and acted on?</span><span data-lng="fr">Le dialogue IT ↔ départements de votre site : réunions tenues, problèmes remontés et suivi des décisions. Répond à la question : les besoins des métiers sont-ils écoutés et traités ?</span></p>
     <div id="sa-mtg-na" class="sa-empty" style="display:none"></div>
     <div id="sa-mtg-body">
       <div id="sa-mtg-tiles" class="sa-tiles"></div>
@@ -295,6 +300,7 @@ W.defaults=O.defaults;window.Chart=W;});
   </div>
   <!-- ════ Actions & Follow-up (site actions register) ════ -->
   <div id="pane-actions" style="display:none">
+    <p class="sa-sub" style="margin-top:0"><span data-lng="en">Every open action for your site, gathered from meetings, inspections and reports, with how long each has been open. Shows what's left to close and what's dragging on.</span><span data-lng="fr">Toutes les actions ouvertes de votre site, réunies depuis les réunions, inspections et rapports, avec leur ancienneté. Montre ce qui reste à clôturer et ce qui traîne.</span></p>
     <div id="sa-act-na" class="sa-empty" style="display:none"></div>
     <div id="sa-act-body">
       <div id="sa-act-tiles" class="sa-tiles"></div>
@@ -325,6 +331,7 @@ W.defaults=O.defaults;window.Chart=W;});
   </div>
   <!-- ════ Projects & Roadmap (activity tracker) ════ -->
   <div id="pane-tracker" style="display:none">
+    <p class="sa-sub" style="margin-top:0"><span data-lng="en">Progress on your site's strategic IT initiatives, scored by pillar, month over month. Shows where the roadmap stands and whether it's moving forward.</span><span data-lng="fr">L'avancement des initiatives IT stratégiques de votre site, noté par pilier, mois après mois. Montre où en est la feuille de route et si elle progresse.</span></p>
     <div id="sa-trk-na" class="sa-empty" style="display:none"></div>
     <div id="sa-trk-body">
       <div id="sa-trk-tiles" class="sa-tiles"></div>
