@@ -17,6 +17,18 @@
   body { margin:0; background:var(--color-background,#f4f6f7); color:var(--color-text-primary,#1F2A33);
     font-family:var(--font-sans,'Libre Franklin',system-ui,sans-serif); font-size:14px; }
 
+  /* ── Bilingual EN|FR pattern (mirror of meetings-import.html) ────────
+     Default is French (body carries .lang-fr). Inline text uses
+     <span data-lng="en"> / <span data-lng="fr"> pairs; block-level content
+     uses <div|p|li data-lng-block="en|fr">. JS-rendered strings go through
+     the T() helper. */
+  [data-lng="fr"]       { display: none; }
+  [data-lng-block="fr"] { display: none; }
+  body.lang-fr [data-lng="en"]       { display: none; }
+  body.lang-fr [data-lng-block="en"] { display: none; }
+  body.lang-fr [data-lng="fr"]       { display: inline; }
+  body.lang-fr [data-lng-block="fr"] { display: block; }
+
   .sa-wrap { max-width:1280px; margin:0 auto; padding:var(--space-6,24px); }
   .sa-head { display:flex; align-items:center; gap:16px; margin-bottom:6px; flex-wrap:wrap; }
   .sa-head h1 { margin:0; font-size:22px; font-weight:700; color:var(--edv-slate,#3A4A60); }
@@ -27,6 +39,12 @@
   .sa-controls label { font-size:12px; color:#6b7785; }
   select { padding:7px 12px; border:1px solid #cfd6e0; border-radius:8px; background:#fff; font-size:13px; cursor:pointer; color:inherit; }
   select:disabled { background:#f2f4f7; color:#8a94a2; cursor:not-allowed; }
+
+  /* Language toggle */
+  .sa-lang-toggle { display:inline-flex; gap:2px; background:var(--color-bg,#F4F5F7); border-radius:6px; padding:3px; }
+  .sa-lang-toggle button { background:transparent; border:0; cursor:pointer; padding:5px 11px; border-radius:4px;
+    font-weight:700; font-family:var(--font-sans); font-size:11.5px; color:var(--color-text-muted,#7B7B7B); letter-spacing:.3px; }
+  .sa-lang-toggle button.active { background:#fff; color:var(--edv-slate,#3A4A60); box-shadow:0 1px 2px rgba(58,74,96,.10); }
 
   /* Tab bar */
   .sa-tabs { display:flex; gap:4px; border-bottom:2px solid #e4e8ee; margin-bottom:18px; flex-wrap:wrap; }
@@ -70,31 +88,44 @@
 
 <div class="sa-wrap">
   <div class="sa-head">
-    <h1>Ma Vue Site — <span id="sa-site-name">…</span></h1>
-    <span class="sa-ro">lecture seule</span>
+    <h1><span data-lng="en">My Site View</span><span data-lng="fr">Ma Vue Site</span> — <span id="sa-site-name">…</span></h1>
+    <span class="sa-ro"><span data-lng="en">read-only</span><span data-lng="fr">lecture seule</span></span>
     <div class="sa-controls">
       <label for="sa-site">Site</label>
       <select id="sa-site"><option>…</option></select>
     </div>
+    <div class="sa-lang-toggle" id="saLangToggle">
+      <button type="button" data-lang="en">EN</button>
+      <button type="button" data-lang="fr">FR</button>
+    </div>
   </div>
-  <div class="sa-sub">Vue synthétique de l'activité IT de votre site : support &amp; incidents, et bientôt inspections, réunions, actions et projets.</div>
+  <div class="sa-sub">
+    <span data-lng="en">A synthetic view of your site's IT activity: user support &amp; incidents, and soon facilities status, meetings, actions and projects.</span>
+    <span data-lng="fr">Vue synthétique de l'activité IT de votre site : support &amp; incidents, et bientôt inspections, réunions, actions et projets.</span>
+  </div>
 
   <div class="sa-tabs" id="sa-tabs"></div>
 
-  <!-- ════ Support & Incidents (helpdesk) ════ -->
+  <!-- ════ User Support (helpdesk) ════ -->
   <div id="pane-helpdesk">
     <div id="sa-hd-empty" class="sa-empty" style="display:none">
-      Aucune donnée de support disponible pour ce site pour le moment.
+      <span data-lng="en">No support data available for this site yet.</span>
+      <span data-lng="fr">Aucune donnée de support disponible pour ce site pour le moment.</span>
     </div>
 
     <div id="sa-tiles" class="sa-tiles"></div>
 
     <div class="sa-panel">
-      <h2>6 dernières semaines</h2>
+      <h2><span data-lng="en">Last 6 weeks</span><span data-lng="fr">6 dernières semaines</span></h2>
       <div class="sa-scroll">
         <table class="sa-tbl">
           <thead>
-            <tr><th>Semaine</th><th class="sa-num">Reçus</th><th class="sa-num">Clôturés</th><th class="sa-num">SLA manqué %</th></tr>
+            <tr>
+              <th><span data-lng="en">Week</span><span data-lng="fr">Semaine</span></th>
+              <th class="sa-num"><span data-lng="en">Received</span><span data-lng="fr">Reçus</span></th>
+              <th class="sa-num"><span data-lng="en">Closed</span><span data-lng="fr">Clôturés</span></th>
+              <th class="sa-num"><span data-lng="en">SLA missed %</span><span data-lng="fr">SLA manqué %</span></th>
+            </tr>
           </thead>
           <tbody id="sa-weekly"></tbody>
         </table>
@@ -102,11 +133,16 @@
     </div>
 
     <div class="sa-panel">
-      <h2>Incidents majeurs en cours</h2>
+      <h2><span data-lng="en">Active major incidents</span><span data-lng="fr">Incidents majeurs en cours</span></h2>
       <div class="sa-scroll">
         <table class="sa-tbl">
           <thead>
-            <tr><th>ID</th><th>Priorité</th><th>Statut</th><th>Créé le</th></tr>
+            <tr>
+              <th>ID</th>
+              <th><span data-lng="en">Priority</span><span data-lng="fr">Priorité</span></th>
+              <th><span data-lng="en">Status</span><span data-lng="fr">Statut</span></th>
+              <th><span data-lng="en">Date</span><span data-lng="fr">Date</span></th>
+            </tr>
           </thead>
           <tbody id="sa-mi"></tbody>
         </table>
@@ -114,34 +150,77 @@
     </div>
 
     <div class="sa-panel">
-      <h2>Top catégories</h2>
+      <h2><span data-lng="en">Top categories</span><span data-lng="fr">Top catégories</span></h2>
       <ul class="sa-list" id="sa-cats"></ul>
     </div>
   </div>
 
-  <!-- ════ Placeholder panes for the "bientôt" tabs ════ -->
-  <div id="pane-inspections" style="display:none"><div class="sa-panel"><div class="sa-soon">Inspections &amp; Conformité — bientôt disponible.</div></div></div>
-  <div id="pane-meetings" style="display:none"><div class="sa-panel"><div class="sa-soon">Réunions &amp; Décisions — bientôt disponible.</div></div></div>
-  <div id="pane-actions" style="display:none"><div class="sa-panel"><div class="sa-soon">Actions &amp; Suivi — bientôt disponible.</div></div></div>
-  <div id="pane-tracker" style="display:none"><div class="sa-panel"><div class="sa-soon">Projets &amp; Roadmap — bientôt disponible.</div></div></div>
+  <!-- ════ Placeholder panes for the "soon" tabs ════ -->
+  <div id="pane-inspections" style="display:none"><div class="sa-panel"><div class="sa-soon">
+    <span data-lng="en">Facilities Status — coming soon.</span>
+    <span data-lng="fr">État des installations — bientôt disponible.</span>
+  </div></div></div>
+  <div id="pane-meetings" style="display:none"><div class="sa-panel"><div class="sa-soon">
+    <span data-lng="en">Department Meetings &amp; Decisions — coming soon.</span>
+    <span data-lng="fr">Réunions départementales &amp; Décisions — bientôt disponible.</span>
+  </div></div></div>
+  <div id="pane-actions" style="display:none"><div class="sa-panel"><div class="sa-soon">
+    <span data-lng="en">Actions &amp; Follow-up — coming soon.</span>
+    <span data-lng="fr">Actions &amp; Suivi — bientôt disponible.</span>
+  </div></div></div>
+  <div id="pane-tracker" style="display:none"><div class="sa-panel"><div class="sa-soon">
+    <span data-lng="en">Projects &amp; Roadmap — coming soon.</span>
+    <span data-lng="fr">Projets &amp; Roadmap — bientôt disponible.</span>
+  </div></div></div>
 </div>
 
 <script nonce="%%CSP_NONCE%%">
 (function () {
   const $ = id => document.getElementById(id);
+
+  // ── i18n: JS-rendered strings. Static HTML uses <span data-lng> pairs;
+  //    everything the render functions build goes through T(). ─────────
+  const LANG_KEY = 'sa_lang_v1';
+  const I18N = {
+    // tab labels (also mirrored in the static "soon" placeholder panes)
+    tab_helpdesk:    { fr: 'Assistance utilisateurs',                 en: 'User Support' },
+    tab_inspections: { fr: 'État des installations',                  en: 'Facilities Status' },
+    tab_meetings:    { fr: 'Réunions départementales & Décisions',    en: 'Department Meetings & Decisions' },
+    tab_actions:     { fr: 'Actions & Suivi',                         en: 'Actions & Follow-up' },
+    tab_tracker:     { fr: 'Projets & Roadmap',                       en: 'Projects & Roadmap' },
+    soon:            { fr: 'bientôt',                                 en: 'soon' },
+    // tiles
+    t_received:      { fr: 'Reçus',                                   en: 'Received' },
+    t_closed:        { fr: 'Clôturés',                                en: 'Closed' },
+    t_backlog:       { fr: 'Backlog',                                 en: 'Backlog' },
+    t_sla_overdue:   { fr: 'SLA en retard',                          en: 'SLA overdue' },
+    t_major:         { fr: 'Incidents majeurs',                      en: 'Major incidents' },
+    // empty / error states
+    none:            { fr: 'Aucun',                                   en: 'None' },
+    nodata:          { fr: 'Aucune donnée',                           en: 'No data' },
+    loaderr:         { fr: 'Erreur de chargement',                    en: 'Loading error' },
+  };
+  function curLang() { return document.body.classList.contains('lang-fr') ? 'fr' : 'en'; }
+  function T(k) { const row = I18N[k]; return row ? (row[curLang()] || row.fr || k) : k; }
+
   const TABS = [
-    { id: 'helpdesk',    label: 'Support & Incidents' },
-    { id: 'inspections', label: 'Inspections & Conformité' },
-    { id: 'meetings',    label: 'Réunions & Décisions' },
-    { id: 'actions',     label: 'Actions & Suivi' },
-    { id: 'tracker',     label: 'Projets & Roadmap' },
+    { id: 'helpdesk',    key: 'tab_helpdesk' },
+    { id: 'inspections', key: 'tab_inspections' },
+    { id: 'meetings',    key: 'tab_meetings' },
+    { id: 'actions',     key: 'tab_actions' },
+    { id: 'tracker',     key: 'tab_tracker' },
   ];
   let siteId = null, tabsAvail = { helpdesk: true }, current = 'helpdesk';
 
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
   function fmtNum(v) { return v == null ? '—' : String(v); }
   function fmtPct(v) { return v == null ? '—' : v + '%'; }
-  function fmtTs(t) { if (!t) return '—'; const d = new Date(t); return isNaN(d) ? esc(t) : d.toLocaleDateString(); }
+  function fmtTs(t) {
+    if (!t) return '—';
+    const d = new Date(t);
+    if (isNaN(d)) return esc(t);
+    return d.toLocaleDateString(curLang() === 'fr' ? 'fr-FR' : 'en-GB');
+  }
 
   // Auth: session cookie + x-report-token header (copied verbatim from wan.html's api()).
   async function api(path) {
@@ -156,7 +235,7 @@
       const soon = tabsAvail[t.id] === false;
       const on = t.id === current && !soon;
       return `<button class="sa-tab${on ? ' on' : ''}${soon ? ' disabled' : ''}" data-tab="${t.id}"${soon ? ' disabled' : ''}>`
-        + esc(t.label) + (soon ? ' <span class="sa-chip">bientôt</span>' : '') + '</button>';
+        + esc(T(t.key)) + (soon ? ' <span class="sa-chip">' + esc(T('soon')) + '</span>' : '') + '</button>';
     }).join('');
   }
 
@@ -170,20 +249,19 @@
     if (name === 'helpdesk') loadHelpdesk();
   }
 
-  async function loadHelpdesk() {
-    let data;
-    try { data = await api('/api/site-awareness/helpdesk?site=' + encodeURIComponent(siteId == null ? '' : siteId)); }
-    catch { data = { snapshot: null, weekly: [], major_incidents: [] }; }
-
+  // Render the helpdesk pane from data (fetched or cached). Kept separate
+  // from the fetch so a language toggle can re-render without re-fetching.
+  function renderHelpdesk(data) {
+    data = data || { snapshot: null, weekly: [], major_incidents: [] };
     const snap = data.snapshot;
     $('sa-hd-empty').style.display = snap ? 'none' : 'block';
 
     const tiles = snap ? [
-      { lbl: 'Reçus', val: snap.created },
-      { lbl: 'Clôturés', val: snap.resolved },
-      { lbl: 'Backlog', val: snap.backlog },
-      { lbl: 'SLA en retard', val: snap.sla_overdue },
-      { lbl: 'Incidents majeurs', val: snap.major_incidents },
+      { lbl: T('t_received'),    val: snap.created },
+      { lbl: T('t_closed'),      val: snap.resolved },
+      { lbl: T('t_backlog'),     val: snap.backlog },
+      { lbl: T('t_sla_overdue'), val: snap.sla_overdue },
+      { lbl: T('t_major'),       val: snap.major_incidents },
     ] : [];
     $('sa-tiles').innerHTML = tiles.map(t =>
       `<div class="sa-tile"><div class="lbl">${esc(t.lbl)}</div><div class="val">${fmtNum(t.val)}</div></div>`).join('');
@@ -194,7 +272,7 @@
         <td class="sa-num">${fmtNum(w.inbound)}</td>
         <td class="sa-num">${fmtNum(w.closed)}</td>
         <td class="sa-num">${w.missed_pct == null ? '<span class="sa-muted">—</span>' : fmtPct(w.missed_pct)}</td>
-      </tr>`).join('') : '<tr><td colspan="4" class="sa-muted">Aucune donnée.</td></tr>';
+      </tr>`).join('') : `<tr><td colspan="4" class="sa-muted">${esc(T('nodata'))}.</td></tr>`;
 
     const mi = data.major_incidents || [];
     $('sa-mi').innerHTML = mi.length ? mi.map(m => `<tr>
@@ -202,12 +280,20 @@
         <td>${m.p_label ? '<span class="sa-pill">' + esc(m.p_label) + '</span>' : '<span class="sa-muted">—</span>'}</td>
         <td>${esc(m.status) || '<span class="sa-muted">—</span>'}</td>
         <td>${fmtTs(m.created_time)}</td>
-      </tr>`).join('') : '<tr><td colspan="4" class="sa-muted">Aucun.</td></tr>';
+      </tr>`).join('') : `<tr><td colspan="4" class="sa-muted">${esc(T('none'))}.</td></tr>`;
 
     const cats = (snap && snap.top_categories) || [];
     $('sa-cats').innerHTML = cats.length ? cats.map(c =>
       `<li><span class="cat">${esc(c.category)}</span><span class="cnt">${fmtNum(c.count)}</span></li>`).join('')
-      : '<li class="sa-muted">Aucune catégorie.</li>';
+      : `<li class="sa-muted">${esc(T('none'))}.</li>`;
+  }
+
+  async function loadHelpdesk() {
+    let data;
+    try { data = await api('/api/site-awareness/helpdesk?site=' + encodeURIComponent(siteId == null ? '' : siteId)); }
+    catch { data = { snapshot: null, weekly: [], major_incidents: [] }; }
+    window._saLastHelpdesk = data;   // cache so the language toggle re-renders without re-fetching
+    renderHelpdesk(data);
   }
 
   async function loadSummary(requested) {
@@ -233,7 +319,29 @@
     showTab((want && tabsAvail[want] !== false && TABS.some(t => t.id === want)) ? want : 'helpdesk');
   }
 
+  // ── Language toggle ────────────────────────────────────────────────
+  function setLang(lang) {
+    if (lang === 'fr') document.body.classList.add('lang-fr');
+    else               document.body.classList.remove('lang-fr');
+    document.querySelectorAll('#saLangToggle button').forEach(b => {
+      b.classList.toggle('active', b.dataset.lang === lang);
+    });
+    try { localStorage.setItem(LANG_KEY, lang); } catch (_) {}
+    // Re-render JS-built surfaces in the new language, WITHOUT re-fetching.
+    renderTabs();
+    if (current === 'helpdesk' && window._saLastHelpdesk) renderHelpdesk(window._saLastHelpdesk);
+  }
+  // Boot from localStorage if set, else default FR.
+  (function _initLang() {
+    let stored = 'fr';
+    try { stored = localStorage.getItem(LANG_KEY) || 'fr'; } catch (_) {}
+    setLang(stored === 'en' ? 'en' : 'fr');
+  })();
+
   document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('#saLangToggle button').forEach(b => {
+      b.addEventListener('click', () => setLang(b.dataset.lang));
+    });
     $('sa-tabs').addEventListener('click', function (e) {
       const b = e.target.closest('[data-tab]'); if (b && !b.disabled) showTab(b.dataset.tab);
     });
