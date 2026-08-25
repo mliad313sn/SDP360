@@ -7615,7 +7615,9 @@ app.use(require('./routes/opmanager')({ express, requireReportSession, requireAd
 // ── Site Awareness — read-only per-site business view (/api/site-awareness/*) ──
 // Server-enforced scoping: a site-business user's site comes from the session, never
 // the request. PII-safe (exec-view whitelist pattern). Distinct /api/site-awareness prefix.
-app.use(require('./routes/siteAwareness')({ express, requireReportSession, rdb: require('./reports-db') }));
+app.use(require('./routes/siteAwareness')({ express, requireReportSession, rdb: require('./reports-db'),
+  meetingsDb: require('./meetings-db'), inspectionDb: require('./inspection-db'),
+  trackerDb: require('./tracker-db'), trackerScore: require('./tracker-pptx') }));
 
 // ── Personal Roadmap Manager — private super_admin tool (/api/roadmap/*) ──────
 // Per-user objectives + deliverables for the Service & Support Manager. user_id is

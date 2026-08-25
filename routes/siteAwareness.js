@@ -4,10 +4,14 @@
 // (the exec-view pattern) — no requester/technician/subject names leave the server.
 const { resolveSite, listAuthorizedSites } = require('../services/siteResolve');
 
-module.exports = function siteAwarenessRoutes({ express, requireReportSession, rdb }) {
+module.exports = function siteAwarenessRoutes({ express, requireReportSession, rdb, meetingsDb, inspectionDb, trackerDb, trackerScore }) {
   const router = express.Router();
+  // Module DBs are injected (SP2). inspection/tracker site CODES come from THOSE modules'
+  // own name→code maps (siteNameToCode), NOT rdb — reports-db has no such function.
+  meetingsDb = meetingsDb || null; inspectionDb = inspectionDb || null; trackerDb = trackerDb || null; trackerScore = trackerScore || null;
   const deps = { listSites: rdb.listSites, listSiteModuleCodes: rdb.listSiteModuleCodes, userHasRole: rdb.userHasRole,
-                 inspectionSiteCode: rdb.inspectionSiteCode, trackerSiteCode: rdb.trackerSiteCode };
+                 inspectionSiteCode: inspectionDb ? inspectionDb.siteNameToCode : rdb.inspectionSiteCode,
+                 trackerSiteCode: trackerDb ? trackerDb.siteNameToCode : rdb.trackerSiteCode };
 
   function authorizedSiteId(user, requestedRaw) {
     const authorized = listAuthorizedSites(deps, user);
