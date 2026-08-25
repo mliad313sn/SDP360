@@ -67,7 +67,10 @@ Server (routes/siteAwareness.js — factory, mounted like routes/opmanager.js)
 - `group-business`: all sites (CIO/CFO). May pass any valid `?site=`; also unlocks the Vue Groupe
   (SP3). `executive` / `super_admin` inherit all-site access (hierarchy).
 - The page gate is `data-require="site-business|group-business|executive"`; the **server is the
-  enforcement point** (defence-in-depth, mirroring the admin-console pattern).
+  enforcement point** (defence-in-depth, mirroring the admin-console pattern). `super_admin` is
+  intentionally absent from the OR-list because `auth.js`'s role **hierarchy** passes it through
+  any gate (feature roles match by exact string; hierarchical roles imply everything below) — the
+  plan must confirm this holds so the two new feature roles don't accidentally exclude super_admin.
 
 ### 2. Site-resolution layer — `services/siteResolve.js` (the crux, pure)
 The single hardest risk: every module uses a **different site code** (Ity = `SMI` in
@@ -101,6 +104,11 @@ site selector options AND the server-side `?site=` validation.
 ### 4. Server routes — `routes/siteAwareness.js`
 - `GET /api/site-awareness/summary?site=` → `{ site_id, site_name, authorized_sites[],
   is_group_view, tabs:{helpdesk:true, inspections:false,…} }` — the page's bootstrap.
+  `authorized_sites[]` carries **`{site_id, site_name}` only** (never per-site data). **Two
+  distinct "unavailable" signals, kept separate (the pattern SP2 must honour):** `tabs.<x>:false`
+  = "not built yet → greyed **bientôt**"; a per-tab endpoint's `{applicable:false}` (below) =
+  "this site has no module code → **non applicable pour ce site**" (permanent). The UI must render
+  them differently.
 - `GET /api/site-awareness/helpdesk?site=` → **whitelisted** Helpdesk snapshot
   (`{ inbound, closed, sla_res_pct, sla_reply_pct, open_backlog, major_incidents_active }`) + key
   lists (6-week volume+SLA series via `getSiteHelpdeskWindow`; active MI list via the existing MI
