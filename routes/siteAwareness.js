@@ -457,5 +457,46 @@ module.exports = function siteAwarenessRoutes({ express, requireReportSession, r
     } catch (_) { res.json({ sites: [] }); }
   });
 
+  // ── Linkage AUDIT (super_admin) — per site × module: resolved code + data presence. Read-only.
+  // Lets an admin re-run the cross-module linkage check on prod (which sites resolve which codes,
+  // and whether that module actually has data). includeInactive so stale sites (e.g. Wahgnion) show.
+  router.get('/api/site-awareness/audit', requireReportSession, async (req, res) => {
+    try {
+      if (!rdb.userHasRole(req.reportUser, 'super_admin')) return res.status(403).json({ error: 'forbidden' });
+      const deps = await siteDeps();
+      const sites = (await rdb.listSites({ includeInactive: true })) || [];
+      let D = null;
+      try { D = (trackerDb && trackerDb.loadTracker) ? await trackerDb.loadTracker() : null; } catch (_) {}
+      const now = new Date();
+      const cy = now.getUTCFullYear(), cm = now.getUTCMonth() + 1;
+      const _d = (ms) => new Date(ms).toISOString().slice(0, 10);
+      const from90 = _d(Date.now() - 90 * 86400000), today = _d(Date.now());
+
+      const rows = await Promise.all(sites.map(async (s) => {
+        const rs = resolveSite(deps, s.id) || {};
+        const out = {
+          site_id: s.id, name: s.name, active: !!s.active,
+          helpdesk: { group: rs.helpdesk_group || null, tickets_90d: null },
+          meetings: { code: rs.meetings_code || null, available: null },
+          inspections: { code: rs.inspection_code || null, count: null },
+          tracker: { code: rs.tracker_code || null, pct: null, period: null },
+        };
+        try { const h = await rdb.getSiteHelpdeskWindow(s.id, from90, today); out.helpdesk.tickets_90d = h.created || 0; } catch (_) {}
+        try { if (rs.meetings_code && meetingsDb && typeof meetingsDb.getSiteMonthlyMeetingSummary === 'function') { const sum = await meetingsDb.getSiteMonthlyMeetingSummary(rs.meetings_code, cy, cm); out.meetings.available = !!(sum && sum.available); } } catch (_) {}
+        try { if (rs.inspection_code && inspectionDb && typeof inspectionDb.aggregate === 'function') { const agg = await inspectionDb.aggregate({ site: rs.inspection_code, from: from90, to: today }); out.inspections.count = (agg.counts && agg.counts.total) || agg.total || 0; } } catch (_) {}
+        try {
+          if (rs.tracker_code && D && trackerScore) {
+            const tp = latestTrackerPeriod(D, rs.tracker_code);
+            const ss = trackerScore.ss(D, rs.tracker_code, tp.yr, tp.mo) || {};
+            out.tracker.pct = ss.avg != null ? Math.round(ss.avg * 100) : null;
+            out.tracker.period = ss.avg > 0 ? (tp.yr + '-' + String(tp.mo).padStart(2, '0')) : null;
+          }
+        } catch (_) {}
+        return out;
+      }));
+      res.json({ generated_at: today, sites: rows });
+    } catch (_) { res.json({ sites: [] }); }
+  });
+
   return router;
 };

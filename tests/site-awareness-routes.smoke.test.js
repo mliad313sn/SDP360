@@ -178,3 +178,14 @@ test('dual-backend: async (postgres-style) listSites/listSiteModuleCodes are awa
     'async listSites must be awaited → both sites, not the empty fallback');
   assert.equal(body.site_name, 'Hounde');
 });
+
+test('audit is super_admin-only and returns a per-site linkage table', async () => {
+  const nonSuper = makeApp({ id: 5, roles: ['group-business'] });
+  assert.equal((await call(nonSuper, '/api/site-awareness/audit')).status, 403);
+  const sup = makeApp({ id: 1, roles: ['super_admin'] });
+  const { status, body } = await call(sup, '/api/site-awareness/audit');
+  assert.equal(status, 200);
+  assert.ok(Array.isArray(body.sites) && body.sites.length >= 1);
+  const r = body.sites[0];
+  assert.ok(r.helpdesk && r.meetings && r.inspections && r.tracker && 'active' in r);
+});
