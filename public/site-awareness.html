@@ -83,6 +83,15 @@
   .sa-list .cnt { font-weight:700; font-variant-numeric:tabular-nums; color:var(--edv-slate,#3A4A60); }
   .sa-soon { padding:26px 16px; text-align:center; color:#8a94a2; }
 
+  /* Fleet (Vue Groupe) RAG grid */
+  table.sa-fleet-tbl tbody tr { cursor:pointer; }
+  table.sa-fleet-tbl tbody tr:hover { background:#f6f8fb; }
+  .sa-rag { display:inline-flex; align-items:center; gap:7px; }
+  .sa-rag-dot { width:11px; height:11px; border-radius:50%; flex:none; }
+  .sa-rag-val { font-variant-numeric:tabular-nums; color:#3A4A60; }
+  .sa-rag-pill { display:inline-block; min-width:52px; text-align:center; font-size:11px; font-weight:700;
+                 padding:3px 10px; border-radius:999px; text-transform:uppercase; letter-spacing:.03em; }
+
   /* Chart.js canvases — the charts are the prominent element ("les charts sont plus parlants") */
   .sa-chart-wrap { position:relative; height:300px; }
   .sa-chart-wrap--donut { height:280px; max-width:520px; margin:0 auto; }
@@ -111,6 +120,19 @@
   </div>
 
   <div class="sa-tabs" id="sa-tabs"></div>
+
+  <!-- ════ Group View (fleet RAG grid) — GROUP-only ════ -->
+  <div id="pane-fleet" style="display:none">
+    <div class="sa-sub" id="sa-fleet-hint" style="margin:-4px 0 14px"></div>
+    <div class="sa-panel">
+      <div class="sa-scroll">
+        <table class="sa-tbl sa-fleet-tbl">
+          <thead><tr id="sa-fleet-head"></tr></thead>
+          <tbody id="sa-fleet-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
 
   <!-- ════ User Support (helpdesk) ════ -->
   <div id="pane-helpdesk">
@@ -300,6 +322,7 @@
   const LANG_KEY = 'sa_lang_v1';
   const I18N = {
     // tab labels (also mirrored in the static "soon" placeholder panes)
+    tab_fleet:       { fr: 'Vue Groupe',                             en: 'Group View' },
     tab_helpdesk:    { fr: 'Assistance utilisateurs',                 en: 'User Support' },
     tab_inspections: { fr: 'État des installations',                  en: 'Facilities Status' },
     tab_meetings:    { fr: 'Réunions départementales & Décisions',    en: 'Department Meetings & Decisions' },
@@ -381,6 +404,16 @@
     t_red:           { fr: 'Rouge',                                  en: 'Red' },
     t_pillars:       { fr: 'Piliers',                                en: 'Pillars' },
     t_trend:         { fr: 'Tendance 6 mois',                        en: '6-month trend' },
+    // fleet (group view)
+    g_fleet:         { fr: 'Vue Groupe',                              en: 'Group View' },
+    g_site:          { fr: 'Site',                                    en: 'Site' },
+    g_overall:       { fr: 'Global',                                  en: 'Overall' },
+    g_click:         { fr: 'Cliquez une ligne pour ouvrir le site',   en: 'Click a row to open the site' },
+    gc_helpdesk:     { fr: 'Assistance',                             en: 'Support' },
+    gc_inspections:  { fr: 'Installations',                          en: 'Facilities' },
+    gc_meetings:     { fr: 'Réunions',                               en: 'Meetings' },
+    gc_actions:      { fr: 'Actions',                                en: 'Actions' },
+    gc_tracker:      { fr: 'Projets',                                en: 'Projects' },
     // empty / error states
     none:            { fr: 'Aucun',                                   en: 'None' },
     nodata:          { fr: 'Aucune donnée',                           en: 'No data' },
@@ -390,6 +423,7 @@
   function T(k) { const row = I18N[k]; return row ? (row[curLang()] || row.fr || k) : k; }
 
   const TABS = [
+    { id: 'fleet',       key: 'tab_fleet', groupOnly: true },
     { id: 'helpdesk',    key: 'tab_helpdesk' },
     { id: 'inspections', key: 'tab_inspections' },
     { id: 'meetings',    key: 'tab_meetings' },
@@ -421,12 +455,15 @@
   }
 
   function renderTabs() {
-    $('sa-tabs').innerHTML = TABS.map(t => {
-      const soon = tabsAvail[t.id] === false;
-      const on = t.id === current && !soon;
-      return `<button class="sa-tab${on ? ' on' : ''}${soon ? ' disabled' : ''}" data-tab="${t.id}"${soon ? ' disabled' : ''}>`
-        + esc(T(t.key)) + (soon ? ' <span class="sa-chip">' + esc(T('soon')) + '</span>' : '') + '</button>';
-    }).join('');
+    $('sa-tabs').innerHTML = TABS
+      // A group-only tab (Vue Groupe) is HIDDEN outright for non-group users — never greyed.
+      .filter(t => !(t.groupOnly && tabsAvail[t.id] !== true))
+      .map(t => {
+        const soon = tabsAvail[t.id] === false;
+        const on = t.id === current && !soon;
+        return `<button class="sa-tab${on ? ' on' : ''}${soon ? ' disabled' : ''}" data-tab="${t.id}"${soon ? ' disabled' : ''}>`
+          + esc(T(t.key)) + (soon ? ' <span class="sa-chip">' + esc(T('soon')) + '</span>' : '') + '</button>';
+      }).join('');
   }
 
   function showTab(name) {
@@ -436,6 +473,7 @@
     TABS.forEach(t => { const p = $('pane-' + t.id); if (p) p.style.display = (t.id === name) ? '' : 'none'; });
     renderTabs();
     if (location.hash.slice(1) !== name) history.replaceState(null, '', '#' + name);
+    if (name === 'fleet') loadFleet();
     if (name === 'helpdesk') loadHelpdesk();
     if (name === 'inspections') loadInspections();
     if (name === 'meetings') loadMeetings();
@@ -543,6 +581,49 @@
       },
       options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } },
     });
+  }
+
+  // ── Group View (fleet RAG grid) ────────────────────────────────────
+  // Read-only comparative table: sites × 5 modules + an overall RAG. Click a row
+  // to zoom into that site (set the selector + open the Assistance tab).
+  const RAG_COLORS = { green: '#27AE60', amber: '#E8A100', red: '#DC2626', na: '#b6bdc7' };
+  const FLEET_MODS = ['helpdesk', 'inspections', 'meetings', 'actions', 'tracker'];
+  const FLEET_COL_KEY = { helpdesk: 'gc_helpdesk', inspections: 'gc_inspections', meetings: 'gc_meetings', actions: 'gc_actions', tracker: 'gc_tracker' };
+  function ragDotCell(cell) {
+    const c = cell || { rag: 'na', value: null };
+    const color = RAG_COLORS[c.rag] || RAG_COLORS.na;
+    const val = (c.value == null || c.value === '') ? '—' : c.value;
+    return `<span class="sa-rag"><span class="sa-rag-dot" style="background:${color}"></span>`
+      + `<span class="sa-rag-val">${esc(val)}</span></span>`;
+  }
+  function ragPill(rag) {
+    const r = rag || 'na';
+    const color = RAG_COLORS[r] || RAG_COLORS.na;
+    const lbl = r === 'na' ? '—' : r.toUpperCase();
+    return `<span class="sa-rag-pill" style="background:${color}22;color:${color}">${esc(lbl)}</span>`;
+  }
+  function renderFleet(data) {
+    data = data || { sites: [] };
+    const rows = Array.isArray(data.sites) ? data.sites : [];
+    $('sa-fleet-hint').textContent = T('g_click') + '.';
+    $('sa-fleet-head').innerHTML = `<th>${esc(T('g_site'))}</th>`
+      + FLEET_MODS.map(m => `<th>${esc(T(FLEET_COL_KEY[m]))}</th>`).join('')
+      + `<th>${esc(T('g_overall'))}</th>`;
+    $('sa-fleet-body').innerHTML = rows.length ? rows.map(r => {
+      const cells = r.cells || {};
+      return `<tr data-site="${esc(r.site_id)}">`
+        + `<td>${esc(r.site_name) || ('Site ' + esc(r.site_id))}</td>`
+        + FLEET_MODS.map(m => `<td>${ragDotCell(cells[m])}</td>`).join('')
+        + `<td>${ragPill(r.overall_rag)}</td></tr>`;
+    }).join('') : `<tr><td colspan="7" class="sa-muted">${esc(T('nodata'))}.</td></tr>`;
+  }
+
+  async function loadFleet() {
+    let data;
+    try { data = await api('/api/site-awareness/fleet'); }
+    catch { data = { sites: [] }; }
+    window._saLastFleet = data;   // cache so the language toggle re-renders without re-fetching
+    renderFleet(data);
   }
 
   async function loadHelpdesk() {
@@ -900,6 +981,7 @@
     try { localStorage.setItem(LANG_KEY, lang); } catch (_) {}
     // Re-render JS-built surfaces in the new language, WITHOUT re-fetching.
     renderTabs();
+    if (current === 'fleet' && window._saLastFleet) renderFleet(window._saLastFleet);
     if (current === 'helpdesk' && window._saLastHelpdesk) renderHelpdesk(window._saLastHelpdesk);
     if (current === 'inspections' && window._saLastInspections) renderInspections(window._saLastInspections);
     if (current === 'meetings' && window._saLastMeetings) renderMeetings(window._saLastMeetings);
@@ -922,6 +1004,14 @@
     });
     $('sa-site').addEventListener('change', function () {
       loadSummary(this.value);
+    });
+    // Fleet row click → zoom into that site: set the selector + open the Assistance tab.
+    $('sa-fleet-body').addEventListener('click', function (e) {
+      const tr = e.target.closest('tr[data-site]'); if (!tr) return;
+      const sid = tr.dataset.site; if (!sid) return;
+      const sel = $('sa-site'); if (sel) sel.value = sid;
+      history.replaceState(null, '', '#helpdesk');   // land on Assistance after reload
+      loadSummary(sid);
     });
     window.addEventListener('hashchange', function () {
       const n = location.hash.slice(1) || 'helpdesk';

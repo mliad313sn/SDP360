@@ -13,6 +13,58 @@ module.exports = function siteAwarenessRoutes({ express, requireReportSession, r
                  inspectionSiteCode: inspectionDb ? inspectionDb.siteNameToCode : rdb.inspectionSiteCode,
                  trackerSiteCode: trackerDb ? trackerDb.siteNameToCode : rdb.trackerSiteCode };
 
+  // ── Fleet-view RAG helpers (DISPLAY-only thresholds; grey 'na' when no code/no data) ──
+  const _cell = (rag, value) => ({ rag: rag || 'na', value: (value == null ? null : value) });
+  // helpdesk: SLA-overdue share of last-30-day created. na when no created.
+  function ragHelpdesk(created, sla_overdue) {
+    if (!created) return _cell('na', (sla_overdue || 0) + '/' + (created || 0));
+    const rate = sla_overdue / created;
+    const rag = rate < 0.05 ? 'green' : (rate < 0.15 ? 'amber' : 'red');
+    return _cell(rag, sla_overdue + '/' + created);
+  }
+  // inspections: conformity = ok/(ok+minor+major+critical+opp). na when base 0.
+  function ragInspections(findingStatus) {
+    const f = { ok: 0, minor: 0, major: 0, critical: 0, opp: 0 };
+    for (const r of (Array.isArray(findingStatus) ? findingStatus : [])) {
+      const k = String(r.status || '').toLowerCase(); if (k in f) f[k] += Number(r.n) || 0;
+    }
+    const base = f.ok + f.minor + f.major + f.critical + f.opp;
+    if (!base) return _cell('na', null);
+    const c = f.ok / base;
+    const rag = c >= 0.9 ? 'green' : (c >= 0.75 ? 'amber' : 'red');
+    return _cell(rag, Math.round(c * 100) + '%');
+  }
+  // meetings: PVs held vs department target.
+  function ragMeetings(kpis) {
+    const k = kpis || {};
+    const held = Number(k.pvs_held) || 0;
+    const target = Number(k.dept_target) || 0;
+    const rag = (held >= target && target > 0) ? 'green' : (held >= 1 ? 'amber' : 'red');
+    return _cell(rag, held + '/' + target);
+  }
+  // actions: overdue open actions across the 3 sources.
+  function ragActions(overdueCount) {
+    const n = Number(overdueCount) || 0;
+    const rag = n === 0 ? 'green' : (n <= 2 ? 'amber' : 'red');
+    return _cell(rag, n);
+  }
+  // tracker: ss().avg (0-1) → %.
+  function ragTracker(avg) {
+    if (avg == null) return _cell('na', null);
+    const pct = avg * 100;
+    const rag = pct >= 65 ? 'green' : (pct >= 50 ? 'amber' : 'red');
+    return _cell(rag, Math.round(pct) + '%');
+  }
+  // overall roll-up over NON-na cells (green=2/amber=1/red=0). all-na → na.
+  function rollupRag(cells) {
+    const scored = Object.values(cells).map((c) => c && c.rag)
+      .filter((r) => r === 'green' || r === 'amber' || r === 'red')
+      .map((r) => (r === 'green' ? 2 : (r === 'amber' ? 1 : 0)));
+    if (!scored.length) return 'na';
+    const pct = (scored.reduce((a, b) => a + b, 0) / scored.length) / 2;
+    return pct >= 0.75 ? 'green' : (pct >= 0.5 ? 'amber' : 'red');
+  }
+
   function authorizedSiteId(user, requestedRaw) {
     const authorized = listAuthorizedSites(deps, user);
     if (!authorized.length) return { status: 403 };
@@ -33,7 +85,7 @@ module.exports = function siteAwarenessRoutes({ express, requireReportSession, r
       res.json({
         site_id: gate.site_id, site_name: rs.site_name || null, is_group_view: !!isGroup,
         authorized_sites: gate.authorized,
-        tabs: { helpdesk: true, inspections: true, meetings: true, actions: true, tracker: true },
+        tabs: { fleet: !!isGroup, helpdesk: true, inspections: true, meetings: true, actions: true, tracker: true },
       });
     } catch (_) { res.json({ site_id: null, authorized_sites: [], tabs: { helpdesk: true } }); }
   });
@@ -279,6 +331,93 @@ module.exports = function siteAwarenessRoutes({ express, requireReportSession, r
         pillars: pillarScores, trend,
       });
     } catch (_) { res.json({ applicable: true, snapshot: null, pillars: [], trend: [] }); }
+  });
+
+  // ── Fleet (Vue Groupe) — GROUP-only comparative RAG grid: all sites × 5 modules ──
+  router.get('/api/site-awareness/fleet', requireReportSession, async (req, res) => {
+    try {
+      const u = req.reportUser;
+      const isGroup = rdb.userHasRole(u, 'group-business') || rdb.userHasRole(u, 'executive') || rdb.userHasRole(u, 'super_admin');
+      if (!isGroup) return res.status(403).json({ error: 'forbidden' });
+
+      const sites = listAuthorizedSites(deps, u);
+
+      // Load the tracker ONCE (shared across all sites); derive the tracker period.
+      let D = null;
+      try { D = (trackerDb && trackerDb.loadTracker) ? await trackerDb.loadTracker() : null; } catch (_) {}
+      const now = new Date();
+      const yr = (D && D.year) || now.getUTCFullYear();
+      const mo = (D && D.currentMonth) || (now.getUTCMonth() + 1);
+
+      const _d = (ms) => new Date(ms).toISOString().slice(0, 10);
+      const h1 = _d(Date.now()), h0 = _d(Date.now() - 30 * 86400000);   // helpdesk 30-day
+      const i1 = _d(Date.now()), i0 = _d(Date.now() - 90 * 86400000);   // inspections 90-day
+      const asOf = _d(Date.now());
+
+      const rows = await Promise.all(sites.map(async (s) => {
+        const cells = { helpdesk: _cell('na', null), inspections: _cell('na', null),
+          meetings: _cell('na', null), actions: _cell('na', null), tracker: _cell('na', null) };
+        let site_name = s.site_name;
+        try {
+          const rs = resolveSite(deps, s.site_id) || {};
+          site_name = rs.site_name || site_name;
+
+          // helpdesk — 30-day SLA-overdue share.
+          try {
+            const hw = (await rdb.getSiteHelpdeskWindow(s.site_id, h0, h1)) || {};
+            cells.helpdesk = ragHelpdesk(hw.created || 0, hw.sla_overdue || 0);
+          } catch (_) {}
+
+          // inspections — 90-day conformity.
+          try {
+            if (rs.inspection_code && inspectionDb && typeof inspectionDb.aggregate === 'function') {
+              const agg = (await inspectionDb.aggregate({ site: rs.inspection_code, from: i0, to: i1 })) || {};
+              cells.inspections = ragInspections(agg.findingStatus);
+            }
+          } catch (_) {}
+
+          // meetings — PVs vs target this month.
+          try {
+            if (rs.meetings_code && meetingsDb && typeof meetingsDb.getSiteMonthlyMeetingSummary === 'function') {
+              const sum = (await meetingsDb.getSiteMonthlyMeetingSummary(rs.meetings_code, yr, mo)) || {};
+              cells.meetings = ragMeetings(sum.kpis);
+            }
+          } catch (_) {}
+
+          // actions — overdue open actions across the 3 sources.
+          try {
+            if (rs.meetings_code) {
+              const { buildSiteActions } = require('../services/siteActionsRegister');
+              const meetings = (meetingsDb && typeof meetingsDb.listActions === 'function' ? await meetingsDb.listActions({ site: rs.meetings_code }) : []) || [];
+              const inspection = (inspectionDb && typeof inspectionDb.listActions === 'function' ? await inspectionDb.listActions({ site: rs.meetings_code }) : []) || [];
+              let report = null;
+              if (typeof rdb.getSiteIdByModuleCode === 'function') {
+                const resolved = await rdb.getSiteIdByModuleCode('meetings', rs.meetings_code);
+                if (resolved && resolved.site_id && typeof rdb.getSiteOpenReportActions === 'function') {
+                  report = { actions: (await rdb.getSiteOpenReportActions(resolved.site_id)).actions };
+                }
+              }
+              const sa = buildSiteActions({ meetings, inspection, report, asOf });
+              const g = sa.groups || {};
+              const flat = [].concat((g.meetings || {}).items || [], (g.inspection || {}).items || [], (g.report || {}).items || []);
+              cells.actions = ragActions(flat.filter((a) => a && a.overdue).length);
+            }
+          } catch (_) {}
+
+          // tracker — ss().avg.
+          try {
+            if (rs.tracker_code && D && trackerScore) {
+              const cur = trackerScore.ss(D, rs.tracker_code, yr, mo) || {};
+              cells.tracker = ragTracker(cur.avg == null ? null : cur.avg);
+            }
+          } catch (_) {}
+        } catch (_) { /* per-site failure → all-na cells */ }
+
+        return { site_id: s.site_id, site_name: site_name || null, overall_rag: rollupRag(cells), cells };
+      }));
+
+      res.json({ sites: rows });
+    } catch (_) { res.json({ sites: [] }); }
   });
 
   return router;

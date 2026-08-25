@@ -141,3 +141,17 @@ test('tracker tab returns a whitelisted per-site scorecard', async () => {
   assert.equal(body.pillars.length, 4);
   assert.equal(body.trend.length, 6);
 });
+
+test('fleet view is GROUP-only: site-business gets 403', async () => {
+  const app = makeApp({ id: 5, roles: ['site-business'], site_id: 1 });
+  const { status } = await call(app, '/api/site-awareness/fleet');
+  assert.equal(status, 403);
+});
+test('fleet view returns a per-site RAG grid for a group user', async () => {
+  const app = makeApp({ id: 9, roles: ['group-business'] });
+  const { status, body } = await call(app, '/api/site-awareness/fleet');
+  assert.equal(status, 200);
+  assert.ok(Array.isArray(body.sites) && body.sites.length >= 1);
+  const r = body.sites[0];
+  assert.ok(r.cells && r.cells.helpdesk && r.cells.tracker && r.overall_rag);
+});
