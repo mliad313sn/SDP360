@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ma Vue Site — Endeavour Mining IT</title>
+
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="brand/icons.css">
+<link rel="stylesheet" href="brand/components.css">
+<link rel="stylesheet" href="_shell.css">
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-require="site-business|group-business|executive" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+
+<style nonce="%%CSP_NONCE%%">
+  body { margin:0; background:var(--color-background,#f4f6f7); color:var(--color-text-primary,#1F2A33);
+    font-family:var(--font-sans,'Libre Franklin',system-ui,sans-serif); font-size:14px; }
+
+  .sa-wrap { max-width:1280px; margin:0 auto; padding:var(--space-6,24px); }
+  .sa-head { display:flex; align-items:center; gap:16px; margin-bottom:6px; flex-wrap:wrap; }
+  .sa-head h1 { margin:0; font-size:22px; font-weight:700; color:var(--edv-slate,#3A4A60); }
+  .sa-ro { font-size:11px; font-weight:700; padding:3px 10px; border-radius:999px; letter-spacing:.02em;
+           background:#eef1f5; color:#556; border:1px solid #e2e6ec; }
+  .sa-sub { font-size:13px; color:var(--color-text-muted,#6b7785); margin-bottom:16px; }
+  .sa-controls { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-left:auto; }
+  .sa-controls label { font-size:12px; color:#6b7785; }
+  select { padding:7px 12px; border:1px solid #cfd6e0; border-radius:8px; background:#fff; font-size:13px; cursor:pointer; color:inherit; }
+  select:disabled { background:#f2f4f7; color:#8a94a2; cursor:not-allowed; }
+
+  /* Tab bar */
+  .sa-tabs { display:flex; gap:4px; border-bottom:2px solid #e4e8ee; margin-bottom:18px; flex-wrap:wrap; }
+  .sa-tab { border:none; background:transparent; color:#6b7785; font-size:14px; font-weight:700; padding:10px 16px;
+            cursor:pointer; border-bottom:3px solid transparent; margin-bottom:-2px; font-family:inherit;
+            display:inline-flex; align-items:center; gap:7px; }
+  .sa-tab:hover:not(.disabled) { color:#3A4A60; }
+  .sa-tab.on { color:#3A4A60; border-bottom-color:var(--edv-slate,#3A4A60); }
+  .sa-tab.disabled { color:#aab2bd; cursor:not-allowed; }
+  .sa-chip { font-size:10px; font-weight:700; padding:2px 7px; border-radius:999px; background:#fff7ed;
+             color:#a9670a; border:1px solid #f3dcae; text-transform:uppercase; letter-spacing:.03em; }
+
+  /* Snapshot tiles */
+  .sa-tiles { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:14px; margin-bottom:22px; }
+  .sa-tile { background:#fff; border:1px solid #e4e8ee; border-radius:12px; padding:14px 16px; }
+  .sa-tile .lbl { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; color:#6b7785; }
+  .sa-tile .val { font-size:28px; font-weight:700; color:var(--edv-slate,#3A4A60); margin-top:4px; font-variant-numeric:tabular-nums; }
+
+  .sa-panel { background:#fff; border:1px solid #e4e8ee; border-radius:12px; padding:16px; margin-bottom:22px; }
+  .sa-panel h2 { margin:0 0 12px; font-size:16px; color:var(--edv-slate,#3A4A60); }
+  .sa-scroll { overflow-x:auto; }
+  table.sa-tbl { width:100%; border-collapse:collapse; font-size:13px; }
+  table.sa-tbl th { text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:#6b7785;
+                    border-bottom:2px solid #eef1f5; padding:8px 10px; white-space:nowrap; }
+  table.sa-tbl td { padding:8px 10px; border-bottom:1px solid #f2f4f7; vertical-align:middle; }
+  table.sa-tbl tr:last-child td { border-bottom:0; }
+  .sa-num { text-align:right; font-variant-numeric:tabular-nums; }
+  .sa-muted { color:#8a94a2; }
+  .sa-pill { display:inline-block; font-size:11px; font-weight:700; padding:2px 8px; border-radius:999px; background:#eef1f5; color:#556; }
+  .sa-empty { background:#fff7ed; border:1px solid #f0c9a0; color:#7a3d12; border-radius:12px; padding:16px; margin-bottom:22px; }
+  .sa-list { list-style:none; margin:0; padding:0; }
+  .sa-list li { display:flex; align-items:center; gap:10px; padding:8px 0; border-top:1px solid #f2f4f7; }
+  .sa-list li:first-child { border-top:0; }
+  .sa-list .cat { flex:1; color:#3A4A60; }
+  .sa-list .cnt { font-weight:700; font-variant-numeric:tabular-nums; color:var(--edv-slate,#3A4A60); }
+  .sa-soon { padding:26px 16px; text-align:center; color:#8a94a2; }
+</style>
+</head>
+<body>
+<div id="__shell" data-section="performance" data-current="site-awareness"></div>
+
+<div class="sa-wrap">
+  <div class="sa-head">
+    <h1>Ma Vue Site — <span id="sa-site-name">…</span></h1>
+    <span class="sa-ro">lecture seule</span>
+    <div class="sa-controls">
+      <label for="sa-site">Site</label>
+      <select id="sa-site"><option>…</option></select>
+    </div>
+  </div>
+  <div class="sa-sub">Vue synthétique de l'activité IT de votre site : support &amp; incidents, et bientôt inspections, réunions, actions et projets.</div>
+
+  <div class="sa-tabs" id="sa-tabs"></div>
+
+  <!-- ════ Support & Incidents (helpdesk) ════ -->
+  <div id="pane-helpdesk">
+    <div id="sa-hd-empty" class="sa-empty" style="display:none">
+      Aucune donnée de support disponible pour ce site pour le moment.
+    </div>
+
+    <div id="sa-tiles" class="sa-tiles"></div>
+
+    <div class="sa-panel">
+      <h2>6 dernières semaines</h2>
+      <div class="sa-scroll">
+        <table class="sa-tbl">
+          <thead>
+            <tr><th>Semaine</th><th class="sa-num">Reçus</th><th class="sa-num">Clôturés</th><th class="sa-num">SLA manqué %</th></tr>
+          </thead>
+          <tbody id="sa-weekly"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="sa-panel">
+      <h2>Incidents majeurs en cours</h2>
+      <div class="sa-scroll">
+        <table class="sa-tbl">
+          <thead>
+            <tr><th>ID</th><th>Priorité</th><th>Statut</th><th>Créé le</th></tr>
+          </thead>
+          <tbody id="sa-mi"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="sa-panel">
+      <h2>Top catégories</h2>
+      <ul class="sa-list" id="sa-cats"></ul>
+    </div>
+  </div>
+
+  <!-- ════ Placeholder panes for the "bientôt" tabs ════ -->
+  <div id="pane-inspections" style="display:none"><div class="sa-panel"><div class="sa-soon">Inspections &amp; Conformité — bientôt disponible.</div></div></div>
+  <div id="pane-meetings" style="display:none"><div class="sa-panel"><div class="sa-soon">Réunions &amp; Décisions — bientôt disponible.</div></div></div>
+  <div id="pane-actions" style="display:none"><div class="sa-panel"><div class="sa-soon">Actions &amp; Suivi — bientôt disponible.</div></div></div>
+  <div id="pane-tracker" style="display:none"><div class="sa-panel"><div class="sa-soon">Projets &amp; Roadmap — bientôt disponible.</div></div></div>
+</div>
+
+<script nonce="%%CSP_NONCE%%">
+(function () {
+  const $ = id => document.getElementById(id);
+  const TABS = [
+    { id: 'helpdesk',    label: 'Support & Incidents' },
+    { id: 'inspections', label: 'Inspections & Conformité' },
+    { id: 'meetings',    label: 'Réunions & Décisions' },
+    { id: 'actions',     label: 'Actions & Suivi' },
+    { id: 'tracker',     label: 'Projets & Roadmap' },
+  ];
+  let siteId = null, tabsAvail = { helpdesk: true }, current = 'helpdesk';
+
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+  function fmtNum(v) { return v == null ? '—' : String(v); }
+  function fmtPct(v) { return v == null ? '—' : v + '%'; }
+  function fmtTs(t) { if (!t) return '—'; const d = new Date(t); return isNaN(d) ? esc(t) : d.toLocaleDateString(); }
+
+  // Auth: session cookie + x-report-token header (copied verbatim from wan.html's api()).
+  async function api(path) {
+    const h = {}; const at = window.__authToken; if (at) h['x-report-token'] = at;
+    const r = await fetch(path, { headers: h });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  }
+
+  function renderTabs() {
+    $('sa-tabs').innerHTML = TABS.map(t => {
+      const soon = tabsAvail[t.id] === false;
+      const on = t.id === current && !soon;
+      return `<button class="sa-tab${on ? ' on' : ''}${soon ? ' disabled' : ''}" data-tab="${t.id}"${soon ? ' disabled' : ''}>`
+        + esc(t.label) + (soon ? ' <span class="sa-chip">bientôt</span>' : '') + '</button>';
+    }).join('');
+  }
+
+  function showTab(name) {
+    if (tabsAvail[name] === false) return;
+    if (!TABS.some(t => t.id === name)) name = 'helpdesk';
+    current = name;
+    TABS.forEach(t => { const p = $('pane-' + t.id); if (p) p.style.display = (t.id === name) ? '' : 'none'; });
+    renderTabs();
+    if (location.hash.slice(1) !== name) history.replaceState(null, '', '#' + name);
+    if (name === 'helpdesk') loadHelpdesk();
+  }
+
+  async function loadHelpdesk() {
+    let data;
+    try { data = await api('/api/site-awareness/helpdesk?site=' + encodeURIComponent(siteId == null ? '' : siteId)); }
+    catch { data = { snapshot: null, weekly: [], major_incidents: [] }; }
+
+    const snap = data.snapshot;
+    $('sa-hd-empty').style.display = snap ? 'none' : 'block';
+
+    const tiles = snap ? [
+      { lbl: 'Reçus', val: snap.created },
+      { lbl: 'Clôturés', val: snap.resolved },
+      { lbl: 'Backlog', val: snap.backlog },
+      { lbl: 'SLA en retard', val: snap.sla_overdue },
+      { lbl: 'Incidents majeurs', val: snap.major_incidents },
+    ] : [];
+    $('sa-tiles').innerHTML = tiles.map(t =>
+      `<div class="sa-tile"><div class="lbl">${esc(t.lbl)}</div><div class="val">${fmtNum(t.val)}</div></div>`).join('');
+
+    const weekly = data.weekly || [];
+    $('sa-weekly').innerHTML = weekly.length ? weekly.map(w => `<tr>
+        <td>${esc(w.label)}</td>
+        <td class="sa-num">${fmtNum(w.inbound)}</td>
+        <td class="sa-num">${fmtNum(w.closed)}</td>
+        <td class="sa-num">${w.missed_pct == null ? '<span class="sa-muted">—</span>' : fmtPct(w.missed_pct)}</td>
+      </tr>`).join('') : '<tr><td colspan="4" class="sa-muted">Aucune donnée.</td></tr>';
+
+    const mi = data.major_incidents || [];
+    $('sa-mi').innerHTML = mi.length ? mi.map(m => `<tr>
+        <td>${esc(m.id)}</td>
+        <td>${m.p_label ? '<span class="sa-pill">' + esc(m.p_label) + '</span>' : '<span class="sa-muted">—</span>'}</td>
+        <td>${esc(m.status) || '<span class="sa-muted">—</span>'}</td>
+        <td>${fmtTs(m.created_time)}</td>
+      </tr>`).join('') : '<tr><td colspan="4" class="sa-muted">Aucun.</td></tr>';
+
+    const cats = (snap && snap.top_categories) || [];
+    $('sa-cats').innerHTML = cats.length ? cats.map(c =>
+      `<li><span class="cat">${esc(c.category)}</span><span class="cnt">${fmtNum(c.count)}</span></li>`).join('')
+      : '<li class="sa-muted">Aucune catégorie.</li>';
+  }
+
+  async function loadSummary(requested) {
+    let data;
+    try { data = await api('/api/site-awareness/summary' + (requested != null ? '?site=' + encodeURIComponent(requested) : '')); }
+    catch { data = { site_id: null, site_name: null, authorized_sites: [], tabs: { helpdesk: true } }; }
+
+    siteId = data.site_id;
+    tabsAvail = data.tabs || { helpdesk: true };
+    $('sa-site-name').textContent = data.site_name || '—';
+
+    // Site selector — populated from authorized_sites; locked when only one site is authorized.
+    const authorized = data.authorized_sites || [];
+    const sel = $('sa-site');
+    sel.innerHTML = authorized.map(s =>
+      `<option value="${s.site_id}"${String(s.site_id) === String(siteId) ? ' selected' : ''}>${esc(s.site_name || ('Site ' + s.site_id))}</option>`).join('')
+      || '<option>—</option>';
+    sel.disabled = authorized.length <= 1;
+
+    renderTabs();
+    // Land on the hash tab if it's available, else helpdesk.
+    const want = location.hash.slice(1);
+    showTab((want && tabsAvail[want] !== false && TABS.some(t => t.id === want)) ? want : 'helpdesk');
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    $('sa-tabs').addEventListener('click', function (e) {
+      const b = e.target.closest('[data-tab]'); if (b && !b.disabled) showTab(b.dataset.tab);
+    });
+    $('sa-site').addEventListener('change', function () {
+      loadSummary(this.value);
+    });
+    window.addEventListener('hashchange', function () {
+      const n = location.hash.slice(1) || 'helpdesk';
+      if (tabsAvail[n] !== false) showTab(n);
+    });
+    loadSummary();
+  });
+})();
+</script>
+</body>
+</html>

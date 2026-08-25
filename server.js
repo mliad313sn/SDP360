@@ -1230,6 +1230,7 @@ function loadHtml(name) {
   'meetings-import.html', 'meetings-progress.html', 'meetings-insights.html', 'meetings-setup.html', 'meetings-actions.html',
   'meetings-unsigned.html',
   'activity-tracker.html', 'help.html', 'exec-view.html', 'site-report.html', 'it-review.html', 'site-actions.html', 'system-logs.html',
+  'site-awareness.html',
   'assets.html', 'assets-hygiene.html', 'assets-finance.html', 'wan.html', 'wan-health.html', 'wan-sla.html', 'itsm-roadmap.html',
 ].forEach(loadHtml);
 
@@ -1272,6 +1273,11 @@ app.get('/exec-view.html', (req, res) => {
 // (requireReportSession), like exec-view — so it never needs window.__ak.
 app.get('/site-report.html', (req, res) => {
   sendHtmlPage(res, 'site-report.html', false, 'Site report unavailable');
+});
+
+// ── Serve site-awareness.html — read-only per-site business view (session cookie, no api-key) ──
+app.get('/site-awareness.html', (req, res) => {
+  sendHtmlPage(res, 'site-awareness.html', false, 'Site Awareness unavailable');
 });
 
 // ── Serve it-review.html — the live IT Review dashboard (no api-key injection) ─
@@ -7605,6 +7611,11 @@ app.use(require('./routes/meridian')({ express }));
 // requireReportSession); sync is admin. A distinct /api/analytics prefix, so /api/reports/:id
 // can't shadow it. fetchView is passed for coverage + on-demand sync.
 app.use(require('./routes/opmanager')({ express, requireReportSession, requireAdmin, requireSuperAdmin, fetchView }));
+
+// ── Site Awareness — read-only per-site business view (/api/site-awareness/*) ──
+// Server-enforced scoping: a site-business user's site comes from the session, never
+// the request. PII-safe (exec-view whitelist pattern). Distinct /api/site-awareness prefix.
+app.use(require('./routes/siteAwareness')({ express, requireReportSession, rdb: require('./reports-db') }));
 
 // ── Personal Roadmap Manager — private super_admin tool (/api/roadmap/*) ──────
 // Per-user objectives + deliverables for the Service & Support Manager. user_id is
