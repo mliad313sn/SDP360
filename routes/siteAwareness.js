@@ -21,6 +21,7 @@ module.exports = function siteAwarenessRoutes({ express, requireReportSession, r
       listSites: () => sites,
       listSiteModuleCodes: (m) => (m === 'meetings' ? meetingsCodes : []),
       userHasRole: rdb.userHasRole,
+      meetingsSiteCode: meetingsDb ? meetingsDb.siteNameToCode : null,
       inspectionSiteCode: inspectionDb ? inspectionDb.siteNameToCode : rdb.inspectionSiteCode,
       trackerSiteCode: trackerDb ? trackerDb.siteNameToCode : rdb.trackerSiteCode,
     };

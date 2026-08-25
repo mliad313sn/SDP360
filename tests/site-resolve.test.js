@@ -51,3 +51,17 @@ test('listAuthorizedSites: group-business (and executive) see all sites', () => 
 test('listAuthorizedSites: site-business with no site_id sees nothing (fails safe)', () => {
   assert.deepEqual(listAuthorizedSites(deps, { roles: ['site-business'] }), []);
 });
+
+// Prod 2026-08-25: reports.db sites.name is mixed-case ('Lafigue') but a module's siteNameToCode
+// SITE_MAP keys on UPPERCASE ('LAFIGUE'→SML) and/or the zoho_group ('Lafigue IT Agents'→SML).
+// resolveSite must try name → UPPERCASE → zoho_group so the tab isn't wrongly "non applicable".
+test('resolveSite matches a module code by UPPERCASE / zoho_group (mixed-case reports.db name)', () => {
+  const d = {
+    listSites: () => [{ id: 5, name: 'Lafigue', zoho_group: 'Lafigue IT Agents' }],
+    listSiteModuleCodes: () => [],
+    userHasRole: () => false,
+    trackerSiteCode: (n) => ({ LAFIGUE: 'SML', 'Lafigue IT Agents': 'SML' }[n] || null),  // note: no 'Lafigue' key
+  };
+  const r = resolveSite(d, 5);
+  assert.equal(r.tracker_code, 'SML', 'resolved via UPPERCASE / zoho_group despite the mixed-case name');
+});

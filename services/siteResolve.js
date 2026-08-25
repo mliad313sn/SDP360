@@ -5,6 +5,20 @@
 // site_module_codes only carries 'meetings' (+ meraki/opmanager); inspection/tracker codes come
 // from those modules' own name→code maps, injected as inspectionSiteCode/trackerSiteCode.
 
+// A module's siteNameToCode SITE_MAP keys inconsistently — some UPPERCASE ('LAFIGUE'→SML), some
+// mixed ('Sabodala'→SGO), and EVERY site by its zoho_group ('Lafigue IT Agents'→SML). reports.db
+// sites.name is mixed-case ('Lafigue'), which the tracker's exact-match lookup misses. So try the
+// name, its UPPERCASE, and each zoho_group token — first non-null wins. A wrong code false-greens
+// a site, so we only accept a real hit; still null → the tab reads "non applicable".
+function _codeFromName(fn, site) {
+  if (typeof fn !== 'function' || !site) return null;
+  const cands = [];
+  if (site.name) { cands.push(site.name); cands.push(String(site.name).toUpperCase()); }
+  if (site.zoho_group) String(site.zoho_group).split(',').forEach((g) => { const t = g.trim(); if (t) cands.push(t); });
+  for (const c of cands) { try { const v = fn(c); if (v) return v; } catch (_) {} }
+  return null;
+}
+
 function resolveSite(deps, site_id) {
   const sid = Number(site_id);
   const sites = (deps.listSites && deps.listSites({ includeInactive: true })) || [];
@@ -19,9 +33,9 @@ function resolveSite(deps, site_id) {
     site_id: sid,
     site_name: site.name || null,
     helpdesk_group: (String(site.zoho_group || '').trim() || null),
-    meetings_code: codeIn('meetings'),
-    inspection_code: codeIn('inspection') || (deps.inspectionSiteCode ? deps.inspectionSiteCode(site.name) : null) || null,
-    tracker_code: codeIn('tracker') || (deps.trackerSiteCode ? deps.trackerSiteCode(site.name) : null) || null,
+    meetings_code: codeIn('meetings') || _codeFromName(deps.meetingsSiteCode, site),
+    inspection_code: codeIn('inspection') || _codeFromName(deps.inspectionSiteCode, site),
+    tracker_code: codeIn('tracker') || _codeFromName(deps.trackerSiteCode, site),
   };
 }
 
