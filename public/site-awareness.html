@@ -241,6 +241,7 @@ W.defaults=O.defaults;window.Chart=W;});
       <div class="sa-panel" id="sa-insp-chart-panel">
         <h2><span data-lng="en">Findings breakdown</span><span data-lng="fr">Répartition des constats</span></h2>
         <div class="sa-chart-wrap sa-chart-wrap--donut"><canvas id="sa-insp-chart"></canvas></div>
+        <p class="sa-sub" style="margin:10px 0 0;font-size:12px"><span data-lng="en"><strong>Reading the findings —</strong> <span style="color:#27AE60;font-weight:700">OK</span>: compliant · <span style="color:#E8A100;font-weight:700">Minor</span> / <span style="color:#E87722;font-weight:700">Major</span> / <span style="color:#E74C3C;font-weight:700">Critical</span>: to fix (rising urgency) · <span style="color:#2A5490;font-weight:700">Opportunity</span>: a suggested improvement, not a defect. Compliance % = share of checked points found compliant.</span><span data-lng="fr"><strong>Lecture des constats —</strong> <span style="color:#27AE60;font-weight:700">OK</span> : conforme · <span style="color:#E8A100;font-weight:700">Mineur</span> / <span style="color:#E87722;font-weight:700">Majeur</span> / <span style="color:#E74C3C;font-weight:700">Critique</span> : à corriger (urgence croissante) · <span style="color:#2A5490;font-weight:700">Opportunité</span> : amélioration suggérée, pas un défaut. Conformité % = part des points contrôlés jugés conformes.</span></p>
       </div>
 
       <div class="sa-panel">
@@ -327,6 +328,7 @@ W.defaults=O.defaults;window.Chart=W;});
             <tbody id="sa-act-list"></tbody>
           </table>
         </div>
+        <p class="sa-sub" style="margin:12px 0 0;font-size:12px"><span data-lng="en"><strong>Reading the list —</strong> <strong>Source</strong>: where the action comes from (meeting, inspection or report) · <strong>Age</strong>: days open · a red <span style="color:#c0392b;font-weight:700">Overdue</span> badge means the due date has passed.</span><span data-lng="fr"><strong>Lecture de la liste —</strong> <strong>Source</strong> : d'où vient l'action (réunion, inspection ou rapport) · <strong>Âge</strong> : jours depuis l'ouverture · un badge rouge <span style="color:#c0392b;font-weight:700">En retard</span> signifie que l'échéance est dépassée.</span></p>
       </div>
     </div>
   </div>
@@ -931,9 +933,9 @@ W.defaults=O.defaults;window.Chart=W;});
     const tiles = [
       { lbl: T('t_overall'), val: snap.overall_pct == null ? '—' : snap.overall_pct + '%' },
       { lbl: T('t_delta'),   val: deltaVal, color: deltaColor },
-      { lbl: T('t_green'),   val: fmtNum(snap.green) },
-      { lbl: T('t_amber'),   val: fmtNum(snap.amber) },
-      { lbl: T('t_red'),     val: fmtNum(snap.red) },
+      { lbl: T('t_green'),   val: fmtNum(snap.green), color: RAG_COLORS.green },
+      { lbl: T('t_amber'),   val: fmtNum(snap.amber), color: RAG_COLORS.amber },
+      { lbl: T('t_red'),     val: fmtNum(snap.red),   color: RAG_COLORS.red },
     ];
     $('sa-trk-tiles').innerHTML = tiles.map(t =>
       `<div class="sa-tile"><div class="lbl">${esc(t.lbl)}</div><div class="val"${t.color ? ` style="color:${t.color}"` : ''}>${esc(t.val)}</div></div>`).join('');
