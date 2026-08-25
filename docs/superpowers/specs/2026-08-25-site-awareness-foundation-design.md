@@ -15,6 +15,12 @@ selector. It aggregates five existing operational modules — **Helpdesk, Inspec
 (Décisions), Site Actions, Activity Tracker** — at a **snapshot + key-lists** depth (no editing,
 no PII, no new business calculations: it *reuses* existing per-site readers).
 
+**Bilingual (module-wide requirement):** every page in the module is **FR/EN**, default **FR**
+(the site audience is francophone; group CIO/CFO may use EN), using the house pattern
+(`meetings-import.html`): an EN|FR toggle persisted to `localStorage`, `data-lng` pairs for static
+text, and an `I18N`/`T()` table for JS-rendered content (re-render from cache on toggle). SP2 and
+SP3 must carry the same toggle + I18N table — no French-only or English-only user-facing string.
+
 The module is deliberately decomposed into three sub-projects, each shipping working software:
 
 1. **Foundation (this spec):** the two access roles, server-enforced site scoping, the
