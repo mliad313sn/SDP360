@@ -186,12 +186,20 @@
   // ── ROLE GATE ───────────────────────────────────────────────────
   function hasAnyRole(roles) {
     if (!Array.isArray(roles)) return false;
-    if (roles.includes('any')) return true;
+    // 'any' grants every logged-in user EXCEPT a business-only account (GM/FM): those see only
+    // "Ma Vue Site" (which lists explicit business roles), never the IT-internal 'any' items.
+    if (roles.includes('any')) return !window.__isBusinessOnly;
     const check = window.__userHasRole || (() => false);
     return roles.some(r => check(r));
   }
   function visibleItems(items) {
     return (items || []).filter(it => hasAnyRole(it.roles));
+  }
+  // A top-level section stays visible if its own roles grant OR it has ≥1 visible child — so a
+  // business-only user still reaches "Ma Vue Site" under Insights even though the parent is roles:'any'.
+  function sectionVisible(item) {
+    if (hasAnyRole(item.roles)) return true;
+    return !!(item.children && visibleItems(item.children).length);
   }
 
   // ── SMART LANDING ───────────────────────────────────────────────
@@ -208,6 +216,7 @@
   // Best home page for the current user. Used by login.html for the
   // post-login redirect (and by the brand mark for "go home").
   function defaultLanding() {
+    if (window.__isBusinessOnly) return 'site-awareness.html';   // GM/FM land on their site view
     const has = window.__userHasRole || (() => false);
     if (has('executive') || has('super_admin')) return 'executive.html';
     if (has('admin'))                            return 'index.html';
@@ -292,7 +301,7 @@
     const version = mount.dataset.version || '';
     const user    = window.__authUser || null;
 
-    const navHtml = visibleItems(NAV).map(it => renderNavItem(it, ctx)).join('');
+    const navHtml = NAV.filter(sectionVisible).map(it => renderNavItem(it, ctx)).join('');
 
     const html = `
       <div class="shell-header" role="navigation" aria-label="Primary">

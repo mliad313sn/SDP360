@@ -73,6 +73,20 @@
     }
   }
 
+  // Business-only accounts (GM/FM whose ONLY roles are site-business / group-business) get the
+  // restricted "Ma Vue Site" experience: they may use ONLY site-awareness.html; any other page
+  // redirects them there (defence-in-depth over the nav hiding in _shell.js). Mirrors the pure
+  // public/lib/businessRoles.js (isBusinessOnly). A user with any other role keeps full access.
+  const _roles = (Array.isArray(user.roles) && user.roles.length) ? user.roles : (user.role ? [user.role] : []);
+  window.__isBusinessOnly = _roles.length > 0 && _roles.every(r => r === 'site-business' || r === 'group-business');
+  if (window.__isBusinessOnly) {
+    const _page = (location.pathname.split('/').pop() || '').toLowerCase();
+    if (_page !== 'site-awareness.html' && _page !== 'login.html') {
+      location.replace('site-awareness.html');
+      return;
+    }
+  }
+
   // Expose user info globally for pages to use
   window.__authUser      = user;
   window.__authToken     = token;
