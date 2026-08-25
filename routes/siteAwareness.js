@@ -57,12 +57,22 @@ module.exports = function siteAwarenessRoutes({ express, requireReportSession, r
       const miRaw = (groups.length ? await rdb.getActiveMajorIncidentsForSite(groups) : []) || [];
       const major_incidents = miRaw.map((m) => ({ id: m.id, status: m.status || null, created_time: m.created_time || null, p_label: m['P-Label'] || null }));
 
+      // Changes — a 90-day window (low volume; the house convention). Counts only, PII-safe.
+      const _d = (ms) => new Date(ms).toISOString().slice(0, 10);
+      const c1 = _d(Date.now());
+      const c0 = _d(Date.now() - 90 * 86400000);
+      const chg = (typeof rdb.getSiteChangesWindow === 'function'
+        ? (await rdb.getSiteChangesWindow(gate.site_id, c0, c1)) : null) || {};
+
       res.json({
         applicable: true, site_id: gate.site_id, site_name: rs.site_name || null,
         snapshot: { created: snap.created, resolved: snap.resolved, backlog: snap.backlog,
           sla_overdue: snap.sla_overdue, major_incidents: snap.major_incidents,
           top_categories: snap.top_categories || [] },
         weekly, major_incidents,
+        changes: { total: chg.total || 0, executed: chg.executed || 0, successful: chg.successful || 0,
+          failed: chg.failed || 0, cancelled: chg.cancelled || 0, pending: chg.pending || 0,
+          emergency: chg.emergency || 0, success_pct: (chg.success_pct == null ? null : chg.success_pct), window_days: 90 },
       });
     } catch (_) { res.json({ applicable: true, snapshot: null, weekly: [], major_incidents: [] }); }
   });

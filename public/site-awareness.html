@@ -12,6 +12,7 @@
 <script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
 <script nonce="%%CSP_NONCE%%" src="auth.js" data-require="site-business|group-business|executive" data-redirect="login.html"></script>
 <script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js" defer></script>
 
 <style nonce="%%CSP_NONCE%%">
   body { margin:0; background:var(--color-background,#f4f6f7); color:var(--color-text-primary,#1F2A33);
@@ -81,6 +82,11 @@
   .sa-list .cat { flex:1; color:#3A4A60; }
   .sa-list .cnt { font-weight:700; font-variant-numeric:tabular-nums; color:var(--edv-slate,#3A4A60); }
   .sa-soon { padding:26px 16px; text-align:center; color:#8a94a2; }
+
+  /* Chart.js canvases — the charts are the prominent element ("les charts sont plus parlants") */
+  .sa-chart-wrap { position:relative; height:300px; }
+  .sa-chart-wrap--donut { height:280px; max-width:520px; margin:0 auto; }
+  .sa-chg-note { color:#8a94a2; padding:8px 0; }
 </style>
 </head>
 <body>
@@ -114,6 +120,11 @@
     </div>
 
     <div id="sa-tiles" class="sa-tiles"></div>
+
+    <div class="sa-panel" id="sa-hd-chart-panel">
+      <h2><span data-lng="en">Volume &amp; SLA — 6 weeks</span><span data-lng="fr">Volume &amp; SLA — 6 semaines</span></h2>
+      <div class="sa-chart-wrap"><canvas id="sa-hd-chart"></canvas></div>
+    </div>
 
     <div class="sa-panel">
       <h2><span data-lng="en">Last 6 weeks</span><span data-lng="fr">6 dernières semaines</span></h2>
@@ -152,6 +163,17 @@
     <div class="sa-panel">
       <h2><span data-lng="en">Top categories</span><span data-lng="fr">Top catégories</span></h2>
       <ul class="sa-list" id="sa-cats"></ul>
+    </div>
+
+    <!-- ════ Changes — 90-day window (read-only, counts only) ════ -->
+    <div class="sa-panel">
+      <h2 id="sa-chg-h"></h2>
+      <div class="sa-sub" id="sa-chg-sub" style="margin:-4px 0 12px"></div>
+      <div id="sa-chg-empty" class="sa-chg-note" style="display:none"></div>
+      <div id="sa-chg-body">
+        <div id="sa-chg-tiles" class="sa-tiles" style="margin-bottom:16px"></div>
+        <div class="sa-chart-wrap sa-chart-wrap--donut"><canvas id="sa-chg-chart"></canvas></div>
+      </div>
     </div>
   </div>
 
@@ -195,6 +217,20 @@
     t_backlog:       { fr: 'Backlog',                                 en: 'Backlog' },
     t_sla_overdue:   { fr: 'SLA en retard',                          en: 'SLA overdue' },
     t_major:         { fr: 'Incidents majeurs',                      en: 'Major incidents' },
+    // combo chart (6-week volume + SLA)
+    hd_volume:       { fr: 'Volume & SLA — 6 semaines',              en: 'Volume & SLA — 6 weeks' },
+    c_sla_missed:    { fr: 'SLA manqué %',                           en: 'SLA missed %' },
+    // changes (90-day) section
+    h_changes:       { fr: 'Changements — 90 jours',                 en: 'Changes — 90 days' },
+    h_changes_sub:   { fr: 'Fenêtre glissante de 90 jours (volume faible).', en: 'Rolling 90-day window (low volume).' },
+    chg_none:        { fr: 'Aucun changement (90 j).',               en: 'No changes (90 days).' },
+    c_total:         { fr: 'Total',                                  en: 'Total' },
+    c_success_rate:  { fr: 'Taux de succès',                         en: 'Success rate' },
+    c_emergency:     { fr: 'Urgents',                                en: 'Emergency' },
+    o_successful:    { fr: 'Réussis',                                en: 'Successful' },
+    o_failed:        { fr: 'Échoués',                                en: 'Failed' },
+    o_cancelled:     { fr: 'Annulés',                                en: 'Cancelled' },
+    o_pending:       { fr: 'En cours',                               en: 'Pending' },
     // empty / error states
     none:            { fr: 'Aucun',                                   en: 'None' },
     nodata:          { fr: 'Aucune donnée',                           en: 'No data' },
@@ -211,6 +247,9 @@
     { id: 'tracker',     key: 'tab_tracker' },
   ];
   let siteId = null, tabsAvail = { helpdesk: true }, current = 'helpdesk';
+  // Chart.js instances — kept module-scoped so each render destroys before recreate.
+  // A language toggle re-calls renderHelpdesk(cache), which rebuilds them in the new language.
+  let _hdChart = null, _chgChart = null;
 
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
   function fmtNum(v) { return v == null ? '—' : String(v); }
@@ -286,6 +325,69 @@
     $('sa-cats').innerHTML = cats.length ? cats.map(c =>
       `<li><span class="cat">${esc(c.category)}</span><span class="cnt">${fmtNum(c.count)}</span></li>`).join('')
       : `<li class="sa-muted">${esc(T('none'))}.</li>`;
+
+    renderHdChart(weekly);
+    renderChanges(data.changes);
+  }
+
+  // 6-week combo: bars Received + Closed (left axis) + line SLA missed % (right axis, 0-100).
+  // spanGaps:false so a null week breaks the line — never a false 0.
+  function renderHdChart(weekly) {
+    if (_hdChart) { _hdChart.destroy(); _hdChart = null; }
+    const panel = $('sa-hd-chart-panel');
+    if (typeof Chart === 'undefined' || !weekly.length) { if (panel) panel.style.display = 'none'; return; }
+    if (panel) panel.style.display = '';
+    const labels = weekly.map(w => w.label);
+    _hdChart = new Chart($('sa-hd-chart').getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { type: 'bar',  label: T('t_received'),   yAxisID: 'y',  data: weekly.map(w => w.inbound), backgroundColor: '#2A5490' },
+          { type: 'bar',  label: T('t_closed'),     yAxisID: 'y',  data: weekly.map(w => w.closed),  backgroundColor: '#27AE60' },
+          { type: 'line', label: T('c_sla_missed'), yAxisID: 'y1', data: weekly.map(w => w.missed_pct),
+            borderColor: '#E74C3C', backgroundColor: 'transparent', spanGaps: false, tension: 0.2, pointRadius: 3 },
+        ],
+      },
+      options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+        plugins: { title: { display: true, text: T('hd_volume') }, legend: { position: 'bottom' } },
+        scales: { y: { beginAtZero: true, title: { display: true, text: '#' } },
+          y1: { position: 'right', beginAtZero: true, suggestedMax: 100, grid: { drawOnChartArea: false },
+            title: { display: true, text: 'SLA %' } } } },
+    });
+  }
+
+  // Changes (90-day): outcome donut + stat tiles. Empty → a note, never an empty donut.
+  function renderChanges(chg) {
+    chg = chg || { total: 0, successful: 0, failed: 0, cancelled: 0, pending: 0, emergency: 0, success_pct: null };
+    const h = $('sa-chg-h'); if (h) h.textContent = T('h_changes');
+    const sub = $('sa-chg-sub'); if (sub) sub.textContent = T('h_changes_sub');
+    if (_chgChart) { _chgChart.destroy(); _chgChart = null; }
+
+    const empty = !chg.total;
+    const eN = $('sa-chg-empty'), body = $('sa-chg-body');
+    if (eN) { eN.style.display = empty ? '' : 'none'; eN.textContent = empty ? T('chg_none') : ''; }
+    if (body) body.style.display = empty ? 'none' : '';
+    if (empty) return;
+
+    const tiles = [
+      { lbl: T('c_total'),        val: fmtNum(chg.total) },
+      { lbl: T('c_success_rate'), val: chg.success_pct == null ? '—' : chg.success_pct + '%' },
+      { lbl: T('c_emergency'),    val: fmtNum(chg.emergency) },
+    ];
+    $('sa-chg-tiles').innerHTML = tiles.map(t =>
+      `<div class="sa-tile"><div class="lbl">${esc(t.lbl)}</div><div class="val">${esc(t.val)}</div></div>`).join('');
+
+    if (typeof Chart === 'undefined') return;
+    _chgChart = new Chart($('sa-chg-chart').getContext('2d'), {
+      type: 'doughnut',
+      data: {
+        labels: [T('o_successful'), T('o_failed'), T('o_cancelled'), T('o_pending')],
+        datasets: [{ data: [chg.successful, chg.failed, chg.cancelled, chg.pending],
+          backgroundColor: ['#27AE60', '#E74C3C', '#E8A100', '#9aa4b2'], borderColor: '#fff', borderWidth: 1 }],
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } },
+    });
   }
 
   async function loadHelpdesk() {

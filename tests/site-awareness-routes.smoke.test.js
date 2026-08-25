@@ -13,6 +13,7 @@ function makeApp(sessionUser) {
     userHasRole: (u, r) => (u.roles || []).includes(r),
     getSiteHelpdeskWindow: () => ({ created: 10, resolved: 8, backlog: 2, sla_overdue: 1, major_incidents: 0, top_categories: [], recurring: [] }),
     getActiveMajorIncidentsForSite: () => [{ id: 42, subject: 'X', requester: 'SECRET PERSON', technician: 'SECRET TECH', status: 'Open', created_time: '2026-08-01' }],
+    getSiteChangesWindow: () => ({ total: 5, executed: 4, successful: 3, failed: 1, cancelled: 0, pending: 1, emergency: 1, success_pct: 75 }),
   };
   const requireReportSession = (req, _res, next) => { req.reportUser = sessionUser; next(); };
   const app = express();
@@ -63,4 +64,12 @@ test('helpdesk payload carries NO PII (no requester/technician/subject leakage)'
   const json = JSON.stringify(body);
   assert.ok(!/SECRET PERSON|SECRET TECH/.test(json), 'requester/technician names must be stripped');
   assert.ok(body.snapshot && body.snapshot.created === 10);
+});
+
+test('helpdesk payload includes a whitelisted 90-day changes block', async () => {
+  const app = makeApp({ id: 5, roles: ['site-business'], site_id: 1 });
+  const { body } = await call(app, '/api/site-awareness/helpdesk');
+  assert.equal(body.changes.total, 5);
+  assert.equal(body.changes.success_pct, 75);
+  assert.equal(body.changes.window_days, 90);
 });
