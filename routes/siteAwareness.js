@@ -48,8 +48,17 @@ module.exports = function siteAwarenessRoutes({ express, requireReportSession, r
     const rag = c >= 0.9 ? 'green' : (c >= 0.75 ? 'amber' : 'red');
     return _cell(rag, Math.round(c * 100) + '%');
   }
-  // meetings: PVs held vs department target.
-  function ragMeetings(kpis) {
+  // A site "participates" in meetings iff it has ANY footprint (a PV, an open/high/escalated issue,
+  // or a department on the register). An office with a code but no meetings programme has none →
+  // it must read 'na' (non applicable), NOT red 0/3 (which would unfairly tank its overall).
+  function meetingsFootprint(kpis, departments) {
+    const k = kpis || {};
+    return (Number(k.pvs_held) || 0) > 0 || (Number(k.open_issues) || 0) > 0 || (Number(k.high_open) || 0) > 0 ||
+      (Number(k.escalations_open) || 0) > 0 || (Array.isArray(departments) && departments.length > 0);
+  }
+  // meetings: PVs held vs department target — 'na' when the site has no meetings footprint.
+  function ragMeetings(kpis, departments) {
+    if (!meetingsFootprint(kpis, departments)) return _cell('na', null);
     const k = kpis || {};
     const held = Number(k.pvs_held) || 0;
     const target = Number(k.dept_target) || 0;
@@ -88,10 +97,10 @@ module.exports = function siteAwarenessRoutes({ express, requireReportSession, r
     const now = new Date();
     let y = now.getUTCFullYear(), m = now.getUTCMonth() + 1;
     for (let i = 0; i < 24; i++) {
-      try { const s = trackerScore && trackerScore.ss(D, code, y, m); if (s && s.avg > 0) return { yr: y, mo: m }; } catch (_) {}
+      try { const s = trackerScore && trackerScore.ss(D, code, y, m); if (s && s.avg > 0) return { yr: y, mo: m, found: true }; } catch (_) {}
       m--; if (m < 1) { m = 12; y--; }
     }
-    return { yr: now.getUTCFullYear(), mo: now.getUTCMonth() + 1 };
+    return { yr: now.getUTCFullYear(), mo: now.getUTCMonth() + 1, found: false };
   }
 
   function authorizedSiteId(deps, user, requestedRaw) {
@@ -236,6 +245,10 @@ module.exports = function siteAwarenessRoutes({ express, requireReportSession, r
       const sum = (meetingsDb && typeof meetingsDb.getSiteMonthlyMeetingSummary === 'function'
         ? await meetingsDb.getSiteMonthlyMeetingSummary(code, y, mo) : {}) || {};
 
+      // A site with a code but NO meetings footprint (no PV, no issue, no department) isn't part of
+      // the departmental-meetings programme → non applicable, not a red "0 PVs" verdict.
+      if (!meetingsFootprint(sum.kpis, sum.departments)) return res.json({ applicable: false, site_id: gate.site_id, site_name: rs.site_name || null });
+
       // Whitelist: kpis are all counts (PII-safe); departments carry a dept name + status;
       // commentary is an auto-generated justification string. No requester/technician free-text.
       const k = sum.kpis || {};
@@ -331,7 +344,11 @@ module.exports = function siteAwarenessRoutes({ express, requireReportSession, r
       if (!D || !trackerScore) return res.json({ applicable: false, site_id: gate.site_id, site_name: rs.site_name || null });
 
       const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      const { yr, mo } = latestTrackerPeriod(D, code);   // most recent month WITH data for this site
+      const tp = latestTrackerPeriod(D, code);
+      // No scored month in the site's history → the site isn't on the Activity Tracker programme
+      // (offices aren't) → non applicable, not a red 0% verdict.
+      if (!tp.found) return res.json({ applicable: false, site_id: gate.site_id, site_name: rs.site_name || null });
+      const yr = tp.yr, mo = tp.mo;   // most recent month WITH data for this site
 
       // ss().avg is a 0-1 FRACTION → ×100 for %. Previous month rolls the year.
       const cur = trackerScore.ss(D, code, yr, mo) || {};
@@ -416,7 +433,7 @@ module.exports = function siteAwarenessRoutes({ express, requireReportSession, r
           try {
             if (rs.meetings_code && meetingsDb && typeof meetingsDb.getSiteMonthlyMeetingSummary === 'function') {
               const sum = (await meetingsDb.getSiteMonthlyMeetingSummary(rs.meetings_code, cy, cm)) || {};
-              cells.meetings = ragMeetings(sum.kpis);
+              cells.meetings = ragMeetings(sum.kpis, sum.departments);
             }
           } catch (_) {}
 
@@ -443,9 +460,11 @@ module.exports = function siteAwarenessRoutes({ express, requireReportSession, r
           // tracker — ss().avg.
           try {
             if (rs.tracker_code && D && trackerScore) {
-              const tp = latestTrackerPeriod(D, rs.tracker_code);   // most recent month WITH data
-              const cur = trackerScore.ss(D, rs.tracker_code, tp.yr, tp.mo) || {};
-              cells.tracker = ragTracker(cur.avg == null ? null : cur.avg);
+              const tp = latestTrackerPeriod(D, rs.tracker_code);   // most recent SCORED month
+              if (tp.found) {   // no scored month → leave 'na' (site not on the tracker programme)
+                const cur = trackerScore.ss(D, rs.tracker_code, tp.yr, tp.mo) || {};
+                cells.tracker = ragTracker(cur.avg == null ? null : cur.avg);
+              }
             }
           } catch (_) {}
         } catch (_) { /* per-site failure → all-na cells */ }

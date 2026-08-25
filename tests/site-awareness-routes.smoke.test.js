@@ -189,3 +189,23 @@ test('audit is super_admin-only and returns a per-site linkage table', async () 
   const r = body.sites[0];
   assert.ok(r.helpdesk && r.meetings && r.inspections && r.tracker && 'active' in r);
 });
+
+// An office with a module CODE but no actual programme footprint must read "non applicable",
+// NOT a red 0/3 (meetings) or 0% (tracker) that would unfairly tank its Group-View overall.
+test('a site not concerned by meetings/tracker → applicable:false (not a red verdict)', async () => {
+  const rdb = {
+    listSites: () => [{ id: 1, name: 'Ouagadougou', zoho_group: 'Ouaga IT Agents' }],
+    listSiteModuleCodes: (m) => (m === 'meetings' ? [{ site_id: 1, code: 'OUA' }] : []),
+    userHasRole: (u, r) => (u.roles || []).includes(r),
+    getSiteHelpdeskWindow: () => ({ created: 44, resolved: 43, backlog: 1, sla_overdue: 1, major_incidents: 0, top_categories: [] }),
+    getSiteChangesWindow: () => ({}),
+  };
+  const meetingsDb = { siteNameToCode: () => null, getSiteMonthlyMeetingSummary: () => ({ available: true, kpis: { pvs_held: 0, open_issues: 0, high_open: 0, escalations_open: 0, dept_target: 3 }, departments: [], trend: { months: [], opened: [], closed: [] } }) };
+  const trackerDb = { siteNameToCode: () => 'EDV', loadTracker: () => ({ year: 2026, currentMonth: 8, pillarWeights: {} }) };
+  const trackerScore = { ss: () => ({ avg: 0, g: 0, a: 0, r: 0, active: 0 }), ps2: () => 0, gP: () => [] };
+  const requireReportSession = (req, _res, next) => { req.reportUser = { id: 1, roles: ['group-business'] }; next(); };
+  const app = express();
+  app.use(require('../routes/siteAwareness')({ express, requireReportSession, rdb, meetingsDb, trackerDb, trackerScore }));
+  assert.equal((await call(app, '/api/site-awareness/meetings')).body.applicable, false, 'no meetings footprint → non applicable');
+  assert.equal((await call(app, '/api/site-awareness/tracker')).body.applicable, false, 'no scored tracker month → non applicable');
+});
