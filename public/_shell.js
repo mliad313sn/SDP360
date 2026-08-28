@@ -74,25 +74,75 @@
   // routes to the first accessible child).
   const NAV = [
     {
-      // Label renamed Operations → Helpdesk for clarity (the link points to
-      // the live helpdesk dashboard). id kept stable so existing pages'
-      // data-section="operations" attributes don't need to change.
-      id:    'operations',
-      label: 'Helpdesk',
-      icon:  ICON_LIB.headset,
-      href:  'index.html',
-      roles: ['any'],
-      title: 'Live helpdesk dashboard — ticket triage and SLA monitoring'
+      // ── Site Overview — the read-only business site view (GM/FM). Promoted to
+      // a TOP-LEVEL, directly-visible entry (flat link, no dropdown) because its
+      // audience is business users, who should reach it in one click rather than
+      // hunt inside a Reports menu. Role-gated to business + executive
+      // (super_admin passes via hierarchy); IT-only roles (admin/editor/viewer)
+      // never see it. A business-only user is auto-redirected here and this is
+      // their SOLE visible entry — so it never competes with the IT menus.
+      // (id stays 'site-awareness' — internal, matches the page + routes.)
+      id:    'site-awareness',
+      label: 'Site Overview',
+      icon:  ICON_LIB.building,
+      href:  'site-awareness.html',
+      roles: ['site-business', 'group-business', 'executive'],
+      title: 'Read-only business overview of your site'
     },
     {
-      // Reports is now a dropdown grouping both the site-report flow
-      // (weekly/monthly PPTX from operational data) and the Deck
-      // Builder (executive board deck). The parent click smart-lands
-      // on Site Reports — broadest audience, matches pre-2026-05-24
-      // behaviour. For viewers without `report-author` / `executive`
-      // / `super_admin`, only Site Reports is visible; renderNavItem
-      // collapses single-visible-child dropdowns to a flat link so
-      // they don't see a redundant one-item menu.
+      // ── Helpdesk — the live service-desk dashboard + its deep analytics.
+      // Analytics was rehomed here from the old Insights bucket: it IS
+      // helpdesk analysis, so it belongs beside the dashboard, not floating
+      // among unrelated modules. Pages set data-section="helpdesk".
+      // For a plain viewer, Analytics is gated → single visible child →
+      // renderNavItem collapses this to a flat "Helpdesk" link (unchanged UX).
+      id:       'helpdesk',
+      label:    'Helpdesk',
+      icon:     ICON_LIB.headset,
+      href:     'index.html',
+      roles:    ['any'],
+      title:    'Service desk — dashboard and analytics',
+      children: [
+        { id: 'dashboard', label: 'Dashboard', icon: ICON_LIB.headset,       href: 'index.html',     roles: ['any'] },
+        { id: 'analytics', label: 'Analytics', icon: ICON_LIB['line-chart'], href: 'analytics.html', roles: ['admin', 'scorecard-viewer'] }
+      ]
+    },
+    {
+      // ── Operations — the site-governance cadence: what field IT teams run
+      // and track. Inspections (assurance), Meetings (5-Engagements
+      // governance), Site Actions (follow-up register), Activity Tracker
+      // (strategic roadmap input). Pages set data-section="operations".
+      id:       'operations',
+      label:    'Operations',
+      icon:     ICON_LIB['clipboard-check'],
+      roles:    ['any'],
+      title:    'Site governance — inspections, meetings, actions, roadmap',
+      children: [
+        { id: 'inspections',  label: 'Inspections',        icon: ICON_LIB['clipboard-check'], href: 'inspections.html',      roles: ['any'] },
+        { id: 'meetings',     label: 'Meetings Decisions', icon: ICON_LIB.users,              href: 'meetings.html',         roles: ['any'] },
+        { id: 'site-actions', label: 'Site Actions',       icon: ICON_LIB.check,              href: 'site-actions.html',     roles: ['any'] },
+        { id: 'tracker',      label: 'Activity Tracker',   icon: ICON_LIB.target,             href: 'activity-tracker.html', roles: ['any'] }
+      ]
+    },
+    {
+      // ── Infrastructure — the technical estate we manage: the asset register
+      // (CMDB / hygiene / finance / licences) and the WAN (health + ISP SLA).
+      // Pages set data-section="infrastructure".
+      id:       'infrastructure',
+      label:    'Infrastructure',
+      icon:     ICON_LIB['hard-drive'],
+      roles:    ['any'],
+      title:    'Assets and network estate',
+      children: [
+        { id: 'assets', label: 'Assets', icon: ICON_LIB['hard-drive'],  href: 'assets.html', roles: ['any'] },
+        { id: 'wan',    label: 'WAN',    icon: ICON_LIB['bar-chart-3'], href: 'wan.html',    roles: ['any'] }
+      ]
+    },
+    {
+      // ── Reports — restitution surfaces: the authored site reports and the
+      // executive deck builder. (Ma Vue Site is now a promoted top-level entry,
+      // not buried here.) Parent smart-lands on Site Reports (broadest audience);
+      // renderNavItem collapses to a flat link for a viewer who sees only one.
       id:       'reports',
       label:    'Reports',
       icon:     ICON_LIB['file-text'],
@@ -100,61 +150,23 @@
       roles:    ['any'],
       title:    'Site reports and executive deck builder',
       children: [
-        { id: 'site-reports',    label: 'Site Reports', icon: ICON_LIB['file-text'],   href: 'reports.html',           roles: ['any'] },
-        { id: 'reports-builder', label: 'Deck Builder', icon: ICON_LIB.presentation,   href: 'executive-report.html',  roles: ['report-author', 'super_admin', 'executive'] }
+        { id: 'site-reports',    label: 'Site Reports', icon: ICON_LIB['file-text'], href: 'reports.html',          roles: ['any'] },
+        { id: 'reports-builder', label: 'Deck Builder', icon: ICON_LIB.presentation, href: 'executive-report.html', roles: ['report-author', 'super_admin', 'executive'] }
       ]
     },
     {
-      // Label renamed Performance → Insights to better describe the actual
-      // contents (analytics + scorecard + activity tracking + inspections +
-      // meetings — all read-only analytical / observational views).
-      // id kept stable as 'performance' so existing pages with
-      // data-section="performance" don't need to change.
-      //
-      // Order intentional: "any"-role items first (Inspections, Tracker,
-      // Meetings) so a site-IT user clicking the parent label smart-lands
-      // on Inspections (their most-frequent page). Admin- and executive-
-      // gated items follow at the bottom — those users have their own
-      // defaultLanding() targets and don't depend on this menu's order.
-      id:       'performance',
-      label:    'Insights',
-      icon:     ICON_LIB['trending-up'],
+      // ── Executive — the two cross-cutting pilotage dashboards: IT Review
+      // (fleet governance rollup from meetings + inspections) and the
+      // Executive Scorecard (KPI / action plan / tech / changes / CSAT).
+      // Pages set data-section="executive".
+      id:       'executive',
+      label:    'Executive',
+      icon:     ICON_LIB.gauge,
       roles:    ['any'],
-      title:    'Analytics, scorecards, inspections, and strategic activity tracking',
+      title:    'Executive dashboards — IT Review and Scorecard',
       children: [
-        // Site Awareness — read-only per-site business view (GM/FM). site-business sees only
-        // their site; group-business (CIO/CFO) + executive see all. super_admin passes via hierarchy.
-        { id: 'site-awareness', label: 'Ma Vue Site',       icon: ICON_LIB.building,           href: 'site-awareness.html',    roles: ['site-business', 'group-business', 'executive'] },
-        { id: 'inspections', label: 'Inspections',         icon: ICON_LIB['clipboard-check'], href: 'inspections.html',       roles: ['any']       },
-        { id: 'tracker',     label: 'Activity Tracker',    icon: ICON_LIB.target,             href: 'activity-tracker.html',  roles: ['any']       },
-        // Single Meetings entry — lands on meetings.html (List active by
-        // default). Dashboard / Issues / Council / Compliance / Setup are
-        // reached through the module's own intra-module tab strip, same
-        // pattern as Activity Tracker. Keeps Insights ▾ lean and matches
-        // the user mental model of "one module = one nav entry".
-        { id: 'meetings',    label: 'Meetings Decisions',  icon: ICON_LIB.users,              href: 'meetings.html',          roles: ['any']       },
-        { id: 'site-actions', label: 'Site Actions',       icon: ICON_LIB.check,              href: 'site-actions.html',      roles: ['any']       },
-        // Assets — ONE tabbed module (Inventory · Hygiene · Finance & Licences)
-        // over the ManageEngine-synced fleet, driven by one shared filter bar.
-        // The former standalone Hygiene + Finance pages are now the #hygiene /
-        // #finance tabs of assets.html (their old URLs redirect there).
-        { id: 'assets',      label: 'Assets',              icon: ICON_LIB['hard-drive'],      href: 'assets.html',            roles: ['any']       },
-        // WAN — one module, two tabs: "Santé & Qualité" (per-site availability +
-        // quality from the Meraki archive, any role) and "SLA & Refacturation"
-        // (contractual SLA + ISP chargeback, admin-gated inside). Old wan-health.html
-        // / wan-sla.html URLs redirect to wan.html#health / #sla.
-        { id: 'wan',        label: 'WAN',                  icon: ICON_LIB['bar-chart-3'],     href: 'wan.html',               roles: ['any']       },
-        // IT Review — the review of what the meetings produce, hence right after
-        // them. It now mounts the app shell (#__shell) like every other page and
-        // opens IN-PLACE (no target:'_blank'): its own internal header was
-        // de-stickied so the app banner is the sole sticky top bar.
-        { id: 'it-review',   label: 'IT Review',           icon: ICON_LIB['bar-chart-3'],     href: 'it-review.html',         roles: ['any'] },
-        // scorecard-viewer (feature role, 2026-06-12): READ-ONLY access to the
-        // two gated analytical pages for users who must consult them without
-        // holding the powerful executive/admin hierarchy tiers. Keep in sync
-        // with the data-require attributes in analytics.html + executive.html.
-        { id: 'analytics',   label: 'Analytics',           icon: ICON_LIB['line-chart'],      href: 'analytics.html',         roles: ['admin', 'scorecard-viewer']     },
-        { id: 'scorecard',   label: 'Executive Scorecard', icon: ICON_LIB.gauge,              href: 'executive.html',         roles: ['executive', 'scorecard-viewer'] }
+        { id: 'it-review', label: 'IT Review',           icon: ICON_LIB['bar-chart-3'], href: 'it-review.html', roles: ['any'] },
+        { id: 'scorecard', label: 'Executive Scorecard', icon: ICON_LIB.gauge,          href: 'executive.html', roles: ['executive', 'scorecard-viewer'] }
       ]
     },
     {
