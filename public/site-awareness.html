@@ -73,6 +73,8 @@ table.sa-fleet-tbl tbody tr:hover td{background:#F5F8FB}
 .sa-soon{padding:26px 16px;text-align:center;color:#66738A}
 #sa-mtg-commentary{font-style:italic;margin:-6px 0 4px}
 #sa-fleet-hint{margin:0 0 4px}
+.sa-fleet-tbl tr.sa-row-red td{background:#FDECEA}
+.sa-fleet-tbl tr.sa-row-red td:first-child{box-shadow:inset 3px 0 0 #DC2626;font-weight:600}
 #sa-chg-sub{margin:-8px 0 14px}
 #pane-helpdesk,#pane-fleet,#sa-insp-body,#sa-mtg-body,#sa-act-body,#sa-trk-body{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:14px;align-items:stretch}
 #pane-helpdesk>*,#pane-fleet>*,#sa-insp-body>*,#sa-mtg-body>*,#sa-act-body>*,#sa-trk-body>*{grid-column:1/-1;margin:0;min-width:0}
@@ -154,6 +156,8 @@ W.defaults=O.defaults;window.Chart=W;});
   <div id="pane-fleet" style="display:none">
     <p class="sa-sub" style="margin-top:0"><span data-lng="en">Compare the IT health of every site at a glance. Each dot sums up one area — green: healthy · amber: keep an eye on it · red: needs action · “—”: the site isn't concerned by this area. The Overall column blends the areas that apply.</span><span data-lng="fr">Comparez la santé IT de tous les sites d'un coup d'œil. Chaque pastille résume un domaine — vert : bon · orange : à surveiller · rouge : à traiter · « — » : site non concerné par ce domaine. La colonne Global agrège les domaines applicables.</span></p>
     <p class="sa-sub" style="margin-top:2px;font-size:12.5px"><span data-lng="en"><strong>How to read the columns —</strong> Support: tickets late / received (30 d) · Facilities: compliance rate · Meetings: held / expected this month · Actions: open items overdue · Projects: roadmap progress.</span><span data-lng="fr"><strong>Comment lire les colonnes —</strong> Assistance : tickets en retard / reçus (30 j) · Installations : taux de conformité · Réunions : tenues / prévues ce mois · Actions : en retard · Projets : avancement de la feuille de route.</span></p>
+    <div id="sa-fleet-kpis" class="sa-tiles" style="margin-bottom:10px"></div>
+    <div class="sa-sub" id="sa-fleet-readout" style="font-weight:600;color:#334155;margin:0 0 12px"></div>
     <div class="sa-sub" id="sa-fleet-hint"></div>
     <div class="sa-panel">
       <div class="sa-scroll">
@@ -450,6 +454,15 @@ W.defaults=O.defaults;window.Chart=W;});
     g_site:          { fr: 'Site',                                    en: 'Site' },
     g_overall:       { fr: 'Global',                                  en: 'Overall' },
     g_click:         { fr: 'Cliquez une ligne pour ouvrir le site',   en: 'Click a row to open the site' },
+    g_sites:         { fr: 'Sites',                                   en: 'Sites' },
+    g_green:         { fr: 'Verts',                                   en: 'Green' },
+    g_amber:         { fr: 'Ambre',                                   en: 'Amber' },
+    g_red:           { fr: 'Rouges',                                  en: 'Red' },
+    g_weak:          { fr: 'Point faible',                            en: 'Weak spot' },
+    g_worst:         { fr: 'Site le plus en difficulté',             en: 'Site most at risk' },
+    g_sitesred:      { fr: 'sites en rouge',                          en: 'sites red' },
+    g_steady:        { fr: 'Aucun domaine critique sur plusieurs sites', en: 'No area critical across several sites' },
+    g_allgreen:      { fr: 'Tous les sites au vert',                  en: 'All sites green' },
     gc_helpdesk:     { fr: 'Assistance',                             en: 'Support' },
     gc_inspections:  { fr: 'Installations',                          en: 'Facilities' },
     gc_meetings:     { fr: 'Réunions',                               en: 'Meetings' },
@@ -647,20 +660,73 @@ W.defaults=O.defaults;window.Chart=W;});
     const lbl = r === 'na' ? '—' : r.toUpperCase();
     return `<span class="sa-rag-pill" style="background:${color}22;color:${color}">${esc(lbl)}</span>`;
   }
+  // Severity score — drives worst-first sort AND "lowest" pick. A red cell weighs
+  // 3, amber 1; the Overall verdict dominates (red 10 / amber 3) so a red site
+  // always outranks an amber one. na/green cells score 0 → offices (mostly na)
+  // sink to the bottom.
+  function sevScore(r) {
+    var s = 0, cells = r.cells || {};
+    FLEET_MODS.forEach(function (m) { var rag = (cells[m] || {}).rag; if (rag === 'red') s += 3; else if (rag === 'amber') s += 1; });
+    if (r.overall_rag === 'red') s += 10; else if (r.overall_rag === 'amber') s += 3;
+    return s;
+  }
   function renderFleet(data) {
     data = data || { sites: [] };
-    const rows = Array.isArray(data.sites) ? data.sites : [];
+    var rows = (Array.isArray(data.sites) ? data.sites : []).slice();
+    // P1b — worst-first (stable: keep source order within equal severity)
+    rows.map(function (r, i) { r.__i = i; return r; });
+    rows.sort(function (a, b) { return (sevScore(b) - sevScore(a)) || (a.__i - b.__i); });
+
+    // P1a — fleet KPI strip (counts by Overall verdict)
+    var tot = rows.length, g = 0, a = 0, rd = 0;
+    rows.forEach(function (r) { if (r.overall_rag === 'green') g++; else if (r.overall_rag === 'amber') a++; else if (r.overall_rag === 'red') rd++; });
+    var kpis = [
+      { lbl: T('g_sites'), val: tot, color: null },
+      { lbl: T('g_green'), val: g,  color: RAG_COLORS.green },
+      { lbl: T('g_amber'), val: a,  color: RAG_COLORS.amber },
+      { lbl: T('g_red'),   val: rd, color: RAG_COLORS.red }
+    ];
+    var kEl = $('sa-fleet-kpis');
+    if (kEl) kEl.innerHTML = kpis.map(function (t) {
+      return '<div class="sa-tile"><div class="lbl">' + esc(t.lbl) + '</div><div class="val"'
+        + (t.color ? ' style="color:' + t.color + '"' : '') + '>' + esc(t.val) + '</div></div>';
+    }).join('');
+
+    // P1c — one-line read-out (worst module across the fleet + the lowest site)
+    var rEl = $('sa-fleet-readout');
+    if (rEl) {
+      if (!tot) { rEl.textContent = ''; }
+      else {
+        var best = null, bestN = 0;
+        FLEET_MODS.forEach(function (m) {
+          var n = 0; rows.forEach(function (r) { if (((r.cells || {})[m] || {}).rag === 'red') n++; });
+          if (n > bestN) { bestN = n; best = m; }
+        });
+        var parts = [];
+        if (rd === 0 && a === 0) {
+          parts.push(T('g_allgreen'));
+        } else {
+          if (best && bestN >= 2) parts.push(T('g_weak') + ' : ' + T(FLEET_COL_KEY[best]) + ' (' + bestN + ' ' + T('g_sitesred') + ')');
+          else parts.push(T('g_steady'));
+          if (rd > 0 && rows[0] && rows[0].overall_rag === 'red')
+            parts.push(T('g_worst') + ' : ' + (rows[0].site_name || ('Site ' + rows[0].site_id)));
+        }
+        rEl.textContent = parts.join('.  ') + '.';
+      }
+    }
+
     $('sa-fleet-hint').textContent = T('g_click') + '.';
-    $('sa-fleet-head').innerHTML = `<th>${esc(T('g_site'))}</th>`
-      + FLEET_MODS.map(m => `<th>${esc(T(FLEET_COL_KEY[m]))}</th>`).join('')
-      + `<th>${esc(T('g_overall'))}</th>`;
-    $('sa-fleet-body').innerHTML = rows.length ? rows.map(r => {
-      const cells = r.cells || {};
-      return `<tr data-site="${esc(r.site_id)}">`
-        + `<td>${esc(r.site_name) || ('Site ' + esc(r.site_id))}</td>`
-        + FLEET_MODS.map(m => `<td>${ragDotCell(cells[m])}</td>`).join('')
-        + `<td>${ragPill(r.overall_rag)}</td></tr>`;
-    }).join('') : `<tr><td colspan="7" class="sa-muted">${esc(T('nodata'))}.</td></tr>`;
+    $('sa-fleet-head').innerHTML = '<th>' + esc(T('g_site')) + '</th>'
+      + FLEET_MODS.map(function (m) { return '<th>' + esc(T(FLEET_COL_KEY[m])) + '</th>'; }).join('')
+      + '<th>' + esc(T('g_overall')) + '</th>';
+    $('sa-fleet-body').innerHTML = rows.length ? rows.map(function (r) {
+      var cells = r.cells || {};
+      var cls = r.overall_rag === 'red' ? ' class="sa-row-red"' : '';
+      return '<tr' + cls + ' data-site="' + esc(r.site_id) + '">'
+        + '<td>' + (esc(r.site_name) || ('Site ' + esc(r.site_id))) + '</td>'
+        + FLEET_MODS.map(function (m) { return '<td>' + ragDotCell(cells[m]) + '</td>'; }).join('')
+        + '<td>' + ragPill(r.overall_rag) + '</td></tr>';
+    }).join('') : '<tr><td colspan="7" class="sa-muted">' + esc(T('nodata')) + '.</td></tr>';
   }
 
   async function loadFleet() {
