@@ -37,7 +37,7 @@ Reading `routes/opmanager.js:210-224`: the **WAN summary route's PRIMARY `availa
 - Create: `services/infraHealth.js`
 - Test: `tests/infra-health.test.js`
 
-Copy `rollupRag` (green=2/amber=1/red=0, ≥.75 green / ≥.5 amber / else red, all-na→na) and `ragOrd`/`trendOf` from `routes/siteAwareness.js:82-89` (they are local there). `wanRollup(uplinks)` = min of non-null `availability_pct` across a site's uplinks (worst uplink drives site WAN health), status via the wan band (≥target green / ≥target×0.9 orange / else red), null when no uplink has a value.
+Copy `rollupRag` (green=2/amber=1/red=0, ≥.75 green / ≥.5 amber / else red, all-na→na) and `ragOrd`/`trendOf` from `routes/siteAwareness.js:82-89`. **Status-vocab normalization (review #3):** opm `status_color` is `'orange'`/`'none'` (`fillFamilies`, `opmanager.js:62-74`) and the WAN band yields `'orange'`; `rollupRag`/`ragOrd`/the page helpers expect **green/amber/red/na** — so `buildInfraMatrix` MUST map `orange→amber`, `none→na` on every cell before rollup + output. **WAN target (review #2):** `latestPerSite` uplinks carry **no `target`** — pass `wanTarget` in (default 98, from `cfg.opm_targets.wan`, threaded by Task 3). `wanRollup(uplinks, wanTarget)` = min of non-null `availability_pct` (worst uplink), band `≥target green / ≥target×0.9 amber / else red`, na when none. **`overall_trend` (review #7):** derive from the present family trends (down if any family `down`, else up if any `up`, else `no_change`) — do NOT fetch a prior period.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -45,26 +45,26 @@ Copy `rollupRag` (green=2/amber=1/red=0, ≥.75 green / ≥.5 amber / else red, 
 const { test } = require('node:test'); const assert = require('node:assert');
 const { buildInfraMatrix } = require('../services/infraHealth');
 
-test('buildInfraMatrix merges opm families + WAN roll-up, computes overall + na', () => {
+test('buildInfraMatrix merges opm families + WAN roll-up, normalizes vocab, computes overall + na', () => {
   const opmSites = [{ site_id: 1, site_name: 'Sabodala', families: [
-    { kpi_family: 'lan', metric_value: 79.1, target: 99, status_color: 'red', trend: 'no_change', stale: true },
+    { kpi_family: 'lan', metric_value: 79.1, target: 99, status_color: 'red',    trend: 'no_change', stale: true },
     { kpi_family: 'wifi', metric_value: null, status_color: 'none' },
-    { kpi_family: 'servers', metric_value: 66, target: 99, status_color: 'red', trend: 'up', stale: true },
+    { kpi_family: 'servers', metric_value: 98, target: 99, status_color: 'orange', trend: 'up', stale: true },
   ]}];
-  const wanSites = [{ site_id: 1, uplinks: [
-    { availability_pct: 66.7, target: 98 }, { availability_pct: 80, target: 98 } ]}];
-  const out = buildInfraMatrix({ opmSites, wanSites, asOf: '2026-08-28' });
+  const wanSites = [{ site_id: 1, uplinks: [ { availability_pct: 66.7 }, { availability_pct: 80 } ]}]; // NO target on uplinks
+  const out = buildInfraMatrix({ opmSites, wanSites, wanTarget: 98, asOf: '2026-08-28' });
   const s = out.sites[0];
   assert.equal(s.families.wan.value, 66.7);            // min across uplinks
   assert.equal(s.families.wan.rag, 'red');
-  assert.equal(s.families.wifi.rag, 'na');             // null → na, not red
+  assert.equal(s.families.wifi.rag, 'na');             // 'none' → na, not red
+  assert.equal(s.families.servers.rag, 'amber');       // 'orange' normalized → amber
   assert.equal(s.families.lan.value, 79.1);
-  assert.equal(s.overall_rag, 'red');                  // 3 red + 1 na → red
+  assert.equal(s.overall_rag, 'red');                  // red+amber+na → red
 });
 ```
 
 - [ ] **Step 2: Run it — expect FAIL** `node --test --test-force-exit tests/infra-health.test.js`
-- [ ] **Step 3: Implement `services/infraHealth.js`** (`rollupRag`, `ragOrd`, `trendOf`, `wanRollup`, `_cell`, and `buildInfraMatrix` merging `opmSites` families {lan,wifi,servers} + `wanRollup(wanSites)` → `{sites:[{site_id, site_name, overall_rag, overall_trend, families:{wan,lan,wifi,servers}}], fleet:{by_family_counts, freshness}}`). Missing family → na cell. `module.exports`.
+- [ ] **Step 3: Implement `services/infraHealth.js`** — `rollupRag`, `ragOrd`, `trendOf`, `_normRag(c)` (`orange→amber`, `none→na`), `wanRollup(uplinks, wanTarget)`, `_cell`, `buildInfraMatrix({opmSites, wanSites, wanTarget, targets, asOf})` merging normalized opm families {lan,wifi,servers} + `wanRollup` → `{sites:[{site_id, site_name, overall_rag, overall_trend, families:{wan,lan,wifi,servers}}], fleet:{by_family_counts, freshness}}`. Missing family → na. `module.exports`.
 - [ ] **Step 4: Run — expect PASS**
 - [ ] **Step 5: Commit** `git add services/infraHealth.js tests/infra-health.test.js && git commit -m "feat(infra-health): pure buildInfraMatrix + WAN roll-up"`
 
@@ -72,7 +72,7 @@ test('buildInfraMatrix merges opm families + WAN roll-up, computes overall + na'
 
 **Files:** Modify `services/infraHealth.js`; Test `tests/infra-health.test.js`
 
-`buildInfraTrend({ opmMonthly, months, asOf })` → `{ labels:[YYYY-MM…contiguous ending at asOf], series:{ lan:[], wifi:[], servers:[] } }`. Group monthly rows by `period_start` (YYYY-MM); **null for months with no snapshot** (never 0). No WAN series (v1).
+`buildInfraTrend({ opmMonthly, months, asOf })` → `{ labels:[YYYY-MM…contiguous ending at asOf], series:{ lan:[], wifi:[], servers:[] } }`. **Filter `metric_name === 'availability'` first (review #6)** — `getInfraSnapshots` is `SELECT *` across all metric_names (`reports-db.js:2685`); `fillFamilies` filters the same way (`opmanager.js:62`). Then group by `period_start` (YYYY-MM) × family; **null for months with no snapshot** (never 0). No WAN series (v1).
 
 - [ ] **Step 1: Failing test** — feed opmMonthly rows for 2 non-contiguous months + assert the axis is contiguous, gaps are `null`, and a family present only some months has `null` elsewhere.
 - [ ] **Step 2: Run — FAIL**
@@ -84,7 +84,7 @@ test('buildInfraMatrix merges opm families + WAN roll-up, computes overall + na'
 
 **Files:** Modify `routes/opmanager.js` (add near the opmanager `/availability` route); Test `tests/infra-health-routes.smoke.test.js`
 
-Group-scoped (super/exec/group). Fetch: OpManager availability (the same code the `/opmanager/availability` route uses — `getInfraSnapshots` + `fillFamilies`), WAN via `wanDashboard.latestPerSite(await getWanSnapshots({period_type}))`, coverage via the existing reader. Hand to `buildInfraMatrix`. Attach `coverage` (incl. `available:false`). Best-effort: any source throwing → that family na, never 500. Return `{ period, as_of, sites, fleet, coverage }`.
+Guard: **`requireReportSession` only** (review #5 — match the sibling opmanager/wan routes + the `roles:['any']` nav child; NOT group-scoped). Fetch: OpManager availability (same code the `/opmanager/availability` route uses — `getInfraSnapshots` + `fillFamilies`), WAN via `wanDashboard.latestPerSite(await rdb.getWanSnapshots({period_type}))`, **`cfg.opm_targets.wan`** (default 98, parse like `opmanager.js:181`) threaded as `wanTarget`, and coverage. **Coverage is the BODY of the `/opmanager/coverage` route (`opmanager.js:119-145`), not a one-line reader (review #4)** — extract a `_coverage(cfg)` helper (config gate → REST `listDevices` OR analytics `fetchView` → `coverageSummary`; returns `{available, source, total, included, excluded, by_family, unmapped_probes}`) and call it from BOTH the existing coverage route and here. Hand opm+wan+wanTarget to `buildInfraMatrix`; attach `coverage` (incl. `available:false`). Best-effort: any source throwing → that family na / coverage `{available:false}`, never 500. Return `{ period, as_of, sites, fleet, coverage }`.
 
 - [ ] **Step 1: Smoke test** (mirror `tests/site-awareness-routes.smoke.test.js` `call()` using core `http`, NOT fetch): assert 200, `sites[]`, each site has `families.{wan,lan,wifi,servers}` + `overall_rag`, and `coverage` present. Seed a throwaway sqlite via `SDP_DATA_DIR`.
 - [ ] **Step 2: Run — FAIL**
