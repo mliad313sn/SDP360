@@ -154,6 +154,9 @@ test('fleet view returns a per-site RAG grid for a group user', async () => {
   assert.ok(Array.isArray(body.sites) && body.sites.length >= 1);
   const r = body.sites[0];
   assert.ok(r.cells && r.cells.helpdesk && r.cells.tracker && r.overall_rag);
+  // P2: the retroactive MoM Δ contract — every fleet row carries an overall_trend key
+  // (null when there's nothing to compare), so the frontend can render the ▲/▼ chip.
+  assert.ok('overall_trend' in r, 'fleet row must carry overall_trend (P2)');
 });
 
 // REGRESSION (prod bug 2026-08-25): on postgres, rdb.listSites / listSiteModuleCodes return a

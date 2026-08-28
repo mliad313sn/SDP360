@@ -87,6 +87,15 @@ module.exports = function siteAwarenessRoutes({ express, requireReportSession, r
     const pct = (scored.reduce((a, b) => a + b, 0) / scored.length) / 2;
     return pct >= 0.75 ? 'green' : (pct >= 0.5 ? 'amber' : 'red');
   }
+  // RAG ordinal + month-over-month direction. Higher RAG = better, so 'up' is always an
+  // improvement. Returns null when either period is na (nothing to compare) — the frontend
+  // then shows no chip. Used for the Group View's retroactive Δ (P2).
+  function ragOrd(rag) { return rag === 'green' ? 2 : rag === 'amber' ? 1 : rag === 'red' ? 0 : null; }
+  function trendOf(prevRag, curRag) {
+    const p = ragOrd(prevRag), c = ragOrd(curRag);
+    if (p == null || c == null) return null;
+    return c > p ? 'up' : (c < p ? 'down' : 'flat');
+  }
 
   // The tracker is PER-YEAR and the config's currentMonth is unreliable (prod points at an EMPTY
   // 2027-03 structure while the real scores sit in 2026). So anchor on the CURRENT calendar month
@@ -406,11 +415,17 @@ module.exports = function siteAwarenessRoutes({ express, requireReportSession, r
       const h1 = _d(Date.now()), h0 = _d(Date.now() - 30 * 86400000);   // helpdesk 30-day
       const i1 = _d(Date.now()), i0 = _d(Date.now() - 90 * 86400000);   // inspections 90-day
       const asOf = _d(Date.now());
+      // P2 — previous-period windows for the retroactive month-over-month Δ (4 recomputable
+      // modules; Actions is point-in-time and not reconstructible, so it gets no Δ).
+      const hp1 = h0, hp0 = _d(Date.now() - 60 * 86400000);             // helpdesk prev 30-day
+      const ip1 = i0, ip0 = _d(Date.now() - 180 * 86400000);           // inspections prev 90-day
+      let pcy = cy, pcm = cm - 1; if (pcm < 1) { pcm = 12; pcy = cy - 1; }  // meetings prev calendar month
 
       const rows = await Promise.all(sites.map(async (s) => {
         const cells = { helpdesk: _cell('na', null), inspections: _cell('na', null),
           meetings: _cell('na', null), actions: _cell('na', null), tracker: _cell('na', null) };
         let site_name = s.site_name;
+        let overall_trend = null;
         try {
           const rs = resolveSite(deps, s.site_id) || {};
           site_name = rs.site_name || site_name;
@@ -457,19 +472,35 @@ module.exports = function siteAwarenessRoutes({ express, requireReportSession, r
             }
           } catch (_) {}
 
-          // tracker — ss().avg.
+          // tracker — ss().avg. (tp hoisted so the prev-period Δ can reuse it.)
+          let tp = null;
           try {
             if (rs.tracker_code && D && trackerScore) {
-              const tp = latestTrackerPeriod(D, rs.tracker_code);   // most recent SCORED month
+              tp = latestTrackerPeriod(D, rs.tracker_code);   // most recent SCORED month
               if (tp.found) {   // no scored month → leave 'na' (site not on the tracker programme)
                 const cur = trackerScore.ss(D, rs.tracker_code, tp.yr, tp.mo) || {};
                 cells.tracker = ragTracker(cur.avg == null ? null : cur.avg);
               }
             }
           } catch (_) {}
+
+          // P2 — previous-period cells for the 4 recomputable modules → per-cell + overall Δ.
+          // Best-effort: any reader that throws leaves that module's Δ null (no chip).
+          const prev = { helpdesk: null, inspections: null, meetings: null, tracker: null };
+          try { const hw2 = (await rdb.getSiteHelpdeskWindow(s.site_id, hp0, hp1)) || {}; prev.helpdesk = ragHelpdesk(hw2.created || 0, hw2.sla_overdue || 0); } catch (_) {}
+          try { if (rs.inspection_code && inspectionDb && typeof inspectionDb.aggregate === 'function') { const a2 = (await inspectionDb.aggregate({ site: rs.inspection_code, from: ip0, to: ip1 })) || {}; prev.inspections = ragInspections(a2.findingStatus); } } catch (_) {}
+          try { if (rs.meetings_code && meetingsDb && typeof meetingsDb.getSiteMonthlyMeetingSummary === 'function') { const s2 = (await meetingsDb.getSiteMonthlyMeetingSummary(rs.meetings_code, pcy, pcm)) || {}; prev.meetings = ragMeetings(s2.kpis, s2.departments); } } catch (_) {}
+          try { if (rs.tracker_code && D && trackerScore && tp && tp.found) { let py = tp.yr, pm = tp.mo - 1; if (pm < 1) { pm = 12; py--; } const pv = trackerScore.ss(D, rs.tracker_code, py, pm) || {}; prev.tracker = ragTracker(pv.avg == null ? null : pv.avg); } } catch (_) {}
+          ['helpdesk', 'inspections', 'meetings', 'tracker'].forEach((k) => { cells[k].trend = trendOf(prev[k] && prev[k].rag, cells[k] && cells[k].rag); });
+          cells.actions.trend = null;   // point-in-time → not reconstructible
+          // Overall Δ over the SAME 4-module subset both periods (Actions excluded — no prev basis).
+          const _sub = ['helpdesk', 'inspections', 'meetings', 'tracker'];
+          const _curSub = {}, _prevSub = {};
+          _sub.forEach((k) => { _curSub[k] = cells[k]; _prevSub[k] = prev[k] || _cell('na', null); });
+          overall_trend = trendOf(rollupRag(_prevSub), rollupRag(_curSub));
         } catch (_) { /* per-site failure → all-na cells */ }
 
-        return { site_id: s.site_id, site_name: site_name || null, overall_rag: rollupRag(cells), cells };
+        return { site_id: s.site_id, site_name: site_name || null, overall_rag: rollupRag(cells), overall_trend: overall_trend, cells };
       }));
 
       res.json({ sites: rows });

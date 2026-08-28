@@ -75,6 +75,10 @@ table.sa-fleet-tbl tbody tr:hover td{background:#F5F8FB}
 #sa-fleet-hint{margin:0 0 4px}
 .sa-fleet-tbl tr.sa-row-red td{background:#FDECEA}
 .sa-fleet-tbl tr.sa-row-red td:first-child{box-shadow:inset 3px 0 0 #DC2626;font-weight:600}
+.sa-trend{font-size:9px;margin-left:4px;vertical-align:middle;font-weight:700;line-height:1}
+.sa-trend.big{font-size:11px;margin-left:6px}
+.sa-trend.up{color:#27AE60}
+.sa-trend.down{color:#DC2626}
 #sa-chg-sub{margin:-8px 0 14px}
 #pane-helpdesk,#pane-fleet,#sa-insp-body,#sa-mtg-body,#sa-act-body,#sa-trk-body{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:14px;align-items:stretch}
 #pane-helpdesk>*,#pane-fleet>*,#sa-insp-body>*,#sa-mtg-body>*,#sa-act-body>*,#sa-trk-body>*{grid-column:1/-1;margin:0;min-width:0}
@@ -155,7 +159,7 @@ W.defaults=O.defaults;window.Chart=W;});
   <!-- ════ Group View (fleet RAG grid) — GROUP-only ════ -->
   <div id="pane-fleet" style="display:none">
     <p class="sa-sub" style="margin-top:0"><span data-lng="en">Compare the IT health of every site at a glance. Each dot sums up one area — green: healthy · amber: keep an eye on it · red: needs action · “—”: the site isn't concerned by this area. The Overall column blends the areas that apply.</span><span data-lng="fr">Comparez la santé IT de tous les sites d'un coup d'œil. Chaque pastille résume un domaine — vert : bon · orange : à surveiller · rouge : à traiter · « — » : site non concerné par ce domaine. La colonne Global agrège les domaines applicables.</span></p>
-    <p class="sa-sub" style="margin-top:2px;font-size:12.5px"><span data-lng="en"><strong>How to read the columns —</strong> Support: tickets late / received (30 d) · Facilities: compliance rate · Meetings: held / expected this month · Actions: open items overdue · Projects: roadmap progress.</span><span data-lng="fr"><strong>Comment lire les colonnes —</strong> Assistance : tickets en retard / reçus (30 j) · Installations : taux de conformité · Réunions : tenues / prévues ce mois · Actions : en retard · Projets : avancement de la feuille de route.</span></p>
+    <p class="sa-sub" style="margin-top:2px;font-size:12.5px"><span data-lng="en"><strong>How to read the columns —</strong> Support: tickets late / received (30 d) · Facilities: compliance rate · Meetings: held / expected this month · Actions: open items overdue · Projects: roadmap progress. <strong>▲/▼</strong> = vs last month (Actions has no history).</span><span data-lng="fr"><strong>Comment lire les colonnes —</strong> Assistance : tickets en retard / reçus (30 j) · Installations : taux de conformité · Réunions : tenues / prévues ce mois · Actions : en retard · Projets : avancement de la feuille de route. <strong>▲/▼</strong> = vs mois dernier (Actions : pas d'historique).</span></p>
     <div id="sa-fleet-kpis" class="sa-tiles" style="margin-bottom:10px"></div>
     <div class="sa-sub" id="sa-fleet-readout" style="font-weight:600;color:#334155;margin:0 0 12px"></div>
     <div class="sa-sub" id="sa-fleet-hint"></div>
@@ -463,6 +467,8 @@ W.defaults=O.defaults;window.Chart=W;});
     g_sitesred:      { fr: 'sites en rouge',                          en: 'sites red' },
     g_steady:        { fr: 'Aucun domaine critique sur plusieurs sites', en: 'No area critical across several sites' },
     g_allgreen:      { fr: 'Tous les sites au vert',                  en: 'All sites green' },
+    g_up:            { fr: 'Amélioration vs mois dernier',           en: 'Improved vs last month' },
+    g_down:          { fr: 'Dégradation vs mois dernier',            en: 'Worsened vs last month' },
     gc_helpdesk:     { fr: 'Assistance',                             en: 'Support' },
     gc_inspections:  { fr: 'Installations',                          en: 'Facilities' },
     gc_meetings:     { fr: 'Réunions',                               en: 'Meetings' },
@@ -647,12 +653,18 @@ W.defaults=O.defaults;window.Chart=W;});
   const RAG_COLORS = { green: '#27AE60', amber: '#E8A100', red: '#DC2626', na: '#b6bdc7' };
   const FLEET_MODS = ['helpdesk', 'inspections', 'meetings', 'actions', 'tracker'];
   const FLEET_COL_KEY = { helpdesk: 'gc_helpdesk', inspections: 'gc_inspections', meetings: 'gc_meetings', actions: 'gc_actions', tracker: 'gc_tracker' };
+  // P2 — month-over-month chip. up = improved (green ▲), down = worsened (red ▼); flat/absent = nothing.
+  function trendChip(t, big) {
+    if (t === 'up') return '<span class="sa-trend up' + (big ? ' big' : '') + '" title="' + esc(T('g_up')) + '">▲</span>';
+    if (t === 'down') return '<span class="sa-trend down' + (big ? ' big' : '') + '" title="' + esc(T('g_down')) + '">▼</span>';
+    return '';
+  }
   function ragDotCell(cell) {
     const c = cell || { rag: 'na', value: null };
     const color = RAG_COLORS[c.rag] || RAG_COLORS.na;
     const val = (c.value == null || c.value === '') ? '—' : c.value;
     return `<span class="sa-rag"><span class="sa-rag-dot" style="background:${color}"></span>`
-      + `<span class="sa-rag-val">${esc(val)}</span></span>`;
+      + `<span class="sa-rag-val">${esc(val)}</span>${trendChip(c.trend)}</span>`;
   }
   function ragPill(rag) {
     const r = rag || 'na';
@@ -725,7 +737,7 @@ W.defaults=O.defaults;window.Chart=W;});
       return '<tr' + cls + ' data-site="' + esc(r.site_id) + '">'
         + '<td>' + (esc(r.site_name) || ('Site ' + esc(r.site_id))) + '</td>'
         + FLEET_MODS.map(function (m) { return '<td>' + ragDotCell(cells[m]) + '</td>'; }).join('')
-        + '<td>' + ragPill(r.overall_rag) + '</td></tr>';
+        + '<td>' + ragPill(r.overall_rag) + trendChip(r.overall_trend, true) + '</td></tr>';
     }).join('') : '<tr><td colspan="7" class="sa-muted">' + esc(T('nodata')) + '.</td></tr>';
   }
 
