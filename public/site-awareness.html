@@ -171,6 +171,7 @@ W.defaults=O.defaults;window.Chart=W;});
         </table>
       </div>
     </div>
+    <p class="sa-sub" id="sa-fleet-source" style="font-size:11px;color:#93a1b3;margin:10px 0 0"></p>
   </div>
 
   <!-- ════ User Support (helpdesk) ════ -->
@@ -469,6 +470,9 @@ W.defaults=O.defaults;window.Chart=W;});
     g_allgreen:      { fr: 'Tous les sites au vert',                  en: 'All sites green' },
     g_up:            { fr: 'Amélioration vs mois dernier',           en: 'Improved vs last month' },
     g_down:          { fr: 'Dégradation vs mois dernier',            en: 'Worsened vs last month' },
+    g_asof:          { fr: 'Données au',                             en: 'Data as of' },
+    g_windows:       { fr: 'Assistance : 30 j glissants · Installations : 90 j · Réunions : mois en cours · Actions : à l’instant T · Projets : dernier mois noté',
+                       en: 'Support: rolling 30 d · Facilities: 90 d · Meetings: current month · Actions: point-in-time · Projects: latest scored month' },
     gc_helpdesk:     { fr: 'Assistance',                             en: 'Support' },
     gc_inspections:  { fr: 'Installations',                          en: 'Facilities' },
     gc_meetings:     { fr: 'Réunions',                               en: 'Meetings' },
@@ -739,6 +743,10 @@ W.defaults=O.defaults;window.Chart=W;});
         + FLEET_MODS.map(function (m) { return '<td>' + ragDotCell(cells[m]) + '</td>'; }).join('')
         + '<td>' + ragPill(r.overall_rag) + trendChip(r.overall_trend, true) + '</td></tr>';
     }).join('') : '<tr><td colspan="7" class="sa-muted">' + esc(T('nodata')) + '.</td></tr>';
+
+    // P3 — provenance: server as-of date + the window each column uses.
+    var srcEl = $('sa-fleet-source');
+    if (srcEl) srcEl.textContent = data.as_of ? (T('g_asof') + ' ' + data.as_of + ' — ' + T('g_windows') + '.') : '';
   }
 
   async function loadFleet() {

@@ -157,6 +157,8 @@ test('fleet view returns a per-site RAG grid for a group user', async () => {
   // P2: the retroactive MoM Δ contract — every fleet row carries an overall_trend key
   // (null when there's nothing to compare), so the frontend can render the ▲/▼ chip.
   assert.ok('overall_trend' in r, 'fleet row must carry overall_trend (P2)');
+  // P3: provenance — the response carries a server as-of date the page prints under the table.
+  assert.equal(typeof body.as_of, 'string', 'fleet response must carry as_of (P3)');
 });
 
 // REGRESSION (prod bug 2026-08-25): on postgres, rdb.listSites / listSiteModuleCodes return a

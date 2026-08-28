@@ -503,7 +503,7 @@ module.exports = function siteAwarenessRoutes({ express, requireReportSession, r
         return { site_id: s.site_id, site_name: site_name || null, overall_rag: rollupRag(cells), overall_trend: overall_trend, cells };
       }));
 
-      res.json({ sites: rows });
+      res.json({ sites: rows, as_of: asOf });
     } catch (_) { res.json({ sites: [] }); }
   });
 
