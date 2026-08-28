@@ -774,6 +774,13 @@ async function fetchView(viewId, maxRows = 2000) {
         `${CONFIG.analyticsApi}/workspaces/${CONFIG.workspaceId}/views/${viewId}/data`,
         { headers: apiHeaders(freshToken), params: { responseFormat: 'csv', maxRows }, timeout: timeoutMs }
       );
+    } else if (_isSyncExportBlocked(err)) {
+      // Query Tables (SQL views) REJECT synchronous export (errorCode 8133 — "Synchronous export
+      // not allowed for the provided view"). The Analytics API demands the ASYNC bulk-export model
+      // for them. Transparently switch to it so any query-table view (e.g. the OpManager
+      // OPS_OPM_Device_Availability_Daily) works through the same fetchView entry point.
+      console.warn(`[fetchView] view ${viewId} disallows sync export (8133) — switching to async bulk export`);
+      return await fetchViewAsync(viewId, maxRows);
     } else {
       // Log full response body for any non-401 error so we can diagnose root cause
       if (err.response) {
@@ -788,6 +795,66 @@ async function fetchView(viewId, maxRows = 2000) {
     return { status: 'success', rows, columns: rows.length > 0 ? Object.keys(rows[0]) : [] };
   }
   return r.data;
+}
+
+// Detect the Analytics "synchronous export not allowed" rejection (errorCode 8133). Query Tables
+// require the async bulk-export model instead of the sync /data export. Tolerant to object OR
+// string error bodies.
+function _isSyncExportBlocked(err) {
+  const b = err && err.response && err.response.data;
+  if (!b) return false;
+  if (typeof b === 'string') return b.indexOf('SYNC_EXPORT_NOT_ALLOWED') !== -1 || b.indexOf('8133') !== -1;
+  if (typeof b === 'object') {
+    if (b.summary === 'SYNC_EXPORT_NOT_ALLOWED') return true;
+    if (b.data && (b.data.errorCode === 8133 || b.data.errorCode === '8133')) return true;
+  }
+  return false;
+}
+
+// Async bulk export for views the sync API rejects (Query Tables). Flow (ManageEngine Analytics
+// Plus Bulk API): initiate an export job → poll exportjobs/{jobId} until a downloadUrl appears →
+// download the CSV → same csvToRows + PII scrub as fetchView. Returns the identical shape, so
+// callers (readDailyRows, sync jobs) are unaffected.
+async function fetchViewAsync(viewId, maxRows = 2000) {
+  const token = await getValidToken();
+  const headers = apiHeaders(token);
+  const base = `${CONFIG.analyticsApi}/bulk/workspaces/${CONFIG.workspaceId}`;
+  // 1. initiate the export job
+  const init = await axios.get(`${base}/views/${viewId}/data`, {
+    headers, timeout: 60000,
+    params: { CONFIG: JSON.stringify({ responseFormat: 'csv' }) },
+  });
+  const jobId = init && init.data && init.data.data && init.data.data.jobId;
+  if (!jobId) throw new Error('[fetchViewAsync] no jobId in initiate response: ' + JSON.stringify(init && init.data));
+  // 2. poll until the job produces a downloadUrl (or fails / times out) — ~90s max
+  let downloadUrl = null;
+  for (let i = 0; i < 45; i++) {
+    await new Promise((res) => setTimeout(res, 2000));
+    let jr;
+    try {
+      jr = await axios.get(`${base}/exportjobs/${jobId}`, { headers, timeout: 30000 });
+    } catch (e) {
+      if (e.response && e.response.status === 401) {   // token aged out mid-poll — refresh + retry
+        tokenState.accessToken = null; tokenState.expiresAt = 0;
+        const fresh = await refreshAccessToken();
+        Object.assign(headers, apiHeaders(fresh));
+        continue;
+      }
+      throw e;
+    }
+    const d = (jr && jr.data && jr.data.data) || {};
+    const st = String(d.jobStatus || d.jobCode || '');
+    if (d.downloadUrl) { downloadUrl = d.downloadUrl; break; }
+    if (/FAIL|ERROR/i.test(st)) throw new Error('[fetchViewAsync] export job failed: ' + st);
+  }
+  if (!downloadUrl) throw new Error('[fetchViewAsync] export job did not complete in time');
+  // 3. download the CSV (downloadUrl is usually absolute; fall back to the canonical path)
+  const dlUrl = /^https?:\/\//i.test(downloadUrl) ? downloadUrl : `${base}/exportjobs/${jobId}/data`;
+  const dl = await axios.get(dlUrl, { headers, timeout: 120000, responseType: 'text' });
+  const csv = typeof dl.data === 'string' ? dl.data : String(dl.data == null ? '' : dl.data);
+  const rawRows = csvToRows(csv);
+  const rows = stripPiiColumns(rawRows);
+  return { status: 'success', rows, columns: rows.length > 0 ? Object.keys(rows[0]) : [] };
 }
 
 // Like fetchView but accepts an optional Zoho criteria filter string.
