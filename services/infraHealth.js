@@ -17,9 +17,9 @@ function normalizeRag(statusColor) {
 
 // EXACT roll-up copied from routes/siteAwareness.js:82-89
 function rollupRag(cells) {
-  const scored = Object.values(cells).map(c => c && c.rag)
-    .filter(r => r === 'green' || r === 'amber' || r === 'red')
-    .map(r => (r === 'green' ? 2 : (r === 'amber' ? 1 : 0)));
+  const scored = Object.values(cells).map((c) => c && c.rag)
+    .filter((r) => r === 'green' || r === 'amber' || r === 'red')
+    .map((r) => (r === 'green' ? 2 : (r === 'amber' ? 1 : 0)));
   if (!scored.length) return 'na';
   const pct = (scored.reduce((a, b) => a + b, 0) / scored.length) / 2;
   return pct >= 0.75 ? 'green' : (pct >= 0.5 ? 'amber' : 'red');

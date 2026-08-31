@@ -18,6 +18,30 @@ test('buildInfraMatrix merges opm families + WAN roll-up, normalizes vocab, comp
   assert.equal(s.overall_rag, 'red');
 });
 
+test('site with empty families and no WAN entry rolls up to overall_rag na (all-na branch)', () => {
+  const opmSites = [{ site_id: 99, site_name: 'Empty', families: [] }];
+  const out = buildInfraMatrix({ opmSites, wanSites: [], wanTarget: 98 });
+  const s = out.sites[0];
+  assert.equal(s.overall_rag, 'na');
+  // every family cell is na
+  assert.deepEqual(s.families.wan, { value: null, rag: 'na', target: 98, trend: null, stale: false });
+  assert.deepEqual(s.families.lan, { value: null, rag: 'na' });
+  assert.deepEqual(s.families.wifi, { value: null, rag: 'na' });
+  assert.deepEqual(s.families.servers, { value: null, rag: 'na' });
+});
+
+test('data_through_max is null when no family carries data_through; missing-family cell is exactly {value:null,rag:na}', () => {
+  const opmSites = [{ site_id: 7, site_name: 'S7', families: [
+    { kpi_family: 'lan', metric_value: 99, target: 99, status_color: 'green', trend: 'up', stale: false },
+    // wifi and servers absent -> missing-family cells
+  ]}];
+  const out = buildInfraMatrix({ opmSites, wanSites: [{ site_id: 7, uplinks: [ { availability_pct: 99 } ] }], wanTarget: 98 });
+  assert.equal(out.fleet.freshness.data_through_max, null);
+  const s = out.sites[0];
+  assert.deepEqual(s.families.wifi, { value: null, rag: 'na' });
+  assert.deepEqual(s.families.servers, { value: null, rag: 'na' });
+});
+
 test('WAN na when site has no wanSites entry and when no uplink has a value', () => {
   const opmSites = [
     { site_id: 10, site_name: 'NoWan', families: [
