@@ -116,9 +116,10 @@ module.exports = function opmanagerRoutes(deps) {
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
 
-  router.get('/api/analytics/opmanager/coverage', requireReportSession, async (req, res) => {
+  // Coverage governance — shared by the /opmanager/coverage route AND /infra/summary. Returns
+  // {available, source, ...} or {available:false, reason}. Best-effort: never throws (caller-safe).
+  async function _coverage(cfg) {
     try {
-      const cfg = await reportConfig.getConfig(rdb.db);
       const { coverageSummary } = require('../services/opmAnalytics');
       const codes = (await rdb.listSiteModuleCodes('opmanager')) || [];
       const byProbe = {}; for (const c of codes) byProbe[String(c.code).trim().toLowerCase()] = c.site_id;
@@ -132,17 +133,60 @@ module.exports = function opmanagerRoutes(deps) {
         const raw = (await client.listDevices({ rows: 5000, page: 1 })) || [];
         const rows = raw.map(d => ({ device_key: d.name || d.deviceName || d.displayName, probe: d.probeName, type: d.type, category: d.category }));
         const cov = coverageSummary(rows, { classify: classifyKpiFamily, probeToSite });
-        return res.json({ available: true, source: 'opmanager_rest', ...cov });
+        return { available: true, source: 'opmanager_rest', ...cov };
       }
 
       // V1a fallback — the prepared Analytics view (dormant).
       const viewId = cfg && cfg.opm_availability_view_id;
-      if (!viewId) return res.json({ available: false, reason: 'opmanager REST or opm_availability_view_id not configured' });
+      if (!viewId) return { available: false, reason: 'opmanager REST or opm_availability_view_id not configured' };
       const { readDailyRows } = require('../services/opmAnalytics');
       const rows = await readDailyRows({ fetchView: deps.fetchView, viewId });
       const cov = coverageSummary(rows, { classify: classifyKpiFamily, probeToSite });
-      return res.json({ available: true, source: 'analytics', ...cov });
-    } catch (e) { return res.json({ available: false, reason: e.message }); }
+      return { available: true, source: 'analytics', ...cov };
+    } catch (e) { return { available: false, reason: e.message }; }
+  }
+
+  router.get('/api/analytics/opmanager/coverage', requireReportSession, async (req, res) => {
+    const cfg = await reportConfig.getConfig(rdb.db);
+    res.json(await _coverage(cfg));
+  });
+
+  // ── Infrastructure Health — unified per-site availability matrix (LAN/WLAN/Servers from
+  //    the OpManager snapshots + WAN from wan_link_snapshots), merged by the pure
+  //    services/infraHealth.buildInfraMatrix, plus the coverage governance summary. Best-effort,
+  //    session-guarded like the sibling opmanager/wan routes; never 500. ──
+  router.get('/api/analytics/infra/summary', requireReportSession, async (req, res) => {
+    try {
+      const { buildInfraMatrix } = require('../services/infraHealth');
+      const { latestPerSite } = require('../services/wanDashboard');
+      const period = req.query.period === 'month' ? 'month' : 'week';
+      const cfg = await reportConfig.getConfig(rdb.db);
+      const targets = _safeParse(cfg.opm_targets, {});
+      const staleDays = parseInt(cfg.opm_stale_days, 10) || 9;
+      const asOf = new Date().toISOString().slice(0, 10);
+      const nowMs = Date.now();
+
+      const siteList = (await rdb.listSites({ includeInactive: true })) || [];
+      const nameById = {}; for (const s of siteList) nameById[s.id] = s.name;
+
+      // opmSites — mirror /opmanager/availability's all-sites branch: group snapshots by site → fillFamilies.
+      const snaps = (await rdb.getInfraSnapshots({ period_type: period })) || [];
+      const bySite = {};
+      for (const r of snaps) (bySite[r.site_id] = bySite[r.site_id] || []).push(r);
+      const opmSites = Object.keys(bySite).map(sid => ({
+        site_id: Number(sid), site_name: nameById[sid] || null,
+        families: fillFamilies(bySite[sid], targets, staleDays, nowMs),
+      }));
+
+      // wanSites — latest per site/uplink from wan_link_snapshots (carry availability_pct + site_name).
+      const wanRows = (await rdb.getWanSnapshots({ period_type: period })) || [];
+      const wanSites = latestPerSite(wanRows).map(s => ({ ...s, site_name: nameById[s.site_id] || null }));
+
+      const wanTarget = Number(_safeParse(cfg.opm_targets, {}).wan) || 98;
+      const coverage = await _coverage(cfg);
+      const matrix = buildInfraMatrix({ opmSites, wanSites, wanTarget, asOf });
+      res.json({ period, as_of: asOf, sites: matrix.sites, fleet: matrix.fleet, coverage });
+    } catch (e) { res.json({ sites: [], reason: e.message }); }
   });
 
   router.post('/api/analytics/opmanager/sync', requireReportSession, requireAdmin, async (req, res) => {
