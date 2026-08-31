@@ -40,7 +40,9 @@ function wanRollup(uplinks, wanTarget) {
   const list = (uplinks || [])
     .map(u => ({
       label: String(u && u.uplink != null ? u.uplink : '').toUpperCase(),
-      value: (u && u.availability_pct != null ? u.availability_pct : null),
+      // Clamp to 100: the snapshot "% Time Up" can round slightly over 100 (e.g. 100.14) — a
+      // displayed availability > 100% is nonsense, so cap it here (never affects the RAG band).
+      value: (u && u.availability_pct != null ? Math.min(100, u.availability_pct) : null),
     }))
     .sort((a, b) => (a.label < b.label ? -1 : (a.label > b.label ? 1 : 0)));
 
@@ -83,7 +85,7 @@ function buildInfraMatrix({ opmSites, wanSites, wanTarget = 98, asOf } = {}) {
         cells[fam] = { value: null, rag: 'na' };
       } else {
         cells[fam] = {
-          value: f.metric_value,
+          value: (f.metric_value == null ? null : Math.min(100, f.metric_value)),  // cap at 100% (defensive)
           rag: normalizeRag(f.status_color),
           target: f.target,
           trend: f.trend,

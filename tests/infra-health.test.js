@@ -151,3 +151,15 @@ test('buildInfraTrend: axis crosses year boundary; wifi key present, gaps null',
   assert.equal(out.series.wifi[2], 95);
   assert.deepEqual(Object.keys(out.series).sort(), ['lan','servers','wifi']);
 });
+
+test('buildInfraMatrix caps availability at 100% (WAN + opm snapshots can round over 100)', () => {
+  const opmSites = [{ site_id: 1, site_name: 'X', families: [
+    { kpi_family: 'lan', metric_value: 100.14, target: 99, status_color: 'green', trend: 'up', stale: false },
+  ]}];
+  const wanSites = [{ site_id: 1, uplinks: [
+    { uplink: 'wan1', availability_pct: 100.14 }, { uplink: 'wan2', availability_pct: 100.14 } ]}];
+  const s = buildInfraMatrix({ opmSites, wanSites, wanTarget: 98, asOf: '2026-08-28' }).sites[0];
+  assert.equal(s.families.lan.value, 100, 'opm value capped at 100');
+  assert.equal(s.families.wan.value, 100, 'WAN min capped at 100');
+  assert.deepEqual(s.families.wan.uplinks, [{ label: 'WAN1', value: 100 }, { label: 'WAN2', value: 100 }], 'uplink values capped at 100');
+});
