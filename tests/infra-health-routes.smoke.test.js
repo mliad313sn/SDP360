@@ -62,3 +62,19 @@ test('each returned site (if any) carries the 4 families + overall_rag', async (
     assert.ok(typeof s.overall_rag === 'string', 'overall_rag present');
   }
 });
+
+test('GET /api/analytics/infra/trend → 200 with labels/series shape', async () => {
+  const app = makeApp();
+  const { status, body } = await call(app, '/api/analytics/infra/trend?site=HGO&months=6');
+  assert.equal(status, 200, 'must not 500');
+  assert.ok(Array.isArray(body.labels), 'labels is an array');
+  assert.ok(body.series && typeof body.series === 'object', 'series object present');
+});
+
+test('GET /api/analytics/infra/trend?site=<unknown> → 200 with empty labels (never 500)', async () => {
+  const app = makeApp();
+  const { status, body } = await call(app, '/api/analytics/infra/trend?site=__nope__');
+  assert.equal(status, 200, 'must not 500');
+  assert.deepEqual(body.labels, [], 'unknown site → labels:[]');
+  assert.ok(body.series && typeof body.series === 'object', 'series object present');
+});

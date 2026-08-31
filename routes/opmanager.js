@@ -189,6 +189,24 @@ module.exports = function opmanagerRoutes(deps) {
     } catch (e) { res.json({ sites: [], reason: e.message }); }
   });
 
+  // ── Infrastructure Health — monthly availability trend for ONE site (LAN/WLAN/Servers;
+  //    no WAN in v1). getInfraSnapshots(period_type:'month') returns ALL monthly rows for the
+  //    site; the pure buildInfraTrend slices to the last N months ending at asOf. Best-effort,
+  //    session-guarded; never 500. ──
+  router.get('/api/analytics/infra/trend', requireReportSession, async (req, res) => {
+    try {
+      const { buildInfraTrend } = require('../services/infraHealth');
+      const code = String(req.query.site || '').trim();
+      const site = await resolveSiteParam(code);
+      if (!site) return res.json({ site: code, site_id: null, labels: [], series: {} });
+      const months = Math.min(Math.max(parseInt(req.query.months, 10) || 12, 1), 36);
+      const opmMonthly = await rdb.getInfraSnapshots({ site_id: site.site_id, period_type: 'month' });
+      const asOf = new Date().toISOString().slice(0, 10);
+      const trend = buildInfraTrend({ opmMonthly: opmMonthly || [], months, asOf });
+      res.json({ site: code, site_id: site.site_id, site_name: site.name, months, labels: trend.labels, series: trend.series });
+    } catch (e) { res.json({ labels: [], series: {}, reason: e.message }); }
+  });
+
   router.post('/api/analytics/opmanager/sync', requireReportSession, requireAdmin, async (req, res) => {
     try {
       const r = await require('../tools/opmanager/sync-availability').main({ fetchView: deps.fetchView });
