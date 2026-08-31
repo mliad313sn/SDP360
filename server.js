@@ -1299,6 +1299,7 @@ function loadHtml(name) {
   'activity-tracker.html', 'help.html', 'exec-view.html', 'site-report.html', 'it-review.html', 'site-actions.html', 'system-logs.html',
   'site-awareness.html',
   'assets.html', 'assets-hygiene.html', 'assets-finance.html', 'wan.html', 'wan-health.html', 'wan-sla.html', 'itsm-roadmap.html',
+  'infra-health.html',
 ].forEach(loadHtml);
 
 // Helper: build the per-request HTML, inject api-key + nonce, send. Pages
@@ -1402,6 +1403,9 @@ app.get('/wan.html', (req, res) => {
 });
 app.get('/wan-health.html', (req, res) => {
   sendHtmlPage(res, 'wan-health.html', false, 'WAN Health unavailable');
+});
+app.get('/infra-health.html', (req, res) => {
+  sendHtmlPage(res, 'infra-health.html', false, 'Infrastructure Health unavailable');
 });
 app.get('/wan-sla.html', (req, res) => {
   sendHtmlPage(res, 'wan-sla.html', false, 'SLA / Chargeback unavailable');
