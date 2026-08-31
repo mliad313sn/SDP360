@@ -159,17 +159,19 @@ test('wan summary + trend read wan_link_snapshots (V1b-D)', async () => {
       device_serial: 'Q2-AB', network_id: 'N1', data_through: today, collected_at: today + 'T05:20:00Z', source: 'meraki_api', raw_json: null },
   ]);
 
-  // (A) Poller not yet run → availability is '—' (null / pending_poller), NEVER the
-  // disqualified loss-derived snapshot %. Quality (loss/latency) still comes from the snapshot.
+  // (A) Primary availability = the snapshot "% Time Up" (basis 'timeup'), the SAME figure wan.html
+  // renders as its headline (opmanager.js:220 restores __timeup as primary; wan.html:240 dropped the
+  // event "· up" figure from the headline). This holds even before the poller runs — the event-based
+  // value is a SECONDARY `avail_event_pct` added only once the poller has run.
   const pending = await get('/api/analytics/wan/summary?period=week', adminToken);
   assert.equal(pending.status, 200);
   assert.equal(pending.body.poll_active, false, 'no heartbeat → poll_active false');
   const sitePend = (pending.body.sites || []).find(s => s.site_id === mgoSiteId);
   assert.ok(sitePend && sitePend.uplinks.length === 2, 'seeded site with 2 uplinks');
   const w1Pend = sitePend.uplinks.find(u => u.uplink === 'wan1');
-  assert.equal(w1Pend.availability_pct, null, 'availability null until the poller has run');
-  assert.equal(w1Pend.basis, 'pending_poller');
-  assert.equal(w1Pend.loss_pct_avg, 0.08, 'loss/latency quality still served from the snapshot');
+  assert.equal(w1Pend.availability_pct, 99.86, 'primary availability = snapshot % Time Up');
+  assert.equal(w1Pend.basis, 'timeup');
+  assert.equal(w1Pend.loss_pct_avg, 0.08, 'loss/latency quality also served from the snapshot');
 
   // (B) Poller active (heartbeat) + a 24h outage 2–3 days ago (inside the LIVE 7-day window,
   // always in the past regardless of run time) → event-based availability ~85.71%; wan2 100%.
@@ -188,21 +190,24 @@ test('wan summary + trend read wan_link_snapshots (V1b-D)', async () => {
   assert.ok(site, 'seeded site in summary');
   assert.equal(site.uplinks.length, 2);
   const w1 = site.uplinks.find(u => u.uplink === 'wan1');
-  assert.equal(w1.basis, 'event', 'availability now event-based');
-  assert.ok(w1.availability_pct > 85 && w1.availability_pct < 86, `24h down of the 7-day live window → ~85.71%, got ${w1.availability_pct}`);
+  assert.equal(w1.basis, 'timeup', 'primary stays the % Time Up (event is secondary)');
+  assert.equal(w1.availability_pct, 99.86, 'primary availability = snapshot % Time Up');
+  assert.ok(w1.avail_event_pct > 85 && w1.avail_event_pct < 86, `secondary event-based ~85.71% for the 24h outage, got ${w1.avail_event_pct}`);
   const w2 = site.uplinks.find(u => u.uplink === 'wan2');
-  assert.equal(w2.availability_pct, 100, 'wan2 has no outage → 100% event-based');
+  assert.equal(w2.availability_pct, 97.87, 'wan2 primary = its % Time Up');
+  assert.equal(w2.avail_event_pct, 100, 'wan2 has no outage → event-based 100%');
 
   // (C) device-offline on the fly: seed the SAME 24h outage on wan2 too → BOTH uplinks down
-  // together = power/site outage → the overlap is excluded → both read ~100% (the MANA-style
-  // symmetric case, corrected without waiting for the nightly 'site' attribution).
+  // together = power/site outage → the overlap is excluded → the SECONDARY event-based figure reads
+  // ~100% for both (the MANA-style symmetric case, corrected without the nightly 'site' attribution).
+  // The primary % Time Up is unchanged (it comes from the snapshot, not the outage log).
   await rdb.upsertWanOutage({ site_id: mgoSiteId, sub_site: '', uplink: 'wan2',
     detected_start: isoAgo(3), restored_end: isoAgo(2), source: 'meraki_status' });
   const both = await get('/api/analytics/wan/summary?period=week', adminToken);
   const siteB = (both.body.sites || []).find(s => s.site_id === mgoSiteId);
   const b1 = siteB.uplinks.find(u => u.uplink === 'wan1'), b2 = siteB.uplinks.find(u => u.uplink === 'wan2');
-  assert.equal(b1.availability_pct, 100, 'both uplinks down together = device offline → wan1 excluded → 100%');
-  assert.equal(b2.availability_pct, 100, 'wan2 likewise → 100%');
+  assert.equal(b1.avail_event_pct, 100, 'both down together = device offline → wan1 overlap excluded → event 100%');
+  assert.equal(b2.avail_event_pct, 100, 'wan2 likewise → event 100%');
 
   const tr = await get('/api/analytics/wan/trend?site=MGO&period=week', adminToken);
   assert.equal(tr.status, 200);
