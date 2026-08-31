@@ -86,6 +86,40 @@ test('a group with ONLY unmeasured device-days → null metric (nothing fabricat
   assert.equal(g.included_device_count, 0);
 });
 
+test('monitoring servers (isMonitor) are EXCLUDED from the family pool', () => {
+  const up = '1 days 00 hrs 00 mins 00 secs', half = '0 days 12 hrs 00 mins 00 secs', z = '0 days 00 hrs 00 mins 00 secs';
+  const rows = [
+    // a real business server, 50% up
+    { probe:'Mana', type:'Windows 2022', category:'Server', device_key:'srv-live', day:'2026-07-20',
+      uptime_pct:'50%', uptime_dur:half, downtime_dur:half, dependent_dur:z, unmonitored_dur:z },
+    // the probe server itself, fully up — must NOT be pooled as a business server
+    { probe:'Mana', type:'Windows 2022', category:'Server', device_key:'burmaopman01.edv-ops.com', day:'2026-07-20',
+      uptime_pct:'100%', uptime_dur:up, downtime_dur:z, dependent_dur:z, unmonitored_dur:z },
+  ];
+  const isMonitor = r => /opma|abj-spm-000/i.test(r.device_key || '');
+  const g = aggregate(rows, { probeToSite, classify, targets, periodType:'week', isMonitor })[0];
+  assert.equal(g.device_count, 1, 'only the business server is in the pool');
+  assert.ok(Math.abs(g.metric_value - 50) < 0.01, 'monitor not pooled → 50% (would be 75% if counted)');
+  assert.equal(g.monitoring_ok, true);        // the monitor was healthy
+  assert.equal(g.basis, null);
+});
+
+test('a DOWN monitoring server flags its site period as a blind spot (basis=monitoring_gap)', () => {
+  const up = '1 days 00 hrs 00 mins 00 secs', z = '0 days 00 hrs 00 mins 00 secs';
+  const rows = [
+    { probe:'Mana', type:'Windows 2022', category:'Server', device_key:'srv-live', day:'2026-07-20',
+      uptime_pct:'100%', uptime_dur:up, downtime_dur:z, dependent_dur:z, unmonitored_dur:z },
+    // the site probe was DOWN all day → we can't fully trust the device data that period
+    { probe:'Mana', type:'Windows 2022', category:'Server', device_key:'burmaopman01', day:'2026-07-20',
+      uptime_pct:'0%', uptime_dur:z, downtime_dur:up, dependent_dur:z, unmonitored_dur:z },
+  ];
+  const isMonitor = r => /opma|abj-spm-000/i.test(r.device_key || '');
+  const g = aggregate(rows, { probeToSite, classify, targets, periodType:'week', isMonitor })[0];
+  assert.equal(g.device_count, 1, 'the business server still counts');
+  assert.equal(g.monitoring_ok, false, 'monitor was down → blind spot');
+  assert.equal(g.basis, 'monitoring_gap');
+});
+
 test('excluded + unmapped are dropped from KPI output', () => {
   const rows = [
     { probe:'Mana', type:'Unknown', category:'Unknown', day:'2026-07-20', uptime_pct:'100%', uptime_dur:'1 days 00 hrs 00 mins 00 secs', downtime_dur:'0 days 00 hrs 00 mins 00 secs', dependent_dur:'0 days 00 hrs 00 mins 00 secs', unmonitored_dur:'0 days 00 hrs 00 mins 00 secs' }, // excluded

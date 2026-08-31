@@ -55,15 +55,31 @@ function statusColor(value, target) {
 
 // dailyRows: [{ probe, type, category, day, uptime_pct, uptime_dur, downtime_dur,
 //               dependent_dur, unmonitored_dur, device_key?, device_name? }]
-// deps: { probeToSite (sync!), classify, targets, periodType:'week'|'month', asOf }
-function aggregate(dailyRows, { probeToSite, classify, targets, periodType }) {
+// deps: { probeToSite (sync!), classify, targets, periodType:'week'|'month', asOf,
+//         isMonitor? } — isMonitor(row) marks an OpManager monitoring server (remote
+//         probe / central). Monitors are EXCLUDED from the business family pools, and
+//         their own downtime flags the affected site's period as a blind spot.
+function aggregate(dailyRows, { probeToSite, classify, targets, periodType, isMonitor = () => false }) {
   const groups = new Map();
+  const mon = new Map();   // `${site_id}|${period_start}` → { up, tot } for the site's monitor(s)
   for (const r of (dailyRows || [])) {
+    const site_id = probeToSite(r.probe);
+    const dayStr = toDateStr(r.day);
+    // The monitoring server itself is not a business device: keep it out of every
+    // family pool, but record its own uptime so we can flag blind-spot periods.
+    if (isMonitor(r)) {
+      if (site_id != null && dayStr) {
+        const mb = periodType === 'week' ? weekOf(dayStr) : monthBoundsOf(dayStr);
+        const mk = `${site_id}|${mb.period_start}`;
+        let mm = mon.get(mk); if (!mm) { mm = { up: 0, tot: 0 }; mon.set(mk, mm); }
+        const mu = parseDuration(r.uptime_dur) || 0, md = parseDuration(r.downtime_dur) || 0, mp = parseDuration(r.dependent_dur) || 0;
+        mm.up += mu; mm.tot += (mu + md + mp);
+      }
+      continue;
+    }
     const fam = classify(r.type, r.category).family;
     if (fam === 'excluded') continue;
-    const site_id = probeToSite(r.probe);
     if (site_id == null) continue;                 // unmapped probe → out of KPI (coverage keeps it)
-    const dayStr = toDateStr(r.day);
     if (!dayStr) continue;
     const b = periodType === 'week' ? weekOf(dayStr) : monthBoundsOf(dayStr);
     const key = `${site_id}|${fam}|${b.period_start}`;
@@ -110,11 +126,16 @@ function aggregate(dailyRows, { probeToSite, classify, targets, periodType }) {
       : (g.pcts.length ? g.pcts.reduce((a, b) => a + b, 0) / g.pcts.length : null);
     if (value != null) value = Math.round(value * 100) / 100;
     const target = (targets && targets[g.kpi_family] != null) ? targets[g.kpi_family] : null;
+    // Blind-spot: if the site's own monitoring server had downtime this period, the
+    // device availability can't be fully trusted → label it (basis='monitoring_gap').
+    const mm = mon.get(`${g.site_id}|${g.period_start}`);
+    const monitoring_ok = (!mm || mm.tot === 0) ? true : (mm.up / mm.tot >= 0.99);
     out.push({
       site_id: g.site_id, period_type: periodType, period_start: g.period_start, period_end: g.period_end,
       kpi_family: g.kpi_family, metric_name: 'availability', metric_value: value, target_value: target,
       status_color: statusColor(value, target), trend: null,
       device_count: g.devices.size, included_device_count: g.inc.size, data_through: g.maxDay,
+      basis: monitoring_ok ? null : 'monitoring_gap', monitoring_ok,
       raw_json: JSON.stringify({ up_sec: g.up, down_sec: g.down, dep_sec: g.dep, unmon_sec: g.unmon }),
     });
   }

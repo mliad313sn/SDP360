@@ -62,6 +62,11 @@ const DEFAULTS = {
   opm_availability_view_id: '',
   opm_targets: JSON.stringify({ lan: 99, wifi: 98, wan: 98, servers: 99 }),
   opm_stale_days: '9',
+  // Comma-separated substrings that identify the OpManager monitoring servers
+  // themselves (remote probes + central). These devices are EXCLUDED from the
+  // business availability pools, and their own downtime flags the affected site's
+  // period as a monitoring blind spot. Case-insensitive substring match on device key.
+  opm_monitor_patterns: 'opma,abj-spm-000',
   // ── Meraki Dashboard API (V1b — WAN availability & quality). api_key is a SECRET
   //    (redacted on GET, blank-kept on save like smtp_pass); org_id + base_url are not.
   //    missing_policy is the calibration output ('down'|'unknown', §7) — MUST live here

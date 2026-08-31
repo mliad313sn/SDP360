@@ -104,9 +104,27 @@ async function main(deps = {}) {
     for (const c of codes) byProbe[String(c.code).trim().toLowerCase()] = c.site_id;
     const probeToSite = p => { const k = String(p == null ? '' : p).trim().toLowerCase(); return byProbe[k] != null ? byProbe[k] : null; };
 
-    const wk = aggregate(rows, { probeToSite, classify: classifyKpiFamily, targets, periodType: 'week' });
-    const mo = aggregate(rows, { probeToSite, classify: classifyKpiFamily, targets, periodType: 'month' });
+    // Identify the OpManager monitoring servers themselves (remote probes + central)
+    // from the config patterns, so they're excluded from the business pools and their
+    // downtime flags blind-spot periods.
+    const monPats = String((cfg && cfg.opm_monitor_patterns) || '')
+      .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+    const isMonitor = monPats.length
+      ? (r => { const k = String(r.device_key || r.device_name || '').toLowerCase(); return monPats.some(p => k.includes(p)); })
+      : (() => false);
+
+    const wk = aggregate(rows, { probeToSite, classify: classifyKpiFamily, targets, periodType: 'week', isMonitor });
+    const mo = aggregate(rows, { probeToSite, classify: classifyKpiFamily, targets, periodType: 'month', isMonitor });
     const all = [...wk, ...mo];
+
+    // Blind-spot alert: a monitoring server was down during a period → that site's
+    // availability may be understated. This is the "probe outage helps detect outages"
+    // signal — surfaced in logs (and stamped on the snapshot via basis='monitoring_gap').
+    const blind = all.filter(g => g.monitoring_ok === false);
+    if (blind.length) {
+      const uniq = [...new Set(blind.map(g => `${g.site_id}/${g.period_type}/${g.period_start}`))];
+      console.warn(`[opm-sync] ⚠ monitoring blind spot in ${uniq.length} site-period(s) (probe/central was down — availability may be understated): ${uniq.join(', ')}`);
+    }
 
     // Trend vs the PREVIOUS period's snapshot — read BEFORE the upsert (never self-compare).
     for (const g of all) {

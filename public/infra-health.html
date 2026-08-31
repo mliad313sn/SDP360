@@ -61,6 +61,7 @@ table.ih-matrix tbody tr.ih-sel td{outline:2px solid #E87722;outline-offset:-2px
 .ih-wan-list{font-variant-numeric:tabular-nums;font-size:11px;white-space:nowrap}
 .ih-rag-pill{display:inline-block;min-width:52px;text-align:center;font-size:10.5px;font-weight:700;padding:3px 10px;border-radius:999px;letter-spacing:.05em;text-transform:uppercase}
 .ih-stale{font-size:8.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#A85A14;background:#FFF3E7;border:1px solid #F3D9BC;border-radius:4px;padding:1px 4px;margin-left:5px;vertical-align:middle}
+.ih-blind{color:#8A1C1C;background:#FDECEC;border-color:#F4C9C9}
 .ih-trend{font-size:9px;margin-left:4px;vertical-align:middle;font-weight:700;line-height:1}
 .ih-trend.big{font-size:11px;margin-left:6px}
 .ih-trend.up{color:#27AE60}
@@ -208,6 +209,8 @@ W.defaults=O.defaults;window.Chart=W;});
     // matrix
     m_click:        { fr: 'Cliquez une ligne pour voir la tendance du site', en: 'Click a row to see the site trend' },
     m_stale:        { fr: 'obsolète',                                 en: 'stale' },
+    m_blind:        { fr: 'angle mort',                               en: 'blind spot' },
+    m_blind_t:      { fr: 'Le serveur de supervision de ce site était en panne sur la période — disponibilité potentiellement sous-estimée', en: "This site's monitoring server was down during the period — availability may be understated" },
     trend_up:       { fr: 'Amélioration vs mois dernier',            en: 'Improved vs last month' },
     trend_down:     { fr: 'Dégradation vs mois dernier',             en: 'Worsened vs last month' },
     // trend chart
@@ -257,8 +260,10 @@ W.defaults=O.defaults;window.Chart=W;});
     const color = RAG_COLORS[rag] || RAG_COLORS.na;
     const val = (c.value == null || c.value === '' || rag === 'na') ? '—' : (c.value + '%');
     const stale = c.stale ? '<span class="ih-stale">' + esc(T('m_stale')) + '</span>' : '';
+    const blind = c.basis === 'monitoring_gap'
+      ? '<span class="ih-stale ih-blind" title="' + esc(T('m_blind_t')) + '">' + esc(T('m_blind')) + '</span>' : '';
     return '<span class="ih-rag"><span class="ih-rag-dot" style="background:' + color + '"></span>'
-      + '<span class="ih-rag-val">' + esc(val) + '</span>' + trendChip(c.trend) + stale + '</span>';
+      + '<span class="ih-rag-val">' + esc(val) + '</span>' + trendChip(c.trend) + stale + blind + '</span>';
   }
   function ragPill(rag) {
     const r = rag || 'na';

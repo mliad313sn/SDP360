@@ -104,6 +104,7 @@ function buildInfraMatrix({ opmSites, wanSites, wanTarget = 98, asOf } = {}) {
           stale: f.stale,
           data_through: f.data_through,
           device_count: f.device_count,
+          basis: f.basis || null,   // 'monitoring_gap' → the page shows a blind-spot tag
         };
       }
     }

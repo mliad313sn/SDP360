@@ -79,6 +79,7 @@ module.exports = function opmanagerRoutes(deps) {
         data_through: r.data_through || null,
         collected_at: r.collected_at || null,
         device_count: r.device_count, included_device_count: r.included_device_count,
+        basis: r.basis || null,   // 'monitoring_gap' when the site's probe was down that period
       };
     });
   }
