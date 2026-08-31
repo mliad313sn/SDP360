@@ -393,6 +393,9 @@ window.addEventListener('beforeprint', function () {
     <div style="display:flex;align-items:end">
       <button class="btn btn-ghost" id="resetBtn" style="width:100%"><span class="icon icon-refresh-cw"></span> Reset</button>
     </div>
+    <div style="display:flex;align-items:end">
+      <button class="btn btn-ghost" id="syncAssetsBtn" style="width:100%;display:none" title="Re-sync all asset data from AssetExplorer now (admin)"><span class="icon icon-zap"></span> Sync assets now</button>
+    </div>
   </div>
 
   <!-- ══════════════════════════════════════════════════════════════
@@ -3625,6 +3628,30 @@ window.addEventListener('beforeprint', function () {
   }
   window.__assetFilters = filters;
 
+  // Admin-only "Sync assets now" — full re-sync of all AssetExplorer views (fire-and-
+  // forget on the server: the response means it STARTED, not finished). Uses the page
+  // session, sends an empty JSON body so IIS gets a Content-Length (avoids 411).
+  async function syncAssetsNow() {
+    const btn = document.getElementById('syncAssetsBtn');
+    if (!btn) return;
+    const orig = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="icon icon-refresh-cw"></span> Syncing…';
+    try {
+      const r = await fetch('/api/sync/trigger/assets', {
+        method: 'POST', credentials: 'same-origin',
+        headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+        body: '{}',
+      });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      btn.innerHTML = '✓ Started — refresh in ~1 min';
+    } catch (e) {
+      console.warn('assets sync failed:', e);
+      btn.innerHTML = '⚠ Sync failed — retry';
+    }
+    setTimeout(() => { btn.innerHTML = orig; btn.disabled = false; }, 5000);
+  }
+
   function pane(tab) { return window[PANE[tab]] || { init(){}, refresh(){} }; }
 
   // Fill the shared filter dropdowns once from /api/assets/lookups.
@@ -3722,6 +3749,13 @@ window.addEventListener('beforeprint', function () {
       clearTimeout(t); t = setTimeout(onFilterChange, 250);
     });
     document.getElementById('resetBtn').addEventListener('click', resetFilters);
+
+    // Admin-only assets re-sync button (shown for admin+; server enforces requireAdmin).
+    const sBtn = document.getElementById('syncAssetsBtn');
+    if (sBtn && window.__userHasRole && window.__userHasRole('admin')) {
+      sBtn.style.display = 'inline-flex';
+      sBtn.addEventListener('click', syncAssetsNow);
+    }
 
     window.addEventListener('hashchange', () => {
       const tab = (location.hash || '').replace('#', '');
