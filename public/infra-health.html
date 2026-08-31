@@ -214,7 +214,7 @@ W.defaults=O.defaults;window.Chart=W;});
     trend_up:       { fr: 'Amélioration vs mois dernier',            en: 'Improved vs last month' },
     trend_down:     { fr: 'Dégradation vs mois dernier',             en: 'Worsened vs last month' },
     // trend chart
-    trend_h:        { fr: 'Tendance — LAN / WLAN / Serveurs',        en: 'Trend — LAN / WLAN / Servers' },
+    trend_h:        { fr: 'Tendance — WAN / LAN / WLAN / Serveurs',  en: 'Trend — WAN / LAN / WLAN / Servers' },
     trend_pick:     { fr: 'Sélectionnez un site dans le tableau ci-dessus.', en: 'Select a site in the table above.' },
     // governance
     gov_off:        { fr: 'Couverture non configurée — mappez les sondes OpManager et les circuits Meraki pour activer la gouvernance.', en: 'Coverage not configured — map the OpManager probes and Meraki circuits to enable governance.' },
@@ -408,6 +408,8 @@ W.defaults=O.defaults;window.Chart=W;});
       data: {
         labels: data.labels,
         datasets: [
+          { label: T('fam_wan1'),    data: s.wan1 || [],    borderColor: '#6D28D9', backgroundColor: 'transparent', borderDash: [5, 3], spanGaps: false, tension: 0.2, pointRadius: 3 },
+          { label: T('fam_wan2'),    data: s.wan2 || [],    borderColor: '#0891B2', backgroundColor: 'transparent', borderDash: [5, 3], spanGaps: false, tension: 0.2, pointRadius: 3 },
           { label: T('fam_lan'),     data: s.lan || [],     borderColor: '#2A5490', backgroundColor: 'transparent', spanGaps: false, tension: 0.2, pointRadius: 3 },
           { label: T('fam_wifi'),    data: s.wifi || [],    borderColor: '#E87722', backgroundColor: 'transparent', spanGaps: false, tension: 0.2, pointRadius: 3 },
           { label: T('fam_servers'), data: s.servers || [], borderColor: '#27AE60', backgroundColor: 'transparent', spanGaps: false, tension: 0.2, pointRadius: 3 },

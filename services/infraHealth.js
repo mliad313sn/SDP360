@@ -155,10 +155,13 @@ function buildInfraMatrix({ opmSites, wanSites, wanTarget = 98, asOf } = {}) {
   };
 }
 
-// Monthly availability trend for ONE site (LAN/WLAN/Servers only — no WAN in v1).
-// Pure: no DB, no Date.now(). Axis is derived from asOf by year/month arithmetic.
-function buildInfraTrend({ opmMonthly, months, asOf } = {}) {
-  const TREND_FAMILIES = ['lan', 'wifi', 'servers'];
+// Monthly availability trend for ONE site: LAN/WLAN/Servers (from OpManager snapshots)
+// PLUS WAN1/WAN2 (from the Meraki wan_link_snapshots). Pure: no DB, no Date.now().
+// The axis is derived from asOf, then leading all-null months are trimmed so the chart
+// starts where data actually begins (no empty 2025 run-up). Middle/trailing gaps are
+// kept (they're meaningful).
+function buildInfraTrend({ opmMonthly, wanMonthly, months, asOf, trimLeading = true } = {}) {
+  const OPM_FAMILIES = ['lan', 'wifi', 'servers'];
 
   // Derive end month (0-based) from asOf 'YYYY-MM-DD'.
   const endYear = parseInt(String(asOf).substr(0, 4), 10);
@@ -167,29 +170,50 @@ function buildInfraTrend({ opmMonthly, months, asOf } = {}) {
   // Contiguous month axis ending at asOf's month.
   const labels = [];
   for (let i = months - 1; i >= 0; i--) {
-    // total months since year 0
     const total = endYear * 12 + endMonth - i;
     const y = Math.floor(total / 12);
     const m = total % 12; // 0-based
     labels.push(`${String(y).padStart(4, '0')}-${String(m + 1).padStart(2, '0')}`);
   }
 
-  // Index availability rows by family -> 'YYYY-MM' -> value.
+  // OpManager families -> 'YYYY-MM' -> value.
   const byFamMonth = {};
-  for (const fam of TREND_FAMILIES) byFamMonth[fam] = {};
+  for (const fam of OPM_FAMILIES) byFamMonth[fam] = {};
   for (const row of (opmMonthly || [])) {
     if (!row || row.metric_name !== 'availability') continue;
     const fam = row.kpi_family;
-    if (!TREND_FAMILIES.includes(fam)) continue; // WAN and others ignored
+    if (!OPM_FAMILIES.includes(fam)) continue; // the OpManager 'wan' family is not the displayed WAN
     const ym = String(row.period_start).substr(0, 7);
     byFamMonth[fam][ym] = row.metric_value;
   }
 
-  const series = {};
-  for (const fam of TREND_FAMILIES) {
-    series[fam] = labels.map(ym => (ym in byFamMonth[fam] ? byFamMonth[fam][ym] : null));
+  // WAN uplinks (Meraki) -> wan1/wan2 -> 'YYYY-MM' -> value (clamped to 100).
+  const wanByKey = { wan1: {}, wan2: {} };
+  for (const row of (wanMonthly || [])) {
+    if (!row) continue;
+    const label = String(row.uplink == null ? '' : row.uplink).toUpperCase();
+    const key = label.includes('2') ? 'wan2' : (label.includes('1') ? 'wan1' : null);
+    if (!key) continue;
+    const ym = String(row.period_start).substr(0, 7);
+    const v = row.availability_pct;
+    wanByKey[key][ym] = (v == null ? null : Math.min(100, v));
   }
 
+  const series = {};
+  for (const fam of OPM_FAMILIES) series[fam] = labels.map(ym => (ym in byFamMonth[fam] ? byFamMonth[fam][ym] : null));
+  series.wan1 = labels.map(ym => (ym in wanByKey.wan1 ? wanByKey.wan1[ym] : null));
+  series.wan2 = labels.map(ym => (ym in wanByKey.wan2 ? wanByKey.wan2[ym] : null));
+
+  if (trimLeading) {
+    const keys = Object.keys(series);
+    let first = 0;
+    while (first < labels.length && keys.every(k => series[k][first] == null)) first++;
+    if (first > 0 && first < labels.length) {
+      const out = {};
+      for (const k of keys) out[k] = series[k].slice(first);
+      return { labels: labels.slice(first), series: out };
+    }
+  }
   return { labels, series };
 }
 

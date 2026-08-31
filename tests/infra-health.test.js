@@ -139,29 +139,43 @@ test('buildInfraTrend: contiguous axis, null gaps, filters metric_name, no WAN s
     { kpi_family:'lan',     metric_name:'availability', metric_value: 99.5, period_start:'2026-06-01' },
     { kpi_family:'servers', metric_name:'availability', metric_value: 88,   period_start:'2026-08-01' },
     { kpi_family:'lan',     metric_name:'device_count', metric_value: 40,   period_start:'2026-08-01' }, // filtered out
-    { kpi_family:'wan',     metric_name:'availability', metric_value: 100,  period_start:'2026-08-01' }, // WAN ignored
+    { kpi_family:'wan',     metric_name:'availability', metric_value: 100,  period_start:'2026-08-01' }, // OpManager 'wan' family NOT the displayed WAN
   ];
-  const out = buildInfraTrend({ opmMonthly, months: 4, asOf: '2026-08-28' });
-  assert.deepEqual(out.labels, ['2026-05','2026-06','2026-07','2026-08']);
-  assert.equal(out.series.lan[1], 99.5);
-  assert.equal(out.series.lan[3], null);       // device_count row filtered -> no lan availability in Aug
-  assert.equal(out.series.servers[3], 88);
-  assert.equal(out.series.servers[0], null);
-  assert.ok(!('wan' in out.series));           // no WAN series in v1
+  const wanMonthly = [
+    { uplink:'wan1', availability_pct: 99.9,   period_start:'2026-07-01' },
+    { uplink:'wan2', availability_pct: 100.14, period_start:'2026-08-01' },   // clamps to 100
+  ];
+  const out = buildInfraTrend({ opmMonthly, wanMonthly, months: 4, asOf: '2026-08-28' });
+  // 2026-05 is all-null → trimmed; axis starts where data begins.
+  assert.deepEqual(out.labels, ['2026-06','2026-07','2026-08']);
+  assert.equal(out.series.lan[0], 99.5);       // 2026-06
+  assert.equal(out.series.lan[2], null);       // device_count row filtered -> no lan availability in Aug
+  assert.equal(out.series.servers[2], 88);
+  assert.equal(out.series.wan1[1], 99.9);      // 2026-07
+  assert.equal(out.series.wan2[2], 100);       // 2026-08, clamped from 100.14
+  assert.equal(out.series.wan1[2], null);      // no wan1 in Aug
+  assert.deepEqual(Object.keys(out.series).sort(), ['lan','servers','wan1','wan2','wifi']);
 });
 
-test('buildInfraTrend: axis crosses year boundary; wifi key present, gaps null', () => {
+test('buildInfraTrend: axis crosses year boundary; leading nulls trimmed; wifi gaps null', () => {
   const { buildInfraTrend } = require('../services/infraHealth');
   const opmMonthly = [
     { kpi_family:'wifi', metric_name:'availability', metric_value: 97, period_start:'2025-12-01' },
     { kpi_family:'wifi', metric_name:'availability', metric_value: 95, period_start:'2026-01-01' },
   ];
   const out = buildInfraTrend({ opmMonthly, months: 3, asOf: '2026-01-15' });
-  assert.deepEqual(out.labels, ['2025-11','2025-12','2026-01']);
-  assert.equal(out.series.wifi[0], null);
-  assert.equal(out.series.wifi[1], 97);
-  assert.equal(out.series.wifi[2], 95);
-  assert.deepEqual(Object.keys(out.series).sort(), ['lan','servers','wifi']);
+  // 2025-11 all-null → trimmed; data starts 2025-12.
+  assert.deepEqual(out.labels, ['2025-12','2026-01']);
+  assert.equal(out.series.wifi[0], 97);
+  assert.equal(out.series.wifi[1], 95);
+  assert.deepEqual(Object.keys(out.series).sort(), ['lan','servers','wan1','wan2','wifi']);
+});
+
+test('buildInfraTrend: an entirely empty window keeps the full axis (nothing to trim to)', () => {
+  const { buildInfraTrend } = require('../services/infraHealth');
+  const out = buildInfraTrend({ opmMonthly: [], wanMonthly: [], months: 3, asOf: '2026-08-15' });
+  assert.deepEqual(out.labels, ['2026-06','2026-07','2026-08']);
+  assert.ok(out.series.wan1.every(v => v == null) && out.series.lan.every(v => v == null));
 });
 
 test('buildInfraMatrix caps availability at 100% (WAN + opm snapshots can round over 100)', () => {
