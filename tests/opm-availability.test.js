@@ -48,13 +48,42 @@ test('weekly SUM-durations aggregate → red for a server at 6/7 days', () => {
   assert.equal(g.trend, null);                    // filled by the sync, not here
 });
 
-test('unmonitored counts as unavailable (denominator)', () => {
+test('unmonitored counts as unavailable WITHIN a measured device (partial gap → denominator)', () => {
   const rows = [{ probe:'Mana', type:'Windows 2022', category:'Server', device_key:'s',
     day:'2026-07-20', uptime_pct:'50%', uptime_dur:'0 days 12 hrs 00 mins 00 secs',
     downtime_dur:'0 days 00 hrs 00 mins 00 secs', dependent_dur:'0 days 00 hrs 00 mins 00 secs',
     unmonitored_dur:'0 days 12 hrs 00 mins 00 secs' }];
   const g = aggregate(rows, { probeToSite, classify, targets, periodType:'week' })[0];
   assert.ok(Math.abs(g.metric_value - 50) < 0.01, '12h up / (12h up + 12h unmonitored) = 50%');
+});
+
+test('a 100%-unmonitored device-day (no up/down/dep) is EXCLUDED, never dragging the mean to 0', () => {
+  const day = '0 days 00 hrs 00 mins 00 secs', full = '1 days 00 hrs 00 mins 00 secs';
+  const rows = [
+    // Device A: fully measured, fully up → 100%.
+    { probe:'Mana', type:'Windows 2022', category:'Server', device_key:'A', day:'2026-07-20',
+      uptime_pct:'100%', uptime_dur:full, downtime_dur:day, dependent_dur:day, unmonitored_dur:day },
+    // Device B: never actually measured — a full day of unmonitored, zero up/down/dep.
+    { probe:'Mana', type:'Windows 2022', category:'Server', device_key:'B', day:'2026-07-20',
+      uptime_pct:'0%', uptime_dur:day, downtime_dur:day, dependent_dur:day, unmonitored_dur:full },
+  ];
+  const g = aggregate(rows, { probeToSite, classify, targets, periodType:'week' })[0];
+  assert.equal(g.metric_value, 100, 'B excluded → 100% (old formula would have read 50%)');
+  assert.equal(g.device_count, 2, 'both devices still counted for coverage');
+  assert.equal(g.included_device_count, 1, 'only the measured device is in the average');
+  const raw = JSON.parse(g.raw_json);
+  assert.equal(raw.unmon_sec, 0, "the unmeasured device's unmonitored time is not in the denominator");
+});
+
+test('a group with ONLY unmeasured device-days → null metric (nothing fabricated, but coverage keeps them)', () => {
+  const day = '0 days 00 hrs 00 mins 00 secs', full = '1 days 00 hrs 00 mins 00 secs';
+  const rows = [{ probe:'Mana', type:'Windows 2022', category:'Server', device_key:'X', day:'2026-07-20',
+    uptime_pct:'', uptime_dur:day, downtime_dur:day, dependent_dur:day, unmonitored_dur:full }];
+  const g = aggregate(rows, { probeToSite, classify, targets, periodType:'week' })[0];
+  assert.equal(g.metric_value, null, 'no measurement anywhere → null, not 0');
+  assert.equal(g.status_color, 'none');
+  assert.equal(g.device_count, 1);
+  assert.equal(g.included_device_count, 0);
 });
 
 test('excluded + unmapped are dropped from KPI output', () => {

@@ -3,9 +3,14 @@
 // (from the Analytics daily view) and rolls them up to (site_id, kpi_family, period).
 // No DB, no Date.now — `asOf`/date logic injected. Store raw, coerce here (mirrors
 // the Assets module). Availability % = Σuptime / Σ(uptime+downtime+dependent+
-// unmonitored); maintenance + on-hold excluded; `unmonitored` counts as unavailable
-// (confirmed). Fallback = mean(uptime%) when durations are unparseable. Absence → null
-// (never 0). `status_color` uses the existing green|orange|red|none vocabulary.
+// unmonitored); maintenance + on-hold excluded. A device-day counts toward the
+// average ONLY if it carries a real measurement (some uptime, downtime, or
+// dependent-downtime). A device-day that is 100% unmonitored — the device was never
+// actually measured, no up/down/dep — is EXCLUDED entirely so its "unmonitored" time
+// can't drag the site mean down (a well-identified device with no reading is not the
+// same as 0%). Within a measured device, unmonitored gaps still count as unavailable.
+// Fallback = mean(uptime%) when durations are unparseable. Absence → null (never 0).
+// `status_color` uses the existing green|orange|red|none vocabulary.
 const { weekOf } = require('./siteReportDeps');
 
 function parsePercent(s) {
@@ -70,15 +75,31 @@ function aggregate(dailyRows, { probeToSite, classify, targets, periodType }) {
     }
     const up = parseDuration(r.uptime_dur), down = parseDuration(r.downtime_dur),
           dep = parseDuration(r.dependent_dur), unmon = parseDuration(r.unmonitored_dur);
-    if (up != null) g.up += up;
-    if (down != null) g.down += down;
-    if (dep != null) g.dep += dep;
-    if (unmon != null) g.unmon += unmon;
     const pct = parsePercent(r.uptime_pct);
-    if (pct != null) g.pcts.push(pct);
     const dev = r.device_key || r.device_name || r.probe;
-    g.devices.add(dev);
-    if (up != null || pct != null) g.inc.add(dev);
+    g.devices.add(dev);                            // every classified device → coverage
+    const hasDuration = (up != null || down != null || dep != null || unmon != null);
+    if (hasDuration) {
+      // A duration breakdown exists. Count it toward the average ONLY if the device was
+      // actually measured — some uptime, downtime, or dependent-downtime. A
+      // parseable-but-purely-unmonitored day (only `unmonitored`, zero up/down/dep) is
+      // a device that was never really measured → EXCLUDE it entirely so its
+      // unmonitored time can't drag the mean down. A partially-measured device keeps
+      // its unmonitored gap as unavailable (unchanged).
+      if ((up || 0) + (down || 0) + (dep || 0) > 0) {
+        if (up != null) g.up += up;
+        if (down != null) g.down += down;
+        if (dep != null) g.dep += dep;
+        if (unmon != null) g.unmon += unmon;
+        g.inc.add(dev);
+      }
+      // else: purely unmonitored → dropped (kept only in g.devices for coverage).
+    } else if (pct != null) {
+      // No parseable duration at all, but an explicit uptime% reading — the genuine
+      // AVG-fallback case (measured device, unparseable duration strings). Keep it.
+      g.pcts.push(pct);
+      g.inc.add(dev);
+    }
     if (dayStr > g.maxDay) g.maxDay = dayStr;
   }
   const out = [];
