@@ -58,6 +58,7 @@ table.ih-matrix tbody tr.ih-sel td{outline:2px solid #E87722;outline-offset:-2px
 .ih-rag{display:inline-flex;align-items:center;gap:7px}
 .ih-rag-dot{width:9px;height:9px;border-radius:50%;flex:none}
 .ih-rag-val{font-variant-numeric:tabular-nums}
+.ih-wan-list{font-variant-numeric:tabular-nums;font-size:11px;white-space:nowrap}
 .ih-rag-pill{display:inline-block;min-width:52px;text-align:center;font-size:10.5px;font-weight:700;padding:3px 10px;border-radius:999px;letter-spacing:.05em;text-transform:uppercase}
 .ih-stale{font-size:8.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#A85A14;background:#FFF3E7;border:1px solid #F3D9BC;border-radius:4px;padding:1px 4px;margin-left:5px;vertical-align:middle}
 .ih-trend{font-size:9px;margin-left:4px;vertical-align:middle;font-weight:700;line-height:1}
@@ -258,6 +259,22 @@ W.defaults=O.defaults;window.Chart=W;});
     return '<span class="ih-rag"><span class="ih-rag-dot" style="background:' + color + '"></span>'
       + '<span class="ih-rag-val">' + esc(val) + '</span>' + trendChip(c.trend) + stale + '</span>';
   }
+  // WAN cell: single RAG dot (coloured by the worst uplink) + BOTH uplinks listed
+  // "WAN1 100% · WAN2 50%". Null uplink value -> "—". Empty/na -> falls back to ragDotCell.
+  function wanDotCell(cell) {
+    const c = cell || { rag: 'na', value: null, uplinks: [] };
+    const ups = Array.isArray(c.uplinks) ? c.uplinks : [];
+    if (!ups.length) return ragDotCell(c);
+    const rag = c.rag || 'na';
+    const color = RAG_COLORS[rag] || RAG_COLORS.na;
+    const list = ups.map(function (u) {
+      const v = (u.value == null || u.value === '') ? '—' : (u.value + '%');
+      return esc(u.label) + ' ' + esc(v);
+    }).join(' · ');
+    const stale = c.stale ? '<span class="ih-stale">' + esc(T('m_stale')) + '</span>' : '';
+    return '<span class="ih-rag"><span class="ih-rag-dot" style="background:' + color + '"></span>'
+      + '<span class="ih-rag-val ih-wan-list">' + list + '</span>' + stale + '</span>';
+  }
   function ragPill(rag) {
     const r = rag || 'na';
     const color = RAG_COLORS[r] || RAG_COLORS.na;
@@ -337,7 +354,7 @@ W.defaults=O.defaults;window.Chart=W;});
       if (String(r.site_id) === String(selectedSite)) cls.push('ih-sel');
       return '<tr' + (cls.length ? ' class="' + cls.join(' ') + '"' : '') + ' data-site="' + esc(r.site_id) + '" data-site-name="' + esc(r.site_name || '') + '">'
         + '<td>' + (esc(r.site_name) || ('Site ' + esc(r.site_id))) + '</td>'
-        + FAM.map(function (m) { return '<td>' + ragDotCell(fams[m]) + '</td>'; }).join('')
+        + FAM.map(function (m) { return '<td>' + (m === 'wan' ? wanDotCell(fams[m]) : ragDotCell(fams[m])) + '</td>'; }).join('')
         + '<td>' + ragPill(r.overall_rag) + trendChip(r.overall_trend, true) + '</td></tr>';
     }).join('') : '<tr><td colspan="6" class="ih-muted">' + esc(T('nodata')) + '.</td></tr>';
     $('ih-matrix-hint').textContent = T('m_click') + '.';

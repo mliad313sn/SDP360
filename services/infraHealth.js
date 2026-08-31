@@ -33,15 +33,25 @@ function rollupTrend(cells) {
   return 'no_change';
 }
 
-// WAN cell = MIN of non-null availability_pct across uplinks (worst uplink).
+// WAN cell = MIN of non-null availability_pct across uplinks (worst uplink),
+// plus a per-uplink breakdown so the page can show BOTH links (e.g. WAN1 · WAN2).
 function wanRollup(uplinks, wanTarget) {
-  const vals = (uplinks || [])
-    .map(u => (u && u.availability_pct != null ? u.availability_pct : null))
-    .filter(v => v != null);
-  if (!vals.length) return { value: null, rag: 'na', target: wanTarget, trend: null, stale: false };
+  // Per-uplink list: label uppercased, value may be null. Sorted by label ascending (stable).
+  const list = (uplinks || [])
+    .map(u => ({
+      label: String(u && u.uplink != null ? u.uplink : '').toUpperCase(),
+      value: (u && u.availability_pct != null ? u.availability_pct : null),
+    }))
+    .sort((a, b) => (a.label < b.label ? -1 : (a.label > b.label ? 1 : 0)));
+
+  // No uplinks at all.
+  if (!list.length) return { value: null, rag: 'na', target: wanTarget, trend: null, stale: false, uplinks: [] };
+
+  const vals = list.map(u => u.value).filter(v => v != null);
+  if (!vals.length) return { value: null, rag: 'na', target: wanTarget, trend: null, stale: false, uplinks: list };
   const value = Math.min(...vals);
   const rag = value >= wanTarget ? 'green' : (value >= wanTarget * 0.9 ? 'amber' : 'red');
-  return { value, rag, target: wanTarget, trend: null, stale: false };
+  return { value, rag, target: wanTarget, trend: null, stale: false, uplinks: list };
 }
 
 function buildInfraMatrix({ opmSites, wanSites, wanTarget = 98, asOf } = {}) {

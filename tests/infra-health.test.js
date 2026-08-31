@@ -7,11 +7,14 @@ test('buildInfraMatrix merges opm families + WAN roll-up, normalizes vocab, comp
     { kpi_family: 'wifi', metric_value: null, status_color: 'none' },
     { kpi_family: 'servers', metric_value: 98, target: 99, status_color: 'orange', trend: 'up', stale: true },
   ]}];
-  const wanSites = [{ site_id: 1, uplinks: [ { availability_pct: 66.7 }, { availability_pct: 80 } ]}];
+  // Given out of order (wan2 before wan1) to prove wanRollup sorts by label ascending.
+  const wanSites = [{ site_id: 1, uplinks: [ { uplink: 'wan2', availability_pct: 80 }, { uplink: 'wan1', availability_pct: 66.7 } ]}];
   const out = buildInfraMatrix({ opmSites, wanSites, wanTarget: 98, asOf: '2026-08-28' });
   const s = out.sites[0];
-  assert.equal(s.families.wan.value, 66.7);
-  assert.equal(s.families.wan.rag, 'red');
+  assert.equal(s.families.wan.value, 66.7);              // MIN across uplinks
+  assert.equal(s.families.wan.rag, 'red');               // RAG on the worst uplink
+  // WAN cell now carries BOTH uplinks, sorted WAN1 before WAN2, labels uppercased.
+  assert.deepEqual(s.families.wan.uplinks, [{ label: 'WAN1', value: 66.7 }, { label: 'WAN2', value: 80 }]);
   assert.equal(s.families.wifi.rag, 'na');
   assert.equal(s.families.servers.rag, 'amber');   // orange normalized
   assert.equal(s.families.lan.value, 79.1);
@@ -24,7 +27,7 @@ test('site with empty families and no WAN entry rolls up to overall_rag na (all-
   const s = out.sites[0];
   assert.equal(s.overall_rag, 'na');
   // every family cell is na
-  assert.deepEqual(s.families.wan, { value: null, rag: 'na', target: 98, trend: null, stale: false });
+  assert.deepEqual(s.families.wan, { value: null, rag: 'na', target: 98, trend: null, stale: false, uplinks: [] });
   assert.deepEqual(s.families.lan, { value: null, rag: 'na' });
   assert.deepEqual(s.families.wifi, { value: null, rag: 'na' });
   assert.deepEqual(s.families.servers, { value: null, rag: 'na' });
