@@ -5511,7 +5511,10 @@ app.get('/api/reports/:id/importable-actions', requireReportSession, async (req,
 // GET /api/reports/review-data — the live IT Review dashboard's data (3B-2b).
 // Feeds public/it-review.html: loadReviewData(asOf) → D, then buildReviewVals
 // emits the 61-key flat object the template's bindings read.
-app.get('/api/reports/review-data', requireReportSession, async (req, res) => {
+// IT Review is a FLEET-WIDE governance rollup → executive/management only
+// (mirrors the page gate data-require="executive|scorecard-viewer"). A site
+// admin/editor session must not be able to fetch it directly by URL.
+app.get('/api/reports/review-data', requireReportSession, requireRole(['executive', 'scorecard-viewer']), async (req, res) => {
   try {
     const { loadReviewData, loadReviewExtras } = require('./services/reviewData');
     const { buildReviewVals, codesOf, extrasWindows } = require('./services/reviewDashboard');

@@ -167,10 +167,14 @@
       id:       'executive',
       label:    'Executive',
       icon:     ICON_LIB.gauge,
-      roles:    ['any'],
+      // Executive / management only. IT Review is a FLEET-WIDE governance rollup
+      // (all sites' meetings + inspections), so — like the Scorecard — it is scoped
+      // to executive + scorecard-viewer. A site admin/editor no longer sees this
+      // group at all (parent gate false + both children gated → sectionVisible false).
+      roles:    ['executive', 'scorecard-viewer'],
       title:    'Executive dashboards — IT Review and Scorecard',
       children: [
-        { id: 'it-review', label: 'IT Review',           icon: ICON_LIB['bar-chart-3'], href: 'it-review.html', roles: ['any'] },
+        { id: 'it-review', label: 'IT Review',           icon: ICON_LIB['bar-chart-3'], href: 'it-review.html', roles: ['executive', 'scorecard-viewer'] },
         { id: 'scorecard', label: 'Executive Scorecard', icon: ICON_LIB.gauge,          href: 'executive.html', roles: ['executive', 'scorecard-viewer'] }
       ]
     },
