@@ -59,6 +59,7 @@
     'shield-check':   ICONS.html('shield-check'),
     wallet:           ICONS.html('wallet'),
     building:         ICONS.html('building'),
+    activity:         ICONS.html('activity'),
     // Distinct icons so the Insights dropdown items don't collide visually:
     // Inspections keeps clipboard-check; Meetings → users (a council of people);
     // Site Actions → check (a register of actions to close). All three were
@@ -134,8 +135,12 @@
       roles:    ['any'],
       title:    'Assets and network estate',
       children: [
-        { id: 'assets', label: 'Assets', icon: ICON_LIB['hard-drive'],  href: 'assets.html', roles: ['any'] },
-        { id: 'wan',    label: 'WAN',    icon: ICON_LIB['bar-chart-3'], href: 'wan.html',    roles: ['any'] }
+        { id: 'assets',       label: 'Assets',                icon: ICON_LIB['hard-drive'],  href: 'assets.html',       roles: ['any'] },
+        { id: 'wan',          label: 'WAN',                   icon: ICON_LIB['bar-chart-3'], href: 'wan.html',          roles: ['any'] },
+        // Infrastructure Health — cumulated per-site × family availability (WAN/LAN/WLAN/Servers)
+        // + trend + governance, from the archived snapshots. Complements OpManager (no live device
+        // status). WAN detail stays on wan.html.
+        { id: 'infra-health', label: 'Infrastructure Health', icon: ICON_LIB.activity,       href: 'infra-health.html', roles: ['any'] }
       ]
     },
     {
