@@ -229,7 +229,7 @@ W.defaults=O.defaults;window.Chart=W;});
   const FAM_KEY = { wan: 'fam_wan', lan: 'fam_lan', wifi: 'fam_wifi', servers: 'fam_servers' };
   const RAG_COLORS = { green: '#27AE60', amber: '#E8A100', red: '#DC2626', na: '#b6bdc7' };
 
-  let period = 'week', selectedSite = null;
+  let period = 'week', selectedSite = null, selectedSiteName = null;
   let _trendChart = null;
 
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
@@ -335,7 +335,7 @@ W.defaults=O.defaults;window.Chart=W;});
       var cls = [];
       if (r.overall_rag === 'red') cls.push('ih-row-red');
       if (String(r.site_id) === String(selectedSite)) cls.push('ih-sel');
-      return '<tr' + (cls.length ? ' class="' + cls.join(' ') + '"' : '') + ' data-site="' + esc(r.site_id) + '">'
+      return '<tr' + (cls.length ? ' class="' + cls.join(' ') + '"' : '') + ' data-site="' + esc(r.site_id) + '" data-site-name="' + esc(r.site_name || '') + '">'
         + '<td>' + (esc(r.site_name) || ('Site ' + esc(r.site_id))) + '</td>'
         + FAM.map(function (m) { return '<td>' + ragDotCell(fams[m]) + '</td>'; }).join('')
         + '<td>' + ragPill(r.overall_rag) + trendChip(r.overall_trend, true) + '</td></tr>';
@@ -356,13 +356,12 @@ W.defaults=O.defaults;window.Chart=W;});
     if (cov.total != null)    cells.push({ k: T('gov_total'),    v: cov.total });
     if (cov.included != null) cells.push({ k: T('gov_included'), v: cov.included });
     if (cov.excluded != null) cells.push({ k: T('gov_excluded'), v: cov.excluded });
-    // by_family: { wan:{included,total}, ... } — render each as "included/total"
+    // by_family: { wan: 19, lan: 225, wifi: 49, servers: 157 } — the value is the COUNT of
+    // measured/classified devices in that family. Render each as its integer count.
     const bf = cov.by_family || {};
     FAM.forEach(function (m) {
-      const x = bf[m]; if (!x) return;
-      const inc = x.included != null ? x.included : (x.mapped != null ? x.mapped : '—');
-      const tot = x.total != null ? x.total : '—';
-      cells.push({ k: T('gov_byfamily') + ' · ' + T(FAM_KEY[m]), v: inc + ' / ' + tot });
+      const c = bf[m]; if (c == null) return;
+      cells.push({ k: T('gov_byfamily') + ' · ' + T(FAM_KEY[m]), v: c });
     });
     $('ih-gov-grid').innerHTML = cells.length ? cells.map(function (c) {
       return '<div class="g"><div class="k">' + esc(c.k) + '</div><div class="v">' + esc(c.v) + '</div></div>';
@@ -413,10 +412,12 @@ W.defaults=O.defaults;window.Chart=W;});
     });
   }
 
-  async function loadTrend(site) {
-    if (site == null) { renderTrend(null); return; }
+  // NOTE: /api/analytics/infra/trend resolves ?site= via resolveSiteParam, which matches a
+  // site CODE or NAME — NOT a numeric site_id. So the fetch MUST pass the site NAME.
+  async function loadTrend(siteName) {
+    if (!siteName) { renderTrend(null); return; }
     let data;
-    try { data = await api('/api/analytics/infra/trend?site=' + encodeURIComponent(site) + '&months=12'); }
+    try { data = await api('/api/analytics/infra/trend?site=' + encodeURIComponent(siteName) + '&months=12'); }
     catch { data = null; }
     window._ihLastTrend = data;
     renderTrend(data);
@@ -435,7 +436,11 @@ W.defaults=O.defaults;window.Chart=W;});
     renderGovernance(data.coverage);
 
     // Default the trend to the worst site (rows already worst-first) if none picked.
-    if (selectedSite == null && rows.length) { selectedSite = rows[0].site_id; renderMatrix(rows); }
+    if (selectedSite == null && rows.length) {
+      selectedSite = rows[0].site_id;
+      selectedSiteName = rows[0].site_name || null;
+      renderMatrix(rows);
+    }
   }
 
   async function loadSummary() {
@@ -444,7 +449,7 @@ W.defaults=O.defaults;window.Chart=W;});
     catch { data = { sites: [], fleet: {}, coverage: { available: false } }; }
     window._ihLastSummary = data;
     renderSummary(data);
-    loadTrend(selectedSite);
+    loadTrend(selectedSiteName);
   }
 
   // ── Language toggle ────────────────────────────────────────────────
@@ -488,8 +493,9 @@ W.defaults=O.defaults;window.Chart=W;});
       const tr = e.target.closest('tr[data-site]'); if (!tr) return;
       const sid = tr.dataset.site; if (!sid) return;
       selectedSite = sid;
+      selectedSiteName = tr.dataset.siteName || null;   // trend endpoint resolves by NAME, not id
       if (window._ihLastSummary) renderSummary(window._ihLastSummary);   // re-highlight the selected row
-      loadTrend(sid);
+      loadTrend(selectedSiteName);
     });
     loadSummary();
   });
