@@ -117,3 +117,34 @@ test('fleet by_family_counts + freshness aggregate correctly', () => {
   assert.equal(out.fleet.freshness.stale_count, 1);          // only site A has a stale cell
   assert.equal(out.fleet.freshness.data_through_max, '2026-08-28');
 });
+
+test('buildInfraTrend: contiguous axis, null gaps, filters metric_name, no WAN series', () => {
+  const { buildInfraTrend } = require('../services/infraHealth');
+  const opmMonthly = [
+    { kpi_family:'lan',     metric_name:'availability', metric_value: 99.5, period_start:'2026-06-01' },
+    { kpi_family:'servers', metric_name:'availability', metric_value: 88,   period_start:'2026-08-01' },
+    { kpi_family:'lan',     metric_name:'device_count', metric_value: 40,   period_start:'2026-08-01' }, // filtered out
+    { kpi_family:'wan',     metric_name:'availability', metric_value: 100,  period_start:'2026-08-01' }, // WAN ignored
+  ];
+  const out = buildInfraTrend({ opmMonthly, months: 4, asOf: '2026-08-28' });
+  assert.deepEqual(out.labels, ['2026-05','2026-06','2026-07','2026-08']);
+  assert.equal(out.series.lan[1], 99.5);
+  assert.equal(out.series.lan[3], null);       // device_count row filtered -> no lan availability in Aug
+  assert.equal(out.series.servers[3], 88);
+  assert.equal(out.series.servers[0], null);
+  assert.ok(!('wan' in out.series));           // no WAN series in v1
+});
+
+test('buildInfraTrend: axis crosses year boundary; wifi key present, gaps null', () => {
+  const { buildInfraTrend } = require('../services/infraHealth');
+  const opmMonthly = [
+    { kpi_family:'wifi', metric_name:'availability', metric_value: 97, period_start:'2025-12-01' },
+    { kpi_family:'wifi', metric_name:'availability', metric_value: 95, period_start:'2026-01-01' },
+  ];
+  const out = buildInfraTrend({ opmMonthly, months: 3, asOf: '2026-01-15' });
+  assert.deepEqual(out.labels, ['2025-11','2025-12','2026-01']);
+  assert.equal(out.series.wifi[0], null);
+  assert.equal(out.series.wifi[1], 97);
+  assert.equal(out.series.wifi[2], 95);
+  assert.deepEqual(Object.keys(out.series).sort(), ['lan','servers','wifi']);
+});

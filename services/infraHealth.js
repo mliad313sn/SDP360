@@ -121,4 +121,42 @@ function buildInfraMatrix({ opmSites, wanSites, wanTarget = 98, asOf } = {}) {
   };
 }
 
-module.exports = { buildInfraMatrix, rollupRag, rollupTrend, wanRollup, normalizeRag };
+// Monthly availability trend for ONE site (LAN/WLAN/Servers only — no WAN in v1).
+// Pure: no DB, no Date.now(). Axis is derived from asOf by year/month arithmetic.
+function buildInfraTrend({ opmMonthly, months, asOf } = {}) {
+  const TREND_FAMILIES = ['lan', 'wifi', 'servers'];
+
+  // Derive end month (0-based) from asOf 'YYYY-MM-DD'.
+  const endYear = parseInt(String(asOf).substr(0, 4), 10);
+  const endMonth = parseInt(String(asOf).substr(5, 2), 10) - 1; // 0-based
+
+  // Contiguous month axis ending at asOf's month.
+  const labels = [];
+  for (let i = months - 1; i >= 0; i--) {
+    // total months since year 0
+    const total = endYear * 12 + endMonth - i;
+    const y = Math.floor(total / 12);
+    const m = total % 12; // 0-based
+    labels.push(`${String(y).padStart(4, '0')}-${String(m + 1).padStart(2, '0')}`);
+  }
+
+  // Index availability rows by family -> 'YYYY-MM' -> value.
+  const byFamMonth = {};
+  for (const fam of TREND_FAMILIES) byFamMonth[fam] = {};
+  for (const row of (opmMonthly || [])) {
+    if (!row || row.metric_name !== 'availability') continue;
+    const fam = row.kpi_family;
+    if (!TREND_FAMILIES.includes(fam)) continue; // WAN and others ignored
+    const ym = String(row.period_start).substr(0, 7);
+    byFamMonth[fam][ym] = row.metric_value;
+  }
+
+  const series = {};
+  for (const fam of TREND_FAMILIES) {
+    series[fam] = labels.map(ym => (ym in byFamMonth[fam] ? byFamMonth[fam][ym] : null));
+  }
+
+  return { labels, series };
+}
+
+module.exports = { buildInfraMatrix, buildInfraTrend, rollupRag, rollupTrend, wanRollup, normalizeRag };
