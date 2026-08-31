@@ -58,7 +58,7 @@ test('each returned site (if any) carries the 4 families + overall_rag', async (
   const { body } = await call(app, '/api/analytics/infra/summary?period=month');
   assert.equal(body.period, 'month');
   for (const s of (body.sites || [])) {
-    assert.ok(s.families && ['wan', 'lan', 'wifi', 'servers'].every(f => f in s.families), 'families has wan/lan/wifi/servers');
+    assert.ok(s.families && ['wan1', 'wan2', 'lan', 'wifi', 'servers'].every(f => f in s.families), 'families has wan1/wan2/lan/wifi/servers');
     assert.ok(typeof s.overall_rag === 'string', 'overall_rag present');
   }
 });

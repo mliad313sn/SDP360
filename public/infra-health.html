@@ -126,8 +126,8 @@ W.defaults=O.defaults;window.Chart=W;});
     </div>
   </div>
   <div class="ih-sub">
-    <span data-lng="en">Per-site availability across WAN, LAN, WLAN and Servers, cumulated from the archived snapshots — with RAG, month-over-month trend, a trend chart and coverage/governance. Complements OpManager: this is the historical read, not live device status. WAN uplink detail lives on <a href="wan.html">WAN Health</a>.</span>
-    <span data-lng="fr">Disponibilité par site pour le WAN, le LAN, le WLAN et les Serveurs, cumulée depuis les instantanés archivés — avec RAG, tendance mois sur mois, une courbe et couverture/gouvernance. Complète OpManager : c'est la lecture historique, pas l'état des équipements en direct. Le détail des liens WAN est sur <a href="wan.html">WAN Health</a>.</span>
+    <span data-lng="en">Per-site availability across WAN, LAN, WLAN and Servers, cumulated from the archived snapshots — with RAG, month-over-month trend, a trend chart and coverage/governance. WAN is shown as two columns (WAN1 · WAN2): the links are redundant — each carries the whole site — so a single red uplink does not make the site's WAN red; the overall verdict uses the healthier link. Complements OpManager: this is the historical read, not live device status. WAN uplink detail lives on <a href="wan.html">WAN Health</a>.</span>
+    <span data-lng="fr">Disponibilité par site pour le WAN, le LAN, le WLAN et les Serveurs, cumulée depuis les instantanés archivés — avec RAG, tendance mois sur mois, une courbe et couverture/gouvernance. Le WAN est présenté en deux colonnes (WAN1 · WAN2) : les liens sont redondants — chacun porte tout le site — donc un seul lien en rouge ne rend pas le WAN du site rouge ; le verdict global retient le meilleur lien. Complète OpManager : c'est la lecture historique, pas l'état des équipements en direct. Le détail des liens WAN est sur <a href="wan.html">WAN Health</a>.</span>
   </div>
 
   <!-- 1 — Freshness banner -->
@@ -181,8 +181,9 @@ W.defaults=O.defaults;window.Chart=W;});
   const I18N = {
     period_week:    { fr: 'Hebdomadaire',                             en: 'Weekly' },
     period_month:   { fr: 'Mensuel',                                  en: 'Monthly' },
-    // families
-    fam_wan:        { fr: 'WAN',                                      en: 'WAN' },
+    // families (WAN split into two redundant uplinks — WAN1 / WAN2)
+    fam_wan1:       { fr: 'WAN1',                                     en: 'WAN1' },
+    fam_wan2:       { fr: 'WAN2',                                     en: 'WAN2' },
     fam_lan:        { fr: 'LAN',                                      en: 'LAN' },
     fam_wifi:       { fr: 'WLAN',                                     en: 'WLAN' },
     fam_servers:    { fr: 'Serveurs',                                 en: 'Servers' },
@@ -226,8 +227,8 @@ W.defaults=O.defaults;window.Chart=W;});
   function curLang() { return document.body.classList.contains('lang-fr') ? 'fr' : 'en'; }
   function T(k) { const row = I18N[k]; return row ? (row[curLang()] || row.fr || k) : k; }
 
-  const FAM = ['wan', 'lan', 'wifi', 'servers'];
-  const FAM_KEY = { wan: 'fam_wan', lan: 'fam_lan', wifi: 'fam_wifi', servers: 'fam_servers' };
+  const FAM = ['wan1', 'wan2', 'lan', 'wifi', 'servers'];
+  const FAM_KEY = { wan1: 'fam_wan1', wan2: 'fam_wan2', lan: 'fam_lan', wifi: 'fam_wifi', servers: 'fam_servers' };
   const RAG_COLORS = { green: '#27AE60', amber: '#E8A100', red: '#DC2626', na: '#b6bdc7' };
 
   let period = 'week', selectedSite = null, selectedSiteName = null;
@@ -258,22 +259,6 @@ W.defaults=O.defaults;window.Chart=W;});
     const stale = c.stale ? '<span class="ih-stale">' + esc(T('m_stale')) + '</span>' : '';
     return '<span class="ih-rag"><span class="ih-rag-dot" style="background:' + color + '"></span>'
       + '<span class="ih-rag-val">' + esc(val) + '</span>' + trendChip(c.trend) + stale + '</span>';
-  }
-  // WAN cell: single RAG dot (coloured by the worst uplink) + BOTH uplinks listed
-  // "WAN1 100% · WAN2 50%". Null uplink value -> "—". Empty/na -> falls back to ragDotCell.
-  function wanDotCell(cell) {
-    const c = cell || { rag: 'na', value: null, uplinks: [] };
-    const ups = Array.isArray(c.uplinks) ? c.uplinks : [];
-    if (!ups.length) return ragDotCell(c);
-    const rag = c.rag || 'na';
-    const color = RAG_COLORS[rag] || RAG_COLORS.na;
-    const list = ups.map(function (u) {
-      const v = (u.value == null || u.value === '') ? '—' : (u.value + '%');
-      return esc(u.label) + ' ' + esc(v);
-    }).join(' · ');
-    const stale = c.stale ? '<span class="ih-stale">' + esc(T('m_stale')) + '</span>' : '';
-    return '<span class="ih-rag"><span class="ih-rag-dot" style="background:' + color + '"></span>'
-      + '<span class="ih-rag-val ih-wan-list">' + list + '</span>' + stale + '</span>';
   }
   function ragPill(rag) {
     const r = rag || 'na';
@@ -354,9 +339,9 @@ W.defaults=O.defaults;window.Chart=W;});
       if (String(r.site_id) === String(selectedSite)) cls.push('ih-sel');
       return '<tr' + (cls.length ? ' class="' + cls.join(' ') + '"' : '') + ' data-site="' + esc(r.site_id) + '" data-site-name="' + esc(r.site_name || '') + '">'
         + '<td>' + (esc(r.site_name) || ('Site ' + esc(r.site_id))) + '</td>'
-        + FAM.map(function (m) { return '<td>' + (m === 'wan' ? wanDotCell(fams[m]) : ragDotCell(fams[m])) + '</td>'; }).join('')
+        + FAM.map(function (m) { return '<td>' + ragDotCell(fams[m]) + '</td>'; }).join('')
         + '<td>' + ragPill(r.overall_rag) + trendChip(r.overall_trend, true) + '</td></tr>';
-    }).join('') : '<tr><td colspan="6" class="ih-muted">' + esc(T('nodata')) + '.</td></tr>';
+    }).join('') : '<tr><td colspan="7" class="ih-muted">' + esc(T('nodata')) + '.</td></tr>';
     $('ih-matrix-hint').textContent = T('m_click') + '.';
   }
 

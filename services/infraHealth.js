@@ -3,7 +3,12 @@
 // Pure merge function for the Infrastructure Health page.
 // No I/O, no DB, no Date.now(). All inputs injected.
 
-const FAMILIES = ['wan', 'lan', 'wifi', 'servers'];
+// The two WAN uplinks are shown as SEPARATE columns (wan1, wan2): they are
+// same-capacity redundant links, each sized to carry the whole site — so a single
+// red link must not paint the whole WAN red. The site's WAN health for the overall
+// roll-up therefore uses the BEST of the two (redundancy: the site is reachable if
+// either link is up), computed as a synthetic 'wan' cell that never enters the grid.
+const FAMILIES = ['wan1', 'wan2', 'lan', 'wifi', 'servers'];
 
 // status_color vocab -> page/rollup vocab (green/amber/red/na only)
 function normalizeRag(statusColor) {
@@ -33,27 +38,34 @@ function rollupTrend(cells) {
   return 'no_change';
 }
 
-// WAN cell = MIN of non-null availability_pct across uplinks (worst uplink),
-// plus a per-uplink breakdown so the page can show BOTH links (e.g. WAN1 · WAN2).
-function wanRollup(uplinks, wanTarget) {
-  // Per-uplink list: label uppercased, value may be null. Sorted by label ascending (stable).
-  const list = (uplinks || [])
-    .map(u => ({
-      label: String(u && u.uplink != null ? u.uplink : '').toUpperCase(),
-      // Clamp to 100: the snapshot "% Time Up" can round slightly over 100 (e.g. 100.14) — a
-      // displayed availability > 100% is nonsense, so cap it here (never affects the RAG band).
-      value: (u && u.availability_pct != null ? Math.min(100, u.availability_pct) : null),
-    }))
-    .sort((a, b) => (a.label < b.label ? -1 : (a.label > b.label ? 1 : 0)));
+// Band a WAN availability value against the target (same >=t / >=t*0.9 / else bands
+// used everywhere), null → 'na'. Values are clamped to 100 first (the snapshot
+// "% Time Up" can round slightly over 100, e.g. 100.14).
+function _wanBand(v, wanTarget) {
+  if (v == null) return 'na';
+  return v >= wanTarget ? 'green' : (v >= wanTarget * 0.9 ? 'amber' : 'red');
+}
 
-  // No uplinks at all.
-  if (!list.length) return { value: null, rag: 'na', target: wanTarget, trend: null, stale: false, uplinks: [] };
-
-  const vals = list.map(u => u.value).filter(v => v != null);
-  if (!vals.length) return { value: null, rag: 'na', target: wanTarget, trend: null, stale: false, uplinks: list };
-  const value = Math.min(...vals);
-  const rag = value >= wanTarget ? 'green' : (value >= wanTarget * 0.9 ? 'amber' : 'red');
-  return { value, rag, target: wanTarget, trend: null, stale: false, uplinks: list };
+// Split the uplinks into two SEPARATE cells (wan1, wan2) plus a redundancy-aware
+// `best` (the higher of the two — the site's WAN is healthy if either link is up).
+// Each cell: { value, rag, target }. Absent link → { value:null, rag:'na' }.
+function wanCells(uplinks, wanTarget) {
+  const clamp = v => (v == null ? null : Math.min(100, v));
+  const slot = { wan1: null, wan2: null };
+  for (const u of (uplinks || [])) {
+    const label = String(u && u.uplink != null ? u.uplink : '').toUpperCase();
+    const key = label.includes('2') ? 'wan2' : (label.includes('1') ? 'wan1' : null);
+    const v = clamp(u && u.availability_pct != null ? u.availability_pct : null);
+    if (key) { if (slot[key] == null) slot[key] = v; }
+    else if (slot.wan1 == null) slot.wan1 = v;   // unlabelled uplink → first free slot
+    else if (slot.wan2 == null) slot.wan2 = v;
+  }
+  const wan1 = { value: slot.wan1, rag: _wanBand(slot.wan1, wanTarget), target: wanTarget };
+  const wan2 = { value: slot.wan2, rag: _wanBand(slot.wan2, wanTarget), target: wanTarget };
+  const vals = [slot.wan1, slot.wan2].filter(v => v != null);
+  const bestVal = vals.length ? Math.max(...vals) : null;
+  const best = { value: bestVal, rag: _wanBand(bestVal, wanTarget), target: wanTarget };
+  return { wan1, wan2, best };
 }
 
 function buildInfraMatrix({ opmSites, wanSites, wanTarget = 98, asOf } = {}) {
@@ -96,30 +108,39 @@ function buildInfraMatrix({ opmSites, wanSites, wanTarget = 98, asOf } = {}) {
       }
     }
 
-    // WAN from wanSites matched by site_id
+    // WAN from wanSites matched by site_id → two separate columns (wan1, wan2) + a
+    // redundancy-aware best link for the overall roll-up.
     const w = wanBySite.get(site.site_id);
-    cells.wan = wanRollup(w && w.uplinks, wanTarget);
+    const wan = wanCells(w && w.uplinks, wanTarget);
+    cells.wan1 = wan.wan1;
+    cells.wan2 = wan.wan2;
 
-    // fleet aggregation
-    let siteHasStale = false;
+    // fleet aggregation — count each displayed family (wan1, wan2, lan, wifi, servers).
     for (const fam of FAMILIES) {
-      const c = cells[fam];
-      const rag = c.rag;
+      const rag = cells[fam].rag;
       by_family_counts[fam][rag] = (by_family_counts[fam][rag] || 0) + 1;
+    }
+    // Freshness/stale are OPManager-side only (LAN/WLAN/Servers carry stale + data_through;
+    // WAN cells come from the WAN snapshot and don't).
+    let siteHasStale = false;
+    for (const fam of ['lan', 'wifi', 'servers']) {
+      const c = cells[fam];
       if (c && c.stale) siteHasStale = true;
-      if (c && c.data_through != null) {
-        if (dataThroughMax == null || c.data_through > dataThroughMax) {
-          dataThroughMax = c.data_through;
-        }
+      if (c && c.data_through != null && (dataThroughMax == null || c.data_through > dataThroughMax)) {
+        dataThroughMax = c.data_through;
       }
     }
     if (siteHasStale) staleCount++;
 
+    // Overall roll-up sees ONE WAN (the best link — redundancy), never wan1+wan2
+    // separately (that would double-weight WAN and let a single red link drag it down).
+    const rollupCells = { wan: wan.best, lan: cells.lan, wifi: cells.wifi, servers: cells.servers };
+
     return {
       site_id: site.site_id,
       site_name: site.site_name,
-      overall_rag: rollupRag(cells),
-      overall_trend: rollupTrend(cells),
+      overall_rag: rollupRag(rollupCells),
+      overall_trend: rollupTrend(rollupCells),
       families: cells,
     };
   });
@@ -171,4 +192,4 @@ function buildInfraTrend({ opmMonthly, months, asOf } = {}) {
   return { labels, series };
 }
 
-module.exports = { buildInfraMatrix, buildInfraTrend, rollupRag, rollupTrend, wanRollup, normalizeRag };
+module.exports = { buildInfraMatrix, buildInfraTrend, rollupRag, rollupTrend, wanCells, normalizeRag };

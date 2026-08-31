@@ -1,33 +1,47 @@
 const { test } = require('node:test'); const assert = require('node:assert');
 const { buildInfraMatrix } = require('../services/infraHealth');
 
-test('buildInfraMatrix merges opm families + WAN roll-up, normalizes vocab, computes overall + na', () => {
+test('buildInfraMatrix splits WAN into wan1/wan2 columns, normalizes vocab, overall uses BEST link', () => {
   const opmSites = [{ site_id: 1, site_name: 'Sabodala', families: [
     { kpi_family: 'lan', metric_value: 79.1, target: 99, status_color: 'red',    trend: 'no_change', stale: true },
     { kpi_family: 'wifi', metric_value: null, status_color: 'none' },
     { kpi_family: 'servers', metric_value: 98, target: 99, status_color: 'orange', trend: 'up', stale: true },
   ]}];
-  // Given out of order (wan2 before wan1) to prove wanRollup sorts by label ascending.
-  const wanSites = [{ site_id: 1, uplinks: [ { uplink: 'wan2', availability_pct: 80 }, { uplink: 'wan1', availability_pct: 66.7 } ]}];
+  // wan1 green (99), wan2 red (66.7). Given out of order to prove label→slot matching (not position).
+  const wanSites = [{ site_id: 1, uplinks: [ { uplink: 'wan2', availability_pct: 66.7 }, { uplink: 'wan1', availability_pct: 99 } ]}];
   const out = buildInfraMatrix({ opmSites, wanSites, wanTarget: 98, asOf: '2026-08-28' });
   const s = out.sites[0];
-  assert.equal(s.families.wan.value, 66.7);              // MIN across uplinks
-  assert.equal(s.families.wan.rag, 'red');               // RAG on the worst uplink
-  // WAN cell now carries BOTH uplinks, sorted WAN1 before WAN2, labels uppercased.
-  assert.deepEqual(s.families.wan.uplinks, [{ label: 'WAN1', value: 66.7 }, { label: 'WAN2', value: 80 }]);
+  assert.deepEqual(s.families.wan1, { value: 99, rag: 'green', target: 98 });   // matched by label
+  assert.deepEqual(s.families.wan2, { value: 66.7, rag: 'red', target: 98 });
+  assert.ok(!('wan' in s.families), 'no combined wan cell in the grid');
   assert.equal(s.families.wifi.rag, 'na');
   assert.equal(s.families.servers.rag, 'amber');   // orange normalized
   assert.equal(s.families.lan.value, 79.1);
-  assert.equal(s.overall_rag, 'red');
+  // overall sees WAN via the BEST link (green), so it does NOT drag to red on wan2 alone:
+  // {wan:green, lan:red, wifi:na, servers:amber} → scored [2,0,1] → 0.5 → amber.
+  assert.equal(s.overall_rag, 'amber');
 });
 
-test('site with empty families and no WAN entry rolls up to overall_rag na (all-na branch)', () => {
+test('a single red WAN link no longer paints WAN red at the overall level (redundancy)', () => {
+  // wan1 100 green, wan2 40 red; all opm families green → the site stays green overall.
+  const opmSites = [{ site_id: 3, site_name: 'Redund', families: [
+    { kpi_family: 'lan', metric_value: 99.9, target: 99, status_color: 'green', trend: 'up', stale: false },
+    { kpi_family: 'servers', metric_value: 99.9, target: 99, status_color: 'green', trend: 'up', stale: false },
+  ]}];
+  const wanSites = [{ site_id: 3, uplinks: [ { uplink: 'wan1', availability_pct: 100 }, { uplink: 'wan2', availability_pct: 40 } ]}];
+  const s = buildInfraMatrix({ opmSites, wanSites, wanTarget: 98 }).sites[0];
+  assert.equal(s.families.wan1.rag, 'green');
+  assert.equal(s.families.wan2.rag, 'red');       // the degraded link is still visible in its own column
+  assert.equal(s.overall_rag, 'green', 'best link (100) keeps the site green');
+});
+
+test('site with empty families and no WAN entry: both wan columns + overall are na', () => {
   const opmSites = [{ site_id: 99, site_name: 'Empty', families: [] }];
   const out = buildInfraMatrix({ opmSites, wanSites: [], wanTarget: 98 });
   const s = out.sites[0];
   assert.equal(s.overall_rag, 'na');
-  // every family cell is na
-  assert.deepEqual(s.families.wan, { value: null, rag: 'na', target: 98, trend: null, stale: false, uplinks: [] });
+  assert.deepEqual(s.families.wan1, { value: null, rag: 'na', target: 98 });
+  assert.deepEqual(s.families.wan2, { value: null, rag: 'na', target: 98 });
   assert.deepEqual(s.families.lan, { value: null, rag: 'na' });
   assert.deepEqual(s.families.wifi, { value: null, rag: 'na' });
   assert.deepEqual(s.families.servers, { value: null, rag: 'na' });
@@ -58,23 +72,19 @@ test('WAN na when site has no wanSites entry and when no uplink has a value', ()
   const out = buildInfraMatrix({ opmSites, wanSites, wanTarget: 98 });
   const noWan = out.sites.find(x => x.site_id === 10);
   const empty = out.sites.find(x => x.site_id === 11);
-  assert.equal(noWan.families.wan.value, null);
-  assert.equal(noWan.families.wan.rag, 'na');
-  assert.equal(empty.families.wan.value, null);
-  assert.equal(empty.families.wan.rag, 'na');
+  assert.equal(noWan.families.wan1.rag, 'na'); assert.equal(noWan.families.wan2.rag, 'na');
+  assert.equal(empty.families.wan1.value, null); assert.equal(empty.families.wan1.rag, 'na');
+  assert.equal(empty.families.wan2.value, null); assert.equal(empty.families.wan2.rag, 'na');
 });
 
-test('WAN amber band uses wanTarget*0.9', () => {
+test('WAN amber band uses wanTarget*0.9 (first uplink → wan1)', () => {
   // wanTarget 98 -> amber threshold 88.2
   const opmSites = [{ site_id: 5, site_name: 'S5', families: [] }];
-  const wanSites = [{ site_id: 5, uplinks: [ { availability_pct: 90 } ] }];
+  const wanSites = [{ site_id: 5, uplinks: [ { availability_pct: 90 } ] }];   // unlabelled → wan1
   const out = buildInfraMatrix({ opmSites, wanSites, wanTarget: 98 });
   const s = out.sites[0];
-  assert.equal(s.families.wan.value, 90);
-  assert.equal(s.families.wan.rag, 'amber');
-  assert.equal(s.families.wan.target, 98);
-  assert.equal(s.families.wan.trend, null);
-  assert.equal(s.families.wan.stale, false);
+  assert.deepEqual(s.families.wan1, { value: 90, rag: 'amber', target: 98 });
+  assert.deepEqual(s.families.wan2, { value: null, rag: 'na', target: 98 });
 });
 
 test('overall_trend prefers down, then up, then no_change', () => {
@@ -115,7 +125,9 @@ test('fleet by_family_counts + freshness aggregate correctly', () => {
   assert.deepEqual(out.fleet.by_family_counts.lan, { green: 2, amber: 0, red: 0, na: 0 });
   assert.deepEqual(out.fleet.by_family_counts.wifi, { green: 0, amber: 1, red: 0, na: 1 });
   assert.deepEqual(out.fleet.by_family_counts.servers, { green: 0, amber: 0, red: 1, na: 1 });
-  assert.deepEqual(out.fleet.by_family_counts.wan, { green: 1, amber: 0, red: 0, na: 1 });
+  // site A has wan1 (99 green), no wan2; site B has no WAN entry → both na.
+  assert.deepEqual(out.fleet.by_family_counts.wan1, { green: 1, amber: 0, red: 0, na: 1 });
+  assert.deepEqual(out.fleet.by_family_counts.wan2, { green: 0, amber: 0, red: 0, na: 2 });
 
   assert.equal(out.fleet.freshness.stale_count, 1);          // only site A has a stale cell
   assert.equal(out.fleet.freshness.data_through_max, '2026-08-28');
@@ -160,6 +172,6 @@ test('buildInfraMatrix caps availability at 100% (WAN + opm snapshots can round 
     { uplink: 'wan1', availability_pct: 100.14 }, { uplink: 'wan2', availability_pct: 100.14 } ]}];
   const s = buildInfraMatrix({ opmSites, wanSites, wanTarget: 98, asOf: '2026-08-28' }).sites[0];
   assert.equal(s.families.lan.value, 100, 'opm value capped at 100');
-  assert.equal(s.families.wan.value, 100, 'WAN min capped at 100');
-  assert.deepEqual(s.families.wan.uplinks, [{ label: 'WAN1', value: 100 }, { label: 'WAN2', value: 100 }], 'uplink values capped at 100');
+  assert.equal(s.families.wan1.value, 100, 'wan1 capped at 100');
+  assert.equal(s.families.wan2.value, 100, 'wan2 capped at 100');
 });
