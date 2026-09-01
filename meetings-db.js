@@ -105,6 +105,12 @@ async function initPgMeetings() {              // called once at server boot
   // Idempotent label fix (parity with the sqlite path): survey → "IT Survey".
   await _pg.prepare(`UPDATE md_intake_sources SET name_en='IT Survey', name_fr='Enquête IT'
                      WHERE code='survey' AND (name_en='InfoTech Survey' OR name_fr='Enquête InfoTech')`).run();
+  // 2026-09 Business Incubation (parity with the sqlite path): additive column on an
+  // existing table + the intake_source code (the seed only fires on an empty DB).
+  await _pg.exec(`ALTER TABLE md_meetings ADD COLUMN IF NOT EXISTS incubation_json TEXT`);
+  await _pg.prepare(`INSERT INTO md_intake_sources (code, name_en, name_fr, color, display_order, active)
+                     VALUES ('business_incubation', 'Business Incubation', 'Incubation métier', '#0D9488', 4, 1)
+                     ON CONFLICT (code) DO NOTHING`).run();
   return _pg;
 }
 function pgHandle() {
@@ -242,6 +248,7 @@ function _initSchema(db) {
       submitted_at    TEXT,
       dept_head_signed_at TEXT,
       site_it_signed_at   TEXT,
+      incubation_json TEXT,                    -- Business Incubation extras (description/flow/services/roles); NULL for normal PVs
       created_by      INTEGER,
       created_at      TEXT DEFAULT (datetime('now')),
       updated_at      TEXT DEFAULT (datetime('now'))
@@ -373,6 +380,16 @@ function _initSchema(db) {
        AND (name_en = 'InfoTech Survey' OR name_fr = 'Enquête InfoTech')
   `).run();
   if (r.changes) console.log('[meetings-db] ✅ Relabelled intake_source `survey` → "IT Survey"');
+
+  // 2026-09: Business Incubation. (a) additive column on existing DBs (the CREATE
+  // above only fires for a fresh DB); (b) the intake_source code, seeded here too
+  // because _seedLookups only runs on an empty DB.
+  try { db.exec(`ALTER TABLE md_meetings ADD COLUMN incubation_json TEXT`); } catch (e) { /* already present */ }
+  db.prepare(`
+    INSERT INTO md_intake_sources (code, name_en, name_fr, color, display_order, active)
+    SELECT 'business_incubation', 'Business Incubation', 'Incubation métier', '#0D9488', 4, 1
+     WHERE NOT EXISTS (SELECT 1 FROM md_intake_sources WHERE code = 'business_incubation')
+  `).run();
 }
 
 function _seedLookups(db) {
@@ -533,6 +550,7 @@ async function _getMeetingPg(id) {
   const h = pgHandle();
   const header = await h.prepare('SELECT * FROM md_meetings WHERE id = ?').get(id);
   if (!header) return null;
+  if (header.incubation_json) { try { header.incubation = JSON.parse(header.incubation_json); } catch (e) { header.incubation = null; } }
   const projects = await h.prepare('SELECT * FROM md_meeting_projects WHERE meeting_id = ? ORDER BY ord, id').all(id);
   const issues   = await h.prepare('SELECT * FROM md_issues             WHERE meeting_id = ? ORDER BY ord, id').all(id);
   const actions  = await h.prepare('SELECT * FROM md_actions            WHERE meeting_id = ? ORDER BY ord, id').all(id);
@@ -631,6 +649,7 @@ function getMeeting(id) {
   const db = getDB();
   const header = db.prepare('SELECT * FROM md_meetings WHERE id = ?').get(id);
   if (!header) return null;
+  if (header.incubation_json) { try { header.incubation = JSON.parse(header.incubation_json); } catch (e) { header.incubation = null; } }
   const projects = db.prepare('SELECT * FROM md_meeting_projects WHERE meeting_id = ? ORDER BY ord, id').all(id);
   const issues   = db.prepare('SELECT * FROM md_issues             WHERE meeting_id = ? ORDER BY ord, id').all(id);
   const actions  = db.prepare('SELECT * FROM md_actions            WHERE meeting_id = ? ORDER BY ord, id').all(id);
@@ -649,6 +668,19 @@ function getMeeting(id) {
     `).all(...issueIds);
   }
   return { header, projects, issues, actions, updates, attachments };
+}
+
+// Set (or clear) the Business Incubation extras blob on a meeting. Kept OUT of the
+// big saveMeeting upsert so that hot path is untouched: the incubation import calls
+// saveMeeting (meeting + issues) then stamps the blob here by id. `incubation` = an
+// object ({roles, business_description, flow[], services[]}) or null to clear.
+// Async on postgres (pg driver returns a Promise); callers must await.
+function setMeetingIncubation(id, incubation) {
+  const json = incubation == null ? null : JSON.stringify(incubation);
+  if (MEETINGS_BACKEND === 'postgres') {
+    return pgHandle().prepare('UPDATE md_meetings SET incubation_json = ?, updated_at = now() WHERE id = ?').run(json, id);
+  }
+  return getDB().prepare("UPDATE md_meetings SET incubation_json = ?, updated_at = datetime('now') WHERE id = ?").run(json, id);
 }
 
 /**
@@ -2986,7 +3018,7 @@ module.exports = {
   getSiteMonthlyMeetingSummary,
   getSiteContacts, _pickContacts,
   getSiteScoreInputs, _computeMeetingsScoreInputs, _effClose, _openAt, MD_OPEN,
-  listMeetings, countMeetings, getMeeting, saveMeeting, deleteMeeting, getMeetingStatus, signMeeting,
+  listMeetings, countMeetings, getMeeting, saveMeeting, setMeetingIncubation, deleteMeeting, getMeetingStatus, signMeeting,
   listIssues, listEscalations, addIssueUpdate,
   listActions, addActionUpdate, listActionUpdates, getActionParent, getIssueParent,
   exportRows,

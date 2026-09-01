@@ -5,6 +5,7 @@
     { "code": "dept_meeting",  "name_en": "Department Meeting",   "name_fr": "Réunion départementale", "color": "#145FAE", "display_order": 1 },
     { "code": "survey",        "name_en": "IT Survey",            "name_fr": "Enquête IT",             "color": "#EF631A", "display_order": 2 },
     { "code": "council",       "name_en": "Mine IT Council",      "name_fr": "Mine IT Council",        "color": "#7C3AED", "display_order": 3 },
+    { "code": "business_incubation", "name_en": "Business Incubation", "name_fr": "Incubation métier",   "color": "#0D9488", "display_order": 4 },
     { "code": "adhoc",         "name_en": "Ad-hoc",               "name_fr": "Ponctuel",                "color": "#6B7785", "display_order": 9 }
   ],
 

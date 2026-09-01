@@ -71,6 +71,7 @@ CREATE TABLE IF NOT EXISTS md_meetings (
   submitted_at    TEXT,
   dept_head_signed_at TEXT,
   site_it_signed_at   TEXT,
+  incubation_json TEXT,
   created_by      INTEGER,
   created_at      TIMESTAMPTZ DEFAULT now(),
   updated_at      TIMESTAMPTZ DEFAULT now()
