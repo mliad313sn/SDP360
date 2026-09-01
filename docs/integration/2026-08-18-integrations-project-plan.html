@@ -11,7 +11,7 @@
   }
   *{box-sizing:border-box}
   body{font-family:"Segoe UI",Calibri,Arial,sans-serif;color:var(--ink);line-height:1.5;margin:0;background:var(--bg)}
-  .page{max-width:1040px;margin:0 auto;padding:32px 40px 64px;background:var(--box)}
+  .page{max-width:1200px;margin:0 auto;padding:32px 40px 64px;background:var(--box)}
   h1{font-size:1.7rem;color:var(--navy);margin:0 0 4px;line-height:1.2}
   .sub{color:var(--muted);font-size:.95rem;margin:0 0 6px}
   .meta{font-size:.78rem;color:var(--muted);border-bottom:2px solid var(--navy);padding-bottom:14px;margin-bottom:22px}
@@ -33,10 +33,31 @@
   .callout b{color:var(--navy)}
   .legend{font-size:.8rem;background:#f7f9fb;border:1px solid var(--line);border-radius:6px;padding:10px 14px;margin:10px 0}
   .legend .tag{margin-right:4px}
+
+  .toc{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 4px}
+  .toc a{font-size:.78rem;border:1px solid var(--line);border-radius:14px;padding:4px 11px;text-decoration:none;color:var(--navy);background:#f7f9fb}
+  .toc a:hover{background:#eef3f9;border-color:var(--blue)}
+  .icard{border:1px solid var(--line);border-radius:8px;margin:0 0 14px;overflow:hidden;break-inside:avoid;background:#fff}
+  .icard-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;background:#eef3f9;border-bottom:1px solid var(--line)}
+  .icard-name{font-size:.9rem;color:var(--muted);line-height:1.35}
+  .icard-name b{font-size:1.0rem;color:var(--navy)}
+  .icard-meta{display:flex;align-items:center;gap:8px;white-space:nowrap;flex-shrink:0}
+  .eff{font-size:.72rem;color:var(--muted);border:1px solid var(--line);border-radius:4px;padding:2px 7px;background:#fff}
+  .icard-body{display:grid;grid-template-columns:1fr 1fr}
+  .icol{padding:10px 14px;font-size:.84rem}
+  .icol+.icol{border-left:1px solid var(--line)}
+  .ilbl{font-size:.68rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
+  .igate{margin-top:9px;font-size:.8rem;padding-top:7px;border-top:1px dashed var(--line)}
+  .icard-value{padding:9px 14px;font-size:.83rem;border-top:1px solid var(--line)}
+  .icard-value .ilbl{display:inline;margin:0 8px 0 0}
+  .v-ok{background:#f1faf3;box-shadow:inset 4px 0 0 var(--green)}
+  .v-cond{background:#fff8ef;box-shadow:inset 4px 0 0 var(--amber)}
+  .v-risk{background:#fff2f5;box-shadow:inset 4px 0 0 var(--red)}
+  @media (max-width:760px){.icard-body{grid-template-columns:1fr}.icol+.icol{border-left:0;border-top:1px solid var(--line)}}
   .gantt td{font-family:Consolas,monospace;font-size:.78rem;text-align:center}
   .g1{background:#16A34A;color:#fff} .g2{background:#145FAE;color:#fff} .g3{background:#D97706;color:#fff} .g4{background:#8b5cf6;color:#fff} .gx{background:#e6ebf0}
   footer{margin-top:34px;border-top:1px solid var(--line);padding-top:12px;font-size:.78rem;color:var(--muted)}
-  @media print{body{background:#fff}.page{max-width:none;padding:0 8mm}h2{break-after:avoid}table,.callout{break-inside:avoid}}
+  @media print{body{background:#fff}.page{max-width:none;padding:0 8mm}h2{break-after:avoid}table,.callout,.icard{break-inside:avoid}}
 </style>
 </head>
 <body>
@@ -59,93 +80,92 @@
 <b>Propriétaire :</b> <span class="who">DEV</span> équipe SDP &nbsp; <span class="who">CLIENT</span> action utilisateur (clé, config, app registration) &nbsp; <span class="who">TIERS</span> partenaire externe (ISP, éditeur…)
 </div>
 
-<h2>1. Tableau de bord des intégrations</h2>
-<table>
-<thead><tr><th style="width:14%">Intégration</th><th>Statut</th><th>Ce qui est fait</th><th>Reste à faire</th><th>Bloqueur / propriétaire</th><th>Effort DEV</th><th style="width:22%">Valeur réelle / POC <i>(sans complaisance)</i></th></tr></thead>
-<tbody>
-<tr>
-  <td><b>Zoho</b><br>Helpdesk + Analytics Plus</td>
-  <td><span class="tag live">LIVE</span></td>
-  <td>Sync tickets/changes/incidents/survey ; toute la donnée du dashboard.</td>
-  <td>RAS (maintenance). Rotation du refresh-token à surveiller.</td>
-  <td>—</td>
-  <td>—</td>
-  <td><b>Prouvée</b> — c'est le socle : rapports coordinateurs envoyés chaque semaine, deck direction mensuel utilisé en réunion. Sans elle, rien ne tourne.</td>
-</tr>
-<tr>
-  <td><b>Meraki WAN</b><br>dispo/qualité + SLA chargeback</td>
-  <td><span class="tag built">CONSTRUIT</span></td>
-  <td>WAN Health + auto-fill hebdo ; SLA/refacturation ISP V1 (moteur, store, poller, ingester, routes, carte admin, vue Chargeback).</td>
-  <td>Déployer ; <b>calibrer</b> vs Summary Report ; corriger la dérivation « fidèle Meraki » (résolution 5 min + destination primaire + 100 %-5 min) ; auto-fill <b>mensuel</b> + sélecteur de dates ; (opt.) SLA par webhook.</td>
-  <td><span class="who">CLIENT</span> clé Meraki + calibration + mapping circuits/ISP + arme notif</td>
-  <td>≈ 4–6 j</td>
-  <td><b>Non prouvée.</b> La valeur, c'est le <b>crédit ISP en €</b> — pas les courbes. À ce jour : <b>0 crédit réclamé</b>. Sans calibration + une réclamation réelle aboutie, ça reste un graphique. <b>POC :</b> 1 circuit calibré × 1 mois clos × 1 réclamation ISP acceptée.</td>
-</tr>
-<tr>
-  <td><b>OpManager → dispo</b><br>LAN/WLAN/Serveurs (Analytics Plus)</td>
-  <td><span class="tag live">LIVE</span></td>
-  <td>Vue Analytics <code>OPS_OPM_Device_Availability_Daily</code> créée + <code>opm_availability_view_id</code> configuré ; toutes les sondes mappées (691 devices, 450 inclus) ; sync auto (cron 05:10 + bouton admin) ; page <b>Infrastructure Health</b> (WAN1/WAN2, tendance, gouvernance, garde angle-mort sondes) ; exclusion des devices sans mesure et des serveurs de supervision.</td>
-  <td>Retirer les <b>~37 devices morts</b> dans OpManager (worklist <code>OPM_dead_devices_worklist.csv</code>) puis re-sync — c'est ce qui ramènera les moyennes Serveurs/LAN à la réalité (ex. Ouaga serveurs 37 %→~99 %).</td>
-  <td><span class="who">CLIENT</span> nettoyage inventaire OpManager (pas pressé)</td>
-  <td>≈ 0 (opérationnel)</td>
-  <td><b>Conditionnelle.</b> LIVE, mais crédibilité fragile tant que les ~37 devices morts polluent (Ouaga serveurs « 25 % » = irréaliste, personne ne s'y fiera). <b>POC :</b> nettoyage → 1 mois de moyennes validées par le terrain → chiffres utilisés en réunion mensuelle. Sinon : joli tableau que personne ne regarde.</td>
-</tr>
-<tr>
-  <td><b>OpManager → SDP</b><br>Auto-ticketing proactif</td>
-  <td><span class="tag todo">À FAIRE</span></td>
-  <td>Étude de faisabilité sourcée + plan progressif (doc du 28/07).</td>
-  <td>Phase 1 profil natif « Log a Ticket » ; Phase 2 broker + pré-tag Risk Register ; matrice anti-surcharge.</td>
-  <td><span class="who">CLIENT</span> édition SDP Enterprise + rôles &nbsp; <span class="who">DEV</span> broker</td>
-  <td>≈ 8–12 j (par phases)</td>
-  <td><b>Potentiel le plus fort — risque le plus fort.</b> Proactivité/MTTR réels, mais un flood d'alarmes tuerait la confiance du helpdesk en une semaine. <b>POC :</b> 1 site × 1 type d'alarme (device down soutenu) × 2 semaines ; <b>critère d'arrêt : &gt; 30 % de tickets-bruit → on revoit la matrice avant d'étendre.</b></td>
-</tr>
-<tr>
-  <td><b>Entra SSO</b><br>Microsoft sign-in</td>
-  <td><span class="tag partial">PARTIEL</span></td>
-  <td>Toute la pile OIDC + carte admin ; configurable sans redémarrage ; inerte tant que non activé.</td>
-  <td>App registration Entra ; mapper les emails ; passer <code>available</code> → <code>only</code>.</td>
-  <td><span class="who">CLIENT</span> admin M365 (app registration)</td>
-  <td>≈ 0 (config)</td>
-  <td><b>Modeste mais réelle.</b> Peu d'utilisateurs du dashboard → l'enjeu n'est pas le confort mais la <b>gouvernance</b> : offboarding lié à l'AD, plus de mots de passe locaux orphelins. Pas prioritaire ; coût quasi nul. <b>POC :</b> mode <code>available</code> 1 semaine sur son propre compte.</td>
-</tr>
-<tr>
-  <td><b>Réconciliation parc</b><br>SDP × AD × Entra × Defender</td>
-  <td><span class="tag built">CONSTRUIT</span></td>
-  <td>Réconciliation du parc ; écarts + candidats retrait ; historique livré.</td>
-  <td>Lancer les collecteurs (AD/Defender) régulièrement ; rattacher les GPO SelfScan aux OU concernées.</td>
-  <td><span class="who">CLIENT</span> collecteurs + GPO</td>
-  <td>≈ 0 (opérationnel)</td>
-  <td><b>Déjà démontrée sur données réelles</b> : 545 écarts, 3 OU concentrant l'essentiel → GPO SelfScan à rattacher, témoin HGO à 2 %. <b>Mais</b> sans collecteurs relancés régulièrement + GPO rattachées, ça reste un audit one-shot. <b>POC de suite :</b> la courbe 545 → X après rattachement des GPO (l'historique est déjà en place pour la tracer).</td>
-</tr>
-<tr>
-  <td><b>Identité &amp; Sécurité AD</b><br>actions gouvernées depuis le ticket SDP</td>
-  <td><span class="tag todo">À FAIRE</span></td>
-  <td>Étude de faisabilité sourcée + plan progressif (doc du 29/07) : A1 désactivation leaver · A2 reset/unlock assisté · B1 alerte login compte désactivé · B2 dormants.</td>
-  <td>Ph.1 A2 reset/unlock (le moins risqué) → Ph.2 A1 leaver → Ph.3 B1/B2, via ADManager Plus / ADAudit Plus + broker.</td>
-  <td><span class="who">CLIENT</span> ADManager+/ADAudit+ + VPN &nbsp; <span class="who">DEV</span> broker</td>
-  <td>≈ 6–10 j (par phases)</td>
-  <td><b>Challenge :</b> le A2 (reset assisté) est largement couvert par ADSelfService+ <b>gratuit</b> — ne construire QUE ce que le produit ne fait pas : leaver 1-clic, alerte login sur compte désactivé. Et la valeur du leaver dépend d'un process RH qui <b>signale</b> les départs — sans ce signal, l'automatisme tourne à vide. <b>POC :</b> 1 départ réel traité bout-en-bout, fenêtre d'exposition mesurée avant/après.</td>
-</tr>
-<tr>
-  <td><b>AD self-service reset</b><br>reset mot de passe / unlock par l'utilisateur</td>
-  <td><span class="tag partial">PRODUIT à activer</span></td>
-  <td>—</td>
-  <td>Activer <b>ADSelfService Plus</b> (intégration native SDP, SSO, auto-ticket) — <b>100 licences gratuites</b> pour les clients SDP. Complète le A2 « assisté » ci-dessus par le self-service.</td>
-  <td><span class="who">CLIENT</span> déploiement ADSelfService+ (produit ManageEngine)</td>
-  <td>≈ 0 dev (config produit)</td>
-  <td><b>Probablement le meilleur ROI du plan</b> (20–40 % des tickets = resets ; licences gratuites) — <b>MAIS valeur nulle sans campagne d'enrôlement</b> : si les utilisateurs ne s'inscrivent pas, personne ne l'utilise. <b>POC :</b> 1 site, comparer le volume de tickets « reset/unlock » avant/après 1 mois.</td>
-</tr>
-<tr>
-  <td><b>IT OPS Copilot &amp; Automation IA</b><br>« One IT Support » (Teams) + Azure OpenAI dans SDP</td>
-  <td><span class="tag partial">PARTIEL</span></td>
-  <td>Agent Copilot Studio <b>construit et publié</b> (bilingue FR/EN, MCP Zoho, tables de routage formulaires, guide) ; feuille de route automation consolidée (doc du 01/09) ; <b>décision 01/09 : Copilot Studio-first</b> — toute l'IA du workstream sur une seule plateforme.</td>
-  <td>Débloquer les <b>crédits Copilot Studio</b> ; approbation Teams admin ; 1ᵉʳ test <code>addRequest</code> ; valider l'app Teams SDP <b>native</b> en parallèle ; <b>topics techniciens</b> dans l'agent (résumé de ticket, brouillon de réponse via MCP) ; Business Rules SDP ; puis Adaptive Cards ciblées (MI, SLA breach, déviation sécu, VIP). <i>(Azure OpenAI dans SDP = option différée — ne sert que l'IA native in-ticket de l'UI SDP.)</i></td>
-  <td><span class="who">CLIENT</span> admin Power Platform (crédits) + Teams admin</td>
-  <td>≈ 0 (config) · cartes Teams ≈ 2–3 j</td>
-  <td><b>Non prouvée — risque gadget.</b> Publié mais jamais utilisé en réel (bloqué crédits). Si les employés continuent d'écrire au helpdesk par mail, l'agent n'aura servi à rien. <b>POC :</b> 1 site pilote × 2 semaines, mesurer % de tickets créés via l'agent + taux de bonne catégorisation vs baseline ; <b>critère d'arrêt : adoption faible → ne pas généraliser.</b></td>
-</tr>
-</tbody>
-</table>
+
+<nav class="toc">
+  <a href="#s1"><b>1</b> Intégrations</a>
+  <a href="#s2"><b>2</b> Gates externes</a>
+  <a href="#s3"><b>3</b> Ordonnancement</a>
+  <a href="#s4"><b>4</b> Décisions</a>
+  <a href="#s5"><b>5</b> Automatismes</a>
+  <a href="#s6"><b>6</b> Modules</a>
+  <a href="#s7"><b>7</b> Alignement objectifs</a>
+  <a href="#s8"><b>8</b> Roadmap 2027</a>
+</nav>
+<h2 id="s1">1. Tableau de bord des intégrations</h2>
+<div class="icards">
+<div class="icard">
+  <div class="icard-head"><div class="icard-name"><b>Zoho</b> — Helpdesk + Analytics Plus</div><div class="icard-meta"><span class="tag live">LIVE</span></div></div>
+  <div class="icard-body">
+    <div class="icol"><div class="ilbl">✔ Ce qui est fait</div>Sync tickets/changes/incidents/survey ; toute la donnée du dashboard.</div>
+    <div class="icol"><div class="ilbl">→ Reste à faire</div>RAS (maintenance). Rotation du refresh-token à surveiller.</div>
+  </div>
+  <div class="icard-value v-ok"><span class="ilbl">Valeur réelle / POC</span><b>Prouvée</b> — c'est le socle : rapports coordinateurs envoyés chaque semaine, deck direction mensuel utilisé en réunion. Sans elle, rien ne tourne.</div>
+</div>
+<div class="icard">
+  <div class="icard-head"><div class="icard-name"><b>Meraki WAN</b> — dispo/qualité + SLA chargeback</div><div class="icard-meta"><span class="eff">Effort DEV : ≈ 4–6 j</span><span class="tag built">CONSTRUIT</span></div></div>
+  <div class="icard-body">
+    <div class="icol"><div class="ilbl">✔ Ce qui est fait</div>WAN Health + auto-fill hebdo ; SLA/refacturation ISP V1 (moteur, store, poller, ingester, routes, carte admin, vue Chargeback).</div>
+    <div class="icol"><div class="ilbl">→ Reste à faire</div>Déployer ; <b>calibrer</b> vs Summary Report ; corriger la dérivation « fidèle Meraki » (résolution 5 min + destination primaire + 100 %-5 min) ; auto-fill <b>mensuel</b> + sélecteur de dates ; (opt.) SLA par webhook.<div class="igate"><span class="ilbl" style="margin:0 6px 0 0">Gate</span><span class="who">CLIENT</span> clé Meraki + calibration + mapping circuits/ISP + arme notif</div></div>
+  </div>
+  <div class="icard-value v-risk"><span class="ilbl">Valeur réelle / POC</span><b>Non prouvée.</b> La valeur, c'est le <b>crédit ISP en €</b> — pas les courbes. À ce jour : <b>0 crédit réclamé</b>. Sans calibration + une réclamation réelle aboutie, ça reste un graphique. <b>POC :</b> 1 circuit calibré × 1 mois clos × 1 réclamation ISP acceptée.</div>
+</div>
+<div class="icard">
+  <div class="icard-head"><div class="icard-name"><b>OpManager → dispo</b> — LAN/WLAN/Serveurs (Analytics Plus)</div><div class="icard-meta"><span class="eff">Effort DEV : ≈ 0 (opérationnel)</span><span class="tag live">LIVE</span></div></div>
+  <div class="icard-body">
+    <div class="icol"><div class="ilbl">✔ Ce qui est fait</div>Vue Analytics <code>OPS_OPM_Device_Availability_Daily</code> créée + <code>opm_availability_view_id</code> configuré ; toutes les sondes mappées (691 devices, 450 inclus) ; sync auto (cron 05:10 + bouton admin) ; page <b>Infrastructure Health</b> (WAN1/WAN2, tendance, gouvernance, garde angle-mort sondes) ; exclusion des devices sans mesure et des serveurs de supervision.</div>
+    <div class="icol"><div class="ilbl">→ Reste à faire</div>Retirer les <b>~37 devices morts</b> dans OpManager (worklist <code>OPM_dead_devices_worklist.csv</code>) puis re-sync — c'est ce qui ramènera les moyennes Serveurs/LAN à la réalité (ex. Ouaga serveurs 37 %→~99 %).<div class="igate"><span class="ilbl" style="margin:0 6px 0 0">Gate</span><span class="who">CLIENT</span> nettoyage inventaire OpManager (pas pressé)</div></div>
+  </div>
+  <div class="icard-value v-cond"><span class="ilbl">Valeur réelle / POC</span><b>Conditionnelle.</b> LIVE, mais crédibilité fragile tant que les ~37 devices morts polluent (Ouaga serveurs « 25 % » = irréaliste, personne ne s'y fiera). <b>POC :</b> nettoyage → 1 mois de moyennes validées par le terrain → chiffres utilisés en réunion mensuelle. Sinon : joli tableau que personne ne regarde.</div>
+</div>
+<div class="icard">
+  <div class="icard-head"><div class="icard-name"><b>OpManager → SDP</b> — Auto-ticketing proactif</div><div class="icard-meta"><span class="eff">Effort DEV : ≈ 8–12 j (par phases)</span><span class="tag todo">À FAIRE</span></div></div>
+  <div class="icard-body">
+    <div class="icol"><div class="ilbl">✔ Ce qui est fait</div>Étude de faisabilité sourcée + plan progressif (doc du 28/07).</div>
+    <div class="icol"><div class="ilbl">→ Reste à faire</div>Phase 1 profil natif « Log a Ticket » ; Phase 2 broker + pré-tag Risk Register ; matrice anti-surcharge.<div class="igate"><span class="ilbl" style="margin:0 6px 0 0">Gate</span><span class="who">CLIENT</span> édition SDP Enterprise + rôles &nbsp; <span class="who">DEV</span> broker</div></div>
+  </div>
+  <div class="icard-value v-risk"><span class="ilbl">Valeur réelle / POC</span><b>Potentiel le plus fort — risque le plus fort.</b> Proactivité/MTTR réels, mais un flood d'alarmes tuerait la confiance du helpdesk en une semaine. <b>POC :</b> 1 site × 1 type d'alarme (device down soutenu) × 2 semaines ; <b>critère d'arrêt : &gt; 30 % de tickets-bruit → on revoit la matrice avant d'étendre.</b></div>
+</div>
+<div class="icard">
+  <div class="icard-head"><div class="icard-name"><b>Entra SSO</b> — Microsoft sign-in</div><div class="icard-meta"><span class="eff">Effort DEV : ≈ 0 (config)</span><span class="tag partial">PARTIEL</span></div></div>
+  <div class="icard-body">
+    <div class="icol"><div class="ilbl">✔ Ce qui est fait</div>Toute la pile OIDC + carte admin ; configurable sans redémarrage ; inerte tant que non activé.</div>
+    <div class="icol"><div class="ilbl">→ Reste à faire</div>App registration Entra ; mapper les emails ; passer <code>available</code> → <code>only</code>.<div class="igate"><span class="ilbl" style="margin:0 6px 0 0">Gate</span><span class="who">CLIENT</span> admin M365 (app registration)</div></div>
+  </div>
+  <div class="icard-value v-cond"><span class="ilbl">Valeur réelle / POC</span><b>Modeste mais réelle.</b> Peu d'utilisateurs du dashboard → l'enjeu n'est pas le confort mais la <b>gouvernance</b> : offboarding lié à l'AD, plus de mots de passe locaux orphelins. Pas prioritaire ; coût quasi nul. <b>POC :</b> mode <code>available</code> 1 semaine sur son propre compte.</div>
+</div>
+<div class="icard">
+  <div class="icard-head"><div class="icard-name"><b>Réconciliation parc</b> — SDP × AD × Entra × Defender</div><div class="icard-meta"><span class="eff">Effort DEV : ≈ 0 (opérationnel)</span><span class="tag built">CONSTRUIT</span></div></div>
+  <div class="icard-body">
+    <div class="icol"><div class="ilbl">✔ Ce qui est fait</div>Réconciliation du parc ; écarts + candidats retrait ; historique livré.</div>
+    <div class="icol"><div class="ilbl">→ Reste à faire</div>Lancer les collecteurs (AD/Defender) régulièrement ; rattacher les GPO SelfScan aux OU concernées.<div class="igate"><span class="ilbl" style="margin:0 6px 0 0">Gate</span><span class="who">CLIENT</span> collecteurs + GPO</div></div>
+  </div>
+  <div class="icard-value v-ok"><span class="ilbl">Valeur réelle / POC</span><b>Déjà démontrée sur données réelles</b> : 545 écarts, 3 OU concentrant l'essentiel → GPO SelfScan à rattacher, témoin HGO à 2 %. <b>Mais</b> sans collecteurs relancés régulièrement + GPO rattachées, ça reste un audit one-shot. <b>POC de suite :</b> la courbe 545 → X après rattachement des GPO (l'historique est déjà en place pour la tracer).</div>
+</div>
+<div class="icard">
+  <div class="icard-head"><div class="icard-name"><b>Identité &amp; Sécurité AD</b> — actions gouvernées depuis le ticket SDP</div><div class="icard-meta"><span class="eff">Effort DEV : ≈ 6–10 j (par phases)</span><span class="tag todo">À FAIRE</span></div></div>
+  <div class="icard-body">
+    <div class="icol"><div class="ilbl">✔ Ce qui est fait</div>Étude de faisabilité sourcée + plan progressif (doc du 29/07) : A1 désactivation leaver · A2 reset/unlock assisté · B1 alerte login compte désactivé · B2 dormants.</div>
+    <div class="icol"><div class="ilbl">→ Reste à faire</div>Ph.1 A2 reset/unlock (le moins risqué) → Ph.2 A1 leaver → Ph.3 B1/B2, via ADManager Plus / ADAudit Plus + broker.<div class="igate"><span class="ilbl" style="margin:0 6px 0 0">Gate</span><span class="who">CLIENT</span> ADManager+/ADAudit+ + VPN &nbsp; <span class="who">DEV</span> broker</div></div>
+  </div>
+  <div class="icard-value v-cond"><span class="ilbl">Valeur réelle / POC</span><b>Challenge :</b> le A2 (reset assisté) est largement couvert par ADSelfService+ <b>gratuit</b> — ne construire QUE ce que le produit ne fait pas : leaver 1-clic, alerte login sur compte désactivé. Et la valeur du leaver dépend d'un process RH qui <b>signale</b> les départs — sans ce signal, l'automatisme tourne à vide. <b>POC :</b> 1 départ réel traité bout-en-bout, fenêtre d'exposition mesurée avant/après.</div>
+</div>
+<div class="icard">
+  <div class="icard-head"><div class="icard-name"><b>AD self-service reset</b> — reset mot de passe / unlock par l'utilisateur</div><div class="icard-meta"><span class="eff">Effort DEV : ≈ 0 dev (config produit)</span><span class="tag partial">PRODUIT à activer</span></div></div>
+  <div class="icard-body">
+    <div class="icol"><div class="ilbl">✔ Ce qui est fait</div>—</div>
+    <div class="icol"><div class="ilbl">→ Reste à faire</div>Activer <b>ADSelfService Plus</b> (intégration native SDP, SSO, auto-ticket) — <b>100 licences gratuites</b> pour les clients SDP. Complète le A2 « assisté » ci-dessus par le self-service.<div class="igate"><span class="ilbl" style="margin:0 6px 0 0">Gate</span><span class="who">CLIENT</span> déploiement ADSelfService+ (produit ManageEngine)</div></div>
+  </div>
+  <div class="icard-value v-cond"><span class="ilbl">Valeur réelle / POC</span><b>Probablement le meilleur ROI du plan</b> (20–40 % des tickets = resets ; licences gratuites) — <b>MAIS valeur nulle sans campagne d'enrôlement</b> : si les utilisateurs ne s'inscrivent pas, personne ne l'utilise. <b>POC :</b> 1 site, comparer le volume de tickets « reset/unlock » avant/après 1 mois.</div>
+</div>
+<div class="icard">
+  <div class="icard-head"><div class="icard-name"><b>IT OPS Copilot &amp; Automation IA</b> — « One IT Support » (Teams) + Azure OpenAI dans SDP</div><div class="icard-meta"><span class="eff">Effort DEV : ≈ 0 (config) · cartes Teams ≈ 2–3 j</span><span class="tag partial">PARTIEL</span></div></div>
+  <div class="icard-body">
+    <div class="icol"><div class="ilbl">✔ Ce qui est fait</div>Agent Copilot Studio <b>construit et publié</b> (bilingue FR/EN, MCP Zoho, tables de routage formulaires, guide) ; feuille de route automation consolidée (doc du 01/09) ; <b>décision 01/09 : Copilot Studio-first</b> — toute l'IA du workstream sur une seule plateforme.</div>
+    <div class="icol"><div class="ilbl">→ Reste à faire</div>Débloquer les <b>crédits Copilot Studio</b> ; approbation Teams admin ; 1ᵉʳ test <code>addRequest</code> ; valider l'app Teams SDP <b>native</b> en parallèle ; <b>topics techniciens</b> dans l'agent (résumé de ticket, brouillon de réponse via MCP) ; Business Rules SDP ; puis Adaptive Cards ciblées (MI, SLA breach, déviation sécu, VIP). <i>(Azure OpenAI dans SDP = option différée — ne sert que l'IA native in-ticket de l'UI SDP.)</i><div class="igate"><span class="ilbl" style="margin:0 6px 0 0">Gate</span><span class="who">CLIENT</span> admin Power Platform (crédits) + Teams admin</div></div>
+  </div>
+  <div class="icard-value v-risk"><span class="ilbl">Valeur réelle / POC</span><b>Non prouvée — risque gadget.</b> Publié mais jamais utilisé en réel (bloqué crédits). Si les employés continuent d'écrire au helpdesk par mail, l'agent n'aura servi à rien. <b>POC :</b> 1 site pilote × 2 semaines, mesurer % de tickets créés via l'agent + taux de bonne catégorisation vs baseline ; <b>critère d'arrêt : adoption faible → ne pas généraliser.</b></div>
+</div>
+</div>
 
 <div class="callout"><b>Lecture clé pour la réunion.</b> Le <b>chemin critique n'est presque jamais du dev</b> — c'est une <b>action côté client/tiers</b> : calibration Meraki, app registration Entra, crédits Copilot Studio, édition SDP Enterprise. Le dev SDP est prêt ou rapide sur chaque volet ; l'ordonnancement ci-dessous se cale sur la levée de ces gates. <i>(Gate levé depuis la v1 : la vue Analytics OpManager — le volet dispo est passé LIVE.)</i></div>
 
@@ -155,7 +175,7 @@
 <b>Spéculatif, avec critère d'arrêt :</b> auto-ticketing (&gt; 30 % de bruit → stop) · Copilot One IT Support (adoption faible au pilote → ne pas généraliser).
 <b>Règle proposée :</b> chaque volet activé doit produire <b>une preuve chiffrée sous 60 jours</b> (un crédit ISP, une baisse de tickets reset, un écart parc résorbé, un % d'adoption) — sinon il repasse en question au comité suivant.</div>
 
-<h2>2. Gates externes (le vrai chemin critique)</h2>
+<h2 id="s2">2. Gates externes (le vrai chemin critique)</h2>
 <table>
 <thead><tr><th>Gate</th><th>Propriétaire</th><th>Débloque</th><th>Statut</th></tr></thead>
 <tbody>
@@ -169,7 +189,7 @@
 </tbody>
 </table>
 
-<h2>3. Ordonnancement proposé (timing indicatif)</h2>
+<h2 id="s3">3. Ordonnancement proposé (timing indicatif)</h2>
 <p>Fenêtres de ~2 semaines. Une case colorée = travail actif ; l'effort dev réel par volet est faible (voir tableau §1), la durée est surtout portée par la levée des gates.</p>
 <table class="gantt">
 <thead><tr><th style="text-align:left">Volet</th><th>S1–S2</th><th>S3–S4</th><th>S5–S6</th><th>S7–S8</th></tr></thead>
@@ -183,7 +203,7 @@
 </tbody>
 </table>
 
-<h2>4. Décisions attendues en réunion</h2>
+<h2 id="s4">4. Décisions attendues en réunion</h2>
 <ul>
   <li><b>Meraki</b> : valider la source « dispo fidèle » = <b>dérivation loss/latence calibrée</b> (résolution 5 min + destination primaire + 100 %-5 min) plutôt que event-log/Insight. Lancer la calibration.</li>
   <li><b>OpManager</b> : ✅ vue Analytics créée + Infrastructure Health LIVE — planifier le <b>retrait des ~37 devices morts</b> (worklist fournie) pour des moyennes fidèles.</li>
@@ -192,7 +212,7 @@
   <li><b>IT OPS Copilot</b> : faire lever le bloqueur <b>crédits Copilot Studio</b> par l'admin Power Platform ; valider l'app Teams SDP native en parallèle. <b>Décision actée (01/09) : Copilot Studio-first</b> — toute l'IA via l'agent + topics + Power Automate ; Azure OpenAI dans SDP différé (ne sert que les boutons IA natifs de l'UI SDP ; réversible si les techniciens en expriment le besoin).</li>
 </ul>
 
-<h2>5. Automatismes proposés — feuille de route « service » <span class="tag info">vue Service &amp; Support Manager</span></h2>
+<h2 id="s5">5. Automatismes proposés — feuille de route « service » <span class="tag info">vue Service &amp; Support Manager</span></h2>
 <p class="lead">Objectif d'un Service &amp; Support Manager : <b>moins de tickets</b> (déflection), <b>MTTR plus court</b>, <b>proactivité</b> (agir avant l'appel), <b>posture sécurité</b>, et des <b>métriques démontrables</b>. Voici les leviers, priorisés — la plupart s'appuient sur des outils déjà en place (SDP · OpManager · Meraki · AD/Entra/Defender · le dashboard).</p>
 <table>
 <thead><tr><th style="width:20%">Automatisme</th><th>Ce que ça fait</th><th>Bénéfice (facilite qui)</th><th>Effort / statut</th><th style="width:20%">Valeur réelle / POC <i>(sans complaisance)</i></th></tr></thead>
@@ -226,7 +246,7 @@
 </table>
 <div class="callout win"><b>Recommandation de séquence.</b> Commencer par les <b>Quick wins</b> : (1) <b>self-service reset</b> (gratuit, déflection immédiate massive), (2) <b>auto-ticketing proactif</b> (le socle « agir avant l'appel »), (3) <b>lot identité A2/A1</b> (sécurité + gain tech). Le reste s'empile dessus. Chaque automatisme est <b>additif et réversible</b> — on peut s'arrêter à tout moment sans dette.</div>
 
-<h2>6. Inventaire des modules du dashboard — but &amp; valeur</h2>
+<h2 id="s6">6. Inventaire des modules du dashboard — but &amp; valeur</h2>
 <p>Vue d'ensemble de ce que le dashboard fait déjà (au-delà des intégrations), pour situer chaque brique en réunion.</p>
 <table>
 <thead><tr><th style="width:22%">Module</th><th>But — pourquoi ça existe</th><th>Statut</th><th style="width:26%">Valeur réelle / usage <i>(sans complaisance)</i></th></tr></thead>
@@ -254,7 +274,7 @@
 </tbody>
 </table>
 
-<h2>7. Alignement roadmap — chaque brique dans son objectif</h2>
+<h2 id="s7">7. Alignement roadmap — chaque brique dans son objectif</h2>
 <p>Classement de chaque outil / automatisme sous l'objectif manager qu'il sert en premier. Certaines briques servent aussi un objectif secondaire (noté). Le bloc « transversal » = pilotage &amp; communication qui sert les 4.</p>
 <table>
 <thead><tr><th style="width:30%">Outil / action</th><th>Rôle vis-à-vis l'objectif</th><th>Statut</th></tr></thead>
@@ -300,7 +320,7 @@
 </table>
 <div class="callout win"><b>Lecture « délivrer le max ».</b> Deux <b>À FAIRE « gain rapide »</b> ressortent car ils s'appuient sur des données déjà présentes et <b>font bouger les couleurs</b> : le <b>Scorecard ITSM &amp; actifs</b> (Objectif 2 → confirme Vert) et le <b>Tracker conformité RCA + 14 actions</b> (Objectif 3 → Orange→Vert). Puis l'<b>analytics adoption/précision</b> (Objectif 1, plus gros poids) et le <b>tracker formation/KB</b> (Objectif 4).</div>
 
-<h2>8. Candidats roadmap 2027</h2>
+<h2 id="s8">8. Candidats roadmap 2027</h2>
 <p>Issus directement du challenge valeur : ce qui est <b>spéculatif aujourd'hui</b> ou dont le pré-requis ne tombera pas cette année. <b>Règle d'entrée :</b> un candidat n'entre au roadmap 2027 que si son <b>déclencheur</b> est atteint — une preuve, pas une envie.</p>
 <table>
 <thead><tr><th style="width:24%">Candidat</th><th>Pourquoi pas maintenant (pré-requis manquant)</th><th style="width:30%">Déclencheur d'entrée au roadmap</th></tr></thead>
