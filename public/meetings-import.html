@@ -416,6 +416,15 @@
 
   <div id="mimBanner"></div>
 
+  <div class="mim-card" style="margin-bottom:14px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+    <strong style="font-size:14px">
+      <span data-lng="en">Report format</span><span data-lng="fr">Format du rapport</span>
+    </strong>
+    <label style="cursor:pointer"><input type="radio" name="mimFormat" value="meetings" checked style="vertical-align:middle"> <span data-lng="en">Department meeting (PV)</span><span data-lng="fr">Réunion départementale (PV)</span></label>
+    <label style="cursor:pointer"><input type="radio" name="mimFormat" value="incubation" style="vertical-align:middle"> <span data-lng="en">Business Incubation</span><span data-lng="fr">Incubation métier</span></label>
+    <span id="mimFormatNote" style="color:var(--color-text-muted,#7B7B7B);font-size:12.5px"></span>
+  </div>
+
   <div class="mim-grid">
 
     <!-- LEFT — instructions + drop zone -->
@@ -774,6 +783,26 @@ HGO_Mining_PV_2026-05-24        │ 2026-05-24</div>
   let currentFile = null;
   let lastPreview = null;
 
+  // Report format: 'meetings' (PV, default) or 'incubation' (Business Incubation).
+  // Only the upload endpoints + template differ — the mapping is server-side.
+  let MODE = 'meetings';
+  function _ep(kind) {
+    if (MODE === 'incubation') return { tpl: '/import/incubation-template', preview: '/import/incubation/preview', commit: '/import/incubation/commit' }[kind];
+    return { tpl: '/import/template', preview: '/import/preview', commit: '/import/commit' }[kind];
+  }
+  function _tplName() { return MODE === 'incubation' ? 'incubation_import_template.xlsx' : 'meetings_import_template.xlsx'; }
+  document.querySelectorAll('input[name="mimFormat"]').forEach(r => r.addEventListener('change', () => {
+    MODE = document.querySelector('input[name="mimFormat"]:checked').value;
+    const note = document.getElementById('mimFormatNote');
+    const fr = document.body.classList.contains('lang-fr');
+    if (note) note.textContent = MODE === 'incubation'
+      ? (fr ? 'Onglets : Session · Challenges · InfoFlow · Services.' : 'Sheets: Session · Challenges · InfoFlow · Services.')
+      : (fr ? 'Onglets : Meetings · Issues · Actions.' : 'Sheets: Meetings · Issues · Actions.');
+    // reset any in-progress preview when switching formats
+    document.getElementById('mimCommitCard').hidden = true;
+    document.getElementById('mimPreviewBody').innerHTML = '';
+  }));
+
   // ── Bilingual toggle (EN ⇄ FR) ─────────────────────────────────────
   // Static HTML uses <span data-lng> pairs; programmatic strings go
   // through the T() helper below.
@@ -915,12 +944,12 @@ HGO_Mining_PV_2026-05-24        │ 2026-05-24</div>
   // Download template
   document.getElementById('mimDownloadTpl').addEventListener('click', async () => {
     try {
-      const r = await fetch(API + '/import/template', { credentials: 'same-origin', headers: authHeaders() });
+      const r = await fetch(API + _ep('tpl'), { credentials: 'same-origin', headers: authHeaders() });
       if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || 'HTTP ' + r.status); }
       const blob = await r.blob();
       const url  = URL.createObjectURL(blob);
       const a    = document.createElement('a');
-      a.href     = url; a.download = 'meetings_import_template.xlsx';
+      a.href     = url; a.download = _tplName();
       document.body.appendChild(a); a.click();
       setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
     } catch (e) {
@@ -936,7 +965,7 @@ HGO_Mining_PV_2026-05-24        │ 2026-05-24</div>
       '<p style="text-align:center;color:var(--color-text-muted,#7B7B7B);font-style:italic;padding:24px">' + esc(T('parsing')) + '</p>';
     try {
       const buf = await currentFile.arrayBuffer();
-      const r = await fetch(API + '/import/preview', {
+      const r = await fetch(API + _ep('preview'), {
         method: 'POST', credentials: 'same-origin',
         headers: { ...authHeaders(), 'Content-Type': 'application/octet-stream' },
         body: buf,
@@ -954,6 +983,7 @@ HGO_Mining_PV_2026-05-24        │ 2026-05-24</div>
   });
 
   function renderPreview(j) {
+    if (j && j.sessions !== undefined) { renderIncubationPreview(j); return; }
     const s = j.summary || {};
     const errs = j.errors || [];
     const warns = j.warnings || [];
@@ -1036,6 +1066,50 @@ HGO_Mining_PV_2026-05-24        │ 2026-05-24</div>
     });
     document.getElementById('mimCommitCard').hidden = (s.meetings || 0) === 0;
     // Auto-tick force if errors > 0 so user sees the choice
+    document.getElementById('mimForce').checked = errs.length > 0;
+  }
+
+  // Compact preview for the Business Incubation format (sessions instead of PVs).
+  function renderIncubationPreview(j) {
+    const s = j.summary || {};
+    const errs = j.errors || [];
+    const warns = j.warnings || [];
+    const fr = document.body.classList.contains('lang-fr');
+    const willUpd = s.will_update || 0;
+    let html = `
+      <div class="mim-kpis">
+        <div class="mim-kpi mim-kpi--success"><div class="mim-kpi__label">${fr ? 'Sessions' : 'Sessions'}</div><div class="mim-kpi__value">${esc(s.sessions || 0)}</div></div>
+        <div class="mim-kpi mim-kpi--warning"><div class="mim-kpi__label">${fr ? 'À mettre à jour' : 'To update'}</div><div class="mim-kpi__value">${esc(willUpd)}</div></div>
+        <div class="mim-kpi mim-kpi--info"><div class="mim-kpi__label">${fr ? 'Défis' : 'Challenges'}</div><div class="mim-kpi__value">${esc(s.challenges || 0)}</div></div>
+        <div class="mim-kpi ${errs.length ? 'mim-kpi--danger' : 'mim-kpi--success'}"><div class="mim-kpi__label">${fr ? 'Erreurs' : 'Errors'}</div><div class="mim-kpi__value">${esc(errs.length)}</div></div>
+      </div>`;
+    if (willUpd > 0) html += `<div class="mim-update-warning">${fr ? willUpd + ' session(s) existante(s) seront mises à jour (les défis sont remplacés).' : willUpd + ' existing session(s) will be updated (challenges are replaced).'}</div>`;
+    const sessions = j.sessions || [];
+    if (sessions.length) {
+      html += '<div class="mim-preview-list">' + sessions.map(m => {
+        const kind = m.will_update
+          ? `<span class="mim-row-kind mim-row-kind--update">🔄 ${fr ? 'MAJ' : 'update'}</span>`
+          : `<span class="mim-row-kind mim-row-kind--new">🆕 ${fr ? 'nouveau' : 'new'}</span>`;
+        return `<div class="mim-preview-row">
+            <span class="mim-site">${esc(m.site_code || '—')}</span>
+            <span class="mim-ref" title="${esc(m.reference)}">${kind}${esc(m.reference || '—')}</span>
+            <span class="mim-dept">${esc(m.department)}</span>
+            <span class="mim-date">${fmtDate(m.session_start)}</span>
+            <span class="mim-count" title="Challenges">${esc(m.challenge_count)}C</span>
+            <span class="mim-count" title="Services">${esc(m.service_count)}S</span>
+          </div>`;
+      }).join('') + '</div>';
+    } else {
+      html += '<p style="color:var(--color-text-muted,#7B7B7B);font-style:italic;padding:14px;text-align:center">' + (fr ? 'Aucune session' : 'No sessions') + '</p>';
+    }
+    if (errs.length || warns.length) {
+      html += '<div class="mim-issues">';
+      errs.forEach(e => { html += `<div class="mim-issue-line mim-issue-line--error"><code>row ${esc(e.row)} · ${esc(e.field)}</code><span class="mim-issue-line__msg">${esc(e.msg)}</span></div>`; });
+      warns.forEach(w => { html += `<div class="mim-issue-line mim-issue-line--warn"><code>row ${esc(w.row)} · ${esc(w.field)}</code><span class="mim-issue-line__msg">${esc(w.msg)}</span></div>`; });
+      html += '</div>';
+    }
+    document.getElementById('mimPreviewBody').innerHTML = html;
+    document.getElementById('mimCommitCard').hidden = (s.sessions || 0) === 0;
     document.getElementById('mimForce').checked = errs.length > 0;
   }
 
@@ -1133,7 +1207,7 @@ HGO_Mining_PV_2026-05-24        │ 2026-05-24</div>
     try {
       const force = document.getElementById('mimForce').checked ? '1' : '0';
       const buf = await currentFile.arrayBuffer();
-      const r = await fetch(API + '/import/commit?force=' + force, {
+      const r = await fetch(API + _ep('commit') + '?force=' + force, {
         method: 'POST', credentials: 'same-origin',
         headers: { ...authHeaders(), 'Content-Type': 'application/octet-stream' },
         body: buf,
@@ -1142,11 +1216,11 @@ HGO_Mining_PV_2026-05-24        │ 2026-05-24</div>
       if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
       const msg = T('committedSummary', {
         created: j.created || 0, updated: j.updated || 0,
-        skipped: j.skipped || 0, issues: j.issues || 0, actions: j.actions || 0,
+        skipped: j.skipped || 0, issues: (j.issues != null ? j.issues : j.challenges) || 0, actions: j.actions || 0,
       });
       showBanner(msg, j.errors && j.errors.length ? 'warn' : null);
       if (j.errors && j.errors.length) {
-        renderPreview({ summary: j.parse || {}, errors: j.errors, warnings: j.warnings || [], meetings: (lastPreview && lastPreview.meetings) || [] });
+        renderPreview({ summary: j.parse || {}, errors: j.errors, warnings: j.warnings || [], meetings: (lastPreview && lastPreview.meetings) || [], sessions: (lastPreview && lastPreview.sessions) || (MODE === 'incubation' ? [] : undefined) });
       }
     } catch (e) {
       showBanner(T('commitFailed', { err: e.message || '' }), 'error');

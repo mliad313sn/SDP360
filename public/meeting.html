@@ -528,6 +528,9 @@
         <datalist id="pvPeopleList"></datalist>
       </div>
 
+      <!-- Business Incubation extras (read-only) — shown only for incubation sessions -->
+      <div id="pv-incubation"></div>
+
       <!-- Section 2 — 3 priorities / 3 priorités ─────────────────── -->
       <div class="pv-card">
         <div class="pv-card__head">
@@ -1421,11 +1424,54 @@
       state.projects = []; state.issues = []; state.actions = []; state.updates = [];
     }
     renderHeader();
+    renderIncubation();
     renderProjects();
     renderIssues();
     renderActions();
     renderThread();
     refreshEngagements();
+  }
+
+  // Read-only Business Incubation panel — the §2 description, §3 information flow
+  // and §4 services provided that don't fit the regular PV schema (stored in
+  // md_meetings.incubation_json → header.incubation). Only rendered when present.
+  function renderIncubation() {
+    const el = document.getElementById('pv-incubation');
+    if (!el) return;
+    const inc = state.header && state.header.incubation;
+    if (!inc) { el.innerHTML = ''; return; }
+    const r = inc.roles || {};
+    const flow = Array.isArray(inc.flow) ? inc.flow : [];
+    const svc  = Array.isArray(inc.services) ? inc.services : [];
+    const fr = document.body.classList.contains('lang-fr');
+    let h = '<div class="pv-card"><div class="pv-card__head"><div class="pv-card__title">🌱 ' +
+      (fr ? 'Incubation métier' : 'Business Incubation') + '</div></div><div style="padding:12px 16px">';
+    const meta = [];
+    if (r.incubator) meta.push((fr ? 'Incubé' : 'Incubator') + ': <strong>' + esc(r.incubator) + '</strong>' + (r.incubator_title ? ' — ' + esc(r.incubator_title) : ''));
+    if (r.incubation_manager) meta.push((fr ? 'Manager d\'incubation' : 'Incubation Manager') + ': <strong>' + esc(r.incubation_manager) + '</strong>');
+    if (r.it_manager) meta.push('IT Manager: <strong>' + esc(r.it_manager) + '</strong>');
+    if (inc.duration) meta.push((fr ? 'Durée' : 'Duration') + ': ' + esc(inc.duration));
+    if (meta.length) h += '<p style="margin:0 0 10px;font-size:13px">' + meta.join(' &nbsp;·&nbsp; ') + '</p>';
+    if (inc.business_description) h += '<p style="margin:0 0 12px;white-space:pre-wrap"><strong>' + (fr ? 'Description du métier' : 'Business description') + '</strong><br>' + esc(inc.business_description) + '</p>';
+    if (flow.length) {
+      h += '<div style="font-weight:600;margin:8px 0 4px">' + (fr ? 'Flux de l\'information' : 'Information flow') + '</div>';
+      h += '<table style="width:100%;border-collapse:collapse;font-size:12.5px;margin-bottom:12px"><thead><tr>' +
+        ['<th style="text-align:left;padding:4px 6px;border-bottom:1px solid #ddd">' + (fr ? 'Entrant' : 'Incoming') + '</th>',
+         '<th style="text-align:left;padding:4px 6px;border-bottom:1px solid #ddd">' + (fr ? 'Activité' : 'Activity') + '</th>',
+         '<th style="text-align:left;padding:4px 6px;border-bottom:1px solid #ddd">' + (fr ? 'Sortant' : 'Outgoing') + '</th>'].join('') +
+        '</tr></thead><tbody>' + flow.map(f => '<tr><td style="padding:4px 6px;vertical-align:top;white-space:pre-wrap">' + esc(f.incoming) + '</td><td style="padding:4px 6px;vertical-align:top;white-space:pre-wrap">' + esc(f.activity) + '</td><td style="padding:4px 6px;vertical-align:top;white-space:pre-wrap">' + esc(f.outgoing) + '</td></tr>').join('') + '</tbody></table>';
+    }
+    if (svc.length) {
+      h += '<div style="font-weight:600;margin:8px 0 4px">' + (fr ? 'Services fournis' : 'Services provided') + '</div>';
+      h += '<table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr>' +
+        ['<th style="text-align:left;padding:4px 6px;border-bottom:1px solid #ddd">' + (fr ? 'Service' : 'Service') + '</th>',
+         '<th style="text-align:left;padding:4px 6px;border-bottom:1px solid #ddd">' + (fr ? 'Bénéficiaire' : 'Beneficiary') + '</th>',
+         '<th style="text-align:left;padding:4px 6px;border-bottom:1px solid #ddd">' + (fr ? 'Statut' : 'Status') + '</th>'].join('') +
+        '</tr></thead><tbody>' + svc.map(x => '<tr><td style="padding:4px 6px">' + esc(x.service) + '</td><td style="padding:4px 6px">' + esc(x.beneficiary) + '</td><td style="padding:4px 6px">' + esc(x.status) + '</td></tr>').join('') + '</tbody></table>';
+    }
+    h += '<p style="margin:10px 0 0;font-size:11.5px;color:#6B7785">' + (fr ? 'Les défis de cette session sont dans la liste des issues ci-dessous.' : 'This session\'s challenges are in the issues list below.') + '</p>';
+    h += '</div></div>';
+    el.innerHTML = h;
   }
 
   (async function () {

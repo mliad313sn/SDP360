@@ -7725,6 +7725,15 @@ try {
   console.error('[Meetings] ⚠️  meetings-import not loaded (run npm install xlsx):', e.message);
 }
 
+// Business Incubation import (a sibling of meetings-import; same xlsx dep).
+let meetingsImportIncubation;
+try {
+  meetingsImportIncubation = require('./meetings-import-incubation.js');
+  console.log('[Meetings] ✅ meetings-import-incubation loaded');
+} catch(e) {
+  console.error('[Meetings] ⚠️  meetings-import-incubation not loaded:', e.message);
+}
+
 // PPTX generator — server-side PV + progress deck builder. Uses pptxgenjs
 // (already a project dep). Loads even if the meetings DB is offline so the
 // route handler can return a 503 with a useful message rather than crashing.
@@ -8315,6 +8324,62 @@ app.post('/api/meetings/import/commit', requireReportSession, meetingsImportBody
     console.error('[Meetings] import commit error:', e.message);
     res.status(500).json({ error: e.message });
   }
+});
+
+// ── Business Incubation import (admin+) — separate 4-sheet xlsx, same pipeline
+//    shape as the PV import above (template / preview / commit). ──────────────
+app.get('/api/meetings/import/incubation-template', requireReportSession, async (req, res) => {
+  try {
+    if (!meetingsDb)               return res.status(503).json({ error: 'Meetings module not available' });
+    if (!meetingsImportIncubation) return res.status(503).json({ error: 'Incubation import module not available (xlsx not installed)' });
+    if (!rdb.userHasRole(req.reportUser, 'admin')) return res.status(403).json({ error: 'admin role or higher required' });
+    const buf = meetingsImportIncubation.buildTemplate(await meetingsDb.loadLookups());
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="incubation_import_template.xlsx"');
+    res.send(buf);
+  } catch(e) { console.error('[Meetings] incubation template error:', e.message); res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/meetings/import/incubation/preview', requireReportSession, meetingsImportBody, async (req, res) => {
+  try {
+    if (!meetingsDb)               return res.status(503).json({ error: 'Meetings module not available' });
+    if (!meetingsImportIncubation) return res.status(503).json({ error: 'Incubation import module not available (xlsx not installed)' });
+    if (!rdb.userHasRole(req.reportUser, 'admin')) return res.status(403).json({ error: 'admin role or higher required' });
+    if (!req.body || !req.body.length) return res.status(400).json({ error: 'Empty body (expected raw xlsx bytes)' });
+    const parsed = meetingsImportIncubation.parseBuffer(req.body, await meetingsDb.loadLookups());
+    let willUpdate = 0;
+    for (const s of parsed.sessions) {
+      const existingId = meetingsDb.getMeetingIdByReference ? await meetingsDb.getMeetingIdByReference(s.header.reference) : null;
+      s.header._willUpdate = !!existingId; if (existingId) willUpdate++;
+    }
+    res.json({
+      ok: true,
+      summary: Object.assign({}, parsed.summary, { will_update: willUpdate, will_create: parsed.sessions.length - willUpdate }),
+      errors: parsed.errors, warnings: parsed.warnings,
+      sessions: parsed.sessions.map(s => ({
+        reference: s.header.reference, site_code: s.header.site_code, department: s.header.department,
+        session_start: s.incubation.session_start, session_end: s.incubation.session_end,
+        challenge_count: s.issues.length, service_count: s.incubation.services.length, flow_count: s.incubation.flow.length,
+        will_update: !!s.header._willUpdate,
+      })),
+    });
+  } catch(e) { console.error('[Meetings] incubation preview error:', e.message); res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/meetings/import/incubation/commit', requireReportSession, meetingsImportBody, async (req, res) => {
+  try {
+    if (!meetingsDb)               return res.status(503).json({ error: 'Meetings module not available' });
+    if (!meetingsImportIncubation) return res.status(503).json({ error: 'Incubation import module not available (xlsx not installed)' });
+    if (!rdb.userHasRole(req.reportUser, 'admin')) return res.status(403).json({ error: 'admin role or higher required' });
+    if (!req.body || !req.body.length) return res.status(400).json({ error: 'Empty body (expected raw xlsx bytes)' });
+    const parsed = meetingsImportIncubation.parseBuffer(req.body, await meetingsDb.loadLookups());
+    const force  = req.query.force === '1' || req.query.force === 'true';
+    const result = await meetingsImportIncubation.commit(parsed, meetingsDb, {
+      force, userId: req.reportUser.id || null,
+      author_name: req.reportUser.full_name || req.reportUser.username || 'incubation-import',
+    });
+    res.json({ ok: true, parse: parsed.summary, ...result, validation_errors: parsed.errors, warnings: parsed.warnings });
+  } catch(e) { console.error('[Meetings] incubation commit error:', e.message); res.status(500).json({ error: e.message }); }
 });
 
 // GET /api/meetings/progress — viewer+ — per-site×dept pre-brief diff
