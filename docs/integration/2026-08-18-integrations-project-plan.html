@@ -300,6 +300,22 @@
 </table>
 <div class="callout win"><b>Lecture « délivrer le max ».</b> Deux <b>À FAIRE « gain rapide »</b> ressortent car ils s'appuient sur des données déjà présentes et <b>font bouger les couleurs</b> : le <b>Scorecard ITSM &amp; actifs</b> (Objectif 2 → confirme Vert) et le <b>Tracker conformité RCA + 14 actions</b> (Objectif 3 → Orange→Vert). Puis l'<b>analytics adoption/précision</b> (Objectif 1, plus gros poids) et le <b>tracker formation/KB</b> (Objectif 4).</div>
 
+<h2>8. Candidats roadmap 2027</h2>
+<p>Issus directement du challenge valeur : ce qui est <b>spéculatif aujourd'hui</b> ou dont le pré-requis ne tombera pas cette année. <b>Règle d'entrée :</b> un candidat n'entre au roadmap 2027 que si son <b>déclencheur</b> est atteint — une preuve, pas une envie.</p>
+<table>
+<thead><tr><th style="width:24%">Candidat</th><th>Pourquoi pas maintenant (pré-requis manquant)</th><th style="width:30%">Déclencheur d'entrée au roadmap</th></tr></thead>
+<tbody>
+<tr><td><b>Auto-remédiation gated par approbation</b> (restart service, reboot, patch ciblé)</td><td>Exige un auto-ticketing stable + des runbooks read-only éprouvés — on n'automatise pas une action risquée sur un socle non prouvé.</td><td>3 mois d'auto-ticketing propre (&lt; 30 % de bruit) + runbooks diagnostics en usage réel.</td></tr>
+<tr><td><b>Patch compliance automation</b> (Patch Manager → SDP/Teams)</td><td>Dépend du socle notifications Teams (Phase 4) ; aucun demandeur formel du rapport aujourd'hui.</td><td>La direction demande le rapport de conformité patch mensuel.</td></tr>
+<tr><td><b>Signaux Defender / Entra risk → tickets gouvernés</b></td><td>Le lot identité Ph.1–2 doit être livré d'abord ; Defender notifie déjà nativement.</td><td>Volume mesuré d'alertes Defender non traitées faute de canal ticket.</td></tr>
+<tr><td><b>Onboarding / provisioning joiner</b></td><td>Exige un process RH d'arrivée formalisé (signal fiable) — sans lui, l'automatisme tourne à vide.</td><td>RH s'engage sur un signal d'arrivée standardisé (J-5).</td></tr>
+<tr><td><b>Base de connaissances + déflection</b></td><td>Morte-née sans owner de contenu ; l'agent Copilot doit d'abord prouver son adoption.</td><td>Owner de contenu nommé + adoption pilote de l'agent concluante.</td></tr>
+<tr><td><b>MCP server du dashboard</b> (data spine des agents)</td><td>YAGNI tant qu'aucun agent consommateur réel n'existe en prod.</td><td>Un 2ᵉ cas d'usage agent validé qui re-interroge les mêmes données.</td></tr>
+<tr><td><b>Notifications proactives utilisateur + score de proactivité</b></td><td>N'ont de sens qu'une fois l'auto-ticketing actif (sinon rien à notifier, dénominateur vide).</td><td>1ᵉʳ mois de tickets proactifs mesuré.</td></tr>
+<tr><td><b>SLA WAN temps réel</b> (webhook Meraki)</td><td>Le volet SLA doit d'abord prouver sa valeur en batch — calibration + réclamation.</td><td>1ᵉʳ crédit ISP réellement obtenu (preuve que le volet paie).</td></tr>
+</tbody>
+</table>
+
 <footer>
 Document de pilotage interne — SDP Dashboard. Les efforts DEV sont des estimations ; le calendrier réel est porté par la levée des gates externes (colonne « propriétaire »).
 Détail technique de chaque intégration : voir les fiches <code>docs/integration/*.html</code> et les specs <code>docs/superpowers/</code>.
