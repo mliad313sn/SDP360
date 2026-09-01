@@ -45,8 +45,8 @@
 <h1>Plan projet — Intégrations SDP Dashboard</h1>
 <p class="sub">Vue consolidée pour la réunion : état, tâches restantes, propriétaire du blocage, effort &amp; timing</p>
 <div class="meta">
-  SDP Dashboard (Endeavour Mining) &nbsp;·&nbsp; 18 août 2026 &nbsp;·&nbsp; Document de pilotage (réunion)<br>
-  Périmètre : toutes les intégrations de supervision / identité / PMO branchées au dashboard.
+  SDP Dashboard (Endeavour Mining) &nbsp;·&nbsp; 18 août 2026 &nbsp;·&nbsp; <b>màj 1 sept 2026</b> (workstream IT OPS Copilot &amp; Automation IA) &nbsp;·&nbsp; Document de pilotage (réunion)<br>
+  Périmètre : toutes les intégrations de supervision / identité / PMO / assistance IA branchées au dashboard.
 </div>
 
 <div class="legend">
@@ -135,6 +135,14 @@
   <td><span class="who">CLIENT</span> déploiement ADSelfService+ (produit ManageEngine)</td>
   <td>≈ 0 dev (config produit)</td>
 </tr>
+<tr>
+  <td><b>IT OPS Copilot &amp; Automation IA</b><br>« One IT Support » (Teams) + Azure OpenAI dans SDP</td>
+  <td><span class="tag partial">PARTIEL</span></td>
+  <td>Agent Copilot Studio <b>construit et publié</b> (bilingue FR/EN, MCP Zoho, tables de routage formulaires, guide) ; feuille de route automation consolidée (doc du 01/09 : handoff + pattern 2 agents + MCP).</td>
+  <td>Débloquer les <b>crédits Copilot Studio</b> ; approbation Teams admin ; 1ᵉʳ test <code>addRequest</code> ; valider l'app Teams SDP <b>native</b> en parallèle ; configurer <b>Azure OpenAI dans SDP</b> (résumé, triage, prédiction de template, reply assistant) ; Business Rules SDP ; puis Adaptive Cards ciblées (MI, SLA breach, déviation sécu, VIP).</td>
+  <td><span class="who">CLIENT</span> admin Power Platform (crédits) + Teams admin + ressource Azure OpenAI</td>
+  <td>≈ 0 (config) · cartes Teams ≈ 2–3 j</td>
+</tr>
 </tbody>
 </table>
 
@@ -150,6 +158,8 @@
 <tr><td>Code Meridian Part B + accord <code>POST /v1/resources/sync</code></td><td><span class="who">TIERS</span></td><td>Fédération PMO complète</td><td><span class="tag blocked">attend le boss</span></td></tr>
 <tr><td>SDP Cloud édition Enterprise + rôles OPManager/SDP</td><td><span class="who">CLIENT</span></td><td>Auto-ticketing proactif</td><td><span class="tag todo">à confirmer</span></td></tr>
 <tr><td>Webhook Meraki « WAN Uplink status » → endpoint dashboard</td><td><span class="who">CLIENT</span></td><td>SLA temps-réel (Phase 3)</td><td><span class="tag todo">optionnel</span></td></tr>
+<tr><td>Crédits Copilot Studio (Power Platform Admin Center → Capacity) + approbation Teams admin</td><td><span class="who">CLIENT</span> (admin Microsoft)</td><td>Agent « One IT Support » dans Teams</td><td><span class="tag blocked">bloqueur actuel</span></td></tr>
+<tr><td>Ressource Azure OpenAI (URL + déploiement modèle + clé) dans SDP Cloud</td><td><span class="who">CLIENT</span> (Azure)</td><td>IA native SDP : résumé, triage, prédiction template, reply assistant</td><td><span class="tag todo">à créer</span></td></tr>
 </tbody>
 </table>
 
@@ -163,6 +173,7 @@
 <tr><td style="text-align:left"><b>Entra SSO</b> — app registration + cutover</td><td class="g2">app reg + emails</td><td class="g2">available→only</td><td class="gx"></td><td class="gx"></td></tr>
 <tr><td style="text-align:left"><b>Auto-ticketing OpManager→SDP</b> — Phase 1 puis 2</td><td class="gx"></td><td class="gx"></td><td class="g3">Ph.1 natif</td><td class="g3">Ph.2 broker+Risk</td></tr>
 <tr><td style="text-align:left"><b>SLA WAN temps-réel</b> — webhook (optionnel)</td><td class="gx"></td><td class="gx"></td><td class="g4">webhook</td><td class="gx"></td></tr>
+<tr><td style="text-align:left"><b>IT OPS Copilot</b> — crédits + Teams natif, puis Azure OpenAI + Business Rules</td><td class="g4">crédits + app native</td><td class="g4">Azure OpenAI + règles</td><td class="g4">Adaptive Cards</td><td class="gx"></td></tr>
 <tr><td style="text-align:left"><b>Meridian PMO</b> — attend Part B (tiers)</td><td class="gx"></td><td class="gx"></td><td class="gx"></td><td class="gx"></td></tr>
 </tbody>
 </table>
@@ -175,6 +186,7 @@
   <li><b>SSO</b> : caler l'app registration Entra (admin M365).</li>
   <li><b>Meridian</b> : relancer le boss sur l'accord <code>POST /v1/resources/sync</code>.</li>
   <li><b>Auto-ticketing</b> : confirmer l'édition SDP Enterprise + valider la matrice anti-surcharge avant Phase 1.</li>
+  <li><b>IT OPS Copilot</b> : faire lever le bloqueur <b>crédits Copilot Studio</b> par l'admin Power Platform ; valider l'app Teams SDP native en parallèle ; décider qui crée la ressource <b>Azure OpenAI</b> (recommandée vs ChatGPT direct pour les données ITSM).</li>
 </ul>
 
 <h2>5. Automatismes proposés — feuille de route « service » <span class="tag info">vue Service &amp; Support Manager</span></h2>
@@ -200,6 +212,12 @@
 <tr><td><b>Onboarding / provisioning joiner</b> (ADManager+ depuis SDP)</td><td>La demande d'arrivée crée le compte + groupes + mailbox.</td><td><b>Tech</b> (gain de temps) + <b>user</b> (prêt au jour 1).</td><td><span class="tag todo">extension du lot identité</span></td></tr>
 <tr><td><b>Base de connaissances + déflection</b></td><td>Réponses suggérées / articles avant l'ouverture d'un ticket.</td><td><b>User</b> (autonomie) + <b>tech</b> (moins de répétitif).</td><td><span class="tag todo">idée (SDP KB)</span></td></tr>
 <tr><td><b>Score de proactivité</b> (dashboard)</td><td>Mesure : % de tickets ouverts par la supervision vs par l'utilisateur.</td><td><b>Manager</b> (piloter la bascule réactif → proactif).</td><td><span class="tag todo">idée (métrique)</span></td></tr>
+<tr><td colspan="4" style="background:#f3eefb;font-weight:700;color:var(--navy)">🤖 Assistance &amp; IA — workstream IT OPS Copilot <span style="font-weight:400">(détail : <code>2026-09-01-itops-automation-roadmap.md</code>)</span></td></tr>
+<tr><td><b>Agent « One IT Support »</b> (Teams / Copilot Studio + MCP Zoho)</td><td>Guide l'employé vers le <b>bon formulaire</b>, pré-valide les champs, crée le ticket depuis Teams (FR/EN).</td><td><b>User</b> (guidage) + <b>Obj 1</b> (adoption &amp; précision des formulaires).</td><td><span class="tag blocked">publié · bloqué crédits</span></td></tr>
+<tr><td><b>Azure OpenAI dans SDP</b> (Zia GenAI)</td><td>Résumé de ticket, prédiction de template, brouillon de réponse, suggestion de solution — modèle éco au quotidien, modèle fort pour PIR/RCA/MI.</td><td><b>Tech</b> (triage accéléré) + <b>manager</b> (données propres).</td><td><span class="tag todo">config CLIENT (Azure)</span></td></tr>
+<tr><td><b>Teams Adaptive Cards ciblées</b></td><td>Carte actionnable (approuver/assigner/noter) poussée aux techniciens pour : MI, SLA breach, déviation sécurité, VIP, rapport hebdo site.</td><td><b>Tech</b> (agir sans changer d'outil).</td><td><span class="tag todo">après Teams natif</span></td></tr>
+<tr><td><b>Auto-ticketing enrichi</b> (pattern 2 agents : monitoring + diagnostics)</td><td>Le ticket OpManager→SDP naît <b>déjà enrichi</b> : device, site, métriques du dashboard, diagnostics read-only (ping/DNS/disque/service) ; remédiation <b>gated par approbation</b>.</td><td><b>Tech</b> (MTTR) + <b>sécurité</b> (§6 gouvernance).</td><td><span class="tag todo">extension du design 28/07</span></td></tr>
+<tr><td><b>MCP server du dashboard</b> (lecture seule)</td><td>Expose la « data spine » (dispo infra, worklists actifs, scores sites, MI) aux agents IA au lieu de ré-interroger chaque outil ; toute action d'agent journalisée dans <b>System Logs</b>.</td><td><b>Transverse</b> (socle agents) + <b>audit</b>.</td><td><span class="tag todo">idée validée à cadrer</span></td></tr>
 </tbody>
 </table>
 <div class="callout win"><b>Recommandation de séquence.</b> Commencer par les <b>Quick wins</b> : (1) <b>self-service reset</b> (gratuit, déflection immédiate massive), (2) <b>auto-ticketing proactif</b> (le socle « agir avant l'appel »), (3) <b>lot identité A2/A1</b> (sécurité + gain tech). Le reste s'empile dessus. Chaque automatisme est <b>additif et réversible</b> — on peut s'arrêter à tout moment sans dette.</div>
@@ -243,6 +261,8 @@
 <tr><td><b>Auto-ticketing pré-taggé</b> <span class="who">aussi Obj 3</span></td><td>Structure la demande dès la création (catégorie + services affectés) → précision.</td><td><span class="tag todo">conçu</span></td></tr>
 <tr><td><b>Self-service reset / unlock</b> <span class="who">aussi Obj 4</span></td><td>Déflection + demandes structurées (auto-ticket) → moins de bruit, plus de précision.</td><td><span class="tag partial">produit à activer</span></td></tr>
 <tr><td><b>Base de connaissances / déflection</b> <span class="who">aussi Obj 4</span></td><td>Réponses suggérées avant l'ouverture → oriente vers le bon formulaire.</td><td><span class="tag todo">idée</span></td></tr>
+<tr><td><b>One IT Support (Copilot Teams)</b> <span class="who">aussi Obj 4</span></td><td>Guide conversationnel vers le bon formulaire + pré-validation des champs → adoption &amp; précision directes.</td><td><span class="tag blocked">publié · bloqué crédits</span></td></tr>
+<tr><td><b>Azure OpenAI dans SDP</b> (prédiction template, triage)</td><td>Catégorise et route dès la création → précision sans effort technicien.</td><td><span class="tag todo">config CLIENT</span></td></tr>
 
 <tr><td colspan="3" style="background:#eef4fb;font-weight:700;color:var(--navy)">🎯 Objectif 2 — Plateforme ITSM &amp; actifs <span style="font-weight:400">(25 % · 80 % 🟢 — publier discovery accuracy &amp; complétude CMDB)</span></td></tr>
 <tr><td><b>Assets</b> (inventaire · hygiène · finance · dépréciation · software · hardware · investissement · progrès)</td><td>Le cœur ITAM : complétude CMDB (hygiène %), couverture par classe d'actif, valeur/cycle de vie.</td><td><span class="tag live">LIVE</span></td></tr>
@@ -279,6 +299,7 @@
 <footer>
 Document de pilotage interne — SDP Dashboard. Les efforts DEV sont des estimations ; le calendrier réel est porté par la levée des gates externes (colonne « propriétaire »).
 Détail technique de chaque intégration : voir les fiches <code>docs/integration/*.html</code> et les specs <code>docs/superpowers/</code>.
+Workstream IT OPS Copilot &amp; Automation IA : feuille de route détaillée dans <code>docs/integration/2026-09-01-itops-automation-roadmap.md</code> (handoff archivé à côté).
 </footer>
 </div>
 </body>
