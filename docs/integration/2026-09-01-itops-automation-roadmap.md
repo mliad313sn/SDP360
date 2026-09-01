@@ -20,7 +20,7 @@ Le handoff propose de construire plusieurs choses **qui existent déjà en produ
 | §5.4 Assignment (business rules SDP) | À configurer côté SDP (action CLIENT, zéro dev) |
 | §5.5 Teams push / Adaptive Cards | À FAIRE (rien d'existant) |
 | §5.10 Patch compliance | À FAIRE (rien d'existant) |
-| §4 Azure OpenAI dans SDP Cloud | À configurer (action CLIENT : ressource Azure + clé). Recommandation du handoff retenue : Azure OpenAI plutôt que ChatGPT direct pour les données ITSM |
+| §4 Azure OpenAI dans SDP Cloud | **OPTION DIFFÉRÉE — décision 01/09 : stratégie Copilot Studio-first.** L'IA (résumé, brouillon, triage) se fait via des topics Copilot Studio + MCP Zoho dans Teams. Azure OpenAI ne sert QUE l'IA *native dans l'UI SDP* (Zia GenAI : résumé in-ticket, Reply Assistant, prédiction de template) — à rouvrir seulement si ces boutons natifs deviennent indispensables. Si rouvert : Azure OpenAI plutôt que ChatGPT direct (données ITSM) |
 
 **Principe directeur (déjà acté)** : le dashboard est la **colonne vertébrale de données** des agents ; **System Logs** est la piste d'audit ; SDP reste le système d'enregistrement.
 
@@ -52,7 +52,7 @@ Le handoff propose de construire plusieurs choses **qui existent déjà en produ
 |---|---|---|---|
 | **0 · Débloquer** | Crédits Copilot Studio (Power Platform Admin Center → Capacity) · approbation Teams admin · 1er test addRequest de One IT Support | **CLIENT / Microsoft admin** | 🔴 Bloqueur actuel |
 | **1 · SDP natif** | App Teams SDP Cloud native (création/liste tickets, notifs) — fonctionne même sans crédits Copilot | CLIENT (config) | À valider |
-| **2 · Azure OpenAI dans SDP** | Ressource Azure + déploiement modèle + clé → activer Summarization, Reply Assistant, Template Prediction, Solution Suggestion. Modèle éco pour le tout-venant, modèle fort pour PIR/RCA/MI | CLIENT (Azure) | À faire |
+| **2 · IA via Copilot Studio** | Topics techniciens dans One IT Support : **résumé de ticket à la demande** (lecture via MCP Zoho), **brouillon de réponse**, suggestion de catégorie/template en conversation. Une seule plateforme IA, une seule facturation (crédits). *(Azure OpenAI dans SDP = option différée — ne sert que l'IA native in-ticket de SDP, voir §1)* | DEV (topics) + CLIENT (crédits) | À faire après Phase 0 |
 | **3 · Règles déterministes SDP** | Business Rules (catégorie/site/priorité/groupe) + workflows d'approbation (USB, admin local, logiciel non autorisé, accès ERP, licence Copilot). **Groupe d'abord, technicien individuel plus tard** | CLIENT (config SDP) | À faire |
 | **4 · Teams push** | Notifs natives d'abord ; Adaptive Cards custom uniquement pour : MI, SLA breach, déviation sécurité, VIP, rapport hebdo site | DEV (léger) | À faire |
 | **5 · Infra + identité** | Auto-ticketing OpManager→SDP **enrichi** (pattern 2 agents, §2.1) · runbooks read-only PowerShell/Python · remédiation gated par approbation · identité via ADManager/ADAudit **après le gate SSPR writeback** | DEV | Docs prêts, pas codé |
@@ -68,7 +68,9 @@ Jamais d'exécution directe sans approbation humaine pour : comptes/privilèges/
 
 ## 5. Prochaines actions immédiates
 
-1. **CLIENT** : lever le bloqueur crédits Copilot Studio (sans ça, One IT Support reste mort dans Teams).
+1. **CLIENT** : lever le bloqueur crédits Copilot Studio (sans ça, One IT Support reste mort dans Teams — et c'est désormais LA plateforme IA unique du workstream).
 2. **CLIENT** : valider l'app Teams SDP native en parallèle (Phase 1 — indépendante des crédits).
-3. **CLIENT** : créer la ressource Azure OpenAI (Phase 2) — le handoff contient les champs exacts demandés par l'écran SDP.
-4. **DEV (quand 1–3 avancent)** : spec de l'auto-ticketing OpManager→SDP enrichi (reprendre le doc du 28/07 + le pattern 2 agents) et cadrage du MCP dashboard.
+3. **DEV (après 1)** : topics techniciens dans One IT Support (résumé de ticket, brouillon de réponse via MCP Zoho) — remplace la config Azure OpenAI.
+4. **DEV (ensuite)** : spec de l'auto-ticketing OpManager→SDP enrichi (doc du 28/07 + pattern 2 agents) et cadrage du MCP dashboard.
+
+> **Décision 2026-09-01 — Copilot Studio-first.** Toute l'IA du workstream passe par Copilot Studio (agent + topics + Power Automate). Azure OpenAI dans SDP est **différé** : il n'apporte que les boutons IA natifs de l'UI SDP, au prix d'une ressource Azure, d'une clé à gérer et d'un chemin de données Zoho→Azure supplémentaire. Réversible à tout moment si l'IA in-ticket native devient un besoin exprimé par les techniciens.
