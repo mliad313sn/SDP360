@@ -45,8 +45,8 @@
 <h1>Plan projet — Intégrations SDP Dashboard</h1>
 <p class="sub">Vue consolidée pour la réunion : état, tâches restantes, propriétaire du blocage, effort &amp; timing</p>
 <div class="meta">
-  SDP Dashboard (Endeavour Mining) &nbsp;·&nbsp; 18 août 2026 &nbsp;·&nbsp; <b>màj 1 sept 2026</b> (workstream IT OPS Copilot &amp; Automation IA) &nbsp;·&nbsp; Document de pilotage (réunion)<br>
-  Périmètre : toutes les intégrations de supervision / identité / PMO / assistance IA branchées au dashboard.
+  SDP Dashboard (Endeavour Mining) &nbsp;·&nbsp; 18 août 2026 &nbsp;·&nbsp; <b>màj 1 sept 2026</b> (workstream IT OPS Copilot · OpManager dispo passé <b>LIVE</b> · Meridian retiré du périmètre pour le moment) &nbsp;·&nbsp; Document de pilotage (réunion)<br>
+  Périmètre : toutes les intégrations de supervision / identité / assistance IA branchées au dashboard.
 </div>
 
 <div class="legend">
@@ -56,12 +56,12 @@
 <span class="tag partial">PARTIEL</span> une partie faite, gate externe &nbsp;
 <span class="tag todo">À FAIRE</span> conçu, pas codé &nbsp;
 <span class="tag blocked">BLOQUÉ</span> attend un tiers<br>
-<b>Propriétaire :</b> <span class="who">DEV</span> équipe SDP &nbsp; <span class="who">CLIENT</span> action utilisateur (clé, config, app registration) &nbsp; <span class="who">TIERS</span> partenaire externe (boss PMO, ISP…)
+<b>Propriétaire :</b> <span class="who">DEV</span> équipe SDP &nbsp; <span class="who">CLIENT</span> action utilisateur (clé, config, app registration) &nbsp; <span class="who">TIERS</span> partenaire externe (ISP, éditeur…)
 </div>
 
 <h2>1. Tableau de bord des intégrations</h2>
 <table>
-<thead><tr><th style="width:16%">Intégration</th><th>Statut</th><th>Ce qui est fait</th><th>Reste à faire</th><th>Bloqueur / propriétaire</th><th>Effort DEV</th></tr></thead>
+<thead><tr><th style="width:14%">Intégration</th><th>Statut</th><th>Ce qui est fait</th><th>Reste à faire</th><th>Bloqueur / propriétaire</th><th>Effort DEV</th><th style="width:22%">Valeur réelle / POC <i>(sans complaisance)</i></th></tr></thead>
 <tbody>
 <tr>
   <td><b>Zoho</b><br>Helpdesk + Analytics Plus</td>
@@ -70,6 +70,7 @@
   <td>RAS (maintenance). Rotation du refresh-token à surveiller.</td>
   <td>—</td>
   <td>—</td>
+  <td><b>Prouvée</b> — c'est le socle : rapports coordinateurs envoyés chaque semaine, deck direction mensuel utilisé en réunion. Sans elle, rien ne tourne.</td>
 </tr>
 <tr>
   <td><b>Meraki WAN</b><br>dispo/qualité + SLA chargeback</td>
@@ -78,14 +79,16 @@
   <td>Déployer ; <b>calibrer</b> vs Summary Report ; corriger la dérivation « fidèle Meraki » (résolution 5 min + destination primaire + 100 %-5 min) ; auto-fill <b>mensuel</b> + sélecteur de dates ; (opt.) SLA par webhook.</td>
   <td><span class="who">CLIENT</span> clé Meraki + calibration + mapping circuits/ISP + arme notif</td>
   <td>≈ 4–6 j</td>
+  <td><b>Non prouvée.</b> La valeur, c'est le <b>crédit ISP en €</b> — pas les courbes. À ce jour : <b>0 crédit réclamé</b>. Sans calibration + une réclamation réelle aboutie, ça reste un graphique. <b>POC :</b> 1 circuit calibré × 1 mois clos × 1 réclamation ISP acceptée.</td>
 </tr>
 <tr>
   <td><b>OpManager → dispo</b><br>LAN/WLAN/Serveurs (Analytics Plus)</td>
-  <td><span class="tag partial">PARTIEL</span></td>
-  <td>Snapshots + classement + agrégation + auto-fill rapport ; carte admin.</td>
-  <td>Créer la vue Analytics <code>OPS_OPM_Device_Availability_Daily</code> + renseigner <code>opm_availability_view_id</code> ; découverte (probe vs préfixe de nom).</td>
-  <td><span class="who">CLIENT</span> vue Analytics + gate découverte</td>
-  <td>≈ 1–2 j (après la vue)</td>
+  <td><span class="tag live">LIVE</span></td>
+  <td>Vue Analytics <code>OPS_OPM_Device_Availability_Daily</code> créée + <code>opm_availability_view_id</code> configuré ; toutes les sondes mappées (691 devices, 450 inclus) ; sync auto (cron 05:10 + bouton admin) ; page <b>Infrastructure Health</b> (WAN1/WAN2, tendance, gouvernance, garde angle-mort sondes) ; exclusion des devices sans mesure et des serveurs de supervision.</td>
+  <td>Retirer les <b>~37 devices morts</b> dans OpManager (worklist <code>OPM_dead_devices_worklist.csv</code>) puis re-sync — c'est ce qui ramènera les moyennes Serveurs/LAN à la réalité (ex. Ouaga serveurs 37 %→~99 %).</td>
+  <td><span class="who">CLIENT</span> nettoyage inventaire OpManager (pas pressé)</td>
+  <td>≈ 0 (opérationnel)</td>
+  <td><b>Conditionnelle.</b> LIVE, mais crédibilité fragile tant que les ~37 devices morts polluent (Ouaga serveurs « 25 % » = irréaliste, personne ne s'y fiera). <b>POC :</b> nettoyage → 1 mois de moyennes validées par le terrain → chiffres utilisés en réunion mensuelle. Sinon : joli tableau que personne ne regarde.</td>
 </tr>
 <tr>
   <td><b>OpManager → SDP</b><br>Auto-ticketing proactif</td>
@@ -94,6 +97,7 @@
   <td>Phase 1 profil natif « Log a Ticket » ; Phase 2 broker + pré-tag Risk Register ; matrice anti-surcharge.</td>
   <td><span class="who">CLIENT</span> édition SDP Enterprise + rôles &nbsp; <span class="who">DEV</span> broker</td>
   <td>≈ 8–12 j (par phases)</td>
+  <td><b>Potentiel le plus fort — risque le plus fort.</b> Proactivité/MTTR réels, mais un flood d'alarmes tuerait la confiance du helpdesk en une semaine. <b>POC :</b> 1 site × 1 type d'alarme (device down soutenu) × 2 semaines ; <b>critère d'arrêt : &gt; 30 % de tickets-bruit → on revoit la matrice avant d'étendre.</b></td>
 </tr>
 <tr>
   <td><b>Entra SSO</b><br>Microsoft sign-in</td>
@@ -102,14 +106,7 @@
   <td>App registration Entra ; mapper les emails ; passer <code>available</code> → <code>only</code>.</td>
   <td><span class="who">CLIENT</span> admin M365 (app registration)</td>
   <td>≈ 0 (config)</td>
-</tr>
-<tr>
-  <td><b>Meridian (PMO)</b><br>fédération ressources ⇄ actions</td>
-  <td><span class="tag blocked">BLOQUÉ</span></td>
-  <td>Côté SDP (Part A) : sync ressources, API actions ouvertes, lien projet, carte admin.</td>
-  <td>Part B = code du boss (migration + endpoint ingest + routes attach). Pré-condition : il accepte <code>POST /v1/resources/sync</code>.</td>
-  <td><span class="who">TIERS</span> équipe Meridian (boss)</td>
-  <td>≈ 0 côté SDP</td>
+  <td><b>Modeste mais réelle.</b> Peu d'utilisateurs du dashboard → l'enjeu n'est pas le confort mais la <b>gouvernance</b> : offboarding lié à l'AD, plus de mots de passe locaux orphelins. Pas prioritaire ; coût quasi nul. <b>POC :</b> mode <code>available</code> 1 semaine sur son propre compte.</td>
 </tr>
 <tr>
   <td><b>Réconciliation parc</b><br>SDP × AD × Entra × Defender</td>
@@ -118,6 +115,7 @@
   <td>Lancer les collecteurs (AD/Defender) régulièrement ; rattacher les GPO SelfScan aux OU concernées.</td>
   <td><span class="who">CLIENT</span> collecteurs + GPO</td>
   <td>≈ 0 (opérationnel)</td>
+  <td><b>Déjà démontrée sur données réelles</b> : 545 écarts, 3 OU concentrant l'essentiel → GPO SelfScan à rattacher, témoin HGO à 2 %. <b>Mais</b> sans collecteurs relancés régulièrement + GPO rattachées, ça reste un audit one-shot. <b>POC de suite :</b> la courbe 545 → X après rattachement des GPO (l'historique est déjà en place pour la tracer).</td>
 </tr>
 <tr>
   <td><b>Identité &amp; Sécurité AD</b><br>actions gouvernées depuis le ticket SDP</td>
@@ -126,6 +124,7 @@
   <td>Ph.1 A2 reset/unlock (le moins risqué) → Ph.2 A1 leaver → Ph.3 B1/B2, via ADManager Plus / ADAudit Plus + broker.</td>
   <td><span class="who">CLIENT</span> ADManager+/ADAudit+ + VPN &nbsp; <span class="who">DEV</span> broker</td>
   <td>≈ 6–10 j (par phases)</td>
+  <td><b>Challenge :</b> le A2 (reset assisté) est largement couvert par ADSelfService+ <b>gratuit</b> — ne construire QUE ce que le produit ne fait pas : leaver 1-clic, alerte login sur compte désactivé. Et la valeur du leaver dépend d'un process RH qui <b>signale</b> les départs — sans ce signal, l'automatisme tourne à vide. <b>POC :</b> 1 départ réel traité bout-en-bout, fenêtre d'exposition mesurée avant/après.</td>
 </tr>
 <tr>
   <td><b>AD self-service reset</b><br>reset mot de passe / unlock par l'utilisateur</td>
@@ -134,6 +133,7 @@
   <td>Activer <b>ADSelfService Plus</b> (intégration native SDP, SSO, auto-ticket) — <b>100 licences gratuites</b> pour les clients SDP. Complète le A2 « assisté » ci-dessus par le self-service.</td>
   <td><span class="who">CLIENT</span> déploiement ADSelfService+ (produit ManageEngine)</td>
   <td>≈ 0 dev (config produit)</td>
+  <td><b>Probablement le meilleur ROI du plan</b> (20–40 % des tickets = resets ; licences gratuites) — <b>MAIS valeur nulle sans campagne d'enrôlement</b> : si les utilisateurs ne s'inscrivent pas, personne ne l'utilise. <b>POC :</b> 1 site, comparer le volume de tickets « reset/unlock » avant/après 1 mois.</td>
 </tr>
 <tr>
   <td><b>IT OPS Copilot &amp; Automation IA</b><br>« One IT Support » (Teams) + Azure OpenAI dans SDP</td>
@@ -142,20 +142,26 @@
   <td>Débloquer les <b>crédits Copilot Studio</b> ; approbation Teams admin ; 1ᵉʳ test <code>addRequest</code> ; valider l'app Teams SDP <b>native</b> en parallèle ; <b>topics techniciens</b> dans l'agent (résumé de ticket, brouillon de réponse via MCP) ; Business Rules SDP ; puis Adaptive Cards ciblées (MI, SLA breach, déviation sécu, VIP). <i>(Azure OpenAI dans SDP = option différée — ne sert que l'IA native in-ticket de l'UI SDP.)</i></td>
   <td><span class="who">CLIENT</span> admin Power Platform (crédits) + Teams admin</td>
   <td>≈ 0 (config) · cartes Teams ≈ 2–3 j</td>
+  <td><b>Non prouvée — risque gadget.</b> Publié mais jamais utilisé en réel (bloqué crédits). Si les employés continuent d'écrire au helpdesk par mail, l'agent n'aura servi à rien. <b>POC :</b> 1 site pilote × 2 semaines, mesurer % de tickets créés via l'agent + taux de bonne catégorisation vs baseline ; <b>critère d'arrêt : adoption faible → ne pas généraliser.</b></td>
 </tr>
 </tbody>
 </table>
 
-<div class="callout"><b>Lecture clé pour la réunion.</b> Le <b>chemin critique n'est presque jamais du dev</b> — c'est une <b>action côté client/tiers</b> : clé Meraki, vue Analytics, app registration Entra, code Meridian du boss, édition SDP Enterprise. Le dev SDP est prêt ou rapide sur chaque volet ; l'ordonnancement ci-dessous se cale sur la levée de ces gates.</div>
+<div class="callout"><b>Lecture clé pour la réunion.</b> Le <b>chemin critique n'est presque jamais du dev</b> — c'est une <b>action côté client/tiers</b> : calibration Meraki, app registration Entra, crédits Copilot Studio, édition SDP Enterprise. Le dev SDP est prêt ou rapide sur chaque volet ; l'ordonnancement ci-dessous se cale sur la levée de ces gates. <i>(Gate levé depuis la v1 : la vue Analytics OpManager — le volet dispo est passé LIVE.)</i></div>
+
+<div class="callout risk"><b>Challenge valeur — lecture sans complaisance.</b> Un statut « LIVE » ou « CONSTRUIT » ne vaut rien en soi ; seule compte la <b>preuve chiffrée en production</b>.
+<b>Prouvé aujourd'hui :</b> Zoho (le socle de tout le reporting) · Réconciliation parc (545 écarts, résultats sur données réelles).
+<b>Conditionnel :</b> Infrastructure Health (crédible seulement après le retrait des devices morts) · SLA WAN (<b>0 € réclamé</b> tant que non calibré — la valeur c'est le crédit ISP, pas la courbe) · ADSelfService+ (meilleur ROI potentiel, nul sans enrôlement).
+<b>Spéculatif, avec critère d'arrêt :</b> auto-ticketing (&gt; 30 % de bruit → stop) · Copilot One IT Support (adoption faible au pilote → ne pas généraliser).
+<b>Règle proposée :</b> chaque volet activé doit produire <b>une preuve chiffrée sous 60 jours</b> (un crédit ISP, une baisse de tickets reset, un écart parc résorbé, un % d'adoption) — sinon il repasse en question au comité suivant.</div>
 
 <h2>2. Gates externes (le vrai chemin critique)</h2>
 <table>
 <thead><tr><th>Gate</th><th>Propriétaire</th><th>Débloque</th><th>Statut</th></tr></thead>
 <tbody>
 <tr><td>Clé API Meraki + Org ID + calibration</td><td><span class="who">CLIENT</span></td><td>Meraki WAN (dispo fidèle + SLA)</td><td><span class="tag partial">en cours (mapping fait, calibration à lancer)</span></td></tr>
-<tr><td>Vue Analytics <code>OPS_OPM_Device_Availability_Daily</code></td><td><span class="who">CLIENT</span></td><td>OpManager dispo LAN/WLAN/Serveurs</td><td><span class="tag todo">à créer</span></td></tr>
+<tr><td>Vue Analytics <code>OPS_OPM_Device_Availability_Daily</code></td><td><span class="who">CLIENT</span></td><td>OpManager dispo LAN/WLAN/Serveurs</td><td><span class="tag live">levé — vue créée, sync opérationnel, Infrastructure Health LIVE</span></td></tr>
 <tr><td>App registration Entra</td><td><span class="who">CLIENT</span> (admin M365)</td><td>SSO Microsoft</td><td><span class="tag todo">à faire</span></td></tr>
-<tr><td>Code Meridian Part B + accord <code>POST /v1/resources/sync</code></td><td><span class="who">TIERS</span></td><td>Fédération PMO complète</td><td><span class="tag blocked">attend le boss</span></td></tr>
 <tr><td>SDP Cloud édition Enterprise + rôles OPManager/SDP</td><td><span class="who">CLIENT</span></td><td>Auto-ticketing proactif</td><td><span class="tag todo">à confirmer</span></td></tr>
 <tr><td>Webhook Meraki « WAN Uplink status » → endpoint dashboard</td><td><span class="who">CLIENT</span></td><td>SLA temps-réel (Phase 3)</td><td><span class="tag todo">optionnel</span></td></tr>
 <tr><td>Crédits Copilot Studio (Power Platform Admin Center → Capacity) + approbation Teams admin</td><td><span class="who">CLIENT</span> (admin Microsoft)</td><td>Agent « One IT Support » dans Teams</td><td><span class="tag blocked">bloqueur actuel</span></td></tr>
@@ -169,22 +175,19 @@
 <thead><tr><th style="text-align:left">Volet</th><th>S1–S2</th><th>S3–S4</th><th>S5–S6</th><th>S7–S8</th></tr></thead>
 <tbody>
 <tr><td style="text-align:left"><b>Meraki WAN</b> — déploiement + calibration + dispo fidèle</td><td class="g1">calibrer + fix</td><td class="g1">autofill mensuel + sélecteur</td><td class="gx"></td><td class="gx"></td></tr>
-<tr><td style="text-align:left"><b>OpManager dispo</b> — vue Analytics + activation</td><td class="gx"></td><td class="g2">vue + probe</td><td class="g2">activer</td><td class="gx"></td></tr>
+<tr><td style="text-align:left"><b>OpManager dispo</b> — <span class="tag live">LIVE</span> · reste le nettoyage inventaire</td><td class="g2">retrait devices morts + re-sync</td><td class="gx"></td><td class="gx"></td><td class="gx"></td></tr>
 <tr><td style="text-align:left"><b>Entra SSO</b> — app registration + cutover</td><td class="g2">app reg + emails</td><td class="g2">available→only</td><td class="gx"></td><td class="gx"></td></tr>
 <tr><td style="text-align:left"><b>Auto-ticketing OpManager→SDP</b> — Phase 1 puis 2</td><td class="gx"></td><td class="gx"></td><td class="g3">Ph.1 natif</td><td class="g3">Ph.2 broker+Risk</td></tr>
 <tr><td style="text-align:left"><b>SLA WAN temps-réel</b> — webhook (optionnel)</td><td class="gx"></td><td class="gx"></td><td class="g4">webhook</td><td class="gx"></td></tr>
 <tr><td style="text-align:left"><b>IT OPS Copilot</b> — crédits + Teams natif, puis topics IA + Business Rules (Copilot Studio-first)</td><td class="g4">crédits + app native</td><td class="g4">topics IA + règles</td><td class="g4">Adaptive Cards</td><td class="gx"></td></tr>
-<tr><td style="text-align:left"><b>Meridian PMO</b> — attend Part B (tiers)</td><td class="gx"></td><td class="gx"></td><td class="gx"></td><td class="gx"></td></tr>
 </tbody>
 </table>
-<p style="font-size:.78rem;color:var(--muted)">Meridian n'est pas planifié tant que le code Part B du boss n'est pas confirmé — placé hors calendrier, réactivé à la levée du gate tiers.</p>
 
 <h2>4. Décisions attendues en réunion</h2>
 <ul>
   <li><b>Meraki</b> : valider la source « dispo fidèle » = <b>dérivation loss/latence calibrée</b> (résolution 5 min + destination primaire + 100 %-5 min) plutôt que event-log/Insight. Lancer la calibration.</li>
-  <li><b>OpManager</b> : qui crée la vue Analytics et quand ? (débloque LAN/WLAN/Serveurs).</li>
+  <li><b>OpManager</b> : ✅ vue Analytics créée + Infrastructure Health LIVE — planifier le <b>retrait des ~37 devices morts</b> (worklist fournie) pour des moyennes fidèles.</li>
   <li><b>SSO</b> : caler l'app registration Entra (admin M365).</li>
-  <li><b>Meridian</b> : relancer le boss sur l'accord <code>POST /v1/resources/sync</code>.</li>
   <li><b>Auto-ticketing</b> : confirmer l'édition SDP Enterprise + valider la matrice anti-surcharge avant Phase 1.</li>
   <li><b>IT OPS Copilot</b> : faire lever le bloqueur <b>crédits Copilot Studio</b> par l'admin Power Platform ; valider l'app Teams SDP native en parallèle. <b>Décision actée (01/09) : Copilot Studio-first</b> — toute l'IA via l'agent + topics + Power Automate ; Azure OpenAI dans SDP différé (ne sert que les boutons IA natifs de l'UI SDP ; réversible si les techniciens en expriment le besoin).</li>
 </ul>
@@ -239,15 +242,15 @@
 <tr><td><b>Meetings &amp; Council</b></td><td>PV départementaux, escalations, 5 Engagements, conformité — jumeau numérique de l'operating system Mines × IT.</td><td><span class="tag live">LIVE</span></td></tr>
 <tr><td><b>Site Actions Register</b></td><td>Hub des actions ouvertes par site (réunions + inspections + suivi rapport) — « quel rapport ouvrir pour les fermer ».</td><td><span class="tag live">LIVE</span></td></tr>
 <tr><td><b>Rapports de site (coordinateur)</b></td><td>Rapport hebdo/mensuel par site auto-composé + email — l'authored report rejoué depuis le snapshot figé.</td><td><span class="tag live">LIVE</span></td></tr>
-<tr><td><b>IT Review + Site Scoreboard</b></td><td>Revue IT (score programme du boss) + scoreboard opérationnel comparable (4 dimensions) pour la réunion mensuelle.</td><td><span class="tag live">LIVE</span></td></tr>
+<tr><td><b>IT Review + Site Scoreboard</b></td><td>Revue IT (score programme de la direction) + scoreboard opérationnel comparable (4 dimensions) pour la réunion mensuelle.</td><td><span class="tag live">LIVE</span></td></tr>
 <tr><td colspan="3" style="background:#eef4fb;font-weight:700;color:var(--navy)">Actifs (ITAM)</td></tr>
 <tr><td><b>Assets</b> (Inventaire · Hygiène · Finance/Licences · Dépréciation · Software · Hardware · Investissement · Progrès)</td><td>Inventaire IT + hygiène CMDB + valeur/conformité licences + dépréciation calculée + santé matériel + prévision d'investissement + effort dans le temps.</td><td><span class="tag live">LIVE</span></td></tr>
 <tr><td><b>Réconciliation</b></td><td>SDP × AD × Entra × Defender — combler l'angle mort SelfScan (ce que l'inventaire ignore).</td><td><span class="tag built">CONSTRUIT</span></td></tr>
 <tr><td colspan="3" style="background:#eef4fb;font-weight:700;color:var(--navy)">Risque, infra &amp; plateforme</td></tr>
 <tr><td><b>Risk Register</b></td><td>Export mensuel Occurrence (5 domaines de risque opérationnel) depuis les incidents SDP.</td><td><span class="tag live">LIVE</span></td></tr>
 <tr><td><b>System Logs</b></td><td>Journal de sécurité + analytics (auth, événements report) — traçabilité.</td><td><span class="tag built">CONSTRUIT</span></td></tr>
-<tr><td><b>WAN Health · SLA WAN · OpManager dispo</b></td><td>Dispo/qualité WAN par lien (Meraki) · refacturation ISP · dispo LAN/WLAN/Serveurs (OpManager).</td><td><span class="tag built">CONSTRUIT</span> / <span class="tag partial">PARTIEL</span></td></tr>
-<tr><td><b>Plateforme</b> (SSO Entra · Meridian · Installer &amp; backups)</td><td>Sign-in Microsoft · lien PMO · déploiement autonome + sauvegardes planifiées.</td><td><span class="tag partial">PARTIEL</span> / <span class="tag live">LIVE</span></td></tr>
+<tr><td><b>Infrastructure Health · WAN Health · SLA WAN · OpManager dispo</b></td><td>Dispo par site × famille (WAN1/WAN2, LAN, WLAN, Serveurs) + tendance · dispo/qualité WAN par lien (Meraki) · refacturation ISP.</td><td><span class="tag live">LIVE</span> / <span class="tag built">SLA à activer</span></td></tr>
+<tr><td><b>Plateforme</b> (SSO Entra · Installer &amp; backups)</td><td>Sign-in Microsoft · déploiement autonome + sauvegardes planifiées.</td><td><span class="tag partial">PARTIEL</span> / <span class="tag live">LIVE</span></td></tr>
 </tbody>
 </table>
 
@@ -268,7 +271,7 @@
 <tr><td colspan="3" style="background:#eef4fb;font-weight:700;color:var(--navy)">🎯 Objectif 2 — Plateforme ITSM &amp; actifs <span style="font-weight:400">(25 % · 80 % 🟢 — publier discovery accuracy &amp; complétude CMDB)</span></td></tr>
 <tr><td><b>Assets</b> (inventaire · hygiène · finance · dépréciation · software · hardware · investissement · progrès)</td><td>Le cœur ITAM : complétude CMDB (hygiène %), couverture par classe d'actif, valeur/cycle de vie.</td><td><span class="tag live">LIVE</span></td></tr>
 <tr><td><b>Réconciliation</b> (SDP×AD×Entra×Defender)</td><td><b>Discovery accuracy</b> : ce que voient AD/Defender mais pas SDP = l'angle mort à publier.</td><td><span class="tag built">CONSTRUIT</span></td></tr>
-<tr><td><b>OpManager dispo</b> (LAN/WLAN/Serveurs)</td><td>Santé de la plateforme infra hors WAN.</td><td><span class="tag partial">PARTIEL</span></td></tr>
+<tr><td><b>OpManager dispo + Infrastructure Health</b> (LAN/WLAN/Serveurs, WAN1/WAN2)</td><td>Santé de la plateforme infra par site × famille, avec tendance et gouvernance.</td><td><span class="tag live">LIVE</span></td></tr>
 <tr><td><b>WAN Health / Meraki</b> · <b>SLA WAN</b></td><td>Dispo/qualité WAN par lien + fiabilité/coût ISP (refacturation).</td><td><span class="tag built">CONSTRUIT</span></td></tr>
 <tr><td><b>Installer &amp; backups</b></td><td>Robustesse &amp; continuité de la plateforme dashboard.</td><td><span class="tag live">LIVE</span></td></tr>
 <tr><td><b>Scorecard « ITSM &amp; actifs »</b></td><td>Publie discovery accuracy + complétude CMDB + couverture → coche l'écart, confirme le Vert.</td><td><span class="tag todo">À FAIRE (gain rapide)</span></td></tr>
@@ -291,7 +294,7 @@
 <tr><td><b>Site Reports coordinateur</b> (hebdo/mensuel)</td><td>Reporting site auto = preuve d'avancement sur tous les objectifs.</td><td><span class="tag live">LIVE</span></td></tr>
 <tr><td><b>IT Review + Site Scoreboard</b></td><td>Gouvernance comparable par site = « personne ne veut être dernier ».</td><td><span class="tag live">LIVE</span></td></tr>
 <tr><td><b>Exec View (SharePoint)</b> · <b>Rapports auto</b></td><td>Communication direction + envoi automatique (zéro corvée).</td><td><span class="tag live">LIVE</span></td></tr>
-<tr><td><b>System Logs · SSO Entra · Meridian</b></td><td>Audit/sécurité · sign-in · lien PMO = socle transversal.</td><td><span class="tag built">CONSTRUIT</span> / <span class="tag partial">PARTIEL</span></td></tr>
+<tr><td><b>System Logs · SSO Entra</b></td><td>Audit/sécurité · sign-in = socle transversal.</td><td><span class="tag built">CONSTRUIT</span> / <span class="tag partial">PARTIEL</span></td></tr>
 <tr><td><b>Score de proactivité</b></td><td>Métrique de pilotage : bascule réactif → proactif (transverse).</td><td><span class="tag todo">idée</span></td></tr>
 </tbody>
 </table>
