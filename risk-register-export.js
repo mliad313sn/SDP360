@@ -72,7 +72,11 @@ const DOMAIN_RULES = [
       { sub: 'Backup' },          // IT Infrastructure
       { sub: 'Database' },        // IT Infrastructure
       { sub: 'Cloud Services' },  // IT Infrastructure
-      { sub: 'Issue with Email' },        // Email
+      // 2026-09-02: 'Issue with Email' (generic — mostly individual mailbox
+      // problems) replaced by the NEW dedicated sub the user created for
+      // server-side outages. Zero tickets on either name Jun–Aug, so the swap
+      // is purely forward-looking.
+      { sub: 'Issue Server Email' },      // Email (server-side outage)
       // 2026-09-02 tuning — aligned with the SDP mandatory-Risk-comment rule:
       // the AMBIGUOUS subs below were REMOVED from the category fallback. They
       // are usually individual end-user issues, not operational unavailability
