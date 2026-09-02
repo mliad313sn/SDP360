@@ -39,7 +39,13 @@ Le handoff propose de construire plusieurs choses **qui existent déjà en produ
 - **Plans de changement « risk-mitigated »** générés par l'IA mais approuvés par l'humain → s'aligne sur notre CAB.
 - Ces gardes **confirment le §6 du handoff** (liste des actions à approbation obligatoire) — à garder tel quel comme politique.
 
-### 2.3 MCP comme couche d'intégration standard — awesome-network-automation-ai
+### 2.3 Assurance backups Acronis — via « SIEM log forwarding » natif (ajout 01/09)
+- Le parc tourne sur **Acronis Cyber Protect 17 on-premises**, qui sait **pousser ses événements** nativement : console → *Plans → Log forwarding plans*, méthode **Files** (le management server écrit des fichiers CEF ou **JSON**) ou **Syslog** ; types de données sélectionnables (tous par défaut ; x64 uniquement).
+- **Conception retenue** : plan **JSON + Files** → un ingester dashboard (config-gaté, best-effort — le patron habituel) lit le flux → **job raté/manqué = ticket SDP** + ligne « santé backups » par site. Pas de polling API, pas d'auth complexe.
+- ⚠️ Contraintes du produit : si le dossier de destination est supprimé, **le forwarding s'arrête** ; jamais un chemin OneDrive/reparse point.
+- **POC** : 1 plan JSON + 1 job raté réel détecté → ticket, en < 1 semaine. Répond aussi au challenge « backups non prouvés » (suivi des validations de restauration ensuite).
+
+### 2.4 MCP comme couche d'intégration standard — awesome-network-automation-ai
 - Le marché converge vers des **serveurs MCP par outil** (NetBox, Catalyst Center, SD-WAN vManage, Junos, pyATS…). Notre agent One IT Support utilise **déjà** le MCP Zoho — c'est la bonne architecture.
 - **Idée concrète** : un **MCP server du SDP Dashboard** (lecture seule au départ) exposant aux agents ce que le dashboard sait déjà — dispo infra par site, worklists actifs, score sites, MI actifs — plutôt que chaque agent ré-interroge Zoho/Meraki/OpManager. Le dashboard devient littéralement la « data spine » des agents.
 - **Optimisation token** (pattern `neterse`) : toute sortie CLI/diagnostic destinée à un LLM doit être compactée/reformatée — pas de dump brut de `show tech`.
