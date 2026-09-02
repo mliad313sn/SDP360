@@ -106,3 +106,75 @@ test('loadOccurrencesFromDB: per-cell source breakdown (field vs category, incl.
   assert.deepEqual(sources['MGO'][D5], { field: 1, category: 0 });
   db.close();
 });
+
+// ── Risk comment (txt_risk_comment) → column H "Commentaires" ─────────
+test('riskCommentFrom: tolerant key variants, trim, absent/blank/bad → empty', () => {
+  assert.equal(rr.riskCommentFrom(JSON.stringify({ 'UDF:Risk comment': '  Fibre cut near gate 2  ' })), 'Fibre cut near gate 2');
+  assert.equal(rr.riskCommentFrom(JSON.stringify({ 'Risk Comment': 'x' })), 'x');
+  assert.equal(rr.riskCommentFrom(JSON.stringify({ 'txt_risk_comment': 'y' })), 'y');
+  assert.equal(rr.riskCommentFrom(JSON.stringify({ 'UDF:Risk_Comment': 'z' })), 'z');
+  assert.equal(rr.riskCommentFrom(JSON.stringify({ 'Other': 'v' })), '');
+  assert.equal(rr.riskCommentFrom(null), '');
+  assert.equal(rr.riskCommentFrom('not json'), '');
+});
+
+test('loadOccurrencesFromDB collects risk comments per cell; export writes them into column H', async () => {
+  const db = new Database(':memory:');
+  db.exec(`CREATE TABLE request_records(
+    request_id TEXT, site TEXT, category TEXT, sub_category TEXT,
+    request_type TEXT, impact TEXT, created_time TEXT, udf_json TEXT)`);
+  const ins = db.prepare(`INSERT INTO request_records
+    (request_id,site,category,sub_category,request_type,impact,created_time,udf_json)
+    VALUES (?,?,?,?,?,?,?,?)`);
+  // Two commented incidents on MGO/D1, one uncommented (still counts, no comment).
+  ins.run('101', 'MANA', 'Network & Internet Access', 'Network issues', 'Incident', 'Enterprise', '2026-06-15T10:00:00',
+    JSON.stringify({ 'UDF:Risk comment': 'ISP outage 3h, backup link engaged' }));
+  ins.run('102', 'MANA', 'Network & Internet Access', 'Network issues', 'Incident', 'Enterprise', '2026-06-16T10:00:00',
+    JSON.stringify({ 'UDF:Services affected': 'Internet', 'UDF:Risk comment': 'Router failure replaced same day' }));
+  ins.run('103', 'MANA', 'Network & Internet Access', 'Network issues', 'Incident', 'Enterprise', '2026-06-17T10:00:00', null);
+
+  const { occurrences, sources, comments } = await rr.loadOccurrencesFromDB(db, '2026-06');
+  assert.equal(occurrences['MGO'][D1], 3);
+  assert.deepEqual(comments['MGO'][D1], [
+    '#101 — ISP outage 3h, backup link engaged',
+    '#102 — Router failure replaced same day',
+  ]);
+
+  // End-to-end: the Excel cell H of the MGO/D1 row carries the joined summary.
+  const XLSX = require('xlsx');
+  const buf = rr.generateRiskRegisterExcel('2026-06', occurrences, sources, comments);
+  const ws = XLSX.read(buf, { type: 'buffer' }).Sheets['Occurrence_2026-06'];
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1 });
+  const mgoD1 = rows.find(r => r[1] === 'MGO' && String(r[2]).startsWith('1.'));
+  assert.ok(mgoD1, 'MGO / Internet row exists');
+  assert.ok(String(mgoD1[7]).includes('#101 — ISP outage 3h'), 'comment 101 in column H');
+  assert.ok(String(mgoD1[7]).includes('#102 — Router failure'), 'comment 102 in column H');
+  assert.equal(mgoD1[8], 3, 'occurrence count unchanged');
+  // A row with no comments keeps an empty H (spec-compatible).
+  const mgoD5 = rows.find(r => r[1] === 'MGO' && String(r[2]).startsWith('5.'));
+  assert.equal(mgoD5[7] || '', '');
+  db.close();
+});
+
+test('column-H summary caps long lists with "… (+N autres)"', async () => {
+  const db = new Database(':memory:');
+  db.exec(`CREATE TABLE request_records(
+    request_id TEXT, site TEXT, category TEXT, sub_category TEXT,
+    request_type TEXT, impact TEXT, created_time TEXT, udf_json TEXT)`);
+  const ins = db.prepare(`INSERT INTO request_records
+    (request_id,site,category,sub_category,request_type,impact,created_time,udf_json)
+    VALUES (?,?,?,?,?,?,?,?)`);
+  for (let i = 0; i < 12; i++) {
+    ins.run(String(200 + i), 'MANA', 'Network & Internet Access', 'Network issues', 'Incident', 'Enterprise',
+      '2026-06-15T10:00:00', JSON.stringify({ 'UDF:Risk comment': 'Long commentary '.repeat(8) + i }));
+  }
+  const { occurrences, sources, comments } = await rr.loadOccurrencesFromDB(db, '2026-06');
+  const XLSX = require('xlsx');
+  const buf = rr.generateRiskRegisterExcel('2026-06', occurrences, sources, comments);
+  const ws = XLSX.read(buf, { type: 'buffer' }).Sheets['Occurrence_2026-06'];
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1 });
+  const cell = String(rows.find(r => r[1] === 'MGO' && String(r[2]).startsWith('1.'))[7]);
+  assert.ok(cell.length <= 800, 'cell stays readable (capped)');
+  assert.ok(/\(\+\d+ autres\)/.test(cell), 'overflow marker present');
+  db.close();
+});

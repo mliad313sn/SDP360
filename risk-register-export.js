@@ -193,6 +193,26 @@ function servicesAffectedDomains(udfJson) {
   return out;
 }
 
+// Parse the "Risk comment" UDF (txt_risk_comment — the closure comment the
+// technicians must fill on risk-relevant incidents) out of a udf_json blob.
+// Key matched tolerantly ("UDF:Risk comment" / "Risk Comment" / "txt_risk_comment"
+// — the exact Analytics header may vary, same tolerance pattern as Services
+// affected above). Returns a trimmed string, '' when absent/blank/unparseable.
+function riskCommentFrom(udfJson) {
+  if (!udfJson) return '';
+  let parsed;
+  try { parsed = typeof udfJson === 'string' ? JSON.parse(udfJson) : udfJson; }
+  catch { return ''; }
+  if (!parsed || typeof parsed !== 'object') return '';
+  for (const k of Object.keys(parsed)) {
+    if (/risk[\s_]*comment/i.test(k)) {
+      const v = parsed[k];
+      return v == null ? '' : String(v).trim();
+    }
+  }
+  return '';
+}
+
 // Resolve the set of risk domains an incident belongs to.
 //   1. Inspection / Individual-impact → [] (same exclusions as classifyIncident)
 //   2. "Services affected" populated → it WINS (authoritative, possibly multi-
@@ -376,8 +396,28 @@ function resolveSite(raw, aliases) {
 // Risk Register's monthly Occurrence sheet column-for-column.
 // `sources` (optional) = sources[site][domainLabel] = { field, category } — drives
 // the trailing "Origine occurrence" column. Safe to omit (column shows blank).
-function generateRiskRegisterExcel(month, occurrences, sources) {
+// `comments` (optional) = comments[site][domainLabel] = ['#id — comment', …] —
+// the technicians' closure "Risk comment" entries, summarised into column H.
+function generateRiskRegisterExcel(month, occurrences, sources, comments) {
   sources = sources || {};
+  comments = comments || {};
+  // Column H summary: one cell aggregates MANY tickets (SGO infra can hold 20+),
+  // so each comment is trimmed and the whole cell is capped — readability over
+  // completeness (the full text stays in SDP on the ticket).
+  const PER_COMMENT_MAX = 160, CELL_MAX = 700;
+  const commentCell = (site, label) => {
+    const list = (comments[site] && comments[site][label]) || [];
+    if (!list.length) return '';
+    const trimmed = list.map(c => (c.length > PER_COMMENT_MAX ? c.slice(0, PER_COMMENT_MAX - 1) + '…' : c));
+    let out = '', used = 0;
+    for (const c of trimmed) {
+      const piece = (out ? ' | ' : '') + c;
+      if (out.length + piece.length > CELL_MAX) break;
+      out += piece; used++;
+    }
+    if (used < list.length) out += ` … (+${list.length - used} autres)`;
+    return out;
+  };
   // Per-cell origin label: where the cell's occurrences came from.
   const originLabel = (site, label, count) => {
     if (!count) return '';
@@ -422,7 +462,7 @@ function generateRiskRegisterExcel(month, occurrences, sources) {
         domain.actions, // E: Actions
         0,              // F: Efficacy now (spec: "Leave empty (0)")
         0,              // G: Efficacy target (spec: "Leave empty (0)")
-        '',             // H: Comments (spec: "Leave empty")
+        commentCell(site, domain.label),  // H: technicians' Risk comments (summarised)
         count,          // I: Occurrence
         originLabel(site, domain.label, count),  // J: Origine occurrence
       ]);
@@ -444,7 +484,7 @@ function generateRiskRegisterExcel(month, occurrences, sources) {
     { wch: 50 }, // E — Actions
     { wch: 18 }, // F — Efficacy now
     { wch: 18 }, // G — Efficacy target
-    { wch: 25 }, // H — Comments
+    { wch: 60 }, // H — Comments (now carries the technicians' risk comments)
     { wch: 14 }, // I — Occurrence
     { wch: 26 }, // J — Origine occurrence
   ];
@@ -526,7 +566,7 @@ async function loadOccurrencesFromDB(db, month) {
   //      classifier's VALID_IMPACTS set is the only thing to update.
   const { H } = _h(db);
   const rows = await H.prepare(`
-    SELECT site, category, sub_category, request_type, impact, udf_json
+    SELECT request_id, site, category, sub_category, request_type, impact, udf_json
     FROM request_records
     WHERE created_time >= ?
       AND created_time <  ?
@@ -537,6 +577,7 @@ async function loadOccurrencesFromDB(db, month) {
   // Aggregate: occurrences[site][domain] = count
   const occurrences = {};
   const sources     = {};   // sources[site][domain] = { field, category }
+  const comments    = {};   // comments[site][domain] = ['#id — technician risk comment', …]
   let skippedNoSite        = 0;
   let skippedUnknownSite   = 0;
   let skippedNoDomain      = 0;
@@ -599,10 +640,18 @@ async function loadOccurrencesFromDB(db, month) {
     // `sources[site][dom]` tracks, per cell, how many of its occurrences came
     // from the field vs the category fallback (drives the export's "Origine"
     // column — a cell can be mixed).
+    // The technician's closure "Risk comment" (mandatory on risk-relevant
+    // incidents via the SDP form rule) feeds the register's Commentaires cell.
+    const comment = riskCommentFrom(r.udf_json);
     for (const dom of domains) {
       occurrences[site][dom] = (occurrences[site][dom] || 0) + 1;
       if (!sources[site][dom]) sources[site][dom] = { field: 0, category: 0 };
       sources[site][dom][srcKey]++;
+      if (comment) {
+        if (!comments[site]) comments[site] = {};
+        if (!comments[site][dom]) comments[site][dom] = [];
+        comments[site][dom].push(`#${r.request_id || '?'} — ${comment}`);
+      }
     }
     classifiedCount++;
   }
@@ -618,6 +667,7 @@ async function loadOccurrencesFromDB(db, month) {
   return {
     occurrences,
     sources,
+    comments,
     diagnostics: {
       total_incident_rows:        rows.length,
       classified:                 classifiedCount,
@@ -645,9 +695,9 @@ async function buildRiskRegisterExport(db, month) {
   if (!/^\d{4}-\d{2}$/.test(month)) {
     throw new Error(`Invalid month format "${month}" — expected YYYY-MM`);
   }
-  const { occurrences, sources, diagnostics } = await loadOccurrencesFromDB(db, month);
+  const { occurrences, sources, comments, diagnostics } = await loadOccurrencesFromDB(db, month);
   console.log(`[risk-register] month=${month} rows=${diagnostics.total_incident_rows} classified=${diagnostics.classified} (null_impact=${diagnostics.classified_with_null_impact}) skipped_individual=${diagnostics.skipped_non_operational} skipped_unknown_site=${diagnostics.skipped_unknown_site} skipped_no_domain=${diagnostics.skipped_no_domain} top_unknown=${diagnostics.skipped_unknown_site_top.join(', ')}`);
-  const buf = generateRiskRegisterExcel(month, occurrences, sources);
+  const buf = generateRiskRegisterExcel(month, occurrences, sources, comments);
   return { buffer: buf, diagnostics };
 }
 
@@ -737,8 +787,10 @@ module.exports = {
   // Exposed for unit-test ergonomics
   classifyIncident,
   servicesAffectedDomains,
+  riskCommentFrom,
   domainsForIncident,
   loadOccurrencesFromDB,
+  generateRiskRegisterExcel,
   resolveSite,
   getSiteAliases,
   DOMAIN_RULES,
