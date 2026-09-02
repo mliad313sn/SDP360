@@ -73,12 +73,17 @@ const DOMAIN_RULES = [
       { sub: 'Database' },        // IT Infrastructure
       { sub: 'Cloud Services' },  // IT Infrastructure
       { sub: 'Issue with Email' },        // Email
-      { sub: 'Network Configuration' },   // Network & Internet Access
-      { sub: 'VPN (Remote Access Services)' }, // Network & Internet Access
-      // GENERIC names → STRICT (category required) so we don't pull in
-      // unrelated tickets like "ERP Support / System".
-      { cat: 'Enterprise Applications', sub: 'System' },
-      { cat: 'Enterprise Applications', sub: 'Technical' },
+      // 2026-09-02 tuning — aligned with the SDP mandatory-Risk-comment rule:
+      // the AMBIGUOUS subs below were REMOVED from the category fallback. They
+      // are usually individual end-user issues, not operational unavailability
+      // (measured Jun–Aug 2026: VPN 5 tickets / Network Configuration 2, none
+      // with Services affected; EA System/Technical 0). A REAL outage on these
+      // still counts — the technician declares it via "Services affected",
+      // which takes precedence over this fallback.
+      //   { sub: 'Network Configuration' }
+      //   { sub: 'VPN (Remote Access Services)' }
+      //   { cat: 'Enterprise Applications', sub: 'System' }   // strict pair (generic name)
+      //   { cat: 'Enterprise Applications', sub: 'Technical' }
     ],
   },
   {
