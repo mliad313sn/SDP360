@@ -175,14 +175,14 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
 .modal-footer{display:flex;justify-content:flex-end;gap:10px;margin-top:20px;padding-top:16px;border-top:1px solid var(--border)}
 /* Role picker (user modal) — hierarchical pills + grouped feature-role cards */
 .role-pill{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;font-size:12.5px;font-weight:600;color:#334155;border:1px solid #CBD5E1;border-radius:999px;padding:4px 12px 4px 8px;background:#fff;cursor:pointer}
-.role-pill input{margin:0;accent-color:var(--edv-orange,#E87722)}
+.role-pill input{margin:0;accent-color:var(--edv-orange,#E87722);width:14px;height:14px;padding:0;border:none;flex:none}
 .role-pill:has(input:checked){border-color:var(--edv-orange,#E87722);background:#FFF4EB;color:#9A4A0E}
 .role-f-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px}
 @media (max-width:560px){.role-f-grid{grid-template-columns:1fr}}
 .role-f-group{display:flex;flex-direction:column;gap:4px}
 .role-f-group-title{font-size:10px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:0.4px}
 .role-card{display:flex;align-items:flex-start;gap:8px;border:1px solid #E2E8F0;border-radius:6px;padding:6px 8px;background:#fff;cursor:pointer}
-.role-card input{margin:2px 0 0;flex:none;accent-color:var(--edv-orange,#E87722)}
+.role-card input{margin:2px 0 0;flex:none;accent-color:var(--edv-orange,#E87722);width:14px;height:14px;padding:0;border:none}
 .role-card:has(input:checked){border-color:var(--edv-orange,#E87722);background:#FFF9F4}
 .role-f-txt{display:flex;flex-direction:column;min-width:0}
 .role-f-txt b{font-size:12.5px;font-weight:600;color:#1E293B;font-family:ui-monospace,Consolas,monospace}
