@@ -137,8 +137,15 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
 
 /* ── Admin page ──────────────────────────────────────────────── */
 .user-table{width:100%;border-collapse:collapse}
-.user-table th{background:var(--dark-blue);color:#fff;padding:9px 12px;font-size:0.8rem;text-align:left}
+.user-table th{background:#f4f6fb;color:#3a4a60;padding:8px 12px;font-size:0.72rem;font-weight:700;
+  text-transform:uppercase;letter-spacing:.04em;text-align:left;border-bottom:2px solid var(--dark-blue)}
 .user-table td{padding:9px 12px;border-bottom:1px solid #edf0f7;font-size:0.87rem;vertical-align:middle}
+.user-table tbody tr:hover{background:#f8fafc}
+.user-table td:last-child{white-space:nowrap}
+/* Admin cards: a table wider than the card scrolls INSIDE it instead of
+   spilling past the card's edge onto the page background (the panels ARE
+   the cards: <div class="card admin-panel">) */
+.card.admin-panel{overflow-x:auto}
 .role-pill{padding:2px 8px;border-radius:10px;font-size:0.74rem;font-weight:700}
 .role-admin{background:#1c3a5e22;color:var(--dark-blue)}
 .role-executive{background:#7c3aed22;color:#5b21b6}
@@ -174,9 +181,9 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
 .modal h2{font-size:1.1rem;font-weight:800;color:var(--dark-blue);margin-bottom:20px}
 .modal-footer{display:flex;justify-content:flex-end;gap:10px;margin-top:20px;padding-top:16px;border-top:1px solid var(--border)}
 /* Role picker (user modal) — hierarchical pills + grouped feature-role cards */
-.role-pill{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;font-size:12.5px;font-weight:600;color:#334155;border:1px solid #CBD5E1;border-radius:999px;padding:4px 12px 4px 8px;background:#fff;cursor:pointer}
-.role-pill input{margin:0;accent-color:var(--edv-orange,#E87722);width:14px;height:14px;padding:0;border:none;flex:none}
-.role-pill:has(input:checked){border-color:var(--edv-orange,#E87722);background:#FFF4EB;color:#9A4A0E}
+.role-hpill{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;font-size:12.5px;font-weight:600;color:#334155;border:1px solid #CBD5E1;border-radius:999px;padding:4px 12px 4px 8px;background:#fff;cursor:pointer}
+.role-hpill input{margin:0;accent-color:var(--edv-orange,#E87722);width:14px;height:14px;padding:0;border:none;flex:none}
+.role-hpill:has(input:checked){border-color:var(--edv-orange,#E87722);background:#FFF4EB;color:#9A4A0E}
 .role-f-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px}
 @media (max-width:560px){.role-f-grid{grid-template-columns:1fr}}
 .role-f-group{display:flex;flex-direction:column;gap:4px}
@@ -238,9 +245,12 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
 .admin-rail__item{display:flex;align-items:center;gap:10px;width:100%;text-align:left;
   padding:9px 12px;border:none;border-radius:7px;background:transparent;cursor:pointer;
   font-size:0.9rem;font-weight:600;color:#42526b;line-height:1.2;transition:background .12s,color .12s}
-.admin-rail__item .ar-ico{font-size:1rem;width:1.2em;text-align:center;flex:0 0 auto}
+.admin-rail__item .ar-ico{font-size:1rem;width:1.2em;text-align:center;flex:0 0 auto;filter:grayscale(1);opacity:.65}
 .admin-rail__item:hover{background:#f1f5fb;color:var(--dark-blue)}
-.admin-rail__item.active{background:var(--dark-blue);color:#fff}
+/* Active = light tint + orange accent bar (a solid dark block made the labels
+   hard to read and looked generic) */
+.admin-rail__item.active{background:#FFF4EB;color:var(--dark-blue);box-shadow:inset 3px 0 0 var(--edv-orange,#E87722)}
+.admin-rail__item.active .ar-ico{filter:none;opacity:1}
 .admin-rail__item small{display:block;font-size:0.68rem;font-weight:400;opacity:.7;margin-top:1px}
 .admin-content{flex:1 1 auto;min-width:0}
 .admin-panel{display:none}
@@ -251,7 +261,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
 .ap-tab{border:1px solid #d7deea;background:#fff;color:#3A4A60;border-radius:999px;padding:5px 14px;
   font-size:0.82rem;font-weight:600;cursor:pointer;transition:background .15s,border-color .15s,color .15s}
 .ap-tab:hover{background:#f1f5fb;border-color:#b9c6da}
-.ap-tab.active{background:var(--dark-blue);color:#fff;border-color:var(--dark-blue)}
+.ap-tab.active{background:#FFF4EB;color:#9A4A0E;border-color:var(--edv-orange,#E87722)}
 @keyframes adminPanelIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 /* Rail grouped by scope (Global / Reports / Assets / Risk) */
 .admin-rail__group{display:flex;flex-direction:column;gap:4px}
@@ -261,7 +271,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
 .admin-rail__item .ar-scope{margin-left:auto;flex:0 0 auto;font-size:0.58rem;font-weight:700;
   text-transform:uppercase;letter-spacing:.04em;padding:1px 6px;border-radius:999px;
   background:#eef1f6;color:#64748b}
-.admin-rail__item.active .ar-scope{background:rgba(255,255,255,.22);color:#fff}
+.admin-rail__item.active .ar-scope{background:#fff;color:#9A4A0E;border:1px solid #f0c9a4}
 .ar-scope--assets{background:#e0f2f1;color:#0f766e}
 .ar-scope--reports{background:#eef2ff;color:#4338ca}
 .ar-scope--risk{background:#fef2f2;color:#b91c1c}
@@ -2103,11 +2113,11 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
           <div>
             <div style="font-size:10px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Hierarchical level (pick one)</div>
             <div style="display:flex;flex-wrap:wrap;gap:6px">
-              <label class="role-h role-pill"><input type="radio" name="role-h" value="super_admin"> Super Admin</label>
-              <label class="role-h role-pill"><input type="radio" name="role-h" value="executive"> Executive</label>
-              <label class="role-h role-pill"><input type="radio" name="role-h" value="admin"> Admin</label>
-              <label class="role-h role-pill"><input type="radio" name="role-h" value="editor" checked> Editor</label>
-              <label class="role-h role-pill"><input type="radio" name="role-h" value="viewer"> Viewer</label>
+              <label class="role-h role-hpill"><input type="radio" name="role-h" value="super_admin"> Super Admin</label>
+              <label class="role-h role-hpill"><input type="radio" name="role-h" value="executive"> Executive</label>
+              <label class="role-h role-hpill"><input type="radio" name="role-h" value="admin"> Admin</label>
+              <label class="role-h role-hpill"><input type="radio" name="role-h" value="editor" checked> Editor</label>
+              <label class="role-h role-hpill"><input type="radio" name="role-h" value="viewer"> Viewer</label>
             </div>
           </div>
           <div>
