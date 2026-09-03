@@ -173,6 +173,20 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
 .modal{background:#fff;border-radius:12px;padding:28px 28px 22px;width:480px;max-width:96vw;box-shadow:0 8px 40px rgba(0,0,0,0.2)}
 .modal h2{font-size:1.1rem;font-weight:800;color:var(--dark-blue);margin-bottom:20px}
 .modal-footer{display:flex;justify-content:flex-end;gap:10px;margin-top:20px;padding-top:16px;border-top:1px solid var(--border)}
+/* Role picker (user modal) — hierarchical pills + grouped feature-role cards */
+.role-pill{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;font-size:12.5px;font-weight:600;color:#334155;border:1px solid #CBD5E1;border-radius:999px;padding:4px 12px 4px 8px;background:#fff;cursor:pointer}
+.role-pill input{margin:0;accent-color:var(--edv-orange,#E87722)}
+.role-pill:has(input:checked){border-color:var(--edv-orange,#E87722);background:#FFF4EB;color:#9A4A0E}
+.role-f-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px}
+@media (max-width:560px){.role-f-grid{grid-template-columns:1fr}}
+.role-f-group{display:flex;flex-direction:column;gap:4px}
+.role-f-group-title{font-size:10px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:0.4px}
+.role-card{display:flex;align-items:flex-start;gap:8px;border:1px solid #E2E8F0;border-radius:6px;padding:6px 8px;background:#fff;cursor:pointer}
+.role-card input{margin:2px 0 0;flex:none;accent-color:var(--edv-orange,#E87722)}
+.role-card:has(input:checked){border-color:var(--edv-orange,#E87722);background:#FFF9F4}
+.role-f-txt{display:flex;flex-direction:column;min-width:0}
+.role-f-txt b{font-size:12.5px;font-weight:600;color:#1E293B;font-family:ui-monospace,Consolas,monospace}
+.role-f-txt small{font-size:11px;color:#64748B;line-height:1.35}
 
 /* ── Section progress ────────────────────────────────────────── */
 .section-tabs{display:flex;gap:4px;margin-bottom:20px;flex-wrap:wrap}
@@ -2085,27 +2099,39 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
           On submit, modalRoleSetGet() collects all checked into an array.
           On open, modalRoleSetSet(roles) checks the relevant boxes.
         -->
-        <div id="modal-roles" style="display:flex;flex-direction:column;gap:8px;border:1px solid #CBD5E1;border-radius:6px;padding:10px;background:#F8FAFC;">
+        <div id="modal-roles" style="display:flex;flex-direction:column;gap:12px;border:1px solid #CBD5E1;border-radius:6px;padding:12px;background:#F8FAFC;">
           <div>
-            <div style="font-size:10px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Hierarchical (pick one)</div>
-            <div style="display:flex;flex-wrap:wrap;gap:10px;font-size:13px">
-              <label class="role-h"><input type="radio" name="role-h" value="super_admin"> Super Admin</label>
-              <label class="role-h"><input type="radio" name="role-h" value="executive"> Executive</label>
-              <label class="role-h"><input type="radio" name="role-h" value="admin"> Admin</label>
-              <label class="role-h"><input type="radio" name="role-h" value="editor" checked> Editor</label>
-              <label class="role-h"><input type="radio" name="role-h" value="viewer"> Viewer</label>
+            <div style="font-size:10px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Hierarchical level (pick one)</div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px">
+              <label class="role-h role-pill"><input type="radio" name="role-h" value="super_admin"> Super Admin</label>
+              <label class="role-h role-pill"><input type="radio" name="role-h" value="executive"> Executive</label>
+              <label class="role-h role-pill"><input type="radio" name="role-h" value="admin"> Admin</label>
+              <label class="role-h role-pill"><input type="radio" name="role-h" value="editor" checked> Editor</label>
+              <label class="role-h role-pill"><input type="radio" name="role-h" value="viewer"> Viewer</label>
             </div>
           </div>
           <div>
-            <div style="font-size:10px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Feature roles (orthogonal — pick any)</div>
-            <div style="display:flex;flex-wrap:wrap;gap:10px;font-size:13px">
-              <label class="role-f"><input type="checkbox" value="tracker-admin"> tracker-admin <span style="color:#64748B;font-size:11px">(edit tracker config)</span></label>
-              <label class="role-f"><input type="checkbox" value="tracker-editor"> tracker-editor <span style="color:#64748B;font-size:11px">(own-site actuals)</span></label>
-              <label class="role-f"><input type="checkbox" value="report-author"> report-author <span style="color:#64748B;font-size:11px">(run AI + export PPTX)</span></label>
-              <label class="role-f"><input type="checkbox" value="audit-viewer"> audit-viewer <span style="color:#64748B;font-size:11px">(read audit log)</span></label>
-              <label class="role-f"><input type="checkbox" value="scorecard-viewer"> scorecard-viewer <span style="color:#64748B;font-size:11px">(view Exec Scorecard + Analytics, read-only)</span></label>
-              <label class="role-f"><input type="checkbox" value="site-business"> site-business <span style="color:#64748B;font-size:11px">(Business — son site (GM/FM))</span></label>
-              <label class="role-f"><input type="checkbox" value="group-business"> group-business <span style="color:#64748B;font-size:11px">(Business — tous les sites (CIO/CFO))</span></label>
+            <div style="font-size:10px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Feature roles (pick any)</div>
+            <div class="role-f-grid">
+              <div class="role-f-group">
+                <div class="role-f-group-title">Activity Tracker</div>
+                <label class="role-f role-card"><input type="checkbox" value="tracker-editor"><span class="role-f-txt"><b>tracker-editor</b><small>Saisie des actuals — son site uniquement</small></span></label>
+                <label class="role-f role-card"><input type="checkbox" value="tracker-admin"><span class="role-f-txt"><b>tracker-admin</b><small>Config du tracker + tous les sites</small></span></label>
+              </div>
+              <div class="role-f-group">
+                <div class="role-f-group-title">Reports &amp; Audit</div>
+                <label class="role-f role-card"><input type="checkbox" value="report-author"><span class="role-f-txt"><b>report-author</b><small>Deck builder — Analyze + export PPTX</small></span></label>
+                <label class="role-f role-card"><input type="checkbox" value="audit-viewer"><span class="role-f-txt"><b>audit-viewer</b><small>Lecture du journal d'audit</small></span></label>
+              </div>
+              <div class="role-f-group">
+                <div class="role-f-group-title">Executive views</div>
+                <label class="role-f role-card"><input type="checkbox" value="scorecard-viewer"><span class="role-f-txt"><b>scorecard-viewer</b><small>Exec Scorecard + Analytics + IT Review, lecture seule</small></span></label>
+              </div>
+              <div class="role-f-group">
+                <div class="role-f-group-title">Business (GM / FM / CIO)</div>
+                <label class="role-f role-card"><input type="checkbox" value="site-business"><span class="role-f-txt"><b>site-business</b><small>Vue business — son site (GM/FM)</small></span></label>
+                <label class="role-f role-card"><input type="checkbox" value="group-business"><span class="role-f-txt"><b>group-business</b><small>Vue business — tous les sites (CIO/CFO)</small></span></label>
+              </div>
             </div>
           </div>
         </div>
