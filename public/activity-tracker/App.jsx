@@ -933,6 +933,38 @@ function InputPanel({ D, S, setS, roles, onMutate }) {
     } finally { setImporting(false); }
   }
 
+  // Export the input matrix for the selected site + year as CSV, with the
+  // engine's own YTD/target/score appended per row so any divergence between
+  // "sum of the monthly cells" and "what Scoring displays" is visible in Excel.
+  function exportInputCsv() {
+    const yr = S.year, mo = S.month;
+    const R = TR.score(D, site, yr, mo);
+    const esc = v => { const s = String(v == null ? '' : v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+    const head = ['#', 'Pillar', 'Activity', 'KPI', 'Shared', 'Active', 'Window', 'Annual target',
+      ...MO, 'Sum Jan-' + MO[mo - 1], 'Engine YTD (ya)', 'Engine target (yt)', 'Score', 'RAG'];
+    const lines = [head.map(esc).join(',')];
+    D.activities.forEach((a, ai) => {
+      const t = tg[ai];
+      const months = Array.from({ length: 12 }, (_, mi) => TR.gi(D, yr, site, ai, mi));
+      let sum = 0; for (let m = 0; m < mo; m++) sum += months[m];
+      const r = R[ai] || {};
+      lines.push([
+        a.num, a.pillar, a.name, a.kpi, a.shared ? 'yes' : '', t?.active ? 'yes' : 'no',
+        (a.start || 1) + '-' + (a.end || 12), t?.target ?? '',
+        ...months,
+        Math.round(sum * 100) / 100,
+        r.on ? r.ya : 'N/A', r.on ? r.yt : 'N/A',
+        typeof r.sc === 'number' ? Math.round(r.sc * 100) + '%' : (r.sc || ''), r.rg || '',
+      ].map(esc).join(','));
+    });
+    const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+    const aEl = document.createElement('a');
+    aEl.href = URL.createObjectURL(blob);
+    aEl.download = 'tracker-input_' + site + '_' + yr + '_' + MO[mo - 1] + '.csv';
+    aEl.click();
+    setTimeout(() => URL.revokeObjectURL(aEl.href), 1000);
+  }
+
   function setCell(ai, mi, raw) {
     // BOOLEAN cells: parse 0 / 0.5 / 1 only. Others: float.
     const a = D.activities[ai];
@@ -969,6 +1001,15 @@ function InputPanel({ D, S, setS, roles, onMutate }) {
             {importing ? '⏳ Importing…' : '⬇ Import dept meetings'}
           </button>
         )}
+        <button
+          type="button"
+          className="tt-btn tt-btn--ghost"
+          onClick={exportInputCsv}
+          title="Export this site's 12-month input matrix as CSV, with the engine's YTD / target / score per row for cross-checking"
+          style={{ whiteSpace: 'nowrap' }}
+        >
+          ⬇ Export CSV
+        </button>
         <span className="ip-legend">
           <b style={{ color: 'var(--tracker-p3)' }}>BOOLEAN:</b> 0 = Not Started · 0.5 = In Progress · 1 = Done
           {'  ·  '}
