@@ -490,6 +490,28 @@ function DashboardPanel({ D, S }) {
       options: { responsive: true, animation: { duration: 300 }, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } }, tooltip: { callbacks: { label: function (c) { const t = c.dataset.data.reduce((a, b) => a + b, 0); return c.label + ': ' + c.raw + ' (' + Math.round(c.raw / t * 100) + '%)'; } } } } },
     });
 
+    // c6 — RAG doughnut WEIGHTED by effective activity weight. The count
+    // donut (c5) answers "how many activities are on target"; this one
+    // answers "what share of the programme's WEIGHT is on target" — a
+    // heavy 12% activity in RED moves this chart 4x more than a light 3%
+    // one. Sites contribute equally (each site's effective weights sum to
+    // the same total), mirroring how the fleet average score is built.
+    const wSum = { g: 0, a: 0, r: 0 };
+    aS.forEach(s => {
+      TR.score(D, s, S.year, S.month).forEach(row => {
+        if (!row.on) return;
+        if (row.rg === 'GREEN') wSum.g += row.ew || 0;
+        else if (row.rg === 'AMBER') wSum.a += row.ew || 0;
+        else if (row.rg === 'RED') wSum.r += row.ew || 0;
+      });
+    });
+    const c6 = document.getElementById('dash-c6');
+    if (c6) chartRefs.current.c6 = new Chart(c6, {
+      type: 'doughnut',
+      data: { labels: ['Green (On Target)', 'Amber (At Risk)', 'Red (Off Track)'], datasets: [{ data: [wSum.g, wSum.a, wSum.r], backgroundColor: ['#16a34a', '#d97706', '#dc2626'], borderWidth: 2, borderColor: '#fff' }] },
+      options: { responsive: true, animation: { duration: 300 }, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } }, tooltip: { callbacks: { label: function (c) { const t = c.dataset.data.reduce((a, b) => a + b, 0) || 1; return c.label + ': ' + (c.raw / t * 100).toFixed(1) + '% of programme weight'; } } } } },
+    });
+
     return () => {
       Object.values(chartRefs.current).forEach(c => { try { c.destroy(); } catch (e) {} });
       chartRefs.current = {};
@@ -746,7 +768,8 @@ function DashboardPanel({ D, S }) {
 
       {/* Charts — 4 kept (trend moved up, pillar deep-dive absorbed by Pillar Health) */}
       <div className="dash-charts">
-        <div className="dash-chart-card"><h3>🎯 Target Attainment</h3><canvas id="dash-c5" /></div>
+        <div className="dash-chart-card"><h3>🎯 Target Attainment — by Activity Count</h3><canvas id="dash-c5" /></div>
+        <div className="dash-chart-card"><h3>⚖ Target Attainment — by Weight</h3><canvas id="dash-c6" /></div>
         <div className="dash-chart-card"><h3>Average Score by Site</h3><canvas id="dash-c1" /></div>
         <div className="dash-chart-card"><h3>RAG Distribution by Pillar</h3><canvas id="dash-c3" /></div>
         <div className="dash-chart-card"><h3>Site G/A/R Stacks</h3><canvas id="dash-c4" /></div>
