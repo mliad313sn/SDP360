@@ -97,6 +97,10 @@
   }
 
   // ── Per-activity scoring (RAG + score + YTD vs target) ─────────
+  // RAG bands (user policy 2026-09-03, mirrors the management RAG table):
+  //   GREEN >= 90% of the pro-rated target · AMBER 75-89% · RED < 75%.
+  // BOOLEAN/MILESTONE keep their done/in-progress semantics (no % band).
+  // ⚠ Twin engine: tracker-pptx.js carries the SAME bands — edit both.
   // Handles 6 KPI types: BOOLEAN, PERCENT, MILESTONE, CURRENCY,
   // RATING, COUNT (default). See the comments inline for the
   // formula each one uses.
@@ -138,7 +142,7 @@
         const avg = months > 0 ? ya / months : 0;
         const tgt = parseInt(t.target) || 100;
         const sc = Math.min(avg / tgt, 1);
-        const rg = sc >= 1 ? 'GREEN' : sc >= 0.75 ? 'AMBER' : 'RED';
+        const rg = sc >= 0.9 ? 'GREEN' : sc >= 0.75 ? 'AMBER' : 'RED';
         R.push({ ...a, ix: i, on: true, ya: Math.round(avg * 10) / 10, yt: tgt, sc: Math.round(sc * 1000) / 1000, rg, ew: ew[i] });
       } else if (a.kpi === 'MILESTONE') {
         const tgt = parseInt(t.target) || 1;
@@ -152,7 +156,7 @@
           R.push({ ...a, ix: i, on: true, ya, yt: 0, sc: 0, rg: 'AMBER', ew: ew[i] });
         } else {
           const sc = Math.min(ya / tgt, 1);
-          const rg = sc >= 1 ? 'GREEN' : sc >= 0.75 ? 'AMBER' : 'RED';
+          const rg = sc >= 0.9 ? 'GREEN' : sc >= 0.75 ? 'AMBER' : 'RED';
           R.push({ ...a, ix: i, on: true, ya: Math.round(ya * 100) / 100, yt: tgt, sc: Math.round(sc * 1000) / 1000, rg, ew: ew[i] });
         }
       } else if (a.kpi === 'RATING') {
@@ -164,7 +168,7 @@
         const avg = nonZeroMonths.length > 0 ? nonZeroMonths.reduce((s, v) => s + v, 0) / nonZeroMonths.length : 0;
         const tgt = parseFloat(t.target) || 4;
         const sc = tgt > 0 ? Math.min(avg / tgt, 1) : 0;
-        const rg = sc >= 1 ? 'GREEN' : sc >= 0.75 ? 'AMBER' : (nonZeroMonths.length === 0 && a.end > mo ? 'AMBER' : 'RED');
+        const rg = sc >= 0.9 ? 'GREEN' : sc >= 0.75 ? 'AMBER' : (nonZeroMonths.length === 0 && a.end > mo ? 'AMBER' : 'RED');
         R.push({ ...a, ix: i, on: true, ya: Math.round(avg * 100) / 100, yt: tgt, sc: Math.round(sc * 1000) / 1000, rg, ew: ew[i] });
       } else {
         // COUNT (default): sum of monthly values vs pro-rated annual target.
@@ -176,7 +180,7 @@
           const ann = parseInt(t.target) || 0;
           const yt = ann * (mA / tot);
           const sc = yt > 0 ? Math.min(ya / yt, 1) : 0;
-          const rg = sc >= 1 ? 'GREEN' : sc >= 0.75 ? 'AMBER' : 'RED';
+          const rg = sc >= 0.9 ? 'GREEN' : sc >= 0.75 ? 'AMBER' : 'RED';
           R.push({ ...a, ix: i, on: true, ya: Math.round(ya * 100) / 100, yt: Math.round(yt * 100) / 100, sc: Math.round(sc * 1000) / 1000, rg, ew: ew[i] });
         }
       }

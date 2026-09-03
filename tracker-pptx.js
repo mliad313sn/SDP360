@@ -83,6 +83,9 @@ function effWeights(D, site) {
   return ew;
 }
 
+// RAG bands (user policy 2026-09-03): GREEN >= 90% of the pro-rated target ·
+// AMBER 75-89% · RED < 75%. BOOLEAN/MILESTONE keep done/in-progress semantics.
+// ⚠ Twin engine: public/activity-tracker/engine.js carries the SAME bands.
 function score(D, site, yr, mo) {
   const tg = D.targets[site] || [];
   const R  = [];
@@ -107,7 +110,7 @@ function score(D, site, yr, mo) {
       const avg    = months>0?ya/months:0;
       const tgt    = parseInt(t.target)||100;
       const sc     = Math.min(avg/tgt,1);
-      R.push({ ...a, ix:i, on:true, ya:Math.round(avg*10)/10, yt:tgt, sc:Math.round(sc*1000)/1000, rg:sc>=1?'GREEN':sc>=0.75?'AMBER':'RED', ew:ew[i] });
+      R.push({ ...a, ix:i, on:true, ya:Math.round(avg*10)/10, yt:tgt, sc:Math.round(sc*1000)/1000, rg:sc>=0.9?'GREEN':sc>=0.75?'AMBER':'RED', ew:ew[i] });
     } else if (a.kpi === 'MILESTONE') {
       const tgt  = parseInt(t.target)||1;
       const phase= Math.min(ya,tgt);
@@ -116,16 +119,16 @@ function score(D, site, yr, mo) {
     } else if (a.kpi === 'CURRENCY') {
       const tgt=parseFloat(t.target)||0;
       if(tgt===0){ R.push({ ...a, ix:i, on:true, ya, yt:0, sc:0, rg:'AMBER', ew:ew[i] }); }
-      else { const sc=Math.min(ya/tgt,1); R.push({ ...a, ix:i, on:true, ya:Math.round(ya*100)/100, yt:tgt, sc:Math.round(sc*1000)/1000, rg:sc>=1?'GREEN':sc>=0.75?'AMBER':'RED', ew:ew[i] }); }
+      else { const sc=Math.min(ya/tgt,1); R.push({ ...a, ix:i, on:true, ya:Math.round(ya*100)/100, yt:tgt, sc:Math.round(sc*1000)/1000, rg:sc>=0.9?'GREEN':sc>=0.75?'AMBER':'RED', ew:ew[i] }); }
     } else if (a.kpi === 'RATING') {
       const nz=[]; for(let m2=a.start-1;m2<Math.min(mo,a.end);m2++){const v=gi(D,yr,site,i,m2);if(v>0)nz.push(v);}
       const avg=nz.length>0?nz.reduce((s,v)=>s+v,0)/nz.length:0;
       const tgt=parseFloat(t.target)||4;
       const sc=tgt>0?Math.min(avg/tgt,1):0;
-      R.push({ ...a, ix:i, on:true, ya:Math.round(avg*100)/100, yt:tgt, sc:Math.round(sc*1000)/1000, rg:sc>=1?'GREEN':sc>=0.75?'AMBER':(nz.length===0&&a.end>mo?'AMBER':'RED'), ew:ew[i] });
+      R.push({ ...a, ix:i, on:true, ya:Math.round(avg*100)/100, yt:tgt, sc:Math.round(sc*1000)/1000, rg:sc>=0.9?'GREEN':sc>=0.75?'AMBER':(nz.length===0&&a.end>mo?'AMBER':'RED'), ew:ew[i] });
     } else {
       if(a.start>mo){ R.push({ ...a, ix:i, on:true, ya, yt:'N/A', sc:'N/A', rg:'N/A', ew:ew[i] }); }
-      else{ const mA=Math.min(mo,a.end)-a.start+1; const tot=a.end-a.start+1; const ann=parseInt(t.target)||0; const yt=ann*(mA/tot); const sc=yt>0?Math.min(ya/yt,1):0; R.push({ ...a, ix:i, on:true, ya:Math.round(ya*100)/100, yt:Math.round(yt*100)/100, sc:Math.round(sc*1000)/1000, rg:sc>=1?'GREEN':sc>=0.75?'AMBER':'RED', ew:ew[i] }); }
+      else{ const mA=Math.min(mo,a.end)-a.start+1; const tot=a.end-a.start+1; const ann=parseInt(t.target)||0; const yt=ann*(mA/tot); const sc=yt>0?Math.min(ya/yt,1):0; R.push({ ...a, ix:i, on:true, ya:Math.round(ya*100)/100, yt:Math.round(yt*100)/100, sc:Math.round(sc*1000)/1000, rg:sc>=0.9?'GREEN':sc>=0.75?'AMBER':'RED', ew:ew[i] }); }
     }
   });
   return R;
