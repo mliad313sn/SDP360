@@ -908,6 +908,12 @@ function InputPanel({ D, S, setS, roles, onMutate }) {
 
   const canSave = roles.CAN_SAVE;
   const [importing, setImporting] = useState(false);
+  // Bumped whenever cell values change OUTSIDE the inputs themselves (e.g. the
+  // dept-meetings import writes into D via si2). The number cells are
+  // UNCONTROLLED (defaultValue — deliberate, so decimal typing isn't fought by
+  // re-renders), so they only re-read D when their key changes; year/site/gen
+  // are all part of the key below.
+  const [gridGen, setGridGen] = useState(0);
   const tg = D.targets?.[site] || [];
 
   // Piste 1 — pull the REAL departmental-meeting counts from the Meetings
@@ -925,6 +931,7 @@ function InputPanel({ D, S, setS, roles, onMutate }) {
       const ai = D.activities.findIndex(a => /monthly department meeting/i.test(a.name || ''));
       if (ai >= 0 && Array.isArray(res.months)) {
         res.months.forEach((v, mi) => TR.si2(D, S.year, site, ai, mi, v));
+        setGridGen(g => g + 1);   // remount the uncontrolled cells so the imported values show
         onMutate();
       }
       window.alert('Imported ' + (res.total || 0) + ' meeting(s) for ' + site + ' (' + S.year + ') from the Meetings module.');
@@ -1061,7 +1068,7 @@ function InputPanel({ D, S, setS, roles, onMutate }) {
                 }
                 return (
                   <input
-                    key={mi}
+                    key={S.year + ':' + site + ':' + gridGen + ':' + mi}
                     className={cellCls}
                     type="number"
                     step="any"
