@@ -407,7 +407,7 @@ function resolveSite(raw, aliases) {
 // the trailing "Origine occurrence" column. Safe to omit (column shows blank).
 // `comments` (optional) = comments[site][domainLabel] = ['#id — comment', …] —
 // the technicians' closure "Risk comment" entries, summarised into column H.
-function generateRiskRegisterExcel(month, occurrences, sources, comments) {
+function generateRiskRegisterExcel(month, occurrences, sources, comments, details) {
   sources = sources || {};
   comments = comments || {};
   // Column H summary: one cell aggregates MANY tickets (SGO infra can hold 20+),
@@ -533,6 +533,48 @@ function generateRiskRegisterExcel(month, occurrences, sources, comments) {
   };
   XLSX.utils.book_append_sheet(wb, ws, `Occurrence_${month}`);
 
+  // ── Sheet 2 — "Tickets" aide-mémoire ──────────────────────────────
+  // One row per OCCURRENCE (ticket × risk — a multi-risk incident appears
+  // once per risk, mirroring how it is counted), sorted in the SAME
+  // site-then-domain order as the Occurrence sheet so the operator can
+  // walk both sheets side by side while writing the Commentaires column.
+  // Requested 2026-09-04: the closure Risk-comment field is new and the
+  // month's tickets predate it, so the operator needs ticket # + subject
+  // at hand to write the comments manually. The last column shows the
+  // technician's Risk comment when one exists (those cells are already
+  // summarized in column H — no need to re-copy them).
+  if (Array.isArray(details) && details.length) {
+    const siteIx = new Map(SITES.map((s, i) => [s, i]));
+    const domIx  = new Map(DOMAINS.map((d, i) => [d.label, i]));
+    const sorted = [...details].sort((a, b) =>
+      ((siteIx.has(a.site) ? siteIx.get(a.site) : 99) - (siteIx.has(b.site) ? siteIx.get(b.site) : 99)) ||
+      ((domIx.has(a.domain) ? domIx.get(a.domain) : 99) - (domIx.has(b.domain) ? domIx.get(b.domain) : 99)) ||
+      String(a.request_id).localeCompare(String(b.request_id)));
+    const rows2 = [[
+      'Site', 'Liste des risques Majeurs', 'N° Ticket', 'Sujet du ticket',
+      'Créé le', 'Origine', 'Risk comment (SDP)',
+    ]];
+    for (const d of sorted) {
+      rows2.push([
+        d.site, d.domain, d.request_id, d.subject, d.created,
+        d.origin === 'field' ? 'Services affected' : 'Catégorie',
+        d.comment,
+      ]);
+    }
+    const ws2 = XLSX.utils.aoa_to_sheet(rows2);
+    ws2['!cols'] = [
+      { wch: 12 },  // Site
+      { wch: 46 },  // Liste des risques Majeurs
+      { wch: 10 },  // N° Ticket
+      { wch: 60 },  // Sujet
+      { wch: 11 },  // Créé le
+      { wch: 17 },  // Origine
+      { wch: 50 },  // Risk comment
+    ];
+    ws2['!views'] = [{ state: 'frozen', ySplit: 1, topLeftCell: 'A2', activePane: 'bottomLeft' }];
+    XLSX.utils.book_append_sheet(wb, ws2, `Tickets_${month}`);
+  }
+
   // ── Serialize to Buffer ───────────────────────────────────────────
   // type:'buffer' returns a Node Buffer ready for res.send(). bookType
   // 'xlsx' selects the Office Open XML format (current Excel default).
@@ -575,7 +617,7 @@ async function loadOccurrencesFromDB(db, month) {
   //      classifier's VALID_IMPACTS set is the only thing to update.
   const { H } = _h(db);
   const rows = await H.prepare(`
-    SELECT request_id, site, category, sub_category, request_type, impact, udf_json
+    SELECT request_id, site, subject, created_time, category, sub_category, request_type, impact, udf_json
     FROM request_records
     WHERE created_time >= ?
       AND created_time <  ?
@@ -587,6 +629,10 @@ async function loadOccurrencesFromDB(db, month) {
   const occurrences = {};
   const sources     = {};   // sources[site][domain] = { field, category }
   const comments    = {};   // comments[site][domain] = ['#id — technician risk comment', …]
+  const details     = [];   // one row per occurrence (ticket × risk) — feeds the
+                            // "Tickets" aide-mémoire sheet (ticket # + subject per
+                            // site × domain, requested 2026-09-04 to help write the
+                            // Commentaires column while the Risk-comment field ramps up)
   let skippedNoSite        = 0;
   let skippedUnknownSite   = 0;
   let skippedNoDomain      = 0;
@@ -661,6 +707,15 @@ async function loadOccurrencesFromDB(db, month) {
         if (!comments[site][dom]) comments[site][dom] = [];
         comments[site][dom].push(`#${r.request_id || '?'} — ${comment}`);
       }
+      details.push({
+        site,
+        domain:     dom,
+        request_id: r.request_id || '',
+        subject:    String(r.subject || '').trim(),
+        created:    String(r.created_time || '').slice(0, 10),
+        origin:     srcKey,
+        comment:    comment || '',
+      });
     }
     classifiedCount++;
   }
@@ -677,6 +732,7 @@ async function loadOccurrencesFromDB(db, month) {
     occurrences,
     sources,
     comments,
+    details,
     diagnostics: {
       total_incident_rows:        rows.length,
       classified:                 classifiedCount,
@@ -704,9 +760,9 @@ async function buildRiskRegisterExport(db, month) {
   if (!/^\d{4}-\d{2}$/.test(month)) {
     throw new Error(`Invalid month format "${month}" — expected YYYY-MM`);
   }
-  const { occurrences, sources, comments, diagnostics } = await loadOccurrencesFromDB(db, month);
+  const { occurrences, sources, comments, details, diagnostics } = await loadOccurrencesFromDB(db, month);
   console.log(`[risk-register] month=${month} rows=${diagnostics.total_incident_rows} classified=${diagnostics.classified} (null_impact=${diagnostics.classified_with_null_impact}) skipped_individual=${diagnostics.skipped_non_operational} skipped_unknown_site=${diagnostics.skipped_unknown_site} skipped_no_domain=${diagnostics.skipped_no_domain} top_unknown=${diagnostics.skipped_unknown_site_top.join(', ')}`);
-  const buf = generateRiskRegisterExcel(month, occurrences, sources, comments);
+  const buf = generateRiskRegisterExcel(month, occurrences, sources, comments, details);
   return { buffer: buf, diagnostics };
 }
 

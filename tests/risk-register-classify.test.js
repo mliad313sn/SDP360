@@ -57,7 +57,7 @@ test('domainsForIncident: no field + no category match → []', () => {
 test('loadOccurrencesFromDB: precedence + multi-domain + site filter + fallback', async () => {
   const db = new Database(':memory:');
   db.exec(`CREATE TABLE request_records(
-    request_id TEXT, site TEXT, category TEXT, sub_category TEXT,
+    request_id TEXT, site TEXT, subject TEXT, category TEXT, sub_category TEXT,
     request_type TEXT, impact TEXT, created_time TEXT, udf_json TEXT)`);
   const ins = db.prepare(`INSERT INTO request_records
     (request_id,site,category,sub_category,request_type,impact,created_time,udf_json)
@@ -89,7 +89,7 @@ test('loadOccurrencesFromDB: precedence + multi-domain + site filter + fallback'
 test('loadOccurrencesFromDB: per-cell source breakdown (field vs category, incl. mixed)', async () => {
   const db = new Database(':memory:');
   db.exec(`CREATE TABLE request_records(
-    request_id TEXT, site TEXT, category TEXT, sub_category TEXT,
+    request_id TEXT, site TEXT, subject TEXT, category TEXT, sub_category TEXT,
     request_type TEXT, impact TEXT, created_time TEXT, udf_json TEXT)`);
   const ins = db.prepare(`INSERT INTO request_records
     (request_id,site,category,sub_category,request_type,impact,created_time,udf_json)
@@ -121,19 +121,19 @@ test('riskCommentFrom: tolerant key variants, trim, absent/blank/bad → empty',
 test('loadOccurrencesFromDB collects risk comments per cell; export writes them into column H', async () => {
   const db = new Database(':memory:');
   db.exec(`CREATE TABLE request_records(
-    request_id TEXT, site TEXT, category TEXT, sub_category TEXT,
+    request_id TEXT, site TEXT, subject TEXT, category TEXT, sub_category TEXT,
     request_type TEXT, impact TEXT, created_time TEXT, udf_json TEXT)`);
   const ins = db.prepare(`INSERT INTO request_records
-    (request_id,site,category,sub_category,request_type,impact,created_time,udf_json)
-    VALUES (?,?,?,?,?,?,?,?)`);
+    (request_id,site,subject,category,sub_category,request_type,impact,created_time,udf_json)
+    VALUES (?,?,?,?,?,?,?,?,?)`);
   // Two commented incidents on MGO/D1, one uncommented (still counts, no comment).
-  ins.run('101', 'MANA', 'Network & Internet Access', 'Network issues', 'Incident', 'Enterprise', '2026-06-15T10:00:00',
+  ins.run('101', 'MANA', 'Internet down at Mana gate', 'Network & Internet Access', 'Network issues', 'Incident', 'Enterprise', '2026-06-15T10:00:00',
     JSON.stringify({ 'UDF:Risk comment': 'ISP outage 3h, backup link engaged' }));
-  ins.run('102', 'MANA', 'Network & Internet Access', 'Network issues', 'Incident', 'Enterprise', '2026-06-16T10:00:00',
+  ins.run('102', 'MANA', 'Router failure — core switch room', 'Network & Internet Access', 'Network issues', 'Incident', 'Enterprise', '2026-06-16T10:00:00',
     JSON.stringify({ 'UDF:Services affected': 'Internet', 'UDF:Risk comment': 'Router failure replaced same day' }));
-  ins.run('103', 'MANA', 'Network & Internet Access', 'Network issues', 'Incident', 'Enterprise', '2026-06-17T10:00:00', null);
+  ins.run('103', 'MANA', 'Slow internet — camp area', 'Network & Internet Access', 'Network issues', 'Incident', 'Enterprise', '2026-06-17T10:00:00', null);
 
-  const { occurrences, sources, comments } = await rr.loadOccurrencesFromDB(db, '2026-06');
+  const { occurrences, sources, comments, details } = await rr.loadOccurrencesFromDB(db, '2026-06');
   assert.equal(occurrences['MGO'][D1], 3);
   assert.deepEqual(comments['MGO'][D1], [
     '#101 — ISP outage 3h, backup link engaged',
@@ -142,8 +142,9 @@ test('loadOccurrencesFromDB collects risk comments per cell; export writes them 
 
   // End-to-end: the Excel cell H of the MGO/D1 row carries the joined summary.
   const XLSX = require('xlsx');
-  const buf = rr.generateRiskRegisterExcel('2026-06', occurrences, sources, comments);
-  const ws = XLSX.read(buf, { type: 'buffer' }).Sheets['Occurrence_2026-06'];
+  const buf = rr.generateRiskRegisterExcel('2026-06', occurrences, sources, comments, details);
+  const wb2 = XLSX.read(buf, { type: 'buffer' });
+  const ws = wb2.Sheets['Occurrence_2026-06'];
   const rows = XLSX.utils.sheet_to_json(ws, { header: 1 });
   const mgoD1 = rows.find(r => r[1] === 'MGO' && String(r[2]).startsWith('1.'));
   assert.ok(mgoD1, 'MGO / Internet row exists');
@@ -153,13 +154,31 @@ test('loadOccurrencesFromDB collects risk comments per cell; export writes them 
   // A row with no comments keeps an empty H (spec-compatible).
   const mgoD5 = rows.find(r => r[1] === 'MGO' && String(r[2]).startsWith('5.'));
   assert.equal(mgoD5[7] || '', '');
+
+  // Sheet 2 "Tickets" aide-mémoire: one row per occurrence with ticket # +
+  // subject, so the operator can write the Commentaires column by hand.
+  const ws2 = wb2.Sheets['Tickets_2026-06'];
+  assert.ok(ws2, 'Tickets aide-mémoire sheet exists');
+  const trows = XLSX.utils.sheet_to_json(ws2, { header: 1 });
+  assert.deepEqual(trows[0].slice(0, 4), ['Site', 'Liste des risques Majeurs', 'N° Ticket', 'Sujet du ticket']);
+  assert.equal(trows.length, 1 + 3, 'header + one row per occurrence');
+  const t101 = trows.find(r => String(r[2]) === '101');
+  assert.ok(t101, 'ticket 101 listed');
+  assert.equal(t101[0], 'MGO');
+  assert.ok(String(t101[1]).startsWith('1.'), 'domain label');
+  assert.equal(t101[3], 'Internet down at Mana gate', 'subject carried');
+  assert.equal(t101[4], '2026-06-15', 'created date');
+  assert.ok(String(t101[6]).includes('ISP outage'), 'existing risk comment shown');
+  // #103 (no comment) still listed — that is the whole point of the sheet.
+  const t103 = trows.find(r => String(r[2]) === '103');
+  assert.ok(t103 && !t103[6], 'uncommented ticket listed with empty comment cell');
   db.close();
 });
 
 test('column-H summary caps long lists with "… (+N autres)"', async () => {
   const db = new Database(':memory:');
   db.exec(`CREATE TABLE request_records(
-    request_id TEXT, site TEXT, category TEXT, sub_category TEXT,
+    request_id TEXT, site TEXT, subject TEXT, category TEXT, sub_category TEXT,
     request_type TEXT, impact TEXT, created_time TEXT, udf_json TEXT)`);
   const ins = db.prepare(`INSERT INTO request_records
     (request_id,site,category,sub_category,request_type,impact,created_time,udf_json)
