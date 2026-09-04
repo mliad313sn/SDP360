@@ -494,16 +494,26 @@
     const c = $('sl-of-count'); if (c) c.textContent = rows.length + ' / ' + outageRows.length + ' coupure(s)';
   }
   function _csvCell(v) { const s = v == null ? '' : String(v); return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
-  function exportFilteredOutages() {
+  // "What I see" export → server-built .xlsx (3 sheets: coupures / résumé / chaînes 24h),
+  // from the rows currently shown (period + min duration + ISP + uplink + attribution filters).
+  async function exportFilteredOutages() {
     const cols = ['site_id', 'sub_site', 'uplink', 'isp', 'circuit_id', 'detected_start', 'restored_end', 'notified_at', 'duration_s', 'attribution', 'attribution_reason'];
-    const rows = filteredOutages();
-    const lines = [cols.join(',')].concat(rows.map(o => cols.map(c => _csvCell(o[c])).join(',')));
-    const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'wan-outages-' + month + '-filtered.csv';
-    document.body.appendChild(a); a.click();
-    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 0);
+    const rows = filteredOutages().map(o => { const r = {}; cols.forEach(c => { r[c] = o[c] == null ? null : o[c]; }); return r; });
+    const label = (($('sl-of-period') && $('sl-of-period').value) || 'month') === 'month' ? month : (($('sl-of-date') || {}).value || month);
+    try {
+      const res = await fetch('/api/analytics/wan/sla/export-filtered.xlsx', {
+        method: 'POST', credentials: 'same-origin',
+        headers: Object.assign({ 'Content-Type': 'application/json' }, (typeof authHeaders === 'function' ? authHeaders() : {})),
+        body: JSON.stringify({ rows, label }),
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const blob = await res.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'wan-outages-' + label + '-filtre.xlsx';
+      document.body.appendChild(a); a.click();
+      setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 0);
+    } catch (e) { alert('Export impossible : ' + (e.message || e)); }
   }
 
   function _isoD(d) { return d.toISOString().slice(0, 10); }
@@ -541,7 +551,7 @@
       reload();
     });
     $('sl-export').addEventListener('click', function () {
-      window.location.href = '/api/analytics/wan/sla/export.csv?month=' + encodeURIComponent(month);
+      window.location.href = '/api/analytics/wan/sla/export.xlsx?month=' + encodeURIComponent(month);
     });
     $('sl-outages-toggle').addEventListener('click', async function () {
       const body = $('sl-outages-body');

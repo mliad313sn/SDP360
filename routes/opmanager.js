@@ -475,5 +475,82 @@ module.exports = function opmanagerRoutes(deps) {
     }
   });
 
+  // ── XLSX evidence exports (the CSV routes stay for compatibility) ──────────
+  // One workbook, three sheets: the real outages (a duration, or still open), the poller's
+  // 24 h stale-open chains (closed rows with NO duration — never-active uplinks such as an
+  // unplugged wan port; kept apart so the evidence sheet reads clean, not dropped), and a
+  // per site × uplink summary. Site names resolved server-side; timestamps stay ISO text
+  // (sortable, unambiguous — no Excel locale guessing).
+  const _fmtDur = (s) => { const n = Number(s); if (!Number.isFinite(n) || n < 0) return ''; const h = Math.floor(n / 3600), m = Math.round((n % 3600) / 60); return `${h}h${String(m).padStart(2, '0')}`; };
+  function _outageSheets(outages, nameById, label) {
+    const row = (o) => ({
+      'Site': nameById[o.site_id] || ('#' + o.site_id),
+      'Sous-site': o.sub_site || '',
+      'Uplink': o.uplink || '',
+      'ISP': o.isp || '',
+      'Circuit': o.circuit_id || '',
+      'Détectée (UTC)': o.detected_start || '',
+      'Rétablie (UTC)': o.restored_end || '',
+      'Notifiée (UTC)': o.notified_at || '',
+      'Durée (s)': o.duration_s == null ? '' : Number(o.duration_s),
+      'Durée (h:mm)': _fmtDur(o.duration_s),
+      'Attribution': o.attribution || '',
+      'Motif': o.attribution_reason || '',
+      'site_id': o.site_id,
+    });
+    const real = [], chains = [];
+    for (const o of (outages || [])) ((o.restored_end && o.duration_s == null) ? chains : real).push(row(o));
+    // summary per site × uplink over the REAL rows
+    const agg = new Map();
+    for (const r of real) {
+      const k = `${r.Site}|${r['Sous-site']}|${r.Uplink}`;
+      if (!agg.has(k)) agg.set(k, { 'Site': r.Site, 'Sous-site': r['Sous-site'], 'Uplink': r.Uplink, 'ISP': r.ISP, 'Coupures': 0, 'Durée totale (s)': 0, 'Durée totale (h:mm)': '', 'Plus longue (h:mm)': '', _max: 0, 'Ouvertes': 0, 'Attributions': new Set() });
+      const a = agg.get(k);
+      a.Coupures++;
+      if (r['Durée (s)'] !== '') { a['Durée totale (s)'] += r['Durée (s)']; a._max = Math.max(a._max, r['Durée (s)']); }
+      if (!r['Rétablie (UTC)']) a.Ouvertes++;
+      if (r.Attribution) a.Attributions.add(r.Attribution);
+    }
+    const summary = [...agg.values()].map(a => ({
+      ...a, 'Durée totale (h:mm)': _fmtDur(a['Durée totale (s)']), 'Plus longue (h:mm)': _fmtDur(a._max),
+      'Attributions': [...a.Attributions].join(', '), _max: undefined,
+    })).map(a => { delete a._max; return a; })
+      .sort((x, y) => y['Durée totale (s)'] - x['Durée totale (s)']);
+    return [
+      { name: `Coupures ${label}`, rows: real },
+      { name: 'Résumé site × uplink', rows: summary },
+      { name: 'Chaînes 24h sans durée', rows: chains },
+    ];
+  }
+  async function _siteNames() {
+    const nameById = {};
+    try { for (const s of ((await rdb.listSites({ includeInactive: true })) || [])) nameById[s.id] = s.name; } catch (_) {}
+    return nameById;
+  }
+  function _sendXlsx(res, buf, filename) {
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(buf);
+  }
+  // Month evidence workbook (same scope as export.csv).
+  router.get('/api/analytics/wan/sla/export.xlsx', requireReportSession, async (req, res) => {
+    try {
+      const { buildWorkbook } = require('../services/tableExcel');
+      const { label, fromISO, toISO } = _monthBounds(req.query.month);
+      const outages = (await rdb.getWanOutages({ from: fromISO, to: toISO })) || [];
+      _sendXlsx(res, buildWorkbook(_outageSheets(outages, await _siteNames(), label)), `wan-sla-outages-${label}.xlsx`);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+  // "What I see" workbook: the page POSTs the rows it currently shows (its own filters applied:
+  // period, min duration, ISP, uplink, attribution) — same three sheets, server-side names.
+  router.post('/api/analytics/wan/sla/export-filtered.xlsx', requireReportSession, express.json({ limit: '5mb' }), async (req, res) => {
+    try {
+      const { buildWorkbook } = require('../services/tableExcel');
+      const rows = Array.isArray(req.body && req.body.rows) ? req.body.rows : [];
+      const label = String((req.body && req.body.label) || '').replace(/[^0-9A-Za-z_-]/g, '').slice(0, 24) || 'filtre';
+      _sendXlsx(res, buildWorkbook(_outageSheets(rows, await _siteNames(), label)), `wan-outages-${label}-filtre.xlsx`);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
   return router;
 };

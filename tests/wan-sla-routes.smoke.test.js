@@ -144,3 +144,46 @@ test('hostile / missing params never 500', async () => {
   assert.equal(c.status, 200);
   assert.ok(typeof c.body === 'string', 'CSV export is text, not JSON');
 });
+
+// ── XLSX evidence exports (month GET + "what I see" POST) ─────────────────────
+function _bin(method, path, token, body) {
+  return new Promise((resolve, reject) => {
+    const headers = { 'x-dash-key': process.env.DASHBOARD_API_KEY, 'content-type': 'application/json' };
+    if (token) headers['x-report-token'] = token;
+    const req = http.request(base + path, { method, headers }, (res) => {
+      const chunks = []; res.on('data', (d) => chunks.push(d));
+      res.on('end', () => resolve({ status: res.statusCode, type: res.headers['content-type'], disp: res.headers['content-disposition'], buf: Buffer.concat(chunks) }));
+    });
+    req.on('error', reject); req.end(body == null ? undefined : JSON.stringify(body));
+  });
+}
+test('GET /sla/export.xlsx → workbook with the 3 evidence sheets; seeded outage lands on the real sheet with its site name', async () => {
+  const XLSX = require('xlsx');
+  const r = await _bin('GET', '/api/analytics/wan/sla/export.xlsx?month=2026-08', adminToken);
+  assert.equal(r.status, 200);
+  assert.ok(/spreadsheetml/.test(r.type), 'xlsx content-type');
+  assert.ok(/wan-sla-outages-2026-08\.xlsx/.test(r.disp), 'filename');
+  const wb = XLSX.read(r.buf, { type: 'buffer' });
+  assert.deepEqual(wb.SheetNames, ['Coupures 2026-08', 'Résumé site × uplink', 'Chaînes 24h sans durée']);
+  const rows = XLSX.utils.sheet_to_json(wb.Sheets['Coupures 2026-08']);
+  const mine = rows.find(x => x.ISP === 'TestISP');
+  assert.ok(mine, 'seeded outage present');
+  assert.equal(mine['Durée (h:mm)'], '1h00');
+  assert.ok(mine.Site && !/^#/.test(mine.Site), 'site NAME resolved (not #id)');
+  const sum = XLSX.utils.sheet_to_json(wb.Sheets['Résumé site × uplink']);
+  assert.ok(sum.some(x => x.ISP === 'TestISP' && x.Coupures >= 1));
+});
+test('POST /sla/export-filtered.xlsx → separates closed rows without duration into the 24h-chain sheet', async () => {
+  const XLSX = require('xlsx');
+  const rows = [
+    { site_id: mgoSiteId, sub_site: '', uplink: 'wan1', isp: 'X', circuit_id: '', detected_start: '2026-08-01T10:00:00Z', restored_end: '2026-08-01T10:30:00Z', notified_at: null, duration_s: 1800, attribution: 'isp', attribution_reason: '' },
+    { site_id: mgoSiteId, sub_site: '', uplink: 'wan2', isp: '', circuit_id: '', detected_start: '2026-08-01T18:10:00Z', restored_end: '2026-08-02T18:10:00Z', notified_at: null, duration_s: null, attribution: '', attribution_reason: '' },
+  ];
+  const r = await _bin('POST', '/api/analytics/wan/sla/export-filtered.xlsx', adminToken, { rows, label: '2026-08' });
+  assert.equal(r.status, 200);
+  const wb = XLSX.read(r.buf, { type: 'buffer' });
+  assert.equal(XLSX.utils.sheet_to_json(wb.Sheets['Coupures 2026-08']).length, 1, 'one real outage');
+  assert.equal(XLSX.utils.sheet_to_json(wb.Sheets['Chaînes 24h sans durée']).length, 1, 'one 24h chain row');
+  const hostile = await _bin('POST', '/api/analytics/wan/sla/export-filtered.xlsx', adminToken, { rows: 'nope', label: '../x' });
+  assert.equal(hostile.status, 200, 'bad body → empty workbook, never 500');
+});
