@@ -1,0 +1,31 @@
+Site,Period,Label,Loss Rate %,Latency (ms),RTT min (ms),RTT max (ms),Jitter (ms),% Time Up,Source Image,Captured At
+MANA,Last day,Internet 1,1.77,146.915,114.901,609.412,35.852,89.02,image4.png,2026-09-04T12:00:00Z
+MANA,Last day,Internet 2,0.09,38.149,34.888,269.428,1.285,99.86,image4.png,2026-09-04T12:00:00Z
+MANA,Past week,Internet 1,3.54,153.666,114.901,609.412,38.158,81.4,image5.png,2026-09-04T12:00:00Z
+MANA,Past week,Internet 2,0.07,38.751,34.871,356.1,1.64,99.86,image5.png,2026-09-04T12:00:00Z
+MANA,Past month,Internet 1,2.92,147.222,0,2254.432,38.412,85.09,image6.png,2026-09-04T12:00:00Z
+MANA,Past month,Internet 2,0.24,39.404,0,2831.784,12.211,99,image6.png,2026-09-04T12:00:00Z
+Hounde,Past month,Internet 1,0.39,47.835,0,2224.018,20.198,97.76,image7.png,2026-09-04T12:00:00Z
+Hounde,Past month,Internet 2,0.61,38.605,0,1147.136,20.307,96.98,image7.png,2026-09-04T12:00:00Z
+Hounde,Past week,Internet 1,0.1,43.352,39.577,1819.091,5.176,99.74,image8.png,2026-09-04T12:00:00Z
+Hounde,Past week,Internet 2,0.27,33.325,0,777.543,6.076,99.05,image8.png,2026-09-04T12:00:00Z
+Hounde,Past day,Internet 1,0.03,42.407,39.591,445.192,1.06,99.93,image9.png,2026-09-04T12:00:00Z
+Hounde,Past day,Internet 2,0.33,33.008,25.506,171.768,4.899,98.61,image9.png,2026-09-04T12:00:00Z
+Lafigue,Week,Internet 1,0.04,22.635,21.754,112.857,0.353,99.8,image1.png,2026-09-04T12:00:00Z
+Lafigue,Week,Internet 2,5.25,38.804,0,501.351,10.197,94.65,image1.png,2026-09-04T12:00:00Z
+Lafigue,Month,Internet 1,0.02,23.008,21.754,1558.664,1.982,99.95,image2.png,2026-09-04T12:00:00Z
+Lafigue,Month,Internet 2,29.5,28.795,0,928.995,18.767,70.41,image2.png,2026-09-04T12:00:00Z
+Lafigue,Past day,Internet 1,0.01,22.609,21.827,101.336,0.087,100,image3.png,2026-09-04T12:00:00Z
+Lafigue,Past day,Internet 2,31.61,29.09,0,501.351,23.266,68.12,image3.png,2026-09-04T12:00:00Z
+Sabodala,Last day,Internet 1,0.74,79.935,77.494,1495.949,7.7,96.6,image4.png,2026-09-04T12:00:00Z
+Sabodala,Last day,Internet 2,13.29,145.247,87.444,788.659,26.57,22.7,image4.png,2026-09-04T12:00:00Z
+Sabodala,Past week,Internet 1,0.69,81.906,75.833,6369.653,35.119,97.03,image5.png,2026-09-04T12:00:00Z
+Sabodala,Past week,Internet 2,17.58,159.712,87.401,6370.384,39.321,20.62,image5.png,2026-09-04T12:00:00Z
+Sabodala,Past month,Internet 1,0.83,79.904,0,6369.653,19.947,95.78,image6.png,2026-09-04T12:00:00Z
+Sabodala,Past month,Internet 2,17.58,154.006,0,6370.384,44.596,22.43,image6.png,2026-09-04T12:00:00Z
+Abidjan,Past month,Internet 1,0.02,0.979,0.541,308.333,3.441,99.88,image7.png,2026-09-04T12:00:00Z
+Abidjan,Past month,Internet 2,0.01,3.597,1.272,305.851,13.415,99.99,image7.png,2026-09-04T12:00:00Z
+Abidjan,Past week,Internet 1,0.02,0.921,0.541,254.129,0.5,99.87,image8.png,2026-09-04T12:00:00Z
+Abidjan,Past week,Internet 2,0.02,7.084,1.284,254.132,23.602,99.99,image8.png,2026-09-04T12:00:00Z
+Abidjan,Past day,Internet 1,0.02,0.924,0.561,223.183,0.551,99.86,image9.png,2026-09-04T12:00:00Z
+Abidjan,Past day,Internet 2,0.04,1.745,1.287,223.177,0.766,100,image9.png,2026-09-04T12:00:00Z
