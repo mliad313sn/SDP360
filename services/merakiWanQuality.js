@@ -197,4 +197,15 @@ function mergeDestinationSeries(seriesList) {
   return out;
 }
 
-module.exports = { deriveAvailability, qualityAvailability, rFactor, rToMos, DEFAULT_MOS_CONFIG, statusColor, round2, mergeDestinationSeries };
+// Resolution floor of a sample-counted availability: with N samples, ONE down sample is
+// worth 100/N pts, so "no down sample seen" only proves availability >= 100 - 100/N. Used
+// by the UI to print "≥ 99.9 %" instead of a "100 %" we cannot actually measure (Meraki's
+// own probe-level figure on the same clean links reads 99.85-99.99). Floored to 0.1 pt;
+// null when the sample count is unknown or non-positive.
+function availabilityFloorPct(samples) {
+  const n = Number(samples);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return Math.floor((100 - 100 / n) * 10) / 10;
+}
+
+module.exports = { deriveAvailability, qualityAvailability, rFactor, rToMos, DEFAULT_MOS_CONFIG, statusColor, round2, mergeDestinationSeries, availabilityFloorPct };

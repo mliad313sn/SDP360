@@ -50,6 +50,7 @@ CREATE TABLE IF NOT EXISTS wan_link_snapshots (
   avail_quality_pct REAL,             -- quality-weighted effective availability (loss/latency/jitter), Meraki-aligned
   loss_pct_max     REAL,
   latency_ms_max   REAL,
+  avail_samples    INTEGER,           -- sample count behind availability_pct (resolution floor: 1 sample = 100/N pts)
   status_current   TEXT,
   uplink_label     TEXT,
   device_serial    TEXT,
@@ -513,7 +514,7 @@ try {
   }
   // Additive quality columns (V1c) — guarded ALTERs for existing DBs.
   const _wanCols3 = db.prepare(`PRAGMA table_info(wan_link_snapshots)`).all().map(c => c.name);
-  for (const [col, decl] of [['avail_quality_pct', 'REAL'], ['loss_pct_max', 'REAL'], ['latency_ms_max', 'REAL']]) {
+  for (const [col, decl] of [['avail_quality_pct', 'REAL'], ['loss_pct_max', 'REAL'], ['latency_ms_max', 'REAL'], ['avail_samples', 'INTEGER']]) {
     if (!_wanCols3.includes(col)) db.exec(`ALTER TABLE wan_link_snapshots ADD COLUMN ${col} ${decl}`);
   }
 } catch(e) {}
@@ -1363,6 +1364,7 @@ async function initPgReports() {            // called once at server boot
   await _pg.exec(`ALTER TABLE wan_link_snapshots ADD COLUMN IF NOT EXISTS avail_quality_pct DOUBLE PRECISION`);
   await _pg.exec(`ALTER TABLE wan_link_snapshots ADD COLUMN IF NOT EXISTS loss_pct_max DOUBLE PRECISION`);
   await _pg.exec(`ALTER TABLE wan_link_snapshots ADD COLUMN IF NOT EXISTS latency_ms_max DOUBLE PRECISION`);
+  await _pg.exec(`ALTER TABLE wan_link_snapshots ADD COLUMN IF NOT EXISTS avail_samples INTEGER`);
   await _pg.exec(`DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='wan_link_snapshots_pkey'
                    AND conrelid='wan_link_snapshots'::regclass
@@ -2694,7 +2696,7 @@ async function _getInfraSnapshotsPg(f) {
 //    both backends (can't desync), dual dispatcher.
 const _WAN_SNAP_COLS = ['site_id','sub_site','uplink','period_type','period_start','period_end',
   'availability_pct','status_color','loss_pct_avg','latency_ms_avg','jitter_ms_avg','goodput_avg',
-  'avail_quality_pct','loss_pct_max','latency_ms_max',
+  'avail_quality_pct','loss_pct_max','latency_ms_max','avail_samples',
   'status_current','uplink_label','device_serial','network_id','data_through','collected_at','source','raw_json'];
 const _WAN_SNAP_UPSERT =
   `INSERT INTO wan_link_snapshots (${_WAN_SNAP_COLS.join(',')}) VALUES (${_WAN_SNAP_COLS.map(() => '?').join(',')})
@@ -2702,7 +2704,7 @@ const _WAN_SNAP_UPSERT =
      period_end=excluded.period_end, availability_pct=excluded.availability_pct, status_color=excluded.status_color,
      loss_pct_avg=excluded.loss_pct_avg, latency_ms_avg=excluded.latency_ms_avg, jitter_ms_avg=excluded.jitter_ms_avg,
      goodput_avg=excluded.goodput_avg, avail_quality_pct=excluded.avail_quality_pct,
-     loss_pct_max=excluded.loss_pct_max, latency_ms_max=excluded.latency_ms_max,
+     loss_pct_max=excluded.loss_pct_max, latency_ms_max=excluded.latency_ms_max, avail_samples=excluded.avail_samples,
      status_current=excluded.status_current, uplink_label=excluded.uplink_label,
      device_serial=excluded.device_serial, network_id=excluded.network_id, data_through=excluded.data_through,
      collected_at=excluded.collected_at, source=excluded.source, raw_json=excluded.raw_json`;

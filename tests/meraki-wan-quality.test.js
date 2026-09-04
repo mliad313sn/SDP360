@@ -170,3 +170,14 @@ test('deriveAvailability: more samples than totalIntervals → capped by real co
   const gap = deriveAvailability(mk(700, 0), { totalIntervals: 744, missing: 'down' });
   assert.equal(gap.availability_pct, Math.round((100 * 700 / 744) * 100) / 100);
 });
+
+// ── resolution floor for a sample-counted availability ────────────────────────
+test('availabilityFloorPct: 100 - 100/N floored to 0.1; null when unknown', () => {
+  const { availabilityFloorPct } = require('../services/merakiWanQuality');
+  assert.equal(availabilityFloorPct(1008), 99.9);   // week @600s
+  assert.equal(availabilityFloorPct(720), 99.8);    // 30d month @3600s (99.861 → 99.8)
+  assert.equal(availabilityFloorPct(168), 99.4);    // week @3600s
+  assert.equal(availabilityFloorPct(0), null);
+  assert.equal(availabilityFloorPct(null), null);
+  assert.equal(availabilityFloorPct('abc'), null);
+});

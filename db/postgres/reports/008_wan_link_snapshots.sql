@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS wan_link_snapshots (
   latency_ms_avg   DOUBLE PRECISION,
   jitter_ms_avg    DOUBLE PRECISION,
   goodput_avg      DOUBLE PRECISION,
+  avail_samples    INTEGER,           -- sample count behind availability_pct (resolution floor)
   status_current   TEXT,
   uplink_label     TEXT,
   device_serial    TEXT,

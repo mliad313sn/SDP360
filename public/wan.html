@@ -243,6 +243,13 @@
     // Pastille Dispo : verte ≥90, orange ≥70, rouge sinon. Pastille Qualité : sur le MOS —
     // ≥4.0 vert (Bon/Excellent), ≥3.1 orange (Correct/Médiocre), <3.1 rouge (Mauvais).
     const primDot = p => p == null ? 'none' : (p >= 90 ? 'green' : p >= 70 ? 'orange' : 'red');
+    // "100 %" is a resolution artefact: with N samples, one down sample = 100/N pts, so zero
+    // down samples only proves "≥ 100 − 100/N". Print the floor, not a precision we lack —
+    // Meraki's probe-level figure on the same clean links reads 99.85–99.99.
+    const dispoAtFloor = u => u.availability_pct != null && u.availability_pct >= 100 && u.avail_floor_pct != null && u.avail_floor_pct < 100;
+    const floorTitle = u => `Aucun échantillon down sur ${u.avail_samples} (résolution ${u.avail_samples >= 1000 ? '10 min' : '1 h'}). ` +
+      `Valeur réelle entre ${fmt(u.avail_floor_pct)} % et 99,99 % — un « 100 % » exact n’est pas mesurable à cette résolution ; ` +
+      `Meraki lit typiquement 99,85–99,99 % sur un lien sain.`;
     const mosBand = m => m == null ? { label: '—', cls: 'none' }
       : m >= 4.3 ? { label: 'Excellent', cls: 'green' }
       : m >= 4.0 ? { label: 'Bon', cls: 'green' }
@@ -266,7 +273,7 @@
               ${pill}
             </div>
             ${noData ? '' : `<div class="wh-stats">
-              <span title="${dispoTitle}">Dispo <b>${prim == null ? '—' : fmt(prim) + '%'}</b></span>
+              <span title="${dispoAtFloor(u) ? floorTitle(u) : dispoTitle}">Dispo <b>${prim == null ? '—' : (dispoAtFloor(u) ? '≥ ' + fmt(u.avail_floor_pct) + '%' : fmt(prim) + '%')}</b></span>
               <span title="${qualiTitle}">Qualité <b>${ql == null ? '—' : fmt(ql) + '%'}</b></span>
             </div>`}
             <div class="wh-l2" title="Perte de paquets · latence · gigue (moyennes).">${noData ? 'pas de données' : `perte ${fmt(u.loss_pct_avg)}% · ${fmt(u.latency_ms_avg)} ms · gigue ${fmt(u.jitter_ms_avg)} ms`}</div>

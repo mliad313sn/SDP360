@@ -64,3 +64,12 @@ test('a row that omits sub_site stores "" not NULL', () => {
   const r = rdb.getWanSnapshots({ site_id: 43 })[0];
   assert.equal(r.sub_site, '', 'undefined sub_site coerced to ""');
 });
+
+test('avail_samples round-trips (resolution floor input for the UI)', async () => {
+  const rdb = require('../reports-db');
+  await rdb.upsertWanSnapshots([{ site_id: 7, uplink: 'wan1', period_type: 'week', period_start: '2026-08-30', period_end: '2026-09-05',
+    availability_pct: 100, status_color: 'green', avail_samples: 1008 }]);
+  const rows = await rdb.getWanSnapshots({ site_id: 7, period_type: 'week', period_start: '2026-08-30' });
+  assert.equal(rows.length, 1);
+  assert.equal(Number(rows[0].avail_samples), 1008);
+});

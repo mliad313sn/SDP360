@@ -152,6 +152,9 @@ async function main(deps = {}) {
             rows.push({
               site_id: t.site_id, sub_site: t.sub_site, uplink: up.interface, period_type: ptype, period_start: win.period_start, period_end: win.period_end,
               availability_pct: conn.availability_pct, status_color: statusColor(conn.availability_pct, wanTarget),
+              // sample count behind availability_pct — the UI's resolution floor ("≥ 99.9 %" instead
+              // of a "100 %" that one 10-min bucket cannot prove). Week = fine 600s series, month = 3600s.
+              avail_samples: (ptype === 'week' && qSeries !== series) ? qTotal : totalIntervals,
               loss_pct_avg: q.loss_pct_avg, latency_ms_avg: q.latency_ms_avg, jitter_ms_avg: q.jitter_ms_avg, goodput_avg: q.goodput_avg,
               avail_quality_pct: qq.effective_pct, loss_pct_max: qq.loss_pct_max, latency_ms_max: qq.latency_ms_max,
               status_current: up.status || null, uplink_label: up.label || null, device_serial: dev.serial, network_id: dev.networkId,

@@ -305,6 +305,17 @@ module.exports = function opmanagerRoutes(deps) {
         }
       } catch (_) { /* availability override is best-effort; quality data already stands */ }
 
+      // Resolution floor: a sample-counted availability with N samples can only prove
+      // ">= 100 - 100/N" when no down sample was seen — the page prints "≥ 99.9 %" then,
+      // never a "100 %" it cannot measure. null until the sync has stored avail_samples.
+      try {
+        const { availabilityFloorPct } = require('../services/merakiWanQuality');
+        for (const s of sites) for (const u of s.uplinks) {
+          u.avail_samples = (u.avail_samples == null) ? null : Number(u.avail_samples);
+          u.avail_floor_pct = availabilityFloorPct(u.avail_samples);
+        }
+      } catch (_) {}
+
       res.json({ period, as_of: new Date().toISOString().slice(0, 10), poll_active: pollActive, window: win, sites });
     } catch (e) { res.json({ sites: [], reason: e.message }); }
   });
