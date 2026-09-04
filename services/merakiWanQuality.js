@@ -41,7 +41,13 @@ function deriveAvailability(series, { totalIntervals, missing = 'down', lossDown
   // Zero samples at all = no data (collection/API gap), NOT a measured total outage —
   // absence is `null` → status `none`, never a fabricated 0% (spec §7). The `missing`
   // policy only governs absent intervals WITHIN a window that has ≥1 real sample.
-  const denom = missing === 'unknown' ? present : (totalIntervals != null ? totalIntervals : present);
+  // The denominator can never be SMALLER than the samples actually observed: Meraki
+  // sometimes returns more points than the window÷resolution estimate (fence-post /
+  // boundary samples — a 31-day month at 1h resolution estimates 744 but delivers
+  // ~753), which used to print impossible availabilities (101.2%). If we observed N
+  // samples, the window truly contained ≥N intervals — the estimate was low.
+  const base = missing === 'unknown' ? present : (totalIntervals != null ? totalIntervals : present);
+  const denom = Math.max(base, present);
   const availability_pct = (present === 0 || denom <= 0) ? null : round2((100 * up) / denom);
 
   return {

@@ -153,3 +153,20 @@ test('mergeDestinationSeries: keys on the REAL startTs field (prod bug 2026-08-1
   assert.equal(merged[0].latencyMs, 2.05);
   assert.equal(merged[0].jitter, 0.99);
 });
+
+// ── over-sampled window: denominator floors at the observed sample count ──────
+// Meraki can return MORE samples than the window÷resolution estimate (fence-post
+// boundary points: a 31-day month at 1h estimates 744 but delivers ~753). The
+// derived availability must never exceed 100%.
+test('deriveAvailability: more samples than totalIntervals → capped by real count, never >100%', () => {
+  const mk = (n, loss) => Array.from({ length: n }, () => ({ lossPercent: loss }));
+  // 753 all-up samples against an estimated 744-interval window → 100%, not 101.2%
+  const allUp = deriveAvailability(mk(753, 0), { totalIntervals: 744, missing: 'down' });
+  assert.equal(allUp.availability_pct, 100);
+  // Same window with 9 down samples → 744 up of 753 observed = 98.8%
+  const someDown = deriveAvailability(mk(744, 0).concat(mk(9, 100)), { totalIntervals: 744, missing: 'down' });
+  assert.equal(someDown.availability_pct, 98.8);
+  // UNDER-sampled window unchanged: missing='down' still counts the gap as down
+  const gap = deriveAvailability(mk(700, 0), { totalIntervals: 744, missing: 'down' });
+  assert.equal(gap.availability_pct, Math.round((100 * 700 / 744) * 100) / 100);
+});
