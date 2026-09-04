@@ -617,7 +617,7 @@ async function loadOccurrencesFromDB(db, month) {
   //      classifier's VALID_IMPACTS set is the only thing to update.
   const { H } = _h(db);
   const rows = await H.prepare(`
-    SELECT request_id, site, subject, created_time, category, sub_category, request_type, impact, udf_json
+    SELECT request_id, display_id, site, subject, created_time, category, sub_category, request_type, impact, udf_json
     FROM request_records
     WHERE created_time >= ?
       AND created_time <  ?
@@ -698,6 +698,10 @@ async function loadOccurrencesFromDB(db, month) {
     // The technician's closure "Risk comment" (mandatory on risk-relevant
     // incidents via the SDP form rule) feeds the register's Commentaires cell.
     const comment = riskCommentFrom(r.udf_json);
+    // Human-readable ticket ref: the SDP display ID (what technicians see in
+    // the UI, e.g. 316088), falling back to the long internal Zoho id only
+    // when the display id is missing.
+    const ticketRef = String(r.display_id || r.request_id || '').trim() || '?';
     for (const dom of domains) {
       occurrences[site][dom] = (occurrences[site][dom] || 0) + 1;
       if (!sources[site][dom]) sources[site][dom] = { field: 0, category: 0 };
@@ -705,12 +709,12 @@ async function loadOccurrencesFromDB(db, month) {
       if (comment) {
         if (!comments[site]) comments[site] = {};
         if (!comments[site][dom]) comments[site][dom] = [];
-        comments[site][dom].push(`#${r.request_id || '?'} — ${comment}`);
+        comments[site][dom].push(`#${ticketRef} — ${comment}`);
       }
       details.push({
         site,
         domain:     dom,
-        request_id: r.request_id || '',
+        request_id: ticketRef,
         subject:    String(r.subject || '').trim(),
         created:    String(r.created_time || '').slice(0, 10),
         origin:     srcKey,
