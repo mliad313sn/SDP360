@@ -1,4 +1,7 @@
 'use strict';
+// Force the sqlite backends: these suites boot the app against throwaway sqlite DBs and must stay
+// green regardless of the dev .env (which points prod-like *_BACKEND=postgres).
+for (const k of ['REPORTS_BACKEND','ASSETS_BACKEND','TRACKER_BACKEND','MEETINGS_BACKEND','INSPECTION_BACKEND']) process.env[k] = 'sqlite';
 
 // PPTX generator smoke tests (audit 7.3) — depth B (deep OOXML validation
 // via jszip), scope S1 (self-contained generators: tracker / inspection /

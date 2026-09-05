@@ -1,4 +1,5 @@
 'use strict';
+const fetch = require('./_http-fetch');   // core-http shim — undici keep-alive aborts the process at --test-force-exit on Windows
 // System Logs routes smoke — super_admin gate, {rows,total}, hostile-input-not-500,
 // analytics, CSV/JSON export. Boots the app with sqlite (dev .env is postgres →
 // would fail 'pgDb not initialised' without this).

@@ -6,6 +6,38 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ---
 
+## ⚡ Deployment reality — READ THIS BEFORE any "Current state" section below (audit of 2026-09-05)
+
+> The "Current state" sections below are a **chronological log**; each one was written the day its
+> feature landed and many still carry a **"NOT déployé / PAS déployé"** stamp that was true THAT day.
+> **Today everything on `main` up to the deploy marker is in prod** — check with
+> `git rev-parse --short $(cat .git/last-deployed)` vs `git log --oneline -1`. On 2026-09-05 the marker
+> was `0c602e2` (HEAD `d88691d`, one ZIP pending). So Roadmap Manager, WAN SLA, Infra V1a/V1b-A…E,
+> F1 Meridian (dormant, keys empty), F2a SSO settings, Site Awareness, System Logs, etc. are ALL deployed
+> — treat their "not deployed" stamps as history, not as a to-do.
+>
+> **The ONE exception (deliberately frozen, 2026-09-04):** the tracker RAG-band change (GREEN ≥ 90 %
+> of the pro-rated target, commit `c97ae61`, files `public/activity-tracker/engine.js` +
+> `tracker-pptx.js`) and the weight-based attainment donut (`e17b7b7`, `App.jsx`) are on `main` but
+> **NOT in prod** until the monthly reporting cycle ends (recolouring decks mid-cycle would break the
+> comparisons). They sit **BEHIND the marker** (the stripped ZIPs were applied and HEAD marked), so a
+> future cumulative ZIP will NOT carry them — package the 3 files by hand at unfreeze.
+>
+> **Superseded facts you will still find below (the newer decision wins):**
+> - *"% Time Up is derived as loss<100 / calibrate `meraki_missing_policy`"* → superseded 2026-09-04:
+>   Meraki's % Time Up is reproduced by **loss ≥ 5 % per sample = down** (`wan_timeup_loss_pct`, MAE 0.8
+>   on week/month); the event-based figure stays the SLA instrument. See the WAN pitfall rows.
+> - *"admin ✓ saves own tracker inputs"* → wrong; saves need the `tracker-editor`/`tracker-admin` feature
+>   role (see the tracker RBAC table).
+> - *"Admin settings routes are `requireAdmin`"* → super_admin-only since `5e2f40e` (2026-08-16); IT Review
+>   is executive-only since `7162ac7` (2026-08-31). The smoke tests were only realigned on 2026-09-05.
+> - *"the packager advances `.git/last-deployed`"* → it only reads it; `mark-deployed.cmd` advances it.
+> - *Risk Register domain 4 rules* → trimmed 2026-09-02 (see the Risk Register section's updated table).
+> - *Meridian* → code + F1 section remain, but the user removed Meridian from the integrations plan
+>   (2026-09-02); keys are empty in prod, the feature is dormant. Don't propose new Meridian work.
+
+---
+
 ## ⚡ Current state (as of 2026-08-18 — Roadmap Manager (outil perso du manager), Phase 1, sur `main`, PAS déployé)
 
 > **Roadmap Manager landed on `main`** (commits `a507c13`→`bdfa0a8`, NOT déployé) — un **outil PERSONNEL** de
@@ -3098,9 +3130,7 @@ Browser:
    └─ activity-tracker/App.jsx        ~120 KB, all 7 panels + modals
         + activity-tracker/styles.css ~40 KB, brand-token-driven
 
-  /activity-tracker-legacy.html        snapshot of the legacy 779-line page
-                                       (fallback during the cutover; can be
-                                       deleted in a future maintenance window)
+  (activity-tracker-legacy.html — deleted 2026-09-05; no fallback page remains)
 
 Server (unchanged):
   /api/tracker/{load,save,export,reset}   identical contract pre/post rebuild
@@ -3309,13 +3339,12 @@ The repo is **not pushed to origin**. `git push` when ready.
 **Stack**: Node.js + Express + SQLite (better-sqlite3) + PM2 on Windows Server
 **PPTX**: pptxgenjs
 **Production path**: `C:\Apps\SDP-Dashboard\` *(on the remote server)*
-**Production via SMB share**: `Z:\` *(remote `C:\Apps\SDP-Dashboard\` mapped on the dev box)*
-**Local/dev path**: `C:\Users\Admin\Documents\SDP-Dashboard\`
-**Worktree path**: `C:\Users\Admin\Documents\SDP-Dashboard\.claude\worktrees\busy-kirch-*\`
+**Production access**: NONE from the dev box — the old `Z:\` SMB mapping is **gone** (verified 2026-09-05: `Test-Path Z:\` = false). Deploys go through the ZIP package; verification of what runs in prod goes through the browser (user's session) or the user pasting output.
+**Local/dev path**: `C:\Users\Admin\Documents\SDP-Dashboard\` (branch `main`, no worktree in use)
 **Port**: 3456
 **PM2 app name**: `endeavour-dashboard`
 
-> **When Claude is working in this folder it is already in the workspace — edits go live on copy to `Z:\` (the SMB-shared production path).**
+> **Nothing Claude edits reaches prod by itself.** Commit on `main` → build the ZIP (`tools\deploy\make-deploy-zip.ps1`) → the USER copies/applies it on the server, restarts pm2 (stop→wait→start), then runs `tools\deploy\mark-deployed.cmd` on the dev box. The packager **only READS** `.git/last-deployed`; it never advances it (the "packager advances the marker" sentence in older sections below is stale).
 
 ### Deploy commands — ZIP package model (2026-07-08+; the Z:\ xcopy model is RETIRED)
 
@@ -3870,10 +3899,11 @@ In normal use NO request hits this fallback. It's a safety net.
 
 | Pitfall | Rule |
 |---------|------|
-| **WAN SLA (chargeback) = event-log Meraki, PAS `loss<100` ; dispo mesurée DANS l'horaire de service ; notif ISP ARMÉE-OFF ; attribution STOCKÉE, pas recalculée par le moteur** | L'instrument SLA/refacturation ISP (`services/wanSla.js` + `wan_outages` + poller/ingester) est **séparé** de WAN Health et de `wan_link_snapshots` (ne les touche pas). **La dispo qui compte pour les 97 % = les coupures totales de l'event-log Meraki** (transitions uplink down→up, option b) — PAS la dérivation `loss<100` de `merakiWanQuality` (qui surestime : Sabodala wan2 = 17 % de perte mais Meraki dit 22 % up). Chaque coupure est **découpée sur le calendrier d'horaire-service** du circuit (`clipToService`, 2 fenêtres/jour, mine 7j/bureau 5j, GMT — hard-constraint V1) → une coupure nuit/week-end (bureau) compte 0. **`clock_start='notification'` par défaut** (contrat notification→rétablissement ; la figure `detection` n'est que la borne haute objective) ; une coupure <15 min ne compte jamais. Le moteur pur **LIT `outage.attribution`** (`'isp'` compte ; `'site'`=wan1+wan2 simultanés/électricité et `'maintenance'` exclus) — il ne la calcule PAS (l'ingester la pose cross-uplink). Store accumulé au fil de l'eau (comme `asset_effort_history`) → mois calculé au **mois clos** ; mois-en-cours = provisoire sur les heures ÉCOULÉES (pas d'artefact fraction-du-mois). **Invariant** : au plus **une ligne ouverte** par `(site,sub_site,uplink)` (le poller vérifie `listOpenWanOutages` avant d'ouvrir ; garde stale-open 24 h). **Notif ISP 15 min = ARMÉE-OFF par défaut** (comme `hygiene_send_enabled`) : l'admin renseigne le contact + coche l'arme ; **jamais d'envoi après rétablissement**. `sla_wan_config` DOIT être dans `reportConfig.DEFAULTS` (sinon `setConfig` le jette). Crédit = **paliers % du MRC** (inclusif `>=`, 95,0 %→palier 95), montant texte+devise **sans glyphe**. **⚠ Confirmations d'intégration** (comme la calibration) : les strings d'événement Meraki (`wan_1_down`…) sont **config-driven** (`event_types`) et le contrat de pagination `networkEvents` (`endingBefore`/`pageStartAt`) sont à valider contre l'org réel ; le balayage de récupération du poller est org-wide (un device omis d'un poll fermerait à tort son incident — à durcir). **Non-goals** : SLA réponse helpdesk (info 30min/feedback 8h → Phase 2), Niveau 2/3 dégradé, Insight, sites non-UTC. |
+| **Route-smoke suites: force sqlite, use `tests/_http-fetch`, and log in with the role the route ACTUALLY requires — otherwise the suite goes red silently and STAYS red (2026-09-05 audit: 48 stale failures, some 3 weeks old)** | Three separate traps found in one audit. (1) The dev `.env` points every `*_BACKEND` at postgres, so any suite that boots `server.js` must set `process.env.<MODULE>_BACKEND='sqlite'` for all five modules BEFORE the first `require` — "REPORTS_BACKEND unset → sqlite default" is FALSE on this box; the symptom is `pgDb not initialised — await initPgReports() at boot`. (2) The global `fetch` is undici; its keep-alive sockets trip a libuv assertion (`UV_HANDLE_CLOSING`, `src/win/async.c`) when `--test-force-exit` tears the process down on Windows — every subtest passes, then the FILE is marked failed, non-deterministically across files. Use **`const fetch = require('./_http-fetch')`** (core http, `agent:false`, fetch-shaped: status/ok/headers.get/text/json/arrayBuffer) — every smoke file does now. (3) When a route's gate changes (admin settings → `requireSuperAdmin` on 2026-08-16, IT Review → executive on 2026-08-31), the smokes that log in as `admin` start returning 403 and nobody notices because the suite already had "known" failures. Rule: after touching a gate, grep `setUserRoles(me.id, ['admin'])` in `tests/` and promote the suites that hit that route. Corollary of all three: **a suite with "known pre-existing failures" is worthless — keep it at 0 red** (it was 1783/0 on 2026-09-05). Fixtures for `upsertRequestBatch` must carry EVERY named column (`template` was missing → `RangeError: Missing named parameter`). |
+| **WAN SLA (chargeback) = event-log Meraki (coupures TOTALES), PAS la dispo dérivée ; dispo mesurée DANS l'horaire de service ; notif ISP ARMÉE-OFF ; attribution STOCKÉE, pas recalculée par le moteur** | L'instrument SLA/refacturation ISP (`services/wanSla.js` + `wan_outages` + poller/ingester) est **séparé** de WAN Health et de `wan_link_snapshots` (ne les touche pas). **La dispo qui compte pour les 97 % = les coupures totales** (uplink `failed`, poller `orgUplinkStatuses` / event-log) — c'est le Niveau 1 du contrat (interruption totale). **Deux instruments, deux réponses, par design (confirmé 2026-09-04)** : Sabodala wan2 est *dégradé* (17-21 % de perte, MOS 1,86) mais n'est JAMAIS passé `failed` → 0 coupure au SLA (contrat sans clause de dégradation — décision user 2026-09-05 : on laisse) alors que la dispo dérivée calibrée (Santé & Qualité) le lit à ~20 % comme Meraki. Ne pas "réconcilier" les deux. Chaque coupure est **découpée sur le calendrier d'horaire-service** du circuit (`clipToService`, 2 fenêtres/jour, mine 7j/bureau 5j, GMT — hard-constraint V1) → une coupure nuit/week-end (bureau) compte 0. **`clock_start='notification'` par défaut** (contrat notification→rétablissement ; la figure `detection` n'est que la borne haute objective) ; une coupure <15 min ne compte jamais. Le moteur pur **LIT `outage.attribution`** (`'isp'` compte ; `'site'`=wan1+wan2 simultanés/électricité et `'maintenance'` exclus) — il ne la calcule PAS (l'ingester la pose cross-uplink). Store accumulé au fil de l'eau (comme `asset_effort_history`) → mois calculé au **mois clos** ; mois-en-cours = provisoire sur les heures ÉCOULÉES (pas d'artefact fraction-du-mois). **Invariant** : au plus **une ligne ouverte** par `(site,sub_site,uplink)` (le poller vérifie `listOpenWanOutages` avant d'ouvrir ; garde stale-open 24 h). **Notif ISP 15 min = ARMÉE-OFF par défaut** (comme `hygiene_send_enabled`) : l'admin renseigne le contact + coche l'arme ; **jamais d'envoi après rétablissement**. `sla_wan_config` DOIT être dans `reportConfig.DEFAULTS` (sinon `setConfig` le jette). Crédit = **paliers % du MRC** (inclusif `>=`, 95,0 %→palier 95), montant texte+devise **sans glyphe**. **⚠ Confirmations d'intégration** (comme la calibration) : les strings d'événement Meraki (`wan_1_down`…) sont **config-driven** (`event_types`) et le contrat de pagination `networkEvents` (`endingBefore`/`pageStartAt`) sont à valider contre l'org réel ; le balayage de récupération du poller est org-wide (un device omis d'un poll fermerait à tort son incident — à durcir). **Non-goals** : SLA réponse helpdesk (info 30min/feedback 8h → Phase 2), Niveau 2/3 dégradé, Insight, sites non-UTC. |
 | **WAN par sous-site (V1b-E) est TOKEN-GATÉ — c'est LA garantie que les sites normaux ne bougent pas ; et le match client NE PEUT PAS collapser par `uplink` seul** | Le rapport Exploration a UN site mais des lignes `WAN1 FETEKRO`/`WAN2 TANDA` = plusieurs networks Meraki. `wan_link_snapshots` porte `sub_site` DANS sa PK ; `wan_subsite_networks` mappe `(site_id, sub_site)→network`. **`public/lib/wanLineMatch.js parseServiceLine(name, tokens)` : SANS token → `sub_site:''` TOUJOURS** — donc un site normal (aucun sous-site configuré) matche exactement les fills `sub_site:''`, comportement inchangé (prouvé par `pptx-monthly-golden` inchangé + les tests « no tokens »). Le token-gating vit dans le **match client** (`reports.html`) et la route (`infra-auto` renvoie `tokens` = les sous-sites du site) — **JAMAIS dans `buildFills`** (row-driven, pas de param `tokens` : le param serait mort — plan review M4). **Piège dur** : l'ancien `byMatch = Object.fromEntries(fills.map(f=>[f.match,f]))` collapse `wan1('')` et `wan1('FETEKRO')` en UNE entrée → remplacé par `fills.find(x => x.match===family && (x.sub_site||'')===subSite)`. Idem `wanDashboard` clé sur `(sub_site, uplink)`, PAS `uplink` seul. `serviceToFill` = **délègue** à `wanLineMatch.family` (source unique) ; `sync-wan.js` fanne un network→N cibles depuis UNE collecte (dérive `q` une fois puis fan-out) avec l'appel `listWanSubsiteNetworks` **gardé** (`typeof`) pour les rdb injectés. **Activation user** : Admin → ⚡ Infra → « Exploration sub-sites ». |
 | **LAN/WLAN/Servers = OpManager REST `getDeviceCompleteDetails.availdata` (device-grain), `basis='recent'` ; WAN JAMAIS ici (Meraki) ; site = probe par défaut mais INJECTABLE** | La branche REST de `sync-availability.js` (prioritaire quand `opmanager_api_key`+`opmanager_base_url` réglés) liste les devices, **écarte les firewalls** (`_isFirewall` : nom `*F/W*` ou catégorie/type Meraki Security/MX — le WAN vient de Meraki, V1b-A), lit `availdata.Up` par device, et `aggregateDeviceAvail` (pur) fait la **moyenne par site×famille** pour **lan/wifi/servers uniquement** (wan+excluded droppés). **null-pas-zéro** partout (device illisible pas compté ; famille sans lecture → `metric_value:null`/`status:none`). Écrit dans `infra_metric_snapshots` (V1a) avec `source='opmanager_rest'` + **`basis='recent'`** : la fenêtre `availdata` n'est probablement PAS la semaine exacte (today/défaut) → **étiquetée `recent`, JAMAIS présentée comme « la semaine »** (V1b-C l'affiche). La colonne `basis` est un **ALTER additif backend-branché** (sqlite try/catch, pg `IF NOT EXISTS`), **PAS dans le CREATE partagé** (sinon boot sqlite throw duplicate). `deviceToSite` par défaut = **probeName** via le seed `site_module_codes` opmanager, mais **injectable** (`deps.deviceToSite`) car **probe ≠ site** (Dakar est sur la probe Sabodala) → la stratégie probe-vs-préfixe-de-nom est la **décision de découverte** (`tools/opmanager/discover.js`), pas un rewrite. Le chemin Analytics `fetchView` reste en fallback dormant. `getDeviceCompleteDetails` = **N appels** (un par device non-firewall) — on-prem, séquentiel, tolérable. La route `/coverage` doit dériver de la **même source** que les snapshots (re-pointée sur REST quand configurée) sinon gouvernance périmée. |
-| **WAN = Meraki API, PAS OpManager : les MX ont 0 interface SNMP ; le « % Time Up » est DÉRIVÉ + calibré, jamais servi tel quel** | Les firewalls Meraki MX ont **0 interface SNMP** dans OpManager (vérifié : colonne Interfaces=0) → l'API interfaces OpManager (`getInterfaces`/`getIntfAtAGlanceReportDetails`) est une **impasse pour le WAN**, et le widget « WAN Link » est de la donnée Meraki interne (endpoint non documenté — à éviter). La source WAN est l'**API Cloud Meraki** : `getDeviceLossAndLatencyHistory` (**≤31 j** par uplink — pas l'org `uplinksLossAndLatency` qui est **5 min max**). Elle rend loss/latence, **pas l'uptime** → OPS **dérive** le « % Time Up » (`merakiWanQuality.deriveAvailability` : interval up ssi `lossPercent<100` ; **intervalle manquant = `'down'` ou `'unknown'` selon `meraki_missing_policy`, choisi par CALIBRATION** contre le Summary Report Meraki (Ity 99.86/97.87), **jamais supposé** ; **zéro échantillon → `null`, jamais `0`** — no data ≠ dispo 0%). `getDeviceLossAndLatencyHistory` exige une **destination `ip`** — et le MX en surveille **PLUSIEURS** : on récupère la liste via **`getNetworkApplianceConnectivityMonitoringDestinations`** (`/networks/{id}/appliance/connectivityMonitoringDestinations`, autoritaire ; fallback = l'ip échantillonnée par l'org `uplinksLossAndLatency`), on tire une série par destination, et **`merakiWanQuality.mergeDestinationSeries`** les fusionne par `startTime` : `lossPercent = MIN` (**up si UNE destination a répondu**) — sinon une panne d'une seule destination (Google injoignable) ferait un faux « lien down » et le % Time Up sous-estimerait vs Meraki. `totalIntervals` vient de la **FENÊTRE** (`round((t1−t0)/resolution)`), pas de `series.length`, sinon `'down'` dégénère en `'unknown'`. Cross-check aussi `getOrganizationUplinksStatuses`. |
+| **WAN = Meraki API, PAS OpManager : les MX ont 0 interface SNMP ; le « % Time Up » est DÉRIVÉ + calibré, jamais servi tel quel** | Les firewalls Meraki MX ont **0 interface SNMP** dans OpManager (vérifié : colonne Interfaces=0) → l'API interfaces OpManager (`getInterfaces`/`getIntfAtAGlanceReportDetails`) est une **impasse pour le WAN**, et le widget « WAN Link » est de la donnée Meraki interne (endpoint non documenté — à éviter). La source WAN est l'**API Cloud Meraki** : `getDeviceLossAndLatencyHistory` (**≤31 j** par uplink — pas l'org `uplinksLossAndLatency` qui est **5 min max**). Elle rend loss/latence, **pas l'uptime** → OPS **dérive** le « % Time Up » (`merakiWanQuality.deriveAvailability`). **Règle CALIBRÉE le 2026-09-04** (30 points de vérité terrain transcrits de l'UI Meraki, 5 sites × wan1/wan2 × jour/semaine/mois, harnais `tools/meraki/calibrate-timeup.js`, résultat `tools/meraki/calibration/2026-09-04-timeup-calibration-result.md`) : **un échantillon dont la perte ≥ 5 % compte DOWN** (`wan_timeup_loss_pct`, réglé en Admin — plus le `loss<100` d'origine, MAE 11 pts) ; pas de règle de latence identifiable (`wan_timeup_latency_ms` vide) ; `missing`/destination sans effet. MAE 0,8 pt sur semaine/mois vs Meraki. Deux hypothèses **réfutées** en live : ce n'est NI `loss<100`, NI l'état uplink active/failed (les deux lisaient 100 % là où Meraki lit 22 %). Le **dénominateur = max(estimation fenêtre/résolution, échantillons observés)** (fix 81c26f7 — sinon 101,2 % impossibles), et l'UI affiche **« ≥ 99,9 % »** (plancher 100−100/N) au lieu d'un « 100 % » non mesurable (`avail_samples` / `avail_floor_pct`). **Zéro échantillon → `null`, jamais `0`.** Les fenêtres « day » de la calibration sont sensibles à l'instant de capture — calibrer sur semaine/mois. Le % Time Up de Meraki n'a AUCUNE API (spec v1.73 beta scannée, XHR/cometd du dashboard sniffés — 4 confirmations). `getDeviceLossAndLatencyHistory` exige une **destination `ip`** — et le MX en surveille **PLUSIEURS** : on récupère la liste via **`getNetworkApplianceConnectivityMonitoringDestinations`** (`/networks/{id}/appliance/connectivityMonitoringDestinations`, autoritaire ; fallback = l'ip échantillonnée par l'org `uplinksLossAndLatency`), on tire une série par destination, et **`merakiWanQuality.mergeDestinationSeries`** les fusionne par `startTime` : `lossPercent = MIN` (**up si UNE destination a répondu**) — sinon une panne d'une seule destination (Google injoignable) ferait un faux « lien down » et le % Time Up sous-estimerait vs Meraki. `totalIntervals` vient de la **FENÊTRE** (`round((t1−t0)/resolution)`), pas de `series.length`, sinon `'down'` dégénère en `'unknown'`. Cross-check aussi `getOrganizationUplinksStatuses`. |
 | **WAN est PAR LIEN dans `wan_link_snapshots` (≠ `infra_metric_snapshots`) ; site = network Meraki via `site_module_codes` module=`meraki` ; fenêtre = semaine Zoho précédente** | Le WAN a besoin de **deux lignes** (wan1+wan2) par site/semaine — impossible dans `infra_metric_snapshots` dont la PK `(site,period_type,period_start,kpi_family,metric_name)` ne tient qu'**une** ligne `wan`. D'où **`wan_link_snapshots`** (PK `site_id,uplink,period_type,period_start`, colonnes qualité loss/latence/jitter/goodput + `availability_pct` DÉRIVÉ null-pas-zéro + `status_color` **bande rapport** `≥t/≥t×0.9/else`, PAS la bande ±2 de V1a — pour que la cellule du rapport et le dashboard WAN affichent la MÊME couleur pour le même nombre). Le **site = le network Meraki** (ex. `"Ity Gold Operations"`), seedé dans `site_module_codes` module=`meraki` **résolu par NOM de site** (Ity/Mana confirmés ; les autres pattern-guess corrigés à la calibration). Le collecteur mappe `networkId→name` (via `getOrganizationNetworks`) puis `name→site_id` (seed), tout **awaité AVANT** le pur (piège pg-Promise). La fenêtre hebdo = la **semaine Zoho PRÉCÉDENTE** (`getPreviousWeek`→`getWeekRange`, UTC) = `weeks.start_date` — la clé de jointure du rapport (V1b-C) ET le contrôle tz de la calibration. Tout config-gated + best-effort : sans `meraki_api_key`, sync self-skip, rien de touché. |
 | **OPManager availability comes via Analytics Plus `fetchView` — OPS classifies + aggregates in JS ; `infra_metric_snapshots` ≠ `infra_kpis`** | V1a is read-only : la vue quotidienne préparée `OPS_OPM_Device_Availability_Daily` (id = config `opm_availability_view_id`) fait SEULEMENT la jointure device↔probe ; **OPS classe** (`opmClassify.classifyKpiFamily`) **et agrège** (`opmAvailability.aggregate`) en JS pur, puis upserte dans **`infra_metric_snapshots`** (table NEUVE, PK composite, PAS de surrogate id — évite la divergence sqlite-AUTOINCREMENT/pg-IDENTITY). Ça **ne touche RIEN** de `infra_kpis`/`weekly_reports` (le rapport site les lit encore à la main ; l'auto-remplissage = V1b). OPS ne poll JAMAIS un device, ne recrée pas d'alerte. `opm_availability_view_id` vide → sync self-skip + API sert `none`/vide (tout config-gated + best-effort : un échec Analytics garde les snapshots précédents, ne vide jamais). |
 | **Disponibilité : `unmonitored` compte comme INDISPONIBLE ; l'absence de mesure = status `none`, JAMAIS `0`** | La formule (`opmAvailability.aggregate`) = `100×Σuptime/Σ(uptime+downtime+dependent+unmonitored)` — `unmonitored` est au dénominateur (décision user : « unmonitored = indisponible »), `maintenance`+`onhold` sont EXCLUS du dénominateur ; fallback `AVG(uptime%)` si les durées manquent. **Une famille sans snapshot rend `{metric_value:null, status_color:'none'}` — jamais `0`** (un 0 se lirait « 0% dispo », le pire score possible, sur une absence de données) : `routes/opmanager.js` `fillFamilies` remplit toujours les 4 familles (lan/wifi/wan/servers), présent→ligne mappée, absent→null/none. `opm_targets` pilote la COULEUR (green≥target, orange≥target-2, red<target-2 ; stocker `orange`, JAMAIS `amber`), PAS la fraîcheur — le `stale` vient de `data_through` (ou `collected_at`) vs `opm_stale_days`. |
@@ -4087,8 +4117,12 @@ plus `DELETIONS.txt`, `MANIFEST.txt`, and the `_apply_on_prod.cmd` installer.
 **No `Z:` mapping needed.**
 
 The packager reads the `.git/last-deployed` marker (fallback `7fb62d9`, the last
-confirmed prod deploy), diffs `<marker>..HEAD`, and **advances the marker to
-HEAD** after building the ZIP. So packaging == "this is the deploy".
+confirmed prod deploy) and diffs `<marker>..HEAD`. **It does NOT advance the marker**
+(re-verified 2026-09-05 — `make-deploy-zip.ps1` only reads it): after the user confirms the
+apply on prod, run `tools\deploy\mark-deployed.cmd` on the dev box, which writes HEAD into
+the marker. So packaging is NOT "this is the deploy" — marking is. ⚠️ Corollary: if a ZIP was
+hand-stripped of some files before applying (e.g. the frozen tracker commits, 2026-09-04) and
+the user then marks HEAD, those files fall **behind the marker** and must be packaged by hand later.
 
 After Claude commits, output looks like:
 ```
@@ -4274,7 +4308,7 @@ Server:
 | `public/activity-tracker/api.js` | `window.TRApi.{ load, save, reset, exportPptx }`. Thin wrappers around `/api/tracker/*` — same payloads as before. |
 | `public/activity-tracker/App.jsx` | The whole React app. ~120 KB of JSX. Contains: Toolbar, Tabs, all 7 panels (Dashboard / Scoring / Input / Heatmap / Tracker Setup / Targets / Roadmap), `Modal` infrastructure, `RedistributeModal`, `ExportModal`. |
 | `public/activity-tracker/styles.css` | All page styles. Uses `_tokens.css` brand variables — same surface as `/index.html`, `/executive.html`, `/meetings.html`. |
-| `public/activity-tracker-legacy.html` | Untouched copy of the legacy file. Kept as a fallback URL — retire in a future maintenance window. |
+| ~~`public/activity-tracker-legacy.html`~~ | **Deleted 2026-09-05** (audit) — the legacy fallback is gone; the React tracker is the only tracker. |
 
 ### Seven tabs
 
@@ -4336,13 +4370,18 @@ First-run auto-seeds from `tracker-init.json`. Reset via `POST /api/tracker/rese
 
 | Role | Load | Save config/targets | Save own inputs | Save all inputs | Export PPTX |
 |------|------|---------------------|-----------------|-----------------|-------------|
-| viewer | ✓ | — | — | — | — |
-| editor | ✓ | — | — | — | — |
-| admin | ✓ | — | ✓ (own site only) | — | ✓ |
-| executive | ✓ | ✓ | ✓ | ✓ | ✓ |
+| viewer / editor / admin / executive (hierarchical role ALONE) | ✓ | — | — | — | admin+ |
+| `tracker-editor` (feature role) + a Site on the account | ✓ | — | ✓ (own site only) | — | — |
+| `tracker-admin` (feature role) | ✓ | ✓ | ✓ | ✓ | ✓ |
 | super_admin | ✓ | ✓ | ✓ | ✓ | ✓ |
 
-`siteNameToCode()` in `tracker-db.js` maps the user's `site_name` from the users table to a tracker site code (e.g. `'HOUNDE' → 'HGO'`).
+**The hierarchical level does NOT grant tracker saves** — `POST /api/tracker/save` is
+`requireRole(['super_admin','tracker-admin','tracker-editor'])` (`server.js` ~7201): an Admin or
+even an Executive without a tracker-* feature role is **rejected**, and a `tracker-editor` with no
+Site gets 403 "no site assigned" (the scope comes from the account's site). Coordinators = `tracker-editor`
++ their site, nothing else (re-verified 2026-09-03 — an earlier version of this table said "admin ✓ own
+site", which was wrong). `siteNameToCode()` in `tracker-db.js` maps the account's `site_name` to a tracker
+site code (e.g. `'Mana IT Agent' → 'MGO'`, `'HOUNDE' → 'HGO'`).
 
 ### Scoring Engine (tracker-pptx.js / activity-tracker/engine.js)
 
@@ -4361,6 +4400,16 @@ KPI type rules:
 - `MILESTONE`— phase/target; GREEN = complete, AMBER = in progress, RED = none & ended
 - `CURRENCY` — actual/target; GREEN ≥ 100%, AMBER ≥ 75%, RED below
 - `RATING`   — avg of non-zero months / target; same thresholds as PERCENT
+- `COUNT` (default) — Σ months ÷ pro-rated annual target (`ann × months-in-window ÷ window`);
+  GREEN ≥ 100% of the pro-rated target, AMBER ≥ 75%, RED below. Score is capped at 100%
+  (overachievement earns no bonus); shared activities take the FLEET MAX as YTD.
+
+> **⚠ Frozen change on `main`, not in prod (2026-09-04):** the user adopted the management RAG table
+> (Green 90–100 / Amber 75–89 / Red < 75) for COUNT/PERCENT/CURRENCY/RATING — commit `c97ae61` moves
+> the GREEN threshold **100 % → 90 %** in BOTH twin engines (BOOLEAN/MILESTONE unchanged). Prod still
+> runs the 100 % rule until the reporting cycle ends. Whatever you read in prod decks vs `main` tests,
+> that is the reason. The `Input` tab also has an **Export CSV** (site matrix + engine YTD/target/score
+> per row) — the one-click proof that "sum of the cells == Scoring YTD" (verified 0 mismatch, 5 sites).
 
 ### Tracker PPTX — Layout Reference (10" × 5.625" — LAYOUT_16x9)
 
@@ -4442,7 +4491,7 @@ Extracted from `IT_Ops_Strategy_Mar2026_template.pptx` and stored in `public/tra
 | **Engine drift between frontend + PPTX** | `engine.js` (browser) and `tracker-pptx.js` (server) both implement the scoring math. When changing a KPI rule or RAG threshold, update BOTH files — otherwise the live page and the exported PPTX disagree. |
 | **CSP blocks the React tracker** | `/activity-tracker.html` and `/activity-tracker/*` need `unsafe-eval` + unpkg.com for Babel/React CDN. The path-scoped exception is at `server.js:182`. If the page silently renders blank with a "Refused to evaluate" console error after a server.js edit, that block was probably moved or its path list edited. |
 | **Stale activity_ix after pillar/activity delete** | Deleting an activity must `splice()` it out of `D.activities`, every `D.targets[s]` array AND every `D.inputs[yr][s]` array — otherwise the engine's activity_ix lookups misalign and rows shift. The Phase 4 pillar-delete handler does this for every activity under the deleted pillar; activity-delete does it for the single index. Don't regress to `Array.filter()` which leaves the parallel arrays unchanged. |
-| **Legacy file still accessible** | `/activity-tracker-legacy.html` is preserved as a fallback URL. Not linked from the new UI but reachable by bookmark. Delete it in a future maintenance window once the new page has been live for a few weeks. |
+| **Legacy tracker page — RETIRED 2026-09-05** | `public/activity-tracker-legacy.html` was deleted in the 2026-09-05 audit (the React tracker had been live since 2026-05-24; the legacy page was served via `express.static` with no version injection — a standing violation of the caching principle). Nothing referenced it. If a bookmark 404s, that is why. |
 
 ---
 
@@ -5162,13 +5211,29 @@ unreliable. Each match object requires every field it specifies
   GENERIC names `System` / `Technical` (Enterprise Applications) so unrelated
   tickets like `ERP Support / System` are NOT pulled into domain 4.
 
-| # | Domain | SDP sub-category matches |
+| # | Domain | SDP sub-category matches (state after the 2026-09-02 tuning) |
 |---|---|---|
-| 1 | Unavailability of Internet | `Network issues`, `WAN` (any parent) |
+| 1 | Unavailability of Internet | `Network issues` (any parent) · `WAN` kept as a harmless legacy name (no longer in the SDP tree — 0 tickets) |
 | 2 | Unavailability of the mobile phone | `3G/4G Internet & GSM-SIM` (any parent) |
 | 3 | Unavailability of electrical power | `Electrical power & UPS` (any parent) |
-| 4 | Infrastructure unavailability | any-parent: `Servers`, `Data Centers`, `Network`, `Backup`, `Database`, `Cloud Services`, `Issue with Email`, `Network Configuration`, `VPN (Remote Access Services)` · **strict** `Enterprise Applications / System` + `… / Technical` |
+| 4 | Infrastructure unavailability | any-parent: `Servers`, `Data Centers`, `Network`, `Backup`, `Database`, `Cloud Services`, **`Issue Server Email`** (a NEW dedicated sub the user created under Email for server-side outages; the generic `Issue with Email` = individual mailbox issues, NOT matched) |
 | 5 | Radio system unavailability | `Radio` (any parent) |
+
+> **Removed from domain 4 on 2026-09-02 (user decision, aligned with the SDP mandatory-comment rule):**
+> `Network Configuration`, `VPN (Remote Access Services)`, and the strict `Enterprise Applications /
+> System` + `/ Technical` pairs — measured Jun–Aug 2026 as end-user noise (VPN 5 / NetConfig 2 tickets,
+> none with Services affected; EA 0). A REAL outage on those still counts through the technician-declared
+> **Services affected** field, which takes precedence over this category fallback.
+
+**Risk comment chain (LIVE since 2026-09-02):** SDP UDF `txt_risk_comment` ("Risk comment") is made
+mandatory at Resolved/Closed by two Field & Form Rules on the *Issue Reporting_* template (trigger **On
+Field Change of Status** — watching the condition field instead would never re-evaluate at resolution) and
+is natively mandatory on the Major Incident template. The export summarises those comments into **column H
+"Commentaires"** (`#<display_id> — comment`, 160 c/comment, ~700 c/cell, "… (+N autres)") and ships a
+**second sheet `Tickets_<month>`** (one row per occurrence: site · domain · **SDP display ID** (never the
+18-digit internal id) · subject · date · origin · risk comment) as the operator's aide-mémoire. Tickets
+closed before the rule exist without comments → August's column H is legitimately empty; September is the
+first fed month.
 
 > **Gotcha (2026-06-28):** the original rules pinned `cat:'IT Infrastructure'`
 > for elec/radio AND used the wrong sub names (`Power & UPS`, `Radio / Telecom`)
@@ -5391,9 +5456,11 @@ Browser: GET /exec-view.html (public route, no auth, no window.__ak)
 
 `GET /api/exec/summary` is exempted at `server.js` (`app.use('/api/', ...)`,
 the `req.path === '/exec/summary'` short-circuit BEFORE the dash-key/session
-check) — it is the ONLY unauthenticated `/api/*` route in the app. Everything
-else under `/api/exec/*` (the editorial reader/writer) stays behind the normal
-gate + `requireReportSession` + `requireAdmin`.
+check). It is one of exactly **TWO** exemptions from the global gate — the other is
+`GET /api/actions/open` (Meridian, F1), which carries its own `X-API-Key` check
+(`meridian_in_key`). Everything else under `/api/exec/*` (the editorial reader/writer)
+stays behind the normal gate + `requireReportSession` + **`requireSuperAdmin`** (admin
+settings were restricted to super_admin on 2026-08-16, commit `5e2f40e`).
 
 ### Site status — derived, exception-only, no OPManager in v1
 

@@ -1299,7 +1299,7 @@ function loadHtml(name) {
   'activity-tracker.html', 'help.html', 'exec-view.html', 'site-report.html', 'it-review.html', 'site-actions.html', 'system-logs.html',
   'site-awareness.html',
   'assets.html', 'assets-hygiene.html', 'assets-finance.html', 'wan.html', 'wan-health.html', 'wan-sla.html', 'itsm-roadmap.html',
-  'infra-health.html',
+  'infra-health.html', 'itsm-integrations-plan.html',
 ].forEach(loadHtml);
 
 // Helper: build the per-request HTML, inject api-key + nonce, send. Pages
@@ -1440,6 +1440,11 @@ app.get('/activity-tracker.html', (req, res) => {
 // Moved out of express.static for the same reason as activity-tracker.html.
 app.get('/help.html', (req, res) => {
   sendHtmlPage(res, 'help.html', false, 'Help page unavailable');
+});
+// The integrations project plan (linked from itsm-roadmap.html) — served through the
+// cache/version-injection path like every other HTML, not express.static (audit 2026-09-05).
+app.get('/itsm-integrations-plan.html', (req, res) => {
+  sendHtmlPage(res, 'itsm-integrations-plan.html', false, 'Integrations plan unavailable');
 });
 
 // ── Meetings & Council Escalations module (v2) — 5 pages ─────────────────

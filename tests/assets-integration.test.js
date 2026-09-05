@@ -179,11 +179,15 @@ test('licence extras populate (installations_allowed + license_option)', () => {
 // copy-assets.js is CLI-guarded (require.main === module) so it is require-safe.
 // No prod assets.db exists, so a full parity copy is out of reach here — a require +
 // SQL-parse + table/column-coverage smoke is the guard.
-test('copy-assets module is require-safe and its TABLES cover all 5 asset tables', () => {
+test('copy-assets module is require-safe and its TABLES cover every AP-synced asset table (plus the irreplaceable capture tables)', () => {
   const cp = require('../tools/pg/copy-assets');
   assert.strictEqual(typeof cp.copyAssets, 'function');
   const names = cp.TABLES.map(t => t[0]);
-  assert.deepStrictEqual(names.sort(), Object.values(CSV_FOR).length ? ASSET_VIEWS.map(v => v.table).sort() : []);
+  // The 6 AP-synced view tables MUST all be copied. copy-assets ALSO (deliberately) copies the
+  // append-only capture tables (asset_effort_history, asset_reconcile_history, …) that a re-sync
+  // cannot rebuild — so TABLES is a SUPERSET of the synced views, never an exact match.
+  // (Re-aligned 2026-09-05: this used to assert equality and had been red since those tables landed.)
+  for (const v of ASSET_VIEWS) assert.ok(names.includes(v.table), `copy-assets TABLES covers synced view table ${v.table}`);
   // every copy column exists in the live schema (assets.db was created from 001_init.sql)
   for (const [table, cols] of cp.TABLES) {
     const dbCols = new Set(db.prepare(`PRAGMA table_info(${table})`).all().map(r => r.name));

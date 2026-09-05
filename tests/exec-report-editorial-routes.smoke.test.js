@@ -1,4 +1,5 @@
 'use strict';
+const fetch = require('./_http-fetch');   // core-http shim — undici keep-alive aborts the process at --test-force-exit on Windows
 // Task 1 smoke — GET/PUT /api/reports/exec-editorial, the server surface over the
 // deck builder's monthly analysis store. Boots the express app IN-PROCESS (start()
 // is guarded by require.main → no port bind, so the Zoho/PG boot steps never run).

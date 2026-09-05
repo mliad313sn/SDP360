@@ -1,4 +1,5 @@
 'use strict';
+const fetch = require('./_http-fetch');   // core-http shim — undici keep-alive aborts the process at --test-force-exit on Windows
 // Task 8 smoke — /api/reports/* Foundation routes (config / recipients / site-data / test-smtp).
 // Boots the express app IN-PROCESS (start() is guarded → no port bind) and asserts the
 // admin-gated CRUD surface plus the authenticated site-data reader. Schedule routes are
@@ -38,10 +39,10 @@ before(async () => {
   // userHasRole → user_roles) recognises the account.
   const me = (rdb.listUsers() || []).find(u => u.username === process.env.DASH_USER);
   assert.ok(me, 'seeded admin user exists');
-  rdb.setUserRoles(me.id, ['admin']);
+  rdb.setUserRoles(me.id, ['super_admin']);   // the routes under test are super_admin-gated (admin settings → super_admin since 5e2f40e / 2026-08-16; IT Review → executive since 7162ac7)
   const sess = await rdb.login(process.env.DASH_USER, process.env.DASH_PASS);
   assert.ok(sess && sess.token, 'login seeded admin + returned a token');
-  assert.ok(((sess.user && sess.user.roles) || []).includes('admin'), 'session carries admin role');
+  assert.ok(((sess.user && sess.user.roles) || []).includes('super_admin'), 'session carries super_admin role');
   adminToken = sess.token;
 
   // Seed PV data so /recipients/suggest has something real to fill FROM.

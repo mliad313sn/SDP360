@@ -1,4 +1,7 @@
 'use strict';
+// Force the sqlite backends: these suites boot the app against throwaway sqlite DBs and must stay
+// green regardless of the dev .env (which points prod-like *_BACKEND=postgres).
+for (const k of ['REPORTS_BACKEND','ASSETS_BACKEND','TRACKER_BACKEND','MEETINGS_BACKEND','INSPECTION_BACKEND']) process.env[k] = 'sqlite';
 
 // DB schema boot smoke tests (audit 3.5).
 // Each *-db.js module builds its DB path from DATA_DIR, which now honours

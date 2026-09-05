@@ -1,4 +1,5 @@
 'use strict';
+const fetch = require('./_http-fetch');   // core-http shim — undici keep-alive aborts the process at --test-force-exit on Windows
 // sqlite-mode route smoke — boots the express app IN-PROCESS (no port bind via the guarded start())
 // and asserts the hot-path routes return 200 + sane JSON. Proves the 4D-wiring-1 async conversion
 // doesn't break the live sqlite path. Run with --test-force-exit (top-level cron + a 30s startup
@@ -13,6 +14,8 @@ process.env.DASHBOARD_API_KEY = process.env.DASHBOARD_API_KEY || 'smoke-key';
 process.env.ZOHO_CLIENT_ID = process.env.ZOHO_CLIENT_ID || 'dummy';
 process.env.ZOHO_CLIENT_SECRET = process.env.ZOHO_CLIENT_SECRET || 'dummy';
 process.env.ZOHO_REFRESH_TOKEN = process.env.ZOHO_REFRESH_TOKEN || 'dummy';
+// Force sqlite: the dev .env points every *_BACKEND at postgres; this suite seeds a throwaway sqlite DB.
+for (const k of ['REPORTS_BACKEND','ASSETS_BACKEND','TRACKER_BACKEND','MEETINGS_BACKEND','INSPECTION_BACKEND']) process.env[k] = 'sqlite';
 
 const { test, before, after } = require('node:test');
 const assert = require('node:assert');
@@ -26,7 +29,8 @@ const _req = o => ({ request_id:null, display_id:null, subject:null, request_sta
   reopen_count:0, due_by_time:null, time_elapsed_ms:null, created_time:null, resolved_time:null,
   completed_time:null, responded_time:null, assigned_time:null, last_updated_time:null,
   first_response_overdue:null, technician:null, requester:null, category:null, sub_category:null,
-  site:null, tech_group:null, mode:null, impact:null, ...o });
+  site:null, tech_group:null, mode:null, impact:null, template:null,
+  ...o });
 
 before(async () => {
   const { app } = require('../server');        // start() guarded → no port bind

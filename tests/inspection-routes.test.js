@@ -1,4 +1,7 @@
 'use strict';
+// Force the sqlite backends: these suites boot the app against throwaway sqlite DBs and must stay
+// green regardless of the dev .env (which points prod-like *_BACKEND=postgres).
+for (const k of ['REPORTS_BACKEND','ASSETS_BACKEND','TRACKER_BACKEND','MEETINGS_BACKEND','INSPECTION_BACKEND']) process.env[k] = 'sqlite';
 
 // Integration smoke for the extracted inspection router (split-server.js pilot).
 // Mounts routes/inspection.js on a real ephemeral express app with stubbed

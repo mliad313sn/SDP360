@@ -1,4 +1,5 @@
 'use strict';
+const fetch = require('./_http-fetch');   // core-http shim — undici keep-alive aborts the process at --test-force-exit on Windows
 // Effort-trend (Progress tab) smoke — the /api/assets/progress/* route block.
 // Boots the express app IN-PROCESS (start() is guarded by require.main → no port bind,
 // so the Zoho/PG boot steps inside start() never run) and asserts the leaderboard,

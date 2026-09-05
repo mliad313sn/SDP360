@@ -1,4 +1,8 @@
 'use strict';
+const fetch = require('./_http-fetch');   // core-http shim — undici keep-alive aborts the process at --test-force-exit on Windows
+// Force the sqlite backends: these suites boot the app against throwaway sqlite DBs and must stay
+// green regardless of the dev .env (which points prod-like *_BACKEND=postgres).
+for (const k of ['REPORTS_BACKEND','ASSETS_BACKEND','TRACKER_BACKEND','MEETINGS_BACKEND','INSPECTION_BACKEND']) process.env[k] = 'sqlite';
 // Task 6 smoke — public Executive View endpoints + admin editorial write.
 // Boots the express app IN-PROCESS (start() is guarded → no port bind) and asserts:
 //   • GET /api/exec/summary → 200 WITHOUT X-Dash-Key (genuinely public), aggregates-only (no PII).
@@ -47,10 +51,10 @@ before(async () => {
   // userHasRole → user_roles) recognises the account.
   const me = (rdb.listUsers() || []).find(u => u.username === process.env.DASH_USER);
   assert.ok(me, 'seeded admin user exists');
-  rdb.setUserRoles(me.id, ['admin']);
+  rdb.setUserRoles(me.id, ['super_admin']);   // the routes under test are super_admin-gated (admin settings → super_admin since 5e2f40e / 2026-08-16; IT Review → executive since 7162ac7)
   const sess = await rdb.login(process.env.DASH_USER, process.env.DASH_PASS);
   assert.ok(sess && sess.token, 'login seeded admin + returned a token');
-  assert.ok(((sess.user && sess.user.roles) || []).includes('admin'), 'session carries admin role');
+  assert.ok(((sess.user && sess.user.roles) || []).includes('super_admin'), 'session carries super_admin role');
   adminToken = sess.token;
   await new Promise(r => { server = http.createServer(app).listen(0, '127.0.0.1', r); });
   base = `http://127.0.0.1:${server.address().port}`;

@@ -1,4 +1,5 @@
 'use strict';
+const fetch = require('./_http-fetch');   // core-http shim — undici keep-alive aborts the process at --test-force-exit on Windows
 // Licence/Finance, Task 5 smoke — the /api/assets/{finance,licences}/* route block.
 // Boots the express app IN-PROCESS (start() is guarded by require.main → no port bind).
 // Finance money is CONVERTED to USD via the xof_usd_rate config (proved: the returned

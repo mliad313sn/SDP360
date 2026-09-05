@@ -1,4 +1,5 @@
 'use strict';
+const fetch = require('./_http-fetch');   // core-http shim — undici keep-alive aborts the process at --test-force-exit on Windows
 // Assets UI-polish Task 0 smoke — /api/assets/inventory gains USD money + owner fields.
 // Boots the express app IN-PROCESS (start() guarded by require.main → no port bind).
 // The reader returns raw XOF strings; the route converts them to USD via the

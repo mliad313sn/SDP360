@@ -1,4 +1,5 @@
 'use strict';
+const fetch = require('./_http-fetch');   // core-http shim — undici keep-alive aborts the process at --test-force-exit on Windows
 // Task 8 smoke — POST /api/reports/send (coordinator) + preview / safety gate / validation.
 // Boots the express app IN-PROCESS (start() is guarded → no port bind).
 //
@@ -40,7 +41,7 @@ before(async () => {
   rdb = require('../reports-db');
   const me = (rdb.listUsers() || []).find(u => u.username === process.env.DASH_USER);
   assert.ok(me, 'seeded admin user exists');
-  rdb.setUserRoles(me.id, ['admin']);
+  rdb.setUserRoles(me.id, ['super_admin']);   // /api/reports/send is super_admin-gated since 5e2f40e (2026-08-16)
   const sess = await rdb.login(process.env.DASH_USER, process.env.DASH_PASS);
   assert.ok(sess && sess.token, 'login seeded admin + returned a token');
   adminToken = sess.token;

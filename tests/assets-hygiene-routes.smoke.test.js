@@ -1,4 +1,5 @@
 'use strict';
+const fetch = require('./_http-fetch');   // core-http shim — undici keep-alive aborts the process at --test-force-exit on Windows
 // Sub-project B, Task 1 smoke — the /api/assets/hygiene/* route block.
 // Boots the express app IN-PROCESS (start() is guarded by require.main → no port bind,
 // so the Zoho/PG boot steps inside start() never run) and asserts the hygiene summary,
@@ -51,7 +52,7 @@ before(async () => {
 
   const me = (rdb.listUsers() || []).find(u => u.username === process.env.DASH_USER);
   assert.ok(me, 'seeded admin user exists');
-  rdb.setUserRoles(me.id, ['admin']);
+  rdb.setUserRoles(me.id, ['super_admin']);   // the routes under test are super_admin-gated (admin settings → super_admin since 5e2f40e / 2026-08-16; IT Review → executive since 7162ac7)
   const sess = await rdb.login(process.env.DASH_USER, process.env.DASH_PASS);
   assert.ok(sess && sess.token, 'login seeded admin + returned a token');
   adminToken = sess.token;
@@ -128,8 +129,19 @@ test('GET /api/assets/hygiene/summary without a session → 401/403 (requireRepo
 // Task 5 — POST send-now with the digest disarmed (default config) must be a
 // clean 200 {sent:0, reason:'disabled'}: the arm gate short-circuits BEFORE any
 // SMTP is attempted, so this asserts no real send.
-test('POST /api/assets/hygiene/send?preview=1 (disarmed) → 200 {sent:0, reason:"disabled"}', async () => {
+// A PREVIEW is never blocked by the arm gate (an admin previews the digest BEFORE arming it —
+// same contract as the asset-group / weekly senders): 200, nothing sent, a subject comes back.
+test('POST /api/assets/hygiene/send?preview=1 (disarmed) → 200 preview, nothing sent', async () => {
   const res = await fetch(base + '/api/assets/hygiene/send?preview=1', { method: 'POST', headers: auth() });
+  assert.equal(res.status, 200, `expected 200, got ${res.status}`);
+  const body = await res.json();
+  assert.equal(body.sent, 0, 'nothing sent in preview');
+  assert.ok(body.preview === true || typeof body.subject === 'string', 'preview payload (preview flag or subject)');
+});
+
+// A real send-now while disarmed short-circuits at the gate BEFORE any SMTP: {sent:0, reason:'disabled'}.
+test('POST /api/assets/hygiene/send (disarmed, no preview) → 200 {sent:0, reason:"disabled"}', async () => {
+  const res = await fetch(base + '/api/assets/hygiene/send?preview=0', { method: 'POST', headers: auth() });
   assert.equal(res.status, 200, `expected 200, got ${res.status}`);
   const body = await res.json();
   assert.equal(body.sent, 0, 'nothing sent while disarmed');

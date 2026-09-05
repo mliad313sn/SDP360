@@ -1,4 +1,5 @@
 'use strict';
+const fetch = require('./_http-fetch');   // core-http shim — undici keep-alive aborts the process at --test-force-exit on Windows
 // Reconciliation routes smoke — the /api/assets/reconcile/* block.
 // Boots the express app IN-PROCESS (start() is guarded by require.main → no port
 // bind). Backends pinned to sqlite. Run with --test-force-exit (top-level cron
