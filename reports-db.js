@@ -3677,6 +3677,22 @@ async function _clearActionMergePg(uid) {
   return { ok: (info.changes || info.rowCount || 0) > 0 };
 }
 
+// Audit 2026-09-05 (F5) — the OWNER of a follow-up, for the write-authorisation
+// check: the report it belongs to + that report's site + status. null when the uid
+// is unknown. Dual-backend (a Promise on pg — await it).
+function getActionItemOwner(uid) {
+  if (REPORTS_BACKEND === 'postgres') return _getActionItemOwnerPg(uid);
+  return db.prepare(`SELECT ai.uid, ai.report_id, wr.site_id, wr.status AS report_status
+                       FROM action_items ai JOIN weekly_reports wr ON wr.id = ai.report_id
+                      WHERE ai.uid = ?`).get(uid) || null;
+}
+async function _getActionItemOwnerPg(uid) {
+  const H = pgHandle();
+  return (await H.prepare(`SELECT ai.uid, ai.report_id, wr.site_id, wr.status AS report_status
+                             FROM action_items ai JOIN weekly_reports wr ON wr.id = ai.report_id
+                            WHERE ai.uid = ?`).get(uid)) || null;
+}
+
 // Per-row status change for a report follow-up, keyed by the stable uid — the
 // hub's inline status control for the Report section (Meetings/Inspection have
 // their own /update endpoints). An UPDATE by uid: it never touches
@@ -8046,7 +8062,7 @@ module.exports = {
   getRoadmapTraining, addRoadmapTraining, updateRoadmapTraining, deleteRoadmapTraining,
   getRoadmapProject, addRoadmapAction, updateRoadmapAction, deleteRoadmapAction,
   addRoadmapResource, updateRoadmapResource, deleteRoadmapResource,
-  setActionMerge, clearActionMerge, setActionStatus, setActionLineage, getSiteOpenReportActions,
+  setActionMerge, clearActionMerge, setActionStatus, setActionLineage, getActionItemOwner, getSiteOpenReportActions,
   getPreviousWeekOpenActions, listAllWeeksWithActions, getActionsForReport,
   listAllWeeksWithLights, getLightsForReport,
   // Action departments (editable dropdown for action items)

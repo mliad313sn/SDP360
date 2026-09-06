@@ -70,14 +70,15 @@ before(async () => {
 });
 after(() => { try { server && server.close(); } catch {} });
 
-test('report with snapshots → wan1 (event-based) + lan fills', async () => {
+test('report with snapshots → wan1 (calibrated % Time Up primary, event-based secondary) + lan fills', async () => {
   const r = await get(`/api/reports/${reportId}/infra-auto`, adminToken);
   assert.equal(r.status, 200);
   assert.ok(Array.isArray(r.body.fills));
   const by = Object.fromEntries(r.body.fills.map(f => [f.match, f]));
   assert.ok(by.wan1, 'wan1 fill present');
-  assert.equal(by.wan1.value, '95.8%', 'event-based: 1h down of the report day → 95.8% (not the loss-derived 99.86)');
-  assert.equal(by.wan1.basis, 'event');
+  assert.equal(by.wan1.value, '99.9%', 'primary = the snapshot % Time Up (99.86 → 99.9%), the SAME figure the WAN Health dashboard shows');
+  assert.equal(by.wan1.basis, 'timeup');
+  assert.equal(by.wan1.event_pct, 95.8, 'the event-based figure (1h down of the report day) is exposed as the secondary event_pct');
   assert.equal(by.wan1.source, 'meraki');
   assert.ok(by.lan, 'lan fill present');
   assert.equal(by.lan.value, '98%');
@@ -118,14 +119,17 @@ test('infra-auto payload carries the site tokens list', async () => {
   assert.ok(r.body.tokens.includes('FETEKRO'), 'tokens includes the configured sub-site');
 });
 
-// Runs last (it unsets the heartbeat): with no poller run, the WAN cell must NOT auto-fill —
-// the report stays blank rather than showing the disqualified loss-derived % or a fabricated one.
-test('poller inactive → NO wan fill (never a fabricated %), lan still fills', async () => {
+// Runs last (it unsets the heartbeat): the % Time Up comes from the snapshot, INDEPENDENT of the
+// poller → the WAN cell still fills (audit 2026-09-06, F9); only the secondary event figure is absent.
+test('poller inactive → wan still fills from the snapshot % Time Up, without event_pct', async () => {
   const rdb = require('../reports-db');
   await require('../services/reportConfig').setConfig(rdb.db, { wan_poll_last_run: '' });
   const r = await get(`/api/reports/${reportId}/infra-auto`, adminToken);
   assert.equal(r.status, 200);
   const by = Object.fromEntries(r.body.fills.map(f => [f.match, f]));
-  assert.ok(!by.wan1, 'no wan fill until the poller has run — the cell stays blank, honest');
+  assert.ok(by.wan1, 'wan fill present (snapshot-based, poller-independent)');
+  assert.equal(by.wan1.value, '99.9%');
+  assert.equal(by.wan1.basis, 'timeup');
+  assert.equal(by.wan1.event_pct, null, 'no event figure without the poller');
   assert.ok(by.lan, 'lan fill still present (OpManager, unaffected by the WAN poller)');
 });

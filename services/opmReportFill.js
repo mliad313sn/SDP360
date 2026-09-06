@@ -34,6 +34,9 @@ function buildFills({ wan = [], infra = [], staleDays = 9, nowMs = Date.now() } 
       value, status_color: r.status_color || 'none', trend: r.trend || null,
       stale: _isStale(r.data_through, staleDays, nowMs), basis: r.basis || null,
       source: 'meraki', data_through: r.data_through || null,
+      // Secondary, informational: the poller's event-based availability for the same week
+      // (null before the poller's first run). The cell VALUE stays the calibrated % Time Up.
+      event_pct: (r.avail_event_pct == null) ? null : _round1(r.avail_event_pct),
     });
   }
   for (const r of infra) {

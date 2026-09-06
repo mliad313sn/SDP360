@@ -2929,7 +2929,13 @@ function _serviceToFill(name) {
 function _infraFillTooltip(f, family, win) {
   const lines = [];
   if (family === 'wan1' || family === 'wan2') {
-    if (f.basis === 'event') {
+    if (f.basis === 'timeup') {
+      // Audit 2026-09-06 (F9): the cell = the calibrated % Time Up — the SAME figure as the WAN Health dashboard.
+      lines.push('Disponibilité WAN « % Time Up » (Meraki) : part des échantillons de la semaine où la perte de paquets est restée < 5 % — règle calibrée le 04/09/2026 sur les valeurs Meraki (écart moyen 0,8 pt). C’est le MÊME chiffre que le dashboard WAN Health.');
+      if (f.event_pct != null) lines.push('Mesure par événement (coupures totales relevées par le collecteur, base SLA) : ' + f.event_pct + ' % — indicatif, non reporté dans la cellule.');
+      else lines.push('Collecteur de coupures pas encore actif — la mesure par événement (base SLA) sera affichée ici quand il aura tourné.');
+      if (win && win.from && win.to) lines.push('Fenêtre : ' + win.from + ' → ' + win.to + ' (semaine du rapport). Pour vérifier dans Meraki sans Custom : ouvre « Past Week » le lendemain de cette semaine = même période.');
+    } else if (f.basis === 'event') {
       lines.push('Disponibilité WAN mesurée par événement : calculée sur le journal des coupures (statut de l’uplink relevé par Meraki toutes les 5 min), sur la semaine du rapport.');
       lines.push('Aligné sur la méthode Meraki : les périodes boîtier hors-ligne (panne site / électricité) sont exclues du dénominateur ; seules les coupures ISP réduisent le chiffre.');
       lines.push('Ce n’est PAS le « % Time Up » officiel du rapport Meraki (non exposé par API) — c’est notre mesure OPS : automatique, opposable, et cohérente avec le dashboard WAN Health.');

@@ -691,6 +691,16 @@ function setMeetingIncubation(id, incubation) {
  * @param {number|null} userId   for audit
  * @returns {{id, reference, created}}
  */
+const _isIncubation = (h) => String((h && h.intake_source) || '') === 'business_incubation';
+// Actions upsert helper (F2, 2026-09-06): the closure stamp for one incoming action row.
+//   terminal status  → keep the existing closed_at if the row already had one, else stamp now
+//   non-terminal     → null (a reopened action is open again — no stale closure survives)
+const _ACTION_TERMINAL = new Set(['resolved', 'cancelled', 'closed']);
+function _actionClosedAt(a, existingClosedAt, nowStr) {
+  if (!_ACTION_TERMINAL.has(String(a.status || 'open'))) return null;
+  return existingClosedAt || nowStr;
+}
+
 function saveMeeting(state, userSiteCode, userId) {
   if (MEETINGS_BACKEND === 'postgres') return _saveMeetingPg(state, userSiteCode, userId);
   if (!state || !state.header) throw new Error('Missing state.header');
@@ -729,13 +739,17 @@ function saveMeeting(state, userSiteCode, userId) {
     // UNDERGROUND vs Mining, SP vs Other_Dept) or whose day-of-month moved
     // (04-01 vs 04-02). Without it, the 2026-06-02 double-import created 9
     // duplicate rows. site_code + department compared case-insensitively.
-    if (!exist && h.site_code && h.department && h.meeting_date) {
+    // Audit 2026-09-05 (F1) / decision 2026-09-06: a Business Incubation session is a DISTINCT
+    // record — it never adopts the department's PV of the same month, and a PV never adopts an
+    // incubation. The month fallback therefore applies to PVs only and only matches PVs.
+    if (!exist && h.site_code && h.department && h.meeting_date && !_isIncubation(h)) {
       const month = String(h.meeting_date).slice(0, 7);
       exist = db.prepare(`
         SELECT * FROM md_meetings
          WHERE site_code = ? COLLATE NOCASE
            AND department = ? COLLATE NOCASE
            AND substr(meeting_date, 1, 7) = ?
+           AND COALESCE(intake_source, '') <> 'business_incubation'
          ORDER BY id LIMIT 1
       `).get(h.site_code, h.department, month);
       if (exist) id = exist.id;
@@ -943,16 +957,29 @@ function saveMeeting(state, userSiteCode, userId) {
     oldIssues.forEach(o => { if (!incomingIds.has(o.id)) db.prepare('DELETE FROM md_issues WHERE id = ?').run(o.id); });
     } // end if (state.issues !== undefined)
 
-    // Actions — same explicit-array contract.
+    // Actions — same explicit-array contract. Audit 2026-09-05 (F2): UPSERT BY ID, never
+    // delete-all + reinsert — an action's id is referenced by its audit trail
+    // (md_action_updates), by report follow-ups (action_items.origin_id) and by the Site
+    // Actions hub, so it must survive every re-save of its PV. Rows carrying a known id are
+    // UPDATEd, rows without one are INSERTed, rows that vanished from the payload are deleted.
     if (state.actions !== undefined) {
-      db.prepare('DELETE FROM md_actions WHERE meeting_id = ?').run(meetingId);
+      const oldActions = db.prepare('SELECT id, closed_at FROM md_actions WHERE meeting_id = ?').all(meetingId);
+      const oldById = new Map(oldActions.map(o => [o.id, o]));
       const insAction = db.prepare(`
         INSERT INTO md_actions
           (meeting_id, ord, description, owner_it, owner_email, target_date, status, linked_issue_id, closed_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
+      const updAction = db.prepare(`
+        UPDATE md_actions
+           SET ord = ?, description = ?, owner_it = ?, owner_email = ?, target_date = ?, status = ?,
+               linked_issue_id = ?, closed_at = ?, updated_at = datetime('now')
+         WHERE id = ? AND meeting_id = ?
+      `);
       // Map linked_issue_ord (1-based ord from the UI) to actual issue id.
       const issuesAfter = db.prepare('SELECT id, ord FROM md_issues WHERE meeting_id = ? ORDER BY ord, id').all(meetingId);
+      const nowStr = new Date().toISOString().replace('T', ' ').slice(0, 19);
+      const keep = new Set();
       (state.actions || []).forEach((a, ix) => {
         if (!a.description) return;
         let linked = null;
@@ -962,11 +989,20 @@ function saveMeeting(state, userSiteCode, userId) {
           const match = issuesAfter[ord - 1];
           if (match) linked = match.id;
         }
-        const terminal = (a.status === 'resolved' || a.status === 'cancelled');
-        const closed_at = terminal ? new Date().toISOString().replace('T',' ').slice(0,19) : null;
-        insAction.run(meetingId, a.ord || ix, a.description, a.owner_it || '', a.owner_email || '',
-          a.target_date || null, a.status || 'open', linked, closed_at);
+        const aid = a.id != null ? parseInt(a.id, 10) : null;
+        const existing = (aid != null && oldById.has(aid)) ? oldById.get(aid) : null;
+        const closed_at = _actionClosedAt(a, existing ? existing.closed_at : null, nowStr);
+        if (existing) {
+          updAction.run(a.ord || ix, a.description, a.owner_it || '', a.owner_email || '',
+            a.target_date || null, a.status || 'open', linked, closed_at, aid, meetingId);
+          keep.add(aid);
+        } else {
+          const r = insAction.run(meetingId, a.ord || ix, a.description, a.owner_it || '', a.owner_email || '',
+            a.target_date || null, a.status || 'open', linked, closed_at);
+          keep.add(Number(r.lastInsertRowid));
+        }
       });
+      oldActions.forEach(o => { if (!keep.has(o.id)) db.prepare('DELETE FROM md_actions WHERE id = ?').run(o.id); });
     }
   });
   tx();
@@ -996,10 +1032,12 @@ async function _saveMeetingPg(state, userSiteCode, userId) {
       exist = await H.prepare('SELECT * FROM md_meetings WHERE lower(reference) = lower(?)').get(incomingRef);
       if (exist) id = exist.id;
     }
-    if (!exist && h.site_code && h.department && h.meeting_date) {
+    // F1 (2026-09-06): PV-only month fallback — see the sqlite fork.
+    if (!exist && h.site_code && h.department && h.meeting_date && !_isIncubation(h)) {
       const month = String(h.meeting_date).slice(0, 7);
       exist = await H.prepare(`SELECT * FROM md_meetings
          WHERE lower(site_code) = lower(?) AND lower(department) = lower(?) AND substr(meeting_date, 1, 7) = ?
+           AND COALESCE(intake_source, '') <> 'business_incubation'
          ORDER BY id LIMIT 1`).get(h.site_code, h.department, month);
       if (exist) id = exist.id;
     }
@@ -1080,20 +1118,33 @@ async function _saveMeetingPg(state, userSiteCode, userId) {
       for (const o of oldIssues) { if (!incoming.has(o.id)) await H.prepare('DELETE FROM md_issues WHERE id = ?').run(o.id); }
     }
     if (state.actions !== undefined) {
-      await H.prepare('DELETE FROM md_actions WHERE meeting_id = ?').run(meetingId);
-      const insAc = H.prepare(`INSERT INTO md_actions (meeting_id, ord, description, owner_it, owner_email, target_date, status, linked_issue_id, closed_at) VALUES (?,?,?,?,?,?,?,?,?)`);
+      // F2 (2026-09-06): upsert by id — mirrors the sqlite fork (ids are load-bearing).
+      const oldActions = await H.prepare('SELECT id, closed_at FROM md_actions WHERE meeting_id = ?').all(meetingId);
+      const oldById = new Map(oldActions.map(o => [Number(o.id), o]));
+      const insAc = H.prepare(`INSERT INTO md_actions (meeting_id, ord, description, owner_it, owner_email, target_date, status, linked_issue_id, closed_at) VALUES (?,?,?,?,?,?,?,?,?) RETURNING id`);
+      const updAc = H.prepare(`UPDATE md_actions SET ord = ?, description = ?, owner_it = ?, owner_email = ?, target_date = ?, status = ?, linked_issue_id = ?, closed_at = ?, updated_at = now() WHERE id = ? AND meeting_id = ?`);
       const issuesAfter = await H.prepare('SELECT id, ord FROM md_issues WHERE meeting_id = ? ORDER BY ord, id').all(meetingId);
+      const nowStr = new Date().toISOString().replace('T', ' ').slice(0, 19);
+      const keep = new Set();
       let ix = 0;
       for (const a of (state.actions || [])) {
         if (!a.description) { ix++; continue; }
         let linked = null;
         if (a.linked_issue_id) linked = a.linked_issue_id;
         else if (a.linked_issue_ord) { const ord = parseInt(a.linked_issue_ord, 10); const m = issuesAfter[ord - 1]; if (m) linked = m.id; }
-        const terminal = (a.status === 'resolved' || a.status === 'cancelled');
-        const closed_at = terminal ? new Date().toISOString().replace('T', ' ').slice(0, 19) : null;
-        await insAc.run(meetingId, a.ord || ix, a.description, a.owner_it || '', a.owner_email || '', a.target_date || null, a.status || 'open', linked, closed_at);
+        const aid = a.id != null ? parseInt(a.id, 10) : null;
+        const existing = (aid != null && oldById.has(aid)) ? oldById.get(aid) : null;
+        const closed_at = _actionClosedAt(a, existing ? existing.closed_at : null, nowStr);
+        if (existing) {
+          await updAc.run(a.ord || ix, a.description, a.owner_it || '', a.owner_email || '', a.target_date || null, a.status || 'open', linked, closed_at, aid, meetingId);
+          keep.add(aid);
+        } else {
+          const r = await insAc.get(meetingId, a.ord || ix, a.description, a.owner_it || '', a.owner_email || '', a.target_date || null, a.status || 'open', linked, closed_at);
+          if (r && r.id != null) keep.add(Number(r.id));
+        }
         ix++;
       }
+      for (const o of oldActions) { if (!keep.has(Number(o.id))) await H.prepare('DELETE FROM md_actions WHERE id = ?').run(o.id); }
     }
   });
   const saved = await H.prepare('SELECT id FROM md_meetings WHERE reference = ?').get(reference);
@@ -1113,10 +1164,12 @@ function addIssueUpdate(issueId, opts = {}) {
     `).run(issueId, opts.author_id || null, opts.author_name || null, opts.body || null,
       opts.status_change || null, opts.escalate_change ?? null);
     if (opts.status_change && opts.status_change !== issue.status) {
+      // F4 (audit 2026-09-05): a non-terminal transition (reopen) CLEARS closed_at — the prior
+      // closure stays in md_issue_updates; the row itself is open again for every reader.
       const terminal = (opts.status_change === 'resolved' || opts.status_change === 'cancelled');
       db.prepare(`
         UPDATE md_issues
-          SET status = ?, closed_at = CASE WHEN ? = 1 THEN datetime('now') ELSE closed_at END,
+          SET status = ?, closed_at = CASE WHEN ? = 1 THEN COALESCE(closed_at, datetime('now')) ELSE NULL END,
               updated_at = datetime('now')
         WHERE id = ?
       `).run(opts.status_change, terminal ? 1 : 0, issueId);
@@ -1201,10 +1254,10 @@ function addActionUpdate(actionId, opts = {}) {
       const terminal = (opts.status_change === 'resolved' || opts.status_change === 'cancelled' || opts.status_change === 'closed');
       db.prepare(`
         UPDATE md_actions
-          SET status = ?, closed_at = CASE WHEN ? = 1 THEN datetime('now') ELSE closed_at END,
+          SET status = ?, closed_at = CASE WHEN ? = 1 THEN COALESCE(closed_at, datetime('now')) ELSE NULL END,
               updated_at = datetime('now')
         WHERE id = ?
-      `).run(opts.status_change, terminal ? 1 : 0, actionId);
+      `).run(opts.status_change, terminal ? 1 : 0, actionId);   // F4: reopen clears closed_at
     }
   });
   tx();
@@ -1297,7 +1350,7 @@ async function _addIssueUpdatePg(issueId, opts = {}) {
       .run(issueId, opts.author_id || null, opts.author_name || null, opts.body || null, opts.status_change || null, opts.escalate_change ?? null);
     if (opts.status_change && opts.status_change !== issue.status) {
       const terminal = (opts.status_change === 'resolved' || opts.status_change === 'cancelled');
-      await H.prepare(`UPDATE md_issues SET status = ?, closed_at = CASE WHEN ? = 1 THEN to_char(now(),'YYYY-MM-DD HH24:MI:SS') ELSE closed_at END, updated_at = now() WHERE id = ?`)
+      await H.prepare(`UPDATE md_issues SET status = ?, closed_at = CASE WHEN ? = 1 THEN COALESCE(closed_at, to_char(now(),'YYYY-MM-DD HH24:MI:SS')) ELSE NULL END, updated_at = now() WHERE id = ?`)
         .run(opts.status_change, terminal ? 1 : 0, issueId);
     }
     if (opts.escalate_change !== null && opts.escalate_change !== undefined && opts.escalate_change !== issue.escalate) {
@@ -1340,7 +1393,7 @@ async function _addActionUpdatePg(actionId, opts = {}) {
       .run(actionId, opts.author_id || null, opts.author_name || null, opts.body || null, opts.status_change || null);
     if (opts.status_change && opts.status_change !== action.status) {
       const terminal = (opts.status_change === 'resolved' || opts.status_change === 'cancelled' || opts.status_change === 'closed');
-      await H.prepare(`UPDATE md_actions SET status = ?, closed_at = CASE WHEN ? = 1 THEN to_char(now(),'YYYY-MM-DD HH24:MI:SS') ELSE closed_at END, updated_at = now() WHERE id = ?`)
+      await H.prepare(`UPDATE md_actions SET status = ?, closed_at = CASE WHEN ? = 1 THEN COALESCE(closed_at, to_char(now(),'YYYY-MM-DD HH24:MI:SS')) ELSE NULL END, updated_at = now() WHERE id = ?`)
         .run(opts.status_change, terminal ? 1 : 0, actionId);
     }
   });

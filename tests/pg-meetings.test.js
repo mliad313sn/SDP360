@@ -126,6 +126,48 @@ test('pg issues/actions: updates + parents + list + escalations', async (t) => {
   } finally { try { await mdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
 });
 
+// ── Audit 2026-09-05 (F1/F2/F4) — pg parity of the integrity fixes ─────────
+test('pg audit parity: action ids survive a re-save, reopen clears closed_at, incubation is a distinct session', async (t) => {
+  const b = await boot(); if (!b) return t.skip('no pg');
+  const { ctx, mdb } = b;
+  try {
+    // F2 — upsert by id: the untouched action keeps its id + audit trail; removed → deleted; new → inserted
+    const r = await mdb.saveMeeting({
+      header: { site_code: 'HGO', department: 'IT', meeting_date: '2026-08-05', status: 'draft', intake_source: 'dept_meeting' },
+      issues: [{ title: 'Standing', category: 'CN', severity: 'HIGH', status: 'open', target_date: '2026-08-02' }],
+      actions: [{ description: 'Keep me', status: 'open' }, { description: 'Drop me', status: 'open' }],
+    }, null, 1);
+    let st = await mdb.getMeeting(r.id);
+    const keepId = st.actions[0].id, dropId = st.actions[1].id;
+    await mdb.addActionUpdate(keepId, { author_name: 'me', body: 'note', status_change: 'in_progress' });
+    st = await mdb.getMeeting(r.id);
+    await mdb.saveMeeting({ id: r.id, header: st.header, issues: st.issues, actions: [st.actions[0], { description: 'New one', status: 'open' }] }, null, 1);
+    const after = await mdb.getMeeting(r.id);
+    const kept = after.actions.find(a => Number(a.id) === Number(keepId));
+    assert.ok(kept, 'action id preserved across the re-save');
+    assert.equal(kept.status, 'in_progress');
+    assert.equal((await mdb.listActionUpdates(keepId)).length, 1, 'its audit trail survived');
+    assert.ok(!after.actions.find(a => Number(a.id) === Number(dropId)), 'removed action deleted');
+    assert.equal(after.actions.length, 2);
+    // F4 — reopen clears closed_at (issue + action)
+    const issueId = after.issues[0].id;
+    await mdb.addIssueUpdate(issueId, { status_change: 'resolved' });
+    assert.ok((await mdb.getMeeting(r.id)).issues[0].closed_at);
+    await mdb.addIssueUpdate(issueId, { status_change: 'open' });
+    assert.equal((await mdb.getMeeting(r.id)).issues[0].closed_at, null, 'issue reopen clears closed_at');
+    await mdb.addActionUpdate(keepId, { status_change: 'closed' });
+    await mdb.addActionUpdate(keepId, { status_change: 'open' });
+    assert.equal((await mdb.getMeeting(r.id)).actions.find(a => Number(a.id) === Number(keepId)).closed_at, null, 'action reopen clears closed_at');
+    // F1 — an incubation in the same site/department/month is a DISTINCT row; a later PV does not adopt it
+    const inc = await mdb.saveMeeting({ header: { reference: 'HGO_IT_INC_2026-08', site_code: 'HGO', department: 'IT', meeting_date: '2026-08-20', status: 'submitted', intake_source: 'business_incubation' }, issues: [], actions: [] }, null, 1);
+    assert.equal(inc.created, true, 'incubation created, not merged into the PV');
+    assert.notEqual(inc.id, r.id);
+    const pv2 = await mdb.saveMeeting({ header: { reference: 'HGO_IT_PV_2026-08_bis', site_code: 'hgo', department: 'it', meeting_date: '2026-08-25', status: 'draft', intake_source: 'dept_meeting' } }, null, 1);
+    assert.equal(pv2.id, r.id, 'the PV month-fallback still dedups PV↔PV');
+    assert.ok((await mdb.getMeeting(r.id)).actions.length === 2, 'header-only PV re-save preserved the actions');
+  } finally { try { await mdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
+});
+
 // ── lookup CRUD + deleteMeeting + resetLookups ──────────────────────────────
 test('pg lookups CRUD + deleteMeeting cascade + resetLookups', async (t) => {
   const b = await boot(); if (!b) return t.skip('no pg');

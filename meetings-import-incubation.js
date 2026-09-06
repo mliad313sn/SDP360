@@ -140,9 +140,10 @@ function parseBuffer(buf, lookups) {
         site_it_lead: row.it_manager || '',
         next_meeting_date: _toIsoDate(row.next_session), next_meeting_location: '',
         status: setMst.has(status) ? status : 'submitted',
-        // the report is signed off by the two managers → stamp both sign-offs
-        dept_head_signed_at: row.incubation_manager ? '1' : null,
-        site_it_signed_at:   row.it_manager ? '1' : null,
+        // Audit 2026-09-05 (F3): a manager NAME in the workbook is a contact, NEVER a signature —
+        // the sign-off stamps stay null; an approval is recorded through the sign flow only.
+        dept_head_signed_at: null,
+        site_it_signed_at:   null,
       },
       incubation: {
         roles: {
@@ -226,7 +227,15 @@ async function commit(parsed, meetingsDb, opts = {}) {
     out.errors.push({ row: 0, msg: `Refusing to commit while ${parsed.errors.length} validation errors are present. Pass force=true to skip bad rows.` });
     return out;
   }
+  // Audit 2026-09-05 (F8): force=true SKIPS every session whose row carries a validation error
+  // (unknown site/department, bad date, duplicate reference…) — it never saves it "anyway".
+  const badRows = new Set((parsed.errors || []).map(e => e.row).filter(r => r > 0));
   for (const m of parsed.sessions) {
+    if (badRows.has(m.__row)) {
+      out.skipped++;
+      out.errors.push({ row: m.__row || 0, msg: `Skipped ${m.header.reference}: row has validation errors` });
+      continue;
+    }
     try {
       const state = { header: m.header, projects: [], issues: m.issues, actions: [], author_name: opts.author_name || 'incubation-import' };
       const result = await meetingsDb.saveMeeting(state, null, opts.userId || null);

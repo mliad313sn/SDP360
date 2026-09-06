@@ -5429,13 +5429,46 @@ app.get('/api/reports/site-actions', requireReportSession, async (req, res) => {
     res.json({ site: code, ...sa });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
+// ── Report-write authorisation (audit 2026-09-05, F5) ────────────────────────
+// A valid session is NOT enough to write a report or one of its follow-ups: the
+// caller must (1) hold the editor role, (2) be scoped to the OBJECT's site — a
+// site-less profile is NOT global, only admin+ is unscoped — and (3) a submitted
+// report is frozen for everyone but super_admin (mirrors the status-revert rule).
+// Returns null when allowed, else {status, error} for the route to send.
+function _reportWriteDenial(user, report, opts = {}) {
+  if (!report) return { status: 404, error: 'Report not found' };
+  if (!rdb.userHasRole(user, 'editor')) return { status: 403, error: 'editor role required' };
+  if (!rdb.userHasRole(user, 'admin')) {
+    if (!user.site_id || user.site_id !== report.site_id) return { status: 403, error: 'Access denied: this report belongs to another site' };
+  }
+  if (!opts.allowSubmitted && report.status === 'submitted' && !rdb.userHasRole(user, 'super_admin')) {
+    return { status: 403, error: 'Report is submitted — only a super_admin can edit it' };
+  }
+  return null;
+}
+async function _authorizeReportWrite(req, res, reportId, opts) {
+  const id = parseInt(reportId, 10);
+  const report = Number.isInteger(id) ? await rdb.getReport(id) : null;
+  const denial = _reportWriteDenial(req.reportUser, report, opts);
+  if (denial) { res.status(denial.status).json({ error: denial.error }); return null; }
+  return report;
+}
+// Same rule for a follow-up addressed by uid: resolve its owning report first.
+async function _authorizeActionWrite(req, res, uid) {
+  const owner = await rdb.getActionItemOwner(String(uid || ''));
+  if (!owner) { res.status(404).json({ error: 'action not found' }); return null; }
+  const denial = _reportWriteDenial(req.reportUser, { site_id: owner.site_id, status: owner.report_status });
+  if (denial) { res.status(denial.status).json({ error: denial.error }); return null; }
+  return owner;
+}
+
 // SP1b — merge a report follow-up into its Meetings/Inspection twin (a reference)
-// / undo. Editor role (matches the report side's posture — no per-site helper).
+// / undo. Editor role + site scope of the owning report (F5).
 // Keyed by the stable action uid; registered ABOVE /api/reports/:id.
 app.post('/api/reports/action/:uid/merge', requireReportSession, async (req, res) => {
   try {
     const rdb = require('./reports-db');
-    if (!rdb.userHasRole(req.reportUser, 'editor')) return res.status(403).json({ error: 'editor role required' });
+    if (!(await _authorizeActionWrite(req, res, req.params.uid))) return;
     const uid = String(req.params.uid || '');
     const source = String((req.body && req.body.source) || '');
     const origin_id = parseInt(req.body && req.body.origin_id, 10);
@@ -5449,7 +5482,7 @@ app.post('/api/reports/action/:uid/merge', requireReportSession, async (req, res
 app.post('/api/reports/action/:uid/unmerge', requireReportSession, async (req, res) => {
   try {
     const rdb = require('./reports-db');
-    if (!rdb.userHasRole(req.reportUser, 'editor')) return res.status(403).json({ error: 'editor role required' });
+    if (!(await _authorizeActionWrite(req, res, req.params.uid))) return;
     const r = await rdb.clearActionMerge(String(req.params.uid || ''));
     if (!r.ok) return res.status(404).json({ error: 'action not found' });
     res.json({ ok: true });
@@ -5460,7 +5493,7 @@ app.post('/api/reports/action/:uid/unmerge', requireReportSession, async (req, r
 app.post('/api/reports/action/:uid/status', requireReportSession, async (req, res) => {
   try {
     const rdb = require('./reports-db');
-    if (!rdb.userHasRole(req.reportUser, 'editor')) return res.status(403).json({ error: 'editor role required' });
+    if (!(await _authorizeActionWrite(req, res, req.params.uid))) return;
     const status = String((req.body && req.body.status) || '');
     if (!['open', 'in_progress', 'on_hold', 'closed', 'cancelled'].includes(status)) {
       return res.status(400).json({ error: 'invalid status' });
@@ -5476,7 +5509,7 @@ app.post('/api/reports/action/:uid/status', requireReportSession, async (req, re
 app.post('/api/reports/action/:uid/relineage', requireReportSession, async (req, res) => {
   try {
     const rdb = require('./reports-db');
-    if (!rdb.userHasRole(req.reportUser, 'editor')) return res.status(403).json({ error: 'editor role required' });
+    if (!(await _authorizeActionWrite(req, res, req.params.uid))) return;
     const lineage = String((req.body && req.body.lineage) || '').trim();
     if (!lineage) return res.status(400).json({ error: 'lineage required' });
     // Optional: also rename the task to unify a merged group's label onto the winner.
@@ -6581,11 +6614,14 @@ app.get('/api/reports/:id/infra-auto', requireReportSession, async (req, res) =>
       ? { from: winFrom, to: winTo, days: Math.round((Date.parse(winTo) - Date.parse(winFrom)) / 86400000) + 1 }
       : null;
 
-    // FAITHFUL WAN availability = event-based (the poller's Meraki uplink-status outage log),
-    // the SAME shared path the WAN Health dashboard uses so the report cell and the dashboard
-    // can never disagree — NOT the disqualified loss-derived snapshot %. Only when the poller
-    // has run (heartbeat wan_poll_last_run); otherwise WAN availability is null → no wan fill
-    // (never a fabricated %). loss/latency quality is unaffected (the report cell shows a %).
+    // WAN availability in the report cell = the snapshot's CALIBRATED "% Time Up" (loss >= 5 % per
+    // sample = down, calibrated against Meraki on 2026-09-04) — the SAME primary figure the WAN
+    // Health dashboard shows, so the cell and the dashboard never disagree (audit 2026-09-05 F9,
+    // decision 2026-09-06). The poller's EVENT-based figure (total-outage minutes, the SLA
+    // instrument) rides along as the secondary `event_pct` when the poller has run — never as
+    // the cell value. An earlier version overwrote the cell with the event figure (or left it
+    // blank before the poller's first run); that made the report disagree with the dashboard.
+    for (const u of wan) { u.avail_event_pct = null; if (u.availability_pct != null) u.basis = 'timeup'; }
     if (wan.length && cfg.wan_poll_last_run) {
       let wanTarget = 98; try { const t = JSON.parse(cfg.opm_targets || '{}'); if (t && t.wan != null) wanTarget = Number(t.wan); } catch (_) {}
       let minFrom = null, maxTo = null;
@@ -6596,11 +6632,11 @@ app.get('/api/reports/:id/infra-auto', requireReportSession, async (req, res) =>
       let outages = [];
       if (minFrom && maxTo) { try { outages = (await rdb.getWanOutagesOverlapping(minFrom, maxTo)) || []; } catch (_) { outages = []; } }
       const wanFirstRunMs = cfg.wan_poll_first_run ? Date.parse(cfg.wan_poll_first_run) : null;
-      require('./services/wanEventAvailability').applyEventAvailability(wan, outages, {
+      // Compute the event figure on CLONES so the snapshot's primary %/colour/trend stay untouched.
+      const clones = wan.map(u => ({ ...u }));
+      require('./services/wanEventAvailability').applyEventAvailability(clones, outages, {
         target: wanTarget, minFromMs: (wanFirstRunMs && Number.isFinite(wanFirstRunMs)) ? wanFirstRunMs : undefined });
-      for (const u of wan) u.trend = null;   // no event-based trend yet — don't show a loss-derived arrow next to an event figure
-    } else {
-      for (const u of wan) { u.availability_pct = null; u.status_color = 'none'; u.basis = 'pending_poller'; }
+      clones.forEach((c, i) => { wan[i].avail_event_pct = (c.availability_pct == null) ? null : c.availability_pct; });
     }
 
     const fills = buildFills({ wan, infra, staleDays, nowMs: Date.now() });
@@ -6630,9 +6666,10 @@ app.delete('/api/reports/:id', requireReportSession, async (req, res) => {
     const id = parseInt(req.params.id);
     const report = await rdb.getReport(id);
     if (!report) return res.status(404).json({ error: 'Report not found' });
-    const isPrivileged = ['admin','super_admin'].includes(req.reportUser.role);
+    const isPrivileged = rdb.userHasRole(req.reportUser, 'admin');
     if (!isPrivileged) {
-      if (req.reportUser.site_id && req.reportUser.site_id !== report.site_id)
+      // F5: a site-less profile is NOT global — deny unless the site matches.
+      if (!rdb.userHasRole(req.reportUser, 'editor') || !req.reportUser.site_id || req.reportUser.site_id !== report.site_id)
         return res.status(403).json({ error: 'Access denied' });
       if (report.status === 'submitted')
         return res.status(403).json({ error: 'Cannot delete a submitted report — ask a super_admin to revert first' });
@@ -6647,6 +6684,7 @@ app.delete('/api/reports/:id', requireReportSession, async (req, res) => {
 app.put('/api/reports/:id/infra', requireReportSession, jsonBody, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
+    if (!(await _authorizeReportWrite(req, res, id))) return;   // F5: role + site + submitted-state
     const kpis = Array.isArray(req.body) ? req.body : [];
     await rdb.saveInfraKpis(id, kpis);
     await rdb.touchReport(id);
@@ -6660,6 +6698,7 @@ app.put('/api/reports/:id/infra', requireReportSession, jsonBody, async (req, re
 app.put('/api/reports/:id/helpdesk', requireReportSession, jsonBody, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
+    if (!(await _authorizeReportWrite(req, res, id))) return;   // F5
     await rdb.saveHelpdeskData(id, req.body || {});
     await rdb.touchReport(id);
     const r = await rdb.getReport(id);
@@ -6672,6 +6711,7 @@ app.put('/api/reports/:id/helpdesk', requireReportSession, jsonBody, async (req,
 app.put('/api/reports/:id/lights', requireReportSession, jsonBody, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
+    if (!(await _authorizeReportWrite(req, res, id))) return;   // F5
     const lights = Array.isArray(req.body) ? req.body : [];
     await rdb.saveLights(id, lights);
     await rdb.touchReport(id);
@@ -6722,6 +6762,7 @@ async function validateActionItems(items) {
 app.put('/api/reports/:id/actions', requireReportSession, jsonBody, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
+    if (!(await _authorizeReportWrite(req, res, id))) return;   // F5
     const items = Array.isArray(req.body) ? req.body : [];
 
     const { errors, cleaned } = await validateActionItems(items);
@@ -6745,9 +6786,11 @@ app.put('/api/reports/:id/status', requireReportSession, jsonBody, async (req, r
     if (!['draft','in_progress','ready','submitted'].includes(status))
       return res.status(400).json({ error: 'status must be draft, in_progress, ready, or submitted' });
 
+    // F5: editor role + site scope (a site-less profile is not global); the submitted
+    // gate below is this route's own (submit is allowed, revert is super_admin-only).
+    const report = await _authorizeReportWrite(req, res, id, { allowSubmitted: true });
+    if (!report) return;
     // Only super_admin may revert a submitted report back to draft
-    const report = await rdb.getReport(id);
-    if (!report) return res.status(404).json({ error: 'Report not found' });
     if (report.status === 'submitted' && status !== 'submitted') {
       if (req.reportUser.role !== 'super_admin')
         return res.status(403).json({ error: 'Only a super_admin can revert a submitted report to draft.' });
@@ -6774,13 +6817,9 @@ app.put('/api/reports/:id/reassign-week', requireReportSession, jsonBody, async 
     if (week < 1 || week > 53)
       return res.status(400).json({ error: 'week must be between 1 and 53' });
 
-    const existing = await rdb.getReport(id);
-    if (!existing) return res.status(404).json({ error: 'Report not found' });
-
-    // Non-admin editors may only touch their own site
-    if (req.reportUser.role !== 'admin' && req.reportUser.site_id &&
-        req.reportUser.site_id !== existing.site_id)
-      return res.status(403).json({ error: 'You can only manage reports for your own site' });
+    // F5: editor role + site scope (site-less ≠ global); any status by design (allowSubmitted).
+    const existing = await _authorizeReportWrite(req, res, id, { allowSubmitted: true });
+    if (!existing) return;
 
     // Ensure the target week row exists in the weeks table (creates it if new)
     const newWeekId = await rdb.ensureWeek(year, week);
