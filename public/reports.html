@@ -4507,6 +4507,13 @@ function collectActions() {
 async function saveSection(n) {
   if (!currentReport) return;
   const id = currentReport.id;
+  // A manual Save supersedes a pending autosave of the same section, and holds the shared
+  // in-flight flag so the debounce cannot fire a SECOND PUT while this one is on the wire
+  // (two concurrent DELETE+INSERT saves doubled every row on PG — Lafigue W36, 2026-09-11;
+  // the server now also locks the report row, this is the client half).
+  clearTimeout(_autoSaveTimers[n]); _autoSaveTimers[n] = null;
+  if (_autoSaveBusy) { setTimeout(() => saveSection(n), 300); return; }   // queue behind the in-flight save (never a parallel PUT)
+  _autoSaveBusy = true;
   setSaving('saving');
   try {
     if (n === 0) {
@@ -4558,6 +4565,8 @@ async function saveSection(n) {
   } catch(e) {
     setSaving('');
     toast('Save failed: ' + e, 'error');
+  } finally {
+    _autoSaveBusy = false;
   }
 }
 

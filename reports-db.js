@@ -828,6 +828,14 @@ const _MERAKI_RENAMES = [
 for (const [siteName, net] of Object.entries(_MERAKI_NETWORK_CODES)) {
   if (_SITE_MODULE_CODES_SEED[siteName]) _SITE_MODULE_CODES_SEED[siteName].meraki = net;
 }
+// V1b-E — Exploration's sub-site WAN lines ("WAN1 FETEKRO") map to their OWN Meraki network.
+// Confirmed from the org's network selector on 2026-09-11 ("Exploration Fetekro"); the
+// sync's normalised match tolerates case/suffix. Add other sub-sites here once their
+// network name is confirmed in Meraki (TANDA sits on "Assafou Dibingano Temp Office").
+// Declared BEFORE the seed block below (const → TDZ otherwise).
+const _WAN_SUBSITE_SEED = {
+  Exploration: { FETEKRO: 'Exploration Fetekro' },
+};
 {
   const upsertCode = db.prepare(
     `INSERT OR IGNORE INTO site_module_codes (site_id, module, code) VALUES (?, ?, ?)`
@@ -847,6 +855,14 @@ for (const [siteName, net] of Object.entries(_MERAKI_NETWORK_CODES)) {
   // won't update). Scoped to module='meraki'; never touches an admin-edited value.
   const renameMeraki = db.prepare(`UPDATE site_module_codes SET code = ? WHERE module = 'meraki' AND code = ?`);
   for (const [oldN, newN] of _MERAKI_RENAMES) renameMeraki.run(newN, oldN);
+  // V1b-E sub-site seed: INSERT OR IGNORE on the (site_id, sub_site) PK → never overrides
+  // a value set through Admin → ⚡ Infra → "Exploration sub-sites".
+  const seedSub = db.prepare(`INSERT OR IGNORE INTO wan_subsite_networks (site_id, sub_site, network) VALUES (?, ?, ?)`);
+  for (const [siteName, subs] of Object.entries(_WAN_SUBSITE_SEED)) {
+    const row = findSite.get(siteName);
+    if (!row) continue;
+    for (const [sub, net] of Object.entries(subs)) seedSub.run(row.id, sub, net);
+  }
 }
 
 // ── 1.B infra_kpi_catalog ─────────────────────────────────────────
@@ -1380,6 +1396,14 @@ async function initPgReports() {            // called once at server boot
     network  TEXT NOT NULL,
     PRIMARY KEY (site_id, sub_site)
   )`);
+  // Same sub-site seed as the sqlite boot; ON CONFLICT DO NOTHING keeps admin-set values.
+  for (const [siteName, subs] of Object.entries(_WAN_SUBSITE_SEED)) {
+    const row = await _pg.prepare('SELECT id FROM sites WHERE lower(name) = lower(?)').get(siteName);
+    if (!row) continue;
+    for (const [sub, net] of Object.entries(subs)) {
+      await _pg.prepare('INSERT INTO wan_subsite_networks (site_id, sub_site, network) VALUES (?, ?, ?) ON CONFLICT (site_id, sub_site) DO NOTHING').run(row.id, sub, net);
+    }
+  }
   // V1b-B — additive recent-vs-window label on infra_metric_snapshots (device availability).
   await _pg.exec(`ALTER TABLE infra_metric_snapshots ADD COLUMN IF NOT EXISTS basis TEXT`);
   return _pg;
@@ -2631,9 +2655,20 @@ const _saveInfraKpisSqlite = db.transaction((report_id, kpis) => {
   const ins = db.prepare(`INSERT INTO infra_kpis (report_id,service,kpi,target,status_value,status_color,trend,sort_order) VALUES (?,?,?,?,?,?,?,?)`);
   kpis.forEach((k, i) => ins.run(report_id, k.service, k.kpi, k.target, k.status_value, k.status_color||'green', k.trend||'stable', i));
 });
+// Serialise the DELETE+INSERT section writers on ONE report (2026-09-11). Under READ
+// COMMITTED two concurrent saves (autosave + manual Save within the 1.5 s debounce) each
+// DELETE the rows they can see, then both INSERT → every row doubled (Lafigue W36: 14 infra
+// KPIs, interleaved WAN1/WAN1/WAN2/WAN2 because both sets carried sort_order 0..6). Locking
+// the parent row makes the second transaction wait for the first's COMMIT and then see its
+// inserts. Sqlite needs nothing: better-sqlite3 transactions are serialised. A missing
+// report is a no-op lock (the caller has already 404'd through _authorizeReportWrite).
+async function _lockReportRowPg(H, report_id) {
+  await H.prepare('SELECT id FROM weekly_reports WHERE id=? FOR UPDATE').get(report_id);
+}
 async function _saveInfraKpisPg(report_id, kpis) {
   const H = pgHandle();
   await H.runTransaction(async () => {
+    await _lockReportRowPg(H, report_id);
     await H.prepare('DELETE FROM infra_kpis WHERE report_id=?').run(report_id);
     let i = 0;
     for (const k of (kpis || [])) {
@@ -3302,6 +3337,7 @@ const _saveLightsSqlite = db.transaction((report_id, lights) => {
 async function _saveLightsPg(report_id, lights) {
   const H = pgHandle();
   await H.runTransaction(async () => {
+    await _lockReportRowPg(H, report_id);   // see _saveInfraKpisPg — concurrent-save race
     await H.prepare('DELETE FROM lights WHERE report_id=?').run(report_id);
     let i = 0;
     for (const l of (lights || [])) {
@@ -3632,6 +3668,7 @@ async function _saveActionItemsPg(report_id, items) {
   items = items || [];
   const H = pgHandle();
   await H.runTransaction(async () => {
+    await _lockReportRowPg(H, report_id);   // see _saveInfraKpisPg — concurrent-save race
     const keep = items.filter(a => a.uid).map(a => a.uid);
     if (keep.length) {
       await H.prepare(`DELETE FROM action_items WHERE report_id=? AND uid NOT IN (${keep.map(() => '?').join(',')})`).run(report_id, ...keep);

@@ -122,6 +122,32 @@ test('reports pg: infra/helpdesk/lights/actions save + read + carry-over', async
   } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
 });
 
+// 2026-09-11 — Lafigue W36 showed every Infrastructure KPI twice (WAN1/WAN1/WAN2/WAN2…):
+// an autosave and a manual Save raced within the 1.5 s debounce; under READ COMMITTED each
+// DELETE saw only the old rows, then both INSERTed. The writers now lock the report row
+// (SELECT … FOR UPDATE) so concurrent saves serialise. Reproduced (14/4/4) and fixed (7/2/2)
+// against the dev sdp_dashboard PG with the same parallel pattern before this test existed.
+test('reports pg: concurrent section saves never double the rows (row lock)', async (t) => {
+  const b = await boot(); if (!b) return t.skip('no pg');
+  const { ctx, rdb, siteId } = b;
+  try {
+    const r = await rdb.ensureReport(siteId, 2026, 23);
+    const kpis = ['WAN1','WAN2','LAN','WLAN','Servers','Backup','Radio'].map(s => ({ service:s, kpi:'Uptime', target:'98%', status_value:'99%', status_color:'green', trend:'stable' }));
+    const lights = [{ type:'low_light', content:'L1' }, { type:'high_light', content:'H1' }];
+    const actions = [{ task:'A1', department:'IT', status:'open' }, { task:'A2', department:'IT', status:'open' }];
+    for (let i = 0; i < 10; i++) {
+      await Promise.all([rdb.saveInfraKpis(r.id, kpis), rdb.saveInfraKpis(r.id, kpis)]);
+      await Promise.all([rdb.saveLights(r.id, lights), rdb.saveLights(r.id, lights)]);
+      await Promise.all([rdb.saveActionItems(r.id, actions), rdb.saveActionItems(r.id, actions)]);
+      const full = await rdb.getReport(r.id);
+      assert.equal(full.infra_kpis.length, 7, `round ${i}: infra rows doubled`);
+      assert.equal(full.lights.length, 2, `round ${i}: lights doubled`);
+      assert.equal(full.action_items.length, 2, `round ${i}: action rows doubled`);
+      await rdb.saveActionItems(r.id, []);   // new uid-less rows each round → reset
+    }
+  } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
+});
+
 test('reports pg: deleteReport cascade + getWeekSummaryData', async (t) => {
   const b = await boot(); if (!b) return t.skip('no pg');
   const { ctx, rdb, siteId } = b;
