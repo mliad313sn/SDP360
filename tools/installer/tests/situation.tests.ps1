@@ -7,6 +7,8 @@ $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 # removed at the end (try/catch, non-fatal if a handle is still open).
 $script:TestTempDirs = @()
 
+try {
+
 # Fixture: a fake bundle with version.json + payload\app.zip carrying package-lock.json
 function New-Bundle([string]$version, [string]$lockText) {
     $b = New-TempDir 'sdp-bundle'; $script:TestTempDirs += $b
@@ -107,8 +109,10 @@ Assert-True (($s.verdict.notes -join ' ') -match 'Upgrade recommended') 'note me
 
 Write-Host ("situation.tests: " + $script:AssertCount + " assertions ok")
 
-foreach ($d in $script:TestTempDirs) {
-    try { if (Test-Path $d) { Remove-Item -Path $d -Recurse -Force -ErrorAction SilentlyContinue } } catch { }
+} finally {
+    foreach ($d in $script:TestTempDirs) {
+        try { if (Test-Path $d) { Remove-Item -Path $d -Recurse -Force -ErrorAction SilentlyContinue } } catch { }
+    }
 }
 
 exit 0
