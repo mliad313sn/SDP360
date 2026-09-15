@@ -18,13 +18,13 @@ if (-not $OutFile) { $OutFile = Join-Path $env:TEMP 'sdp-situation.json' }
 try {
     $cfg = Import-PowerShellDataFile (Join-Path $here 'config.psd1')
 } catch { $cfg = @{} }
-if ($Config) {
-    $ovPath = if (Test-Path $Config) { $Config } else { Join-Path $here $Config }
-    try { $ov = Import-PowerShellDataFile $ovPath; foreach ($k in $ov.Keys) { $cfg[$k] = $ov[$k] } } catch { }
-}
-foreach ($k in @('InstallDir', 'ServiceName', 'AppPort', 'BackupDir')) { if (-not $cfg.ContainsKey($k)) { $cfg[$k] = @{ InstallDir = 'C:\Apps\SDP-Dashboard'; ServiceName = 'endeavour-dashboard'; AppPort = 3456; BackupDir = '..\SDP-Backups' }[$k] } }
-. (Join-Path $here 'SdpSituation.ps1')
 try {
+    if ($Config) {
+        $ovPath = if (Test-Path $Config) { $Config } else { Join-Path $here $Config }
+        try { $ov = Import-PowerShellDataFile $ovPath; foreach ($k in $ov.Keys) { $cfg[$k] = $ov[$k] } } catch { }
+    }
+    foreach ($k in @('InstallDir', 'ServiceName', 'AppPort', 'BackupDir')) { if (-not $cfg.ContainsKey($k)) { $cfg[$k] = @{ InstallDir = 'C:\Apps\SDP-Dashboard'; ServiceName = 'endeavour-dashboard'; AppPort = 3456; BackupDir = '..\SDP-Backups' }[$k] } }
+    . (Join-Path $here 'SdpSituation.ps1')
     $s = Get-SdpSituation $cfg $BundleRoot
     ($s | ConvertTo-Json -Depth 8) | Set-Content -Path $OutFile -Encoding ascii
     $b = { param($v) if ($v) { '1' } else { '0' } }
@@ -38,7 +38,9 @@ try {
 } catch {
     # Always leave a readable JSON behind so Show-Situation never reads a stale file.
     $err = ($_.Exception.Message -replace '[\r\n]', ' ')
-    $minimal = @{ install = @{ dir = $cfg.InstallDir; has_server_js = $false; has_env = $false }; runtime = @{}; db = @{ reachable = $false; error = $err }
+    $installDir = 'C:\Apps\SDP-Dashboard'
+    if ($cfg -and $cfg.ContainsKey('InstallDir') -and $cfg.InstallDir) { $installDir = $cfg.InstallDir }
+    $minimal = @{ install = @{ dir = $installDir; has_server_js = $false; has_env = $false }; runtime = @{}; db = @{ reachable = $false; error = $err }
                   backups = @{ dir = $null; count = 0 }; bundle = @{}; disk = @{}; verdict = @{ state = 'unknown'; recommended = $null; downgrade = $false; notes = @('detection failed: ' + $err) } }
     try { ($minimal | ConvertTo-Json -Depth 6) | Set-Content -Path $OutFile -Encoding ascii } catch { }
     Write-Output 'STATE=unknown'; Write-Output 'RECOMMENDED=none'; Write-Output 'DOWNGRADE=0'; Write-Output 'DB_REACHABLE=0'; Write-Output 'HAS_SERVER=0'
