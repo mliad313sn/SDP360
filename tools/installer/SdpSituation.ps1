@@ -5,29 +5,36 @@
 # Never throws: every probe is try/catch -> $null. KEEP PURE ASCII.
 # =====================================================================
 $script:SdpCountTables = @('sites', 'weekly_reports', 'md_meetings', 'insp_inspections', 'users', 'assets')
+$script:SdpPgRoots = @('C:\Program Files\PostgreSQL', 'C:\Program Files (x86)\PostgreSQL')
 
 function Get-SdpEnvValue([string]$installDir, [string]$key) {
     $envFile = Join-Path $installDir '.env'
     if (-not (Test-Path $envFile)) { return $null }
     $m = Select-String -Path $envFile -Pattern ('^' + $key + '=(.+)$') | Select-Object -First 1
-    if ($m) { return $m.Matches[0].Groups[1].Value.Trim() } else { return $null }
+    if ($m) { return $m.Matches[0].Groups[1].Value.Trim().Trim('"') } else { return $null }
 }
 
+# Never throws: roots are injectable via $script:SdpPgRoots (tests override it),
+# the version-folder sort uses a safe numeric key (non-numeric names sort last,
+# never crash), and the whole body is wrapped so any surprise still yields $null.
 function Find-SdpPsql {
-    foreach ($root in @('C:\Program Files\PostgreSQL', 'C:\Program Files (x86)\PostgreSQL')) {
-        if (Test-Path $root) {
-            foreach ($v in (Get-ChildItem $root -Directory | Sort-Object { [double]$_.Name } -Descending)) {
-                $p = Join-Path $v.FullName 'bin\psql.exe'
-                if (Test-Path $p) { return $p }
+    try {
+        foreach ($root in $script:SdpPgRoots) {
+            if (Test-Path $root) {
+                foreach ($v in (Get-ChildItem $root -Directory -ErrorAction SilentlyContinue | Sort-Object { $val = 0.0; if ([double]::TryParse($_.Name, [ref]$val)) { $val } else { -1 } } -Descending)) {
+                    $p = Join-Path $v.FullName 'bin\psql.exe'
+                    if (Test-Path $p) { return $p }
+                }
             }
         }
-    }
-    return $null
+        return $null
+    } catch { return $null }
 }
 
 # Exact counts of the core tables + DB size, as the APP role from PG_URL.
 # One psql session fed on stdin; a missing table yields null for that table
-# (undefined_table is caught inside the DO block), never a failed query.
+# (undefined_table / insufficient_privilege are caught inside the DO block),
+# never a failed query. LC_MESSAGES=C keeps any psql error text pure ASCII.
 function Get-SdpDbCounts([string]$installDir) {
     $r = @{ reachable = $false; counts = $null; size_mb = $null; error = $null; db = $null }
     $url = Get-SdpEnvValue $installDir 'PG_URL'
@@ -47,21 +54,21 @@ SET statement_timeout = 10000;
 CREATE TEMP TABLE _sdp_counts(t text, n bigint);
 DO `$`$ DECLARE r text; c bigint; BEGIN
   FOREACH r IN ARRAY ARRAY[$tables] LOOP
-    BEGIN EXECUTE format('SELECT count(*) FROM %I', r) INTO c; EXCEPTION WHEN undefined_table THEN c := NULL; END;
+    BEGIN EXECUTE format('SELECT count(*) FROM %I', r) INTO c; EXCEPTION WHEN undefined_table OR insufficient_privilege THEN c := NULL; END;
     INSERT INTO _sdp_counts VALUES (r, c);
   END LOOP; END `$`$;
 SELECT t || '=' || COALESCE(n::text, 'null') FROM _sdp_counts ORDER BY t;
 SELECT 'size_mb=' || round(pg_database_size(current_database()) / 1048576.0, 1);
 "@
     $old = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
-    $env:PGPASSWORD = $pw; $env:PGCONNECT_TIMEOUT = '10'
+    $env:PGPASSWORD = $pw; $env:PGCONNECT_TIMEOUT = '10'; $env:LC_MESSAGES = 'C'
     try {
-        $out = ($sql | & $psql -h $pgHost -p $pgPort -U $user -d $db -w -t -A -v ON_ERROR_STOP=1 -f - 2>&1)
+        $out = ($sql | & $psql -h $pgHost -p $pgPort -U $user -d $db -w -q -t -A -v ON_ERROR_STOP=1 -f - 2>&1)
         $code = $LASTEXITCODE
-    } finally { $ErrorActionPreference = $old; $env:PGPASSWORD = ''; $env:PGCONNECT_TIMEOUT = '' }
+    } finally { $ErrorActionPreference = $old; $env:PGPASSWORD = ''; $env:PGCONNECT_TIMEOUT = ''; $env:LC_MESSAGES = '' }
     $lines = @($out | ForEach-Object { "$_" } | Where-Object { $_ -match '^[a-z_]+=' })
     if ($code -ne 0 -or $lines.Count -eq 0) {
-        $r.error = ((($out | ForEach-Object { "$_" }) -join ' ').Trim()); if (-not $r.error) { $r.error = 'psql exit ' + $code }
+        $r.error = ((($out | ForEach-Object { "$_" }) -join ' ').Trim() -replace '\s+', ' '); if (-not $r.error) { $r.error = 'psql exit ' + $code }
         return $r
     }
     $counts = @{}
@@ -80,6 +87,8 @@ function Get-SdpFileSha256([string]$path) {
 }
 
 # SHA-256 of the installed package-lock.json vs the one INSIDE payload\app.zip.
+# Prefers the ROOT entry (package-lock.json at the zip root); falls back to a
+# nested match for bundles that stage it under a sub-folder.
 # $true / $false / $null (either side missing).
 function Get-SdpLockfileMatch([string]$installDir, [string]$bundleRoot) {
     $local = Get-SdpFileSha256 (Join-Path $installDir 'package-lock.json')
@@ -90,7 +99,8 @@ function Get-SdpLockfileMatch([string]$installDir, [string]$bundleRoot) {
         Add-Type -AssemblyName System.IO.Compression.FileSystem
         $zip = [System.IO.Compression.ZipFile]::OpenRead($zipPath)
         try {
-            $entry = $zip.Entries | Where-Object { $_.FullName -match '(^|/)package-lock\.json$' } | Select-Object -First 1
+            $entry = $zip.Entries | Where-Object { $_.FullName -eq 'package-lock.json' } | Select-Object -First 1
+            if (-not $entry) { $entry = $zip.Entries | Where-Object { $_.FullName -match '(^|/)package-lock\.json$' } | Select-Object -First 1 }
             if (-not $entry) { return $null }
             $sha = [System.Security.Cryptography.SHA256]::Create()
             $s = $entry.Open()
@@ -105,17 +115,21 @@ function Get-SdpJsonVersion([string]$path) {
     try { return ((Get-Content $path -Raw | ConvertFrom-Json).version) } catch { return $null }
 }
 
-function Get-SdpPm2State([string]$svcName) {
+# $jlist (parsed `pm2 jlist`) is optional: pass it in when the caller already
+# fetched it (Get-SdpSituation does, once); omit it (or pass $null) and this
+# function fetches its own, so the signature keeps working standalone.
+function Get-SdpPm2State([string]$svcName, $jlist = $null) {
     $pm2 = Get-Command pm2 -ErrorAction SilentlyContinue
     if (-not $pm2) { return 'absent' }
     try {
-        $jl = (cmd /c 'pm2 jlist 2>nul' | Out-String | ConvertFrom-Json)
-        foreach ($p in $jl) { if ($p.name -eq $svcName) { return $p.pm2_env.status } }
+        if ($null -eq $jlist) { $jlist = (cmd /c 'pm2 jlist 2>nul' | Out-String | ConvertFrom-Json) }
+        foreach ($p in $jlist) { if ($p.name -eq $svcName) { return $p.pm2_env.status } }
     } catch { }
     return 'absent'
 }
 
-function Get-SdpPortOwner([int]$port, [string]$svcName, [string]$installDir) {
+# Same $jlist convention as Get-SdpPm2State (see above).
+function Get-SdpPortOwner([int]$port, [string]$svcName, [string]$installDir, $jlist = $null) {
     $pids = @()
     try {
         $lines = netstat -ano -p tcp | Select-String (':' + $port + '\s+.*LISTENING\s+(\d+)')
@@ -123,8 +137,8 @@ function Get-SdpPortOwner([int]$port, [string]$svcName, [string]$installDir) {
     } catch { }
     if ($pids.Count -eq 0) { return 'free' }
     try {
-        $jl = (cmd /c 'pm2 jlist 2>nul' | Out-String | ConvertFrom-Json)
-        foreach ($p in $jl) { if ($p.name -eq $svcName -and $pids -contains [int]$p.pid) { return 'ours' } }
+        if ($null -eq $jlist) { $jlist = (cmd /c 'pm2 jlist 2>nul' | Out-String | ConvertFrom-Json) }
+        foreach ($p in $jlist) { if ($p.name -eq $svcName -and $pids -contains [int]$p.pid) { return 'ours' } }
     } catch { }
     $pidFile = Join-Path $installDir '.sdp-node.pid'
     if (Test-Path $pidFile) { try { if ($pids -contains [int](Get-Content $pidFile | Select-Object -First 1)) { return 'ours' } } catch { } }
@@ -133,40 +147,69 @@ function Get-SdpPortOwner([int]$port, [string]$svcName, [string]$installDir) {
 
 # The one situation object. $cfg = merged config hashtable (InstallDir, ServiceName,
 # AppPort, BackupDir ...). $bundleRoot = folder holding version.json + payload\.
+# Each probe group is its own try/catch: a failing probe degrades to its null/
+# default shape instead of aborting the whole situation read, and the verdict
+# is computed from whatever survived.
 function Get-SdpSituation($cfg, [string]$bundleRoot) {
     $dir = [string]$cfg.InstallDir
     $backupDir = try { [System.IO.Path]::GetFullPath((Join-Path $dir $cfg.BackupDir)) } catch { $null }
-    $install = @{
-        dir = $dir; exists = (Test-Path $dir)
-        has_server_js = (Test-Path (Join-Path $dir 'server.js'))
-        version = (Get-SdpJsonVersion (Join-Path $dir 'version.json'))
-        has_env = (Test-Path (Join-Path $dir '.env'))
-        has_node_modules = (Test-Path (Join-Path $dir 'node_modules'))
-        has_data_dir = (Test-Path (Join-Path $dir 'data'))
-    }
-    $nodeVer = $null; try { $nodeVer = (& node -v 2>$null) } catch { }
-    $runtime = @{
-        pm2_process = (Get-SdpPm2State $cfg.ServiceName)
-        port_owner = (Get-SdpPortOwner ([int]$cfg.AppPort) $cfg.ServiceName $dir)
-        node_version = $nodeVer
-    }
+
+    $install = $null
+    try {
+        $install = @{
+            dir = $dir; exists = (Test-Path $dir)
+            has_server_js = (Test-Path (Join-Path $dir 'server.js'))
+            version = (Get-SdpJsonVersion (Join-Path $dir 'version.json'))
+            has_env = (Test-Path (Join-Path $dir '.env'))
+            has_node_modules = (Test-Path (Join-Path $dir 'node_modules'))
+            has_data_dir = (Test-Path (Join-Path $dir 'data'))
+        }
+    } catch { }
+    if (-not $install) { $install = @{ dir = $dir; exists = $false; has_server_js = $false; version = $null; has_env = $false; has_node_modules = $false; has_data_dir = $false } }
+
+    $runtime = $null
+    try {
+        $nodeVer = $null; try { $nodeVer = (& node -v 2>$null) } catch { }
+        $pm2List = $null
+        try { $pm2List = (cmd /c 'pm2 jlist 2>nul' | Out-String | ConvertFrom-Json) } catch { }
+        $runtime = @{
+            pm2_process = (Get-SdpPm2State $cfg.ServiceName $pm2List)
+            port_owner = (Get-SdpPortOwner ([int]$cfg.AppPort) $cfg.ServiceName $dir $pm2List)
+            node_version = $nodeVer
+        }
+    } catch { }
+    if (-not $runtime) { $runtime = @{ pm2_process = 'absent'; port_owner = 'free'; node_version = $null } }
+
     $db = @{ reachable = $false; exists = $false; size_mb = $null; counts = $null; error = 'no install' }
-    if ($install.has_env) { $db = Get-SdpDbCounts $dir; $db.exists = $db.reachable }
+    try {
+        if ($install.has_env) { $db = Get-SdpDbCounts $dir; $db.exists = $db.reachable }
+    } catch { $db = @{ reachable = $false; exists = $false; size_mb = $null; counts = $null; error = 'probe failed' } }
+
     $backups = @{ dir = $backupDir; last_full = $null; last_db = $null; count = 0 }
-    if ($backupDir -and (Test-Path $backupDir)) {
-        $full = Get-ChildItem $backupDir -Filter 'sdp-restore_*.zip' -File | Sort-Object LastWriteTime -Descending
-        $dbo  = Get-ChildItem $backupDir -Filter 'sdp-db_*.sql' -File | Sort-Object LastWriteTime -Descending
-        $backups.count = @($full).Count + @($dbo).Count
-        if ($full) { $f = $full[0]; $backups.last_full = @{ name = $f.Name; age_hours = [math]::Round(((Get-Date) - $f.LastWriteTime).TotalHours, 1); size_mb = [math]::Round($f.Length / 1MB, 1) } }
-        if ($dbo)  { $f = $dbo[0];  $backups.last_db   = @{ name = $f.Name; age_hours = [math]::Round(((Get-Date) - $f.LastWriteTime).TotalHours, 1); size_mb = [math]::Round($f.Length / 1MB, 1) } }
-    }
-    $bv = $null; $sha = $null
-    $bvPath = Join-Path $bundleRoot 'version.json'
-    if (Test-Path $bvPath) { try { $o = Get-Content $bvPath -Raw | ConvertFrom-Json; $bv = $o.version; $sha = $o.sha } catch { } }
-    $bundle = @{ version = $bv; sha = $sha; lockfile_same_as_installed = (Get-SdpLockfileMatch $dir $bundleRoot) }
-    $free = $null
-    try { $drive = [System.IO.Path]::GetPathRoot([System.IO.Path]::GetFullPath($dir)); $free = [math]::Round((New-Object System.IO.DriveInfo($drive)).AvailableFreeSpace / 1GB, 1) } catch { }
-    $disk = @{ free_gb = $free }
+    try {
+        if ($backupDir -and (Test-Path $backupDir)) {
+            $full = Get-ChildItem $backupDir -Filter 'sdp-restore_*.zip' -File -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending
+            $dbo  = Get-ChildItem $backupDir -Filter 'sdp-db_*.sql' -File -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending
+            $backups.count = @($full).Count + @($dbo).Count
+            if ($full) { $f = $full[0]; $backups.last_full = @{ name = $f.Name; age_hours = [math]::Round(((Get-Date) - $f.LastWriteTime).TotalHours, 1); size_mb = [math]::Round($f.Length / 1MB, 1) } }
+            if ($dbo)  { $f = $dbo[0];  $backups.last_db   = @{ name = $f.Name; age_hours = [math]::Round(((Get-Date) - $f.LastWriteTime).TotalHours, 1); size_mb = [math]::Round($f.Length / 1MB, 1) } }
+        }
+    } catch { }
+
+    $bundle = $null
+    try {
+        $bv = $null; $sha = $null
+        $bvPath = Join-Path $bundleRoot 'version.json'
+        if (Test-Path $bvPath) { try { $o = Get-Content $bvPath -Raw | ConvertFrom-Json; $bv = $o.version; $sha = $o.sha } catch { } }
+        $bundle = @{ version = $bv; sha = $sha; lockfile_same_as_installed = (Get-SdpLockfileMatch $dir $bundleRoot) }
+    } catch { }
+    if (-not $bundle) { $bundle = @{ version = $null; sha = $null; lockfile_same_as_installed = $null } }
+
+    $disk = @{ free_gb = $null }
+    try {
+        $drive = [System.IO.Path]::GetPathRoot([System.IO.Path]::GetFullPath($dir)); $free = [math]::Round((New-Object System.IO.DriveInfo($drive)).AvailableFreeSpace / 1GB, 1)
+        $disk = @{ free_gb = $free }
+    } catch { }
 
     # ---- verdict ----
     $notes = @()
@@ -188,10 +231,10 @@ function Get-SdpSituation($cfg, [string]$bundleRoot) {
     if ($state -eq 'installed' -and -not $db.reachable) { $notes += ('database not reachable - counts unavailable, data check will be skipped (' + $db.error + ')') }
     if ($state -eq 'installed' -and $bundle.lockfile_same_as_installed -eq $null) { $notes += 'node_modules change unknown (lockfile missing on one side) - Upgrade recommended to be safe' }
     $downgrade = $false
-    if ($bv -and $install.version) {
+    if ($bundle.version -and $install.version) {
         $pv = $null; $pi = $null
-        if ([version]::TryParse(($bv -replace '^v', ''), [ref]$pv) -and [version]::TryParse(($install.version -replace '^v', ''), [ref]$pi)) {
-            if ($pv -lt $pi) { $downgrade = $true; $notes += ('bundle ' + $bv + ' is OLDER than the installed ' + $install.version + ' - use a newer bundle') }
+        if ([version]::TryParse(($bundle.version -replace '^v', ''), [ref]$pv) -and [version]::TryParse(($install.version -replace '^v', ''), [ref]$pi)) {
+            if ($pv -lt $pi) { $downgrade = $true; $notes += ('bundle ' + $bundle.version + ' is OLDER than the installed ' + $install.version + ' - use a newer bundle') }
         } else { $notes += 'version strings are not numeric - downgrade check skipped' }
     }
     if ($backups.last_full -and $backups.last_full.age_hours -gt 168) { $notes += ('last full restore point is ' + [math]::Round($backups.last_full.age_hours / 24) + ' days old') }
