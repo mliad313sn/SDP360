@@ -17,9 +17,19 @@ function Red([string]$t)  { Write-Host $t -ForegroundColor White -BackgroundColo
 function Line([string]$t) { Write-Host $t -ForegroundColor Gray }
 function Warn([string]$t) { Write-Host $t -ForegroundColor Yellow }
 function Refuse([string]$why) { Write-Host ''; Write-Host ('  REFUSED: ' + $why) -ForegroundColor Red; exit 1 }
+function OrQ($v) { if ($null -eq $v) { '?' } else { $v } }
+
+# Safety net: any unexpected terminating error becomes a clean refusal
+# (exit 1, "REFUSED: ...") instead of a raw .NET stack trace on an operator's
+# screen. Errors we anticipate are still caught locally (see below) so they
+# get a specific message; this is the catch-all for everything else.
+trap { Refuse ('unexpected error: ' + (($_.Exception.Message) -replace '[\r\n]+', ' ')) }
 
 if (-not (Test-Path $Situation)) { Refuse "situation file not found: $Situation" }
-$s = Get-Content $Situation -Raw | ConvertFrom-Json
+$raw = Get-Content $Situation -Raw -ErrorAction SilentlyContinue
+if ([string]::IsNullOrWhiteSpace($raw)) { Refuse 'situation file empty or unreadable' }
+try { $s = $raw | ConvertFrom-Json } catch { Refuse 'situation file empty or unreadable' }
+if ($null -eq $s -or -not $s.install) { Refuse 'situation file has no installation data - rerun detection' }
 $dbName = if ($s.db -and $s.db.db) { $s.db.db } else { 'sdp_dashboard' }
 
 # ---- per-action facts -------------------------------------------------------
@@ -43,16 +53,25 @@ switch ($Action) {
     }
     'restore' {
         if (-not $Target) { Refuse 'restore needs -Target <restore point file name>' }
+        if ($Target -match '[\\/]') { Refuse 'restore point name must be a file name, not a path' }
+        if (-not $s.backups -or -not $s.backups.dir) { Refuse 'backup folder unknown' }
         if ($Target -match '\.sql$') { Refuse ($Target + ' is a DB-only dump; only sdp-restore_*.zip restore points can be restored from the menu.') }
         if ($Target -notmatch '\.zip$') { $Target = $Target + '.zip' }   # same tolerance as Manage-SDP -Restore -Name
         $zip = Join-Path $s.backups.dir $Target
         if (-not (Test-Path $zip)) { Refuse ('restore point not found: ' + $zip) }
         Add-Type -AssemblyName System.IO.Compression.FileSystem
-        $z = [System.IO.Compression.ZipFile]::OpenRead($zip)
+        try { $z = [System.IO.Compression.ZipFile]::OpenRead($zip) } catch { Refuse 'restore point unreadable (corrupt or locked)' }
         try { $names = @($z.Entries | ForEach-Object { $_.FullName }) } finally { $z.Dispose() }
         $hasCode = ($names -contains 'server.js'); $hasEnv = ($names -contains '.env')
         $hasData = (($names | Where-Object { $_ -like 'data/*' -or $_ -like 'data\*' }).Count -gt 0)
-        $hasDump = (($names | Where-Object { $_ -match '\.sql$' }).Count -gt 0)
+        # ROOT entry only. A real restore point is a full copy of the install
+        # dir, so it always contains repo files that happen to end in .sql
+        # (db\postgres\...\NNN_init.sql) - "any .sql anywhere" would false-
+        # positive on every restore point. sdp_dashboard.sql AT THE ROOT is
+        # exactly what Manage-SDP.ps1's 'restore' action looks for
+        # ($dump = Join-Path $InstallDir 'sdp_dashboard.sql') - match that
+        # same rule here so the screen agrees with what actually happens.
+        $hasDump = ($names -contains 'sdp_dashboard.sql')
         $contents = @(); if ($hasCode) { $contents += 'code' }; if ($hasEnv) { $contents += '.env' }; if ($hasData) { $contents += 'data' }; if ($hasDump) { $contents += 'DB dump' }
         $when = (Get-Item $zip).LastWriteTime.ToString('yyyy-MM-dd HH:mm')
         $what = 'Overwrite the CURRENT ' + (($contents) -join ' + ') + ' with restore point ' + $Target + ' (created ' + $when + ').' + $(if ($hasDump) { ' The database is DROPPED and reloaded from the dump.' } else { ' No database change (no dump inside).' })
@@ -63,9 +82,10 @@ switch ($Action) {
 
 # ---- the screen ---------------------------------------------------------------
 Write-Host ''
-Red '                                                                              '
-Red ('   !!  DESTRUCTIVE ACTION - ' + $Action.ToUpper().PadRight(51) + ' ')
-Red '                                                                              '
+$bannerTitle = ('   !!  DESTRUCTIVE ACTION - ' + $Action.ToUpper() + ' ')
+Red (''.PadRight(78))
+Red ($bannerTitle.PadRight(78))
+Red (''.PadRight(78))
 Write-Host ''
 Write-Host '  What will happen' -ForegroundColor White
 Line ('    ' + $what)
@@ -73,9 +93,9 @@ Write-Host ''
 Write-Host '  What is at stake right now' -ForegroundColor White
 if ($s.db.reachable -and $s.db.counts) {
     $c = $s.db.counts
-    Line ('    Database ' + $dbName + '  ' + $s.db.size_mb + ' MB  |  sites ' + $c.sites + '  reports ' + $c.weekly_reports + '  PV ' + $c.md_meetings + '  inspections ' + $c.insp_inspections + '  users ' + $c.users + '  assets ' + $c.assets)
+    Line ('    Database ' + $dbName + '  ' + (OrQ $s.db.size_mb) + ' MB  |  sites ' + (OrQ $c.sites) + '  reports ' + (OrQ $c.weekly_reports) + '  PV ' + (OrQ $c.md_meetings) + '  inspections ' + (OrQ $c.insp_inspections) + '  users ' + (OrQ $c.users) + '  assets ' + (OrQ $c.assets))
 } else { Warn '    Database counts unavailable (not reachable)' }
-Line ('    Installed version ' + $(if ($s.install.version) { $s.install.version } else { 'unknown' }) + '  |  .env present: ' + $s.install.has_env)
+Line ('    Installed version ' + $(if ($s.install.version) { $s.install.version } else { 'unknown' }) + '  |  .env present: ' + $(if ($null -ne $s.install.has_env) { $s.install.has_env } else { 'unknown' }))
 if ($s.backups.last_full) { Line ('    Last full restore point: ' + $s.backups.last_full.name + ' (' + [math]::Round($s.backups.last_full.age_hours / 24, 1) + ' days ago)') }
 else { Warn '    No full restore point exists yet' }
 Write-Host ''
@@ -86,7 +106,8 @@ Write-Host ('  Type exactly  ' + $phrase + '  to continue, anything else to canc
 Write-Host '  > ' -NoNewline
 $typed = $null
 try { $typed = [Console]::In.ReadLine() } catch { $typed = $null }
-if ($typed -eq $null) { Write-Host ''; Write-Host '  Cancelled - no input (nothing changed).' -ForegroundColor Yellow; exit 1 }
+Write-Host ''
+if ($null -eq $typed) { Write-Host '  Cancelled - no input (nothing changed).' -ForegroundColor Yellow; exit 1 }
 # Trim only leading/trailing whitespace (cmd's `echo PHRASE | script` pipes a
 # trailing space) - case and inner content still must match exactly.
 if ($typed.Trim() -cne $phrase) { Write-Host '  Cancelled - phrase did not match (nothing changed).' -ForegroundColor Yellow; exit 1 }
