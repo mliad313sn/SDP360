@@ -88,14 +88,15 @@ $badErrLines = @($badLines | Where-Object { $_ -match '^ERROR=' })
 Assert-True ($badErrLines.Count -eq 1) 'unwritable -OutFile has exactly one ERROR= line'
 Assert-True (-not [string]::IsNullOrEmpty(($badErrLines[0] -replace '^ERROR=', ''))) 'unwritable -OutFile ERROR= value is non-empty'
 
-# Newline-in-value: version.json carries a REAL newline character inside the
-# "version" string (PowerShell's ConvertFrom-Json parses this - it is lenient
-# about unescaped control chars inside a JSON string, confirmed against a
-# throwaway file). Without Write-Kv collapsing embedded newlines, INSTALLED_VER
-# would split across two stdout lines and corrupt cmd's `for /f` KEY=VALUE parse.
+# Newline-in-value: version.json carries a properly-escaped JSON `\n` inside
+# the "version" string (the file literally contains the two characters
+# backslash-n - ConvertFrom-Json decodes that escape into a real newline
+# character in the parsed string). Without Write-Kv collapsing embedded
+# newlines, INSTALLED_VER would split across two stdout lines and corrupt
+# cmd's `for /f` KEY=VALUE parse.
 $nlDir = New-TempDir 'sdp-detect-nl'; $script:TestTempDirs += $nlDir
 Set-Content (Join-Path $nlDir 'server.js') '// app' -Encoding ascii
-Set-Content -Path (Join-Path $nlDir 'version.json') -Value ("{`"version`":`"2.3`n1`"}") -Encoding ascii
+Set-Content -Path (Join-Path $nlDir 'version.json') -Value '{"version":"2.3\n1"}' -Encoding ascii
 Set-Content (Join-Path $nlDir '.env') 'PG_URL=postgres://sdp_app:x@127.0.0.1:1/x' -Encoding ascii
 $nlCfgDir = New-TempDir 'sdp-detect-nl-cfg'; $script:TestTempDirs += $nlCfgDir
 $nlCfgFile = Join-Path $nlCfgDir 'config.nl.psd1'
@@ -107,16 +108,19 @@ $nlLines = @($nlStdout | ForEach-Object { "$_" })
 Assert-True (($nlLines | Where-Object { $_ -notmatch '^[A-Z_]+=' }).Count -eq 0) 'newline-in-version stdout carries ONLY KEY=VALUE lines'
 Assert-True ((@($nlLines | Where-Object { $_ -match '^INSTALLED_VER=' })).Count -eq 1) 'newline-in-version has EXACTLY one INSTALLED_VER= line'
 
-# Relative -Config fallback: Detect-SDP.ps1, SdpSituation.ps1 and config.psd1
-# copied together into a fresh dir (so config.psd1's own Import doesn't throw),
-# then run with a RELATIVE -Config name. Test-Path on the bare relative name
-# fails from this test's own cwd, forcing the `Join-Path $here $Config` branch
-# in Detect-SDP.ps1 - proving -Config resolves against the SCRIPT's own folder,
-# not the caller's cwd.
+# Relative -Config fallback: Detect-SDP.ps1, SdpSituation.ps1 and a BASE
+# config.psd1 (written by this test, NOT the real prod config.psd1) copied
+# together into a fresh dir, then run with a RELATIVE -Config name pointing
+# at a SEPARATE override file. Test-Path on the bare relative name fails from
+# this test's own cwd, forcing the `Join-Path $here $Config` branch in
+# Detect-SDP.ps1 - proving -Config resolves against the SCRIPT's own folder,
+# not the caller's cwd. The base config's values deliberately differ from the
+# override's so the assertion below proves the override actually wins.
 $relDir = New-TempDir 'sdp-detect-relcfg'; $script:TestTempDirs += $relDir
 Copy-Item -Path $detect -Destination (Join-Path $relDir 'Detect-SDP.ps1') -Force
 Copy-Item -Path $situationScript -Destination (Join-Path $relDir 'SdpSituation.ps1') -Force
-Copy-Item -Path (Join-Path $here '..\config.psd1') -Destination (Join-Path $relDir 'config.psd1') -Force
+$relBaseInstallDir = New-TempDir 'sdp-detect-relcfg-base'; $script:TestTempDirs += $relBaseInstallDir
+Set-Content (Join-Path $relDir 'config.psd1') ("@{ InstallDir = '" + $relBaseInstallDir + "'; ServiceName = 'sdp-base'; AppPort = 3497; BackupDir = '..\b' }") -Encoding ascii
 $relInstallDir = New-TempDir 'sdp-detect-relcfg-install'; $script:TestTempDirs += $relInstallDir
 $relCfgFile = Join-Path $relDir 'unit.psd1'
 Set-Content $relCfgFile ("@{ InstallDir = '" + $relInstallDir + "'; ServiceName = 'sdp-unit'; AppPort = 3499; BackupDir = '..\SDP-Backups-unit' }") -Encoding ascii
