@@ -1174,7 +1174,7 @@ echo.
 echo ==================================================================
 echo    SDP Dashboard - Setup ^& Maintenance      Target : %APPDIR%
 echo ==================================================================
-%PS% "%HERE%\Show-Situation.ps1" -Situation "%SITJSON%" -HasDemo %HASDEMO%
+%PS% "%HERE%\Show-Situation.ps1" -Situation "%SITJSON%" -HasDemo "%HASDEMO%"
 ```
 (the old `for /f` that computed IVER/BVER and all the `echo` menu lines are removed — the renderer prints them.)
 
