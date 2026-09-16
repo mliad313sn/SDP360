@@ -81,6 +81,23 @@ SELECT 'size_mb=' || round(pg_database_size(current_database()) / 1048576.0, 1);
     return $r
 }
 
+# Never throws: used by Install-SDP (Step5, refuse a DROP without a dump) and
+# Manage-SDP (-Restore, same rule before overwriting a live install). A restore
+# point is a copy of the whole install dir, so it always carries repo files
+# like db\postgres\...\001_init.sql - only a ROOT sdp_dashboard.sql with
+# content proves the dump itself made it in (Task 3 review, 2026-09-16).
+function Test-SdpZipHasDump([string]$zipPath) {
+    try {
+        if (-not (Test-Path $zipPath)) { return $false }
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        $z = [System.IO.Compression.ZipFile]::OpenRead($zipPath)
+        try {
+            $e = $z.Entries | Where-Object { $_.FullName -eq 'sdp_dashboard.sql' } | Select-Object -First 1
+            return ($e -ne $null -and $e.Length -gt 0)
+        } finally { $z.Dispose() }
+    } catch { return $false }
+}
+
 function Get-SdpFileSha256([string]$path) {
     if (-not (Test-Path $path)) { return $null }
     return (Get-FileHash -Path $path -Algorithm SHA256).Hash

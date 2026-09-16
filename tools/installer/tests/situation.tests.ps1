@@ -7,6 +7,29 @@ $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 # removed at the end (try/catch, non-fatal if a handle is still open).
 $script:TestTempDirs = @()
 
+# Builds a zip at $path with one entry per key in $entries (FullName -> text
+# content; '' = a zero-length entry). Full control over entry paths (incl.
+# nested ones like 'db/postgres/001_init.sql'), unlike Compress-Archive.
+function New-TestZip([string]$path, [hashtable]$entries) {
+    if (Test-Path $path) { Remove-Item $path -Force }
+    Add-Type -AssemblyName System.IO.Compression
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $fs = [System.IO.File]::Open($path, [System.IO.FileMode]::Create)
+    try {
+        $zip = New-Object System.IO.Compression.ZipArchive($fs, [System.IO.Compression.ZipArchiveMode]::Create)
+        try {
+            foreach ($k in $entries.Keys) {
+                $entry = $zip.CreateEntry($k)
+                $s = $entry.Open()
+                try {
+                    $bytes = [System.Text.Encoding]::ASCII.GetBytes([string]$entries[$k])
+                    if ($bytes.Length -gt 0) { $s.Write($bytes, 0, $bytes.Length) }
+                } finally { $s.Dispose() }
+            }
+        } finally { $zip.Dispose() }
+    } finally { $fs.Dispose() }
+}
+
 try {
 
 # Fixture: a fake bundle with version.json + payload\app.zip carrying package-lock.json
@@ -106,6 +129,37 @@ $s = Get-SdpSituation (Cfg $instNoLock) $bundle
 Assert-Eq $s.bundle.lockfile_same_as_installed $null 'no local lockfile -> null match'
 Assert-Eq $s.verdict.recommended 'upgrade' 'no local lockfile recommends upgrade to be safe'
 Assert-True (($s.verdict.notes -join ' ') -match 'Upgrade recommended') 'note mentions Upgrade recommended'
+
+# 11. Test-SdpZipHasDump: root sdp_dashboard.sql with content -> true
+$zipDir = New-TempDir 'sdp-zip'; $script:TestTempDirs += $zipDir
+$zipOk = Join-Path $zipDir 'ok.zip'
+New-TestZip $zipOk @{ 'sdp_dashboard.sql' = '-- dump content --'; 'db/postgres/001_init.sql' = '-- schema --' }
+Assert-Eq (Test-SdpZipHasDump $zipOk) $true 'root sdp_dashboard.sql with content -> has dump'
+
+# 12. Test-SdpZipHasDump: root sdp_dashboard.sql present but EMPTY -> false
+$zipEmpty = Join-Path $zipDir 'empty.zip'
+New-TestZip $zipEmpty @{ 'sdp_dashboard.sql' = ''; 'db/postgres/001_init.sql' = '-- schema --' }
+Assert-Eq (Test-SdpZipHasDump $zipEmpty) $false 'empty root sdp_dashboard.sql -> no dump'
+
+# 13. Test-SdpZipHasDump: only repo schema files, no dump at all -> false
+# (a restore point ALWAYS carries repo files like db\postgres\...\001_init.sql -
+# that alone must never be mistaken for a database dump)
+$zipNoDump = Join-Path $zipDir 'no-dump.zip'
+New-TestZip $zipNoDump @{ 'db/postgres/001_init.sql' = '-- schema --' }
+Assert-Eq (Test-SdpZipHasDump $zipNoDump) $false 'repo schema file only (no root dump) -> no dump'
+
+# 14. Test-SdpZipHasDump: corrupt file -> false, never throws
+$zipCorrupt = Join-Path $zipDir 'corrupt.zip'
+Set-Content -Path $zipCorrupt -Value 'not a zip' -Encoding ascii
+$r14 = $null
+try { $r14 = Test-SdpZipHasDump $zipCorrupt } catch { $r14 = 'THREW' }
+Assert-Eq $r14 $false 'corrupt zip -> false, does not throw'
+
+# 15. Test-SdpZipHasDump: missing path -> false, never throws
+$zipMissing = Join-Path $zipDir 'does-not-exist.zip'
+$r15 = $null
+try { $r15 = Test-SdpZipHasDump $zipMissing } catch { $r15 = 'THREW' }
+Assert-Eq $r15 $false 'missing zip path -> false, does not throw'
 
 Write-Host ("situation.tests: " + $script:AssertCount + " assertions ok")
 

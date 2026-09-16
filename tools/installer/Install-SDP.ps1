@@ -119,6 +119,15 @@ switch ($Mode) {
 }
 if ($PrintPlan) { Write-Output ('PLAN=' + ($plan -join ',')); exit 0 }
 
+# Dot-sourced AFTER the -PrintPlan exit above, so a dry run stays side-effect
+# free even if this file is ever missing or gains one. Defines functions only
+# (Get-SdpEnvValue, Get-SdpDbCounts, Test-SdpZipHasDump, ...) plus two
+# $script: arrays ($SdpCountTables, $SdpPgRoots) - shared with Detect-SDP.ps1
+# so there is exactly ONE counts query and ONE zip-has-dump check.
+. (Join-Path $here 'SdpSituation.ps1')
+$script:CountsBefore = $null
+$script:DataCheck = 'skipped'
+
 # --- logging ----------------------------------------------------------
 $LogDir = 'C:\ProgramData\SDP-Dashboard\logs'
 if (-not (Test-Path $LogDir)) { New-Item -ItemType Directory -Path $LogDir -Force | Out-Null }
@@ -184,6 +193,33 @@ function Complete-Run([string]$result) {
     Write-RunSummary $result
 }
 
+# Environment header at the top of every log (mirrors the 4MyPeople installer).
+# Secrets are reported as (set)/(not set) ONLY.
+function Write-EnvHeader {
+    $os = try { (Get-CimInstance Win32_OperatingSystem).Caption + ' build ' + (Get-CimInstance Win32_OperatingSystem).BuildNumber } catch { 'unknown' }
+    $free = try { [math]::Round((New-Object System.IO.DriveInfo([System.IO.Path]::GetPathRoot([System.IO.Path]::GetFullPath($InstallDir)))).AvailableFreeSpace / 1GB, 1) } catch { '?' }
+    $nodeV = try { (& node -v 2>$null) } catch { 'not on PATH' }
+    $psqlV = if (Find-PgBin 'psql.exe') { 'found' } else { 'not found' }
+    $ports = @(); foreach ($p in @($AppPort, [int]$cfg.PgPort)) { $ports += ('' + $p + '=' + $(if ((Get-PortListenerPids $p).Count -gt 0) { 'IN USE' } else { 'free' })) }
+    $lines = @(
+        '----- ENVIRONMENT -----',
+        ('Timestamp        : ' + (Get-Date -Format 'o')),
+        ('Run as user      : ' + $env:USERDOMAIN + '\' + $env:USERNAME),
+        ('Computer         : ' + $env:COMPUTERNAME),
+        ('OS               : ' + $os),
+        ('PowerShell       : ' + $PSVersionTable.PSVersion + ' (' + $PSVersionTable.PSEdition + ')'),
+        ('Free space       : ' + $free + ' GB on the install drive'),
+        ('Mode / Config    : ' + $Mode + ' / ' + $(if ($Config) { $Config } else { 'config.psd1' })),
+        ('Config (resolved): InstallDir=' + $InstallDir + '; AppPort=' + $AppPort + '; Service=' + $SvcName + '; PgHost=' + $cfg.PgHost + '; PgPort=' + $cfg.PgPort + '; DbName=' + $cfg.DbName),
+        ('PG super password: ' + $(if ($cfg.StandardPgSuperPassword -or ($cfg.EnvAnswers -and $cfg.EnvAnswers.PG_SUPER_PASSWORD)) { '(set)' } else { '(not set)' })),
+        ('node             : ' + $nodeV),
+        ('psql             : ' + $psqlV),
+        ('Ports            : ' + ($ports -join '  ')),
+        '-----------------------')
+    foreach ($l in $lines) { Add-Content -Path $LogFile -Value $l }
+    Write-Host ($lines -join "`n") -ForegroundColor DarkGray
+}
+
 # --- generic helpers --------------------------------------------------
 function Invoke-Robocopy($src, $dst, [string[]]$extra) {
     & robocopy $src $dst /E /NFL /NDL /NJH /NJS @extra | Out-Null
@@ -218,10 +254,10 @@ function Read-Secret($prompt) {
     }
 }
 function Get-EnvValue($key) {
-    $envFile = Join-Path $InstallDir '.env'
-    if (-not (Test-Path $envFile)) { return $null }
-    $m = Select-String -Path $envFile -Pattern ('^' + $key + '=(.+)$') | Select-Object -First 1
-    if ($m) { return $m.Matches[0].Groups[1].Value.Trim() } else { return $null }
+    # One implementation only - SdpSituation.ps1's Get-SdpEnvValue (dot-sourced
+    # below, after the -PrintPlan exit). Name kept so every existing caller here
+    # is unchanged.
+    return (Get-SdpEnvValue $InstallDir $key)
 }
 function New-RandomPassword([int]$len = 24) {
     $chars = ([char[]](48..57)) + ([char[]](65..90)) + ([char[]](97..122))
@@ -674,6 +710,17 @@ function Invoke-PsqlSuper([string]$sql) {
     try { return (& $psql -h $cfg.PgHost -p $cfg.PgPort -U postgres -d postgres -v ON_ERROR_STOP=1 -t -A -c $sql) }
     finally { $env:PGPASSWORD = '' }
 }
+# Same as Invoke-PsqlSuper but the SQL travels on STDIN, never on the command line:
+# a statement carrying a password (CREATE ROLE ... PASSWORD) must not be visible in
+# process listings or a PowerShell transcript (the 4MyPeople transcript of 2026-09-15
+# leaked its superuser password exactly that way).
+function Invoke-PsqlSuperStdin([string]$sql) {
+    $psql = Find-PgBin 'psql.exe'
+    if (-not $psql) { Die 'psql.exe not found under Program Files\PostgreSQL' }
+    $env:PGPASSWORD = Get-SuperPassword
+    try { return ($sql | & $psql -h $cfg.PgHost -p $cfg.PgPort -U postgres -d postgres -v ON_ERROR_STOP=1 -t -A -f -) }
+    finally { $env:PGPASSWORD = '' }
+}
 
 # Probe the cluster we will ACTUALLY use - host+port+superuser credentials -
 # rather than trusting that a service named postgresql* is the one answering on
@@ -826,7 +873,7 @@ function Step4-Postgres {
         if ($cfg.DbName -notmatch '^[a-z_][a-z0-9_]*$') { Die "Unsafe DbName '$($cfg.DbName)'" }
         $roleExists = Invoke-PsqlSuper "SELECT 1 FROM pg_roles WHERE rolname = 'sdp_app'"
         if ("$roleExists".Trim() -ne '1') {
-            Invoke-PsqlSuper ("CREATE ROLE sdp_app LOGIN PASSWORD '" + ($appPw -replace "'", "''") + "'") | Out-Null
+            Invoke-PsqlSuperStdin ("CREATE ROLE sdp_app LOGIN PASSWORD '" + ($appPw -replace "'", "''") + "';") | Out-Null
             if ($LASTEXITCODE -ne 0) { Die 'CREATE ROLE sdp_app failed' }
             Log 'role sdp_app created'
         } else { Log 'role sdp_app already exists (password unchanged - PG_URL must match it)' 'WARN' }
@@ -855,18 +902,50 @@ function Step4-Postgres {
 # Step 5 - automatic pre-change restore point via Manage-SDP.ps1 -Backup.
 # Manage-SDP's LAST stdout line is the zip path (its logs go to the console
 # via Write-Host, not the output stream).
+#
+# Step 5 now runs BEFORE step 4 on reinstall / fresh-over-existing (2026-09-15),
+# so the PostgreSQL service may still be stopped at this point: pg_dump needs
+# it up. And whenever the plan carries -ConfirmDataLoss (a DROP is coming in
+# step 4), the produced zip MUST actually contain the DB dump, or the restore
+# point is worthless as a safety net for the very thing it exists to protect
+# against - refuse to continue rather than let the DROP proceed unguarded.
 # =====================================================================
 function Step5-Backup {
     $manage = Join-Path $here 'Manage-SDP.ps1'
     if (-not (Test-Path $manage)) { Die "Manage-SDP.ps1 not found next to this script: $manage" }
+    $svc = Get-Service postgresql* -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($svc -and $svc.Status -ne 'Running') {
+        Log ('Starting the PostgreSQL service for the pre-change dump (' + $svc.Name + ')') 'STEP'
+        try {
+            Start-Service $svc.Name
+            $deadline = (Get-Date).AddSeconds(30)
+            do { Start-Sleep -Seconds 1; $svc.Refresh() } while ($svc.Status -ne 'Running' -and (Get-Date) -lt $deadline)
+            if ($svc.Status -ne 'Running') { throw ('service did not reach Running within 30s (status: ' + $svc.Status + ')') }
+        } catch {
+            $startErr = $_.Exception.Message
+            if ($ConfirmDataLoss) { Die ('Cannot start the PostgreSQL service ' + $svc.Name + ' - the pre-change dump needs it: ' + $startErr) }
+            else { Log ('Could not start the PostgreSQL service ' + $svc.Name + ' - continuing without it, the pre-change dump may be empty: ' + $startErr) 'WARN' }
+        }
+    }
+    # Data-integrity baseline (compared again in step 7 on the success path).
+    $script:CountsBefore = Get-SdpDbCounts $InstallDir
+    if ($script:CountsBefore.reachable) { Log ('Data baseline: ' + (Format-Counts $script:CountsBefore.counts)) }
+    else { Log ('Data baseline unavailable (' + $script:CountsBefore.error + ')') 'WARN' }
     $mArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $manage, '-Backup', '-Tag', ('pre-' + $script:BundleVer))
     if ($Config) { $mArgs += @('-Config', $Config) }
     $out = & powershell @mArgs
     if ($LASTEXITCODE -ne 0) { Die 'Pre-change backup failed - refusing to continue (see the manage-backup log)' }
     $zip = ($out | Select-Object -Last 1)
     if (-not ($zip -and (Test-Path $zip))) { Die "Backup ran but returned no zip path (got: '$zip')" }
+    if ($ConfirmDataLoss -and -not (Test-SdpZipHasDump $zip)) {
+        Die ('No database dump inside the restore point ' + (Split-Path $zip -Leaf) + ' - refusing to DROP the database. Check PG_URL / the PostgreSQL service, take a backup (menu 5) and retry.')
+    }
     $script:RollbackZip = $zip
     Log ("Restore point: " + $zip) 'OK'
+}
+function Format-Counts($c) {
+    if (-not $c) { return 'n/a' }
+    return (($script:SdpCountTables | ForEach-Object { $_ + ' ' + $(if ($c[$_] -eq $null) { '-' } else { $c[$_] }) }) -join ', ')
 }
 
 # =====================================================================
@@ -1113,6 +1192,7 @@ function Open-Dashboard {
 # main
 # =====================================================================
 try {
+    Write-EnvHeader
     Log "Install-SDP $Mode start (config=$Config bundle=$BundleRoot)" 'STEP'
 
     if ($Mode -eq 'env-only') {
