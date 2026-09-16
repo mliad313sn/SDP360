@@ -936,7 +936,9 @@ function Test-ZipHasDump([string]$zipPath) {
     try {
         Add-Type -AssemblyName System.IO.Compression.FileSystem
         $z = [System.IO.Compression.ZipFile]::OpenRead($zipPath)
-        try { return ((@($z.Entries | Where-Object { $_.FullName -match '\.sql$' })).Count -gt 0) } finally { $z.Dispose() }
+        # ROOT sdp_dashboard.sql only - a restore point is a copy of the whole install dir and
+        # always carries repo files like db\postgres\...\001_init.sql (Task 3 review, 2026-09-16).
+        try { return (@($z.Entries | Where-Object { $_.FullName -eq 'sdp_dashboard.sql' })).Count -gt 0 } finally { $z.Dispose() }
     } catch { return $false }
 }
 function Format-Counts($c) {
@@ -1101,6 +1103,8 @@ Write-Host ("manage-restore.tests: " + $script:AssertCount + " assertions ok")
 exit 0
 ```
 - [ ] **Step 2: Run to verify it fails** — `exactly one pre-restore restore point` fails (0 found).
+- [ ] **Step 2b: Stale dump guard in `'backup'`.** A root `sdp_dashboard.sql` left in the install dir by an interrupted restore would be robocopied into a NEW restore point and, if that run's pg_dump fails, pass for a real dump. In the `'backup'` branch, add `'sdp_dashboard.sql'` to the robocopy `/XF` list (`'/XF','raw_cache.json','*.log','sdp_dashboard.sql'`) so the only root dump in a restore point is the one this run just produced. Add an assertion to the test below: before the restore, drop a stale `sdp_dashboard.sql` in the install dir; the pre-restore zip must NOT contain a root `sdp_dashboard.sql` (the fake dump-db.js fails).
+
 - [ ] **Step 3: Implement.** In the `'restore'` branch, replace the block from `Log "Restoring $Name" 'STEP'` up to (not including) `Invoke-Pm2 @('stop', $SvcName)` with:
 ```powershell
     # ---- safety backup of the CURRENT state, before anything is stopped or overwritten ----
@@ -1114,7 +1118,9 @@ exit 0
     # If the target carries a dump AND this install uses PostgreSQL, the DB will be DROPPED:
     # the safety point must then carry a dump too, or we would overwrite a database we cannot get back.
     Add-Type -AssemblyName System.IO.Compression.FileSystem
-    function Test-ZipHasSql([string]$p) { $z = [System.IO.Compression.ZipFile]::OpenRead($p); try { return ((@($z.Entries | Where-Object { $_.FullName -match '\.sql$' })).Count -gt 0) } finally { $z.Dispose() } }
+    # ROOT sdp_dashboard.sql only (same rule as the dump import below and Confirm-Destructive):
+    # every restore point also carries repo files such as db\postgres\...\001_init.sql.
+    function Test-ZipHasSql([string]$p) { $z = [System.IO.Compression.ZipFile]::OpenRead($p); try { return (@($z.Entries | Where-Object { $_.FullName -eq 'sdp_dashboard.sql' })).Count -gt 0 } finally { $z.Dispose() } }
     if ((Test-ZipHasSql $zip) -and (Get-EnvValue 'PG_URL') -and -not (Test-ZipHasSql $preZip)) {
         Die 'No database dump in the pre-restore point - refusing to overwrite the database. Check PG_URL / the PostgreSQL service (menu C), then retry.'
     }
