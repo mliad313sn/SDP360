@@ -90,8 +90,8 @@ try {
     # could throw - the catch block passes it to Show-FallbackMenu.
     $demo = if ($HasDemo -eq '1') { 1 } else { 0 }
     if ([string]::IsNullOrWhiteSpace($Situation)) { throw 'no situation file provided' }
-    if (-not (Test-Path $Situation)) { throw ('situation file not found: ' + $Situation) }
-    $raw = Get-Content $Situation -Raw -ErrorAction SilentlyContinue
+    if (-not (Test-Path -LiteralPath $Situation)) { throw ('situation file not found: ' + $Situation) }
+    $raw = Get-Content -LiteralPath $Situation -Raw -ErrorAction SilentlyContinue
     if ([string]::IsNullOrWhiteSpace($raw)) { throw 'situation file empty or unreadable' }
     try { $s = $raw | ConvertFrom-Json } catch { throw 'situation file is not valid JSON' }
     # Rejects: no JSON object at all, no "install" key, OR an "install"
@@ -113,8 +113,8 @@ try {
     $stateUnknown = ($knownStates -notcontains $v.state)
     # Raw pm2 status text (online/stopped/errored/launching/absent) - no
     # per-value colour table beyond the two-way split inside Get-InstallLineColor.
-    $pm2Val = if ($s.runtime -and $s.runtime.pm2_process) { $s.runtime.pm2_process } else { 'absent' }
-    $portVal = if ($s.runtime -and $s.runtime.port_owner) { $s.runtime.port_owner } else { 'unknown' }
+    $pm2Val = Clean $(if ($s.runtime -and $s.runtime.pm2_process) { $s.runtime.pm2_process } else { 'absent' })
+    $portVal = Clean $(if ($s.runtime -and $s.runtime.port_owner) { $s.runtime.port_owner } else { 'unknown' })
     $dirTxt = Clean $s.install.dir
 
     W ''
@@ -126,7 +126,7 @@ try {
         W ('  Install    : ' + $dirTxt + '   ' + $iv + '   (' + $rt + ')') (Get-InstallLineColor $s)
         if ($s.db.reachable -and $s.db.counts) {
             $c = $s.db.counts
-            W ('  Database   : ' + $s.db.db + '  ' + $s.db.size_mb + ' MB   sites ' + $c.sites + ' | reports ' + $c.weekly_reports + ' | PV ' + $c.md_meetings + ' | inspections ' + $c.insp_inspections + ' | users ' + $c.users) 'Green'
+            W ('  Database   : ' + (Clean $s.db.db) + '  ' + $s.db.size_mb + ' MB   sites ' + $c.sites + ' | reports ' + $c.weekly_reports + ' | PV ' + $c.md_meetings + ' | inspections ' + $c.insp_inspections + ' | users ' + $c.users) 'Green'
         } else {
             $dbErr = Clean $s.db.error
             if ($dbErr) { W ('  Database   : not reachable - counts unavailable (' + $dbErr + ')') 'Yellow' }
@@ -135,11 +135,12 @@ try {
         if ($s.backups.last_full) {
             $b = $s.backups.last_full
             $sizeTxt = if ($null -ne $b.size_mb) { $b.size_mb } else { '?' }
+            $bNameTxt = Clean $b.name
             if ($null -eq $b.age_hours) {
-                W ('  Backups    : last full - age unknown (' + $b.name + ', ' + $sizeTxt + ' MB) | ' + $s.backups.count + ' kept') 'Yellow'
+                W ('  Backups    : last full - age unknown (' + $bNameTxt + ', ' + $sizeTxt + ' MB) | ' + $s.backups.count + ' kept') 'Yellow'
             } else {
                 $col2 = if ($b.age_hours -gt 168) { 'Yellow' } else { 'Green' }
-                W ('  Backups    : last full ' + [math]::Round($b.age_hours / 24, 1) + ' d ago (' + $b.name + ', ' + $sizeTxt + ' MB) | ' + $s.backups.count + ' kept') $col2
+                W ('  Backups    : last full ' + [math]::Round($b.age_hours / 24, 1) + ' d ago (' + $bNameTxt + ', ' + $sizeTxt + ' MB) | ' + $s.backups.count + ' kept') $col2
             }
         } else { W '  Backups    : none yet' 'Yellow' }
     }

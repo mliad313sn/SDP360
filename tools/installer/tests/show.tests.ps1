@@ -243,6 +243,23 @@ $emptyInstallFile = Join-Path $emptyInstallDir 'empty-install.json'
 $outEmptyInstall = Render $emptyInstallFile 0
 Assert-True ($outEmptyInstall -match 'Situation unavailable') '{"install":{}} (no dir, no has_server_js) -> Situation unavailable'
 
+# (cq-8) a backups.last_full with NO age_hours (null) must print "age
+# unknown" rather than throwing on [math]::Round($null / 24, 1) or silently
+# omitting the line.
+function SitNoAgeHours() {
+    $o = @{ install = @{ dir = 'C:\Apps\X'; version = '2.3.1'; has_env = $true; has_server_js = $true }
+        runtime = @{ pm2_process = 'online'; port_owner = 'ours' }
+        db = @{ reachable = $true; db = 'sdp_dashboard'; size_mb = 1.8; counts = @{ sites = 11; weekly_reports = 412; md_meetings = 96; insp_inspections = 41; users = 23; assets = 5 } }
+        backups = @{ last_full = @{ name = 'sdp-restore_x_20260912-020011.zip'; age_hours = $null; size_mb = 640 }; count = 14 }
+        bundle = @{ version = '2.4.0'; lockfile_same_as_installed = $false }
+        disk = @{ free_gb = 48 }
+        verdict = @{ state = 'installed'; recommended = 'upgrade'; downgrade = $false; notes = @('a note') } }
+    $d = New-TempDir 'sdp-sit'; $script:TestTempDirs += $d
+    $f = Join-Path $d 'sit.json'; ($o | ConvertTo-Json -Depth 6) | Set-Content $f -Encoding ascii; return $f
+}
+$outNoAge = Render (SitNoAgeHours) 0
+Assert-True ($outNoAge -match 'age unknown') 'backups.last_full with null age_hours -> "age unknown"'
+
 Write-Host ("show.tests: " + $script:AssertCount + " assertions ok")
 
 } finally {
