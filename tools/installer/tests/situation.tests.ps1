@@ -101,13 +101,20 @@ $pgRoot = New-TempDir 'sdp-pgroot'; $script:TestTempDirs += $pgRoot
 $dir17 = Join-Path $pgRoot '17'
 New-Item -ItemType Directory -Path (Join-Path $dir17 'bin') -Force | Out-Null
 Set-Content -Path (Join-Path $dir17 'bin\psql.exe') -Value 'fake' -Encoding ascii
+Set-Content -Path (Join-Path $dir17 'bin\pg_dump.exe') -Value 'fake' -Encoding ascii
 New-Item -ItemType Directory -Path (Join-Path $pgRoot 'pgAdmin 4') -Force | Out-Null
 $origPgRoots = $script:SdpPgRoots
 $script:SdpPgRoots = @($pgRoot)
 $found = $null
 try { $found = Find-SdpPsql } catch { $found = 'THREW' }
-$script:SdpPgRoots = $origPgRoots
 Assert-Eq $found (Join-Path $dir17 'bin\psql.exe') 'Find-SdpPsql returns the 17 path and does not throw on a non-numeric sibling'
+
+# 7b. Find-SdpPgBin generalised over the exe name: pg_dump.exe resolves the
+# same way (same roots, same non-numeric-sibling safety), never throws.
+$foundDump = $null
+try { $foundDump = Find-SdpPgBin 'pg_dump.exe' } catch { $foundDump = 'THREW' }
+$script:SdpPgRoots = $origPgRoots
+Assert-Eq $foundDump (Join-Path $dir17 'bin\pg_dump.exe') 'Find-SdpPgBin pg_dump.exe returns the 17 path and does not throw on a non-numeric sibling'
 
 # 8. malformed PG_URL never throws; DB reads as unreachable
 $badUrlDir = New-TempDir 'sdp-badurl'; $script:TestTempDirs += $badUrlDir
@@ -130,36 +137,53 @@ Assert-Eq $s.bundle.lockfile_same_as_installed $null 'no local lockfile -> null 
 Assert-Eq $s.verdict.recommended 'upgrade' 'no local lockfile recommends upgrade to be safe'
 Assert-True (($s.verdict.notes -join ' ') -match 'Upgrade recommended') 'note mentions Upgrade recommended'
 
-# 11. Test-SdpZipHasDump: root sdp_dashboard.sql with content -> true
+# 11. Test-SdpZipHasDump: root sdp_dashboard.sql with the pg_dump completion
+# trailer -> true (a COMPLETE dump, not merely a non-empty one).
 $zipDir = New-TempDir 'sdp-zip'; $script:TestTempDirs += $zipDir
+$dumpTrailer = "`n-- PostgreSQL database dump complete`n"
 $zipOk = Join-Path $zipDir 'ok.zip'
-New-TestZip $zipOk @{ 'sdp_dashboard.sql' = '-- dump content --'; 'db/postgres/001_init.sql' = '-- schema --' }
-Assert-Eq (Test-SdpZipHasDump $zipOk) $true 'root sdp_dashboard.sql with content -> has dump'
+New-TestZip $zipOk @{ 'sdp_dashboard.sql' = ('-- dump content --' + $dumpTrailer); 'db/postgres/001_init.sql' = '-- schema --' }
+Assert-Eq (Test-SdpZipHasDump $zipOk) $true 'root sdp_dashboard.sql with the completion trailer -> has dump'
 
-# 12. Test-SdpZipHasDump: root sdp_dashboard.sql present but EMPTY -> false
+# 12. Test-SdpZipHasDump: root sdp_dashboard.sql has REAL content but NO
+# trailer -> false (a truncated/killed pg_dump run - the trap dump-db.js's
+# own partial-file cleanup exists for, caught here independently of it).
+$zipTruncated = Join-Path $zipDir 'truncated.zip'
+New-TestZip $zipTruncated @{ 'sdp_dashboard.sql' = '-- dump content, cut off mid-table --'; 'db/postgres/001_init.sql' = '-- schema --' }
+Assert-Eq (Test-SdpZipHasDump $zipTruncated) $false 'content without the completion trailer -> truncated, no dump'
+
+# 13. Test-SdpZipHasDump: root sdp_dashboard.sql present but EMPTY -> false
 $zipEmpty = Join-Path $zipDir 'empty.zip'
 New-TestZip $zipEmpty @{ 'sdp_dashboard.sql' = ''; 'db/postgres/001_init.sql' = '-- schema --' }
 Assert-Eq (Test-SdpZipHasDump $zipEmpty) $false 'empty root sdp_dashboard.sql -> no dump'
 
-# 13. Test-SdpZipHasDump: only repo schema files, no dump at all -> false
+# 14. Test-SdpZipHasDump: only repo schema files, no dump at all -> false
 # (a restore point ALWAYS carries repo files like db\postgres\...\001_init.sql -
 # that alone must never be mistaken for a database dump)
 $zipNoDump = Join-Path $zipDir 'no-dump.zip'
 New-TestZip $zipNoDump @{ 'db/postgres/001_init.sql' = '-- schema --' }
 Assert-Eq (Test-SdpZipHasDump $zipNoDump) $false 'repo schema file only (no root dump) -> no dump'
 
-# 14. Test-SdpZipHasDump: corrupt file -> false, never throws
+# 15. Test-SdpZipHasDump: corrupt file -> false, never throws
 $zipCorrupt = Join-Path $zipDir 'corrupt.zip'
 Set-Content -Path $zipCorrupt -Value 'not a zip' -Encoding ascii
-$r14 = $null
-try { $r14 = Test-SdpZipHasDump $zipCorrupt } catch { $r14 = 'THREW' }
-Assert-Eq $r14 $false 'corrupt zip -> false, does not throw'
-
-# 15. Test-SdpZipHasDump: missing path -> false, never throws
-$zipMissing = Join-Path $zipDir 'does-not-exist.zip'
 $r15 = $null
-try { $r15 = Test-SdpZipHasDump $zipMissing } catch { $r15 = 'THREW' }
-Assert-Eq $r15 $false 'missing zip path -> false, does not throw'
+try { $r15 = Test-SdpZipHasDump $zipCorrupt } catch { $r15 = 'THREW' }
+Assert-Eq $r15 $false 'corrupt zip -> false, does not throw'
+
+# 16. Test-SdpZipHasDump: missing path -> false, never throws
+$zipMissing = Join-Path $zipDir 'does-not-exist.zip'
+$r16 = $null
+try { $r16 = Test-SdpZipHasDump $zipMissing } catch { $r16 = 'THREW' }
+Assert-Eq $r16 $false 'missing zip path -> false, does not throw'
+
+# 17. Test-SdpZipHasDump: the trailer lands past the streaming reader's first
+# 8192-byte chunk (entry > 12 KB) -> the sliding tail window still finds it,
+# proving the streaming-skip logic (not just small in-memory fixtures) works.
+$bigBody = ('-- padding line --' * 700)   # ~13 KB of filler before the trailer
+$zipBig = Join-Path $zipDir 'big.zip'
+New-TestZip $zipBig @{ 'sdp_dashboard.sql' = ($bigBody + $dumpTrailer) }
+Assert-Eq (Test-SdpZipHasDump $zipBig) $true 'trailer found past the first read chunk on a >12 KB entry'
 
 Write-Host ("situation.tests: " + $script:AssertCount + " assertions ok")
 

@@ -141,7 +141,15 @@ switch ($action) {
     New-Item -ItemType Directory -Path $stage -Force | Out-Null
     try {
         # data\ and blobs\ INCLUDED by design (sqlite rollback path; photos exist nowhere else).
-        Invoke-Robocopy $InstallDir $stage @('/XD','node_modules','node_modules.prev','.git',$BackupDir,'/XF','raw_cache.json','*.log')
+        # sdp_dashboard.sql EXCLUDED: a stale dump can sit at $InstallDir root
+        # from a prior restore (Restore only removes it after a SUCCESSFUL
+        # import - see the 'restore' branch below), and if this run's OWN
+        # Invoke-PgDump then fails/warns, robocopy would otherwise have already
+        # carried that stale dump into the new restore point - making it LOOK
+        # complete while actually describing an earlier point in time. Excluding
+        # it means the only root sdp_dashboard.sql a restore point can ever
+        # contain is the one Invoke-PgDump writes on THIS run, right below.
+        Invoke-Robocopy $InstallDir $stage @('/XD','node_modules','node_modules.prev','.git',$BackupDir,'/XF','raw_cache.json','*.log','sdp_dashboard.sql')
         if (-not (Invoke-PgDump (Join-Path $stage 'sdp_dashboard.sql'))) { Log 'pg dump skipped/failed (sqlite-only install?)' 'WARN' }
         $zip = Join-Path $BackupDir ("sdp-restore_" + $Tag + "_$stamp.zip")
         Log "Compressing -> $zip" 'STEP'

@@ -68,5 +68,10 @@ if (r.status === 0 && fs.existsSync(outFile)) {
   console.log(`[pg-dump] OK — ${db} -> ${outFile} (${mb} MB)`);
   process.exit(0);
 }
+// pg_dump writes plain SQL top-to-bottom; a killed/failed run (timeout, OOM,
+// disk full, power loss) can leave a truncated-but-non-empty file that a
+// naive "does the file exist" check would mistake for a real dump. Delete it
+// so a restore point never carries a dump that only LOOKS complete.
+try { fs.unlinkSync(outFile); } catch (_) {}
 console.error('[pg-dump] FAILED — ' + ((r.stderr || r.error && r.error.message || 'unknown error').toString().trim()));
 process.exit(1);

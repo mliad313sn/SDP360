@@ -9,20 +9,22 @@ $script:SdpPgRoots = @('C:\Program Files\PostgreSQL', 'C:\Program Files (x86)\Po
 
 function Get-SdpEnvValue([string]$installDir, [string]$key) {
     $envFile = Join-Path $installDir '.env'
-    if (-not (Test-Path $envFile)) { return $null }
-    $m = Select-String -Path $envFile -Pattern ('^' + $key + '=(.+)$') | Select-Object -First 1
+    if (-not (Test-Path -LiteralPath $envFile)) { return $null }
+    $m = Select-String -LiteralPath $envFile -Pattern ('^' + $key + '=(.+)$') | Select-Object -First 1
     if ($m) { return $m.Matches[0].Groups[1].Value.Trim().Trim('"') } else { return $null }
 }
 
 # Never throws: roots are injectable via $script:SdpPgRoots (tests override it),
 # the version-folder sort uses a safe numeric key (non-numeric names sort last,
 # never crash), and the whole body is wrapped so any surprise still yields $null.
-function Find-SdpPsql {
+# Generalised over the exe name (psql.exe, pg_dump.exe, ...) so Install-SDP's
+# Find-PgBin can be a one-line wrapper instead of a second copy of this logic.
+function Find-SdpPgBin([string]$exe) {
     try {
         foreach ($root in $script:SdpPgRoots) {
             if (Test-Path $root) {
                 foreach ($v in (Get-ChildItem $root -Directory -ErrorAction SilentlyContinue | Sort-Object { $val = 0.0; if ([double]::TryParse($_.Name, [ref]$val)) { $val } else { -1 } } -Descending)) {
-                    $p = Join-Path $v.FullName 'bin\psql.exe'
+                    $p = Join-Path $v.FullName ('bin\' + $exe)
                     if (Test-Path $p) { return $p }
                 }
             }
@@ -30,6 +32,7 @@ function Find-SdpPsql {
         return $null
     } catch { return $null }
 }
+function Find-SdpPsql { return (Find-SdpPgBin 'psql.exe') }
 
 # Exact counts of the core tables + DB size, as the APP role from PG_URL.
 # One psql session fed on stdin; a missing table yields null for that table
@@ -84,16 +87,51 @@ SELECT 'size_mb=' || round(pg_database_size(current_database()) / 1048576.0, 1);
 # Never throws: used by Install-SDP (Step5, refuse a DROP without a dump) and
 # Manage-SDP (-Restore, same rule before overwriting a live install). A restore
 # point is a copy of the whole install dir, so it always carries repo files
-# like db\postgres\...\001_init.sql - only a ROOT sdp_dashboard.sql with
-# content proves the dump itself made it in (Task 3 review, 2026-09-16).
+# like db\postgres\...\001_init.sql - only a ROOT sdp_dashboard.sql PROVES the
+# dump itself made it in (Task 3 review, 2026-09-16). Non-empty is not enough
+# either: pg_dump writes plain SQL top-to-bottom, so a killed/failed run (the
+# process died, the disk filled, the box lost power mid-dump) can leave a
+# truncated-but-non-empty file - only the presence of pg_dump's OWN trailer
+# comment, `-- PostgreSQL database dump complete`, at the very end proves the
+# dump reached completion (dump-db.js additionally deletes its own partial
+# output on failure, but a restore point can predate that fix, or come from
+# a different pg_dump).
 function Test-SdpZipHasDump([string]$zipPath) {
+    $trailer = '-- PostgreSQL database dump complete'
+    $tailSize = 4096
     try {
-        if (-not (Test-Path $zipPath)) { return $false }
+        if (-not (Test-Path -LiteralPath $zipPath)) { return $false }
         Add-Type -AssemblyName System.IO.Compression.FileSystem
         $z = [System.IO.Compression.ZipFile]::OpenRead($zipPath)
         try {
             $e = $z.Entries | Where-Object { $_.FullName -eq 'sdp_dashboard.sql' } | Select-Object -First 1
-            return ($e -ne $null -and $e.Length -gt 0)
+            if (-not $e -or $e.Length -le 0) { return $false }
+            $s = $e.Open()
+            try {
+                # Streaming last-N-bytes: a ZIP deflate stream is forward-only
+                # (no Seek), and dumps run tens of MB, so read in chunks and
+                # keep only a sliding window of the last $tailSize bytes seen -
+                # never buffer the whole entry just to check its tail.
+                $chunk = New-Object byte[] 8192
+                $tail = New-Object byte[] $tailSize
+                $tailLen = 0
+                while ($true) {
+                    $read = $s.Read($chunk, 0, $chunk.Length)
+                    if ($read -le 0) { break }
+                    if ($read -ge $tailSize) {
+                        [Array]::Copy($chunk, $read - $tailSize, $tail, 0, $tailSize)
+                        $tailLen = $tailSize
+                    } else {
+                        $keep = $tailSize - $read
+                        $moveLen = if ($tailLen -gt 0) { [Math]::Min($keep, $tailLen) } else { 0 }
+                        if ($moveLen -gt 0) { [Array]::Copy($tail, $tailLen - $moveLen, $tail, 0, $moveLen) }
+                        [Array]::Copy($chunk, 0, $tail, $moveLen, $read)
+                        $tailLen = $moveLen + $read
+                    }
+                }
+                $text = [System.Text.Encoding]::ASCII.GetString($tail, 0, $tailLen)
+                return ($text.Contains($trailer))
+            } finally { $s.Dispose() }
         } finally { $z.Dispose() }
     } catch { return $false }
 }

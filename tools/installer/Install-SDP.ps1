@@ -194,13 +194,28 @@ function Complete-Run([string]$result) {
 }
 
 # Environment header at the top of every log (mirrors the 4MyPeople installer).
-# Secrets are reported as (set)/(not set) ONLY.
+# Secrets are reported as (set)/(not set) ONLY. Every probe below is wrapped in
+# its OWN try/catch -> 'unknown' - a WMI/CIM hiccup, a missing DriveInfo root,
+# node/psql not on PATH, or a netstat parse failure must never abort the run
+# just for a log-header cosmetic (this function runs before step 1).
 function Write-EnvHeader {
-    $os = try { (Get-CimInstance Win32_OperatingSystem).Caption + ' build ' + (Get-CimInstance Win32_OperatingSystem).BuildNumber } catch { 'unknown' }
-    $free = try { [math]::Round((New-Object System.IO.DriveInfo([System.IO.Path]::GetPathRoot([System.IO.Path]::GetFullPath($InstallDir)))).AvailableFreeSpace / 1GB, 1) } catch { '?' }
-    $nodeV = try { (& node -v 2>$null) } catch { 'not on PATH' }
-    $psqlV = if (Find-PgBin 'psql.exe') { 'found' } else { 'not found' }
-    $ports = @(); foreach ($p in @($AppPort, [int]$cfg.PgPort)) { $ports += ('' + $p + '=' + $(if ((Get-PortListenerPids $p).Count -gt 0) { 'IN USE' } else { 'free' })) }
+    $os = 'unknown'
+    try {
+        $osInfo = Get-CimInstance Win32_OperatingSystem   # ONE call, two fields
+        $os = $osInfo.Caption + ' build ' + $osInfo.BuildNumber
+    } catch { $os = 'unknown' }
+    $free = 'unknown'
+    try { $free = [math]::Round((New-Object System.IO.DriveInfo([System.IO.Path]::GetPathRoot([System.IO.Path]::GetFullPath($InstallDir)))).AvailableFreeSpace / 1GB, 1) } catch { $free = 'unknown' }
+    $nodeV = 'unknown'
+    try { $nodeV = (& node -v 2>$null); if ([string]::IsNullOrWhiteSpace($nodeV)) { $nodeV = 'not on PATH' } } catch { $nodeV = 'unknown' }
+    $psqlV = 'unknown'
+    try { $psqlV = if (Find-PgBin 'psql.exe') { 'found' } else { 'not found' } } catch { $psqlV = 'unknown' }
+    $ports = @('unknown')
+    try {
+        $arr = @()
+        foreach ($p in @($AppPort, [int]$cfg.PgPort)) { $arr += ('' + $p + '=' + $(if ((Get-PortListenerPids $p).Count -gt 0) { 'IN USE' } else { 'free' })) }
+        $ports = $arr
+    } catch { $ports = @('unknown') }
     $lines = @(
         '----- ENVIRONMENT -----',
         ('Timestamp        : ' + (Get-Date -Format 'o')),
@@ -275,15 +290,10 @@ function Resolve-Pm2 {
     return $null
 }
 function Find-PgBin($exe) {
-    foreach ($root in @('C:\Program Files\PostgreSQL', 'C:\Program Files (x86)\PostgreSQL')) {
-        if (Test-Path $root) {
-            foreach ($v in (Get-ChildItem $root -Directory | Sort-Object { [double]$_.Name } -Descending)) {
-                $p = Join-Path $v.FullName ("bin\" + $exe)
-                if (Test-Path $p) { return $p }
-            }
-        }
-    }
-    return $null
+    # One implementation only - SdpSituation.ps1's Find-SdpPgBin (dot-sourced
+    # above, after the -PrintPlan exit): never throws, TryParse-sorted, and
+    # its roots ($script:SdpPgRoots) are the ones Detect-SDP.ps1 also uses.
+    return (Find-SdpPgBin $exe)
 }
 
 # =====================================================================
@@ -707,7 +717,8 @@ function Invoke-PsqlSuper([string]$sql) {
     $psql = Find-PgBin 'psql.exe'
     if (-not $psql) { Die 'psql.exe not found under Program Files\PostgreSQL' }
     $env:PGPASSWORD = Get-SuperPassword
-    try { return (& $psql -h $cfg.PgHost -p $cfg.PgPort -U postgres -d postgres -v ON_ERROR_STOP=1 -t -A -c $sql) }
+    # -w: never prompt (a closed-stdin interactive password prompt hangs the installer).
+    try { return (& $psql -h $cfg.PgHost -p $cfg.PgPort -U postgres -d postgres -w -v ON_ERROR_STOP=1 -t -A -c $sql) }
     finally { $env:PGPASSWORD = '' }
 }
 # Same as Invoke-PsqlSuper but the SQL travels on STDIN, never on the command line:
@@ -718,8 +729,16 @@ function Invoke-PsqlSuperStdin([string]$sql) {
     $psql = Find-PgBin 'psql.exe'
     if (-not $psql) { Die 'psql.exe not found under Program Files\PostgreSQL' }
     $env:PGPASSWORD = Get-SuperPassword
-    try { return ($sql | & $psql -h $cfg.PgHost -p $cfg.PgPort -U postgres -d postgres -v ON_ERROR_STOP=1 -t -A -f -) }
-    finally { $env:PGPASSWORD = '' }
+    # A generated/typed password can carry non-ASCII characters; the SQL travels
+    # through the PowerShell pipeline to psql's stdin, so the pipeline's own
+    # encoding (OutputEncoding) and what psql is told to expect on the wire
+    # (PGCLIENTENCODING) must agree, or the CREATE ROLE statement gets mangled
+    # and the app's own connection later fails to authenticate.
+    $prevOutputEncoding = $OutputEncoding
+    $OutputEncoding = New-Object System.Text.UTF8Encoding $false
+    $env:PGCLIENTENCODING = 'UTF8'
+    try { return ($sql | & $psql -h $cfg.PgHost -p $cfg.PgPort -U postgres -d postgres -w -v ON_ERROR_STOP=1 -t -A -f -) }
+    finally { $env:PGPASSWORD = ''; $env:PGCLIENTENCODING = ''; $OutputEncoding = $prevOutputEncoding }
 }
 
 # Probe the cluster we will ACTUALLY use - host+port+superuser credentials -
@@ -843,6 +862,12 @@ function Step4-Postgres {
             $inp = Read-Secret '  sdp_app database password [Enter = generate one]'
             if ([string]::IsNullOrWhiteSpace($inp)) {
                 $appPw = New-RandomPassword
+                # Deliberate exception to "no secret on stdout": the operator
+                # has no other way to learn a freshly generated password. It
+                # can still reach an active PowerShell transcript (Start-
+                # Transcript) if one happens to be running - same caveat as
+                # the 4MyPeople leak this file's header references - and the
+                # value is ALSO stored in .env PG_URL right after this step.
                 Write-Host ("     generated: " + $appPw + "   (SHOWN ONCE - stored in .env PG_URL)") -ForegroundColor Yellow
             } else { $appPw = $inp }
         }
@@ -916,13 +941,16 @@ function Step5-Backup {
     $svc = Get-Service postgresql* -ErrorAction SilentlyContinue | Select-Object -First 1
     if ($svc -and $svc.Status -ne 'Running') {
         Log ('Starting the PostgreSQL service for the pre-change dump (' + $svc.Name + ')') 'STEP'
+        $startErr = $null
         try {
-            Start-Service $svc.Name
-            $deadline = (Get-Date).AddSeconds(30)
-            do { Start-Sleep -Seconds 1; $svc.Refresh() } while ($svc.Status -ne 'Running' -and (Get-Date) -lt $deadline)
-            if ($svc.Status -ne 'Running') { throw ('service did not reach Running within 30s (status: ' + $svc.Status + ')') }
+            if ($svc.Status -eq 'Stopped') { $svc.Start() }
+            $svc.WaitForStatus('Running', [TimeSpan]::FromSeconds(30))
+        } catch [System.ServiceProcess.TimeoutException] {
+            $startErr = 'service did not reach Running within 30s (status: ' + $svc.Status + ')'
         } catch {
             $startErr = $_.Exception.Message
+        }
+        if ($startErr) {
             if ($ConfirmDataLoss) { Die ('Cannot start the PostgreSQL service ' + $svc.Name + ' - the pre-change dump needs it: ' + $startErr) }
             else { Log ('Could not start the PostgreSQL service ' + $svc.Name + ' - continuing without it, the pre-change dump may be empty: ' + $startErr) 'WARN' }
         }

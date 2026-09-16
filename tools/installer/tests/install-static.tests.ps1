@@ -32,14 +32,31 @@ Assert-Eq $createRoleLines.Count 1 'exactly one CREATE ROLE sdp_app statement in
 Assert-True ($createRoleLines[0] -like '*Invoke-PsqlSuperStdin (*') 'the CREATE ROLE statement goes through Invoke-PsqlSuperStdin'
 Assert-True (-not ($createRoleLines[0] -like '*Invoke-PsqlSuper (*')) 'the CREATE ROLE statement does not go through the -c fallback (Invoke-PsqlSuper)'
 
-# (b) Step5-Backup starts a stopped PostgreSQL service and refuses to continue
-# past a -ConfirmDataLoss run whose restore point has no dump.
+# (a2) non-ASCII passwords: Invoke-PsqlSuperStdin sets both the pipeline
+# encoding (OutputEncoding) and what psql is told to expect on the wire
+# (PGCLIENTENCODING); both super-user psql wrappers pass -w (never prompt).
+$plainFn = Get-FunctionText $ast 'Invoke-PsqlSuper'
+Assert-True ($plainFn -ne $null) 'Invoke-PsqlSuper is defined'
+Assert-True ($plainFn -like '* -w *') 'Invoke-PsqlSuper passes -w'
+Assert-True ($stdinFn -like '* -w *') 'Invoke-PsqlSuperStdin passes -w'
+Assert-True ($stdinFn -like '*PGCLIENTENCODING*') 'Invoke-PsqlSuperStdin sets PGCLIENTENCODING'
+Assert-True ($stdinFn -like '*OutputEncoding*') 'Invoke-PsqlSuperStdin sets OutputEncoding'
+Assert-True ($stdinFn -like '*UTF8Encoding*') 'Invoke-PsqlSuperStdin uses a UTF8Encoding for OutputEncoding'
+
+# (b) Step5-Backup starts a stopped PostgreSQL service (ServiceController
+# Start + WaitForStatus, not a fixed sleep) and refuses to continue past a
+# -ConfirmDataLoss run whose restore point has no dump.
 $step5Fn = Get-FunctionText $ast 'Step5-Backup'
 Assert-True ($step5Fn -ne $null) 'Step5-Backup is defined'
 Assert-True ($step5Fn -like '*Test-SdpZipHasDump*') 'Step5-Backup calls Test-SdpZipHasDump'
-Assert-True ($step5Fn -like '*Start-Service*') 'Step5-Backup calls Start-Service'
+Assert-True ($step5Fn -like '*WaitForStatus*') 'Step5-Backup waits on the service via WaitForStatus'
 Assert-True ($step5Fn -like '*ConfirmDataLoss*') 'Step5-Backup branches on -ConfirmDataLoss'
 Assert-True ($step5Fn -like '*Get-SdpDbCounts*') 'Step5-Backup records the data-integrity baseline via Get-SdpDbCounts'
+
+# (b2) Step 4's own Start-Service call is untouched by the Step5 rework.
+$step4Fn = Get-FunctionText $ast 'Step4-Postgres'
+Assert-True ($step4Fn -ne $null) 'Step4-Postgres is defined'
+Assert-True ($step4Fn -like '*Start-Service*') 'Step4-Postgres still calls Start-Service directly (left alone)'
 
 # (c) Write-EnvHeader never interpolates the super-password VALUE into a
 # string - the config keys are only ever read inside the (set)/(not set)
@@ -55,6 +72,12 @@ foreach ($l in $pwLines) {
     Assert-True (-not ($l -like '*+ $cfg.EnvAnswers.PG_SUPER_PASSWORD +*')) ('PG_SUPER_PASSWORD value is not concatenated raw into the header: ' + $l.Trim())
 }
 Assert-True ($envHdrFn -like '*Add-Content*') 'Write-EnvHeader writes the header to the log file'
+$cimCalls = @($hdrLines | Where-Object { $_ -like '*Get-CimInstance*' }).Count
+Assert-Eq $cimCalls 1 'Write-EnvHeader calls Get-CimInstance exactly once'
+# Every probe (OS, free space, node, psql, ports) degrades instead of throwing -
+# each is its own try block in the function body (at least 5: os/free/node/psql/ports).
+$tryCount = @($hdrLines | Where-Object { $_ -match '\btry\b' }).Count
+Assert-True ($tryCount -ge 5) ('Write-EnvHeader wraps each probe in its own try block (found ' + $tryCount + ')')
 
 # (d) SdpSituation.ps1 is dot-sourced (shared Get-SdpDbCounts / Get-SdpEnvValue
 # / Test-SdpZipHasDump - one implementation, not a duplicate).
