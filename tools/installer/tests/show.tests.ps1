@@ -111,6 +111,59 @@ $outDemo = Render (Sit 'installed' 'upgrade' $false $true) 1
 Assert-True ($outDemo -match 'D\.\s+Demo') 'installed + HasDemo=1 -> D line present'
 Assert-True (-not ($outDemo -match 'D\.\s+Demo.*<< recommended')) 'installed + HasDemo=1 -> D is not the recommended entry'
 
+# ---- spec-review fixes: warning colours (extracted decision function), no
+# recommendation on a refused entry, demo placement ----
+
+# (fix-a) Get-InstallLineColor is exercised directly via -ColorProbe, which
+# prints ONLY "INSTALL_COLOR=<colour>" and exits 0 - colour can't be read
+# back from captured text any other way (Write-Host colour never reaches
+# the piped string), so the script exposes the decision as data instead.
+function SitColor($state, $pm2, $port, $reach) {
+    $o = @{
+        install = @{ dir = 'C:\Apps\X' }
+        runtime = @{ pm2_process = $pm2; port_owner = $port }
+        db = @{ reachable = $reach }
+        verdict = @{ state = $state }
+    }
+    $d = New-TempDir 'sdp-sit'; $script:TestTempDirs += $d
+    $f = Join-Path $d 'sit.json'; ($o | ConvertTo-Json -Depth 6) | Set-Content $f -Encoding ascii; return $f
+}
+function ColorOf([string]$file) {
+    $txt = (& powershell -NoProfile -ExecutionPolicy Bypass -File $show -Situation $file -ColorProbe 2>&1 | Out-String)
+    if ($txt -match 'INSTALL_COLOR=(\S+)') { return $Matches[1] }
+    return ''
+}
+Assert-Eq (ColorOf (SitColor 'installed' 'online' 'ours' $true)) 'Green' 'pm2 online + port ours + db reachable -> Green'
+Assert-Eq (ColorOf (SitColor 'installed' 'online' 'foreign' $true)) 'Yellow' 'port foreign -> Yellow'
+Assert-Eq (ColorOf (SitColor 'installed' 'online' 'ours' $false)) 'Yellow' 'db unreachable -> Yellow'
+Assert-Eq (ColorOf (SitColor 'installed' 'stopped' 'ours' $true)) 'Yellow' 'pm2 stopped -> Yellow'
+Assert-Eq (ColorOf (SitColor 'partial' 'online' 'ours' $true)) 'Red' 'partial -> Red regardless of pm2/port/db'
+
+# (fix-b) downgrade + recommended upgrade: the recommendation itself is
+# refused, so RECOMMENDED must say "no recommendation" (not print Upgrade
+# with a "<< recommended" tag), the old lockfile-based "Upgrade recommended"
+# bundle-line suffix must not appear, and 2. Upgrade must read n/a.
+$outB = Render (Sit 'installed' 'upgrade' $true $true) 0
+Assert-True ($outB -match '\(no recommendation') 'downgrade + recommended upgrade -> "(no recommendation" shown'
+Assert-True (-not ($outB -match 'Upgrade recommended')) 'downgrade + recommended upgrade -> no "Upgrade recommended" text anywhere'
+Assert-True ($outB -match '2\.\s+Upgrade.*not applicable') 'downgrade + recommended upgrade -> 2. Upgrade line reads not applicable'
+
+# (fix-c) partial install -> Patch (1) reads "installation incomplete", not
+# the empty-state "nothing installed" wording.
+$outC = Render (Sit 'partial' $null $false $true) 0
+Assert-True ($outC -match '1\.\s+Patch.*installation incomplete') 'partial -> 1. Patch reason mentions installation incomplete'
+
+# (fix-d) empty + HasDemo=1: D must sit INSIDE the RECOMMENDED group, right
+# under Fresh install, and must not appear a second time under OTHER - prove
+# it by position (D's first occurrence comes before the OTHER heading).
+$outD = Render (Sit 'empty' 'fresh' $false $false) 1
+$idxD = $outD.IndexOf('D.  Demo')
+$idxOther = $outD.IndexOf('OTHER')
+Assert-True ($idxD -ge 0) 'empty + HasDemo=1 -> D line present'
+Assert-True ($idxOther -ge 0) 'empty + HasDemo=1 -> OTHER heading present'
+Assert-True ($idxD -lt $idxOther) 'empty + HasDemo=1 -> D line appears before the OTHER heading (i.e. inside RECOMMENDED)'
+Assert-Eq (([regex]::Matches($outD, 'D\.\s+Demo')).Count) 1 'empty + HasDemo=1 -> D line appears exactly once'
+
 Write-Host ("show.tests: " + $script:AssertCount + " assertions ok")
 
 } finally {

@@ -13,9 +13,22 @@
 # below with every install-affecting entry marked not-applicable.
 # KEEP PURE ASCII (no box glyphs).
 # =====================================================================
-param([Parameter(Mandatory = $true)][string]$Situation, [int]$HasDemo = 0)
+param([Parameter(Mandatory = $true)][string]$Situation, [int]$HasDemo = 0, [switch]$ColorProbe)
 $ErrorActionPreference = 'Stop'
 function W([string]$t, [string]$c = 'Gray') { Write-Host $t -ForegroundColor $c }
+
+# spec 4.2: red when the install is partial; otherwise yellow when ANY of
+# pm2/port/db is not clean; green only when none of those apply. Extracted
+# so -ColorProbe (below) can assert the decision directly instead of trying
+# to detect a Write-Host colour from captured text.
+function Get-InstallLineColor($sit) {
+    if ($sit.verdict.state -eq 'partial') { return 'Red' }
+    $pm2 = if ($sit.runtime -and $sit.runtime.pm2_process) { $sit.runtime.pm2_process } else { 'absent' }
+    $port = if ($sit.runtime -and $sit.runtime.port_owner) { $sit.runtime.port_owner } else { 'unknown' }
+    $dbOk = [bool]$sit.db.reachable
+    if ($pm2 -ne 'online' -or $port -eq 'foreign' -or -not $dbOk) { return 'Yellow' }
+    return 'Green'
+}
 
 # Full static menu for when there is no situation data to reason about at
 # all (missing / empty / malformed JSON, or a JSON with no "install"
@@ -52,6 +65,7 @@ try {
     if ([string]::IsNullOrWhiteSpace($raw)) { throw 'situation file empty or unreadable' }
     try { $s = $raw | ConvertFrom-Json } catch { throw 'situation file is not valid JSON' }
     if ($null -eq $s -or -not $s.install) { throw 'situation file has no installation data - rerun detection' }
+    if ($ColorProbe) { Write-Output ('INSTALL_COLOR=' + (Get-InstallLineColor $s)); exit 0 }
 
     $v = $s.verdict
     $iv = if ($s.install.version) { 'v' + ($s.install.version -replace '^v', '') } else { 'unknown version' }
@@ -72,11 +86,7 @@ try {
         W ('  Install    : ' + $s.install.dir + '   (nothing installed)') 'Gray'
     } else {
         $rt = 'pm2 ' + $pm2Val + ', port ' + $portVal
-        # A partial (broken) install is always red regardless of pm2 status;
-        # otherwise online keeps the line green, anything else (stopped /
-        # errored / launching / absent) turns it yellow.
-        $col = if ($v.state -eq 'partial') { 'Red' } elseif ($pm2Val -eq 'online') { 'Green' } else { 'Yellow' }
-        W ('  Install    : ' + $s.install.dir + '   ' + $iv + '   (' + $rt + ')') $col
+        W ('  Install    : ' + $s.install.dir + '   ' + $iv + '   (' + $rt + ')') (Get-InstallLineColor $s)
         if ($s.db.reachable -and $s.db.counts) {
             $c = $s.db.counts
             W ('  Database   : ' + $s.db.db + '  ' + $s.db.size_mb + ' MB   sites ' + $c.sites + ' | reports ' + $c.weekly_reports + ' | PV ' + $c.md_meetings + ' | inspections ' + $c.insp_inspections + ' | users ' + $c.users) 'Green'
@@ -87,7 +97,11 @@ try {
             W ('  Backups    : last full ' + [math]::Round($b.age_hours / 24, 1) + ' d ago (' + $b.name + ', ' + $b.size_mb + ' MB) | ' + $s.backups.count + ' kept') $col2
         } else { W '  Backups    : none yet' 'Yellow' }
     }
-    $lockTxt = if ($v.state -ne 'installed') { '' } elseif ($s.bundle.lockfile_same_as_installed -eq $true) { '   node_modules unchanged -> Patch recommended' } else { '   node_modules changed -> Upgrade recommended' }
+    # A downgrade bundle is never "recommended" anything - say so plainly
+    # instead of the lockfile-based suffix, which would otherwise still
+    # print "-> Upgrade recommended" on the very line reporting an older
+    # bundle.
+    $lockTxt = if ($v.downgrade) { '   OLDER than the installed version' } elseif ($v.state -ne 'installed') { '' } elseif ($s.bundle.lockfile_same_as_installed -eq $true) { '   node_modules unchanged -> Patch recommended' } else { '   node_modules changed -> Upgrade recommended' }
     W ('  Bundle     : ' + $bv + $lockTxt) $(if ($v.downgrade) { 'Red' } else { 'Gray' })
     foreach ($n in @($v.notes)) { if ($n) { W ('  ! ' + $n) $(if ($v.downgrade -or $v.state -eq 'partial' -or $stateUnknown) { 'Red' } else { 'Yellow' }) } }
     W ' ---------------------------------------------------------------------------' 'Cyan'
@@ -102,9 +116,13 @@ try {
     # ---- entries -------------------------------------------------------------------
     $rec = $v.recommended
     $installed = ($v.state -eq 'installed')
+    # Patch/Upgrade need SOMETHING installed to patch/upgrade - "nothing
+    # installed" only makes sense on state=empty; a partial install has
+    # something on disk, just not enough of it (see the note line above).
+    $noPatchUpgradeWhy = $(if ($v.state -eq 'partial') { 'installation incomplete - see the note above' } else { 'nothing installed' })
     $entries = @(
-        @{ n = '1'; name = 'Patch';         desc = 'Code only. No node_modules or database change at all.';                  kind = $(if ($installed) { 'ok' } else { 'na' }); why = 'nothing installed' },
-        @{ n = '2'; name = 'Upgrade';       desc = 'Code + node_modules. Database, data and .env preserved.';                 kind = $(if ($installed) { 'ok' } else { 'na' }); why = 'nothing installed' },
+        @{ n = '1'; name = 'Patch';         desc = 'Code only. No node_modules or database change at all.';                  kind = $(if ($installed) { 'ok' } else { 'na' }); why = $noPatchUpgradeWhy },
+        @{ n = '2'; name = 'Upgrade';       desc = 'Code + node_modules. Database, data and .env preserved.';                 kind = $(if ($installed) { 'ok' } else { 'na' }); why = $noPatchUpgradeWhy },
         @{ n = '3'; name = 'Reinstall';     desc = 'Re-deploy over the top; DB kept unless you ask to drop it.';             kind = $(if ($v.state -eq 'empty' -or -not $s.install.has_server_js) { 'na' } else { 'red' }); why = $(if ($v.state -eq 'empty') { 'nothing installed' } else { 'no server.js - use 4' }) },
         @{ n = '4'; name = 'Fresh install'; desc = $(if ($v.state -eq 'empty') { 'First-time install on this machine.' } else { 'Overwrites the existing installation''s code - confirmation required.' }); kind = $(if ($v.state -eq 'empty') { 'ok' } else { 'red' }); why = '' }
     )
@@ -125,9 +143,26 @@ try {
     }
     W '  RECOMMENDED' 'White'
     $recEntry = $entries | Where-Object { $_.n -eq $recN } | Select-Object -First 1
-    if ($recEntry) { Entry $recEntry $true } else { W '    (no recommendation - see the notes above)' 'DarkGray' }
+    # An entry that IS the recommendation but is itself marked not-applicable
+    # (a downgrade, an unknown state) is not a real recommendation - say so,
+    # and let it appear once, in OTHER, with its greyed-out reason like any
+    # other n/a entry (instead of silently vanishing from both sections).
+    $recApplicable = ($recEntry -and $recEntry.kind -ne 'na')
+    if ($recApplicable) { Entry $recEntry $true } else { W '    (no recommendation - see the notes above)' 'DarkGray' }
+    # On a fresh machine with the demo bundled, Demo belongs right next to
+    # the Fresh-install recommendation - not buried in OTHER - but it is
+    # never itself "the recommendation" (no <<  tag).
+    $demoUnderRecommended = ($v.state -eq 'empty' -and $HasDemo -eq 1)
+    if ($demoUnderRecommended) {
+        $dEntry = $entries | Where-Object { $_.n -eq 'D' } | Select-Object -First 1
+        if ($dEntry) { Entry $dEntry $false }
+    }
     W '  OTHER' 'White'
-    foreach ($e in $entries) { if ($e.n -ne $recN) { Entry $e $false } }
+    foreach ($e in $entries) {
+        if ($recApplicable -and $e.n -eq $recN) { continue }
+        if ($demoUnderRecommended -and $e.n -eq 'D') { continue }
+        Entry $e $false
+    }
     W '  DATA' 'White'
     W '    5.  Backup now           Full restore point (code + .env + data + DB dump).' 'Gray'
     W ('    6.  Restore a previous version      Overwrites the current state - confirmation required.' + $(if (-not $s.db.reachable) { '  (database unreachable)' } else { '' })) 'Red'
@@ -142,6 +177,7 @@ try {
     W ' ---------------------------------------------------------------------------' 'Cyan'
     exit 0
 } catch {
+    if ($ColorProbe) { Write-Output 'INSTALL_COLOR=unknown'; exit 0 }
     $reason = (([string]$_.Exception.Message) -replace '[\r\n]+', ' ')
     if ([string]::IsNullOrWhiteSpace($reason)) { $reason = 'unreadable situation file' }
     W ''
