@@ -734,11 +734,20 @@ function Invoke-PsqlSuperStdin([string]$sql) {
     # encoding (OutputEncoding) and what psql is told to expect on the wire
     # (PGCLIENTENCODING) must agree, or the CREATE ROLE statement gets mangled
     # and the app's own connection later fails to authenticate.
-    $prevOutputEncoding = $OutputEncoding
-    $OutputEncoding = New-Object System.Text.UTF8Encoding $false
+    #
+    # MUST be $global:OutputEncoding, not a bare $OutputEncoding assignment:
+    # inside a function, a bare assignment only creates a NEW LOCAL variable
+    # that shadows the global one for the rest of THIS scope - PowerShell 5.1's
+    # native-pipe encoding is read from the actual global preference variable
+    # when it pipes text to a child process, so the local shadow has ZERO
+    # effect on what psql actually receives (proven: without this, an e-acute
+    # arrived at the child process as the single byte 0x3F, a literal '?').
+    $prevOutputEncoding = $global:OutputEncoding
+    $global:OutputEncoding = New-Object System.Text.UTF8Encoding $false
+    $prevPgClientEncoding = $env:PGCLIENTENCODING
     $env:PGCLIENTENCODING = 'UTF8'
     try { return ($sql | & $psql -h $cfg.PgHost -p $cfg.PgPort -U postgres -d postgres -w -v ON_ERROR_STOP=1 -t -A -f -) }
-    finally { $env:PGPASSWORD = ''; $env:PGCLIENTENCODING = ''; $OutputEncoding = $prevOutputEncoding }
+    finally { $env:PGPASSWORD = ''; $env:PGCLIENTENCODING = $prevPgClientEncoding; $global:OutputEncoding = $prevOutputEncoding }
 }
 
 # Probe the cluster we will ACTUALLY use - host+port+superuser credentials -

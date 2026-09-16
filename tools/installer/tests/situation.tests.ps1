@@ -116,6 +116,24 @@ try { $foundDump = Find-SdpPgBin 'pg_dump.exe' } catch { $foundDump = 'THREW' }
 $script:SdpPgRoots = $origPgRoots
 Assert-Eq $foundDump (Join-Path $dir17 'bin\pg_dump.exe') 'Find-SdpPgBin pg_dump.exe returns the 17 path and does not throw on a non-numeric sibling'
 
+# 7c. Multiple real version folders spanning the old "9.6"-style and new
+# single-major-integer styles, PLUS a non-numeric sibling (pgAdmin 4): the
+# NUMERIC value must win (16 > 9.6), not a string sort (which would put '9.6'
+# ahead of '16' lexically), and the non-numeric folder must never win either.
+$pgRoot2 = New-TempDir 'sdp-pgroot2'; $script:TestTempDirs += $pgRoot2
+$dir16 = Join-Path $pgRoot2 '16'
+$dir96 = Join-Path $pgRoot2 '9.6'
+New-Item -ItemType Directory -Path (Join-Path $dir16 'bin') -Force | Out-Null
+New-Item -ItemType Directory -Path (Join-Path $dir96 'bin') -Force | Out-Null
+Set-Content -Path (Join-Path $dir16 'bin\psql.exe') -Value 'fake16' -Encoding ascii
+Set-Content -Path (Join-Path $dir96 'bin\psql.exe') -Value 'fake96' -Encoding ascii
+New-Item -ItemType Directory -Path (Join-Path $pgRoot2 'pgAdmin 4') -Force | Out-Null
+$script:SdpPgRoots = @($pgRoot2)
+$found2 = $null
+try { $found2 = Find-SdpPsql } catch { $found2 = 'THREW' }
+$script:SdpPgRoots = $origPgRoots
+Assert-Eq $found2 (Join-Path $dir16 'bin\psql.exe') 'pgAdmin 4 + 16 + 9.6 -> the 16 path wins (numeric value, not string sort; a non-numeric folder never wins)'
+
 # 8. malformed PG_URL never throws; DB reads as unreachable
 $badUrlDir = New-TempDir 'sdp-badurl'; $script:TestTempDirs += $badUrlDir
 Set-Content -Path (Join-Path $badUrlDir '.env') 'PG_URL=not a url' -Encoding ascii

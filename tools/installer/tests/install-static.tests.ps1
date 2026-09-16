@@ -32,16 +32,28 @@ Assert-Eq $createRoleLines.Count 1 'exactly one CREATE ROLE sdp_app statement in
 Assert-True ($createRoleLines[0] -like '*Invoke-PsqlSuperStdin (*') 'the CREATE ROLE statement goes through Invoke-PsqlSuperStdin'
 Assert-True (-not ($createRoleLines[0] -like '*Invoke-PsqlSuper (*')) 'the CREATE ROLE statement does not go through the -c fallback (Invoke-PsqlSuper)'
 
-# (a2) non-ASCII passwords: Invoke-PsqlSuperStdin sets both the pipeline
-# encoding (OutputEncoding) and what psql is told to expect on the wire
-# (PGCLIENTENCODING); both super-user psql wrappers pass -w (never prompt).
+# (a2) non-ASCII passwords: Invoke-PsqlSuperStdin sets AND RESTORES the
+# pipeline encoding via $global:OutputEncoding - a bare $OutputEncoding
+# assignment inside a function only creates a NEW LOCAL variable that shadows
+# the global one for the rest of that scope, and PowerShell 5.1 reads the
+# REAL global preference variable when it pipes text to a native process, so
+# the local shadow has ZERO effect on what psql actually receives (proven
+# live: without $global:, an e-acute arrived at a child process as the single
+# byte 0x3F, a literal '?' - see the behavioural test below). It also saves
+# and RESTORES (never blanks to '') the previous PGCLIENTENCODING. Both
+# super-user psql wrappers pass -w (never prompt).
 $plainFn = Get-FunctionText $ast 'Invoke-PsqlSuper'
 Assert-True ($plainFn -ne $null) 'Invoke-PsqlSuper is defined'
 Assert-True ($plainFn -like '* -w *') 'Invoke-PsqlSuper passes -w'
 Assert-True ($stdinFn -like '* -w *') 'Invoke-PsqlSuperStdin passes -w'
-Assert-True ($stdinFn -like '*PGCLIENTENCODING*') 'Invoke-PsqlSuperStdin sets PGCLIENTENCODING'
-Assert-True ($stdinFn -like '*OutputEncoding*') 'Invoke-PsqlSuperStdin sets OutputEncoding'
 Assert-True ($stdinFn -like '*UTF8Encoding*') 'Invoke-PsqlSuperStdin uses a UTF8Encoding for OutputEncoding'
+$globalOutEncCount = ([regex]::Matches($stdinFn, '\$global:OutputEncoding')).Count
+Assert-True ($globalOutEncCount -ge 2) ('Invoke-PsqlSuperStdin references $global:OutputEncoding at least twice - set AND restore (found ' + $globalOutEncCount + ')')
+Assert-True ($stdinFn -match '\$global:OutputEncoding\s*=\s*New-Object\s+System\.Text\.UTF8Encoding') 'Invoke-PsqlSuperStdin SETS $global:OutputEncoding to a UTF8Encoding'
+Assert-True ($stdinFn -match '\$global:OutputEncoding\s*=\s*\$prevOutputEncoding') 'Invoke-PsqlSuperStdin RESTORES $global:OutputEncoding from the saved value'
+Assert-True (-not ($stdinFn -match '(?<!\$global:)\$OutputEncoding\s*=')) 'Invoke-PsqlSuperStdin never assigns a bare (local-shadowing) $OutputEncoding'
+Assert-True ($stdinFn -match '\$prevPgClientEncoding\s*=\s*\$env:PGCLIENTENCODING') 'Invoke-PsqlSuperStdin saves the previous PGCLIENTENCODING'
+Assert-True ($stdinFn -match '\$env:PGCLIENTENCODING\s*=\s*\$prevPgClientEncoding') 'Invoke-PsqlSuperStdin RESTORES PGCLIENTENCODING from the saved value (not blanked)'
 
 # (b) Step5-Backup starts a stopped PostgreSQL service (ServiceController
 # Start + WaitForStatus, not a fixed sleep) and refuses to continue past a
@@ -82,6 +94,59 @@ Assert-True ($tryCount -ge 5) ('Write-EnvHeader wraps each probe in its own try 
 # (d) SdpSituation.ps1 is dot-sourced (shared Get-SdpDbCounts / Get-SdpEnvValue
 # / Test-SdpZipHasDump - one implementation, not a duplicate).
 Assert-True ($raw -like "*. (Join-Path `$here 'SdpSituation.ps1')*") 'SdpSituation.ps1 is dot-sourced'
+
+# (e) BEHAVIOURAL proof that the $global:OutputEncoding fix actually changes
+# what a native process receives - not just that the source text says the
+# right words. Mirrors Invoke-PsqlSuperStdin's encoding dance exactly, pipes
+# an e-acute ([char]0xE9 - written as a code point, never a literal, to keep
+# this file pure ASCII) into node, and reads back the raw bytes node saw on
+# its stdin. UTF-8 encodes U+00E9 as the two bytes C3 A9; a mis-encoded
+# pipeline (the bare-$OutputEncoding bug this whole fix exists for) would
+# have delivered the single byte 3F ('?') instead. Also proves the restore
+# in `finally` actually puts the PREVIOUS value back, not just SOME value.
+$node = Get-Command node -ErrorAction SilentlyContinue
+if (-not $node) {
+    Write-Host 'install-static.tests: SKIPPED behavioural OutputEncoding test - node not on PATH'
+} else {
+    function Test-GlobalOutputEncodingRoundtrip {
+        # Same shape as the real fix in Invoke-PsqlSuperStdin.
+        $prevOutputEncoding = $global:OutputEncoding
+        $global:OutputEncoding = New-Object System.Text.UTF8Encoding $false
+        try {
+            $eAcute = [string][char]0xE9
+            return ($eAcute | & node -e "process.stdin.on('data',d=>process.stdout.write(d.toString('hex')))")
+        } finally { $global:OutputEncoding = $prevOutputEncoding }
+    }
+    $before = $global:OutputEncoding
+    $hex = $null
+    try { $hex = Test-GlobalOutputEncodingRoundtrip } catch { $hex = 'THREW: ' + $_.Exception.Message }
+    $hexStr = ("$hex" -join '')
+    # Discovered while writing this test (Windows PowerShell 5.1, verified with
+    # both the fix ON and OFF): piping to a native command ALWAYS prepends a
+    # fixed 3-byte UTF-8 BOM (efbbbf) to the FIRST write, no matter what
+    # $OutputEncoding is set to - even plain ASCIIEncoding, which has no BOM
+    # concept at all. That prefix is a constant artifact of PowerShell 5.1's
+    # native-command pipe plumbing, orthogonal to this fix; strip it before
+    # checking the actual character bytes, which is the thing under test.
+    if ($hexStr.StartsWith('efbbbf')) { $hexStr = $hexStr.Substring(6) }
+    Assert-True ($hexStr.StartsWith('c3a9')) ('node received the e-acute as UTF-8 bytes c3a9, BOM stripped (got: ' + $hexStr + ')')
+    Assert-Eq $global:OutputEncoding $before '$global:OutputEncoding is restored to its previous value after the function returns'
+
+    # Negative control: the ORIGINAL bug, reproduced on purpose. A bare
+    # (non-global) $OutputEncoding assignment inside a function creates a
+    # local shadow only and must NOT reach the child process - proving why
+    # $global: was necessary, not just plausible.
+    function Test-BareOutputEncodingDoesNotApply {
+        $OutputEncoding = New-Object System.Text.UTF8Encoding $false
+        $eAcute = [string][char]0xE9
+        return ($eAcute | & node -e "process.stdin.on('data',d=>process.stdout.write(d.toString('hex')))")
+    }
+    $hexBare = $null
+    try { $hexBare = Test-BareOutputEncodingDoesNotApply } catch { $hexBare = 'THREW: ' + $_.Exception.Message }
+    $hexBareStr = ("$hexBare" -join '')
+    if ($hexBareStr.StartsWith('efbbbf')) { $hexBareStr = $hexBareStr.Substring(6) }
+    Assert-True (-not $hexBareStr.StartsWith('c3a9')) ('control: a bare (non-global) $OutputEncoding assignment does NOT reach the child process (got: ' + $hexBareStr + ') - confirms $global: was necessary')
+}
 
 Write-Host ("install-static.tests: " + $script:AssertCount + " assertions ok")
 exit 0
