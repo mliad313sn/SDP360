@@ -742,6 +742,9 @@ function Invoke-PsqlSuperStdin([string]$sql) {
     # when it pipes text to a child process, so the local shadow has ZERO
     # effect on what psql actually receives (proven: without this, an e-acute
     # arrived at the child process as the single byte 0x3F, a literal '?').
+    # UTF8 also makes psql skip the single BOM that PS 5.1 prepends on a 65001
+    # console; with any other client encoding that BOM is a syntax error
+    # (verified against psql 17).
     $prevOutputEncoding = $global:OutputEncoding
     $global:OutputEncoding = New-Object System.Text.UTF8Encoding $false
     $prevPgClientEncoding = $env:PGCLIENTENCODING

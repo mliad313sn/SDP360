@@ -53,6 +53,7 @@ Assert-True ($stdinFn -match '\$global:OutputEncoding\s*=\s*New-Object\s+System\
 Assert-True ($stdinFn -match '\$global:OutputEncoding\s*=\s*\$prevOutputEncoding') 'Invoke-PsqlSuperStdin RESTORES $global:OutputEncoding from the saved value'
 Assert-True (-not ($stdinFn -match '(?<!\$global:)\$OutputEncoding\s*=')) 'Invoke-PsqlSuperStdin never assigns a bare (local-shadowing) $OutputEncoding'
 Assert-True ($stdinFn -match '\$prevPgClientEncoding\s*=\s*\$env:PGCLIENTENCODING') 'Invoke-PsqlSuperStdin saves the previous PGCLIENTENCODING'
+Assert-True ($stdinFn -match '\$env:PGCLIENTENCODING\s*=\s*''UTF8''') 'Invoke-PsqlSuperStdin pins PGCLIENTENCODING to the exact literal UTF8'
 Assert-True ($stdinFn -match '\$env:PGCLIENTENCODING\s*=\s*\$prevPgClientEncoding') 'Invoke-PsqlSuperStdin RESTORES PGCLIENTENCODING from the saved value (not blanked)'
 
 # (b) Step5-Backup starts a stopped PostgreSQL service (ServiceController
@@ -122,12 +123,14 @@ if (-not $node) {
     try { $hex = Test-GlobalOutputEncodingRoundtrip } catch { $hex = 'THREW: ' + $_.Exception.Message }
     $hexStr = ("$hex" -join '')
     # Discovered while writing this test (Windows PowerShell 5.1, verified with
-    # both the fix ON and OFF): piping to a native command ALWAYS prepends a
-    # fixed 3-byte UTF-8 BOM (efbbbf) to the FIRST write, no matter what
-    # $OutputEncoding is set to - even plain ASCIIEncoding, which has no BOM
-    # concept at all. That prefix is a constant artifact of PowerShell 5.1's
-    # native-command pipe plumbing, orthogonal to this fix; strip it before
-    # checking the actual character bytes, which is the thing under test.
+    # both the fix ON and OFF): piping to a native command prepends a fixed
+    # 3-byte UTF-8 BOM (efbbbf) to the FIRST write ONLY WHEN the console's code
+    # page is 65001 (UTF-8) - which is what this box runs, so the harness sees
+    # it here every time - no matter what $OutputEncoding is set to, even
+    # plain ASCIIEncoding, which has no BOM concept at all. That prefix is a
+    # constant artifact of PowerShell 5.1's native-command pipe plumbing on a
+    # 65001 console, orthogonal to this fix; strip it before checking the
+    # actual character bytes, which is the thing under test.
     if ($hexStr.StartsWith('efbbbf')) { $hexStr = $hexStr.Substring(6) }
     Assert-True ($hexStr.StartsWith('c3a9')) ('node received the e-acute as UTF-8 bytes c3a9, BOM stripped (got: ' + $hexStr + ')')
     Assert-Eq $global:OutputEncoding $before '$global:OutputEncoding is restored to its previous value after the function returns'
