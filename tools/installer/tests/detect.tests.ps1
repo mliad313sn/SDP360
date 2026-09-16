@@ -67,9 +67,11 @@ Assert-Eq $LASTEXITCODE 0 'detect alone (no SdpSituation.ps1 next to it) exits 0
 $aloneLines = @($aloneStdout | ForEach-Object { "$_" })
 Assert-True (($aloneLines | Where-Object { $_ -notmatch '^[A-Z_]+=' }).Count -eq 0) 'alone-run stdout carries ONLY KEY=VALUE lines'
 Assert-True ($aloneLines -contains 'STATE=unknown') 'alone-run STATE=unknown'
-foreach ($key in @('STATE', 'RECOMMENDED', 'DOWNGRADE', 'DB_REACHABLE', 'HAS_SERVER', 'INSTALLED_VER', 'BUNDLE_VER')) {
+foreach ($key in @('STATE', 'RECOMMENDED', 'DOWNGRADE', 'DB_REACHABLE', 'HAS_SERVER', 'INSTALLED_VER', 'BUNDLE_VER', 'ERROR')) {
     Assert-True (($aloneLines | Where-Object { $_ -match ('^' + $key + '=') }).Count -eq 1) ('alone-run has exactly one ' + $key + ' line')
 }
+$aloneErrLine = @($aloneLines | Where-Object { $_ -match '^ERROR=' })[0]
+Assert-True (-not [string]::IsNullOrEmpty(($aloneErrLine -replace '^ERROR=', ''))) 'alone-run ERROR= value is non-empty'
 Assert-True (Test-Path $aloneOut) 'alone-run json written'
 $aj = Get-Content $aloneOut -Raw | ConvertFrom-Json
 Assert-Eq $aj.verdict.state 'unknown' 'alone-run json verdict is unknown'
@@ -82,6 +84,49 @@ Assert-Eq $LASTEXITCODE 0 'unwritable -OutFile still exits 0'
 $badLines = @($badStdout | ForEach-Object { "$_" })
 Assert-True (($badLines | Where-Object { $_ -notmatch '^[A-Z_]+=' }).Count -eq 0) 'unwritable -OutFile stdout carries ONLY KEY=VALUE lines'
 Assert-True ($badLines -contains 'STATE=unknown') 'unwritable -OutFile falls back to STATE=unknown'
+$badErrLines = @($badLines | Where-Object { $_ -match '^ERROR=' })
+Assert-True ($badErrLines.Count -eq 1) 'unwritable -OutFile has exactly one ERROR= line'
+Assert-True (-not [string]::IsNullOrEmpty(($badErrLines[0] -replace '^ERROR=', ''))) 'unwritable -OutFile ERROR= value is non-empty'
+
+# Newline-in-value: version.json carries a REAL newline character inside the
+# "version" string (PowerShell's ConvertFrom-Json parses this - it is lenient
+# about unescaped control chars inside a JSON string, confirmed against a
+# throwaway file). Without Write-Kv collapsing embedded newlines, INSTALLED_VER
+# would split across two stdout lines and corrupt cmd's `for /f` KEY=VALUE parse.
+$nlDir = New-TempDir 'sdp-detect-nl'; $script:TestTempDirs += $nlDir
+Set-Content (Join-Path $nlDir 'server.js') '// app' -Encoding ascii
+Set-Content -Path (Join-Path $nlDir 'version.json') -Value ("{`"version`":`"2.3`n1`"}") -Encoding ascii
+Set-Content (Join-Path $nlDir '.env') 'PG_URL=postgres://sdp_app:x@127.0.0.1:1/x' -Encoding ascii
+$nlCfgDir = New-TempDir 'sdp-detect-nl-cfg'; $script:TestTempDirs += $nlCfgDir
+$nlCfgFile = Join-Path $nlCfgDir 'config.nl.psd1'
+Set-Content $nlCfgFile ("@{ InstallDir = '" + $nlDir + "'; ServiceName = 'sdp-nl-unit'; AppPort = 3498; BackupDir = '..\SDP-Backups-nl' }") -Encoding ascii
+$nlOutFile = Join-Path $env:TEMP ('sdp-situation-nl-' + [guid]::NewGuid().ToString('N') + '.json'); $script:TestOutFiles += $nlOutFile
+$nlStdout = & powershell -NoProfile -ExecutionPolicy Bypass -File $detect -Config $nlCfgFile -BundleRoot $bundle -OutFile $nlOutFile
+Assert-Eq $LASTEXITCODE 0 'newline-in-version detect exits 0'
+$nlLines = @($nlStdout | ForEach-Object { "$_" })
+Assert-True (($nlLines | Where-Object { $_ -notmatch '^[A-Z_]+=' }).Count -eq 0) 'newline-in-version stdout carries ONLY KEY=VALUE lines'
+Assert-True ((@($nlLines | Where-Object { $_ -match '^INSTALLED_VER=' })).Count -eq 1) 'newline-in-version has EXACTLY one INSTALLED_VER= line'
+
+# Relative -Config fallback: Detect-SDP.ps1, SdpSituation.ps1 and config.psd1
+# copied together into a fresh dir (so config.psd1's own Import doesn't throw),
+# then run with a RELATIVE -Config name. Test-Path on the bare relative name
+# fails from this test's own cwd, forcing the `Join-Path $here $Config` branch
+# in Detect-SDP.ps1 - proving -Config resolves against the SCRIPT's own folder,
+# not the caller's cwd.
+$relDir = New-TempDir 'sdp-detect-relcfg'; $script:TestTempDirs += $relDir
+Copy-Item -Path $detect -Destination (Join-Path $relDir 'Detect-SDP.ps1') -Force
+Copy-Item -Path $situationScript -Destination (Join-Path $relDir 'SdpSituation.ps1') -Force
+Copy-Item -Path (Join-Path $here '..\config.psd1') -Destination (Join-Path $relDir 'config.psd1') -Force
+$relInstallDir = New-TempDir 'sdp-detect-relcfg-install'; $script:TestTempDirs += $relInstallDir
+$relCfgFile = Join-Path $relDir 'unit.psd1'
+Set-Content $relCfgFile ("@{ InstallDir = '" + $relInstallDir + "'; ServiceName = 'sdp-unit'; AppPort = 3499; BackupDir = '..\SDP-Backups-unit' }") -Encoding ascii
+$relOutFile = Join-Path $relDir 'out.json'; $script:TestOutFiles += $relOutFile
+$relCopiedDetect = Join-Path $relDir 'Detect-SDP.ps1'
+$relStdout = & powershell -NoProfile -ExecutionPolicy Bypass -File $relCopiedDetect -Config 'unit.psd1' -OutFile $relOutFile
+Assert-Eq $LASTEXITCODE 0 'relative -Config fallback exits 0'
+Assert-True (Test-Path $relOutFile) 'relative -Config fallback json written'
+$relJson = Get-Content $relOutFile -Raw | ConvertFrom-Json
+Assert-Eq $relJson.install.dir $relInstallDir 'relative -Config fallback resolved unit.psd1 next to the copied script (install.dir matches)'
 
 Write-Host ("detect.tests: " + $script:AssertCount + " assertions ok")
 
