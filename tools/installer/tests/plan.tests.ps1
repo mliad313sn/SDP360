@@ -24,21 +24,33 @@ Assert-Eq (Plan @('-Fresh', '-ForceOverwrite') $empty)    'PLAN=1,2,3,4,4b,6,7' 
 # reorder (backup before step 4) AND the seed step both apply.
 Assert-Eq (Plan @('-Fresh', '-SeedData', '-ForceOverwrite') $inst) 'PLAN=1,2,3,5,4,4b,6,7,8' 'fresh+seed+ForceOverwrite over existing -> reordered plan ends with ,8'
 
+# -Fresh -SeedData on an EMPTY dir: plain fresh plan (no reorder), seed step appended.
+Assert-Eq (Plan @('-Fresh', '-SeedData') $empty) 'PLAN=1,2,3,4,4b,6,7,8' 'fresh+seed on an empty dir -> plain fresh plan ending with ,8'
+
+# -Fresh -Force over an existing dir: same reorder as -ForceOverwrite.
+Assert-Eq (Plan @('-Fresh', '-Force') $inst) 'PLAN=1,2,3,5,4,4b,6,7' '-Force over existing also reorders (backup before step 4)'
+
+# -ConfigureEnvOnly -PrintPlan: env-only plan is just step 4b (main's early
+# branch runs it directly, this switch entry only serves -PrintPlan).
+Assert-Eq (Plan @('-ConfigureEnvOnly') $inst) 'PLAN=4b' 'env-only plan is just 4b'
+
 Write-Host ("plan.tests: " + $script:AssertCount + " assertions ok")
 
 # ---- -PrintPlan is a genuine dry run: no admin check, and no install-*.log
-# file is created in C:\ProgramData\SDP-Dashboard\logs. Skip the assertion
-# entirely if that folder does not exist on this box (nothing to compare
-# against, and nothing this test should create).
+# file is created in C:\ProgramData\SDP-Dashboard\logs.
 $LogDir = 'C:\ProgramData\SDP-Dashboard\logs'
 if (Test-Path $LogDir) {
     $before = (Get-ChildItem -Path $LogDir -Filter 'install-*.log' -ErrorAction SilentlyContinue | Measure-Object).Count
     Plan @('-Fresh') $empty | Out-Null
     $after = (Get-ChildItem -Path $LogDir -Filter 'install-*.log' -ErrorAction SilentlyContinue | Measure-Object).Count
     Assert-Eq $after $before '-PrintPlan creates no new install-*.log file'
-    Write-Host ("plan.tests: " + $script:AssertCount + " assertions ok (incl. no-log-file check)")
 } else {
-    Write-Host 'plan.tests: skipped no-log-file check (C:\ProgramData\SDP-Dashboard\logs does not exist on this box)'
+    # Folder does not exist on this box - run one Plan call anyway and assert
+    # -PrintPlan did NOT create it (a genuine dry run creates no side effects).
+    Plan @('-Fresh') $empty | Out-Null
+    Assert-True (-not (Test-Path $LogDir)) '-PrintPlan does not create C:\ProgramData\SDP-Dashboard\logs when absent'
 }
+
+Write-Host ("plan.tests: " + $script:AssertCount + " assertions ok (total)")
 
 exit 0

@@ -101,8 +101,10 @@ $Mode = if ($picked.Count -eq 1) { $picked[0] } else { 'upgrade' }
 # Step 5 (full restore point) ALWAYS precedes step 4 wherever step 4 can
 # DROP the database (reinstall -ConfirmDataLoss) or where the install
 # overwrites an existing one (fresh -ForceOverwrite/-Force with server.js
-# present) - 2026-09-15.
-$hasAppAtStart = Test-Path (Join-Path $InstallDir 'server.js')
+# present) - 2026-09-15. On both of those paths this also means step 7's
+# automatic rollback is now armed (a restore point exists), where before
+# fresh-over-existing had none.
+$hasAppAtStart = Test-Path -LiteralPath (Join-Path $InstallDir 'server.js')
 $plan = @()
 switch ($Mode) {
     'fresh'     {
@@ -113,6 +115,7 @@ switch ($Mode) {
     'upgrade'   { $plan = @('1','2','3','4','5','6','7') }   # 4 = verify only; new .env keys appended in 6
     'patch'     { $plan = @('1','2','3','5','6','7') }
     'reinstall' { $plan = @('1','2','3','5','4','4b','6','7') }
+    'env-only'  { $plan = @('4b') }
 }
 if ($PrintPlan) { Write-Output ('PLAN=' + ($plan -join ',')); exit 0 }
 
@@ -464,7 +467,7 @@ function Step1-Preflight {
     } else { Log "Port $AppPort is free" }
 
     # install dir rules per mode
-    $hasApp = Test-Path (Join-Path $InstallDir 'server.js')
+    $hasApp = Test-Path -LiteralPath (Join-Path $InstallDir 'server.js')
     if ($Mode -eq 'fresh') {
         if ($hasApp -and -not $Force -and -not $ForceOverwrite) { Die "Fresh mode but $InstallDir already contains server.js. Use -Upgrade / -Reinstall, or the menu's guarded Fresh (-ForceOverwrite)." }
         if ($hasApp) { Log 'Fresh over an EXISTING installation: a full restore point is taken (step 5) before the database step' 'WARN' }
