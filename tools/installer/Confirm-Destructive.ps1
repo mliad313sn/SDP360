@@ -87,6 +87,8 @@ Write-Host '  > ' -NoNewline
 $typed = $null
 try { $typed = [Console]::In.ReadLine() } catch { $typed = $null }
 if ($typed -eq $null) { Write-Host ''; Write-Host '  Cancelled - no input (nothing changed).' -ForegroundColor Yellow; exit 1 }
+# Trim only leading/trailing whitespace (cmd's `echo PHRASE | script` pipes a
+# trailing space) - case and inner content still must match exactly.
 if ($typed.Trim() -cne $phrase) { Write-Host '  Cancelled - phrase did not match (nothing changed).' -ForegroundColor Yellow; exit 1 }
 Write-Host ('  Confirmed: ' + $phrase) -ForegroundColor Green
 exit 0
