@@ -12,7 +12,10 @@
 #       [-NoBrowser]         do not open the dashboard when a fresh install ends
 #       [-NoRollback]        keep the broken state for on-site debugging
 #       [-Force]             override downgrade refusal / fresh-into-nonempty
+#       [-ForceOverwrite]    menu-guarded Fresh over an existing install: lifts ONLY
+#                            the non-empty-dir refusal (downgrade still refused)
 #       [-ConfirmDataLoss]   Reinstall only: DROP + recreate the database
+#       [-PrintPlan]         print PLAN=<steps> and exit 0 - dry run, no admin needed
 #
 # Steps (spec docs/superpowers/specs/2026-07-13-sdp-installer-design.md):
 #   1  preflight (admin, disk, port, install dir rules, downgrade check)
@@ -54,12 +57,14 @@ param(
     [switch]$ConfigureEnvOnly,
     [switch]$NoRollback,
     [switch]$Force,
+    [switch]$ForceOverwrite,   # menu-guarded Fresh over an existing install: lifts ONLY the non-empty-dir refusal (downgrade still refused)
     [switch]$ConfirmDataLoss,
     [string]$Config,
     [string]$BundleRoot,
     [string]$StopAfterStep,
     [switch]$SeedData,
-    [switch]$NoBrowser
+    [switch]$NoBrowser,
+    [switch]$PrintPlan        # print PLAN=<steps> and exit 0 - dry run for the harness, no admin needed
 )
 $ErrorActionPreference = 'Stop'
 
@@ -88,6 +93,28 @@ if ($Reinstall) { $picked += 'reinstall' }
 if ($ConfigureEnvOnly) { $picked += 'env-only' }
 if ($picked.Count -gt 1) { Write-Host "Pick ONE mode (got: $($picked -join ', '))" -ForegroundColor Red; exit 1 }
 $Mode = if ($picked.Count -eq 1) { $picked[0] } else { 'upgrade' }
+
+# --- plan ---------------------------------------------------------------
+# Computed here, BEFORE the logging section and any admin/preflight checks,
+# so -PrintPlan is a genuine dry run: no C:\ProgramData\SDP-Dashboard\logs
+# folder or install-*.log file is ever created and no elevation is needed.
+# Step 5 (full restore point) ALWAYS precedes step 4 wherever step 4 can
+# DROP the database (reinstall -ConfirmDataLoss) or where the install
+# overwrites an existing one (fresh -ForceOverwrite/-Force with server.js
+# present) - 2026-09-15.
+$hasAppAtStart = Test-Path (Join-Path $InstallDir 'server.js')
+$plan = @()
+switch ($Mode) {
+    'fresh'     {
+        if ($hasAppAtStart -and ($Force -or $ForceOverwrite)) { $plan = @('1','2','3','5','4','4b','6','7') }
+        else { $plan = @('1','2','3','4','4b','6','7') }
+        if ($SeedData) { $plan += '8' }
+    }
+    'upgrade'   { $plan = @('1','2','3','4','5','6','7') }   # 4 = verify only; new .env keys appended in 6
+    'patch'     { $plan = @('1','2','3','5','6','7') }
+    'reinstall' { $plan = @('1','2','3','5','4','4b','6','7') }
+}
+if ($PrintPlan) { Write-Output ('PLAN=' + ($plan -join ',')); exit 0 }
 
 # --- logging ----------------------------------------------------------
 $LogDir = 'C:\ProgramData\SDP-Dashboard\logs'
@@ -439,7 +466,8 @@ function Step1-Preflight {
     # install dir rules per mode
     $hasApp = Test-Path (Join-Path $InstallDir 'server.js')
     if ($Mode -eq 'fresh') {
-        if ($hasApp -and -not $Force) { Die "Fresh mode but $InstallDir already contains server.js. Use -Upgrade / -Reinstall, or -Force to overwrite." }
+        if ($hasApp -and -not $Force -and -not $ForceOverwrite) { Die "Fresh mode but $InstallDir already contains server.js. Use -Upgrade / -Reinstall, or the menu's guarded Fresh (-ForceOverwrite)." }
+        if ($hasApp) { Log 'Fresh over an EXISTING installation: a full restore point is taken (step 5) before the database step' 'WARN' }
         if (-not (Test-Path $InstallDir)) { New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null; Log "Created $InstallDir" }
     } else {
         if (-not $hasApp) { Die "$Mode mode requires an existing install (no server.js in $InstallDir). Use -Fresh." }
@@ -1091,13 +1119,8 @@ try {
         exit 0
     }
 
-    $plan = @()
-    switch ($Mode) {
-        'fresh'     { $plan = @('1','2','3','4','4b','6','7'); if ($SeedData) { $plan += '8' } }
-        'upgrade'   { $plan = @('1','2','3','4','5','6','7') }   # 4 = verify only; new .env keys appended in 6
-        'patch'     { $plan = @('1','2','3','5','6','7') }
-        'reinstall' { $plan = @('1','2','3','4','4b','5','6','7') }
-    }
+    # $plan was already computed above (before the logging section), so
+    # -PrintPlan can dry-run with zero side effects. Reused here as-is.
     foreach ($n in $plan) {
         switch ($n) {
             '1'  { Invoke-Step '1'  'Preflight'                { Step1-Preflight } }
