@@ -105,12 +105,32 @@ echo NOTE: full restore point now INCLUDES data\ + blobs\ + pg_dump (Manage-SDP.
 exit /b 0
 
 :: ---------------------------------------------------------------- 6
+:: Same red screen as Setup.bat option 6: the zip's real contents + the exact
+:: "RESTORE <yyyymmdd>" phrase, then -Force (Manage-SDP takes its own
+:: pre-restore restore point first). Detection + Manage-SDP both resolve
+:: config.psd1 next to themselves, so they agree on the backup folder.
 :restore
 call :listbak
 set "RP="
 set /p RP=Restore point file name (e.g. sdp-restore_menu_20260713-120000.zip):
-powershell -NoProfile -ExecutionPolicy Bypass -File "%APP%\tools\installer\Manage-SDP.ps1" -Restore -Name "%RP%"
-exit /b 0
+if not defined RP (
+  echo Cancelled.
+  exit /b 0
+)
+set "INST=%APP%\tools\installer"
+if not exist "%INST%\Confirm-Destructive.ps1" (
+  echo ERROR: Confirm-Destructive.ps1 missing under tools\installer - deploy the installer tools first.
+  exit /b 1
+)
+set "SIT=%TEMP%\sdp-admin-situation.json"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%INST%\Detect-SDP.ps1" -BundleRoot "%INST%" -OutFile "%SIT%" >nul
+powershell -NoProfile -ExecutionPolicy Bypass -File "%INST%\Confirm-Destructive.ps1" -Action restore -Situation "%SIT%" -Target "%RP%"
+if errorlevel 1 (
+  echo Cancelled - nothing changed.
+  exit /b 1
+)
+powershell -NoProfile -ExecutionPolicy Bypass -File "%INST%\Manage-SDP.ps1" -Restore -Name "%RP%" -Force
+exit /b %errorlevel%
 
 :: ---------------------------------------------------------------- 7
 :listbak

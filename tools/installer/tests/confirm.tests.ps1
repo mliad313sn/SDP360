@@ -154,6 +154,36 @@ $rCounts = RunOut 'REINSTALL' @('-Action', 'reinstall', '-Situation', $sitFile)
 Assert-Eq $rCounts.Code 0 'reinstall with correct phrase -> 0'
 Assert-True ($rCounts.Out -match 'sites 11') 'counts line ("sites 11") appears on the reinstall screen'
 
+# Redirected stdin: the phrase reader must consume ONE line only, leaving the
+# rest for the caller's next `set /p` (piped Setup.bat sessions). A buffered
+# reader used to swallow every following answer after the first red screen.
+$wrapDir = New-TempDir 'sdp-wrap'; $script:TestTempDirs += $wrapDir
+$wrap = Join-Path $wrapDir 'w.cmd'
+[IO.File]::WriteAllText($wrap, ("@echo off`r`npowershell -NoProfile -ExecutionPolicy Bypass -File `"" + $confirm + "`" -Action reinstall -Situation `"" + $sitFile + "`" >nul 2>&1`r`necho RC=%errorlevel%`r`nset X=`r`nset /p X=`r`necho X=[%X%]`r`n"), [Text.Encoding]::ASCII)
+function RunWrapped([string]$inputText, [switch]$Pipe) {
+    $in = Join-Path $wrapDir ('in-' + [guid]::NewGuid().ToString('N').Substring(0, 6) + '.txt')
+    [IO.File]::WriteAllText($in, $inputText, [Text.Encoding]::ASCII)
+    if ($Pipe) { return (cmd /c ('type "' + $in + '" | "' + $wrap + '"') | Out-String) }
+    return (cmd /c ('"' + $wrap + '" < "' + $in + '"') | Out-String)
+}
+$w1 = RunWrapped "REINSTALL`r`nNEXTLINE`r`n"
+Assert-True ($w1 -match 'RC=0') 'file stdin: right phrase confirmed'
+Assert-True ($w1 -match 'X=\[NEXTLINE\]') 'file stdin: the next line is left for the caller'
+$w2 = RunWrapped "REINSTALL`r`nNEXTLINE`r`n" -Pipe
+Assert-True ($w2 -match 'RC=0') 'piped stdin: right phrase confirmed'
+Assert-True ($w2 -match 'X=\[NEXTLINE\]') 'piped stdin: the next line is left for the caller'
+$w3 = RunWrapped "nope`r`nNEXTLINE`r`n"
+Assert-True ($w3 -match 'RC=1') 'wrong phrase followed by another line -> cancel'
+Assert-True ($w3 -match 'X=\[NEXTLINE\]') 'wrong phrase: the next line is still left for the caller'
+$w4 = RunWrapped "REINSTALL`nNEXT"
+Assert-True ($w4 -match 'RC=0' -and $w4 -match 'X=\[NEXT\]') 'LF-only line ending handled, remainder left unread'
+$bomIn = Join-Path $wrapDir 'in-bom.txt'
+[IO.File]::WriteAllBytes($bomIn, ([byte[]](0xEF, 0xBB, 0xBF) + [Text.Encoding]::ASCII.GetBytes(" REINSTALL `r`nNEXTLINE`r`n")))
+$w6 = (cmd /c ('"' + $wrap + '" < "' + $bomIn + '"') | Out-String)
+Assert-True ($w6 -match 'RC=0' -and $w6 -match 'X=\[NEXTLINE\]') 'leading UTF-8 BOM + surrounding spaces tolerated (like the old StreamReader)'
+$w5 = RunWrapped ""
+Assert-True ($w5 -match 'RC=1') 'empty redirected stdin (EOF) -> cancel'
+
 Write-Host ("confirm.tests: " + $script:AssertCount + " assertions ok")
 
 } finally {

@@ -104,8 +104,35 @@ Line ('    ' + $protect)
 Write-Host ''
 Write-Host ('  Type exactly  ' + $phrase + '  to continue, anything else to cancel:') -ForegroundColor Yellow
 Write-Host '  > ' -NoNewline
+# Redirected stdin (pipe / file - piped Setup.bat runs, tests): read ONE line
+# byte by byte from the raw stream. [Console]::In is a buffered StreamReader
+# that reads ahead and swallows the lines meant for the caller's next
+# `set /p` (the handle is shared with cmd). Reading 1 byte at a time stops
+# exactly after the LF, so the rest stays unread. EOF before any byte ->
+# $null (cancel). Interactive console keeps ReadLine (line editing, echo).
+function Read-OneLineRaw {
+    $stream = [Console]::OpenStandardInput()
+    $buf = New-Object System.Collections.Generic.List[byte]
+    $sawAny = $false
+    while ($true) {
+        $b = $stream.ReadByte()
+        if ($b -lt 0) { break }
+        $sawAny = $true
+        if ($b -eq 10) { break }
+        $buf.Add([byte]$b)
+    }
+    if (-not $sawAny) { return $null }
+    if ($buf.Count -gt 0 -and $buf[$buf.Count - 1] -eq 13) { $buf.RemoveAt($buf.Count - 1) }
+    # A PowerShell parent with a UTF-8 $OutputEncoding pipes a BOM first; the
+    # StreamReader used to drop it silently - do the same (else Trim() stops at it).
+    if ($buf.Count -ge 3 -and $buf[0] -eq 0xEF -and $buf[1] -eq 0xBB -and $buf[2] -eq 0xBF) { $buf.RemoveRange(0, 3) }
+    return [Console]::InputEncoding.GetString($buf.ToArray())
+}
 $typed = $null
-try { $typed = [Console]::In.ReadLine() } catch { $typed = $null }
+try {
+    if ([Console]::IsInputRedirected) { $typed = Read-OneLineRaw }
+    else { $typed = [Console]::In.ReadLine() }
+} catch { $typed = $null }
 Write-Host ''
 if ($null -eq $typed) { Write-Host '  Cancelled - no input (nothing changed).' -ForegroundColor Yellow; exit 1 }
 # Trim only leading/trailing whitespace (cmd's `echo PHRASE | script` pipes a
