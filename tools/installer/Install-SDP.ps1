@@ -155,12 +155,13 @@ $script:NodeProc    = $null      # NoService mode: the plain background node pro
 # Task 7 summary facts. These assignments only document the INITIAL values
 # (what the summary reports when nothing has happened yet); the real values are
 # set later - the two *AtStart facts right after Write-EnvHeader in main, the
-# three Db* facts inside Step4-Postgres as each action actually happens.
+# four Db* facts inside Step4-Postgres as each action actually happens.
 $script:InstalledVerAtStart = $null
 $script:EnvExistedAtStart   = $false
 $script:Step4Reached        = $false   # Step4-Postgres started
 $script:DbDropped           = $false   # DROP DATABASE actually succeeded
 $script:DbCreated           = $false   # the database did not exist and was created by this run
+$script:DbExistedBefore     = $null    # probe result before provisioning ($null = probe never ran)
 
 function Invoke-Step([string]$N, [string]$Name, [scriptblock]$Body) {
     Log ("---- Step $N : $Name ----") 'STEP'
@@ -181,10 +182,14 @@ function Invoke-Step([string]$N, [string]$Name, [scriptblock]$Body) {
 # never what the plan intended - a run that died before the DROP must not claim
 # the database was dropped. ONE place decides it; Get-DataCheck reads the same fact.
 function Get-DatabaseOutcome {
-    if ($script:DbDropped) { return 'DROPPED and recreated' }
-    if ($Mode -eq 'reinstall' -and $ConfirmDataLoss) { return 'preserved (drop not reached)' }
+    if ($script:DbDropped) {
+        if ($script:DbCreated) { return 'DROPPED and recreated' }
+        return 'DROPPED - NOT recreated (restore from the restore point)'
+    }
+    if ($Mode -eq 'reinstall' -and $ConfirmDataLoss) { return 'preserved (drop not performed)' }
     if ($script:DbCreated) { return 'created' }
     if ($Mode -eq 'fresh' -and -not $script:Step4Reached) { return 'not created (run stopped before step 4)' }
+    if ($Mode -eq 'fresh' -and $script:DbExistedBefore -eq $false) { return 'not created (step 4 failed)' }
     return 'preserved'
 }
 function Get-SummaryLines {
@@ -970,6 +975,7 @@ function Step4-Postgres {
     # Did the database exist BEFORE provisioning? Decides the summary's
     # 'created' vs 'preserved' from fact, whichever provisioning path runs.
     $dbExistedBefore = ("" + (Invoke-PsqlSuper ("SELECT 1 FROM pg_database WHERE datname = '" + $cfg.DbName + "'"))).Trim() -eq '1'
+    $script:DbExistedBefore = $dbExistedBefore
     $prov = if ($env:SDP_FORCE_PSQL_PROVISION -eq '1') { $null } else { Find-ProvisionScript }
     if ($prov) {
         Log ("Provisioning via node " + $prov.Script + " --db=" + $cfg.DbName) 'STEP'
@@ -984,15 +990,14 @@ function Step4-Postgres {
         # psql fallback - byte-for-byte the provision-prod.js semantics:
         # role create-if-absent (password NOT reset when it exists), db create-if-absent.
         Log 'Provisioning via psql fallback (node_modules\pg not reachable yet)' 'STEP'
-        if ($cfg.DbName -notmatch '^[a-z_][a-z0-9_]*$') { Die "Unsafe DbName '$($cfg.DbName)'" }
+        # (DbName already validated above, before the probe - same value on every path)
         $roleExists = Invoke-PsqlSuper "SELECT 1 FROM pg_roles WHERE rolname = 'sdp_app'"
         if ("$roleExists".Trim() -ne '1') {
             Invoke-PsqlSuperStdin ("CREATE ROLE sdp_app LOGIN PASSWORD '" + ($appPw -replace "'", "''") + "';") | Out-Null
             if ($LASTEXITCODE -ne 0) { Die 'CREATE ROLE sdp_app failed' }
             Log 'role sdp_app created'
         } else { Log 'role sdp_app already exists (password unchanged - PG_URL must match it)' 'WARN' }
-        $dbExists = Invoke-PsqlSuper ("SELECT 1 FROM pg_database WHERE datname = '" + $cfg.DbName + "'")
-        if ("$dbExists".Trim() -ne '1') {
+        if (-not $dbExistedBefore) {
             Invoke-PsqlSuper ("CREATE DATABASE " + $cfg.DbName + " OWNER sdp_app") | Out-Null
             if ($LASTEXITCODE -ne 0) { Die ("CREATE DATABASE " + $cfg.DbName + " failed") }
             $script:DbCreated = $true

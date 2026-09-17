@@ -171,6 +171,9 @@ Assert-True ($step4Fn -match '(?s)DROP DATABASE failed.*\$script:DbDropped = \$t
 Assert-True ($step4Fn -match '(?s)CREATE DATABASE.*failed.*\$script:DbCreated = \$true') 'Step4-Postgres sets DbCreated after CREATE DATABASE succeeded (psql path)'
 Assert-True ($step4Fn -match 'if \(-not \$dbExistedBefore\) \{ \$script:DbCreated = \$true \}') 'Step4-Postgres sets DbCreated on the node path only when the db did not exist before'
 Assert-True ($step4Fn -match '\$script:Step4Reached = \$true') 'Step4-Postgres records that it was reached'
+Assert-True ($step4Fn -match '\$script:DbExistedBefore = \$dbExistedBefore') 'Step4-Postgres records the pre-provisioning existence probe'
+Assert-True (([regex]::Matches($step4Fn, 'FROM pg_database')).Count -eq 1) 'Step4-Postgres probes pg_database once (psql fallback reuses the probe)'
+Assert-True ($step4Fn -match '(?s)psql fallback.*if \(-not \$dbExistedBefore\) \{\s*Invoke-PsqlSuper \("CREATE DATABASE') 'psql fallback creates the database from the shared probe'
 
 # A data-check drop is logged at ALERT (red), never ERROR: a successful run
 # must carry no [ERROR] lines. Log maps ALERT to Red.
@@ -238,7 +241,7 @@ $expected = @('Mode', 'Version', 'Restore point', 'Database', '.env', 'Data chec
 function Reset-SummaryState {
     $script:InstalledVerAtStart = '1.0.0'; $script:BundleVer = '1.1.0'; $script:RollbackZip = 'C:\x\rp.zip'
     $script:CountsBefore = @{ reachable = $true }; $script:DataCheck = 'OK (users=1)'; $script:EnvExistedAtStart = $true
-    $script:Step4Reached = $true; $script:DbDropped = $false; $script:DbCreated = $false
+    $script:Step4Reached = $true; $script:DbDropped = $false; $script:DbCreated = $false; $script:DbExistedBefore = $true
     $script:ConfirmDataLoss = $false; $script:Mode = 'upgrade'
 }
 $LogFile = 'C:\x\install.log'; $SummaryFile = 'C:\x\summary.txt'
@@ -267,10 +270,12 @@ Assert-Eq $got[3].Value 'untouched (configure .env only)' 'env-only: Database un
 Assert-Eq $got[5].Value 'not applicable' 'env-only: Data check not applicable'
 
 # Database outcome = what happened.
-Reset-SummaryState; $Mode = 'reinstall'; $ConfirmDataLoss = $true; $script:DbDropped = $true
-Assert-Eq (Get-Line 'Database') 'DROPPED and recreated' 'reinstall + drop happened: DROPPED and recreated'
+Reset-SummaryState; $Mode = 'reinstall'; $ConfirmDataLoss = $true; $script:DbDropped = $true; $script:DbCreated = $true
+Assert-Eq (Get-Line 'Database') 'DROPPED and recreated' 'reinstall + drop + create happened: DROPPED and recreated'
+Reset-SummaryState; $Mode = 'reinstall'; $ConfirmDataLoss = $true; $script:DbDropped = $true; $script:DbCreated = $false
+Assert-Eq (Get-Line 'Database') 'DROPPED - NOT recreated (restore from the restore point)' 'reinstall + drop happened, create did not: DROPPED - NOT recreated'
 Reset-SummaryState; $Mode = 'reinstall'; $ConfirmDataLoss = $true; $script:DbDropped = $false; $script:Step4Reached = $false
-Assert-Eq (Get-Line 'Database') 'preserved (drop not reached)' 'reinstall + ConfirmDataLoss, drop never ran: preserved (drop not reached)'
+Assert-Eq (Get-Line 'Database') 'preserved (drop not performed)' 'reinstall + ConfirmDataLoss, drop never ran: preserved (drop not performed)'
 Reset-SummaryState; $Mode = 'reinstall'; $ConfirmDataLoss = $false
 Assert-Eq (Get-Line 'Database') 'preserved' 'reinstall without ConfirmDataLoss: preserved'
 Reset-SummaryState; $Mode = 'fresh'; $script:DbCreated = $true; $script:RollbackZip = $null; $script:CountsBefore = $null
@@ -280,6 +285,10 @@ Reset-SummaryState; $Mode = 'fresh'; $script:Step4Reached = $false
 Assert-Eq (Get-Line 'Database') 'not created (run stopped before step 4)' 'fresh, step 4 never reached: not created'
 Reset-SummaryState; $Mode = 'fresh'; $script:Step4Reached = $true; $script:DbCreated = $false
 Assert-Eq (Get-Line 'Database') 'preserved' 'fresh onto an existing database: preserved'
+Reset-SummaryState; $Mode = 'fresh'; $script:Step4Reached = $true; $script:DbCreated = $false; $script:DbExistedBefore = $false
+Assert-Eq (Get-Line 'Database') 'not created (step 4 failed)' 'fresh, step 4 reached, db absent and not created: not created (step 4 failed)'
+Reset-SummaryState; $Mode = 'fresh'; $script:Step4Reached = $true; $script:DbCreated = $false; $script:DbExistedBefore = $null
+Assert-Eq (Get-Line 'Database') 'preserved' 'fresh, step 4 died before the existence probe: preserved (no fact to contradict)'
 
 # Version fallback and .env created.
 Reset-SummaryState; $script:InstalledVerAtStart = $null; $script:BundleVer = '2.0.0'
