@@ -171,27 +171,58 @@ function Invoke-Step([string]$N, [string]$Name, [scriptblock]$Body) {
         throw
     }
 }
+# Spec 4.4: the console box AND summary.txt carry the SAME eight lines in the
+# SAME order on every run. They are built ONCE here and both writers consume
+# this list, so the two can never drift. Must never throw (it also runs on
+# the FAILED path, from Complete-Run in the main catch).
+function Get-SummaryLines {
+    $isEnvOnly = ($Mode -eq 'env-only')
+    $modeVal = ([string]$Mode).ToUpper()
+    if ($Mode -eq 'patch' -or $Mode -eq 'upgrade') { $modeVal += ' (code updated; database + data preserved)' }
+    $verVal = $(if ($script:InstalledVerAtStart) { $script:InstalledVerAtStart } else { 'none' }) + ' -> ' + $script:BundleVer
+    # env-only never touches the database, never takes a restore point and
+    # never runs the data check - dedicated values say so plainly instead of
+    # reusing the fresh-install wording, which would mislead on a run that
+    # only wrote .env.
+    if ($isEnvOnly) {
+        $rpVal = 'not applicable (configure .env only)'
+        $dbVal = 'untouched (configure .env only)'
+        $dcVal = 'not applicable'
+    } else {
+        $rpVal = $(if ($script:RollbackZip) { $script:RollbackZip } else { 'none (fresh install)' })
+        $dbVal = $(if ($Mode -eq 'reinstall' -and $ConfirmDataLoss) { 'DROPPED and recreated' } elseif ($Mode -eq 'fresh' -and -not $script:CountsBefore) { 'created' } else { 'preserved' })
+        $dcVal = [string]$script:DataCheck
+    }
+    $envVal = $(if ($script:EnvExistedAtStart) { 'preserved (merged)' } else { 'created' })
+    return @(
+        [pscustomobject]@{ Label = 'Mode';          Value = $modeVal }
+        [pscustomobject]@{ Label = 'Version';       Value = $verVal }
+        [pscustomobject]@{ Label = 'Restore point'; Value = $rpVal }
+        [pscustomobject]@{ Label = 'Database';      Value = $dbVal }
+        [pscustomobject]@{ Label = '.env';          Value = $envVal }
+        [pscustomobject]@{ Label = 'Data check';    Value = $dcVal }
+        [pscustomobject]@{ Label = 'Log';           Value = [string]$LogFile }
+        [pscustomobject]@{ Label = 'Summary';       Value = [string]$SummaryFile }
+    )
+}
+# The green console box - same lines as summary.txt (Get-SummaryLines).
+function Write-SummaryBox([string]$title) {
+    Log '==================================================' 'OK'
+    Log (' ' + $title) 'OK'
+    foreach ($s in (Get-SummaryLines)) {
+        $lvl = 'OK'
+        if ($s.Label -eq 'Data check' -and $s.Value -like 'WARNING*') { $lvl = 'ERROR' }
+        Log ('   ' + $s.Label.PadRight(14) + ': ' + $s.Value) $lvl
+    }
+    Log '==================================================' 'OK'
+}
 function Write-RunSummary([string]$result) {
     $lines = @()
     $lines += "SDP Dashboard install run $stamp"
-    $lines += "Mode: $Mode   Config: $Config   Bundle: $BundleRoot (version $($script:BundleVer))"
     $lines += "Result: $result"
-    $lines += ('Version: ' + $(if ($script:InstalledVerAtStart) { $script:InstalledVerAtStart } else { 'none' }) + ' -> ' + $script:BundleVer)
-    $lines += ('Restore point: ' + $(if ($script:RollbackZip) { Split-Path $script:RollbackZip -Leaf } else { 'none (fresh install)' }))
-    # env-only never touches the database and never runs the data check - a
-    # dedicated pair of lines says so plainly instead of reusing the fresh-
-    # install wording ('created'/'skipped (fresh install)'), which would be
-    # a misleading explanation for a run that only wrote .env.
-    if ($Mode -eq 'env-only') {
-        $lines += 'Database: untouched (configure .env only)'
-        $lines += ('.env: ' + $(if ($script:EnvExistedAtStart) { 'preserved (merged)' } else { 'created' }))
-        $lines += 'Data check: not applicable'
-    } else {
-        $lines += ('Database: ' + $(if ($Mode -eq 'reinstall' -and $ConfirmDataLoss) { 'DROPPED and recreated' } elseif ($Mode -eq 'fresh' -and -not $script:CountsBefore) { 'created' } else { 'preserved' }))
-        $lines += ('.env: ' + $(if ($script:EnvExistedAtStart) { 'preserved (merged)' } else { 'created' }))
-        $lines += ('Data check: ' + $script:DataCheck)
-    }
-    $lines += ('Summary: ' + $SummaryFile)
+    foreach ($s in (Get-SummaryLines)) { $lines += ($s.Label + ': ' + $s.Value) }
+    $lines += "Config: $Config"
+    $lines += "Bundle: $BundleRoot (version $($script:BundleVer))"
     $lines += ''
     $lines += $script:StepResults
     if ($script:WarnKeys.Count -gt 0) {
@@ -206,7 +237,6 @@ function Write-RunSummary([string]$result) {
         else { $resume += ' -' + $kv.Key + ' "' + $kv.Value + '"' }
     }
     $lines += "Resume command: $resume"
-    $lines += "Log: $LogFile"
     Set-Content -Path $SummaryFile -Value $lines -Encoding ascii
 }
 function Complete-Run([string]$result) {
@@ -1167,18 +1197,24 @@ function Invoke-Rollback {
 # Success-path only (Step7-Verify calls it just before 'Verification PASSED') -
 # a failed/rolled-back run says nothing about data because the app never came
 # back up to be trusted, and $script:DataCheck stays its 'skipped' default.
+# Never throws: any exception becomes a 'skipped' line - a cosmetic check must
+# never fail (or roll back) a run whose service already verified healthy.
 function Get-DataCheck {
-    if ($Mode -eq 'reinstall' -and $ConfirmDataLoss) { return 'skipped (database dropped by request)' }
-    if (-not $script:CountsBefore) { return 'skipped (fresh install)' }
-    if (-not $script:CountsBefore.reachable) { return 'skipped (db counts unavailable before)' }
-    $after = Get-SdpDbCounts $InstallDir
-    if (-not $after.reachable) { return ('skipped (db counts unavailable after: ' + $after.error + ')') }
-    $drops = Compare-SdpCounts $script:CountsBefore.counts $after.counts
-    if ($drops.Count -gt 0) {
-        $rp = if ($script:RollbackZip) { Split-Path $script:RollbackZip -Leaf } else { 'none' }
-        return ('WARNING - ' + ($drops -join ', ') + ' - restore point: ' + $rp)
+    try {
+        if ($Mode -eq 'reinstall' -and $ConfirmDataLoss) { return 'skipped (database dropped by request)' }
+        if (-not $script:CountsBefore) { return 'skipped (fresh install)' }
+        if (-not $script:CountsBefore.reachable) { return 'skipped (db counts unavailable before)' }
+        $after = Get-SdpDbCounts $InstallDir
+        if (-not $after.reachable) { return ('skipped (db counts unavailable after: ' + $after.error + ')') }
+        $drops = @(Compare-SdpCounts $script:CountsBefore.counts $after.counts)
+        if ($drops.Count -gt 0) {
+            $rp = if ($script:RollbackZip) { Split-Path $script:RollbackZip -Leaf } else { 'none' }
+            return ('WARNING - ' + ($drops -join ', ') + ' - restore point: ' + $rp)
+        }
+        return ('OK (' + (Format-Counts $after.counts) + ')')
+    } catch {
+        return ('skipped (db counts unavailable after: ' + $_.Exception.Message + ')')
     }
-    return ('OK (' + (Format-Counts $after.counts) + ')')
 }
 function Step7-Verify {
     $ok = $false
@@ -1290,7 +1326,7 @@ try {
     if ($Mode -eq 'env-only') {
         Invoke-Step '4b' '.env questionnaire (ConfigureEnvOnly)' { Invoke-EnvQuestionnaire }
         Complete-Run 'OK'
-        Log "Done. Summary: $SummaryFile" 'OK'
+        Write-SummaryBox 'SDP Dashboard .env configuration complete.'
         exit 0
     }
 
@@ -1314,15 +1350,7 @@ try {
         }
     }
     Complete-Run 'OK'
-    Log '==================================================' 'OK'
-    Log (' SDP Dashboard install complete.') 'OK'
-    Log ('   Mode          : ' + $Mode.ToUpper() + $(if ($Mode -eq 'patch' -or $Mode -eq 'upgrade') { ' (code updated; database + data preserved)' } else { '' })) 'OK'
-    Log ('   Version       : ' + $(if ($script:InstalledVerAtStart) { $script:InstalledVerAtStart } else { 'none' }) + ' -> ' + $script:BundleVer) 'OK'
-    Log ('   Restore point : ' + $(if ($script:RollbackZip) { $script:RollbackZip } else { 'none (fresh install)' })) 'OK'
-    Log ('   Data check    : ' + $script:DataCheck) $(if ($script:DataCheck -like 'WARNING*') { 'ERROR' } else { 'OK' })
-    Log ('   Log           : ' + $LogFile) 'OK'
-    Log ('   Summary       : ' + $SummaryFile) 'OK'
-    Log '==================================================' 'OK'
+    Write-SummaryBox 'SDP Dashboard install complete.'
     # Only on a fresh install, and only when the whole plan ran: a staged run
     # (-StopAfterStep) has not verified the service, so opening a browser at a
     # port nothing is listening on would just show an error page.

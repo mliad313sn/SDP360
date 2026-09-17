@@ -178,14 +178,60 @@ Assert-True ($idxDataCheck -ge 0 -and $idxPassed -ge 0 -and $idxRollback -ge 0) 
 Assert-True ($idxDataCheck -lt $idxPassed) 'Get-DataCheck runs before Verification PASSED is logged'
 Assert-True ($idxDataCheck -lt $idxRollback) 'Get-DataCheck is called on the success branch, before the rollback path begins (never on the rollback path)'
 
-# Write-RunSummary: the six labelled lines the spec requires, same order
-# every run (Mode / Version / Restore point / Database / .env / Data check /
-# Summary).
+# Spec 4.4: the console box and summary.txt both derive from ONE ordered list
+# (Get-SummaryLines), so they can never drift.
+$linesFn = Get-FunctionText $ast 'Get-SummaryLines'
+$boxFn = Get-FunctionText $ast 'Write-SummaryBox'
 $summaryFn = Get-FunctionText $ast 'Write-RunSummary'
+Assert-True ($linesFn -ne $null) 'Get-SummaryLines is defined'
+Assert-True ($boxFn -ne $null) 'Write-SummaryBox is defined'
 Assert-True ($summaryFn -ne $null) 'Write-RunSummary is defined'
-foreach ($label in @('Version:', 'Restore point:', 'Database:', '.env:', 'Data check:', 'Summary:')) {
-    Assert-True ($summaryFn -like ('*' + $label + '*')) ('Write-RunSummary emits the ' + $label + ' label')
+Assert-True ($boxFn -like '*Get-SummaryLines*') 'the console box derives its lines from Get-SummaryLines'
+Assert-True ($summaryFn -like '*Get-SummaryLines*') 'summary.txt derives its lines from Get-SummaryLines'
+foreach ($label in @('Version:', 'Restore point:', 'Database:', '.env:', 'Data check:', 'Log:')) {
+    Assert-True (-not ($summaryFn -like ('*''' + $label + '*'))) ('Write-RunSummary does not hand-build a separate ' + $label + ' line')
+    Assert-True (-not ($boxFn -like ('*' + $label.TrimEnd(':') + '  *'))) ('Write-SummaryBox does not hand-build a separate ' + $label + ' line')
 }
+# The main success path and the env-only branch both show the box.
+$mainText = $raw.Substring($raw.LastIndexOf('# main'))
+$envOnlyIdx = $mainText.IndexOf("if (`$Mode -eq 'env-only')")
+$envOnlyExit = $mainText.IndexOf('exit 0', $envOnlyIdx)
+Assert-True ($envOnlyIdx -ge 0 -and $envOnlyExit -gt $envOnlyIdx) 'main has an env-only branch ending in exit 0'
+$envOnlyBlock = $mainText.Substring($envOnlyIdx, $envOnlyExit - $envOnlyIdx)
+Assert-True ($envOnlyBlock -like '*Write-SummaryBox*') 'the env-only branch shows the summary box'
+Assert-True (-not ($envOnlyBlock -like '*Done. Summary:*')) 'the env-only branch no longer logs the one-line Done message'
+$afterEnvOnly = $mainText.Substring($envOnlyExit)
+Assert-True ($afterEnvOnly -like '*Complete-Run ''OK''*Write-SummaryBox*') 'the full-run success path shows the summary box after Complete-Run'
 
+# Behavioural: load Get-SummaryLines and check the eight labels in spec order,
+# for a normal mode and for env-only (temp values only, nothing written).
+$expected = @('Mode', 'Version', 'Restore point', 'Database', '.env', 'Data check', 'Log', 'Summary')
+. ([scriptblock]::Create($linesFn))
+$script:InstalledVerAtStart = '1.0.0'; $script:BundleVer = '1.1.0'; $script:RollbackZip = 'C:\x\rp.zip'
+$script:CountsBefore = @{ reachable = $true }; $script:DataCheck = 'OK (users=1)'; $script:EnvExistedAtStart = $true
+$ConfirmDataLoss = $false; $LogFile = 'C:\x\install.log'; $SummaryFile = 'C:\x\summary.txt'
+$Mode = 'upgrade'
+$got = @(Get-SummaryLines)
+Assert-Eq (($got | ForEach-Object { $_.Label }) -join '|') ($expected -join '|') 'Get-SummaryLines emits the eight labels in spec order (upgrade)'
+Assert-Eq $got[3].Value 'preserved' 'upgrade: Database preserved'
+Assert-Eq $got[6].Value 'C:\x\install.log' 'Log line carries the log path'
+$Mode = 'env-only'
+$got = @(Get-SummaryLines)
+Assert-Eq (($got | ForEach-Object { $_.Label }) -join '|') ($expected -join '|') 'Get-SummaryLines emits the eight labels in spec order (env-only)'
+Assert-Eq $got[3].Value 'untouched (configure .env only)' 'env-only: Database untouched'
+Assert-Eq $got[5].Value 'not applicable' 'env-only: Data check not applicable'
+$Mode = 'reinstall'; $ConfirmDataLoss = $true
+$got = @(Get-SummaryLines)
+Assert-Eq $got[3].Value 'DROPPED and recreated' 'reinstall + ConfirmDataLoss: Database DROPPED and recreated'
+
+# Get-DataCheck never throws: body wrapped in try/catch returning a skip line.
+Assert-True ($dataCheckFn -match '(?s)\btry\s*\{.*\}\s*catch\s*\{') 'Get-DataCheck wraps its body in try/catch'
+Assert-True ($dataCheckFn -like '*catch*skipped (db counts unavailable after: *') 'Get-DataCheck catch returns the unavailable-after skip line'
+. ([scriptblock]::Create($dataCheckFn))
+function Get-SdpDbCounts { throw 'boom from test' }
+$Mode = 'upgrade'; $ConfirmDataLoss = $false; $script:CountsBefore = @{ reachable = $true; counts = @{} }
+$dc = $null
+try { $dc = Get-DataCheck } catch { $dc = 'THREW' }
+Assert-Eq $dc 'skipped (db counts unavailable after: boom from test)' 'Get-DataCheck turns an exception into a skipped line'
 Write-Host ("install-static.tests: " + $script:AssertCount + " assertions ok")
 exit 0
