@@ -104,6 +104,20 @@ Assert-Eq (Run 'DROP sdp_dashboard' @('-Action', 'dropdb', '-Situation', $sitFil
 Assert-Eq (Run 'DROP sdp_dashboard_test' @('-Action', 'dropdb', '-Situation', $sitFile2)) 1 'dropdb refused when DB unreachable, even with the right phrase'
 Assert-Eq (Run ('OVERWRITE ' + $env:COMPUTERNAME) @('-Action', 'fresh-over-existing', '-Situation', $sitFile)) 0 'OVERWRITE <computer> -> 0'
 Assert-Eq (Run 'RESTORE 20260912' @('-Action', 'restore', '-Situation', $sitFile, '-Target', 'sdp-restore_pre-v2.4.0_20260912-020011.zip')) 0 'RESTORE <date from trailing group> -> 0'
+# demo-over-existing: its own phrase; the fresh-over-existing phrase is NOT enough
+$rDemo = RunOut ('DEMO ' + $env:COMPUTERNAME) @('-Action', 'demo-over-existing', '-Situation', $sitFile)
+Assert-Eq $rDemo.Code 0 'DEMO <computer> -> 0'
+Assert-True ($rDemo.Out -match 'DROPPED and replaced by the bundled demo dataset') 'demo screen says the database is dropped and replaced'
+Assert-True ($rDemo.Out -match 'user accounts are replaced') 'demo screen says the accounts are replaced'
+Assert-True ($rDemo.Out -match 'sdp_dashboard_test') 'demo screen names the database'
+Assert-True ($rDemo.Out -match 'pre-restore restore point with a COMPLETE database dump') 'demo screen names the pre-restore dump guard'
+Assert-True (-not ($rDemo.Out -match 'NOT deleted')) 'demo screen never claims the database is kept'
+Assert-Eq (Run ('OVERWRITE ' + $env:COMPUTERNAME) @('-Action', 'demo-over-existing', '-Situation', $sitFile)) 1 'OVERWRITE <computer> is NOT accepted for demo-over-existing'
+Assert-Eq (Run 'DEMO' @('-Action', 'demo-over-existing', '-Situation', $sitFile)) 1 'demo: wrong phrase (no computer name) -> 1'
+Assert-Eq (Run ('demo ' + $env:COMPUTERNAME) @('-Action', 'demo-over-existing', '-Situation', $sitFile)) 1 'demo: case-sensitive'
+Assert-Eq (Run ('DEMO ' + $env:COMPUTERNAME) @('-Action', 'fresh-over-existing', '-Situation', $sitFile)) 1 'DEMO <computer> is NOT accepted for fresh-over-existing'
+Assert-Eq (Run 'CLOSED' @('-Action', 'demo-over-existing', '-Situation', $sitFile)) 1 'demo: closed stdin -> 1'
+Assert-Eq (Run (' DEMO ' + $env:COMPUTERNAME + ' ') @('-Action', 'demo-over-existing', '-Situation', $sitFile)) 0 'demo: surrounding whitespace trimmed like the other phrases'
 Assert-Eq (Run ' REINSTALL  ' @('-Action', 'reinstall', '-Situation', $sitFile)) 0 'surrounding whitespace tolerated (cmd echo pipe appends a trailing space)'
 Assert-Eq (Run 'RE INSTALL' @('-Action', 'reinstall', '-Situation', $sitFile)) 1 'inner content must match exactly - internal whitespace is not tolerated'
 

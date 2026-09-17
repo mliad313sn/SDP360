@@ -93,10 +93,11 @@ foreach ($l in $lines) {
     }
 }
 
-foreach ($lbl in @('fresh', 'demo')) {
+foreach ($pair in @(@('fresh', 'fresh-over-existing'), @('demo', 'demo-over-existing'))) {
+    $lbl = $pair[0]
     $b = Get-LabelBody $lbl
     $iNot = IndexOf $b 'if not "%STATE%"=="empty"'
-    $iConf = Assert-Guard $b 'fresh-over-existing' 'FOFLAG=-ForceOverwrite' $lbl
+    $iConf = Assert-Guard $b $pair[1] 'FOFLAG=-ForceOverwrite' $lbl
     $iFo = IndexOf $b 'FOFLAG=-ForceOverwrite'
     $iInst = IndexOf $b '^%PS% "%INSTALL%" -Fresh'
     Assert-True ($iNot -ge 0 -and $iConf -gt $iNot -and $iFo -gt $iConf -and $iInst -gt $iFo) ($lbl + ': fresh-over-existing red screen (non-empty branch) before -ForceOverwrite and the install')
@@ -110,6 +111,25 @@ foreach ($l in $lines) {
 }
 $dm = Get-LabelBody 'demo'
 Assert-True ((IndexOf $dm 'HASDEMO%"=="0"') -lt (IndexOf $dm 'call :confirm')) 'demo: no-payload check first'
+# the demo drops + replaces the database: never the "database is kept" screen of option 4
+Assert-Eq (IndexOf $dm 'call :confirm fresh-over-existing') -1 'demo: never uses the fresh-over-existing red screen'
+Assert-True ($dm[(IndexOf $dm '^%PS% "%INSTALL%" -Fresh')] -match '-Fresh -SeedData !FOFLAG!') 'demo: -Fresh -SeedData with the guarded flag'
+
+# ---- scripts: always the bundle's; the installed config only as -Config -----------------
+$rm = Get-LabelBody 'resolvemanage'
+Assert-Eq (@($rm | Where-Object { $_ -match '^set "MANAGE=' }).Count) 1 ':resolvemanage sets MANAGE exactly once'
+Assert-True ($rm -contains 'set "MANAGE=%HERE%\Manage-SDP.ps1"') ':resolvemanage always points at the bundle copy'
+foreach ($l in $lines) {
+    if ($l -match '^\s*rem\b') { continue }
+    Assert-True ($l -notmatch '(?i)%APPDIR%\\tools\\installer\\[A-Za-z-]+\.ps1') ('no installed installer script is ever run: ' + $l)
+}
+$iCfg = IndexOf $lines '^if exist "%APPDIR%\\tools\\installer\\config\.psd1" set "INSTCFG=-Config "%APPDIR%\\tools\\installer\\config\.psd1""$'
+Assert-True ($iCfg -ge 0 -and (IndexOf $lines '^set "INSTCFG="$') -eq ($iCfg - 1)) 'INSTCFG = -Config <installed config.psd1> only when that file exists'
+$mgCalls = @($lines | Where-Object { $_ -match '^\s*%PS% "%MANAGE%"' })
+Assert-Eq $mgCalls.Count 5 'five Manage-SDP calls (backup, list x2, restore, checkdb)'
+foreach ($l in $mgCalls) { Assert-True ($l -match '%INSTCFG%\s*$') ('Manage-SDP call carries the installed config: ' + $l) }
+Assert-True ($menu[$iDet] -match '%INSTCFG%') 'detection carries the installed config'
+foreach ($l in @($lines | Where-Object { $_ -match '"%INSTALL%"' })) { Assert-True ($l -notmatch 'INSTCFG|-Config\b') ('Install-SDP never gets the installed config: ' + $l) }
 
 $rp = Get-LabelBody 'restorept'
 $iQuote = IndexOf $rp '^if not "!RPCHK!"=="!RP!" \($'

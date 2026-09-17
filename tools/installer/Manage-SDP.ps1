@@ -80,7 +80,13 @@ function Log($m, $lvl = 'INFO') {
     Write-Host $line -ForegroundColor $c
     Add-Content -Path $LogFile -Value $line
 }
-function Die($m) { Log $m 'ERROR'; exit 1 }
+# Once a restore has stopped the service, EVERY error names the way back
+# ($script:AfterStopHint, set right before the stop).
+$script:AfterStopHint = $null
+function Die($m) {
+    if ($script:AfterStopHint) { $m = $m + ' ' + $script:AfterStopHint }
+    Log $m 'ERROR'; exit 1
+}
 
 # --- helpers ----------------------------------------------------------
 function Invoke-Pm2([string[]]$pmArgs) {
@@ -145,6 +151,10 @@ function Resolve-SuperPassword {
     return $cfg.StandardPgSuperPassword
 }
 function Find-PgBin($exe) {
+    # TEST HOOK ONLY (tests\manage-restore.tests.ps1): SDP_TEST_PSQL names a fake
+    # psql so the restore's DROP / CREATE / import failure paths can be proven
+    # without a PostgreSQL server. Unset in every real run.
+    if ($exe -eq 'psql.exe' -and $env:SDP_TEST_PSQL) { return $env:SDP_TEST_PSQL }
     foreach ($root in @('C:\Program Files\PostgreSQL', 'C:\Program Files (x86)\PostgreSQL')) {
         if (Test-Path $root) {
             foreach ($v in (Get-ChildItem $root -Directory | Sort-Object { [double]$_.Name } -Descending)) {
@@ -270,6 +280,8 @@ switch ($action) {
         Log 'Removed a stale sdp_dashboard.sql left by an earlier run' 'WARN'
     }
     Log "Restoring $Name" 'STEP'
+    $preLeaf = Split-Path $preZip -Leaf
+    $script:AfterStopHint = '- the service was left stopped. Restore ' + $preLeaf + ' to get back to the state before this restore.'
     Invoke-Pm2 @('stop', $SvcName)
     Start-Sleep -Seconds 3
     $stage = Join-Path $env:TEMP ("sdp-manage-rst-" + (Get-Random))
@@ -281,23 +293,35 @@ switch ($action) {
         if ((Test-Path $dump) -and $pgUrl) {
             Log 'Restoring PostgreSQL database from the dump' 'STEP'
             $psql = Find-PgBin 'psql.exe'
-            if (-not $psql) { Die 'psql.exe not found' }
+            if (-not $psql) { Die 'psql.exe not found - the database was NOT changed.' }
             $u = [Uri]$pgUrl
             $db  = $u.AbsolutePath.TrimStart('/')
             $app = $u.UserInfo.Split(':')[0]
             $appPw = [Uri]::UnescapeDataString($u.UserInfo.Split(':')[1])
             $superPw = Resolve-SuperPassword
-            $env:PGPASSWORD = $superPw
-            & $psql -h $cfg.PgHost -p $cfg.PgPort -U postgres -d postgres -v ON_ERROR_STOP=1 -c ("DROP DATABASE IF EXISTS " + $db + " WITH (FORCE)") | Out-Null
-            & $psql -h $cfg.PgHost -p $cfg.PgPort -U postgres -d postgres -v ON_ERROR_STOP=1 -c ("CREATE DATABASE " + $db + " OWNER " + $app) | Out-Null
-            $env:PGPASSWORD = $appPw
-            & $psql -h $cfg.PgHost -p $cfg.PgPort -U $app -d $db -q -f $dump | Out-Null
-            $env:PGPASSWORD = ''
-            if ($LASTEXITCODE -ne 0) { Die 'psql import failed - DB may be incomplete; see log' }
+            # -w: never prompt (a closed stdin would hang). Each step's exit code
+            # is checked before the next one runs - never CREATE over a failed
+            # DROP, never import into a database that was not created.
+            try {
+                $env:PGPASSWORD = $superPw
+                & $psql -h $cfg.PgHost -p $cfg.PgPort -U postgres -d postgres -w -v ON_ERROR_STOP=1 -c ("DROP DATABASE IF EXISTS " + $db + " WITH (FORCE)") | Out-Null
+                $rc = $LASTEXITCODE
+                if ($rc -ne 0) { Die ('DROP DATABASE ' + $db + ' failed (psql exit ' + $rc + ') - the database was NOT replaced.') }
+                & $psql -h $cfg.PgHost -p $cfg.PgPort -U postgres -d postgres -w -v ON_ERROR_STOP=1 -c ("CREATE DATABASE " + $db + " OWNER " + $app) | Out-Null
+                $rc = $LASTEXITCODE
+                if ($rc -ne 0) { Die ('CREATE DATABASE ' + $db + ' failed (psql exit ' + $rc + ') - the database was DROPPED and NOT recreated.') }
+                $env:PGPASSWORD = $appPw
+                & $psql -h $cfg.PgHost -p $cfg.PgPort -U $app -d $db -w -v ON_ERROR_STOP=1 -q -f $dump | Out-Null
+                $rc = $LASTEXITCODE
+                if ($rc -ne 0) { Die ('psql import failed (exit ' + $rc + ') - database ' + $db + ' is INCOMPLETE. The dump was kept at ' + $dump + '.') }
+            } finally { $env:PGPASSWORD = '' }
             Log 'Database restored' 'OK'
             Remove-Item $dump -Force -ErrorAction SilentlyContinue
         }
+    } catch {
+        Die ('Restore failed: ' + $_.Exception.Message)
     } finally { Remove-Item $stage -Recurse -Force -ErrorAction SilentlyContinue }
+    $script:AfterStopHint = $null
     Invoke-Pm2 @('start', $SvcName)
     Log "Restored $Name + service started. Users: Ctrl+F5 once." 'OK'
 }

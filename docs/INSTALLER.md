@@ -28,6 +28,14 @@ Le bundle embarque les scripts de premier niveau de `tools\installer\` (`Setup.b
 `Show-Situation.ps1`, `Confirm-Destructive.ps1`, `config*.psd1`, `env.template`) ;
 le sous-dossier `tests\` n'est pas embarqué.
 
+`Setup.bat` exécute **toujours les scripts du bundle** (jamais une copie installée,
+qui peut être plus ancienne et ne pas offrir les garanties promises par l'écran rouge).
+Quand `<InstallDir>\tools\installer\config.psd1` existe, il est passé en `-Config`
+(fusionné sur la config du bundle) à la détection et à `Manage-SDP.ps1` (backup,
+liste, restore, check DB) - pas à `Install-SDP.ps1` : ce fichier est une copie
+complète de la config de l'ancien bundle et écraserait les valeurs par défaut du
+nouveau (`NodeMinMajor`, `PgMinMajor`...), et l'étape 6 le remplace de toute façon.
+
 ## Sur le serveur cible
 
 Double-clic sur `SDP-Setup-<version>.exe` → auto-élévation → `Setup.bat`.
@@ -76,7 +84,7 @@ puis quatre groupes. Les numéros d'option n'ont pas changé.
 | | 2 Upgrade | Code + node_modules | backup auto, `node_modules.prev` filet, migrations DB au boot |
 | | 3 Reinstall | Redéploie par-dessus ; **base conservée** sauf demande explicite | écran rouge `REINSTALL` ; suppression de la base = second écran rouge |
 | | 4 Fresh install | Serveur vierge : Node, pm2+service, PostgreSQL, provisioning, questionnaire `.env`, app | sur une installation existante : en rouge, écran rouge `OVERWRITE <COMPUTERNAME>` |
-| | D Demo | Fresh + jeu de données embarqué | même règle que 4 ; entrée absente si le bundle n'a pas de démo |
+| | D Demo | Fresh + jeu de données embarqué (**remplace la base et les comptes**) | sur une installation existante : en rouge, écran rouge `DEMO <COMPUTERNAME>` ; entrée absente si le bundle n'a pas de démo |
 | DATA | 5 Backup now | Restore point complet (code + `.env` + `data\` + blobs + dump) | |
 | | 6 Restore | Revient à un restore point | en rouge ; écran rouge `RESTORE <yyyymmdd>` |
 | | 7 List | Liste des restore points | |
@@ -107,7 +115,8 @@ passer**, **ce qui est en jeu** (taille et comptages réels de la base, version,
 |---|---|
 | Reinstall | `REINSTALL` |
 | Suppression + recréation de la base (après Reinstall) | `DROP <db>` (ex. `DROP sdp_dashboard`) |
-| Fresh / Demo sur une installation existante | `OVERWRITE <COMPUTERNAME>` (nom de la machine) |
+| Fresh sur une installation existante | `OVERWRITE <COMPUTERNAME>` (nom de la machine) |
+| Demo sur une installation existante | `DEMO <COMPUTERNAME>` (`OVERWRITE ...` n'est **pas** accepté) |
 | Restore | `RESTORE <yyyymmdd>` (date du nom `sdp-restore_<tag>_<yyyymmdd>-<hhmmss>.zip` ; un nom sans cette date → `RESTORE <nom sans .zip>`) |
 
 - Les espaces autour de la phrase sont ignorés ; toute autre saisie, une entrée vide
@@ -122,9 +131,20 @@ passer**, **ce qui est en jeu** (taille et comptages réels de la base, version,
   n'est pas proposée (on ne supprime pas ce qu'on ne peut pas dumper).
 - Restore : l'écran lit le contenu réel du zip (code / `.env` / `data` / dump) et dit
   si la base sera remplacée. Un fichier `*.sql` (dump seul) est refusé avant la phrase.
-- Fresh sur existant (`-Fresh -ForceOverwrite`) : code et node_modules remplacés ;
-  base, `data\`, `blobs\` et `.env` **ne sont pas supprimés**. `-ForceOverwrite` lève
-  uniquement le refus « dossier non vide » ; le refus de downgrade reste actif.
+- Fresh sur existant (option 4, `-Fresh -ForceOverwrite`) : code et node_modules
+  remplacés ; base, `data\`, `blobs\` et `.env` **ne sont pas supprimés**.
+  `-ForceOverwrite` lève uniquement le refus « dossier non vide » ; le refus de
+  downgrade reste actif.
+- Demo sur existant (option D, `-Fresh -SeedData -ForceOverwrite`) : **ce n'est pas
+  un Fresh qui conserve la base.** Après le déploiement, l'étape 8 restaure le jeu de
+  démo : la base est **SUPPRIMÉE puis rechargée** depuis le dump de démo, les
+  **comptes utilisateurs sont remplacés** par ceux de la démo, `data\` reçoit les
+  fichiers de démo. D'où un écran rouge dédié (`demo-over-existing`, phrase
+  `DEMO <COMPUTERNAME>`). Protections : restore point complet avant tout, puis un
+  point `pre-restore` **avec dump complet** avant le remplacement — sans ce dump, le
+  remplacement est refusé et la base actuelle est conservée. Le résumé indique
+  `Database: replaced by demo dataset (<zip>)` et
+  `Data check: skipped (database replaced by demo dataset)`.
 
 `_sdp_admin.cmd` option 6 (Restore) passe par le même écran rouge (détection dans un
 fichier propre à la session, phrase `RESTORE <yyyymmdd>`, code 0 exigé) avant
@@ -142,6 +162,15 @@ d'appeler `Manage-SDP.ps1 -Restore -Force`.
   (`-ConfirmDataLoss`), l'installeur vérifie que le restore point contient
   `sdp_dashboard.sql` **à la racine**, non vide, se terminant par
   `-- PostgreSQL database dump complete` ; sinon il s'arrête avant le DROP.
+- **La base dumpée = la base de la phrase = la base supprimée.** Avant l'étape 5
+  (donc avant tout DROP), avec `-ConfirmDataLoss` l'installeur compare le `PG_URL`
+  du `.env` (source du dump et de la phrase `DROP <db>`) - et, s'il est défini, le
+  `PG_URL`/`DATABASE_URL` d'environnement que `dump-db.js` lit en premier - avec
+  `DbName` / `PgHost` / `PgPort` de la config (`localhost`, `127.0.0.1` et `::1` sont
+  équivalents, port absent = 5432). Pas de `PG_URL` ou base différente → arrêt :
+  « The database named in .env (<db>@<host>:<port>) is not the one this installer
+  would drop (...) - fix .env or config.psd1; nothing was dropped. » Le message ne
+  contient jamais d'identifiant ni de mot de passe.
 - **Rollback automatique** : si après déploiement le service ne répond pas
   (pm2 online ≤30 s + probe HTTP ×3), le code + `.env` + `node_modules.prev` sont
   restaurés, redémarrés, re-testés → sortie `ROLLED BACK` (exit 2). Il couvre
@@ -162,7 +191,8 @@ d'appeler `Manage-SDP.ps1 -Restore -Force`.
   `Data check`, `Log`, `Summary`. La ligne `Database` décrit ce qui s'est
   **réellement** passé : `preserved`, `created`, `DROPPED and recreated`,
   `DROPPED - NOT recreated (restore from the restore point)`,
-  `preserved (drop not performed)`, `not created (...)`.
+  `preserved (drop not performed)`, `not created (...)`, `replaced by demo dataset (<zip>)`,
+  `uncertain - demo dataset restore failed (<zip>), see the log`.
 - **En-tête d'environnement** au début de chaque journal : date, utilisateur, machine,
   OS, PowerShell, espace libre, config résolue, node/psql, état des ports. Les secrets
   n'y figurent que sous la forme `(set)` / `(not set)`.
@@ -177,7 +207,12 @@ d'appeler `Manage-SDP.ps1 -Restore -Force`.
      complet (le point inutilisable est alors supprimé) ;
   4. supprime un `sdp_dashboard.sql` résiduel à la racine de l'installation avant la
      copie (l'import ne rejoue jamais un vieux dump) ;
-  5. échoue « fermé » si le `.env` actuel ou le zip est illisible (aucun changement).
+  5. échoue « fermé » si le `.env` actuel ou le zip est illisible (aucun changement) ;
+  6. import strict : `DROP`, `CREATE` puis import (`psql -w -v ON_ERROR_STOP=1`)
+     vérifiés un par un - un échec arrête tout (jamais de CREATE après un DROP raté,
+     jamais d'import dans une base non créée). Après l'arrêt du service, **chaque**
+     message d'erreur nomme le point `pre-restore` à restaurer pour revenir en
+     arrière (le service reste arrêté) ; un import raté conserve le dump et dit où.
 
   Les points `pre-restore` ont leur propre file de rétention (les 2 plus récents sont
   gardés) et ne comptent pas dans `RetentionFull`.

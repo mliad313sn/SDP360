@@ -256,6 +256,72 @@ Assert-True (-not ($r11.out -match 'sdp_app:x@')) 'PG_URL value never printed (c
 
 Assert-Eq $env:PG_URL $envBefore 'test process PG_URL untouched'
 
+# ---- cases 12-15: the import is strict (fake psql via the SDP_TEST_PSQL hook) ----
+# The fake records its arguments (never the environment) and fails the step
+# named by SDPT_PSQL_FAIL: drop | create | import.
+$fakeDir = New-TempDir 'sdp-mg-fakepsql'; $script:TestTempDirs += $fakeDir
+$fakeJs = Join-Path $fakeDir 'fake-psql.js'
+Set-Content $fakeJs @'
+const fs = require('fs');
+const a = process.argv.slice(2);
+const s = a.join(' ');
+fs.appendFileSync(process.env.SDPT_PSQL_LOG, s + '\n');
+const f = process.env.SDPT_PSQL_FAIL || '';
+if (f === 'drop' && /DROP DATABASE/.test(s)) process.exit(1);
+if (f === 'create' && /CREATE DATABASE/.test(s)) process.exit(2);
+if (f === 'import' && a.includes('-f')) process.exit(3);
+process.exit(0);
+'@ -Encoding ascii
+$fakeCmd = Join-Path $fakeDir 'psql.cmd'
+[IO.File]::WriteAllText($fakeCmd, ("@node `"%~dp0fake-psql.js`" %*`r`n@exit /b %errorlevel%`r`n"), [Text.Encoding]::ASCII)
+$savedHook = @{ SDP_TEST_PSQL = $env:SDP_TEST_PSQL; SDPT_PSQL_FAIL = $env:SDPT_PSQL_FAIL; SDPT_PSQL_LOG = $env:SDPT_PSQL_LOG }
+function Invoke-StrictCase([string]$fail, [string]$zipName) {
+    $fx = New-Fixture ('PG_URL=' + $urlB)
+    Set-DumpAlwaysOk $fx
+    New-TargetZip $fx $zipName ('PG_URL=' + $urlB)
+    $log = Join-Path $fakeDir ('log-' + $fail + '.txt')
+    $env:SDP_TEST_PSQL = $fakeCmd; $env:SDPT_PSQL_FAIL = $fail; $env:SDPT_PSQL_LOG = $log
+    try { $res = Invoke-Manage @('-Restore', '-Name', $zipName, '-Force', '-Config', $fx.cfg) }
+    finally { foreach ($k in $savedHook.Keys) { [Environment]::SetEnvironmentVariable($k, $savedHook[$k], 'Process') } }
+    $pre = @(Get-ChildItem $fx.bak -Filter 'sdp-restore_pre-restore_*.zip')
+    $calls = @(if (Test-Path $log) { Get-Content $log })
+    return @{ r = $res; fx = $fx; pre = $pre; calls = $calls }
+}
+try {
+    $c = Invoke-StrictCase 'drop' 'sdp-restore_manual_20260912-120000.zip'
+    Assert-True ($c.r.code -ne 0) ('DROP failure -> non-zero exit: ' + $c.r.out)
+    Assert-True ($c.r.out -match 'DROP DATABASE x failed \(psql exit 1\) - the database was NOT replaced') 'DROP failure is reported (case 12)'
+    Assert-Eq $c.pre.Count 1 'pre-restore point taken (case 12)'
+    Assert-True ($c.r.out -match ('Restore ' + [regex]::Escape($c.pre[0].Name) + ' to get back to the state before this restore')) 'DROP failure names the pre-restore point (case 12)'
+    Assert-Eq $c.calls.Count 1 'no CREATE / import after a failed DROP (case 12)'
+    Assert-True ($c.calls[0] -match '-w' -and $c.calls[0] -match 'ON_ERROR_STOP=1') 'DROP runs with -w and ON_ERROR_STOP (case 12)'
+    Assert-True (-not ($c.r.out -match 'sdp_app:x@')) 'PG_URL never printed (case 12)'
+
+    $c = Invoke-StrictCase 'create' 'sdp-restore_manual_20260913-120000.zip'
+    Assert-True ($c.r.code -ne 0) ('CREATE failure -> non-zero exit: ' + $c.r.out)
+    Assert-True ($c.r.out -match 'CREATE DATABASE x failed \(psql exit 2\) - the database was DROPPED and NOT recreated') 'CREATE failure is reported (case 13)'
+    Assert-True ($c.r.out -match ('Restore ' + [regex]::Escape($c.pre[0].Name) + ' to get back')) 'CREATE failure names the pre-restore point (case 13)'
+    Assert-Eq $c.calls.Count 2 'no import after a failed CREATE (case 13)'
+
+    $c = Invoke-StrictCase 'import' 'sdp-restore_manual_20260914-120000.zip'
+    $dumpLeft = Join-Path $c.fx.inst 'sdp_dashboard.sql'
+    Assert-True ($c.r.code -ne 0) ('import failure -> non-zero exit: ' + $c.r.out)
+    Assert-True ($c.r.out -match 'psql import failed \(exit 3\) - database x is INCOMPLETE') 'import failure is reported (case 14)'
+    Assert-True ($c.r.out -match ('The dump was kept at ' + [regex]::Escape($dumpLeft))) 'import failure says where the dump was kept (case 14)'
+    Assert-True (Test-Path -LiteralPath $dumpLeft) 'the dump is kept after a failed import (case 14)'
+    Assert-True ($c.r.out -match ('Restore ' + [regex]::Escape($c.pre[0].Name) + ' to get back')) 'import failure names the pre-restore point (case 14)'
+    Assert-Eq $c.calls.Count 3 'drop, create, import attempted (case 14)'
+    Assert-True ($c.calls[2] -match 'ON_ERROR_STOP=1' -and $c.calls[2] -match '(^| )-f ' -and $c.calls[2] -match '-w') 'import runs with ON_ERROR_STOP=1 and -w (case 14)'
+    Assert-True (-not ($c.r.out -match 'Database restored')) 'no success line after a failed import (case 14)'
+
+    $c = Invoke-StrictCase 'none' 'sdp-restore_manual_20260915-120000.zip'
+    Assert-Eq $c.r.code 0 ('strict import, all steps OK -> exit 0: ' + $c.r.out)
+    Assert-True ($c.r.out -match 'Database restored') 'success line (case 15)'
+    Assert-True (-not (Test-Path -LiteralPath (Join-Path $c.fx.inst 'sdp_dashboard.sql'))) 'dump removed after a successful import (case 15)'
+    Assert-True (-not ($c.r.out -match 'to get back to the state before this restore')) 'no failure hint on success (case 15)'
+    Assert-Eq $c.calls.Count 3 'drop, create, import (case 15)'
+} finally { foreach ($k in $savedHook.Keys) { [Environment]::SetEnvironmentVariable($k, $savedHook[$k], 'Process') } }
+
 Write-Host ("manage-restore.tests: " + $script:AssertCount + " assertions ok")
 
 } finally {

@@ -61,7 +61,7 @@ Mark 'manage'
 exit 0
 '@
 
-function New-Sandbox([switch]$NoConfirm) {
+function New-Sandbox([switch]$NoConfirm, [switch]$Demo) {
     $root = Join-Path $realTemp ('sdp-flow-' + [guid]::NewGuid().ToString('N').Substring(0, 8))
     New-Item -ItemType Directory -Path $root -Force | Out-Null
     $script:TestTempDirs += $root
@@ -75,6 +75,10 @@ function New-Sandbox([switch]$NoConfirm) {
     if (-not $NoConfirm) { [IO.File]::WriteAllText((Join-Path $bundle 'Confirm-Destructive.ps1'), $stubConfirm, $enc) }
     [IO.File]::WriteAllText((Join-Path $bundle 'Install-SDP.ps1'), $stubInstall, $enc)
     [IO.File]::WriteAllText((Join-Path $bundle 'Manage-SDP.ps1'), $stubManage, $enc)
+    if ($Demo) {
+        New-Item -ItemType Directory -Path (Join-Path $bundle 'payload\demo') -Force | Out-Null
+        [IO.File]::WriteAllText((Join-Path $bundle 'payload\demo\demo-data.zip'), 'stub', $enc)
+    }
     $app = Join-Path $root 'app'
     [IO.File]::WriteAllText((Join-Path $bundle 'config.psd1'), ("@{ InstallDir = '" + $app + "'; ServiceName = 'sdp-flow-test'; AppPort = 59999; BackupDir = '..\bak' }"), $enc)
     return $root
@@ -199,6 +203,51 @@ try {
     Assert-Eq $r.Code 1 'missing Detect-SDP.ps1: exit 1'
     Assert-True ($r.Out -match 'Detect-SDP\.ps1 not found') 'missing Detect-SDP.ps1: error message'
     Assert-Eq $r.Marks.Count 0 'missing Detect-SDP.ps1: nothing run'
+
+    # ---- D (demo) over an existing install: its OWN red screen -------------------------
+    $sd = New-Sandbox -Demo
+    $setupD = Join-Path $sd 'bundle\Setup.bat'
+    $r = Invoke-Sandbox $sd $setupD @('D', '0') @{ SDPT_CONFIRM_RC = 0 }
+    $cf = Marks $r 'confirm'
+    Assert-Eq $cf.Count 1 'demo/rc0: one red screen'
+    Assert-True ($cf[0] -match '-Action demo-over-existing') 'demo/rc0: the red screen is demo-over-existing'
+    $inst = Marks $r 'install'
+    Assert-True ($inst.Count -eq 1 -and $inst[0] -match '-Fresh -SeedData -ForceOverwrite') 'demo/rc0: -Fresh -SeedData -ForceOverwrite'
+    foreach ($rc in @(1, -1)) {
+        $r = Invoke-Sandbox $sd $setupD @('D', '0') @{ SDPT_CONFIRM_RC = $rc }
+        Assert-True ((Marks $r 'confirm')[0] -match '-Action demo-over-existing') ('demo/rc' + $rc + ': demo red screen shown')
+        Assert-Eq (Marks $r 'install').Count 0 ('demo/rc' + $rc + ': nothing installed')
+    }
+    $r = Invoke-Sandbox $sd $setupD @('D', '0') @{ SDPT_STATE = 'empty'; SDPT_HASSERVER = 0; SDPT_CONFIRM_RC = 1 }
+    Assert-Eq (Marks $r 'confirm').Count 0 'demo/empty: no red screen'
+    $inst = Marks $r 'install'
+    Assert-True ($inst.Count -eq 1 -and $inst[0] -match '-Fresh -SeedData' -and $inst[0] -notmatch 'ForceOverwrite') 'demo/empty: -Fresh -SeedData without -ForceOverwrite'
+
+    # ---- maintenance runs the BUNDLE's Manage-SDP, never an installed (older) copy --------
+    $sm = New-Sandbox
+    $setupM = Join-Path $sm 'bundle\Setup.bat'
+    $instDir = Join-Path $sm 'app\tools\installer'
+    New-Item -ItemType Directory -Path $instDir -Force | Out-Null
+    [IO.File]::WriteAllText((Join-Path $instDir 'Manage-SDP.ps1'), ($markFn + "`r`nMark 'imanage'`r`nexit 0`r`n"), [Text.Encoding]::ASCII)
+    [IO.File]::WriteAllText((Join-Path $instDir 'Detect-SDP.ps1'), ($markFn + "`r`nMark 'idetect'`r`nexit 0`r`n"), [Text.Encoding]::ASCII)
+    $r = Invoke-Sandbox $sm $setupM @('5', '7', 'C', '0') @{}
+    Assert-Eq (Marks $r 'imanage').Count 0 'no installed config: the installed Manage-SDP is never run'
+    Assert-Eq (Marks $r 'manage').Count 3 'no installed config: the bundle Manage-SDP runs (5, 7, C)'
+    Assert-Eq (MarksWith $r 'manage' '-Config').Count 0 'no installed config: no -Config passed'
+    $instCfg = Join-Path $instDir 'config.psd1'
+    [IO.File]::WriteAllText($instCfg, "@{ BackupDir = '..\bak2' }", [Text.Encoding]::ASCII)
+    $r = Invoke-Sandbox $sm $setupM @('5', '6', $rp, '7', 'C', '0') @{ SDPT_CONFIRM_RC = 0 }
+    Assert-Eq (Marks $r 'imanage').Count 0 'installed config: the installed Manage-SDP is still never run'
+    Assert-Eq (Marks $r 'idetect').Count 0 'installed config: the installed Detect-SDP is never run'
+    $mg = Marks $r 'manage'
+    Assert-Eq $mg.Count 5 'installed config: bundle Manage-SDP runs 5 times (backup, list, restore, list, checkdb)'
+    $cfgRx = '-Config "?' + [regex]::Escape($instCfg) + '"?\s*$'
+    foreach ($m in $mg) { Assert-True ($m -match $cfgRx) ('installed config passed as -Config: ' + $m) }
+    Assert-True ((MarksWith $r 'manage' '-Restore -Name "?[^"]+"? -Force -Config').Count -eq 1) 'installed config: the restore call carries -Config after -Force'
+    Assert-True ((Marks $r 'detect')[0] -match $cfgRx) 'installed config: detection gets it too'
+    Assert-Eq (MarksWith $r 'install' '-Config').Count 0 'installed config: never passed to Install-SDP'
+    $r = Invoke-Sandbox $sm $setupM @('1', '0') @{}
+    Assert-True ((Marks $r 'install').Count -eq 1 -and (MarksWith $r 'install' '-Config').Count -eq 0) 'installed config: patch runs the bundle Install-SDP without -Config'
 
     # ---- _sdp_admin.cmd option 6 ---------------------------------------------------
     $sa = New-Sandbox

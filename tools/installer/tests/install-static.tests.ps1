@@ -242,7 +242,7 @@ function Reset-SummaryState {
     $script:InstalledVerAtStart = '1.0.0'; $script:BundleVer = '1.1.0'; $script:RollbackZip = 'C:\x\rp.zip'
     $script:CountsBefore = @{ reachable = $true }; $script:DataCheck = 'OK (users=1)'; $script:EnvExistedAtStart = $true
     $script:Step4Reached = $true; $script:DbDropped = $false; $script:DbCreated = $false; $script:DbExistedBefore = $true
-    $script:ConfirmDataLoss = $false; $script:Mode = 'upgrade'
+    $script:ConfirmDataLoss = $false; $script:Mode = 'upgrade'; $script:DbSeeded = $false; $script:SeedFailed = $false; $script:SeedZipName = $null
 }
 $LogFile = 'C:\x\install.log'; $SummaryFile = 'C:\x\summary.txt'
 function Get-Line([string]$label) { return (@(Get-SummaryLines) | Where-Object { $_.Label -eq $label } | Select-Object -First 1).Value }
@@ -320,7 +320,7 @@ $baseCounts = @{ sites = 11; weekly_reports = 412; md_meetings = 50; insp_inspec
 $script:StubAfter = $null
 function Get-SdpDbCounts($dir) { if ($script:StubAfter -is [string]) { throw $script:StubAfter }; return $script:StubAfter }
 function Reset-DataCheckState {
-    $script:DbDropped = $false; $script:RollbackZip = 'C:\x\rp-1.zip'
+    $script:DbDropped = $false; $script:DbSeeded = $false; $script:SeedFailed = $false; $script:RollbackZip = 'C:\x\rp-1.zip'
     $script:CountsBefore = @{ reachable = $true; counts = $baseCounts.Clone(); error = $null }
     $script:StubAfter = @{ reachable = $true; counts = $baseCounts.Clone(); error = $null }
 }
@@ -353,5 +353,79 @@ Reset-DataCheckState; $script:StubAfter = 'boom from test'
 $dc = $null
 try { $dc = Get-DataCheck } catch { $dc = 'THREW' }
 Assert-Eq $dc 'skipped (db counts unavailable after: boom from test)' 'Get-DataCheck turns an exception into a skipped line'
+
+# (g) Demo over an existing install: step 8 replaces the database, and the
+# summary must say so (the red screen for it is demo-over-existing).
+Reset-DataCheckState; $script:DbSeeded = $true
+Assert-Eq (Get-DataCheck) 'skipped (database replaced by demo dataset)' 'Get-DataCheck: DbSeeded -> skipped (replaced by demo dataset)'
+Reset-DataCheckState; $script:SeedFailed = $true
+Assert-Eq (Get-DataCheck) 'skipped (demo dataset restore failed - database state uncertain)' 'Get-DataCheck: SeedFailed -> skipped (uncertain)'
+Reset-DataCheckState; $script:DbDropped = $true; $script:DbSeeded = $true
+Assert-Eq (Get-DataCheck) 'skipped (database dropped by request)' 'Get-DataCheck: DbDropped still wins'
+
+Reset-SummaryState; $Mode = 'fresh'; $script:DbSeeded = $true; $script:SeedZipName = 'demo-2026.zip'; $script:DbCreated = $false; $script:DbExistedBefore = $true
+Assert-Eq (Get-Line 'Database') 'replaced by demo dataset (demo-2026.zip)' 'demo over existing: Database replaced by demo dataset (not preserved)'
+Reset-SummaryState; $Mode = 'fresh'; $script:DbSeeded = $true; $script:SeedZipName = 'demo-2026.zip'; $script:DbCreated = $true
+Assert-Eq (Get-Line 'Database') 'replaced by demo dataset (demo-2026.zip)' 'demo on an empty box: replaced beats created'
+Reset-SummaryState; $Mode = 'fresh'; $script:SeedFailed = $true; $script:SeedZipName = 'demo-2026.zip'
+Assert-Eq (Get-Line 'Database') 'uncertain - demo dataset restore failed (demo-2026.zip), see the log' 'demo seed failed: Database uncertain, never preserved'
+Reset-SummaryState; $Mode = 'reinstall'; $ConfirmDataLoss = $true; $script:DbDropped = $true; $script:DbCreated = $false; $script:DbSeeded = $true
+Assert-Eq (Get-Line 'Database') 'DROPPED - NOT recreated (restore from the restore point)' 'DbDropped-not-recreated still wins over DbSeeded'
+$ConfirmDataLoss = $false
+
+$step8Fn = Get-FunctionText $ast 'Step8-SeedData'
+Assert-True ($step8Fn -ne $null) 'Step8-SeedData is defined'
+Assert-True ($step8Fn -match '(?s)if \(\$LASTEXITCODE -ne 0\) \{.*?\$script:SeedFailed = \$true.*?return\s*\}.*\$script:DbSeeded = \$true') 'Step8: DbSeeded set only after a successful restore; SeedFailed on the failure branch'
+Assert-True ($step8Fn -match '(?s)\$script:DbSeeded = \$true.*\$script:SeedZipName = \$seed\.Name.*\$script:DataCheck = Get-DataCheck') 'Step8: remembers the zip and re-evaluates the data check after the seed'
+$planText = [regex]::Match($raw, "(?s)'fresh'\s*\{.*?if \(\`$SeedData\) \{ \`$plan \+= '8' \}").Value
+Assert-True ($planText -ne '') 'step 8 is the LAST step of the fresh plan (it runs after step 7''s data check)'
+Assert-True ($raw -match '\$script:DbSeeded\s+= \$false') 'DbSeeded defaults to $false with the other Db facts'
+
+# (h) Same database proof before any DROP (Step5 -> Assert-DropTargetMatchesEnv).
+Assert-True ($step5Fn -match '(?s)if \(\$ConfirmDataLoss\) \{ Assert-DropTargetMatchesEnv \}.*& powershell @mArgs') 'Step5: the drop target is proven before the restore point is taken'
+. ([scriptblock]::Create((Get-FunctionText $ast 'Format-SdpDbTarget')))
+. ([scriptblock]::Create((Get-FunctionText $ast 'Assert-DropTargetMatchesEnv')))
+function Die($m) { throw ('DIE: ' + $m) }
+$script:LogLines = @()
+function Log($m, $lvl = 'INFO') { $script:LogLines += ($lvl + ' ' + $m) }
+$cfg = @{ DbName = 'sdp_dashboard'; PgHost = 'localhost'; PgPort = 5432 }
+$dropDir = New-TempDir 'sdp-droptgt'
+$savedPgUrl = $env:PG_URL; $savedDbUrl = $env:DATABASE_URL
+function Test-Drop($envText, [string]$procPg = $null, [string]$procDb = $null) {   # $envText untyped: $null = no .env at all
+    $InstallDir = $dropDir
+    $envFile = Join-Path $dropDir '.env'
+    if ($null -eq $envText) { Remove-Item $envFile -Force -ErrorAction SilentlyContinue } else { [IO.File]::WriteAllText($envFile, $envText) }
+    $env:PG_URL = $procPg; $env:DATABASE_URL = $procDb
+    try { Assert-DropTargetMatchesEnv; return 'OK' } catch { return [string]$_.Exception.Message }
+    finally { $env:PG_URL = $savedPgUrl; $env:DATABASE_URL = $savedDbUrl }
+}
+try {
+    Assert-Eq (Test-Drop "PG_URL=postgres://sdp_app:Secr3t@127.0.0.1:5432/sdp_dashboard`r`n") 'OK' 'drop target: .env names the same db (127.0.0.1 == localhost)'
+    $m = Test-Drop "PG_URL=postgres://sdp_app:Secr3t@localhost:5432/other_db`r`n"
+    Assert-True ($m -like 'DIE: The database named in .env (other_db@localhost:5432) is not the one this installer would drop (sdp_dashboard@localhost:5432) - fix .env or config.psd1; nothing was dropped.') ('drop target: different db refused with db@host:port only: ' + $m)
+    Assert-True ($m -notmatch 'Secr3t|sdp_app:') 'drop target: no credential in the message'
+    $m = Test-Drop "PG_URL=postgres://sdp_app:Secr3t@localhost:5433/sdp_dashboard`r`n"
+    Assert-True ($m -like '*(sdp_dashboard@localhost:5433) is not the one*') 'drop target: different port refused'
+    $m = Test-Drop "PG_URL=postgres://sdp_app:Secr3t@dbhost/sdp_dashboard`r`n"
+    Assert-True ($m -like '*(sdp_dashboard@dbhost:5432) is not the one*') 'drop target: different host refused (missing port shown as 5432)'
+    $m = Test-Drop "REPORTS_BACKEND=postgres`r`n"
+    Assert-True ($m -like 'DIE: .env has no PG_URL*nothing was dropped.') 'drop target: no PG_URL -> refused'
+    $m = Test-Drop $null
+    Assert-True ($m -like 'DIE: .env has no PG_URL*') 'drop target: no .env -> refused'
+    $m = Test-Drop "PG_URL=garbage`r`n"
+    Assert-True ($m -like '*(unparsable URL) is not the one*') 'drop target: garbage PG_URL refused'
+    $m = Test-Drop "PG_URL=postgres://sdp_app:Secr3t@localhost:5432/sdp_dashboard`r`n" 'postgres://u:EnvS3cret@localhost:5432/elsewhere'
+    Assert-True ($m -like 'DIE: The database named in the PG_URL environment variable (elsewhere@localhost:5432)*') 'drop target: a PG_URL environment variable (read first by dump-db.js) must match too'
+    Assert-True ($m -notmatch 'EnvS3cret') 'drop target: env credential never printed'
+    $m = Test-Drop "PG_URL=postgres://sdp_app:Secr3t@localhost:5432/sdp_dashboard`r`n" $null 'postgres://u:p@localhost:5432/elsewhere'
+    Assert-True ($m -like '*DATABASE_URL environment variable (elsewhere@localhost:5432)*') 'drop target: DATABASE_URL environment variable checked when PG_URL is not set'
+    Assert-Eq (Test-Drop "PG_URL=postgres://sdp_app:Secr3t@localhost:5432/sdp_dashboard`r`n" 'postgres://u:p@127.0.0.1/sdp_dashboard') 'OK' 'drop target: matching env override accepted'
+    $cfg = @{ DbName = 'sdp_dashboard_test'; PgHost = 'localhost'; PgPort = 5432 }
+    Assert-True ((Test-Drop "PG_URL=postgres://sdp_app:Secr3t@localhost:5432/sdp_dashboard`r`n") -like '*would drop (sdp_dashboard_test@localhost:5432)*') 'drop target: config db differs from .env -> refused'
+    Assert-Eq $env:PG_URL $savedPgUrl 'drop target tests restore PG_URL'
+} finally {
+    $env:PG_URL = $savedPgUrl; $env:DATABASE_URL = $savedDbUrl
+    Remove-Item $dropDir -Recurse -Force -ErrorAction SilentlyContinue
+}
 Write-Host ("install-static.tests: " + $script:AssertCount + " assertions ok")
 exit 0

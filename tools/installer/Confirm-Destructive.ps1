@@ -1,6 +1,6 @@
 # =====================================================================
 # Confirm-Destructive.ps1 - the ONE red screen before anything destructive.
-#   -Action reinstall | dropdb | fresh-over-existing | restore
+#   -Action reinstall | dropdb | fresh-over-existing | demo-over-existing | restore
 #   -Situation <json written by Detect-SDP.ps1>   -Target <restore point file name> (restore)
 # Prints what will happen, what is at stake (real counts), what protects you,
 # then requires an EXACT case-sensitive phrase. Exit 0 only on a match.
@@ -8,7 +8,7 @@
 # like a typed one (tests + piped Setup.bat runs). KEEP PURE ASCII.
 # =====================================================================
 param(
-    [Parameter(Mandatory = $true)][ValidateSet('reinstall', 'dropdb', 'fresh-over-existing', 'restore')][string]$Action,
+    [Parameter(Mandatory = $true)][ValidateSet('reinstall', 'dropdb', 'fresh-over-existing', 'demo-over-existing', 'restore')][string]$Action,
     [Parameter(Mandatory = $true)][string]$Situation,
     [string]$Target
 )
@@ -50,6 +50,14 @@ switch ($Action) {
         $what = 'Fresh install over an EXISTING installation in ' + $s.install.dir + ': code and node_modules are replaced. Your database, data\, blobs\ and .env are NOT deleted.'
         $protect = 'A full restore point of the CURRENT state is taken first; automatic rollback applies if the app does not come back.'
         $phrase = 'OVERWRITE ' + $env:COMPUTERNAME
+    }
+    'demo-over-existing' {
+        # Setup.bat option D on a machine that is not empty: the fresh install
+        # keeps the database, but step 8 then restores the bundled demo archive,
+        # which DROPS the database and reloads the demo dump - accounts included.
+        $what = 'Demo install over an EXISTING installation in ' + $s.install.dir + ': code and node_modules are redeployed, then database ' + $dbName + ' is DROPPED and replaced by the bundled demo dataset. Every report, PV, inspection and asset record is replaced, and the user accounts are replaced by the demo accounts (data\ is overlaid with the demo files).'
+        $protect = 'A full restore point of the CURRENT state is taken first. Before the demo dataset replaces the database, a pre-restore restore point with a COMPLETE database dump is taken - without it the replacement is refused and the current database is kept.'
+        $phrase = 'DEMO ' + $env:COMPUTERNAME
     }
     'restore' {
         if (-not $Target) { Refuse 'restore needs -Target <restore point file name>' }

@@ -14,10 +14,13 @@ rem    Confirm-Destructive.ps1 (red screen + exact phrase before anything destru
 rem    Install-SDP.ps1  (patch / upgrade / reinstall / fresh / configure .env)
 rem    Manage-SDP.ps1   (backup / restore / list / check DB)
 rem  Options 8 (health) and 9 (diagnostics) are inlined here, adapted from
-rem  _sdp_admin.cmd. Install actions always use THIS BUNDLE's scripts;
-rem  maintenance actions prefer the INSTALLED copies under
-rem  <InstallDir>\tools\installer when present (they carry any on-server
-rem  config.psd1 edits; each script resolves config.psd1 next to itself).
+rem  _sdp_admin.cmd. EVERY script run from here is THIS BUNDLE's copy - an
+rem  installed Manage-SDP.ps1 can predate the red-screen guarantees (pre-restore
+rem  point, dump check) that the confirmation screen promises. Detection and
+rem  Manage-SDP get the INSTALLED config.psd1 as -Config when it exists (merged
+rem  over the bundle's config, so on-server edits are honoured). Install-SDP
+rem  does NOT: that file is a full copy of the previous bundle's config and would
+rem  override every default this bundle ships (NodeMinMajor, PgMinMajor ...).
 rem
 rem  KEEP THIS FILE PURE ASCII + CRLF - cmd.exe reads it as ANSI; accented or
 rem  box-drawing characters corrupt parsing, and LF-only line endings break
@@ -96,11 +99,11 @@ set "SITJSON=%TEMP%\sdp-situation-%RANDOM%%RANDOM%.json"
 set "NEED_DETECT=1"
 set "HASDEMO=0"
 if exist "%HERE%\payload\demo\*.zip" set "HASDEMO=1"
-rem  Detection overlays the INSTALLED config.psd1 when present, so the backup
-rem  folder it reports (used by the restore confirmation) is the one the
-rem  installed Manage-SDP.ps1 actually uses.
-set "DETCFG="
-if exist "%APPDIR%\tools\installer\config.psd1" set "DETCFG=-Config "%APPDIR%\tools\installer\config.psd1""
+rem  Detection and Manage-SDP overlay the INSTALLED config.psd1 when present, so
+rem  the backup folder detection reports (used by the restore confirmation) is
+rem  the one Manage-SDP actually uses.
+set "INSTCFG="
+if exist "%APPDIR%\tools\installer\config.psd1" set "INSTCFG=-Config "%APPDIR%\tools\installer\config.psd1""
 
 call :slog "Setup launched (bundle %HERE%, target %APPDIR%)"
 set "_EMPTY=0"
@@ -115,7 +118,7 @@ if "%NEED_DETECT%"=="1" (
   set "IVER=unknown"
   set "BVER=unknown"
   del "%SITJSON%" >nul 2>&1
-  for /f "usebackq tokens=1,* delims==" %%A in (`%PS% "%HERE%\Detect-SDP.ps1" -BundleRoot "%HERE%" -OutFile "%SITJSON%" %DETCFG%`) do (
+  for /f "usebackq tokens=1,* delims==" %%A in (`%PS% "%HERE%\Detect-SDP.ps1" -BundleRoot "%HERE%" -OutFile "%SITJSON%" %INSTCFG%`) do (
     if "%%A"=="STATE" set "STATE=%%B"
     if "%%A"=="RECOMMENDED" set "RECOMMENDED=%%B"
     if "%%A"=="DOWNGRADE" set "DOWNGRADE=%%B"
@@ -244,11 +247,11 @@ echo   With server.js present: use E - Configure .env, then 3 - Reinstall.
 echo   Without server.js: use 4 - Fresh install; your .env is kept.
 goto menu
 
-rem  Maintenance script: prefer the INSTALLED copy (carries on-server config
-rem  edits); fall back to the bundle copy on a machine with no install yet.
+rem  Maintenance script: ALWAYS the bundle copy (next to this file) - never the
+rem  installed one, which may be an older, unguarded version. On-server config
+rem  edits still apply: every call passes %INSTCFG%.
 :resolvemanage
 set "MANAGE=%HERE%\Manage-SDP.ps1"
-if exist "%APPDIR%\tools\installer\Manage-SDP.ps1" set "MANAGE=%APPDIR%\tools\installer\Manage-SDP.ps1"
 goto :eof
 
 rem ---------------------------------------------------------------- 1
@@ -333,6 +336,8 @@ rem  travels INSIDE this bundle (payload\demo\), so the SFX has already put it
 rem  on disk - the operator creates no folder and copies no file. The entry is
 rem  hidden when a bundle carries no demo payload, so a production package
 rem  never advertises an action it cannot perform.
+rem  Over an existing install this is NOT option 4's red screen: step 8 drops
+rem  the database and reloads the demo dump, so it has its own screen + phrase.
 :demo
 if "%HASDEMO%"=="0" (
   echo   This package carries no demo dataset - option D is not available.
@@ -341,7 +346,7 @@ if "%HASDEMO%"=="0" (
 set "FOFLAG="
 if not "%STATE%"=="empty" (
   set "CONF_TARGET="
-  call :confirm fresh-over-existing
+  call :confirm demo-over-existing
   if not "!CONFIRMED!"=="1" (
     echo   Cancelled - nothing changed.
     goto menu
@@ -365,7 +370,7 @@ call :resolvemanage
 call :slog "Backup now"
 echo.
 echo   ^>^> Full restore point via "%MANAGE%" ...
-%PS% "%MANAGE%" -Backup -Tag manual
+%PS% "%MANAGE%" -Backup -Tag manual %INSTCFG%
 goto done
 
 rem ---------------------------------------------------------------- 6
@@ -373,7 +378,7 @@ rem  Red screen with the zip's real contents + "RESTORE <yyyymmdd>", then
 rem  -Force (Manage-SDP takes its own pre-restore restore point first).
 :restorept
 call :resolvemanage
-%PS% "%MANAGE%" -List
+%PS% "%MANAGE%" -List %INSTCFG%
 echo.
 set "RP="
 set /p RP=  Restore point file name - e.g. sdp-restore_manual_20260713-120000.zip:
@@ -395,14 +400,14 @@ if not "!CONFIRMED!"=="1" (
 )
 set "SLOG_MSG=Restore !RP!"
 call :slog
-%PS% "%MANAGE%" -Restore -Name "!RP!" -Force
+%PS% "%MANAGE%" -Restore -Name "!RP!" -Force %INSTCFG%
 call :slog "Restore - finished (exit %errorlevel%)"
 goto done
 
 rem ---------------------------------------------------------------- 7
 :listrp
 call :resolvemanage
-%PS% "%MANAGE%" -List
+%PS% "%MANAGE%" -List %INSTCFG%
 goto done
 
 rem ---------------------------------------------------------------- 8  (inlined; adapted from _sdp_admin.cmd :health)
@@ -443,7 +448,7 @@ goto done
 rem ---------------------------------------------------------------- C
 :checkdb
 call :resolvemanage
-%PS% "%MANAGE%" -CheckDb
+%PS% "%MANAGE%" -CheckDb %INSTCFG%
 goto done
 
 rem ----------------------------------------------------------------------------

@@ -311,6 +311,31 @@ $threwZip = $false
 try { $null = Test-SdpZipHasRootEntry $zipCorrupt '.env' } catch { $threwZip = $true }
 Assert-True $threwZip 'zip entry: corrupt zip throws (caller decides)'
 
+# 29. Test-SdpSameDatabase / Get-SdpPgUrlTarget: the database a DROP targets
+# (config db/host/port) vs the one .env PG_URL names (the dump + the phrase).
+$same = 'postgres://sdp_app:pw@localhost:5432/sdp_dashboard'
+Assert-Eq (Test-SdpSameDatabase $same 'sdp_dashboard' 'localhost' 5432) $true 'same db: identical'
+Assert-Eq (Test-SdpSameDatabase 'postgres://sdp_app:pw@localhost:5432/other' 'sdp_dashboard' 'localhost' 5432) $false 'same db: different database'
+Assert-Eq (Test-SdpSameDatabase 'postgres://sdp_app:pw@localhost:5432/SDP_Dashboard' 'sdp_dashboard' 'localhost' 5432) $false 'same db: database name is case-sensitive'
+Assert-Eq (Test-SdpSameDatabase 'postgres://sdp_app:pw@localhost:5433/sdp_dashboard' 'sdp_dashboard' 'localhost' 5432) $false 'same db: different port'
+Assert-Eq (Test-SdpSameDatabase 'postgres://sdp_app:pw@127.0.0.1:5432/sdp_dashboard' 'sdp_dashboard' 'localhost' 5432) $true 'same db: 127.0.0.1 == localhost'
+Assert-Eq (Test-SdpSameDatabase 'postgres://sdp_app:pw@[::1]:5432/sdp_dashboard' 'sdp_dashboard' 'LOCALHOST' '5432') $true 'same db: [::1] == LOCALHOST, string port'
+Assert-Eq (Test-SdpSameDatabase 'postgres://sdp_app:pw@localhost:5432/sdp_dashboard' 'sdp_dashboard' '127.0.0.1' 5432) $true 'same db: config 127.0.0.1 == url localhost'
+Assert-Eq (Test-SdpSameDatabase 'postgres://sdp_app:pw@dbserver:5432/sdp_dashboard' 'sdp_dashboard' 'localhost' 5432) $false 'same db: remote host is not localhost'
+Assert-Eq (Test-SdpSameDatabase 'postgres://sdp_app:pw@localhost/sdp_dashboard' 'sdp_dashboard' 'localhost' 5432) $true 'same db: missing url port = 5432'
+Assert-Eq (Test-SdpSameDatabase 'postgres://sdp_app:pw@localhost/sdp_dashboard' 'sdp_dashboard' 'localhost' 5433) $false 'same db: missing url port is not 5433'
+Assert-Eq (Test-SdpSameDatabase $same 'sdp_dashboard' 'localhost' $null) $true 'same db: missing config port = 5432'
+Assert-Eq (Test-SdpSameDatabase 'postgresql://us%40er:p%3Aw%2F%23@localhost:5432/sdp_dashboard' 'sdp_dashboard' 'localhost' 5432) $true 'same db: url-encoded user/password are irrelevant'
+Assert-Eq (Test-SdpSameDatabase 'not a url' 'sdp_dashboard' 'localhost' 5432) $false 'same db: garbage url -> not same'
+Assert-Eq (Test-SdpSameDatabase '' 'sdp_dashboard' 'localhost' 5432) $false 'same db: empty url -> not same'
+Assert-Eq (Test-SdpSameDatabase 'http://localhost:5432/sdp_dashboard' 'sdp_dashboard' 'localhost' 5432) $false 'same db: non-postgres scheme -> not same'
+Assert-Eq (Test-SdpSameDatabase 'postgres://sdp_app:pw@localhost:5432/' 'sdp_dashboard' 'localhost' 5432) $false 'same db: no database name -> not same'
+Assert-Eq (Test-SdpSameDatabase $same 'sdp_dashboard' 'localhost' 'abc') $false 'same db: garbage config port -> not same (never throws)'
+$tg = Get-SdpPgUrlTarget 'postgres://sdp_app:s3cret@127.0.0.1/sdp_x'
+Assert-True ($tg.db -eq 'sdp_x' -and $tg.host -eq 'localhost' -and $tg.port -eq 5432) 'url target: db/host/port'
+Assert-True (-not (($tg.Values -join ' ') -match 's3cret|sdp_app')) 'url target: carries no credentials'
+Assert-Eq (Get-SdpPgUrlTarget 'garbage') $null 'url target: garbage -> null'
+
 Write-Host ("situation.tests: " + $script:AssertCount + " assertions ok")
 
 } finally {

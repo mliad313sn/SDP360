@@ -162,6 +162,9 @@ $script:Step4Reached        = $false   # Step4-Postgres started
 $script:DbDropped           = $false   # DROP DATABASE actually succeeded
 $script:DbCreated           = $false   # the database did not exist and was created by this run
 $script:DbExistedBefore     = $null    # probe result before provisioning ($null = probe never ran)
+$script:DbSeeded            = $false   # step 8's restore succeeded: the database now holds the demo dataset
+$script:SeedFailed          = $false   # step 8's restore returned non-zero (database state not known)
+$script:SeedZipName         = $null    # leaf name of that demo archive
 
 function Invoke-Step([string]$N, [string]$Name, [scriptblock]$Body) {
     Log ("---- Step $N : $Name ----") 'STEP'
@@ -186,6 +189,9 @@ function Get-DatabaseOutcome {
         if ($script:DbCreated) { return 'DROPPED and recreated' }
         return 'DROPPED - NOT recreated (restore from the restore point)'
     }
+    # Step 8 replaced whatever step 4 created or kept - say so, never 'preserved'.
+    if ($script:DbSeeded) { return ('replaced by demo dataset (' + $script:SeedZipName + ')') }
+    if ($script:SeedFailed) { return ('uncertain - demo dataset restore failed (' + $script:SeedZipName + '), see the log') }
     if ($Mode -eq 'reinstall' -and $ConfirmDataLoss) { return 'preserved (drop not performed)' }
     if ($script:DbCreated) { return 'created' }
     if ($Mode -eq 'fresh' -and -not $script:Step4Reached) { return 'not created (run stopped before step 4)' }
@@ -1030,9 +1036,41 @@ function Step4-Postgres {
 # point is worthless as a safety net for the very thing it exists to protect
 # against - refuse to continue rather than let the DROP proceed unguarded.
 # =====================================================================
+# Before any DROP: the database step 4 drops ($cfg.DbName on $cfg.PgHost:PgPort)
+# must be the database the pre-change dump saves and the red screen's
+# 'DROP <db>' phrase named. The dump (tools\pg\dump-db.js) reads PG_URL from the
+# environment first (PG_URL, then DATABASE_URL), then from .env; the phrase comes
+# from .env PG_URL. Any of those naming another database would leave the dropped
+# one without a dump. Messages carry db@host:port only - never a URL or a credential.
+function Format-SdpDbTarget($t) {
+    if (-not $t) { return 'unparsable URL' }
+    return ($t.db + '@' + $t.host + ':' + $t.port)
+}
+function Assert-DropTargetMatchesEnv {
+    $cfgPort = if ("$($cfg.PgPort)".Trim()) { "$($cfg.PgPort)".Trim() } else { '5432' }
+    $cfgLabel = [string]$cfg.DbName + '@' + (ConvertTo-SdpPgHost ([string]$cfg.PgHost)) + ':' + $cfgPort
+    $envUrl = $null
+    try { $envUrl = Get-SdpEnvValueStrict $InstallDir 'PG_URL' }
+    catch { Die ('Cannot read .env - cannot prove it names the database this installer would drop (' + $cfgLabel + '); nothing was dropped.') }
+    if (-not $envUrl) { Die ('.env has no PG_URL - cannot prove it names the database this installer would drop (' + $cfgLabel + ') - fix .env or config.psd1; nothing was dropped.') }
+    $checks = @(, @('.env', $envUrl))
+    foreach ($k in @('PG_URL', 'DATABASE_URL')) {
+        $v = [Environment]::GetEnvironmentVariable($k, 'Process')
+        if ($v) { $checks += , @(('the ' + $k + ' environment variable'), $v); break }   # dump-db.js uses the first one set
+    }
+    foreach ($c in $checks) {
+        if (-not (Test-SdpSameDatabase $c[1] $cfg.DbName $cfg.PgHost $cfg.PgPort)) {
+            Die ('The database named in ' + $c[0] + ' (' + (Format-SdpDbTarget (Get-SdpPgUrlTarget $c[1])) + ') is not the one this installer would drop (' + $cfgLabel + ') - fix .env or config.psd1; nothing was dropped.')
+        }
+    }
+    Log ('Drop target proven: .env names the database step 4 drops (' + $cfgLabel + ')') 'OK'
+}
 function Step5-Backup {
     $manage = Join-Path $here 'Manage-SDP.ps1'
     if (-not (Test-Path $manage)) { Die "Manage-SDP.ps1 not found next to this script: $manage" }
+    # Proven before the restore point is even taken: nothing is spent on a run
+    # that would be refused, and step 4 (the DROP) always comes after step 5.
+    if ($ConfirmDataLoss) { Assert-DropTargetMatchesEnv }
     $svc = Get-Service postgresql* -ErrorAction SilentlyContinue | Select-Object -First 1
     if ($svc -and $svc.Status -ne 'Running') {
         Log ('Starting the PostgreSQL service for the pre-change dump (' + $svc.Name + ')') 'STEP'
@@ -1232,6 +1270,8 @@ function Invoke-Rollback {
 function Get-DataCheck {
     try {
         if ($script:DbDropped) { return 'skipped (database dropped by request)' }
+        if ($script:DbSeeded) { return 'skipped (database replaced by demo dataset)' }
+        if ($script:SeedFailed) { return 'skipped (demo dataset restore failed - database state uncertain)' }
         if (-not $script:CountsBefore) { return 'skipped (fresh install)' }
         if (-not $script:CountsBefore.reachable) { return 'skipped (db counts unavailable before)' }
         $after = Get-SdpDbCounts $InstallDir
@@ -1320,9 +1360,21 @@ function Step8-SeedData {
     if ($Config) { $mArgs += @('-Config', $Config) }
     & powershell @mArgs
     if ($LASTEXITCODE -ne 0) {
-        Log 'Seed restore FAILED - the app is installed and running, just empty. Load a restore point from the menu (option 6).' 'WARN'
+        # The restore may have failed before touching the database (nothing
+        # changed) or after replacing it (its own message names the pre-restore
+        # point to go back to) - the summary must not claim either way.
+        $script:SeedFailed = $true
+        $script:SeedZipName = $seed.Name
+        $script:DataCheck = Get-DataCheck
+        Log 'Seed restore FAILED - the app is installed; read the restore messages above: if the database was already replaced, restore the pre-restore point they name (option 6).' 'WARN'
         return
     }
+    $script:DbSeeded = $true
+    $script:SeedZipName = $seed.Name
+    # Step 7's data check ran BEFORE this restore and compared the pre-install
+    # counts with the pre-seed database; re-evaluate so the summary tells the
+    # truth about the database the operator now has.
+    $script:DataCheck = Get-DataCheck
     Log 'Seed data loaded.' 'OK'
     # The restore replaced the users table, so the account created by the
     # questionnaire minutes ago no longer exists. Saying this here is the

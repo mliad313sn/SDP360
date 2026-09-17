@@ -50,6 +50,49 @@ function Get-SdpEnvValue([string]$installDir, [string]$key) {
     } catch { return $null }
 }
 
+# Which database a postgres URL points at, WITHOUT its credentials:
+# @{ db; host; port } or $null (not an absolute URL, no database name, bad port).
+# The host is lower-cased and the loopback spellings (localhost, 127.0.0.1, ::1)
+# are folded to 'localhost'; a missing port is 5432 (libpq default - .NET gives
+# -1 for the unknown postgres scheme). The database name is case-sensitive, as
+# in a libpq connection. Never throws; never returns the user or the password.
+function Get-SdpPgUrlTarget([string]$url) {
+    try {
+        if (-not $url) { return $null }
+        $u = $null
+        if (-not [System.Uri]::TryCreate($url, [System.UriKind]::Absolute, [ref]$u)) { return $null }
+        if ($u.Scheme -notin @('postgres', 'postgresql')) { return $null }
+        $db = [System.Uri]::UnescapeDataString($u.AbsolutePath.TrimStart('/'))
+        if (-not $db) { return $null }
+        $port = if ($u.Port -gt 0) { $u.Port } else { 5432 }
+        return @{ db = $db; host = (ConvertTo-SdpPgHost $u.Host); port = [int]$port }
+    } catch { return $null }
+}
+function ConvertTo-SdpPgHost([string]$h) {
+    $x = ([string]$h).Trim().ToLowerInvariant().Trim('[', ']')
+    if (-not $x -or $x -eq 'localhost') { return 'localhost' }
+    # IP literals: .NET expands [::1] to 0000:...:0001, so compare parsed
+    # addresses (127.0.0.1 / ::1 -> localhost, anything else -> canonical form).
+    $ip = $null
+    if ([System.Net.IPAddress]::TryParse($x, [ref]$ip)) {
+        if ($ip.Equals([System.Net.IPAddress]::Loopback) -or $ip.Equals([System.Net.IPAddress]::IPv6Loopback)) { return 'localhost' }
+        return $ip.ToString()
+    }
+    return $x
+}
+# $true only when $url names exactly the database $db on $pgHost:$pgPort (the
+# one the installer's own psql calls target). Pure, never throws; an unparsable
+# URL is never "the same".
+function Test-SdpSameDatabase([string]$url, [string]$db, [string]$pgHost, $pgPort) {
+    try {
+        $t = Get-SdpPgUrlTarget $url
+        if (-not $t) { return $false }
+        $p = 5432
+        if ("$pgPort".Trim()) { $p = [int]"$pgPort" }
+        return (($t.db -ceq [string]$db) -and ($t.host -eq (ConvertTo-SdpPgHost $pgHost)) -and ($t.port -eq $p))
+    } catch { return $false }
+}
+
 # Never throws: roots are injectable via $script:SdpPgRoots (tests override it),
 # the version-folder sort uses a safe numeric key (non-numeric names sort last,
 # never crash), and the whole body is wrapped so any surprise still yields $null.
