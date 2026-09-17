@@ -95,6 +95,30 @@ function Invoke-PgDump($outFile) {
     try { & node (Join-Path $InstallDir 'tools\pg\dump-db.js') $outFile; return ($LASTEXITCODE -eq 0) }
     finally { Pop-Location }
 }
+# Reads the zip's ROOT .env entry in memory (never extracted to disk) with the
+# SAME rule as Get-EnvValue: first '^KEY=(.+)$' line, trimmed.
+# Returns @{ hasEnv = bool; value = string-or-null }. Throws if the zip cannot
+# be read - the caller must not guess which database a restore will drop.
+function Get-ZipEnvValue([string]$zipPath, [string]$key) {
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $z = [System.IO.Compression.ZipFile]::OpenRead($zipPath)
+    try {
+        $e = $z.Entries | Where-Object { $_.FullName -eq '.env' } | Select-Object -First 1
+        if (-not $e) { return @{ hasEnv = $false; value = $null } }
+        $sr = New-Object System.IO.StreamReader($e.Open())
+        try { $text = $sr.ReadToEnd() } finally { $sr.Dispose() }
+        foreach ($line in ($text -split "`r?`n")) {
+            if ($line -match ('^' + $key + '=(.+)$')) { return @{ hasEnv = $true; value = $Matches[1].Trim() } }
+        }
+        return @{ hasEnv = $true; value = $null }
+    } finally { $z.Dispose() }
+}
+function Test-ZipHasRootEntry([string]$zipPath, [string]$entryName) {
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $z = [System.IO.Compression.ZipFile]::OpenRead($zipPath)
+    try { return [bool]($z.Entries | Where-Object { $_.FullName -eq $entryName } | Select-Object -First 1) }
+    finally { $z.Dispose() }
+}
 function Get-EnvValue($key) {
     $envFile = Join-Path $InstallDir '.env'
     if (-not (Test-Path $envFile)) { return $null }
@@ -172,25 +196,51 @@ switch ($action) {
         $ok = Read-Host 'Type YES to proceed'
         if ($ok -ne 'YES') { Log 'Cancelled by user.'; exit 0 }
     }
+    # ---- which database will the import step below DROP? ----
+    # Mirror it exactly: it runs after the zip is robocopied over $InstallDir,
+    # then reads PG_URL from $InstallDir\.env (Get-EnvValue) and imports
+    # $InstallDir\sdp_dashboard.sql if that file exists. So:
+    #   - PG_URL = the zip's root .env when the zip carries one (it overwrites
+    #     the current .env - even a zip .env WITHOUT PG_URL means "no DB step"),
+    #     else the current .env's.
+    #   - a drop happens when that PG_URL is non-empty AND a root dump will be
+    #     present: one in the zip (complete or not) or a stale one left behind.
+    # The value is never printed.
+    try {
+        $zipEnv = Get-ZipEnvValue $zip 'PG_URL'
+        $zipHasSql = Test-ZipHasRootEntry $zip 'sdp_dashboard.sql'
+    } catch { Die ('Cannot read the restore point (' + $_.Exception.Message + ') - restore aborted, nothing changed.') }
+    $curPgUrl = Get-EnvValue 'PG_URL'
+    $effPgUrl = if ($zipEnv.hasEnv) { $zipEnv.value } else { $curPgUrl }
+    $willDrop = [bool]$effPgUrl -and ($zipHasSql -or (Test-Path -LiteralPath (Join-Path $InstallDir 'sdp_dashboard.sql')))
+    $viaTarget = $willDrop -and ($effPgUrl -ne $curPgUrl)
+
     # ---- safety backup of the CURRENT state, before anything is stopped or overwritten ----
     # Re-invoke this script (one action per invocation - the dailyjob pattern);
     # its LAST stdout line is the zip path, exactly as Install-SDP step 5 reads it.
+    # When a drop will happen, the child's dump-db.js is pointed at THAT database
+    # through the environment (dump-db.js reads process.env.PG_URL before .env) -
+    # never on a command line - so the safety point holds the database we drop,
+    # even when the current .env names no database or a different one.
     Log 'Pre-restore restore point of the current state' 'STEP'
     $preArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $PSCommandPath, '-Backup', '-Tag', 'pre-restore')
     if ($Config) { $preArgs += @('-Config', $Config) }
-    $preOut = @(& powershell @preArgs)
-    $preCode = $LASTEXITCODE
+    $savedPgUrl = $env:PG_URL
+    try {
+        if ($willDrop) { $env:PG_URL = $effPgUrl }
+        $preOut = @(& powershell @preArgs)
+        $preCode = $LASTEXITCODE
+    } finally { $env:PG_URL = $savedPgUrl }
     # The child's console lines were captured with its output - replay them.
     $preOut | Select-Object -SkipLast 1 | ForEach-Object { Write-Host $_ }
     if ($preCode -ne 0) { Die 'Pre-restore backup FAILED - restore aborted, nothing changed.' }
     $preZip = [string]($preOut | Select-Object -Last 1)
     if (-not ($preZip -and (Test-Path -LiteralPath $preZip))) { Die 'Pre-restore backup returned no zip - restore aborted, nothing changed.' }
     Log ('Pre-restore restore point: ' + (Split-Path $preZip -Leaf)) 'OK'
-    # If the target carries a dump AND this install uses PostgreSQL, the DB will be
-    # DROPPED below: the safety point must then carry a COMPLETE dump too, or we
-    # would overwrite a database we cannot get back.
-    if ((Test-SdpZipHasDump $zip) -and (Get-EnvValue 'PG_URL') -and -not (Test-SdpZipHasDump $preZip)) {
-        Die 'No database dump in the pre-restore point - refusing to overwrite the database. Check PG_URL / the PostgreSQL service (menu C), then retry.'
+    # Rule: never drop a database we do not have a COMPLETE dump of.
+    if ($willDrop -and -not (Test-SdpZipHasDump $preZip)) {
+        $hint = if ($viaTarget) { ' (the database named by the restore point''s .env)' } else { '' }
+        Die ('No database dump in the pre-restore point - refusing to overwrite the database' + $hint + '. Check PG_URL / the PostgreSQL service (menu C), then retry.')
     }
     Log "Restoring $Name" 'STEP'
     Invoke-Pm2 @('stop', $SvcName)

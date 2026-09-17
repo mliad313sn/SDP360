@@ -86,6 +86,66 @@ Assert-True (-not (Test-Path -LiteralPath (Join-Path $g.inst 'sdp_dashboard.sql'
 Assert-Eq (Get-Content (Join-Path $g.inst '.env') -Raw).Trim() 'PG_URL=postgres://sdp_app:x@127.0.0.1:1/x' '.env untouched when refused'
 Assert-True (-not ($r2.out -match 'sdp_app:x@')) 'PG_URL value never printed'
 
+# Fixture target: a restore point whose OWN .env names a database and carries a
+# complete root dump. $envText is the target's .env.
+function New-TargetZip($fx, [string]$zipName, [string]$envText) {
+    $st = New-TempDir 'sdp-mg-stgT'; $script:TestTempDirs += $st
+    Set-Content (Join-Path $st 'server.js') '// older' -Encoding ascii
+    Set-Content (Join-Path $st '.env') $envText -Encoding ascii
+    Set-Content (Join-Path $st 'sdp_dashboard.sql') ("-- dump`r`nSELECT 1;`r`n`r`n--`r`n-- PostgreSQL database dump complete`r`n--`r`n") -Encoding ascii
+    Compress-Archive -Path (Join-Path $st '*') -DestinationPath (Join-Path $fx.bak $zipName) -Force
+}
+# A dump tool that succeeds ONLY when process.env.PG_URL is exactly $url
+# (proves the URL reached the child through the environment, not the .env file).
+function Set-DumpOnlyFor($fx, [string]$url) {
+    $js = "const fs=require('fs');if(process.env.PG_URL!=='" + $url + "'){process.exit(1)}" +
+          "fs.writeFileSync(process.argv[2],'-- dump\nSELECT 1;\n\n--\n-- PostgreSQL database dump complete\n--\n');process.exit(0)"
+    Set-Content (Join-Path $fx.inst 'tools\pg\dump-db.js') $js -Encoding ascii
+}
+$urlB = 'postgres://sdp_app:x@127.0.0.1:1/x'
+$envBefore = $env:PG_URL
+
+# ---- case 3: current .env has NO PG_URL, target's .env has one + complete dump, dump fails -> refuse ----
+$h = New-Fixture 'REPORTS_BACKEND=sqlite'
+$target3 = 'sdp-restore_manual_20260903-120000.zip'
+New-TargetZip $h $target3 ('PG_URL=' + $urlB)
+$r3 = Invoke-Manage @('-Restore', '-Name', $target3, '-Force', '-Config', $h.cfg)
+Assert-True ($r3.code -ne 0) ('restore refuses when the target''s database cannot be dumped: ' + $r3.out)
+Assert-True ($r3.out -match 'refusing to overwrite the database') 'refusal message'
+Assert-True ($r3.out -match 'named by the restore point') 'refusal names the restore point''s .env as the source'
+Assert-Eq (Get-Content (Join-Path $h.inst 'server.js') -Raw).Trim() '// current' 'code untouched when refused (case 3)'
+Assert-Eq (Get-Content (Join-Path $h.inst '.env') -Raw).Trim() 'REPORTS_BACKEND=sqlite' '.env untouched when refused (case 3)'
+Assert-True (-not (Test-Path -LiteralPath (Join-Path $h.inst 'sdp_dashboard.sql'))) 'no dump dropped into the install dir (case 3)'
+Assert-True (-not ($r3.out -match 'sdp_app:x@')) 'PG_URL value never printed (case 3)'
+Assert-True (-not ($r3.out -match '127\.0\.0\.1:1/x')) 'PG_URL host/db never printed (case 3)'
+
+# ---- case 4: current .env has NO PG_URL, dump succeeds only for the target's URL -> guard passes ----
+$k = New-Fixture 'REPORTS_BACKEND=sqlite'
+Set-DumpOnlyFor $k $urlB
+$target4 = 'sdp-restore_manual_20260904-120000.zip'
+New-TargetZip $k $target4 ('PG_URL=' + $urlB)
+$r4 = Invoke-Manage @('-Restore', '-Name', $target4, '-Force', '-Config', $k.cfg)
+# The import then targets an unreachable PG (port 1): a non-zero exit is fine,
+# the refusal is not.
+Assert-True (-not ($r4.out -match 'refusing to overwrite the database')) ('guard passes when the target''s database was dumped: ' + $r4.out)
+$pre4 = @(Get-ChildItem $k.bak -Filter 'sdp-restore_pre-restore_*.zip')
+Assert-Eq $pre4.Count 1 'pre-restore point taken (case 4)'
+Assert-True ((Get-ZipNames $pre4[0].FullName) -contains 'sdp_dashboard.sql') 'pre-restore point carries a root dump of the target''s database'
+Assert-True (-not ($r4.out -match 'sdp_app:x@')) 'PG_URL value never printed (case 4)'
+
+# ---- case 5: current .env names a DIFFERENT database -> the dump follows the one that will be dropped ----
+$m = New-Fixture 'PG_URL=postgres://sdp_app:y@127.0.0.1:1/other'
+Set-DumpOnlyFor $m $urlB
+$target5 = 'sdp-restore_manual_20260905-120000.zip'
+New-TargetZip $m $target5 ('PG_URL=' + $urlB)
+$r5 = Invoke-Manage @('-Restore', '-Name', $target5, '-Force', '-Config', $m.cfg)
+Assert-True (-not ($r5.out -match 'refusing to overwrite the database')) ('dump targets the database the restore drops: ' + $r5.out)
+$pre5 = @(Get-ChildItem $m.bak -Filter 'sdp-restore_pre-restore_*.zip')
+Assert-True ($pre5.Count -eq 1 -and ((Get-ZipNames $pre5[0].FullName) -contains 'sdp_dashboard.sql')) 'pre-restore point carries the dropped database''s dump (case 5)'
+Assert-True (-not ($r5.out -match 'sdp_app:(x|y)@')) 'PG_URL values never printed (case 5)'
+
+Assert-Eq $env:PG_URL $envBefore 'test process PG_URL untouched'
+
 Write-Host ("manage-restore.tests: " + $script:AssertCount + " assertions ok")
 
 } finally {
