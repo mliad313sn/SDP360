@@ -11,6 +11,11 @@ $manage = Join-Path $here '..\Manage-SDP.ps1'
 # Best-effort cleanup list (same pattern as confirm.tests.ps1).
 $script:TestTempDirs = @()
 
+# Manage-SDP logs go to a temp dir, never C:\ProgramData (inherited by the child).
+$logBefore = $env:SDP_INSTALLER_LOG_DIR
+$env:SDP_INSTALLER_LOG_DIR = New-TempDir 'sdp-mg-logs'
+$script:TestTempDirs += $env:SDP_INSTALLER_LOG_DIR
+
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 function Get-ZipNames([string]$path) {
     $z = [System.IO.Compression.ZipFile]::OpenRead($path)
@@ -87,6 +92,9 @@ Assert-Eq (Get-Content (Join-Path $g.inst 'server.js') -Raw).Trim() '// current'
 Assert-True (-not (Test-Path -LiteralPath (Join-Path $g.inst 'sdp_dashboard.sql'))) 'no dump dropped into the install dir when refused'
 Assert-Eq (Get-Content (Join-Path $g.inst '.env') -Raw).Trim() 'PG_URL=postgres://sdp_app:x@127.0.0.1:1/x' '.env untouched when refused'
 Assert-True (-not ($r2.out -match 'sdp_app:x@')) 'PG_URL value never printed'
+Assert-Eq (@(Get-ChildItem $g.bak -Filter 'sdp-restore_pre-restore_*.zip')).Count 0 'refused restore leaves no pre-restore zip behind'
+Assert-True ($r2.out -match 'Removed the pre-restore point') 'removal of the useless pre-restore zip is logged'
+Assert-True (Test-Path -LiteralPath (Join-Path $g.bak $target2)) 'the restore target itself is kept'
 
 # Fixture target: a restore point whose OWN .env names a database and carries a
 # complete root dump. $envText is the target's .env.
@@ -120,6 +128,7 @@ Assert-Eq (Get-Content (Join-Path $h.inst '.env') -Raw).Trim() 'REPORTS_BACKEND=
 Assert-True (-not (Test-Path -LiteralPath (Join-Path $h.inst 'sdp_dashboard.sql'))) 'no dump dropped into the install dir (case 3)'
 Assert-True (-not ($r3.out -match 'sdp_app:x@')) 'PG_URL value never printed (case 3)'
 Assert-True (-not ($r3.out -match '127\.0\.0\.1:1/x')) 'PG_URL host/db never printed (case 3)'
+Assert-Eq (@(Get-ChildItem $h.bak -Filter 'sdp-restore_pre-restore_*.zip')).Count 0 'refused restore leaves no pre-restore zip behind (case 3)'
 
 # ---- case 4: current .env has NO PG_URL, dump succeeds only for the target's URL -> guard passes ----
 $k = New-Fixture 'REPORTS_BACKEND=sqlite'
@@ -204,11 +213,53 @@ Assert-True (-not ($r8.out -match 'refusing to overwrite the database')) ('singl
 Assert-True ($r8.out -match [regex]::Escape($importSignal)) 'import attempted with the single-quoted zip PG_URL (case 8)'
 Assert-True (-not ($r8.out -match 'sdp_app:x@')) 'PG_URL value never printed (case 8)'
 
+# ---- case 9: restore point's .env has NO PG_URL (current .env has one) + complete dump ----
+# The zip .env overwrites the current one, so the import step sees no PG_URL:
+# no drop predicted, no import attempted, restore proceeds.
+$v = New-Fixture ('PG_URL=' + $urlB)
+$target9 = 'sdp-restore_manual_20260909-120000.zip'
+New-TargetZip $v $target9 'REPORTS_BACKEND=sqlite'
+$r9 = Invoke-Manage @('-Restore', '-Name', $target9, '-Force', '-Config', $v.cfg)
+Assert-Eq $r9.code 0 ('restore to a point without PG_URL exits 0: ' + $r9.out)
+Assert-True (-not ($r9.out -match 'refusing to overwrite the database')) 'no refusal (case 9)'
+Assert-True (-not ($r9.out -match [regex]::Escape($importSignal))) 'no database import attempted (case 9)'
+Assert-Eq (Get-Content (Join-Path $v.inst 'server.js') -Raw).Trim() '// older' 'code restored (case 9)'
+Assert-Eq (Get-Content (Join-Path $v.inst '.env') -Raw).Trim() 'REPORTS_BACKEND=sqlite' '.env restored from the point (case 9)'
+Assert-Eq (@(Get-ChildItem $v.bak -Filter 'sdp-restore_pre-restore_*.zip')).Count 1 'pre-restore point taken (case 9)'
+Assert-True (-not ($r9.out -match 'sdp_app:x@')) 'PG_URL value never printed (case 9)'
+
+# ---- case 10: corrupt restore point -> abort before anything, nothing changed ----
+$c10 = New-Fixture ('PG_URL=' + $urlB)
+$target10 = 'sdp-restore_manual_20260910-120000.zip'
+[System.IO.File]::WriteAllBytes((Join-Path $c10.bak $target10), [byte[]](1..200 | ForEach-Object { $_ % 251 }))
+$r10 = Invoke-Manage @('-Restore', '-Name', $target10, '-Force', '-Config', $c10.cfg)
+Assert-True ($r10.code -ne 0) ('corrupt restore point -> non-zero exit: ' + $r10.out)
+Assert-True ($r10.out -match 'Cannot read the restore point') 'message names the unreadable restore point (case 10)'
+Assert-True ($r10.out -match 'nothing changed') 'message says nothing changed (case 10)'
+Assert-Eq (Get-Content (Join-Path $c10.inst 'server.js') -Raw).Trim() '// current' 'code untouched (case 10)'
+Assert-Eq (@(Get-ChildItem $c10.bak -Filter 'sdp-restore_pre-restore_*.zip')).Count 0 'no pre-restore point taken (case 10)'
+
+# ---- case 11: current .env exists but cannot be read -> fail closed ----
+$c11 = New-Fixture ('PG_URL=' + $urlB)
+Set-DumpAlwaysOk $c11
+$target11 = 'sdp-restore_manual_20260911-120000.zip'
+New-TargetZip $c11 $target11 ('PG_URL=' + $urlB)
+$lock11 = [System.IO.File]::Open((Join-Path $c11.inst '.env'), 'Open', 'ReadWrite', 'None')
+try {
+    $r11 = Invoke-Manage @('-Restore', '-Name', $target11, '-Force', '-Config', $c11.cfg)
+} finally { $lock11.Dispose() }
+Assert-True ($r11.code -ne 0) ('unreadable current .env -> non-zero exit: ' + $r11.out)
+Assert-True ($r11.out -match 'Cannot read the current \.env - restore aborted, nothing changed') 'fail-closed message (case 11)'
+Assert-Eq (Get-Content (Join-Path $c11.inst 'server.js') -Raw).Trim() '// current' 'code untouched (case 11)'
+Assert-Eq (@(Get-ChildItem $c11.bak -Filter 'sdp-restore_pre-restore_*.zip')).Count 0 'no pre-restore point taken (case 11)'
+Assert-True (-not ($r11.out -match 'sdp_app:x@')) 'PG_URL value never printed (case 11)'
+
 Assert-Eq $env:PG_URL $envBefore 'test process PG_URL untouched'
 
 Write-Host ("manage-restore.tests: " + $script:AssertCount + " assertions ok")
 
 } finally {
+    $env:SDP_INSTALLER_LOG_DIR = $logBefore
     foreach ($d in $script:TestTempDirs) {
         try { if (Test-Path $d) { Remove-Item -Path $d -Recurse -Force -ErrorAction SilentlyContinue } } catch { }
     }

@@ -267,6 +267,50 @@ Assert-Eq $sDrop.Count 1 'Compare-SdpCounts: string 10 -> 9 is a drop'
 Assert-Eq $sDrop[0] 'users 10 -> 9' 'Compare-SdpCounts: string drop string correct'
 Assert-Eq (@(Compare-SdpCounts @{ users = '9' } @{ users = '10' })).Count 0 'Compare-SdpCounts: string 9 -> 10 is an increase, not a drop'
 
+# 26. Get-SdpEnvTextValue: same rules as tools\pg\dump-db.js loadDotEnv().
+$u1 = 'postgres://a:b@h:1/first'; $u2 = 'postgres://a:b@h:1/second'
+Assert-Eq (Get-SdpEnvTextValue ("PG_URL=$u1`r`nPG_URL=$u2") 'PG_URL') $u2 'env: duplicate key -> LAST line wins'
+Assert-Eq (Get-SdpEnvTextValue ("PG_URL=$u1`nX=1`nPG_URL=") 'PG_URL') $null 'env: empty LAST value -> null (does not fall back to an earlier line)'
+Assert-Eq (Get-SdpEnvTextValue ("PG_URL=$u1`nPG_URL=  `"`"  ") 'PG_URL') $null 'env: last value only quotes -> null'
+Assert-Eq (Get-SdpEnvTextValue ("pg_url=$u1") 'PG_URL') $null 'env: lower-case key is NOT matched (case-sensitive)'
+Assert-Eq (Get-SdpEnvTextValue ("pg_url=$u1`nPG_URL=$u2`nPg_Url=x") 'PG_URL') $u2 'env: other-case duplicates ignored'
+Assert-Eq (Get-SdpEnvTextValue (([char]0xFEFF) + "PG_URL=$u1`r`nA=1") 'PG_URL') $u1 'env: UTF-8 BOM on the first line stripped'
+Assert-Eq (Get-SdpEnvTextValue ("PG_URL=$u1`n# PG_URL=$u2`n   #PG_URL=nope") 'PG_URL') $u1 'env: comment lines ignored (even after the real line)'
+Assert-Eq (Get-SdpEnvTextValue ("PG_URL='$u1'") 'PG_URL') $u1 'env: single quotes stripped'
+Assert-Eq (Get-SdpEnvTextValue ("PG_URL=`"$u1`"") 'PG_URL') $u1 'env: double quotes stripped'
+Assert-Eq (Get-SdpEnvTextValue ("  PG_URL   =   $u1   ") 'PG_URL') $u1 'env: spaces around key, = and value tolerated'
+Assert-Eq (Get-SdpEnvTextValue ("  PG_URL = `"$u1`"  ") 'PG_URL') $u1 'env: spaces around a quoted value'
+Assert-Eq (Get-SdpEnvTextValue ("PG_URL_OLD=$u2`nXPG_URL=$u2") 'PG_URL') $null 'env: other keys containing the name do not match'
+Assert-Eq (Get-SdpEnvTextValue '' 'PG_URL') $null 'env: empty text -> null'
+
+# 27. Get-SdpEnvValueStrict: absent file -> null; locked file -> throws
+#     (Get-SdpEnvValue swallows the same error and returns null).
+$envDir = New-TempDir 'sdp-sit-env'; $script:TestTempDirs += $envDir
+Assert-Eq (Get-SdpEnvValueStrict $envDir 'PG_URL') $null 'strict: no .env -> null'
+Set-Content (Join-Path $envDir '.env') ("PG_URL=$u1") -Encoding ascii
+Assert-Eq (Get-SdpEnvValueStrict $envDir 'PG_URL') $u1 'strict: readable .env -> value'
+$lock = [System.IO.File]::Open((Join-Path $envDir '.env'), 'Open', 'ReadWrite', 'None')
+try {
+    $threwStrict = $false
+    try { $null = Get-SdpEnvValueStrict $envDir 'PG_URL' } catch { $threwStrict = $true }
+    Assert-True $threwStrict 'strict: unreadable .env -> throws'
+    Assert-Eq (Get-SdpEnvValue $envDir 'PG_URL') $null 'lenient: unreadable .env -> null'
+} finally { $lock.Dispose() }
+
+# 28. zip root-entry helpers: root only, text read in memory, corrupt zip throws.
+$zipEnv = Join-Path $zipDir 'envzip.zip'
+New-TestZip $zipEnv @{ '.env' = "PG_URL=$u1"; 'sub/.env' = 'PG_URL=nested' }
+$rt = Get-SdpZipRootEntryText $zipEnv '.env'
+Assert-True $rt.found 'zip text: root .env found'
+Assert-Eq (Get-SdpEnvTextValue $rt.text 'PG_URL') $u1 'zip text: root .env content (not the nested one)'
+Assert-Eq (Get-SdpZipRootEntryText $zipEnv 'missing.txt').found $false 'zip text: absent entry -> found=false'
+Assert-Eq (Test-SdpZipHasRootEntry $zipEnv '.env') $true 'zip entry: root .env present'
+Assert-Eq (Test-SdpZipHasRootEntry $zipEnv 'sdp_dashboard.sql') $false 'zip entry: absent'
+Assert-Eq (Test-SdpZipHasRootEntry $zipEnv '/.env') $false 'zip entry: exact name only'
+$threwZip = $false
+try { $null = Test-SdpZipHasRootEntry $zipCorrupt '.env' } catch { $threwZip = $true }
+Assert-True $threwZip 'zip entry: corrupt zip throws (caller decides)'
+
 Write-Host ("situation.tests: " + $script:AssertCount + " assertions ok")
 
 } finally {

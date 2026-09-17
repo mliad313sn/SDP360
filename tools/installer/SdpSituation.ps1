@@ -8,24 +8,40 @@ $script:SdpCountTables = @('sites', 'weekly_reports', 'md_meetings', 'insp_inspe
 $script:SdpPgRoots = @('C:\Program Files\PostgreSQL', 'C:\Program Files (x86)\PostgreSQL')
 
 # ONE .env parsing rule for every PowerShell reader (a .env file on disk, or a
-# .env entry read out of a restore-point zip), aligned with tools\pg\dump-db.js:
-# '#' comment lines ignored, optional spaces around 'KEY' and '=', value
-# trimmed, then ONE surrounding single/double quote stripped at each end
-# (dump-db.js: replace(/^["']|["']$/g, '')). First non-empty KEY= line wins.
-# Returns $null when absent or empty. Never throws.
+# .env entry read out of a restore-point zip), aligned with tools\pg\dump-db.js
+# loadDotEnv():
+#   - a leading UTF-8 BOM (U+FEFF) is ignored;
+#   - '#' comment lines are ignored;
+#   - the KEY is matched CASE-SENSITIVELY (pg_url is not PG_URL), with optional
+#     spaces around it and around '=';
+#   - the LAST matching line wins (dump-db overwrites its map line by line),
+#     even when that last value is empty;
+#   - the value is trimmed, then ONE surrounding single/double quote is
+#     stripped at each end (dump-db.js: replace(/^["']|["']$/g, '')).
+# Returns $null when the key is absent or its (last) value is empty. Never throws.
 function Get-SdpEnvTextValue([string]$text, [string]$key) {
     if (-not $text) { return $null }
+    if ($text[0] -eq [char]0xFEFF) { $text = $text.Substring(1) }
     $rx = '^\s*' + [regex]::Escape($key) + '\s*=(.*)$'
+    $found = $false; $last = $null
     foreach ($line in ($text -split "`r?`n")) {
         if ($line.TrimStart().StartsWith('#')) { continue }
-        if ($line -match $rx) {
-            $v = $Matches[1].Trim() -replace '^["'']|["'']$', ''
-            if ($v) { return $v }
-        }
+        if ($line -cmatch $rx) { $found = $true; $last = $Matches[1] }
     }
+    if (-not $found) { return $null }
+    $v = $last.Trim() -replace '^["'']|["'']$', ''
+    if ($v) { return $v }
     return $null
 }
 
+# Strict variant of Get-SdpEnvValue for callers that must FAIL CLOSED: $null
+# only when the .env file does not exist; THROWS when it exists but cannot be
+# read (locked, access denied, ...). Get-SdpEnvValue below swallows that case.
+function Get-SdpEnvValueStrict([string]$installDir, [string]$key) {
+    $envFile = Join-Path $installDir '.env'
+    if (-not (Test-Path -LiteralPath $envFile)) { return $null }
+    return (Get-SdpEnvTextValue ([System.IO.File]::ReadAllText($envFile)) $key)
+}
 function Get-SdpEnvValue([string]$installDir, [string]$key) {
     try {
         $envFile = Join-Path $installDir '.env'
@@ -144,6 +160,34 @@ function Compare-SdpCounts($before, $after) {
     return $drops
 }
 
+# Opens $zipPath, finds the ROOT entry named exactly $entryName (or $null) and
+# returns whatever $action returns when invoked with that entry. The archive is
+# always disposed. THROWS when the zip cannot be opened - callers decide
+# whether that is fatal (Manage-SDP -Restore) or a plain "no" (Test-SdpZipHasDump).
+function Invoke-SdpZipRootEntry([string]$zipPath, [string]$entryName, [scriptblock]$action) {
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $z = [System.IO.Compression.ZipFile]::OpenRead($zipPath)
+    try {
+        $entry = $null
+        foreach ($x in $z.Entries) { if ($x.FullName -eq $entryName) { $entry = $x; break } }
+        return (& $action $entry)
+    } finally { $z.Dispose() }
+}
+# @{ found = bool; text = string-or-null } for a ROOT entry, read in memory
+# (never extracted to disk). Throws if the zip cannot be read.
+function Get-SdpZipRootEntryText([string]$zipPath, [string]$entryName) {
+    return (Invoke-SdpZipRootEntry $zipPath $entryName {
+        param($e)
+        if (-not $e) { return @{ found = $false; text = $null } }
+        $sr = New-Object System.IO.StreamReader($e.Open())
+        try { $t = $sr.ReadToEnd() } finally { $sr.Dispose() }
+        return @{ found = $true; text = $t }
+    })
+}
+# $true when the zip has a ROOT entry $entryName. Throws if the zip cannot be read.
+function Test-SdpZipHasRootEntry([string]$zipPath, [string]$entryName) {
+    return [bool](Invoke-SdpZipRootEntry $zipPath $entryName { param($e) return [bool]$e })
+}
 # Never throws: used by Install-SDP (Step5, refuse a DROP without a dump) and
 # Manage-SDP (-Restore, same rule before overwriting a live install). A restore
 # point is a copy of the whole install dir, so it always carries repo files
@@ -161,10 +205,8 @@ function Test-SdpZipHasDump([string]$zipPath) {
     $tailSize = 4096
     try {
         if (-not (Test-Path -LiteralPath $zipPath)) { return $false }
-        Add-Type -AssemblyName System.IO.Compression.FileSystem
-        $z = [System.IO.Compression.ZipFile]::OpenRead($zipPath)
-        try {
-            $e = $z.Entries | Where-Object { $_.FullName -eq 'sdp_dashboard.sql' } | Select-Object -First 1
+        return [bool](Invoke-SdpZipRootEntry $zipPath 'sdp_dashboard.sql' {
+            param($e)
             if (-not $e -or $e.Length -le 0) { return $false }
             $s = $e.Open()
             try {
@@ -192,10 +234,9 @@ function Test-SdpZipHasDump([string]$zipPath) {
                 $text = [System.Text.Encoding]::ASCII.GetString($tail, 0, $tailLen)
                 return ($text.Contains($trailer))
             } finally { $s.Dispose() }
-        } finally { $z.Dispose() }
+        })
     } catch { return $false }
 }
-
 function Get-SdpFileSha256([string]$path) {
     if (-not (Test-Path $path)) { return $null }
     return (Get-FileHash -Path $path -Algorithm SHA256).Hash

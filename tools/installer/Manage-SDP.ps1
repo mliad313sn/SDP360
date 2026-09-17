@@ -12,7 +12,7 @@
 #   -Backup [-DbOnly] [-Tag <label>]     restore point / db dump
 #   -Restore -Name <file>[.zip] [-Force] roll back code+.env (+DB if dump present)
 #   -List                                list restore points
-#   -Prune [-RetentionFull N] [-RetentionDbOnly M]
+#   -Prune [-RetentionFull N] [-RetentionDbOnly M]   (pre-restore points: own lane, newest 2 kept)
 #   -CheckDb                             PostgreSQL pre-flight (provision-prod.js --check)
 #   -Schedule -Daily HH:mm -Weekly DAY:HH:mm [-RetentionFull N] [-RetentionDbOnly M]
 #   -Schedule -Disable                   disable both scheduled tasks
@@ -48,7 +48,7 @@ $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 # Shared readers (Test-SdpZipHasDump: "does this restore point carry a COMPLETE
 # root dump?") - one rule for Install-SDP, Detect-SDP and this script.
 . (Join-Path $here 'SdpSituation.ps1')
-$cfg =Import-PowerShellDataFile (Join-Path $here 'config.psd1')
+$cfg = Import-PowerShellDataFile (Join-Path $here 'config.psd1')
 if ($Config) {
     $ovPath = if (Test-Path $Config) { $Config } else { Join-Path $here $Config }
     $ov = Import-PowerShellDataFile $ovPath
@@ -65,7 +65,9 @@ $TaskDaily  = 'SDP-Backup-DB-Daily'    + $TaskSfx
 $TaskWeekly = 'SDP-Backup-Full-Weekly' + $TaskSfx
 
 # --- logging ----------------------------------------------------------
-$LogDir = 'C:\ProgramData\SDP-Dashboard\logs'
+# SDP_INSTALLER_LOG_DIR overrides the log folder (the unit tests point it at a
+# temp dir); the default is unchanged.
+$LogDir = if ($env:SDP_INSTALLER_LOG_DIR) { $env:SDP_INSTALLER_LOG_DIR } else { 'C:\ProgramData\SDP-Dashboard\logs' }
 if (-not (Test-Path $LogDir)) { New-Item -ItemType Directory -Path $LogDir -Force | Out-Null }
 $action = @('backup','restore','list','prune','checkdb','schedule','status','dailyjob','weeklyjob')[
     @($Backup,$Restore,$List,$Prune,$CheckDb,$Schedule,$ScheduleStatus,$DailyJob,$WeeklyJob).IndexOf($true)]
@@ -90,32 +92,41 @@ function Invoke-Robocopy($src, $dst, [string[]]$extra) {
     & robocopy $src $dst /E /NFL /NDL /NJH /NJS @extra | Out-Null
     if ($LASTEXITCODE -ge 8) { Die "robocopy failed ($LASTEXITCODE) $src -> $dst" }
 }
+# dump-db.js prints progress on stdout: route it to the host (the console /
+# the parent's capture), never into this function's return value - otherwise
+# the caller's `if (-not (Invoke-PgDump ...))` sees a non-empty array and a
+# FAILED dump reads as success.
 function Invoke-PgDump($outFile) {
     Push-Location $InstallDir
-    try { & node (Join-Path $InstallDir 'tools\pg\dump-db.js') $outFile; return ($LASTEXITCODE -eq 0) }
+    try {
+        & node (Join-Path $InstallDir 'tools\pg\dump-db.js') $outFile | ForEach-Object { Write-Host $_ }
+        return [bool]($LASTEXITCODE -eq 0)
+    }
     finally { Pop-Location }
 }
 # Reads the zip's ROOT .env entry in memory (never extracted to disk) with the
-# SAME rule as Get-EnvValue (Get-SdpEnvTextValue: comments ignored, value
-# trimmed, surrounding quotes stripped like dump-db.js).
+# SAME rule as the current .env (Get-SdpEnvTextValue, aligned with dump-db.js).
 # Returns @{ hasEnv = bool; value = string-or-null }. Throws if the zip cannot
 # be read - the caller must not guess which database a restore will drop.
 function Get-ZipEnvValue([string]$zipPath, [string]$key) {
-    Add-Type -AssemblyName System.IO.Compression.FileSystem
-    $z = [System.IO.Compression.ZipFile]::OpenRead($zipPath)
-    try {
-        $e = $z.Entries | Where-Object { $_.FullName -eq '.env' } | Select-Object -First 1
-        if (-not $e) { return @{ hasEnv = $false; value = $null } }
-        $sr = New-Object System.IO.StreamReader($e.Open())
-        try { $text = $sr.ReadToEnd() } finally { $sr.Dispose() }
-        return @{ hasEnv = $true; value = (Get-SdpEnvTextValue $text $key) }
-    } finally { $z.Dispose() }
+    $r = Get-SdpZipRootEntryText $zipPath '.env'
+    if (-not $r.found) { return @{ hasEnv = $false; value = $null } }
+    return @{ hasEnv = $true; value = (Get-SdpEnvTextValue $r.text $key) }
 }
-function Test-ZipHasRootEntry([string]$zipPath, [string]$entryName) {
-    Add-Type -AssemblyName System.IO.Compression.FileSystem
-    $z = [System.IO.Compression.ZipFile]::OpenRead($zipPath)
-    try { return [bool]($z.Entries | Where-Object { $_.FullName -eq $entryName } | Select-Object -First 1) }
-    finally { $z.Dispose() }
+# Pre-restore safety points (sdp-restore_pre-restore_*.zip) live in their OWN
+# retention lane: they never count toward RetentionFull (so a burst of restores
+# cannot push out the weekly/manual points - including the one being restored),
+# and only the newest $PreRestoreKeep of them are kept.
+$PreRestoreKeep = 2
+$PreRestorePattern = 'sdp-restore_pre-restore_*.zip'
+# Pure: the files a prune deletes. $full = sdp-restore_*.zip, $dbo = sdp-db_*.sql
+# (FileInfo lists, any order).
+function Get-PruneTargets($full, $dbo, [int]$keepFull, [int]$keepDb, [int]$keepPre) {
+    $all = @($full | Sort-Object LastWriteTime -Descending)
+    $pre = @($all | Where-Object { $_.Name -like $PreRestorePattern })
+    $reg = @($all | Where-Object { $_.Name -notlike $PreRestorePattern })
+    $db  = @($dbo | Sort-Object LastWriteTime -Descending)
+    return @(@($reg | Select-Object -Skip $keepFull) + @($pre | Select-Object -Skip $keepPre) + @($db | Select-Object -Skip $keepDb))
 }
 function Get-EnvValue($key) { return (Get-SdpEnvValue $InstallDir $key) }
 function Resolve-SuperPassword {
@@ -153,7 +164,9 @@ switch ($action) {
     if ($DbOnly) {
         $out = Join-Path $BackupDir ("sdp-db_$stamp.sql")
         Log "DB-only backup -> $out" 'STEP'
-        if (Invoke-PgDump $out) { Log "DB backup done: $out" 'OK' } else { Die 'pg dump failed' }
+        if (-not (Invoke-PgDump $out)) { Die 'pg dump failed' }
+        if (Test-Path -LiteralPath $out) { Log "DB backup done: $out" 'OK' }
+        else { Log 'pg dump exited OK but no dump written (no PG_URL configured? sqlite-only install?)' 'WARN' }
         break
     }
     Log "Full restore point (code + .env + data + blobs + pg_dump)" 'STEP'
@@ -203,9 +216,12 @@ switch ($action) {
     # The value is never printed.
     try {
         $zipEnv = Get-ZipEnvValue $zip 'PG_URL'
-        $zipHasSql = Test-ZipHasRootEntry $zip 'sdp_dashboard.sql'
+        $zipHasSql = Test-SdpZipHasRootEntry $zip 'sdp_dashboard.sql'
     } catch { Die ('Cannot read the restore point (' + $_.Exception.Message + ') - restore aborted, nothing changed.') }
-    $curPgUrl = Get-EnvValue 'PG_URL'
+    # Fail closed: a .env that exists but cannot be read must not be mistaken
+    # for "no PG_URL" (that would skip the database guard below).
+    try { $curPgUrl = Get-SdpEnvValueStrict $InstallDir 'PG_URL' }
+    catch { Die 'Cannot read the current .env - restore aborted, nothing changed.' }
     $effPgUrl = if ($zipEnv.hasEnv) { $zipEnv.value } else { $curPgUrl }
     $willDrop = [bool]$effPgUrl -and $zipHasSql
     $viaTarget = $willDrop -and ($effPgUrl -ne $curPgUrl)
@@ -234,6 +250,12 @@ switch ($action) {
     Log ('Pre-restore restore point: ' + (Split-Path $preZip -Leaf)) 'OK'
     # Rule: never drop a database we do not have a COMPLETE dump of.
     if ($willDrop -and -not (Test-SdpZipHasDump $preZip)) {
+        # Nothing was changed and this point has no usable dump: do not leave
+        # it behind to crowd the pre-restore lane.
+        try {
+            Remove-Item -LiteralPath $preZip -Force
+            Log ('Removed the pre-restore point ' + (Split-Path $preZip -Leaf) + ' (restore refused, nothing changed)') 'WARN'
+        } catch { Log ('Could not remove the pre-restore point ' + (Split-Path $preZip -Leaf) + ': ' + $_.Exception.Message) 'WARN' }
         $hint = if ($viaTarget) { ' (the database named by the restore point''s .env)' } else { '' }
         Die ('No database dump in the pre-restore point - refusing to overwrite the database' + $hint + '. Check PG_URL / the PostgreSQL service (menu C), then retry.')
     }
@@ -290,11 +312,11 @@ switch ($action) {
 }
 
 'prune' {
-    Log "Prune: keep $RetentionFull full + $RetentionDbOnly db-only" 'STEP'
+    Log "Prune: keep $RetentionFull full + $RetentionDbOnly db-only + $PreRestoreKeep pre-restore" 'STEP'
     if (Test-Path $BackupDir) {
-        $full = Get-ChildItem $BackupDir -Filter 'sdp-restore_*.zip' | Sort-Object LastWriteTime -Descending
-        $dbo  = Get-ChildItem $BackupDir -Filter 'sdp-db_*.sql'      | Sort-Object LastWriteTime -Descending
-        $kill = @($full | Select-Object -Skip $RetentionFull) + @($dbo | Select-Object -Skip $RetentionDbOnly)
+        $full = @(Get-ChildItem $BackupDir -File -Filter 'sdp-restore_*.zip')
+        $dbo  = @(Get-ChildItem $BackupDir -File -Filter 'sdp-db_*.sql')
+        $kill = Get-PruneTargets $full $dbo $RetentionFull $RetentionDbOnly $PreRestoreKeep
         foreach ($f in $kill) { Remove-Item $f.FullName -Force; Log ("pruned " + $f.Name) }
         Log ("Prune done (" + $kill.Count + " removed)") 'OK'
     }
