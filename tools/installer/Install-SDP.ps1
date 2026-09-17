@@ -136,7 +136,7 @@ $LogFile = Join-Path $LogDir ("install-$stamp.log")
 $SummaryFile = Join-Path $LogDir ("install-summary-$stamp.txt")
 $InstallsLog = Join-Path $LogDir 'installs.log'
 function Log($m, $lvl = 'INFO') {
-    $c = switch ($lvl) { 'OK' {'Green'} 'WARN' {'Yellow'} 'ERROR' {'Red'} 'STEP' {'Cyan'} default {'Gray'} }
+    $c = switch ($lvl) { 'OK' {'Green'} 'WARN' {'Yellow'} 'ERROR' {'Red'} 'ALERT' {'Red'} 'STEP' {'Cyan'} default {'Gray'} }
     $line = (Get-Date -Format 'HH:mm:ss') + " [$lvl] $m"
     Write-Host $line -ForegroundColor $c
     Add-Content -Path $LogFile -Value $line
@@ -152,13 +152,15 @@ $script:BundleSha   = '?'
 $script:RollbackZip = $null
 $script:Pm2         = $null      # resolved in step 3; $null = NoService test mode
 $script:NodeProc    = $null      # NoService mode: the plain background node process
-# Task 7 summary facts. Initialised here (script level, before main) so
-# Write-RunSummary can run safely on a FAILED path that dies before main ever
-# gets to set them for real (e.g. a throw during config/logging setup above) -
-# it must never read an unset variable. Set for real right after
-# Write-EnvHeader in main, for every mode including env-only.
+# Task 7 summary facts. These assignments only document the INITIAL values
+# (what the summary reports when nothing has happened yet); the real values are
+# set later - the two *AtStart facts right after Write-EnvHeader in main, the
+# three Db* facts inside Step4-Postgres as each action actually happens.
 $script:InstalledVerAtStart = $null
 $script:EnvExistedAtStart   = $false
+$script:Step4Reached        = $false   # Step4-Postgres started
+$script:DbDropped           = $false   # DROP DATABASE actually succeeded
+$script:DbCreated           = $false   # the database did not exist and was created by this run
 
 function Invoke-Step([string]$N, [string]$Name, [scriptblock]$Body) {
     Log ("---- Step $N : $Name ----") 'STEP'
@@ -175,7 +177,18 @@ function Invoke-Step([string]$N, [string]$Name, [scriptblock]$Body) {
 # SAME order on every run. They are built ONCE here and both writers consume
 # this list, so the two can never drift. Must never throw (it also runs on
 # the FAILED path, from Complete-Run in the main catch).
+# The Database line describes what HAPPENED (the Db* facts set by Step4-Postgres),
+# never what the plan intended - a run that died before the DROP must not claim
+# the database was dropped. ONE place decides it; Get-DataCheck reads the same fact.
+function Get-DatabaseOutcome {
+    if ($script:DbDropped) { return 'DROPPED and recreated' }
+    if ($Mode -eq 'reinstall' -and $ConfirmDataLoss) { return 'preserved (drop not reached)' }
+    if ($script:DbCreated) { return 'created' }
+    if ($Mode -eq 'fresh' -and -not $script:Step4Reached) { return 'not created (run stopped before step 4)' }
+    return 'preserved'
+}
 function Get-SummaryLines {
+  try {
     $isEnvOnly = ($Mode -eq 'env-only')
     $modeVal = ([string]$Mode).ToUpper()
     if ($Mode -eq 'patch' -or $Mode -eq 'upgrade') { $modeVal += ' (code updated; database + data preserved)' }
@@ -190,7 +203,7 @@ function Get-SummaryLines {
         $dcVal = 'not applicable'
     } else {
         $rpVal = $(if ($script:RollbackZip) { $script:RollbackZip } else { 'none (fresh install)' })
-        $dbVal = $(if ($Mode -eq 'reinstall' -and $ConfirmDataLoss) { 'DROPPED and recreated' } elseif ($Mode -eq 'fresh' -and -not $script:CountsBefore) { 'created' } else { 'preserved' })
+        $dbVal = Get-DatabaseOutcome
         $dcVal = [string]$script:DataCheck
     }
     $envVal = $(if ($script:EnvExistedAtStart) { 'preserved (merged)' } else { 'created' })
@@ -204,6 +217,10 @@ function Get-SummaryLines {
         [pscustomobject]@{ Label = 'Log';           Value = [string]$LogFile }
         [pscustomobject]@{ Label = 'Summary';       Value = [string]$SummaryFile }
     )
+  } catch {
+    # Never mask the original error on the failure path with a summary error.
+    return @([pscustomobject]@{ Label = 'Summary'; Value = ('unavailable: ' + $_.Exception.Message) })
+  }
 }
 # The green console box - same lines as summary.txt (Get-SummaryLines).
 function Write-SummaryBox([string]$title) {
@@ -211,7 +228,7 @@ function Write-SummaryBox([string]$title) {
     Log (' ' + $title) 'OK'
     foreach ($s in (Get-SummaryLines)) {
         $lvl = 'OK'
-        if ($s.Label -eq 'Data check' -and $s.Value -like 'WARNING*') { $lvl = 'ERROR' }
+        if ($s.Label -eq 'Data check' -and $s.Value -like 'WARNING*') { $lvl = 'ALERT' }
         Log ('   ' + $s.Label.PadRight(14) + ': ' + $s.Value) $lvl
     }
     Log '==================================================' 'OK'
@@ -834,6 +851,7 @@ function Test-PgSuper {
     return @{ Ok = $false; Err = $text }
 }
 function Step4-Postgres {
+    $script:Step4Reached = $true
     # ---- cluster present? ----
     $svc = Get-Service postgresql* -ErrorAction SilentlyContinue | Select-Object -First 1
     if ($svc) {
@@ -944,9 +962,14 @@ function Step4-Postgres {
         Log ("-ConfirmDataLoss: DROP DATABASE IF EXISTS " + $cfg.DbName) 'WARN'
         Invoke-PsqlSuper ("DROP DATABASE IF EXISTS " + $cfg.DbName + " WITH (FORCE)") | Out-Null
         if ($LASTEXITCODE -ne 0) { Die 'DROP DATABASE failed' }
+        $script:DbDropped = $true
     }
 
     # ---- provision role + database (idempotent) ----
+    if ($cfg.DbName -notmatch '^[a-z_][a-z0-9_]*$') { Die "Unsafe DbName '$($cfg.DbName)'" }
+    # Did the database exist BEFORE provisioning? Decides the summary's
+    # 'created' vs 'preserved' from fact, whichever provisioning path runs.
+    $dbExistedBefore = ("" + (Invoke-PsqlSuper ("SELECT 1 FROM pg_database WHERE datname = '" + $cfg.DbName + "'"))).Trim() -eq '1'
     $prov = if ($env:SDP_FORCE_PSQL_PROVISION -eq '1') { $null } else { Find-ProvisionScript }
     if ($prov) {
         Log ("Provisioning via node " + $prov.Script + " --db=" + $cfg.DbName) 'STEP'
@@ -956,6 +979,7 @@ function Step4-Postgres {
             try { & node $prov.Script ('--db=' + $cfg.DbName) } finally { Pop-Location }
             if ($LASTEXITCODE -ne 0) { Die 'provision-prod.js failed - see output above' }
         } finally { $env:SDP_APP_PASSWORD = '' }
+        if (-not $dbExistedBefore) { $script:DbCreated = $true }
     } else {
         # psql fallback - byte-for-byte the provision-prod.js semantics:
         # role create-if-absent (password NOT reset when it exists), db create-if-absent.
@@ -971,6 +995,7 @@ function Step4-Postgres {
         if ("$dbExists".Trim() -ne '1') {
             Invoke-PsqlSuper ("CREATE DATABASE " + $cfg.DbName + " OWNER sdp_app") | Out-Null
             if ($LASTEXITCODE -ne 0) { Die ("CREATE DATABASE " + $cfg.DbName + " failed") }
+            $script:DbCreated = $true
             Log ("database " + $cfg.DbName + " created (owner sdp_app)")
         } else { Log ("database " + $cfg.DbName + " already exists") }
     }
@@ -1201,7 +1226,7 @@ function Invoke-Rollback {
 # never fail (or roll back) a run whose service already verified healthy.
 function Get-DataCheck {
     try {
-        if ($Mode -eq 'reinstall' -and $ConfirmDataLoss) { return 'skipped (database dropped by request)' }
+        if ($script:DbDropped) { return 'skipped (database dropped by request)' }
         if (-not $script:CountsBefore) { return 'skipped (fresh install)' }
         if (-not $script:CountsBefore.reachable) { return 'skipped (db counts unavailable before)' }
         $after = Get-SdpDbCounts $InstallDir
@@ -1228,7 +1253,7 @@ function Step7-Verify {
         if (Test-Path $prev) { Remove-Item $prev -Recurse -Force; Log 'node_modules.prev deleted (verify passed)' }
         Stop-NoServiceProbe
         $script:DataCheck = Get-DataCheck
-        if ($script:DataCheck -like 'WARNING*') { Log ('Data check: ' + $script:DataCheck) 'ERROR' } else { Log ('Data check: ' + $script:DataCheck) 'OK' }
+        if ($script:DataCheck -like 'WARNING*') { Log ('Data check: ' + $script:DataCheck) 'ALERT' } else { Log ('Data check: ' + $script:DataCheck) 'OK' }
         Log 'Verification PASSED' 'OK'
         return
     }

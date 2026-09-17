@@ -259,6 +259,14 @@ Assert-Eq $drops5[0] 'weekly_reports 412 -> 390' 'Compare-SdpCounts: PSCustomObj
 $drops6 = @(Compare-SdpCounts $cBefore $cAfterObj)
 Assert-Eq $drops6.Count 1 'Compare-SdpCounts: mixed Hashtable-before/PSCustomObject-after works'
 
+# 25. Compare-SdpCounts: STRING counts are compared numerically, not lexically.
+# '9' -lt '10' is false as strings ('9' sorts after '1'), so without a cast a
+# real drop 10 -> 9 would be missed and a rise 9 -> 10 reported as a drop.
+$sDrop = @(Compare-SdpCounts @{ users = '10' } @{ users = '9' })
+Assert-Eq $sDrop.Count 1 'Compare-SdpCounts: string 10 -> 9 is a drop'
+Assert-Eq $sDrop[0] 'users 10 -> 9' 'Compare-SdpCounts: string drop string correct'
+Assert-Eq (@(Compare-SdpCounts @{ users = '9' } @{ users = '10' })).Count 0 'Compare-SdpCounts: string 9 -> 10 is an increase, not a drop'
+
 Write-Host ("situation.tests: " + $script:AssertCount + " assertions ok")
 
 } finally {

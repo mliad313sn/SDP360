@@ -153,15 +153,29 @@ if (-not $node) {
 
 # (f) Task 7 - data-integrity check + summary block.
 
-# Get-DataCheck: the reinstall + -ConfirmDataLoss skip (never a false alarm on
-# an intended drop) and the guarantee that it NEVER triggers a rollback itself
-# (a rollback restores code only; the DB decision is the operator's).
+# Get-DataCheck: the dropped-by-request skip (never a false alarm on an
+# intended drop) keys on what HAPPENED ($script:DbDropped), not on the plan,
+# and it NEVER triggers a rollback itself (a rollback restores code only; the
+# DB decision is the operator's).
 $dataCheckFn = Get-FunctionText $ast 'Get-DataCheck'
 Assert-True ($dataCheckFn -ne $null) 'Get-DataCheck is defined'
 Assert-True ($dataCheckFn -like '*''skipped (database dropped by request)''*') 'Get-DataCheck returns the dropped-by-request skip message'
-Assert-True ($dataCheckFn -like '*Mode -eq ''reinstall''*ConfirmDataLoss*') 'Get-DataCheck gates the dropped-by-request skip on reinstall + ConfirmDataLoss'
+Assert-True ($dataCheckFn -match '\$script:DbDropped\b') 'Get-DataCheck gates the dropped-by-request skip on $script:DbDropped'
+Assert-True (-not ($dataCheckFn -match 'ConfirmDataLoss')) 'Get-DataCheck does not re-derive the drop from reinstall + ConfirmDataLoss'
 Assert-True (-not ($dataCheckFn -like '*Invoke-Rollback*')) 'Get-DataCheck never calls Invoke-Rollback'
-Assert-True (-not ($dataCheckFn -like '*Die*')) 'Get-DataCheck never calls Die'
+Assert-True (-not ($dataCheckFn -match '\bDie\b')) 'Get-DataCheck never calls Die'
+
+# Step4-Postgres records the facts the summary reports: DbDropped right after
+# the DROP succeeded, DbCreated when the database was actually created.
+Assert-True ($step4Fn -match '(?s)DROP DATABASE failed.*\$script:DbDropped = \$true') 'Step4-Postgres sets DbDropped only after the DROP succeeded'
+Assert-True ($step4Fn -match '(?s)CREATE DATABASE.*failed.*\$script:DbCreated = \$true') 'Step4-Postgres sets DbCreated after CREATE DATABASE succeeded (psql path)'
+Assert-True ($step4Fn -match 'if \(-not \$dbExistedBefore\) \{ \$script:DbCreated = \$true \}') 'Step4-Postgres sets DbCreated on the node path only when the db did not exist before'
+Assert-True ($step4Fn -match '\$script:Step4Reached = \$true') 'Step4-Postgres records that it was reached'
+
+# A data-check drop is logged at ALERT (red), never ERROR: a successful run
+# must carry no [ERROR] lines. Log maps ALERT to Red.
+$logFn = Get-FunctionText $ast 'Log'
+Assert-True ($logFn -match "'ALERT'\s*\{'Red'\}") 'Log prints ALERT in red'
 
 # Step7-Verify: Get-DataCheck is called exactly once, on the success branch,
 # strictly before 'Verification PASSED' is logged and before the rollback
@@ -177,23 +191,36 @@ $idxRollback = $step7Fn.IndexOf('Invoke-Rollback')
 Assert-True ($idxDataCheck -ge 0 -and $idxPassed -ge 0 -and $idxRollback -ge 0) 'Step7-Verify has a Get-DataCheck call, a PASSED log line, and a rollback path to compare'
 Assert-True ($idxDataCheck -lt $idxPassed) 'Get-DataCheck runs before Verification PASSED is logged'
 Assert-True ($idxDataCheck -lt $idxRollback) 'Get-DataCheck is called on the success branch, before the rollback path begins (never on the rollback path)'
+Assert-True ($step7Fn -like '*Log (''Data check: '' + $script:DataCheck) ''ALERT''*') 'Step7-Verify logs a data-check WARNING at ALERT'
 
 # Spec 4.4: the console box and summary.txt both derive from ONE ordered list
 # (Get-SummaryLines), so they can never drift.
 $linesFn = Get-FunctionText $ast 'Get-SummaryLines'
+$outcomeFn = Get-FunctionText $ast 'Get-DatabaseOutcome'
 $boxFn = Get-FunctionText $ast 'Write-SummaryBox'
 $summaryFn = Get-FunctionText $ast 'Write-RunSummary'
 Assert-True ($linesFn -ne $null) 'Get-SummaryLines is defined'
+Assert-True ($outcomeFn -ne $null) 'Get-DatabaseOutcome is defined'
 Assert-True ($boxFn -ne $null) 'Write-SummaryBox is defined'
 Assert-True ($summaryFn -ne $null) 'Write-RunSummary is defined'
+Assert-True ($linesFn -like '*Get-DatabaseOutcome*') 'Get-SummaryLines takes the Database value from Get-DatabaseOutcome'
 Assert-True ($boxFn -like '*Get-SummaryLines*') 'the console box derives its lines from Get-SummaryLines'
 Assert-True ($summaryFn -like '*Get-SummaryLines*') 'summary.txt derives its lines from Get-SummaryLines'
-foreach ($label in @('Version:', 'Restore point:', 'Database:', '.env:', 'Data check:', 'Log:')) {
-    Assert-True (-not ($summaryFn -like ('*''' + $label + '*'))) ('Write-RunSummary does not hand-build a separate ' + $label + ' line')
-    Assert-True (-not ($boxFn -like ('*' + $label.TrimEnd(':') + '  *'))) ('Write-SummaryBox does not hand-build a separate ' + $label + ' line')
+Assert-True ($boxFn -match 'foreach \(\$s in \(Get-SummaryLines\)\)') 'the console box prints exactly the Get-SummaryLines list'
+Assert-True ($boxFn -match "WARNING\*'\) \{ \`$lvl = 'ALERT' \}") 'the console box shows a data-check WARNING at ALERT, not ERROR'
+foreach ($label in @('Mode', 'Version', 'Restore point', 'Database', '.env', 'Data check', 'Log')) {
+    # A hand-built line would carry the label as a literal followed by a colon
+    # or column padding ('Version  : ' / 'Database:'); the only label literal
+    # allowed is a bare comparison target like 'Data check'.
+    $handBuilt = "'" + [regex]::Escape($label) + '(\s*:|\s{2,})'
+    Assert-True (-not ($summaryFn -match $handBuilt)) ('Write-RunSummary does not hand-build a separate ' + $label + ' line')
+    Assert-True (-not ($boxFn -match $handBuilt)) ('Write-SummaryBox does not hand-build a separate ' + $label + ' line')
 }
-# The main success path and the env-only branch both show the box.
-$mainText = $raw.Substring($raw.LastIndexOf('# main'))
+# The main success path and the env-only branch both show the box. Anchored on
+# the full three-line main banner, not on any stray '# main' text.
+$bannerMatch = [regex]::Match($raw, '(?m)^# =+\r?\n# main\r?\n# =+\r?$')
+Assert-True $bannerMatch.Success 'Install-SDP.ps1 has the main-section banner'
+$mainText = $raw.Substring($bannerMatch.Index)
 $envOnlyIdx = $mainText.IndexOf("if (`$Mode -eq 'env-only')")
 $envOnlyExit = $mainText.IndexOf('exit 0', $envOnlyIdx)
 Assert-True ($envOnlyIdx -ge 0 -and $envOnlyExit -gt $envOnlyIdx) 'main has an env-only branch ending in exit 0'
@@ -203,33 +230,117 @@ Assert-True (-not ($envOnlyBlock -like '*Done. Summary:*')) 'the env-only branch
 $afterEnvOnly = $mainText.Substring($envOnlyExit)
 Assert-True ($afterEnvOnly -like '*Complete-Run ''OK''*Write-SummaryBox*') 'the full-run success path shows the summary box after Complete-Run'
 
-# Behavioural: load Get-SummaryLines and check the eight labels in spec order,
-# for a normal mode and for env-only (temp values only, nothing written).
+# Behavioural: load Get-SummaryLines + Get-DatabaseOutcome and check the eight
+# labels in spec order and the values (temp values only, nothing written).
 $expected = @('Mode', 'Version', 'Restore point', 'Database', '.env', 'Data check', 'Log', 'Summary')
+. ([scriptblock]::Create($outcomeFn))
 . ([scriptblock]::Create($linesFn))
-$script:InstalledVerAtStart = '1.0.0'; $script:BundleVer = '1.1.0'; $script:RollbackZip = 'C:\x\rp.zip'
-$script:CountsBefore = @{ reachable = $true }; $script:DataCheck = 'OK (users=1)'; $script:EnvExistedAtStart = $true
-$ConfirmDataLoss = $false; $LogFile = 'C:\x\install.log'; $SummaryFile = 'C:\x\summary.txt'
-$Mode = 'upgrade'
+function Reset-SummaryState {
+    $script:InstalledVerAtStart = '1.0.0'; $script:BundleVer = '1.1.0'; $script:RollbackZip = 'C:\x\rp.zip'
+    $script:CountsBefore = @{ reachable = $true }; $script:DataCheck = 'OK (users=1)'; $script:EnvExistedAtStart = $true
+    $script:Step4Reached = $true; $script:DbDropped = $false; $script:DbCreated = $false
+    $script:ConfirmDataLoss = $false; $script:Mode = 'upgrade'
+}
+$LogFile = 'C:\x\install.log'; $SummaryFile = 'C:\x\summary.txt'
+function Get-Line([string]$label) { return (@(Get-SummaryLines) | Where-Object { $_.Label -eq $label } | Select-Object -First 1).Value }
+
+Reset-SummaryState
 $got = @(Get-SummaryLines)
 Assert-Eq (($got | ForEach-Object { $_.Label }) -join '|') ($expected -join '|') 'Get-SummaryLines emits the eight labels in spec order (upgrade)'
+Assert-Eq $got[0].Value 'UPGRADE (code updated; database + data preserved)' 'upgrade: Mode line'
+Assert-Eq $got[1].Value '1.0.0 -> 1.1.0' 'upgrade: Version line'
+Assert-Eq $got[2].Value 'C:\x\rp.zip' 'upgrade: Restore point is the zip'
 Assert-Eq $got[3].Value 'preserved' 'upgrade: Database preserved'
+Assert-Eq $got[4].Value 'preserved (merged)' 'upgrade: .env preserved (merged)'
+Assert-Eq $got[5].Value 'OK (users=1)' 'upgrade: Data check carries the check result'
 Assert-Eq $got[6].Value 'C:\x\install.log' 'Log line carries the log path'
-$Mode = 'env-only'
+Assert-Eq $got[7].Value 'C:\x\summary.txt' 'Summary line carries the summary path'
+
+Reset-SummaryState; $Mode = 'patch'
+Assert-Eq (Get-Line 'Mode') 'PATCH (code updated; database + data preserved)' 'patch: Mode line'
+
+Reset-SummaryState; $Mode = 'env-only'
 $got = @(Get-SummaryLines)
 Assert-Eq (($got | ForEach-Object { $_.Label }) -join '|') ($expected -join '|') 'Get-SummaryLines emits the eight labels in spec order (env-only)'
+Assert-Eq $got[2].Value 'not applicable (configure .env only)' 'env-only: Restore point not applicable'
 Assert-Eq $got[3].Value 'untouched (configure .env only)' 'env-only: Database untouched'
 Assert-Eq $got[5].Value 'not applicable' 'env-only: Data check not applicable'
-$Mode = 'reinstall'; $ConfirmDataLoss = $true
-$got = @(Get-SummaryLines)
-Assert-Eq $got[3].Value 'DROPPED and recreated' 'reinstall + ConfirmDataLoss: Database DROPPED and recreated'
 
-# Get-DataCheck never throws: body wrapped in try/catch returning a skip line.
+# Database outcome = what happened.
+Reset-SummaryState; $Mode = 'reinstall'; $ConfirmDataLoss = $true; $script:DbDropped = $true
+Assert-Eq (Get-Line 'Database') 'DROPPED and recreated' 'reinstall + drop happened: DROPPED and recreated'
+Reset-SummaryState; $Mode = 'reinstall'; $ConfirmDataLoss = $true; $script:DbDropped = $false; $script:Step4Reached = $false
+Assert-Eq (Get-Line 'Database') 'preserved (drop not reached)' 'reinstall + ConfirmDataLoss, drop never ran: preserved (drop not reached)'
+Reset-SummaryState; $Mode = 'reinstall'; $ConfirmDataLoss = $false
+Assert-Eq (Get-Line 'Database') 'preserved' 'reinstall without ConfirmDataLoss: preserved'
+Reset-SummaryState; $Mode = 'fresh'; $script:DbCreated = $true; $script:RollbackZip = $null; $script:CountsBefore = $null
+Assert-Eq (Get-Line 'Database') 'created' 'fresh + database created: created'
+Assert-Eq (Get-Line 'Restore point') 'none (fresh install)' 'fresh without restore point: none (fresh install)'
+Reset-SummaryState; $Mode = 'fresh'; $script:Step4Reached = $false
+Assert-Eq (Get-Line 'Database') 'not created (run stopped before step 4)' 'fresh, step 4 never reached: not created'
+Reset-SummaryState; $Mode = 'fresh'; $script:Step4Reached = $true; $script:DbCreated = $false
+Assert-Eq (Get-Line 'Database') 'preserved' 'fresh onto an existing database: preserved'
+
+# Version fallback and .env created.
+Reset-SummaryState; $script:InstalledVerAtStart = $null; $script:BundleVer = '2.0.0'
+Assert-Eq (Get-Line 'Version') 'none -> 2.0.0' 'no installed version: none -> bundle'
+Reset-SummaryState; $script:EnvExistedAtStart = $false
+Assert-Eq (Get-Line '.env') 'created' '.env absent at start: created'
+
+# Never throws: an error inside becomes ONE fallback line.
+function Get-DatabaseOutcome { throw 'boom from summary test' }
+Reset-SummaryState
+$fb = $null; $fbThrew = $false
+try { $fb = @(Get-SummaryLines) } catch { $fbThrew = $true }
+Assert-True (-not $fbThrew) 'Get-SummaryLines does not throw when something inside fails'
+Assert-Eq $fb.Count 1 'Get-SummaryLines fallback is a single line'
+Assert-Eq $fb[0].Label 'Summary' 'Get-SummaryLines fallback label'
+Assert-Eq $fb[0].Value 'unavailable: boom from summary test' 'Get-SummaryLines fallback value names the error'
+. ([scriptblock]::Create($outcomeFn))
+
+# Get-DataCheck behaviour. Real SdpSituation.ps1 (Compare-SdpCounts,
+# Get-SdpCountValue, $SdpCountTables) + the real Format-Counts; only
+# Get-SdpDbCounts (the live database read) is stubbed.
 Assert-True ($dataCheckFn -match '(?s)\btry\s*\{.*\}\s*catch\s*\{') 'Get-DataCheck wraps its body in try/catch'
 Assert-True ($dataCheckFn -like '*catch*skipped (db counts unavailable after: *') 'Get-DataCheck catch returns the unavailable-after skip line'
+. (Join-Path $here '..\SdpSituation.ps1')
+. ([scriptblock]::Create((Get-FunctionText $ast 'Format-Counts')))
 . ([scriptblock]::Create($dataCheckFn))
-function Get-SdpDbCounts { throw 'boom from test' }
-$Mode = 'upgrade'; $ConfirmDataLoss = $false; $script:CountsBefore = @{ reachable = $true; counts = @{} }
+$InstallDir = 'C:\x\install'
+$baseCounts = @{ sites = 11; weekly_reports = 412; md_meetings = 50; insp_inspections = 20; users = 30; assets = 500 }
+$script:StubAfter = $null
+function Get-SdpDbCounts($dir) { if ($script:StubAfter -is [string]) { throw $script:StubAfter }; return $script:StubAfter }
+function Reset-DataCheckState {
+    $script:DbDropped = $false; $script:RollbackZip = 'C:\x\rp-1.zip'
+    $script:CountsBefore = @{ reachable = $true; counts = $baseCounts.Clone(); error = $null }
+    $script:StubAfter = @{ reachable = $true; counts = $baseCounts.Clone(); error = $null }
+}
+
+Reset-DataCheckState
+$script:StubAfter.counts.weekly_reports = 390
+Assert-Eq (Get-DataCheck) 'WARNING - weekly_reports 412 -> 390 - restore point: rp-1.zip' 'Get-DataCheck: a drop is a WARNING naming the table, numbers and restore point'
+
+Reset-DataCheckState
+$script:StubAfter.counts.weekly_reports = 390; $script:StubAfter.counts.users = 29; $script:RollbackZip = $null
+Assert-Eq (Get-DataCheck) 'WARNING - weekly_reports 412 -> 390, users 30 -> 29 - restore point: none' 'Get-DataCheck: several drops, no restore point'
+
+Reset-DataCheckState
+$script:StubAfter.counts.assets = 501
+Assert-Eq (Get-DataCheck) 'OK (sites 11, weekly_reports 412, md_meetings 50, insp_inspections 20, users 30, assets 501)' 'Get-DataCheck: no drop is OK with the after counts'
+
+Reset-DataCheckState; $script:CountsBefore = $null
+Assert-Eq (Get-DataCheck) 'skipped (fresh install)' 'Get-DataCheck: no baseline -> skipped (fresh install)'
+
+Reset-DataCheckState; $script:CountsBefore = @{ reachable = $false; counts = $null; error = 'no PG_URL' }
+Assert-Eq (Get-DataCheck) 'skipped (db counts unavailable before)' 'Get-DataCheck: unreachable baseline -> skipped (unavailable before)'
+
+Reset-DataCheckState; $script:StubAfter = @{ reachable = $false; counts = $null; error = 'x' }
+Assert-Eq (Get-DataCheck) 'skipped (db counts unavailable after: x)' 'Get-DataCheck: unreachable after -> skipped (unavailable after: x)'
+
+Reset-DataCheckState; $script:DbDropped = $true; $script:StubAfter.counts.weekly_reports = 0
+Assert-Eq (Get-DataCheck) 'skipped (database dropped by request)' 'Get-DataCheck: DbDropped -> skipped, never a false alarm'
+
+Reset-DataCheckState; $script:StubAfter = 'boom from test'
 $dc = $null
 try { $dc = Get-DataCheck } catch { $dc = 'THREW' }
 Assert-Eq $dc 'skipped (db counts unavailable after: boom from test)' 'Get-DataCheck turns an exception into a skipped line'

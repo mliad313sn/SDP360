@@ -114,7 +114,11 @@ function Compare-SdpCounts($before, $after) {
         try {
             $b = Get-SdpCountValue $before $t
             $a = Get-SdpCountValue $after $t
-            if ($null -ne $b -and $null -ne $a -and $a -lt $b) { $drops += ($t + ' ' + $b + ' -> ' + $a) }
+            if ($null -eq $b -or $null -eq $a) { continue }
+            # Cast BOTH sides: a string fixture '10' vs '9' would otherwise
+            # compare lexically ('10' -lt '9' is true) and invert the verdict.
+            $bn = [long]$b; $an = [long]$a
+            if ($an -lt $bn) { $drops += ($t + ' ' + $bn + ' -> ' + $an) }
         } catch { }
     }
     return $drops
