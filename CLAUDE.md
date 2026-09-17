@@ -76,10 +76,10 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ---
 
-## ⚡ Current state (as of 2026-09-17 — Installer safety parity, branche feat/installer-safety-parity)
+## ⚡ Current state (as of 2026-09-17 — Installer safety parity, mergé sur `main` (578be34), PAS déployé)
 
 > **Parité de sécurité de l'installeur console** (spec `docs/superpowers/specs/2026-09-15-installer-safety-parity-design.md`,
-> guide opérateur `docs/INSTALLER.md`) — **NON mergé, NON déployé**. Nouveaux scripts `tools/installer/` : `SdpSituation.ps1`
+> guide opérateur `docs/INSTALLER.md` + aide §17 `help.html` EN/FR) — **mergé sur `main`, NON déployé** : ne pas appliquer de ZIP portant `tools/installer`/`_sdp_admin.cmd`/`dump-db.js` avant le test E2E. Nouveaux scripts `tools/installer/` : `SdpSituation.ps1`
 > (fonctions partagées : comptages DB via le rôle applicatif, `Test-SdpZipHasDump`), `Detect-SDP.ps1` (situation JSON par
 > session `%TEMP%\sdp-situation-<rand>.json` + `KEY=VALUE`, détectée au démarrage et après chaque action), `Show-Situation.ps1`
 > (bloc situation + menu RECOMMENDED/OTHER/DATA/MAINTENANCE, entrées refusées libellées), `Confirm-Destructive.ps1` (écran rouge,
@@ -90,7 +90,7 @@ made so far so that future sessions can pick up exactly where the last one ended
 > `Manage-SDP -Restore` prend d'abord un point `pre-restore` (file de rétention propre, 2 gardés) en dumpant la base que l'import va
 > DROP (PG_URL par environnement), refuse sans dump complet, échoue fermé ; `_sdp_admin.cmd` option 6 passe par le même écran rouge.
 > Secrets jamais sur une ligne de commande (CREATE ROLE via `Invoke-PsqlSuperStdin`). Tests : `tools\installer\tests\run-all.ps1`
-> (11 fichiers, ~3 min, bac à sable ; `SDP_SETUP_NOELEVATE`, `SDP_INSTALLER_LOG_DIR`). **E2E sur l'instance TEST = étape user, pas encore faite.**
+> (11 fichiers, ~3 min, bac à sable ; `SDP_SETUP_NOELEVATE`, `SDP_INSTALLER_LOG_DIR`). **E2E sur l'instance TEST = étape user, pas encore faite** — procédure en 5 étapes (fresh → patch → reinstall+drop → restore → écran DROP) dans `docs/INSTALLER.md` et l'aide §17.5 ; l'instance TEST a son propre `BackupDir` (`..SDP-Backups-TEST`) pour que la rétention ne touche jamais les points de l'instance principale.
 
 ---
 

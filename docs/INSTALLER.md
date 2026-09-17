@@ -312,5 +312,63 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\installer\tests\run-al
 11 fichiers `*.tests.ps1` (sans Pester), ~3 min, en bac à sable (dossiers
 temporaires, jamais `C:\Apps`). Crochets de test : `SDP_SETUP_NOELEVATE=1` saute
 l'auto-élévation de `Setup.bat` ; `SDP_INSTALLER_LOG_DIR` remplace le dossier de
-journaux de `Manage-SDP.ps1`. Le test de bout en bout (fresh → patch → upgrade →
-reinstall → restore sur l'instance TEST, `config.test.psd1`) reste une étape manuelle.
+journaux de `Manage-SDP.ps1`. Le test de bout en bout (ci-dessous) reste une étape
+manuelle : il installe réellement l'instance TEST.
+
+## Test de bout en bout sur l'instance TEST (manuel, PowerShell administrateur)
+
+Ne touche que `C:\Apps\SDP-Dashboard-TEST` (port 3457, pm2 `sdp-test`, base
+`sdp_dashboard_test`, restore points dans `C:\Apps\SDP-Backups-TEST`). À faire avant
+d'appliquer en prod un ZIP qui transporte `tools\installer`, `_sdp_admin.cmd` ou
+`tools\pg\dump-db.js`.
+
+**0. Construire le paquet et préparer les variables**
+```powershell
+cd C:\Users\Admin\Documents\SDP-Dashboard
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\installer-build\build-installer.ps1 -DevBuild -KeepWork
+$B = "$env:TEMP\sdp-build-dev-$(git rev-parse --short HEAD)\bundle"
+$C = "$B\config.test.psd1"
+$I = "$B\Install-SDP.ps1"; $M = "$B\Manage-SDP.ps1"
+Test-Path $I, $C    # True True
+```
+
+**1. Installation neuve** (dossier TEST vide ; le questionnaire `.env` s'affiche)
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File $I -Fresh -Config $C -BundleRoot $B -NoBrowser
+```
+Attendu : `Database: created`, `Data check: skipped (fresh install)`.
+
+**2. Correctif**
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File $I -Patch -Config $C -BundleRoot $B -NoBrowser
+```
+Attendu : `Data check: OK (...)`, `Restore point: ...\sdp-restore_pre-*.zip`.
+
+**3. Réinstallation avec suppression de la base**
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File $I -Reinstall -ConfirmDataLoss -Config $C -BundleRoot $B -NoBrowser
+```
+Attendu : l'étape 5 (sauvegarde) apparaît avant l'étape 4 dans le journal, aucun refus
+« No database dump… », `Database: DROPPED and recreated`,
+`Data check: skipped (database dropped by request)`.
+
+**4. Restauration du point pris avant la réinstallation**
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File $M -List -Config $C
+powershell -NoProfile -ExecutionPolicy Bypass -File $M -Restore -Name "<sdp-restore_pre-...zip de l'étape 3>" -Force -Config $C
+```
+Attendu : un `sdp-restore_pre-restore_*.zip` est créé d'abord, le contrôle de version
+PostgreSQL passe, les données reviennent (`-List`, puis l'appli sur http://localhost:3457).
+
+**5. Écran rouge « DROP » tapé à la main** (ne supprime rien, ne fait que confirmer)
+```powershell
+$S = "$env:TEMP\sdp-e2e-situation.json"
+powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Detect-SDP.ps1" -Config $C -BundleRoot $B -OutFile $S
+powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Confirm-Destructive.ps1" -Action dropdb -Situation $S
+```
+Attendu : les comptages affichés sont ceux de la base TEST ; une mauvaise phrase →
+« Cancelled », `DROP sdp_dashboard_test` → « Confirmed ».
+
+Contrôle après chaque étape : l'encadré vert à l'écran et
+`C:\ProgramData\SDP-Dashboard\logs` (`installs.log` + le journal du run). Noter les
+cinq résultats ; en cas d'échec, garder l'encadré et la fin du journal.

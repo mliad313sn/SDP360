@@ -63,6 +63,7 @@
   /* ── INFO BOX ── */
   .info{background:#EFF6FF;border-left:4px solid #3B82F6;border-radius:4px;padding:10px 14px;margin:12px 0;font-size:13px}
   .warn{background:#FFFBEB;border-left:4px solid var(--amber);border-radius:4px;padding:10px 14px;margin:12px 0;font-size:13px}
+  pre.cmd{background:#0F172A;color:#E2E8F0;border-radius:6px;padding:10px 14px;margin:10px 0;font-size:12px;line-height:1.5;overflow-x:auto;white-space:pre}
   .tip{background:#F0FDF4;border-left:4px solid #22C55E;border-radius:4px;padding:10px 14px;margin:12px 0;font-size:13px}
 
   /* ── TABLE ── */
@@ -181,6 +182,12 @@
       <a class="toc-sub" href="#en-16-1">One database, six modules</a>
       <a class="toc-sub" href="#en-16-2">How the modules connect</a>
       <a class="toc-sub" href="#en-16-3">Backup, rollback &amp; cohabitation</a>
+      <a href="#en-17">17. Installer &amp; Maintenance</a>
+      <a class="toc-sub" href="#en-17-1">Situation &amp; menu</a>
+      <a class="toc-sub" href="#en-17-2">Red confirmation screen</a>
+      <a class="toc-sub" href="#en-17-3">Safety guarantees</a>
+      <a class="toc-sub" href="#en-17-4">Restoring a restore point</a>
+      <a class="toc-sub" href="#en-17-5">End-to-end test (TEST instance)</a>
     </div>
 
     <!-- Content -->
@@ -907,6 +914,73 @@
         <div class="info">ℹ️ A live, always-current one-page visual map of all 78 tables — with primary keys and relationships — is maintained as a shareable "SDP Database Schema" reference. Ask IT for the link.</div>
       </div>
 
+
+      <!-- 17 EN — Installer & Maintenance -->
+      <div class="section" id="en-17">
+        <h2><span class="section-num">17</span>Installer &amp; Maintenance</h2>
+        <p>For the IT administrators of the server. <code>SDP-Setup-&lt;version&gt;.exe</code> unpacks the bundle and opens the <strong>Setup.bat</strong> console menu (elevated). The menu is built to prevent accidents: it reads the real state of the server first, recommends a mode, and asks for an exact typed phrase before anything destructive. The full operator guide is <code>docs/INSTALLER.md</code>.</p>
+
+        <h3 id="en-17-1">17.1 Situation &amp; menu</h3>
+        <ul>
+          <li><strong>Situation block</strong> — before the menu, the installer reads the install folder, the installed and bundle versions, <code>.env</code>, pm2, the port, the database (size and row counts) and the last restore point. It reads them again after every completed action.</li>
+          <li><strong>Grouped menu</strong> — RECOMMENDED first, then OTHER, DATA and MAINTENANCE. Options that cannot apply are labelled and refused: unknown state, older bundle (downgrade), nothing installed, incomplete install, no demo dataset.</li>
+        </ul>
+
+        <h3 id="en-17-2">17.2 Red confirmation screen</h3>
+        <p>Every destructive action shows a red screen: what will happen, what is at stake (real database size and counts, version, last restore point) and what protects you. The action continues only if you type the exact phrase:</p>
+        <table>
+          <tr><th>Action</th><th>Phrase to type</th></tr>
+          <tr><td>Reinstall</td><td><code>REINSTALL</code></td></tr>
+          <tr><td>Drop and recreate the database (after Reinstall)</td><td><code>DROP &lt;database&gt;</code></td></tr>
+          <tr><td>Fresh install over an existing install</td><td><code>OVERWRITE &lt;COMPUTERNAME&gt;</code></td></tr>
+          <tr><td>Demo dataset over an existing install</td><td><code>DEMO &lt;COMPUTERNAME&gt;</code></td></tr>
+          <tr><td>Restore a restore point</td><td><code>RESTORE &lt;yyyymmdd&gt;</code></td></tr>
+        </table>
+        <div class="warn">⚠️ Anything else, or an empty answer, cancels with “nothing changed”. If the confirmation script is missing or crashes, the action is refused. The database drop question is only asked when the database is reachable.</div>
+
+        <h3 id="en-17-3">17.3 Safety guarantees</h3>
+        <ul>
+          <li><strong>Backup before any deletion</strong> — a restore point is taken before the database step; a drop is refused unless that restore point holds a complete dump of the same database.</li>
+          <li><strong>Automatic rollback</strong> — if a step fails after the backup, the previous state is put back (exit code 2).</li>
+          <li><strong>Data check</strong> — row counts are compared before and after; a drop in a count is shown in red with the restore point to use. It never triggers a rollback.</li>
+          <li><strong>Run summary</strong> — the same eight lines on screen and in <code>summary.txt</code>: Mode, Version, Restore point, Database, .env, Data check, Log, Summary.</li>
+          <li><strong>Secrets</strong> — passwords never appear on a command line or in a log.</li>
+          <li><strong>Exit codes</strong> — 0 success, 1 failure, 2 rolled back, 3 completed with a warning (demo dataset not loaded) or restore refused before any change.</li>
+        </ul>
+
+        <h3 id="en-17-4">17.4 Restoring a restore point</h3>
+        <p>Available from option 6 of Setup.bat and option 6 of <code>_sdp_admin.cmd</code>, both through the red screen. Before touching anything, the restore takes a <strong>pre-restore</strong> point of the current state (the two newest are kept), including a dump of the database it is about to replace. It refuses — with nothing changed — when that dump is incomplete, when <code>.env</code> or the zip cannot be read, or when the dump comes from a newer PostgreSQL than the server. If the import fails later, the message names the pre-restore point to restore.</p>
+
+        <h3 id="en-17-5">17.5 End-to-end test on the TEST instance</h3>
+        <p>Run in an <strong>administrator</strong> PowerShell before applying to production a deploy package that carries the installer tools. It touches only <code>C:\Apps\SDP-Dashboard-TEST</code> (port 3457, pm2 <code>sdp-test</code>, database <code>sdp_dashboard_test</code>, restore points in <code>C:\Apps\SDP-Backups-TEST</code>).</p>
+        <p><strong>0. Build the bundle and set the variables</strong></p>
+        <pre class="cmd">cd C:\Users\Admin\Documents\SDP-Dashboard
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\installer-build\build-installer.ps1 -DevBuild -KeepWork
+$B = "$env:TEMP\sdp-build-dev-$(git rev-parse --short HEAD)\bundle"
+$C = "$B\config.test.psd1"
+$I = "$B\Install-SDP.ps1"; $M = "$B\Manage-SDP.ps1"
+Test-Path $I, $C</pre>
+        <p><strong>1. Fresh install (empty TEST folder; the .env questionnaire appears)</strong></p>
+        <pre class="cmd">powershell -NoProfile -ExecutionPolicy Bypass -File $I -Fresh -Config $C -BundleRoot $B -NoBrowser</pre>
+        <p>Expected: <code>Database: created</code> and <code>Data check: skipped (fresh install)</code>.</p>
+        <p><strong>2. Patch</strong></p>
+        <pre class="cmd">powershell -NoProfile -ExecutionPolicy Bypass -File $I -Patch -Config $C -BundleRoot $B -NoBrowser</pre>
+        <p>Expected: <code>Data check: OK (...)</code> and <code>Restore point: ...\sdp-restore_pre-*.zip</code>.</p>
+        <p><strong>3. Reinstall with database drop</strong></p>
+        <pre class="cmd">powershell -NoProfile -ExecutionPolicy Bypass -File $I -Reinstall -ConfirmDataLoss -Config $C -BundleRoot $B -NoBrowser</pre>
+        <p>Expected: step 5 (backup) before step 4 in the log, no “No database dump” refusal, <code>Database: DROPPED and recreated</code>, <code>Data check: skipped (database dropped by request)</code>.</p>
+        <p><strong>4. Restore the point taken before the reinstall</strong></p>
+        <pre class="cmd">powershell -NoProfile -ExecutionPolicy Bypass -File $M -List -Config $C
+powershell -NoProfile -ExecutionPolicy Bypass -File $M -Restore -Name "&lt;sdp-restore_pre-...zip&gt;" -Force -Config $C</pre>
+        <p>Expected: a <code>sdp-restore_pre-restore_*.zip</code> is created first, the PostgreSQL version check passes, the data is back (check with <code>-List</code> and the app on http://localhost:3457).</p>
+        <p><strong>5. DROP red screen, typed by hand (deletes nothing)</strong></p>
+        <pre class="cmd">$S = "$env:TEMP\sdp-e2e-situation.json"
+powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Detect-SDP.ps1" -Config $C -BundleRoot $B -OutFile $S
+powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Confirm-Destructive.ps1" -Action dropdb -Situation $S</pre>
+        <p>Expected: the counts shown are the TEST database’s; a wrong phrase → “Cancelled”, <code>DROP sdp_dashboard_test</code> → “Confirmed”.</p>
+        <div class="tip">💡 After each step, check the green summary box and the logs in <code>C:\ProgramData\SDP-Dashboard\logs</code>. If a step fails, keep the box and the end of the log for IT.</div>
+      </div>
+
     </div><!-- /content -->
   </div><!-- /doc-layout -->
 </div><!-- /sec-en -->
@@ -988,6 +1062,12 @@
       <a class="toc-sub" href="#fr-16-1">Une base, six modules</a>
       <a class="toc-sub" href="#fr-16-2">Comment les modules se relient</a>
       <a class="toc-sub" href="#fr-16-3">Sauvegarde &amp; retour arrière</a>
+      <a href="#fr-17">17. Installeur &amp; maintenance</a>
+      <a class="toc-sub" href="#fr-17-1">Situation &amp; menu</a>
+      <a class="toc-sub" href="#fr-17-2">Écran rouge de confirmation</a>
+      <a class="toc-sub" href="#fr-17-3">Garanties de sécurité</a>
+      <a class="toc-sub" href="#fr-17-4">Restaurer un point</a>
+      <a class="toc-sub" href="#fr-17-5">Test de bout en bout (instance TEST)</a>
     </div>
 
     <div class="content">
@@ -1711,6 +1791,73 @@
           <li><strong>Cohabitation</strong> — <code>sdp_dashboard</code> est un pair de la base <code>fmp_v2</code> de l'appliance 4MyPeople sur le même cluster ; les opérations destructrices de l'appliance sont limitées à <code>fmp_*</code> et ne touchent jamais la base SDP.</li>
         </ul>
         <div class="info">ℹ️ Une carte visuelle d'une page, toujours à jour, des 78 tables — avec clés primaires et relations — est maintenue comme référence partageable « Schéma de la base SDP ». Demandez le lien à l'IT.</div>
+      </div>
+
+
+      <!-- 17 FR — Installeur & maintenance -->
+      <div class="section" id="fr-17">
+        <h2><span class="section-num">17</span>Installeur &amp; maintenance</h2>
+        <p>Pour les administrateurs IT du serveur. <code>SDP-Setup-&lt;version&gt;.exe</code> décompresse le paquet et ouvre le menu console <strong>Setup.bat</strong> (en administrateur). Le menu est conçu pour éviter les accidents : il lit d'abord l'état réel du serveur, recommande un mode et exige une phrase exacte avant toute action destructive. Le guide opérateur complet est <code>docs/INSTALLER.md</code>.</p>
+
+        <h3 id="fr-17-1">17.1 Situation &amp; menu</h3>
+        <ul>
+          <li><strong>Bloc situation</strong> — avant le menu, l'installeur lit le dossier d'installation, les versions installée et du paquet, le <code>.env</code>, pm2, le port, la base (taille et comptages) et le dernier point de restauration. Il les relit après chaque action terminée.</li>
+          <li><strong>Menu groupé</strong> — RECOMMANDÉ d'abord, puis AUTRES, DONNÉES et MAINTENANCE. Les options impossibles sont libellées et refusées : état inconnu, paquet plus ancien (retour à une version antérieure), rien d'installé, installation incomplète, pas de jeu de démo.</li>
+        </ul>
+
+        <h3 id="fr-17-2">17.2 Écran rouge de confirmation</h3>
+        <p>Toute action destructive affiche un écran rouge : ce qui va se passer, ce qui est en jeu (taille et comptages réels de la base, version, dernier point de restauration) et ce qui vous protège. L'action ne continue que si vous tapez la phrase exacte :</p>
+        <table>
+          <tr><th>Action</th><th>Phrase à taper</th></tr>
+          <tr><td>Réinstallation</td><td><code>REINSTALL</code></td></tr>
+          <tr><td>Supprimer et recréer la base (après la réinstallation)</td><td><code>DROP &lt;base&gt;</code></td></tr>
+          <tr><td>Installation neuve sur une installation existante</td><td><code>OVERWRITE &lt;NOM_DE_LA_MACHINE&gt;</code></td></tr>
+          <tr><td>Jeu de démo sur une installation existante</td><td><code>DEMO &lt;NOM_DE_LA_MACHINE&gt;</code></td></tr>
+          <tr><td>Restaurer un point de restauration</td><td><code>RESTORE &lt;aaaammjj&gt;</code></td></tr>
+        </table>
+        <div class="warn">⚠️ Toute autre saisie, ou une réponse vide, annule avec « nothing changed ». Si le script de confirmation manque ou plante, l'action est refusée. La question de suppression de la base n'est posée que si la base est joignable.</div>
+
+        <h3 id="fr-17-3">17.3 Garanties de sécurité</h3>
+        <ul>
+          <li><strong>Sauvegarde avant toute suppression</strong> — un point de restauration est pris avant l'étape base ; la suppression est refusée si ce point ne contient pas une copie complète de la même base.</li>
+          <li><strong>Retour arrière automatique</strong> — si une étape échoue après la sauvegarde, l'état précédent est remis en place (code de sortie 2).</li>
+          <li><strong>Contrôle des données</strong> — les comptages sont comparés avant et après ; une baisse s'affiche en rouge avec le point de restauration à utiliser. Ce contrôle ne déclenche jamais de retour arrière.</li>
+          <li><strong>Résumé du run</strong> — les mêmes huit lignes à l'écran et dans <code>summary.txt</code> : Mode, Version, Restore point, Database, .env, Data check, Log, Summary.</li>
+          <li><strong>Secrets</strong> — les mots de passe n'apparaissent jamais sur une ligne de commande ni dans un journal.</li>
+          <li><strong>Codes de sortie</strong> — 0 succès, 1 échec, 2 retour arrière effectué, 3 terminé avec avertissement (jeu de démo non chargé) ou restauration refusée avant tout changement.</li>
+        </ul>
+
+        <h3 id="fr-17-4">17.4 Restaurer un point de restauration</h3>
+        <p>Disponible via l'option 6 de Setup.bat et l'option 6 de <code>_sdp_admin.cmd</code>, toutes deux avec l'écran rouge. Avant de toucher quoi que ce soit, la restauration prend un point <strong>pre-restore</strong> de l'état actuel (les deux plus récents sont gardés), avec une copie de la base qu'elle va remplacer. Elle refuse — sans rien changer — si cette copie est incomplète, si le <code>.env</code> ou le zip est illisible, ou si la copie vient d'un PostgreSQL plus récent que le serveur. Si l'import échoue ensuite, le message indique le point pre-restore à restaurer.</p>
+
+        <h3 id="fr-17-5">17.5 Test de bout en bout sur l'instance TEST</h3>
+        <p>À lancer dans un PowerShell <strong>administrateur</strong> avant d'appliquer en production un paquet de déploiement qui transporte les outils d'installation. Il ne touche que <code>C:\Apps\SDP-Dashboard-TEST</code> (port 3457, pm2 <code>sdp-test</code>, base <code>sdp_dashboard_test</code>, points de restauration dans <code>C:\Apps\SDP-Backups-TEST</code>).</p>
+        <p><strong>0. Construire le paquet et préparer les variables</strong></p>
+        <pre class="cmd">cd C:\Users\Admin\Documents\SDP-Dashboard
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\installer-build\build-installer.ps1 -DevBuild -KeepWork
+$B = "$env:TEMP\sdp-build-dev-$(git rev-parse --short HEAD)\bundle"
+$C = "$B\config.test.psd1"
+$I = "$B\Install-SDP.ps1"; $M = "$B\Manage-SDP.ps1"
+Test-Path $I, $C</pre>
+        <p><strong>1. Installation neuve (dossier TEST vide ; le questionnaire .env s'affiche)</strong></p>
+        <pre class="cmd">powershell -NoProfile -ExecutionPolicy Bypass -File $I -Fresh -Config $C -BundleRoot $B -NoBrowser</pre>
+        <p>Attendu : <code>Database: created</code> et <code>Data check: skipped (fresh install)</code>.</p>
+        <p><strong>2. Correctif</strong></p>
+        <pre class="cmd">powershell -NoProfile -ExecutionPolicy Bypass -File $I -Patch -Config $C -BundleRoot $B -NoBrowser</pre>
+        <p>Attendu : <code>Data check: OK (...)</code> et <code>Restore point: ...\sdp-restore_pre-*.zip</code>.</p>
+        <p><strong>3. Réinstallation avec suppression de la base</strong></p>
+        <pre class="cmd">powershell -NoProfile -ExecutionPolicy Bypass -File $I -Reinstall -ConfirmDataLoss -Config $C -BundleRoot $B -NoBrowser</pre>
+        <p>Attendu : l'étape 5 (sauvegarde) avant l'étape 4 dans le journal, aucun refus « No database dump », <code>Database: DROPPED and recreated</code>, <code>Data check: skipped (database dropped by request)</code>.</p>
+        <p><strong>4. Restaurer le point pris avant la réinstallation</strong></p>
+        <pre class="cmd">powershell -NoProfile -ExecutionPolicy Bypass -File $M -List -Config $C
+powershell -NoProfile -ExecutionPolicy Bypass -File $M -Restore -Name "&lt;sdp-restore_pre-...zip&gt;" -Force -Config $C</pre>
+        <p>Attendu : un <code>sdp-restore_pre-restore_*.zip</code> est créé d'abord, le contrôle de version PostgreSQL passe, les données reviennent (vérifier avec <code>-List</code> et l'appli sur http://localhost:3457).</p>
+        <p><strong>5. Écran rouge « DROP » tapé à la main (ne supprime rien)</strong></p>
+        <pre class="cmd">$S = "$env:TEMP\sdp-e2e-situation.json"
+powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Detect-SDP.ps1" -Config $C -BundleRoot $B -OutFile $S
+powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Confirm-Destructive.ps1" -Action dropdb -Situation $S</pre>
+        <p>Attendu : les comptages affichés sont ceux de la base TEST ; mauvaise phrase → « Cancelled », <code>DROP sdp_dashboard_test</code> → « Confirmed ».</p>
+        <div class="tip">💡 Après chaque étape, vérifiez l'encadré vert et les journaux dans <code>C:\ProgramData\SDP-Dashboard\logs</code>. En cas d'échec, gardez l'encadré et la fin du journal pour l'IT.</div>
       </div>
 
     </div><!-- /content -->
