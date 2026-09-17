@@ -1,5 +1,7 @@
 @echo off
 setlocal enabledelayedexpansion
+rem An inherited ERRORLEVEL variable would shadow the real exit code read as !errorlevel!.
+set "ERRORLEVEL="
 title SDP Dashboard - Install ^& Maintenance
 :: =====================================================================
 ::  SDP Dashboard - Install & Maintenance menu   (modeled on the

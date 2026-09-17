@@ -1,5 +1,7 @@
 @echo off
 setlocal EnableExtensions EnableDelayedExpansion
+rem An inherited ERRORLEVEL variable would shadow the real exit code read as !errorlevel!.
+set "ERRORLEVEL="
 title SDP Dashboard Setup
 
 rem ============================================================================
