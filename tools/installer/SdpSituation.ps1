@@ -7,11 +7,31 @@
 $script:SdpCountTables = @('sites', 'weekly_reports', 'md_meetings', 'insp_inspections', 'users', 'assets')
 $script:SdpPgRoots = @('C:\Program Files\PostgreSQL', 'C:\Program Files (x86)\PostgreSQL')
 
+# ONE .env parsing rule for every PowerShell reader (a .env file on disk, or a
+# .env entry read out of a restore-point zip), aligned with tools\pg\dump-db.js:
+# '#' comment lines ignored, optional spaces around 'KEY' and '=', value
+# trimmed, then ONE surrounding single/double quote stripped at each end
+# (dump-db.js: replace(/^["']|["']$/g, '')). First non-empty KEY= line wins.
+# Returns $null when absent or empty. Never throws.
+function Get-SdpEnvTextValue([string]$text, [string]$key) {
+    if (-not $text) { return $null }
+    $rx = '^\s*' + [regex]::Escape($key) + '\s*=(.*)$'
+    foreach ($line in ($text -split "`r?`n")) {
+        if ($line.TrimStart().StartsWith('#')) { continue }
+        if ($line -match $rx) {
+            $v = $Matches[1].Trim() -replace '^["'']|["'']$', ''
+            if ($v) { return $v }
+        }
+    }
+    return $null
+}
+
 function Get-SdpEnvValue([string]$installDir, [string]$key) {
-    $envFile = Join-Path $installDir '.env'
-    if (-not (Test-Path -LiteralPath $envFile)) { return $null }
-    $m = Select-String -LiteralPath $envFile -Pattern ('^' + $key + '=(.+)$') | Select-Object -First 1
-    if ($m) { return $m.Matches[0].Groups[1].Value.Trim().Trim('"') } else { return $null }
+    try {
+        $envFile = Join-Path $installDir '.env'
+        if (-not (Test-Path -LiteralPath $envFile)) { return $null }
+        return (Get-SdpEnvTextValue ([System.IO.File]::ReadAllText($envFile)) $key)
+    } catch { return $null }
 }
 
 # Never throws: roots are injectable via $script:SdpPgRoots (tests override it),

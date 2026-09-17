@@ -96,7 +96,8 @@ function Invoke-PgDump($outFile) {
     finally { Pop-Location }
 }
 # Reads the zip's ROOT .env entry in memory (never extracted to disk) with the
-# SAME rule as Get-EnvValue: first '^KEY=(.+)$' line, trimmed.
+# SAME rule as Get-EnvValue (Get-SdpEnvTextValue: comments ignored, value
+# trimmed, surrounding quotes stripped like dump-db.js).
 # Returns @{ hasEnv = bool; value = string-or-null }. Throws if the zip cannot
 # be read - the caller must not guess which database a restore will drop.
 function Get-ZipEnvValue([string]$zipPath, [string]$key) {
@@ -107,10 +108,7 @@ function Get-ZipEnvValue([string]$zipPath, [string]$key) {
         if (-not $e) { return @{ hasEnv = $false; value = $null } }
         $sr = New-Object System.IO.StreamReader($e.Open())
         try { $text = $sr.ReadToEnd() } finally { $sr.Dispose() }
-        foreach ($line in ($text -split "`r?`n")) {
-            if ($line -match ('^' + $key + '=(.+)$')) { return @{ hasEnv = $true; value = $Matches[1].Trim() } }
-        }
-        return @{ hasEnv = $true; value = $null }
+        return @{ hasEnv = $true; value = (Get-SdpEnvTextValue $text $key) }
     } finally { $z.Dispose() }
 }
 function Test-ZipHasRootEntry([string]$zipPath, [string]$entryName) {
@@ -119,12 +117,7 @@ function Test-ZipHasRootEntry([string]$zipPath, [string]$entryName) {
     try { return [bool]($z.Entries | Where-Object { $_.FullName -eq $entryName } | Select-Object -First 1) }
     finally { $z.Dispose() }
 }
-function Get-EnvValue($key) {
-    $envFile = Join-Path $InstallDir '.env'
-    if (-not (Test-Path $envFile)) { return $null }
-    $m = Select-String -Path $envFile -Pattern ('^' + $key + '=(.+)$') | Select-Object -First 1
-    if ($m) { return $m.Matches[0].Groups[1].Value.Trim() } else { return $null }
-}
+function Get-EnvValue($key) { return (Get-SdpEnvValue $InstallDir $key) }
 function Resolve-SuperPassword {
     # Same convention as provision-prod.js: the standard appliance value.
     #
@@ -203,8 +196,10 @@ switch ($action) {
     #   - PG_URL = the zip's root .env when the zip carries one (it overwrites
     #     the current .env - even a zip .env WITHOUT PG_URL means "no DB step"),
     #     else the current .env's.
-    #   - a drop happens when that PG_URL is non-empty AND a root dump will be
-    #     present: one in the zip (complete or not) or a stale one left behind.
+    #   - a drop happens when that PG_URL is non-empty AND the zip carries a
+    #     root dump (complete or not). A stale install-dir dump left by an
+    #     earlier run never counts: it is deleted below, before the zip is
+    #     copied, so the import only ever sees a dump from the restore point.
     # The value is never printed.
     try {
         $zipEnv = Get-ZipEnvValue $zip 'PG_URL'
@@ -212,7 +207,7 @@ switch ($action) {
     } catch { Die ('Cannot read the restore point (' + $_.Exception.Message + ') - restore aborted, nothing changed.') }
     $curPgUrl = Get-EnvValue 'PG_URL'
     $effPgUrl = if ($zipEnv.hasEnv) { $zipEnv.value } else { $curPgUrl }
-    $willDrop = [bool]$effPgUrl -and ($zipHasSql -or (Test-Path -LiteralPath (Join-Path $InstallDir 'sdp_dashboard.sql')))
+    $willDrop = [bool]$effPgUrl -and $zipHasSql
     $viaTarget = $willDrop -and ($effPgUrl -ne $curPgUrl)
 
     # ---- safety backup of the CURRENT state, before anything is stopped or overwritten ----
@@ -241,6 +236,16 @@ switch ($action) {
     if ($willDrop -and -not (Test-SdpZipHasDump $preZip)) {
         $hint = if ($viaTarget) { ' (the database named by the restore point''s .env)' } else { '' }
         Die ('No database dump in the pre-restore point - refusing to overwrite the database' + $hint + '. Check PG_URL / the PostgreSQL service (menu C), then retry.')
+    }
+    # A root dump in the install dir can only be a leftover of an earlier run
+    # (the import deletes its dump after a SUCCESS; a failed import leaves it).
+    # Remove it so the import step never replays old data - the pre-restore
+    # point above deliberately excludes it (robocopy /XF), so nothing is lost.
+    $staleDump = Join-Path $InstallDir 'sdp_dashboard.sql'
+    if (Test-Path -LiteralPath $staleDump) {
+        try { Remove-Item -LiteralPath $staleDump -Force }
+        catch { Die ('Cannot remove a stale sdp_dashboard.sql from the install dir (' + $_.Exception.Message + ') - restore aborted before any change.') }
+        Log 'Removed a stale sdp_dashboard.sql left by an earlier run' 'WARN'
     }
     Log "Restoring $Name" 'STEP'
     Invoke-Pm2 @('stop', $SvcName)
