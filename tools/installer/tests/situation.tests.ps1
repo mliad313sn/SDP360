@@ -368,6 +368,39 @@ Assert-True ($tg.db -eq 'sdp_x' -and $tg.host -eq 'localhost' -and $tg.port -eq 
 Assert-True (-not (($tg.Values -join ' ') -match 's3cret|sdp_app')) 'url target: carries no credentials'
 Assert-Eq (Get-SdpPgUrlTarget 'garbage') $null 'url target: garbage -> null'
 
+# Dump header -> pg_dump major (restore refuses a dump newer than the server).
+$h17 = "--`n-- PostgreSQL database dump`n--`n`n-- Dumped from database version 16.4`n-- Dumped by pg_dump version 17.2`n`nSET statement_timeout = 0;`nSET transaction_timeout = 0;`n"
+Assert-Eq (ConvertFrom-SdpDumpHeader $h17) 17 'dump header: pg_dump 17.2 (over a 16.4 server) -> 17, the pg_dump line decides'
+$h16 = "--`r`n-- PostgreSQL database dump`r`n--`r`n`r`n-- Dumped from database version 16.4 (Ubuntu 16.4-1.pgdg22.04+1)`r`n-- Dumped by pg_dump version 16.4 (Ubuntu 16.4-1.pgdg22.04+1)`r`n"
+Assert-Eq (ConvertFrom-SdpDumpHeader $h16) 16 'dump header: pg_dump 16.4 with a distro suffix, CRLF -> 16'
+$h13 = "--`n-- PostgreSQL database dump`n--`n`n-- Dumped from database version 13.16`n-- Dumped by pg_dump version 13.16`n"
+Assert-Eq (ConvertFrom-SdpDumpHeader $h13) 13 'dump header: pg_dump 13.16 -> 13'
+Assert-Eq (ConvertFrom-SdpDumpHeader "-- Dumped by pg_dump version 9.6.24`n") 9 'dump header: pg_dump 9.6.24 -> 9'
+Assert-Eq (ConvertFrom-SdpDumpHeader "--`n-- Dumped from database version 15.3`n") 15 'dump header: only the from-database line -> its major (fallback)'
+Assert-Eq (ConvertFrom-SdpDumpHeader "--`n-- PostgreSQL database dump`n--`nSELECT 1;`n") $null 'dump header: no version line -> null'
+Assert-Eq (ConvertFrom-SdpDumpHeader 'garbage text -- Dumped by pg_dump version x.y') $null 'dump header: garbage -> null'
+Assert-Eq (ConvertFrom-SdpDumpHeader '') $null 'dump header: empty -> null'
+Assert-Eq (ConvertFrom-SdpDumpHeader $null) $null 'dump header: null -> null'
+Assert-Eq (ConvertFrom-SdpServerVersionNum '170002') 17 'server_version_num 170002 -> 17'
+Assert-Eq (ConvertFrom-SdpServerVersionNum " 160004`r`n") 16 'server_version_num with whitespace -> 16'
+Assert-Eq (ConvertFrom-SdpServerVersionNum '90624') 9 'server_version_num 90624 -> 9'
+Assert-Eq (ConvertFrom-SdpServerVersionNum 'psql: error') $null 'server_version_num garbage -> null'
+Assert-Eq (ConvertFrom-SdpServerVersionNum '') $null 'server_version_num empty -> null'
+$zdir = New-TempDir 'sdp-zipver'; $script:TestTempDirs += $zdir
+$zv = Join-Path $zdir 'v.zip'
+New-TestZip $zv @{ 'sdp_dashboard.sql' = ($h17 + ("SELECT 1;`n" * 200)); 'db/postgres/x.sql' = '-- Dumped by pg_dump version 99.0' }
+Assert-Eq (Get-SdpZipDumpVersion $zv) 17 'zip dump version: root dump header read'
+$zn = Join-Path $zdir 'n.zip'
+New-TestZip $zn @{ 'db/sdp_dashboard.sql' = '-- Dumped by pg_dump version 17.2' }
+Assert-Eq (Get-SdpZipDumpVersion $zn) $null 'zip dump version: no ROOT dump -> null (nested one ignored)'
+$zl = Join-Path $zdir 'late.zip'
+New-TestZip $zl @{ 'sdp_dashboard.sql' = (("-- filler`n" * 60) + "-- Dumped by pg_dump version 17.2`n") }
+Assert-Eq (Get-SdpZipDumpVersion $zl) $null 'zip dump version: only the first 40 lines are read'
+$zbad = Join-Path $zdir 'bad.zip'
+Set-Content $zbad 'not a zip' -Encoding ascii
+$threw = $false; try { [void](Get-SdpZipDumpVersion $zbad) } catch { $threw = $true }
+Assert-True $threw 'zip dump version: unreadable zip throws (the caller refuses)'
+
 Write-Host ("situation.tests: " + $script:AssertCount + " assertions ok")
 
 } finally {

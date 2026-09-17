@@ -241,6 +241,47 @@ function Get-SdpZipRootEntryText([string]$zipPath, [string]$entryName) {
 function Test-SdpZipHasRootEntry([string]$zipPath, [string]$entryName) {
     return [bool](Invoke-SdpZipRootEntry $zipPath $entryName { param($e) return [bool]$e })
 }
+# Pure: the MAJOR version of the pg_dump that wrote a plain-SQL dump, from its
+# header text (the first lines of the file), or $null when it cannot be told.
+# The "-- Dumped by pg_dump version N.M" line decides (the pg_dump version is
+# what fixes the SQL emitted - pg_dump 17 writes SET transaction_timeout, which
+# an older server rejects); "-- Dumped from database version N.M" is only the
+# fallback when that line is absent. 9.6 -> 9 (same scale as the server side).
+function ConvertFrom-SdpDumpHeader([string]$text) {
+    if (-not $text) { return $null }
+    $m = [regex]::Match($text, '(?m)^--\s*Dumped by pg_dump version\s+(\d+)(\.\d+)*')
+    if (-not $m.Success) { $m = [regex]::Match($text, '(?m)^--\s*Dumped from database version\s+(\d+)(\.\d+)*') }
+    if (-not $m.Success) { return $null }
+    $v = 0
+    if (-not [int]::TryParse($m.Groups[1].Value, [ref]$v) -or $v -le 0) { return $null }
+    return $v
+}
+# Pure: server_version_num (e.g. '160004', '90624') -> major (16, 9), or $null.
+function ConvertFrom-SdpServerVersionNum([string]$text) {
+    if (-not $text) { return $null }
+    $t = $text.Trim()
+    if ($t -notmatch '^\d{5,7}$') { return $null }
+    return [int][Math]::Floor([int]$t / 10000)
+}
+# Major pg_dump version of the ROOT sdp_dashboard.sql of a restore point (read
+# in memory, first 40 lines only), or $null when the entry is missing or its
+# header cannot be parsed. Throws if the zip cannot be read.
+function Get-SdpZipDumpVersion([string]$zipPath) {
+    return (Invoke-SdpZipRootEntry $zipPath 'sdp_dashboard.sql' {
+        param($e)
+        if (-not $e) { return $null }
+        $sr = New-Object System.IO.StreamReader($e.Open())
+        try {
+            $head = New-Object System.Text.StringBuilder
+            for ($i = 0; $i -lt 40; $i++) {
+                $l = $sr.ReadLine()
+                if ($null -eq $l) { break }
+                [void]$head.AppendLine($l)
+            }
+        } finally { $sr.Dispose() }
+        return (ConvertFrom-SdpDumpHeader $head.ToString())
+    })
+}
 # Never throws: used by Install-SDP (Step5, refuse a DROP without a dump) and
 # Manage-SDP (-Restore, same rule before overwriting a live install). A restore
 # point is a copy of the whole install dir, so it always carries repo files

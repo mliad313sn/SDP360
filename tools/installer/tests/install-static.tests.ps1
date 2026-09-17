@@ -200,10 +200,12 @@ Assert-True ($step7Fn -like '*Log (''Data check: '' + $script:DataCheck) ''ALERT
 # (Get-SummaryLines), so they can never drift.
 $linesFn = Get-FunctionText $ast 'Get-SummaryLines'
 $outcomeFn = Get-FunctionText $ast 'Get-DatabaseOutcome'
+$baseOutcomeFn = Get-FunctionText $ast 'Get-BaseDatabaseOutcome'
 $boxFn = Get-FunctionText $ast 'Write-SummaryBox'
 $summaryFn = Get-FunctionText $ast 'Write-RunSummary'
 Assert-True ($linesFn -ne $null) 'Get-SummaryLines is defined'
 Assert-True ($outcomeFn -ne $null) 'Get-DatabaseOutcome is defined'
+Assert-True ($baseOutcomeFn -ne $null) 'Get-BaseDatabaseOutcome is defined'
 Assert-True ($boxFn -ne $null) 'Write-SummaryBox is defined'
 Assert-True ($summaryFn -ne $null) 'Write-RunSummary is defined'
 Assert-True ($linesFn -like '*Get-DatabaseOutcome*') 'Get-SummaryLines takes the Database value from Get-DatabaseOutcome'
@@ -237,12 +239,13 @@ Assert-True ($afterEnvOnly -like '*Complete-Run ''OK''*Write-SummaryBox*') 'the 
 # labels in spec order and the values (temp values only, nothing written).
 $expected = @('Mode', 'Version', 'Restore point', 'Database', '.env', 'Data check', 'Log', 'Summary')
 . ([scriptblock]::Create($outcomeFn))
+. ([scriptblock]::Create($baseOutcomeFn))
 . ([scriptblock]::Create($linesFn))
 function Reset-SummaryState {
     $script:InstalledVerAtStart = '1.0.0'; $script:BundleVer = '1.1.0'; $script:RollbackZip = 'C:\x\rp.zip'
     $script:CountsBefore = @{ reachable = $true }; $script:DataCheck = 'OK (users=1)'; $script:EnvExistedAtStart = $true
     $script:Step4Reached = $true; $script:DbDropped = $false; $script:DbCreated = $false; $script:DbExistedBefore = $true
-    $script:ConfirmDataLoss = $false; $script:Mode = 'upgrade'; $script:DbSeeded = $false; $script:SeedFailed = $false; $script:SeedZipName = $null
+    $script:ConfirmDataLoss = $false; $script:Mode = 'upgrade'; $script:DbSeeded = $false; $script:SeedFailed = $false; $script:SeedRefused = $false; $script:SeedZipName = $null
 }
 $LogFile = 'C:\x\install.log'; $SummaryFile = 'C:\x\summary.txt'
 function Get-Line([string]$label) { return (@(Get-SummaryLines) | Where-Object { $_.Label -eq $label } | Select-Object -First 1).Value }
@@ -375,7 +378,28 @@ $ConfirmDataLoss = $false
 
 $step8Fn = Get-FunctionText $ast 'Step8-SeedData'
 Assert-True ($step8Fn -ne $null) 'Step8-SeedData is defined'
-Assert-True ($step8Fn -match '(?s)if \(\$LASTEXITCODE -ne 0\) \{.*?\$script:SeedFailed = \$true.*?return\s*\}.*\$script:DbSeeded = \$true') 'Step8: DbSeeded set only after a successful restore; SeedFailed on the failure branch'
+Assert-True ($step8Fn -match '(?s)\$rc = \$LASTEXITCODE\s+if \(\$rc -eq 3\) \{.*?\$script:SeedRefused = \$true.*?return\s*\}\s*if \(\$rc -ne 0\) \{.*?\$script:SeedFailed = \$true.*?return\s*\}.*\$script:DbSeeded = \$true') 'Step8: refused (exit 3) and failed are separate branches; DbSeeded set only after a successful restore'
+$refusedBranch = [regex]::Match($step8Fn, '(?s)if \(\$rc -eq 3\) \{.*?return\s*\}').Value
+Assert-True (-not ($refusedBranch -match 'SeedFailed|Get-DataCheck')) 'Step8: a refused seed is not "uncertain" and keeps step 7''s data check'
+Assert-True ($refusedBranch -match 'SeedWarning') 'Step8: a refused seed is a warning'
+Assert-True ([regex]::Match($step8Fn, '(?s)if \(\$rc -ne 0\) \{.*?return\s*\}').Value -match 'SeedWarning') 'Step8: a failed seed is a warning'
+foreach ($m in @('No payload', 'holds no .zip', 'Manage-SDP.ps1 not found')) {
+    $ln = @($step8Fn -split "`n" | Where-Object { $_ -match [regex]::Escape($m) })
+    Assert-True ($ln.Count -ge 1 -and $ln[0] -match 'SeedWarning') ('Step8: "' + $m + '" is a warning too')
+}
+# The main success path: a seed warning ends as exit 3, never plain OK.
+$warnIdx = $afterEnvOnly.IndexOf('if ($script:SeedWarning)')
+$okIdx = $afterEnvOnly.IndexOf("Complete-Run 'OK'")
+Assert-True ($warnIdx -ge 0 -and $warnIdx -lt $okIdx) 'main: the seed-warning branch is checked before the plain OK'
+$warnBlock = $afterEnvOnly.Substring($warnIdx, $okIdx - $warnIdx)
+Assert-True ($warnBlock -match "Complete-Run 'COMPLETED WITH WARNINGS - demo dataset NOT loaded'") 'main: Result line says completed with warnings, demo NOT loaded'
+Assert-True ($warnBlock -match 'WITH WARNINGS: demo dataset NOT loaded') 'main: the summary box title says so'
+Assert-True ($warnBlock -match '(?m)^\s*exit 3\s*$') 'main: exit 3 = installed, demo dataset not loaded'
+Assert-True ($raw -match '3 = installed and verified, but the demo dataset was NOT loaded') 'header documents exit code 3'
+Reset-SummaryState; $Mode = 'fresh'; $script:SeedRefused = $true; $script:SeedZipName = 'demo-2026.zip'; $script:DbCreated = $true
+Assert-Eq (Get-Line 'Database') 'created - NOT replaced: demo dataset refused before any change (demo-2026.zip), see the log' 'demo seed refused: Database says what steps 1-7 did + not replaced (never uncertain)'
+Reset-SummaryState; $Mode = 'fresh'; $script:SeedRefused = $true; $script:SeedZipName = 'demo-2026.zip'
+Assert-Eq (Get-Line 'Database') 'preserved - NOT replaced: demo dataset refused before any change (demo-2026.zip), see the log' 'demo seed refused over an existing db: preserved, not replaced'
 Assert-True ($step8Fn -match '(?s)\$script:DbSeeded = \$true.*\$script:SeedZipName = \$seed\.Name.*\$script:DataCheck = Get-DataCheck') 'Step8: remembers the zip and re-evaluates the data check after the seed'
 $planText = [regex]::Match($raw, "(?s)'fresh'\s*\{.*?if \(\`$SeedData\) \{ \`$plan \+= '8' \}").Value
 Assert-True ($planText -ne '') 'step 8 is the LAST step of the fresh plan (it runs after step 7''s data check)'

@@ -142,3 +142,6 @@ add-higgsfield-to-desktop.ps1
 
 # Meraki calibration — raw series archives (large, regenerable while Meraki keeps 31 days)
 tools/meraki/calibration/series/
+
+# Local prod database dumps kept for reference (tens of MB, contain real data) - never commit.
+docs/sdp_dashboard_*.sql

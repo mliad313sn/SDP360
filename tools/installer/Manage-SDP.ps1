@@ -19,6 +19,9 @@
 #   -ScheduleStatus                      KEY=VALUE digest of both tasks (parsed by the app)
 #   -DailyJob / -WeeklyJob               composite actions the scheduled tasks invoke
 # Common: -Config <psd1>  merge overrides (config.test.psd1 = the :3457 test instance)
+# Exit codes: 0 = OK, 1 = failed, 2 = no action given,
+#   3 = -Restore REFUSED before any change (pre-flight: nothing was stopped,
+#       copied or dropped - Install-SDP step 8 relies on this distinction).
 # =====================================================================
 param(
     [switch]$Backup,
@@ -87,6 +90,10 @@ function Die($m) {
     if ($script:AfterStopHint) { $m = $m + ' ' + $script:AfterStopHint }
     Log $m 'ERROR'; exit 1
 }
+# A restore refused during its pre-flight: nothing was stopped, copied or
+# dropped yet. Distinct exit code (3) so a caller can tell "refused, nothing
+# changed" from "failed somewhere after the service was stopped".
+function Refuse($m) { Log $m 'ERROR'; exit 3 }
 
 # --- helpers ----------------------------------------------------------
 function Invoke-Pm2([string[]]$pmArgs) {
@@ -153,11 +160,29 @@ function Resolve-SuperPassword {
 # psql for the restore's DROP / CREATE / import. The lookup itself is
 # SdpSituation.ps1's Find-SdpPsql (one implementation, never throws).
 # TEST HOOK ONLY (tests\manage-restore.tests.ps1): SDP_TEST_PSQL names a fake
-# psql so the DROP / CREATE / import paths can be proven without a PostgreSQL
-# server. Unset in every real run.
+# psql so the version check / DROP / CREATE / import paths can be proven
+# without a PostgreSQL server. It is honoured ONLY when SDP_INSTALLER_LOG_DIR
+# (the other test-only variable, set by the same tests) is also set, so a stray
+# SDP_TEST_PSQL alone can never swap the psql of a real run.
 function Find-RestorePsql {
-    if ($env:SDP_TEST_PSQL) { return $env:SDP_TEST_PSQL }
+    if ($env:SDP_TEST_PSQL -and $env:SDP_INSTALLER_LOG_DIR) { return $env:SDP_TEST_PSQL }
     return (Find-SdpPsql)
+}
+# Major version of the PostgreSQL server at host:port (SHOW server_version_num
+# as the superuser), or $null when it cannot be read. The password travels in
+# PGPASSWORD only (never on a command line) and -w forbids a prompt.
+function Get-RestoreServerMajor([string]$psql, [string]$pgHost, [string]$pgPort, [string]$superPw) {
+    $ErrorActionPreference = 'Continue'
+    $hadPw = Test-Path Env:PGPASSWORD; $prevPw = $env:PGPASSWORD
+    try {
+        $env:PGPASSWORD = $superPw
+        $out = @(& $psql -h $pgHost -p $pgPort -U postgres -d postgres -w -X -A -t -v ON_ERROR_STOP=1 -c 'SHOW server_version_num')
+        if ($LASTEXITCODE -ne 0) { return $null }
+        $line = @($out | Where-Object { $null -ne $_ -and ([string]$_).Trim() } | Select-Object -First 1)
+        if ($line.Count -eq 0) { return $null }
+        return (ConvertFrom-SdpServerVersionNum ([string]$line[0]))
+    } catch { return $null }
+    finally { if ($hadPw) { $env:PGPASSWORD = $prevPw } else { Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue } }
 }
 # Every name a restore puts into DROP / CREATE ... OWNER is sent UNQUOTED, and
 # PostgreSQL folds an unquoted identifier to lower case: a PG_URL naming
@@ -202,10 +227,10 @@ switch ($action) {
 }
 
 'restore' {
-    if (-not $Name) { Die 'Restore needs -Name <restore point file name>' }
+    if (-not $Name) { Refuse 'Restore needs -Name <restore point file name>' }
     if ($Name -notmatch '\.zip$') { $Name = $Name + '.zip' }
     $zip = Join-Path $BackupDir $Name
-    if (-not (Test-Path $zip)) { Die "Not found: $zip" }
+    if (-not (Test-Path $zip)) { Refuse "Not found: $zip" }
     if (-not $Force) {
         Write-Host "*** THIS OVERWRITES code + .env (and DB if the point contains a dump) in $InstallDir ***" -ForegroundColor Red
         $ok = Read-Host 'Type YES to proceed'
@@ -226,11 +251,11 @@ switch ($action) {
     try {
         $zipEnv = Get-ZipEnvValue $zip 'PG_URL'
         $zipHasSql = Test-SdpZipHasRootEntry $zip 'sdp_dashboard.sql'
-    } catch { Die ('Cannot read the restore point (' + $_.Exception.Message + ') - restore aborted, nothing changed.') }
+    } catch { Refuse ('Cannot read the restore point (' + $_.Exception.Message + ') - restore aborted, nothing changed.') }
     # Fail closed: a .env that exists but cannot be read must not be mistaken
     # for "no PG_URL" (that would skip the database guard below).
     try { $curPgUrl = Get-SdpEnvValueStrict $InstallDir 'PG_URL' }
-    catch { Die 'Cannot read the current .env - restore aborted, nothing changed.' }
+    catch { Refuse 'Cannot read the current .env - restore aborted, nothing changed.' }
     $effPgUrl = if ($zipEnv.hasEnv) { $zipEnv.value } else { $curPgUrl }
     $willDrop = [bool]$effPgUrl -and $zipHasSql
     $viaTarget = $willDrop -and ($effPgUrl -ne $curPgUrl)
@@ -241,10 +266,33 @@ switch ($action) {
     $dropTarget = $null; $dropApp = $null
     if ($willDrop) {
         $dropTarget = Get-SdpPgUrlTarget $effPgUrl
-        if (-not $dropTarget) { Die 'The PG_URL of the database to replace is not a valid postgres URL (postgres://user:password@host:port/db) - restore aborted, nothing changed.' }
+        if (-not $dropTarget) { Refuse 'The PG_URL of the database to replace is not a valid postgres URL (postgres://user:password@host:port/db) - restore aborted, nothing changed.' }
         try { $dropApp = [Uri]::UnescapeDataString(([Uri]$effPgUrl).UserInfo.Split(':')[0]) } catch { $dropApp = $null }
-        if (-not (Test-PlainPgIdent $dropTarget.db)) { Die 'The database name in PG_URL is not a plain lower-case identifier ([a-z_][a-z0-9_]*) - restore aborted, nothing changed.' }
-        if (-not (Test-PlainPgIdent $dropApp)) { Die 'The user name in PG_URL is not a plain lower-case identifier ([a-z_][a-z0-9_]*) - restore aborted, nothing changed.' }
+        if (-not (Test-PlainPgIdent $dropTarget.db)) { Refuse 'The database name in PG_URL is not a plain lower-case identifier ([a-z_][a-z0-9_]*) - restore aborted, nothing changed.' }
+        if (-not (Test-PlainPgIdent $dropApp)) { Refuse 'The user name in PG_URL is not a plain lower-case identifier ([a-z_][a-z0-9_]*) - restore aborted, nothing changed.' }
+        # The import connects as that user with the URL's password: a URL
+        # without one would only fail AFTER the service is stopped and the
+        # database dropped - refuse it now.
+        $userInfo = [string]([Uri]$effPgUrl).UserInfo
+        $pwIdx = $userInfo.IndexOf(':')
+        if ($pwIdx -lt 1 -or $pwIdx -ge ($userInfo.Length - 1)) { Refuse 'The PG_URL of the database to replace has no user name or no password (postgres://user:password@host:port/db) - restore aborted, nothing changed.' }
+        $pgHost = ([string]([Uri]$effPgUrl).Host).Trim('[', ']')
+        $pgPort = [string]$dropTarget.port
+        # A plain-SQL dump written by a NEWER pg_dump can use statements an
+        # older server rejects (pg_dump 17: SET transaction_timeout). The
+        # import is strict (ON_ERROR_STOP), so it would abort AFTER the DROP.
+        # Compare the versions now; if either cannot be read, refuse too.
+        try { $dumpMajor = Get-SdpZipDumpVersion $zip }
+        catch { Refuse ('Cannot read the dump inside the restore point (' + $_.Exception.Message + ') - restore aborted, nothing changed.') }
+        if (-not $dumpMajor) { Refuse 'Cannot tell which pg_dump version wrote the restore point''s dump (no "-- Dumped by pg_dump version" header) - it cannot be imported safely. Restore aborted, nothing changed.' }
+        $verPsql = Find-RestorePsql
+        if (-not $verPsql) { Refuse 'psql.exe not found - cannot check the PostgreSQL server version. Restore aborted, nothing changed.' }
+        $serverMajor = Get-RestoreServerMajor $verPsql $pgHost $pgPort (Resolve-SuperPassword)
+        if (-not $serverMajor) { Refuse 'Cannot read the PostgreSQL server version (server unreachable, or the postgres password is wrong - set PG_SUPER_PASSWORD) - the dump cannot be checked. Restore aborted, nothing changed.' }
+        if ($dumpMajor -gt $serverMajor) {
+            Refuse ('The restore point''s dump was made by pg_dump ' + $dumpMajor + ', newer than this PostgreSQL server (' + $serverMajor + ') - it cannot be imported safely. Upgrade PostgreSQL to ' + $dumpMajor + ' or later, or use a restore point made on this server. Restore aborted, nothing changed.')
+        }
+        Log ('Dump written by pg_dump ' + $dumpMajor + ', server is PostgreSQL ' + $serverMajor + ' - compatible') 'OK'
     }
 
     # ---- safety backup of the CURRENT state, before anything is stopped or overwritten ----
@@ -265,9 +313,9 @@ switch ($action) {
     } finally { $env:PG_URL = $savedPgUrl }
     # The child's console lines were captured with its output - replay them.
     $preOut | Select-Object -SkipLast 1 | ForEach-Object { Write-Host $_ }
-    if ($preCode -ne 0) { Die 'Pre-restore backup FAILED - restore aborted, nothing changed.' }
+    if ($preCode -ne 0) { Refuse 'Pre-restore backup FAILED - restore aborted, nothing changed.' }
     $preZip = [string]($preOut | Select-Object -Last 1)
-    if (-not ($preZip -and (Test-Path -LiteralPath $preZip))) { Die 'Pre-restore backup returned no zip - restore aborted, nothing changed.' }
+    if (-not ($preZip -and (Test-Path -LiteralPath $preZip))) { Refuse 'Pre-restore backup returned no zip - restore aborted, nothing changed.' }
     Log ('Pre-restore restore point: ' + (Split-Path $preZip -Leaf)) 'OK'
     # Rule: never drop a database we do not have a COMPLETE dump of.
     if ($willDrop -and -not (Test-SdpZipHasDump $preZip)) {
@@ -278,7 +326,7 @@ switch ($action) {
             Log ('Removed the pre-restore point ' + (Split-Path $preZip -Leaf) + ' (restore refused, nothing changed)') 'WARN'
         } catch { Log ('Could not remove the pre-restore point ' + (Split-Path $preZip -Leaf) + ': ' + $_.Exception.Message) 'WARN' }
         $hint = if ($viaTarget) { ' (the database named by the restore point''s .env)' } else { '' }
-        Die ('No database dump in the pre-restore point - refusing to overwrite the database' + $hint + '. Check PG_URL / the PostgreSQL service (menu C), then retry.')
+        Refuse ('No database dump in the pre-restore point - refusing to overwrite the database' + $hint + '. Check PG_URL / the PostgreSQL service (menu C), then retry.')
     }
     # A root dump in the install dir can only be a leftover of an earlier run
     # (the import deletes its dump after a SUCCESS; a failed import leaves it).
@@ -287,7 +335,7 @@ switch ($action) {
     $staleDump = Join-Path $InstallDir 'sdp_dashboard.sql'
     if (Test-Path -LiteralPath $staleDump) {
         try { Remove-Item -LiteralPath $staleDump -Force }
-        catch { Die ('Cannot remove a stale sdp_dashboard.sql from the install dir (' + $_.Exception.Message + ') - restore aborted before any change.') }
+        catch { Refuse ('Cannot remove a stale sdp_dashboard.sql from the install dir (' + $_.Exception.Message + ') - restore aborted before any change.') }
         Log 'Removed a stale sdp_dashboard.sql left by an earlier run' 'WARN'
     }
     Log "Restoring $Name" 'STEP'
@@ -314,10 +362,8 @@ switch ($action) {
             $u = [Uri]$effPgUrl
             $db  = $dropTarget.db
             $app = $dropApp
-            # Raw host of the URL (brackets of an IPv6 literal removed) - the
-            # same server the pre-restore dump connected to.
-            $pgHost = ([string]$u.Host).Trim('[', ']')
-            $pgPort = [string]$dropTarget.port
+            # $pgHost / $pgPort were set in the pre-flight: the raw host of the
+            # URL (IPv6 brackets removed) - the server the pre-restore dump hit.
             $appPw = [Uri]::UnescapeDataString($u.UserInfo.Split(':', 2)[1])
             $superPw = Resolve-SuperPassword
             # -w: never prompt (a closed stdin would hang). Each step's exit code

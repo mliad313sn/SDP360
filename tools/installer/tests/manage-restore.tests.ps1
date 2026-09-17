@@ -41,6 +41,40 @@ function New-Fixture([string]$envText, [string]$cfgHost = '127.0.0.1', [string]$
     return @{ inst = $inst; bak = $bak; cfg = $cfg }
 }
 
+# A complete plain-SQL dump WITH pg_dump's version header (the restore reads it
+# to refuse a dump newer than the server - the fake psql reports 17 by default).
+$DumpText = "--`r`n-- PostgreSQL database dump`r`n--`r`n`r`n-- Dumped from database version 17.2`r`n-- Dumped by pg_dump version 17.2`r`n`r`nSELECT 1;`r`n`r`n--`r`n-- PostgreSQL database dump complete`r`n--`r`n"
+
+# Fake psql via the SDP_TEST_PSQL hook (honoured only because
+# SDP_INSTALLER_LOG_DIR is set above). Used by EVERY case: a restore that will
+# drop a database first asks the server its version. The fake records its
+# arguments (never the environment), answers SHOW server_version_num with
+# SDPT_PSQL_SERVER_VERSION (default 170002) and fails the step named by
+# SDPT_PSQL_FAIL: version | drop | create | import.
+$fakeDir = New-TempDir 'sdp-mg-fakepsql'; $script:TestTempDirs += $fakeDir
+$fakeJs = Join-Path $fakeDir 'fake-psql.js'
+Set-Content $fakeJs @'
+const fs = require('fs');
+const a = process.argv.slice(2);
+const s = a.join(' ');
+if (process.env.SDPT_PSQL_LOG) fs.appendFileSync(process.env.SDPT_PSQL_LOG, s + '\n');
+const f = process.env.SDPT_PSQL_FAIL || '';
+if (/server_version_num/.test(s)) {
+  if (f === 'version') process.exit(5);
+  process.stdout.write((process.env.SDPT_PSQL_SERVER_VERSION || '170002') + '\n');
+  process.exit(0);
+}
+if (f === 'drop' && /DROP DATABASE/.test(s)) process.exit(1);
+if (f === 'create' && /CREATE DATABASE/.test(s)) process.exit(2);
+if (f === 'import' && a.includes('-f')) process.exit(3);
+process.exit(0);
+'@ -Encoding ascii
+$fakeCmd = Join-Path $fakeDir 'psql.cmd'
+[IO.File]::WriteAllText($fakeCmd, ("@node `"%~dp0fake-psql.js`" %*`r`n@exit /b %errorlevel%`r`n"), [Text.Encoding]::ASCII)
+$savedHook = @{ SDP_TEST_PSQL = $env:SDP_TEST_PSQL; SDPT_PSQL_FAIL = $env:SDPT_PSQL_FAIL; SDPT_PSQL_LOG = $env:SDPT_PSQL_LOG; SDPT_PSQL_SERVER_VERSION = $env:SDPT_PSQL_SERVER_VERSION }
+$env:SDP_TEST_PSQL = $fakeCmd
+$env:SDPT_PSQL_FAIL = $null; $env:SDPT_PSQL_LOG = $null; $env:SDPT_PSQL_SERVER_VERSION = $null
+
 function Invoke-Manage([string[]]$mArgs) {
     # 2>&1 on a native exe under 'Stop' turns any stderr line into a thrown
     # NativeCommandError (PS 5.1) - relax it for this call only.
@@ -81,7 +115,7 @@ Assert-Eq (Get-Content (Join-Path $chk 'server.js') -Raw).Trim() '// current' 'p
 $g = New-Fixture 'PG_URL=postgres://sdp_app:x@127.0.0.1:1/x'
 $stage2 = New-TempDir 'sdp-mg-stg2'; $script:TestTempDirs += $stage2
 Set-Content (Join-Path $stage2 'server.js') '// older' -Encoding ascii
-Set-Content (Join-Path $stage2 'sdp_dashboard.sql') ("-- dump`r`nSELECT 1;`r`n`r`n--`r`n-- PostgreSQL database dump complete`r`n--`r`n") -Encoding ascii
+Set-Content (Join-Path $stage2 'sdp_dashboard.sql') $DumpText -Encoding ascii
 $target2 = 'sdp-restore_manual_20260902-120000.zip'
 Compress-Archive -Path (Join-Path $stage2 '*') -DestinationPath (Join-Path $g.bak $target2) -Force
 
@@ -102,7 +136,7 @@ function New-TargetZip($fx, [string]$zipName, [string]$envText) {
     $st = New-TempDir 'sdp-mg-stgT'; $script:TestTempDirs += $st
     Set-Content (Join-Path $st 'server.js') '// older' -Encoding ascii
     Set-Content (Join-Path $st '.env') $envText -Encoding ascii
-    Set-Content (Join-Path $st 'sdp_dashboard.sql') ("-- dump`r`nSELECT 1;`r`n`r`n--`r`n-- PostgreSQL database dump complete`r`n--`r`n") -Encoding ascii
+    Set-Content (Join-Path $st 'sdp_dashboard.sql') $DumpText -Encoding ascii
     Compress-Archive -Path (Join-Path $st '*') -DestinationPath (Join-Path $fx.bak $zipName) -Force
 }
 # A dump tool that succeeds ONLY when process.env.PG_URL is exactly $url
@@ -193,7 +227,7 @@ $q = New-Fixture ('PG_URL="' + $urlB + '"')
 Set-DumpOnlyFor $q $urlB
 $stage7 = New-TempDir 'sdp-mg-stg7'; $script:TestTempDirs += $stage7
 Set-Content (Join-Path $stage7 'server.js') '// older' -Encoding ascii
-Set-Content (Join-Path $stage7 'sdp_dashboard.sql') ("-- dump`r`nSELECT 1;`r`n`r`n--`r`n-- PostgreSQL database dump complete`r`n--`r`n") -Encoding ascii
+Set-Content (Join-Path $stage7 'sdp_dashboard.sql') $DumpText -Encoding ascii
 $target7 = 'sdp-restore_manual_20260907-120000.zip'
 Compress-Archive -Path (Join-Path $stage7 '*') -DestinationPath (Join-Path $q.bak $target7) -Force
 $r7 = Invoke-Manage @('-Restore', '-Name', $target7, '-Force', '-Config', $q.cfg)
@@ -257,35 +291,23 @@ Assert-True (-not ($r11.out -match 'sdp_app:x@')) 'PG_URL value never printed (c
 Assert-Eq $env:PG_URL $envBefore 'test process PG_URL untouched'
 
 # ---- cases 12-15: the import is strict (fake psql via the SDP_TEST_PSQL hook) ----
-# The fake records its arguments (never the environment) and fails the step
-# named by SDPT_PSQL_FAIL: drop | create | import.
-$fakeDir = New-TempDir 'sdp-mg-fakepsql'; $script:TestTempDirs += $fakeDir
-$fakeJs = Join-Path $fakeDir 'fake-psql.js'
-Set-Content $fakeJs @'
-const fs = require('fs');
-const a = process.argv.slice(2);
-const s = a.join(' ');
-fs.appendFileSync(process.env.SDPT_PSQL_LOG, s + '\n');
-const f = process.env.SDPT_PSQL_FAIL || '';
-if (f === 'drop' && /DROP DATABASE/.test(s)) process.exit(1);
-if (f === 'create' && /CREATE DATABASE/.test(s)) process.exit(2);
-if (f === 'import' && a.includes('-f')) process.exit(3);
-process.exit(0);
-'@ -Encoding ascii
-$fakeCmd = Join-Path $fakeDir 'psql.cmd'
-[IO.File]::WriteAllText($fakeCmd, ("@node `"%~dp0fake-psql.js`" %*`r`n@exit /b %errorlevel%`r`n"), [Text.Encoding]::ASCII)
-$savedHook = @{ SDP_TEST_PSQL = $env:SDP_TEST_PSQL; SDPT_PSQL_FAIL = $env:SDPT_PSQL_FAIL; SDPT_PSQL_LOG = $env:SDPT_PSQL_LOG }
-function Invoke-StrictCase([string]$fail, [string]$zipName, [string]$url = $urlB, [string[]]$cfgArgs = @()) {
+# $calls = the DROP / CREATE / import invocations; $vcalls = the version query.
+function Invoke-StrictCase([string]$fail, [string]$zipName, [string]$url = $urlB, [string[]]$cfgArgs = @(), [string]$serverVer = '', [string]$dumpBody = '') {
     $fx = New-Fixture ('PG_URL=' + $url) @cfgArgs
     Set-DumpAlwaysOk $fx
-    New-TargetZip $fx $zipName ('PG_URL=' + $url)
+    $saved = $script:DumpText
+    if ($dumpBody) { $script:DumpText = $dumpBody }
+    try { New-TargetZip $fx $zipName ('PG_URL=' + $url) } finally { $script:DumpText = $saved }
     $log = Join-Path $fakeDir ('log-' + $fail + '-' + $zipName + '.txt')
-    $env:SDP_TEST_PSQL = $fakeCmd; $env:SDPT_PSQL_FAIL = $fail; $env:SDPT_PSQL_LOG = $log
+    $env:SDPT_PSQL_FAIL = $fail; $env:SDPT_PSQL_LOG = $log
+    $env:SDPT_PSQL_SERVER_VERSION = $(if ($serverVer) { $serverVer } else { $null })
     try { $res = Invoke-Manage @('-Restore', '-Name', $zipName, '-Force', '-Config', $fx.cfg) }
-    finally { foreach ($k in $savedHook.Keys) { [Environment]::SetEnvironmentVariable($k, $savedHook[$k], 'Process') } }
+    finally { $env:SDPT_PSQL_FAIL = $null; $env:SDPT_PSQL_LOG = $null; $env:SDPT_PSQL_SERVER_VERSION = $null }
     $pre = @(Get-ChildItem $fx.bak -Filter 'sdp-restore_pre-restore_*.zip')
-    $calls = @(if (Test-Path $log) { Get-Content $log })
-    return @{ r = $res; fx = $fx; pre = $pre; calls = $calls }
+    $all = @(if (Test-Path $log) { Get-Content $log })
+    $calls = @($all | Where-Object { $_ -notmatch 'server_version_num' })
+    $vcalls = @($all | Where-Object { $_ -match 'server_version_num' })
+    return @{ r = $res; fx = $fx; pre = $pre; calls = $calls; vcalls = $vcalls }
 }
 try {
     $c = Invoke-StrictCase 'drop' 'sdp-restore_manual_20260912-120000.zip'
@@ -345,13 +367,78 @@ try {
     Assert-True ($c.r.out -match 'not a plain lower-case identifier') 'refusal names the identifier rule (case 17)'
     Assert-True ($c.r.out -match 'nothing changed') 'refusal says nothing changed (case 17)'
     Assert-Eq $c.calls.Count 0 'psql never called (case 17)'
+    Assert-Eq $c.vcalls.Count 0 'no version query either (case 17)'
     Assert-Eq $c.pre.Count 0 'no pre-restore point taken (case 17)'
     Assert-Eq (Get-Content (Join-Path $c.fx.inst 'server.js') -Raw).Trim() '// current' 'code untouched (case 17)'
+
+    # ---- case 18: dump from pg_dump 17.2, server is 16 -> refused before anything ----
+    $c = Invoke-StrictCase 'none' 'sdp-restore_manual_20260918-120000.zip' $urlB @() '160004'
+    Assert-Eq $c.r.code 3 ('dump newer than the server -> refused with exit 3: ' + $c.r.out)
+    Assert-True ($c.r.out -match 'made by pg_dump 17, newer than this PostgreSQL server \(16\) - it cannot be imported safely\. Upgrade PostgreSQL to 17 or later, or use a restore point made on this server') 'refusal names both versions (case 18)'
+    Assert-True ($c.r.out -match 'nothing changed') 'refusal says nothing changed (case 18)'
+    Assert-Eq $c.vcalls.Count 1 'server version asked once (case 18)'
+    Assert-True ($c.vcalls[0] -match '(^| )-U postgres( |$)' -and $c.vcalls[0] -match '(^| )-w( |$)' -and $c.vcalls[0] -match '(^| )-h 127\.0\.0\.1 -p 1( |$)') 'version query: superuser, -w, PG_URL host/port (case 18)'
+    Assert-Eq $c.calls.Count 0 'no DROP / CREATE / import (case 18)'
+    Assert-Eq $c.pre.Count 0 'no pre-restore point taken (case 18)'
+    Assert-Eq (Get-Content (Join-Path $c.fx.inst 'server.js') -Raw).Trim() '// current' 'code untouched (case 18)'
+    Assert-True (-not ($c.r.out -match 'Restoring PostgreSQL|Pre-restore restore point')) 'nothing started (case 18)'
+    Assert-True (-not ($c.r.out -match 'sdp_app:x@')) 'PG_URL never printed (case 18)'
+
+    # ---- case 19: same dump, server is 17 -> proceeds ----
+    $c = Invoke-StrictCase 'none' 'sdp-restore_manual_20260919-120000.zip' $urlB @() '170002'
+    Assert-Eq $c.r.code 0 ('dump 17.2 on server 17 -> exit 0: ' + $c.r.out)
+    Assert-True ($c.r.out -match 'pg_dump 17, server is PostgreSQL 17 - compatible') 'compatibility logged (case 19)'
+    Assert-Eq $c.calls.Count 3 'drop, create, import (case 19)'
+    Assert-True ($c.r.out -match 'Database restored') 'success (case 19)'
+
+    # ---- case 19b: an older dump on a newer server -> proceeds ----
+    $d16 = $DumpText -replace 'version 17\.2', 'version 16.4 (Ubuntu 16.4-1.pgdg22.04+1)'
+    $c = Invoke-StrictCase 'none' 'sdp-restore_manual_20260920-120000.zip' $urlB @() '170002' $d16
+    Assert-Eq $c.r.code 0 ('dump 16 on server 17 -> exit 0: ' + $c.r.out)
+    Assert-True ($c.r.out -match 'pg_dump 16, server is PostgreSQL 17') 'older dump accepted (case 19b)'
+
+    # ---- case 20: the server version cannot be read -> refused (fail closed) ----
+    $c = Invoke-StrictCase 'version' 'sdp-restore_manual_20260921-120000.zip'
+    Assert-Eq $c.r.code 3 ('unreadable server version -> exit 3: ' + $c.r.out)
+    Assert-True ($c.r.out -match 'Cannot read the PostgreSQL server version') 'message names the version check (case 20)'
+    Assert-True ($c.r.out -match 'nothing changed') 'nothing changed (case 20)'
+    Assert-Eq $c.calls.Count 0 'no DROP (case 20)'
+    Assert-Eq $c.pre.Count 0 'no pre-restore point (case 20)'
+
+    # ---- case 21: dump without a version header -> refused (fail closed) ----
+    $noHdr = "-- dump`r`nSELECT 1;`r`n`r`n--`r`n-- PostgreSQL database dump complete`r`n--`r`n"
+    $c = Invoke-StrictCase 'none' 'sdp-restore_manual_20260922-120000.zip' $urlB @() '' $noHdr
+    Assert-Eq $c.r.code 3 ('headerless dump -> exit 3: ' + $c.r.out)
+    Assert-True ($c.r.out -match 'Cannot tell which pg_dump version') 'message names the missing header (case 21)'
+    Assert-Eq $c.calls.Count 0 'no DROP (case 21)'
+    Assert-Eq $c.vcalls.Count 0 'server not even asked (case 21)'
+    Assert-Eq $c.pre.Count 0 'no pre-restore point (case 21)'
+
+    # ---- case 22: PG_URL without a password -> refused before anything ----
+    $c = Invoke-StrictCase 'none' 'sdp-restore_manual_20260923-120000.zip' 'postgres://sdp_app@127.0.0.1:1/x'
+    Assert-Eq $c.r.code 3 ('PG_URL without password -> exit 3: ' + $c.r.out)
+    Assert-True ($c.r.out -match 'no user name or no password') 'message names the missing password (case 22)'
+    Assert-True ($c.r.out -match 'nothing changed') 'nothing changed (case 22)'
+    Assert-Eq ($c.calls.Count + $c.vcalls.Count) 0 'psql never called (case 22)'
+    Assert-Eq $c.pre.Count 0 'no pre-restore point (case 22)'
+    Assert-Eq (Get-Content (Join-Path $c.fx.inst 'server.js') -Raw).Trim() '// current' 'code untouched (case 22)'
+    $c = Invoke-StrictCase 'none' 'sdp-restore_manual_20260924-120000.zip' 'postgres://sdp_app:@127.0.0.1:1/x'
+    Assert-Eq $c.r.code 3 ('PG_URL with an empty password -> exit 3: ' + $c.r.out)
+    Assert-True ($c.r.out -match 'no user name or no password') 'empty password refused (case 22b)'
 } finally { foreach ($k in $savedHook.Keys) { [Environment]::SetEnvironmentVariable($k, $savedHook[$k], 'Process') } }
+
+# ---- the test hook is gated: SDP_TEST_PSQL alone never swaps psql ----
+$mText = Get-Content $manage -Raw
+Assert-True ($mText.Contains('if ($env:SDP_TEST_PSQL -and $env:SDP_INSTALLER_LOG_DIR) { return $env:SDP_TEST_PSQL }')) 'SDP_TEST_PSQL honoured only together with SDP_INSTALLER_LOG_DIR'
+$iVer = $mText.IndexOf('Get-RestoreServerMajor $verPsql')
+$iPre = $mText.IndexOf("Log 'Pre-restore restore point of the current state'")
+$iStop = $mText.IndexOf('Invoke-Pm2 @(''stop'', $SvcName)')
+Assert-True ($iVer -gt 0 -and $iVer -lt $iPre -and $iPre -lt $iStop) 'version check runs before the pre-restore point and the service stop'
 
 Write-Host ("manage-restore.tests: " + $script:AssertCount + " assertions ok")
 
 } finally {
+    foreach ($k in $savedHook.Keys) { [Environment]::SetEnvironmentVariable($k, $savedHook[$k], 'Process') }
     $env:SDP_INSTALLER_LOG_DIR = $logBefore
     foreach ($d in $script:TestTempDirs) {
         try { if (Test-Path $d) { Remove-Item -Path $d -Recurse -Force -ErrorAction SilentlyContinue } } catch { }

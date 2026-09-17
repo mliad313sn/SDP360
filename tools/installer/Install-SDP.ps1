@@ -30,9 +30,12 @@
 #   8  OPTIONAL seed data (-SeedData, fresh only): copy payload\demo\*.zip into
 #      the backup dir and restore it, so a demo machine needs zero manual file
 #      handling. NON-FATAL by design - the app is already installed and working,
-#      so a seed failure WARNs and the run still exits 0.
+#      so a seed failure WARNs, never rolls back, and the run exits 3.
 #
-# Exit codes: 0 = OK, 1 = failed, 2 = failed AND rolled back.
+# Exit codes: 0 = OK, 1 = failed, 2 = failed AND rolled back,
+#             3 = installed and verified, but the demo dataset was NOT loaded
+#                 (-SeedData only; the summary says whether the database was
+#                 left untouched or is in an uncertain state).
 #
 # NEVER: pm2 reload (EADDRINUSE crash-loop), npm install / pip download from
 # the network (everything comes from payload\), overwrite .env.
@@ -163,7 +166,9 @@ $script:DbDropped           = $false   # DROP DATABASE actually succeeded
 $script:DbCreated           = $false   # the database did not exist and was created by this run
 $script:DbExistedBefore     = $null    # probe result before provisioning ($null = probe never ran)
 $script:DbSeeded            = $false   # step 8's restore succeeded: the database now holds the demo dataset
-$script:SeedFailed          = $false   # step 8's restore returned non-zero (database state not known)
+$script:SeedFailed          = $false   # step 8's restore failed AFTER it may have changed things (database state not known)
+$script:SeedRefused         = $false   # step 8's restore was REFUSED in its pre-flight (Manage-SDP exit 3): database untouched
+$script:SeedWarning         = $null    # why the demo dataset was NOT loaded (any step-8 non-success) -> exit 3
 $script:SeedZipName         = $null    # leaf name of that demo archive
 
 function Invoke-Step([string]$N, [string]$Name, [scriptblock]$Body) {
@@ -185,6 +190,14 @@ function Invoke-Step([string]$N, [string]$Name, [scriptblock]$Body) {
 # never what the plan intended - a run that died before the DROP must not claim
 # the database was dropped. ONE place decides it; Get-DataCheck reads the same fact.
 function Get-DatabaseOutcome {
+    # A refused seed changed nothing: report what steps 1-7 did, and say the
+    # demo dataset is not in it.
+    if ($script:SeedRefused) {
+        return ((Get-BaseDatabaseOutcome) + ' - NOT replaced: demo dataset refused before any change (' + $script:SeedZipName + '), see the log')
+    }
+    return (Get-BaseDatabaseOutcome)
+}
+function Get-BaseDatabaseOutcome {
     if ($script:DbDropped) {
         if ($script:DbCreated) { return 'DROPPED and recreated' }
         return 'DROPPED - NOT recreated (restore from the restore point)'
@@ -1359,10 +1372,10 @@ function Step7-Verify {
 # =====================================================================
 function Step8-SeedData {
     $demoDir = Join-Path $PayloadDir 'demo'
-    if (-not (Test-Path $demoDir)) { Log 'No payload\demo\ in this bundle - nothing to seed.' 'WARN'; return }
+    if (-not (Test-Path $demoDir)) { $script:SeedWarning = 'no payload\demo\ in this bundle'; Log 'No payload\demo\ in this bundle - nothing to seed.' 'WARN'; return }
     $seed = Get-ChildItem $demoDir -Filter '*.zip' -File -ErrorAction SilentlyContinue |
             Sort-Object LastWriteTime -Descending | Select-Object -First 1
-    if (-not $seed) { Log 'payload\demo\ holds no .zip - nothing to seed.' 'WARN'; return }
+    if (-not $seed) { $script:SeedWarning = 'payload\demo\ holds no .zip'; Log 'payload\demo\ holds no .zip - nothing to seed.' 'WARN'; return }
 
     # Manage-SDP resolves -Name against ITS backup dir only, so the archive has
     # to live there. Creating that directory is exactly the manual step this
@@ -1373,19 +1386,32 @@ function Step8-SeedData {
     Log ("Seed archive staged: " + $dest + " (" + [math]::Round($seed.Length/1MB,1) + " MB)") 'OK'
 
     $manage = Join-Path $here 'Manage-SDP.ps1'
-    if (-not (Test-Path $manage)) { Log "Manage-SDP.ps1 not found - seed skipped." 'WARN'; return }
+    if (-not (Test-Path $manage)) { $script:SeedWarning = 'Manage-SDP.ps1 not found'; Log "Manage-SDP.ps1 not found - seed skipped." 'WARN'; return }
     # -Force skips the interactive 'type YES' prompt: the operator already chose
     # this by picking the seeded menu entry, and a second confirmation in an
     # unattended flow just stalls on a closed stdin.
     $mArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $manage, '-Restore', '-Name', $seed.Name, '-Force')
     if ($Config) { $mArgs += @('-Config', $Config) }
     & powershell @mArgs
-    if ($LASTEXITCODE -ne 0) {
-        # The restore may have failed before touching the database (nothing
-        # changed) or after replacing it (its own message names the pre-restore
-        # point to go back to) - the summary must not claim either way.
+    $rc = $LASTEXITCODE
+    if ($rc -eq 3) {
+        # Manage-SDP exit 3 = refused in its pre-flight (e.g. the demo dump was
+        # made by a newer pg_dump than this PostgreSQL server): nothing was
+        # stopped, copied or dropped. The database is exactly what steps 1-7
+        # left, so step 7's data check still stands - do not re-evaluate it.
+        $script:SeedRefused = $true
+        $script:SeedZipName = $seed.Name
+        $script:SeedWarning = 'the demo restore was refused before any change (see the reason above)'
+        Log 'Demo dataset NOT loaded - the restore was REFUSED before any change (reason above). The database was NOT replaced; the app is installed and working.' 'WARN'
+        return
+    }
+    if ($rc -ne 0) {
+        # The restore failed after its pre-flight: the service was stopped and
+        # the database may already have been dropped (its own message names the
+        # pre-restore point to go back to) - the summary must not claim either way.
         $script:SeedFailed = $true
         $script:SeedZipName = $seed.Name
+        $script:SeedWarning = 'the demo restore failed (exit ' + $rc + ') - database state uncertain'
         $script:DataCheck = Get-DataCheck
         Log 'Seed restore FAILED - the app is installed; read the restore messages above: if the database was already replaced, restore the pre-restore point they name (option 6).' 'WARN'
         return
@@ -1451,6 +1477,16 @@ try {
             Log "StopAfterStep $StopAfterStep reached - stopping here (staged run)" 'WARN'
             break
         }
+    }
+    if ($script:SeedWarning) {
+        # Installed and verified, but the demo dataset is NOT there: never a
+        # plain success (exit 3 - see the header).
+        [void]$script:StepResults.Add('WARNING step 8  demo dataset NOT loaded: ' + $script:SeedWarning)
+        Complete-Run 'COMPLETED WITH WARNINGS - demo dataset NOT loaded'
+        Write-SummaryBox 'SDP Dashboard install complete - WITH WARNINGS: demo dataset NOT loaded.'
+        Log ('WARNING: the demo dataset was NOT loaded (' + $script:SeedWarning + ').') 'ALERT'
+        if ($Mode -eq 'fresh' -and -not $StopAfterStep) { Open-Dashboard }
+        exit 3
     }
     Complete-Run 'OK'
     Write-SummaryBox 'SDP Dashboard install complete.'

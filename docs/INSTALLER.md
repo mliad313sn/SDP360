@@ -38,6 +38,8 @@ Quand `<InstallDir>\tools\installer\config.psd1` existe, il est passé en `-Conf
 liste, restore, check DB) - pas à `Install-SDP.ps1` : ce fichier est une copie
 complète de la config de l'ancien bundle et écraserait les valeurs par défaut du
 nouveau (`NodeMinMajor`, `PgMinMajor`...), et l'étape 6 le remplace de toute façon.
+**Le `config.psd1` installé est donc écrasé à chaque installation (étape 6) : pour un
+réglage durable, modifiez le `config.psd1` du bundle, pas la copie installée.**
 
 ## Sur le serveur cible
 
@@ -156,6 +158,16 @@ passer**, **ce qui est en jeu** (taille et comptages réels de la base, version,
   remplacement est refusé et la base actuelle est conservée. Le résumé indique
   `Database: replaced by demo dataset (<zip>)` et
   `Data check: skipped (database replaced by demo dataset)`.
+  Sans `server.js` existant (restes seulement), il n'y a ni restore point complet ni
+  rollback des fichiers : l'écran le dit, et seule la protection `pre-restore` de la
+  base s'applique.
+  **Un chargement de démo qui échoue n'est jamais un succès simple** : l'install reste
+  en place et vérifiée, mais le run se termine par
+  `Result: COMPLETED WITH WARNINGS - demo dataset NOT loaded` et **exit 3**. Si la
+  restauration a été refusée avant tout changement (ex. dump de démo plus récent que le
+  serveur PostgreSQL), la ligne dit
+  `Database: <created|preserved> - NOT replaced: demo dataset refused before any change (<zip>), see the log` ;
+  si elle a échoué après son pré-contrôle, `Database: uncertain - ...`.
 
 `_sdp_admin.cmd` option 6 (Restore) passe par le même écran rouge (détection dans un
 fichier propre à la session, phrase `RESTORE <yyyymmdd>`, code 0 exigé) avant
@@ -188,7 +200,9 @@ transporte (seul `tests\` en est exclu) ; s'il en manque un, l'option 6 refuse
   contient jamais d'identifiant ni de mot de passe.
 - **Rollback automatique** : si après déploiement le service ne répond pas
   (pm2 online ≤30 s + probe HTTP ×3), le code + `.env` + `node_modules.prev` sont
-  restaurés, redémarrés, re-testés → sortie `ROLLED BACK` (exit 2). Il couvre
+  restaurés, redémarrés, re-testés → sortie `ROLLED BACK` (exit 2).
+  Codes de sortie d'`Install-SDP.ps1` : 0 OK, 1 échec, 2 échec + rollback,
+  3 installé et vérifié mais jeu de démo NON chargé (`-SeedData` uniquement). Il couvre
   désormais aussi Fresh sur existant **quand `server.js` était présent** (sinon pas
   d'étape 5, donc rien vers quoi revenir). La base n'est PAS auto-restaurée (migrations
   additives ; restore DB = option 6). Redémarrages « orphan-safe » (jamais
@@ -224,6 +238,15 @@ transporte (seul `tests\` en est exclu) ; s'il en manque un, l'option 6 refuse
   4. supprime un `sdp_dashboard.sql` résiduel à la racine de l'installation avant la
      copie (l'import ne rejoue jamais un vieux dump) ;
   5. échoue « fermé » si le `.env` actuel ou le zip est illisible (aucun changement) ;
+     **règle de version** : avant le point pre-restore, l'en-tête du dump
+     (`-- Dumped by pg_dump version N`) est comparé à la version du serveur
+     (`SHOW server_version_num`, en `postgres`). Un dump fait par un pg_dump **plus
+     récent** que le serveur est refusé (« Upgrade PostgreSQL to N or later, or use a
+     restore point made on this server ») - pg_dump 17 écrit par exemple
+     `SET transaction_timeout`, que PostgreSQL 16 rejette ; un en-tête illisible ou un
+     serveur qui ne répond pas → refus aussi (échec fermé). Un `PG_URL` sans mot de
+     passe est également refusé à ce stade. Tout refus du pré-contrôle sort en
+     **exit 3** « rien modifié » (1 = échec après l'arrêt du service) ;
      la base supprimée est **exactement la base dumpée** : base, hôte et port viennent
      du même `PG_URL` que le dump de l'étape 2 (jamais de `PgHost`/`PgPort`/`DbName` de
      `config.psd1`). Ce `PG_URL` doit être une URL postgres valide dont la base et

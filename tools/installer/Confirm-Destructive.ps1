@@ -70,8 +70,17 @@ switch ($Action) {
         # Setup.bat option D on a machine that is not empty: the fresh install
         # keeps the database, but step 8 then restores the bundled demo archive,
         # which DROPS the database and reloads the demo dump - accounts included.
-        $what = 'Demo install over an EXISTING installation in ' + $s.install.dir + ': code and node_modules are redeployed, then database ' + $dbName + ' is DROPPED and replaced by the bundled demo dataset. Every report, PV, inspection and asset record is replaced, and the user accounts are replaced by the demo accounts (data\ is overlaid with the demo files).'
-        $protect = 'A full restore point of the CURRENT state is taken first. Before the demo dataset replaces the database, a pre-restore restore point with a COMPLETE database dump is taken - without it the replacement is refused and the current database is kept.'
+        # Without server.js the plan has no step 5 (same rule as
+        # fresh-over-existing): no full restore point, no rollback of the
+        # files - only step 8's own pre-restore point protects the database.
+        $dumpGuard = 'a pre-restore restore point with a COMPLETE database dump is taken - without it the replacement is refused and the current database is kept.'
+        if ($s.install.has_server_js) {
+            $what = 'Demo install over an EXISTING installation in ' + $s.install.dir + ': code and node_modules are redeployed, then database ' + $dbName + ' is DROPPED and replaced by the bundled demo dataset. Every report, PV, inspection and asset record is replaced, and the user accounts are replaced by the demo accounts (data\ is overlaid with the demo files).'
+            $protect = 'A full restore point of the CURRENT state is taken first. Before the demo dataset replaces the database, ' + $dumpGuard
+        } else {
+            $what = 'Demo install into ' + $s.install.dir + ' (leftovers found, but no installed code - no server.js): the code is deployed there, then database ' + $dbName + ' is DROPPED and replaced by the bundled demo dataset. Every report, PV, inspection and asset record is replaced, and the user accounts are replaced by the demo accounts (data\ is overlaid with the demo files).'
+            $protect = 'The database is protected by the pre-restore point taken right before it is replaced: ' + $dumpGuard + ' There is no full restore point and no rollback of the files (no installed code to save) - take a backup (option 5) first if you want a copy of the existing .env / data\ / blobs\.'
+        }
         $phrase = 'DEMO ' + $env:COMPUTERNAME
     }
     'restore' {

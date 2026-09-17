@@ -133,6 +133,16 @@ $rFo2 = RunOut ('OVERWRITE ' + $env:COMPUTERNAME) @('-Action', 'fresh-over-exist
 Assert-Eq $rFo2.Code 0 'fresh-over-existing without server.js -> 0 with the right phrase'
 Assert-True ($rFo2.Out -match 'No restore point and no automatic rollback') 'no server.js: the screen says there is no restore point / rollback'
 Assert-True (-not ($rFo2.Out -match 'automatic rollback applies')) 'no server.js: never promises a rollback'
+# demo-over-existing: the full-restore-point / redeploy wording only with server.js.
+Assert-True ($rDemo.Out -match 'A full restore point of the CURRENT state is taken first') 'demo with server.js: full restore point promised'
+Assert-True ($rDemo.Out -match 'code and node_modules are redeployed') 'demo with server.js: redeploy wording'
+$rDemo2 = RunOut ('DEMO ' + $env:COMPUTERNAME) @('-Action', 'demo-over-existing', '-Situation', $sitNoSrvFile)
+Assert-Eq $rDemo2.Code 0 'demo without server.js -> 0 with the right phrase'
+Assert-True (-not ($rDemo2.Out -match 'full restore point of the CURRENT state')) 'demo without server.js: no full restore point claimed'
+Assert-True (-not ($rDemo2.Out -match 'redeployed')) 'demo without server.js: no redeploy claim'
+Assert-True ($rDemo2.Out -match 'protected by the pre-restore point taken right before it is replaced') 'demo without server.js: the pre-restore point is the protection'
+Assert-True ($rDemo2.Out -match 'no rollback of the files') 'demo without server.js: says there is no file rollback'
+Assert-True ($rDemo2.Out -match 'DROPPED and replaced by the bundled demo dataset') 'demo without server.js: still says the database is replaced'
 $rRi = RunOut 'REINSTALL' @('-Action', 'reinstall', '-Situation', $sitFile)
 Assert-True ($rRi.Out -match 'code \+ \.env \+ data \+ DB dump\)') 'reinstall, DB reachable: restore point includes the DB dump'
 $rRi2 = RunOut 'REINSTALL' @('-Action', 'reinstall', '-Situation', $sitFile2)
