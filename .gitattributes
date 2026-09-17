@@ -8,3 +8,14 @@
 #
 # -text = no end-of-line conversion in either direction.
 tests/__golden__/*.html -text
+
+# cmd.exe mis-parses LF-only batch files (label lookup / goto) - force CRLF on
+# checkout for every batch file. The index keeps LF; only the working copy changes.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Installer unit tests are dev-only: keep them out of `git archive` (the
+# installer build's payload\app.zip, deployed by Install-SDP step 6). The deploy
+# ZIP packager skips the same folder (tools/deploy/make-deploy-zip.ps1 $skip).
+tools/installer/tests export-ignore
+tools/installer/tests/** export-ignore

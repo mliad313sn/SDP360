@@ -171,7 +171,8 @@ Downgrade is never offered from the menu, so it has no action value. `-Action dr
 with the reason on its own when the situation says `db.reachable = false` — the gate holds even
 if Setup.bat reaches the "Also DROP…?" question.
 
-Exit code 0 only on an exact match; anything else exits 1 and Setup.bat returns to the menu with
+Exit code 0 only on an exact match (case-sensitive; surrounding whitespace is trimmed because
+cmd's `echo PHRASE |` appends a trailing space — inner content must match exactly); anything else exits 1 and Setup.bat returns to the menu with
 "Cancelled — nothing changed". **Closed or empty stdin → exit 1** (a destructive action is never
 confirmed by default); a phrase arriving through a pipe is accepted like a typed one — that is how
 the harness in §6 and the existing piped Setup.bat runs work. Setup.bat passes the resulting flags

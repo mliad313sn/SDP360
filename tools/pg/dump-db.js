@@ -17,7 +17,7 @@ function loadDotEnv() {
   const p = path.join(__dirname, '../../.env');
   const out = {};
   try {
-    fs.readFileSync(p, 'utf8').split(/\r?\n/).forEach(line => {
+    fs.readFileSync(p, 'utf8').replace(/^\uFEFF/, '').split(/\r?\n/).forEach(line => {
       const m = line.match(/^\s*([A-Za-z0-9_]+)\s*=\s*(.*)\s*$/);
       if (m && !line.trim().startsWith('#')) out[m[1]] = m[2].replace(/^["']|["']$/g, '');
     });
@@ -68,5 +68,10 @@ if (r.status === 0 && fs.existsSync(outFile)) {
   console.log(`[pg-dump] OK — ${db} -> ${outFile} (${mb} MB)`);
   process.exit(0);
 }
+// pg_dump writes plain SQL top-to-bottom; a killed/failed run (timeout, OOM,
+// disk full, power loss) can leave a truncated-but-non-empty file that a
+// naive "does the file exist" check would mistake for a real dump. Delete it
+// so a restore point never carries a dump that only LOOKS complete.
+try { fs.unlinkSync(outFile); } catch (_) {}
 console.error('[pg-dump] FAILED — ' + ((r.stderr || r.error && r.error.message || 'unknown error').toString().trim()));
 process.exit(1);

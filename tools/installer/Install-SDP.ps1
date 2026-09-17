@@ -12,7 +12,10 @@
 #       [-NoBrowser]         do not open the dashboard when a fresh install ends
 #       [-NoRollback]        keep the broken state for on-site debugging
 #       [-Force]             override downgrade refusal / fresh-into-nonempty
+#       [-ForceOverwrite]    menu-guarded Fresh over an existing install: lifts ONLY
+#                            the non-empty-dir refusal (downgrade still refused)
 #       [-ConfirmDataLoss]   Reinstall only: DROP + recreate the database
+#       [-PrintPlan]         print PLAN=<steps> and exit 0 - dry run, no admin needed
 #
 # Steps (spec docs/superpowers/specs/2026-07-13-sdp-installer-design.md):
 #   1  preflight (admin, disk, port, install dir rules, downgrade check)
@@ -27,9 +30,12 @@
 #   8  OPTIONAL seed data (-SeedData, fresh only): copy payload\demo\*.zip into
 #      the backup dir and restore it, so a demo machine needs zero manual file
 #      handling. NON-FATAL by design - the app is already installed and working,
-#      so a seed failure WARNs and the run still exits 0.
+#      so a seed failure WARNs, never rolls back, and the run exits 3.
 #
-# Exit codes: 0 = OK, 1 = failed, 2 = failed AND rolled back.
+# Exit codes: 0 = OK, 1 = failed, 2 = failed AND rolled back,
+#             3 = installed and verified, but the demo dataset was NOT loaded
+#                 (-SeedData only; the summary says whether the database was
+#                 left untouched or is in an uncertain state).
 #
 # NEVER: pm2 reload (EADDRINUSE crash-loop), npm install / pip download from
 # the network (everything comes from payload\), overwrite .env.
@@ -54,12 +60,14 @@ param(
     [switch]$ConfigureEnvOnly,
     [switch]$NoRollback,
     [switch]$Force,
+    [switch]$ForceOverwrite,   # menu-guarded Fresh over an existing install: lifts ONLY the non-empty-dir refusal (downgrade still refused)
     [switch]$ConfirmDataLoss,
     [string]$Config,
     [string]$BundleRoot,
     [string]$StopAfterStep,
     [switch]$SeedData,
-    [switch]$NoBrowser
+    [switch]$NoBrowser,
+    [switch]$PrintPlan        # print PLAN=<steps> and exit 0 - dry run for the harness, no admin needed
 )
 $ErrorActionPreference = 'Stop'
 
@@ -89,6 +97,40 @@ if ($ConfigureEnvOnly) { $picked += 'env-only' }
 if ($picked.Count -gt 1) { Write-Host "Pick ONE mode (got: $($picked -join ', '))" -ForegroundColor Red; exit 1 }
 $Mode = if ($picked.Count -eq 1) { $picked[0] } else { 'upgrade' }
 
+# --- plan ---------------------------------------------------------------
+# Computed here, BEFORE the logging section and any admin/preflight checks,
+# so -PrintPlan is a genuine dry run: no C:\ProgramData\SDP-Dashboard\logs
+# folder or install-*.log file is ever created and no elevation is needed.
+# Step 5 (full restore point) ALWAYS precedes step 4 wherever step 4 can
+# DROP the database (reinstall -ConfirmDataLoss) or where the install
+# overwrites an existing one (fresh -ForceOverwrite/-Force with server.js
+# present) - 2026-09-15. On both of those paths this also means step 7's
+# automatic rollback is now armed (a restore point exists), where before
+# fresh-over-existing had none.
+$hasAppAtStart = Test-Path -LiteralPath (Join-Path $InstallDir 'server.js')
+$plan = @()
+switch ($Mode) {
+    'fresh'     {
+        if ($hasAppAtStart -and ($Force -or $ForceOverwrite)) { $plan = @('1','2','3','5','4','4b','6','7') }
+        else { $plan = @('1','2','3','4','4b','6','7') }
+        if ($SeedData) { $plan += '8' }
+    }
+    'upgrade'   { $plan = @('1','2','3','4','5','6','7') }   # 4 = verify only; new .env keys appended in 6
+    'patch'     { $plan = @('1','2','3','5','6','7') }
+    'reinstall' { $plan = @('1','2','3','5','4','4b','6','7') }
+    'env-only'  { $plan = @('4b') }
+}
+if ($PrintPlan) { Write-Output ('PLAN=' + ($plan -join ',')); exit 0 }
+
+# Dot-sourced AFTER the -PrintPlan exit above, so a dry run stays side-effect
+# free even if this file is ever missing or gains one. Defines functions only
+# (Get-SdpEnvValue, Get-SdpDbCounts, Test-SdpZipHasDump, ...) plus two
+# $script: arrays ($SdpCountTables, $SdpPgRoots) - shared with Detect-SDP.ps1
+# so there is exactly ONE counts query and ONE zip-has-dump check.
+. (Join-Path $here 'SdpSituation.ps1')
+$script:CountsBefore = $null
+$script:DataCheck = 'skipped'
+
 # --- logging ----------------------------------------------------------
 $LogDir = 'C:\ProgramData\SDP-Dashboard\logs'
 if (-not (Test-Path $LogDir)) { New-Item -ItemType Directory -Path $LogDir -Force | Out-Null }
@@ -97,7 +139,7 @@ $LogFile = Join-Path $LogDir ("install-$stamp.log")
 $SummaryFile = Join-Path $LogDir ("install-summary-$stamp.txt")
 $InstallsLog = Join-Path $LogDir 'installs.log'
 function Log($m, $lvl = 'INFO') {
-    $c = switch ($lvl) { 'OK' {'Green'} 'WARN' {'Yellow'} 'ERROR' {'Red'} 'STEP' {'Cyan'} default {'Gray'} }
+    $c = switch ($lvl) { 'OK' {'Green'} 'WARN' {'Yellow'} 'ERROR' {'Red'} 'ALERT' {'Red'} 'STEP' {'Cyan'} default {'Gray'} }
     $line = (Get-Date -Format 'HH:mm:ss') + " [$lvl] $m"
     Write-Host $line -ForegroundColor $c
     Add-Content -Path $LogFile -Value $line
@@ -113,6 +155,21 @@ $script:BundleSha   = '?'
 $script:RollbackZip = $null
 $script:Pm2         = $null      # resolved in step 3; $null = NoService test mode
 $script:NodeProc    = $null      # NoService mode: the plain background node process
+# Task 7 summary facts. These assignments only document the INITIAL values
+# (what the summary reports when nothing has happened yet); the real values are
+# set later - the two *AtStart facts right after Write-EnvHeader in main, the
+# four Db* facts inside Step4-Postgres as each action actually happens.
+$script:InstalledVerAtStart = $null
+$script:EnvExistedAtStart   = $false
+$script:Step4Reached        = $false   # Step4-Postgres started
+$script:DbDropped           = $false   # DROP DATABASE actually succeeded
+$script:DbCreated           = $false   # the database did not exist and was created by this run
+$script:DbExistedBefore     = $null    # probe result before provisioning ($null = probe never ran)
+$script:DbSeeded            = $false   # step 8's restore succeeded: the database now holds the demo dataset
+$script:SeedFailed          = $false   # step 8's restore failed AFTER it may have changed things (database state not known)
+$script:SeedRefused         = $false   # step 8's restore was REFUSED in its pre-flight (Manage-SDP exit 3): database untouched
+$script:SeedWarning         = $null    # why the demo dataset was NOT loaded (any step-8 non-success) -> exit 3
+$script:SeedZipName         = $null    # leaf name of that demo archive
 
 function Invoke-Step([string]$N, [string]$Name, [scriptblock]$Body) {
     Log ("---- Step $N : $Name ----") 'STEP'
@@ -125,11 +182,88 @@ function Invoke-Step([string]$N, [string]$Name, [scriptblock]$Body) {
         throw
     }
 }
+# Spec 4.4: the console box AND summary.txt carry the SAME eight lines in the
+# SAME order on every run. They are built ONCE here and both writers consume
+# this list, so the two can never drift. Must never throw (it also runs on
+# the FAILED path, from Complete-Run in the main catch).
+# The Database line describes what HAPPENED (the Db* facts set by Step4-Postgres),
+# never what the plan intended - a run that died before the DROP must not claim
+# the database was dropped. ONE place decides it; Get-DataCheck reads the same fact.
+function Get-DatabaseOutcome {
+    # A refused seed changed nothing: report what steps 1-7 did, and say the
+    # demo dataset is not in it.
+    if ($script:SeedRefused) {
+        return ((Get-BaseDatabaseOutcome) + ' - NOT replaced: demo dataset refused before any change (' + $script:SeedZipName + '), see the log')
+    }
+    return (Get-BaseDatabaseOutcome)
+}
+function Get-BaseDatabaseOutcome {
+    if ($script:DbDropped) {
+        if ($script:DbCreated) { return 'DROPPED and recreated' }
+        return 'DROPPED - NOT recreated (restore from the restore point)'
+    }
+    # Step 8 replaced whatever step 4 created or kept - say so, never 'preserved'.
+    if ($script:DbSeeded) { return ('replaced by demo dataset (' + $script:SeedZipName + ')') }
+    if ($script:SeedFailed) { return ('uncertain - demo dataset restore failed (' + $script:SeedZipName + '), see the log') }
+    if ($Mode -eq 'reinstall' -and $ConfirmDataLoss) { return 'preserved (drop not performed)' }
+    if ($script:DbCreated) { return 'created' }
+    if ($Mode -eq 'fresh' -and -not $script:Step4Reached) { return 'not created (run stopped before step 4)' }
+    if ($Mode -eq 'fresh' -and $script:DbExistedBefore -eq $false) { return 'not created (step 4 failed)' }
+    return 'preserved'
+}
+function Get-SummaryLines {
+  try {
+    $isEnvOnly = ($Mode -eq 'env-only')
+    $modeVal = ([string]$Mode).ToUpper()
+    if ($Mode -eq 'patch' -or $Mode -eq 'upgrade') { $modeVal += ' (code updated; database + data preserved)' }
+    $verVal = $(if ($script:InstalledVerAtStart) { $script:InstalledVerAtStart } else { 'none' }) + ' -> ' + $script:BundleVer
+    # env-only never touches the database, never takes a restore point and
+    # never runs the data check - dedicated values say so plainly instead of
+    # reusing the fresh-install wording, which would mislead on a run that
+    # only wrote .env.
+    if ($isEnvOnly) {
+        $rpVal = 'not applicable (configure .env only)'
+        $dbVal = 'untouched (configure .env only)'
+        $dcVal = 'not applicable'
+    } else {
+        $rpVal = $(if ($script:RollbackZip) { $script:RollbackZip } else { 'none (fresh install)' })
+        $dbVal = Get-DatabaseOutcome
+        $dcVal = [string]$script:DataCheck
+    }
+    $envVal = $(if ($script:EnvExistedAtStart) { 'preserved (merged)' } else { 'created' })
+    return @(
+        [pscustomobject]@{ Label = 'Mode';          Value = $modeVal }
+        [pscustomobject]@{ Label = 'Version';       Value = $verVal }
+        [pscustomobject]@{ Label = 'Restore point'; Value = $rpVal }
+        [pscustomobject]@{ Label = 'Database';      Value = $dbVal }
+        [pscustomobject]@{ Label = '.env';          Value = $envVal }
+        [pscustomobject]@{ Label = 'Data check';    Value = $dcVal }
+        [pscustomobject]@{ Label = 'Log';           Value = [string]$LogFile }
+        [pscustomobject]@{ Label = 'Summary';       Value = [string]$SummaryFile }
+    )
+  } catch {
+    # Never mask the original error on the failure path with a summary error.
+    return @([pscustomobject]@{ Label = 'Summary'; Value = ('unavailable: ' + $_.Exception.Message) })
+  }
+}
+# The green console box - same lines as summary.txt (Get-SummaryLines).
+function Write-SummaryBox([string]$title) {
+    Log '==================================================' 'OK'
+    Log (' ' + $title) 'OK'
+    foreach ($s in (Get-SummaryLines)) {
+        $lvl = 'OK'
+        if ($s.Label -eq 'Data check' -and $s.Value -like 'WARNING*') { $lvl = 'ALERT' }
+        Log ('   ' + $s.Label.PadRight(14) + ': ' + $s.Value) $lvl
+    }
+    Log '==================================================' 'OK'
+}
 function Write-RunSummary([string]$result) {
     $lines = @()
     $lines += "SDP Dashboard install run $stamp"
-    $lines += "Mode: $Mode   Config: $Config   Bundle: $BundleRoot (version $($script:BundleVer))"
     $lines += "Result: $result"
+    foreach ($s in (Get-SummaryLines)) { $lines += ($s.Label + ': ' + $s.Value) }
+    $lines += "Config: $Config"
+    $lines += "Bundle: $BundleRoot (version $($script:BundleVer))"
     $lines += ''
     $lines += $script:StepResults
     if ($script:WarnKeys.Count -gt 0) {
@@ -144,7 +278,6 @@ function Write-RunSummary([string]$result) {
         else { $resume += ' -' + $kv.Key + ' "' + $kv.Value + '"' }
     }
     $lines += "Resume command: $resume"
-    $lines += "Log: $LogFile"
     Set-Content -Path $SummaryFile -Value $lines -Encoding ascii
 }
 function Complete-Run([string]$result) {
@@ -152,6 +285,48 @@ function Complete-Run([string]$result) {
     $who = "$env:USERDOMAIN\$env:USERNAME"
     Add-Content -Path $InstallsLog -Value ("$stamp | $who | $Mode | $($script:BundleVer) | $result")
     Write-RunSummary $result
+}
+
+# Environment header at the top of every log (mirrors the 4MyPeople installer).
+# Secrets are reported as (set)/(not set) ONLY. Every probe below is wrapped in
+# its OWN try/catch -> 'unknown' - a WMI/CIM hiccup, a missing DriveInfo root,
+# node/psql not on PATH, or a netstat parse failure must never abort the run
+# just for a log-header cosmetic (this function runs before step 1).
+function Write-EnvHeader {
+    $os = 'unknown'
+    try {
+        $osInfo = Get-CimInstance Win32_OperatingSystem   # ONE call, two fields
+        $os = $osInfo.Caption + ' build ' + $osInfo.BuildNumber
+    } catch { $os = 'unknown' }
+    $free = 'unknown'
+    try { $free = [math]::Round((New-Object System.IO.DriveInfo([System.IO.Path]::GetPathRoot([System.IO.Path]::GetFullPath($InstallDir)))).AvailableFreeSpace / 1GB, 1) } catch { $free = 'unknown' }
+    $nodeV = 'unknown'
+    try { $nodeV = (& node -v 2>$null); if ([string]::IsNullOrWhiteSpace($nodeV)) { $nodeV = 'not on PATH' } } catch { $nodeV = 'unknown' }
+    $psqlV = 'unknown'
+    try { $psqlV = if (Find-PgBin 'psql.exe') { 'found' } else { 'not found' } } catch { $psqlV = 'unknown' }
+    $ports = @('unknown')
+    try {
+        $arr = @()
+        foreach ($p in @($AppPort, [int]$cfg.PgPort)) { $arr += ('' + $p + '=' + $(if ((Get-PortListenerPids $p).Count -gt 0) { 'IN USE' } else { 'free' })) }
+        $ports = $arr
+    } catch { $ports = @('unknown') }
+    $lines = @(
+        '----- ENVIRONMENT -----',
+        ('Timestamp        : ' + (Get-Date -Format 'o')),
+        ('Run as user      : ' + $env:USERDOMAIN + '\' + $env:USERNAME),
+        ('Computer         : ' + $env:COMPUTERNAME),
+        ('OS               : ' + $os),
+        ('PowerShell       : ' + $PSVersionTable.PSVersion + ' (' + $PSVersionTable.PSEdition + ')'),
+        ('Free space       : ' + $free + ' GB on the install drive'),
+        ('Mode / Config    : ' + $Mode + ' / ' + $(if ($Config) { $Config } else { 'config.psd1' })),
+        ('Config (resolved): InstallDir=' + $InstallDir + '; AppPort=' + $AppPort + '; Service=' + $SvcName + '; PgHost=' + $cfg.PgHost + '; PgPort=' + $cfg.PgPort + '; DbName=' + $cfg.DbName),
+        ('PG super password: ' + $(if ($cfg.StandardPgSuperPassword -or ($cfg.EnvAnswers -and $cfg.EnvAnswers.PG_SUPER_PASSWORD)) { '(set)' } else { '(not set)' })),
+        ('node             : ' + $nodeV),
+        ('psql             : ' + $psqlV),
+        ('Ports            : ' + ($ports -join '  ')),
+        '-----------------------')
+    foreach ($l in $lines) { Add-Content -Path $LogFile -Value $l }
+    Write-Host ($lines -join "`n") -ForegroundColor DarkGray
 }
 
 # --- generic helpers --------------------------------------------------
@@ -188,10 +363,10 @@ function Read-Secret($prompt) {
     }
 }
 function Get-EnvValue($key) {
-    $envFile = Join-Path $InstallDir '.env'
-    if (-not (Test-Path $envFile)) { return $null }
-    $m = Select-String -Path $envFile -Pattern ('^' + $key + '=(.+)$') | Select-Object -First 1
-    if ($m) { return $m.Matches[0].Groups[1].Value.Trim() } else { return $null }
+    # One implementation only - SdpSituation.ps1's Get-SdpEnvValue (dot-sourced
+    # below, after the -PrintPlan exit). Name kept so every existing caller here
+    # is unchanged.
+    return (Get-SdpEnvValue $InstallDir $key)
 }
 function New-RandomPassword([int]$len = 24) {
     $chars = ([char[]](48..57)) + ([char[]](65..90)) + ([char[]](97..122))
@@ -209,15 +384,10 @@ function Resolve-Pm2 {
     return $null
 }
 function Find-PgBin($exe) {
-    foreach ($root in @('C:\Program Files\PostgreSQL', 'C:\Program Files (x86)\PostgreSQL')) {
-        if (Test-Path $root) {
-            foreach ($v in (Get-ChildItem $root -Directory | Sort-Object { [double]$_.Name } -Descending)) {
-                $p = Join-Path $v.FullName ("bin\" + $exe)
-                if (Test-Path $p) { return $p }
-            }
-        }
-    }
-    return $null
+    # One implementation only - SdpSituation.ps1's Find-SdpPgBin (dot-sourced
+    # above, after the -PrintPlan exit): never throws, TryParse-sorted, and
+    # its roots ($script:SdpPgRoots) are the ones Detect-SDP.ps1 also uses.
+    return (Find-SdpPgBin $exe)
 }
 
 # =====================================================================
@@ -437,9 +607,10 @@ function Step1-Preflight {
     } else { Log "Port $AppPort is free" }
 
     # install dir rules per mode
-    $hasApp = Test-Path (Join-Path $InstallDir 'server.js')
+    $hasApp = Test-Path -LiteralPath (Join-Path $InstallDir 'server.js')
     if ($Mode -eq 'fresh') {
-        if ($hasApp -and -not $Force) { Die "Fresh mode but $InstallDir already contains server.js. Use -Upgrade / -Reinstall, or -Force to overwrite." }
+        if ($hasApp -and -not $Force -and -not $ForceOverwrite) { Die "Fresh mode but $InstallDir already contains server.js. Use -Upgrade / -Reinstall, or the menu's guarded Fresh (-ForceOverwrite)." }
+        if ($hasApp) { Log 'Fresh over an EXISTING installation: a full restore point is taken (step 5) before the database step' 'WARN' }
         if (-not (Test-Path $InstallDir)) { New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null; Log "Created $InstallDir" }
     } else {
         if (-not $hasApp) { Die "$Mode mode requires an existing install (no server.js in $InstallDir). Use -Fresh." }
@@ -640,8 +811,40 @@ function Invoke-PsqlSuper([string]$sql) {
     $psql = Find-PgBin 'psql.exe'
     if (-not $psql) { Die 'psql.exe not found under Program Files\PostgreSQL' }
     $env:PGPASSWORD = Get-SuperPassword
-    try { return (& $psql -h $cfg.PgHost -p $cfg.PgPort -U postgres -d postgres -v ON_ERROR_STOP=1 -t -A -c $sql) }
+    # -w: never prompt (a closed-stdin interactive password prompt hangs the installer).
+    try { return (& $psql -h $cfg.PgHost -p $cfg.PgPort -U postgres -d postgres -w -v ON_ERROR_STOP=1 -t -A -c $sql) }
     finally { $env:PGPASSWORD = '' }
+}
+# Same as Invoke-PsqlSuper but the SQL travels on STDIN, never on the command line:
+# a statement carrying a password (CREATE ROLE ... PASSWORD) must not be visible in
+# process listings or a PowerShell transcript (the 4MyPeople transcript of 2026-09-15
+# leaked its superuser password exactly that way).
+function Invoke-PsqlSuperStdin([string]$sql) {
+    $psql = Find-PgBin 'psql.exe'
+    if (-not $psql) { Die 'psql.exe not found under Program Files\PostgreSQL' }
+    $env:PGPASSWORD = Get-SuperPassword
+    # A generated/typed password can carry non-ASCII characters; the SQL travels
+    # through the PowerShell pipeline to psql's stdin, so the pipeline's own
+    # encoding (OutputEncoding) and what psql is told to expect on the wire
+    # (PGCLIENTENCODING) must agree, or the CREATE ROLE statement gets mangled
+    # and the app's own connection later fails to authenticate.
+    #
+    # MUST be $global:OutputEncoding, not a bare $OutputEncoding assignment:
+    # inside a function, a bare assignment only creates a NEW LOCAL variable
+    # that shadows the global one for the rest of THIS scope - PowerShell 5.1's
+    # native-pipe encoding is read from the actual global preference variable
+    # when it pipes text to a child process, so the local shadow has ZERO
+    # effect on what psql actually receives (proven: without this, an e-acute
+    # arrived at the child process as the single byte 0x3F, a literal '?').
+    # UTF8 also makes psql skip the single BOM that PS 5.1 prepends on a 65001
+    # console; with any other client encoding that BOM is a syntax error
+    # (verified against psql 17).
+    $prevOutputEncoding = $global:OutputEncoding
+    $global:OutputEncoding = New-Object System.Text.UTF8Encoding $false
+    $prevPgClientEncoding = $env:PGCLIENTENCODING
+    $env:PGCLIENTENCODING = 'UTF8'
+    try { return ($sql | & $psql -h $cfg.PgHost -p $cfg.PgPort -U postgres -d postgres -w -v ON_ERROR_STOP=1 -t -A -f -) }
+    finally { $env:PGPASSWORD = ''; $env:PGCLIENTENCODING = $prevPgClientEncoding; $global:OutputEncoding = $prevOutputEncoding }
 }
 
 # Probe the cluster we will ACTUALLY use - host+port+superuser credentials -
@@ -672,6 +875,7 @@ function Test-PgSuper {
     return @{ Ok = $false; Err = $text }
 }
 function Step4-Postgres {
+    $script:Step4Reached = $true
     # ---- cluster present? ----
     $svc = Get-Service postgresql* -ErrorAction SilentlyContinue | Select-Object -First 1
     if ($svc) {
@@ -765,6 +969,12 @@ function Step4-Postgres {
             $inp = Read-Secret '  sdp_app database password [Enter = generate one]'
             if ([string]::IsNullOrWhiteSpace($inp)) {
                 $appPw = New-RandomPassword
+                # Deliberate exception to "no secret on stdout": the operator
+                # has no other way to learn a freshly generated password. It
+                # can still reach an active PowerShell transcript (Start-
+                # Transcript) if one happens to be running - same caveat as
+                # the 4MyPeople leak this file's header references - and the
+                # value is ALSO stored in .env PG_URL right after this step.
                 Write-Host ("     generated: " + $appPw + "   (SHOWN ONCE - stored in .env PG_URL)") -ForegroundColor Yellow
             } else { $appPw = $inp }
         }
@@ -776,9 +986,15 @@ function Step4-Postgres {
         Log ("-ConfirmDataLoss: DROP DATABASE IF EXISTS " + $cfg.DbName) 'WARN'
         Invoke-PsqlSuper ("DROP DATABASE IF EXISTS " + $cfg.DbName + " WITH (FORCE)") | Out-Null
         if ($LASTEXITCODE -ne 0) { Die 'DROP DATABASE failed' }
+        $script:DbDropped = $true
     }
 
     # ---- provision role + database (idempotent) ----
+    if ($cfg.DbName -notmatch '^[a-z_][a-z0-9_]*$') { Die "Unsafe DbName '$($cfg.DbName)'" }
+    # Did the database exist BEFORE provisioning? Decides the summary's
+    # 'created' vs 'preserved' from fact, whichever provisioning path runs.
+    $dbExistedBefore = ("" + (Invoke-PsqlSuper ("SELECT 1 FROM pg_database WHERE datname = '" + $cfg.DbName + "'"))).Trim() -eq '1'
+    $script:DbExistedBefore = $dbExistedBefore
     $prov = if ($env:SDP_FORCE_PSQL_PROVISION -eq '1') { $null } else { Find-ProvisionScript }
     if ($prov) {
         Log ("Provisioning via node " + $prov.Script + " --db=" + $cfg.DbName) 'STEP'
@@ -788,21 +1004,22 @@ function Step4-Postgres {
             try { & node $prov.Script ('--db=' + $cfg.DbName) } finally { Pop-Location }
             if ($LASTEXITCODE -ne 0) { Die 'provision-prod.js failed - see output above' }
         } finally { $env:SDP_APP_PASSWORD = '' }
+        if (-not $dbExistedBefore) { $script:DbCreated = $true }
     } else {
         # psql fallback - byte-for-byte the provision-prod.js semantics:
         # role create-if-absent (password NOT reset when it exists), db create-if-absent.
         Log 'Provisioning via psql fallback (node_modules\pg not reachable yet)' 'STEP'
-        if ($cfg.DbName -notmatch '^[a-z_][a-z0-9_]*$') { Die "Unsafe DbName '$($cfg.DbName)'" }
+        # (DbName already validated above, before the probe - same value on every path)
         $roleExists = Invoke-PsqlSuper "SELECT 1 FROM pg_roles WHERE rolname = 'sdp_app'"
         if ("$roleExists".Trim() -ne '1') {
-            Invoke-PsqlSuper ("CREATE ROLE sdp_app LOGIN PASSWORD '" + ($appPw -replace "'", "''") + "'") | Out-Null
+            Invoke-PsqlSuperStdin ("CREATE ROLE sdp_app LOGIN PASSWORD '" + ($appPw -replace "'", "''") + "';") | Out-Null
             if ($LASTEXITCODE -ne 0) { Die 'CREATE ROLE sdp_app failed' }
             Log 'role sdp_app created'
         } else { Log 'role sdp_app already exists (password unchanged - PG_URL must match it)' 'WARN' }
-        $dbExists = Invoke-PsqlSuper ("SELECT 1 FROM pg_database WHERE datname = '" + $cfg.DbName + "'")
-        if ("$dbExists".Trim() -ne '1') {
+        if (-not $dbExistedBefore) {
             Invoke-PsqlSuper ("CREATE DATABASE " + $cfg.DbName + " OWNER sdp_app") | Out-Null
             if ($LASTEXITCODE -ne 0) { Die ("CREATE DATABASE " + $cfg.DbName + " failed") }
+            $script:DbCreated = $true
             Log ("database " + $cfg.DbName + " created (owner sdp_app)")
         } else { Log ("database " + $cfg.DbName + " already exists") }
     }
@@ -824,18 +1041,109 @@ function Step4-Postgres {
 # Step 5 - automatic pre-change restore point via Manage-SDP.ps1 -Backup.
 # Manage-SDP's LAST stdout line is the zip path (its logs go to the console
 # via Write-Host, not the output stream).
+#
+# Step 5 now runs BEFORE step 4 on reinstall / fresh-over-existing (2026-09-15),
+# so the PostgreSQL service may still be stopped at this point: pg_dump needs
+# it up. And whenever the plan carries -ConfirmDataLoss (a DROP is coming in
+# step 4), the produced zip MUST actually contain the DB dump, or the restore
+# point is worthless as a safety net for the very thing it exists to protect
+# against - refuse to continue rather than let the DROP proceed unguarded.
 # =====================================================================
+# Before any DROP: the database step 4 drops ($cfg.DbName on $cfg.PgHost:PgPort)
+# must be the database the pre-change dump saves and the red screen's
+# 'DROP <db>' phrase named. The dump (tools\pg\dump-db.js) reads PG_URL from the
+# environment first (PG_URL, then DATABASE_URL), then from .env; the phrase comes
+# from .env PG_URL. Any of those naming another database would leave the dropped
+# one without a dump. Messages carry db@host:port only - never a URL or a credential.
+function Format-SdpDbTarget($t) {
+    if (-not $t) { return 'unparsable URL' }
+    return ($t.db + '@' + $t.host + ':' + $t.port)
+}
+function Assert-DropTargetMatchesEnv {
+    $cfgPort = if ("$($cfg.PgPort)".Trim()) { "$($cfg.PgPort)".Trim() } else { '5432' }
+    $cfgLabel = [string]$cfg.DbName + '@' + (ConvertTo-SdpPgHost ([string]$cfg.PgHost)) + ':' + $cfgPort
+    $envUrl = $null
+    try { $envUrl = Get-SdpEnvValueStrict $InstallDir 'PG_URL' }
+    catch { Die ('Cannot read .env - cannot prove it names the database this installer would drop (' + $cfgLabel + '); nothing was dropped.') }
+    if (-not $envUrl) { Die ('.env has no PG_URL - cannot prove it names the database this installer would drop (' + $cfgLabel + ') - fix .env or config.psd1; nothing was dropped.') }
+    $checks = @(, @('.env', $envUrl))
+    foreach ($k in @('PG_URL', 'DATABASE_URL')) {
+        $v = [Environment]::GetEnvironmentVariable($k, 'Process')
+        if ($v) { $checks += , @(('the ' + $k + ' environment variable'), $v); break }   # dump-db.js uses the first one set
+    }
+    foreach ($c in $checks) {
+        if (-not (Test-SdpSameDatabase $c[1] $cfg.DbName $cfg.PgHost $cfg.PgPort)) {
+            Die ('The database named in ' + $c[0] + ' (' + (Format-SdpDbTarget (Get-SdpPgUrlTarget $c[1])) + ') is not the one this installer would drop (' + $cfgLabel + ') - fix .env or config.psd1; nothing was dropped.')
+        }
+    }
+    Log ('Drop target proven: .env names the database step 4 drops (' + $cfgLabel + ')') 'OK'
+}
+# Manage-SDP runs in a child process: its console lines (Log -> Write-Host,
+# dump-db.js progress, '[pg-dump] FAILED ...') arrive in the captured output,
+# not on this console. Replay them here (console + install log) so a failed or
+# skipped dump is visible, and return the LAST line - the zip path contract
+# (Manage-SDP.ps1 'backup' ends with Write-Output $zip). -All replays every
+# line (a failed child has no zip line; its last line is the error).
+function Split-ChildBackupOutput($out, [switch]$All) {
+    $lines = @($out | Where-Object { $null -ne $_ } | ForEach-Object { [string]$_ })
+    if ($lines.Count -eq 0) { return $null }
+    $replay = if ($All) { $lines } else { @($lines | Select-Object -First ($lines.Count - 1)) }
+    foreach ($l in $replay) {
+        Write-Host ('    ' + $l) -ForegroundColor DarkGray
+        try { Add-Content -Path $LogFile -Value ('         [manage] ' + $l) } catch { }
+    }
+    if ($All) { return $null }
+    return $lines[$lines.Count - 1]
+}
 function Step5-Backup {
     $manage = Join-Path $here 'Manage-SDP.ps1'
     if (-not (Test-Path $manage)) { Die "Manage-SDP.ps1 not found next to this script: $manage" }
+    # Proven before the restore point is even taken: nothing is spent on a run
+    # that would be refused, and step 4 (the DROP) always comes after step 5.
+    if ($ConfirmDataLoss) { Assert-DropTargetMatchesEnv }
+    $svc = Get-Service postgresql* -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($svc -and $svc.Status -ne 'Running') {
+        Log ('Starting the PostgreSQL service for the pre-change dump (' + $svc.Name + ')') 'STEP'
+        $startErr = $null
+        try {
+            if ($svc.Status -eq 'Stopped') { $svc.Start() }
+            $svc.WaitForStatus('Running', [TimeSpan]::FromSeconds(30))
+        } catch [System.ServiceProcess.TimeoutException] {
+            $startErr = 'service did not reach Running within 30s (status: ' + $svc.Status + ')'
+        } catch {
+            $startErr = $_.Exception.Message
+        }
+        if ($startErr) {
+            if ($ConfirmDataLoss) { Die ('Cannot start the PostgreSQL service ' + $svc.Name + ' - the pre-change dump needs it: ' + $startErr) }
+            else { Log ('Could not start the PostgreSQL service ' + $svc.Name + ' - continuing without it, the pre-change dump may be empty: ' + $startErr) 'WARN' }
+        }
+    }
+    # Data-integrity baseline (compared again in step 7 on the success path).
+    $script:CountsBefore = Get-SdpDbCounts $InstallDir
+    if ($script:CountsBefore.reachable) { Log ('Data baseline: ' + (Format-Counts $script:CountsBefore.counts)) }
+    else { Log ('Data baseline unavailable (' + $script:CountsBefore.error + ')') 'WARN' }
     $mArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $manage, '-Backup', '-Tag', ('pre-' + $script:BundleVer))
     if ($Config) { $mArgs += @('-Config', $Config) }
     $out = & powershell @mArgs
-    if ($LASTEXITCODE -ne 0) { Die 'Pre-change backup failed - refusing to continue (see the manage-backup log)' }
-    $zip = ($out | Select-Object -Last 1)
+    $code = $LASTEXITCODE
+    if ($code -ne 0) {
+        Split-ChildBackupOutput $out -All | Out-Null
+        Die 'Pre-change backup failed - refusing to continue (see the manage-backup log)'
+    }
+    $zip = Split-ChildBackupOutput $out
     if (-not ($zip -and (Test-Path $zip))) { Die "Backup ran but returned no zip path (got: '$zip')" }
+    if ($ConfirmDataLoss -and -not (Test-SdpZipHasDump $zip)) {
+        Die ('No database dump inside the restore point ' + (Split-Path $zip -Leaf) + ' - refusing to DROP the database. Check PG_URL / the PostgreSQL service, take a backup (menu 5) and retry.')
+    }
     $script:RollbackZip = $zip
     Log ("Restore point: " + $zip) 'OK'
+}
+# Get-SdpCountValue (SdpSituation.ps1) reads $c[$_] on a Hashtable (the real
+# shape Get-SdpDbCounts returns) OR a PSCustomObject (a fixture built via
+# ConvertFrom-Json / [pscustomobject]@{}) - so this renders either.
+function Format-Counts($c) {
+    if (-not $c) { return 'n/a' }
+    return (($script:SdpCountTables | ForEach-Object { $v = Get-SdpCountValue $c $_; $_ + ' ' + $(if ($null -eq $v) { '-' } else { $v }) }) -join ', ')
 }
 
 # =====================================================================
@@ -985,6 +1293,33 @@ function Invoke-Rollback {
         Log 'Rollback file restore complete (DB not auto-rolled-back by design)' 'OK'
     } finally { Remove-Item $stage -Recurse -Force -ErrorAction SilentlyContinue }
 }
+# Compare the step-5 baseline with the counts after the restart. Any DECREASE is a
+# red WARNING in the summary (never an automatic rollback: a rollback restores code
+# only, the DB decision is the operator's - the message names the restore point).
+# Success-path only (Step7-Verify calls it just before 'Verification PASSED') -
+# a failed/rolled-back run says nothing about data because the app never came
+# back up to be trusted, and $script:DataCheck stays its 'skipped' default.
+# Never throws: any exception becomes a 'skipped' line - a cosmetic check must
+# never fail (or roll back) a run whose service already verified healthy.
+function Get-DataCheck {
+    try {
+        if ($script:DbDropped) { return 'skipped (database dropped by request)' }
+        if ($script:DbSeeded) { return 'skipped (database replaced by demo dataset)' }
+        if ($script:SeedFailed) { return 'skipped (demo dataset restore failed - database state uncertain)' }
+        if (-not $script:CountsBefore) { return 'skipped (fresh install)' }
+        if (-not $script:CountsBefore.reachable) { return 'skipped (db counts unavailable before)' }
+        $after = Get-SdpDbCounts $InstallDir
+        if (-not $after.reachable) { return ('skipped (db counts unavailable after: ' + $after.error + ')') }
+        $drops = @(Compare-SdpCounts $script:CountsBefore.counts $after.counts)
+        if ($drops.Count -gt 0) {
+            $rp = if ($script:RollbackZip) { Split-Path $script:RollbackZip -Leaf } else { 'none' }
+            return ('WARNING - ' + ($drops -join ', ') + ' - restore point: ' + $rp)
+        }
+        return ('OK (' + (Format-Counts $after.counts) + ')')
+    } catch {
+        return ('skipped (db counts unavailable after: ' + $_.Exception.Message + ')')
+    }
+}
 function Step7-Verify {
     $ok = $false
     try {
@@ -996,6 +1331,8 @@ function Step7-Verify {
         $prev = Join-Path $InstallDir 'node_modules.prev'
         if (Test-Path $prev) { Remove-Item $prev -Recurse -Force; Log 'node_modules.prev deleted (verify passed)' }
         Stop-NoServiceProbe
+        $script:DataCheck = Get-DataCheck
+        if ($script:DataCheck -like 'WARNING*') { Log ('Data check: ' + $script:DataCheck) 'ALERT' } else { Log ('Data check: ' + $script:DataCheck) 'OK' }
         Log 'Verification PASSED' 'OK'
         return
     }
@@ -1035,10 +1372,10 @@ function Step7-Verify {
 # =====================================================================
 function Step8-SeedData {
     $demoDir = Join-Path $PayloadDir 'demo'
-    if (-not (Test-Path $demoDir)) { Log 'No payload\demo\ in this bundle - nothing to seed.' 'WARN'; return }
+    if (-not (Test-Path $demoDir)) { $script:SeedWarning = 'no payload\demo\ in this bundle'; Log 'No payload\demo\ in this bundle - nothing to seed.' 'WARN'; return }
     $seed = Get-ChildItem $demoDir -Filter '*.zip' -File -ErrorAction SilentlyContinue |
             Sort-Object LastWriteTime -Descending | Select-Object -First 1
-    if (-not $seed) { Log 'payload\demo\ holds no .zip - nothing to seed.' 'WARN'; return }
+    if (-not $seed) { $script:SeedWarning = 'payload\demo\ holds no .zip'; Log 'payload\demo\ holds no .zip - nothing to seed.' 'WARN'; return }
 
     # Manage-SDP resolves -Name against ITS backup dir only, so the archive has
     # to live there. Creating that directory is exactly the manual step this
@@ -1049,17 +1386,42 @@ function Step8-SeedData {
     Log ("Seed archive staged: " + $dest + " (" + [math]::Round($seed.Length/1MB,1) + " MB)") 'OK'
 
     $manage = Join-Path $here 'Manage-SDP.ps1'
-    if (-not (Test-Path $manage)) { Log "Manage-SDP.ps1 not found - seed skipped." 'WARN'; return }
+    if (-not (Test-Path $manage)) { $script:SeedWarning = 'Manage-SDP.ps1 not found'; Log "Manage-SDP.ps1 not found - seed skipped." 'WARN'; return }
     # -Force skips the interactive 'type YES' prompt: the operator already chose
     # this by picking the seeded menu entry, and a second confirmation in an
     # unattended flow just stalls on a closed stdin.
     $mArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $manage, '-Restore', '-Name', $seed.Name, '-Force')
     if ($Config) { $mArgs += @('-Config', $Config) }
     & powershell @mArgs
-    if ($LASTEXITCODE -ne 0) {
-        Log 'Seed restore FAILED - the app is installed and running, just empty. Load a restore point from the menu (option 6).' 'WARN'
+    $rc = $LASTEXITCODE
+    if ($rc -eq 3) {
+        # Manage-SDP exit 3 = refused in its pre-flight (e.g. the demo dump was
+        # made by a newer pg_dump than this PostgreSQL server): nothing was
+        # stopped, copied or dropped. The database is exactly what steps 1-7
+        # left, so step 7's data check still stands - do not re-evaluate it.
+        $script:SeedRefused = $true
+        $script:SeedZipName = $seed.Name
+        $script:SeedWarning = 'the demo restore was refused before any change (see the reason above)'
+        Log 'Demo dataset NOT loaded - the restore was REFUSED before any change (reason above). The database was NOT replaced; the app is installed and working.' 'WARN'
         return
     }
+    if ($rc -ne 0) {
+        # The restore failed after its pre-flight: the service was stopped and
+        # the database may already have been dropped (its own message names the
+        # pre-restore point to go back to) - the summary must not claim either way.
+        $script:SeedFailed = $true
+        $script:SeedZipName = $seed.Name
+        $script:SeedWarning = 'the demo restore failed (exit ' + $rc + ') - database state uncertain'
+        $script:DataCheck = Get-DataCheck
+        Log 'Seed restore FAILED - the app is installed; read the restore messages above: if the database was already replaced, restore the pre-restore point they name (option 6).' 'WARN'
+        return
+    }
+    $script:DbSeeded = $true
+    $script:SeedZipName = $seed.Name
+    # Step 7's data check ran BEFORE this restore and compared the pre-install
+    # counts with the pre-seed database; re-evaluate so the summary tells the
+    # truth about the database the operator now has.
+    $script:DataCheck = Get-DataCheck
     Log 'Seed data loaded.' 'OK'
     # The restore replaced the users table, so the account created by the
     # questionnaire minutes ago no longer exists. Saying this here is the
@@ -1082,22 +1444,23 @@ function Open-Dashboard {
 # main
 # =====================================================================
 try {
+    Write-EnvHeader
+    # Task 7 summary facts, captured for real here (every mode, incl. env-only)
+    # right after the env header - "before this run touched anything" is
+    # exactly what Write-EnvHeader has just finished probing.
+    $script:InstalledVerAtStart = Get-JsonVersion (Join-Path $InstallDir 'version.json')
+    $script:EnvExistedAtStart = Test-Path (Join-Path $InstallDir '.env')
     Log "Install-SDP $Mode start (config=$Config bundle=$BundleRoot)" 'STEP'
 
     if ($Mode -eq 'env-only') {
         Invoke-Step '4b' '.env questionnaire (ConfigureEnvOnly)' { Invoke-EnvQuestionnaire }
         Complete-Run 'OK'
-        Log "Done. Summary: $SummaryFile" 'OK'
+        Write-SummaryBox 'SDP Dashboard .env configuration complete.'
         exit 0
     }
 
-    $plan = @()
-    switch ($Mode) {
-        'fresh'     { $plan = @('1','2','3','4','4b','6','7'); if ($SeedData) { $plan += '8' } }
-        'upgrade'   { $plan = @('1','2','3','4','5','6','7') }   # 4 = verify only; new .env keys appended in 6
-        'patch'     { $plan = @('1','2','3','5','6','7') }
-        'reinstall' { $plan = @('1','2','3','4','4b','5','6','7') }
-    }
+    # $plan was already computed above (before the logging section), so
+    # -PrintPlan can dry-run with zero side effects. Reused here as-is.
     foreach ($n in $plan) {
         switch ($n) {
             '1'  { Invoke-Step '1'  'Preflight'                { Step1-Preflight } }
@@ -1115,8 +1478,18 @@ try {
             break
         }
     }
+    if ($script:SeedWarning) {
+        # Installed and verified, but the demo dataset is NOT there: never a
+        # plain success (exit 3 - see the header).
+        [void]$script:StepResults.Add('WARNING step 8  demo dataset NOT loaded: ' + $script:SeedWarning)
+        Complete-Run 'COMPLETED WITH WARNINGS - demo dataset NOT loaded'
+        Write-SummaryBox 'SDP Dashboard install complete - WITH WARNINGS: demo dataset NOT loaded.'
+        Log ('WARNING: the demo dataset was NOT loaded (' + $script:SeedWarning + ').') 'ALERT'
+        if ($Mode -eq 'fresh' -and -not $StopAfterStep) { Open-Dashboard }
+        exit 3
+    }
     Complete-Run 'OK'
-    Log "Install ($Mode) finished OK. Summary: $SummaryFile" 'OK'
+    Write-SummaryBox 'SDP Dashboard install complete.'
     # Only on a fresh install, and only when the whole plan ran: a staged run
     # (-StopAfterStep) has not verified the service, so opening a browser at a
     # port nothing is listening on would just show an error page.

@@ -17,7 +17,10 @@
 # Output: SDP-Setup-<version>.exe in the repo root (gitignored).
 # Bundle layout (= SFX archive root; the SFX extracts + runs Setup.bat):
 #   Setup.bat  Install-SDP.ps1  Manage-SDP.ps1  config.psd1
+#   SdpSituation.ps1  Detect-SDP.ps1  Show-Situation.ps1  Confirm-Destructive.ps1
 #   config.test.psd1  env.template  version.json
+#   (= every TOP-LEVEL file of tools\installer - Get-ChildItem -File, no
+#    recursion - so tools\installer\tests\ is NOT bundled)
 #   payload\app.zip                    (git archive HEAD + node_modules)
 #   payload\installers\node-*.msi      (optional - WARN when missing)
 #   payload\installers\postgresql-*.exe(optional - WARN when missing)
