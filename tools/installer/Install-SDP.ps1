@@ -152,6 +152,13 @@ $script:BundleSha   = '?'
 $script:RollbackZip = $null
 $script:Pm2         = $null      # resolved in step 3; $null = NoService test mode
 $script:NodeProc    = $null      # NoService mode: the plain background node process
+# Task 7 summary facts. Initialised here (script level, before main) so
+# Write-RunSummary can run safely on a FAILED path that dies before main ever
+# gets to set them for real (e.g. a throw during config/logging setup above) -
+# it must never read an unset variable. Set for real right after
+# Write-EnvHeader in main, for every mode including env-only.
+$script:InstalledVerAtStart = $null
+$script:EnvExistedAtStart   = $false
 
 function Invoke-Step([string]$N, [string]$Name, [scriptblock]$Body) {
     Log ("---- Step $N : $Name ----") 'STEP'
@@ -169,6 +176,22 @@ function Write-RunSummary([string]$result) {
     $lines += "SDP Dashboard install run $stamp"
     $lines += "Mode: $Mode   Config: $Config   Bundle: $BundleRoot (version $($script:BundleVer))"
     $lines += "Result: $result"
+    $lines += ('Version: ' + $(if ($script:InstalledVerAtStart) { $script:InstalledVerAtStart } else { 'none' }) + ' -> ' + $script:BundleVer)
+    $lines += ('Restore point: ' + $(if ($script:RollbackZip) { Split-Path $script:RollbackZip -Leaf } else { 'none (fresh install)' }))
+    # env-only never touches the database and never runs the data check - a
+    # dedicated pair of lines says so plainly instead of reusing the fresh-
+    # install wording ('created'/'skipped (fresh install)'), which would be
+    # a misleading explanation for a run that only wrote .env.
+    if ($Mode -eq 'env-only') {
+        $lines += 'Database: untouched (configure .env only)'
+        $lines += ('.env: ' + $(if ($script:EnvExistedAtStart) { 'preserved (merged)' } else { 'created' }))
+        $lines += 'Data check: not applicable'
+    } else {
+        $lines += ('Database: ' + $(if ($Mode -eq 'reinstall' -and $ConfirmDataLoss) { 'DROPPED and recreated' } elseif ($Mode -eq 'fresh' -and -not $script:CountsBefore) { 'created' } else { 'preserved' }))
+        $lines += ('.env: ' + $(if ($script:EnvExistedAtStart) { 'preserved (merged)' } else { 'created' }))
+        $lines += ('Data check: ' + $script:DataCheck)
+    }
+    $lines += ('Summary: ' + $SummaryFile)
     $lines += ''
     $lines += $script:StepResults
     if ($script:WarnKeys.Count -gt 0) {
@@ -983,9 +1006,12 @@ function Step5-Backup {
     $script:RollbackZip = $zip
     Log ("Restore point: " + $zip) 'OK'
 }
+# Get-SdpCountValue (SdpSituation.ps1) reads $c[$_] on a Hashtable (the real
+# shape Get-SdpDbCounts returns) OR a PSCustomObject (a fixture built via
+# ConvertFrom-Json / [pscustomobject]@{}) - so this renders either.
 function Format-Counts($c) {
     if (-not $c) { return 'n/a' }
-    return (($script:SdpCountTables | ForEach-Object { $_ + ' ' + $(if ($c[$_] -eq $null) { '-' } else { $c[$_] }) }) -join ', ')
+    return (($script:SdpCountTables | ForEach-Object { $v = Get-SdpCountValue $c $_; $_ + ' ' + $(if ($null -eq $v) { '-' } else { $v }) }) -join ', ')
 }
 
 # =====================================================================
@@ -1135,6 +1161,25 @@ function Invoke-Rollback {
         Log 'Rollback file restore complete (DB not auto-rolled-back by design)' 'OK'
     } finally { Remove-Item $stage -Recurse -Force -ErrorAction SilentlyContinue }
 }
+# Compare the step-5 baseline with the counts after the restart. Any DECREASE is a
+# red WARNING in the summary (never an automatic rollback: a rollback restores code
+# only, the DB decision is the operator's - the message names the restore point).
+# Success-path only (Step7-Verify calls it just before 'Verification PASSED') -
+# a failed/rolled-back run says nothing about data because the app never came
+# back up to be trusted, and $script:DataCheck stays its 'skipped' default.
+function Get-DataCheck {
+    if ($Mode -eq 'reinstall' -and $ConfirmDataLoss) { return 'skipped (database dropped by request)' }
+    if (-not $script:CountsBefore) { return 'skipped (fresh install)' }
+    if (-not $script:CountsBefore.reachable) { return 'skipped (db counts unavailable before)' }
+    $after = Get-SdpDbCounts $InstallDir
+    if (-not $after.reachable) { return ('skipped (db counts unavailable after: ' + $after.error + ')') }
+    $drops = Compare-SdpCounts $script:CountsBefore.counts $after.counts
+    if ($drops.Count -gt 0) {
+        $rp = if ($script:RollbackZip) { Split-Path $script:RollbackZip -Leaf } else { 'none' }
+        return ('WARNING - ' + ($drops -join ', ') + ' - restore point: ' + $rp)
+    }
+    return ('OK (' + (Format-Counts $after.counts) + ')')
+}
 function Step7-Verify {
     $ok = $false
     try {
@@ -1146,6 +1191,8 @@ function Step7-Verify {
         $prev = Join-Path $InstallDir 'node_modules.prev'
         if (Test-Path $prev) { Remove-Item $prev -Recurse -Force; Log 'node_modules.prev deleted (verify passed)' }
         Stop-NoServiceProbe
+        $script:DataCheck = Get-DataCheck
+        if ($script:DataCheck -like 'WARNING*') { Log ('Data check: ' + $script:DataCheck) 'ERROR' } else { Log ('Data check: ' + $script:DataCheck) 'OK' }
         Log 'Verification PASSED' 'OK'
         return
     }
@@ -1233,6 +1280,11 @@ function Open-Dashboard {
 # =====================================================================
 try {
     Write-EnvHeader
+    # Task 7 summary facts, captured for real here (every mode, incl. env-only)
+    # right after the env header - "before this run touched anything" is
+    # exactly what Write-EnvHeader has just finished probing.
+    $script:InstalledVerAtStart = Get-JsonVersion (Join-Path $InstallDir 'version.json')
+    $script:EnvExistedAtStart = Test-Path (Join-Path $InstallDir '.env')
     Log "Install-SDP $Mode start (config=$Config bundle=$BundleRoot)" 'STEP'
 
     if ($Mode -eq 'env-only') {
@@ -1262,7 +1314,15 @@ try {
         }
     }
     Complete-Run 'OK'
-    Log "Install ($Mode) finished OK. Summary: $SummaryFile" 'OK'
+    Log '==================================================' 'OK'
+    Log (' SDP Dashboard install complete.') 'OK'
+    Log ('   Mode          : ' + $Mode.ToUpper() + $(if ($Mode -eq 'patch' -or $Mode -eq 'upgrade') { ' (code updated; database + data preserved)' } else { '' })) 'OK'
+    Log ('   Version       : ' + $(if ($script:InstalledVerAtStart) { $script:InstalledVerAtStart } else { 'none' }) + ' -> ' + $script:BundleVer) 'OK'
+    Log ('   Restore point : ' + $(if ($script:RollbackZip) { $script:RollbackZip } else { 'none (fresh install)' })) 'OK'
+    Log ('   Data check    : ' + $script:DataCheck) $(if ($script:DataCheck -like 'WARNING*') { 'ERROR' } else { 'OK' })
+    Log ('   Log           : ' + $LogFile) 'OK'
+    Log ('   Summary       : ' + $SummaryFile) 'OK'
+    Log '==================================================' 'OK'
     # Only on a fresh install, and only when the whole plan ran: a staged run
     # (-StopAfterStep) has not verified the service, so opening a browser at a
     # port nothing is listening on would just show an error page.

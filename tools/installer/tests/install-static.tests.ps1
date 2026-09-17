@@ -151,5 +151,41 @@ if (-not $node) {
     Assert-True (-not $hexBareStr.StartsWith('c3a9')) ('control: a bare (non-global) $OutputEncoding assignment does NOT reach the child process (got: ' + $hexBareStr + ') - confirms $global: was necessary')
 }
 
+# (f) Task 7 - data-integrity check + summary block.
+
+# Get-DataCheck: the reinstall + -ConfirmDataLoss skip (never a false alarm on
+# an intended drop) and the guarantee that it NEVER triggers a rollback itself
+# (a rollback restores code only; the DB decision is the operator's).
+$dataCheckFn = Get-FunctionText $ast 'Get-DataCheck'
+Assert-True ($dataCheckFn -ne $null) 'Get-DataCheck is defined'
+Assert-True ($dataCheckFn -like '*''skipped (database dropped by request)''*') 'Get-DataCheck returns the dropped-by-request skip message'
+Assert-True ($dataCheckFn -like '*Mode -eq ''reinstall''*ConfirmDataLoss*') 'Get-DataCheck gates the dropped-by-request skip on reinstall + ConfirmDataLoss'
+Assert-True (-not ($dataCheckFn -like '*Invoke-Rollback*')) 'Get-DataCheck never calls Invoke-Rollback'
+Assert-True (-not ($dataCheckFn -like '*Die*')) 'Get-DataCheck never calls Die'
+
+# Step7-Verify: Get-DataCheck is called exactly once, on the success branch,
+# strictly before 'Verification PASSED' is logged and before the rollback
+# path (Invoke-Rollback) begins - never on the failure/rollback path, where
+# $script:DataCheck stays its script-level 'skipped' default.
+$step7Fn = Get-FunctionText $ast 'Step7-Verify'
+Assert-True ($step7Fn -ne $null) 'Step7-Verify is defined'
+$getDataCheckCount = ([regex]::Matches($step7Fn, 'Get-DataCheck')).Count
+Assert-Eq $getDataCheckCount 1 'Step7-Verify calls Get-DataCheck exactly once'
+$idxDataCheck = $step7Fn.IndexOf('Get-DataCheck')
+$idxPassed = $step7Fn.IndexOf('Verification PASSED')
+$idxRollback = $step7Fn.IndexOf('Invoke-Rollback')
+Assert-True ($idxDataCheck -ge 0 -and $idxPassed -ge 0 -and $idxRollback -ge 0) 'Step7-Verify has a Get-DataCheck call, a PASSED log line, and a rollback path to compare'
+Assert-True ($idxDataCheck -lt $idxPassed) 'Get-DataCheck runs before Verification PASSED is logged'
+Assert-True ($idxDataCheck -lt $idxRollback) 'Get-DataCheck is called on the success branch, before the rollback path begins (never on the rollback path)'
+
+# Write-RunSummary: the six labelled lines the spec requires, same order
+# every run (Mode / Version / Restore point / Database / .env / Data check /
+# Summary).
+$summaryFn = Get-FunctionText $ast 'Write-RunSummary'
+Assert-True ($summaryFn -ne $null) 'Write-RunSummary is defined'
+foreach ($label in @('Version:', 'Restore point:', 'Database:', '.env:', 'Data check:', 'Summary:')) {
+    Assert-True ($summaryFn -like ('*' + $label + '*')) ('Write-RunSummary emits the ' + $label + ' label')
+}
+
 Write-Host ("install-static.tests: " + $script:AssertCount + " assertions ok")
 exit 0

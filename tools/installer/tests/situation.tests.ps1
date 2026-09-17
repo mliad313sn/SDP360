@@ -203,6 +203,62 @@ $zipBig = Join-Path $zipDir 'big.zip'
 New-TestZip $zipBig @{ 'sdp_dashboard.sql' = ($bigBody + $dumpTrailer) }
 Assert-Eq (Test-SdpZipHasDump $zipBig) $true 'trailer found past the first read chunk on a >12 KB entry'
 
+# 18. Compare-SdpCounts: no change -> empty
+$cBefore = @{ sites = 11; weekly_reports = 412; md_meetings = 50; insp_inspections = 20; users = 30; assets = 500 }
+$cAfterSame = $cBefore.Clone()
+$drops = Compare-SdpCounts $cBefore $cAfterSame
+Assert-Eq $drops.Count 0 'Compare-SdpCounts: no change -> empty'
+
+# 19. Compare-SdpCounts: one table dropped -> exactly one string, right numbers
+$cAfterDrop = $cBefore.Clone(); $cAfterDrop.weekly_reports = 390
+$drops2 = @(Compare-SdpCounts $cBefore $cAfterDrop)
+Assert-Eq $drops2.Count 1 'Compare-SdpCounts: one table dropped -> exactly one drop'
+Assert-Eq $drops2[0] 'weekly_reports 412 -> 390' 'Compare-SdpCounts: drop string has the right numbers'
+
+# 20. Compare-SdpCounts: a table null on EITHER side is ignored, not reported
+# as a drop (a null count means "not measured", not "went to zero").
+$cBeforeNullUsers = $cBefore.Clone(); $cBeforeNullUsers.users = $null
+$cAfterLowUsers = $cBefore.Clone(); $cAfterLowUsers.users = 5
+Assert-Eq (@(Compare-SdpCounts $cBeforeNullUsers $cAfterLowUsers)).Count 0 'Compare-SdpCounts: null before -> that table ignored'
+$cAfterNullUsers = $cBefore.Clone(); $cAfterNullUsers.users = $null
+Assert-Eq (@(Compare-SdpCounts $cBefore $cAfterNullUsers)).Count 0 'Compare-SdpCounts: null after -> that table ignored'
+
+# 21. Compare-SdpCounts: an increase is ignored
+$cAfterUp = $cBefore.Clone(); $cAfterUp.assets = 600
+Assert-Eq (@(Compare-SdpCounts $cBefore $cAfterUp)).Count 0 'Compare-SdpCounts: increase -> ignored'
+
+# 22. Compare-SdpCounts: $null before or after -> empty, never throws.
+# NOTE: comparing an empty-array RESULT against a sentinel string with -ne
+# (e.g. `@() -ne 'THREW'`) itself returns an empty array, which Assert-True's
+# `-not $cond` then treats as falsy - a false failure that has nothing to do
+# with whether the call threw. Use a separate boolean flag instead.
+$threw1 = $false; $r1 = $null
+try { $r1 = @(Compare-SdpCounts $null $cBefore) } catch { $threw1 = $true }
+Assert-True (-not $threw1) 'Compare-SdpCounts does not throw on $null before'
+Assert-Eq (@($r1)).Count 0 'Compare-SdpCounts: $null before -> empty'
+$threw2 = $false; $r2 = $null
+try { $r2 = @(Compare-SdpCounts $cBefore $null) } catch { $threw2 = $true }
+Assert-True (-not $threw2) 'Compare-SdpCounts does not throw on $null after'
+Assert-Eq (@($r2)).Count 0 'Compare-SdpCounts: $null after -> empty'
+
+# 23. Compare-SdpCounts: a table key entirely ABSENT (not just null) on either
+# side is also ignored, not a false drop.
+$cBeforePartial = @{ sites = 11; weekly_reports = 412 }
+$cAfterPartial = @{ sites = 11; weekly_reports = 390; md_meetings = 5 }
+$drops7 = @(Compare-SdpCounts $cBeforePartial $cAfterPartial)
+Assert-Eq $drops7.Count 1 'Compare-SdpCounts: missing-key tables ignored, only the present-both drop reported'
+Assert-Eq $drops7[0] 'weekly_reports 412 -> 390' 'Compare-SdpCounts: missing-key case drop string correct'
+
+# 24. Compare-SdpCounts: PSCustomObject input (not just Hashtable) also works,
+# including a MIXED hashtable-before / PSCustomObject-after pair.
+$cBeforeObj = [pscustomobject]@{ sites = 11; weekly_reports = 412; md_meetings = 50; insp_inspections = 20; users = 30; assets = 500 }
+$cAfterObj = [pscustomobject]@{ sites = 11; weekly_reports = 390; md_meetings = 50; insp_inspections = 20; users = 30; assets = 500 }
+$drops5 = @(Compare-SdpCounts $cBeforeObj $cAfterObj)
+Assert-Eq $drops5.Count 1 'Compare-SdpCounts: PSCustomObject input detects a drop'
+Assert-Eq $drops5[0] 'weekly_reports 412 -> 390' 'Compare-SdpCounts: PSCustomObject drop string correct'
+$drops6 = @(Compare-SdpCounts $cBefore $cAfterObj)
+Assert-Eq $drops6.Count 1 'Compare-SdpCounts: mixed Hashtable-before/PSCustomObject-after works'
+
 Write-Host ("situation.tests: " + $script:AssertCount + " assertions ok")
 
 } finally {

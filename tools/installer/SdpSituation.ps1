@@ -84,6 +84,42 @@ SELECT 'size_mb=' || round(pg_database_size(current_database()) / 1048576.0, 1);
     return $r
 }
 
+# One table's count read out of either shape Get-SdpDbCounts' callers hand in:
+# a Hashtable (what Get-SdpDbCounts itself returns) or a PSCustomObject (a
+# fixture built via ConvertFrom-Json, or by hand with [pscustomobject]@{}).
+# $null (never throws) when $counts itself is $null, or the table key/property
+# is absent, or reading it errors for any other reason.
+function Get-SdpCountValue($counts, [string]$table) {
+    if ($null -eq $counts) { return $null }
+    try {
+        if ($counts -is [System.Collections.IDictionary]) {
+            if ($counts.Contains($table)) { return $counts[$table] } else { return $null }
+        }
+        $prop = $counts.PSObject.Properties[$table]
+        if ($prop) { return $prop.Value } else { return $null }
+    } catch { return $null }
+}
+
+# Pure before/after comparison over $script:SdpCountTables (Install-SDP's data-
+# integrity check, Task 7): an array of 'table before -> after' strings, one
+# per table whose count DECREASED between the two counts. Empty when nothing
+# dropped. Never throws - tolerates $null for either argument, a table key
+# missing or null on either side (ignored, not a drop), and accepts either a
+# Hashtable or a PSCustomObject (or a mix of the two) for $before/$after. An
+# INCREASE is ignored; only a real decrease is reported.
+function Compare-SdpCounts($before, $after) {
+    $drops = @()
+    if ($null -eq $before -or $null -eq $after) { return $drops }
+    foreach ($t in $script:SdpCountTables) {
+        try {
+            $b = Get-SdpCountValue $before $t
+            $a = Get-SdpCountValue $after $t
+            if ($null -ne $b -and $null -ne $a -and $a -lt $b) { $drops += ($t + ' ' + $b + ' -> ' + $a) }
+        } catch { }
+    }
+    return $drops
+}
+
 # Never throws: used by Install-SDP (Step5, refuse a DROP without a dump) and
 # Manage-SDP (-Restore, same rule before overwriting a live install). A restore
 # point is a copy of the whole install dir, so it always carries repo files
