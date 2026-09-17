@@ -6,6 +6,9 @@ rem ============================================================================
 rem  SDP Dashboard - menu-driven installer & maintenance launcher.
 rem  Ships at the ROOT of the SDP-Setup-<version>.exe bundle (the SFX runs it
 rem  after extraction). Self-elevates, then drives:
+rem    Detect-SDP.ps1          (what is on this machine - once per menu round)
+rem    Show-Situation.ps1      (coloured situation block + grouped menu)
+rem    Confirm-Destructive.ps1 (red screen + exact phrase before anything destructive)
 rem    Install-SDP.ps1  (patch / upgrade / reinstall / fresh / configure .env)
 rem    Manage-SDP.ps1   (backup / restore / list / check DB)
 rem  Options 8 (health) and 9 (diagnostics) are inlined here, adapted from
@@ -14,9 +17,15 @@ rem  maintenance actions prefer the INSTALLED copies under
 rem  <InstallDir>\tools\installer when present (they carry any on-server
 rem  config.psd1 edits; each script resolves config.psd1 next to itself).
 rem
-rem  KEEP THIS FILE PURE ASCII - cmd.exe reads it as ANSI; accented or
-rem  box-drawing characters corrupt parsing. No ')' inside echo within
-rem  parenthesized blocks. Never 'if cond call :x & goto y' unparenthesized.
+rem  KEEP THIS FILE PURE ASCII + CRLF - cmd.exe reads it as ANSI; accented or
+rem  box-drawing characters corrupt parsing, and LF-only line endings break
+rem  label lookup. No ')' inside echo within parenthesized blocks. Never
+rem  'if cond call :x & goto y' unparenthesized. Delayed expansion is ON:
+rem  never write a literal exclamation mark in an echo, and read any variable SET inside a
+rem  parenthesized block as !VAR! (never %VAR%) within that same block.
+rem
+rem  The gating in the dispatch below MUST mirror what Show-Situation.ps1
+rem  labels "not applicable" - an entry shown greyed out is refused here.
 rem
 rem  Test hook: set SDP_SETUP_NOELEVATE=1 to skip the UAC self-elevation.
 rem ============================================================================
@@ -60,38 +69,52 @@ if not defined APPDIR set "APPDIR=C:\Apps\SDP-Dashboard"
 if not defined SVC set "SVC=endeavour-dashboard"
 if not defined PORT set "PORT=3456"
 
+rem --- session state -----------------------------------------------------------
+rem  Detection runs once at start and again after every finished action (:done),
+rem  never after a refusal or a cancelled confirmation (nothing changed).
+set "SITJSON=%TEMP%\sdp-situation.json"
+set "NEED_DETECT=1"
+set "HASDEMO=0"
+if exist "%HERE%\payload\demo\*.zip" set "HASDEMO=1"
+rem  Detection overlays the INSTALLED config.psd1 when present, so the backup
+rem  folder it reports (used by the restore confirmation) is the one the
+rem  installed Manage-SDP.ps1 actually uses.
+set "DETCFG="
+if exist "%APPDIR%\tools\installer\config.psd1" set "DETCFG=-Config "%APPDIR%\tools\installer\config.psd1""
+
 call :slog "Setup launched (bundle %HERE%, target %APPDIR%)"
 set "_EMPTY=0"
 
 :menu
-rem versions: installed (target version.json) vs bundle (version.json here)
-set "IVER=not installed"
-set "BVER=unknown"
-for /f "usebackq tokens=1,* delims==" %%A in (`powershell -NoProfile -Command "function V($f){ if(Test-Path $f){ try{ (Get-Content $f -Raw | ConvertFrom-Json).version }catch{ 'unknown' } } else { 'not installed' } }; 'IVER='+(V '%APPDIR%\version.json'); 'BVER='+(V '%HERE%\version.json')"`) do set "%%A=%%B"
+if "%NEED_DETECT%"=="1" (
+  set "STATE=unknown"
+  set "RECOMMENDED=none"
+  set "DOWNGRADE=0"
+  set "DB_REACHABLE=0"
+  set "HAS_SERVER=0"
+  set "IVER=unknown"
+  set "BVER=unknown"
+  for /f "usebackq tokens=1,* delims==" %%A in (`%PS% "%HERE%\Detect-SDP.ps1" -BundleRoot "%HERE%" -OutFile "%SITJSON%" %DETCFG%`) do (
+    if "%%A"=="STATE" set "STATE=%%B"
+    if "%%A"=="RECOMMENDED" set "RECOMMENDED=%%B"
+    if "%%A"=="DOWNGRADE" set "DOWNGRADE=%%B"
+    if "%%A"=="DB_REACHABLE" set "DB_REACHABLE=%%B"
+    if "%%A"=="HAS_SERVER" set "HAS_SERVER=%%B"
+    if "%%A"=="INSTALLED_VER" set "IVER=%%B"
+    if "%%A"=="BUNDLE_VER" set "BVER=%%B"
+  )
+  set "NEED_DETECT=0"
+)
+rem  Any state Show-Situation does not recognise is rendered as unknown - same here.
+set "KNOWNSTATE=0"
+if "%STATE%"=="installed" set "KNOWNSTATE=1"
+if "%STATE%"=="partial" set "KNOWNSTATE=1"
+if "%STATE%"=="empty" set "KNOWNSTATE=1"
 echo.
 echo ==================================================================
-echo    SDP Dashboard - Setup ^& Maintenance
-echo    Target : %APPDIR%
-echo    Installed: %IVER%  -^>  Bundle: %BVER%
+echo    SDP Dashboard - Setup ^& Maintenance      Target : %APPDIR%
 echo ==================================================================
-echo    Install / Update
-echo      1.  Patch                Code only - node_modules + DB untouched.
-echo      2.  Upgrade              Code + node_modules; DB kept + verified.
-echo      3.  Reinstall            Redeploy everything; DB kept unless asked.
-echo      4.  Fresh install        First-time install on a new machine.
-if exist "%HERE%\payload\demo\*.zip" echo      D.  Demo laptop         Fresh install + load the bundled dataset. Nothing to copy.
-echo.
-echo    Maintenance
-echo      5.  Backup now           Full restore point (code + data + DB dump).
-echo      6.  Restore              Roll back to a previous restore point.
-echo      7.  List restore points
-echo      8.  Verify health        pm2 status + HTTP probe on :%PORT%.
-echo      9.  Diagnostics / logs   Versions, DBs, .env flags, last log lines.
-echo      E.  Configure .env       Guided questionnaire (fills placeholders).
-echo      C.  Check DB connection  PostgreSQL pre-flight.
-echo.
-echo      0.  Exit
-echo ==================================================================
+%PS% "%HERE%\Show-Situation.ps1" -Situation "%SITJSON%" -HasDemo "%HASDEMO%"
 set "CH="
 set /p CH=Choose an action:
 if not defined CH (
@@ -101,6 +124,34 @@ if not defined CH (
   goto menu
 )
 set "_EMPTY=0"
+rem  D on a bundle without a demo payload: the entry is not even shown.
+if /i "%CH%"=="D" if "%HASDEMO%"=="0" goto demo
+rem  Gating - mirrors Show-Situation.ps1: unknown state first, then downgrade,
+rem  then the per-state not-applicable entries.
+if "%KNOWNSTATE%"=="0" (
+  if "%CH%"=="1" goto refuse_unknown
+  if "%CH%"=="2" goto refuse_unknown
+  if "%CH%"=="3" goto refuse_unknown
+  if "%CH%"=="4" goto refuse_unknown
+  if /i "%CH%"=="D" goto refuse_unknown
+)
+if "%DOWNGRADE%"=="1" (
+  if "%CH%"=="1" goto refuse_downgrade
+  if "%CH%"=="2" goto refuse_downgrade
+  if "%CH%"=="3" goto refuse_downgrade
+  if "%CH%"=="4" goto refuse_downgrade
+  if /i "%CH%"=="D" goto refuse_downgrade
+)
+if "%STATE%"=="empty" (
+  if "%CH%"=="1" goto refuse_empty
+  if "%CH%"=="2" goto refuse_empty
+  if "%CH%"=="3" goto refuse_empty
+)
+if "%STATE%"=="partial" (
+  if "%CH%"=="1" goto refuse_partial
+  if "%CH%"=="2" goto refuse_partial
+)
+if "%CH%"=="3" if "%HAS_SERVER%"=="0" goto refuse_partial
 if "%CH%"=="1" goto patch
 if "%CH%"=="2" goto upgrade
 if "%CH%"=="3" goto reinstall
@@ -123,6 +174,27 @@ rem  Append a timestamped line to the session log.
 :slog
 powershell -NoProfile -Command "Add-Content -Path '%SESSIONLOG%' -Value ((Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + '  ' + '%~1')" >nul 2>&1
 goto :eof
+
+rem  Refusals - nothing is run, no re-detection needed.
+:refuse_downgrade
+echo.
+echo   Refused: this bundle %BVER% is OLDER than the installed version %IVER%. Use a newer bundle.
+goto menu
+:refuse_empty
+echo.
+echo   Not applicable: nothing is installed in %APPDIR% yet. Use 4 - Fresh install.
+goto menu
+:refuse_unknown
+echo.
+echo   Refused: the installation state could not be read - see the note above.
+echo   Run 9 - Diagnostics, fix the cause, then retry.
+goto menu
+:refuse_partial
+echo.
+echo   Not applicable: the installation in %APPDIR% is incomplete - see the note above.
+echo   With server.js present: use E - Configure .env, then 3 - Reinstall.
+echo   Without server.js: use 4 - Fresh install; your .env is kept.
+goto menu
 
 rem  Maintenance script: prefer the INSTALLED copy (carries on-server config
 rem  edits); fall back to the bundle copy on a machine with no install yet.
@@ -152,36 +224,53 @@ call :slog "Upgrade - finished (exit %errorlevel%)"
 goto done
 
 rem ---------------------------------------------------------------- 3
+rem  Two red screens: REINSTALL first; the database drop is only offered when
+rem  the database is reachable (never drop what cannot be dumped first), and
+rem  needs its own "DROP <db>" phrase.
 :reinstall
-echo.
-echo   *** REINSTALL ***
-echo   Redeploys code + node_modules from this bundle into %APPDIR%.
-echo   The database and data\ + blobs\ are KEPT unless you explicitly ask
-echo   to drop the database below. A full backup is taken first.
-set "SURE="
-set /p SURE=  Type REINSTALL to confirm:
-if /i not "%SURE%"=="REINSTALL" (
-  echo   Cancelled.
+%PS% "%HERE%\Confirm-Destructive.ps1" -Action reinstall -Situation "%SITJSON%"
+if errorlevel 1 (
+  echo   Cancelled - nothing changed.
   goto menu
 )
 set "DROPFLAG="
-set "DB="
-set /p DB=  Also DROP + recreate the PostgreSQL database? Type DROPDB, Enter = keep:
-if /i "%DB%"=="DROPDB" set "DROPFLAG=-ConfirmDataLoss"
-call :slog "Reinstall - start (db answer: %DB%)"
+if "%DB_REACHABLE%"=="1" (
+  set "DB="
+  set /p DB=  Also DROP + recreate the PostgreSQL database? [y/N] - Enter = keep:
+  if /i "!DB!"=="y" (
+    %PS% "%HERE%\Confirm-Destructive.ps1" -Action dropdb -Situation "%SITJSON%"
+    if errorlevel 1 (
+      echo   Cancelled - nothing changed.
+      goto menu
+    )
+    set "DROPFLAG=-ConfirmDataLoss"
+  )
+) else (
+  echo   Database not reachable - it is KEPT; dropping it is not offered.
+)
+call :slog "Reinstall - start (drop: !DROPFLAG!)"
 echo.
 echo   ^>^> REINSTALL - redeploying from the bundle...
-%PS% "%INSTALL%" -Reinstall %DROPFLAG% -BundleRoot "%HERE%"
+%PS% "%INSTALL%" -Reinstall !DROPFLAG! -BundleRoot "%HERE%"
 call :slog "Reinstall - finished (exit %errorlevel%)"
 goto done
 
 rem ---------------------------------------------------------------- 4
 :fresh
-call :slog "Fresh install - start"
+set "FOFLAG="
+if not "%STATE%"=="empty" (
+  %PS% "%HERE%\Confirm-Destructive.ps1" -Action fresh-over-existing -Situation "%SITJSON%"
+  if errorlevel 1 (
+    echo   Cancelled - nothing changed.
+    goto menu
+  )
+  set "FOFLAG=-ForceOverwrite"
+)
+call :slog "Fresh install - start (!FOFLAG!)"
 echo.
 echo   ^>^> FRESH INSTALL - prerequisites, PostgreSQL, .env questionnaire, app.
-echo   ^>^> %PS% "%INSTALL%" -Fresh
-%PS% "%INSTALL%" -Fresh -BundleRoot "%HERE%"
+echo   ^>^> %PS% "%INSTALL%" -Fresh !FOFLAG!
+%PS% "%INSTALL%" -Fresh !FOFLAG! -BundleRoot "%HERE%"
 call :slog "Fresh install - finished (exit %errorlevel%)"
 goto done
 
@@ -192,17 +281,26 @@ rem  on disk - the operator creates no folder and copies no file. The entry is
 rem  hidden when a bundle carries no demo payload, so a production package
 rem  never advertises an action it cannot perform.
 :demo
-if not exist "%HERE%\payload\demo\*.zip" (
-  echo   This package carries no demo dataset.
+if "%HASDEMO%"=="0" (
+  echo   This package carries no demo dataset - option D is not available.
   goto menu
 )
-call :slog "Demo laptop install - start"
+set "FOFLAG="
+if not "%STATE%"=="empty" (
+  %PS% "%HERE%\Confirm-Destructive.ps1" -Action fresh-over-existing -Situation "%SITJSON%"
+  if errorlevel 1 (
+    echo   Cancelled - nothing changed.
+    goto menu
+  )
+  set "FOFLAG=-ForceOverwrite"
+)
+call :slog "Demo laptop install - start (!FOFLAG!)"
 echo.
 echo   ^>^> DEMO LAPTOP - fresh install, then the bundled dataset is loaded.
 echo   ^>^> The dataset REPLACES the accounts: sign in with the credentials
 echo   ^>^> that ship with the data, not the admin created during setup.
-echo   ^>^> %PS% "%INSTALL%" -Fresh -SeedData
-%PS% "%INSTALL%" -Fresh -SeedData -BundleRoot "%HERE%"
+echo   ^>^> %PS% "%INSTALL%" -Fresh -SeedData !FOFLAG!
+%PS% "%INSTALL%" -Fresh -SeedData !FOFLAG! -BundleRoot "%HERE%"
 call :slog "Demo laptop install - finished (exit %errorlevel%)"
 goto done
 
@@ -216,6 +314,8 @@ echo   ^>^> Full restore point via "%MANAGE%" ...
 goto done
 
 rem ---------------------------------------------------------------- 6
+rem  Red screen with the zip's real contents + "RESTORE <yyyymmdd>", then
+rem  -Force (Manage-SDP takes its own pre-restore restore point first).
 :restorept
 call :resolvemanage
 %PS% "%MANAGE%" -List
@@ -226,8 +326,13 @@ if not defined RP (
   echo   Cancelled.
   goto menu
 )
+%PS% "%HERE%\Confirm-Destructive.ps1" -Action restore -Situation "%SITJSON%" -Target "%RP%"
+if errorlevel 1 (
+  echo   Cancelled - nothing changed.
+  goto menu
+)
 call :slog "Restore %RP%"
-%PS% "%MANAGE%" -Restore -Name "%RP%"
+%PS% "%MANAGE%" -Restore -Name "%RP%" -Force
 call :slog "Restore - finished (exit %errorlevel%)"
 goto done
 
@@ -284,6 +389,7 @@ echo.
 echo ------------------------------------------------------------------
 echo   Action finished - review the messages above.
 echo   Logs: %LOGDIR%
+set "NEED_DETECT=1"
 goto menu
 
 :end

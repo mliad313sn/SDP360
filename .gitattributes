@@ -8,3 +8,6 @@
 #
 # -text = no end-of-line conversion in either direction.
 tests/__golden__/*.html -text
+
+# cmd.exe mis-parses LF-only batch files (label lookup / goto) - force CRLF on checkout.
+tools/installer/*.bat text eol=crlf
