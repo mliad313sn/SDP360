@@ -90,7 +90,7 @@ made so far so that future sessions can pick up exactly where the last one ended
 > `Manage-SDP -Restore` prend d'abord un point `pre-restore` (file de rétention propre, 2 gardés) en dumpant la base que l'import va
 > DROP (PG_URL par environnement), refuse sans dump complet, échoue fermé ; `_sdp_admin.cmd` option 6 passe par le même écran rouge.
 > Secrets jamais sur une ligne de commande (CREATE ROLE via `Invoke-PsqlSuperStdin`). Tests : `tools\installer\tests\run-all.ps1`
-> (11 fichiers, ~3 min, bac à sable ; `SDP_SETUP_NOELEVATE`, `SDP_INSTALLER_LOG_DIR`). **E2E sur l'instance TEST = étape user, pas encore faite** — procédure en 5 étapes (fresh → patch → reinstall+drop → restore → écran DROP) dans `docs/INSTALLER.md` et l'aide §17.5 ; l'instance TEST a son propre `BackupDir` (`..SDP-Backups-TEST`) pour que la rétention ne touche jamais les points de l'instance principale.
+> (11 fichiers, ~3 min, bac à sable ; `SDP_SETUP_NOELEVATE`, `SDP_INSTALLER_LOG_DIR`). **E2E sur l'instance TEST = étape user, pas encore faite** — procédure en 5 étapes (fresh → patch → reinstall+drop → restore → écran DROP) dans `docs/INSTALLER.md` et l'aide §17.5 ; l'instance TEST a son propre `BackupDir` (`..\SDP-Backups-TEST`) pour que la rétention ne touche jamais les points de l'instance principale.
 
 ---
 
