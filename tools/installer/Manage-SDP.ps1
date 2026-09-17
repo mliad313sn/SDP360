@@ -45,7 +45,10 @@ $ErrorActionPreference = 'Stop'
 
 # --- config -----------------------------------------------------------
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
-$cfg = Import-PowerShellDataFile (Join-Path $here 'config.psd1')
+# Shared readers (Test-SdpZipHasDump: "does this restore point carry a COMPLETE
+# root dump?") - one rule for Install-SDP, Detect-SDP and this script.
+. (Join-Path $here 'SdpSituation.ps1')
+$cfg =Import-PowerShellDataFile (Join-Path $here 'config.psd1')
 if ($Config) {
     $ovPath = if (Test-Path $Config) { $Config } else { Join-Path $here $Config }
     $ov = Import-PowerShellDataFile $ovPath
@@ -168,6 +171,26 @@ switch ($action) {
         Write-Host "*** THIS OVERWRITES code + .env (and DB if the point contains a dump) in $InstallDir ***" -ForegroundColor Red
         $ok = Read-Host 'Type YES to proceed'
         if ($ok -ne 'YES') { Log 'Cancelled by user.'; exit 0 }
+    }
+    # ---- safety backup of the CURRENT state, before anything is stopped or overwritten ----
+    # Re-invoke this script (one action per invocation - the dailyjob pattern);
+    # its LAST stdout line is the zip path, exactly as Install-SDP step 5 reads it.
+    Log 'Pre-restore restore point of the current state' 'STEP'
+    $preArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $PSCommandPath, '-Backup', '-Tag', 'pre-restore')
+    if ($Config) { $preArgs += @('-Config', $Config) }
+    $preOut = @(& powershell @preArgs)
+    $preCode = $LASTEXITCODE
+    # The child's console lines were captured with its output - replay them.
+    $preOut | Select-Object -SkipLast 1 | ForEach-Object { Write-Host $_ }
+    if ($preCode -ne 0) { Die 'Pre-restore backup FAILED - restore aborted, nothing changed.' }
+    $preZip = [string]($preOut | Select-Object -Last 1)
+    if (-not ($preZip -and (Test-Path -LiteralPath $preZip))) { Die 'Pre-restore backup returned no zip - restore aborted, nothing changed.' }
+    Log ('Pre-restore restore point: ' + (Split-Path $preZip -Leaf)) 'OK'
+    # If the target carries a dump AND this install uses PostgreSQL, the DB will be
+    # DROPPED below: the safety point must then carry a COMPLETE dump too, or we
+    # would overwrite a database we cannot get back.
+    if ((Test-SdpZipHasDump $zip) -and (Get-EnvValue 'PG_URL') -and -not (Test-SdpZipHasDump $preZip)) {
+        Die 'No database dump in the pre-restore point - refusing to overwrite the database. Check PG_URL / the PostgreSQL service (menu C), then retry.'
     }
     Log "Restoring $Name" 'STEP'
     Invoke-Pm2 @('stop', $SvcName)
