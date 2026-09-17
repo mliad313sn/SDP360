@@ -6,4 +6,5 @@
     InstallDir  = 'C:\Apps\SDP-Dashboard-TEST'
     AppPort     = 3457
     DbName      = 'sdp_dashboard_test'
+    BackupDir   = '..SDP-Backups-TEST'   # own restore points: prune never touches the main instance's
 }
