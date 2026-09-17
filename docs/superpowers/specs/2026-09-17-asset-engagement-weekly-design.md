@@ -68,6 +68,9 @@ Lists 3 and 4 cover only states `In Use`, `In Store`, `In Repair`.
   the JS super-gate. Per-type send pipelines keep their schedule row on their own card
   (hygiene `:~7476`, weekly `:~7774`, asset group `:~7642`); `_AR_TYPES` is only for the
   generic coordinator/finance/group card.
+- `getPreviousWeek()` returns `{week, year}` from the server local date; `getWeekRange(year, week)`
+  returns `{start, end, label}` in UTC (`label` = `Wnn YYYY`). The server runs on GMT, so
+  both agree.
 - **Report weeks are Zoho weeks** (Sunday start, numbered from the year's first Sunday —
   `getISOWeek`/`getWeekRange` use `_zFirstSun`, `reports-db.js:1195-1218`), not ISO weeks.
   `listReports(site_id)` is sorted newest first and returns `start_date` (`:2634-2646`).
@@ -205,7 +208,7 @@ frozen four counts and the two notes under the existing live hygiene counts. Abs
 - `buildAssetRecap({ site, followups, baseUrl, weekLabel })` → `{ subject, html,
   attachments }`: 4 counts, first 20 rows of each non-empty list, links to
   `assets.html?site=…` when `public_base_url` is set, and
-  `assets-suivi-<SITE>-<YYYY-Www>.xlsx` (one sheet per list, full rows);
+  `assets-suivi-<SITE>-<YYYY>-W<nn>.xlsx` (Zoho year/week from `pw`) (one sheet per list, full rows);
 - `buildNewAssetAlert({ site, rows, baseUrl, date })` → short list of new hardware.
 
 **CLI** `tools/reports/send-asset-reminders.js` (`require.main` guard, exported core):
@@ -217,11 +220,11 @@ frozen four counts and the two notes under the existing live hygiene counts. Abs
   + `resolveFromRows`; `never_send_unconfirmed` honoured.
 - Recipients: `to` = confirmed asset manager, `cc` = confirmed coordinator; else `to` =
   confirmed coordinator; else skip with reason.
-- Weekly window: the report week that just ended, `getWeekRange(getPreviousWeek())` (Zoho
-  week, same as the tab), for `new`; the other three lists are current. Skip a site whose
+- Weekly window: the report week that just ended, `const pw = getPreviousWeek(); const wr = getWeekRange(pw.year, pw.week)`
+  (Zoho week, same as the tab; `wr.start`/`wr.end`), for `new`; the other three lists are current. Skip a site whose
   four lists are empty.
 - Alert window: `newFrom = newTo = asOf` (today UTC); skip when no new rows.
-- Dedup (`report_sent_log`): `('asset_reminder', site, 'Wnn YYYY')` (Zoho week label),
+- Dedup (`report_sent_log`): `('asset_reminder', site, wr.label)` (`Wnn YYYY`, Zoho week),
   `('asset_new_alert', site, 'YYYY-MM-DD')`; results `'ok'` / `'fail'`. Like the other
   senders, dedup is **same-day only** (`alreadySentToday`; on pg it uses the database's
   `current_date`): a manual re-send on another day is allowed and logged.
@@ -246,7 +249,7 @@ the weekly schedule row, per-site Preview, Send now. Route `POST /api/reports/as
 - Report review: upsert, server-side freeze, write auth, read rule (admin+, same site,
   no-site 403), delete cascade, `getReport` both forks.
 - Status route: empty notes → 400; filled → 200; non-applicable → 200; assets layer
-  throwing → 200; `ready` never gated.
+  throwing → 200; `ready` never gated; re-submitting an already submitted report keeps the frozen counts.
 - Editor counting: weekly container only (static/DOM test).
 - Weekly e-mail with and without `asset_review`; monthly goldens byte-identical.
 - Directory: new columns persisted through `upsertRecipient`; `asset_manager` resolution
