@@ -17,7 +17,7 @@ function loadDotEnv() {
   const p = path.join(__dirname, '../../.env');
   const out = {};
   try {
-    fs.readFileSync(p, 'utf8').replace(/^﻿/, '').split(/\r?\n/).forEach(line => {
+    fs.readFileSync(p, 'utf8').replace(/^\uFEFF/, '').split(/\r?\n/).forEach(line => {
       const m = line.match(/^\s*([A-Za-z0-9_]+)\s*=\s*(.*)\s*$/);
       if (m && !line.trim().startsWith('#')) out[m[1]] = m[2].replace(/^["']|["']$/g, '');
     });
