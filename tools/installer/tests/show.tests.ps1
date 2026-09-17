@@ -139,6 +139,26 @@ Assert-Eq (ColorOf (SitColor 'installed' 'online' 'ours' $false)) 'Yellow' 'db u
 Assert-Eq (ColorOf (SitColor 'installed' 'stopped' 'ours' $true)) 'Yellow' 'pm2 stopped -> Yellow'
 Assert-Eq (ColorOf (SitColor 'partial' 'online' 'ours' $true)) 'Red' 'partial -> Red regardless of pm2/port/db'
 
+# (M4) option 6 note: "no PostgreSQL configured" when .env names no database,
+# "database unreachable" for a real outage. The error string is the one
+# Get-SdpDbCounts writes - pinned here so the two files cannot drift.
+function SitDbErr([string]$err) {
+    $f = Sit 'installed' 'upgrade' $false $false
+    $o = Get-Content $f -Raw | ConvertFrom-Json
+    $o.db = [pscustomobject]@{ reachable = $false; error = $err }
+    ($o | ConvertTo-Json -Depth 6) | Set-Content $f -Encoding ascii
+    return $f
+}
+$sitSrc = Get-Content (Join-Path $here '..\SdpSituation.ps1') -Raw
+Assert-True ($sitSrc -match [regex]::Escape("`$r.error = 'no PG_URL in .env'")) 'SdpSituation writes the exact no-PG_URL error Show-Situation matches'
+$outNoPg = Render (SitDbErr 'no PG_URL in .env') 0
+Assert-True ($outNoPg -match '6\.\s+Restore.*\(no PostgreSQL configured\)') 'no PG_URL -> option 6 says no PostgreSQL configured'
+Assert-True (-not ($outNoPg -match '6\.\s+Restore.*unreachable')) 'no PG_URL -> option 6 does not say unreachable'
+$outDown = Render (SitDbErr 'psql exit 2') 0
+Assert-True ($outDown -match '6\.\s+Restore.*\(database unreachable\)') 'real outage -> option 6 says database unreachable'
+$outUp = Render (Sit 'installed' 'upgrade' $false $true) 0
+Assert-True (-not ($outUp -match '6\.\s+Restore.*\((database unreachable|no PostgreSQL configured)\)')) 'reachable -> option 6 has no note'
+
 # (fix-b) downgrade + recommended upgrade: the recommendation itself is
 # refused, so RECOMMENDED must say "no recommendation" (not print Upgrade
 # with a "<< recommended" tag), the old lockfile-based "Upgrade recommended"

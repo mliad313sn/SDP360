@@ -26,7 +26,10 @@ powershell -File tools\installer-build\build-installer.ps1 -DevBuild
 Le bundle embarque les scripts de premier niveau de `tools\installer\` (`Setup.bat`,
 `Install-SDP.ps1`, `Manage-SDP.ps1`, `SdpSituation.ps1`, `Detect-SDP.ps1`,
 `Show-Situation.ps1`, `Confirm-Destructive.ps1`, `config*.psd1`, `env.template`) ;
-le sous-dossier `tests\` n'est pas embarqué.
+le sous-dossier `tests\` n'est pas embarqué. Il n'arrive pas non plus sur le serveur
+par le code déployé : `tools/installer/tests` est `export-ignore` (`.gitattributes`,
+donc absent du `git archive` qui produit `payload\app.zip`) et exclu du ZIP de
+déploiement (`tools\deploy\make-deploy-zip.ps1`, liste `$skip`).
 
 `Setup.bat` exécute **toujours les scripts du bundle** (jamais une copie installée,
 qui peut être plus ancienne et ne pas offrir les garanties promises par l'écran rouge).
@@ -49,7 +52,9 @@ base PostgreSQL (taille + comptages `sites`, `weekly_reports`, `md_meetings`,
 dernier restore point, version du bundle, `package-lock.json` identique ou non.
 Le résultat est écrit dans un fichier JSON **propre à la session**
 (`%TEMP%\sdp-situation-<aléatoire>.json`), supprimé avant chaque détection (jamais de
-situation périmée) et à la sortie du menu. La détection est refaite **après chaque
+situation périmée) et à la sortie du menu. `-OutFile` est **obligatoire** : il n'y a
+plus de fichier partagé par défaut (`%TEMP%\sdp-situation.json`) ; appelé sans,
+`Detect-SDP.ps1` répond `STATE=unknown` + `ERROR=...` et n'écrit rien. La détection est refaite **après chaque
 action terminée** — pas après un refus ni une confirmation annulée (rien n'a changé).
 
 `Show-Situation.ps1` affiche ensuite un bloc coloré :
@@ -86,7 +91,7 @@ puis quatre groupes. Les numéros d'option n'ont pas changé.
 | | 4 Fresh install | Serveur vierge : Node, pm2+service, PostgreSQL, provisioning, questionnaire `.env`, app | sur une installation existante : en rouge, écran rouge `OVERWRITE <COMPUTERNAME>` |
 | | D Demo | Fresh + jeu de données embarqué (**remplace la base et les comptes**) | sur une installation existante : en rouge, écran rouge `DEMO <COMPUTERNAME>` ; entrée absente si le bundle n'a pas de démo |
 | DATA | 5 Backup now | Restore point complet (code + `.env` + `data\` + blobs + dump) | |
-| | 6 Restore | Revient à un restore point | en rouge ; écran rouge `RESTORE <yyyymmdd>` |
+| | 6 Restore | Revient à un restore point | en rouge ; écran rouge `RESTORE <yyyymmdd>` ; mention `(no PostgreSQL configured)` si le `.env` n'a pas de `PG_URL`, `(database unreachable)` si la base ne répond pas |
 | | 7 List | Liste des restore points | |
 | MAINTENANCE | 8 / 9 | Santé / Diagnostics | probe :port, pm2, tailles DB, flags |
 | | E | Compléter le `.env` | ne redemande QUE les valeurs manquantes/placeholder |
@@ -126,6 +131,9 @@ passer**, **ce qui est en jeu** (taille et comptages réels de la base, version,
   `Confirm-Destructive.ps1` manque au bundle, un avertissement s'affiche au démarrage :
   Reinstall, Fresh/Demo sur existant et Restore sont **désactivés** ; le menu reste
   utilisable pour la maintenance.
+- Reinstall : le restore point pris d'abord contient code + `.env` + `data` ; le **dump
+  de la base n'y est que si la base est joignable** (l'écran le dit quand elle ne
+  l'est pas). Le dump n'est exigé que si la base doit être supprimée (écran `DROP <db>`).
 - La question « Also DROP + recreate the PostgreSQL database? [y/N] » n'est posée
   **que si la base est joignable** ; sinon la base est conservée et sa suppression
   n'est pas proposée (on ne supprime pas ce qu'on ne peut pas dumper).
@@ -134,7 +142,10 @@ passer**, **ce qui est en jeu** (taille et comptages réels de la base, version,
 - Fresh sur existant (option 4, `-Fresh -ForceOverwrite`) : code et node_modules
   remplacés ; base, `data\`, `blobs\` et `.env` **ne sont pas supprimés**.
   `-ForceOverwrite` lève uniquement le refus « dossier non vide » ; le refus de
-  downgrade reste actif.
+  downgrade reste actif. Restore point + rollback automatique **seulement si
+  `server.js` est présent** : s'il ne reste qu'un `.env` (installation partielle), le
+  plan n'a pas d'étape 5 (`1,2,3,4,4b,6,7`), donc ni restore point ni rollback - l'écran
+  rouge l'annonce ; faire un backup (option 5) avant si une copie est voulue.
 - Demo sur existant (option D, `-Fresh -SeedData -ForceOverwrite`) : **ce n'est pas
   un Fresh qui conserve la base.** Après le déploiement, l'étape 8 restaure le jeu de
   démo : la base est **SUPPRIMÉE puis rechargée** depuis le dump de démo, les
@@ -148,14 +159,18 @@ passer**, **ce qui est en jeu** (taille et comptages réels de la base, version,
 
 `_sdp_admin.cmd` option 6 (Restore) passe par le même écran rouge (détection dans un
 fichier propre à la session, phrase `RESTORE <yyyymmdd>`, code 0 exigé) avant
-d'appeler `Manage-SDP.ps1 -Restore -Force`.
+d'appeler `Manage-SDP.ps1 -Restore -Force`. Il exige les scripts de l'installeur
+**sur le serveur**, dans `<InstallDir>\tools\installer\` (`Confirm-Destructive.ps1`,
+`Detect-SDP.ps1`, `SdpSituation.ps1`, `Manage-SDP.ps1`) - le ZIP de déploiement les
+transporte (seul `tests\` en est exclu) ; s'il en manque un, l'option 6 refuse
+(« deploy the installer tools first ») sans rien changer.
 
 ## Garanties
 
 - **Sauvegarde AVANT toute suppression.** Patch, Upgrade, Reinstall et Fresh sur
   existant prennent un restore point complet (`sdp-restore_pre-<ver>_*.zip` dans
   `..\SDP-Backups` : code + `.env` + `data\` + `blobs\` + `pg_dump`). Sur Reinstall et
-  Fresh sur existant, cette sauvegarde (étape 5) s'exécute **avant** l'étape base de
+  Fresh sur existant (avec `server.js`), cette sauvegarde (étape 5) s'exécute **avant** l'étape base de
   données (étape 4) : plan `1,2,3,5,4,4b,6,7`. L'étape 5 démarre au besoin le service
   PostgreSQL pour le dump. Fresh sur machine vide : pas de sauvegarde (rien à sauver).
 - **DROP refusé sans dump complet.** Quand la base doit être supprimée
@@ -174,7 +189,8 @@ d'appeler `Manage-SDP.ps1 -Restore -Force`.
 - **Rollback automatique** : si après déploiement le service ne répond pas
   (pm2 online ≤30 s + probe HTTP ×3), le code + `.env` + `node_modules.prev` sont
   restaurés, redémarrés, re-testés → sortie `ROLLED BACK` (exit 2). Il couvre
-  désormais aussi Fresh sur existant. La base n'est PAS auto-restaurée (migrations
+  désormais aussi Fresh sur existant **quand `server.js` était présent** (sinon pas
+  d'étape 5, donc rien vers quoi revenir). La base n'est PAS auto-restaurée (migrations
   additives ; restore DB = option 6). Redémarrages « orphan-safe » (jamais
   `pm2 reload` ; kill chirurgical du PID orphelin sur le port).
 - **Contrôle d'intégrité avant/après.** L'étape 5 relève les comptages (`sites`,
@@ -208,6 +224,13 @@ d'appeler `Manage-SDP.ps1 -Restore -Force`.
   4. supprime un `sdp_dashboard.sql` résiduel à la racine de l'installation avant la
      copie (l'import ne rejoue jamais un vieux dump) ;
   5. échoue « fermé » si le `.env` actuel ou le zip est illisible (aucun changement) ;
+     la base supprimée est **exactement la base dumpée** : base, hôte et port viennent
+     du même `PG_URL` que le dump de l'étape 2 (jamais de `PgHost`/`PgPort`/`DbName` de
+     `config.psd1`). Ce `PG_URL` doit être une URL postgres valide dont la base et
+     l'utilisateur sont des identifiants simples en minuscules (`[a-z_][a-z0-9_]*`,
+     PostgreSQL replie la casse d'un nom non cité) - sinon refus avant le point
+     pre-restore, rien modifié. Après la copie, le `.env` doit toujours nommer cette
+     base, sinon rien n'est supprimé ;
   6. import strict : `DROP`, `CREATE` puis import (`psql -w -v ON_ERROR_STOP=1`)
      vérifiés un par un - un échec arrête tout (jamais de CREATE après un DROP raté,
      jamais d'import dans une base non créée). Après l'arrêt du service, **chaque**
@@ -224,6 +247,14 @@ d'appeler `Manage-SDP.ps1 -Restore -Force`.
   `psql -f -`). Seule exception : l'argument `--superpassword` de l'installeur EDB
   PostgreSQL, uniquement quand aucun service `postgresql*` n'existe (installation
   neuve) — EDB n'accepte rien d'autre, et la valeur n'est jamais journalisée.
+- **Une seule exception volontaire à « aucun secret à l'écran »** : à l'étape 4, en
+  mode interactif, si l'opérateur répond Entrée à « sdp_app database password [Enter =
+  generate one] », le mot de passe généré pour le rôle `sdp_app` est affiché **une
+  fois** sur la console (`generated: <mot de passe>   (SHOWN ONCE - stored in .env
+  PG_URL)`) - c'est le seul moyen de le connaître. Il n'est pas écrit dans le journal
+  d'installation (seulement dans `.env` `PG_URL`), mais une transcription PowerShell
+  active (`Start-Transcript`) le capturerait. En mode silencieux (`EnvSilent`), rien
+  n'est affiché : le journal dit seulement « sdp_app password GENERATED ».
 - `.env` **jamais écrasé** ; clés nouvelles ajoutées commentées `# NEW in <ver>:`.
 - `data\`, `blobs\`, `SDP-Backups\` jamais touchés par un déploiement.
 - Journal : `C:\ProgramData\SDP-Dashboard\logs\` (`install-*.log`, `summary.txt`,

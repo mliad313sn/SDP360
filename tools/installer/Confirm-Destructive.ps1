@@ -37,7 +37,11 @@ $phrase = ''; $what = ''; $protect = ''
 switch ($Action) {
     'reinstall' {
         $what = 'Re-deploy code + node_modules from this bundle over ' + $s.install.dir + '. Database, data\ and blobs\ are KEPT.'
-        $protect = 'A full restore point of the CURRENT state (code + .env + data + DB dump) is taken FIRST, before anything is touched.'
+        # The restore point always carries code + .env + data; the DB dump only
+        # makes it in when pg_dump can reach the database (Install-SDP only
+        # insists on the dump when a DROP is coming - that is the dropdb screen).
+        $dumpNote = if ($s.db -and $s.db.reachable) { ' + DB dump' } else { '; DB dump only if the database is reachable - it is NOT reachable right now' }
+        $protect = 'A full restore point of the CURRENT state (code + .env + data' + $dumpNote + ') is taken FIRST, before anything is touched.'
         $phrase = 'REINSTALL'
     }
     'dropdb' {
@@ -47,8 +51,19 @@ switch ($Action) {
         $phrase = 'DROP ' + $dbName
     }
     'fresh-over-existing' {
-        $what = 'Fresh install over an EXISTING installation in ' + $s.install.dir + ': code and node_modules are replaced. Your database, data\, blobs\ and .env are NOT deleted.'
-        $protect = 'A full restore point of the CURRENT state is taken first; automatic rollback applies if the app does not come back.'
+        if ($s.install.has_server_js) {
+            $what = 'Fresh install over an EXISTING installation in ' + $s.install.dir + ': code and node_modules are replaced. Your database, data\, blobs\ and .env are NOT deleted.'
+        } else {
+            $what = 'Fresh install into ' + $s.install.dir + ', which holds leftovers of an earlier installation (no server.js): code and node_modules are deployed. Your database, data\, blobs\ and .env are NOT deleted.'
+        }
+        # Install-SDP only takes the step-5 restore point (and so only arms the
+        # automatic rollback) when server.js is present - with only a .env left
+        # behind, the plan has no step 5 and nothing to roll back to.
+        if ($s.install.has_server_js) {
+            $protect = 'A full restore point of the CURRENT state is taken first; automatic rollback applies if the app does not come back.'
+        } else {
+            $protect = 'No restore point and no automatic rollback: there is no server.js, so there is no installed code to save. The existing .env, database, data\ and blobs\ are left in place - take a backup (option 5) first if you want a copy.'
+        }
         $phrase = 'OVERWRITE ' + $env:COMPUTERNAME
     }
     'demo-over-existing' {

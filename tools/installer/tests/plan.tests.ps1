@@ -2,9 +2,13 @@ $ErrorActionPreference = 'Stop'
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 . (Join-Path $here '_assert.ps1')
 $install = Join-Path $here '..\Install-SDP.ps1'
-$empty = New-TempDir 'sdp-plan-empty'
-$inst = New-TempDir 'sdp-plan-inst'; Set-Content (Join-Path $inst 'server.js') '//' -Encoding ascii
-function CfgFor($dir) { $f = Join-Path (New-TempDir 'sdp-cfg') 'c.psd1'; Set-Content $f ("@{ InstallDir = '" + $dir + "'; ServiceName = 'sdp-unit'; AppPort = 3499; BackupDir = '..\SDP-Backups-unit' }") -Encoding ascii; return $f }
+# Every temp dir is registered and removed at the end (same pattern as the
+# other test files) - nothing is left in %TEMP% run after run.
+$script:TestTempDirs = @()
+try {
+$empty = New-TempDir 'sdp-plan-empty'; $script:TestTempDirs += $empty
+$inst = New-TempDir 'sdp-plan-inst'; $script:TestTempDirs += $inst; Set-Content (Join-Path $inst 'server.js') '//' -Encoding ascii
+function CfgFor($dir) { $cd = New-TempDir 'sdp-cfg'; $script:TestTempDirs += $cd; $f = Join-Path $cd 'c.psd1'; Set-Content $f ("@{ InstallDir = '" + $dir + "'; ServiceName = 'sdp-unit'; AppPort = 3499; BackupDir = '..\SDP-Backups-unit' }") -Encoding ascii; return $f }
 function Plan([string[]]$sw, $dir) {
     $out = & powershell -NoProfile -ExecutionPolicy Bypass -File $install @sw -PrintPlan -Config (CfgFor $dir) -BundleRoot $env:TEMP
     return ($out | Where-Object { "$_" -like 'PLAN=*' } | Select-Object -Last 1)
@@ -34,6 +38,12 @@ Assert-Eq (Plan @('-Fresh', '-Force') $inst) 'PLAN=1,2,3,5,4,4b,6,7' '-Force ove
 # branch runs it directly, this switch entry only serves -PrintPlan).
 Assert-Eq (Plan @('-ConfigureEnvOnly') $inst) 'PLAN=4b' 'env-only plan is just 4b'
 
+# -Fresh -ForceOverwrite over a dir holding only a .env (no server.js): no
+# step 5, so no restore point and no rollback - what the red screen now says.
+$envOnly = New-TempDir 'sdp-plan-envonly'; $script:TestTempDirs += $envOnly
+Set-Content (Join-Path $envOnly '.env') 'REPORTS_BACKEND=sqlite' -Encoding ascii
+Assert-Eq (Plan @('-Fresh', '-ForceOverwrite') $envOnly) 'PLAN=1,2,3,4,4b,6,7' 'fresh over a .env-only dir -> no step 5 (no restore point, no rollback)'
+
 Write-Host ("plan.tests: " + $script:AssertCount + " assertions ok")
 
 # ---- -PrintPlan is a genuine dry run: no admin check, and no install-*.log
@@ -52,5 +62,11 @@ if (Test-Path $LogDir) {
 }
 
 Write-Host ("plan.tests: " + $script:AssertCount + " assertions ok (total)")
+
+} finally {
+    foreach ($d in $script:TestTempDirs) {
+        try { if (Test-Path $d) { Remove-Item -Path $d -Recurse -Force -ErrorAction SilentlyContinue } } catch { }
+    }
+}
 
 exit 0

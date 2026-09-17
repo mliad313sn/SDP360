@@ -143,11 +143,21 @@ SELECT t || '=' || COALESCE(n::text, 'null') FROM _sdp_counts ORDER BY t;
 SELECT 'size_mb=' || round(pg_database_size(current_database()) / 1048576.0, 1);
 "@
     $old = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+    # The caller's own values (a PGCONNECT_TIMEOUT the operator set, a
+    # PGPASSWORD another step is using) are put back exactly as they were -
+    # restored when they existed, removed when they did not.
+    $envKeys = @('PGPASSWORD', 'PGCONNECT_TIMEOUT', 'LC_MESSAGES')
+    $envSaved = @{}
+    foreach ($k in $envKeys) { $envSaved[$k] = [Environment]::GetEnvironmentVariable($k, 'Process') }
     $env:PGPASSWORD = $pw; $env:PGCONNECT_TIMEOUT = '10'; $env:LC_MESSAGES = 'C'
     try {
         $out = ($sql | & $psql -h $pgHost -p $pgPort -U $user -d $db -w -q -t -A -v ON_ERROR_STOP=1 -f - 2>&1)
         $code = $LASTEXITCODE
-    } finally { $ErrorActionPreference = $old; $env:PGPASSWORD = ''; $env:PGCONNECT_TIMEOUT = ''; $env:LC_MESSAGES = '' }
+    } finally {
+        $ErrorActionPreference = $old
+        # SetEnvironmentVariable with $null removes the variable.
+        foreach ($k in $envKeys) { [Environment]::SetEnvironmentVariable($k, $envSaved[$k], 'Process') }
+    }
     $lines = @($out | ForEach-Object { "$_" } | Where-Object { $_ -match '^[a-z_]+=' })
     if ($code -ne 0 -or $lines.Count -eq 0) {
         $r.error = ((($out | ForEach-Object { "$_" }) -join ' ').Trim() -replace '\s+', ' '); if (-not $r.error) { $r.error = 'psql exit ' + $code }

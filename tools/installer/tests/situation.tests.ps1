@@ -142,6 +142,38 @@ try { $c2 = Get-SdpDbCounts $badUrlDir } catch { $c2 = $null }
 Assert-True ($c2 -ne $null) 'Get-SdpDbCounts did not throw on a malformed PG_URL'
 Assert-Eq $c2.reachable $false 'malformed PG_URL is unreachable'
 
+# 8b. Get-SdpDbCounts puts the caller's libpq environment back exactly:
+# a pre-set PGCONNECT_TIMEOUT / LC_MESSAGES survives, an absent PGPASSWORD
+# stays absent. psql is a harmless stand-in (where.exe renamed: it rejects
+# the psql arguments and exits non-zero without touching anything).
+$envRoot = New-TempDir 'sdp-envroot'; $script:TestTempDirs += $envRoot
+New-Item -ItemType Directory -Path (Join-Path $envRoot '17\bin') -Force | Out-Null
+Copy-Item (Join-Path $env:WINDIR 'System32\where.exe') (Join-Path $envRoot '17\bin\psql.exe')
+$envInst = New-TempDir 'sdp-envinst'; $script:TestTempDirs += $envInst
+Set-Content -Path (Join-Path $envInst '.env') 'PG_URL=postgres://sdp_app:Pw8bSecret@127.0.0.1:1/x' -Encoding ascii
+$envKeep = @{}
+foreach ($k in @('PGPASSWORD', 'PGCONNECT_TIMEOUT', 'LC_MESSAGES')) { $envKeep[$k] = [Environment]::GetEnvironmentVariable($k, 'Process') }
+$script:SdpPgRoots = @($envRoot)
+try {
+    $env:PGCONNECT_TIMEOUT = '77'; $env:LC_MESSAGES = 'fr_FR'
+    Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue
+    $c3 = $null
+    try { $c3 = Get-SdpDbCounts $envInst } catch { $c3 = $null }
+    Assert-True ($c3 -ne $null -and -not $c3.reachable) 'fake psql: counts unreachable'
+    Assert-Eq $env:PGCONNECT_TIMEOUT '77' 'a pre-set PGCONNECT_TIMEOUT survives Get-SdpDbCounts'
+    Assert-Eq $env:LC_MESSAGES 'fr_FR' 'a pre-set LC_MESSAGES survives Get-SdpDbCounts'
+    Assert-True (-not (Test-Path Env:PGPASSWORD)) 'an absent PGPASSWORD stays absent (removed, not set to empty)'
+    $env:PGPASSWORD = 'callerPw'
+    Remove-Item Env:PGCONNECT_TIMEOUT -ErrorAction SilentlyContinue
+    try { $null = Get-SdpDbCounts $envInst } catch { }
+    Assert-Eq $env:PGPASSWORD 'callerPw' 'a pre-set PGPASSWORD is restored, not wiped'
+    Assert-True (-not (Test-Path Env:PGCONNECT_TIMEOUT)) 'an absent PGCONNECT_TIMEOUT stays absent'
+    Assert-True (-not (($c3.error + '') -match 'Pw8bSecret')) 'no password in the counts error'
+} finally {
+    $script:SdpPgRoots = $origPgRoots
+    foreach ($k in $envKeep.Keys) { [Environment]::SetEnvironmentVariable($k, $envKeep[$k], 'Process') }
+}
+
 # 9. partial the other way: server.js without .env
 $part2 = New-Install '' $false $true ''
 $s = Get-SdpSituation (Cfg $part2) $bundle

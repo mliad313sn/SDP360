@@ -150,21 +150,20 @@ function Resolve-SuperPassword {
     }
     return $cfg.StandardPgSuperPassword
 }
-function Find-PgBin($exe) {
-    # TEST HOOK ONLY (tests\manage-restore.tests.ps1): SDP_TEST_PSQL names a fake
-    # psql so the restore's DROP / CREATE / import failure paths can be proven
-    # without a PostgreSQL server. Unset in every real run.
-    if ($exe -eq 'psql.exe' -and $env:SDP_TEST_PSQL) { return $env:SDP_TEST_PSQL }
-    foreach ($root in @('C:\Program Files\PostgreSQL', 'C:\Program Files (x86)\PostgreSQL')) {
-        if (Test-Path $root) {
-            foreach ($v in (Get-ChildItem $root -Directory | Sort-Object { [double]$_.Name } -Descending)) {
-                $p = Join-Path $v.FullName ("bin\" + $exe)
-                if (Test-Path $p) { return $p }
-            }
-        }
-    }
-    return $null
+# psql for the restore's DROP / CREATE / import. The lookup itself is
+# SdpSituation.ps1's Find-SdpPsql (one implementation, never throws).
+# TEST HOOK ONLY (tests\manage-restore.tests.ps1): SDP_TEST_PSQL names a fake
+# psql so the DROP / CREATE / import paths can be proven without a PostgreSQL
+# server. Unset in every real run.
+function Find-RestorePsql {
+    if ($env:SDP_TEST_PSQL) { return $env:SDP_TEST_PSQL }
+    return (Find-SdpPsql)
 }
+# Every name a restore puts into DROP / CREATE ... OWNER is sent UNQUOTED, and
+# PostgreSQL folds an unquoted identifier to lower case: a PG_URL naming
+# "MyDb" would dump MyDb but drop mydb. Only plain lower-case identifiers are
+# accepted, so the dumped name and the dropped name are provably the same.
+function Test-PlainPgIdent([string]$n) { return ([bool]$n -and ($n -cmatch '^[a-z_][a-z0-9_]*$')) }
 
 # =====================================================================
 switch ($action) {
@@ -235,6 +234,18 @@ switch ($action) {
     $effPgUrl = if ($zipEnv.hasEnv) { $zipEnv.value } else { $curPgUrl }
     $willDrop = [bool]$effPgUrl -and $zipHasSql
     $viaTarget = $willDrop -and ($effPgUrl -ne $curPgUrl)
+    # The DROP / CREATE / import below target EXACTLY the database the
+    # pre-restore dump covers: database, host AND port all come from $effPgUrl
+    # (the URL handed to that dump) - never from config.psd1. Parsed and
+    # checked here, before the pre-restore point is taken or anything stops.
+    $dropTarget = $null; $dropApp = $null
+    if ($willDrop) {
+        $dropTarget = Get-SdpPgUrlTarget $effPgUrl
+        if (-not $dropTarget) { Die 'The PG_URL of the database to replace is not a valid postgres URL (postgres://user:password@host:port/db) - restore aborted, nothing changed.' }
+        try { $dropApp = [Uri]::UnescapeDataString(([Uri]$effPgUrl).UserInfo.Split(':')[0]) } catch { $dropApp = $null }
+        if (-not (Test-PlainPgIdent $dropTarget.db)) { Die 'The database name in PG_URL is not a plain lower-case identifier ([a-z_][a-z0-9_]*) - restore aborted, nothing changed.' }
+        if (-not (Test-PlainPgIdent $dropApp)) { Die 'The user name in PG_URL is not a plain lower-case identifier ([a-z_][a-z0-9_]*) - restore aborted, nothing changed.' }
+    }
 
     # ---- safety backup of the CURRENT state, before anything is stopped or overwritten ----
     # Re-invoke this script (one action per invocation - the dailyjob pattern);
@@ -289,32 +300,43 @@ switch ($action) {
         Expand-Archive -LiteralPath $zip -DestinationPath $stage -Force
         Invoke-Robocopy $stage $InstallDir @()
         $dump = Join-Path $InstallDir 'sdp_dashboard.sql'
-        $pgUrl = Get-EnvValue 'PG_URL'
-        if ((Test-Path $dump) -and $pgUrl) {
+        # $willDrop was decided before anything changed: PG_URL set AND the
+        # zip carries a root dump (a stale install-dir dump was deleted above,
+        # so the only dump here is the restore point's).
+        if ($willDrop -and (Test-Path -LiteralPath $dump)) {
+            # The copied .env must still name the database that was dumped
+            # (it is the zip's .env, or the untouched current one). Nothing is
+            # dropped yet if it does not.
+            if ((Get-EnvValue 'PG_URL') -ne $effPgUrl) { Die 'The .env after the copy does not name the database that was dumped - the database was NOT changed.' }
             Log 'Restoring PostgreSQL database from the dump' 'STEP'
-            $psql = Find-PgBin 'psql.exe'
+            $psql = Find-RestorePsql
             if (-not $psql) { Die 'psql.exe not found - the database was NOT changed.' }
-            $u = [Uri]$pgUrl
-            $db  = $u.AbsolutePath.TrimStart('/')
-            $app = $u.UserInfo.Split(':')[0]
-            $appPw = [Uri]::UnescapeDataString($u.UserInfo.Split(':')[1])
+            $u = [Uri]$effPgUrl
+            $db  = $dropTarget.db
+            $app = $dropApp
+            # Raw host of the URL (brackets of an IPv6 literal removed) - the
+            # same server the pre-restore dump connected to.
+            $pgHost = ([string]$u.Host).Trim('[', ']')
+            $pgPort = [string]$dropTarget.port
+            $appPw = [Uri]::UnescapeDataString($u.UserInfo.Split(':', 2)[1])
             $superPw = Resolve-SuperPassword
             # -w: never prompt (a closed stdin would hang). Each step's exit code
             # is checked before the next one runs - never CREATE over a failed
             # DROP, never import into a database that was not created.
+            $hadPw = Test-Path Env:PGPASSWORD; $prevPw = $env:PGPASSWORD
             try {
                 $env:PGPASSWORD = $superPw
-                & $psql -h $cfg.PgHost -p $cfg.PgPort -U postgres -d postgres -w -v ON_ERROR_STOP=1 -c ("DROP DATABASE IF EXISTS " + $db + " WITH (FORCE)") | Out-Null
+                & $psql -h $pgHost -p $pgPort -U postgres -d postgres -w -v ON_ERROR_STOP=1 -c ("DROP DATABASE IF EXISTS " + $db + " WITH (FORCE)") | Out-Null
                 $rc = $LASTEXITCODE
                 if ($rc -ne 0) { Die ('DROP DATABASE ' + $db + ' failed (psql exit ' + $rc + ') - the database was NOT replaced.') }
-                & $psql -h $cfg.PgHost -p $cfg.PgPort -U postgres -d postgres -w -v ON_ERROR_STOP=1 -c ("CREATE DATABASE " + $db + " OWNER " + $app) | Out-Null
+                & $psql -h $pgHost -p $pgPort -U postgres -d postgres -w -v ON_ERROR_STOP=1 -c ("CREATE DATABASE " + $db + " OWNER " + $app) | Out-Null
                 $rc = $LASTEXITCODE
                 if ($rc -ne 0) { Die ('CREATE DATABASE ' + $db + ' failed (psql exit ' + $rc + ') - the database was DROPPED and NOT recreated.') }
                 $env:PGPASSWORD = $appPw
-                & $psql -h $cfg.PgHost -p $cfg.PgPort -U $app -d $db -w -v ON_ERROR_STOP=1 -q -f $dump | Out-Null
+                & $psql -h $pgHost -p $pgPort -U $app -d $db -w -v ON_ERROR_STOP=1 -q -f $dump | Out-Null
                 $rc = $LASTEXITCODE
                 if ($rc -ne 0) { Die ('psql import failed (exit ' + $rc + ') - database ' + $db + ' is INCOMPLETE. The dump was kept at ' + $dump + '.') }
-            } finally { $env:PGPASSWORD = '' }
+            } finally { if ($hadPw) { $env:PGPASSWORD = $prevPw } else { Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue } }
             Log 'Database restored' 'OK'
             Remove-Item $dump -Force -ErrorAction SilentlyContinue
         }

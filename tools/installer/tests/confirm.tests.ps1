@@ -32,7 +32,7 @@ Compress-Archive -Path (Join-Path $stage2 '*') -DestinationPath (Join-Path $bak 
 Set-Content (Join-Path $bak 'sdp-restore_x_20260901-120000.zip') 'not a real zip' -Encoding ascii
 
 $sit = @{
-    install = @{ dir = 'C:\Apps\X'; version = '2.3.1'; has_env = $true }
+    install = @{ dir = 'C:\Apps\X'; version = '2.3.1'; has_env = $true; has_server_js = $true }
     db = @{ reachable = $true; db = 'sdp_dashboard_test'; size_mb = 12.5; counts = @{ sites = 11; weekly_reports = 412; md_meetings = 96; insp_inspections = 41; users = 23; assets = 2400 } }
     backups = @{ dir = $bak; last_full = @{ name = 'sdp-restore_pre-v2.4.0_20260912-020011.zip'; age_hours = 70; size_mb = 1 } }
     bundle = @{ version = '2.4.0' }
@@ -120,6 +120,24 @@ Assert-Eq (Run 'CLOSED' @('-Action', 'demo-over-existing', '-Situation', $sitFil
 Assert-Eq (Run (' DEMO ' + $env:COMPUTERNAME + ' ') @('-Action', 'demo-over-existing', '-Situation', $sitFile)) 0 'demo: surrounding whitespace trimmed like the other phrases'
 Assert-Eq (Run ' REINSTALL  ' @('-Action', 'reinstall', '-Situation', $sitFile)) 0 'surrounding whitespace tolerated (cmd echo pipe appends a trailing space)'
 Assert-Eq (Run 'RE INSTALL' @('-Action', 'reinstall', '-Situation', $sitFile)) 1 'inner content must match exactly - internal whitespace is not tolerated'
+
+# "What protects you" is only what really happens (M1/M2).
+$rFo = RunOut ('OVERWRITE ' + $env:COMPUTERNAME) @('-Action', 'fresh-over-existing', '-Situation', $sitFile)
+Assert-Eq $rFo.Code 0 'fresh-over-existing with server.js -> 0'
+Assert-True ($rFo.Out -match 'automatic rollback applies') 'fresh-over-existing with server.js promises the restore point + rollback'
+$sitNoSrv = @{}; foreach ($k in $sit.Keys) { $sitNoSrv[$k] = $sit[$k] }
+$sitNoSrv.install = @{ dir = 'C:\Apps\X'; has_env = $true; has_server_js = $false }
+$sitNoSrvFile = Join-Path $sitDir 'sit-nosrv.json'
+($sitNoSrv | ConvertTo-Json -Depth 6) | Set-Content $sitNoSrvFile -Encoding ascii
+$rFo2 = RunOut ('OVERWRITE ' + $env:COMPUTERNAME) @('-Action', 'fresh-over-existing', '-Situation', $sitNoSrvFile)
+Assert-Eq $rFo2.Code 0 'fresh-over-existing without server.js -> 0 with the right phrase'
+Assert-True ($rFo2.Out -match 'No restore point and no automatic rollback') 'no server.js: the screen says there is no restore point / rollback'
+Assert-True (-not ($rFo2.Out -match 'automatic rollback applies')) 'no server.js: never promises a rollback'
+$rRi = RunOut 'REINSTALL' @('-Action', 'reinstall', '-Situation', $sitFile)
+Assert-True ($rRi.Out -match 'code \+ \.env \+ data \+ DB dump\)') 'reinstall, DB reachable: restore point includes the DB dump'
+$rRi2 = RunOut 'REINSTALL' @('-Action', 'reinstall', '-Situation', $sitFile2)
+Assert-True ($rRi2.Out -match 'DB dump only if the database is reachable') 'reinstall, DB unreachable: the dump claim is qualified'
+Assert-True (-not ($rRi2.Out -match 'data \+ DB dump\)')) 'reinstall, DB unreachable: no unconditional dump claim'
 
 # .sql target and missing target: assert the SCREEN says REFUSED, not just exit 1
 # (an exit-1 assertion alone passes even if the wrong branch produced it).

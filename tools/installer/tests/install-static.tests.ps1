@@ -427,5 +427,29 @@ try {
     $env:PG_URL = $savedPgUrl; $env:DATABASE_URL = $savedDbUrl
     Remove-Item $dropDir -Recurse -Force -ErrorAction SilentlyContinue
 }
+# (i) Step5 replays the child Manage-SDP console lines (so '[pg-dump] FAILED'
+# is visible) and keeps the last-line zip-path contract.
+Assert-True ($step5Fn -match '\$zip = Split-ChildBackupOutput \$out') 'Step5: zip path taken through Split-ChildBackupOutput'
+Assert-True ($step5Fn -match '(?s)if \(\$code -ne 0\) \{\s*Split-ChildBackupOutput \$out -All') 'Step5: a failed child has ALL its lines replayed before Die'
+. ([scriptblock]::Create((Get-FunctionText $ast 'Split-ChildBackupOutput')))
+$replayDir = New-TempDir 'sdp-replay'
+try {
+    $LogFile = Join-Path $replayDir 'install.log'
+    $res = @(& { Split-ChildBackupOutput @('10:00:00 [STEP] Full restore point', '[pg-dump] FAILED connection refused', 'C:\bak\sdp-restore_pre-x_1.zip') } 6>&1)
+    $info = @($res | Where-Object { $_ -is [System.Management.Automation.InformationRecord] } | ForEach-Object { [string]$_.MessageData })
+    $ret = @($res | Where-Object { $_ -isnot [System.Management.Automation.InformationRecord] })
+    Assert-Eq $ret.Count 1 'replay: exactly one value returned'
+    Assert-Eq $ret[0] 'C:\bak\sdp-restore_pre-x_1.zip' 'replay: the LAST line (zip path) is returned'
+    Assert-Eq $info.Count 2 'replay: all lines but the last are shown'
+    Assert-True (($info -join "`n") -match '\[pg-dump\] FAILED') 'replay: the dump failure reaches the console'
+    Assert-True (-not (($info -join "`n") -match 'sdp-restore_pre-x_1')) 'replay: the zip path line is not echoed'
+    Assert-True ((Get-Content $LogFile -Raw) -match '\[manage\] \[pg-dump\] FAILED') 'replay: the dump failure reaches the install log'
+    $res2 = @(& { Split-ChildBackupOutput @('a', 'ERROR last') -All } 6>&1)
+    Assert-Eq (@($res2 | Where-Object { $_ -is [System.Management.Automation.InformationRecord] })).Count 2 'replay -All: every line shown'
+    Assert-Eq (@($res2 | Where-Object { $_ -isnot [System.Management.Automation.InformationRecord] -and $null -ne $_ })).Count 0 'replay -All: nothing returned'
+    Assert-Eq (Split-ChildBackupOutput 'C:\only.zip' 6>$null) 'C:\only.zip' 'replay: a single-line output is the zip path'
+    Assert-True ($null -eq (Split-ChildBackupOutput $null)) 'replay: no output -> $null'
+} finally { Remove-Item $replayDir -Recurse -Force -ErrorAction SilentlyContinue }
+
 Write-Host ("install-static.tests: " + $script:AssertCount + " assertions ok")
 exit 0

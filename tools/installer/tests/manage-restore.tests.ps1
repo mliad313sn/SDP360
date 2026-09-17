@@ -24,7 +24,7 @@ function Get-ZipNames([string]$path) {
 
 # Builds an install dir + a sibling backup dir + a temp config pointing at them.
 # BackupDir is RELATIVE (Manage-SDP joins it onto InstallDir, like config.psd1).
-function New-Fixture([string]$envText) {
+function New-Fixture([string]$envText, [string]$cfgHost = '127.0.0.1', [string]$cfgPort = '1', [string]$cfgDb = 'x') {
     $inst = New-TempDir 'sdp-mg-inst'; $script:TestTempDirs += $inst
     Set-Content (Join-Path $inst 'server.js') '// current' -Encoding ascii
     Set-Content (Join-Path $inst '.env') $envText -Encoding ascii
@@ -37,7 +37,7 @@ function New-Fixture([string]$envText) {
     $script:TestTempDirs += $bak
     $cfgDir = New-TempDir 'sdp-cfg'; $script:TestTempDirs += $cfgDir
     $cfg = Join-Path $cfgDir 'c.psd1'
-    Set-Content $cfg ("@{ InstallDir = '" + $inst + "'; ServiceName = 'sdp-unit-none'; AppPort = 3499; BackupDir = '..\" + $bakLeaf + "'; PgHost = '127.0.0.1'; PgPort = 1; DbName = 'x' }") -Encoding ascii
+    Set-Content $cfg ("@{ InstallDir = '" + $inst + "'; ServiceName = 'sdp-unit-none'; AppPort = 3499; BackupDir = '..\" + $bakLeaf + "'; PgHost = '" + $cfgHost + "'; PgPort = " + $cfgPort + "; DbName = '" + $cfgDb + "' }") -Encoding ascii
     return @{ inst = $inst; bak = $bak; cfg = $cfg }
 }
 
@@ -275,11 +275,11 @@ process.exit(0);
 $fakeCmd = Join-Path $fakeDir 'psql.cmd'
 [IO.File]::WriteAllText($fakeCmd, ("@node `"%~dp0fake-psql.js`" %*`r`n@exit /b %errorlevel%`r`n"), [Text.Encoding]::ASCII)
 $savedHook = @{ SDP_TEST_PSQL = $env:SDP_TEST_PSQL; SDPT_PSQL_FAIL = $env:SDPT_PSQL_FAIL; SDPT_PSQL_LOG = $env:SDPT_PSQL_LOG }
-function Invoke-StrictCase([string]$fail, [string]$zipName) {
-    $fx = New-Fixture ('PG_URL=' + $urlB)
+function Invoke-StrictCase([string]$fail, [string]$zipName, [string]$url = $urlB, [string[]]$cfgArgs = @()) {
+    $fx = New-Fixture ('PG_URL=' + $url) @cfgArgs
     Set-DumpAlwaysOk $fx
-    New-TargetZip $fx $zipName ('PG_URL=' + $urlB)
-    $log = Join-Path $fakeDir ('log-' + $fail + '.txt')
+    New-TargetZip $fx $zipName ('PG_URL=' + $url)
+    $log = Join-Path $fakeDir ('log-' + $fail + '-' + $zipName + '.txt')
     $env:SDP_TEST_PSQL = $fakeCmd; $env:SDPT_PSQL_FAIL = $fail; $env:SDPT_PSQL_LOG = $log
     try { $res = Invoke-Manage @('-Restore', '-Name', $zipName, '-Force', '-Config', $fx.cfg) }
     finally { foreach ($k in $savedHook.Keys) { [Environment]::SetEnvironmentVariable($k, $savedHook[$k], 'Process') } }
@@ -320,6 +320,33 @@ try {
     Assert-True (-not (Test-Path -LiteralPath (Join-Path $c.fx.inst 'sdp_dashboard.sql'))) 'dump removed after a successful import (case 15)'
     Assert-True (-not ($c.r.out -match 'to get back to the state before this restore')) 'no failure hint on success (case 15)'
     Assert-Eq $c.calls.Count 3 'drop, create, import (case 15)'
+
+    # ---- case 16: config.psd1 names ANOTHER host/port/db than PG_URL -> psql follows PG_URL ----
+    # The pre-restore dump covered the PG_URL database, so that is the one the
+    # DROP / CREATE / import must target - never config.psd1's PgHost/PgPort/DbName.
+    $url16 = 'postgres://sdp_app:Pw16Secret@127.0.0.1:5439/realdb'
+    $c = Invoke-StrictCase 'none' 'sdp-restore_manual_20260916-120000.zip' $url16 @('cfg-host.invalid', '6543', 'cfgdb')
+    Assert-Eq $c.r.code 0 ('PG_URL target restore -> exit 0: ' + $c.r.out)
+    Assert-Eq $c.calls.Count 3 'drop, create, import (case 16)'
+    foreach ($call in $c.calls) {
+        Assert-True ($call -match '(^| )-h 127\.0\.0\.1( |$)') ('psql gets the PG_URL host (case 16): ' + $call)
+        Assert-True ($call -match '(^| )-p 5439( |$)') ('psql gets the PG_URL port (case 16): ' + $call)
+        Assert-True (-not ($call -match 'cfg-host|6543|cfgdb')) ('config.psd1 host/port/db never used (case 16): ' + $call)
+        Assert-True (-not ($call -match 'Pw16Secret')) 'no password on the psql command line (case 16)'
+    }
+    Assert-True ($c.calls[0] -match 'DROP DATABASE IF EXISTS realdb WITH \(FORCE\)') 'DROP targets the PG_URL database (case 16)'
+    Assert-True ($c.calls[1] -match 'CREATE DATABASE realdb OWNER sdp_app') 'CREATE targets the PG_URL database (case 16)'
+    Assert-True ($c.calls[2] -match '(^| )-d realdb( |$)' -and $c.calls[2] -match '(^| )-U sdp_app( |$)') 'import targets the PG_URL database as the app user (case 16)'
+    Assert-True (-not ($c.r.out -match 'Pw16Secret')) 'password never printed (case 16)'
+
+    # ---- case 17: a PG_URL database name PostgreSQL would case-fold -> refused before anything ----
+    $c = Invoke-StrictCase 'none' 'sdp-restore_manual_20260917-120000.zip' 'postgres://sdp_app:x@127.0.0.1:1/MyDb'
+    Assert-True ($c.r.code -ne 0) ('mixed-case database name -> refused: ' + $c.r.out)
+    Assert-True ($c.r.out -match 'not a plain lower-case identifier') 'refusal names the identifier rule (case 17)'
+    Assert-True ($c.r.out -match 'nothing changed') 'refusal says nothing changed (case 17)'
+    Assert-Eq $c.calls.Count 0 'psql never called (case 17)'
+    Assert-Eq $c.pre.Count 0 'no pre-restore point taken (case 17)'
+    Assert-Eq (Get-Content (Join-Path $c.fx.inst 'server.js') -Raw).Trim() '// current' 'code untouched (case 17)'
 } finally { foreach ($k in $savedHook.Keys) { [Environment]::SetEnvironmentVariable($k, $savedHook[$k], 'Process') } }
 
 Write-Host ("manage-restore.tests: " + $script:AssertCount + " assertions ok")

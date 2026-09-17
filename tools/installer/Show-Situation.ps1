@@ -225,7 +225,14 @@ try {
     }
     W '  DATA' 'White'
     W '    5.  Backup now           Full restore point (code + .env + data + DB dump).' 'Gray'
-    W ('    6.  Restore a previous version      Overwrites the current state - confirmation required.' + $(if (-not $s.db.reachable) { '  (database unreachable)' } else { '' })) 'Red'
+    # 'no PG_URL in .env' is the exact error Get-SdpDbCounts (SdpSituation.ps1)
+    # writes when .env names no database - that is not an outage, there is no
+    # PostgreSQL to reach (sqlite install), so say so instead of "unreachable".
+    $restoreNote = ''
+    if (-not $s.db.reachable) {
+        $restoreNote = if ([string]$s.db.error -eq 'no PG_URL in .env') { '  (no PostgreSQL configured)' } else { '  (database unreachable)' }
+    }
+    W ('    6.  Restore a previous version      Overwrites the current state - confirmation required.' + $restoreNote) 'Red'
     W '    7.  List restore points' 'Gray'
     W '  MAINTENANCE' 'White'
     W '    8.  Verify health        pm2 status + HTTP probe.' 'Gray'

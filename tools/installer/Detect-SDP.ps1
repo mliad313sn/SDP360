@@ -1,8 +1,13 @@
 # =====================================================================
 # Detect-SDP.ps1 - "what is on this machine", for Setup.bat.
-#   powershell -File Detect-SDP.ps1 [-Config <psd1>] [-BundleRoot <dir>] [-OutFile <json>]
-# Writes the full situation as JSON to -OutFile (default %TEMP%\sdp-situation.json)
-# and prints ONLY KEY=VALUE lines on stdout (cmd's for /f loop reads them).
+#   powershell -File Detect-SDP.ps1 -OutFile <json> [-Config <psd1>] [-BundleRoot <dir>]
+# Writes the full situation as JSON to -OutFile and prints ONLY KEY=VALUE lines
+# on stdout (cmd's for /f loop reads them). -OutFile is REQUIRED: there is no
+# shared default file (two menus - Setup.bat, _sdp_admin.cmd - or two operators
+# must never read each other's situation); every caller passes its own
+# per-session name. Without it: STATE=unknown + ERROR=..., no file written.
+# (Checked by hand, not [Parameter(Mandatory)]: a mandatory parameter would
+# PROMPT on a console and hang a piped run instead of failing cleanly.)
 # Read-only; never throws; exit 0 always (a detection failure is a STATE=unknown line).
 # KEEP PURE ASCII (this rule is about the SOURCE FILE - the emitted JSON is
 # UTF8, see the note by the JSON write below).
@@ -25,7 +30,12 @@ function Write-Kv([string]$k, $v) {
 
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 if (-not $BundleRoot) { $BundleRoot = $here }
-if (-not $OutFile) { $OutFile = Join-Path $env:TEMP 'sdp-situation.json' }
+if (-not $OutFile) {
+    Write-Kv 'STATE' 'unknown'; Write-Kv 'RECOMMENDED' 'none'; Write-Kv 'DOWNGRADE' '0'; Write-Kv 'DB_REACHABLE' '0'; Write-Kv 'HAS_SERVER' '0'
+    Write-Kv 'INSTALLED_VER' 'unknown'; Write-Kv 'BUNDLE_VER' 'unknown'
+    Write-Kv 'ERROR' '-OutFile <json> is required (no shared default situation file)'
+    exit 0
+}
 
 # Single source of truth for the 4 config defaults - used both to fill gaps
 # in the merged config (happy path) and as the catch-path fallback.

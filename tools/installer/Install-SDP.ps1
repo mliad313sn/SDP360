@@ -1065,6 +1065,23 @@ function Assert-DropTargetMatchesEnv {
     }
     Log ('Drop target proven: .env names the database step 4 drops (' + $cfgLabel + ')') 'OK'
 }
+# Manage-SDP runs in a child process: its console lines (Log -> Write-Host,
+# dump-db.js progress, '[pg-dump] FAILED ...') arrive in the captured output,
+# not on this console. Replay them here (console + install log) so a failed or
+# skipped dump is visible, and return the LAST line - the zip path contract
+# (Manage-SDP.ps1 'backup' ends with Write-Output $zip). -All replays every
+# line (a failed child has no zip line; its last line is the error).
+function Split-ChildBackupOutput($out, [switch]$All) {
+    $lines = @($out | Where-Object { $null -ne $_ } | ForEach-Object { [string]$_ })
+    if ($lines.Count -eq 0) { return $null }
+    $replay = if ($All) { $lines } else { @($lines | Select-Object -First ($lines.Count - 1)) }
+    foreach ($l in $replay) {
+        Write-Host ('    ' + $l) -ForegroundColor DarkGray
+        try { Add-Content -Path $LogFile -Value ('         [manage] ' + $l) } catch { }
+    }
+    if ($All) { return $null }
+    return $lines[$lines.Count - 1]
+}
 function Step5-Backup {
     $manage = Join-Path $here 'Manage-SDP.ps1'
     if (-not (Test-Path $manage)) { Die "Manage-SDP.ps1 not found next to this script: $manage" }
@@ -1095,8 +1112,12 @@ function Step5-Backup {
     $mArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $manage, '-Backup', '-Tag', ('pre-' + $script:BundleVer))
     if ($Config) { $mArgs += @('-Config', $Config) }
     $out = & powershell @mArgs
-    if ($LASTEXITCODE -ne 0) { Die 'Pre-change backup failed - refusing to continue (see the manage-backup log)' }
-    $zip = ($out | Select-Object -Last 1)
+    $code = $LASTEXITCODE
+    if ($code -ne 0) {
+        Split-ChildBackupOutput $out -All | Out-Null
+        Die 'Pre-change backup failed - refusing to continue (see the manage-backup log)'
+    }
+    $zip = Split-ChildBackupOutput $out
     if (-not ($zip -and (Test-Path $zip))) { Die "Backup ran but returned no zip path (got: '$zip')" }
     if ($ConfirmDataLoss -and -not (Test-SdpZipHasDump $zip)) {
         Die ('No database dump inside the restore point ' + (Split-Path $zip -Leaf) + ' - refusing to DROP the database. Check PG_URL / the PostgreSQL service, take a backup (menu 5) and retry.')

@@ -76,6 +76,19 @@ Assert-True (Test-Path $aloneOut) 'alone-run json written'
 $aj = Get-Content $aloneOut -Raw | ConvertFrom-Json
 Assert-Eq $aj.verdict.state 'unknown' 'alone-run json verdict is unknown'
 
+# No -OutFile: no shared default file - STATE=unknown + ERROR, nothing written
+# to the old shared %TEMP%\sdp-situation.json, never a prompt (stdin closed).
+$sharedDefault = Join-Path $env:TEMP 'sdp-situation.json'
+$sharedBefore = if (Test-Path $sharedDefault) { (Get-Item $sharedDefault).LastWriteTimeUtc } else { $null }
+$noOutStdout = cmd /c ('powershell -NoProfile -ExecutionPolicy Bypass -File "' + $detect + '" -Config "' + $cfgFile + '" -BundleRoot "' + $bundle + '" < NUL')
+Assert-Eq $LASTEXITCODE 0 'no -OutFile: exit 0'
+$noOutLines = @($noOutStdout | ForEach-Object { "$_" })
+Assert-True (($noOutLines | Where-Object { $_ -notmatch '^[A-Z_]+=' }).Count -eq 0) 'no -OutFile: only KEY=VALUE lines'
+Assert-True ($noOutLines -contains 'STATE=unknown') 'no -OutFile: STATE=unknown'
+Assert-True (@($noOutLines | Where-Object { $_ -match '^ERROR=.*-OutFile' }).Count -eq 1) 'no -OutFile: ERROR names -OutFile'
+$sharedAfter = if (Test-Path $sharedDefault) { (Get-Item $sharedDefault).LastWriteTimeUtc } else { $null }
+Assert-Eq $sharedAfter $sharedBefore 'no -OutFile: the old shared %TEMP%\sdp-situation.json is not written'
+
 # Catch-path (b): an unwritable -OutFile must still degrade cleanly - exit 0,
 # stdout still carries only STATE=... KEY=VALUE lines (no stack trace line).
 $badOutFile = 'Z:\nope\<>\x.json'
