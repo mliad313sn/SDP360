@@ -182,6 +182,13 @@ $bomIn = Join-Path $wrapDir 'in-bom.txt'
 $w6 = (cmd /c ('"' + $wrap + '" < "' + $bomIn + '"') | Out-String)
 Assert-True ($w6 -match 'RC=0' -and $w6 -match 'X=\[NEXTLINE\]') 'leading UTF-8 BOM + surrounding spaces tolerated (like the old StreamReader)'
 $w5 = RunWrapped ""
+# Length cap: a 10 KB line is consumed up to its LF but never stored past
+# 4096 bytes - the answer is a mismatch and the next line is still readable.
+$w7 = RunWrapped (('A' * 10240) + "`r`nNEXT`r`n")
+Assert-True ($w7 -match 'RC=1') '10 KB line -> cancel'
+Assert-True ($w7 -match 'X=\[NEXT\]') '10 KB line: the next line is still left for the caller'
+$w8 = RunWrapped ('REINSTALL' + (' ' * 10240) + "`r`nNEXT`r`n")
+Assert-True ($w8 -match 'RC=1' -and $w8 -match 'X=\[NEXT\]') 'right phrase padded past the cap -> cancel, next line intact'
 Assert-True ($w5 -match 'RC=1') 'empty redirected stdin (EOF) -> cancel'
 
 Write-Host ("confirm.tests: " + $script:AssertCount + " assertions ok")

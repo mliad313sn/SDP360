@@ -13,6 +13,10 @@ title SDP Dashboard - Install ^& Maintenance
 set "APP=%~dp0"
 if "%APP:~-1%"=="\" set "APP=%APP:~0,-1%"
 if not "%SDP_PROD_DIR%"=="" set "APP=%SDP_PROD_DIR%"
+rem  NOTE: BAK is only a default hint. The real backup folder is config.psd1's
+rem  BackupDir as resolved by tools\installer\Manage-SDP.ps1 - option 7 and the
+rem  restore listing go through "Manage-SDP.ps1 -List", and Detect-SDP.ps1 /
+rem  Confirm-Destructive.ps1 resolve the same config, so all three agree.
 set "BAK=%APP%\..\SDP-Backups"
 set "PM2APP=endeavour-dashboard"
 set "PORT=3456"
@@ -50,18 +54,18 @@ if not defined CH (
   goto menu
 )
 set "_EMPTY=0"
-if "%CH%"=="0" exit /b 0
-if /i "%CH%"=="1" ( call :apply )
-if /i "%CH%"=="2" ( call :restart )
-if /i "%CH%"=="3" ( call :apply && call :restart )
-if /i "%CH%"=="5" ( call :backup )
-if /i "%CH%"=="6" ( call :restore )
-if /i "%CH%"=="7" ( call :listbak )
-if /i "%CH%"=="8" ( call :health )
-if /i "%CH%"=="9" ( call :diag )
-if /i "%CH%"=="C" ( call :checkdb )
-if /i "%CH%"=="P" ( call :provision )
-if /i "%CH%"=="R" ( call :recover )
+if "!CH!"=="0" exit /b 0
+if /i "!CH!"=="1" ( call :apply )
+if /i "!CH!"=="2" ( call :restart )
+if /i "!CH!"=="3" ( call :apply && call :restart )
+if /i "!CH!"=="5" ( call :backup )
+if /i "!CH!"=="6" ( call :restore )
+if /i "!CH!"=="7" ( call :listbak )
+if /i "!CH!"=="8" ( call :health )
+if /i "!CH!"=="9" ( call :diag )
+if /i "!CH!"=="C" ( call :checkdb )
+if /i "!CH!"=="P" ( call :provision )
+if /i "!CH!"=="R" ( call :recover )
 goto menu
 
 :: ---------------------------------------------------------------- 1
@@ -117,20 +121,46 @@ if not defined RP (
   echo Cancelled.
   exit /b 0
 )
-set "INST=%APP%\tools\installer"
-if not exist "%INST%\Confirm-Destructive.ps1" (
-  echo ERROR: Confirm-Destructive.ps1 missing under tools\installer - deploy the installer tools first.
+set "RPCHK=!RP:"=!"
+if not "!RPCHK!"=="!RP!" (
+  echo Refused: a restore point name never contains a double quote.
   exit /b 1
 )
-set "SIT=%TEMP%\sdp-admin-situation.json"
+set "INST=%APP%\tools\installer"
+set "MISSING="
+if not exist "%INST%\Confirm-Destructive.ps1" set "MISSING=Confirm-Destructive.ps1"
+if not exist "%INST%\Detect-SDP.ps1" set "MISSING=Detect-SDP.ps1"
+if not exist "%INST%\SdpSituation.ps1" set "MISSING=SdpSituation.ps1"
+if not exist "%INST%\Manage-SDP.ps1" set "MISSING=Manage-SDP.ps1"
+if defined MISSING (
+  echo ERROR: !MISSING! missing under tools\installer - deploy the installer tools first.
+  exit /b 1
+)
+:: Per-session situation file, deleted before detection (never a stale one)
+:: and right after the red screen.
+set "SIT=%TEMP%\sdp-admin-situation-%RANDOM%%RANDOM%.json"
+del "%SIT%" >nul 2>&1
 powershell -NoProfile -ExecutionPolicy Bypass -File "%INST%\Detect-SDP.ps1" -BundleRoot "%INST%" -OutFile "%SIT%" >nul
-powershell -NoProfile -ExecutionPolicy Bypass -File "%INST%\Confirm-Destructive.ps1" -Action restore -Situation "%SIT%" -Target "%RP%"
-if errorlevel 1 (
+set "DETRC=!errorlevel!"
+if not "!DETRC!"=="0" (
+  echo ERROR: detection failed - exit code !DETRC!. Nothing changed.
+  del "%SIT%" >nul 2>&1
+  exit /b 1
+)
+if not exist "%SIT%" (
+  echo ERROR: detection wrote no situation file. Nothing changed.
+  exit /b 1
+)
+:: Only exit code EXACTLY 0 confirms - "if errorlevel 1" misses negative codes.
+powershell -NoProfile -ExecutionPolicy Bypass -File "%INST%\Confirm-Destructive.ps1" -Action restore -Situation "%SIT%" -Target "!RP!"
+set "CONFRC=!errorlevel!"
+del "%SIT%" >nul 2>&1
+if not "!CONFRC!"=="0" (
   echo Cancelled - nothing changed.
   exit /b 1
 )
-powershell -NoProfile -ExecutionPolicy Bypass -File "%INST%\Manage-SDP.ps1" -Restore -Name "%RP%" -Force
-exit /b %errorlevel%
+powershell -NoProfile -ExecutionPolicy Bypass -File "%INST%\Manage-SDP.ps1" -Restore -Name "!RP!" -Force
+exit /b !errorlevel!
 
 :: ---------------------------------------------------------------- 7
 :listbak

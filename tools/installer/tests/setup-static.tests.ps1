@@ -4,49 +4,13 @@
 $ErrorActionPreference = 'Stop'
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 . (Join-Path $here '_assert.ps1')
+. (Join-Path $here '_batch.ps1')
 $bat = Join-Path $here '..\Setup.bat'
 
-$bytes = [IO.File]::ReadAllBytes($bat)
-Assert-Eq (@($bytes | Where-Object { $_ -gt 127 }).Count) 0 'Setup.bat is pure ASCII'
-$text = [Text.Encoding]::ASCII.GetString($bytes)
-Assert-Eq ([regex]::Matches($text, "(?<!`r)`n").Count) 0 'Setup.bat has CRLF line endings only'
-Assert-True ($text -match '(?im)^setlocal EnableExtensions EnableDelayedExpansion') 'delayed expansion is on'
-
-$lines = $text -split "`r`n"
-# ---- labels ---------------------------------------------------------------------
-$labels = @{}
-foreach ($l in $lines) { if ($l -match '^\s*:([A-Za-z_][A-Za-z0-9_]*)\s*$') { $labels[$Matches[1].ToLower()] = $true } }
-foreach ($l in $lines) {
-    if ($l -match '^\s*rem\b') { continue }
-    foreach ($m in [regex]::Matches($l, '(?i)\bgoto\s+:?([A-Za-z_][A-Za-z0-9_]*)')) {
-        $n = $m.Groups[1].Value.ToLower(); if ($n -eq 'eof') { continue }
-        Assert-True $labels.ContainsKey($n) ("goto target exists: " + $n)
-    }
-    foreach ($m in [regex]::Matches($l, '(?i)\bcall\s+:([A-Za-z_][A-Za-z0-9_]*)')) {
-        Assert-True $labels.ContainsKey($m.Groups[1].Value.ToLower()) ("call target exists: " + $m.Groups[1].Value)
-    }
-}
-
-# ---- no literal ! in echo (delayed expansion would eat it) ---------------------------
-foreach ($l in $lines) {
-    if ($l -match '^\s*echo\b' -and $l -match '!') {
-        Assert-True ($l -match '![A-Za-z_]+!') ('echo with a bare exclamation mark: ' + $l)
-    }
-}
-
-# ---- body of a label (up to the next label) ----------------------------------------
-function Get-LabelBody([string]$name) {
-    $out = @(); $in = $false
-    foreach ($l in $lines) {
-        if ($l -match '^\s*:([A-Za-z_][A-Za-z0-9_]*)\s*$') {
-            if ($in) { break }
-            if ($Matches[1] -ieq $name) { $in = $true; continue }
-        }
-        if ($in) { $out += $l }
-    }
-    return $out
-}
-function IndexOf($arr, [string]$pattern) { for ($i = 0; $i -lt $arr.Count; $i++) { if ($arr[$i] -match $pattern) { return $i } }; return -1 }
+$lines = Read-BatchLines $bat 'Setup.bat'
+Assert-True (($lines -join "`n") -match '(?im)^setlocal EnableExtensions EnableDelayedExpansion') 'delayed expansion is on'
+Assert-BatchLabels $lines
+Assert-NoBareBang $lines
 
 # ---- detection + render at :menu -----------------------------------------------------
 $menu = Get-LabelBody 'menu'
@@ -70,24 +34,54 @@ foreach ($g in $gates) {
     $prev = $i
 }
 foreach ($k in @('1', '2', '3', '4')) {
-    Assert-True ((IndexOf $menu ('"%CH%"=="' + $k + '" goto refuse_unknown')) -ge 0) ('unknown refuses ' + $k)
-    Assert-True ((IndexOf $menu ('"%CH%"=="' + $k + '" goto refuse_downgrade')) -ge 0) ('downgrade refuses ' + $k)
+    Assert-True ((IndexOf $menu ('"!CH!"=="' + $k + '" goto refuse_unknown')) -ge 0) ('unknown refuses ' + $k)
+    Assert-True ((IndexOf $menu ('"!CH!"=="' + $k + '" goto refuse_downgrade')) -ge 0) ('downgrade refuses ' + $k)
 }
-Assert-True ((IndexOf $menu '"%CH%"=="D" goto refuse_unknown') -ge 0) 'unknown refuses D'
-Assert-True ((IndexOf $menu '"%CH%"=="D" goto refuse_downgrade') -ge 0) 'downgrade refuses D'
-foreach ($k in @('1', '2', '3')) { Assert-True ((IndexOf $menu ('"%CH%"=="' + $k + '" goto refuse_empty')) -ge 0) ('empty refuses ' + $k) }
-foreach ($k in @('1', '2')) { Assert-True ((IndexOf $menu ('"%CH%"=="' + $k + '" goto refuse_partial')) -ge 0) ('partial refuses ' + $k) }
+Assert-True ((IndexOf $menu '"!CH!"=="D" goto refuse_unknown') -ge 0) 'unknown refuses D'
+Assert-True ((IndexOf $menu '"!CH!"=="D" goto refuse_downgrade') -ge 0) 'downgrade refuses D'
+foreach ($k in @('1', '2', '3')) { Assert-True ((IndexOf $menu ('"!CH!"=="' + $k + '" goto refuse_empty')) -ge 0) ('empty refuses ' + $k) }
+foreach ($k in @('1', '2')) { Assert-True ((IndexOf $menu ('"!CH!"=="' + $k + '" goto refuse_partial')) -ge 0) ('partial refuses ' + $k) }
 # every menu key Show-Situation renders is still dispatched
 foreach ($k in @('1', '2', '3', '4', 'D', '5', '6', '7', '8', '9', 'E', 'C', '0')) {
-    Assert-True ((IndexOf $menu ('"%CH%"=="' + $k + '" goto [a-z]+\s*$')) -ge 0) ('menu key dispatched: ' + $k)
+    Assert-True ((IndexOf $menu ('"!CH!"=="' + $k + '" goto [a-z]+\s*$')) -ge 0) ('menu key dispatched: ' + $k)
 }
 
-# ---- destructive calls are behind a red screen ---------------------------------------
+# ---- the red-screen gate fails closed ------------------------------------------------
+$cf = Get-LabelBody 'confirm'
+Assert-True ($cf.Count -gt 0) ':confirm subroutine exists'
+Assert-True ((IndexOf $cf '^set "CONFIRMED=0"') -eq 0) ':confirm starts from CONFIRMED=0'
+$iMiss = IndexOf $cf '^if not exist "%HERE%\\Confirm-Destructive\.ps1" \($'
+$iCall = IndexOf $cf 'Confirm-Destructive\.ps1" -Action %~1'
+$iOk = IndexOf $cf '^if "!errorlevel!"=="0" set "CONFIRMED=1"$'
+Assert-True ($iMiss -gt 0 -and $iMiss -lt $iCall) ':confirm refuses when the script is missing, before calling it'
+Assert-True ((($cf[$iMiss..($iCall - 1)]) -join "`n") -match 'goto :eof') ':confirm leaves without confirming when the script is missing'
+Assert-True ($iOk -gt $iCall) ':confirm sets CONFIRMED=1 only on exit code exactly 0, after the call'
+Assert-Eq (@($lines | Where-Object { $_ -match 'set "CONFIRMED=1"' }).Count) 1 'CONFIRMED=1 is set in exactly one place'
+foreach ($l in $lines) {
+    if ($l -match '^\s*(rem\b|::)') { continue }
+    Assert-True ($l -notmatch '(?i)\bif\s+(not\s+)?errorlevel\b') ('no "if errorlevel" anywhere (misses negative exit codes): ' + $l)
+}
+$confCallLines = @($lines | Where-Object { $_ -match 'Confirm-Destructive\.ps1" -Action' -and $_ -notmatch '^\s*rem\b' })
+Assert-Eq $confCallLines.Count 2 'Confirm-Destructive.ps1 is only invoked inside :confirm (2 branches)'
+foreach ($l in $confCallLines) { Assert-True ($cf -contains $l) ('Confirm-Destructive call lives in :confirm: ' + $l) }
+Assert-True ((IndexOf $lines '^if not exist "%HERE%\\Confirm-Destructive\.ps1" \($') -ge 0) 'start-up warns when Confirm-Destructive.ps1 is missing'
+Assert-True ((IndexOf $lines '^for %%F in \(Detect-SDP\.ps1 SdpSituation\.ps1 Show-Situation\.ps1\) do \($') -ge 0) 'start-up checks Detect / SdpSituation / Show-Situation'
+
+# Each guarded call: "call :confirm <action>" then the CONFIRMED check on the next line.
+function Assert-Guard($body, [string]$action, [string]$runPattern, [string]$what) {
+    $iC = IndexOf $body ('^\s*call :confirm ' + [regex]::Escape($action) + '\s*$')
+    $iR = IndexOf $body $runPattern
+    Assert-True ($iC -ge 0) ($what + ': calls :confirm ' + $action)
+    Assert-True ($body[$iC + 1] -match '^\s*if not "!CONFIRMED!"=="1" \($') ($what + ': CONFIRMED checked right after :confirm')
+    Assert-True ($body[$iC + 2] -match 'Cancelled' -and $body[$iC + 3] -match '^\s*goto menu\s*$') ($what + ': not confirmed -> cancel + back to menu')
+    Assert-True ($iR -gt $iC) ($what + ': destructive call only after the red screen')
+    return $iC
+}
+
 $re = Get-LabelBody 'reinstall'
-$iConfRe = IndexOf $re 'Confirm-Destructive\.ps1" -Action reinstall'
 $iRun = IndexOf $re '%INSTALL%" -Reinstall'
-Assert-True ($iConfRe -ge 0 -and $iRun -gt $iConfRe) 'reinstall: REINSTALL red screen before Install-SDP -Reinstall'
-$iDrop = IndexOf $re 'Confirm-Destructive\.ps1" -Action dropdb'
+$iConfRe = Assert-Guard $re 'reinstall' '%INSTALL%" -Reinstall' 'reinstall'
+$iDrop = Assert-Guard $re 'dropdb' 'DROPFLAG=-ConfirmDataLoss' 'dropdb'
 $iCdl = IndexOf $re 'DROPFLAG=-ConfirmDataLoss'
 Assert-True ($iDrop -gt $iConfRe -and $iCdl -gt $iDrop -and $iCdl -lt $iRun) 'reinstall: -ConfirmDataLoss only set after the dropdb red screen'
 Assert-True ((IndexOf $re 'DB_REACHABLE%"=="1"') -lt $iDrop) 'reinstall: drop only offered when the DB is reachable'
@@ -102,7 +96,7 @@ foreach ($l in $lines) {
 foreach ($lbl in @('fresh', 'demo')) {
     $b = Get-LabelBody $lbl
     $iNot = IndexOf $b 'if not "%STATE%"=="empty"'
-    $iConf = IndexOf $b 'Confirm-Destructive\.ps1" -Action fresh-over-existing'
+    $iConf = Assert-Guard $b 'fresh-over-existing' 'FOFLAG=-ForceOverwrite' $lbl
     $iFo = IndexOf $b 'FOFLAG=-ForceOverwrite'
     $iInst = IndexOf $b '^%PS% "%INSTALL%" -Fresh'
     Assert-True ($iNot -ge 0 -and $iConf -gt $iNot -and $iFo -gt $iConf -and $iInst -gt $iFo) ($lbl + ': fresh-over-existing red screen (non-empty branch) before -ForceOverwrite and the install')
@@ -115,15 +109,42 @@ foreach ($l in $lines) {
     }
 }
 $dm = Get-LabelBody 'demo'
-Assert-True ((IndexOf $dm 'HASDEMO%"=="0"') -lt (IndexOf $dm 'Confirm-Destructive')) 'demo: no-payload check first'
+Assert-True ((IndexOf $dm 'HASDEMO%"=="0"') -lt (IndexOf $dm 'call :confirm')) 'demo: no-payload check first'
 
 $rp = Get-LabelBody 'restorept'
-$iConfRp = IndexOf $rp 'Confirm-Destructive\.ps1" -Action restore -Situation "%SITJSON%" -Target "%RP%"'
-$iRest = IndexOf $rp '-Restore -Name "%RP%" -Force'
-Assert-True ($iConfRp -ge 0 -and $iRest -gt $iConfRp) 'restore: red screen before Manage-SDP -Restore -Force'
+$iQuote = IndexOf $rp '^if not "!RPCHK!"=="!RP!" \($'
+$iTgt = IndexOf $rp '^set "CONF_TARGET=!RP!"$'
+$iConfRp = Assert-Guard $rp 'restore' '-Restore -Name "!RP!" -Force' 'restore'
+Assert-True ($iQuote -ge 0 -and $iQuote -lt $iTgt -and $iTgt -eq $iConfRp - 1) 'restore: quote check, then the target, then the red screen'
+Assert-True (($rp -join "`n") -notmatch '%RP%') 'restore: %RP% never read (operator-typed text)'
 foreach ($l in $lines) {
-    if ($l -match '-Restore\b' -and $l -notmatch '^\s*rem\b') { Assert-True ($l -match '-Restore -Name "%RP%" -Force') ('only one guarded restore call: ' + $l) }
+    if ($l -match '-Restore\b' -and $l -notmatch '^\s*rem\b') { Assert-True ($l -match '-Restore -Name "!RP!" -Force') ('only one guarded restore call: ' + $l) }
 }
+# every destructive Install/Manage call in the file sits in one of the guarded labels above
+$guarded = @($re) + @(Get-LabelBody 'fresh') + @($dm) + @($rp)
+foreach ($l in $lines) {
+    if ($l -match '^\s*rem\b') { continue }
+    if ($l -match '"%INSTALL%" -(Reinstall|Fresh)\b|"%MANAGE%" -Restore\b') {
+        Assert-True ($guarded -contains $l) ('destructive call is inside a guarded label: ' + $l)
+    }
+}
+
+# ---- session log never embeds text in the PowerShell command line -------------------
+$sl = (Get-LabelBody 'slog') -join "`n"
+Assert-True ($sl -match '\$env:SLOG_MSG') ':slog reads the text from the environment'
+Assert-True ($sl -notmatch "'%~1'") ':slog never embeds %~1 inside a quoted PowerShell string'
+
+# ---- per-session situation file ----------------------------------------------------
+$iSit = IndexOf $lines '^set "SITJSON=%TEMP%\\sdp-situation-%RANDOM%%RANDOM%\.json"$'
+Assert-True ($iSit -ge 0) 'situation file name is per session'
+$iDel = IndexOf $menu '^\s*del "%SITJSON%"'
+Assert-True ($iDel -ge 0 -and $iDel -lt $iDet) 'the situation file is deleted before every detection'
+foreach ($lbl in @('end', 'end_fail')) { Assert-True ((IndexOf (Get-LabelBody $lbl) '^del "%SITJSON%"') -ge 0) (':' + $lbl + ' deletes the situation file') }
+$exitsAfter = @()
+for ($i = $iSit + 1; $i -lt $lines.Count; $i++) { if ($lines[$i] -match '(?i)^\s*(if .*\s)?exit /b') { $exitsAfter += $i } }
+$endBody = @(Get-LabelBody 'end') + @(Get-LabelBody 'end_fail')
+Assert-Eq $exitsAfter.Count 2 'only :end and :end_fail exit once the session has started'
+foreach ($i in $exitsAfter) { Assert-True ($endBody -contains $lines[$i]) ('exit lives in :end / :end_fail: ' + $lines[$i]) }
 
 # ---- re-detection after an action -----------------------------------------------------
 $dn = Get-LabelBody 'done'

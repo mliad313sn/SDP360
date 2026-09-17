@@ -110,18 +110,24 @@ Write-Host '  > ' -NoNewline
 # `set /p` (the handle is shared with cmd). Reading 1 byte at a time stops
 # exactly after the LF, so the rest stays unread. EOF before any byte ->
 # $null (cancel). Interactive console keeps ReadLine (line editing, echo).
+# A line longer than $maxLen bytes is still consumed up to its LF (so the
+# caller's next line stays readable) but nothing past the cap is stored, and
+# the answer becomes a guaranteed mismatch.
 function Read-OneLineRaw {
+    $maxLen = 4096
     $stream = [Console]::OpenStandardInput()
     $buf = New-Object System.Collections.Generic.List[byte]
     $sawAny = $false
+    $tooLong = $false
     while ($true) {
         $b = $stream.ReadByte()
         if ($b -lt 0) { break }
         $sawAny = $true
         if ($b -eq 10) { break }
-        $buf.Add([byte]$b)
+        if ($buf.Count -lt $maxLen) { $buf.Add([byte]$b) } else { $tooLong = $true }
     }
     if (-not $sawAny) { return $null }
+    if ($tooLong) { return '<input too long>' }
     if ($buf.Count -gt 0 -and $buf[$buf.Count - 1] -eq 13) { $buf.RemoveAt($buf.Count - 1) }
     # A PowerShell parent with a UTF-8 $OutputEncoding pipes a BOM first; the
     # StreamReader used to drop it silently - do the same (else Trim() stops at it).
