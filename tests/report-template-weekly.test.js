@@ -292,11 +292,26 @@ test('a multi-line note preserves its line breaks (white-space:pre-line)', () =>
   assert.match(htmlBody, /Ligne 1\nLigne 2/, 'the raw newline survives escaping');
 });
 
-test('a null or non-finite count renders "—", never a fabricated 0', () => {
+// CLAUDE.md pitfall: `+null === 0` and `+'' === 0`, so `Number.isFinite(+v)`
+// ALONE reads null/'' as a legitimate zero. A test that only checks "at least
+// one dash is present" does NOT catch this — NaN correctly dashes on its own
+// and masks a broken null right next to it. Count the dashes: with the bug,
+// null silently becomes "0" (same text as the REAL zero below) and only NaN
+// dashes → count is 1, not 2.
+test('a null or non-finite count renders "—", never a fabricated 0 (null isolated)', () => {
   const f = fixture();
   f.report.asset_review = { applicable: true, counts: { new: null, unassigned: NaN, no_cost: 0, no_date: 3 }, handled_note: 'x', plan_note: 'y' };
   const { htmlBody } = composeWeekly(f);
-  assert.match(htmlBody, />&mdash;<|>—</, 'null/NaN counts render an em dash');
-  assert.match(htmlBody, />0</, 'a REAL zero still renders as 0, not a dash');
+  const dashCount = (htmlBody.match(/>&mdash;</g) || []).length + (htmlBody.match(/>—</g) || []).length;
+  assert.strictEqual(dashCount, 2, 'BOTH null (new) and NaN (unassigned) must dash — null must not silently become 0');
+  assert.strictEqual((htmlBody.match(/>0</g) || []).length, 1, 'exactly ONE real zero (no_cost) renders as 0');
   assert.match(htmlBody, />3</, 'a real count still renders');
+});
+
+test('an empty-string count also renders "—" (+"" === 0 is the same trap as +null)', () => {
+  const f = fixture();
+  f.report.asset_review = { applicable: true, counts: { new: '', unassigned: 2, no_cost: 0, no_date: 3 }, handled_note: 'x', plan_note: 'y' };
+  const { htmlBody } = composeWeekly(f);
+  const dashCount = (htmlBody.match(/>&mdash;</g) || []).length + (htmlBody.match(/>—</g) || []).length;
+  assert.strictEqual(dashCount, 1, "an empty-string count ('') must dash, not render as 0");
 });

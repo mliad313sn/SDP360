@@ -280,8 +280,13 @@ const REVIEW_KPIS = [
 // 0 — a real 0 is a measurement ("nothing new this week"), a null is "we don't
 // know" (e.g. the assets layer was down at submission). num()'s default of 0
 // would collapse that distinction, so this checks Number.isFinite itself.
+//
+// THE TRAP (CLAUDE.md: "`+null === 0` passes `Number.isFinite`"): `+null` and
+// `+''` both coerce to `0`, so `Number.isFinite(+v)` alone reads null/'' as a
+// legitimate zero and prints "0" for data we never measured. Reject null/''
+// BEFORE the numeric coercion.
 function reviewCountText(v) {
-  return Number.isFinite(+v) ? String(+v) : '—';
+  return (v != null && v !== '' && Number.isFinite(+v)) ? String(+v) : '—';
 }
 function assetReviewBlock(review) {
   const rv = review && typeof review === 'object' ? review : null;
