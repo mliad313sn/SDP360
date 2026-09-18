@@ -503,6 +503,7 @@
 
         <h3>Asset reminders (super_admin)</h3>
         <p><strong>Envois automatiques ▸ Rappels parc</strong> arms two e-mails, both OFF by default: a weekly recap per site (schedule on the card, Monday 07:00 suggested) and a same-day "new hardware" alert after the nightly assets sync. They go to the site's <strong>confirmed asset manager</strong> (set in Automated Reports ▸ Recipients), with the confirmed coordinator in copy; without a confirmed asset manager, to the confirmed coordinator alone. No amount is ever sent. Use Preview (optionally one site) before arming.</p>
+        <p>The weekly recap is deduped <strong>same-day only</strong>: clicking <strong>Send now</strong> on a later day for a week that was already mailed sends it again.</p>
 
         <h3 id="en-7-3">7.3 Active Sessions — Who's using the dashboard right now</h3>
         <p>The <strong>🟢 Active Sessions</strong> card on the Admin page shows every user who has made an authenticated request in the last few minutes. Useful for answering "is anyone using this before I restart the server" or "did Aïssatou actually log in this morning."</p>
@@ -1391,6 +1392,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Confirm-Destructive.ps1"
 
         <h3>Rappels parc informatique (super_admin)</h3>
         <p><strong>Envois automatiques ▸ Rappels parc</strong> arme deux e-mails, désarmés par défaut : un récap hebdomadaire par site (planification sur la carte, lundi 07:00 conseillé) et une alerte « nouveau matériel » le jour même, après la synchronisation nocturne. Ils partent au <strong>responsable parc confirmé</strong> du site (Automated Reports ▸ Recipients), coordinateur confirmé en copie ; sans responsable parc confirmé, au coordinateur confirmé seul. Aucun montant n'est envoyé. Faites un Preview (éventuellement sur un seul site) avant d'armer.</p>
+        <p>Le récap hebdomadaire n'est dédupliqué que <strong>le jour même</strong> : cliquer sur <strong>Envoyer maintenant</strong> un autre jour pour une semaine déjà envoyée la renvoie.</p>
 
         <h3 id="fr-7-3">7.3 Sessions actives — Qui utilise le tableau de bord en ce moment</h3>
         <p>La carte <strong>🟢 Active Sessions</strong> sur la page Admin affiche tous les utilisateurs ayant effectué une requête authentifiée dans les dernières minutes. Utile pour répondre à "est-ce que quelqu'un utilise ça avant que je redémarre le serveur" ou "Aïssatou s'est-elle effectivement connectée ce matin".</p>

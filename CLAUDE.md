@@ -76,7 +76,7 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ---
 
-## ⚡ Current state (as of 2026-09-18 — Asset engagement : onglet « Parc informatique » + rappels, sur `main`, PAS déployé)
+## ⚡ Current state (as of 2026-09-18 — Asset engagement : onglet « Parc informatique » + rappels, branche `feat/asset-engagement`, PAS mergée sur `main`, PAS déployée)
 
 > Spec `docs/superpowers/specs/2026-09-17-asset-engagement-weekly-design.md` (rev 4), plan
 > `docs/superpowers/plans/2026-09-18-asset-engagement.md`. **Données** : `asset_first_seen` (assets.db / pg,
@@ -100,6 +100,19 @@ made so far so that future sessions can pick up exactly where the last one ended
 > (`pg-asset-followups`, `pg-report-asset-review`, `pg-reports-reports`, `pg-reporting`) n'ont PAS pu être lancés sur
 > cette machine** (pas de `PG_ADMIN_URL` accessible) — à lancer avant tout déploiement. La 1ʳᵉ nuit après déploiement
 > pose la **baseline** de `asset_first_seen` (aucun « nouveau » ce jour-là).
+>
+> **Pièges relevés en revue finale (2026-09-18)** : un actif vu pour la première fois pendant un sync **manuel**
+> reçoit quand même la date du jour dans `asset_first_seen` (`recordAssetSightings` tourne dans les deux cas), mais
+> le sync manuel **n'envoie aucune alerte** (`afterAssetsSync(..., {sendAlerts:false})` côté trigger admin, `true`
+> uniquement sur le cron 04:30) — cet actif n'apparaît donc JAMAIS dans une alerte same-day, seulement dans le
+> récap hebdomadaire suivant. Le dédup du récap est **same-day seulement** (`reportSentLog.alreadySentToday`, sur
+> `sent_at::date`) : un « Envoyer maintenant » un autre jour pour une semaine déjà mailée **la renvoie**. Déplacer
+> un rapport déjà **soumis** vers une autre semaine (`reassign-week`) ne touche que `week_id` — les compteurs
+> restent **figés sur la fenêtre (`start_date`/`end_date`) de l'ancienne semaine**, jamais recalculés pour la
+> nouvelle. Si un sync assets renvoie une **liste partielle sans erreur** (vue Analytics tronquée silencieusement),
+> les actifs absents de cette liste ne sont pas vus par `recordAssetSightings` ce jour-là ; s'ils réapparaissent
+> le lendemain dans une passe complète, ils seraient signalés « nouveaux » alors qu'ils existaient déjà — à
+> surveiller sur les premières alertes en prod.
 
 ---
 

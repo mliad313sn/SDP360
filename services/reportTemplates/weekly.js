@@ -288,7 +288,15 @@ const REVIEW_KPIS = [
 function reviewCountText(v) {
   return (v != null && v !== '' && Number.isFinite(+v)) ? String(+v) : '—';
 }
-function assetReviewBlock(review) {
+// The server only STOPS recomputing the counts once the report is 'submitted'
+// (server.js ~6285) — before that, every PUT recomputes them live. A weekly
+// e-mail can legitimately go out for a report that is complete but was never
+// submitted (see CLAUDE.md's "weekly_reports.status is FOUR values" pitfall),
+// so the wording must reflect what actually happened: "frozen at submission"
+// is only true once status IS 'submitted'; otherwise the counts shown are
+// whatever was last saved, and saying "frozen" would misstate a still-live
+// number as a locked one.
+function assetReviewBlock(review, status) {
   const rv = review && typeof review === 'object' ? review : null;
   if (!rv || rv.applicable === false || rv.applicable === 0) return '';
   const c = rv.counts && typeof rv.counts === 'object' ? rv.counts : null;
@@ -303,8 +311,11 @@ function assetReviewBlock(review) {
       ? `<span style="white-space:pre-line;">${escapeHtml(s)}</span>`
       : `<em style="color:${MUTED};">non renseign&eacute;</em>`;
   };
+  const frozenNote = status === 'submitted'
+    ? 'Suivi du parc d&eacute;clar&eacute; par le coordinateur &mdash; compteurs fig&eacute;s &agrave; la soumission.'
+    : 'Suivi du parc d&eacute;clar&eacute; par le coordinateur &mdash; compteurs au dernier enregistrement.';
   return `<div style="padding-top:12px;">
-${staticNote('Suivi du parc d&eacute;clar&eacute; par le coordinateur &mdash; compteurs fig&eacute;s &agrave; la soumission.')}
+${staticNote(frozenNote)}
 <div style="padding-top:6px;">${counts}</div>
 <div style="font-family:${FONT};font-size:13px;color:${INK};line-height:1.5;padding-top:4px;"><strong>Trait&eacute; cette semaine&nbsp;:</strong> ${note(rv.handled_note)}</div>
 <div style="font-family:${FONT};font-size:13px;color:${INK};line-height:1.5;padding-top:4px;"><strong>Plan / blocages&nbsp;:</strong> ${note(rv.plan_note)}</div>
@@ -319,7 +330,7 @@ ${staticNote('Suivi du parc d&eacute;clar&eacute; par le coordinateur &mdash; co
  * unmeasured one. `effort` carries {effort_score, rank} only — there is
  * deliberately no delta (a ~30-day lookback barely moves week to week).
  */
-function assetsSection(assets, baseUrl, labels, review) {
+function assetsSection(assets, baseUrl, labels, review, status) {
   const a = obj(assets);
   const hygiene = obj(a.hygiene);
   const effort = a.effort === null || a.effort === undefined ? null : obj(a.effort);
@@ -361,7 +372,7 @@ function assetsSection(assets, baseUrl, labels, review) {
 
   const intro = staticNote('Qualit&eacute; des donn&eacute;es du parc informatique &mdash; &agrave; corriger dans l&rsquo;inventaire, ind&eacute;pendamment du rapport ci-dessus.');
 
-  return card('Parc informatique', `${effortBlock}${intro}<div style="padding-top:8px;">${list}</div>${assetReviewBlock(review)}`, TEAL);
+  return card('Parc informatique', `${effortBlock}${intro}<div style="padding-top:8px;">${list}</div>${assetReviewBlock(review, status)}`, TEAL);
 }
 
 function footer(data) {
@@ -423,8 +434,8 @@ function composeWeekly(data) {
     // absent (e.g. the asset labels changed after submission) — render it on
     // its own card in that case.
     d.assets
-      ? assetsSection(d.assets, d.base_url, d.assets.labels, r.asset_review)
-      : (assetReviewBlock(r.asset_review) ? card('Parc informatique', assetReviewBlock(r.asset_review), TEAL) : ''),
+      ? assetsSection(d.assets, d.base_url, d.assets.labels, r.asset_review, r.status)
+      : (assetReviewBlock(r.asset_review, r.status) ? card('Parc informatique', assetReviewBlock(r.asset_review, r.status), TEAL) : ''),
     footer(d),
   ].filter(Boolean).join('\n');
 

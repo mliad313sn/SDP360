@@ -6248,12 +6248,12 @@ app.get('/api/reports/:id/asset-followups', requireReportSession, async (req, re
       console.error('[api/reports/asset-followups] assets layer:', e.message);
       return res.status(503).json({ error: 'Données Assets indisponibles' });
     }
+    if (!a.applicable) return res.json({ applicable: false, site_code: a.code, labels: [], counts: null, lists: null, previous_counts: null });
     let previous_counts = null;
     if (report.site_id) {   // a falsy site_id would make listReports return EVERY site's reports
       const prev = ((await rdb.listReports(report.site_id)) || []).find(r => r.start_date < report.start_date);
       previous_counts = prev ? ((await rdb.getReportAssetReview(prev.id)) || {}).counts || null : null;
     }
-    if (!a.applicable) return res.json({ applicable: false, site_code: a.code, labels: [], counts: null, lists: null, previous_counts: null });
     const f = a.followups, cut = (l) => (l || []).slice(0, 50);
     res.json({
       applicable: true, site_code: a.code, labels: a.labels, counts: a.counts,

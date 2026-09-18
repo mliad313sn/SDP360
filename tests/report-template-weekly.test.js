@@ -315,3 +315,27 @@ test('an empty-string count also renders "—" (+"" === 0 is the same trap as +n
   const dashCount = (htmlBody.match(/>&mdash;</g) || []).length + (htmlBody.match(/>—</g) || []).length;
   assert.strictEqual(dashCount, 1, "an empty-string count ('') must dash, not render as 0");
 });
+
+// ── frozen-wording depends on report.status, not just the presence of a review ─
+// The server only STOPS recomputing asset_review counts once status is
+// 'submitted' (server.js ~6285); before that every save recomputes them live.
+// The weekly e-mail can legitimately go out for a report that is complete but
+// never submitted (CLAUDE.md: "weekly_reports.status is FOUR values"), so the
+// wording must not claim the counts are frozen when they are not.
+test('submitted report: assetReviewBlock says counts are frozen at submission', () => {
+  const f = fixture();
+  f.report.status = 'submitted';
+  f.report.asset_review = { applicable: true, counts: { new: 1, unassigned: 1, no_cost: 1, no_date: 1 }, handled_note: 'x', plan_note: 'y' };
+  const { htmlBody } = composeWeekly(f);
+  assert.match(htmlBody, /compteurs fig&eacute;s &agrave; la soumission/);
+  assert.ok(!/dernier enregistrement/.test(htmlBody), 'submitted wording must not also carry the other phrasing');
+});
+
+test('report not submitted (e.g. status "ready"): assetReviewBlock says counts are as of the last save', () => {
+  const f = fixture();
+  f.report.status = 'ready';
+  f.report.asset_review = { applicable: true, counts: { new: 1, unassigned: 1, no_cost: 1, no_date: 1 }, handled_note: 'x', plan_note: 'y' };
+  const { htmlBody } = composeWeekly(f);
+  assert.match(htmlBody, /compteurs au dernier enregistrement/);
+  assert.ok(!/fig&eacute;s &agrave; la soumission/.test(htmlBody), 'unsubmitted wording must not claim the counts are frozen');
+});
