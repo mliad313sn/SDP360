@@ -88,3 +88,10 @@ test('ready is not a freeze point', async () => {
   assert.strictEqual((await put(`/api/reports/${rep.id}/status`, tok.editorH, { status: 'ready' })).status, 200);
   assert.strictEqual(rdb.getReportAssetReview(rep.id), null);
 });
+
+test('an editor from another site cannot submit a Hounde report (403); no freeze row is left', async () => {
+  const rep = rdb.ensureReport(hounde.id, 2026, 25);
+  const r = await submit(rep.id, tok.editorX);
+  assert.strictEqual(r.status, 403);
+  assert.strictEqual((await rdb.getReportAssetReview(rep.id)), null);
+});
