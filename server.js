@@ -6896,6 +6896,19 @@ app.put('/api/reports/:id/status', requireReportSession, jsonBody, async (req, r
         return res.status(403).json({ error: 'Only a super_admin can revert a submitted report to draft.' });
     }
 
+    // Asset engagement: freeze the Parc informatique counts at the FIRST submission
+    // (a re-submit never re-freezes). Never blocks: empty notes are allowed and an
+    // assets failure stores counts=null. The notes are never touched here.
+    if (status === 'submitted' && report.status !== 'submitted') {
+      try {
+        const a = await _computeAssetReview(report);
+        await rdb.saveReportAssetReview(id, { applicable: a.applicable, counts: a.counts }, req.reportUser.username);
+      } catch (e) {
+        console.error('[api/reports/status] asset review freeze failed:', e.message);
+        try { await rdb.saveReportAssetReview(id, { counts: null }, req.reportUser.username); } catch (_) { /* never block the submission */ }
+      }
+    }
+
     await rdb.updateReportStatus(id, status, req.reportUser.id);
     // Audit
     const action = status === 'submitted' ? 'submitted' : (report.status === 'submitted' ? 'reverted' : 'status_changed');
