@@ -153,18 +153,18 @@ test('the authored report appears BEFORE the assets block', () => {
   assert.ok(authored < assets, "the coordinator's report must lead, not the CMDB reminder");
 });
 
-// ── 6b · the hygiene counts are ACTIONABLE when a public origin is configured ─
-// A count with no way through is a count nobody works. The link carries the AP
-// LABEL (the Assets site filter is built from getAssetLookups().sites, so a site
-// CODE would select nothing and the target would read fleet-wide).
-test('with base_url + one label, each hygiene count links to its worklist', () => {
+// ── 6b · the meeting report carries NO link into Assets (2026-09-18) ────────
+// The weekly e-mail is the document presented in the meeting: counts only, as
+// plain text. The reminder e-mails (assetReminderReport.js) keep their links.
+test('even with base_url + one label, the hygiene counts are plain text — no Assets link', () => {
   const d = fixture();
   d.base_url = 'https://itops-dashboard.edv-ops.com';
   d.assets.labels = ['Hounde'];
-  const { htmlBody } = composeWeekly(d);
-  assert.ok(htmlBody.includes('/assets.html?site=Hounde&amp;kind=no_owner#hygiene'),
-    'links to the no_owner worklist, & escaped once for the attribute');
-  assert.ok(!htmlBody.includes('&amp;amp;'), 'the href must not be double-encoded');
+  const { htmlBody, fullHtml } = composeWeekly(d);
+  assert.ok(!htmlBody.includes('assets.html'), 'no assets.html link in the body');
+  assert.ok(!fullHtml.includes('assets.html'), 'no assets.html link in the preview/PDF');
+  assert.ok(!/<a\s/i.test(htmlBody), 'no anchor at all in the weekly e-mail');
+  assert.ok(htmlBody.includes('14'), 'the count itself is still reported');
 });
 
 test('without base_url the counts stay plain text — never a guessed origin', () => {
@@ -349,4 +349,86 @@ test('review block alone (assets:null) has no asset list and no Assets link', ()
   assert.ok(!htmlBody.includes('assets.html'), 'no Assets link');
   assert.ok(!/voir dans Assets/i.test(htmlBody));
   assert.match(htmlBody, /Parc informatique/i);
+});
+
+// ── colour presentation (2026-09-18) ─────────────────────────────────────────
+// The two blocks presented in the meeting carry a coloured header band each,
+// with distinct accents: Assistance = NAVY (house), Parc = violet.
+function bandRe(accent, title) {
+  return new RegExp(`background:${accent};[^>]*>\\s*<div[^>]*>${title}</div>`, 'i');
+}
+
+test('Assistance aux utilisateurs and Parc informatique each have a coloured header band', () => {
+  const f = fixture();
+  f.report.asset_review = { applicable: true, counts: { new: 1, unassigned: 2, no_cost: 3, no_date: 4 }, handled_note: 'x', plan_note: 'y' };
+  const { htmlBody } = composeWeekly(f);
+  assert.match(htmlBody, bandRe('#1E293B', 'Assistance aux utilisateurs'), 'helpdesk band = NAVY');
+  assert.match(htmlBody, bandRe('#7C3AED', 'Parc informatique'), 'parc band = violet');
+});
+
+test('the Parc band also shows when only the frozen review renders (assets:null)', () => {
+  const f = fixture(); f.assets = null;
+  f.report.asset_review = { applicable: true, counts: { new: 1, unassigned: 2, no_cost: 3, no_date: 4 }, handled_note: 'x', plan_note: '' };
+  assert.match(composeWeekly(f).htmlBody, bandRe('#7C3AED', 'Parc informatique'));
+});
+
+function withSla(res, fr) {
+  const f = fixture();
+  f.report.helpdesk.chart_data = { weeks: [
+    { label: 'W29', inbound: 38, closed: 30, res_ok_pct: 95, fr_ok_pct: 85 },
+    { label: 'W30', inbound: 42, closed: 36, res_ok_pct: res, fr_ok_pct: fr },
+  ] };
+  return f;
+}
+
+test('an SLA tile below target is painted red; one at/above target green', () => {
+  const { htmlBody } = composeWeekly(withSla(92, 64));
+  // resolution 92 % >= 90 → green; first reply 64 % < 70 (warn) → red
+  assert.match(htmlBody, /color:#16A34A;[^>]*>92&nbsp;%</, 'resolution SLA at target → green value');
+  assert.match(htmlBody, /color:#DC2626;[^>]*>64&nbsp;%</, 'first-reply SLA below target → red value');
+  assert.match(htmlBody, /cible/i, 'the target is stated next to the tile');
+  assert.match(htmlBody, /W29/, 'the previous week is quoted for context');
+});
+
+test('an SLA tile between warn and target is painted amber', () => {
+  const { htmlBody } = composeWeekly(withSla(87, 75));
+  assert.match(htmlBody, /color:#D97706;[^>]*>87&nbsp;%</);
+  assert.match(htmlBody, /color:#D97706;[^>]*>75&nbsp;%</);
+});
+
+test('a null SLA value renders "—" in a neutral colour, never a RAG colour', () => {
+  const { htmlBody } = composeWeekly(withSla(null, 88));
+  assert.match(htmlBody, /color:#64748B;[^>]*>—</, 'null SLA → neutral dash');
+  assert.ok(!/#DC2626;[^>]*>—</.test(htmlBody) && !/#16A34A;[^>]*>—</.test(htmlBody));
+});
+
+test('no week data at all → no SLA tiles, no RAG colour from the helpdesk block', () => {
+  const f = fixture();
+  f.report.lights = []; f.report.action_items = []; f.report.infra_kpis = [];
+  const { htmlBody } = composeWeekly(f);           // chart_data.weeks = [1,2,3] (not objects)
+  assert.ok(!/SLA de r&eacute;solution|SLA de résolution/.test(htmlBody));
+  assert.ok(!/#16A34A|#D97706|#DC2626/i.test(htmlBody));
+});
+
+test('« non renseigné » is rendered as an amber attention pill', () => {
+  const f = fixture();
+  f.report.asset_review = { applicable: true, counts: { new: 1, unassigned: 2, no_cost: 3, no_date: 4 }, handled_note: '', plan_note: 'p' };
+  const { htmlBody } = composeWeekly(f);
+  assert.match(htmlBody, /background:#FEF3C7;[^>]*color:#B45309;[^>]*>non renseign&eacute;</);
+});
+
+test('filled notes sit in light tinted boxes', () => {
+  const f = fixture();
+  f.report.asset_review = { applicable: true, counts: { new: 1, unassigned: 2, no_cost: 3, no_date: 4 }, handled_note: 'Etiquetage fait', plan_note: 'Commande' };
+  const { htmlBody } = composeWeekly(f);
+  assert.match(htmlBody, /background:#F5F3FF;[^>]*>[\s\S]{0,400}Etiquetage fait/);
+});
+
+test('parc counters are neutral (no previous-week counts reach the e-mail) and null reads "—"', () => {
+  const f = fixture();
+  f.report.lights = []; f.report.action_items = []; f.report.infra_kpis = [];
+  f.report.asset_review = { applicable: true, counts: { new: null, unassigned: 2, no_cost: 0, no_date: 4 }, handled_note: 'x', plan_note: 'y' };
+  const { htmlBody } = composeWeekly(f);
+  assert.match(htmlBody, /color:#64748B;[^>]*>—</, 'null count → neutral dash');
+  assert.ok(!/#16A34A|#D97706|#DC2626/i.test(htmlBody), 'no trend colour without a previous week');
 });

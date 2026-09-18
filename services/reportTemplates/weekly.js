@@ -18,7 +18,7 @@
 //
 // USER-FACING COPY IS FRENCH — the site coordinators are francophone. Accents in
 // HAND-WRITTEN raw markup use entities (&eacute;); accents in text passed through
-// kpiGrid/card/escapeHtml are literal characters, because escapeHtml would turn
+// tiles/card/escapeHtml are literal characters, because escapeHtml would turn
 // the `&` of an entity into `&amp;`.
 //
 // EVERY authored field (KPI names, lights, action tasks, owner names) is
@@ -40,7 +40,6 @@ const {
   arr,
   num,
   card,
-  kpiGrid,
   bulletList,
 } = require('./_primitives');
 
@@ -77,6 +76,101 @@ function trendHtml(trend) {
 /** emptyNote's twin for copy we wrote ourselves — takes PRE-BUILT markup. */
 function staticNote(html) {
   return `<div style="font-family:${FONT};font-size:12px;color:${MUTED};font-style:italic;line-height:1.5;">${html}</div>`;
+}
+
+// ── colour presentation (2026-09-18) ────────────────────────────────────────
+//
+// The two blocks presented in the meeting — « Assistance aux utilisateurs » and
+// « Parc informatique » — get a full coloured header band, tinted KPI tiles and
+// tinted note boxes. Local constants on purpose: _primitives.js is shared with
+// the MONTHLY e-mail, which is pinned byte-for-byte by two goldens.
+//
+// Helpdesk = the house NAVY band with a TEAL rule; Parc = violet (#7C3AED, the
+// same violet the dashboard already uses for its On-hold / 1st-response tiles),
+// so the two blocks can never be confused on a projected screen.
+const PARC = '#7C3AED';
+const PARC_TINT = '#F5F3FF';
+const HD_TINT = '#F1F5F9';
+// Attention pill for « non renseigné »: amber family, but NOT the RAG amber hex —
+// a missing note is a reminder, not a KPI verdict.
+const ATTN_BG = '#FEF3C7';
+const ATTN_BORDER = '#FCD34D';
+const ATTN_FG = '#B45309';
+
+// SLA targets: the helpdesk row carries NO per-site target, so the ORG standard
+// is used — the same thresholds Analyze Lite applies (public/analyze-lite.js:40):
+// resolution ≥ 90 % green, ≥ 85 % amber; first reply ≥ 80 % green (org FRT
+// target), ≥ 70 % amber; below → red. The target is printed on the tile.
+const SLA_TARGETS = {
+  res_ok_pct: { good: 90, warn: 85 },
+  fr_ok_pct:  { good: 80, warn: 70 },
+};
+
+/** A finite number — rejecting null/'' BEFORE coercion (`+null === 0`). */
+function finite(v) {
+  return v != null && v !== '' && Number.isFinite(+v);
+}
+
+function slaRag(value, key) {
+  if (!finite(value)) return null;
+  const t = SLA_TARGETS[key];
+  const v = +value;
+  if (v >= t.good) return RAG_COLORS.green;
+  if (v >= t.warn) return RAG_COLORS.amber;
+  return RAG_COLORS.red;
+}
+
+/**
+ * A card with a FULL coloured header band (vs card()'s 4px rule). `rule` adds a
+ * thin second stripe under the band. Title is escaped here; bodyHtml is markup.
+ */
+function bandCard(title, bodyHtml, accent, rule) {
+  const ruleRow = rule
+    ? `<tr><td style="background:${rule};height:3px;line-height:3px;font-size:0;">&nbsp;</td></tr>\n`
+    : '';
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:separate;background:#FFFFFF;border:1px solid ${BORDER};border-radius:6px;margin:0 0 14px 0;">
+<tr><td style="background:${accent};padding:10px 16px;border-radius:6px 6px 0 0;">
+<div style="font-family:${FONT};font-size:13px;font-weight:bold;color:#FFFFFF;letter-spacing:0.8px;text-transform:uppercase;">${escapeHtml(title)}</div>
+</td></tr>
+${ruleRow}<tr><td style="padding:14px 16px 16px 16px;">
+${bodyHtml}
+</td></tr></table>`;
+}
+
+/**
+ * Tinted KPI tiles, `perRow` per row. items = [{label, valueHtml, color, sub}]:
+ * `label` is escaped here; `valueHtml` / `sub` are PRE-BUILT markup (callers
+ * escape anything untrusted). `color` paints the value; `accent` the left edge.
+ */
+function tiles(items, { tint, accent, perRow = 4 }) {
+  const cells = arr(items);
+  if (!cells.length) return '';
+  const w = Math.floor(100 / perRow);
+  const rows = [];
+  for (let i = 0; i < cells.length; i += perRow) rows.push(cells.slice(i, i + perRow));
+  const html = rows.map((row) => {
+    const tds = row.map((it) => `<td width="${w}%" style="width:${w}%;padding:0 6px 8px 0;vertical-align:top;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse;"><tr>
+<td style="background:${tint};border-left:4px solid ${it.edge || accent};padding:8px 10px;vertical-align:top;">
+<div style="font-family:${FONT};font-size:20px;font-weight:bold;color:${it.color};line-height:1.2;">${it.valueHtml}</div>
+<div style="font-family:${FONT};font-size:11px;color:${INK};line-height:1.35;padding-top:3px;">${escapeHtml(it.label)}</div>
+${it.sub ? `<div style="font-family:${FONT};font-size:10px;color:${MUTED};line-height:1.35;padding-top:2px;">${it.sub}</div>` : ''}
+</td></tr></table>
+</td>`).join('');
+    const pad = row.length < perRow
+      ? new Array(perRow - row.length).fill(`<td width="${w}%" style="width:${w}%;">&nbsp;</td>`).join('')
+      : '';
+    return `<tr>${tds}${pad}</tr>`;
+  }).join('');
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse;">${html}</table>`;
+}
+
+/** A light tinted box with a coloured left edge — for authored notes. */
+function noteBox(titleHtml, bodyHtml, tint, edge) {
+  return `<div style="background:${tint};border-left:3px solid ${edge};padding:8px 10px;margin-top:8px;font-family:${FONT};">
+<div style="font-size:11px;font-weight:bold;color:${NAVY};letter-spacing:0.6px;text-transform:uppercase;padding-bottom:3px;">${titleHtml}</div>
+<div style="font-size:13px;color:${INK};line-height:1.55;">${bodyHtml}</div>
+</div>`;
 }
 
 // ── sections ─────────────────────────────────────────────────────────────────
@@ -145,32 +239,88 @@ const TIMINGS = [
   { key: 'closing_time',    label: 'Clôture (h)' },
 ];
 
+const pct = (v) => `${escapeHtml(+v)}&nbsp;%`;
+
+/**
+ * The weekly volume/SLA series the coordinator pulled live (same source as the
+ * PPTX's KPI strip: chart_data.weeks, else group_metrics). Only real objects —
+ * a malformed payload must degrade to "no row", never to a row of zeros.
+ */
+function helpdeskWeeks(h) {
+  const isRow = (w) => w && typeof w === 'object' && !Array.isArray(w);
+  const cdWeeks = arr(obj(h.chart_data).weeks).filter(isRow);
+  return cdWeeks.length ? cdWeeks : arr(h.group_metrics).filter(isRow);
+}
+
+function helpdeskVolumeTiles(h) {
+  const weeks = helpdeskWeeks(h);
+  const cur = weeks.length ? weeks[weeks.length - 1] : null;
+  const prev = weeks.length > 1 ? weeks[weeks.length - 2] : null;
+  const KEYS = ['inbound', 'closed', 'res_ok_pct', 'fr_ok_pct'];
+  // A week object with no measured field (e.g. {label} only) is not a row.
+  if (!cur || !KEYS.some((k) => finite(cur[k]))) return '';
+
+  const prevLbl = prev && prev.label ? `${escapeHtml(prev.label)}&nbsp;: ` : '';
+  const prevTxt = (k, fmt) => (prev && finite(prev[k]) ? `pr&eacute;c. ${prevLbl}${fmt(prev[k])}` : '');
+  const plain = (v) => escapeHtml(+v);
+  const dash = { valueHtml: '—', color: MUTED };
+
+  const countTile = (k, label, extra) => (finite(cur[k])
+    ? { label, valueHtml: plain(cur[k]), color: NAVY, sub: [extra, prevTxt(k, plain)].filter(Boolean).join(' &middot; ') }
+    : { label, ...dash, sub: prevTxt(k, plain) });
+
+  const slaTile = (k, label) => {
+    const t = SLA_TARGETS[k];
+    const target = `cible &ge;&nbsp;${t.good}&nbsp;%`;
+    const c = slaRag(cur[k], k);
+    return c
+      ? { label, valueHtml: pct(cur[k]), color: c, edge: c, sub: [target, prevTxt(k, pct)].filter(Boolean).join(' &middot; ') }
+      : { label, ...dash, sub: target };
+  };
+
+  const closure = finite(cur.inbound) && +cur.inbound > 0 && finite(cur.closed)
+    ? `taux ${Math.round((+cur.closed / +cur.inbound) * 100)}&nbsp;%`
+    : '';
+
+  return tiles([
+    countTile('inbound', 'Tickets reçus'),
+    countTile('closed', 'Tickets clôturés', closure),
+    slaTile('res_ok_pct', 'SLA de résolution'),
+    slaTile('fr_ok_pct', 'SLA 1re réponse'),
+  ], { tint: HD_TINT, accent: TEAL });
+}
+
 function helpdeskSection(helpdesk) {
   const h = obj(helpdesk);
 
   // getReport() sets `helpdesk` to {} when the row is absent (reports-db.js:2046).
   // Say so — a blank card reads as a rendering bug.
   if (!Object.keys(h).length) {
-    return card('Assistance aux utilisateurs', staticNote('Aucune donn&eacute;e d&rsquo;assistance n&rsquo;a &eacute;t&eacute; saisie pour cette semaine.'), NAVY);
+    return bandCard('Assistance aux utilisateurs', staticNote('Aucune donn&eacute;e d&rsquo;assistance n&rsquo;a &eacute;t&eacute; saisie pour cette semaine.'), NAVY, TEAL);
   }
 
-  // chart_data / group_metrics / all_groups are chart payloads, not e-mail
-  // content — deliberately not rendered.
+  // Volumes + SLA of the report week (last entry of the stored series), SLA
+  // coloured against the org target. The rest of the series is chart payload.
+  const volume = helpdeskVolumeTiles(h);
+
   const cells = [];
   for (const t of TIMINGS) {
     const v = h[t.key];
     if (v === null || v === undefined || v === '') continue;
     const prev = h[`${t.key}_prev`];
-    const value = (prev === null || prev === undefined || prev === '')
-      ? String(num(v))
-      : `${num(v)} (préc. ${num(prev)})`;
-    cells.push({ label: t.label, value });
+    cells.push({
+      label: t.label,
+      valueHtml: escapeHtml(num(v)),
+      color: NAVY,
+      sub: (prev === null || prev === undefined || prev === '') ? '' : `pr&eacute;c. ${escapeHtml(num(prev))}`,
+    });
   }
-  const kpis = cells.length ? kpiGrid(cells) : staticNote('Aucun d&eacute;lai mesur&eacute; cette semaine.');
+  const timings = cells.length
+    ? tiles(cells, { tint: HD_TINT, accent: NAVY })
+    : staticNote('Aucun d&eacute;lai mesur&eacute; cette semaine.');
 
   const commentBlock = (title, text) => (text
-    ? `<div style="font-family:${FONT};font-size:11px;font-weight:bold;color:${NAVY};letter-spacing:0.6px;text-transform:uppercase;padding:10px 0 4px 0;">${title}</div>
-<div style="font-family:${FONT};font-size:13px;color:${INK};line-height:1.55;">${escapeHtml(text)}</div>`
+    ? noteBox(title, `<span style="white-space:pre-line;">${escapeHtml(text)}</span>`, HD_TINT, TEAL)
     : '');
 
   const staff = [
@@ -179,10 +329,11 @@ function helpdeskSection(helpdesk) {
   ].filter(Boolean).join(' &middot; ');
   const staffBlock = staff ? `<div style="padding-top:10px;">${staticNote(staff)}</div>` : '';
 
-  return card(
+  return bandCard(
     'Assistance aux utilisateurs',
-    `${kpis}${commentBlock('Commentaire &mdash; volumes', h.comments_metrics)}${commentBlock('Commentaire &mdash; SLA', h.comments_sla)}${staffBlock}`,
+    `${volume}${timings}${commentBlock('Commentaire &mdash; volumes', h.comments_metrics)}${commentBlock('Commentaire &mdash; SLA', h.comments_sla)}${staffBlock}`,
     NAVY,
+    TEAL,
   );
 }
 
@@ -269,7 +420,7 @@ const HYGIENE_LABELS = {
 // Asset engagement (2026-09-18): the coordinator's own "Parc informatique" tab,
 // counts FROZEN at submission (never live). Empty note on an applicable site =
 // « non renseigné » on purpose — visible for the meeting, never hidden.
-// kpiGrid escapes its labels → literal accents here, not entities.
+// tiles() escapes its labels → literal accents here, not entities.
 const REVIEW_KPIS = [
   ['new', 'Nouveau matériel (semaine)'],
   ['unassigned', 'En service sans utilisateur ni département'],
@@ -300,16 +451,26 @@ function assetReviewBlock(review, status) {
   const rv = review && typeof review === 'object' ? review : null;
   if (!rv || rv.applicable === false || rv.applicable === 0) return '';
   const c = rv.counts && typeof rv.counts === 'object' ? rv.counts : null;
+  // Counters are NEUTRAL (violet tiles, no RAG): the e-mail receives only this
+  // report's frozen counts — the previous week's counts are not loaded
+  // (weeklyReportData.js), so a trend colour would be invented. A null count is
+  // "—" in grey, never a fabricated 0.
   const counts = c
-    ? kpiGrid(REVIEW_KPIS.map(([k, label]) => ({ label, value: reviewCountText(c[k]) })))
+    ? tiles(REVIEW_KPIS.map(([k, label]) => {
+      const t = reviewCountText(c[k]);
+      return t === '—'
+        ? { label, valueHtml: '—', color: MUTED }
+        : { label, valueHtml: escapeHtml(t), color: NAVY };
+    }), { tint: PARC_TINT, accent: PARC })
     : staticNote('Compteurs non disponibles au moment de la soumission.');
   // Notes come from multi-line textareas — escapeHtml neutralises markup but
   // does not touch line breaks, so the styling must preserve them explicitly.
+  // An empty note is an amber attention pill: it must be SEEN in the meeting.
   const note = (v) => {
     const s = String(v == null ? '' : v).trim();
     return s
       ? `<span style="white-space:pre-line;">${escapeHtml(s)}</span>`
-      : `<em style="color:${MUTED};">non renseign&eacute;</em>`;
+      : `<span style="display:inline-block;font-family:${FONT};font-size:11px;font-weight:bold;background:${ATTN_BG};border:1px solid ${ATTN_BORDER};color:${ATTN_FG};border-radius:9px;padding:2px 9px;">non renseign&eacute;</span>`;
   };
   const frozenNote = status === 'submitted'
     ? 'Suivi du parc d&eacute;clar&eacute; par le coordinateur &mdash; compteurs fig&eacute;s &agrave; la soumission.'
@@ -317,8 +478,8 @@ function assetReviewBlock(review, status) {
   return `<div style="padding-top:12px;">
 ${staticNote(frozenNote)}
 <div style="padding-top:6px;">${counts}</div>
-<div style="font-family:${FONT};font-size:13px;color:${INK};line-height:1.5;padding-top:4px;"><strong>Trait&eacute; cette semaine&nbsp;:</strong> ${note(rv.handled_note)}</div>
-<div style="font-family:${FONT};font-size:13px;color:${INK};line-height:1.5;padding-top:4px;"><strong>Plan / blocages&nbsp;:</strong> ${note(rv.plan_note)}</div>
+${noteBox('Trait&eacute; cette semaine', note(rv.handled_note), PARC_TINT, PARC)}
+${noteBox('Plan / blocages', note(rv.plan_note), PARC_TINT, PARC)}
 </div>`;
 }
 
@@ -329,31 +490,17 @@ ${staticNote(frozenNote)}
  * the whole block: zeros there would read as a clean site rather than an
  * unmeasured one. `effort` carries {effort_score, rank} only — there is
  * deliberately no delta (a ~30-day lookback barely moves week to week).
+ *
+ * NO LINK into Assets (2026-09-18): this e-mail is the document presented in
+ * the meeting — counts are plain text. The detailed worklists (with links) go
+ * to the site's asset manager in the reminder e-mails (assetReminderReport.js).
  */
-function assetsSection(assets, baseUrl, labels, review, status) {
+function assetsSection(assets, review, status) {
   const a = obj(assets);
   const hygiene = obj(a.hygiene);
   const effort = a.effort === null || a.effort === undefined ? null : obj(a.effort);
 
-  // A count the reader cannot act on is a count nobody works. When a public
-  // origin is configured, each figure links into the Assets hygiene worklist
-  // pre-filtered on this site and kind; without one it stays plain text (see
-  // reportConfig.public_base_url — a guessed origin ships dead links).
-  //
-  // The link needs the AP LABEL, not the site code, because the target's site
-  // filter is built from getAssetLookups().sites. A code folding to SEVERAL
-  // labels (SGO ← Sabodala + MASSAWA) gets NO link at all: the count is the sum
-  // across labels, so linking one of them would open a list smaller than the
-  // number promises — a quieter wrong answer than no link.
-  const linkable = baseUrl && Array.isArray(labels) && labels.length === 1;
-  const countCell = (k) => {
-    const v = `<span style="color:${NAVY};font-weight:bold;">${escapeHtml(num(hygiene[k]))}</span>`;
-    if (!linkable) return v;
-    // Built with a plain '&' and escaped ONCE — escapeHtml turns it into the
-    // &amp; an HTML attribute requires. Pre-escaping it here would double-encode.
-    const href = `${baseUrl}/assets.html?site=${encodeURIComponent(labels[0])}&kind=${encodeURIComponent(k)}#hygiene`;
-    return `<a href="${escapeHtml(href)}" style="color:${NAVY};text-decoration:underline;">${v}</a>`;
-  };
+  const countCell = (k) => `<span style="color:${PARC};font-weight:bold;">${escapeHtml(num(hygiene[k]))}</span>`;
 
   const kinds = Object.keys(hygiene).filter((k) => num(hygiene[k]) > 0);
   const list = kinds.length
@@ -364,15 +511,15 @@ function assetsSection(assets, baseUrl, labels, review, status) {
     : staticNote('Aucun &eacute;cart de qualit&eacute; de donn&eacute;es &agrave; corriger. Merci&nbsp;!');
 
   const effortBlock = effort && effort.effort_score !== null && effort.effort_score !== undefined
-    ? kpiGrid([
-      { label: 'Score de tenue du parc', value: `${num(effort.effort_score)}/100` },
-      { label: 'Classement des sites', value: `#${num(effort.rank)}` },
-    ])
+    ? tiles([
+      { label: 'Score de tenue du parc', valueHtml: `${escapeHtml(num(effort.effort_score))}/100`, color: NAVY },
+      { label: 'Classement des sites', valueHtml: `#${escapeHtml(num(effort.rank))}`, color: NAVY },
+    ], { tint: PARC_TINT, accent: PARC })
     : '';
 
   const intro = staticNote('Qualit&eacute; des donn&eacute;es du parc informatique &mdash; &agrave; corriger dans l&rsquo;inventaire, ind&eacute;pendamment du rapport ci-dessus.');
 
-  return card('Parc informatique', `${effortBlock}${intro}<div style="padding-top:8px;">${list}</div>${assetReviewBlock(review, status)}`, TEAL);
+  return bandCard('Parc informatique', `${effortBlock}${intro}<div style="padding-top:8px;">${list}</div>${assetReviewBlock(review, status)}`, PARC);
 }
 
 function footer(data) {
@@ -427,15 +574,14 @@ function composeWeekly(data) {
     helpdeskSection(r.helpdesk),
     lightsSection(r.lights),
     actionsSection(r.action_items),
-    // …then the CMDB reminder. `null` omits it entirely.
-    // base_url is the configured public origin (reportConfig.public_base_url) or
-    // '' — absent, the counts render as plain text exactly as before.
+    // …then the CMDB reminder. `null` omits it entirely. d.base_url is
+    // deliberately IGNORED here: the meeting report carries no Assets link.
     // A frozen review must never vanish just because the live hygiene block is
     // absent (e.g. the asset labels changed after submission) — render it on
     // its own card in that case.
     d.assets
-      ? assetsSection(d.assets, d.base_url, d.assets.labels, r.asset_review, r.status)
-      : (assetReviewBlock(r.asset_review, r.status) ? card('Parc informatique', assetReviewBlock(r.asset_review, r.status), TEAL) : ''),
+      ? assetsSection(d.assets, r.asset_review, r.status)
+      : (assetReviewBlock(r.asset_review, r.status) ? bandCard('Parc informatique', assetReviewBlock(r.asset_review, r.status), PARC) : ''),
     footer(d),
   ].filter(Boolean).join('\n');
 
