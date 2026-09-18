@@ -282,3 +282,21 @@ test('assets:null and no review → still no assets card (unchanged)', () => {
   const f = fixture(); f.assets = null;
   assert.ok(!/PARC INFORMATIQUE|Parc informatique/.test(composeWeekly(f).htmlBody));
 });
+
+// ── review-block fixes: multi-line notes, null counts (post-review) ──────────
+test('a multi-line note preserves its line breaks (white-space:pre-line)', () => {
+  const f = fixture();
+  f.report.asset_review = { applicable: true, counts: { new: 1, unassigned: 1, no_cost: 1, no_date: 1 }, handled_note: 'Ligne 1\nLigne 2', plan_note: '' };
+  const { htmlBody } = composeWeekly(f);
+  assert.match(htmlBody, /white-space:pre-line/, 'the note wrapper preserves newlines');
+  assert.match(htmlBody, /Ligne 1\nLigne 2/, 'the raw newline survives escaping');
+});
+
+test('a null or non-finite count renders "—", never a fabricated 0', () => {
+  const f = fixture();
+  f.report.asset_review = { applicable: true, counts: { new: null, unassigned: NaN, no_cost: 0, no_date: 3 }, handled_note: 'x', plan_note: 'y' };
+  const { htmlBody } = composeWeekly(f);
+  assert.match(htmlBody, />&mdash;<|>—</, 'null/NaN counts render an em dash');
+  assert.match(htmlBody, />0</, 'a REAL zero still renders as 0, not a dash');
+  assert.match(htmlBody, />3</, 'a real count still renders');
+});

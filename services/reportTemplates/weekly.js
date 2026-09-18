@@ -276,16 +276,27 @@ const REVIEW_KPIS = [
   ['no_cost', 'Sans coût d’achat'],
   ['no_date', 'Sans date d’acquisition'],
 ];
+// A frozen count that is null / not-a-number must read "—", never a fabricated
+// 0 — a real 0 is a measurement ("nothing new this week"), a null is "we don't
+// know" (e.g. the assets layer was down at submission). num()'s default of 0
+// would collapse that distinction, so this checks Number.isFinite itself.
+function reviewCountText(v) {
+  return Number.isFinite(+v) ? String(+v) : '—';
+}
 function assetReviewBlock(review) {
   const rv = review && typeof review === 'object' ? review : null;
   if (!rv || rv.applicable === false || rv.applicable === 0) return '';
   const c = rv.counts && typeof rv.counts === 'object' ? rv.counts : null;
   const counts = c
-    ? kpiGrid(REVIEW_KPIS.map(([k, label]) => ({ label, value: String(num(c[k])) })))
+    ? kpiGrid(REVIEW_KPIS.map(([k, label]) => ({ label, value: reviewCountText(c[k]) })))
     : staticNote('Compteurs non disponibles au moment de la soumission.');
+  // Notes come from multi-line textareas — escapeHtml neutralises markup but
+  // does not touch line breaks, so the styling must preserve them explicitly.
   const note = (v) => {
     const s = String(v == null ? '' : v).trim();
-    return s ? escapeHtml(s) : `<em style="color:${MUTED};">non renseign&eacute;</em>`;
+    return s
+      ? `<span style="white-space:pre-line;">${escapeHtml(s)}</span>`
+      : `<em style="color:${MUTED};">non renseign&eacute;</em>`;
   };
   return `<div style="padding-top:12px;">
 ${staticNote('Suivi du parc d&eacute;clar&eacute; par le coordinateur &mdash; compteurs fig&eacute;s &agrave; la soumission.')}
