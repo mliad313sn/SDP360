@@ -263,6 +263,14 @@ const HYGIENE_KINDS = {
   lifecycle_exception: { label: 'In repair / expired / lost',  where: "state IN ('In Repair','Expired','Lost/Stolen','Lost','Stolen')" },
 };
 
+// ─── Asset engagement worklists (2026-09-18) ────────────────────────────────
+// Deliberately NOT HYGIENE_KINDS.no_owner / no_cost / no_age: those do not trim
+// and have no state filter. No SQL CAST on the TEXT columns — TRIM + IN only.
+const FOLLOWUP_ACTIVE_STATES = "state IN ('In Use','In Store','In Repair')";
+const FOLLOWUP_UNASSIGNED = "state = 'In Use' AND TRIM(COALESCE(user_name,'')) = '' AND TRIM(COALESCE(department,'')) = ''";
+const FOLLOWUP_NO_COST = `(${FOLLOWUP_ACTIVE_STATES}) AND (purchase_cost IS NULL OR TRIM(purchase_cost) IN ('','0','0.00'))`;
+const FOLLOWUP_NO_DATE = `(${FOLLOWUP_ACTIVE_STATES}) AND (acquisition_date IS NULL OR TRIM(acquisition_date) = '')`;
+
 // The kind's predicate ANDed with the SAME whitelisted filters getEnrichedAssets
 // accepts (site/state/product_type/manufacturer/q) — parameter-bound, no interpolation.
 // `_assetWhere` emits `a.`-qualified clauses, so the callers query `assets AS a`.
@@ -1137,6 +1145,61 @@ async function _recordAssetSightingsPg(opts = {}) {
   });
 }
 
+// Identity columns only — `has_cost` is a 0/1 flag, never the amount. Qualified
+// with `a.` because the "new" query joins asset_first_seen (which also has `site`).
+const _FOLLOWUP_COLS = `a.asset_id, a.asset_name, a.product_type, a.manufacturer, a.serial_number,
+  a.state, a.site, a.user_name, a.department, a.acquisition_date,
+  CASE WHEN (a.purchase_cost IS NULL OR TRIM(a.purchase_cost) IN ('','0','0.00')) THEN 0 ELSE 1 END AS has_cost`;
+
+function _followupQueries(labels, opts) {
+  const L = (labels || []).map(v => String(v == null ? '' : v)).filter(Boolean);
+  const ph = L.map(() => '?').join(', ');
+  const q = {
+    unassigned: { sql: `SELECT ${_FOLLOWUP_COLS} FROM assets a WHERE (${FOLLOWUP_UNASSIGNED}) AND a.site IN (${ph}) ORDER BY a.asset_name`, params: L },
+    no_cost:    { sql: `SELECT ${_FOLLOWUP_COLS} FROM assets a WHERE (${FOLLOWUP_NO_COST}) AND a.site IN (${ph}) ORDER BY a.asset_name`, params: L },
+    no_date:    { sql: `SELECT ${_FOLLOWUP_COLS} FROM assets a WHERE (${FOLLOWUP_NO_DATE}) AND a.site IN (${ph}) ORDER BY a.asset_name`, params: L },
+  };
+  const { newFrom, newTo } = opts || {};
+  if (newFrom && newTo) {
+    q.new = {
+      sql: `SELECT ${_FOLLOWUP_COLS}, f.first_seen_date FROM asset_first_seen f
+            JOIN assets a ON a.asset_id = f.asset_id
+            WHERE f.baseline = 0 AND f.first_seen_date BETWEEN ? AND ? AND a.site IN (${ph})
+            ORDER BY f.first_seen_date, a.asset_name`,
+      params: [newFrom, newTo, ...L],
+    };
+  }
+  return { L, q };
+}
+function _shapeFollowups(lists) {
+  const shape = (rows) => (rows || []).map(r => ({ ...r, has_cost: Number(r.has_cost) === 1 }));
+  const out = { new: shape(lists.new), unassigned: shape(lists.unassigned), no_cost: shape(lists.no_cost), no_date: shape(lists.no_date) };
+  out.counts = { new: out.new.length, unassigned: out.unassigned.length, no_cost: out.no_cost.length, no_date: out.no_date.length };
+  out.generated_at = new Date().toISOString();
+  return out;
+}
+
+// getSiteAssetFollowups(labels, {newFrom, newTo}) — the four asset-engagement
+// worklists for ONE site (its real asset labels). The "new" list uses the CURRENT
+// assets.site. Empty labels → zeros. Dual-backend: the pg fork is async.
+function getSiteAssetFollowups(labels, opts = {}) {
+  if (ASSETS_BACKEND === 'postgres') return _getSiteAssetFollowupsPg(labels, opts);
+  const { L, q } = _followupQueries(labels, opts);
+  if (!L.length) return _shapeFollowups({});
+  const db = getDB();
+  const lists = {};
+  for (const [k, { sql, params }] of Object.entries(q)) lists[k] = db.prepare(sql).all(...params);
+  return _shapeFollowups(lists);
+}
+async function _getSiteAssetFollowupsPg(labels, opts = {}) {
+  const { L, q } = _followupQueries(labels, opts);
+  if (!L.length) return _shapeFollowups({});
+  const h = pgHandle();
+  const lists = {};
+  for (const [k, { sql, params }] of Object.entries(q)) lists[k] = await h.prepare(sql).all(...params);
+  return _shapeFollowups(lists);
+}
+
 // ─── Effort trend readers (Task 2) ─────────────────────────────────────────
 // Consumed by the Progress dashboard (+ later reports). Both dual-backend; the
 // history table is tiny (one row per site per day), so we SELECT the window and
@@ -1532,7 +1595,8 @@ module.exports = {
   classifySoftwareCompliance, getSoftwareComplianceSummary, getSoftwareComplianceExceptions, SOFTWARE_KINDS,
   snapshotEffort,
   getEffortLeaderboard, getEffortTrend,
-  recordAssetSightings,
+  FOLLOWUP_ACTIVE_STATES, FOLLOWUP_UNASSIGNED, FOLLOWUP_NO_COST, FOLLOWUP_NO_DATE,
+  recordAssetSightings, getSiteAssetFollowups,
   DECISIONS, replaceExternalDevices, listExternalDevices, listImportRuns,
   setDecision, clearDecision, listDecisions,
   snapshotReconcile, getReconcileHistory, logImport, listImportLog,
