@@ -16,9 +16,9 @@ function fnSource(name) {
   return src.slice(start, end + 2);
 }
 
-test('weekly strip has stab-4 "5 · Parc informatique"; monthly strip untouched', () => {
+test('weekly strip has stab-4 "5. Parc informatique"; monthly strip untouched', () => {
   const weekly = src.slice(src.indexOf('id="section-tabs"'), src.indexOf('<!-- Section 0'));
-  assert.match(weekly, /id="stab-4"[^>]*>5 · Parc informatique</);
+  assert.match(weekly, /id="stab-4"[^>]*>5\. Parc informatique</);
   assert.ok(src.includes('id="section-4"'));
   assert.ok(src.includes('id="mr-stab-4"'), 'monthly Annual Objectives tab still there');
 });

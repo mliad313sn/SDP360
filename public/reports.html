@@ -496,7 +496,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
       <button class="section-tab" onclick="showSection(1)" id="stab-1">2. Helpdesk Metrics</button>
       <button class="section-tab" onclick="showSection(2)" id="stab-2">3. Low / High Lights</button>
       <button class="section-tab" onclick="showSection(3)" id="stab-3">4. Action Items</button>
-      <button class="section-tab" onclick="showSection(4)" id="stab-4">5 · Parc informatique</button>
+      <button class="section-tab" onclick="showSection(4)" id="stab-4">5. Parc informatique</button>
     </div>
 
     <!-- Section 0: Infrastructure KPIs -->
@@ -812,7 +812,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
           <textarea id="ar-plan-note" rows="3" style="width:100%" placeholder="Ex. coûts en attente de la comptabilité…"></textarea>
         </div>
         <div style="font-size:0.78rem;color:#64748b">Facultatif — une note vide apparaîtra « non renseigné » dans le rapport envoyé.</div>
-        <div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="saveSection(4)">Enregistrer</button></div>
+        <div style="margin-top:10px"><button class="btn btn-primary btn-sm" id="ar-save-btn" onclick="saveSection(4)">Enregistrer</button></div>
       </div>
     </div>
 
@@ -2739,6 +2739,17 @@ const _AR_KINDS = [
   ['no_cost', "Sans coût d'achat", '#hygiene', 'no_cost'],
   ['no_date', "Sans date d'acquisition", '#hygiene', 'no_age'],
 ];
+function _isSuperAdminUser() {
+  if (typeof window.__userHasRole === 'function') { try { return !!window.__userHasRole('super_admin'); } catch (_) {} }
+  return !!currentUser && currentUser.role === 'super_admin';
+}
+// Tab 5 done state. Once the followups payload is known, applicability comes from
+// it (a stored applicable=false can be stale) and the notes from the textareas
+// (which hold the stored notes after load, and the typed ones after a save).
+function _assetTabDone() {
+  if (_assetFollowups) return !_assetFollowups.applicable || _assetNotesFilled();
+  return _assetReviewDone(currentReport && currentReport.asset_review);
+}
 function _assetNotesFilled() {
   return !!document.getElementById('ar-handled-note').value.trim() && !!document.getElementById('ar-plan-note').value.trim();
 }
@@ -2748,7 +2759,11 @@ async function loadAssetFollowups() {
   const ar = r.asset_review || {};
   document.getElementById('ar-handled-note').value = ar.handled_note || '';
   document.getElementById('ar-plan-note').value = ar.plan_note || '';
-  ['ar-handled-note', 'ar-plan-note'].forEach(id => { document.getElementById(id).disabled = !_reportEditable(); });
+  // After submission only a super_admin may still write the notes (server F5 rule).
+  const _arEditable = _reportEditable() || _isSuperAdminUser();
+  ['ar-handled-note', 'ar-plan-note'].forEach(id => { document.getElementById(id).disabled = !_arEditable; });
+  const _arBtn = document.getElementById('ar-save-btn');
+  if (_arBtn) _arBtn.style.display = _arEditable ? '' : 'none';
   _assetFollowups = null;
   box.innerHTML = '<div style="color:#94a3b8;font-style:italic">Chargement…</div>';
   const forId = r.id;
@@ -2783,7 +2798,7 @@ function renderAssetReview() {
     if (prev && prev[k] != null) {
       const dv = v - Number(prev[k]);
       delta = dv === 0 ? '<span style="color:#64748b">= sem. préc.</span>'
-        : `<span style="color:${dv > 0 ? '#b91c1c' : '#15803d'}">${dv > 0 ? '▲ +' : '▼ '}${dv} vs sem. préc.</span>`;
+        : `<span style="color:${dv > 0 ? '#b91c1c' : '#15803d'}">${dv > 0 ? '▲ +' + dv : '▼ ' + Math.abs(dv)} vs sem. préc.</span>`;
     }
     const href = oneLabel ? `assets.html?site=${encodeURIComponent(oneLabel)}${kind ? '&kind=' + kind : ''}${hash}` : null;
     const link = href ? `<a href="${esc(href)}" target="_blank" style="font-size:0.75rem">voir dans Assets ›</a>` : '';
@@ -2800,13 +2815,18 @@ function renderAssetReview() {
     const head = cols.map(c => `<th>${c[1]}</th>`).join('') + '<th>Coût renseigné</th>' + (k === 'new' ? '<th>Vu le</th>' : '');
     const body = rows.map(x => '<tr>' + cols.map(c => `<td>${esc(x[c[0]] || '—')}</td>`).join('') +
       `<td>${x.has_cost ? 'Oui' : 'Non'}</td>` + (k === 'new' ? `<td>${esc(x.first_seen_date || '')}</td>` : '') + '</tr>').join('');
-    const more = Number(counts[k] || 0) > rows.length ? `<div style="font-size:0.75rem;color:#64748b">50 premières lignes sur ${Number(counts[k])}.</div>` : '';
-    return `<details style="margin-top:8px"><summary>${esc(label)} (${rows.length})</summary>
+    // The lists are always the LIVE worklists; on a submitted report the counters
+    // above are frozen, so the list is labelled « état actuel » and its "sur N"
+    // uses the live total, never the frozen one.
+    const liveN = Number((d.counts && d.counts[k]) || 0);
+    const more = liveN > rows.length ? `<div style="font-size:0.75rem;color:#64748b">50 premières lignes sur ${liveN}.</div>` : '';
+    const suffix = submitted ? ' — état actuel' : '';
+    return `<details style="margin-top:8px"><summary>${esc(label)}${suffix} (${rows.length})</summary>
       <table class="user-table" style="font-size:0.78rem"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>${more}</details>`;
   }).join('');
   const note = submitted ? '<div style="font-size:0.75rem;color:#64748b;margin-bottom:6px">Compteurs figés à la soumission.</div>' : '';
   box.innerHTML = `${note}<div style="display:flex;gap:10px;flex-wrap:wrap">${cards}</div>${lists}`;
-  if (tab) tab.classList.toggle('done', _assetReviewDone(currentReport.asset_review));
+  if (tab) tab.classList.toggle('done', _assetTabDone());
 }
 function collectAssetReview() {
   return { handled_note: document.getElementById('ar-handled-note').value, plan_note: document.getElementById('ar-plan-note').value };
@@ -4679,7 +4699,7 @@ async function saveSection(n) {
     } else if (n === 4) {
       const rev = await api('PUT', `/api/reports/${id}/asset-review`, collectAssetReview());
       currentReport.asset_review = rev;
-      document.getElementById('stab-4').classList.toggle('done', _assetReviewDone(rev));
+      document.getElementById('stab-4').classList.toggle('done', _assetTabDone());
     }
     setSaving('saved');
     toast('Saved ✓', 'success');
@@ -4776,7 +4796,7 @@ async function autoSaveSection(n) {
       _autoSaveBusy = true; setSaving('saving');
       const rev = await api('PUT', `/api/reports/${id}/asset-review`, collectAssetReview());
       currentReport.asset_review = rev;
-      document.getElementById('stab-4').classList.toggle('done', _assetReviewDone(rev));
+      document.getElementById('stab-4').classList.toggle('done', _assetTabDone());
     } else { return; }
     setSaving('saved');
     await _afterSectionSaved(n);   // mark section done + auto-advance status
@@ -4843,9 +4863,14 @@ async function submitReport() {
   // from what the server has.
   for (let i = 0; _autoSaveBusy && i < 50; i++) await new Promise(r => setTimeout(r, 100));
   if (_autoSaveBusy) { toast('Une sauvegarde est encore en cours — réessayez dans un instant.', 'error'); return; }
+  // Flush every other pending autosave (tabs 0-3) before the status flips.
+  for (const k of Object.keys(_autoSaveTimers)) {
+    const n = Number(k);
+    if (n !== 4 && _autoSaveTimers[k]) await autoSaveSection(n);
+  }
   const _arSaved = currentReport.asset_review || {};
   const _arNow = collectAssetReview();
-  if (_autoSaveTimers[4] || (_assetFollowups && (_arNow.handled_note.trim() !== (_arSaved.handled_note || '') || _arNow.plan_note.trim() !== (_arSaved.plan_note || '')))) {
+  if (_autoSaveTimers[4] || _arNow.handled_note.trim() !== (_arSaved.handled_note || '') || _arNow.plan_note.trim() !== (_arSaved.plan_note || '')) {
     clearTimeout(_autoSaveTimers[4]); _autoSaveTimers[4] = null;
     try {
       _autoSaveBusy = true;
@@ -4863,7 +4888,11 @@ async function submitReport() {
     updateStatusBar();
     loadAuditLog();
     toast('Report submitted ✅', 'success');
-    try { currentReport = await api('GET', `/api/reports/${currentReport.id}`); loadAssetFollowups(); } catch (_) {}
+    try {
+      const fresh = await api('GET', `/api/reports/${currentReport.id}`);
+      // Another report may have been opened meanwhile — never overwrite it.
+      if (currentReport && fresh && currentReport.id === fresh.id) { currentReport = fresh; loadAssetFollowups(); }
+    } catch (_) {}
   } catch(e) { toast('Submit failed: ' + e, 'error'); }
 }
 
@@ -4882,6 +4911,7 @@ async function revertReport() {
     currentReport.submitted_at = null;
     updateStatusBar();
     loadAuditLog();
+    loadAssetFollowups();   // unlock tab 5 notes + drop the « figés » line
     toast('Reverted to draft ✓', 'info');
   } catch(e) { toast('Error: ' + e.message, 'error'); }
 }
