@@ -998,6 +998,20 @@ CREATE TABLE IF NOT EXISTS exec_report_editorial (
 );
 `);
 
+// Asset engagement (2026-09-18) — weekly report "Parc informatique" tab. Same DDL
+// as db/postgres/reports/012_report_asset_review.sql. Deleted explicitly by deleteReport.
+db.exec(`
+CREATE TABLE IF NOT EXISTS report_asset_review (
+  report_id     INTEGER PRIMARY KEY,
+  applicable    INTEGER NOT NULL DEFAULT 1,
+  counts_json   TEXT,
+  handled_note  TEXT,
+  plan_note     TEXT,
+  updated_by    TEXT,
+  updated_at    TEXT
+);
+`);
+
 // Shared row→payload mapping (both forks). An absent row AND an unparseable
 // payload both read back as null — the caller can't tell "never saved" from
 // "corrupt", and neither should ever throw on a read path.
@@ -1406,6 +1420,9 @@ async function initPgReports() {            // called once at server boot
   }
   // V1b-B — additive recent-vs-window label on infra_metric_snapshots (device availability).
   await _pg.exec(`ALTER TABLE infra_metric_snapshots ADD COLUMN IF NOT EXISTS basis TEXT`);
+  // Asset engagement — weekly report "Parc informatique" tab.
+  await _pg.exec(require('fs').readFileSync(
+    require('path').join(__dirname, 'db', 'postgres', 'reports', '012_report_asset_review.sql'), 'utf8'));
   return _pg;
 }
 
@@ -2616,6 +2633,7 @@ function getReport(report_id) {
   report.helpdesk      = db.prepare(`SELECT * FROM helpdesk_data WHERE report_id=?`).get(report_id) || {};
   report.lights        = db.prepare(`SELECT * FROM lights WHERE report_id=? ORDER BY type, sort_order`).all(report_id);
   report.action_items  = db.prepare(`SELECT * FROM action_items WHERE report_id=? ORDER BY sort_order`).all(report_id);
+  report.asset_review  = getReportAssetReview(report_id);
   if (report.helpdesk.sla_violations) {
     try { report.helpdesk.sla_violations = JSON.parse(report.helpdesk.sla_violations); } catch(e) {}
   }
@@ -3784,6 +3802,7 @@ const _deleteReportSqlite = db.transaction((id) => {
   db.prepare(`DELETE FROM helpdesk_data WHERE report_id=?`).run(id);
   db.prepare(`DELETE FROM lights        WHERE report_id=?`).run(id);
   db.prepare(`DELETE FROM action_items  WHERE report_id=?`).run(id);
+  db.prepare(`DELETE FROM report_asset_review WHERE report_id=?`).run(id);
   db.prepare(`DELETE FROM weekly_reports WHERE id=?`).run(id);
 });
 // Explicit child deletes inside a tx (mirrors sqlite; not relying on FK CASCADE).
@@ -3794,6 +3813,7 @@ async function _deleteReportPg(id) {
     await H.prepare('DELETE FROM helpdesk_data WHERE report_id=?').run(id);
     await H.prepare('DELETE FROM lights        WHERE report_id=?').run(id);
     await H.prepare('DELETE FROM action_items  WHERE report_id=?').run(id);
+    await H.prepare('DELETE FROM report_asset_review WHERE report_id=?').run(id);
     await H.prepare('DELETE FROM weekly_reports WHERE id=?').run(id);
   });
 }
@@ -3835,6 +3855,54 @@ function touchReport(report_id) {
   db.prepare(`UPDATE weekly_reports SET updated_at=datetime('now') WHERE id=?`).run(report_id);
 }
 
+// ── Asset engagement — report_asset_review ──────────────────────────────────
+function _mapAssetReview(row) {
+  if (!row) return null;
+  let counts = null;
+  if (row.counts_json) {
+    try { const v = JSON.parse(row.counts_json); counts = (v && typeof v === 'object') ? v : null; } catch { counts = null; }
+  }
+  return {
+    report_id: Number(row.report_id), applicable: Number(row.applicable) !== 0, counts,
+    handled_note: row.handled_note ?? null, plan_note: row.plan_note ?? null,
+    updated_by: row.updated_by ?? null, updated_at: row.updated_at ?? null,
+  };
+}
+// Only the keys PRESENT in the patch are written (a freeze never touches the
+// notes, a notes save never touches the counts) — no read-modify-write race.
+function _assetReviewPatch(patch) {
+  const p = patch || {}, out = {};
+  if (p.applicable !== undefined) out.applicable = p.applicable ? 1 : 0;
+  if (p.counts !== undefined) out.counts_json = p.counts == null ? null : JSON.stringify(p.counts);
+  if (p.handled_note !== undefined) out.handled_note = p.handled_note == null ? null : String(p.handled_note);
+  if (p.plan_note !== undefined) out.plan_note = p.plan_note == null ? null : String(p.plan_note);
+  return out;
+}
+function _assetReviewUpsertSql(cols) {
+  const ins = ['report_id', ...cols, 'updated_by', 'updated_at'];
+  const upd = [...cols, 'updated_by', 'updated_at'].map(c => `${c}=excluded.${c}`).join(', ');
+  return `INSERT INTO report_asset_review (${ins.join(', ')}) VALUES (${ins.map(() => '?').join(', ')})
+          ON CONFLICT(report_id) DO UPDATE SET ${upd}`;
+}
+function getReportAssetReview(report_id) {
+  if (REPORTS_BACKEND === 'postgres') return _getReportAssetReviewPg(report_id);
+  return _mapAssetReview(db.prepare('SELECT * FROM report_asset_review WHERE report_id=?').get(report_id));
+}
+async function _getReportAssetReviewPg(report_id) {
+  return _mapAssetReview(await pgHandle().prepare('SELECT * FROM report_asset_review WHERE report_id=?').get(report_id));
+}
+function saveReportAssetReview(report_id, patch, user) {
+  if (REPORTS_BACKEND === 'postgres') return _saveReportAssetReviewPg(report_id, patch, user);
+  const p = _assetReviewPatch(patch), cols = Object.keys(p);
+  db.prepare(_assetReviewUpsertSql(cols)).run(report_id, ...cols.map(c => p[c]), user || 'unknown', new Date().toISOString());
+  return getReportAssetReview(report_id);
+}
+async function _saveReportAssetReviewPg(report_id, patch, user) {
+  const p = _assetReviewPatch(patch), cols = Object.keys(p);
+  await pgHandle().prepare(_assetReviewUpsertSql(cols)).run(report_id, ...cols.map(c => p[c]), user || 'unknown', new Date().toISOString());
+  return _getReportAssetReviewPg(report_id);
+}
+
 // ══ Chunk 4C — PostgreSQL forks (REPORTS_BACKEND=postgres) ══════════════════
 // sqlite path stays synchronous (returns value); only the pg branch is async.
 // getWeekRange/getISOWeek/getPreviousWeek are PURE (no DB) and used as-is.
@@ -3867,6 +3935,7 @@ async function _getReportPg(report_id) {
   report.helpdesk     = (await H.prepare('SELECT * FROM helpdesk_data WHERE report_id=?').get(report_id)) || {};
   report.lights       = await H.prepare('SELECT * FROM lights WHERE report_id=? ORDER BY type, sort_order').all(report_id);
   report.action_items = await H.prepare('SELECT * FROM action_items WHERE report_id=? ORDER BY sort_order').all(report_id);
+  report.asset_review = await _getReportAssetReviewPg(report_id);
   for (const k of ['sla_violations', 'group_metrics', 'all_groups', 'chart_data']) {
     if (report.helpdesk[k]) { try { report.helpdesk[k] = JSON.parse(report.helpdesk[k]); } catch (e) {} }
   }
@@ -8106,6 +8175,7 @@ module.exports = {
   listDepartments, createDepartment, updateDepartment, setDepartmentActive,
   getPreviousWeekInfraKpis,
   updateReportStatus, touchReport, deleteReport,
+  getReportAssetReview, saveReportAssetReview,
   reassignReportWeek, requestRecordExists,   // 4D-wiring-2 helpers
   getMonthlyData, getWeekSummaryData, getYearlySummary, getCalendarMonthlyHelpdesk, getCalendarMonthlyTop10, getHelpdesk6MonthHistory,
   getMonthlyHelpdeskHistory, getMajorIncidentsHistory, getChangeRecordsHistory,
