@@ -209,3 +209,16 @@ CREATE TABLE IF NOT EXISTS asset_reconcile_history (
   captured_by            TEXT,
   PRIMARY KEY (snapshot_date)
 );
+
+-- Asset engagement (2026-09-18) — first sighting of each asset id. The assets
+-- tables are full-replaced nightly, so "new hardware" can only be detected by
+-- remembering which ids we have already seen. `baseline = 1` marks the ids that
+-- were present on the very first run (never reported as new). Rows are never
+-- updated; `site` is the site at first sighting, for information only.
+CREATE TABLE IF NOT EXISTS asset_first_seen (
+  asset_id        TEXT PRIMARY KEY,
+  site            TEXT NOT NULL DEFAULT '',
+  first_seen_date TEXT NOT NULL,
+  baseline        INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_asset_first_seen_date ON asset_first_seen (first_seen_date);

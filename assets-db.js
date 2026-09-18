@@ -84,7 +84,7 @@ async function _replaceTablePg(table, cols, rows) {
 // ASSET_VIEWS config (never user input), but it is still validated against the known
 // set before interpolation so it can never become an injection vector if a future caller
 // passes a variable. Dual-backend: pg fork is async, every caller MUST await it.
-const _ASSET_TABLES = new Set(['assets', 'asset_memory', 'asset_logical_drives', 'asset_monitors', 'software_licenses', 'software', 'asset_effort_history']);
+const _ASSET_TABLES = new Set(['assets', 'asset_memory', 'asset_logical_drives', 'asset_monitors', 'software_licenses', 'software', 'asset_effort_history', 'asset_first_seen']);
 function _assertTable(table) {
   if (!_ASSET_TABLES.has(table)) throw new Error(`countRows: unknown table "${table}" — not an Assets Foundation table`);
   return table;
@@ -1098,6 +1098,46 @@ async function _snapshotEffortPg(opts = {}) {
   });
 }
 
+// ─── Asset engagement — first sightings (2026-09-18) ─────────────────────────
+// Records every asset id not seen before. First run on a non-empty register =
+// baseline (baseline=1, never reported as new). Existing rows are never updated
+// (INSERT OR IGNORE / ON CONFLICT DO NOTHING) → idempotent per day. Dates are UTC,
+// like snapshotEffort. Dual-backend: the pg fork is async — callers MUST await.
+function _todayUtc() { return new Date().toISOString().slice(0, 10); }
+// The two bound parameters sit in the SELECT list, where Postgres cannot infer
+// their type from a column ("could not determine data type of parameter $1") —
+// cast them explicitly. The casts are on PARAMETERS, never on stored text
+// columns, and are valid on both backends.
+const _SIGHT_SELECT = `SELECT asset_id, COALESCE(site, ''), CAST(? AS TEXT), CAST(? AS INTEGER) FROM assets WHERE asset_id IS NOT NULL AND asset_id <> ''`;
+
+function recordAssetSightings(opts = {}) {
+  if (ASSETS_BACKEND === 'postgres') return _recordAssetSightingsPg(opts);
+  const date = (opts && opts.asOf) || _todayUtc();
+  const db = getDB();
+  const tx = db.transaction(() => {
+    const assets = db.prepare('SELECT COUNT(*) AS n FROM assets').get().n;
+    if (!assets) return { date, baseline: false, inserted: 0, skipped: 'no assets' };
+    const baseline = db.prepare('SELECT COUNT(*) AS n FROM asset_first_seen').get().n === 0;
+    const r = db.prepare(`INSERT OR IGNORE INTO asset_first_seen (asset_id, site, first_seen_date, baseline) ${_SIGHT_SELECT}`)
+      .run(date, baseline ? 1 : 0);
+    return { date, baseline, inserted: r.changes };
+  });
+  return tx();
+}
+async function _recordAssetSightingsPg(opts = {}) {
+  const date = (opts && opts.asOf) || _todayUtc();
+  const h = pgHandle();
+  return h.runTransaction(async () => {
+    const assets = Number((await h.prepare('SELECT COUNT(*) AS n FROM assets').get()).n);
+    if (!assets) return { date, baseline: false, inserted: 0, skipped: 'no assets' };
+    const baseline = Number((await h.prepare('SELECT COUNT(*) AS n FROM asset_first_seen').get()).n) === 0;
+    // Explicit RETURNING keeps pgDb from appending RETURNING * (thousands of rows).
+    const r = await h.prepare(`INSERT INTO asset_first_seen (asset_id, site, first_seen_date, baseline) ${_SIGHT_SELECT}
+      ON CONFLICT (asset_id) DO NOTHING RETURNING asset_id`).run(date, baseline ? 1 : 0);
+    return { date, baseline, inserted: Number(r.changes) || 0 };
+  });
+}
+
 // ─── Effort trend readers (Task 2) ─────────────────────────────────────────
 // Consumed by the Progress dashboard (+ later reports). Both dual-backend; the
 // history table is tiny (one row per site per day), so we SELECT the window and
@@ -1493,6 +1533,7 @@ module.exports = {
   classifySoftwareCompliance, getSoftwareComplianceSummary, getSoftwareComplianceExceptions, SOFTWARE_KINDS,
   snapshotEffort,
   getEffortLeaderboard, getEffortTrend,
+  recordAssetSightings,
   DECISIONS, replaceExternalDevices, listExternalDevices, listImportRuns,
   setDecision, clearDecision, listDecisions,
   snapshotReconcile, getReconcileHistory, logImport, listImportLog,
