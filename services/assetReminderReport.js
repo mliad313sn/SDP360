@@ -5,8 +5,19 @@
 // Every asset field is untrusted → escapeHtml. Links only when baseUrl is set AND
 // the site folds to exactly ONE asset label (a multi-label link would open a
 // smaller list than the count promises — same rule as the weekly e-mail).
-const { NAVY, TEAL, MUTED, WASH, FONT, escapeHtml, num, card, kpiGrid } = require('./reportTemplates/_primitives');
+const { NAVY, TEAL, MUTED, WASH, FONT, escapeHtml, card, kpiGrid } = require('./reportTemplates/_primitives');
 const tableExcel = require('./tableExcel');
+
+// num(v) coerces via `+v` — `+null === 0`, so a genuinely unmeasured count
+// (null/undefined/'') would render as a false "0". countText/countNum treat
+// that case as "—" instead, while a REAL 0 still renders as "0".
+function countNum(v) {
+  return (v != null && v !== '' && Number.isFinite(+v)) ? +v : null;
+}
+function countText(v) {
+  const n = countNum(v);
+  return n === null ? '—' : String(n);
+}
 
 const LISTS = [
   ['new', 'Nouveau matériel', 'Nouveau', '#inventory', null],
@@ -50,20 +61,27 @@ function buildAssetRecap({ site, followups, baseUrl, weekLabel, year, week, labe
   const f = followups || {};
   const c = f.counts || {};
   const subject = `Suivi du parc informatique - ${site} - ${weekLabel || ''}`.trim();
-  const kpis = kpiGrid(LISTS.map(([k, label]) => ({ label, value: String(num(c[k])) })));
+  const kpis = kpiGrid(LISTS.map(([k, label]) => ({ label, value: countText(c[k]) })));
   const blocks = LISTS.map(([k, label, , hash, kind]) => {
     const rows = Array.isArray(f[k]) ? f[k] : [];
     if (!rows.length) return '';
     const href = _link(baseUrl, labels, hash, kind);
-    const more = num(c[k]) > 20 ? `<div style="font-family:${FONT};font-size:11px;color:${MUTED};padding-top:4px;">20 premi&egrave;res lignes sur ${escapeHtml(num(c[k]))} &mdash; liste compl&egrave;te en pi&egrave;ce jointe.</div>` : '';
+    const cn = countNum(c[k]);
+    const more = cn !== null && cn > 20 ? `<div style="font-family:${FONT};font-size:11px;color:${MUTED};padding-top:4px;">20 premi&egrave;res lignes sur ${escapeHtml(countText(c[k]))} &mdash; liste compl&egrave;te en pi&egrave;ce jointe.</div>` : '';
     const link = href ? `<div style="padding-top:6px;"><a href="${escapeHtml(href)}" style="color:${NAVY};font-family:${FONT};font-size:12px;">Voir dans Assets</a></div>` : '';
-    return card(`${label} (${num(c[k])})`, _table(rows.slice(0, 20), k === 'new') + more + link, TEAL);
+    return card(`${label} (${countText(c[k])})`, _table(rows.slice(0, 20), k === 'new') + more + link, TEAL);
   }).join('\n');
   const html = _shell(subject, card('Synthèse', kpis, NAVY) + '\n' + blocks);
   const sheets = LISTS.filter(([k]) => Array.isArray(f[k]) && f[k].length)
     .map(([k, , sheet]) => ({ name: sheet, rows: _xlsxRows(f[k], k === 'new') }));
-  const ww = String(week == null ? '' : week).padStart(2, '0');
-  return { subject, html, attachments: [{ filename: `assets-suivi-${site}-${year}-W${ww}.xlsx`, content: tableExcel.buildWorkbook(sheets) }] };
+  // Filename: sanitise the site code (never trust it verbatim into a header/attachment
+  // name) and fall back to a clean name when year/week aren't both supplied — a
+  // '-undefined-Wundefined.xlsx' tail would look broken to the recipient.
+  const siteSlug = String(site || '').replace(/[^A-Za-z0-9_-]/g, '_');
+  const filename = (year != null && week != null)
+    ? `assets-suivi-${siteSlug}-${year}-W${String(week).padStart(2, '0')}.xlsx`
+    : `assets-suivi-${siteSlug}.xlsx`;
+  return { subject, html, attachments: [{ filename, content: tableExcel.buildWorkbook(sheets) }] };
 }
 
 function buildNewAssetAlert({ site, rows, baseUrl, date, labels } = {}) {

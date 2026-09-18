@@ -44,6 +44,37 @@ test('recap escapes untrusted asset names', () => {
   assert.ok(!r.html.includes('<img src=x>'));
 });
 
+test('recap: null counts render em dash, a real zero still renders 0', () => {
+  const f = followups();
+  f.counts = { new: null, unassigned: 25, no_cost: 0, no_date: 2 };
+  const r = buildAssetRecap({ site: 'HGO', followups: f, baseUrl: '', weekLabel: 'W30 2026', year: 2026, week: 30, labels: ['Hounde'] });
+  // KPI tile values, in LISTS order (new, unassigned, no_cost, no_date) — the
+  // card-title pattern (12px, letter-spacing) uses the same NAVY color, so
+  // anchor on the KPI cell's distinct font-size/line-height to avoid a false match.
+  const values = [...r.html.matchAll(/font-size:18px;font-weight:bold;color:#1E293B;line-height:1\.2;">([^<]*)<\/div>/g)].map(m => m[1]);
+  assert.deepStrictEqual(values, ['—', '25', '0', '2']);
+  assert.match(r.html, /Nouveau matériel \(—\)/);
+  assert.ok(!r.html.includes('Nouveau matériel (0)'));
+});
+
+test('recap: filename sanitises the site and falls back without year/week', () => {
+  const dirty = buildAssetRecap({ site: 'H/G:O*?', followups: followups(), baseUrl: '', weekLabel: 'W30 2026', year: 2026, week: 30, labels: ['Hounde'] });
+  assert.strictEqual(dirty.attachments[0].filename, 'assets-suivi-H_G_O__-2026-W30.xlsx');
+  const noPeriod = buildAssetRecap({ site: 'HGO', followups: followups(), baseUrl: '', weekLabel: 'W30 2026', labels: ['Hounde'] });
+  assert.strictEqual(noPeriod.attachments[0].filename, 'assets-suivi-HGO.xlsx');
+});
+
+test('new-asset alert escapes an <img onerror> asset name and only links with baseUrl', () => {
+  const malicious = row('N2', { asset_name: '<img src=x onerror=alert(1)>' });
+  const noBase = buildNewAssetAlert({ site: 'HGO', rows: [malicious], baseUrl: '', date: '2026-07-28', labels: ['Hounde'] });
+  assert.ok(!noBase.html.includes('<img '), 'raw <img tag must not appear');
+  assert.ok(noBase.html.includes('&lt;img'), 'name is html-escaped');
+  assert.ok(!noBase.html.includes('assets.html'), 'no link without baseUrl');
+
+  const withBase = buildNewAssetAlert({ site: 'HGO', rows: [malicious], baseUrl: 'https://x.test', date: '2026-07-28', labels: ['Hounde'] });
+  assert.match(withBase.html, /https:\/\/x\.test\/assets\.html\?site=Hounde#inventory/);
+});
+
 test('new-asset alert: short list, date in subject, no attachment', () => {
   const r = buildNewAssetAlert({ site: 'HGO', rows: [row('N1', { first_seen_date: '2026-07-28' })], baseUrl: '', date: '2026-07-28', labels: ['Hounde'] });
   assert.match(r.subject, /HGO/);
