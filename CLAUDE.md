@@ -76,6 +76,33 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ---
 
+## ⚡ Current state (as of 2026-09-18 — Asset engagement : onglet « Parc informatique » + rappels, sur `main`, PAS déployé)
+
+> Spec `docs/superpowers/specs/2026-09-17-asset-engagement-weekly-design.md` (rev 4), plan
+> `docs/superpowers/plans/2026-09-18-asset-engagement.md`. **Données** : `asset_first_seen` (assets.db / pg,
+> PK asset_id, baseline=1 au 1ᵉʳ passage, jamais mis à jour) alimentée par `afterAssetsSync` (assets-sync.js,
+> cron 04:30 + trigger manuel ; sautée si la vue `assets` a échoué) ; `getSiteAssetFollowups(labels,{newFrom,newTo})`
+> = 4 listes (nouveau / en service sans user+dept / sans coût / sans date — ces deux-là In Use·In Store·In Repair),
+> **aucun montant** (`has_cost` booléen). **Rapport hebdo** : `report_asset_review` (reports.db + pg `012`, une
+> ligne par rapport) ; onglet `stab-4` (« 5. Parc informatique ») ; `GET /api/reports/:id/asset-followups` (admin+ ou
+> même site), `PUT /api/reports/:id/asset-review` (F5), compteurs **recalculés et figés côté serveur**, re-figés à la
+> **première** soumission seulement ; **la soumission n'est jamais bloquée** (note vide = « non renseigné » dans
+> l'e-mail hebdo ; le seul écran est une confirmation côté client si une note est vide). L'auto-`ready` marche enfin
+> (sélecteur `#section-tabs .section-tab.done`, 5 onglets) → plus de rapports « complets mais non soumis ». **Rappels** :
+> `tools/reports/send-asset-reminders.js` (`asset_reminder` planifié / `asset_new_alert` in-process), désarmés
+> (`asset_reminder_send_enabled`, `asset_new_alert_enabled`), destinataires = **responsable parc confirmé** (nouveau
+> contact annuaire, colonne « Responsable parc ») + coordinateur confirmé en cc, jamais une adresse non confirmée ;
+> carte admin `#ap-asset-reminders` (groupe « Rappels parc ») ; route `POST /api/reports/asset-reminders/send`.
+> **Étapes user** : déployer les Tâches 3 et 11 ENSEMBLE (le chemin post-sync nocturne charge le CLI créé par la
+> Tâche 11) — pm2 stop→wait→start, Ctrl+F5, renseigner/confirmer les responsables parc dans Automated Reports ▸
+> Recipients, armer les deux e-mails et planifier le récap au lundi 07:00, contrôle navigateur avec un compte
+> coordinateur (onglet 5, autosave, soumission avec note vide, aperçu e-mail hebdo). **Les tests pg
+> (`pg-asset-followups`, `pg-report-asset-review`, `pg-reports-reports`, `pg-reporting`) n'ont PAS pu être lancés sur
+> cette machine** (pas de `PG_ADMIN_URL` accessible) — à lancer avant tout déploiement. La 1ʳᵉ nuit après déploiement
+> pose la **baseline** de `asset_first_seen` (aucun « nouveau » ce jour-là).
+
+---
+
 ## ⚡ Current state (as of 2026-09-17 — Installer safety parity, mergé sur `main` (578be34), PAS déployé)
 
 > **Parité de sécurité de l'installeur console** (spec `docs/superpowers/specs/2026-09-15-installer-safety-parity-design.md`,
@@ -3956,6 +3983,7 @@ In normal use NO request hits this fallback. It's a safety net.
 | Pitfall | Rule |
 |---------|------|
 | **Secrets never on a command line the installer builds** | Windows PowerShell transcripts and process listings capture command lines — the 4MyPeople installer transcript of 2026-09-15 leaked its PG superuser password exactly that way. In `tools/installer/`, passwords travel through `$env:PGPASSWORD`, environment variables (`SDP_APP_PASSWORD`; the pre-restore `PG_URL` in `Manage-SDP -Restore`) or a masked prompt; SQL that carries a password (`CREATE ROLE sdp_app ... PASSWORD`) goes through **`Invoke-PsqlSuperStdin`** (`psql -f -`, stdin) — `Invoke-PsqlSuper` (`psql -c`) is only for password-free SQL. The single exception is the EDB PostgreSQL installer's `--superpassword` argument in `Step4-Postgres`, reached only when no `postgresql*` service exists (fresh machine): EDB accepts nothing else, it is our child process, and the value is never logged. The env header prints secrets as `(set)` / `(not set)` only. Check with `grep -n "PASSWORD '" tools/installer/*.ps1` (must only hit the stdin call) and `grep -n superpassword tools/installer/*.ps1`. |
+| **Asset engagement counts are FROZEN by the server — never trust client counts, never re-freeze on re-submit** | `PUT /api/reports/:id/asset-review` and the first `submitted` transition recompute `applicable`/`counts` from `getSiteAssetFollowups` (window = the report's Zoho week) and ignore whatever the client sent; a `submitted → submitted` call does not re-freeze. `saveReportAssetReview` writes ONLY the keys present in the patch (freeze vs notes can't clobber each other). "New hardware" = `asset_first_seen.baseline = 0` in the window and still present in `assets` — the first run after deploy is the baseline, so nothing is "new" that day. |
 | **A cmd red screen must test for exit code EXACTLY 0** | `if errorlevel 1` means "≥ 1" and is FALSE for negative codes — `powershell -File <missing script>` returns **-196608** — so confirmations failed OPEN when the confirm script was missing or crashed. Use a `:confirm` subroutine that sets `CONFIRMED=1` only when `"!errorlevel!"=="0"` (delayed expansion) and treat everything else as refused. Also `set "ERRORLEVEL="` right after `setlocal`: an inherited environment variable named ERRORLEVEL shadows the real exit code read through `%errorlevel%`/`!errorlevel!`. Same rule in `_sdp_admin.cmd` option 6. |
 | **Report section writers are DELETE+INSERT — on PG two CONCURRENT saves of one report DOUBLE every row (Lafigue W36, 2026-09-11); the PG forks now lock the report row, and any new section writer must too** | Under READ COMMITTED, tx B's `DELETE WHERE report_id=?` sees only the rows visible at its statement start: tx A's fresh INSERTs are invisible, so B "deletes" the already-deleted old rows (0) and INSERTs its own set → 14 infra KPIs instead of 7, **interleaved** WAN1/WAN1/WAN2/WAN2 because both sets carry `sort_order` 0..6 (the tell on the deck). Impossible under sqlite (better-sqlite3 serialises transactions) → it surfaced only after the PG cutover. Trigger = the page's two save paths: the 1.5 s **autosave** debounce and the manual **Save** button did not exclude each other. Fix: `_lockReportRowPg(H, id)` (`SELECT id FROM weekly_reports WHERE id=? FOR UPDATE`) opens `_saveInfraKpisPg` / `_saveLightsPg` / `_saveActionItemsPg`; the client's `saveSection` cancels the pending autosave timer, holds `_autoSaveBusy`, and queues itself behind an in-flight save. **Any new PG writer that DELETEs-then-INSERTs a report's children MUST call `_lockReportRowPg` first.** Reproduced then proven race-free with 20 parallel rounds on the dev PG; `tests/pg-reports-reports.test.js` carries the parallel test (skips without a CREATEDB admin). Rows doubled BEFORE the fix are repaired with `node tools/pg/dedupe-report-rows.js [--apply]` (dry-run by default; keeps the highest id per key = the later save; `action_items` deliberately excluded — fix those by hand in the editor). |
 | **Every report/follow-up WRITE is authorised against the OBJECT's site via `_reportWriteDenial` — a valid session, or even the editor role, is NOT enough; a site-less profile is NOT global (audit 2026-09-05 F5)** | Rule for any new write route under `/api/reports/*`: call `_authorizeReportWrite(req, res, id[, {allowSubmitted}])` (or `_authorizeActionWrite(req, res, uid)` for a uid-keyed follow-up — it resolves the owning report through `rdb.getActionItemOwner`) BEFORE touching the DB. It returns the report or has already sent 404/403. The three checks: `editor` role · `user.site_id === report.site_id` unless `userHasRole(user,'admin')` (admin/executive/super_admin unscoped) · `submitted` frozen for everyone but super_admin (pass `allowSubmitted:true` only when the route has its OWN submitted rule, like `/status`). Never copy the old `req.reportUser.site_id && …` idiom — its short-circuit made a site-less editor global. Pinned by `tests/audit-report-write-auth.smoke.test.js`. |

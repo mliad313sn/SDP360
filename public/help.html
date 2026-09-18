@@ -140,6 +140,7 @@
       <a class="toc-sub" href="#en-4-2">Helpdesk Metrics</a>
       <a class="toc-sub" href="#en-4-3">Lights & Action Items</a>
       <a class="toc-sub" href="#en-4-4">Submitting a Report</a>
+      <a class="toc-sub" href="#en-4-6">Parc informatique</a>
       <a href="#en-5">5. PPTX Report Downloads</a>
       <a href="#en-6">6. Executive Dashboard</a>
       <a href="#en-7">7. Admin Panel</a>
@@ -346,6 +347,11 @@
           <li>A confirmation banner confirms the report is submitted. The status changes to <em>Submitted</em>.</li>
         </ol>
         <div class="warn">⚠️ Once submitted, a report can only be re-opened by an <strong>Admin</strong>. Make sure all information is correct before submitting.</div>
+
+        <h3 id="en-4-6">4.6 Parc informatique (asset follow-up)</h3>
+        <p>Tab <strong>5 · Parc informatique</strong> shows four counts for your site, computed for the report week: <strong>new hardware</strong> first seen that week, hardware <strong>In Use without user and department</strong>, hardware <strong>without purchase cost</strong> and <strong>without acquisition date</strong> (the last two for In Use / In Store / In Repair only). Each count shows the change versus the previous week's report and opens the list; "voir dans Assets" opens the Assets module on your site.</p>
+        <p>Two optional notes: <em>Traité cette semaine</em> and <em>Plan / blocages</em>. They save automatically. The counts are <strong>frozen when you submit</strong> and appear in the weekly e-mail with your notes; an empty note appears as <em>non renseigné</em> — Submit is never refused, it only warns you.</p>
+        <div class="info">ℹ️ A site with no hardware in the register (e.g. Exploration, Tanda) shows "Aucun matériel rattaché à ce site" and the tab counts as done. Auto status now works: once the five tabs are done the report becomes <em>Ready</em> — you still have to click Submit.</div>
       </div>
 
       <!-- 5 -->
@@ -494,6 +500,9 @@
         <p>Bulk import via CSV is supported: prepare a file with English headers (Task, Department, Priority, Due Date, Owner, Status, Comment) and click <strong>Import CSV</strong> on the Actions tab. The importer is forgiving (case-insensitive headers, lenient validation) and shows row-level errors before committing — successful rows are appended in append-mode.</p>
 
         <div class="warn">⚠️ Deactivating a site removes it from PPTX generation but does <em>not</em> delete its historical data. Disabled sites stay in the database for audit purposes; activate them again to bring them back into reports.</div>
+
+        <h3>Asset reminders (super_admin)</h3>
+        <p><strong>Envois automatiques ▸ Rappels parc</strong> arms two e-mails, both OFF by default: a weekly recap per site (schedule on the card, Monday 07:00 suggested) and a same-day "new hardware" alert after the nightly assets sync. They go to the site's <strong>confirmed asset manager</strong> (set in Automated Reports ▸ Recipients), with the confirmed coordinator in copy; without a confirmed asset manager, to the confirmed coordinator alone. No amount is ever sent. Use Preview (optionally one site) before arming.</p>
 
         <h3 id="en-7-3">7.3 Active Sessions — Who's using the dashboard right now</h3>
         <p>The <strong>🟢 Active Sessions</strong> card on the Admin page shows every user who has made an authenticated request in the last few minutes. Useful for answering "is anyone using this before I restart the server" or "did Aïssatou actually log in this morning."</p>
@@ -1020,6 +1029,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Confirm-Destructive.ps1"
       <a class="toc-sub" href="#fr-4-3">Éclairages & Points saillants</a>
       <a class="toc-sub" href="#fr-4-4">Actions à suivre</a>
       <a class="toc-sub" href="#fr-4-5">Soumettre un rapport</a>
+      <a class="toc-sub" href="#fr-4-6">Parc informatique</a>
       <a href="#fr-5">5. Génération PPTX</a>
       <a href="#fr-6">6. Tableau de bord Exécutif</a>
       <a href="#fr-7">7. Panneau d'administration</a>
@@ -1225,6 +1235,11 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Confirm-Destructive.ps1"
           <li>Une bannière de confirmation indique que le rapport est soumis. Le statut passe à <em>Submitted</em>.</li>
         </ol>
         <div class="warn">⚠️ Une fois soumis, un rapport ne peut être réouvert que par un <strong>Admin</strong>. Assurez-vous que toutes les informations sont correctes avant de soumettre.</div>
+
+        <h3 id="fr-4-6">4.6 Parc informatique (suivi des actifs)</h3>
+        <p>L'onglet <strong>5 · Parc informatique</strong> affiche quatre compteurs pour votre site, calculés sur la semaine du rapport : le <strong>nouveau matériel</strong> vu pour la première fois cette semaine, le matériel <strong>en service sans utilisateur ni département</strong>, le matériel <strong>sans coût d'achat</strong> et <strong>sans date d'acquisition</strong> (ces deux derniers pour les états En service / En stock / En réparation). Chaque compteur montre l'écart avec le rapport de la semaine précédente et ouvre la liste ; « voir dans Assets » ouvre le module Assets filtré sur votre site.</p>
+        <p>Deux notes facultatives : <em>Traité cette semaine</em> et <em>Plan / blocages</em>, enregistrées automatiquement. Les compteurs sont <strong>figés à la soumission</strong> et apparaissent dans l'e-mail hebdomadaire avec vos notes ; une note vide apparaît « non renseigné ». La soumission n'est jamais refusée, un avertissement s'affiche seulement.</p>
+        <div class="info">ℹ️ Un site sans matériel dans l'inventaire (ex. Exploration, Tanda) affiche « Aucun matériel rattaché à ce site » et l'onglet compte comme terminé. Le statut automatique fonctionne désormais : quand les cinq onglets sont terminés le rapport passe <em>Prêt</em> — il faut toujours cliquer sur Soumettre.</div>
       </div>
 
       <!-- 5 FR -->
@@ -1373,6 +1388,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Confirm-Destructive.ps1"
         <p>L'import CSV en masse est supporté : préparez un fichier avec en-têtes en anglais (Task, Department, Priority, Due Date, Owner, Status, Comment) et cliquez sur <strong>Import CSV</strong> dans l'onglet Actions. L'importateur est tolérant (en-têtes insensibles à la casse, validation indulgente) et affiche les erreurs ligne par ligne avant l'engagement — les lignes valides sont ajoutées en mode append.</p>
 
         <div class="warn">⚠️ Désactiver un site le supprime de la génération PPTX mais ne supprime <em>pas</em> ses données historiques. Les sites désactivés restent en base pour audit ; réactivez-les pour les ramener dans les rapports.</div>
+
+        <h3>Rappels parc informatique (super_admin)</h3>
+        <p><strong>Envois automatiques ▸ Rappels parc</strong> arme deux e-mails, désarmés par défaut : un récap hebdomadaire par site (planification sur la carte, lundi 07:00 conseillé) et une alerte « nouveau matériel » le jour même, après la synchronisation nocturne. Ils partent au <strong>responsable parc confirmé</strong> du site (Automated Reports ▸ Recipients), coordinateur confirmé en copie ; sans responsable parc confirmé, au coordinateur confirmé seul. Aucun montant n'est envoyé. Faites un Preview (éventuellement sur un seul site) avant d'armer.</p>
 
         <h3 id="fr-7-3">7.3 Sessions actives — Qui utilise le tableau de bord en ce moment</h3>
         <p>La carte <strong>🟢 Active Sessions</strong> sur la page Admin affiche tous les utilisateurs ayant effectué une requête authentifiée dans les dernières minutes. Utile pour répondre à "est-ce que quelqu'un utilise ça avant que je redémarre le serveur" ou "Aïssatou s'est-elle effectivement connectée ce matin".</p>
