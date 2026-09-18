@@ -6173,6 +6173,91 @@ app.get('/api/reports/:id/actions-from/:source_report_id', requireReportSession,
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// ── Asset engagement — weekly "Parc informatique" tab (2026-09-18) ───────────
+// report → meetings code (site_module_codes) → the REAL asset labels folded
+// FORWARD (never invert ALIAS — see assetHygieneForSite.labelsForCode).
+// No code or no label → not applicable (Exploration, Tanda).
+async function _assetLabelsForReport(report) {
+  const codes = await rdb.listSiteModuleCodes('meetings');
+  const hit = (codes || []).find(c => c.site_id === report.site_id);
+  if (!hit) return { code: null, labels: [] };
+  const lookups = (await require('./assets-db').getAssetLookups()) || {};
+  const { labelsForCode } = require('./services/assetHygieneForSite');
+  const { assetLabelToCode } = require('./services/scoreboardAliases');
+  return { code: hit.code, labels: labelsForCode(lookups.sites, hit.code, assetLabelToCode) };
+}
+// Window = the report's Zoho week (start_date..end_date). Throws when the assets
+// layer throws — callers decide (GET → 503, PUT notes → counts kept, submission → counts null).
+async function _computeAssetReview(report) {
+  const { code, labels } = await _assetLabelsForReport(report);
+  if (!labels.length) return { applicable: false, code, labels, counts: null, followups: null };
+  const followups = await require('./assets-db').getSiteAssetFollowups(labels, { newFrom: report.start_date, newTo: report.end_date });
+  return { applicable: true, code, labels, counts: followups.counts, followups };
+}
+// Read rule: admin+ unscoped; everyone else must be on the report's site (a
+// site-less profile is NOT global).
+function _assetReviewReadDenial(user, report) {
+  if (!report) return { status: 404, error: 'Report not found' };
+  if (rdb.userHasRole(user, 'admin')) return null;
+  if (!user.site_id || user.site_id !== report.site_id) return { status: 403, error: 'Access denied: this report belongs to another site' };
+  return null;
+}
+const _NOTE_MAX = 4000;
+const _cleanNote = v => String(v == null ? '' : v).trim().slice(0, _NOTE_MAX);
+
+// GET /api/reports/:id/asset-followups — the four worklists for the report week
+// (first 50 rows each) + the previous report's frozen counts.
+app.get('/api/reports/:id/asset-followups', requireReportSession, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const report = Number.isInteger(id) ? await rdb.getReport(id) : null;
+    const denial = _assetReviewReadDenial(req.reportUser, report);
+    if (denial) return res.status(denial.status).json({ error: denial.error });
+    let a;
+    try { a = await _computeAssetReview(report); }
+    catch (e) {
+      console.error('[api/reports/asset-followups] assets layer:', e.message);
+      return res.status(503).json({ error: 'Assets data unavailable: ' + e.message });
+    }
+    const prev = ((await rdb.listReports(report.site_id)) || []).find(r => r.start_date < report.start_date);
+    const previous_counts = prev ? ((await rdb.getReportAssetReview(prev.id)) || {}).counts || null : null;
+    if (!a.applicable) return res.json({ applicable: false, site_code: a.code, labels: [], counts: null, lists: null, previous_counts: null });
+    const f = a.followups, cut = (l) => (l || []).slice(0, 50);
+    res.json({
+      applicable: true, site_code: a.code, labels: a.labels, counts: a.counts,
+      lists: { new: cut(f.new), unassigned: cut(f.unassigned), no_cost: cut(f.no_cost), no_date: cut(f.no_date) },
+      window: { from: report.start_date, to: report.end_date }, previous_counts, generated_at: f.generated_at,
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// PUT /api/reports/:id/asset-review — notes from the client; applicable + counts
+// are recomputed and frozen here (client values ignored). Write auth = F5 rule
+// (a submitted report is writable by super_admin only). After submission the
+// frozen counts are NEVER recomputed — only the notes change. An assets failure
+// never loses the notes: they are saved and applicable/counts are left as they were.
+app.put('/api/reports/:id/asset-review', requireReportSession, jsonBody, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const report = await _authorizeReportWrite(req, res, id);
+    if (!report) return;
+    const patch = { handled_note: _cleanNote(req.body?.handled_note), plan_note: _cleanNote(req.body?.plan_note) };
+    if (report.status !== 'submitted') {
+      try {
+        const a = await _computeAssetReview(report);
+        patch.applicable = a.applicable;
+        patch.counts = a.counts;
+      } catch (e) {
+        console.error('[api/reports/asset-review] assets layer (notes saved, counts kept):', e.message);
+      }
+    }
+    const saved = await rdb.saveReportAssetReview(id, patch, req.reportUser.username);
+    await rdb.touchReport(id);
+    await rdb.logAudit({ report_id: id, site_id: report.site_id, user_id: req.reportUser.id, username: req.reportUser.username, action: 'edited_asset_review', details: { week_label: report.week_label } });
+    res.json(saved);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // GET /api/reports/:id/site-open-actions  — the report site's currently-open report
 // follow-ups (lineage-deduped), for the client-side near-duplicate guard on entry.
 app.get('/api/reports/:id/site-open-actions', requireReportSession, async (req, res) => {
