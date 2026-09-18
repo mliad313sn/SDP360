@@ -1362,6 +1362,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
             <th>Coordinator email</th>
             <th>Facility manager</th>
             <th>FM email</th>
+            <th>Responsable parc</th>
             <th>CC</th>
             <th style="width:9%">Actions</th>
           </tr></thead>
@@ -1964,6 +1965,39 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
       <div id="agp-schedule-body"></div>
     </div>
 
+    <!-- ─── Rappels parc informatique (super_admin) ───────────────────────────
+         Asset engagement (2026-09-18). Weekly recap per site (scheduled, default
+         Monday 07:00) + same-day "new hardware" alert after the nightly sync. Both
+         armed OFF. Recipients = confirmed asset manager (to) + confirmed coordinator
+         (cc), from the directory; no confirmed contact → the site is skipped. -->
+    <div class="card admin-panel" id="ap-asset-reminders" data-panel="asset-reminders">
+      <h3>🧰 Rappels parc informatique
+        <span style="font-size:0.78rem;font-weight:400;color:#6b7a99;margin-left:8px">
+          Récap hebdomadaire par site &amp; alerte « nouveau matériel »
+        </span>
+      </h3>
+      <div style="font-size:0.8rem;color:#6b7a99;margin:6px 0 12px">
+        Désarmés par défaut. Destinataires : le <strong>responsable parc confirmé</strong> du site
+        (annuaire), coordinateur confirmé en copie ; à défaut le coordinateur confirmé seul.
+        Aucun montant n'est envoyé.
+      </div>
+      <div class="form-group"><label style="font-weight:400"><input type="checkbox" id="arm-recap-enabled"> <strong>Armer le récap hebdomadaire</strong></label></div>
+      <div class="form-group"><label style="font-weight:400"><input type="checkbox" id="arm-alert-enabled"> <strong>Armer l'alerte « nouveau matériel »</strong> (après la synchro nocturne, max 1 par site et par jour)</label></div>
+      <div class="modal-actions" style="justify-content:flex-start;gap:10px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="saveAssetRemindersConfig()">Enregistrer</button>
+        <select id="arm-type" style="padding:3px 6px;border:1px solid #E2E5EA;border-radius:4px">
+          <option value="asset_reminder">Récap hebdomadaire</option>
+          <option value="asset_new_alert">Alerte nouveau matériel</option>
+        </select>
+        <input id="arm-site" type="text" placeholder="Site (ex. HGO) — vide = tous" style="width:190px;padding:3px 6px;border:1px solid #E2E5EA;border-radius:4px">
+        <button class="btn btn-secondary" onclick="previewAssetReminders(this)">Preview</button>
+        <button class="btn btn-secondary" onclick="sendAssetRemindersNow(this)">Send now</button>
+      </div>
+      <div id="arm-result"></div>
+      <h4 style="margin:14px 0 6px">Planification du récap</h4>
+      <div id="arm-schedule-body"></div>
+    </div>
+
     <!-- ─── Meetings reference codes admin card moved to the Meetings module ──
          The 9 lookup tables (intake sources, departments, categories,
          severities, statuses, meeting statuses, escalation reasons, council
@@ -2025,6 +2059,11 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
       <div class="form-group"><label>Facility manager email</label><input id="rcp-fm-email" type="email"></div>
     </div>
     <div class="form-group"><label style="font-weight:400"><input type="checkbox" id="rcp-fm-confirmed"> FM email confirmed</label></div>
+    <div class="form-row cols-2">
+      <div class="form-group"><label>Responsable parc (nom)</label><input id="rcp-am-name" type="text"></div>
+      <div class="form-group"><label>Responsable parc (e-mail)</label><input id="rcp-am-email" type="email"></div>
+    </div>
+    <div class="form-group"><label style="font-weight:400"><input type="checkbox" id="rcp-am-confirmed"> E-mail responsable parc confirmé</label></div>
     <div class="form-group"><label>CC emails <span style="font-weight:400;color:#6b7a99">— comma-separated</span></label><input id="rcp-cc" type="text"></div>
     <div class="form-group"><label style="font-weight:400"><input type="checkbox" id="rcp-active" checked> Active</label></div>
     <div class="modal-actions">
@@ -5822,7 +5861,7 @@ async function downloadAllSitesMonthlyPptx(fromMonthlyPage) {
 //  ADMIN PAGE
 // ══════════════════════════════════════════════════════════════════
 // Admin left-rail: show one settings panel at a time. name ∈ users|sessions|sites|departments|risk.
-const _ADMIN_PANEL_IDS = { users:'ap-users', sessions:'sessions-card', sites:'ap-sites', departments:'ap-depts', execview:'ap-execview', email:'ap-email', backups:'ap-backups', sso:'ap-sso', meridian:'ap-meridian', infra:'ap-infra', sla:'ap-sla', risk:'rr-aliases-card', autoreports:'ap-autoreports', 'assets-finance':'ap-assets-finance', 'assets-deprec':'ap-assets-deprec', hygiene:'ap-hygiene', scoreboard:'ap-scoreboard', weekly:'ap-weekly', 'asset-group':'ap-asset-group' };
+const _ADMIN_PANEL_IDS = { users:'ap-users', sessions:'sessions-card', sites:'ap-sites', departments:'ap-depts', execview:'ap-execview', email:'ap-email', backups:'ap-backups', sso:'ap-sso', meridian:'ap-meridian', infra:'ap-infra', sla:'ap-sla', risk:'rr-aliases-card', autoreports:'ap-autoreports', 'assets-finance':'ap-assets-finance', 'assets-deprec':'ap-assets-deprec', hygiene:'ap-hygiene', scoreboard:'ap-scoreboard', weekly:'ap-weekly', 'asset-group':'ap-asset-group', 'asset-reminders':'ap-asset-reminders' };
 // Related config panels merged behind ONE rail item + an in-panel tab strip. The panel cards
 // themselves are untouched (ids, load functions, deep-links all intact) — only the rail entry
 // and the tab strip on top change. member → group is derived once.
@@ -5833,8 +5872,8 @@ const PANEL_GROUPS = {
                   labels: { sso: 'Microsoft SSO', meridian: 'Meridian (PMO)' } },
   'assets-val': { label: 'Assets — Valorisation', ico: '💱', members: ['assets-finance', 'assets-deprec'],
                   labels: { 'assets-finance': 'Finance', 'assets-deprec': 'Dépréciation' } },
-  sends:        { label: 'Envois automatiques', ico: '📤', members: ['autoreports', 'weekly', 'hygiene', 'scoreboard', 'asset-group'],
-                  labels: { autoreports: 'Auto Reports', weekly: 'Weekly', hygiene: 'Hygiène', scoreboard: 'Scoreboard', 'asset-group': 'Groupe' } },
+  sends:        { label: 'Envois automatiques', ico: '📤', members: ['autoreports', 'weekly', 'hygiene', 'scoreboard', 'asset-group', 'asset-reminders'],
+                  labels: { autoreports: 'Auto Reports', weekly: 'Weekly', hygiene: 'Hygiène', scoreboard: 'Scoreboard', 'asset-group': 'Groupe', 'asset-reminders': 'Rappels parc' } },
 };
 const _MEMBER_GROUP = {}; for (const [g, cfg] of Object.entries(PANEL_GROUPS)) cfg.members.forEach(m => { _MEMBER_GROUP[m] = g; });
 function showAdminGroup(g) { const cfg = PANEL_GROUPS[g]; if (cfg) showAdminPanel(cfg.members[0]); }
@@ -5849,7 +5888,7 @@ function _renderGroupTabs(name) {
 }
 function showAdminPanel(name) {
   // Guard: 'risk' / 'backups' / 'autoreports' / 'sso' / 'meridian' / 'infra' are super_admin-only — fall back to Users for everyone else.
-  if ((name === 'risk' || name === 'backups' || name === 'autoreports' || name === 'sso' || name === 'meridian' || name === 'infra' || name === 'sla') && currentUser?.role !== 'super_admin') name = 'users';
+  if ((name === 'risk' || name === 'backups' || name === 'autoreports' || name === 'sso' || name === 'meridian' || name === 'infra' || name === 'sla' || name === 'asset-reminders') && currentUser?.role !== 'super_admin') name = 'users';
   if (!_ADMIN_PANEL_IDS[name]) name = 'users';
   document.querySelectorAll('#page-admin .admin-panel').forEach(p => p.classList.remove('active'));
   const _grp = _MEMBER_GROUP[name];
@@ -5892,6 +5931,8 @@ function showAdminPanel(name) {
   if (name === 'weekly' && typeof loadWeeklyCard === 'function') loadWeeklyCard();
   // Fresh recipients + arm flag + schedule when opening the Assets — Group digest card.
   if (name === 'asset-group' && typeof loadAssetGroupCard === 'function') loadAssetGroupCard();
+  // Fresh arm flags + schedule when opening the asset reminders card.
+  if (name === 'asset-reminders' && typeof loadAssetRemindersCard === 'function') loadAssetRemindersCard();
   // Reflect the section in the hash (deep-linkable); guard avoids re-entrancy with the router.
   const want = '#admin/' + name;
   if (location.hash !== want) { _suppressHashRoute = true; location.hash = want; }
@@ -5939,7 +5980,7 @@ async function loadAdminPage() {
     // A group name (#admin/wan) opens the group's first tab; a member name still deep-links.
     const sub = (location.hash.split('/')[1] || '').toLowerCase();
     if (PANEL_GROUPS[sub]) showAdminGroup(sub);
-    else showAdminPanel(['users','sessions','sites','departments','execview','email','backups','sso','meridian','infra','sla','risk','autoreports','assets-finance','assets-deprec','hygiene','scoreboard','weekly','asset-group'].includes(sub) ? sub : 'users');
+    else showAdminPanel(['users','sessions','sites','departments','execview','email','backups','sso','meridian','infra','sla','risk','autoreports','assets-finance','assets-deprec','hygiene','scoreboard','weekly','asset-group','asset-reminders'].includes(sub) ? sub : 'users');
 
     const deptUrl  = isExecOrSuper ? '/api/reports/departments?include_inactive=1' : '/api/reports/departments';
     const sitesUrl = isExecOrSuper ? '/api/reports/sites?include_inactive=1'        : '/api/reports/sites';
@@ -6773,10 +6814,10 @@ function suggestRecipientsFromMeetings() {
 function loadReportRecipients() {
   const tbody = document.getElementById('ar-recipients-tbody');
   if (!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="7" style="color:#94a3b8;font-style:italic;text-align:center;padding:14px">Loading…</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="8" style="color:#94a3b8;font-style:italic;text-align:center;padding:14px">Loading…</td></tr>';
   api('GET', '/api/reports/recipients').then(rows => {
     if (!rows || !rows.length) {
-      tbody.innerHTML = '<tr><td colspan="7" style="color:#94a3b8;font-style:italic;text-align:center;padding:14px">No recipients yet — click + Add site to create one</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" style="color:#94a3b8;font-style:italic;text-align:center;padding:14px">No recipients yet — click + Add site to create one</td></tr>';
       return;
     }
     const emailCell = (email, conf) => email
@@ -6789,6 +6830,7 @@ function loadReportRecipients() {
         <td>${emailCell(r.coordinator_email, _arYN(r.coordinator_email_confirmed))}</td>
         <td>${esc(r.fm_name || '—')}</td>
         <td>${emailCell(r.fm_email, _arYN(r.fm_email_confirmed))}</td>
+        <td>${r.asset_manager_name ? esc(r.asset_manager_name) + '<br>' : ''}${emailCell(r.asset_manager_email, _arYN(r.asset_manager_email_confirmed))}</td>
         <td style="font-size:11px;color:#6b7a99">${esc(r.cc_emails || '—')}</td>
         <td style="white-space:nowrap">
           <button class="btn btn-secondary btn-sm" onclick='openRecipientModal(${JSON.stringify(r).replace(/'/g, "&#39;")})'>Edit</button>
@@ -6796,7 +6838,7 @@ function loadReportRecipients() {
         </td>
       </tr>`).join('');
   }).catch(e => {
-    tbody.innerHTML = `<tr><td colspan="7" style="color:#b91c1c;font-style:italic;text-align:center;padding:14px">Failed to load: ${esc(e.message || e)}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" style="color:#b91c1c;font-style:italic;text-align:center;padding:14px">Failed to load: ${esc(e.message || e)}</td></tr>`;
   });
 }
 
@@ -6813,6 +6855,8 @@ function openRecipientModal(row) {
     chk('rcp-coord-confirmed', _arYN(row.coordinator_email_confirmed));
     set('rcp-fm-name', row.fm_name); set('rcp-fm-email', row.fm_email);
     chk('rcp-fm-confirmed', _arYN(row.fm_email_confirmed));
+    set('rcp-am-name', row.asset_manager_name); set('rcp-am-email', row.asset_manager_email);
+    chk('rcp-am-confirmed', _arYN(row.asset_manager_email_confirmed));
     set('rcp-cc', row.cc_emails); chk('rcp-active', _arYN(row.active));
   } else {
     document.getElementById('recipient-modal-title').textContent = 'Add site recipient';
@@ -6821,6 +6865,7 @@ function openRecipientModal(row) {
     set('rcp-site-name', ''); set('rcp-coord-name', ''); set('rcp-coord-email', '');
     chk('rcp-coord-confirmed', 0); set('rcp-fm-name', ''); set('rcp-fm-email', '');
     chk('rcp-fm-confirmed', 0); set('rcp-cc', ''); chk('rcp-active', 1);
+    set('rcp-am-name', ''); set('rcp-am-email', ''); chk('rcp-am-confirmed', 0);
   }
   document.getElementById('recipient-modal').classList.add('open');
   setTimeout(() => { const el = document.getElementById(row ? 'rcp-coord-name' : 'rcp-site-code'); if (el) el.focus(); }, 50);
@@ -6839,6 +6884,9 @@ function submitRecipient() {
     fm_name: document.getElementById('rcp-fm-name').value.trim(),
     fm_email: document.getElementById('rcp-fm-email').value.trim(),
     fm_email_confirmed: document.getElementById('rcp-fm-confirmed').checked ? 1 : 0,
+    asset_manager_name: document.getElementById('rcp-am-name').value.trim(),
+    asset_manager_email: document.getElementById('rcp-am-email').value.trim(),
+    asset_manager_email_confirmed: document.getElementById('rcp-am-confirmed').checked ? 1 : 0,
     cc_emails: document.getElementById('rcp-cc').value.trim(),
     active: document.getElementById('rcp-active').checked ? 1 : 0,
   };
@@ -7087,6 +7135,7 @@ function saveScheduleRow(t, cadence) {
       else if (t === 'scoreboard' && typeof loadScoreboardCard === 'function') loadScoreboardCard();
       else if (t === 'weekly_report' && typeof loadWeeklyCard === 'function') loadWeeklyCard();
       else if (t === 'asset_group' && typeof loadAssetGroupCard === 'function') loadAssetGroupCard();
+      else if (t === 'asset_reminder' && typeof loadAssetRemindersCard === 'function') loadAssetRemindersCard();
       else loadReportSchedule();
     })
     .catch(e => toast('Save failed: ' + (e.message || e), 'error'));
@@ -8005,6 +8054,62 @@ function sendWeeklyNow(btn) {
     .then(r => { _wkRender(r, false); toast('Sent ' + ((r && r.sent) || 0) + ' email' + ((r && r.sent === 1) ? '' : 's'), (r && r.sent) ? 'success' : 'info'); })
     .catch(e => toast('Send failed: ' + (e.message || e), 'error'))
     .finally(() => { if (btn) btn.disabled = false; });
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  🧰 ASSET REMINDERS — weekly recap + new-hardware alert (2026-09-18)
+//  Own route /api/reports/asset-reminders/send (never /api/reports/send).
+// ══════════════════════════════════════════════════════════════════
+function loadAssetRemindersCard() {
+  api('GET', '/api/reports/config').then(c => {
+    document.getElementById('arm-recap-enabled').checked = String(c.asset_reminder_send_enabled) === '1';
+    document.getElementById('arm-alert-enabled').checked = String(c.asset_new_alert_enabled) === '1';
+  }).catch(e => toast('Could not load asset reminder settings: ' + (e.message || e), 'error'));
+  const box = document.getElementById('arm-schedule-body');
+  api('GET', '/api/reports/schedule').then(rows => {
+    const r = (rows || []).find(x => x.report_type === 'asset_reminder' && x.cadence === 'weekly') || {};
+    const dayOpts = sel => _AR_DAYS.map(d => `<option value="${d}"${String(sel || '').toUpperCase() === d ? ' selected' : ''}>${d}</option>`).join('');
+    box.innerHTML = `<div style="border:1px solid #E2E5EA;border-radius:8px;padding:12px 14px"><div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+      <label style="font-weight:400;min-width:88px"><input type="checkbox" id="sch-asset_reminder-weekly-en"${_arYN(r.enabled) ? ' checked' : ''}> Weekly</label>
+      <span style="color:#6b7a99">on</span>
+      <select id="sch-asset_reminder-weekly-day" style="padding:3px 6px;border:1px solid #E2E5EA;border-radius:4px">${dayOpts(r.day || 'MON')}</select>
+      <span style="color:#6b7a99">at</span>
+      <input type="time" id="sch-asset_reminder-weekly-time" value="${esc(r.time || '07:00')}" style="padding:3px 6px;border:1px solid #E2E5EA;border-radius:4px">
+      <button class="btn btn-secondary btn-sm" onclick="saveScheduleRow('asset_reminder','weekly')">Save</button></div></div>`;
+  }).catch(e => { box.innerHTML = `<div style="color:#b91c1c">Failed to load: ${esc(e.message || e)}</div>`; });
+}
+function saveAssetRemindersConfig() {
+  api('PUT', '/api/reports/config', {
+    asset_reminder_send_enabled: document.getElementById('arm-recap-enabled').checked ? '1' : '0',
+    asset_new_alert_enabled: document.getElementById('arm-alert-enabled').checked ? '1' : '0',
+  }).then(() => { toast('Asset reminder settings saved ✓', 'success'); loadAssetRemindersCard(); })
+    .catch(e => toast('Save failed: ' + (e.message || e), 'error'));
+}
+function _armQuery(preview) {
+  const type = document.getElementById('arm-type').value;
+  const site = document.getElementById('arm-site').value.trim();
+  return `/api/reports/asset-reminders/send?type=${encodeURIComponent(type)}&preview=${preview ? 1 : 0}${site ? '&site=' + encodeURIComponent(site) : ''}`;
+}
+function _armRender(r, previewing) {
+  const box = document.getElementById('arm-result');
+  if (r && r.reason && !(r.results || r.previews)) { box.innerHTML = `<div style="background:#FFFBEB;color:#92400E;padding:9px 11px;border-radius:6px;font-size:0.85rem">${previewing ? 'Preview' : 'Not sent'} — ${esc(r.reason)}</div>`; return; }
+  const ok = ((r && r.previews) || []).map(p => `<li><strong>${esc(p.site)}</strong> — <span style="color:#065F46">prêt</span> → ${esc(p.to)}${p.cc ? ' (cc ' + esc(p.cc) + ')' : ''} · ${esc(p.subject)}</li>`);
+  const rest = ((r && r.results) || []).map(x => x.ok
+    ? `<li><strong>${esc(x.site)}</strong> — <span style="color:#065F46">envoyé</span> → ${esc(x.to || '')}</li>`
+    : `<li><strong>${esc(x.site)}</strong> — <span style="color:#92400E">${esc(x.reason || 'ignoré')}</span></li>`);
+  const li = ok.concat(rest).join('');
+  box.innerHTML = li ? `<ul style="margin:6px 0 0;padding-left:18px;font-size:0.85rem;line-height:1.6">${li}</ul>` : '<div style="color:#6b7a99;font-style:italic">Aucun site.</div>';
+}
+function previewAssetReminders(btn) {
+  if (btn) btn.disabled = true;
+  api('POST', _armQuery(true)).then(r => { _armRender(r, true); toast('Preview complete — nothing was sent', 'info'); })
+    .catch(e => toast('Preview failed: ' + (e.message || e), 'error')).finally(() => { if (btn) btn.disabled = false; });
+}
+function sendAssetRemindersNow(btn) {
+  if (!confirm('Envoyer maintenant les rappels parc aux contacts confirmés ?')) return;
+  if (btn) btn.disabled = true;
+  api('POST', _armQuery(false)).then(r => { _armRender(r, false); toast('Sent ' + ((r && r.sent) || 0), (r && r.sent) ? 'success' : 'info'); })
+    .catch(e => toast('Send failed: ' + (e.message || e), 'error')).finally(() => { if (btn) btn.disabled = false; });
 }
 
 // ══════════════════════════════════════════════════════════════════
