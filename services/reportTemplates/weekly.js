@@ -266,6 +266,35 @@ const HYGIENE_LABELS = {
   lifecycle_exception:  'Exception de cycle de vie',
 };
 
+// Asset engagement (2026-09-18): the coordinator's own "Parc informatique" tab,
+// counts FROZEN at submission (never live). Empty note on an applicable site =
+// « non renseigné » on purpose — visible for the meeting, never hidden.
+// kpiGrid escapes its labels → literal accents here, not entities.
+const REVIEW_KPIS = [
+  ['new', 'Nouveau matériel (semaine)'],
+  ['unassigned', 'En service sans utilisateur ni département'],
+  ['no_cost', 'Sans coût d’achat'],
+  ['no_date', 'Sans date d’acquisition'],
+];
+function assetReviewBlock(review) {
+  const rv = review && typeof review === 'object' ? review : null;
+  if (!rv || rv.applicable === false || rv.applicable === 0) return '';
+  const c = rv.counts && typeof rv.counts === 'object' ? rv.counts : null;
+  const counts = c
+    ? kpiGrid(REVIEW_KPIS.map(([k, label]) => ({ label, value: String(num(c[k])) })))
+    : staticNote('Compteurs non disponibles au moment de la soumission.');
+  const note = (v) => {
+    const s = String(v == null ? '' : v).trim();
+    return s ? escapeHtml(s) : `<em style="color:${MUTED};">non renseign&eacute;</em>`;
+  };
+  return `<div style="padding-top:12px;">
+${staticNote('Suivi du parc d&eacute;clar&eacute; par le coordinateur &mdash; compteurs fig&eacute;s &agrave; la soumission.')}
+<div style="padding-top:6px;">${counts}</div>
+<div style="font-family:${FONT};font-size:13px;color:${INK};line-height:1.5;padding-top:4px;"><strong>Trait&eacute; cette semaine&nbsp;:</strong> ${note(rv.handled_note)}</div>
+<div style="font-family:${FONT};font-size:13px;color:${INK};line-height:1.5;padding-top:4px;"><strong>Plan / blocages&nbsp;:</strong> ${note(rv.plan_note)}</div>
+</div>`;
+}
+
 /**
  * The CMDB nudge — AFTER the authored report, never before it.
  *
@@ -274,7 +303,7 @@ const HYGIENE_LABELS = {
  * unmeasured one. `effort` carries {effort_score, rank} only — there is
  * deliberately no delta (a ~30-day lookback barely moves week to week).
  */
-function assetsSection(assets, baseUrl, labels) {
+function assetsSection(assets, baseUrl, labels, review) {
   const a = obj(assets);
   const hygiene = obj(a.hygiene);
   const effort = a.effort === null || a.effort === undefined ? null : obj(a.effort);
@@ -316,7 +345,7 @@ function assetsSection(assets, baseUrl, labels) {
 
   const intro = staticNote('Qualit&eacute; des donn&eacute;es du parc informatique &mdash; &agrave; corriger dans l&rsquo;inventaire, ind&eacute;pendamment du rapport ci-dessus.');
 
-  return card('Parc informatique', `${effortBlock}${intro}<div style="padding-top:8px;">${list}</div>`, TEAL);
+  return card('Parc informatique', `${effortBlock}${intro}<div style="padding-top:8px;">${list}</div>${assetReviewBlock(review)}`, TEAL);
 }
 
 function footer(data) {
@@ -374,7 +403,12 @@ function composeWeekly(data) {
     // …then the CMDB reminder. `null` omits it entirely.
     // base_url is the configured public origin (reportConfig.public_base_url) or
     // '' — absent, the counts render as plain text exactly as before.
-    d.assets ? assetsSection(d.assets, d.base_url, d.assets.labels) : '',
+    // A frozen review must never vanish just because the live hygiene block is
+    // absent (e.g. the asset labels changed after submission) — render it on
+    // its own card in that case.
+    d.assets
+      ? assetsSection(d.assets, d.base_url, d.assets.labels, r.asset_review)
+      : (assetReviewBlock(r.asset_review) ? card('Parc informatique', assetReviewBlock(r.asset_review), TEAL) : ''),
     footer(d),
   ].filter(Boolean).join('\n');
 

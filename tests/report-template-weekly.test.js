@@ -241,3 +241,44 @@ test('a degenerate report does not throw', () => {
     assert.ok(!/undefined/.test(out.htmlBody));
   }
 });
+
+// ── asset engagement review (2026-09-18) ─────────────────────────────────────
+test('absent / null / non-applicable asset_review → byte-identical output', () => {
+  const base = composeWeekly(fixture()).htmlBody;
+  for (const ar of [undefined, null, { applicable: false, counts: null, handled_note: '', plan_note: '' }]) {
+    const f = fixture(); if (ar !== undefined) f.report.asset_review = ar;
+    assert.strictEqual(composeWeekly(f).htmlBody, base);
+  }
+});
+
+test('applicable review renders frozen counts and the notes; empty note = non renseigné', () => {
+  const f = fixture();
+  f.report.asset_review = { applicable: true, counts: { new: 2, unassigned: 5, no_cost: 7, no_date: 1 }, handled_note: '', plan_note: 'Commande <étiquettes>' };
+  const { htmlBody } = composeWeekly(f);
+  assert.match(htmlBody, /Nouveau matériel/);
+  assert.match(htmlBody, />7</);
+  assert.match(htmlBody, /non renseign&eacute;/);
+  assert.match(htmlBody, /Commande &lt;étiquettes&gt;/, 'notes are escaped');
+  assert.ok(!htmlBody.includes('<étiquettes>'));
+});
+
+test('counts null (assets down at submission) says so, notes still shown', () => {
+  const f = fixture();
+  f.report.asset_review = { applicable: true, counts: null, handled_note: 'ok', plan_note: 'ok2' };
+  const { htmlBody } = composeWeekly(f);
+  assert.match(htmlBody, /Compteurs non disponibles/);
+  assert.match(htmlBody, /ok2/);
+});
+
+test('assets:null but a frozen applicable review → the review still renders on its own', () => {
+  const f = fixture(); f.assets = null;
+  f.report.asset_review = { applicable: true, counts: { new: 0, unassigned: 3, no_cost: 0, no_date: 0 }, handled_note: 'h', plan_note: '' };
+  const { htmlBody } = composeWeekly(f);
+  assert.match(htmlBody, /Parc informatique/i);
+  assert.match(htmlBody, /non renseign&eacute;/);
+});
+
+test('assets:null and no review → still no assets card (unchanged)', () => {
+  const f = fixture(); f.assets = null;
+  assert.ok(!/PARC INFORMATIQUE|Parc informatique/.test(composeWeekly(f).htmlBody));
+});
