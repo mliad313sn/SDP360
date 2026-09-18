@@ -12,8 +12,10 @@
 
 ## Deviations from spec
 
+Review decisions (2026-09-18): tabs 1–4 marked done on load from existing data — accepted; inactive (`active=0`) directory rows skipped by the reminder sender — yes; Tasks 3 and 11 ship in the same deploy — yes.
+
 1. **"Tabs get `done` on load from existing data (`reports.html:4523-4558`)" is false.** Those lines are inside `saveSection(n)`. Nothing marks a tab `done` when a report is opened, and the `done` class is never removed, so it leaks from one opened report to the next. Task 7 adds `_markSectionTabsFromData()` in `renderForm()`: it clears `done` on the five tabs, then marks tabs 0–3 from the loaded data (infra rows, helpdesk row, lights, actions present) and tab 4 by the spec rule.
-2. **`submitReport()` has no confirmation dialog today** (`reports.html` `async function submitReport`). Task 7 adds a `confirm()` **only** when the asset tab is applicable and a note is empty; otherwise Submit behaves exactly as before (no dialog). It also flushes a pending tab-4 autosave before submitting (after submission a non-super_admin can no longer write the notes).
+2. **`submitReport()` has no confirmation dialog today** (`reports.html` `async function submitReport`). Task 7 adds a `confirm()` **only** when the asset tab is applicable and a note is empty; otherwise Submit behaves exactly as before (no dialog). Before submitting it waits (bounded) for any in-flight save, then saves the tab-5 notes directly when they are pending or differ from the server copy — `autoSaveSection(4)` would return early while another save is busy and lose them (after submission a non-super_admin can no longer write the notes).
 3. **`weeklyReportData.js` needs no change.** It loads the report through `getReport`, which (Task 4) now carries `asset_review`; only the composer (`reportTemplates/weekly.js`) changes.
 4. **Sync wiring is a testable function, not an inline chain.** Task 3 adds `afterAssetsSync(summary, { sendAlerts, deps })` to `assets-sync.js`; the cron and the manual trigger in `server.js` call it. `snapshotEffort` still runs when the assets view failed (current behaviour kept); only the sightings/alert step is skipped.
 5. **`_afterSectionSaved(n)` no longer adds `done` to tab 4 unconditionally** — tab 4 is `done` only when both notes are filled or the site is not applicable (spec §4.2 rule), otherwise every autosave of an empty textarea would tick it.
@@ -168,7 +170,11 @@ After `_snapshotEffortPg` add:
 // (INSERT OR IGNORE / ON CONFLICT DO NOTHING) → idempotent per day. Dates are UTC,
 // like snapshotEffort. Dual-backend: the pg fork is async — callers MUST await.
 function _todayUtc() { return new Date().toISOString().slice(0, 10); }
-const _SIGHT_SELECT = `SELECT asset_id, COALESCE(site, ''), ?, ? FROM assets WHERE asset_id IS NOT NULL AND asset_id <> ''`;
+// The two bound parameters sit in the SELECT list, where Postgres cannot infer
+// their type from a column ("could not determine data type of parameter $1") —
+// cast them explicitly. The casts are on PARAMETERS, never on stored text
+// columns, and are valid on both backends.
+const _SIGHT_SELECT = `SELECT asset_id, COALESCE(site, ''), CAST(? AS TEXT), CAST(? AS INTEGER) FROM assets WHERE asset_id IS NOT NULL AND asset_id <> ''`;
 
 function recordAssetSightings(opts = {}) {
   if (ASSETS_BACKEND === 'postgres') return _recordAssetSightingsPg(opts);
@@ -959,6 +965,30 @@ test('PUT asset-review: write auth (viewer, other site, site-less → 403)', asy
     assert.strictEqual((await put(`/api/reports/${repH.id}/asset-review`, t, { plan_note: 'x' })).status, 403);
   }
 });
+
+test('PUT asset-review: assets layer throwing → 200, notes saved, frozen counts kept', async () => {
+  const adb = require('../assets-db');
+  const orig = adb.getSiteAssetFollowups;
+  adb.getSiteAssetFollowups = () => { throw new Error('assets down'); };
+  try {
+    const r = await put(`/api/reports/${repH.id}/asset-review`, tok.editorH, { handled_note: 'during outage', plan_note: 'p' });
+    assert.strictEqual(r.status, 200);
+  } finally { adb.getSiteAssetFollowups = orig; }
+  const rev = rdb.getReportAssetReview(repH.id);
+  assert.strictEqual(rev.handled_note, 'during outage');
+  assert.deepStrictEqual(rev.counts, { new: 1, unassigned: 1, no_cost: 1, no_date: 1 }, 'counts from the previous save kept');
+});
+
+test('PUT asset-review on a SUBMITTED report (super_admin): notes only, counts never recomputed', async () => {
+  rdb.saveReportAssetReview(repH.id, { applicable: true, counts: { new: 9, unassigned: 9, no_cost: 9, no_date: 9 } }, 'freeze');
+  rdb.updateReportStatus(repH.id, 'submitted', 1);
+  const r = await put(`/api/reports/${repH.id}/asset-review`, tok.super, { handled_note: 'late fix', plan_note: 'p2' });
+  assert.strictEqual(r.status, 200);
+  const rev = rdb.getReportAssetReview(repH.id);
+  assert.deepStrictEqual(rev.counts, { new: 9, unassigned: 9, no_cost: 9, no_date: 9 });
+  assert.strictEqual(rev.handled_note, 'late fix');
+  assert.strictEqual((await put(`/api/reports/${repH.id}/asset-review`, tok.editorH, { plan_note: 'x' })).status, 403, 'editor frozen out after submission');
+});
 ```
 
 - [ ] **Step 2: Run — expect failure** (404 on the new routes).
@@ -982,7 +1012,7 @@ async function _assetLabelsForReport(report) {
   return { code: hit.code, labels: labelsForCode(lookups.sites, hit.code, assetLabelToCode) };
 }
 // Window = the report's Zoho week (start_date..end_date). Throws when the assets
-// layer throws — callers decide (GET → 503, submission → counts null).
+// layer throws — callers decide (GET → 503, PUT notes → counts kept, submission → counts null).
 async function _computeAssetReview(report) {
   const { code, labels } = await _assetLabelsForReport(report);
   if (!labels.length) return { applicable: false, code, labels, counts: null, followups: null };
@@ -1026,18 +1056,27 @@ app.get('/api/reports/:id/asset-followups', requireReportSession, async (req, re
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// PUT /api/reports/:id/asset-review — notes only; applicable + counts are
-// recomputed and frozen here (client values ignored). Write auth = F5 rule.
+// PUT /api/reports/:id/asset-review — notes from the client; applicable + counts
+// are recomputed and frozen here (client values ignored). Write auth = F5 rule
+// (a submitted report is writable by super_admin only). After submission the
+// frozen counts are NEVER recomputed — only the notes change. An assets failure
+// never loses the notes: they are saved and applicable/counts are left as they were.
 app.put('/api/reports/:id/asset-review', requireReportSession, jsonBody, async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
     const report = await _authorizeReportWrite(req, res, id);
     if (!report) return;
-    const a = await _computeAssetReview(report);
-    const saved = await rdb.saveReportAssetReview(id, {
-      applicable: a.applicable, counts: a.counts,
-      handled_note: _cleanNote(req.body?.handled_note), plan_note: _cleanNote(req.body?.plan_note),
-    }, req.reportUser.username);
+    const patch = { handled_note: _cleanNote(req.body?.handled_note), plan_note: _cleanNote(req.body?.plan_note) };
+    if (report.status !== 'submitted') {
+      try {
+        const a = await _computeAssetReview(report);
+        patch.applicable = a.applicable;
+        patch.counts = a.counts;
+      } catch (e) {
+        console.error('[api/reports/asset-review] assets layer (notes saved, counts kept):', e.message);
+      }
+    }
+    const saved = await rdb.saveReportAssetReview(id, patch, req.reportUser.username);
     await rdb.touchReport(id);
     await rdb.logAudit({ report_id: id, site_id: report.site_id, user_id: req.reportUser.id, username: req.reportUser.username, action: 'edited_asset_review', details: { week_label: report.week_label } });
     res.json(saved);
@@ -1066,7 +1105,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 - Modify: `server.js` — `app.put('/api/reports/:id/status'` (line ~6782)
 - Test: `tests/asset-review-status.smoke.test.js` (Create)
 
-- [ ] **Step 1: Write the failing smoke test** — same boot header as Task 5 (copy lines 1-14 of `tests/asset-review-routes.smoke.test.js`, prefix `'asset-status-'`), then:
+- [ ] **Step 1: Write the failing smoke test** — boot header = lines 1-11 of `tests/asset-review-routes.smoke.test.js` ('use strict' through the ZOHO_REFRESH_TOKEN line, with the mkdtemp prefix changed to `'asset-status-'`) — do NOT copy its `node:test` / `assert` / `http` requires, they are declared below; then:
 
 ```js
 const { test, before, after } = require('node:test');
@@ -1345,10 +1384,16 @@ async function loadAssetFollowups() {
   ['ar-handled-note', 'ar-plan-note'].forEach(id => { document.getElementById(id).disabled = !_reportEditable(); });
   _assetFollowups = null;
   box.innerHTML = '<div style="color:#94a3b8;font-style:italic">Chargement…</div>';
+  const forId = r.id;
   try {
-    _assetFollowups = await api('GET', `/api/reports/${r.id}/asset-followups`);
+    const data = await api('GET', `/api/reports/${forId}/asset-followups`);
+    // The user may have opened another report while this was in flight — a late
+    // answer must never paint (or tick tab 5 of) the wrong report.
+    if (!currentReport || currentReport.id !== forId) return;
+    _assetFollowups = data;
     renderAssetReview();
   } catch (e) {
+    if (!currentReport || currentReport.id !== forId) return;
     box.innerHTML = `<div style="color:#b91c1c">Données du parc indisponibles : ${esc(e)}</div>`;
   }
 }
@@ -1434,7 +1479,7 @@ async function _afterSectionSaved(n) {
   if (tab && n !== 4) tab.classList.add('done');
   if (!currentReport || !['draft','in_progress'].includes(currentReport.status)) return;
   // Weekly strip ONLY (the monthly editor also uses .section-tab). The old
-  // '.stab.done' selector matched nothing, so auto-ready never fired.
+  // stab-done class selector matched nothing, so auto-ready never fired.
   const doneCnt = document.querySelectorAll('#section-tabs .section-tab.done').length;
   const newStatus = doneCnt >= 5 ? 'ready' : (doneCnt >= 1 ? 'in_progress' : null);
   if (newStatus && newStatus !== currentReport.status) {
@@ -1452,8 +1497,23 @@ Replace `submitReport` with:
 ```js
 async function submitReport() {
   if (!currentReport) return;
-  // Send a pending notes autosave first — after submission only a super_admin may write.
-  if (_autoSaveTimers[4]) await autoSaveSection(4);
+  // Send the notes first — after submission only a super_admin may write them.
+  // autoSaveSection() returns early (timer already cleared) while another save is
+  // in flight, which would silently drop the notes: wait for the in-flight save
+  // (bounded), then save tab 4 whenever a debounce was pending or the notes differ
+  // from what the server has.
+  for (let i = 0; _autoSaveBusy && i < 50; i++) await new Promise(r => setTimeout(r, 100));
+  if (_autoSaveBusy) { toast('Une sauvegarde est encore en cours — réessayez dans un instant.', 'error'); return; }
+  const _arSaved = currentReport.asset_review || {};
+  const _arNow = collectAssetReview();
+  if (_autoSaveTimers[4] || (_assetFollowups && (_arNow.handled_note.trim() !== (_arSaved.handled_note || '') || _arNow.plan_note.trim() !== (_arSaved.plan_note || '')))) {
+    clearTimeout(_autoSaveTimers[4]); _autoSaveTimers[4] = null;
+    try {
+      _autoSaveBusy = true;
+      currentReport.asset_review = await api('PUT', `/api/reports/${currentReport.id}/asset-review`, _arNow);
+    } catch (e) { toast('Parc informatique non enregistré : ' + e, 'error'); return; }
+    finally { _autoSaveBusy = false; }
+  }
   if (_assetFollowups && _assetFollowups.applicable && !_assetNotesFilled()) {
     if (!confirm("La section Parc informatique n'est pas renseignée — elle apparaîtra comme « non renseigné » dans le rapport.\n\nSoumettre quand même ?")) return;
   }
@@ -1565,13 +1625,32 @@ Change the signature to `function assetsSection(assets, baseUrl, labels, review)
   return card('Parc informatique', `${effortBlock}${intro}<div style="padding-top:8px;">${list}</div>${assetReviewBlock(review)}`, TEAL);
 ```
 
-In `composeWeekly` change the call to:
+In `composeWeekly` change the call to (a frozen review must never vanish just because the live hygiene block is absent — e.g. the asset labels changed after submission):
 
 ```js
-    d.assets ? assetsSection(d.assets, d.base_url, d.assets.labels, r.asset_review) : '',
+    d.assets
+      ? assetsSection(d.assets, d.base_url, d.assets.labels, r.asset_review)
+      : (assetReviewBlock(r.asset_review) ? card('Parc informatique', assetReviewBlock(r.asset_review), TEAL) : ''),
 ```
 
 (`assetReviewBlock` returns `''` for absent/non-applicable review, so those outputs are byte-identical.)
+
+Add to the Step 1 tests:
+
+```js
+test('assets:null but a frozen applicable review → the review still renders on its own', () => {
+  const f = fixture(); f.assets = null;
+  f.report.asset_review = { applicable: true, counts: { new: 0, unassigned: 3, no_cost: 0, no_date: 0 }, handled_note: 'h', plan_note: '' };
+  const { htmlBody } = composeWeekly(f);
+  assert.match(htmlBody, /Parc informatique/i);
+  assert.match(htmlBody, /non renseign&eacute;/);
+});
+
+test('assets:null and no review → still no assets card (unchanged)', () => {
+  const f = fixture(); f.assets = null;
+  assert.ok(!/PARC INFORMATIQUE|Parc informatique/.test(composeWeekly(f).htmlBody));
+});
+```
 
 - [ ] **Step 4: Run** — `node --test --test-force-exit tests/report-template-weekly.test.js` → pass.
 
@@ -2006,6 +2085,7 @@ test('dedup: already sent today → skipped (force overrides)', async () => {
   assert.strictEqual((await cli.main(a.deps)).sent, 0);
   const b = stub({ alreadySentToday: async () => true, force: true });
   assert.strictEqual((await cli.main(b.deps)).sent, 2);
+  assert.deepStrictEqual(b.cap.records.map(x => x.result), ['resent', 'resent'], 'a forced re-send is logged resent (counts for dedup)');
 });
 
 test('new-asset alert: window = today UTC, period = YYYY-MM-DD, no new rows → skip', async () => {
@@ -2159,7 +2239,9 @@ async function main(deps = {}) {
       if (!force && await alreadySentToday(db, type, site, period)) { results.push({ site, ok: false, reason: 'already sent today' }); continue; }
       const res = await mailerSend({ to: rcpt.to, cc: rcpt.cc.length ? rcpt.cc.join(',') : undefined, subject: msg.subject, html: msg.html, attachments: msg.attachments });
       const ok = !!(res && res.ok);
-      await record(db, { report_type: type, site_code: site, period, recipients: [rcpt.to, ...rcpt.cc].join(','), result: ok ? 'ok' : 'fail' });
+      // 'resent' for a forced re-send (traceable, and still counted by alreadySentToday
+      // — see the report_sent_log vocabulary pitfall); 'fail' stays retryable.
+      await record(db, { report_type: type, site_code: site, period, recipients: [rcpt.to, ...rcpt.cc].join(','), result: ok ? (force ? 'resent' : 'ok') : 'fail' });
       if (ok) sent++;
       results.push(ok ? { site, ok: true, to: rcpt.to } : { site, ok: false, reason: 'send failed: ' + ((res && res.error) || 'unknown') });
     } catch (e) {
@@ -2201,7 +2283,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 - (the in-process alert is already wired by Task 3's `afterAssetsSync` default; this task proves it end to end)
 - Test: `tests/asset-reminders-route.smoke.test.js` (Create)
 
-- [ ] **Step 1: Write the failing smoke test** — boot header as in Task 5 (prefix `'asset-rem-route-'`), then:
+- [ ] **Step 1: Write the failing smoke test** — boot header = lines 1-11 of `tests/asset-review-routes.smoke.test.js` ('use strict' through the ZOHO_REFRESH_TOKEN line, mkdtemp prefix changed to `'asset-rem-route-'`) — do NOT copy its `node:test` / `assert` / `http` requires, they are declared below; then:
 
 ```js
 const { test, before, after } = require('node:test');
@@ -2464,6 +2546,18 @@ function sendAssetRemindersNow(btn) {
 }
 ```
 
+`saveScheduleRow` (search `function saveScheduleRow`, ~line 6878) refreshes the card that owns the row — add a branch before the final `else loadReportSchedule();`:
+
+```js
+      else if (t === 'asset_reminder' && typeof loadAssetRemindersCard === 'function') loadAssetRemindersCard();
+```
+
+and add to the static test (`tests/reports-admin-asset-reminders.test.js`, "route + schedule row wiring"):
+
+```js
+  assert.ok(src.includes("t === 'asset_reminder' && typeof loadAssetRemindersCard === 'function'"), 'saveScheduleRow refreshes the owning card');
+```
+
 - [ ] **Step 6: Directory fields** — after the `rcp-fm-confirmed` form-group in the modal:
 
 ```html
@@ -2503,7 +2597,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ### Task 14: help.html (EN + FR) + CLAUDE.md
 
 **Files:**
-- Modify: `public/help.html` — EN: after `4.5 Submitting a Report` block (end of `<div class="section" id="en-4">`, ~line 350) and in §7 (`id="en-5"` section, before `<h3 id="en-7-3">`); FR: the matching `fr-4` section (~line 1187-1230) and §7 FR (~line 1352)
+- Modify: `public/help.html` — EN: end of `<div class="section" id="en-4">` (after the `4.5 Submitting a Report` block, closing `</div>` ~line 350) and §7 **Admin Panel** (`<div class="section" id="en-7">`, line 472), before `<h3 id="en-7-3">` (line 498); FR: end of `<div class="section" id="fr-4">` (after `<h3 id="fr-4-5">`, closing `</div>` ~line 1228) and §7 **Panneau d'administration** (`id="fr-7"`, line 1351), before `<h3 id="fr-7-3">` (line 1377); TOC entries (lines ~142 EN and ~1022 FR)
 - Modify: `CLAUDE.md` — new current-state section right after the "Deployment reality" block's closing `---` (before `## ⚡ Current state (as of 2026-09-06`), plus one Known Pitfalls row
 
 - [ ] **Step 1: EN help** — insert before the closing `</div>` of `en-4`:
@@ -2515,14 +2609,14 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
         <div class="info">ℹ️ A site with no hardware in the register (e.g. Exploration, Tanda) shows "Aucun matériel rattaché à ce site" and the tab counts as done. Auto status now works: once the five tabs are done the report becomes <em>Ready</em> — you still have to click Submit.</div>
 ```
 
-In §7 EN, before `<h3 id="en-7-3">` add:
+In §7 EN (`id="en-7"`, Admin Panel), before `<h3 id="en-7-3">` add:
 
 ```html
         <h3>Asset reminders (super_admin)</h3>
         <p><strong>Envois automatiques ▸ Rappels parc</strong> arms two e-mails, both OFF by default: a weekly recap per site (schedule on the card, Monday 07:00 suggested) and a same-day "new hardware" alert after the nightly assets sync. They go to the site's <strong>confirmed asset manager</strong> (set in Automated Reports ▸ Recipients), with the confirmed coordinator in copy; without a confirmed asset manager, to the confirmed coordinator alone. No amount is ever sent. Use Preview (optionally one site) before arming.</p>
 ```
 
-- [ ] **Step 2: FR help** — same two blocks in French in `fr-4` (id `fr-4-6`, title `4.6 Parc informatique (suivi des actifs)`) and §7 FR (title `Rappels parc informatique (super_admin)`), same content translated:
+- [ ] **Step 2: FR help** — same two blocks in French in `fr-4` (id `fr-4-6`, title `4.6 Parc informatique (suivi des actifs)`) and §7 FR (`id="fr-7"`, Panneau d'administration, before `<h3 id="fr-7-3">`; title `Rappels parc informatique (super_admin)`), same content translated:
 
 ```html
         <h3 id="fr-4-6">4.6 Parc informatique (suivi des actifs)</h3>
@@ -2536,7 +2630,17 @@ In §7 EN, before `<h3 id="en-7-3">` add:
         <p><strong>Envois automatiques ▸ Rappels parc</strong> arme deux e-mails, désarmés par défaut : un récap hebdomadaire par site (planification sur la carte, lundi 07:00 conseillé) et une alerte « nouveau matériel » le jour même, après la synchronisation nocturne. Ils partent au <strong>responsable parc confirmé</strong> du site (Automated Reports ▸ Recipients), coordinateur confirmé en copie ; sans responsable parc confirmé, au coordinateur confirmé seul. Aucun montant n'est envoyé. Faites un Preview (éventuellement sur un seul site) avant d'armer.</p>
 ```
 
-If the page has a table of contents with `en-4-x` / `fr-4-x` anchors, add the `4.6` entries next to `4.5`.
+**Required — TOC entries.** The EN TOC lists section 4 sub-entries (its "Submitting a Report" link, line ~142, points at `#en-4-4`); add right after it:
+
+```html
+      <a class="toc-sub" href="#en-4-6">Parc informatique</a>
+```
+
+The FR TOC has `<a class="toc-sub" href="#fr-4-5">Soumettre un rapport</a>` (line ~1022); add right after it:
+
+```html
+      <a class="toc-sub" href="#fr-4-6">Parc informatique</a>
+```
 
 - [ ] **Step 3: CLAUDE.md current-state entry** (insert before `## ⚡ Current state (as of 2026-09-06`):
 
@@ -2568,7 +2672,7 @@ Known Pitfalls row (append to the table):
 | **Asset engagement counts are FROZEN by the server — never trust client counts, never re-freeze on re-submit** | `PUT /api/reports/:id/asset-review` and the first `submitted` transition recompute `applicable`/`counts` from `getSiteAssetFollowups` (window = the report's Zoho week) and ignore whatever the client sent; a `submitted → submitted` call does not re-freeze. `saveReportAssetReview` writes ONLY the keys present in the patch (freeze vs notes can't clobber each other). "New hardware" = `asset_first_seen.baseline = 0` in the window and still present in `assets` — the first run after deploy is the baseline, so nothing is "new" that day. |
 ```
 
-- [ ] **Step 4: Check** — open `public/help.html` in a browser locally or run `node -e "require('fs').readFileSync('public/help.html','utf8').includes('fr-4-6')||process.exit(1)"`.
+- [ ] **Step 4: Check** — every anchor and TOC entry is present: `node -e "const s=require('fs').readFileSync('public/help.html','utf8');for(const k of ['id=\"en-4-6\"','id=\"fr-4-6\"','href=\"#en-4-6\"','href=\"#fr-4-6\"','Rappels parc informatique (super_admin)','Asset reminders (super_admin)'])if(!s.includes(k)){console.error('missing',k);process.exit(1)}console.log('ok')"`.
 
 - [ ] **Step 5: Full regression** — `node --test --test-force-exit tests/` must be at **0 failures** (CLAUDE.md rule: no "known" red). Then the pg suites with `PG_ADMIN_URL` set: `node --test --test-force-exit tests/pg-asset-followups.test.js tests/pg-report-asset-review.test.js tests/pg-reports-reports.test.js tests/pg-reporting.test.js`.
 
@@ -2589,3 +2693,4 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 2. Admin → Automated Reports → Recipients: fill and confirm each site's asset manager.
 3. Admin → Envois automatiques → Rappels parc: Preview, then arm, then save the Monday 07:00 schedule.
 4. Browser check with a coordinator account: tab 5, autosave, submit with an empty note (warning, then submitted), weekly e-mail preview.
+5. **Tasks 3 and 11 ship in the SAME deploy** (decision 2026-09-18): the nightly post-sync chain (Task 3) loads the CLI created in Task 11. Never apply a ZIP that carries `assets-sync.js` without `tools/reports/send-asset-reminders.js`.
