@@ -1103,7 +1103,6 @@ async function _snapshotEffortPg(opts = {}) {
 // baseline (baseline=1, never reported as new). Existing rows are never updated
 // (INSERT OR IGNORE / ON CONFLICT DO NOTHING) → idempotent per day. Dates are UTC,
 // like snapshotEffort. Dual-backend: the pg fork is async — callers MUST await.
-function _todayUtc() { return new Date().toISOString().slice(0, 10); }
 // The two bound parameters sit in the SELECT list, where Postgres cannot infer
 // their type from a column ("could not determine data type of parameter $1") —
 // cast them explicitly. The casts are on PARAMETERS, never on stored text
@@ -1112,12 +1111,12 @@ const _SIGHT_SELECT = `SELECT asset_id, COALESCE(site, ''), CAST(? AS TEXT), CAS
 
 function recordAssetSightings(opts = {}) {
   if (ASSETS_BACKEND === 'postgres') return _recordAssetSightingsPg(opts);
-  const date = (opts && opts.asOf) || _todayUtc();
+  const date = (opts && opts.asOf) || new Date().toISOString().slice(0, 10);
   const db = getDB();
   const tx = db.transaction(() => {
-    const assets = db.prepare('SELECT COUNT(*) AS n FROM assets').get().n;
+    const assets = countRows('assets');
     if (!assets) return { date, baseline: false, inserted: 0, skipped: 'no assets' };
-    const baseline = db.prepare('SELECT COUNT(*) AS n FROM asset_first_seen').get().n === 0;
+    const baseline = countRows('asset_first_seen') === 0;
     const r = db.prepare(`INSERT OR IGNORE INTO asset_first_seen (asset_id, site, first_seen_date, baseline) ${_SIGHT_SELECT}`)
       .run(date, baseline ? 1 : 0);
     return { date, baseline, inserted: r.changes };
@@ -1125,12 +1124,12 @@ function recordAssetSightings(opts = {}) {
   return tx();
 }
 async function _recordAssetSightingsPg(opts = {}) {
-  const date = (opts && opts.asOf) || _todayUtc();
+  const date = (opts && opts.asOf) || new Date().toISOString().slice(0, 10);
   const h = pgHandle();
   return h.runTransaction(async () => {
-    const assets = Number((await h.prepare('SELECT COUNT(*) AS n FROM assets').get()).n);
+    const assets = await countRows('assets');
     if (!assets) return { date, baseline: false, inserted: 0, skipped: 'no assets' };
-    const baseline = Number((await h.prepare('SELECT COUNT(*) AS n FROM asset_first_seen').get()).n) === 0;
+    const baseline = (await countRows('asset_first_seen')) === 0;
     // Explicit RETURNING keeps pgDb from appending RETURNING * (thousands of rows).
     const r = await h.prepare(`INSERT INTO asset_first_seen (asset_id, site, first_seen_date, baseline) ${_SIGHT_SELECT}
       ON CONFLICT (asset_id) DO NOTHING RETURNING asset_id`).run(date, baseline ? 1 : 0);

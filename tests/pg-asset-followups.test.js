@@ -28,12 +28,16 @@ test('pg: sightings — empty no-op, baseline, new id, idempotent', async (t) =>
   const b = await a.recordAssetSightings({ asOf: '2026-07-20' });
   assert.deepStrictEqual([b.baseline, b.inserted], [true, 1]);
   await a.replaceTable('assets', COLS, [
-    { asset_id: 'A1', asset_name: 'PC-1', site: 'Hounde', state: 'In Use' },
+    { asset_id: 'A1', asset_name: 'PC-1', site: 'Sabodala', state: 'In Use' },   // moved site
     { asset_id: 'A2', asset_name: 'PC-2', site: 'Hounde', state: 'In Use' },
   ]);
   const n = await a.recordAssetSightings({ asOf: '2026-07-28' });
   assert.deepStrictEqual([n.baseline, n.inserted], [false, 1]);
   assert.strictEqual((await a.recordAssetSightings({ asOf: '2026-07-28' })).inserted, 0);
+  const rows = await a.pgHandle().prepare('SELECT * FROM asset_first_seen ORDER BY asset_id').all();
+  const a1 = rows.find(x => x.asset_id === 'A1');
+  assert.strictEqual(a1.site, 'Hounde', 'first-sighting site is never rewritten');
+  assert.strictEqual(a1.first_seen_date, '2026-07-20');
 });
 
 test('pg: teardown', async () => { if (ctx) await dropTestDb(ctx); });
