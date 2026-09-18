@@ -6203,7 +6203,8 @@ function _assetReviewReadDenial(user, report) {
   return null;
 }
 const _NOTE_MAX = 4000;
-const _cleanNote = v => String(v == null ? '' : v).trim().slice(0, _NOTE_MAX);
+// A note is a string or null (null = clear). Anything else → undefined (caller → 400).
+const _cleanNote = v => (v === null ? '' : typeof v === 'string' ? v.trim().slice(0, _NOTE_MAX) : undefined);
 
 // GET /api/reports/:id/asset-followups — the four worklists for the report week
 // (first 50 rows each) + the previous report's frozen counts.
@@ -6217,10 +6218,13 @@ app.get('/api/reports/:id/asset-followups', requireReportSession, async (req, re
     try { a = await _computeAssetReview(report); }
     catch (e) {
       console.error('[api/reports/asset-followups] assets layer:', e.message);
-      return res.status(503).json({ error: 'Assets data unavailable: ' + e.message });
+      return res.status(503).json({ error: 'Données Assets indisponibles' });
     }
-    const prev = ((await rdb.listReports(report.site_id)) || []).find(r => r.start_date < report.start_date);
-    const previous_counts = prev ? ((await rdb.getReportAssetReview(prev.id)) || {}).counts || null : null;
+    let previous_counts = null;
+    if (report.site_id) {   // a falsy site_id would make listReports return EVERY site's reports
+      const prev = ((await rdb.listReports(report.site_id)) || []).find(r => r.start_date < report.start_date);
+      previous_counts = prev ? ((await rdb.getReportAssetReview(prev.id)) || {}).counts || null : null;
+    }
     if (!a.applicable) return res.json({ applicable: false, site_code: a.code, labels: [], counts: null, lists: null, previous_counts: null });
     const f = a.followups, cut = (l) => (l || []).slice(0, 50);
     res.json({
@@ -6241,7 +6245,15 @@ app.put('/api/reports/:id/asset-review', requireReportSession, jsonBody, async (
     const id = parseInt(req.params.id, 10);
     const report = await _authorizeReportWrite(req, res, id);
     if (!report) return;
-    const patch = { handled_note: _cleanNote(req.body?.handled_note), plan_note: _cleanNote(req.body?.plan_note) };
+    // Only the notes PRESENT in the body are written — an absent key keeps the stored note.
+    const body = (req.body && typeof req.body === 'object') ? req.body : {};
+    const patch = {};
+    for (const k of ['handled_note', 'plan_note']) {
+      if (!Object.prototype.hasOwnProperty.call(body, k)) continue;
+      const v = _cleanNote(body[k]);
+      if (v === undefined) return res.status(400).json({ error: 'note must be text' });
+      patch[k] = v;
+    }
     if (report.status !== 'submitted') {
       try {
         const a = await _computeAssetReview(report);
@@ -6252,8 +6264,11 @@ app.put('/api/reports/:id/asset-review', requireReportSession, jsonBody, async (
       }
     }
     const saved = await rdb.saveReportAssetReview(id, patch, req.reportUser.username);
-    await rdb.touchReport(id);
-    await rdb.logAudit({ report_id: id, site_id: report.site_id, user_id: req.reportUser.id, username: req.reportUser.username, action: 'edited_asset_review', details: { week_label: report.week_label } });
+    // The save succeeded — bookkeeping failures must never turn it into a 500.
+    try {
+      await rdb.touchReport(id);
+      await rdb.logAudit({ report_id: id, site_id: report.site_id, user_id: req.reportUser.id, username: req.reportUser.username, action: 'edited_asset_review', details: { week_label: report.week_label } });
+    } catch (e) { console.error('[api/reports/asset-review] touch/audit (save kept):', e.message); }
     res.json(saved);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

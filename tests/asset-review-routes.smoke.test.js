@@ -114,6 +114,46 @@ test('PUT asset-review: assets layer throwing → 200, notes saved, frozen count
   assert.deepStrictEqual(rev.counts, { new: 1, unassigned: 1, no_cost: 1, no_date: 1 }, 'counts from the previous save kept');
 });
 
+test('PUT asset-review: a body with one note keeps the other; null clears; non-text → 400', async () => {
+  assert.strictEqual((await put(`/api/reports/${repH.id}/asset-review`, tok.editorH, { handled_note: 'A', plan_note: 'B' })).status, 200);
+  assert.strictEqual((await put(`/api/reports/${repH.id}/asset-review`, tok.editorH, { plan_note: ' C ' })).status, 200);
+  let rev = rdb.getReportAssetReview(repH.id);
+  assert.strictEqual(rev.handled_note, 'A', 'absent handled_note kept');
+  assert.strictEqual(rev.plan_note, 'C');
+  assert.strictEqual((await put(`/api/reports/${repH.id}/asset-review`, tok.editorH, { handled_note: null })).status, 200);
+  rev = rdb.getReportAssetReview(repH.id);
+  assert.strictEqual(rev.handled_note || '', '', 'null clears');
+  assert.strictEqual(rev.plan_note, 'C');
+  for (const bad of [5, { x: 1 }, ['a'], true]) {
+    const r = await put(`/api/reports/${repH.id}/asset-review`, tok.editorH, { plan_note: bad });
+    assert.strictEqual(r.status, 400);
+    assert.strictEqual((await r.json()).error, 'note must be text');
+  }
+  assert.strictEqual(rdb.getReportAssetReview(repH.id).plan_note, 'C', 'rejected body wrote nothing');
+});
+
+test('GET asset-followups: assets layer throwing → 503 with a generic body', async () => {
+  const adb = require('../assets-db');
+  const orig = adb.getSiteAssetFollowups;
+  adb.getSiteAssetFollowups = () => { throw new Error('secret internal detail'); };
+  try {
+    const r = await get(`/api/reports/${repH.id}/asset-followups`, tok.viewerH);
+    assert.strictEqual(r.status, 503);
+    const j = await r.json();
+    assert.strictEqual(j.error, 'Données Assets indisponibles');
+    assert.ok(!JSON.stringify(j).includes('secret internal detail'));
+  } finally { adb.getSiteAssetFollowups = orig; }
+});
+
+test('GET asset-followups: previous_counts ignores a later report and another site', async () => {
+  const later = rdb.ensureReport(hounde.id, 2026, 31);
+  rdb.saveReportAssetReview(later.id, { applicable: true, counts: { new: 7, unassigned: 7, no_cost: 7, no_date: 7 } }, 'seed');
+  const manaPrev = rdb.ensureReport(mana.id, 2026, 29);
+  rdb.saveReportAssetReview(manaPrev.id, { applicable: true, counts: { new: 5, unassigned: 5, no_cost: 5, no_date: 5 } }, 'seed');
+  const j = await (await get(`/api/reports/${repH.id}/asset-followups`, tok.viewerH)).json();
+  assert.deepStrictEqual(j.previous_counts, { new: 0, unassigned: 3, no_cost: 3, no_date: 3 });
+});
+
 test('PUT asset-review on a SUBMITTED report (super_admin): notes only, counts never recomputed', async () => {
   rdb.saveReportAssetReview(repH.id, { applicable: true, counts: { new: 9, unassigned: 9, no_cost: 9, no_date: 9 } }, 'freeze');
   rdb.updateReportStatus(repH.id, 'submitted', 1);
