@@ -56,3 +56,20 @@ test('submitReport warns (but allows) when the applicable tab has an empty note'
   assert.ok(code.includes("n'est pas renseignée"));
   assert.ok(code.includes('confirm('));
 });
+
+// rev 5 (2026-09-18, user decision): the tab shows the four counters + the two
+// notes only — no asset lists and no link into the Assets module.
+test('tab 5 has no asset lists and no Assets links', () => {
+  const pane = src.slice(src.indexOf('id="section-4"'), src.indexOf('<!-- Submit bar'));
+  const render = fnSource('renderAssetReview');
+  for (const code of [pane, render]) {
+    assert.ok(!code.includes('assets.html'), 'no link to assets.html');
+    assert.ok(!/voir dans Assets/i.test(code), 'no « voir dans Assets »');
+    assert.ok(!code.includes('<details'), 'no collapsible list');
+    assert.ok(!code.includes('<table'), 'no list table');
+    assert.ok(!code.includes('d.lists'), 'does not read row lists');
+    assert.ok(!/premières lignes|premières lignes/.test(code), 'no "50 premières lignes" line');
+  }
+  assert.ok(render.includes('previous_counts'), 'still shows the change vs previous week');
+  assert.ok(render.includes('Compteurs figés'), 'still shows the frozen-counts line');
+});

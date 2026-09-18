@@ -2772,11 +2772,13 @@ function _markSectionTabsFromData() {
 }
 
 let _assetFollowups = null;   // last /asset-followups payload for the open report
+// Counters only (rev 5, 2026-09-18): no asset lists and no Assets links in this
+// tab — the lists live in the asset-manager reminder e-mails.
 const _AR_KINDS = [
-  ['new', 'Nouveau matériel (semaine)', '#inventory', null],
-  ['unassigned', 'En service sans utilisateur ni département', '#inventory', null],
-  ['no_cost', "Sans coût d'achat", '#hygiene', 'no_cost'],
-  ['no_date', "Sans date d'acquisition", '#hygiene', 'no_age'],
+  ['new', 'Nouveau matériel (semaine)'],
+  ['unassigned', 'En service sans utilisateur ni département'],
+  ['no_cost', "Sans coût d'achat"],
+  ['no_date', "Sans date d'acquisition"],
 ];
 function _isSuperAdminUser() {
   if (typeof window.__userHasRole === 'function') { try { return !!window.__userHasRole('super_admin'); } catch (_) {} }
@@ -2830,8 +2832,7 @@ function renderAssetReview() {
   const submitted = currentReport.status === 'submitted' && currentReport.asset_review && currentReport.asset_review.counts;
   const counts = submitted ? currentReport.asset_review.counts : d.counts;
   const prev = d.previous_counts || null;
-  const oneLabel = (d.labels || []).length === 1 ? d.labels[0] : null;
-  const cards = _AR_KINDS.map(([k, label, hash, kind]) => {
+  const cards = _AR_KINDS.map(([k, label]) => {
     const v = Number(counts[k] || 0);
     let delta = '';
     if (prev && prev[k] != null) {
@@ -2839,32 +2840,13 @@ function renderAssetReview() {
       delta = dv === 0 ? '<span style="color:#64748b">= sem. préc.</span>'
         : `<span style="color:${dv > 0 ? '#b91c1c' : '#15803d'}">${dv > 0 ? '▲ +' + dv : '▼ ' + Math.abs(dv)} vs sem. préc.</span>`;
     }
-    const href = oneLabel ? `assets.html?site=${encodeURIComponent(oneLabel)}${kind ? '&kind=' + kind : ''}${hash}` : null;
-    const link = href ? `<a href="${esc(href)}" target="_blank" style="font-size:0.75rem">voir dans Assets ›</a>` : '';
     return `<div style="border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;min-width:170px;flex:1">
       <div style="font-size:1.4rem;font-weight:700;color:#1e3a5f">${v}</div>
       <div style="font-size:0.8rem;color:#334155">${esc(label)}</div>
-      <div style="font-size:0.75rem">${delta}</div>${link}</div>`;
-  }).join('');
-  const cols = [['asset_name', 'Nom'], ['product_type', 'Type'], ['manufacturer', 'Fabricant'], ['serial_number', 'N° série'],
-    ['state', 'État'], ['user_name', 'Utilisateur'], ['department', 'Département'], ['acquisition_date', 'Date acq.']];
-  const lists = _AR_KINDS.map(([k, label]) => {
-    const rows = (d.lists && d.lists[k]) || [];
-    if (!rows.length) return '';
-    const head = cols.map(c => `<th>${c[1]}</th>`).join('') + '<th>Coût renseigné</th>' + (k === 'new' ? '<th>Vu le</th>' : '');
-    const body = rows.map(x => '<tr>' + cols.map(c => `<td>${esc(x[c[0]] || '—')}</td>`).join('') +
-      `<td>${x.has_cost ? 'Oui' : 'Non'}</td>` + (k === 'new' ? `<td>${esc(x.first_seen_date || '')}</td>` : '') + '</tr>').join('');
-    // The lists are always the LIVE worklists; on a submitted report the counters
-    // above are frozen, so the list is labelled « état actuel » and its "sur N"
-    // uses the live total, never the frozen one.
-    const liveN = Number((d.counts && d.counts[k]) || 0);
-    const more = liveN > rows.length ? `<div style="font-size:0.75rem;color:#64748b">50 premières lignes sur ${liveN}.</div>` : '';
-    const suffix = submitted ? ' — état actuel' : '';
-    return `<details style="margin-top:8px"><summary>${esc(label)}${suffix} (${rows.length})</summary>
-      <table class="user-table" style="font-size:0.78rem"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>${more}</details>`;
+      <div style="font-size:0.75rem">${delta}</div></div>`;
   }).join('');
   const note = submitted ? '<div style="font-size:0.75rem;color:#64748b;margin-bottom:6px">Compteurs figés à la soumission.</div>' : '';
-  box.innerHTML = `${note}<div style="display:flex;gap:10px;flex-wrap:wrap">${cards}</div>${lists}`;
+  box.innerHTML = `${note}<div style="display:flex;gap:10px;flex-wrap:wrap">${cards}</div>`;
   if (tab) tab.classList.toggle('done', _assetTabDone());
 }
 function collectAssetReview() {

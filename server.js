@@ -6234,8 +6234,10 @@ const _NOTE_MAX = 4000;
 // A note is a string or null (null = clear). Anything else → undefined (caller → 400).
 const _cleanNote = v => (v === null ? '' : typeof v === 'string' ? v.trim().slice(0, _NOTE_MAX) : undefined);
 
-// GET /api/reports/:id/asset-followups — the four worklists for the report week
-// (first 50 rows each) + the previous report's frozen counts.
+// GET /api/reports/:id/asset-followups — the four counts for the report week +
+// the previous report's frozen counts. Counts only (rev 5, 2026-09-18): the editor
+// shows no asset lists, so no row data is shipped; the lists live in the
+// asset-manager reminder e-mails only.
 app.get('/api/reports/:id/asset-followups', requireReportSession, async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
@@ -6248,16 +6250,15 @@ app.get('/api/reports/:id/asset-followups', requireReportSession, async (req, re
       console.error('[api/reports/asset-followups] assets layer:', e.message);
       return res.status(503).json({ error: 'Données Assets indisponibles' });
     }
-    if (!a.applicable) return res.json({ applicable: false, site_code: a.code, labels: [], counts: null, lists: null, previous_counts: null });
+    if (!a.applicable) return res.json({ applicable: false, site_code: a.code, labels: [], counts: null, previous_counts: null });
     let previous_counts = null;
     if (report.site_id) {   // a falsy site_id would make listReports return EVERY site's reports
       const prev = ((await rdb.listReports(report.site_id)) || []).find(r => r.start_date < report.start_date);
       previous_counts = prev ? ((await rdb.getReportAssetReview(prev.id)) || {}).counts || null : null;
     }
-    const f = a.followups, cut = (l) => (l || []).slice(0, 50);
+    const f = a.followups;
     res.json({
       applicable: true, site_code: a.code, labels: a.labels, counts: a.counts,
-      lists: { new: cut(f.new), unassigned: cut(f.unassigned), no_cost: cut(f.no_cost), no_date: cut(f.no_date) },
       window: { from: report.start_date, to: report.end_date }, previous_counts, generated_at: f.generated_at,
     });
   } catch (e) { res.status(500).json({ error: e.message }); }

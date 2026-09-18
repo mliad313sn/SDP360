@@ -1,6 +1,6 @@
 # Asset engagement in the weekly report + asset reminder e-mails — design
 
-Date: 2026-09-17 · Status: approved in conversation, revised after spec review (rev 4 — no submission block)
+Date: 2026-09-17 · Status: approved in conversation, revised after spec review (rev 5 — no lists / no Assets links in the tab or the meeting report)
 
 ## 1. Goal
 
@@ -158,7 +158,8 @@ labels → `applicable: false` (e.g. Exploration, Tanda).
 **Routes** (registered above `/api/reports/:id`):
 - `GET /api/reports/:id/asset-followups` — read rule: admin+ (admin, executive,
   super_admin) unscoped; otherwise the user must have `site_id === report.site_id`; no
-  site → 403. Returns `{ applicable, counts, lists (first 50 rows each), previous_counts }`
+  site → 403. Returns `{ applicable, counts, previous_counts }` (+ `site_code`, `labels`, `window`,
+  `generated_at`) — **no `lists`** (rev 5: no row data is shipped to the editor)
   where `previous_counts` = `counts_json` of the first row of `listReports(report.site_id)`
   (newest first) whose `start_date < report.start_date`, or `null`.
 - `PUT /api/reports/:id/asset-review` — `_authorizeReportWrite`; body
@@ -175,8 +176,10 @@ assets layer throws, `counts_json` is stored as `null` and the submission procee
 
 **Editor (`reports.html`)**
 - weekly tab `stab-4` "5 · Parc informatique": 4 counters with the change vs
-  `previous_counts`, per-counter link to `assets.html` filtered on the site, the lists
-  (collapsible), two textareas (not required), autosave like other sections;
+  `previous_counts`, two textareas (not required), autosave like other sections;
+- **rev 5 (2026-09-18, user decision): no lists and no Assets links in the tab or the
+  meeting report (weekly e-mail review block) — counts + notes only. The lists stay in the
+  asset-manager reminder e-mails only (§4.4).**
 - non-applicable site → "Aucun matériel rattaché à ce site", tab counts as done;
 - `done` on load when both notes are filled or the site is not applicable;
 - `_afterSectionSaved` counts `#section-tabs .section-tab.done` inside the weekly editor

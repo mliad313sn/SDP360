@@ -339,3 +339,14 @@ test('report not submitted (e.g. status "ready"): assetReviewBlock says counts a
   assert.match(htmlBody, /compteurs au dernier enregistrement/);
   assert.ok(!/fig&eacute;s &agrave; la soumission/.test(htmlBody), 'unsubmitted wording must not claim the counts are frozen');
 });
+
+// rev 5 (2026-09-18): the meeting report's review block carries counts + notes
+// only — never an asset list nor a link into Assets.
+test('review block alone (assets:null) has no asset list and no Assets link', () => {
+  const f = fixture(); f.assets = null;
+  f.report.asset_review = { applicable: true, counts: { new: 2, unassigned: 1, no_cost: 0, no_date: 4 }, handled_note: 'h', plan_note: 'p' };
+  const { htmlBody } = composeWeekly(f);
+  assert.ok(!htmlBody.includes('assets.html'), 'no Assets link');
+  assert.ok(!/voir dans Assets/i.test(htmlBody));
+  assert.match(htmlBody, /Parc informatique/i);
+});

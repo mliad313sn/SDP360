@@ -60,14 +60,16 @@ before(async () => {
 });
 after(() => { try { server && server.close(); } catch {} });
 
-test('GET asset-followups: same-site viewer 200 with counts, lists, previous_counts', async () => {
+test('GET asset-followups: same-site viewer 200 with counts + previous_counts, no row lists', async () => {
   const r = await get(`/api/reports/${repH.id}/asset-followups`, tok.viewerH);
   assert.strictEqual(r.status, 200);
   const j = await r.json();
   assert.strictEqual(j.applicable, true);
   assert.deepStrictEqual(j.counts, { new: 1, unassigned: 1, no_cost: 1, no_date: 1 });
   assert.deepStrictEqual(j.labels, ['Hounde']);
-  assert.strictEqual(j.lists.new[0].asset_id, 'N1');
+  // rev 5 (2026-09-18): the editor shows counts only — no asset rows are shipped.
+  assert.ok(!Object.prototype.hasOwnProperty.call(j, 'lists'), 'no lists key');
+  assert.ok(!JSON.stringify(j).includes('N1'), 'no asset row data on the wire');
   assert.deepStrictEqual(j.previous_counts, { new: 0, unassigned: 3, no_cost: 3, no_date: 3 });
   assert.ok(!JSON.stringify(j).includes('purchase_cost'), 'no amount on the wire');
 });

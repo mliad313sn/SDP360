@@ -84,8 +84,9 @@ made so far so that future sessions can pick up exactly where the last one ended
 > cron 04:30 + trigger manuel ; sautée si la vue `assets` a échoué) ; `getSiteAssetFollowups(labels,{newFrom,newTo})`
 > = 4 listes (nouveau / en service sans user+dept / sans coût / sans date — ces deux-là In Use·In Store·In Repair),
 > **aucun montant** (`has_cost` booléen). **Rapport hebdo** : `report_asset_review` (reports.db + pg `012`, une
-> ligne par rapport) ; onglet `stab-4` (« 5. Parc informatique ») ; `GET /api/reports/:id/asset-followups` (admin+ ou
-> même site), `PUT /api/reports/:id/asset-review` (F5), compteurs **recalculés et figés côté serveur**, re-figés à la
+> ligne par rapport) ; onglet `stab-4` (« 5. Parc informatique ») = **compteurs + 2 notes seulement, ni listes ni liens Assets** (rev 5,
+> décision user 2026-09-18 — idem dans le bloc de l'e-mail hebdo ; les listes restent dans les e-mails de rappel) ;
+> `GET /api/reports/:id/asset-followups` (admin+ ou même site, **sans `lists`**), `PUT /api/reports/:id/asset-review` (F5), compteurs **recalculés et figés côté serveur**, re-figés à la
 > **première** soumission seulement ; **la soumission n'est jamais bloquée** (note vide = « non renseigné » dans
 > l'e-mail hebdo ; le seul écran est une confirmation côté client si une note est vide). L'auto-`ready` marche enfin
 > (sélecteur `#section-tabs .section-tab.done`, 5 onglets) → plus de rapports « complets mais non soumis ». **Rappels** :
