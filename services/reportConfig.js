@@ -31,6 +31,11 @@ const DEFAULTS = {
   // (else silently dropped and the digest is permanently inert).
   asset_group_send_enabled: '0',
   asset_group_recipients: '',
+  // Asset engagement reminders (2026-09-18) — both armed OFF. Recipients come from
+  // the directory (asset manager, coordinator in copy). Must live in DEFAULTS or
+  // setConfig's KEYS filter silently drops the admin's write.
+  asset_reminder_send_enabled: '0',
+  asset_new_alert_enabled: '0',
   // Fenêtre « vu récemment » de la réconciliation AD/Entra, en jours. Il n'existe
   // pas de bonne valeur universelle — un site à rotation lente voudra 60, une
   // campagne de déploiement 7 — et la valeur retenue est affichée dans l'en-tête
