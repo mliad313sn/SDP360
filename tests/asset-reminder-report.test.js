@@ -6,6 +6,8 @@ const { buildAssetRecap, buildNewAssetAlert } = require('../services/assetRemind
 
 const row = (id, extra = {}) => ({ asset_id: id, asset_name: 'PC-' + id, product_type: 'Laptop', manufacturer: 'Dell',
   serial_number: 'S' + id, state: 'In Use', site: 'Hounde', user_name: '', department: '', acquisition_date: '', has_cost: false, ...extra });
+// A coloured count tile: value div carries the tile's own colour.
+const TILE_RE = /font-size:22px;font-weight:bold;color:(#[0-9A-Fa-f]{6});line-height:1\.2;">([^<]*)<\/div>/g;
 const followups = () => ({
   counts: { new: 1, unassigned: 25, no_cost: 0, no_date: 2 },
   new: [row('N1', { first_seen_date: '2026-07-28' })],
@@ -48,10 +50,8 @@ test('recap: null counts render em dash, a real zero still renders 0', () => {
   const f = followups();
   f.counts = { new: null, unassigned: 25, no_cost: 0, no_date: 2 };
   const r = buildAssetRecap({ site: 'HGO', followups: f, baseUrl: '', weekLabel: 'W30 2026', year: 2026, week: 30, labels: ['Hounde'] });
-  // KPI tile values, in LISTS order (new, unassigned, no_cost, no_date) — the
-  // card-title pattern (12px, letter-spacing) uses the same NAVY color, so
-  // anchor on the KPI cell's distinct font-size/line-height to avoid a false match.
-  const values = [...r.html.matchAll(/font-size:18px;font-weight:bold;color:#1E293B;line-height:1\.2;">([^<]*)<\/div>/g)].map(m => m[1]);
+  // Coloured KPI tiles, in LISTS order (new, unassigned, no_cost, no_date).
+  const values = [...r.html.matchAll(TILE_RE)].map(m => m[2]);
   assert.deepStrictEqual(values, ['—', '25', '0', '2']);
   assert.match(r.html, /Nouveau matériel \(—\)/);
   assert.ok(!r.html.includes('Nouveau matériel (0)'));
@@ -80,5 +80,58 @@ test('new-asset alert: short list, date in subject, no attachment', () => {
   assert.match(r.subject, /HGO/);
   assert.match(r.subject, /2026-07-28/);
   assert.match(r.html, /PC-N1/);
+  assert.deepStrictEqual(r.attachments, []);
+});
+
+// ── colour presentation (2026-09-18) ─────────────────────────────────────────
+// Same visual language as the weekly e-mail's Parc informatique block: violet
+// header band, coloured tiles (one accent per list), coloured title bars, zebra rows.
+const recap = (extra = {}) => buildAssetRecap({ site: 'HGO', followups: followups(), baseUrl: 'https://x.test', weekLabel: 'W30 2026', year: 2026, week: 30, labels: ['Hounde'], ...extra });
+const alertMail = () => buildNewAssetAlert({ site: 'HGO', rows: [row('N1', { first_seen_date: '2026-07-28' }), row('N2', { first_seen_date: '2026-07-28' })], baseUrl: 'https://x.test', date: '2026-07-28', labels: ['Hounde'] });
+const ZEBRA_ON = /<tr style="background:#F8FAFC;">/;
+const ZEBRA_OFF = /<tr style="background:#FFFFFF;">/;
+
+test('recap: violet header band carrying the title', () => {
+  assert.match(recap().html, /background:#7C3AED;[^>]*>\s*<div[^>]*>Suivi du parc informatique<\/div>/);
+});
+
+test('recap: the 4 counters are coloured tiles, one distinct accent per list; null = neutral "—"', () => {
+  const tiles = [...recap().html.matchAll(TILE_RE)].map(m => [m[1].toUpperCase(), m[2]]);
+  assert.strictEqual(tiles.length, 4);
+  assert.deepStrictEqual(tiles.map(t => t[1]), ['1', '25', '0', '2']);
+  assert.strictEqual(new Set(tiles.map(t => t[0])).size, 4, 'four distinct accents');
+  const f = followups(); f.counts.new = null;
+  const nul = [...buildAssetRecap({ site: 'HGO', followups: f, baseUrl: '', weekLabel: 'W30 2026', labels: ['Hounde'] }).html.matchAll(TILE_RE)];
+  assert.strictEqual(nul[0][2], '—');
+  assert.strictEqual(nul[0][1].toUpperCase(), '#64748B', 'null count is grey, not the list accent');
+});
+
+test('recap: each list has a coloured title bar and zebra rows', () => {
+  const { html } = recap();
+  assert.match(html, /background:#D97706;[^>]*>\s*<div[^>]*>En service sans utilisateur ni département \(25\)<\/div>/, 'unassigned = amber title bar');
+  assert.match(html, /background:#0D9488;[^>]*>\s*<div[^>]*>Nouveau matériel \(1\)<\/div>/, 'new = teal title bar');
+  assert.ok(ZEBRA_ON.test(html) && ZEBRA_OFF.test(html), 'alternating row backgrounds');
+});
+
+test('recap: links, subject and attachment filename unchanged; no $', () => {
+  const r = recap();
+  assert.strictEqual(r.subject, 'Suivi du parc informatique - HGO - W30 2026');
+  assert.strictEqual(r.attachments[0].filename, 'assets-suivi-HGO-2026-W30.xlsx');
+  assert.ok(r.html.includes('https://x.test/assets.html?site=Hounde#inventory'));
+  assert.ok(r.html.includes('https://x.test/assets.html?site=Hounde&amp;kind=no_age#hygiene'));
+  assert.ok(!r.html.includes('$'));
+  assert.ok(!/display:\s*(inline-)?(flex|grid)|var\(--/.test(r.html), 'e-mail safe');
+});
+
+test('alert: header band, count tile, zebra table with a coloured header row, link kept', () => {
+  const r = alertMail();
+  assert.strictEqual(r.subject, 'Nouveau matériel détecté - HGO - 2026-07-28');
+  assert.match(r.html, /background:#7C3AED;[^>]*>\s*<div[^>]*>Nouveau matériel détecté<\/div>/);
+  const t = [...r.html.matchAll(TILE_RE)];
+  assert.strictEqual(t.length, 1); assert.strictEqual(t[0][2], '2');
+  assert.match(r.html, /<th style="[^"]*background:#0D9488;[^"]*color:#FFFFFF;/, 'coloured header row');
+  assert.ok(ZEBRA_ON.test(r.html) && ZEBRA_OFF.test(r.html), 'zebra rows');
+  assert.ok(r.html.includes('https://x.test/assets.html?site=Hounde#inventory'));
+  assert.ok(!r.html.includes('$'));
   assert.deepStrictEqual(r.attachments, []);
 });

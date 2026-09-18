@@ -73,3 +73,21 @@ test('tab 5 has no asset lists and no Assets links', () => {
   assert.ok(render.includes('previous_counts'), 'still shows the change vs previous week');
   assert.ok(render.includes('Compteurs figés'), 'still shows the frozen-counts line');
 });
+
+// 2026-09-18 (user): the optional-note hint is gone from tab 5; notes stay
+// non-required and the submit confirm stays.
+test('tab 5 carries no « Facultatif » hint; notes not required; confirm kept', () => {
+  const pane = src.slice(src.indexOf('id="section-4"'), src.indexOf('<!-- Submit bar'));
+  assert.ok(!pane.includes('Facultatif'), 'no FR hint');
+  assert.ok(!/une note vide appara/.test(pane), 'no FR hint text');
+  assert.ok(!/Optional[^<]*non renseign/i.test(pane), 'no EN twin');
+  assert.ok(!/<textarea[^>]*required/.test(pane), 'notes stay optional');
+  assert.ok(fnSource('submitReport').includes('confirm('));
+});
+
+test('the inline scripts of reports.html still parse', () => {
+  const re = /<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g;
+  let m, n = 0;
+  while ((m = re.exec(src))) { if (!m[1].trim()) continue; new Function(m[1]); n++; }
+  assert.ok(n > 0);
+});
