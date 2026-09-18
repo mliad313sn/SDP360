@@ -170,4 +170,39 @@ const ASSET_VIEWS = [
   },
 ];
 
-module.exports = { init, fetchAll, syncAssetView, syncAllAssets, ASSET_VIEWS, DEFAULT_MAP };
+// The assets view is the one sightings read. A failed (or missing) summary entry
+// means the table may be stale or partial → do NOT record sightings from it.
+function assetsViewFailed(summary) {
+  if (!Array.isArray(summary)) return true;
+  const e = summary.find(v => v && v.name === 'assets');
+  return !e || !!e.error;
+}
+
+// Post-sync chain, shared by the 04:30 cron (sendAlerts:true) and the manual
+// trigger (sendAlerts:false). Each step logs its own failure and never throws:
+// effort snapshot → first sightings → same-day new-hardware alert (armed OFF by
+// default inside the CLI). Runs AFTER syncAllAssets resolved (never in parallel).
+async function afterAssetsSync(summary, { sendAlerts = false, deps = {} } = {}) {
+  const adb = () => require('./assets-db');
+  const snapshotEffort = deps.snapshotEffort || (() => adb().snapshotEffort({}));
+  const recordAssetSightings = deps.recordAssetSightings || (() => adb().recordAssetSightings({}));
+  const sendNewAssetAlerts = deps.sendNewAssetAlerts || (() => require('./tools/reports/send-asset-reminders').main({
+    type: 'asset_new_alert', reportsDb: require('./reports-db'), assetsDb: adb(),
+  }));
+  const out = { effort: null, sightings: null, alerts: null };
+  try { out.effort = await snapshotEffort(); }
+  catch (e) { console.error('[assets-sync] effort snapshot failed:', e && e.message); }
+  if (assetsViewFailed(summary)) {
+    out.sightings = 'skipped: assets view failed';
+    console.warn('[assets-sync] assets view failed — first sightings not recorded');
+    return out;
+  }
+  try { out.sightings = await recordAssetSightings(); }
+  catch (e) { console.error('[assets-sync] sightings failed:', e && e.message); return out; }
+  if (!sendAlerts) return out;
+  try { out.alerts = await sendNewAssetAlerts(); }
+  catch (e) { console.error('[assets-sync] new-asset alert failed:', e && e.message); }
+  return out;
+}
+
+module.exports = { init, fetchAll, syncAssetView, syncAllAssets, ASSET_VIEWS, DEFAULT_MAP, assetsViewFailed, afterAssetsSync };

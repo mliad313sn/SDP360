@@ -488,7 +488,7 @@ sync.init(fetchView, VIEWS);
 require('./assets-sync').init(fetchView, VIEWS);
 // Daily full-replace of the 5 asset views at 04:30 (off-peak, after nightly refresh at 03:15).
 cron.schedule('30 4 * * *', () => require('./assets-sync').syncAllAssets()
-  .then(() => require('./assets-db').snapshotEffort({}))
+  .then(summary => require('./assets-sync').afterAssetsSync(summary, { sendAlerts: true }))
   .catch(e => console.error('[Cron:assets]', e && e.message)));
 
 // Meridian resource sync (F1) — nightly at 05:00. Self-skips when unconfigured
@@ -2347,7 +2347,7 @@ app.get('/api/sync/status', requireReportSession, async (req, res) => {
 app.post('/api/sync/trigger/assets', requireReportSession, requireAdmin, (req, res) => {
   res.json({ ok: true, message: 'Assets sync started' });
   require('./assets-sync').syncAllAssets()
-    .then(() => require('./assets-db').snapshotEffort({}))
+    .then(summary => require('./assets-sync').afterAssetsSync(summary, { sendAlerts: false }))
     .catch(e => console.error('[ManualSync:assets]', e && e.message));
 });
 
