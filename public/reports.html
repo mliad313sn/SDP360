@@ -496,6 +496,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
       <button class="section-tab" onclick="showSection(1)" id="stab-1">2. Helpdesk Metrics</button>
       <button class="section-tab" onclick="showSection(2)" id="stab-2">3. Low / High Lights</button>
       <button class="section-tab" onclick="showSection(3)" id="stab-3">4. Action Items</button>
+      <button class="section-tab" onclick="showSection(4)" id="stab-4">5 · Parc informatique</button>
     </div>
 
     <!-- Section 0: Infrastructure KPIs -->
@@ -792,6 +793,26 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
             <button id="btn-do-merge" onclick="doMergeSelection()" class="btn btn-primary btn-sm" disabled>Fusionner la sélection</button>
           </span>
         </div>
+      </div>
+    </div>
+
+    <!-- Section 4: Parc informatique (asset engagement, 2026-09-18). The four counts are
+         computed by the server for the report week and frozen at submission; the two notes
+         are optional — an empty note is shown as « non renseigné » in the weekly e-mail. -->
+    <div id="section-4" style="display:none">
+      <div class="card">
+        <h3><span class="section-num">5</span> Parc informatique</h3>
+        <div id="asset-review-body"><div style="color:#94a3b8;font-style:italic">Chargement…</div></div>
+        <div class="form-group" style="margin-top:12px">
+          <label>Traité cette semaine</label>
+          <textarea id="ar-handled-note" rows="3" style="width:100%" placeholder="Ex. 3 PC étiquetés, 2 utilisateurs affectés…"></textarea>
+        </div>
+        <div class="form-group">
+          <label>Plan / blocages</label>
+          <textarea id="ar-plan-note" rows="3" style="width:100%" placeholder="Ex. coûts en attente de la comptabilité…"></textarea>
+        </div>
+        <div style="font-size:0.78rem;color:#64748b">Facultatif — une note vide apparaîtra « non renseigné » dans le rapport envoyé.</div>
+        <div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="saveSection(4)">Enregistrer</button></div>
       </div>
     </div>
 
@@ -2664,7 +2685,7 @@ function showSection(n) {
   if (currentSection !== n) {
     try { flushAutoSave(currentSection); } catch(_) {}
   }
-  for (let i=0;i<4;i++) {
+  for (let i=0;i<5;i++) {
     document.getElementById(`section-${i}`).style.display = i===n ? 'block' : 'none';
     const tab = document.getElementById(`stab-${i}`);
     tab.classList.remove('active');
@@ -2687,9 +2708,108 @@ function renderForm() {
   renderHelpdesk();
   renderLights();
   renderActions();
+  _markSectionTabsFromData();
+  loadAssetFollowups();
   // Show audit trail panel and load entries
   document.getElementById('audit-panel').style.display = 'block';
   loadAuditLog();
+}
+
+// Tabs are marked done from what is already saved (they used to be marked only on
+// a save in the current session, and the class leaked from one report to the next).
+function _assetReviewDone(ar) {
+  return !!ar && (ar.applicable === false ||
+    (String(ar.handled_note || '').trim() !== '' && String(ar.plan_note || '').trim() !== ''));
+}
+function _markSectionTabsFromData() {
+  const r = currentReport || {};
+  for (let i = 0; i < 5; i++) { const t = document.getElementById('stab-' + i); if (t) t.classList.remove('done'); }
+  const mark = (i, on) => { const t = document.getElementById('stab-' + i); if (t && on) t.classList.add('done'); };
+  mark(0, (r.infra_kpis || []).length > 0);
+  mark(1, !!(r.helpdesk && (r.helpdesk.fetched_at || r.helpdesk.updated_at)));
+  mark(2, (r.lights || []).length > 0);
+  mark(3, (r.action_items || []).length > 0);
+  mark(4, _assetReviewDone(r.asset_review));
+}
+
+let _assetFollowups = null;   // last /asset-followups payload for the open report
+const _AR_KINDS = [
+  ['new', 'Nouveau matériel (semaine)', '#inventory', null],
+  ['unassigned', 'En service sans utilisateur ni département', '#inventory', null],
+  ['no_cost', "Sans coût d'achat", '#hygiene', 'no_cost'],
+  ['no_date', "Sans date d'acquisition", '#hygiene', 'no_age'],
+];
+function _assetNotesFilled() {
+  return !!document.getElementById('ar-handled-note').value.trim() && !!document.getElementById('ar-plan-note').value.trim();
+}
+async function loadAssetFollowups() {
+  const box = document.getElementById('asset-review-body');
+  const r = currentReport; if (!r || !box) return;
+  const ar = r.asset_review || {};
+  document.getElementById('ar-handled-note').value = ar.handled_note || '';
+  document.getElementById('ar-plan-note').value = ar.plan_note || '';
+  ['ar-handled-note', 'ar-plan-note'].forEach(id => { document.getElementById(id).disabled = !_reportEditable(); });
+  _assetFollowups = null;
+  box.innerHTML = '<div style="color:#94a3b8;font-style:italic">Chargement…</div>';
+  const forId = r.id;
+  try {
+    const data = await api('GET', `/api/reports/${forId}/asset-followups`);
+    // The user may have opened another report while this was in flight — a late
+    // answer must never paint (or tick tab 5 of) the wrong report.
+    if (!currentReport || currentReport.id !== forId) return;
+    _assetFollowups = data;
+    renderAssetReview();
+  } catch (e) {
+    if (!currentReport || currentReport.id !== forId) return;
+    box.innerHTML = `<div style="color:#b91c1c">Données du parc indisponibles : ${esc(e)}</div>`;
+  }
+}
+function renderAssetReview() {
+  const box = document.getElementById('asset-review-body');
+  const d = _assetFollowups; if (!box || !d) return;
+  const tab = document.getElementById('stab-4');
+  if (!d.applicable) {
+    box.innerHTML = '<div style="color:#64748b">Aucun matériel rattaché à ce site.</div>';
+    if (tab) tab.classList.add('done');
+    return;
+  }
+  const submitted = currentReport.status === 'submitted' && currentReport.asset_review && currentReport.asset_review.counts;
+  const counts = submitted ? currentReport.asset_review.counts : d.counts;
+  const prev = d.previous_counts || null;
+  const oneLabel = (d.labels || []).length === 1 ? d.labels[0] : null;
+  const cards = _AR_KINDS.map(([k, label, hash, kind]) => {
+    const v = Number(counts[k] || 0);
+    let delta = '';
+    if (prev && prev[k] != null) {
+      const dv = v - Number(prev[k]);
+      delta = dv === 0 ? '<span style="color:#64748b">= sem. préc.</span>'
+        : `<span style="color:${dv > 0 ? '#b91c1c' : '#15803d'}">${dv > 0 ? '▲ +' : '▼ '}${dv} vs sem. préc.</span>`;
+    }
+    const href = oneLabel ? `assets.html?site=${encodeURIComponent(oneLabel)}${kind ? '&kind=' + kind : ''}${hash}` : null;
+    const link = href ? `<a href="${esc(href)}" target="_blank" style="font-size:0.75rem">voir dans Assets ›</a>` : '';
+    return `<div style="border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;min-width:170px;flex:1">
+      <div style="font-size:1.4rem;font-weight:700;color:#1e3a5f">${v}</div>
+      <div style="font-size:0.8rem;color:#334155">${esc(label)}</div>
+      <div style="font-size:0.75rem">${delta}</div>${link}</div>`;
+  }).join('');
+  const cols = [['asset_name', 'Nom'], ['product_type', 'Type'], ['manufacturer', 'Fabricant'], ['serial_number', 'N° série'],
+    ['state', 'État'], ['user_name', 'Utilisateur'], ['department', 'Département'], ['acquisition_date', 'Date acq.']];
+  const lists = _AR_KINDS.map(([k, label]) => {
+    const rows = (d.lists && d.lists[k]) || [];
+    if (!rows.length) return '';
+    const head = cols.map(c => `<th>${c[1]}</th>`).join('') + '<th>Coût renseigné</th>' + (k === 'new' ? '<th>Vu le</th>' : '');
+    const body = rows.map(x => '<tr>' + cols.map(c => `<td>${esc(x[c[0]] || '—')}</td>`).join('') +
+      `<td>${x.has_cost ? 'Oui' : 'Non'}</td>` + (k === 'new' ? `<td>${esc(x.first_seen_date || '')}</td>` : '') + '</tr>').join('');
+    const more = Number(counts[k] || 0) > rows.length ? `<div style="font-size:0.75rem;color:#64748b">50 premières lignes sur ${Number(counts[k])}.</div>` : '';
+    return `<details style="margin-top:8px"><summary>${esc(label)} (${rows.length})</summary>
+      <table class="user-table" style="font-size:0.78rem"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>${more}</details>`;
+  }).join('');
+  const note = submitted ? '<div style="font-size:0.75rem;color:#64748b;margin-bottom:6px">Compteurs figés à la soumission.</div>' : '';
+  box.innerHTML = `${note}<div style="display:flex;gap:10px;flex-wrap:wrap">${cards}</div>${lists}`;
+  if (tab) tab.classList.toggle('done', _assetReviewDone(currentReport.asset_review));
+}
+function collectAssetReview() {
+  return { handled_note: document.getElementById('ar-handled-note').value, plan_note: document.getElementById('ar-plan-note').value };
 }
 
 // ── Change Week modal ──────────────────────────────────────────────
@@ -4556,6 +4676,10 @@ async function saveSection(n) {
       await api('PUT', `/api/reports/${id}/actions`, actions);
       currentReport.action_items = actions;
       document.getElementById('stab-3').classList.add('done');
+    } else if (n === 4) {
+      const rev = await api('PUT', `/api/reports/${id}/asset-review`, collectAssetReview());
+      currentReport.asset_review = rev;
+      document.getElementById('stab-4').classList.toggle('done', _assetReviewDone(rev));
     }
     setSaving('saved');
     toast('Saved ✓', 'success');
@@ -4577,11 +4701,15 @@ async function saveSection(n) {
 // deliberate manual gate. Idempotent: classList.add + the status guard make it
 // safe to call repeatedly.
 async function _afterSectionSaved(n) {
+  // Tab 4 (Parc informatique) has its own done rule (both notes, or not applicable),
+  // applied by its save path — a plain save of an empty note must not tick it.
   const tab = document.getElementById('stab-' + n);
-  if (tab) tab.classList.add('done');
+  if (tab && n !== 4) tab.classList.add('done');
   if (!currentReport || !['draft','in_progress'].includes(currentReport.status)) return;
-  const doneCnt = document.querySelectorAll('.stab.done').length;
-  const newStatus = doneCnt >= 4 ? 'ready' : (doneCnt >= 1 ? 'in_progress' : null);
+  // Weekly strip ONLY (the monthly editor also uses .section-tab). The old
+  // stab-done class selector matched nothing, so auto-ready never fired.
+  const doneCnt = document.querySelectorAll('#section-tabs .section-tab.done').length;
+  const newStatus = doneCnt >= 5 ? 'ready' : (doneCnt >= 1 ? 'in_progress' : null);
   if (newStatus && newStatus !== currentReport.status) {
     try {
       await api('PUT', `/api/reports/${currentReport.id}/status`, { status: newStatus });
@@ -4644,6 +4772,11 @@ async function autoSaveSection(n) {
       _autoSaveBusy = true; setSaving('saving');
       await api('PUT', `/api/reports/${id}/actions`, actions);
       currentReport.action_items = actions;
+    } else if (n === 4) {
+      _autoSaveBusy = true; setSaving('saving');
+      const rev = await api('PUT', `/api/reports/${id}/asset-review`, collectAssetReview());
+      currentReport.asset_review = rev;
+      document.getElementById('stab-4').classList.toggle('done', _assetReviewDone(rev));
     } else { return; }
     setSaving('saved');
     await _afterSectionSaved(n);   // mark section done + auto-advance status
@@ -4668,7 +4801,7 @@ function flushAutoSave(n) {
 // does NOT fire input/change, so opening a report never triggers a spurious save.
 (function wireAutoSave() {
   function attach() {
-    [['section-0', 0], ['section-1', 1], ['section-2', 2], ['section-3', 3]].forEach(([elId, n]) => {
+    [['section-0', 0], ['section-1', 1], ['section-2', 2], ['section-3', 3], ['section-4', 4]].forEach(([elId, n]) => {
       const el = document.getElementById(elId);
       if (el) ['input', 'change'].forEach(ev => el.addEventListener(ev, () => scheduleAutoSave(n)));
     });
@@ -4703,6 +4836,26 @@ window.addEventListener('beforeunload', (e) => {
 // ══════════════════════════════════════════════════════════════════
 async function submitReport() {
   if (!currentReport) return;
+  // Send the notes first — after submission only a super_admin may write them.
+  // autoSaveSection() returns early (timer already cleared) while another save is
+  // in flight, which would silently drop the notes: wait for the in-flight save
+  // (bounded), then save tab 4 whenever a debounce was pending or the notes differ
+  // from what the server has.
+  for (let i = 0; _autoSaveBusy && i < 50; i++) await new Promise(r => setTimeout(r, 100));
+  if (_autoSaveBusy) { toast('Une sauvegarde est encore en cours — réessayez dans un instant.', 'error'); return; }
+  const _arSaved = currentReport.asset_review || {};
+  const _arNow = collectAssetReview();
+  if (_autoSaveTimers[4] || (_assetFollowups && (_arNow.handled_note.trim() !== (_arSaved.handled_note || '') || _arNow.plan_note.trim() !== (_arSaved.plan_note || '')))) {
+    clearTimeout(_autoSaveTimers[4]); _autoSaveTimers[4] = null;
+    try {
+      _autoSaveBusy = true;
+      currentReport.asset_review = await api('PUT', `/api/reports/${currentReport.id}/asset-review`, _arNow);
+    } catch (e) { toast('Parc informatique non enregistré : ' + e, 'error'); return; }
+    finally { _autoSaveBusy = false; }
+  }
+  if (_assetFollowups && _assetFollowups.applicable && !_assetNotesFilled()) {
+    if (!confirm("La section Parc informatique n'est pas renseignée — elle apparaîtra comme « non renseigné » dans le rapport.\n\nSoumettre quand même ?")) return;
+  }
   try {
     await api('PUT', `/api/reports/${currentReport.id}/status`, { status: 'submitted' });
     currentReport.status = 'submitted';
@@ -4710,6 +4863,7 @@ async function submitReport() {
     updateStatusBar();
     loadAuditLog();
     toast('Report submitted ✅', 'success');
+    try { currentReport = await api('GET', `/api/reports/${currentReport.id}`); loadAssetFollowups(); } catch (_) {}
   } catch(e) { toast('Submit failed: ' + e, 'error'); }
 }
 
