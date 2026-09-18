@@ -1,10 +1,10 @@
 # Asset engagement in the weekly report + asset reminder e-mails — design
 
-Date: 2026-09-17 · Status: approved in conversation, revised after spec review (rev 3)
+Date: 2026-09-17 · Status: approved in conversation, revised after spec review (rev 4 — no submission block)
 
 ## 1. Goal
 
-Make site asset follow-up a **required part of the coordinator's weekly report** and
+Make site asset follow-up a **visible part of the coordinator's weekly report** and
 **remind the people who fix the register** about four worklists:
 
 1. **New** hardware detected in a given window;
@@ -20,7 +20,7 @@ Lists 3 and 4 cover only states `In Use`, `In Store`, `In Repair`.
 
 | Topic | Decision |
 |---|---|
-| Constraint | A **mandatory "Parc informatique" tab** in the weekly report; the server refuses `submitted` while its two notes are empty |
+| Constraint | A **"Parc informatique" tab** in the weekly report. **No submission block** (user decision 2026-09-18): an empty tab is not refused, it is shown as "non renseigné" in the weekly e-mail and discussed in the meeting |
 | Recipients | New **asset manager** contact per site (name, e-mail, confirmed flag); reminder → confirmed asset manager, confirmed coordinator in copy; no confirmed asset manager → confirmed coordinator alone |
 | Cadence | **Weekly recap per site, Monday 07:00**, plus a **same-day "new hardware" alert** after the nightly sync (max one per site per day) |
 | New-hardware detection | New first-sightings table, baseline on first successful run |
@@ -127,7 +127,7 @@ no_cost: [], no_date: [], generated_at }`.
   for `new`. **No amount is returned.**
 - Empty `labels` → all counts 0 and empty lists.
 
-### 4.2 Mandatory "Parc informatique" tab (weekly reports)
+### 4.2 "Parc informatique" tab (weekly reports)
 
 **Storage** — reports DB: sqlite in `_initSchema`; pg in a new
 `db/postgres/reports/012_report_asset_review.sql` added to the `initPgReports` list:
@@ -165,30 +165,31 @@ labels → `applicable: false` (e.g. Exploration, Tanda).
   `{ handled_note, plan_note }` trimmed; the server recomputes `applicable` and
   `counts_json` and freezes them (client counts ignored).
 
-**Submission rule** — in `PUT /api/reports/:id/status` when the target is `submitted`
-**and the current status is not already `submitted`** (a re-submit never re-freezes):
-recompute and freeze `applicable`/`counts_json`; if `applicable` and either note is empty
-→ `400 { error: 'Parc informatique : remplissez « Traité cette semaine » et « Plan / blocages » avant de soumettre.' }`.
-If the assets layer throws, the counts are stored as `null`, `applicable` is taken as
-false for this check, and submission proceeds (an outage must not block coordinators).
-`ready` is never gated. Reports already `submitted` are not re-checked. Reports still in
-draft / in progress / ready at deploy time must get the two notes before submission.
+**Freeze at submission (no block)** — in `PUT /api/reports/:id/status` when the target is
+`submitted` **and the current status is not already `submitted`** (a re-submit never
+re-freezes): recompute and freeze `applicable`/`counts_json` (upsert, notes untouched).
+The submission is **never refused** because of this tab: empty notes are allowed and are
+shown as "non renseigné" wherever the review is displayed (weekly e-mail, editor). If the
+assets layer throws, `counts_json` is stored as `null` and the submission proceeds.
+`ready` is untouched.
 
 **Editor (`reports.html`)**
 - weekly tab `stab-4` "5 · Parc informatique": 4 counters with the change vs
   `previous_counts`, per-counter link to `assets.html` filtered on the site, the lists
-  (collapsible), two required textareas, autosave like other sections;
+  (collapsible), two textareas (not required), autosave like other sections;
 - non-applicable site → "Aucun matériel rattaché à ce site", tab counts as done;
 - `done` on load when both notes are filled or the site is not applicable;
 - `_afterSectionSaved` counts `#section-tabs .section-tab.done` inside the weekly editor
   container only (monthly editor unchanged); auto-`ready` needs 5 done tabs. This makes the
   existing auto-`ready` actually work — expect more "complete but not submitted" reports
   in the weekly e-mail flow;
-- `submitReport` needs no change: `api()` already surfaces the server `error`, shown as
-  "Submit failed: Parc informatique : …".
+- `submitReport` unchanged. When the tab is applicable and a note is empty, the Submit
+  confirmation mentions it ("La section Parc informatique n'est pas renseignée — elle
+  apparaîtra comme « non renseigné » dans le rapport") but lets the coordinator submit.
 
 **Weekly e-mail** — `weeklyReportData` includes `asset_review`; `assetsSection` shows the
-frozen four counts and the two notes under the existing live hygiene counts. Absent
+frozen four counts and the two notes under the existing live hygiene counts; an empty
+note on an applicable site is rendered "non renseigné" (visible for the meeting). Absent
 `asset_review` → unchanged output. Monthly goldens stay byte-identical.
 
 ### 4.3 Asset manager contact
@@ -248,8 +249,8 @@ the weekly schedule row, per-site Preview, Send now. Route `POST /api/reports/as
   window bounds, baseline excluded, multi-label site, asset since removed); no amount keys.
 - Report review: upsert, server-side freeze, write auth, read rule (admin+, same site,
   no-site 403), delete cascade, `getReport` both forks.
-- Status route: empty notes → 400; filled → 200; non-applicable → 200; assets layer
-  throwing → 200; `ready` never gated; re-submitting an already submitted report keeps the frozen counts.
+- Status route: empty notes → 200 and counts frozen; filled → 200; non-applicable → 200;
+  assets layer throwing → 200 with null counts; re-submitting an already submitted report keeps the frozen counts.
 - Editor counting: weekly container only (static/DOM test).
 - Weekly e-mail with and without `asset_review`; monthly goldens byte-identical.
 - Directory: new columns persisted through `upsertRecipient`; `asset_manager` resolution
