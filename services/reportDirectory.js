@@ -5,7 +5,8 @@
 // "no confirmed email → no send" safety rule.
 
 const COLS = ['site_name', 'coordinator_name', 'coordinator_email', 'coordinator_email_confirmed',
-  'fm_name', 'fm_email', 'fm_email_confirmed', 'cc_emails', 'active'];
+  'fm_name', 'fm_email', 'fm_email_confirmed', 'cc_emails', 'active',
+  'asset_manager_name', 'asset_manager_email', 'asset_manager_email_confirmed'];
 
 function _h(db) {
   const rdb = require('../reports-db');
@@ -24,6 +25,11 @@ function _initSchema(db) {
     cc_emails TEXT, active INTEGER DEFAULT 1,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_by TEXT
   );`);
+  // Asset engagement (2026-09-18) — per-site asset manager. sqlite has no ADD COLUMN
+  // IF NOT EXISTS → plain ALTER in try/catch (duplicate column = already migrated).
+  for (const c of ['asset_manager_name TEXT', 'asset_manager_email TEXT', 'asset_manager_email_confirmed INTEGER DEFAULT 0']) {
+    try { db.exec(`ALTER TABLE report_recipients ADD COLUMN ${c}`); } catch (_) { /* already present */ }
+  }
   _inited.add(db);
 }
 
@@ -62,8 +68,10 @@ function resolveFromRows(rows, siteCode, kind, { neverSendUnconfirmed = true } =
   if (!want) return null;
   const row = (rows || []).find(r => String(r.site_code || '').toLowerCase() === want);
   if (!row) return null;
-  const email = kind === 'fm' ? row.fm_email : row.coordinator_email;
-  const confirmed = kind === 'fm' ? row.fm_email_confirmed : row.coordinator_email_confirmed;
+  const F = { fm: ['fm_email', 'fm_email_confirmed'], asset_manager: ['asset_manager_email', 'asset_manager_email_confirmed'] }[kind]
+    || ['coordinator_email', 'coordinator_email_confirmed'];
+  const email = row[F[0]];
+  const confirmed = row[F[1]];
   if (!email || (neverSendUnconfirmed && !confirmed)) return null;
   const cc = String(row.cc_emails || '').split(',').map(s => s.trim()).filter(Boolean);
   return { to: email, cc };

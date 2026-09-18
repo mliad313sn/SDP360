@@ -93,3 +93,28 @@ test('suggestFromMeetings throws loudly when the reader has no getSiteContacts',
   const db = freshDb();
   await assert.rejects(() => dir.suggestFromMeetings(db, ['HGO'], {}, 'system'));
 });
+
+test('asset manager columns persist through upsertRecipient', () => {
+  const db = freshDb();
+  dir.upsertRecipient(db, 'HGO', { asset_manager_name: 'Awa', asset_manager_email: 'awa@edv-ops.com', asset_manager_email_confirmed: 1 }, 'a');
+  const r = dir.listRecipients(db)[0];
+  assert.deepStrictEqual([r.asset_manager_name, r.asset_manager_email, r.asset_manager_email_confirmed], ['Awa', 'awa@edv-ops.com', 1]);
+});
+
+test('asset_manager resolves only when confirmed', () => {
+  const rows = [{ site_code: 'HGO', asset_manager_email: 'am@x', asset_manager_email_confirmed: 1, coordinator_email: 'c@x', coordinator_email_confirmed: 1, cc_emails: '' }];
+  assert.deepStrictEqual(dir.resolveFromRows(rows, 'HGO', 'asset_manager'), { to: 'am@x', cc: [] });
+  rows[0].asset_manager_email_confirmed = 0;
+  assert.strictEqual(dir.resolveFromRows(rows, 'HGO', 'asset_manager'), null, 'unconfirmed never used');
+  assert.deepStrictEqual(dir.resolveFromRows(rows, 'HGO', 'coordinator'), { to: 'c@x', cc: [] }, 'coordinator fallback still resolves');
+});
+
+test('an existing pre-asset-manager table is migrated by _initSchema', () => {
+  const db = new Database(':memory:');
+  db.exec(`CREATE TABLE report_recipients (site_code TEXT PRIMARY KEY, site_name TEXT, coordinator_name TEXT, coordinator_email TEXT,
+    coordinator_email_confirmed INTEGER DEFAULT 0, fm_name TEXT, fm_email TEXT, fm_email_confirmed INTEGER DEFAULT 0,
+    cc_emails TEXT, active INTEGER DEFAULT 1, updated_at TIMESTAMP, updated_by TEXT)`);
+  dir._initSchema(db);
+  dir.upsertRecipient(db, 'MGO', { asset_manager_email: 'x@y' }, 'a');
+  assert.strictEqual(dir.listRecipients(db)[0].asset_manager_email, 'x@y');
+});
