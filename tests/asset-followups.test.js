@@ -29,7 +29,8 @@ adb.replaceTable('assets', COLS, [
   { ...ok, asset_id: 'X1', asset_name: 'Other-site', site: 'MANA', user_name: '', department: '' },     // other site
 ]);
 adb.recordAssetSightings({ asOf: '2026-07-28' });
-// N1 later removed from the register: keep its first-seen row, then drop it from assets.
+// GONE: simulates an asset removed from the register after being first seen — its
+// asset_first_seen row exists but it was never inserted into `assets`.
 adb.getDB().prepare(`INSERT INTO asset_first_seen (asset_id, site, first_seen_date, baseline) VALUES ('GONE','Hounde','2026-07-28',0)`).run();
 
 const W = { newFrom: '2026-07-26', newTo: '2026-08-01' };
@@ -40,9 +41,7 @@ test('each list follows its predicate (trim, states, all product types)', () => 
   assert.deepStrictEqual(ids(f.unassigned), ['U1']);
   assert.deepStrictEqual(ids(f.no_cost), ['C1', 'C2']);
   assert.deepStrictEqual(ids(f.no_date), ['D1']);
-  assert.deepStrictEqual(ids(f.new).includes('N1'), true);
-  assert.ok(!ids(f.new).includes('B1'), 'baseline rows are never new');
-  assert.ok(!ids(f.new).includes('GONE'), 'an asset since removed from the register is not listed');
+  assert.deepStrictEqual(ids(f.new), ['C1', 'C2', 'C3', 'D1', 'D2', 'N1', 'U1', 'U2', 'U3']);
   assert.deepStrictEqual(f.counts, { new: f.new.length, unassigned: 1, no_cost: 2, no_date: 1 });
   assert.match(f.generated_at, /^\d{4}-\d{2}-\d{2}T/);
 });

@@ -40,7 +40,7 @@ test('pg: sightings — empty no-op, baseline, new id, idempotent', async (t) =>
   assert.strictEqual(a1.first_seen_date, '2026-07-20');
 });
 
-test('pg: followups — predicates, window, no amounts', async (t) => {
+test('pg: followups — predicates, window, no amounts (depends on the sightings test running first)', async (t) => {
   const a = await boot();
   if (!a) return t.skip('Postgres unreachable');
   await a.replaceTable('assets', COLS, [

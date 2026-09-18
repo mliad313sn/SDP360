@@ -1155,9 +1155,9 @@ function _followupQueries(labels, opts) {
   const L = (labels || []).map(v => String(v == null ? '' : v)).filter(Boolean);
   const ph = L.map(() => '?').join(', ');
   const q = {
-    unassigned: { sql: `SELECT ${_FOLLOWUP_COLS} FROM assets a WHERE (${FOLLOWUP_UNASSIGNED}) AND a.site IN (${ph}) ORDER BY a.asset_name`, params: L },
-    no_cost:    { sql: `SELECT ${_FOLLOWUP_COLS} FROM assets a WHERE (${FOLLOWUP_NO_COST}) AND a.site IN (${ph}) ORDER BY a.asset_name`, params: L },
-    no_date:    { sql: `SELECT ${_FOLLOWUP_COLS} FROM assets a WHERE (${FOLLOWUP_NO_DATE}) AND a.site IN (${ph}) ORDER BY a.asset_name`, params: L },
+    unassigned: { sql: `SELECT ${_FOLLOWUP_COLS} FROM assets a WHERE (${FOLLOWUP_UNASSIGNED}) AND a.site IN (${ph}) ORDER BY COALESCE(a.asset_name,''), a.asset_id`, params: L },
+    no_cost:    { sql: `SELECT ${_FOLLOWUP_COLS} FROM assets a WHERE (${FOLLOWUP_NO_COST}) AND a.site IN (${ph}) ORDER BY COALESCE(a.asset_name,''), a.asset_id`, params: L },
+    no_date:    { sql: `SELECT ${_FOLLOWUP_COLS} FROM assets a WHERE (${FOLLOWUP_NO_DATE}) AND a.site IN (${ph}) ORDER BY COALESCE(a.asset_name,''), a.asset_id`, params: L },
   };
   const { newFrom, newTo } = opts || {};
   if (newFrom && newTo) {
@@ -1165,7 +1165,7 @@ function _followupQueries(labels, opts) {
       sql: `SELECT ${_FOLLOWUP_COLS}, f.first_seen_date FROM asset_first_seen f
             JOIN assets a ON a.asset_id = f.asset_id
             WHERE f.baseline = 0 AND f.first_seen_date BETWEEN ? AND ? AND a.site IN (${ph})
-            ORDER BY f.first_seen_date, a.asset_name`,
+            ORDER BY f.first_seen_date, COALESCE(a.asset_name,''), a.asset_id`,
       params: [newFrom, newTo, ...L],
     };
   }
