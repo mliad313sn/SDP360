@@ -23,6 +23,11 @@ test('directory modal carries the asset manager fields and submits them', () => 
   assert.match(src, /asset_manager_email_confirmed: document\.getElementById\('rcp-am-confirmed'\)\.checked \? 1 : 0/);
 });
 
+test('a sent-but-not-logged result is shown as such, with its reason', () => {
+  assert.ok(src.includes('envoyé (journal non écrit)'));
+  assert.match(src, /x\.logFailed/);
+});
+
 test('route + schedule row wiring', () => {
   assert.ok(src.includes('/api/reports/asset-reminders/send'));
   assert.ok(src.includes("saveScheduleRow('asset_reminder','weekly')"));

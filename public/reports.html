@@ -8095,7 +8095,9 @@ function _armRender(r, previewing) {
   if (r && r.reason && !(r.results || r.previews)) { box.innerHTML = `<div style="background:#FFFBEB;color:#92400E;padding:9px 11px;border-radius:6px;font-size:0.85rem">${previewing ? 'Preview' : 'Not sent'} — ${esc(r.reason)}</div>`; return; }
   const ok = ((r && r.previews) || []).map(p => `<li><strong>${esc(p.site)}</strong> — <span style="color:#065F46">prêt</span> → ${esc(p.to)}${p.cc ? ' (cc ' + esc(p.cc) + ')' : ''} · ${esc(p.subject)}</li>`);
   const rest = ((r && r.results) || []).map(x => x.ok
-    ? `<li><strong>${esc(x.site)}</strong> — <span style="color:#065F46">envoyé</span> → ${esc(x.to || '')}</li>`
+    ? (x.logFailed
+      ? `<li><strong>${esc(x.site)}</strong> — <span style="color:#92400E">envoyé (journal non écrit)</span> → ${esc(x.to || '')}${x.reason ? ' · ' + esc(x.reason) : ''}</li>`
+      : `<li><strong>${esc(x.site)}</strong> — <span style="color:#065F46">envoyé</span> → ${esc(x.to || '')}</li>`)
     : `<li><strong>${esc(x.site)}</strong> — <span style="color:#92400E">${esc(x.reason || 'ignoré')}</span></li>`);
   const li = ok.concat(rest).join('');
   box.innerHTML = li ? `<ul style="margin:6px 0 0;padding-left:18px;font-size:0.85rem;line-height:1.6">${li}</ul>` : '<div style="color:#6b7a99;font-style:italic">Aucun site.</div>';
