@@ -110,3 +110,55 @@ test('--type parsing from args', async () => {
   const bad = stub({ type: undefined, args: { type: 'nope' } });
   await assert.rejects(() => cli.main(bad.deps), /unknown --type/);
 });
+
+test('dedup lookup is keyed (asset_reminder, site, Zoho week label)', async () => {
+  const calls = [];
+  const { deps } = stub({ alreadySentToday: async (db, type, site, period) => { calls.push([type, site, period]); return false; } });
+  await cli.main(deps);
+  assert.deepStrictEqual(calls[0], ['asset_reminder', 'HGO', 'W30 2026']);
+});
+
+test('per-site isolation: loadFollowups rejects for one site, the other still sends', async () => {
+  const { deps, cap } = stub({
+    loadFollowups: async (labels) => { if (labels[0] === 'L-HGO') throw new Error('assets db down'); return labels[0] === 'L-SMI' ? EMPTY : FULL; },
+  });
+  const r = await cli.main(deps);
+  assert.match(r.results.find(x => x.site === 'HGO').reason, /^error: assets db down/);
+  assert.strictEqual(r.sent, 1);
+  assert.deepStrictEqual(cap.records.map(x => x.site_code), ['MGO']);
+  assert.strictEqual(cli.hasFailures(r), true, 'the CLI exits 1 on an error row');
+});
+
+test('SMTP not configured (real mailer) → one reason, nothing logged per site', async () => {
+  const { deps, cap } = stub({ mailerSend: undefined, cfg: { asset_reminder_send_enabled: '1', smtp_host: '' } });
+  const r = await cli.main(deps);
+  assert.deepStrictEqual([r.sent, r.reason, cap.records.length], [0, 'smtp not configured', 0]);
+  assert.strictEqual(r.results, undefined, 'no per-site fail rows');
+});
+
+test('mail sent but record() throws → "sent, log failed", counted as sent, flagged', async () => {
+  let n = 0;
+  const { deps } = stub({ record: async () => { if (n++ === 0) throw new Error('log db down'); } });
+  const r = await cli.main(deps);
+  const hgo = r.results.find(x => x.site === 'HGO');
+  assert.deepStrictEqual([hgo.ok, hgo.reason], [true, 'sent, log failed']);
+  assert.strictEqual(r.sent, 2);
+  assert.strictEqual(cli.hasFailures(r), true);
+});
+
+test('parseArgs flags: --preview=0 is off, bare --preview on; --type with no value is an error', async () => {
+  const off = stub({ type: undefined, args: cli.parseArgs(['--preview=0']), cfg: { asset_reminder_send_enabled: '0' } });
+  assert.strictEqual((await cli.main(off.deps)).reason, 'disabled');
+  const on = stub({ type: undefined, args: cli.parseArgs(['--preview']), cfg: { asset_reminder_send_enabled: '0' } });
+  assert.strictEqual((await cli.main(on.deps)).previewed, true);
+  for (const argv of [['--type'], ['--type=']]) {
+    const bad = stub({ type: undefined, args: cli.parseArgs(argv) });
+    await assert.rejects(() => cli.main(bad.deps), /--type needs a value/);
+  }
+});
+
+test('hasFailures: skips and clean sends are not failures', () => {
+  assert.strictEqual(cli.hasFailures({ results: [{ ok: true }, { ok: false, reason: 'nothing to report' }, { ok: false, reason: 'already sent today' }] }), false);
+  assert.strictEqual(cli.hasFailures({ results: [{ ok: false, reason: 'send failed: smtp' }] }), true);
+  assert.strictEqual(cli.hasFailures({ sent: 0, reason: 'disabled' }), false);
+});

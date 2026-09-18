@@ -37,16 +37,23 @@ async function _defaultLoadSiteLabels(assetsDb, code) {
   return labelsForCode(lookups.sites, code, assetLabelToCode);
 }
 
+// Bare `--x` parses to {x: undefined} — present means ON unless it says 0/false.
+function _flag(args, name) {
+  return (name in args) && args[name] !== '0' && args[name] !== 'false';
+}
+
 function parseArgs(argv) {
   return Object.fromEntries((argv || []).map(a => a.replace(/^--/, '').split('=')));
 }
 
 async function main(deps = {}) {
   const args = deps.args || {};
+  // A bare `--type` (or `--type=`) is a typo, not "use the default".
+  if (!deps.type && ('type' in args) && !String(args.type || '').trim()) throw new Error('--type needs a value (asset_reminder | asset_new_alert)');
   const type = deps.type || args.type || 'asset_reminder';
   if (!TYPES[type]) throw new Error(`unknown --type "${type}" (asset_reminder | asset_new_alert)`);
-  const preview = deps.preview !== undefined ? !!deps.preview : ('preview' in args);
-  const force = deps.force !== undefined ? !!deps.force : (('force' in args) && args.force !== '0' && args.force !== 'false');
+  const preview = deps.preview !== undefined ? !!deps.preview : _flag(args, 'preview');
+  const force = deps.force !== undefined ? !!deps.force : _flag(args, 'force');
   const onlySite = String(deps.site || args.site || '').trim().toUpperCase() || null;
 
   // Boot only what was not injected. The pg init lives in the CLI entrypoint
@@ -85,6 +92,15 @@ async function main(deps = {}) {
   const loadFollowups = deps.loadFollowups || ((labels, w) => getAdb().getSiteAssetFollowups(labels, w));
   const alreadySentToday = deps.alreadySentToday || require('../../services/reportSentLog').alreadySentToday;
   const record = deps.record || require('../../services/reportSentLog').record;
+  // SMTP not configured → stop before the loop (one clear reason, not one 'fail'
+  // row per site). Only when WE build the mailer; an injected sender is trusted.
+  if (!deps.mailerSend && !preview) {
+    const smtpErr = require('../../services/mailer').smtpConfigError(cfg);
+    if (smtpErr) {
+      console.warn(`[send-asset-reminders] type=${type} → not sending (smtp not configured: ${smtpErr})`);
+      return { type, sent: 0, reason: 'smtp not configured', period };
+    }
+  }
   const mailerSend = deps.mailerSend || (msg => require('../../services/mailer').buildMailer(cfg).send(msg));
   const { buildAssetRecap, buildNewAssetAlert } = require('../../services/assetReminderReport');
   const neverUnconfirmed = String(cfg.never_send_unconfirmed ?? '1') !== '0';
@@ -114,10 +130,18 @@ async function main(deps = {}) {
       if (!force && await alreadySentToday(db, type, site, period)) { results.push({ site, ok: false, reason: 'already sent today' }); continue; }
       const res = await mailerSend({ to: rcpt.to, cc: rcpt.cc.length ? rcpt.cc.join(',') : undefined, subject: msg.subject, html: msg.html, attachments: msg.attachments });
       const ok = !!(res && res.ok);
+      if (ok) sent++;
       // 'resent' for a forced re-send (traceable, and still counted by alreadySentToday
       // — see the report_sent_log vocabulary pitfall); 'fail' stays retryable.
-      await record(db, { report_type: type, site_code: site, period, recipients: [rcpt.to, ...rcpt.cc].join(','), result: ok ? (force ? 'resent' : 'ok') : 'fail' });
-      if (ok) sent++;
+      try {
+        await record(db, { report_type: type, site_code: site, period, recipients: [rcpt.to, ...rcpt.cc].join(','), result: ok ? (force ? 'resent' : 'ok') : 'fail' });
+      } catch (e) {
+        console.error(`[send-asset-reminders] log failed site=${site} reason=${e.message}`);
+        // The mail DID go out — say so, separately from a send error (a retry would
+        // re-send it, since dedup never saw this row).
+        if (ok) { results.push({ site, ok: true, to: rcpt.to, logFailed: true, reason: 'sent, log failed' }); continue; }
+        throw e;
+      }
       results.push(ok ? { site, ok: true, to: rcpt.to } : { site, ok: false, reason: 'send failed: ' + ((res && res.error) || 'unknown') });
     } catch (e) {
       console.error(`[send-asset-reminders] FAIL site=${site} reason=${e.message}`);
@@ -127,6 +151,13 @@ async function main(deps = {}) {
   if (preview) return { type, previewed: true, sent: 0, period, previews, results };
   console.log(`[send-asset-reminders] DONE type=${type} period=${period} → sent=${sent}`);
   return { type, sent, period, results };
+}
+
+// A run "failed" when any site ended with a send failure, an error, or a mail that
+// went out but could not be logged (dedup is then blind to it). Skips are not failures.
+function hasFailures(r) {
+  return ((r && r.results) || []).some(x => x.logFailed
+    || /^send failed|^error:/.test(String(x.reason || '')));
 }
 
 // CLI-only boot: open the pg pools once, then hand the initialised modules to the
@@ -144,7 +175,8 @@ if (require.main === module) {
     const handles = await bootForCli();
     const r = await main({ ...handles, args: parseArgs(process.argv.slice(2)) });
     if (r && r.previewed) console.log(JSON.stringify(r.previews, null, 2));
-  })().then(() => process.exit(0)).catch(e => { console.error('[send-asset-reminders] fatal:', e.message); process.exit(1); });
+    return hasFailures(r) ? 1 : 0;
+  })().then((code) => process.exit(code)).catch(e => { console.error('[send-asset-reminders] fatal:', e.message); process.exit(1); });
 }
 
-module.exports = { decideReminderSend, recipientsFor, main, parseArgs, TYPES };
+module.exports = { decideReminderSend, recipientsFor, main, parseArgs, hasFailures, TYPES };
