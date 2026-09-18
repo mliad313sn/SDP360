@@ -187,7 +187,7 @@ async function afterAssetsSync(summary, { sendAlerts = false, deps = {} } = {}) 
   const snapshotEffort = deps.snapshotEffort || (() => adb().snapshotEffort({}));
   const recordAssetSightings = deps.recordAssetSightings || (() => adb().recordAssetSightings({}));
   const sendNewAssetAlerts = deps.sendNewAssetAlerts || (() => require('./tools/reports/send-asset-reminders').main({
-    type: 'asset_new_alert', reportsDb: require('./reports-db'), assetsDb: adb(),
+    type: 'asset_new_alert', args: {}, reportsDb: require('./reports-db'), db: require('./reports-db').db, assetsDb: adb(),
   }));
   const out = { effort: null, sightings: null, alerts: null };
   try { out.effort = await snapshotEffort(); }

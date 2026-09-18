@@ -2599,6 +2599,34 @@ app.post('/api/reports/asset-group/send', requireReportSession, requireSuperAdmi
   }
 });
 
+// POST /api/reports/asset-reminders/send?type=asset_reminder|asset_new_alert&site=CODE&preview=1|0&force=1
+// Admin Preview / Send-now for the asset engagement reminders (weekly recap per
+// site · same-day new-hardware alert). Its OWN route (never SEND_TYPES —
+// /api/reports/send hardcodes the coordinator composer, so whitelisting a type
+// there would mail wrong content + poison dedup). Disarm-safe: a disabled config
+// returns {sent:0, reason:'disabled'}; preview ignores the gate and never mails
+// or logs. Injects the already-loaded reportsDb/assetsDb handles so the CLI core
+// never re-runs initPgReports()/initPgAssets() in-process.
+app.post('/api/reports/asset-reminders/send', requireReportSession, requireSuperAdmin, async (req, res) => {
+  const _truthy = v => v === '1' || v === 1 || v === true || v === 'true';
+  const type = String(req.query.type || req.body?.type || 'asset_reminder');
+  if (!['asset_reminder', 'asset_new_alert'].includes(type)) {
+    return res.status(400).json({ error: 'type must be asset_reminder or asset_new_alert' });
+  }
+  const preview = _truthy(req.query.preview) || _truthy(req.body?.preview);
+  const force = _truthy(req.query.force) || _truthy(req.body?.force);
+  const site = String(req.query.site || req.body?.site || '').trim() || undefined;
+  try {
+    const assetsDb = require('./assets-db');
+    res.json(await require('./tools/reports/send-asset-reminders').main({
+      type, site, preview, force, args: {}, reportsDb: rdb, db: rdb.db, assetsDb,
+    }));
+  } catch (e) {
+    console.error('[api/reports/asset-reminders/send]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── ASSETS · HARDWARE HEALTH (sub-project D) ─────────────────────────────
 // Fleet fitness views over the enriched inventory: low RAM, full system disk,
 // refresh-due, and workstations with no real monitor. Same session guard + same
