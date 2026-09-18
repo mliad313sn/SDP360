@@ -3894,11 +3894,13 @@ async function _getReportAssetReviewPg(report_id) {
 function saveReportAssetReview(report_id, patch, user) {
   if (REPORTS_BACKEND === 'postgres') return _saveReportAssetReviewPg(report_id, patch, user);
   const p = _assetReviewPatch(patch), cols = Object.keys(p);
+  if (!cols.length) return getReportAssetReview(report_id);   // empty patch must never create a row
   db.prepare(_assetReviewUpsertSql(cols)).run(report_id, ...cols.map(c => p[c]), user || 'unknown', new Date().toISOString());
   return getReportAssetReview(report_id);
 }
 async function _saveReportAssetReviewPg(report_id, patch, user) {
   const p = _assetReviewPatch(patch), cols = Object.keys(p);
+  if (!cols.length) return await _getReportAssetReviewPg(report_id);   // empty patch must never create a row
   await pgHandle().prepare(_assetReviewUpsertSql(cols)).run(report_id, ...cols.map(c => p[c]), user || 'unknown', new Date().toISOString());
   return _getReportAssetReviewPg(report_id);
 }

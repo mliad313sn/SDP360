@@ -16,6 +16,12 @@ test('no row → getReportAssetReview null, getReport.asset_review null', () => 
   assert.strictEqual(rdb.getReport(rep.id).asset_review, null);
 });
 
+test('empty patch on a report with no row leaves null', () => {
+  const fresh = rdb.ensureReport(site.id, 2026, 32);
+  rdb.saveReportAssetReview(fresh.id, {}, 'system');
+  assert.strictEqual(rdb.getReportAssetReview(fresh.id), null);
+});
+
 test('upsert notes then freeze counts — neither clobbers the other', () => {
   rdb.saveReportAssetReview(rep.id, { handled_note: 'Tagged 3 PCs', plan_note: 'Order labels' }, 'coord');
   rdb.saveReportAssetReview(rep.id, { applicable: true, counts: { new: 2, unassigned: 1, no_cost: 0, no_date: 4 } }, 'system');
@@ -24,6 +30,15 @@ test('upsert notes then freeze counts — neither clobbers the other', () => {
     { applicable: r.applicable, counts: r.counts, handled_note: r.handled_note, plan_note: r.plan_note, updated_by: r.updated_by },
     { applicable: true, counts: { new: 2, unassigned: 1, no_cost: 0, no_date: 4 }, handled_note: 'Tagged 3 PCs', plan_note: 'Order labels', updated_by: 'system' });
   assert.match(r.updated_at, /^\d{4}-\d{2}-\d{2}T/);
+});
+
+test('a patch with only `applicable` leaves counts and notes untouched', () => {
+  rdb.saveReportAssetReview(rep.id, { applicable: false }, 'coord');
+  const r = rdb.getReportAssetReview(rep.id);
+  assert.strictEqual(r.applicable, false);
+  assert.deepStrictEqual(r.counts, { new: 2, unassigned: 1, no_cost: 0, no_date: 4 });
+  assert.strictEqual(r.handled_note, 'Tagged 3 PCs');
+  assert.strictEqual(r.plan_note, 'Order labels');
 });
 
 test('counts:null is stored as null; applicable:false round-trips', () => {
