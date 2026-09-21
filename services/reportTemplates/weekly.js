@@ -413,7 +413,7 @@ const HYGIENE_LABELS = {
   no_owner:             'Sans propri&eacute;taire',
   no_age:               'Sans date d&rsquo;acquisition',
   no_cost:              'Sans co&ucirc;t',
-  no_asset_tag:         'Sans &eacute;tiquette',
+  no_asset_tag:         'Sans QR code',
   lifecycle_exception:  'Exception de cycle de vie',
 };
 
@@ -502,7 +502,13 @@ function assetsSection(assets, review, status) {
 
   const countCell = (k) => `<span style="color:${PARC};font-weight:bold;">${escapeHtml(num(hygiene[k]))}</span>`;
 
-  const kinds = Object.keys(hygiene).filter((k) => num(hygiene[k]) > 0);
+  // When the coordinator's tab counters are present they are THE figures for QR
+  // code / date / cost / user (active states only, 2026-09-21). The hygiene kinds
+  // that measure the same thing on a different scope (all states) would print a
+  // second, different number for the same question — so they are dropped here.
+  const reviewHtml = assetReviewBlock(review, status);
+  const OVERLAP = new Set(['no_owner', 'no_age', 'no_cost', 'no_asset_tag']);
+  const kinds = Object.keys(hygiene).filter((k) => num(hygiene[k]) > 0 && !(reviewHtml && OVERLAP.has(k)));
   const list = kinds.length
     ? bulletList(kinds.map((k) => {
       const label = HYGIENE_LABELS[k] || escapeHtml(String(k).replace(/_/g, ' '));
@@ -517,9 +523,17 @@ function assetsSection(assets, review, status) {
     ], { tint: PARC_TINT, accent: PARC })
     : '';
 
+  if (reviewHtml) {
+    // Counters + notes first (what the meeting discusses), then the other
+    // data-quality gaps; nothing at all when there are none left.
+    const rest = kinds.length
+      ? `<div style="padding-top:12px;">${staticNote('Autres &eacute;carts de qualit&eacute; des donn&eacute;es &mdash; &agrave; corriger dans l&rsquo;inventaire.')}<div style="padding-top:8px;">${list}</div></div>`
+      : '';
+    return bandCard('Parc informatique', `${effortBlock}${reviewHtml}${rest}`, PARC);
+  }
   const intro = staticNote('Qualit&eacute; des donn&eacute;es du parc informatique &mdash; &agrave; corriger dans l&rsquo;inventaire, ind&eacute;pendamment du rapport ci-dessus.');
 
-  return bandCard('Parc informatique', `${effortBlock}${intro}<div style="padding-top:8px;">${list}</div>${assetReviewBlock(review, status)}`, PARC);
+  return bandCard('Parc informatique', `${effortBlock}${intro}<div style="padding-top:8px;">${list}</div>`, PARC);
 }
 
 function footer(data) {

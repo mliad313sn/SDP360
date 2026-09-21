@@ -432,3 +432,22 @@ test('parc counters are neutral (no previous-week counts reach the e-mail) and n
   assert.match(htmlBody, /color:#64748B;[^>]*>—</, 'null count → neutral dash');
   assert.ok(!/#16A34A|#D97706|#DC2626/i.test(htmlBody), 'no trend colour without a previous week');
 });
+
+// 2026-09-21: with the coordinator's counters present, the hygiene kinds that ask
+// the same question on another scope (owner / date / cost / QR) are not printed a
+// second time; the other data-quality gaps stay, after the counters.
+test('Parc informatique: overlapping hygiene kinds dropped when the tab counters are present', () => {
+  const f = fixture();
+  f.assets = { hygiene: { no_owner: 14, no_age: 9, no_cost: 8, no_asset_tag: 7, never_scanned: 3 }, effort: null };
+  f.report.asset_review = { applicable: true, counts: { no_tag: 35, no_date: 230, no_cost: 245, unassigned: 213 }, handled_note: 'x', plan_note: 'y' };
+  const html = composeWeekly(f).htmlBody;
+  assert.ok(!/Sans propri&eacute;taire/.test(html), 'no_owner not repeated');
+  assert.ok(html.includes('Jamais scann&eacute;s'), 'other gaps kept');
+  assert.ok(html.indexOf('Sans QR code') < html.indexOf('Jamais scann&eacute;s'), 'counters first');
+  assert.strictEqual((html.match(/Sans QR code/g) || []).length, 1, 'QR code shown once');
+
+  const g = fixture();
+  g.assets = { hygiene: { no_owner: 14, no_asset_tag: 7 }, effort: null };
+  const plain = composeWeekly(g).htmlBody;
+  assert.ok(/Sans propri&eacute;taire/.test(plain) && plain.includes('Sans QR code'), 'no tab counters → hygiene list unchanged');
+});

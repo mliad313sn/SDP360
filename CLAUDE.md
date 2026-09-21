@@ -16,6 +16,12 @@ made so far so that future sessions can pick up exactly where the last one ended
 > F1 Meridian (dormant, keys empty), F2a SSO settings, Site Awareness, System Logs, etc. are ALL deployed
 > — treat their "not deployed" stamps as history, not as a to-do.
 >
+> **Installer files are BEHIND the marker too (2026-09-21):** the marker was moved to `7fd553d` (asset
+> engagement live) with a ZIP stripped of `tools/installer/*`, `_sdp_admin.cmd`, `tools/pg/dump-db.js` —
+> the installer-safety-parity work (578be34) is NOT in prod and a future cumulative ZIP will NOT carry it.
+> After the TEST-instance E2E, package those files BY HAND (list: `git diff --name-only 7629551..578be34 --
+> tools/installer _sdp_admin.cmd tools/pg/dump-db.js`, minus `tools/installer/tests/`).
+>
 > **The ONE exception (deliberately frozen, 2026-09-04):** the tracker RAG-band change (GREEN ≥ 90 %
 > of the pro-rated target, commit `c97ae61`, files `public/activity-tracker/engine.js` +
 > `tracker-pptx.js`) and the weight-based attainment donut (`e17b7b7`, `App.jsx`) are on `main` but
@@ -76,13 +82,13 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ---
 
-## ⚡ Current state (as of 2026-09-18 — Asset engagement : onglet « Parc informatique » + rappels, branche `feat/asset-engagement`, PAS mergée sur `main`, PAS déployée)
+## ⚡ Current state (as of 2026-09-18, mergé + DÉPLOYÉ le 2026-09-21 à `7fd553d` — Asset engagement : onglet « Parc informatique » + rappels)
 
 > Spec `docs/superpowers/specs/2026-09-17-asset-engagement-weekly-design.md` (rev 4), plan
 > `docs/superpowers/plans/2026-09-18-asset-engagement.md`. **Données** : `asset_first_seen` (assets.db / pg,
 > PK asset_id, baseline=1 au 1ᵉʳ passage, jamais mis à jour) alimentée par `afterAssetsSync` (assets-sync.js,
 > cron 04:30 + trigger manuel ; sautée si la vue `assets` a échoué) ; `getSiteAssetFollowups(labels,{newFrom,newTo})`
-> = 4 compteurs, dans cet ordre (révision user 2026-09-21) : **sans QR code** = `no_tag`, TOUT le parc actif dont le champ SDP « Barcode / QR code » (`barcode`) est vide (le `new` de la semaine ne sert plus qu'à l'alerte du jour ; l'Hygiène `no_asset_tag` utilise la même règle). **`barcode` == Service Tag est l'état NORMAL** : l'asset manager génère le QR code depuis le Service Tag (« Manage Barcode / QR code ») — ne pas le prendre pour un remplissage automatique ; `asset_tag` n'intervient pas / sans date / sans coût / **sans utilisateur** (user_name vide — le département ne compte pas) — ces trois-là In Use·In Store·In Repair (à Mana 468/510 actifs sont « In Store », d'où l'inclusion),
+> = 4 compteurs (dans l'e-mail hebdo, quand ils sont présents, les kinds hygiène qui posent la même question sur un autre périmètre — no_owner/no_age/no_cost/no_asset_tag — ne sont PAS répétés : les compteurs d'abord, puis « Autres écarts ») , dans cet ordre (révision user 2026-09-21) : **sans QR code** = `no_tag`, TOUT le parc actif dont le champ SDP « Barcode / QR code » (`barcode`) est vide (le `new` de la semaine ne sert plus qu'à l'alerte du jour ; l'Hygiène `no_asset_tag` utilise la même règle). **`barcode` == Service Tag est l'état NORMAL** : l'asset manager génère le QR code depuis le Service Tag (« Manage Barcode / QR code ») — ne pas le prendre pour un remplissage automatique ; `asset_tag` n'intervient pas / sans date / sans coût / **sans utilisateur** (user_name vide — le département ne compte pas) — ces trois-là In Use·In Store·In Repair (à Mana 468/510 actifs sont « In Store », d'où l'inclusion),
 > **aucun montant** (`has_cost` booléen). **Rapport hebdo** : `report_asset_review` (reports.db + pg `012`, une
 > ligne par rapport) ; onglet `stab-4` (« 5. Parc informatique ») = **compteurs + 2 notes seulement, ni listes ni liens Assets** (rev 5,
 > décision user 2026-09-18 — idem dans le bloc de l'e-mail hebdo ; les listes restent dans les e-mails de rappel) ;
