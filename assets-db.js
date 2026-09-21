@@ -259,9 +259,10 @@ const HYGIENE_KINDS = {
   // gaps → deliberately absent from _PRESENT_SELECT/_FRESHNESS_SELECT so the shipped B
   // completeness numbers stay pinned. They flow into summary/routes/export/digest via the
   // Object.keys(HYGIENE_KINDS) iteration alone.
-  // QR label = Asset Tag ONLY: `barcode` is mostly the auto-filled serial number
-  // (1220 of 1778 rows, 2026-09-21), not a stuck-on label.
-  no_asset_tag:        { label: 'No asset tag / QR',           where: "(asset_tag IS NULL OR TRIM(asset_tag)='')" },
+  // QR code = the SDP "Barcode / QR code" field (column `barcode`). The asset manager
+  // generates it from the Service Tag ("Manage Barcode / QR code"), so barcode ==
+  // serial is the NORMAL filled state, not an auto-fill (user, 2026-09-21).
+  no_asset_tag:        { label: 'No QR code',                  where: "(barcode IS NULL OR TRIM(barcode)='')" },
   lifecycle_exception: { label: 'In repair / expired / lost',  where: "state IN ('In Repair','Expired','Lost/Stolen','Lost','Stolen')" },
 };
 
@@ -273,7 +274,7 @@ const FOLLOWUP_ACTIVE_STATES = "state IN ('In Use','In Store','In Repair')";
 // deployed kit is still recorded In Store, and that is exactly what must be fixed).
 const FOLLOWUP_UNASSIGNED = `(${FOLLOWUP_ACTIVE_STATES}) AND TRIM(COALESCE(user_name,'')) = ''`;
 const FOLLOWUP_NO_COST = `(${FOLLOWUP_ACTIVE_STATES}) AND (purchase_cost IS NULL OR TRIM(purchase_cost) IN ('','0','0.00'))`;
-const FOLLOWUP_NO_TAG = `(${FOLLOWUP_ACTIVE_STATES}) AND (asset_tag IS NULL OR TRIM(asset_tag) = '')`;
+const FOLLOWUP_NO_TAG = `(${FOLLOWUP_ACTIVE_STATES}) AND (barcode IS NULL OR TRIM(barcode) = '')`;   // no QR code generated
 const FOLLOWUP_NO_DATE = `(${FOLLOWUP_ACTIVE_STATES}) AND (acquisition_date IS NULL OR TRIM(acquisition_date) = '')`;
 
 // The kind's predicate ANDed with the SAME whitelisted filters getEnrichedAssets
@@ -1171,7 +1172,7 @@ function _followupQueries(labels, opts) {
       sql: `SELECT ${_FOLLOWUP_COLS}, f.first_seen_date FROM asset_first_seen f
             JOIN assets a ON a.asset_id = f.asset_id
             WHERE f.baseline = 0 AND f.first_seen_date BETWEEN ? AND ? AND a.site IN (${ph})
-              AND (a.asset_tag IS NULL OR TRIM(a.asset_tag) = '')   -- QR label = Asset Tag; barcode is mostly the auto-filled serial
+              AND (a.barcode IS NULL OR TRIM(a.barcode) = '')   -- no QR code generated yet
             ORDER BY f.first_seen_date, COALESCE(a.asset_name,''), a.asset_id`,
       params: [newFrom, newTo, ...L],
     };

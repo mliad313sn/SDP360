@@ -32,8 +32,8 @@ const rows = [
   { ...base, asset_id: 'R8', asset_name: 'Asset R8', site: 'KGO', last_audit_status: 'Success', last_successful_audit_time: '', days_since_scan: '120' }, // CONTRADICTORY: status='Success' but no success-time. Under the OLD ghost predicate this double-fired (never_scanned via blank time + ghost via Success+>90d). Now ghost=NOT(never_scanned) → this is never_scanned ONLY.
   // Task 4 enrichment rows (ITAM training deck) — all on a NEW site (ABJ) and OTHERWISE clean,
   // so the pre-existing kinds' counts + MANA/HGO/SGO completeness are undisturbed.
-  { ...base, asset_id: 'R9',  asset_name: 'Asset R9',  site: 'ABJ', barcode: 'BC', asset_tag: '' },            // no_asset_tag: blank Asset Tag (barcode = serial, not a QR label)
-  { ...base, asset_id: 'R10', asset_name: 'Asset R10', site: 'ABJ', barcode: '', asset_tag: 'EDV-123' },       // TAGGED → EXCLUDED from no_asset_tag (asset_tag present)
+  { ...base, asset_id: 'R9',  asset_name: 'Asset R9',  site: 'ABJ', barcode: '', asset_tag: 'A-9' },           // no QR code: blank Barcode / QR code (an asset tag does not count)
+  { ...base, asset_id: 'R10', asset_name: 'Asset R10', site: 'ABJ', barcode: 'SN-123', asset_tag: '' },         // QR generated (barcode = service tag) → EXCLUDED
   { ...base, asset_id: 'R11', asset_name: 'Asset R11', site: 'ABJ', state: 'In Repair' },                      // lifecycle_exception
 ];
 adb.replaceTable('assets', cols, rows);
@@ -51,10 +51,10 @@ test('by_kind counts match the hand-computed seed', () => {
 
 test('Task 4 — no_asset_tag counts the untagged row and NOT the tagged one', () => {
   const bk = adb.getHygieneSummary({}).by_kind;
-  assert.strictEqual(bk.no_asset_tag, 1, 'R9 only (R10 is tagged, existing rows carry an asset tag)');
+  assert.strictEqual(bk.no_asset_tag, 1, 'R9 only (R10 and the other rows carry a Barcode / QR code)');
   const ids = adb.getHygieneExceptions('no_asset_tag', {}).map(r => r.asset_id);
   assert.deepStrictEqual(ids, ['R9'], 'exception rows = R9 only');
-  assert.ok(!ids.includes('R10'), 'the tagged EDV-123 row is excluded');
+  assert.ok(!ids.includes('R10'), 'the row with a QR code is excluded');
 });
 
 test('Task 4 — lifecycle_exception counts the In-Repair row', () => {

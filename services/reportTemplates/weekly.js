@@ -422,7 +422,7 @@ const HYGIENE_LABELS = {
 // « non renseigné » on purpose — visible for the meeting, never hidden.
 // tiles() escapes its labels → literal accents here, not entities.
 const REVIEW_KPIS = [
-  ['no_tag', 'Sans QR code (Asset Tag vide)'],
+  ['no_tag', 'Sans QR code'],
   ['no_date', 'Sans date d’acquisition'],
   ['no_cost', 'Sans coût d’achat'],
   ['unassigned', 'Non assigné à un utilisateur'],

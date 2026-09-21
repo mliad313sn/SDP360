@@ -53,8 +53,8 @@ test('recap: null counts render em dash, a real zero still renders 0', () => {
   // Coloured KPI tiles, in LISTS order (no_tag, no_date, no_cost, unassigned).
   const values = [...r.html.matchAll(TILE_RE)].map(m => m[2]);
   assert.deepStrictEqual(values, ['—', '2', '0', '25']);
-  assert.match(r.html, /Sans QR code \(Asset Tag vide\) \(—\)/);
-  assert.ok(!r.html.includes('Sans QR code (Asset Tag vide) (0)'));
+  assert.match(r.html, /Sans QR code \(—\)/);
+  assert.ok(!r.html.includes('Sans QR code (0)'));
 });
 
 test('recap: filename sanitises the site and falls back without year/week', () => {
@@ -109,7 +109,7 @@ test('recap: the 4 counters are coloured tiles, one distinct accent per list; nu
 test('recap: each list has a coloured title bar and zebra rows', () => {
   const { html } = recap();
   assert.match(html, /background:#D97706;[^>]*>\s*<div[^>]*>Non assigné à un utilisateur \(25\)<\/div>/, 'unassigned = amber title bar');
-  assert.match(html, /background:#0D9488;[^>]*>\s*<div[^>]*>Sans QR code \(Asset Tag vide\) \(1\)<\/div>/, 'no QR code = teal title bar');
+  assert.match(html, /background:#0D9488;[^>]*>\s*<div[^>]*>Sans QR code \(1\)<\/div>/, 'no QR code = teal title bar');
   assert.ok(ZEBRA_ON.test(html) && ZEBRA_OFF.test(html), 'alternating row backgrounds');
 });
 

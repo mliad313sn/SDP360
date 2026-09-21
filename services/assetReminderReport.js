@@ -20,7 +20,7 @@ function countText(v) {
 }
 
 const LISTS = [
-  ['no_tag', 'Sans QR code (Asset Tag vide)', 'Sans QR code', '#hygiene', 'no_asset_tag'],
+  ['no_tag', 'Sans QR code', 'Sans QR code', '#hygiene', 'no_asset_tag'],
   ['no_date', 'Sans date d’acquisition', 'Sans date', '#hygiene', 'no_age'],
   ['no_cost', 'Sans coût d’achat', 'Sans cout', '#hygiene', 'no_cost'],
   ['unassigned', 'Non assigné à un utilisateur', 'Sans utilisateur', '#inventory', null],

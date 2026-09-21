@@ -515,7 +515,7 @@ window.addEventListener('beforeprint', function () {
            coordinator told "No asset tag / QR: 42" had nowhere to go. Both stay
            OUT of the completeness score (that is still the three B gaps above);
            they are worklists shown beside it. -->
-      <div class="gap" data-kind="no_asset_tag"><span class="gl">No asset tag / QR</span><span class="gn" id="hyg-cnt-no_asset_tag">—</span></div>
+      <div class="gap" data-kind="no_asset_tag"><span class="gl">No QR code</span><span class="gn" id="hyg-cnt-no_asset_tag">—</span></div>
       <div class="gap" data-kind="lifecycle_exception"><span class="gl">In repair / expired / lost</span><span class="gn" id="hyg-cnt-lifecycle_exception">—</span></div>
     </div>
 
@@ -1607,7 +1607,7 @@ window.addEventListener('beforeprint', function () {
     // Mirrors HYGIENE_KINDS (assets-db.js) — the single source of truth the
     // routes and the Excel builder read. Keep this map in step with it: a kind
     // absent here is refused by openKind and renders an unlabelled drill header.
-    no_asset_tag:        'No asset tag / QR',
+    no_asset_tag:        'No QR code',
     lifecycle_exception: 'In repair / expired / lost',
   };
 
