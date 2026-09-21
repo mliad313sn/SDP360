@@ -17,7 +17,8 @@ const { C, EDV, FONTS } = require('./public/brand/brand-tokens');
 // Shared RAG/trend helpers — single source of truth, also used by
 // reports-monthly-pptx.js (see reports-pptx-shared.js).
 const { statusColor, trendArrow, trendColor, computeTrends, autoStatusColor,
-        slideDepartmentMeetings, hasDeptMeetingData, splitInfraKpiColumns } = require('./reports-pptx-shared');
+        slideDepartmentMeetings, hasDeptMeetingData, splitInfraKpiColumns,
+        slideAssetReview, hasAssetReview } = require('./reports-pptx-shared');
 
 // ── SLIDE HELPERS ─────────────────────────────────────────────────
 function addTitle(slide, text, subtitle) {
@@ -755,7 +756,7 @@ function addTitleSlide(pptx, title, subtitle, date) {
 }
 
 // ── GENERATE WEEKLY PPTX ──────────────────────────────────────────
-async function generateWeeklyPptx(report, prevReport, openChanges, activeIncidents, meetingsSummary) {
+async function generateWeeklyPptx(report, prevReport, openChanges, activeIncidents, meetingsSummary, assetReview) {
   const pptx = new PptxGenJS();
   pptx.layout = 'LAYOUT_WIDE';
   pptx.title  = `Weekly Report — ${report.site_name} — ${report.week_label}`;
@@ -775,6 +776,8 @@ async function generateWeeklyPptx(report, prevReport, openChanges, activeInciden
   slideActionItems(pptx, report);
   // Department meetings monthly status — only when the site has meeting data.
   if (hasDeptMeetingData(meetingsSummary)) slideDepartmentMeetings(pptx, meetingsSummary);
+  // Parc informatique (tab 5) - only when the caller supplies an applicable review.
+  if (hasAssetReview(assetReview)) slideAssetReview(pptx, assetReview, { siteLabel: report.site_name, weekLabel: report.week_label });
 
   return fixComboChartAxes(await pptx.write({ outputType: 'nodebuffer' }));
 }
@@ -873,6 +876,7 @@ async function generateWeeklySummaryPptx(summaryData) {
     slideActionItems(pptx, report);
     // Department meetings monthly status — per site, when data exists.
     if (hasDeptMeetingData(report.meetingsSummary)) slideDepartmentMeetings(pptx, report.meetingsSummary);
+    if (hasAssetReview(report.assetReviewPptx)) slideAssetReview(pptx, report.assetReviewPptx, { siteLabel: report.site_name, weekLabel: week_label });
   });
 
   return fixComboChartAxes(await pptx.write({ outputType: 'nodebuffer' }));

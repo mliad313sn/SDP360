@@ -210,5 +210,75 @@ function splitInfraKpiColumns(kpis, threshold = INFRA_TWO_COL_THRESHOLD) {
   return { twoCol: true, columns: [list.slice(0, half), list.slice(half)] };
 }
 
+// -- Parc informatique (asset engagement) - weekly decks (2026-09-21) ---------
+// Same four counters, same order and same wording as tab 5 and the weekly e-mail
+// (services/reportTemplates/weekly.js REVIEW_KPIS). A null/non-numeric count is
+// "—" (not measured), never a fabricated 0. previous_counts, when given, adds
+// the change vs the previous week's report - lower is better for all four.
+const ASSET_REVIEW_KPIS = [
+  ['no_tag', 'SANS QR CODE', 'DC2626'],
+  ['no_date', 'SANS DATE D’ACQUISITION', 'E87722'],
+  ['no_cost', 'SANS COÛT D’ACHAT', '7C3AED'],
+  ['unassigned', 'NON ASSIGNÉ À UN UTILISATEUR', '2A5490'],
+];
+// Reject null/'' BEFORE the numeric coercion: +null === 0 passes Number.isFinite.
+const _arNum = v => (v != null && v !== '' && Number.isFinite(+v)) ? +v : null;
+
+function hasAssetReview(review) {
+  return !!(review && typeof review === 'object' && review.applicable !== false && review.applicable !== 0);
+}
+
+function slideAssetReview(pptx, review, opts = {}) {
+  const NAVY = '2A5490', WHITE = 'FFFFFF', PARC = '7C3AED', MUTED = '888888';
+  const rv = review || {};
+  const c = rv.counts && typeof rv.counts === 'object' ? rv.counts : null;
+  const pc = rv.previous_counts && typeof rv.previous_counts === 'object' ? rv.previous_counts : null;
+  const slide = pptx.addSlide();
+  const site = opts.siteLabel ? opts.siteLabel + ' — ' : '';
+
+  slide.addText(`${site}Parc informatique${opts.weekLabel ? ' · ' + opts.weekLabel : ''}`,
+    { x: 0.3, y: 0.15, w: 12.73, h: 0.5, fontSize: 24, bold: true, color: PARC, fontFace: 'Calibri', align: 'center' });
+  const scope = rv.status === 'submitted' ? 'Compteurs figés à la soumission' : 'Compteurs au dernier enregistrement';
+  slide.addText(`${scope} · matériel En service / En stock / En réparation`,
+    { x: 0.3, y: 0.62, w: 12.73, h: 0.24, fontSize: 10, italic: true, color: '666666', fontFace: 'Calibri', align: 'center' });
+
+  const tileW = 3.13, tileG = 0.07, tileH = 1.25, tileY = 1.05;
+  const tX = i => 0.3 + i * (tileW + tileG);
+  ASSET_REVIEW_KPIS.forEach(([k, label, accent], i) => {
+    const x = tX(i);
+    const v = c ? _arNum(c[k]) : null;
+    const pv = pc ? _arNum(pc[k]) : null;
+    const bar = v == null ? 'BBBBBB' : accent;
+    slide.addShape('rect', { x, y: tileY, w: tileW, h: tileH, fill: { color: WHITE }, line: { color: 'DDDDDD', pt: 0.5 } });
+    slide.addShape('rect', { x, y: tileY, w: 0.07, h: tileH, fill: { color: bar }, line: { color: bar, pt: 0 } });
+    slide.addText(label, { x: x + 0.15, y: tileY + 0.08, w: tileW - 0.25, h: 0.2, fontSize: 9, bold: true, color: '444444', fontFace: 'Calibri', valign: 'middle' });
+    slide.addText(v == null ? '—' : String(v), { x: x + 0.15, y: tileY + 0.33, w: tileW - 0.25, h: 0.5, fontSize: 30, bold: true, color: v == null ? MUTED : NAVY, fontFace: 'Calibri', valign: 'middle' });
+    let sub = '', subColor = MUTED;
+    if (v != null && pv != null) {
+      const d = v - pv;
+      sub = d === 0 ? `= semaine précédente (${pv})` : `${d > 0 ? '+' : '−'}${Math.abs(d)} vs semaine précédente (${pv})`;
+      subColor = d < 0 ? '27AE60' : d > 0 ? 'E74C3C' : MUTED;
+    } else if (v != null) sub = 'pas de semaine précédente';
+    if (sub) slide.addText(sub, { x: x + 0.15, y: tileY + 0.9, w: tileW - 0.25, h: 0.22, fontSize: 9, color: subColor, fontFace: 'Calibri', valign: 'middle' });
+  });
+
+  const note = (title, text, y) => {
+    const t = String(text == null ? '' : text).trim();
+    slide.addShape('rect', { x: 0.3, y, w: 12.73, h: 2.05, fill: { color: 'F5F3FF' }, line: { color: 'DDD6FE', pt: 0.5 } });
+    slide.addShape('rect', { x: 0.3, y, w: 0.07, h: 2.05, fill: { color: PARC }, line: { color: PARC, pt: 0 } });
+    slide.addText(title, { x: 0.5, y: y + 0.08, w: 12.4, h: 0.24, fontSize: 11, bold: true, color: PARC, fontFace: 'Calibri' });
+    if (t) {
+      slide.addText(t, { x: 0.5, y: y + 0.36, w: 12.4, h: 1.6, fontSize: 12, color: '333333', fontFace: 'Calibri', valign: 'top', fit: 'shrink' });
+    } else {
+      // An empty note must be SEEN in the meeting, like the e-mail's amber pill.
+      slide.addText('non renseigné', { x: 0.5, y: y + 0.4, w: 1.6, h: 0.3, fontSize: 10, bold: true, color: '92400E', fill: { color: 'FEF3C7' }, fontFace: 'Calibri', align: 'center', valign: 'middle' });
+    }
+  };
+  note('TRAITÉ CETTE SEMAINE', rv.handled_note, 2.55);
+  note('PLAN / BLOCAGES', rv.plan_note, 4.8);
+  return slide;
+}
+
 module.exports = { statusColor, trendArrow, trendColor, computeTrends, autoStatusColor,
-  slideDepartmentMeetings, hasDeptMeetingData, splitInfraKpiColumns, INFRA_TWO_COL_THRESHOLD };
+  slideDepartmentMeetings, hasDeptMeetingData, splitInfraKpiColumns, INFRA_TWO_COL_THRESHOLD,
+  slideAssetReview, hasAssetReview, ASSET_REVIEW_KPIS };

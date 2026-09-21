@@ -6222,6 +6222,28 @@ async function _computeAssetReview(report) {
   const followups = await require('./assets-db').getSiteAssetFollowups(labels, { newFrom: report.start_date, newTo: report.end_date });
   return { applicable: true, code, labels, counts: followups.counts, followups };
 }
+// Parc informatique data for the weekly PPTX decks: the stored review (frozen or
+// last saved) + the previous report's frozen counts for the change line. A report
+// whose tab was never saved gets live counts; a site with no asset label -> null
+// (no slide). Best-effort: any failure -> null, the deck still renders.
+async function _assetReviewForPptx(report) {
+  try {
+    let rv = report.asset_review ? { ...report.asset_review } : null;
+    if (rv && (rv.applicable === false || rv.applicable === 0)) return null;
+    if (!rv || !rv.counts) {
+      const a = await _computeAssetReview(report);
+      if (!a.applicable) return null;
+      rv = { handled_note: '', plan_note: '', ...(rv || {}), applicable: true, counts: a.counts };
+    }
+    rv.status = report.status;
+    rv.previous_counts = null;
+    if (report.site_id) {   // a falsy site_id would make listReports return EVERY site's reports
+      const prev = ((await rdb.listReports(report.site_id)) || []).find(r => r.start_date < report.start_date);
+      rv.previous_counts = prev ? ((await rdb.getReportAssetReview(prev.id)) || {}).counts || null : null;
+    }
+    return rv;
+  } catch (e) { console.warn('[asset-review] pptx data failed:', e.message); return null; }
+}
 // Read rule: admin+ unscoped; everyone else must be on the report's site (a
 // site-less profile is NOT global).
 function _assetReviewReadDenial(user, report) {
@@ -7017,7 +7039,8 @@ app.get('/api/reports/:id/pptx', requireReportSession, async (req, res) => {
     // drives the new "Department Meetings" slide.
     const _wRef = report.end_date || report.start_date || '';
     const meetingsSummary = await _meetingsSummaryForSite(report.site_name, String(_wRef).slice(0, 4), String(_wRef).slice(5, 7));
-    const buf = await rpptx.generateWeeklyPptx(report, prevReport, openChanges, activeIncidents, meetingsSummary);
+    const assetReview = await _assetReviewForPptx(report);
+    const buf = await rpptx.generateWeeklyPptx(report, prevReport, openChanges, activeIncidents, meetingsSummary, assetReview);
     const filename = `Endeavour_${report.site_name}_${report.week_label.replace(/\s/g,'_')}_Report.pptx`;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.presentationml.presentation');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
@@ -7112,6 +7135,7 @@ app.get('/api/reports/weekly-summary/:year/:week/pptx', requireReportSession, as
         openChanges:     await rdb.getOpenChangesForSite(_g),
         activeIncidents: await rdb.getActiveMajorIncidentsForSite(_g),
         meetingsSummary: await _meetingsSummaryForSite(_s ? _s.name : null, String(_wsRef).slice(0, 4), String(_wsRef).slice(5, 7)),
+        assetReviewPptx: await _assetReviewForPptx(r),
       };
     }));
     const buf = await rpptx.generateWeeklySummaryPptx(summaryData);
