@@ -258,24 +258,44 @@ function slideAssetReview(pptx, review, opts = {}) {
       const d = v - pv;
       sub = d === 0 ? `= semaine précédente (${pv})` : `${d > 0 ? '+' : '−'}${Math.abs(d)} vs semaine précédente (${pv})`;
       subColor = d < 0 ? '27AE60' : d > 0 ? 'E74C3C' : MUTED;
-    } else if (v != null) sub = 'pas de semaine précédente';
+    } else if (v != null) sub = '1re semaine mesurée — comparaison la semaine suivante';
     if (sub) slide.addText(sub, { x: x + 0.15, y: tileY + 0.9, w: tileW - 0.25, h: 0.22, fontSize: 9, color: subColor, fontFace: 'Calibri', valign: 'middle' });
   });
 
-  const note = (title, text, y) => {
+  const note = (title, text, y, h) => {
     const t = String(text == null ? '' : text).trim();
-    slide.addShape('rect', { x: 0.3, y, w: 12.73, h: 2.05, fill: { color: 'F5F3FF' }, line: { color: 'DDD6FE', pt: 0.5 } });
-    slide.addShape('rect', { x: 0.3, y, w: 0.07, h: 2.05, fill: { color: PARC }, line: { color: PARC, pt: 0 } });
+    slide.addShape('rect', { x: 0.3, y, w: 12.73, h, fill: { color: 'F5F3FF' }, line: { color: 'DDD6FE', pt: 0.5 } });
+    slide.addShape('rect', { x: 0.3, y, w: 0.07, h, fill: { color: PARC }, line: { color: PARC, pt: 0 } });
     slide.addText(title, { x: 0.5, y: y + 0.08, w: 12.4, h: 0.24, fontSize: 11, bold: true, color: PARC, fontFace: 'Calibri' });
     if (t) {
-      slide.addText(t, { x: 0.5, y: y + 0.36, w: 12.4, h: 1.6, fontSize: 12, color: '333333', fontFace: 'Calibri', valign: 'top', fit: 'shrink' });
+      slide.addText(t, { x: 0.5, y: y + 0.36, w: 12.4, h: h - 0.45, fontSize: 12, color: '333333', fontFace: 'Calibri', valign: 'top', fit: 'shrink' });
     } else {
       // An empty note must be SEEN in the meeting, like the e-mail's amber pill.
       slide.addText('non renseigné', { x: 0.5, y: y + 0.4, w: 1.6, h: 0.3, fontSize: 10, bold: true, color: '92400E', fill: { color: 'FEF3C7' }, fontFace: 'Calibri', align: 'center', valign: 'middle' });
     }
   };
-  note('TRAITÉ CETTE SEMAINE', rv.handled_note, 2.55);
-  note('PLAN / BLOCAGES', rv.plan_note, 4.8);
+  // Effort strip: the site's parc-keeping score (asset_effort_history) with its
+  // rank and its ~30-day change - the trend that exists even before two weeks of
+  // frozen counts do. Omitted when the site has no effort score.
+  let noteY = 2.55;
+  const ef = rv.effort && typeof rv.effort === 'object' ? rv.effort : null;
+  const efScore = ef ? _arNum(ef.score) : null;
+  if (efScore != null) {
+    const d = ef ? _arNum(ef.delta) : null;
+    const runs = [
+      { text: 'SCORE DE TENUE DU PARC  ', options: { bold: true, color: '444444', fontSize: 10 } },
+      { text: `${Math.round(efScore)}/100`, options: { bold: true, color: PARC, fontSize: 16 } },
+    ];
+    if (_arNum(ef.rank) != null && _arNum(ef.of) != null) runs.push({ text: `    rang ${ef.rank} sur ${ef.of} sites`, options: { color: '444444', fontSize: 11 } });
+    if (d != null) runs.push({ text: `    ${d > 0 ? '▲ +' : d < 0 ? '▼ −' : '= '}${d === 0 ? '0' : Math.abs(Math.round(d))} pts sur 30 jours`, options: { bold: true, color: d > 0 ? '27AE60' : d < 0 ? 'E74C3C' : MUTED, fontSize: 11 } });
+    else runs.push({ text: '    tendance 30 jours pas encore disponible', options: { italic: true, color: MUTED, fontSize: 10 } });
+    slide.addShape('rect', { x: 0.3, y: 2.42, w: 12.73, h: 0.46, fill: { color: 'F5F3FF' }, line: { color: 'DDD6FE', pt: 0.5 } });
+    slide.addText(runs, { x: 0.5, y: 2.42, w: 12.4, h: 0.46, fontFace: 'Calibri', valign: 'middle' });
+    noteY = 3.0;
+  }
+  const noteH = (7.3 - noteY - 0.15) / 2;
+  note('TRAITÉ CETTE SEMAINE', rv.handled_note, noteY, noteH);
+  note('PLAN / BLOCAGES', rv.plan_note, noteY + noteH + 0.15, noteH);
   return slide;
 }
 

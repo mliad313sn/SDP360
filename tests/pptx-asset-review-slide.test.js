@@ -63,3 +63,16 @@ test('weekly summary deck: slide per site that carries assetReviewPptx', async (
   const xs = await slidesText(await W.generateWeeklySummaryPptx(data));
   assert.strictEqual(xs.filter(x => /Parc informatique/.test(x)).length, 1);
 });
+
+test('effort strip: score, rank and 30-day change; absent when no score', async () => {
+  const withEffort = { ...REVIEW, effort: { score: 72, rank: 2, of: 7, delta: -4 } };
+  const xml = (await slidesText(await W.generateWeeklyPptx(mkReport(), null, [], [], null, withEffort))).find(x => /Parc informatique/.test(x));
+  assert.ok(xml.includes('SCORE DE TENUE DU PARC') && xml.includes('72/100'));
+  assert.ok(xml.includes('rang 2 sur 7 sites'));
+  assert.ok(xml.includes('− 4 pts sur 30 jours') || xml.includes('−4 pts sur 30 jours'));
+  const none = (await slidesText(await W.generateWeeklyPptx(mkReport(), null, [], [], null, REVIEW))).find(x => /Parc informatique/.test(x));
+  assert.ok(!none.includes('SCORE DE TENUE DU PARC'));
+  const firstWeek = { ...REVIEW, previous_counts: null };
+  const fw = (await slidesText(await W.generateWeeklyPptx(mkReport(), null, [], [], null, firstWeek))).find(x => /Parc informatique/.test(x));
+  assert.ok(fw.includes('1re semaine mesur'));
+});

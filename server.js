@@ -6236,6 +6236,16 @@ async function _assetReviewForPptx(report) {
       rv = { handled_note: '', plan_note: '', ...(rv || {}), applicable: true, counts: a.counts };
     }
     rv.status = report.status;
+    // The site's parc-keeping score + rank + ~30-day change (same source as the
+    // weekly e-mail's effort tiles). Best-effort: no score -> no strip.
+    rv.effort = null;
+    try {
+      const { code } = await _assetLabelsForReport(report);
+      if (code) {
+        const board = await require('./assets-db').getEffortLeaderboard({});
+        rv.effort = require('./services/assetEffortForSite').effortForSite(code, { leaderboard: board });
+      }
+    } catch (e) { console.warn('[asset-review] pptx effort failed:', e.message); }
     rv.previous_counts = null;
     if (report.site_id) {   // a falsy site_id would make listReports return EVERY site's reports
       const prev = ((await rdb.listReports(report.site_id)) || []).find(r => r.start_date < report.start_date);
