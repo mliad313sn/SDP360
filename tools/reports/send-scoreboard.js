@@ -1,4 +1,9 @@
 'use strict';
+// Standalone runs (Task Scheduler, a manual `node tools/reports/...`) must read the app's
+// .env BEFORE any *-db module loads: each picks its backend (*_BACKEND) at require time,
+// and without it a prod run silently reads the frozen SQLite archives. In-process calls
+// (server.js already loaded .env) and tests skip this.
+if (require.main === module) require('dotenv').config({ path: require('path').join(__dirname, '..', '..', '.env') });
 // Scheduled entry point for the PER-COORDINATOR operational scoreboard email
 // (site-scoreboard, Task 4). Mirrors the SCAFFOLDING of tools/reports/send-hygiene.js
 // — tolerant arg parse, a pure decision gate split out for testing, gate-FIRST,

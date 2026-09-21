@@ -1,4 +1,9 @@
 'use strict';
+// Standalone runs (Task Scheduler, a manual `node tools/reports/...`) must read the app's
+// .env BEFORE any *-db module loads: each picks its backend (*_BACKEND) at require time,
+// and without it a prod run silently reads the frozen SQLite archives. In-process calls
+// (server.js already loaded .env) and tests skip this.
+if (require.main === module) require('dotenv').config({ path: require('path').join(__dirname, '..', '..', '.env') });
 // One-shot backfill (2026-09-21): freeze the Parc informatique counts on each site's
 // LATEST submitted weekly report that has none yet.
 //
@@ -52,6 +57,13 @@ if (require.main === module) {
     if ((process.env.REPORTS_BACKEND || 'sqlite').toLowerCase() === 'postgres') await reportsDb.initPgReports();
     const assetsDb = require('../../assets-db');
     if (assetsDb.ASSETS_BACKEND === 'postgres') await assetsDb.initPgAssets();
+    const rb = (process.env.REPORTS_BACKEND || 'sqlite').toLowerCase();
+    console.log(`[backfill-asset-review] reports backend: ${rb} · assets backend: ${assetsDb.ASSETS_BACKEND}`);
+    if (rb !== 'postgres' && !process.argv.includes('--allow-sqlite')) {
+      // Prod runs on PostgreSQL; a sqlite run here reads the frozen archive.
+      console.error('[backfill-asset-review] refusing: not on PostgreSQL (.env not found?). Run from the app folder, or pass --allow-sqlite on purpose.');
+      return 2;
+    }
     await main({ reportsDb, assetsDb, apply: process.argv.includes('--apply') });
     return 0;
   })().then(c => process.exit(c)).catch(e => { console.error('[backfill-asset-review] fatal:', e.message); process.exit(1); });
