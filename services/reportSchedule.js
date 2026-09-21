@@ -72,22 +72,27 @@ function _writeRow(db, { report_type, cadence, enabled, day, time }, user) {
 }
 
 // Default real task runner via schtasks. Injected stub in tests.
+// /RU SYSTEM is load-bearing (2026-09-21): without it the task runs as the account
+// that created it (pm2 = the machine account ABJ-SRV-012$) in "Interactive only" mode,
+// so on a server nobody logs on to it NEVER starts (Last Result 267011, last run
+// 1999) — every scheduled report since 2026-08-11 silently never ran. The backup
+// tasks (tools/installer/Manage-SDP.ps1) already used /RU SYSTEM.
+function _taskArgs(spec) {
+  if (spec.action === 'delete') return ['/Delete', '/TN', spec.taskName, '/F'];
+  const tr = `"${NODE}" "${cliFor(spec.report_type)}" --type=${spec.report_type} --cadence=${spec.cadence}`;
+  const base = ['/Create', '/F', '/RU', 'SYSTEM'];
+  if (spec.cadence === 'weekly') {
+    return [...base, '/SC', 'WEEKLY', '/D', spec.day, '/TN', spec.taskName, '/TR', tr, '/ST', spec.time];
+  }
+  if (String(spec.day).toUpperCase() === 'LAST') {
+    // schtasks LASTDAY requires /MO LASTDAY /D * (NOT /D LAST)
+    return [...base, '/SC', 'MONTHLY', '/MO', 'LASTDAY', '/D', '*', '/TN', spec.taskName, '/TR', tr, '/ST', spec.time];
+  }
+  return [...base, '/SC', 'MONTHLY', '/D', String(spec.day), '/TN', spec.taskName, '/TR', tr, '/ST', spec.time];
+}
 function _defaultRunTask(spec) {
   return new Promise((resolve, reject) => {
-    let args;
-    if (spec.action === 'delete') {
-      args = ['/Delete', '/TN', spec.taskName, '/F'];
-    } else {
-      const tr = `"${NODE}" "${cliFor(spec.report_type)}" --type=${spec.report_type} --cadence=${spec.cadence}`;
-      if (spec.cadence === 'weekly') {
-        args = ['/Create', '/F', '/SC', 'WEEKLY', '/D', spec.day, '/TN', spec.taskName, '/TR', tr, '/ST', spec.time];
-      } else if (String(spec.day).toUpperCase() === 'LAST') {
-        // schtasks LASTDAY requires /MO LASTDAY /D * (NOT /D LAST)
-        args = ['/Create', '/F', '/SC', 'MONTHLY', '/MO', 'LASTDAY', '/D', '*', '/TN', spec.taskName, '/TR', tr, '/ST', spec.time];
-      } else {
-        args = ['/Create', '/F', '/SC', 'MONTHLY', '/D', String(spec.day), '/TN', spec.taskName, '/TR', tr, '/ST', spec.time];
-      }
-    }
+    const args = _taskArgs(spec);
     execFile('schtasks', args, { windowsHide: true }, (err, stdout, stderr) => {
       if (err && spec.action === 'delete') return resolve({ ok: true, note: 'delete ignored: ' + (stderr || err.message) });
       if (err) return reject(new Error('schtasks failed: ' + (String(stderr || '') + String(err.message))));
@@ -127,4 +132,4 @@ async function setSchedule(db, { report_type, cadence, enabled, day, time } = {}
   return { ok: true };
 }
 
-module.exports = { _initSchema, getSchedules, setSchedule, cliFor };
+module.exports = { _initSchema, getSchedules, setSchedule, cliFor, _taskArgs };
