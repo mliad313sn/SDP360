@@ -1167,7 +1167,7 @@ function _followupQueries(labels, opts) {
       sql: `SELECT ${_FOLLOWUP_COLS}, f.first_seen_date FROM asset_first_seen f
             JOIN assets a ON a.asset_id = f.asset_id
             WHERE f.baseline = 0 AND f.first_seen_date BETWEEN ? AND ? AND a.site IN (${ph})
-              AND (a.asset_tag IS NULL OR TRIM(a.asset_tag) = '') AND (a.barcode IS NULL OR TRIM(a.barcode) = '')
+              AND (a.asset_tag IS NULL OR TRIM(a.asset_tag) = '')   -- QR label = Asset Tag; barcode is mostly the auto-filled serial
             ORDER BY f.first_seen_date, COALESCE(a.asset_name,''), a.asset_id`,
       params: [newFrom, newTo, ...L],
     };

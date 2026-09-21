@@ -1673,7 +1673,7 @@ window.addEventListener('beforeprint', function () {
     bc.className = 'n ' + pctClass(comp);
     document.getElementById('hyg-bandTotal').textContent = total.toLocaleString();
 
-    ['discovered','never_scanned','ghost','no_owner','no_age','no_cost'].forEach(k => {
+    ['discovered','never_scanned','ghost','no_owner','no_age','no_cost','no_asset_tag','lifecycle_exception'].forEach(k => {
       const el = document.getElementById('hyg-cnt-' + k);
       if (el) el.textContent = (bk[k] != null ? Number(bk[k]) : 0).toLocaleString();
     });

@@ -18,7 +18,7 @@ adb.replaceTable('assets', COLS, [
   { ...ok, asset_id: 'B1', asset_name: 'Base-1', site: 'Hounde' },                                        // baseline → never "new"
   { ...ok, asset_id: 'N1', asset_name: 'New-1', site: 'Hounde' },                                         // new in window, no QR code
   { ...ok, asset_id: 'T1', asset_name: 'New-tagged', site: 'Hounde', asset_tag: 'QR-0001' },            // new but tagged → NOT listed
-  { ...ok, asset_id: 'T2', asset_name: 'New-barcode', site: 'Hounde', asset_tag: ' ', barcode: 'BC-1' }, // new, barcode only → NOT listed
+  { ...ok, asset_id: 'T2', asset_name: 'New-barcode', site: 'Hounde', asset_tag: ' ', barcode: 'BC-1' }, // new, barcode only (= serial, not a QR label) → listed
   { ...ok, asset_id: 'U1', asset_name: 'Unassigned-blank', site: 'Hounde', user_name: '  ', department: ' ' }, // unassigned (spaces)
   { ...ok, asset_id: 'U2', asset_name: 'Store-no-user', site: 'Hounde', state: 'In Store', user_name: '', department: '' }, // unassigned (In Store counts)
   { ...ok, asset_id: 'U3', asset_name: 'Dept-only', site: 'Hounde', user_name: '', department: 'HR' },   // unassigned (a department is not a user)
@@ -43,9 +43,9 @@ test('each list follows its predicate (trim, states, all product types)', () => 
   assert.deepStrictEqual(ids(f.unassigned), ['U1', 'U2', 'U3']);
   assert.deepStrictEqual(ids(f.no_cost), ['C1', 'C2']);
   assert.deepStrictEqual(ids(f.no_date), ['D1']);
-  // new = first seen in the window AND no QR code (asset tag and barcode both blank)
-  assert.deepStrictEqual(ids(f.new), ['C1', 'C2', 'C3', 'D1', 'D2', 'N1', 'U1', 'U2', 'U3']);
-  assert.ok(!ids(f.new).includes('T1') && !ids(f.new).includes('T2'));
+  // new = first seen in the window AND no QR code (Asset Tag blank; barcode ignored)
+  assert.deepStrictEqual(ids(f.new), ['C1', 'C2', 'C3', 'D1', 'D2', 'N1', 'T2', 'U1', 'U2', 'U3']);
+  assert.ok(!ids(f.new).includes('T1'), 'a tagged new asset is not listed');
   assert.deepStrictEqual(f.counts, { new: f.new.length, unassigned: 3, no_cost: 2, no_date: 1 });
   assert.match(f.generated_at, /^\d{4}-\d{2}-\d{2}T/);
 });
