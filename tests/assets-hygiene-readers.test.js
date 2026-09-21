@@ -16,7 +16,7 @@ const cols = ['asset_id', 'asset_name', 'product', 'product_type', 'manufacturer
 // A "clean" row (present-on-everything, in NO exception kind).
 const base = {
   product: 'Laptop', product_type: 'Notebook', manufacturer: 'Dell', serial_number: 'SN',
-  barcode: 'BC', site_id: 'S', purchase_cost: '1,250,000.00', acquisition_date: '2024-01-01',
+  barcode: 'BC', asset_tag: 'TAG', site_id: 'S', purchase_cost: '1,250,000.00', acquisition_date: '2024-01-01',
   warranty_expiry: '2027-01-01', user_name: 'x', department: 'IT',
   last_successful_audit_time: '2026-07-15', last_audit_status: 'Success',
   days_since_scan: '2', last_scan_source: 'Agent', created_time: '2024-01-01', state: 'In Use',
@@ -32,7 +32,7 @@ const rows = [
   { ...base, asset_id: 'R8', asset_name: 'Asset R8', site: 'KGO', last_audit_status: 'Success', last_successful_audit_time: '', days_since_scan: '120' }, // CONTRADICTORY: status='Success' but no success-time. Under the OLD ghost predicate this double-fired (never_scanned via blank time + ghost via Success+>90d). Now ghost=NOT(never_scanned) → this is never_scanned ONLY.
   // Task 4 enrichment rows (ITAM training deck) — all on a NEW site (ABJ) and OTHERWISE clean,
   // so the pre-existing kinds' counts + MANA/HGO/SGO completeness are undisturbed.
-  { ...base, asset_id: 'R9',  asset_name: 'Asset R9',  site: 'ABJ', barcode: '', asset_tag: '' },              // no_asset_tag (no QR AND no tag)
+  { ...base, asset_id: 'R9',  asset_name: 'Asset R9',  site: 'ABJ', barcode: 'BC', asset_tag: '' },            // no_asset_tag: blank Asset Tag (barcode = serial, not a QR label)
   { ...base, asset_id: 'R10', asset_name: 'Asset R10', site: 'ABJ', barcode: '', asset_tag: 'EDV-123' },       // TAGGED → EXCLUDED from no_asset_tag (asset_tag present)
   { ...base, asset_id: 'R11', asset_name: 'Asset R11', site: 'ABJ', state: 'In Repair' },                      // lifecycle_exception
 ];
@@ -51,7 +51,7 @@ test('by_kind counts match the hand-computed seed', () => {
 
 test('Task 4 — no_asset_tag counts the untagged row and NOT the tagged one', () => {
   const bk = adb.getHygieneSummary({}).by_kind;
-  assert.strictEqual(bk.no_asset_tag, 1, 'R9 only (R10 is tagged, existing rows carry a barcode)');
+  assert.strictEqual(bk.no_asset_tag, 1, 'R9 only (R10 is tagged, existing rows carry an asset tag)');
   const ids = adb.getHygieneExceptions('no_asset_tag', {}).map(r => r.asset_id);
   assert.deepStrictEqual(ids, ['R9'], 'exception rows = R9 only');
   assert.ok(!ids.includes('R10'), 'the tagged EDV-123 row is excluded');

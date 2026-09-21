@@ -253,9 +253,9 @@ test('absent / null / non-applicable asset_review → byte-identical output', ()
 
 test('applicable review renders frozen counts and the notes; empty note = non renseigné', () => {
   const f = fixture();
-  f.report.asset_review = { applicable: true, counts: { new: 2, unassigned: 5, no_cost: 7, no_date: 1 }, handled_note: '', plan_note: 'Commande <étiquettes>' };
+  f.report.asset_review = { applicable: true, counts: { new: 2, no_tag: 3, unassigned: 5, no_cost: 7, no_date: 1 }, handled_note: '', plan_note: 'Commande <étiquettes>' };
   const { htmlBody } = composeWeekly(f);
-  assert.match(htmlBody, /Nouveau matériel/);
+  assert.match(htmlBody, /Sans QR code/);
   assert.match(htmlBody, />7</);
   assert.match(htmlBody, /non renseign&eacute;/);
   assert.match(htmlBody, /Commande &lt;étiquettes&gt;/, 'notes are escaped');
@@ -286,7 +286,7 @@ test('assets:null and no review → still no assets card (unchanged)', () => {
 // ── review-block fixes: multi-line notes, null counts (post-review) ──────────
 test('a multi-line note preserves its line breaks (white-space:pre-line)', () => {
   const f = fixture();
-  f.report.asset_review = { applicable: true, counts: { new: 1, unassigned: 1, no_cost: 1, no_date: 1 }, handled_note: 'Ligne 1\nLigne 2', plan_note: '' };
+  f.report.asset_review = { applicable: true, counts: { new: 1, no_tag: 1, unassigned: 1, no_cost: 1, no_date: 1 }, handled_note: 'Ligne 1\nLigne 2', plan_note: '' };
   const { htmlBody } = composeWeekly(f);
   assert.match(htmlBody, /white-space:pre-line/, 'the note wrapper preserves newlines');
   assert.match(htmlBody, /Ligne 1\nLigne 2/, 'the raw newline survives escaping');
@@ -325,7 +325,7 @@ test('an empty-string count also renders "—" (+"" === 0 is the same trap as +n
 test('submitted report: assetReviewBlock says counts are frozen at submission', () => {
   const f = fixture();
   f.report.status = 'submitted';
-  f.report.asset_review = { applicable: true, counts: { new: 1, unassigned: 1, no_cost: 1, no_date: 1 }, handled_note: 'x', plan_note: 'y' };
+  f.report.asset_review = { applicable: true, counts: { new: 1, no_tag: 1, unassigned: 1, no_cost: 1, no_date: 1 }, handled_note: 'x', plan_note: 'y' };
   const { htmlBody } = composeWeekly(f);
   assert.match(htmlBody, /compteurs fig&eacute;s &agrave; la soumission/);
   assert.ok(!/dernier enregistrement/.test(htmlBody), 'submitted wording must not also carry the other phrasing');
@@ -334,7 +334,7 @@ test('submitted report: assetReviewBlock says counts are frozen at submission', 
 test('report not submitted (e.g. status "ready"): assetReviewBlock says counts are as of the last save', () => {
   const f = fixture();
   f.report.status = 'ready';
-  f.report.asset_review = { applicable: true, counts: { new: 1, unassigned: 1, no_cost: 1, no_date: 1 }, handled_note: 'x', plan_note: 'y' };
+  f.report.asset_review = { applicable: true, counts: { new: 1, no_tag: 1, unassigned: 1, no_cost: 1, no_date: 1 }, handled_note: 'x', plan_note: 'y' };
   const { htmlBody } = composeWeekly(f);
   assert.match(htmlBody, /compteurs au dernier enregistrement/);
   assert.ok(!/fig&eacute;s &agrave; la soumission/.test(htmlBody), 'unsubmitted wording must not claim the counts are frozen');

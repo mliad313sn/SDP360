@@ -46,7 +46,9 @@ test('each list follows its predicate (trim, states, all product types)', () => 
   // new = first seen in the window AND no QR code (Asset Tag blank; barcode ignored)
   assert.deepStrictEqual(ids(f.new), ['C1', 'C2', 'C3', 'D1', 'D2', 'N1', 'T2', 'U1', 'U2', 'U3']);
   assert.ok(!ids(f.new).includes('T1'), 'a tagged new asset is not listed');
-  assert.deepStrictEqual(f.counts, { new: f.new.length, unassigned: 3, no_cost: 2, no_date: 1 });
+  // no_tag = the whole active fleet with a blank Asset Tag, not just the week (barcode ignored)
+  assert.deepStrictEqual(ids(f.no_tag), ['B1', 'C1', 'C2', 'D1', 'N1', 'T2', 'U1', 'U2', 'U3']);
+  assert.deepStrictEqual(f.counts, { new: f.new.length, no_tag: 9, unassigned: 3, no_cost: 2, no_date: 1 });
   assert.match(f.generated_at, /^\d{4}-\d{2}-\d{2}T/);
 });
 
@@ -64,8 +66,8 @@ test('multi-label site sums across labels; other sites excluded', () => {
 
 test('empty labels → zeros and empty lists', () => {
   const f = adb.getSiteAssetFollowups([], W);
-  assert.deepStrictEqual(f.counts, { new: 0, unassigned: 0, no_cost: 0, no_date: 0 });
-  assert.deepStrictEqual([f.new, f.unassigned, f.no_cost, f.no_date], [[], [], [], []]);
+  assert.deepStrictEqual(f.counts, { new: 0, no_tag: 0, unassigned: 0, no_cost: 0, no_date: 0 });
+  assert.deepStrictEqual([f.new, f.no_tag, f.unassigned, f.no_cost, f.no_date], [[], [], [], [], []]);
 });
 
 test('rows carry has_cost (boolean) and NO amount key', () => {

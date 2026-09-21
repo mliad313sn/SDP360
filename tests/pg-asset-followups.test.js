@@ -48,7 +48,7 @@ test('pg: followups — predicates, window, no amounts (depends on the sightings
     { asset_id: 'A2', asset_name: 'PC-2', site: 'Hounde', state: 'In Use', user_name: 'x', department: 'IT', purchase_cost: '10', acquisition_date: '2024-01-01' },
   ]);
   const f = await a.getSiteAssetFollowups(['Hounde'], { newFrom: '2026-07-26', newTo: '2026-08-01' });
-  assert.deepStrictEqual(f.counts, { new: 1, unassigned: 1, no_cost: 1, no_date: 1 });   // A2 first seen 2026-07-28 in the sightings test
+  assert.deepStrictEqual(f.counts, { new: 1, no_tag: 2, unassigned: 1, no_cost: 1, no_date: 1 });   // A2 first seen 2026-07-28 in the sightings test
   assert.strictEqual(f.new[0].asset_id, 'A2');
   assert.strictEqual(f.new[0].has_cost, true);
   assert.ok(!('purchase_cost' in f.unassigned[0]));

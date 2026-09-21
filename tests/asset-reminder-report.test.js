@@ -9,8 +9,8 @@ const row = (id, extra = {}) => ({ asset_id: id, asset_name: 'PC-' + id, product
 // A coloured count tile: value div carries the tile's own colour.
 const TILE_RE = /font-size:22px;font-weight:bold;color:(#[0-9A-Fa-f]{6});line-height:1\.2;">([^<]*)<\/div>/g;
 const followups = () => ({
-  counts: { new: 1, unassigned: 25, no_cost: 0, no_date: 2 },
-  new: [row('N1', { first_seen_date: '2026-07-28' })],
+  counts: { no_tag: 1, unassigned: 25, no_cost: 0, no_date: 2 },
+  no_tag: [row('N1')],
   unassigned: Array.from({ length: 25 }, (_, i) => row('U' + i)),
   no_cost: [], no_date: [row('D1'), row('D2')],
 });
@@ -29,7 +29,7 @@ test('recap: xlsx named assets-suivi-<SITE>-<YYYY>-W<nn>.xlsx, one sheet per non
   const r = buildAssetRecap({ site: 'HGO', followups: followups(), baseUrl: '', weekLabel: 'W30 2026', year: 2026, week: 30, labels: ['Hounde'] });
   assert.strictEqual(r.attachments[0].filename, 'assets-suivi-HGO-2026-W30.xlsx');
   const wb = XLSX.read(r.attachments[0].content);
-  assert.deepStrictEqual(wb.SheetNames, ['Nouveau sans QR', 'Sans date', 'Sans utilisateur']);
+  assert.deepStrictEqual(wb.SheetNames, ['Sans QR code', 'Sans date', 'Sans utilisateur']);
   assert.strictEqual(XLSX.utils.sheet_to_json(wb.Sheets['Sans utilisateur']).length, 25);
 });
 
@@ -41,20 +41,20 @@ test('recap: links only with baseUrl AND a single label', () => {
 });
 
 test('recap escapes untrusted asset names', () => {
-  const f = followups(); f.new[0].asset_name = '<img src=x>';
+  const f = followups(); f.no_tag[0].asset_name = '<img src=x>';
   const r = buildAssetRecap({ site: 'HGO', followups: f, baseUrl: '', weekLabel: 'W30 2026', year: 2026, week: 30, labels: ['Hounde'] });
   assert.ok(!r.html.includes('<img src=x>'));
 });
 
 test('recap: null counts render em dash, a real zero still renders 0', () => {
   const f = followups();
-  f.counts = { new: null, unassigned: 25, no_cost: 0, no_date: 2 };
+  f.counts = { no_tag: null, unassigned: 25, no_cost: 0, no_date: 2 };
   const r = buildAssetRecap({ site: 'HGO', followups: f, baseUrl: '', weekLabel: 'W30 2026', year: 2026, week: 30, labels: ['Hounde'] });
-  // Coloured KPI tiles, in LISTS order (new, no_date, no_cost, unassigned).
+  // Coloured KPI tiles, in LISTS order (no_tag, no_date, no_cost, unassigned).
   const values = [...r.html.matchAll(TILE_RE)].map(m => m[2]);
   assert.deepStrictEqual(values, ['—', '2', '0', '25']);
-  assert.match(r.html, /Nouveau matériel sans QR code \(—\)/);
-  assert.ok(!r.html.includes('Nouveau matériel sans QR code (0)'));
+  assert.match(r.html, /Sans QR code \(Asset Tag vide\) \(—\)/);
+  assert.ok(!r.html.includes('Sans QR code (Asset Tag vide) (0)'));
 });
 
 test('recap: filename sanitises the site and falls back without year/week', () => {
@@ -100,7 +100,7 @@ test('recap: the 4 counters are coloured tiles, one distinct accent per list; nu
   assert.strictEqual(tiles.length, 4);
   assert.deepStrictEqual(tiles.map(t => t[1]), ['1', '2', '0', '25']);
   assert.strictEqual(new Set(tiles.map(t => t[0])).size, 4, 'four distinct accents');
-  const f = followups(); f.counts.new = null;
+  const f = followups(); f.counts.no_tag = null;
   const nul = [...buildAssetRecap({ site: 'HGO', followups: f, baseUrl: '', weekLabel: 'W30 2026', labels: ['Hounde'] }).html.matchAll(TILE_RE)];
   assert.strictEqual(nul[0][2], '—');
   assert.strictEqual(nul[0][1].toUpperCase(), '#64748B', 'null count is grey, not the list accent');
@@ -109,7 +109,7 @@ test('recap: the 4 counters are coloured tiles, one distinct accent per list; nu
 test('recap: each list has a coloured title bar and zebra rows', () => {
   const { html } = recap();
   assert.match(html, /background:#D97706;[^>]*>\s*<div[^>]*>Non assigné à un utilisateur \(25\)<\/div>/, 'unassigned = amber title bar');
-  assert.match(html, /background:#0D9488;[^>]*>\s*<div[^>]*>Nouveau matériel sans QR code \(1\)<\/div>/, 'new = teal title bar');
+  assert.match(html, /background:#0D9488;[^>]*>\s*<div[^>]*>Sans QR code \(Asset Tag vide\) \(1\)<\/div>/, 'no QR code = teal title bar');
   assert.ok(ZEBRA_ON.test(html) && ZEBRA_OFF.test(html), 'alternating row backgrounds');
 });
 

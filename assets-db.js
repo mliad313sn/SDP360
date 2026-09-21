@@ -259,7 +259,9 @@ const HYGIENE_KINDS = {
   // gaps → deliberately absent from _PRESENT_SELECT/_FRESHNESS_SELECT so the shipped B
   // completeness numbers stay pinned. They flow into summary/routes/export/digest via the
   // Object.keys(HYGIENE_KINDS) iteration alone.
-  no_asset_tag:        { label: 'No asset tag / QR',           where: "(asset_tag IS NULL OR asset_tag='') AND (barcode IS NULL OR barcode='')" },
+  // QR label = Asset Tag ONLY: `barcode` is mostly the auto-filled serial number
+  // (1220 of 1778 rows, 2026-09-21), not a stuck-on label.
+  no_asset_tag:        { label: 'No asset tag / QR',           where: "(asset_tag IS NULL OR TRIM(asset_tag)='')" },
   lifecycle_exception: { label: 'In repair / expired / lost',  where: "state IN ('In Repair','Expired','Lost/Stolen','Lost','Stolen')" },
 };
 
@@ -271,6 +273,7 @@ const FOLLOWUP_ACTIVE_STATES = "state IN ('In Use','In Store','In Repair')";
 // deployed kit is still recorded In Store, and that is exactly what must be fixed).
 const FOLLOWUP_UNASSIGNED = `(${FOLLOWUP_ACTIVE_STATES}) AND TRIM(COALESCE(user_name,'')) = ''`;
 const FOLLOWUP_NO_COST = `(${FOLLOWUP_ACTIVE_STATES}) AND (purchase_cost IS NULL OR TRIM(purchase_cost) IN ('','0','0.00'))`;
+const FOLLOWUP_NO_TAG = `(${FOLLOWUP_ACTIVE_STATES}) AND (asset_tag IS NULL OR TRIM(asset_tag) = '')`;
 const FOLLOWUP_NO_DATE = `(${FOLLOWUP_ACTIVE_STATES}) AND (acquisition_date IS NULL OR TRIM(acquisition_date) = '')`;
 
 // The kind's predicate ANDed with the SAME whitelisted filters getEnrichedAssets
@@ -1157,6 +1160,7 @@ function _followupQueries(labels, opts) {
   const L = (labels || []).map(v => String(v == null ? '' : v)).filter(Boolean);
   const ph = L.map(() => '?').join(', ');
   const q = {
+    no_tag:     { sql: `SELECT ${_FOLLOWUP_COLS} FROM assets a WHERE (${FOLLOWUP_NO_TAG}) AND a.site IN (${ph}) ORDER BY COALESCE(a.asset_name,''), a.asset_id`, params: L },
     unassigned: { sql: `SELECT ${_FOLLOWUP_COLS} FROM assets a WHERE (${FOLLOWUP_UNASSIGNED}) AND a.site IN (${ph}) ORDER BY COALESCE(a.asset_name,''), a.asset_id`, params: L },
     no_cost:    { sql: `SELECT ${_FOLLOWUP_COLS} FROM assets a WHERE (${FOLLOWUP_NO_COST}) AND a.site IN (${ph}) ORDER BY COALESCE(a.asset_name,''), a.asset_id`, params: L },
     no_date:    { sql: `SELECT ${_FOLLOWUP_COLS} FROM assets a WHERE (${FOLLOWUP_NO_DATE}) AND a.site IN (${ph}) ORDER BY COALESCE(a.asset_name,''), a.asset_id`, params: L },
@@ -1176,8 +1180,10 @@ function _followupQueries(labels, opts) {
 }
 function _shapeFollowups(lists) {
   const shape = (rows) => (rows || []).map(r => ({ ...r, has_cost: Number(r.has_cost) === 1 }));
-  const out = { new: shape(lists.new), unassigned: shape(lists.unassigned), no_cost: shape(lists.no_cost), no_date: shape(lists.no_date) };
-  out.counts = { new: out.new.length, unassigned: out.unassigned.length, no_cost: out.no_cost.length, no_date: out.no_date.length };
+  // `new` (first seen in the window, no QR) feeds the daily alert only; the four
+  // report counters are no_tag / no_date / no_cost / unassigned.
+  const out = { new: shape(lists.new), no_tag: shape(lists.no_tag), unassigned: shape(lists.unassigned), no_cost: shape(lists.no_cost), no_date: shape(lists.no_date) };
+  out.counts = { new: out.new.length, no_tag: out.no_tag.length, unassigned: out.unassigned.length, no_cost: out.no_cost.length, no_date: out.no_date.length };
   out.generated_at = new Date().toISOString();
   return out;
 }
@@ -1598,7 +1604,7 @@ module.exports = {
   classifySoftwareCompliance, getSoftwareComplianceSummary, getSoftwareComplianceExceptions, SOFTWARE_KINDS,
   snapshotEffort,
   getEffortLeaderboard, getEffortTrend,
-  FOLLOWUP_ACTIVE_STATES, FOLLOWUP_UNASSIGNED, FOLLOWUP_NO_COST, FOLLOWUP_NO_DATE,
+  FOLLOWUP_ACTIVE_STATES, FOLLOWUP_UNASSIGNED, FOLLOWUP_NO_COST, FOLLOWUP_NO_DATE, FOLLOWUP_NO_TAG,
   recordAssetSightings, getSiteAssetFollowups,
   DECISIONS, replaceExternalDevices, listExternalDevices, listImportRuns,
   setDecision, clearDecision, listDecisions,

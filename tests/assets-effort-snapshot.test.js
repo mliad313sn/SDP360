@@ -17,7 +17,7 @@ const cols = ['asset_id', 'asset_name', 'product', 'product_type', 'manufacturer
 // A "clean" row (present-on-everything, in NO worklist).
 const base = {
   product: 'Laptop', product_type: 'Notebook', manufacturer: 'Dell', serial_number: 'SN',
-  barcode: 'BC', site_id: 'S', purchase_cost: '1,250,000.00', acquisition_date: '2024-01-01',
+  barcode: 'BC', asset_tag: 'TAG', site_id: 'S', purchase_cost: '1,250,000.00', acquisition_date: '2024-01-01',
   warranty_expiry: '2027-01-01', user_name: 'x', department: 'IT',
   last_successful_audit_time: '2026-07-15', last_audit_status: 'Success',
   days_since_scan: '2', last_scan_source: 'Agent', created_time: '2024-01-01', state: 'In Use',

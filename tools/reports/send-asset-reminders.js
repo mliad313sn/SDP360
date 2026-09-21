@@ -118,7 +118,7 @@ async function main(deps = {}) {
       const f = (await loadFollowups(labels, win)) || {};
       const c = f.counts || {};
       const empty = type === 'asset_reminder'
-        ? !(c.new || c.unassigned || c.no_cost || c.no_date)
+        ? !(c.no_tag || c.unassigned || c.no_cost || c.no_date)
         : !c.new;
       if (empty) { results.push({ site, ok: false, reason: 'nothing to report' }); continue; }
       const rcpt = recipientsFor(rows, site, neverUnconfirmed);

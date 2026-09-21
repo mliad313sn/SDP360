@@ -20,7 +20,7 @@ function countText(v) {
 }
 
 const LISTS = [
-  ['new', 'Nouveau matériel sans QR code', 'Nouveau sans QR', '#inventory', null],
+  ['no_tag', 'Sans QR code (Asset Tag vide)', 'Sans QR code', '#hygiene', 'no_asset_tag'],
   ['no_date', 'Sans date d’acquisition', 'Sans date', '#hygiene', 'no_age'],
   ['no_cost', 'Sans coût d’achat', 'Sans cout', '#hygiene', 'no_cost'],
   ['unassigned', 'Non assigné à un utilisateur', 'Sans utilisateur', '#inventory', null],
@@ -37,6 +37,7 @@ const ZEBRA = '#F8FAFC';
 // no cost = violet, no date = red.
 const LIST_STYLE = {
   new:        { accent: '#0D9488', tint: '#F0FDFA' },
+  no_tag:     { accent: '#0D9488', tint: '#F0FDFA' },   // same teal as the daily new-hardware alert
   unassigned: { accent: '#D97706', tint: '#FFFBEB' },
   no_cost:    { accent: '#7C3AED', tint: '#F5F3FF' },
   no_date:    { accent: '#DC2626', tint: '#FEF2F2' },
