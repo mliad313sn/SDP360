@@ -82,7 +82,7 @@ made so far so that future sessions can pick up exactly where the last one ended
 > `docs/superpowers/plans/2026-09-18-asset-engagement.md`. **Données** : `asset_first_seen` (assets.db / pg,
 > PK asset_id, baseline=1 au 1ᵉʳ passage, jamais mis à jour) alimentée par `afterAssetsSync` (assets-sync.js,
 > cron 04:30 + trigger manuel ; sautée si la vue `assets` a échoué) ; `getSiteAssetFollowups(labels,{newFrom,newTo})`
-> = 4 listes (nouveau / en service sans user+dept / sans coût / sans date — ces deux-là In Use·In Store·In Repair),
+> = 4 listes, dans cet ordre (révision user 2026-09-21) : nouveau **sans QR code** (asset_tag ET barcode vides) / sans date / sans coût / **sans utilisateur** (user_name vide — le département ne compte pas) — ces trois-là In Use·In Store·In Repair (à Mana 468/510 actifs sont « In Store », d'où l'inclusion),
 > **aucun montant** (`has_cost` booléen). **Rapport hebdo** : `report_asset_review` (reports.db + pg `012`, une
 > ligne par rapport) ; onglet `stab-4` (« 5. Parc informatique ») = **compteurs + 2 notes seulement, ni listes ni liens Assets** (rev 5,
 > décision user 2026-09-18 — idem dans le bloc de l'e-mail hebdo ; les listes restent dans les e-mails de rappel) ;

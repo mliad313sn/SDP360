@@ -267,7 +267,9 @@ const HYGIENE_KINDS = {
 // Deliberately NOT HYGIENE_KINDS.no_owner / no_cost / no_age: those do not trim
 // and have no state filter. No SQL CAST on the TEXT columns — TRIM + IN only.
 const FOLLOWUP_ACTIVE_STATES = "state IN ('In Use','In Store','In Repair')";
-const FOLLOWUP_UNASSIGNED = "state = 'In Use' AND TRIM(COALESCE(user_name,'')) = '' AND TRIM(COALESCE(department,'')) = ''";
+// Not assigned to a user, in any active state (In Store included: at some sites most
+// deployed kit is still recorded In Store, and that is exactly what must be fixed).
+const FOLLOWUP_UNASSIGNED = `(${FOLLOWUP_ACTIVE_STATES}) AND TRIM(COALESCE(user_name,'')) = ''`;
 const FOLLOWUP_NO_COST = `(${FOLLOWUP_ACTIVE_STATES}) AND (purchase_cost IS NULL OR TRIM(purchase_cost) IN ('','0','0.00'))`;
 const FOLLOWUP_NO_DATE = `(${FOLLOWUP_ACTIVE_STATES}) AND (acquisition_date IS NULL OR TRIM(acquisition_date) = '')`;
 
@@ -1165,6 +1167,7 @@ function _followupQueries(labels, opts) {
       sql: `SELECT ${_FOLLOWUP_COLS}, f.first_seen_date FROM asset_first_seen f
             JOIN assets a ON a.asset_id = f.asset_id
             WHERE f.baseline = 0 AND f.first_seen_date BETWEEN ? AND ? AND a.site IN (${ph})
+              AND (a.asset_tag IS NULL OR TRIM(a.asset_tag) = '') AND (a.barcode IS NULL OR TRIM(a.barcode) = '')
             ORDER BY f.first_seen_date, COALESCE(a.asset_name,''), a.asset_id`,
       params: [newFrom, newTo, ...L],
     };

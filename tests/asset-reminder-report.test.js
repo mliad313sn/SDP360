@@ -29,8 +29,8 @@ test('recap: xlsx named assets-suivi-<SITE>-<YYYY>-W<nn>.xlsx, one sheet per non
   const r = buildAssetRecap({ site: 'HGO', followups: followups(), baseUrl: '', weekLabel: 'W30 2026', year: 2026, week: 30, labels: ['Hounde'] });
   assert.strictEqual(r.attachments[0].filename, 'assets-suivi-HGO-2026-W30.xlsx');
   const wb = XLSX.read(r.attachments[0].content);
-  assert.deepStrictEqual(wb.SheetNames, ['Nouveau', 'Sans affectation', 'Sans date']);
-  assert.strictEqual(XLSX.utils.sheet_to_json(wb.Sheets['Sans affectation']).length, 25);
+  assert.deepStrictEqual(wb.SheetNames, ['Nouveau sans QR', 'Sans date', 'Sans utilisateur']);
+  assert.strictEqual(XLSX.utils.sheet_to_json(wb.Sheets['Sans utilisateur']).length, 25);
 });
 
 test('recap: links only with baseUrl AND a single label', () => {
@@ -50,11 +50,11 @@ test('recap: null counts render em dash, a real zero still renders 0', () => {
   const f = followups();
   f.counts = { new: null, unassigned: 25, no_cost: 0, no_date: 2 };
   const r = buildAssetRecap({ site: 'HGO', followups: f, baseUrl: '', weekLabel: 'W30 2026', year: 2026, week: 30, labels: ['Hounde'] });
-  // Coloured KPI tiles, in LISTS order (new, unassigned, no_cost, no_date).
+  // Coloured KPI tiles, in LISTS order (new, no_date, no_cost, unassigned).
   const values = [...r.html.matchAll(TILE_RE)].map(m => m[2]);
-  assert.deepStrictEqual(values, ['—', '25', '0', '2']);
-  assert.match(r.html, /Nouveau matériel \(—\)/);
-  assert.ok(!r.html.includes('Nouveau matériel (0)'));
+  assert.deepStrictEqual(values, ['—', '2', '0', '25']);
+  assert.match(r.html, /Nouveau matériel sans QR code \(—\)/);
+  assert.ok(!r.html.includes('Nouveau matériel sans QR code (0)'));
 });
 
 test('recap: filename sanitises the site and falls back without year/week', () => {
@@ -98,7 +98,7 @@ test('recap: violet header band carrying the title', () => {
 test('recap: the 4 counters are coloured tiles, one distinct accent per list; null = neutral "—"', () => {
   const tiles = [...recap().html.matchAll(TILE_RE)].map(m => [m[1].toUpperCase(), m[2]]);
   assert.strictEqual(tiles.length, 4);
-  assert.deepStrictEqual(tiles.map(t => t[1]), ['1', '25', '0', '2']);
+  assert.deepStrictEqual(tiles.map(t => t[1]), ['1', '2', '0', '25']);
   assert.strictEqual(new Set(tiles.map(t => t[0])).size, 4, 'four distinct accents');
   const f = followups(); f.counts.new = null;
   const nul = [...buildAssetRecap({ site: 'HGO', followups: f, baseUrl: '', weekLabel: 'W30 2026', labels: ['Hounde'] }).html.matchAll(TILE_RE)];
@@ -108,8 +108,8 @@ test('recap: the 4 counters are coloured tiles, one distinct accent per list; nu
 
 test('recap: each list has a coloured title bar and zebra rows', () => {
   const { html } = recap();
-  assert.match(html, /background:#D97706;[^>]*>\s*<div[^>]*>En service sans utilisateur ni département \(25\)<\/div>/, 'unassigned = amber title bar');
-  assert.match(html, /background:#0D9488;[^>]*>\s*<div[^>]*>Nouveau matériel \(1\)<\/div>/, 'new = teal title bar');
+  assert.match(html, /background:#D97706;[^>]*>\s*<div[^>]*>Non assigné à un utilisateur \(25\)<\/div>/, 'unassigned = amber title bar');
+  assert.match(html, /background:#0D9488;[^>]*>\s*<div[^>]*>Nouveau matériel sans QR code \(1\)<\/div>/, 'new = teal title bar');
   assert.ok(ZEBRA_ON.test(html) && ZEBRA_OFF.test(html), 'alternating row backgrounds');
 });
 
@@ -125,8 +125,8 @@ test('recap: links, subject and attachment filename unchanged; no $', () => {
 
 test('alert: header band, count tile, zebra table with a coloured header row, link kept', () => {
   const r = alertMail();
-  assert.strictEqual(r.subject, 'Nouveau matériel détecté - HGO - 2026-07-28');
-  assert.match(r.html, /background:#7C3AED;[^>]*>\s*<div[^>]*>Nouveau matériel détecté<\/div>/);
+  assert.strictEqual(r.subject, 'Nouveau matériel sans QR code - HGO - 2026-07-28');
+  assert.match(r.html, /background:#7C3AED;[^>]*>\s*<div[^>]*>Nouveau matériel sans QR code<\/div>/);
   const t = [...r.html.matchAll(TILE_RE)];
   assert.strictEqual(t.length, 1); assert.strictEqual(t[0][2], '2');
   assert.match(r.html, /<th style="[^"]*background:#0D9488;[^"]*color:#FFFFFF;/, 'coloured header row');

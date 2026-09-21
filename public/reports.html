@@ -2774,10 +2774,10 @@ let _assetFollowups = null;   // last /asset-followups payload for the open repo
 // Counters only (rev 5, 2026-09-18): no asset lists and no Assets links in this
 // tab — the lists live in the asset-manager reminder e-mails.
 const _AR_KINDS = [
-  ['new', 'Nouveau matériel (semaine)'],
-  ['unassigned', 'En service sans utilisateur ni département'],
-  ['no_cost', "Sans coût d'achat"],
+  ['new', 'Nouveau matériel sans QR code (semaine)'],
   ['no_date', "Sans date d'acquisition"],
+  ['no_cost', "Sans coût d'achat"],
+  ['unassigned', 'Non assigné à un utilisateur'],
 ];
 function _isSuperAdminUser() {
   if (typeof window.__userHasRole === 'function') { try { return !!window.__userHasRole('super_admin'); } catch (_) {} }

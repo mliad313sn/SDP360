@@ -7,7 +7,7 @@ process.env.SDP_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'afu-'));
 const adb = require('../assets-db');
 
 const COLS = ['asset_id', 'asset_name', 'product_type', 'manufacturer', 'serial_number', 'state', 'site',
-  'user_name', 'department', 'purchase_cost', 'acquisition_date'];
+  'user_name', 'department', 'purchase_cost', 'acquisition_date', 'asset_tag', 'barcode'];
 const ok = { product_type: 'Laptop', manufacturer: 'Dell', serial_number: 'SN', state: 'In Use',
   user_name: 'u', department: 'IT', purchase_cost: '1,250,000.00', acquisition_date: '2024-01-01' };
 
@@ -16,10 +16,12 @@ adb.replaceTable('assets', COLS, [{ ...ok, asset_id: 'B1', asset_name: 'Base-1',
 adb.recordAssetSightings({ asOf: '2026-07-20' });
 adb.replaceTable('assets', COLS, [
   { ...ok, asset_id: 'B1', asset_name: 'Base-1', site: 'Hounde' },                                        // baseline → never "new"
-  { ...ok, asset_id: 'N1', asset_name: 'New-1', site: 'Hounde' },                                         // new in window
+  { ...ok, asset_id: 'N1', asset_name: 'New-1', site: 'Hounde' },                                         // new in window, no QR code
+  { ...ok, asset_id: 'T1', asset_name: 'New-tagged', site: 'Hounde', asset_tag: 'QR-0001' },            // new but tagged → NOT listed
+  { ...ok, asset_id: 'T2', asset_name: 'New-barcode', site: 'Hounde', asset_tag: ' ', barcode: 'BC-1' }, // new, barcode only → NOT listed
   { ...ok, asset_id: 'U1', asset_name: 'Unassigned-blank', site: 'Hounde', user_name: '  ', department: ' ' }, // unassigned (spaces)
-  { ...ok, asset_id: 'U2', asset_name: 'Store-no-user', site: 'Hounde', state: 'In Store', user_name: '', department: '' }, // NOT unassigned (not In Use)
-  { ...ok, asset_id: 'U3', asset_name: 'Dept-only', site: 'Hounde', user_name: '', department: 'HR' },   // NOT unassigned (department set)
+  { ...ok, asset_id: 'U2', asset_name: 'Store-no-user', site: 'Hounde', state: 'In Store', user_name: '', department: '' }, // unassigned (In Store counts)
+  { ...ok, asset_id: 'U3', asset_name: 'Dept-only', site: 'Hounde', user_name: '', department: 'HR' },   // unassigned (a department is not a user)
   { ...ok, asset_id: 'C1', asset_name: 'Cost-000', site: 'Hounde', purchase_cost: ' 0.00 ' },             // no cost (trimmed)
   { ...ok, asset_id: 'C2', asset_name: 'Cost-null', site: 'Hounde', state: 'In Repair', purchase_cost: null }, // no cost (In Repair counts)
   { ...ok, asset_id: 'C3', asset_name: 'Cost-disposed', site: 'Hounde', state: 'Disposed', purchase_cost: '0' }, // NOT counted (state)
@@ -38,11 +40,13 @@ const ids = (rows) => rows.map(r => r.asset_id).sort();
 
 test('each list follows its predicate (trim, states, all product types)', () => {
   const f = adb.getSiteAssetFollowups(['Hounde'], W);
-  assert.deepStrictEqual(ids(f.unassigned), ['U1']);
+  assert.deepStrictEqual(ids(f.unassigned), ['U1', 'U2', 'U3']);
   assert.deepStrictEqual(ids(f.no_cost), ['C1', 'C2']);
   assert.deepStrictEqual(ids(f.no_date), ['D1']);
+  // new = first seen in the window AND no QR code (asset tag and barcode both blank)
   assert.deepStrictEqual(ids(f.new), ['C1', 'C2', 'C3', 'D1', 'D2', 'N1', 'U1', 'U2', 'U3']);
-  assert.deepStrictEqual(f.counts, { new: f.new.length, unassigned: 1, no_cost: 2, no_date: 1 });
+  assert.ok(!ids(f.new).includes('T1') && !ids(f.new).includes('T2'));
+  assert.deepStrictEqual(f.counts, { new: f.new.length, unassigned: 3, no_cost: 2, no_date: 1 });
   assert.match(f.generated_at, /^\d{4}-\d{2}-\d{2}T/);
 });
 
@@ -54,7 +58,7 @@ test('new respects the window bounds (inclusive)', () => {
 
 test('multi-label site sums across labels; other sites excluded', () => {
   const f = adb.getSiteAssetFollowups(['Hounde', 'MASSAWA'], W);
-  assert.deepStrictEqual(ids(f.unassigned), ['M1', 'U1']);
+  assert.deepStrictEqual(ids(f.unassigned), ['M1', 'U1', 'U2', 'U3']);
   assert.ok(!ids(f.unassigned).includes('X1'));
 });
 

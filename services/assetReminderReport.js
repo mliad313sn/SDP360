@@ -20,10 +20,10 @@ function countText(v) {
 }
 
 const LISTS = [
-  ['new', 'Nouveau matériel', 'Nouveau', '#inventory', null],
-  ['unassigned', 'En service sans utilisateur ni département', 'Sans affectation', '#inventory', null],
-  ['no_cost', 'Sans coût d’achat', 'Sans cout', '#hygiene', 'no_cost'],
+  ['new', 'Nouveau matériel sans QR code', 'Nouveau sans QR', '#inventory', null],
   ['no_date', 'Sans date d’acquisition', 'Sans date', '#hygiene', 'no_age'],
+  ['no_cost', 'Sans coût d’achat', 'Sans cout', '#hygiene', 'no_cost'],
+  ['unassigned', 'Non assigné à un utilisateur', 'Sans utilisateur', '#inventory', null],
 ];
 
 // ── colour presentation (2026-09-18) ─────────────────────────────────────────
@@ -140,14 +140,14 @@ function buildAssetRecap({ site, followups, baseUrl, weekLabel, year, week, labe
 
 function buildNewAssetAlert({ site, rows, baseUrl, date, labels } = {}) {
   const list = Array.isArray(rows) ? rows : [];
-  const subject = `Nouveau matériel détecté - ${site} - ${date}`;
+  const subject = `Nouveau matériel sans QR code - ${site} - ${date}`;
   const href = _link(baseUrl, labels, '#inventory', null);
   const nw = LIST_STYLE.new;
-  const intro = `<div style="font-family:${FONT};font-size:13px;color:${INK};padding-bottom:8px;">${escapeHtml(list.length)} nouvel(le)(s) &eacute;quipement(s) vu(s) pour la premi&egrave;re fois lors de la synchronisation du ${escapeHtml(date)}. Merci de compl&eacute;ter utilisateur, d&eacute;partement, co&ucirc;t et date d&rsquo;acquisition.</div>`;
-  const tile = _tileRow([_tile('Nouveau matériel', String(list.length), nw.accent, nw.tint), '&nbsp;', '&nbsp;']);
+  const intro = `<div style="font-family:${FONT};font-size:13px;color:${INK};padding-bottom:8px;">${escapeHtml(list.length)} nouvel(le)(s) &eacute;quipement(s) vu(s) pour la premi&egrave;re fois lors de la synchronisation du ${escapeHtml(date)} et sans QR code. Merci de les &eacute;tiqueter et de compl&eacute;ter utilisateur, co&ucirc;t et date d&rsquo;acquisition.</div>`;
+  const tile = _tileRow([_tile('Nouveau sans QR code', String(list.length), nw.accent, nw.tint), '&nbsp;', '&nbsp;']);
   const sub = `${escapeHtml(site)} &middot; ${escapeHtml(date)}`;
-  const html = _shell(_band('Nouveau matériel détecté', sub) + tile
-    + _section(`Nouveau matériel (${list.length})`, intro + _table(list, true, nw.accent) + _linkHtml(href, nw.accent), nw.accent));
+  const html = _shell(_band('Nouveau matériel sans QR code', sub) + tile
+    + _section(`Nouveau matériel sans QR code (${list.length})`, intro + _table(list, true, nw.accent) + _linkHtml(href, nw.accent), nw.accent));
   return { subject, html, attachments: [] };
 }
 
