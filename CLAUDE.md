@@ -50,6 +50,42 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ---
 
+## ⚡ Current state (as of 2026-09-23 — envois planifiés réparés, marqueur `7a7260d`)
+
+> **Tout `main` est en prod** (marqueur `7a7260d`), sauf les 2 lots gelés (installeur `578be34`, tracker
+> `c97ae61`+`e17b7b7`) qui restent DERRIÈRE le marqueur et devront être empaquetés à la main.
+>
+> **Ce qui a été livré les 21-23/09** : la diapositive « Parc informatique » sur les decks Weekly (+ le
+> bandeau « score de tenue du parc » = `effortForSite`) ; `tools/reports/backfill-asset-review.js --apply`
+> **lancé en prod** (compteurs figés sur le dernier rapport soumis de 7 sites — W37 sauf Ouaga W33 ; Kalana
+> sans libellé Assets, Dakar sans rapport soumis) → les écarts « vs semaine précédente » apparaîtront à
+> partir de **W38** ; le chargement de `.env` dans tous les CLI `tools/reports/*` ; la création des tâches
+> planifiées **`/RU SYSTEM`**.
+>
+> **⚠️ DÉCOUVERTE MAJEURE (voir les 2 lignes de pièges) : AUCUN envoi planifié n'a jamais tourné** depuis
+> la création des planifications le 2026-08-11 — tâches en « Interactive only » sous le compte machine, Last
+> Result **267011**. Les 9 tâches `SDP-Report-*` ont été repassées sous SYSTEM le 2026-09-23 (`schtasks
+> /Change /TN <t> /RU SYSTEM`, vérifié : Logon Mode = `Interactive/Background`, Run As User = `SYSTEM`).
+> **Aucun e-mail n'est donc parti avec des données périmées** (l'audit `tools/pg/audit-sent-log.js` montre
+> le bloc [2] vide : les 10 envois du journal viennent tous du serveur).
+>
+> **➡️ À FAIRE — lundi 2026-09-28 07:00 = PREMIER passage réel** de `weekly_report-weekly`,
+> `scoreboard-weekly`, `hygiene-weekly`, `group-weekly` (puis le 1ᵉʳ octobre pour les mensuels +
+> `asset_group`). **L'armement de chaque envoi + ses destinataires restent à vérifier dans Automated
+> Reports** — un envoi désarmé ne part pas même si la tâche tourne. Contrôler après coup avec
+> `node tools\pgudit-sent-log.js --since=2026-09-28` (bloc [1b] nourri, bloc [3] « dernier » daté).
+>
+> **Autres chantiers ouverts** : boîte d'envoi dédiée **`itops-dashboard@endeavourmining.com`** (demande
+> d'exemption MFA envoyée ; ⚠️ vérifier si le tenant accepte encore l'auth SMTP de base — sinon connecteur
+> de réception limité à l'IP du serveur, et laisser `smtp_user` vide) ; le **récap parc du lundi
+> (`asset_reminder`) n'est pas encore planifié** (responsables parc à confirmer + 2 e-mails à armer ;
+> question de fond non tranchée : ~90 % des actifs sans coût → presque tous les sites recevront le récap) ;
+> les **tests pg du parc** (`pg-asset-followups`, `pg-report-asset-review`, `pg-reports-reports`,
+> `pg-reporting`) n'ont jamais tourné ; **E2E installeur sur l'instance TEST** ; **dégel tracker** à la fin
+> du cycle mensuel ; `help.html` en retard (Assets/Réconciliation/Site Actions/Scoreboard/IT Review).
+
+---
+
 ## ⚡ Current state (as of 2026-09-06 — Audit OPS lot 1 : intégrité & accès, sur `main`)
 
 > **Lot 1 de l'audit externe du 2026-09-05** (`docs/…` hors dépôt : *Audit_OPS_Coordonnateurs_Copilot*) —
