@@ -31,6 +31,26 @@ async function fromPg() {
   const c = new Client({ connectionString: process.env.PG_URL });
   await c.connect();
   try {
+    // [1] What is ARMED: a scheduled task that runs still sends nothing when its
+    // arm flag is '0'. Recipients are shown as set/empty only (no addresses printed).
+    const cfg = (await c.query(`SELECT key, value FROM report_config
+      WHERE key LIKE '%_send_enabled' OR key = 'asset_new_alert_enabled'
+         OR key LIKE '%_recipients' OR key IN ('smtp_host','smtp_user','smtp_from','mail_from')
+      ORDER BY key`)).rows;
+    // Every known arm flag, stored or not: a key ABSENT from report_config means the
+    // DEFAULTS value applies (all of them default to '0' = disarmed), so listing only the
+    // stored rows would hide most of the answer behind an empty table.
+    const DEF = require('../../services/reportConfig').DEFAULTS || {};
+    const stored = new Map(cfg.map(r => [r.key, String(r.value == null ? '' : r.value)]));
+    const arm = Object.keys(DEF).filter(k => /_enabled$/.test(k)).sort().map((k) => {
+      const v = stored.has(k) ? stored.get(k) : String(DEF[k]);
+      return { envoi: k.replace(/_send_enabled$|_enabled$/, ''),
+        etat: v === '1' ? 'ARME - part' : 'desarme - inerte',
+        source: stored.has(k) ? 'enregistre' : 'defaut' };
+    });
+    console.log("");
+    console.log("[0a] Interrupteurs d'envoi (un envoi desarme ne part pas, meme si sa tache tourne)");
+    table(arm, ['envoi', 'etat', 'source']);
     const sched = (await c.query(`SELECT report_type, cadence, enabled, day, time, updated_by,
       to_char(updated_at,'YYYY-MM-DD') AS updated FROM report_schedules ORDER BY report_type, cadence`)).rows;
     console.log('\n[1a] Planifications enregistrées dans le dashboard (PostgreSQL report_schedules)');
