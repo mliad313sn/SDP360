@@ -104,4 +104,24 @@ function describeSecretState(stored) {
   return { state: 'plaintext', label: 'EN CLAIR — présent tel quel dans les sauvegardes' };
 }
 
-module.exports = { encryptValue, decryptValue, isEncrypted, keyFrom, envKey, describeSecretState, PREFIX };
+// Plan the one-off migration of values written before the key existed. PURE: it takes the
+// rows and returns the updates, so the writing half stays a tiny, auditable loop.
+//
+// Re-typing the secrets in the admin console is the alternative, and it is the riskier
+// one: those fields are redacted on GET and BLANK MEANS KEEP, so a Save with an untouched
+// field encrypts nothing while appearing to succeed — and a typo in the SMTP password is
+// discovered on Monday by the people waiting for a report. Re-encrypting in place needs
+// nobody to know the values.
+//
+// Empty and already-encrypted values are skipped, so a second run has nothing to do; with
+// no key the plan is EMPTY rather than a plan that would overwrite the secrets with
+// something unreadable.
+function planSecretEncryption(rows, key) {
+  if (!key) return [];
+  return (rows || [])
+    .filter(r => r && typeof r.value === 'string' && r.value !== '' && !isEncrypted(r.value))
+    .map(r => ({ key: r.key, value: encryptValue(r.value, key) }));
+}
+
+module.exports = { encryptValue, decryptValue, isEncrypted, keyFrom, envKey, describeSecretState,
+  planSecretEncryption, PREFIX };

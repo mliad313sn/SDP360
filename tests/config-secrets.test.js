@@ -118,3 +118,37 @@ test('it never echoes the secret it is describing', () => {
   assert.ok(!JSON.stringify(d).includes('hunter2'), 'a diagnostic must not print the password');
   assert.match(d.label, /clair/i, 'and it says plainly that this one is exposed');
 });
+
+// The migration itself. Re-typing each secret in the admin console works, but it is the
+// riskiest way to do it: the fields are redacted on GET and BLANK MEANS KEEP, so a Save
+// with an untouched field encrypts nothing while looking like it did — and a typo in the
+// SMTP password breaks Monday's mail. Re-encrypting in place needs no one to know the
+// values.
+const { planSecretEncryption } = require('../services/configSecrets');
+
+test('plans an update only for the values that are plaintext and non-empty', () => {
+  const plan = planSecretEncryption([
+    { key: 'smtp_pass', value: 'hunter2' },
+    { key: 'meraki_api_key', value: 'abc123' },
+    { key: 'entra_client_secret', value: '' },
+    { key: 'meridian_in_key', value: 'enc:v1:a:b:c' },
+  ], KEY);
+  assert.deepStrictEqual(plan.map(p => p.key), ['smtp_pass', 'meraki_api_key']);
+  assert.ok(plan.every(p => p.value.startsWith('enc:v1:')));
+});
+
+test('the plan round-trips: what it writes decrypts back to what was there', () => {
+  const [p] = planSecretEncryption([{ key: 'smtp_pass', value: 'hunter2' }], KEY);
+  assert.strictEqual(decryptValue(p.value, KEY), 'hunter2');
+});
+
+test('no key → no plan at all, rather than a plan that destroys the values', () => {
+  assert.deepStrictEqual(planSecretEncryption([{ key: 'smtp_pass', value: 'hunter2' }], null), []);
+});
+
+test('running it twice is a no-op — the second pass has nothing to do', () => {
+  const rows = [{ key: 'smtp_pass', value: 'hunter2' }];
+  const first = planSecretEncryption(rows, KEY);
+  const after = [{ key: 'smtp_pass', value: first[0].value }];
+  assert.deepStrictEqual(planSecretEncryption(after, KEY), []);
+});
