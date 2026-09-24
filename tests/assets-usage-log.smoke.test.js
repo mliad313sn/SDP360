@@ -38,6 +38,10 @@ before(async () => {
     ['asset_id', 'asset_name', 'site', 'state', 'product_type', 'manufacturer', 'serial_number'],
     [{ asset_id: 'A1', asset_name: 'PC-MANA-01', site: 'MANA', state: 'In Use',
        product_type: 'Workstation', manufacturer: 'Dell', serial_number: 'SN-0001' }]);
+  // The inventory export is admin+ since G-11, and this suite asserts an export IS
+  // logged — so the actor needs the role the route now requires.
+  const me = (rdb.listUsers() || []).find(u => u.username === process.env.DASH_USER);
+  rdb.setUserRoles(me.id, ['admin']);
   const sess = await rdb.login(process.env.DASH_USER, process.env.DASH_PASS);
   token = sess.token;
   await new Promise(r => { server = http.createServer(app).listen(0, '127.0.0.1', r); });

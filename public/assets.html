@@ -3648,6 +3648,28 @@ window.addEventListener('beforeprint', function () {
   const inited = { inventory: false, hygiene: false, finance: false, hardware: false, progress: false, investment: false, reconcile: false };
   let activeTab = 'inventory';
 
+  // G-11 (owner decision, 2026-09-24) — the money is admin+. The routes enforce it; the
+  // page must not walk a viewer into a tab that will answer 403. The engagement tabs
+  // (Inventory, Hygiene, Hardware, Progress, Réconciliation) stay open to everyone:
+  // closing the module would cost more than the exposure it prevents.
+  // PURE, so the rule is testable outside a browser.
+  const MONEY_TABS = ['finance', 'investment'];
+  function _moneyTabsAllowed(hasRole) {
+    if (typeof hasRole !== 'function') return false;   // no helper → assume not allowed
+    try { return !!(hasRole('admin') || hasRole('executive') || hasRole('super_admin')); }
+    catch (e) { return false; }
+  }
+  function _applyMoneyTabGate() {
+    if (_moneyTabsAllowed(window.__userHasRole)) return;
+    for (const t of MONEY_TABS) {
+      const btn = document.querySelector('.tabbtn[data-tab="' + t + '"]');
+      if (btn) btn.style.display = 'none';
+      const idx = TABS.indexOf(t);
+      if (idx >= 0) TABS.splice(idx, 1);              // and out of the deep-link set
+    }
+  }
+
+
   function authHeaders() {
     const h = {};
     let tok = null;
@@ -3860,6 +3882,7 @@ window.addEventListener('beforeprint', function () {
 
   async function boot() {
     wire();
+    _applyMoneyTabGate();     // before the hash picks a tab, so a deep link cannot bypass it
     loadFreshness();          // best-effort: never blocks the module from rendering
     await loadLookups();
     // AFTER loadLookups (the <option>s must exist) and BEFORE activate, so the

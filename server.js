@@ -2385,6 +2385,16 @@ app.post('/api/sync/trigger/:job', requireReportSession, requireAdmin, async (re
 // ── ASSETS (Foundation) ──────────────────────────────────────────
 // Read routes require a session; the sync trigger requires admin. Every dual-backend
 // reader is awaited (Promise on ASSETS_BACKEND=postgres) — see tests/await-precedence.test.js.
+// G-11 — the money columns the enriched reader carries. Stripped for any session below
+// admin: the raw XOF strings are as much an amount as the converted ones, so both go.
+const _ASSET_MONEY_KEYS = ['purchase_cost', 'current_book_value', 'total_cost_of_ownership',
+  'operational_cost', 'purchase_cost_usd', 'book_value_usd', 'tco_usd'];
+function _stripAssetMoney(row) {
+  const out = { ...row };
+  for (const k of _ASSET_MONEY_KEYS) delete out[k];
+  return out;
+}
+
 app.get('/api/assets/inventory', requireReportSession, async (req, res) => {
   try {
     const adb = require('./assets-db');
@@ -2398,6 +2408,13 @@ app.get('/api/assets/inventory', requireReportSession, async (req, res) => {
     // USD money fields per row. Reader returns raw XOF strings → convert once via
     // the configured rate (never rate 1). Owner/date fields ride through unchanged.
     const rows = await adb.getEnrichedAssets(q);
+    // G-11 (owner decision, 2026-09-24) — the inventory stays open to every session,
+    // because the engagement loop depends on a site asset manager reaching it, but the
+    // MONEY only travels to admin+. A worklist without amounts is still a worklist;
+    // that is already the rule on Hygiene.
+    if (!require('./reports-db').userHasRole(req.reportUser, 'admin')) {
+      return res.json(rows.map(r => _stripAssetMoney(r)));
+    }
     const rate = await _assetUsdRate();
     res.json(rows.map(r => ({
       ...r,
@@ -2459,7 +2476,7 @@ app.get('/api/assets/summary', requireReportSession, async (req, res) => {
 // as /inventory) as a two-sheet workbook (Assets + Installed Software). The
 // software sheet is empty for now — the Foundation has no software table (it
 // moved to sub-project C); the sheet is emitted so the contract is stable.
-app.get('/api/assets/export.xlsx', requireReportSession, async (req, res) => {
+app.get('/api/assets/export.xlsx', requireReportSession, requireAdmin, async (req, res) => {
   try {
     const adb = require('./assets-db');
     const money = require('./services/money');
@@ -2760,7 +2777,7 @@ const _assetUsdRate = async () => {
   return rate;
 };
 
-app.get('/api/assets/finance/summary', requireReportSession, async (req, res) => {
+app.get('/api/assets/finance/summary', requireReportSession, requireAdmin, async (req, res) => {
   try {
     const adb = require('./assets-db');
     const rate = await _assetUsdRate();
@@ -2773,7 +2790,7 @@ app.get('/api/assets/finance/summary', requireReportSession, async (req, res) =>
 });
 
 // One-sheet USD-only workbook (no raw XOF ever leaves this route).
-app.get('/api/assets/finance/export.xlsx', requireReportSession, async (req, res) => {
+app.get('/api/assets/finance/export.xlsx', requireReportSession, requireAdmin, async (req, res) => {
   try {
     const adb = require('./assets-db');
     const { buildWorkbook } = require('./services/tableExcel');
@@ -2789,7 +2806,7 @@ app.get('/api/assets/finance/export.xlsx', requireReportSession, async (req, res
   }
 });
 
-app.get('/api/assets/licences/summary', requireReportSession, async (req, res) => {
+app.get('/api/assets/licences/summary', requireReportSession, requireAdmin, async (req, res) => {
   try {
     res.json(await require('./assets-db').getLicenceSummary(_assetLicenceFilters(req)));
   } catch (e) {
@@ -2798,7 +2815,7 @@ app.get('/api/assets/licences/summary', requireReportSession, async (req, res) =
   }
 });
 
-app.get('/api/assets/licences/exceptions', requireReportSession, async (req, res) => {
+app.get('/api/assets/licences/exceptions', requireReportSession, requireAdmin, async (req, res) => {
   const adb = require('./assets-db');
   // Pre-validate BEFORE the try/catch: an unknown kind must be 400, not the catch's 500.
   const kind = String(req.query.kind || '');
@@ -2814,7 +2831,7 @@ app.get('/api/assets/licences/exceptions', requireReportSession, async (req, res
 // GET /api/assets/licences/export.xlsx?kind=all|<kind> — one sheet per licence kind
 // (kind=all, the default), or a single sheet for a specific valid kind. Unknown specific
 // kind → 400 (pre-validated).
-app.get('/api/assets/licences/export.xlsx', requireReportSession, async (req, res) => {
+app.get('/api/assets/licences/export.xlsx', requireReportSession, requireAdmin, async (req, res) => {
   const adb = require('./assets-db');
   const kind = String(req.query.kind || 'all');
   if (kind !== 'all' && !adb.LICENCE_KINDS[kind]) return res.status(400).json({ error: 'unknown kind' });
@@ -3285,7 +3302,7 @@ const _deprecConfig = async () => {
     .parseDepreciationConfig((await reportConfig.getConfig(rdb.db)).asset_depreciation_config);
 };
 
-app.get('/api/assets/depreciation/summary', requireReportSession, async (req, res) => {
+app.get('/api/assets/depreciation/summary', requireReportSession, requireAdmin, async (req, res) => {
   try {
     const adb = require('./assets-db');
     const rate = await _assetUsdRate();
@@ -3303,7 +3320,7 @@ app.get('/api/assets/depreciation/summary', requireReportSession, async (req, re
   }
 });
 
-app.get('/api/assets/depreciation/schedule', requireReportSession, async (req, res) => {
+app.get('/api/assets/depreciation/schedule', requireReportSession, requireAdmin, async (req, res) => {
   try {
     const adb = require('./assets-db');
     const rate = await _assetUsdRate();
@@ -3366,7 +3383,7 @@ const _assetUpliftPct = async () => {
   return Number.isFinite(p) && p >= 0 ? p : 0;
 };
 
-app.get('/api/assets/investment/history', requireReportSession, async (req, res) => {
+app.get('/api/assets/investment/history', requireReportSession, requireAdmin, async (req, res) => {
   try {
     const rate = await _assetUsdRate();
     res.json(await require('./assets-db').getInvestmentSummary(_assetInvestmentFilters(req), { rate }));
@@ -3376,7 +3393,7 @@ app.get('/api/assets/investment/history', requireReportSession, async (req, res)
   }
 });
 
-app.get('/api/assets/investment/forecast', requireReportSession, async (req, res) => {
+app.get('/api/assets/investment/forecast', requireReportSession, requireAdmin, async (req, res) => {
   try {
     const adb = require('./assets-db');
     const config = await _deprecConfig();          // already parsed → pass straight through
@@ -3400,7 +3417,7 @@ app.get('/api/assets/investment/forecast', requireReportSession, async (req, res
 // forecast sheet is the year rows plus a "Due now" and a "Beyond horizon" row
 // (the Year column labels those two). Same horizon-clamp + config/rate/uplift reads
 // as the forecast route.
-app.get('/api/assets/investment/export.xlsx', requireReportSession, async (req, res) => {
+app.get('/api/assets/investment/export.xlsx', requireReportSession, requireAdmin, async (req, res) => {
   try {
     const adb = require('./assets-db');
     const { buildWorkbook } = require('./services/tableExcel');

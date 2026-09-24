@@ -68,3 +68,18 @@ test('G-04: the page shows the fleet size and states the threshold', () => {
   assert.ok(src.includes('r.total'), 'the renderer reads the fleet size');
   assert.ok(src.includes('min_assets'), 'the threshold reaches the page');
 });
+
+// ── G-11 (audit 2026-09-24, owner decision) — the money is admin+ ─────────────
+// The routes refuse a viewer now, so the page must not walk one into a tab that will
+// 403. The engagement tabs stay: closing the module would cost more than the exposure.
+test('G-11: the money tabs are gated on the role, the engagement tabs are not', () => {
+  const gate = new Function(`${fnSource(src, '_moneyTabsAllowed')}; return _moneyTabsAllowed;`)();
+  assert.strictEqual(gate(() => true), true, 'an admin keeps Finance and Investment');
+  assert.strictEqual(gate(() => false), false, 'a viewer does not');
+  assert.strictEqual(gate(null), false, 'no role helper at all → assume not allowed');
+});
+
+test('G-11: the page hides those tabs rather than letting the click 403', () => {
+  assert.ok(src.includes('_moneyTabsAllowed'), 'the gate exists');
+  assert.ok(/MONEY_TABS/.test(src), 'and names the tabs it governs');
+});
