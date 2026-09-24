@@ -155,11 +155,23 @@ function excludedLine(excluded) {
     : '';
 }
 
+// G-09 — a coverage that was never computed is NOT a coverage of 0 %. "0/0 (0 %)" reads
+// as a measured emptiness and invites the reader to dismiss the caveat; an unnamed
+// absence invites them to trust the amount. Both are wrong, so say "couverture inconnue".
+// An explicit {eligible:0,total:0} IS a measurement ("nothing was eligible") and still
+// prints 0/0. Only a coverage that was never computed — absent, or a total that is not
+// a number — is "inconnue". Zero measured is not the same as nothing measured.
+function known(cov) { return !!cov && isNum(num(cov.total)); }
+
 function coverageBanners(hwCov, swCov) {
   const hwPct = int(hwCov.pct);
-  const accent = hwPct < 50 ? RED : AMBER;
-  const hwLine = `Prévision matériel basée sur ${int(hwCov.eligible)}/${int(hwCov.total)} actifs (${hwPct}%) — date d'acquisition + coût + politique de cycle de vie.`;
-  const swLine = `Renouvellement logiciel basé sur ${int(swCov.eligible)}/${int(swCov.total)} licences (${int(swCov.pct)}%) — date d'expiration + coût.`;
+  const accent = (!known(hwCov) || hwPct < 50) ? RED : AMBER;
+  const hwLine = known(hwCov)
+    ? `Prévision matériel basée sur ${int(hwCov.eligible)}/${int(hwCov.total)} actifs (${hwPct}%) — date d'acquisition + coût + politique de cycle de vie.`
+    : `Prévision matériel : couverture inconnue — le nombre d'actifs éligibles n'a pas pu être calculé, ne pas lire les montants comme exhaustifs.`;
+  const swLine = known(swCov)
+    ? `Renouvellement logiciel basé sur ${int(swCov.eligible)}/${int(swCov.total)} licences (${int(swCov.pct)}%) — date d'expiration + coût.`
+    : `Renouvellement logiciel : couverture inconnue — le nombre de licences éligibles n'a pas pu être calculé.`;
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:separate;background:#FFF7ED;border:1px solid ${accent};border-left:5px solid ${accent};border-radius:6px;margin:0 0 14px 0;">
 <tr><td style="padding:12px 16px;">
 <div style="font-family:${FONT};font-size:11px;font-weight:bold;color:${accent};letter-spacing:0.6px;text-transform:uppercase;padding-bottom:8px;">Couverture des données — lire avant les montants</div>
