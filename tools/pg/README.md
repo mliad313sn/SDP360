@@ -26,7 +26,55 @@ Container creds (dev/test ONLY — never prod, never `fmp_v2`):
 | `TRACKER_BACKEND` | `sqlite` | `sqlite` (today's better-sqlite3 path, unchanged) or `postgres` (the `pgDb` path). |
 | `PG_URL` / `DATABASE_URL` | — | Postgres connection string used when `TRACKER_BACKEND=postgres`. |
 | `PG_POOL_MAX` | `10` | `pg.Pool` max connections. |
-| `PG_ADMIN_URL` | `postgres://postgres:devpass@localhost:5433/postgres` | **Tests only** — maintenance DB used to CREATE/DROP a throwaway per-run test database. |
+| `PG_ADMIN_URL` | `postgres://postgres:devpass@localhost:5433/postgres` | **Tests only** — maintenance DB used to CREATE/DROP a throwaway per-run test database. The default points at the **Docker** cluster (port 5433); the 4MyPeople-managed PostgreSQL 17 this repo actually runs against listens on **5432**. See "A green suite can mean the pg half never ran". |
+| `PG_TESTS_REQUIRED` | unset | `1` makes an unreachable PostgreSQL a **test failure** instead of a skip. Use it before a deploy and in CI. |
+
+## ⚠️ A green suite can mean the pg half never ran
+
+Production runs **100 % on PostgreSQL**, but the pg suites skip themselves when they
+cannot reach a database — `provisionTestDb()` returns `null` and every consumer opts
+out. On 2026-09-24 that was **75 tests** (the entire pg parity: `pgDb`,
+`pg-asset-followups`, `pg-report-asset-review`, `inspection pg`, `meetings pg`, …)
+sitting silently in `skipped` while the suite reported itself green.
+
+Two causes, both easy to miss:
+
+- the **default `PG_ADMIN_URL` points at port 5433** (the Docker dev cluster), while the
+  real local PostgreSQL 17 listens on **5432**;
+- the application role **`sdp_app` has no `CREATEDB`**, so `PG_URL` cannot be reused as
+  the admin URL — the per-run throwaway database could not be created.
+
+Since G-02 the skip is no longer silent. One line per run, with the cause and the
+connection string **password-redacted**:
+
+```
+[pg-tests] PostgreSQL unreachable at postgres://postgres:****@localhost:5433/postgres
+— connect ECONNREFUSED ::1:5433. These suites will be SKIPPED, which means the pg half
+of the code is not being tested. Set PG_ADMIN_URL to a connection with CREATEDB rights
+(see tools/pg/README.md). Or run with PG_TESTS_REQUIRED=1 to make this an error instead
+of a skip.
+```
+
+**Before any deploy that touches a pg fork**, run the suite so it cannot lie:
+
+```bash
+PG_TESTS_REQUIRED=1 node --test --test-force-exit tests/*.test.js
+```
+
+Read the `ℹ skipped` line: on this repo a non-zero value is not a success.
+
+**Supplying the admin URL** — either a superuser connection (the cluster superuser
+password is the appliance-standard value; it is never committed, never passed on a
+command line, and never printed), or, preferably, a dedicated test role so no superuser
+credential is needed day to day:
+
+```sql
+CREATE ROLE sdp_test LOGIN PASSWORD '<choose one>' CREATEDB;
+```
+
+then `PG_ADMIN_URL=postgres://sdp_test:<password>@localhost:5432/postgres` in `.env`.
+The role needs `CREATEDB` and nothing else: the suites create and drop
+`sdp_tracker_test_<rand>` and never touch `sdp_dashboard` or `fmp_v2`.
 
 ## Running the tests
 
