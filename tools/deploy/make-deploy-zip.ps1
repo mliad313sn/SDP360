@@ -45,6 +45,12 @@ if (-not $base) { $base = '7fb62d9' }
 $changed = @(git diff --name-only --diff-filter=ACMR "$base..HEAD")
 $deleted = @(git diff --name-only --diff-filter=D    "$base..HEAD")
 
+# G-10 — name the lots this package can never carry (merged, never deployed, and now
+# behind the marker). Warning only: it never blocks a build, and an unreadable register
+# is silently skipped.
+$frozenCheck = Join-Path $PSScriptRoot 'Check-FrozenLots.ps1'
+if (Test-Path $frozenCheck) { & powershell -NoProfile -ExecutionPolicy Bypass -File $frozenCheck -Base $base -Root $root }
+
 # Dev-only paths that never belong on prod (same spirit as the old hook SKIP).
 $skip = '^(iis/|docs/|tools/deploy/|tools/installer-build/|tools/installer/tests/|tools/exec-pptx/(fixtures|refs)/|tools/exec-pptx/INTEGRATION_|_deploy\.cmd$|_apply_on_prod\.cmd$|sdp-deploy_.*\.zip$)'
 $changed = @($changed | Where-Object { $_ -and ($_ -notmatch $skip) })
