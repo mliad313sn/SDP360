@@ -73,11 +73,12 @@ made so far so that future sessions can pick up exactly where the last one ended
 > figée au 2026-08-10). À archiver, puis à rejouer à 30 jours : c'est la seule façon de savoir si
 > l'engagement parc bouge réellement.
 >
-> **⚠️ Correctif à déployer (commits `f487f15` + `4be4378`, après le marqueur)** : le §18 de l'aide
-> est parti **avec un sommaire hors de son conteneur** — `.doc-layout` gagnait une 3ᵉ colonne et le
-> manuel était écrasé en bandeau vertical. **`help.html` est donc cassé en prod jusqu'au prochain
-> ZIP** (corrigé et vérifié au navigateur sur cette branche). Le même lot porte la **moitié agent de
-> G-02** : le saut des 75 tests pg n'est plus silencieux et `PG_TESTS_REQUIRED=1` en fait un échec.
+> **2ᵉ lot déployé le même jour — marqueur `4004a36`** (appliqué + pm2 redémarré + marqué) : le §18
+> de l'aide était parti **avec son sommaire hors du conteneur** (`.doc-layout` gagnait une 3ᵉ colonne,
+> le manuel écrasé en bandeau vertical) — corrigé, vérifié au navigateur, et la leçon est en piège
+> ci-dessous. Le même lot porte la **moitié agent de G-02** : le saut des 75 tests pg n'est plus
+> silencieux et `PG_TESTS_REQUIRED=1` en fait un échec. **Il ne reste donc, côté propriétaire, que
+> l'URL admin PostgreSQL, la capture T0 ci-dessus, et les arbitrages G-04/G-05/G-11/G-12 + A-13.**
 >
 > **La baseline n'était PAS verte et personne ne le savait** : 5 tests rouges déterministes
 > (`reports-editor-asset-tab`, cause = CRLF, PAS une régression produit) **+ 75 tests PostgreSQL
