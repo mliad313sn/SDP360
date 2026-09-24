@@ -70,9 +70,27 @@ function decryptValue(stored, key) {
   }
 }
 
-/** The process key, or null. Read on every call so a restart is enough to change it. */
-function envKey(env = process.env) {
-  return keyFrom(env.SDP_CONFIG_KEY);
+// The process key, or null. Read on every call so a restart is enough to change it.
+//
+// A key that is SET but REJECTED must not be silent. Measured on dotenv: a `#` truncates
+// the value, a backslash is swallowed and surrounding quotes are stripped — so
+// `SDP_CONFIG_KEY=abc#defghijklmnop`, seventeen characters as typed, reaches the process
+// as `abc`, falls under the floor, and encryption quietly does not happen while the
+// operator believes it is on. That is the one outcome worth a line in the log; an unset
+// key stays silent, since running without encryption is a legitimate configuration.
+let _warnedShort = false;
+function envKey(env = process.env, warn = console.warn) {
+  const raw = env.SDP_CONFIG_KEY;
+  const key = keyFrom(raw);
+  if (!key && raw != null && String(raw) !== '') {
+    if (warn !== console.warn || !_warnedShort) {
+      if (warn === console.warn) _warnedShort = true;
+      warn(`[config] SDP_CONFIG_KEY is set but shorter than ${MIN_KEY_CHARS} characters once parsed `
+        + '— secrets are NOT encrypted. Beware: in a .env value a "#" truncates it, a backslash is '
+        + 'swallowed and surrounding quotes are stripped.');
+    }
+  }
+  return key;
 }
 
 module.exports = { encryptValue, decryptValue, isEncrypted, keyFrom, envKey, PREFIX };

@@ -69,3 +69,33 @@ test('keyFrom refuses a key too short to be worth having', () => {
   assert.strictEqual(keyFrom('short'), null, 'a five-character key is a false sense of safety');
   assert.ok(Buffer.isBuffer(keyFrom('sixteen-characters-or-more')));
 });
+
+// A key that is SET but rejected must say so. Measured on dotenv: a `#` truncates the
+// value, a backslash is swallowed, surrounding quotes are stripped — so
+// `SDP_CONFIG_KEY=abc#defghijklmnop` (17 characters as typed) reaches the process as
+// `abc`, falls under the floor, and encryption silently does not happen while the
+// operator believes it is on. Silence is the one outcome this must not have.
+const { envKey } = require('../services/configSecrets');
+
+test('a key set but too short warns, and still refuses to pretend', () => {
+  const warned = [];
+  const k = envKey({ SDP_CONFIG_KEY: 'abc' }, (m) => warned.push(m));
+  assert.strictEqual(k, null, 'no half-strength key is ever used');
+  assert.strictEqual(warned.length, 1);
+  assert.match(warned[0], /SDP_CONFIG_KEY/);
+  assert.match(warned[0], /16/, 'says what the floor is');
+  assert.ok(!warned[0].includes('abc'), 'and never echoes the value itself');
+});
+
+test('no key at all is silent — that is a legitimate configuration', () => {
+  const warned = [];
+  assert.strictEqual(envKey({}, (m) => warned.push(m)), null);
+  assert.strictEqual(warned.length, 0);
+});
+
+test('a usable key is silent and returns 32 bytes', () => {
+  const warned = [];
+  const k = envKey({ SDP_CONFIG_KEY: 'a-long-enough-passphrase' }, (m) => warned.push(m));
+  assert.ok(Buffer.isBuffer(k) && k.length === 32);
+  assert.strictEqual(warned.length, 0);
+});
