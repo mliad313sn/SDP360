@@ -110,9 +110,13 @@ made so far so that future sessions can pick up exactly where the last one ended
 > en masse est exactement la façon dont un coordinateur découvre le lundi que son rapport est refusé.
 >
 > **➡️ IL RESTE DEUX GESTES, tous deux humains :**
-> **(A) Poser `SDP_CONFIG_KEY`** (≥ 16 caractères) dans le `.env` de prod, redémarrer, puis
-> ré-enregistrer une fois chaque secret dans Admin — sans quoi A-13 ne protège rien. Garder la clé
-> hors des sauvegardes : restaurer un dump ailleurs exige la même clé.
+> **(A) FAIT le 2026-09-24 (marqueur `9181a0e`)** : `SDP_CONFIG_KEY` posée en prod et les deux
+> secrets qui existaient (`smtp_pass`, `meraki_api_key`) chiffrés en place via
+> `node tools\pg\encrypt-secrets.js --apply` — `check-secrets.js` confirme « Aucun secret en
+> clair ». **A-13 est refermé.** Deux règles à ne pas perdre : la clé vit dans `.env`, le seul
+> fichier qu'un dump ne contient pas, et **restaurer un dump sur une autre machine exige la même
+> clé** (sinon les secrets sont lus VIDES, avec une ligne de log qui le dit). Les quatre secrets
+> non renseignés se chiffreront d'eux-mêmes à leur première saisie.
 > **(B) La rétrogradation des rôles**, dans cet ordre : (1) `node tools\pg\audit-roles.js` **sur le serveur** — la
 > liste de dev a trois semaines ; (2) rétrograder les comptes `over_privileged` en `editor` dans
 > **Admin ▸ Users**, un par un, **site vérifié à chaque fois** ; (3) re-lancer l'outil : le compte
