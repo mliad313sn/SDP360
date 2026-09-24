@@ -43,6 +43,26 @@ test('the help promises nothing that is blocked', () => {
     'the SDP import template is blocked — do not document it as available');
 });
 
+// Shipped broken: the entries were inserted one line too low, landing AFTER the
+// `</div>` that closes `<div class="toc">`. They then became siblings of the TOC and the
+// content, the page grew a third column, and the body was squeezed into a narrow strip.
+// Presence was asserted; PLACEMENT was not. It is now.
+for (const lang of ['en', 'fr']) {
+  test(`[${lang}] the Assets entries sit INSIDE the table-of-contents container`, () => {
+    // The two TOC containers, in document order: EN first, then FR.
+    const tocStarts = [...src.matchAll(/<div class="toc">/g)].map(m => m.index);
+    assert.strictEqual(tocStarts.length, 2, 'one table of contents per language');
+    const start = tocStarts[lang === 'en' ? 0 : 1];
+    const end = src.indexOf('</div>', src.lastIndexOf(`href="#${lang}-17`, src.length));
+    const link = src.indexOf(`href="#${lang}-18"`);
+    assert.ok(link > start, 'after the container opens');
+    const closeAfterStart = src.indexOf('\n    </div>', start);
+    assert.ok(link < closeAfterStart,
+      `the ${lang} entries fall outside <div class="toc"> (link at ${link}, container closes at ${closeAfterStart})`);
+    assert.ok(end > 0);
+  });
+}
+
 test('every table-of-contents link resolves to a real anchor', () => {
   const hrefs = [...src.matchAll(/href="#((?:en|fr)-[0-9.\-]+)"/g)].map(m => m[1]);
   const ids = new Set([...src.matchAll(/id="((?:en|fr)-[0-9.\-]+)"/g)].map(m => m[1]));
