@@ -99,3 +99,22 @@ test('a usable key is silent and returns 32 bytes', () => {
   assert.ok(Buffer.isBuffer(k) && k.length === 32);
   assert.strictEqual(warned.length, 0);
 });
+
+// The check an operator needs after setting the key: WHICH secrets are actually
+// encrypted at rest. Setting SDP_CONFIG_KEY changes nothing on its own — a stored value
+// only becomes a box when it is next SAVED — so "the key is accepted" and "the database
+// no longer carries the secret" are two different facts, and only the second one matters.
+const { describeSecretState } = require('../services/configSecrets');
+
+test('describeSecretState tells the three states apart', () => {
+  assert.strictEqual(describeSecretState('enc:v1:aaa:bbb:ccc').state, 'encrypted');
+  assert.strictEqual(describeSecretState('hunter2').state, 'plaintext');
+  assert.strictEqual(describeSecretState('').state, 'empty');
+  assert.strictEqual(describeSecretState(null).state, 'empty');
+});
+
+test('it never echoes the secret it is describing', () => {
+  const d = describeSecretState('hunter2');
+  assert.ok(!JSON.stringify(d).includes('hunter2'), 'a diagnostic must not print the password');
+  assert.match(d.label, /clair/i, 'and it says plainly that this one is exposed');
+});

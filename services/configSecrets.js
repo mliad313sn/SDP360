@@ -93,4 +93,15 @@ function envKey(env = process.env, warn = console.warn) {
   return key;
 }
 
-module.exports = { encryptValue, decryptValue, isEncrypted, keyFrom, envKey, PREFIX };
+// Setting the key changes nothing on its own: a stored value only becomes a box when it
+// is next SAVED. So "the key is accepted" and "the database no longer carries the secret"
+// are different facts, and an operator needs to see the second one. Never returns the
+// value — a diagnostic that prints the password defeats its own purpose.
+function describeSecretState(stored) {
+  const v = stored == null ? '' : String(stored);
+  if (v === '') return { state: 'empty', label: 'non renseigné' };
+  if (isEncrypted(v)) return { state: 'encrypted', label: 'chiffré' };
+  return { state: 'plaintext', label: 'EN CLAIR — présent tel quel dans les sauvegardes' };
+}
+
+module.exports = { encryptValue, decryptValue, isEncrypted, keyFrom, envKey, describeSecretState, PREFIX };
