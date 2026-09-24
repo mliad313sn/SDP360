@@ -129,7 +129,9 @@ test('assetEffort folds+ranks the fleet leaderboard, fetched ONCE and memoised',
   const sgo = await d.assetEffort('SGO');
   // SGO = mean(71,71)=71, ranks 2nd of 3 folded codes (HGO 80 > SGO 71 > MGO 60).
   // delta = the first Sabodala/MASSAWA row folding to SGO (5), never a mean.
-  assert.deepStrictEqual(sgo, { score: 71, rank: 2, of: 3, delta: 5 });
+  // `ranked` (G-04) rides along: a board with no flag means every site is ranked, so
+  // this case is unchanged apart from the extra key.
+  assert.deepStrictEqual(sgo, { score: 71, rank: 2, of: 3, delta: 5, ranked: true });
 
   const hgo = await d.assetEffort('HGO');
   assert.strictEqual(hgo.rank, 1);

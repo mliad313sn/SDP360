@@ -65,7 +65,10 @@ test('GET asset-followups: same-site viewer 200 with counts + previous_counts, n
   assert.strictEqual(r.status, 200);
   const j = await r.json();
   assert.strictEqual(j.applicable, true);
-  assert.deepStrictEqual(j.counts, { new: 1, no_tag: 2, unassigned: 1, no_cost: 1, no_date: 1 });
+  // G-05 added active_total + the In Use / elsewhere split; the four counts that get
+  // FROZEN into a submitted report are unchanged.
+  assert.deepStrictEqual(j.counts, { new: 1, no_tag: 2, unassigned: 1, no_cost: 1, no_date: 1,
+    active_total: 2, unassigned_in_use: 1, unassigned_other: 0 });
   assert.deepStrictEqual(j.labels, ['Hounde']);
   // rev 5 (2026-09-18): the editor shows counts only — no asset rows are shipped.
   assert.ok(!Object.prototype.hasOwnProperty.call(j, 'lists'), 'no lists key');
@@ -92,7 +95,8 @@ test('PUT asset-review: server freezes counts (client counts ignored), trims not
     { handled_note: '  Tagged N1 ', plan_note: 'Assign user', counts: { new: 99 }, applicable: false });
   assert.strictEqual(r.status, 200);
   const rev = rdb.getReportAssetReview(repH.id);
-  assert.deepStrictEqual(rev.counts, { new: 1, no_tag: 2, unassigned: 1, no_cost: 1, no_date: 1 });
+  assert.deepStrictEqual(rev.counts, { new: 1, no_tag: 2, unassigned: 1, no_cost: 1, no_date: 1,
+    active_total: 2, unassigned_in_use: 1, unassigned_other: 0 });
   assert.strictEqual(rev.applicable, true);
   assert.strictEqual(rev.handled_note, 'Tagged N1');
 });
@@ -113,7 +117,8 @@ test('PUT asset-review: assets layer throwing → 200, notes saved, frozen count
   } finally { adb.getSiteAssetFollowups = orig; }
   const rev = rdb.getReportAssetReview(repH.id);
   assert.strictEqual(rev.handled_note, 'during outage');
-  assert.deepStrictEqual(rev.counts, { new: 1, no_tag: 2, unassigned: 1, no_cost: 1, no_date: 1 }, 'counts from the previous save kept');
+  assert.deepStrictEqual(rev.counts, { new: 1, no_tag: 2, unassigned: 1, no_cost: 1, no_date: 1,
+    active_total: 2, unassigned_in_use: 1, unassigned_other: 0 }, 'counts from the previous save kept');
 });
 
 test('PUT asset-review: a body with one note keeps the other; null clears; non-text → 400', async () => {

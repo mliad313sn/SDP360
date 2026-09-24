@@ -451,3 +451,31 @@ test('Parc informatique: overlapping hygiene kinds dropped when the tab counters
   const plain = composeWeekly(g).htmlBody;
   assert.ok(/Sans propri&eacute;taire/.test(plain) && plain.includes('Sans QR code'), 'no tab counters → hygiene list unchanged');
 });
+
+// ── G-05 (audit 2026-09-24) — a count needs its denominator ────────────────────
+// In production "non assigné à un utilisateur" is 94 % of the fleet (2139 of 2279) and
+// 98-100 % at most sites. Read alone it says nothing and the weekly change it is meant
+// to carry — five machines out of 465 — is invisible. The share is what makes it legible.
+test('G-05: a counter is shown as a share of the fleet when the total is known', () => {
+  const f = fixture();
+  f.report.status = 'submitted';
+  f.report.asset_review = {
+    applicable: true, handled_note: 'x', plan_note: 'y',
+    counts: { new: 0, no_tag: 96, unassigned: 465, no_cost: 297, no_date: 187, active_total: 474 },
+  };
+  const { htmlBody } = composeWeekly(f);
+  assert.match(htmlBody, /98\s*%/, '465 of 474 reads as 98 %');
+  assert.match(htmlBody, /474/, 'the fleet size is stated, not just the share');
+});
+
+test('G-05: a report frozen before the denominator existed still renders', () => {
+  const f = fixture();
+  f.report.status = 'submitted';
+  f.report.asset_review = {
+    applicable: true, handled_note: 'x', plan_note: 'y',
+    counts: { new: 1, no_tag: 1, unassigned: 1, no_cost: 1, no_date: 1 },   // no active_total
+  };
+  const { htmlBody } = composeWeekly(f);
+  assert.ok(!/%\s*du parc/.test(htmlBody), 'no share is invented when the total is unknown');
+  assert.match(htmlBody, /Non assign/, 'and the counters still render');
+});

@@ -2819,6 +2819,16 @@ async function loadAssetFollowups() {
     box.innerHTML = `<div style="color:#b91c1c">Données du parc indisponibles : ${esc(e)}</div>`;
   }
 }
+// G-05 — a count without its denominator is unreadable: "non assigné" is 94 % of the
+// production fleet. PURE so the rule is testable outside a browser. No denominator (a
+// report frozen before it existed) → no share, never an invented one.
+function _arShare(v, total) {
+  const t = Number(total);
+  if (!(t > 0)) return '';
+  if (v == null || v === '' || !Number.isFinite(Number(v))) return '';
+  return Math.round(Number(v) * 100 / t) + ' % du parc (' + t + ' actifs)';
+}
+
 function renderAssetReview() {
   const box = document.getElementById('asset-review-body');
   const d = _assetFollowups; if (!box || !d) return;
@@ -2839,9 +2849,18 @@ function renderAssetReview() {
       delta = dv === 0 ? '<span style="color:#64748b">= sem. préc.</span>'
         : `<span style="color:${dv > 0 ? '#b91c1c' : '#15803d'}">${dv > 0 ? '▲ +' + dv : '▼ ' + Math.abs(dv)} vs sem. préc.</span>`;
     }
+    const share = _arShare(counts[k], counts.active_total);
+    // The unassigned counter is the one that equals the whole fleet, so it is also the
+    // one that needs breaking up: an In Use machine with nobody on it is an anomaly to
+    // chase; an In Store one is simply stock.
+    const split = (k === 'unassigned' && counts.unassigned_in_use != null)
+      ? `<div style="font-size:0.75rem;color:#334155">dont <strong>${Number(counts.unassigned_in_use)}</strong> en service · ${Number(counts.unassigned_other || 0)} en stock / réparation</div>`
+      : '';
     return `<div style="border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;min-width:170px;flex:1">
       <div style="font-size:1.4rem;font-weight:700;color:#1e3a5f">${v}</div>
       <div style="font-size:0.8rem;color:#334155">${esc(label)}</div>
+      ${share ? `<div style="font-size:0.75rem;color:#64748b">${esc(share)}</div>` : ''}
+      ${split}
       <div style="font-size:0.75rem">${delta}</div></div>`;
   }).join('');
   const note = submitted ? '<div style="font-size:0.75rem;color:#64748b;margin-bottom:6px">Compteurs figés à la soumission.</div>' : '';

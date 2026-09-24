@@ -90,3 +90,25 @@ test('the inline scripts of reports.html still parse', () => {
   while ((m = re.exec(src))) { if (!m[1].trim()) continue; new Function(m[1]); n++; }
   assert.ok(n > 0);
 });
+
+// ── G-05 (audit 2026-09-24) — the coordinator's own tab needs the denominator ──
+// "Non assigné à un utilisateur : 465" is unreadable without "of 474". In production
+// that counter is 94 % of the fleet and 98-100 % at most sites, so the weekly change it
+// is supposed to show — five machines — cannot be seen at all.
+test('G-05: the share renders when the fleet size is known', () => {
+  const share = new Function(`${fnSource('_arShare')}; return _arShare;`)();
+  assert.strictEqual(share(465, 474), '98 % du parc (474 actifs)');
+  assert.strictEqual(share(0, 474), '0 % du parc (474 actifs)');
+});
+
+test('G-05: no fleet size, no invented share', () => {
+  const share = new Function(`${fnSource('_arShare')}; return _arShare;`)();
+  assert.strictEqual(share(465, null), '');
+  assert.strictEqual(share(465, 0), '', 'a zero denominator is not a denominator');
+  assert.strictEqual(share(null, 474), '', 'a count we never measured has no share');
+});
+
+test('G-05: the unassigned split is surfaced, not buried', () => {
+  assert.ok(src.includes('unassigned_in_use'),
+    'In Use with nobody on it is an anomaly; In Store with nobody on it is a stockroom');
+});

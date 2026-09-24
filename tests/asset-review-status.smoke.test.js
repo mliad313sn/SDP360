@@ -44,7 +44,8 @@ test('empty notes → 200, counts frozen, notes stay empty', async () => {
   const r = await submit(rep.id, tok.editorH);
   assert.strictEqual(r.status, 200);
   const rev = rdb.getReportAssetReview(rep.id);
-  assert.deepStrictEqual(rev.counts, { new: 0, no_tag: 1, unassigned: 1, no_cost: 0, no_date: 0 });
+  assert.deepStrictEqual(rev.counts, { new: 0, no_tag: 1, unassigned: 1, no_cost: 0, no_date: 0,
+    active_total: 1, unassigned_in_use: 1, unassigned_other: 0 });
   assert.strictEqual(rev.applicable, true);
   assert.strictEqual(rev.handled_note, null);
   assert.strictEqual(rdb.getReport(rep.id).status, 'submitted');

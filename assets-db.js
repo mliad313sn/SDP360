@@ -1166,6 +1166,9 @@ function _followupQueries(labels, opts) {
     no_cost:    { sql: `SELECT ${_FOLLOWUP_COLS} FROM assets a WHERE (${FOLLOWUP_NO_COST}) AND a.site IN (${ph}) ORDER BY COALESCE(a.asset_name,''), a.asset_id`, params: L },
     no_date:    { sql: `SELECT ${_FOLLOWUP_COLS} FROM assets a WHERE (${FOLLOWUP_NO_DATE}) AND a.site IN (${ph}) ORDER BY COALESCE(a.asset_name,''), a.asset_id`, params: L },
   };
+  // G-05 — the denominator. A counter equal to the whole fleet (unassigned was 94 % of
+  // production on 2026-09-24) tells a coordinator nothing; the share does.
+  q.__active_total = { sql: `SELECT COUNT(*) AS n FROM assets a WHERE (${FOLLOWUP_ACTIVE_STATES}) AND a.site IN (${ph})`, params: L };
   const { newFrom, newTo } = opts || {};
   if (newFrom && newTo) {
     q.new = {
@@ -1184,7 +1187,19 @@ function _shapeFollowups(lists) {
   // `new` (first seen in the window, no QR) feeds the daily alert only; the four
   // report counters are no_tag / no_date / no_cost / unassigned.
   const out = { new: shape(lists.new), no_tag: shape(lists.no_tag), unassigned: shape(lists.unassigned), no_cost: shape(lists.no_cost), no_date: shape(lists.no_date) };
-  out.counts = { new: out.new.length, no_tag: out.no_tag.length, unassigned: out.unassigned.length, no_cost: out.no_cost.length, no_date: out.no_date.length };
+  // G-05 — ADDITIVE ONLY. The four counts below keep the exact definitions that were
+  // frozen into every report already submitted; what is added is the denominator and a
+  // split of `unassigned`, because "In Use with nobody on it" is an anomaly to chase
+  // while "In Store with nobody on it" is the normal condition of a stockroom.
+  const inUse = out.unassigned.filter(r => String(r.state || '').trim().toLowerCase() === 'in use').length;
+  const activeRow = (lists.__active_total || [])[0];
+  out.counts = {
+    new: out.new.length, no_tag: out.no_tag.length, unassigned: out.unassigned.length,
+    no_cost: out.no_cost.length, no_date: out.no_date.length,
+    active_total: activeRow ? Number(activeRow.n) || 0 : 0,
+    unassigned_in_use: inUse,
+    unassigned_other: out.unassigned.length - inUse,
+  };
   out.generated_at = new Date().toISOString();
   return out;
 }

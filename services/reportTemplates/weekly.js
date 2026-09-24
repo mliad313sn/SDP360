@@ -455,12 +455,22 @@ function assetReviewBlock(review, status) {
   // report's frozen counts — the previous week's counts are not loaded
   // (weeklyReportData.js), so a trend colour would be invented. A null count is
   // "—" in grey, never a fabricated 0.
+  // G-05 — a count without its denominator is unreadable: "non assigné" is 94 % of the
+  // production fleet, so 465 says nothing and the weekly move (five machines) is
+  // invisible. The share is appended to the LABEL, leaving the frozen number itself
+  // untouched. A report frozen before `active_total` existed simply has no share —
+  // never an invented one.
+  const total = c && Number.isFinite(+c.active_total) && +c.active_total > 0 ? +c.active_total : null;
+  const withShare = (label, v) => {
+    if (total == null || !(v != null && v !== '' && Number.isFinite(+v))) return label;
+    return `${label} — ${Math.round(+v * 100 / total)} % du parc (${total} actifs)`;
+  };
   const counts = c
     ? tiles(REVIEW_KPIS.map(([k, label]) => {
       const t = reviewCountText(c[k]);
       return t === '—'
         ? { label, valueHtml: '—', color: MUTED }
-        : { label, valueHtml: escapeHtml(t), color: NAVY };
+        : { label: withShare(label, c[k]), valueHtml: escapeHtml(t), color: NAVY };
     }), { tint: PARC_TINT, accent: PARC })
     : staticNote('Compteurs non disponibles au moment de la soumission.');
   // Notes come from multi-line textareas — escapeHtml neutralises markup but

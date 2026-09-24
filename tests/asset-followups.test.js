@@ -48,7 +48,10 @@ test('each list follows its predicate (trim, states, all product types)', () => 
   assert.ok(!ids(f.new).includes('T1'), 'a new asset with a QR code is not listed');
   // no_tag = the whole active fleet with a blank Barcode / QR code, not just the week
   assert.deepStrictEqual(ids(f.no_tag), ['B1', 'C1', 'C2', 'D1', 'N1', 'T2', 'U1', 'U2', 'U3']);
-  assert.deepStrictEqual(f.counts, { new: f.new.length, no_tag: 9, unassigned: 3, no_cost: 2, no_date: 1 });
+  // G-05 added the denominator + the In Use / elsewhere split; the four original counts
+  // are unchanged, which is the whole point (they are frozen into submitted reports).
+  assert.deepStrictEqual(f.counts, { new: f.new.length, no_tag: 9, unassigned: 3, no_cost: 2, no_date: 1,
+    active_total: 10, unassigned_in_use: 2, unassigned_other: 1 });
   assert.match(f.generated_at, /^\d{4}-\d{2}-\d{2}T/);
 });
 
@@ -66,7 +69,8 @@ test('multi-label site sums across labels; other sites excluded', () => {
 
 test('empty labels → zeros and empty lists', () => {
   const f = adb.getSiteAssetFollowups([], W);
-  assert.deepStrictEqual(f.counts, { new: 0, no_tag: 0, unassigned: 0, no_cost: 0, no_date: 0 });
+  assert.deepStrictEqual(f.counts, { new: 0, no_tag: 0, unassigned: 0, no_cost: 0, no_date: 0,
+    active_total: 0, unassigned_in_use: 0, unassigned_other: 0 });
   assert.deepStrictEqual([f.new, f.no_tag, f.unassigned, f.no_cost, f.no_date], [[], [], [], [], []]);
 });
 
