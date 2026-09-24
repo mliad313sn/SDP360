@@ -7,14 +7,13 @@
 const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('fs'), path = require('path');
-const src = fs.readFileSync(path.join(__dirname, '..', 'public', 'reports.html'), 'utf8');
+const { fnSource: sliceFn } = require('./_fn-source');
+// Normalised to LF: a Windows checkout materialises the page as CRLF (core.autocrlf),
+// which used to make the extraction below return an empty string — and an empty string
+// makes every negative assertion in this file pass vacuously. See tests/fn-source.test.js.
+const src = fs.readFileSync(path.join(__dirname, '..', 'public', 'reports.html'), 'utf8').replace(/\r\n/g, '\n');
 
-function fnSource(name) {
-  const start = src.indexOf(`async function ${name}(`) >= 0 ? src.indexOf(`async function ${name}(`) : src.indexOf(`function ${name}(`);
-  assert.ok(start >= 0, `${name} not found`);
-  const end = src.indexOf('\n}\n', start);
-  return src.slice(start, end + 2);
-}
+const fnSource = (name) => sliceFn(src, name);
 
 test('weekly strip has stab-4 "5. Parc informatique"; monthly strip untouched', () => {
   const weekly = src.slice(src.indexOf('id="section-tabs"'), src.indexOf('<!-- Section 0'));

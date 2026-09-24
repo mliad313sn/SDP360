@@ -76,8 +76,13 @@ function backupDatabase(db, dbName, reason) {
   try {
     db.prepare(`VACUUM INTO ?`).run(absPath);
   } catch (e) {
-    // Edge case: same-second collision. Retry once with a milli suffix.
-    if (/file exists/i.test(e.message)) {
+    // Edge case: same-second collision (the stamp has no sub-second precision).
+    // Retry once with a milli suffix. The pattern must match SQLite's real wording,
+    // "output file already exists" — the previous /file exists/ never matched it, so
+    // this branch was dead and a second backup in the same second threw instead. That
+    // surfaced as a REFUSED DELETE (deleteInspection backs up first): a backup exists
+    // to make the delete safe, not to block it.
+    if (/file already exists|file exists/i.test(e.message)) {
       const altPath = absPath.replace(/\.db$/, '-' + new Date().getMilliseconds() + '.db');
       db.prepare(`VACUUM INTO ?`).run(altPath);
       console.log(`[Backup] ${dbName} -> ${altPath} (collision, used millis suffix)`);

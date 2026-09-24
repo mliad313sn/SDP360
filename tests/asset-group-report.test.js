@@ -136,3 +136,28 @@ test('degrades cleanly with empty leaderboard + zero-coverage forecast', () => {
   assert.ok(!out.html.includes('NaN'));
   assert.match(out.html, /0\s*\/\s*0/); // coverage banner still renders
 });
+
+// ── G-09 (audit 2026-09-24) ────────────────────────────────────────────────────
+// Measured on the fleet: hardware forecast eligibility is 0 % at four sites (no
+// acquisition date AND no cost). The coverage banner is therefore the whole guardrail
+// standing between an executive and a number built on a handful of assets. These two
+// tests exist so a future surface cannot quietly print the amount without it.
+test('G-09: the coverage banner always precedes the forecast amounts', () => {
+  const html = buildAssetGroupDigest({
+    leaderboard: makeLeaderboard(), forecast: makeForecast(), period: '2026-09', fmtUsd,
+  }).html;
+  const cov = html.indexOf('Couverture des données');
+  const total = html.indexOf("Total sur l'horizon");
+  assert.ok(cov >= 0, 'the banner is present');
+  assert.ok(total >= 0, 'the amount is present');
+  assert.ok(cov < total, 'the reader meets the caveat before the number');
+});
+
+test('G-09: a forecast with NO coverage says so instead of printing a bare total', () => {
+  const f = makeForecast();
+  delete f.hardware.coverage;
+  delete f.software.coverage;
+  const html = buildAssetGroupDigest({ leaderboard: makeLeaderboard(), forecast: f, period: '2026-09', fmtUsd }).html;
+  assert.match(html, /couverture inconnue/i,
+    'an unknown coverage must be named — "0 %" or silence would both mislead');
+});

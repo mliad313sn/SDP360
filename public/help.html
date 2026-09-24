@@ -190,6 +190,14 @@
       <a class="toc-sub" href="#en-17-4">Restoring a restore point</a>
       <a class="toc-sub" href="#en-17-5">End-to-end test (TEST instance)</a>
     </div>
+      <a href="#en-18">18. IT Assets (module)</a>
+      <a class="toc-sub" href="#en-18-1">Inventory</a>
+      <a class="toc-sub" href="#en-18-2">Hygiene</a>
+      <a class="toc-sub" href="#en-18-3">Finance &amp; Licences</a>
+      <a class="toc-sub" href="#en-18-4">Hardware</a>
+      <a class="toc-sub" href="#en-18-5">Progress (effort score)</a>
+      <a class="toc-sub" href="#en-18-6">Investment</a>
+      <a class="toc-sub" href="#en-18-7">Réconciliation</a>
 
     <!-- Content -->
     <div class="content">
@@ -991,6 +999,58 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Confirm-Destructive.ps1"
         <div class="tip">💡 After each step, check the green summary box and the logs in <code>C:\ProgramData\SDP-Dashboard\logs</code>. If a step fails, keep the box and the end of the log for IT.</div>
       </div>
 
+
+      <!-- 18 -->
+      <div class="section" id="en-18">
+        <h2><span class="section-num">18</span>IT Assets (module)</h2>
+        <p>Open <strong>Insights → Assets</strong>. One page, seven tabs, one shared filter bar (site, state, product type, manufacturer, search). The filter you set stays as you move between tabs, and the tab is in the URL — <code>assets.html#hygiene</code> re-opens where you left off.</p>
+
+        <div class="warn"><strong>The register is not live.</strong> Assets are re-synced from AssetExplorer every night at <strong>04:30</strong>, and the effort snapshot is taken right after. A correction you make in AssetExplorer therefore appears here <em>after the next sync</em>, not the same minute. The line under the title states the last synchronisation; if it reads <strong>“Parc jamais synchronisé”</strong>, no import has ever landed and every count below is meaningless — tell IT.</div>
+
+        <h3 id="en-18-1">18.1 Inventory</h3>
+        <p>The list of assets, as SDP holds them: name, product, site, state, manufacturer, serial, RAM, free disk, last scan, user, department, and the money columns converted to <strong>USD</strong> (purchase, book value, TCO). <strong>Excel export</strong> respects the filter bar. Clicking a chart segment opens the matching rows with a CSV export.</p>
+
+        <h3 id="en-18-2">18.2 Hygiene</h3>
+        <p>How trustworthy the register is, as work lists you can clear:</p>
+        <ul>
+          <li><strong>Discovered</strong> — seen by a scan but never filed as an asset.</li>
+          <li><strong>Never successfully scanned</strong> / <strong>Ghost</strong> — a ghost was healthy once and has not been seen for more than 90 days. The two never overlap.</li>
+          <li><strong>No owner · no acquisition date · no cost</strong> — the completeness gaps. These three drive the per-site completeness percentage.</li>
+          <li><strong>No QR code</strong> — the SDP field <em>Barcode / QR code</em> is empty. The asset manager generates it from the Service Tag, so a barcode equal to the serial is the NORMAL filled state, not an auto-fill. The Asset Tag is a different field and is not the QR code.</li>
+          <li><strong>In repair / expired / lost</strong> — lifecycle exceptions to review.</li>
+        </ul>
+        <p>Each tile drills into the rows and exports to Excel. No amount is ever shown on this tab.</p>
+
+        <h3 id="en-18-3">18.3 Finance &amp; Licences</h3>
+        <p>Value of the fleet per site in <strong>USD</strong> (assets are held in XOF and converted with the rate set in <strong>Admin → Assets finance</strong>), the book value we compute ourselves from the depreciation policy, SDP's own book value as a cross-check, and the software licences: type families, expiry buckets, and the purchased-versus-installed compliance verdict that SDP itself publishes.</p>
+        <div class="tip">💡 A currency label is always written next to an amount. The <code>$</code> in the AssetExplorer export is not reliable: hardware costs are XOF, licence costs are USD.</div>
+
+        <h3 id="en-18-4">18.4 Hardware</h3>
+        <p>Health of the machines: <strong>RAM below 8 GB</strong>, <strong>system disk below 10 % free</strong>, <strong>refresh due</strong> (past the useful life for its product type) and <strong>no real monitor</strong>. Cameras, webcams and virtual monitors are filtered out of the monitor count, and the no-monitor list only covers workstation-type devices — a headless server is not a finding.</p>
+
+        <h3 id="en-18-5">18.5 Progress — the effort score</h3>
+        <p>The <strong>effort score</strong> is the mean of six good-state rates (cost · acquisition date · owner · scan · QR code · enrolment), from 0 to 100, snapshotted every night. The tab shows the per-site ranking, the change over roughly 30 days, the most improved site, and the six components for the site you click.</p>
+        <ul>
+          <li><strong>“Δ non comparable”</strong> means there is no snapshot old enough to compare against — it is not a score of zero.</li>
+          <li>The trend line <strong>breaks</strong> where a day has no snapshot; it is never drawn through a gap.</li>
+          <li>The ranking counts every site that has a snapshot, whatever its size, so a very small site can sit at the top. Read the score next to the fleet size.</li>
+          <li>A new site sees nothing until two snapshots exist — that is the “collecting data” state, not a failure.</li>
+        </ul>
+
+        <h3 id="en-18-6">18.6 Investment</h3>
+        <p>Historical spend and a forward forecast: hardware replacement driven by the depreciation useful life, software renewal driven by licence expiry (subscriptions recur every year; there is no depreciation on software). Anything already past due lands in <strong>Due now</strong>; anything beyond the horizon is <strong>counted, not costed</strong>.</p>
+        <div class="warn"><strong>Read the coverage banner before the amounts.</strong> A hardware line only enters the forecast if it has an acquisition date AND a non-zero cost AND a lifecycle policy. On several sites that is true for none of the fleet, so the forecast can rest on a handful of assets. The banner states exactly how many, and why the others are excluded. When it reads <strong>“couverture inconnue”</strong>, the eligible count could not be computed at all — do not present the amount.</div>
+
+        <h3 id="en-18-7">18.7 Réconciliation</h3>
+        <p>Compares the register with what Active Directory, Entra and Defender see, and produces two lists: <strong>gaps</strong> (seen recently elsewhere, missing from SDP) grouped by OU — because a GPO is attached to an OU, not to a site — and <strong>retirement candidates</strong> (in SDP, seen nowhere for 90 days).</p>
+        <ul>
+          <li>Retirement candidates are <strong>not applicable</strong> until at least one dated observation has been imported. The screen says so rather than listing the whole fleet.</li>
+          <li>Equipment that never joins a domain (switches, access points, firewalls, printers) is excluded from the retirement list — it would be a permanent false positive.</li>
+          <li>Candidates that look like a rename, an off-network machine or a never-scanned asset are set aside with their reason instead of being proposed for retirement.</li>
+          <li>A hostname carries the site where the machine was <em>provisioned</em>, not where it is today. For an asset SDP already knows, the site in SDP is the authority.</li>
+        </ul>
+        <div class="tip">💡 Exporting the gaps in the SDP import format is <strong>not available</strong>: the import template was never supplied, and it will not be guessed.</div>
+      </div>
     </div><!-- /content -->
   </div><!-- /doc-layout -->
 </div><!-- /sec-en -->
@@ -1080,6 +1140,14 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Confirm-Destructive.ps1"
       <a class="toc-sub" href="#fr-17-4">Restaurer un point</a>
       <a class="toc-sub" href="#fr-17-5">Test de bout en bout (instance TEST)</a>
     </div>
+      <a href="#fr-18">18. Parc informatique (module Assets)</a>
+      <a class="toc-sub" href="#fr-18-1">Inventaire</a>
+      <a class="toc-sub" href="#fr-18-2">Hygiène</a>
+      <a class="toc-sub" href="#fr-18-3">Finance &amp; licences</a>
+      <a class="toc-sub" href="#fr-18-4">Matériel</a>
+      <a class="toc-sub" href="#fr-18-5">Progression (score d'effort)</a>
+      <a class="toc-sub" href="#fr-18-6">Investissement</a>
+      <a class="toc-sub" href="#fr-18-7">Réconciliation</a>
 
     <div class="content">
 
@@ -1880,6 +1948,58 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Confirm-Destructive.ps1"
         <div class="tip">💡 Après chaque étape, vérifiez l'encadré vert et les journaux dans <code>C:\ProgramData\SDP-Dashboard\logs</code>. En cas d'échec, gardez l'encadré et la fin du journal pour l'IT.</div>
       </div>
 
+
+      <!-- 18 -->
+      <div class="section" id="fr-18">
+        <h2><span class="section-num">18</span>Parc informatique (module Assets)</h2>
+        <p>Ouvrez <strong>Insights → Assets</strong>. Une page, sept onglets, une barre de filtres commune (site, état, type de produit, fabricant, recherche). Le filtre choisi est conservé quand vous changez d'onglet, et l'onglet est dans l'adresse : <code>assets.html#hygiene</code> rouvre là où vous étiez.</p>
+
+        <div class="warn"><strong>Le registre n'est pas en temps réel.</strong> Les actifs sont resynchronisés depuis AssetExplorer chaque nuit à <strong>04:30</strong>, et l'instantané d'effort est pris juste après. Une correction faite dans AssetExplorer apparaît donc ici <em>après la synchronisation suivante</em>, pas dans la minute. La ligne sous le titre indique la dernière synchronisation ; si elle affiche <strong>« Parc jamais synchronisé »</strong>, aucun import n'a jamais eu lieu et tous les compteurs ci-dessous sont sans valeur — prévenez l'IT.</div>
+
+        <h3 id="fr-18-1">18.1 Inventaire</h3>
+        <p>La liste des actifs tels que SDP les détient : nom, produit, site, état, fabricant, numéro de série, RAM, espace disque libre, dernier scan, utilisateur, département, et les colonnes financières converties en <strong>USD</strong> (achat, valeur comptable, coût total). L'<strong>export Excel</strong> respecte la barre de filtres. Un clic sur un segment de graphique ouvre les lignes correspondantes avec un export CSV.</p>
+
+        <h3 id="fr-18-2">18.2 Hygiène</h3>
+        <p>La fiabilité du registre, sous forme de listes de travail à résorber :</p>
+        <ul>
+          <li><strong>Découvert</strong> — vu par un scan mais jamais enregistré comme actif.</li>
+          <li><strong>Jamais scanné avec succès</strong> / <strong>Fantôme</strong> — un fantôme a été sain un jour et n'a plus été vu depuis plus de 90 jours. Les deux listes ne se recoupent jamais.</li>
+          <li><strong>Sans utilisateur · sans date d'acquisition · sans coût</strong> — les manques de complétude. Ce sont ces trois-là qui déterminent le pourcentage de complétude par site.</li>
+          <li><strong>Sans QR code</strong> — le champ SDP <em>Barcode / QR code</em> est vide. Le responsable parc le génère depuis le Service Tag : un barcode égal au numéro de série est donc l'état NORMAL rempli, pas un remplissage automatique. L'Asset Tag est un autre champ et n'est pas le QR code.</li>
+          <li><strong>En réparation / expiré / perdu</strong> — les exceptions de cycle de vie à examiner.</li>
+        </ul>
+        <p>Chaque tuile ouvre le détail et s'exporte en Excel. Aucun montant n'est affiché dans cet onglet.</p>
+
+        <h3 id="fr-18-3">18.3 Finance &amp; licences</h3>
+        <p>La valeur du parc par site en <strong>USD</strong> (les actifs sont tenus en XOF et convertis au taux réglé dans <strong>Admin → Assets finance</strong>), la valeur comptable que nous calculons nous-mêmes à partir de la politique d'amortissement, celle de SDP en contre-vérification, et les licences logicielles : familles de types, échéances, et le verdict de conformité acheté/installé publié par SDP lui-même.</p>
+        <div class="tip">💡 Un libellé de devise accompagne toujours un montant. Le <code>$</code> de l'export AssetExplorer n'est pas fiable : les coûts matériels sont en XOF, les coûts de licence en USD.</div>
+
+        <h3 id="fr-18-4">18.4 Matériel</h3>
+        <p>La santé des machines : <strong>RAM inférieure à 8 Go</strong>, <strong>disque système sous 10 % libre</strong>, <strong>renouvellement dû</strong> (durée de vie utile dépassée pour ce type de produit) et <strong>sans écran réel</strong>. Les caméras, webcams et écrans virtuels sont écartés du comptage, et la liste « sans écran » ne couvre que les postes de travail — un serveur sans écran n'est pas une anomalie.</p>
+
+        <h3 id="fr-18-5">18.5 Progression — le score d'effort</h3>
+        <p>Le <strong>score d'effort</strong> est la moyenne de six taux de bon état (coût · date d'acquisition · utilisateur · scan · QR code · enrôlement), de 0 à 100, photographié chaque nuit. L'onglet montre le classement par site, l'évolution sur environ 30 jours, le site le plus en progrès, et les six composantes du site sur lequel vous cliquez.</p>
+        <ul>
+          <li><strong>« Δ non comparable »</strong> signifie qu'aucun instantané assez ancien n'existe pour comparer — ce n'est pas un score nul.</li>
+          <li>La courbe est <strong>interrompue</strong> là où un jour n'a pas d'instantané ; elle n'est jamais tracée à travers un trou.</li>
+          <li>Le classement retient tout site ayant un instantané, quelle que soit sa taille : un très petit site peut donc figurer en tête. Lisez le score à côté de la taille du parc.</li>
+          <li>Un site nouveau n'affiche rien tant qu'il n'a pas deux instantanés — c'est l'état « collecte en cours », pas une panne.</li>
+        </ul>
+
+        <h3 id="fr-18-6">18.6 Investissement</h3>
+        <p>La dépense historique et une prévision : remplacement du matériel piloté par la durée de vie utile de l'amortissement, renouvellement logiciel piloté par l'expiration des licences (les abonnements reviennent chaque année ; il n'y a pas d'amortissement sur le logiciel). Ce qui est déjà échu tombe dans <strong>À échéance maintenant</strong> ; ce qui dépasse l'horizon est <strong>compté, non chiffré</strong>.</p>
+        <div class="warn"><strong>Lisez le bandeau de couverture avant les montants.</strong> Une ligne matérielle n'entre dans la prévision que si elle a une date d'acquisition ET un coût non nul ET une politique de cycle de vie. Sur plusieurs sites, aucun actif ne remplit ces conditions : la prévision peut donc reposer sur une poignée de machines. Le bandeau dit exactement combien, et pourquoi les autres sont exclues. S'il indique <strong>« couverture inconnue »</strong>, le nombre d'éligibles n'a pas pu être calculé du tout — ne présentez pas le montant.</div>
+
+        <h3 id="fr-18-7">18.7 Réconciliation</h3>
+        <p>Compare le registre à ce que voient Active Directory, Entra et Defender, et produit deux listes : les <strong>écarts</strong> (vus récemment ailleurs, absents de SDP) groupés par OU — parce qu'une GPO se rattache à une OU, pas à un site — et les <strong>candidats au retrait</strong> (dans SDP, vus nulle part depuis 90 jours).</p>
+        <ul>
+          <li>Les candidats au retrait sont <strong>non applicables</strong> tant qu'aucune observation datée n'a été importée. L'écran le dit au lieu de lister le parc entier.</li>
+          <li>Le matériel qui ne rejoint jamais un domaine (commutateurs, bornes Wi-Fi, pare-feux, imprimantes) est exclu de la liste de retrait : ce serait un faux positif permanent.</li>
+          <li>Les candidats qui ressemblent à un renommage, à une machine hors réseau ou à un actif jamais scanné sont écartés avec leur motif, au lieu d'être proposés au retrait.</li>
+          <li>Un nom de machine porte le site de <em>provisionnement</em>, pas le site actuel. Pour un actif déjà connu de SDP, c'est le site de SDP qui fait foi.</li>
+        </ul>
+        <div class="tip">💡 L'export des écarts au format d'import SDP n'est <strong>pas disponible</strong> : le gabarit d'import n'a jamais été fourni, et il ne sera pas deviné.</div>
+      </div>
     </div><!-- /content -->
   </div><!-- /doc-layout -->
 </div><!-- /sec-fr -->
