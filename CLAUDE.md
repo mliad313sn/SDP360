@@ -109,13 +109,21 @@ made so far so that future sessions can pick up exactly where the last one ended
 > **Le changement de rôle reste un geste humain dans Admin ▸ Users**, compte par compte : un UPDATE
 > en masse est exactement la façon dont un coordinateur découvre le lundi que son rapport est refusé.
 >
-> **➡️ PROCHAIN GESTE, dans cet ordre** : (1) `node tools\pg\audit-roles.js` **sur le serveur** — la
+> **➡️ IL RESTE DEUX GESTES, tous deux humains :**
+> **(A) Poser `SDP_CONFIG_KEY`** (≥ 16 caractères) dans le `.env` de prod, redémarrer, puis
+> ré-enregistrer une fois chaque secret dans Admin — sans quoi A-13 ne protège rien. Garder la clé
+> hors des sauvegardes : restaurer un dump ailleurs exige la même clé.
+> **(B) La rétrogradation des rôles**, dans cet ordre : (1) `node tools\pg\audit-roles.js` **sur le serveur** — la
 > liste de dev a trois semaines ; (2) rétrograder les comptes `over_privileged` en `editor` dans
 > **Admin ▸ Users**, un par un, **site vérifié à chaque fois** ; (3) re-lancer l'outil : le compte
 > `blocked` doit rester à **0**. Tant que les 22 gardent `admin`, la restriction des montants de
 > G-11 ne mord sur personne — c'est la rétrogradation qui l'active.
 >
-> **5ᵉ lot sur `main`, PAS déployé — `d9359c3` (G-02) + `2a61187` (A-13)** — la bibliothèque est
+> **5ᵉ lot DÉPLOYÉ le 2026-09-24 (marqueur `af5d84b`) — `d9359c3` (G-02) + `2a61187` (A-13)** — la
+> bibliothèque est close. ⚠️ **A-13 est INERTE tant que `SDP_CONFIG_KEY` n'est pas posée dans le
+> `.env` de prod** : c'est délibéré (aucun risque au déploiement), mais tant que la variable manque,
+> les six secrets restent en clair dans les dumps — l'outil est livré, la protection n'est pas
+> encore active. La bibliothèque est
 > close.
 > **G-02 : les 75 tests PG ne sont plus sautés, ils PASSENT.** Le blocage supposé (« il faut un
 > superutilisateur pour `CREATE DATABASE` ») était contournable : `sdp_app` **possède**
