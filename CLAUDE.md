@@ -76,13 +76,25 @@ made so far so that future sessions can pick up exactly where the last one ended
 > **14 lignes de classement pour 11 sites ayant des actifs** (`Ouaga` ET `Ouagadougou`, `Dakar` ET
 > `Dakar Office`, plus la faute de frappe `Fetekro Explorarion Office` dans la donnée source).
 >
-> **3ᵉ lot sur `main`, PAS déployé — `a08c0ad` (G-04) + `42f56fa` (G-05)** : sous **20 actifs** un
+> **3ᵉ lot DÉPLOYÉ le 2026-09-24 (marqueur `7377266`, pm2 redémarré) — `a08c0ad` (G-04) +
+> `42f56fa` (G-05)** : sous **20 actifs** un
 > site garde son score mais **n'est plus classé** (le 1-actif à 100 devant une mine de 474 tuait
 > l'argument), la taille du parc voyage avec chaque score, les libellés en double sont repliés **par
 > somme des compteurs puis recalcul** (jamais une moyenne de deux scores), et les compteurs du parc
 > portent enfin **la part du parc** + le partage `unassigned` **En service** (anomalie) / **En stock**
 > (normal). G-05 est **strictement additif** : les quatre compteurs figés gardent leur définition,
 > donc les rapports déjà soumis restent comparables.
+>
+> **⚠️ Effet visible par les sites** : les rangs ont changé (page Progress + digest « Assets —
+> Groupe »). Trois sites qui figuraient au classement n'y sont plus (Ouagadougou, Dakar, Massawa —
+> sous 20 actifs), et `Dakar Office`/`Ouaga` ont disparu comme lignes distinctes. Si quelqu'un
+> demande pourquoi son site n'est « plus classé », la réponse est sous les deux tableaux : le seuil
+> est écrit, et il se change en une ligne (`MIN_RANKED_ASSETS`, `assets-db.js`).
+>
+> **Les trois goals restants sont des DÉCISIONS, pas du code** : `G-11` (montants du groupe lisibles
+> par toute session), `G-12` (24 comptes `admin` sur 29 → le contrôle de site est inopérant pour
+> ~83 % des comptes), `A-13` (secret SSO/SMTP dans les dumps — Option A à confirmer ou à chiffrer).
+> Chacun est rédigé prêt à exécuter dans `docs/audits/2026-09-24-audit-phases-0-2-4.md`.
 >
 > **2ᵉ lot déployé le même jour — marqueur `4004a36`** (appliqué + pm2 redémarré + marqué) : le §18
 > de l'aide était parti **avec son sommaire hors du conteneur** (`.doc-layout` gagnait une 3ᵉ colonne,
