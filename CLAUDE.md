@@ -62,13 +62,16 @@ made so far so that future sessions can pick up exactly where the last one ended
 > **`docs/audits/2026-09-24-audit-phases-0-2-4.md`** ; puis la **phase 3 sur les 7 goals sans
 > arbitrage** (branche `audit/phase3-2026-09-24`, 10 commits, fusionnée `--no-ff` en **`ba7eecd`**).
 > **ZIP `sdp-deploy_ba7eecd_*` (22 fichiers) APPLIQUÉ en prod le 2026-09-24 par l'utilisateur.**
-> **Marqueur avancé à `ba7eecd`** le même jour (`mark-deployed.cmd`). ⚠️ Le lot touche `server.js`
-> ET des HTML mis en cache au boot (`assets.html`, `help.html`) : sans **`pm2 stop` → attente →
-> `start`** (jamais `reload`) et un **Ctrl+F5**, le processus sert encore l'ancien `_htmlCache` et
-> ni le bandeau de fraîcheur, ni la trace d'usage, ni l'aide §18 n'apparaissent — alors que le
-> marqueur, lui, dit déjà « déployé ». **Si le redémarrage n'a pas eu lieu, c'est la première chose
-> à faire.** Le ZIP ne porte évidemment ni l'installeur ni le tracker gelés (il le DIT maintenant,
-> cf. G-10).
+> **Marqueur avancé à `ba7eecd`** et **pm2 redémarré** le même jour : la chaîne est complète
+> (le lot touche `server.js` ET deux HTML mis en cache au boot, `assets.html` + `help.html`, donc
+> le redémarrage était indispensable — un `reload` ne suffit jamais). Les utilisateurs ont besoin
+> d'**un Ctrl+F5** chacun. Le ZIP ne porte évidemment ni l'installeur ni le tracker gelés (il le
+> DIT maintenant, cf. G-10).
+>
+> **➡️ À FAIRE, une fois, sur le serveur** : `node tools\pg\asset-engagement-kpis.js` — cette sortie
+> est la **référence T0 en prod** (les chiffres du §3.2 du rapport viennent de la copie de dev,
+> figée au 2026-08-10). À archiver, puis à rejouer à 30 jours : c'est la seule façon de savoir si
+> l'engagement parc bouge réellement.
 >
 > **La baseline n'était PAS verte et personne ne le savait** : 5 tests rouges déterministes
 > (`reports-editor-asset-tab`, cause = CRLF, PAS une régression produit) **+ 75 tests PostgreSQL
