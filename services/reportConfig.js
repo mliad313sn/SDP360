@@ -131,39 +131,67 @@ function _initSchema(db) {
   _inited.add(db);
 }
 
-function _fold(rows) {
+// A-13 (audit 2026-09-24) — the six secret-shaped values are encrypted at rest when
+// SDP_CONFIG_KEY is set, so a database dump (or a restore point) no longer hands whoever
+// holds it the SSO client secret. With no key, everything below is a no-op and the
+// behaviour is byte-identical to before: nobody is locked out of SMTP by a deploy that
+// forgot to set a variable.
+const _secrets = require('./configSecrets');
+const _keyOf = (opts) => {
+  if (opts && 'key' in opts) return opts.key ? _secrets.keyFrom(opts.key) : null;
+  return _secrets.envKey();
+};
+
+function _fold(rows, key) {
   const out = { ...DEFAULTS };
-  rows.forEach(r => { out[r.key] = r.value; });
+  rows.forEach(r => {
+    if (!_SECRET_BLANK_KEEP.has(r.key)) { out[r.key] = r.value; return; }
+    const plain = _secrets.decryptValue(r.value, key);
+    if (plain === null) {
+      // An encrypted value we cannot open. Returning the box would make nodemailer or the
+      // SSO handshake fail with an error nobody can read, so it reads as "not configured"
+      // and says why, once, in the log.
+      console.warn(`[report-config] ${r.key} is encrypted but SDP_CONFIG_KEY is missing or wrong — read as empty.`);
+      out[r.key] = '';
+      return;
+    }
+    out[r.key] = plain;
+  });
   return out;
 }
-function getConfig(db) {
+function getConfig(db, opts) {
+  const key = _keyOf(opts);
   const { H, isPg } = _h(db);
-  if (isPg) return (async () => _fold(await H.prepare('SELECT key, value FROM report_config').all()))();
+  if (isPg) return (async () => _fold(await H.prepare('SELECT key, value FROM report_config').all(), key))();
   _initSchema(db);
-  try { return _fold(H.prepare('SELECT key, value FROM report_config').all()); }
+  try { return _fold(H.prepare('SELECT key, value FROM report_config').all(), key); }
   catch (e) { console.warn('[report-config] get failed:', e.message); return { ...DEFAULTS }; }
 }
 
 const _UPSERT = `INSERT INTO report_config (key, value, updated_at, updated_by)
   VALUES (?, ?, {NOW}, ?)
   ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at, updated_by=excluded.updated_by`;
-function setConfig(db, patch, user) {
+function setConfig(db, patch, user, opts) {
+  const _key = _keyOf(opts);
   // A blank smtp_pass means "keep the existing password" — the GET handler
   // redacts it to '', so a Save that doesn't retype it must NOT wipe the stored value.
   const clean = Object.entries(patch || {})
     .filter(([k]) => KEYS.includes(k))
-    .filter(([k, v]) => !(_SECRET_BLANK_KEEP.has(k) && String(v) === ''));
+    .filter(([k, v]) => !(_SECRET_BLANK_KEEP.has(k) && String(v) === ''))
+    // Encrypt on the way in, and only the secret-shaped keys: a host or a port stays
+    // legible so an operator can still read the table when something is wrong.
+    .map(([k, v]) => [k, _SECRET_BLANK_KEEP.has(k) ? _secrets.encryptValue(String(v), _key) : v]);
   const { H, isPg } = _h(db);
   if (isPg) return (async () => {
     await H.runTransaction(async () => {
       for (const [k, v] of clean) await H.prepare(_UPSERT.replace('{NOW}', 'now()')).run(k, String(v), user || 'unknown');
     });
-    return getConfig(db);
+    return getConfig(db, opts);
   })();
   _initSchema(db);
   const stmt = H.prepare(_UPSERT.replace('{NOW}', "datetime('now')"));
   H.transaction(() => { for (const [k, v] of clean) stmt.run(k, String(v), user || 'unknown'); })();
-  return getConfig(db);
+  return getConfig(db, opts);
 }
 
 module.exports = { DEFAULTS, KEYS, _SECRET_BLANK_KEEP, _initSchema, getConfig, setConfig };
