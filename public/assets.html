@@ -29,6 +29,10 @@
   .as-head h1     { margin: 0; font-size: 22px; font-weight: 700; color: var(--edv-slate, #3A4A60); }
   .as-head .sub   { font-size: 13px; color: var(--color-text-muted, #6b7785); }
   .as-head .spacer { flex: 1; }
+  .as-fresh       { font-size: 12.5px; color: var(--color-text-muted, #6b7785); background: var(--color-surface-2, #f6f8fa);
+                    border: 1px solid var(--color-border, #dfe3e8); border-radius: var(--radius-md, 6px);
+                    padding: 7px 11px; margin-bottom: var(--space-4, 16px); }
+  .as-fresh.stale { border-color: #f0c36d; background: #fdf6e3; color: #8a6d1f; }
 
   .btn {
     display: inline-flex; align-items: center; gap: 6px;
@@ -356,6 +360,11 @@ window.addEventListener('beforeprint', function () {
     </div>
     <div class="spacer"></div>
   </div>
+
+  <!-- Freshness (G-03): the register is synced nightly, so an edit made in
+       AssetExplorer is not visible here the same minute. Saying so is what stops a
+       site asset manager reading an unchanged score as "my work did nothing". -->
+  <div id="as-freshness" class="as-fresh">Chargement de la fraîcheur des données…</div>
 
   <!-- ── Tab bar ─────────────────────────────────────────────────── -->
   <div class="tabbar" role="tablist" id="assetTabs">
@@ -929,6 +938,7 @@ window.addEventListener('beforeprint', function () {
     <div class="count-note" id="prog-methodNote" style="border:1px solid var(--color-border,#dfe3e8);border-radius:var(--radius-md,6px);margin-bottom:var(--space-4,16px)">
       Composite <strong>effort score</strong> = mean of six good-state rates
       (cost · age · owner · scan · tag · enrolled). <strong>Δ vs ~30 days ago</strong> = effort made.
+      <div id="prog-snapDate" style="margin-top:6px;color:var(--color-text-muted,#6b7785)">Dernier instantané : —</div>
     </div>
 
     <!-- Empty / collecting-data state -->
@@ -2870,6 +2880,17 @@ window.addEventListener('beforeprint', function () {
     document.getElementById('prog-empty').style.display   = collecting ? 'block' : 'none';
     document.getElementById('prog-content').style.display = collecting ? 'none' : 'block';
 
+    // G-03 — which snapshot these scores come from. The effort score only moves when
+    // a nightly snapshot lands, so a manager comparing "what I fixed today" against
+    // this tab needs the date, not just the number.
+    const snapEl = document.getElementById('prog-snapDate');
+    if (snapEl) {
+      const dts = trend.dates || [];
+      snapEl.textContent = dts.length
+        ? 'Dernier instantané : ' + dts[dts.length - 1] + ' (' + dts.length + ' relevés sur la fenêtre)'
+        : 'Aucun instantané enregistré pour l’instant.';
+    }
+
     if (!collecting) {
       renderLeaderboard(lb);
       renderCallouts(lb);
@@ -3784,8 +3805,41 @@ window.addEventListener('beforeprint', function () {
     return (q.get('kind') || '').trim();
   }
 
+  // ── Freshness banner (G-03) ────────────────────────────────────────────────
+  // PURE so it can be tested outside a browser (tests/assets-freshness.test.js).
+  // A job that never ran reads null → "jamais synchronisé". We never invent a date:
+  // a fabricated freshness is worse than none, because it makes a stale score look live.
+  function _freshnessLabel(s) {
+    var cron = (s && s.next_cron) || '04:30';
+    var raw  = s && s.last_sync;
+    if (!raw) return 'Parc jamais synchronisé · la synchronisation automatique tourne à ' + cron;
+    var iso = String(raw).replace(' ', 'T');
+    var d = new Date(/[Zz]$|[+-]\d\d:?\d\d$/.test(iso) ? iso : iso + 'Z');
+    if (isNaN(d.getTime())) return 'Dernière synchronisation : ' + raw + ' · prochaine à ' + cron;
+    var p = function (n) { return String(n).padStart(2, '0'); };
+    return 'Données synchronisées le ' + p(d.getDate()) + '/' + p(d.getMonth() + 1) + '/' + d.getFullYear()
+      + ' à ' + p(d.getHours()) + ':' + p(d.getMinutes())
+      + ' · prochaine synchronisation automatique à ' + cron
+      + ' — une correction faite dans AssetExplorer apparaît ici après cette synchronisation.';
+  }
+
+  async function loadFreshness() {
+    var el = document.getElementById('as-freshness');
+    if (!el) return;
+    try {
+      const r = await fetch('/api/assets/sync-status', { credentials: 'same-origin', headers: authHeaders() });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const s = await r.json();
+      el.textContent = _freshnessLabel(s);
+      el.classList.toggle('stale', !s || !s.last_sync);
+    } catch (e) {
+      el.textContent = 'Fraîcheur des données indisponible.';
+    }
+  }
+
   async function boot() {
     wire();
+    loadFreshness();          // best-effort: never blocks the module from rendering
     await loadLookups();
     // AFTER loadLookups (the <option>s must exist) and BEFORE activate, so the
     // pane's first init() already receives the narrowed filters() — setting the

@@ -2460,6 +2460,22 @@ app.get('/api/assets/export.xlsx', requireReportSession, async (req, res) => {
   }
 });
 
+// ── ASSETS · FRESHNESS (G-03, audit 2026-09-24) ──────────────────
+// The register is full-replace-synced nightly at 04:30 and the effort snapshot is
+// chained after it, so an edit made in AssetExplorer is NOT visible here the same
+// minute. Without this line an asset manager reads a stale score as "my work did
+// nothing". `getLastSyncAt` is a dual-backend dispatcher → awaited. A job that never
+// ran reads null: the page says "jamais synchronisé", it never invents a date.
+app.get('/api/assets/sync-status', requireReportSession, async (req, res) => {
+  try {
+    const last_sync = await require('./reports-db').getLastSyncAt('assets_assets');
+    res.json({ last_sync: last_sync || null, next_cron: '04:30', server_time: new Date().toISOString() });
+  } catch (e) {
+    console.error('[api/assets/sync-status]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── ASSETS · HYGIENE (sub-project B) ─────────────────────────────
 // Data-quality exception views over the enriched inventory. Same session guard +
 // same whitelisted filters as /inventory; every dual-backend reader is awaited.
