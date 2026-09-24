@@ -82,3 +82,36 @@ test('the required branch does not claim the suites are being skipped', () => {
     (e) => !/will be SKIPPED/i.test(e.message),
   );
 });
+
+// ── G-02, second half (2026-09-24) — the skip had a cause nobody had questioned ──
+// The 75 pg tests were skipped because provisionTestDb() needs CREATE DATABASE, which
+// the application role does not have, so running them meant handing someone a superuser
+// password. But `sdp_app` OWNS sdp_dashboard, and an owner can create a SCHEMA — which
+// isolates a test run just as well. Nothing in db/postgres/** or pgDb.js qualifies a
+// table with `public.`, so a search_path is enough to redirect every CREATE TABLE.
+//
+// The consequence is the whole point of G-02: on any machine that can reach PG_URL, the
+// pg half now runs with NO new credential at all.
+const { schemaCtxFrom } = require('./pg-helpers');
+
+test('a schema context redirects the connection without touching the database name', () => {
+  const ctx = schemaCtxFrom('postgres://sdp_app:pw@localhost:5432/sdp_dashboard', 'sdp_test_abc');
+  assert.match(ctx.url, /\/sdp_dashboard/, 'same database — we are not allowed to make another');
+  assert.match(ctx.url, /options=/, 'the connection carries a search_path');
+  assert.match(decodeURIComponent(ctx.url), /search_path=sdp_test_abc/);
+  assert.strictEqual(ctx.schema, 'sdp_test_abc');
+  assert.strictEqual(ctx.name, null, 'no throwaway database was created');
+});
+
+test('an existing query string on the base URL is preserved', () => {
+  const ctx = schemaCtxFrom('postgres://u:p@h:5432/d?sslmode=require', 's1');
+  assert.match(ctx.url, /sslmode=require/);
+  assert.match(decodeURIComponent(ctx.url), /search_path=s1/);
+});
+
+test('the schema name is generated, never taken from outside', () => {
+  const a = schemaCtxFrom('postgres://u:p@h:5432/d');
+  const b = schemaCtxFrom('postgres://u:p@h:5432/d');
+  assert.match(a.schema, /^sdp_test_[a-z0-9]+$/, 'a plain identifier — it is interpolated into DDL');
+  assert.notStrictEqual(a.schema, b.schema);
+});

@@ -48,11 +48,15 @@ test('pg: followups — predicates, window, no amounts (depends on the sightings
     { asset_id: 'A2', asset_name: 'PC-2', site: 'Hounde', state: 'In Use', user_name: 'x', department: 'IT', purchase_cost: '10', acquisition_date: '2024-01-01' },
   ]);
   const f = await a.getSiteAssetFollowups(['Hounde'], { newFrom: '2026-07-26', newTo: '2026-08-01' });
-  assert.deepStrictEqual(f.counts, { new: 1, no_tag: 2, unassigned: 1, no_cost: 1, no_date: 1 });   // A2 first seen 2026-07-28 in the sightings test
+  // G-05 keys ride along here too — and this expectation was stale until G-02 made the
+  // pg half runnable: a skipped test cannot tell you it has drifted.
+  assert.deepStrictEqual(f.counts, { new: 1, no_tag: 2, unassigned: 1, no_cost: 1, no_date: 1,
+    active_total: 2, unassigned_in_use: 1, unassigned_other: 0 });   // A2 first seen 2026-07-28 in the sightings test
   assert.strictEqual(f.new[0].asset_id, 'A2');
   assert.strictEqual(f.new[0].has_cost, true);
   assert.ok(!('purchase_cost' in f.unassigned[0]));
-  assert.deepStrictEqual((await a.getSiteAssetFollowups([], {})).counts, { new: 0, unassigned: 0, no_cost: 0, no_date: 0 });
+  assert.deepStrictEqual((await a.getSiteAssetFollowups([], {})).counts, { new: 0, no_tag: 0, unassigned: 0, no_cost: 0, no_date: 0,
+    active_total: 0, unassigned_in_use: 0, unassigned_other: 0 });
 });
 
 test('pg: teardown', async () => { if (ctx) await dropTestDb(ctx); });

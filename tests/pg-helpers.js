@@ -6,6 +6,23 @@ const { Client } = require('pg');
 // CREATEDB, so PG_ADMIN_URL normally has to be set. See tools/pg/README.md.
 const ADMIN = process.env.PG_ADMIN_URL || 'postgres://postgres:devpass@localhost:5433/postgres';
 
+// The base connection for the schema fallback. Test files run in their own process and
+// do NOT load .env (only server.js does), so PG_URL is usually absent from the
+// environment — which is why the schema fallback would otherwise never find a database.
+//
+// Only PG_URL is read, and it is NEVER injected into process.env: a plain
+// dotenv.config() here would also set REPORTS_BACKEND=postgres and flip every suite that
+// relies on the sqlite default. One value, taken by hand.
+function _baseUrl() {
+  if (process.env.PG_URL) return process.env.PG_URL;
+  if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
+  try {
+    const txt = require('fs').readFileSync(require('path').join(__dirname, '..', '.env'), 'utf8');
+    const m = /^\s*PG_URL\s*=\s*(.+?)\s*$/m.exec(txt);
+    return m ? m[1].replace(/^["']|["']$/g, '') : null;
+  } catch (e) { return null; }
+}
+
 // A connection string carries a password. Anything that reaches a console goes through
 // here first: the host, the port and the database are the diagnostic, the secret is not.
 function redactUrl(url) {
@@ -57,20 +74,68 @@ function pgUnavailable(err, { env = process.env, log = console.warn, url = ADMIN
   return null;
 }
 
-// Returns a connection context for a fresh per-run DB, or null if Postgres is unreachable.
-async function provisionTestDb() {
-  let admin;
-  try { admin = new Client({ connectionString: ADMIN }); await admin.connect(); }
-  catch (e) { return pgUnavailable(e); }          // → null (skip) or throw if required
-  const name = 'sdp_tracker_test_' + Math.random().toString(36).slice(2, 8);
-  await admin.query(`CREATE DATABASE ${name}`);     // can't run inside a transaction — bare conn
-  await admin.end();
-  return { url: ADMIN.replace(/\/postgres$/, '/' + name), name, adminUrl: ADMIN };
+// G-02 — isolation WITHOUT a superuser.
+//
+// The original plan needed CREATE DATABASE, which the application role does not have, so
+// running the pg half meant handing someone a superuser password — and in practice meant
+// the 75 tests never ran at all. But `sdp_app` OWNS its database, and an owner can create
+// a SCHEMA. Nothing in db/postgres/** or pgDb.js qualifies a table with `public.`, so a
+// search_path on the connection redirects every CREATE TABLE into a throwaway schema.
+// Same isolation, no new credential, on any machine that can already reach PG_URL.
+function schemaCtxFrom(baseUrl, schema) {
+  const name = schema || ('sdp_test_' + Math.random().toString(36).slice(2, 10).replace(/[^a-z0-9]/g, ''));
+  const sep = String(baseUrl).includes('?') ? '&' : '?';
+  // libpq start-up options; node-postgres passes `options` straight through.
+  const url = `${baseUrl}${sep}options=${encodeURIComponent('-c search_path=' + name)}`;
+  return { url, schema: name, name: null, adminUrl: null };
 }
+
+// Returns a connection context for an isolated run, or null if Postgres is unreachable.
+// Preference order: a real throwaway DATABASE when an admin URL works (best isolation),
+// otherwise a throwaway SCHEMA on PG_URL (no extra rights needed).
+async function provisionTestDb() {
+  let admin = null;
+  try { admin = new Client({ connectionString: ADMIN }); await admin.connect(); }
+  catch (e) { admin = null; }
+  if (admin) {
+    try {
+      const name = 'sdp_tracker_test_' + Math.random().toString(36).slice(2, 8);
+      await admin.query(`CREATE DATABASE ${name}`);   // can't run inside a transaction — bare conn
+      await admin.end();
+      return { url: ADMIN.replace(/\/postgres$/, '/' + name), name, adminUrl: ADMIN, schema: null };
+    } catch (e) {
+      try { await admin.end(); } catch (_) {}        // fall through to the schema path
+    }
+  }
+
+  const base = _baseUrl();
+  if (!base) return pgUnavailable(new Error('no PG_ADMIN_URL, and no PG_URL in the environment or .env'));
+  const ctx = schemaCtxFrom(base);
+  let c;
+  try {
+    c = new Client({ connectionString: base });
+    await c.connect();
+    await c.query(`CREATE SCHEMA ${ctx.schema}`);
+    await c.end();
+  } catch (e) {
+    try { if (c) await c.end(); } catch (_) {}
+    return pgUnavailable(e);                          // → null (skip) or throw if required
+  }
+  return ctx;
+}
+
 async function dropTestDb(ctx) {
   if (!ctx) return;
+  if (ctx.schema) {
+    const base = _baseUrl();
+    const c = new Client({ connectionString: base });
+    await c.connect();
+    await c.query(`DROP SCHEMA IF EXISTS ${ctx.schema} CASCADE`);
+    await c.end();
+    return;
+  }
   const admin = new Client({ connectionString: ctx.adminUrl }); await admin.connect();
   await admin.query(`DROP DATABASE IF EXISTS ${ctx.name} WITH (FORCE)`);
   await admin.end();
 }
-module.exports = { provisionTestDb, dropTestDb, redactUrl, pgUnavailable };
+module.exports = { provisionTestDb, dropTestDb, redactUrl, pgUnavailable, schemaCtxFrom };

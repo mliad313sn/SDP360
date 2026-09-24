@@ -69,13 +69,14 @@ test('schema: applies twice with no error (idempotent) + config singleton + acti
   try {
     await db.exec(SCHEMA); await db.exec(SCHEMA);          // idempotent
     const r = await db.prepare(`SELECT count(*)::int n FROM information_schema.tables
-                                WHERE table_name LIKE 'tracker_%'`).get();
+                                WHERE table_schema = current_schema() AND table_name LIKE 'tracker_%'`).get();
     assert.ok(r.n >= 7, `expected >=7 tracker tables, got ${r.n}`);
     // config singleton seeded exactly once
     assert.equal((await db.prepare(`SELECT count(*)::int n FROM tracker_config`).get()).n, 1);
     // legacy activity_id indices present
     const idx = await db.prepare(`SELECT indexname FROM pg_indexes
-                                  WHERE indexname IN ('ix_track_tgt_actid','ix_track_inp_actid')`).all();
+                                  WHERE schemaname = current_schema()
+                                    AND indexname IN ('ix_track_tgt_actid','ix_track_inp_actid')`).all();
     assert.equal(idx.length, 2, 'both legacy actid indices must exist');
   } finally { await db.close(); await dropTestDb(ctx); }
 });

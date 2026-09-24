@@ -23,13 +23,14 @@ test('schema: idempotent + real FKs (sessions + user_roles CASCADE, users.site_i
   try {
     await db.exec(SCHEMA); await db.exec(SCHEMA);               // idempotent
     const n = await db.prepare(`SELECT count(*)::int n FROM information_schema.tables
-                                WHERE table_name IN ('sites','users','sessions','user_roles')`).get();
+                                WHERE table_schema = current_schema()
+                                  AND table_name IN ('sites','users','sessions','user_roles')`).get();
     assert.equal(n.n, 4);
     // sessions.user_id FK is ON DELETE CASCADE
     const cas = await db.prepare(`
       SELECT rc.delete_rule FROM information_schema.referential_constraints rc
       JOIN information_schema.key_column_usage k ON k.constraint_name = rc.constraint_name
-      WHERE k.table_name='sessions' AND k.column_name='user_id'`).get();
+      WHERE k.table_schema = current_schema() AND k.table_name='sessions' AND k.column_name='user_id'`).get();
     assert.equal(cas.delete_rule, 'CASCADE');
     // users.site_id FK exists
     const fk = await db.prepare(`SELECT count(*)::int n FROM information_schema.key_column_usage
@@ -55,7 +56,7 @@ test('reports-db: REPORTS_BACKEND selector + initPgReports applies schema', asyn
     const h = rdb.pgHandle();
     assert.deepEqual(await h.prepare('SELECT 1 AS x').get(), { x: 1 });
     assert.equal((await h.prepare(`SELECT count(*)::int n FROM information_schema.tables
-                                   WHERE table_name='users'`).get()).n, 1);
+                                   WHERE table_schema = current_schema() AND table_name='users'`).get()).n, 1);
   } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
 });
 

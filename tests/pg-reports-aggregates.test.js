@@ -17,7 +17,11 @@ const _req = o => ({ request_id:null, display_id:null, subject:null, request_sta
   reopen_count:0, due_by_time:null, time_elapsed_ms:null, created_time:null, resolved_time:null,
   completed_time:null, responded_time:null, assigned_time:null, last_updated_time:null,
   first_response_overdue:null, technician:null, requester:null, category:null, sub_category:null,
-  site:null, tech_group:null, mode:null, impact:null, ...o });
+  site:null, tech_group:null, mode:null, impact:null,
+  // `template` landed with the Major-Incident detection (2026-07) and never reached this
+  // fixture, because these suites were being skipped. Every @named column must be present
+  // or pgDb throws "missing named parameter".
+  template:null, ...o });
 // change_records / cab_approvals null-templates (4D-2c) — match upsert{Change,CAB}Batch @named params.
 const _chg = o => ({ change_id:null, display_id:null, subject:null, status:null, stage:null,
   stage_status:null, risk:null, change_type:null, emergency:0, category:null, sub_category:null,

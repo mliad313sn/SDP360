@@ -32,7 +32,7 @@ test('meetings pg: schema idempotent + lookups seeded + survey relabel', async (
   try {
     await h.exec(SCHEMA);   // re-apply schema through the same handle — must be idempotent
     const tbls = await h.prepare(
-      `SELECT count(*)::int n FROM information_schema.tables WHERE table_name LIKE 'md_%'`).get();
+      `SELECT count(*)::int n FROM information_schema.tables WHERE table_schema = current_schema() AND table_name LIKE 'md_%'`).get();
     assert.ok(tbls.n >= 18, `expected >=18 md_ tables, got ${tbls.n}`);
     const cats = await h.prepare('SELECT count(*)::int n FROM md_categories').get();
     assert.ok(cats.n > 0, 'lookups seeded');
