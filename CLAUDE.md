@@ -68,10 +68,21 @@ made so far so that future sessions can pick up exactly where the last one ended
 > d'**un Ctrl+F5** chacun. Le ZIP ne porte évidemment ni l'installeur ni le tracker gelés (il le
 > DIT maintenant, cf. G-10).
 >
-> **➡️ À FAIRE, une fois, sur le serveur** : `node tools\pg\asset-engagement-kpis.js` — cette sortie
-> est la **référence T0 en prod** (les chiffres du §3.2 du rapport viennent de la copie de dev,
-> figée au 2026-08-10). À archiver, puis à rejouer à 30 jours : c'est la seule façon de savoir si
-> l'engagement parc bouge réellement.
+> **Référence T0 CAPTURÉE en prod le 2026-09-24** (`node tools\pg\asset-engagement-kpis.js`) et
+> archivée au **§9 du rapport d'audit** — c'est elle, pas les chiffres de dev, qu'il faut rejouer à
+> 30 jours. En résumé : **2279 actifs**, sans QR 455 (20 %), sans date 1822 (80 %), sans coût 1957
+> (86 %), **sans utilisateur 2139 (94 %)**. Les sites **progressent** (HOUNDE +11, Massawa +9,
+> LAFIGUE +3, MANA +2) : le moteur marche, c'est sa lisibilité qui manquait. Elle a aussi révélé
+> **14 lignes de classement pour 11 sites ayant des actifs** (`Ouaga` ET `Ouagadougou`, `Dakar` ET
+> `Dakar Office`, plus la faute de frappe `Fetekro Explorarion Office` dans la donnée source).
+>
+> **3ᵉ lot sur `main`, PAS déployé — `a08c0ad` (G-04) + `42f56fa` (G-05)** : sous **20 actifs** un
+> site garde son score mais **n'est plus classé** (le 1-actif à 100 devant une mine de 474 tuait
+> l'argument), la taille du parc voyage avec chaque score, les libellés en double sont repliés **par
+> somme des compteurs puis recalcul** (jamais une moyenne de deux scores), et les compteurs du parc
+> portent enfin **la part du parc** + le partage `unassigned` **En service** (anomalie) / **En stock**
+> (normal). G-05 est **strictement additif** : les quatre compteurs figés gardent leur définition,
+> donc les rapports déjà soumis restent comparables.
 >
 > **2ᵉ lot déployé le même jour — marqueur `4004a36`** (appliqué + pm2 redémarré + marqué) : le §18
 > de l'aide était parti **avec son sommaire hors du conteneur** (`.doc-layout` gagnait une 3ᵉ colonne,
