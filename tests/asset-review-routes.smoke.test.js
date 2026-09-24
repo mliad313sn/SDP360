@@ -166,3 +166,19 @@ test('PUT asset-review on a SUBMITTED report (super_admin): notes only, counts n
   assert.strictEqual(rev.handled_note, 'late fix');
   assert.strictEqual((await put(`/api/reports/${repH.id}/asset-review`, tok.editorH, { plan_note: 'x' })).status, 403, 'editor frozen out after submission');
 });
+
+// G-06 (audit 2026-09-24) — a saved review is the act that proves a coordinator
+// actually used tab 5. It needs NO new event: logAudit already mirrors every report
+// edit into system_log as `report_edited_*`, so the engagement query reads that. This
+// test pins the mirror so a future refactor of logAudit cannot silently drop the only
+// trace the asset KPI relies on.
+test('PUT asset-review leaves a report_edited_asset_review trace in system_log', async () => {
+  const before = await rdb.countSystemLog({ action: 'report_edited_asset_review' });
+  const r = await put(`/api/reports/${repExplo.id}/asset-review`, tok.super, { plan_note: 'traced' });
+  assert.strictEqual(r.status, 200);
+  await new Promise(res => setTimeout(res, 60));   // logEvent is fire-and-forget
+  assert.strictEqual(await rdb.countSystemLog({ action: 'report_edited_asset_review' }), before + 1);
+  const { rows } = await rdb.listSystemLog({ action: 'report_edited_asset_review' }, { limit: 1 });
+  assert.strictEqual(rows[0].category, 'report');
+  assert.strictEqual(String(rows[0].target), String(repExplo.id));
+});

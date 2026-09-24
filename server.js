@@ -2420,9 +2420,35 @@ app.get('/api/assets/lookups', requireReportSession, async (req, res) => {
   }
 });
 
+// ── ASSETS · USAGE TRACE (G-06, audit 2026-09-24) ────────────────
+// system_log carried auth + report_* only, so "how many asset managers opened the
+// module in the last 30 days" — the engagement KPI the audit engine asks for — had no
+// answer, and nothing could tell whether the September asset work is actually used.
+// The read route is the module's front door, so it carries the trace; the gate keeps a
+// tab switch from writing a row every time (once per actor per day).
+// logEvent is fire-and-forget by contract — wrapped here too, so a broken journal can
+// never take down the request it rides on.
+const _assetsViewGate = require('./services/viewLog').makeOncePerDay();
+function _logAssetEvent(req, action, target, details) {
+  try {
+    const rdb = require('./reports-db');
+    rdb.logEvent({ category: 'assets', action, target: target || null, details: details || null, ...rdb._logCtx(req) });
+  } catch (e) { console.warn('[assets-log] swallowed:', e.message); }
+}
+function _logAssetsView(req) {
+  try {
+    const rdb = require('./reports-db');
+    const ctx = rdb._logCtx(req);
+    if (!_assetsViewGate(ctx.actor, new Date().toISOString().slice(0, 10))) return;
+    _logAssetEvent(req, 'assets_viewed');
+  } catch (e) { console.warn('[assets-log] swallowed:', e.message); }
+}
+
 app.get('/api/assets/summary', requireReportSession, async (req, res) => {
   try {
-    res.json(await require('./assets-db').getAssetSummary());
+    const body = await require('./assets-db').getAssetSummary();
+    _logAssetsView(req);
+    res.json(body);
   } catch (e) {
     console.error('[api/assets/summary]', e.message);
     res.status(500).json({ error: e.message });
@@ -2451,6 +2477,7 @@ app.get('/api/assets/export.xlsx', requireReportSession, async (req, res) => {
       tco_usd:           money.toUsd(r.total_cost_of_ownership, rate),
     }));
     const buf = buildAssetWorkbook(rows, []);
+    _logAssetEvent(req, 'asset_export', 'inventory', { rows: rows.length, filters: q });
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename="assets.xlsx"');
     res.send(buf);
