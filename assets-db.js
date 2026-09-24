@@ -1234,16 +1234,86 @@ function _monthsAgoStr(months) {
 // whose only ≥30d-old snapshot IS the latest) there is nothing to compare against, so
 // baseline_score/delta are null. most_improved = the max POSITIVE delta (null if none);
 // needs_attention = the lowest score<50 with delta<=0 (tie → lowest delta; null if none).
-function _buildLeaderboard(histRows, asOf) {
-  if (!histRows || histRows.length === 0) return { rows: [], most_improved: null, needs_attention: null };
+// ─── G-04 (audit 2026-09-24): a leaderboard you cannot dismiss in one sentence ──
+//
+// Production read "1. Ouagadougou 100 (1 actif) … 3. MANA 57 (474 actifs)" across
+// FOURTEEN rows for eleven sites with assets — because `Ouaga`/`Ouagadougou` and
+// `Dakar`/`Dakar Office` are the same places spelled twice. The board exists to make
+// sites want to move; an incentive that a manager can refute in one breath makes the
+// whole module look unserious.
+//
+// Three rules, none of which hides a site:
+//   - a site under MIN_RANKED_ASSETS keeps its score and its row but gets NO rank;
+//   - the fleet size travels with every score, so the reader can judge it;
+//   - the callouts (most improved / needs attention) are drawn from ranked sites only —
+//     "+33 points" on two machines is not a programme, it is one afternoon.
+//
+// The threshold is a judgement call, not a truth: it lives here, is returned to every
+// consumer as `min_assets`, and is meant to be argued with.
+const MIN_RANKED_ASSETS = 20;
+
+// Label drift observed in the AP export (2026-09-24). Keys are folded labels:
+// lower-cased, accents stripped, whitespace collapsed. `Explorarion` is a real typo in
+// the source data — fold it rather than wait for someone upstream to fix it.
+const EFFORT_SITE_ALIASES = {
+  'dakar office': 'Dakar',
+  'ouaga': 'Ouagadougou',
+  'fetekro explorarion office': 'Fetekro Exploration Office',
+};
+const _foldLabel = (s) => String(s == null ? '' : s)
+  .normalize('NFD').replace(/[̀-ͯ]/g, '')
+  .trim().replace(/\s+/g, ' ').toLowerCase();
+function _canonicalSite(label) {
+  return EFFORT_SITE_ALIASES[_foldLabel(label)] || String(label == null ? '' : label);
+}
+
+// The six good-state rates, straight from the counts — the SAME arithmetic as
+// _effortRecord. Folding two labels means summing their gaps and their totals and
+// recomputing: averaging two scores would weigh a 10-asset office like a 400-asset mine.
+const _EFFORT_GAP_COLS = ['no_cost', 'no_age', 'no_owner', 'never_scanned', 'no_asset_tag', 'discovered'];
+function _scoreFromCounts(total, gaps) {
+  if (!(total > 0)) return null;
+  const clamp = (x) => Math.max(0, Math.min(1, x));
+  const sum = _EFFORT_GAP_COLS.reduce((acc, c) => acc + clamp(1 - (Number(gaps[c]) || 0) / total), 0);
+  return Math.round(100 * sum / 6);
+}
+
+function _buildLeaderboard(histRows, asOf, opts = {}) {
+  const minAssets = Number.isFinite(opts.minAssets) ? opts.minAssets : MIN_RANKED_ASSETS;
+  const empty = { rows: [], most_improved: null, needs_attention: null, ranked_count: 0, min_assets: minAssets };
+  if (!histRows || histRows.length === 0) return empty;
   const cutoff = _addDaysStr(asOf, -30);
-  const bySite = new Map();   // site -> snaps[] ascending by date (SQL ORDER BY guarantees it)
+
+  // site -> date -> merged snapshot. Two labels folding to one site on the same date are
+  // merged by counts; a row without counts (older history, injected fixtures) keeps its
+  // stored score so nothing regresses to null.
+  const bySite = new Map();
   for (const r of histRows) {
-    if (!bySite.has(r.site)) bySite.set(r.site, []);
-    bySite.get(r.site).push({ date: r.snapshot_date, score: Number(r.effort_score) });
+    const site = _canonicalSite(r.site);
+    if (!bySite.has(site)) bySite.set(site, new Map());
+    const byDate = bySite.get(site);
+    const total = Number(r.total);
+    const prev = byDate.get(r.snapshot_date);
+    if (!prev) {
+      byDate.set(r.snapshot_date, {
+        date: r.snapshot_date,
+        score: Number(r.effort_score),
+        total: Number.isFinite(total) ? total : null,
+        gaps: Object.fromEntries(_EFFORT_GAP_COLS.map(c => [c, Number(r[c]) || 0])),
+        countsKnown: Number.isFinite(total) && total > 0,
+      });
+      continue;
+    }
+    prev.total = (prev.total || 0) + (Number.isFinite(total) ? total : 0);
+    for (const c of _EFFORT_GAP_COLS) prev.gaps[c] += Number(r[c]) || 0;
+    const merged = prev.countsKnown && Number.isFinite(total) && total > 0
+      ? _scoreFromCounts(prev.total, prev.gaps) : null;
+    prev.score = merged != null ? merged : Math.max(prev.score, Number(r.effort_score));
   }
+
   const rows = [];
-  for (const [site, snaps] of bySite) {
+  for (const [site, byDate] of bySite) {
+    const snaps = [...byDate.values()].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
     const latest = snaps[snaps.length - 1];
     const old = snaps.filter(x => x.date <= cutoff);
     const baselineSnap = old.length ? old[old.length - 1] : snaps[0];
@@ -1252,16 +1322,25 @@ function _buildLeaderboard(histRows, asOf) {
       baseline_score = baselineSnap.score;
       delta = Math.round(latest.score - baseline_score);
     }
-    rows.push({ site, effort_score: latest.score, baseline_score, delta, rank: 0 });
+    const total = latest.total;
+    rows.push({
+      site, effort_score: latest.score, baseline_score, delta,
+      total, ranked: Number.isFinite(total) && total >= minAssets, rank: null,
+    });
   }
-  rows.sort((a, b) => (b.effort_score - a.effort_score) || (a.site < b.site ? -1 : a.site > b.site ? 1 : 0));
-  rows.forEach((r, i) => { r.rank = i + 1; });
+  const byScore = (a, b) => (b.effort_score - a.effort_score)
+    || (a.site < b.site ? -1 : a.site > b.site ? 1 : 0);
+  rows.sort((a, b) => (Number(b.ranked) - Number(a.ranked)) || byScore(a, b));   // ranked first
+  let n = 0;
+  for (const r of rows) if (r.ranked) r.rank = ++n;
+
+  const ranked = rows.filter(r => r.ranked);
   let most_improved = null;
-  for (const r of rows) {
+  for (const r of ranked) {
     if (r.delta != null && r.delta > 0 && (most_improved == null || r.delta > most_improved.delta)) most_improved = r;
   }
   let needs_attention = null;
-  for (const r of rows) {
+  for (const r of ranked) {
     if (r.effort_score < 50 && r.delta != null && r.delta <= 0) {
       if (needs_attention == null || r.effort_score < needs_attention.effort_score ||
           (r.effort_score === needs_attention.effort_score && r.delta < needs_attention.delta)) {
@@ -1269,13 +1348,14 @@ function _buildLeaderboard(histRows, asOf) {
       }
     }
   }
-  return { rows, most_improved, needs_attention };
+  return { rows, most_improved, needs_attention, ranked_count: n, min_assets: minAssets };
 }
 function getEffortLeaderboard(opts = {}) {
   if (ASSETS_BACKEND === 'postgres') return _getEffortLeaderboardPg(opts);
   const asOf = (opts && opts.asOf) || new Date().toISOString().slice(0, 10);
   const rows = getDB().prepare(
-    `SELECT snapshot_date, site, effort_score FROM asset_effort_history
+    `SELECT snapshot_date, site, total, no_cost, no_age, no_owner, never_scanned,
+            no_asset_tag, discovered, effort_score FROM asset_effort_history
      WHERE snapshot_date <= ? ORDER BY site, snapshot_date`).all(asOf);
   return _buildLeaderboard(rows, asOf);
 }
@@ -1283,7 +1363,8 @@ async function _getEffortLeaderboardPg(opts = {}) {
   const asOf = (opts && opts.asOf) || new Date().toISOString().slice(0, 10);
   const h = pgHandle();
   const rows = await h.prepare(
-    `SELECT snapshot_date, site, effort_score FROM asset_effort_history
+    `SELECT snapshot_date, site, total, no_cost, no_age, no_owner, never_scanned,
+            no_asset_tag, discovered, effort_score FROM asset_effort_history
      WHERE snapshot_date <= ? ORDER BY site, snapshot_date`).all(asOf);
   return _buildLeaderboard(rows, asOf);
 }

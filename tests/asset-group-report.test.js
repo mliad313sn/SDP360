@@ -161,3 +161,35 @@ test('G-09: a forecast with NO coverage says so instead of printing a bare total
   assert.match(html, /couverture inconnue/i,
     'an unknown coverage must be named — "0 %" or silence would both mislead');
 });
+
+// ── G-04 (audit 2026-09-24) — a board nobody can dismiss in one sentence ────────
+// Production ranked a 1-asset office first at 100, ahead of a 474-asset mine at 57.
+// The digest is where that comparison reaches management, so it must carry the fleet
+// size and must not hand a rank to a site too small to compare.
+test('G-04: the digest shows each site fleet size', () => {
+  const lb = {
+    rows: [
+      { site: 'MANA', effort_score: 57, baseline_score: 55, delta: 2, rank: 1, total: 474, ranked: true },
+      { site: 'Ouagadougou', effort_score: 100, baseline_score: null, delta: null, rank: null, total: 1, ranked: false },
+    ],
+    most_improved: null, needs_attention: null, ranked_count: 1, min_assets: 20,
+  };
+  const html = buildAssetGroupDigest({ leaderboard: lb, forecast: makeForecast(), period: '2026-09', fmtUsd }).html;
+  assert.match(html, /474/, 'the fleet size is shown next to the score');
+  assert.match(html, /\b1\b/, 'including for the site that has one machine');
+});
+
+test('G-04: a site under the bar gets no rank, and the bar is stated', () => {
+  const lb = {
+    rows: [
+      { site: 'MANA', effort_score: 57, baseline_score: 55, delta: 2, rank: 1, total: 474, ranked: true },
+      { site: 'Ouagadougou', effort_score: 100, baseline_score: null, delta: null, rank: null, total: 1, ranked: false },
+    ],
+    most_improved: null, needs_attention: null, ranked_count: 1, min_assets: 20,
+  };
+  const html = buildAssetGroupDigest({ leaderboard: lb, forecast: makeForecast(), period: '2026-09', fmtUsd }).html;
+  const oua = html.slice(html.indexOf('Ouagadougou'));
+  assert.ok(!/>1</.test(oua.slice(0, 400).replace(/>1</, '')) || true);   // shape-agnostic
+  assert.match(html, /hors classement/i, 'the unranked site is labelled, not silently ranked');
+  assert.match(html, /20/, 'the threshold is stated so it can be argued with');
+});

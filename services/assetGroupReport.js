@@ -107,22 +107,33 @@ function headerBlock(period) {
 
 // ── Leaderboard effort ──────────────────────────────────────────────────────
 function leaderboardBlock(leaderboard) {
+  // Ranked sites first, in rank order; the rest after, by score. int(null) is 0, so a
+  // bare rank sort would float every UNRANKED site to the top of the board.
   const rows = (Array.isArray(leaderboard.rows) ? leaderboard.rows : [])
     .slice()
-    .sort((a, b) => int(a.rank) - int(b.rank));
-  const head = `<tr>
-<td style="font-family:${FONT};font-size:10px;font-weight:bold;color:${MUTED};text-transform:uppercase;letter-spacing:0.5px;padding:4px 8px;border-bottom:2px solid ${BORDER};">Site</td>
-<td align="right" style="font-family:${FONT};font-size:10px;font-weight:bold;color:${MUTED};text-transform:uppercase;letter-spacing:0.5px;padding:4px 8px;border-bottom:2px solid ${BORDER};">Score/100</td>
-<td align="right" style="font-family:${FONT};font-size:10px;font-weight:bold;color:${MUTED};text-transform:uppercase;letter-spacing:0.5px;padding:4px 8px;border-bottom:2px solid ${BORDER};">Rang</td>
-<td align="right" style="font-family:${FONT};font-size:10px;font-weight:bold;color:${MUTED};text-transform:uppercase;letter-spacing:0.5px;padding:4px 8px;border-bottom:2px solid ${BORDER};">&Delta;</td>
-</tr>`;
+    .sort((a, b) => (Number(b.ranked !== false) - Number(a.ranked !== false))
+      || (a.rank != null && b.rank != null ? a.rank - b.rank : int(b.effort_score) - int(a.effort_score)));
+  // G-04 — the fleet size sits next to the score, and a site too small to compare shows
+  // "hors classement" instead of a rank. A 1-asset office ranked first at 100, above a
+  // 474-asset mine, is an argument against the whole board rather than for it.
+  const th = (label, align) => `<td${align ? ' align="' + align + '"' : ''} style="font-family:${FONT};font-size:10px;font-weight:bold;color:${MUTED};text-transform:uppercase;letter-spacing:0.5px;padding:4px 8px;border-bottom:2px solid ${BORDER};">${label}</td>`;
+  const head = `<tr>${th('Site')}${th('Actifs', 'right')}${th('Score/100', 'right')}${th('Rang', 'right')}${th('&Delta;', 'right')}</tr>`;
+  const rankCell = (r) => (r.ranked === false || r.rank == null)
+    ? `<span style="color:${MUTED};font-size:11px;font-style:italic;">hors classement</span>`
+    : int(r.rank);
   const body = rows.map((r) => `<tr>
 <td style="font-family:${FONT};font-size:13px;color:${NAVY};padding:5px 8px;border-bottom:1px solid ${BORDER};">${escapeHtml(r.site || '—')}</td>
+<td align="right" style="font-family:${FONT};font-size:12px;color:${MUTED};padding:5px 8px;border-bottom:1px solid ${BORDER};">${isNum(num(r.total)) ? int(r.total) : '—'}</td>
 <td align="right" style="font-family:${FONT};font-size:13px;font-weight:bold;color:${NAVY};padding:5px 8px;border-bottom:1px solid ${BORDER};">${int(r.effort_score)}</td>
-<td align="right" style="font-family:${FONT};font-size:13px;color:${NAVY};padding:5px 8px;border-bottom:1px solid ${BORDER};">${int(r.rank)}</td>
+<td align="right" style="font-family:${FONT};font-size:13px;color:${NAVY};padding:5px 8px;border-bottom:1px solid ${BORDER};white-space:nowrap;">${rankCell(r)}</td>
 <td align="right" style="font-family:${FONT};font-size:13px;color:${NAVY};padding:5px 8px;border-bottom:1px solid ${BORDER};white-space:nowrap;">${signedDelta(r.delta) || '<span style="color:' + MUTED + ';font-size:12px;">—</span>'}</td>
 </tr>`).join('') ||
-    `<tr><td colspan="4" style="font-family:${FONT};font-size:12px;color:${MUTED};font-style:italic;padding:6px 8px;">Aucun site en collecte de données.</td></tr>`;
+    `<tr><td colspan="5" style="font-family:${FONT};font-size:12px;color:${MUTED};font-style:italic;padding:6px 8px;">Aucun site en collecte de données.</td></tr>`;
+
+  const bar = isNum(num(leaderboard.min_assets)) ? int(leaderboard.min_assets) : null;
+  const barLine = bar
+    ? `<div style="font-family:${FONT};font-size:11px;color:${MUTED};font-style:italic;line-height:1.5;padding-top:8px;">Seuil de classement : ${bar} actifs. En dessous, le site garde son score mais reste hors classement — comparer un parc de deux machines à une mine de 400 ne veut rien dire.</div>`
+    : '';
 
   const mi = leaderboard.most_improved;
   const na = leaderboard.needs_attention;
@@ -134,7 +145,7 @@ function leaderboardBlock(leaderboard) {
     : '';
 
   return cardOpen('Effort de gestion des actifs — classement', TEAL) +
-    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse;">${head}${body}</table>${miLine}${naLine}` +
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse;">${head}${body}</table>${miLine}${naLine}${barLine}` +
     cardClose();
 }
 

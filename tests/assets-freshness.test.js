@@ -41,3 +41,30 @@ test('the page carries the banner and asks the route for it', () => {
   // Progress owns the second half of the answer: which snapshot the scores come from.
   assert.ok(/prog-snapDate|dernier instantané/i.test(src), 'Progress states the snapshot it is showing');
 });
+
+// ── G-04 (audit 2026-09-24) — the Progress board on the page ───────────────────
+// Same fix as the digest, on the screen an asset manager actually opens: the fleet size
+// next to the score, and "hors classement" instead of a rank for a site too small to
+// compare. Extracted as a pure cell renderer so it can be exercised here.
+const rankCell = new Function(`${fnSource(src, '_lbRankCell')}; return _lbRankCell;`)();
+
+test('G-04: a ranked site shows its rank', () => {
+  assert.strictEqual(String(rankCell({ ranked: true, rank: 3 })), '3');
+});
+
+test('G-04: a site under the bar shows "hors classement", never a number', () => {
+  const out = String(rankCell({ ranked: false, rank: null, total: 1 }));
+  assert.match(out, /hors classement/i);
+  const visible = out.replace(/<[^>]*>/g, '');   // the inline style carries digits; the TEXT must not
+  assert.ok(!/\d/.test(visible), `no rank digit reaches the reader: ${visible}`);
+});
+
+test('G-04: a board built before the flag still shows its ranks', () => {
+  assert.strictEqual(String(rankCell({ rank: 2 })), '2', 'absent flag means ranked');
+});
+
+test('G-04: the page shows the fleet size and states the threshold', () => {
+  assert.ok(/Actifs|actifs/.test(src), 'a fleet-size column exists');
+  assert.ok(src.includes('r.total'), 'the renderer reads the fleet size');
+  assert.ok(src.includes('min_assets'), 'the threshold reaches the page');
+});

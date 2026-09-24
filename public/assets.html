@@ -975,12 +975,14 @@ window.addEventListener('beforeprint', function () {
                 <tr>
                   <th class="num">Rank</th>
                   <th>Site</th>
+                  <th class="num">Actifs</th>
                   <th class="num">Effort score</th>
                   <th class="num">Δ (vs ~30d)</th>
                 </tr>
               </thead>
               <tbody id="prog-lbBody"></tbody>
             </table>
+            <div id="prog-lbNote" class="sub" style="margin-top:8px;font-style:italic"></div>
           </div>
         </div>
         <div class="chart-card">
@@ -2751,11 +2753,29 @@ window.addEventListener('beforeprint', function () {
     return '<span style="color:var(--color-text-muted,#6b7785)">–</span>';
   }
 
+  // G-04 — a site too small to compare keeps its score but gets no rank. PURE so the
+  // rule is testable outside a browser (tests/assets-freshness.test.js). An absent
+  // `ranked` (a board built before the flag) means ranked, so nothing regresses.
+  function _lbRankCell(r) {
+    if (r && r.ranked === false) {
+      return '<span style="color:var(--color-text-muted,#6b7785);font-style:italic;font-size:11px">hors classement</span>';
+    }
+    return (r && r.rank != null) ? String(r.rank) : '—';
+  }
+
   function renderLeaderboard(lb) {
     const body = document.getElementById('prog-lbBody');
     const rows = (lb && Array.isArray(lb.rows)) ? lb.rows : [];
+    const note = document.getElementById('prog-lbNote');
+    if (note) {
+      note.textContent = (lb && lb.min_assets)
+        ? 'Seuil de classement : ' + lb.min_assets + ' actifs. En dessous, le site garde son '
+          + 'score mais reste hors classement — comparer un parc de deux machines à une mine '
+          + 'de 400 ne veut rien dire.'
+        : '';
+    }
     if (!rows.length) {
-      body.innerHTML = '<tr><td colspan="4" style="color:var(--color-text-muted,#6b7785)">No effort snapshots yet.</td></tr>';
+      body.innerHTML = '<tr><td colspan="5" style="color:var(--color-text-muted,#6b7785)">No effort snapshots yet.</td></tr>';
       return;
     }
     body.innerHTML = rows.map(r => {
@@ -2763,8 +2783,9 @@ window.addEventListener('beforeprint', function () {
       const dot = '<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:'
         + siteColor(r.site) + ';margin-right:7px;vertical-align:middle"></span>';
       return '<tr data-site="' + escapeHtml(r.site) + '" style="cursor:pointer"' + sel + '>'
-        + '<td class="num">' + escapeHtml(r.rank) + '</td>'
+        + '<td class="num">' + _lbRankCell(r) + '</td>'
         + '<td>' + dot + escapeHtml(r.site || '(no site)') + '</td>'
+        + '<td class="num">' + (r.total == null ? '—' : escapeHtml(r.total)) + '</td>'
         + '<td class="num"><strong>' + escapeHtml(r.effort_score) + '</strong></td>'
         + '<td class="num">' + deltaBadge(r.delta) + '</td>'
         + '</tr>';

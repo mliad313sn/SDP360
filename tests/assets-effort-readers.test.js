@@ -18,8 +18,11 @@ const cols = ['snapshot_date', 'site', 'total', 'no_cost', 'no_age', 'no_owner',
 // Minimal detail cols — the readers only care about site/date/effort_score (+ pcts for
 // the single-site components). Fill the counts with 0 and set the six pcts to a known
 // value only where we assert on components.
+// `total` is 50 — above MIN_RANKED_ASSETS (G-04): these cases exercise ranking
+// MECHANICS, and a site under the bar is deliberately left unranked, so the original
+// 10-asset fixture would now assert nothing about rank at all.
 const mk = (snapshot_date, site, effort_score, pcts) => ({
-  snapshot_date, site, total: 10, no_cost: 0, no_age: 0, no_owner: 0, never_scanned: 0,
+  snapshot_date, site, total: 50, no_cost: 0, no_age: 0, no_owner: 0, never_scanned: 0,
   no_asset_tag: 0, discovered: 0, ghost: 0,
   cost_pct: (pcts && pcts.cost_pct) ?? 1, age_pct: (pcts && pcts.age_pct) ?? 1,
   owner_pct: (pcts && pcts.owner_pct) ?? 1, scan_pct: (pcts && pcts.scan_pct) ?? 1,
@@ -84,7 +87,8 @@ test('getEffortLeaderboard — most_improved + needs_attention', () => {
 test('getEffortLeaderboard — zero history → empty-but-valid', () => {
   // asOf before any snapshot → no rows in scope.
   const lb = adb.getEffortLeaderboard({ asOf: '2020-01-01' });
-  assert.deepStrictEqual(lb, { rows: [], most_improved: null, needs_attention: null });
+  assert.deepStrictEqual(lb, { rows: [], most_improved: null, needs_attention: null,
+    ranked_count: 0, min_assets: 20 });
 });
 
 test('getEffortTrend — dates ascending + scores aligned with null gaps', () => {

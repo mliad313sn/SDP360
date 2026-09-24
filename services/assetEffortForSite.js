@@ -31,11 +31,26 @@ function effortForSite(code, { leaderboard, aliases } = {}) {
   const score = folded.get(code);
   if (score == null) return null;                  // never a zeros object
 
+  // G-04 — a code counts in the ranking only if at least one of its labels is ranked
+  // (the leaderboard leaves a site under the asset bar unranked). A board built before
+  // that flag existed has no `ranked` key at all: absent means ranked, so older callers
+  // and fixtures behave exactly as before.
+  const rankedCodes = new Set();
+  for (const row of rows) {
+    if (row.ranked === false) continue;
+    const c = aliases.assetLabelToCode(row.site);
+    if (c) rankedCodes.add(c);
+  }
+  const ranked = rankedCodes.has(code);
+
   const ordered = [...folded.entries()]
-    .filter(([, s]) => s != null)
+    .filter(([c, s]) => s != null && rankedCodes.has(c))
     .sort((a, b) => (b[1] - a[1]) || (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
 
-  const rank = ordered.findIndex(([c]) => c === code) + 1;
+  // Not ranked → no rank at all, rather than a position among sites it cannot be
+  // compared with. The score and the delta still stand: the site did the work.
+  const idx = ordered.findIndex(([c]) => c === code);
+  const rank = ranked && idx >= 0 ? idx + 1 : null;
   const of = ordered.length;
 
   // delta = the delta of the FIRST row whose label folds to this code. A mean of
@@ -48,7 +63,7 @@ function effortForSite(code, { leaderboard, aliases } = {}) {
     }
   }
 
-  return { score, rank, of, delta };
+  return { score, rank, of, delta, ranked };
 }
 
 module.exports = { effortForSite };

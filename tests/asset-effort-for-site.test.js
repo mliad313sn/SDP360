@@ -26,7 +26,7 @@ test('folds SGO across two labels, recomputes rank and of, keeps the first label
     aliases,
   });
   // HGO 80 (#1) · SGO round((70+72)/2)=71 (#2) · MGO 60 (#3)
-  assert.deepStrictEqual(r, { score: 71, rank: 2, of: 3, delta: 5 });
+  assert.deepStrictEqual(r, { score: 71, rank: 2, of: 3, delta: 5, ranked: true });
 });
 
 // ── 2 · code absent from the fold → null, never a zeros object ───────────────
@@ -87,5 +87,51 @@ test('aliases is optional — defaults to the real scoreboardAliases module', ()
   const r = effortForSite('HGO', {
     leaderboard: board([{ site: 'Hounde', effort_score: 65, delta: 3, rank: 1 }]),
   });
-  assert.deepStrictEqual(r, { score: 65, rank: 1, of: 1, delta: 3 });
+  assert.deepStrictEqual(r, { score: 65, rank: 1, of: 1, delta: 3, ranked: true });
+});
+
+// ── G-04 (audit 2026-09-24) — the per-site block must not hand out a flattering rank ──
+// The weekly report prints "score / rang / Δ30j" for the site it belongs to. A site with
+// a handful of assets is not comparable to a 400-machine mine, so the leaderboard stopped
+// ranking it — and this resolver, which re-derives its own rank over folded codes, has to
+// honour that instead of quietly restoring one.
+test('G-04: a site whose labels are all unranked gets no rank, but keeps its score', () => {
+  const r = effortForSite('SGO', {
+    leaderboard: board([
+      { site: 'Sabodala', effort_score: 100, delta: null, rank: null, total: 2, ranked: false },
+      { site: 'Hounde',   effort_score: 60,  delta: 3,    rank: 1,    total: 388, ranked: true },
+      { site: 'Mana',     effort_score: 57,  delta: 2,    rank: 2,    total: 474, ranked: true },
+    ]),
+    aliases,
+  });
+  assert.ok(r, 'the site is not erased');
+  assert.strictEqual(r.score, 100, 'its score still stands');
+  assert.strictEqual(r.rank, null, 'but it is not ranked against sites 200x its size');
+  assert.strictEqual(r.ranked, false);
+});
+
+test('G-04: unranked sites do not inflate the "of N" a ranked site is measured against', () => {
+  const r = effortForSite('HGO', {
+    leaderboard: board([
+      { site: 'Sabodala', effort_score: 100, delta: null, rank: null, total: 2, ranked: false },
+      { site: 'Hounde',   effort_score: 60,  delta: 3,    rank: 1,    total: 388, ranked: true },
+      { site: 'Mana',     effort_score: 57,  delta: 2,    rank: 2,    total: 474, ranked: true },
+    ]),
+    aliases,
+  });
+  assert.strictEqual(r.rank, 1);
+  assert.strictEqual(r.of, 2, 'two comparable sites, not three');
+  assert.strictEqual(r.ranked, true);
+});
+
+test('G-04: a board without the flag behaves exactly as before', () => {
+  const r = effortForSite('HGO', {
+    leaderboard: board([
+      { site: 'Hounde', effort_score: 80, delta: 1, rank: 1 },
+      { site: 'Mana',   effort_score: 60, delta: -4, rank: 2 },
+    ]),
+    aliases,
+  });
+  assert.strictEqual(r.rank, 1);
+  assert.strictEqual(r.of, 2);
 });
