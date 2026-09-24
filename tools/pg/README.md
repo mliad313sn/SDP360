@@ -63,10 +63,25 @@ PG_TESTS_REQUIRED=1 node --test --test-force-exit tests/*.test.js
 
 Read the `ℹ skipped` line: on this repo a non-zero value is not a success.
 
-**Supplying the admin URL** — either a superuser connection (the cluster superuser
-password is the appliance-standard value; it is never committed, never passed on a
-command line, and never printed), or, preferably, a dedicated test role so no superuser
-credential is needed day to day:
+**No credential is needed any more.** A run isolates itself in one of two ways:
+
+1. a throwaway **database** `sdp_tracker_test_<rand>`, when `PG_ADMIN_URL` points at a
+   connection allowed to `CREATE DATABASE` (strongest isolation — use it in CI if such an
+   account exists);
+2. otherwise a throwaway **schema** `sdp_test_<rand>` inside the database `PG_URL` already
+   points at. `sdp_app` owns `sdp_dashboard`, and an owner may create a schema; nothing in
+   `db/postgres/**` or `pgDb.js` qualifies a table with `public.`, so a `search_path` on
+   the connection redirects every `CREATE TABLE` there. Dropped `CASCADE` at the end.
+
+`PG_URL` is read from the environment or, failing that, straight out of `.env` — **only
+that one value**, never injected into `process.env`: a plain `dotenv.config()` here would
+also set `REPORTS_BACKEND=postgres` and flip every suite relying on the sqlite default.
+
+> **Writing a catalog query in a pg test?** Scope it to `current_schema()`. Under the
+> schema path the run shares a database with the real tables, so
+> `SELECT … FROM information_schema.tables WHERE table_name='users'` counts two.
+
+The superuser route, if you want the database-level isolation instead:
 
 ```sql
 CREATE ROLE sdp_test LOGIN PASSWORD '<choose one>' CREATEDB;
