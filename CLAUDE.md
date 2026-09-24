@@ -21,6 +21,10 @@ made so far so that future sessions can pick up exactly where the last one ended
 > the installer-safety-parity work (578be34) is NOT in prod and a future cumulative ZIP will NOT carry it.
 > After the TEST-instance E2E, package those files BY HAND (list: `git diff --name-only 7629551..578be34 --
 > tools/installer _sdp_admin.cmd tools/pg/dump-db.js`, minus `tools/installer/tests/`).
+> **Depuis 2026-09-24 le packager le RAPPELLE tout seul** à chaque build (`tools/deploy/frozen-lots.json`
+> + `Check-FrozenLots.ps1`) : il nomme les lots gelés derrière le marqueur et les fichiers à empaqueter
+> à la main. **Retirer l'entrée du JSON** une fois les fichiers confirmés en prod, sinon l'avertissement
+> devient du bruit qu'on n'écoute plus.
 >
 > **The ONE exception (deliberately frozen, 2026-09-04):** the tracker RAG-band change (GREEN ≥ 90 %
 > of the pro-rated target, commit `c97ae61`, files `public/activity-tracker/engine.js` +
@@ -47,6 +51,61 @@ made so far so that future sessions can pick up exactly where the last one ended
 > - *"A PV is uniquely identified by site × department × month"* → still true for **PVs only** (2026-09-06,
 >   audit F1): a **Business Incubation session is a distinct record**, never merged with the month's PV.
 > - *"saveMeeting deletes + reinserts the actions"* → since 2026-09-06 it **upserts by id** (audit F2).
+
+---
+
+## ⚡ Current state (as of 2026-09-24 — Audit OPS phases 0/2/4 + phase 3, mergé `ba7eecd`, ZIP appliqué en prod)
+
+> Le moteur d'audit écrit le 2026-09-17 (`docs/prompts/2026-09-17-ops-platform-audit-engine.md`) a
+> enfin été **exécuté** : phases **0** (baseline), **1** compressée, **1bis** (piste Assets), **2**
+> (bibliothèque `/goal`) et **4** (AMDEC) → rapport + journal dans
+> **`docs/audits/2026-09-24-audit-phases-0-2-4.md`** ; puis la **phase 3 sur les 7 goals sans
+> arbitrage** (branche `audit/phase3-2026-09-24`, 10 commits, fusionnée `--no-ff` en **`ba7eecd`**).
+> **ZIP `sdp-deploy_ba7eecd_*` (22 fichiers) APPLIQUÉ en prod le 2026-09-24 par l'utilisateur.**
+> ⚠️ Il touche `server.js` ET des HTML mis en cache au boot (`assets.html`, `help.html`) : le
+> **redémarrage `pm2 stop` → attente → `start`** (jamais `reload`) et un **Ctrl+F5** sont
+> indispensables pour que la fraîcheur, la trace d'usage et l'aide §18 apparaissent. Le **marqueur
+> n'est PAS encore avancé** (`587b32e`) — lancer `tools\deploy\mark-deployed.cmd` sur le poste dev
+> **seulement après** avoir vérifié que c'est vivant, sinon ces 22 fichiers se retrouveraient eux
+> aussi derrière le marqueur. Le ZIP ne porte évidemment ni l'installeur ni le tracker gelés (il le
+> DIT maintenant, cf. G-10).
+>
+> **La baseline n'était PAS verte et personne ne le savait** : 5 tests rouges déterministes
+> (`reports-editor-asset-tab`, cause = CRLF, PAS une régression produit) **+ 75 tests PostgreSQL
+> jamais exécutés**, sautés en silence — sur une prod 100 % PostgreSQL. Après la phase 3 :
+> **1987 pass / 0 fail / 75 skipped, deux passages consécutifs** (2012 → 2062 tests).
+>
+> **Livré** — `G-01` extraction de source insensible aux fins de ligne qui **lève** au lieu de rendre
+> `''` (`tests/_fn-source.js`) · `G-03` **`GET /api/assets/sync-status`** + bandeau de fraîcheur sur
+> les 7 onglets Assets + date du dernier instantané sur Progress (jamais de date inventée :
+> « Parc jamais synchronisé ») · `G-06` trace d'usage `assets_viewed` (1/acteur/jour, garde pure
+> `services/viewLog.js`) + `asset_export` — la question « combien de responsables parc ont ouvert le
+> module » a enfin une réponse · `G-07` **`node tools/pg/asset-engagement-kpis.js`** (lecture seule,
+> réutilise les prédicats `FOLLOWUP_*` verbatim, composeur pur `services/assetEngagementKpis.js`) ·
+> `G-08` **aide section 18 EN+FR** pour les 7 onglets Assets + garde d'intégrité des 125 ancres ·
+> `G-09` une couverture de forecast **non calculée** dit « couverture inconnue » (un `{total:0}`
+> explicite reste « 0/0 » : zéro mesuré ≠ rien mesuré) · `G-10` le packager **nomme les lots gelés
+> derrière le marqueur** (`tools/deploy/frozen-lots.json` + `Check-FrozenLots.ps1`, avertissement
+> seul, jamais bloquant) · `G-13` **hors programme** : la reprise anti-collision de `db-backup.js`
+> était du code mort → une suppression d'inspection pouvait être refusée (c'était la « flake connue »
+> d'`inspection-blobs`).
+>
+> **Trois défauts trouvés en EXÉCUTANT, pas en lisant** : `text <= date` dans le CLI KPI (pg strict),
+> « Δ 0 pts » fabriqué quand la référence 30 j *est* le dernier instantané (→ « Δ non comparable »),
+> et G-13, découvert parce que la suite a été **relancée** (1ᵉʳ passage vert, 2ᵉ rouge).
+>
+> **Reste au propriétaire** : **`G-02`** — les 75 tests PG exigent un `PG_ADMIN_URL` superutilisateur
+> ou un rôle de test `CREATEDB` (le défaut de `tests/pg-helpers.js:3` vise le cluster Docker 5433
+> inexistant ; `sdp_app` n'a pas `CREATEDB`) ; puis appliquer le ZIP, `pm2 stop`→wait→`start`,
+> `Ctrl+F5`, `mark-deployed.cmd`, et le contrôle navigateur (bandeau de fraîcheur, onglet Progress,
+> impression de l'aide §18). **Arbitrages avant exécution** : `G-04` (classement d'effort non
+> équitable — Ouagadougou 100/rang 1 avec **1 actif** contre MANA 54 avec **471** ; `Dakar` et
+> `Dakar Office` comptent comme deux sites), `G-05` (« sans utilisateur » = 99-100 % du parc actif sur
+> 7 sites → une liste de travail égale au parc entier ne donne aucune action suivante), `G-11`
+> (montants du groupe lisibles par toute session), `G-12` (**24 des 29 comptes actifs portent
+> `admin`**, or `_reportWriteDenial` exempte `admin` du contrôle de site → le garde-fou F5 du 05/09
+> est inopérant pour ~83 % des comptes), et le risque résiduel **A-13** (secret SSO/SMTP dans les
+> dumps — « Option A », à confirmer par écrit ou à chiffrer).
 
 ---
 
@@ -3526,6 +3585,11 @@ Then each user presses **Ctrl+F5** once. The packager advances
 |------|---------|
 | `server.js` | Express API, sync jobs, PM2 entry point. **Being split** — see `routes/` (split-server.js pilot). |
 | `routes/inspection.js` | First module extracted from server.js (split pilot, 2026-06-21). Factory `module.exports = (deps) => router` — DI pattern: server.js passes `{ express, inspectionDb, inspectionPptx, rdb, require* middleware, getRawCache }` and does `app.use(require('./routes/inspection')(deps))`. Handlers byte-identical to the old inline ones. Tested by `tests/inspection-routes.test.js`. **Pattern to copy for future extractions** (meetings, tracker, risk-register…). |
+| `services/viewLog.js` | Garde pure « une fois par acteur et par jour » derrière les événements `*_viewed` de System Logs (G-06, 2026-09-24). Sans clock ni stockage : l'appelant fournit le jour. |
+| `services/assetEngagementKpis.js` + `tools/pg/asset-engagement-kpis.js` | Composeur PUR + CLI **lecture seule** des KPI d'engagement parc (G-07). Réutilise les prédicats `FOLLOWUP_*` exportés par `assets-db` (jamais re-tapés), charge `.env` AVANT tout module db, n'imprime aucun montant, et distingue « Δ non comparable » d'un Δ nul. Référence T0 = `docs/audits/2026-09-24-audit-phases-0-2-4.md` §3.2. |
+| `tools/deploy/Check-FrozenLots.ps1` + `frozen-lots.json` | Avertit, au moment de construire le ZIP, quels lots **gelés derrière le marqueur** aucun paquet cumulatif ne portera jamais (G-10). Avertissement seul, jamais bloquant. **Retirer une entrée** une fois ses fichiers confirmés en prod. |
+| `tests/_fn-source.js` | Extraction de la source d'une fonction dans une page HTML pour les tests statiques : insensible aux fins de ligne, et **lève** plutôt que de rendre une tranche vide (voir la ligne CRLF des pièges). |
+| `docs/audits/` | Rapports d'audit (constats à preuve, bibliothèque `/goal`, matrice AMDEC, journal d'exécution). Le moteur qui les produit est `docs/prompts/2026-09-17-ops-platform-audit-engine.md`. |
 | `services/blobStore.js` | Filesystem blob store (`<DATA_DIR>/blobs/<module>/<owner>/…`) — keeps inspection photos/signatures (and future blobs) OUT of SQLite. Path-traversal-guarded, SDP_DATA_DIR-aware. |
 | `services/report*.js` + `siteReport*.js` | **Reporting Suite Foundation** (branch `feat/reporting-suite`) — `reportConfig.js` (delivery settings k/v), `reportDirectory.js` (per-site recipients), `reportSchedule.js` (schedules + Task Scheduler bridge), `reportSentLog.js` (dedup/audit send log), `siteScore.js` (composite RAG score + two-moves), `siteReport.js` + `siteReportDeps.js` (per-site report composer + DI deps), `reportRender.js` (PDF), `mailer.js` (SMTP send). All backed by 4 reports.db tables auto-created at boot (sqlite `_initSchema` / pg `005_reporting.sql`); pg copy via `tools/pg/copy-reports-reporting.js`. |
 | `services/pgDb.js` | **Reusable async PostgreSQL adapter** (Chunk 1 of the PG migration). better-sqlite3-shaped surface: `prepare(sql).get/all/run` (async), `exec`, `runTransaction` (AsyncLocalStorage), `?`→`$N` translate, NUMERIC type-parser, `RETURNING *` for bare INSERTs. Module-agnostic — **Chunks 2-4 (meetings/inspection/reports.db) copy this same adapter + recipe.** Selected per-module by a `TRACKER_BACKEND=sqlite\|postgres` style flag; prod stays `sqlite` until cutover. See `tools/pg/README.md`. |
@@ -4040,6 +4104,9 @@ In normal use NO request hits this fallback. It's a safety net.
 
 | Pitfall | Rule |
 |---------|------|
+| **Une extraction de source LF-only rend `''` sur tout checkout Windows — et les assertions NÉGATIVES passent alors à vide (2026-09-24)** | `core.autocrlf=true` est réglé dans la config **système ET locale** : tout l'arbre de travail est en CRLF alors que `git status` ne signale rien. Un `src.indexOf('\n}\n', start)` rend donc `-1`, la tranche dégénère en `''`, et chaque `assert.ok(!code.includes(…))` du fichier **passe sans rien vérifier** — les garanties que le test croit protéger ont cessé d'être contrôlées. Mesuré sur `public/reports.html` : `end('\n}\n') = -1` contre `end('\r\n}\r\n') = 284843` (2358 caractères de vrai corps). **Règle** : tout test qui lit un fichier du dépôt le normalise (`.replace(/\r\n/g,'\n')`) et passe par **`tests/_fn-source.js`**, qui **lève** au lieu de rendre une tranche vide. C'est la **2ᵉ occurrence** de cette classe (les goldens e-mail furent la 1ʳᵉ ; `.gitattributes` ne couvre que `tests/__golden__/*.html`). Pinné par `tests/fn-source.test.js`. |
+| **Une suite « verte » peut n'avoir jamais exécuté la moitié PostgreSQL — et rien ne le crie (2026-09-24)** | `tests/pg-helpers.js:3` : `PG_ADMIN_URL \|\| 'postgres://postgres:devpass@localhost:5433/postgres'` → le défaut vise le cluster **Docker 5433** (absent de cette machine ; le vrai PG 17 écoute sur **5432**), et `sdp_app` n'a **pas** `CREATEDB` donc `PG_URL` ne peut pas servir d'URL admin. `provisionTestDb()` rend `null`, les tests se déclarent *skipped*, la suite reste verte — **75 tests**, soit toute la parité pg (`pg-asset-followups`, `pg-report-asset-review`, `inspection pg`, `meetings pg`, `pgDb`…) **sur une prod 100 % PostgreSQL**. **Règle** : avant tout déploiement touchant un fork pg, lire la ligne `ℹ skipped` — un `skipped` non nul n'est pas un succès. |
+| **`db-backup.js` : la reprise anti-collision était du code mort → une SUPPRESSION pouvait être refusée (2026-09-24)** | Le nom de sauvegarde porte un horodatage **sans sous-seconde**, donc deux sauvegardes de la même base dans la même seconde entrent en collision. La reprise prévue pour ce cas testait `/file exists/i` alors que SQLite écrit **« output file already exists »** — qui ne contient pas cette sous-chaîne : la branche n'a jamais tourné. Comme `deleteInspection()` sauvegarde d'abord, une 2ᵉ suppression dans la même seconde **échouait** ; c'est la « flake connue » d'`inspection-blobs` que ce fichier documentait. Une sauvegarde existe pour **rendre** la suppression sûre, pas pour la bloquer. Pinné par `tests/db-backup-collision.test.js`. |
 | **The COORDINATOR monthly send has NO arm flag — the scheduled task IS the switch (2026-09-23)** | Every other digest is gated by a `*_send_enabled` key in `reportConfig.DEFAULTS` (armed OFF), so a task that runs still sends nothing. `tools/reports/send-reports.js` (`--type=coordinator`, the monthly per-site report) has **no such flag**: it mails every site whose coordinator address is CONFIRMED as soon as the task fires. To hold it back you must disable or delete the `SDP-Report-coordinator-monthly` task (`schtasks /Change /TN <t> /DISABLE`) — unchecking something in the admin card will not do it. `--type=group` is the opposite trap: `SUPPORTED_TYPES = ['coordinator']`, so `group-weekly`/`group-monthly` run and exit with "not implemented yet" — the two tasks exist but send nothing. `node tools/pg/audit-sent-log.js` block [0a] lists every arm flag with stored-vs-default, which is why a key ABSENT from `report_config` must be shown as its DEFAULT rather than omitted. |
 | **Scheduled report tasks MUST be created `/RU SYSTEM` — without it they NEVER run (2026-08-11 → 2026-09-21, prod)** | `services/reportSchedule.js` built `schtasks /Create` with no `/RU`, so each task ran as the account that created it — pm2's machine account `ABJ-SRV-012$` — in **"Interactive only"** mode. Nobody logs on to the server, so every `SDP-Report-*` task stayed `Ready` with Last Run `11/30/1999` and Last Result **267011** (never started): no scheduled report, weekly or monthly, ever went out. `_taskArgs` now adds `/RU SYSTEM` (pinned by `tests/report-schedule-task-args.test.js`), like the backup tasks in `Manage-SDP.ps1`. Existing tasks are fixed in place with `schtasks /Change /TN <task> /RU SYSTEM` (elevated) or by re-saving each schedule in the admin card. Check with `schtasks /query /tn <task> /v /fo LIST` → `Logon Mode` must not be `Interactive only`. |
 | **A `tools/reports/*` CLI run standalone (Task Scheduler, manual `node …`) must load `.env` FIRST — otherwise it silently reads the frozen SQLite archives (2026-09-21)** | Every `*-db` module picks its backend (`*_BACKEND`) at require time, and only `server.js` loaded `dotenv`. The scheduled CLIs (`send-reports`, `send-weekly`, `send-hygiene`, `send-scoreboard`, `send-asset-group`, `send-asset-reminders`) and `backfill-asset-review` therefore read the July archives in prod when started on their own (found when the backfill dry-run listed W27 as every site's latest report). Each file now starts with `if (require.main === module) require('dotenv').config({ path: …/../../.env })` BEFORE any require; `tests/reports-cli-dotenv.test.js` enforces it for every file in `tools/reports/`. The `[Reports-DB] ✅ SQLite ready` boot line is printed UNCONDITIONALLY — it proves nothing about the backend; print `process.env.REPORTS_BACKEND` instead. |
