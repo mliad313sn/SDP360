@@ -91,10 +91,26 @@ made so far so that future sessions can pick up exactly where the last one ended
 > demande pourquoi son site n'est « plus classé », la réponse est sous les deux tableaux : le seuil
 > est écrit, et il se change en une ligne (`MIN_RANKED_ASSETS`, `assets-db.js`).
 >
-> **Les trois goals restants sont des DÉCISIONS, pas du code** : `G-11` (montants du groupe lisibles
-> par toute session), `G-12` (24 comptes `admin` sur 29 → le contrôle de site est inopérant pour
-> ~83 % des comptes), `A-13` (secret SSO/SMTP dans les dumps — Option A à confirmer ou à chiffrer).
-> Chacun est rédigé prêt à exécuter dans `docs/audits/2026-09-24-audit-phases-0-2-4.md`.
+> **4ᵉ lot sur `main`, PAS déployé — `878742e` (G-11) + `4b98801` (G-12)**.
+> **G-11 (décision user : restreindre à admin+)** : les routes porteuses de montants
+> (finance, licences, investment, depreciation **et l'export Excel de l'inventaire** — le moyen le
+> plus simple de sortir avec les chiffres) exigent `admin` ; **l'inventaire reste ouvert à tous**
+> mais **sans montants** en dessous d'admin (`_stripAssetMoney`, les XOF bruts autant que les USD
+> convertis) ; les onglets Finance et Investment sont **masqués et retirés du jeu d'ancres** pour ces
+> comptes, donc personne n'est envoyé dans un 403 ; l'aide §18.3 le dit EN + FR. **Réserve honnête,
+> écrite dans le test** : avec 24 comptes `admin` sur 29, la restriction ne mord vraiment qu'après
+> G-12.
+> **G-12 (moitié agent)** : `node tools\pg\audit-roles.js` — **lecture seule**, classe chaque compte
+> actif en `over_privileged` (admin AVEC un site → proposition `editor`, site conservé) ·
+> `central` (admin SANS site → à confirmer, jamais proposé) · **`blocked`** (editor SANS site → **ne
+> peut écrire AUCUN rapport**, à nommer en premier). Lu sur la copie de dev : **22 sur-privilégiés,
+> 2 à confirmer, 0 bloqué** — la rétrogradation est donc plus sûre que le constat ne le laissait
+> craindre, mais **la liste doit être rejouée sur le serveur** (ces noms datent de trois semaines).
+> **Le changement de rôle reste un geste humain dans Admin ▸ Users**, compte par compte : un UPDATE
+> en masse est exactement la façon dont un coordinateur découvre le lundi que son rapport est refusé.
+>
+> **Reste, et c'est tout** : `A-13` (secret SSO/SMTP dans les dumps — Option A à confirmer par écrit
+> ou à chiffrer) et **`G-02`** (les 75 tests PostgreSQL attendent un `PG_ADMIN_URL`).
 >
 > **2ᵉ lot déployé le même jour — marqueur `4004a36`** (appliqué + pm2 redémarré + marqué) : le §18
 > de l'aide était parti **avec son sommaire hors du conteneur** (`.doc-layout` gagnait une 3ᵉ colonne,
