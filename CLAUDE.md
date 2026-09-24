@@ -91,7 +91,7 @@ made so far so that future sessions can pick up exactly where the last one ended
 > demande pourquoi son site n'est « plus classé », la réponse est sous les deux tableaux : le seuil
 > est écrit, et il se change en une ligne (`MIN_RANKED_ASSETS`, `assets-db.js`).
 >
-> **4ᵉ lot sur `main`, PAS déployé — `878742e` (G-11) + `4b98801` (G-12)**.
+> **4ᵉ lot DÉPLOYÉ le 2026-09-24 (marqueur `df23d70`) — `878742e` (G-11) + `4b98801` (G-12)**.
 > **G-11 (décision user : restreindre à admin+)** : les routes porteuses de montants
 > (finance, licences, investment, depreciation **et l'export Excel de l'inventaire** — le moyen le
 > plus simple de sortir avec les chiffres) exigent `admin` ; **l'inventaire reste ouvert à tous**
@@ -109,8 +109,18 @@ made so far so that future sessions can pick up exactly where the last one ended
 > **Le changement de rôle reste un geste humain dans Admin ▸ Users**, compte par compte : un UPDATE
 > en masse est exactement la façon dont un coordinateur découvre le lundi que son rapport est refusé.
 >
-> **Reste, et c'est tout** : `A-13` (secret SSO/SMTP dans les dumps — Option A à confirmer par écrit
-> ou à chiffrer) et **`G-02`** (les 75 tests PostgreSQL attendent un `PG_ADMIN_URL`).
+> **➡️ PROCHAIN GESTE, dans cet ordre** : (1) `node tools\pg\audit-roles.js` **sur le serveur** — la
+> liste de dev a trois semaines ; (2) rétrograder les comptes `over_privileged` en `editor` dans
+> **Admin ▸ Users**, un par un, **site vérifié à chaque fois** ; (3) re-lancer l'outil : le compte
+> `blocked` doit rester à **0**. Tant que les 22 gardent `admin`, la restriction des montants de
+> G-11 ne mord sur personne — c'est la rétrogradation qui l'active.
+>
+> **Reste ensuite, et c'est tout** : `A-13` (secret SSO/SMTP dans les dumps — Option A à confirmer
+> par écrit ou à chiffrer) et **`G-02`** (les 75 tests PostgreSQL attendent un `PG_ADMIN_URL`).
+>
+> **Bilan de la journée du 2026-09-24** : 4 lots déployés, 12 goals sur 13 livrés, baseline de tests
+> passée de **1932 pass / 5 fail** à **2039 pass / 0 fail** (75 pg toujours sautés), et une référence
+> T0 du parc mesurée en prod (§9 du rapport d'audit) à rejouer vers le 2026-10-24.
 >
 > **2ᵉ lot déployé le même jour — marqueur `4004a36`** (appliqué + pm2 redémarré + marqué) : le §18
 > de l'aide était parti **avec son sommaire hors du conteneur** (`.doc-layout` gagnait une 3ᵉ colonne,
