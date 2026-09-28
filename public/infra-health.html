@@ -226,7 +226,12 @@ W.defaults=O.defaults;window.Chart=W;});
     gov_byfamily:   { fr: 'Par famille',                             en: 'By family' },
     // empty / error states
     nodata:         { fr: 'Aucune donnée',                            en: 'No data' },
+    err_load:       { fr: 'Erreur de chargement',                     en: 'Error loading data' },
   };
+  // "Erreur de chargement : HTTP 403" / "Error loading data: HTTP 403" — a failure must say
+  // it failed; it is never rendered as "no data" (that would send the operator hunting in
+  // the collectors for what is really a session, a deploy or a server exception).
+  function failureText(msg) { return T('err_load') + (curLang() === 'fr' ? ' : ' : ': ') + msg; }
   function curLang() { return document.body.classList.contains('lang-fr') ? 'fr' : 'en'; }
   function T(k) { const row = I18N[k]; return row ? (row[curLang()] || row.fr || k) : k; }
 
@@ -281,8 +286,9 @@ W.defaults=O.defaults;window.Chart=W;});
   }
 
   // 1 — Freshness banner
-  function renderFreshness(fleet) {
+  function renderFreshness(fleet, failure) {
     const el = $('ih-freshness');
+    if (failure) { el.textContent = failureText(failure); el.className = 'ih-banner warn'; return; }
     const f = (fleet && fleet.freshness) || {};
     const through = f.data_through_max || null;
     const stale = Number(f.stale_count) || 0;
@@ -333,7 +339,7 @@ W.defaults=O.defaults;window.Chart=W;});
   }
 
   // 4 — Matrix: rows = sites worst-first; columns = WAN · LAN · WLAN · Servers · Global infra
-  function renderMatrix(rows) {
+  function renderMatrix(rows, failure) {
     $('ih-matrix-head').innerHTML = '<th>' + esc(T('c_site')) + '</th>'
       + FAM.map(function (m) { return '<th>' + esc(T(FAM_KEY[m])) + '</th>'; }).join('')
       + '<th>' + esc(T('c_overall')) + '</th>';
@@ -346,7 +352,8 @@ W.defaults=O.defaults;window.Chart=W;});
         + '<td>' + (esc(r.site_name) || ('Site ' + esc(r.site_id))) + '</td>'
         + FAM.map(function (m) { return '<td>' + ragDotCell(fams[m]) + '</td>'; }).join('')
         + '<td>' + ragPill(r.overall_rag) + trendChip(r.overall_trend, true) + '</td></tr>';
-    }).join('') : '<tr><td colspan="7" class="ih-muted">' + esc(T('nodata')) + '.</td></tr>';
+    }).join('') : '<tr><td colspan="7" class="ih-muted">'
+      + (failure ? esc(failureText(failure)) : esc(T('nodata')) + '.') + '</td></tr>';
     $('ih-matrix-hint').textContent = T('m_click') + '.';
   }
 
@@ -438,24 +445,27 @@ W.defaults=O.defaults;window.Chart=W;});
     rows.map(function (r, i) { r.__i = i; return r; });
     rows.sort(function (a, b) { return (sevScore(b) - sevScore(a)) || (a.__i - b.__i); });
 
-    renderFreshness(data.fleet || {});
+    // data.error = the call itself failed (set by loadSummary); data.reason = the route caught
+    // a server error and answered 200 with an empty matrix.
+    var failure = data.error || data.reason || null;
+    renderFreshness(data.fleet || {}, failure);
     renderFamTiles(data.fleet || {});
     renderReadout(rows);
-    renderMatrix(rows);
+    renderMatrix(rows, failure);
     renderGovernance(data.coverage);
 
     // Default the trend to the worst site (rows already worst-first) if none picked.
     if (selectedSite == null && rows.length) {
       selectedSite = rows[0].site_id;
       selectedSiteName = rows[0].site_name || null;
-      renderMatrix(rows);
+      renderMatrix(rows, failure);
     }
   }
 
   async function loadSummary() {
     let data;
     try { data = await api('/api/analytics/infra/summary?period=' + encodeURIComponent(period)); }
-    catch { data = { sites: [], fleet: {}, coverage: { available: false } }; }
+    catch (e) { data = { sites: [], fleet: {}, coverage: { available: false }, error: (e && e.message) || String(e) }; }
     window._ihLastSummary = data;
     renderSummary(data);
     loadTrend(selectedSiteName);
