@@ -2964,8 +2964,9 @@ function updateStatusBar() {
     lbl.textContent = '✅ Submitted — ' + (r.submitted_at ? r.submitted_at.slice(0,10) : '');
     lbl.style.color = 'var(--green)';
     btnSubmit.style.display = 'none';
-    // Same rule as PUT /api/reports/:id/status: admin tier and above (decision 2026-10-02).
-    btnRevert.style.display = (window.__userHasRole && window.__userHasRole('admin')) ? 'inline-flex' : 'none';
+    // Same rule as PUT /api/reports/:id/status: an editor of the report's site, the admin
+    // tier anywhere (decision 2026-10-02 — an editor only ever opens their own site's reports).
+    btnRevert.style.display = (window.__userHasRole && window.__userHasRole('editor')) ? 'inline-flex' : 'none';
     if (btnDelete) btnDelete.style.display = 'none';
   } else if (r.status === 'ready') {
     lbl.textContent = '✔ Ready to Submit';

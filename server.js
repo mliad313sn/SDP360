@@ -7077,16 +7077,13 @@ app.put('/api/reports/:id/status', requireReportSession, jsonBody, async (req, r
       return res.status(400).json({ error: 'status must be draft, in_progress, ready, or submitted' });
 
     // F5: editor role + site scope (a site-less profile is not global); the submitted
-    // gate below is this route's own (submit is allowed, revert is admin-tier only).
+    // gate: submit and revert are both allowed to whoever passes it (decision 2026-10-02).
     const report = await _authorizeReportWrite(req, res, id, { allowSubmitted: true });
     if (!report) return;
-    // Reverting a submitted report: admin tier and above (admin, executive, super_admin).
-    // Was super_admin-only — too restrictive in practice (user decision 2026-10-02).
-    // Uses the role hierarchy, not the legacy exact users.role string.
-    if (report.status === 'submitted' && status !== 'submitted') {
-      if (!rdb.userHasRole(req.reportUser, 'admin'))
-        return res.status(403).json({ error: 'Only an administrator can revert a submitted report to draft.' });
-    }
+    // Reverting a submitted report to draft (user decisions 2026-10-02): was super_admin-
+    // only; now any editor of the REPORT'S site, the admin tier anywhere. That is exactly
+    // what _authorizeReportWrite above already enforces (editor role + the report's site,
+    // a site-less profile is not global), so no extra role check here.
 
     // Asset engagement: freeze the Parc informatique counts at the FIRST submission
     // (a re-submit never re-freezes). Never blocks: empty notes are allowed and an

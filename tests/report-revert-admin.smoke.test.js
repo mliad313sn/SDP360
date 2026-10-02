@@ -40,6 +40,7 @@ before(async () => {
   tok.admin     = await mk('rv-admin',  ['admin'], site.id);
   tok.executive = await mk('rv-exec',   ['executive'], null);
   tok.editor    = await mk('rv-editor', ['editor'], site.id);
+  tok.viewer    = await mk('rv-viewer', ['viewer'], site.id);
   const me = (rdb.listUsers() || []).find(u => u.username === process.env.DASH_USER);
   rdb.setUserRoles(me.id, ['super_admin']);
   tok.super = (await rdb.login(process.env.DASH_USER, process.env.DASH_PASS)).token;
@@ -65,8 +66,21 @@ test('a super_admin still can', async () => {
   assert.equal((await setStatus(id, tok.super, 'draft')).status, 200);
 });
 
-test('an editor still cannot revert a submitted report (403)', async () => {
+test('an editor CAN revert a submitted report of their own site (decision 2026-10-02, 200)', async () => {
   const id = await submittedReport();
-  assert.equal((await setStatus(id, tok.editor, 'draft')).status, 403);
-  assert.equal((await rdb.getReport(id)).status, 'submitted');
+  assert.equal((await setStatus(id, tok.editor, 'draft')).status, 200);
+  assert.equal((await rdb.getReport(id)).status, 'draft');
+});
+
+test('an editor cannot revert a submitted report of another site (403)', async () => {
+  const other = rdb.listSites()[1];
+  const r = rdb.ensureReport(other.id, 2026, week++);
+  await rdb.updateReportStatus(r.id, 'submitted', null);
+  assert.equal((await setStatus(r.id, tok.editor, 'draft')).status, 403);
+  assert.equal((await rdb.getReport(r.id)).status, 'submitted');
+});
+
+test('a viewer cannot revert (403)', async () => {
+  const id = await submittedReport();
+  assert.equal((await setStatus(id, tok.viewer, 'draft')).status, 403);
 });
