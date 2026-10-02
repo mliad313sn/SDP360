@@ -51,6 +51,84 @@ made so far so that future sessions can pick up exactly where the last one ended
 > - *"A PV is uniquely identified by site × department × month"* → still true for **PVs only** (2026-09-06,
 >   audit F1): a **Business Incubation session is a distinct record**, never merged with the month's PV.
 > - *"saveMeeting deletes + reinserts the actions"* → since 2026-09-06 it **upserts by id** (audit F2).
+> - *"Coordinators hold `admin`"* / *"G-12: the demotion is a human gesture, account by account"* →
+>   superseded 2026-10-02: the 25 site coordinators are **`editor` locked to their site** (bulk tool
+>   `tools/pg/demote-coordinators.js`, user request). Only `dgoro` and `serge.guiro@` (site-less) stay `admin`.
+> - *"Only a super_admin can revert a submitted report"* → 2026-10-02: an **editor of the report's site**, and
+>   the admin tier anywhere.
+> - *"Inspection delete / reopen / exports, PV import / closed-PV edits / delete, Excel exports are admin or
+>   executive only"* → 2026-10-02 (lot 4): open to an **editor on their own site** (see the 2026-10-02 section).
+> - *4MyPeople* → a SEPARATE product (own code, server, SSO settings), out of this repo's scope. Its SSO work
+>   was parked on 2026-10-02.
+
+---
+
+## ⚡ Current state (as of 2026-10-02 — Audit RBAC & périmètre de site, lots 1-4 + rétrogradation, TOUT en prod)
+
+> **Tout `main` est en prod jusqu'à `9e37113`** (avancer le marqueur avec `mark-deployed.cmd` s'il ne l'est
+> pas). Les lots gelés (installeur `578be34`, tracker RAG `c97ae61`+`e17b7b7`) restent DERRIÈRE le marqueur.
+>
+> **Déclencheur** : le coordinateur de Houndé ne pouvait pas enregistrer le tracker — `403 « no site
+> assigned »`. Cause : `tracker-db.SITE_MAP` cherchait le nom du site **à l'exacte casse** (`HOUNDE`,
+> `Hounde IT Agents`) alors que les lignes `sites` s'appellent `Hounde`, `Ity`, `Lafigue`… → **8 sites sur
+> 11 ne pouvaient pas enregistrer** (seuls Sabodala, MANA, Dakar tombaient juste). Corrigé en `6804ebe`
+> (normalisation casse/accents/suffixe comme `inspection-db`, + `siteToCode(site)` qui retombe sur le
+> `zoho_group`). Puis audit transverse de la même famille, plan :
+> **`docs/superpowers/plans/2026-10-02-rbac-site-scope-audit.md`**.
+>
+> **RÈGLE D'ACCÈS (décision utilisateur, « tout ouvrir aux coordinateurs, verrouillé à leur site »)** :
+> un compte **`editor`** agit sur **son propre site** ; le palier **admin** (`admin`/`executive`/`super_admin`)
+> est sans restriction ; un compte **sans site** (ou dont le site n'a pas de code dans le module) **n'écrit
+> rien** et ne lit rien par site. Vérifier les rôles par **`rdb.userHasRole(user, 'admin')`** (hiérarchie),
+> **jamais** par `user.role === 'admin'` (excluait les executive). Montants des actifs : admin+ (G-11).
+>
+> - **Lot 1** (`070c4ce`, `0c44ff1`) : modifications du rapport mensuel et objectifs annuels **sans aucun
+>   contrôle** (un `viewer` pouvait réécrire n'importe quel site) → règle F5 (`_authorizeSiteWrite`) ;
+>   décision de réconciliation des actifs → `editor` ; écritures Réunions/Inspections d'un non-admin **sans
+>   site** traitées comme globales → refusées (`_sitelessWriteDenied`) ; e-mail utilisateur **perdu sur
+>   PostgreSQL** (create/update/list) → parité avec sqlite.
+> - **Lot 2** (`36fad74`) : `GET /api/tracker/load` ouvert à `admin` OU `tracker-*`, et renvoie **`scope`**
+>   (code tracker du compte ; `''` = site non résolu → lecture seule) ; le navigateur verrouille le sélecteur
+>   de site dessus (`__authUser` n'a PAS de `site_name` — le verrou n'avait jamais marché, et les saisies
+>   sur un autre site étaient jetées en silence par le serveur) ; export PPTX tracker = admin|tracker-admin.
+> - **Lot 3** (`e78cefd`) : la suppression d'inspection annonçait « supprimé » sur un 403 ; boutons masqués
+>   selon le rôle de leur route ; journal d'audit 403 ≠ « aucune entrée » ; **`auth.js` rafraîchit les rôles**
+>   depuis `/api/reports/auth/me` et recharge la page **une fois** (`sessionStorage auth_roles_reloaded`) —
+>   avant, le cache `localStorage` gardait les anciens rôles jusqu'à 24 h.
+> - **Lot 4a** (`e2fb656`) : **garde central de lecture** `app.get([_REPORT_ID_READ, _SITE_ID_READ], …)`
+>   (juste après `requireReportSession`) sur tout `GET /api/reports/<id>/…` et `/api/reports/{monthly,yearly,
+>   objectives}/<site>/…`, `/api/sites/<id>/…` — une route ajoutée plus tard est verrouillée d'office ;
+>   `site-data`/`site-actions` par code, `helpdesk-live`/`helpdesk-charts` par groupes Zoho du site ; decks
+>   tous-sites et synthèse hebdo = admin ; journal d'audit ouvert à l'éditeur sur son site
+>   (`audit-viewer` reste global). `reports.html` : `_adminTier()` remplace les `role === 'admin'`.
+> - **Lot 4b** (`adfb2a8`) : **trou fermé** — un éditeur pouvait **écraser l'inspection d'un autre site** en
+>   réutilisant son `f_id` (seul le site entrant était vérifié) ; rouvrir/modifier une inspection soumise,
+>   supprimer, PPTX unitaire et consolidé, Excel → éditeur, son site (`exportRows({site})`,
+>   `getInspectionHeader`, `/lookups` renvoie `scope`).
+> - **Lot 4c** (`54aa8dc`) : **trou fermé** — l'import PV/incubation appelait `saveMeeting(state, null)`
+>   (aucun contrôle de site) ; import, édition des PV **clos** et de leurs problèmes, suppression, Excel →
+>   éditeur, son site.
+> - **Lot 4d** (`34ea25c`) : SLA WAN ouvert à l'éditeur, toutes les lectures filtrées sur son site.
+>   **Analytics reste `admin|scorecard-viewer`** (décision : option a) — non verrouillable proprement
+>   (colonne `request_records.site` libre, CAB/enquête sans dimension site).
+> - **Retour en brouillon** (`8baa98d` puis `2cd72ce`) : un **éditeur sur son site** peut remettre un rapport
+>   soumis en brouillon (le contrôle `_authorizeReportWrite` suffit) ; admin+ partout.
+>
+> **Rétrogradation G-12 FAITE en prod le 2026-10-02** avec **`tools/pg/demote-coordinators.js`**
+> (`0a8c811`, `--drop` en `9e37113`) : simulation par défaut, `--apply`, `--add-tracker-editor`, `--except=`,
+> `--drop=<rôle de fonction>`, `--restore=<fichier>` ; sauvegarde des rôles d'origine puis **une seule
+> transaction**. 16:18 → **25 comptes `admin` → `editor`** (+`tracker-editor`) ; 16:24 → `audit-viewer` retiré
+> de 17. Sauvegardes : `data\role-backups\roles-2026-10-02T16-18-29-834Z.json` et
+> `…T16-24-00-792Z.json` (restaurer dans l'ordre inverse). Restent `admin` : `dgoro`, `serge.guiro@`
+> (sans site, équipe centrale). Exploration et ASSAFO n'ont pas de code Réunions/Inspections → leurs
+> comptes ne peuvent plus y écrire — **voulu** (ces sites ne font ni PV ni inspection dans le dashboard).
+>
+> **Autres faits de la session** : **A-13 confirmé** (test SMTP OK, le pm2 en cours a la clé) ;
+> **Santé des infrastructures** (`3cc106c`) : la page affiche maintenant l'erreur réelle au lieu de
+> « Aucune donnée » — et a révélé que la **vue Analytics Plus d'OpManager est figée au 2026-05-24** (notre
+> synchro tourne : `rows=57075 … upserted` ; c'est l'import OpManager → Analytics Plus qui s'est arrêté,
+> à relancer côté Zoho). Suite de tests : **2 242 pass / 0 fail / 0 skipped** (checkout principal, PG compris).
+> Intégration Copilot (API M365 Copilot Chat, préversion, déléguée, licence par utilisateur) **mise en pause**.
 
 ---
 
