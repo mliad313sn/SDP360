@@ -5,6 +5,8 @@
 //   node tools/pg/demote-coordinators.js                       # SIMULATION — prints the plan, writes nothing
 //   node tools/pg/demote-coordinators.js --apply --add-tracker-editor
 //   node tools/pg/demote-coordinators.js --apply --except=lafigue,thomas
+//   node tools/pg/demote-coordinators.js --apply --drop=audit-viewer   # remove a FEATURE role from
+//                                       site accounts below admin (already-demoted coordinators too)
 //   node tools/pg/demote-coordinators.js --restore=data/role-backups/roles-<stamp>.json
 //
 // Who: EXACTLY the accounts tools/pg/audit-roles.js lists as over_privileged — an admin
@@ -23,7 +25,7 @@ const path = require('path');
 const fs = require('fs');
 if (require.main === module) require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
 
-const { planDemotion } = require('../../services/roleDemotion');
+const { planRoles } = require('../../services/roleDemotion');
 
 const HIERARCHY = ['super_admin', 'executive', 'admin', 'editor', 'viewer'];
 
@@ -70,12 +72,13 @@ function restorePlan(client, plan) {
 }
 
 function _args(argv) {
-  const a = { apply: false, addTrackerEditor: false, except: [], restore: null };
+  const a = { apply: false, addTrackerEditor: false, except: [], drop: [], restore: null };
   for (const x of argv) {
     if (x === '--apply') a.apply = true;
     else if (x === '--add-tracker-editor') a.addTrackerEditor = true;
     else if (x.startsWith('--except=')) a.except = x.slice(9).split(',');
     else if (x.startsWith('--restore=')) a.restore = x.slice(10);
+    else if (x.startsWith('--drop=')) a.drop = x.slice(7).split(',').map(s => s.trim()).filter(Boolean);
   }
   return a;
 }
@@ -93,14 +96,15 @@ async function main(argv = process.argv.slice(2)) {
       console.log(`Restauré : ${(saved.plan || []).length} compte(s) remis à leurs rôles d'origine (${args.restore}).`);
       return;
     }
-    const plan = planDemotion(await readUsers(c), { addTrackerEditor: args.addTrackerEditor, except: args.except });
-    console.log(`RÉTROGRADATION admin → editor — ${plan.length} compte(s) rattaché(s) à un site${args.apply ? '' : '  [SIMULATION — rien n\'est modifié]'}`);
+    const plan = planRoles(await readUsers(c), { addTrackerEditor: args.addTrackerEditor, except: args.except, drop: args.drop });
+    const what = 'RÉTROGRADATION admin → editor' + (args.drop.length ? ` + retrait de ${args.drop.join(', ')}` : '');
+    console.log(`${what} — ${plan.length} compte(s) rattaché(s) à un site${args.apply ? '' : '  [SIMULATION — rien n\'est modifié]'}`);
     console.log('');
     for (const p of plan) console.log(`  - ${String(p.username).padEnd(42)} ${String(p.site_name || '').padEnd(14)} ${p.before.join(',')}  →  ${p.after.join(',')}`);
     console.log('');
     if (!plan.length) { console.log('Rien à faire.'); return; }
     if (!args.apply) {
-      console.log('Pour appliquer :  node tools\\pg\\demote-coordinators.js --apply' + (args.addTrackerEditor ? ' --add-tracker-editor' : '') + (args.except.length ? ' --except=' + args.except.join(',') : ''));
+      console.log('Pour appliquer :  node tools\\pg\\demote-coordinators.js --apply' + (args.addTrackerEditor ? ' --add-tracker-editor' : '') + (args.except.length ? ' --except=' + args.except.join(',') : '') + (args.drop.length ? ' --drop=' + args.drop.join(',') : ''));
       return;
     }
     const dir = path.join(__dirname, '..', '..', 'data', 'role-backups');
@@ -109,7 +113,7 @@ async function main(argv = process.argv.slice(2)) {
     fs.writeFileSync(file, JSON.stringify({ written_at: new Date().toISOString(), plan }, null, 2));
     console.log(`Sauvegarde des rôles d'origine : ${file}`);
     await applyPlan(c, plan);
-    console.log(`Appliqué : ${plan.length} compte(s) passé(s) en editor (une seule transaction).`);
+    console.log(`Appliqué : ${plan.length} compte(s) modifié(s) (une seule transaction).`);
     console.log('Effet au prochain chargement de page de chaque utilisateur. Vérifier : node tools\\pg\\audit-roles.js');
     console.log(`Retour arrière :  node tools\\pg\\demote-coordinators.js --restore=${path.relative(path.join(__dirname, '..', '..'), file)}`);
   } finally {

@@ -65,3 +65,21 @@ test('apply is all-or-nothing: a failure leaves every account unchanged', async 
     assert.deepEqual(await rolesOf(c, ids.hounde), ['admin', 'report-author', 'tracker-editor'], 'rolled back');
   } finally { await c.end(); await dropTestDb(ctx); }
 });
+
+test('--drop: removes audit-viewer from an already-demoted coordinator, restorable', async (t) => {
+  const ctx = await provisionTestDb(); if (!ctx) return t.skip('no pg');
+  const c = new Client({ connectionString: ctx.url }); await c.connect();
+  try {
+    const ids = await seed(c);
+    await c.query(`INSERT INTO user_roles (user_id, role) VALUES ($1, 'audit-viewer')`, [ids.hounde]);
+    await applyPlan(c, planDemotion(await readUsers(c)));             // the demotion already applied in prod
+    const { planRoles } = require('../services/roleDemotion');
+    const plan = planRoles(await readUsers(c), { drop: ['audit-viewer'] });
+    assert.deepEqual(plan.map(p => p.username), ['hounde']);
+    await applyPlan(c, plan);
+    assert.deepEqual(await rolesOf(c, ids.hounde), ['editor', 'report-author', 'tracker-editor']);
+    assert.equal(await levelOf(c, ids.hounde), 'editor');
+    await restorePlan(c, plan);
+    assert.deepEqual(await rolesOf(c, ids.hounde), ['audit-viewer', 'editor', 'report-author', 'tracker-editor']);
+  } finally { await c.end(); await dropTestDb(ctx); }
+});
