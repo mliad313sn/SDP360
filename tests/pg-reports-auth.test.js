@@ -159,6 +159,29 @@ test('pg users: createUser/listUsers/updateUser/changePassword/deleteUser + casc
   } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
 });
 
+// RBAC audit 2026-10-02 (B2) — on PostgreSQL (prod) the user e-mail, the Entra SSO
+// match key, was dropped: createUser and updateUser ignored it and listUsers did not
+// return it, so the Users modal showed a blank e-mail and any e-mail typed there was
+// lost. Parity with the sqlite path (reports-db.js listUsers/updateUser).
+test('pg users: e-mail is stored on create/update and returned by listUsers (+ has_entra)', async (t) => {
+  const b = await boot(); if (!b) return t.skip('no pg');
+  const { ctx, rdb } = b; const h = rdb.pgHandle();
+  try {
+    const r = await rdb.createUser({ username: 'gina', full_name: 'Gina', password: 'pw12345678', roles: ['editor'], email: 'Gina.Doe@EDV-Ops.com ' });
+    const uid = r.lastID;
+    let gina = (await rdb.listUsers()).find(u => u.id === uid);
+    assert.equal(gina.email, 'gina.doe@edv-ops.com', 'createUser stores the e-mail, lowercased and trimmed');
+    assert.equal(gina.has_entra, false);
+    assert.equal(gina.entra_oid, undefined, 'the raw Entra id is never exposed');
+    await rdb.updateUser(uid, { full_name: 'Gina', roles: ['editor'], email: 'new.mail@edv-ops.com' });
+    gina = (await rdb.listUsers()).find(u => u.id === uid);
+    assert.equal(gina.email, 'new.mail@edv-ops.com', 'updateUser stores the e-mail');
+    await rdb.updateUser(uid, { full_name: 'Gina', roles: ['editor'] });
+    gina = (await rdb.listUsers()).find(u => u.id === uid);
+    assert.equal(gina.email, 'new.mail@edv-ops.com', 'an update without an e-mail keeps it');
+  } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
+});
+
 // ── Task 3: copy-reports-auth.js parity ─────────────────────────────────────
 function _makeAuthSqliteFixture() {
   const Database = require('better-sqlite3');

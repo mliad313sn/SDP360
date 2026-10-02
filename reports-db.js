@@ -1899,15 +1899,18 @@ async function _setUserRolesPg(userId, roles) {
 async function _listUsersPg() {
   const h = pgHandle();
   const users = await h.prepare(`
-    SELECT u.id, u.username, u.full_name, u.site_id, s.name as site_name, s.zoho_group, u.role, u.active, u.created_at
+    SELECT u.id, u.username, u.full_name, u.site_id, s.name as site_name, s.zoho_group, u.role, u.active, u.created_at,
+           u.email, u.entra_oid
     FROM users u LEFT JOIN sites s ON u.site_id=s.id ORDER BY u.id`).all();
   const allRoles = await h.prepare(`
     SELECT user_id, string_agg(role, ',' ORDER BY role) AS roles_csv FROM user_roles GROUP BY user_id`).all();
   const rolesByUser = {};
   for (const r of allRoles) rolesByUser[r.user_id] = r.roles_csv ? r.roles_csv.split(',') : [];
-  return users.map(u => ({ ...u, roles: rolesByUser[u.id] || [] }));
+  // RBAC audit 2026-10-02 (B2): same shape as the sqlite listUsers — e-mail + has_entra,
+  // never the raw Entra object id.
+  return users.map(u => ({ ...u, has_entra: !!u.entra_oid, entra_oid: undefined, roles: rolesByUser[u.id] || [] }));
 }
-async function _createUserPg({ username, full_name, password, site_id, role, roles }) {
+async function _createUserPg({ username, full_name, password, site_id, role, roles, email }) {
   const salt = crypto.randomBytes(16).toString('hex');
   const hash = hashPassword(password, salt);
   const finalRoles = Array.isArray(roles) && roles.length > 0 ? roles : [role || 'editor'];
@@ -1916,6 +1919,7 @@ async function _createUserPg({ username, full_name, password, site_id, role, rol
   const result = await pgHandle().prepare(`INSERT INTO users (username, full_name, password_hash, salt, site_id, role) VALUES (?,?,?,?,?,?)`)
     .run(username, full_name, hash, salt, site_id || null, highest);
   if (result.lastID) await _setUserRolesPg(result.lastID, finalRoles);
+  if (result.lastID && email !== undefined) await _setUserEmailPg(result.lastID, email);
   return result;
 }
 async function _changePasswordPg(userId, currentPassword, newPassword) {
@@ -1929,7 +1933,7 @@ async function _changePasswordPg(userId, currentPassword, newPassword) {
   await h.prepare('UPDATE users SET password_hash=?, salt=? WHERE id=?').run(hash, salt, userId);
   return { ok: true };
 }
-async function _updateUserPg(id, { full_name, password, site_id, role, roles, active }) {
+async function _updateUserPg(id, { full_name, password, site_id, role, roles, active, email }) {
   const h = pgHandle();
   const willUpdateRoles = Array.isArray(roles) || typeof role === 'string';
   const finalRoles = Array.isArray(roles) && roles.length > 0 ? roles : (typeof role === 'string' ? [role] : null);
@@ -1945,6 +1949,8 @@ async function _updateUserPg(id, { full_name, password, site_id, role, roles, ac
     else await h.prepare(`UPDATE users SET full_name=?, site_id=?, active=? WHERE id=?`).run(full_name, site_id ?? null, active ?? 1, id);
   }
   if (willUpdateRoles && finalRoles) await _setUserRolesPg(id, finalRoles);
+  // E-mail (Entra SSO match key) — only touched when explicitly sent, like the sqlite path.
+  if (email !== undefined) await _setUserEmailPg(id, email);
 }
 async function _deleteUserPg(id) {
   return pgHandle().prepare(`DELETE FROM users WHERE id=?`).run(id);
