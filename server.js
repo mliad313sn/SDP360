@@ -7493,7 +7493,7 @@ app.post('/api/tracker/save', requireReportSession, requireRole(['super_admin', 
       const siteId = req.reportUser.site_id;
       const sites  = await rdb.listSites();
       const site   = sites.find(s => s.id === siteId);
-      userSite = trackerDb.siteNameToCode(site?.name || null);
+      userSite = trackerDb.siteToCode(site);   // name, then Zoho group — case/accent-insensitive
       if (!userSite) {
         return res.status(403).json({ error: 'Your account has no site assigned. Contact your administrator.' });
       }
@@ -7542,7 +7542,7 @@ app.post('/api/tracker/import-dept-meetings', requireReportSession, requireRole(
     const isUnrestricted = rdb.userHasRole(req.reportUser, 'super_admin') || rdb.userHasRole(req.reportUser, 'tracker-admin');
     if (!isUnrestricted) {
       const sites = await rdb.listSites();
-      const own = trackerDb.siteNameToCode((sites.find(s => s.id === req.reportUser.site_id) || {}).name || null);
+      const own = trackerDb.siteToCode(sites.find(s => s.id === req.reportUser.site_id));
       if (!own) return res.status(403).json({ error: 'Your account has no site assigned.' });
       if (own !== site) return res.status(403).json({ error: `You may only import for your own site (${own}).` });
     }

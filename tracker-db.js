@@ -60,12 +60,56 @@ const SITE_MAP = {
   'KALANA':'KLN', 'Kalana IT Agents':'KLN',
   'EXPLORATION':'EXP','Exploration BF Support':'EXP','Exploration CI Support':'EXP',
   'OUAGA':'EDV',  'Ouaga IT Agents':'EDV','Ouagadougou-EDV1':'EDV',
-  'TANDA':'TND',  'Tanda IT Agents':'TND'
+  'OUAGADOUGOU':'EDV',
+  'TANDA':'TND',  'Tanda IT Agents':'TND',
+  // The Tanda network is owned by the ASSAFO site row in prod (zoho_group "Tanda IT Agents").
+  'ASSAFO':'TND'
 };
 
-/** Convert a site_name from the users table to a tracker site code. */
+// Case-, accent- and suffix-insensitive form of a site label, so `Hounde`,
+// `HOUNDE`, `Houndé` and `Hounde IT Agents` all meet the same key. Same rule as
+// inspection-db's _normSite. Before this, the lookup was EXACT: the prod site rows
+// are named `Hounde`, `Ity`, `Lafigue`… and 8 of the 11 sites could not save their
+// tracker inputs (403 "no site assigned") — found 2026-10-02.
+function _normSite(s) {
+  if (s == null) return '';
+  return String(s)
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/\b(it agent|it agents|it support|office|support|bf|ci)\b/g, '')
+    .replace(/[^a-z0-9]+/g, '')
+    .trim();
+}
+const _NORM_SITE_MAP = (() => {
+  const m = {};
+  for (const [k, v] of Object.entries(SITE_MAP)) {
+    const n = _normSite(k);
+    if (n && !m[n]) m[n] = v;
+  }
+  return m;
+})();
+
+/** Convert a site label (sites.name, a Zoho group…) to a tracker site code, or null. */
 function siteNameToCode(siteName) {
-  return siteName ? (SITE_MAP[siteName] || null) : null;
+  if (!siteName) return null;
+  if (SITE_MAP[siteName]) return SITE_MAP[siteName];
+  return _NORM_SITE_MAP[_normSite(siteName)] || null;
+}
+
+/**
+ * Resolve a `sites` row to its tracker code: by name first, then by each entry of
+ * its comma-separated `zoho_group` (a site renamed in Admin keeps resolving).
+ * Returns null when nothing matches — the caller refuses the save in that case.
+ */
+function siteToCode(site) {
+  if (!site) return null;
+  const byName = siteNameToCode(site.name);
+  if (byName) return byName;
+  for (const g of String(site.zoho_group || '').split(',')) {
+    const code = siteNameToCode(g.trim());
+    if (code) return code;
+  }
+  return null;
 }
 
 // ── PALIER 1 — Activity code helper (additive, 2026-06-05) ──────────────────
@@ -1867,4 +1911,4 @@ function setActivityMonthsByName(year, siteCode, activityName, months) {
     : _setActivityMonthsSqlite(year, siteCode, activityName, months);
 }
 
-module.exports = { loadTracker, saveTracker, resetTracker, deleteTrackerYear, previewDeleteTrackerYear, backupDatabase, siteNameToCode, getActivityCode, setActivityMonthsByName, getDB, TRACKER_BACKEND, initPgTracker, pgHandle };
+module.exports = { loadTracker, saveTracker, resetTracker, deleteTrackerYear, previewDeleteTrackerYear, backupDatabase, siteNameToCode, siteToCode, getActivityCode, setActivityMonthsByName, getDB, TRACKER_BACKEND, initPgTracker, pgHandle };
