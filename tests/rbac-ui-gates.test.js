@@ -33,6 +33,12 @@ test('A15 assets inventory Excel: hidden by default, revealed for admin+ (route 
   assert.match(src, /__userHasRole\('admin'\)\)\s*document\.getElementById\('inv-exportBtn'\)\.style\.display = ''/);
 });
 
+test('Revert to Draft is offered to the admin tier, like the server (decision 2026-10-02)', () => {
+  const src = read('reports.html');
+  assert.doesNotMatch(src, /btnRevert\.style\.display = currentUser\.role === 'super_admin'/);
+  assert.match(src, /btnRevert\.style\.display = \(window\.__userHasRole && window\.__userHasRole\('admin'\)\)/);
+});
+
 test('A19 Deck Builder nav link matches the page gate (super_admin)', () => {
   const shell = read('_shell.js');
   const page = read('executive-report.html');

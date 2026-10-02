@@ -7018,13 +7018,15 @@ app.put('/api/reports/:id/status', requireReportSession, jsonBody, async (req, r
       return res.status(400).json({ error: 'status must be draft, in_progress, ready, or submitted' });
 
     // F5: editor role + site scope (a site-less profile is not global); the submitted
-    // gate below is this route's own (submit is allowed, revert is super_admin-only).
+    // gate below is this route's own (submit is allowed, revert is admin-tier only).
     const report = await _authorizeReportWrite(req, res, id, { allowSubmitted: true });
     if (!report) return;
-    // Only super_admin may revert a submitted report back to draft
+    // Reverting a submitted report: admin tier and above (admin, executive, super_admin).
+    // Was super_admin-only — too restrictive in practice (user decision 2026-10-02).
+    // Uses the role hierarchy, not the legacy exact users.role string.
     if (report.status === 'submitted' && status !== 'submitted') {
-      if (req.reportUser.role !== 'super_admin')
-        return res.status(403).json({ error: 'Only a super_admin can revert a submitted report to draft.' });
+      if (!rdb.userHasRole(req.reportUser, 'admin'))
+        return res.status(403).json({ error: 'Only an administrator can revert a submitted report to draft.' });
     }
 
     // Asset engagement: freeze the Parc informatique counts at the FIRST submission
