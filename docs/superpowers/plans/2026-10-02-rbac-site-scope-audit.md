@@ -62,8 +62,15 @@ module) n'écrit rien et ne lit que le sien. Les montants des actifs (G-11) rest
 - **4c Réunions** : import PV/incubation ouvert à l'éditeur avec le site forcé (lignes d'autres
   sites refusées) ; édition des PV clos et de leurs problèmes ; suppression de PV ; Excel
   filtré sur le site.
-- **4d Pages** : SLA WAN (résumé, incidents, exports filtrés sur le site) ; Analytics (tickets
-  et changements forcés sur le site ; CAB et enquête n'ont pas de dimension site → à arbitrer).
+- **4d Pages** : SLA WAN — FAIT (résumé, incidents, exports filtrés sur le site, onglet ouvert).
+  Analytics — **NON FAIT, à arbitrer** : la page reste `admin|scorecard-viewer`. Le verrouillage
+  « à son site » n'y est pas fiable en l'état : les tickets y sont filtrés par la colonne libre
+  `request_records.site` (HOUNDE / Hounde Mine / Ouaga…, cf. CLAUDE.md : un filtre par site doit
+  passer par `tech_group`), et les vues CAB et enquête n'ont aucune dimension site. Options :
+  (a) laisser Analytics aux admins ; (b) refondre les lecteurs sur `tech_group` et masquer CAB /
+  enquête aux coordinateurs ; (c) l'ouvrir en lecture de flotte (sans verrou).
+
+Statut au 2026-10-02 : 4a `e2fb656`, 4b `adfb2a8`+`af93723`, 4c `54aa8dc`, 4d WAN `34ea25c`.
 
 ## Lot 4 (historique) — liste initiale des décisions
 
