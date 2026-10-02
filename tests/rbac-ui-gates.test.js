@@ -15,10 +15,23 @@ const tagOf = (src, id) => {
   return m[0];
 };
 
-test('A4 inspections roll-up PPTX: hidden by default, revealed for executive+ (route = executive or super_admin)', () => {
+test('A4/4b inspections roll-up PPTX: hidden by default, revealed for editor+ (route forces their site)', () => {
   const src = read('inspections.html');
   assert.match(tagOf(src, 'exportBtn'), /display:\s*none/);
-  assert.match(src, /__userHasRole\('executive'\)[\s\S]{0,200}exportBtn|exportBtn[\s\S]{0,300}__userHasRole\('executive'\)/);
+  assert.match(src, /__userHasRole\('editor'\)\) document\.getElementById\('exportBtn'\)\.style\.display = ''/);
+});
+
+test('4b inspections: Excel and Delete open to editors, Delete only on their own site rows', () => {
+  const src = read('inspections.html');
+  assert.match(src, /xl && window\.__userHasRole && window\.__userHasRole\('editor'\)/);
+  assert.match(src, /const canDelete = hasRole\('editor'\)/);
+  assert.match(src, /canDelete && \(!_inspScope \|\| r\.site_code === _inspScope\)/);
+  assert.match(read('inspection-actions.html'), /__userHasRole\('editor'\)\)\) \{ b\.style\.display = 'none'/);
+});
+
+test('4b inspection form: Re-open offered to editors (the server checks the site)', () => {
+  const src = read('inspection.html');
+  assert.match(src, /const canReopen = has\('editor'\)/);
 });
 
 test('A6 PV delete: shown only to executive+ (route = executive or super_admin)', () => {

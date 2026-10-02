@@ -52,11 +52,34 @@ module.exports = function inspectionRoutes(deps) {
     return inspectionDb.siteNameToCode(site ? site.name : null);
   }
 
+  // RBAC audit 2026-10-02, lot 4b — "open everything to coordinators, locked to their
+  // site". Resolves the caller's scope for an inspection WRITE or EXPORT: { site: null }
+  // for the admin tier (every site), { site: CODE } for an editor, or sends 403 and
+  // returns null (no editor role / no resolvable site).
+  async function _scopeOr403(req, res) {
+    if (!rdb.userHasRole(req.reportUser, 'editor')) { res.status(403).json({ error: 'editor role or higher required' }); return null; }
+    if (rdb.userHasRole(req.reportUser, 'admin')) return { site: null };
+    const site = await _userInspectionSite(req.reportUser);
+    if (!site) { res.status(403).json({ error: 'Your account has no site assigned for this module. Contact your administrator.' }); return null; }
+    return { site };
+  }
+  // Same, plus "the stored inspection belongs to that site". Sends 404/403 itself.
+  async function _ownInspectionOr403(req, res, id) {
+    const scope = await _scopeOr403(req, res); if (!scope) return null;
+    const head = await inspectionDb.getInspectionHeader(id);
+    if (!head) { res.status(404).json({ error: 'Not found' }); return null; }
+    if (scope.site && head.site_code !== scope.site) { res.status(403).json({ error: `Inspection belongs to ${head.site_code}; you are scoped to ${scope.site}` }); return null; }
+    return { scope, head };
+  }
+
   // GET /api/inspection/lookups — hydrate the form (sites + areas + types + categories)
   router.get('/api/inspection/lookups', requireReportSession, async (req, res) => {
     try {
       if (!inspectionDb) return res.status(503).json({ error: 'Inspection module not available' });
-      res.json(await inspectionDb.loadLookups());
+      // `scope` (lot 4b): the caller's inspection site code, null for the admin tier —
+      // lets the dashboard offer Delete only on the editor's own site rows.
+      const scope = rdb.userHasRole(req.reportUser, 'admin') ? null : (await _userInspectionSite(req.reportUser));
+      res.json({ ...(await inspectionDb.loadLookups()), scope });
     } catch(e) {
       console.error('[Inspection] lookups error:', e.message);
       res.status(500).json({ error: e.message });
@@ -210,10 +233,12 @@ module.exports = function inspectionRoutes(deps) {
   // GET /api/inspection/export.xlsx — full-table Excel dump (Inspections /
   // Findings / Actions sheets). admin+ (bulk data export). MUST be registered
   // BEFORE /api/inspection/:id (ids are TEXT → :id would swallow "export.xlsx").
-  router.get('/api/inspection/export.xlsx', requireReportSession, requireAdmin, async (req, res) => {
+  // Lot 4b: open to an editor, limited to their site (admin tier: every site).
+  router.get('/api/inspection/export.xlsx', requireReportSession, async (req, res) => {
     try {
       if (!inspectionDb) return res.status(503).json({ error: 'Inspection module not available' });
-      const data = await inspectionDb.exportRows();
+      const scope = await _scopeOr403(req, res); if (!scope) return;
+      const data = await inspectionDb.exportRows({ site: scope.site });
       const buf = tableExcel.buildWorkbook([
         { name: 'Inspections', rows: data.inspections },
         { name: 'Findings',    rows: data.findings },
@@ -221,7 +246,7 @@ module.exports = function inspectionRoutes(deps) {
       ]);
       const stamp = new Date().toISOString().slice(0, 10);
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      res.setHeader('Content-Disposition', `attachment; filename="Inspections_full_${stamp}.xlsx"`);
+      res.setHeader('Content-Disposition', `attachment; filename="Inspections_${scope.site || 'full'}_${stamp}.xlsx"`);
       res.send(buf);
     } catch (e) {
       console.error('[Inspection] excel export error:', e.message);
@@ -254,17 +279,9 @@ module.exports = function inspectionRoutes(deps) {
       const state = req.body && req.body.state;
       if (!state || !state.meta) return res.status(400).json({ error: 'Missing state.meta in body' });
 
-      const isAdmin = rdb.userHasRole(req.reportUser, 'admin');
-      const id      = state.meta.f_id;
-      if (id && !isAdmin){
-        const existing = await inspectionDb.getInspectionStatus(id);
-        if (existing === 'submitted' || existing === 'closed'){
-          return res.status(403).json({
-            error: `Inspection is ${existing} — only an administrator can modify or re-open it.`,
-            existing_status: existing,
-          });
-        }
-      }
+      // Lot 4b: a submitted / closed inspection may be modified or re-opened by an
+      // editor of ITS site (was admin-only). The site of both the incoming form and the
+      // stored row is enforced by saveInspection (cross-site → 403 below).
 
       const userSite = await _userInspectionSite(req.reportUser);
       if (!userSite && !rdb.userHasRole(req.reportUser, 'admin')) return res.status(403).json({ error: 'Your account has no site assigned for this module. Contact your administrator.' });
@@ -288,16 +305,14 @@ module.exports = function inspectionRoutes(deps) {
     }
   });
 
-  // DELETE /api/inspection/:id — admin+ (admin / executive / super_admin)
-  router.delete('/api/inspection/:id', requireReportSession, requireAdmin, async (req, res) => {
+  // DELETE /api/inspection/:id — lot 4b: an editor on their own site, admin tier anywhere.
+  router.delete('/api/inspection/:id', requireReportSession, async (req, res) => {
     try {
       if (!inspectionDb) return res.status(503).json({ error: 'Inspection module not available' });
       const id = req.params.id;
-      let status = '?', site = '—';
-      try {
-        const row = await inspectionDb.getInspectionStatus(id);
-        if (row) { status = row.status || '?'; site = row.site_code || '—'; }
-      } catch (_) {}
+      const own = await _ownInspectionOr403(req, res, id); if (!own) return;
+      // (The audit line used to read getInspectionStatus as a row and always printed "?"/"—".)
+      const status = own.head.status || '?', site = own.head.site_code || '—';
       const ok = await inspectionDb.deleteInspection(id);
       if (!ok) return res.status(404).json({ error: 'Not found' });
       console.log(`[Inspection] DELETE id=${id} user=${req.reportUser.username || '?'} site=${site} prior_status=${status}`);
@@ -312,11 +327,14 @@ module.exports = function inspectionRoutes(deps) {
   // MUST be registered BEFORE /api/inspection/:id/export, otherwise the
   // parametric route swallows it (:id="aggregate" → getInspection('aggregate')
   // → 404 "Not found"). Same route-ordering class as the /actions vs /:id pitfall.
-  router.post('/api/inspection/aggregate/export', requireReportSession, requireExecutiveOrSuperAdmin, inspectionJsonBody, async (req, res) => {
+  // Lot 4b: open to an editor, forced to their site (admin tier: any filter).
+  router.post('/api/inspection/aggregate/export', requireReportSession, inspectionJsonBody, async (req, res) => {
     try {
       if (!inspectionDb)   return res.status(503).json({ error: 'Inspection module not available' });
       if (!inspectionPptx) return res.status(503).json({ error: 'PPTX module not available' });
-      const filters = (req.body && req.body.filters) || {};
+      const scope = await _scopeOr403(req, res); if (!scope) return;
+      const filters = { ...((req.body && req.body.filters) || {}) };
+      if (scope.site) filters.site = scope.site;
       const agg     = await inspectionDb.aggregate(filters);
       const rows    = await inspectionDb.listInspections({ ...filters, limit: 500 });
       const buf     = await inspectionPptx.generateAggregatePptx({ filters, aggregate: agg, rows }, await inspectionDb.loadLookups());
@@ -331,10 +349,12 @@ module.exports = function inspectionRoutes(deps) {
   });
 
   // POST /api/inspection/:id/export — single-inspection PPTX
-  router.post('/api/inspection/:id/export', requireReportSession, requireAdmin, async (req, res) => {
+  // Lot 4b: an editor on their own site, admin tier anywhere.
+  router.post('/api/inspection/:id/export', requireReportSession, async (req, res) => {
     try {
       if (!inspectionDb)   return res.status(503).json({ error: 'Inspection module not available' });
       if (!inspectionPptx) return res.status(503).json({ error: 'PPTX module not available' });
+      if (!(await _ownInspectionOr403(req, res, req.params.id))) return;
       const rec = await inspectionDb.getInspection(req.params.id);
       if (!rec) return res.status(404).json({ error: 'Not found' });
       const buf = await inspectionPptx.generateInspectionPptx(rec, await inspectionDb.loadLookups());

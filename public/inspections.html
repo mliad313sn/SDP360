@@ -491,11 +491,13 @@
   }
 
   // ── Hydrate the site filter from /api/inspection/lookups ────────
+  let _inspScope = null;
   async function loadSites() {
     try {
       const r = await fetch(INSP_API + '/lookups', { credentials: 'same-origin', headers: authHeaders() });
       if (!r.ok) return;
       const lk = await r.json();
+      _inspScope = lk.scope || null;   // the editor's own site code (null = admin tier, every site)
       const sel = document.getElementById('filterSite');
       (lk.sites || []).forEach(s => {
         const o = document.createElement('option');
@@ -562,10 +564,10 @@
       return;
     }
     empty.style.display = 'none';
-    // RBAC: admin / executive / super_admin can delete. Matches the
-    // server-side `requireAdmin` gate on DELETE /api/inspection/:id.
+    // RBAC (lot 4b, 2026-10-02): an editor deletes on their OWN site, the admin tier
+    // anywhere — same rule as DELETE /api/inspection/:id.
     const hasRole = window.__userHasRole || (() => false);
-    const canDelete = hasRole('admin') || hasRole('executive') || hasRole('super_admin');
+    const canDelete = hasRole('editor');
     body.innerHTML = rows.map(r => {
       const risk    = riskFromText(r.overall_risk);
       const riskCls = risk ? 'risk-' + risk : '';
@@ -583,7 +585,7 @@
         <td><span class="status-pill ${status}">${escapeHtml(status)}</span></td>
         <td class="col-actions" style="white-space:nowrap">
           <a href="inspection.html?id=${encodeURIComponent(r.id)}" title="Open" style="color:var(--edv-blue, #145FAE);text-decoration:none;font-weight:600;margin-right:10px">Open ▸</a>
-          ${canDelete ? `<button type="button" class="row-del-btn" data-id="${safeId}" data-status="${escapeHtml(status)}" title="Delete this inspection">✕ Delete</button>` : ''}
+          ${canDelete && (!_inspScope || r.site_code === _inspScope) ? `<button type="button" class="row-del-btn" data-id="${safeId}" data-status="${escapeHtml(status)}" title="Delete this inspection">✕ Delete</button>` : ''}
         </td>
       </tr>`;
     }).join('');
@@ -819,11 +821,11 @@
     );
     document.getElementById('resetBtn').addEventListener('click', resetFilters);
     document.getElementById('exportBtn').addEventListener('click', exportRollup);
-    // RBAC audit 2026-10-02 (A4): the roll-up route is executive / super_admin only.
-    if (window.__userHasRole && window.__userHasRole('executive')) document.getElementById('exportBtn').style.display = '';
+    // Lot 4b: the roll-up is open to editors — the server forces their own site.
+    if (window.__userHasRole && window.__userHasRole('editor')) document.getElementById('exportBtn').style.display = '';
     // Excel full-table export (admin+). Revealed only for admins; server enforces.
     const xl = document.getElementById('excelBtn');
-    if (xl && window.__userHasRole && window.__userHasRole('admin')) {
+    if (xl && window.__userHasRole && window.__userHasRole('editor')) {   // lot 4b: limited to their site server-side
       xl.style.display = '';
       xl.addEventListener('click', async () => {
         const orig = xl.innerHTML; xl.disabled = true; xl.innerHTML = '⏳ Preparing…';

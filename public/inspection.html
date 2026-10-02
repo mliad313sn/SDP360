@@ -3261,18 +3261,19 @@ function refreshSubmitStatus(){
 
   // Admin+ check — auth.js exposes window.__userHasRole.
   const has = window.__userHasRole || (() => false);
-  const isAdmin = has('admin') || has('executive') || has('super_admin');
+  // Lot 4b (2026-10-02): an editor may re-open a submitted inspection of their own site
+  // (the server refuses another site's).
+  const canReopen = has('editor');
   const submitted = (status === 'submitted' || status === 'closed');
 
   if (submitted){
     submitBtn.disabled    = true;
     submitBtn.textContent = '✓ Already submitted';
-    if (reopenBtn) reopenBtn.style.display = isAdmin ? '' : 'none';
-    hint.textContent = isAdmin
-      ? 'Inspection is submitted. As an administrator you can re-open it for edits.'
-      : 'Inspection is submitted. Editors can no longer modify it — contact an administrator if changes are needed.';
-    // Only editors get the read-only lockout; admin+ keep editing.
-    document.body.classList.toggle('submission-locked', !isAdmin);
+    if (reopenBtn) reopenBtn.style.display = canReopen ? '' : 'none';
+    hint.textContent = canReopen
+      ? 'Inspection is submitted. You can re-open it for edits.'
+      : 'Inspection is submitted. Contact an editor of this site or an administrator if changes are needed.';
+    document.body.classList.toggle('submission-locked', !canReopen);
   } else {
     submitBtn.disabled    = false;
     submitBtn.textContent = '✓ Submit Inspection · Soumettre';

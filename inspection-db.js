@@ -744,8 +744,11 @@ function saveInspection(state, userSiteCode, createdBy) {
   const id   = meta.f_id || _genId();
 
   const siteCode = parseSiteCode(meta.f_site);
-  if (userSiteCode && siteCode && siteCode !== userSiteCode) {
-    throw new Error(`Cross-site save blocked: user is scoped to ${userSiteCode}, inspection is for ${siteCode}`);
+  // RBAC audit 2026-10-02 (lot 4b): a scoped user must name THEIR site (an empty site
+  // used to pass) and may not touch a stored row of another site — the old check only
+  // looked at the incoming site, so reusing another site's f_id overwrote it.
+  if (userSiteCode && siteCode !== userSiteCode) {
+    throw new Error(`Cross-site save blocked: user is scoped to ${userSiteCode}, inspection is for ${siteCode || 'no site'}`);
   }
 
   // Externalize photo/signature blobs to the filesystem (mutates `state` so
@@ -761,7 +764,10 @@ function saveInspection(state, userSiteCode, createdBy) {
   const areaCode = _resolveAreaCode(db, areaText);
 
   // Find existing row for upsert decision
-  const existing = db.prepare('SELECT id FROM insp_inspections WHERE id = ?').get(id);
+  const existing = db.prepare('SELECT id, site_code FROM insp_inspections WHERE id = ?').get(id);
+  if (userSiteCode && existing && existing.site_code !== userSiteCode) {
+    throw new Error(`Cross-site save blocked: inspection ${id} belongs to ${existing.site_code}`);
+  }
 
   const tx = db.transaction(() => {
     if (existing) {
@@ -945,6 +951,18 @@ function getInspectionStatus(id) {
   const db  = getDB();
   const row = db.prepare('SELECT status FROM insp_inspections WHERE id = ?').get(id);
   return row ? (row.status || 'draft') : null;
+}
+
+// { status, site_code } of an inspection, or null — the route checks a scoped user's
+// site before a delete / single export (RBAC audit 2026-10-02, lot 4b).
+function getInspectionHeader(id) {
+  if (!id) return null;
+  if (INSPECTION_BACKEND === 'postgres') {
+    return pgHandle().prepare('SELECT status, site_code FROM insp_inspections WHERE id = ?').get(id)
+      .then(r => (r ? { status: r.status || 'draft', site_code: r.site_code } : null));
+  }
+  const r = getDB().prepare('SELECT status, site_code FROM insp_inspections WHERE id = ?').get(id);
+  return r ? { status: r.status || 'draft', site_code: r.site_code } : null;
 }
 
 // ── Site score inputs (the user's sbDims model — see the score-alignment plan) ──
@@ -1176,8 +1194,13 @@ function listActions(opts = {}) {
  * would bloat the workbook). Backend-agnostic: `await handle.prepare(sql).all()`
  * resolves for both the sync sqlite handle and the async pg handle.
  */
-async function exportRows() {
+// opts.site: limit every sheet to one site code (a scoped user's export, lot 4b).
+async function exportRows(opts = {}) {
   const H = INSPECTION_BACKEND === 'postgres' ? pgHandle() : getDB();
+  const site = opts.site || null;
+  const w  = site ? ' WHERE site_code = ?' : '';
+  const wi = site ? ' WHERE i.site_code = ?' : '';
+  const p  = site ? [site] : [];
   const inspections = await H.prepare(`
     SELECT id, label, inspection_date, inspection_time, inspection_type,
            site_code, area_code, area_text, specific_location,
@@ -1185,20 +1208,20 @@ async function exportRows() {
            last_inspection_date, scope, overall_risk, operational_impact,
            key_observations, positive_findings, distribution,
            status, created_by, created_at, updated_at, submitted_at
-      FROM insp_inspections
-     ORDER BY inspection_date DESC, id`).all();
+      FROM insp_inspections${w}
+     ORDER BY inspection_date DESC, id`).all(...p);
   const findings = await H.prepare(`
     SELECT f.inspection_id, i.label AS inspection_label, i.site_code,
            i.inspection_date, f.category, f.item_index, f.item_code,
            f.item_text_en, f.status, f.notes
-      FROM insp_findings f JOIN insp_inspections i ON i.id = f.inspection_id
-     ORDER BY i.inspection_date DESC, f.inspection_id, f.category, f.item_index`).all();
+      FROM insp_findings f JOIN insp_inspections i ON i.id = f.inspection_id${wi}
+     ORDER BY i.inspection_date DESC, f.inspection_id, f.category, f.item_index`).all(...p);
   const actions = await H.prepare(`
     SELECT a.id, a.inspection_id, i.label AS inspection_label, i.site_code,
            i.inspection_date, a.ord, a.description, a.linked_item, a.priority,
            a.owner, a.due_date, a.status, a.notes, a.created_at, a.closed_at
-      FROM insp_actions a JOIN insp_inspections i ON i.id = a.inspection_id
-     ORDER BY CASE WHEN a.status IN ('Closed','Cancelled') THEN 1 ELSE 0 END, a.due_date, a.id`).all();
+      FROM insp_actions a JOIN insp_inspections i ON i.id = a.inspection_id${wi}
+     ORDER BY CASE WHEN a.status IN ('Closed','Cancelled') THEN 1 ELSE 0 END, a.due_date, a.id`).all(...p);
   return { inspections, findings, actions };
 }
 
@@ -1410,15 +1433,21 @@ async function _saveInspectionPg(state, userSiteCode, createdBy) {
   const id   = meta.f_id || _genId();
 
   const siteCode = parseSiteCode(meta.f_site);
-  if (userSiteCode && siteCode && siteCode !== userSiteCode) {
-    throw new Error(`Cross-site save blocked: user is scoped to ${userSiteCode}, inspection is for ${siteCode}`);
+  // RBAC audit 2026-10-02 (lot 4b): a scoped user must name THEIR site (an empty site
+  // used to pass) and may not touch a stored row of another site — the old check only
+  // looked at the incoming site, so reusing another site's f_id overwrote it.
+  if (userSiteCode && siteCode !== userSiteCode) {
+    throw new Error(`Cross-site save blocked: user is scoped to ${userSiteCode}, inspection is for ${siteCode || 'no site'}`);
   }
 
   _externalizeBlobs(state, id);                       // FS writes, pre-tx (not transactional)
 
   const areaText = meta.f_area || '';
   const areaCode = await _resolveAreaCodePg(H, areaText);
-  const existing = await H.prepare('SELECT id FROM insp_inspections WHERE id = ?').get(id);
+  const existing = await H.prepare('SELECT id, site_code FROM insp_inspections WHERE id = ?').get(id);
+  if (userSiteCode && existing && existing.site_code !== userSiteCode) {
+    throw new Error(`Cross-site save blocked: inspection ${id} belongs to ${existing.site_code}`);
+  }
 
   await H.runTransaction(async () => {
     if (existing) {
@@ -1650,6 +1679,7 @@ module.exports = {
   listInspections,
   getInspection,
   getInspectionStatus,
+  getInspectionHeader,
   saveInspection,
   deleteInspection,
   aggregate,

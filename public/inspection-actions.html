@@ -686,7 +686,7 @@
   // Excel full-table export (admin+). Hidden for non-admins; server also enforces.
   (function () {
     const b = document.getElementById('miExcel'); if (!b) return;
-    if (!(window.__userHasRole && window.__userHasRole('admin'))) { b.style.display = 'none'; return; }
+    if (!(window.__userHasRole && window.__userHasRole('editor'))) { b.style.display = 'none'; return; }   // lot 4b: limited to their site server-side
     b.addEventListener('click', async () => {
       b.disabled = true; const lbl = b.innerHTML; b.textContent = 'Preparing…';
       try {
