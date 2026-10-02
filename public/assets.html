@@ -415,7 +415,7 @@ window.addEventListener('beforeprint', function () {
     <div class="as-head" style="margin-bottom:var(--space-4,16px)">
       <div class="sub">Hardware &amp; configuration inventory across all sites</div>
       <div class="spacer"></div>
-      <a class="btn btn-ghost" id="inv-exportBtn" href="#" title="Download the current inventory (with the filters applied) as an Excel workbook">
+      <a class="btn btn-ghost" id="inv-exportBtn" href="#" title="Download the current inventory (with the filters applied) as an Excel workbook (admin only)" style="display:none">
         <span class="icon icon-download"></span> Export Excel
       </a>
     </div>
@@ -1590,6 +1590,8 @@ window.addEventListener('beforeprint', function () {
   }
 
   async function init(f) {
+    // RBAC audit 2026-10-02 (A15): the inventory export route is admin-only (it carries the amounts).
+    if (window.__userHasRole && window.__userHasRole('admin')) document.getElementById('inv-exportBtn').style.display = '';
     document.getElementById('inv-exportBtn').addEventListener('click', (e) => {
       e.preventDefault();
       exportExcel(window.__assetFilters ? window.__assetFilters() : {});

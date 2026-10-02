@@ -156,7 +156,7 @@
       title:    'Site reports and executive deck builder',
       children: [
         { id: 'site-reports',    label: 'Site Reports', icon: ICON_LIB['file-text'], href: 'reports.html',          roles: ['any'] },
-        { id: 'reports-builder', label: 'Deck Builder', icon: ICON_LIB.presentation, href: 'executive-report.html', roles: ['report-author', 'super_admin', 'executive'] }
+        { id: 'reports-builder', label: 'Deck Builder', icon: ICON_LIB.presentation, href: 'executive-report.html', roles: ['super_admin'] }  // = the page's data-require (RBAC audit 2026-10-02, A19)
       ]
     },
     {

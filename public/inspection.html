@@ -1818,6 +1818,20 @@ async function confirmDelete(){
       credentials: 'same-origin',
       headers:     tok ? { 'x-report-token': tok } : {},
     });
+    // RBAC audit 2026-10-02 (A3): a REFUSAL is not a failure to work around. The
+    // server only lets an administrator delete an inspection; when it says no, the
+    // inspection still exists there, so wiping the local copy and announcing
+    // "Inspection deleted." told the user the opposite of what happened.
+    if (r.status === 401 || r.status === 403) {
+      const e = await r.json().catch(() => ({}));
+      if (typeof showToast === 'function') {
+        showToast(r.status === 401
+          ? 'Session expired — sign in again. Nothing was deleted.'
+          : 'Delete refused: only an administrator can delete an inspection. Nothing was deleted.' + (e.error ? ' (' + e.error + ')' : ''),
+          'warn', 6000);
+      }
+      return;
+    }
     if (!r.ok && r.status !== 404) {
       const e = await r.json().catch(() => ({}));
       console.warn('[inspection] server delete returned ' + r.status, e);

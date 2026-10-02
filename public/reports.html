@@ -4962,6 +4962,12 @@ async function loadAuditLog() {
   try {
     const res = await fetch(`/api/reports/${currentReport.id}/audit`,
       { headers: { 'X-Report-Token': token, 'X-Dash-Key': window.__ak||'' } });
+    // RBAC audit 2026-10-02 (A11): the history is reserved to audit-viewer / admin. A
+    // refusal used to fall through to "No audit entries yet" — a clean, empty history.
+    if (res.status === 401 || res.status === 403) {
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:8px;font-style:italic">Audit history restricted — requires the audit-viewer role or admin</td></tr>';
+      return;
+    }
     const entries = await res.json();
     if (!Array.isArray(entries) || !entries.length) {
       tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:8px;font-style:italic">No audit entries yet</td></tr>';

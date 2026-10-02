@@ -350,7 +350,7 @@
     <button class="btn btn-ghost" id="excelBtn" title="Download EVERY inspection, finding and corrective action as an Excel workbook (all sites, ignores filters). Admin only." style="display:none">
       <span class="icon icon-download"></span> Excel (full data)
     </button>
-    <button class="btn" id="exportBtn" title="Download a roll-up PPTX of the current filter">
+    <button class="btn" id="exportBtn" title="Download a roll-up PPTX of the current filter (executive only)" style="display:none">
       <span class="icon icon-download"></span> Export
     </button>
   </div>
@@ -819,6 +819,8 @@
     );
     document.getElementById('resetBtn').addEventListener('click', resetFilters);
     document.getElementById('exportBtn').addEventListener('click', exportRollup);
+    // RBAC audit 2026-10-02 (A4): the roll-up route is executive / super_admin only.
+    if (window.__userHasRole && window.__userHasRole('executive')) document.getElementById('exportBtn').style.display = '';
     // Excel full-table export (admin+). Revealed only for admins; server enforces.
     const xl = document.getElementById('excelBtn');
     if (xl && window.__userHasRole && window.__userHasRole('admin')) {

@@ -798,7 +798,9 @@
       const dept = (L.departments || []).find(d => d.code === h.department);
       document.getElementById('pvHeaderTitle').textContent =
         (dept ? dept.name_en : (h.department || 'Meeting')) + ' — ' + fmtDate(h.meeting_date);
-      document.getElementById('pvDeleteBtn').style.display = '';
+      // RBAC audit 2026-10-02 (A6): DELETE /api/meetings/:id is executive / super_admin only.
+      document.getElementById('pvDeleteBtn').style.display =
+        (window.__userHasRole && window.__userHasRole('executive')) ? '' : 'none';
       // PPTX export only meaningful once the PV is persisted server-side
       // (the route fetches by :id). Hide for unsaved drafts.
       const pptxBtn = document.getElementById('pvExportPptxBtn');
