@@ -47,3 +47,10 @@ test('A19 Deck Builder nav link matches the page gate (super_admin)', () => {
   const roles = link.split(',').map(s => s.trim().replace(/'/g, ''));
   assert.deepEqual(roles, gate.split('|'));
 });
+
+test('lot 4a: reports.html decides admin-tier UI by the role hierarchy, never the exact role string', () => {
+  const src = read('reports.html');
+  // `role === 'admin'` excluded executives (and super_admins whose legacy role column differs).
+  assert.doesNotMatch(src, /\.role\s*[!=]==\s*'admin'/);
+  assert.match(src, /function _adminTier\(\)/);
+});

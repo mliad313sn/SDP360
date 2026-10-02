@@ -2520,7 +2520,7 @@ async function initApp() {
   // admin who hadn't visited Monthly yet — which is the screen they're
   // most likely to need it from. Mirror the check here so admins see it
   // immediately on page load.
-  const _isAdminUser = currentUser && (currentUser.role === 'admin' || currentUser.role === 'super_admin');
+  const _isAdminUser = _adminTier();
   document.querySelectorAll('#btn-all-sites-monthly').forEach(b => {
     b.style.display = _isAdminUser ? 'inline-flex' : 'none';
   });
@@ -2603,7 +2603,7 @@ function populateSiteSelects() {
 
   // Weekly summary card — admin / super_admin only
   const summaryCard = document.getElementById('weekly-summary-card');
-  if (currentUser.role === 'admin' || currentUser.role === 'super_admin') {
+  if (_adminTier()) {
     summaryCard.style.display = '';
     // Default to current week (reuse sel-year/sel-week values if already set, else now)
     const sy = document.getElementById('sel-year').value || now.getFullYear();
@@ -2662,7 +2662,7 @@ async function loadReportList() {
   const grid = document.getElementById('report-list-grid');
   grid.innerHTML = '<div style="color:#6b7a99;font-size:0.87rem">Loading…</div>';
   try {
-    const siteId = currentUser.role !== 'admin' && currentUser.role !== 'super_admin' && currentUser.site_id ? currentUser.site_id : undefined;
+    const siteId = !_adminTier() && currentUser.site_id ? currentUser.site_id : undefined;
     const params = siteId ? `?site_id=${siteId}` : '';
     const reports = await api('GET', `/api/reports${params}`);
     if (!reports.length) {
@@ -2783,6 +2783,10 @@ function _isSuperAdminUser() {
   if (typeof window.__userHasRole === 'function') { try { return !!window.__userHasRole('super_admin'); } catch (_) {} }
   return !!currentUser && currentUser.role === 'super_admin';
 }
+// Admin tier (admin, executive, super_admin) by the role HIERARCHY — the same rule as the
+// server's userHasRole(user,'admin'). The exact `role === 'admin'` checks this replaces
+// left executives out (RBAC audit 2026-10-02, lot 4a).
+function _adminTier() { return !!(window.__userHasRole && window.__userHasRole('admin')); }
 // Tab 5 done state. Once the followups payload is known, applicability comes from
 // it (a stored applicable=false can be stale) and the notes from the textareas
 // (which hold the stored notes after load, and the typed ones after a save).
@@ -5113,7 +5117,7 @@ function initMonthlyPage() {
     opt.value = s.id; opt.textContent = s.name;
     mrSite.appendChild(opt);
   });
-  if (currentUser && currentUser.site_id && currentUser.role !== 'admin' && currentUser.role !== 'super_admin') {
+  if (currentUser && currentUser.site_id && !_adminTier()) {
     mrSite.value = currentUser.site_id;
   }
 
@@ -5123,7 +5127,7 @@ function initMonthlyPage() {
   mrMonth.value = now.getMonth() + 1; // 1-indexed; getMonth()=current (0-indexed), so +1 = current month
 
   // Show All-Sites buttons for admin / super_admin
-  const isAdmin = currentUser && (currentUser.role === 'admin' || currentUser.role === 'super_admin');
+  const isAdmin = _adminTier();
   const adminBtns = document.querySelectorAll('#mr-all-sites-btn, #btn-all-sites-monthly');
   adminBtns.forEach(b => { b.style.display = isAdmin ? 'inline-block' : 'none'; });
   // Show the combined-report bar in the selector card

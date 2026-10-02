@@ -44,7 +44,28 @@ n'est pas global**. Chaque lot est en TDD (test rouge d'abord), un commit par co
 | A11 | Journal d'audit du rapport : 403 lu comme « aucune entrée » | Message explicite d'accès refusé |
 | Stale roles | `__authUser` vient du `localStorage` posé à la connexion et n'est jamais rafraîchi : après un changement de rôle, l'interface garde les anciens droits jusqu'à 24 h | `auth.js` rafraîchit l'utilisateur depuis `/api/reports/auth/me` |
 
-## Lot 4 — Décisions à prendre (NON traité sans arbitrage)
+## Lot 4 — DÉCIDÉ (2026-10-02) : « tout ouvrir aux coordinateurs, verrouillé à leur site »
+
+Règle unique : chaque action est ouverte au rôle `editor`, **limitée au site du compte** ;
+`admin`+ reste sans restriction ; un compte sans site (ou dont le site n'a pas de code dans le
+module) n'écrit rien et ne lit que le sien. Les montants des actifs (G-11) restent admin+.
+
+- **4a Rapports — lecture verrouillée** : liste et rapport (`role !== 'admin'` exact → hiérarchie),
+  toutes les routes par rapport ou par `site_id` (PPTX, mensuel, annuel, objectifs, reconductions,
+  incidents, infra-auto…), `site-data`/`site-actions` par code, journal d'audit (ouvert à
+  l'éditeur sur son site, et site vérifié aussi pour `audit-viewer`). Routes de flotte (all-sites,
+  weekly-summary, helpdesk-live, technicians) : refusées hors admin. Boutons `reports.html` sur
+  la hiérarchie.
+- **4b Inspections** : d'abord fermer l'écrasement inter-sites (la ligne existante doit être du
+  site de l'éditeur) ; puis rouvrir/modifier une inspection soumise, supprimer, PPTX unitaire,
+  PPTX consolidé et Excel — sur son site (filtre forcé côté serveur).
+- **4c Réunions** : import PV/incubation ouvert à l'éditeur avec le site forcé (lignes d'autres
+  sites refusées) ; édition des PV clos et de leurs problèmes ; suppression de PV ; Excel
+  filtré sur le site.
+- **4d Pages** : SLA WAN (résumé, incidents, exports filtrés sur le site) ; Analytics (tickets
+  et changements forcés sur le site ; CAB et enquête n'ont pas de dimension site → à arbitrer).
+
+## Lot 4 (historique) — liste initiale des décisions
 
 Ce que les coordinateurs perdraient en passant de `admin` à `editor` (+ rôles de fonction),
 à trancher avant G-12 : édition/réouverture/suppression/export d'inspections soumises (A5),

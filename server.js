@@ -5263,6 +5263,52 @@ async function requireReportSession(req, res, next) {
   next();
 }
 
+// ── Report READ scope (RBAC audit 2026-10-02, lot 4a) ───────────────────────
+// Decision: coordinators read their OWN site only; the admin tier reads every site.
+// Before, the list and GET /api/reports/:id used an EXACT `role !== 'admin'` (a
+// site-less editor saw every site, an executive with a site was wrongly scoped) and
+// ~20 per-report / per-site read routes had no site check at all. One central guard
+// covers every GET addressed by report id or by site id, so a route added later is
+// locked by default. audit-viewer remains a global read-only auditor on /audit.
+function _siteReadDenied(user, siteId) {
+  if (rdb.userHasRole(user, 'admin')) return false;
+  return !user.site_id || Number(user.site_id) !== Number(siteId);
+}
+// The caller's Zoho helpdesk groups (lowercased), or null for the admin tier (all groups).
+// A site-less non-admin gets [] — no group at all.
+async function _userSiteGroups(user) {
+  if (rdb.userHasRole(user, 'admin')) return null;
+  if (!user.site_id) return [];
+  const site = ((await rdb.listSites()) || []).find(s => Number(s.id) === Number(user.site_id));
+  return String((site && site.zoho_group) || '').split(',').map(g => g.trim().toLowerCase()).filter(Boolean);
+}
+// Same rule for reads addressed by the meetings site CODE (site-data, site-actions):
+// the code must resolve to the caller's own site. 'all'/empty is a fleet request.
+async function _siteCodeReadDenied(user, code) {
+  if (rdb.userHasRole(user, 'admin')) return false;
+  if (!code || code === 'all') return true;
+  const hit = await rdb.getSiteIdByModuleCode('meetings', code);
+  return !hit || _siteReadDenied(user, hit.site_id);
+}
+const _REPORT_ID_READ = /^\/api\/reports\/(\d+)(\/[^?]*)?$/;
+const _SITE_ID_READ   = /^\/api\/(?:reports\/(?:monthly|yearly|objectives)|sites)\/(\d+)(?:\/|$)/;
+app.get([_REPORT_ID_READ, _SITE_ID_READ], requireReportSession, async (req, res, next) => {
+  try {
+    if (rdb.userHasRole(req.reportUser, 'admin')) return next();
+    const byReport = _REPORT_ID_READ.exec(req.path);
+    if (byReport) {
+      if (byReport[2] === '/audit' && rdb.userHasRole(req.reportUser, 'audit-viewer')) return next();
+      const report = await rdb.getReport(parseInt(byReport[1], 10));
+      if (!report) return next();                       // the route answers its own 404
+      if (_siteReadDenied(req.reportUser, report.site_id)) return res.status(403).json({ error: 'Access denied: this report belongs to another site' });
+      return next();
+    }
+    const bySite = _SITE_ID_READ.exec(req.path);
+    if (bySite && _siteReadDenied(req.reportUser, bySite[1])) return res.status(403).json({ error: 'Access denied: another site' });
+    next();
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ── Multi-role middleware ────────────────────────────────────────────
 // All checks now route through rdb.userHasRole() so the hierarchy chain
 // (super_admin > executive > admin > editor > viewer) AND the orthogonal
@@ -5466,6 +5512,7 @@ app.put('/api/reports/exec-editorial', requireReportSession, requireAdmin, async
 app.get('/api/reports/site-data', requireReportSession, async (req, res) => {
   try {
     const site = String(req.query.site || '');
+    if (await _siteCodeReadDenied(req.reportUser, site)) return res.status(403).json({ error: 'Access denied: another site' });
     if (site === 'all') return res.json({ site_code: 'all', consolidated: true, note: 'pick a site (consolidated view lands in sub-project 2)' });
     const now = new Date();
     const year = +(req.query.year || now.getFullYear());
@@ -5487,6 +5534,7 @@ app.get('/api/reports/site-actions', requireReportSession, async (req, res) => {
     const meetingsDb = require('./meetings-db');
     const inspectionDb = require('./inspection-db');
     const code = String(req.query.site || '').trim();
+    if (await _siteCodeReadDenied(req.reportUser, code)) return res.status(403).json({ error: 'Access denied: another site' });
     const asOf = new Date().toISOString().slice(0, 10);
     if (!code || code === 'all') {
       return res.json({ site: code || null, week_label: null, ...buildSiteActions({ asOf }) });
@@ -6209,8 +6257,12 @@ app.get('/api/reports/current-week', requireReportSession, (req, res) => {
 app.get('/api/reports', requireReportSession, async (req, res) => {
   try {
     const { site_id, year, week } = req.query;
-    // Non-admins can only see their own site
-    const effectiveSiteId = req.reportUser.role !== 'admin' && req.reportUser.site_id
+    // Non-admins see their own site only (RBAC audit 2026-10-02 — hierarchy, not the
+    // exact role string). A site-less non-admin sees nothing: listReports DROPS the
+    // filter on a falsy id and would return every site.
+    const isAdminTier = rdb.userHasRole(req.reportUser, 'admin');
+    if (!isAdminTier && !req.reportUser.site_id) return res.json([]);
+    const effectiveSiteId = !isAdminTier
       ? req.reportUser.site_id
       : (site_id ? parseInt(site_id) : undefined);
     res.json(await rdb.listReports(effectiveSiteId, year ? parseInt(year) : undefined, week ? parseInt(week) : undefined));
@@ -6452,7 +6504,9 @@ app.get('/api/reports/:id/carry-over-infra', requireReportSession, async (req, r
 
 // GET /api/reports/:id/audit  — audit trail for a specific report
 // Requires audit-viewer role (or admin chain via hierarchy implication).
-app.get('/api/reports/:id/audit', requireReportSession, requireRole(['audit-viewer', 'admin']), async (req, res) => {
+// Lot 4a: open to an editor on their own site (site checked by the central guard);
+// audit-viewer stays global.
+app.get('/api/reports/:id/audit', requireReportSession, requireRole(['audit-viewer', 'editor']), async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const entries = await rdb.getReportAuditLog(id);
@@ -6521,7 +6575,10 @@ app.get('/api/reports/helpdesk-live', requireReportSession, async (req, res) => 
         avg_rt_days: g.rtN  > 0 ? Math.round(g.rtSum  / g.rtN  * 10) / 10 : null,
       }))
       .sort((a, b) => (a.is_ops !== b.is_ops) ? (a.is_ops ? -1 : 1) : b.inbound - a.inbound);
-    res.json({ ops_groups: OPS_GROUPS_DEFAULT, groups: result, fetched_at: new Date().toISOString() });
+    // Lot 4a: a coordinator only gets their own site's groups.
+    const own = await _userSiteGroups(req.reportUser);
+    const visible = own ? result.filter(g => own.includes(String(g.group || '').trim().toLowerCase())) : result;
+    res.json({ ops_groups: OPS_GROUPS_DEFAULT, groups: visible, fetched_at: new Date().toISOString() });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -6534,6 +6591,10 @@ app.get('/api/reports/helpdesk-charts', requireReportSession, async (req, res) =
   try {
     // Support multi-group: comma-separated list → array of group names
     const groupList = group.split(',').map(g => g.trim()).filter(Boolean);
+    // Lot 4a: a coordinator may only chart their own site's groups.
+    const own = await _userSiteGroups(req.reportUser);
+    if (own && !groupList.every(g => own.includes(g.toLowerCase())))
+      return res.status(403).json({ error: 'Access denied: these helpdesk groups belong to another site' });
 
     // Use shared Zoho rows — live, correct field names, no remapping needed
     const allRows = await getRawRequestRows();
@@ -6774,9 +6835,7 @@ app.get('/api/reports/:id', requireReportSession, async (req, res) => {
   try {
     const report = await rdb.getReport(parseInt(req.params.id));
     if (!report) return res.status(404).json({ error: 'Report not found' });
-    // Non-admin: only own site
-    if (req.reportUser.role !== 'admin' && req.reportUser.site_id && req.reportUser.site_id !== report.site_id)
-      return res.status(403).json({ error: 'Access denied' });
+    // Site scope: enforced by the central report-read guard (lot 4a).
     res.json(report);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -7132,7 +7191,7 @@ app.get('/api/reports/:id/pptx', requireReportSession, async (req, res) => {
 
 // GET /api/reports/monthly/all-sites/:year/:month/pptx  — combined all-sites monthly deck
 // NOTE: must be registered BEFORE the /:site_id route so Express does not treat "all-sites" as a site_id
-app.get('/api/reports/monthly/all-sites/:year/:month/pptx', requireReportSession, async (req, res) => {
+app.get('/api/reports/monthly/all-sites/:year/:month/pptx', requireReportSession, requireAdmin, async (req, res) => {
   if (!rpptxMonthly) return res.status(503).json({ error: 'Monthly PPTX module not available' });
   try {
     const { year, month } = req.params;
@@ -7195,7 +7254,7 @@ app.get('/api/reports/monthly/:site_id/:year/:month/pptx', requireReportSession,
 });
 
 // GET /api/reports/weekly-summary/:year/:week/pptx  — all-sites aggregated weekly PPTX
-app.get('/api/reports/weekly-summary/:year/:week/pptx', requireReportSession, async (req, res) => {
+app.get('/api/reports/weekly-summary/:year/:week/pptx', requireReportSession, requireAdmin, async (req, res) => {
   if (!rpptx) return res.status(503).json({ error: 'PPTX module not available' });
   try {
     const { year, week } = req.params;
