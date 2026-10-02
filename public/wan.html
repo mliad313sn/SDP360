@@ -590,7 +590,9 @@
 <script nonce="%%CSP_NONCE%%">
 (function () {
   const $ = id => document.getElementById(id);
-  const isAdmin = !!(window.__userHasRole && (window.__userHasRole('admin') || window.__userHasRole('executive') || window.__userHasRole('super_admin')));
+  // RBAC lot 4d (2026-10-02): the SLA tab is open to coordinators — every SLA route limits
+  // a non-admin to their own site server-side.
+  const canSeeSla = !!(window.__userHasRole && window.__userHasRole('editor'));
   const TABS = ['health', 'sla'];
   const inited = {};
   function init(name) {
@@ -599,7 +601,7 @@
     try { (name === 'health' ? window.__wanHealthInit : window.__wanSlaInit)(); } catch (e) { /* pane init best-effort */ }
   }
   function show(name) {
-    if (name === 'sla' && !isAdmin) name = 'health';
+    if (name === 'sla' && !canSeeSla) name = 'health';
     if (!TABS.includes(name)) name = 'health';
     TABS.forEach(t => {
       const b = $('wtab-' + t), p = $('pane-' + t);
@@ -610,7 +612,7 @@
     if (location.hash.slice(1) !== name) history.replaceState(null, '', '#' + name);
   }
   document.addEventListener('DOMContentLoaded', function () {
-    if (!isAdmin) { const b = $('wtab-sla'); if (b) b.style.display = 'none'; }
+    if (!canSeeSla) { const b = $('wtab-sla'); if (b) b.style.display = 'none'; }
     $('wan-tabs').addEventListener('click', function (e) { const b = e.target.closest('[data-tab]'); if (b) show(b.dataset.tab); });
     window.addEventListener('hashchange', function () { show(location.hash.slice(1) || 'health'); });
     show(location.hash.slice(1) || 'health');

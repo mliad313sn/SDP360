@@ -369,6 +369,11 @@ module.exports = function opmanagerRoutes(deps) {
   //    the sla_wan_config policy; computes the monthly binding availability + credit per mapped
   //    circuit, and surfaces UNMAPPED outages so no ISP interruption goes unaccounted. All
   //    best-effort — never 500 (on throw, return the safe empty shape). ──
+  // RBAC lot 4d (2026-10-02): the SLA views are open to coordinators, locked to their site.
+  // null = admin tier (every site); otherwise the caller's site_id (-1 = no site → nothing).
+  const _slaSite = (user) => (rdb.userHasRole(user, 'admin') ? null : (Number(user && user.site_id) || -1));
+  const _slaKeep = (user) => { const s = _slaSite(user); return (o) => s === null || Number(o.site_id) === s; };
+
   router.get('/api/analytics/wan/sla/summary', requireReportSession, async (req, res) => {
     const { monthStart, monthEnd, label, fromISO, toISO } = _monthBounds(req.query.month);
     try {
@@ -408,7 +413,8 @@ module.exports = function opmanagerRoutes(deps) {
         e.outage_count += 1;
         seen.set(k, e);
       }
-      res.json({ month: label, circuits, unmapped: [...seen.values()] });
+      const keep = _slaKeep(req.reportUser);
+      res.json({ month: label, circuits: circuits.filter(keep), unmapped: [...seen.values()].filter(keep) });
     } catch (e) { res.json({ month: label, circuits: [], unmapped: [], reason: e.message }); }
   });
 
@@ -424,6 +430,8 @@ module.exports = function opmanagerRoutes(deps) {
       if (req.query.from) f.from = String(req.query.from);
       if (req.query.to) f.to = String(req.query.to);
       if (req.query.uplink) f.uplink = String(req.query.uplink);
+      const scoped = _slaSite(req.reportUser);
+      if (scoped !== null) f.site_id = scoped;     // a coordinator only sees their own site
       const siteList = (await rdb.listSites({ includeInactive: true })) || [];
       const nameById = {}; for (const s of siteList) nameById[s.id] = s.name;
       const outages = ((await rdb.getWanOutages(f)) || []).map(o => ({ ...o, site_name: nameById[o.site_id] || null }));
@@ -463,7 +471,7 @@ module.exports = function opmanagerRoutes(deps) {
       'notified_at', 'duration_s', 'attribution', 'attribution_reason'];
     try {
       const { label, fromISO, toISO } = _monthBounds(req.query.month);
-      const outages = (await rdb.getWanOutages({ from: fromISO, to: toISO })) || [];
+      const outages = ((await rdb.getWanOutages({ from: fromISO, to: toISO })) || []).filter(_slaKeep(req.reportUser));
       const lines = [cols.map(_csvCell).join(',')];
       for (const o of outages) lines.push(cols.map(c => _csvCell(o[c])).join(','));
       res.setHeader('Content-Type', 'text/csv');
@@ -537,7 +545,7 @@ module.exports = function opmanagerRoutes(deps) {
     try {
       const { buildWorkbook } = require('../services/tableExcel');
       const { label, fromISO, toISO } = _monthBounds(req.query.month);
-      const outages = (await rdb.getWanOutages({ from: fromISO, to: toISO })) || [];
+      const outages = ((await rdb.getWanOutages({ from: fromISO, to: toISO })) || []).filter(_slaKeep(req.reportUser));
       _sendXlsx(res, buildWorkbook(_outageSheets(outages, await _siteNames(), label)), `wan-sla-outages-${label}.xlsx`);
     } catch (e) { res.status(500).json({ error: e.message }); }
   });

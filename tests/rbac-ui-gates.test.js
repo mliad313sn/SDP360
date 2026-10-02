@@ -74,3 +74,9 @@ test('lot 4a: reports.html decides admin-tier UI by the role hierarchy, never th
   assert.doesNotMatch(src, /\.role\s*[!=]==\s*'admin'/);
   assert.match(src, /function _adminTier\(\)/);
 });
+
+test('4d WAN SLA tab is offered to editors (the server limits every SLA read to their site)', () => {
+  const src = read('wan.html');
+  assert.match(src, /const canSeeSla = !!\(window\.__userHasRole && window\.__userHasRole\('editor'\)\)/);
+  assert.match(src, /if \(name === 'sla' && !canSeeSla\) name = 'health';/);
+});
