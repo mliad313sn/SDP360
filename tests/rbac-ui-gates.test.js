@@ -34,10 +34,17 @@ test('4b inspection form: Re-open offered to editors (the server checks the site
   assert.match(src, /const canReopen = has\('editor'\)/);
 });
 
-test('A6 PV delete: shown only to executive+ (route = executive or super_admin)', () => {
+test('A6/4c PV delete: shown to editor+ (the server keeps them on their own site)', () => {
   const src = read('meeting.html');
   assert.doesNotMatch(src, /getElementById\('pvDeleteBtn'\)\.style\.display = '';/);
-  assert.match(src, /pvDeleteBtn[\s\S]{0,200}__userHasRole\('executive'\)/);
+  assert.match(src, /pvDeleteBtn[\s\S]{0,200}__userHasRole\('editor'\)/);
+});
+
+test('4c meetings: import page, Excel exports and the closed-PV banner are opened to editors', () => {
+  assert.match(read('meetings-import.html'), /src="auth\.js" data-require="editor"/);
+  assert.match(read('meetings.html'), /!\(window\.__userHasRole && window\.__userHasRole\('editor'\)\)\) return;/);
+  assert.match(read('meetings-actions.html'), /__userHasRole\('editor'\)\)\) \{ b\.style\.display = 'none'/);
+  assert.doesNotMatch(read('meeting.html'), /admins can re-open/);
 });
 
 test('A15 assets inventory Excel: hidden by default, revealed for admin+ (route = admin)', () => {

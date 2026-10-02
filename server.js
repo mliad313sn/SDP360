@@ -8126,6 +8126,15 @@ function _sitelessWriteDenied(user, userSite) {
   return !userSite && !rdb.userHasRole(user, 'admin');
 }
 
+// RBAC lot 4c — scope of a meetings IMPORT: { site: null } for the admin tier, { site: CODE }
+// for an editor (every row must be that site), or sends 403 and returns null.
+async function _meetingsImportScope(req, res) {
+  if (!rdb.userHasRole(req.reportUser, 'editor')) { res.status(403).json({ error: 'editor role or higher required' }); return null; }
+  const site = await _userMeetingsSite(req.reportUser);
+  if (_sitelessWriteDenied(req.reportUser, site)) { res.status(403).json({ error: 'Your account has no site assigned for this module. Contact your administrator.' }); return null; }
+  return { site };
+}
+
 // Resolve the user's meetings site code (form code, e.g. 'MGO').
 // Returns null for unrestricted users (admin+).
 async function _userMeetingsSite(user) {
@@ -8293,11 +8302,13 @@ app.get('/api/meetings/escalations', requireReportSession, async (req, res) => {
 // Actions / Projects sheets). admin+ (bulk data export). The /api/meetings/:id
 // route's non-numeric guard (parseInt("export.xlsx")=NaN → next()) lets this
 // specific path resolve here regardless of registration order.
-app.get('/api/meetings/export.xlsx', requireReportSession, requireAdmin, async (req, res) => {
+// RBAC lot 4c: open to an editor, limited to their site (admin tier: every site).
+app.get('/api/meetings/export.xlsx', requireReportSession, async (req, res) => {
   try {
     if (!meetingsDb) return res.status(503).json({ error: 'Meetings module not available' });
+    const scope = await _meetingsImportScope(req, res); if (!scope) return;
     const tableExcel = require('./services/tableExcel');
-    const data = await meetingsDb.exportRows();
+    const data = await meetingsDb.exportRows({ site: scope.site });
     const buf = tableExcel.buildWorkbook([
       { name: 'Meetings', rows: data.meetings },
       { name: 'Issues',   rows: data.issues },
@@ -8306,7 +8317,7 @@ app.get('/api/meetings/export.xlsx', requireReportSession, requireAdmin, async (
     ]);
     const stamp = new Date().toISOString().slice(0, 10);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename="Meetings_full_${stamp}.xlsx"`);
+    res.setHeader('Content-Disposition', `attachment; filename="Meetings_${scope.site || 'full'}_${stamp}.xlsx"`);
     res.send(buf);
   } catch(e) {
     console.error('[Meetings] excel export error:', e.message);
@@ -8496,9 +8507,7 @@ app.post('/api/meetings/issues/:id/update', requireReportSession, meetingsJsonBo
     if (userSite && parent.site_code !== userSite) {
       return res.status(403).json({ error: `Issue belongs to ${parent.site_code}; you are scoped to ${userSite}` });
     }
-    if (userSite && parent.status === 'closed') {
-      return res.status(403).json({ error: 'Parent meeting is closed — only admin can edit issues' });
-    }
+    // RBAC lot 4c: an issue under a CLOSED PV is editable by an editor of that site.
 
     const body = req.body || {};
     await meetingsDb.addIssueUpdate(issueId, {
@@ -8517,9 +8526,16 @@ app.post('/api/meetings/issues/:id/update', requireReportSession, meetingsJsonBo
 });
 
 // DELETE /api/meetings/:id — executive+ only (cascading)
-app.delete('/api/meetings/:id', requireReportSession, requireExecutiveOrSuperAdmin, async (req, res) => {
+// RBAC lot 4c: an editor deletes a PV of their own site (was executive-only).
+app.delete('/api/meetings/:id', requireReportSession, async (req, res) => {
   try {
     if (!meetingsDb) return res.status(503).json({ error: 'Meetings module not available' });
+    if (!rdb.userHasRole(req.reportUser, 'editor')) return res.status(403).json({ error: 'editor role or higher required' });
+    const head = await meetingsDb.getMeetingStatus(parseInt(req.params.id, 10));
+    if (!head) return res.status(404).json({ error: 'Not found' });
+    const userSite = await _userMeetingsSite(req.reportUser);
+    if (_sitelessWriteDenied(req.reportUser, userSite)) return res.status(403).json({ error: 'Your account has no site assigned for this module. Contact your administrator.' });
+    if (userSite && head.site_code !== userSite) return res.status(403).json({ error: `Meeting belongs to ${head.site_code}; you are scoped to ${userSite}` });
     const ok = await meetingsDb.deleteMeeting(parseInt(req.params.id, 10));
     if (!ok) return res.status(404).json({ error: 'Not found' });
     res.json({ ok: true });
@@ -8612,9 +8628,8 @@ app.get('/api/meetings/import/template', requireReportSession, async (req, res) 
   try {
     if (!meetingsDb)     return res.status(503).json({ error: 'Meetings module not available' });
     if (!meetingsImport) return res.status(503).json({ error: 'Import module not available (xlsx not installed)' });
-    if (!rdb.userHasRole(req.reportUser, 'admin')) {
-      return res.status(403).json({ error: 'admin role or higher required' });
-    }
+    // RBAC lot 4c (2026-10-02): open to an editor; rows are locked to their site below.
+    const _imp = await _meetingsImportScope(req, res); if (!_imp) return;
     const buf = meetingsImport.buildTemplate(await meetingsDb.loadLookups());
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename="meetings_import_template.xlsx"');
@@ -8633,9 +8648,8 @@ app.post('/api/meetings/import/preview', requireReportSession, meetingsImportBod
   try {
     if (!meetingsDb)     return res.status(503).json({ error: 'Meetings module not available' });
     if (!meetingsImport) return res.status(503).json({ error: 'Import module not available (xlsx not installed)' });
-    if (!rdb.userHasRole(req.reportUser, 'admin')) {
-      return res.status(403).json({ error: 'admin role or higher required' });
-    }
+    // RBAC lot 4c (2026-10-02): open to an editor; rows are locked to their site below.
+    const _imp = await _meetingsImportScope(req, res); if (!_imp) return;
     if (!req.body || !req.body.length) return res.status(400).json({ error: 'Empty body (expected raw xlsx bytes)' });
     const parsed = meetingsImport.parseBuffer(req.body, await meetingsDb.loadLookups());
     // Decorate each meeting with `will_update` so the preview UI can warn
@@ -8685,13 +8699,13 @@ app.post('/api/meetings/import/commit', requireReportSession, meetingsImportBody
   try {
     if (!meetingsDb)     return res.status(503).json({ error: 'Meetings module not available' });
     if (!meetingsImport) return res.status(503).json({ error: 'Import module not available (xlsx not installed)' });
-    if (!rdb.userHasRole(req.reportUser, 'admin')) {
-      return res.status(403).json({ error: 'admin role or higher required' });
-    }
+    // RBAC lot 4c (2026-10-02): open to an editor; rows are locked to their site below.
+    const _imp = await _meetingsImportScope(req, res); if (!_imp) return;
     if (!req.body || !req.body.length) return res.status(400).json({ error: 'Empty body (expected raw xlsx bytes)' });
     const parsed = meetingsImport.parseBuffer(req.body, await meetingsDb.loadLookups());
     const force  = req.query.force === '1' || req.query.force === 'true';
     const result = await meetingsImport.commit(parsed, meetingsDb, {
+      userSite:    _imp.site,
       force,
       userId:      req.reportUser.id || null,
       author_name: req.reportUser.full_name || req.reportUser.username || 'import',
@@ -8709,7 +8723,8 @@ app.get('/api/meetings/import/incubation-template', requireReportSession, async 
   try {
     if (!meetingsDb)               return res.status(503).json({ error: 'Meetings module not available' });
     if (!meetingsImportIncubation) return res.status(503).json({ error: 'Incubation import module not available (xlsx not installed)' });
-    if (!rdb.userHasRole(req.reportUser, 'admin')) return res.status(403).json({ error: 'admin role or higher required' });
+    // RBAC lot 4c (2026-10-02): open to an editor; rows are locked to their site below.
+    const _imp = await _meetingsImportScope(req, res); if (!_imp) return;
     const buf = meetingsImportIncubation.buildTemplate(await meetingsDb.loadLookups());
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename="incubation_import_template.xlsx"');
@@ -8721,7 +8736,8 @@ app.post('/api/meetings/import/incubation/preview', requireReportSession, meetin
   try {
     if (!meetingsDb)               return res.status(503).json({ error: 'Meetings module not available' });
     if (!meetingsImportIncubation) return res.status(503).json({ error: 'Incubation import module not available (xlsx not installed)' });
-    if (!rdb.userHasRole(req.reportUser, 'admin')) return res.status(403).json({ error: 'admin role or higher required' });
+    // RBAC lot 4c (2026-10-02): open to an editor; rows are locked to their site below.
+    const _imp = await _meetingsImportScope(req, res); if (!_imp) return;
     if (!req.body || !req.body.length) return res.status(400).json({ error: 'Empty body (expected raw xlsx bytes)' });
     const parsed = meetingsImportIncubation.parseBuffer(req.body, await meetingsDb.loadLookups());
     let willUpdate = 0;
@@ -8747,11 +8763,13 @@ app.post('/api/meetings/import/incubation/commit', requireReportSession, meeting
   try {
     if (!meetingsDb)               return res.status(503).json({ error: 'Meetings module not available' });
     if (!meetingsImportIncubation) return res.status(503).json({ error: 'Incubation import module not available (xlsx not installed)' });
-    if (!rdb.userHasRole(req.reportUser, 'admin')) return res.status(403).json({ error: 'admin role or higher required' });
+    // RBAC lot 4c (2026-10-02): open to an editor; rows are locked to their site below.
+    const _imp = await _meetingsImportScope(req, res); if (!_imp) return;
     if (!req.body || !req.body.length) return res.status(400).json({ error: 'Empty body (expected raw xlsx bytes)' });
     const parsed = meetingsImportIncubation.parseBuffer(req.body, await meetingsDb.loadLookups());
     const force  = req.query.force === '1' || req.query.force === 'true';
     const result = await meetingsImportIncubation.commit(parsed, meetingsDb, {
+      userSite:    _imp.site,
       force, userId: req.reportUser.id || null,
       author_name: req.reportUser.full_name || req.reportUser.username || 'incubation-import',
     });

@@ -701,7 +701,7 @@
   // module's full export.
   (function wireExport() {
     const xl = document.getElementById('mdExportBtn');
-    if (!xl || !(window.__userHasRole && window.__userHasRole('admin'))) return;
+    if (!xl || !(window.__userHasRole && window.__userHasRole('editor'))) return;   // RBAC lot 4c: limited to their site server-side
     xl.style.display = '';
     xl.addEventListener('click', async () => {
       const orig = xl.innerHTML; xl.disabled = true; xl.innerHTML = '⏳ Preparing…';

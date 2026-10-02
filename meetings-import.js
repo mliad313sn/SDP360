@@ -355,7 +355,9 @@ async function commit(parsed, meetingsDb, opts = {}) {
         })),
         author_name: opts.author_name || 'import',
       };
-      const result = await meetingsDb.saveMeeting(state, null, opts.userId || null);
+      // opts.userSite (RBAC lot 4c): a coordinator's import is locked to their site — a row
+      // of another site throws a Cross-site error and is counted as skipped. null = admin.
+      const result = await meetingsDb.saveMeeting(state, opts.userSite || null, opts.userId || null);
       if (result.created) out.created++; else out.updated++;
       out.issues += state.issues.length;
       out.actions += state.actions.length;

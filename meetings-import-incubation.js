@@ -238,7 +238,8 @@ async function commit(parsed, meetingsDb, opts = {}) {
     }
     try {
       const state = { header: m.header, projects: [], issues: m.issues, actions: [], author_name: opts.author_name || 'incubation-import' };
-      const result = await meetingsDb.saveMeeting(state, null, opts.userId || null);
+      // opts.userSite (RBAC lot 4c): locked to the coordinator's site; null = admin tier.
+      const result = await meetingsDb.saveMeeting(state, opts.userSite || null, opts.userId || null);
       if (result.created) out.created++; else out.updated++;
       await meetingsDb.setMeetingIncubation(result.id, m.incubation);
       out.challenges += m.issues.length;

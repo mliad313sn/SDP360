@@ -770,9 +770,8 @@ function saveMeeting(state, userSiteCode, userId) {
     if (incomingSite !== userSiteCode) {
       throw new Error(`Cross-site save blocked: editor scoped to ${userSiteCode}, cannot write site ${incomingSite}`);
     }
-    if (exist && exist.status === 'closed') {
-      throw new Error('Meeting is closed — only admin can re-open');
-    }
+    // RBAC lot 4c (2026-10-02): a CLOSED PV is editable by an editor of ITS site (was
+    // admin-only) — the two site checks above keep them on their own site.
   }
 
   // 2026-06-02: Reference resolution priority (CRITICAL — see screenshot in
@@ -1047,7 +1046,7 @@ async function _saveMeetingPg(state, userSiteCode, userId) {
     const incomingSite = h.site_code || null;
     if (existingSite && existingSite !== userSiteCode) throw new Error(`Cross-site save blocked: editor scoped to ${userSiteCode}, meeting is for ${existingSite}`);
     if (incomingSite !== userSiteCode) throw new Error(`Cross-site save blocked: editor scoped to ${userSiteCode}, cannot write site ${incomingSite}`);
-    if (exist && exist.status === 'closed') throw new Error('Meeting is closed — only admin can re-open');
+    // RBAC lot 4c: a closed PV is editable by an editor of its site (site checks above).
   }
   const reference = (exist && exist.reference) || (h.reference != null ? String(h.reference).trim() : '') || _buildReference(h.site_code, h.department, h.meeting_date);
 
@@ -1471,24 +1470,28 @@ function listActions(opts = {}) {
  * sqlite handle and the async pg handle. Attachments (base64 blobs) and
  * lookup tables are intentionally excluded.
  */
-async function exportRows() {
+// opts.site: limit every sheet to one site code (a scoped user's export, RBAC lot 4c).
+async function exportRows(opts = {}) {
   const H = MEETINGS_BACKEND === 'postgres' ? pgHandle() : getDB();
-  const meetings = await H.prepare(`SELECT * FROM md_meetings ORDER BY meeting_date DESC, id`).all();
+  const site = opts.site || null;
+  const wm = site ? ' WHERE m.site_code = ?' : '';
+  const p  = site ? [site] : [];
+  const meetings = await H.prepare(`SELECT * FROM md_meetings${site ? ' WHERE site_code = ?' : ''} ORDER BY meeting_date DESC, id`).all(...p);
   const issues = await H.prepare(`
     SELECT iss.*, m.reference AS meeting_reference, m.site_code AS site_code,
            m.department AS department, m.meeting_date AS meeting_date
-      FROM md_issues iss JOIN md_meetings m ON m.id = iss.meeting_id
-     ORDER BY m.meeting_date DESC, iss.meeting_id, iss.ord`).all();
+      FROM md_issues iss JOIN md_meetings m ON m.id = iss.meeting_id${wm}
+     ORDER BY m.meeting_date DESC, iss.meeting_id, iss.ord`).all(...p);
   const actions = await H.prepare(`
     SELECT a.*, m.reference AS meeting_reference, m.site_code AS site_code,
            m.department AS department, m.meeting_date AS meeting_date
-      FROM md_actions a JOIN md_meetings m ON m.id = a.meeting_id
-     ORDER BY m.meeting_date DESC, a.meeting_id, a.ord`).all();
+      FROM md_actions a JOIN md_meetings m ON m.id = a.meeting_id${wm}
+     ORDER BY m.meeting_date DESC, a.meeting_id, a.ord`).all(...p);
   const projects = await H.prepare(`
     SELECT p.*, m.reference AS meeting_reference, m.site_code AS site_code,
            m.department AS department, m.meeting_date AS meeting_date
-      FROM md_meeting_projects p JOIN md_meetings m ON m.id = p.meeting_id
-     ORDER BY m.meeting_date DESC, p.meeting_id, p.ord`).all();
+      FROM md_meeting_projects p JOIN md_meetings m ON m.id = p.meeting_id${wm}
+     ORDER BY m.meeting_date DESC, p.meeting_id, p.ord`).all(...p);
   return { meetings, issues, actions, projects };
 }
 
