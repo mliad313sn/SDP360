@@ -3141,7 +3141,8 @@ app.post('/api/assets/reconcile/import', requireReportSession, requireAdmin, asy
 // Poser une décision est un acte d'ÉDITEUR (le coordinateur traite sa liste),
 // pas d'administrateur — contrairement à l'import, qui remplace une source
 // entière pour tout le monde.
-app.post('/api/assets/reconcile/decision', requireReportSession, async (req, res) => {
+// RBAC audit 2026-10-02 (A16): an editor act — it had no role check at all.
+app.post('/api/assets/reconcile/decision', requireReportSession, requireRole('editor'), async (req, res) => {
   try {
     const b = req.body || {};
     const who = (req.reportUser && (req.reportUser.username || req.reportUser.full_name)) || null;
@@ -5541,6 +5542,15 @@ async function _authorizeReportWrite(req, res, reportId, opts) {
   if (denial) { res.status(denial.status).json({ error: denial.error }); return null; }
   return report;
 }
+// RBAC audit 2026-10-02 (A12) — writes addressed by SITE in the URL (monthly edits,
+// annual objectives) had no check at all. Same F5 rule as a weekly report of that site.
+function _authorizeSiteWrite(req, res, siteIdParam) {
+  const site_id = parseInt(siteIdParam, 10);
+  if (!Number.isInteger(site_id)) { res.status(400).json({ error: 'invalid site_id' }); return false; }
+  const denial = _reportWriteDenial(req.reportUser, { site_id, status: 'draft' });
+  if (denial) { res.status(denial.status).json({ error: denial.error }); return false; }
+  return true;
+}
 // Same rule for a follow-up addressed by uid: resolve its owning report first.
 async function _authorizeActionWrite(req, res, uid) {
   const owner = await rdb.getActionItemOwner(String(uid || ''));
@@ -7245,6 +7255,7 @@ app.get('/api/reports/monthly/:site_id/:year/:month/edits', requireReportSession
 // (defense-in-depth on every action-item write path, not just the weekly one).
 app.post('/api/reports/monthly/:site_id/:year/:month/edits', requireReportSession, express.json({ limit: '2mb' }), async (req, res) => {
   try {
+    if (!_authorizeSiteWrite(req, res, req.params.site_id)) return;
     const { site_id, year, month } = req.params;
     const { edited_lights, edited_actions, notes, status } = req.body || {};
 
@@ -7287,6 +7298,7 @@ app.get('/api/reports/objectives/:site_id/:year', requireReportSession, async (r
 // Replace all objectives for site+year
 app.post('/api/reports/objectives/:site_id/:year', requireReportSession, express.json({ limit: '1mb' }), async (req, res) => {
   try {
+    if (!_authorizeSiteWrite(req, res, req.params.site_id)) return;
     const { site_id, year } = req.params;
     const objectives = Array.isArray(req.body) ? req.body : [];
     await rdb.saveAnnualObjectives(parseInt(site_id), parseInt(year), objectives);
@@ -8033,6 +8045,14 @@ const meetingsAttachBody = express.json({ limit: '30mb' });
 // existing attachment + inspection-save parsers.
 const meetingsImportBody = express.raw({ type: '*/*', limit: '30mb' });
 
+// RBAC audit 2026-10-02 (A8) — for a WRITE, a null scope only means "unrestricted" for
+// admin+. A non-admin whose site is missing or has no code in this module (no site_id,
+// Exploration/ASSAFO without a meetings code…) used to get null too and was treated as
+// GLOBAL. Same rule as the report writes (F5): a site-less profile is not global.
+function _sitelessWriteDenied(user, userSite) {
+  return !userSite && !rdb.userHasRole(user, 'admin');
+}
+
 // Resolve the user's meetings site code (form code, e.g. 'MGO').
 // Returns null for unrestricted users (admin+).
 async function _userMeetingsSite(user) {
@@ -8262,6 +8282,7 @@ app.post('/api/meetings/actions/:id/update', requireReportSession, meetingsJsonB
     const parent = await meetingsDb.getActionParent(actionId);
     if (!parent) return res.status(404).json({ error: 'Action not found' });
     const userSite = await _userMeetingsSite(req.reportUser);
+    if (_sitelessWriteDenied(req.reportUser, userSite)) return res.status(403).json({ error: 'Your account has no site assigned for this module. Contact your administrator.' });
     if (userSite && parent.site_code !== userSite) {
       return res.status(403).json({ error: `Action belongs to ${parent.site_code}; you are scoped to ${userSite}` });
     }
@@ -8322,6 +8343,7 @@ app.post('/api/meetings/:id/sign', requireReportSession, meetingsJsonBody, async
     const status = await meetingsDb.getMeetingStatus(meetingId);
     if (!status) return res.status(404).json({ error: 'Meeting not found' });
     const userSite = await _userMeetingsSite(req.reportUser);
+    if (_sitelessWriteDenied(req.reportUser, userSite)) return res.status(403).json({ error: 'Your account has no site assigned for this module. Contact your administrator.' });
     if (userSite && status.site_code !== userSite) {
       return res.status(403).json({ error: `Meeting belongs to ${status.site_code}; you are scoped to ${userSite}` });
     }
@@ -8369,6 +8391,7 @@ app.post('/api/meetings/save', requireReportSession, meetingsJsonBody, async (re
     }
     state.author_name = state.author_name || req.reportUser.full_name || req.reportUser.username;
     const userSite = await _userMeetingsSite(req.reportUser);
+    if (_sitelessWriteDenied(req.reportUser, userSite)) return res.status(403).json({ error: 'Your account has no site assigned for this module. Contact your administrator.' });
     const out      = await meetingsDb.saveMeeting(state, userSite, req.reportUser.id || null);
     res.json({ ok: true, ...out, scope: userSite || 'all' });
   } catch(e) {
@@ -8396,6 +8419,7 @@ app.post('/api/meetings/issues/:id/update', requireReportSession, meetingsJsonBo
     if (!parent) return res.status(404).json({ error: 'Issue not found' });
 
     const userSite = await _userMeetingsSite(req.reportUser);
+    if (_sitelessWriteDenied(req.reportUser, userSite)) return res.status(403).json({ error: 'Your account has no site assigned for this module. Contact your administrator.' });
     if (userSite && parent.site_code !== userSite) {
       return res.status(403).json({ error: `Issue belongs to ${parent.site_code}; you are scoped to ${userSite}` });
     }

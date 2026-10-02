@@ -189,6 +189,7 @@ module.exports = function inspectionRoutes(deps) {
       const parent = await inspectionDb.getActionParent(actionId);
       if (!parent) return res.status(404).json({ error: 'Action not found' });
       const userSite = await _userInspectionSite(req.reportUser);
+      if (!userSite && !rdb.userHasRole(req.reportUser, 'admin')) return res.status(403).json({ error: 'Your account has no site assigned for this module. Contact your administrator.' });
       if (userSite && parent.site_code !== userSite) {
         return res.status(403).json({ error: `Action belongs to ${parent.site_code}; you are scoped to ${userSite}` });
       }
@@ -266,6 +267,7 @@ module.exports = function inspectionRoutes(deps) {
       }
 
       const userSite = await _userInspectionSite(req.reportUser);
+      if (!userSite && !rdb.userHasRole(req.reportUser, 'admin')) return res.status(403).json({ error: 'Your account has no site assigned for this module. Contact your administrator.' });
       const out      = await inspectionDb.saveInspection(state, userSite, req.reportUser.id || null);
       // Audit log — grep-friendly: pm2 logs … | findstr Inspection
       const itemCount  = Object.keys(state.items || {}).length;
