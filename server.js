@@ -7474,11 +7474,22 @@ try {
 }
 
 // GET /api/tracker/load — return full D object from SQLite
-app.get('/api/tracker/load', requireReportSession, requireAdmin, async (req, res) => {
+// RBAC audit 2026-10-02 (A1/B1): the load was admin-only while the save accepts
+// tracker-editor, and the client could not lock the site picker (the session user has
+// no site name). Readers = admin tier OR a tracker feature role; the response carries
+// the caller's save scope — null = every site, else the one tracker code it may edit.
+async function _trackerScopeFor(user) {
+  if (rdb.userHasRole(user, 'super_admin') || rdb.userHasRole(user, 'tracker-admin')) return null;
+  if (!rdb.userHasRole(user, 'tracker-editor')) return null;
+  const sites = (await rdb.listSites()) || [];
+  return trackerDb.siteToCode(sites.find(s => s.id === user.site_id)) || '';
+}
+app.get('/api/tracker/load', requireReportSession, requireRole(['admin', 'tracker-admin', 'tracker-editor']), async (req, res) => {
   try {
     if (!trackerDb) return res.status(503).json({ error: 'Tracker module not available' });
     const D = await trackerDb.loadTracker();
-    res.json({ D });
+    // '' = a tracker-editor whose site resolves to nothing: read-only (the save refuses it).
+    res.json({ D, scope: await _trackerScopeFor(req.reportUser) });
   } catch(e) {
     console.error('[Tracker] load error:', e.message);
     res.status(500).json({ error: e.message });
@@ -7576,7 +7587,8 @@ app.post('/api/tracker/import-dept-meetings', requireReportSession, requireRole(
 
 // POST /api/tracker/export — generate PPTX server-side and return as download
 // Requires executive or super_admin role (same as exec report export)
-app.post('/api/tracker/export', requireReportSession, requireAdmin, async (req, res) => {
+// RBAC audit 2026-10-02 (A2): the button shows for tracker-admin; the route now agrees.
+app.post('/api/tracker/export', requireReportSession, requireRole(['admin', 'tracker-admin']), async (req, res) => {
   try {
     if (!trackerDb)   return res.status(503).json({ error: 'Tracker module not available' });
     if (!trackerPptx) return res.status(503).json({ error: 'PPTX module not available' });

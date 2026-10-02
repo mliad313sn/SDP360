@@ -28,31 +28,22 @@ function hasRole(role) {
 }
 const _user = () => window.__authUser || null;
 
-const SITE_NAME_TO_CODE = {
-  'MANA':'MGO',  'Mana IT Agent':'MGO',
-  'HOUNDE':'HGO','Hounde IT Agents':'HGO',
-  'LAFIGUE':'SML','Lafigue IT Agents':'SML',
-  'ITY':'ITY',   'ITY IT Agents':'ITY',
-  'Sabodala':'SGO','Sabodala IT Agents':'SGO',
-  'ABIDJAN':'ABJ','Abidjan IT Agents':'ABJ',
-  'Dakar':'DKR', 'Dakar IT Agents':'DKR',
-  'KALANA':'KLN','Kalana IT Agents':'KLN',
-  'EXPLORATION':'EXP','Exploration BF Support':'EXP','Exploration CI Support':'EXP',
-  'OUAGA':'EDV', 'Ouaga IT Agents':'EDV','Ouagadougou-EDV1':'EDV',
-  'TANDA':'TND', 'Tanda IT Agents':'TND',
-};
-
-function computeRoles() {
+// `scope` comes from GET /api/tracker/load (RBAC audit 2026-10-02, B1): null = every
+// site, a tracker code = the only site this account may save, '' = a tracker-editor
+// whose site resolves to nothing (the server refuses its saves → read-only here too).
+// It used to be derived from __authUser.site_name, a field the session user does not
+// carry, so the picker was never locked and edits on other sites were silently dropped.
+function computeRoles(scope) {
   const u = _user();
   const IS_EXEC      = !u || hasRole('executive') || hasRole('tracker-admin');
   const CAN_RESET    = hasRole('super_admin') || hasRole('tracker-admin');
   const CAN_SAVE_ALL = hasRole('super_admin') || hasRole('tracker-admin');
-  const CAN_SAVE_OWN = hasRole('tracker-editor');
+  const CAN_SAVE_OWN = hasRole('tracker-editor') && scope !== '';
   const CAN_SAVE     = CAN_SAVE_ALL || CAN_SAVE_OWN;
-  const USER_SITE = (CAN_SAVE_OWN && !CAN_SAVE_ALL && u?.site_name)
-    ? (SITE_NAME_TO_CODE[u.site_name] || null)
-    : null;
-  return { IS_EXEC, CAN_RESET, CAN_SAVE_ALL, CAN_SAVE_OWN, CAN_SAVE, USER_SITE };
+  const USER_SITE    = (CAN_SAVE_OWN && !CAN_SAVE_ALL && scope) ? scope : null;
+  // Same gate as POST /api/tracker/export (A2): admin tier or tracker-admin.
+  const CAN_EXPORT   = hasRole('admin') || hasRole('tracker-admin');
+  return { IS_EXEC, CAN_RESET, CAN_SAVE_ALL, CAN_SAVE_OWN, CAN_SAVE, USER_SITE, CAN_EXPORT };
 }
 
 const fmtDelta = (n) => {
@@ -149,7 +140,7 @@ function Toolbar({ D, S, setS, dirty, syncState, syncError, onSave, onReset, onE
           {MO.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
         </select>
       </div>
-      {roles.IS_EXEC && (
+      {roles.CAN_EXPORT && (
         <button className="btn-ghost" type="button" onClick={onExport} title="Export the Activity Tracker as a multi-slide PPTX">
           📊 Export PPTX
         </button>
@@ -2393,7 +2384,9 @@ function App() {
   const [appModal, setAppModal] = useState(null);
   const [exportOpen, setExportOpen] = useState(false);
 
-  const roles = useMemo(computeRoles, []);
+  // undefined until /api/tracker/load answers; the panels only mount after the load.
+  const [scope, setScope] = useState(undefined);
+  const roles = useMemo(() => computeRoles(scope), [scope]);
 
   // ─ Cross-tab navigation: panels can dispatch a custom event to
   //   jump the user to another tab without a full re-mount. Used by
@@ -2412,6 +2405,7 @@ function App() {
         const r = await window.TRApi.load();
         if (!r || !r.D) throw new Error('No D in response');
         const Dload = r.D;
+        setScope(r.scope === undefined ? null : r.scope);
         if (!Dload.pillarWeights) Dload.pillarWeights = { 'P1-Network Infrast':0.30,'P2-Business Partner':0.35,'P3-Risk & Compliance':0.20,'P4-Manage People':0.15 };
         setD(Dload);
         // Default S.year: defaultYear() resolves to the current
