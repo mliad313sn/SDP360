@@ -105,6 +105,17 @@ const DEFAULTS = {
   // down (blank = no latency cap). Tune loss_pct down (~15-25) to land on Meraki's % Time Up.
   wan_timeup_loss_pct: '100',
   wan_timeup_latency_ms: '',
+  // ── Teams SLA alerts (2026-10-03) — tools/teams/poll-sla.js, every 5 min. Disarmed by default.
+  //    The SDP Cloud API is read with a Zoho OAuth self-client (scope SDPOnDemand.requests.READ):
+  //    client_secret + refresh_token are SECRETS. teams_sla_channels = JSON [{group, url}] — a
+  //    Workflows webhook URL lets anyone post in the channel, so the whole blob is a SECRET too
+  //    (redacted on GET, blank-kept, encrypted at rest); the dedicated /api/teams-sla routes
+  //    expose only which groups are mapped. teams_sla_rules = JSON (services/teamsSla.DEFAULT_RULES).
+  teams_sla_enabled: '0', teams_sla_rules: '', teams_sla_channels: '', teams_sla_last_run: '',
+  sdp_api_base_url: 'https://oneitsupport.endeavourmining.com/app/itdesk/api/v3',
+  sdp_api_accounts_url: 'https://accounts.zoho.com',
+  sdp_api_client_id: '', sdp_api_client_secret: '', sdp_api_refresh_token: '',
+  sdp_api_open_filter: 'Open_System',
 };
 const KEYS = Object.keys(DEFAULTS);
 
@@ -112,6 +123,7 @@ const KEYS = Object.keys(DEFAULTS);
 // NOT wipe the stored value (blank = keep). Any new secret-shaped key joins this set.
 const _SECRET_BLANK_KEEP = new Set([
   'smtp_pass', 'entra_client_secret', 'meridian_out_key', 'meridian_in_key', 'meraki_api_key', 'opmanager_api_key',
+  'sdp_api_client_secret', 'sdp_api_refresh_token', 'teams_sla_channels',
 ]);
 
 function _h(db) {

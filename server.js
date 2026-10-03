@@ -520,6 +520,12 @@ cron.schedule('*/5 * * * *', () => require('./tools/meraki/sync-wan-events').mai
   .catch(e => console.error('[Cron:wan-events-5m]', e && e.message)));
 cron.schedule('25 5 * * *', () => require('./tools/meraki/sync-wan-events').main({})
   .catch(e => console.error('[Cron:wan-events]', e && e.message)));
+// Teams SLA alerts (2026-10-03) — every 5 min: SDP API → rules → one card per group in its
+// Teams channel. Config-gated (disarmed + no-op until the admin card is filled), never throws,
+// never overlaps (tools/teams/poll-sla.js).
+cron.schedule('*/5 * * * *', () => require('./tools/teams/poll-sla').run({})
+  .then(r => { if (r && r.error) console.error('[Cron:teams-sla]', r.error); })
+  .catch(e => console.error('[Cron:teams-sla]', e.message)));
 cron.schedule('*/5 * * * *', () => require('./tools/meraki/poll-wan-outages').main({})
   .catch(e => console.error('[Cron:wan-poller]', e && e.message)));
 
@@ -5389,6 +5395,7 @@ app.get('/api/reports/config', requireReportSession, requireSuperAdmin, async (r
     if (c && c.meridian_in_key) c.meridian_in_key = '';
     if (c && c.meraki_api_key) c.meraki_api_key = '';   // never expose the stored Meraki API key
     if (c && c.opmanager_api_key) c.opmanager_api_key = '';   // never expose the stored OpManager API key
+    for (const k of ['sdp_api_client_secret', 'sdp_api_refresh_token', 'teams_sla_channels']) if (c && c[k]) c[k] = '';   // Teams SLA secrets
     res.json(c);
   }
   catch (e) { res.status(500).json({ error: e.message }); }
@@ -8059,6 +8066,8 @@ app.use(require('./routes/siteAwareness')({ express, requireReportSession, rdb: 
 // Per-user objectives + deliverables for the Service & Support Manager. user_id is
 // always req.reportUser.id (never trusted from body). Distinct /api/roadmap prefix.
 app.use(require('./routes/roadmap')({ express, requireReportSession, requireSuperAdmin }));
+// Teams SLA alerts (2026-10-03) — super_admin settings, test card, preview, run-now.
+app.use(require('./routes/teamsSla')({ express, requireReportSession, requireSuperAdmin }));
 
 // ══════════════════════════════════════════════════════════════════
 // MEETINGS — Department Meetings & Council Escalations (v2 schema)

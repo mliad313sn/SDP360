@@ -1423,6 +1423,9 @@ async function initPgReports() {            // called once at server boot
   // Asset engagement — weekly report "Parc informatique" tab.
   await _pg.exec(require('fs').readFileSync(
     require('path').join(__dirname, 'db', 'postgres', 'reports', '012_report_asset_review.sql'), 'utf8'));
+  // Teams SLA alerts (2026-10-03) — anti-duplicate log.
+  await _pg.exec(require('fs').readFileSync(
+    require('path').join(__dirname, 'db', 'postgres', 'reports', '013_sla_alert_log.sql'), 'utf8'));
   // Asset engagement — per-site asset manager contact on the recipients directory.
   for (const c of ['asset_manager_name TEXT', 'asset_manager_email TEXT', 'asset_manager_email_confirmed INTEGER DEFAULT 0']) {
     await _pg.exec(`ALTER TABLE report_recipients ADD COLUMN IF NOT EXISTS ${c}`);

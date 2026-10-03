@@ -63,6 +63,48 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ---
 
+## ⚡ Current state (as of 2026-10-03, plus tard — Alertes SLA dans les canaux Teams, sur `main`, PAS déployé, désarmé)
+
+> **Besoin (user)** : les techniciens lisent Teams, pas les e-mails → prévenir le **groupe** dans son canal
+> Teams **avant** le dépassement du SLA de **1re réponse** puis de **résolution** (pas les incidents majeurs).
+> **Pourquoi pas nos données** : `request_records` vient d'Analytics, synchronisé **toutes les heures** (+ retard
+> propre d'Analytics) et ne porte PAS l'échéance de 1re réponse → trop lent pour un SLA de 15-30 min.
+> **Décision (user) : approche B + A en filet** — le dashboard lit **l'API REST de SDP Cloud** toutes les 5 min
+> et poste **une carte par groupe** via un webhook **Workflows** Teams ; en attendant, escalade SLA native SDP
+> vers l'adresse e-mail du canal (guide). Spec : `docs/superpowers/specs/2026-10-03-teams-sla-alerts-design.md`,
+> **guide de mise en service : `docs/integration/2026-10-03-teams-sla-alerts-setup.md`**.
+>
+> - **Pur** : `services/teamsSla.js` (règles `DEFAULT_RULES`, `normalizeRequest` forme v3 `{value}`/`{name}`,
+>   `evaluate` → `fr_soon` P1 10/P2 20/P3 60/P4 240 min · `fr_breach` · `res_soon` 75 % du délai · `res_breach`
+>   (dépassements annoncés seulement s'ils ont < 60 min : pas de déluge au 1er passage) · `unassigned` ≥ 30 min,
+>   ticket < 24 h ; statut « hold » = SLA en pause, rien), `parseChannels`/`resolveChannel` (groupe `*` = défaut) ;
+>   `services/teamsCard.js` (Adaptive Card 1.4 FR, sections par urgence, ≤ 15 tickets + « + N autres »,
+>   lien `…/app/itdesk/ui/requests/<id>/details`).
+> - **I/O** : `services/sdpApiClient.js` (OAuth Zoho refresh → access token caché, `GET /requests` paginé borné,
+>   filtre `Open_System`, Accept `application/vnd.manageengine.sdp.v3+json`) ; `services/slaAlertLog.js`
+>   (anti-doublon `(request_id, kind)` à vie, purge 90 j ; sqlite + pg `013_sla_alert_log.sql`) ;
+>   `tools/teams/poll-sla.js` `run({dryRun})` — ne lève jamais, jamais deux passages en parallèle, webhook en
+>   échec = alertes du groupe NON enregistrées (réessai), groupe sans canal = compté, non enregistré,
+>   **URL de webhook jamais dans un résultat/log** ; **cron `*/5`**.
+> - **Config** (`report_config`) : `teams_sla_enabled` (`'0'`), `teams_sla_rules` (JSON), `teams_sla_last_run`,
+>   `sdp_api_base_url` (`https://oneitsupport.endeavourmining.com/app/itdesk/api/v3`), `sdp_api_accounts_url`,
+>   `sdp_api_client_id`, `sdp_api_open_filter` ; **secrets** (masqués, blank-keep, chiffrés A-13) :
+>   `sdp_api_client_secret`, `sdp_api_refresh_token`, **`teams_sla_channels`** (JSON `[{group,url}]` — une URL
+>   de webhook permet de publier dans le canal).
+> - **Routes** `routes/teamsSla.js` (super_admin) : `GET/PUT /api/teams-sla/settings` (écriture seule des
+>   secrets/URL ; URL vide = conserver ; https obligatoire), `POST /test` (carte TEST dans un canal),
+>   `/preview` (dry-run, même désarmé), `/run`. **Carte admin** `#ap-teams-sla` « 🔔 Alertes SLA Teams »
+>   (4 surfaces câblées).
+> - Tests : `teams-sla-rules` (10), `teams-sla-card` (5), `sdp-api-client` (6), `sla-alert-log` (3) +
+>   `pg-sla-alert-log`, `teams-sla-poll` (7), `teams-sla-config` (2), `teams-sla-routes.smoke` (6),
+>   `teams-sla-admin-card` (3). Vérifié au navigateur (instance locale jetable).
+> - **⚠ Confirmations d'intégration** (comme Meraki) : nom du filtre « ouverts » et noms des champs v3
+>   (`first_response_due_by_time`, `due_by_time`, `responded_time`…) — l'**Aperçu** de la carte montre ce que
+>   l'API renvoie réellement. **Étapes user** : client OAuth Zoho (`SDPOnDemand.requests.READ`), un webhook
+>   Workflows par canal, puis armer.
+
+---
+
 ## ⚡ Current state (as of 2026-10-03 — Formulaire Business Incubation dédié, en prod, marqueur `0b649ba`)
 
 > **Tout `main` est en prod jusqu'à `0b649ba`** (ZIP appliqué, pm2 redémarré, marqueur avancé le 2026-10-03).
@@ -4310,6 +4352,7 @@ In normal use NO request hits this fallback. It's a safety net.
 
 | Pitfall | Rule |
 |---------|------|
+| **Alertes SLA Teams : lire SDP en DIRECT, jamais `request_records` — et une URL de webhook est un secret (2026-10-03)** | `request_records` a jusqu'à ~1 h+ de retard (sync Analytics horaire) et n'a pas l'échéance de 1re réponse : toute alerte « bientôt due » calculée dessus arrive après le dépassement. Le poller lit `sdpApiClient.listOpenRequests()`. Une URL *Workflows* permet à quiconque de publier dans le canal : elle vit dans le secret `teams_sla_channels`, n'est jamais renvoyée au navigateur (`/api/teams-sla/settings` dit seulement `configured`) et est remplacée par `<url>` dans toute erreur. Les anciens « connecteurs entrants » Office 365 sont retirés : n'en proposer aucun. |
 | **Une auto-référence de réunion DOIT porter le type de session — sinon une incubation écrase le PV du mois (2026-10-03)** | `saveMeeting` cherche d'abord une ligne par **référence** et met à jour celle qu'il trouve. La référence auto était `SITE_Dept_PV_AAAA-MM` pour TOUT : une incubation saisie sans référence, même site × département × mois qu'un PV existant, **remplaçait ce PV** (intake, priorités, enfants). `_buildReference` prend maintenant `intake_source` (`_INC_` pour `business_incubation`) — les 4 appels (sqlite + pg) le passent. Tout nouveau type de session doit avoir sa propre balise. |
 | **`meeting.html` sert DEUX formulaires — un champ n'existe que dans un mode** | `#pvMain[data-mode]` + `[data-only="pv"|"inc"]` masquent des blocs entiers : un nouveau champ du PV doit porter `data-only="pv"` s'il n'a pas de sens pour une incubation, et réciproquement. Le blob incubation (`incubation_json`) ne s'écrit que par `state.incubation` dans la sauvegarde (ou l'import) — jamais par `saveMeeting` lui-même. En vérification locale : le `?v=` des assets ne change qu'au **commit** (`APP_VERSION` = SHA) → un JS modifié mais non commité reste servi depuis le cache navigateur. |
 | **Un nom de site cherché à l'exacte casse = un site qui ne peut plus écrire (tracker 403, 2026-10-02)** | `sites.name` vaut `Hounde`, `Ity`, `Lafigue`, `Ouagadougou`, `ASSAFO`… alors que les tables de correspondance des modules mélangent `HOUNDE`, `Hounde IT Agents`, `Sabodala`. Toute traduction nom → code module passe par une fonction **normalisée** (casse, accents, suffixe « IT Agents ») : `inspection-db.siteNameToCode`, `tracker-db.siteNameToCode` / **`siteToCode(site)`** (repli sur chaque entrée du `zoho_group`). Ne jamais écrire `MAP[site.name]`. Tester avec les **11 noms réels de la prod** (`tests/tracker-site-code.test.js`). |
