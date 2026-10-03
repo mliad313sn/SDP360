@@ -14,7 +14,7 @@ test('the five admin surfaces all name the panel', () => {
   assert.match(src, /members: \[[^\]]*'asset-reminders'[^\]]*\]/, 'PANEL_GROUPS.sends.members');
   assert.match(src, /'asset-reminders': 'Rappels parc'/, 'group tab label');
   assert.match(src, /name === 'asset-reminders'\) && currentUser\?\.role !== 'super_admin'|name === 'asset-reminders' \|\|/, 'super-gate');
-  assert.match(src, /'asset-group','asset-reminders'\]\.includes\(sub\)/, 'hash allowlist');
+  assert.match(src, /'asset-group','asset-reminders'[^\]]*\]\.includes\(sub\)/, 'hash allowlist');
   assert.match(src, /name === 'asset-reminders' && typeof loadAssetRemindersCard === 'function'/, 'loader hook');
 });
 
