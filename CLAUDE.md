@@ -63,6 +63,41 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ---
 
+## ⚡ Current state (as of 2026-10-03 — Formulaire Business Incubation dédié, en prod, marqueur `0b649ba`)
+
+> **Tout `main` est en prod jusqu'à `0b649ba`** (ZIP appliqué, pm2 redémarré, marqueur avancé le 2026-10-03).
+> Les lots gelés (installeur `578be34`, tracker RAG `c97ae61`+`e17b7b7`) restent DERRIÈRE le marqueur.
+>
+> **Constat** : dans `meeting.html`, choisir l'Origine « Business Incubation » ne changeait qu'une étiquette —
+> les §1-§4 du *Incubation Follow-up Report* n'arrivaient que par l'import xlsx, puis en lecture seule.
+> **Désormais un seul formulaire, deux mises en page** (`#pvMain[data-mode="pv"|"inc"]`, CSS
+> `[data-only="pv"|"inc"]`, bascule sur le `change` de `hIntake`) :
+> §1 Identification (début/fin de session, durée, **incubé** + fonction, manager d'incubation = `department_head`,
+> manager IT = `site_it_lead`, recopiés dans `incubation.roles` à la sauvegarde) · §2 Description du métier ·
+> §3 Flux de l'information (entrant → activité → sortant) · §4 Services fournis, **statut en liste fermée**
+> `active · in_progress · planned · stopped` (décision user) · §5 Défis & obstacles = les issues · §6 Actions
+> **gardées** (décision user) · §7 Escalades · §8 Signatures. Priorités + projets masqués pour une incubation ;
+> le PV départemental est inchangé (7 sections).
+>
+> - **Serveur** : `POST /api/meetings/save` accepte `state.incubation` → normalisé par le pur
+>   **`services/incubationForm.js`** (`normalizeIncubation`, `normalizeServiceStatus`, plafonds de taille) puis
+>   `setMeetingIncubation` ; **effacé** (`null`) si la session n'est pas une incubation ; **clé absente = blob
+>   intact** (sauvegardes d'en-tête, imports). L'import xlsx mappe les statuts libres (« Actif », « En cours »…)
+>   sur la même liste, et l'onglet Codes la liste.
+> - **Client** : **`public/lib/incubationEditor.js`** (UMD pur : `fromHeader`, `payloadIncubation`,
+>   `flowRowsHtml`, `serviceRowsHtml`) ; le panneau lecture seule `#pv-incubation` a disparu.
+> - **Bug corrigé au passage** : une incubation saisie à la main recevait la référence auto
+>   `SITE_Dept_PV_AAAA-MM` et, la correspondance par référence l'emportant, **écrasait le PV du mois**.
+>   `_buildReference(…, intake_source)` produit maintenant `SITE_Dept_INC_AAAA-MM` (même balise que l'import),
+>   sqlite + pg. Pinné par `tests/meetings-incubation.test.js` + `tests/pg-meetings.test.js`.
+> - Tests : `incubation-form` (5), `incubation-save-route.smoke` (4), `incubation-editor-client` (6) ;
+>   suite complète **2273 pass / 0 fail / 0 skipped** (checkout principal, PG compris). Vérifié au navigateur
+>   sur une instance locale jetable (aller-retour de sauvegarde, 8 sections, PV inchangé).
+> - **Reste** : caler les libellés sur le modèle Word du rapport d'incubation (absent du dépôt — « Incubé »
+>   est une traduction provisoire).
+
+---
+
 ## ⚡ Current state (as of 2026-10-02 — Audit RBAC & périmètre de site, lots 1-4 + rétrogradation, TOUT en prod)
 
 > **Tout `main` est en prod jusqu'à `9e37113`** (avancer le marqueur avec `mark-deployed.cmd` s'il ne l'est
@@ -4275,6 +4310,8 @@ In normal use NO request hits this fallback. It's a safety net.
 
 | Pitfall | Rule |
 |---------|------|
+| **Une auto-référence de réunion DOIT porter le type de session — sinon une incubation écrase le PV du mois (2026-10-03)** | `saveMeeting` cherche d'abord une ligne par **référence** et met à jour celle qu'il trouve. La référence auto était `SITE_Dept_PV_AAAA-MM` pour TOUT : une incubation saisie sans référence, même site × département × mois qu'un PV existant, **remplaçait ce PV** (intake, priorités, enfants). `_buildReference` prend maintenant `intake_source` (`_INC_` pour `business_incubation`) — les 4 appels (sqlite + pg) le passent. Tout nouveau type de session doit avoir sa propre balise. |
+| **`meeting.html` sert DEUX formulaires — un champ n'existe que dans un mode** | `#pvMain[data-mode]` + `[data-only="pv"|"inc"]` masquent des blocs entiers : un nouveau champ du PV doit porter `data-only="pv"` s'il n'a pas de sens pour une incubation, et réciproquement. Le blob incubation (`incubation_json`) ne s'écrit que par `state.incubation` dans la sauvegarde (ou l'import) — jamais par `saveMeeting` lui-même. En vérification locale : le `?v=` des assets ne change qu'au **commit** (`APP_VERSION` = SHA) → un JS modifié mais non commité reste servi depuis le cache navigateur. |
 | **Un nom de site cherché à l'exacte casse = un site qui ne peut plus écrire (tracker 403, 2026-10-02)** | `sites.name` vaut `Hounde`, `Ity`, `Lafigue`, `Ouagadougou`, `ASSAFO`… alors que les tables de correspondance des modules mélangent `HOUNDE`, `Hounde IT Agents`, `Sabodala`. Toute traduction nom → code module passe par une fonction **normalisée** (casse, accents, suffixe « IT Agents ») : `inspection-db.siteNameToCode`, `tracker-db.siteNameToCode` / **`siteToCode(site)`** (repli sur chaque entrée du `zoho_group`). Ne jamais écrire `MAP[site.name]`. Tester avec les **11 noms réels de la prod** (`tests/tracker-site-code.test.js`). |
 | **Lecture par rapport ou par site : le garde CENTRAL suffit — ne pas re-coder un contrôle de site par route (2026-10-02)** | `server.js` enregistre, juste après `requireReportSession`, un `app.get([_REPORT_ID_READ, _SITE_ID_READ], …)` qui refuse à un non-admin tout `GET /api/reports/<id>/…` dont le rapport n'est pas de son site, et tout `/api/reports/{monthly,yearly,objectives}/<site>/…` ou `/api/sites/<site>/…` d'un autre site. Une nouvelle route de lecture sous ces chemins est donc verrouillée **d'office** ; une route adressée autrement (par code de site, par groupe Zoho) doit appeler `_siteCodeReadDenied` / `_userSiteGroups`. Les ÉCRITURES gardent `_authorizeReportWrite` / `_authorizeSiteWrite` / `_sitelessWriteDenied`. |
 | **`listReports` ne renvoie PAS de `site_id` (seulement `site_name`) — et un `site_id` falsy y supprime le filtre** | Un test qui vérifie `rows.every(r => r.site_id === …)` échoue sur du code correct. Et `listReports(undefined)` rend **tous** les sites : un non-admin sans site doit recevoir `[]` explicitement (`GET /api/reports` le fait). |
