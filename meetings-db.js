@@ -431,7 +431,10 @@ function _siteNameToCode(name) {
 //   [SITE]_[Department]_PV_[YYYY-MM]   →  HGO_Maintenance_PV_2026-05
 // If the user re-saves a meeting whose meeting_date moves to a new month,
 // the reference auto-updates (caller may pass a fixed reference to override).
-function _buildReference(site_code, department, meeting_date) {
+// A Business Incubation session gets _INC_ instead of _PV_ (2026-10-03, same tag as the
+// incubation import): with _PV_ a hand-entered incubation matched the month's PV by
+// reference and OVERWROTE it.
+function _buildReference(site_code, department, meeting_date, intake_source) {
   if (!site_code || !department || !meeting_date) return null;
   const m = String(meeting_date).match(/^(\d{4})-(\d{2})/);
   if (!m) return null;
@@ -440,7 +443,8 @@ function _buildReference(site_code, department, meeting_date) {
     .split('_')
     .map(w => w.charAt(0).toUpperCase() + w.slice(1))
     .join('_');
-  return `${site_code}_${dept}_PV_${m[1]}-${m[2]}`;
+  const tag = String(intake_source || '') === 'business_incubation' ? 'INC' : 'PV';
+  return `${site_code}_${dept}_${tag}_${m[1]}-${m[2]}`;
 }
 
 // ── Public API ──────────────────────────────────────────────────────────────
@@ -724,7 +728,7 @@ function saveMeeting(state, userSiteCode, userId) {
   // INSERT branch and the row gets skipped.
   if (!exist && !id) {
     const incomingRef = (h.reference || '').trim()
-      || _buildReference(h.site_code, h.department, h.meeting_date);
+      || _buildReference(h.site_code, h.department, h.meeting_date, h.intake_source);
     if (incomingRef) {
       // Case-insensitive reference match — a re-import carrying an
       // UPPERCASE reference (MGO_FINANCE_PV_2026-05) must adopt the
@@ -792,7 +796,7 @@ function saveMeeting(state, userSiteCode, userId) {
   //   3. _buildReference() fallback when caller didn't supply one
   const reference = (exist && exist.reference)
                     || (h.reference != null ? String(h.reference).trim() : '')
-                    || _buildReference(h.site_code, h.department, h.meeting_date);
+                    || _buildReference(h.site_code, h.department, h.meeting_date, h.intake_source);
 
   const tx = db.transaction(() => {
     // Header upsert
@@ -1026,7 +1030,7 @@ async function _saveMeetingPg(state, userSiteCode, userId) {
   if (!h.department)   throw new Error('Missing department');
   if (!h.meeting_date) throw new Error('Missing meeting_date');
   if (!exist && !id) {
-    const incomingRef = (h.reference || '').trim() || _buildReference(h.site_code, h.department, h.meeting_date);
+    const incomingRef = (h.reference || '').trim() || _buildReference(h.site_code, h.department, h.meeting_date, h.intake_source);
     if (incomingRef) {
       exist = await H.prepare('SELECT * FROM md_meetings WHERE lower(reference) = lower(?)').get(incomingRef);
       if (exist) id = exist.id;
@@ -1048,7 +1052,7 @@ async function _saveMeetingPg(state, userSiteCode, userId) {
     if (incomingSite !== userSiteCode) throw new Error(`Cross-site save blocked: editor scoped to ${userSiteCode}, cannot write site ${incomingSite}`);
     // RBAC lot 4c: a closed PV is editable by an editor of its site (site checks above).
   }
-  const reference = (exist && exist.reference) || (h.reference != null ? String(h.reference).trim() : '') || _buildReference(h.site_code, h.department, h.meeting_date);
+  const reference = (exist && exist.reference) || (h.reference != null ? String(h.reference).trim() : '') || _buildReference(h.site_code, h.department, h.meeting_date, h.intake_source);
 
   await H.runTransaction(async () => {
     const hp = {

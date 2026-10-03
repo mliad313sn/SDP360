@@ -14,6 +14,7 @@
 <script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
 <link rel="stylesheet" href="module-tabs.css">
 <script nonce="%%CSP_NONCE%%" src="module-tabs.js"></script>
+<script src="lib/incubationEditor.js"></script>
 
 <style nonce="%%CSP_NONCE%%">
   body {
@@ -205,6 +206,10 @@
     border-color: var(--edv-orange, #EF631A); color: var(--edv-orange, #EF631A);
     background: rgba(239,99,26,.04);
   }
+
+  /* ── Business Incubation mode (2026-10-03) — one form, two layouts ── */
+  .pv-main[data-mode="inc"] [data-only="pv"] { display: none !important; }
+  .pv-main:not([data-mode="inc"]) [data-only="inc"] { display: none !important; }
 
   /* ── Issue-specific styling ──────────────────────────────────────── */
   .pv-issue--HIGH   { border-left: 4px solid var(--edv-red, #D90038); }
@@ -461,12 +466,12 @@
     <!-- ============================================================== -->
     <!--  LEFT — the 7-section PV editor                                 -->
     <!-- ============================================================== -->
-    <div class="pv-main">
+    <div class="pv-main" id="pvMain" data-mode="pv">
 
       <!-- Section 1 — Meeting header / En-tête de réunion ───────── -->
       <div class="pv-card">
         <div class="pv-card__head">
-          <div class="pv-card__title">1 · Meeting header <em>· En-tête de réunion</em></div>
+          <div class="pv-card__title"><span data-only="pv">1 · Meeting header <em>· En-tête de réunion</em></span><span data-only="inc">1 · Identification <em>· Identification de la session</em></span></div>
           <div class="pv-card__hint">Site × department × month → reference auto-generated</div>
         </div>
 
@@ -487,10 +492,14 @@
 
         <div class="pv-row pv-row--three">
           <div class="pv-field">
-            <label>Meeting date <em>· Date de réunion</em><span class="req">*</span></label>
+            <label><span data-only="pv">Meeting date <em>· Date de réunion</em></span><span data-only="inc">Session start <em>· Début de session</em></span><span class="req">*</span></label>
             <input type="date" id="hDate">
           </div>
-          <div class="pv-field">
+          <div class="pv-field" data-only="inc">
+            <label>Session end <em>· Fin de session</em></label>
+            <input type="date" id="incEnd">
+          </div>
+          <div class="pv-field" data-only="pv">
             <label>Duration (minutes) <em>· Durée</em></label>
             <input type="number" id="hDuration" min="0" step="5" placeholder="60">
           </div>
@@ -500,12 +509,27 @@
           </div>
         </div>
 
-        <div class="pv-row">
+        <div class="pv-row pv-row--three" data-only="inc">
           <div class="pv-field">
-            <label>Department head <em>· Chef de département</em></label>
-            <input type="text" id="hDeptHead" list="pvPeopleList" placeholder="Full name">
+            <label>Incubatee <em>· Incubé</em></label>
+            <input type="text" id="incIncubator" placeholder="Business person hosted in IT">
           </div>
           <div class="pv-field">
+            <label>Incubatee title <em>· Fonction de l'incubé</em></label>
+            <input type="text" id="incIncubatorTitle" placeholder="Geologist, Mine planner, …">
+          </div>
+          <div class="pv-field">
+            <label>Duration <em>· Durée</em></label>
+            <input type="text" id="incDuration" placeholder="e.g. 2 days · 2 jours">
+          </div>
+        </div>
+
+        <div class="pv-row">
+          <div class="pv-field">
+            <label><span data-only="pv">Department head <em>· Chef de département</em></span><span data-only="inc">Incubation manager <em>· Manager d'incubation</em></span></label>
+            <input type="text" id="hDeptHead" list="pvPeopleList" placeholder="Full name">
+          </div>
+          <div class="pv-field" data-only="pv">
             <label>Title <em>· Fonction</em></label>
             <input type="text" id="hDeptHeadTitle" placeholder="Mining Manager, Plant Superintendent, …">
           </div>
@@ -513,7 +537,7 @@
 
         <div class="pv-row pv-row--single">
           <div class="pv-field">
-            <label>Site IT Lead <em>· Pilote IT site</em></label>
+            <label><span data-only="pv">Site IT Lead <em>· Pilote IT site</em></span><span data-only="inc">IT manager <em>· Manager IT</em></span></label>
             <input type="text" id="hItLead" list="pvPeopleList" placeholder="Full name">
           </div>
         </div>
@@ -528,11 +552,40 @@
         <datalist id="pvPeopleList"></datalist>
       </div>
 
-      <!-- Business Incubation extras (read-only) — shown only for incubation sessions -->
-      <div id="pv-incubation"></div>
+      <!-- Business Incubation §2-§4 (2026-10-03) — editable, shown only for an incubation -->
+      <div class="pv-card" data-only="inc">
+        <div class="pv-card__head">
+          <div class="pv-card__title">2 · Business description <em>· Description du métier</em></div>
+          <div class="pv-card__hint">What the department / occupation does, in its own words</div>
+        </div>
+        <div class="pv-row pv-row--single">
+          <div class="pv-field">
+            <label>Description <em>· Description</em></label>
+            <textarea id="incDesc" style="min-height:110px" placeholder="One paragraph describing the department or occupation"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="pv-card" data-only="inc">
+        <div class="pv-card__head">
+          <div class="pv-card__title">3 · Information flow <em>· Flux de l'information</em></div>
+          <div class="pv-card__hint">Incoming information → activity → outgoing information</div>
+        </div>
+        <div class="pv-list" id="incFlow"></div>
+        <button class="pv-add" type="button" id="incAddFlow">+ Add a flow · Ajouter un flux</button>
+      </div>
+
+      <div class="pv-card" data-only="inc">
+        <div class="pv-card__head">
+          <div class="pv-card__title">4 · Services provided <em>· Services fournis</em></div>
+          <div class="pv-card__hint">IT services the department relies on</div>
+        </div>
+        <div class="pv-list" id="incServices"></div>
+        <button class="pv-add" type="button" id="incAddService">+ Add a service · Ajouter un service</button>
+      </div>
 
       <!-- Section 2 — 3 priorities / 3 priorités ─────────────────── -->
-      <div class="pv-card">
+      <div class="pv-card" data-only="pv">
         <div class="pv-card__head">
           <div class="pv-card__title">2 · Three priorities <em>· Trois priorités du département</em></div>
           <div class="pv-card__hint">In the department's own words — context for every issue below</div>
@@ -558,7 +611,7 @@
       </div>
 
       <!-- Section 3 — Department projects ────────────────────────── -->
-      <div class="pv-card">
+      <div class="pv-card" data-only="pv">
         <div class="pv-card__head">
           <div class="pv-card__title">3 · Department projects <em>· Projets du département</em></div>
           <div class="pv-card__hint">Initiatives in flight — IT involvement level matters more than IT ownership</div>
@@ -570,17 +623,17 @@
       <!-- Section 4 — Issues raised ──────────────────────────────── -->
       <div class="pv-card">
         <div class="pv-card__head">
-          <div class="pv-card__title">4 · Issues raised <em>· Problèmes soulevés</em></div>
+          <div class="pv-card__title"><span data-only="pv">4 · Issues raised <em>· Problèmes soulevés</em></span><span data-only="inc">5 · Challenges &amp; obstacles <em>· Défis &amp; obstacles</em></span></div>
           <div class="pv-card__hint">9 canonical categories · severity HIGH/MEDIUM/LOW · escalate triggers Council theme</div>
         </div>
         <div class="pv-list" id="pvIssues"></div>
-        <button class="pv-add" type="button" id="pvAddIssue">+ Add issue · Ajouter un problème</button>
+        <button class="pv-add" type="button" id="pvAddIssue"><span data-only="pv">+ Add issue · Ajouter un problème</span><span data-only="inc">+ Add a challenge · Ajouter un défi</span></button>
       </div>
 
       <!-- Section 5 — Actions / IT commitments ───────────────────── -->
       <div class="pv-card">
         <div class="pv-card__head">
-          <div class="pv-card__title">5 · Actions <em>· Engagements IT</em></div>
+          <div class="pv-card__title"><span data-only="pv">5</span><span data-only="inc">6</span> · Actions <em>· Engagements IT</em></div>
           <div class="pv-card__hint">Every action needs a named Champion (Engagement #3)</div>
         </div>
         <div class="pv-list" id="pvActions"></div>
@@ -590,7 +643,7 @@
       <!-- Section 6 — Council escalations (auto-derived) ─────────── -->
       <div class="pv-card">
         <div class="pv-card__head">
-          <div class="pv-card__title">6 · Council escalations <em>· Escalades Mine IT Council</em></div>
+          <div class="pv-card__title"><span data-only="pv">6</span><span data-only="inc">7</span> · Council escalations <em>· Escalades Mine IT Council</em></div>
           <div class="pv-card__hint">Auto-derived from issues with <strong>Escalate = Yes</strong></div>
         </div>
         <div id="pvEscSummary"></div>
@@ -599,24 +652,24 @@
       <!-- Section 7 — Sign-off ───────────────────────────────────── -->
       <div class="pv-card">
         <div class="pv-card__head">
-          <div class="pv-card__title">7 · Sign-off <em>· Signatures</em></div>
+          <div class="pv-card__title"><span data-only="pv">7</span><span data-only="inc">8</span> · Sign-off <em>· Signatures</em></div>
           <div class="pv-card__hint">Both signatures stamp the PV with a timestamp (server time)</div>
         </div>
 
         <div class="pv-row">
           <div class="pv-field">
-            <label>Dept Head signed at <em>· Chef département signé le</em></label>
+            <label><span data-only="pv">Dept Head signed at <em>· Chef département signé le</em></span><span data-only="inc">Incubation manager signed at <em>· Manager d'incubation signé le</em></span></label>
             <input type="text" id="hDeptHeadSigned" readonly>
           </div>
           <div class="pv-field">
-            <label>Site IT Lead signed at <em>· Pilote IT signé le</em></label>
+            <label><span data-only="pv">Site IT Lead signed at <em>· Pilote IT signé le</em></span><span data-only="inc">IT manager signed at <em>· Manager IT signé le</em></span></label>
             <input type="text" id="hItLeadSigned" readonly>
           </div>
         </div>
 
         <div class="pv-row">
           <div class="pv-field">
-            <label>Next meeting date <em>· Date prochaine réunion</em></label>
+            <label><span data-only="pv">Next meeting date <em>· Date prochaine réunion</em></span><span data-only="inc">Next session <em>· Prochaine session</em></span></label>
             <input type="date" id="hNextDate">
           </div>
           <div class="pv-field">
@@ -1177,6 +1230,8 @@
     if (kind === 'project') { state.projects.splice(ix, 1); renderProjects(); }
     if (kind === 'issue')   { state.issues.splice(ix, 1);   renderIssues(); renderActions(); }
     if (kind === 'action')  { state.actions.splice(ix, 1);  renderActions(); }
+    if (kind === 'flow')    { state.incubation.flow.splice(ix, 1);     renderIncFlow(); }
+    if (kind === 'service') { state.incubation.services.splice(ix, 1); renderIncServices(); }
     refreshEngagements();
   });
 
@@ -1215,6 +1270,8 @@
           projects: state.projects,
           issues:   state.issues,
           actions:  state.actions,
+          // Business Incubation §1-§4 — the blob for an incubation, null (= clear) for a PV.
+          incubation: IncubationEditor.payloadIncubation(state.header, state.incubation),
         }
       };
       // Submitting? Stamp submitted_at server-side via the status flip
@@ -1410,6 +1467,7 @@
       state.issues   = rec.issues   || [];
       state.actions  = rec.actions  || [];
       state.updates  = rec.updates  || [];
+      state.incubation = null;
 
       // Lock if closed AND user is editor (admin+ can still edit)
       state.locked = (state.header.status === 'closed');
@@ -1434,47 +1492,58 @@
     refreshEngagements();
   }
 
-  // Read-only Business Incubation panel — the §2 description, §3 information flow
-  // and §4 services provided that don't fit the regular PV schema (stored in
-  // md_meetings.incubation_json → header.incubation). Only rendered when present.
-  function renderIncubation() {
-    const el = document.getElementById('pv-incubation');
-    if (!el) return;
-    const inc = state.header && state.header.incubation;
-    if (!inc) { el.innerHTML = ''; return; }
-    const r = inc.roles || {};
-    const flow = Array.isArray(inc.flow) ? inc.flow : [];
-    const svc  = Array.isArray(inc.services) ? inc.services : [];
-    const fr = document.body.classList.contains('lang-fr');
-    let h = '<div class="pv-card"><div class="pv-card__head"><div class="pv-card__title">🌱 ' +
-      (fr ? 'Incubation métier' : 'Business Incubation') + '</div></div><div style="padding:12px 16px">';
-    const meta = [];
-    if (r.incubator) meta.push((fr ? 'Incubé' : 'Incubator') + ': <strong>' + esc(r.incubator) + '</strong>' + (r.incubator_title ? ' — ' + esc(r.incubator_title) : ''));
-    if (r.incubation_manager) meta.push((fr ? 'Manager d\'incubation' : 'Incubation Manager') + ': <strong>' + esc(r.incubation_manager) + '</strong>');
-    if (r.it_manager) meta.push('IT Manager: <strong>' + esc(r.it_manager) + '</strong>');
-    if (inc.duration) meta.push((fr ? 'Durée' : 'Duration') + ': ' + esc(inc.duration));
-    if (meta.length) h += '<p style="margin:0 0 10px;font-size:13px">' + meta.join(' &nbsp;·&nbsp; ') + '</p>';
-    if (inc.business_description) h += '<p style="margin:0 0 12px;white-space:pre-wrap"><strong>' + (fr ? 'Description du métier' : 'Business description') + '</strong><br>' + esc(inc.business_description) + '</p>';
-    if (flow.length) {
-      h += '<div style="font-weight:600;margin:8px 0 4px">' + (fr ? 'Flux de l\'information' : 'Information flow') + '</div>';
-      h += '<table style="width:100%;border-collapse:collapse;font-size:12.5px;margin-bottom:12px"><thead><tr>' +
-        ['<th style="text-align:left;padding:4px 6px;border-bottom:1px solid #ddd">' + (fr ? 'Entrant' : 'Incoming') + '</th>',
-         '<th style="text-align:left;padding:4px 6px;border-bottom:1px solid #ddd">' + (fr ? 'Activité' : 'Activity') + '</th>',
-         '<th style="text-align:left;padding:4px 6px;border-bottom:1px solid #ddd">' + (fr ? 'Sortant' : 'Outgoing') + '</th>'].join('') +
-        '</tr></thead><tbody>' + flow.map(f => '<tr><td style="padding:4px 6px;vertical-align:top;white-space:pre-wrap">' + esc(f.incoming) + '</td><td style="padding:4px 6px;vertical-align:top;white-space:pre-wrap">' + esc(f.activity) + '</td><td style="padding:4px 6px;vertical-align:top;white-space:pre-wrap">' + esc(f.outgoing) + '</td></tr>').join('') + '</tbody></table>';
-    }
-    if (svc.length) {
-      h += '<div style="font-weight:600;margin:8px 0 4px">' + (fr ? 'Services fournis' : 'Services provided') + '</div>';
-      h += '<table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr>' +
-        ['<th style="text-align:left;padding:4px 6px;border-bottom:1px solid #ddd">' + (fr ? 'Service' : 'Service') + '</th>',
-         '<th style="text-align:left;padding:4px 6px;border-bottom:1px solid #ddd">' + (fr ? 'Bénéficiaire' : 'Beneficiary') + '</th>',
-         '<th style="text-align:left;padding:4px 6px;border-bottom:1px solid #ddd">' + (fr ? 'Statut' : 'Status') + '</th>'].join('') +
-        '</tr></thead><tbody>' + svc.map(x => '<tr><td style="padding:4px 6px">' + esc(x.service) + '</td><td style="padding:4px 6px">' + esc(x.beneficiary) + '</td><td style="padding:4px 6px">' + esc(x.status) + '</td></tr>').join('') + '</tbody></table>';
-    }
-    h += '<p style="margin:10px 0 0;font-size:11.5px;color:#6B7785">' + (fr ? 'Les défis de cette session sont dans la liste des issues ci-dessous.' : 'This session\'s challenges are in the issues list below.') + '</p>';
-    h += '</div></div>';
-    el.innerHTML = h;
+  // Business Incubation (2026-10-03) — one form, two layouts. data-mode on .pv-main
+  // switches the PV-only / incubation-only blocks; §1 extras, §2 description, §3 flow
+  // and §4 services edit state.incubation, saved with the PV (server re-normalises).
+  function applyMode() {
+    const inc = IncubationEditor.isIncubation(state.header);
+    document.getElementById('pvMain').dataset.mode = inc ? 'inc' : 'pv';
+    const pt = document.getElementById('pvPrintTitle');
+    if (pt) pt.textContent = inc ? 'Business incubation' : 'Department meeting';
   }
+  function renderIncubation() {
+    if (!state.incubation) state.incubation = IncubationEditor.fromHeader(state.header);
+    const inc = state.incubation;
+    document.getElementById('incEnd').value            = inc.session_end || '';
+    document.getElementById('incDuration').value       = inc.duration || '';
+    document.getElementById('incIncubator').value      = inc.roles.incubator || '';
+    document.getElementById('incIncubatorTitle').value = inc.roles.incubator_title || '';
+    document.getElementById('incDesc').value           = inc.business_description || '';
+    renderIncFlow();
+    renderIncServices();
+    applyMode();
+  }
+  function renderIncFlow()     { document.getElementById('incFlow').innerHTML     = IncubationEditor.flowRowsHtml(state.incubation.flow, esc); }
+  function renderIncServices() { document.getElementById('incServices').innerHTML = IncubationEditor.serviceRowsHtml(state.incubation.services, esc); }
+
+  function bindInc(id, set) {
+    document.getElementById(id).addEventListener('input', e => { set(state.incubation, e.target.value); });
+  }
+  bindInc('incEnd',            (i, v) => { i.session_end = v; });
+  bindInc('incDuration',       (i, v) => { i.duration = v; });
+  bindInc('incIncubator',      (i, v) => { i.roles.incubator = v; });
+  bindInc('incIncubatorTitle', (i, v) => { i.roles.incubator_title = v; });
+  bindInc('incDesc',           (i, v) => { i.business_description = v; });
+  document.getElementById('hIntake').addEventListener('change', applyMode);
+
+  document.getElementById('incAddFlow').addEventListener('click', () => {
+    if (state.locked) return;
+    state.incubation.flow.push({ incoming: '', activity: '', outgoing: '' });
+    renderIncFlow();
+  });
+  document.getElementById('incAddService').addEventListener('click', () => {
+    if (state.locked) return;
+    state.incubation.services.push({ service: '', beneficiary: '', status: 'active' });
+    renderIncServices();
+  });
+  document.getElementById('incFlow').addEventListener('input', e => {
+    const card = e.target.closest('.pv-item'); if (!card) return;
+    Object.assign(state.incubation.flow[parseInt(card.dataset.ix, 10)], collectItem(card, ['incoming', 'activity', 'outgoing']));
+  });
+  document.getElementById('incServices').addEventListener('input', e => {
+    const card = e.target.closest('.pv-item'); if (!card) return;
+    Object.assign(state.incubation.services[parseInt(card.dataset.ix, 10)], collectItem(card, ['service', 'beneficiary', 'status']));
+  });
 
   (async function () {
     try {

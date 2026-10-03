@@ -8474,6 +8474,14 @@ app.post('/api/meetings/save', requireReportSession, meetingsJsonBody, async (re
     const userSite = await _userMeetingsSite(req.reportUser);
     if (_sitelessWriteDenied(req.reportUser, userSite)) return res.status(403).json({ error: 'Your account has no site assigned for this module. Contact your administrator.' });
     const out      = await meetingsDb.saveMeeting(state, userSite, req.reportUser.id || null);
+    // Business Incubation entered by hand (2026-10-03): state.incubation carries §1-§4 of
+    // the follow-up report. Stored (normalised) only for an incubation session, cleared
+    // otherwise; an OMITTED key (header-only saves) leaves the stored blob untouched.
+    if (state.incubation !== undefined && out && out.id) {
+      const isInc = String(state.header.intake_source || '') === 'business_incubation';
+      await meetingsDb.setMeetingIncubation(out.id,
+        isInc && state.incubation ? require('./services/incubationForm').normalizeIncubation(state.incubation) : null);
+    }
     res.json({ ok: true, ...out, scope: userSite || 'all' });
   } catch(e) {
     console.error('[Meetings] save error:', e.message);

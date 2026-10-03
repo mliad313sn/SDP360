@@ -19,6 +19,7 @@
 // MEETINGS_BACKEND=postgres. Callers MUST await commit(...).
 // ─────────────────────────────────────────────────────────────────────────────
 const XLSX = require('xlsx');
+const { normalizeServiceStatus, SERVICE_STATUSES } = require('./services/incubationForm');
 
 const SHEET = {
   session:    ['Session', 'Sessions', 'Identification'],
@@ -205,7 +206,7 @@ function parseBuffer(buf, lookups) {
     const svc = String(row.service || '').trim();
     if (svc) byRef[ref].incubation.services.push({
       service: svc, beneficiary: String(row.beneficiary || row.beneficiaire || row.bénéficiaire || '').trim(),
-      status: String(row.status || row.statut || '').trim(),
+      status: normalizeServiceStatus(row.status || row.statut),   // closed list (2026-10-03)
     });
   });
 
@@ -276,7 +277,7 @@ function buildTemplate(lookups) {
   const s4 = XLSX.utils.aoa_to_sheet(vData); s4['!cols'] = vHdr.map(h => ({ wch: Math.max(h.length + 2, 18) })); XLSX.utils.book_append_sheet(wb, s4, 'Services');
 
   const codes = [['LOOKUP','CODE','NAME EN','NAME FR']];
-  const grp = [['site', lookups.sites || []], ['department', lookups.departments || []], ['category', lookups.categories || []], ['priority', [{code:'Haute/High'},{code:'Moyenne/Medium'},{code:'Basse/Low'}]], ['issue_status', lookups.statuses || []], ['meeting_status', lookups.meeting_statuses || []]];
+  const grp = [['site', lookups.sites || []], ['department', lookups.departments || []], ['category', lookups.categories || []], ['priority', [{code:'Haute/High'},{code:'Moyenne/Medium'},{code:'Basse/Low'}]], ['service_status', SERVICE_STATUSES.map(c => ({ code: c }))], ['issue_status', lookups.statuses || []], ['meeting_status', lookups.meeting_statuses || []]];
   grp.forEach(([name, list]) => { list.forEach(r => codes.push([name, r.code, r.name_en || r.name || '', r.name_fr || ''])); codes.push(['','','','']); });
   const s5 = XLSX.utils.aoa_to_sheet(codes); s5['!cols'] = [{wch:18},{wch:24},{wch:36},{wch:36}]; XLSX.utils.book_append_sheet(wb, s5, 'Codes');
 

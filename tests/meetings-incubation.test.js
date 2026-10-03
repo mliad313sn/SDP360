@@ -97,6 +97,7 @@ test('buildTemplate → parseBuffer round-trips all 4 sheets', () => {
   assert.equal(s.issues[0].severity, 'HIGH');     // "Haute"
   assert.equal(s.incubation.flow.length, 1);
   assert.equal(s.incubation.services.length, 1);
+  assert.equal(s.incubation.services[0].status, 'active', 'template "Active" → closed-list code (2026-10-03)');
   assert.ok(s.incubation.roles.incubation_manager);
 });
 
@@ -140,4 +141,21 @@ test('commit persists a session as meeting + issues + incubation; re-commit is i
   const r2 = await inc.commit(inc.parseBuffer(buf, lk), mdb, {});
   assert.equal(r2.created, 0, 're-commit creates nothing new');
   assert.equal(r2.updated, 1, 're-commit updates the existing session');
+});
+
+// 2026-10-03 — an incubation entered by hand (no reference) must NEVER land on the
+// month's PV: the auto-reference used to be SITE_Dept_PV_YYYY-MM for both, and the
+// reference match then UPDATED the PV with the incubation (audit F1 class).
+test('a hand-entered incubation gets its own _INC_ reference and never overwrites the PV', () => {
+  const pv  = mdb.saveMeeting({ header: { site_code: 'HGO', department: 'finance', meeting_date: '2026-10-05', status: 'draft', priority_1: 'keep me' } }, null, null);
+  const inc = mdb.saveMeeting({ header: { site_code: 'HGO', department: 'finance', meeting_date: '2026-10-20', intake_source: 'business_incubation', status: 'draft' } }, null, null);
+  assert.notEqual(inc.id, pv.id, 'a distinct record');
+  const pvRec = mdb.getMeeting(pv.id).header, incRec = mdb.getMeeting(inc.id).header;
+  assert.match(incRec.reference, /^HGO_Finance_INC_2026-10$/);
+  assert.match(pvRec.reference, /_PV_2026-10$/);
+  assert.equal(pvRec.intake_source || 'dept_meeting', 'dept_meeting', 'the PV is untouched');
+  assert.equal(pvRec.priority_1, 'keep me');
+  // re-saving the incubation updates itself, not the PV
+  const again = mdb.saveMeeting({ id: inc.id, header: { id: inc.id, site_code: 'HGO', department: 'finance', meeting_date: '2026-10-20', intake_source: 'business_incubation', status: 'submitted' } }, null, null);
+  assert.equal(again.id, inc.id);
 });

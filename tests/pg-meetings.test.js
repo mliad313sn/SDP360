@@ -261,3 +261,18 @@ test('pg analytics: previousMeeting + compareDepartment + getSiteMonthlyMeetingS
     assert.equal(hm.diffused_48h, 1, 'April PV diffused within 48h, May draft not');
   } finally { try { await mdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
 });
+
+// 2026-10-03 — parity: a hand-entered incubation gets an _INC_ reference on pg too and
+// never overwrites the month's PV.
+test('pg: a hand-entered incubation never overwrites the month PV (_INC_ reference)', async (t) => {
+  const b = await boot(); if (!b) return t.skip('no pg');
+  const { ctx, mdb } = b; const h = mdb.pgHandle();
+  try {
+    await mdb.loadLookups();
+    const pv  = await mdb.saveMeeting({ header: { site_code: 'HGO', department: 'finance', meeting_date: '2026-10-05', status: 'draft', priority_1: 'keep me' } }, null, null);
+    const inc = await mdb.saveMeeting({ header: { site_code: 'HGO', department: 'finance', meeting_date: '2026-10-20', intake_source: 'business_incubation', status: 'draft' } }, null, null);
+    assert.notEqual(inc.id, pv.id);
+    assert.equal((await mdb.getMeeting(inc.id)).header.reference, 'HGO_Finance_INC_2026-10');
+    assert.equal((await mdb.getMeeting(pv.id)).header.priority_1, 'keep me');
+  } finally { try { await h.close(); } catch {} await dropTestDb(ctx); }
+});
