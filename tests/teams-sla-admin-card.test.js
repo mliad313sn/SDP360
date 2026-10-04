@@ -51,3 +51,10 @@ test('the age limit has its own field, merged into the rules on save', () => {
   const fn = src.slice(src.indexOf('function saveTeamsSlaCard'), src.indexOf('function testTeamsSlaChannel'));
   assert.match(fn, /max_ticket_age_days/);
 });
+
+test('every inline <script> of reports.html still compiles (one bad quote kills the whole admin console)', () => {
+  const re = /<script(?![^>]*src)[^>]*>([\s\S]*?)<\/script>/g;
+  let m, n = 0;
+  while ((m = re.exec(src))) { assert.doesNotThrow(() => new Function(m[1])); n++; }
+  assert.ok(n >= 1);
+});

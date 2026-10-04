@@ -27,11 +27,14 @@ function _defaultTransport() {
 }
 
 function makeSdpClient({ baseUrl, accountsUrl = 'https://accounts.zoho.com', clientId, clientSecret, refreshToken,
-  openFilter = 'Open_System', transport } = {}) {
+  openFilter = 'Open_System', excludeStatuses = [], transport } = {}) {
   const T = transport || _defaultTransport();
   const configured = !!(baseUrl && clientId && clientSecret && refreshToken);
   const base = String(baseUrl || '').replace(/\/+$/, '');
   let token = null, tokenExp = 0;
+  // 'none' (no statuses to exclude) | 'accepted' | 'rejected' (SDP answered 400 → plain listing from then on)
+  let criteriaState = excludeStatuses && excludeStatuses.length ? 'pending' : 'none';
+  let meta = { criteria: criteriaState };
 
   async function _token() {
     if (token && Date.now() < tokenExp) return token;
@@ -53,23 +56,26 @@ function makeSdpClient({ baseUrl, accountsUrl = 'https://accounts.zoho.com', cli
 
   // createdAfterMs: the listing is newest first, so once a page reaches older tickets the
   // rest is older still → drop them and stop paging (fewer API calls every 5 min).
-  async function listOpenRequests({ rowCount = 100, maxPages = MAX_PAGES, createdAfterMs = null } = {}) {
-    if (!configured) return [];
-    const tok = await _token();
+  async function _list(tok, { rowCount, maxPages, createdAfterMs, useCriteria }) {
     const out = [];
     for (let page = 0; page < maxPages; page++) {
-      const input = { list_info: { row_count: rowCount, start_index: page * rowCount + 1, sort_field: 'created_time',
-        sort_order: 'desc', filter_by: { name: openFilter }, fields_required: FIELDS } };
+      const li = { row_count: rowCount, start_index: page * rowCount + 1, sort_field: 'created_time',
+        sort_order: 'desc', filter_by: { name: openFilter }, fields_required: FIELDS };
+      // Ask SDP to leave finished tickets out (the 'Open_System' filter name is ignored by
+      // the cloud edition — prod preview 2026-10-04 read 1598 Closed out of 2036).
+      if (useCriteria) li.search_criteria = [{ field: 'status.name', condition: 'is not', values: excludeStatuses }];
       let res;
       try {
         res = await T.get(`${base}/requests`, {
-          params: { input_data: JSON.stringify(input) },
+          params: { input_data: JSON.stringify({ list_info: li }) },
           headers: { Authorization: `Zoho-oauthtoken ${tok}`, Accept: 'application/vnd.manageengine.sdp.v3+json' },
         });
       } catch (e) {
         const st = e && e.response && e.response.status;
         const msg = e && e.response && e.response.data && JSON.stringify(e.response.data).slice(0, 300);
-        throw new Error(`SDP GET /requests${st ? ` → HTTP ${st}` : ` → ${e.message}`}${msg ? ` ${msg}` : ''}`);
+        const err = new Error(`SDP GET /requests${st ? ` → HTTP ${st}` : ` → ${e.message}`}${msg ? ` ${msg}` : ''}`);
+        err.status = st;
+        throw err;
       }
       const d = (res && res.data) || {};
       const rows = Array.isArray(d.requests) ? d.requests : [];
@@ -83,8 +89,27 @@ function makeSdpClient({ baseUrl, accountsUrl = 'https://accounts.zoho.com', cli
     return out;
   }
 
+  async function listOpenRequests({ rowCount = 100, maxPages = MAX_PAGES, createdAfterMs = null } = {}) {
+    if (!configured) return [];
+    const tok = await _token();
+    const opts = { rowCount, maxPages, createdAfterMs };
+    if (criteriaState === 'pending' || criteriaState === 'accepted') {
+      try {
+        const rows = await _list(tok, { ...opts, useCriteria: true });
+        criteriaState = 'accepted'; meta = { criteria: criteriaState };
+        return rows;
+      } catch (e) {
+        if (e.status !== 400) throw e;
+        criteriaState = 'rejected';   // this instance does not take the criteria: plain listing from now on
+      }
+    }
+    const rows = await _list(tok, { ...opts, useCriteria: false });
+    meta = { criteria: criteriaState };
+    return rows;
+  }
+
   // rows a default listing can hold — a result this long was probably cut off
-  return { configured, listOpenRequests, pageCap: 100 * MAX_PAGES };
+  return { configured, listOpenRequests, pageCap: 100 * MAX_PAGES, lastMeta: () => ({ ...meta }) };
 }
 
 module.exports = { makeSdpClient, FIELDS };

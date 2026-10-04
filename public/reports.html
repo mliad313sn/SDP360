@@ -8098,6 +8098,8 @@ function _tslaShow(r) {
   const LBL = { fr_breach: '1re réponse dépassée', res_breach: 'résolution dépassée', fr_soon: '1re réponse bientôt due', res_soon: 'résolution bientôt due', unassigned: 'non assigné' };
   const lines = [`${r.tickets} ticket(s) ouvert(s) lus · ${r.alerts} alerte(s) · ${r.new} nouvelle(s)`];
   if (r.truncated) lines.push('⚠ Liste probablement TRONQUÉE (plafond de pagination atteint) — vérifier le filtre « tickets ouverts ».');
+  if (r.api_criteria === 'accepted') lines.push("Filtre côté SDP : actif (tickets terminés exclus par l'API).");
+  if (r.api_criteria === 'rejected') lines.push("⚠ Filtre côté SDP refusé par l'instance — lecture complète, tri fait par le dashboard.");
   if (r.by_status) lines.push('Statuts lus : ' + Object.entries(r.by_status).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n}`).join(' · '));
   if (r.preview) {
     if (!r.preview.length) lines.push('Rien à envoyer pour l\'instant.');

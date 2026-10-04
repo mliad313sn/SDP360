@@ -113,3 +113,12 @@ test('max_ticket_age_days: older tickets are ignored (0 = no limit)', () => {
   assert.equal(S.createdAfterMs(S.DEFAULT_RULES, NOW), NOW - 30 * 86400000);
   assert.equal(S.createdAfterMs(S.parseRules({ max_ticket_age_days: 0 }), NOW), null);
 });
+
+test('statuses seen in prod (2026-10-04): Rejected is finished; Awaiting Reply / Approval pending / PO Raised / Pending Verification pause the SLA', () => {
+  for (const status of ['Rejected', 'Awaiting Reply', 'Approval pending', 'PO Raised', 'Pending Verification', 'On Hold']) {
+    assert.deepEqual(S.evaluate([T({ status, fr_due_ms: min(5) })], S.DEFAULT_RULES, NOW), [], status);
+  }
+  for (const status of ['Open', 'In Progress', 'Assigned']) {
+    assert.deepEqual(kinds(S.evaluate([T({ status, fr_due_ms: min(5) })], S.DEFAULT_RULES, NOW)), ['fr_soon'], status);
+  }
+});

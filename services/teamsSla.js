@@ -18,9 +18,13 @@ const DEFAULT_RULES = Object.freeze({
   unassigned_minutes: 30,
   unassigned_max_age_hours: 24,
   // a status matching this (case-insensitive) pauses the SLA clock → no alert
-  paused_status: 'hold',
+  // statuses whose SLA clock is stopped in SDP (seen in prod 2026-10-04) — no alert
+  paused_status: 'hold|awaiting|approval|po raised|pending verification',
   // a status matching this is finished → never alerts, whatever the API filter returned
-  finished_status: 'resolved|closed|cancel|completed|confirm',
+  finished_status: 'resolved|closed|cancel|completed|confirm|reject',
+  // asked to SDP so it does not return finished tickets at all (fewer API calls); the
+  // dashboard still applies finished_status itself in case the API ignores the criteria
+  api_exclude_statuses: ['Closed', 'Resolved', 'Cancelled', 'Rejected', 'Completed'],
   max_tickets_per_card: 15,
   // tickets created more than N days ago are ignored (0 = no limit) — keeps forgotten old
   // tickets out of the alerts AND lets the API listing stop early (it is newest first)
@@ -47,6 +51,7 @@ function parseRules(raw) {
   }
   if (typeof r.paused_status === 'string') out.paused_status = r.paused_status;
   if (typeof r.finished_status === 'string') out.finished_status = r.finished_status;
+  if (Array.isArray(r.api_exclude_statuses)) out.api_exclude_statuses = r.api_exclude_statuses.map(String).filter(Boolean);
   return out;
 }
 
@@ -99,7 +104,9 @@ function evaluate(tickets, rules, nowMs) {
   const R = rules || DEFAULT_RULES;
   const out = [];
   const cutoff = createdAfterMs(R, nowMs);
-  const paused = R.paused_status ? new RegExp(R.paused_status.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') : null;
+  // paused_status / finished_status are regular expressions ('hold|awaiting|…'), case-insensitive
+  let paused = null;
+  try { paused = R.paused_status ? new RegExp(R.paused_status, 'i') : null; } catch (e) { paused = null; }
   let finished = null;
   try { finished = R.finished_status ? new RegExp(R.finished_status, 'i') : null; } catch (e) { finished = null; }
   const win = R.breach_window_minutes * 60000;

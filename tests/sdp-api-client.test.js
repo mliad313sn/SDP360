@@ -86,3 +86,30 @@ test('createdAfterMs: stops paging once a page reaches tickets older than the cu
   assert.deepEqual(rows.map(r => r.id), [1, 2, 3], 'older rows dropped, third page never fetched');
   assert.equal(t.calls.filter(x => x.m === 'get').length, 2);
 });
+
+test('asks SDP for unfinished tickets only (search_criteria on status.name)', async () => {
+  const t = fakeTransport([[]]);
+  const c = makeSdpClient({ ...CFG, transport: t, excludeStatuses: ['Closed', 'Resolved'] });
+  await c.listOpenRequests();
+  const li = JSON.parse(t.calls.find(x => x.m === 'get').opts.params.input_data).list_info;
+  assert.deepEqual(li.search_criteria, [{ field: 'status.name', condition: 'is not', values: ['Closed', 'Resolved'] }]);
+  assert.equal(c.lastMeta().criteria, 'accepted');
+});
+
+test('if SDP rejects the criteria (HTTP 400), it falls back to the plain listing and remembers it', async () => {
+  const calls = [];
+  const transport = {
+    post: async () => ({ data: { access_token: 'AT', expires_in: 3600 } }),
+    get: async (url, opts) => {
+      const li = JSON.parse(opts.params.input_data).list_info;
+      calls.push(!!li.search_criteria);
+      if (li.search_criteria) { const e = new Error('bad'); e.response = { status: 400, data: { response_status: { status: 'failed' } } }; throw e; }
+      return { data: { requests: [{ id: 1 }], list_info: { has_more_rows: false } } };
+    },
+  };
+  const c = makeSdpClient({ ...CFG, transport, excludeStatuses: ['Closed'] });
+  assert.deepEqual((await c.listOpenRequests()).map(r => r.id), [1]);
+  assert.equal(c.lastMeta().criteria, 'rejected');
+  await c.listOpenRequests();
+  assert.deepEqual(calls, [true, false, false], 'not retried on every pass');
+});

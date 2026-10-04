@@ -27,7 +27,8 @@ function _defaultDeps() {
     loadConfig: () => reportConfig.getConfig(rdb.db),
     makeClient: (c) => makeSdpClient({ baseUrl: c.sdp_api_base_url, accountsUrl: c.sdp_api_accounts_url,
       clientId: c.sdp_api_client_id, clientSecret: c.sdp_api_client_secret, refreshToken: c.sdp_api_refresh_token,
-      openFilter: c.sdp_api_open_filter || undefined }),
+      openFilter: c.sdp_api_open_filter || undefined,
+      excludeStatuses: S.parseRules(c.teams_sla_rules).api_exclude_statuses }),
     post: (url, card) => axios.post(url, card, { timeout: 15000, headers: { 'Content-Type': 'application/json' } }),
     log: require('../../services/slaAlertLog'),
     setConfig: (patch) => reportConfig.setConfig(rdb.db, patch, 'teams-sla'),
@@ -75,6 +76,7 @@ async function run({ dryRun = false, deps } = {}) {
       out.by_status = {};
       tickets.forEach(t => { const k = t.status || '(vide)'; out.by_status[k] = (out.by_status[k] || 0) + 1; });
       out.truncated = !!(client.pageCap && raw.length >= client.pageCap);
+      if (typeof client.lastMeta === 'function') out.api_criteria = client.lastMeta().criteria;
     }
     for (const { group, list } of [...byGroup.values()].sort((a, b) => a.group.localeCompare(b.group))) {
       const url = S.resolveChannel(group, channels);
