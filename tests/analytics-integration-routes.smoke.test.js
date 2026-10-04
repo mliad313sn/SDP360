@@ -11,6 +11,9 @@ process.env.DASHBOARD_API_KEY = process.env.DASHBOARD_API_KEY || 'an-int-key';
 process.env.ZOHO_CLIENT_ID = 'env-client-id';
 process.env.ZOHO_CLIENT_SECRET = 'env-secret-value';
 process.env.ZOHO_REFRESH_TOKEN = 'env-refresh-value';
+// defined-but-empty: dotenv never overrides an existing variable, so the real .env of the
+// main checkout (which sets WORKSPACE_ID…) cannot leak into the "default" assertions
+for (const k of ['WORKSPACE_ID', 'ORG_ID', 'ZOHO_ACCOUNTS_URL']) process.env[k] = '';
 
 const { test, before, after } = require('node:test');
 const assert = require('node:assert');
