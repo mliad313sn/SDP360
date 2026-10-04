@@ -77,6 +77,14 @@ made so far so that future sessions can pick up exactly where the last one ended
 >   (secrets en écriture seule, source de chaque valeur : base / .env / défaut) + `POST …/test` (rafraîchit
 >   le jeton, rend le scope). **`DASH_API_KEY` reste dérivé du `.env`** (volontaire — piège X-Dash-Key).
 >   Tant que rien n'est enregistré dans l'onglet, la prod tourne exactement comme avant sur le `.env`.
+> - **Confirmé sur l'instance réelle (2026-10-04, `b714ef3` en prod)** : OAuth SDP OK ; le filtre
+>   `filter_by Open_System` est **IGNORÉ** par SDP Cloud (2036 lus dont 1598 Closed) ; le **`search_criteria`
+>   `status.name` « is not » [Closed, Resolved, Cancelled, Rejected, Completed]** est ACCEPTÉ → 352 tickets lus
+>   (repli automatique sur lecture complète si une instance répond 400). Statuts vus : *Awaiting Reply*,
+>   *Approval pending*, *PO Raised*, *Pending Verification* = SLA en pause (comme *On Hold*), *Rejected* = terminé.
+>   Webhook Workflows + carte testés dans un vrai canal (« London IT Support ▸ Alertes SLA », groupe SDP
+>   « IT Agents ») ; une carte n'alerte le téléphone que si le canal est en « Show in Activity and banner »
+>   (réglage individuel) — les @mentions (technicien / personnes par groupe) ont été proposées, pas construites.
 > - **Alertes SLA** : règle `max_ticket_age_days` (défaut **30**, 0 = sans limite) avec son propre champ dans la
 >   carte ; la lecture API (triée du plus récent) **s'arrête** à la date limite. Le 1er aperçu réel (2026-10-04)
 >   avait lu 2000 tickets pile = l'ancien plafond : statuts terminés écartés côté dashboard, plafond 5000,
