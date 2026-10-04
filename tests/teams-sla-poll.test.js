@@ -100,3 +100,17 @@ test('two passes never overlap', async () => {
   assert.equal(second.skipped, 'already_running');
   release(); await first;
 });
+
+test('groups differing only by case make ONE card', async () => {
+  const d = deps({ client: { configured: true, listOpenRequests: async () => [REQ('1', 'Hounde IT Agents'), REQ('2', 'HOUNDE it agents')] } });
+  const r = await run({ deps: d });
+  assert.equal(d.posts.length, 1); assert.equal(r.sent, 2);
+});
+
+test('the preview reports the status mix and whether the list was capped', async () => {
+  const many = Array.from({ length: 3 }, (_, i) => REQ(String(i), 'G', { status: { name: i ? 'Open' : 'Closed' } }));
+  const d = deps({ client: { configured: true, pageCap: 3, listOpenRequests: async () => many } });
+  const p = await run({ deps: d, dryRun: true });
+  assert.deepEqual(p.by_status, { Open: 2, Closed: 1 });
+  assert.equal(p.truncated, true, 'as many rows as the cap → probably truncated');
+});

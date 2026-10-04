@@ -97,3 +97,9 @@ test('channels: parse + resolve by group (case-insensitive) with a "*" fallback'
   assert.equal(S.resolveChannel('Mana IT Agents', ch.slice(0, 1)), null);
   assert.deepEqual(S.parseChannels('garbage'), []);
 });
+
+test('a finished ticket (resolved / closed / cancelled / completed) never alerts, whatever the filter returned', () => {
+  for (const status of ['Resolved', 'Closed', 'Cancelled', 'Completed', 'Confirm Resolution']) {
+    assert.deepEqual(S.evaluate([T({ status, fr_due_ms: min(5), technician: '' , created_ms: min(-40) })], S.DEFAULT_RULES, NOW), [], status);
+  }
+});

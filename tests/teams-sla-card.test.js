@@ -49,3 +49,9 @@ test('long lists are capped with a "+ N autres" line; brackets in subjects canno
 test('hours are shown as hours beyond 90 minutes', () => {
   assert.match(text(buildGroupCard('G', [A({ kind: 'res_soon', minutes: 185 })], { apiBaseUrl: BASE })), /reste 3 h 05/);
 });
+
+test('the ticket link is the SAME as the Helpdesk module (dashboard-shared sdpTicketUrl)', () => {
+  const shared = require('fs').readFileSync(require('path').join(__dirname, '../public/lib/dashboard-shared.js'), 'utf8');
+  const base = shared.match(/const SDP_TICKET_URL_BASE = '([^']+)'/)[1];
+  assert.equal(ticketUrl(BASE, '91000000123'), base + '91000000123/details');
+});

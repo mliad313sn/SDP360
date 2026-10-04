@@ -59,16 +59,24 @@ async function run({ dryRun = false, deps } = {}) {
     const alerts = S.evaluate(tickets, rules, nowMs);
     const fresh = await D.log.filterUnsent(null, alerts);
 
+    // SDP group names drift in case ("Support team" / "Support Team"): one card per group,
+    // keyed case-insensitively, shown under the first spelling met.
     const byGroup = new Map();
     for (const a of fresh) {
-      const g = a.group || '(sans groupe)';
-      if (!byGroup.has(g)) byGroup.set(g, []);
-      byGroup.get(g).push(a);
+      const name = a.group || '(sans groupe)';
+      const k = name.toLowerCase();
+      if (!byGroup.has(k)) byGroup.set(k, { group: name, list: [] });
+      byGroup.get(k).list.push(a);
     }
     const out = { tickets: tickets.length, alerts: alerts.length, new: fresh.length, posted: 0, sent: 0,
       unmapped: [], failures: [] };
-    if (dryRun) out.preview = [];
-    for (const [group, list] of [...byGroup.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+    if (dryRun) {
+      out.preview = [];
+      out.by_status = {};
+      tickets.forEach(t => { const k = t.status || '(vide)'; out.by_status[k] = (out.by_status[k] || 0) + 1; });
+      out.truncated = !!(client.pageCap && raw.length >= client.pageCap);
+    }
+    for (const { group, list } of [...byGroup.values()].sort((a, b) => a.group.localeCompare(b.group))) {
       const url = S.resolveChannel(group, channels);
       if (dryRun) { out.preview.push({ group, has_channel: !!url, alerts: list }); continue; }
       if (!url) { out.unmapped.push(group); continue; }

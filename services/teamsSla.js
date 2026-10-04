@@ -19,6 +19,8 @@ const DEFAULT_RULES = Object.freeze({
   unassigned_max_age_hours: 24,
   // a status matching this (case-insensitive) pauses the SLA clock → no alert
   paused_status: 'hold',
+  // a status matching this is finished → never alerts, whatever the API filter returned
+  finished_status: 'resolved|closed|cancel|completed|confirm',
   max_tickets_per_card: 15,
 });
 
@@ -41,6 +43,7 @@ function parseRules(raw) {
     if (r[k] !== undefined && r[k] !== '' && Number.isFinite(v) && v >= 0) out[k] = v;
   }
   if (typeof r.paused_status === 'string') out.paused_status = r.paused_status;
+  if (typeof r.finished_status === 'string') out.finished_status = r.finished_status;
   return out;
 }
 
@@ -87,6 +90,8 @@ function evaluate(tickets, rules, nowMs) {
   const R = rules || DEFAULT_RULES;
   const out = [];
   const paused = R.paused_status ? new RegExp(R.paused_status.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') : null;
+  let finished = null;
+  try { finished = R.finished_status ? new RegExp(R.finished_status, 'i') : null; } catch (e) { finished = null; }
   const win = R.breach_window_minutes * 60000;
   const push = (t, kind, dueMs) => out.push({
     kind, request_id: t.id, display_id: t.display_id, subject: t.subject, p: t.p, group: t.group,
@@ -96,6 +101,7 @@ function evaluate(tickets, rules, nowMs) {
   for (const t of tickets || []) {
     if (!t || !t.id) continue;
     if (paused && paused.test(t.status || '')) continue;
+    if (finished && finished.test(t.status || '')) continue;
     const K = R.kinds;
     if (!t.responded && t.fr_due_ms != null) {
       const left = t.fr_due_ms - nowMs;

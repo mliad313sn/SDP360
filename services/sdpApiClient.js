@@ -11,6 +11,7 @@
 const FIELDS = ['id', 'display_id', 'subject', 'status', 'priority', 'group', 'technician', 'site',
   'created_time', 'due_by_time', 'first_response_due_by_time', 'responded_time'];
 
+const MAX_PAGES = 50;
 let _axios = null;
 function _defaultTransport() {
   if (!_axios) _axios = require('axios');
@@ -45,7 +46,7 @@ function makeSdpClient({ baseUrl, accountsUrl = 'https://accounts.zoho.com', cli
     return token;
   }
 
-  async function listOpenRequests({ rowCount = 100, maxPages = 20 } = {}) {
+  async function listOpenRequests({ rowCount = 100, maxPages = MAX_PAGES } = {}) {
     if (!configured) return [];
     const tok = await _token();
     const out = [];
@@ -70,7 +71,8 @@ function makeSdpClient({ baseUrl, accountsUrl = 'https://accounts.zoho.com', cli
     return out;
   }
 
-  return { configured, listOpenRequests };
+  // rows a default listing can hold — a result this long was probably cut off
+  return { configured, listOpenRequests, pageCap: 100 * MAX_PAGES };
 }
 
 module.exports = { makeSdpClient, FIELDS };
