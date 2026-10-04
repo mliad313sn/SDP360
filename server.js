@@ -288,6 +288,18 @@ const CONFIG = {
   tokenFile:     path.join(__dirname, '.token_cache.json'),
 };
 
+// Zoho Analytics connection — admin-editable since 2026-10-04 (Admin ▸ Intégration API ▸
+// Analytics): each value resolves database → .env → default (services/analyticsSettings).
+// Applied onto CONFIG (which every Analytics call reads at request time) before each token
+// refresh and after each save. DASH_API_KEY above stays .env-derived on purpose.
+async function _applyAnalyticsSettings() {
+  const s = await require('./services/analyticsSettings').resolveAnalyticsSettings();
+  CONFIG.clientId = s.clientId; CONFIG.clientSecret = s.clientSecret; CONFIG.refreshToken = s.refreshToken;
+  CONFIG.workspaceId = s.workspaceId; CONFIG.orgId = s.orgId;
+  CONFIG.zohoAccounts = `${s.accountsUrl}/oauth/v2/token`;
+  return s;
+}
+
 // ── CACHES ────────────────────────────────────────────────────────
 const _rowCache    = new Map();
 // _surveyCache declared in survey section below
@@ -377,6 +389,10 @@ async function refreshAccessToken() {
   }
 
   console.log('[Token] Refreshing…');
+  try { await _applyAnalyticsSettings(); } catch (e) { /* keep the current CONFIG */ }
+  if (!CONFIG.clientId || !CONFIG.clientSecret || !CONFIG.refreshToken) {
+    throw new Error('Zoho Analytics credentials missing — fill Admin ▸ Intégration API ▸ Analytics (or .env ZOHO_CLIENT_ID / ZOHO_CLIENT_SECRET / ZOHO_REFRESH_TOKEN)');
+  }
   let res;
   try {
     res = await axios.post(CONFIG.zohoAccounts, new URLSearchParams({
@@ -5395,7 +5411,7 @@ app.get('/api/reports/config', requireReportSession, requireSuperAdmin, async (r
     if (c && c.meridian_in_key) c.meridian_in_key = '';
     if (c && c.meraki_api_key) c.meraki_api_key = '';   // never expose the stored Meraki API key
     if (c && c.opmanager_api_key) c.opmanager_api_key = '';   // never expose the stored OpManager API key
-    for (const k of ['sdp_api_client_secret', 'sdp_api_refresh_token', 'teams_sla_channels']) if (c && c[k]) c[k] = '';   // Teams SLA secrets
+    for (const k of ['sdp_api_client_secret', 'sdp_api_refresh_token', 'teams_sla_channels', 'analytics_client_secret', 'analytics_refresh_token']) if (c && c[k]) c[k] = '';   // Teams SLA + Analytics secrets
     res.json(c);
   }
   catch (e) { res.status(500).json({ error: e.message }); }
@@ -5430,6 +5446,48 @@ app.put('/api/reports/config', requireReportSession, requireSuperAdmin, async (r
   }
   catch (e) { res.status(500).json({ error: e.message }); }
 });
+// ── Zoho Analytics connection (2026-10-04) — Admin ▸ Intégration API ▸ Analytics. Secrets are
+// write-only (GET says whether one is stored and where each value comes from: db / env / default).
+app.get('/api/integrations/analytics', requireReportSession, requireSuperAdmin, async (req, res) => {
+  try {
+    const A = require('./services/analyticsSettings');
+    A._invalidate();
+    const s = await A.resolveAnalyticsSettings();
+    res.json({
+      client_id: s.clientId, workspace_id: s.workspaceId, org_id: s.orgId, accounts_url: s.accountsUrl,
+      has_client_secret: !!s.clientSecret, has_refresh_token: !!s.refreshToken, sources: s.sources, ready: s.ready,
+      token: { valid: Date.now() < tokenState.expiresAt, expires_at: tokenState.expiresAt ? new Date(tokenState.expiresAt).toISOString() : null,
+        granted_scope: tokenState.grantedScope || null, last_error: tokenState.lastRefreshError || null },
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+app.put('/api/integrations/analytics', requireReportSession, requireSuperAdmin, async (req, res) => {
+  try {
+    const b = req.body || {};
+    const map = { client_id: 'analytics_client_id', client_secret: 'analytics_client_secret', refresh_token: 'analytics_refresh_token',
+      workspace_id: 'analytics_workspace_id', org_id: 'analytics_org_id', accounts_url: 'analytics_accounts_url' };
+    const patch = {};
+    for (const [k, key] of Object.entries(map)) if (k in b) patch[key] = String(b[k] == null ? '' : b[k]).trim();
+    if (patch.analytics_accounts_url && !/^https:\/\/\S+$/i.test(patch.analytics_accounts_url)) return res.status(400).json({ error: 'Serveur OAuth : https:// requis' });
+    await reportConfig.setConfig(rdb.db, patch, req.reportUser?.username);
+    require('./services/analyticsSettings')._invalidate();
+    await _applyAnalyticsSettings();
+    tokenState.accessToken = null; tokenState.expiresAt = 0;   // next Analytics call refreshes with the new credentials
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+// Refresh the token NOW with the stored settings → proves the credentials + shows the scope.
+app.post('/api/integrations/analytics/test', requireReportSession, requireSuperAdmin, async (req, res) => {
+  try {
+    require('./services/analyticsSettings')._invalidate();
+    tokenState.accessToken = null; tokenState.expiresAt = 0;
+    await refreshAccessToken();
+    const scope = tokenState.grantedScope || '';
+    res.json({ ok: true, granted_scope: scope || null,
+      warning: scope && !scope.includes('MEAplus.fullaccess') ? 'Scope différent de MEAplus.fullaccess.all — certaines vues renverront 7301.' : null });
+  } catch (e) { res.status(502).json({ error: String(e.message || e).slice(0, 400) }); }
+});
+
 // Meridian resource sync — on-demand (admin+). Runs the same job as the nightly cron;
 // self-skips when unconfigured. Behind the /api/ dash-key gate + session/admin.
 app.post('/api/meridian/sync', requireReportSession, requireSuperAdmin, async (req, res) => {
@@ -8877,19 +8935,6 @@ app.get('/api/meetings/progress/export-pptx', requireReportSession, async (req, 
 
 // ── START ─────────────────────────────────────────────────────────
 async function start() {
-  if (!CONFIG.clientId || !CONFIG.clientSecret || !CONFIG.refreshToken) {
-    console.error('❌ Missing .env: ZOHO_CLIENT_ID, ZOHO_CLIENT_SECRET, ZOHO_REFRESH_TOKEN');
-    process.exit(1);
-  }
-  try { await refreshAccessToken(); }
-  catch(e) {
-    // Token refresh failed at startup — log warning but keep server running.
-    // Dashboard will serve from disk cache; cron will retry every 50 minutes.
-    // The richer OAuth diagnostic (HTTP status + Zoho `error` code + remediation
-    // hint) is already logged by refreshAccessToken — this line only summarises.
-    console.error('⚠️  Token failed on startup (serving from stale cache; ALL Zoho calls will 400 until renewed):', e.message);
-    console.error('⚠️  Renew flow: open RENEW_ZOHO_TOKEN.html → Steps 2–6 → pm2 restart --update-env');
-  }
 
   // PostgreSQL backends (Chunks 1-4) — connect each pool + apply its schema
   // before serving. Every module defaults to sqlite (the *_BACKEND env vars are
@@ -8916,6 +8961,21 @@ async function start() {
   if (require('./assets-db').ASSETS_BACKEND === 'postgres') {
     await require('./assets-db').initPgAssets();
     console.log('[Assets] PostgreSQL backend ready');
+  }
+
+  // Zoho Analytics token — AFTER the databases are open, because the credentials may now
+  // live in report_config (Admin ▸ Intégration API ▸ Analytics), with .env as the fallback.
+  // A missing/failed token no longer stops the server: it serves from the disk cache and the
+  // admin can fix the connection from the UI (the 50-min cron retries).
+  try {
+    const _as = await _applyAnalyticsSettings();
+    if (!_as.ready) console.error('❌ Zoho Analytics credentials missing — fill Admin ▸ Intégration API ▸ Analytics (or .env ZOHO_CLIENT_ID / ZOHO_CLIENT_SECRET / ZOHO_REFRESH_TOKEN)');
+    else await refreshAccessToken();
+  } catch (e) {
+    // The richer OAuth diagnostic (HTTP status + Zoho `error` code + remediation
+    // hint) is already logged by refreshAccessToken — this line only summarises.
+    console.error('⚠️  Token failed on startup (serving from stale cache; ALL Zoho calls will 400 until renewed):', e.message);
+    console.error('⚠️  Renew: Admin ▸ Intégration API ▸ Analytics (or RENEW_ZOHO_TOKEN.html)');
   }
 
   // SECURITY: Bind interface controlled by env var BIND_HOST (see top

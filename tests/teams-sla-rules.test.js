@@ -103,3 +103,13 @@ test('a finished ticket (resolved / closed / cancelled / completed) never alerts
     assert.deepEqual(S.evaluate([T({ status, fr_due_ms: min(5), technician: '' , created_ms: min(-40) })], S.DEFAULT_RULES, NOW), [], status);
   }
 });
+
+test('max_ticket_age_days: older tickets are ignored (0 = no limit)', () => {
+  assert.equal(S.DEFAULT_RULES.max_ticket_age_days, 30);
+  const old = T({ created_ms: NOW - 40 * 86400000, fr_due_ms: min(5) });
+  assert.deepEqual(S.evaluate([old], S.DEFAULT_RULES, NOW), []);
+  assert.deepEqual(kinds(S.evaluate([old], S.parseRules({ max_ticket_age_days: 0 }), NOW)), ['fr_soon']);
+  assert.deepEqual(kinds(S.evaluate([old], S.parseRules({ max_ticket_age_days: 60 }), NOW)), ['fr_soon']);
+  assert.equal(S.createdAfterMs(S.DEFAULT_RULES, NOW), NOW - 30 * 86400000);
+  assert.equal(S.createdAfterMs(S.parseRules({ max_ticket_age_days: 0 }), NOW), null);
+});

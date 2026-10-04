@@ -53,7 +53,7 @@ async function run({ dryRun = false, deps } = {}) {
     const rules = S.parseRules(cfg.teams_sla_rules);
     const nowMs = D.now();
     let raw;
-    try { raw = await client.listOpenRequests(); }
+    try { raw = await client.listOpenRequests({ createdAfterMs: S.createdAfterMs(rules, nowMs) }); }
     catch (e) { return { error: _scrub(e.message) }; }
     const tickets = raw.map(S.normalizeRequest);
     const alerts = S.evaluate(tickets, rules, nowMs);

@@ -22,6 +22,9 @@ const DEFAULT_RULES = Object.freeze({
   // a status matching this is finished → never alerts, whatever the API filter returned
   finished_status: 'resolved|closed|cancel|completed|confirm',
   max_tickets_per_card: 15,
+  // tickets created more than N days ago are ignored (0 = no limit) — keeps forgotten old
+  // tickets out of the alerts AND lets the API listing stop early (it is newest first)
+  max_ticket_age_days: 30,
 });
 
 function _clone(o) { return JSON.parse(JSON.stringify(o)); }
@@ -38,7 +41,7 @@ function parseRules(raw) {
       if (Number.isFinite(v) && v >= 0) out.fr_soon_minutes[p] = v;
     }
   }
-  for (const k of ['res_soon_pct', 'breach_window_minutes', 'unassigned_minutes', 'unassigned_max_age_hours', 'max_tickets_per_card']) {
+  for (const k of ['max_ticket_age_days', 'res_soon_pct', 'breach_window_minutes', 'unassigned_minutes', 'unassigned_max_age_hours', 'max_tickets_per_card']) {
     const v = Number(r[k]);
     if (r[k] !== undefined && r[k] !== '' && Number.isFinite(v) && v >= 0) out[k] = v;
   }
@@ -86,9 +89,16 @@ function normalizeRequest(r) {
   };
 }
 
+/** Creation cutoff (ms) from max_ticket_age_days, or null when unlimited. */
+function createdAfterMs(rules, nowMs) {
+  const d = Number((rules || DEFAULT_RULES).max_ticket_age_days);
+  return Number.isFinite(d) && d > 0 ? nowMs - d * 86400000 : null;
+}
+
 function evaluate(tickets, rules, nowMs) {
   const R = rules || DEFAULT_RULES;
   const out = [];
+  const cutoff = createdAfterMs(R, nowMs);
   const paused = R.paused_status ? new RegExp(R.paused_status.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') : null;
   let finished = null;
   try { finished = R.finished_status ? new RegExp(R.finished_status, 'i') : null; } catch (e) { finished = null; }
@@ -102,6 +112,7 @@ function evaluate(tickets, rules, nowMs) {
     if (!t || !t.id) continue;
     if (paused && paused.test(t.status || '')) continue;
     if (finished && finished.test(t.status || '')) continue;
+    if (cutoff != null && t.created_ms != null && t.created_ms < cutoff) continue;
     const K = R.kinds;
     if (!t.responded && t.fr_due_ms != null) {
       const left = t.fr_due_ms - nowMs;
@@ -144,4 +155,4 @@ function resolveChannel(group, channels) {
   return def ? def.url : null;
 }
 
-module.exports = { KINDS, DEFAULT_RULES, parseRules, priorityLabel, normalizeRequest, evaluate, parseChannels, resolveChannel };
+module.exports = { KINDS, DEFAULT_RULES, parseRules, createdAfterMs, priorityLabel, normalizeRequest, evaluate, parseChannels, resolveChannel };

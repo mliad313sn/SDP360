@@ -1099,7 +1099,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
           <button type="button" class="admin-rail__item" data-panel="backups" id="admin-rail-backups" style="display:none" onclick="showAdminPanel('backups')"><span class="ar-ico">💾</span><span>Backups<small>Scheduled &amp; manual</small></span><span class="ar-scope">Global</span></button>
           <button type="button" class="admin-rail__item" data-group="integrations" id="admin-rail-grp-integrations" style="display:none" onclick="showAdminGroup('integrations')"><span class="ar-ico">🔗</span><span>Intégrations<small>SSO &amp; Meridian</small></span><span class="ar-scope">Global</span></button>
           <button type="button" class="admin-rail__item" data-group="wan" id="admin-rail-grp-wan" style="display:none" onclick="showAdminGroup('wan')"><span class="ar-ico">📡</span><span>WAN Link<small>Availability &amp; SLA</small></span><span class="ar-scope">Global</span></button>
-          <button type="button" class="admin-rail__item" data-panel="teams-sla" id="admin-rail-teams-sla" style="display:none" onclick="showAdminPanel('teams-sla')"><span class="ar-ico">🔔</span><span>Alertes SLA Teams<small>Canaux des groupes</small></span><span class="ar-scope">Global</span></button>
+          <button type="button" class="admin-rail__item" data-group="api" id="admin-rail-grp-api" style="display:none" onclick="showAdminGroup('api')"><span class="ar-ico">🔌</span><span>Intégration API<small>Alertes SLA &amp; Analytics</small></span><span class="ar-scope">Global</span></button>
         </div>
         <div class="admin-rail__group">
           <div class="admin-rail__grouphdr">📊 Reports</div>
@@ -1907,6 +1907,11 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
       <button class="btn btn-secondary btn-sm" type="button" onclick="addTeamsSlaChannel()">+ Ajouter un groupe</button>
 
       <h4 style="margin:14px 0 6px">3 · Règles</h4>
+      <div class="form-row">
+        <div class="form-group"><label>Âge maximal des tickets pris en compte (jours)</label>
+          <input type="number" id="tsla-max-age" min="0" step="1" placeholder="30">
+          <div style="font-size:0.75rem;color:#6b7a99;margin-top:3px">Les tickets créés avant sont ignorés (0 = sans limite) — et la lecture de l'API s'arrête là.</div></div>
+      </div>
       <div style="font-size:0.8rem;color:#6b7a99;margin-bottom:8px">
         JSON. <code>fr_soon_minutes</code> = minutes avant l'échéance de 1re réponse, par priorité ; <code>res_soon_pct</code> = % du délai de
         résolution consommé ; <code>breach_window_minutes</code> = un dépassement plus ancien n'est pas annoncé ; <code>kinds</code> = activer / couper chaque alerte.
@@ -1919,6 +1924,40 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         <button class="btn btn-secondary" onclick="runTeamsSlaNow(this)">Lancer un passage maintenant</button>
       </div>
       <pre id="tsla-preview-out" style="display:none;max-height:360px;overflow:auto;background:#f6f8fb;border:1px solid #e2e8f0;border-radius:6px;padding:10px;font-size:12px;white-space:pre-wrap"></pre>
+    </div>
+
+    <div class="card admin-panel" id="ap-analytics-api" data-panel="analytics-api">
+      <h3>📈 Connexion Zoho Analytics
+        <span style="font-size:0.78rem;font-weight:400;color:#6b7a99;margin-left:8px">
+          Source des données helpdesk (tickets, changements, enquêtes, actifs)
+        </span>
+      </h3>
+      <div style="font-size:0.8rem;color:#6b7a99;margin:6px 0 12px">
+        Chaque valeur est lue <strong>ici d'abord, sinon dans le fichier .env</strong> du serveur : tant que rien n'est
+        enregistré, la connexion actuelle continue de fonctionner. Une nouvelle valeur prend effet sans redémarrage.
+        Scope requis : <code>MEAplus.fullaccess.all</code>. Les secrets ne sont jamais réaffichés (vide = conserver).
+      </div>
+      <div id="an-status" style="font-size:0.82rem;margin-bottom:12px"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Client ID <span class="an-src" data-f="clientId"></span></label><input type="text" id="an-client-id" autocomplete="off"></div>
+        <div class="form-group"><label>Client secret <span class="an-src" data-f="clientSecret"></span></label><input type="password" id="an-client-secret" autocomplete="new-password" placeholder="(vide = conserver)"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Refresh token <span class="an-src" data-f="refreshToken"></span></label><input type="password" id="an-refresh" autocomplete="new-password" placeholder="(vide = conserver)"></div>
+        <div class="form-group"><label>Serveur OAuth Zoho <span class="an-src" data-f="accountsUrl"></span></label><input type="text" id="an-accounts" placeholder="https://accounts.zoho.com"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Workspace ID <span class="an-src" data-f="workspaceId"></span></label><input type="text" id="an-workspace"></div>
+        <div class="form-group"><label>Organisation ID <span class="an-src" data-f="orgId"></span></label><input type="text" id="an-org"></div>
+      </div>
+      <div class="modal-actions" style="justify-content:flex-start;gap:10px;align-items:center;margin:12px 0">
+        <button class="btn btn-primary" onclick="saveAnalyticsApiCard()">Enregistrer</button>
+        <button class="btn btn-secondary" onclick="testAnalyticsApi(this)">Tester la connexion</button>
+      </div>
+      <div style="font-size:0.75rem;color:#6b7a99">
+        ⚠ Ne supprimez pas et ne recréez pas le Self Client Zoho, ne régénérez pas son secret : la synchronisation
+        s'arrêterait. Pour une nouvelle autorisation, générez un nouveau code sur le même Self Client.
+      </div>
     </div>
 
     <div class="card admin-panel" id="ap-scoreboard" data-panel="scoreboard">
@@ -5930,7 +5969,7 @@ async function downloadAllSitesMonthlyPptx(fromMonthlyPage) {
 //  ADMIN PAGE
 // ══════════════════════════════════════════════════════════════════
 // Admin left-rail: show one settings panel at a time. name ∈ users|sessions|sites|departments|risk.
-const _ADMIN_PANEL_IDS = { users:'ap-users', sessions:'sessions-card', sites:'ap-sites', departments:'ap-depts', execview:'ap-execview', email:'ap-email', backups:'ap-backups', sso:'ap-sso', meridian:'ap-meridian', infra:'ap-infra', sla:'ap-sla', risk:'rr-aliases-card', autoreports:'ap-autoreports', 'assets-finance':'ap-assets-finance', 'assets-deprec':'ap-assets-deprec', hygiene:'ap-hygiene', scoreboard:'ap-scoreboard', weekly:'ap-weekly', 'asset-group':'ap-asset-group', 'asset-reminders':'ap-asset-reminders', 'teams-sla':'ap-teams-sla' };
+const _ADMIN_PANEL_IDS = { users:'ap-users', sessions:'sessions-card', sites:'ap-sites', departments:'ap-depts', execview:'ap-execview', email:'ap-email', backups:'ap-backups', sso:'ap-sso', meridian:'ap-meridian', infra:'ap-infra', sla:'ap-sla', risk:'rr-aliases-card', autoreports:'ap-autoreports', 'assets-finance':'ap-assets-finance', 'assets-deprec':'ap-assets-deprec', hygiene:'ap-hygiene', scoreboard:'ap-scoreboard', weekly:'ap-weekly', 'asset-group':'ap-asset-group', 'asset-reminders':'ap-asset-reminders', 'teams-sla':'ap-teams-sla', 'analytics-api':'ap-analytics-api' };
 // Related config panels merged behind ONE rail item + an in-panel tab strip. The panel cards
 // themselves are untouched (ids, load functions, deep-links all intact) — only the rail entry
 // and the tab strip on top change. member → group is derived once.
@@ -5941,6 +5980,8 @@ const PANEL_GROUPS = {
                   labels: { sso: 'Microsoft SSO', meridian: 'Meridian (PMO)' } },
   'assets-val': { label: 'Assets — Valorisation', ico: '💱', members: ['assets-finance', 'assets-deprec'],
                   labels: { 'assets-finance': 'Finance', 'assets-deprec': 'Dépréciation' } },
+  api:          { label: 'Intégration API', ico: '🔌', members: ['teams-sla', 'analytics-api'],
+                  labels: { 'teams-sla': 'Alertes SLA', 'analytics-api': 'Analytics' } },
   sends:        { label: 'Envois automatiques', ico: '📤', members: ['autoreports', 'weekly', 'hygiene', 'scoreboard', 'asset-group', 'asset-reminders'],
                   labels: { autoreports: 'Auto Reports', weekly: 'Weekly', hygiene: 'Hygiène', scoreboard: 'Scoreboard', 'asset-group': 'Groupe', 'asset-reminders': 'Rappels parc' } },
 };
@@ -5957,7 +5998,7 @@ function _renderGroupTabs(name) {
 }
 function showAdminPanel(name) {
   // Guard: 'risk' / 'backups' / 'autoreports' / 'sso' / 'meridian' / 'infra' are super_admin-only — fall back to Users for everyone else.
-  if ((name === 'risk' || name === 'backups' || name === 'autoreports' || name === 'sso' || name === 'meridian' || name === 'infra' || name === 'sla' || name === 'asset-reminders' || name === 'teams-sla') && currentUser?.role !== 'super_admin') name = 'users';
+  if ((name === 'risk' || name === 'backups' || name === 'autoreports' || name === 'sso' || name === 'meridian' || name === 'infra' || name === 'sla' || name === 'asset-reminders' || name === 'teams-sla' || name === 'analytics-api') && currentUser?.role !== 'super_admin') name = 'users';
   if (!_ADMIN_PANEL_IDS[name]) name = 'users';
   document.querySelectorAll('#page-admin .admin-panel').forEach(p => p.classList.remove('active'));
   const _grp = _MEMBER_GROUP[name];
@@ -6004,6 +6045,8 @@ function showAdminPanel(name) {
   if (name === 'asset-reminders' && typeof loadAssetRemindersCard === 'function') loadAssetRemindersCard();
   // Fresh settings when opening the Teams SLA alerts card.
   if (name === 'teams-sla' && typeof loadTeamsSlaCard === 'function') loadTeamsSlaCard();
+  // Fresh connection status when opening the Zoho Analytics connection card.
+  if (name === 'analytics-api' && typeof loadAnalyticsApiCard === 'function') loadAnalyticsApiCard();
   // Reflect the section in the hash (deep-linkable); guard avoids re-entrancy with the router.
   const want = '#admin/' + name;
   if (location.hash !== want) { _suppressHashRoute = true; location.hash = want; }
@@ -6034,7 +6077,7 @@ async function loadAdminPage() {
     if (bkRail) bkRail.style.display = isSuperAdmin ? '' : 'none';
     // Grouped rail items (WAN Link = infra+sla, Intégrations = sso+meridian, Envois = the
     // scheduled-email digests). The whole admin page is super_admin-only, so show them all.
-    ['admin-rail-grp-wan', 'admin-rail-grp-integrations', 'admin-rail-grp-sends', 'admin-rail-teams-sla'].forEach(id => {
+    ['admin-rail-grp-wan', 'admin-rail-grp-integrations', 'admin-rail-grp-sends', 'admin-rail-grp-api'].forEach(id => {
       const el = document.getElementById(id); if (el) el.style.display = isSuperAdmin ? '' : 'none';
     });
     if (isSuperAdmin) {
@@ -6051,7 +6094,7 @@ async function loadAdminPage() {
     // A group name (#admin/wan) opens the group's first tab; a member name still deep-links.
     const sub = (location.hash.split('/')[1] || '').toLowerCase();
     if (PANEL_GROUPS[sub]) showAdminGroup(sub);
-    else showAdminPanel(['users','sessions','sites','departments','execview','email','backups','sso','meridian','infra','sla','risk','autoreports','assets-finance','assets-deprec','hygiene','scoreboard','weekly','asset-group','asset-reminders','teams-sla'].includes(sub) ? sub : 'users');
+    else showAdminPanel(['users','sessions','sites','departments','execview','email','backups','sso','meridian','infra','sla','risk','autoreports','assets-finance','assets-deprec','hygiene','scoreboard','weekly','asset-group','asset-reminders','teams-sla','analytics-api'].includes(sub) ? sub : 'users');
 
     const deptUrl  = isExecOrSuper ? '/api/reports/departments?include_inactive=1' : '/api/reports/departments';
     const sitesUrl = isExecOrSuper ? '/api/reports/sites?include_inactive=1'        : '/api/reports/sites';
@@ -8012,6 +8055,7 @@ function loadTeamsSlaCard() {
     document.getElementById('tsla-secret-state').textContent = c.has_client_secret ? '✓ enregistré' : '(non renseigné)';
     document.getElementById('tsla-refresh-state').textContent = c.has_refresh_token ? '✓ enregistré' : '(non renseigné)';
     set('tsla-rules', JSON.stringify(c.rules, null, 2));
+    set('tsla-max-age', c.rules && c.rules.max_ticket_age_days != null ? c.rules.max_ticket_age_days : '');
     document.getElementById('tsla-groups').innerHTML = (c.known_groups || []).map(g => `<option value="${esc(g)}"></option>`).join('');
     document.getElementById('tsla-last-run').textContent = c.last_run ? ('Dernier passage : ' + new Date(c.last_run).toLocaleString()) : 'Aucun passage encore (désarmé ou non configuré).';
     _tslaChannels = (c.channels || []).map(ch => ({ group: ch.group, url: '', configured: true }));
@@ -8022,6 +8066,8 @@ function saveTeamsSlaCard() {
   let rules;
   try { rules = JSON.parse(document.getElementById('tsla-rules').value || '{}'); }
   catch (e) { toast('Règles : JSON invalide', 'error'); return Promise.resolve(); }
+  const _age = document.getElementById('tsla-max-age').value.trim();
+  if (_age !== '') rules.max_ticket_age_days = Math.max(0, Number(_age) || 0);
   const val = id => document.getElementById(id).value.trim();
   const body = {
     enabled: document.getElementById('tsla-enabled').checked,
@@ -8073,6 +8119,45 @@ function previewTeamsSla(btn) {
 function runTeamsSlaNow(btn) {
   btn.disabled = true;
   api('POST', '/api/teams-sla/run').then(r => { _tslaShow(r); loadTeamsSlaCard(); }).catch(e => toast(String(e), 'error')).finally(() => { btn.disabled = false; });
+}
+
+// ── Zoho Analytics connection (2026-10-04) — /api/integrations/analytics. Write-only secrets;
+// each field shows where its current value comes from (base / .env / défaut).
+const _AN_SRC = { db: 'base', env: '.env', default: 'défaut', none: 'non renseigné' };
+function loadAnalyticsApiCard() {
+  api('GET', '/api/integrations/analytics').then(c => {
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v == null ? '' : v; };
+    set('an-client-id', c.client_id); set('an-workspace', c.workspace_id); set('an-org', c.org_id); set('an-accounts', c.accounts_url);
+    document.querySelectorAll('#ap-analytics-api .an-src').forEach(el => {
+      const src = (c.sources || {})[el.dataset.f];
+      el.textContent = src ? '· ' + (_AN_SRC[src] || src) : '';
+      el.style.cssText = 'font-weight:400;color:' + (src === 'db' ? '#15803d' : '#6b7a99');
+    });
+    const t = c.token || {};
+    const st = document.getElementById('an-status');
+    st.innerHTML = (t.valid ? '<span style="color:#15803d">● Connecté</span>' : '<span style="color:#b91c1c">● Pas de jeton valide</span>') +
+      (t.granted_scope ? ` · scope <code>${esc(t.granted_scope)}</code>` : '') +
+      (t.expires_at && t.valid ? ` · expire ${new Date(t.expires_at).toLocaleTimeString()}` : '') +
+      (t.last_error ? `<div style="color:#b91c1c;margin-top:4px">Dernière erreur : ${esc(String(t.last_error).slice(0, 240))}</div>` : '') +
+      (!c.ready ? '<div style="color:#b91c1c;margin-top:4px">Identifiants incomplets (Client ID, secret ou refresh token).</div>' : '');
+  }).catch(e => toast('Analytics : ' + e, 'error'));
+}
+function saveAnalyticsApiCard() {
+  const val = id => document.getElementById(id).value.trim();
+  return api('PUT', '/api/integrations/analytics', {
+    client_id: val('an-client-id'), client_secret: val('an-client-secret'), refresh_token: val('an-refresh'),
+    workspace_id: val('an-workspace'), org_id: val('an-org'), accounts_url: val('an-accounts'),
+  }).then(() => {
+    document.getElementById('an-client-secret').value = ''; document.getElementById('an-refresh').value = '';
+    toast('Connexion Analytics enregistrée', 'success'); loadAnalyticsApiCard();
+  }).catch(e => toast('Analytics : ' + e, 'error'));
+}
+function testAnalyticsApi(btn) {
+  btn.disabled = true;
+  api('POST', '/api/integrations/analytics/test')
+    .then(r => { toast('Connexion OK' + (r.granted_scope ? ' — scope ' + r.granted_scope : ''), r.warning ? 'error' : 'success'); if (r.warning) toast(r.warning, 'error'); })
+    .catch(e => toast('Échec : ' + e, 'error'))
+    .finally(() => { btn.disabled = false; loadAnalyticsApiCard(); });
 }
 
 function loadScoreboardCard() {

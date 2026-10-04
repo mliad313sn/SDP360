@@ -116,6 +116,11 @@ const DEFAULTS = {
   sdp_api_accounts_url: 'https://accounts.zoho.com',
   sdp_api_client_id: '', sdp_api_client_secret: '', sdp_api_refresh_token: '',
   sdp_api_open_filter: 'Open_System',
+  // ── Zoho Analytics connection (helpdesk data), editable in Admin ▸ Intégration API ▸ Analytics
+  //    (2026-10-04). BLANK = use .env (ZOHO_CLIENT_ID / ZOHO_CLIENT_SECRET / ZOHO_REFRESH_TOKEN /
+  //    WORKSPACE_ID / ORG_ID) — services/analyticsSettings resolves database → .env → default.
+  analytics_client_id: '', analytics_client_secret: '', analytics_refresh_token: '',
+  analytics_workspace_id: '', analytics_org_id: '', analytics_accounts_url: '',
 };
 const KEYS = Object.keys(DEFAULTS);
 
@@ -124,6 +129,7 @@ const KEYS = Object.keys(DEFAULTS);
 const _SECRET_BLANK_KEEP = new Set([
   'smtp_pass', 'entra_client_secret', 'meridian_out_key', 'meridian_in_key', 'meraki_api_key', 'opmanager_api_key',
   'sdp_api_client_secret', 'sdp_api_refresh_token', 'teams_sla_channels',
+  'analytics_client_secret', 'analytics_refresh_token',
 ]);
 
 function _h(db) {

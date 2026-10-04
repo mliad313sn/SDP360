@@ -12,6 +12,11 @@ const FIELDS = ['id', 'display_id', 'subject', 'status', 'priority', 'group', 't
   'created_time', 'due_by_time', 'first_response_due_by_time', 'responded_time'];
 
 const MAX_PAGES = 50;
+function _createdMs(r) {
+  const v = r && r.created_time && typeof r.created_time === 'object' ? r.created_time.value : (r && r.created_time);
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
 let _axios = null;
 function _defaultTransport() {
   if (!_axios) _axios = require('axios');
@@ -46,7 +51,9 @@ function makeSdpClient({ baseUrl, accountsUrl = 'https://accounts.zoho.com', cli
     return token;
   }
 
-  async function listOpenRequests({ rowCount = 100, maxPages = MAX_PAGES } = {}) {
+  // createdAfterMs: the listing is newest first, so once a page reaches older tickets the
+  // rest is older still → drop them and stop paging (fewer API calls every 5 min).
+  async function listOpenRequests({ rowCount = 100, maxPages = MAX_PAGES, createdAfterMs = null } = {}) {
     if (!configured) return [];
     const tok = await _token();
     const out = [];
@@ -65,7 +72,12 @@ function makeSdpClient({ baseUrl, accountsUrl = 'https://accounts.zoho.com', cli
         throw new Error(`SDP GET /requests${st ? ` → HTTP ${st}` : ` → ${e.message}`}${msg ? ` ${msg}` : ''}`);
       }
       const d = (res && res.data) || {};
-      out.push(...(Array.isArray(d.requests) ? d.requests : []));
+      const rows = Array.isArray(d.requests) ? d.requests : [];
+      if (createdAfterMs != null) {
+        const keep = rows.filter(r => { const c = _createdMs(r); return c == null || c >= createdAfterMs; });
+        out.push(...keep);
+        if (keep.length < rows.length) break;
+      } else out.push(...rows);
       if (!(d.list_info && d.list_info.has_more_rows)) break;
     }
     return out;

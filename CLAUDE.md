@@ -63,6 +63,31 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ---
 
+## ⚡ Current state (as of 2026-10-04 — rubrique « Intégration API » : Alertes SLA + connexion Analytics éditable)
+
+> - **Admin ▸ 🔌 Intégration API** (`PANEL_GROUPS.api`, rail `admin-rail-grp-api`) regroupe deux onglets :
+>   **Alertes SLA** (`#ap-teams-sla`) et **Analytics** (`#ap-analytics-api`). Super_admin.
+> - **Connexion Zoho Analytics éditable dans l'interface** (demande user : sortir du `.env`) :
+>   `services/analyticsSettings.js` résout **base (`report_config` `analytics_*`) → `.env` (`ZOHO_CLIENT_ID`,
+>   `ZOHO_CLIENT_SECRET`, `ZOHO_REFRESH_TOKEN`, `WORKSPACE_ID`, `ORG_ID`) → défaut**, cache 60 s, lecture ratée
+>   (PG pas prêt) jamais mise en cache. `server.js` `_applyAnalyticsSettings()` réécrit `CONFIG` avant chaque
+>   rafraîchissement du jeton et après chaque enregistrement (jeton invalidé → nouveaux identifiants sans
+>   redémarrage). **Au démarrage le jeton est désormais rafraîchi APRÈS l'ouverture des bases** (les identifiants
+>   peuvent vivre en PG) et un `.env` vide **n'arrête plus** le serveur. Routes `GET/PUT /api/integrations/analytics`
+>   (secrets en écriture seule, source de chaque valeur : base / .env / défaut) + `POST …/test` (rafraîchit
+>   le jeton, rend le scope). **`DASH_API_KEY` reste dérivé du `.env`** (volontaire — piège X-Dash-Key).
+>   Tant que rien n'est enregistré dans l'onglet, la prod tourne exactement comme avant sur le `.env`.
+> - **Alertes SLA** : règle `max_ticket_age_days` (défaut **30**, 0 = sans limite) avec son propre champ dans la
+>   carte ; la lecture API (triée du plus récent) **s'arrête** à la date limite. Le 1er aperçu réel (2026-10-04)
+>   avait lu 2000 tickets pile = l'ancien plafond : statuts terminés écartés côté dashboard, plafond 5000,
+>   l'aperçu affiche la répartition par statut + « tronqué », groupes regroupés sans tenir compte de la casse.
+>   Le lien ticket de la carte = `sdpTicketUrl()` du Helpdesk (pinné par test).
+> - Tests : `analytics-settings` (5), `analytics-integration-routes.smoke` (4), `teams-sla-admin-card` (5) + ajouts
+>   rules/client/poll. **Self Client Zoho** : un seul par compte, partagé Analytics + SDP — un nouveau refresh token
+>   par usage, ne jamais supprimer/recréer le client ni régénérer son secret.
+
+---
+
 ## ⚡ Current state (as of 2026-10-03, plus tard — Alertes SLA dans les canaux Teams, sur `main`, PAS déployé, désarmé)
 
 > **Besoin (user)** : les techniciens lisent Teams, pas les e-mails → prévenir le **groupe** dans son canal

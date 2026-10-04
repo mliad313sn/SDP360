@@ -75,3 +75,14 @@ test('the filter name is configurable', async () => {
   await makeSdpClient({ ...CFG, transport: t, openFilter: 'Open_Requests' }).listOpenRequests();
   assert.equal(JSON.parse(t.calls.find(x => x.m === 'get').opts.params.input_data).list_info.filter_by.name, 'Open_Requests');
 });
+
+test('createdAfterMs: stops paging once a page reaches tickets older than the cutoff (list is newest first)', async () => {
+  const t = fakeTransport([
+    [{ id: 1, created_time: { value: '5000' } }, { id: 2, created_time: { value: '4000' } }],
+    [{ id: 3, created_time: { value: '3000' } }, { id: 4, created_time: { value: '1000' } }],
+    [{ id: 5, created_time: { value: '500' } }],
+  ]);
+  const rows = await makeSdpClient({ ...CFG, transport: t }).listOpenRequests({ rowCount: 2, createdAfterMs: 2000 });
+  assert.deepEqual(rows.map(r => r.id), [1, 2, 3], 'older rows dropped, third page never fetched');
+  assert.equal(t.calls.filter(x => x.m === 'get').length, 2);
+});

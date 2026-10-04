@@ -114,3 +114,11 @@ test('the preview reports the status mix and whether the list was capped', async
   assert.deepEqual(p.by_status, { Open: 2, Closed: 1 });
   assert.equal(p.truncated, true, 'as many rows as the cap → probably truncated');
 });
+
+test('the job asks the client for tickets younger than max_ticket_age_days', async () => {
+  let asked;
+  const d = deps({ client: { configured: true, listOpenRequests: async (o) => { asked = o; return []; } } });
+  d.config.teams_sla_rules = JSON.stringify({ max_ticket_age_days: 7 });
+  await run({ deps: d });
+  assert.equal(asked.createdAfterMs, NOW - 7 * 86400000);
+});
