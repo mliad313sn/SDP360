@@ -994,6 +994,7 @@ app.use('/api/inspection/save',             express.json({ limit: '100mb' }));
 app.use('/api/inspection/aggregate/export', express.json({ limit: '50mb'  }));
 app.use('/api/meetings/save',               express.json({ limit: '10mb'  }));
 app.use('/api/meetings/issues/:id/update',  express.json({ limit: '10mb'  }));
+app.use('/api/meetings/issues/:id/actions', express.json({ limit: '1mb'   }));
 app.use('/api/meetings/lookups/:table',     express.json({ limit: '10mb'  }));
 // Tracker D blob carries N years × ~11 sites × 31 activities × 12 months of
 // input cells + per-site targets + activities metadata. Typical realistic
@@ -5617,7 +5618,10 @@ app.get('/api/reports/site-actions', requireReportSession, async (req, res) => {
     if (resolved && resolved.site_id) {
       report = { actions: (await rdb.getSiteOpenReportActions(resolved.site_id)).actions };
     }
-    const sa = buildSiteActions({ meetings, inspection, report, asOf });
+    // Open issues of the site (resolved/cancelled are dropped by the engine) — the hub
+    // shows who has no action yet and lets the user add one from the issue.
+    const issues = await meetingsDb.listIssues({ site: code, limit: 1000 });
+    const sa = buildSiteActions({ meetings, inspection, report, issues, asOf });
     // Best-effort: fold Meridian project links onto matching rows for the "▸ Projet: X"
     // badge (F1). NEVER blocks the hub — a Meridian outage/misconfig leaves every
     // it.project null. getConfig is a Promise on pg → await it.
@@ -8593,6 +8597,40 @@ app.post('/api/meetings/issues/:id/update', requireReportSession, meetingsJsonBo
     res.json({ ok: true });
   } catch(e) {
     console.error('[Meetings] issue update error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST /api/meetings/issues/:id/actions — add an IT action linked to this issue
+// (Site Actions hub « + Action »). Same RBAC as the issue update: editor, own site.
+app.post('/api/meetings/issues/:id/actions', requireReportSession, meetingsJsonBody, async (req, res) => {
+  try {
+    if (!meetingsDb) return res.status(503).json({ error: 'Meetings module not available' });
+    if (!rdb.userHasRole(req.reportUser, 'editor')) {
+      return res.status(403).json({ error: 'editor role or higher required' });
+    }
+    const issueId = parseInt(req.params.id, 10);
+    const parent = await meetingsDb.getIssueParent(issueId);
+    if (!parent) return res.status(404).json({ error: 'Issue not found' });
+    const userSite = await _userMeetingsSite(req.reportUser);
+    if (_sitelessWriteDenied(req.reportUser, userSite)) return res.status(403).json({ error: 'Your account has no site assigned for this module. Contact your administrator.' });
+    if (userSite && parent.site_code !== userSite) {
+      return res.status(403).json({ error: `Issue belongs to ${parent.site_code}; you are scoped to ${userSite}` });
+    }
+    const b = req.body || {};
+    let out;
+    try {
+      out = await meetingsDb.addActionForIssue(issueId,
+        { description: b.description, owner_it: b.owner_it, owner_email: b.owner_email, target_date: b.target_date },
+        { author_id: req.reportUser.id || null, author_name: req.reportUser.full_name || req.reportUser.username });
+    } catch (e) {
+      if (/required/i.test(e.message)) return res.status(400).json({ error: e.message });
+      if (/not found/i.test(e.message)) return res.status(404).json({ error: e.message });
+      throw e;
+    }
+    res.json({ ok: true, ...out });
+  } catch(e) {
+    console.error('[Meetings] add action for issue error:', e.message);
     res.status(500).json({ error: e.message });
   }
 });

@@ -79,6 +79,21 @@
   .sa-star { color: #EF631A; font-weight: 800; margin-left: 4px; }
   .sa-modal__foot { padding: 12px 20px; text-align: right; }
   .sa-modal__foot button { font-size: 13px; font-weight: 600; padding: 8px 14px; border-radius: 7px; border: 1px solid var(--color-border, #E2E5EA); background: #fff; cursor: pointer; }
+  .sa-sev { display: inline-block; font-size: 10px; font-weight: 800; border-radius: 4px; padding: 1px 6px; margin-right: 6px; vertical-align: middle; }
+  .sa-sev--HIGH { background: rgba(217,0,56,.12); color: #B00030; }
+  .sa-sev--MEDIUM { background: rgba(217,119,6,.14); color: #92400E; }
+  .sa-sev--LOW { background: rgba(107,119,133,.14); color: #475569; }
+  .sa-tag { display: inline-block; font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; border-radius: 4px; padding: 1px 5px; margin-left: 6px; vertical-align: middle; }
+  .sa-tag--esc { background: rgba(124,58,237,.12); color: #5B21B6; }
+  .sa-tag--inc { background: rgba(13,148,136,.12); color: #0F766E; }
+  .sa-noact { font-size: 11px; font-weight: 700; color: #B45309; }
+  .sa-hasact { font-size: 11px; font-weight: 600; color: #15803D; }
+  .sa-addbtn { font-size: 11px; font-weight: 700; color: #fff; background: var(--edv-orange, #EF631A); border: none; border-radius: 6px; padding: 4px 9px; cursor: pointer; margin-left: 8px; white-space: nowrap; }
+  .sa-addbtn:hover { filter: brightness(.95); }
+  .sa-form { padding: 14px 20px; display: grid; gap: 10px; }
+  .sa-form label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--color-text-muted, #7B7B7B); display: grid; gap: 4px; }
+  .sa-form textarea, .sa-form input { font: 13px var(--font-sans); border: 1px solid var(--color-border, #E2E5EA); border-radius: 7px; padding: 7px 9px; text-transform: none; letter-spacing: 0; font-weight: 400; color: inherit; }
+  .sa-modal__foot .sa-primary { background: var(--edv-orange, #EF631A); color: #fff; border-color: var(--edv-orange, #EF631A); margin-left: 6px; }
   .sa-toast .sa-undo { margin-left: 12px; color: #7DD3FC; font-weight: 800; cursor: pointer; text-decoration: underline; }
   @media (prefers-color-scheme: dark) {
     .sa-head { background: rgba(255,255,255,.03); }
@@ -95,7 +110,7 @@
   <div class="sa-hero">
     <div class="sa-eyebrow">Insights · Actions</div>
     <h1>Site Actions Register</h1>
-    <p>Every still-open action for one site, gathered from where they live — <strong>Meetings</strong>,
+    <p>Every still-open action — and every still-open <strong>problem</strong> raised in a meeting — for one site, gathered from where they live — <strong>Meetings</strong>,
       <strong>Business Incubation</strong> sessions, <strong>Inspections</strong> and the weekly <strong>Report follow-ups</strong> — so you can see it all in one
       place and close it (or jump to where it is closed). Report follow-ups show the latest weekly report.</p>
   </div>
@@ -104,6 +119,7 @@
     <select id="saSite" class="sa-select"><option value="">— Select a site —</option></select>
     <input id="saQ" class="sa-search" type="text" placeholder="Filter by text…">
     <label class="sa-chk"><input type="checkbox" id="saOverdue"> Overdue only</label>
+    <label class="sa-chk" title="Problèmes ouverts qu'aucune action ouverte ne traite encore"><input type="checkbox" id="saNoAction"> Problèmes sans action seulement</label>
   </div>
   <div class="sa-note" id="saNote"></div>
 
@@ -150,7 +166,10 @@
     { key: 'report',     title: 'Report follow-ups', color: '#16A34A', api: null,                       statuses: ['open', 'in_progress', 'on_hold', 'closed', 'cancelled'] },
   ];
 
-  const state = { site: '', q: '', overdue: false, data: null };
+  const state = { site: '', q: '', overdue: false, noAction: false, data: null };
+  // md_issues vocabulary (meetings-init.json statuses)
+  const ISSUE_STATUSES = ['open', 'in_progress', 'blocked', 'on_hold', 'resolved', 'cancelled'];
+  const TERMINAL_ACTION = /^(resolved|cancelled|closed)$/i;
 
   async function loadSites() {
     // Meetings + inspection share the mine-site code namespace the hub uses.
@@ -235,11 +254,122 @@
     return `<div class="sa-group">${head}${table}</div>`;
   }
 
+  // ── Open problems (md_issues) — 2026-10-05 ──
+  function issueStatusCell(it) {
+    if (!canEdit || !it.issue_id) {
+      return `<span class="sa-pill" style="background:rgba(107,119,133,.12);color:#556;border-color:rgba(107,119,133,.3)">${esc(it.status)}</span>`;
+    }
+    const opts = ISSUE_STATUSES.slice();
+    if (!opts.includes(it.status)) opts.unshift(it.status);
+    return `<select class="sa-status-sel" data-src="issue" data-id="${esc(it.issue_id)}" data-prev="${esc(it.status)}">`
+      + opts.map(s => `<option value="${esc(s)}"${s === it.status ? ' selected' : ''}>${esc(s)}</option>`).join('') + '</select>';
+  }
+  function issueRowHtml(it) {
+    const n = it.open_actions || 0;
+    const sev = it.severity ? `<span class="sa-sev sa-sev--${esc(it.severity)}">${esc(it.severity)}</span>` : '';
+    const tags = (it.escalated ? '<span class="sa-tag sa-tag--esc">escaladé</span>' : '')
+      + (it.incubation ? '<span class="sa-tag sa-tag--inc">incubation</span>' : '');
+    const pv = it.meeting_id ? `<a class="sa-open" href="meeting.html?id=${encodeURIComponent(it.meeting_id)}">↗ PV</a>` : '';
+    const act = n
+      ? `<span class="sa-hasact">${n} action${n > 1 ? 's' : ''} en cours</span>`
+      : `<span class="sa-noact">sans action</span>`
+        + (canEdit ? `<button class="sa-addbtn" data-issue="${esc(it.issue_id)}" data-title="${esc(it.title)}" data-owner="${esc(it.owner || '')}" data-due="${esc(it.due_date || '')}">+ Action</button>` : '');
+    return `<div class="sa-row">
+      <span class="sa-row__title">${sev}<strong>${esc(it.title)}</strong>${tags}<small>${esc(it.origin_label || '')}</small></span>
+      <span>${esc(it.owner || '—')}</span>
+      <span class="sa-date ${it.overdue ? 'overdue' : ''}">${fmtDate(it.due_date)}${it.overdue ? '<span class="sa-overdue-tag">late</span>' : ''}</span>
+      <span>${it.age_days == null ? '—' : esc(it.age_days + 'd')}</span>
+      <span>${issueStatusCell(it)}</span>
+      <span>${act} ${pv}</span>
+    </div>`;
+  }
+  function issuesHtml() {
+    const grp = (state.data && state.data.groups && state.data.groups.issues) || { items: [] };
+    const all = grp.items || [];
+    let items = all.filter(matchQ);
+    if (state.overdue) items = items.filter(it => it.overdue);
+    if (state.noAction) items = items.filter(it => !it.open_actions);
+    const without = all.filter(it => !it.open_actions).length;
+    const head = `<div class="sa-group__head">
+        <span class="sa-group__dot" style="background:#7C3AED"></span>
+        <span class="sa-group__title">Problèmes ouverts</span>
+        <span class="sa-group__count">${items.length} ouvert${items.length > 1 ? 's' : ''}</span>
+        ${without ? `<span class="sa-badge sa-badge--old">${without} sans action</span>` : ''}
+      </div>`;
+    if (!items.length) return `<div class="sa-group">${head}<div class="sa-empty">Aucun problème ouvert${state.q || state.overdue || state.noAction ? ' ne correspond au filtre' : ''}.</div></div>`;
+    return `<div class="sa-group">${head}<div class="sa-head"><span>Problème</span><span>Champion</span><span>Échéance</span><span>Âge</span><span>Statut</span><span>Actions</span></div>`
+      + items.map(issueRowHtml).join('') + '</div>';
+  }
+
+  function openAddAction(issueId, title, owner, due) {
+    const bg = document.createElement('div');
+    bg.className = 'sa-modal-bg';
+    bg.innerHTML = `<div class="sa-modal">
+      <div class="sa-modal__head">Nouvelle action pour ce problème<small>${esc(title)}</small></div>
+      <div class="sa-form">
+        <label>Action<textarea id="sa-a-desc" rows="3"></textarea></label>
+        <label>Responsable IT<input id="sa-a-owner" type="text"></label>
+        <label>Échéance<input id="sa-a-due" type="date"></label>
+      </div>
+      <div class="sa-modal__foot"><button id="sa-a-cancel">Annuler</button><button id="sa-a-save" class="sa-primary">Ajouter</button></div></div>`;
+    document.body.appendChild(bg);
+    bg.querySelector('#sa-a-desc').value = title || '';
+    bg.querySelector('#sa-a-owner').value = owner || '';
+    bg.querySelector('#sa-a-due').value = /^\d{4}-\d{2}-\d{2}/.test(due || '') ? String(due).slice(0, 10) : '';
+    const close = () => bg.remove();
+    bg.addEventListener('click', e => { if (e.target === bg) close(); });
+    bg.querySelector('#sa-a-cancel').addEventListener('click', close);
+    bg.querySelector('#sa-a-save').addEventListener('click', async () => {
+      const btn = bg.querySelector('#sa-a-save');
+      const description = bg.querySelector('#sa-a-desc').value.trim();
+      if (!description) { toast("Décrivez l'action", true); return; }
+      btn.disabled = true;
+      try {
+        const r = await fetch('/api/meetings/issues/' + encodeURIComponent(issueId) + '/actions', {
+          method: 'POST', credentials: 'same-origin',
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ description, owner_it: bg.querySelector('#sa-a-owner').value.trim(),
+            target_date: bg.querySelector('#sa-a-due').value }),
+        });
+        if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || ('HTTP ' + r.status)); }
+        close();
+        toast('Action ajoutée');
+        await loadActions();
+      } catch (err) { btn.disabled = false; toast('Ajout refusé : ' + (err.message || ''), true); }
+    });
+    bg.querySelector('#sa-a-desc').focus();
+  }
+
+  // After an action reaches a terminal status: if it was the LAST open action of its
+  // problem, offer to resolve the problem too (never automatic — user's choice 2026-10-05).
+  async function maybeResolveIssue(actionId) {
+    const g = (state.data && state.data.groups) || {};
+    const acts = [].concat((g.meetings && g.meetings.items) || [], (g.incubation && g.incubation.items) || []);
+    const me = acts.find(a => String(a.action_id) === String(actionId));
+    if (!me || !me.linked_issue_id) return;
+    const others = acts.filter(a => a.linked_issue_id === me.linked_issue_id && String(a.action_id) !== String(actionId)
+      && !TERMINAL_ACTION.test(String(a.status || '')));
+    if (others.length) return;
+    const issue = ((g.issues && g.issues.items) || []).find(i => i.issue_id === me.linked_issue_id);
+    if (!issue) return;
+    if (!window.confirm("C'était la dernière action ouverte de ce problème.\n\nMarquer aussi le problème « " + issue.title + " » comme résolu ?")) return;
+    try {
+      const r = await fetch('/api/meetings/issues/' + encodeURIComponent(issue.issue_id) + '/update', {
+        method: 'POST', credentials: 'same-origin',
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ status_change: 'resolved', body: 'Résolu après la fermeture de sa dernière action' }),
+      });
+      if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || ('HTTP ' + r.status)); }
+      toast('Problème marqué résolu');
+    } catch (err) { toast('Problème non modifié : ' + (err.message || ''), true); }
+  }
+
   function render() {
-    document.getElementById('saGroups').innerHTML = GROUPS.map(groupHtml).join('');
+    document.getElementById('saGroups').innerHTML = issuesHtml() + GROUPS.map(groupHtml).join('');
     document.getElementById('saNote').innerHTML =
       'Report follow-ups are gathered across all weeks and de-duplicated — carried-forward copies of the same action collapse into one (its latest week). Merged follow-ups fold under their Meetings/Inspection origin. Age is unavailable for report follow-ups (no created timestamp) — they show the due date only.';
     if (canEdit) document.querySelectorAll('.sa-status-sel').forEach(el => el.addEventListener('change', onStatusChange));
+    document.querySelectorAll('.sa-addbtn').forEach(b => b.addEventListener('click', () => openAddAction(b.dataset.issue, b.dataset.title, b.dataset.owner, b.dataset.due)));
     document.querySelectorAll('.sa-mergebtn').forEach(b => b.addEventListener('click', () => openMergePicker(b.dataset.uid, b.dataset.title)));
   }
 
@@ -325,6 +455,7 @@
     // their existing /actions/:id/update {status_change}.
     let url, body;
     if (src === 'report') { url = '/api/reports/action/' + encodeURIComponent(id) + '/status'; body = { status }; }
+    else if (src === 'issue') { url = '/api/meetings/issues/' + encodeURIComponent(id) + '/update'; body = { status_change: status }; }
     else { const g = GROUPS.find(x => x.key === src); url = g.api + encodeURIComponent(id) + '/update'; body = { status_change: status }; }
     el.disabled = true;
     try {
@@ -334,7 +465,8 @@
         body: JSON.stringify(body),
       });
       if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || ('HTTP ' + r.status)); }
-      toast('Action updated → ' + status);
+      toast((src === 'issue' ? 'Problème → ' : 'Action updated → ') + status);
+      if ((src === 'meetings' || src === 'incubation') && TERMINAL_ACTION.test(status)) await maybeResolveIssue(id);
       await loadActions();
     } catch (err) {
       el.value = prev;                 // revert — the server refused (RBAC / closed parent)
@@ -348,6 +480,7 @@
   let _qT = null;
   document.getElementById('saQ').addEventListener('input', e => { clearTimeout(_qT); _qT = setTimeout(() => { state.q = e.target.value.trim(); render(); }, 200); });
   document.getElementById('saOverdue').addEventListener('change', e => { state.overdue = e.target.checked; render(); });
+  document.getElementById('saNoAction').addEventListener('change', e => { state.noAction = e.target.checked; render(); });
 
   // Deep link ?site=CODE — the coordinator email + the site report link here.
   (function applyDeepLink() {

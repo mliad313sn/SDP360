@@ -276,3 +276,20 @@ test('pg: a hand-entered incubation never overwrites the month PV (_INC_ referen
     assert.equal((await mdb.getMeeting(pv.id)).header.priority_1, 'keep me');
   } finally { try { await h.close(); } catch {} await dropTestDb(ctx); }
 });
+
+test('pg: addActionForIssue creates a linked action + issue audit row', async (t) => {
+  const b = await boot(); if (!b) return t.skip('no pg');
+  const { ctx, mdb } = b; const h = mdb.pgHandle();
+  try {
+    await mdb.loadLookups();
+    const saved = await mdb.saveMeeting({ header: { site_code: 'HGO', department: 'hr', meeting_date: '2026-11-05', status: 'draft' },
+      issues: [{ ord: 0, title: 'Badges KO', category: 'HW', severity: 'HIGH', status: 'open' }] }, null, null);
+    const issueId = (await mdb.getMeeting(saved.id)).issues[0].id;
+    const out = await mdb.addActionForIssue(issueId, { description: 'Remplacer le lecteur', owner_it: 'Awa' }, { author_name: 'T' });
+    const after = await mdb.getMeeting(saved.id);
+    const a = after.actions.find(x => x.id === out.id);
+    assert.equal(a.linked_issue_id, issueId);
+    const n = await h.prepare("SELECT count(*)::int n FROM md_issue_updates WHERE issue_id = ? AND body LIKE 'Action ajout%'").get(issueId);
+    assert.equal(n.n, 1);
+  } finally { try { await h.close(); } catch {} await dropTestDb(ctx); }
+});

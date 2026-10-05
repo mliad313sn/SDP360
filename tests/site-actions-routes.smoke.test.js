@@ -21,7 +21,7 @@ const { test, before, after } = require('node:test');
 const assert = require('node:assert');
 const http = require('http');
 
-let server, base, adminToken;
+let server, base, adminToken, issueId;
 
 function get(path, token) {
   return new Promise((resolve, reject) => {
@@ -42,6 +42,9 @@ before(async () => {
   const m = db.prepare("INSERT INTO md_meetings (reference, site_code, department, meeting_date, status) VALUES ('MGO_Test_2026-07','MGO','Technical Services','2026-07-01','signed')").run();
   db.prepare("INSERT INTO md_actions (meeting_id, description, owner_it, target_date, status, created_at) VALUES (?,?,?,?,?,?)")
     .run(m.lastInsertRowid, 'Fix VSAT', 'Ousmane', '2026-07-01', 'open', '2026-06-27T00:00:00Z');
+  const iss = db.prepare("INSERT INTO md_issues (meeting_id, ord, title, category, severity, status) VALUES (?,?,?,?,?,?)")
+    .run(m.lastInsertRowid, 1, 'Wifi atelier instable', 'CN', 'HIGH', 'open');
+  issueId = Number(iss.lastInsertRowid);
 
   const me = (rdb.listUsers() || []).find((u) => u.username === process.env.DASH_USER);
   assert.ok(me, 'seeded admin user exists');
@@ -73,4 +76,38 @@ test('unknown site → 200 empty groups, not 500', async () => {
   assert.equal(r.body.groups.meetings.count, 0);
   assert.equal(r.body.groups.report.count, 0);
   assert.equal(r.body.totals.open, 0);
+});
+
+function post(path, token, body) {
+  return new Promise((resolve, reject) => {
+    const data = JSON.stringify(body || {});
+    const req = http.request(base + path, { method: 'POST', headers: { 'x-report-token': token,
+      'x-dash-key': process.env.DASHBOARD_API_KEY, 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) } },
+      (res) => { let b = ''; res.on('data', (d) => (b += d)); res.on('end', () => resolve({ status: res.statusCode, body: b ? JSON.parse(b) : null })); });
+    req.on('error', reject); req.end(data);
+  });
+}
+
+test('open issues of the site appear in their own group, flagged without action', async () => {
+  const r = await get('/api/reports/site-actions?site=MGO', adminToken);
+  const it = r.body.groups.issues.items.find((i) => i.title === 'Wifi atelier instable');
+  assert.ok(it, 'issue present in groups.issues');
+  assert.equal(it.issue_id, issueId);
+  assert.equal(it.open_actions, 0);
+});
+
+test('POST /api/meetings/issues/:id/actions adds a linked action; the issue then counts it', async () => {
+  const bad = await post(`/api/meetings/issues/${issueId}/actions`, adminToken, { description: '' });
+  assert.equal(bad.status, 400);
+  const nf = await post('/api/meetings/issues/999999/actions', adminToken, { description: 'x' });
+  assert.equal(nf.status, 404);
+  const ok = await post(`/api/meetings/issues/${issueId}/actions`, adminToken,
+    { description: 'Remplacer la borne', owner_it: 'Awa', target_date: '2026-11-01' });
+  assert.equal(ok.status, 200);
+  assert.ok(ok.body.id > 0);
+  const r = await get('/api/reports/site-actions?site=MGO', adminToken);
+  const it = r.body.groups.issues.items.find((i) => i.issue_id === issueId);
+  assert.equal(it.open_actions, 1);
+  const act = r.body.groups.meetings.items.find((i) => i.title === 'Remplacer la borne');
+  assert.equal(act.linked_issue_id, issueId);
 });

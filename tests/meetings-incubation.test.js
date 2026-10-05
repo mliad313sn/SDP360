@@ -159,3 +159,27 @@ test('a hand-entered incubation gets its own _INC_ reference and never overwrite
   const again = mdb.saveMeeting({ id: inc.id, header: { id: inc.id, site_code: 'HGO', department: 'finance', meeting_date: '2026-10-20', intake_source: 'business_incubation', status: 'submitted' } }, null, null);
   assert.equal(again.id, inc.id);
 });
+
+// 2026-10-05 — « + Action » from the Site Actions hub: an action created FROM an issue is
+// linked to it, lands in the issue's own session, and leaves a trace on the issue.
+test('addActionForIssue creates a linked action in the issue meeting + an issue audit row', () => {
+  const saved = mdb.saveMeeting({ header: { site_code: 'HGO', department: 'hr', meeting_date: '2026-11-05', status: 'draft' },
+    issues: [{ ord: 0, title: 'Badges KO', category: 'HW', severity: 'HIGH', status: 'open' }],
+    actions: [{ description: 'existing', status: 'open' }] }, null, null);
+  const rec = mdb.getMeeting(saved.id);
+  const issueId = rec.issues[0].id;
+  const out = mdb.addActionForIssue(issueId, { description: 'Remplacer le lecteur', owner_it: 'Awa', target_date: '2026-11-20' }, { author_name: 'Tester' });
+  assert.ok(out.id);
+  const after = mdb.getMeeting(saved.id);
+  const a = after.actions.find(x => x.id === out.id);
+  assert.equal(a.linked_issue_id, issueId);
+  assert.equal(a.status, 'open');
+  assert.equal(a.owner_it, 'Awa');
+  const existing = after.actions.find(x => x.description === 'existing');
+  assert.ok(a.ord > existing.ord, 'appended after the existing actions');
+  assert.equal(after.actions.length, 2, 'existing actions untouched');
+  const upd = (after.updates || []).find(u => u.issue_id === issueId);
+  assert.ok(upd && /Remplacer le lecteur/.test(upd.body), 'trace on the issue');
+  assert.throws(() => mdb.addActionForIssue(issueId, { description: '' }), /description/i);
+  assert.throws(() => mdb.addActionForIssue(999999, { description: 'x' }), /not found/i);
+});

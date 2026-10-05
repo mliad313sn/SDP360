@@ -159,3 +159,43 @@ test('the hub page renders an incubation block that posts to the meetings action
   const src = require('fs').readFileSync(require('path').join(__dirname, '../public/site-actions.html'), 'utf8');
   assert.match(src, /key: 'incubation', title: 'Business Incubation'[^}]*api: '\/api\/meetings\/actions\/'/);
 });
+
+// 2026-10-05 — open issues (meetings + incubation) in the hub, with how many OPEN actions
+// treat each one, so « sans action seulement » and « + Action » can work without duplicates.
+test('issues group: open only, severity then overdue order, open-action count, not in totals.open', () => {
+  const issues = [
+    { id: 1, title: 'Low one', severity: 'LOW', status: 'open', target_date: '2026-07-01', created_at: '2026-06-01T00:00:00Z', meeting_reference: 'SGO_A_PV_2026-06', meeting_id: 9 },
+    { id: 2, title: 'High one', severity: 'HIGH', status: 'in_progress', target_date: '2026-09-01', created_at: '2026-07-01T00:00:00Z', meeting_reference: 'SGO_A_INC_2026-07', meeting_id: 8, champion: 'Awa', escalate: 1 },
+    { id: 3, title: 'Done', severity: 'HIGH', status: 'resolved' },
+  ];
+  const meetingsRows = [
+    { id: 50, description: 'treats 2', status: 'open', linked_issue_id: 2, meeting_reference: 'SGO_A_INC_2026-07' },
+    { id: 51, description: 'closed, treats 1', status: 'resolved', linked_issue_id: 1 },
+  ];
+  const r = buildSiteActions({ issues, meetings: meetingsRows, asOf });
+  const it = r.groups.issues.items;
+  assert.deepEqual(it.map(i => i.issue_id), [2, 1], 'HIGH first; resolved left out');
+  assert.equal(it[0].source, 'issue');
+  assert.equal(it[0].open_actions, 1);
+  assert.equal(it[1].open_actions, 0, 'a closed action does not treat the issue');
+  assert.equal(it[0].severity, 'HIGH'); assert.equal(it[0].owner, 'Awa'); assert.equal(it[0].escalated, true);
+  assert.equal(it[0].incubation, true); assert.equal(it[0].meeting_id, 8);
+  assert.equal(it[1].overdue, true);
+  assert.equal(r.totals.open, 1, 'issues are not actions — totals.open unchanged');
+  assert.equal(r.totals.issues, 2);
+  // the action carries its linked issue so the page can offer to close it
+  const act = r.groups.incubation.items[0];
+  assert.equal(act.linked_issue_id, 2);
+});
+
+test('hub page: issues block, « sans action » filter, + Action modal, close-issue prompt', () => {
+  const src = require('fs').readFileSync(require('path').join(__dirname, '../public/site-actions.html'), 'utf8');
+  assert.match(src, /id="saNoAction"/, '« sans action seulement » checkbox');
+  assert.match(src, /'\/api\/meetings\/issues\/' \+ encodeURIComponent\(\w+\) \+ '\/actions'/, '+ Action posts to the issue route');
+  assert.match(src, /'\/api\/meetings\/issues\/' \+ encodeURIComponent\(\w+\) \+ '\/update'/, 'issue status/resolve posts to /update');
+  assert.match(src, /Marquer aussi le problème/, 'proposes resolving the linked issue');
+  assert.match(src, /linked_issue_id/, 'uses the action→issue link');
+  // every inline script still compiles
+  const scripts = [...src.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g)].map(m => m[1]).filter(s => s.trim());
+  for (const s of scripts) new Function(s);
+});

@@ -14,6 +14,7 @@
 const TERMINAL = {
   meetings: new Set(['resolved', 'cancelled', 'closed']),
   incubation: new Set(['resolved', 'cancelled', 'closed']),   // same md_actions vocabulary
+  issue: new Set(['resolved', 'cancelled']),                  // md_issues vocabulary (meetings-init statuses)
   inspection: new Set(['closed', 'cancelled']),
   report: new Set(['closed', 'cancelled']),
 };
@@ -84,6 +85,7 @@ function buildSiteActions(input) {
       overdue: _overdue(a.target_date, asOfMs, false),
       origin_label: a.meeting_reference || null,
       action_id: a.id,
+      linked_issue_id: a.linked_issue_id || null,   // lets the page offer to close the issue it treats
       close: { kind: 'inline' },
     });
   const mItems = meetings
@@ -92,6 +94,39 @@ function buildSiteActions(input) {
   const incItems = meetings
     .filter((a) => _isIncubation(a) && !_isTerminal('incubation', a.status))
     .map(_mdItem('incubation'));
+
+  // Open issues (meetings + incubation sessions, 2026-10-05): what each one still needs. An
+  // issue is "treated" by its OPEN linked actions — open_actions = 0 means nobody is on it yet.
+  const issues = Array.isArray(input.issues) ? input.issues : [];
+  const openByIssue = new Map();
+  for (const a of meetings) {
+    if (a && a.linked_issue_id && !_isTerminal('meetings', a.status)) {
+      openByIssue.set(a.linked_issue_id, (openByIssue.get(a.linked_issue_id) || 0) + 1);
+    }
+  }
+  const SEV = { HIGH: 0, MEDIUM: 1, LOW: 2 };
+  const isItems = issues
+    .filter((i) => !_isTerminal('issue', i.status))
+    .map((i) => ({
+      source: 'issue',
+      title: i.title || '—',
+      owner: i.champion || null,
+      severity: i.severity || null,
+      due_date: i.target_date || null,
+      status: i.status,
+      age_days: _ageDays(i.created_at, asOfMs),
+      overdue: _overdue(i.target_date, asOfMs, false),
+      origin_label: i.meeting_reference || null,
+      issue_id: i.id,
+      meeting_id: i.meeting_id || i.meeting_id_ref || null,
+      escalated: !!Number(i.escalate || 0),
+      incubation: _isIncubation(i),
+      open_actions: openByIssue.get(i.id) || 0,
+      close: { kind: 'inline' },
+    }))
+    .sort((a, b) => (SEV[a.severity] ?? 3) - (SEV[b.severity] ?? 3)
+      || (b.overdue - a.overdue)
+      || String(a.due_date || '9999').localeCompare(String(b.due_date || '9999')));
 
   const iItems = inspection
     .filter((a) => !_isTerminal('inspection', a.status))
@@ -136,6 +171,7 @@ function buildSiteActions(input) {
     : [];
 
   const groups = {
+    issues: _finishGroup(isItems),
     meetings: _finishGroup(mItems),
     incubation: _finishGroup(incItems),
     inspection: _finishGroup(iItems),
@@ -143,7 +179,9 @@ function buildSiteActions(input) {
   };
   return {
     groups,
-    totals: { open: groups.meetings.count + groups.incubation.count + groups.inspection.count + groups.report.count },
+    // totals.open = ACTIONS only (unchanged meaning for every consumer); issues counted apart.
+    totals: { open: groups.meetings.count + groups.incubation.count + groups.inspection.count + groups.report.count,
+      issues: groups.issues.count },
   };
 }
 

@@ -1185,6 +1185,56 @@ function addIssueUpdate(issueId, opts = {}) {
   tx();
 }
 
+/**
+ * « + Action » from the Site Actions hub (2026-10-05): create ONE action that treats an
+ * issue, in the issue's own session, without re-saving the whole PV. Linked to the issue,
+ * appended after the session's existing actions, status 'open'; leaves a trace on the issue
+ * (md_issue_updates, status unchanged). Site scoping is the route's job (getIssueParent).
+ */
+function _actionFromIssueInput(fields) {
+  const f = fields || {};
+  const description = String(f.description || '').trim().slice(0, 2000);
+  if (!description) throw new Error('description is required');
+  const iso = (v) => { const t = String(v || '').trim(); return /^\d{4}-\d{2}-\d{2}$/.test(t) ? t : null; };
+  return { description, owner_it: String(f.owner_it || '').trim().slice(0, 200) || null,
+    owner_email: String(f.owner_email || '').trim().slice(0, 200) || null, target_date: iso(f.target_date) };
+}
+function addActionForIssue(issueId, fields, author = {}) {
+  if (MEETINGS_BACKEND === 'postgres') return _addActionForIssuePg(issueId, fields, author);
+  const v = _actionFromIssueInput(fields);
+  const db = getDB();
+  const issue = db.prepare('SELECT id, meeting_id FROM md_issues WHERE id = ?').get(issueId);
+  if (!issue) throw new Error('Issue not found');
+  let id;
+  db.transaction(() => {
+    const ord = (db.prepare('SELECT COALESCE(MAX(ord), 0) AS m FROM md_actions WHERE meeting_id = ?').get(issue.meeting_id).m || 0) + 1;
+    id = db.prepare(`INSERT INTO md_actions (meeting_id, ord, description, owner_it, owner_email, target_date, status, linked_issue_id)
+                     VALUES (?, ?, ?, ?, ?, ?, 'open', ?)`)
+      .run(issue.meeting_id, ord, v.description, v.owner_it, v.owner_email, v.target_date, issueId).lastInsertRowid;
+    db.prepare(`INSERT INTO md_issue_updates (issue_id, author_id, author_name, body) VALUES (?, ?, ?, ?)`)
+      .run(issueId, author.author_id || null, author.author_name || null, 'Action ajoutée : ' + v.description);
+  })();
+  return { id: Number(id), meeting_id: issue.meeting_id };
+}
+async function _addActionForIssuePg(issueId, fields, author = {}) {
+  const v = _actionFromIssueInput(fields);
+  const H = pgHandle();
+  const issue = await H.prepare('SELECT id, meeting_id FROM md_issues WHERE id = ?').get(issueId);
+  if (!issue) throw new Error('Issue not found');
+  let id;
+  await H.runTransaction(async () => {
+    const m = await H.prepare('SELECT COALESCE(MAX(ord), 0) AS m FROM md_actions WHERE meeting_id = ?').get(issue.meeting_id);
+    const ord = (Number(m && m.m) || 0) + 1;
+    const row = await H.prepare(`INSERT INTO md_actions (meeting_id, ord, description, owner_it, owner_email, target_date, status, linked_issue_id)
+                                 VALUES (?, ?, ?, ?, ?, ?, 'open', ?) RETURNING id`)
+      .get(issue.meeting_id, ord, v.description, v.owner_it, v.owner_email, v.target_date, issueId);
+    id = row.id;
+    await H.prepare(`INSERT INTO md_issue_updates (issue_id, author_id, author_name, body) VALUES (?, ?, ?, ?)`)
+      .run(issueId, author.author_id || null, author.author_name || null, 'Action ajoutée : ' + v.description);
+  });
+  return { id: Number(id), meeting_id: issue.meeting_id };
+}
+
 /** Flat list of all issues across all meetings — drives the Issues Log view. */
 function listIssues(opts = {}) {
   if (MEETINGS_BACKEND === 'postgres') return _listIssuesPg(opts);
@@ -3079,7 +3129,7 @@ module.exports = {
   getSiteMonthlyMeetingSummary,
   getSiteContacts, _pickContacts,
   getSiteScoreInputs, _computeMeetingsScoreInputs, _effClose, _openAt, MD_OPEN,
-  listMeetings, countMeetings, getMeeting, saveMeeting, setMeetingIncubation, deleteMeeting, getMeetingStatus, signMeeting,
+  listMeetings, countMeetings, getMeeting, saveMeeting, setMeetingIncubation, addActionForIssue, deleteMeeting, getMeetingStatus, signMeeting,
   listIssues, listEscalations, addIssueUpdate,
   listActions, addActionUpdate, listActionUpdates, getActionParent, getIssueParent,
   exportRows,
