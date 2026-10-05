@@ -63,6 +63,32 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ---
 
+## ⚡ Current state (as of 2026-10-05, plus tard — éditeurs multi-sites, `f6e0c7c`, PAS déployé à l'écriture)
+
+> **Demande user** : un `editor` doit pouvoir être éditeur de PLUSIEURS sites (sans passer Admin, qui voit
+> tout). **Modèle** : le site principal reste `users.site_id` (inchangé) ; les **sites supplémentaires** vivent
+> dans **`user_sites`** (sqlite + pg `014_user_sites.sql`, CASCADE, ne contient jamais le principal). La
+> session (`safeUser` / `_safeUserPg` — **une seule** définition pg, une seconde écrasait la première en
+> silence) porte **`site_ids`** = [principal, …suppléments] ; `listUsers` porte `extra_site_ids` ;
+> `createUser`/`updateUser` acceptent `extra_site_ids` (remplacé seulement s'il est envoyé).
+> - **Règle** : « son site » = **un de ses sites**, via le pur **`services/userSites.js`** (`siteIds`,
+>   `hasSite`, `codesFor`, `pickCode`, `inScope`). Ne JAMAIS écrire `user.site_id === x` dans un nouveau
+>   contrôle. Les gardes d'écriture des modules (`saveMeeting`, `saveInspection`, `saveTracker`) acceptent
+>   une **liste** de codes ; `_userMeetingsSite(user, wanted)` / `_userInspectionSite(user, wanted)` rendent
+>   le code de l'objet s'il appartient au compte, sinon le principal (les tests `code !== userSite`
+>   existants restent justes). `/api/inspection/lookups` et `/api/tracker/load` ajoutent **`scopes`**
+>   (liste) à côté de `scope` (= principal, pour les anciennes pages).
+> - **Listes et exports** (`/api/reports`, PV non signés, export Excel/PPTX inspection, SLA WAN) : tous les
+>   sites du compte, ou celui demandé par `?site=` s'il en fait partie ; les exports par site restent « un
+>   site à la fois » (celui demandé, sinon le principal).
+> - **Interface** : fiche utilisateur ▸ « Sites supplémentaires » (cases, le principal en est retiré) +
+>   badge « +N » dans la liste ; le sélecteur du tracker ne propose que les sites du compte ; Inspections
+>   et Issues Log comparent à la liste. Sans effet pour le palier Admin (déjà sans restriction).
+> - Tests : `user-sites` (4), `multi-site-editor.smoke` (6), pg dans `pg-reports-auth`, + suites RBAC
+>   existantes vertes. Vérifié au navigateur (fiche, badge, tracker limité à 2 sites, sauvegarde bornée).
+
+---
+
 ## ⚡ Current state (as of 2026-10-05 — Site Actions Register : bloc Business Incubation + problèmes ouverts)
 
 > - **Bloc Business Incubation** (`1e4872b`, déployé) : les actions des sessions d'incubation
