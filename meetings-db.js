@@ -1449,6 +1449,7 @@ function listActions(opts = {}) {
       m.department    AS department,
       m.meeting_date  AS meeting_date,
       m.status        AS meeting_status,
+      m.intake_source AS intake_source,
       m.id            AS meeting_id_ref,
       li.title        AS linked_issue_title
     FROM md_actions a
@@ -1513,7 +1514,7 @@ async function _listActionsPg(opts = {}) {
   params.limit = opts.limit || 1000; params.offset = opts.offset || 0;
   return pgHandle().prepare(`
     SELECT a.*, m.reference AS meeting_reference, m.site_code AS site_code, m.department AS department,
-           m.meeting_date AS meeting_date, m.status AS meeting_status, m.id AS meeting_id_ref, li.title AS linked_issue_title
+           m.meeting_date AS meeting_date, m.status AS meeting_status, m.intake_source AS intake_source, m.id AS meeting_id_ref, li.title AS linked_issue_title
     FROM md_actions a
     JOIN md_meetings m ON m.id = a.meeting_id
     LEFT JOIN md_issues li ON li.id = a.linked_issue_id ${w}

@@ -313,8 +313,11 @@ module.exports = function siteAwarenessRoutes({ express, requireReportSession, r
       // Flatten to a single list + derive by_source/total_open/oldest_days for the tab.
       const g = sa.groups || {};
       const grp = (name) => g[name] || { items: [], count: 0, oldest_days: null };
-      const flat = [].concat(grp('meetings').items, grp('inspection').items, grp('report').items);
-      const oldestVals = ['meetings', 'inspection', 'report'].map((n) => grp(n).oldest_days).filter((v) => v != null);
+      // Business view keeps 3 sources: incubation actions (own hub group since 2026-10-05)
+      // are shown as meetings here.
+      const incAsMeetings = grp('incubation').items.map((a) => ({ ...a, source: 'meetings' }));
+      const flat = [].concat(grp('meetings').items, incAsMeetings, grp('inspection').items, grp('report').items);
+      const oldestVals = ['meetings', 'incubation', 'inspection', 'report'].map((n) => grp(n).oldest_days).filter((v) => v != null);
 
       // WHITELIST — PII-safe. title/owner/origin_label are internal accountability text (allowed);
       // no requester/technician free-text (the action sources carry none).
@@ -322,7 +325,7 @@ module.exports = function siteAwarenessRoutes({ express, requireReportSession, r
         applicable: true, site_id: gate.site_id, site_name: rs.site_name || null,
         snapshot: {
           total_open: (sa.totals && sa.totals.open) || 0,
-          by_source: { meetings: grp('meetings').count, inspection: grp('inspection').count, report: grp('report').count },
+          by_source: { meetings: grp('meetings').count + grp('incubation').count, inspection: grp('inspection').count, report: grp('report').count },
           oldest_days: oldestVals.length ? Math.max(...oldestVals) : null,
         },
         actions: flat.map((a) => ({
@@ -467,7 +470,7 @@ module.exports = function siteAwarenessRoutes({ express, requireReportSession, r
               }
               const sa = buildSiteActions({ meetings, inspection, report, asOf });
               const g = sa.groups || {};
-              const flat = [].concat((g.meetings || {}).items || [], (g.inspection || {}).items || [], (g.report || {}).items || []);
+              const flat = [].concat((g.meetings || {}).items || [], (g.incubation || {}).items || [], (g.inspection || {}).items || [], (g.report || {}).items || []);
               cells.actions = ragActions(flat.filter((a) => a && a.overdue).length);
             }
           } catch (_) {}

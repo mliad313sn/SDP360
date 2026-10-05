@@ -72,9 +72,14 @@ function buildSiteReportDeps(mods) {
       const { buildSiteActions } = require('./siteActionsRegister');
       const g = buildSiteActions({ meetings, inspection, report, asOf }).groups;
       const pick = (x) => ({ count: x.count, oldest: x.oldest_days });
+      // The e-mail keeps 3 sources: incubation sessions are meetings of the department
+      // (their own hub group since 2026-10-05) → folded back into « Réunions » here.
+      const inc = g.incubation || { count: 0, oldest_days: null };
+      const olds = [g.meetings.oldest_days, inc.oldest_days].filter((v) => v != null);
+      const meetingsAll = { count: g.meetings.count + inc.count, oldest: olds.length ? Math.max(...olds) : null };
       return {
-        meetings: pick(g.meetings), inspection: pick(g.inspection), report: pick(g.report),
-        total: g.meetings.count + g.inspection.count + g.report.count,
+        meetings: meetingsAll, inspection: pick(g.inspection), report: pick(g.report),
+        total: g.meetings.count + inc.count + g.inspection.count + g.report.count,
       };
     },
 

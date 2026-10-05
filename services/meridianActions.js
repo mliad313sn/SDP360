@@ -6,17 +6,20 @@
 // The SDP stable action id Meridian caches in its external_action_link row.
 function actionId(it) {
   const key = (it.action_id != null) ? it.action_id : it.uid;
-  return `${it.source}:${key}`;
+  // An incubation action is a meetings row (md_actions): keep the id stable across the
+  // hub's 2026-10-05 split into its own group.
+  const src = it.source === 'incubation' ? 'meetings' : it.source;
+  return `${src}:${key}`;
 }
 
 function flattenOpenActions(site, sa, asOf) {
   const groups = (sa && sa.groups) || {};
   const actions = [];
-  for (const g of ['meetings', 'inspection', 'report']) {
+  for (const g of ['meetings', 'incubation', 'inspection', 'report']) {
     for (const it of ((groups[g] && groups[g].items) || [])) {
       actions.push({
         id: actionId(it),
-        source: it.source,
+        source: it.source === 'incubation' ? 'meetings' : it.source,   // C2 contract keeps 3 sources
         title: it.title || '',
         owner: it.owner || null,
         status: it.status || null,
@@ -38,7 +41,7 @@ function attachProjectLinks(sa, linksMap, baseUrl) {
   const map = linksMap || {};
   const groups = (sa && sa.groups) || {};
   const trim = String(baseUrl || '').replace(/\/$/, '');
-  for (const g of ['meetings', 'inspection', 'report']) {
+  for (const g of ['meetings', 'incubation', 'inspection', 'report']) {
     for (const it of ((groups[g] && groups[g].items) || [])) {
       const l = map[actionId(it)];
       it.project = l ? {

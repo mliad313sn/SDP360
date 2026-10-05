@@ -95,8 +95,8 @@
   <div class="sa-hero">
     <div class="sa-eyebrow">Insights · Actions</div>
     <h1>Site Actions Register</h1>
-    <p>Every still-open action for one site, gathered from the three places they live — <strong>Meetings</strong>,
-      <strong>Inspections</strong> and the weekly <strong>Report follow-ups</strong> — so you can see it all in one
+    <p>Every still-open action for one site, gathered from where they live — <strong>Meetings</strong>,
+      <strong>Business Incubation</strong> sessions, <strong>Inspections</strong> and the weekly <strong>Report follow-ups</strong> — so you can see it all in one
       place and close it (or jump to where it is closed). Report follow-ups show the latest weekly report.</p>
   </div>
 
@@ -144,6 +144,8 @@
   const canEdit = !!(window.__userHasRole && window.__userHasRole('editor'));
   const GROUPS = [
     { key: 'meetings',   title: 'Meetings',          color: '#145FAE', api: '/api/meetings/actions/',   statuses: ['open', 'in_progress', 'resolved', 'cancelled'] },
+    // Business Incubation sessions (2026-10-05): their own block; same md_actions rows → same route + vocabulary.
+    { key: 'incubation', title: 'Business Incubation', color: '#0D9488', api: '/api/meetings/actions/', statuses: ['open', 'in_progress', 'resolved', 'cancelled'] },
     { key: 'inspection', title: 'Inspections',       color: '#EF631A', api: '/api/inspection/actions/', statuses: ['Open', 'In Progress', 'Closed', 'Cancelled'] },
     { key: 'report',     title: 'Report follow-ups', color: '#16A34A', api: null,                       statuses: ['open', 'in_progress', 'on_hold', 'closed', 'cancelled'] },
   ];
@@ -251,8 +253,10 @@
   }
   function _candidates() {
     const out = [];
-    (['meetings', 'inspection']).forEach(src => {
-      const grp = state.data && state.data.groups && state.data.groups[src];
+    // An incubation action is a meetings row: offered as a merge target under source 'meetings'.
+    (['meetings', 'incubation', 'inspection']).forEach(grpKey => {
+      const src = grpKey === 'incubation' ? 'meetings' : grpKey;
+      const grp = state.data && state.data.groups && state.data.groups[grpKey];
       (grp ? grp.items : []).forEach(i => { if (i.action_id) out.push({ source: src, origin_id: i.action_id, title: i.title, sub: i.origin_label }); });
     });
     return out;

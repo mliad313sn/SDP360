@@ -129,3 +129,33 @@ test('empty / missing sources → empty groups, no throw', () => {
   assert.equal(r.groups.report.count, 0);
   assert.equal(r.totals.open, 0);
 });
+
+// 2026-10-05 — Business Incubation actions get their OWN group in the hub (they used to be
+// mixed into Meetings). Recognised by the session's intake_source, or its _INC_ reference.
+test('incubation actions form their own group, out of Meetings', () => {
+  const m = [
+    { id: 31, description: 'PV action', status: 'open', target_date: '2026-08-01', created_at: '2026-07-01T00:00:00Z',
+      meeting_reference: 'SGO_Mining_PV_2026-07', intake_source: 'dept_meeting' },
+    { id: 32, description: 'Incubation action', status: 'in_progress', target_date: '2026-08-01', created_at: '2026-07-10T00:00:00Z',
+      meeting_reference: 'SGO_Mining_INC_2026-07', intake_source: 'business_incubation' },
+    { id: 33, description: 'Imported incubation, no intake column', status: 'open', created_at: '2026-07-12T00:00:00Z',
+      meeting_reference: 'SGO_Geology_INC_2026-07' },
+    { id: 34, description: 'Closed incubation', status: 'resolved', meeting_reference: 'SGO_X_INC_2026-07', intake_source: 'business_incubation' },
+  ];
+  const r = buildSiteActions({ meetings: m, asOf });
+  assert.deepEqual(r.groups.meetings.items.map(i => i.action_id), [31]);
+  assert.deepEqual(r.groups.incubation.items.map(i => i.action_id), [32, 33]);
+  assert.equal(r.groups.incubation.items[0].source, 'incubation');
+  assert.equal(r.groups.incubation.oldest_days, 17);
+  assert.equal(r.totals.open, 3, 'incubation counts in the total');
+});
+
+test('no incubation action → an empty incubation group, never missing', () => {
+  const r = buildSiteActions({ meetings, inspection, report, asOf });
+  assert.deepEqual(r.groups.incubation, { items: [], count: 0, oldest_days: null });
+});
+
+test('the hub page renders an incubation block that posts to the meetings action route', () => {
+  const src = require('fs').readFileSync(require('path').join(__dirname, '../public/site-actions.html'), 'utf8');
+  assert.match(src, /key: 'incubation', title: 'Business Incubation'[^}]*api: '\/api\/meetings\/actions\/'/);
+});

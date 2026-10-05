@@ -13,6 +13,7 @@
 
 const TERMINAL = {
   meetings: new Set(['resolved', 'cancelled', 'closed']),
+  incubation: new Set(['resolved', 'cancelled', 'closed']),   // same md_actions vocabulary
   inspection: new Set(['closed', 'cancelled']),
   report: new Set(['closed', 'cancelled']),
 };
@@ -58,6 +59,14 @@ function _finishGroup(items) {
   };
 }
 
+// Business Incubation sessions live in the meetings tables (md_actions) but get their OWN
+// group in the hub (2026-10-05). Recognised by the session's intake_source, or — for rows
+// read without that column — by the _INC_ reference the incubation sessions carry.
+function _isIncubation(a) {
+  return String((a && a.intake_source) || '') === 'business_incubation'
+    || /_INC_/i.test(String((a && a.meeting_reference) || ''));
+}
+
 function buildSiteActions(input) {
   input = input || {};
   const asOfMs = _time(input.asOf);
@@ -65,10 +74,8 @@ function buildSiteActions(input) {
   const inspection = Array.isArray(input.inspection) ? input.inspection : [];
   const report = input.report && Array.isArray(input.report.actions) ? input.report : null;
 
-  const mItems = meetings
-    .filter((a) => !_isTerminal('meetings', a.status))
-    .map((a) => ({
-      source: 'meetings',
+  const _mdItem = (source) => (a) => ({
+      source,
       title: a.description || '—',
       owner: a.owner_it || a.owner_email || null,
       due_date: a.target_date || null,
@@ -78,7 +85,13 @@ function buildSiteActions(input) {
       origin_label: a.meeting_reference || null,
       action_id: a.id,
       close: { kind: 'inline' },
-    }));
+    });
+  const mItems = meetings
+    .filter((a) => !_isIncubation(a) && !_isTerminal('meetings', a.status))
+    .map(_mdItem('meetings'));
+  const incItems = meetings
+    .filter((a) => _isIncubation(a) && !_isTerminal('incubation', a.status))
+    .map(_mdItem('incubation'));
 
   const iItems = inspection
     .filter((a) => !_isTerminal('inspection', a.status))
@@ -124,13 +137,14 @@ function buildSiteActions(input) {
 
   const groups = {
     meetings: _finishGroup(mItems),
+    incubation: _finishGroup(incItems),
     inspection: _finishGroup(iItems),
     report: _finishGroup(rItems),
   };
   return {
     groups,
-    totals: { open: groups.meetings.count + groups.inspection.count + groups.report.count },
+    totals: { open: groups.meetings.count + groups.incubation.count + groups.inspection.count + groups.report.count },
   };
 }
 
-module.exports = { buildSiteActions, TERMINAL };
+module.exports = { buildSiteActions, TERMINAL, _isIncubation };
