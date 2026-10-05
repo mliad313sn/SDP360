@@ -64,7 +64,7 @@ test('GET /api/inspection/lookups → 200 from the lookups handler', async () =>
   const r = await get('/api/inspection/lookups');
   assert.strictEqual(r.status, 200);
   // `scope` (RBAC lot 4b): the caller's site code — null here, the stub user is admin-tier.
-  assert.deepStrictEqual(JSON.parse(r.body), { sites: [], areas: [], types: [], scope: null });
+  assert.deepStrictEqual(JSON.parse(r.body), { sites: [], areas: [], types: [], scope: null, scopes: null });
   assert.ok(calls.includes('loadLookups'));
 });
 

@@ -371,8 +371,9 @@ module.exports = function opmanagerRoutes(deps) {
   //    best-effort — never 500 (on throw, return the safe empty shape). ──
   // RBAC lot 4d (2026-10-02): the SLA views are open to coordinators, locked to their site.
   // null = admin tier (every site); otherwise the caller's site_id (-1 = no site → nothing).
-  const _slaSite = (user) => (rdb.userHasRole(user, 'admin') ? null : (Number(user && user.site_id) || -1));
-  const _slaKeep = (user) => { const s = _slaSite(user); return (o) => s === null || Number(o.site_id) === s; };
+  // Multi-site editors (2026-10-05): the list of the caller's site ids ([] = nothing).
+  const _slaSite = (user) => (rdb.userHasRole(user, 'admin') ? null : require('../services/userSites').siteIds(user));
+  const _slaKeep = (user) => { const s = _slaSite(user); return (o) => s === null || s.includes(Number(o.site_id)); };
 
   router.get('/api/analytics/wan/sla/summary', requireReportSession, async (req, res) => {
     const { monthStart, monthEnd, label, fromISO, toISO } = _monthBounds(req.query.month);
@@ -431,10 +432,12 @@ module.exports = function opmanagerRoutes(deps) {
       if (req.query.to) f.to = String(req.query.to);
       if (req.query.uplink) f.uplink = String(req.query.uplink);
       const scoped = _slaSite(req.reportUser);
-      if (scoped !== null) f.site_id = scoped;     // a coordinator only sees their own site
+      // a coordinator only sees their own site(s): keep ?site= when it is one of them, else filter after
+      if (scoped !== null && !(f.site_id && scoped.includes(Number(f.site_id)))) delete f.site_id;
       const siteList = (await rdb.listSites({ includeInactive: true })) || [];
       const nameById = {}; for (const s of siteList) nameById[s.id] = s.name;
-      const outages = ((await rdb.getWanOutages(f)) || []).map(o => ({ ...o, site_name: nameById[o.site_id] || null }));
+      const outages = ((await rdb.getWanOutages(f)) || []).filter(_slaKeep(req.reportUser))
+        .map(o => ({ ...o, site_name: nameById[o.site_id] || null }));
       res.json({ outages });
     } catch (e) { res.json({ outages: [], reason: e.message }); }
   });

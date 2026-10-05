@@ -221,3 +221,20 @@ test('copy-reports-auth: reports.db auth → pg parity + FK + sequence advance',
     assert.ok(r.lastID > 1, 'sites identity advanced past copied id, got ' + r.lastID);
   } finally { await db.close(); await dropTestDb(ctx); fs.rmSync(path.dirname(src), { recursive: true, force: true }); }
 });
+
+test('pg users: extra sites (multi-site editor) saved, listed, carried by the session', async (t) => {
+  const b = await boot(); if (!b) return t.skip('no pg');
+  const { ctx, rdb } = b; const h = rdb.pgHandle();
+  try {
+    await h.prepare(`INSERT INTO sites (id, name, zoho_group, active, sort_order) VALUES (91,'S91','',1,0),(92,'S92','',1,0),(93,'S93','',1,0) ON CONFLICT DO NOTHING`).run();
+    const r = await rdb.createUser({ username: 'multi', full_name: 'Multi', password: 'pw12345678', site_id: 91, roles: ['editor'], extra_site_ids: [92, 93, 91] });
+    let me = (await rdb.listUsers()).find(u => u.id === r.lastID);
+    assert.deepEqual(me.extra_site_ids, [92, 93]);
+    const s = await rdb.login('multi', 'pw12345678');
+    assert.deepEqual((await rdb.validateSession(s.token)).site_ids, [91, 92, 93]);
+    await rdb.updateUser(r.lastID, { full_name: 'Multi', site_id: 91, roles: ['editor'] });
+    assert.deepEqual((await rdb.listUsers()).find(u => u.id === r.lastID).extra_site_ids, [92, 93], 'kept when not sent');
+    await rdb.updateUser(r.lastID, { full_name: 'Multi', site_id: 91, roles: ['editor'], extra_site_ids: [] });
+    assert.deepEqual((await rdb.listUsers()).find(u => u.id === r.lastID).extra_site_ids, []);
+  } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
+});

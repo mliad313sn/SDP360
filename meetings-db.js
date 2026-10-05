@@ -38,6 +38,7 @@
  */
 
 'use strict';
+const { inScope: _inScope } = require('./services/userSites');   // multi-site editors: a scope may be a list of codes
 
 const Database = require('better-sqlite3');
 const path     = require('path');
@@ -768,10 +769,10 @@ function saveMeeting(state, userSiteCode, userId) {
   if (userSiteCode) {
     const existingSite = exist && exist.site_code;
     const incomingSite = h.site_code || null;
-    if (existingSite && existingSite !== userSiteCode) {
+    if (existingSite && !_inScope(existingSite, userSiteCode)) {
       throw new Error(`Cross-site save blocked: editor scoped to ${userSiteCode}, meeting is for ${existingSite}`);
     }
-    if (incomingSite !== userSiteCode) {
+    if (!_inScope(incomingSite, userSiteCode)) {
       throw new Error(`Cross-site save blocked: editor scoped to ${userSiteCode}, cannot write site ${incomingSite}`);
     }
     // RBAC lot 4c (2026-10-02): a CLOSED PV is editable by an editor of ITS site (was
@@ -1048,8 +1049,8 @@ async function _saveMeetingPg(state, userSiteCode, userId) {
   if (userSiteCode) {
     const existingSite = exist && exist.site_code;
     const incomingSite = h.site_code || null;
-    if (existingSite && existingSite !== userSiteCode) throw new Error(`Cross-site save blocked: editor scoped to ${userSiteCode}, meeting is for ${existingSite}`);
-    if (incomingSite !== userSiteCode) throw new Error(`Cross-site save blocked: editor scoped to ${userSiteCode}, cannot write site ${incomingSite}`);
+    if (existingSite && !_inScope(existingSite, userSiteCode)) throw new Error(`Cross-site save blocked: editor scoped to ${userSiteCode}, meeting is for ${existingSite}`);
+    if (!_inScope(incomingSite, userSiteCode)) throw new Error(`Cross-site save blocked: editor scoped to ${userSiteCode}, cannot write site ${incomingSite}`);
     // RBAC lot 4c: a closed PV is editable by an editor of its site (site checks above).
   }
   const reference = (exist && exist.reference) || (h.reference != null ? String(h.reference).trim() : '') || _buildReference(h.site_code, h.department, h.meeting_date, h.intake_source);

@@ -13,7 +13,7 @@ const { fnSource } = require('./_fn-source');
 
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'public', 'activity-tracker', 'App.jsx'), 'utf8');
 
-function rolesFor(userRoles, scope) {
+function rolesFor(userRoles, scope, scopes) {
   const HIER = ['super_admin', 'executive', 'admin', 'editor', 'viewer'];
   const has = (r) => {
     if (userRoles.includes(r)) return true;
@@ -22,7 +22,7 @@ function rolesFor(userRoles, scope) {
   };
   const fn = new Function('hasRole', '_user', fnSource(SRC, 'computeRoles') + '\nreturn computeRoles;')(
     has, () => ({ id: 1, roles: userRoles, site_id: 3 }));
-  return fn(scope);
+  return fn(scope, scopes);
 }
 
 test('B1 a tracker-editor is locked on the scope returned by the server', () => {
@@ -46,4 +46,14 @@ test('A2 Export PPTX follows the server gate: admin tier or tracker-admin', () =
   assert.equal(rolesFor(['admin'], null).CAN_EXPORT, true);
   assert.equal(rolesFor(['viewer', 'tracker-admin'], null).CAN_EXPORT, true);
   assert.equal(rolesFor(['editor', 'tracker-editor'], 'HGO').CAN_EXPORT, false);
+});
+
+test('multi-site tracker-editor: may pick among its sites only (primary first)', () => {
+  const r = rolesFor(['editor', 'tracker-editor'], 'HGO', ['HGO', 'MGO']);
+  assert.deepEqual(r.USER_SITES, ['HGO', 'MGO']);
+  assert.equal(r.USER_SITE, 'HGO');
+  assert.equal(r.CAN_SAVE, true);
+  // a server without `scopes` (older build) still locks on the single scope
+  assert.deepEqual(rolesFor(['editor', 'tracker-editor'], 'HGO').USER_SITES, ['HGO']);
+  assert.equal(rolesFor(['super_admin'], null, null).USER_SITES, null);
 });

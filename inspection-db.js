@@ -31,6 +31,7 @@
  */
 
 'use strict';
+const { inScope: _inScope } = require('./services/userSites');   // multi-site editors: a scope may be a list of codes
 
 const Database = require('better-sqlite3');
 const path     = require('path');
@@ -747,7 +748,7 @@ function saveInspection(state, userSiteCode, createdBy) {
   // RBAC audit 2026-10-02 (lot 4b): a scoped user must name THEIR site (an empty site
   // used to pass) and may not touch a stored row of another site — the old check only
   // looked at the incoming site, so reusing another site's f_id overwrote it.
-  if (userSiteCode && siteCode !== userSiteCode) {
+  if (userSiteCode && !_inScope(siteCode, userSiteCode)) {
     throw new Error(`Cross-site save blocked: user is scoped to ${userSiteCode}, inspection is for ${siteCode || 'no site'}`);
   }
 
@@ -765,7 +766,7 @@ function saveInspection(state, userSiteCode, createdBy) {
 
   // Find existing row for upsert decision
   const existing = db.prepare('SELECT id, site_code FROM insp_inspections WHERE id = ?').get(id);
-  if (userSiteCode && existing && existing.site_code !== userSiteCode) {
+  if (userSiteCode && existing && !_inScope(existing.site_code, userSiteCode)) {
     throw new Error(`Cross-site save blocked: inspection ${id} belongs to ${existing.site_code}`);
   }
 
@@ -1436,7 +1437,7 @@ async function _saveInspectionPg(state, userSiteCode, createdBy) {
   // RBAC audit 2026-10-02 (lot 4b): a scoped user must name THEIR site (an empty site
   // used to pass) and may not touch a stored row of another site — the old check only
   // looked at the incoming site, so reusing another site's f_id overwrote it.
-  if (userSiteCode && siteCode !== userSiteCode) {
+  if (userSiteCode && !_inScope(siteCode, userSiteCode)) {
     throw new Error(`Cross-site save blocked: user is scoped to ${userSiteCode}, inspection is for ${siteCode || 'no site'}`);
   }
 
@@ -1445,7 +1446,7 @@ async function _saveInspectionPg(state, userSiteCode, createdBy) {
   const areaText = meta.f_area || '';
   const areaCode = await _resolveAreaCodePg(H, areaText);
   const existing = await H.prepare('SELECT id, site_code FROM insp_inspections WHERE id = ?').get(id);
-  if (userSiteCode && existing && existing.site_code !== userSiteCode) {
+  if (userSiteCode && existing && !_inScope(existing.site_code, userSiteCode)) {
     throw new Error(`Cross-site save blocked: inspection ${id} belongs to ${existing.site_code}`);
   }
 

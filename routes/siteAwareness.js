@@ -119,8 +119,8 @@ module.exports = function siteAwarenessRoutes({ express, requireReportSession, r
     const isGroup = rdb.userHasRole(user, 'group-business') || rdb.userHasRole(user, 'executive') || rdb.userHasRole(user, 'super_admin');
     const requested = requestedRaw != null && requestedRaw !== '' ? Number(requestedRaw) : null;
     if (isGroup) return { site_id: (requested != null && ids.has(requested)) ? requested : authorized[0].site_id, authorized };
-    if (requested != null && requested !== authorized[0].site_id) return { status: 403 };
-    return { site_id: authorized[0].site_id, authorized };
+    if (requested != null && !ids.has(requested)) return { status: 403 };
+    return { site_id: requested != null ? requested : authorized[0].site_id, authorized };
   }
 
   router.get('/api/site-awareness/summary', requireReportSession, async (req, res) => {

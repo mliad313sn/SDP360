@@ -5293,17 +5293,25 @@ async function requireReportSession(req, res, next) {
 // ~20 per-report / per-site read routes had no site check at all. One central guard
 // covers every GET addressed by report id or by site id, so a route added later is
 // locked by default. audit-viewer remains a global read-only auditor on /audit.
+// Multi-site editors (2026-10-05): "own site" = ANY of the user's sites (primary +
+// extras, services/userSites). Never compare user.site_id directly in a new check.
+const userSites = require('./services/userSites');
 function _siteReadDenied(user, siteId) {
   if (rdb.userHasRole(user, 'admin')) return false;
-  return !user.site_id || Number(user.site_id) !== Number(siteId);
+  return !userSites.hasSite(user, siteId);
 }
 // The caller's Zoho helpdesk groups (lowercased), or null for the admin tier (all groups).
-// A site-less non-admin gets [] — no group at all.
+// A site-less non-admin gets [] — no group at all. A multi-site editor gets the union.
 async function _userSiteGroups(user) {
   if (rdb.userHasRole(user, 'admin')) return null;
-  if (!user.site_id) return [];
-  const site = ((await rdb.listSites()) || []).find(s => Number(s.id) === Number(user.site_id));
-  return String((site && site.zoho_group) || '').split(',').map(g => g.trim().toLowerCase()).filter(Boolean);
+  const ids = userSites.siteIds(user);
+  if (!ids.length) return [];
+  const all = (await rdb.listSites()) || [];
+  const out = [];
+  for (const s of all.filter(x => ids.includes(Number(x.id)))) {
+    for (const g of String(s.zoho_group || '').split(',').map(x => x.trim().toLowerCase()).filter(Boolean)) if (!out.includes(g)) out.push(g);
+  }
+  return out;
 }
 // Same rule for reads addressed by the meetings site CODE (site-data, site-actions):
 // the code must resolve to the caller's own site. 'all'/empty is a fleet request.
@@ -5645,7 +5653,7 @@ function _reportWriteDenial(user, report, opts = {}) {
   if (!report) return { status: 404, error: 'Report not found' };
   if (!rdb.userHasRole(user, 'editor')) return { status: 403, error: 'editor role required' };
   if (!rdb.userHasRole(user, 'admin')) {
-    if (!user.site_id || user.site_id !== report.site_id) return { status: 403, error: 'Access denied: this report belongs to another site' };
+    if (!userSites.hasSite(user, report.site_id)) return { status: 403, error: 'Access denied: this report belongs to another site' };
   }
   if (!opts.allowSubmitted && report.status === 'submitted' && !rdb.userHasRole(user, 'super_admin')) {
     return { status: 403, error: 'Report is submitted — only a super_admin can edit it' };
@@ -6141,9 +6149,9 @@ app.get('/api/reports/users', requireReportSession, requireSuperAdmin, async (re
 app.post('/api/reports/users', requireReportSession, requireSuperAdmin, jsonBody, async (req, res) => {
   try {
     // Accept both legacy `role: 'admin'` (string) and new `roles: ['admin', 'tracker-editor']` (array).
-    const { username, full_name, password, site_id, role, roles, email } = req.body || {};
+    const { username, full_name, password, site_id, role, roles, email, extra_site_ids } = req.body || {};
     if (!username || !full_name || !password) return res.status(400).json({ error: 'username, full_name, password required' });
-    await rdb.createUser({ username, full_name, password, site_id, role, roles, email });
+    await rdb.createUser({ username, full_name, password, site_id, role, roles, email, extra_site_ids });
     res.json({ ok: true });
   } catch(e) {
     // sqlite raises "UNIQUE constraint failed"; postgres raises SQLSTATE 23505.
@@ -6174,9 +6182,9 @@ app.put('/api/reports/users/emails', requireReportSession, requireSuperAdmin, js
 app.put('/api/reports/users/:id', requireReportSession, requireSuperAdmin, jsonBody, async (req, res) => {
   try {
     // Accept both legacy `role` (string) and new `roles` (array) — see createUser comment.
-    const { full_name, password, site_id, role, roles, active, email } = req.body || {};
+    const { full_name, password, site_id, role, roles, active, email, extra_site_ids } = req.body || {};
     if (!full_name) return res.status(400).json({ error: 'full_name required' });
-    await rdb.updateUser(parseInt(req.params.id), { full_name, password, site_id, role, roles, active, email });
+    await rdb.updateUser(parseInt(req.params.id), { full_name, password, site_id, role, roles, active, email, extra_site_ids });
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -6330,11 +6338,16 @@ app.get('/api/reports', requireReportSession, async (req, res) => {
     // exact role string). A site-less non-admin sees nothing: listReports DROPS the
     // filter on a falsy id and would return every site.
     const isAdminTier = rdb.userHasRole(req.reportUser, 'admin');
-    if (!isAdminTier && !req.reportUser.site_id) return res.json([]);
-    const effectiveSiteId = !isAdminTier
-      ? req.reportUser.site_id
-      : (site_id ? parseInt(site_id) : undefined);
-    res.json(await rdb.listReports(effectiveSiteId, year ? parseInt(year) : undefined, week ? parseInt(week) : undefined));
+    const y = year ? parseInt(year) : undefined, w = week ? parseInt(week) : undefined;
+    if (isAdminTier) return res.json(await rdb.listReports(site_id ? parseInt(site_id) : undefined, y, w));
+    // Non-admin: their sites only (multi-site editors 2026-10-05). ?site_id narrows to one of them.
+    let ids = userSites.siteIds(req.reportUser);
+    if (site_id && ids.includes(parseInt(site_id))) ids = [parseInt(site_id)];
+    if (!ids.length) return res.json([]);
+    const rows = [];
+    for (const id of ids) rows.push(...((await rdb.listReports(id, y, w)) || []));
+    rows.sort((a, b) => (b.year - a.year) || (b.week_number - a.week_number));
+    res.json(rows);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -6344,7 +6357,7 @@ app.post('/api/reports/ensure', requireReportSession, jsonBody, async (req, res)
     const { site_id, year, week } = req.body || {};
     if (!site_id || !year || !week) return res.status(400).json({ error: 'site_id, year, week required' });
     // Non-admin editors can only create for their own site
-    if (!['admin','executive','super_admin'].includes(req.reportUser.role) && req.reportUser.site_id && req.reportUser.site_id !== parseInt(site_id))
+    if (!rdb.userHasRole(req.reportUser, 'admin') && !userSites.hasSite(req.reportUser, parseInt(site_id)))
       return res.status(403).json({ error: 'You can only manage reports for your own site' });
     // (await f()).method() — NOT `await f().method()`: the latter chains onto the
     // Promise (listReports is async on both backends). See the await-precedence pitfall.
@@ -6450,7 +6463,7 @@ async function _assetReviewForPptx(report) {
 function _assetReviewReadDenial(user, report) {
   if (!report) return { status: 404, error: 'Report not found' };
   if (rdb.userHasRole(user, 'admin')) return null;
-  if (!user.site_id || user.site_id !== report.site_id) return { status: 403, error: 'Access denied: this report belongs to another site' };
+  if (!userSites.hasSite(user, report.site_id)) return { status: 403, error: 'Access denied: this report belongs to another site' };
   return null;
 }
 const _NOTE_MAX = 4000;
@@ -7028,7 +7041,7 @@ app.delete('/api/reports/:id', requireReportSession, async (req, res) => {
     const isPrivileged = rdb.userHasRole(req.reportUser, 'admin');
     if (!isPrivileged) {
       // F5: a site-less profile is NOT global — deny unless the site matches.
-      if (!rdb.userHasRole(req.reportUser, 'editor') || !req.reportUser.site_id || req.reportUser.site_id !== report.site_id)
+      if (!rdb.userHasRole(req.reportUser, 'editor') || !userSites.hasSite(req.reportUser, report.site_id))
         return res.status(403).json({ error: 'Access denied' });
       if (report.status === 'submitted')
         return res.status(403).json({ error: 'Cannot delete a submitted report — ask a super_admin to revert first' });
@@ -7606,17 +7619,22 @@ try {
 // no site name). Readers = admin tier OR a tracker feature role; the response carries
 // the caller's save scope — null = every site, else the one tracker code it may edit.
 async function _trackerScopeFor(user) {
+  const codes = await _trackerScopesFor(user);
+  return codes === null ? null : (codes[0] || '');
+}
+// Multi-site editors: every tracker code the user may edit, primary first (null = all sites).
+async function _trackerScopesFor(user) {
   if (rdb.userHasRole(user, 'super_admin') || rdb.userHasRole(user, 'tracker-admin')) return null;
   if (!rdb.userHasRole(user, 'tracker-editor')) return null;
-  const sites = (await rdb.listSites()) || [];
-  return trackerDb.siteToCode(sites.find(s => s.id === user.site_id)) || '';
+  return userSites.codesFor(user, (await rdb.listSites()) || [], (s) => trackerDb.siteToCode(s));
 }
 app.get('/api/tracker/load', requireReportSession, requireRole(['admin', 'tracker-admin', 'tracker-editor']), async (req, res) => {
   try {
     if (!trackerDb) return res.status(503).json({ error: 'Tracker module not available' });
     const D = await trackerDb.loadTracker();
     // '' = a tracker-editor whose site resolves to nothing: read-only (the save refuses it).
-    res.json({ D, scope: await _trackerScopeFor(req.reportUser) });
+    const scopes = await _trackerScopesFor(req.reportUser);
+    res.json({ D, scope: scopes === null ? null : (scopes[0] || ''), scopes });
   } catch(e) {
     console.error('[Tracker] load error:', e.message);
     res.status(500).json({ error: e.message });
@@ -7639,11 +7657,9 @@ app.post('/api/tracker/save', requireReportSession, requireRole(['super_admin', 
 
     let userSite = null;
     if (!isUnrestricted) {
-      // tracker-editor → site-scoped inputs only (must have site_id)
-      const siteId = req.reportUser.site_id;
-      const sites  = await rdb.listSites();
-      const site   = sites.find(s => s.id === siteId);
-      userSite = trackerDb.siteToCode(site);   // name, then Zoho group — case/accent-insensitive
+      // tracker-editor → inputs of their site(s) only (multi-site editors: a list of codes)
+      const codes = (await _trackerScopesFor(req.reportUser)) || [];
+      userSite = codes.length ? codes : null;
       if (!userSite) {
         return res.status(403).json({ error: 'Your account has no site assigned. Contact your administrator.' });
       }
@@ -7663,10 +7679,10 @@ app.post('/api/tracker/save', requireReportSession, requireRole(['super_admin', 
     const sizeKB = (bytes / 1024).toFixed(1);
     console.log(
       `[Tracker] save ok user=${user.username || '?'} role=${user.role || '?'} ` +
-      `scope=${userSite || 'all'} years=${yrs} sites=${sites} activities=${acts} size=${sizeKB}KB`
+      `scope=${userSite ? userSites.scopeLabel(userSite) : 'all'} years=${yrs} sites=${sites} activities=${acts} size=${sizeKB}KB`
     );
 
-    res.json({ ok: true, scope: userSite || 'all' });
+    res.json({ ok: true, scope: userSite ? userSites.scopeLabel(userSite) : 'all' });
   } catch(e) {
     console.error('[Tracker] save error:', e.message);
     res.status(500).json({ error: e.message });
@@ -7691,10 +7707,9 @@ app.post('/api/tracker/import-dept-meetings', requireReportSession, requireRole(
     // tracker-editor is scoped to its own site (mirrors /api/tracker/save).
     const isUnrestricted = rdb.userHasRole(req.reportUser, 'super_admin') || rdb.userHasRole(req.reportUser, 'tracker-admin');
     if (!isUnrestricted) {
-      const sites = await rdb.listSites();
-      const own = trackerDb.siteToCode(sites.find(s => s.id === req.reportUser.site_id));
-      if (!own) return res.status(403).json({ error: 'Your account has no site assigned.' });
-      if (own !== site) return res.status(403).json({ error: `You may only import for your own site (${own}).` });
+      const own = (await _trackerScopesFor(req.reportUser)) || [];
+      if (!own.length) return res.status(403).json({ error: 'Your account has no site assigned.' });
+      if (!own.includes(site)) return res.status(403).json({ error: `You may only import for your own site (${own.join(', ')}).` });
     }
 
     const meetingsCode = trackerToMeetingsCode(site);
@@ -8200,20 +8215,25 @@ async function _meetingsImportScope(req, res) {
   if (!rdb.userHasRole(req.reportUser, 'editor')) { res.status(403).json({ error: 'editor role or higher required' }); return null; }
   const site = await _userMeetingsSite(req.reportUser);
   if (_sitelessWriteDenied(req.reportUser, site)) { res.status(403).json({ error: 'Your account has no site assigned for this module. Contact your administrator.' }); return null; }
-  return { site };
+  // multi-site editors: every row must be one of their sites (saveMeeting takes a list)
+  return { site: await _userMeetingsSites(req.reportUser) };
 }
 
 // Resolve the user's meetings site code (form code, e.g. 'MGO').
 // Returns null for unrestricted users (admin+).
-async function _userMeetingsSite(user) {
+// Multi-site editors (2026-10-05): `wanted` = the object's site code — returned when the
+// user holds it, else their primary code, so `code !== userSite` checks stay correct.
+async function _userMeetingsSite(user, wanted) {
+  const codes = await _userMeetingsSites(user);
+  return codes === null ? null : userSites.pickCode(codes, wanted);
+}
+// Every meetings code of the user, primary first; null for the admin tier.
+async function _userMeetingsSites(user) {
   if (!user) return null;
   if (rdb.userHasRole(user, 'admin')) return null;
-  const siteId = user.site_id;
-  if (!siteId) return null;
-  const sites = await rdb.listSites();   // sweep adds await (listSites is forked)
-  const site  = sites.find(s => s.id === siteId);
-  if (!inspectionDb) return null;
-  return inspectionDb.siteNameToCode(site ? site.name : null);
+  if (!inspectionDb) return [];
+  const sites = (await rdb.listSites()) || [];   // sweep adds await (listSites is forked)
+  return userSites.codesFor(user, sites, (s) => inspectionDb.siteNameToCode(s ? s.name : null));
 }
 
 // GET /api/meetings/lookups — all bilingual lookups + canonical site list
@@ -8433,7 +8453,7 @@ app.post('/api/meetings/actions/:id/update', requireReportSession, meetingsJsonB
     // module's own (already-open) connection. No raw re-open / stray file.
     const parent = await meetingsDb.getActionParent(actionId);
     if (!parent) return res.status(404).json({ error: 'Action not found' });
-    const userSite = await _userMeetingsSite(req.reportUser);
+    const userSite = await _userMeetingsSite(req.reportUser, parent.site_code);
     if (_sitelessWriteDenied(req.reportUser, userSite)) return res.status(403).json({ error: 'Your account has no site assigned for this module. Contact your administrator.' });
     if (userSite && parent.site_code !== userSite) {
       return res.status(403).json({ error: `Action belongs to ${parent.site_code}; you are scoped to ${userSite}` });
@@ -8460,8 +8480,8 @@ app.post('/api/meetings/actions/:id/update', requireReportSession, meetingsJsonB
 app.get('/api/meetings/unsigned', requireReportSession, async (req, res) => {
   try {
     if (!meetingsDb) return res.status(503).json({ error: 'Meetings module not available' });
-    const userSite = await _userMeetingsSite(req.reportUser);
-    // Scoped editor → forced to their own site. admin+ → optional ?site=.
+    const userSite = await _userMeetingsSite(req.reportUser, req.query.site);
+    // Scoped editor → forced to one of their sites (?site= picks among them). admin+ → optional ?site=.
     const site = userSite || (req.query.site || undefined);
     const rows = await meetingsDb.listMeetings({ unsigned: 1, site, limit: 500 });
     res.json({ scope: userSite || 'all', rows: rows.map(m => ({
@@ -8494,7 +8514,7 @@ app.post('/api/meetings/:id/sign', requireReportSession, meetingsJsonBody, async
     }
     const status = await meetingsDb.getMeetingStatus(meetingId);
     if (!status) return res.status(404).json({ error: 'Meeting not found' });
-    const userSite = await _userMeetingsSite(req.reportUser);
+    const userSite = await _userMeetingsSite(req.reportUser, status.site_code);
     if (_sitelessWriteDenied(req.reportUser, userSite)) return res.status(403).json({ error: 'Your account has no site assigned for this module. Contact your administrator.' });
     if (userSite && status.site_code !== userSite) {
       return res.status(403).json({ error: `Meeting belongs to ${status.site_code}; you are scoped to ${userSite}` });
@@ -8542,9 +8562,10 @@ app.post('/api/meetings/save', requireReportSession, meetingsJsonBody, async (re
       return res.status(400).json({ error: 'Missing state.header.department' });
     }
     state.author_name = state.author_name || req.reportUser.full_name || req.reportUser.username;
-    const userSite = await _userMeetingsSite(req.reportUser);
+    const userSite = await _userMeetingsSite(req.reportUser, state.header && state.header.site_code);
     if (_sitelessWriteDenied(req.reportUser, userSite)) return res.status(403).json({ error: 'Your account has no site assigned for this module. Contact your administrator.' });
-    const out      = await meetingsDb.saveMeeting(state, userSite, req.reportUser.id || null);
+    // multi-site editors: the DB guard takes the full list of their codes
+    const out      = await meetingsDb.saveMeeting(state, await _userMeetingsSites(req.reportUser), req.reportUser.id || null);
     // Business Incubation entered by hand (2026-10-03): state.incubation carries §1-§4 of
     // the follow-up report. Stored (normalised) only for an incubation session, cleared
     // otherwise; an OMITTED key (header-only saves) leaves the stored blob untouched.
@@ -8578,7 +8599,7 @@ app.post('/api/meetings/issues/:id/update', requireReportSession, meetingsJsonBo
     const parent = await meetingsDb.getIssueParent(issueId);
     if (!parent) return res.status(404).json({ error: 'Issue not found' });
 
-    const userSite = await _userMeetingsSite(req.reportUser);
+    const userSite = await _userMeetingsSite(req.reportUser, parent.site_code);
     if (_sitelessWriteDenied(req.reportUser, userSite)) return res.status(403).json({ error: 'Your account has no site assigned for this module. Contact your administrator.' });
     if (userSite && parent.site_code !== userSite) {
       return res.status(403).json({ error: `Issue belongs to ${parent.site_code}; you are scoped to ${userSite}` });
@@ -8612,7 +8633,7 @@ app.post('/api/meetings/issues/:id/actions', requireReportSession, meetingsJsonB
     const issueId = parseInt(req.params.id, 10);
     const parent = await meetingsDb.getIssueParent(issueId);
     if (!parent) return res.status(404).json({ error: 'Issue not found' });
-    const userSite = await _userMeetingsSite(req.reportUser);
+    const userSite = await _userMeetingsSite(req.reportUser, parent.site_code);
     if (_sitelessWriteDenied(req.reportUser, userSite)) return res.status(403).json({ error: 'Your account has no site assigned for this module. Contact your administrator.' });
     if (userSite && parent.site_code !== userSite) {
       return res.status(403).json({ error: `Issue belongs to ${parent.site_code}; you are scoped to ${userSite}` });
@@ -8643,7 +8664,7 @@ app.delete('/api/meetings/:id', requireReportSession, async (req, res) => {
     if (!rdb.userHasRole(req.reportUser, 'editor')) return res.status(403).json({ error: 'editor role or higher required' });
     const head = await meetingsDb.getMeetingStatus(parseInt(req.params.id, 10));
     if (!head) return res.status(404).json({ error: 'Not found' });
-    const userSite = await _userMeetingsSite(req.reportUser);
+    const userSite = await _userMeetingsSite(req.reportUser, head.site_code);
     if (_sitelessWriteDenied(req.reportUser, userSite)) return res.status(403).json({ error: 'Your account has no site assigned for this module. Contact your administrator.' });
     if (userSite && head.site_code !== userSite) return res.status(403).json({ error: `Meeting belongs to ${head.site_code}; you are scoped to ${userSite}` });
     const ok = await meetingsDb.deleteMeeting(parseInt(req.params.id, 10));

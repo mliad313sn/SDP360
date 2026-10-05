@@ -13,6 +13,7 @@
  */
 
 'use strict';
+const { inScope: _inScope } = require('./services/userSites');   // multi-site editors: a scope may be a list of codes
 
 const Database = require('better-sqlite3');
 const path     = require('path');
@@ -443,7 +444,7 @@ async function _saveV2Pg(D, userSite) {
       if (!Number.isFinite(y)) continue;
       const ids = actIdMaps[y] || (await qIds.all(y)).map(r => r.id);
       for (const [site, arr] of Object.entries(sites || {})) {
-        if (userSite && site !== userSite) continue;
+        if (userSite && !_inScope(site, userSite)) continue;
         for (let ix = 0; ix < (arr || []).length; ix++) {
           const months = arr[ix];
           const aid = ids[ix];
@@ -1565,7 +1566,7 @@ function _saveV2(db, D, userSite) {
       // sync if we just rebuilt this year, else read current DB order.
       const ids = actIdMaps[y] || qIds.all(y).map(r => r.id);
       for (const [site, arr] of Object.entries(sites || {})) {
-        if (userSite && site !== userSite) continue;
+        if (userSite && !_inScope(site, userSite)) continue;
         (arr || []).forEach((months, ix) => {
           const aid = ids[ix];
           if (!aid || !Array.isArray(months)) return;
@@ -1629,7 +1630,7 @@ function saveTracker(D, userSite) {
     for (const [yr, sites] of Object.entries(D.inputs || {})) {
       for (const [site, activities] of Object.entries(sites)) {
         // Admin site restriction
-        if (userSite && site !== userSite) continue;
+        if (userSite && !_inScope(site, userSite)) continue;
         (activities || []).forEach((months, ix) => {
           if (Array.isArray(months)) {
             insInput.run(parseInt(yr, 10), site, ix, JSON.stringify(months));

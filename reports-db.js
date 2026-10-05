@@ -646,6 +646,17 @@ CREATE TABLE IF NOT EXISTS user_roles (
 CREATE INDEX IF NOT EXISTS idx_ur_user ON user_roles(user_id);
 CREATE INDEX IF NOT EXISTS idx_ur_role ON user_roles(role);
 `);
+// Multi-site editors (2026-10-05) — EXTRA sites of a user (primary stays users.site_id).
+db.exec(`
+CREATE TABLE IF NOT EXISTS user_sites (
+  user_id INTEGER NOT NULL,
+  site_id INTEGER NOT NULL,
+  PRIMARY KEY (user_id, site_id),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (site_id) REFERENCES sites(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_us_user ON user_sites(user_id);
+`);
 
 // One-shot migration: backfill user_roles from users.role for any user that
 // doesn't have a row yet. Also auto-promote admin/executive/super_admin
@@ -1426,6 +1437,9 @@ async function initPgReports() {            // called once at server boot
   // Teams SLA alerts (2026-10-03) — anti-duplicate log.
   await _pg.exec(require('fs').readFileSync(
     require('path').join(__dirname, 'db', 'postgres', 'reports', '013_sla_alert_log.sql'), 'utf8'));
+  // Multi-site editors (2026-10-05) — extra sites of a user.
+  await _pg.exec(require('fs').readFileSync(
+    require('path').join(__dirname, 'db', 'postgres', 'reports', '014_user_sites.sql'), 'utf8'));
   // Asset engagement — per-site asset manager contact on the recipients directory.
   for (const c of ['asset_manager_name TEXT', 'asset_manager_email TEXT', 'asset_manager_email_confirmed INTEGER DEFAULT 0']) {
     await _pg.exec(`ALTER TABLE report_recipients ADD COLUMN IF NOT EXISTS ${c}`);
@@ -1604,14 +1618,8 @@ async function _validateSessionPg(token) {
 async function _logoutPg(token) {
   return pgHandle().prepare(`DELETE FROM sessions WHERE token=?`).run(token);
 }
-// pg variant of safeUser — same field set, preloads roles.
-async function _safeUserPg(u) {
-  const roles = await _getUserRolesPg(u.id);
-  return {
-    id: u.id, username: u.username, full_name: u.full_name,
-    site_id: u.site_id, role: u.role, roles, active: u.active,
-  };
-}
+// pg variant of safeUser: see _safeUserPg below (one definition — a second one used to
+// silently override this place).
 
 // ─── Active sessions (admin observability) ────────────────────────────
 // Powers the "🟢 Active Sessions" card on reports.html#admin. Counts a
@@ -1672,6 +1680,57 @@ async function _forceLogoutByTokenPg(token) {
   return { deleted: r.changes };
 }
 
+// ── Extra sites of a user (multi-site editors, 2026-10-05) ──────────────────
+// The primary site is users.site_id; user_sites holds the OTHERS. Never stores the primary.
+function _cleanExtraSites(ids, primary) {
+  const p = Number(primary) || null;
+  const out = [];
+  for (const v of Array.isArray(ids) ? ids : []) {
+    const n = Number(v);
+    if (Number.isInteger(n) && n > 0 && n !== p && !out.includes(n)) out.push(n);
+  }
+  return out.sort((a, b) => a - b);
+}
+function getUserExtraSiteIds(userId) {
+  if (REPORTS_BACKEND === 'postgres') return _getUserExtraSiteIdsPg(userId);
+  if (!userId) return [];
+  return db.prepare('SELECT site_id FROM user_sites WHERE user_id=? ORDER BY site_id').all(userId).map(r => r.site_id);
+}
+async function _getUserExtraSiteIdsPg(userId) {
+  if (!userId) return [];
+  return (await pgHandle().prepare('SELECT site_id FROM user_sites WHERE user_id=? ORDER BY site_id').all(userId)).map(r => Number(r.site_id));
+}
+/** Replace the extra sites of a user (the primary is filtered out). */
+function setUserExtraSites(userId, ids, primary) {
+  if (REPORTS_BACKEND === 'postgres') return _setUserExtraSitesPg(userId, ids, primary);
+  if (!userId) return;
+  const clean = _cleanExtraSites(ids, primary);
+  db.transaction(() => {
+    db.prepare('DELETE FROM user_sites WHERE user_id=?').run(userId);
+    const ins = db.prepare('INSERT OR IGNORE INTO user_sites (user_id, site_id) SELECT ?, id FROM sites WHERE id=?');
+    for (const sid of clean) ins.run(userId, sid);
+  })();
+}
+async function _setUserExtraSitesPg(userId, ids, primary) {
+  if (!userId) return;
+  const clean = _cleanExtraSites(ids, primary);
+  const h = pgHandle();
+  await h.runTransaction(async () => {
+    await h.prepare('DELETE FROM user_sites WHERE user_id=?').run(userId);
+    for (const sid of clean) {
+      await h.prepare('INSERT INTO user_sites (user_id, site_id) SELECT ?, id FROM sites WHERE id=? ON CONFLICT DO NOTHING').run(userId, sid);
+    }
+  });
+}
+function _sessionSiteIds(primary, extras) {
+  const out = [];
+  for (const v of [primary].concat(extras || [])) {
+    const n = Number(v);
+    if (Number.isInteger(n) && n > 0 && !out.includes(n)) out.push(n);
+  }
+  return out;
+}
+
 function safeUser(u) {
   // Pre-load roles array so middleware doesn't hit the DB on every request.
   const roles = getUserRoles(u.id);
@@ -1680,6 +1739,7 @@ function safeUser(u) {
     first_name: u.first_name || null, last_name: u.last_name || null,
     title: u.title || null, office: u.office || null,
     site_id: u.site_id,
+    site_ids: _sessionSiteIds(u.site_id, getUserExtraSiteIds(u.id)),   // primary first, then extras
     email: u.email || null,       // Entra SSO match key (also shown in the admin UI)
     has_entra: !!u.entra_oid,     // linked to a Microsoft identity?
     role: u.role,           // legacy single-role field — highest hierarchical tier
@@ -1703,11 +1763,14 @@ function listUsers() {
   `).all();
   const rolesByUser = {};
   for (const r of allRoles) rolesByUser[r.user_id] = r.roles_csv ? r.roles_csv.split(',').sort() : [];
-  return users.map(u => ({ ...u, has_entra: !!u.entra_oid, entra_oid: undefined, roles: rolesByUser[u.id] || [] }));
+  const extraByUser = {};
+  for (const r of db.prepare('SELECT user_id, site_id FROM user_sites ORDER BY site_id').all()) (extraByUser[r.user_id] = extraByUser[r.user_id] || []).push(r.site_id);
+  return users.map(u => ({ ...u, has_entra: !!u.entra_oid, entra_oid: undefined, roles: rolesByUser[u.id] || [],
+    extra_site_ids: (extraByUser[u.id] || []).filter(x => x !== u.site_id) }));
 }
 
-function createUser({ username, full_name, password, site_id, role, roles, email }) {
-  if (REPORTS_BACKEND === 'postgres') return _createUserPg({ username, full_name, password, site_id, role, roles, email });
+function createUser({ username, full_name, password, site_id, role, roles, email, extra_site_ids }) {
+  if (REPORTS_BACKEND === 'postgres') return _createUserPg({ username, full_name, password, site_id, role, roles, email, extra_site_ids });
   const salt = crypto.randomBytes(16).toString('hex');
   const hash = hashPassword(password, salt);
   // Resolve final roles set: prefer the new `roles` array; fall back to the
@@ -1728,6 +1791,7 @@ function createUser({ username, full_name, password, site_id, role, roles, email
     const e = (email && String(email).trim().toLowerCase()) || null;
     db.prepare(`UPDATE users SET email=? WHERE id=?`).run(e, result.lastInsertRowid);
   }
+  if (result.lastInsertRowid && Array.isArray(extra_site_ids)) setUserExtraSites(result.lastInsertRowid, extra_site_ids, site_id);
   return result;
 }
 
@@ -1745,8 +1809,8 @@ function changePassword(userId, currentPassword, newPassword) {
   return { ok: true };
 }
 
-function updateUser(id, { full_name, password, site_id, role, roles, active, email }) {
-  if (REPORTS_BACKEND === 'postgres') return _updateUserPg(id, { full_name, password, site_id, role, roles, active, email });
+function updateUser(id, { full_name, password, site_id, role, roles, active, email, extra_site_ids }) {
+  if (REPORTS_BACKEND === 'postgres') return _updateUserPg(id, { full_name, password, site_id, role, roles, active, email, extra_site_ids });
   // Resolve roles to update: prefer the new `roles` array; fall back to
   // single `role` for legacy callers. If neither is provided, leave the
   // current user_roles set alone.
@@ -1788,6 +1852,9 @@ function updateUser(id, { full_name, password, site_id, role, roles, active, ema
     const e = (email && String(email).trim().toLowerCase()) || null;
     db.prepare(`UPDATE users SET email=? WHERE id=?`).run(e, id);
   }
+  // Extra sites: replaced only when sent; the (possibly new) primary never stays an extra.
+  if (Array.isArray(extra_site_ids)) setUserExtraSites(id, extra_site_ids, site_id);
+  else if (site_id) db.prepare('DELETE FROM user_sites WHERE user_id=? AND site_id=?').run(id, site_id);
 }
 
 // ── Entra ID (Azure AD) SSO helpers ──────────────────────────────────────────
@@ -1876,6 +1943,7 @@ async function _createSessionForUserPg(userId) {
 async function _safeUserPg(u) {
   const roles = await getUserRoles(u.id);
   return { id: u.id, username: u.username, full_name: u.full_name, site_id: u.site_id,
+           site_ids: _sessionSiteIds(u.site_id, await _getUserExtraSiteIdsPg(u.id)),   // primary first, then extras
            email: u.email || null, has_entra: !!u.entra_oid, role: u.role, roles, active: u.active };
 }
 
@@ -1909,11 +1977,14 @@ async function _listUsersPg() {
     SELECT user_id, string_agg(role, ',' ORDER BY role) AS roles_csv FROM user_roles GROUP BY user_id`).all();
   const rolesByUser = {};
   for (const r of allRoles) rolesByUser[r.user_id] = r.roles_csv ? r.roles_csv.split(',') : [];
+  const extraByUser = {};
+  for (const r of await h.prepare('SELECT user_id, site_id FROM user_sites ORDER BY site_id').all()) (extraByUser[r.user_id] = extraByUser[r.user_id] || []).push(Number(r.site_id));
   // RBAC audit 2026-10-02 (B2): same shape as the sqlite listUsers — e-mail + has_entra,
   // never the raw Entra object id.
-  return users.map(u => ({ ...u, has_entra: !!u.entra_oid, entra_oid: undefined, roles: rolesByUser[u.id] || [] }));
+  return users.map(u => ({ ...u, has_entra: !!u.entra_oid, entra_oid: undefined, roles: rolesByUser[u.id] || [],
+    extra_site_ids: (extraByUser[u.id] || []).filter(x => x !== Number(u.site_id)) }));
 }
-async function _createUserPg({ username, full_name, password, site_id, role, roles, email }) {
+async function _createUserPg({ username, full_name, password, site_id, role, roles, email, extra_site_ids }) {
   const salt = crypto.randomBytes(16).toString('hex');
   const hash = hashPassword(password, salt);
   const finalRoles = Array.isArray(roles) && roles.length > 0 ? roles : [role || 'editor'];
@@ -1923,6 +1994,7 @@ async function _createUserPg({ username, full_name, password, site_id, role, rol
     .run(username, full_name, hash, salt, site_id || null, highest);
   if (result.lastID) await _setUserRolesPg(result.lastID, finalRoles);
   if (result.lastID && email !== undefined) await _setUserEmailPg(result.lastID, email);
+  if (result.lastID && Array.isArray(extra_site_ids)) await _setUserExtraSitesPg(result.lastID, extra_site_ids, site_id);
   return result;
 }
 async function _changePasswordPg(userId, currentPassword, newPassword) {
@@ -1936,7 +2008,7 @@ async function _changePasswordPg(userId, currentPassword, newPassword) {
   await h.prepare('UPDATE users SET password_hash=?, salt=? WHERE id=?').run(hash, salt, userId);
   return { ok: true };
 }
-async function _updateUserPg(id, { full_name, password, site_id, role, roles, active, email }) {
+async function _updateUserPg(id, { full_name, password, site_id, role, roles, active, email, extra_site_ids }) {
   const h = pgHandle();
   const willUpdateRoles = Array.isArray(roles) || typeof role === 'string';
   const finalRoles = Array.isArray(roles) && roles.length > 0 ? roles : (typeof role === 'string' ? [role] : null);
@@ -1954,6 +2026,8 @@ async function _updateUserPg(id, { full_name, password, site_id, role, roles, ac
   if (willUpdateRoles && finalRoles) await _setUserRolesPg(id, finalRoles);
   // E-mail (Entra SSO match key) — only touched when explicitly sent, like the sqlite path.
   if (email !== undefined) await _setUserEmailPg(id, email);
+  if (Array.isArray(extra_site_ids)) await _setUserExtraSitesPg(id, extra_site_ids, site_id);
+  else if (site_id) await h.prepare('DELETE FROM user_sites WHERE user_id=? AND site_id=?').run(id, site_id);
 }
 async function _deleteUserPg(id) {
   return pgHandle().prepare(`DELETE FROM users WHERE id=?`).run(id);
@@ -8163,6 +8237,7 @@ module.exports = {
   getUserRoles, setUserRoles, userHasRole,
   ROLE_HIERARCHY, FEATURE_ROLES_KNOWN,
   listUsers, createUser, updateUser, deleteUser, changePassword,
+  getUserExtraSiteIds, setUserExtraSites,
   listSites, updateSiteGroup, createSite, updateSite, setSiteActive,
   // Per-module site codes (site_module_codes) — read path for the reporting suite
   getSiteIdByModuleCode, listSiteModuleCodes, listSiteMerakiMap, setSiteMerakiCode,

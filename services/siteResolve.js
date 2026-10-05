@@ -44,8 +44,9 @@ function listAuthorizedSites(deps, user) {
     .map((s) => ({ site_id: Number(s.id), site_name: s.name || null }));
   const has = (r) => deps.userHasRole && deps.userHasRole(user, r);
   if (has('group-business') || has('executive') || has('super_admin')) return all;
-  const sid = user && user.site_id != null ? Number(user.site_id) : null;
-  return sid == null ? [] : all.filter((s) => s.site_id === sid);
+  // Multi-site (2026-10-05): the user's sites, primary first.
+  const ids = require('./userSites').siteIds(user);
+  return ids.map((id) => all.find((s) => s.site_id === id)).filter(Boolean);
 }
 
 module.exports = { resolveSite, listAuthorizedSites };

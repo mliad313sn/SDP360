@@ -25,7 +25,7 @@ test('4b inspections: Excel and Delete open to editors, Delete only on their own
   const src = read('inspections.html');
   assert.match(src, /xl && window\.__userHasRole && window\.__userHasRole\('editor'\)/);
   assert.match(src, /const canDelete = hasRole\('editor'\)/);
-  assert.match(src, /canDelete && \(!_inspScope \|\| r\.site_code === _inspScope\)/);
+  assert.match(src, /canDelete && \(!_inspScope \|\| _inspScope\.includes\(r\.site_code\)\)/);
   assert.match(read('inspection-actions.html'), /__userHasRole\('editor'\)\)\) \{ b\.style\.display = 'none'/);
 });
 

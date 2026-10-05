@@ -2252,6 +2252,12 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
           <option value="">— All Sites (Admin) —</option>
         </select>
       </div>
+      <div class="form-group" id="modal-extra-sites-wrap" style="grid-column:1/-1">
+        <label>Sites supplémentaires
+          <span style="font-weight:normal;color:#64748B;font-size:11px">— éditeur sur plusieurs sites (sans effet pour Admin et plus, qui voient tout)</span>
+        </label>
+        <div id="modal-extra-sites" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px 12px;font-size:13px;padding:8px 10px;border:1px solid #E2E8F0;border-radius:8px;background:#F8FAFC"></div>
+      </div>
       <div class="form-group" style="grid-column:1/-1">
         <label style="display:block;margin-bottom:4px">
           Roles
@@ -2758,8 +2764,8 @@ async function loadReportList() {
   const grid = document.getElementById('report-list-grid');
   grid.innerHTML = '<div style="color:#6b7a99;font-size:0.87rem">Loading…</div>';
   try {
-    const siteId = !_adminTier() && currentUser.site_id ? currentUser.site_id : undefined;
-    const params = siteId ? `?site_id=${siteId}` : '';
+    // The server limits a non-admin to their site(s) — a multi-site editor sees all of them.
+    const params = '';
     const reports = await api('GET', `/api/reports${params}`);
     if (!reports.length) {
       grid.innerHTML = '<div class="empty-state"><div class="es-icon">📋</div><p>No reports yet. Create the first one above.</p></div>';
@@ -6123,6 +6129,13 @@ async function loadAdminPage() {
     // report-author, audit-viewer). Chips inherit the existing .role-pill
     // styling for hierarchy roles; feature roles get a neutral teal pill.
     const HCHAIN = ['super_admin', 'executive', 'admin', 'editor', 'viewer'];
+    // « +N » after the site when the user also edits other sites (multi-site editors)
+    const _extraSitesBadge = (u) => {
+      const ids = Array.isArray(u.extra_site_ids) ? u.extra_site_ids : [];
+      if (!ids.length) return '';
+      const names = ids.map(id => { const s = (allSites || []).find(x => x.id === id); return s ? (s.zoho_group || s.name) : ('#' + id); });
+      return ` <span class="role-pill" style="background:#EEF2FF;color:#3730A3;border:1px solid #C7D2FE;font-size:10px" title="${esc(names.join(', '))}">+${ids.length}</span>`;
+    };
     const tbody = document.getElementById('user-table-body');
     tbody.innerHTML = users.map(u => {
       const siteName = u.site_name ? (u.zoho_group || u.site_name) : null;
@@ -6136,7 +6149,7 @@ async function loadAdminPage() {
       return `<tr>
         <td><strong>${esc(u.username)}</strong></td>
         <td>${esc(u.full_name)}</td>
-        <td>${siteName ? esc(siteName) : '<span style="color:#bbb">All Groups</span>'}</td>
+        <td>${siteName ? esc(siteName) : '<span style="color:#bbb">All Groups</span>'}${_extraSitesBadge(u)}</td>
         <td style="line-height:1.8">${chips}</td>
         <td><span class="${u.active ? 'status-active' : 'status-inactive'}">${u.active ? 'Active' : 'Disabled'}</span></td>
         <td>
@@ -6630,6 +6643,7 @@ function openUserModal(user) {
   document.getElementById('modal-password').value  = '';
   document.getElementById('modal-pw-label').textContent = user ? 'Password (leave blank to keep)' : 'Password *';
   document.getElementById('modal-site').value      = user?.site_id || '';
+  _renderExtraSites(Array.isArray(user?.extra_site_ids) ? user.extra_site_ids : []);
   // Multi-role: prefer the new `roles` array; fall back to legacy single
   // `role` string for older session payloads. Default new users to 'editor'.
   modalRolesSet(Array.isArray(user?.roles) && user.roles.length
@@ -6667,6 +6681,29 @@ function modalRolesSet(roles) {
 function closeUserModal() {
   document.getElementById('user-modal').classList.remove('open');
 }
+
+// Multi-site editors (2026-10-05) — extra sites of the user (the primary is the Site select).
+function _renderExtraSites(selected) {
+  const box = document.getElementById('modal-extra-sites');
+  if (!box) return;
+  const primary = parseInt(document.getElementById('modal-site').value, 10) || null;
+  const keep = new Set((selected || []).map(Number));
+  box.innerHTML = (allSites || []).filter(s => s.id !== primary).map(s =>
+    `<label style="display:inline-flex;align-items:center;gap:6px;font-weight:500;margin:0;white-space:nowrap" title="${esc(s.zoho_group || s.name)}">`
+    + `<input type="checkbox" value="${s.id}"${keep.has(Number(s.id)) ? ' checked' : ''} style="width:auto;margin:0"> ${esc(s.name)}</label>`
+  ).join('') || '<span style="color:#94A3B8">Aucun autre site</span>';
+}
+function _extraSitesGet() {
+  return [...document.querySelectorAll('#modal-extra-sites input:checked')].map(c => parseInt(c.value, 10)).filter(Number.isInteger);
+}
+(function () {
+  const wire = () => {
+    const sel = document.getElementById('modal-site');
+    // changing the primary site keeps the other ticks; the new primary drops out of the list
+    if (sel) sel.addEventListener('change', () => _renderExtraSites(_extraSitesGet()));
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wire); else wire();
+})();
 
 // ── Bulk SSO email mapping ───────────────────────────────────────────────────
 let _emapUsers = [];
@@ -6731,6 +6768,7 @@ async function saveUser() {
   const email    = document.getElementById('modal-email').value.trim().toLowerCase();
   const site_id  = document.getElementById('modal-site').value ? parseInt(document.getElementById('modal-site').value) : null;
   const roles    = modalRolesGet();
+  const extra_site_ids = site_id ? _extraSitesGet().filter(x => x !== site_id) : [];
   const active   = parseInt(document.getElementById('modal-active').value);
   if (!username || !fullName) { toast('Username and full name required', 'error'); return; }
   // New user: a password is required for password login, but an SSO-only user
@@ -6743,9 +6781,9 @@ async function saveUser() {
   if (roles.length === 0) { toast('Pick at least one role', 'error'); return; }
   try {
     if (id) {
-      await api('PUT', `/api/reports/users/${id}`, { full_name: fullName, password: password||undefined, site_id, roles, active, email });
+      await api('PUT', `/api/reports/users/${id}`, { full_name: fullName, password: password||undefined, site_id, roles, active, email, extra_site_ids });
     } else {
-      await api('POST', '/api/reports/users', { username, full_name: fullName, password, site_id, roles, email });
+      await api('POST', '/api/reports/users', { username, full_name: fullName, password, site_id, roles, email, extra_site_ids });
     }
     closeUserModal();
     toast(id ? 'User updated ✓' : 'User created ✓', 'success');

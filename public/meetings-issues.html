@@ -310,18 +310,19 @@
   // Mirrors the server's _userMeetingsSite(): admin+ is unscoped; otherwise
   // resolve the user's reports-db site_id through the lookups site list (which
   // already carries the meetings `code` for each canonical site id).
-  function userSiteCode() {
+  // Multi-site editors (2026-10-05): site_ids = primary + extra sites.
+  function userSiteCodes() {
     if (isAdminPlus) return null;
-    const sid = window.__authUser && window.__authUser.site_id;
-    if (!sid) return null;
-    const s = ((state.lookups && state.lookups.sites) || []).find(x => x.id === sid);
-    return s ? s.code : null;
+    const u = window.__authUser || {};
+    const ids = Array.isArray(u.site_ids) && u.site_ids.length ? u.site_ids : (u.site_id ? [u.site_id] : []);
+    const sites = (state.lookups && state.lookups.sites) || [];
+    return ids.map(id => (sites.find(x => x.id === id) || {}).code).filter(Boolean);
   }
   function rowEditable(r) {
     if (!canEdit) return { ok: false, why: 'Editor role or higher required to change status' };
-    const scope = userSiteCode();
-    if (!scope) return { ok: true, why: '' };
-    if (r.site_code !== scope) return { ok: false, why: `Issue belongs to ${r.site_code}; you are scoped to ${scope}` };
+    const scope = userSiteCodes();
+    if (!scope || !scope.length) return { ok: true, why: '' };
+    if (!scope.includes(r.site_code)) return { ok: false, why: `Issue belongs to ${r.site_code}; you are scoped to ${scope.join(', ')}` };
     return { ok: true, why: '' };
   }
 

@@ -33,17 +33,21 @@ const _user = () => window.__authUser || null;
 // whose site resolves to nothing (the server refuses its saves → read-only here too).
 // It used to be derived from __authUser.site_name, a field the session user does not
 // carry, so the picker was never locked and edits on other sites were silently dropped.
-function computeRoles(scope) {
+// `scopes` (multi-site editors, 2026-10-05): every tracker code the account may save,
+// primary first. USER_SITES = that list when locked (null = every site); USER_SITE = primary.
+function computeRoles(scope, scopes) {
   const u = _user();
   const IS_EXEC      = !u || hasRole('executive') || hasRole('tracker-admin');
   const CAN_RESET    = hasRole('super_admin') || hasRole('tracker-admin');
   const CAN_SAVE_ALL = hasRole('super_admin') || hasRole('tracker-admin');
   const CAN_SAVE_OWN = hasRole('tracker-editor') && scope !== '';
   const CAN_SAVE     = CAN_SAVE_ALL || CAN_SAVE_OWN;
-  const USER_SITE    = (CAN_SAVE_OWN && !CAN_SAVE_ALL && scope) ? scope : null;
+  const locked       = CAN_SAVE_OWN && !CAN_SAVE_ALL && !!scope;
+  const USER_SITES   = locked ? ((Array.isArray(scopes) && scopes.length) ? scopes.slice() : [scope]) : null;
+  const USER_SITE    = USER_SITES ? USER_SITES[0] : null;
   // Same gate as POST /api/tracker/export (A2): admin tier or tracker-admin.
   const CAN_EXPORT   = hasRole('admin') || hasRole('tracker-admin');
-  return { IS_EXEC, CAN_RESET, CAN_SAVE_ALL, CAN_SAVE_OWN, CAN_SAVE, USER_SITE, CAN_EXPORT };
+  return { IS_EXEC, CAN_RESET, CAN_SAVE_ALL, CAN_SAVE_OWN, CAN_SAVE, USER_SITE, USER_SITES, CAN_EXPORT };
 }
 
 const fmtDelta = (n) => {
@@ -773,10 +777,12 @@ function DashboardPanel({ D, S }) {
 // Site picker — used by Scoring + Input
 // ────────────────────────────────────────────────────────────────────
 // Renders either a dropdown of active sites (admin+) or a locked
-// site badge (editor). When `lockSite` is set, the value is forced
-// regardless of what the user clicks.
-function SitePicker({ D, value, onChange, lockSite, label = 'Site' }) {
-  const sites = (D.activeSites && D.activeSites.length ? D.activeSites : D.sites).filter(s => D.sites.includes(s));
+// site badge (editor). `lockSites` (multi-site editors): the sites the
+// account may pick — one site = locked badge, several = a dropdown of those only.
+function SitePicker({ D, value, onChange, lockSites, label = 'Site' }) {
+  const all = (D.activeSites && D.activeSites.length ? D.activeSites : D.sites).filter(s => D.sites.includes(s));
+  const sites = lockSites ? lockSites.filter(s => D.sites.includes(s)) : all;
+  const lockSite = lockSites && sites.length === 1 ? sites[0] : null;
   if (lockSite) {
     return (
       <div className="tt-site-picker">
@@ -798,6 +804,7 @@ function SitePicker({ D, value, onChange, lockSite, label = 'Site' }) {
           <option key={s} value={s}>{s} — {D.siteNames[s] || s}</option>
         ))}
       </select>
+      {lockSites ? <small style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>your sites only</small> : null}
     </div>
   );
 }
@@ -807,8 +814,8 @@ function SitePicker({ D, value, onChange, lockSite, label = 'Site' }) {
 // ────────────────────────────────────────────────────────────────────
 function ScoringPanel({ D, S, setS, roles }) {
   const TR = window.TR;
-  const lockSite = roles.USER_SITE;
-  const initialSite = lockSite || S.site || D.activeSites?.[0] || D.sites[0];
+  const lockSites = roles.USER_SITES;
+  const initialSite = lockSites ? (lockSites.includes(S.site) ? S.site : lockSites[0]) : (S.site || D.activeSites?.[0] || D.sites[0]);
   const [site, setSite] = useState(initialSite);
 
   // Recompute on year/month/site change
@@ -830,7 +837,7 @@ function ScoringPanel({ D, S, setS, roles }) {
     <div className="tt-panel">
       <div className="dash-eyebrow">Scoring · {MO[S.month - 1]} {S.year}</div>
       <div className="sc-hero">
-        <SitePicker D={D} value={site} onChange={setSite} lockSite={lockSite} />
+        <SitePicker D={D} value={site} onChange={setSite} lockSites={lockSites} />
         <div className="sc-hero__stat">
           <span className="sc-hero__code" style={{ color: D.siteColors[site] }}>{site}</span>
           <span className="sc-hero__name">{D.siteNames[site] || site}</span>
@@ -916,8 +923,8 @@ function ragColor(rg) {
 // ────────────────────────────────────────────────────────────────────
 function InputPanel({ D, S, setS, roles, onMutate }) {
   const TR = window.TR;
-  const lockSite = roles.USER_SITE;
-  const initialSite = lockSite || S.site || D.activeSites?.[0] || D.sites[0];
+  const lockSites = roles.USER_SITES;
+  const initialSite = lockSites ? (lockSites.includes(S.site) ? S.site : lockSites[0]) : (S.site || D.activeSites?.[0] || D.sites[0]);
   const [site, setSite] = useState(initialSite);
 
   const canSave = roles.CAN_SAVE;
@@ -1009,7 +1016,7 @@ function InputPanel({ D, S, setS, roles, onMutate }) {
         </div>
       )}
       <div className="ip-toolbar">
-        <SitePicker D={D} value={site} onChange={setSite} lockSite={lockSite} />
+        <SitePicker D={D} value={site} onChange={setSite} lockSites={lockSites} />
         {canSave && (
           <button
             type="button"
@@ -2062,12 +2069,12 @@ function SetupPanel({ D, S, roles, onMutate, onAddYear }) {
 
 function TargetsPanel({ D, S, roles, onMutate }) {
   const TR = window.TR;
-  const lockSite = roles.USER_SITE;
-  const initialSite = lockSite || S.site || D.activeSites?.[0] || D.sites[0];
+  const lockSites = roles.USER_SITES;
+  const initialSite = lockSites ? (lockSites.includes(S.site) ? S.site : lockSites[0]) : (S.site || D.activeSites?.[0] || D.sites[0]);
   const [site, setSite] = useState(initialSite);
 
   // Editor scoped to own site only; admin+ can pick any.
-  const canEdit = roles.CAN_SAVE_ALL || (roles.CAN_SAVE_OWN && site === lockSite);
+  const canEdit = roles.CAN_SAVE_ALL || (roles.CAN_SAVE_OWN && !!lockSites && lockSites.includes(site));
 
   function ensureTargetSlot(ix) {
     if (!D.targets[site]) D.targets[site] = [];
@@ -2121,7 +2128,7 @@ function TargetsPanel({ D, S, roles, onMutate }) {
       )}
 
       <div className="ip-toolbar">
-        <SitePicker D={D} value={site} onChange={setSite} lockSite={lockSite} />
+        <SitePicker D={D} value={site} onChange={setSite} lockSites={lockSites} />
         <span className="ip-legend">
           <b>{activeCount}</b> of {D.activities.length} activities active at <b>{site}</b> ·
           set the per-activity target value below, then turn it on with the toggle.
@@ -2386,7 +2393,8 @@ function App() {
 
   // undefined until /api/tracker/load answers; the panels only mount after the load.
   const [scope, setScope] = useState(undefined);
-  const roles = useMemo(() => computeRoles(scope), [scope]);
+  const [scopes, setScopes] = useState(null);
+  const roles = useMemo(() => computeRoles(scope, scopes), [scope, scopes]);
 
   // ─ Cross-tab navigation: panels can dispatch a custom event to
   //   jump the user to another tab without a full re-mount. Used by
@@ -2406,6 +2414,7 @@ function App() {
         if (!r || !r.D) throw new Error('No D in response');
         const Dload = r.D;
         setScope(r.scope === undefined ? null : r.scope);
+        setScopes(Array.isArray(r.scopes) ? r.scopes : null);
         if (!Dload.pillarWeights) Dload.pillarWeights = { 'P1-Network Infrast':0.30,'P2-Business Partner':0.35,'P3-Risk & Compliance':0.20,'P4-Manage People':0.15 };
         setD(Dload);
         // Default S.year: defaultYear() resolves to the current

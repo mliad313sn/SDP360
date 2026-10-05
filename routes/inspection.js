@@ -1,4 +1,5 @@
 'use strict';
+const userSites = require('../services/userSites');   // multi-site editors (2026-10-05)
 
 const tableExcel = require('../services/tableExcel');
 
@@ -38,38 +39,41 @@ module.exports = function inspectionRoutes(deps) {
 
   // Resolve the user's inspection site code (form code, e.g. 'MGO').
   // Returns null for unrestricted users (super_admin / executive / admin).
-  async function _userInspectionSite(user) {
+  // Multi-site editors (2026-10-05): `wanted` = the object's site code — returned when the
+  // user holds it, else their primary code (so `code !== userSite` checks stay correct).
+  async function _userInspectionSite(user, wanted) {
+    const codes = await _userInspectionSites(user);
+    return codes === null ? null : userSites.pickCode(codes, wanted);
+  }
+  // Every inspection code of the user, primary first; null for the admin tier.
+  async function _userInspectionSites(user) {
     if (!user) return null;
     if (rdb.userHasRole(user, 'admin')) return null;  // admin+ can write any site
-    const siteId = user.site_id;
-    if (!siteId) return null;
-    // MUST await: listSites() is async under REPORTS_BACKEND=postgres (live in
-    // prod). A bare call returned a Promise, .find() threw, and an editor-role
-    // inspector's cross-site write guard broke (500 / wrong scope). await is a
-    // no-op under sqlite.
+    // MUST await: listSites() is async under REPORTS_BACKEND=postgres (live in prod).
     const sites = (await rdb.listSites()) || [];
-    const site  = sites.find(s => s.id === siteId);
-    return inspectionDb.siteNameToCode(site ? site.name : null);
+    return userSites.codesFor(user, sites, (s) => inspectionDb.siteNameToCode(s ? s.name : null));
   }
 
   // RBAC audit 2026-10-02, lot 4b — "open everything to coordinators, locked to their
   // site". Resolves the caller's scope for an inspection WRITE or EXPORT: { site: null }
   // for the admin tier (every site), { site: CODE } for an editor, or sends 403 and
   // returns null (no editor role / no resolvable site).
-  async function _scopeOr403(req, res) {
+  // `wanted` (multi-site editors): the site asked for — kept when the user holds it.
+  async function _scopeOr403(req, res, wanted) {
     if (!rdb.userHasRole(req.reportUser, 'editor')) { res.status(403).json({ error: 'editor role or higher required' }); return null; }
-    if (rdb.userHasRole(req.reportUser, 'admin')) return { site: null };
-    const site = await _userInspectionSite(req.reportUser);
+    if (rdb.userHasRole(req.reportUser, 'admin')) return { site: null, sites: null };
+    const sites = (await _userInspectionSites(req.reportUser)) || [];
+    const site = userSites.pickCode(sites, wanted);
     if (!site) { res.status(403).json({ error: 'Your account has no site assigned for this module. Contact your administrator.' }); return null; }
-    return { site };
+    return { site, sites };
   }
-  // Same, plus "the stored inspection belongs to that site". Sends 404/403 itself.
+  // Same, plus "the stored inspection belongs to one of those sites". Sends 404/403 itself.
   async function _ownInspectionOr403(req, res, id) {
     const scope = await _scopeOr403(req, res); if (!scope) return null;
     const head = await inspectionDb.getInspectionHeader(id);
     if (!head) { res.status(404).json({ error: 'Not found' }); return null; }
-    if (scope.site && head.site_code !== scope.site) { res.status(403).json({ error: `Inspection belongs to ${head.site_code}; you are scoped to ${scope.site}` }); return null; }
-    return { scope, head };
+    if (scope.sites && !userSites.inScope(head.site_code, scope.sites)) { res.status(403).json({ error: `Inspection belongs to ${head.site_code}; you are scoped to ${userSites.scopeLabel(scope.sites)}` }); return null; }
+    return { scope: { ...scope, site: head.site_code }, head };
   }
 
   // GET /api/inspection/lookups — hydrate the form (sites + areas + types + categories)
@@ -78,8 +82,9 @@ module.exports = function inspectionRoutes(deps) {
       if (!inspectionDb) return res.status(503).json({ error: 'Inspection module not available' });
       // `scope` (lot 4b): the caller's inspection site code, null for the admin tier —
       // lets the dashboard offer Delete only on the editor's own site rows.
-      const scope = rdb.userHasRole(req.reportUser, 'admin') ? null : (await _userInspectionSite(req.reportUser));
-      res.json({ ...(await inspectionDb.loadLookups()), scope });
+      // `scopes` (multi-site editors): every code of the user; `scope` = the primary (older pages).
+      const scopes = rdb.userHasRole(req.reportUser, 'admin') ? null : ((await _userInspectionSites(req.reportUser)) || []);
+      res.json({ ...(await inspectionDb.loadLookups()), scope: scopes === null ? null : (scopes[0] || null), scopes });
     } catch(e) {
       console.error('[Inspection] lookups error:', e.message);
       res.status(500).json({ error: e.message });
@@ -211,7 +216,7 @@ module.exports = function inspectionRoutes(deps) {
       if (!Number.isFinite(actionId)) return res.status(400).json({ error: 'Invalid action id' });
       const parent = await inspectionDb.getActionParent(actionId);
       if (!parent) return res.status(404).json({ error: 'Action not found' });
-      const userSite = await _userInspectionSite(req.reportUser);
+      const userSite = await _userInspectionSite(req.reportUser, parent.site_code);
       if (!userSite && !rdb.userHasRole(req.reportUser, 'admin')) return res.status(403).json({ error: 'Your account has no site assigned for this module. Contact your administrator.' });
       if (userSite && parent.site_code !== userSite) {
         return res.status(403).json({ error: `Action belongs to ${parent.site_code}; you are scoped to ${userSite}` });
@@ -237,7 +242,7 @@ module.exports = function inspectionRoutes(deps) {
   router.get('/api/inspection/export.xlsx', requireReportSession, async (req, res) => {
     try {
       if (!inspectionDb) return res.status(503).json({ error: 'Inspection module not available' });
-      const scope = await _scopeOr403(req, res); if (!scope) return;
+      const scope = await _scopeOr403(req, res, req.query.site); if (!scope) return;
       const data = await inspectionDb.exportRows({ site: scope.site });
       const buf = tableExcel.buildWorkbook([
         { name: 'Inspections', rows: data.inspections },
@@ -283,9 +288,10 @@ module.exports = function inspectionRoutes(deps) {
       // editor of ITS site (was admin-only). The site of both the incoming form and the
       // stored row is enforced by saveInspection (cross-site → 403 below).
 
-      const userSite = await _userInspectionSite(req.reportUser);
+      const userCodes = await _userInspectionSites(req.reportUser);   // null = admin tier
+      const userSite = userCodes === null ? null : (userCodes[0] || null);
       if (!userSite && !rdb.userHasRole(req.reportUser, 'admin')) return res.status(403).json({ error: 'Your account has no site assigned for this module. Contact your administrator.' });
-      const out      = await inspectionDb.saveInspection(state, userSite, req.reportUser.id || null);
+      const out      = await inspectionDb.saveInspection(state, userCodes, req.reportUser.id || null);
       // Audit log — grep-friendly: pm2 logs … | findstr Inspection
       const itemCount  = Object.keys(state.items || {}).length;
       const actCount   = (state.actions || []).length;
@@ -332,8 +338,8 @@ module.exports = function inspectionRoutes(deps) {
     try {
       if (!inspectionDb)   return res.status(503).json({ error: 'Inspection module not available' });
       if (!inspectionPptx) return res.status(503).json({ error: 'PPTX module not available' });
-      const scope = await _scopeOr403(req, res); if (!scope) return;
       const filters = { ...((req.body && req.body.filters) || {}) };
+      const scope = await _scopeOr403(req, res, filters.site); if (!scope) return;
       if (scope.site) filters.site = scope.site;
       const agg     = await inspectionDb.aggregate(filters);
       const rows    = await inspectionDb.listInspections({ ...filters, limit: 500 });
