@@ -63,6 +63,25 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ---
 
+## ⚡ Current state (as of 2026-10-05 — Site Actions Register : bloc Business Incubation + problèmes ouverts)
+
+> - **Bloc Business Incubation** (`1e4872b`, déployé) : les actions des sessions d'incubation
+>   (`intake_source='business_incubation'` OU référence `_INC_`) ont leur propre groupe `incubation` dans
+>   `buildSiteActions` ; e-mail coordinateur, Site Awareness et Meridian les **replient** avec les réunions.
+> - **Problèmes ouverts dans le hub** (`e665615`, PAS encore déployé à l'écriture) : `groups.issues` = les
+>   `md_issues` non `resolved|cancelled` du site (HIGH d'abord, puis en retard), chacun avec
+>   **`open_actions`** = nombre d'actions ouvertes qui le traitent (`md_actions.linked_issue_id`).
+>   **Pas compté dans `totals.open`** (ce sont des problèmes, pas des actions). Page : case
+>   « Problèmes sans action seulement », statut modifiable (`/api/meetings/issues/:id/update`), bouton
+>   **« + Action »** (seulement s'il n'y en a aucune — anti-doublon) → **`POST /api/meetings/issues/:id/actions`**
+>   (`meetings-db.addActionForIssue`, sqlite + pg : ligne `md_actions` liée + ligne d'historique
+>   « Action ajoutée : … » ; même RBAC que `/update` : editor, son site). **Fermer la DERNIÈRE action ouverte
+>   d'un problème PROPOSE** (confirm, jamais automatique — choix user) de le passer `resolved` avec la trace
+>   « Résolu après la fermeture de sa dernière action ». Les statuts `md_issues` : open · in_progress · blocked
+>   · on_hold · resolved · cancelled.
+
+---
+
 ## ⚡ Current state (as of 2026-10-04 — rubrique « Intégration API » : Alertes SLA + connexion Analytics éditable)
 
 > - **Admin ▸ 🔌 Intégration API** (`PANEL_GROUPS.api`, rail `admin-rail-grp-api`) regroupe deux onglets :
