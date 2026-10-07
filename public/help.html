@@ -197,6 +197,11 @@
       <a class="toc-sub" href="#en-18-5">Progress (effort score)</a>
       <a class="toc-sub" href="#en-18-6">Investment</a>
       <a class="toc-sub" href="#en-18-7">Réconciliation</a>
+      <a href="#en-19">19. Teams SLA alerts</a>
+      <a class="toc-sub" href="#en-19-1">What is sent, and when</a>
+      <a class="toc-sub" href="#en-19-2">Create the channel webhook (Teams)</a>
+      <a class="toc-sub" href="#en-19-3">Connect it in the dashboard</a>
+      <a class="toc-sub" href="#en-19-4">Phone notifications &amp; troubleshooting</a>
     </div>
 
     <!-- Content -->
@@ -1052,6 +1057,51 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Confirm-Destructive.ps1"
         </ul>
         <div class="tip">💡 Exporting the gaps in the SDP import format is <strong>not available</strong>: the import template was never supplied, and it will not be guessed.</div>
       </div>
+
+      <!-- 19 -->
+      <div class="section" id="en-19">
+        <h2><span class="section-num">19</span>Teams SLA alerts</h2>
+        <p>Technicians read Teams more than e-mail. Every <strong>5 min</strong> the dashboard reads the open tickets straight from the ServiceDesk Plus API and posts <strong>one card per SDP group</strong> in that group's Teams channel, <em>before</em> the first-response and resolution SLA are breached. Major incidents follow their own process and are not part of these cards.</p>
+
+        <h3 id="en-19-1">19.1 What is sent, and when</h3>
+        <ul>
+          <li><strong>First response due soon</strong> — P1 10 min, P2 20 min, P3 60 min, P4 4 h before the deadline.</li>
+          <li><strong>Resolution due soon</strong> — once 75 % of the resolution time is used.</li>
+          <li><strong>SLA breached</strong> (first response or resolution) — announced only if the breach is less than 60 min old, so switching on never floods a channel with last week's breaches.</li>
+          <li><strong>Unassigned</strong> — a ticket with no technician after 30 min (tickets less than 24 h old).</li>
+        </ul>
+        <p>Each ticket is announced <strong>once per kind of alert</strong>, never twice. Tickets whose SLA is paused in SDP (<em>On Hold, Awaiting Reply, Approval pending, PO Raised, Pending Verification</em>) and finished tickets never alert. Tickets created more than 30 days ago are ignored (adjustable). Each line of the card links to the ticket in SDP.</p>
+
+        <h3 id="en-19-2">19.2 Create the channel webhook (Teams)</h3>
+        <ol>
+          <li>In Teams, open the channel (e.g. <em>Abidjan IT Support Notification</em>), click <strong>⋯</strong> next to its name → <strong>Workflows</strong>.</li>
+          <li>In <strong>Find templates</strong>, type <code>webhook</code> and choose <strong>Send webhook alerts to a channel</strong> (older name: <em>Post to a channel when a webhook request is received</em>).</li>
+          <li>Give it a name (e.g. <em>SLA alerts — Abidjan</em>), click <strong>Next</strong>, check that the <strong>team</strong> and the <strong>channel</strong> are the right ones, then <strong>Add workflow</strong>.</li>
+          <li>Teams shows a URL: <strong>copy it</strong> and click <strong>Done</strong>. You can find it again later in <strong>Workflows → the workflow → the "When a Teams webhook request is received" step</strong>.</li>
+        </ol>
+        <div class="warn"><strong>The webhook URL is a secret.</strong> Anyone who has it can post in the channel. Paste it only into the dashboard — not in an e-mail, a chat or a ticket. The workflow runs under the account that created it: if that account is disabled, the cards stop — create it with a service or team-lead account.</div>
+
+        <h3 id="en-19-3">19.3 Connect it in the dashboard</h3>
+        <ol>
+          <li>Open <strong>Admin → 🔌 Intégration API → Alertes SLA</strong> (super_admin).</li>
+          <li>Under <strong>2 · Canaux Teams par groupe</strong>, click <strong>+ Ajouter un groupe</strong>.</li>
+          <li><strong>Groupe SDP</strong>: pick the exact SDP group name from the suggestions (e.g. <em>Abidjan IT Agents</em>). The name must match SDP; upper/lower case does not matter. The group <code>*</code> is the default channel for every group that is not listed.</li>
+          <li><strong>URL du webhook</strong>: paste the URL copied in Teams, then click <strong>Enregistrer</strong>. The URL is never shown again — the row only says <em>✓ enregistrée</em>.</li>
+          <li>Click <strong>Tester</strong> on that row: a TEST card must appear in the channel within a few seconds.</li>
+          <li>Click <strong>Aperçu (sans envoi)</strong>: the group must appear with its channel, and you see which tickets would be announced right now. Nothing is posted.</li>
+          <li>If <strong>Armer les alertes</strong> is already ticked (the alerts are live for other groups), the new channel receives cards from the next 5-minute pass. Otherwise tick it and save.</li>
+        </ol>
+        <div class="tip">💡 To change a channel's URL, type the new one in the row and save; leaving the field empty keeps the stored URL. To stop a channel, remove its row (✕) and save.</div>
+
+        <h3 id="en-19-4">19.4 Phone notifications &amp; troubleshooting</h3>
+        <ul>
+          <li><strong>No sound on the phone?</strong> A card posted in a channel only alerts people who asked for it. Each technician: channel <strong>⋯ → Channel notifications → Custom → All new posts: Show in Activity and banner</strong>. This is a personal setting; the dashboard cannot set it for them.</li>
+          <li><strong>Tester works but no real card arrives</strong> — there may simply be no ticket close to its SLA for that group: check with <strong>Aperçu</strong>. If the group does not appear in the preview, its name does not match SDP.</li>
+          <li><strong>The group appears without a channel</strong> in the preview — no row matches its name and there is no <code>*</code> row.</li>
+          <li><strong>Tester fails</strong> — the URL was not copied whole, or the workflow was deleted or turned off in Teams: recreate it and save the new URL.</li>
+          <li>The line <em>Dernier passage</em> at the top of the card shows when the last 5-minute pass ran.</li>
+        </ul>
+      </div>
     </div><!-- /content -->
   </div><!-- /doc-layout -->
 </div><!-- /sec-en -->
@@ -1148,6 +1198,11 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Confirm-Destructive.ps1"
       <a class="toc-sub" href="#fr-18-5">Progression (score d'effort)</a>
       <a class="toc-sub" href="#fr-18-6">Investissement</a>
       <a class="toc-sub" href="#fr-18-7">Réconciliation</a>
+      <a href="#fr-19">19. Alertes SLA dans Teams</a>
+      <a class="toc-sub" href="#fr-19-1">Ce qui est envoyé, et quand</a>
+      <a class="toc-sub" href="#fr-19-2">Créer le webhook du canal (Teams)</a>
+      <a class="toc-sub" href="#fr-19-3">Le brancher dans le dashboard</a>
+      <a class="toc-sub" href="#fr-19-4">Notifications téléphone &amp; dépannage</a>
     </div>
 
     <div class="content">
@@ -2001,6 +2056,51 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Confirm-Destructive.ps1"
           <li>Un nom de machine porte le site de <em>provisionnement</em>, pas le site actuel. Pour un actif déjà connu de SDP, c'est le site de SDP qui fait foi.</li>
         </ul>
         <div class="tip">💡 L'export des écarts au format d'import SDP n'est <strong>pas disponible</strong> : le gabarit d'import n'a jamais été fourni, et il ne sera pas deviné.</div>
+      </div>
+
+      <!-- 19 -->
+      <div class="section" id="fr-19">
+        <h2><span class="section-num">19</span>Alertes SLA dans Teams</h2>
+        <p>Les techniciens lisent Teams plus que leurs e-mails. Toutes les <strong>5 min</strong>, le dashboard lit les tickets ouverts directement dans l'API de ServiceDesk Plus et publie <strong>une carte par groupe SDP</strong> dans le canal Teams de ce groupe, <em>avant</em> le dépassement du SLA de première réponse puis de résolution. Les incidents majeurs suivent leur propre processus et ne sont pas concernés.</p>
+
+        <h3 id="fr-19-1">19.1 Ce qui est envoyé, et quand</h3>
+        <ul>
+          <li><strong>1re réponse bientôt due</strong> — P1 10 min, P2 20 min, P3 60 min, P4 4 h avant l'échéance.</li>
+          <li><strong>Résolution bientôt due</strong> — dès que 75 % du délai de résolution est consommé.</li>
+          <li><strong>SLA dépassé</strong> (1re réponse ou résolution) — annoncé seulement si le dépassement a moins de 60 min : l'activation ne noie jamais un canal sous les dépassements de la semaine passée.</li>
+          <li><strong>Non assigné</strong> — un ticket sans technicien après 30 min (tickets de moins de 24 h).</li>
+        </ul>
+        <p>Chaque ticket est annoncé <strong>une seule fois par type d'alerte</strong>. Les tickets dont le SLA est en pause dans SDP (<em>On Hold, Awaiting Reply, Approval pending, PO Raised, Pending Verification</em>) et les tickets terminés n'alertent jamais. Les tickets créés il y a plus de 30 jours sont ignorés (réglable). Chaque ligne de la carte renvoie au ticket dans SDP.</p>
+
+        <h3 id="fr-19-2">19.2 Créer le webhook du canal (Teams)</h3>
+        <ol>
+          <li>Dans Teams, ouvrez le canal (ex. <em>Abidjan IT Support Notification</em>), cliquez sur <strong>⋯</strong> à côté de son nom → <strong>Workflows</strong>.</li>
+          <li>Dans <strong>Find templates</strong>, tapez <code>webhook</code> et choisissez <strong>Send webhook alerts to a channel</strong> (« Envoyer des alertes webhook à un canal » ; ancien nom : <em>Post to a channel when a webhook request is received</em>).</li>
+          <li>Donnez-lui un nom (ex. <em>Alertes SLA — Abidjan</em>), cliquez sur <strong>Next</strong>, vérifiez que l'<strong>équipe</strong> et le <strong>canal</strong> sont les bons, puis <strong>Add workflow</strong>.</li>
+          <li>Teams affiche une URL : <strong>copiez-la</strong> puis cliquez sur <strong>Done</strong>. On la retrouve plus tard dans <strong>Workflows → le workflow → l'étape « When a Teams webhook request is received »</strong>.</li>
+        </ol>
+        <div class="warn"><strong>L'URL du webhook est un secret.</strong> Quiconque la possède peut publier dans le canal. Collez-la uniquement dans le dashboard — jamais dans un e-mail, un chat ou un ticket. Le workflow tourne sous le compte qui l'a créé : si ce compte est désactivé, les cartes s'arrêtent — créez-le avec un compte de service ou de responsable d'équipe.</div>
+
+        <h3 id="fr-19-3">19.3 Le brancher dans le dashboard</h3>
+        <ol>
+          <li>Ouvrez <strong>Admin → 🔌 Intégration API → Alertes SLA</strong> (super_admin).</li>
+          <li>Sous <strong>2 · Canaux Teams par groupe</strong>, cliquez sur <strong>+ Ajouter un groupe</strong>.</li>
+          <li><strong>Groupe SDP</strong> : choisissez le nom exact du groupe SDP dans les suggestions (ex. <em>Abidjan IT Agents</em>). Le nom doit correspondre à SDP ; la casse n'a pas d'importance. Le groupe <code>*</code> est le canal par défaut de tous les groupes non listés.</li>
+          <li><strong>URL du webhook</strong> : collez l'URL copiée dans Teams, puis cliquez sur <strong>Enregistrer</strong>. L'URL n'est plus jamais affichée — la ligne indique seulement <em>✓ enregistrée</em>.</li>
+          <li>Cliquez sur <strong>Tester</strong> sur cette ligne : une carte TEST doit apparaître dans le canal en quelques secondes.</li>
+          <li>Cliquez sur <strong>Aperçu (sans envoi)</strong> : le groupe doit apparaître avec son canal, et vous voyez les tickets qui seraient annoncés maintenant. Rien n'est publié.</li>
+          <li>Si <strong>Armer les alertes</strong> est déjà coché (alertes actives pour d'autres groupes), le nouveau canal reçoit les cartes dès le prochain passage de 5 minutes. Sinon cochez-le et enregistrez.</li>
+        </ol>
+        <div class="tip">💡 Pour changer l'URL d'un canal, saisissez la nouvelle dans la ligne et enregistrez ; un champ laissé vide conserve l'URL enregistrée. Pour arrêter un canal, supprimez sa ligne (✕) et enregistrez.</div>
+
+        <h3 id="fr-19-4">19.4 Notifications téléphone &amp; dépannage</h3>
+        <ul>
+          <li><strong>Pas de son sur le téléphone ?</strong> Une carte publiée dans un canal n'alerte que ceux qui l'ont demandé. Chaque technicien : canal <strong>⋯ → Notifications du canal → Personnalisé → Tous les nouveaux billets : Afficher dans l'activité et la bannière</strong> (en anglais : <em>Show in Activity and banner</em>). C'est un réglage personnel ; le dashboard ne peut pas le faire à leur place.</li>
+          <li><strong>Tester marche mais aucune vraie carte n'arrive</strong> — il n'y a peut-être simplement aucun ticket proche de son SLA pour ce groupe : vérifiez avec <strong>Aperçu</strong>. Si le groupe n'apparaît pas dans l'aperçu, son nom ne correspond pas à SDP.</li>
+          <li><strong>Le groupe apparaît sans canal</strong> dans l'aperçu — aucune ligne ne porte son nom et il n'y a pas de ligne <code>*</code>.</li>
+          <li><strong>Tester échoue</strong> — l'URL n'a pas été copiée en entier, ou le workflow a été supprimé ou désactivé dans Teams : recréez-le et enregistrez la nouvelle URL.</li>
+          <li>La ligne <em>Dernier passage</em> en haut de la carte indique l'heure du dernier passage de 5 minutes.</li>
+        </ul>
       </div>
     </div><!-- /content -->
   </div><!-- /doc-layout -->
