@@ -32,7 +32,7 @@ test('normalizeRequest reads the v3 {value} shapes and tolerates missing fields'
     due_by_time: { value: String(min(100)) }, responded_time: null,
   });
   assert.deepEqual(t, { id: '91000000123', display_id: '4521', subject: 'VPN down', priority: 'Critical', p: 'P1',
-    group: 'Mana IT Agents', technician: 'Jean', site: 'MANA', status: 'Open',
+    group: 'Mana IT Agents', technician: 'Jean', site: 'MANA', status: 'Open', sla_paused: null,
     created_ms: min(-20), fr_due_ms: min(10), res_due_ms: min(100), responded: false });
   const bare = S.normalizeRequest({ id: 7 });
   assert.equal(bare.id, '7'); assert.equal(bare.group, ''); assert.equal(bare.fr_due_ms, null);
@@ -112,6 +112,23 @@ test('max_ticket_age_days: older tickets are ignored (0 = no limit)', () => {
   assert.deepEqual(kinds(S.evaluate([old], S.parseRules({ max_ticket_age_days: 60 }), NOW)), ['fr_soon']);
   assert.equal(S.createdAfterMs(S.DEFAULT_RULES, NOW), NOW - 30 * 86400000);
   assert.equal(S.createdAfterMs(S.parseRules({ max_ticket_age_days: 0 }), NOW), null);
+});
+
+test('status.stop_timer from the API decides the pause; the paused_status regex is only the fallback', () => {
+  // v3 status object as seen in the 2026-10-15 capture: {name, stop_timer, in_progress, …}
+  const n = S.normalizeRequest({ id: 1, status: { name: 'Asset provisioned', stop_timer: true, in_progress: true } });
+  assert.equal(n.status, 'Asset provisioned');
+  assert.equal(n.sla_paused, true);
+  assert.equal(S.normalizeRequest({ id: 1, status: { name: 'Open', stop_timer: false } }).sla_paused, false);
+  assert.equal(S.normalizeRequest({ id: 1, status: 'Open' }).sla_paused, null, 'flag absent → unknown');
+  // paused by SDP although the name matches no regex word
+  assert.deepEqual(S.evaluate([T({ status: 'Asset provisioned', sla_paused: true, fr_due_ms: min(5) })], S.DEFAULT_RULES, NOW), []);
+  // SDP says the clock runs: alert, even if the name looks like a paused one
+  assert.deepEqual(kinds(S.evaluate([T({ status: 'Approval pending', sla_paused: false, fr_due_ms: min(5) })], S.DEFAULT_RULES, NOW)), ['fr_soon']);
+  // flag unknown → regex fallback still pauses
+  assert.deepEqual(S.evaluate([T({ status: 'On Hold', sla_paused: null, fr_due_ms: min(5) })], S.DEFAULT_RULES, NOW), []);
+  // a finished ticket never alerts, whatever stop_timer says
+  assert.deepEqual(S.evaluate([T({ status: 'Resolved', sla_paused: false, fr_due_ms: min(5) })], S.DEFAULT_RULES, NOW), []);
 });
 
 test('statuses seen in prod (2026-10-04): Rejected is finished; Awaiting Reply / Approval pending / PO Raised / Pending Verification pause the SLA', () => {

@@ -87,6 +87,10 @@ function normalizeRequest(r) {
     technician: _name(x.technician).trim(),
     site: _name(x.site),
     status: _name(x.status),
+    // SDP's own "SLA clock stopped" flag on the status (v3 status object, confirmed on the
+    // real instance 2026-10-15): true/false when present, null when absent → regex fallback.
+    sla_paused: (x.status && typeof x.status === 'object' && typeof x.status.stop_timer === 'boolean')
+      ? x.status.stop_timer : null,
     created_ms: _ms(x.created_time),
     fr_due_ms: _ms(x.first_response_due_by_time),
     res_due_ms: _ms(x.due_by_time),
@@ -117,7 +121,9 @@ function evaluate(tickets, rules, nowMs) {
   });
   for (const t of tickets || []) {
     if (!t || !t.id) continue;
-    if (paused && paused.test(t.status || '')) continue;
+    // the API flag wins when known; the paused_status regex only covers its absence
+    if (t.sla_paused === true) continue;
+    if (t.sla_paused == null && paused && paused.test(t.status || '')) continue;
     if (finished && finished.test(t.status || '')) continue;
     if (cutoff != null && t.created_ms != null && t.created_ms < cutoff) continue;
     const K = R.kinds;
