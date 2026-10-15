@@ -67,7 +67,7 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 > **Historique git RÉÉCRIT le 2026-10-15** (un mot de passe postgres traînait dans 14 docs + 1 message
 > de commit, remplacé par `<PG_PASSWORD>`) → **les SHA cités dans les sections plus anciennes de ce
-> fichier sont périmés** (cherche par message de commit). `main` est poussé sur origin ; marqueur
+> fichier sont périmés** (cherche par message de commit). Correspondances utiles : lots gelés installeur `578be34`→`f6f0b12`, tracker RAG `c97ae61`→`437a80f`, donut pondéré `e17b7b7`→`b681083` (`frozen-lots.json` mis à jour). `main` est poussé sur origin ; marqueur
 > `.git/last-deployed` remappé (`a1c4830` = l'ancien `a6abafa`). Toutes les branches/worktrees annexes
 > ont été supprimés : seules restent `main` et la branche de ce worktree.
 >
