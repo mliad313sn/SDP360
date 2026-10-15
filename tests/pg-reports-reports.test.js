@@ -229,3 +229,27 @@ test('reports pg: reassignReportWeek (wiring-2 helper)', async (t) => {
     assert.equal((await rdb.getReport(id1)).week_id, w3id, 'week_id updated');
   } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
 });
+
+// 2026-10-15 — merging a follow-up moves its WHOLE group (every week it was carried), and
+// the import window reads every follow-up row of the site with its week.
+test('reports pg: relineageGroup moves every week of the group + getSiteActionRows', async (t) => {
+  const b = await boot(); if (!b) return t.skip('no pg');
+  const { ctx, rdb, siteId } = b;
+  try {
+    const r40 = await rdb.ensureReport(siteId, 2026, 40), r41 = await rdb.ensureReport(siteId, 2026, 41), r43 = await rdb.ensureReport(siteId, 2026, 43);
+    await rdb.saveActionItems(r40.id, [{ task: 'Foudre', department: 'IT', status: 'on_hold' }]);
+    const root = (await rdb.getReport(r40.id)).action_items[0].uid;
+    await rdb.saveActionItems(r41.id, [{ task: 'Foudre', department: 'IT', status: 'on_hold', lineage: root }]);
+    const copy = (await rdb.getReport(r41.id)).action_items[0].uid;
+    await rdb.saveActionItems(r43.id, [{ task: 'Protection foudre', department: 'IT', status: 'open' }]);
+    const winner = (await rdb.getReport(r43.id)).action_items[0].uid;
+    const res = await rdb.relineageGroup(copy, winner, 'Protection foudre');
+    assert.equal(res.ok, true); assert.equal(res.rows, 2); assert.equal(res.from_key, root);
+    const open = (await rdb.getSiteOpenReportActions(siteId)).actions;
+    assert.equal(open.length, 1, 'no ghost from W40');
+    assert.equal((await rdb.getReport(r40.id)).action_items[0].task, 'Protection foudre');
+    const rows = await rdb.getSiteActionRows(siteId);
+    assert.equal(rows.length, 3);
+    assert.ok(rows.every(r => Number.isInteger(Number(r.year)) && r.week_label && r.report_id));
+  } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
+});

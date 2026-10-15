@@ -5738,9 +5738,16 @@ app.post('/api/reports/action/:uid/relineage', requireReportSession, async (req,
     // Optional: also rename the task to unify a merged group's label onto the winner.
     const rawTask = req.body && req.body.task;
     const task = (typeof rawTask === 'string' && rawTask.trim()) ? rawTask.trim() : undefined;
-    const r = await rdb.setActionLineage(String(req.params.uid || ''), lineage, task);
+    // 2026-10-15: the WHOLE group of this follow-up moves (every week it was carried),
+    // otherwise its older copies re-appear as open actions after the merge.
+    const r = await rdb.relineageGroup(String(req.params.uid || ''), lineage, task);
     if (!r.ok) return res.status(404).json({ error: 'action not found' });
-    res.json({ ok: true });
+    try {
+      await rdb.logAudit({ report_id: r.report_id, site_id: r.site_id, user_id: req.reportUser.id,
+        username: req.reportUser.username, action: 'action_merged',
+        details: { from_key: r.from_key, to_key: lineage, rows: r.rows, renamed: task != null } });
+    } catch (_) { /* audit is best-effort */ }
+    res.json({ ok: true, rows: r.rows, from_key: r.from_key });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 // SP3 — GET /api/reports/:id/importable-actions — the report site's OPEN Meetings
@@ -6386,7 +6393,12 @@ app.get('/api/reports/:id/action-weeks', requireReportSession, async (req, res) 
     const report = await rdb.getReport(parseInt(req.params.id));
     if (!report) return res.status(404).json({ error: 'Report not found' });
     const weeks = await rdb.listAllWeeksWithActions(report.site_id, report.id);
-    res.json({ weeks });
+    // 2026-10-15: a week counts only the actions still worth importing into THIS report
+    // (not closed/cancelled, not closed in a later week, not already carried here) — the raw
+    // per-week count re-counted every carried copy and every action closed since.
+    const { weekCounts } = require('./services/reportActionGroups');
+    const counts = weekCounts(await rdb.getSiteActionRows(report.site_id), report.id);
+    res.json({ weeks: weeks.map(w => ({ ...w, action_count: counts.get(w.report_id) || 0 })) });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -6401,7 +6413,13 @@ app.get('/api/reports/:id/actions-from/:source_report_id', requireReportSession,
     if (sourceReport.site_id !== report.site_id)
       return res.status(403).json({ error: 'Source report is from a different site' });
     const result = await rdb.getActionsForReport(parseInt(req.params.source_report_id));
-    res.json(result);
+    // 2026-10-15: each action says whether it can be imported, why not, and which group it
+    // belongs to (code, first week, weeks) — the window previews before importing.
+    const { classifySourceRows } = require('./services/reportActionGroups');
+    const siteRows = await rdb.getSiteActionRows(report.site_id);
+    const actions = classifySourceRows({ sourceRows: (result.actions || []).filter(a => !a.source),
+      siteRows, currentReportId: report.id });
+    res.json({ ...result, actions });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -6545,7 +6563,15 @@ app.get('/api/reports/:id/site-open-actions', requireReportSession, async (req, 
     const report = await rdb.getReport(parseInt(req.params.id));
     if (!report) return res.status(404).json({ error: 'Report not found' });
     const result = await rdb.getSiteOpenReportActions(report.site_id);
-    res.json(result);
+    // 2026-10-15: the group identity (code, first week, number of weeks) so the merge window
+    // can tell two identical titles apart.
+    const { summarizeGroups, groupKey } = require('./services/reportActionGroups');
+    const groups = summarizeGroups(await rdb.getSiteActionRows(report.site_id));
+    const actions = (result.actions || []).map(a => {
+      const g = groups.get(groupKey(a));
+      return { ...a, group: g ? { key: g.key, code: g.code, hue: g.hue, weeks: g.weeks, first_week: g.first_week } : null };
+    });
+    res.json({ ...result, actions });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 

@@ -3865,6 +3865,50 @@ async function _setActionLineagePg(uid, lineage, task) {
     : await H.prepare('UPDATE action_items SET lineage=?, task=? WHERE uid=?').run(lineage, task, uid);
   return { ok: (info.changes || info.rowCount || 0) > 0 };
 }
+// Merge a WHOLE group (2026-10-15). The group of `uid` = its lineage || uid; every row of
+// that group on the same site (all the weeks it was carried) adopts `newKey` (+ the winner's
+// label when `task` is given). Moving only the clicked row — the old setActionLineage — left
+// the group's older copies behind, and the newest of them re-appeared as an open action.
+// Returns { ok, rows, from_key, site_id, report_id }.
+const _RELIN_GROUP_SQL = `UPDATE action_items SET lineage = ?, task = COALESCE(?, task)
+  WHERE (uid = ? OR lineage = ?)
+    AND report_id IN (SELECT id FROM weekly_reports WHERE site_id = ?)`;
+const _RELIN_ROW_SQL = `SELECT ai.uid, ai.lineage, ai.report_id, wr.site_id
+  FROM action_items ai JOIN weekly_reports wr ON wr.id = ai.report_id WHERE ai.uid = ?`;
+function relineageGroup(uid, newKey, task) {
+  if (REPORTS_BACKEND === 'postgres') return _relineageGroupPg(uid, newKey, task);
+  const row = db.prepare(_RELIN_ROW_SQL).get(uid);
+  if (!row) return { ok: false, rows: 0 };
+  const fromKey = row.lineage || row.uid;
+  const base = { ok: true, from_key: fromKey, site_id: row.site_id, report_id: row.report_id };
+  if (fromKey === newKey) {
+    if (task != null) db.prepare('UPDATE action_items SET task=? WHERE uid=?').run(task, uid);
+    return { ...base, rows: 0 };
+  }
+  const info = db.prepare(_RELIN_GROUP_SQL).run(newKey, task == null ? null : task, fromKey, fromKey, row.site_id);
+  return { ...base, rows: info.changes };
+}
+async function _relineageGroupPg(uid, newKey, task) {
+  const H = pgHandle();
+  const row = await H.prepare(_RELIN_ROW_SQL).get(uid);
+  if (!row) return { ok: false, rows: 0 };
+  const fromKey = row.lineage || row.uid;
+  const base = { ok: true, from_key: fromKey, site_id: row.site_id, report_id: row.report_id };
+  if (fromKey === newKey) {
+    if (task != null) await H.prepare('UPDATE action_items SET task=? WHERE uid=?').run(task, uid);
+    return { ...base, rows: 0 };
+  }
+  const info = await H.prepare(_RELIN_GROUP_SQL).run(newKey, task == null ? null : task, fromKey, fromKey, row.site_id);
+  return { ...base, rows: info.changes || info.rowCount || 0 };
+}
+// Every follow-up row of a site (all weeks, module references excluded), with its week —
+// the input of services/reportActionGroups (import window, per-week counts, identity).
+async function getSiteActionRows(site_id) {
+  const rows = REPORTS_BACKEND === 'postgres'
+    ? await pgHandle().prepare(_SORA_SQL).all(site_id)
+    : db.prepare(_SORA_SQL).all(site_id);
+  return rows.map(({ _y, _w, ...r }) => ({ ...r, year: _y, week_number: _w }));
+}
 async function _setActionStatusPg(uid, status) {
   const H = pgHandle();
   const info = await H.prepare('UPDATE action_items SET status=? WHERE uid=?').run(status, uid);
@@ -4075,8 +4119,10 @@ async function _getActionsForReportPg(report_id) {
   const meta = await H.prepare(`SELECT wr.id, w.label as week_label FROM weekly_reports wr
     JOIN weeks w ON w.id = wr.week_id WHERE wr.id = ?`).get(report_id);
   if (!meta) return { week_label: null, actions: [] };
+  // status != 'closed' like the sqlite fork (the pg fork returned closed rows too, so the
+  // automatic carry-over of a blank week re-imported actions already closed).
   const actions = await H.prepare(`SELECT task, priority, due_date, owner, status, department, comment, sort_order, uid, source, origin_id, lineage
-    FROM action_items WHERE report_id = ? ORDER BY sort_order`).all(report_id);
+    FROM action_items WHERE report_id = ? AND status != 'closed' ORDER BY sort_order`).all(report_id);
   return { week_label: meta.week_label, actions };
 }
 async function _listAllWeeksWithLightsPg(site_id, current_report_id) {
@@ -8259,6 +8305,7 @@ module.exports = {
   getRoadmapProject, addRoadmapAction, updateRoadmapAction, deleteRoadmapAction,
   addRoadmapResource, updateRoadmapResource, deleteRoadmapResource,
   setActionMerge, clearActionMerge, setActionStatus, setActionLineage, getActionItemOwner, getSiteOpenReportActions,
+  relineageGroup, getSiteActionRows,
   getPreviousWeekOpenActions, listAllWeeksWithActions, getActionsForReport,
   listAllWeeksWithLights, getLightsForReport,
   // Action departments (editable dropdown for action items)

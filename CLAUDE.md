@@ -63,6 +63,35 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ---
 
+## ⚡ Current state (as of 2026-10-15 — actions du rapport : fusion par groupe, aperçu d'import, identité visible ; historique réécrit)
+
+> **Historique git RÉÉCRIT le 2026-10-15** (un mot de passe postgres traînait dans 14 docs + 1 message
+> de commit, remplacé par `<PG_PASSWORD>`) → **les SHA cités dans les sections plus anciennes de ce
+> fichier sont périmés** (cherche par message de commit). `main` est poussé sur origin ; marqueur
+> `.git/last-deployed` remappé (`a1c4830` = l'ancien `a6abafa`). Toutes les branches/worktrees annexes
+> ont été supprimés : seules restent `main` et la branche de ce worktree.
+>
+> - **Groupe d'actions** = `lineage || uid` (le plus récent fait foi, terminal = closed/cancelled).
+>   Logique partagée navigateur + serveur : **`public/lib/actionGroups.js`** (UMD ;
+>   `services/reportActionGroups.js` le ré-exporte) — `shortCode` (`#XXXX`, hash FNV base36), `hue`,
+>   `summarizeGroups`, `classifySourceRows` (raisons `in_current` · `closed_since` · `cancelled` ·
+>   `closed`), `weekCounts`.
+> - **Fusion = tout le groupe** : `rdb.relineageGroup(uid, key, task)` déplace TOUTES les lignes du
+>   groupe de l'action cliquée (même site) — l'ancien `setActionLineage` ne bougeait qu'une ligne et
+>   les copies plus anciennes ressurgissaient comme ouvertes. Journal `action_merged`. **Les doublons
+>   déjà en prod ne se corrigent pas tout seuls : refaire la fusion une fois après déploiement.**
+> - **Import d'une semaine = aperçu** à cases (cochées si importables, raison sinon — y compris une
+>   action seulement tapée dans l'éditeur, non sauvegardée) ; `action-weeks` compte les actions
+>   réellement importables ; la reconduction auto ne prend que les importables.
+> - **Identité visible** : badge `#CODE` coloré + « suivie depuis Wxx · N sem. » (import + fusion),
+>   bordure colorée + infobulle sur la cellule de l'action.
+> - **Bug pg corrigé** : `_getActionsForReportPg` n'excluait pas les `closed` (le sqlite si) → la prod
+>   reportait des actions fermées.
+> - Tests : `report-action-groups` (7), `action-import-window.smoke` (3), `reports-action-import-ui`
+>   (7), `action-relineage.smoke` (+ chaîne), pg dans `pg-reports-reports`. Vérifié au navigateur.
+
+---
+
 ## ⚡ Current state (as of 2026-10-05, plus tard — éditeurs multi-sites, `f6e0c7c`, PAS déployé à l'écriture)
 
 > **Demande user** : un `editor` doit pouvoir être éditeur de PLUSIEURS sites (sans passer Admin, qui voit

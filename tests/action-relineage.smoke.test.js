@@ -94,3 +94,29 @@ test('relineage can also RENAME the task (unify a merged group onto the winner l
   assert.equal(row.task, 'Helix (canonical)', 'older row renamed to the winner label');
   assert.equal(row.lineage, 'GRP', 'lineage set');
 });
+
+// 2026-10-15 — the merge moves the WHOLE group, not one row. A chain carried over several
+// weeks (W42 → W43) merged into another chain (W45) must not leave its W42 copy behind:
+// before the fix only the newest row moved and the older copy re-appeared as an open action.
+test('merging a carried chain moves every week of it — no ghost resurfaces', async () => {
+  const rdb = require('../reports-db');
+  const w42 = (await rdb.ensureReport(siteId, 2026, 42)).id;
+  const w43 = (await rdb.ensureReport(siteId, 2026, 43)).id;
+  const w45 = (await rdb.ensureReport(siteId, 2026, 45)).id;
+  await rdb.saveActionItems(w42, [{ task: 'Protection foudre', department: dept, status: 'on_hold' }]);
+  const root = (await rdb.getReport(w42)).action_items[0].uid;
+  await rdb.saveActionItems(w43, [{ task: 'Protection foudre', department: dept, status: 'on_hold', lineage: root }]);
+  const newestOfChain = (await rdb.getReport(w43)).action_items[0].uid;
+  await rdb.saveActionItems(w45, [{ task: 'Protection des équipements contre la foudre', department: dept, status: 'open' }]);
+  const canonical = (await rdb.getReport(w45)).action_items[0].uid;
+  const open = async () => (await rdb.getSiteOpenReportActions(siteId)).actions.filter(a => /foudre/.test(a.task));
+  assert.equal((await open()).length, 2, 'two groups before');
+  const r = await post(`/api/reports/action/${newestOfChain}/relineage`, { lineage: canonical, task: 'Protection des équipements contre la foudre' });
+  assert.equal(r.status, 200);
+  assert.equal(r.body.rows, 2, 'both weeks of the merged chain moved');
+  const after = await open();
+  assert.equal(after.length, 1, 'one group after — the W42 copy did not come back');
+  assert.equal(after[0].week_label, (await rdb.getReport(w45)).week_label);
+  // and the older copy now carries the winner's label too
+  assert.equal((await rdb.getReport(w42)).action_items[0].task, 'Protection des équipements contre la foudre');
+});

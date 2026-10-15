@@ -287,6 +287,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js" defer></script>
 <script src="lib/parse-actions-csv.js"></script>
 <script src="lib/actionSimilarity.js"></script>
+<script src="lib/actionGroups.js"></script>
 <script src="lib/wanLineMatch.js"></script>
 <!-- Unified auth (data-require="any" — any logged-in user). auth.js redirects
      to login.html?next=reports.html when no/invalid session, so the inline
@@ -749,6 +750,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         <!-- footer -->
         <div style="padding:12px 20px;border-top:1px solid #e5e7eb;text-align:right">
           <button onclick="closeCarryOverModal()" class="btn btn-secondary btn-sm">Cancel</button>
+          <button id="carry-over-import-btn" onclick="_doImportSelection()" class="btn btn-primary btn-sm" style="display:none;margin-left:6px">Importer la sélection</button>
         </div>
       </div>
     </div>
@@ -4155,13 +4157,14 @@ async function maybeReconductActions() {
     if (!weeks.length) return;                                   // list is year/week DESC → weeks[0] is most recent
     const src = weeks[0];
     const data = await api('GET', `/api/reports/${r.id}/actions-from/${src.report_id}`);
-    const carried = ((data && data.actions) || []).filter(a => !a.source);  // module refs live at their origin
+    // module refs live at their origin; closed / closed-since / already-here are not carried (2026-10-15)
+    const carried = ((data && data.actions) || []).filter(a => !a.source && a.importable !== false);
     if (!carried.length) return;
     // Re-check the section is still blank (guard a race with fast typing).
     const rows = Array.from(document.querySelectorAll('#action-body tr[data-row-id]'));
     if (!rows.every(tr => !(tr.querySelector('input[type="text"]')?.value.trim()))) return;
     document.getElementById('action-body').innerHTML = '';       // drop the single empty row
-    carried.forEach(a => addActionRow({ ...a, uid: '', lineage: a.lineage || a.uid }));
+    carried.forEach(a => addActionRow({ ...a, uid: '', lineage: (a.group && a.group.key) || a.lineage || a.uid }));
     _reconductedRowIds = Array.from(document.querySelectorAll('#action-body tr[data-row-id]')).map(tr => tr.dataset.rowId);
     document.getElementById('reconduct-banner-text').innerHTML =
       `↩ <b>${carried.length}</b> action(s) non résolue(s) reconduite(s) de <b>${esc(src.week_label)}</b> — révise (responsable, échéance, statut) puis <b>Enregistre</b>.`;
@@ -4242,10 +4245,10 @@ function openMergeCleanup() {
     items.sort((a, b) => norm(a.task).localeCompare(norm(b.task)) || ((b.year || 0) - (a.year || 0)) || ((b.week_number || 0) - (a.week_number || 0)));
     list.innerHTML = items.map(a => {
       const key = esc(a.lineage || a.uid);
-      const meta = `${esc(a.week_label || '')} · ${esc(a.status || '')}${a.owner ? ' · ' + esc(a.owner) : ''}`;
+      const meta = `${esc(a.week_label || '')} · ${esc(a.status || '')}${a.owner ? ' · ' + esc(a.owner) : ''}${a.group ? ' · ' + _grpMeta(a.group) : ''}`;
       return `<label style="display:flex;gap:10px;align-items:flex-start;padding:9px 10px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:6px;cursor:pointer">
         <input type="checkbox" class="merge-cb" data-key="${key}" data-uid="${esc(a.uid || '')}" data-year="${a.year || 0}" data-week="${a.week_number || 0}" data-task="${esc(a.task || '')}" onchange="_mergeSelChanged()" style="margin-top:3px">
-        <span><span style="font-weight:600;color:#1e293b">${esc(a.task)}</span><br><span style="font-size:0.76rem;color:#64748b">${meta}</span></span>
+        <span>${_grpBadge(a.lineage || a.uid, a.group)} <span style="font-weight:600;color:#1e293b">${esc(a.task)}</span><br><span style="font-size:0.76rem;color:#64748b">${meta}</span></span>
       </label>`;
     }).join('');
   }
@@ -4391,6 +4394,8 @@ async function carryOverActions() {
 
 function _renderCarryOverModal(weeks, mode) {
   const list = document.getElementById('carry-over-week-list');
+  const _ib = document.getElementById('carry-over-import-btn'); if (_ib) _ib.style.display = 'none';
+  if (mode === 'actions') _carryOverWeeks = weeks;
   if (!weeks.length) {
     list.innerHTML = '<p style="color:#64748b;padding:16px;text-align:center">No previous weeks available.</p>';
     return;
@@ -4452,31 +4457,96 @@ async function _importLightsFromWeek(sourceReportId, weekLabel) {
   }
 }
 
+// ── Import from a previous week — preview (2026-10-15) ──────────────────
+// Picking a week no longer imports everything blindly: it lists the week's actions with a
+// checkbox each (ticked when importable), the group badge, and the reason when an action
+// cannot be imported (already in this report — saved or typed —, closed since, cancelled).
+let _carryOverWeeks = [];
+let _importPreview = null;
+const _IMPORT_REASON = {
+  in_current:   () => 'déjà dans ce rapport',
+  closed_since: (a) => 'fermée depuis en ' + (a.closed_week || '?'),
+  cancelled:    () => 'annulée',
+  closed:       () => 'fermée',
+};
+function _grpBadge(key, group) {
+  if (!key && !group) return '';
+  const AG = window.ActionGroups;
+  const code = (group && group.code) || (AG && key ? AG.shortCode(key) : '');
+  if (!code) return '';
+  const h = (group && group.hue != null) ? group.hue : (AG && key ? AG.hue(key) : 210);
+  return `<span class="grp-badge" title="Groupe ${esc(code)} — toutes les semaines de cette action portent le même code" style="display:inline-block;font:700 0.68rem ui-monospace,Consolas,monospace;padding:1px 6px;border-radius:999px;vertical-align:1px;background:hsl(${h},70%,94%);color:hsl(${h},55%,30%);border:1px solid hsl(${h},50%,78%)">${esc(code)}</span>`;
+}
+function _grpMeta(group) {
+  if (!group) return '';
+  return `suivie depuis ${esc(group.first_week || '?')} · ${group.weeks} sem.`;
+}
+// Group keys already in the report being edited, saved or only typed (not saved yet).
+function _currentActionKeys() {
+  return Array.from(document.querySelectorAll('#action-body tr[data-row-id]'))
+    .map(tr => tr.dataset.lineage || tr.dataset.uid)
+    .filter(Boolean);
+}
 async function _importFromWeek(sourceReportId, weekLabel) {
-  closeCarryOverModal();
-  const btn = document.getElementById('btn-carry-over');
-  const orig = btn.innerHTML;
-  btn.disabled = true;
-  btn.textContent = '…importing';
+  const list = document.getElementById('carry-over-week-list');
+  list.innerHTML = '<p style="color:#64748b;padding:16px;text-align:center">Chargement…</p>';
   try {
     const data = await api('GET', `/api/reports/${currentReport.id}/actions-from/${sourceReportId}`);
-    if (!data.actions || !data.actions.length) {
-      toast(`No pending actions found in ${weekLabel}`, 'info');
-      return;
-    }
-    // SP1b-lignée: a carried copy is a NEW row — clear the source uid (so a fresh
-    // one is minted; reusing it would make a later merge hit BOTH rows) and record
-    // its carry-forward lineage. Merged follow-ups (source set) live at their
-    // origin now, so skip them.
-    const carried = data.actions.filter(a => !a.source);
-    carried.forEach(a => addActionRow({ ...a, uid: '', lineage: a.lineage || a.uid }));
-    toast(`↩ Imported ${carried.length} action(s) from ${weekLabel} — review then save`, 'success');
+    const typed = new Set(_currentActionKeys());
+    const actions = ((data && data.actions) || []).filter(a => !a.source).map(a => {
+      const key = (a.group && a.group.key) || a.lineage || a.uid;
+      return (a.importable !== false && typed.has(key)) ? { ...a, importable: false, reason: 'in_current' } : a;
+    });
+    _importPreview = { weekLabel, actions };
+    _renderImportPreview();
   } catch(e) {
-    toast('Could not import actions: ' + (e.message || e), 'error');
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = orig;
+    toast('Could not load the actions of ' + weekLabel + ': ' + (e.message || e), 'error');
+    _renderCarryOverModal(_carryOverWeeks, 'actions');
   }
+}
+function _renderImportPreview() {
+  const p = _importPreview; if (!p) return;
+  const list = document.getElementById('carry-over-week-list');
+  document.getElementById('carry-over-modal-sub').textContent = `${p.weekLabel} — coche les actions à reprendre :`;
+  const back = `<div style="margin:0 0 8px"><a href="#" onclick="_renderCarryOverModal(_carryOverWeeks,'actions');document.getElementById('carry-over-modal-sub').textContent='Choose a week:';return false" style="font-size:0.8rem">← Autres semaines</a></div>`;
+  if (!p.actions.length) {
+    list.innerHTML = back + '<p style="color:#64748b;padding:16px;text-align:center">Aucune action dans cette semaine.</p>';
+  } else {
+    list.innerHTML = back + p.actions.map((a, i) => {
+      const ok = a.importable !== false;
+      const why = ok ? '' : ` · <b style="color:#b45309">${esc((_IMPORT_REASON[a.reason] || (() => a.reason || 'non importable'))(a))}</b>`;
+      const meta = `${esc(a.status || '')}${a.owner ? ' · ' + esc(a.owner) : ''}${a.group ? ' · ' + _grpMeta(a.group) : ''}${why}`;
+      return `<label style="display:flex;gap:10px;align-items:flex-start;padding:9px 10px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:6px;cursor:${ok ? 'pointer' : 'default'};opacity:${ok ? 1 : 0.55}">
+        <input type="checkbox" class="imp-cb" data-i="${i}" ${ok ? 'checked' : 'disabled'} onchange="_importSelChanged()" style="margin-top:3px">
+        <span>${_grpBadge((a.group && a.group.key) || a.lineage || a.uid, a.group)} <span style="font-weight:600;color:#1e293b">${esc(a.task)}</span><br><span style="font-size:0.76rem;color:#64748b">${meta}</span></span>
+      </label>`;
+    }).join('');
+  }
+  document.getElementById('carry-over-import-btn').style.display = '';
+  _importSelChanged();
+}
+function _importSelChanged() {
+  const n = document.querySelectorAll('#carry-over-week-list .imp-cb:checked').length;
+  const b = document.getElementById('carry-over-import-btn');
+  b.disabled = n === 0;
+  b.textContent = n ? `Importer la sélection (${n})` : 'Importer la sélection';
+}
+function _doImportSelection() {
+  const p = _importPreview; if (!p) return;
+  const picked = Array.from(document.querySelectorAll('#carry-over-week-list .imp-cb:checked'))
+    .map(cb => p.actions[parseInt(cb.dataset.i, 10)]).filter(Boolean);
+  if (!picked.length) return;
+  // A single blank row (fresh section) is replaced rather than left above the imports.
+  const rows = Array.from(document.querySelectorAll('#action-body tr[data-row-id]'));
+  if (rows.length === 1 && !(rows[0].querySelector('input[type="text"]')?.value.trim())) document.getElementById('action-body').innerHTML = '';
+  // SP1b-lignée: a carried copy is a NEW row (fresh uid) that records its group key.
+  picked.forEach(a => {
+    const { group, importable, reason, closed_week, ...row } = a;
+    addActionRow({ ...row, uid: '', lineage: (group && group.key) || a.lineage || a.uid });
+  });
+  closeCarryOverModal();
+  _importPreview = null;
+  toast(`↩ ${picked.length} action(s) reprise(s) de ${p.weekLabel} — révise puis enregistre`, 'success');
 }
 
 function closeCarryOverModal() {
@@ -4665,8 +4735,9 @@ function addActionRow(a) {
   tr.dataset.lineage = (a && a.lineage) || '';   // SP1b-lignée: carry-forward chain root (immutable server-side)
   tr.dataset.source = (a && a.source) || '';     // SP3: reference to a Meetings/Inspection action (written on INSERT only)
   tr.dataset.originId = (a && a.origin_id != null) ? String(a.origin_id) : '';
+  const _gKey = (a && (a.lineage || a.uid)) || '';
   tr.innerHTML = `
-    <td><input type="text" value="${esc(a.task)}" placeholder="Describe the action…"></td>
+    <td><input type="text" value="${esc(a.task)}" placeholder="Describe the action…"${_gKey && window.ActionGroups ? ` title="Groupe ${esc(ActionGroups.shortCode(_gKey))}" style="border-left:4px solid hsl(${ActionGroups.hue(_gKey)},55%,60%)"` : ''}></td>
     <td>
       <select class="dept-select ${placeholderSelected ? 'placeholder' : ''}" onchange="this.classList.toggle('placeholder',!this.value);this.classList.remove('invalid')">
         <option value="" ${placeholderSelected ? 'selected' : ''} disabled>— Select —</option>
