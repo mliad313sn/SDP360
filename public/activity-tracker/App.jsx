@@ -1025,8 +1025,8 @@ function InputPanel({ D, S, setS, roles, onMutate }) {
       )}
       {anyClosed && (
         <div className="tt-banner tt-banner--warn">
-          <b>🔒 Mois clôturés</b> — les mois passés sont en lecture seule (le mois précédent reste modifiable
-          jusqu'au {ML.GRACE_DAY} du mois en cours). Seul un <code>super_admin</code> peut corriger un mois clôturé.
+          <b>🔒 Closed months</b> — past months are read-only (the previous month stays editable until the
+          {ML.GRACE_DAY}th of the current month). Only a <code>super_admin</code> can correct a closed month.
         </div>
       )}
       <div className="ip-toolbar">
@@ -1087,7 +1087,7 @@ function InputPanel({ D, S, setS, roles, onMutate }) {
                 const isFuture  = mi + 1 > S.month;
                 const closed    = isClosedMonth(mi);
                 const cellCls = 'ip-cell' + (v > 0 ? (v === 0.5 ? ' ip-cell--half' : ' ip-cell--has') : '') + (isCurrent ? ' ip-cell--current' : '') + (isFuture ? ' ip-cell--future' : '') + (closed ? ' ip-cell--closed' : '');
-                const closedTitle = closed ? 'Mois clôturé — modifiable par un super_admin uniquement' : undefined;
+                const closedTitle = closed ? 'Closed month — only a super_admin can change it' : undefined;
                 if (a.kpi === 'BOOLEAN') {
                   return (
                     <select
@@ -2472,7 +2472,7 @@ function App() {
       if (tag !== lastSaveRef.current) return;   // a newer save started; ignore
       if (res && res.closed_blocked) {
         // A closed month was edited (stale tab): the server kept the stored value — say so and resync.
-        window.alert(res.closed_blocked + " valeur(s) de mois clôturés n'ont pas été enregistrées : seul un super_admin peut modifier un mois passé. La page va se recharger.");
+        window.alert(res.closed_blocked + ' value(s) in closed months were not saved: only a super_admin can change a past month. The page will reload.');
         window.location.reload();
         return;
       }

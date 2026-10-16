@@ -8635,11 +8635,11 @@ async function _meetingTransferError(state) {
       if (!statusTransfer.isTransfer(r.status)) continue;
       if (r.id != null && prev.get(Number(r.id)) === r.status) continue;   // not a transition
       const err = statusTransfer.validate(r.status, r.status_note, r.helpdesk_ticket);
-      if (err) return `${what} « ${String(r.title || r.description || '').slice(0, 60)} » : ${err}`;
+      if (err) return `${what} "${String(r.title || r.description || '').slice(0, 60)}": ${err}`;
     }
     return null;
   };
-  return (state.issues !== undefined && check(state.issues, oi, 'Problème'))
+  return (state.issues !== undefined && check(state.issues, oi, 'Issue'))
       || (state.actions !== undefined && check(state.actions, oa, 'Action')) || null;
 }
 

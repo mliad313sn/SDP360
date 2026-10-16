@@ -1177,7 +1177,7 @@
   function transferNote(it) {
     const ST = window.StatusTransfer;
     if (!ST || !ST.isTransfer(it.status) || !(it.status_note || it.helpdesk_ticket)) return '';
-    return `<div class="pv-transfer-note" style="font-size:11.5px;color:#475569;margin-top:4px;line-height:1.35">↳ ${it.helpdesk_ticket ? '<b>Ticket SDP #' + esc(it.helpdesk_ticket) + '</b> · ' : ''}${esc(it.status_note || '')}</div>`;
+    return `<div class="pv-transfer-note" style="font-size:11.5px;color:#475569;margin-top:4px;line-height:1.35">↳ ${it.helpdesk_ticket ? '<b>SDP ticket #' + esc(it.helpdesk_ticket) + '</b> · ' : ''}${esc(it.status_note || '')}</div>`;
   }
   async function onTransferStatus(e, key, rerender) {
     const list = state[key];

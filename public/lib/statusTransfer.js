@@ -25,6 +25,13 @@
     cancelled:       { fr: 'Annulé',               en: 'Cancelled' },
   };
   const NOTE_MAX = 2000;
+  // Display labels for EVERY issue / action status (2026-10-16: the pages are in English — no
+  // raw codes, no mixed languages). Codes outside the map (e.g. inspection 'In Progress') pass through.
+  const STATUS_EN = {
+    open: 'Open', in_progress: 'In progress', blocked: 'Blocked', on_hold: 'On hold',
+    resolved: 'Resolved', closed: 'Closed', cancelled: 'Cancelled',
+    demand: 'Demand / Initiative', helpdesk_ticket: 'Helpdesk ticket',
+  };
 
   const norm = (s) => String(s == null ? '' : s).trim().toLowerCase();
   const isTransfer = (s) => TRANSFER.includes(norm(s));
@@ -40,14 +47,14 @@
   // null when the change may go through, else the reason (FR — shown to the user).
   function validate(status, note, ticket) {
     if (!isTransfer(status)) return null;
-    if (!String(note || '').trim()) return 'Un commentaire est obligatoire pour passer en « ' + LABELS[norm(status)].fr + ' ».';
-    if (needsTicket(status) && !normalizeTicket(ticket)) return 'Le numéro du ticket Helpdesk (SDP) est obligatoire.';
+    if (!String(note || '').trim()) return 'A justification comment is required to set "' + LABELS[norm(status)].en + '".';
+    if (needsTicket(status) && !normalizeTicket(ticket)) return 'The Helpdesk ticket number (SDP) is required.';
     return null;
   }
 
   function label(s, lang) {
-    const l = LABELS[norm(s)];
-    return l ? (l[lang === 'en' ? 'en' : 'fr']) : String(s || '');
+    if (lang === 'fr') { const l = LABELS[norm(s)]; if (l) return l.fr; }
+    return STATUS_EN[norm(s).replace(/\s+/g, '_')] || String(s || '');   // 'In Progress' (inspections) → 'In progress'
   }
 
   // Browser only: modal asking the justification (+ ticket number). Resolves to
@@ -64,16 +71,16 @@
       const esc = (t) => String(t == null ? '' : t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
       ov.innerHTML =
         '<div style="background:#fff;border-radius:12px;max-width:520px;width:100%;padding:20px 22px;box-shadow:0 20px 50px rgba(0,0,0,.25);font:14px/1.45 var(--font-sans,system-ui,sans-serif);color:#1e293b">' +
-        '<div style="font-weight:700;font-size:16px;margin-bottom:4px">Passer en « ' + esc(LABELS[st].fr) + ' »</div>' +
+        '<div style="font-weight:700;font-size:16px;margin-bottom:4px">Set status to "' + esc(LABELS[st].en) + '"</div>' +
         (opts.title ? '<div style="color:#64748b;font-size:12.5px;margin-bottom:12px">' + esc(opts.title) + '</div>' : '<div style="height:8px"></div>') +
-        (wantTicket ? '<label style="display:block;font-weight:600;font-size:12.5px;margin-bottom:4px">N° du ticket Helpdesk (SDP) *</label>' +
-          '<input data-k="ticket" inputmode="numeric" placeholder="ex. 311587" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:12px" value="' + esc(opts.ticket || '') + '">' : '') +
-        '<label style="display:block;font-weight:600;font-size:12.5px;margin-bottom:4px">Commentaire / justification *</label>' +
-        '<textarea data-k="note" rows="4" maxlength="' + NOTE_MAX + '" placeholder="Pourquoi ce changement ?" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;resize:vertical"></textarea>' +
+        (wantTicket ? '<label style="display:block;font-weight:600;font-size:12.5px;margin-bottom:4px">Helpdesk ticket number (SDP) *</label>' +
+          '<input data-k="ticket" inputmode="numeric" placeholder="e.g. 311587" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:12px" value="' + esc(opts.ticket || '') + '">' : '') +
+        '<label style="display:block;font-weight:600;font-size:12.5px;margin-bottom:4px">Justification comment *</label>' +
+        '<textarea data-k="note" rows="4" maxlength="' + NOTE_MAX + '" placeholder="Why this change?" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;resize:vertical"></textarea>' +
         '<div data-k="err" style="color:#b91c1c;font-size:12.5px;min-height:18px;margin-top:6px"></div>' +
         '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:6px">' +
-        '<button type="button" data-k="cancel" style="padding:8px 14px;border:1px solid #cbd5e1;background:#fff;border-radius:8px;cursor:pointer">Annuler</button>' +
-        '<button type="button" data-k="ok" style="padding:8px 14px;border:0;background:#EF631A;color:#fff;font-weight:600;border-radius:8px;cursor:pointer">Confirmer</button>' +
+        '<button type="button" data-k="cancel" style="padding:8px 14px;border:1px solid #cbd5e1;background:#fff;border-radius:8px;cursor:pointer">Cancel</button>' +
+        '<button type="button" data-k="ok" style="padding:8px 14px;border:0;background:#EF631A;color:#fff;font-weight:600;border-radius:8px;cursor:pointer">Confirm</button>' +
         '</div></div>';
       const q = (k) => ov.querySelector('[data-k="' + k + '"]');
       const done = (v) => { document.removeEventListener('keydown', onKey); ov.remove(); resolve(v); };
@@ -93,5 +100,5 @@
     });
   }
 
-  return { TRANSFER, DONE, LABELS, NOTE_MAX, isTransfer, isDone, needsTicket, normalizeTicket, validate, label, ask };
+  return { TRANSFER, DONE, LABELS, STATUS_EN, NOTE_MAX, isTransfer, isDone, needsTicket, normalizeTicket, validate, label, ask };
 });

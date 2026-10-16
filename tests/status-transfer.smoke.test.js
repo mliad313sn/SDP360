@@ -51,8 +51,12 @@ const meeting = () => mdb.getMeeting(mid);
 
 test('the rule: comment for the three transfer statuses, ticket number for helpdesk_ticket', () => {
   assert.equal(ST.validate('in_progress', '', null), null);
-  assert.match(ST.validate('demand', '  ', null), /commentaire/i);
-  assert.match(ST.validate('cancelled', '', null), /commentaire/i);
+  assert.match(ST.validate('demand', '  ', null), /comment/i);
+  assert.match(ST.validate('cancelled', '', null), /comment/i);
+  assert.equal(ST.label('in_progress'), 'In progress', 'English label, never the raw code');
+  assert.equal(ST.label('cancelled'), 'Cancelled');
+  assert.equal(ST.label('In Progress'), 'In progress', 'inspection spelling aligned');
+  assert.equal(ST.label('Weird'), 'Weird', 'unknown codes pass through');
   assert.match(ST.validate('helpdesk_ticket', 'moved', ''), /ticket/i);
   assert.equal(ST.validate('helpdesk_ticket', 'moved', '#311 587'), null);
   assert.equal(ST.normalizeTicket('INC #311587'), '311587');

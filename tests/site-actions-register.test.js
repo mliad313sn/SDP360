@@ -193,7 +193,7 @@ test('hub page: issues block, « sans action » filter, + Action modal, close-is
   assert.match(src, /id="saNoAction"/, '« sans action seulement » checkbox');
   assert.match(src, /'\/api\/meetings\/issues\/' \+ encodeURIComponent\(\w+\) \+ '\/actions'/, '+ Action posts to the issue route');
   assert.match(src, /'\/api\/meetings\/issues\/' \+ encodeURIComponent\(\w+\) \+ '\/update'/, 'issue status/resolve posts to /update');
-  assert.match(src, /Marquer aussi le problème/, 'proposes resolving the linked issue');
+  assert.match(src, /Also mark the issue/, 'proposes resolving the linked issue');
   assert.match(src, /linked_issue_id/, 'uses the action→issue link');
   // every inline script still compiles
   const scripts = [...src.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g)].map(m => m[1]).filter(s => s.trim());

@@ -84,7 +84,7 @@ made so far so that future sessions can pick up exactly where the last one ended
 > - **Export Excel Réunions cassé pour tout éditeur** depuis les éditeurs multi-sites : la route passait la
 >   LISTE de codes comme une seule valeur à `exportRows` → accepte maintenant une liste (`IN (…)`).
 > - Tests : `status-transfer.smoke` (8), `tracker-month-lock` (5), + `pg-meetings`, `multi-site-editor.smoke`,
->   `tracker-save-site-scope.smoke`. Vérifié au navigateur (fenêtre de justification, cellules verrouillées,
+>   `tracker-save-site-scope.smoke`. **Libellés en anglais partout** (`StatusTransfer.label()` : plus de codes bruts ni de mélange FR/EN dans le hub, fenêtre et messages serveur en anglais, casse des inspections alignée). Vérifié au navigateur (fenêtre de justification, cellules verrouillées,
 >   Excel en éditeur). `help.html` n'a PAS encore la section correspondante.
 
 ---
