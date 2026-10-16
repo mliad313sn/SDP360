@@ -85,7 +85,9 @@ made so far so that future sessions can pick up exactly where the last one ended
 >   LISTE de codes comme une seule valeur à `exportRows` → accepte maintenant une liste (`IN (…)`).
 > - Tests : `status-transfer.smoke` (8), `tracker-month-lock` (5), + `pg-meetings`, `multi-site-editor.smoke`,
 >   `tracker-save-site-scope.smoke`. **Libellés en anglais partout** (`StatusTransfer.label()` : plus de codes bruts ni de mélange FR/EN dans le hub, fenêtre et messages serveur en anglais, casse des inspections alignée). Vérifié au navigateur (fenêtre de justification, cellules verrouillées,
->   Excel en éditeur). `help.html` n'a PAS encore la section correspondante.
+>   Excel en éditeur). Aide à jour (2026-10-16, EN + FR) : §4.4 (reconduction, aperçu d'import, code de groupe, fusion),
+>   §10.5-10.6 (enregistrement auto, mois clôturés), §12.3/12.6/12.8/12.9 (statuts de transfert, Excel éditeur,
+>   hub Site Actions), §2/§7 (éditeurs multi-sites) — garde `tests/help-recent-updates.test.js`.
 
 ---
 
