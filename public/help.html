@@ -138,8 +138,9 @@
       <a href="#en-4">4. Site Reports</a>
       <a class="toc-sub" href="#en-4-1">Infrastructure KPIs</a>
       <a class="toc-sub" href="#en-4-2">Helpdesk Metrics</a>
-      <a class="toc-sub" href="#en-4-3">Lights & Action Items</a>
-      <a class="toc-sub" href="#en-4-4">Submitting a Report</a>
+      <a class="toc-sub" href="#en-4-3">Low / High Lights</a>
+      <a class="toc-sub" href="#en-4-4">Action Items</a>
+      <a class="toc-sub" href="#en-4-5">Submitting a Report</a>
       <a class="toc-sub" href="#en-4-6">Parc informatique</a>
       <a href="#en-5">5. PPTX Report Downloads</a>
       <a href="#en-6">6. Executive Dashboard</a>
@@ -155,6 +156,7 @@
       <a class="toc-sub" href="#en-10-3">Interface &amp; Tabs</a>
       <a class="toc-sub" href="#en-10-4">Entering Activity Data</a>
       <a class="toc-sub" href="#en-10-5">Saving Your Work</a>
+      <a class="toc-sub" href="#en-10-6">Closed months</a>
       <a href="#en-11">11. IT Inspections</a>
       <a class="toc-sub" href="#en-11-1">Opening Inspections</a>
       <a class="toc-sub" href="#en-11-2">Filling an Inspection</a>
@@ -170,6 +172,8 @@
       <a class="toc-sub" href="#en-12-5">5 Engagements Compliance</a>
       <a class="toc-sub" href="#en-12-6">Actions Register &amp; Analytics</a>
       <a class="toc-sub" href="#en-12-7">Insights Dashboard</a>
+      <a class="toc-sub" href="#en-12-8">Transfer statuses</a>
+      <a class="toc-sub" href="#en-12-9">Site Actions hub</a>
       <a href="#en-13">13. Executive Scorecard</a>
       <a class="toc-sub" href="#en-13-1">The 5 Tabs</a>
       <a class="toc-sub" href="#en-13-2">KPI Tiles Reference</a>
@@ -263,6 +267,7 @@
           <br><strong>CIO Assistant</strong> → <em>viewer</em> + <em>report-author</em> (read-only on data, but can publish reports).
           <br><strong>Auditor</strong> → <em>viewer</em> + <em>audit-viewer</em>.
         </div>
+        <div class="info">ℹ️ <strong>Several sites for one editor</strong> — an <em>editor</em> acts on <strong>their own site(s)</strong> only. Besides the main <em>Site</em>, an admin can tick <strong>Extra sites</strong> on the user card (Admin ▸ Users): the account then reads and writes every one of those sites (reports, meetings, inspections, tracker), and nothing else. The admin tier (admin / executive / super_admin) is not limited to a site.</div>
         <div class="info">ℹ️ When the multi-role system was first activated, every existing <strong>admin / executive / super_admin</strong> account was automatically granted all 4 feature roles (tracker-admin, tracker-editor, report-author, audit-viewer) so nothing they could do before stopped working. New accounts you create from this point need feature roles assigned explicitly.</div>
         <h3>Changing your password</h3>
         <p>Any user can change their own password at any time from the <strong>Site Reports</strong> page. Click the 🔑 icon next to your username in the top-right corner, enter your current password and a new one (minimum 8 characters), then click <strong>Change Password</strong>.</p>
@@ -348,7 +353,13 @@
         <div class="warn">⚠️ If you repeat the same item every week, it will appear only once in the monthly PPTX (deduplicated automatically), tagged with the first week it was entered. Enter each item only once.</div>
 
         <h3 id="en-4-4">4.4 Action Items</h3>
-        <p>List tasks that require follow-up this week. Use <strong>↵ Import open from previous week</strong> to carry forward unresolved tasks — this copies all actions that were not closed last week into the current report. Do not manually re-add an action that is already being tracked. Update its <strong>Status</strong> field instead (open → in progress → closed).</p>
+        <p>List tasks that require follow-up this week. Do not re-type an action that is already being tracked — carry it forward and update its <strong>Status</strong> (open → in progress → closed).</p>
+        <ul>
+          <li><strong>Automatic carry-over</strong> — when you open a <em>blank</em> week, the unresolved actions of the previous week are pre-filled as a draft (banner "↩ N action(s) carried over"). Review owner, due date and status, then <strong>Save</strong>; <em>Undo</em> removes them.</li>
+          <li><strong>↵ Import open actions from a previous week</strong> — pick a week, then tick the actions to bring in. An action that cannot be imported is greyed out with the reason: <em>already in this report</em> (saved or just typed), <em>closed since in Wxx</em>, <em>cancelled</em> or <em>closed</em>. The week list counts only the actions you can really import.</li>
+          <li><strong>Group code</strong> — every action carries a coloured badge <strong>#CODE</strong> and "tracked since Wxx · N wk". All the weeks of the same action share the same code; two actions with similar titles but different codes are two different actions. Hover the task cell to see the code.</li>
+          <li><strong>⚯ Fusionner des doublons</strong> (merge duplicates) — tick two or more actions of the site (all weeks) that are really the same: the newest one wins, the others take its group code and its title. The <strong>whole group</strong> moves (every older week too), so an old copy can no longer come back as open. Duplicates that already exist are not merged automatically — merge them once.</li>
+        </ul>
         <div class="info">ℹ️ The monthly PPTX shows each action <strong>once</strong>, with its most recent status across all submitted weeks. If the same task appears in week 1 as "open" and in week 4 as "closed", the PPTX will show it as closed. Duplicate entries across weeks are automatically removed.</div>
         <div class="warn">⚠️ Do not create a new action item for something that already exists — even if it is still open. Use <strong>Import open from previous week</strong> to bring it forward, then update the status. Creating duplicates will result in the same task appearing twice in the monthly report.</div>
 
@@ -506,7 +517,7 @@
           <li><strong>Feature roles (checkboxes — pick any)</strong>: tracker-admin · tracker-editor · report-author · audit-viewer</li>
         </ul>
         <p>The user list table renders each user's roles as <strong>colour-coded chips</strong>: hierarchy tier in its standard role colour, and feature roles in a teal pill. If a user has multiple feature roles, they appear stacked.</p>
-        <div class="tip">💡 To grant a site IT lead local tracker access, assign them <em>editor</em> + <em>tracker-editor</em> and make sure their <em>Site</em> field is set — the tracker scope follows that field.</div>
+        <div class="tip">💡 To grant a site IT lead local tracker access, assign them <em>editor</em> + <em>tracker-editor</em> and make sure their <em>Site</em> field is set — the tracker scope follows that field. For a lead who covers several sites, tick them under <strong>Extra sites</strong> (the list shows a "+N" badge).</div>
 
         <h3>Action items — Department + Comment</h3>
         <p>Each action item has a mandatory <strong>Department</strong> (dropdown — Mining, Technical Service, Processing, Maintenance, Supply Chain, Security, Finance, Human Resource, Social Performance, General Manager, or any custom department added in Department Management) and an optional <strong>Comment</strong>.</p>
@@ -693,8 +704,12 @@
         <div class="info">ℹ️ Activities are organised under 4 strategic pillars (with default weights): <strong>Network Infra (30%)</strong>, <strong>Biz Partnering (35%)</strong>, <strong>Risk &amp; Compliance (20%)</strong>, and <strong>People Dev (15%)</strong>. Each pillar contains a set of tracked activities; weights can be tuned by tracker-admin from the <em>Targets</em> tab.</div>
 
         <h3 id="en-10-5">10.5 Saving Your Work</h3>
-        <p>Click the <strong>Save</strong> button at the bottom of the Input form to commit your entries to the server. Your data is stored centrally and is immediately visible to executive users reviewing all sites.</p>
-        <div class="warn">⚠️ Data is not saved automatically. Always click <strong>Save</strong> before closing or switching tabs to avoid losing your entries. Admin users can only save data for their own site — attempting to submit data for another site is blocked.</div>
+        <p>Entries are <strong>saved automatically</strong> a moment after each change (watch the indicator in the toolbar: Saving… → Synced). The <strong>Save</strong> button forces an immediate save. Data is stored centrally and is immediately visible to executive users reviewing all sites.</p>
+        <div class="warn">⚠️ If the indicator shows <em>Save failed</em>, click <strong>Save</strong> again before leaving the page. A <em>tracker-editor</em> can only save their own site(s) — entries for another site are ignored by the server.</div>
+
+        <h3 id="en-10-6">10.6 Closed months</h3>
+        <p>Below <strong>super_admin</strong>, only the <strong>current month</strong> can be edited — plus the <strong>previous month until the 5th</strong> of the current month (time to finish last month's entries). Older months are greyed out and read-only, with a "🔒 Closed months" banner. This applies to tracker-editors and tracker-admins alike, and to <em>Import dept meetings</em>.</p>
+        <div class="info">ℹ️ The server applies the same rule: if an old browser tab sends a change to a closed month, the stored value is kept and the page warns you and reloads. To correct a closed month, ask a super_admin.</div>
       </div>
 
       <!-- 11 — IT Inspections -->
@@ -777,6 +792,7 @@
         <h3 id="en-12-3">12.3 Issues, Actions &amp; Audit Trail</h3>
         <p>Each issue is classified by category (1 of 9: Connectivity, Hardware, Infrastructure, Operations, Application, Support &amp; Compliance, Data Reliability, Service Design, Leadership/Vision), severity (HIGH/MEDIUM/LOW), and target date. The PV editor's right column renders the full <strong>audit thread</strong> for the issue — every status change, escalate flip, and quick-comment is timestamped with the author's name.</p>
         <p>Quick-comment box at the bottom posts an audit update without re-saving the entire PV.</p>
+        <p>Statuses: Open · In progress · Blocked · On hold · Resolved · <strong>Demand / Initiative</strong> · <strong>Helpdesk ticket</strong> · Cancelled — the last three need a justification, see <a href="#en-12-8">12.8</a>.</p>
 
         <h3 id="en-12-4">12.4 Bulk Excel Import</h3>
         <p>For historical PVs already in Word / Excel / SharePoint, the <strong>Bulk Import</strong> page (admin+) accepts a 3-tab xlsx workbook (Meetings / Issues / Actions + a Codes cheat-sheet). Two-step flow:</p>
@@ -803,11 +819,25 @@
           <li><strong>Close an action in place</strong> (editor+) — even after the PV is signed/closed (actions outlive the meeting).</li>
           <li><strong>Analytics charts</strong>: status breakdown, open actions by department, ageing, open by site (on-time vs overdue), raised-vs-closed 6-month trend — all following the active filter.</li>
           <li><strong>Export PPTX</strong> — a 3-slide deck (KPIs + status/department donuts; by-site + ageing + trend; a ranked outstanding-actions table).</li>
-          <li><strong>Excel (full data)</strong> (admin+) — every PV, issue, action and project as a multi-sheet workbook (all sites, ignores filters).</li>
+          <li><strong>Excel (full data)</strong> — every PV, issue, action and project as a multi-sheet workbook (ignores filters). An editor gets their own site(s); the admin tier gets every site.</li>
         </ul>
 
         <h3 id="en-12-7">12.7 Insights Dashboard</h3>
         <p>The <strong>📊 Dashboard</strong> tab is a six-month analytical view of the whole meetings cadence: PVs-per-month by site, issues opened vs closed, issues by category and severity, Council escalations by theme, a 5-Engagements compliance heatmap, and a site leaderboard with a composite score. Filter by site, department and period (3 / 6 / 12 months).</p>
+
+        <h3 id="en-12-8">12.8 Transfer statuses — Demand, Helpdesk ticket, Cancelled</h3>
+        <p>An issue or an action that does not belong in the meeting follow-up any more can be <strong>transferred</strong>:</p>
+        <table>
+          <tr><th>Status</th><th>When</th><th>Required</th></tr>
+          <tr><td><strong>Demand / Initiative</strong></td><td>It is really a request or a project, handled outside the PV.</td><td>Justification comment</td></tr>
+          <tr><td><strong>Helpdesk ticket</strong></td><td>It is handled as a ServiceDesk Plus ticket.</td><td>Justification comment + <strong>SDP ticket number</strong></td></tr>
+          <tr><td><strong>Cancelled</strong></td><td>It is dropped.</td><td>Justification comment</td></tr>
+        </table>
+        <p>Choosing one of these statuses — in the Site Actions hub, the Issues Log, the Actions Register or the PV editor — opens a small window asking for the justification (and the ticket number). <em>Cancel</em> leaves the status unchanged. The justification is kept on the item and in its audit trail; the PV editor shows it under the status ("↳ SDP ticket #… · …").</p>
+        <div class="info">ℹ️ These items count like <strong>Cancelled</strong>: they leave the open and overdue lists and are <strong>never</strong> counted as resolved in the site score. Re-opening the item (e.g. back to In progress) clears the justification and the ticket number. The server refuses the change without them.</div>
+
+        <h3 id="en-12-9">12.9 Site Actions hub</h3>
+        <p><strong>Operations ▸ Site Actions</strong> gathers, for one site, everything still open: <strong>open issues</strong> (with how many open actions treat each one), and the open actions of <strong>Meetings</strong>, <strong>Business Incubation</strong>, <strong>Inspections</strong> and the weekly <strong>Report follow-ups</strong> — each with its owner, due date, age and status. Change a status directly in the list (editor, own sites); <em>+ Action</em> adds an action to an issue that has none. When the last open action of an issue is closed, the hub offers to mark the issue resolved too. Filters: text, <em>Overdue only</em>, <em>Issues without action only</em>.</p>
       </div>
 
       <!-- 13 — Executive Scorecard -->
@@ -1156,6 +1186,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Confirm-Destructive.ps1"
       <a class="toc-sub" href="#fr-10-3">Interface &amp; onglets</a>
       <a class="toc-sub" href="#fr-10-4">Saisir les données</a>
       <a class="toc-sub" href="#fr-10-5">Enregistrer vos données</a>
+      <a class="toc-sub" href="#fr-10-6">Mois clôturés</a>
       <a href="#fr-11">11. Inspections IT</a>
       <a class="toc-sub" href="#fr-11-1">Ouvrir les Inspections</a>
       <a class="toc-sub" href="#fr-11-2">Remplir une inspection</a>
@@ -1171,6 +1202,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Confirm-Destructive.ps1"
       <a class="toc-sub" href="#fr-12-5">Les 5 Engagements</a>
       <a class="toc-sub" href="#fr-12-6">Registre des actions &amp; Analytique</a>
       <a class="toc-sub" href="#fr-12-7">Tableau de bord Insights</a>
+      <a class="toc-sub" href="#fr-12-8">Statuts de transfert</a>
+      <a class="toc-sub" href="#fr-12-9">Hub Site Actions</a>
       <a href="#fr-13">13. Tableau de Bord Exécutif</a>
       <a class="toc-sub" href="#fr-13-1">Les 5 onglets</a>
       <a class="toc-sub" href="#fr-13-2">Référence des tuiles KPI</a>
@@ -1263,6 +1296,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Confirm-Destructive.ps1"
           <br><strong>Assistant CIO</strong> → <em>viewer</em> + <em>report-author</em> (lecture seule, mais peut publier les rapports).
           <br><strong>Auditeur</strong> → <em>viewer</em> + <em>audit-viewer</em>.
         </div>
+        <div class="info">ℹ️ <strong>Plusieurs sites pour un éditeur</strong> — un compte <em>editor</em> agit uniquement sur <strong>son ou ses sites</strong>. En plus du <em>Site</em> principal, un admin peut cocher des <strong>Sites supplémentaires</strong> sur la fiche utilisateur (Admin ▸ Users) : le compte lit et écrit alors chacun de ces sites (rapports, réunions, inspections, tracker), et aucun autre. Le palier admin (admin / executive / super_admin) n'est limité à aucun site.</div>
         <div class="info">ℹ️ À l'activation du système multi-rôles, chaque compte existant <strong>admin / executive / super_admin</strong> a reçu automatiquement les 4 rôles fonctionnels (tracker-admin, tracker-editor, report-author, audit-viewer) afin que rien de ce qu'ils faisaient avant ne soit cassé. Les nouveaux comptes créés ensuite nécessitent une assignation explicite des rôles fonctionnels.</div>
         <h3>Changer son mot de passe</h3>
         <p>Tout utilisateur peut modifier son mot de passe à tout moment depuis la page <strong>Rapports de site</strong>. Cliquez sur l'icône 🔑 à côté de votre nom en haut à droite, saisissez votre mot de passe actuel et le nouveau (8 caractères minimum), puis cliquez sur <strong>Change Password</strong>.</p>
@@ -1348,7 +1382,13 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Confirm-Destructive.ps1"
         <div class="warn">⚠️ Si vous répétez le même élément chaque semaine, il n'apparaîtra qu'une seule fois dans le PPTX mensuel (dédupliqué automatiquement), associé à la première semaine où il a été saisi. Saisissez chaque élément une seule fois.</div>
 
         <h3 id="fr-4-4">4.4 Actions à suivre</h3>
-        <p>Listez les tâches nécessitant un suivi cette semaine. Utilisez <strong>↵ Importer les tâches ouvertes de la semaine précédente</strong> pour reporter les tâches non résolues — cela copie dans le rapport actuel toutes les actions qui n'étaient pas clôturées la semaine dernière. Ne rajoutez pas manuellement une action déjà suivie. Mettez plutôt à jour son champ <strong>Statut</strong> (ouvert → en cours → clôturé).</p>
+        <p>Listez les tâches nécessitant un suivi cette semaine. Ne retapez pas une action déjà suivie — reconduisez-la et mettez à jour son <strong>Statut</strong> (ouvert → en cours → clôturé).</p>
+        <ul>
+          <li><strong>Reconduction automatique</strong> — à l'ouverture d'une semaine <em>vierge</em>, les actions non résolues de la semaine précédente sont pré-remplies en brouillon (bandeau « ↩ N action(s) reconduite(s) »). Vérifiez responsable, échéance et statut, puis <strong>Enregistrez</strong> ; <em>Annuler la reconduction</em> les retire.</li>
+          <li><strong>↵ Import open actions from a previous week</strong> — choisissez une semaine, puis cochez les actions à reprendre. Une action non importable est grisée avec la raison : <em>déjà dans ce rapport</em> (enregistrée ou juste tapée), <em>fermée depuis en Wxx</em>, <em>annulée</em> ou <em>fermée</em>. La liste des semaines ne compte que les actions réellement importables.</li>
+          <li><strong>Code de groupe</strong> — chaque action porte un badge coloré <strong>#CODE</strong> et « suivie depuis Wxx · N sem. ». Toutes les semaines d'une même action ont le même code ; deux actions au titre proche mais au code différent sont deux actions différentes. Survolez la cellule de la tâche pour voir le code.</li>
+          <li><strong>⚯ Fusionner des doublons</strong> — cochez deux actions ou plus du site (toutes semaines) qui sont en fait la même : la plus récente l'emporte, les autres prennent son code de groupe et son libellé. <strong>Tout le groupe</strong> est déplacé (chaque semaine plus ancienne aussi), une vieille copie ne peut donc plus revenir comme ouverte. Les doublons déjà existants ne fusionnent pas tout seuls — fusionnez-les une fois.</li>
+        </ul>
         <div class="info">ℹ️ Le PPTX mensuel affiche chaque action <strong>une seule fois</strong>, avec son statut le plus récent sur l'ensemble des semaines soumises. Si la même tâche apparaît en semaine 1 comme « ouverte » et en semaine 4 comme « clôturée », le PPTX l'affichera comme clôturée. Les doublons entre semaines sont automatiquement supprimés.</div>
         <div class="warn">⚠️ Ne créez pas une nouvelle action pour quelque chose qui existe déjà — même si elle est toujours ouverte. Utilisez <strong>Importer les tâches ouvertes de la semaine précédente</strong> pour la reporter, puis mettez à jour le statut. Créer des doublons entraînera l'apparition de la même tâche deux fois dans le rapport mensuel.</div>
 
@@ -1506,7 +1546,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Confirm-Destructive.ps1"
           <li><strong>Rôles fonctionnels (cases à cocher — toute combinaison)</strong> : tracker-admin · tracker-editor · report-author · audit-viewer</li>
         </ul>
         <p>La table de la liste des utilisateurs affiche les rôles de chaque utilisateur sous forme de <strong>pastilles colorées</strong> : niveau hiérarchique dans sa couleur standard, et rôles fonctionnels en pastille teal. Si un utilisateur cumule plusieurs rôles fonctionnels, ils apparaissent côte-à-côte.</p>
-        <div class="tip">💡 Pour donner à un responsable IT site un accès local au tracker, attribuez-lui <em>editor</em> + <em>tracker-editor</em> et assurez-vous que son champ <em>Site</em> est renseigné — la portée du tracker suit ce champ.</div>
+        <div class="tip">💡 Pour donner à un responsable IT site un accès local au tracker, attribuez-lui <em>editor</em> + <em>tracker-editor</em> et assurez-vous que son champ <em>Site</em> est renseigné — la portée du tracker suit ce champ. Pour un responsable qui couvre plusieurs sites, cochez-les dans <strong>Sites supplémentaires</strong> (la liste affiche un badge « +N »).</div>
 
         <h3>Action items — Département + Commentaire</h3>
         <p>Chaque action item a un <strong>Département</strong> obligatoire (menu déroulant — Mining, Technical Service, Processing, Maintenance, Supply Chain, Security, Finance, Human Resource, Social Performance, General Manager, ou tout département personnalisé ajouté dans la Gestion des départements) et un <strong>Commentaire</strong> optionnel.</p>
@@ -1693,8 +1733,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Confirm-Destructive.ps1"
         <div class="info">ℹ️ Les activités sont organisées sous 4 piliers stratégiques (avec leurs poids par défaut) : <strong>Network Infra (30%)</strong>, <strong>Biz Partnering (35%)</strong>, <strong>Risk &amp; Compliance (20%)</strong> et <strong>People Dev (15%)</strong>. Chaque pilier contient un ensemble d'activités suivies ; les poids peuvent être ajustés par un tracker-admin depuis l'onglet <em>Targets</em>.</div>
 
         <h3 id="fr-10-5">10.5 Enregistrer vos données</h3>
-        <p>Cliquez sur le bouton <strong>Enregistrer</strong> en bas du formulaire Input pour valider vos saisies sur le serveur. Les données sont stockées de façon centralisée et immédiatement visibles par les utilisateurs exécutifs.</p>
-        <div class="warn">⚠️ Les données ne sont pas enregistrées automatiquement. Cliquez toujours sur <strong>Enregistrer</strong> avant de fermer ou changer d'onglet pour ne pas perdre vos saisies. Les utilisateurs Admin ne peuvent enregistrer des données que pour leur propre site — toute tentative de soumission pour un autre site est bloquée.</div>
+        <p>Les saisies sont <strong>enregistrées automatiquement</strong> un instant après chaque modification (voyant dans la barre d'outils : Saving… → Synced). Le bouton <strong>Save</strong> force un enregistrement immédiat. Les données sont stockées de façon centralisée et immédiatement visibles par les utilisateurs exécutifs.</p>
+        <div class="warn">⚠️ Si le voyant affiche <em>Save failed</em>, cliquez de nouveau sur <strong>Save</strong> avant de quitter la page. Un <em>tracker-editor</em> n'enregistre que son ou ses sites — les saisies sur un autre site sont ignorées par le serveur.</div>
+
+        <h3 id="fr-10-6">10.6 Mois clôturés</h3>
+        <p>En dessous de <strong>super_admin</strong>, seul le <strong>mois en cours</strong> est modifiable — plus le <strong>mois précédent jusqu'au 5</strong> du mois en cours (le temps de finir la saisie du mois écoulé). Les mois plus anciens sont grisés et en lecture seule, avec un bandeau « 🔒 Closed months ». La règle vaut pour les tracker-editors comme pour les tracker-admins, et pour <em>Import dept meetings</em>.</p>
+        <div class="info">ℹ️ Le serveur applique la même règle : si un ancien onglet envoie une modification sur un mois clôturé, la valeur enregistrée est conservée et la page vous prévient puis se recharge. Pour corriger un mois clôturé, adressez-vous à un super_admin.</div>
       </div>
 
       <!-- 11 FR — Inspections IT -->
@@ -1777,6 +1821,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Confirm-Destructive.ps1"
         <h3 id="fr-12-3">12.3 Problèmes, actions &amp; fil d'audit</h3>
         <p>Chaque problème est classé par catégorie (1 parmi 9 : Connectivité, Matériel, Infrastructure, Opérations, Application, Support &amp; Conformité, Fiabilité des données, Conception de service, Leadership/Vision), sévérité (HIGH/MEDIUM/LOW) et date cible. La colonne droite de l'éditeur PV affiche le <strong>fil d'audit</strong> complet pour le problème — chaque changement de statut, bascule d'escalade et commentaire rapide est horodaté avec le nom de l'auteur.</p>
         <p>La boîte de commentaire rapide en bas poste une mise à jour d'audit sans re-sauvegarder l'intégralité du PV.</p>
+        <p>Statuts : Open · In progress · Blocked · On hold · Resolved · <strong>Demand / Initiative</strong> · <strong>Helpdesk ticket</strong> · Cancelled — les trois derniers exigent une justification, voir <a href="#fr-12-8">12.8</a>.</p>
 
         <h3 id="fr-12-4">12.4 Import Excel en lot</h3>
         <p>Pour les PVs historiques déjà au format Word / Excel / SharePoint, la page <strong>Bulk Import</strong> (admin+) accepte un classeur xlsx 3-onglets (Meetings / Issues / Actions + un onglet Codes en cheat-sheet). Flux en deux étapes :</p>
@@ -1803,11 +1848,25 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Confirm-Destructive.ps1"
           <li><strong>Clôturez une action sur place</strong> (editor+) — même après signature/clôture du PV (les actions survivent à la réunion).</li>
           <li><strong>Graphiques analytiques</strong> : répartition par statut, actions ouvertes par département, ancienneté, ouvertes par site (à temps vs en retard), tendance ouvertes-vs-clôturées sur 6 mois — suivant tous le filtre actif.</li>
           <li><strong>Export PPTX</strong> — un deck de 3 diapos (KPI + donuts statut/département ; par site + ancienneté + tendance ; une table des actions en cours classées).</li>
-          <li><strong>Excel (données complètes)</strong> (admin+) — tous les PVs, problèmes, actions et projets dans un classeur multi-onglets (tous sites, ignore les filtres).</li>
+          <li><strong>Excel (full data)</strong> — tous les PVs, problèmes, actions et projets dans un classeur multi-onglets (ignore les filtres). Un éditeur obtient son ou ses sites ; le palier admin, tous les sites.</li>
         </ul>
 
         <h3 id="fr-12-7">12.7 Tableau de bord Insights</h3>
         <p>L'onglet <strong>📊 Dashboard</strong> est une vue analytique sur six mois de toute la cadence des réunions : PVs-par-mois par site, problèmes ouverts vs clôturés, problèmes par catégorie et sévérité, escalades Council par thème, une heatmap de conformité des 5 Engagements, et un classement des sites avec un score composite. Filtrez par site, département et période (3 / 6 / 12 mois).</p>
+
+        <h3 id="fr-12-8">12.8 Statuts de transfert — Demande, Ticket Helpdesk, Annulé</h3>
+        <p>Un problème ou une action qui n'a plus sa place dans le suivi de réunion peut être <strong>transféré</strong> :</p>
+        <table>
+          <tr><th>Statut (à l'écran)</th><th>Quand</th><th>Obligatoire</th></tr>
+          <tr><td><strong>Demand / Initiative</strong></td><td>C'est en réalité une demande ou un projet, traité hors du PV.</td><td>Commentaire de justification</td></tr>
+          <tr><td><strong>Helpdesk ticket</strong></td><td>C'est traité comme un ticket ServiceDesk Plus.</td><td>Commentaire + <strong>n° du ticket SDP</strong></td></tr>
+          <tr><td><strong>Cancelled</strong></td><td>C'est abandonné.</td><td>Commentaire de justification</td></tr>
+        </table>
+        <p>Choisir un de ces statuts — dans le hub Site Actions, l'Issues Log, le registre des actions ou l'éditeur de PV — ouvre une petite fenêtre qui demande la justification (et le n° de ticket). <em>Cancel</em> laisse le statut inchangé. La justification est conservée sur l'élément et dans son fil d'audit ; l'éditeur de PV l'affiche sous le statut (« ↳ SDP ticket #… · … »).</p>
+        <div class="info">ℹ️ Ces éléments comptent comme <strong>Annulé</strong> : ils sortent des listes ouvertes et en retard et ne comptent <strong>jamais</strong> comme résolus dans le score du site. Rouvrir l'élément (ex. retour à In progress) efface la justification et le n° de ticket. Le serveur refuse le changement sans eux.</div>
+
+        <h3 id="fr-12-9">12.9 Hub Site Actions</h3>
+        <p><strong>Operations ▸ Site Actions</strong> rassemble, pour un site, tout ce qui reste ouvert : les <strong>problèmes ouverts</strong> (avec le nombre d'actions ouvertes qui traitent chacun), et les actions ouvertes des <strong>Réunions</strong>, de la <strong>Business Incubation</strong>, des <strong>Inspections</strong> et des <strong>suivis du rapport hebdo</strong> — chacune avec responsable, échéance, âge et statut. Changez un statut directement dans la liste (éditeur, ses sites) ; <em>+ Action</em> ajoute une action à un problème qui n'en a aucune. Quand la dernière action ouverte d'un problème est fermée, le hub propose de résoudre aussi le problème. Filtres : texte, <em>Overdue only</em>, <em>Issues without action only</em>.</p>
       </div>
 
       <!-- 13 FR — Tableau de bord Exécutif -->
