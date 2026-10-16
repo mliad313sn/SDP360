@@ -5630,6 +5630,14 @@ app.get('/api/reports/site-actions', requireReportSession, async (req, res) => {
     // shows who has no action yet and lets the user add one from the issue.
     const issues = await meetingsDb.listIssues({ site: code, limit: 1000 });
     const sa = buildSiteActions({ meetings, inspection, report, issues, asOf });
+    // "Show closed / cancelled" (2026-10-16): the last 30 days, so a wrong click can be reopened.
+    if (req.query.closed === '1') {
+      const since = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+      const closedReport = (resolved && resolved.site_id) ? await rdb.getSiteClosedReportActions(resolved.site_id, since) : null;
+      sa.recent_closed = require('./services/siteActionsRegister').buildRecentlyClosed(
+        { meetings, inspection, issues, report: closedReport, since });
+      sa.recent_since = since;
+    }
     // Best-effort: fold Meridian project links onto matching rows for the "▸ Projet: X"
     // badge (F1). NEVER blocks the hub — a Meridian outage/misconfig leaves every
     // it.project null. getConfig is a Promise on pg → await it.
@@ -5721,7 +5729,11 @@ app.post('/api/reports/action/:uid/status', requireReportSession, async (req, re
     if (!['open', 'in_progress', 'on_hold', 'closed', 'cancelled'].includes(status)) {
       return res.status(400).json({ error: 'invalid status' });
     }
-    const r = await rdb.setActionStatus(String(req.params.uid || ''), status);
+    // 2026-10-16: cancelling a report follow-up needs a justification (appended to its comment).
+    const note = String((req.body && req.body.note) || '').trim();
+    const tErr = statusTransfer.validate(status, note, null);
+    if (tErr) return res.status(400).json({ error: tErr });
+    const r = await rdb.setActionStatus(String(req.params.uid || ''), status, status === 'cancelled' ? 'Cancelled: ' + note : null);
     if (!r.ok) return res.status(404).json({ error: 'action not found' });
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -7166,6 +7178,14 @@ app.put('/api/reports/:id/actions', requireReportSession, jsonBody, async (req, 
     const { errors, cleaned } = await validateActionItems(items);
     if (errors.length) {
       return res.status(400).json({ error: 'validation', details: errors });
+    }
+    // 2026-10-16: an action ENTERING "cancelled" needs a justification in its comment (the page
+    // asks for it and writes it there); rows already cancelled re-save untouched.
+    {
+      const prevRep = await rdb.getReport(id);
+      const before = new Map(((prevRep && prevRep.action_items) || []).map(a => [a.uid, a.status]));
+      const bad = cleaned.find(a => a.status === 'cancelled' && before.get(a.uid) !== 'cancelled' && !String(a.comment || '').trim());
+      if (bad) return res.status(400).json({ error: `Action "${String(bad.task || '').slice(0, 60)}": a justification comment is required to cancel it.` });
     }
 
     await rdb.saveActionItems(id, cleaned);

@@ -253,3 +253,29 @@ test('reports pg: relineageGroup moves every week of the group + getSiteActionRo
     assert.ok(rows.every(r => Number.isInteger(Number(r.year)) && r.week_label && r.report_id));
   } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
 });
+
+// 2026-10-16 — a hub cancellation appends its justification to the comment and stamps
+// status_changed_at; the hub "Show closed / cancelled" list reads it back.
+test('reports pg: setActionStatus note + status_changed_at + getSiteClosedReportActions', async (t) => {
+  const b = await boot(); if (!b) return t.skip('no pg');
+  const { ctx, rdb, siteId } = b;
+  try {
+    const now = new Date();
+    const r = await rdb.ensureReport(siteId, now.getFullYear(), 30);
+    await rdb.saveActionItems(r.id, [{ task: 'Core switch', department: 'IT', status: 'open', comment: 'quote asked' }]);
+    const uid = (await rdb.getReport(r.id)).action_items[0].uid;
+    const res = await rdb.setActionStatus(uid, 'cancelled', 'Cancelled: vendor contract');
+    assert.equal(res.ok, true);
+    const a = (await rdb.getReport(r.id)).action_items[0];
+    assert.equal(a.comment, 'quote asked — Cancelled: vendor contract');
+    assert.ok(a.status_changed_at, 'stamped');
+    const since = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+    const closed = (await rdb.getSiteClosedReportActions(siteId, since)).actions;
+    assert.equal(closed.length, 1); assert.equal(closed[0].uid, uid);
+    await rdb.setActionStatus(uid, 'open', null);
+    assert.equal((await rdb.getSiteClosedReportActions(siteId, since)).actions.length, 0, 'reopened → off the list');
+    // a report re-save that changes the status stamps it too; an unchanged status keeps the stamp
+    await rdb.saveActionItems(r.id, [{ uid, task: 'Core switch', department: 'IT', status: 'closed', comment: 'done' }]);
+    assert.ok((await rdb.getReport(r.id)).action_items[0].status_changed_at);
+  } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
+});

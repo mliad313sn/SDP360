@@ -138,3 +138,50 @@ test('the pages load the shared rule', () => {
     assert.match(src, /StatusTransfer|ST\.ask|ST && ST\.isTransfer/, f);
   }
 });
+
+// ── 2026-10-16 (later): report follow-ups, Undo, "Show closed / cancelled" ──────────────────
+test('report follow-up: cancelling needs a justification (hub /status and report save)', async () => {
+  const sid = (await rdb.getSiteIdByModuleCode('meetings', code)).site_id;
+  const rep = await rdb.ensureReport(sid, 2026, 40);
+  const put = (body) => fetch(base + `/api/reports/${rep.id}/actions`, { method: 'PUT', headers: H(tok), body: JSON.stringify(body) });
+  const dept = (await (await fetch(base + '/api/reports/action-departments', { headers: H(tok) })).json());
+  const d = (Array.isArray(dept) ? dept : (dept.rows || dept.departments || []))[0];
+  const deptName = d ? (d.name || d.code || d) : 'Finance';
+  let r = await put([{ task: 'Replace core switch', department: deptName, priority: 'Medium', status: 'open' }]);
+  assert.equal(r.status, 200, await r.text());
+  const uid = (await rdb.getReport(rep.id)).action_items[0].uid;
+  r = await put([{ uid, task: 'Replace core switch', department: deptName, priority: 'Medium', status: 'cancelled' }]);
+  assert.equal(r.status, 400, 'report save refuses a cancellation without comment');
+  r = await post(`/api/reports/action/${uid}/status`, { status: 'cancelled' });
+  assert.equal(r.status, 400, 'hub refuses a cancellation without note');
+  r = await post(`/api/reports/action/${uid}/status`, { status: 'cancelled', note: 'Done by the vendor contract' });
+  assert.equal(r.status, 200, await r.text());
+  const a = (await rdb.getReport(rep.id)).action_items[0];
+  assert.equal(a.status, 'cancelled');
+  assert.match(a.comment, /Cancelled: Done by the vendor contract/);
+});
+
+test('hub ?closed=1 lists what was closed in 30 days, and a reopen brings it back', async () => {
+  const get = async () => (await (await fetch(base + '/api/reports/site-actions?site=' + encodeURIComponent(code) + '&closed=1', { headers: H(tok) })).json());
+  let j = await get();
+  const titles = (j.recent_closed || []).map(x => x.source + ':' + x.title);
+  assert.ok(titles.includes('report:Replace core switch'), titles.join(' | '));
+  assert.ok(titles.includes('issue:New laptop asked'), 'the demand issue is listed');
+  assert.ok(titles.includes('meetings:Order toner'), 'the cancelled action is listed');
+  const rpt = j.recent_closed.find(x => x.title === 'Replace core switch');
+  const r = await post(`/api/reports/action/${rpt.uid}/status`, { status: 'open' });   // reopen / undo needs no note
+  assert.equal(r.status, 200);
+  j = await get();
+  assert.ok(!(j.recent_closed || []).some(x => x.title === 'Replace core switch'), 'gone from the closed list');
+  assert.ok((j.groups.report.items || []).some(x => x.title === 'Replace core switch'), 'back in the open follow-ups');
+});
+
+test('pages: closed toggle + Undo on the hub, cancellation window in the report editor', () => {
+  const hub = _fs.readFileSync(_p.join(__dirname, '..', 'public', 'site-actions.html'), 'utf8');
+  assert.match(hub, /id="saClosed"/);
+  assert.match(hub, /&closed=1/);
+  assert.match(hub, /toastUndo\(msg, \(\) => undoStatus\(/);
+  const rpt = _fs.readFileSync(_p.join(__dirname, '..', 'public', 'reports.html'), 'utf8');
+  assert.match(rpt, /src="lib\/statusTransfer\.js"/);
+  assert.match(rpt, /StatusTransfer\.ask\('cancelled'/);
+});

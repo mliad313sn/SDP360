@@ -77,6 +77,16 @@ made so far so that future sessions can pick up exactly where the last one ended
 >   terminal doit rejoindre `DONE` ET ces listes. Le serveur refuse (400) une **transition** sans
 >   justification : `/issues/:id/update`, `/actions/:id/update`, `/api/meetings/save` (`_meetingTransferError`,
 >   les lignes déjà dans ce statut passent) ; l'import xlsx n'y est pas soumis.
+> - **Suite (même jour) — suivis du rapport + hub** : annuler une action du rapport hebdo exige aussi une
+>   justification (hub `/api/reports/action/:uid/status {status, note}` → ajoutée au `comment` « Cancelled: … » ;
+>   `PUT /:id/actions` refuse une transition vers `cancelled` à commentaire vide ; l'éditeur ouvre la fenêtre et
+>   **remet le statut précédent tant qu'elle est ouverte** — sinon l'autosave 1,5 s enverrait l'annulation sans
+>   justification). Colonne **`action_items.status_changed_at`** (posée à l'INSERT et à chaque changement de
+>   statut). Hub : bouton **Undo** dans le toast (pas depuis un statut de transfert) et case **« Show closed /
+>   cancelled (30 days) »** (`?closed=1` → `recent_closed`, pur `buildRecentlyClosed`, rapport via
+>   `getSiteClosedReportActions` — date = `status_changed_at`, sinon début de semaine) pour rouvrir sur place.
+>   Piège trouvé par le test : `getReport()` rend `action_items`, PAS `actions`. Piège pg : un `?` seul dans
+>   `? IS NULL` n'est pas typable → `CAST(? AS TEXT)`.
 > - **Tracker, mois clôturés** : sous super_admin, seuls le mois en cours (+ le précédent jusqu'au **5**)
 >   sont modifiables ; `public/lib/trackerMonthLock.js` côté page (cellules grisées + bandeau) ET serveur
 >   (`saveTracker(D, scope, { lockClosed })` et l'import des réunions gardent la valeur STOCKÉE des mois

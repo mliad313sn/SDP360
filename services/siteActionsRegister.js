@@ -187,4 +187,42 @@ function buildSiteActions(input) {
   };
 }
 
-module.exports = { buildSiteActions, TERMINAL, _isIncubation };
+// Hub "Show closed / cancelled" (2026-10-16): what was closed or cancelled since `since`
+// (YYYY-MM-DD), across the five sources, newest first — so a wrong click can be reopened
+// without hunting for the right week. Same item shape as the open groups (+ closed_at);
+// `source` names the group whose status vocabulary applies.
+function buildRecentlyClosed(input) {
+  input = input || {};
+  const since = String(input.since || '');
+  const d10 = (s) => (s ? String(s).slice(0, 10) : '');
+  const recent = (s) => !!d10(s) && d10(s) >= since;
+  const out = [];
+  for (const a of (Array.isArray(input.meetings) ? input.meetings : [])) {
+    const src = _isIncubation(a) ? 'incubation' : 'meetings';
+    if (!_isTerminal(src, a.status) || !recent(a.closed_at)) continue;
+    out.push({ source: src, title: a.description || '—', owner: a.owner_it || a.owner_email || null, status: a.status,
+      closed_at: a.closed_at, origin_label: a.meeting_reference || null, action_id: a.id,
+      status_note: a.status_note || null, helpdesk_ticket: a.helpdesk_ticket || null });
+  }
+  for (const i of (Array.isArray(input.issues) ? input.issues : [])) {
+    if (!_isTerminal('issue', i.status) || !recent(i.closed_at)) continue;
+    out.push({ source: 'issue', title: i.title || '—', owner: i.champion || null, status: i.status,
+      closed_at: i.closed_at, origin_label: i.meeting_reference || null, issue_id: i.id,
+      status_note: i.status_note || null, helpdesk_ticket: i.helpdesk_ticket || null });
+  }
+  for (const a of (Array.isArray(input.inspection) ? input.inspection : [])) {
+    if (!_isTerminal('inspection', a.status) || !recent(a.closed_at || a.updated_at)) continue;
+    out.push({ source: 'inspection', title: a.description || '—', owner: a.owner || null, status: a.status,
+      closed_at: a.closed_at || a.updated_at, origin_label: a.inspection_label || null, action_id: a.id });
+  }
+  const rep = input.report && Array.isArray(input.report.actions) ? input.report.actions : [];
+  for (const a of rep) {
+    if (a.source || !_isTerminal('report', a.status) || !recent(a.closed_at)) continue;
+    out.push({ source: 'report', title: a.task || '—', owner: a.owner || null, status: a.status,
+      closed_at: a.closed_at, origin_label: a.week_label || null, uid: a.uid || null, comment: a.comment || null,
+      close: { kind: 'link', url: 'reports.html?report=' + a.report_id } });
+  }
+  return out.sort((x, y) => String(y.closed_at).localeCompare(String(x.closed_at)));
+}
+
+module.exports = { buildSiteActions, buildRecentlyClosed, TERMINAL, _isIncubation };

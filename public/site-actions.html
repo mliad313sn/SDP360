@@ -121,6 +121,7 @@
     <input id="saQ" class="sa-search" type="text" placeholder="Filter by text…">
     <label class="sa-chk"><input type="checkbox" id="saOverdue"> Overdue only</label>
     <label class="sa-chk" title="Open issues that no open action addresses yet"><input type="checkbox" id="saNoAction"> Issues without action only</label>
+    <label class="sa-chk" title="Issues and actions closed or cancelled in the last 30 days — change the status to reopen one"><input type="checkbox" id="saClosed"> Show closed / cancelled (30 days)</label>
   </div>
   <div class="sa-note" id="saNote"></div>
 
@@ -167,7 +168,7 @@
     { key: 'report',     title: 'Report follow-ups', color: '#16A34A', api: null,                       statuses: ['open', 'in_progress', 'on_hold', 'closed', 'cancelled'] },
   ];
 
-  const state = { site: '', q: '', overdue: false, noAction: false, data: null };
+  const state = { site: '', q: '', overdue: false, noAction: false, showClosed: false, data: null };
   // md_issues vocabulary (meetings-init.json statuses)
   const ISSUE_STATUSES = ['open', 'in_progress', 'blocked', 'on_hold', 'resolved', 'demand', 'helpdesk_ticket', 'cancelled'];
   const TERMINAL_ACTION = /^(resolved|cancelled|closed|demand|helpdesk_ticket)$/i;
@@ -193,7 +194,7 @@
     if (!state.site) { groupsEl.innerHTML = '<div class="sa-group"><div class="sa-empty">Pick a site to see its open actions.</div></div>'; document.getElementById('saNote').textContent = ''; return; }
     groupsEl.innerHTML = '<div class="sa-group"><div class="sa-empty">Loading…</div></div>';
     try {
-      const r = await fetch('/api/reports/site-actions?site=' + encodeURIComponent(state.site), { credentials: 'same-origin', headers: authHeaders() });
+      const r = await fetch('/api/reports/site-actions?site=' + encodeURIComponent(state.site) + (state.showClosed ? '&closed=1' : ''), { credentials: 'same-origin', headers: authHeaders() });
       if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || ('HTTP ' + r.status)); }
       state.data = await r.json();
       render();
@@ -369,8 +370,41 @@
     } catch (err) { toast('Issue not changed: ' + (err.message || ''), true); }
   }
 
+  // ── Show closed / cancelled (2026-10-16) — reopen a wrong click without hunting the week ──
+  const SRC_LABEL = { issue: 'Issue', meetings: 'Meeting', incubation: 'Incubation', inspection: 'Inspection', report: 'Report follow-up' };
+  function closedStatusCell(it) {
+    if (it.source === 'issue') return issueStatusCell(it);
+    const g = GROUPS.find(x => x.key === it.source);
+    return g ? statusCell(it, g) : esc(stLabel(it.status));
+  }
+  function closedHtml() {
+    if (!state.showClosed) return '';
+    const items = ((state.data && state.data.recent_closed) || []).filter(matchQ);
+    const head = `<div class="sa-group__head">
+        <span class="sa-group__dot" style="background:#94A3B8"></span>
+        <span class="sa-group__title">Closed / cancelled — last 30 days</span>
+        <span class="sa-group__count">${items.length}</span>
+      </div>`;
+    if (!items.length) return `<div class="sa-group">${head}<div class="sa-empty">Nothing closed or cancelled in the last 30 days${state.q ? ' matches the filter' : ''}.</div></div>`;
+    const rows = items.map(it => {
+      const why = it.status_note || it.helpdesk_ticket
+        ? `<small>↳ ${it.helpdesk_ticket ? 'SDP ticket #' + esc(it.helpdesk_ticket) + ' · ' : ''}${esc(it.status_note || '')}</small>`
+        : (it.comment ? `<small>${esc(it.comment)}</small>` : '');
+      const link = it.close && it.close.kind === 'link' ? `<a class="sa-open" href="${esc(it.close.url)}">↗ open</a>` : '';
+      return `<div class="sa-row">
+        <span class="sa-row__title"><strong>${esc(it.title)}</strong><small>${esc(SRC_LABEL[it.source] || it.source)} · ${esc(it.origin_label || '')}</small>${why}</span>
+        <span>${esc(it.owner || '—')}</span>
+        <span class="sa-date">${fmtDate(String(it.closed_at || '').slice(0, 10))}</span>
+        <span></span>
+        <span>${closedStatusCell(it)}</span>
+        <span>${link}</span>
+      </div>`;
+    }).join('');
+    return `<div class="sa-group">${head}<div class="sa-head"><span>Item</span><span>Owner</span><span>Closed</span><span></span><span>Status</span><span></span></div>${rows}</div>`;
+  }
+
   function render() {
-    document.getElementById('saGroups').innerHTML = issuesHtml() + GROUPS.map(groupHtml).join('');
+    document.getElementById('saGroups').innerHTML = issuesHtml() + GROUPS.map(groupHtml).join('') + closedHtml();
     document.getElementById('saNote').innerHTML =
       'Report follow-ups are gathered across all weeks and de-duplicated — carried-forward copies of the same action collapse into one (its latest week). Merged follow-ups fold under their Meetings/Inspection origin. Age is unavailable for report follow-ups (no created timestamp) — they show the due date only.';
     if (canEdit) document.querySelectorAll('.sa-status-sel').forEach(el => el.addEventListener('change', onStatusChange));
@@ -450,6 +484,19 @@
     clearTimeout(_toastT); _toastT = setTimeout(() => { el.className = 'sa-toast'; }, 6000);
   }
 
+  async function undoStatus(src, id, prev) {
+    let url, body;
+    if (src === 'report') { url = '/api/reports/action/' + encodeURIComponent(id) + '/status'; body = { status: prev }; }
+    else if (src === 'issue') { url = '/api/meetings/issues/' + encodeURIComponent(id) + '/update'; body = { status_change: prev, body: 'Undo' }; }
+    else { const g = GROUPS.find(x => x.key === src); url = g.api + encodeURIComponent(id) + '/update'; body = { status_change: prev, body: 'Undo' }; }
+    try {
+      const r = await fetch(url, { method: 'POST', credentials: 'same-origin', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify(body) });
+      if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || ('HTTP ' + r.status)); }
+      toast('Status restored → ' + stLabel(prev));
+      await loadActions();
+    } catch (err) { toast('Undo refused: ' + (err.message || ''), true); }
+  }
+
   async function onStatusChange(e) {
     const el = e.target;
     const src = el.getAttribute('data-src');
@@ -462,12 +509,13 @@
     if (src === 'report') { url = '/api/reports/action/' + encodeURIComponent(id) + '/status'; body = { status }; }
     else if (src === 'issue') { url = '/api/meetings/issues/' + encodeURIComponent(id) + '/update'; body = { status_change: status }; }
     else { const g = GROUPS.find(x => x.key === src); url = g.api + encodeURIComponent(id) + '/update'; body = { status_change: status }; }
-    if (src !== 'report' && src !== 'inspection' && ST && ST.isTransfer(status)) {
+    const needsWhy = (src === 'report') ? status === 'cancelled' : (src !== 'inspection' && ST && ST.isTransfer(status));
+    if (needsWhy && ST) {
       const row = el.closest('.sa-row');
       const t = await ST.ask(status, { title: row ? (row.querySelector('strong') || {}).textContent : '' });
       if (!t) { el.value = prev; return; }
-      body.body = t.note;
-      if (t.ticket) body.helpdesk_ticket = t.ticket;
+      if (src === 'report') body.note = t.note;   // appended to the follow-up's comment
+      else { body.body = t.note; if (t.ticket) body.helpdesk_ticket = t.ticket; }
     }
     el.disabled = true;
     try {
@@ -477,7 +525,12 @@
         body: JSON.stringify(body),
       });
       if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || ('HTTP ' + r.status)); }
-      toast((src === 'issue' ? 'Issue updated → ' : 'Action updated → ') + stLabel(status));
+      // Undo (2026-10-16): put the previous status back. Not offered when the previous status was
+      // itself a transfer status — going back there needs a new justification.
+      const canUndo = prev && !(ST && ST.isTransfer(prev)) && !(src === 'report' && prev === 'cancelled');
+      const msg = (src === 'issue' ? 'Issue updated → ' : 'Action updated → ') + stLabel(status);
+      if (canUndo) toastUndo(msg, () => undoStatus(src, id, prev));
+      else toast(msg);
       if ((src === 'meetings' || src === 'incubation') && TERMINAL_ACTION.test(status)) await maybeResolveIssue(id);
       await loadActions();
     } catch (err) {
@@ -493,6 +546,7 @@
   document.getElementById('saQ').addEventListener('input', e => { clearTimeout(_qT); _qT = setTimeout(() => { state.q = e.target.value.trim(); render(); }, 200); });
   document.getElementById('saOverdue').addEventListener('change', e => { state.overdue = e.target.checked; render(); });
   document.getElementById('saNoAction').addEventListener('change', e => { state.noAction = e.target.checked; render(); });
+  document.getElementById('saClosed').addEventListener('change', e => { state.showClosed = e.target.checked; loadActions(); });
 
   // Deep link ?site=CODE — the coordinator email + the site report link here.
   (function applyDeepLink() {

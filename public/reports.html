@@ -288,6 +288,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
 <script src="lib/parse-actions-csv.js"></script>
 <script src="lib/actionSimilarity.js"></script>
 <script src="lib/actionGroups.js"></script>
+<script src="lib/statusTransfer.js"></script>
 <script src="lib/wanLineMatch.js"></script>
 <!-- Unified auth (data-require="any" — any logged-in user). auth.js redirects
      to login.html?next=reports.html when no/invalid session, so the inline
@@ -4755,7 +4756,7 @@ function addActionRow(a) {
     <td><input type="date" value="${a.due_date||''}"></td>
     <td><input type="text" list="ai-tech-datalist" value="${esc(a.owner)}" placeholder="Type or select…" autocomplete="off"></td>
     <td>
-      <select>
+      <select data-k="status" data-prev="${esc(a.status||'open')}">
         <option value="open"        ${a.status==='open'       ?'selected':''}>Open</option>
         <option value="in_progress" ${a.status==='in_progress'?'selected':''}>In Progress</option>
         <option value="on_hold"     ${a.status==='on_hold'    ?'selected':''}>On Hold</option>
@@ -4781,6 +4782,26 @@ function addActionRow(a) {
     </td>
   `;
   tbody.appendChild(commentTr);
+
+  // Cancelling needs a justification (2026-10-16): the same window as the meetings statuses;
+  // the answer is appended to the comment ("Cancelled: …") — the server refuses a save that
+  // cancels an action with an empty comment.
+  const _stSel = tr.querySelector('select[data-k="status"]');
+  if (_stSel) _stSel.addEventListener('change', async () => {
+    const prev = _stSel.dataset.prev || 'open';
+    if (_stSel.value !== 'cancelled' || prev === 'cancelled' || !window.StatusTransfer) { _stSel.dataset.prev = _stSel.value; return; }
+    // Keep the previous status while the window is open: the 1.5 s autosave must not send a
+    // cancellation without its justification (the server would refuse the whole save).
+    _stSel.value = prev;
+    const t = await window.StatusTransfer.ask('cancelled', { title: (tr.querySelector('input[type="text"]') || {}).value || '' });
+    if (!t) return;
+    const ta = commentTr.querySelector('textarea');
+    ta.value = (ta.value.trim() ? ta.value.trim() + ' — ' : '') + 'Cancelled: ' + t.note;
+    closeCommentRow(rowId);   // refreshes the preview from the textarea
+    _stSel.dataset.prev = 'cancelled';
+    _stSel.value = 'cancelled';
+    _stSel.dispatchEvent(new Event('change', { bubbles: true }));   // schedules the autosave
+  });
 
   // Prong B: warn on blur if a newly-typed action duplicates an already-open one.
   const _taskInput = tr.querySelector('input[type="text"]');

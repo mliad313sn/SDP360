@@ -562,6 +562,9 @@ try { db.exec(`ALTER TABLE action_items ADD COLUMN origin_id INTEGER`); } catch(
 // SP1b-lignée — carry-forward chain root (a carried copy stores the root's uid);
 // NULL = native row (its own root). Immutable once set. No backfill needed.
 try { db.exec(`ALTER TABLE action_items ADD COLUMN lineage   TEXT`); } catch(e) {}
+// 2026-10-16 — when the status last changed (hub "recently closed" list; action_items has no
+// other timestamp). NULL on rows untouched since the column appeared.
+try { db.exec(`ALTER TABLE action_items ADD COLUMN status_changed_at TEXT`); } catch(e) {}
 // Backfill uids for rows that predate the column — REQUIRED before the upsert
 // runs: a NULL uid never matches `uid NOT IN (…)`, so an unbackfilled row would
 // escape the delete step and duplicate on the first save.
@@ -1368,7 +1371,7 @@ async function initPgReports() {            // called once at server boot
     require('path').join(__dirname, 'db', 'postgres', 'reports', '003_reports.sql'), 'utf8'));
   // SP1b — action_items stable uid + merge columns (idempotent for existing PG DBs)
   // + backfill uids on rows that predate the column (see the sqlite note above).
-  for (const c of ['uid TEXT', 'source TEXT', 'origin_id INTEGER', 'lineage TEXT']) {
+  for (const c of ['uid TEXT', 'source TEXT', 'origin_id INTEGER', 'lineage TEXT', 'status_changed_at TEXT']) {
     await _pg.exec(`ALTER TABLE action_items ADD COLUMN IF NOT EXISTS ${c}`);
   }
   { const nulls = await _pg.prepare('SELECT id FROM action_items WHERE uid IS NULL').all();
@@ -3722,7 +3725,7 @@ function _dedupLineageNewestOpen(rows) {
 }
 const _SORA_SQL = `
   SELECT ai.uid, ai.lineage, ai.task, ai.priority, ai.due_date, ai.owner, ai.status,
-         ai.department, ai.comment, ai.source, ai.origin_id,
+         ai.department, ai.comment, ai.source, ai.origin_id, ai.status_changed_at,
          wr.id AS report_id, w.label AS week_label, w.year AS _y, w.week_number AS _w
   FROM action_items ai
   JOIN weekly_reports wr ON wr.id = ai.report_id
@@ -3756,14 +3759,14 @@ const _saveActionItemsSqlite = db.transaction((report_id, items) => {
     db.prepare(`DELETE FROM action_items WHERE report_id=?`).run(report_id);
   }
   const exists = db.prepare(`SELECT 1 FROM action_items WHERE report_id=? AND uid=?`);
-  const upd = db.prepare(`UPDATE action_items SET task=?,priority=?,due_date=?,owner=?,status=?,department=?,comment=?,sort_order=? WHERE report_id=? AND uid=?`);
+  const upd = db.prepare(`UPDATE action_items SET status_changed_at=CASE WHEN COALESCE(status,'')<>? THEN datetime('now') ELSE status_changed_at END, task=?,priority=?,due_date=?,owner=?,status=?,department=?,comment=?,sort_order=? WHERE report_id=? AND uid=?`);
   // SP3: source/origin_id are written HERE on INSERT (client-set from the import
   // picker) — the UPDATE branch never writes them, so a re-save can't wipe an
   // existing merge/reference (SP1b durability holds).
-  const ins = db.prepare(`INSERT INTO action_items (report_id,task,priority,due_date,owner,status,department,comment,sort_order,uid,lineage,source,origin_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`);
+  const ins = db.prepare(`INSERT INTO action_items (report_id,task,priority,due_date,owner,status,department,comment,sort_order,uid,lineage,source,origin_id,status_changed_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'))`);
   items.forEach((a, i) => {
     if (a.uid && exists.get(report_id, a.uid)) {
-      upd.run(a.task, a.priority||'Medium', a.due_date||null, a.owner||null, a.status||'open', a.department||null, a.comment||null, i, report_id, a.uid);
+      upd.run(a.status||'open', a.task, a.priority||'Medium', a.due_date||null, a.owner||null, a.status||'open', a.department||null, a.comment||null, i, report_id, a.uid);
     } else {
       ins.run(report_id, a.task, a.priority||'Medium', a.due_date||null, a.owner||null, a.status||'open', a.department||null, a.comment||null, i, a.uid || crypto.randomUUID(), a.lineage || null, a.source || null, a.origin_id || null);
     }
@@ -3784,10 +3787,10 @@ async function _saveActionItemsPg(report_id, items) {
     for (const a of items) {
       const has = a.uid ? await H.prepare('SELECT 1 FROM action_items WHERE report_id=? AND uid=?').get(report_id, a.uid) : null;
       if (has) {
-        await H.prepare('UPDATE action_items SET task=?,priority=?,due_date=?,owner=?,status=?,department=?,comment=?,sort_order=? WHERE report_id=? AND uid=?')
-          .run(a.task, a.priority||'Medium', a.due_date||null, a.owner||null, a.status||'open', a.department||null, a.comment||null, i, report_id, a.uid);
+        await H.prepare(`UPDATE action_items SET status_changed_at=CASE WHEN COALESCE(status,'')<>? THEN to_char(now(),'YYYY-MM-DD HH24:MI:SS') ELSE status_changed_at END, task=?,priority=?,due_date=?,owner=?,status=?,department=?,comment=?,sort_order=? WHERE report_id=? AND uid=?`)
+          .run(a.status||'open', a.task, a.priority||'Medium', a.due_date||null, a.owner||null, a.status||'open', a.department||null, a.comment||null, i, report_id, a.uid);
       } else {
-        await H.prepare('INSERT INTO action_items (report_id,task,priority,due_date,owner,status,department,comment,sort_order,uid,lineage,source,origin_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)')
+        await H.prepare(`INSERT INTO action_items (report_id,task,priority,due_date,owner,status,department,comment,sort_order,uid,lineage,source,origin_id,status_changed_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,to_char(now(),'YYYY-MM-DD HH24:MI:SS'))`)
           .run(report_id, a.task, a.priority||'Medium', a.due_date||null, a.owner||null, a.status||'open', a.department||null, a.comment||null, i, a.uid || crypto.randomUUID(), a.lineage || null, a.source || null, a.origin_id || null);
       }
       i++;
@@ -3839,9 +3842,16 @@ async function _getActionItemOwnerPg(uid) {
 // hub's inline status control for the Report section (Meetings/Inspection have
 // their own /update endpoints). An UPDATE by uid: it never touches
 // source/origin_id/lineage, so a merge/reference/carry-lineage stays intact.
-function setActionStatus(uid, status) {
-  if (REPORTS_BACKEND === 'postgres') return _setActionStatusPg(uid, status);
-  const info = db.prepare(`UPDATE action_items SET status=? WHERE uid=?`).run(status, uid);
+// 2026-10-16: stamps status_changed_at; `note` (the justification of a cancellation) is
+// appended to the comment so it travels with the action into the report, PPTX and e-mail.
+const _SET_STATUS_SQL = (now) => `UPDATE action_items SET status=?,
+    status_changed_at=CASE WHEN COALESCE(status,'')<>CAST(? AS TEXT) THEN ${now} ELSE status_changed_at END,
+    comment=CASE WHEN CAST(? AS TEXT) IS NULL THEN comment WHEN COALESCE(comment,'')='' THEN CAST(? AS TEXT) ELSE comment || ' — ' || CAST(? AS TEXT) END
+  WHERE uid=?`;
+function setActionStatus(uid, status, note) {
+  if (REPORTS_BACKEND === 'postgres') return _setActionStatusPg(uid, status, note);
+  const n = note ? String(note).trim().slice(0, 2000) : null;
+  const info = db.prepare(_SET_STATUS_SQL(`datetime('now')`)).run(status, status, n, n, n, uid);
   return { ok: info.changes > 0 };
 }
 // Deliberate merge of an ALREADY-SAVED follow-up into another's carry-forward
@@ -3909,9 +3919,30 @@ async function getSiteActionRows(site_id) {
     : db.prepare(_SORA_SQL).all(site_id);
   return rows.map(({ _y, _w, ...r }) => ({ ...r, year: _y, week_number: _w }));
 }
-async function _setActionStatusPg(uid, status) {
+// Hub "recently closed" (2026-10-16): the follow-ups whose group is now closed or cancelled
+// (newest row of the group terminal), closed on/after `since` (YYYY-MM-DD). The date is
+// status_changed_at, or — for rows closed before that column existed — the start of the week.
+async function getSiteClosedReportActions(site_id, since) {
+  const rows = await getSiteActionRows(site_id);
+  const best = new Map();
+  for (const r of rows) {
+    const k = r.lineage || r.uid;
+    const c = best.get(k);
+    if (!c || r.year > c.year || (r.year === c.year && r.week_number > c.week_number)) best.set(k, r);
+  }
+  const out = [];
+  for (const r of best.values()) {
+    if (!_TERMINAL_STATUS.has(r.status)) continue;
+    const when = r.status_changed_at || ((r.year && r.week_number) ? getWeekRange(r.year, r.week_number).start : null);
+    if (!when || String(when).slice(0, 10) < since) continue;
+    out.push({ ...r, closed_at: when });
+  }
+  return { actions: out };
+}
+async function _setActionStatusPg(uid, status, note) {
   const H = pgHandle();
-  const info = await H.prepare('UPDATE action_items SET status=? WHERE uid=?').run(status, uid);
+  const n = note ? String(note).trim().slice(0, 2000) : null;
+  const info = await H.prepare(_SET_STATUS_SQL(`to_char(now(),'YYYY-MM-DD HH24:MI:SS')`)).run(status, status, n, n, n, uid);
   return { ok: (info.changes || info.rowCount || 0) > 0 };
 }
 
@@ -8305,7 +8336,7 @@ module.exports = {
   getRoadmapProject, addRoadmapAction, updateRoadmapAction, deleteRoadmapAction,
   addRoadmapResource, updateRoadmapResource, deleteRoadmapResource,
   setActionMerge, clearActionMerge, setActionStatus, setActionLineage, getActionItemOwner, getSiteOpenReportActions,
-  relineageGroup, getSiteActionRows,
+  relineageGroup, getSiteActionRows, getSiteClosedReportActions,
   getPreviousWeekOpenActions, listAllWeeksWithActions, getActionsForReport,
   listAllWeeksWithLights, getLightsForReport,
   // Action departments (editable dropdown for action items)
