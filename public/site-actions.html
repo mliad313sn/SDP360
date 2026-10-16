@@ -14,6 +14,7 @@
 <script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
 <link rel="stylesheet" href="module-tabs.css">
 <script nonce="%%CSP_NONCE%%" src="module-tabs.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/statusTransfer.js"></script>
 
 <style nonce="%%CSP_NONCE%%">
   body { margin: 0; background: var(--color-bg, #F4F5F7); color: var(--color-text-strong, #1F2A33);
@@ -159,17 +160,21 @@
 
   const canEdit = !!(window.__userHasRole && window.__userHasRole('editor'));
   const GROUPS = [
-    { key: 'meetings',   title: 'Meetings',          color: '#145FAE', api: '/api/meetings/actions/',   statuses: ['open', 'in_progress', 'resolved', 'cancelled'] },
+    { key: 'meetings',   title: 'Meetings',          color: '#145FAE', api: '/api/meetings/actions/',   statuses: ['open', 'in_progress', 'resolved', 'demand', 'helpdesk_ticket', 'cancelled'] },
     // Business Incubation sessions (2026-10-05): their own block; same md_actions rows → same route + vocabulary.
-    { key: 'incubation', title: 'Business Incubation', color: '#0D9488', api: '/api/meetings/actions/', statuses: ['open', 'in_progress', 'resolved', 'cancelled'] },
+    { key: 'incubation', title: 'Business Incubation', color: '#0D9488', api: '/api/meetings/actions/', statuses: ['open', 'in_progress', 'resolved', 'demand', 'helpdesk_ticket', 'cancelled'] },
     { key: 'inspection', title: 'Inspections',       color: '#EF631A', api: '/api/inspection/actions/', statuses: ['Open', 'In Progress', 'Closed', 'Cancelled'] },
     { key: 'report',     title: 'Report follow-ups', color: '#16A34A', api: null,                       statuses: ['open', 'in_progress', 'on_hold', 'closed', 'cancelled'] },
   ];
 
   const state = { site: '', q: '', overdue: false, noAction: false, data: null };
   // md_issues vocabulary (meetings-init.json statuses)
-  const ISSUE_STATUSES = ['open', 'in_progress', 'blocked', 'on_hold', 'resolved', 'cancelled'];
-  const TERMINAL_ACTION = /^(resolved|cancelled|closed)$/i;
+  const ISSUE_STATUSES = ['open', 'in_progress', 'blocked', 'on_hold', 'resolved', 'demand', 'helpdesk_ticket', 'cancelled'];
+  const TERMINAL_ACTION = /^(resolved|cancelled|closed|demand|helpdesk_ticket)$/i;
+  // Transfer statuses (2026-10-16): demand / helpdesk_ticket / cancelled need a justification
+  // (+ the SDP ticket number) — public/lib/statusTransfer.js, same rule as the server.
+  const ST = window.StatusTransfer;
+  const stLabel = (s) => (ST && ST.LABELS[s]) ? ST.label(s, 'fr') : s;
 
   async function loadSites() {
     // Meetings + inspection share the mine-site code namespace the hub uses.
@@ -213,7 +218,7 @@
     const opts = g.statuses.slice();
     if (!opts.some(s => s.toLowerCase() === String(it.status).toLowerCase())) opts.unshift(it.status);
     return `<select class="sa-status-sel" data-src="${it.source}" data-id="${esc(id)}" data-prev="${esc(it.status)}">`
-      + opts.map(s => `<option value="${esc(s)}"${s === it.status ? ' selected' : ''}>${esc(s)}</option>`).join('') + '</select>';
+      + opts.map(s => `<option value="${esc(s)}"${s === it.status ? ' selected' : ''}>${esc(stLabel(s))}</option>`).join('') + '</select>';
   }
 
   function rowHtml(it, g) {
@@ -262,7 +267,7 @@
     const opts = ISSUE_STATUSES.slice();
     if (!opts.includes(it.status)) opts.unshift(it.status);
     return `<select class="sa-status-sel" data-src="issue" data-id="${esc(it.issue_id)}" data-prev="${esc(it.status)}">`
-      + opts.map(s => `<option value="${esc(s)}"${s === it.status ? ' selected' : ''}>${esc(s)}</option>`).join('') + '</select>';
+      + opts.map(s => `<option value="${esc(s)}"${s === it.status ? ' selected' : ''}>${esc(stLabel(s))}</option>`).join('') + '</select>';
   }
   function issueRowHtml(it) {
     const n = it.open_actions || 0;
@@ -457,6 +462,13 @@
     if (src === 'report') { url = '/api/reports/action/' + encodeURIComponent(id) + '/status'; body = { status }; }
     else if (src === 'issue') { url = '/api/meetings/issues/' + encodeURIComponent(id) + '/update'; body = { status_change: status }; }
     else { const g = GROUPS.find(x => x.key === src); url = g.api + encodeURIComponent(id) + '/update'; body = { status_change: status }; }
+    if (src !== 'report' && src !== 'inspection' && ST && ST.isTransfer(status)) {
+      const row = el.closest('.sa-row');
+      const t = await ST.ask(status, { title: row ? (row.querySelector('strong') || {}).textContent : '' });
+      if (!t) { el.value = prev; return; }
+      body.body = t.note;
+      if (t.ticket) body.helpdesk_ticket = t.ticket;
+    }
     el.disabled = true;
     try {
       const r = await fetch(url, {
@@ -465,7 +477,7 @@
         body: JSON.stringify(body),
       });
       if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || ('HTTP ' + r.status)); }
-      toast((src === 'issue' ? 'Problème → ' : 'Action updated → ') + status);
+      toast((src === 'issue' ? 'Problème → ' : 'Action updated → ') + stLabel(status));
       if ((src === 'meetings' || src === 'incubation') && TERMINAL_ACTION.test(status)) await maybeResolveIssue(id);
       await loadActions();
     } catch (err) {

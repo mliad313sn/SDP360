@@ -11,10 +11,12 @@
 // Deliberately independent of the DB readers: the route fetches raw rows and
 // hands them here, so acquisition can change without touching this logic.
 
+// md_issues / md_actions: + demand / helpdesk_ticket (2026-10-16, public/lib/statusTransfer.js)
+const _MD_DONE = require('../public/lib/statusTransfer').DONE;
 const TERMINAL = {
-  meetings: new Set(['resolved', 'cancelled', 'closed']),
-  incubation: new Set(['resolved', 'cancelled', 'closed']),   // same md_actions vocabulary
-  issue: new Set(['resolved', 'cancelled']),                  // md_issues vocabulary (meetings-init statuses)
+  meetings: new Set(_MD_DONE),
+  incubation: new Set(_MD_DONE),   // same md_actions vocabulary
+  issue: new Set(_MD_DONE),        // md_issues vocabulary (meetings-init statuses)
   inspection: new Set(['closed', 'cancelled']),
   report: new Set(['closed', 'cancelled']),
 };

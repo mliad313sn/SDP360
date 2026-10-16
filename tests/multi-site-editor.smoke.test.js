@@ -88,3 +88,18 @@ test('admin users API stores and returns the extra sites', async () => {
   assert.deepEqual(list.find(x => x.id === u.id).extra_site_ids, [B.id, C.id].sort((x, y) => x - y));
   await put(`/api/reports/users/${u.id}`, superTok, { full_name: 'Multi Site', site_id: A.id, roles: ['editor', 'tracker-editor'], extra_site_ids: [B.id] });
 });
+
+test('meetings Excel export works for a multi-site editor and stays within their sites (2026-10-16)', async () => {
+  // Regression: the route handed the LIST of codes to exportRows, which bound it as one
+  // value — the "Excel (full data)" button failed for every editor.
+  const r = await get('/api/meetings/export.xlsx', tok);
+  assert.equal(r.status, 200, await r.text().catch(() => ''));
+  assert.match(r.headers.get('content-disposition') || '', /Meetings_HGO-MGO_/);
+  const XLSX = require('xlsx');
+  const wb = XLSX.read(Buffer.from(await r.arrayBuffer()), { type: 'buffer' });
+  const sites = XLSX.utils.sheet_to_json(wb.Sheets.Meetings).map(m => m.site_code);
+  assert.ok(sites.length >= 1, 'the MGO PV saved above is exported');
+  assert.ok(sites.every(s => s === 'HGO' || s === 'MGO'), 'only the editor\'s sites: ' + sites.join(','));
+  const adm = await get('/api/meetings/export.xlsx', superTok);
+  assert.equal(adm.status, 200);
+});

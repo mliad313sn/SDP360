@@ -1,4 +1,7 @@
 'use strict';
+// Transfer statuses (2026-10-16): demand / helpdesk_ticket close an issue like 'cancelled' does —
+// never counted as a closure in the trend. Absent from the author's data, so his numbers hold.
+const _CANCEL_LIKE = new Set(['cancelled', 'demand', 'helpdesk_ticket']);
 // ─────────────────────────────────────────────────────────────────────────────
 // services/reviewDashboard.js — a PORT of the authoritative IT Review
 // Dashboard's presentation layer (its `renderVals()` and helpers).
@@ -130,8 +133,8 @@ function metrics(issues, meetings, win) {
   const raisedPrev = issues.filter(i => inWin(i.meeting_date, p0, p1)).length;
   // QUIRK: closedCur/closedPrev are computed here and read by NOTHING in
   // renderVals. Ported verbatim anyway — this is a port, not a redesign.
-  const closedCur = issues.filter(i => { const c = effClose(i); return i.status !== 'cancelled' && inWin(c, c0, c1); }).length;
-  const closedPrev = issues.filter(i => { const c = effClose(i); return i.status !== 'cancelled' && inWin(c, p0, p1); }).length;
+  const closedCur = issues.filter(i => { const c = effClose(i); return !_CANCEL_LIKE.has(i.status) && inWin(c, c0, c1); }).length;
+  const closedPrev = issues.filter(i => { const c = effClose(i); return !_CANCEL_LIKE.has(i.status) && inWin(c, p0, p1); }).length;
   const openNow = issues.filter(i => isOpenNow(i));
   const openPrev = issues.filter(i => openAt(i, p1)).length;
   const A = ANCHOR;
@@ -472,10 +475,10 @@ function buildReviewVals(D, opts = {}) {
   // ── flow months ───────────────────────────────────────────────────────────
   const maxFlow = Math.max(...months.map(mo => Math.max(
     issues.filter(i => String(i.meeting_date || '').slice(0, 7) === mo).length,
-    issues.filter(i => { const c = effClose(i); return i.status !== 'cancelled' && c && String(c).slice(0, 7) === mo; }).length)), 1);
+    issues.filter(i => { const c = effClose(i); return !_CANCEL_LIKE.has(i.status) && c && String(c).slice(0, 7) === mo; }).length)), 1);
   const flowMonths = months.map(mo => {
     const r = issues.filter(i => String(i.meeting_date || '').slice(0, 7) === mo).length;
-    const cl = issues.filter(i => { const c = effClose(i); return i.status !== 'cancelled' && c && String(c).slice(0, 7) === mo; }).length;
+    const cl = issues.filter(i => { const c = effClose(i); return !_CANCEL_LIKE.has(i.status) && c && String(c).slice(0, 7) === mo; }).length;
     const ratio = r ? Math.round(cl / r * 100) / 100 : null;
     return {
       label: ['APR', 'MAY', 'JUN', 'JUL'][months.indexOf(mo)], raised: r, closed: cl,

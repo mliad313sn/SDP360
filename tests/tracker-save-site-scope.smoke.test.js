@@ -66,3 +66,22 @@ test('a tracker-editor whose site resolves to no tracker code is still refused (
   const r = await fetch(base + '/api/tracker/save', { method: 'POST', headers: H(tok.nowhere), body: JSON.stringify({ D }) });
   assert.equal(r.status, 403);
 });
+
+test('closed months (2026-10-16): a tracker-editor cannot change a past month, the current one saves', async (t) => {
+  const now = new Date(), y = now.getFullYear(), cur = now.getMonth(), past = cur - 2;
+  if (past < 0) return t.skip('January/February: the closed month sits in the previous year');
+  const D = await loadD(tok.hounde);
+  const row = D.inputs && D.inputs[y] && D.inputs[y].HGO && D.inputs[y].HGO[0];
+  if (!row) return t.skip('no seeded HGO input row for the current year');
+  const before = row[past];
+  row[past] = (Number(before) || 0) + 7;
+  row[cur] = (Number(row[cur]) || 0) + 3;
+  const want = row[cur];
+  const r = await fetch(base + '/api/tracker/save', { method: 'POST', headers: H(tok.hounde), body: JSON.stringify({ D }) });
+  const body = await r.json();
+  assert.equal(r.status, 200, JSON.stringify(body));
+  assert.ok(body.closed_blocked >= 1, 'the closed-month edit is reported');
+  const after = (await loadD(tok.hounde)).inputs[y].HGO[0];
+  assert.equal(Number(after[past]) || 0, Number(before) || 0, 'closed month unchanged');
+  assert.equal(Number(after[cur]), want, 'current month saved');
+});

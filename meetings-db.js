@@ -112,6 +112,16 @@ async function initPgMeetings() {              // called once at server boot
   await _pg.prepare(`INSERT INTO md_intake_sources (code, name_en, name_fr, color, display_order, active)
                      VALUES ('business_incubation', 'Business Incubation', 'Incubation métier', '#0D9488', 4, 1)
                      ON CONFLICT (code) DO NOTHING`).run();
+  // 2026-10-16: transfer statuses (parity with the sqlite path).
+  for (const t of ['md_issues', 'md_actions']) {
+    await _pg.exec(`ALTER TABLE ${t} ADD COLUMN IF NOT EXISTS status_note TEXT`);
+    await _pg.exec(`ALTER TABLE ${t} ADD COLUMN IF NOT EXISTS helpdesk_ticket TEXT`);
+  }
+  for (const st of INIT.statuses.filter(x => x.code === 'demand' || x.code === 'helpdesk_ticket')) {
+    await _pg.prepare(`INSERT INTO md_statuses (code, name_en, name_fr, color, is_terminal, display_order)
+                       VALUES (@code, @name_en, @name_fr, @color, @is_terminal, @display_order)
+                       ON CONFLICT (code) DO NOTHING`).run(st);
+  }
   return _pg;
 }
 function pgHandle() {
@@ -386,6 +396,14 @@ function _initSchema(db) {
   // above only fires for a fresh DB); (b) the intake_source code, seeded here too
   // because _seedLookups only runs on an empty DB.
   try { db.exec(`ALTER TABLE md_meetings ADD COLUMN incubation_json TEXT`); } catch (e) { /* already present */ }
+  // 2026-10-16: transfer statuses — the justification + the SDP ticket number, and the two
+  // status codes (the seed only fires on an empty DB).
+  for (const t of ['md_issues', 'md_actions']) for (const c of ['status_note', 'helpdesk_ticket']) {
+    try { db.exec(`ALTER TABLE ${t} ADD COLUMN ${c} TEXT`); } catch (e) { /* already present */ }
+  }
+  const insSt = db.prepare(`INSERT OR IGNORE INTO md_statuses (code, name_en, name_fr, color, is_terminal, display_order)
+                            VALUES (@code, @name_en, @name_fr, @color, @is_terminal, @display_order)`);
+  for (const st of INIT.statuses.filter(x => x.code === 'demand' || x.code === 'helpdesk_ticket')) insSt.run(st);
   db.prepare(`
     INSERT INTO md_intake_sources (code, name_en, name_fr, color, display_order, active)
     SELECT 'business_incubation', 'Business Incubation', 'Incubation métier', '#0D9488', 4, 1
@@ -540,7 +558,7 @@ async function _listMeetingsPg(opts = {}) {
       (SELECT COUNT(*) FROM md_issues  i WHERE i.meeting_id = m.id AND i.severity = 'HIGH')         AS high_issue_count,
       (SELECT COUNT(*) FROM md_issues  i WHERE i.meeting_id = m.id AND i.escalate = 1)              AS escalated_count,
       (SELECT COUNT(*) FROM md_actions a WHERE a.meeting_id = m.id)                                 AS action_count,
-      (SELECT COUNT(*) FROM md_actions a WHERE a.meeting_id = m.id AND a.status NOT IN ('resolved','cancelled')) AS open_action_count,
+      (SELECT COUNT(*) FROM md_actions a WHERE a.meeting_id = m.id AND a.status NOT IN ('resolved','cancelled','closed','demand','helpdesk_ticket')) AS open_action_count,
       (SELECT COUNT(*) FROM md_meeting_projects p WHERE p.meeting_id = m.id)                        AS project_count
     FROM md_meetings m ${w}
     ORDER BY m.meeting_date DESC, m.id DESC
@@ -608,7 +626,7 @@ function listMeetings(opts = {}) {
       (SELECT COUNT(*) FROM md_issues  i WHERE i.meeting_id = m.id AND i.severity = 'HIGH')         AS high_issue_count,
       (SELECT COUNT(*) FROM md_issues  i WHERE i.meeting_id = m.id AND i.escalate = 1)              AS escalated_count,
       (SELECT COUNT(*) FROM md_actions a WHERE a.meeting_id = m.id)                                 AS action_count,
-      (SELECT COUNT(*) FROM md_actions a WHERE a.meeting_id = m.id AND a.status NOT IN ('resolved','cancelled')) AS open_action_count,
+      (SELECT COUNT(*) FROM md_actions a WHERE a.meeting_id = m.id AND a.status NOT IN ('resolved','cancelled','closed','demand','helpdesk_ticket')) AS open_action_count,
       (SELECT COUNT(*) FROM md_meeting_projects p WHERE p.meeting_id = m.id)                        AS project_count
     FROM md_meetings m
     ${w}
@@ -700,7 +718,19 @@ const _isIncubation = (h) => String((h && h.intake_source) || '') === 'business_
 // Actions upsert helper (F2, 2026-09-06): the closure stamp for one incoming action row.
 //   terminal status  → keep the existing closed_at if the row already had one, else stamp now
 //   non-terminal     → null (a reopened action is open again — no stale closure survives)
-const _ACTION_TERMINAL = new Set(['resolved', 'cancelled', 'closed']);
+// Transfer statuses (2026-10-16): demand / helpdesk_ticket leave the register like cancelled
+// (public/lib/statusTransfer.js — DONE = every status that closes an issue or an action).
+const _statusTransfer = require('./public/lib/statusTransfer');
+const _isDone = (s) => _statusTransfer.isDone(s);
+const _ACTION_TERMINAL = new Set(_statusTransfer.DONE);
+// status_note / helpdesk_ticket columns: kept only while the row sits in a transfer status.
+function _transferCols(status, note, ticket) {
+  const tr = _statusTransfer.isTransfer(status);
+  return {
+    note:   tr && note ? String(note).trim().slice(0, _statusTransfer.NOTE_MAX) : null,
+    ticket: _statusTransfer.needsTicket(status) ? _statusTransfer.normalizeTicket(ticket) : null,
+  };
+}
 function _actionClosedAt(a, existingClosedAt, nowStr) {
   if (!_ACTION_TERMINAL.has(String(a.status || 'open'))) return null;
   return existingClosedAt || nowStr;
@@ -907,7 +937,7 @@ function saveMeeting(state, userSiteCode, userId) {
         ord = ?, title = ?, description = ?, category = ?, severity = ?,
         affects = ?, champion = ?, champion_email = ?, target_date = ?, status = ?,
         escalate = ?, escalation_reason = ?, council_theme = ?, notes = ?,
-        closed_at = ?,
+        closed_at = ?, status_note = CASE WHEN ? = 1 THEN COALESCE(?, status_note) ELSE NULL END, helpdesk_ticket = CASE WHEN ? = 1 THEN COALESCE(?, helpdesk_ticket) ELSE NULL END,
         updated_at = datetime('now')
       WHERE id = ? AND meeting_id = ?
     `);
@@ -915,8 +945,8 @@ function saveMeeting(state, userSiteCode, userId) {
       INSERT INTO md_issues
         (meeting_id, ord, title, description, category, severity, affects,
          champion, champion_email, target_date, status, escalate,
-         escalation_reason, council_theme, notes, closed_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         escalation_reason, council_theme, notes, closed_at, status_note, helpdesk_ticket)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     const insAudit = db.prepare(`
       INSERT INTO md_issue_updates (issue_id, author_id, author_name, body, status_change, escalate_change)
@@ -925,9 +955,11 @@ function saveMeeting(state, userSiteCode, userId) {
 
     (state.issues || []).forEach((iss, ix) => {
       if (!iss.title || !iss.category) return;
-      const terminal = (iss.status === 'resolved' || iss.status === 'cancelled');
+      const terminal = _isDone(iss.status);
       const closed_at = terminal ? new Date().toISOString().replace('T',' ').slice(0,19) : null;
       const escalate1 = iss.escalate ? 1 : 0;
+      const tc = _transferCols(iss.status, iss.status_note, iss.helpdesk_ticket);
+      const trI = _statusTransfer.isTransfer(iss.status) ? 1 : 0, tkI = _statusTransfer.needsTicket(iss.status) ? 1 : 0;
 
       if (iss.id && oldIssueById[iss.id]) {
         incomingIds.add(iss.id);
@@ -935,7 +967,7 @@ function saveMeeting(state, userSiteCode, userId) {
           iss.ord || ix, iss.title, iss.description || '', iss.category, iss.severity || 'MEDIUM',
           iss.affects || '', iss.champion || '', iss.champion_email || '', iss.target_date || null,
           iss.status || 'open', escalate1, iss.escalation_reason || null, iss.council_theme || null,
-          iss.notes || '', closed_at,
+          iss.notes || '', closed_at, trI, tc.note, tkI, tc.ticket,
           iss.id, meetingId
         );
         const old = oldIssueById[iss.id];
@@ -943,17 +975,17 @@ function saveMeeting(state, userSiteCode, userId) {
         const escChange    = old.escalate !== escalate1 ? escalate1 : null;
         if (statusChange || escChange) {
           insAudit.run(iss.id, userId || null, state.author_name || null,
-            iss.update_comment || null, statusChange, escChange);
+            iss.update_comment || (statusChange && tc.note) || null, statusChange, escChange);
         }
       } else {
         const r = insIssue.run(
           meetingId, iss.ord || ix, iss.title, iss.description || '', iss.category, iss.severity || 'MEDIUM',
           iss.affects || '', iss.champion || '', iss.champion_email || '', iss.target_date || null,
           iss.status || 'open', escalate1, iss.escalation_reason || null, iss.council_theme || null,
-          iss.notes || '', closed_at
+          iss.notes || '', closed_at, tc.note, tc.ticket
         );
         insAudit.run(r.lastInsertRowid, userId || null, state.author_name || null,
-          iss.update_comment || 'Issue created.', iss.status || 'open', escalate1);
+          iss.update_comment || tc.note || 'Issue created.', iss.status || 'open', escalate1);
       }
     });
 
@@ -967,19 +999,21 @@ function saveMeeting(state, userSiteCode, userId) {
     // Actions hub, so it must survive every re-save of its PV. Rows carrying a known id are
     // UPDATEd, rows without one are INSERTed, rows that vanished from the payload are deleted.
     if (state.actions !== undefined) {
-      const oldActions = db.prepare('SELECT id, closed_at FROM md_actions WHERE meeting_id = ?').all(meetingId);
+      const oldActions = db.prepare('SELECT id, closed_at, status FROM md_actions WHERE meeting_id = ?').all(meetingId);
       const oldById = new Map(oldActions.map(o => [o.id, o]));
       const insAction = db.prepare(`
         INSERT INTO md_actions
-          (meeting_id, ord, description, owner_it, owner_email, target_date, status, linked_issue_id, closed_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          (meeting_id, ord, description, owner_it, owner_email, target_date, status, linked_issue_id, closed_at, status_note, helpdesk_ticket)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
       const updAction = db.prepare(`
         UPDATE md_actions
            SET ord = ?, description = ?, owner_it = ?, owner_email = ?, target_date = ?, status = ?,
-               linked_issue_id = ?, closed_at = ?, updated_at = datetime('now')
+               linked_issue_id = ?, closed_at = ?, status_note = CASE WHEN ? = 1 THEN COALESCE(?, status_note) ELSE NULL END, helpdesk_ticket = CASE WHEN ? = 1 THEN COALESCE(?, helpdesk_ticket) ELSE NULL END, updated_at = datetime('now')
          WHERE id = ? AND meeting_id = ?
       `);
+      // Transfer statuses (2026-10-16): leave the justification in the action's audit trail.
+      const insActAudit = db.prepare(`INSERT INTO md_action_updates (action_id, author_id, author_name, body, status_change) VALUES (?, ?, ?, ?, ?)`);
       // Map linked_issue_ord (1-based ord from the UI) to actual issue id.
       const issuesAfter = db.prepare('SELECT id, ord FROM md_issues WHERE meeting_id = ? ORDER BY ord, id').all(meetingId);
       const nowStr = new Date().toISOString().replace('T', ' ').slice(0, 19);
@@ -996,14 +1030,18 @@ function saveMeeting(state, userSiteCode, userId) {
         const aid = a.id != null ? parseInt(a.id, 10) : null;
         const existing = (aid != null && oldById.has(aid)) ? oldById.get(aid) : null;
         const closed_at = _actionClosedAt(a, existing ? existing.closed_at : null, nowStr);
+        const tc = _transferCols(a.status, a.status_note, a.helpdesk_ticket);
+        const trA = _statusTransfer.isTransfer(a.status) ? 1 : 0, tkA = _statusTransfer.needsTicket(a.status) ? 1 : 0;
         if (existing) {
           updAction.run(a.ord || ix, a.description, a.owner_it || '', a.owner_email || '',
-            a.target_date || null, a.status || 'open', linked, closed_at, aid, meetingId);
+            a.target_date || null, a.status || 'open', linked, closed_at, trA, tc.note, tkA, tc.ticket, aid, meetingId);
           keep.add(aid);
+          if (trA && existing.status !== a.status) insActAudit.run(aid, userId || null, state.author_name || null, tc.note, a.status);
         } else {
           const r = insAction.run(meetingId, a.ord || ix, a.description, a.owner_it || '', a.owner_email || '',
-            a.target_date || null, a.status || 'open', linked, closed_at);
+            a.target_date || null, a.status || 'open', linked, closed_at, tc.note, tc.ticket);
           keep.add(Number(r.lastInsertRowid));
+          if (trA) insActAudit.run(Number(r.lastInsertRowid), userId || null, state.author_name || null, tc.note, a.status);
         }
       });
       oldActions.forEach(o => { if (!keep.has(o.id)) db.prepare('DELETE FROM md_actions WHERE id = ?').run(o.id); });
@@ -1097,25 +1135,27 @@ async function _saveMeetingPg(state, userSiteCode, userId) {
       const oldIssues = await H.prepare('SELECT id, status, escalate FROM md_issues WHERE meeting_id = ?').all(meetingId);
       const oldById = {}; oldIssues.forEach(o => { oldById[o.id] = o; });
       const incoming = new Set();
-      const updI = H.prepare(`UPDATE md_issues SET ord=?, title=?, description=?, category=?, severity=?, affects=?, champion=?, champion_email=?, target_date=?, status=?, escalate=?, escalation_reason=?, council_theme=?, notes=?, closed_at=?, updated_at=now() WHERE id=? AND meeting_id=?`);
-      const insI = H.prepare(`INSERT INTO md_issues (meeting_id, ord, title, description, category, severity, affects, champion, champion_email, target_date, status, escalate, escalation_reason, council_theme, notes, closed_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
+      const updI = H.prepare(`UPDATE md_issues SET ord=?, title=?, description=?, category=?, severity=?, affects=?, champion=?, champion_email=?, target_date=?, status=?, escalate=?, escalation_reason=?, council_theme=?, notes=?, closed_at=?, status_note = CASE WHEN ? = 1 THEN COALESCE(?, status_note) ELSE NULL END, helpdesk_ticket = CASE WHEN ? = 1 THEN COALESCE(?, helpdesk_ticket) ELSE NULL END, updated_at=now() WHERE id=? AND meeting_id=?`);
+      const insI = H.prepare(`INSERT INTO md_issues (meeting_id, ord, title, description, category, severity, affects, champion, champion_email, target_date, status, escalate, escalation_reason, council_theme, notes, closed_at, status_note, helpdesk_ticket) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
       const insA = H.prepare(`INSERT INTO md_issue_updates (issue_id, author_id, author_name, body, status_change, escalate_change) VALUES (?,?,?,?,?,?)`);
       let ix = 0;
       for (const iss of (state.issues || [])) {
         if (!iss.title || !iss.category) { ix++; continue; }
-        const terminal = (iss.status === 'resolved' || iss.status === 'cancelled');
+        const terminal = _isDone(iss.status);
         const closed_at = terminal ? new Date().toISOString().replace('T', ' ').slice(0, 19) : null;
         const esc = iss.escalate ? 1 : 0;
+        const tc = _transferCols(iss.status, iss.status_note, iss.helpdesk_ticket);
+        const trI = _statusTransfer.isTransfer(iss.status) ? 1 : 0, tkI = _statusTransfer.needsTicket(iss.status) ? 1 : 0;
         if (iss.id && oldById[iss.id]) {
           incoming.add(iss.id);
-          await updI.run(iss.ord || ix, iss.title, iss.description || '', iss.category, iss.severity || 'MEDIUM', iss.affects || '', iss.champion || '', iss.champion_email || '', iss.target_date || null, iss.status || 'open', esc, iss.escalation_reason || null, iss.council_theme || null, iss.notes || '', closed_at, iss.id, meetingId);
+          await updI.run(iss.ord || ix, iss.title, iss.description || '', iss.category, iss.severity || 'MEDIUM', iss.affects || '', iss.champion || '', iss.champion_email || '', iss.target_date || null, iss.status || 'open', esc, iss.escalation_reason || null, iss.council_theme || null, iss.notes || '', closed_at, trI, tc.note, tkI, tc.ticket, iss.id, meetingId);
           const old = oldById[iss.id];
           const sc = old.status !== (iss.status || 'open') ? (iss.status || 'open') : null;
           const ec = old.escalate !== esc ? esc : null;
-          if (sc || ec) await insA.run(iss.id, userId || null, state.author_name || null, iss.update_comment || null, sc, ec);
+          if (sc || ec) await insA.run(iss.id, userId || null, state.author_name || null, iss.update_comment || (sc && tc.note) || null, sc, ec);
         } else {
-          const r = await insI.run(meetingId, iss.ord || ix, iss.title, iss.description || '', iss.category, iss.severity || 'MEDIUM', iss.affects || '', iss.champion || '', iss.champion_email || '', iss.target_date || null, iss.status || 'open', esc, iss.escalation_reason || null, iss.council_theme || null, iss.notes || '', closed_at);
-          await insA.run(r.lastID, userId || null, state.author_name || null, iss.update_comment || 'Issue created.', iss.status || 'open', esc);
+          const r = await insI.run(meetingId, iss.ord || ix, iss.title, iss.description || '', iss.category, iss.severity || 'MEDIUM', iss.affects || '', iss.champion || '', iss.champion_email || '', iss.target_date || null, iss.status || 'open', esc, iss.escalation_reason || null, iss.council_theme || null, iss.notes || '', closed_at, tc.note, tc.ticket);
+          await insA.run(r.lastID, userId || null, state.author_name || null, iss.update_comment || tc.note || 'Issue created.', iss.status || 'open', esc);
         }
         ix++;
       }
@@ -1123,10 +1163,11 @@ async function _saveMeetingPg(state, userSiteCode, userId) {
     }
     if (state.actions !== undefined) {
       // F2 (2026-09-06): upsert by id — mirrors the sqlite fork (ids are load-bearing).
-      const oldActions = await H.prepare('SELECT id, closed_at FROM md_actions WHERE meeting_id = ?').all(meetingId);
+      const oldActions = await H.prepare('SELECT id, closed_at, status FROM md_actions WHERE meeting_id = ?').all(meetingId);
       const oldById = new Map(oldActions.map(o => [Number(o.id), o]));
-      const insAc = H.prepare(`INSERT INTO md_actions (meeting_id, ord, description, owner_it, owner_email, target_date, status, linked_issue_id, closed_at) VALUES (?,?,?,?,?,?,?,?,?) RETURNING id`);
-      const updAc = H.prepare(`UPDATE md_actions SET ord = ?, description = ?, owner_it = ?, owner_email = ?, target_date = ?, status = ?, linked_issue_id = ?, closed_at = ?, updated_at = now() WHERE id = ? AND meeting_id = ?`);
+      const insAc = H.prepare(`INSERT INTO md_actions (meeting_id, ord, description, owner_it, owner_email, target_date, status, linked_issue_id, closed_at, status_note, helpdesk_ticket) VALUES (?,?,?,?,?,?,?,?,?,?,?) RETURNING id`);
+      const updAc = H.prepare(`UPDATE md_actions SET ord = ?, description = ?, owner_it = ?, owner_email = ?, target_date = ?, status = ?, linked_issue_id = ?, closed_at = ?, status_note = CASE WHEN ? = 1 THEN COALESCE(?, status_note) ELSE NULL END, helpdesk_ticket = CASE WHEN ? = 1 THEN COALESCE(?, helpdesk_ticket) ELSE NULL END, updated_at = now() WHERE id = ? AND meeting_id = ?`);
+      const insActAudit = H.prepare(`INSERT INTO md_action_updates (action_id, author_id, author_name, body, status_change) VALUES (?, ?, ?, ?, ?)`);
       const issuesAfter = await H.prepare('SELECT id, ord FROM md_issues WHERE meeting_id = ? ORDER BY ord, id').all(meetingId);
       const nowStr = new Date().toISOString().replace('T', ' ').slice(0, 19);
       const keep = new Set();
@@ -1139,12 +1180,16 @@ async function _saveMeetingPg(state, userSiteCode, userId) {
         const aid = a.id != null ? parseInt(a.id, 10) : null;
         const existing = (aid != null && oldById.has(aid)) ? oldById.get(aid) : null;
         const closed_at = _actionClosedAt(a, existing ? existing.closed_at : null, nowStr);
+        const tc = _transferCols(a.status, a.status_note, a.helpdesk_ticket);
+        const trA = _statusTransfer.isTransfer(a.status) ? 1 : 0, tkA = _statusTransfer.needsTicket(a.status) ? 1 : 0;
         if (existing) {
-          await updAc.run(a.ord || ix, a.description, a.owner_it || '', a.owner_email || '', a.target_date || null, a.status || 'open', linked, closed_at, aid, meetingId);
+          await updAc.run(a.ord || ix, a.description, a.owner_it || '', a.owner_email || '', a.target_date || null, a.status || 'open', linked, closed_at, trA, tc.note, tkA, tc.ticket, aid, meetingId);
           keep.add(aid);
+          if (trA && existing.status !== a.status) await insActAudit.run(aid, userId || null, state.author_name || null, tc.note, a.status);
         } else {
-          const r = await insAc.get(meetingId, a.ord || ix, a.description, a.owner_it || '', a.owner_email || '', a.target_date || null, a.status || 'open', linked, closed_at);
+          const r = await insAc.get(meetingId, a.ord || ix, a.description, a.owner_it || '', a.owner_email || '', a.target_date || null, a.status || 'open', linked, closed_at, tc.note, tc.ticket);
           if (r && r.id != null) keep.add(Number(r.id));
+          if (trA && r && r.id != null) await insActAudit.run(Number(r.id), userId || null, state.author_name || null, tc.note, a.status);
         }
         ix++;
       }
@@ -1170,13 +1215,14 @@ function addIssueUpdate(issueId, opts = {}) {
     if (opts.status_change && opts.status_change !== issue.status) {
       // F4 (audit 2026-09-05): a non-terminal transition (reopen) CLEARS closed_at — the prior
       // closure stays in md_issue_updates; the row itself is open again for every reader.
-      const terminal = (opts.status_change === 'resolved' || opts.status_change === 'cancelled');
+      const terminal = _isDone(opts.status_change);
+      const tc = _transferCols(opts.status_change, opts.body, opts.helpdesk_ticket);
       db.prepare(`
         UPDATE md_issues
           SET status = ?, closed_at = CASE WHEN ? = 1 THEN COALESCE(closed_at, datetime('now')) ELSE NULL END,
-              updated_at = datetime('now')
+              status_note = ?, helpdesk_ticket = ?, updated_at = datetime('now')
         WHERE id = ?
-      `).run(opts.status_change, terminal ? 1 : 0, issueId);
+      `).run(opts.status_change, terminal ? 1 : 0, tc.note, tc.ticket, issueId);
     }
     if (opts.escalate_change !== null && opts.escalate_change !== undefined && opts.escalate_change !== issue.escalate) {
       db.prepare(`UPDATE md_issues SET escalate = ?, updated_at = datetime('now') WHERE id = ?`)
@@ -1268,7 +1314,7 @@ function listIssues(opts = {}) {
     JOIN md_meetings m ON m.id = i.meeting_id
     ${w}
     ORDER BY
-      CASE WHEN i.status IN ('resolved','cancelled') THEN 1 ELSE 0 END,
+      CASE WHEN i.status IN ('resolved','cancelled','closed','demand','helpdesk_ticket') THEN 1 ELSE 0 END,
       CASE i.severity WHEN 'HIGH' THEN 0 WHEN 'MEDIUM' THEN 1 ELSE 2 END,
       CASE WHEN i.target_date IS NULL THEN 1 ELSE 0 END,
       i.target_date ASC,
@@ -1305,13 +1351,14 @@ function addActionUpdate(actionId, opts = {}) {
     `).run(actionId, opts.author_id || null, opts.author_name || null, opts.body || null,
       opts.status_change || null);
     if (opts.status_change && opts.status_change !== action.status) {
-      const terminal = (opts.status_change === 'resolved' || opts.status_change === 'cancelled' || opts.status_change === 'closed');
+      const terminal = _isDone(opts.status_change);
+      const tc = _transferCols(opts.status_change, opts.body, opts.helpdesk_ticket);
       db.prepare(`
         UPDATE md_actions
           SET status = ?, closed_at = CASE WHEN ? = 1 THEN COALESCE(closed_at, datetime('now')) ELSE NULL END,
-              updated_at = datetime('now')
+              status_note = ?, helpdesk_ticket = ?, updated_at = datetime('now')
         WHERE id = ?
-      `).run(opts.status_change, terminal ? 1 : 0, actionId);   // F4: reopen clears closed_at
+      `).run(opts.status_change, terminal ? 1 : 0, tc.note, tc.ticket, actionId);   // F4: reopen clears closed_at
     }
   });
   tx();
@@ -1403,9 +1450,10 @@ async function _addIssueUpdatePg(issueId, opts = {}) {
     await H.prepare(`INSERT INTO md_issue_updates (issue_id, author_id, author_name, body, status_change, escalate_change) VALUES (?,?,?,?,?,?)`)
       .run(issueId, opts.author_id || null, opts.author_name || null, opts.body || null, opts.status_change || null, opts.escalate_change ?? null);
     if (opts.status_change && opts.status_change !== issue.status) {
-      const terminal = (opts.status_change === 'resolved' || opts.status_change === 'cancelled');
-      await H.prepare(`UPDATE md_issues SET status = ?, closed_at = CASE WHEN ? = 1 THEN COALESCE(closed_at, to_char(now(),'YYYY-MM-DD HH24:MI:SS')) ELSE NULL END, updated_at = now() WHERE id = ?`)
-        .run(opts.status_change, terminal ? 1 : 0, issueId);
+      const terminal = _isDone(opts.status_change);
+      const tc = _transferCols(opts.status_change, opts.body, opts.helpdesk_ticket);
+      await H.prepare(`UPDATE md_issues SET status = ?, closed_at = CASE WHEN ? = 1 THEN COALESCE(closed_at, to_char(now(),'YYYY-MM-DD HH24:MI:SS')) ELSE NULL END, status_note = ?, helpdesk_ticket = ?, updated_at = now() WHERE id = ?`)
+        .run(opts.status_change, terminal ? 1 : 0, tc.note, tc.ticket, issueId);
     }
     if (opts.escalate_change !== null && opts.escalate_change !== undefined && opts.escalate_change !== issue.escalate) {
       await H.prepare(`UPDATE md_issues SET escalate = ?, updated_at = now() WHERE id = ?`).run(opts.escalate_change ? 1 : 0, issueId);
@@ -1433,7 +1481,7 @@ async function _listIssuesPg(opts = {}) {
     SELECT i.*, m.reference AS meeting_reference, m.site_code AS site_code, m.department AS department,
            m.meeting_date AS meeting_date, m.id AS meeting_id_ref
     FROM md_issues i JOIN md_meetings m ON m.id = i.meeting_id ${w}
-    ORDER BY CASE WHEN i.status IN ('resolved','cancelled') THEN 1 ELSE 0 END,
+    ORDER BY CASE WHEN i.status IN ('resolved','cancelled','closed','demand','helpdesk_ticket') THEN 1 ELSE 0 END,
              CASE i.severity WHEN 'HIGH' THEN 0 WHEN 'MEDIUM' THEN 1 ELSE 2 END,
              CASE WHEN i.target_date IS NULL THEN 1 ELSE 0 END, i.target_date ASC, m.meeting_date DESC
     LIMIT @limit OFFSET @offset`).all(params);
@@ -1446,9 +1494,10 @@ async function _addActionUpdatePg(actionId, opts = {}) {
     await H.prepare(`INSERT INTO md_action_updates (action_id, author_id, author_name, body, status_change) VALUES (?,?,?,?,?)`)
       .run(actionId, opts.author_id || null, opts.author_name || null, opts.body || null, opts.status_change || null);
     if (opts.status_change && opts.status_change !== action.status) {
-      const terminal = (opts.status_change === 'resolved' || opts.status_change === 'cancelled' || opts.status_change === 'closed');
-      await H.prepare(`UPDATE md_actions SET status = ?, closed_at = CASE WHEN ? = 1 THEN COALESCE(closed_at, to_char(now(),'YYYY-MM-DD HH24:MI:SS')) ELSE NULL END, updated_at = now() WHERE id = ?`)
-        .run(opts.status_change, terminal ? 1 : 0, actionId);
+      const terminal = _isDone(opts.status_change);
+      const tc = _transferCols(opts.status_change, opts.body, opts.helpdesk_ticket);
+      await H.prepare(`UPDATE md_actions SET status = ?, closed_at = CASE WHEN ? = 1 THEN COALESCE(closed_at, to_char(now(),'YYYY-MM-DD HH24:MI:SS')) ELSE NULL END, status_note = ?, helpdesk_ticket = ?, updated_at = now() WHERE id = ?`)
+        .run(opts.status_change, terminal ? 1 : 0, tc.note, tc.ticket, actionId);
     }
   });
 }
@@ -1483,7 +1532,7 @@ function listActions(opts = {}) {
     params.owner = '%' + opts.owner + '%';
   }
   if (opts.overdue) {
-    where.push("a.target_date IS NOT NULL AND a.target_date < date('now') AND a.status NOT IN ('resolved','cancelled','closed')");
+    where.push("a.target_date IS NOT NULL AND a.target_date < date('now') AND a.status NOT IN ('resolved','cancelled','closed','demand','helpdesk_ticket')");
   }
   if (opts.from)       { where.push('m.meeting_date >= @from'); params.from = opts.from; }
   if (opts.to)         { where.push('m.meeting_date <= @to');   params.to = opts.to; }
@@ -1508,7 +1557,7 @@ function listActions(opts = {}) {
     LEFT JOIN md_issues li ON li.id = a.linked_issue_id
     ${w}
     ORDER BY
-      CASE WHEN a.status IN ('resolved','cancelled','closed') THEN 1 ELSE 0 END,
+      CASE WHEN a.status IN ('resolved','cancelled','closed','demand','helpdesk_ticket') THEN 1 ELSE 0 END,
       CASE WHEN a.target_date IS NULL THEN 1 ELSE 0 END,
       a.target_date ASC,
       m.meeting_date DESC
@@ -1529,10 +1578,13 @@ function listActions(opts = {}) {
 // opts.site: limit every sheet to one site code (a scoped user's export, RBAC lot 4c).
 async function exportRows(opts = {}) {
   const H = MEETINGS_BACKEND === 'postgres' ? pgHandle() : getDB();
-  const site = opts.site || null;
-  const wm = site ? ' WHERE m.site_code = ?' : '';
-  const p  = site ? [site] : [];
-  const meetings = await H.prepare(`SELECT * FROM md_meetings${site ? ' WHERE site_code = ?' : ''} ORDER BY meeting_date DESC, id`).all(...p);
+  // opts.site: one code, or a LIST (multi-site editors, 2026-10-05 — the route hands over
+  // every code of the account; binding the array as one value broke the export).
+  const codes = (Array.isArray(opts.site) ? opts.site : (opts.site ? [opts.site] : [])).filter(Boolean);
+  const inList = codes.length ? ` IN (${codes.map(() => '?').join(',')})` : '';
+  const wm = codes.length ? ' WHERE m.site_code' + inList : '';
+  const p  = codes;
+  const meetings = await H.prepare(`SELECT * FROM md_meetings${codes.length ? ' WHERE site_code' + inList : ''} ORDER BY meeting_date DESC, id`).all(...p);
   const issues = await H.prepare(`
     SELECT iss.*, m.reference AS meeting_reference, m.site_code AS site_code,
            m.department AS department, m.meeting_date AS meeting_date
@@ -1557,7 +1609,7 @@ async function _listActionsPg(opts = {}) {
   if (opts.department) { where.push('lower(m.department) = lower(@department)'); params.department = opts.department; }
   if (opts.status)     { where.push('a.status = @status');                       params.status = opts.status; }
   if (opts.owner)      { where.push('(a.owner_it ILIKE @owner OR a.owner_email ILIKE @owner)'); params.owner = '%' + opts.owner + '%'; }
-  if (opts.overdue)    { where.push("a.target_date IS NOT NULL AND a.target_date < to_char(current_date,'YYYY-MM-DD') AND a.status NOT IN ('resolved','cancelled','closed')"); }
+  if (opts.overdue)    { where.push("a.target_date IS NOT NULL AND a.target_date < to_char(current_date,'YYYY-MM-DD') AND a.status NOT IN ('resolved','cancelled','closed','demand','helpdesk_ticket')"); }
   if (opts.from)       { where.push('m.meeting_date >= @from'); params.from = opts.from; }
   if (opts.to)         { where.push('m.meeting_date <= @to');   params.to = opts.to; }
   if (opts.q)          { where.push('(a.description ILIKE @q OR a.owner_it ILIKE @q OR a.owner_email ILIKE @q)'); params.q = '%' + opts.q + '%'; }
@@ -1569,7 +1621,7 @@ async function _listActionsPg(opts = {}) {
     FROM md_actions a
     JOIN md_meetings m ON m.id = a.meeting_id
     LEFT JOIN md_issues li ON li.id = a.linked_issue_id ${w}
-    ORDER BY CASE WHEN a.status IN ('resolved','cancelled','closed') THEN 1 ELSE 0 END,
+    ORDER BY CASE WHEN a.status IN ('resolved','cancelled','closed','demand','helpdesk_ticket') THEN 1 ELSE 0 END,
              CASE WHEN a.target_date IS NULL THEN 1 ELSE 0 END, a.target_date ASC, m.meeting_date DESC
     LIMIT @limit OFFSET @offset`).all(params);
 }
@@ -1629,7 +1681,7 @@ function insights(opts = {}) {
       strftime('%Y-%m', m.meeting_date) AS month,
       COUNT(DISTINCT m.id)              AS meetings,
       COUNT(i.id)                       AS issues_opened,
-      SUM(CASE WHEN i.status IN ('resolved','cancelled') THEN 1 ELSE 0 END) AS issues_closed,
+      SUM(CASE WHEN i.status IN ('resolved','cancelled','closed','demand','helpdesk_ticket') THEN 1 ELSE 0 END) AS issues_closed,
       SUM(CASE WHEN i.escalate = 1                     THEN 1 ELSE 0 END) AS escalated
     FROM md_meetings m
     LEFT JOIN md_issues i ON i.meeting_id = m.id
@@ -1762,7 +1814,7 @@ function insights(opts = {}) {
       SUM(CASE WHEN i.severity = 'HIGH' THEN 1 ELSE 0 END) AS high,
       SUM(CASE WHEN i.escalate = 1      THEN 1 ELSE 0 END) AS escalations,
       SUM(CASE WHEN i.target_date IS NOT NULL AND i.target_date < date('now')
-                AND i.status NOT IN ('resolved','cancelled') THEN 1 ELSE 0 END) AS overdue
+                AND i.status NOT IN ('resolved','cancelled','closed','demand','helpdesk_ticket') THEN 1 ELSE 0 END) AS overdue
     FROM md_meetings m
     LEFT JOIN md_issues i ON i.meeting_id = m.id
     WHERE m.meeting_date BETWEEN @from AND @to ${extraW}
@@ -1826,7 +1878,7 @@ async function _insightsPg(opts = {}) {
       substr(m.meeting_date,1,7)        AS month,
       COUNT(DISTINCT m.id)              AS meetings,
       COUNT(i.id)                       AS issues_opened,
-      SUM(CASE WHEN i.status IN ('resolved','cancelled') THEN 1 ELSE 0 END) AS issues_closed,
+      SUM(CASE WHEN i.status IN ('resolved','cancelled','closed','demand','helpdesk_ticket') THEN 1 ELSE 0 END) AS issues_closed,
       SUM(CASE WHEN i.escalate = 1                     THEN 1 ELSE 0 END) AS escalated
     FROM md_meetings m
     LEFT JOIN md_issues i ON i.meeting_id = m.id
@@ -1954,7 +2006,7 @@ async function _insightsPg(opts = {}) {
       SUM(CASE WHEN i.severity = 'HIGH' THEN 1 ELSE 0 END) AS high,
       SUM(CASE WHEN i.escalate = 1      THEN 1 ELSE 0 END) AS escalations,
       SUM(CASE WHEN i.target_date IS NOT NULL AND i.target_date < to_char(current_date,'YYYY-MM-DD')
-                AND i.status NOT IN ('resolved','cancelled') THEN 1 ELSE 0 END) AS overdue
+                AND i.status NOT IN ('resolved','cancelled','closed','demand','helpdesk_ticket') THEN 1 ELSE 0 END) AS overdue
     FROM md_meetings m
     LEFT JOIN md_issues i ON i.meeting_id = m.id
     WHERE m.meeting_date BETWEEN @from AND @to ${extraW}
@@ -2052,11 +2104,11 @@ function aggregate(opts = {}) {
       SUM(CASE WHEN i.severity = 'HIGH'   THEN 1 ELSE 0 END) AS high_issues,
       SUM(CASE WHEN i.severity = 'MEDIUM' THEN 1 ELSE 0 END) AS medium_issues,
       SUM(CASE WHEN i.severity = 'LOW'    THEN 1 ELSE 0 END) AS low_issues,
-      SUM(CASE WHEN i.status IN ('resolved','cancelled') THEN 0 ELSE 1 END) AS open_issues,
-      SUM(CASE WHEN i.escalate = 1 AND i.status NOT IN ('resolved','cancelled') THEN 1 ELSE 0 END) AS escalated_open,
+      SUM(CASE WHEN i.status IN ('resolved','cancelled','closed','demand','helpdesk_ticket') THEN 0 ELSE 1 END) AS open_issues,
+      SUM(CASE WHEN i.escalate = 1 AND i.status NOT IN ('resolved','cancelled','closed','demand','helpdesk_ticket') THEN 1 ELSE 0 END) AS escalated_open,
       SUM(CASE WHEN i.escalate = 1 THEN 1 ELSE 0 END) AS total_escalated,
       SUM(CASE WHEN i.target_date IS NOT NULL AND i.target_date < date('now')
-                AND i.status NOT IN ('resolved','cancelled') THEN 1 ELSE 0 END) AS overdue_issues
+                AND i.status NOT IN ('resolved','cancelled','closed','demand','helpdesk_ticket') THEN 1 ELSE 0 END) AS overdue_issues
     FROM md_issues i
     JOIN md_meetings m ON m.id = i.meeting_id
     ${w}
@@ -2160,10 +2212,10 @@ async function _aggregatePg(opts = {}) {
       SUM(CASE WHEN i.severity='HIGH' THEN 1 ELSE 0 END) AS high_issues,
       SUM(CASE WHEN i.severity='MEDIUM' THEN 1 ELSE 0 END) AS medium_issues,
       SUM(CASE WHEN i.severity='LOW' THEN 1 ELSE 0 END) AS low_issues,
-      SUM(CASE WHEN i.status IN ('resolved','cancelled') THEN 0 ELSE 1 END) AS open_issues,
-      SUM(CASE WHEN i.escalate=1 AND i.status NOT IN ('resolved','cancelled') THEN 1 ELSE 0 END) AS escalated_open,
+      SUM(CASE WHEN i.status IN ('resolved','cancelled','closed','demand','helpdesk_ticket') THEN 0 ELSE 1 END) AS open_issues,
+      SUM(CASE WHEN i.escalate=1 AND i.status NOT IN ('resolved','cancelled','closed','demand','helpdesk_ticket') THEN 1 ELSE 0 END) AS escalated_open,
       SUM(CASE WHEN i.escalate=1 THEN 1 ELSE 0 END) AS total_escalated,
-      SUM(CASE WHEN i.target_date IS NOT NULL AND i.target_date < to_char(current_date,'YYYY-MM-DD') AND i.status NOT IN ('resolved','cancelled') THEN 1 ELSE 0 END) AS overdue_issues
+      SUM(CASE WHEN i.target_date IS NOT NULL AND i.target_date < to_char(current_date,'YYYY-MM-DD') AND i.status NOT IN ('resolved','cancelled','closed','demand','helpdesk_ticket') THEN 1 ELSE 0 END) AS overdue_issues
       FROM md_issues i JOIN md_meetings m ON m.id=i.meeting_id ${w}`).get(params);
   const by_category = await H.prepare(`SELECT i.category, COUNT(*) AS n,
       SUM(CASE WHEN i.severity='HIGH' THEN 1 ELSE 0 END) AS high_n,
@@ -2501,7 +2553,7 @@ function compareDepartment(opts = {}) {
     SELECT i.*, m.reference AS meeting_reference, m.meeting_date AS meeting_date, m.id AS meeting_id_ref
       FROM md_issues i JOIN md_meetings m ON m.id = i.meeting_id
      WHERE m.site_code = ? AND m.department = ?
-       AND i.status NOT IN ('resolved','cancelled')
+       AND i.status NOT IN ('resolved','cancelled','closed','demand','helpdesk_ticket')
      ORDER BY
        CASE i.severity WHEN 'HIGH' THEN 0 WHEN 'MEDIUM' THEN 1 ELSE 2 END,
        CASE WHEN i.target_date IS NULL THEN 1 ELSE 0 END,
@@ -2513,7 +2565,7 @@ function compareDepartment(opts = {}) {
     SELECT i.*, m.reference AS meeting_reference, m.meeting_date AS meeting_date, m.id AS meeting_id_ref
       FROM md_issues i JOIN md_meetings m ON m.id = i.meeting_id
      WHERE m.site_code = ? AND m.department = ?
-       AND i.status IN ('resolved','cancelled')
+       AND i.status IN ('resolved','cancelled','closed','demand','helpdesk_ticket')
        AND (i.closed_at IS NULL OR date(i.closed_at) > date(?))
      ORDER BY i.closed_at DESC, i.id DESC
   `).all(site_code, department, refDate);
@@ -2532,7 +2584,7 @@ function compareDepartment(opts = {}) {
     SELECT a.*, m.reference AS meeting_reference, m.meeting_date AS meeting_date, m.id AS meeting_id_ref
       FROM md_actions a JOIN md_meetings m ON m.id = a.meeting_id
      WHERE m.site_code = ? AND m.department = ?
-       AND a.status NOT IN ('resolved','cancelled')
+       AND a.status NOT IN ('resolved','cancelled','closed','demand','helpdesk_ticket')
      ORDER BY
        CASE WHEN a.target_date IS NULL THEN 1 ELSE 0 END,
        a.target_date ASC, a.id ASC
@@ -2541,7 +2593,7 @@ function compareDepartment(opts = {}) {
     SELECT a.*, m.reference AS meeting_reference, m.meeting_date AS meeting_date, m.id AS meeting_id_ref
       FROM md_actions a JOIN md_meetings m ON m.id = a.meeting_id
      WHERE m.site_code = ? AND m.department = ?
-       AND a.status IN ('resolved','cancelled')
+       AND a.status IN ('resolved','cancelled','closed','demand','helpdesk_ticket')
        AND (a.closed_at IS NULL OR date(a.closed_at) > date(?))
      ORDER BY a.closed_at DESC, a.id DESC
   `).all(site_code, department, refDate);
@@ -2558,7 +2610,7 @@ function compareDepartment(opts = {}) {
     SELECT i.*, m.reference AS meeting_reference, m.meeting_date AS meeting_date, m.id AS meeting_id_ref
       FROM md_issues i JOIN md_meetings m ON m.id = i.meeting_id
      WHERE m.site_code = ? AND m.department = ?
-       AND i.escalate = 1 AND i.status NOT IN ('resolved','cancelled')
+       AND i.escalate = 1 AND i.status NOT IN ('resolved','cancelled','closed','demand','helpdesk_ticket')
      ORDER BY i.severity, i.id
   `).all(site_code, department);
 
@@ -2633,7 +2685,7 @@ async function _compareDepartmentPg(opts = {}) {
     SELECT i.*, m.reference AS meeting_reference, m.meeting_date AS meeting_date, m.id AS meeting_id_ref
       FROM md_issues i JOIN md_meetings m ON m.id = i.meeting_id
      WHERE m.site_code = ? AND m.department = ?
-       AND i.status NOT IN ('resolved','cancelled')
+       AND i.status NOT IN ('resolved','cancelled','closed','demand','helpdesk_ticket')
      ORDER BY
        CASE i.severity WHEN 'HIGH' THEN 0 WHEN 'MEDIUM' THEN 1 ELSE 2 END,
        CASE WHEN i.target_date IS NULL THEN 1 ELSE 0 END,
@@ -2644,7 +2696,7 @@ async function _compareDepartmentPg(opts = {}) {
     SELECT i.*, m.reference AS meeting_reference, m.meeting_date AS meeting_date, m.id AS meeting_id_ref
       FROM md_issues i JOIN md_meetings m ON m.id = i.meeting_id
      WHERE m.site_code = ? AND m.department = ?
-       AND i.status IN ('resolved','cancelled')
+       AND i.status IN ('resolved','cancelled','closed','demand','helpdesk_ticket')
        AND (i.closed_at IS NULL OR substr(i.closed_at,1,10) > ?)
      ORDER BY i.closed_at DESC, i.id DESC
   `).all(site_code, department, refDate);
@@ -2661,7 +2713,7 @@ async function _compareDepartmentPg(opts = {}) {
     SELECT a.*, m.reference AS meeting_reference, m.meeting_date AS meeting_date, m.id AS meeting_id_ref
       FROM md_actions a JOIN md_meetings m ON m.id = a.meeting_id
      WHERE m.site_code = ? AND m.department = ?
-       AND a.status NOT IN ('resolved','cancelled')
+       AND a.status NOT IN ('resolved','cancelled','closed','demand','helpdesk_ticket')
      ORDER BY
        CASE WHEN a.target_date IS NULL THEN 1 ELSE 0 END,
        a.target_date ASC, a.id ASC
@@ -2670,7 +2722,7 @@ async function _compareDepartmentPg(opts = {}) {
     SELECT a.*, m.reference AS meeting_reference, m.meeting_date AS meeting_date, m.id AS meeting_id_ref
       FROM md_actions a JOIN md_meetings m ON m.id = a.meeting_id
      WHERE m.site_code = ? AND m.department = ?
-       AND a.status IN ('resolved','cancelled')
+       AND a.status IN ('resolved','cancelled','closed','demand','helpdesk_ticket')
        AND (a.closed_at IS NULL OR substr(a.closed_at,1,10) > ?)
      ORDER BY a.closed_at DESC, a.id DESC
   `).all(site_code, department, refDate);
@@ -2686,7 +2738,7 @@ async function _compareDepartmentPg(opts = {}) {
     SELECT i.*, m.reference AS meeting_reference, m.meeting_date AS meeting_date, m.id AS meeting_id_ref
       FROM md_issues i JOIN md_meetings m ON m.id = i.meeting_id
      WHERE m.site_code = ? AND m.department = ?
-       AND i.escalate = 1 AND i.status NOT IN ('resolved','cancelled')
+       AND i.escalate = 1 AND i.status NOT IN ('resolved','cancelled','closed','demand','helpdesk_ticket')
      ORDER BY i.severity, i.id
   `).all(site_code, department);
 
@@ -2787,7 +2839,7 @@ const _d10 = (v) => (v ? String(v).slice(0, 10) : null);
 
 function _effClose(i) {
   if (i.closed_at) return _d10(i.closed_at);
-  if (i.status === 'resolved' || i.status === 'cancelled') return i.updated_at ? _d10(i.updated_at) : null;
+  if (_isDone(i.status)) return i.updated_at ? _d10(i.updated_at) : null;
   return null;
 }
 function _openAt(i, t) {
@@ -2865,7 +2917,7 @@ async function _getSiteScoreInputsPg(siteCode, from, to) {
 // `open` = issues whose status is not resolved/cancelled (standing backlog,
 // regardless of which month's PV raised them). `resolved_month` / `new_month`
 // are keyed on closed_at / created_at within the target month.
-const _OPEN_SQL = "i.status NOT IN ('resolved','cancelled')";
+const _OPEN_SQL = "i.status NOT IN ('resolved','cancelled','closed','demand','helpdesk_ticket')";
 function getSiteMonthlyMeetingSummary(siteCode, year, month) {
   if (MEETINGS_BACKEND === 'postgres') return _getSiteMonthlyMeetingSummaryPg(siteCode, year, month);
   const db = getDB();
@@ -2917,7 +2969,7 @@ function getSiteMonthlyMeetingSummary(siteCode, year, month) {
        FROM md_actions a JOIN md_meetings m ON m.id=a.meeting_id
       WHERE m.site_code=@site
         AND a.target_date IS NOT NULL AND date(a.target_date) < date('now')
-        AND a.status NOT IN ('resolved','cancelled','closed')`
+        AND a.status NOT IN ('resolved','cancelled','closed','demand','helpdesk_ticket')`
   ).get({ site: siteCode }) || {};
 
   // Per-department: meeting cadence + issue counts, merged by department.
@@ -3044,7 +3096,7 @@ async function _getSiteMonthlyMeetingSummaryPg(siteCode, year, month) {
        FROM md_actions a JOIN md_meetings m ON m.id=a.meeting_id
       WHERE m.site_code=@site
         AND a.target_date IS NOT NULL AND a.target_date::date < current_date
-        AND a.status NOT IN ('resolved','cancelled','closed')`
+        AND a.status NOT IN ('resolved','cancelled','closed','demand','helpdesk_ticket')`
   ).get({ site: siteCode })) || {};
 
   const deptMeet = await H.prepare(

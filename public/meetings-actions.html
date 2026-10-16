@@ -14,6 +14,7 @@
 <script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
 <link rel="stylesheet" href="module-tabs.css">
 <script nonce="%%CSP_NONCE%%" src="module-tabs.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/statusTransfer.js"></script>
 <!-- Analytics dashboard + client-side PPTX export -->
 <script nonce="%%CSP_NONCE%%" src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js" defer></script>
 <script nonce="%%CSP_NONCE%%" src="jszip.min.js"></script>
@@ -307,7 +308,8 @@
     return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
   };
   const todayIso = () => new Date().toISOString().slice(0, 10);
-  const TERMINAL = new Set(['resolved', 'cancelled', 'closed']);
+  // + demand / helpdesk_ticket (2026-10-16 — public/lib/statusTransfer.js)
+  const TERMINAL = new Set(window.StatusTransfer ? window.StatusTransfer.DONE : ['resolved', 'cancelled', 'closed']);
   const canEdit = !!(window.__userHasRole && window.__userHasRole('editor'));
 
   const state = {
@@ -331,7 +333,7 @@
       { l: 'Open',          v: agg.open,     k: 'warning', s: 'not yet closed' },
       { l: 'Overdue',       v: agg.overdue,  k: 'danger',  s: 'past target date' },
       { l: 'No champion',   v: agg.noOwner,  k: 'esc',     s: 'open & unassigned' },
-      { l: 'Closed',        v: agg.closed,   k: 'ok',      s: 'resolved / cancelled' },
+      { l: 'Closed',        v: agg.closed,   k: 'ok',      s: 'resolved / cancelled / transferred' },
     ];
     document.getElementById('miKpis').innerHTML = tiles.map(t => `
       <div class="mi-kpi mi-kpi--${t.k}">
@@ -530,13 +532,23 @@
     const selEl  = e.target;
     const id     = selEl.getAttribute('data-act');
     const status = selEl.value;
+    // Transfer statuses (2026-10-16): demand / helpdesk_ticket / cancelled need a justification.
+    const payload = { status_change: status };
+    const ST = window.StatusTransfer;
+    if (ST && ST.isTransfer(status)) {
+      const row = (state.actions || []).find(x => String(x.id) === String(id));
+      const t = await ST.ask(status, { title: row ? row.description : '' });
+      if (!t) { await loadAll(); return; }
+      payload.body = t.note;
+      if (t.ticket) payload.helpdesk_ticket = t.ticket;
+    }
     selEl.disabled = true;
     try {
       const r = await fetch(API + '/actions/' + encodeURIComponent(id) + '/update', {
         method: 'POST',
         credentials: 'same-origin',
         headers: authHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ status_change: status }),
+        body: JSON.stringify(payload),
       });
       if (!r.ok) {
         const j = await r.json().catch(() => ({}));
@@ -629,7 +641,7 @@
       const kt = [
         ['Total', agg.total, PX.blue, 'in scope'], ['Open', agg.open, PX.amber, 'not yet closed'],
         ['Overdue', agg.overdue, PX.red, 'past target date'], ['No champion', agg.noOwner, PX.purple, 'open & unassigned'],
-        ['Closed', agg.closed, PX.green, 'resolved / cancelled'],
+        ['Closed', agg.closed, PX.green, 'resolved / cancelled / transferred'],
       ];
       const ktW = (CW - 4 * 0.16) / 5;
       kt.forEach((t, i) => kpiTile(s1, X0 + i * (ktW + 0.16), 1.12, ktW, t[0], t[1], t[2], t[3]));

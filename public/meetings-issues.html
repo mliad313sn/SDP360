@@ -14,6 +14,7 @@
 <script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
 <link rel="stylesheet" href="module-tabs.css">
 <script nonce="%%CSP_NONCE%%" src="module-tabs.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/statusTransfer.js"></script>
 
 <style nonce="%%CSP_NONCE%%">
   body {
@@ -299,7 +300,8 @@
     return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
   };
   const todayIso = () => new Date().toISOString().slice(0, 10);
-  const TERMINAL = new Set(['resolved', 'cancelled']);
+  // + demand / helpdesk_ticket (2026-10-16 — public/lib/statusTransfer.js)
+  const TERMINAL = new Set(window.StatusTransfer ? window.StatusTransfer.DONE : ['resolved', 'cancelled']);
 
   // ── RBAC (client-side, to avoid dead clicks only — the SERVER is the
   // enforcement point: POST /issues/:id/update 403s on cross-site writes and
@@ -487,7 +489,7 @@
     const body = rows.map(r => {
       const st  = stsByCode[r.status]   || { color: '#6B7785', name_en: r.status };
       const sev = sevByCode[r.severity] || { color: '#6B7785', name_en: r.severity };
-      const overdue = r.target_date && r.target_date < today && r.status !== 'resolved' && r.status !== 'cancelled';
+      const overdue = r.target_date && r.target_date < today && !TERMINAL.has(r.status);
       return `
         <div class="mi-row" role="row">
           <span class="mi-row__site">${esc(r.site_code)}</span>
@@ -539,13 +541,23 @@
     const prev   = selEl.getAttribute('data-prev');
     const status = selEl.value;
     if (status === prev) return;
+    // Transfer statuses (2026-10-16): demand / helpdesk_ticket / cancelled need a justification.
+    const payload = { status_change: status };
+    const ST = window.StatusTransfer;
+    if (ST && ST.isTransfer(status)) {
+      const row0 = state.issues.find(x => String(x.id) === String(id));
+      const t = await ST.ask(status, { title: row0 ? row0.title : '' });
+      if (!t) { selEl.value = prev; return; }
+      payload.body = t.note;
+      if (t.ticket) payload.helpdesk_ticket = t.ticket;
+    }
     selEl.disabled = true;
     try {
       const r = await fetch(API + '/issues/' + encodeURIComponent(id) + '/update', {
         method: 'POST',
         credentials: 'same-origin',
         headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
-        body: JSON.stringify({ status_change: status }),
+        body: JSON.stringify(payload),
       });
       if (!r.ok) {
         const j = await r.json().catch(() => ({}));
@@ -556,6 +568,8 @@
       const row = state.issues.find(x => String(x.id) === String(id));
       if (row) {
         row.status = status;
+        row.status_note = payload.body && ST && ST.isTransfer(status) ? payload.body : null;
+        row.helpdesk_ticket = payload.helpdesk_ticket || null;
         if (TERMINAL.has(status)) row.closed_at = row.closed_at || new Date().toISOString();
         else row.closed_at = null;
       }

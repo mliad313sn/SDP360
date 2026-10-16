@@ -562,6 +562,7 @@ body {
 .ip-cell--half { background: rgba(217,119,6,.08); color: #92400E; }
 .ip-cell--current { box-shadow: 0 0 0 1px rgba(239,99,26,.20); }
 .ip-cell--future { opacity: 0.55; }
+.ip-cell--closed { background: #F1F5F9 !important; color: #64748B; cursor: not-allowed; }
 
 /* ════════════════════════════════════════════════════════════════════ */
 /* HEATMAP PANEL                                                          */

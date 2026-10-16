@@ -5764,7 +5764,7 @@ app.get('/api/reports/:id/importable-actions', requireReportSession, async (req,
     const match = (codes || []).find((c) => c.site_id === rep.site_id);
     const code = match ? match.code : null;
     if (!code) return res.json({ site: null, meetings: [], inspection: [] });
-    const TERM_M = new Set(['resolved', 'cancelled', 'closed']);
+    const TERM_M = new Set(statusTransfer.DONE);   // + demand / helpdesk_ticket (2026-10-16)
     const TERM_I = new Set(['closed', 'cancelled']);
     const open = (rows, term) => (rows || []).filter((a) => !term.has(String(a.status || '').toLowerCase()));
     const m = open(await meetingsDb.listActions({ site: code }), TERM_M);
@@ -7691,7 +7691,10 @@ app.post('/api/tracker/save', requireReportSession, requireRole(['super_admin', 
       }
     }
 
-    await trackerDb.saveTracker(D, userSite);
+    // Closed months (2026-10-16): below super_admin a past month keeps its stored value.
+    const lockClosed = !rdb.userHasRole(req.reportUser, 'super_admin');
+    const saved = (await trackerDb.saveTracker(D, userSite, { lockClosed })) || {};
+    const blocked = saved.blocked || 0;
 
     // Audit log — grep-friendly. Same shape as [Inspection] save ok lines.
     // Lets ops trace every persistence event (`pm2 logs … | findstr Tracker`)
@@ -7708,7 +7711,8 @@ app.post('/api/tracker/save', requireReportSession, requireRole(['super_admin', 
       `scope=${userSite ? userSites.scopeLabel(userSite) : 'all'} years=${yrs} sites=${sites} activities=${acts} size=${sizeKB}KB`
     );
 
-    res.json({ ok: true, scope: userSite ? userSites.scopeLabel(userSite) : 'all' });
+    if (blocked) console.log(`[Tracker] closed-month edits ignored user=${user.username || '?'} cells=${blocked}`);
+    res.json({ ok: true, scope: userSite ? userSites.scopeLabel(userSite) : 'all', closed_blocked: blocked });
   } catch(e) {
     console.error('[Tracker] save error:', e.message);
     res.status(500).json({ error: e.message });
@@ -7741,12 +7745,14 @@ app.post('/api/tracker/import-dept-meetings', requireReportSession, requireRole(
     const meetingsCode = trackerToMeetingsCode(site);
     if (!meetingsCode) return res.status(400).json({ error: `No Meetings module for site "${site}" — nothing to import.` });
 
-    const { months } = await deptMeetingCounts({ trackerCode: site, year, countFn: (o) => meetingsDb.countMeetings(o) });
-    const r = await trackerDb.setActivityMonthsByName(year, site, 'Monthly Department Meeting', months);
+    let { months } = await deptMeetingCounts({ trackerCode: site, year, countFn: (o) => meetingsDb.countMeetings(o) });
+    const r = await trackerDb.setActivityMonthsByName(year, site, 'Monthly Department Meeting', months,
+      { lockClosed: !rdb.userHasRole(req.reportUser, 'super_admin') });   // closed months keep their stored value
     if (!r || !r.ok) return res.status(404).json({ error: 'Tracker has no "Monthly Department Meeting" activity for this year.' });
+    months = r.months;
 
     console.log(`[Tracker] import-dept-meetings user=${req.reportUser?.username || '?'} site=${site} year=${year} months=${JSON.stringify(months)}`);
-    res.json({ ok: true, site, year, meetingsCode, months, total: months.reduce((a, b) => a + b, 0) });
+    res.json({ ok: true, site, year, meetingsCode, months, total: months.reduce((a, b) => a + (Number(b) || 0), 0), closed_blocked: r.blocked || 0 });
   } catch (e) {
     console.error('[Tracker] import-dept-meetings error:', e.message);
     res.status(500).json({ error: e.message });
@@ -8431,7 +8437,7 @@ app.get('/api/meetings/export.xlsx', requireReportSession, async (req, res) => {
     ]);
     const stamp = new Date().toISOString().slice(0, 10);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename="Meetings_${scope.site || 'full'}_${stamp}.xlsx"`);
+    res.setHeader('Content-Disposition', `attachment; filename="Meetings_${Array.isArray(scope.site) ? scope.site.join('-') : (scope.site || 'full')}_${stamp}.xlsx"`);
     res.send(buf);
   } catch(e) {
     console.error('[Meetings] excel export error:', e.message);
@@ -8485,11 +8491,14 @@ app.post('/api/meetings/actions/:id/update', requireReportSession, meetingsJsonB
       return res.status(403).json({ error: `Action belongs to ${parent.site_code}; you are scoped to ${userSite}` });
     }
     const body = req.body || {};
+    const tErr = statusTransfer.validate(body.status_change, body.body, body.helpdesk_ticket);
+    if (tErr) return res.status(400).json({ error: tErr });
     await meetingsDb.addActionUpdate(actionId, {
       author_id:     req.reportUser.id || null,
       author_name:   req.reportUser.full_name || req.reportUser.username,
       body:          body.body || '',
       status_change: body.status_change || null,
+      helpdesk_ticket: body.helpdesk_ticket || null,
     });
     res.json({ ok: true });
   } catch(e) {
@@ -8590,6 +8599,11 @@ app.post('/api/meetings/save', requireReportSession, meetingsJsonBody, async (re
     state.author_name = state.author_name || req.reportUser.full_name || req.reportUser.username;
     const userSite = await _userMeetingsSite(req.reportUser, state.header && state.header.site_code);
     if (_sitelessWriteDenied(req.reportUser, userSite)) return res.status(403).json({ error: 'Your account has no site assigned for this module. Contact your administrator.' });
+    // Transfer statuses (2026-10-16): an issue / action ENTERING demand, helpdesk_ticket or
+    // cancelled needs its justification (+ the SDP ticket number). Rows already in that status
+    // are left alone (history predates the rule); the bulk import does not pass through here.
+    const transferErr = await _meetingTransferError(state);
+    if (transferErr) return res.status(400).json({ error: transferErr });
     // multi-site editors: the DB guard takes the full list of their codes
     const out      = await meetingsDb.saveMeeting(state, await _userMeetingsSites(req.reportUser), req.reportUser.id || null);
     // Business Incubation entered by hand (2026-10-03): state.incubation carries §1-§4 of
@@ -8607,6 +8621,27 @@ app.post('/api/meetings/save', requireReportSession, meetingsJsonBody, async (re
     res.status(isScope ? 403 : 500).json({ error: e.message });
   }
 });
+
+// Transfer statuses (2026-10-16) — public/lib/statusTransfer.js is the rule, shared with the pages.
+const statusTransfer = require('./public/lib/statusTransfer');
+async function _meetingTransferError(state) {
+  const id = state && state.id ? parseInt(state.id, 10) : null;
+  let old = null;
+  try { old = id ? await meetingsDb.getMeeting(id) : null; } catch (_) { old = null; }   // sync on sqlite, a Promise on pg
+  const before = (rows) => new Map(((rows) || []).map(r => [Number(r.id), r.status]));
+  const oi = before(old && old.issues), oa = before(old && old.actions);
+  const check = (rows, prev, what) => {
+    for (const r of (rows || [])) {
+      if (!statusTransfer.isTransfer(r.status)) continue;
+      if (r.id != null && prev.get(Number(r.id)) === r.status) continue;   // not a transition
+      const err = statusTransfer.validate(r.status, r.status_note, r.helpdesk_ticket);
+      if (err) return `${what} « ${String(r.title || r.description || '').slice(0, 60)} » : ${err}`;
+    }
+    return null;
+  };
+  return (state.issues !== undefined && check(state.issues, oi, 'Problème'))
+      || (state.actions !== undefined && check(state.actions, oa, 'Action')) || null;
+}
 
 // POST /api/meetings/issues/:id/update — append an audit-trail comment
 // or status / escalate change to a single issue.
@@ -8633,11 +8668,14 @@ app.post('/api/meetings/issues/:id/update', requireReportSession, meetingsJsonBo
     // RBAC lot 4c: an issue under a CLOSED PV is editable by an editor of that site.
 
     const body = req.body || {};
+    const tErr = statusTransfer.validate(body.status_change, body.body, body.helpdesk_ticket);
+    if (tErr) return res.status(400).json({ error: tErr });
     await meetingsDb.addIssueUpdate(issueId, {
       author_id:       req.reportUser.id || null,
       author_name:     req.reportUser.full_name || req.reportUser.username,
       body:            body.body || '',
       status_change:   body.status_change || null,
+      helpdesk_ticket: body.helpdesk_ticket || null,
       escalate_change: typeof body.escalate_change === 'boolean' ? body.escalate_change
                        : (body.escalate_change === 1 ? true : body.escalate_change === 0 ? false : null),
     });

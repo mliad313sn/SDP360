@@ -51,7 +51,9 @@
     { "code": "blocked",     "name_en": "Blocked",     "name_fr": "Bloqué",        "color": "#D90038", "is_terminal": 0, "display_order": 3 },
     { "code": "on_hold",     "name_en": "On hold",     "name_fr": "En attente",    "color": "#D97706", "is_terminal": 0, "display_order": 4 },
     { "code": "resolved",    "name_en": "Resolved",    "name_fr": "Résolu",        "color": "#1B9A3A", "is_terminal": 1, "display_order": 5 },
-    { "code": "cancelled",   "name_en": "Cancelled",   "name_fr": "Annulé",        "color": "#94A3B8", "is_terminal": 1, "display_order": 6 }
+    { "code": "cancelled",   "name_en": "Cancelled",   "name_fr": "Annulé",        "color": "#94A3B8", "is_terminal": 1, "display_order": 6 },
+    {"code": "demand", "name_en": "Demand / Initiative", "name_fr": "Demande / Initiative", "color": "#7C3AED", "is_terminal": 1, "display_order": 7},
+    {"code": "helpdesk_ticket", "name_en": "Helpdesk ticket", "name_fr": "Ticket Helpdesk", "color": "#0891B2", "is_terminal": 1, "display_order": 8}
   ],
 
   "meeting_statuses": [

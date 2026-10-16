@@ -47,7 +47,9 @@ function computeRoles(scope, scopes) {
   const USER_SITE    = USER_SITES ? USER_SITES[0] : null;
   // Same gate as POST /api/tracker/export (A2): admin tier or tracker-admin.
   const CAN_EXPORT   = hasRole('admin') || hasRole('tracker-admin');
-  return { IS_EXEC, CAN_RESET, CAN_SAVE_ALL, CAN_SAVE_OWN, CAN_SAVE, USER_SITE, USER_SITES, CAN_EXPORT };
+  // Closed months (2026-10-16): only super_admin may change a past month (server enforces too).
+  const IS_SUPER     = hasRole('super_admin');
+  return { IS_EXEC, CAN_RESET, CAN_SAVE_ALL, CAN_SAVE_OWN, CAN_SAVE, USER_SITE, USER_SITES, CAN_EXPORT, IS_SUPER };
 }
 
 const fmtDelta = (n) => {
@@ -928,6 +930,12 @@ function InputPanel({ D, S, setS, roles, onMutate }) {
   const [site, setSite] = useState(initialSite);
 
   const canSave = roles.CAN_SAVE;
+  // Closed months (2026-10-16): a past month is read-only below super_admin — the current
+  // month, plus the previous one until the 5th (public/lib/trackerMonthLock.js; the server
+  // applies the same rule and keeps the stored value whatever the page sends).
+  const ML = window.TrackerMonthLock;
+  const isClosedMonth = (mi) => !!(ML && !roles.IS_SUPER && ML.isClosed(S.year, mi));
+  const anyClosed = canSave && Array.from({ length: 12 }, (_, mi) => isClosedMonth(mi)).some(Boolean);
   const [importing, setImporting] = useState(false);
   // Bumped whenever cell values change OUTSIDE the inputs themselves (e.g. the
   // dept-meetings import writes into D via si2). The number cells are
@@ -1015,6 +1023,12 @@ function InputPanel({ D, S, setS, roles, onMutate }) {
           <code> tracker-editor </code> (own site) or <code> tracker-admin </code> (all sites) feature role.
         </div>
       )}
+      {anyClosed && (
+        <div className="tt-banner tt-banner--warn">
+          <b>🔒 Mois clôturés</b> — les mois passés sont en lecture seule (le mois précédent reste modifiable
+          jusqu'au {ML.GRACE_DAY} du mois en cours). Seul un <code>super_admin</code> peut corriger un mois clôturé.
+        </div>
+      )}
       <div className="ip-toolbar">
         <SitePicker D={D} value={site} onChange={setSite} lockSites={lockSites} />
         {canSave && (
@@ -1071,7 +1085,9 @@ function InputPanel({ D, S, setS, roles, onMutate }) {
                 const v = TR.gi(D, S.year, site, ai, mi);
                 const isCurrent = mi + 1 === S.month;
                 const isFuture  = mi + 1 > S.month;
-                const cellCls = 'ip-cell' + (v > 0 ? (v === 0.5 ? ' ip-cell--half' : ' ip-cell--has') : '') + (isCurrent ? ' ip-cell--current' : '') + (isFuture ? ' ip-cell--future' : '');
+                const closed    = isClosedMonth(mi);
+                const cellCls = 'ip-cell' + (v > 0 ? (v === 0.5 ? ' ip-cell--half' : ' ip-cell--has') : '') + (isCurrent ? ' ip-cell--current' : '') + (isFuture ? ' ip-cell--future' : '') + (closed ? ' ip-cell--closed' : '');
+                const closedTitle = closed ? 'Mois clôturé — modifiable par un super_admin uniquement' : undefined;
                 if (a.kpi === 'BOOLEAN') {
                   return (
                     <select
@@ -1079,7 +1095,8 @@ function InputPanel({ D, S, setS, roles, onMutate }) {
                       className={cellCls}
                       value={String(v)}
                       onChange={e => setCell(ai, mi, e.target.value)}
-                      disabled={!canSave || isInactive}
+                      disabled={!canSave || isInactive || closed}
+                      title={closedTitle}
                     >
                       <option value="0">·</option>
                       <option value="0.5">½</option>
@@ -1096,7 +1113,8 @@ function InputPanel({ D, S, setS, roles, onMutate }) {
                     min="0"
                     defaultValue={v}
                     onChange={e => setCell(ai, mi, e.target.value)}
-                    disabled={!canSave || isInactive}
+                    disabled={!canSave || isInactive || closed}
+                    title={closedTitle}
                   />
                 );
               })}
@@ -2450,8 +2468,14 @@ function App() {
     const tag = ++lastSaveRef.current;
     setSyncState('saving');
     try {
-      await window.TRApi.save(D);
+      const res = await window.TRApi.save(D);
       if (tag !== lastSaveRef.current) return;   // a newer save started; ignore
+      if (res && res.closed_blocked) {
+        // A closed month was edited (stale tab): the server kept the stored value — say so and resync.
+        window.alert(res.closed_blocked + " valeur(s) de mois clôturés n'ont pas été enregistrées : seul un super_admin peut modifier un mois passé. La page va se recharger.");
+        window.location.reload();
+        return;
+      }
       setDirty(false);
       setSyncError(null);
       setSyncState('synced');

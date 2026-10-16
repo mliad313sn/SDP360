@@ -410,8 +410,9 @@ async function _syncYearStructurePg(year, yd) {
   return actIdByIx;
 }
 
-async function _saveV2Pg(D, userSite) {
+async function _saveV2Pg(D, userSite, opts = {}) {
   const h = pgHandle();
+  const lock = _lockFor(opts);
   const byYear = D.byYear || {};
   await h.runTransaction(async () => {
     const actIdMaps = {};
@@ -439,6 +440,7 @@ async function _saveV2Pg(D, userSite) {
     const qIds = h.prepare(`
       SELECT a.id FROM tracker_activities a JOIN tracker_pillars p ON p.id = a.pillar_id
       WHERE p.year = ? ORDER BY a.display_order, a.id`);
+    const qOld = h.prepare('SELECT months_json FROM tracker_inputs_v2 WHERE year = ? AND site = ? AND activity_id = ?');
     for (const [yStr, sites] of Object.entries(D.inputs || {})) {
       const y = parseInt(yStr, 10);
       if (!Number.isFinite(y)) continue;
@@ -446,15 +448,17 @@ async function _saveV2Pg(D, userSite) {
       for (const [site, arr] of Object.entries(sites || {})) {
         if (userSite && !_inScope(site, userSite)) continue;
         for (let ix = 0; ix < (arr || []).length; ix++) {
-          const months = arr[ix];
+          let months = arr[ix];
           const aid = ids[ix];
           if (!aid || !Array.isArray(months)) continue;
+          if (lock && lock.touches(y)) months = lock.apply(y, months, _parseMonths(await qOld.get(y, site, aid)));
           await insI.run(y, site, aid, JSON.stringify(months));
         }
       }
     }
   });
   console.log('[Tracker-DB] saveTracker v2 (postgres per-year) — legacy untouched');
+  return { blocked: lock ? lock.blocked : 0 };
 }
 
 async function _previewDeleteTrackerYearPg(year) {
@@ -1522,8 +1526,9 @@ function _syncYearStructure(db, year, yd) {
   return actIdByIx;
 }
 
-function _saveV2(db, D, userSite) {
+function _saveV2(db, D, userSite, opts = {}) {
   const byYear = D.byYear || {};
+  const lock = _lockFor(opts);
   const tx = db.transaction(() => {
     const actIdMaps = {};   // year → position → activity_id
     if (!userSite) {
@@ -1559,6 +1564,7 @@ function _saveV2(db, D, userSite) {
       SELECT a.id FROM tracker_activities a
       JOIN tracker_pillars p ON p.id = a.pillar_id
       WHERE p.year = ? ORDER BY a.display_order, a.id`);
+    const qOld = db.prepare('SELECT months_json FROM tracker_inputs_v2 WHERE year = ? AND site = ? AND activity_id = ?');
     for (const [yStr, sites] of Object.entries(D.inputs || {})) {
       const y = parseInt(yStr, 10);
       if (!Number.isFinite(y)) continue;
@@ -1570,6 +1576,7 @@ function _saveV2(db, D, userSite) {
         (arr || []).forEach((months, ix) => {
           const aid = ids[ix];
           if (!aid || !Array.isArray(months)) return;
+          if (lock && lock.touches(y)) months = lock.apply(y, months, _parseMonths(qOld.get(y, site, aid)));
           insI.run(y, site, aid, JSON.stringify(months));
         });
       }
@@ -1577,18 +1584,44 @@ function _saveV2(db, D, userSite) {
   });
   tx();
   console.log('[Tracker-DB] saveTracker v2 (per-year mode) — legacy singleton untouched');
+  return { blocked: lock ? lock.blocked : 0 };
 }
 
-function saveTracker(D, userSite) {
-  if (TRACKER_BACKEND === 'postgres') return _saveV2Pg(D, userSite);   // async (caller awaits)
+// Closed months (2026-10-16): below super_admin, a past month keeps its STORED value
+// (public/lib/trackerMonthLock.js — same rule as the Input tab). opts.lockClosed = true
+// turns the guard on; opts.now overrides the clock (tests).
+const _monthLock = require('./public/lib/trackerMonthLock');
+function _parseMonths(row) {
+  if (!row || row.months_json == null) return null;
+  try { const a = JSON.parse(row.months_json); return Array.isArray(a) ? a : null; } catch (_) { return null; }
+}
+function _lockFor(opts) {
+  if (!opts || !opts.lockClosed) return null;
+  const now = opts.now || new Date();
+  const c = _monthLock.cutoff(now);
+  const lock = {
+    blocked: 0,
+    touches: (y) => Number(y) * 12 < c,           // the year holds at least one closed month
+    apply: (y, months, stored) => {
+      const r = _monthLock.mergeClosed(y, months, stored, now);
+      lock.blocked += r.blocked;
+      return r.months;
+    },
+  };
+  return lock;
+}
+
+function saveTracker(D, userSite, opts = {}) {
+  if (TRACKER_BACKEND === 'postgres') return _saveV2Pg(D, userSite, opts);   // async (caller awaits)
   const db = getDB();
+  const lock = _lockFor(opts);
 
   // ── PHASE 4d write path ─────────────────────────────────────────
   // Once TRACKER_PER_YEAR_EDITS=1, the per-year v2 path takes over and
   // the legacy singleton is frozen (read-only forensics). Before the
   // flip, the original legacy-first dual-write below stays in charge.
   if (String(process.env.TRACKER_PER_YEAR_EDITS || '').trim() === '1') {
-    return _saveV2(db, D, userSite);
+    return _saveV2(db, D, userSite, opts);
   }
 
   if (!userSite) {
@@ -1626,6 +1659,7 @@ function saveTracker(D, userSite) {
     INSERT OR REPLACE INTO tracker_inputs (year, site, activity_ix, months_json, updated_at)
     VALUES (?, ?, ?, ?, datetime('now'))
   `);
+  const qOldLegacy = db.prepare('SELECT months_json FROM tracker_inputs WHERE year = ? AND site = ? AND activity_ix = ?');
   const saveInputs = db.transaction(() => {
     for (const [yr, sites] of Object.entries(D.inputs || {})) {
       for (const [site, activities] of Object.entries(sites)) {
@@ -1633,7 +1667,9 @@ function saveTracker(D, userSite) {
         if (userSite && !_inScope(site, userSite)) continue;
         (activities || []).forEach((months, ix) => {
           if (Array.isArray(months)) {
-            insInput.run(parseInt(yr, 10), site, ix, JSON.stringify(months));
+            const y = parseInt(yr, 10);
+            if (lock && lock.touches(y)) months = lock.apply(y, months, _parseMonths(qOldLegacy.get(y, site, ix)));
+            insInput.run(y, site, ix, JSON.stringify(months));
           }
         });
       }
@@ -1677,6 +1713,7 @@ function saveTracker(D, userSite) {
     // user into thinking their save was lost.
     console.error('[Tracker-DB] saveTracker dual-write failed (legacy save was OK):', e.message);
   }
+  return { blocked: lock ? lock.blocked : 0 };
 }
 
 /**
@@ -1880,36 +1917,42 @@ function deleteTrackerYear(year) {
 // POST /api/tracker/import-dept-meetings to write the real Meetings-module
 // counts into the "Monthly Department Meeting" activity. Returns
 // { ok, activity_id, year, site, months } or { ok:false, reason }.
-function _setActivityMonthsSqlite(year, siteCode, activityName, months) {
+function _setActivityMonthsSqlite(year, siteCode, activityName, months, opts = {}) {
   const db = getDB();
   const act = db.prepare(`
     SELECT a.id FROM tracker_activities a JOIN tracker_pillars p ON p.id = a.pillar_id
     WHERE p.year = ? AND lower(a.name) = lower(?) ORDER BY a.display_order, a.id LIMIT 1`
   ).get(year, activityName);
   if (!act) return { ok: false, reason: 'activity-not-found', activityName, year };
+  const lock = _lockFor(opts);
+  if (lock && lock.touches(year)) months = lock.apply(year, months, _parseMonths(
+    db.prepare('SELECT months_json FROM tracker_inputs_v2 WHERE year = ? AND site = ? AND activity_id = ?').get(year, siteCode, act.id)));
   db.prepare(`
     INSERT INTO tracker_inputs_v2 (year, site, activity_id, months_json) VALUES (?, ?, ?, ?)
     ON CONFLICT (year, site, activity_id) DO UPDATE SET months_json=excluded.months_json, updated_at=datetime('now')`
   ).run(year, siteCode, act.id, JSON.stringify(months));
-  return { ok: true, activity_id: act.id, year, site: siteCode, months };
+  return { ok: true, activity_id: act.id, year, site: siteCode, months, blocked: lock ? lock.blocked : 0 };
 }
-async function _setActivityMonthsPg(year, siteCode, activityName, months) {
+async function _setActivityMonthsPg(year, siteCode, activityName, months, opts = {}) {
   const h = pgHandle();
   const act = await h.prepare(`
     SELECT a.id FROM tracker_activities a JOIN tracker_pillars p ON p.id = a.pillar_id
     WHERE p.year = ? AND lower(a.name) = lower(?) ORDER BY a.display_order, a.id LIMIT 1`
   ).get(year, activityName);
   if (!act) return { ok: false, reason: 'activity-not-found', activityName, year };
+  const lock = _lockFor(opts);
+  if (lock && lock.touches(year)) months = lock.apply(year, months, _parseMonths(
+    await h.prepare('SELECT months_json FROM tracker_inputs_v2 WHERE year = ? AND site = ? AND activity_id = ?').get(year, siteCode, act.id)));
   await h.prepare(`
     INSERT INTO tracker_inputs_v2 (year, site, activity_id, months_json) VALUES (?, ?, ?, ?)
     ON CONFLICT (year, site, activity_id) DO UPDATE SET months_json=EXCLUDED.months_json, updated_at=now()`
   ).run(year, siteCode, act.id, JSON.stringify(months));
-  return { ok: true, activity_id: act.id, year, site: siteCode, months };
+  return { ok: true, activity_id: act.id, year, site: siteCode, months, blocked: lock ? lock.blocked : 0 };
 }
-function setActivityMonthsByName(year, siteCode, activityName, months) {
+function setActivityMonthsByName(year, siteCode, activityName, months, opts = {}) {
   return TRACKER_BACKEND === 'postgres'
-    ? _setActivityMonthsPg(year, siteCode, activityName, months)
-    : _setActivityMonthsSqlite(year, siteCode, activityName, months);
+    ? _setActivityMonthsPg(year, siteCode, activityName, months, opts)
+    : _setActivityMonthsSqlite(year, siteCode, activityName, months, opts);
 }
 
 module.exports = { loadTracker, saveTracker, resetTracker, deleteTrackerYear, previewDeleteTrackerYear, backupDatabase, siteNameToCode, siteToCode, getActivityCode, setActivityMonthsByName, getDB, TRACKER_BACKEND, initPgTracker, pgHandle };

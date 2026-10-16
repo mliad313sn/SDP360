@@ -14,6 +14,7 @@
 <script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
 <link rel="stylesheet" href="module-tabs.css">
 <script nonce="%%CSP_NONCE%%" src="module-tabs.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/statusTransfer.js"></script>
 <script src="lib/incubationEditor.js"></script>
 
 <style nonce="%%CSP_NONCE%%">
@@ -959,7 +960,7 @@
           <div class="pv-field"><label>Severity <em>· Gravité</em></label>
             <select data-k="severity">${optSev}</select></div>
           <div class="pv-field"><label>Status</label>
-            <select data-k="status">${optSt}</select></div>
+            <select data-k="status" data-prev="${esc(iss.status || 'open')}">${optSt}</select>${transferNote(iss)}</div>
           <div class="pv-field"><label>Target date <em>· Date cible</em></label>
             <input type="date" data-k="target_date" value="${esc(iss.target_date || '')}"></div>
         </div>
@@ -1041,7 +1042,7 @@
           <div class="pv-field"><label>Target date <em>· Échéance</em></label>
             <input type="date" data-k="target_date" value="${esc(a.target_date || '')}"></div>
           <div class="pv-field"><label>Status</label>
-            <select data-k="status">${optSt}</select></div>
+            <select data-k="status" data-prev="${esc(a.status || 'open')}">${optSt}</select>${transferNote(a)}</div>
         </div>
         <div class="pv-row pv-row--single">
           <div class="pv-field"><label>Linked issue <em>· Problème lié</em></label>
@@ -1169,6 +1170,32 @@
     state.actions.push({ status: 'open' });
     renderActions();
   });
+
+  // Transfer statuses (2026-10-16): demand / helpdesk_ticket / cancelled need a justification
+  // (+ the SDP ticket number). The note rides on the row (status_note / helpdesk_ticket) and the
+  // server refuses a save whose transition lacks it — public/lib/statusTransfer.js.
+  function transferNote(it) {
+    const ST = window.StatusTransfer;
+    if (!ST || !ST.isTransfer(it.status) || !(it.status_note || it.helpdesk_ticket)) return '';
+    return `<div class="pv-transfer-note" style="font-size:11.5px;color:#475569;margin-top:4px;line-height:1.35">↳ ${it.helpdesk_ticket ? '<b>Ticket SDP #' + esc(it.helpdesk_ticket) + '</b> · ' : ''}${esc(it.status_note || '')}</div>`;
+  }
+  async function onTransferStatus(e, key, rerender) {
+    const list = state[key];
+    if (e.target.dataset.k !== 'status') return;
+    const ST = window.StatusTransfer;
+    const sel = e.target, card = sel.closest('.pv-item');
+    if (!card || !ST) return;
+    const ix = parseInt(card.dataset.ix, 10);
+    const prev = sel.dataset.prev || 'open';
+    if (!ST.isTransfer(sel.value) || sel.value === prev) return;
+    const it = list[ix] || {};
+    const t = await ST.ask(sel.value, { title: it.title || it.description || '' });
+    if (!t) { sel.value = prev; list[ix] = { ...it, status: prev }; return; }
+    list[ix] = { ...it, status: sel.value, status_note: t.note, helpdesk_ticket: t.ticket || null };
+    rerender();
+  }
+  document.getElementById('pvIssues').addEventListener('change', e => onTransferStatus(e, 'issues', renderIssues));
+  document.getElementById('pvActions').addEventListener('change', e => onTransferStatus(e, 'actions', renderActions));
 
   // Delegated remove-row + change capture
   function collectItem(card, fields) {
@@ -1427,10 +1454,18 @@
     const body = document.getElementById('pvQuickBody').value.trim();
     const status_change = document.getElementById('pvQuickStatus').value || null;
     if (!body && !status_change) { showBanner('Add a comment or a status change', 'error'); return; }
+    const payload = { body, status_change };
+    const ST = window.StatusTransfer;
+    if (status_change && ST && ST.isTransfer(status_change)) {
+      const t = await ST.ask(status_change, {});
+      if (!t) return;
+      payload.body = body ? body + ' — ' + t.note : t.note;
+      if (t.ticket) payload.helpdesk_ticket = t.ticket;
+    }
     const r = await fetch(API + '/issues/' + issueId + '/update', {
       method: 'POST', credentials: 'same-origin',
       headers: authHeaders(),
-      body: JSON.stringify({ body, status_change })
+      body: JSON.stringify(payload)
     });
     if (r.ok) {
       document.getElementById('pvQuickBody').value = '';

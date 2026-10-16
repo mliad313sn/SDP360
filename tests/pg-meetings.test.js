@@ -293,3 +293,29 @@ test('pg: addActionForIssue creates a linked action + issue audit row', async (t
     assert.equal(n.n, 1);
   } finally { try { await h.close(); } catch {} await dropTestDb(ctx); }
 });
+
+test('pg: transfer statuses — note + ticket stored, closed like cancelled, reopen clears (2026-10-16)', async (t) => {
+  const b = await boot(); if (!b) return t.skip('no pg');
+  const { ctx, mdb } = b; const h = mdb.pgHandle();
+  try {
+    const lk = await mdb.loadLookups();
+    assert.ok(lk.statuses.some(s => s.code === 'helpdesk_ticket'), 'status seeded on pg');
+    const saved = await mdb.saveMeeting({ header: { site_code: 'HGO', department: 'it', meeting_date: '2026-12-05', status: 'draft' },
+      issues: [{ ord: 0, title: 'Wifi slow', category: 'CN', status: 'open', target_date: '2026-01-01' }],
+      actions: [{ ord: 0, description: 'New laptop', status: 'demand', status_note: 'Hardware request' }] }, null, null);
+    const rec = await mdb.getMeeting(saved.id);
+    assert.equal(rec.actions[0].status_note, 'Hardware request');
+    assert.ok(rec.actions[0].closed_at, 'demand closes the action');
+    const audit = await h.prepare('SELECT count(*)::int n FROM md_action_updates WHERE action_id = ?').get(rec.actions[0].id);
+    assert.equal(audit.n, 1, 'justification kept in the action audit trail');
+    const iss = rec.issues[0];
+    await mdb.addIssueUpdate(iss.id, { body: 'SDP 311587', status_change: 'helpdesk_ticket', helpdesk_ticket: '#311587' });
+    let i2 = (await mdb.getMeeting(saved.id)).issues[0];
+    assert.equal(i2.helpdesk_ticket, '311587'); assert.equal(i2.status_note, 'SDP 311587'); assert.ok(i2.closed_at);
+    const sum = await mdb.aggregate({ site: 'HGO' });
+    assert.ok(sum, 'aggregate still runs with the new status list');
+    await mdb.addIssueUpdate(iss.id, { body: 'reopened', status_change: 'open' });
+    i2 = (await mdb.getMeeting(saved.id)).issues[0];
+    assert.equal(i2.helpdesk_ticket, null); assert.equal(i2.status_note, null); assert.equal(i2.closed_at, null);
+  } finally { try { await h.close(); } catch {} await dropTestDb(ctx); }
+});

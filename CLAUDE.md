@@ -63,6 +63,32 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ---
 
+## ⚡ Current state (as of 2026-10-16 — statuts de transfert, mois clôturés du tracker, export Excel Réunions)
+
+> - **Statuts de transfert** (problèmes `md_issues` + actions `md_actions` SEULEMENT — ni inspections ni
+>   suivis du rapport, décision user) : `demand` (Demande / Initiative), `helpdesk_ticket` (Ticket Helpdesk)
+>   et `cancelled` exigent un **commentaire** ; `helpdesk_ticket` exige aussi le **n° du ticket SDP**
+>   (chiffres seuls). Règle UNIQUE **`public/lib/statusTransfer.js`** (UMD : `DONE`, `isTransfer`,
+>   `validate`, `normalizeTicket`, `ask()` = la fenêtre des pages). Colonnes `status_note` /
+>   `helpdesk_ticket` (sqlite ALTER + pg `ADD COLUMN IF NOT EXISTS`, codes insérés si absents), effacées
+>   dès que l'élément quitte le statut de transfert. Comptés **comme « Annulé »** (décision user) : hors
+>   listes ouvertes/retard, jamais « résolu » dans le score programme. Toute liste SQL de statuts terminés
+>   de `meetings-db.js` = `('resolved','cancelled','closed','demand','helpdesk_ticket')` — un nouveau code
+>   terminal doit rejoindre `DONE` ET ces listes. Le serveur refuse (400) une **transition** sans
+>   justification : `/issues/:id/update`, `/actions/:id/update`, `/api/meetings/save` (`_meetingTransferError`,
+>   les lignes déjà dans ce statut passent) ; l'import xlsx n'y est pas soumis.
+> - **Tracker, mois clôturés** : sous super_admin, seuls le mois en cours (+ le précédent jusqu'au **5**)
+>   sont modifiables ; `public/lib/trackerMonthLock.js` côté page (cellules grisées + bandeau) ET serveur
+>   (`saveTracker(D, scope, { lockClosed })` et l'import des réunions gardent la valeur STOCKÉE des mois
+>   clos, renvoient `closed_blocked` → la page avertit et se recharge). tracker-admin est verrouillé aussi.
+> - **Export Excel Réunions cassé pour tout éditeur** depuis les éditeurs multi-sites : la route passait la
+>   LISTE de codes comme une seule valeur à `exportRows` → accepte maintenant une liste (`IN (…)`).
+> - Tests : `status-transfer.smoke` (8), `tracker-month-lock` (5), + `pg-meetings`, `multi-site-editor.smoke`,
+>   `tracker-save-site-scope.smoke`. Vérifié au navigateur (fenêtre de justification, cellules verrouillées,
+>   Excel en éditeur). `help.html` n'a PAS encore la section correspondante.
+
+---
+
 ## ⚡ Current state (as of 2026-10-15 — actions du rapport : fusion par groupe, aperçu d'import, identité visible ; historique réécrit)
 
 > **Historique git RÉÉCRIT le 2026-10-15** (un mot de passe postgres traînait dans 14 docs + 1 message
