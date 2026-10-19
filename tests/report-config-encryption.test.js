@@ -32,7 +32,7 @@ test('with a key: the database no longer contains the secret', () => {
   cfg.setConfig(db, { smtp_pass: 'hunter2' }, 'test', { key: KEY });
   const raw = stored(db, 'smtp_pass');
   assert.ok(!raw.includes('hunter2'), 'a dump of this table is now useless on its own');
-  assert.ok(raw.startsWith('enc:v1:'));
+  assert.ok(raw.startsWith('enc:v2:'));
   assert.strictEqual(cfg.getConfig(db, { key: KEY }).smtp_pass, 'hunter2', 'and the app still reads it');
 });
 
@@ -50,7 +50,7 @@ test('every key in _SECRET_BLANK_KEEP is covered — a new secret cannot be forg
   cfg.setConfig(db, patch, 'test', { key: KEY });
   for (const k of cfg._SECRET_BLANK_KEEP) {
     const raw = stored(db, k);
-    assert.ok(raw && raw.startsWith('enc:v1:'), `${k} must be encrypted at rest`);
+    assert.ok(raw && raw.startsWith('enc:v2:'), `${k} must be encrypted at rest`);
     assert.ok(!raw.includes('value-of-'), `${k} must not contain its own plaintext`);
   }
 });
@@ -67,7 +67,7 @@ test('an encrypted value with NO key reads as empty, never as ciphertext', () =>
   cfg.setConfig(db, { smtp_pass: 'hunter2' }, 'test', { key: KEY });
   const out = cfg.getConfig(db, { key: null });
   assert.strictEqual(out.smtp_pass, '', 'nodemailer must not authenticate with a box');
-  assert.ok(!String(out.smtp_pass).includes('enc:v1:'));
+  assert.ok(!String(out.smtp_pass).includes('enc:v'));
 });
 
 test('blank-keep still wins: saving a blank secret does not wipe the encrypted one', () => {
@@ -84,7 +84,7 @@ test('the key is read from the environment when none is passed', () => {
   process.env.SDP_CONFIG_KEY = KEY;
   try {
     cfg.setConfig(db, { smtp_pass: 'from-env' }, 'test');
-    assert.ok(stored(db, 'smtp_pass').startsWith('enc:v1:'));
+    assert.ok(stored(db, 'smtp_pass').startsWith('enc:v2:'));
     assert.strictEqual(cfg.getConfig(db).smtp_pass, 'from-env');
   } finally {
     if (prev === undefined) delete process.env.SDP_CONFIG_KEY; else process.env.SDP_CONFIG_KEY = prev;

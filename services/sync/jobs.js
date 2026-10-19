@@ -108,6 +108,9 @@ function buildJobs(d) {
     }),
   };
   list.push({ name: 'db.backup', cron: backup.cron || '0 2 * * *', freshnessHours: 30, optional: true, job: legacyJob('db.backup', () => backup.run()) });
+  // Step 4 — audit retention: system_log kept 12 months (risk events 24). Mandatory job.
+  list.push({ name: 'audit.retention', cron: '30 3 * * *', freshnessHours: 30,
+    job: legacyJob('audit.retention', async () => { const rdb = d.rdb || require('../../reports-db'); const r = await rdb.purgeSystemLog({ months: Number(process.env.AUDIT_RETENTION_MONTHS) || 12 }); return { deleted: r.deleted, rows: r.deleted }; }) });
   return list;
 }
 
@@ -115,7 +118,7 @@ function buildJobs(d) {
 const FRESHNESS_HOURS = {
   'zoho.requests': 3, 'zoho.change_cab': 3, 'zoho.survey': 3, 'assets.sync': 30,
   'meridian.resources': 30, 'opmanager.availability': 30, 'meraki.wan': 30, 'meraki.wan_events': 30,
-  'meraki.wan_events_5m': 1, 'meraki.wan_poller': 1, 'teams.sla_poll': 1, 'db.backup': 30,
+  'meraki.wan_events_5m': 1, 'meraki.wan_poller': 1, 'teams.sla_poll': 1, 'db.backup': 30, 'audit.retention': 30,
 };
 // Jobs that self-skip until configured (no API key / webhook) — never reported "stale", only "idle".
 const OPTIONAL = new Set(['meridian.resources', 'opmanager.availability', 'meraki.wan', 'meraki.wan_events', 'meraki.wan_events_5m', 'meraki.wan_poller', 'teams.sla_poll', 'db.backup']);

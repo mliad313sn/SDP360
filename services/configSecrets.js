@@ -26,26 +26,37 @@
 
 const crypto = require('crypto');
 
-const PREFIX = 'enc:v1:';
+const PREFIX_V1 = 'enc:v1:';   // sha256(passphrase) — kept readable, never written any more
+const PREFIX = 'enc:v2:';      // Step 4 — scrypt(passphrase, fixed salt, N=2^15) → 32 bytes
 const MIN_KEY_CHARS = 16;
+const SCRYPT_SALT = Buffer.from('sdp-dashboard-config-key-v2', 'utf8');
+const SCRYPT_OPTS = { N: 32768, r: 8, p: 1, maxmem: 64 * 1024 * 1024 };
 
-/** A passphrase → a 32-byte key. Returns null for anything too short to be worth having. */
+/**
+ * A passphrase → { v2: scrypt key, v1: sha256 key } or null when too short to be worth having.
+ * Derived once per distinct passphrase (scrypt is deliberately slow).
+ */
+const _keyCache = new Map();
 function keyFrom(passphrase) {
   const s = String(passphrase == null ? '' : passphrase);
   if (s.length < MIN_KEY_CHARS) return null;
-  return crypto.createHash('sha256').update(s, 'utf8').digest();
+  if (_keyCache.has(s)) return _keyCache.get(s);
+  const k = { v2: crypto.scryptSync(s, SCRYPT_SALT, 32, SCRYPT_OPTS), v1: crypto.createHash('sha256').update(s, 'utf8').digest() };
+  _keyCache.set(s, k);
+  return k;
 }
 
 function isEncrypted(value) {
-  return typeof value === 'string' && value.startsWith(PREFIX);
+  return typeof value === 'string' && (value.startsWith(PREFIX) || value.startsWith(PREFIX_V1));
 }
+function boxVersion(value) { return !isEncrypted(value) ? null : value.startsWith(PREFIX) ? 2 : 1; }
 
-/** Plain → `enc:v1:<iv>:<tag>:<ciphertext>` (base64). Empty stays empty; no key → unchanged. */
+/** Plain → `enc:v2:<iv>:<tag>:<ciphertext>` (base64). Empty stays empty; no key → unchanged. */
 function encryptValue(plain, key) {
   const s = String(plain == null ? '' : plain);
   if (s === '' || !key) return s;
   const iv = crypto.randomBytes(12);
-  const c = crypto.createCipheriv('aes-256-gcm', key, iv);
+  const c = crypto.createCipheriv('aes-256-gcm', key.v2 || key, iv);
   const body = Buffer.concat([c.update(s, 'utf8'), c.final()]);
   return PREFIX + [iv, c.getAuthTag(), body].map(b => b.toString('base64')).join(':');
 }
@@ -58,11 +69,13 @@ function decryptValue(stored, key) {
   const s = typeof stored === 'string' ? stored : '';
   if (!isEncrypted(s)) return s;
   if (!key) return null;
-  const parts = s.slice(PREFIX.length).split(':');
+  const v = boxVersion(s);
+  const parts = s.slice((v === 2 ? PREFIX : PREFIX_V1).length).split(':');
   if (parts.length !== 3) return null;
   try {
     const [iv, tag, body] = parts.map(p => Buffer.from(p, 'base64'));
-    const d = crypto.createDecipheriv('aes-256-gcm', key, iv);
+    const raw = v === 2 ? (key.v2 || key) : (key.v1 || key);
+    const d = crypto.createDecipheriv('aes-256-gcm', raw, iv);
     d.setAuthTag(tag);
     return Buffer.concat([d.update(body), d.final()]).toString('utf8');
   } catch (e) {
@@ -123,5 +136,33 @@ function planSecretEncryption(rows, key) {
     .map(r => ({ key: r.key, value: encryptValue(r.value, key) }));
 }
 
-module.exports = { encryptValue, decryptValue, isEncrypted, keyFrom, envKey, describeSecretState,
-  planSecretEncryption, PREFIX };
+// Step 4 — re-encryption plan: v1 boxes → v2 (scrypt), and/or a key rotation (oldKey opens,
+// newKey seals). Plaintext rows are encrypted too. A box that opens with neither key is
+// REPORTED (`unreadable`), never overwritten — overwriting it would turn "needs re-entry" into
+// "silently lost". PURE.
+function planReencryption(rows, { newKey, oldKey = null }) {
+  const updates = [], unreadable = [], skipped = [];
+  if (!newKey) return { updates, unreadable, skipped };
+  for (const r of rows || []) {
+    if (!r || typeof r.value !== 'string' || r.value === '') continue;
+    if (!isEncrypted(r.value)) { updates.push({ key: r.key, value: encryptValue(r.value, newKey), from: 'plaintext' }); continue; }
+    if (boxVersion(r.value) === 2 && !oldKey) { skipped.push(r.key); continue; }
+    const plain = decryptValue(r.value, oldKey || newKey) ?? (oldKey ? decryptValue(r.value, newKey) : null);
+    if (plain == null) { unreadable.push(r.key); continue; }
+    updates.push({ key: r.key, value: encryptValue(plain, newKey), from: `v${boxVersion(r.value)}` });
+  }
+  return { updates, unreadable, skipped };
+}
+
+// Step 4 — in production the key is mandatory: a backup must never carry a plaintext secret.
+// `SDP_ALLOW_PLAINTEXT_SECRETS=1` is the documented, logged escape hatch for a migration window.
+function assertProductionKey(env = process.env) {
+  const prod = String(env.NODE_ENV || '').toLowerCase() === 'production';
+  if (!prod) return { required: false, ok: true };
+  if (keyFrom(env.SDP_CONFIG_KEY)) return { required: true, ok: true };
+  if (/^(1|true|yes)$/i.test(String(env.SDP_ALLOW_PLAINTEXT_SECRETS || ''))) return { required: true, ok: true, bypass: true };
+  return { required: true, ok: false, reason: `SDP_CONFIG_KEY (≥ ${MIN_KEY_CHARS} chars) is mandatory with NODE_ENV=production; set it in .env, or SDP_ALLOW_PLAINTEXT_SECRETS=1 for a migration window (logged).` };
+}
+
+module.exports = { encryptValue, decryptValue, isEncrypted, boxVersion, keyFrom, envKey, describeSecretState,
+  planSecretEncryption, planReencryption, assertProductionKey, PREFIX, PREFIX_V1 };

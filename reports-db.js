@@ -475,6 +475,10 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_syslog_action   ON system_log(action);
   CREATE INDEX IF NOT EXISTS idx_syslog_actor    ON system_log(actor);
   CREATE INDEX IF NOT EXISTS idx_syslog_risk     ON system_log(risk);
+  CREATE TABLE IF NOT EXISTS rate_limit_hits (
+    scope TEXT NOT NULL, key TEXT NOT NULL, window_start INTEGER NOT NULL, count INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (scope, key)
+  );
 `);
 // request_records: add request_type text column (stores "Major Incident" etc.)
 try { db.exec(`ALTER TABLE request_records ADD COLUMN request_type TEXT`); } catch(e) {}
@@ -1403,6 +1407,9 @@ async function initPgReports() {            // called once at server boot
   // System Logs v1 — unified security/audit event log.
   await _pg.exec(require('fs').readFileSync(
     require('path').join(__dirname, 'db', 'postgres', 'reports', '006_system_log.sql'), 'utf8'));
+  // Step 4 — persistent rate-limit buckets.
+  await _pg.exec(require('fs').readFileSync(
+    require('path').join(__dirname, 'db', 'postgres', 'reports', '017_rate_limit_hits.sql'), 'utf8'));
   // V1a — OPManager infra availability snapshots.
   await _pg.exec(require('fs').readFileSync(
     require('path').join(__dirname, 'db', 'postgres', 'reports', '007_infra_snapshots.sql'), 'utf8'));
@@ -1579,6 +1586,9 @@ async function _seedConfigPg(H) {
   }
 }
 
+// Step 4 — session lifetime in hours (SESSION_HOURS, default 24; the dossier recommends 8).
+function sessionHours(env = process.env) { const h = Number(env.SESSION_HOURS); return Number.isFinite(h) && h > 0 && h <= 24 * 30 ? h : 24; }
+
 function login(username, password) {
   if (REPORTS_BACKEND === 'postgres') return _loginPg(username, password);
   const user = db.prepare(`SELECT * FROM users WHERE username=? AND active=1`).get(username);
@@ -1587,7 +1597,7 @@ function login(username, password) {
   if (hash !== user.password_hash) return null;
   // Create session (24h)
   const token     = makeSession();
-  const expiresAt = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
+  const expiresAt = new Date(Date.now() + sessionHours() * 3600 * 1000).toISOString();
   db.prepare(`INSERT INTO sessions (token, user_id, expires_at) VALUES (?,?,?)`).run(token, user.id, expiresAt);
   return { token, user: safeUser(user) };
 }
@@ -1621,7 +1631,7 @@ async function _loginPg(username, password) {
   if (!user) return null;
   if (hashPassword(password, user.salt) !== user.password_hash) return null;
   const token = makeSession();
-  const expiresAt = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
+  const expiresAt = new Date(Date.now() + sessionHours() * 3600 * 1000).toISOString();
   await h.prepare(`INSERT INTO sessions (token, user_id, expires_at) VALUES (?,?,?)`).run(token, user.id, expiresAt);
   return { token, user: await _safeUserPg(user) };
 }
@@ -1937,7 +1947,7 @@ function createSessionForUser(userId) {
   const user = db.prepare(`SELECT * FROM users WHERE id=? AND active=1`).get(userId);
   if (!user) return null;
   const token     = makeSession();
-  const expiresAt = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
+  const expiresAt = new Date(Date.now() + sessionHours() * 3600 * 1000).toISOString();
   db.prepare(`INSERT INTO sessions (token, user_id, expires_at) VALUES (?,?,?)`).run(token, user.id, expiresAt);
   return { token, user: safeUser(user) };
 }
@@ -1959,7 +1969,7 @@ async function _createSessionForUserPg(userId) {
   const user = await h.prepare(`SELECT * FROM users WHERE id=? AND active=1`).get(userId);
   if (!user) return null;
   const token     = makeSession();
-  const expiresAt = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
+  const expiresAt = new Date(Date.now() + sessionHours() * 3600 * 1000).toISOString();
   await h.prepare(`INSERT INTO sessions (token, user_id, expires_at) VALUES (?,?,?)`).run(token, user.id, expiresAt);
   return { token, user: await _safeUserPg(user) };
 }
@@ -8229,6 +8239,41 @@ async function _logEventPg(row) {
      VALUES (?,?,?,?,?,?,?,?,?)`
   ).run(row.ts,row.category,row.action,row.actor,row.actor_id,row.target,row.details,row.ip,row.risk);
 }
+// Step 4 — persistent rate-limit bucket: one row per (scope, key); a row older than the
+// window restarts. Returns { start, count }. Dual-backend; same SQL shape.
+function rateLimitBump(scope, key, now, windowMs) {
+  if (REPORTS_BACKEND === 'postgres') return _rateLimitBumpPg(scope, key, now, windowMs);
+  const row = db.prepare(`SELECT window_start, count FROM rate_limit_hits WHERE scope=? AND key=?`).get(scope, key);
+  if (!row || now - Number(row.window_start) > windowMs) {
+    db.prepare(`INSERT INTO rate_limit_hits (scope, key, window_start, count) VALUES (?,?,?,1)
+      ON CONFLICT (scope, key) DO UPDATE SET window_start = excluded.window_start, count = 1`).run(scope, key, now);
+    return { start: now, count: 1 };
+  }
+  db.prepare(`UPDATE rate_limit_hits SET count = count + 1 WHERE scope=? AND key=?`).run(scope, key);
+  return { start: Number(row.window_start), count: Number(row.count) + 1 };
+}
+async function _rateLimitBumpPg(scope, key, now, windowMs) {
+  const H = pgHandle();
+  const row = await H.prepare(`SELECT window_start, count FROM rate_limit_hits WHERE scope=? AND key=?`).get(scope, key);
+  if (!row || now - Number(row.window_start) > windowMs) {
+    await H.prepare(`INSERT INTO rate_limit_hits (scope, key, window_start, count) VALUES (?,?,?,1)
+      ON CONFLICT (scope, key) DO UPDATE SET window_start = excluded.window_start, count = 1`).run(scope, key, now);
+    return { start: now, count: 1 };
+  }
+  await H.prepare(`UPDATE rate_limit_hits SET count = count + 1 WHERE scope=? AND key=?`).run(scope, key);
+  return { start: Number(row.window_start), count: Number(row.count) + 1 };
+}
+
+// Step 4 — audit retention: delete system_log rows older than `months` (default 12), never
+// the risk-flagged ones younger than `riskMonths` (default 24). Returns the deleted count.
+function purgeSystemLog({ months = 12, riskMonths = 24, now = new Date() } = {}) {
+  const cut = (m) => { const d = new Date(now); d.setUTCMonth(d.getUTCMonth() - m); return d.toISOString(); };
+  const sql = `DELETE FROM system_log WHERE (risk = 0 AND ts < ?) OR (risk = 1 AND ts < ?)`;
+  if (REPORTS_BACKEND === 'postgres') return pgHandle().prepare(sql).run(cut(months), cut(riskMonths)).then((r) => ({ deleted: Number(r && (r.changes ?? r.rowCount)) || 0 }));
+  const r = db.prepare(sql).run(cut(months), cut(riskMonths));
+  return { deleted: r.changes };
+}
+
 async function logEvent(ev = {}) {
   try {
     const row = {
@@ -8327,6 +8372,7 @@ async function _backfillSystemLogFromAudit() {
 }
 
 module.exports = {
+  rateLimitBump, purgeSystemLog, sessionHours,
   db,
   REPORTS_BACKEND, initPgReports, pgHandle,
   // System Logs v1

@@ -215,6 +215,20 @@ app.use((req, res, next) => {
   next();
 });
 
+// Step 4 — constant-time string comparison for shared secrets (API key, inbound webhook keys).
+function _safeEqual(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string' || !a || !b) return false;
+  const ba = Buffer.from(a, 'utf8'), bb = Buffer.from(b, 'utf8');
+  if (ba.length !== bb.length) return false;
+  return crypto.timingSafeEqual(ba, bb);
+}
+// Step 4 — in production a missing SDP_CONFIG_KEY refuses to start (no plaintext secret in a dump).
+{
+  const _pk = require('./services/configSecrets').assertProductionKey();
+  if (!_pk.ok) { console.error('❌ ' + _pk.reason); process.exit(78); }
+  if (_pk.bypass) console.warn('[config] SDP_ALLOW_PLAINTEXT_SECRETS=1 — secrets are stored in PLAIN TEXT (migration window only)');
+}
+
 // ── IN-MEMORY RATE LIMITER ────────────────────────────────────────
 // SECURITY: Lightweight token-bucket rate limiter — no extra npm package needed.
 // Tracks request counts per IP in a Map with automatic expiry.
@@ -257,10 +271,12 @@ const aiLimiter = makeRateLimiter({
   message: 'AI analysis rate limit reached. Maximum 30 analyses per hour.',
 });
 
-// Login limiter — 10 attempts per 15 minutes per IP
-const loginLimiter = makeRateLimiter({
-  windowMs: 15 * 60 * 1000, max: 10,
+// Login limiter — 10 attempts per 15 minutes per IP. Step 4: PERSISTENT (reports-db
+// rate_limit_hits) so a restart does not reset an attacker's budget; falls back to memory.
+const loginLimiter = require('./services/rateLimit').persistentLimiter({
+  windowMs: 15 * 60 * 1000, max: 10, scope: 'login',
   message: 'Too many login attempts. Please wait 15 minutes before trying again.',
+  store: () => require('./reports-db'),
 });
 
 // Apply global limiter to all routes (except /health which is polled by Docker)
@@ -1058,7 +1074,7 @@ app.use('/api/', async (req, res, next) => {
   // (report_config meridian_in_key) inside routes/meridian.js, NOT the dash key.
   if (req.method === 'GET' && req.path === '/actions/open') return next();
   const key   = req.headers['x-dash-key'];
-  if (key === DASH_API_KEY) return next(); // API key present — allow
+  if (_safeEqual(key, DASH_API_KEY)) return next(); // API key present — allow (constant-time)
   // Fallback: accept valid session token (for Editor/Viewer users on index.html)
   const token = req.headers['x-report-token'] || getCookie(req, 'report_token');
   if (rdb && token) {
@@ -3423,7 +3439,7 @@ app.get('/api/assets/investment/export.xlsx', requireReportSession, requireAdmin
     ];
 
     const buf = buildWorkbook([
-      { name: 'History', rows: historyRows },
+      { name: 'Spend history', rows: historyRows },
       { name: 'Hardware forecast', rows: hardwareRows },
       { name: 'Software forecast', rows: softwareRows },
     ]);
@@ -5875,6 +5891,10 @@ app.post('/api/reports/auth/login', loginLimiter, jsonBody, async (req, res) => 
   }
   try {
     const result = await rdb.login(username, password);
+    // Step 4 — every use of the break-glass account is a RISK event (System Logs), success or not.
+    if (_sso.breakglassUser && username === _sso.breakglassUser && _sso.mode !== 'off') {
+      rdb.logEvent({ category:'auth', action:'breakglass_login', actor: username, ip: req.ip, details:{ ok: !!result, sso_mode: _sso.mode } });
+    }
     if (!result) {
       rdb.logEvent({ category:'auth', action:'login_failed', actor: username || 'anonymous', ip: req.ip, details:{ reason:'invalid_credentials' } });
       return res.status(401).json({ error: 'Invalid credentials' });
@@ -5886,7 +5906,7 @@ app.post('/api/reports/auth/login', loginLimiter, jsonBody, async (req, res) => 
     if (result.token) {
       res.cookie('report_token', result.token, {
         httpOnly: true,
-        secure:   SESSION_COOKIE_SECURE,  // set SESSION_COOKIE_SECURE=1 in .env once on HTTPS (IIS/TLS)
+        secure:   SESSION_COOKIE_SECURE || req.secure || req.headers['x-forwarded-proto'] === 'https',
         sameSite: 'lax',          // 'lax' allows cookie on same-site page navigations (GET)
         maxAge:   24 * 60 * 60 * 1000, // 24 hours
       });
@@ -5992,13 +6012,24 @@ app.get('/api/auth/sso/callback', async (req, res) => {
         title: claims.title, office: claims.office, full_name: claims.name,
       });
     } catch (e) { console.warn('[SSO] profile sync skipped:', e.message); }
+    // Step 4 — Entra group → role / site provisioning (config sso_group_map, JSON). Only when a
+    // map is configured; the mapping is pure (services/ssoProvisioning), the write is one update.
+    try {
+      const prov = require('./services/ssoProvisioning');
+      const plan = prov.planProvisioning(user, claims.groups, s.groupMap);
+      if (plan.changed) {
+        await rdb.updateUser(user.id, plan.patch);
+        rdb.logEvent({ category:'identity', action:'user_role_changed', actor:'sso', actor_id:user.id, target:user.username, details:{ via:'entra_group_map', ...plan.patch } });
+      }
+    } catch (e) { console.warn('[SSO] group provisioning skipped:', e.message); }
+    rdb.logEvent({ category:'auth', action:'login_success', actor:user.username, actor_id:user.id, ip:req.ip, details:{ via:'sso' } });
     const session = await rdb.createSessionForUser(user.id);
     if (!session) return _fail('session_failed');
     console.log(`[SSO] login ok user=${user.username} email=${claims.email}`);
 
     // Set the same httpOnly session cookie password login uses…
     res.cookie('report_token', session.token, {
-      httpOnly: true, secure: SESSION_COOKIE_SECURE, sameSite: 'lax', maxAge: 24 * 60 * 60 * 1000,
+      httpOnly: true, secure: SESSION_COOKIE_SECURE || req.secure || req.headers['x-forwarded-proto'] === 'https', sameSite: 'lax', maxAge: rdb.sessionHours() * 60 * 60 * 1000,
     });
     // …and hand the token to localStorage via a tiny page (mirrors the password
     // flow; token is in the HTTPS response body, never in the URL).

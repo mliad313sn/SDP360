@@ -31,9 +31,12 @@ function _sheet(rows) {
 }
 
 // SheetJS truncates sheet names to 31 chars and forbids []:*?/\ — sanitize.
+// SheetJS ≥ 0.20 refuses the reserved sheet name 'History' (Excel keeps it for the change log).
+const RESERVED = new Set(['history']);
 function _safeName(name, ix) {
   const clean = String(name || ('Sheet' + (ix + 1))).replace(/[[\]:*?/\\]/g, ' ').trim().slice(0, 31);
-  return clean || ('Sheet' + (ix + 1));
+  const out = clean || ('Sheet' + (ix + 1));
+  return RESERVED.has(out.toLowerCase()) ? out + ' sheet' : out;
 }
 
 function buildWorkbook(sheets) {

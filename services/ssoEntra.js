@@ -99,6 +99,7 @@ async function completeLogin({ code, codeVerifier, expectedNonce, cfg, http }) {
     title:      g.jobTitle       || '',
     office:     g.officeLocation || '',
     department: g.department     || '',
+    groups:     Array.isArray(identity.groups) ? identity.groups : [],   // Step 4 — 'groups' claim (configure in the app registration)
     tid:        identity.tid,
     raw:        identity.raw,
   };
@@ -158,6 +159,7 @@ async function verifyIdToken(idToken, cfg, http, expectedNonce) {
     oid, email,
     name:       payload.name        || '',
     first_name: payload.given_name  || '',
+    groups:     Array.isArray(payload.groups) ? payload.groups.map(String) : [],
     last_name:  payload.family_name || '',
     tid: payload.tid || null, raw: payload,
   };

@@ -28,6 +28,7 @@ function makeOpmanagerClient({ apiKey, baseUrl, tlsInsecure = true, get } = {}) 
   const transport = get || _defaultGet();
   const configured = !!(apiKey && baseUrl);
   const httpsAgent = tlsInsecure ? _insecureAgent() : undefined;
+  if (configured && tlsInsecure && !makeOpmanagerClient._warned) { makeOpmanagerClient._warned = true; console.warn('[OpManager] TLS certificate verification is OFF (opmanager_tls_insecure=1) — install the internal CA and set it to 0 (Step 4, DEC pending)'); }
 
   async function _get(path, params) {
     if (!configured) return undefined;

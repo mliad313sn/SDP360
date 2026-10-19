@@ -67,7 +67,7 @@ test('an empty secret stays empty, never an encrypted empty string', () => {
 test('keyFrom refuses a key too short to be worth having', () => {
   assert.strictEqual(keyFrom(''), null);
   assert.strictEqual(keyFrom('short'), null, 'a five-character key is a false sense of safety');
-  assert.ok(Buffer.isBuffer(keyFrom('sixteen-characters-or-more')));
+  assert.ok(Buffer.isBuffer(keyFrom('sixteen-characters-or-more').v2)); // Step 4: { v2: scrypt, v1: sha256 }
 });
 
 // A key that is SET but rejected must say so. Measured on dotenv: a `#` truncates the
@@ -96,7 +96,7 @@ test('no key at all is silent — that is a legitimate configuration', () => {
 test('a usable key is silent and returns 32 bytes', () => {
   const warned = [];
   const k = envKey({ SDP_CONFIG_KEY: 'a-long-enough-passphrase' }, (m) => warned.push(m));
-  assert.ok(Buffer.isBuffer(k) && k.length === 32);
+  assert.ok(Buffer.isBuffer(k.v2) && k.v2.length === 32 && Buffer.isBuffer(k.v1) && k.v1.length === 32);
   assert.strictEqual(warned.length, 0);
 });
 
@@ -134,7 +134,7 @@ test('plans an update only for the values that are plaintext and non-empty', () 
     { key: 'meridian_in_key', value: 'enc:v1:a:b:c' },
   ], KEY);
   assert.deepStrictEqual(plan.map(p => p.key), ['smtp_pass', 'meraki_api_key']);
-  assert.ok(plan.every(p => p.value.startsWith('enc:v1:')));
+  assert.ok(plan.every(p => p.value.startsWith('enc:v2:'))); // Step 4 writes v2 (scrypt); v1 still reads
 });
 
 test('the plan round-trips: what it writes decrypts back to what was there', () => {
@@ -151,4 +151,40 @@ test('running it twice is a no-op — the second pass has nothing to do', () => 
   const first = planSecretEncryption(rows, KEY);
   const after = [{ key: 'smtp_pass', value: first[0].value }];
   assert.deepStrictEqual(planSecretEncryption(after, KEY), []);
+});
+
+// ── Step 4 — v2 (scrypt) boxes, v1 compatibility, re-encryption plan, production key gate ──
+test('v2: a v1 box still opens with the same passphrase; new boxes are v2; wrong key → null', () => {
+  const { encryptValue, decryptValue, keyFrom, boxVersion } = require('../services/configSecrets');
+  const k = keyFrom('a-passphrase-of-sixteen-chars');
+  const crypto = require('crypto');
+  const iv = crypto.randomBytes(12); const c = crypto.createCipheriv('aes-256-gcm', k.v1, iv);
+  const body = Buffer.concat([c.update('legacy', 'utf8'), c.final()]);
+  const v1 = 'enc:v1:' + [iv, c.getAuthTag(), body].map((b) => b.toString('base64')).join(':');
+  assert.strictEqual(decryptValue(v1, k), 'legacy');
+  const v2 = encryptValue('fresh', k);
+  assert.strictEqual(boxVersion(v2), 2); assert.strictEqual(boxVersion(v1), 1);
+  assert.strictEqual(decryptValue(v2, k), 'fresh');
+  assert.strictEqual(decryptValue(v2, keyFrom('another-passphrase-of-16')), null);
+});
+
+test('planReencryption: v1 + plaintext → v2, v2 kept, unreadable reported and never overwritten; key rotation', () => {
+  const { encryptValue, decryptValue, keyFrom, planReencryption } = require('../services/configSecrets');
+  const k = keyFrom('a-passphrase-of-sixteen-chars'), k2 = keyFrom('rotated-passphrase-of-16');
+  const rows = [{ key: 'a', value: 'plain' }, { key: 'b', value: encryptValue('x', k) }, { key: 'c', value: 'enc:v2:AAAA:BBBB:CCCC' }, { key: 'd', value: '' }];
+  const plan = planReencryption(rows, { newKey: k });
+  assert.deepEqual(plan.updates.map((u) => u.key), ['a']);
+  assert.deepEqual(plan.skipped, ['b', 'c'], 'without an old key every v2 box is assumed sealed with the current key');
+  const rot = planReencryption(rows, { newKey: k2, oldKey: k });
+  assert.deepEqual(rot.updates.map((u) => u.key), ['a', 'b']);
+  assert.deepEqual(rot.unreadable, ['c'], 'opens with neither key → reported, never overwritten');
+  assert.strictEqual(decryptValue(rot.updates[1].value, k2), 'x');
+});
+
+test('assertProductionKey: mandatory only with NODE_ENV=production; bypass flag is explicit', () => {
+  const { assertProductionKey } = require('../services/configSecrets');
+  assert.strictEqual(assertProductionKey({}).ok, true);
+  assert.strictEqual(assertProductionKey({ NODE_ENV: 'production' }).ok, false);
+  assert.strictEqual(assertProductionKey({ NODE_ENV: 'production', SDP_CONFIG_KEY: 'a-passphrase-of-sixteen-chars' }).ok, true);
+  assert.strictEqual(assertProductionKey({ NODE_ENV: 'production', SDP_ALLOW_PLAINTEXT_SECRETS: '1' }).bypass, true);
 });

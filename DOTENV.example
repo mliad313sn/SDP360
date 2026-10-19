@@ -38,3 +38,15 @@ ORG_ID=
 # FMP_API_KEY=
 # EXEC_PPTX_TIMEOUT_MS=120000
 # REPORT_SEND_TIMEOUT_MS=120000
+
+# ── Step 4 — security (2026-10-19) ─────────────────────────────────────────────
+# NODE_ENV=production makes SDP_CONFIG_KEY MANDATORY (the server refuses to start without it);
+# SDP_ALLOW_PLAINTEXT_SECRETS=1 is the logged escape hatch for a migration window only.
+# NODE_ENV=production
+# SDP_ALLOW_PLAINTEXT_SECRETS=0
+# Session lifetime in hours (default 24; the committee's recommended value is 8).
+# SESSION_HOURS=8
+# Entra group → role/site provisioning, JSON (also editable as config key sso_group_map):
+# SSO_GROUP_MAP=[{"group":"<entra-group-object-id>","roles":["editor","tracker-editor"],"site_id":3}]
+# System Logs retention in months (risk events are kept twice as long).
+# AUDIT_RETENTION_MONTHS=12

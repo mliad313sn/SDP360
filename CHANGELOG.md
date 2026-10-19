@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.0.0-alpha.5 — 2026-10-19 — Étape 4 : sécurité, SSO et MFA (volet agent)
+- Secrets: `enc:v2:` boxes keyed by scrypt (v1 still readable), `SDP_CONFIG_KEY` mandatory with `NODE_ENV=production`, `tools/pg/reencrypt-secrets.js` (upgrade + key rotation, never overwrites an unreadable box).
+- Transport/HTTP: constant-time `x-dash-key` compare, `Secure` cookie behind an HTTPS proxy, session lifetime `SESSION_HOURS`, persistent login rate limiter (`rate_limit_hits`, survives restarts), OpManager TLS warning when verification is off.
+- Dependencies: axios / express chain / form-data / nodemailer 10 / node-cron 4 / SheetJS 0.20.3 (vendor CDN build) — `npm audit --omit=dev` clean; CI gate `--audit-level=high` + CodeQL workflow.
+- SSO: Entra `groups` claim → roles/site provisioning (`sso_group_map`, pure `services/ssoProvisioning.js`), break-glass logins recorded as risk events, SSO logins in System Logs.
+- Audit: `audit.retention` job (12 months, risk 24), per-route authorisation matrix test (327 routes, `docs/ops/AUTHZ-MATRIX.md`), no inline handlers on new pages, `docs/ops/INCIDENT-RESPONSE.md`, help §21 EN/FR, dossier `docs/sdp360/design/ETAPE-04-securite.md`.
+
 ## 2.0.0-alpha.4 — 2026-10-19 — Étape 3 : dictionnaire des KPI, politiques RAG en données, registre des sites
 - `services/metricRegistry.js`: 46 KPIs registered (key, EN/FR name, module, unit, formula, window, RAG policy, reader, owner); loaded at boot from `metric_registry` / `kpi_rag_policies` (DB rows win, seed inserted for missing rows).
 - `GET /api/metrics/registry` and `GET /api/metrics/:key?site=&window=` (`routes/metrics.js`): one value through the registered reader, site-scoped, `null` ≠ 0, never 500.

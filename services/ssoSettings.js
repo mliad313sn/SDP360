@@ -55,6 +55,7 @@ async function resolveSsoSettings(db, deps = {}) {
     mode,
     ssoEnabled: mode !== 'off',
     breakglassUser: _pick(c.sso_breakglass_user, env.SSO_BREAKGLASS_USER, 'admin'),
+    groupMap: require('./ssoProvisioning').parseGroupMap(_pick(c.sso_group_map, env.SSO_GROUP_MAP, '')),
     cfg,
     ready: !!(cfg.tenantId && cfg.clientId && cfg.clientSecret),
   };

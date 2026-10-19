@@ -55,7 +55,7 @@ const DEFAULTS = {
   //    DB ?? .env ?? default). entra_client_secret is redacted on GET and blank-kept
   //    on save, exactly like smtp_pass. Must live in DEFAULTS or setConfig drops them.
   sso_mode: '', entra_tenant_id: '', entra_client_id: '', entra_client_secret: '',
-  entra_redirect_uri: '', sso_breakglass_user: '',
+  entra_redirect_uri: '', sso_breakglass_user: '', sso_group_map: '',
   // ── F1: Meridian PMO federation. base_url + two API keys. out_key = SDP presents
   //    it to Meridian (sync + link read-back); in_key = SDP requires it inbound on
   //    /api/actions/open. Both keys are secrets: redacted on GET, blank-kept on save

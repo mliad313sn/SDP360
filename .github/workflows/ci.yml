@@ -36,6 +36,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci --no-audit --no-fund
+      - name: Dependency audit (SCA) — fails on high/critical
+        run: npm audit --omit=dev --audit-level=high
       - name: Apply schema migrations on a fresh database (installer/CI path)
         run: node db/migrate.js && node db/migrate.js --status
       - run: npm test
