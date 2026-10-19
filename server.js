@@ -3467,7 +3467,7 @@ app.get('/api/assets/investment/export.xlsx', requireReportSession, requireAdmin
     ];
 
     const buf = buildWorkbook([
-      { name: 'History', rows: historyRows },
+      { name: 'Spend history', rows: historyRows },
       { name: 'Hardware forecast', rows: hardwareRows },
       { name: 'Software forecast', rows: softwareRows },
     ]);

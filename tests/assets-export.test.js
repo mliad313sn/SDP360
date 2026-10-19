@@ -38,3 +38,10 @@ test('Assets sheet carries the USD money + owner columns', () => {
   assert.equal(row['Acquisition Date'], '14 May 2025');
   assert.equal(row['Department'], 'IT');
 });
+
+test('step 4: a sheet named "History" (reserved by Excel, refused by SheetJS 0.20) is renamed, never a 500', () => {
+  const { buildWorkbook } = require('../services/tableExcel');
+  const XLSX = require('xlsx');
+  const wb = XLSX.read(buildWorkbook([{ name: 'History', rows: [{ a: 1 }] }]), { type: 'buffer' });
+  assert.deepEqual(wb.SheetNames, ['History data']);
+});
