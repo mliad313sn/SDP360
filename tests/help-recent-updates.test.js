@@ -7,7 +7,7 @@ const assert = require('node:assert');
 const fs = require('node:fs'), path = require('node:path');
 
 const src = fs.readFileSync(path.join(__dirname, '..', 'public', 'help.html'), 'utf8').replace(/\r\n/g, '\n');
-const NEW = ['7-5', '7-6', '10-6', '12-8', '12-9'];
+const NEW = ['7-5', '7-6', '7-7', '10-6', '12-8', '12-9'];
 
 for (const lang of ['en', 'fr']) {
   const tocStart = [...src.matchAll(/<div class="toc">/g)].map(m => m.index)[lang === 'en' ? 0 : 1];

@@ -311,6 +311,9 @@
   function ssoErrMsg(code) {
     const M = {
       not_provisioned: "Your Microsoft account isn't set up in the dashboard yet. Contact an administrator.",
+      not_in_group: "Your Microsoft account is not in any group that gives access to the dashboard. Contact an administrator.",
+      groups_overage: "Your Microsoft account belongs to too many groups for the sign-in to read them. Contact an administrator.",
+      group_map_invalid: "Microsoft sign-in is misconfigured on the dashboard (group mapping). Contact an administrator.",
       state_expired:   'Your sign-in session expired. Please click “Sign in with Microsoft” again.',
       missing_code:    'Sign-in was cancelled or failed. Please try again.',
       start_failed:    'Could not start Microsoft sign-in. Please try again.',

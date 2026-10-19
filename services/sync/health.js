@@ -11,6 +11,7 @@ function toMs(v) {
   if (v == null || v === '') return null;
   if (v instanceof Date) return Number.isFinite(v.getTime()) ? v.getTime() : null;
   let s = String(v).trim();
+  // eslint-disable-next-line security/detect-unsafe-regex -- reviewed (step 4): anchored, fixed-width fields
   if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}(:\d{2}(\.\d+)?)?$/.test(s)) s = s.replace(' ', 'T') + 'Z';
   const t = Date.parse(s);
   return Number.isFinite(t) ? t : null;

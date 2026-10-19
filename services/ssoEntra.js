@@ -144,7 +144,7 @@ async function verifyIdToken(idToken, cfg, http, expectedNonce) {
   if (payload.aud !== cfg.clientId)  throw _err('bad_aud', `Token audience is not this app`);
   if (typeof payload.exp !== 'number' || payload.exp < now - skew) throw _err('expired', 'id_token has expired');
   if (typeof payload.nbf === 'number' && payload.nbf > now + skew)  throw _err('not_yet_valid', 'id_token not yet valid');
-  if (expectedNonce && payload.nonce !== expectedNonce)            throw _err('bad_nonce', 'id_token nonce mismatch (possible replay)');
+  if (expectedNonce && !require('./safeCompare').safeEqual(payload.nonce, expectedNonce))            throw _err('bad_nonce', 'id_token nonce mismatch (possible replay)');
   if (cfg.tenantId && payload.tid && !/^common|organizations|consumers$/.test(cfg.tenantId) && payload.tid !== cfg.tenantId) {
     throw _err('bad_tenant', 'id_token from a different tenant');
   }
@@ -160,6 +160,10 @@ async function verifyIdToken(idToken, cfg, http, expectedNonce) {
     first_name: payload.given_name  || '',
     last_name:  payload.family_name || '',
     tid: payload.tid || null, raw: payload,
+    // Step 4: group object ids (Entra "groups" claim) for services/ssoGroupSync.js; an overage
+    // (too many groups) arrives as _claim_names.groups with no list.
+    groups: Array.isArray(payload.groups) ? payload.groups.map(String) : [],
+    groups_overage: !!(payload._claim_names && payload._claim_names.groups),
   };
 }
 

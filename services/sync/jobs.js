@@ -74,6 +74,25 @@ function buildJobs(deps) {
     { key: 'db.backup', label: 'Encrypted PostgreSQL backup', group: 'database', cron: '30 2 * * *',
       freshnessMinutes: NIGHTLY, retries: 1, baseDelayMs: 300000,
       fn: () => require('../dbBackup').runBackup() },
+    // Step 4 — the security journal is kept 12 months, then purged (expired login-throttle rows too).
+    { key: 'audit.retention', label: 'Audit log retention (12 months)', group: 'database', cron: '40 2 * * *',
+      freshnessMinutes: NIGHTLY, retries: 1, baseDelayMs: 60000,
+      fn: async () => {
+        const cut = new Date(Date.now() - 365 * 24 * 3600 * 1000).toISOString();
+        const purged = await require('../../reports-db').purgeSystemLog(cut);
+        await require('../authThrottle').purge({ windowMs: 24 * 3600 * 1000 });
+        return { purged, before: cut };
+      } },
+    // Step 4 — deactivate dashboard accounts whose Entra identity was deleted or disabled (armed off).
+    { key: 'entra.deprovision', label: 'Entra departures → account deactivation', group: 'security', cron: '50 2 * * *',
+      freshnessMinutes: NIGHTLY, retries: 1, baseDelayMs: 300000,
+      fn: async () => {
+        const rdb = require('../../reports-db');
+        const conf = await require('../reportConfig').getConfig(rdb.db);
+        const s = await require('../ssoSettings').resolveSsoSettings(rdb.db);
+        const mode = String(conf.sso_deprovision_enabled || '0');   // '0' off · 'preview' dry run · '1' on
+        return require('../entraDeprovision').run({ rdb, cfg: s.cfg, enabled: mode !== '0', dryRun: mode === 'preview', logEvent: rdb.logEvent });
+      } },
     { key: 'teams.sla', label: 'Teams SLA alerts', group: 'integrations', cron: '*/5 * * * *',
       freshnessMinutes: FIVE_MIN, retries: 0,
       fn: () => require('../../tools/teams/poll-sla').run({}) },

@@ -13,6 +13,34 @@ if not exist "%APP%\server.js" (
   pause
   exit /b 1
 )
+if exist "%~dp0node_modules\" (
+  echo This package carries a NEW node_modules ^(dependencies changed^).
+  echo The server must be stopped to replace it - stopping endeavour-dashboard ...
+  call pm2 stop endeavour-dashboard
+  timeout /t 5 /nobreak >nul
+  set "STAMP=%RANDOM%%RANDOM%"
+  if exist "%APP%\node_modules" (
+    move "%APP%\node_modules" "%APP%\node_modules.prev-!STAMP!" >nul
+    if errorlevel 1 (
+      echo [ERROR] could not move the old node_modules aside ^(a process still holds it?^). Nothing changed.
+      pause
+      exit /b 1
+    )
+  )
+  robocopy "%~dp0node_modules" "%APP%\node_modules" /E /NFL /NDL /NJH /NJS /NP >nul
+  pushd "%APP%"
+  node -e "require('better-sqlite3')(':memory:').prepare('select 1').get(); require('axios'); require('xlsx'); require('nodemailer'); require('express')"
+  set "DEPS_OK=!errorlevel!"
+  popd
+  if not "!DEPS_OK!"=="0" (
+    echo [ERROR] the new node_modules does not load - restoring the previous one.
+    rmdir /S /Q "%APP%\node_modules"
+    if exist "%APP%\node_modules.prev-!STAMP!" move "%APP%\node_modules.prev-!STAMP!" "%APP%\node_modules" >nul
+    pause
+    exit /b 1
+  )
+  echo   node_modules replaced. The previous one is kept as node_modules.prev-!STAMP! - delete it once the server runs.
+)
 echo Applying package to %APP% ...
 xcopy "%~dp0files" "%APP%" /E /Y /I
 if errorlevel 1 (

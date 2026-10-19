@@ -89,6 +89,17 @@ made so far so that future sessions can pick up exactly where the last one ended
 > 8 modules adoptés). Registre des sites `GET /api/registry/sites` (admin) : codes par module vs tables en dur.
 > **La convergence 10 → 3 échelles (DEC-1) et la suppression des alias en dur (DEC-4) attendent le comité** —
 > preuve : `node tools/metrics/rag-impact.js` en prod. Ne pas brancher les pages navigateur sur `kpiRag` avant DEC-1.
+>
+> **Étape 4 livrée** (dossier `docs/design/ETAPE-04-securite.md`, procédure `docs/ops/INCIDENT-RESPONSE.md`) :
+> **0 vulnérabilité** (audit + ESLint sécurité BLOQUANTS en CI ; SheetJS embarqué dans `vendor/` — ne pas le
+> remettre en dépendance npm) ; secrets **v2 scrypt** ; `SDP_CONFIG_KEY` obligatoire si `REQUIRE_POSTGRES=1` ;
+> comparaison de clés **`services/safeCompare.js`** (jamais `===` sur un secret) ; aucune clé/jeton dans une URL ;
+> throttle de connexion persistant (`services/authThrottle.js`) ; **toute nouvelle page sans script inline**, ajoutée
+> à `STRICT_PAGES` (`services/cspPolicy.js`) — le cliquet `tests/csp-inline.test.js` ne laisse rien remonter ;
+> **toute nouvelle route d'API est couverte d'office** par `tests/route-authz.smoke.test.js` (anonyme refusé,
+> `viewer` refusé si un middleware de rôle est déclaré — utiliser `requireRole([...])`, pas un contrôle inline) ;
+> journal `api` (écritures + 403) 12 mois. SSO groupes→rôles et désactivation des départs livrés **désarmés**.
+> Un changement de `package-lock.json` = le ZIP embarque un `node_modules` complet (swap + retour arrière côté prod).
 
 ---
 

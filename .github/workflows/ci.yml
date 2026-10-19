@@ -2,7 +2,8 @@
 #   1. syntax gate (every .js file + every inline page script)
 #   2. schema migrator applied to an EMPTY PostgreSQL 17, then replayed (must be a no-op)
 #   3. the whole test suite — sqlite AND PostgreSQL (PG_TESTS_REQUIRED=1: a skipped pg test fails)
-#   4. dependency audit (informational until step 4 makes it a gate)
+#   4. SAST (ESLint + eslint-plugin-security, eslint.config.js) and dependency audit — both GATES
+#      since step 4: any error / any high or critical vulnerability fails the build
 # No production secret is used: the database is a throwaway service container.
 name: CI
 
@@ -67,6 +68,12 @@ jobs:
       - name: Syntax gate
         run: node tools/ci/lint.js
 
+      - name: SAST (ESLint security rules)
+        run: npx eslint .
+
+      - name: Dependency audit (high and critical fail the build)
+        run: npm audit --omit=dev --audit-level=high
+
       - name: Schema migrator on an empty database
         run: |
           node db/migrate.js --apply
@@ -75,10 +82,6 @@ jobs:
 
       - name: Test suite (sqlite + PostgreSQL) with coverage
         run: node --test --test-force-exit --experimental-test-coverage --test-coverage-include='**/*.js' --test-coverage-exclude='tests/**' --test-coverage-exclude='node_modules/**' tests/*.test.js 2>&1 | tee test-output.txt; exit ${PIPESTATUS[0]}
-
-      - name: Dependency audit (informational)
-        continue-on-error: true
-        run: npm audit --omit=dev --audit-level=high
 
       - name: Keep the test log
         if: always()

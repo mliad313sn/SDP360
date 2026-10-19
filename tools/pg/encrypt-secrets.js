@@ -43,10 +43,10 @@ async function main() {
     for (const k of keys.sort()) {
       const r = rows.find(x => x.key === k);
       const todo = plan.find(x => x.key === k);
-      console.log('  ' + k.padEnd(22) + (todo ? 'à chiffrer' : describeSecretState(r && r.value).label));
+      console.log('  ' + k.padEnd(22) + (todo ? (todo.upgraded ? 'à ré-chiffrer (v1 → v2)' : 'à chiffrer') : describeSecretState(r && r.value).label));
     }
     console.log('');
-    if (!plan.length) { console.log('Rien à faire : aucun secret en clair.'); return; }
+    if (!plan.length) { console.log('Rien à faire : aucun secret en clair ni en v1.'); return; }
     if (!apply) { console.log(`${plan.length} secret(s) seraient chiffrés. Relancer avec --apply.`); return; }
 
     await c.query('BEGIN');

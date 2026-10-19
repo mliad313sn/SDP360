@@ -1,0 +1,13 @@
+# Step 4 (SDP-DASH-2.0) — weekly dependency update pull requests (npm + GitHub Actions).
+# Each PR runs the full CI (tests sqlite + PostgreSQL, SAST, audit) before anyone merges it.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule: { interval: weekly, day: monday }
+    open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: xlsx            # vendored from cdn.sheetjs.com (vendor/xlsx-*.tgz), updated by hand
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: monthly }

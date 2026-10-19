@@ -25,7 +25,18 @@ function check(env = process.env) {
   return { ok: !sqlite.length || !required, required, sqlite, backends: b, message };
 }
 
-/** Throws when REQUIRE_POSTGRES=1 and a module is on SQLite; otherwise returns check(). */
+// Step 4 (SDP-DASH-2.0) — the secrets key is MANDATORY in production. Production is declared by
+// REQUIRE_POSTGRES=1 (step 2) or REQUIRE_CONFIG_KEY=1. Without a usable SDP_CONFIG_KEY the stored
+// secrets (SMTP, Meraki, OpManager, SSO, Teams webhooks…) would sit in clear in every dump.
+const MIN_KEY_CHARS = 16;
+function checkConfigKey(env = process.env) {
+  const required = String(env.REQUIRE_CONFIG_KEY || '').trim() === '1' || String(env.REQUIRE_POSTGRES || '').trim() === '1';
+  const set = String(env.SDP_CONFIG_KEY || '').length >= MIN_KEY_CHARS;
+  return { ok: set || !required, required, set,
+    message: set ? 'secrets key set' : `SDP_CONFIG_KEY missing or shorter than ${MIN_KEY_CHARS} characters` };
+}
+
+/** Throws when production requirements are not met; otherwise returns check() + config_key. */
 function assertBootAllowed(env = process.env) {
   const c = check(env);
   if (!c.ok) {
@@ -33,7 +44,13 @@ function assertBootAllowed(env = process.env) {
     e.code = 'SQLITE_IN_PRODUCTION';
     throw e;
   }
-  return c;
+  const k = checkConfigKey(env);
+  if (!k.ok) {
+    const e = new Error(`production mode but ${k.message} — secrets would be stored in clear`);
+    e.code = 'CONFIG_KEY_REQUIRED';
+    throw e;
+  }
+  return { ...c, config_key: k };
 }
 
-module.exports = { backends, check, assertBootAllowed, MODULES };
+module.exports = { backends, check, checkConfigKey, assertBootAllowed, MODULES };

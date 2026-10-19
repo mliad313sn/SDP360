@@ -34,7 +34,7 @@ after(() => { try { server && server.close(); } catch {} });
 
 const EXPECTED = ['zoho.token', 'zoho.requests', 'zoho.change_cab', 'zoho.survey', 'cache.raw_refresh', 'cache.nightly',
   'assets.sync', 'meridian.resources', 'opmanager.availability', 'meraki.wan', 'meraki.wan_events',
-  'meraki.wan_events_nightly', 'meraki.wan_poller', 'teams.sla', 'db.backup'];
+  'meraki.wan_events_nightly', 'meraki.wan_poller', 'teams.sla', 'db.backup', 'audit.retention', 'entra.deprovision'];
 
 test('server.js schedules nothing outside the runner', () => {
   const src = _fs.readFileSync(_p.join(__dirname, '..', 'server.js'), 'utf8');

@@ -15,8 +15,16 @@ test('backend guard: warns by default, refuses to boot with REQUIRE_POSTGRES=1',
   assert.deepEqual(G.check(partial).sqlite, ['assets']);
   assert.equal(G.check(partial).ok, true, 'warning only without the flag');
   assert.throws(() => G.assertBootAllowed({ ...partial, REQUIRE_POSTGRES: '1' }), /assets/);
-  assert.equal(G.assertBootAllowed({ ...ALL_PG, REQUIRE_POSTGRES: '1' }).sqlite.length, 0);
+  assert.equal(G.assertBootAllowed({ ...ALL_PG, REQUIRE_POSTGRES: '1', SDP_CONFIG_KEY: 'a-production-passphrase' }).sqlite.length, 0);
   assert.match(G.check(partial).message, /ASSETS_BACKEND=postgres/);
+});
+
+test('step 4: the secrets key is mandatory in production mode, optional otherwise', () => {
+  assert.throws(() => G.assertBootAllowed({ ...ALL_PG, REQUIRE_POSTGRES: '1' }), e => e.code === 'CONFIG_KEY_REQUIRED');
+  assert.throws(() => G.assertBootAllowed({ ...ALL_PG, REQUIRE_POSTGRES: '1', SDP_CONFIG_KEY: 'short' }), e => e.code === 'CONFIG_KEY_REQUIRED');
+  assert.throws(() => G.assertBootAllowed({ REQUIRE_CONFIG_KEY: '1' }), e => e.code === 'CONFIG_KEY_REQUIRED');
+  assert.equal(G.assertBootAllowed({}).config_key.ok, true, 'dev / tests: no key needed');
+  assert.deepEqual(G.checkConfigKey({ SDP_CONFIG_KEY: 'a-production-passphrase' }), { ok: true, required: false, set: true, message: 'secrets key set' });
 });
 
 function fakeSpawn(output, code = 0) {

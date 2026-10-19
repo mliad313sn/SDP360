@@ -21,7 +21,7 @@ module.exports = function meridianRoutes(deps) {
       // would compare X-API-Key against undefined → 401 in prod while sqlite passes.
       const cfg = await reportConfig.getConfig(rdb.db);
       const key = cfg.meridian_in_key;
-      if (!key || req.get('X-API-Key') !== key) return res.status(401).json({ error: 'unauthorized' });
+      if (!key || !require('../services/safeCompare').safeEqual(req.get('X-API-Key'), key)) return res.status(401).json({ error: 'unauthorized' });
 
       const code = String(req.query.site || '').trim();
       const asOf = new Date().toISOString().slice(0, 10);

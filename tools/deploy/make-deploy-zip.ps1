@@ -79,6 +79,32 @@ foreach ($f in $changed) {
   $copied++
 }
 
+# Step 4 (SDP-DASH-2.0) -- dependencies. When package-lock.json changed, the package carries a
+# COMPLETE production node_modules built here (npm ci --omit=dev), so prod never runs npm (corporate
+# proxy, native build). better-sqlite3's native binding is copied from this box's node_modules:
+# same Windows x64 + Node major as prod. _apply_on_prod.cmd swaps it in with a rollback.
+if ($changed -contains 'package-lock.json') {
+  Write-Host "package-lock.json changed - building production node_modules ..." -ForegroundColor Cyan
+  $nm = Join-Path $stage 'deps'
+  New-Item -ItemType Directory -Path $nm -Force | Out-Null
+  Copy-Item (Join-Path $root 'package.json'), (Join-Path $root 'package-lock.json') $nm
+  if (Test-Path (Join-Path $root 'vendor')) { Copy-Item (Join-Path $root 'vendor') (Join-Path $nm 'vendor') -Recurse }
+  Push-Location $nm
+  $env:NODE_TLS_REJECT_UNAUTHORIZED = '0'      # dev box behind TLS inspection; this process only
+  & npm ci --omit=dev --ignore-scripts --no-audit --no-fund --strict-ssl=false | Out-Host
+  $ok = ($LASTEXITCODE -eq 0)
+  Remove-Item Env:\NODE_TLS_REJECT_UNAUTHORIZED
+  Pop-Location
+  if (-not $ok) { throw "npm ci failed - no package built" }
+  $bin = Join-Path $root 'node_modules\better-sqlite3\build'
+  if (-not (Test-Path $bin)) { throw "better-sqlite3 binding not found in $bin" }
+  Copy-Item $bin (Join-Path $nm 'node_modules\better-sqlite3\build') -Recurse -Force
+  & node -e "require(process.argv[1]+'/node_modules/better-sqlite3')(':memory:').prepare('select 1').get()" $nm
+  if ($LASTEXITCODE -ne 0) { throw "better-sqlite3 does not load from the built node_modules" }
+  Move-Item (Join-Path $nm 'node_modules') (Join-Path $stage 'node_modules')
+  Remove-Item $nm -Recurse -Force
+}
+
 # Deletions manifest (prod-relative, backslashes, ASCII).
 @($deleted | ForEach-Object { $_ -replace '/', '\' }) | Set-Content (Join-Path $stage 'DELETIONS.txt') -Encoding ASCII
 

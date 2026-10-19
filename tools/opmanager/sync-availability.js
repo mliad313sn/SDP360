@@ -40,8 +40,7 @@ function _trendOf(cur, prev) {
 
 // V1b-B — REST device-grain path (LAN/WLAN/Servers). Config-gated on opmanager_api_key+base_url.
 async function _restPath(deps, cfg, rdb, now, log) {
-  const client = deps.opmanagerClient || require('../../services/opmanagerClient').makeOpmanagerClient({
-    apiKey: cfg.opmanager_api_key, baseUrl: cfg.opmanager_base_url, tlsInsecure: cfg.opmanager_tls_insecure !== '0' });
+  const client = deps.opmanagerClient || require('../../services/opmanagerClient').makeOpmanagerClient(require('../../services/opmanagerClient').optionsFromConfig(cfg));
   const targets = _safeParse(cfg.opm_targets, {});
 
   // Pre-resolve a PLAIN device→site map (default: probeName via the opmanager seed; the

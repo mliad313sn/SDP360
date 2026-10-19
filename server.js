@@ -107,6 +107,12 @@ const BIND_HOST = process.env.BIND_HOST || '0.0.0.0';
 // code change, and only do it when NO client still uses plain HTTP.
 const SESSION_COOKIE_SECURE = process.env.SESSION_COOKIE_SECURE === '1'
   || /^true$/i.test(process.env.SESSION_COOKIE_SECURE || '');
+// Step 4 (SDP-DASH-2.0): one place for the session cookie. Secure is set whenever the request
+// arrived over HTTPS (IIS sends X-Forwarded-Proto, trusted from loopback) even without the env
+// flag; HttpOnly + SameSite=Lax always.
+function _sessionCookieOpts(req) {
+  return { httpOnly: true, secure: SESSION_COOKIE_SECURE || !!(req && req.secure), sameSite: 'lax', maxAge: 24 * 60 * 60 * 1000 };
+}
 
 // ── PROXY AWARENESS ────────────────────────────────────────────────
 // IIS in front of Node will forward requests with these headers:
@@ -199,6 +205,9 @@ app.use((req, res, next) => {
     path.startsWith('/design-system') ||
     path === '/activity-tracker.html' ||
     path.startsWith('/activity-tracker/');
+  // Step 4: pages written without inline script get the STRICT policy (services/cspPolicy.js).
+  const _csp = require('./services/cspPolicy');
+  if (_csp.STRICT_PAGES.has(path)) res.setHeader('Content-Security-Policy', _csp.strictHeader(res.locals && res.locals.nonce));
   if (isPreviewLike) {
     res.setHeader('Content-Security-Policy', [
       "default-src 'self'",
@@ -257,15 +266,20 @@ const aiLimiter = makeRateLimiter({
   message: 'AI analysis rate limit reached. Maximum 30 analyses per hour.',
 });
 
-// Login limiter — 10 attempts per 15 minutes per IP
-const loginLimiter = makeRateLimiter({
+// Login limiter — 10 attempts per 15 minutes per IP (in memory; the persistent per-account
+// throttle in the login route is the second layer). Bypassed with the test switch below.
+const _loginLimiterMem = makeRateLimiter({
   windowMs: 15 * 60 * 1000, max: 10,
   message: 'Too many login attempts. Please wait 15 minutes before trying again.',
 });
+const loginLimiter = (req, res, next) => (_noRateLimit ? next() : _loginLimiterMem(req, res, next));
 
 // Apply global limiter to all routes (except /health which is polled by Docker)
+// SDP_TEST_NO_RATE_LIMIT=1 lets the route-authorization test sweep every route (hundreds of calls);
+// it is IGNORED in production mode (REQUIRE_POSTGRES=1) so it can never weaken a live server.
+const _noRateLimit = process.env.SDP_TEST_NO_RATE_LIMIT === '1' && process.env.REQUIRE_POSTGRES !== '1';
 app.use((req, res, next) => {
-  if (req.path === '/health') return next();
+  if (req.path === '/health' || _noRateLimit) return next();
   globalLimiter(req, res, next);
 });
 
@@ -588,11 +602,12 @@ async function checkZohoViewSchema() {
 // Expose as an admin-only endpoint for manual health checks
 app.get('/api/health/views', async (req, res) => {
   // Require a valid session with admin or super_admin role
-  const token = req.headers['x-report-token'] || req.query.token;
+  // Step 4: session tokens are never accepted from the URL (they land in proxy/access logs).
+  const token = req.headers['x-report-token'] || getCookie(req, 'report_token');
   if (!token) return res.status(401).json({ error: 'Authentication required' });
   const { validateSession } = require('./reports-db');
   const user = await validateSession(token);
-  if (!user || !['admin','super_admin'].includes(user.role)) {
+  if (!user || !rdb.userHasRole(user, 'admin')) {
     return res.status(403).json({ error: 'Admin role required' });
   }
   try {
@@ -1022,6 +1037,10 @@ app.use((req, res, next) => {
 // Auth.js enforces: no token → login redirect | wrong role → index redirect | expired → logout.
 // API routes are still protected by requireReportSession / API key guard below.
 
+// Step 4 (SDP-DASH-2.0) — extended audit journal: every API write and every 403 → system_log
+// (category 'api'), recorded after the response (services/apiAudit.js). Kept 12 months.
+app.use('/api/', require('./services/apiAudit').middleware((ev) => { if (rdb) rdb.logEvent(ev); }));
+
 // ── API Key guard — extra layer on all /api/* routes ─────────────
 // Accepts either x-dash-key (injected into HTML) OR a valid x-report-token session.
 // This allows index.html (Editor/Viewer) to call APIs using their session token.
@@ -1038,7 +1057,7 @@ app.use('/api/', async (req, res, next) => {
   // (report_config meridian_in_key) inside routes/meridian.js, NOT the dash key.
   if (req.method === 'GET' && req.path === '/actions/open') return next();
   const key   = req.headers['x-dash-key'];
-  if (key === DASH_API_KEY) return next(); // API key present — allow
+  if (key && require('./services/safeCompare').safeEqual(key, DASH_API_KEY)) return next(); // API key present — allow (constant-time)
   // Fallback: accept valid session token (for Editor/Viewer users on index.html)
   const token = req.headers['x-report-token'] || getCookie(req, 'report_token');
   if (rdb && token) {
@@ -1202,6 +1221,7 @@ function injectAssetVersion(html) {
   const v = `?v=${APP_VERSION}`;
   const isLocal = (u) =>
     u
+    // eslint-disable-next-line security/detect-unsafe-regex -- reviewed (step 4): anchored, no nested quantifier
     && !/^(https?:)?\/\//i.test(u)
     && !u.startsWith('data:')
     && !u.startsWith('#')
@@ -2186,6 +2206,7 @@ app.get('/api/survey/voice', requireReportSession, async (req, res) => {
         const ratingWords = /^(excellent|good|satisf|poor|bad|very good|very bad|bien|bon|mauvais|parfait|moyen|neutre|neutral|nul|great|ok|okay|fair|average|horrible|terrible|outstanding)$/i;
         const optCandidate = optRaw.length > 25 && !ratingWords.test(optRaw.trim()) ? optRaw : '';
         const text = (textRaw || optCandidate).trim();
+        // eslint-disable-next-line security/detect-unsafe-regex -- reviewed (step 4): linear: one optional group, no overlap
         if (!text || /^\s*\d+([.,]\d+)?\s*$/.test(text)) return;
         if (text.length < 5) return;
         const _ck = rid + '|' + text.toLowerCase();
@@ -2320,7 +2341,8 @@ app.get('/api/sync/health', requireReportSession, requireAdmin, async (req, res)
     });
     // Step 2: database state — backend per module (zero SQLite in production) + schema migrations.
     const bg = require('./services/backendGuard').check();
-    h.database = { backends: bg.backends, sqlite: bg.sqlite, require_postgres: bg.required, message: bg.message, migrations: null };
+    h.database = { backends: bg.backends, sqlite: bg.sqlite, require_postgres: bg.required, message: bg.message, migrations: null,
+      config_key: (({ set, required }) => ({ set, required }))(require('./services/backendGuard').checkConfigKey()) };
     if (rdb.REPORTS_BACKEND === 'postgres') {
       try {
         const st = await require('./db/migrate').status(rdb.pgHandle());
@@ -5290,6 +5312,7 @@ async function _siteCodeReadDenied(user, code) {
   const hit = await rdb.getSiteIdByModuleCode('meetings', code);
   return !hit || _siteReadDenied(user, hit.site_id);
 }
+// eslint-disable-next-line security/detect-unsafe-regex -- reviewed (step 4): anchored, the [^?]* class cannot overlap the literal /
 const _REPORT_ID_READ = /^\/api\/reports\/(\d+)(\/[^?]*)?$/;
 const _SITE_ID_READ   = /^\/api\/(?:reports\/(?:monthly|yearly|objectives)|sites)\/(\d+)(?:\/|$)/;
 app.get([_REPORT_ID_READ, _SITE_ID_READ], requireReportSession, async (req, res, next) => {
@@ -5352,7 +5375,7 @@ function requireExecutiveOrSuperAdmin(req, res, next) {
 //   requireRole(['tracker-admin', 'tracker-editor'])  // either is enough
 function requireRole(roleOrRoles) {
   const roles = Array.isArray(roleOrRoles) ? roleOrRoles : [roleOrRoles];
-  return function (req, res, next) {
+  const mw = function requireRole(req, res, next) {
     if (!rdb) return res.status(503).json({ error: 'RBAC unavailable' });
     if (!roles.some(r => rdb.userHasRole(req.reportUser, r))) {
       return res.status(403).json({
@@ -5361,6 +5384,8 @@ function requireRole(roleOrRoles) {
     }
     next();
   };
+  mw.requiredRoles = roles;          // read by tests/route-authz.smoke.test.js (step 4)
+  return mw;
 }
 
 const jsonBody = express.json({ limit: '2mb' });
@@ -5400,7 +5425,13 @@ app.put('/api/reports/config', requireReportSession, requireSuperAdmin, async (r
     // SSO settings (mode / secret / tenant) are auth-critical. The endpoint is
     // requireAdmin (shared with SMTP etc.), so enforce super_admin server-side for
     // the SSO keys — the UI hide alone is not a boundary.
-    const SSO_KEYS = ['sso_mode','entra_tenant_id','entra_client_id','entra_client_secret','entra_redirect_uri','sso_breakglass_user'];
+    const SSO_KEYS = ['sso_mode','entra_tenant_id','entra_client_id','entra_client_secret','entra_redirect_uri','sso_breakglass_user',
+      'sso_group_sync','sso_group_map','sso_deprovision_enabled'];
+    // Step 4: a group map that does not validate is refused (it would lock every SSO user out).
+    if ('sso_group_map' in body) {
+      const gm = require('./services/ssoGroupSync').parseGroupMap(String(body.sso_group_map || '[]'));
+      if (gm.errors.length) return res.status(400).json({ error: 'Group map: ' + gm.errors.join('; ') });
+    }
     if (SSO_KEYS.some(k => k in body) && req.reportUser?.role !== 'super_admin') {
       return res.status(403).json({ error: 'SSO settings require super_admin' });
     }
@@ -5414,7 +5445,7 @@ app.put('/api/reports/config', requireReportSession, requireSuperAdmin, async (r
     if (MERAKI_KEYS.some(k => k in body) && req.reportUser?.role !== 'super_admin') {
       return res.status(403).json({ error: 'Meraki settings require super_admin' });
     }
-    const OPMANAGER_KEYS = ['opmanager_api_key','opmanager_base_url','opmanager_tls_insecure'];
+    const OPMANAGER_KEYS = ['opmanager_api_key','opmanager_base_url','opmanager_tls_insecure','opmanager_ca_file','opmanager_apikey_in_query'];
     if (OPMANAGER_KEYS.some(k => k in body) && req.reportUser?.role !== 'super_admin') {
       return res.status(403).json({ error: 'OpManager settings require super_admin' });
     }
@@ -5895,23 +5926,37 @@ app.post('/api/reports/auth/login', loginLimiter, jsonBody, async (req, res) => 
   if (_sso.mode === 'only' && username !== _sso.breakglassUser) {
     return res.status(403).json({ error: 'Password sign-in is disabled — use "Sign in with Microsoft".' });
   }
+  // Step 4: persistent throttle (services/authThrottle.js) — survives a restart and also caps
+  // FAILED attempts per ACCOUNT, whatever the address. Best-effort: a throttle-store error never
+  // blocks a login (the in-memory loginLimiter above still applies).
+  const _thr = require('./services/authThrottle'), _thrWin = 15 * 60 * 1000, _thrMax = 10;
+  try {
+    const u = await _thr.peek(_thr.bucketForUser(username), { windowMs: _thrWin });
+    const ipf = await _thr.peek(_thr.bucketForIp(req.ip), { windowMs: _thrWin });
+    if (u.hits >= _thrMax || ipf.hits >= _thrMax * 3) {
+      rdb.logEvent({ category: 'auth', action: 'login_throttled', actor: username, ip: req.ip, details: { account_failures: u.hits, ip_failures: ipf.hits } });
+      res.setHeader('Retry-After', Math.max(u.retryAfterSec, ipf.retryAfterSec) || Math.ceil(_thrWin / 1000));
+      return res.status(429).json({ error: 'Too many login attempts. Please wait 15 minutes before trying again.' });
+    }
+  } catch (e) { console.warn('[auth] throttle store unavailable:', e.message); }
   try {
     const result = await rdb.login(username, password);
     if (!result) {
       rdb.logEvent({ category:'auth', action:'login_failed', actor: username || 'anonymous', ip: req.ip, details:{ reason:'invalid_credentials' } });
+      _thr.hit(_thr.bucketForUser(username), { windowMs: _thrWin }).catch(() => {});
+      _thr.hit(_thr.bucketForIp(req.ip), { windowMs: _thrWin }).catch(() => {});
       return res.status(401).json({ error: 'Invalid credentials' });
     }
+    _thr.reset(_thr.bucketForUser(username)).catch(() => {});
     rdb.logEvent({ category:'auth', action:'login_success', actor:(result.user && result.user.username) || username, actor_id:(result.user && result.user.id) || null, ip: req.ip });
+    // Step 4: a password sign-in while SSO is enforced can only be the break-glass account —
+    // always a risk-flagged event, so every use of the emergency account is visible in System Logs.
+    if (_sso.mode === 'only') rdb.logEvent({ category: 'auth', action: 'breakglass_login', actor: username, actor_id: (result.user && result.user.id) || null, ip: req.ip, details: { sso_mode: 'only' } });
     // SECURITY: If token is also set as a cookie, apply httpOnly + Secure + SameSite flags.
     // httpOnly prevents JavaScript from reading the cookie (XSS protection).
     // Secure ensures it is only sent over HTTPS in production.
     if (result.token) {
-      res.cookie('report_token', result.token, {
-        httpOnly: true,
-        secure:   SESSION_COOKIE_SECURE,  // set SESSION_COOKIE_SECURE=1 in .env once on HTTPS (IIS/TLS)
-        sameSite: 'lax',          // 'lax' allows cookie on same-site page navigations (GET)
-        maxAge:   24 * 60 * 60 * 1000, // 24 hours
-      });
+      res.cookie('report_token', result.token, _sessionCookieOpts(req));
     }
     res.json({ token: result.token, user: result.user });
   } catch(e) { res.status(500).json({ error: IS_DEV ? e.message : 'Login error.' }); }
@@ -6007,6 +6052,20 @@ app.get('/api/auth/sso/callback', async (req, res) => {
       return _fail('not_provisioned');
     }
     await rdb.linkUserEntra(user.id, claims.oid, claims.email);   // stamp stable oid
+    // Step 4: Entra groups → roles + sites (armed off: sso_group_sync='1' to enable).
+    {
+      const cfg = await reportConfig.getConfig(rdb.db);
+      const g = require('./services/ssoGroupSync').decide({ enabled: cfg.sso_group_sync === '1', claims, mapText: cfg.sso_group_map });
+      if (g.action === 'deny') {
+        rdb.logEvent({ category: 'auth', action: 'login_failed', actor: user.username, actor_id: user.id, ip: req.ip, details: { method: 'sso', reason: g.reason } });
+        return _fail(g.reason);
+      }
+      if (g.action === 'apply') {
+        await rdb.applyEntraAccess(user.id, g.access);
+        rdb.logEvent({ category: 'identity', action: 'roles_from_entra', actor: user.username, actor_id: user.id, target: user.username,
+          details: { roles: g.access.roles, site_id: g.access.site_id, extra_site_ids: g.access.extra_site_ids, groups: g.access.groups } });
+      }
+    }
     // Refresh the display profile FROM Microsoft (name/title/office).
     try {
       await rdb.updateUserProfileFromEntra(user.id, {
@@ -6019,9 +6078,8 @@ app.get('/api/auth/sso/callback', async (req, res) => {
     console.log(`[SSO] login ok user=${user.username} email=${claims.email}`);
 
     // Set the same httpOnly session cookie password login uses…
-    res.cookie('report_token', session.token, {
-      httpOnly: true, secure: SESSION_COOKIE_SECURE, sameSite: 'lax', maxAge: 24 * 60 * 60 * 1000,
-    });
+    res.cookie('report_token', session.token, _sessionCookieOpts(req));
+    rdb.logEvent({ category: 'auth', action: 'login_success', actor: user.username, actor_id: user.id, ip: req.ip, details: { method: 'sso' } });
     // …and hand the token to localStorage via a tiny page (mirrors the password
     // flow; token is in the HTTPS response body, never in the URL).
     const payload = JSON.stringify({ token: session.token, user: session.user });

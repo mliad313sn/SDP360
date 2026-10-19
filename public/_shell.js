@@ -307,7 +307,8 @@
     if (!user) return '';
     const name = user.full_name || user.username || '—';
     const role = user.role || '—';
-    return `<div class="shell-user-pill" title="Click to log out" onclick="window.__logout && window.__logout()">
+    // Step 4: no inline handler (CSP) — the click is caught by the delegated listener below.
+    return `<div class="shell-user-pill" title="Click to log out" role="button" tabindex="0">
       <span class="shell-user-name">${escapeHtml(name)}</span>
       <span class="shell-user-role">${escapeHtml(role)}</span>
     </div>`;
@@ -376,6 +377,7 @@
   // Single delegated listener on document so it survives re-renders
   // (e.g. reports.html re-rendering the shell after login).
   document.addEventListener('click', (e) => {
+    if (e.target.closest('.shell-user-pill')) { if (window.__logout) window.__logout(); return; }
     const caret = e.target.closest('.shell-nav-caret');
     if (caret) {
       // Caret click — toggle dropdown, suppress the parent <a>'s

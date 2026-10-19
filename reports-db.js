@@ -1801,6 +1801,34 @@ function findUserByEntra({ oid, email } = {}) {
   if (!u && email)  u = db.prepare(`SELECT * FROM users WHERE lower(email)=lower(?) AND active=1`).get(email);
   return u || null;
 }
+// Step 4 (SDP-DASH-2.0) — Entra groups → roles + sites (services/ssoGroupSync.js decides,
+// this applies). Roles replace the set; the primary site and the extras replace theirs.
+async function applyEntraAccess(userId, { roles, site_id, extra_site_ids } = {}) {
+  if (!userId) return;
+  await setUserRoles(userId, roles);
+  const sid = site_id == null ? null : Number(site_id);
+  if (REPORTS_BACKEND === 'postgres') await pgHandle().prepare('UPDATE users SET site_id=? WHERE id=?').run(sid, userId);
+  else db.prepare('UPDATE users SET site_id=? WHERE id=?').run(sid, userId);
+  await setUserExtraSites(userId, extra_site_ids || [], sid);
+}
+// Deactivate an account and close every session it has (Entra departure, group removal).
+async function deactivateUser(userId) {
+  if (REPORTS_BACKEND === 'postgres') {
+    const h = pgHandle();
+    await h.prepare('UPDATE users SET active=0 WHERE id=?').run(userId);
+    await h.prepare('DELETE FROM sessions WHERE user_id=?').run(userId);
+    return;
+  }
+  db.prepare('UPDATE users SET active=0 WHERE id=?').run(userId);
+  db.prepare('DELETE FROM sessions WHERE user_id=?').run(userId);
+}
+// Active accounts linked to an Entra identity (the deprovisioning job checks each one).
+function listEntraLinkedUsers() {
+  const sql = 'SELECT id, username, email, entra_oid FROM users WHERE active=1 AND entra_oid IS NOT NULL ORDER BY id';
+  if (REPORTS_BACKEND === 'postgres') return pgHandle().prepare(sql).all();
+  return db.prepare(sql).all();
+}
+
 // linkUserEntra: on first successful SSO match, stamp the stable oid. Set the
 // email too only if the row didn't already have one (don't clobber a curated value).
 function linkUserEntra(userId, oid, email) {
@@ -8122,6 +8150,7 @@ async function _getRequestFilterOptionsPg() {
 // invoke it BARE (never awaited, never chained → clear of await-precedence).
 const _RISK_ACTIONS = new Set([
   'login_failed','session_killed','user_deleted','user_role_changed','password_reset','report_deleted',
+  'breakglass_login','login_throttled','user_deactivated',
 ]);
 function _isRiskAction(action) { return _RISK_ACTIONS.has(String(action || '')); }
 
@@ -8161,6 +8190,17 @@ async function logEvent(ev = {}) {
       ).run(row);
     }
   } catch (e) { console.warn('[system-log] logEvent failed (swallowed):', e.message); }
+}
+
+// Step 4 (SDP-DASH-2.0) — retention: the security journal is kept 12 months (job
+// audit.retention). ts is an ISO string on both backends, so a string compare is exact.
+async function purgeSystemLog(beforeIso) {
+  const cut = String(beforeIso);
+  if (REPORTS_BACKEND === 'postgres') {
+    const r = await pgHandle().prepare('DELETE FROM system_log WHERE ts < ?').run(cut);
+    return Number((r && (r.changes ?? r.rowCount)) || 0);
+  }
+  return db.prepare('DELETE FROM system_log WHERE ts < ?').run(cut).changes;
 }
 
 // WHERE builder — present keys only, parameterised. Unknown keys ignored.
@@ -8241,11 +8281,11 @@ module.exports = {
   db,
   REPORTS_BACKEND, initPgReports, pgHandle,
   // System Logs v1
-  _isRiskAction, _redactKeys, _logCtx, logEvent,
+  _isRiskAction, _redactKeys, _logCtx, logEvent, purgeSystemLog,
   listSystemLog, countSystemLog, getSystemLogAnalytics, _backfillSystemLogFromAudit,
   hashPassword, makeSession,
   login, validateSession, logout, safeUser,
-  findUserByEntra, linkUserEntra, createSessionForUser,
+  findUserByEntra, linkUserEntra, createSessionForUser, applyEntraAccess, deactivateUser, listEntraLinkedUsers,
   updateUserProfileFromEntra, setUserEmail,
   // Active-sessions observability (admin card on reports.html#admin)
   listActiveSessions, forceLogoutByToken,

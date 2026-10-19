@@ -147,6 +147,7 @@
       <a href="#en-7">7. Admin Panel</a>
       <a class="toc-sub" href="#en-7-5">Sync health</a>
       <a class="toc-sub" href="#en-7-6">KPI dictionary &amp; site registry</a>
+      <a class="toc-sub" href="#en-7-7">Security &amp; audit</a>
       <a href="#en-8">8. Quick Reference</a>
       <a href="#en-9">9. Incident SLA Targets</a>
       <a class="toc-sub" href="#en-9-1">Priority Mapping</a>
@@ -571,6 +572,16 @@
         <p><strong>Operations ▸ KPI Dictionary</strong> lists every figure the platform shows (helpdesk, changes, meetings, inspections, scores, assets, infrastructure, risk): what it measures, the formula, the window, the owner, the screen or module that computes it and the colour scale it uses. EN / FR switch at the top right. Indicators marked <strong>API</strong> can be read one site at a time with <code>GET /api/metrics/&lt;key&gt;?site=CODE&amp;month=YYYY-MM</code> — restricted to your own sites, and computed by the same function as the screen.</p>
         <p>The <strong>Colour scales</strong> tab shows the green / amber / red thresholds in use today. They now live in one place (<code>public/lib/kpiRag.js</code>); <strong>no colour changed</strong>. Merging the ten scales into three is a governance decision: the impact per site is produced by <code>node tools/metrics/rag-impact.js</code>.</p>
         <p>The <strong>Site registry</strong> tab (admin) shows, for each site, the code each module uses, what the codes still hard-coded in the application would give, and the asset and risk-register labels that point to it. A red flag (for example <em>no_meetings_code</em> or <em>inspection_map_disagrees</em>) is a point to settle before the hard-coded tables can be removed.</p>
+
+        <h3 id="en-7-7">7.7 Security: sign-in, audit, Microsoft groups (super_admin)</h3>
+        <ul>
+          <li><strong>Sign-in throttling.</strong> After 10 failed passwords on one account within 15 minutes, that account is blocked for 15 minutes (even with the right password); 30 failures from one address block the address. The counters survive a server restart. Every block is a <em>login_throttled</em> event in System Logs.</li>
+          <li><strong>Break-glass account.</strong> When Microsoft sign-in is required (mode <em>only</em>), only the break-glass user can still use a password; each of its sign-ins is a <em>risk</em> event (<em>breakglass_login</em>).</li>
+          <li><strong>Audit journal.</strong> Every change made through the dashboard (create, update, delete) and every refused access (403) is recorded in System Logs, category <em>api</em>: who, which page/route, result. The content of the change is not stored. Entries are kept 12 months.</li>
+          <li><strong>Roles and sites from Microsoft groups</strong> (<em>Admin ▸ Microsoft SSO</em>, off by default). When on, each Microsoft sign-in recomputes the person's roles and sites from the Entra groups listed in the map; someone in none of those groups can no longer sign in. super_admin is never granted by a group.</li>
+          <li><strong>People who left</strong> (same card). <em>preview</em> lists, every night, the accounts whose Microsoft identity was deleted or disabled, without changing anything (result in <em>Sync health</em>, job <code>entra.deprovision</code>); <em>on</em> deactivates them and closes their sessions. A run that would deactivate more than 20&nbsp;% of the accounts is refused.</li>
+          <li><strong>Incidents</strong>: the procedure (who to call, which secrets to replace, how) is in <code>docs/ops/INCIDENT-RESPONSE.md</code>.</li>
+        </ul>
       </div>
 
       <!-- 8 -->
@@ -1203,6 +1214,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Confirm-Destructive.ps1"
       <a href="#fr-7">7. Panneau d'administration</a>
       <a class="toc-sub" href="#fr-7-5">Santé des synchronisations</a>
       <a class="toc-sub" href="#fr-7-6">Dictionnaire des indicateurs</a>
+      <a class="toc-sub" href="#fr-7-7">Sécurité &amp; audit</a>
       <a href="#fr-8">8. Référence rapide</a>
       <a href="#fr-9">9. Cibles SLA des incidents</a>
       <a class="toc-sub" href="#fr-9-1">Correspondances priorités</a>
@@ -1626,6 +1638,16 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Confirm-Destructive.ps1"
         <p><strong>Operations ▸ KPI Dictionary</strong> liste chaque chiffre affiché par la plateforme (helpdesk, changements, réunions, inspections, scores, actifs, infrastructure, risques) : ce qu’il mesure, la formule, la période, le responsable, l’écran ou le module qui le calcule et l’échelle de couleurs appliquée. Bascule EN / FR en haut à droite. Les indicateurs marqués <strong>API</strong> se lisent site par site avec <code>GET /api/metrics/&lt;clé&gt;?site=CODE&amp;month=AAAA-MM</code> — limité à vos propres sites, calculé par la même fonction que l’écran.</p>
         <p>L’onglet <strong>Échelles de couleurs</strong> montre les seuils vert / orange / rouge appliqués aujourd’hui. Ils sont désormais réunis à un seul endroit (<code>public/lib/kpiRag.js</code>) ; <strong>aucune couleur n’a changé</strong>. Ramener les dix échelles à trois est une décision de gouvernance : l’impact par site est produit par <code>node tools/metrics/rag-impact.js</code>.</p>
         <p>L’onglet <strong>Registre des sites</strong> (admin) montre, pour chaque site, le code utilisé par chaque module, ce que donneraient les codes encore écrits en dur dans l’application, et les libellés d’actifs et du registre des risques qui y mènent. Un drapeau rouge (par exemple <em>no_meetings_code</em> ou <em>inspection_map_disagrees</em>) est un point à trancher avant de pouvoir supprimer les tables codées en dur.</p>
+
+        <h3 id="fr-7-7">7.7 Sécurité : connexion, journal d'audit, groupes Microsoft (super_admin)</h3>
+        <ul>
+          <li><strong>Limitation des connexions.</strong> Après 10 mots de passe faux sur un compte en 15 minutes, ce compte est bloqué 15 minutes (même avec le bon mot de passe) ; 30 échecs depuis une même adresse bloquent l'adresse. Les compteurs survivent à un redémarrage. Chaque blocage est un événement <em>login_throttled</em> dans System Logs.</li>
+          <li><strong>Compte de secours.</strong> Quand la connexion Microsoft est obligatoire (mode <em>only</em>), seul le compte de secours peut encore utiliser un mot de passe ; chacune de ses connexions est un événement <em>à risque</em> (<em>breakglass_login</em>).</li>
+          <li><strong>Journal d'audit.</strong> Chaque modification faite dans le tableau de bord (création, mise à jour, suppression) et chaque accès refusé (403) est enregistré dans System Logs, catégorie <em>api</em> : qui, quelle page/route, quel résultat. Le contenu de la modification n'est pas conservé. Les entrées sont gardées 12 mois.</li>
+          <li><strong>Rôles et sites depuis les groupes Microsoft</strong> (<em>Admin ▸ Microsoft SSO</em>, désactivé par défaut). Activé, chaque connexion Microsoft recalcule les rôles et sites de la personne à partir des groupes Entra listés dans la table ; une personne dans aucun de ces groupes ne peut plus se connecter. super_admin n'est jamais donné par un groupe.</li>
+          <li><strong>Départs</strong> (même carte). <em>preview</em> liste chaque nuit les comptes dont l'identité Microsoft a été supprimée ou désactivée, sans rien changer (résultat dans <em>Sync health</em>, job <code>entra.deprovision</code>) ; <em>on</em> les désactive et ferme leurs sessions. Un passage qui désactiverait plus de 20&nbsp;% des comptes est refusé.</li>
+          <li><strong>Incidents</strong> : la procédure (qui appeler, quels secrets remplacer, comment) est dans <code>docs/ops/INCIDENT-RESPONSE.md</code>.</li>
+        </ul>
       </div>
 
       <!-- 8 FR -->

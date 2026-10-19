@@ -56,6 +56,8 @@ const DEFAULTS = {
   //    on save, exactly like smtp_pass. Must live in DEFAULTS or setConfig drops them.
   sso_mode: '', entra_tenant_id: '', entra_client_id: '', entra_client_secret: '',
   entra_redirect_uri: '', sso_breakglass_user: '',
+  // Step 4 — Entra groups → roles/sites (armed off) and automatic deactivation of departed accounts (armed off).
+  sso_group_sync: '0', sso_group_map: '[]', sso_deprovision_enabled: '0',
   // ── F1: Meridian PMO federation. base_url + two API keys. out_key = SDP presents
   //    it to Meridian (sync + link read-back); in_key = SDP requires it inbound on
   //    /api/actions/open. Both keys are secrets: redacted on GET, blank-kept on save
@@ -82,7 +84,7 @@ const DEFAULTS = {
   // ── OpManager REST API (V1b-B — LAN/WLAN/Servers device availability). api_key is a
   //    SECRET (redact/blank-keep/super_admin); base_url points at the on-prem server;
   //    tls_insecure tolerates its self-signed cert. '1' = insecure (default).
-  opmanager_base_url: '', opmanager_api_key: '', opmanager_tls_insecure: '1',
+  opmanager_base_url: '', opmanager_api_key: '', opmanager_tls_insecure: '0', opmanager_ca_file: '', opmanager_apikey_in_query: '0',
   // ── WAN SLA / ISP chargeback (V1c). The tier/circuit policy (JSON) that the SLA
   //    engine + credit reader resolve per (site_id, sub_site, uplink). Seeded as a
   //    JSON string (like asset_depreciation_config). Must live here or setConfig's

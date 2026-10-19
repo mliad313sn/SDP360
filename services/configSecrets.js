@@ -30,13 +30,39 @@ const PREFIX = 'enc:v1:';
 const MIN_KEY_CHARS = 16;
 
 /** A passphrase → a 32-byte key. Returns null for anything too short to be worth having. */
+// Step 4 (SDP-DASH-2.0): v2 boxes derive the AES key with scrypt and a per-value random salt
+// (`enc:v2:<salt>:<iv>:<tag>:<ct>`), so a leaked dump cannot be attacked with one fast SHA-256
+// guess per candidate passphrase. v1 boxes (`enc:v1:`, SHA-256 of the passphrase) stay readable;
+// planSecretEncryption re-encrypts them to v2 (tools/pg/encrypt-secrets.js --apply).
+const PREFIX2 = 'enc:v2:';
+const SCRYPT = { N: 1 << 15, r: 8, p: 1, maxmem: 64 * 1024 * 1024 };
+const _derived = new Map();          // `${salt}` → key, per passphrase object (scrypt is ~100 ms)
+
+function _scryptKey(pass, salt) {
+  const id = salt.toString('base64');
+  let m = _derived.get(pass);
+  if (!m) { m = new Map(); _derived.set(pass, m); }
+  if (!m.has(id)) m.set(id, crypto.scryptSync(pass, salt, 32, SCRYPT));
+  return m.get(id);
+}
+
+/**
+ * A passphrase → the process key, or null when too short. The returned Buffer is the v1 key
+ * (SHA-256, to READ old boxes); it also carries the passphrase (non-enumerable) so new boxes
+ * are written as v2.
+ */
 function keyFrom(passphrase) {
   const s = String(passphrase == null ? '' : passphrase);
   if (s.length < MIN_KEY_CHARS) return null;
-  return crypto.createHash('sha256').update(s, 'utf8').digest();
+  const k = crypto.createHash('sha256').update(s, 'utf8').digest();
+  Object.defineProperty(k, '_pass', { value: s, enumerable: false });
+  return k;
 }
 
 function isEncrypted(value) {
+  return typeof value === 'string' && (value.startsWith(PREFIX) || value.startsWith(PREFIX2));
+}
+function isLegacy(value) {
   return typeof value === 'string' && value.startsWith(PREFIX);
 }
 
@@ -45,7 +71,13 @@ function encryptValue(plain, key) {
   const s = String(plain == null ? '' : plain);
   if (s === '' || !key) return s;
   const iv = crypto.randomBytes(12);
-  const c = crypto.createCipheriv('aes-256-gcm', key, iv);
+  if (key._pass) {                                   // v2: scrypt + per-value salt
+    const salt = crypto.randomBytes(16);
+    const c = crypto.createCipheriv('aes-256-gcm', _scryptKey(key._pass, salt), iv);
+    const body = Buffer.concat([c.update(s, 'utf8'), c.final()]);
+    return PREFIX2 + [salt, iv, c.getAuthTag(), body].map(b => b.toString('base64')).join(':');
+  }
+  const c = crypto.createCipheriv('aes-256-gcm', key, iv);   // v1: a bare 32-byte key
   const body = Buffer.concat([c.update(s, 'utf8'), c.final()]);
   return PREFIX + [iv, c.getAuthTag(), body].map(b => b.toString('base64')).join(':');
 }
@@ -58,11 +90,15 @@ function decryptValue(stored, key) {
   const s = typeof stored === 'string' ? stored : '';
   if (!isEncrypted(s)) return s;
   if (!key) return null;
-  const parts = s.slice(PREFIX.length).split(':');
-  if (parts.length !== 3) return null;
+  const v2 = s.startsWith(PREFIX2);
+  const parts = s.slice(v2 ? PREFIX2.length : PREFIX.length).split(':');
+  if (parts.length !== (v2 ? 4 : 3)) return null;
+  if (v2 && !key._pass) return null;
   try {
-    const [iv, tag, body] = parts.map(p => Buffer.from(p, 'base64'));
-    const d = crypto.createDecipheriv('aes-256-gcm', key, iv);
+    const bufs = parts.map(p => Buffer.from(p, 'base64'));
+    const k = v2 ? _scryptKey(key._pass, bufs.shift()) : key;
+    const [iv, tag, body] = bufs;
+    const d = crypto.createDecipheriv('aes-256-gcm', k, iv);
     d.setAuthTag(tag);
     return Buffer.concat([d.update(body), d.final()]).toString('utf8');
   } catch (e) {
@@ -100,6 +136,7 @@ function envKey(env = process.env, warn = console.warn) {
 function describeSecretState(stored) {
   const v = stored == null ? '' : String(stored);
   if (v === '') return { state: 'empty', label: 'non renseigné' };
+  if (isLegacy(v)) return { state: 'encrypted_v1', label: 'chiffré (v1 — à ré-chiffrer en v2 : encrypt-secrets.js --apply)' };
   if (isEncrypted(v)) return { state: 'encrypted', label: 'chiffré' };
   return { state: 'plaintext', label: 'EN CLAIR — présent tel quel dans les sauvegardes' };
 }
@@ -113,15 +150,23 @@ function describeSecretState(stored) {
 // discovered on Monday by the people waiting for a report. Re-encrypting in place needs
 // nobody to know the values.
 //
-// Empty and already-encrypted values are skipped, so a second run has nothing to do; with
-// no key the plan is EMPTY rather than a plan that would overwrite the secrets with
-// something unreadable.
+// Empty and already-v2 values are skipped, so a second run has nothing to do; with no key the
+// plan is EMPTY rather than a plan that would overwrite the secrets with something unreadable.
+// Step 4: a v1 box is UPGRADED to v2 — but only when the current key opens it (a v1 box sealed
+// with another key is left alone: rewriting it would destroy the only copy).
 function planSecretEncryption(rows, key) {
   if (!key) return [];
-  return (rows || [])
-    .filter(r => r && typeof r.value === 'string' && r.value !== '' && !isEncrypted(r.value))
-    .map(r => ({ key: r.key, value: encryptValue(r.value, key) }));
+  const out = [];
+  for (const r of rows || []) {
+    if (!r || typeof r.value !== 'string' || r.value === '') continue;
+    if (!isEncrypted(r.value)) { out.push({ key: r.key, value: encryptValue(r.value, key) }); continue; }
+    if (isLegacy(r.value) && key._pass) {
+      const plain = decryptValue(r.value, key);
+      if (plain != null) out.push({ key: r.key, value: encryptValue(plain, key), upgraded: true });
+    }
+  }
+  return out;
 }
 
-module.exports = { encryptValue, decryptValue, isEncrypted, keyFrom, envKey, describeSecretState,
-  planSecretEncryption, PREFIX };
+module.exports = { encryptValue, decryptValue, isEncrypted, isLegacy, keyFrom, envKey, describeSecretState,
+  planSecretEncryption, PREFIX, PREFIX2 };

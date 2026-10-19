@@ -1509,7 +1509,30 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
       <div class="form-group">
         <label>Break-glass user</label>
         <input type="text" id="cfg-sso-breakglass" placeholder="admin" autocomplete="off">
-        <small style="color:#6b7a99">This username can still sign in with a password when mode is <strong>only</strong>.</small>
+        <small style="color:#6b7a99">This username can still sign in with a password when mode is <strong>only</strong>. Every such sign-in is a risk event in System Logs.</small>
+      </div>
+      <div class="form-group">
+        <label>Roles and sites from Entra groups</label>
+        <select id="cfg-sso-group-sync">
+          <option value="0">off — roles and sites are managed in Users (default)</option>
+          <option value="1">on — every Microsoft sign-in recomputes roles and sites from the groups below</option>
+        </select>
+        <small style="color:#6b7a99">When on, an account in none of the mapped groups is refused. super_admin is never granted by a group.</small>
+      </div>
+      <div class="form-group">
+        <label>Group → roles / site map (JSON)</label>
+        <textarea id="cfg-sso-group-map" rows="6" spellcheck="false" style="font-family:Consolas,monospace;font-size:0.8rem;width:100%"
+          placeholder='[{"group":"<group object id>","label":"IT coordinators Hounde","roles":["editor","tracker-editor"],"site_id":3}]'></textarea>
+        <small style="color:#6b7a99">Group object IDs from Entra (the app registration must emit the <em>groups</em> claim). Several groups add up; the first site is the main one.</small>
+      </div>
+      <div class="form-group">
+        <label>Deactivate accounts of people who left</label>
+        <select id="cfg-sso-deprovision">
+          <option value="0">off (default)</option>
+          <option value="preview">preview — list who would be deactivated, change nothing</option>
+          <option value="1">on — deactivate daily (02:50) accounts whose Entra identity was deleted or disabled</option>
+        </select>
+        <small style="color:#6b7a99">Needs the <em>User.Read.All</em> application permission. Result in System Logs ▸ Sync health (job <code>entra.deprovision</code>). Never more than 20&nbsp;% of the accounts in one run.</small>
       </div>
       <div class="modal-actions" style="justify-content:flex-start;gap:10px;align-items:center">
         <button class="btn btn-primary" onclick="saveSsoConfig()">Save</button>
@@ -7423,6 +7446,9 @@ function loadSsoConfig() {
     set('cfg-entra-client', c.entra_client_id);
     set('cfg-entra-redirect', c.entra_redirect_uri);
     set('cfg-sso-breakglass', c.sso_breakglass_user);
+    set('cfg-sso-group-sync', c.sso_group_sync || '0');
+    set('cfg-sso-group-map', c.sso_group_map || '[]');
+    set('cfg-sso-deprovision', c.sso_deprovision_enabled || '0');
     const secEl = document.getElementById('cfg-entra-secret'); if (secEl) secEl.value = '';  // never echo the stored secret
     const msg = document.getElementById('cfg-sso-msg'); if (msg) msg.textContent = '';
   }).catch(e => toast('Could not load SSO settings: ' + (e.message || e), 'error'));
@@ -7435,6 +7461,9 @@ function saveSsoConfig() {
     entra_client_id: val('cfg-entra-client'),
     entra_redirect_uri: val('cfg-entra-redirect'),
     sso_breakglass_user: val('cfg-sso-breakglass'),
+    sso_group_sync: val('cfg-sso-group-sync') || '0',
+    sso_group_map: val('cfg-sso-group-map') || '[]',
+    sso_deprovision_enabled: val('cfg-sso-deprovision') || '0',
   };
   const secEl = document.getElementById('cfg-entra-secret');
   const sec = secEl ? secEl.value : '';

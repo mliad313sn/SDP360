@@ -5,6 +5,34 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased] — SDP-Dashboard 2.0, step 4: security (2026-10-19)
+
+### Security
+- **Dependencies**: 11 vulnerabilities (1 critical, 5 high) → **0**. axios 1.20, nodemailer 10, express patched,
+  SheetJS 0.20.3 (maintained build, vendored in `vendor/`), overrides for `image-size` and `uuid`.
+  CI now FAILS on a high/critical vulnerability and on an ESLint security error (`eslint.config.js`); Dependabot weekly.
+- **Secrets**: v2 encryption (scrypt + per-value salt), v1 still readable and upgraded by
+  `tools/pg/encrypt-secrets.js --apply`; the server refuses to start without `SDP_CONFIG_KEY` in production mode
+  (`REQUIRE_POSTGRES=1` or `REQUIRE_CONFIG_KEY=1`).
+- **Keys**: constant-time comparison (dashboard key, Meridian key, SSO nonce); OpManager key in a header, never in
+  the URL; OpManager TLS verified by default (`opmanager_ca_file` for an internal CA); no session token in a URL.
+- **Sign-in**: persistent throttle (10 failures per account / 30 per address in 15 min, survives a restart);
+  session cookie Secure as soon as the request is HTTPS; break-glass sign-ins journaled as risk events.
+- **CSP**: strict policy (no inline script) on new pages; inline-script ratchet on the 32 legacy pages
+  (569 items, may only go down); the shared header no longer uses an inline handler.
+- **SSO** (armed off): Entra groups → roles and sites at sign-in; nightly deactivation of departed accounts
+  (`entra.deprovision`, preview mode, 20 % cap).
+- **Audit**: every API write and every 403 journaled in System Logs (category `api`), kept 12 months
+  (`audit.retention`); incident procedure `docs/ops/INCIDENT-RESPONSE.md`.
+- **Tests**: authorization test on every API route (328 discovered; anonymous refused, viewer refused on the
+  116 role-gated ones); break-glass, throttle, group map, deprovisioning, CSP ratchet.
+
+### Deployment
+- The package carries a complete production `node_modules` (dependencies changed); `_apply_on_prod.cmd` swaps it
+  with an automatic rollback — no npm on the server.
+
+---
+
 ## [Unreleased] — SDP-Dashboard 2.0, step 3: KPI dictionary, RAG registry, site registry (2026-10-19)
 
 ### Added

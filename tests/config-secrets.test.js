@@ -107,7 +107,8 @@ test('a usable key is silent and returns 32 bytes', () => {
 const { describeSecretState } = require('../services/configSecrets');
 
 test('describeSecretState tells the three states apart', () => {
-  assert.strictEqual(describeSecretState('enc:v1:aaa:bbb:ccc').state, 'encrypted');
+  assert.strictEqual(describeSecretState('enc:v2:s:aaa:bbb:ccc').state, 'encrypted');
+  assert.strictEqual(describeSecretState('enc:v1:aaa:bbb:ccc').state, 'encrypted_v1', 'v1 boxes are flagged for re-encryption');
   assert.strictEqual(describeSecretState('hunter2').state, 'plaintext');
   assert.strictEqual(describeSecretState('').state, 'empty');
   assert.strictEqual(describeSecretState(null).state, 'empty');
@@ -134,7 +135,24 @@ test('plans an update only for the values that are plaintext and non-empty', () 
     { key: 'meridian_in_key', value: 'enc:v1:a:b:c' },
   ], KEY);
   assert.deepStrictEqual(plan.map(p => p.key), ['smtp_pass', 'meraki_api_key']);
-  assert.ok(plan.every(p => p.value.startsWith('enc:v1:')));
+  assert.ok(plan.every(p => p.value.startsWith('enc:v2:')), 'new boxes are v2 (scrypt)');
+});
+
+test('step 4: v2 boxes use scrypt with a per-value salt; v1 boxes stay readable and are upgraded', () => {
+  const crypto = require('crypto');
+  const box = encryptValue('hunter2', KEY);
+  assert.ok(box.startsWith('enc:v2:') && box.split(':').length === 6);
+  assert.strictEqual(decryptValue(box, keyFrom('a-different-passphrase-entirely')), null, 'wrong key → null');
+  // A v1 box written before step 4 (bare SHA-256 key) is still read…
+  const v1 = encryptValue('old-secret', crypto.createHash('sha256').update('a-test-passphrase-that-is-long-enough').digest());
+  assert.ok(v1.startsWith('enc:v1:'));
+  assert.strictEqual(decryptValue(v1, KEY), 'old-secret');
+  // …and the migration plan upgrades it to v2, but leaves alone a v1 box it cannot open.
+  const foreign = encryptValue('x', crypto.createHash('sha256').update('another-key-that-is-long-enough').digest());
+  const plan = planSecretEncryption([{ key: 'smtp_pass', value: v1 }, { key: 'meraki_api_key', value: foreign }, { key: 'm', value: box }], KEY);
+  assert.deepStrictEqual(plan.map(p => p.key), ['smtp_pass']);
+  assert.ok(plan[0].upgraded && plan[0].value.startsWith('enc:v2:'));
+  assert.strictEqual(decryptValue(plan[0].value, KEY), 'old-secret');
 });
 
 test('the plan round-trips: what it writes decrypts back to what was there', () => {
