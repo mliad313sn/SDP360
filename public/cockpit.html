@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meeting Cockpit — Endeavour Mining IT</title>
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="brand/icons.css">
+<link rel="stylesheet" href="brand/components.css">
+<link rel="stylesheet" href="_shell.css">
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/dashboardRender.js"></script>
+<style nonce="%%CSP_NONCE%%">
+  body { margin:0; background:var(--color-background,#f4f6f7); color:#1F2A33; font-family:var(--font-sans,"Libre Franklin",system-ui,sans-serif); font-size:14px; }
+  .wrap { max-width:1360px; margin:0 auto; padding:24px; }
+  h1 { margin:0 0 4px; font-size:22px; color:var(--edv-slate,#3A4A60); } h2 { margin:0 0 10px; font-size:15px; color:#3A4A60; } .sub { font-size:13px; color:#6b7785; margin-bottom:14px; }
+  .bar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:10px 0; }
+  .btn, select, input, textarea { padding:7px 11px; border:1px solid #cfd6e0; border-radius:8px; background:#fff; font-size:13px; color:#1F2A33; font-family:inherit; }
+  .btn { cursor:pointer; text-decoration:none; display:inline-block; } .btn.primary { background:var(--edv-slate,#3A4A60); color:#fff; border-color:var(--edv-slate,#3A4A60); } .btn.danger { color:#b91c1c; }
+  .panel { background:#fff; border:1px solid #e4e8ee; border-radius:12px; padding:14px 16px; margin-bottom:14px; }
+  .grid2 { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:14px; }
+  .row { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:10px; } label { font-size:12px; color:#6b7785; display:flex; flex-direction:column; gap:3px; }
+  table { border-collapse:collapse; width:100%; font-size:12.5px; } th, td { border:1px solid #e4e8ee; padding:5px 7px; text-align:left; vertical-align:top; } th { background:#f4f6f7; font-weight:600; }
+  .pill { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:700; color:#fff; background:#6b7785; } .pill.GREEN,.pill.done,.pill.delivered,.pill.accepted,.pill.on_track{background:#27AE60} .pill.AMBER,.pill.in_progress,.pill.triaged,.pill.scheduled,.pill.live,.pill.at_risk{background:#E8A100} .pill.RED,.pill.rejected,.pill.late,.pill.blocked{background:#DC2626} .pill.NA,.pill.open,.pill.submitted,.pill.planned,.pill.todo{background:#3A4A60}
+  #msg .errors { background:#fef2f2; border:1px solid #fecaca; color:#991b1b; border-radius:10px; padding:8px 12px; font-size:12.5px; } #msg .ok { background:#f0fdf4; border:1px solid #bbf7d0; color:#166534; border-radius:10px; padding:8px 12px; font-size:12.5px; }
+  .muted { color:#6b7785; font-size:12px; } .scroll { overflow:auto; } .sr-only { position:absolute; left:-9999px; }
+  .tiles { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; } .tile { background:#fff; border:1px solid #e4e8ee; border-radius:12px; padding:10px 12px; } .tile .tn { font-size:22px; font-weight:700; color:#3A4A60; } .tile .tl { font-size:12px; color:#6b7785; }
+  .live { position:fixed; inset:0; background:#fff; z-index:50; overflow:auto; padding:24px; } .live .item { border:1px solid #e4e8ee; border-radius:12px; padding:12px 14px; margin-bottom:10px; } .live .item.active { border-color:#3A4A60; box-shadow:0 0 0 2px #3A4A6033; } .clock { font-variant-numeric:tabular-nums; font-size:18px; font-weight:700; color:#3A4A60; } .kpi { display:inline-block; min-width:140px; margin:4px 8px 4px 0; padding:6px 10px; border:1px solid #e4e8ee; border-radius:10px; }
+</style>
+</head>
+<body>
+<a class="edv-skip" href="#main">Skip to content</a>
+<div id="__shell" data-section="operations" data-current="cockpit"></div>
+<main id="main" class="wrap">
+  <h1>Meeting Cockpit</h1>
+  <div class="sub">Cadences → generated agenda → full-screen session with timestamps, decisions (DEC-) and actions → automatic minutes (help §25).</div>
+  <div id="msg" role="status" aria-live="polite"></div>
+  <div class="tiles" id="tiles"></div>
+  <div class="grid2">
+    <div class="panel"><h2>Cadences</h2><div class="scroll" id="cadences"></div>
+      <details id="cadForm" hidden><summary class="btn">New / edit cadence</summary>
+        <div class="row" style="margin-top:8px">
+          <label>Key <input id="c-key" placeholder="hgo-weekly"></label><label>Name <input id="c-name"></label>
+          <label>Kind <select id="c-kind"><option>site_weekly</option><option>site_monthly</option><option>group_monthly</option><option>committee</option><option>cab</option><option>custom</option></select></label>
+          <label>Site <select id="c-site"><option value="">fleet / group</option></select></label>
+          <label>Weekday (1 = Mon) <input id="c-weekday" type="number" min="1" max="7"></label><label>Time <input id="c-time" placeholder="09:00"></label><label>Duration (min) <input id="c-dur" type="number" value="60"></label>
+          <label>Chair (user id) <input id="c-chair" type="number"></label><label>Secretary (user id) <input id="c-sec" type="number"></label>
+          <label style="grid-column:1/-1">Participants (one per line, e-mail for minutes) <textarea id="c-part" rows="3"></textarea></label>
+        </div><div class="bar"><button class="btn primary" id="c-save" type="button">Save cadence</button></div></details></div>
+    <div class="panel"><h2>Sessions</h2><div class="scroll" id="sessions"></div></div>
+  </div>
+  <div class="panel"><h2>Open decisions</h2><div class="scroll" id="decisions"></div></div>
+  <section id="live" class="live" hidden aria-label="Live session">
+    <div class="bar"><span class="clock" id="clock">00:00</span><b id="l-title"></b><span class="muted" id="l-meta"></span><span style="flex:1"></span>
+      <button class="btn" id="l-start" type="button">Start session</button><button class="btn primary" id="l-close" type="button">Close &amp; generate minutes</button><a class="btn" id="l-minutes" href="#" target="_blank" rel="noopener">Minutes (HTML)</a><a class="btn" id="l-pdf" href="#">PDF</a><button class="btn" id="l-send" type="button">E-mail minutes</button><button class="btn" id="l-exit" type="button">Exit</button></div>
+    <div id="msg2" role="status" aria-live="polite"></div>
+    <div class="row"><label>Attendees (comma separated) <input id="l-att"></label></div>
+    <div id="l-items"></div>
+    <div class="grid2">
+      <div class="panel"><h2>Decisions of this session</h2><div id="l-dec"></div><div class="row" id="l-decform"><label>Title <input id="d-title"></label><label>Owner <input id="d-owner"></label><label>Due <input id="d-due" type="date"></label><label style="grid-column:1/-1">Text <textarea id="d-text" rows="2"></textarea></label></div><button class="btn primary" id="d-add" type="button">Record decision (DEC-)</button></div>
+      <div class="panel"><h2>Actions of this session</h2><div id="l-act"></div><div class="row"><label>Action <input id="a-title"></label><label>Owner <input id="a-owner"></label><label>Due <input id="a-due" type="date"></label><label>Source <input id="a-src" placeholder="e.g. ticket 311587 / DEC-2026-003"></label></div><button class="btn" id="a-add" type="button">Add action</button></div>
+    </div>
+    <div class="panel"><h2>Session notes</h2><textarea id="l-notes" rows="4" style="width:100%" aria-label="Session notes"></textarea><div class="bar"><button class="btn" id="l-savenotes" type="button">Save notes &amp; attendees</button></div></div>
+  </section>
+</main>
+<script nonce="%%CSP_NONCE%%">
+(function () {
+  "use strict";
+  var R = window.DashboardRender, $ = function (id) { return document.getElementById(id); }, esc = R.escapeHtml;
+  var H = function (x) { return Object.assign(window.__authToken ? { "x-report-token": window.__authToken } : {}, x || {}); };
+  function api(p, o) { return fetch(p, Object.assign({ headers: H(o && o.body ? { "content-type": "application/json" } : {}) }, o || {})).then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || ("HTTP " + r.status)); return j; }); }); }
+  var msg = function (h, cls, el) { $(el || "msg").innerHTML = h ? "<div class=\"" + (cls || "ok") + "\">" + esc(h) + "</div>" : ""; };
+  var fail = function (e) { msg(e.message, "errors"); }, fail2 = function (e) { msg(e.message, "errors", "msg2"); };
+  var cads = [], committee = false, cur = null, timer = null, sites = [];
+  var pct = function (v, u) { return v == null ? "—" : (u === "%" ? (Math.round(v * 10) / 10) + " %" : String(Math.round(v * 100) / 100)); };
+
+  function loadAll() {
+    return Promise.all([api("/api/governance/overview"), api("/api/governance/cadences"), api("/api/governance/sessions?limit=40"), api("/api/governance/decisions?status=open,in_progress")]).then(function (r) {
+      var o = r[0]; committee = o.committee; cads = r[1].cadences; sites = r[1].sites || [];
+      $("tiles").innerHTML = [["Cadences", o.cadences], ["Sessions held (30 d)", o.sessions_held_30d], ["Planned", o.sessions_planned], ["Open decisions", o.decisions_open], ["Overdue decisions", o.decisions_overdue], ["RFIs to triage", o.rfi_to_triage]].map(function (t) { return "<div class=\"tile\"><div class=\"tn\">" + t[1] + "</div><div class=\"tl\">" + t[0] + "</div></div>"; }).join("");
+      $("cadForm").hidden = !committee;
+      var ss = $("c-site"); if (ss.options.length <= 1) (Array.isArray(sites) ? sites : []).forEach(function (s) { var op = document.createElement("option"); op.value = s.id; op.textContent = s.name; ss.appendChild(op); });
+      $("cadences").innerHTML = cads.length ? "<table><thead><tr><th>Cadence</th><th>Kind</th><th>Site</th><th>When</th><th></th></tr></thead><tbody>" + cads.map(function (c) { return "<tr><td><b>" + esc(c.name) + "</b><br><small class=\"muted\">" + esc(c.key) + (c.active ? "" : " · inactive") + "</small></td><td>" + esc(c.kind) + "</td><td>" + esc(siteName(c.site_id)) + "</td><td>" + (c.weekday ? ["", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][c.weekday] : "") + " " + esc(c.time_local || "") + " · " + c.duration_min + " min</td><td><button class=\"btn\" data-prep=\"" + c.id + "\" type=\"button\">Prepare session</button>" + (committee ? " <button class=\"btn\" data-edit=\"" + c.id + "\" type=\"button\">Edit</button>" : "") + "</td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">No cadence yet" + (committee ? " — create one below." : ".") + "</p>";
+      $("sessions").innerHTML = r[2].sessions.length ? "<table><thead><tr><th>Date</th><th>Cadence</th><th>Status</th><th></th></tr></thead><tbody>" + r[2].sessions.map(function (s) { return "<tr><td>" + esc(String(s.scheduled_at).replace("T", " ").slice(0, 16)) + "</td><td>" + esc(s.cadence || "") + "</td><td><span class=\"pill " + s.status + "\">" + s.status + "</span>" + (s.minutes_sent_at ? " ✉" : "") + "</td><td><button class=\"btn\" data-open=\"" + s.id + "\" type=\"button\">" + (s.status === "closed" ? "Review" : "Open") + "</button></td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">No session yet — prepare one from a cadence.</p>";
+      $("decisions").innerHTML = r[3].decisions.length ? "<table><thead><tr><th>Ref</th><th>Decision</th><th>Owner</th><th>Due</th><th>Status</th></tr></thead><tbody>" + r[3].decisions.map(function (d) { return "<tr><td><b>" + esc(d.ref) + "</b></td><td>" + esc(d.title) + "</td><td>" + esc(d.owner || "—") + "</td><td>" + esc(d.due_date || "—") + "</td><td>" + (committee ? "<select data-dec=\"" + d.id + "\" aria-label=\"Decision status\">" + ["open", "in_progress", "done", "cancelled"].map(function (s) { return "<option" + (s === d.status ? " selected" : "") + ">" + s + "</option>"; }).join("") + "</select>" : "<span class=\"pill " + d.status + "\">" + d.status + "</span>") + "</td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">No open decision.</p>";
+    }).catch(fail);
+  }
+  function siteName(id) { if (id == null) return "fleet"; var s = (Array.isArray(sites) ? sites : []).find(function (x) { return Number(x.id) === Number(id); }); return s ? s.name : "site " + id; }
+  document.addEventListener("click", function (ev) {
+    var b = ev.target.closest("button"); if (!b) return;
+    if (b.dataset.prep) api("/api/governance/cadences/" + b.dataset.prep + "/sessions", { method: "POST", body: "{}" }).then(function (j) { msg("Session prepared — agenda with " + j.session.agenda.items.length + " items, " + j.session.agenda.summary.reds + " red indicator(s)."); return openSession(j.session.id); }).then(loadAll).catch(fail);
+    if (b.dataset.open) openSession(b.dataset.open).catch(fail);
+    if (b.dataset.edit) { var c = cads.find(function (x) { return x.id === Number(b.dataset.edit); }); if (!c) return; $("cadForm").open = true; $("c-key").value = c.key; $("c-name").value = c.name; $("c-kind").value = c.kind; $("c-site").value = c.site_id == null ? "" : c.site_id; $("c-weekday").value = c.weekday || ""; $("c-time").value = c.time_local || ""; $("c-dur").value = c.duration_min; $("c-chair").value = c.chair_id || ""; $("c-sec").value = c.secretary_id || ""; $("c-part").value = (c.participants || []).join("\n"); }
+    if (b.dataset.istart) stamp(b.dataset.istart, "start"); if (b.dataset.iend) stamp(b.dataset.iend, "end"); if (b.dataset.inotes) saveItemNotes(b.dataset.inotes);
+    if (b.dataset.act) api("/api/governance/sessions/" + cur.id + "/actions/" + b.dataset.act, { method: "PUT", body: JSON.stringify({ status: b.dataset.st }) }).then(function (j) { renderActs(j.actions); }).catch(fail2);
+  });
+  document.addEventListener("change", function (ev) { var t = ev.target; if (t.dataset && t.dataset.dec) api("/api/governance/decisions/" + t.dataset.dec, { method: "PUT", body: JSON.stringify({ status: t.value }) }).then(loadAll).catch(fail); });
+  $("c-save").addEventListener("click", function () {
+    api("/api/governance/cadences", { method: "PUT", body: JSON.stringify({ key: $("c-key").value.trim(), name: $("c-name").value.trim(), kind: $("c-kind").value, site_id: $("c-site").value || null, weekday: $("c-weekday").value || null, time_local: $("c-time").value || null, duration_min: $("c-dur").value, chair_id: $("c-chair").value || null, secretary_id: $("c-sec").value || null, participants: $("c-part").value.split(/\n/).map(function (x) { return x.trim(); }).filter(Boolean) }) }).then(function () { msg("Cadence saved."); return loadAll(); }).catch(fail);
+  });
+
+  // ── live session ─────────────────────────────────────────────────────────────────
+  function openSession(id) {
+    return api("/api/governance/sessions/" + id).then(function (j) {
+      cur = j.session; cur._cad = j.cadence; cur._can = j.can_run; cur._dec = j.can_decide;
+      $("live").hidden = false; document.body.style.overflow = "hidden";
+      $("l-title").textContent = (j.cadence ? j.cadence.name : "Session") + " — " + String(cur.scheduled_at).replace("T", " ").slice(0, 16);
+      $("l-meta").textContent = cur.status + (cur.started_at ? " · started " + String(cur.started_at).slice(11, 16) : "") + (j.can_run ? "" : " · read-only for your account");
+      $("l-start").hidden = cur.status !== "planned" || !j.can_run; $("l-close").hidden = cur.status === "closed" || !j.can_run; $("l-send").hidden = cur.status !== "closed" || !j.can_run;
+      $("l-minutes").href = "/api/governance/sessions/" + cur.id + "/minutes.html"; $("l-pdf").href = "/api/governance/sessions/" + cur.id + "/minutes.pdf";
+      $("l-decform").hidden = !j.can_decide; $("d-add").hidden = !j.can_decide; $("a-add").hidden = !j.can_run; $("l-savenotes").hidden = !j.can_run;
+      $("l-att").value = (cur.attendees || []).join(", "); $("l-notes").value = cur.notes || "";
+      renderItems(); renderDecs(j.decisions); renderActs(j.actions);
+      if (timer) clearInterval(timer); timer = setInterval(tick, 1000); tick();
+    });
+  }
+  function tick() { if (!cur || !cur.started_at) { $("clock").textContent = "00:00"; return; } var s = Math.max(0, Math.floor((Date.now() - new Date(cur.started_at)) / 1000)); $("clock").textContent = String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0") + " / " + ((cur.agenda && cur.agenda.total_minutes) || 0) + " min"; }
+  function renderItems() {
+    var ag = cur.agenda || { items: [] }, st = {}; (cur.items || []).forEach(function (i) { st[i.id] = i; });
+    $("l-items").innerHTML = ag.items.map(function (it) {
+      var s = st[it.id] || {}; var body = "";
+      if (it.kind === "kpis") body = (it.content || []).map(function (m) { return "<span class=\"kpi\"><small>" + esc(m.name) + "</small><br><b style=\"color:" + ({ GREEN: "#27AE60", AMBER: "#E8A100", RED: "#DC2626" }[m.rag] || "#6b7785") + "\">" + pct(m.value, m.unit) + "</b> <small class=\"muted\">" + esc(m.window || "") + "</small></span>"; }).join("");
+      else if (it.kind === "incidents") body = (it.content || []).length ? "<ul>" + it.content.map(function (x) { return "<li><b>" + esc(x.id) + "</b> " + esc(x.subject) + " <small class=\"muted\">" + esc(x.site || "") + " · since " + esc(String(x.since || "").slice(0, 10)) + "</small></li>"; }).join("") + "</ul>" : "<p class=\"muted\">No active major incident.</p>";
+      else if (it.kind === "actions") body = "<p>Open <b>" + (it.content.open == null ? "—" : it.content.open) + "</b> · overdue <b>" + (it.content.overdue == null ? "—" : it.content.overdue) + "</b></p>" + ((it.content.list || []).length ? "<ul>" + it.content.list.map(function (a) { return "<li>" + esc(a.title) + " <small class=\"muted\">" + esc(a.source) + " · " + esc(a.owner || "") + (a.age_days != null ? " · " + a.age_days + " d" : "") + "</small></li>"; }).join("") + "</ul>" : "");
+      else if (it.kind === "decisions") body = (it.content || []).length ? "<ul>" + it.content.map(function (d) { return "<li><b>" + esc(d.ref) + "</b> " + esc(d.title) + " <small class=\"muted\">" + esc(d.owner || "") + " " + esc(d.due_date || "") + "</small></li>"; }).join("") + "</ul>" : "<p class=\"muted\">No pending decision.</p>";
+      else if (it.kind === "rfis") body = (it.content || []).length ? "<ul>" + it.content.map(function (r) { return "<li><b>" + esc(r.ref) + "</b> " + esc(r.title) + " <small class=\"muted\">" + esc(r.kind) + " · score " + r.score + "</small></li>"; }).join("") + "</ul>" : "<p class=\"muted\">Nothing to triage.</p>";
+      else if (it.kind === "trackers") body = (it.content || []).length ? "<ul>" + it.content.map(function (t) { return "<li>" + esc(t.name) + " — <b>" + (t.score == null ? "—" : Math.round(t.score * 1000) / 10 + " %") + "</b> <span class=\"pill " + (t.rag || "NA") + "\">" + (t.rag || "NA") + "</span></li>"; }).join("") + "</ul>" : "<p class=\"muted\">No published tracker.</p>";
+      else if (it.kind === "portfolio") body = (it.content || []).length ? "<ul>" + it.content.map(function (x) { return "<li>" + esc(x.name) + " — " + esc(x.status) + " · evidence " + (x.evidence_pct == null ? "—" : x.evidence_pct + " %") + (x.slip_days ? " · slip " + x.slip_days + " d" : "") + "</li>"; }).join("") + "</ul>" : "<p class=\"muted\">No objective.</p>";
+      else body = "<p class=\"muted\">Agree the next session date and owners.</p>";
+      return "<div class=\"item" + (s.started_at && !s.ended_at ? " active" : "") + "\"><div class=\"bar\"><b>" + esc(it.title) + "</b><span class=\"muted\">" + it.minutes + " min planned" + (s.started_at ? " · " + esc(String(s.started_at).slice(11, 16)) : "") + (s.ended_at ? " → " + esc(String(s.ended_at).slice(11, 16)) : "") + "</span><span style=\"flex:1\"></span>" + (cur._can && cur.status !== "closed" ? "<button class=\"btn\" data-istart=\"" + esc(it.id) + "\" type=\"button\">Start</button><button class=\"btn\" data-iend=\"" + esc(it.id) + "\" type=\"button\">Done</button>" : "") + "</div>" + body + "<label>Notes <textarea id=\"n-" + esc(it.id) + "\" rows=\"2\" aria-label=\"Item notes\"" + (cur._can && cur.status !== "closed" ? "" : " disabled") + ">" + esc(s.notes || "") + "</textarea></label>" + (cur._can && cur.status !== "closed" ? "<button class=\"btn\" data-inotes=\"" + esc(it.id) + "\" type=\"button\">Save notes</button>" : "") + "</div>";
+    }).join("");
+  }
+  function renderDecs(list) { $("l-dec").innerHTML = (list || []).length ? "<ul>" + list.map(function (d) { return "<li><b>" + esc(d.ref) + "</b> " + esc(d.title) + " <small class=\"muted\">" + esc(d.owner || "") + " " + esc(d.due_date || "") + "</small></li>"; }).join("") + "</ul>" : "<p class=\"muted\">None yet.</p>"; }
+  function renderActs(list) { $("l-act").innerHTML = (list || []).length ? "<table><tbody>" + list.map(function (a) { return "<tr><td>" + esc(a.title) + "<br><small class=\"muted\">" + esc([a.owner, a.due_date, a.source_kind, a.source_ref].filter(Boolean).join(" · ")) + "</small></td><td><span class=\"pill " + a.status + "\">" + a.status + "</span></td><td>" + (cur._can ? "<button class=\"btn\" data-act=\"" + a.id + "\" data-st=\"done\" type=\"button\">Done</button>" : "") + "</td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">None yet.</p>"; }
+  function stamp(item, op) { api("/api/governance/sessions/" + cur.id + "/items/" + encodeURIComponent(item) + "/" + op, { method: "POST", body: "{}" }).then(function (j) { cur.items = j.session.items; renderItems(); }).catch(fail2); }
+  function saveItemNotes(item) { api("/api/governance/sessions/" + cur.id + "/items/" + encodeURIComponent(item) + "/notes", { method: "POST", body: JSON.stringify({ notes: $("n-" + item).value }) }).then(function (j) { cur.items = j.session.items; msg("Notes saved.", "ok", "msg2"); }).catch(fail2); }
+  $("l-start").addEventListener("click", function () { api("/api/governance/sessions/" + cur.id + "/start", { method: "POST" }).then(function () { return openSession(cur.id); }).catch(fail2); });
+  $("l-close").addEventListener("click", function () { if (!confirm("Close the session and generate the minutes?")) return; api("/api/governance/sessions/" + cur.id + "/close", { method: "POST" }).then(function () { msg("Session closed — minutes generated.", "ok", "msg2"); return openSession(cur.id); }).then(loadAll).catch(fail2); });
+  $("l-send").addEventListener("click", function () { api("/api/governance/sessions/" + cur.id + "/minutes/send", { method: "POST", body: "{}" }).then(function (j) { msg(j.ok ? "Minutes sent to " + j.to + " participant(s)" + (j.pdf ? " with PDF." : " (HTML only — no PDF renderer).") : "Send failed: " + (j.error || ""), j.ok ? "ok" : "errors", "msg2"); }).catch(fail2); });
+  $("l-savenotes").addEventListener("click", function () { api("/api/governance/sessions/" + cur.id, { method: "PUT", body: JSON.stringify({ notes: $("l-notes").value, attendees: $("l-att").value.split(",").map(function (x) { return x.trim(); }).filter(Boolean) }) }).then(function () { msg("Saved.", "ok", "msg2"); }).catch(fail2); });
+  $("d-add").addEventListener("click", function () { api("/api/governance/sessions/" + cur.id + "/decisions", { method: "POST", body: JSON.stringify({ title: $("d-title").value, owner: $("d-owner").value, due_date: $("d-due").value, text: $("d-text").value }) }).then(function (j) { $("d-title").value = ""; $("d-text").value = ""; msg("Recorded " + j.decision.ref, "ok", "msg2"); return api("/api/governance/sessions/" + cur.id); }).then(function (j) { renderDecs(j.decisions); }).catch(fail2); });
+  $("a-add").addEventListener("click", function () { var src = $("a-src").value.trim(); api("/api/governance/sessions/" + cur.id + "/actions", { method: "POST", body: JSON.stringify({ title: $("a-title").value, owner: $("a-owner").value, due_date: $("a-due").value, source_kind: src ? (/^DEC-/.test(src) ? "decision" : "reference") : null, source_ref: src || null, decision_ref: /^DEC-/.test(src) ? src : null }) }).then(function () { $("a-title").value = ""; return api("/api/governance/sessions/" + cur.id); }).then(function (j) { renderActs(j.actions); }).catch(fail2); });
+  $("l-exit").addEventListener("click", function () { $("live").hidden = true; document.body.style.overflow = ""; if (timer) clearInterval(timer); cur = null; loadAll(); });
+  var q = new URLSearchParams(location.search).get("session");
+  loadAll().then(function () { if (q) return openSession(q); }).catch(fail);
+})();
+</script>
+</body>
+</html>

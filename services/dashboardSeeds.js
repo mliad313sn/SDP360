@@ -75,6 +75,26 @@ const FIELD_SITE = {
   ],
 };
 
-const SEED_DASHBOARDS = [EXEC_HOME, SITE_WEEKLY, ASSETS_HYGIENE, FIELD_SITE];
+
+// Step 8 — governance dashboard for the committee: roadmap, programme score per site, engagements,
+// resolution SLA trend and the overdue actions/decisions list. Counts of cadences/decisions/RFIs are
+// read on the governance pages (/api/governance/overview); this definition stays metric-only.
+const GOVERNANCE = {
+  key: 'governance', title: 'Governance — committee view', audience: 'committee',
+  grid: { columns: 12 },
+  filters: [{ key: 'site', type: 'site' }, { key: 'window', type: 'window' }],
+  widgets: [
+    { id: 'intro', type: 'text', layout: L(0, 0, 12, 1), markdown: '**Committee view** — strategic roadmap, programme discipline and the decisions still open. Figures are dated; "—" = not measured.' },
+    { id: 'roadmap', type: 'kpi', metric: 'tracker.fleet_score_pct', title: 'Strategic roadmap (fleet)', rag: 'tracker-executive', layout: L(0, 1, 3, 2) },
+    { id: 'attain', type: 'kpi', metric: 'tracker.fleet_attainment_pct', title: 'Roadmap attainment', rag: 'tracker-executive', layout: L(3, 1, 3, 2) },
+    { id: 'prog', type: 'kpi', metric: 'programme.site_score', title: 'Programme score (site)', rag: 'site-score', layout: L(6, 1, 3, 2), compare: 'fleet' },
+    { id: 'eng', type: 'kpi', metric: 'meetings.engagement_score', title: '5 Engagements', rag: 'sla-percent', layout: L(9, 1, 3, 2), compare: 'fleet' },
+    { id: 'sites', type: 'ragGrid', metric: 'programme.site_score', title: 'Programme score — per site', rag: 'site-score', layout: L(0, 3, 6, 4) },
+    { id: 'tr', type: 'trend', metric: 'helpdesk.resolution_sla_pct', title: 'Resolution SLA — 13 weeks', window: '13w', layout: L(6, 3, 6, 4) },
+    { id: 'acts', type: 'actions', layout: L(0, 7, 12, 3), sources: ['meetings', 'inspection', 'report'], onlyOverdue: true, title: 'Overdue actions (all registers)' },
+  ],
+};
+
+const SEED_DASHBOARDS = [EXEC_HOME, SITE_WEEKLY, ASSETS_HYGIENE, FIELD_SITE, GOVERNANCE];
 
 module.exports = { SEED_DASHBOARDS, EXEC_HOME, SITE_WEEKLY, ASSETS_HYGIENE, FIELD_SITE };

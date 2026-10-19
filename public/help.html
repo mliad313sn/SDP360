@@ -211,6 +211,7 @@
       <a href="#en-22">22. Installation, updates &amp; the Manager</a>
       <a href="#en-23">23. Dashboards &amp; composer</a>
       <a href="#en-24">24. Trackers &amp; Tracker Builder</a>
+      <a href="#en-25">25. Meeting Cockpit, Portfolio &amp; RFI</a>
     </div>
 
     <!-- Content -->
@@ -1198,6 +1199,16 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Confirm-Destructive.ps1"
           <li><strong>IT Activity Tracker migration</strong> — in the builder, <em>Compare engine vs legacy</em> scores the inherited 2026 tracker with both engines for every site × month and reports the largest deviation (tolerance ± 0.1 pt; CSV download). <em>Import</em> creates the definition <code>it-activity-2026</code> with its entries and targets as a draft. The <em>cut-over</em> switch (super_admin) records that the engine is now the reference; the legacy tables stay readable until the committee retires them.</li>
         </ul>
       </div>
+      <div class="section" id="en-25">
+        <h2><span class="section-num">25</span>Meeting Cockpit, Portfolio &amp; Requests for improvement (Step 8)</h2>
+        <ul>
+          <li><strong>Meeting Cockpit</strong> (Operations ▸ Cockpit) — a <em>cadence</em> describes a recurring meeting (kind: site weekly, site monthly, group monthly, committee, CAB, custom; site or fleet; weekday, time, duration; chair and secretary; participants with their e-mail). <em>Prepare session</em> generates the <strong>agenda</strong> from the KPI dictionary (§20) and the registers: key figures with their RAG and window, active major incidents, overdue actions of the site, pending decisions, requests to triage, trackers, portfolio objectives. A figure that is not measured reads <strong>—</strong>, never 0. The agenda is timed per section.</li>
+          <li><strong>Live session</strong> — full screen with a clock; <em>Start</em> each item, <em>Done</em> when covered (timestamps are the server's), notes per item, attendees. <strong>Decisions</strong> get a reference <code>DEC-YYYY-NNN</code> and may be recorded by the <em>chair</em>, the <em>secretary</em> or an admin only; <strong>actions</strong> are attached to their source (a decision, a ticket, an incident). <em>Close &amp; generate minutes</em> freezes the minutes (HTML, PDF, e-mail to the participants) — every action and decision stays open in the registers until it is closed there.</li>
+          <li><strong>Who runs what</strong> — a committee member (role <code>committee-member</code> or admin) manages cadences and decisions; the chair, the secretary or an <em>editor of the cadence's site</em> may prepare and run a session; everyone else reads the agenda, the minutes and the open decisions of their site.</li>
+          <li><strong>Portfolio</strong> (Operations ▸ Portfolio) — programmes → objectives → projects → milestones → deliverables, plus risks. An objective's <strong>evidence</strong> is read from a KPI of the dictionary against its target (source “metric”), else from its manual progress, else from the mean progress of its projects; the source is always shown. The schedule table lists each project with its slippage versus the baseline, overdue milestones and unfinished dependencies; risk exposure = probability × impact. The <em>monthly report</em> (HTML) rolls everything up per programme. Super_admins may migrate the former Roadmap Manager into a programme (dry run first).</li>
+          <li><strong>Requests for improvement</strong> (Operations ▸ RFI) — anyone submits an idea (tracker, widget, metric, integration, UX, data quality) with the problem it solves; it gets a reference <code>RFI-YYYY-NNN</code>. The committee triages it: impact, effort and data risk (1–3 each), <strong>score = impact × 3 − effort − data risk</strong>, status (triaged, accepted, scheduled, delivered, rejected, deferred) and a written decision. The register is sorted by score so the next committee session opens on the most valuable requests.</li>
+        </ul>
+      </div>
     </div><!-- /content -->
   </div><!-- /doc-layout -->
 </div><!-- /sec-en -->
@@ -1307,6 +1318,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Confirm-Destructive.ps1"
       <a href="#fr-22">22. Installation, mises à jour &amp; Manager</a>
       <a href="#fr-23">23. Tableaux de bord &amp; composeur</a>
       <a href="#fr-24">24. Trackers &amp; constructeur de trackers</a>
+      <a href="#fr-25">25. Cockpit de réunion, portefeuille &amp; RFI</a>
     </div>
 
     <div class="content">
@@ -2291,6 +2303,16 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Confirm-Destructive.ps1"
           <li><strong>Grille de saisie</strong> — choisir une unité et la période atteinte ; saisir ; <em>Save entries</em>. Une <strong>période clôturée</strong> (grisée) garde sa valeur enregistrée — seul un super_admin peut la modifier (même règle que le tracker d'activités : le mois en cours, plus le précédent jusqu'au 5). Un <code>tracker-editor</code> n'écrit que les unités de son ou ses sites ; un item lié à un KPI est en lecture seule (rempli par <em>Sync sources</em>). <em>Import xlsx</em> accepte le fichier produit par l'export Excel (feuille <code>Entries</code>).</li>
           <li><strong>Constructeur</strong> (rôle <code>tracker-admin</code> ou admin) — partir de zéro ou d'un modèle (interventions terrain, déploiement matériel, maintenance de site, conformité des réunions), renseigner identité, période, unités, groupes et items, puis <em>Validate &amp; dry-run</em> (erreurs en ligne ; score des saisies enregistrées), <em>Save draft</em>, <em>Publish</em> (version numérotée), <em>Retire</em>. <em>Versions</em> liste chaque version publiée ; <em>Roll draft back</em> en recopie une dans le brouillon — publier de nouveau pour la rendre active. Un item avec une <em>Source</em> est rempli depuis le dictionnaire des KPI (§20) pour chaque unité × période par <em>Sync sources</em>.</li>
           <li><strong>Migration du tracker d'activités IT</strong> — dans le constructeur, <em>Compare engine vs legacy</em> note le tracker 2026 hérité avec les deux moteurs pour chaque site × mois et donne l'écart maximal (tolérance ± 0,1 pt ; CSV téléchargeable). <em>Import</em> crée la définition <code>it-activity-2026</code> avec ses saisies et cibles, en brouillon. L'interrupteur de <em>bascule</em> (super_admin) enregistre que le moteur devient la référence ; les tables héritées restent lisibles jusqu'à leur retrait par le comité.</li>
+        </ul>
+      </div>
+      <div class="section" id="fr-25">
+        <h2><span class="section-num">25</span>Cockpit de réunion, portefeuille &amp; demandes d'amélioration (étape 8)</h2>
+        <ul>
+          <li><strong>Cockpit de réunion</strong> (Operations ▸ Cockpit) — une <em>cadence</em> décrit une réunion récurrente (type : hebdo de site, mensuelle de site, mensuelle groupe, comité, CAB, libre ; site ou flotte ; jour, heure, durée ; président et secrétaire ; participants avec leur e-mail). <em>Prepare session</em> génère l'<strong>ordre du jour</strong> depuis le dictionnaire des KPI (§20) et les registres : chiffres clés avec leur RAG et leur fenêtre, incidents majeurs actifs, actions en retard du site, décisions en attente, demandes à trier, trackers, objectifs du portefeuille. Un chiffre non mesuré s'affiche <strong>—</strong>, jamais 0. L'ordre du jour est minuté par section.</li>
+          <li><strong>Séance en direct</strong> — plein écran avec horloge ; <em>Start</em> sur chaque point, <em>Done</em> une fois traité (horodatages du serveur), notes par point, présents. Les <strong>décisions</strong> reçoivent une référence <code>DEC-AAAA-NNN</code> et ne sont enregistrées que par le <em>président</em>, le <em>secrétaire</em> ou un admin ; les <strong>actions</strong> sont rattachées à leur source (décision, ticket, incident). <em>Close &amp; generate minutes</em> fige le compte rendu (HTML, PDF, e-mail aux participants) — chaque action et décision reste ouverte dans les registres jusqu'à sa clôture là-bas.</li>
+          <li><strong>Qui fait quoi</strong> — un membre du comité (rôle <code>committee-member</code> ou admin) gère les cadences et les décisions ; le président, le secrétaire ou un <em>éditeur du site de la cadence</em> peut préparer et conduire une séance ; les autres lisent l'ordre du jour, les comptes rendus et les décisions ouvertes de leur site.</li>
+          <li><strong>Portefeuille</strong> (Operations ▸ Portfolio) — programmes → objectifs → projets → jalons → livrables, plus les risques. La <strong>preuve</strong> d'un objectif est lue depuis un KPI du dictionnaire comparé à sa cible (source « metric »), sinon depuis son avancement manuel, sinon depuis la moyenne des projets ; la source est toujours affichée. Le tableau du calendrier donne pour chaque projet son glissement par rapport à la référence, les jalons en retard et les dépendances non terminées ; exposition d'un risque = probabilité × impact. Le <em>rapport mensuel</em> (HTML) consolide par programme. Un super_admin peut migrer l'ancien Roadmap Manager en programme (simulation d'abord).</li>
+          <li><strong>Demandes d'amélioration</strong> (Operations ▸ RFI) — chacun soumet une idée (tracker, widget, métrique, intégration, UX, qualité des données) avec le problème qu'elle résout ; elle reçoit une référence <code>RFI-AAAA-NNN</code>. Le comité la trie : impact, effort et risque données (1 à 3 chacun), <strong>score = impact × 3 − effort − risque données</strong>, statut (triée, acceptée, planifiée, livrée, rejetée, différée) et décision écrite. Le registre est classé par score : la prochaine séance du comité s'ouvre sur les demandes les plus utiles.</li>
         </ul>
       </div>
     </div><!-- /content -->

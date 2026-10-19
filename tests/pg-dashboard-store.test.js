@@ -31,7 +31,7 @@ test('pg: dashboard store draft → publish → versions → retire, seeds once'
     await s.saveDraft({ ...doc, title: 'PG2' }, { metrics: SEED.map(m => m.key) }); assert.equal((await s.published('pgk')).definition.title, 'PG');
     assert.equal((await s.publish('pgk')).version, 2);
     assert.deepEqual((await s.versions('pgk')).map(v => v.version), [2, 1]);
-    assert.deepEqual((await s.list({ status: 'published', siteIds: [3] })).map(x => x.key).sort(), ['assets-hygiene', 'exec-home', 'field-site', 'pgk', 'site-weekly']);
+    assert.deepEqual((await s.list({ status: 'published', siteIds: [3] })).map(x => x.key).sort(), ['assets-hygiene', 'exec-home', 'field-site', 'governance', 'pgk', 'site-weekly']);
     assert.deepEqual((await s.list({ status: 'published', siteIds: [4] })).map(x => x.key).includes('pgk'), false);
     await s.setStatus('pgk', 'retired'); await s.remove('pgk'); assert.equal(await s.get('pgk'), null);
   } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }

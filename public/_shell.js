@@ -41,6 +41,8 @@
     get:  () => '',
   };
   const ICON_LIB = {
+    lightbulb:        ICONS.html('lightbulb'),
+    calendar:         ICONS.html('calendar'),
     headset:          ICONS.html('headset'),
     'file-text':      ICONS.html('file-text'),
     'trending-up':    ICONS.html('trending-up'),
@@ -124,7 +126,10 @@
         { id: 'site-actions', label: 'Site Actions',       icon: ICON_LIB.check,              href: 'site-actions.html',     roles: ['any'] },
         { id: 'tracker',      label: 'Activity Tracker',   icon: ICON_LIB.target,             href: 'activity-tracker.html', roles: ['any'] },
         { id: 'trackers',     label: 'Trackers',           icon: ICON_LIB.activity,            href: 'trackers.html',         roles: ['any'] },
-        { id: 'dashboards',   label: 'Dashboards',         icon: ICON_LIB.gauge,              href: 'dashboards.html',       roles: ['any'] }
+        { id: 'dashboards',   label: 'Dashboards',         icon: ICON_LIB.gauge,              href: 'dashboards.html',       roles: ['any'] },
+        { id: 'cockpit',      label: 'Meeting Cockpit',    icon: ICON_LIB.calendar,           href: 'cockpit.html',          roles: ['any'] },
+        { id: 'portfolio',    label: 'Portfolio',          icon: ICON_LIB['trending-up'],     href: 'portfolio.html',        roles: ['any'] },
+        { id: 'rfi',          label: 'RFI register',       icon: ICON_LIB.lightbulb,          href: 'rfi.html',              roles: ['any'] }
       ]
     },
     {

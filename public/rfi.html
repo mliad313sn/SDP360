@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Requests for improvement — Endeavour Mining IT</title>
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="brand/icons.css">
+<link rel="stylesheet" href="brand/components.css">
+<link rel="stylesheet" href="_shell.css">
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/dashboardRender.js"></script>
+<style nonce="%%CSP_NONCE%%">
+  body { margin:0; background:var(--color-background,#f4f6f7); color:#1F2A33; font-family:var(--font-sans,"Libre Franklin",system-ui,sans-serif); font-size:14px; }
+  .wrap { max-width:1360px; margin:0 auto; padding:24px; }
+  h1 { margin:0 0 4px; font-size:22px; color:var(--edv-slate,#3A4A60); } h2 { margin:0 0 10px; font-size:15px; color:#3A4A60; } .sub { font-size:13px; color:#6b7785; margin-bottom:14px; }
+  .bar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:10px 0; }
+  .btn, select, input, textarea { padding:7px 11px; border:1px solid #cfd6e0; border-radius:8px; background:#fff; font-size:13px; color:#1F2A33; font-family:inherit; }
+  .btn { cursor:pointer; text-decoration:none; display:inline-block; } .btn.primary { background:var(--edv-slate,#3A4A60); color:#fff; border-color:var(--edv-slate,#3A4A60); } .btn.danger { color:#b91c1c; }
+  .panel { background:#fff; border:1px solid #e4e8ee; border-radius:12px; padding:14px 16px; margin-bottom:14px; }
+  .grid2 { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:14px; }
+  .row { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:10px; } label { font-size:12px; color:#6b7785; display:flex; flex-direction:column; gap:3px; }
+  table { border-collapse:collapse; width:100%; font-size:12.5px; } th, td { border:1px solid #e4e8ee; padding:5px 7px; text-align:left; vertical-align:top; } th { background:#f4f6f7; font-weight:600; }
+  .pill { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:700; color:#fff; background:#6b7785; } .pill.GREEN,.pill.done,.pill.delivered,.pill.accepted,.pill.on_track{background:#27AE60} .pill.AMBER,.pill.in_progress,.pill.triaged,.pill.scheduled,.pill.live,.pill.at_risk{background:#E8A100} .pill.RED,.pill.rejected,.pill.late,.pill.blocked{background:#DC2626} .pill.NA,.pill.open,.pill.submitted,.pill.planned,.pill.todo{background:#3A4A60}
+  #msg .errors { background:#fef2f2; border:1px solid #fecaca; color:#991b1b; border-radius:10px; padding:8px 12px; font-size:12.5px; } #msg .ok { background:#f0fdf4; border:1px solid #bbf7d0; color:#166534; border-radius:10px; padding:8px 12px; font-size:12.5px; }
+  .muted { color:#6b7785; font-size:12px; } .scroll { overflow:auto; } .sr-only { position:absolute; left:-9999px; }
+  .tiles { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; } .tile { background:#fff; border:1px solid #e4e8ee; border-radius:12px; padding:10px 12px; } .tile .tn { font-size:22px; font-weight:700; color:#3A4A60; } .tile .tl { font-size:12px; color:#6b7785; }
+  .live { position:fixed; inset:0; background:#fff; z-index:50; overflow:auto; padding:24px; } .live .item { border:1px solid #e4e8ee; border-radius:12px; padding:12px 14px; margin-bottom:10px; } .live .item.active { border-color:#3A4A60; box-shadow:0 0 0 2px #3A4A6033; } .clock { font-variant-numeric:tabular-nums; font-size:18px; font-weight:700; color:#3A4A60; } .kpi { display:inline-block; min-width:140px; margin:4px 8px 4px 0; padding:6px 10px; border:1px solid #e4e8ee; border-radius:10px; }
+</style>
+</head>
+<body>
+<a class="edv-skip" href="#main">Skip to content</a>
+<div id="__shell" data-section="operations" data-current="rfi"></div>
+<main id="main" class="wrap">
+  <h1>Requests for improvement (RFI)</h1>
+  <div class="sub">Anyone may submit an idea (tracker, widget, metric, integration, UX, data quality). The committee triages and scores it: score = impact × 3 − effort − data risk (help §25).</div>
+  <div id="msg" role="status" aria-live="polite"></div>
+  <div class="grid2">
+    <div class="panel"><h2>Submit a request</h2>
+      <div class="row"><label>Kind <select id="r-kind"></select></label><label>Title <input id="r-title"></label>
+        <label style="grid-column:1/-1">Problem (what hurts today) <textarea id="r-problem" rows="2"></textarea></label>
+        <label style="grid-column:1/-1">Proposal (optional) <textarea id="r-proposal" rows="2"></textarea></label></div>
+      <div class="bar"><button class="btn primary" id="r-send" type="button">Submit</button></div></div>
+    <div class="panel"><h2>Filter</h2><label>Status <select id="f-status"><option value="">all</option></select></label></div>
+  </div>
+  <div class="panel"><h2>Register (sorted by score)</h2><div class="scroll" id="list"></div></div>
+</main>
+<script nonce="%%CSP_NONCE%%">
+(function () {
+  "use strict";
+  var R = window.DashboardRender, $ = function (id) { return document.getElementById(id); }, esc = R.escapeHtml;
+  var H = function (x) { return Object.assign(window.__authToken ? { "x-report-token": window.__authToken } : {}, x || {}); };
+  function api(p, o) { return fetch(p, Object.assign({ headers: H(o && o.body ? { "content-type": "application/json" } : {}) }, o || {})).then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || ("HTTP " + r.status)); return j; }); }); }
+  var msg = function (h, cls) { $("msg").innerHTML = h ? "<div class=\"" + (cls || "ok") + "\">" + esc(h) + "</div>" : ""; };
+  var fail = function (e) { msg(e.message, "errors"); };
+  var committee = false, kinds = [], statuses = [];
+  function load() {
+    var st = $("f-status").value;
+    return api("/api/governance/rfi" + (st ? "?status=" + encodeURIComponent(st) : "")).then(function (j) {
+      committee = j.committee; kinds = j.kinds; statuses = j.statuses;
+      if (!$("r-kind").options.length) { kinds.forEach(function (k) { var o = document.createElement("option"); o.textContent = k; $("r-kind").appendChild(o); }); statuses.forEach(function (k) { var o = document.createElement("option"); o.textContent = k; $("f-status").appendChild(o); }); }
+      var rows = j.rfi.slice().sort(function (a, b) { return b.score - a.score; });
+      $("list").innerHTML = rows.length ? "<table><thead><tr><th>Ref</th><th>Kind</th><th>Title</th><th>Impact</th><th>Effort</th><th>Data risk</th><th>Score</th><th>Status</th><th>Decision</th></tr></thead><tbody>" + rows.map(function (r) {
+        var sel = function (f, max) { return committee ? "<input type=\"number\" min=\"1\" max=\"" + max + "\" value=\"" + r[f] + "\" data-id=\"" + r.id + "\" data-f=\"" + f + "\" aria-label=\"" + f + "\" style=\"width:52px\">" : r[f]; };
+        return "<tr><td><b>" + esc(r.ref) + "</b></td><td>" + esc(r.kind) + "</td><td>" + esc(r.title) + "<br><small class=\"muted\">" + esc(r.problem) + (r.proposal ? " → " + esc(r.proposal) : "") + "</small></td><td>" + sel("impact", 3) + "</td><td>" + sel("effort", 3) + "</td><td>" + sel("data_risk", 3) + "</td><td><b>" + r.score + "</b></td><td>" + (committee ? "<select data-id=\"" + r.id + "\" data-f=\"status\" aria-label=\"Status\">" + statuses.map(function (s) { return "<option" + (s === r.status ? " selected" : "") + ">" + s + "</option>"; }).join("") + "</select>" : "<span class=\"pill " + esc(r.status) + "\">" + esc(r.status) + "</span>") + "</td><td>" + (committee ? "<input data-id=\"" + r.id + "\" data-f=\"decision\" value=\"" + esc(r.decision || "") + "\" aria-label=\"Decision\">" : esc(r.decision || "—")) + "</td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">No request.</p>";
+    }).catch(fail);
+  }
+  $("r-send").addEventListener("click", function () { api("/api/governance/rfi", { method: "POST", body: JSON.stringify({ kind: $("r-kind").value, title: $("r-title").value, problem: $("r-problem").value, proposal: $("r-proposal").value }) }).then(function (j) { msg(j.rfi.ref + " submitted — thank you."); $("r-title").value = ""; $("r-problem").value = ""; $("r-proposal").value = ""; return load(); }).catch(fail); });
+  $("f-status").addEventListener("change", load);
+  document.addEventListener("change", function (ev) { var t = ev.target; if (!t.dataset || !t.dataset.id || !t.dataset.f) return; var b = {}; b[t.dataset.f] = t.type === "number" ? Number(t.value) : t.value; api("/api/governance/rfi/" + t.dataset.id, { method: "PUT", body: JSON.stringify(b) }).then(load).catch(fail); });
+  load();
+})();
+</script>
+</body>
+</html>

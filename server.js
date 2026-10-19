@@ -1290,7 +1290,7 @@ function loadHtml(name) {
   'site-awareness.html',
   'assets.html', 'assets-hygiene.html', 'assets-finance.html', 'wan.html', 'wan-health.html', 'wan-sla.html', 'itsm-roadmap.html',
   'infra-health.html', 'itsm-integrations-plan.html',
-  'dashboards.html', 'dashboard-composer.html', 'trackers.html', 'tracker-builder.html',
+  'dashboards.html', 'dashboard-composer.html', 'trackers.html', 'tracker-builder.html', 'cockpit.html', 'portfolio.html', 'rfi.html',
 ].forEach(loadHtml);
 
 // Helper: build the per-request HTML, inject api-key + nonce, send. Pages
@@ -1392,7 +1392,7 @@ app.get('/assets.html', (req, res) => {
 app.get('/wan.html', (req, res) => {
   sendHtmlPage(res, 'wan.html', false, 'WAN unavailable');
 });
-for (const _p of ['dashboards.html', 'dashboard-composer.html', 'trackers.html', 'tracker-builder.html']) app.get('/' + _p, (req, res) => sendHtmlPage(res, _p, false, 'Page unavailable'));
+for (const _p of ['dashboards.html', 'dashboard-composer.html', 'trackers.html', 'tracker-builder.html', 'cockpit.html', 'portfolio.html', 'rfi.html']) app.get('/' + _p, (req, res) => sendHtmlPage(res, _p, false, 'Page unavailable'));
 app.get('/wan-health.html', (req, res) => {
   sendHtmlPage(res, 'wan-health.html', false, 'WAN Health unavailable');
 });
@@ -8144,6 +8144,8 @@ app.use(require('./routes/dashboards')({ express, requireReportSession, store: _
 // Step 7 — generic trackers (builder, entries, bindings, legacy migration); store on tracker.db / shared PG (migration tracker/002).
 const _trkStore = require('./routes/trackers').createStore(require('./tracker-db'));
 app.use(require('./routes/trackers')({ express, requireReportSession, store: _trkStore }));
+const _govStore = require('./routes/governance').createStore(require('./reports-db'));   // Step 8 — governance (migration 018)
+app.use(require('./routes/governance')({ express, requireReportSession, store: _govStore, trackerStore: _trkStore }));
 
 // ══════════════════════════════════════════════════════════════════
 // MEETINGS — routes live in routes/meetings.js (Step 5 modularisation). The meetings-db
@@ -8196,7 +8198,7 @@ async function start() {
     const _pgh = _rdbMod.REPORTS_BACKEND === 'postgres' && typeof _rdbMod.pgHandle === 'function' ? _rdbMod.pgHandle() : null;
     _mr.setCurrent(await _mr.load({ pg: _pgh, log: console.log }));
     await _dashStore.seedAtBoot();   // Step 6 — pg: tables from migration 016, shipped definitions once
-    await _trkStore.seedAtBoot();    // Step 7 — pg: tables from migration tracker/002, templates once
+    await _trkStore.seedAtBoot(); await _govStore.initAtBoot();    // Steps 7-8 — pg: tables from migrations tracker/002 + reports/018, templates once
   } catch (e) { console.warn('[metrics] registry load failed (seed in use):', e.message); }
 
   // Zoho Analytics token — AFTER the databases are open, because the credentials may now
