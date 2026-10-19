@@ -33,9 +33,17 @@ jobs:
           --health-cmd "pg_isready -U postgres"
           --health-interval 5s --health-timeout 5s --health-retries 10
     env:
+      # pg tests isolate themselves in a throwaway SCHEMA of this database (tests/pg-helpers.js),
+      # exactly as on the dev box — no PG_ADMIN_URL, no per-test database.
       PG_URL: postgres://postgres:ci-only-password@localhost:5432/sdp_dashboard
-      PG_ADMIN_URL: postgres://postgres:ci-only-password@localhost:5432/postgres
       PG_TESTS_REQUIRED: '1'
+      # The local .env provides these on the dev box; CI has no .env. Test-only values.
+      DASH_USER: ci-admin
+      DASH_PASS: ci-admin-password-0000
+      DASHBOARD_API_KEY: ci-dashboard-key
+      ZOHO_CLIENT_ID: ci-dummy
+      ZOHO_CLIENT_SECRET: ci-dummy
+      ZOHO_REFRESH_TOKEN: ci-dummy
       TZ: UTC
     steps:
       - uses: actions/checkout@v4
