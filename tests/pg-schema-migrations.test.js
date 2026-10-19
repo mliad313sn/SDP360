@@ -27,6 +27,17 @@ test('pg: migrate all modules, replay is a no-op, an edit is reapplied', async (
     const second = await M.migrateAll(pg, { log: () => {} });
     assert.equal(second.reduce((n, r) => n + r.applied.length + r.reapplied.length, 0), 0, 'replay changes nothing');
 
+    // Production's first boot with the migrator: an EXISTING, populated database with no journal.
+    // Every script is re-run on top of live data and must succeed and keep the rows.
+    await pg.prepare(`INSERT INTO sites (name) VALUES ('Drill site')`).run();
+    await pg.prepare(`INSERT INTO wan_link_snapshots (site_id, sub_site, uplink, period_type, period_start)
+      VALUES (1, '', 'wan1', 'week', '2026-10-12')`).run();
+    await pg.exec('DROP TABLE schema_migrations');
+    const adopt = await M.migrateAll(pg, { log: () => {} });
+    assert.equal(adopt.reduce((n, r) => n + r.applied.length, 0), total, 'existing database adopted: every script journaled');
+    assert.equal(Number((await pg.prepare('SELECT COUNT(*) AS n FROM wan_link_snapshots').get()).n), 1, 'data kept');
+    assert.equal(Number((await pg.prepare(`SELECT COUNT(*) AS n FROM sites WHERE name = 'Drill site'`).get()).n), 1, 'data kept');
+
     // An edited script (other root) is re-applied once and its checksum updated.
     const root = _fs.mkdtempSync(_path.join(_os.tmpdir(), 'mig-'));
     _fs.mkdirSync(_path.join(root, 'demo'));
