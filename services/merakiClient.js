@@ -34,7 +34,11 @@ function makeMerakiClient({ apiKey, orgId, baseUrl = 'https://api.meraki.com/api
       // Surface WHICH path failed + the HTTP status, so a 404 tells you org-id vs
       // endpoint at a glance instead of a bare "status code 404".
       const status = e && e.response && e.response.status;
-      throw new Error(`Meraki GET ${path}${status ? ` → HTTP ${status}` : ` → ${e.message}`}`);
+      const err = new Error(`Meraki GET ${path}${status ? ` → HTTP ${status}` : ` → ${e.message}`}`);
+      if (status) err.status = status;                 // lets services/sync classify 429/5xx as transient
+      if (e && e.response) err.response = { status, headers: e.response.headers || {} }; // Retry-After
+      if (e && e.code) err.code = e.code;
+      throw err;
     }
   }
 

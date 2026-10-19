@@ -122,6 +122,13 @@ const DEFAULTS = {
   analytics_client_id: '', analytics_client_secret: '', analytics_refresh_token: '',
   analytics_workspace_id: '', analytics_org_id: '', analytics_accounts_url: '',
 };
+// ── Sync alerting (Step 1). Recipients = comma list of e-mail addresses; teams_url = a
+//    Workflows webhook (SECRET, blank-keep). Nothing is sent while both are empty.
+DEFAULTS.sync_alert_enabled = '1';
+DEFAULTS.sync_alert_recipients = '';
+DEFAULTS.sync_alert_teams_url = '';
+DEFAULTS.sync_truncation_tolerance_pct = '20';
+
 const KEYS = Object.keys(DEFAULTS);
 
 // Secrets that the GET handler redacts to '' — a Save that doesn't retype them must
@@ -130,6 +137,7 @@ const _SECRET_BLANK_KEEP = new Set([
   'smtp_pass', 'entra_client_secret', 'meridian_out_key', 'meridian_in_key', 'meraki_api_key', 'opmanager_api_key',
   'sdp_api_client_secret', 'sdp_api_refresh_token', 'teams_sla_channels',
   'analytics_client_secret', 'analytics_refresh_token',
+  'sync_alert_teams_url',
 ]);
 
 function _h(db) {

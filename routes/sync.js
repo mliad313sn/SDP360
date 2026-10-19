@@ -19,16 +19,41 @@ module.exports = function syncRoutes(deps) {
     } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
   });
 
+  // One health view (Step 1): runner runs (sync_runs) merged with the legacy sync_metadata rows
+  // (jobs that ran before the registry existed), labelled against the declared freshness window.
+  //   status: ok | stale | error | idle (optional job never configured) | never
   router.get('/api/sync/health', requireReportSession, async (req, res) => {
     try {
       await sync.ensureReady();
+      const { FRESHNESS_HOURS, OPTIONAL, LEGACY_NAMES } = require('../services/sync/jobs');
       const rows = await sync.getStore().health();
       const now = Date.now();
-      res.json({ ok: true, jobs: rows.map((r) => ({
-        ...r,
-        errors: Number(r.errors) || 0,
-        stale_hours: r.last_ok ? Math.round((now - Date.parse(r.last_ok)) / 36e5) : null,
-      })) });
+      const byJob = new Map();
+      for (const r of rows) byJob.set(r.job, { job: r.job, last_ok: r.last_ok || null, last_error: r.last_error || null, errors: Number(r.errors) || 0, source: 'runner' });
+      // legacy sync_metadata (requests / change_cab / survey / assets_*) → fold into the registry names
+      try {
+        const rdb = deps.rdb || require('../reports-db');
+        const legacy = await rdb.getSyncStatus();
+        for (const m of legacy || []) {
+          const name = LEGACY_NAMES[m.job_name]; if (!name) continue;
+          const cur = byJob.get(name) || { job: name, last_ok: null, last_error: null, errors: 0, source: 'legacy' };
+          if (m.last_sync_at && (!cur.last_ok || Date.parse(m.last_sync_at) > Date.parse(cur.last_ok))) cur.last_ok = new Date(m.last_sync_at + (/[zZ]|[+-]\d\d:?\d\d$/.test(m.last_sync_at) ? '' : 'Z')).toISOString();
+          if (m.last_error && !cur.last_error_text) cur.last_error_text = m.last_error;
+          byJob.set(name, cur);
+        }
+      } catch (_) { /* legacy table optional */ }
+      for (const name of Object.keys(FRESHNESS_HOURS)) if (!byJob.has(name)) byJob.set(name, { job: name, last_ok: null, last_error: null, errors: 0, source: 'none' });
+      const jobs = Array.from(byJob.values()).map((j) => {
+        const hours = FRESHNESS_HOURS[j.job] || null;
+        const ageH = j.last_ok ? (now - Date.parse(j.last_ok)) / 36e5 : null;
+        let status = 'ok';
+        if (!j.last_ok) status = OPTIONAL.has(j.job) ? 'idle' : 'never';
+        else if (j.last_error && Date.parse(j.last_error) > Date.parse(j.last_ok)) status = 'error';
+        else if (hours && ageH > hours) status = 'stale';
+        return { ...j, freshness_hours: hours, optional: OPTIONAL.has(j.job), stale_hours: ageH == null ? null : Math.round(ageH), status };
+      }).sort((a, b) => a.job.localeCompare(b.job));
+      const summary = { ok: jobs.filter((j) => j.status === 'ok').length, stale: jobs.filter((j) => j.status === 'stale').length, error: jobs.filter((j) => j.status === 'error').length, never: jobs.filter((j) => j.status === 'never').length, idle: jobs.filter((j) => j.status === 'idle').length };
+      res.json({ ok: true, summary, jobs });
     } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
   });
 

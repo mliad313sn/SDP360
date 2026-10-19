@@ -22,7 +22,7 @@
 'use strict';
 
 const {
-  getLastSyncAt, markSyncSuccess, markSyncError,
+  getLastSyncAt, markSyncSuccess, markSyncError, countTable,
   upsertChangeBatch, upsertCABBatch,
   upsertSurveyResultBatch, upsertSurveyAnswerBatch,
   reconcileChangeRecords, reconcileCABApprovals, reconcileSurveyResults,
@@ -237,6 +237,22 @@ function shouldFullSync(meta) {
   return meta.sync_count % FULL_SYNC_EVERY === 0;
 }
 
+
+// ── Truncation guard (Step 1, 2026-10-19) ─────────────────────────
+// Every Zoho job downloads the WHOLE view and then deletes local rows whose id is absent
+// from the download (reconcile*). A truncated or partial export therefore used to cascade
+// into a mass delete. Before any reconciliation, refuse a fetch that is smaller than the
+// local table by more than `tolerancePct` (default 20 %). The error is marked transient so
+// the runner retries later instead of applying it.
+function assertNotTruncated(job, fetched, stored, tolerancePct = Number(process.env.SYNC_TRUNCATION_TOLERANCE_PCT || 20)) {
+  const tol = Math.max(0, Math.min(90, Number(tolerancePct) || 0)) / 100;
+  if (stored > 0 && fetched < stored * (1 - tol)) {
+    const e = new Error(`${job}: fetched ${fetched} rows but ${stored} are stored (−${Math.round(100 - fetched / stored * 100)} %) — export looks truncated, refusing to reconcile`);
+    e.transient = true; e.truncation = true;
+    throw e;
+  }
+}
+
 // ── SYNC: CHANGE + CAB ────────────────────────────────────────────
 
 async function syncChangeCab() {
@@ -365,6 +381,8 @@ async function syncChangeCab() {
     // ── Reconciliation (deletion detection) ──────────────────────
     // Every FULL_SYNC_EVERY runs we do a full reconcile to detect Zoho deletions.
     // We pass a dummy meta object based on the last_sync_at to decide.
+    assertNotTruncated(`${JOB}/change`, changeRows.length, await countTable('change_records'));
+    assertNotTruncated(`${JOB}/cab`, cabRows.length, await countTable('cab_approvals'));
     let changeDeleted = 0;
     let cabDeleted    = 0;
     const isFullSync  = !lastSync; // first run is always a full sync (no cursor yet)
@@ -661,6 +679,7 @@ async function syncRequestData({ force = false } = {}) {
     console.log(`[Sync] requests — upserted ${upserted} Request records`);
 
     // ── Reconciliation (deletion detection) ──────────────────────
+    assertNotTruncated(JOB, allRows.length, await countTable('request_records'));
     const deleted = await reconcileRequestRecords(liveIds);
     if (deleted > 0) {
       console.log(`[Sync] requests — reconciliation removed ${deleted} stale records`);
@@ -746,5 +765,6 @@ module.exports = {
   // Exposed for unit tests
   buildUdfRows,
   computePendingStatus,
+  assertNotTruncated,
   CLOSED_STATUSES,
 };

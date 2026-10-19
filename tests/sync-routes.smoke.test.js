@@ -68,3 +68,23 @@ test('a failed run is mirrored to system_log (category sync)', async () => {
   const { rows } = await rdb.listSystemLog({ category: 'sync', limit: 10 });
   assert.ok(rows.some(r => r.action === 'sync_failed' && r.target === 'smoke.job'));
 });
+
+test('health merges runner + legacy rows and labels status against the freshness window', async () => {
+  const res = await get('/api/sync/health', token);
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.ok(body.summary && typeof body.summary.ok === 'number');
+  const names = body.jobs.map(j => j.job);
+  for (const n of ['zoho.requests', 'assets.sync', 'teams.sla_poll', 'smoke.job']) assert.ok(names.includes(n), `job ${n} listed`);
+  const smoke = body.jobs.find(j => j.job === 'smoke.job');
+  assert.equal(smoke.status, 'error', 'last run failed → error');
+  assert.equal(body.jobs.find(j => j.job === 'teams.sla_poll').status, 'idle', 'optional never-ran → idle');
+  assert.equal(body.jobs.find(j => j.job === 'zoho.requests').status, 'never');
+});
+
+test('the cron registry started at boot with every declared job', async () => {
+  const sched = require('../services/sync/schedule').status();
+  assert.ok(sched, 'schedule started by server.js');
+  assert.ok(sched.jobs.length >= 11);
+  assert.ok(sched.jobs.some(j => j.name === 'zoho.requests' && j.cron === '45 * * * *'));
+});

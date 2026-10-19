@@ -502,82 +502,29 @@ sync.init(fetchView, VIEWS);
 
 // Assets sync (Foundation) — stash fetchView; view ids are self-contained in ASSET_VIEWS.
 require('./assets-sync').init(fetchView, VIEWS);
-// Daily full-replace of the 5 asset views at 04:30 (off-peak, after nightly refresh at 03:15).
-cron.schedule('30 4 * * *', () => require('./assets-sync').syncAllAssets()
-  .then(summary => require('./assets-sync').afterAssetsSync(summary, { sendAlerts: true }))
-  .catch(e => console.error('[Cron:assets]', e && e.message)));
 
-// Meridian resource sync (F1) — nightly at 05:00. Self-skips when unconfigured
-// (no meridian_base_url / meridian_out_key), non-blocking on a Meridian outage.
-cron.schedule('0 5 * * *', () => require('./tools/meridian/sync-resources').main()
-  .catch(e => console.error('[Cron:meridian-sync]', e && e.message)));
-
-// OPManager availability sync (V1a) — 05:10, staggered from the Meridian sync at 05:00.
-// Config-gated (skips until opm_availability_view_id is set) + best-effort (a failure
-// keeps prior snapshots). fetchView reads the prepared daily Analytics view.
-cron.schedule('10 5 * * *', () => require('./tools/opmanager/sync-availability').main({ fetchView })
-  .catch(e => console.error('[Cron:opm-availability]', e && e.message)));
-
-// Meraki WAN availability/quality sync (V1b) — 05:20, staggered after opm-availability.
-// Config-gated (skips until meraki_api_key is set) + best-effort. Builds its own Meraki
-// client from config, so it needs no injected deps. Archives the previous Zoho week +
-// current month into wan_link_snapshots (kept beyond Meraki's ~60-day retention window).
-cron.schedule('20 5 * * *', () => require('./tools/meraki/sync-wan').main({})
-  .catch(e => console.error('[Cron:meraki-wan]', e && e.message)));
-
-// WAN SLA / ISP chargeback (V1c). The event-log INGESTER (getNetworkEvents) queries Meraki's
-// authoritative event history — exact down/up timestamps — and reconciles the poller's provisional
-// rows. It runs EVERY 5 MIN with a short (3h) lookback so the outage log stays accurate to ±5 min
-// (durations corrected + attributed throughout the day, not only overnight), PLUS a nightly
-// full-lookback (3d) backfill at 05:25 for anything missed. The 5-minute POLLER opens/closes
-// provisional rows from current uplink state (fast detection) + fires the ISP down/recovery emails.
-// All config-gated inside .main (self-skip until meraki_api_key is set) + best-effort.
-cron.schedule('*/5 * * * *', () => require('./tools/meraki/sync-wan-events').main({ since: new Date(Date.now() - 3 * 3600 * 1000).toISOString() })
-  .catch(e => console.error('[Cron:wan-events-5m]', e && e.message)));
-cron.schedule('25 5 * * *', () => require('./tools/meraki/sync-wan-events').main({})
-  .catch(e => console.error('[Cron:wan-events]', e && e.message)));
-// Teams SLA alerts (2026-10-03) — every 5 min: SDP API → rules → one card per group in its
-// Teams channel. Config-gated (disarmed + no-op until the admin card is filled), never throws,
-// never overlaps (tools/teams/poll-sla.js).
-cron.schedule('*/5 * * * *', () => require('./tools/teams/poll-sla').run({})
-  .then(r => { if (r && r.error) console.error('[Cron:teams-sla]', r.error); })
-  .catch(e => console.error('[Cron:teams-sla]', e.message)));
-cron.schedule('*/5 * * * *', () => require('./tools/meraki/poll-wan-outages').main({})
-  .catch(e => console.error('[Cron:wan-poller]', e && e.message)));
-
-// Change + CAB: every hour at :30 past the hour (offset to avoid collision with requests at :45)
-// Bumped from `30 */2 * * *` (every 2h) on 2026-05-26 to support the
-// executive.html rewrite — DB-direct mode means data freshness IS the
-// page's freshness. Hourly was approved by the user with awareness that
-// it ~doubles Zoho API quota burn.
-cron.schedule('30 * * * *', () => {
-  sync.syncChangeCab().catch(e => console.error('[Cron:change_cab]', e.message));
-});
-
-// Survey data: every hour at :00 past the hour (slot picked to avoid collision
-// with change_cab at :30, requests at :45, cache-refresh at :20).
-// Bumped from `0 2 * * *` (daily) on 2026-05-26 — user requested all syncs
-// be hourly so the executive scorecard's CSAT/NPS doesn't trail the rest of
-// the dashboard by up to 24 hours. Survey data is sparse (10-50 responses/day
-// typically), so the per-run payload stays small even with a 24× cadence
-// bump; Zoho quota impact is negligible.
-cron.schedule('0 * * * *', () => {
-  sync.syncSurveyData().catch(e => console.error('[Cron:survey]', e.message));
-});
-
-// Request data: every hour at :45 past the hour
-// Bumped from `45 */2 * * *` (every 2h) on 2026-05-26 — see note on
-// syncChangeCab above. This is the master ticket-table sync and feeds
-// almost every aggregation downstream (KPI tiles, SLA trends, ageing,
-// major-incident detail, etc.) so its cadence sets the freshness floor
-// for the executive scorecard.
-cron.schedule('45 * * * *', () => {
-  sync.syncRequestData()
-    .then(() => {
-      console.log('[Cron:requests] ✅ Sync done — rebuilding raw cache…');
-      return _backgroundRefreshRawCache();
-    })
-    .catch(e => console.error('[Cron:requests]', e.message));
+// ── ONE CRON REGISTRY (Step 1, 2026-10-19) ──────────────────────────────────
+// Every scheduled job (Zoho requests/changes/survey, assets, Meridian, OpManager, Meraki
+// WAN sync/events/poller, Teams SLA poll) is declared in services/sync/jobs.js and runs
+// through the shared runner: overlap lock, exponential retry (Retry-After honoured),
+// run log (sync_runs), failure mirrored to system_log, consecutive-failure + staleness
+// alerts (services/sync/alerts.js) to the addresses in Admin ▸ sync_alert_*. The former
+// per-job cron lines lived here; see git history before 2026-10-19 for the old wiring.
+require('./services/sync/schedule').start({
+  cron, sync, fetchView,
+  assets: require('./assets-sync'),
+  afterRequests: () => { console.log('[Cron:requests] ✅ Sync done — rebuilding raw cache…'); return _backgroundRefreshRawCache(); },
+  getAlertConfig: async () => {
+    const reportConfig = require('./services/reportConfig');
+    const cfg = await reportConfig.getConfig(rdb.db);
+    if (!cfg || cfg.sync_alert_enabled === '0') return null;
+    const recipients = String(cfg.sync_alert_recipients || '').split(/[,;\s]+/).map(x => x.trim()).filter(Boolean);
+    const teamsUrl = String(cfg.sync_alert_teams_url || '').trim();
+    if (!recipients.length && !teamsUrl) return null;
+    const { buildMailer } = require('./services/mailer');
+    return { recipients, from: cfg.from, mailer: recipients.length ? buildMailer(cfg) : null, teamsUrl,
+      post: (url, card) => require('axios').post(url, card, { timeout: 15000, headers: { 'Content-Type': 'application/json' } }) };
+  },
 });
 
 
@@ -5420,7 +5367,7 @@ app.get('/api/reports/config', requireReportSession, requireSuperAdmin, async (r
     if (c && c.meridian_in_key) c.meridian_in_key = '';
     if (c && c.meraki_api_key) c.meraki_api_key = '';   // never expose the stored Meraki API key
     if (c && c.opmanager_api_key) c.opmanager_api_key = '';   // never expose the stored OpManager API key
-    for (const k of ['sdp_api_client_secret', 'sdp_api_refresh_token', 'teams_sla_channels', 'analytics_client_secret', 'analytics_refresh_token']) if (c && c[k]) c[k] = '';   // Teams SLA + Analytics secrets
+    for (const k of ['sdp_api_client_secret', 'sdp_api_refresh_token', 'teams_sla_channels', 'analytics_client_secret', 'analytics_refresh_token', 'sync_alert_teams_url']) if (c && c[k]) c[k] = '';   // Teams SLA + Analytics secrets
     res.json(c);
   }
   catch (e) { res.status(500).json({ error: e.message }); }

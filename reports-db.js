@@ -6301,6 +6301,14 @@ function getSyncStatus() {
   return db.prepare(`SELECT * FROM sync_metadata ORDER BY job_name`).all();
 }
 
+/** Row count of one hot-path table — used by the Zoho truncation guard (Step 1). Whitelisted. */
+const _COUNTABLE = new Set(['request_records', 'change_records', 'cab_approvals', 'survey_responses', 'survey_answers']);
+function countTable(table) {
+  if (!_COUNTABLE.has(table)) throw new Error(`countTable: table not allowed: ${table}`);
+  if (REPORTS_BACKEND === 'postgres') return pgHandle().prepare(`SELECT COUNT(*) AS n FROM ${table}`).get().then(r => Number(r && r.n) || 0);
+  return db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get().n;
+}
+
 /** Get last_sync_at for a single job (used by zoho-sync.js as the incremental cursor) */
 function getLastSyncAt(jobName) {
   if (REPORTS_BACKEND === 'postgres') return _getLastSyncAtPg(jobName);
@@ -8362,7 +8370,7 @@ module.exports = {
   // Audit trail
   logAudit, getReportAuditLog,
   // Sync metadata
-  getSyncStatus, getLastSyncAt, markSyncSuccess, markSyncError,
+  getSyncStatus, getLastSyncAt, markSyncSuccess, markSyncError, countTable,
   // Change & CAB upsert
   upsertChangeBatch, upsertCABBatch,
   // Survey upsert

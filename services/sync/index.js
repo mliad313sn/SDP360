@@ -15,6 +15,8 @@ const { makeSyncStore } = require('./syncStore');
 let _store = null;
 let _runner = null;
 let _pgReady = null;
+let _hook = null; // extra onEvent listener (alerting), set by schedule.js
+function setEventHook(fn) { _hook = fn; }
 
 function getStore() {
   if (_store) return _store;
@@ -42,6 +44,7 @@ function getRunner() {
   _runner = createSyncRunner({
     store,
     onEvent(kind, p) {
+      if (_hook) { try { _hook(kind, p); } catch (_) { /* never into the runner */ } }
       if (!logEvent) return;
       if (kind === 'sync_failed') logEvent({ category: 'sync', action: 'sync_failed', target: p.job, details: p, risk: 1 });
       else if (kind === 'sync_skipped_overlap') logEvent({ category: 'sync', action: 'sync_overlap_skipped', target: p.job, details: p });
@@ -51,6 +54,6 @@ function getRunner() {
 }
 
 // test seam
-function _reset() { _store = null; _runner = null; _pgReady = null; }
+function _reset() { _store = null; _runner = null; _pgReady = null; _hook = null; }
 
-module.exports = { getStore, getRunner, ensureReady, _reset };
+module.exports = { getStore, getRunner, ensureReady, setEventHook, _reset };

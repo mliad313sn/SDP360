@@ -60,8 +60,18 @@
   <div class="sl-tabs">
     <button class="sl-tab active" data-tab="entries">☰ Log entries</button>
     <button class="sl-tab" data-tab="analytics">📈 Analytics &amp; trends</button>
+    <button class="sl-tab" data-tab="sync">🔄 Sync health</button>
     <button class="sl-tab" data-tab="events" disabled title="v2 — per-request events">⚠ Events &amp; reconciliation</button>
   </div>
+
+  <!-- SYNC HEALTH (Step 1) -->
+  <section class="sl-pane" id="pane-sync">
+    <p class="sl-hint" style="margin:0 0 10px">Every scheduled job runs through the shared runner (lock · retry · run log). <b>stale</b> = last success older than the job's freshness window; <b>error</b> = last run failed; <b>idle</b> = optional integration not configured. Alerts go to the addresses set in Admin ▸ Config (<code>sync_alert_recipients</code> / Teams webhook).</p>
+    <div id="syncSummary" class="sl-hint" style="margin-bottom:8px"></div>
+    <table class="sl-tbl"><thead><tr><th>Job</th><th>Status</th><th>Last success</th><th>Age</th><th>Window</th><th>Last error</th><th>Errors</th></tr></thead><tbody id="syncRows"></tbody></table>
+    <h3 style="margin-top:18px">Last runs</h3>
+    <table class="sl-tbl"><thead><tr><th>#</th><th>Job</th><th>Started</th><th>Status</th><th>Attempts</th><th>Rows</th><th>Deleted</th><th>Error</th></tr></thead><tbody id="syncRuns"></tbody></table>
+  </section>
 
   <!-- LOG ENTRIES -->
   <section class="sl-pane active" id="pane-entries">
@@ -124,8 +134,26 @@
       document.querySelectorAll('.sl-pane').forEach(function(x){x.classList.remove('active');});
       b.classList.add('active'); el('pane-'+b.dataset.tab).classList.add('active');
       if (b.dataset.tab==='analytics') loadAnalytics();
+      if (b.dataset.tab==='sync') loadSync();
     });
   });
+
+  // ── Sync health (Step 1) ──
+  function loadSync(){
+    var COL = { ok:'#16a34a', stale:'#d97706', error:'#dc2626', never:'#64748b', idle:'#94a3b8' };
+    api('/api/sync/health').then(function(h){
+      if(!h||!h.ok){ el('syncRows').innerHTML='<tr><td colspan="7">'+esc(h&&h.error||'unavailable')+'</td></tr>'; return; }
+      var s=h.summary||{}; el('syncSummary').textContent = 'ok '+(s.ok||0)+' · stale '+(s.stale||0)+' · error '+(s.error||0)+' · never '+(s.never||0)+' · idle '+(s.idle||0);
+      el('syncRows').innerHTML = (h.jobs||[]).map(function(j){
+        return '<tr><td><code>'+esc(j.job)+'</code></td><td><b style="color:'+(COL[j.status]||'#333')+'">'+esc(j.status)+'</b></td><td>'+esc(j.last_ok?j.last_ok.replace('T',' ').slice(0,16):'—')+'</td><td>'+(j.stale_hours==null?'—':j.stale_hours+' h')+'</td><td>'+(j.freshness_hours?j.freshness_hours+' h':'—')+'</td><td>'+esc(j.last_error?j.last_error.replace('T',' ').slice(0,16):'—')+'</td><td>'+(j.errors||0)+'</td></tr>';
+      }).join('');
+    });
+    api('/api/sync/runs?limit=30').then(function(r){
+      el('syncRuns').innerHTML = (r&&r.runs||[]).map(function(x){
+        return '<tr><td>'+x.id+'</td><td><code>'+esc(x.job)+'</code></td><td>'+esc(String(x.started_at).replace('T',' ').slice(0,19))+'</td><td style="color:'+(COL[x.status]||'#333')+'">'+esc(x.status)+'</td><td>'+(x.attempts||0)+'</td><td>'+(x.rows==null?'—':x.rows)+'</td><td>'+(x.deleted==null?'—':x.deleted)+'</td><td>'+esc(x.error||'')+'</td></tr>';
+      }).join('') || '<tr><td colspan="8">No run recorded yet.</td></tr>';
+    });
+  }
 
   // ── Log entries ──
   var page = 0, LIMIT = 50;
