@@ -14,3 +14,4 @@
 | T | [Templates](templates/) — RFI form, KPI definition sheet, tracker definition, dashboard definition, review minutes | Everyone | v1 |
 
 Conventions: documents are written in English (the platform's UI language since 2026-10-16); French terms used on the mine sites are kept in brackets the first time they appear. Every normative statement uses *must / should / may*. File paths refer to this repository.
+- `design/ETAPE-03-kpi.md` — dossier de conception de l'étape 3 (dictionnaire des KPI, politiques RAG, registre des sites).

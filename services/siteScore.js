@@ -29,7 +29,9 @@ const PT_THRESHOLDS = [
 ];
 
 // rag2() — bands on the composite score.
-function rag2(score) { return score >= 70 ? 'GREEN' : score >= 45 ? 'AMBER' : 'RED'; }
+// Bands from the registry policy 'site-score' (70/45 — the author's model, registered verbatim).
+const KpiRag = require('./kpiRag');
+function rag2(score) { return KpiRag.rag(score, 'site-score'); }
 
 // sbMoveText() — verbatim. NOTE: the 6th branch is a FALLBACK return, not an
 // `if (key === 'signoff')`, so an unknown key yields the sign-off text. Kept.

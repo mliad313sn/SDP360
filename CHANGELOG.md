@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.0.0-alpha.4 — 2026-10-19 — Étape 3 : dictionnaire des KPI, politiques RAG en données, registre des sites
+- `services/metricRegistry.js`: 46 KPIs registered (key, EN/FR name, module, unit, formula, window, RAG policy, reader, owner); loaded at boot from `metric_registry` / `kpi_rag_policies` (DB rows win, seed inserted for missing rows).
+- `GET /api/metrics/registry` and `GET /api/metrics/:key?site=&window=` (`routes/metrics.js`): one value through the registered reader, site-scoped, `null` ≠ 0, never 500.
+- RAG bands come from the registry everywhere: `public/lib/kpiRag.js` (UMD, shared by the browser tracker engine and `tracker-pptx.js` — no more twin thresholds), `siteScore`, `siteComposite`, `siteScoreboard(Report)`. New policies `tracker-boolean`, `wan-availability`. Static test `metrics-no-scale-outside-registry` refuses a literal cut-off in a scoring module. Fidelity suites unchanged (numbers identical by construction).
+- Site registry: asset labels per site in `site_module_codes` (module `assets`, sqlite + pg seed); `scoreboardAliases` reads the registry first, the in-code map is the fallback (closing it = arbitration in `docs/sdp360/design/ETAPE-03-kpi.md`).
+- Help §20 (EN + FR): KPI dictionary and RAG policies.
+
 ## 2.0.0-alpha.3 — 2026-10-19 — Étape 2 : PostgreSQL seul (socle), migrateur, CI à parité
 - `db/migrate.js`: one schema migrator for every `db/postgres/**/*.sql` (journal `schema_migrations`), run at boot, by the installer and in CI (`--status`, `--dry-run`).
 - CI runs the PostgreSQL half of the suite against a PostgreSQL 17 service with `PG_TESTS_REQUIRED=1`; a fresh database is migrated first.

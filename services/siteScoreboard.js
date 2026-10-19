@@ -12,11 +12,11 @@
 
 const WEIGHTS = { helpdesk: 0.40, inspections: 0.20, meetings: 0.20, assets: 0.20 };
 const DIMS = Object.keys(WEIGHTS);
-const G = 75; // green threshold
-const A = 55; // amber threshold
+// Bands from the registry policy 'site-composite' (services/kpiRag.js) — 75/55.
+const KpiRag = require('./kpiRag');
 
 const clamp = (v) => (v == null ? null : Math.max(0, Math.min(100, Number(v))));
-const ragOf = (s) => (s == null ? null : (s >= G ? 'green' : (s >= A ? 'amber' : 'red')));
+const ragOf = (s) => (s == null ? null : KpiRag.rag(s, 'site-composite').toLowerCase());
 
 /**
  * Score one row over the present dims with renormalized weights.
@@ -98,7 +98,7 @@ function buildSiteScoreboard(perSite, { prev } = {}) {
   // needs_attention: lowest-scoring applicable row with score < A (red); tie → code asc.
   let needs_attention = null;
   for (const r of applicable) {
-    if (r.score != null && r.score < A) {
+    if (r.score != null && r.score < KpiRag.POLICIES['site-composite'].amber) {
       if (!needs_attention
         || r.score < needs_attention.score
         || (r.score === needs_attention.score && r.code < needs_attention.code)) {

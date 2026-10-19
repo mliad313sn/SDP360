@@ -842,6 +842,13 @@ const _MERAKI_RENAMES = [
 for (const [siteName, net] of Object.entries(_MERAKI_NETWORK_CODES)) {
   if (_SITE_MODULE_CODES_SEED[siteName]) _SITE_MODULE_CODES_SEED[siteName].meraki = net;
 }
+// Step 3 — AP asset-site labels per site (module='assets'), the registry replacement for the
+// in-code map services/scoreboardAliases.ALIAS. Several labels may fold to ONE site (Massawa +
+// Sabodala). Seeded by site NAME; scoreboardAliases reads these rows first, the in-code map last.
+const _ASSET_LABEL_CODES = {
+  Hounde: ['HOUNDE'], MANA: ['MANA'], Sabodala: ['Sabodala', 'Massawa'], Lafigue: ['LAFIGUE'], Ity: ['ITY'],
+  Kalana: ['KALANA'], Ouagadougou: ['Ouagadougou', 'Ouaga'], Abidjan: ['Abidjan'], Dakar: ['Dakar'],
+};
 // V1b-E — Exploration's sub-site WAN lines ("WAN1 FETEKRO") map to their OWN Meraki network.
 // Confirmed from the org's network selector on 2026-09-11 ("Exploration Fetekro"); the
 // sync's normalised match tolerates case/suffix. Add other sub-sites here once their
@@ -863,6 +870,12 @@ const _WAN_SUBSITE_SEED = {
       const r = upsertCode.run(row.id, mod, code);
       if (r.changes > 0) inserted++;
     }
+  }
+  // Step 3 — asset labels (module='assets'); PK is (site_id, module) so the labels of one site
+  // are stored comma-joined in `code` and split by the reader (listAssetLabelCodes).
+  for (const [siteName, labels] of Object.entries(_ASSET_LABEL_CODES)) {
+    const row = findSite.get(siteName); if (!row) continue;
+    const r = upsertCode.run(row.id, 'assets', labels.join(',')); if (r.changes > 0) inserted++;
   }
   if (inserted > 0) console.log(`[seed] site_module_codes — inserted ${inserted} (site,module,code) mappings`);
   // Correct the 3 stale V1b-A guesses by exact old-string match (INSERT OR IGNORE
@@ -1482,6 +1495,10 @@ async function _seedReportsCatalogsPg(H) {
   }
   for (const [siteName, net] of Object.entries(_MERAKI_NETWORK_CODES)) {
     if (SEED[siteName]) SEED[siteName].meraki = net;
+  }
+  // Step 3 — asset labels (module='assets', comma-joined; see _ASSET_LABEL_CODES).
+  for (const [siteName, labels] of Object.entries(_ASSET_LABEL_CODES)) {
+    if (SEED[siteName]) SEED[siteName].assets = labels.join(',');
   }
   await H.runTransaction(async () => {
     for (const [siteName, modCodes] of Object.entries(SEED)) {

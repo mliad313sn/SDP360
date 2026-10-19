@@ -54,3 +54,15 @@ test('foldEffortByCode handles empty + single-label cases', () => {
 test('ALIAS is exported', () => {
   assert.strictEqual(typeof ALIAS, 'object');
 });
+
+// Step 3 — registry-first: site_module_codes (module='assets') beats the in-code map.
+test('setRegistry / loadFromRegistry: registry rows win over ALIAS, fallback stays when absent', async () => {
+  const { setRegistry, loadFromRegistry } = require('../services/scoreboardAliases');
+  const rdb = { listSiteModuleCodes: async (m) => m === 'assets' ? [{ site_id: 1, code: 'HOUNDE,Hounde Gold' }, { site_id: 9, code: 'NEWSITE' }] : m === 'meetings' ? [{ site_id: 1, code: 'HGO' }, { site_id: 9, code: 'NEW' }] : [] };
+  const map = await loadFromRegistry(rdb);
+  assert.strictEqual(map['hounde gold'], 'HGO');
+  assert.strictEqual(assetLabelToCode('NewSite'), 'NEW');       // registry-only label
+  assert.strictEqual(assetLabelToCode('Sabodala'), 'SGO');      // ALIAS fallback for a label not in the registry
+  setRegistry(null);
+  assert.strictEqual(assetLabelToCode('NewSite'), null);
+});

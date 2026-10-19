@@ -33,7 +33,7 @@ function esc(v) {
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-function ragOf(v) { return v == null ? null : (v >= 75 ? 'green' : (v >= 55 ? 'amber' : 'red')); }
+function ragOf(v) { return v == null ? null : require('./kpiRag').rag(v, 'site-composite').toLowerCase(); }
 
 function dimCell(v) {
   if (v == null) return '<td style="text-align:center;color:#94a3b8">—</td>';

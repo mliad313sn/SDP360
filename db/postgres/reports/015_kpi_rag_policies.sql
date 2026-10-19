@@ -17,5 +17,7 @@ INSERT INTO kpi_rag_policies (name, scale, green, amber, source) VALUES
   ('tracker-executive', 'ratio',  0.70, 0.50, 'engine.js executive summary bands'),
   ('site-score',        'points', 70,   45,   'services/siteScore.js + deckGovernanceV2.js'),
   ('site-composite',    'points', 75,   55,   'services/siteComposite.js + siteScoreboard.js'),
-  ('sla-percent',       'points', 90,   70,   'docs/EXEC_PPTX_CHART_AUDIT.md CSAT bands')
+  ('sla-percent',       'points', 90,   70,   'docs/EXEC_PPTX_CHART_AUDIT.md CSAT bands'),
+  ('tracker-boolean',   'ratio',  1.0,  0.5,  'engine.js BOOLEAN done / in progress'),
+  ('wan-availability',  'target-ratio', 1.0, 0.9, 'services/merakiWanQuality.js statusColor')
 ON CONFLICT (name) DO NOTHING;

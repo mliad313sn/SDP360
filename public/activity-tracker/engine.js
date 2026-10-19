@@ -15,6 +15,13 @@
 (function (global) {
   'use strict';
 
+  // Step 3 — RAG bands come from the shared registry (public/lib/kpiRag.js, policy
+  // 'tracker-activity'), loaded before this file in activity-tracker.html; in Node (tests,
+  // tracker-pptx) it is required. No literal cut-off lives here any more.
+  const KpiRag = (global && global.KpiRag) || (typeof require === 'function' ? require('../lib/kpiRag') : null);
+  if (!KpiRag) throw new Error('engine.js: KpiRag registry not loaded (public/lib/kpiRag.js)');
+  function band(sc) { return KpiRag.rag(sc, 'tracker-activity'); }
+
   // ── PHASE 4 (ADR-001) — per-year resolution ─────────────────────
   // When the server provides D.byYear (per-year structures), resolve
   // the requested year's activities/targets/pillarWeights so that
@@ -100,7 +107,7 @@
   // RAG bands (user policy 2026-09-03, mirrors the management RAG table):
   //   GREEN >= 90% of the pro-rated target · AMBER 75-89% · RED < 75%.
   // BOOLEAN/MILESTONE keep their done/in-progress semantics (no % band).
-  // ⚠ Twin engine: tracker-pptx.js carries the SAME bands — edit both.
+  // Bands = KpiRag policy 'tracker-activity' (shared with tracker-pptx.js through the same file).
   // Handles 6 KPI types: BOOLEAN, PERCENT, MILESTONE, CURRENCY,
   // RATING, COUNT (default). See the comments inline for the
   // formula each one uses.
@@ -132,17 +139,15 @@
       if (a.kpi === 'BOOLEAN') {
         // 0=Not Started, 0.5=In Progress, 1=Done. Capped at 1.
         const sc = Math.min(ya, 1);
-        let rg;
-        if (sc >= 1) rg = 'GREEN';
-        else if (sc >= 0.5) rg = 'AMBER';
-        else rg = a.end <= mo ? 'RED' : 'AMBER';
+        const rb = KpiRag.rag(sc, 'tracker-boolean');
+        const rg = rb === 'RED' ? (a.end <= mo ? 'RED' : 'AMBER') : rb;
         R.push({ ...a, ix: i, on: true, ya: Math.round(ya * 100) / 100, yt: 1, sc, rg, ew: ew[i] });
       } else if (a.kpi === 'PERCENT') {
         const months = Math.min(mo, a.end) - a.start + 1;
         const avg = months > 0 ? ya / months : 0;
         const tgt = parseInt(t.target) || 100;
         const sc = Math.min(avg / tgt, 1);
-        const rg = sc >= 0.9 ? 'GREEN' : sc >= 0.75 ? 'AMBER' : 'RED';
+        const rg = band(sc);
         R.push({ ...a, ix: i, on: true, ya: Math.round(avg * 10) / 10, yt: tgt, sc: Math.round(sc * 1000) / 1000, rg, ew: ew[i] });
       } else if (a.kpi === 'MILESTONE') {
         const tgt = parseInt(t.target) || 1;
@@ -156,7 +161,7 @@
           R.push({ ...a, ix: i, on: true, ya, yt: 0, sc: 0, rg: 'AMBER', ew: ew[i] });
         } else {
           const sc = Math.min(ya / tgt, 1);
-          const rg = sc >= 0.9 ? 'GREEN' : sc >= 0.75 ? 'AMBER' : 'RED';
+          const rg = band(sc);
           R.push({ ...a, ix: i, on: true, ya: Math.round(ya * 100) / 100, yt: tgt, sc: Math.round(sc * 1000) / 1000, rg, ew: ew[i] });
         }
       } else if (a.kpi === 'RATING') {
@@ -168,7 +173,7 @@
         const avg = nonZeroMonths.length > 0 ? nonZeroMonths.reduce((s, v) => s + v, 0) / nonZeroMonths.length : 0;
         const tgt = parseFloat(t.target) || 4;
         const sc = tgt > 0 ? Math.min(avg / tgt, 1) : 0;
-        const rg = sc >= 0.9 ? 'GREEN' : sc >= 0.75 ? 'AMBER' : (nonZeroMonths.length === 0 && a.end > mo ? 'AMBER' : 'RED');
+        const rg = band(sc) === 'RED' && nonZeroMonths.length === 0 && a.end > mo ? 'AMBER' : band(sc);
         R.push({ ...a, ix: i, on: true, ya: Math.round(avg * 100) / 100, yt: tgt, sc: Math.round(sc * 1000) / 1000, rg, ew: ew[i] });
       } else {
         // COUNT (default): sum of monthly values vs pro-rated annual target.
@@ -180,7 +185,7 @@
           const ann = parseInt(t.target) || 0;
           const yt = ann * (mA / tot);
           const sc = yt > 0 ? Math.min(ya / yt, 1) : 0;
-          const rg = sc >= 0.9 ? 'GREEN' : sc >= 0.75 ? 'AMBER' : 'RED';
+          const rg = band(sc);
           R.push({ ...a, ix: i, on: true, ya: Math.round(ya * 100) / 100, yt: Math.round(yt * 100) / 100, sc: Math.round(sc * 1000) / 1000, rg, ew: ew[i] });
         }
       }

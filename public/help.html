@@ -206,6 +206,7 @@
       <a class="toc-sub" href="#en-19-2">Create the channel webhook (Teams)</a>
       <a class="toc-sub" href="#en-19-3">Connect it in the dashboard</a>
       <a class="toc-sub" href="#en-19-4">Phone notifications &amp; troubleshooting</a>
+      <a href="#en-20">20. KPI dictionary (metric registry)</a>
     </div>
 
     <!-- Content -->
@@ -1137,6 +1138,26 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Confirm-Destructive.ps1"
           <li>The line <em>Dernier passage</em> at the top of the card shows when the last 5-minute pass ran.</li>
         </ul>
       </div>
+      <div class="section" id="en-20">
+        <h2><span class="section-num">20</span>KPI dictionary (metric registry)</h2>
+        <p><strong>One figure = one definition = one colour.</strong> Every KPI the dashboard shows or exports is registered once, with its formula, its window and its RAG policy. Screens and decks resolve a metric by <em>key</em>; the Red / Amber / Green cut-offs are data owned by the product committee (table <code>kpi_rag_policies</code>), never a number typed in a screen.</p>
+        <h3 id="en-20-1">20.1 Where to read it</h3>
+        <ul>
+          <li><strong>API</strong> — <code>GET /api/metrics/registry</code> lists every published metric (key, name, module, unit, formula, window, RAG policy, owner) and the policies; <code>GET /api/metrics/&lt;key&gt;?site=&lt;id&gt;&amp;window=2026-09</code> returns one value with its window and colour. Editors read their own sites; the admin tier reads any site.</li>
+          <li><strong>Windows</strong> — <code>month</code> (<code>YYYY-MM</code>), <code>week</code> (<code>YYYY-Www</code>, default = the previous full week), <code>rolling3m</code>, <code>ytd</code>, <code>current</code> (today). A metric that is not measured returns <code>null</code> and <code>NA</code> — never a zero.</li>
+        </ul>
+        <h3 id="en-20-2">20.2 RAG policies</h3>
+        <table><thead><tr><th>Policy</th><th>Green ≥</th><th>Amber ≥</th><th>Used by</th></tr></thead><tbody>
+          <tr><td>tracker-activity</td><td>90 %</td><td>75 %</td><td>Activity tracker (count / percent / currency / rating)</td></tr>
+          <tr><td>tracker-boolean</td><td>done</td><td>in progress</td><td>Activity tracker (done / not done)</td></tr>
+          <tr><td>tracker-executive</td><td>70 %</td><td>50 %</td><td>Tracker site &amp; fleet score</td></tr>
+          <tr><td>site-score</td><td>70 pts</td><td>45 pts</td><td>Programme score (6 dimensions)</td></tr>
+          <tr><td>site-composite</td><td>75 pts</td><td>55 pts</td><td>Operational composite, asset effort</td></tr>
+          <tr><td>sla-percent</td><td>90 %</td><td>70 %</td><td>SLA, engagements, conformity, completeness</td></tr>
+          <tr><td>wan-availability</td><td>target</td><td>target × 0.9</td><td>WAN % Time Up vs the site target</td></tr>
+        </tbody></table>
+        <div class="tip">💡 Changing a cut-off is a committee decision (<code>DEC-</code>): the row is edited in <code>kpi_rag_policies</code>, the server reloads it at start-up and every screen, e-mail and deck follows. Design dossier: <code>docs/sdp360/design/ETAPE-03-kpi.md</code>.</div>
+      </div>
     </div><!-- /content -->
   </div><!-- /doc-layout -->
 </div><!-- /sec-en -->
@@ -1241,6 +1262,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Confirm-Destructive.ps1"
       <a class="toc-sub" href="#fr-19-2">Créer le webhook du canal (Teams)</a>
       <a class="toc-sub" href="#fr-19-3">Le brancher dans le dashboard</a>
       <a class="toc-sub" href="#fr-19-4">Notifications téléphone &amp; dépannage</a>
+      <a href="#fr-20">20. Dictionnaire des KPI (registre des métriques)</a>
     </div>
 
     <div class="content">
@@ -2170,6 +2192,26 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Confirm-Destructive.ps1"
           <li><strong>Tester échoue</strong> — l'URL n'a pas été copiée en entier, ou le workflow a été supprimé ou désactivé dans Teams : recréez-le et enregistrez la nouvelle URL.</li>
           <li>La ligne <em>Dernier passage</em> en haut de la carte indique l'heure du dernier passage de 5 minutes.</li>
         </ul>
+      </div>
+      <div class="section" id="fr-20">
+        <h2><span class="section-num">20</span>Dictionnaire des KPI (registre des métriques)</h2>
+        <p><strong>Un chiffre = une définition = une couleur.</strong> Chaque KPI affiché ou exporté est enregistré une fois, avec sa formule, sa fenêtre et sa politique RAG. Les écrans et les présentations résolvent une métrique par sa <em>clé</em> ; les seuils Rouge / Orange / Vert sont des données du comité produit (table <code>kpi_rag_policies</code>), jamais un nombre tapé dans un écran.</p>
+        <h3 id="fr-20-1">20.1 Où le lire</h3>
+        <ul>
+          <li><strong>API</strong> — <code>GET /api/metrics/registry</code> liste toutes les métriques publiées (clé, nom, module, unité, formule, fenêtre, politique RAG, responsable) et les politiques ; <code>GET /api/metrics/&lt;clé&gt;?site=&lt;id&gt;&amp;window=2026-09</code> rend une valeur avec sa fenêtre et sa couleur. Un éditeur lit ses sites ; le palier admin lit tout site.</li>
+          <li><strong>Fenêtres</strong> — <code>month</code> (<code>AAAA-MM</code>), <code>week</code> (<code>AAAA-Wss</code>, défaut = la semaine pleine précédente), <code>rolling3m</code>, <code>ytd</code>, <code>current</code> (aujourd'hui). Une métrique non mesurée rend <code>null</code> et <code>NA</code> — jamais un zéro.</li>
+        </ul>
+        <h3 id="fr-20-2">20.2 Politiques RAG</h3>
+        <table><thead><tr><th>Politique</th><th>Vert ≥</th><th>Orange ≥</th><th>Utilisée par</th></tr></thead><tbody>
+          <tr><td>tracker-activity</td><td>90 %</td><td>75 %</td><td>Tracker d'activités (comptage / pourcentage / montant / note)</td></tr>
+          <tr><td>tracker-boolean</td><td>fait</td><td>en cours</td><td>Tracker d'activités (fait / non fait)</td></tr>
+          <tr><td>tracker-executive</td><td>70 %</td><td>50 %</td><td>Score tracker site &amp; flotte</td></tr>
+          <tr><td>site-score</td><td>70 pts</td><td>45 pts</td><td>Score programme (6 dimensions)</td></tr>
+          <tr><td>site-composite</td><td>75 pts</td><td>55 pts</td><td>Composite opérationnel, effort parc</td></tr>
+          <tr><td>sla-percent</td><td>90 %</td><td>70 %</td><td>SLA, engagements, conformité, complétude</td></tr>
+          <tr><td>wan-availability</td><td>cible</td><td>cible × 0,9</td><td>% Time Up WAN vs la cible du site</td></tr>
+        </tbody></table>
+        <div class="tip">💡 Changer un seuil est une décision du comité (<code>DEC-</code>) : la ligne est modifiée dans <code>kpi_rag_policies</code>, le serveur la recharge au démarrage et chaque écran, e-mail et présentation suit. Dossier de conception : <code>docs/sdp360/design/ETAPE-03-kpi.md</code>.</div>
       </div>
     </div><!-- /content -->
   </div><!-- /doc-layout -->

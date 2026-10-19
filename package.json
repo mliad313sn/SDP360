@@ -1,6 +1,6 @@
 {
   "name": "sdp360",
-  "version": "2.0.0-alpha.1",
+  "version": "2.0.0-alpha.4",
   "description": "SDP360 \u2014 IT Operations Management & Field Reporting Platform (ServiceDesk Plus unified ops hub). Fork of samaziz679/SDP-Dashboard v1.11.",
   "main": "server.js",
   "scripts": {

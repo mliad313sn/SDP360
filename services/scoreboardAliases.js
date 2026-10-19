@@ -25,8 +25,28 @@ const fold = s =>
     .toLowerCase()
     .trim();
 
+// Step 3 — the site registry (site_module_codes module='assets', joined to the meetings code)
+// is consulted FIRST; the in-code ALIAS map is the fallback until every site has its row and
+// the committee closes the registry (dossier ETAPE-03, arbitration point 4). setRegistry()
+// takes { foldedLabel → code }; loadFromRegistry(rdb) builds it from the two module namespaces.
+let REGISTRY = null;
+function setRegistry(map) { REGISTRY = map && Object.keys(map).length ? map : null; return REGISTRY; }
+async function loadFromRegistry(rdb) {
+  const assets = await rdb.listSiteModuleCodes('assets');
+  const meetings = await rdb.listSiteModuleCodes('meetings');
+  const codeBySite = new Map((meetings || []).map((r) => [Number(r.site_id), r.code]));
+  const map = {};
+  for (const r of assets || []) {
+    const code = codeBySite.get(Number(r.site_id)); if (!code) continue;
+    for (const label of String(r.code || '').split(',')) { const k = fold(label); if (k) map[k] = code; }
+  }
+  return setRegistry(map);
+}
+
 function assetLabelToCode(label) {
-  return ALIAS[fold(label)] || null;
+  const k = fold(label);
+  if (REGISTRY && REGISTRY[k]) return REGISTRY[k];
+  return ALIAS[k] || null;
 }
 
 function foldEffortByCode(rows) {
@@ -44,4 +64,4 @@ function foldEffortByCode(rows) {
   return out;
 }
 
-module.exports = { assetLabelToCode, foldEffortByCode, ALIAS };
+module.exports = { assetLabelToCode, foldEffortByCode, ALIAS, setRegistry, loadFromRegistry };

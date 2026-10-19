@@ -8146,6 +8146,8 @@ app.use(require('./routes/roadmap')({ express, requireReportSession, requireSupe
 app.use(require('./routes/teamsSla')({ express, requireReportSession, requireSuperAdmin }));
 // SDP360 — generic sync runner observability (run log + per-job health). Phase 1 Foundation.
 app.use(require('./routes/sync')({ express, requireReportSession }));
+// Step 3 — KPI dictionary: GET /api/metrics/registry, GET /api/metrics/:key?site=&window=.
+app.use(require('./routes/metrics')({ express, requireReportSession }));
 
 // ══════════════════════════════════════════════════════════════════
 // MEETINGS — Department Meetings & Council Escalations (v2 schema)
@@ -9060,6 +9062,18 @@ async function start() {
     const m = await require('./db/migrate').migrateAtBoot({ log: console.log });
     if (m && !m.skipped) console.log(`[migrate] applied=${m.applied.length} already=${m.skipped.length} changed=${m.changed.length}`);
   } catch (e) { console.warn('[migrate] boot migration failed (continuing):', e.message); }
+  // Step 3 — load kpi_rag_policies + metric_registry (DB rows override the code seed; the
+  // seed is inserted for missing rows). Without PostgreSQL the in-code seed is the registry.
+  try {
+    const _mr = require('./services/metricRegistry');
+    const _rdbMod = require('./reports-db');
+    const _pgh = _rdbMod.REPORTS_BACKEND === 'postgres' && typeof _rdbMod.pgHandle === 'function' ? _rdbMod.pgHandle() : null;
+    _mr.setCurrent(await _mr.load({ pg: _pgh, log: console.log }));
+    // Site registry: asset labels per site from site_module_codes (module='assets') — the
+    // in-code alias map stays as the fallback until the committee closes the registry.
+    const _reg = await require('./services/scoreboardAliases').loadFromRegistry(_rdbMod);
+    console.log(`[metrics] asset-label registry: ${_reg ? Object.keys(_reg).length : 0} labels`);
+  } catch (e) { console.warn('[metrics] registry load failed (seed in use):', e.message); }
 
   // Zoho Analytics token — AFTER the databases are open, because the credentials may now
   // live in report_config (Admin ▸ Intégration API ▸ Analytics), with .env as the fallback.
