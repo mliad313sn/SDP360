@@ -1443,6 +1443,9 @@ async function initPgReports() {            // called once at server boot
   // Multi-site editors (2026-10-05) — extra sites of a user.
   await _pg.exec(require('fs').readFileSync(
     require('path').join(__dirname, 'db', 'postgres', 'reports', '014_user_sites.sql'), 'utf8'));
+  // Step 1 (SDP-DASH-2.0) — sync runner journal + per-job state.
+  await _pg.exec(require('fs').readFileSync(
+    require('path').join(__dirname, 'db', 'postgres', 'reports', '015_sync_runs.sql'), 'utf8'));
   // Asset engagement — per-site asset manager contact on the recipients directory.
   for (const c of ['asset_manager_name TEXT', 'asset_manager_email TEXT', 'asset_manager_email_confirmed INTEGER DEFAULT 0']) {
     await _pg.exec(`ALTER TABLE report_recipients ADD COLUMN IF NOT EXISTS ${c}`);
@@ -6754,6 +6757,9 @@ async function _upsertRequestUdfBatchPg(rows) {
  * Delete change_records whose change_id is NOT in the provided set.
  * Returns number of rows deleted.
  */
+// Step 1 (SDP-DASH-2.0): every reconciler below refuses a deletion above the truncation
+// tolerance (services/sync/guard.js) — a truncated Zoho export must never empty a table.
+const _syncGuard = require('./services/sync/guard');
 function reconcileChangeRecords(liveIds) {
   if (REPORTS_BACKEND === 'postgres') return _reconcilePg('change_records', 'change_id', liveIds);
   if (!liveIds || liveIds.size === 0) return 0;
@@ -6762,6 +6768,7 @@ function reconcileChangeRecords(liveIds) {
   const localIds = db.prepare(`SELECT change_id FROM change_records`).all().map(r => r.change_id);
   const toDelete = localIds.filter(id => !liveIds.has(id));
   if (toDelete.length === 0) return 0;
+  _syncGuard.assertDeletionAllowed('change_records', localIds.length, toDelete.length);   // truncated export → no deletion
   const del = db.prepare(`DELETE FROM change_records WHERE change_id = ?`);
   const runAll = db.transaction(ids => { ids.forEach(id => del.run(id)); });
   runAll(toDelete);
@@ -6778,6 +6785,7 @@ function reconcileCABApprovals(liveIds) {
   const localIds = db.prepare(`SELECT approval_id FROM cab_approvals`).all().map(r => r.approval_id);
   const toDelete = localIds.filter(id => !liveIds.has(id));
   if (toDelete.length === 0) return 0;
+  _syncGuard.assertDeletionAllowed('cab_approvals', localIds.length, toDelete.length);   // truncated export → no deletion
   const del = db.prepare(`DELETE FROM cab_approvals WHERE approval_id = ?`);
   const runAll = db.transaction(ids => { ids.forEach(id => del.run(id)); });
   runAll(toDelete);
@@ -6795,6 +6803,7 @@ function reconcileSurveyResults(liveIds) {
   const localRows = db.prepare(`SELECT result_id, response_id FROM survey_results`).all();
   const toDelete  = localRows.filter(r => !liveIds.has(r.result_id));
   if (toDelete.length === 0) return 0;
+  _syncGuard.assertDeletionAllowed('survey_results', localRows.length, toDelete.length);
   const delResult  = db.prepare(`DELETE FROM survey_results  WHERE result_id   = ?`);
   const delAnswers = db.prepare(`DELETE FROM survey_answers  WHERE response_id = ?`);
   const runAll = db.transaction(rows => {
@@ -6814,6 +6823,7 @@ function reconcileRequestRecords(liveIds) {
   const localIds = db.prepare(`SELECT request_id FROM request_records`).all().map(r => r.request_id);
   const toDelete = localIds.filter(id => !liveIds.has(id));
   if (toDelete.length === 0) return 0;
+  _syncGuard.assertDeletionAllowed('request_records', localIds.length, toDelete.length);   // truncated export → no deletion
   const del = db.prepare(`DELETE FROM request_records WHERE request_id = ?`);
   const runAll = db.transaction(ids => { ids.forEach(id => del.run(id)); });
   runAll(toDelete);
@@ -6830,6 +6840,7 @@ async function _reconcilePg(table, idCol, liveIds) {
   const localIds = (await H.prepare(`SELECT ${idCol} FROM ${table}`).all()).map(r => r[idCol]);
   const toDelete = localIds.filter(id => !liveIds.has(id));
   if (toDelete.length === 0) return 0;
+  _syncGuard.assertDeletionAllowed(table, localIds.length, toDelete.length);
   await H.runTransaction(async () => { for (const id of toDelete) await H.prepare(`DELETE FROM ${table} WHERE ${idCol} = ?`).run(id); });
   console.log(`[DB] reconcile ${table} (pg) — deleted ${toDelete.length} stale records`);
   return toDelete.length;
@@ -6841,6 +6852,7 @@ async function _reconcileSurveyResultsPg(liveIds) {
   const localRows = await H.prepare(`SELECT result_id, response_id FROM survey_results`).all();
   const toDelete = localRows.filter(r => !liveIds.has(r.result_id));
   if (toDelete.length === 0) return 0;
+  _syncGuard.assertDeletionAllowed('survey_results', localRows.length, toDelete.length);
   await H.runTransaction(async () => {
     for (const r of toDelete) {
       await H.prepare(`DELETE FROM survey_results WHERE result_id = ?`).run(r.result_id);

@@ -63,6 +63,20 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ---
 
+## ⚡ Current state (as of 2026-10-19 — SDP-Dashboard 2.0, étape 1 : runner de synchronisation)
+
+> Étude de commande « SDP-DASH-2.0-ETUDE v1.2 » reçue (10 étapes, comité). **Étape 1 livrée** — dossier
+> `docs/design/ETAPE-01-synchronisations.md`. Toutes les tâches planifiées sont déclarées dans
+> **`services/sync/jobs.js`** (plus AUCUN `cron.schedule` dans `server.js` — test statique) et passent par
+> `services/sync/runner.js` (verrou, rejeu transitoire + `Retry-After`, `sync_runs`/`sync_job_state`, échecs →
+> System Log catégorie `sync`, alerte après 2 échecs / péremption, désarmée : `sync_alert_*`). Santé :
+> `/api/sync/health`, onglet System Logs ▸ Sync health. **Garde de troncature** dans les 6 réconciliateurs
+> Zoho : > 20 % d'une table à supprimer → refusé, rien supprimé (`SYNC_TRUNCATION_TOLERANCE_PCT`). Une
+> nouvelle tâche planifiée = une entrée dans `jobs.js`, jamais un `cron.schedule`. L'étude affirmait l'étape 1
+> « implémentée » et l'étape 2 « socle livré » alors que rien n'existait : vérifier le dépôt, pas le document.
+
+---
+
 ## ⚡ Current state (as of 2026-10-16 — statuts de transfert, mois clôturés du tracker, export Excel Réunions)
 
 > - **Statuts de transfert** (problèmes `md_issues` + actions `md_actions` SEULEMENT — ni inspections ni

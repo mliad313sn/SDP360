@@ -112,6 +112,10 @@ const DEFAULTS = {
   //    (redacted on GET, blank-kept, encrypted at rest); the dedicated /api/teams-sla routes
   //    expose only which groups are mapped. teams_sla_rules = JSON (services/teamsSla.DEFAULT_RULES).
   teams_sla_enabled: '0', teams_sla_rules: '', teams_sla_channels: '', teams_sla_last_run: '',
+  // ── Step 1 (SDP-DASH-2.0) sync alerts: e-mail after N consecutive failures / staleness,
+  //    optional Teams card to the DEFAULT ('*') channel of teams_sla_channels. Armed OFF.
+  //    Must live in DEFAULTS or setConfig's KEYS filter silently drops the admin's write.
+  sync_alert_enabled: '0', sync_alert_recipients: '', sync_alert_teams: '0',
   sdp_api_base_url: 'https://oneitsupport.endeavourmining.com/app/itdesk/api/v3',
   sdp_api_accounts_url: 'https://accounts.zoho.com',
   sdp_api_client_id: '', sdp_api_client_secret: '', sdp_api_refresh_token: '',

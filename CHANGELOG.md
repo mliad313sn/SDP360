@@ -5,6 +5,30 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased] — SDP-Dashboard 2.0, step 1: reliable, observable synchronisation (2026-10-19)
+
+### Added
+- **Sync runner** (`services/sync/`): every scheduled job (14, formerly bare `cron.schedule` lines in
+  `server.js`) is declared in `services/sync/jobs.js` and runs with an overlap lock, retries with
+  exponential backoff on transient errors (network, 429, 5xx; `Retry-After` honoured), one row per run in
+  `sync_runs`, a per-job state (`sync_job_state`), failures mirrored to the System Log (category `sync`).
+- **Alerts** after 2 consecutive failures (once per streak), on staleness (hourly sweep) and on recovery —
+  e-mail and/or Teams card, armed OFF (`sync_alert_enabled`, `sync_alert_recipients`, `sync_alert_teams`).
+- **Health**: `GET /api/sync/health`, `GET /api/sync/runs`, `POST /api/sync/run/:key` (admin+), and the
+  **System Logs ▸ Sync health** tab (status, last success, age, 28-day success rate, streak, Run now,
+  alert settings).
+- Schema: `db/postgres/reports/015_sync_runs.sql` (sqlite created lazily). Run log retention 30 days
+  (`SYNC_RUN_RETENTION_DAYS`).
+
+### Changed
+- **Truncation guard**: the Zoho reconciliations (tickets, changes, CAB, survey — sqlite and PostgreSQL)
+  refuse to delete more than 20 % of a table in one run (`SYNC_TRUNCATION_TOLERANCE_PCT`); nothing is
+  deleted, the run fails, the alert fires.
+- Manual triggers (`/api/sync/trigger/:job`, `/api/sync/trigger/assets`) go through the runner (409 when
+  the job is already running). A partially failed assets sync is now reported as a failure.
+
+---
+
 ## [1.11.0] — 2026-04-15
 
 ### Added

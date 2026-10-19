@@ -145,6 +145,7 @@
       <a href="#en-5">5. PPTX Report Downloads</a>
       <a href="#en-6">6. Executive Dashboard</a>
       <a href="#en-7">7. Admin Panel</a>
+      <a class="toc-sub" href="#en-7-5">Sync health</a>
       <a href="#en-8">8. Quick Reference</a>
       <a href="#en-9">9. Incident SLA Targets</a>
       <a class="toc-sub" href="#en-9-1">Priority Mapping</a>
@@ -550,6 +551,19 @@
         </ul>
         <p>Changes take effect <strong>immediately</strong> on the next export — no page reload or server restart required.</p>
         <div class="info">ℹ️ Sites that don't belong on the Risk Register (corporate offices like <strong>LONDON</strong>, <strong>Dakar</strong>, <strong>ABIDJAN</strong>, <strong>ASSAFO</strong>) should simply be left unmapped — they're silently excluded from the export.</div>
+
+        <h3 id="en-7-5">7.5 Sync health (super_admin)</h3>
+        <p>Every scheduled job — Zoho tickets, changes/CAB and CSAT survey, ticket cache, assets, OpManager, Meraki WAN, WAN outage poller, Teams SLA alerts, token refresh — now runs through one runner. Open <strong>System Logs ▸ 🔄 Sync health</strong> to see, for each job: its status, schedule, last success, age, freshness window, success rate over 28 days, failure streak and last error. <em>Run now</em> starts a job immediately (it is refused while the same job is running).</p>
+        <table>
+          <tr><th>Status</th><th>Meaning</th></tr>
+          <tr><td><strong>ok</strong></td><td>Last run succeeded within the freshness window (3 h for hourly jobs, 30 h for nightly jobs, 1 h for 5-minute jobs).</td></tr>
+          <tr><td><strong>idle</strong></td><td>The job ran but its integration is not configured (e.g. Meraki key empty) — nothing to do.</td></tr>
+          <tr><td><strong>stale</strong></td><td>No successful run within the window: the data it feeds is out of date.</td></tr>
+          <tr><td><strong>error</strong></td><td>The last run failed (see the error column; failures are also in the log with category <em>sync</em>).</td></tr>
+          <tr><td><strong>never</strong></td><td>No run recorded yet (normal just after an upgrade for nightly jobs).</td></tr>
+        </table>
+        <p>Network errors, Zoho/Meraki "too many requests" (429) and server errors are retried automatically with an increasing delay; other errors are not. <strong>Alerts</strong> (armed off by default): tick <em>E-mail alerts</em> and enter the recipients, and/or <em>Teams card</em> (sent to the default "*" channel of the Teams SLA alerts). An alert is sent after 2 consecutive failures (once per streak), when a job becomes stale, and a recovery notice when it works again.</p>
+        <div class="warn">⚠️ <strong>Truncated exports are refused.</strong> The ticket, change and survey syncs download the whole Zoho view and delete local rows that are no longer in it. If a download would delete more than 20 % of a table, nothing is deleted, the run fails and the alert fires. If Zoho really deleted that many records, contact the platform owner.</div>
       </div>
 
       <!-- 8 -->
@@ -1180,6 +1194,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Confirm-Destructive.ps1"
       <a href="#fr-5">5. Génération PPTX</a>
       <a href="#fr-6">6. Tableau de bord Exécutif</a>
       <a href="#fr-7">7. Panneau d'administration</a>
+      <a class="toc-sub" href="#fr-7-5">Santé des synchronisations</a>
       <a href="#fr-8">8. Référence rapide</a>
       <a href="#fr-9">9. Cibles SLA des incidents</a>
       <a class="toc-sub" href="#fr-9-1">Correspondances priorités</a>
@@ -1584,6 +1599,19 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Confirm-Destructive.ps1"
         </ul>
         <p>Les changements prennent effet <strong>immédiatement</strong> sur le prochain export — pas besoin de recharger la page ni de redémarrer le serveur.</p>
         <div class="info">ℹ️ Les sites qui ne font pas partie du Registre (bureaux corporate comme <strong>LONDON</strong>, <strong>Dakar</strong>, <strong>ABIDJAN</strong>, <strong>ASSAFO</strong>) doivent simplement être laissés non mappés — ils sont silencieusement exclus de l'export.</div>
+
+        <h3 id="fr-7-5">7.5 Santé des synchronisations (super_admin)</h3>
+        <p>Toutes les tâches planifiées — tickets, changements/CAB et enquête CSAT Zoho, cache des tickets, parc, OpManager, WAN Meraki, détection des coupures WAN, alertes SLA Teams, renouvellement du jeton — passent désormais par un moteur unique. Ouvrez <strong>System Logs ▸ 🔄 Sync health</strong> pour voir, par tâche : état, planification, dernier succès, âge, fenêtre de fraîcheur, taux de succès sur 28 jours, série d'échecs et dernière erreur. <em>Run now</em> lance une tâche tout de suite (refusé si elle tourne déjà).</p>
+        <table>
+          <tr><th>État</th><th>Signification</th></tr>
+          <tr><td><strong>ok</strong></td><td>Dernier passage réussi dans la fenêtre de fraîcheur (3 h pour les tâches horaires, 30 h pour les tâches de nuit, 1 h pour les tâches toutes les 5 min).</td></tr>
+          <tr><td><strong>idle</strong></td><td>La tâche a tourné mais son intégration n'est pas configurée (ex. clé Meraki vide) — rien à faire.</td></tr>
+          <tr><td><strong>stale</strong></td><td>Aucun succès dans la fenêtre : les données qu'elle alimente sont périmées.</td></tr>
+          <tr><td><strong>error</strong></td><td>Le dernier passage a échoué (voir la colonne erreur ; les échecs sont aussi dans le journal, catégorie <em>sync</em>).</td></tr>
+          <tr><td><strong>never</strong></td><td>Aucun passage enregistré (normal juste après une mise à jour pour les tâches de nuit).</td></tr>
+        </table>
+        <p>Les erreurs réseau, les « trop de requêtes » de Zoho/Meraki (429) et les erreurs serveur sont rejouées automatiquement avec un délai croissant ; les autres non. <strong>Alertes</strong> (désarmées par défaut) : cochez <em>E-mail alerts</em> et saisissez les destinataires, et/ou <em>Teams card</em> (envoyée au canal par défaut « * » des alertes SLA Teams). Une alerte part après 2 échecs consécutifs (une fois par série), quand une tâche devient périmée, et un avis de rétablissement quand elle refonctionne.</p>
+        <div class="warn">⚠️ <strong>Les exports tronqués sont refusés.</strong> Les synchronisations des tickets, changements et enquêtes téléchargent toute la vue Zoho et suppriment les lignes locales qui n'y figurent plus. Si un téléchargement devait supprimer plus de 20 % d'une table, rien n'est supprimé, le passage échoue et l'alerte part. Si Zoho a réellement supprimé autant d'enregistrements, contactez le responsable de la plateforme.</div>
       </div>
 
       <!-- 8 FR -->

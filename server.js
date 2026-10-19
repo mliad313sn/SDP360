@@ -494,7 +494,7 @@ async function getValidToken() {
   return _tokenRefreshInFlight;      // all concurrent callers share the same promise
 }
 
-cron.schedule('*/50 * * * *', () => refreshAccessToken().catch(e => console.error('[Cron]', e.message)));
+// Token refresh every 50 min — now the 'zoho.token' job of the sync runner (services/sync/jobs.js).
 
 // ── BACKGROUND SYNC JOBS ──────────────────────────────────────────
 const sync = require('./zoho-sync');
@@ -502,106 +502,33 @@ sync.init(fetchView, VIEWS);
 
 // Assets sync (Foundation) — stash fetchView; view ids are self-contained in ASSET_VIEWS.
 require('./assets-sync').init(fetchView, VIEWS);
-// Daily full-replace of the 5 asset views at 04:30 (off-peak, after nightly refresh at 03:15).
-cron.schedule('30 4 * * *', () => require('./assets-sync').syncAllAssets()
-  .then(summary => require('./assets-sync').afterAssetsSync(summary, { sendAlerts: true }))
-  .catch(e => console.error('[Cron:assets]', e && e.message)));
+// All scheduled jobs (assets 04:30, Meridian 05:00, OpManager 05:10, Meraki WAN 05:20 + events
+// every 5 min and 05:25, Teams SLA + WAN poller every 5 min) are declared in services/sync/jobs.js
+// and run by the sync runner (lock, retries, run log, health, alerts) — see the block below.
 
-// Meridian resource sync (F1) — nightly at 05:00. Self-skips when unconfigured
-// (no meridian_base_url / meridian_out_key), non-blocking on a Meridian outage.
-cron.schedule('0 5 * * *', () => require('./tools/meridian/sync-resources').main()
-  .catch(e => console.error('[Cron:meridian-sync]', e && e.message)));
-
-// OPManager availability sync (V1a) — 05:10, staggered from the Meridian sync at 05:00.
-// Config-gated (skips until opm_availability_view_id is set) + best-effort (a failure
-// keeps prior snapshots). fetchView reads the prepared daily Analytics view.
-cron.schedule('10 5 * * *', () => require('./tools/opmanager/sync-availability').main({ fetchView })
-  .catch(e => console.error('[Cron:opm-availability]', e && e.message)));
-
-// Meraki WAN availability/quality sync (V1b) — 05:20, staggered after opm-availability.
-// Config-gated (skips until meraki_api_key is set) + best-effort. Builds its own Meraki
-// client from config, so it needs no injected deps. Archives the previous Zoho week +
-// current month into wan_link_snapshots (kept beyond Meraki's ~60-day retention window).
-cron.schedule('20 5 * * *', () => require('./tools/meraki/sync-wan').main({})
-  .catch(e => console.error('[Cron:meraki-wan]', e && e.message)));
-
-// WAN SLA / ISP chargeback (V1c). The event-log INGESTER (getNetworkEvents) queries Meraki's
-// authoritative event history — exact down/up timestamps — and reconciles the poller's provisional
-// rows. It runs EVERY 5 MIN with a short (3h) lookback so the outage log stays accurate to ±5 min
-// (durations corrected + attributed throughout the day, not only overnight), PLUS a nightly
-// full-lookback (3d) backfill at 05:25 for anything missed. The 5-minute POLLER opens/closes
-// provisional rows from current uplink state (fast detection) + fires the ISP down/recovery emails.
-// All config-gated inside .main (self-skip until meraki_api_key is set) + best-effort.
-cron.schedule('*/5 * * * *', () => require('./tools/meraki/sync-wan-events').main({ since: new Date(Date.now() - 3 * 3600 * 1000).toISOString() })
-  .catch(e => console.error('[Cron:wan-events-5m]', e && e.message)));
-cron.schedule('25 5 * * *', () => require('./tools/meraki/sync-wan-events').main({})
-  .catch(e => console.error('[Cron:wan-events]', e && e.message)));
-// Teams SLA alerts (2026-10-03) — every 5 min: SDP API → rules → one card per group in its
-// Teams channel. Config-gated (disarmed + no-op until the admin card is filled), never throws,
-// never overlaps (tools/teams/poll-sla.js).
-cron.schedule('*/5 * * * *', () => require('./tools/teams/poll-sla').run({})
-  .then(r => { if (r && r.error) console.error('[Cron:teams-sla]', r.error); })
-  .catch(e => console.error('[Cron:teams-sla]', e.message)));
-cron.schedule('*/5 * * * *', () => require('./tools/meraki/poll-wan-outages').main({})
-  .catch(e => console.error('[Cron:wan-poller]', e && e.message)));
-
-// Change + CAB: every hour at :30 past the hour (offset to avoid collision with requests at :45)
-// Bumped from `30 */2 * * *` (every 2h) on 2026-05-26 to support the
-// executive.html rewrite — DB-direct mode means data freshness IS the
-// page's freshness. Hourly was approved by the user with awareness that
-// it ~doubles Zoho API quota burn.
-cron.schedule('30 * * * *', () => {
-  sync.syncChangeCab().catch(e => console.error('[Cron:change_cab]', e.message));
+// ── SYNC RUNNER (SDP-DASH-2.0, step 1) ────────────────────────────────────
+// Every scheduled job runs through ONE runner: overlap lock, retries with backoff on transient
+// errors (Retry-After honoured), one sync_runs row per run, failures mirrored to the System Log,
+// an alert after 2 consecutive failures and on staleness (armed OFF: sync_alert_enabled /
+// sync_alert_teams). Schedules are unchanged: requests :45, change_cab :30, survey :00, ticket
+// cache :20, nightly cache reset 03:15, token every 50 min (see services/sync/jobs.js).
+// Health: GET /api/sync/health (System Logs ▸ Sync health).
+const _syncStore = require('./services/sync/store');
+const syncRunner = require('./services/sync/runner').createRunner({
+  store: _syncStore,
+  logEvent: (ev) => { try { require('./reports-db').logEvent(ev); } catch (_) {} },
+  alert: require('./services/sync/alerts').buildAlerter(),
+  failureThreshold: Number(process.env.SYNC_ALERT_AFTER_FAILURES) || 2,
 });
-
-// Survey data: every hour at :00 past the hour (slot picked to avoid collision
-// with change_cab at :30, requests at :45, cache-refresh at :20).
-// Bumped from `0 2 * * *` (daily) on 2026-05-26 — user requested all syncs
-// be hourly so the executive scorecard's CSAT/NPS doesn't trail the rest of
-// the dashboard by up to 24 hours. Survey data is sparse (10-50 responses/day
-// typically), so the per-run payload stays small even with a 24× cadence
-// bump; Zoho quota impact is negligible.
-cron.schedule('0 * * * *', () => {
-  sync.syncSurveyData().catch(e => console.error('[Cron:survey]', e.message));
-});
-
-// Request data: every hour at :45 past the hour
-// Bumped from `45 */2 * * *` (every 2h) on 2026-05-26 — see note on
-// syncChangeCab above. This is the master ticket-table sync and feeds
-// almost every aggregation downstream (KPI tiles, SLA trends, ageing,
-// major-incident detail, etc.) so its cadence sets the freshness floor
-// for the executive scorecard.
-cron.schedule('45 * * * *', () => {
-  sync.syncRequestData()
-    .then(() => {
-      console.log('[Cron:requests] ✅ Sync done — rebuilding raw cache…');
-      return _backgroundRefreshRawCache();
-    })
-    .catch(e => console.error('[Cron:requests]', e.message));
-});
-
-
-// ── NIGHTLY HARD REFRESH — raw ticket cache ────────────────────────────────
-// Runs at 03:15 AM every night (after survey sync at 02:00, staggered to avoid
-// collision). Clears the in-memory AND disk raw cache so the first morning
-// page load always gets fully fresh data from Zoho. This fixes stale
-// "previous month" comparison values colleagues see when arriving in the morning.
-cron.schedule('15 3 * * *', () => {
-  console.log('[Cron:nightly] 🌙 Nightly hard refresh — clearing raw cache for fresh morning data…');
-  _rawCache.data = null;
-  _rawCache.ts   = 0;
-  // Trigger background refresh immediately so data is ready before anyone opens the dashboard
-  _backgroundRefreshRawCache().catch(e => console.error('[Cron:nightly]', e.message));
-});
-
-// ── SCHEDULED CACHE REFRESH — every hour at :20 past the hour ──────────────
-// User page loads NEVER trigger a Zoho fetch — only this cron does.
-// This guarantees users always get instant cache responses and the server
-// is never jammed by concurrent user-triggered 25k-row fetches.
-// Bumped from every 2h to hourly on 2026-05-26 (see syncChangeCab note).
-cron.schedule('20 * * * *', () => {
-  console.log('[Cron:cache-refresh] 🔄 Scheduled raw cache refresh starting…');
-  _backgroundRefreshRawCache().catch(e => console.error('[Cron:cache-refresh]', e.message));
+require('./services/sync/jobs').buildJobs({
+  sync, fetchView,
+  refreshToken: () => refreshAccessToken(),
+  refreshRawCache: () => _backgroundRefreshRawCache(),
+  clearRawCache: () => { _rawCache.data = null; _rawCache.ts = 0; },
+}).forEach(j => syncRunner.register(j));
+require('./services/sync/schedule').start({
+  runner: syncRunner, cron, store: _syncStore,
+  loadMetadata: () => require('./reports-db').getSyncStatus(),
 });
 
 // ── ZOHO VIEW SCHEMA HEALTH CHECK ────────────────────────────────────────────
@@ -2368,23 +2295,64 @@ app.get('/api/sync/status', requireReportSession, async (req, res) => {
 // route swallows it as job='assets' → 400 (the /:id shadowing pitfall in CLAUDE.md).
 // markSyncSuccess upserts the 5 sync_metadata rows on first run.
 app.post('/api/sync/trigger/assets', requireReportSession, requireAdmin, (req, res) => {
+  if (syncRunner.isRunning('assets.sync')) return res.status(409).json({ ok: false, error: 'Assets sync is already running' });
   res.json({ ok: true, message: 'Assets sync started' });
-  require('./assets-sync').syncAllAssets()
-    .then(summary => require('./assets-sync').afterAssetsSync(summary, { sendAlerts: false }))
-    .catch(e => console.error('[ManualSync:assets]', e && e.message));
+  syncRunner.run('assets.sync', { trigger: 'manual' });   // never rejects; logged in sync_runs
+});
+
+// Step 1 (SDP-DASH-2.0) — health of every scheduled job (admin+). Merges the runner's job
+// state with the legacy sync_metadata rows; status ok|running|idle|stale|error|never.
+app.get('/api/sync/health', requireReportSession, requireAdmin, async (req, res) => {
+  try {
+    const rdb = require('./reports-db');
+    const metadata = await rdb.getSyncStatus();
+    const h = await syncRunner.health({ metadata });
+    const since = new Date(Date.now() - 28 * 86400000).toISOString();
+    let stats = [];
+    try { stats = await _syncStore.successStats(since); } catch (_) { stats = []; }
+    const byJob = new Map(stats.map(x => [x.job_key, x]));
+    h.jobs.forEach(j => {
+      const x = byJob.get(j.key);
+      const ok = x ? Number(x.ok) || 0 : 0, failed = x ? Number(x.failed) || 0 : 0;
+      j.runs_28d = x ? Number(x.total) || 0 : 0;
+      j.success_pct_28d = (ok + failed) ? Math.round(1000 * ok / (ok + failed)) / 10 : null;   // null = nothing measured
+    });
+    h.alerts = { email: null, teams: null };
+    try {
+      const cfg = await require('./services/reportConfig').getConfig(rdb.db);
+      h.alerts = { email: String(cfg.sync_alert_enabled) === '1', teams: String(cfg.sync_alert_teams) === '1',
+        recipients: String(cfg.sync_alert_recipients || '').split(/[,;\s]+/).filter(Boolean).length };
+    } catch (_) { /* config unreadable → alerts shown as unknown */ }
+    res.json(h);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+app.get('/api/sync/runs', requireReportSession, requireAdmin, async (req, res) => {
+  try {
+    const job = req.query.job ? String(req.query.job).slice(0, 80) : null;
+    res.json({ runs: await _syncStore.recentRuns({ jobKey: job, limit: req.query.limit }) });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+// Run a registered job now (admin+), e.g. POST /api/sync/run/zoho.survey — same envelope as cron.
+app.post('/api/sync/run/:key', requireReportSession, requireAdmin, (req, res) => {
+  const key = String(req.params.key || '');
+  if (!syncRunner.get(key)) return res.status(404).json({ error: 'Unknown job' });
+  if (syncRunner.isRunning(key)) return res.status(409).json({ ok: false, error: 'Job is already running' });
+  res.json({ ok: true, message: `Job ${key} started` });
+  syncRunner.run(key, { trigger: 'manual' });
 });
 
 app.post('/api/sync/trigger/:job', requireReportSession, requireAdmin, async (req, res) => {
   const { job } = req.params;
   const force = req.query.force === 'true' || req.body?.force === true;
 
-  const validJobs = {
-    change_cab: () => sync.syncChangeCab(),
-    survey:     () => sync.syncSurveyData(),
-    requests:   () => sync.syncRequestData({ force }),
-  };
+  // Through the sync runner (lock + run log + alerts). The requests job clears and rebuilds
+  // the ticket cache itself when triggered manually.
+  const validJobs = { change_cab: 'zoho.change_cab', survey: 'zoho.survey', requests: 'zoho.requests' };
   if (!validJobs[job]) {
     return res.status(400).json({ error: `Unknown job: ${job}. Valid: ${Object.keys(validJobs).join(', ')}` });
+  }
+  if (syncRunner.isRunning(validJobs[job])) {
+    return res.status(409).json({ ok: false, error: `Sync job '${job}' is already running` });
   }
   // Run async — respond immediately so the HTTP request doesn't timeout on large syncs
   const msg = force && job === 'requests'
@@ -2392,17 +2360,7 @@ app.post('/api/sync/trigger/:job', requireReportSession, requireAdmin, async (re
     : `Sync job '${job}' started. Check /api/sync/status for progress.`;
   res.json({ ok: true, message: msg, force: force && job === 'requests' });
 
-  validJobs[job]()
-    .then(() => {
-      // After requests sync: immediately rebuild cache so new data appears without waiting 2h
-      if (job === 'requests') {
-        _rawCache.data = null;
-        _rawCache.ts   = 0;
-        console.log('[ManualSync:requests] ✅ Cleared _rawCache — triggering background refresh…');
-        _backgroundRefreshRawCache().catch(e => console.warn('[ManualSync:requests] cache refresh:', e.message));
-      }
-    })
-    .catch(e => console.error(`[ManualSync:${job}]`, e.message));
+  syncRunner.run(validJobs[job], { trigger: 'manual', args: { force: force && job === 'requests' } });
 });
 
 // ── ASSETS (Foundation) ──────────────────────────────────────────
