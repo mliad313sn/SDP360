@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Registre de sites canonique — pré-rempli depuis le codebase</title>
+<style>
+  :root{--navy:#1E3A5F;--blue:#145FAE;--green:#16A34A;--amber:#D97706;--red:#D90038;--ink:#1f2933;--muted:#5b6773;--line:#d7dde3;}
+  body{font-family:"Segoe UI",Calibri,Arial,sans-serif;color:var(--ink);line-height:1.5;margin:0;background:#f4f6f8}
+  .page{max-width:1180px;margin:0 auto;padding:28px 34px 60px;background:#fff}
+  h1{font-size:1.5rem;color:var(--navy);margin:0 0 4px}
+  .sub{color:var(--muted);font-size:.92rem;margin:0 0 6px}
+  .meta{font-size:.78rem;color:var(--muted);border-bottom:2px solid var(--navy);padding-bottom:12px;margin-bottom:18px}
+  h2{font-size:1.05rem;color:var(--navy);margin:22px 0 6px;border-left:5px solid var(--blue);padding-left:9px}
+  table{border-collapse:collapse;width:100%;margin:10px 0;font-size:.78rem}
+  th,td{border:1px solid var(--line);padding:6px 7px;text-align:left;vertical-align:top}
+  th{background:var(--navy);color:#fff;font-weight:600;font-size:.72rem}
+  tbody tr:nth-child(even){background:#f7f9fb}
+  code{background:#eef2f6;border:1px solid #e0e6ec;border-radius:3px;padding:0 4px;font-family:Consolas,monospace;font-size:.9em}
+  .known{color:var(--green);font-weight:600}
+  .todo{color:var(--amber);font-weight:600}
+  .na{color:var(--muted);font-style:italic}
+  .legend span{display:inline-block;margin-right:16px;font-size:.82rem}
+  .callout{border:1px solid var(--line);border-left:5px solid var(--amber);background:#fff8ef;padding:11px 13px;border-radius:6px;margin:12px 0;font-size:.86rem}
+  ul{font-size:.88rem}
+  @media print{body{background:#fff}.page{max-width:none;padding:0 6mm}table{break-inside:auto}}
+</style>
+</head>
+<body>
+<div class="page">
+<h1>Registre de sites canonique</h1>
+<p class="sub">Pré-rempli depuis ce que le codebase sait déjà — la carte de correspondance unique pour router SDP / ADManager / ADAudit / OPManager</p>
+<div class="meta">
+  Programme Intégration ManageEngine × SDP Dashboard &nbsp;·&nbsp; fondation partagée SP-A + SP-B &nbsp;·&nbsp; 29 juillet 2026<br>
+  Source des colonnes « connues » : <code>risk-register-export.js</code> · <code>scoreboardAliases.js</code> · <code>dashboard-shared.js</code> (OPS_GROUPS) · <code>inspection-init.json</code> · <code>assetSiteResolver.js</code> (OU apprises par la réconciliation).
+</div>
+
+<p class="legend"><span class="known">■ Connu du codebase</span> <span class="todo">■ À confirmer / à remplir</span> <span class="na">■ Sans objet</span></p>
+
+<h2>Le registre</h2>
+<table>
+<thead><tr>
+  <th>Code canonique</th><th>Site</th><th>Pays</th><th>Libellés MyPath (entrants)</th>
+  <th>Groupe SDP (routage ticket)</th><th>Code Risk Register</th><th>Autres codes module</th>
+  <th>OU AD (ADManager + ADAudit)</th><th>Device-group OPManager</th>
+</tr></thead>
+<tbody>
+<tr><td><b>SGO</b></td><td>Sabodala</td><td>Sénégal</td><td class="known">Office: Sabodala</td><td class="known">Sabodala IT Agents</td><td class="known">SGO</td><td>SGO</td><td class="todo">à confirmer (OU=Sabodala ?)</td><td class="todo">à remplir</td></tr>
+<tr><td><b>MASSAWA</b></td><td>Massawa</td><td>Sénégal</td><td class="known">Office: Massawa</td><td class="todo">à confirmer (Sabodala ?)</td><td class="known">MASSAWA</td><td>scoreboard → SGO</td><td class="todo">à confirmer</td><td class="todo">à remplir</td></tr>
+<tr><td><b>HGO</b></td><td>Houndé</td><td>Burkina</td><td class="known">Office: Hounde</td><td class="known">Hounde IT Agents</td><td class="known">HGO</td><td>HGO</td><td class="known">Hounde Gold Operations</td><td class="todo">à remplir</td></tr>
+<tr><td><b>MGO</b></td><td>Mana</td><td>Burkina</td><td class="known">Office: Mana</td><td class="known">Mana IT Agent</td><td class="known">MGO</td><td>MGO</td><td class="todo">à confirmer</td><td class="todo">à remplir</td></tr>
+<tr><td><b>SMI</b></td><td>Ity</td><td>Côte d'Ivoire</td><td class="known">Office: Ity</td><td class="known">ITY IT Agents</td><td class="known">IGO</td><td><b>SMI</b> · tracker <b>ITY</b> · RR <b>IGO</b></td><td class="todo">à confirmer (part. Exploration Sites)</td><td class="todo">à remplir</td></tr>
+<tr><td><b>SML</b></td><td>Lafigué</td><td>Côte d'Ivoire</td><td class="known">Office: Lafigue · « LAFIGUE - SML »</td><td class="known">Lafigue IT Agents</td><td class="known">SML</td><td>SML</td><td class="todo">à confirmer</td><td class="todo">à remplir</td></tr>
+<tr><td><b>KGO</b></td><td>Kalana</td><td>Mali</td><td class="known">Office: Kalana</td><td class="known">Kalana IT Agents</td><td class="known">KGO</td><td>tracker <b>KLN</b></td><td class="known">Kalana</td><td class="todo">à remplir</td></tr>
+<tr><td><b>TANDA</b></td><td>Tanda</td><td>Côte d'Ivoire</td><td class="known">Office: Tanda</td><td class="known">Tanda IT Agents</td><td>EXPLO (agrégé)</td><td class="na">pas de code meetings</td><td class="known">Exploration Sites</td><td class="todo">à remplir</td></tr>
+<tr><td><b>OUA</b></td><td>Ouagadougou (bureau)</td><td>Burkina</td><td class="known">Office: Ouagadougou · Ouaga</td><td class="known">Ouaga IT Agents</td><td class="known">OUAGA OFF1</td><td>OUA · tracker EDV</td><td class="known">Ouaga Office</td><td class="todo">à remplir</td></tr>
+<tr><td><b>ABJ</b></td><td>Abidjan (bureau)</td><td>Côte d'Ivoire</td><td class="known">Office: Abidjan</td><td class="known">Abidjan IT Agents</td><td class="na">hors registre</td><td>ABJ</td><td class="known">Abidjan Office · EDV Project Team</td><td class="todo">à remplir</td></tr>
+<tr><td><b>DKR</b></td><td>Dakar (bureau)</td><td>Sénégal</td><td class="known">Office: Dakar</td><td class="todo">à confirmer (pas dans OPS_GROUPS)</td><td class="na">hors registre</td><td>DKR</td><td class="todo">à confirmer</td><td class="todo">à remplir</td></tr>
+<tr><td><b>EXPLO</b></td><td>Exploration (agrégat)</td><td>Multi</td><td class="known">Fetekro Exploration Office · Exploration CI</td><td class="known">Exploration BF/CI/IT Support</td><td class="known">EXPLO</td><td class="na">agrégat</td><td class="known">Exploration Sites</td><td class="todo">à remplir</td></tr>
+<tr><td><b>LONDON</b></td><td>London (bureau)</td><td>UK</td><td class="known">Office: London</td><td class="todo">à confirmer</td><td class="na">hors registre</td><td class="na">—</td><td class="todo">à confirmer</td><td class="na">sans objet (probable)</td></tr>
+</tbody>
+</table>
+
+<h2>Ce qu'il te reste à faire (les cases jaunes)</h2>
+<ul>
+  <li><b>Device-groups OPManager</b> — entièrement à remplir (le codebase ne connaît pas encore OPManager). Un groupe / Business View par site.</li>
+  <li><b>OU AD</b> — 5 sont apprises par la réconciliation (Houndé, Kalana, Ouaga, Abidjan, Exploration/Tanda) ; les autres sont à confirmer. <b>Rappel : une case OU peut contenir PLUSIEURS OU</b> (Exploration Sites porte Tanda + Ity + Houndé-expl).</li>
+  <li><b>Trancher Massawa</b> : site propre (code MASSAWA du Risk Register) ou sous Sabodala (SGO, comme le scoreboard le replie) ? Décision métier.</li>
+  <li><b>Confirmer les bureaux</b> Dakar / London : quel groupe SDP réel (le vieux « Dakar IT Agents » était un groupe fantôme retiré).</li>
+</ul>
+
+<div class="callout"><b>Pièges déjà connus intégrés.</b> (1) <b>Trois codes pour Ity</b> — <code>SMI</code> (meetings/inspection) · <code>ITY</code> (tracker, groupe SDP) · <code>IGO</code> (Risk Register) : le registre les réconcilie, ne les confonds pas. (2) <b>Kalana</b> = <code>KGO</code> partout sauf tracker (<code>KLN</code>). (3) <b>Normalisation des libellés</b> : <code>Office: Sabodala</code> / <code>Sabodala</code> / <code>SABODALA</code> doivent tous se replier (accent/casse-fold) sur le code canonique — la colonne « Libellés MyPath » liste les variantes à accepter.</div>
+
+<p class="sub">Fichier éditable joint : <code>site-registry.csv</code> (ouvre dans Excel, complète les colonnes jaunes).</p>
+</div>
+</body>
+</html>

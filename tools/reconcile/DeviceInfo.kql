@@ -1,0 +1,72 @@
+// =====================================================================
+// Réconciliation Assets — 3e source : Microsoft Defender (Advanced Hunting)
+//
+//   Portail Defender XDR > Chasse avancée > coller ceci > Exécuter
+//   puis « Exporter » > CSV, et déposer le fichier sur
+//   Assets > Réconciliation, à côté du CSV PowerShell d'Active Directory.
+//
+// ─────────────────────────────────────────────────────────────────────
+// CE QUE CETTE SOURCE APPORTE, ET QUE NI AD NI ENTRA NE DONNENT
+//
+//   Model + Vendor  → le classificateur de type retrouve sa meilleure
+//                     source. Sans eux, le type d'une machine absente de
+//                     SDP ne pouvait venir que du nom et de l'OS.
+//   LoggedOnUsers   → l'utilisateur. C'est LUI qui commande le site quand
+//                     il est muté : la machine suit l'utilisateur, pas son
+//                     nom d'hôte figé au provisionnement.
+//   DeviceType      → workstation / server / mobile, dit par la source.
+//   JoinType        → distingue joint au domaine, Entra joint, Entra
+//                     enregistré (BYOD).
+//
+// ⚠ ANGLE MORT À CONNAÎTRE : Defender ne voit que les machines ONBOARDÉES.
+//   Une machine sans l'agent n'apparaît pas — même classe d'angle mort que
+//   SelfScan. Cette source COMPLÈTE AD, elle ne le remplace pas. En
+//   revanche une machine vue ici et absente de SDP est une machine
+//   certainement réelle : elle émet de la télémétrie en ce moment même.
+// ─────────────────────────────────────────────────────────────────────
+//
+// La fenêtre de 30 jours correspond à reconcile_recent_days. Si vous
+// l'élargissez côté tableau de bord, élargissez ago(30d) d'autant.
+DeviceInfo
+| where Timestamp > ago(30d)
+| where isnotempty(DeviceName)
+// UNE LIGNE PAR MACHINE — deux dédoublonnages, pas un seul.
+//
+//   1. DeviceInfo écrit une ligne par appareil ET PAR JOUR. Sans résumé,
+//      une machine sortirait 30 fois.
+//   2. Une machine réimagée, réinstallée ou ré-onboardée reçoit un NOUVEAU
+//      DeviceId sous le MÊME nom. Un `by DeviceId` seul la laisserait sortir
+//      deux fois — un dédoublonnage par jour ne rattrape pas celui-là.
+//
+// On dédoublonne donc sur le nom d'hôte normalisé (majuscules, sans le
+// suffixe DNS), qui est exactement la clé de jointure utilisée par la
+// réconciliation : la ligne conservée est la plus récemment vue.
+| extend HostName = toupper(tostring(split(DeviceName, ".")[0]))
+| where isnotempty(HostName)
+| summarize arg_max(Timestamp, *) by HostName
+// LoggedOnUsers est une CHAÎNE contenant du JSON, PAS un tableau dynamique —
+// c'est le piège de ce schéma. Sans todynamic(), array_length() refuse
+// l'argument ("argument #1 must be a dynamic") et la requête entière échoue.
+//
+// Une fois converti, on indexe directement : un dynamique vide ou absent rend
+// null, et tostring(null) rend une chaîne vide. Aucun garde de longueur n'est
+// donc nécessaire — on supprime l'appel fautif au lieu de le contourner.
+| extend _users = todynamic(LoggedOnUsers)
+| extend PrimaryUser       = tostring(_users[0].UserName)
+| extend PrimaryUserDomain = tostring(_users[0].DomainName)
+| project
+    DeviceName,
+    HostName,          // la clé de jointure, exportée telle quelle
+    LastSeen = Timestamp,
+    OSPlatform,
+    OSVersion,
+    DeviceType,
+    DeviceCategory,
+    Model,
+    Vendor,
+    JoinType,
+    OnboardingStatus,
+    MachineGroup,
+    PrimaryUser,
+    PrimaryUserDomain
+| order by DeviceName asc

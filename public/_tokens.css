@@ -1,0 +1,180 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   EDV / Endeavour Mining — Design Tokens
+   ───────────────────────────────────────────────────────────────────────
+   Single source of truth for brand colors, typography, spacing, radius,
+   and shadow. Every page links this file; per-page CSS should reference
+   the tokens via `var(--token-name)` rather than hardcoded values.
+
+   PROVENANCE:
+     - Primary palette extracted from "EDV Group Brand Guidelines_July
+       2022.pptx" slide 9 ("PRIMARY COLOURS")
+     - Secondary palette from slide 10 ("SECONDARY COLOURS")
+     - Tints (75%/50%) from slide 11 ("EXTRA COLOUR PALETTE + TINTS")
+     - Typography from slide 14-15 — primary corporate typeface is
+       Franklin Gothic. The web equivalent on Google Fonts is
+       Libre Franklin (open-source derivative, identical proportions).
+     - Reports color usage informed by "Go-live readiness summary-ITSM-
+       Project-24-03-2025 v2.pptx" — primarily white + grey with
+       brand orange #EF631A as the single accent.
+
+   USAGE RULES (decided with stakeholder):
+     - Orange #EF631A = primary CTAs, the iconic brand color
+     - Blue #145FAE  = secondary actions, links, informational
+     - Yellow #FFCD18 reserved for branded surfaces only — for status
+       indicators (warning), use the darker amber #D97706 to keep
+       readable contrast against white text.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── EDV PRIMARY PALETTE (slide 9) ───────────────────────────── */
+  --edv-orange:        #EF631A;   /* PRIMARY brand color — CTAs, accents, brand mark */
+  --edv-blue:          #145FAE;   /* secondary action, links, informational */
+  --edv-yellow:        #FFCD18;   /* branded surfaces only (banners, decoration) */
+  --edv-green:         #1B9A3A;   /* success, RAG green */
+  --edv-slate:         #3A4A60;   /* dark navy — header background */
+  --edv-grey:          #524F4E;   /* body text, dark UI elements */
+
+  /* ── EDV SECONDARY PALETTE (slide 10 — accent colors) ────────── */
+  --edv-teal:          #73C9DB;   /* light info accent */
+  --edv-light-grey:    #C5C6C4;   /* borders, dividers */
+  --edv-red:           #D90038;   /* danger, RAG red */
+
+  /* ── EDV TINTS (slide 11 — 75% and 50% lightness) ────────────── */
+  --edv-orange-75:     #F79853;
+  --edv-orange-50:     #FBB885;
+  --edv-blue-75:       #5E8DCA;
+  --edv-blue-50:       #8FABD9;
+  --edv-yellow-75:     #FFDE66;
+  --edv-yellow-50:     #FFE89A;
+  --edv-green-75:      #69B76F;
+  --edv-green-50:      #9BCB9A;
+  --edv-slate-75:      #70798B;
+  --edv-slate-50:      #979BAB;
+  --edv-grey-75:       #827D7D;
+  --edv-grey-50:       #A49F9E;
+
+  /* ── EDV +20% BLACK VARIANTS (darker tints, slide 11 top) ───── */
+  --edv-orange-dark:   #CA6419;   /* hover state for orange CTAs */
+  --edv-blue-dark:     #08629E;
+  --edv-green-dark:    #158D3E;
+  --edv-yellow-dark:   #D3B018;
+  --edv-slate-dark:    #3A4B5E;
+  --edv-grey-dark:     #4F4D4C;
+  /* dark variants for the secondary palette — added with the design-system handoff */
+  --edv-red-dark:      #BC123A;
+  --edv-teal-dark:     #6EB0BE;   /* a.k.a. sky-d20 in the canonical handoff */
+
+  /* ── LOGO GREYS (Futura Bold logotype standard) ─────────────── */
+  --edv-black-50:      #929496;
+  --edv-black-90:      #434244;
+
+  /* ── SUSTAINABILITY PILLAR SEMANTIC COLOURS ────────────────────
+     The 5 EDV primary colours map 1:1 onto the corporate "5 Ps".
+     Use these aliases in any sustainability / values panel so the
+     mapping is explicit rather than reading raw EDV colour names. */
+  --pillar-employees:       var(--edv-blue);
+  --pillar-health-safety:   var(--edv-orange);
+  --pillar-communities:     var(--edv-yellow);
+  --pillar-environment:     var(--edv-green);
+  --pillar-ethical:         var(--edv-slate);
+  --pillar-sustainability:  var(--edv-green);
+
+  /* ── ACTIVITY-TRACKER PILLAR COLOURS ───────────────────────────
+     Distinct from sustainability pillars above — these are the
+     four IT-strategy pillars surfaced in the Activity Tracker
+     (P1 Network / P2 Business Partnering / P3 Risk & Compliance /
+     P4 People Management). Used by the Executive Pulse dashboard. */
+  --tracker-p1:        var(--edv-blue);     /* Network Infrastructure */
+  --tracker-p2:        var(--edv-orange);   /* Business Partnering */
+  --tracker-p3:        #7C3AED;             /* Risk & Compliance */
+  --tracker-p4:        #0D9488;             /* People Management */
+
+  /* ── EMPLOYEE PROGRAMME COLOURS (4Ps + Academy) ──────────────── */
+  --prog-rewards:      #EC771D;
+  --prog-care:         #15A74B;
+  --prog-next:         #FFD41C;
+  --prog-academy:      #1275BC;
+
+  /* ── American-spelling aliases ─────────────────────────────────
+     The design-system handoff uses --edv-warm-gray / --edv-sky /
+     --edv-light-gray. We've historically used the British spelling
+     (--edv-grey / --edv-teal / --edv-light-grey). Aliases let code
+     written against either naming convention work unmodified. */
+  --edv-warm-gray:     var(--edv-grey);
+  --edv-warm-gray-75:  var(--edv-grey-75);
+  --edv-warm-gray-50:  var(--edv-grey-50);
+  --edv-sky:           var(--edv-teal);
+  --edv-light-gray:    var(--edv-light-grey);
+
+  /* ── SEMANTIC TOKENS — use these in components, NOT raw EDV vars */
+  /* (so we can tweak brand mapping without touching every component) */
+  --color-primary:        var(--edv-orange);
+  --color-primary-hover:  var(--edv-orange-dark);
+  --color-primary-bg:     #FEEEE3;            /* very light orange surface */
+  --color-secondary:      var(--edv-blue);
+  --color-secondary-hover:var(--edv-blue-dark);
+
+  --color-success:        var(--edv-green);
+  --color-success-bg:     #E7F5EA;
+  --color-warning:        #D97706;            /* darker amber for status — brand yellow fails contrast */
+  --color-warning-bg:     #FEF3C7;
+  --color-danger:         var(--edv-red);
+  --color-danger-bg:      #FEEAEE;
+  --color-info:           var(--edv-blue);
+  --color-info-bg:        #E8F0FA;
+
+  /* Body / surface */
+  --color-text:           var(--edv-grey);    /* #524F4E */
+  --color-text-strong:    #2A2A2A;
+  --color-text-muted:     #7B7B7B;
+  --color-text-on-dark:   #FFFFFF;
+  --color-text-on-dark-muted: rgba(255,255,255,.62);
+  --color-border:         #E2E5EA;            /* slightly cooler than --edv-light-grey for UI */
+  --color-border-strong:  var(--edv-light-grey);
+  --color-bg:             #F4F5F7;
+  --color-card:            #FFFFFF;
+
+  /* Header / shell chrome — slate from brand */
+  --color-header-bg:       var(--edv-slate);
+  --color-header-bg-2:     #2E3A4D;           /* hand-darkened slate for gradient */
+  --color-header-text:     #FFFFFF;
+  --color-header-text-mute: rgba(255,255,255,.62);
+
+  /* ── TYPOGRAPHY ─────────────────────────────────────────────── */
+  --font-sans: 'Libre Franklin', 'Franklin Gothic', system-ui,
+               -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'DM Mono', 'JetBrains Mono', ui-monospace,
+               'Cascadia Mono', Consolas, monospace;
+  --font-display: 'Libre Franklin', 'Franklin Gothic', sans-serif;
+
+  /* ── SPACING (4-pt scale) ───────────────────────────────────── */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* ── RADIUS ─────────────────────────────────────────────────── */
+  --radius-sm:    4px;     /* small chips, tight corners */
+  --radius-md:    6px;     /* default buttons, inputs */
+  --radius-lg:   10px;     /* cards, panels */
+  --radius-xl:   14px;     /* hero panels, big modals */
+  --radius-pill: 999px;    /* pills, badges, user-pill */
+
+  /* ── SHADOW (elevation) ─────────────────────────────────────── */
+  --shadow-sm: 0 1px 2px rgba(28,45,63,.07);
+  --shadow-md: 0 2px 8px rgba(28,45,63,.10);
+  --shadow-lg: 0 8px 24px rgba(28,45,63,.14);
+  --shadow-xl: 0 16px 40px rgba(28,45,63,.20);
+
+  /* ── MOTION ─────────────────────────────────────────────────── */
+  --motion-fast:   120ms;
+  --motion-base:   180ms;
+  --motion-slow:   280ms;
+  --ease-standard: cubic-bezier(.2,.0,.2,1);
+}

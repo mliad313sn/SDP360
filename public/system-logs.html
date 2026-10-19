@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>System Logs · Endeavour Mining IT</title>
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="_shell.css">
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-require="super_admin" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<script nonce="%%CSP_NONCE%%" src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  body{font-family:"Segoe UI",Calibri,Arial,sans-serif;color:var(--edv-ink,#1f2933);background:var(--edv-surface-2,#f4f6f8);margin:0}
+  .sl-wrap{max-width:1280px;margin:0 auto;padding:18px 22px 60px}
+  .sl-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;border-left:5px solid var(--edv-orange,#e87722);padding:10px 16px;background:#fff;border-radius:8px;margin-bottom:14px}
+  .sl-head h1{margin:0;font-size:1.4rem;color:var(--edv-navy,#1e3a5f)}
+  .sl-actions a{display:inline-block;margin-left:8px;padding:7px 12px;border:1px solid var(--edv-border,#d7dde3);border-radius:7px;background:#fff;color:var(--edv-navy,#1e3a5f);text-decoration:none;font-size:.82rem;font-weight:600}
+  .sl-tabs{display:flex;gap:4px;margin-bottom:14px;border-bottom:1px solid var(--edv-border,#e2e8f0)}
+  .sl-tab{padding:9px 16px;border:1px solid transparent;border-bottom:none;border-radius:8px 8px 0 0;background:none;font-size:.88rem;font-weight:600;color:#475569;cursor:pointer}
+  .sl-tab.active{background:#fff;color:var(--edv-navy,#1e3a5f);border-color:var(--edv-border,#e2e8f0);box-shadow:inset 0 -2px 0 0 var(--edv-orange,#e87722)}
+  .sl-tab:disabled{opacity:.5;cursor:not-allowed}
+  .sl-pane{display:none} .sl-pane.active{display:block}
+  .sl-filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:#fff;border:1px solid var(--edv-border,#e2e8f0);border-radius:8px;padding:12px;margin-bottom:12px}
+  .sl-filters input,.sl-filters select{padding:6px 8px;border:1px solid var(--edv-border,#d7dde3);border-radius:6px;font:inherit;font-size:.82rem}
+  .sl-filters label{font-size:.72rem;color:#5b6773;display:flex;flex-direction:column;gap:2px}
+  .sl-btn{padding:7px 14px;border-radius:7px;border:1px solid var(--edv-orange,#e87722);background:var(--edv-orange,#e87722);color:#fff;font-weight:600;font-size:.82rem;cursor:pointer}
+  .sl-btn.ghost{background:#fff;color:var(--edv-navy,#1e3a5f);border-color:var(--edv-border,#d7dde3)}
+  table.sl-tbl{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--edv-border,#e2e8f0);border-radius:8px;overflow:hidden;font-size:.82rem}
+  .sl-tbl th{background:var(--edv-navy,#1e3a5f);color:#fff;text-align:left;padding:8px 10px;font-size:.72rem;text-transform:uppercase;letter-spacing:.04em}
+  .sl-tbl td{padding:7px 10px;border-top:1px solid #eef2f6;vertical-align:top}
+  .sl-tbl tr:nth-child(even) td{background:#f9fbfc}
+  .pill{display:inline-block;font-size:.68rem;font-weight:700;border-radius:9px;padding:1px 8px}
+  .pill.risk{background:#fdECEF;color:#D90038} .pill.ok{background:#eef2f6;color:#475569}
+  .cat{font-size:.68rem;font-weight:700;color:#145FAE}
+  .sl-page{display:flex;gap:10px;align-items:center;margin:12px 0;font-size:.82rem}
+  .sl-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:6px 0 16px}
+  .kpi{background:#fff;border:1px solid var(--edv-border,#e2e8f0);border-radius:8px;padding:14px}
+  .kpi .v{font-size:1.7rem;font-weight:800;color:var(--edv-navy,#1e3a5f)} .kpi .v.risk{color:#D90038}
+  .kpi .l{font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;color:#5b6773}
+  .sl-charts{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .card{background:#fff;border:1px solid var(--edv-border,#e2e8f0);border-radius:8px;padding:14px}
+  .card h3{margin:0 0 8px;font-size:.86rem;color:var(--edv-navy,#1e3a5f)}
+  .muted{color:#5b6773;font-size:.8rem}
+  @media(max-width:820px){.sl-kpis{grid-template-columns:repeat(2,1fr)}.sl-charts{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div id="__shell" data-section="admin" data-current="system-logs"></div>
+
+<div class="sl-wrap">
+  <div class="sl-head">
+    <h1>System Logs</h1>
+    <div class="sl-actions">
+      <a id="slExportCsv" href="#">Export CSV</a>
+      <a id="slExportJson" href="#">Export JSON</a>
+    </div>
+  </div>
+
+  <div class="sl-tabs">
+    <button class="sl-tab active" data-tab="entries">☰ Log entries</button>
+    <button class="sl-tab" data-tab="analytics">📈 Analytics &amp; trends</button>
+    <button class="sl-tab" data-tab="events" disabled title="v2 — per-request events">⚠ Events &amp; reconciliation</button>
+  </div>
+
+  <!-- LOG ENTRIES -->
+  <section class="sl-pane active" id="pane-entries">
+    <div class="sl-filters">
+      <label>Actor<input id="fActor" placeholder="user / actor"></label>
+      <label>Category<select id="fCategory"><option value="">Any</option><option>auth</option><option>identity</option><option>config</option><option>report</option></select></label>
+      <label>Action<input id="fAction" placeholder="login_failed…"></label>
+      <label>From<input id="fFrom" type="date"></label>
+      <label>To<input id="fTo" type="date"></label>
+      <label>Search<input id="fQ" placeholder="free text"></label>
+      <label style="flex-direction:row;align-items:center;gap:6px;margin-top:14px"><input id="fRisk" type="checkbox"> Problems only</label>
+      <button class="sl-btn" id="fApply" style="margin-top:12px">Filter</button>
+      <button class="sl-btn ghost" id="fClear" style="margin-top:12px">Clear</button>
+    </div>
+    <div class="muted" id="slTotal">—</div>
+    <table class="sl-tbl">
+      <thead><tr><th>Date / time</th><th>Actor</th><th>Category</th><th>Action</th><th>Target</th><th>IP</th><th>Risk</th><th>Details</th></tr></thead>
+      <tbody id="slRows"><tr><td colspan="8" class="muted">Loading…</td></tr></tbody>
+    </table>
+    <div class="sl-page">
+      <button class="sl-btn ghost" id="pPrev">‹ Prev</button>
+      <span id="pInfo" class="muted"></span>
+      <button class="sl-btn ghost" id="pNext">Next ›</button>
+    </div>
+  </section>
+
+  <!-- ANALYTICS -->
+  <section class="sl-pane" id="pane-analytics">
+    <div class="sl-filters"><label>Window<select id="aWindow"><option value="7d">Last 7 days</option><option value="30d" selected>Last 30 days</option><option value="90d">Last 90 days</option></select></label></div>
+    <div class="sl-kpis">
+      <div class="kpi"><div class="v" id="kEvents">—</div><div class="l">Events</div></div>
+      <div class="kpi"><div class="v risk" id="kRisk">—</div><div class="l">Risk events</div></div>
+      <div class="kpi"><div class="v" id="kActors">—</div><div class="l">Distinct actors</div></div>
+      <div class="kpi"><div class="v" id="kIps">—</div><div class="l">Distinct IPs</div></div>
+    </div>
+    <div class="sl-charts">
+      <div class="card"><h3>Activity over time</h3><canvas id="chActivity" height="150"></canvas></div>
+      <div class="card"><h3>Risk / security events over time</h3><canvas id="chRisk" height="150"></canvas></div>
+      <div class="card"><h3>Top actions</h3><canvas id="chActions" height="150"></canvas></div>
+      <div class="card"><h3>Most active actors</h3><canvas id="chActors" height="150"></canvas></div>
+      <div class="card"><h3>Activity by hour</h3><canvas id="chHour" height="150"></canvas></div>
+      <div class="card"><h3>Top source IPs</h3><canvas id="chIps" height="150"></canvas></div>
+    </div>
+  </section>
+</div>
+
+<script nonce="%%CSP_NONCE%%">
+(function(){
+  'use strict';
+  var el = function(id){return document.getElementById(id);};
+  var tok = function(){return window.__authToken || '';};
+  function api(p){ return fetch(p, { headers: { 'x-report-token': tok() } }).then(function(r){ return r.json(); }); }
+  function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+
+  // tabs
+  Array.prototype.forEach.call(document.querySelectorAll('.sl-tab'), function(b){
+    if (b.disabled) return;
+    b.addEventListener('click', function(){
+      document.querySelectorAll('.sl-tab').forEach(function(x){x.classList.remove('active');});
+      document.querySelectorAll('.sl-pane').forEach(function(x){x.classList.remove('active');});
+      b.classList.add('active'); el('pane-'+b.dataset.tab).classList.add('active');
+      if (b.dataset.tab==='analytics') loadAnalytics();
+    });
+  });
+
+  // ── Log entries ──
+  var page = 0, LIMIT = 50;
+  function filters(){
+    var q = [];
+    var a=el('fActor').value.trim(); if(a) q.push('actor='+encodeURIComponent(a));
+    var c=el('fCategory').value; if(c) q.push('category='+encodeURIComponent(c));
+    var ac=el('fAction').value.trim(); if(ac) q.push('action='+encodeURIComponent(ac));
+    if(el('fFrom').value) q.push('from='+el('fFrom').value);
+    if(el('fTo').value) q.push('to='+el('fTo').value);
+    var s=el('fQ').value.trim(); if(s) q.push('q='+encodeURIComponent(s));
+    if(el('fRisk').checked) q.push('risk=1');
+    return q.join('&');
+  }
+  function loadEntries(){
+    var f = filters();
+    var qs = '?limit='+LIMIT+'&offset='+(page*LIMIT)+(f?'&'+f:'');
+    el('slExportCsv').href = '/api/reports/system-log/export.csv'+(f?'?'+f:'');
+    el('slExportJson').href = '/api/reports/system-log/export.json'+(f?'?'+f:'');
+    api('/api/reports/system-log'+qs).then(function(d){
+      var rows = (d && d.rows) || [], total = (d && d.total) || 0;
+      el('slTotal').textContent = 'Total Log Entries: '+total;
+      el('slRows').innerHTML = rows.length ? rows.map(function(r){
+        return '<tr><td>'+esc((r.ts||'').replace('T',' ').slice(0,19))+'</td>'
+          +'<td>'+esc(r.actor)+'</td><td class="cat">'+esc(r.category)+'</td>'
+          +'<td>'+esc(r.action)+'</td><td>'+esc(r.target||'')+'</td><td>'+esc(r.ip||'')+'</td>'
+          +'<td>'+(r.risk?'<span class="pill risk">risk</span>':'<span class="pill ok">—</span>')+'</td>'
+          +'<td class="muted">'+esc(r.details||'')+'</td></tr>';
+      }).join('') : '<tr><td colspan="8" class="muted">No entries in this window.</td></tr>';
+      var from = total? page*LIMIT+1 : 0, to = Math.min((page+1)*LIMIT, total);
+      el('pInfo').textContent = from+'–'+to+' of '+total;
+      el('pPrev').disabled = page===0; el('pNext').disabled = (page+1)*LIMIT >= total;
+    });
+  }
+  el('fApply').addEventListener('click', function(){ page=0; loadEntries(); });
+  el('fClear').addEventListener('click', function(){ ['fActor','fAction','fFrom','fTo','fQ'].forEach(function(i){el(i).value='';}); el('fCategory').value=''; el('fRisk').checked=false; page=0; loadEntries(); });
+  el('pPrev').addEventListener('click', function(){ if(page>0){page--; loadEntries();} });
+  el('pNext').addEventListener('click', function(){ page++; loadEntries(); });
+
+  // ── Analytics ──
+  var charts = {};
+  function mk(id, type, labels, data, color, horizontal){
+    if(typeof Chart==='undefined') return;
+    if(charts[id]){charts[id].destroy();}
+    charts[id] = new Chart(el(id).getContext('2d'), {
+      type: type,
+      data: { labels: labels, datasets: [{ data: data, backgroundColor: color, borderColor: color, fill: type==='line', tension:.3, borderWidth:2, pointRadius:2 }] },
+      options: { responsive:true, plugins:{legend:{display:false}}, indexAxis: horizontal?'y':'x', scales:{ y:{beginAtZero:true} } }
+    });
+  }
+  function loadAnalytics(){
+    api('/api/reports/system-log/analytics?window='+el('aWindow').value).then(function(a){
+      if(!a || !a.totals) return;
+      el('kEvents').textContent=a.totals.events; el('kRisk').textContent=a.totals.risk_events;
+      el('kActors').textContent=a.totals.distinct_actors; el('kIps').textContent=a.totals.distinct_ips;
+      mk('chActivity','line', a.series.map(function(x){return x.d;}), a.series.map(function(x){return x.n;}), '#145FAE');
+      mk('chRisk','line', a.risk_series.map(function(x){return x.d;}), a.risk_series.map(function(x){return x.n;}), '#D90038');
+      mk('chActions','bar', a.top_actions.map(function(x){return x.action;}), a.top_actions.map(function(x){return x.n;}), '#6D5BD0', true);
+      mk('chActors','bar', a.top_actors.map(function(x){return x.actor;}), a.top_actors.map(function(x){return x.n;}), '#1CA7EC', true);
+      mk('chHour','bar', Array.from({length:24},function(_,i){return i+':00';}), a.by_hour, '#16A34A');
+      mk('chIps','bar', a.top_ips.map(function(x){return x.ip;}), a.top_ips.map(function(x){return x.n;}), '#E87722', true);
+    });
+  }
+  el('aWindow').addEventListener('change', loadAnalytics);
+
+  loadEntries();
+})();
+</script>
+</body>
+</html>

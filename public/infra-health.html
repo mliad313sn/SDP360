@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Infrastructure Health — Endeavour Mining IT</title>
+
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="brand/icons.css">
+<link rel="stylesheet" href="brand/components.css">
+<link rel="stylesheet" href="_shell.css">
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js" defer></script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style nonce="%%CSP_NONCE%%">
+[data-lng="fr"]{display:none}[data-lng-block="fr"]{display:none}
+body.lang-fr [data-lng="en"]{display:none}body.lang-fr [data-lng-block="en"]{display:none}
+body.lang-fr [data-lng="fr"]{display:inline}body.lang-fr [data-lng-block="fr"]{display:block}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:#EFF2F5;color:#33435A;font:14px/1.5 'Libre Franklin',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#E87722}a:hover{color:#1B2530}
+.ih-wrap{max-width:1340px;margin:0 auto;padding:28px 32px 56px}
+.ih-head{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.ih-head h1{margin:0;font-size:21px;font-weight:700;letter-spacing:-.01em;color:#3A4A60}
+.ih-ro{font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;padding:4px 10px;border-radius:999px;border:1px solid #DEE5EC;color:#66738A;background:#FFFFFF}
+.ih-sub{font-size:13.5px;color:#66738A;margin:6px 0 20px;max-width:920px;text-wrap:pretty}
+.ih-controls{display:flex;gap:10px;align-items:center;margin-left:auto}
+.ih-controls label{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#66738A}
+select{padding:8px 12px;border:1px solid #DEE5EC;border-radius:8px;background:#FFFFFF;font:600 13px 'Libre Franklin',system-ui,sans-serif;color:#1B2530;cursor:pointer}
+select:disabled{opacity:.55;cursor:not-allowed}
+.ih-lang-toggle{display:inline-flex;gap:2px;background:#E4E9EF;border-radius:8px;padding:3px;border:1px solid #DEE5EC}
+.ih-lang-toggle button{background:transparent;border:0;cursor:pointer;padding:5px 11px;border-radius:6px;font:700 11px 'Libre Franklin',system-ui,sans-serif;letter-spacing:.04em;color:#66738A}
+.ih-lang-toggle button.active{background:#FFFFFF;color:#1B2530;box-shadow:0 1px 2px rgba(0,0,0,.15)}
+.ih-banner{border-radius:10px;padding:12px 16px;font-size:13.5px;margin:0 0 18px;border:1px solid #C9E3D0;background:#EDF7F0;color:#1E5B34}
+.ih-banner.warn{border-color:#F0D5AE;background:#FFF6EA;color:#7A4A12}
+.ih-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:14px}
+.ih-tile{background:#FFFFFF;border:1px solid #DEE5EC;border-radius:10px;padding:14px 16px;box-shadow:0 1px 2px rgba(27,37,48,.05)}
+.ih-tile .lbl{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#3A4A60}
+.ih-tile .dist{display:flex;gap:14px;margin-top:11px;align-items:baseline}
+.ih-tile .d{font:800 22px/1 'Libre Franklin',sans-serif;font-variant-numeric:tabular-nums}
+.ih-tile .d small{display:block;font:600 9.5px/1 'Libre Franklin',sans-serif;letter-spacing:.05em;text-transform:uppercase;margin-top:4px;color:#66738A}
+.ih-panel{background:#FFFFFF;border:1px solid #DEE5EC;border-radius:10px;padding:18px 20px;box-shadow:0 1px 2px rgba(27,37,48,.05);min-width:0;margin-bottom:18px}
+.ih-panel h2{margin:0 0 14px;font-size:15px;font-weight:700;color:#3A4A60}
+.ih-scroll{overflow-x:auto}
+table.ih-tbl{width:100%;border-collapse:collapse;font-size:13px}
+table.ih-tbl th{text-align:left;font-size:10.5px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:#66738A;border-bottom:1px solid #DEE5EC;padding:0 10px 9px;white-space:nowrap}
+table.ih-tbl td{padding:9px 10px;border-bottom:1px solid #EEF2F6;vertical-align:middle}
+table.ih-tbl tr:last-child td{border-bottom:0}
+table.ih-matrix tbody tr{cursor:pointer}
+table.ih-matrix tbody tr:hover td{background:#F5F8FB}
+table.ih-matrix tbody tr.ih-row-red td{background:#FDECEA}
+table.ih-matrix tbody tr.ih-row-red td:first-child{box-shadow:inset 3px 0 0 #DC2626;font-weight:600}
+table.ih-matrix tbody tr.ih-sel td{outline:2px solid #E87722;outline-offset:-2px}
+.ih-muted{color:#66738A}
+.ih-rag{display:inline-flex;align-items:center;gap:7px}
+.ih-rag-dot{width:9px;height:9px;border-radius:50%;flex:none}
+.ih-rag-val{font-variant-numeric:tabular-nums}
+.ih-wan-list{font-variant-numeric:tabular-nums;font-size:11px;white-space:nowrap}
+.ih-rag-pill{display:inline-block;min-width:52px;text-align:center;font-size:10.5px;font-weight:700;padding:3px 10px;border-radius:999px;letter-spacing:.05em;text-transform:uppercase}
+.ih-stale{font-size:8.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#A85A14;background:#FFF3E7;border:1px solid #F3D9BC;border-radius:4px;padding:1px 4px;margin-left:5px;vertical-align:middle}
+.ih-blind{color:#8A1C1C;background:#FDECEC;border-color:#F4C9C9}
+.ih-trend{font-size:9px;margin-left:4px;vertical-align:middle;font-weight:700;line-height:1}
+.ih-trend.big{font-size:11px;margin-left:6px}
+.ih-trend.up{color:#27AE60}
+.ih-trend.down{color:#DC2626}
+.ih-readout{font-weight:600;color:#334155;margin:0 0 14px;font-size:13.5px}
+.ih-chart-wrap{position:relative;height:300px}
+.ih-note{font-size:12px;color:#66738A;margin:10px 0 0}
+.ih-empty{background:#FFF6EA;border:1px solid #F0D5AE;color:#7A4A12;border-radius:10px;padding:14px 16px;font-size:13.5px}
+.ih-gov{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:12px}
+.ih-gov .g{background:#F5F8FB;border:1px solid #E4EAF0;border-radius:8px;padding:10px 12px}
+.ih-gov .g .k{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#66738A}
+.ih-gov .g .v{font:800 20px/1.1 'Libre Franklin',sans-serif;color:#3A4A60;margin-top:5px;font-variant-numeric:tabular-nums}
+.ih-probes{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+.ih-probes li{font-size:11px;font-weight:600;background:#FDECEA;color:#c0392b;border:1px solid #f3c3bd;border-radius:6px;padding:3px 8px}
+@media(max-width:720px){.ih-wrap{padding:18px 16px 40px}.ih-head h1{font-size:18px}.ih-controls{margin-left:0}.ih-chart-wrap{height:250px}}
+</style>
+<script nonce="%%CSP_NONCE%%" id="design-chart-theme">
+/* DESIGN — theme Chart.js applique via les options Chart uniquement ; le script applicatif reste intact. */
+(function(){var MAP={"#2A5490":"#3A4A60","#27AE60":"#2E9E63","#E74C3C":"#D6493C","#E8A100":"#E3A008","#E87722":"#E87722","#9aa4b2":"#B7C0CC","#DC2626":"#D6493C","#fff":"#FFFFFF"},FONT="Libre Franklin",MUT='#5C6B80',GRID='#E9EDF2';
+function mc(c){return typeof c==='string'&&MAP[c]?MAP[c]:c}
+document.addEventListener('DOMContentLoaded',function(){
+if(!window.Chart)return;var O=window.Chart;
+O.defaults.font.family=FONT;O.defaults.color=MUT;
+var W=function(ctx,cfg){cfg=cfg||{};
+((cfg.data||{}).datasets||[]).forEach(function(d){
+['backgroundColor','borderColor'].forEach(function(k){var x=d[k];if(x==null)return;d[k]=Array.isArray(x)?x.map(mc):mc(x)});
+var t=d.type||cfg.type;
+if(t==='bar'){d.borderRadius=3;d.maxBarThickness=30}
+if(t==='line'){d.borderWidth=2;if(d.borderColor)d.pointBackgroundColor=d.borderColor}
+if(cfg.type==='doughnut'){d.borderWidth=2}});
+var o=cfg.options=cfg.options||{},p=o.plugins=o.plugins||{};
+if(p.title)p.title.display=false;
+p.legend=p.legend||{};
+p.legend.labels=Object.assign({usePointStyle:true,pointStyle:'circle',boxWidth:7,boxHeight:7,padding:14,color:MUT,font:{family:FONT,size:11.5}},p.legend.labels);
+if(cfg.type==='doughnut'){o.cutout='66%'}
+if(o.scales)Object.keys(o.scales).forEach(function(k){var s=o.scales[k];
+s.grid=Object.assign({color:GRID},s.grid);s.border=Object.assign({color:GRID},s.border);
+s.ticks=Object.assign({color:MUT,font:{family:FONT,size:11}},s.ticks);
+if(s.title){s.title.color=MUT;s.title.font={family:FONT,size:10}}});
+return new O(ctx,cfg)};
+W.defaults=O.defaults;window.Chart=W;});
+})();
+</script>
+
+</head>
+<body>
+<div id="__shell" data-section="infrastructure" data-current="infra-health"></div>
+
+<div class="ih-wrap">
+  <div class="ih-head">
+    <h1><span data-lng="en">Infrastructure Health</span><span data-lng="fr">Santé des infrastructures</span></h1>
+    <span class="ih-ro"><span data-lng="en">read-only</span><span data-lng="fr">lecture seule</span></span>
+    <div class="ih-controls">
+      <label for="ih-period"><span data-lng="en">Period</span><span data-lng="fr">Période</span></label>
+      <select id="ih-period">
+        <option value="week"><span></span></option>
+        <option value="month"><span></span></option>
+      </select>
+    </div>
+    <div class="ih-lang-toggle" id="ihLangToggle">
+      <button type="button" data-lang="en">EN</button>
+      <button type="button" data-lang="fr">FR</button>
+    </div>
+  </div>
+  <div class="ih-sub">
+    <span data-lng="en">Per-site availability across WAN, LAN, WLAN and Servers, cumulated from the archived snapshots — with RAG, month-over-month trend, a trend chart and coverage/governance. WAN is shown as two columns (WAN1 · WAN2): the links are redundant — each carries the whole site — so a single red uplink does not make the site's WAN red; the overall verdict uses the healthier link. Complements OpManager: this is the historical read, not live device status. WAN uplink detail lives on <a href="wan.html">WAN Health</a>.</span>
+    <span data-lng="fr">Disponibilité par site pour le WAN, le LAN, le WLAN et les Serveurs, cumulée depuis les instantanés archivés — avec RAG, tendance mois sur mois, une courbe et couverture/gouvernance. Le WAN est présenté en deux colonnes (WAN1 · WAN2) : les liens sont redondants — chacun porte tout le site — donc un seul lien en rouge ne rend pas le WAN du site rouge ; le verdict global retient le meilleur lien. Complète OpManager : c'est la lecture historique, pas l'état des équipements en direct. Le détail des liens WAN est sur <a href="wan.html">WAN Health</a>.</span>
+  </div>
+
+  <!-- 1 — Freshness banner -->
+  <div id="ih-freshness" class="ih-banner"></div>
+
+  <!-- 2 — Per-family KPI tiles -->
+  <div id="ih-fam-tiles" class="ih-tiles"></div>
+
+  <!-- 3 — One-line read-out -->
+  <div id="ih-readout" class="ih-readout"></div>
+
+  <!-- 4 — Matrix -->
+  <div class="ih-panel">
+    <div class="ih-scroll">
+      <table class="ih-tbl ih-matrix">
+        <thead><tr id="ih-matrix-head"></tr></thead>
+        <tbody id="ih-matrix-body"></tbody>
+      </table>
+    </div>
+    <p class="ih-note" id="ih-matrix-hint"></p>
+  </div>
+
+  <!-- 5 — Trend chart (selected site) -->
+  <div class="ih-panel" id="ih-trend-panel">
+    <h2 id="ih-trend-h"></h2>
+    <div class="ih-chart-wrap"><canvas id="ih-trend-chart"></canvas></div>
+    <p class="ih-note">
+      <span data-lng="en">WAN trend &amp; uplink detail → <a href="wan.html">WAN Health</a>.</span>
+      <span data-lng="fr">Tendance WAN &amp; détail des liens → <a href="wan.html">WAN Health</a>.</span>
+    </p>
+  </div>
+
+  <!-- 6 — Governance / coverage -->
+  <div class="ih-panel">
+    <h2><span data-lng="en">Coverage &amp; governance</span><span data-lng="fr">Couverture &amp; gouvernance</span></h2>
+    <div id="ih-gov-off" class="ih-empty" style="display:none"></div>
+    <div id="ih-gov-body">
+      <div class="ih-gov" id="ih-gov-grid"></div>
+      <div id="ih-gov-probes"></div>
+    </div>
+  </div>
+</div>
+
+<script nonce="%%CSP_NONCE%%">
+(function () {
+  const $ = id => document.getElementById(id);
+
+  // ── i18n: JS-rendered strings. Static HTML uses <span data-lng> pairs;
+  //    everything the render functions build goes through T(). ─────────
+  const LANG_KEY = 'ih_lang_v1';
+  const I18N = {
+    period_week:    { fr: 'Hebdomadaire',                             en: 'Weekly' },
+    period_month:   { fr: 'Mensuel',                                  en: 'Monthly' },
+    // families (WAN split into two redundant uplinks — WAN1 / WAN2)
+    fam_wan1:       { fr: 'WAN1',                                     en: 'WAN1' },
+    fam_wan2:       { fr: 'WAN2',                                     en: 'WAN2' },
+    fam_lan:        { fr: 'LAN',                                      en: 'LAN' },
+    fam_wifi:       { fr: 'WLAN',                                     en: 'WLAN' },
+    fam_servers:    { fr: 'Serveurs',                                 en: 'Servers' },
+    c_overall:      { fr: 'Global infra',                             en: 'Global infra' },
+    c_site:         { fr: 'Site',                                     en: 'Site' },
+    // distribution labels
+    d_green:        { fr: 'Vert',                                     en: 'Green' },
+    d_amber:        { fr: 'Ambre',                                    en: 'Amber' },
+    d_red:          { fr: 'Rouge',                                    en: 'Red' },
+    d_na:           { fr: 'N/A',                                      en: 'N/A' },
+    // freshness banner
+    fr_through:     { fr: 'Données jusqu’au',                         en: 'Data through' },
+    fr_stale:       { fr: 'sites obsolètes',                          en: 'sites stale' },
+    fr_fresh:       { fr: 'toutes les données sont à jour',           en: 'all data is fresh' },
+    fr_nodate:      { fr: 'Aucune date de fraîcheur disponible',      en: 'No freshness date available' },
+    // read-out
+    ro_weak:        { fr: 'Point faible',                             en: 'Weak spot' },
+    ro_worst:       { fr: 'Site le plus en difficulté',              en: 'Site most at risk' },
+    ro_sitesred:    { fr: 'sites en rouge',                           en: 'sites red' },
+    ro_steady:      { fr: 'Aucune famille critique sur plusieurs sites', en: 'No family critical across several sites' },
+    ro_allgreen:    { fr: 'Toutes les familles au vert',             en: 'All families green' },
+    // matrix
+    m_click:        { fr: 'Cliquez une ligne pour voir la tendance du site', en: 'Click a row to see the site trend' },
+    m_stale:        { fr: 'obsolète',                                 en: 'stale' },
+    m_blind:        { fr: 'angle mort',                               en: 'blind spot' },
+    m_blind_t:      { fr: 'Le serveur de supervision de ce site était en panne sur la période — disponibilité potentiellement sous-estimée', en: "This site's monitoring server was down during the period — availability may be understated" },
+    trend_up:       { fr: 'Amélioration vs mois dernier',            en: 'Improved vs last month' },
+    trend_down:     { fr: 'Dégradation vs mois dernier',             en: 'Worsened vs last month' },
+    // trend chart
+    trend_h:        { fr: 'Tendance — WAN / LAN / WLAN / Serveurs',  en: 'Trend — WAN / LAN / WLAN / Servers' },
+    trend_pick:     { fr: 'Sélectionnez un site dans le tableau ci-dessus.', en: 'Select a site in the table above.' },
+    // governance
+    gov_off:        { fr: 'Couverture non configurée — mappez les sondes OpManager et les circuits Meraki pour activer la gouvernance.', en: 'Coverage not configured — map the OpManager probes and Meraki circuits to enable governance.' },
+    gov_total:      { fr: 'Total sites',                             en: 'Total sites' },
+    gov_included:   { fr: 'Inclus',                                   en: 'Included' },
+    gov_excluded:   { fr: 'Exclus',                                   en: 'Excluded' },
+    gov_unmapped:   { fr: 'Sondes non mappées',                       en: 'Unmapped probes' },
+    gov_allmapped:  { fr: 'Toutes les sondes sont mappées.',         en: 'All probes mapped.' },
+    gov_byfamily:   { fr: 'Par famille',                             en: 'By family' },
+    // empty / error states
+    nodata:         { fr: 'Aucune donnée',                            en: 'No data' },
+    err_load:       { fr: 'Erreur de chargement',                     en: 'Error loading data' },
+  };
+  // "Erreur de chargement : HTTP 403" / "Error loading data: HTTP 403" — a failure must say
+  // it failed; it is never rendered as "no data" (that would send the operator hunting in
+  // the collectors for what is really a session, a deploy or a server exception).
+  function failureText(msg) { return T('err_load') + (curLang() === 'fr' ? ' : ' : ': ') + msg; }
+  function curLang() { return document.body.classList.contains('lang-fr') ? 'fr' : 'en'; }
+  function T(k) { const row = I18N[k]; return row ? (row[curLang()] || row.fr || k) : k; }
+
+  const FAM = ['wan1', 'wan2', 'lan', 'wifi', 'servers'];
+  const FAM_KEY = { wan1: 'fam_wan1', wan2: 'fam_wan2', lan: 'fam_lan', wifi: 'fam_wifi', servers: 'fam_servers' };
+  const RAG_COLORS = { green: '#27AE60', amber: '#E8A100', red: '#DC2626', na: '#b6bdc7' };
+
+  let period = 'week', selectedSite = null, selectedSiteName = null;
+  let _trendChart = null;
+
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
+  // Auth: session cookie + x-report-token header (copied verbatim from site-awareness.html's api()).
+  async function api(path) {
+    const h = {}; const at = window.__authToken; if (at) h['x-report-token'] = at;
+    const r = await fetch(path, { headers: h });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  }
+
+  // month-over-month chip. up = improved (green ▲); down = worsened (red ▼); flat/absent = nothing.
+  function trendChip(t, big) {
+    if (t === 'up') return '<span class="ih-trend up' + (big ? ' big' : '') + '" title="' + esc(T('trend_up')) + '">▲</span>';
+    if (t === 'down') return '<span class="ih-trend down' + (big ? ' big' : '') + '" title="' + esc(T('trend_down')) + '">▼</span>';
+    return '';
+  }
+  // A family cell: RAG dot + value% (— when na/null) + trend chip + a small stale tag.
+  function ragDotCell(cell) {
+    const c = cell || { rag: 'na', value: null };
+    const rag = c.rag || 'na';
+    const color = RAG_COLORS[rag] || RAG_COLORS.na;
+    const val = (c.value == null || c.value === '' || rag === 'na') ? '—' : (c.value + '%');
+    const stale = c.stale ? '<span class="ih-stale">' + esc(T('m_stale')) + '</span>' : '';
+    const blind = c.basis === 'monitoring_gap'
+      ? '<span class="ih-stale ih-blind" title="' + esc(T('m_blind_t')) + '">' + esc(T('m_blind')) + '</span>' : '';
+    return '<span class="ih-rag"><span class="ih-rag-dot" style="background:' + color + '"></span>'
+      + '<span class="ih-rag-val">' + esc(val) + '</span>' + trendChip(c.trend) + stale + blind + '</span>';
+  }
+  function ragPill(rag) {
+    const r = rag || 'na';
+    const color = RAG_COLORS[r] || RAG_COLORS.na;
+    const lbl = r === 'na' ? '—' : r.toUpperCase();
+    return '<span class="ih-rag-pill" style="background:' + color + '22;color:' + color + '">' + esc(lbl) + '</span>';
+  }
+  // Severity score — drives worst-first sort AND the "worst site" pick. A red family
+  // cell weighs 3, amber 1; the Overall verdict dominates (red 10 / amber 3).
+  function sevScore(r) {
+    var s = 0, fams = r.families || {};
+    FAM.forEach(function (m) { var rag = (fams[m] || {}).rag; if (rag === 'red') s += 3; else if (rag === 'amber') s += 1; });
+    if (r.overall_rag === 'red') s += 10; else if (r.overall_rag === 'amber') s += 3;
+    return s;
+  }
+
+  // 1 — Freshness banner
+  function renderFreshness(fleet, failure) {
+    const el = $('ih-freshness');
+    if (failure) { el.textContent = failureText(failure); el.className = 'ih-banner warn'; return; }
+    const f = (fleet && fleet.freshness) || {};
+    const through = f.data_through_max || null;
+    const stale = Number(f.stale_count) || 0;
+    let txt, warn;
+    if (!through) { txt = T('fr_nodate'); warn = true; }
+    else if (stale > 0) { txt = T('fr_through') + ' ' + through + ' · ' + stale + ' ' + T('fr_stale'); warn = true; }
+    else { txt = T('fr_through') + ' ' + through + ' · ' + T('fr_fresh'); warn = false; }
+    el.textContent = txt;
+    el.className = 'ih-banner' + (warn ? ' warn' : '');
+  }
+
+  // 2 — Per-family KPI tiles (green/amber/red/na distribution from fleet.by_family_counts)
+  function renderFamTiles(fleet) {
+    const counts = (fleet && fleet.by_family_counts) || {};
+    $('ih-fam-tiles').innerHTML = FAM.map(function (m) {
+      const c = counts[m] || {};
+      const g = Number(c.green) || 0, a = Number(c.amber) || 0, rd = Number(c.red) || 0, na = Number(c.na) || 0;
+      return '<div class="ih-tile"><div class="lbl">' + esc(T(FAM_KEY[m])) + '</div><div class="dist">'
+        + '<span class="d" style="color:' + RAG_COLORS.green + '">' + g + '<small>' + esc(T('d_green')) + '</small></span>'
+        + '<span class="d" style="color:' + RAG_COLORS.amber + '">' + a + '<small>' + esc(T('d_amber')) + '</small></span>'
+        + '<span class="d" style="color:' + RAG_COLORS.red + '">' + rd + '<small>' + esc(T('d_red')) + '</small></span>'
+        + '<span class="d" style="color:' + RAG_COLORS.na + '">' + na + '<small>' + esc(T('d_na')) + '</small></span>'
+        + '</div></div>';
+    }).join('');
+  }
+
+  // 3 — One-line read-out (weak family across the fleet + the single worst site)
+  function renderReadout(rows) {
+    const el = $('ih-readout');
+    if (!rows.length) { el.textContent = ''; return; }
+    var g = 0, a = 0, rd = 0;
+    rows.forEach(function (r) { if (r.overall_rag === 'green') g++; else if (r.overall_rag === 'amber') a++; else if (r.overall_rag === 'red') rd++; });
+    var best = null, bestN = 0;
+    FAM.forEach(function (m) {
+      var n = 0; rows.forEach(function (r) { if (((r.families || {})[m] || {}).rag === 'red') n++; });
+      if (n > bestN) { bestN = n; best = m; }
+    });
+    var parts = [];
+    if (rd === 0 && a === 0) {
+      parts.push(T('ro_allgreen'));
+    } else {
+      if (best && bestN >= 2) parts.push(T('ro_weak') + ' : ' + T(FAM_KEY[best]) + ' (' + bestN + ' ' + T('ro_sitesred') + ')');
+      else parts.push(T('ro_steady'));
+      if (rd > 0 && rows[0] && rows[0].overall_rag === 'red')
+        parts.push(T('ro_worst') + ' : ' + (rows[0].site_name || ('Site ' + rows[0].site_id)));
+    }
+    el.textContent = parts.join('.  ') + '.';
+  }
+
+  // 4 — Matrix: rows = sites worst-first; columns = WAN · LAN · WLAN · Servers · Global infra
+  function renderMatrix(rows, failure) {
+    $('ih-matrix-head').innerHTML = '<th>' + esc(T('c_site')) + '</th>'
+      + FAM.map(function (m) { return '<th>' + esc(T(FAM_KEY[m])) + '</th>'; }).join('')
+      + '<th>' + esc(T('c_overall')) + '</th>';
+    $('ih-matrix-body').innerHTML = rows.length ? rows.map(function (r) {
+      var fams = r.families || {};
+      var cls = [];
+      if (r.overall_rag === 'red') cls.push('ih-row-red');
+      if (String(r.site_id) === String(selectedSite)) cls.push('ih-sel');
+      return '<tr' + (cls.length ? ' class="' + cls.join(' ') + '"' : '') + ' data-site="' + esc(r.site_id) + '" data-site-name="' + esc(r.site_name || '') + '">'
+        + '<td>' + (esc(r.site_name) || ('Site ' + esc(r.site_id))) + '</td>'
+        + FAM.map(function (m) { return '<td>' + ragDotCell(fams[m]) + '</td>'; }).join('')
+        + '<td>' + ragPill(r.overall_rag) + trendChip(r.overall_trend, true) + '</td></tr>';
+    }).join('') : '<tr><td colspan="7" class="ih-muted">'
+      + (failure ? esc(failureText(failure)) : esc(T('nodata')) + '.') + '</td></tr>';
+    $('ih-matrix-hint').textContent = T('m_click') + '.';
+  }
+
+  // 6 — Governance / coverage panel
+  function renderGovernance(coverage) {
+    const cov = coverage || { available: false };
+    const off = cov.available === false;
+    const offN = $('ih-gov-off'), body = $('ih-gov-body');
+    if (offN) { offN.style.display = off ? 'block' : 'none'; offN.textContent = off ? T('gov_off') : ''; }
+    if (body) body.style.display = off ? 'none' : '';
+    if (off) return;
+
+    const cells = [];
+    if (cov.total != null)    cells.push({ k: T('gov_total'),    v: cov.total });
+    if (cov.included != null) cells.push({ k: T('gov_included'), v: cov.included });
+    if (cov.excluded != null) cells.push({ k: T('gov_excluded'), v: cov.excluded });
+    // by_family: { wan: 19, lan: 225, wifi: 49, servers: 157 } — the value is the COUNT of
+    // measured/classified devices in that family. Render each as its integer count.
+    const bf = cov.by_family || {};
+    FAM.forEach(function (m) {
+      const c = bf[m]; if (c == null) return;
+      cells.push({ k: T('gov_byfamily') + ' · ' + T(FAM_KEY[m]), v: c });
+    });
+    $('ih-gov-grid').innerHTML = cells.length ? cells.map(function (c) {
+      return '<div class="g"><div class="k">' + esc(c.k) + '</div><div class="v">' + esc(c.v) + '</div></div>';
+    }).join('') : '';
+
+    const probes = Array.isArray(cov.unmapped_probes) ? cov.unmapped_probes : [];
+    const pEl = $('ih-gov-probes');
+    if (probes.length) {
+      pEl.innerHTML = '<div class="ih-note" style="font-weight:600;color:#c0392b">' + esc(T('gov_unmapped'))
+        + ' (' + probes.length + ')</div><ul class="ih-probes">'
+        + probes.map(function (p) { return '<li>' + esc(typeof p === 'string' ? p : (p.probe || p.name || JSON.stringify(p))) + '</li>'; }).join('')
+        + '</ul>';
+    } else {
+      pEl.innerHTML = '<div class="ih-note" style="color:#1E5B34;font-weight:600">' + esc(T('gov_allmapped')) + '</div>';
+    }
+  }
+
+  // 5 — Trend chart (selected site LAN / WLAN / Servers)
+  function renderTrend(data) {
+    if (_trendChart) { _trendChart.destroy(); _trendChart = null; }
+    $('ih-trend-h').textContent = T('trend_h') + (data && data.site_name ? ' — ' + data.site_name : '');
+    const panel = $('ih-trend-panel');
+    if (!data || !data.labels || !data.labels.length || typeof Chart === 'undefined') {
+      $('ih-trend-chart').style.display = 'none';
+      if (!$('ih-trend-pick')) {
+        const n = document.createElement('p'); n.id = 'ih-trend-pick'; n.className = 'ih-note';
+        panel.insertBefore(n, panel.querySelector('.ih-chart-wrap').nextSibling);
+      }
+      $('ih-trend-pick').textContent = T('trend_pick');
+      return;
+    }
+    if ($('ih-trend-pick')) $('ih-trend-pick').textContent = '';
+    $('ih-trend-chart').style.display = '';
+    const s = data.series || {};
+    _trendChart = new Chart($('ih-trend-chart').getContext('2d'), {
+      type: 'line',
+      data: {
+        labels: data.labels,
+        datasets: [
+          { label: T('fam_wan1'),    data: s.wan1 || [],    borderColor: '#6D28D9', backgroundColor: 'transparent', borderDash: [5, 3], spanGaps: false, tension: 0.2, pointRadius: 3 },
+          { label: T('fam_wan2'),    data: s.wan2 || [],    borderColor: '#0891B2', backgroundColor: 'transparent', borderDash: [5, 3], spanGaps: false, tension: 0.2, pointRadius: 3 },
+          { label: T('fam_lan'),     data: s.lan || [],     borderColor: '#2A5490', backgroundColor: 'transparent', spanGaps: false, tension: 0.2, pointRadius: 3 },
+          { label: T('fam_wifi'),    data: s.wifi || [],    borderColor: '#E87722', backgroundColor: 'transparent', spanGaps: false, tension: 0.2, pointRadius: 3 },
+          { label: T('fam_servers'), data: s.servers || [], borderColor: '#27AE60', backgroundColor: 'transparent', spanGaps: false, tension: 0.2, pointRadius: 3 },
+        ],
+      },
+      options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+        plugins: { title: { display: true, text: T('trend_h') }, legend: { position: 'bottom' } },
+        scales: { y: { beginAtZero: true, suggestedMax: 100, title: { display: true, text: '%' } } } },
+    });
+  }
+
+  // NOTE: /api/analytics/infra/trend resolves ?site= via resolveSiteParam, which matches a
+  // site CODE or NAME — NOT a numeric site_id. So the fetch MUST pass the site NAME.
+  async function loadTrend(siteName) {
+    if (!siteName) { renderTrend(null); return; }
+    let data;
+    try { data = await api('/api/analytics/infra/trend?site=' + encodeURIComponent(siteName) + '&months=12'); }
+    catch { data = null; }
+    window._ihLastTrend = data;
+    renderTrend(data);
+  }
+
+  function renderSummary(data) {
+    data = data || { sites: [], fleet: {}, coverage: { available: false } };
+    var rows = (Array.isArray(data.sites) ? data.sites : []).slice();
+    rows.map(function (r, i) { r.__i = i; return r; });
+    rows.sort(function (a, b) { return (sevScore(b) - sevScore(a)) || (a.__i - b.__i); });
+
+    // data.error = the call itself failed (set by loadSummary); data.reason = the route caught
+    // a server error and answered 200 with an empty matrix.
+    var failure = data.error || data.reason || null;
+    renderFreshness(data.fleet || {}, failure);
+    renderFamTiles(data.fleet || {});
+    renderReadout(rows);
+    renderMatrix(rows, failure);
+    renderGovernance(data.coverage);
+
+    // Default the trend to the worst site (rows already worst-first) if none picked.
+    if (selectedSite == null && rows.length) {
+      selectedSite = rows[0].site_id;
+      selectedSiteName = rows[0].site_name || null;
+      renderMatrix(rows, failure);
+    }
+  }
+
+  async function loadSummary() {
+    let data;
+    try { data = await api('/api/analytics/infra/summary?period=' + encodeURIComponent(period)); }
+    catch (e) { data = { sites: [], fleet: {}, coverage: { available: false }, error: (e && e.message) || String(e) }; }
+    window._ihLastSummary = data;
+    renderSummary(data);
+    loadTrend(selectedSiteName);
+  }
+
+  // ── Language toggle ────────────────────────────────────────────────
+  function syncPeriodLabels() {
+    const sel = $('ih-period');
+    if (sel && sel.options.length >= 2) {
+      sel.options[0].textContent = T('period_week');
+      sel.options[1].textContent = T('period_month');
+    }
+  }
+  function setLang(lang) {
+    if (lang === 'fr') document.body.classList.add('lang-fr');
+    else               document.body.classList.remove('lang-fr');
+    document.querySelectorAll('#ihLangToggle button').forEach(b => {
+      b.classList.toggle('active', b.dataset.lang === lang);
+    });
+    try { localStorage.setItem(LANG_KEY, lang); } catch (_) {}
+    syncPeriodLabels();
+    // Re-render JS-built surfaces in the new language, WITHOUT re-fetching.
+    if (window._ihLastSummary) renderSummary(window._ihLastSummary);
+    if (window._ihLastTrend !== undefined) renderTrend(window._ihLastTrend);
+  }
+  // Boot from localStorage if set, else default FR.
+  (function _initLang() {
+    let stored = 'fr';
+    try { stored = localStorage.getItem(LANG_KEY) || 'fr'; } catch (_) {}
+    setLang(stored === 'en' ? 'en' : 'fr');
+  })();
+
+  document.addEventListener('DOMContentLoaded', function () {
+    syncPeriodLabels();
+    document.querySelectorAll('#ihLangToggle button').forEach(b => {
+      b.addEventListener('click', () => setLang(b.dataset.lang));
+    });
+    $('ih-period').addEventListener('change', function () {
+      period = this.value === 'month' ? 'month' : 'week';
+      loadSummary();
+    });
+    // Matrix row click → select the site + load its trend.
+    $('ih-matrix-body').addEventListener('click', function (e) {
+      const tr = e.target.closest('tr[data-site]'); if (!tr) return;
+      const sid = tr.dataset.site; if (!sid) return;
+      selectedSite = sid;
+      selectedSiteName = tr.dataset.siteName || null;   // trend endpoint resolves by NAME, not id
+      if (window._ihLastSummary) renderSummary(window._ihLastSummary);   // re-highlight the selected row
+      loadTrend(selectedSiteName);
+    });
+    loadSummary();
+  });
+})();
+</script>
+</body>
+</html>

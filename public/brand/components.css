@@ -1,0 +1,213 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   EDV / Endeavour Mining — Brand Components
+   ───────────────────────────────────────────────────────────────────────
+   Component-level brand patterns. Reads tokens from _tokens.css; pages
+   that want these patterns add BOTH stylesheets to <head>:
+
+     <link rel="stylesheet" href="_tokens.css">
+     <link rel="stylesheet" href="brand/components.css">
+
+   Components in this file:
+     .edv-goldy           — generic Goldy mascot image (5 poses available)
+     .edv-empty-state     — empty / offline / error message with Goldy
+     .edv-section-divider — Goldy at section breaks (help.html etc.)
+     .edv-hero            — large welcome panel with Goldy + display type
+
+   Design intent:
+     - Goldy makes "nothing here" / "something went wrong" feel friendly
+       without being childish. Pose choice carries the message:
+         welcome-safety  → soft empty state, login, post-login
+         academy         → onboarding, help, "did you know"
+         security        → 401, 403, session expired, password change
+         4ps-values      → executive surfaces, monthly review
+         recruiting      → admin user-creation, sync triggers
+     - Every component degrades gracefully if the Goldy PNG isn't on disk
+       yet (the <img> hides itself on load error and the message still
+       renders correctly).
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── Generic Goldy image ─────────────────────────────────────────────── */
+.edv-goldy {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  /* size variants: add .edv-goldy-sm / -md / -lg / -xl on the same element */
+}
+.edv-goldy-sm { width: 80px; }
+.edv-goldy-md { width: 140px; }
+.edv-goldy-lg { width: 220px; }
+.edv-goldy-xl { width: 320px; }
+
+/* If the PNG file is missing, the browser fires `error` on the <img>.
+   The pages that use Goldy attach a tiny inline onerror handler:
+       <img class="edv-goldy edv-goldy-md"
+            src="brand/goldy/welcome-safety.png"
+            onerror="this.style.display='none'"
+            alt="">
+   That keeps the layout intact during the period before the PNGs ship. */
+
+/* ── Empty state ─────────────────────────────────────────────────────── */
+/*  Use case: "No tickets this week", "Proxy offline", "No reports yet".
+    Markup:
+       <div class="edv-empty-state">
+         <img class="edv-goldy edv-goldy-md"
+              src="brand/goldy/welcome-safety.png"
+              onerror="this.style.display='none'" alt="">
+         <h3 class="edv-empty-state__title">Nothing to show yet</h3>
+         <p  class="edv-empty-state__body">Once tickets are synced, the
+            ageing report and KPIs populate automatically.</p>
+         <button class="edv-empty-state__action">Refresh</button>
+       </div>                                                              */
+.edv-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: var(--space-12, 48px) var(--space-6, 24px);
+  gap: var(--space-3, 12px);
+  max-width: 520px;
+  margin: 0 auto;
+  font-family: var(--font-sans);
+  color: var(--color-text);
+}
+
+.edv-empty-state .edv-goldy {
+  margin-bottom: var(--space-3, 12px);
+}
+
+.edv-empty-state__title {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text-strong, #2A2A2A);
+  margin: 0;
+  line-height: 1.35;
+}
+
+.edv-empty-state__body {
+  font-size: 13.5px;
+  font-weight: 400;
+  color: var(--color-text-muted, #7B7B7B);
+  margin: 0;
+  line-height: 1.5;
+  max-width: 420px;
+}
+
+.edv-empty-state__action {
+  margin-top: var(--space-4, 16px);
+  padding: 9px 18px;
+  background: var(--edv-orange);
+  color: #fff;
+  border: 0;
+  border-radius: var(--radius-md, 6px);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--motion-base, 180ms);
+}
+.edv-empty-state__action:hover {
+  background: var(--edv-orange-dark, #CA6419);
+}
+
+/* Variant: error / failure — uses the security pose by convention */
+.edv-empty-state--error .edv-empty-state__title {
+  color: var(--edv-red);
+}
+
+/* Variant: success / completion — uses welcome-safety pose */
+.edv-empty-state--success .edv-empty-state__title {
+  color: var(--edv-green);
+}
+
+
+/* ── Section divider with Goldy ──────────────────────────────────────── */
+/*  Use case: help.html chapter breaks; long pages benefit from
+    occasional brand presence. Markup:
+       <hr class="edv-section-divider">
+       <div class="edv-section-divider__mascot">
+         <img class="edv-goldy edv-goldy-sm" src="brand/goldy/academy.png"
+              onerror="this.style.display='none'" alt="">
+       </div>                                                              */
+.edv-section-divider {
+  border: 0;
+  height: 1px;
+  background: var(--color-border, #E2E5EA);
+  margin: var(--space-12, 48px) 0 var(--space-6, 24px);
+}
+.edv-section-divider__mascot {
+  display: flex;
+  justify-content: center;
+  margin: calc(-1 * var(--space-10, 40px)) 0 var(--space-6, 24px);
+}
+.edv-section-divider__mascot .edv-goldy {
+  background: var(--color-card, #fff);
+  padding: 0 var(--space-3, 12px);
+}
+
+
+/* ── Hero (landing / welcome panels) ─────────────────────────────────── */
+/*  Use case: post-login splash, executive page banner, monthly report
+    cover. Big display type + Goldy on the right. Markup:
+       <section class="edv-hero">
+         <div class="edv-hero__copy">
+           <h1 class="edv-hero__title">Welcome back</h1>
+           <p  class="edv-hero__sub">Endeavour Mining IT Operations</p>
+         </div>
+         <img class="edv-goldy edv-goldy-lg edv-hero__mascot"
+              src="brand/goldy/welcome-safety.png"
+              onerror="this.style.display='none'" alt="">
+       </section>                                                          */
+.edv-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8, 32px);
+  padding: var(--space-10, 40px) var(--space-12, 48px);
+  background: linear-gradient(135deg,
+    var(--edv-slate, #3A4A60) 0%,
+    var(--edv-slate-dark, #2E3A4D) 100%);
+  color: #fff;
+  border-radius: var(--radius-xl, 14px);
+  flex-wrap: wrap;
+}
+.edv-hero__copy { flex: 1 1 280px; }
+.edv-hero__title {
+  font-family: var(--font-display);
+  font-size: clamp(28px, 4vw, 40px);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  margin: 0 0 var(--space-2, 8px);
+}
+.edv-hero__sub {
+  font-size: 15px;
+  font-weight: 400;
+  color: rgba(255,255,255,.85);
+  margin: 0;
+}
+.edv-hero__mascot {
+  flex-shrink: 0;
+}
+
+
+/* ── Goldy badge (small inline mascot, e.g. tooltip header) ──────────── */
+.edv-goldy-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-strong, #2A2A2A);
+  padding: 6px 12px 6px 6px;
+  background: var(--edv-orange-50, #FBB885);
+  border-radius: var(--radius-pill, 9999px);
+}
+.edv-goldy-badge .edv-goldy {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #fff;
+  padding: 2px;
+}

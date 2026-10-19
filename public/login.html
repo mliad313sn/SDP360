@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>Sign In — Endeavour Mining IT Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="brand/components.css">
+<style>
+  /* ── Phase 1.5 brand polish ─────────────────────────────────────────────
+     Visible upgrades over the previous login:
+       - Subtle slate-gradient body background (depth without noise)
+       - 4px EDV-orange accent bar across the top of the card (signature
+         brand cue, immediately reads as a branded surface)
+       - Display type for the wordmark (Franklin Gothic / Libre Franklin),
+         bigger, two-tier hierarchy ("Endeavour Mining" + "IT Operations
+         Dashboard")
+       - Larger, softer logo plinth with a subtle ring
+       - Friendlier microcopy ("Welcome back. Sign in to continue.")
+       - Button gains an arrow on hover ("Sign In →"), tiny lift transition
+       - Footer treated with a hairline divider for a printed-stationery feel
+     Everything degrades gracefully on older browsers; no new fonts loaded
+     beyond the already-included Libre Franklin. */
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:var(--font-sans, 'Libre Franklin', system-ui, sans-serif);
+    background:
+      radial-gradient(circle at 20% 0%, rgba(239,99,26,.08), transparent 55%),
+      linear-gradient(135deg, var(--edv-slate, #3A4A60) 0%, #2A3445 100%);
+    min-height:100vh;display:flex;align-items:center;justify-content:center;
+    padding:24px;
+  }
+  /* Goldy welcome mascot floats above the card. If the PNG hasn't
+     been dropped into public/brand/goldy/ yet, the onerror handler
+     hides the <img> and the card returns to its previous layout. */
+  .login-stage{display:flex;flex-direction:column;align-items:center;gap:0;width:100%;max-width:440px}
+  .login-mascot{margin-bottom:-28px;z-index:1;filter:drop-shadow(0 8px 16px rgba(0,0,0,.25))}
+  .login-mascot img{width:140px;height:auto;display:block}
+
+  .card{
+    position:relative;
+    background:#fff;
+    border-radius:var(--radius-xl, 14px);
+    padding:48px 48px 36px;
+    width:100%;max-width:440px;
+    box-shadow:var(--shadow-xl, 0 16px 40px rgba(28,45,63,.35));
+    overflow:hidden;
+  }
+  /* Brand accent bar across the top of the card — EDV orange with a slate
+     hairline beneath. Signature brand move; carries the EDV identity even
+     when the logomark is at the bottom of the visible area on small screens. */
+  .card::before{
+    content:'';
+    position:absolute;top:0;left:0;right:0;
+    height:4px;
+    background:linear-gradient(90deg, var(--edv-orange, #EF631A) 0%, var(--edv-orange-75, #F79853) 100%);
+  }
+
+  .logo{text-align:center;margin-bottom:32px}
+  .logo-badge{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:104px;height:104px;
+    background:var(--edv-slate, #3A4A60);
+    border-radius:var(--radius-xl, 14px);
+    margin-bottom:18px;
+    background-image:url('brand/edv-logo-white.png');
+    background-size:72%;background-repeat:no-repeat;background-position:center;
+    box-shadow:
+      0 8px 24px rgba(28,45,63,.18),
+      inset 0 0 0 1px rgba(255,255,255,.04);
+    position:relative;
+  }
+  /* Subtle orange ring accent on the plinth — a thin halo just inside the
+     border-radius. Only visible on close inspection, but adds richness. */
+  .logo-badge::after{
+    content:'';
+    position:absolute;inset:-4px;
+    border-radius:calc(var(--radius-xl, 14px) + 4px);
+    border:1px solid rgba(239,99,26,.18);
+    pointer-events:none;
+  }
+
+  .logo h1{
+    font-family:var(--font-display, 'Libre Franklin', sans-serif);
+    font-size:13px;
+    font-weight:600;
+    color:var(--color-text-muted, #7B7B7B);
+    line-height:1.3;
+    letter-spacing:.18em;
+    text-transform:uppercase;
+    margin-bottom:8px;
+  }
+  /* The big display heading — the wordmark proper. */
+  .logo .wordmark{
+    display:block;
+    font-family:var(--font-display, 'Libre Franklin', sans-serif);
+    font-size:26px;
+    font-weight:800;
+    color:var(--edv-slate, #3A4A60);
+    letter-spacing:-0.01em;
+    line-height:1.1;
+    margin-bottom:8px;
+  }
+  .logo p{
+    font-size:13px;
+    font-weight:400;
+    color:var(--color-text-muted, #7B7B7B);
+    margin-top:4px;
+    letter-spacing:0;
+    text-transform:none;
+    line-height:1.4;
+  }
+
+  .form-group{margin-bottom:18px}
+  label{display:block;font-size:11.5px;font-weight:700;color:var(--color-text-strong, #2A2A2A);margin-bottom:7px;letter-spacing:.5px;text-transform:uppercase}
+  input{
+    width:100%;padding:11px 14px;
+    border:1.5px solid var(--color-border, #E2E5EA);
+    border-radius:var(--radius-md, 6px);
+    font-family:inherit;font-size:14px;color:#111;
+    outline:none;
+    transition:border var(--motion-base, 180ms), box-shadow var(--motion-base, 180ms);
+  }
+  input:focus{border-color:var(--edv-orange, #EF631A);box-shadow:0 0 0 3px rgba(239,99,26,.15)}
+
+  .btn{
+    width:100%;padding:13px;
+    background:var(--edv-orange, #EF631A);
+    color:#fff;border:none;
+    border-radius:var(--radius-md, 6px);
+    font-family:inherit;font-size:14px;font-weight:700;
+    cursor:pointer;
+    transition:background var(--motion-base, 180ms), transform var(--motion-fast, 120ms), box-shadow var(--motion-base, 180ms);
+    margin-top:12px;
+    letter-spacing:.2px;
+    box-shadow:0 4px 12px rgba(239,99,26,.25);
+  }
+  .btn:hover{background:var(--edv-orange-dark, #CA6419);transform:translateY(-1px);box-shadow:0 6px 16px rgba(239,99,26,.32)}
+  .btn:active{transform:translateY(0)}
+  .btn:disabled{background:#9ca3af;cursor:not-allowed;transform:none;box-shadow:none}
+  /* Arrow appears on hover — small detail that signals interactivity */
+  .btn #btnText::after{content:''; display:inline-block; width:0; transition:width var(--motion-base, 180ms);}
+  .btn:hover:not(:disabled) #btnText::after{content:'  →'; width:auto;}
+
+  .error{background:var(--color-danger-bg, #fef2f2);border:1px solid #fecaca;border-radius:var(--radius-md, 6px);padding:10px 14px;font-size:13px;color:var(--edv-red, #dc2626);margin-bottom:16px;display:none;line-height:1.5}
+  .spinner{display:none;width:18px;height:18px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  .footer{
+    text-align:center;
+    margin-top:28px;
+    padding-top:18px;
+    border-top:1px solid var(--color-border, #E2E5EA);
+    font-size:11px;
+    font-weight:500;
+    color:var(--color-text-muted, #9ca3af);
+    letter-spacing:.4px;
+    text-transform:uppercase;
+  }
+  .footer strong{color:var(--edv-slate, #3A4A60); font-weight:700}
+</style>
+</head>
+<body>
+<div class="login-stage">
+  <div class="login-mascot" aria-hidden="true">
+    <!-- Goldy "Welcome / Safety" pose — drop the PNG in public/brand/goldy/.
+         The <img> hides itself if the file is missing so the layout still
+         works during the asset-delivery window. -->
+    <img src="brand/goldy/welcome-safety.png"
+         alt=""
+         onerror="this.parentElement.style.display='none'">
+  </div>
+<div class="card">
+  <div class="logo">
+    <div class="logo-badge" role="img" aria-label="Endeavour Mining"></div>
+    <h1>Endeavour Mining</h1>
+    <span class="wordmark">IT Operations Dashboard</span>
+    <p>Welcome back. Sign in to continue.</p>
+  </div>
+
+  <div class="error" id="err"></div>
+
+  <!-- Microsoft Entra SSO — shown only when the server reports sso_enabled -->
+  <div id="ssoWrap" style="display:none">
+    <button type="button" id="btnMs"
+      style="width:100%;display:flex;align-items:center;justify-content:center;gap:10px;background:#fff;color:#1b1b1b;border:1px solid #d0d3d8;border-radius:10px;padding:13px 16px;font-size:15px;font-weight:600;cursor:pointer;transition:box-shadow .15s,border-color .15s">
+      <svg width="18" height="18" viewBox="0 0 21 21" aria-hidden="true"><rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/><rect x="1" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="#ffb900"/></svg>
+      Sign in with Microsoft
+    </button>
+    <p id="ssoHint" style="text-align:center;font-size:12px;color:var(--color-text-muted,#7B7B7B);margin:12px 0 0">
+      Use your Endeavour Microsoft account.
+    </p>
+  </div>
+
+  <form id="loginForm">
+    <div class="form-group">
+      <label>Username</label>
+      <input type="text" id="username" placeholder="Enter your username" autocomplete="username" required>
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <input type="password" id="password" placeholder="Enter your password" autocomplete="current-password" required>
+    </div>
+    <button type="submit" class="btn" id="btnLogin">
+      <span id="btnText">Sign In</span>
+      <div class="spinner" id="spinner"></div>
+    </button>
+  </form>
+
+  <div class="footer"><strong>Endeavour Mining</strong> &nbsp;·&nbsp; IT Department &nbsp;·&nbsp; Confidential</div>
+</div>
+</div>
+
+<script nonce="%%CSP_NONCE%%">
+  // If already logged in and NO ?next= param, skip straight to index.
+  // If ?next= IS present, just show the form — do not auto-redirect from the init script.
+  // Reason: server no longer redirects HTML pages to login.html?next=, so ?next= only appears
+  // when auth.js on the target page fired (token expired/missing). Showing the form is correct.
+  // Previously, auto-redirecting caused a race with the form submit that cleared fresh tokens.
+  const existing = localStorage.getItem('report_token');
+  const nextParam = new URLSearchParams(location.search).get('next');
+  if (existing && !nextParam) {
+    // Already logged in, browsed directly to login.html — send to index
+    location.replace('index.html');
+  }
+
+  document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value;
+    const errEl    = document.getElementById('err');
+    const btnText  = document.getElementById('btnText');
+    const spinner  = document.getElementById('spinner');
+    const btn      = document.getElementById('btnLogin');
+
+    errEl.style.display = 'none';
+    btnText.style.display = 'none';
+    spinner.style.display = 'block';
+    btn.disabled = true;
+
+    try {
+      const res = await fetch('/api/reports/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Invalid credentials');
+
+      // Store token and user info
+      localStorage.setItem('report_token', data.token);
+      localStorage.setItem('report_user', JSON.stringify(data.user));
+
+      // ── Smart post-login landing ───────────────────────────────────
+      // Mirror the same logic _shell.js uses for the brand "go home"
+      // link. Order: explicit ?next= (when accessible) → role default.
+      // The target page's own auth.js (data-require=...) is the actual
+      // gate — this redirect just picks a reasonable starting page.
+      const ROLE_HIERARCHY = ['super_admin','executive','admin','editor','viewer'];
+      function userHas(required) {
+        const u = data.user || {};
+        const roles = (Array.isArray(u.roles) && u.roles.length)
+          ? u.roles : (u.role ? [u.role] : []);
+        if (roles.includes(required)) return true;
+        const reqIdx = ROLE_HIERARCHY.indexOf(required);
+        if (reqIdx < 0) return false;
+        for (const r of roles) {
+          const have = ROLE_HIERARCHY.indexOf(r);
+          if (have >= 0 && have <= reqIdx) return true;
+        }
+        return false;
+      }
+      function defaultLanding() {
+        if (userHas('executive') || userHas('super_admin')) return 'executive.html';
+        if (userHas('admin'))                                return 'index.html';
+        if (userHas('tracker-editor'))                       return 'activity-tracker.html';
+        return 'index.html';
+      }
+
+      const next     = new URLSearchParams(location.search).get('next');
+      const target   = next ? next.replace(/^\//,'') : '';
+      // Pages that require super_admin — if a lower-tier user came in
+      // with ?next= pointing to one, fall back to their default landing
+      // instead of letting auth.js bounce them mid-flight.
+      const superAdminPages = ['executive-report.html', 'executive.html', 'analytics.html'];
+      const nextNeedsSA     = superAdminPages.some(p => target.startsWith(p));
+
+      if (nextNeedsSA && !userHas('super_admin')) {
+        location.replace(defaultLanding());
+      } else if (next) {
+        location.replace(next);
+      } else {
+        location.replace(defaultLanding());
+      }
+    } catch(err) {
+      errEl.textContent = err.message || 'Login failed. Please try again.';
+      errEl.style.display = 'block';
+      btnText.style.display = 'block';
+      spinner.style.display = 'none';
+      btn.disabled = false;
+    }
+  });
+
+  // ── Microsoft Entra SSO wiring ─────────────────────────────────────────────
+  function ssoErrMsg(code) {
+    const M = {
+      not_provisioned: "Your Microsoft account isn't set up in the dashboard yet. Contact an administrator.",
+      state_expired:   'Your sign-in session expired. Please click “Sign in with Microsoft” again.',
+      missing_code:    'Sign-in was cancelled or failed. Please try again.',
+      start_failed:    'Could not start Microsoft sign-in. Please try again.',
+      session_failed:  'Could not create your session. Please try again.',
+      bad_nonce:       'Sign-in could not be verified (please retry).',
+    };
+    return M[code] || ('Microsoft sign-in failed (' + code + '). Please try again.');
+  }
+  (async function initSSO() {
+    const qs = new URLSearchParams(location.search);
+    const ssoErr = qs.get('sso_error');
+    if (ssoErr) {
+      const e = document.getElementById('err');
+      e.textContent = ssoErrMsg(ssoErr);
+      e.style.display = 'block';
+    }
+    const breakglass = qs.has('breakglass');
+    let cfg = {};
+    try { cfg = await fetch('/api/auth/config').then(r => r.json()); } catch (_) {}
+    const btnMs = document.getElementById('btnMs');
+    if (btnMs) btnMs.addEventListener('click', () => { location.href = '/api/auth/sso/login'; });
+    if (cfg.sso_enabled) {
+      document.getElementById('ssoWrap').style.display = 'block';
+      // password_login: true in 'available' (both shown) + 'off'; false in 'only'.
+      const showPassword = cfg.password_login || breakglass;
+      if (!showPassword) {
+        document.getElementById('loginForm').style.display = 'none';
+      } else if (cfg.mode === 'only' && breakglass) {
+        document.querySelector('.logo p').textContent = 'Break-glass sign-in — for the emergency admin account only.';
+      } else if (cfg.mode === 'available') {
+        // Both methods available during the transition — show a divider.
+        document.getElementById('ssoHint').textContent = 'Use your Endeavour Microsoft account — or sign in with a password below.';
+      }
+    }
+  })();
+</script>
+</body>
+</html>

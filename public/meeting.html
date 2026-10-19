@@ -1,0 +1,1597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Department Meeting — Endeavour Mining IT</title>
+
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="brand/icons.css">
+<link rel="stylesheet" href="brand/components.css">
+<link rel="stylesheet" href="_shell.css">
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<link rel="stylesheet" href="module-tabs.css">
+<script nonce="%%CSP_NONCE%%" src="module-tabs.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/statusTransfer.js"></script>
+<script src="lib/incubationEditor.js"></script>
+
+<style nonce="%%CSP_NONCE%%">
+  body {
+    margin: 0;
+    background: var(--color-bg, #F4F5F7);
+    color: var(--color-text-strong, #1F2A33);
+    font-family: var(--font-sans, 'Libre Franklin', sans-serif);
+    font-size: 14px; line-height: 1.45;
+  }
+  .pv-wrap { max-width: 1500px; margin: 0 auto; padding: 18px 24px 64px; }
+
+  /* ── Sticky header bar — back link + reference + status + actions ───── */
+  .pv-bar {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    background: var(--color-card, #fff);
+    border: 1px solid var(--color-border, #E2E5EA);
+    border-radius: 12px;
+    box-shadow: 0 1px 2px rgba(58,74,96,.04);
+    padding: 12px 18px;
+    margin-bottom: 18px;
+    position: sticky; top: 8px; z-index: 30;
+  }
+  .pv-back {
+    color: var(--color-text-muted, #7B7B7B);
+    text-decoration: none; font-size: 12px; font-weight: 600;
+    border: 1px solid var(--color-border, #E2E5EA);
+    border-radius: 6px; padding: 6px 10px;
+  }
+  .pv-back:hover { color: var(--edv-orange, #EF631A); border-color: var(--edv-orange, #EF631A); }
+  .pv-ref {
+    font-family: var(--font-mono, monospace);
+    font-size: 12px; font-weight: 700;
+    color: var(--color-text-strong, #1F2A33); letter-spacing: 0.4px;
+    background: var(--color-bg, #F4F5F7); padding: 5px 10px; border-radius: 6px;
+    border: 1px solid var(--color-border, #E2E5EA);
+  }
+  .pv-status-pill {
+    font-size: 10.5px; font-weight: 800; letter-spacing: 0.6px;
+    padding: 4px 10px; border-radius: 9999px;
+    text-transform: uppercase;
+    border: 1px solid transparent;
+  }
+  .pv-bar h1 {
+    margin: 0; font-size: 16px; font-weight: 800;
+    color: var(--edv-slate, #3A4A60);
+    flex: 1; min-width: 220px;
+  }
+  .pv-bar h1 small {
+    display: block; font-size: 10.5px; font-weight: 600; color: var(--color-text-muted, #7B7B7B);
+    text-transform: uppercase; letter-spacing: 1px; margin-bottom: 3px;
+  }
+  .pv-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn-primary, .btn-ghost, .btn-danger {
+    font-family: var(--font-sans); font-size: 12.5px; font-weight: 700;
+    padding: 8px 14px; border-radius: 6px; cursor: pointer;
+    letter-spacing: 0.2px; border: 1px solid transparent;
+    display: inline-flex; align-items: center; gap: 6px; text-decoration: none;
+  }
+  .btn-primary { background: var(--edv-orange, #EF631A); color: #fff; border-color: var(--edv-orange-dark, #C04E10); }
+  .btn-primary:hover { background: var(--edv-orange-dark, #C04E10); }
+  .btn-primary:disabled { background: #B7BEC9; border-color: #B7BEC9; cursor: not-allowed; }
+  .btn-ghost {
+    background: transparent; color: var(--color-text-strong, #1F2A33);
+    border-color: var(--color-border, #E2E5EA);
+  }
+  .btn-ghost:hover { background: var(--color-bg, #F4F5F7); }
+  .btn-danger { background: transparent; color: #B91C1C; border-color: #FCA5A5; }
+  .btn-danger:hover { background: #FEE2E2; }
+
+  /* ── Locked banner ──────────────────────────────────────────────── */
+  .pv-locked {
+    background: #FEF3C7; border: 1px solid #FBBF24;
+    color: #78350F; border-radius: 8px; padding: 10px 16px;
+    font-size: 12.5px; margin-bottom: 16px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .pv-toast {
+    background: #DCFCE7; border: 1px solid #86EFAC;
+    color: #14532D; border-radius: 8px; padding: 10px 16px;
+    font-size: 12.5px; margin-bottom: 16px;
+  }
+  .pv-toast--error { background: #FEE2E2; border-color: #FCA5A5; color: #991B1B; }
+
+  /* ── Two-column layout ──────────────────────────────────────────── */
+  .pv-grid { display: grid; grid-template-columns: minmax(0, 2.1fr) minmax(0, 1fr); gap: 18px; }
+  @media (max-width: 1100px) { .pv-grid { grid-template-columns: 1fr; } }
+
+  /* ── Section cards ──────────────────────────────────────────────── */
+  .pv-card {
+    background: var(--color-card, #fff);
+    border: 1px solid var(--color-border, #E2E5EA);
+    border-radius: 12px;
+    box-shadow: 0 1px 2px rgba(58,74,96,.04);
+    padding: 18px 20px;
+    margin-bottom: 18px;
+  }
+  .pv-card__head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin: -2px 0 14px; padding-bottom: 10px;
+    border-bottom: 1px solid var(--color-border-subtle, #EEF0F3);
+  }
+  .pv-card__title {
+    font-size: 11.5px; font-weight: 800; text-transform: uppercase;
+    letter-spacing: 1.1px; color: var(--edv-slate, #3A4A60);
+  }
+  .pv-card__title em {
+    font-style: normal; font-weight: 600; color: var(--color-text-muted, #7B7B7B);
+    margin-left: 6px; text-transform: none; letter-spacing: 0.3px;
+  }
+  .pv-card__hint { font-size: 11px; color: var(--color-text-muted, #7B7B7B); }
+
+  /* ── Form fields ────────────────────────────────────────────────── */
+  .pv-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+  .pv-row--three { grid-template-columns: 1fr 1fr 1fr; }
+  .pv-row--four  { grid-template-columns: 1fr 1fr 1fr 1fr; }
+  .pv-row--single { grid-template-columns: 1fr; }
+  @media (max-width: 720px) {
+    .pv-row, .pv-row--three, .pv-row--four { grid-template-columns: 1fr; }
+  }
+  .pv-field { display: flex; flex-direction: column; gap: 5px; }
+  .pv-field label {
+    font-size: 10.5px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.7px; color: var(--color-text-muted, #7B7B7B);
+  }
+  .pv-field label em {
+    text-transform: none; font-style: italic; font-weight: 500;
+    color: var(--color-text-muted, #94A3B8); letter-spacing: 0.2px;
+    margin-left: 4px;
+  }
+  .pv-field label .req { color: var(--edv-red, #D90038); margin-left: 2px; }
+  .pv-field input, .pv-field select, .pv-field textarea {
+    background: var(--color-card, #fff);
+    border: 1px solid var(--color-border, #E2E5EA);
+    border-radius: 6px;
+    padding: 8px 11px;
+    font: 400 13px var(--font-sans);
+    color: var(--color-text-strong, #1F2A33);
+    width: 100%; box-sizing: border-box;
+  }
+  .pv-field textarea { min-height: 64px; resize: vertical; line-height: 1.45; }
+  .pv-field input:focus, .pv-field select:focus, .pv-field textarea:focus {
+    outline: none;
+    border-color: var(--edv-orange, #EF631A);
+    box-shadow: 0 0 0 3px rgba(239,99,26,.12);
+  }
+  .pv-field input[disabled], .pv-field select[disabled], .pv-field textarea[disabled],
+  .pv-field input[readonly] {
+    background: var(--color-bg, #F4F5F7); cursor: not-allowed;
+    color: var(--color-text-muted, #7B7B7B);
+  }
+
+  /* ── Repeatable rows (projects, issues, actions) ─────────────────── */
+  .pv-list { display: flex; flex-direction: column; gap: 12px; }
+  .pv-item {
+    border: 1px solid var(--color-border, #E2E5EA);
+    border-radius: 8px;
+    padding: 12px 14px;
+    background: var(--color-bg, #F4F5F7);
+    position: relative;
+  }
+  .pv-item__head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 10px; gap: 8px;
+  }
+  .pv-item__ord {
+    font-family: var(--font-mono, monospace);
+    font-size: 11px; font-weight: 800;
+    color: var(--edv-slate, #3A4A60);
+    background: #fff;
+    border: 1px solid var(--color-border, #E2E5EA);
+    border-radius: 6px;
+    padding: 3px 8px;
+  }
+  .pv-item__rm {
+    font-family: var(--font-sans); font-size: 11px; font-weight: 700;
+    background: transparent; color: #B91C1C;
+    border: 1px solid transparent; cursor: pointer;
+    padding: 4px 8px; border-radius: 4px;
+  }
+  .pv-item__rm:hover { background: #FEE2E2; border-color: #FCA5A5; }
+  .pv-add {
+    background: transparent; border: 1px dashed var(--color-border, #E2E5EA);
+    color: var(--color-text-muted, #7B7B7B);
+    font-family: var(--font-sans); font-size: 12px; font-weight: 700;
+    padding: 9px; border-radius: 8px; cursor: pointer;
+    width: 100%; text-align: center;
+  }
+  .pv-add:hover {
+    border-color: var(--edv-orange, #EF631A); color: var(--edv-orange, #EF631A);
+    background: rgba(239,99,26,.04);
+  }
+
+  /* ── Business Incubation mode (2026-10-03) — one form, two layouts ── */
+  .pv-main[data-mode="inc"] [data-only="pv"] { display: none !important; }
+  .pv-main:not([data-mode="inc"]) [data-only="inc"] { display: none !important; }
+
+  /* ── Issue-specific styling ──────────────────────────────────────── */
+  .pv-issue--HIGH   { border-left: 4px solid var(--edv-red, #D90038); }
+  .pv-issue--MEDIUM { border-left: 4px solid var(--color-warning, #D97706); }
+  .pv-issue--LOW    { border-left: 4px solid var(--edv-blue, #0891B2); }
+  .pv-esc-block {
+    display: none;
+    background: rgba(124,58,237,.06);
+    border: 1px solid rgba(124,58,237,.20);
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin-top: 10px;
+  }
+  .pv-issue--escalated .pv-esc-block { display: block; }
+  .pv-esc-flag {
+    display: inline-block;
+    font-size: 10px; font-weight: 800; letter-spacing: 0.6px;
+    padding: 2px 8px; border-radius: 9999px;
+    background: rgba(124,58,237,.10); color: #5B21B6;
+    border: 1px solid rgba(124,58,237,.30);
+    margin-left: 6px;
+    text-transform: uppercase;
+  }
+  .pv-cat-chip {
+    display: inline-block;
+    font-size: 10.5px; font-weight: 800; letter-spacing: 0.4px;
+    padding: 2px 8px; border-radius: 4px;
+    background: rgba(20,95,174,.10); color: var(--edv-blue, #145FAE);
+    border: 1px solid rgba(20,95,174,.30);
+    font-family: var(--font-mono, monospace);
+    margin-left: 6px;
+  }
+
+  /* ── Right column (audit thread) ─────────────────────────────────── */
+  .pv-side .pv-card { padding: 16px 18px; margin-bottom: 16px; }
+  .pv-thread { display: flex; flex-direction: column; gap: 10px; max-height: 540px; overflow-y: auto; padding-right: 4px; }
+  .pv-thread__item {
+    border-left: 3px solid var(--color-border, #E2E5EA);
+    padding: 6px 10px;
+    font-size: 12px;
+    line-height: 1.45;
+  }
+  .pv-thread__item--status   { border-left-color: var(--edv-blue, #145FAE); }
+  .pv-thread__item--escalate { border-left-color: #7C3AED; }
+  .pv-thread__head { font-size: 11px; color: var(--color-text-muted, #7B7B7B); margin-bottom: 2px; }
+  .pv-thread__head strong { color: var(--color-text-strong, #1F2A33); font-weight: 700; }
+  .pv-thread__body { color: var(--color-text, #524F4E); }
+  .pv-thread__tag {
+    display: inline-block; font-size: 10px; font-weight: 800;
+    padding: 1px 6px; border-radius: 4px; margin-left: 4px;
+    background: var(--color-bg, #F4F5F7); color: var(--color-text-muted, #7B7B7B);
+    text-transform: uppercase; letter-spacing: 0.4px;
+  }
+  .pv-thread__empty { color: var(--color-text-muted, #7B7B7B); font-style: italic; font-size: 12px; padding: 8px; text-align: center; }
+
+  .pv-quick textarea {
+    background: var(--color-card, #fff);
+    border: 1px solid var(--color-border, #E2E5EA);
+    border-radius: 6px;
+    padding: 8px 11px;
+    font: 400 12.5px var(--font-sans);
+    width: 100%; box-sizing: border-box;
+    min-height: 60px; resize: vertical;
+  }
+  .pv-quick__head {
+    font-size: 11px; font-weight: 700;
+    color: var(--color-text-muted, #7B7B7B);
+    margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.6px;
+  }
+  .pv-quick__foot { display: flex; gap: 8px; margin-top: 8px; justify-content: flex-end; }
+
+  /* ── Engagement compliance chips ─────────────────────────────────── */
+  .pv-engagements {
+    display: flex; gap: 8px; flex-wrap: wrap;
+    margin-top: 6px;
+  }
+  .pv-eng {
+    font-size: 11px; padding: 5px 10px; border-radius: 9999px;
+    border: 1px solid var(--color-border, #E2E5EA);
+    background: var(--color-card, #fff);
+    color: var(--color-text-muted, #7B7B7B);
+  }
+  .pv-eng--ok   { border-color: rgba(27,154,58,.40); background: rgba(27,154,58,.06); color: #166534; font-weight: 700; }
+  .pv-eng--ko   { border-color: rgba(217,0,56,.40);  background: rgba(217,0,56,.06);  color: #991B1B; font-weight: 700; }
+  .pv-eng--na   { border-color: var(--color-border, #E2E5EA); background: var(--color-bg, #F4F5F7); color: var(--color-text-muted, #7B7B7B); }
+
+  /* ── Read-only blob for escalations summary ─────────────────────── */
+  .pv-esc-summary {
+    background: rgba(124,58,237,.04);
+    border: 1px solid rgba(124,58,237,.20);
+    border-radius: 8px;
+    padding: 12px 14px;
+  }
+  .pv-esc-summary__row {
+    display: grid; grid-template-columns: 60px 1fr 140px 140px;
+    gap: 10px; align-items: center;
+    font-size: 12.5px;
+    padding: 7px 0; border-bottom: 1px solid rgba(124,58,237,.10);
+  }
+  .pv-esc-summary__row:last-child { border-bottom: 0; }
+  .pv-esc-summary__row strong { color: var(--color-text-strong, #1F2A33); font-weight: 600; }
+  .pv-esc-summary__row small { color: var(--color-text-muted, #7B7B7B); }
+  .pv-esc-summary__empty {
+    color: var(--color-text-muted, #7B7B7B); font-style: italic; font-size: 12.5px; text-align: center; padding: 16px;
+  }
+  .pv-cat-pill {
+    display: inline-block; font-size: 10px; font-weight: 800;
+    padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono, monospace);
+    background: rgba(20,95,174,.10); color: var(--edv-blue, #145FAE);
+    border: 1px solid rgba(20,95,174,.30);
+  }
+
+  /* ── PRINT / PDF EXPORT ─────────────────────────────────────────────
+     When the user clicks "📤 Export PDF" or hits Ctrl+P, render a clean
+     A4 portrait document containing only the PV content. The browser's
+     native PDF export ("Save as PDF" in the print dialog) gives the
+     coordinator a self-contained file ready to email to a department
+     head.
+
+     Strategy:
+       • Hide all interactive chrome (shell nav, sticky bar buttons,
+         banners, helper hints, add/remove row controls, comment box).
+       • Show a printable header at the top with site / department /
+         meeting date / reference / status — visible only when printing.
+       • Flatten <input>, <select>, <textarea> to look like flat text
+         (no borders, no backgrounds) so the printed page reads as a
+         document, not a form.
+       • Force-show each .pv-card on a fresh page-break-inside avoidance
+         block so sections don't get split mid-row.
+  */
+  .pv-print-header {
+    display: none;  /* hidden in screen mode */
+  }
+  @media print {
+    /* hide app chrome + edit controls */
+    #__shell, .mtg-tabs, .pv-bar, #pvBanner,
+    .pv-card__hint, .pv-quick-comment,
+    .btn-primary, .btn-ghost, .btn-danger,
+    .pv-issue__head__actions, .pv-add-row,
+    button, .pv-back {
+      display: none !important;
+    }
+    /* show the printable header (constructed in JS just before print) */
+    .pv-print-header { display: block !important; }
+
+    body { background: #FFFFFF !important; padding: 0; margin: 0; }
+    .pv-wrap { padding: 0 !important; max-width: 100% !important; }
+    .pv-grid { gap: 12px !important; }
+    .pv-card {
+      box-shadow: none !important;
+      border: 1px solid #D1D5DB !important;
+      border-radius: 6px !important;
+      break-inside: avoid;
+      page-break-inside: avoid;
+      margin-bottom: 8px;
+    }
+    .pv-card__title { font-size: 12pt !important; }
+
+    /* flatten form controls so they read as text */
+    input, select, textarea {
+      border: none !important;
+      background: transparent !important;
+      box-shadow: none !important;
+      padding: 1px 0 !important;
+      font-family: inherit !important;
+      font-size: 10.5pt !important;
+      color: #111827 !important;
+    }
+    textarea { resize: none; min-height: auto !important; }
+    select { appearance: none; -webkit-appearance: none; }
+
+    /* compact issue/action rows */
+    .pv-issue, .pv-action {
+      border: 1px solid #E5E7EB !important;
+      page-break-inside: avoid;
+      margin-bottom: 6px !important;
+      padding: 8px !important;
+    }
+    .pv-issue__head, .pv-action__head { gap: 6px !important; }
+
+    /* printable header styling */
+    .pv-print-header {
+      border-bottom: 2px solid var(--edv-orange, #E87722);
+      padding: 0 0 8px 0;
+      margin: 0 0 16px 0;
+      font-family: var(--font-sans);
+    }
+    .pv-print-header h1 {
+      font-size: 16pt !important; font-weight: 700 !important;
+      margin: 0 0 4px 0 !important; color: #111827 !important;
+    }
+    .pv-print-header .pv-print-meta {
+      font-size: 10.5pt; color: #4B5563; display: flex; flex-wrap: wrap; gap: 14px;
+    }
+    .pv-print-header .pv-print-meta strong { color: #111827; margin-right: 4px; }
+    .pv-print-footer {
+      display: block !important;
+      margin-top: 18px; padding-top: 8px;
+      border-top: 1px solid #E5E7EB;
+      font-size: 9pt; color: #6B7280;
+      text-align: center;
+    }
+
+    @page { margin: 14mm 12mm; size: A4 portrait; }
+  }
+  .pv-print-footer { display: none; }
+</style>
+</head>
+<body>
+
+<div id="__shell" data-section="operations" data-current="meetings"></div>
+
+<div id="__moduletabs" data-module="meetings" data-current=""></div>
+
+<div class="pv-wrap">
+
+  <!-- ── Sticky bar ─────────────────────────────────────────────── -->
+  <div class="pv-bar">
+    <a class="pv-back" href="meetings.html">‹ All meetings</a>
+    <h1>
+      <small id="pvSectionLabel">Department meeting · Réunion départementale</small>
+      <span id="pvHeaderTitle">New meeting</span>
+    </h1>
+    <span class="pv-ref" id="pvRef" style="display:none">—</span>
+    <span class="pv-status-pill" id="pvStatusPill" style="display:none">draft</span>
+    <div class="pv-actions">
+      <a class="btn-ghost" id="pvProgressLink" href="meetings-progress.html" style="display:none">⟳ Since last meeting</a>
+      <button class="btn-ghost"   type="button" id="pvExportBtn"      title="Print or save as PDF (Ctrl+P)">📤 PDF</button>
+      <button class="btn-ghost"   type="button" id="pvExportPptxBtn" title="Download server-generated PPTX deck" style="display:none">📤 PPTX</button>
+      <button class="btn-ghost"   type="button" id="pvSubmitBtn">Submit</button>
+      <button class="btn-ghost"   type="button" id="pvSignBtn">Mark signed</button>
+      <button class="btn-primary" type="button" id="pvSaveBtn">Save</button>
+      <button class="btn-danger"  type="button" id="pvDeleteBtn" style="display:none">Delete</button>
+    </div>
+  </div>
+
+  <div id="pvBanner"></div>
+
+  <!-- Printable header — populated by JS just before window.print() fires.
+       Hidden in screen mode; revealed by the @media print stylesheet. -->
+  <div class="pv-print-header" id="pvPrintHeader" aria-hidden="true">
+    <h1 id="pvPrintTitle">Department meeting</h1>
+    <div class="pv-print-meta">
+      <span><strong>Site:</strong>       <span id="pvPrintSite">—</span></span>
+      <span><strong>Department:</strong> <span id="pvPrintDept">—</span></span>
+      <span><strong>Date:</strong>       <span id="pvPrintDate">—</span></span>
+      <span><strong>Reference:</strong>  <span id="pvPrintRef">—</span></span>
+      <span><strong>Status:</strong>     <span id="pvPrintStatus">—</span></span>
+    </div>
+  </div>
+
+  <div class="pv-grid">
+
+    <!-- ============================================================== -->
+    <!--  LEFT — the 7-section PV editor                                 -->
+    <!-- ============================================================== -->
+    <div class="pv-main" id="pvMain" data-mode="pv">
+
+      <!-- Section 1 — Meeting header / En-tête de réunion ───────── -->
+      <div class="pv-card">
+        <div class="pv-card__head">
+          <div class="pv-card__title"><span data-only="pv">1 · Meeting header <em>· En-tête de réunion</em></span><span data-only="inc">1 · Identification <em>· Identification de la session</em></span></div>
+          <div class="pv-card__hint">Site × department × month → reference auto-generated</div>
+        </div>
+
+        <div class="pv-row pv-row--three">
+          <div class="pv-field">
+            <label>Site <em>· Site</em><span class="req">*</span></label>
+            <select id="hSite"></select>
+          </div>
+          <div class="pv-field">
+            <label>Department <em>· Département</em><span class="req">*</span></label>
+            <select id="hDept"></select>
+          </div>
+          <div class="pv-field">
+            <label>Intake source <em>· Origine</em></label>
+            <select id="hIntake"></select>
+          </div>
+        </div>
+
+        <div class="pv-row pv-row--three">
+          <div class="pv-field">
+            <label><span data-only="pv">Meeting date <em>· Date de réunion</em></span><span data-only="inc">Session start <em>· Début de session</em></span><span class="req">*</span></label>
+            <input type="date" id="hDate">
+          </div>
+          <div class="pv-field" data-only="inc">
+            <label>Session end <em>· Fin de session</em></label>
+            <input type="date" id="incEnd">
+          </div>
+          <div class="pv-field" data-only="pv">
+            <label>Duration (minutes) <em>· Durée</em></label>
+            <input type="number" id="hDuration" min="0" step="5" placeholder="60">
+          </div>
+          <div class="pv-field">
+            <label>Meeting status <em>· Statut</em></label>
+            <select id="hStatus"></select>
+          </div>
+        </div>
+
+        <div class="pv-row pv-row--three" data-only="inc">
+          <div class="pv-field">
+            <label>Incubatee <em>· Incubé</em></label>
+            <input type="text" id="incIncubator" placeholder="Business person hosted in IT">
+          </div>
+          <div class="pv-field">
+            <label>Incubatee title <em>· Fonction de l'incubé</em></label>
+            <input type="text" id="incIncubatorTitle" placeholder="Geologist, Mine planner, …">
+          </div>
+          <div class="pv-field">
+            <label>Duration <em>· Durée</em></label>
+            <input type="text" id="incDuration" placeholder="e.g. 2 days · 2 jours">
+          </div>
+        </div>
+
+        <div class="pv-row">
+          <div class="pv-field">
+            <label><span data-only="pv">Department head <em>· Chef de département</em></span><span data-only="inc">Incubation manager <em>· Manager d'incubation</em></span></label>
+            <input type="text" id="hDeptHead" list="pvPeopleList" placeholder="Full name">
+          </div>
+          <div class="pv-field" data-only="pv">
+            <label>Title <em>· Fonction</em></label>
+            <input type="text" id="hDeptHeadTitle" placeholder="Mining Manager, Plant Superintendent, …">
+          </div>
+        </div>
+
+        <div class="pv-row pv-row--single">
+          <div class="pv-field">
+            <label><span data-only="pv">Site IT Lead <em>· Pilote IT site</em></span><span data-only="inc">IT manager <em>· Manager IT</em></span></label>
+            <input type="text" id="hItLead" list="pvPeopleList" placeholder="Full name">
+          </div>
+        </div>
+
+        <div class="pv-row pv-row--single">
+          <div class="pv-field">
+            <label>Other attendees <em>· Autres participants</em></label>
+            <textarea id="hAttendees" placeholder="One per line, or comma-separated"></textarea>
+          </div>
+        </div>
+
+        <datalist id="pvPeopleList"></datalist>
+      </div>
+
+      <!-- Business Incubation §2-§4 (2026-10-03) — editable, shown only for an incubation -->
+      <div class="pv-card" data-only="inc">
+        <div class="pv-card__head">
+          <div class="pv-card__title">2 · Business description <em>· Description du métier</em></div>
+          <div class="pv-card__hint">What the department / occupation does, in its own words</div>
+        </div>
+        <div class="pv-row pv-row--single">
+          <div class="pv-field">
+            <label>Description <em>· Description</em></label>
+            <textarea id="incDesc" style="min-height:110px" placeholder="One paragraph describing the department or occupation"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="pv-card" data-only="inc">
+        <div class="pv-card__head">
+          <div class="pv-card__title">3 · Information flow <em>· Flux de l'information</em></div>
+          <div class="pv-card__hint">Incoming information → activity → outgoing information</div>
+        </div>
+        <div class="pv-list" id="incFlow"></div>
+        <button class="pv-add" type="button" id="incAddFlow">+ Add a flow · Ajouter un flux</button>
+      </div>
+
+      <div class="pv-card" data-only="inc">
+        <div class="pv-card__head">
+          <div class="pv-card__title">4 · Services provided <em>· Services fournis</em></div>
+          <div class="pv-card__hint">IT services the department relies on</div>
+        </div>
+        <div class="pv-list" id="incServices"></div>
+        <button class="pv-add" type="button" id="incAddService">+ Add a service · Ajouter un service</button>
+      </div>
+
+      <!-- Section 2 — 3 priorities / 3 priorités ─────────────────── -->
+      <div class="pv-card" data-only="pv">
+        <div class="pv-card__head">
+          <div class="pv-card__title">2 · Three priorities <em>· Trois priorités du département</em></div>
+          <div class="pv-card__hint">In the department's own words — context for every issue below</div>
+        </div>
+        <div class="pv-row pv-row--single">
+          <div class="pv-field">
+            <label>Priority 1 <em>· Priorité 1</em></label>
+            <textarea id="hPrio1" placeholder="e.g. Reduce truck downtime by 20 % this quarter."></textarea>
+          </div>
+        </div>
+        <div class="pv-row pv-row--single">
+          <div class="pv-field">
+            <label>Priority 2 <em>· Priorité 2</em></label>
+            <textarea id="hPrio2"></textarea>
+          </div>
+        </div>
+        <div class="pv-row pv-row--single">
+          <div class="pv-field">
+            <label>Priority 3 <em>· Priorité 3</em></label>
+            <textarea id="hPrio3"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 3 — Department projects ────────────────────────── -->
+      <div class="pv-card" data-only="pv">
+        <div class="pv-card__head">
+          <div class="pv-card__title">3 · Department projects <em>· Projets du département</em></div>
+          <div class="pv-card__hint">Initiatives in flight — IT involvement level matters more than IT ownership</div>
+        </div>
+        <div class="pv-list" id="pvProjects"></div>
+        <button class="pv-add" type="button" id="pvAddProject">+ Add project · Ajouter un projet</button>
+      </div>
+
+      <!-- Section 4 — Issues raised ──────────────────────────────── -->
+      <div class="pv-card">
+        <div class="pv-card__head">
+          <div class="pv-card__title"><span data-only="pv">4 · Issues raised <em>· Problèmes soulevés</em></span><span data-only="inc">5 · Challenges &amp; obstacles <em>· Défis &amp; obstacles</em></span></div>
+          <div class="pv-card__hint">9 canonical categories · severity HIGH/MEDIUM/LOW · escalate triggers Council theme</div>
+        </div>
+        <div class="pv-list" id="pvIssues"></div>
+        <button class="pv-add" type="button" id="pvAddIssue"><span data-only="pv">+ Add issue · Ajouter un problème</span><span data-only="inc">+ Add a challenge · Ajouter un défi</span></button>
+      </div>
+
+      <!-- Section 5 — Actions / IT commitments ───────────────────── -->
+      <div class="pv-card">
+        <div class="pv-card__head">
+          <div class="pv-card__title"><span data-only="pv">5</span><span data-only="inc">6</span> · Actions <em>· Engagements IT</em></div>
+          <div class="pv-card__hint">Every action needs a named Champion (Engagement #3)</div>
+        </div>
+        <div class="pv-list" id="pvActions"></div>
+        <button class="pv-add" type="button" id="pvAddAction">+ Add action · Ajouter une action</button>
+      </div>
+
+      <!-- Section 6 — Council escalations (auto-derived) ─────────── -->
+      <div class="pv-card">
+        <div class="pv-card__head">
+          <div class="pv-card__title"><span data-only="pv">6</span><span data-only="inc">7</span> · Council escalations <em>· Escalades Mine IT Council</em></div>
+          <div class="pv-card__hint">Auto-derived from issues with <strong>Escalate = Yes</strong></div>
+        </div>
+        <div id="pvEscSummary"></div>
+      </div>
+
+      <!-- Section 7 — Sign-off ───────────────────────────────────── -->
+      <div class="pv-card">
+        <div class="pv-card__head">
+          <div class="pv-card__title"><span data-only="pv">7</span><span data-only="inc">8</span> · Sign-off <em>· Signatures</em></div>
+          <div class="pv-card__hint">Both signatures stamp the PV with a timestamp (server time)</div>
+        </div>
+
+        <div class="pv-row">
+          <div class="pv-field">
+            <label><span data-only="pv">Dept Head signed at <em>· Chef département signé le</em></span><span data-only="inc">Incubation manager signed at <em>· Manager d'incubation signé le</em></span></label>
+            <input type="text" id="hDeptHeadSigned" readonly>
+          </div>
+          <div class="pv-field">
+            <label><span data-only="pv">Site IT Lead signed at <em>· Pilote IT signé le</em></span><span data-only="inc">IT manager signed at <em>· Manager IT signé le</em></span></label>
+            <input type="text" id="hItLeadSigned" readonly>
+          </div>
+        </div>
+
+        <div class="pv-row">
+          <div class="pv-field">
+            <label><span data-only="pv">Next meeting date <em>· Date prochaine réunion</em></span><span data-only="inc">Next session <em>· Prochaine session</em></span></label>
+            <input type="date" id="hNextDate">
+          </div>
+          <div class="pv-field">
+            <label>Next meeting location <em>· Lieu prochaine réunion</em></label>
+            <input type="text" id="hNextLoc" placeholder="Site / Teams / Hybrid">
+          </div>
+        </div>
+
+        <div class="pv-actions" style="margin-top:8px">
+          <button class="btn-ghost" type="button" id="pvStampDeptHead">Stamp dept head signature</button>
+          <button class="btn-ghost" type="button" id="pvStampItLead">Stamp IT lead signature</button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ============================================================== -->
+    <!--  RIGHT — context · engagements · audit thread · quick comment   -->
+    <!-- ============================================================== -->
+    <div class="pv-side">
+
+      <!-- 5 Engagements local snapshot -->
+      <div class="pv-card">
+        <div class="pv-card__head">
+          <div class="pv-card__title">5 Engagements snapshot</div>
+          <div class="pv-card__hint">For this PV only</div>
+        </div>
+        <div class="pv-engagements" id="pvEngagements"></div>
+      </div>
+
+      <!-- Audit thread (issue-level updates) -->
+      <div class="pv-card">
+        <div class="pv-card__head">
+          <div class="pv-card__title">Audit trail <em>· Historique des problèmes</em></div>
+        </div>
+        <div class="pv-thread" id="pvThread">
+          <div class="pv-thread__empty">No audit entries yet. Issues will log status &amp; escalate changes here.</div>
+        </div>
+      </div>
+
+      <!-- Quick comment posting -->
+      <div class="pv-card pv-quick">
+        <div class="pv-card__head">
+          <div class="pv-card__title">Quick comment</div>
+          <div class="pv-card__hint">Pick an issue then post an update</div>
+        </div>
+        <div class="pv-row pv-row--single" style="margin-bottom:8px">
+          <div class="pv-field">
+            <label>Target issue</label>
+            <select id="pvQuickIssue"><option value="">—</option></select>
+          </div>
+        </div>
+        <div class="pv-row pv-row--single" style="margin-bottom:8px">
+          <div class="pv-field">
+            <label>Status change <em>· optional</em></label>
+            <select id="pvQuickStatus"><option value="">— keep current —</option></select>
+          </div>
+        </div>
+        <div class="pv-quick__head">Comment</div>
+        <textarea id="pvQuickBody" placeholder="What changed since last meeting?"></textarea>
+        <div class="pv-quick__foot">
+          <button class="btn-primary" type="button" id="pvQuickPost">Post</button>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+
+<script nonce="%%CSP_NONCE%%">
+(function () {
+  'use strict';
+
+  const API = '/api/meetings';
+
+  // ── Auth header ─────────────────────────────────────────────────
+  function authHeaders() {
+    const h = { 'Content-Type': 'application/json' };
+    const at = window.__authToken;
+    let tok = null;
+    if (typeof at === 'function') { try { tok = at(); } catch(_) {} }
+    else if (typeof at === 'string' && at) { tok = at; }
+    if (!tok) tok = localStorage.getItem('report_token');
+    if (tok) h['x-report-token'] = tok;
+    return h;
+  }
+
+  // ── Helpers ─────────────────────────────────────────────────────
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => (
+    { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]
+  ));
+  const fmtDate = iso => {
+    if (!iso) return '—';
+    const M = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const [y, m, d] = String(iso).slice(0, 10).split('-');
+    return `${d} ${M[parseInt(m, 10) - 1]} ${y}`;
+  };
+  const tint = (hex, alpha) => {
+    const m = String(hex || '').match(/^#?([0-9a-f]{6})$/i);
+    if (!m) return `rgba(107,119,133,${alpha})`;
+    const n = parseInt(m[1], 16);
+    return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
+  };
+  function showBanner(text, kind) {
+    const el = document.getElementById('pvBanner');
+    el.innerHTML = `<div class="pv-toast${kind === 'error' ? ' pv-toast--error' : ''}">${esc(text)}</div>`;
+    if (kind !== 'error') {
+      clearTimeout(showBanner._t);
+      showBanner._t = setTimeout(() => { el.innerHTML = ''; }, 4000);
+    }
+  }
+  function urlId() {
+    const m = location.search.match(/[?&]id=([^&]+)/);
+    return m ? parseInt(decodeURIComponent(m[1]), 10) : null;
+  }
+
+  // ── In-memory state ─────────────────────────────────────────────
+  const state = {
+    id: urlId(),
+    lookups: null,
+    header: {},
+    projects: [],
+    issues: [],
+    actions: [],
+    updates: [],
+    locked: false,    // locked when status='closed' AND user is editor
+    user_role: null,
+  };
+
+  // ── Lookup-driven select fillers ────────────────────────────────
+  function fillSelect(el, items, valueKey, labelKey, blank, currentValue) {
+    el.innerHTML = (blank ? `<option value="">${esc(blank)}</option>` : '')
+      + (items || []).map(it => `<option value="${esc(it[valueKey])}">${esc(it[labelKey])}</option>`).join('');
+    if (currentValue != null) el.value = currentValue;
+  }
+
+  // ── Render: header (Section 1 + 2 + 7) ─────────────────────────
+  function renderHeader() {
+    const L = state.lookups;
+    const h = state.header || {};
+
+    fillSelect(document.getElementById('hSite'),   L.sites,            'code', 'name',    'Select a site',       h.site_code);
+    fillSelect(document.getElementById('hDept'),   L.departments,      'code', 'name_en', 'Select a department', h.department);
+    fillSelect(document.getElementById('hIntake'), L.intake_sources,   'code', 'name_en', '',                     h.intake_source || 'dept_meeting');
+    fillSelect(document.getElementById('hStatus'), L.meeting_statuses, 'code', 'name_en', '',                     h.status || 'draft');
+
+    document.getElementById('hDate').value          = h.meeting_date     || '';
+    document.getElementById('hDuration').value      = h.duration_min     || '';
+    document.getElementById('hDeptHead').value      = h.department_head  || '';
+    document.getElementById('hDeptHeadTitle').value = h.department_head_title || '';
+    document.getElementById('hItLead').value        = h.site_it_lead     || '';
+    document.getElementById('hAttendees').value     = h.other_attendees  || '';
+    document.getElementById('hPrio1').value         = h.priority_1       || '';
+    document.getElementById('hPrio2').value         = h.priority_2       || '';
+    document.getElementById('hPrio3').value         = h.priority_3       || '';
+    document.getElementById('hDeptHeadSigned').value= h.dept_head_signed_at || '';
+    document.getElementById('hItLeadSigned').value  = h.site_it_signed_at   || '';
+    document.getElementById('hNextDate').value      = h.next_meeting_date     || '';
+    document.getElementById('hNextLoc').value       = h.next_meeting_location || '';
+
+    // Reference + status pill
+    if (state.id && h.reference) {
+      const refEl = document.getElementById('pvRef');
+      refEl.style.display = '';
+      refEl.textContent = h.reference;
+
+      const pill = document.getElementById('pvStatusPill');
+      const st   = (L.meeting_statuses || []).find(x => x.code === (h.status || 'draft'));
+      if (st) {
+        pill.style.display = '';
+        pill.textContent = st.name_en;
+        pill.style.background   = tint(st.color, 0.12);
+        pill.style.color        = st.color;
+        pill.style.borderColor  = tint(st.color, 0.32);
+      }
+
+      const dept = (L.departments || []).find(d => d.code === h.department);
+      document.getElementById('pvHeaderTitle').textContent =
+        (dept ? dept.name_en : (h.department || 'Meeting')) + ' — ' + fmtDate(h.meeting_date);
+      // RBAC lot 4c (2026-10-02): an editor deletes a PV of their own site (server-checked).
+      document.getElementById('pvDeleteBtn').style.display =
+        (window.__userHasRole && window.__userHasRole('editor')) ? '' : 'none';
+      // PPTX export only meaningful once the PV is persisted server-side
+      // (the route fetches by :id). Hide for unsaved drafts.
+      const pptxBtn = document.getElementById('pvExportPptxBtn');
+      if (pptxBtn) pptxBtn.style.display = '';
+
+      // Pre-brief deep link — wired to this PV's site × dept + the
+      // current meeting id so the page lands directly on the diff
+      // (no need to re-pick site + dept manually).
+      if (h.site_code && h.department) {
+        const link = document.getElementById('pvProgressLink');
+        const qs = new URLSearchParams({ site: h.site_code, department: h.department });
+        if (state.id) qs.set('current_id', state.id);
+        link.href = 'meetings-progress.html?' + qs.toString();
+        link.style.display = '';
+      }
+    } else {
+      document.getElementById('pvHeaderTitle').textContent = 'New meeting';
+    }
+  }
+
+  // ── Repeatable: project rows ────────────────────────────────────
+  function projectRow(p, ix) {
+    const L = state.lookups;
+    const optPhase = (L.project_phases || []).map(x => `<option value="${esc(x.code)}"${p.phase === x.code ? ' selected' : ''}>${esc(x.name_en)}</option>`).join('');
+    const optInv   = (L.it_involvement || []).map(x => `<option value="${esc(x.code)}"${p.it_involvement === x.code ? ' selected' : ''}>${esc(x.name_en)}</option>`).join('');
+    return `
+      <div class="pv-item" data-ix="${ix}" data-kind="project">
+        <div class="pv-item__head">
+          <span class="pv-item__ord">P${ix + 1}</span>
+          <button class="pv-item__rm" type="button" data-rm="project" data-ix="${ix}">Remove ✕</button>
+        </div>
+        <div class="pv-row pv-row--single">
+          <div class="pv-field"><label>Project name <em>· Nom du projet</em></label>
+            <input type="text" data-k="project_name" value="${esc(p.project_name || '')}"></div>
+        </div>
+        <div class="pv-row pv-row--three">
+          <div class="pv-field"><label>Phase</label>
+            <select data-k="phase"><option value="">—</option>${optPhase}</select></div>
+          <div class="pv-field"><label>IT involvement</label>
+            <select data-k="it_involvement"><option value="">—</option>${optInv}</select></div>
+          <div class="pv-field"><label>Project status <em>· Statut projet</em></label>
+            <select data-k="status">
+              <option value="">—</option>
+              <option value="on_track"${p.status === 'on_track' ? ' selected' : ''}>On track · Sur la trajectoire</option>
+              <option value="at_risk"${p.status === 'at_risk' ? ' selected' : ''}>At risk · À risque</option>
+              <option value="blocked"${p.status === 'blocked' ? ' selected' : ''}>Blocked · Bloqué</option>
+              <option value="done"${p.status === 'done' ? ' selected' : ''}>Done · Terminé</option>
+            </select></div>
+        </div>
+        <div class="pv-row pv-row--three">
+          <div class="pv-field"><label>IT lead</label>
+            <input type="text" data-k="it_lead" list="pvPeopleList" value="${esc(p.it_lead || '')}"></div>
+          <div class="pv-field"><label>Business sponsor</label>
+            <input type="text" data-k="business_sponsor" list="pvPeopleList" value="${esc(p.business_sponsor || '')}"></div>
+          <div class="pv-field"><label>Target end <em>· Date cible fin</em></label>
+            <input type="date" data-k="target_end" value="${esc(p.target_end || '')}"></div>
+        </div>
+        <div class="pv-row pv-row--single">
+          <div class="pv-field"><label>Notes</label>
+            <textarea data-k="notes">${esc(p.notes || '')}</textarea></div>
+        </div>
+      </div>`;
+  }
+
+  function renderProjects() {
+    const c = document.getElementById('pvProjects');
+    c.innerHTML = state.projects.map(projectRow).join('');
+    if (!state.projects.length) c.innerHTML = '<div style="text-align:center;color:#7B7B7B;font-style:italic;padding:14px;font-size:12px">No projects recorded yet. Click below to add one.</div>';
+  }
+
+  // ── Repeatable: issue rows ──────────────────────────────────────
+  function issueRow(iss, ix) {
+    const L = state.lookups;
+    const sev   = iss.severity || 'MEDIUM';
+    const isEsc = iss.escalate ? 1 : 0;
+    const escalated = isEsc ? 'pv-issue--escalated' : '';
+    const optCat = (L.categories || []).map(c => `<option value="${esc(c.code)}"${iss.category === c.code ? ' selected' : ''}>${esc(c.code)} · ${esc(c.name_en)}</option>`).join('');
+    const optSev = (L.severities || []).map(s => `<option value="${esc(s.code)}"${sev === s.code ? ' selected' : ''}>${esc(s.name_en)}</option>`).join('');
+    const optSt  = (L.statuses   || []).map(s => `<option value="${esc(s.code)}"${(iss.status || 'open') === s.code ? ' selected' : ''}>${esc(s.name_en)}</option>`).join('');
+    const optReason = (L.escalation_reasons || []).map(r => `<option value="${esc(r.code)}"${iss.escalation_reason === r.code ? ' selected' : ''}>${esc(r.name_en)}</option>`).join('');
+    const optTheme  = (L.council_themes     || []).map(t => `<option value="${esc(t.code)}"${iss.council_theme === t.code ? ' selected' : ''}>${esc(t.name_en)}</option>`).join('');
+
+    return `
+      <div class="pv-item pv-issue--${esc(sev)} ${escalated}" data-ix="${ix}" data-kind="issue" data-id="${iss.id || ''}">
+        <div class="pv-item__head">
+          <span class="pv-item__ord">I${ix + 1}</span>
+          ${iss.category ? `<span class="pv-cat-chip">${esc(iss.category)}</span>` : ''}
+          ${isEsc ? `<span class="pv-esc-flag">↑ escalated</span>` : ''}
+          <span style="flex:1"></span>
+          <button class="pv-item__rm" type="button" data-rm="issue" data-ix="${ix}">Remove ✕</button>
+        </div>
+        <div class="pv-row pv-row--single">
+          <div class="pv-field"><label>Title <em>· Intitulé</em><span class="req">*</span></label>
+            <input type="text" data-k="title" value="${esc(iss.title || '')}" placeholder="Short headline of the issue"></div>
+        </div>
+        <div class="pv-row pv-row--single">
+          <div class="pv-field"><label>Description</label>
+            <textarea data-k="description">${esc(iss.description || '')}</textarea></div>
+        </div>
+        <div class="pv-row pv-row--four">
+          <div class="pv-field"><label>Category <em>· Catégorie</em><span class="req">*</span></label>
+            <select data-k="category"><option value="">— pick —</option>${optCat}</select></div>
+          <div class="pv-field"><label>Severity <em>· Gravité</em></label>
+            <select data-k="severity">${optSev}</select></div>
+          <div class="pv-field"><label>Status</label>
+            <select data-k="status" data-prev="${esc(iss.status || 'open')}">${optSt}</select>${transferNote(iss)}</div>
+          <div class="pv-field"><label>Target date <em>· Date cible</em></label>
+            <input type="date" data-k="target_date" value="${esc(iss.target_date || '')}"></div>
+        </div>
+        <div class="pv-row">
+          <div class="pv-field"><label>Champion <em>· Responsable IT</em><span class="req">*</span></label>
+            <input type="text" data-k="champion" list="pvPeopleList" value="${esc(iss.champion || '')}" placeholder="Named, reachable owner"></div>
+          <div class="pv-field"><label>Champion email <em>· optional</em></label>
+            <input type="email" data-k="champion_email" value="${esc(iss.champion_email || '')}"></div>
+        </div>
+        <div class="pv-row pv-row--single">
+          <div class="pv-field"><label>Affects <em>· Personnes / process touchés</em></label>
+            <input type="text" data-k="affects" value="${esc(iss.affects || '')}" placeholder="Who or what is impacted today?"></div>
+        </div>
+
+        <div class="pv-row pv-row--single" style="margin-top:6px">
+          <div class="pv-field">
+            <label><input type="checkbox" data-k="escalate" ${isEsc ? 'checked' : ''} style="width:auto;margin-right:6px;vertical-align:middle"> Escalate to Mine IT Council <em>· Escalader au Mine IT Council</em></label>
+          </div>
+        </div>
+
+        <div class="pv-esc-block">
+          <div class="pv-row">
+            <div class="pv-field"><label>Escalation reason <em>· Motif d'escalade</em></label>
+              <select data-k="escalation_reason"><option value="">— pick —</option>${optReason}</select></div>
+            <div class="pv-field"><label>Council theme <em>· Thème Council</em></label>
+              <select data-k="council_theme"><option value="">— pick —</option>${optTheme}</select></div>
+          </div>
+        </div>
+
+        <div class="pv-row pv-row--single">
+          <div class="pv-field"><label>Notes</label>
+            <textarea data-k="notes">${esc(iss.notes || '')}</textarea></div>
+        </div>
+
+        ${iss.id ? `
+        <div class="pv-row pv-row--single" style="margin-top:4px">
+          <div class="pv-field"><label>Update comment for audit trail <em>· optional, posted only when status / escalate changes</em></label>
+            <input type="text" data-k="update_comment" value="${esc(iss.update_comment || '')}" placeholder="e.g. SLA confirmed met after on-site reboot."></div>
+        </div>` : ''}
+      </div>`;
+  }
+
+  function renderIssues() {
+    const c = document.getElementById('pvIssues');
+    c.innerHTML = state.issues.map(issueRow).join('');
+    if (!state.issues.length) c.innerHTML = '<div style="text-align:center;color:#7B7B7B;font-style:italic;padding:14px;font-size:12px">No issues yet. Click below to log the first one.</div>';
+    refreshEscalationSummary();
+    refreshQuickIssuePicker();
+  }
+
+  // ── Repeatable: action rows ─────────────────────────────────────
+  function actionRow(a, ix) {
+    const L = state.lookups;
+    const optSt = (L.statuses || []).map(s => `<option value="${esc(s.code)}"${(a.status || 'open') === s.code ? ' selected' : ''}>${esc(s.name_en)}</option>`).join('');
+    // Link to issue by 1-based ord index (so we don't have to re-resolve ids)
+    const issueOpts = state.issues.map((iss, j) => {
+      const ord = j + 1;
+      const linkedOrd = a.linked_issue_ord || (a.linked_issue_id ? (state.issues.findIndex(x => x.id === a.linked_issue_id) + 1) : 0);
+      const sel = linkedOrd === ord ? ' selected' : '';
+      return `<option value="${ord}"${sel}>I${ord} — ${esc((iss.title || '').slice(0, 50))}</option>`;
+    }).join('');
+
+    return `
+      <div class="pv-item" data-ix="${ix}" data-kind="action">
+        <div class="pv-item__head">
+          <span class="pv-item__ord">A${ix + 1}</span>
+          <span style="flex:1"></span>
+          <button class="pv-item__rm" type="button" data-rm="action" data-ix="${ix}">Remove ✕</button>
+        </div>
+        <div class="pv-row pv-row--single">
+          <div class="pv-field"><label>Description <em>· Action</em><span class="req">*</span></label>
+            <textarea data-k="description">${esc(a.description || '')}</textarea></div>
+        </div>
+        <div class="pv-row pv-row--four">
+          <div class="pv-field"><label>Champion (IT owner) <em>· Responsable</em><span class="req">*</span></label>
+            <input type="text" data-k="owner_it" list="pvPeopleList" value="${esc(a.owner_it || '')}"></div>
+          <div class="pv-field"><label>Owner email</label>
+            <input type="email" data-k="owner_email" value="${esc(a.owner_email || '')}"></div>
+          <div class="pv-field"><label>Target date <em>· Échéance</em></label>
+            <input type="date" data-k="target_date" value="${esc(a.target_date || '')}"></div>
+          <div class="pv-field"><label>Status</label>
+            <select data-k="status" data-prev="${esc(a.status || 'open')}">${optSt}</select>${transferNote(a)}</div>
+        </div>
+        <div class="pv-row pv-row--single">
+          <div class="pv-field"><label>Linked issue <em>· Problème lié</em></label>
+            <select data-k="linked_issue_ord"><option value="">— none —</option>${issueOpts}</select></div>
+        </div>
+      </div>`;
+  }
+
+  function renderActions() {
+    const c = document.getElementById('pvActions');
+    c.innerHTML = state.actions.map(actionRow).join('');
+    if (!state.actions.length) c.innerHTML = '<div style="text-align:center;color:#7B7B7B;font-style:italic;padding:14px;font-size:12px">No actions yet. Click below to commit the first.</div>';
+  }
+
+  // ── Auto-derived escalation summary (Section 6) ─────────────────
+  function refreshEscalationSummary() {
+    const themes = state.lookups.council_themes || [];
+    const themeMap = {}; themes.forEach(t => { themeMap[t.code] = t; });
+    const rows = state.issues
+      .map((iss, ix) => ({ ...iss, ord: ix + 1 }))
+      .filter(iss => iss.escalate);
+
+    const c = document.getElementById('pvEscSummary');
+    if (!rows.length) {
+      c.innerHTML = `<div class="pv-esc-summary"><div class="pv-esc-summary__empty">No issues are marked Escalate = Yes yet.</div></div>`;
+      return;
+    }
+    c.innerHTML = `<div class="pv-esc-summary">` + rows.map(r => {
+      const t = themeMap[r.council_theme] || { name_en: '— no theme picked —', color: '#6B7785' };
+      return `
+        <div class="pv-esc-summary__row">
+          <strong>I${r.ord}</strong>
+          <div>
+            ${esc(r.title || '(untitled)')}
+            <br><small>${esc(r.affects || '—')}</small>
+          </div>
+          <div><span class="pv-cat-pill">${esc(r.category || '—')}</span></div>
+          <div style="color:${esc(t.color)};font-weight:600">${esc(t.name_en)}</div>
+        </div>`;
+    }).join('') + `</div>`;
+  }
+
+  // ── 5 Engagements local snapshot (Section right column) ─────────
+  function refreshEngagements() {
+    const c = document.getElementById('pvEngagements');
+    const issues  = state.issues  || [];
+    const actions = state.actions || [];
+
+    const orphanActions = actions.filter(a => !a.owner_it || !String(a.owner_it).trim()).length;
+    const orphanIssues  = issues.filter(i => !i.champion || !String(i.champion).trim()).length;
+    const escUnreasoned = issues.filter(i => i.escalate && !i.escalation_reason).length;
+    const escUnthemed   = issues.filter(i => i.escalate && !i.council_theme).length;
+
+    const diffOk = state.header.submitted_at && state.header.meeting_date
+      ? (new Date(state.header.submitted_at) - new Date(state.header.meeting_date)) <= 48 * 3600 * 1000
+      : null;
+
+    const chips = [
+      { label: 'Champion / issue',  ok: orphanIssues === 0, na: issues.length === 0,  detail: orphanIssues ? `${orphanIssues} missing` : 'all issues owned' },
+      { label: 'Champion / action', ok: orphanActions === 0, na: actions.length === 0, detail: orphanActions ? `${orphanActions} missing` : 'all actions owned' },
+      { label: 'Escalation reason', ok: escUnreasoned === 0, na: issues.filter(i => i.escalate).length === 0, detail: escUnreasoned ? `${escUnreasoned} blank` : 'all reasoned' },
+      { label: 'Council theme',     ok: escUnthemed === 0,   na: issues.filter(i => i.escalate).length === 0, detail: escUnthemed   ? `${escUnthemed} blank`   : 'all themed' },
+      { label: '48 h diffusion',    ok: diffOk === true,     na: diffOk === null,     detail: diffOk === true ? 'submitted within 48h' : (diffOk === false ? 'late submission' : 'not submitted yet') },
+    ];
+
+    c.innerHTML = chips.map(ch => {
+      const klass = ch.na ? 'pv-eng--na' : (ch.ok ? 'pv-eng--ok' : 'pv-eng--ko');
+      return `<span class="pv-eng ${klass}" title="${esc(ch.detail)}">${esc(ch.label)} · ${esc(ch.detail)}</span>`;
+    }).join('');
+  }
+
+  // ── Audit thread render ─────────────────────────────────────────
+  function renderThread() {
+    const c = document.getElementById('pvThread');
+    if (!state.updates || !state.updates.length) {
+      c.innerHTML = '<div class="pv-thread__empty">No audit entries yet. Issues will log status &amp; escalate changes here.</div>';
+      return;
+    }
+    const issueByIdOrd = {};
+    state.issues.forEach((iss, ix) => { issueByIdOrd[iss.id] = ix + 1; });
+    c.innerHTML = state.updates.map(u => {
+      const kind = u.status_change ? 'pv-thread__item--status'
+                 : (u.escalate_change !== null && u.escalate_change !== undefined) ? 'pv-thread__item--escalate'
+                 : '';
+      const tags = [];
+      if (u.status_change) tags.push(`<span class="pv-thread__tag">→ ${esc(u.status_change)}</span>`);
+      if (u.escalate_change === 1) tags.push(`<span class="pv-thread__tag">↑ escalated</span>`);
+      if (u.escalate_change === 0) tags.push(`<span class="pv-thread__tag">↓ de-escalated</span>`);
+      const ord = issueByIdOrd[u.issue_id];
+      return `
+        <div class="pv-thread__item ${kind}">
+          <div class="pv-thread__head">
+            <strong>${esc(u.author_name || 'system')}</strong>
+            · ${esc(String(u.created_at || '').slice(0, 16).replace('T', ' '))}
+            · ${ord ? 'I' + ord : 'issue ' + u.issue_id}
+            ${tags.join(' ')}
+          </div>
+          <div class="pv-thread__body">${esc(u.body || '—')}</div>
+        </div>`;
+    }).join('');
+  }
+
+  function refreshQuickIssuePicker() {
+    const sel = document.getElementById('pvQuickIssue');
+    sel.innerHTML = '<option value="">—</option>' + state.issues
+      .filter(i => i.id)
+      .map((iss, ix) => `<option value="${esc(iss.id)}">I${state.issues.indexOf(iss) + 1} — ${esc((iss.title || '').slice(0, 60))}</option>`)
+      .join('');
+    fillSelect(document.getElementById('pvQuickStatus'), state.lookups.statuses, 'code', 'name_en', '— keep current —');
+  }
+
+  // ── Add / remove handlers ───────────────────────────────────────
+  document.getElementById('pvAddProject').addEventListener('click', () => {
+    if (state.locked) return;
+    state.projects.push({});
+    renderProjects();
+  });
+  document.getElementById('pvAddIssue').addEventListener('click', () => {
+    if (state.locked) return;
+    state.issues.push({ severity: 'MEDIUM', status: 'open', escalate: 0 });
+    renderIssues();
+  });
+  document.getElementById('pvAddAction').addEventListener('click', () => {
+    if (state.locked) return;
+    state.actions.push({ status: 'open' });
+    renderActions();
+  });
+
+  // Transfer statuses (2026-10-16): demand / helpdesk_ticket / cancelled need a justification
+  // (+ the SDP ticket number). The note rides on the row (status_note / helpdesk_ticket) and the
+  // server refuses a save whose transition lacks it — public/lib/statusTransfer.js.
+  function transferNote(it) {
+    const ST = window.StatusTransfer;
+    if (!ST || !ST.isTransfer(it.status) || !(it.status_note || it.helpdesk_ticket)) return '';
+    return `<div class="pv-transfer-note" style="font-size:11.5px;color:#475569;margin-top:4px;line-height:1.35">↳ ${it.helpdesk_ticket ? '<b>SDP ticket #' + esc(it.helpdesk_ticket) + '</b> · ' : ''}${esc(it.status_note || '')}</div>`;
+  }
+  async function onTransferStatus(e, key, rerender) {
+    const list = state[key];
+    if (e.target.dataset.k !== 'status') return;
+    const ST = window.StatusTransfer;
+    const sel = e.target, card = sel.closest('.pv-item');
+    if (!card || !ST) return;
+    const ix = parseInt(card.dataset.ix, 10);
+    const prev = sel.dataset.prev || 'open';
+    if (!ST.isTransfer(sel.value) || sel.value === prev) return;
+    const it = list[ix] || {};
+    const t = await ST.ask(sel.value, { title: it.title || it.description || '' });
+    if (!t) { sel.value = prev; list[ix] = { ...it, status: prev }; return; }
+    list[ix] = { ...it, status: sel.value, status_note: t.note, helpdesk_ticket: t.ticket || null };
+    rerender();
+  }
+  document.getElementById('pvIssues').addEventListener('change', e => onTransferStatus(e, 'issues', renderIssues));
+  document.getElementById('pvActions').addEventListener('change', e => onTransferStatus(e, 'actions', renderActions));
+
+  // Delegated remove-row + change capture
+  function collectItem(card, fields) {
+    const out = {};
+    fields.forEach(f => {
+      const el = card.querySelector(`[data-k="${f}"]`);
+      if (!el) return;
+      if (el.type === 'checkbox') out[f] = el.checked ? 1 : 0;
+      else out[f] = el.value;
+    });
+    return out;
+  }
+
+  // Project / issue / action field syncs
+  document.getElementById('pvProjects').addEventListener('input', e => {
+    const card = e.target.closest('.pv-item');
+    if (!card) return;
+    const ix = parseInt(card.dataset.ix, 10);
+    const item = collectItem(card, ['project_name','phase','it_involvement','status','it_lead','business_sponsor','target_end','notes']);
+    state.projects[ix] = { ...state.projects[ix], ...item };
+    refreshEngagements();
+  });
+  document.getElementById('pvIssues').addEventListener('input', e => {
+    const card = e.target.closest('.pv-item');
+    if (!card) return;
+    const ix = parseInt(card.dataset.ix, 10);
+    const item = collectItem(card, ['title','description','category','severity','status','target_date','champion','champion_email','affects','escalate','escalation_reason','council_theme','notes','update_comment']);
+    state.issues[ix] = { ...state.issues[ix], ...item };
+    // Re-render only if severity / escalate / category changed (visual cues)
+    const k = e.target.dataset.k;
+    if (k === 'severity' || k === 'escalate' || k === 'category') renderIssues();
+    refreshEngagements();
+  });
+  document.getElementById('pvIssues').addEventListener('change', e => {
+    if (e.target.dataset.k === 'escalate') {
+      const card = e.target.closest('.pv-item');
+      const ix = parseInt(card.dataset.ix, 10);
+      state.issues[ix].escalate = e.target.checked ? 1 : 0;
+      renderIssues();
+    }
+  });
+  document.getElementById('pvActions').addEventListener('input', e => {
+    const card = e.target.closest('.pv-item');
+    if (!card) return;
+    const ix = parseInt(card.dataset.ix, 10);
+    const item = collectItem(card, ['description','owner_it','owner_email','target_date','status','linked_issue_ord']);
+    state.actions[ix] = { ...state.actions[ix], ...item };
+    refreshEngagements();
+  });
+
+  // Remove buttons
+  document.body.addEventListener('click', e => {
+    const rm = e.target.closest('[data-rm]');
+    if (!rm) return;
+    if (state.locked) return;
+    const ix = parseInt(rm.dataset.ix, 10);
+    const kind = rm.dataset.rm;
+    if (!confirm('Remove this ' + kind + '?')) return;
+    if (kind === 'project') { state.projects.splice(ix, 1); renderProjects(); }
+    if (kind === 'issue')   { state.issues.splice(ix, 1);   renderIssues(); renderActions(); }
+    if (kind === 'action')  { state.actions.splice(ix, 1);  renderActions(); }
+    if (kind === 'flow')    { state.incubation.flow.splice(ix, 1);     renderIncFlow(); }
+    if (kind === 'service') { state.incubation.services.splice(ix, 1); renderIncServices(); }
+    refreshEngagements();
+  });
+
+  // ── Header field syncs ──────────────────────────────────────────
+  function bindHeader(id, key, parser) {
+    document.getElementById(id).addEventListener('input', e => {
+      state.header[key] = parser ? parser(e.target.value) : e.target.value;
+      refreshEngagements();
+    });
+  }
+  bindHeader('hSite',          'site_code');
+  bindHeader('hDept',          'department');
+  bindHeader('hIntake',        'intake_source');
+  bindHeader('hDate',          'meeting_date');
+  bindHeader('hDuration',      'duration_min', v => v === '' ? null : parseInt(v, 10));
+  bindHeader('hStatus',        'status');
+  bindHeader('hDeptHead',      'department_head');
+  bindHeader('hDeptHeadTitle', 'department_head_title');
+  bindHeader('hItLead',        'site_it_lead');
+  bindHeader('hAttendees',     'other_attendees');
+  bindHeader('hPrio1',         'priority_1');
+  bindHeader('hPrio2',         'priority_2');
+  bindHeader('hPrio3',         'priority_3');
+  bindHeader('hNextDate',      'next_meeting_date');
+  bindHeader('hNextLoc',       'next_meeting_location');
+
+  // ── Save / submit / sign / delete handlers ──────────────────────
+  async function save(opts = {}) {
+    const btn = document.getElementById('pvSaveBtn');
+    btn.disabled = true;
+    try {
+      const payload = {
+        state: {
+          id: state.id || undefined,
+          header: { ...state.header, status: opts.statusOverride || state.header.status || 'draft' },
+          projects: state.projects,
+          issues:   state.issues,
+          actions:  state.actions,
+          // Business Incubation §1-§4 — the blob for an incubation, null (= clear) for a PV.
+          incubation: IncubationEditor.payloadIncubation(state.header, state.incubation),
+        }
+      };
+      // Submitting? Stamp submitted_at server-side via the status flip
+      if (opts.statusOverride) state.header.status = opts.statusOverride;
+
+      const r = await fetch(API + '/save', {
+        method: 'POST', credentials: 'same-origin',
+        headers: authHeaders(), body: JSON.stringify(payload)
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
+
+      // First save → land on the new id
+      if (!state.id && j.id) {
+        state.id = j.id;
+        history.replaceState(null, '', '?id=' + j.id);
+      }
+      showBanner('Saved · ' + j.reference);
+      // reload() re-fetches the PV and repaints EVERY field — including the two
+      // signature inputs — from the AUTHORITATIVE stored values, so the screen
+      // can never show a stamp the server didn't accept.
+      await reload();
+      return true;
+    } catch (e) {
+      showBanner(e.message || 'Save failed', 'error');
+      return false;
+    } finally {
+      btn.disabled = false;
+    }
+  }
+  document.getElementById('pvSaveBtn').addEventListener('click', () => save());
+  document.getElementById('pvSubmitBtn').addEventListener('click', () => save({ statusOverride: 'submitted' }));
+  document.getElementById('pvSignBtn').addEventListener('click', () => save({ statusOverride: 'signed' }));
+
+  // Export to PDF — populate the printable header from current state, then
+  // open the native print dialog. Print stylesheet (.pv-print-header,
+  // @media print) hides app chrome and flattens form controls. The user
+  // chooses "Save as PDF" in the destination dropdown of the print dialog.
+  document.getElementById('pvExportBtn').addEventListener('click', () => {
+    const h    = (state && state.header) || {};
+    const ref  = (h.reference || document.getElementById('hReference')?.value || '—').trim() || '—';
+    const site = h.site_code  || document.getElementById('hSiteCode')?.value || '—';
+    // Resolve human-friendly department + status names from loaded lookups.
+    const deptCode = h.department || document.getElementById('hDepartment')?.value || '';
+    const dept = (state.lookups?.departments || []).find(d => d.code === deptCode);
+    const deptLabel = dept ? (dept.name_en || dept.name_fr || deptCode) : (deptCode || '—');
+    const stCode = h.status || 'draft';
+    const stRow  = (state.lookups?.meeting_statuses || []).find(s => s.code === stCode);
+    const stLabel = stRow ? (stRow.name_en || stRow.name_fr || stCode) : stCode;
+
+    document.getElementById('pvPrintTitle').textContent  = 'Procès-Verbal · ' + deptLabel + ' · ' + site;
+    document.getElementById('pvPrintSite').textContent   = site;
+    document.getElementById('pvPrintDept').textContent   = deptLabel;
+    document.getElementById('pvPrintDate').textContent   = h.meeting_date || '—';
+    document.getElementById('pvPrintRef').textContent    = ref;
+    document.getElementById('pvPrintStatus').textContent = stLabel;
+
+    // Small delay so the DOM update settles before the print dialog snapshots.
+    setTimeout(() => window.print(), 50);
+  });
+
+  // Export to PPTX — server-side deck builder. Same auth headers as the
+  // other meetings API calls; the route returns a binary stream + a sensible
+  // attachment filename, the browser handles the download automatically.
+  document.getElementById('pvExportPptxBtn').addEventListener('click', async () => {
+    if (!state.id) { showBanner('Save the meeting before exporting to PPTX', 'warning'); return; }
+    const btn = document.getElementById('pvExportPptxBtn');
+    btn.disabled = true;
+    const originalText = btn.textContent;
+    btn.textContent = '⏳ Generating…';
+    try {
+      const r = await fetch(`${API}/${state.id}/export-pptx`, {
+        credentials: 'same-origin', headers: authHeaders(),
+      });
+      if (!r.ok) {
+        let msg = 'PPTX export failed (HTTP ' + r.status + ')';
+        try { const j = await r.json(); msg = j.error || msg; } catch (_) {}
+        throw new Error(msg);
+      }
+      const blob = await r.blob();
+      // Filename from Content-Disposition (server sets one based on reference);
+      // fall back to a sensible default if the header was stripped by a proxy.
+      const cd = r.headers.get('Content-Disposition') || '';
+      const m  = cd.match(/filename="([^"]+)"/);
+      const fname = (m && m[1]) || `meeting_${state.id}.pptx`;
+      const url = URL.createObjectURL(blob);
+      const a   = document.createElement('a');
+      a.href = url; a.download = fname;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      showBanner('PPTX downloaded: ' + fname, 'success');
+    } catch (e) {
+      showBanner(e.message || String(e), 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = originalText;
+    }
+  });
+
+  // Stamping a signature PERSISTS the whole PV immediately. Leaving it as a
+  // local-state mutation lost the signature whenever the coordinator forgot to
+  // click Save — and `signoff` is one of the 6 SCORED dimensions of the site
+  // programme score, so a lost stamp silently lowers the site's score.
+  // The value we send is only a "stamp it" signal: the server writes its OWN
+  // timestamp (the browser clock is untrusted) and reload() repaints the input
+  // from the stored value, so the UI never shows a stamp that isn't saved.
+  async function stampSignature(btnId, field, inputId) {
+    const btn   = document.getElementById(btnId);
+    const input = document.getElementById(inputId);
+    const prevState = state.header[field];
+    const prevInput = input.value;
+
+    btn.disabled = true;
+    try {
+      // Optimistic paint so the click feels immediate; the authoritative value
+      // arrives via reload() inside save().
+      state.header[field] = new Date().toISOString().replace('T', ' ').slice(0, 19);
+      input.value = state.header[field];
+
+      const ok = await save();
+      if (!ok) {
+        // save() already surfaced the error — undo the optimistic paint so the
+        // coordinator is never told a signature landed when it didn't.
+        state.header[field] = prevState;
+        input.value = prevInput;
+      }
+    } catch (e) {
+      state.header[field] = prevState;
+      input.value = prevInput;
+      showBanner(e.message || 'Signature save failed', 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  document.getElementById('pvStampDeptHead').addEventListener('click',
+    () => stampSignature('pvStampDeptHead', 'dept_head_signed_at', 'hDeptHeadSigned'));
+  document.getElementById('pvStampItLead').addEventListener('click',
+    () => stampSignature('pvStampItLead', 'site_it_signed_at', 'hItLeadSigned'));
+
+  document.getElementById('pvDeleteBtn').addEventListener('click', async () => {
+    if (!state.id) return;
+    if (!confirm('Delete this meeting and ALL its issues/actions? This cannot be undone.')) return;
+    const r = await fetch(API + '/' + state.id, { method: 'DELETE', credentials: 'same-origin', headers: authHeaders() });
+    if (r.ok) { location.href = 'meetings.html'; }
+    else { const j = await r.json().catch(() => ({})); showBanner(j.error || 'Delete failed', 'error'); }
+  });
+
+  // Quick comment post
+  document.getElementById('pvQuickPost').addEventListener('click', async () => {
+    const issueId = document.getElementById('pvQuickIssue').value;
+    if (!issueId) { showBanner('Pick a target issue first', 'error'); return; }
+    const body = document.getElementById('pvQuickBody').value.trim();
+    const status_change = document.getElementById('pvQuickStatus').value || null;
+    if (!body && !status_change) { showBanner('Add a comment or a status change', 'error'); return; }
+    const payload = { body, status_change };
+    const ST = window.StatusTransfer;
+    if (status_change && ST && ST.isTransfer(status_change)) {
+      const t = await ST.ask(status_change, {});
+      if (!t) return;
+      payload.body = body ? body + ' — ' + t.note : t.note;
+      if (t.ticket) payload.helpdesk_ticket = t.ticket;
+    }
+    const r = await fetch(API + '/issues/' + issueId + '/update', {
+      method: 'POST', credentials: 'same-origin',
+      headers: authHeaders(),
+      body: JSON.stringify(payload)
+    });
+    if (r.ok) {
+      document.getElementById('pvQuickBody').value = '';
+      document.getElementById('pvQuickStatus').value = '';
+      showBanner('Audit entry posted');
+      reload();
+    } else {
+      const j = await r.json().catch(() => ({}));
+      showBanner(j.error || 'Post failed', 'error');
+    }
+  });
+
+  // ── Initial load ────────────────────────────────────────────────
+  async function loadLookups() {
+    const r = await fetch(API + '/lookups', { credentials: 'same-origin', headers: authHeaders() });
+    state.lookups = await r.json();
+    // People datalist
+    try {
+      const pr = await fetch(API + '/people', { credentials: 'same-origin', headers: authHeaders() });
+      const pj = await pr.json();
+      const people = pj.rows || pj.people || pj;
+      const dl = document.getElementById('pvPeopleList');
+      dl.innerHTML = (Array.isArray(people) ? people : []).map(p => `<option value="${esc(p.name || p.full_name || p)}"></option>`).join('');
+    } catch (_) {}
+  }
+
+  async function reload() {
+    if (state.id) {
+      const r = await fetch(API + '/' + state.id, { credentials: 'same-origin', headers: authHeaders() });
+      if (!r.ok) { showBanner('Failed to load meeting #' + state.id, 'error'); return; }
+      const rec = await r.json();
+      state.header   = rec.header   || {};
+      state.projects = rec.projects || [];
+      state.issues   = rec.issues   || [];
+      state.actions  = rec.actions  || [];
+      state.updates  = rec.updates  || [];
+      state.incubation = null;
+
+      // Lock if closed AND user is editor (admin+ can still edit)
+      state.locked = (state.header.status === 'closed');
+      if (state.locked) {
+        document.getElementById('pvBanner').innerHTML =
+          '<div class="pv-locked">🔒 This meeting is <strong>closed</strong>. To edit it, set its status back with the status dropdown (editors of this site and administrators).</div>';
+      }
+    } else {
+      // New meeting → seed empty header from URL
+      state.header = state.header && state.header.site_code ? state.header : {
+        status: 'draft', intake_source: 'dept_meeting',
+        meeting_date: new Date().toISOString().slice(0, 10),
+      };
+      state.projects = []; state.issues = []; state.actions = []; state.updates = [];
+    }
+    renderHeader();
+    renderIncubation();
+    renderProjects();
+    renderIssues();
+    renderActions();
+    renderThread();
+    refreshEngagements();
+  }
+
+  // Business Incubation (2026-10-03) — one form, two layouts. data-mode on .pv-main
+  // switches the PV-only / incubation-only blocks; §1 extras, §2 description, §3 flow
+  // and §4 services edit state.incubation, saved with the PV (server re-normalises).
+  function applyMode() {
+    const inc = IncubationEditor.isIncubation(state.header);
+    document.getElementById('pvMain').dataset.mode = inc ? 'inc' : 'pv';
+    const pt = document.getElementById('pvPrintTitle');
+    if (pt) pt.textContent = inc ? 'Business incubation' : 'Department meeting';
+  }
+  function renderIncubation() {
+    if (!state.incubation) state.incubation = IncubationEditor.fromHeader(state.header);
+    const inc = state.incubation;
+    document.getElementById('incEnd').value            = inc.session_end || '';
+    document.getElementById('incDuration').value       = inc.duration || '';
+    document.getElementById('incIncubator').value      = inc.roles.incubator || '';
+    document.getElementById('incIncubatorTitle').value = inc.roles.incubator_title || '';
+    document.getElementById('incDesc').value           = inc.business_description || '';
+    renderIncFlow();
+    renderIncServices();
+    applyMode();
+  }
+  function renderIncFlow()     { document.getElementById('incFlow').innerHTML     = IncubationEditor.flowRowsHtml(state.incubation.flow, esc); }
+  function renderIncServices() { document.getElementById('incServices').innerHTML = IncubationEditor.serviceRowsHtml(state.incubation.services, esc); }
+
+  function bindInc(id, set) {
+    document.getElementById(id).addEventListener('input', e => { set(state.incubation, e.target.value); });
+  }
+  bindInc('incEnd',            (i, v) => { i.session_end = v; });
+  bindInc('incDuration',       (i, v) => { i.duration = v; });
+  bindInc('incIncubator',      (i, v) => { i.roles.incubator = v; });
+  bindInc('incIncubatorTitle', (i, v) => { i.roles.incubator_title = v; });
+  bindInc('incDesc',           (i, v) => { i.business_description = v; });
+  document.getElementById('hIntake').addEventListener('change', applyMode);
+
+  document.getElementById('incAddFlow').addEventListener('click', () => {
+    if (state.locked) return;
+    state.incubation.flow.push({ incoming: '', activity: '', outgoing: '' });
+    renderIncFlow();
+  });
+  document.getElementById('incAddService').addEventListener('click', () => {
+    if (state.locked) return;
+    state.incubation.services.push({ service: '', beneficiary: '', status: 'active' });
+    renderIncServices();
+  });
+  document.getElementById('incFlow').addEventListener('input', e => {
+    const card = e.target.closest('.pv-item'); if (!card) return;
+    Object.assign(state.incubation.flow[parseInt(card.dataset.ix, 10)], collectItem(card, ['incoming', 'activity', 'outgoing']));
+  });
+  document.getElementById('incServices').addEventListener('input', e => {
+    const card = e.target.closest('.pv-item'); if (!card) return;
+    Object.assign(state.incubation.services[parseInt(card.dataset.ix, 10)], collectItem(card, ['service', 'beneficiary', 'status']));
+  });
+
+  (async function () {
+    try {
+      await loadLookups();
+      await reload();
+    } catch (e) {
+      console.error('[meeting] load failed:', e);
+      showBanner(e.message || 'Failed to load', 'error');
+    }
+  })();
+
+})();
+</script>
+
+</body>
+</html>

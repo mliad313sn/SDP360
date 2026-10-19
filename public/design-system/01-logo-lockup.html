@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>EDV — Logo Lockup</title>
+<link rel="stylesheet" href="colors_and_type.css">
+<style>
+  body { padding: 24px; background: #fff; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: stretch; }
+  .swatch { background:#fff; border:1px solid var(--border-subtle); border-radius: var(--radius-md);
+    display:flex; align-items:center; justify-content:center; padding:18px; min-height: 100px; }
+  .dark { background: var(--edv-slate); border-color: var(--edv-slate); }
+  .swatch img { max-height: 56px; max-width: 90%; object-fit: contain; }
+  .meta { font-family: var(--font-display); font-size:10px; letter-spacing:.14em; text-transform:uppercase; color: var(--fg-3); margin-top:8px; }
+</style>
+</head>
+<body>
+  <div class="row">
+    <div>
+      <div class="swatch"><img src="../assets/logos/endeavour-logo.png" alt="Endeavour Mining logo"></div>
+      <div class="meta">Primary — light backgrounds</div>
+    </div>
+    <div>
+      <div class="swatch dark"><img src="../assets/logos/endeavour-logo-white.png" alt="Endeavour Mining logo white"></div>
+      <div class="meta">Reversed — dark backgrounds</div>
+    </div>
+  </div>
+</body>
+</html>

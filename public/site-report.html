@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Site Report · Endeavour Mining</title>
+<!-- Authenticated (session cookie) live site scoreboard. Fed by /api/reports/site-data. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="_tokens.css">
+<script src="brand/icons.js"></script>
+<!-- Chart.js — same CDN + version other pages use (already CSP-allowed) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js" defer></script>
+<script src="site-report.js" defer></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:var(--font-sans, 'Libre Franklin', system-ui, sans-serif);
+    background:var(--color-bg, #F4F5F7);
+    color:var(--color-text-strong, #2A2A2A);
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{text-decoration:none;color:inherit}
+  .wrap{max-width:1320px;margin:0 auto;padding:0 20px 48px}
+
+  /* ── Header ─────────────────────────────────────────────────── */
+  .sr-header{
+    background:linear-gradient(135deg, var(--edv-slate, #3A4A60) 0%, #2E3A4D 100%);
+    color:#fff;padding:18px 0;border-bottom:4px solid var(--edv-orange, #EF631A);
+  }
+  .sr-header .inner{max-width:1320px;margin:0 auto;padding:0 20px;display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+  .sr-logo{
+    width:56px;height:56px;flex-shrink:0;background:rgba(255,255,255,.06);border-radius:12px;
+    background-image:url('brand/edv-logo-white.png');background-size:74%;background-repeat:no-repeat;background-position:center;
+  }
+  .sr-titles{display:flex;flex-direction:column;gap:2px;min-width:0}
+  .sr-title{font-size:1.32rem;font-weight:800;letter-spacing:.01em;line-height:1.15}
+  .sr-subtitle{font-size:.82rem;color:var(--color-text-on-dark-muted, rgba(255,255,255,.62));font-weight:500}
+  .sr-meta{margin-left:auto;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .sr-period{font-size:.82rem;color:rgba(255,255,255,.85);text-align:right;line-height:1.35}
+  .sr-period strong{color:#fff;font-weight:700}
+  .sr-refresh{
+    background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.22);color:#fff;border-radius:8px;
+    padding:7px 12px;font-size:.8rem;font-weight:600;cursor:pointer;font-family:inherit;transition:background .15s;
+  }
+  .sr-refresh:hover{background:rgba(255,255,255,.20)}
+  /* Back link — this page carries NO app shell (it has its own branded header
+     and loads no auth.js), so without this it is a dead end: arrive by link or
+     bookmark and the browser Back button is the only way out. Hidden on print
+     alongside Refresh — neither is meaningful on paper. */
+  .sr-back{
+    display:inline-flex;align-items:center;gap:6px;
+    background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.22);color:#fff;border-radius:8px;
+    padding:7px 12px;font-size:.8rem;font-weight:600;transition:background .15s;
+  }
+  .sr-back:hover{background:rgba(255,255,255,.20);color:#fff}
+  @media print{
+    .sr-back,.sr-refresh{display:none !important}
+  }
+
+  /* ── Section scaffolding ────────────────────────────────────── */
+  .section{margin-top:26px}
+  .section-title{font-size:.76rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--color-text-muted, #7B7B7B);margin-bottom:10px}
+  .card{background:var(--color-card,#fff);border:1px solid var(--color-border,#E2E5EA);border-radius:12px}
+  .panel{padding:18px 20px}
+  .panel h2{font-size:.95rem;font-weight:800;color:var(--edv-slate,#3A4A60);margin-bottom:14px}
+  .muted{font-size:.86rem;color:var(--color-text-muted,#7B7B7B)}
+
+  /* ── Intro — what this page is (bilingual, stacked) ─────────── */
+  .intro{padding:16px 20px;margin-top:24px}
+  .intro-p{font-size:.83rem;line-height:1.55;color:var(--edv-slate,#3A4A60);margin:0}
+  .intro-p strong{color:var(--color-text,#1C2B3A);font-weight:700}
+  .intro-fr{margin-top:10px;padding-top:10px;border-top:1px solid var(--color-border,#E2E8F0)}
+  /* RAG legend. The G/A/R shorthand under each dimension is the AUTHOR's own
+     text (it-review-dashboard.source.js:182) and is not ours to reword — so we
+     decode it here instead. Colours are the source's palette, not the brand's. */
+  .intro-legend{margin-top:7px;font-size:.79rem;line-height:1.7;color:var(--color-text-muted,#7B7B7B)}
+  .lg{display:inline-block;font-weight:800;color:#fff;border-radius:5px;padding:0 6px;margin-right:3px;font-size:.72rem;letter-spacing:.02em}
+  .lg-g{background:#2f7d4f} .lg-a{background:#b07a17} .lg-r{background:#c2280f}
+  .intro-legend code{background:var(--color-bg,#F4F5F7);border:1px solid var(--color-border,#E2E8F0);border-radius:4px;padding:0 4px;font-size:.75rem;white-space:nowrap}
+
+  /* ── Score hero ─────────────────────────────────────────────── */
+  .hero{display:grid;grid-template-columns:auto 1fr;gap:26px;padding:22px 24px;margin-top:24px}
+  @media (max-width:760px){.hero{grid-template-columns:1fr}}
+  .hero-score{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:180px}
+  .score-num{font-size:4.4rem;font-weight:800;line-height:1;letter-spacing:-.02em}
+  .score-num .of{font-size:1.4rem;font-weight:700;color:var(--color-text-muted,#7B7B7B)}
+  .score-chip{margin-top:10px;display:inline-flex;align-items:center;gap:7px;padding:5px 14px;border-radius:999px;font-size:.82rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em}
+  .score-trend{margin-top:8px;font-size:.86rem;font-weight:700}
+  .rag-green .score-num{color:var(--edv-green-dark,#158D3E)}
+  .rag-amber .score-num{color:var(--color-warning,#D97706)}
+  .rag-red   .score-num{color:var(--edv-red,#D90038)}
+  .chip-green{background:var(--color-success-bg,#E7F5EA);color:var(--edv-green-dark,#158D3E)}
+  .chip-amber{background:var(--color-warning-bg,#FEF3C7);color:var(--color-warning,#D97706)}
+  .chip-red{background:var(--color-danger-bg,#FEEAEE);color:var(--edv-red,#D90038)}
+  .trend-good{color:var(--edv-green-dark,#158D3E)}
+  .trend-bad{color:var(--edv-red,#D90038)}
+  .trend-flat{color:var(--color-text-muted,#7B7B7B)}
+  .hero-side h3{font-size:.82rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--edv-slate,#3A4A60);margin-bottom:10px}
+  .dims{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+  @media (max-width:640px){.dims{grid-template-columns:1fr 1fr}}
+  .dim{background:#fff;border:1px solid var(--color-border,#E2E5EA);border-radius:9px;padding:9px 11px}
+  .dim-label{font-size:.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--color-text-muted,#7B7B7B)}
+  .dim-val{font-size:1.25rem;font-weight:800;color:var(--edv-slate,#3A4A60);margin-top:2px}
+  .moves{list-style:none;display:flex;flex-direction:column;gap:8px}
+  .moves li{display:flex;align-items:flex-start;gap:10px;font-size:.9rem;background:var(--color-info-bg,#E8F0FA);border:1px solid #d3e2f4;border-radius:9px;padding:9px 12px}
+  .move-gain{flex-shrink:0;font-weight:800;color:var(--edv-blue,#145FAE);background:#fff;border:1px solid #cfe0f5;border-radius:7px;padding:1px 8px;font-size:.8rem}
+
+  /* ── KPI mini-tiles ─────────────────────────────────────────── */
+  .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+  @media (max-width:1000px){.kpis{grid-template-columns:repeat(3,1fr)}}
+  @media (max-width:560px){.kpis{grid-template-columns:1fr 1fr}}
+  .kpi{background:#fff;border:1px solid var(--color-border,#E2E5EA);border-radius:11px;padding:13px 15px}
+  .kpi-label{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--color-text-muted,#7B7B7B)}
+  .kpi-val{font-size:1.7rem;font-weight:800;color:var(--edv-slate,#3A4A60);margin-top:5px;line-height:1}
+  .kpi-val.warn{color:var(--color-warning,#D97706)}
+  .kpi-val.bad{color:var(--edv-red,#D90038)}
+
+  /* ── Two-column region ──────────────────────────────────────── */
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media (max-width:900px){.cols{grid-template-columns:1fr}}
+
+  /* ── Tables & lists ─────────────────────────────────────────── */
+  table.tbl{width:100%;border-collapse:collapse}
+  table.tbl th{text-align:left;font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;color:var(--color-text-muted,#7B7B7B);padding:6px 8px;border-bottom:2px solid var(--color-border,#E2E5EA);white-space:nowrap}
+  table.tbl td{padding:8px;font-size:.88rem;border-bottom:1px solid var(--color-border,#E2E5EA)}
+  table.tbl tr:last-child td{border-bottom:none}
+  .num{text-align:right;font-variant-numeric:tabular-nums}
+  .chip{display:inline-block;padding:2px 10px;border-radius:20px;font-size:.72rem;font-weight:700}
+  .st-on_track,.st-signed{background:var(--color-success-bg,#E7F5EA);color:var(--edv-green-dark,#158D3E)}
+  .st-blocked,.st-no_pv{background:var(--color-danger-bg,#FEEAEE);color:var(--edv-red,#D90038)}
+  .st-default{background:#EEF1F6;color:var(--edv-slate,#3A4A60)}
+  .alert-chip{display:inline-block;padding:1px 8px;border-radius:16px;font-size:.68rem;font-weight:700;background:var(--color-warning-bg,#FEF3C7);color:var(--color-warning,#D97706);margin:1px 2px}
+  .oa-row{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--color-border,#E2E5EA);font-size:.88rem}
+  .oa-row:last-child{border-bottom:none}
+  .oa-meta{flex-shrink:0;font-size:.74rem;font-weight:600;color:var(--color-text-muted,#7B7B7B);text-align:right;min-width:118px}
+  .rec-list{list-style:none;display:flex;flex-direction:column;gap:9px}
+  .rec-list li{display:flex;align-items:flex-start;gap:10px;font-size:.92rem;background:#fff;border:1px solid var(--color-border,#E2E5EA);border-left:4px solid var(--edv-orange,#EF631A);border-radius:9px;padding:11px 14px}
+  .rec-kind{flex-shrink:0;font-size:.64rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--edv-orange,#EF631A);padding-top:2px}
+  .chart-box{position:relative;height:220px}
+
+  /* ── States ─────────────────────────────────────────────────── */
+  .empty{text-align:center;padding:60px 20px;color:var(--color-text-muted,#7B7B7B)}
+  .empty .icn{font-size:2.4rem;margin-bottom:12px}
+  .empty .msg{font-size:1.05rem;font-weight:700;color:var(--color-text-strong,#2A2A2A)}
+  .empty .sub{font-size:.88rem;margin-top:8px}
+  .empty code{background:#EEF1F6;border-radius:6px;padding:2px 7px;font-size:.84rem}
+  body.state-empty #content{display:none}
+  body.state-empty #emptyState{display:block}
+  body.state-error #content{display:none}
+  body.state-error #errorState{display:block}
+  #emptyState,#errorState{display:none}
+</style>
+</head>
+<body>
+
+<header class="sr-header">
+  <div class="inner">
+    <div class="sr-logo" aria-hidden="true"></div>
+    <div class="sr-titles">
+      <div class="sr-title" id="siteName">Site Report</div>
+      <div class="sr-subtitle">Site IT Scorecard · Endeavour Mining Group IT</div>
+    </div>
+    <div class="sr-meta">
+      <div class="sr-period"><span id="periodLabel">—</span></div>
+      <a class="sr-back" href="reports.html">&#8592; Site Reports</a>
+      <button class="sr-refresh" id="refreshBtn" type="button">&#8635; Refresh</button>
+    </div>
+  </div>
+</header>
+
+<!-- Empty state (no site / consolidated view) -->
+<div id="emptyState" class="empty">
+  <div class="icn">&#128506;</div>
+  <div class="msg">Pick a site to view its report</div>
+  <div class="sub">Add a site code to the URL, e.g. <code>/site-report.html?site=HGO</code></div>
+</div>
+
+<!-- Error state -->
+<div id="errorState" class="empty">
+  <div class="icn">&#128736;</div>
+  <div class="msg" id="errorMsg">Could not load this site report.</div>
+  <div class="sub">Check that you are signed in, then retry.</div>
+  <button type="button" class="sr-refresh" id="errorRetry" style="margin-top:16px;background:var(--edv-orange,#EF631A);border:none">Retry now</button>
+</div>
+
+<main class="wrap" id="content">
+
+  <!-- 0. What this is — bilingual, both languages stacked.
+       NOT a toggle: the same copy ships in the coordinator EMAIL
+       (services/reportTemplates/coordinator.js), and an email cannot toggle.
+       Stacked keeps the page and the email identical. Deliberately does NOT
+       repeat the rolling-window disclosure — that renders below, with the
+       real dates (site-report.js). -->
+  <section class="card intro" id="introSection">
+    <p class="intro-p"><strong>What this score measures</strong> — how well the site keeps up the Group IT operating routine: departmental reviews, issues closed, inspections run, PVs signed. It is <strong>not</strong> a rating of IT service quality: a busy site can score low if it skips its reviews, a quiet one can score well.<span id="introMovesEn"> <strong>Start with the two moves</strong> — the highest-value gaps you can close this month.</span></p>
+    <p class="intro-p intro-legend"><strong>Reading the colours (RAG)</strong> — <span class="lg lg-g">G</span>reen = on track · <span class="lg lg-a">A</span>mber = at risk · <span class="lg lg-r">R</span>ed = off track. The shorthand under each dimension is its band: <code>G≥8 A5–7 R&lt;5</code> reads “green at 8 or more, amber 5 to 7, red below 5”. Overall score: green ≥70, amber 45–69, red below 45.</p>
+    <p class="intro-p intro-fr"><strong>Ce que mesure cette note</strong> — la tenue du dispositif IT du Groupe sur le site : réunions départementales tenues, problèmes clôturés, inspections réalisées, PV signés. Ce n’est <strong>pas</strong> une note sur la qualité du service IT : un site très sollicité peut mal noter s’il saute ses réunions, un site calme peut bien noter.<span id="introMovesFr"> <strong>Commencez par les deux actions</strong> — les écarts les plus rentables à combler ce mois-ci.</span></p>
+    <p class="intro-p intro-legend"><strong>Lire les couleurs (RAG)</strong> — <span class="lg lg-g">G</span>reen (vert) = dans les clous · <span class="lg lg-a">A</span>mber (orange) = à risque · <span class="lg lg-r">R</span>ed (rouge) = décroché. Le raccourci sous chaque dimension donne ses seuils : <code>G≥8 A5–7 R&lt;5</code> se lit « vert à partir de 8, orange de 5 à 7, rouge en dessous de 5 ». Note globale : vert ≥70, orange 45–69, rouge sous 45.</p>
+  </section>
+
+  <!-- 1. Score hero -->
+  <section id="heroSection" class="card hero rag-amber">
+    <div class="hero-score">
+      <div class="score-num"><span id="scoreVal">—</span><span class="of">/100</span></div>
+      <span class="score-chip chip-amber" id="scoreChip">—</span>
+      <div class="score-trend trend-flat" id="scoreTrend"></div>
+    </div>
+    <div class="hero-side">
+      <h3>Score dimensions</h3>
+      <div class="dims" id="dimsGrid"></div>
+      <h3>Two moves that would help</h3>
+      <ul class="moves" id="movesList"></ul>
+    </div>
+  </section>
+
+  <!-- 2. Meetings -->
+  <section class="section">
+    <div class="section-title">Department meetings</div>
+    <div class="kpis" id="mtgKpis"></div>
+    <div class="cols" style="margin-top:14px">
+      <div class="card panel">
+        <h2>Departments</h2>
+        <div id="mtgDepts"></div>
+      </div>
+      <div class="card panel">
+        <h2>Overdue actions</h2>
+        <div id="mtgActions"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. Inspection -->
+  <section class="section">
+    <div class="section-title">Inspection</div>
+    <div class="kpis" id="inspKpis"></div>
+    <div class="card panel" style="margin-top:14px">
+      <h2>Overdue actions</h2>
+      <div id="inspActions"></div>
+    </div>
+  </section>
+
+  <!-- 4. Helpdesk -->
+  <section class="section">
+    <div class="section-title">Helpdesk</div>
+    <div class="kpis" id="hdKpis"></div>
+    <div class="card panel" style="margin-top:14px">
+      <h2>Top categories</h2>
+      <div class="chart-box"><canvas id="hdChart"></canvas></div>
+      <div id="hdChartEmpty" class="muted" style="display:none">No category data for this period.</div>
+      <div id="hdWeeklyWrap" style="display:none;margin-top:16px">
+        <div class="muted" style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">Weekly volume &amp; resolution SLA &mdash; last 6 weeks</div>
+        <div class="chart-box"><canvas id="hdWeeklyChart"></canvas></div>
+        <div id="hdWeeklyNote" class="muted" style="font-size:.68rem;margin-top:6px;font-style:italic"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. Technicians -->
+  <section class="section">
+    <div class="section-title">Technicians</div>
+    <div class="card panel">
+      <div id="techArea"></div>
+    </div>
+  </section>
+
+  <!-- 6. Recommended actions -->
+  <section class="section">
+    <div class="section-title">Recommended actions</div>
+    <div class="card panel">
+      <ul class="rec-list" id="recList"></ul>
+    </div>
+  </section>
+
+</main>
+
+</body>
+</html>

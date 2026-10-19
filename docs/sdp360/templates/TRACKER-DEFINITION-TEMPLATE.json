@@ -1,0 +1,37 @@
+{
+  "key": "field-dispatch-2027",
+  "name": "Field dispatch tracker 2027",
+  "version": 1,
+  "period": { "kind": "monthly", "start": "2027-01", "count": 12 },
+  "units": [
+    { "code": "SGO", "name": "Sabodala", "colour": "#2563EB" },
+    { "code": "HGO", "name": "Houndé", "colour": "#D97706" }
+  ],
+  "ragPolicy": "tracker-activity",
+  "groups": [
+    {
+      "code": "G1", "name": "Dispatch delivery", "weight": 0.5,
+      "items": [
+        { "code": "G1-01", "name": "Field dispatches closed", "kpiType": "COUNT", "weight": 1, "target": 120, "start": 1, "end": 12,
+          "source": { "module": "helpdesk", "metric": "helpdesk.closed" } },
+        { "code": "G1-02", "name": "Dispatches closed within 2 days (%)", "kpiType": "PERCENT", "weight": 1, "target": 85 },
+        { "code": "G1-03", "name": "Monthly dispatch review held", "kpiType": "BOOLEAN", "weight": 0.5 }
+      ]
+    },
+    {
+      "code": "G2", "name": "Hardware deployments", "weight": 0.3,
+      "items": [
+        { "code": "G2-01", "name": "Devices deployed", "kpiType": "COUNT", "weight": 1, "target": 60 },
+        { "code": "G2-02", "name": "Deployment phase (site refresh project)", "kpiType": "MILESTONE", "weight": 1, "target": 5, "start": 2, "end": 9 }
+      ]
+    },
+    {
+      "code": "G3", "name": "Site maintenance", "weight": 0.2,
+      "items": [
+        { "code": "G3-01", "name": "Preventive maintenance visits", "kpiType": "COUNT", "weight": 1, "target": 24,
+          "source": { "module": "inspections", "metric": "inspections.count" } },
+        { "code": "G3-02", "name": "Mean time to repair (hours)", "kpiType": "DURATION", "weight": 1, "target": 8 }
+      ]
+    }
+  ]
+}

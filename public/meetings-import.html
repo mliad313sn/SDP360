@@ -1,0 +1,1251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bulk import — Meetings — Endeavour Mining IT</title>
+
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="brand/icons.css">
+<link rel="stylesheet" href="brand/components.css">
+<link rel="stylesheet" href="_shell.css">
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-require="editor" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<link rel="stylesheet" href="module-tabs.css">
+<script nonce="%%CSP_NONCE%%" src="module-tabs.js"></script>
+
+<style nonce="%%CSP_NONCE%%">
+  body {
+    margin: 0; background: var(--color-bg, #F4F5F7);
+    color: var(--color-text-strong, #1F2A33);
+    font-family: var(--font-sans, 'Libre Franklin', sans-serif);
+    font-size: 14px; line-height: 1.45;
+  }
+  .mim-wrap { max-width: 1200px; margin: 0 auto; padding: 24px 28px 48px; }
+
+  .mim-hero {
+    background: var(--color-card, #fff); border: 1px solid var(--color-border, #E2E5EA);
+    border-radius: 14px; box-shadow: 0 1px 2px rgba(58,74,96,.04);
+    padding: 22px 26px; margin-bottom: 18px;
+    position: relative; overflow: hidden;
+  }
+  .mim-hero::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 6px;
+    background: linear-gradient(180deg, #EF631A, #145FAE);
+  }
+  .mim-eyebrow {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1.4px; color: var(--edv-orange, #EF631A); margin-bottom: 8px;
+  }
+  .mim-hero h1 { margin: 0 0 6px; font-size: 24px; font-weight: 800; color: var(--edv-slate, #3A4A60); }
+  .mim-hero p  { margin: 0; font-size: 13px; color: var(--color-text, #524F4E); max-width: 70ch; line-height: 1.55; }
+  .mim-hero p strong { color: var(--color-text-strong, #1F2A33); font-weight: 600; }
+
+  .mim-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 18px; }
+  @media (max-width: 1000px) { .mim-grid { grid-template-columns: 1fr; } }
+
+  .mim-card {
+    background: var(--color-card, #fff); border: 1px solid var(--color-border, #E2E5EA);
+    border-radius: 12px; box-shadow: 0 1px 2px rgba(58,74,96,.04);
+    padding: 18px 20px;
+  }
+  .mim-card h2 {
+    margin: 0 0 14px; font-size: 12px; font-weight: 800;
+    text-transform: uppercase; letter-spacing: 1.1px; color: var(--edv-slate, #3A4A60);
+  }
+  .mim-card p { font-size: 12.5px; color: var(--color-text, #524F4E); line-height: 1.6; }
+
+  .mim-steps { padding-left: 18px; margin: 8px 0; }
+  .mim-steps li { margin-bottom: 8px; font-size: 12.5px; color: var(--color-text, #524F4E); }
+  .mim-steps li strong { color: var(--color-text-strong, #1F2A33); }
+  .mim-steps code {
+    background: var(--color-bg, #F4F5F7); padding: 1px 5px; border-radius: 3px;
+    font-family: var(--font-mono, monospace); font-size: 11.5px;
+  }
+
+  .mim-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
+  .btn-primary, .btn-ghost {
+    font-family: var(--font-sans); font-size: 12.5px; font-weight: 700;
+    padding: 8px 14px; border-radius: 6px; cursor: pointer;
+    letter-spacing: 0.2px; border: 1px solid transparent;
+    display: inline-flex; align-items: center; gap: 6px; text-decoration: none;
+  }
+  .btn-primary { background: var(--edv-orange, #EF631A); color: #fff; border-color: var(--edv-orange-dark, #C04E10); }
+  .btn-primary:hover { background: var(--edv-orange-dark, #C04E10); }
+  .btn-primary:disabled { background: #B7BEC9; border-color: #B7BEC9; cursor: not-allowed; }
+  .btn-ghost {
+    background: transparent; color: var(--color-text-strong, #1F2A33);
+    border-color: var(--color-border, #E2E5EA);
+  }
+  .btn-ghost:hover { background: var(--color-bg, #F4F5F7); }
+
+  /* File drop zone */
+  .mim-drop {
+    border: 2px dashed var(--color-border, #E2E5EA);
+    border-radius: 8px; padding: 28px 20px; text-align: center;
+    background: var(--color-bg, #F4F5F7);
+    cursor: pointer; transition: background 120ms, border-color 120ms;
+  }
+  .mim-drop:hover, .mim-drop--active {
+    border-color: var(--edv-orange, #EF631A);
+    background: rgba(239,99,26,.04);
+  }
+  .mim-drop__title { font-size: 14px; font-weight: 700; color: var(--color-text-strong, #1F2A33); }
+  .mim-drop__sub { font-size: 11.5px; color: var(--color-text-muted, #7B7B7B); margin-top: 6px; }
+  .mim-drop input[type="file"] { display: none; }
+
+  .mim-file-pill {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: rgba(20,95,174,.08); border: 1px solid rgba(20,95,174,.25);
+    color: var(--edv-blue, #145FAE);
+    padding: 6px 10px; border-radius: 6px;
+    font-size: 12px; font-weight: 600; margin-top: 8px;
+  }
+
+  /* Preview panel */
+  .mim-kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 14px; }
+  .mim-kpi {
+    background: var(--color-bg, #F4F5F7); border: 1px solid var(--color-border, #E2E5EA);
+    border-radius: 8px; padding: 10px 12px;
+  }
+  .mim-kpi__label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.7px; color: var(--color-text-muted, #7B7B7B); }
+  .mim-kpi__value { font-size: 22px; font-weight: 800; line-height: 1; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .mim-kpi--success .mim-kpi__value { color: var(--edv-green, #1B9A3A); }
+  .mim-kpi--info    .mim-kpi__value { color: var(--edv-blue,  #145FAE); }
+  .mim-kpi--warning .mim-kpi__value { color: var(--color-warning, #D97706); }
+  .mim-kpi--danger  .mim-kpi__value { color: var(--edv-red,   #D90038); }
+  /* Warning banner shown when some references already exist in DB */
+  .mim-update-warning {
+    background: #FEF3C7; border: 1px solid #FCD34D; border-left: 4px solid #D97706;
+    color: #78350F; border-radius: 8px; padding: 10px 14px;
+    font-size: 12.5px; line-height: 1.5; margin-bottom: 14px;
+  }
+  .mim-update-warning strong { color: #78350F; }
+  /* Per-row create/update indicator */
+  .mim-row-kind {
+    display: inline-block; font-size: 10.5px; font-weight: 700;
+    padding: 1px 6px; border-radius: 10px; margin-right: 6px;
+    white-space: nowrap;
+  }
+  .mim-row-kind--new    { background: #DCFCE7; color: #166534; border: 1px solid #86EFAC; }
+  .mim-row-kind--update { background: #FEF3C7; color: #92400E; border: 1px solid #FCD34D; }
+
+  .mim-preview-list {
+    border: 1px solid var(--color-border-subtle, #EEF0F3);
+    border-radius: 6px; overflow: hidden; max-height: 280px; overflow-y: auto;
+  }
+  .mim-preview-row {
+    display: grid;
+    grid-template-columns: 40px 1.6fr 1fr 90px 50px 50px;
+    gap: 8px; align-items: center;
+    padding: 7px 12px; font-size: 12px;
+    border-top: 1px solid var(--color-border-subtle, #EEF0F3);
+  }
+  .mim-preview-row:first-child { border-top: 0; }
+  .mim-preview-row:hover { background: var(--color-bg, #F4F5F7); }
+  .mim-site { font-family: var(--font-mono, monospace); font-size: 10.5px; font-weight: 800; background: var(--edv-slate, #3A4A60); color: #fff; padding: 2px 6px; border-radius: 4px; text-align: center; }
+  .mim-ref { font-family: var(--font-mono, monospace); font-size: 11px; color: var(--color-text-strong, #1F2A33); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mim-dept { color: var(--color-text, #524F4E); }
+  .mim-date { color: var(--color-text-muted, #7B7B7B); font-variant-numeric: tabular-nums; }
+  .mim-count { text-align: right; font-weight: 700; color: var(--color-text-strong, #1F2A33); font-variant-numeric: tabular-nums; }
+
+  /* Errors / warnings */
+  .mim-issues { margin-top: 14px; }
+  .mim-issue-line {
+    font-size: 12px; padding: 6px 10px; border-radius: 4px; margin-bottom: 4px;
+    font-family: var(--font-sans);
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  }
+  .mim-issue-line--error { background: rgba(217,0,56,.06); color: #991B1B; border-left: 3px solid #DC2626; }
+  .mim-issue-line--warn  { background: rgba(217,119,6,.06); color: #92400E; border-left: 3px solid #D97706; }
+  .mim-issue-line code   { font-family: var(--font-mono, monospace); font-size: 11px; opacity: 0.7; }
+  .mim-issue-line__msg   { flex: 1 1 auto; min-width: 0; }
+  .mim-issue-line__fix   {
+    font-size: 11px; padding: 3px 9px; border-radius: 4px; cursor: pointer;
+    background: #fff; color: var(--edv-orange, #EF631A);
+    border: 1px solid var(--edv-orange, #EF631A); font-weight: 700;
+    font-family: var(--font-sans); white-space: nowrap;
+  }
+  .mim-issue-line__fix:hover { background: var(--edv-orange, #EF631A); color: #fff; }
+
+  /* Lookup-create modal — small overlay shown when admin clicks "+ Créer ce code" */
+  .mim-modal-bg {
+    position: fixed; inset: 0; background: rgba(31,42,51,.42);
+    display: none; align-items: center; justify-content: center; z-index: 99;
+  }
+  .mim-modal-bg.open { display: flex; }
+  .mim-modal {
+    background: #fff; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,.18);
+    width: min(460px, 92vw); padding: 22px 24px; font-family: var(--font-sans);
+  }
+  .mim-modal__head { font-size: 12px; font-weight: 800; text-transform: uppercase;
+    letter-spacing: 1px; color: var(--edv-orange, #EF631A); margin-bottom: 4px; }
+  .mim-modal__title { font-size: 18px; font-weight: 800; color: var(--edv-slate, #3A4A60); margin-bottom: 14px; }
+  .mim-modal__field { margin-bottom: 10px; }
+  .mim-modal__field label { display: block; font-size: 11.5px; font-weight: 700;
+    color: var(--color-text, #524F4E); margin-bottom: 3px; }
+  .mim-modal__field input {
+    width: 100%; padding: 7px 10px; border: 1px solid var(--color-border, #E2E5EA);
+    border-radius: 5px; font-size: 13px; font-family: var(--font-sans);
+    background: #fff;
+  }
+  .mim-modal__field input:focus { outline: none; border-color: var(--edv-orange, #EF631A); }
+  .mim-modal__field input[readonly] { background: var(--color-bg, #F4F5F7); color: var(--color-text-muted, #7B7B7B); }
+  .mim-modal__hint { font-size: 11px; color: var(--color-text-muted, #7B7B7B); margin-top: 4px; }
+  .mim-modal__actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+  .mim-modal__err {
+    font-size: 12px; color: #991B1B; padding: 6px 10px;
+    background: rgba(217,0,56,.08); border-radius: 4px; margin-top: 10px;
+    display: none;
+  }
+  .mim-modal__err.show { display: block; }
+
+  /* Toast */
+  .mim-toast {
+    background: #DCFCE7; border: 1px solid #86EFAC;
+    color: #14532D; border-radius: 8px; padding: 10px 14px;
+    font-size: 12.5px; margin-bottom: 14px;
+  }
+  .mim-toast--error { background: #FEE2E2; border-color: #FCA5A5; color: #991B1B; }
+  .mim-toast--warn  { background: #FEF3C7; border-color: #FBBF24; color: #78350F; }
+
+  /* ── Bilingual toggle (EN/FR) ────────────────────────────────────
+     Default is English. Adding `lang-fr` to <body> swaps every paired
+     element. Inline text uses <span data-lng="en"> / <span data-lng="fr">
+     pairs; block-level content uses <div data-lng-block="en|fr">.
+     The new "Guide complet — Mécanisme de liaison" section is FR-only
+     (it doesn't need an EN twin since the audience is the francophone
+     coordinators). */
+  [data-lng="fr"]       { display: none; }
+  [data-lng-block="fr"] { display: none; }
+  body.lang-fr [data-lng="en"]       { display: none; }
+  body.lang-fr [data-lng-block="en"] { display: none; }
+  body.lang-fr [data-lng="fr"]       { display: inline; }
+  body.lang-fr [data-lng-block="fr"] { display: block; }
+  /* Items that should be display:list-item, etc. when shown */
+  body.lang-fr li[data-lng-block="fr"] { display: list-item; }
+
+  /* ── Module tabs (Meetings ↔ Dashboard ↔ Issues ↔ Council ↔ Compliance) ──
+     Copied verbatim from meetings-compliance.html. This page previously had a
+     single "Back to list" link buried at the bottom of the commit card, so a
+     coordinator who landed here had no way across the module. */
+  .mtg-tabs {
+    display: inline-flex; gap: 2px;
+    background: #F3F4F6;
+    border: 1px solid #E5E7EB;
+    border-radius: 10px;
+    padding: 3px;
+    margin: 0 0 16px 0;
+  }
+  .mtg-tabs__btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 8px 16px;
+    font-size: 13px; font-weight: 600;
+    color: #6B7280;
+    background: transparent;
+    border: 0; border-radius: 7px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background-color .12s, color .12s;
+  }
+  .mtg-tabs__btn:hover { color: #1F2937; background: #FFFFFF; }
+  .mtg-tabs__btn--active {
+    color: #1F2937; background: #FFFFFF;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+    border-bottom: 2px solid var(--edv-orange, #E87722);
+    padding-bottom: 6px;
+  }
+
+  .mim-lang-toggle {
+    position: absolute; top: 18px; right: 22px;
+    display: inline-flex; gap: 2px;
+    background: var(--color-bg, #F4F5F7); border-radius: 6px;
+    padding: 3px; font-size: 12px;
+  }
+  .mim-lang-toggle button {
+    background: transparent; border: 0; cursor: pointer;
+    padding: 5px 11px; border-radius: 4px; font-weight: 700;
+    font-family: var(--font-sans); font-size: 11.5px;
+    color: var(--color-text-muted, #7B7B7B); letter-spacing: 0.3px;
+  }
+  .mim-lang-toggle button.active {
+    background: #fff; color: var(--edv-slate, #3A4A60);
+    box-shadow: 0 1px 2px rgba(58,74,96,.10);
+  }
+
+  /* ── FR guide section (mécanisme de liaison, pièges, FAQ) ──────── */
+  .mim-guide {
+    background: #fff; border: 1px solid var(--color-border, #E2E5EA);
+    border-radius: 12px; box-shadow: 0 1px 2px rgba(58,74,96,.04);
+    padding: 22px 26px; margin-top: 18px;
+    position: relative; overflow: hidden;
+  }
+  .mim-guide::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 6px;
+    background: var(--edv-blue, #145FAE);
+  }
+  .mim-guide h2 {
+    margin: 0 0 14px; font-size: 18px; font-weight: 800;
+    color: var(--edv-slate, #3A4A60);
+  }
+  .mim-guide h3 {
+    margin: 18px 0 8px; font-size: 13.5px; font-weight: 800;
+    color: var(--edv-slate, #3A4A60); letter-spacing: 0.2px;
+  }
+  .mim-guide p, .mim-guide li {
+    font-size: 13px; line-height: 1.55; color: var(--color-text, #524F4E);
+  }
+  .mim-guide ol, .mim-guide ul { padding-left: 22px; }
+  .mim-guide li { margin-bottom: 6px; }
+  .mim-guide code {
+    background: var(--color-bg, #F4F5F7); padding: 1px 5px; border-radius: 3px;
+    font-family: var(--font-mono, monospace); font-size: 11.5px;
+  }
+  .mim-guide strong { color: var(--color-text-strong, #1F2A33); }
+  .mim-guide__callout {
+    background: #FEF3C7; border-left: 4px solid #D97706;
+    padding: 12px 16px; border-radius: 6px; margin: 14px 0;
+    font-size: 13px; color: #78350F;
+  }
+  .mim-guide__callout strong { color: #78350F; }
+  .mim-guide__diagram {
+    font-family: var(--font-mono, monospace); font-size: 11px;
+    background: var(--color-bg, #F4F5F7); border: 1px solid var(--color-border, #E2E5EA);
+    border-radius: 6px; padding: 14px 16px; white-space: pre;
+    overflow-x: auto; line-height: 1.4;
+    color: var(--color-text-strong, #1F2A33);
+    margin: 10px 0 14px;
+  }
+  .mim-guide table {
+    width: 100%; border-collapse: collapse; margin: 8px 0 14px;
+    font-size: 12px;
+  }
+  .mim-guide table th, .mim-guide table td {
+    border: 1px solid var(--color-border, #E2E5EA);
+    padding: 6px 10px; text-align: left;
+    vertical-align: top;
+  }
+  .mim-guide table th {
+    background: var(--edv-slate, #3A4A60); color: #fff;
+    font-weight: 700; font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.4px;
+  }
+  .mim-guide table tr:nth-child(even) td { background: var(--color-bg, #F4F5F7); }
+
+  /* ── Print stylesheet — Phase 5 ────────────────────────────────────
+     When the operator hits Ctrl+P with the FR toggle active, only the
+     guide section prints. Everything else (app shell, upload zone,
+     preview panel, EN content, admin chrome) is hidden — the resulting
+     PDF is a clean A4 portrait booklet they can email to coordinators.
+     Print directly with EN active and you get a useful one-page summary
+     of the EN cards instead. */
+  @media print {
+    @page { size: A4 portrait; margin: 14mm 14mm 16mm 14mm; }
+    body { background: #fff !important; color: #000 !important; font-size: 11pt; }
+    /* Hide app chrome + interactive zones — nothing useful in a printed doc */
+    #__shell, .mtg-tabs, #mimBanner, .mim-lang-toggle, .mim-drop, #mimFilePill,
+    .mim-actions, #mimCommitCard, #mimCreateLookupBg { display: none !important; }
+    /* When printed in FR, the guide is the document — hide everything else */
+    body.lang-fr .mim-hero, body.lang-fr .mim-grid { display: none !important; }
+    /* When printed in EN, hide the FR-only guide (it would be irrelevant) */
+    body:not(.lang-fr) .mim-guide { display: none !important; }
+    /* Strip backgrounds + shadows that don't print well, keep borders */
+    .mim-guide, .mim-card, .mim-hero {
+      box-shadow: none !important; border: 0 !important;
+      background: transparent !important; padding: 0 !important;
+      margin: 0 0 8mm 0 !important;
+    }
+    .mim-guide::before, .mim-hero::before { display: none !important; }
+    .mim-guide h2 { font-size: 16pt; margin-top: 4mm; }
+    .mim-guide h3 {
+      font-size: 12pt; margin-top: 6mm;
+      page-break-after: avoid;          /* keep headings with their content */
+    }
+    .mim-guide p, .mim-guide li { font-size: 10.5pt; line-height: 1.45; }
+    .mim-guide__diagram {
+      background: #fafafa !important;
+      border: 1px solid #ccc !important;
+      font-size: 8.5pt; padding: 4mm 5mm;
+      page-break-inside: avoid;        /* don't split diagrams across pages */
+    }
+    .mim-guide__callout {
+      background: #fff7e6 !important; border-left: 3pt solid #d97706 !important;
+      page-break-inside: avoid;
+    }
+    .mim-guide table { page-break-inside: avoid; font-size: 9.5pt; }
+    .mim-guide table th { background: #3A4A60 !important; color: #fff !important; }
+    /* Force any links to show their URL inline (audit trail when printed) */
+    a[href]::after { content: ""; }   /* don't expand — we don't have linkouts in the FR guide */
+  }
+</style>
+</head>
+<body>
+
+<div id="__shell" data-section="operations" data-current="meetings"></div>
+
+<div class="mim-wrap">
+
+  <!-- No tab carries --active: "Bulk import" is not one of the seven tabs, and
+       the active state is a "you are here" marker — highlighting Meetings would
+       point at a page you are NOT on. The hero eyebrow says where you are. -->
+  <div id="__moduletabs" data-module="meetings" data-current=""></div>
+
+  <section class="mim-hero">
+    <div class="mim-lang-toggle" id="mimLangToggle">
+      <button type="button" data-lang="en" class="active">EN</button>
+      <button type="button" data-lang="fr">FR</button>
+    </div>
+    <div class="mim-eyebrow">
+      <span data-lng="en">Insights · Meetings · Bulk import</span>
+      <span data-lng="fr">Insights · Réunions · Import en masse</span>
+    </div>
+    <h1>
+      <span data-lng="en">Import historical PVs</span>
+      <span data-lng="fr">Importer des PV historiques</span>
+    </h1>
+    <p data-lng-block="en">Upload a 3-tab Excel workbook (<strong>Meetings</strong>, <strong>Issues</strong>, <strong>Actions</strong>) to ingest past
+       department meetings in one shot. The preview step validates every row against the live lookup
+       codes before anything touches the database. Existing meetings with a matching <code>reference</code>
+       are <strong>updated</strong>, not duplicated.</p>
+    <p data-lng-block="fr">Téléversez un classeur Excel à 3 onglets (<strong>Meetings</strong>, <strong>Issues</strong>, <strong>Actions</strong>) pour
+       importer des PV de réunions départementales en une seule opération. L'étape de prévisualisation
+       valide chaque ligne contre les codes en base avant tout enregistrement. Les réunions dont la
+       <code>reference</code> existe déjà sont <strong>mises à jour en place</strong> — aucun doublon n'est créé.</p>
+  </section>
+
+  <div id="mimBanner"></div>
+
+  <div class="mim-card" style="margin-bottom:14px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+    <strong style="font-size:14px">
+      <span data-lng="en">Report format</span><span data-lng="fr">Format du rapport</span>
+    </strong>
+    <label style="cursor:pointer"><input type="radio" name="mimFormat" value="meetings" checked style="vertical-align:middle"> <span data-lng="en">Department meeting (PV)</span><span data-lng="fr">Réunion départementale (PV)</span></label>
+    <label style="cursor:pointer"><input type="radio" name="mimFormat" value="incubation" style="vertical-align:middle"> <span data-lng="en">Business Incubation</span><span data-lng="fr">Incubation métier</span></label>
+    <span id="mimFormatNote" style="color:var(--color-text-muted,#7B7B7B);font-size:12.5px"></span>
+  </div>
+
+  <div class="mim-grid">
+
+    <!-- LEFT — instructions + drop zone -->
+    <div>
+      <div class="mim-card">
+        <h2>
+          <span data-lng="en">Step 1 · Get the template</span>
+          <span data-lng="fr">Étape 1 · Télécharger le modèle</span>
+        </h2>
+        <p data-lng-block="en">The template includes the headers, a working example row, and a <strong>Codes</strong> tab that lists every valid site, department, category, severity, status, escalation reason and council theme — so you don't have to remember the codes.</p>
+        <p data-lng-block="fr">Le modèle comprend les en-têtes, une ligne d'exemple complète, et un onglet <strong>Codes</strong> qui liste tous les codes valides (sites, départements, catégories, sévérités, statuts, motifs d'escalade, thèmes du Conseil) — ainsi vous n'avez pas à les mémoriser.</p>
+        <div class="mim-actions">
+          <button class="btn-primary" type="button" id="mimDownloadTpl">
+            <span data-lng="en">↓ Download template</span>
+            <span data-lng="fr">↓ Télécharger le modèle</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="mim-card" style="margin-top:14px">
+        <h2>
+          <span data-lng="en">Step 2 · Fill it in</span>
+          <span data-lng="fr">Étape 2 · Remplir le fichier</span>
+        </h2>
+        <ol class="mim-steps">
+          <li data-lng-block="en"><strong>Meetings tab</strong> — one row per PV. Leave <code>reference</code> blank and the server auto-builds <code>SITE_Department_PV_YYYY-MM</code>.</li>
+          <li data-lng-block="fr"><strong>Onglet Meetings</strong> — une ligne par PV. Recommandé : remplir <code>reference</code> à la main (ex. <code>HGO_Mining_PV_2026-05</code>) pour pouvoir la copier dans les onglets Issues et Actions. Voir le guide ci-dessous.</li>
+          <li data-lng-block="en"><strong>Issues tab</strong> — every issue references its parent PV via <code>meeting_reference</code>. <code>category</code> must be one of <code>CN HW IN OT AP SC DR SD LV</code>.</li>
+          <li data-lng-block="fr"><strong>Onglet Issues</strong> — chaque issue se rattache à son PV parent via <code>meeting_reference</code> (copie exacte de la <code>reference</code> du PV). <code>category</code> doit valoir l'un de <code>CN HW IN OT AP SC DR SD LV</code>.</li>
+          <li data-lng-block="en"><strong>Actions tab</strong> — same FK. Optional <code>linked_issue_ord</code> joins to the <code>ord</code>-th issue in the same PV.</li>
+          <li data-lng-block="fr"><strong>Onglet Actions</strong> — même clé de rattachement. <code>linked_issue_ord</code> (optionnel) = numéro 1-based de l'issue dans le MÊME PV.</li>
+          <li data-lng-block="en"><strong>Escalate</strong> — use <code>Y</code>, <code>1</code>, <code>true</code> or <code>oui</code>. If <code>Y</code>, pick an <code>escalation_reason</code> and a <code>council_theme</code> (or Engagement #5 will flag it).</li>
+          <li data-lng-block="fr"><strong>Escalade</strong> — utilisez <code>Y</code>, <code>1</code>, <code>true</code> ou <code>oui</code>. Si <code>Y</code>, renseignez un <code>escalation_reason</code> et un <code>council_theme</code> (sinon l'Engagement #5 le signalera).</li>
+        </ol>
+      </div>
+
+      <div class="mim-card" style="margin-top:14px">
+        <h2>
+          <span data-lng="en">Step 3 · Upload &amp; preview</span>
+          <span data-lng="fr">Étape 3 · Téléverser et prévisualiser</span>
+        </h2>
+        <div class="mim-drop" id="mimDrop">
+          <div class="mim-drop__title">
+            <span data-lng="en">📂 Drop your .xlsx here, or click to pick</span>
+            <span data-lng="fr">📂 Glissez votre .xlsx ici, ou cliquez pour parcourir</span>
+          </div>
+          <div class="mim-drop__sub">
+            <span data-lng="en">Up to 30 MB. The preview runs server-side and shows what will be created or updated.</span>
+            <span data-lng="fr">Jusqu'à 30 Mo. La prévisualisation se fait côté serveur et montre ce qui sera créé ou mis à jour — rien n'est encore enregistré.</span>
+          </div>
+          <input type="file" id="mimFile" accept=".xlsx,.xlsm,.xls">
+        </div>
+        <div id="mimFilePill"></div>
+        <div class="mim-actions">
+          <button class="btn-primary" type="button" id="mimPreviewBtn" disabled>
+            <span data-lng="en">Run preview ›</span>
+            <span data-lng="fr">Lancer la prévisualisation ›</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT — preview output -->
+    <div>
+      <div class="mim-card">
+        <h2>
+          <span data-lng="en">Preview <em style="text-transform:none;font-weight:500;color:var(--color-text-muted,#7B7B7B)">— no changes saved yet</em></span>
+          <span data-lng="fr">Prévisualisation <em style="text-transform:none;font-weight:500;color:var(--color-text-muted,#7B7B7B)">— rien n'est encore enregistré</em></span>
+        </h2>
+        <div id="mimPreviewBody">
+          <p style="text-align:center;color:var(--color-text-muted,#7B7B7B);font-style:italic;padding:24px">
+            <span data-lng="en">Upload a workbook to see the preview.</span>
+            <span data-lng="fr">Téléversez un classeur pour voir la prévisualisation.</span>
+          </p>
+        </div>
+      </div>
+
+      <div class="mim-card" style="margin-top:14px" id="mimCommitCard" hidden>
+        <h2>
+          <span data-lng="en">Step 4 · Commit to the database</span>
+          <span data-lng="fr">Étape 4 · Valider dans la base de données</span>
+        </h2>
+        <p data-lng-block="en">Once the preview looks right, the commit step writes every meeting + nested issues + actions to <code>meetings.db</code>. References that already exist are <strong>updated in place</strong> — duplicates are not created.</p>
+        <p data-lng-block="fr">Une fois la prévisualisation correcte, la validation écrit chaque réunion + ses issues + ses actions dans <code>meetings.db</code>. Les références déjà existantes sont <strong>mises à jour en place</strong> — aucun doublon n'est créé.</p>
+        <div class="mim-actions">
+          <label style="font-size:12px;color:var(--color-text-muted,#7B7B7B);display:flex;align-items:center;gap:6px">
+            <input type="checkbox" id="mimForce" style="vertical-align:middle">
+            <span data-lng="en">Skip bad rows and commit the rest</span>
+            <span data-lng="fr">Ignorer les lignes en erreur et valider le reste</span>
+          </label>
+        </div>
+        <div class="mim-actions">
+          <button class="btn-primary" type="button" id="mimCommitBtn">
+            <span data-lng="en">▶ Commit import</span>
+            <span data-lng="fr">▶ Valider l'import</span>
+          </button>
+          <a class="btn-ghost" href="meetings.html">
+            <span data-lng="en">Back to list</span>
+            <span data-lng="fr">Retour à la liste</span>
+          </a>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ────────────────────────────────────────────────────────────────────
+       GUIDE COMPLET (FR seulement) — Mécanisme de liaison et pièges fréquents
+       Visible quand la langue est FR. La même information est disponible
+       en version imprimable autonome via meetings-import-aide-fr.html.
+       ──────────────────────────────────────────────────────────────────── -->
+  <div data-lng-block="fr">
+    <div class="mim-guide">
+      <h2>📘 Guide complet — Comment remplir votre fichier d'import</h2>
+      <p>Ce guide explique le mécanisme de liaison entre les 3 onglets du modèle Excel, les pièges fréquents, et la façon de gérer les codes manquants. À lire <strong>avant de remplir votre premier fichier</strong>.</p>
+
+      <h3>1 · Le principe : une clé partagée entre les 3 onglets</h3>
+      <p>Le fichier comporte 3 onglets de données : <strong>Meetings</strong> (les PV), <strong>Issues</strong> (les problèmes soulevés en réunion), <strong>Actions</strong> (les engagements pris). Les Issues et les Actions doivent être rattachées à leur PV parent via une <strong>clé de liaison</strong>.</p>
+
+      <div class="mim-guide__diagram">┌─ Onglet Meetings ───────────────────────────────────────┐
+│ reference                  │ site │ dept    │ date     │
+├────────────────────────────┼──────┼─────────┼──────────┤
+│ HGO_Mining_PV_2026-05      │ HGO  │ mining  │ 2026-05- │  ← Le PV
+│ HGO_Maintenance_PV_2026-05 │ HGO  │ maint   │ 2026-05- │  ← Un autre PV
+│ MGO_Mining_PV_2026-05      │ MGO  │ mining  │ 2026-05- │  ← Un 3e PV
+└────────────────────────────┴──────┴─────────┴──────────┘
+                ↓
+                │  La référence est la clé
+                ↓
+┌─ Onglet Issues ──────────────────────────────────────────┐
+│ meeting_reference          │ ord │ title          │ cat  │
+├────────────────────────────┼─────┼────────────────┼──────┤
+│ HGO_Mining_PV_2026-05      │  1  │ Crusher PLC    │ OT   │
+│ HGO_Mining_PV_2026-05      │  2  │ WiFi vestiaire │ CN   │
+│ HGO_Maintenance_PV_2026-05 │  1  │ GMAO laggy     │ AP   │
+│ MGO_Mining_PV_2026-05      │  1  │ Tablettes      │ HW   │
+└────────────────────────────┴─────┴────────────────┴──────┘
+                ↓
+┌─ Onglet Actions ─────────────────────────────────────────┐
+│ meeting_reference          │ ord │ desc           │ link │
+├────────────────────────────┼─────┼────────────────┼──────┤
+│ HGO_Mining_PV_2026-05      │  1  │ Appeler vendor │  1   │ ← lie l'issue #2
+│ HGO_Mining_PV_2026-05      │  2  │ Test AP supp.  │  2   │   du MÊME PV
+│ HGO_Maintenance_PV_2026-05 │  1  │ Migration GMAO │  1   │
+│ MGO_Mining_PV_2026-05      │  1  │ Acheter charg. │  1   │
+└────────────────────────────┴─────┴────────────────┴──────┘</div>
+
+      <p><strong>Deux clés à comprendre :</strong></p>
+      <ul>
+        <li><code>meeting_reference</code> (dans Issues et Actions) doit valoir <strong>EXACTEMENT</strong> la même chose que <code>reference</code> du PV (copier-coller, sensible à la casse, espaces compris).</li>
+        <li><code>linked_issue_ord</code> (dans Actions) est le numéro 1-based de l'issue <strong>dans la même réunion</strong> — pas le numéro global du fichier.</li>
+      </ul>
+
+      <div class="mim-guide__callout">
+        ⚠ <strong>RÈGLE D'OR</strong> — Remplissez la colonne <code>reference</code> à la main dans l'onglet Meetings,
+        puis copiez-la dans <code>meeting_reference</code> des onglets Issues ET Actions.
+        Si vous laissez <code>reference</code> vide dans Meetings, le serveur la générera automatiquement, mais
+        vous devrez deviner exactement la chaîne fabriquée pour la coller dans Issues/Actions — source d'erreurs.
+      </div>
+
+      <h3>2 · Format canonique de la référence</h3>
+      <p>Format recommandé : <code>CODESITE_Departement_PV_AAAA-MM</code>.</p>
+      <table>
+        <tr><th>Exemple</th><th>Décodage</th></tr>
+        <tr><td><code>HGO_Mining_PV_2026-05</code></td><td>PV Mining de mai 2026 à Houndé</td></tr>
+        <tr><td><code>MGO_Maintenance_PV_2026-05</code></td><td>PV Maintenance de mai 2026 à Mana</td></tr>
+        <tr><td><code>IGO_Geology_PV_2026-04</code></td><td>PV Geology d'avril 2026 à Ity</td></tr>
+      </table>
+
+      <h3>3 · Astuce Excel : générer toutes les références d'un coup</h3>
+      <p>Pour gagner du temps avec beaucoup de PV, mettez cette formule dans la cellule <code>reference</code> (A2) de l'onglet Meetings :</p>
+      <div class="mim-guide__diagram">=B2 &amp; "_" &amp; MAJUSCULE(GAUCHE(C2;1)) &amp; STXT(C2;2;100) &amp; "_PV_" &amp; TEXTE(D2;"AAAA-MM")</div>
+      <p>(Adaptez B2 = site_code, C2 = department, D2 = meeting_date selon l'ordre de vos colonnes.) Étirez la formule sur toute la colonne, puis faites <strong>Copier → Collage spécial → Valeurs uniquement</strong> pour figer les références en texte. Vous pourrez alors copier-coller ces valeurs dans <code>meeting_reference</code> des onglets Issues et Actions.</p>
+
+      <h3>4 · Piège : deux PV du même département dans le même mois</h3>
+      <p>La règle implicite est <strong>« un PV par mois par département par site »</strong>. Si vous avez tenu deux réunions Mining à Houndé en mai 2026, le serveur rejettera le doublon :</p>
+      <p>❌ <strong>Ne pas faire :</strong></p>
+      <div class="mim-guide__diagram">reference                    │ date
+HGO_Mining_PV_2026-05        │ 2026-05-03
+HGO_Mining_PV_2026-05        │ 2026-05-24   ← REJETÉ (doublon)</div>
+      <p>✅ <strong>À faire</strong> — ajoutez un suffixe manuel :</p>
+      <div class="mim-guide__diagram">reference                       │ date
+HGO_Mining_PV_2026-05-03        │ 2026-05-03
+HGO_Mining_PV_2026-05-24        │ 2026-05-24</div>
+      <p>… puis copiez-collez ces références dans <code>meeting_reference</code> des Issues/Actions correspondantes.</p>
+
+      <h3>5 · Codes manquants (intake_source, department, category…)</h3>
+      <p>L'import est <strong>strict</strong> : si un code utilisé dans votre fichier n'existe pas dans la base, la ligne sera rejetée avec le message <code>Unknown &lt;champ&gt; "&lt;code&gt;". Allowed: …</code>. Trois solutions :</p>
+      <ul>
+        <li><strong>Si vous êtes super_admin</strong> — la prévisualisation affichera un bouton <strong>« + Créer ce code »</strong> à côté de chaque erreur. Cliquez, remplissez le nom EN/FR, validez, et la prévisualisation se relance automatiquement. Le code est créé immédiatement.</li>
+        <li><strong>Sinon</strong> — contactez votre super_admin pour qu'il ajoute le code via <strong>Reports → Admin → Meetings — Codes de référence</strong>, puis relancez votre import.</li>
+        <li><strong>Solution de contournement</strong> — utilisez un code existant proche (consultez l'onglet <strong>Codes</strong> du modèle pour la liste à jour) en attendant la création du nouveau code.</li>
+      </ul>
+
+      <h3>6 · Lookup vs texte libre — qu'est-ce qui est configurable ?</h3>
+      <p>Toutes les colonnes du fichier ne fonctionnent pas pareil. Il y a deux familles :</p>
+      <ul>
+        <li><strong>Colonnes à code (lookup)</strong> — il faut utiliser une valeur d'une liste prédéfinie. Si la valeur n'est pas dans la liste, l'import refuse la ligne. Ces listes sont gérables par le super_admin via <strong>Reports → Admin → 🗂 Meetings — Codes de référence</strong>.</li>
+        <li><strong>Colonnes texte libre</strong> — tu écris ce que tu veux directement dans la cellule. Pas de liste à respecter. Ce sont les contenus de la réunion : noms, descriptions, notes, dates, priorités, etc.</li>
+      </ul>
+
+      <div class="mim-guide__callout">
+        ⚠ <strong>Piège fréquent</strong> — <code>priority_1</code>, <code>priority_2</code>, <code>priority_3</code> ne sont PAS des codes. Ce sont les <strong>3 priorités décidées en réunion</strong>, à écrire en texte libre dans les cellules. Exemple :
+        <br><br>
+        <code>priority_1</code> = <em>« Réparer le PLC du concasseur — downtime 30 min/semaine »</em><br>
+        <code>priority_2</code> = <em>« Couverture WiFi vestiaire — ajouter 2 AP »</em><br>
+        <code>priority_3</code> = <em>« Inventaire des tablettes de production avant T3 »</em><br>
+        <br>
+        Les valeurs « Top priority 1 / Top priority 2 » du modèle sont des exemples à remplacer.
+      </div>
+
+      <table>
+        <tr><th>Colonne dans le fichier</th><th>Famille</th><th>Où configurer / saisir</th></tr>
+        <tr><td><code>site_code</code></td><td>Lookup (rare changement)</td><td>Gérés ailleurs dans le dashboard — pas via la carte Meetings</td></tr>
+        <tr><td><code>department</code></td><td>Lookup <code>md_departments</code></td><td>Carte 🗂 Meetings — dropdown « Departments »</td></tr>
+        <tr><td><code>intake_source</code></td><td>Lookup <code>md_intake_sources</code></td><td>Carte 🗂 Meetings — dropdown « Intake sources »</td></tr>
+        <tr><td><code>status</code> (du PV)</td><td>Lookup <code>md_meeting_statuses</code></td><td>Carte 🗂 Meetings — dropdown « Meeting statuses »</td></tr>
+        <tr><td><code>category</code> (d'une issue)</td><td>Lookup <code>md_categories</code></td><td>Carte 🗂 Meetings — dropdown « Categories »</td></tr>
+        <tr><td><code>severity</code></td><td>Lookup <code>md_severities</code></td><td>Carte 🗂 Meetings — dropdown « Severities »</td></tr>
+        <tr><td><code>status</code> (issue/action)</td><td>Lookup <code>md_statuses</code></td><td>Carte 🗂 Meetings — dropdown « Statuses »</td></tr>
+        <tr><td><code>escalation_reason</code></td><td>Lookup <code>md_escalation_reasons</code></td><td>Carte 🗂 Meetings — dropdown « Escalation reasons »</td></tr>
+        <tr><td><code>council_theme</code></td><td>Lookup <code>md_council_themes</code></td><td>Carte 🗂 Meetings — dropdown « Council themes »</td></tr>
+        <tr><td><code>meeting_date</code>, <code>duration_min</code>, <code>next_meeting_date</code></td><td>Texte libre / date</td><td>Saisie directe dans la cellule</td></tr>
+        <tr><td><code>department_head</code>, <code>site_it_lead</code>, <code>champion</code>, <code>owner_it</code></td><td>Texte libre (noms)</td><td>Saisie directe dans la cellule</td></tr>
+        <tr><td><strong><code>priority_1</code>, <code>priority_2</code>, <code>priority_3</code></strong></td><td><strong>Texte libre</strong></td><td><strong>Saisie directe — les 3 priorités décidées en réunion</strong></td></tr>
+        <tr><td><code>title</code>, <code>description</code>, <code>notes</code> (issues)</td><td>Texte libre</td><td>Saisie directe</td></tr>
+        <tr><td><code>next_meeting_location</code>, <code>other_attendees</code></td><td>Texte libre</td><td>Saisie directe</td></tr>
+        <tr><td><code>reference</code>, <code>meeting_reference</code></td><td>Clé interne (texte libre, mais lien entre onglets)</td><td>Saisie directe — voir section 1 du guide</td></tr>
+      </table>
+
+      <p><strong>Règle simple :</strong> si une colonne te demande un acronyme ou un code court (ex. <code>HGO</code>, <code>OT</code>, <code>HIGH</code>, <code>dept_meeting</code>), c'est un lookup → la valeur doit exister dans la base. Si la colonne accepte une phrase libre (ex. <em>« Crusher PLC plante chaque lundi »</em>), c'est du texte libre → tu écris ce que tu veux.</p>
+
+      <h3>7 · Recette pratique — 5 PV, 30 issues, 15 actions</h3>
+      <ol>
+        <li><strong>Onglet Meetings</strong> d'abord — remplissez 5 lignes avec une <code>reference</code> unique sur chacune.</li>
+        <li><strong>Copiez chaque référence</strong> dans le presse-papier une par une, puis remplissez les issues du PV correspondant en collant la référence dans <code>meeting_reference</code> autant de fois que ce PV a d'issues. Numérotez <code>ord</code> de 1 à N pour les issues du même PV.</li>
+        <li><strong>Onglet Actions</strong> — même logique. Pour chaque action, collez la même référence que son PV parent. Si l'action est liée à une issue précise du même PV, mettez le numéro <code>ord</code> de cette issue dans <code>linked_issue_ord</code>.</li>
+        <li><strong>Lancez la prévisualisation</strong> — vérifiez : ✓ 5 meetings, 30 issues, 15 actions, 0 erreurs. Si erreurs → corriger et relancer.</li>
+        <li><strong>Validez l'import</strong> une fois la prévisualisation propre. Les références déjà existantes seront mises à jour en place.</li>
+      </ol>
+
+      <h3>8 · Pièges fréquents — récapitulatif</h3>
+      <table>
+        <tr><th>Symptôme</th><th>Cause probable</th><th>Solution</th></tr>
+        <tr>
+          <td><code>[Issues] meeting_reference "XXX" does not exist in the Meetings tab</code></td>
+          <td>Référence dans Issues ne correspond à aucune référence dans Meetings (typo, espace, casse différente)</td>
+          <td>Copier-coller la référence exacte depuis l'onglet Meetings</td>
+        </tr>
+        <tr>
+          <td><code>Duplicate reference "XXX" in the workbook</code></td>
+          <td>Deux PV avec la même référence (souvent : même site + même dept + même mois)</td>
+          <td>Suffixer manuellement les références (ex. ajouter <code>-03</code> et <code>-24</code> pour deux réunions du même mois)</td>
+        </tr>
+        <tr>
+          <td><code>Unknown intake_source "XXX". Allowed: …</code></td>
+          <td>Le code n'est pas dans la base de codes valides</td>
+          <td>Super_admin → bouton « + Créer ce code » ou demander à un super_admin de l'ajouter</td>
+        </tr>
+        <tr>
+          <td><code>meeting_date missing or unrecognised format</code></td>
+          <td>Format de date non reconnu (ex. <code>15-04-2026</code> avec tirets ambigus)</td>
+          <td>Privilégier le format ISO <code>2026-04-15</code> (AAAA-MM-JJ) ou utiliser un format date Excel natif</td>
+        </tr>
+        <tr>
+          <td>L'import "ne fait rien"</td>
+          <td>Le bouton "Valider l'import" n'a pas été cliqué — la prévisualisation seule n'écrit rien en base</td>
+          <td>Cliquer "▶ Valider l'import" après une prévisualisation sans erreur</td>
+        </tr>
+      </table>
+
+      <h3>9 · FAQ</h3>
+      <p><strong>Q : Puis-je importer plusieurs sites dans le même fichier ?</strong><br>
+      Oui — tant que chaque PV a sa propre <code>reference</code> unique.</p>
+
+      <p><strong>Q : Que devient mon fichier après l'import ?</strong><br>
+      Rien — le contenu est écrit dans la base de données, le .xlsx lui-même n'est pas conservé.</p>
+
+      <p><strong>Q : Et si je me trompe et que je veux corriger ?</strong><br>
+      Re-uploadez le même fichier avec la même <code>reference</code> et les valeurs corrigées. Le serveur met à jour le PV en place (pas de doublon).</p>
+
+      <p><strong>Q : Je n'ai pas tous les détails d'un PV. Puis-je le saisir partiellement ?</strong><br>
+      Oui. Les colonnes optionnelles (priority_1/2/3, next_meeting_date, etc.) peuvent rester vides. Seuls <code>site_code</code>, <code>department</code> et <code>meeting_date</code> sont obligatoires sur l'onglet Meetings.</p>
+
+      <p><strong>Q : Y a-t-il une limite de taille ?</strong><br>
+      30 Mo par fichier. Cela couvre largement plusieurs mois de PV historiques.</p>
+    </div>
+  </div>
+
+</div>
+
+<!-- Lookup-create modal (super_admin only — shown when a preview error
+     mentions an unknown code and the operator clicks "+ Créer ce code") -->
+<div class="mim-modal-bg" id="mimCreateLookupBg">
+  <div class="mim-modal">
+    <div class="mim-modal__head" id="mimLookupHead">Créer un code</div>
+    <div class="mim-modal__title" id="mimLookupTitle">Nouveau code</div>
+
+    <div class="mim-modal__field">
+      <label for="mimLookupCode">Code (identifiant technique)</label>
+      <input type="text" id="mimLookupCode" autocomplete="off">
+      <div class="mim-modal__hint">Lettres + chiffres + underscores. Sera utilisé tel quel dans le fichier d'import.</div>
+    </div>
+
+    <div class="mim-modal__field">
+      <label for="mimLookupNameEn">Nom (anglais)</label>
+      <input type="text" id="mimLookupNameEn" autocomplete="off">
+    </div>
+
+    <div class="mim-modal__field">
+      <label for="mimLookupNameFr">Nom (français)</label>
+      <input type="text" id="mimLookupNameFr" autocomplete="off">
+    </div>
+
+    <div class="mim-modal__field" style="display:flex;gap:10px;align-items:center">
+      <label for="mimLookupOrder" style="margin-bottom:0">Ordre d'affichage</label>
+      <input type="number" id="mimLookupOrder" value="10" style="width:80px" autocomplete="off">
+    </div>
+
+    <div class="mim-modal__err" id="mimLookupErr"></div>
+
+    <div class="mim-modal__actions">
+      <button class="btn-ghost" type="button" id="mimLookupCancel">Annuler</button>
+      <button class="btn-primary" type="button" id="mimLookupSave">✓ Créer</button>
+    </div>
+  </div>
+</div>
+
+<script nonce="%%CSP_NONCE%%">
+(function () {
+  'use strict';
+  const API = '/api/meetings';
+
+  function authHeaders() {
+    const h = {};
+    const at = window.__authToken;
+    let tok = null;
+    if (typeof at === 'function') { try { tok = at(); } catch(_) {} }
+    else if (typeof at === 'string' && at) { tok = at; }
+    if (!tok) tok = localStorage.getItem('report_token');
+    if (tok) h['x-report-token'] = tok;
+    return h;
+  }
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const fmtDate = iso => {
+    if (!iso) return '—';
+    const M = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const [y, m, d] = String(iso).slice(0, 10).split('-');
+    return `${d} ${M[parseInt(m, 10) - 1]} ${y}`;
+  };
+  function showBanner(text, kind) {
+    document.getElementById('mimBanner').innerHTML =
+      `<div class="mim-toast${kind ? ' mim-toast--' + kind : ''}">${esc(text)}</div>`;
+  }
+
+  let currentFile = null;
+  let lastPreview = null;
+
+  // Report format: 'meetings' (PV, default) or 'incubation' (Business Incubation).
+  // Only the upload endpoints + template differ — the mapping is server-side.
+  let MODE = 'meetings';
+  function _ep(kind) {
+    if (MODE === 'incubation') return { tpl: '/import/incubation-template', preview: '/import/incubation/preview', commit: '/import/incubation/commit' }[kind];
+    return { tpl: '/import/template', preview: '/import/preview', commit: '/import/commit' }[kind];
+  }
+  function _tplName() { return MODE === 'incubation' ? 'incubation_import_template.xlsx' : 'meetings_import_template.xlsx'; }
+  document.querySelectorAll('input[name="mimFormat"]').forEach(r => r.addEventListener('change', () => {
+    MODE = document.querySelector('input[name="mimFormat"]:checked').value;
+    const note = document.getElementById('mimFormatNote');
+    const fr = document.body.classList.contains('lang-fr');
+    if (note) note.textContent = MODE === 'incubation'
+      ? (fr ? 'Onglets : Session · Challenges · InfoFlow · Services.' : 'Sheets: Session · Challenges · InfoFlow · Services.')
+      : (fr ? 'Onglets : Meetings · Issues · Actions.' : 'Sheets: Meetings · Issues · Actions.');
+    // reset any in-progress preview when switching formats
+    document.getElementById('mimCommitCard').hidden = true;
+    document.getElementById('mimPreviewBody').innerHTML = '';
+  }));
+
+  // ── Bilingual toggle (EN ⇄ FR) ─────────────────────────────────────
+  // Static HTML uses <span data-lng> pairs; programmatic strings go
+  // through the T() helper below.
+  const LANG_KEY = 'em_meetings_import_lang';
+  function _currentLang() {
+    return document.body.classList.contains('lang-fr') ? 'fr' : 'en';
+  }
+  function setLang(lang) {
+    if (lang === 'fr') document.body.classList.add('lang-fr');
+    else               document.body.classList.remove('lang-fr');
+    document.querySelectorAll('#mimLangToggle button').forEach(b => {
+      b.classList.toggle('active', b.dataset.lang === lang);
+    });
+    try { localStorage.setItem(LANG_KEY, lang); } catch (_) {}
+  }
+  // Boot from localStorage if set, else default EN.
+  (function _initLang() {
+    let stored = 'en';
+    try { stored = localStorage.getItem(LANG_KEY) || 'en'; } catch (_) {}
+    setLang(stored === 'fr' ? 'fr' : 'en');
+  })();
+  document.querySelectorAll('#mimLangToggle button').forEach(b => {
+    b.addEventListener('click', () => setLang(b.dataset.lang));
+  });
+
+  // i18n table for messages we emit programmatically. Add a new key as
+  // T(key, args) where args is a dict for {placeholders}.
+  const I18N = {
+    parsing:           { en: 'Parsing…',                              fr: 'Analyse en cours…' },
+    committing:        { en: 'Committing…',                           fr: 'Validation en cours…' },
+    tplDownloadFailed: { en: 'Template download failed',              fr: 'Échec du téléchargement du modèle' },
+    previewFailed:     { en: 'Preview failed: {err}',                 fr: 'Échec de la prévisualisation : {err}' },
+    commitFailed:      { en: 'Commit failed: {err}',                  fr: 'Échec de la validation : {err}' },
+    confirmCommit:     { en: 'Commit the parsed meetings to the database? Existing references will be updated in place.',
+                         fr: 'Valider les réunions analysées dans la base ? Les références existantes seront mises à jour en place.' },
+    noMeetings:        { en: 'No meetings parsed.',                   fr: 'Aucune réunion analysée.' },
+    uploadFirst:       { en: 'Upload a workbook to see the preview.', fr: 'Téléversez un classeur pour voir la prévisualisation.' },
+    kpiMeetings:       { en: 'Meetings',                              fr: 'Réunions' },
+    kpiToUpdate:       { en: 'To update',                             fr: 'À mettre à jour' },
+    kpiIssues:         { en: 'Issues',                                fr: 'Issues' },
+    kpiActions:        { en: 'Actions',                               fr: 'Actions' },
+    kpiErrors:         { en: 'Errors',                                fr: 'Erreurs' },
+    rowNew:            { en: 'NEW',                                   fr: 'NEW' },
+    rowUpdate:         { en: 'UPDATE',                                fr: 'MAJ' },
+    rowNewHint:        { en: 'This reference is new — will be created.',
+                         fr: 'Cette référence est nouvelle — elle sera créée.' },
+    rowUpdateHint:     { en: 'This reference already exists in the database — header will be updated AND nested issues/actions/projects will be wiped and replaced with the file contents.',
+                         fr: 'Cette référence existe déjà dans la base — l\'entête sera mise à jour ET les issues / actions / projets imbriqués seront supprimés puis remplacés par le contenu du fichier.' },
+    updateWarning:     { en: '<strong>⚠ {n} meeting(s) will be UPDATED in place.</strong> The PV headers will be refreshed from the file. Their existing <strong>issues, actions and projects</strong> in the database will be <strong>wiped and replaced</strong> by the file contents. Any manual edits made via the meeting editor (status changes, comments, audit trail, …) since the original import <strong>will be lost</strong>. Re-uploading the same file with no modifications is safe — the data simply stays identical.',
+                         fr: '<strong>⚠ {n} réunion(s) seront MISES À JOUR en place.</strong> Les entêtes des PV seront rafraîchies depuis le fichier. Leurs <strong>issues, actions et projets</strong> existants en base seront <strong>supprimés puis remplacés</strong> par le contenu du fichier. Toute modification manuelle faite via l\'éditeur de réunion (changements de statut, commentaires, fil d\'audit, …) depuis l\'import initial <strong>sera perdue</strong>. Re-uploader le même fichier sans modifications est sans risque — la donnée reste simplement identique.' },
+    committedSummary:  { en: 'Committed · {created} new, {updated} updated, {skipped} skipped · {issues} issues, {actions} actions.',
+                         fr: 'Validé · {created} créés, {updated} mis à jour, {skipped} ignorés · {issues} issues, {actions} actions.' },
+    lookupCreated:     { en: '✓ Code "{code}" created in {table}. Re-running preview…',
+                         fr: '✓ Code « {code} » créé dans {table}. Relance de la prévisualisation…' },
+    fixCreateLabel:    { en: '+ Create this code',                    fr: '+ Créer ce code' },
+  };
+  function T(key, args) {
+    const lang = _currentLang();
+    let s = (I18N[key] && I18N[key][lang]) || (I18N[key] && I18N[key].en) || key;
+    if (args) Object.keys(args).forEach(k => { s = s.replace('{' + k + '}', args[k]); });
+    return s;
+  }
+
+  // ── Lookup-create wiring (Phase 3 — Option 3 from the design doc) ──
+  // When the preview returns errors of the form `Unknown <field> "<code>".
+  // Allowed: ...`, super_admin users get a "+ Créer ce code" button next
+  // to each error. Clicking it opens a modal pre-filled with the code,
+  // POSTs to /api/meetings/lookups/<table>, then re-runs the preview so
+  // the resolved error disappears.
+
+  // Maps the column name surfaced by the server's _coerceCode() error
+  // (`Unknown intake_source "X"...`) to the actual md_* table to POST to.
+  // KEEP IN SYNC with meetings-import.js _coerceCode call-sites.
+  const FIELD_TO_TABLE = {
+    'site_code'        : null,                          // sites are NOT extendable from here
+    'department'       : 'md_departments',
+    'intake_source'    : 'md_intake_sources',
+    'meeting_status'   : 'md_meeting_statuses',
+    'status'           : 'md_statuses',                 // Issues/Actions use the same statuses lookup
+    'category'         : 'md_categories',
+    'severity'         : 'md_severities',
+    'escalation_reason': 'md_escalation_reasons',
+    'council_theme'    : 'md_council_themes',
+  };
+
+  // True when the current user can create lookups (super_admin only — the
+  // POST route is gated server-side, but we also hide the UI for everyone
+  // else so we don't promise an action we can't fulfil).
+  function _canCreateLookups() {
+    try {
+      if (typeof window.__userHasRole === 'function') return window.__userHasRole('super_admin');
+      // Fallback: inspect __authUser shape
+      const u = window.__authUser;
+      return !!(u && (u.role === 'super_admin'));
+    } catch (_) { return false; }
+  }
+
+  // Parse `Unknown <field> "<code>". Allowed: ...` out of the preview's
+  // error message string. Returns { field, code, table } or null.
+  function _parseUnknownCodeError(msg) {
+    if (!msg) return null;
+    const m = String(msg).match(/Unknown\s+(\w+)\s+"([^"]+)"/);
+    if (!m) return null;
+    const field = m[1];
+    const code  = m[2];
+    const table = FIELD_TO_TABLE[field];
+    if (!table) return null;             // field isn't in the addable allowlist
+    return { field, code, table };
+  }
+
+  // Suggest a sensible default name from the code (snake_case → Title Case).
+  function _suggestNameFromCode(code) {
+    return String(code || '')
+      .replace(/[_\-]+/g, ' ')
+      .replace(/\b([a-z])/g, (_, c) => c.toUpperCase())
+      .trim();
+  }
+
+  // Drop zone
+  const drop = document.getElementById('mimDrop');
+  const fileInput = document.getElementById('mimFile');
+  drop.addEventListener('click', () => fileInput.click());
+  drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('mim-drop--active'); });
+  drop.addEventListener('dragleave', () => drop.classList.remove('mim-drop--active'));
+  drop.addEventListener('drop', e => {
+    e.preventDefault(); drop.classList.remove('mim-drop--active');
+    if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+  });
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files.length) handleFile(fileInput.files[0]);
+  });
+  function handleFile(f) {
+    currentFile = f;
+    document.getElementById('mimFilePill').innerHTML =
+      `<div class="mim-file-pill">📎 ${esc(f.name)} · ${(f.size / 1024).toFixed(1)} KB</div>`;
+    document.getElementById('mimPreviewBtn').disabled = false;
+  }
+
+  // Download template
+  document.getElementById('mimDownloadTpl').addEventListener('click', async () => {
+    try {
+      const r = await fetch(API + _ep('tpl'), { credentials: 'same-origin', headers: authHeaders() });
+      if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || 'HTTP ' + r.status); }
+      const blob = await r.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url; a.download = _tplName();
+      document.body.appendChild(a); a.click();
+      setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
+    } catch (e) {
+      showBanner(e.message || T('tplDownloadFailed'), 'error');
+    }
+  });
+
+  // Run preview
+  document.getElementById('mimPreviewBtn').addEventListener('click', async () => {
+    if (!currentFile) return;
+    document.getElementById('mimPreviewBtn').disabled = true;
+    document.getElementById('mimPreviewBody').innerHTML =
+      '<p style="text-align:center;color:var(--color-text-muted,#7B7B7B);font-style:italic;padding:24px">' + esc(T('parsing')) + '</p>';
+    try {
+      const buf = await currentFile.arrayBuffer();
+      const r = await fetch(API + _ep('preview'), {
+        method: 'POST', credentials: 'same-origin',
+        headers: { ...authHeaders(), 'Content-Type': 'application/octet-stream' },
+        body: buf,
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
+      lastPreview = j;
+      renderPreview(j);
+    } catch (e) {
+      document.getElementById('mimPreviewBody').innerHTML =
+        '<p style="color:#991B1B;padding:24px">' + esc(T('previewFailed', { err: e.message || 'Unknown error' })) + '</p>';
+    } finally {
+      document.getElementById('mimPreviewBtn').disabled = false;
+    }
+  });
+
+  function renderPreview(j) {
+    if (j && j.sessions !== undefined) { renderIncubationPreview(j); return; }
+    const s = j.summary || {};
+    const errs = j.errors || [];
+    const warns = j.warnings || [];
+
+    // Backwards-compat: older server responses (before the will_update
+    // server patch shipped) won't carry `will_update` / `will_create` in the
+    // summary. Default to "0 updates, all new" in that case — the UI just
+    // hides the warning banner and shows every row as 🆕.
+    const _willUpd = (s.will_update != null) ? s.will_update : 0;
+    const _willNew = (s.will_create != null) ? s.will_create : ((j.meetings||[]).length - _willUpd);
+
+    let html = `
+      <div class="mim-kpis">
+        <div class="mim-kpi mim-kpi--success"><div class="mim-kpi__label">${esc(T('kpiMeetings'))}</div><div class="mim-kpi__value">${esc(s.meetings || 0)}</div></div>
+        <div class="mim-kpi mim-kpi--warning"><div class="mim-kpi__label">${esc(T('kpiToUpdate'))}</div><div class="mim-kpi__value">${esc(_willUpd)}</div></div>
+        <div class="mim-kpi mim-kpi--info"><div class="mim-kpi__label">${esc(T('kpiIssues'))}</div><div class="mim-kpi__value">${esc(s.issues || 0)}</div></div>
+        <div class="mim-kpi mim-kpi--info"><div class="mim-kpi__label">${esc(T('kpiActions'))}</div><div class="mim-kpi__value">${esc(s.actions || 0)}</div></div>
+        <div class="mim-kpi ${errs.length ? 'mim-kpi--danger' : 'mim-kpi--success'}"><div class="mim-kpi__label">${esc(T('kpiErrors'))}</div><div class="mim-kpi__value">${esc(errs.length)}</div></div>
+      </div>`;
+
+    // Warning banner: shown only when at least one meeting will UPDATE.
+    // Conveys the "wipe + replace children" semantic so the operator
+    // knows manual edits made in the editor since the original import
+    // will be lost.
+    if (_willUpd > 0) {
+      html += `<div class="mim-update-warning">${T('updateWarning', { n: _willUpd })}</div>`;
+    }
+
+    if ((j.meetings || []).length) {
+      html += '<div class="mim-preview-list">'
+        + j.meetings.map(m => {
+            // 🆕 new vs 🔄 update marker. Server signals via `will_update`.
+            // Hover tooltip explains the operational impact.
+            const _willUpd = !!m.will_update;
+            const _kindHtml = _willUpd
+              ? `<span class="mim-row-kind mim-row-kind--update" title="${esc(T('rowUpdateHint'))}">🔄 ${esc(T('rowUpdate'))}</span>`
+              : `<span class="mim-row-kind mim-row-kind--new"    title="${esc(T('rowNewHint'))}">🆕 ${esc(T('rowNew'))}</span>`;
+            return `
+              <div class="mim-preview-row">
+                <span class="mim-site">${esc(m.site_code || '—')}</span>
+                <span class="mim-ref" title="${esc(m.reference)}">${_kindHtml}${esc(m.reference || '— blank reference —')}</span>
+                <span class="mim-dept">${esc(m.department)}</span>
+                <span class="mim-date">${fmtDate(m.meeting_date)}</span>
+                <span class="mim-count" title="Issues">${esc(m.issue_count)}I</span>
+                <span class="mim-count" title="Actions">${esc(m.action_count)}A</span>
+              </div>`;
+          }).join('')
+        + '</div>';
+    } else {
+      html += '<p style="color:var(--color-text-muted,#7B7B7B);font-style:italic;padding:14px;text-align:center">' + esc(T('noMeetings')) + '</p>';
+    }
+
+    if (errs.length || warns.length) {
+      const canFix = _canCreateLookups();
+      html += '<div class="mim-issues">';
+      errs.forEach((e, ix) => {
+        const fix = canFix ? _parseUnknownCodeError(e.msg) : null;
+        const fixBtn = fix
+          ? `<button class="mim-issue-line__fix" type="button" data-fix-idx="${ix}">${esc(T('fixCreateLabel'))}</button>`
+          : '';
+        html += `<div class="mim-issue-line mim-issue-line--error"><code>row ${esc(e.row)} · ${esc(e.field)}</code><span class="mim-issue-line__msg">${esc(e.msg)}</span>${fixBtn}</div>`;
+      });
+      warns.forEach(w => {
+        html += `<div class="mim-issue-line mim-issue-line--warn"><code>row ${esc(w.row)} · ${esc(w.field)}</code><span class="mim-issue-line__msg">${esc(w.msg)}</span></div>`;
+      });
+      html += '</div>';
+    }
+
+    document.getElementById('mimPreviewBody').innerHTML = html;
+
+    // Wire up the "+ Créer ce code" buttons (delegated would be nicer but
+    // we have direct refs to errs, so do it per-button).
+    document.querySelectorAll('.mim-issue-line__fix').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const ix = parseInt(btn.dataset.fixIdx, 10);
+        const errMsg = (errs[ix] && errs[ix].msg) || '';
+        const parsed = _parseUnknownCodeError(errMsg);
+        if (parsed) openLookupModal(parsed);
+      });
+    });
+    document.getElementById('mimCommitCard').hidden = (s.meetings || 0) === 0;
+    // Auto-tick force if errors > 0 so user sees the choice
+    document.getElementById('mimForce').checked = errs.length > 0;
+  }
+
+  // Compact preview for the Business Incubation format (sessions instead of PVs).
+  function renderIncubationPreview(j) {
+    const s = j.summary || {};
+    const errs = j.errors || [];
+    const warns = j.warnings || [];
+    const fr = document.body.classList.contains('lang-fr');
+    const willUpd = s.will_update || 0;
+    let html = `
+      <div class="mim-kpis">
+        <div class="mim-kpi mim-kpi--success"><div class="mim-kpi__label">${fr ? 'Sessions' : 'Sessions'}</div><div class="mim-kpi__value">${esc(s.sessions || 0)}</div></div>
+        <div class="mim-kpi mim-kpi--warning"><div class="mim-kpi__label">${fr ? 'À mettre à jour' : 'To update'}</div><div class="mim-kpi__value">${esc(willUpd)}</div></div>
+        <div class="mim-kpi mim-kpi--info"><div class="mim-kpi__label">${fr ? 'Défis' : 'Challenges'}</div><div class="mim-kpi__value">${esc(s.challenges || 0)}</div></div>
+        <div class="mim-kpi ${errs.length ? 'mim-kpi--danger' : 'mim-kpi--success'}"><div class="mim-kpi__label">${fr ? 'Erreurs' : 'Errors'}</div><div class="mim-kpi__value">${esc(errs.length)}</div></div>
+      </div>`;
+    if (willUpd > 0) html += `<div class="mim-update-warning">${fr ? willUpd + ' session(s) existante(s) seront mises à jour (les défis sont remplacés).' : willUpd + ' existing session(s) will be updated (challenges are replaced).'}</div>`;
+    const sessions = j.sessions || [];
+    if (sessions.length) {
+      html += '<div class="mim-preview-list">' + sessions.map(m => {
+        const kind = m.will_update
+          ? `<span class="mim-row-kind mim-row-kind--update">🔄 ${fr ? 'MAJ' : 'update'}</span>`
+          : `<span class="mim-row-kind mim-row-kind--new">🆕 ${fr ? 'nouveau' : 'new'}</span>`;
+        return `<div class="mim-preview-row">
+            <span class="mim-site">${esc(m.site_code || '—')}</span>
+            <span class="mim-ref" title="${esc(m.reference)}">${kind}${esc(m.reference || '—')}</span>
+            <span class="mim-dept">${esc(m.department)}</span>
+            <span class="mim-date">${fmtDate(m.session_start)}</span>
+            <span class="mim-count" title="Challenges">${esc(m.challenge_count)}C</span>
+            <span class="mim-count" title="Services">${esc(m.service_count)}S</span>
+          </div>`;
+      }).join('') + '</div>';
+    } else {
+      html += '<p style="color:var(--color-text-muted,#7B7B7B);font-style:italic;padding:14px;text-align:center">' + (fr ? 'Aucune session' : 'No sessions') + '</p>';
+    }
+    if (errs.length || warns.length) {
+      html += '<div class="mim-issues">';
+      errs.forEach(e => { html += `<div class="mim-issue-line mim-issue-line--error"><code>row ${esc(e.row)} · ${esc(e.field)}</code><span class="mim-issue-line__msg">${esc(e.msg)}</span></div>`; });
+      warns.forEach(w => { html += `<div class="mim-issue-line mim-issue-line--warn"><code>row ${esc(w.row)} · ${esc(w.field)}</code><span class="mim-issue-line__msg">${esc(w.msg)}</span></div>`; });
+      html += '</div>';
+    }
+    document.getElementById('mimPreviewBody').innerHTML = html;
+    document.getElementById('mimCommitCard').hidden = (s.sessions || 0) === 0;
+    document.getElementById('mimForce').checked = errs.length > 0;
+  }
+
+  // ── Lookup-create modal handlers ───────────────────────────────────
+  let _pendingFix = null;          // { field, code, table } from _parseUnknownCodeError
+
+  function openLookupModal(parsed) {
+    _pendingFix = parsed;
+    const bg = document.getElementById('mimCreateLookupBg');
+    const head  = document.getElementById('mimLookupHead');
+    const title = document.getElementById('mimLookupTitle');
+    head.textContent = `Créer un code "${parsed.field}"`;
+    title.textContent = parsed.code;
+    document.getElementById('mimLookupCode').value    = parsed.code;
+    document.getElementById('mimLookupNameEn').value  = _suggestNameFromCode(parsed.code);
+    document.getElementById('mimLookupNameFr').value  = _suggestNameFromCode(parsed.code);
+    document.getElementById('mimLookupOrder').value   = 10;
+    document.getElementById('mimLookupErr').classList.remove('show');
+    bg.classList.add('open');
+    setTimeout(() => document.getElementById('mimLookupNameFr').focus(), 50);
+  }
+
+  function closeLookupModal() {
+    document.getElementById('mimCreateLookupBg').classList.remove('open');
+    _pendingFix = null;
+  }
+
+  document.getElementById('mimLookupCancel').addEventListener('click', closeLookupModal);
+  document.getElementById('mimCreateLookupBg').addEventListener('click', e => {
+    if (e.target === e.currentTarget) closeLookupModal();   // backdrop click
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && document.getElementById('mimCreateLookupBg').classList.contains('open')) {
+      closeLookupModal();
+    }
+  });
+
+  document.getElementById('mimLookupSave').addEventListener('click', async () => {
+    if (!_pendingFix) return;
+    const errBox = document.getElementById('mimLookupErr');
+    errBox.classList.remove('show');
+
+    const row = {
+      code:          (document.getElementById('mimLookupCode').value  || '').trim(),
+      name_en:       (document.getElementById('mimLookupNameEn').value || '').trim(),
+      name_fr:       (document.getElementById('mimLookupNameFr').value || '').trim(),
+      display_order: parseInt(document.getElementById('mimLookupOrder').value, 10) || 10,
+      active:        1,
+    };
+    if (!row.code || !row.name_en) {
+      errBox.textContent = 'Le code et le nom anglais sont obligatoires.';
+      errBox.classList.add('show');
+      return;
+    }
+
+    const btn = document.getElementById('mimLookupSave');
+    btn.disabled = true;
+    const originalLabel = btn.textContent;
+    btn.textContent = '⏳ Création…';
+
+    try {
+      const r = await fetch(API + '/lookups/' + encodeURIComponent(_pendingFix.table), {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify(row),
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
+
+      closeLookupModal();
+      showBanner(T('lookupCreated', { code: row.code, table: _pendingFix.table.replace(/^md_/, '') }), null);
+
+      // Re-run preview automatically so the resolved error vanishes from
+      // the list and the user sees their updated state instantly.
+      if (currentFile) {
+        document.getElementById('mimPreviewBtn').click();
+      }
+    } catch (e) {
+      errBox.textContent = e.message || 'Création échouée';
+      errBox.classList.add('show');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = originalLabel;
+    }
+  });
+
+  // Commit
+  document.getElementById('mimCommitBtn').addEventListener('click', async () => {
+    if (!currentFile) return;
+    if (!confirm(T('confirmCommit'))) return;
+    const btn = document.getElementById('mimCommitBtn');
+    btn.disabled = true;
+    showBanner(T('committing'), 'warn');
+    try {
+      const force = document.getElementById('mimForce').checked ? '1' : '0';
+      const buf = await currentFile.arrayBuffer();
+      const r = await fetch(API + _ep('commit') + '?force=' + force, {
+        method: 'POST', credentials: 'same-origin',
+        headers: { ...authHeaders(), 'Content-Type': 'application/octet-stream' },
+        body: buf,
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
+      const msg = T('committedSummary', {
+        created: j.created || 0, updated: j.updated || 0,
+        skipped: j.skipped || 0, issues: (j.issues != null ? j.issues : j.challenges) || 0, actions: j.actions || 0,
+      });
+      showBanner(msg, j.errors && j.errors.length ? 'warn' : null);
+      if (j.errors && j.errors.length) {
+        renderPreview({ summary: j.parse || {}, errors: j.errors, warnings: j.warnings || [], meetings: (lastPreview && lastPreview.meetings) || [], sessions: (lastPreview && lastPreview.sessions) || (MODE === 'incubation' ? [] : undefined) });
+      }
+    } catch (e) {
+      showBanner(T('commitFailed', { err: e.message || '' }), 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+})();
+</script>
+
+<script nonce="%%CSP_NONCE%%">
+// Reveal the Setup tab for super_admin only (hidden by default — admin
+// tooling stays out of view for editor / viewer / admin / executive).
+(function () {
+  function reveal() {
+    try {
+      if (window.__userHasRole && window.__userHasRole("super_admin")) {
+        document.querySelectorAll(".mtg-tabs__btn--admin").forEach(function (el) { el.style.display = ""; });
+      }
+    } catch (_) {}
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", reveal);
+  else reveal();
+})();
+</script>
+
+</body>
+</html>

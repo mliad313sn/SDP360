@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mine IT Council Escalations — Endeavour Mining IT</title>
+
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="brand/icons.css">
+<link rel="stylesheet" href="brand/components.css">
+<link rel="stylesheet" href="_shell.css">
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<link rel="stylesheet" href="module-tabs.css">
+<script nonce="%%CSP_NONCE%%" src="module-tabs.js"></script>
+
+<style nonce="%%CSP_NONCE%%">
+  body {
+    margin: 0; background: var(--color-bg, #F4F5F7);
+    color: var(--color-text-strong, #1F2A33);
+    font-family: var(--font-sans, 'Libre Franklin', sans-serif);
+    font-size: 14px; line-height: 1.45;
+  }
+  .mc-wrap { max-width: 1500px; margin: 0 auto; padding: 24px 28px 48px; }
+
+  .mc-hero {
+    background: var(--color-card, #fff); border: 1px solid var(--color-border, #E2E5EA);
+    border-radius: 14px; box-shadow: 0 1px 2px rgba(58,74,96,.04);
+    padding: 22px 26px; margin-bottom: 18px;
+    position: relative; overflow: hidden;
+  }
+  .mc-hero::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 6px;
+    background: linear-gradient(180deg, #7C3AED, #145FAE);
+  }
+  .mc-eyebrow {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1.4px; color: #7C3AED; margin-bottom: 8px;
+  }
+  .mc-hero h1 { margin: 0 0 6px; font-size: 24px; font-weight: 800; color: var(--edv-slate, #3A4A60); }
+  .mc-hero p  { margin: 0; font-size: 13px; color: var(--color-text, #524F4E); max-width: 70ch; line-height: 1.55; }
+  .mc-hero p strong { color: var(--color-text-strong, #1F2A33); font-weight: 600; }
+
+  /* Theme totals strip */
+  .mc-themes { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; margin-bottom: 18px; }
+  .mc-theme {
+    background: var(--color-card, #fff); border: 1px solid var(--color-border, #E2E5EA);
+    border-radius: 8px; padding: 12px 14px; position: relative; overflow: hidden;
+    transition: transform 120ms, box-shadow 120ms; cursor: pointer;
+  }
+  .mc-theme:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(15,42,77,0.08); }
+  .mc-theme--active { border-width: 2px; border-color: #7C3AED; box-shadow: 0 6px 16px rgba(124,58,237,.12); }
+  .mc-theme::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--color-border, #E2E5EA); }
+  .mc-theme__label { font-size: 11px; font-weight: 700; color: var(--edv-slate, #3A4A60); margin-bottom: 4px; }
+  .mc-theme__value { font-size: 24px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+  .mc-theme__ask   { font-size: 10px; color: var(--color-text-muted, #7B7B7B); margin-top: 5px; line-height: 1.35; }
+
+  .mc-filters { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+  .mc-select, .mc-search {
+    background: var(--color-card, #fff); border: 1px solid var(--color-border, #E2E5EA);
+    border-radius: 6px; padding: 9px 12px;
+    font: 500 13px var(--font-sans); color: var(--color-text-strong, #1F2A33);
+  }
+  .mc-select { padding-right: 24px; min-width: 140px; }
+  .mc-search { flex: 1; min-width: 220px; }
+
+  /* Theme groups */
+  .mc-group {
+    background: var(--color-card, #fff); border: 1px solid var(--color-border, #E2E5EA);
+    border-radius: 12px; box-shadow: 0 1px 2px rgba(58,74,96,.04);
+    padding: 16px 18px 12px; margin-bottom: 18px;
+  }
+  .mc-group__head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 14px; padding-bottom: 10px;
+    border-bottom: 1px solid var(--color-border-subtle, #EEF0F3);
+  }
+  .mc-group__title {
+    font-size: 14px; font-weight: 800; color: var(--edv-slate, #3A4A60);
+  }
+  .mc-group__title span.dot {
+    display: inline-block; width: 10px; height: 10px; border-radius: 9999px;
+    margin-right: 8px; vertical-align: middle;
+  }
+  .mc-group__count {
+    font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 9999px;
+    background: var(--color-bg, #F4F5F7); color: var(--color-text-muted, #7B7B7B);
+  }
+  .mc-group__ask { font-size: 11.5px; font-style: italic; color: var(--color-text-muted, #7B7B7B); margin-top: 6px; line-height: 1.4; }
+
+  .mc-card-list { display: flex; flex-direction: column; gap: 10px; }
+  .mc-item {
+    border: 1px solid var(--color-border, #E2E5EA);
+    border-left: 4px solid #7C3AED;
+    border-radius: 8px; padding: 12px 14px;
+    background: var(--color-bg, #F4F5F7);
+  }
+  .mc-item--HIGH   { border-left-color: var(--edv-red, #D90038); }
+  .mc-item--MEDIUM { border-left-color: var(--color-warning, #D97706); }
+  .mc-item--LOW    { border-left-color: var(--edv-blue, #0891B2); }
+  .mc-item__head {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    margin-bottom: 6px;
+  }
+  .mc-item__site {
+    font-family: var(--font-mono, monospace); font-size: 10.5px; font-weight: 800;
+    padding: 2px 8px; border-radius: 4px;
+    background: var(--edv-slate, #3A4A60); color: #fff;
+  }
+  .mc-item__title {
+    flex: 1; font-size: 13.5px; font-weight: 600; color: var(--color-text-strong, #1F2A33);
+  }
+  .mc-item__pill {
+    font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 9999px;
+    border: 1px solid transparent; text-transform: uppercase;
+  }
+  .mc-item__sub {
+    font-size: 11.5px; color: var(--color-text-muted, #7B7B7B);
+    display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 6px;
+  }
+  .mc-item__sub strong { color: var(--color-text-strong, #1F2A33); font-weight: 600; }
+  .mc-item__body { font-size: 12.5px; color: var(--color-text, #524F4E); line-height: 1.5; margin: 6px 0; }
+  .mc-item__reason {
+    font-size: 11px; color: #5B21B6; background: rgba(124,58,237,.06);
+    padding: 4px 8px; border-radius: 4px;
+    border: 1px solid rgba(124,58,237,.20); margin-top: 6px; display: inline-block;
+  }
+  .mc-item__cat-chip {
+    display: inline-block; font-family: var(--font-mono, monospace);
+    font-size: 10px; font-weight: 800;
+    padding: 2px 6px; border-radius: 4px;
+    background: rgba(20,95,174,.10); color: var(--edv-blue, #145FAE);
+    border: 1px solid rgba(20,95,174,.30);
+  }
+  .mc-item__open {
+    text-decoration: none; color: var(--edv-blue, #145FAE);
+    font-size: 11px; font-weight: 700;
+    border: 1px solid var(--color-border, #E2E5EA);
+    padding: 5px 9px; border-radius: 6px; white-space: nowrap;
+  }
+  .mc-empty { padding: 32px; text-align: center; color: var(--color-text-muted, #7B7B7B); font-size: 13px; font-style: italic; }
+
+  @media (max-width: 1100px) { .mc-themes { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 720px)  { .mc-themes { grid-template-columns: repeat(2, 1fr); } }
+
+  /* ── Module tabs (Meetings ↔ Dashboard ↔ Issues ↔ Council ↔ Compliance) ── */
+  .mtg-tabs {
+    display: inline-flex; gap: 2px;
+    background: #F3F4F6;
+    border: 1px solid #E5E7EB;
+    border-radius: 10px;
+    padding: 3px;
+    margin: 0 0 16px 0;
+  }
+  .mtg-tabs__btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 8px 16px;
+    font-size: 13px; font-weight: 600;
+    color: #6B7280;
+    background: transparent;
+    border: 0; border-radius: 7px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background-color .12s, color .12s;
+  }
+  .mtg-tabs__btn:hover { color: #1F2937; background: #FFFFFF; }
+  .mtg-tabs__btn--active {
+    color: #1F2937; background: #FFFFFF;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+    border-bottom: 2px solid var(--edv-orange, #E87722);
+    padding-bottom: 6px;
+  }
+  .mtg-tabs__btn span.mtg-tabs__count {
+    font-size: 11px; font-weight: 600;
+    background: rgba(0,0,0,0.08);
+    color: #4B5563;
+    padding: 1px 7px; border-radius: 999px;
+  }
+  .mtg-tabs__btn--active span.mtg-tabs__count {
+    background: rgba(232,119,34,0.14);
+    color: var(--edv-orange, #E87722);
+  }
+</style>
+</head>
+<body>
+
+<div id="__shell" data-section="operations" data-current="meetings"></div>
+
+<div class="mc-wrap">
+
+  <div id="__moduletabs" data-module="meetings" data-current="council"></div>
+
+  <section class="mc-hero">
+    <div class="mc-eyebrow">Insights · Mine IT Council escalations</div>
+    <h1>Escalations awaiting the Council</h1>
+    <p>Every issue marked <strong>Escalate = Yes</strong> in a Department Meeting flows here, grouped by
+       <strong>Council theme</strong>. Click a theme chip to filter. Use this to drive the agenda of the next
+       Mine IT Council session.</p>
+  </section>
+
+  <!-- Theme totals strip -->
+  <section class="mc-themes" id="mcThemes"></section>
+
+  <!-- Filters -->
+  <section class="mc-filters">
+    <select class="mc-select" id="mcSite"><option value="">All sites</option></select>
+    <select class="mc-select" id="mcDept"><option value="">All departments</option></select>
+    <select class="mc-select" id="mcSev"><option value="">All severities</option></select>
+    <select class="mc-select" id="mcReason"><option value="">All reasons</option></select>
+    <input class="mc-search" type="search" id="mcQ" placeholder="Search title / description / champion…">
+  </section>
+
+  <!-- Themes -->
+  <section id="mcThemeGroups"></section>
+
+</div>
+
+<script nonce="%%CSP_NONCE%%">
+(function () {
+  'use strict';
+  const API = '/api/meetings';
+
+  function authHeaders() {
+    const h = {};
+    const at = window.__authToken;
+    let tok = null;
+    if (typeof at === 'function') { try { tok = at(); } catch(_) {} }
+    else if (typeof at === 'string' && at) { tok = at; }
+    if (!tok) tok = localStorage.getItem('report_token');
+    if (tok) h['x-report-token'] = tok;
+    return h;
+  }
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const fmtDate = iso => {
+    if (!iso) return '—';
+    const M = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const [y, m, d] = String(iso).slice(0, 10).split('-');
+    return `${d} ${M[parseInt(m, 10) - 1]} ${y}`;
+  };
+  const tint = (hex, alpha) => {
+    const m = String(hex || '').match(/^#?([0-9a-f]{6})$/i);
+    if (!m) return `rgba(107,119,133,${alpha})`;
+    const n = parseInt(m[1], 16);
+    return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
+  };
+
+  const state = {
+    lookups: null,
+    issues: [],
+    filters: { site: '', department: '', severity: '', escalation_reason: '', council_theme: '', q: '' },
+  };
+
+  function renderThemes() {
+    const themes = state.lookups.council_themes || [];
+    const byTheme = {};
+    state.issues.forEach(i => {
+      const t = i.council_theme || '_unset';
+      byTheme[t] = (byTheme[t] || 0) + 1;
+    });
+    // Always include all themes for visibility, plus unset
+    const cells = themes.concat([{ code: '_unset', name_en: 'No theme picked', name_fr: 'Sans thème', color: '#6B7785', indicative_ask_en: '— set a theme on the issue —', indicative_ask_fr: '— définir un thème —' }]);
+    document.getElementById('mcThemes').innerHTML = cells.map(t => {
+      const n   = byTheme[t.code] || 0;
+      const act = state.filters.council_theme === t.code;
+      return `
+        <div class="mc-theme${act ? ' mc-theme--active' : ''}" data-code="${esc(t.code)}" style="--accent:${esc(t.color)}">
+          <span style="position:absolute;left:0;top:0;bottom:0;width:3px;background:${esc(t.color)}"></span>
+          <div class="mc-theme__label">${esc(t.name_en)}</div>
+          <div class="mc-theme__value" style="color:${esc(t.color)}">${esc(n)}</div>
+          <div class="mc-theme__ask">${esc(t.indicative_ask_en || '')}</div>
+        </div>`;
+    }).join('');
+    // Click → toggle filter on that theme
+    document.getElementById('mcThemes').querySelectorAll('.mc-theme').forEach(el => {
+      el.addEventListener('click', () => {
+        const code = el.dataset.code;
+        state.filters.council_theme = (state.filters.council_theme === code) ? '' : code;
+        // When user clicks _unset, we want the special "no theme" filter — but
+        // the API only accepts a real theme code. Filter client-side instead.
+        loadAll();
+      });
+    });
+  }
+
+  function renderFilters() {
+    const sel = (id, items, valueKey, labelKey, blank) => {
+      const el = document.getElementById(id);
+      el.innerHTML = `<option value="">${esc(blank)}</option>`
+        + (items || []).map(it => `<option value="${esc(it[valueKey])}">${esc(it[labelKey])}</option>`).join('');
+    };
+    sel('mcSite',   state.lookups.sites,              'code', 'name',    'All sites');
+    sel('mcDept',   state.lookups.departments,        'code', 'name_en', 'All departments');
+    sel('mcSev',    state.lookups.severities,         'code', 'name_en', 'All severities');
+    sel('mcReason', state.lookups.escalation_reasons, 'code', 'name_en', 'All reasons');
+  }
+
+  function renderGroups() {
+    const themes = state.lookups.council_themes || [];
+    const byTheme = {};
+    state.issues.forEach(i => {
+      const k = i.council_theme || '_unset';
+      (byTheme[k] = byTheme[k] || []).push(i);
+    });
+    const themeOrder = themes.map(t => t.code).concat(['_unset']);
+
+    const sevByCode = {}; (state.lookups.severities || []).forEach(s => { sevByCode[s.code] = s; });
+    const stsByCode = {}; (state.lookups.statuses   || []).forEach(s => { stsByCode[s.code] = s; });
+
+    const out = themeOrder.map(code => {
+      const rows = byTheme[code] || [];
+      if (state.filters.council_theme && state.filters.council_theme !== code) return '';
+      if (!state.filters.council_theme && !rows.length) return '';
+
+      const theme = themes.find(t => t.code === code) || { name_en: 'No theme picked', color: '#6B7785', indicative_ask_en: 'Set a Council theme on the issue first.' };
+      if (!rows.length) {
+        return `
+          <div class="mc-group">
+            <div class="mc-group__head">
+              <div>
+                <div class="mc-group__title"><span class="dot" style="background:${esc(theme.color)}"></span>${esc(theme.name_en)}</div>
+                <div class="mc-group__ask">${esc(theme.indicative_ask_en || '')}</div>
+              </div>
+              <span class="mc-group__count">0</span>
+            </div>
+            <div class="mc-empty">No escalations in this theme.</div>
+          </div>`;
+      }
+      return `
+        <div class="mc-group">
+          <div class="mc-group__head">
+            <div>
+              <div class="mc-group__title"><span class="dot" style="background:${esc(theme.color)}"></span>${esc(theme.name_en)}</div>
+              <div class="mc-group__ask">${esc(theme.indicative_ask_en || '')}</div>
+            </div>
+            <span class="mc-group__count" style="background:${tint(theme.color,0.12)};color:${esc(theme.color)};border:1px solid ${tint(theme.color,0.3)}">${rows.length}</span>
+          </div>
+          <div class="mc-card-list">
+            ${rows.map(r => {
+              const sev = sevByCode[r.severity] || { color: '#6B7785', name_en: r.severity };
+              const st  = stsByCode[r.status]   || { color: '#6B7785', name_en: r.status };
+              const reasonObj = (state.lookups.escalation_reasons || []).find(x => x.code === r.escalation_reason);
+              return `
+                <div class="mc-item mc-item--${esc(r.severity || 'MEDIUM')}">
+                  <div class="mc-item__head">
+                    <span class="mc-item__site">${esc(r.site_code)}</span>
+                    <span class="mc-item__title">${esc(r.title || '(untitled)')}</span>
+                    <span class="mc-item__cat-chip">${esc(r.category)}</span>
+                    <span class="mc-item__pill" style="background:${tint(sev.color,0.12)};color:${esc(sev.color)};border-color:${tint(sev.color,0.3)}">${esc(sev.name_en)}</span>
+                    <span class="mc-item__pill" style="background:${tint(st.color,0.12)};color:${esc(st.color)};border-color:${tint(st.color,0.3)}">${esc(st.name_en)}</span>
+                    <a class="mc-item__open" href="meeting.html?id=${encodeURIComponent(r.meeting_id_ref)}">Open ›</a>
+                  </div>
+                  <div class="mc-item__sub">
+                    <span>Dept · <strong>${esc(r.department)}</strong></span>
+                    <span>Champion · <strong>${esc(r.champion || '—')}</strong></span>
+                    <span>Meeting · <strong>${fmtDate(r.meeting_date)}</strong></span>
+                    <span>Target · <strong>${fmtDate(r.target_date)}</strong></span>
+                  </div>
+                  ${r.description ? `<div class="mc-item__body">${esc(r.description)}</div>` : ''}
+                  ${reasonObj ? `<span class="mc-item__reason">⚖ ${esc(reasonObj.name_en)} · ${esc(reasonObj.description_en || '')}</span>` : ''}
+                </div>`;
+            }).join('')}
+          </div>
+        </div>`;
+    }).filter(Boolean).join('');
+
+    document.getElementById('mcThemeGroups').innerHTML = out || '<div class="mc-empty">No escalations match the current filter.</div>';
+  }
+
+  async function loadAll() {
+    state.lookups = state.lookups || await fetch(API + '/lookups', { credentials: 'same-origin', headers: authHeaders() }).then(r => r.json());
+    renderFilters();
+
+    const qs = new URLSearchParams();
+    if (state.filters.site)          qs.set('site', state.filters.site);
+    if (state.filters.department)    qs.set('department', state.filters.department);
+    if (state.filters.severity)      qs.set('severity', state.filters.severity);
+    if (state.filters.q)             qs.set('q', state.filters.q);
+    // Note: API supports council_theme filter directly, but the special
+    // '_unset' UI bucket needs client-side filtering — fetch all & filter
+    if (state.filters.council_theme && state.filters.council_theme !== '_unset') qs.set('council_theme', state.filters.council_theme);
+
+    const r = await fetch(API + '/escalations?' + qs.toString(), { credentials: 'same-origin', headers: authHeaders() });
+    const j = r.ok ? await r.json() : { rows: [] };
+    state.issues = j.rows || [];
+    // Client-side filters for reason + _unset
+    if (state.filters.escalation_reason) state.issues = state.issues.filter(i => i.escalation_reason === state.filters.escalation_reason);
+    if (state.filters.council_theme === '_unset') state.issues = state.issues.filter(i => !i.council_theme);
+
+    renderThemes();
+    renderGroups();
+  }
+
+  document.getElementById('mcSite').addEventListener('change',   e => { state.filters.site       = e.target.value; loadAll(); });
+  document.getElementById('mcDept').addEventListener('change',   e => { state.filters.department = e.target.value; loadAll(); });
+  document.getElementById('mcSev').addEventListener('change',    e => { state.filters.severity   = e.target.value; loadAll(); });
+  document.getElementById('mcReason').addEventListener('change', e => { state.filters.escalation_reason = e.target.value; loadAll(); });
+  let _qT = null;
+  document.getElementById('mcQ').addEventListener('input', e => {
+    clearTimeout(_qT); _qT = setTimeout(() => { state.filters.q = e.target.value.trim(); loadAll(); }, 250);
+  });
+
+  loadAll().catch(err => {
+    console.error('[council] load failed:', err);
+    document.getElementById('mcThemeGroups').innerHTML = '<div class="mc-empty">Failed to load escalations. ' + esc(err.message || '') + '</div>';
+  });
+})();
+</script>
+
+<script nonce="%%CSP_NONCE%%">
+// Reveal the Setup tab for super_admin only (hidden by default — admin
+// tooling stays out of view for editor / viewer / admin / executive).
+(function () {
+  function reveal() {
+    try {
+      if (window.__userHasRole && window.__userHasRole("super_admin")) {
+        document.querySelectorAll(".mtg-tabs__btn--admin").forEach(function (el) { el.style.display = ""; });
+      }
+    } catch (_) {}
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", reveal);
+  else reveal();
+})();
+</script>
+</body>
+</html>

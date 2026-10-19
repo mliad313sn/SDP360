@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Goldy mascot library</title>
+<style>
+  @import url('../colors_and_type.css');
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 16px 18px; background: #fff; font-family: var(--font-body); }
+  .grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 8px; }
+  .cell {
+    aspect-ratio: 3/4; background: #f6f6f3; border-radius: 4px;
+    display: flex; align-items: flex-end; justify-content: center;
+    padding: 6px 4px 14px; position: relative; overflow: hidden;
+  }
+  .cell img { max-height: 100%; max-width: 100%; object-fit: contain; }
+  .lbl {
+    position: absolute; left: 4px; right: 4px; bottom: 3px; text-align: center;
+    font-family: var(--font-display); font-size: 7px; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--edv-slate); font-weight: 700;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .feature { background: var(--edv-slate); }
+  .feature .lbl { color: var(--edv-yellow); }
+</style>
+</head>
+<body>
+<div class="grid">
+  <div class="cell feature"><img src="../assets/goldy/goldy-recruiting.png" alt=""><span class="lbl">Recruiting</span></div>
+  <div class="cell"><img src="../assets/goldy/goldy-welcome.png" alt=""><span class="lbl">Welcome</span></div>
+  <div class="cell"><img src="../assets/goldy/goldy-bye.png" alt=""><span class="lbl">Bye</span></div>
+  <div class="cell"><img src="../assets/goldy/goldy-happy.png" alt=""><span class="lbl">Happy</span></div>
+  <div class="cell"><img src="../assets/goldy/goldy-ok.png" alt=""><span class="lbl">OK</span></div>
+  <div class="cell"><img src="../assets/goldy/goldy-thinking.png" alt=""><span class="lbl">Thinking</span></div>
+  <div class="cell"><img src="../assets/goldy/goldy-disapproves.png" alt=""><span class="lbl">Disapproves</span></div>
+  <div class="cell"><img src="../assets/goldy/goldy-says-stop.png" alt=""><span class="lbl">Says stop</span></div>
+  <div class="cell"><img src="../assets/goldy/goldy-force.png" alt=""><span class="lbl">Force</span></div>
+  <div class="cell"><img src="../assets/goldy/goldy-trophy.png" alt=""><span class="lbl">Trophy</span></div>
+
+  <div class="cell"><img src="../assets/goldy/goldy-partner.png" alt=""><span class="lbl">Partner</span></div>
+  <div class="cell"><img src="../assets/goldy/goldy-performer.png" alt=""><span class="lbl">Performer</span></div>
+  <div class="cell"><img src="../assets/goldy/goldy-pioneer.png" alt=""><span class="lbl">Pioneer</span></div>
+  <div class="cell"><img src="../assets/goldy/goldy-proactive.png" alt=""><span class="lbl">Proactive</span></div>
+  <div class="cell"><img src="../assets/goldy/goldy-and-ps.png" alt=""><span class="lbl">4Ps</span></div>
+  <div class="cell"><img src="../assets/goldy/goldy-academy.png" alt=""><span class="lbl">Academy</span></div>
+  <div class="cell"><img src="../assets/goldy/goldy-care.png" alt=""><span class="lbl">Care</span></div>
+  <div class="cell"><img src="../assets/goldy/goldy-governance.png" alt=""><span class="lbl">Governance</span></div>
+  <div class="cell"><img src="../assets/goldy/goldy-justice.png" alt=""><span class="lbl">Justice</span></div>
+  <div class="cell"><img src="../assets/goldy/goldy-security.png" alt=""><span class="lbl">Security</span></div>
+
+  <div class="cell"><img src="../assets/goldy/goldy-welcome-mask.png" alt=""><span class="lbl">Mask</span></div>
+  <div class="cell"><img src="../assets/goldy/goldy-clean.png" alt=""><span class="lbl">Clean</span></div>
+  <div class="cell"><img src="../assets/goldy/goldy-isolation.png" alt=""><span class="lbl">Isolation</span></div>
+  <div class="cell"><img src="../assets/goldy/goldy-punching-corona.png" alt=""><span class="lbl">Punch corona</span></div>
+  <div class="cell"><img src="../assets/goldy/goldy-seatbelt.png" alt=""><span class="lbl">Seatbelt</span></div>
+  <div class="cell"><img src="../assets/goldy/goldy-toolbox.png" alt=""><span class="lbl">Toolbox</span></div>
+  <div class="cell"><img src="../assets/goldy/goldy-paper-waste.png" alt=""><span class="lbl">Paper waste</span></div>
+  <div class="cell"><img src="../assets/goldy/goldy-turn-off-lights.png" alt=""><span class="lbl">Lights off</span></div>
+  <div class="cell"><img src="../assets/goldy/goldy-bank-robber.png" alt=""><span class="lbl">Bank robber</span></div>
+  <div class="cell"><img src="../assets/goldy/goldy-interviews.png" alt=""><span class="lbl">Interviews</span></div>
+
+  <div class="cell"><img src="../assets/goldy/goldy-hr-it-aviation.png" alt=""><span class="lbl">HR / IT</span></div>
+  <div class="cell"><img src="../assets/goldy/goldy-teams.png" alt=""><span class="lbl">Teams</span></div>
+  <div class="cell"><img src="../assets/goldy/goldy-whatsapp.png" alt=""><span class="lbl">WhatsApp</span></div>
+  <div class="cell"><img src="../assets/goldy/goldy-post.png" alt=""><span class="lbl">Post</span></div>
+  <div class="cell"><img src="../assets/goldy/goldy-videographer.png" alt=""><span class="lbl">Video</span></div>
+  <div class="cell"><img src="../assets/goldy/goldy-pilot.png" alt=""><span class="lbl">Pilot</span></div>
+  <div class="cell"><img src="../assets/goldy/goldy-sailor.png" alt=""><span class="lbl">Sailor</span></div>
+  <div class="cell"><img src="../assets/goldy/goldy-rocketman.png" alt=""><span class="lbl">Rocketman</span></div>
+  <div class="cell"><img src="../assets/goldy/goldy-irish.png" alt=""><span class="lbl">Irish</span></div>
+  <div class="cell"><img src="../assets/goldy/goldy-scot.png" alt=""><span class="lbl">Scot</span></div>
+
+  <div class="cell"><img src="../assets/goldy/goldy-claus.png" alt=""><span class="lbl">Claus</span></div>
+  <div class="cell"><img src="../assets/goldy/goldy-wallpaper.png" alt=""><span class="lbl">Wallpaper</span></div>
+</div>
+</body>
+</html>

@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IT Activity Tracker — Endeavour Mining</title>
+
+<!-- Auth gate. Sets window.__authUser + window.__userHasRole before
+     the app boots. -->
+<script src="auth.js" data-require="any"></script>
+
+<!-- Canonical EDV brand tokens (matches every other live page). -->
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="_shell.css">
+<link rel="stylesheet" href="brand/icons.css">
+<link rel="stylesheet" href="activity-tracker/styles.css">
+
+<!-- Production header chrome — rendered by _shell.js into #__shell. -->
+<script src="brand/icons.js" defer></script>
+<script src="_shell.js" defer></script>
+
+<!-- Charting (used by the Dashboard panel). -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+
+<!-- Scoring engine + API wrappers — pure JS, defined on window.TR /
+     window.TRApi. Calculation formulas ported verbatim from the
+     legacy file so existing scores stay identical. -->
+<script src="activity-tracker/engine.js"></script>
+<script src="activity-tracker/api.js"></script>
+<script src="lib/trackerMonthLock.js"></script>
+
+<!-- React + Babel via CDN (same pattern as /dashboard-preview/). The
+     path-scoped CSP override in server.js grants 'unsafe-eval' +
+     unpkg.com only for this page and the asset bundle below. -->
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
+</head>
+<body>
+
+<!-- Shell renders the global header (logo, nav, user menu, breadcrumb).
+     data-current="tracker" makes the Activity Tracker nav entry
+     highlight as active. -->
+<div id="__shell" data-section="operations" data-current="tracker"></div>
+
+<!-- React mounts here. App.jsx pulls /api/tracker/load on boot, shows
+     a "Loading…" splash until the data arrives, then swaps in the
+     toolbar + tab strip + active panel. -->
+<div id="tracker-root"></div>
+
+<!-- The React app itself, written in JSX (Babel compiles in-browser). -->
+<script type="text/babel" src="activity-tracker/App.jsx"></script>
+
+</body>
+</html>

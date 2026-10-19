@@ -1,0 +1,107 @@
+{
+  "_provenance": "Seeded from Guide_Operationnel_Reunions_Departementales.docx (May 2026) + Department_Meeting_Report_Template.docx + Site_IT_Tracker_Template.xlsx. Every code below mirrors the canonical Group IT operating system 1:1.",
+
+  "intake_sources": [
+    { "code": "dept_meeting",  "name_en": "Department Meeting",   "name_fr": "Réunion départementale", "color": "#145FAE", "display_order": 1 },
+    { "code": "survey",        "name_en": "IT Survey",            "name_fr": "Enquête IT",             "color": "#EF631A", "display_order": 2 },
+    { "code": "council",       "name_en": "Mine IT Council",      "name_fr": "Mine IT Council",        "color": "#7C3AED", "display_order": 3 },
+    { "code": "business_incubation", "name_en": "Business Incubation", "name_fr": "Incubation métier",   "color": "#0D9488", "display_order": 4 },
+    { "code": "adhoc",         "name_en": "Ad-hoc",               "name_fr": "Ponctuel",                "color": "#6B7785", "display_order": 9 }
+  ],
+
+  "departments": [
+    { "code": "mining",         "name_en": "Mining",                  "name_fr": "Exploitation minière", "display_order":  1, "active": 1 },
+    { "code": "maintenance",    "name_en": "Maintenance",             "name_fr": "Maintenance",          "display_order":  2, "active": 1 },
+    { "code": "mobile_maint",   "name_en": "Mobile Maintenance",      "name_fr": "Maintenance mobile",   "display_order":  3, "active": 1 },
+    { "code": "process",        "name_en": "Process",                 "name_fr": "Process / Procédé",    "display_order":  4, "active": 1 },
+    { "code": "mill",           "name_en": "Mill / Plant",            "name_fr": "Usine / Plant",        "display_order":  5, "active": 1 },
+    { "code": "geology",        "name_en": "Geology",                 "name_fr": "Géologie",             "display_order":  6, "active": 1 },
+    { "code": "survey_dept",    "name_en": "Survey",                  "name_fr": "Topographie",          "display_order":  7, "active": 1 },
+    { "code": "hse",            "name_en": "HSE",                     "name_fr": "HSE",                  "display_order":  8, "active": 1 },
+    { "code": "security",       "name_en": "Security",                "name_fr": "Sécurité",             "display_order":  9, "active": 1 },
+    { "code": "engineering",    "name_en": "Engineering",             "name_fr": "Ingénierie",           "display_order": 10, "active": 1 },
+    { "code": "supply_chain",   "name_en": "Supply Chain",            "name_fr": "Supply Chain",         "display_order": 11, "active": 1 },
+    { "code": "finance",        "name_en": "Finance",                 "name_fr": "Finance",              "display_order": 12, "active": 1 },
+    { "code": "hr",             "name_en": "HR",                      "name_fr": "Ressources Humaines",  "display_order": 13, "active": 1 },
+    { "code": "exploration",    "name_en": "Exploration",             "name_fr": "Exploration",          "display_order": 14, "active": 1 },
+    { "code": "other_dept",     "name_en": "Other",                   "name_fr": "Autre",                "display_order": 99, "active": 1 }
+  ],
+
+  "categories": [
+    { "code": "CN", "name_en": "Connectivity & Network",       "name_fr": "Connectivité & Réseau",         "color": "#145FAE", "icon": "wifi",          "display_order": 1, "active": 1 },
+    { "code": "HW", "name_en": "End-user hardware & devices",  "name_fr": "Matériel utilisateur",          "color": "#0D9488", "icon": "laptop",        "display_order": 2, "active": 1 },
+    { "code": "IN", "name_en": "Server & infrastructure",      "name_fr": "Serveurs & infrastructure",     "color": "#3A4A60", "icon": "server",        "display_order": 3, "active": 1 },
+    { "code": "OT", "name_en": "OT / Industrial systems",      "name_fr": "Systèmes OT / industriels",     "color": "#EF631A", "icon": "factory",       "display_order": 4, "active": 1 },
+    { "code": "AP", "name_en": "Applications & business software", "name_fr": "Applications métier",       "color": "#7C3AED", "icon": "app-window",    "display_order": 5, "active": 1 },
+    { "code": "SC", "name_en": "Cybersecurity",                "name_fr": "Cybersécurité",                 "color": "#D90038", "icon": "shield-check",  "display_order": 6, "active": 1 },
+    { "code": "DR", "name_en": "Data & reporting",             "name_fr": "Données & reporting",           "color": "#0891B2", "icon": "bar-chart-3",   "display_order": 7, "active": 1 },
+    { "code": "SD", "name_en": "Service desk & support",       "name_fr": "Service desk & support",        "color": "#1B9A3A", "icon": "headset",       "display_order": 8, "active": 1 },
+    { "code": "LV", "name_en": "Licensing & vendors",          "name_fr": "Licences & fournisseurs",       "color": "#D97706", "icon": "file-text",     "display_order": 9, "active": 1 }
+  ],
+
+  "severities": [
+    { "code": "HIGH",   "name_en": "High",   "name_fr": "Haute",   "color": "#D90038", "rank": 3, "description_en": "Production-impacting; safety risk; operational pause", "description_fr": "Impact production ; risque sécurité ; arrêt opérationnel", "display_order": 1 },
+    { "code": "MEDIUM", "name_en": "Medium", "name_fr": "Moyenne", "color": "#D97706", "rank": 2, "description_en": "Productivity loss; recurring; workaround in place",    "description_fr": "Perte de productivité ; récurrent ; contournement en place", "display_order": 2 },
+    { "code": "LOW",    "name_en": "Low",    "name_fr": "Basse",   "color": "#0891B2", "rank": 1, "description_en": "Minor friction; nice-to-have; no impact today",       "description_fr": "Friction mineure ; sans impact aujourd'hui", "display_order": 3 }
+  ],
+
+  "statuses": [
+    { "code": "open",        "name_en": "Open",        "name_fr": "Ouvert",        "color": "#6B7785", "is_terminal": 0, "display_order": 1 },
+    { "code": "in_progress", "name_en": "In progress", "name_fr": "En cours",      "color": "#145FAE", "is_terminal": 0, "display_order": 2 },
+    { "code": "blocked",     "name_en": "Blocked",     "name_fr": "Bloqué",        "color": "#D90038", "is_terminal": 0, "display_order": 3 },
+    { "code": "on_hold",     "name_en": "On hold",     "name_fr": "En attente",    "color": "#D97706", "is_terminal": 0, "display_order": 4 },
+    { "code": "resolved",    "name_en": "Resolved",    "name_fr": "Résolu",        "color": "#1B9A3A", "is_terminal": 1, "display_order": 5 },
+    { "code": "cancelled",   "name_en": "Cancelled",   "name_fr": "Annulé",        "color": "#94A3B8", "is_terminal": 1, "display_order": 6 },
+    {"code": "demand", "name_en": "Demand / Initiative", "name_fr": "Demande / Initiative", "color": "#7C3AED", "is_terminal": 1, "display_order": 7},
+    {"code": "helpdesk_ticket", "name_en": "Helpdesk ticket", "name_fr": "Ticket Helpdesk", "color": "#0891B2", "is_terminal": 1, "display_order": 8}
+  ],
+
+  "meeting_statuses": [
+    { "code": "draft",     "name_en": "Draft",      "name_fr": "Brouillon",     "color": "#6B7785", "display_order": 1 },
+    { "code": "submitted", "name_en": "Submitted",  "name_fr": "Soumis",        "color": "#145FAE", "display_order": 2 },
+    { "code": "signed",    "name_en": "Signed",     "name_fr": "Signé",         "color": "#1B9A3A", "display_order": 3 },
+    { "code": "closed",    "name_en": "Closed",     "name_fr": "Clôturé",       "color": "#94A3B8", "display_order": 4 }
+  ],
+
+  "escalation_reasons": [
+    { "code": "cross_site",    "name_en": "Cross-site impact",         "name_fr": "Impact multi-sites",            "description_en": "Touches at least one other site",                       "description_fr": "Touche au moins un autre site",                              "display_order": 1 },
+    { "code": "group_decision","name_en": "Group decision required",   "name_fr": "Décision Groupe requise",       "description_en": "Resolution requires Group arbitration (standard, contract-frame, policy)", "description_fr": "Résolution exige un arbitrage Groupe (standard, contrat-cadre, politique)", "display_order": 2 },
+    { "code": "capex",         "name_en": "CapEx beyond site authority","name_fr": "CapEx hors autorité site",      "description_en": "Cost exceeds site authorisation threshold",            "description_fr": "Coût dépasse le seuil d'autorisation du site",               "display_order": 3 },
+    { "code": "strategic",     "name_en": "Strategic / standardisation","name_fr": "Standardisation / stratégique","description_en": "Opportunity to create a Group standard",               "description_fr": "Occasion de créer un standard Groupe",                       "display_order": 4 },
+    { "code": "group_dep",     "name_en": "Stuck on Group dependency", "name_fr": "Dépendance Groupe bloquante",   "description_en": "Action blocked by Group actor or process (procurement, licences, central team)", "description_fr": "Action bloquée par un acteur ou processus Groupe (achats, licences, équipe centrale)", "display_order": 5 },
+    { "code": "vendor",        "name_en": "Vendor / licensing matter", "name_fr": "Vendeur / licence",             "description_en": "Touches a vendor contract or licence shared across sites","description_fr": "Touche un contrat fournisseur ou une licence partagée entre sites", "display_order": 6 }
+  ],
+
+  "council_themes": [
+    { "code": "connectivity",       "name_en": "Connectivity",         "name_fr": "Connectivité",            "color": "#145FAE", "indicative_ask_en": "Group connectivity / coverage standard",       "indicative_ask_fr": "Standard Groupe de connectivité / couverture",      "display_order": 1 },
+    { "code": "hardware_lifecycle", "name_en": "Hardware lifecycle",   "name_fr": "Cycle de vie matériel",   "color": "#0D9488", "indicative_ask_en": "Group asset lifecycle policy",                 "indicative_ask_fr": "Politique Groupe de cycle de vie des actifs",       "display_order": 2 },
+    { "code": "ot_it",              "name_en": "OT-IT convergence",    "name_fr": "Convergence OT-IT",       "color": "#EF631A", "indicative_ask_en": "Tech Committee gate enforcement",              "indicative_ask_fr": "Application du gate Tech Committee",                "display_order": 3 },
+    { "code": "licensing",          "name_en": "Licensing",            "name_fr": "Licences",                "color": "#D97706", "indicative_ask_en": "Group-level vendor consolidation",             "indicative_ask_fr": "Consolidation fournisseurs au niveau Groupe",       "display_order": 4 },
+    { "code": "cybersecurity",      "name_en": "Cybersecurity",        "name_fr": "Cybersécurité",           "color": "#D90038", "indicative_ask_en": "Group OT cyber programme alignment",           "indicative_ask_fr": "Alignement au programme cyber OT Groupe",           "display_order": 5 },
+    { "code": "other",              "name_en": "Other",                "name_fr": "Autre",                   "color": "#6B7785", "indicative_ask_en": "Case-by-case",                                  "indicative_ask_fr": "Au cas par cas",                                    "display_order": 9 }
+  ],
+
+  "project_phases": [
+    { "code": "scoping",  "name_en": "Scoping",  "name_fr": "Cadrage",       "display_order": 1 },
+    { "code": "design",   "name_en": "Design",   "name_fr": "Conception",    "display_order": 2 },
+    { "code": "build",    "name_en": "Build",    "name_fr": "Construction",  "display_order": 3 },
+    { "code": "deploy",   "name_en": "Deploy",   "name_fr": "Déploiement",   "display_order": 4 },
+    { "code": "closeout", "name_en": "Closeout", "name_fr": "Clôture",       "display_order": 5 }
+  ],
+
+  "it_involvement_levels": [
+    { "code": "lead",        "name_en": "Lead",            "name_fr": "Pilote",        "display_order": 1 },
+    { "code": "co_deliver",  "name_en": "Co-deliver",      "name_fr": "Co-livraison",  "display_order": 2 },
+    { "code": "support",     "name_en": "Support",         "name_fr": "Support",       "display_order": 3 },
+    { "code": "advisory",    "name_en": "Advisory",        "name_fr": "Conseil",       "display_order": 4 },
+    { "code": "none",        "name_en": "None / Inform only","name_fr": "Aucune / Information","display_order": 5 }
+  ],
+
+  "engagements": [
+    { "code": "three_per_month",  "name_en": "Three departments per month",            "name_fr": "Trois départements par mois",          "rule_en": "Each Site IT Manager runs at least 3 department meetings per calendar month", "rule_fr": "Chaque Site IT Manager mène au moins 3 entretiens départementaux par mois calendaire", "display_order": 1 },
+    { "code": "diffusion_48h",    "name_en": "Diffusion within 48 h",                  "name_fr": "Diffusion sous 48 heures",              "rule_en": "Signed PV + tracker shared within 48h of the meeting",                          "rule_fr": "PV signé + tracker partagés sous 48h après l'entretien",                            "display_order": 2 },
+    { "code": "champion_per_action","name_en": "A Champion for every action",          "name_fr": "Un Champion pour chaque action",        "rule_en": "Every recorded action must have a named, reachable Champion",                  "rule_fr": "Chaque action consignée a un Champion nommé et joignable",                         "display_order": 3 },
+    { "code": "feedback_loop",    "name_en": "Monthly feedback loop",                  "name_fr": "Boucle de retour mensuelle",            "rule_en": "Write back to every department seen in the last 3 months on the status of THEIR items", "rule_fr": "Écrire à chaque département rencontré dans les 3 derniers mois sur l'avancement de SES sujets", "display_order": 4 },
+    { "code": "escalation_discipline","name_en": "Escalation discipline",              "name_fr": "Discipline d'escalade",                 "rule_en": "Any issue matching one of the 6 criteria is logged Escalate=Y + given a Council theme + flagged to the Group IT Manager Operations", "rule_fr": "Tout problème remplissant un des 6 critères est marqué Escalade=Oui + thème Council + porté à l'attention du Group IT Manager Operations", "display_order": 5 }
+  ]
+}

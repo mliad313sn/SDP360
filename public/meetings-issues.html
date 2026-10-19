@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Issues Log — Endeavour Mining IT</title>
+
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="brand/icons.css">
+<link rel="stylesheet" href="brand/components.css">
+<link rel="stylesheet" href="_shell.css">
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<link rel="stylesheet" href="module-tabs.css">
+<script nonce="%%CSP_NONCE%%" src="module-tabs.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/statusTransfer.js"></script>
+
+<style nonce="%%CSP_NONCE%%">
+  body {
+    margin: 0;
+    background: var(--color-bg, #F4F5F7);
+    color: var(--color-text-strong, #1F2A33);
+    font-family: var(--font-sans, 'Libre Franklin', sans-serif);
+    font-size: 14px; line-height: 1.45;
+  }
+  .mi-wrap { max-width: 1500px; margin: 0 auto; padding: 24px 28px 48px; }
+
+  .mi-hero {
+    background: var(--color-card, #fff);
+    border: 1px solid var(--color-border, #E2E5EA);
+    border-radius: 14px; box-shadow: 0 1px 2px rgba(58,74,96,.04);
+    padding: 22px 26px; margin-bottom: 18px;
+    position: relative; overflow: hidden;
+  }
+  .mi-hero::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 6px;
+    background: linear-gradient(180deg, #EF631A, #D90038);
+  }
+  .mi-eyebrow {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1.4px; color: var(--edv-orange, #EF631A); margin-bottom: 8px;
+  }
+  .mi-hero h1 { margin: 0 0 6px; font-size: 24px; font-weight: 800; color: var(--edv-slate, #3A4A60); }
+  .mi-hero p  { margin: 0; font-size: 13px; color: var(--color-text, #524F4E); max-width: 70ch; line-height: 1.55; }
+  .mi-hero p strong { color: var(--color-text-strong, #1F2A33); font-weight: 600; }
+
+  .mi-kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin-bottom: 18px; }
+  .mi-kpi {
+    background: var(--color-card, #fff); border: 1px solid var(--color-border, #E2E5EA);
+    border-radius: 8px; padding: 12px 14px; position: relative; overflow: hidden;
+  }
+  .mi-kpi::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--color-border, #E2E5EA); }
+  .mi-kpi--info::before    { background: var(--edv-blue, #145FAE); }
+  .mi-kpi--warning::before { background: var(--color-warning, #D97706); }
+  .mi-kpi--danger::before  { background: var(--edv-red, #D90038); }
+  .mi-kpi--esc::before     { background: #7C3AED; }
+  .mi-kpi__label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--color-text-muted, #7B7B7B); margin-bottom: 4px; }
+  .mi-kpi__value { font-size: 26px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+  .mi-kpi__sub   { font-size: 10px; color: var(--color-text-muted, #7B7B7B); margin-top: 6px; }
+
+  .mi-byCat {
+    background: var(--color-card, #fff); border: 1px solid var(--color-border, #E2E5EA);
+    border-radius: 12px; box-shadow: 0 1px 2px rgba(58,74,96,.04);
+    padding: 16px 18px; margin-bottom: 18px;
+  }
+  .mi-section-head { font-size: 11.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.1px; color: var(--edv-slate, #3A4A60); margin-bottom: 10px; }
+  .mi-cat-row { display: flex; align-items: center; gap: 12px; padding: 6px 0; }
+  .mi-cat-chip {
+    display: inline-block; font-family: var(--font-mono, monospace);
+    font-size: 11px; font-weight: 800; letter-spacing: 0.4px;
+    padding: 3px 8px; border-radius: 4px;
+    background: rgba(20,95,174,.10); color: var(--edv-blue, #145FAE);
+    border: 1px solid rgba(20,95,174,.30); min-width: 32px; text-align: center;
+  }
+  .mi-cat-label { font-size: 12px; color: var(--color-text-strong, #1F2A33); flex: 1; }
+  .mi-cat-bar { flex: 2.5; height: 8px; background: var(--color-bg, #F4F5F7); border-radius: 4px; overflow: hidden; }
+  .mi-cat-bar__fill { height: 100%; background: var(--edv-blue, #145FAE); }
+  .mi-cat-count { font-size: 12px; font-weight: 700; color: var(--color-text-strong, #1F2A33); font-variant-numeric: tabular-nums; min-width: 36px; text-align: right; }
+  .mi-cat-high { font-size: 11px; color: #B91C1C; font-weight: 700; min-width: 36px; }
+
+  .mi-filters { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+  .mi-select, .mi-search {
+    background: var(--color-card, #fff); border: 1px solid var(--color-border, #E2E5EA);
+    border-radius: 6px; padding: 9px 12px;
+    font: 500 13px var(--font-sans); color: var(--color-text-strong, #1F2A33);
+  }
+  .mi-select { padding-right: 24px; min-width: 140px; }
+  .mi-search { flex: 1; min-width: 220px; }
+  .mi-select:focus, .mi-search:focus {
+    outline: none; border-color: var(--edv-orange, #EF631A);
+    box-shadow: 0 0 0 3px rgba(239,99,26,.12);
+  }
+
+  .mi-table-card {
+    background: var(--color-card, #fff); border: 1px solid var(--color-border, #E2E5EA);
+    border-radius: 12px; box-shadow: 0 1px 2px rgba(58,74,96,.04); overflow: hidden;
+  }
+  .mi-table-card__head {
+    padding: 14px 18px 12px; border-bottom: 1px solid var(--color-border-subtle, #EEF0F3);
+    display: flex; align-items: baseline; justify-content: space-between;
+  }
+  .mi-table-head, .mi-row {
+    display: grid;
+    grid-template-columns: 50px 80px 50px minmax(0, 2.4fr) 100px 90px minmax(0, 1.1fr) 100px 90px 70px;
+    gap: 10px; align-items: center;
+    padding: 10px 18px; font-size: 12.5px;
+  }
+  .mi-table-head {
+    font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;
+    color: var(--color-text-muted, #7B7B7B);
+    background: var(--color-bg, #F4F5F7);
+    border-bottom: 1px solid var(--color-border-subtle, #EEF0F3);
+  }
+  .mi-row { border-top: 1px solid var(--color-border-subtle, #EEF0F3); transition: background 120ms; }
+  .mi-row:hover { background: var(--color-bg, #F4F5F7); }
+  .mi-row__site, .mi-row__ord {
+    font-family: var(--font-mono, monospace); font-size: 11px; font-weight: 800;
+    color: #fff; background: var(--edv-slate, #3A4A60);
+    padding: 3px 7px; border-radius: 4px; text-align: center;
+  }
+  .mi-row__ord { background: var(--edv-blue, #145FAE); }
+  .mi-row__ref { font-family: var(--font-mono, monospace); font-size: 10.5px; color: var(--color-text-muted, #7B7B7B); }
+  .mi-row__title strong { display: block; font-weight: 600; color: var(--color-text-strong, #1F2A33); line-height: 1.35; }
+  .mi-row__title small  { display: block; font-size: 11px; color: var(--color-text-muted, #7B7B7B); margin-top: 2px; }
+  .mi-pill {
+    display: inline-block; font-size: 10px; font-weight: 800; letter-spacing: 0.5px;
+    padding: 2px 8px; border-radius: 9999px; text-transform: uppercase;
+    border: 1px solid transparent;
+  }
+  .mi-esc-tag {
+    display: inline-block; font-size: 10px; font-weight: 800;
+    padding: 2px 6px; border-radius: 4px;
+    background: rgba(124,58,237,.10); color: #5B21B6;
+    border: 1px solid rgba(124,58,237,.30); margin-left: 5px;
+  }
+  .mi-row__date { font-size: 11.5px; color: var(--color-text, #524F4E); font-variant-numeric: tabular-nums; }
+  .mi-row__overdue { color: #B91C1C; font-weight: 700; }
+  .mi-row__open {
+    text-decoration: none; color: var(--edv-blue, #145FAE);
+    font-size: 11px; font-weight: 700;
+    border: 1px solid var(--color-border, #E2E5EA);
+    padding: 5px 9px; border-radius: 6px; text-align: center; white-space: nowrap;
+  }
+  .mi-row__open:hover { background: var(--color-bg, #F4F5F7); border-color: var(--edv-blue, #145FAE); }
+  .mi-empty { padding: 32px; text-align: center; color: var(--color-text-muted, #7B7B7B); font-size: 13px; font-style: italic; }
+
+  /* Inline status change (mirrors meetings-actions.html) */
+  .mi-status-sel {
+    width: 100%; max-width: 100%;
+    background: var(--color-card, #fff); border: 1px solid var(--color-border, #E2E5EA);
+    border-radius: 6px; padding: 4px 6px;
+    font: 700 10.5px var(--font-sans); text-transform: uppercase; letter-spacing: .4px;
+    cursor: pointer;
+  }
+  .mi-status-sel:focus { outline: none; border-color: var(--edv-orange, #EF631A); box-shadow: 0 0 0 3px rgba(239,99,26,.12); }
+  .mi-status-sel:disabled { cursor: default; opacity: .75; }
+
+  .mi-toast {
+    position: fixed; left: 50%; bottom: 26px; transform: translate(-50%, 12px);
+    background: #1F2A33; color: #fff; font-size: 13px; font-weight: 600;
+    padding: 11px 20px; border-radius: 8px; box-shadow: 0 6px 22px rgba(0,0,0,.22);
+    opacity: 0; pointer-events: none; transition: opacity .18s, transform .18s;
+    z-index: 9999; max-width: 70vw; text-align: center;
+  }
+  .mi-toast.show { opacity: 1; transform: translate(-50%, 0); }
+  .mi-toast.err  { background: #B91C1C; }
+
+  @media (max-width: 1100px) {
+    .mi-kpis { grid-template-columns: repeat(3, 1fr); }
+    .mi-table-head, .mi-row {
+      grid-template-columns: 44px 70px 46px minmax(0,1.8fr) 80px 70px minmax(0,1fr) 80px 70px 60px;
+      font-size: 11.5px; padding: 9px 12px; gap: 8px;
+    }
+  }
+
+  /* ── Module tabs (List ↔ Dashboard ↔ Issues ↔ Council ↔ Compliance) ── */
+  .mtg-tabs {
+    display: inline-flex; gap: 2px;
+    background: #F3F4F6;
+    border: 1px solid #E5E7EB;
+    border-radius: 10px;
+    padding: 3px;
+    margin: 0 0 16px 0;
+  }
+  .mtg-tabs__btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 8px 16px;
+    font-size: 13px; font-weight: 600;
+    color: #6B7280;
+    background: transparent;
+    border: 0; border-radius: 7px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background-color .12s, color .12s;
+  }
+  .mtg-tabs__btn:hover { color: #1F2937; background: #FFFFFF; }
+  .mtg-tabs__btn--active {
+    color: #1F2937; background: #FFFFFF;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+    border-bottom: 2px solid var(--edv-orange, #E87722);
+    padding-bottom: 6px;
+  }
+  .mtg-tabs__btn span.mtg-tabs__count {
+    font-size: 11px; font-weight: 600;
+    background: rgba(0,0,0,0.08);
+    color: #4B5563;
+    padding: 1px 7px; border-radius: 999px;
+  }
+  .mtg-tabs__btn--active span.mtg-tabs__count {
+    background: rgba(232,119,34,0.14);
+    color: var(--edv-orange, #E87722);
+  }
+</style>
+</head>
+<body>
+
+<div id="__shell" data-section="operations" data-current="meetings"></div>
+
+<div class="mi-wrap">
+
+  <div id="__moduletabs" data-module="meetings" data-current="issues"></div>
+
+  <section class="mi-hero">
+    <div class="mi-eyebrow">Insights · Issues Log</div>
+    <h1>Issues across all meetings</h1>
+    <p>Flat view of every issue raised in any Department Meeting or IT Survey concern.
+       <strong>Filter</strong> by site, department, category, severity, status or champion —
+       <strong>change a status inline</strong> (recorded in the issue's audit trail) or
+       <strong>open in context</strong> to jump to the parent PV.
+       Overdue, HIGH and escalated rows are highlighted.</p>
+  </section>
+
+  <!-- KPI strip -->
+  <section class="mi-kpis" id="miKpis"></section>
+
+  <!-- Category bar -->
+  <section class="mi-byCat">
+    <div class="mi-section-head">Issues by category</div>
+    <div id="miByCat"></div>
+  </section>
+
+  <!-- Filter row -->
+  <section class="mi-filters">
+    <select class="mi-select" id="miSite"><option value="">All sites</option></select>
+    <select class="mi-select" id="miDept"><option value="">All departments</option></select>
+    <select class="mi-select" id="miCat"><option value="">All categories</option></select>
+    <select class="mi-select" id="miSev"><option value="">All severities</option></select>
+    <select class="mi-select" id="miStatus"><option value="">All statuses</option></select>
+    <select class="mi-select" id="miChampion"><option value="">All champions</option></select>
+    <select class="mi-select" id="miEsc">
+      <option value="">All issues</option>
+      <option value="1">Escalated only</option>
+      <option value="0">Not escalated</option>
+    </select>
+    <input class="mi-search" type="search" id="miQ" placeholder="Search title / description / champion / affects…">
+  </section>
+
+  <!-- Issues table -->
+  <section class="mi-table-card">
+    <div class="mi-table-card__head">
+      <div>
+        <div class="mi-section-head">Issues</div>
+        <div id="miSubcount" style="font-size:11px;color:var(--color-text-muted,#7B7B7B);margin-top:2px">Loading…</div>
+      </div>
+    </div>
+    <div id="miTable"></div>
+  </section>
+
+</div>
+
+<div class="mi-toast" id="miToast"></div>
+
+<script nonce="%%CSP_NONCE%%">
+(function () {
+  'use strict';
+  const API = '/api/meetings';
+
+  function authHeaders() {
+    const h = {};
+    const at = window.__authToken;
+    let tok = null;
+    if (typeof at === 'function') { try { tok = at(); } catch(_) {} }
+    else if (typeof at === 'string' && at) { tok = at; }
+    if (!tok) tok = localStorage.getItem('report_token');
+    if (tok) h['x-report-token'] = tok;
+    return h;
+  }
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const fmtDate = iso => {
+    if (!iso) return '—';
+    const M = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const [y, m, d] = String(iso).slice(0, 10).split('-');
+    return `${d} ${M[parseInt(m, 10) - 1]} ${y}`;
+  };
+  const tint = (hex, alpha) => {
+    const m = String(hex || '').match(/^#?([0-9a-f]{6})$/i);
+    if (!m) return `rgba(107,119,133,${alpha})`;
+    const n = parseInt(m[1], 16);
+    return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
+  };
+  const todayIso = () => new Date().toISOString().slice(0, 10);
+  // + demand / helpdesk_ticket (2026-10-16 — public/lib/statusTransfer.js)
+  const TERMINAL = new Set(window.StatusTransfer ? window.StatusTransfer.DONE : ['resolved', 'cancelled']);
+
+  // ── RBAC (client-side, to avoid dead clicks only — the SERVER is the
+  // enforcement point: POST /issues/:id/update 403s on cross-site writes and
+  // on a closed parent PV for site-scoped users).
+  const canEdit    = !!(window.__userHasRole && window.__userHasRole('editor'));
+  const isAdminPlus = !!(window.__userHasRole && window.__userHasRole('admin'));
+
+  // Mirrors the server's _userMeetingsSite(): admin+ is unscoped; otherwise
+  // resolve the user's reports-db site_id through the lookups site list (which
+  // already carries the meetings `code` for each canonical site id).
+  // Multi-site editors (2026-10-05): site_ids = primary + extra sites.
+  function userSiteCodes() {
+    if (isAdminPlus) return null;
+    const u = window.__authUser || {};
+    const ids = Array.isArray(u.site_ids) && u.site_ids.length ? u.site_ids : (u.site_id ? [u.site_id] : []);
+    const sites = (state.lookups && state.lookups.sites) || [];
+    return ids.map(id => (sites.find(x => x.id === id) || {}).code).filter(Boolean);
+  }
+  function rowEditable(r) {
+    if (!canEdit) return { ok: false, why: 'Editor role or higher required to change status' };
+    const scope = userSiteCodes();
+    if (!scope || !scope.length) return { ok: true, why: '' };
+    if (!scope.includes(r.site_code)) return { ok: false, why: `Issue belongs to ${r.site_code}; you are scoped to ${scope.join(', ')}` };
+    return { ok: true, why: '' };
+  }
+
+  let _toastT = null;
+  function toast(msg, isErr) {
+    const el = document.getElementById('miToast');
+    el.textContent = msg;
+    el.className = 'mi-toast show' + (isErr ? ' err' : '');
+    clearTimeout(_toastT);
+    _toastT = setTimeout(() => { el.className = 'mi-toast' + (isErr ? ' err' : ''); }, isErr ? 5200 : 2600);
+  }
+
+  const state = {
+    lookups: null,
+    issues: [],
+    aggregate: null,
+    // `champion` is applied CLIENT-side (the /issues endpoint has no champion
+    // param) — it is therefore held apart from the server-side filter set so
+    // it is never serialised into the query string.
+    filters: { site: '', department: '', category: '', severity: '', status: '', escalate: '', q: '' },
+    champion: '',
+  };
+
+  // Rows after the client-side champion filter. Everything that renders the
+  // table / subcount / champion-scoped KPIs reads through this.
+  function visibleIssues() {
+    if (!state.champion) return state.issues;
+    return state.issues.filter(r => (r.champion || '') === state.champion);
+  }
+
+  // Mirrors the server aggregate's SQL (meetings-db.js:1856-1863) so a
+  // client-side champion filter yields the SAME definitions the server uses.
+  function computeIssueKpis(rows) {
+    const today = todayIso();
+    const open = r => !TERMINAL.has(r.status);
+    return {
+      total_issues:   rows.length,
+      high_issues:    rows.filter(r => r.severity === 'HIGH').length,
+      open_issues:    rows.filter(open).length,
+      escalated_open: rows.filter(r => r.escalate && open(r)).length,
+      overdue_issues: rows.filter(r => r.target_date && r.target_date < today && open(r)).length,
+    };
+  }
+
+  function renderKpis() {
+    // No champion filter → trust the server aggregate (authoritative, not
+    // bounded by the /issues LIMIT). Champion filter on → the aggregate cannot
+    // see it, so recompute from the visible rows and say so in the sub-label.
+    const scoped = !!state.champion;
+    const i = scoped ? computeIssueKpis(visibleIssues())
+                     : ((state.aggregate && state.aggregate.issues) || {});
+    const sfx = scoped ? ' · champion' : '';
+    const tiles = [
+      { l: 'Total issues',  v: i.total_issues   || 0, k: 'info',    s: 'in scope' + sfx },
+      { l: 'HIGH severity', v: i.high_issues    || 0, k: 'danger',  s: 'production-impact' + sfx },
+      { l: 'Open',          v: i.open_issues    || 0, k: 'warning', s: 'not yet resolved' + sfx },
+      { l: 'Escalated',     v: i.escalated_open || 0, k: 'esc',     s: 'open for Council' + sfx },
+      { l: 'Overdue',       v: i.overdue_issues || 0, k: 'danger',  s: 'past target date' + sfx },
+    ];
+    document.getElementById('miKpis').innerHTML = tiles.map(t => `
+      <div class="mi-kpi mi-kpi--${t.k}">
+        <div class="mi-kpi__label">${esc(t.l)}</div>
+        <div class="mi-kpi__value">${esc(t.v)}</div>
+        <div class="mi-kpi__sub">${esc(t.s)}</div>
+      </div>`).join('');
+  }
+
+  function renderByCategory() {
+    const rows = (state.aggregate && state.aggregate.by_category) || [];
+    const catMap = {}; (state.lookups.categories || []).forEach(c => { catMap[c.code] = c; });
+    const max = Math.max(1, ...rows.map(r => r.n || 0));
+    const c = document.getElementById('miByCat');
+    if (!rows.length) { c.innerHTML = '<div style="color:var(--color-text-muted,#7B7B7B);font-style:italic;font-size:12px">No issues yet for the active filter.</div>'; return; }
+    c.innerHTML = rows.map(r => {
+      const cat = catMap[r.category] || { color: '#6B7785', name_en: r.category };
+      const pct = Math.round(100 * (r.n / max));
+      return `
+        <div class="mi-cat-row">
+          <span class="mi-cat-chip" style="background:${tint(cat.color,0.12)};color:${esc(cat.color)};border-color:${tint(cat.color,0.3)}">${esc(r.category)}</span>
+          <span class="mi-cat-label">${esc(cat.name_en)}</span>
+          <div class="mi-cat-bar"><div class="mi-cat-bar__fill" style="width:${pct}%;background:${esc(cat.color)}"></div></div>
+          <span class="mi-cat-count">${esc(r.n)}</span>
+          <span class="mi-cat-high" title="HIGH severity">${r.high_n ? esc(r.high_n) + 'H' : ''}</span>
+        </div>`;
+    }).join('');
+  }
+
+  function renderFilters() {
+    const sel = (id, items, valueKey, labelKey, blank) => {
+      const el = document.getElementById(id);
+      el.innerHTML = `<option value="">${esc(blank)}</option>`
+        + (items || []).map(it => `<option value="${esc(it[valueKey])}">${esc(it[labelKey])}</option>`).join('');
+    };
+    sel('miSite',   state.lookups.sites,        'code', 'name',    'All sites');
+    sel('miDept',   state.lookups.departments,  'code', 'name_en', 'All departments');
+    sel('miCat',    state.lookups.categories,   'code', 'name_en', 'All categories');
+    sel('miSev',    state.lookups.severities,   'code', 'name_en', 'All severities');
+    sel('miStatus', state.lookups.statuses,     'code', 'name_en', 'All statuses');
+    // Restore the active selection — renderFilters() runs on every loadAll(),
+    // and rebuilding a <select>'s innerHTML resets it to the blank option even
+    // though state.filters still holds the choice (dropdown would snap back to
+    // "All ..." after every pick).
+    document.getElementById('miSite').value   = state.filters.site       || '';
+    document.getElementById('miDept').value   = state.filters.department || '';
+    document.getElementById('miCat').value    = state.filters.category   || '';
+    document.getElementById('miSev').value    = state.filters.severity   || '';
+    document.getElementById('miStatus').value = state.filters.status     || '';
+  }
+
+  // Champion options come from the DISTINCT non-empty champions of the loaded
+  // issues. `state.issues` is the SERVER-filtered set and is never narrowed by
+  // the champion filter (that one is client-side), so the option list can't
+  // collapse to the single selected name. The active selection is re-added if
+  // another filter moved it out of range — otherwise the <select> would snap
+  // back to "" and silently drop the filter while state.champion still held it.
+  function renderChampionFilter() {
+    const el = document.getElementById('miChampion');
+    const names = Array.from(new Set(
+      state.issues.map(r => (r.champion || '').trim()).filter(Boolean)
+    ));
+    if (state.champion && !names.includes(state.champion)) names.push(state.champion);
+    names.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+    el.innerHTML = '<option value="">All champions</option>'
+      + names.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+    el.value = state.champion || '';
+  }
+
+  // Status cell. A user with no editor role at all keeps the read-only pill
+  // (the whole feature is off for them — same as meetings-actions.html); an
+  // editor whose site doesn't match gets a DISABLED select carrying the reason,
+  // so the row reads as "not yours" rather than as a click that does nothing.
+  function statusCell(r, stsByCode) {
+    const st = stsByCode[r.status] || { color: '#6B7785', name_en: r.status };
+    if (!canEdit) {
+      return `<span class="mi-pill" style="background:${tint(st.color,0.12)};color:${esc(st.color)};border-color:${tint(st.color,0.3)}">${esc(st.name_en)}</span>`;
+    }
+    const gate = rowEditable(r);
+    const opts = (state.lookups.statuses || []).map(s =>
+      `<option value="${esc(s.code)}"${s.code === r.status ? ' selected' : ''}>${esc(s.name_en)}</option>`).join('');
+    return `<select class="mi-status-sel" data-issue="${esc(r.id)}" data-prev="${esc(r.status)}"`
+      + `${gate.ok ? '' : ' disabled'} title="${esc(gate.ok ? 'Change status (audited)' : gate.why)}"`
+      + ` style="color:${esc(st.color)}">${opts}</select>`;
+  }
+
+  function renderTable() {
+    const rows = visibleIssues();
+    const stsByCode = {}; (state.lookups.statuses   || []).forEach(s => { stsByCode[s.code] = s; });
+    const sevByCode = {}; (state.lookups.severities || []).forEach(s => { sevByCode[s.code] = s; });
+    const today = todayIso();
+
+    const header = `
+      <div class="mi-table-head" role="row">
+        <span>Site</span><span>Ref</span><span>#</span><span>Issue</span>
+        <span>Category</span><span>Severity</span><span>Champion</span>
+        <span>Target</span><span>Status</span><span></span>
+      </div>`;
+    if (!rows.length) {
+      document.getElementById('miTable').innerHTML = header + '<div class="mi-empty">No issues match the current filter.</div>';
+      document.getElementById('miSubcount').textContent = '0 issues';
+      return;
+    }
+    const body = rows.map(r => {
+      const st  = stsByCode[r.status]   || { color: '#6B7785', name_en: r.status };
+      const sev = sevByCode[r.severity] || { color: '#6B7785', name_en: r.severity };
+      const overdue = r.target_date && r.target_date < today && !TERMINAL.has(r.status);
+      return `
+        <div class="mi-row" role="row">
+          <span class="mi-row__site">${esc(r.site_code)}</span>
+          <span class="mi-row__ref" title="${esc(r.meeting_reference)}">${esc((r.meeting_reference || '').split('_').slice(1, 3).join(' ') || '—')}</span>
+          <span class="mi-row__ord">I${esc(r.ord + 1)}</span>
+          <span class="mi-row__title">
+            <strong>${esc(r.title || '(untitled)')}</strong>
+            <small>${esc((r.description || '').slice(0, 120))}${r.escalate ? '<span class="mi-esc-tag">↑ escalated</span>' : ''}</small>
+          </span>
+          <span><span class="mi-pill" style="background:${tint('#145FAE',0.12)};color:#145FAE;border-color:${tint('#145FAE',0.3)};font-family:var(--font-mono,monospace)">${esc(r.category)}</span></span>
+          <span><span class="mi-pill" style="background:${tint(sev.color,0.12)};color:${esc(sev.color)};border-color:${tint(sev.color,0.3)}">${esc(sev.name_en)}</span></span>
+          <span style="font-size:12px;color:var(--color-text,#524F4E)">${esc(r.champion || '—')}</span>
+          <span class="mi-row__date ${overdue ? 'mi-row__overdue' : ''}">${fmtDate(r.target_date)}</span>
+          <span>${statusCell(r, stsByCode)}</span>
+          <a class="mi-row__open" href="meeting.html?id=${encodeURIComponent(r.meeting_id_ref)}">Open ›</a>
+        </div>`;
+    }).join('');
+    document.getElementById('miTable').innerHTML = header + body;
+    document.getElementById('miSubcount').textContent = rows.length + ' issue' + (rows.length === 1 ? '' : 's')
+      + (state.champion ? ' · champion: ' + state.champion : '');
+
+    if (canEdit) {
+      document.querySelectorAll('.mi-status-sel:not([disabled])')
+        .forEach(selEl => selEl.addEventListener('change', onStatusChange));
+    }
+  }
+
+  // Refresh ONLY the server aggregate (cheap) and re-render the KPI tiles —
+  // used after a status change so Open / Overdue / Escalated move with it
+  // without refetching the list and losing the user's place in the table.
+  async function refreshAggregate() {
+    const qs = new URLSearchParams();
+    Object.entries(state.filters).forEach(([k, v]) => { if (v !== '' && v != null) qs.set(k, v); });
+    try {
+      const agg = await fetch(API + '/aggregate?' + qs.toString(),
+        { credentials: 'same-origin', headers: authHeaders() }).then(r => r.ok ? r.json() : null);
+      if (agg) state.aggregate = agg;
+    } catch (_) { /* keep the last-known aggregate */ }
+    renderKpis();
+    renderByCategory();
+  }
+
+  // Inline status change. ONE POST both records the audit row and moves the
+  // status (meetings-db addIssueUpdate does both in a single transaction), so
+  // no comment body is needed — the audit row already carries who/when/from→to.
+  async function onStatusChange(e) {
+    const selEl  = e.target;
+    const id     = selEl.getAttribute('data-issue');
+    const prev   = selEl.getAttribute('data-prev');
+    const status = selEl.value;
+    if (status === prev) return;
+    // Transfer statuses (2026-10-16): demand / helpdesk_ticket / cancelled need a justification.
+    const payload = { status_change: status };
+    const ST = window.StatusTransfer;
+    if (ST && ST.isTransfer(status)) {
+      const row0 = state.issues.find(x => String(x.id) === String(id));
+      const t = await ST.ask(status, { title: row0 ? row0.title : '' });
+      if (!t) { selEl.value = prev; return; }
+      payload.body = t.note;
+      if (t.ticket) payload.helpdesk_ticket = t.ticket;
+    }
+    selEl.disabled = true;
+    try {
+      const r = await fetch(API + '/issues/' + encodeURIComponent(id) + '/update', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+        body: JSON.stringify(payload),
+      });
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        throw new Error(j.error || ('HTTP ' + r.status));
+      }
+      // Local model → re-render (keeps the badge colours + overdue styling in
+      // step) → KPI refresh from the server aggregate.
+      const row = state.issues.find(x => String(x.id) === String(id));
+      if (row) {
+        row.status = status;
+        row.status_note = payload.body && ST && ST.isTransfer(status) ? payload.body : null;
+        row.helpdesk_ticket = payload.helpdesk_ticket || null;
+        if (TERMINAL.has(status)) row.closed_at = row.closed_at || new Date().toISOString();
+        else row.closed_at = null;
+      }
+      toast('Issue updated → ' + status);
+      renderTable();
+      await refreshAggregate();
+    } catch (err) {
+      // Revert the select to the value it held before the failed change, so
+      // the row never shows a status the server did not accept. The 403s here
+      // are meaningful (cross-site / closed parent PV) — surface them verbatim.
+      selEl.value    = prev;
+      selEl.disabled = false;
+      toast('Update failed: ' + (err.message || 'unknown error'), true);
+    }
+  }
+
+  async function loadAll() {
+    state.lookups = state.lookups || await fetch(API + '/lookups', { credentials: 'same-origin', headers: authHeaders() }).then(r => r.json());
+    renderFilters();
+
+    const qs = new URLSearchParams();
+    Object.entries(state.filters).forEach(([k, v]) => { if (v !== '' && v != null) qs.set(k === 'escalate' ? 'escalate' : k, v); });
+
+    const [list, agg] = await Promise.all([
+      fetch(API + '/issues?'    + qs.toString(), { credentials: 'same-origin', headers: authHeaders() }).then(r => r.ok ? r.json() : { rows: [] }),
+      fetch(API + '/aggregate?' + qs.toString(), { credentials: 'same-origin', headers: authHeaders() }).then(r => r.ok ? r.json() : null),
+    ]);
+    state.issues    = list.rows || [];
+    state.aggregate = agg;
+    renderChampionFilter();
+    renderKpis();
+    renderByCategory();
+    renderTable();
+  }
+
+  document.getElementById('miSite').addEventListener('change',   e => { state.filters.site       = e.target.value; loadAll(); });
+  document.getElementById('miDept').addEventListener('change',   e => { state.filters.department = e.target.value; loadAll(); });
+  document.getElementById('miCat').addEventListener('change',    e => { state.filters.category   = e.target.value; loadAll(); });
+  document.getElementById('miSev').addEventListener('change',    e => { state.filters.severity   = e.target.value; loadAll(); });
+  document.getElementById('miStatus').addEventListener('change', e => { state.filters.status     = e.target.value; loadAll(); });
+  document.getElementById('miEsc').addEventListener('change',    e => { state.filters.escalate   = e.target.value; loadAll(); });
+  // Champion is client-side (no server param) — no refetch needed; just
+  // re-render through visibleIssues() so it composes with the server filters.
+  document.getElementById('miChampion').addEventListener('change', e => {
+    state.champion = e.target.value;
+    renderKpis();
+    renderTable();
+  });
+  let _qT = null;
+  document.getElementById('miQ').addEventListener('input', e => {
+    clearTimeout(_qT); _qT = setTimeout(() => { state.filters.q = e.target.value.trim(); loadAll(); }, 250);
+  });
+
+  loadAll().catch(err => {
+    console.error('[issues] load failed:', err);
+    document.getElementById('miTable').innerHTML = '<div class="mi-empty">Failed to load issues. ' + esc(err.message || '') + '</div>';
+  });
+})();
+</script>
+
+<script nonce="%%CSP_NONCE%%">
+// Reveal the Setup tab for super_admin only (hidden by default — admin
+// tooling stays out of view for editor / viewer / admin / executive).
+(function () {
+  function reveal() {
+    try {
+      if (window.__userHasRole && window.__userHasRole("super_admin")) {
+        document.querySelectorAll(".mtg-tabs__btn--admin").forEach(function (el) { el.style.display = ""; });
+      }
+    } catch (_) {}
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", reveal);
+  else reveal();
+})();
+</script>
+</body>
+</html>

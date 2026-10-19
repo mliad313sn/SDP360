@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meetings &amp; Council Escalations — Endeavour Mining IT</title>
+
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="brand/icons.css">
+<link rel="stylesheet" href="brand/components.css">
+<link rel="stylesheet" href="_shell.css">
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<link rel="stylesheet" href="module-tabs.css">
+<script nonce="%%CSP_NONCE%%" src="module-tabs.js"></script>
+
+<style nonce="%%CSP_NONCE%%">
+  body {
+    margin: 0;
+    background: var(--color-bg, #F4F5F7);
+    color: var(--color-text-strong, #1F2A33);
+    font-family: var(--font-sans, 'Libre Franklin', sans-serif);
+    font-size: 14px; line-height: 1.45;
+  }
+  .md-wrap { max-width: 1400px; margin: 0 auto; padding: 24px 28px 48px; }
+
+  /* Hero */
+  .md-hero {
+    background: var(--color-card, #fff);
+    border: 1px solid var(--color-border, #E2E5EA);
+    border-radius: 14px;
+    box-shadow: 0 1px 2px rgba(58,74,96,.04);
+    padding: 22px 26px;
+    margin-bottom: 20px;
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) auto;
+    gap: 20px; align-items: center;
+    position: relative; overflow: hidden;
+  }
+  .md-hero::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 6px;
+    background: linear-gradient(180deg, var(--edv-blue, #145FAE), #7C3AED);
+  }
+  .md-eyebrow {
+    font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1.4px;
+    color: var(--edv-orange, #EF631A); margin-bottom: 8px;
+  }
+  .md-hero h1 {
+    margin: 0 0 6px;
+    font-size: 24px; font-weight: 800;
+    color: var(--edv-slate, #3A4A60);
+  }
+  .md-hero .lede {
+    margin: 0; font-size: 13px; color: var(--color-text, #524F4E);
+    line-height: 1.55; max-width: 70ch;
+  }
+  .md-hero .lede strong { color: var(--color-text-strong, #1F2A33); font-weight: 600; }
+  .md-hero__actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn-primary, .btn-ghost {
+    font-family: var(--font-sans); font-size: 13px; font-weight: 700;
+    padding: 9px 16px; border-radius: 6px; cursor: pointer;
+    letter-spacing: 0.2px; border: 1px solid transparent;
+    display: inline-flex; align-items: center; gap: 6px; text-decoration: none;
+  }
+  .btn-primary { background: var(--edv-orange, #EF631A); color: #fff; border-color: var(--edv-orange-dark, #C04E10); }
+  .btn-primary:hover { background: var(--edv-orange-dark, #C04E10); }
+  .btn-ghost {
+    background: transparent; color: var(--color-text-strong, #1F2A33);
+    border-color: var(--color-border, #E2E5EA);
+  }
+  .btn-ghost:hover { background: var(--color-bg, #F4F5F7); }
+
+  /* KPI strip — 6 tiles */
+  .md-kpis {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 10px; margin-bottom: 20px;
+  }
+  .md-kpi {
+    background: var(--color-card, #fff);
+    border: 1px solid var(--color-border, #E2E5EA);
+    border-radius: 8px;
+    padding: 12px 14px;
+    position: relative; overflow: hidden;
+  }
+  .md-kpi::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+    background: var(--color-border, #E2E5EA);
+  }
+  .md-kpi--info::before    { background: var(--edv-blue, #145FAE); }
+  .md-kpi--success::before { background: var(--edv-green, #1B9A3A); }
+  .md-kpi--warning::before { background: var(--color-warning, #D97706); }
+  .md-kpi--danger::before  { background: var(--edv-red, #D90038); }
+  .md-kpi__label {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.8px; color: var(--color-text-muted, #7B7B7B); margin-bottom: 4px;
+  }
+  .md-kpi__value {
+    font-size: 26px; font-weight: 800; line-height: 1;
+    color: var(--color-text-strong, #1F2A33);
+    font-variant-numeric: tabular-nums;
+  }
+  .md-kpi__sub { font-size: 10px; color: var(--color-text-muted, #7B7B7B); margin-top: 6px; }
+
+  /* Quick-jump strip — link out to the Issues Log / Council / Compliance views */
+  .md-jumps {
+    display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px;
+  }
+  .md-jump {
+    flex: 1; min-width: 220px;
+    background: var(--color-card, #fff);
+    border: 1px solid var(--color-border, #E2E5EA);
+    border-radius: 8px;
+    padding: 14px 16px;
+    color: var(--color-text-strong, #1F2A33);
+    text-decoration: none;
+    display: flex; gap: 12px; align-items: flex-start;
+    transition: transform 120ms, box-shadow 120ms;
+  }
+  .md-jump:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(15, 42, 77, 0.08);
+  }
+  .md-jump__icon {
+    width: 32px; height: 32px; border-radius: 6px;
+    background: var(--edv-orange-light, #FBB885); color: var(--edv-orange-dark, #C04E10);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 17px; flex-shrink: 0;
+  }
+  .md-jump__title {
+    font-size: 13px; font-weight: 700;
+    color: var(--color-text-strong, #1F2A33);
+    margin-bottom: 3px;
+  }
+  .md-jump__sub { font-size: 11px; color: var(--color-text-muted, #7B7B7B); }
+
+  /* Filters */
+  .md-filters {
+    display: flex; gap: 10px; align-items: center; margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+  .md-filter-select, .md-search {
+    background: var(--color-card, #fff);
+    border: 1px solid var(--color-border, #E2E5EA);
+    border-radius: 6px;
+    padding: 9px 12px;
+    font: 500 13px var(--font-sans);
+    color: var(--color-text-strong, #1F2A33);
+  }
+  .md-filter-select { padding-right: 24px; min-width: 140px; }
+  .md-search { flex: 1; min-width: 220px; }
+  .md-search:focus, .md-filter-select:focus {
+    outline: none;
+    border-color: var(--edv-orange, #EF631A);
+    box-shadow: 0 0 0 3px rgba(239,99,26,.12);
+  }
+
+  /* Meetings table */
+  .md-table-card {
+    background: var(--color-card, #fff);
+    border: 1px solid var(--color-border, #E2E5EA);
+    border-radius: 12px;
+    box-shadow: 0 1px 2px rgba(58,74,96,.04);
+    overflow: hidden;
+  }
+  .md-table-card__header {
+    padding: 14px 18px 12px;
+    border-bottom: 1px solid var(--color-border-subtle, #EEF0F3);
+    display: flex; align-items: baseline; justify-content: space-between;
+  }
+  .md-section-head {
+    font-size: 12px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1.1px; color: var(--edv-slate, #3A4A60);
+  }
+  .md-section-sub { font-size: 11px; color: var(--color-text-muted, #7B7B7B); margin-top: 2px; }
+
+  .md-table { display: flex; flex-direction: column; }
+  .md-table__head,
+  .md-row {
+    display: grid;
+    grid-template-columns: 36px 168px minmax(0, 2fr) minmax(0, 1.1fr) 100px 110px 90px 72px;
+    gap: 12px; align-items: center;
+    padding: 11px 18px;
+    font-size: 12.5px;
+  }
+  .md-table__head {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1px; color: var(--color-text-muted, #7B7B7B);
+    background: var(--color-bg, #F4F5F7);
+    border-bottom: 1px solid var(--color-border-subtle, #EEF0F3);
+  }
+  .md-row { border-top: 1px solid var(--color-border-subtle, #EEF0F3); transition: background 120ms; }
+  .md-row:hover { background: var(--color-bg, #F4F5F7); }
+  .md-row__site {
+    width: 28px; height: 28px; border-radius: 6px;
+    background: var(--edv-slate, #3A4A60); color: #fff;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 800; letter-spacing: 0.3px;
+    font-family: var(--font-mono, monospace);
+  }
+  .md-row__ref {
+    font-family: var(--font-mono, monospace);
+    font-size: 11px; font-weight: 700;
+    color: var(--color-text-strong, #1F2A33); letter-spacing: 0.2px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .md-row__title strong {
+    display: block; font-size: 13px; font-weight: 600;
+    color: var(--color-text-strong, #1F2A33); line-height: 1.35;
+  }
+  .md-row__title small {
+    display: block; font-size: 11px; color: var(--color-text-muted, #7B7B7B);
+    margin-top: 3px;
+  }
+  .md-row__people { font-size: 12px; color: var(--color-text, #524F4E); }
+  .md-row__people small { display: block; font-size: 11px; color: var(--color-text-muted, #7B7B7B); margin-top: 2px; }
+  .md-row__date {
+    font-size: 12px; color: var(--color-text, #524F4E);
+    font-variant-numeric: tabular-nums;
+  }
+  .md-row__chips { display: flex; gap: 5px; flex-wrap: wrap; }
+  .md-chip {
+    font-size: 10px; font-weight: 800; letter-spacing: 0.5px;
+    padding: 2px 7px; border-radius: 9999px;
+    font-variant-numeric: tabular-nums;
+    border: 1px solid transparent;
+  }
+  .md-chip--high { background: rgba(217,0,56,.10);  color: #991B1B; border-color: rgba(217,0,56,.30); }
+  .md-chip--esc  { background: rgba(124,58,237,.10); color: #5B21B6; border-color: rgba(124,58,237,.30); }
+  .md-chip--neutral { background: var(--color-bg, #F4F5F7); color: var(--color-text-muted, #7B7B7B); }
+  .md-status {
+    display: inline-block;
+    font-size: 10px; font-weight: 800; letter-spacing: 0.6px;
+    padding: 3px 9px; border-radius: 9999px;
+    text-transform: uppercase;
+    border: 1px solid transparent;
+  }
+  .md-row__open {
+    text-decoration: none;
+    color: var(--edv-blue, #145FAE);
+    font-size: 11px; font-weight: 700;
+    border: 1px solid var(--color-border, #E2E5EA);
+    padding: 6px 10px; border-radius: 6px;
+    text-align: center; white-space: nowrap;
+  }
+  .md-row__open:hover { background: var(--color-bg, #F4F5F7); border-color: var(--edv-blue, #145FAE); }
+
+  .md-empty {
+    padding: 32px; text-align: center;
+    color: var(--color-text-muted, #7B7B7B);
+    font-size: 13px; font-style: italic;
+  }
+
+  @media (max-width: 1100px) {
+    .md-kpis  { grid-template-columns: repeat(3, 1fr); }
+    .md-jumps { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 720px) {
+    .md-kpis  { grid-template-columns: repeat(2, 1fr); }
+    .md-table__head, .md-row {
+      grid-template-columns: 28px 100px minmax(0, 1.6fr) minmax(0, 1fr) 80px 90px 70px 60px;
+      gap: 8px; padding: 9px 12px; font-size: 11.5px;
+    }
+  }
+
+  /* ── Module tabs (List ↔ Dashboard) ─────────────────────────────── */
+  /* Same visual language as activity-tracker tabs — pill-shaped, active
+     tab gets the brand orange underline + filled background. */
+  .mtg-tabs {
+    display: inline-flex; gap: 2px;
+    background: #F3F4F6;
+    border: 1px solid #E5E7EB;
+    border-radius: 10px;
+    padding: 3px;
+    margin: 0 0 16px 0;
+  }
+  .mtg-tabs__btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 8px 16px;
+    font-size: 13px; font-weight: 600;
+    color: #6B7280;
+    background: transparent;
+    border: 0; border-radius: 7px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background-color .12s, color .12s;
+  }
+  .mtg-tabs__btn:hover { color: #1F2937; background: #FFFFFF; }
+  .mtg-tabs__btn--active {
+    color: #1F2937; background: #FFFFFF;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+    border-bottom: 2px solid var(--edv-orange, #E87722);
+    padding-bottom: 6px; /* visually compensate for the bottom border */
+  }
+  .mtg-tabs__btn span.mtg-tabs__count {
+    font-size: 11px; font-weight: 600;
+    background: rgba(0,0,0,0.08);
+    color: #4B5563;
+    padding: 1px 7px; border-radius: 999px;
+  }
+  .mtg-tabs__btn--active span.mtg-tabs__count {
+    background: rgba(232,119,34,0.14);
+    color: var(--edv-orange, #E87722);
+  }
+
+  /* ── Pagination bar ─────────────────────────────────────────────── */
+  .md-pager {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px;
+    padding: 10px 14px;
+    border-top: 1px solid var(--color-border-soft, #E5E7EB);
+    background: var(--color-surface-muted, #F9FAFB);
+    flex-wrap: wrap;
+  }
+  .md-pager__left, .md-pager__right {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 12.5px;
+    color: #4B5563;
+  }
+  .md-pager__select {
+    height: 30px; padding: 0 8px;
+    border: 1px solid #D1D5DB;
+    border-radius: 6px;
+    background: #FFFFFF;
+    font-size: 12.5px;
+    color: #111827;
+    cursor: pointer;
+  }
+  .md-pager__btn {
+    height: 30px; min-width: 30px;
+    padding: 0 10px;
+    border: 1px solid #D1D5DB;
+    border-radius: 6px;
+    background: #FFFFFF;
+    font-size: 12.5px;
+    color: #111827;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  .md-pager__btn:hover:not(:disabled) { background: #F3F4F6; }
+  .md-pager__btn:disabled { opacity: .45; cursor: not-allowed; }
+  .md-pager__page {
+    font-weight: 600; color: #111827;
+    padding: 0 4px;
+  }
+</style>
+</head>
+<body>
+
+<div id="__shell" data-section="operations" data-current="meetings"></div>
+
+<div class="md-wrap">
+
+  <!-- Module tabs — 5 primary views of the meetings module. Active tab
+       matches the current page. Same pattern as the Activity Tracker's
+       intra-module navigation. Count badges hydrate after loadAll(). -->
+  <div id="__moduletabs" data-module="meetings" data-current="list"></div>
+
+  <!-- Hero -->
+  <section class="md-hero">
+    <div>
+      <div class="md-eyebrow">Insights · Department Meetings &amp; Council Escalations</div>
+      <h1>Meetings &amp; Decisions</h1>
+      <p class="lede">
+        Single source of truth for the four-level engagement: <strong>Department Meetings</strong>
+        (monthly per site IT), <strong>IT Survey</strong> concerns, and <strong>Mine IT Council</strong>
+        decisions. Issues captured here flow through to the Council view when they cross any of the six
+        escalation criteria. The 5 Engagements monitor tracks site IT discipline.
+      </p>
+    </div>
+    <div class="md-hero__actions">
+      <a class="btn-primary" href="meeting.html" id="mdNewBtn">+ New meeting</a>
+      <a class="btn-ghost" href="meetings-import.html" id="mdImportBtn">↑ Bulk import</a>
+      <button class="btn-ghost" type="button" id="mdExportBtn" style="display:none" title="Download all meetings data (Meetings · Issues · Actions · Projects) as Excel">⬇ Export Excel</button>
+      <button class="btn-ghost" type="button" id="mdRefreshBtn">↻ Refresh</button>
+    </div>
+  </section>
+
+  <!-- KPI strip — meeting + issue counts -->
+  <section class="md-kpis" id="mdKpis"></section>
+
+  <!-- Quick-jump strip — four companion views -->
+  <section class="md-jumps">
+    <a class="md-jump" href="meetings-progress.html">
+      <div class="md-jump__icon">⟳</div>
+      <div>
+        <div class="md-jump__title">Since last meeting</div>
+        <div class="md-jump__sub">Pre-brief for the IT coordinator — what changed, what's new, what closed</div>
+      </div>
+    </a>
+    <a class="md-jump" href="meetings-issues.html">
+      <div class="md-jump__icon">📋</div>
+      <div>
+        <div class="md-jump__title">Issues Log</div>
+        <div class="md-jump__sub">Every issue across all meetings, with all filters</div>
+      </div>
+    </a>
+    <a class="md-jump" href="meetings-council.html">
+      <div class="md-jump__icon">⚖</div>
+      <div>
+        <div class="md-jump__title">Council Escalations</div>
+        <div class="md-jump__sub">Issues marked escalate=Y, grouped by Council theme</div>
+      </div>
+    </a>
+    <a class="md-jump" href="meetings-compliance.html">
+      <div class="md-jump__icon">✅</div>
+      <div>
+        <div class="md-jump__title">5 Engagements monitor</div>
+        <div class="md-jump__sub">Site IT discipline scoreboard for the current month</div>
+      </div>
+    </a>
+  </section>
+
+  <!-- Filters -->
+  <section class="md-filters">
+    <select class="md-filter-select" id="mdSite"><option value="">All sites</option></select>
+    <select class="md-filter-select" id="mdDept"><option value="">All departments</option></select>
+    <select class="md-filter-select" id="mdStatus"><option value="">All statuses</option></select>
+    <select class="md-filter-select" id="mdIntake"><option value="">All sources</option></select>
+    <input class="md-search" type="search" id="mdSearch" placeholder="Search reference / lead / dept-head / priority…" />
+  </section>
+
+  <!-- Meetings list -->
+  <section class="md-table-card">
+    <div class="md-table-card__header">
+      <div>
+        <div class="md-section-head">Recent meetings</div>
+        <div class="md-section-sub" id="mdSubcount">Loading…</div>
+      </div>
+    </div>
+    <div class="md-table" id="mdTable" role="table"></div>
+
+    <!-- Pagination — server already paginates via /api/meetings/list?limit=N&offset=M.
+         Sort is meeting_date DESC + id DESC (newest on top). -->
+    <div class="md-pager" id="mdPager" hidden>
+      <div class="md-pager__left">
+        <label for="mdPageSize">Show</label>
+        <select class="md-pager__select" id="mdPageSize">
+          <option value="20" selected>20</option>
+          <option value="50">50</option>
+          <option value="100">100</option>
+          <option value="200">200</option>
+        </select>
+        <span>per page</span>
+      </div>
+      <div class="md-pager__right">
+        <span id="mdPagerRange">—</span>
+        <button class="md-pager__btn" type="button" id="mdPagerPrev" title="Previous page">‹ Prev</button>
+        <span class="md-pager__page" id="mdPagerPage">Page 1</span>
+        <button class="md-pager__btn" type="button" id="mdPagerNext" title="Next page">Next ›</button>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<script nonce="%%CSP_NONCE%%">
+(function () {
+  'use strict';
+
+  const API = '/api/meetings';
+
+  function authHeaders() {
+    const h = {};
+    const at = window.__authToken;
+    let tok = null;
+    if (typeof at === 'function') { try { tok = at(); } catch(_) {} }
+    else if (typeof at === 'string' && at) { tok = at; }
+    if (!tok) tok = localStorage.getItem('report_token');
+    if (tok) h['x-report-token'] = tok;
+    return h;
+  }
+
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => (
+    { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]
+  ));
+  const fmtDate = iso => {
+    if (!iso) return '—';
+    const M = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const [y, m, d] = String(iso).slice(0, 10).split('-');
+    return `${d} ${M[parseInt(m, 10) - 1]} ${y}`;
+  };
+  const tint = (hex, alpha) => {
+    const m = String(hex || '').match(/^#?([0-9a-f]{6})$/i);
+    if (!m) return `rgba(107,119,133,${alpha})`;
+    const n = parseInt(m[1], 16);
+    return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
+  };
+
+  // Page-size choice persists per user across reloads — coordinators
+  // who manage many sites tend to settle on 100 and find a re-default
+  // to 20 annoying.
+  const SAVED_PAGE_SIZE = parseInt(localStorage.getItem('mtg_page_size') || '', 10);
+  const DEFAULT_PAGE_SIZE = (SAVED_PAGE_SIZE === 20 || SAVED_PAGE_SIZE === 50 ||
+                             SAVED_PAGE_SIZE === 100 || SAVED_PAGE_SIZE === 200)
+                            ? SAVED_PAGE_SIZE : 20;
+
+  const state = {
+    lookups: { meeting_statuses: [], departments: [], intake_sources: [], sites: [] },
+    meetings: [],
+    aggregate: { meetings: {}, issues: {} },
+    filters: { site: '', department: '', status: '', intake: '', q: '' },
+    pager:   { page: 1, pageSize: DEFAULT_PAGE_SIZE, total: 0 },
+  };
+
+  function renderKpis(agg) {
+    const m = agg.meetings || {};
+    const i = agg.issues || {};
+    const tiles = [
+      { l: 'Meetings YTD',          v: m.total_meetings    || 0, a: 'neutral', s: 'all sites' },
+      { l: 'Signed',                v: m.signed_count      || 0, a: 'success', s: 'finalised PVs' },
+      { l: 'Departments covered',   v: m.departments_covered || 0, a: 'info',   s: 'distinct departments' },
+      { l: 'HIGH issues',           v: i.high_issues       || 0, a: 'danger',  s: 'production-impact' },
+      { l: 'Escalations open',      v: i.escalated_open    || 0, a: 'warning', s: 'awaiting Council' },
+      { l: 'Overdue issues',        v: i.overdue_issues    || 0, a: 'danger',  s: 'past target date' },
+    ];
+    document.getElementById('mdKpis').innerHTML = tiles.map(t => `
+      <div class="md-kpi md-kpi--${t.a}">
+        <div class="md-kpi__label">${esc(t.l)}</div>
+        <div class="md-kpi__value">${esc(t.v)}</div>
+        <div class="md-kpi__sub">${esc(t.s)}</div>
+      </div>
+    `).join('');
+  }
+
+  function renderFilters() {
+    const sel = (id, items, valueKey, labelKey, blank) => {
+      const el = document.getElementById(id);
+      el.innerHTML = `<option value="">${esc(blank)}</option>`
+        + (items || []).map(it => `<option value="${esc(it[valueKey])}">${esc(it[labelKey])}</option>`).join('');
+    };
+    sel('mdSite',   state.lookups.sites,            'code', 'name',    'All sites');
+    sel('mdDept',   state.lookups.departments,      'code', 'name_en', 'All departments');
+    sel('mdStatus', state.lookups.meeting_statuses, 'code', 'name_en', 'All statuses');
+    sel('mdIntake', state.lookups.intake_sources,   'code', 'name_en', 'All sources');
+    // Restore the active selection (renderFilters rebuilds the <select>s on
+    // every loadAll, which otherwise resets them to the blank option).
+    document.getElementById('mdSite').value   = state.filters.site       || '';
+    document.getElementById('mdDept').value   = state.filters.department || '';
+    document.getElementById('mdStatus').value = state.filters.status     || '';
+    document.getElementById('mdIntake').value = state.filters.intake     || '';
+  }
+
+  function renderTable() {
+    const rows = state.meetings;
+    const deptsByCode = {};   (state.lookups.departments      || []).forEach(d => { deptsByCode[d.code] = d; });
+    const statsByCode = {};   (state.lookups.meeting_statuses || []).forEach(s => { statsByCode[s.code] = s; });
+
+    const header = `
+      <div class="md-table__head" role="row">
+        <span>Site</span>
+        <span>Reference</span>
+        <span>Department · priorities</span>
+        <span>Dept Head · Site IT Lead</span>
+        <span>Meeting date</span>
+        <span>Issues · Esc.</span>
+        <span>Status</span>
+        <span></span>
+      </div>`;
+
+    if (!rows.length) {
+      document.getElementById('mdTable').innerHTML = header + '<div class="md-empty">No meetings match the current filter — try widening the date range or use “+ New meeting”.</div>';
+      document.getElementById('mdSubcount').textContent = '0 meetings';
+      return;
+    }
+
+    const body = rows.map(m => {
+      const dept = deptsByCode[m.department];
+      const st   = statsByCode[m.status] || { color: '#6B7785', name_en: m.status };
+      const priorities = [m.priority_1, m.priority_2, m.priority_3].filter(Boolean).join(' · ');
+      return `
+        <div class="md-row" role="row">
+          <span class="md-row__site" title="${esc(m.site_code)}">${esc(m.site_code)}</span>
+          <span class="md-row__ref" title="${esc(m.reference)}">${esc(m.reference)}</span>
+          <span class="md-row__title">
+            <strong>${esc(dept ? dept.name_en : m.department)}</strong>
+            <small>${priorities ? esc(priorities.length > 110 ? priorities.slice(0, 107) + '…' : priorities) : '<em>No priorities recorded</em>'}</small>
+          </span>
+          <span class="md-row__people">
+            ${esc(m.department_head || '—')}
+            <small>${esc(m.site_it_lead || '—')}</small>
+          </span>
+          <span class="md-row__date">${fmtDate(m.meeting_date)}</span>
+          <span class="md-row__chips">
+            <span class="md-chip md-chip--neutral" title="Issues captured">${m.issue_count || 0}</span>
+            ${m.high_issue_count ? `<span class="md-chip md-chip--high" title="HIGH severity issues">${m.high_issue_count}H</span>` : ''}
+            ${m.escalated_count  ? `<span class="md-chip md-chip--esc"  title="Escalated to Council">${m.escalated_count}↑</span>` : ''}
+          </span>
+          <span><span class="md-status" style="background:${tint(st.color,0.12)};color:${esc(st.color)};border-color:${tint(st.color,0.28)}">${esc(st.name_en)}</span></span>
+          <a class="md-row__open" href="meeting.html?id=${encodeURIComponent(m.id)}">Open ›</a>
+        </div>`;
+    }).join('');
+
+    document.getElementById('mdTable').innerHTML = header + body;
+
+    // Subcount text now reflects the page slice, not just the in-memory row count.
+    const total = state.pager.total;
+    const offset = (state.pager.page - 1) * state.pager.pageSize;
+    const firstRow = total ? offset + 1 : 0;
+    const lastRow  = offset + rows.length;
+    const totalStr = total ? `of ${total} total` : '';
+    document.getElementById('mdSubcount').textContent =
+      total
+        ? `Showing ${firstRow}–${lastRow} ${totalStr} · sorted by date (newest first)`
+        : `${rows.length} meeting${rows.length === 1 ? '' : 's'} · sorted by date (newest first)`;
+  }
+
+  // Refresh pagination controls + the tab badge after every load.
+  function renderPager() {
+    const total    = state.pager.total;
+    const pageSize = state.pager.pageSize;
+    const page     = state.pager.page;
+    const lastPage = Math.max(1, Math.ceil(total / pageSize));
+    const pager    = document.getElementById('mdPager');
+
+    // Hide the whole bar when there's a single page of results.
+    pager.hidden = total <= pageSize;
+
+    document.getElementById('mdPagerPage').textContent  = `Page ${page} / ${lastPage}`;
+    document.getElementById('mdPagerRange').textContent = total
+      ? `${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, total)} of ${total}`
+      : '0 results';
+    document.getElementById('mdPagerPrev').disabled = page <= 1;
+    document.getElementById('mdPagerNext').disabled = page >= lastPage;
+
+    // Tab badge — show the TOTAL across all pages so coordinators see scale.
+    const badge = document.getElementById('mdTabCount');
+    if (badge) badge.textContent = total > 0 ? String(total) : '—';
+  }
+
+  async function loadAll() {
+    state.lookups = await fetch(API + '/lookups', { credentials: 'same-origin', headers: authHeaders() }).then(r => r.json());
+    renderFilters();
+
+    const qs = new URLSearchParams();
+    if (state.filters.site)       qs.set('site',       state.filters.site);
+    if (state.filters.department) qs.set('department', state.filters.department);
+    if (state.filters.status)     qs.set('status',     state.filters.status);
+    if (state.filters.intake)     qs.set('intake',     state.filters.intake);
+    if (state.filters.q)          qs.set('q',          state.filters.q);
+
+    // Pagination params — server's listMeetings() honors limit + offset.
+    qs.set('limit',  String(state.pager.pageSize));
+    qs.set('offset', String((state.pager.page - 1) * state.pager.pageSize));
+
+    const [list, agg] = await Promise.all([
+      fetch(API + '/list?'      + qs.toString(), { credentials: 'same-origin', headers: authHeaders() }).then(r => r.ok ? r.json() : { rows: [], total: 0 }),
+      fetch(API + '/aggregate?' + qs.toString(), { credentials: 'same-origin', headers: authHeaders() }).then(r => r.ok ? r.json() : { meetings: {}, issues: {} }),
+    ]);
+    state.meetings    = list.rows || [];
+    // /api/meetings/list now returns a filter-respecting `total` field.
+    // Fallback to the page slice for older servers that don't yet expose it.
+    state.pager.total = (typeof list.total === 'number')
+                        ? list.total
+                        : ((agg && agg.meetings && typeof agg.meetings.total_meetings === 'number')
+                            ? agg.meetings.total_meetings
+                            : state.meetings.length);
+    state.aggregate   = agg || { meetings: {}, issues: {} };
+
+    // If filters narrowed results below the current page (e.g. user was on
+    // page 4, then filtered to a tiny set), reset to page 1 and reload.
+    const lastPage = Math.max(1, Math.ceil(state.pager.total / state.pager.pageSize));
+    if (state.pager.page > lastPage) {
+      state.pager.page = 1;
+      return loadAll();           // re-run with corrected offset
+    }
+
+    renderKpis(state.aggregate);
+    renderTable();
+    renderPager();
+  }
+
+  // Any filter change should reset to page 1 — otherwise a user on page 4
+  // who narrows by site can land on an empty offset and see "no results"
+  // when there ARE results, just on page 1.
+  const onFilterChange = (key) => e => {
+    state.filters[key] = e.target.value;
+    state.pager.page = 1;
+    loadAll();
+  };
+  document.getElementById('mdSite').addEventListener('change',   onFilterChange('site'));
+  document.getElementById('mdDept').addEventListener('change',   onFilterChange('department'));
+  document.getElementById('mdStatus').addEventListener('change', onFilterChange('status'));
+  document.getElementById('mdIntake').addEventListener('change', onFilterChange('intake'));
+  let _qTimer = null;
+  document.getElementById('mdSearch').addEventListener('input',  e => {
+    clearTimeout(_qTimer);
+    _qTimer = setTimeout(() => {
+      state.filters.q = e.target.value.trim();
+      state.pager.page = 1;
+      loadAll();
+    }, 250);
+  });
+  document.getElementById('mdRefreshBtn').addEventListener('click', () => loadAll());
+
+  // Excel full-table export (admin+). Revealed only for admins; the server
+  // (GET /api/meetings/export.xlsx, requireAdmin) enforces regardless. Dumps
+  // every table — Meetings · Issues · Actions · Projects — like the inspection
+  // module's full export.
+  (function wireExport() {
+    const xl = document.getElementById('mdExportBtn');
+    if (!xl || !(window.__userHasRole && window.__userHasRole('editor'))) return;   // RBAC lot 4c: limited to their site server-side
+    xl.style.display = '';
+    xl.addEventListener('click', async () => {
+      const orig = xl.innerHTML; xl.disabled = true; xl.innerHTML = '⏳ Preparing…';
+      try {
+        const r = await fetch(API + '/export.xlsx', { credentials: 'same-origin', headers: authHeaders() });
+        if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || ('HTTP ' + r.status)); }
+        const url = URL.createObjectURL(await r.blob());
+        const a = document.createElement('a');
+        a.href = url; a.download = 'Meetings_full_' + new Date().toISOString().slice(0, 10) + '.xlsx';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
+      } catch (e) { alert('Excel export failed: ' + (e.message || '')); }
+      finally { xl.innerHTML = orig; xl.disabled = false; }
+    });
+  })();
+
+  // Pagination controls — persist page-size so the choice survives reloads.
+  document.getElementById('mdPageSize').value = String(state.pager.pageSize);
+  document.getElementById('mdPageSize').addEventListener('change', e => {
+    const v = parseInt(e.target.value, 10) || 20;
+    state.pager.pageSize = v;
+    state.pager.page = 1;
+    try { localStorage.setItem('mtg_page_size', String(v)); } catch (_) {}
+    loadAll();
+  });
+  document.getElementById('mdPagerPrev').addEventListener('click', () => {
+    if (state.pager.page > 1) { state.pager.page -= 1; loadAll(); }
+  });
+  document.getElementById('mdPagerNext').addEventListener('click', () => {
+    const last = Math.max(1, Math.ceil(state.pager.total / state.pager.pageSize));
+    if (state.pager.page < last) { state.pager.page += 1; loadAll(); }
+  });
+
+  loadAll().catch(err => {
+    console.error('[meetings] load failed:', err);
+    document.getElementById('mdTable').innerHTML = '<div class="md-empty">Failed to load meetings. ' + esc(err.message || '') + '</div>';
+  });
+})();
+</script>
+
+<script nonce="%%CSP_NONCE%%">
+// Reveal the Setup tab for super_admin only (hidden by default — admin
+// tooling stays out of view for editor / viewer / admin / executive).
+(function () {
+  function reveal() {
+    try {
+      if (window.__userHasRole && window.__userHasRole("super_admin")) {
+        document.querySelectorAll(".mtg-tabs__btn--admin").forEach(function (el) { el.style.display = ""; });
+      }
+    } catch (_) {}
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", reveal);
+  else reveal();
+})();
+</script>
+</body>
+</html>

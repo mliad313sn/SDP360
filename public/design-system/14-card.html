@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><title>EDV — Card</title>
+<link rel="stylesheet" href="colors_and_type.css">
+<style>
+  body{padding:20px;background:#f7f7f7}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .card{background:#fff;border-radius:4px;padding:16px;box-shadow:0 1px 2px rgba(58,74,96,.06),0 1px 1px rgba(58,74,96,.04);position:relative;overflow:hidden;min-height:140px}
+  .card::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:var(--accent,#145fae)}
+  .card .e{font-family:var(--font-display);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent,#145fae);font-weight:700;margin-bottom:8px}
+  .card h3{font-family:var(--font-display);font-size:18px;text-transform:uppercase;font-weight:700;line-height:1.15;margin:0 0 8px;letter-spacing:-.005em}
+  .card p{font-family:var(--font-body);font-size:13px;line-height:1.45;margin:0;color:#1a1a1a}
+  .card .meta{font-family:var(--font-body);font-size:11px;color:var(--fg-3);margin-top:10px}
+</style></head>
+<body>
+  <div class="grid">
+    <div class="card" style="--accent:#1b9a3a">
+      <div class="e">Our environment</div>
+      <h3>Water stewardship at Ity</h3>
+      <p>Recycled water now accounts for 78% of the mine's process intake, reducing freshwater draw across two host communities.</p>
+      <div class="meta">12 March 2024 · 4 min read</div>
+    </div>
+    <div class="card" style="--accent:#ef631a">
+      <div class="e">Health &amp; safety</div>
+      <h3>10 Golden Rules in practice</h3>
+      <p>Site-wide refresher training on our 10 Golden Rules concluded across all operations in Q1, reaching 6,432 employees and contractors.</p>
+      <div class="meta">02 April 2024 · 3 min read</div>
+    </div>
+  </div>
+</body></html>

@@ -1,0 +1,1162 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Site Overview — Endeavour Mining IT</title>
+
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="brand/icons.css">
+<link rel="stylesheet" href="brand/components.css">
+<link rel="stylesheet" href="_shell.css">
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-require="site-business|group-business|executive" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js" defer></script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style nonce="%%CSP_NONCE%%">
+[data-lng="fr"]{display:none}[data-lng-block="fr"]{display:none}
+body.lang-fr [data-lng="en"]{display:none}body.lang-fr [data-lng-block="en"]{display:none}
+body.lang-fr [data-lng="fr"]{display:inline}body.lang-fr [data-lng-block="fr"]{display:block}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:#EFF2F5;color:#33435A;font:14px/1.5 'Libre Franklin',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#E87722}a:hover{color:#1B2530}
+.sa-wrap{max-width:1340px;margin:0 auto;padding:28px 32px 56px}
+.sa-head{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.sa-head h1{margin:0;font-size:21px;font-weight:700;letter-spacing:-.01em;color:#3A4A60}
+#sa-site-name{color:#E87722}
+.sa-ro{font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;padding:4px 10px;border-radius:999px;border:1px solid #DEE5EC;color:#66738A;background:#FFFFFF}
+.sa-sub{font-size:13.5px;color:#66738A;margin:6px 0 20px;max-width:880px;text-wrap:pretty}
+.sa-controls{display:flex;gap:10px;align-items:center;margin-left:auto}
+.sa-controls label{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#66738A}
+select{padding:8px 12px;border:1px solid #DEE5EC;border-radius:8px;background:#FFFFFF;font:600 13px 'Libre Franklin',system-ui,sans-serif;color:#1B2530;cursor:pointer}
+select:disabled{opacity:.55;cursor:not-allowed}
+.sa-lang-toggle{display:inline-flex;gap:2px;background:#E4E9EF;border-radius:8px;padding:3px;border:1px solid #DEE5EC}
+.sa-lang-toggle button{background:transparent;border:0;cursor:pointer;padding:5px 11px;border-radius:6px;font:700 11px 'Libre Franklin',system-ui,sans-serif;letter-spacing:.04em;color:#66738A}
+.sa-lang-toggle button.active{background:#FFFFFF;color:#1B2530;box-shadow:0 1px 2px rgba(0,0,0,.15)}
+.sa-tabs{display:flex;gap:2px;border-bottom:1px solid #DEE5EC;margin:2px 0 22px;flex-wrap:wrap;position:sticky;top:0;background:#EFF2F5;z-index:5;padding-top:6px}
+.sa-tab{border:0;background:none;color:#66738A;font:600 13.5px 'Libre Franklin',system-ui,sans-serif;padding:11px 13px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
+.sa-tab:hover:not(.disabled){color:#3A4A60}
+.sa-tab.on{color:#3A4A60;border-bottom-color:#E87722}
+.sa-tab.disabled{opacity:.45;cursor:not-allowed}
+.sa-chip{font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:999px;background:#FFF3E7;color:#A85A14;border:1px solid #F3D9BC}
+.sa-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px}
+.sa-tile{background:#FFFFFF;border:1px solid #DEE5EC;border-radius:10px;padding:14px 16px;box-shadow:0 1px 2px rgba(27,37,48,.05)}
+.sa-tile .lbl{font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#66738A}
+.sa-tile .val{font:800 27px/1.1 'Libre Franklin',sans-serif;color:#3A4A60;margin-top:7px;font-variant-numeric:tabular-nums}
+.sa-panel{background:#FFFFFF;border:1px solid #DEE5EC;border-radius:10px;padding:18px 20px;box-shadow:0 1px 2px rgba(27,37,48,.05);min-width:0}
+.sa-panel h2{margin:0 0 14px;font-size:15px;font-weight:700;color:#3A4A60}
+.sa-scroll{overflow-x:auto}
+table.sa-tbl{width:100%;border-collapse:collapse;font-size:13px}
+table.sa-tbl th{text-align:left;font-size:10.5px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:#66738A;border-bottom:1px solid #DEE5EC;padding:0 10px 9px;white-space:nowrap}
+table.sa-tbl td{padding:9px 10px;border-bottom:1px solid #EEF2F6;vertical-align:middle}
+table.sa-tbl tr:last-child td{border-bottom:0}
+.sa-num{text-align:right;font-variant-numeric:tabular-nums}
+.sa-muted{color:#66738A}
+.sa-pill{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;background:#EDF1F5;color:#4A5A70}
+.sa-empty{background:#FFF6EA;border:1px solid #F0D5AE;color:#7A4A12;border-radius:10px;padding:14px 16px;font-size:13.5px}
+.sa-list{list-style:none;margin:0;padding:0}
+.sa-list li{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid #EEF2F6}
+.sa-list li:first-child{border-top:0;padding-top:0}
+.sa-list .cat{flex:1}
+.sa-list .cnt{font-weight:700;font-variant-numeric:tabular-nums}
+table.sa-fleet-tbl tbody tr{cursor:pointer}
+table.sa-fleet-tbl tbody tr:hover td{background:#F5F8FB}
+.sa-rag{display:inline-flex;align-items:center;gap:7px}
+.sa-rag-dot{width:9px;height:9px;border-radius:50%;flex:none}
+.sa-rag-val{font-variant-numeric:tabular-nums}
+.sa-rag-pill{display:inline-block;min-width:52px;text-align:center;font-size:10.5px;font-weight:700;padding:3px 10px;border-radius:999px;letter-spacing:.05em;text-transform:uppercase}
+.sa-chart-wrap{position:relative;height:280px}
+.sa-chart-wrap--donut{height:250px}
+.sa-chg-note{color:#66738A;padding:6px 0}
+.sa-soon{padding:26px 16px;text-align:center;color:#66738A}
+#sa-mtg-commentary{font-style:italic;margin:-6px 0 4px}
+#sa-fleet-hint{margin:0 0 4px}
+.sa-fleet-tbl tr.sa-row-red td{background:#FDECEA}
+.sa-fleet-tbl tr.sa-row-red td:first-child{box-shadow:inset 3px 0 0 #DC2626;font-weight:600}
+.sa-trend{font-size:9px;margin-left:4px;vertical-align:middle;font-weight:700;line-height:1}
+.sa-trend.big{font-size:11px;margin-left:6px}
+.sa-trend.up{color:#27AE60}
+.sa-trend.down{color:#DC2626}
+#sa-chg-sub{margin:-8px 0 14px}
+#pane-helpdesk,#pane-fleet,#sa-insp-body,#sa-mtg-body,#sa-act-body,#sa-trk-body{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:14px;align-items:stretch}
+#pane-helpdesk>*,#pane-fleet>*,#sa-insp-body>*,#sa-mtg-body>*,#sa-act-body>*,#sa-trk-body>*{grid-column:1/-1;margin:0;min-width:0}
+#sa-hd-chart-panel{grid-column:span 7}
+#pane-helpdesk>div:nth-child(4){grid-column:span 5}
+#pane-helpdesk>div:nth-child(5),#pane-helpdesk>div:nth-child(6){grid-column:span 6}
+#sa-insp-chart-panel{grid-column:span 5}
+#sa-insp-body>div:nth-child(3){grid-column:span 7}
+#sa-mtg-chart-panel{grid-column:span 7}
+#sa-mtg-body>div:nth-child(4){grid-column:span 5}
+#sa-act-chart-panel{grid-column:span 5}
+#sa-act-body>div:nth-child(3){grid-column:span 7}
+#sa-trk-pillars-panel,#sa-trk-trend-panel{grid-column:span 6}
+#sa-chg-body{display:grid;grid-template-columns:minmax(220px,300px) minmax(0,1fr);gap:22px;align-items:center}
+#sa-chg-body .sa-tiles{grid-template-columns:1fr}
+#sa-chg-body .sa-chart-wrap--donut{height:230px}
+@media(max-width:1080px){#sa-hd-chart-panel,#pane-helpdesk>div:nth-child(4),#pane-helpdesk>div:nth-child(5),#pane-helpdesk>div:nth-child(6),#sa-insp-chart-panel,#sa-insp-body>div:nth-child(3),#sa-mtg-chart-panel,#sa-mtg-body>div:nth-child(4),#sa-act-chart-panel,#sa-act-body>div:nth-child(3),#sa-trk-pillars-panel,#sa-trk-trend-panel{grid-column:1/-1}#sa-chg-body{grid-template-columns:1fr}#sa-chg-body .sa-tiles{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}}
+@media(max-width:720px){.sa-wrap{padding:18px 16px 40px}.sa-head h1{font-size:18px}.sa-controls{margin-left:0;width:100%}.sa-chart-wrap{height:240px}}
+.sa-list .cat{color:#3A4A60}</style>
+<script nonce="%%CSP_NONCE%%" id="design-chart-theme">
+/* DESIGN — theme Chart.js applique via les options Chart uniquement ; le script applicatif reste intact. */
+(function(){var MAP={"#2A5490":"#3A4A60","#27AE60":"#2E9E63","#E74C3C":"#D6493C","#E8A100":"#E3A008","#E87722":"#E87722","#9aa4b2":"#B7C0CC","#DC2626":"#D6493C","#fff":"#FFFFFF"},FONT="Libre Franklin",MUT='#5C6B80',GRID='#E9EDF2';
+function mc(c){return typeof c==='string'&&MAP[c]?MAP[c]:c}
+document.addEventListener('DOMContentLoaded',function(){
+if(!window.Chart)return;var O=window.Chart;
+O.defaults.font.family=FONT;O.defaults.color=MUT;
+var W=function(ctx,cfg){cfg=cfg||{};
+((cfg.data||{}).datasets||[]).forEach(function(d){
+['backgroundColor','borderColor'].forEach(function(k){var x=d[k];if(x==null)return;d[k]=Array.isArray(x)?x.map(mc):mc(x)});
+var t=d.type||cfg.type;
+if(t==='bar'){d.borderRadius=3;d.maxBarThickness=30}
+if(t==='line'){d.borderWidth=2;if(d.borderColor)d.pointBackgroundColor=d.borderColor}
+if(cfg.type==='doughnut'){d.borderWidth=2}});
+var o=cfg.options=cfg.options||{},p=o.plugins=o.plugins||{};
+if(p.title)p.title.display=false;
+p.legend=p.legend||{};
+p.legend.labels=Object.assign({usePointStyle:true,pointStyle:'circle',boxWidth:7,boxHeight:7,padding:14,color:MUT,font:{family:FONT,size:11.5}},p.legend.labels);
+if(cfg.type==='doughnut'){o.cutout='66%'}
+if(o.scales)Object.keys(o.scales).forEach(function(k){var s=o.scales[k];
+s.grid=Object.assign({color:GRID},s.grid);s.border=Object.assign({color:GRID},s.border);
+s.ticks=Object.assign({color:MUT,font:{family:FONT,size:11}},s.ticks);
+if(s.title){s.title.color=MUT;s.title.font={family:FONT,size:10}}});
+return new O(ctx,cfg)};
+W.defaults=O.defaults;window.Chart=W;});
+})();
+</script>
+
+</head>
+<body>
+<div id="__shell" data-section="site-awareness" data-current="site-awareness"></div>
+
+<div class="sa-wrap">
+  <div class="sa-head">
+    <h1>Site Overview — <span id="sa-site-name">…</span></h1>
+    <span class="sa-ro"><span data-lng="en">read-only</span><span data-lng="fr">lecture seule</span></span>
+    <div class="sa-controls">
+      <label for="sa-site">Site</label>
+      <select id="sa-site"><option>…</option></select>
+    </div>
+    <div class="sa-lang-toggle" id="saLangToggle">
+      <button type="button" data-lang="en">EN</button>
+      <button type="button" data-lang="fr">FR</button>
+    </div>
+  </div>
+  <div class="sa-sub">
+    <span data-lng="en">A synthetic, read-only view of your site's IT activity: user support &amp; incidents, facilities status, department meetings &amp; decisions, actions and projects.</span>
+    <span data-lng="fr">Vue synthétique et en lecture seule de l'activité IT de votre site : support &amp; incidents, état des installations, réunions départementales &amp; décisions, actions et projets.</span>
+  </div>
+
+  <!-- Shown when the signed-in user has no site assigned (server returned no authorized site). -->
+  <div id="sa-nosite" class="sa-empty" style="display:none">
+    <span data-lng="en"><b>No site is assigned to your account.</b> Ask an administrator to set your Site (Admin → Users) so this view can show your site's data.</span>
+    <span data-lng="fr"><b>Aucun site n'est attribué à votre compte.</b> Demandez à un administrateur de renseigner votre Site (Admin → Utilisateurs) pour que cette vue affiche les données de votre site.</span>
+  </div>
+
+  <div class="sa-tabs" id="sa-tabs"></div>
+
+  <!-- ════ Group View (fleet RAG grid) — GROUP-only ════ -->
+  <div id="pane-fleet" style="display:none">
+    <p class="sa-sub" style="margin-top:0"><span data-lng="en">Compare the IT health of every site at a glance. Each dot sums up one area — green: healthy · amber: keep an eye on it · red: needs action · “—”: the site isn't concerned by this area. The Overall column blends the areas that apply.</span><span data-lng="fr">Comparez la santé IT de tous les sites d'un coup d'œil. Chaque pastille résume un domaine — vert : bon · orange : à surveiller · rouge : à traiter · « — » : site non concerné par ce domaine. La colonne Global agrège les domaines applicables.</span></p>
+    <p class="sa-sub" style="margin-top:2px;font-size:12.5px"><span data-lng="en"><strong>How to read the columns —</strong> Support: tickets late / received (30 d) · Facilities: compliance rate · Meetings: held / expected this month · Actions: open items overdue · Projects: roadmap progress. <strong>▲/▼</strong> = vs last month (Actions has no history).</span><span data-lng="fr"><strong>Comment lire les colonnes —</strong> Assistance : tickets en retard / reçus (30 j) · Installations : taux de conformité · Réunions : tenues / prévues ce mois · Actions : en retard · Projets : avancement de la feuille de route. <strong>▲/▼</strong> = vs mois dernier (Actions : pas d'historique).</span></p>
+    <div id="sa-fleet-kpis" class="sa-tiles" style="margin-bottom:10px"></div>
+    <div class="sa-sub" id="sa-fleet-readout" style="font-weight:600;color:#334155;margin:0 0 12px"></div>
+    <div class="sa-sub" id="sa-fleet-hint"></div>
+    <div class="sa-panel">
+      <div class="sa-scroll">
+        <table class="sa-tbl sa-fleet-tbl">
+          <thead><tr id="sa-fleet-head"></tr></thead>
+          <tbody id="sa-fleet-body"></tbody>
+        </table>
+      </div>
+    </div>
+    <p class="sa-sub" id="sa-fleet-source" style="font-size:11px;color:#93a1b3;margin:10px 0 0"></p>
+  </div>
+
+  <!-- ════ User Support (helpdesk) ════ -->
+  <div id="pane-helpdesk">
+    <p class="sa-sub" style="margin-top:0"><span data-lng="en">Your site's IT support: tickets and incidents received, how quickly they're handled (SLA), and the technical changes planned. Answers the question: are my teams being well supported day to day?</span><span data-lng="fr">L'assistance informatique de votre site : demandes et incidents reçus, rapidité de traitement (SLA) et changements techniques planifiés. Répond à la question : mes équipes sont-elles bien dépannées au quotidien ?</span></p>
+    <div id="sa-hd-empty" class="sa-empty" style="display:none">
+      <span data-lng="en">No support data available for this site yet.</span>
+      <span data-lng="fr">Aucune donnée de support disponible pour ce site pour le moment.</span>
+    </div>
+
+    <div id="sa-tiles" class="sa-tiles"></div>
+
+    <div class="sa-panel" id="sa-hd-chart-panel">
+      <h2><span data-lng="en">Volume &amp; SLA — 6 weeks</span><span data-lng="fr">Volume &amp; SLA — 6 semaines</span></h2>
+      <div class="sa-chart-wrap"><canvas id="sa-hd-chart"></canvas></div>
+    </div>
+
+    <div class="sa-panel">
+      <h2><span data-lng="en">Last 6 weeks</span><span data-lng="fr">6 dernières semaines</span></h2>
+      <div class="sa-scroll">
+        <table class="sa-tbl">
+          <thead>
+            <tr>
+              <th><span data-lng="en">Week</span><span data-lng="fr">Semaine</span></th>
+              <th class="sa-num"><span data-lng="en">Received</span><span data-lng="fr">Reçus</span></th>
+              <th class="sa-num"><span data-lng="en">Closed</span><span data-lng="fr">Clôturés</span></th>
+              <th class="sa-num"><span data-lng="en">SLA compliance %</span><span data-lng="fr">Conformité SLA %</span></th>
+            </tr>
+          </thead>
+          <tbody id="sa-weekly"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="sa-panel">
+      <h2><span data-lng="en">Active major incidents</span><span data-lng="fr">Incidents majeurs en cours</span></h2>
+      <div class="sa-scroll">
+        <table class="sa-tbl">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th><span data-lng="en">Priority</span><span data-lng="fr">Priorité</span></th>
+              <th><span data-lng="en">Status</span><span data-lng="fr">Statut</span></th>
+              <th><span data-lng="en">Date</span><span data-lng="fr">Date</span></th>
+            </tr>
+          </thead>
+          <tbody id="sa-mi"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="sa-panel">
+      <h2><span data-lng="en">Top categories</span><span data-lng="fr">Top catégories</span></h2>
+      <ul class="sa-list" id="sa-cats"></ul>
+    </div>
+
+    <!-- ════ Changes — 90-day window (read-only, counts only) ════ -->
+    <div class="sa-panel">
+      <h2 id="sa-chg-h"></h2>
+      <div class="sa-sub" id="sa-chg-sub"></div>
+      <div id="sa-chg-empty" class="sa-chg-note" style="display:none"></div>
+      <div id="sa-chg-body">
+        <div id="sa-chg-tiles" class="sa-tiles"></div>
+        <div class="sa-chart-wrap sa-chart-wrap--donut"><canvas id="sa-chg-chart"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ Facilities Status (inspections) ════ -->
+  <div id="pane-inspections" style="display:none">
+    <p class="sa-sub" style="margin-top:0"><span data-lng="en">The condition of your IT facilities — server room, network, radio — as found during on-site inspections. The compliance rate and open corrective actions tell you whether the infrastructure is sound and safe.</span><span data-lng="fr">L'état de vos installations IT — salle serveur, réseau, radio — constaté lors des inspections terrain. Le taux de conformité et les actions correctives ouvertes indiquent si l'infrastructure est saine et sûre.</span></p>
+    <div id="sa-insp-na" class="sa-empty" style="display:none"></div>
+    <div id="sa-insp-body">
+      <div id="sa-insp-tiles" class="sa-tiles"></div>
+
+      <div class="sa-panel" id="sa-insp-chart-panel">
+        <h2><span data-lng="en">Findings breakdown</span><span data-lng="fr">Répartition des constats</span></h2>
+        <div class="sa-chart-wrap sa-chart-wrap--donut"><canvas id="sa-insp-chart"></canvas></div>
+        <p class="sa-sub" style="margin:10px 0 0;font-size:12px"><span data-lng="en"><strong>Reading the findings —</strong> <span style="color:#27AE60;font-weight:700">OK</span>: compliant · <span style="color:#E8A100;font-weight:700">Minor</span> / <span style="color:#E87722;font-weight:700">Major</span> / <span style="color:#E74C3C;font-weight:700">Critical</span>: to fix (rising urgency) · <span style="color:#2A5490;font-weight:700">Opportunity</span>: a suggested improvement, not a defect. Compliance % = share of checked points found compliant.</span><span data-lng="fr"><strong>Lecture des constats —</strong> <span style="color:#27AE60;font-weight:700">OK</span> : conforme · <span style="color:#E8A100;font-weight:700">Mineur</span> / <span style="color:#E87722;font-weight:700">Majeur</span> / <span style="color:#E74C3C;font-weight:700">Critique</span> : à corriger (urgence croissante) · <span style="color:#2A5490;font-weight:700">Opportunité</span> : amélioration suggérée, pas un défaut. Conformité % = part des points contrôlés jugés conformes.</span></p>
+      </div>
+
+      <div class="sa-panel">
+        <h2 id="sa-insp-recent-h"></h2>
+        <div class="sa-scroll">
+          <table class="sa-tbl">
+            <thead>
+              <tr>
+                <th id="sa-insp-th-date"></th>
+                <th id="sa-insp-th-area"></th>
+                <th id="sa-insp-th-risk"></th>
+                <th id="sa-insp-th-status"></th>
+              </tr>
+            </thead>
+            <tbody id="sa-insp-recent"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="sa-panel">
+        <h2 id="sa-insp-actions-h"></h2>
+        <div class="sa-scroll">
+          <table class="sa-tbl">
+            <thead>
+              <tr>
+                <th id="sa-insp-ath-desc"></th>
+                <th id="sa-insp-ath-prio"></th>
+                <th id="sa-insp-ath-due"></th>
+                <th id="sa-insp-ath-owner"></th>
+                <th id="sa-insp-ath-status"></th>
+              </tr>
+            </thead>
+            <tbody id="sa-insp-actions"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- ════ Department Meetings & Decisions (meetings) ════ -->
+  <div id="pane-meetings" style="display:none">
+    <p class="sa-sub" style="margin-top:0"><span data-lng="en">The IT ↔ departments dialogue at your site: meetings held, issues raised, and how decisions are followed up. Answers the question: are business needs being heard and acted on?</span><span data-lng="fr">Le dialogue IT ↔ départements de votre site : réunions tenues, problèmes remontés et suivi des décisions. Répond à la question : les besoins des métiers sont-ils écoutés et traités ?</span></p>
+    <div id="sa-mtg-na" class="sa-empty" style="display:none"></div>
+    <div id="sa-mtg-body">
+      <div id="sa-mtg-tiles" class="sa-tiles"></div>
+      <div class="sa-sub" id="sa-mtg-commentary"></div>
+
+      <div class="sa-panel" id="sa-mtg-chart-panel">
+        <h2 id="sa-mtg-trend-h"></h2>
+        <div class="sa-chart-wrap"><canvas id="sa-mtg-chart"></canvas></div>
+      </div>
+
+      <div class="sa-panel">
+        <h2 id="sa-mtg-depts-h"></h2>
+        <ul class="sa-list" id="sa-mtg-depts"></ul>
+        <p class="sa-sub" style="margin:12px 0 0;font-size:12px"><span data-lng="en"><strong>Reading the statuses —</strong> <span style="color:#27AE60;font-weight:700">On track</span>: department met and progressing · <span style="color:#E74C3C;font-weight:700">Blocked</span>: an issue is holding it up · <span style="color:#7a8699;font-weight:700">No PV</span>: no meeting this month — neutral, not a failure (departments rotate; the site target is 3 PVs/month).</span><span data-lng="fr"><strong>Lecture des statuts —</strong> <span style="color:#27AE60;font-weight:700">Sur les rails</span> : réunion tenue, ça avance · <span style="color:#E74C3C;font-weight:700">Bloqué</span> : un point bloque le département · <span style="color:#7a8699;font-weight:700">Pas de PV</span> : aucune réunion ce mois — neutre, pas un échec (les départements tournent ; la cible du site est de 3 PV/mois).</span></p>
+      </div>
+    </div>
+  </div>
+  <!-- ════ Actions & Follow-up (site actions register) ════ -->
+  <div id="pane-actions" style="display:none">
+    <p class="sa-sub" style="margin-top:0"><span data-lng="en">Every open action for your site, gathered from meetings, inspections and reports, with how long each has been open. Shows what's left to close and what's dragging on.</span><span data-lng="fr">Toutes les actions ouvertes de votre site, réunies depuis les réunions, inspections et rapports, avec leur ancienneté. Montre ce qui reste à clôturer et ce qui traîne.</span></p>
+    <div id="sa-act-na" class="sa-empty" style="display:none"></div>
+    <div id="sa-act-body">
+      <div id="sa-act-tiles" class="sa-tiles"></div>
+
+      <div class="sa-panel" id="sa-act-chart-panel">
+        <h2 id="sa-act-chart-h"></h2>
+        <div class="sa-chart-wrap sa-chart-wrap--donut"><canvas id="sa-act-chart"></canvas></div>
+      </div>
+
+      <div class="sa-panel">
+        <h2 id="sa-act-list-h"></h2>
+        <div class="sa-scroll">
+          <table class="sa-tbl">
+            <thead>
+              <tr>
+                <th id="sa-act-th-task"></th>
+                <th id="sa-act-th-source"></th>
+                <th id="sa-act-th-dept"></th>
+                <th class="sa-num" id="sa-act-th-age"></th>
+                <th id="sa-act-th-status"></th>
+              </tr>
+            </thead>
+            <tbody id="sa-act-list"></tbody>
+          </table>
+        </div>
+        <p class="sa-sub" style="margin:12px 0 0;font-size:12px"><span data-lng="en"><strong>Reading the list —</strong> <strong>Source</strong>: where the action comes from (meeting, inspection or report) · <strong>Age</strong>: days open · a red <span style="color:#c0392b;font-weight:700">Overdue</span> badge means the due date has passed.</span><span data-lng="fr"><strong>Lecture de la liste —</strong> <strong>Source</strong> : d'où vient l'action (réunion, inspection ou rapport) · <strong>Âge</strong> : jours depuis l'ouverture · un badge rouge <span style="color:#c0392b;font-weight:700">En retard</span> signifie que l'échéance est dépassée.</span></p>
+      </div>
+    </div>
+  </div>
+  <!-- ════ Projects & Roadmap (activity tracker) ════ -->
+  <div id="pane-tracker" style="display:none">
+    <p class="sa-sub" style="margin-top:0"><span data-lng="en">Progress on your site's strategic IT initiatives, scored by pillar, month over month. Shows where the roadmap stands and whether it's moving forward.</span><span data-lng="fr">L'avancement des initiatives IT stratégiques de votre site, noté par pilier, mois après mois. Montre où en est la feuille de route et si elle progresse.</span></p>
+    <div id="sa-trk-na" class="sa-empty" style="display:none"></div>
+    <div id="sa-trk-body">
+      <div id="sa-trk-tiles" class="sa-tiles"></div>
+
+      <div class="sa-panel" id="sa-trk-pillars-panel">
+        <h2 id="sa-trk-pillars-h"></h2>
+        <div class="sa-chart-wrap"><canvas id="sa-trk-pillars"></canvas></div>
+      </div>
+
+      <div class="sa-panel" id="sa-trk-trend-panel">
+        <h2 id="sa-trk-trend-h"></h2>
+        <div class="sa-chart-wrap"><canvas id="sa-trk-trend"></canvas></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script nonce="%%CSP_NONCE%%">
+(function () {
+  const $ = id => document.getElementById(id);
+
+  // ── i18n: JS-rendered strings. Static HTML uses <span data-lng> pairs;
+  //    everything the render functions build goes through T(). ─────────
+  const LANG_KEY = 'sa_lang_v1';
+  const I18N = {
+    // tab labels (also mirrored in the static "soon" placeholder panes)
+    tab_fleet:       { fr: 'Vue Groupe',                             en: 'Group View' },
+    tab_helpdesk:    { fr: 'Assistance utilisateurs',                 en: 'User Support' },
+    tab_inspections: { fr: 'État des installations',                  en: 'Facilities Status' },
+    tab_meetings:    { fr: 'Réunions départementales & Décisions',    en: 'Department Meetings & Decisions' },
+    tab_actions:     { fr: 'Actions & Suivi',                         en: 'Actions & Follow-up' },
+    tab_tracker:     { fr: 'Projets & Roadmap',                       en: 'Projects & Roadmap' },
+    soon:            { fr: 'bientôt',                                 en: 'soon' },
+    // tiles
+    t_received:      { fr: 'Reçus',                                   en: 'Received' },
+    t_closed:        { fr: 'Clôturés',                                en: 'Closed' },
+    t_backlog:       { fr: 'Backlog',                                 en: 'Backlog' },
+    t_sla_overdue:   { fr: 'SLA en retard',                          en: 'SLA overdue' },
+    t_major:         { fr: 'Incidents majeurs',                      en: 'Major incidents' },
+    // combo chart (6-week volume + SLA)
+    hd_volume:       { fr: 'Volume & SLA — 6 semaines',              en: 'Volume & SLA — 6 weeks' },
+    c_sla_missed:    { fr: 'SLA manqué %',                           en: 'SLA missed %' },
+    c_sla_comp:      { fr: 'Conformité SLA %',                       en: 'SLA compliance %' },
+    c_sla_target:    { fr: 'Cible 90%',                              en: 'Target 90%' },
+    // changes (90-day) section
+    h_changes:       { fr: 'Changements — 90 jours',                 en: 'Changes — 90 days' },
+    h_changes_sub:   { fr: 'Fenêtre glissante de 90 jours (volume faible).', en: 'Rolling 90-day window (low volume).' },
+    chg_none:        { fr: 'Aucun changement (90 j).',               en: 'No changes (90 days).' },
+    c_total:         { fr: 'Total',                                  en: 'Total' },
+    c_success_rate:  { fr: 'Taux de succès',                         en: 'Success rate' },
+    c_emergency:     { fr: 'Urgents',                                en: 'Emergency' },
+    o_successful:    { fr: 'Réussis',                                en: 'Successful' },
+    o_failed:        { fr: 'Échoués',                                en: 'Failed' },
+    o_cancelled:     { fr: 'Annulés',                                en: 'Cancelled' },
+    o_pending:       { fr: 'En cours',                               en: 'Pending' },
+    // inspections (facilities status)
+    i_conformity:    { fr: 'Conformité',                             en: 'Compliance' },
+    i_inspections:   { fr: 'Inspections',                            en: 'Inspections' },
+    i_critical:      { fr: 'Critiques',                              en: 'Critical' },
+    i_open_actions:  { fr: 'Actions ouvertes',                       en: 'Open actions' },
+    i_findings:      { fr: 'Répartition des constats',               en: 'Findings breakdown' },
+    i_recent:        { fr: 'Inspections récentes',                   en: 'Recent inspections' },
+    i_corrective:    { fr: 'Actions correctives ouvertes',           en: 'Open corrective actions' },
+    f_ok:            { fr: 'Conforme',                               en: 'OK' },
+    f_minor:         { fr: 'Mineur',                                 en: 'Minor' },
+    f_major:         { fr: 'Majeur',                                 en: 'Major' },
+    f_critical:      { fr: 'Critique',                               en: 'Critical' },
+    f_opp:           { fr: 'Opportunité',                            en: 'Opportunity' },
+    c_area:          { fr: 'Zone',                                   en: 'Area' },
+    c_risk:          { fr: 'Risque',                                 en: 'Risk' },
+    c_priority:      { fr: 'Priorité',                               en: 'Priority' },
+    c_due:           { fr: 'Échéance',                               en: 'Due' },
+    c_owner:         { fr: 'Responsable',                            en: 'Owner' },
+    c_status:        { fr: 'Statut',                                 en: 'Status' },
+    c_date:          { fr: 'Date',                                   en: 'Date' },
+    // meetings (department meetings & decisions)
+    m_pvs:           { fr: 'PV ce mois',                             en: 'PVs this month' },
+    m_open:          { fr: 'Issues ouvertes',                        en: 'Open issues' },
+    m_high:          { fr: 'HIGH ouvertes',                          en: 'HIGH open' },
+    m_esc:           { fr: 'Escalations',                            en: 'Escalations' },
+    m_resolved:      { fr: 'Résolues',                               en: 'Resolved' },
+    m_new:           { fr: 'Nouvelles',                              en: 'New' },
+    m_depts:         { fr: 'Départements',                           en: 'Departments' },
+    m_opened:        { fr: 'Ouvertes',                               en: 'Opened' },
+    m_closed:        { fr: 'Fermées',                                en: 'Closed' },
+    m_trend:         { fr: 'Issues ouvertes vs fermées — 3 mois',    en: 'Issues opened vs closed — 3 months' },
+    st_on_track:     { fr: 'Sur les rails',                          en: 'On track' },
+    st_blocked:      { fr: 'Bloqué',                                 en: 'Blocked' },
+    st_no_pv:        { fr: 'Pas de PV',                              en: 'No PV' },
+    // actions & follow-up (site actions register)
+    a_open:          { fr: 'Actions ouvertes',                       en: 'Open actions' },
+    a_oldest:        { fr: 'Plus ancienne',                          en: 'Oldest' },
+    a_days:          { fr: 'jours',                                  en: 'days' },
+    src_meetings:    { fr: 'Réunions',                               en: 'Meetings' },
+    src_inspection:  { fr: 'Inspections',                            en: 'Inspections' },
+    src_report:      { fr: 'Suivi rapport',                          en: 'Report follow-up' },
+    c_task:          { fr: 'Tâche',                                  en: 'Task' },
+    c_source:        { fr: 'Source',                                 en: 'Source' },
+    c_dept:          { fr: 'Département',                            en: 'Department' },
+    c_age:           { fr: 'Âge',                                    en: 'Age' },
+    a_overdue:       { fr: 'En retard',                              en: 'Overdue' },
+    not_applicable:  { fr: 'Non applicable pour ce site',            en: 'Not applicable for this site' },
+    // tracker (projects & roadmap)
+    t_overall:       { fr: 'Score global',                           en: 'Overall score' },
+    t_delta:         { fr: 'Δ vs mois préc.',                        en: 'Δ vs prev month' },
+    t_green:         { fr: 'Vert',                                   en: 'Green' },
+    t_amber:         { fr: 'Ambre',                                  en: 'Amber' },
+    t_red:           { fr: 'Rouge',                                  en: 'Red' },
+    t_pillars:       { fr: 'Piliers',                                en: 'Pillars' },
+    t_trend:         { fr: 'Tendance 6 mois',                        en: '6-month trend' },
+    // fleet (group view)
+    g_fleet:         { fr: 'Vue Groupe',                              en: 'Group View' },
+    g_site:          { fr: 'Site',                                    en: 'Site' },
+    g_overall:       { fr: 'Global',                                  en: 'Overall' },
+    g_click:         { fr: 'Cliquez une ligne pour ouvrir le site',   en: 'Click a row to open the site' },
+    g_sites:         { fr: 'Sites',                                   en: 'Sites' },
+    g_green:         { fr: 'Verts',                                   en: 'Green' },
+    g_amber:         { fr: 'Ambre',                                   en: 'Amber' },
+    g_red:           { fr: 'Rouges',                                  en: 'Red' },
+    g_weak:          { fr: 'Point faible',                            en: 'Weak spot' },
+    g_worst:         { fr: 'Site le plus en difficulté',             en: 'Site most at risk' },
+    g_sitesred:      { fr: 'sites en rouge',                          en: 'sites red' },
+    g_steady:        { fr: 'Aucun domaine critique sur plusieurs sites', en: 'No area critical across several sites' },
+    g_allgreen:      { fr: 'Tous les sites au vert',                  en: 'All sites green' },
+    g_up:            { fr: 'Amélioration vs mois dernier',           en: 'Improved vs last month' },
+    g_down:          { fr: 'Dégradation vs mois dernier',            en: 'Worsened vs last month' },
+    g_asof:          { fr: 'Données au',                             en: 'Data as of' },
+    g_windows:       { fr: 'Assistance : 30 j glissants · Installations : 90 j · Réunions : mois en cours · Actions : à l’instant T · Projets : dernier mois noté',
+                       en: 'Support: rolling 30 d · Facilities: 90 d · Meetings: current month · Actions: point-in-time · Projects: latest scored month' },
+    gc_helpdesk:     { fr: 'Assistance',                             en: 'Support' },
+    gc_inspections:  { fr: 'Installations',                          en: 'Facilities' },
+    gc_meetings:     { fr: 'Réunions',                               en: 'Meetings' },
+    gc_actions:      { fr: 'Actions',                                en: 'Actions' },
+    gc_tracker:      { fr: 'Projets',                                en: 'Projects' },
+    // empty / error states
+    none:            { fr: 'Aucun',                                   en: 'None' },
+    nodata:          { fr: 'Aucune donnée',                           en: 'No data' },
+    loaderr:         { fr: 'Erreur de chargement',                    en: 'Loading error' },
+  };
+  function curLang() { return document.body.classList.contains('lang-fr') ? 'fr' : 'en'; }
+  function T(k) { const row = I18N[k]; return row ? (row[curLang()] || row.fr || k) : k; }
+
+  const TABS = [
+    { id: 'fleet',       key: 'tab_fleet', groupOnly: true },
+    { id: 'helpdesk',    key: 'tab_helpdesk' },
+    { id: 'inspections', key: 'tab_inspections' },
+    { id: 'meetings',    key: 'tab_meetings' },
+    { id: 'actions',     key: 'tab_actions' },
+    { id: 'tracker',     key: 'tab_tracker' },
+  ];
+  let siteId = null, tabsAvail = { helpdesk: true }, current = 'helpdesk';
+  // Chart.js instances — kept module-scoped so each render destroys before recreate.
+  // A language toggle re-calls renderHelpdesk(cache), which rebuilds them in the new language.
+  let _hdChart = null, _chgChart = null, _inspChart = null, _mtgChart = null, _actChart = null;
+  let _trkPillarsChart = null, _trkTrendChart = null;
+
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+  function fmtNum(v) { return v == null ? '—' : String(v); }
+  function fmtPct(v) { return v == null ? '—' : v + '%'; }
+  function fmtTs(t) {
+    if (!t) return '—';
+    const d = new Date(t);
+    if (isNaN(d)) return esc(t);
+    return d.toLocaleDateString(curLang() === 'fr' ? 'fr-FR' : 'en-GB');
+  }
+
+  // Auth: session cookie + x-report-token header (copied verbatim from wan.html's api()).
+  async function api(path) {
+    const h = {}; const at = window.__authToken; if (at) h['x-report-token'] = at;
+    const r = await fetch(path, { headers: h });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  }
+
+  function renderTabs() {
+    $('sa-tabs').innerHTML = TABS
+      // A group-only tab (Vue Groupe) is HIDDEN outright for non-group users — never greyed.
+      .filter(t => !(t.groupOnly && tabsAvail[t.id] !== true))
+      .map(t => {
+        const soon = tabsAvail[t.id] === false;
+        const on = t.id === current && !soon;
+        return `<button class="sa-tab${on ? ' on' : ''}${soon ? ' disabled' : ''}" data-tab="${t.id}"${soon ? ' disabled' : ''}>`
+          + esc(T(t.key)) + (soon ? ' <span class="sa-chip">' + esc(T('soon')) + '</span>' : '') + '</button>';
+      }).join('');
+  }
+
+  function showTab(name) {
+    if (tabsAvail[name] === false) return;
+    if (!TABS.some(t => t.id === name)) name = 'helpdesk';
+    current = name;
+    TABS.forEach(t => { const p = $('pane-' + t.id); if (p) p.style.display = (t.id === name) ? '' : 'none'; });
+    renderTabs();
+    if (location.hash.slice(1) !== name) history.replaceState(null, '', '#' + name);
+    if (name === 'fleet') loadFleet();
+    if (name === 'helpdesk') loadHelpdesk();
+    if (name === 'inspections') loadInspections();
+    if (name === 'meetings') loadMeetings();
+    if (name === 'actions') loadActions();
+    if (name === 'tracker') loadTracker_();
+  }
+
+  // Render the helpdesk pane from data (fetched or cached). Kept separate
+  // from the fetch so a language toggle can re-render without re-fetching.
+  function renderHelpdesk(data) {
+    data = data || { snapshot: null, weekly: [], major_incidents: [] };
+    const snap = data.snapshot;
+    $('sa-hd-empty').style.display = snap ? 'none' : 'block';
+
+    const tiles = snap ? [
+      { lbl: T('t_received'),    val: snap.created },
+      { lbl: T('t_closed'),      val: snap.resolved },
+      { lbl: T('t_backlog'),     val: snap.backlog },
+      { lbl: T('t_sla_overdue'), val: snap.sla_overdue },
+      { lbl: T('t_major'),       val: snap.major_incidents },
+    ] : [];
+    $('sa-tiles').innerHTML = tiles.map(t =>
+      `<div class="sa-tile"><div class="lbl">${esc(t.lbl)}</div><div class="val">${fmtNum(t.val)}</div></div>`).join('');
+
+    const weekly = data.weekly || [];
+    $('sa-weekly').innerHTML = weekly.length ? weekly.map(w => `<tr>
+        <td>${esc(w.label)}</td>
+        <td class="sa-num">${fmtNum(w.inbound)}</td>
+        <td class="sa-num">${fmtNum(w.closed)}</td>
+        <td class="sa-num">${w.missed_pct == null ? '<span class="sa-muted">—</span>' : fmtPct(Math.max(0, Math.min(100, 100 - w.missed_pct)))}</td>
+      </tr>`).join('') : `<tr><td colspan="4" class="sa-muted">${esc(T('nodata'))}.</td></tr>`;
+
+    const mi = data.major_incidents || [];
+    $('sa-mi').innerHTML = mi.length ? mi.map(m => `<tr>
+        <td>${esc(m.id)}</td>
+        <td>${m.p_label ? '<span class="sa-pill">' + esc(m.p_label) + '</span>' : '<span class="sa-muted">—</span>'}</td>
+        <td>${esc(m.status) || '<span class="sa-muted">—</span>'}</td>
+        <td>${fmtTs(m.created_time)}</td>
+      </tr>`).join('') : `<tr><td colspan="4" class="sa-muted">${esc(T('none'))}.</td></tr>`;
+
+    const cats = (snap && snap.top_categories) || [];
+    $('sa-cats').innerHTML = cats.length ? cats.map(c =>
+      `<li><span class="cat">${esc(c.category)}</span><span class="cnt">${fmtNum(c.count)}</span></li>`).join('')
+      : `<li class="sa-muted">${esc(T('none'))}.</li>`;
+
+    renderHdChart(weekly);
+    renderChanges(data.changes);
+  }
+
+  // 6-week combo: bars Received + Closed (left axis) + line Resolution SLA compliance % (right axis,
+  // 0-100) with a dashed 90% target line — same framing as the deck report (compliance, not "missed").
+  // compliance = 100 − missed_pct; spanGaps:false so a null week breaks the line, never a false 0.
+  function renderHdChart(weekly) {
+    if (_hdChart) { _hdChart.destroy(); _hdChart = null; }
+    const panel = $('sa-hd-chart-panel');
+    if (typeof Chart === 'undefined' || !weekly.length) { if (panel) panel.style.display = 'none'; return; }
+    if (panel) panel.style.display = '';
+    const labels = weekly.map(w => w.label);
+    const comp = weekly.map(w => w.missed_pct == null ? null : Math.max(0, Math.min(100, 100 - w.missed_pct)));
+    _hdChart = new Chart($('sa-hd-chart').getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { type: 'bar',  label: T('t_received'),   yAxisID: 'y',  data: weekly.map(w => w.inbound), backgroundColor: '#2A5490' },
+          { type: 'bar',  label: T('t_closed'),     yAxisID: 'y',  data: weekly.map(w => w.closed),  backgroundColor: '#27AE60' },
+          { type: 'line', label: T('c_sla_comp'),   yAxisID: 'y1', data: comp,
+            borderColor: '#7C3AED', backgroundColor: 'transparent', spanGaps: false, tension: 0.2, pointRadius: 3, borderWidth: 2 },
+          { type: 'line', label: T('c_sla_target'), yAxisID: 'y1', data: labels.map(() => 90),
+            borderColor: '#9aa4b2', borderDash: [6, 4], pointRadius: 0, borderWidth: 1.5, fill: false },
+        ],
+      },
+      options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+        plugins: { title: { display: true, text: T('hd_volume') }, legend: { position: 'bottom' } },
+        scales: { y: { beginAtZero: true, title: { display: true, text: '#' } },
+          y1: { position: 'right', beginAtZero: true, suggestedMax: 100, grid: { drawOnChartArea: false },
+            title: { display: true, text: 'SLA %' } } } },
+    });
+  }
+
+  // Changes (90-day): outcome donut + stat tiles. Empty → a note, never an empty donut.
+  function renderChanges(chg) {
+    chg = chg || { total: 0, successful: 0, failed: 0, cancelled: 0, pending: 0, emergency: 0, success_pct: null };
+    const h = $('sa-chg-h'); if (h) h.textContent = T('h_changes');
+    const sub = $('sa-chg-sub'); if (sub) sub.textContent = T('h_changes_sub');
+    if (_chgChart) { _chgChart.destroy(); _chgChart = null; }
+
+    const empty = !chg.total;
+    const eN = $('sa-chg-empty'), body = $('sa-chg-body');
+    if (eN) { eN.style.display = empty ? '' : 'none'; eN.textContent = empty ? T('chg_none') : ''; }
+    if (body) body.style.display = empty ? 'none' : '';
+    if (empty) return;
+
+    const tiles = [
+      { lbl: T('c_total'),        val: fmtNum(chg.total) },
+      { lbl: T('c_success_rate'), val: chg.success_pct == null ? '—' : chg.success_pct + '%' },
+      { lbl: T('c_emergency'),    val: fmtNum(chg.emergency) },
+    ];
+    $('sa-chg-tiles').innerHTML = tiles.map(t =>
+      `<div class="sa-tile"><div class="lbl">${esc(t.lbl)}</div><div class="val">${esc(t.val)}</div></div>`).join('');
+
+    if (typeof Chart === 'undefined') return;
+    _chgChart = new Chart($('sa-chg-chart').getContext('2d'), {
+      type: 'doughnut',
+      data: {
+        labels: [T('o_successful'), T('o_failed'), T('o_cancelled'), T('o_pending')],
+        datasets: [{ data: [chg.successful, chg.failed, chg.cancelled, chg.pending],
+          backgroundColor: ['#27AE60', '#E74C3C', '#E8A100', '#9aa4b2'], borderColor: '#fff', borderWidth: 1 }],
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } },
+    });
+  }
+
+  // ── Group View (fleet RAG grid) ────────────────────────────────────
+  // Read-only comparative table: sites × 5 modules + an overall RAG. Click a row
+  // to zoom into that site (set the selector + open the Assistance tab).
+  const RAG_COLORS = { green: '#27AE60', amber: '#E8A100', red: '#DC2626', na: '#b6bdc7' };
+  const FLEET_MODS = ['helpdesk', 'inspections', 'meetings', 'actions', 'tracker'];
+  const FLEET_COL_KEY = { helpdesk: 'gc_helpdesk', inspections: 'gc_inspections', meetings: 'gc_meetings', actions: 'gc_actions', tracker: 'gc_tracker' };
+  // P2 — month-over-month chip. up = improved (green ▲), down = worsened (red ▼); flat/absent = nothing.
+  function trendChip(t, big) {
+    if (t === 'up') return '<span class="sa-trend up' + (big ? ' big' : '') + '" title="' + esc(T('g_up')) + '">▲</span>';
+    if (t === 'down') return '<span class="sa-trend down' + (big ? ' big' : '') + '" title="' + esc(T('g_down')) + '">▼</span>';
+    return '';
+  }
+  function ragDotCell(cell) {
+    const c = cell || { rag: 'na', value: null };
+    const color = RAG_COLORS[c.rag] || RAG_COLORS.na;
+    const val = (c.value == null || c.value === '') ? '—' : c.value;
+    return `<span class="sa-rag"><span class="sa-rag-dot" style="background:${color}"></span>`
+      + `<span class="sa-rag-val">${esc(val)}</span>${trendChip(c.trend)}</span>`;
+  }
+  function ragPill(rag) {
+    const r = rag || 'na';
+    const color = RAG_COLORS[r] || RAG_COLORS.na;
+    const lbl = r === 'na' ? '—' : r.toUpperCase();
+    return `<span class="sa-rag-pill" style="background:${color}22;color:${color}">${esc(lbl)}</span>`;
+  }
+  // Severity score — drives worst-first sort AND "lowest" pick. A red cell weighs
+  // 3, amber 1; the Overall verdict dominates (red 10 / amber 3) so a red site
+  // always outranks an amber one. na/green cells score 0 → offices (mostly na)
+  // sink to the bottom.
+  function sevScore(r) {
+    var s = 0, cells = r.cells || {};
+    FLEET_MODS.forEach(function (m) { var rag = (cells[m] || {}).rag; if (rag === 'red') s += 3; else if (rag === 'amber') s += 1; });
+    if (r.overall_rag === 'red') s += 10; else if (r.overall_rag === 'amber') s += 3;
+    return s;
+  }
+  function renderFleet(data) {
+    data = data || { sites: [] };
+    var rows = (Array.isArray(data.sites) ? data.sites : []).slice();
+    // P1b — worst-first (stable: keep source order within equal severity)
+    rows.map(function (r, i) { r.__i = i; return r; });
+    rows.sort(function (a, b) { return (sevScore(b) - sevScore(a)) || (a.__i - b.__i); });
+
+    // P1a — fleet KPI strip (counts by Overall verdict)
+    var tot = rows.length, g = 0, a = 0, rd = 0;
+    rows.forEach(function (r) { if (r.overall_rag === 'green') g++; else if (r.overall_rag === 'amber') a++; else if (r.overall_rag === 'red') rd++; });
+    var kpis = [
+      { lbl: T('g_sites'), val: tot, color: null },
+      { lbl: T('g_green'), val: g,  color: RAG_COLORS.green },
+      { lbl: T('g_amber'), val: a,  color: RAG_COLORS.amber },
+      { lbl: T('g_red'),   val: rd, color: RAG_COLORS.red }
+    ];
+    var kEl = $('sa-fleet-kpis');
+    if (kEl) kEl.innerHTML = kpis.map(function (t) {
+      return '<div class="sa-tile"><div class="lbl">' + esc(t.lbl) + '</div><div class="val"'
+        + (t.color ? ' style="color:' + t.color + '"' : '') + '>' + esc(t.val) + '</div></div>';
+    }).join('');
+
+    // P1c — one-line read-out (worst module across the fleet + the lowest site)
+    var rEl = $('sa-fleet-readout');
+    if (rEl) {
+      if (!tot) { rEl.textContent = ''; }
+      else {
+        var best = null, bestN = 0;
+        FLEET_MODS.forEach(function (m) {
+          var n = 0; rows.forEach(function (r) { if (((r.cells || {})[m] || {}).rag === 'red') n++; });
+          if (n > bestN) { bestN = n; best = m; }
+        });
+        var parts = [];
+        if (rd === 0 && a === 0) {
+          parts.push(T('g_allgreen'));
+        } else {
+          if (best && bestN >= 2) parts.push(T('g_weak') + ' : ' + T(FLEET_COL_KEY[best]) + ' (' + bestN + ' ' + T('g_sitesred') + ')');
+          else parts.push(T('g_steady'));
+          if (rd > 0 && rows[0] && rows[0].overall_rag === 'red')
+            parts.push(T('g_worst') + ' : ' + (rows[0].site_name || ('Site ' + rows[0].site_id)));
+        }
+        rEl.textContent = parts.join('.  ') + '.';
+      }
+    }
+
+    $('sa-fleet-hint').textContent = T('g_click') + '.';
+    $('sa-fleet-head').innerHTML = '<th>' + esc(T('g_site')) + '</th>'
+      + FLEET_MODS.map(function (m) { return '<th>' + esc(T(FLEET_COL_KEY[m])) + '</th>'; }).join('')
+      + '<th>' + esc(T('g_overall')) + '</th>';
+    $('sa-fleet-body').innerHTML = rows.length ? rows.map(function (r) {
+      var cells = r.cells || {};
+      var cls = r.overall_rag === 'red' ? ' class="sa-row-red"' : '';
+      return '<tr' + cls + ' data-site="' + esc(r.site_id) + '">'
+        + '<td>' + (esc(r.site_name) || ('Site ' + esc(r.site_id))) + '</td>'
+        + FLEET_MODS.map(function (m) { return '<td>' + ragDotCell(cells[m]) + '</td>'; }).join('')
+        + '<td>' + ragPill(r.overall_rag) + trendChip(r.overall_trend, true) + '</td></tr>';
+    }).join('') : '<tr><td colspan="7" class="sa-muted">' + esc(T('nodata')) + '.</td></tr>';
+
+    // P3 — provenance: server as-of date + the window each column uses.
+    var srcEl = $('sa-fleet-source');
+    if (srcEl) srcEl.textContent = data.as_of ? (T('g_asof') + ' ' + data.as_of + ' — ' + T('g_windows') + '.') : '';
+  }
+
+  async function loadFleet() {
+    let data;
+    try { data = await api('/api/site-awareness/fleet'); }
+    catch { data = { sites: [] }; }
+    window._saLastFleet = data;   // cache so the language toggle re-renders without re-fetching
+    renderFleet(data);
+  }
+
+  async function loadHelpdesk() {
+    let data;
+    try { data = await api('/api/site-awareness/helpdesk?site=' + encodeURIComponent(siteId == null ? '' : siteId)); }
+    catch { data = { snapshot: null, weekly: [], major_incidents: [] }; }
+    window._saLastHelpdesk = data;   // cache so the language toggle re-renders without re-fetching
+    renderHelpdesk(data);
+  }
+
+  // ── Facilities Status (inspections) ────────────────────────────────
+  // Render from data (fetched or cached) so a language toggle re-renders without re-fetching.
+  const FINDING_COLORS = { ok: '#27AE60', minor: '#E8A100', major: '#E87722', critical: '#E74C3C', opp: '#2A5490' };
+  function renderInspections(data) {
+    data = data || { applicable: true, snapshot: null, findings: {}, recent: [], open_actions: [] };
+    const na = data.applicable === false;
+    const naN = $('sa-insp-na'), body = $('sa-insp-body');
+    if (naN) { naN.style.display = na ? 'block' : 'none'; naN.textContent = na ? T('not_applicable') + '.' : ''; }
+    if (body) body.style.display = na ? 'none' : '';
+    if (na) { if (_inspChart) { _inspChart.destroy(); _inspChart = null; } return; }
+
+    const snap = data.snapshot || {};
+    const tiles = [
+      { lbl: T('i_conformity'),   val: snap.conformity_pct == null ? '—' : snap.conformity_pct + '%' },
+      { lbl: T('i_inspections'),  val: fmtNum(snap.inspections) },
+      { lbl: T('i_critical'),     val: fmtNum(snap.critical) },
+      { lbl: T('i_open_actions'), val: fmtNum(snap.open_actions) },
+    ];
+    $('sa-insp-tiles').innerHTML = tiles.map(t =>
+      `<div class="sa-tile"><div class="lbl">${esc(t.lbl)}</div><div class="val">${esc(t.val)}</div></div>`).join('');
+
+    // Section headers + table column headers (JS-built so the language toggle re-renders them).
+    $('sa-insp-recent-h').textContent = T('i_recent');
+    $('sa-insp-actions-h').textContent = T('i_corrective');
+    $('sa-insp-th-date').textContent = T('c_date');
+    $('sa-insp-th-area').textContent = T('c_area');
+    $('sa-insp-th-risk').textContent = T('c_risk');
+    $('sa-insp-th-status').textContent = T('c_status');
+    $('sa-insp-ath-desc').textContent = T('i_corrective');
+    $('sa-insp-ath-prio').textContent = T('c_priority');
+    $('sa-insp-ath-due').textContent = T('c_due');
+    $('sa-insp-ath-owner').textContent = T('c_owner');
+    $('sa-insp-ath-status').textContent = T('c_status');
+
+    const recent = data.recent || [];
+    $('sa-insp-recent').innerHTML = recent.length ? recent.map(r => `<tr>
+        <td>${fmtTs(r.date)}</td>
+        <td>${esc(r.area) || '<span class="sa-muted">—</span>'}</td>
+        <td>${r.risk ? '<span class="sa-pill">' + esc(r.risk) + '</span>' : '<span class="sa-muted">—</span>'}</td>
+        <td>${esc(r.status) || '<span class="sa-muted">—</span>'}</td>
+      </tr>`).join('') : `<tr><td colspan="4" class="sa-muted">${esc(T('none'))}.</td></tr>`;
+
+    const acts = data.open_actions || [];
+    $('sa-insp-actions').innerHTML = acts.length ? acts.map(a => `<tr>
+        <td>${esc(a.description) || '<span class="sa-muted">—</span>'}</td>
+        <td>${a.priority ? '<span class="sa-pill">' + esc(a.priority) + '</span>' : '<span class="sa-muted">—</span>'}</td>
+        <td>${fmtTs(a.due_date)}</td>
+        <td>${esc(a.owner) || '<span class="sa-muted">—</span>'}</td>
+        <td>${esc(a.status) || '<span class="sa-muted">—</span>'}</td>
+      </tr>`).join('') : `<tr><td colspan="5" class="sa-muted">${esc(T('none'))}.</td></tr>`;
+
+    renderInspChart(data.findings || {});
+  }
+
+  // Findings donut: ok/minor/major/critical/opp (na excluded — it's not a conformity signal).
+  function renderInspChart(f) {
+    if (_inspChart) { _inspChart.destroy(); _inspChart = null; }
+    const panel = $('sa-insp-chart-panel');
+    const order = ['ok', 'minor', 'major', 'critical', 'opp'];
+    const vals = order.map(k => Number(f[k]) || 0);
+    const total = vals.reduce((a, b) => a + b, 0);
+    if (typeof Chart === 'undefined' || !total) { if (panel) panel.style.display = 'none'; return; }
+    if (panel) panel.style.display = '';
+    _inspChart = new Chart($('sa-insp-chart').getContext('2d'), {
+      type: 'doughnut',
+      data: {
+        labels: [T('f_ok'), T('f_minor'), T('f_major'), T('f_critical'), T('f_opp')],
+        datasets: [{ data: vals, backgroundColor: order.map(k => FINDING_COLORS[k]), borderColor: '#fff', borderWidth: 1 }],
+      },
+      options: { responsive: true, maintainAspectRatio: false,
+        plugins: { title: { display: true, text: T('i_findings') }, legend: { position: 'bottom' } } },
+    });
+  }
+
+  async function loadInspections() {
+    let data;
+    try { data = await api('/api/site-awareness/inspections?site=' + encodeURIComponent(siteId == null ? '' : siteId)); }
+    catch { data = { applicable: true, snapshot: null, findings: {}, recent: [], open_actions: [] }; }
+    window._saLastInspections = data;   // cache so the language toggle re-renders without re-fetching
+    renderInspections(data);
+  }
+
+  // ── Department Meetings & Decisions (meetings) ─────────────────────
+  // Render from data (fetched or cached) so a language toggle re-renders without re-fetching.
+  const DEPT_STATUS = { on_track: { key: 'st_on_track', color: '#27AE60' }, blocked: { key: 'st_blocked', color: '#E74C3C' }, no_pv: { key: 'st_no_pv', color: '#9aa4b2' } };
+  function renderMeetings(data) {
+    data = data || { applicable: true, snapshot: null, departments: [], trend: { months: [], opened: [], closed: [] } };
+    const na = data.applicable === false;
+    const naN = $('sa-mtg-na'), body = $('sa-mtg-body');
+    if (naN) { naN.style.display = na ? 'block' : 'none'; naN.textContent = na ? T('not_applicable') + '.' : ''; }
+    if (body) body.style.display = na ? 'none' : '';
+    if (na) { if (_mtgChart) { _mtgChart.destroy(); _mtgChart = null; } return; }
+
+    const snap = data.snapshot || {};
+    const pvsVal = snap.dept_target != null ? (fmtNum(snap.pvs) + ' / ' + snap.dept_target) : fmtNum(snap.pvs);
+    const tiles = [
+      { lbl: T('m_pvs'),      val: pvsVal },
+      { lbl: T('m_open'),     val: fmtNum(snap.open) },
+      { lbl: T('m_high'),     val: fmtNum(snap.high_open) },
+      { lbl: T('m_esc'),      val: fmtNum(snap.escalations) },
+      { lbl: T('m_resolved'), val: fmtNum(snap.resolved) },
+      { lbl: T('m_new'),      val: fmtNum(snap.new) },
+    ];
+    $('sa-mtg-tiles').innerHTML = tiles.map(t =>
+      `<div class="sa-tile"><div class="lbl">${esc(t.lbl)}</div><div class="val">${esc(t.val)}</div></div>`).join('');
+
+    $('sa-mtg-commentary').textContent = data.commentary || '';
+    $('sa-mtg-trend-h').textContent = T('m_trend');
+    $('sa-mtg-depts-h').textContent = T('m_depts');
+
+    const depts = data.departments || [];
+    $('sa-mtg-depts').innerHTML = depts.length ? depts.map(d => {
+      const st = DEPT_STATUS[d.status] || { key: null, color: '#9aa4b2' };
+      const lbl = st.key ? T(st.key) : (d.status || '—');
+      return `<li><span class="cat">${esc(d.department) || '<span class="sa-muted">—</span>'}</span>`
+        + `<span class="sa-pill" style="background:${st.color}22;color:${st.color}">${esc(lbl)}</span></li>`;
+    }).join('') : `<li class="sa-muted">${esc(T('none'))}.</li>`;
+
+    renderMtgChart(data.trend || { months: [], opened: [], closed: [] });
+  }
+
+  // 3-month trend: bars Opened vs Closed.
+  function renderMtgChart(trend) {
+    if (_mtgChart) { _mtgChart.destroy(); _mtgChart = null; }
+    const panel = $('sa-mtg-chart-panel');
+    const months = trend.months || [];
+    if (typeof Chart === 'undefined' || !months.length) { if (panel) panel.style.display = 'none'; return; }
+    if (panel) panel.style.display = '';
+    _mtgChart = new Chart($('sa-mtg-chart').getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels: months,
+        datasets: [
+          { label: T('m_opened'), data: trend.opened || [], backgroundColor: '#E87722' },
+          { label: T('m_closed'), data: trend.closed || [], backgroundColor: '#27AE60' },
+        ],
+      },
+      options: { responsive: true, maintainAspectRatio: false,
+        plugins: { title: { display: true, text: T('m_trend') }, legend: { position: 'bottom' } },
+        scales: { y: { beginAtZero: true, title: { display: true, text: '#' } } } },
+    });
+  }
+
+  async function loadMeetings() {
+    let data;
+    try { data = await api('/api/site-awareness/meetings?site=' + encodeURIComponent(siteId == null ? '' : siteId)); }
+    catch { data = { applicable: true, snapshot: null, departments: [], trend: { months: [], opened: [], closed: [] } }; }
+    window._saLastMeetings = data;   // cache so the language toggle re-renders without re-fetching
+    renderMeetings(data);
+  }
+
+  // ── Actions & Follow-up (site actions register) ────────────────────
+  // Render from data (fetched or cached) so a language toggle re-renders without re-fetching.
+  const ACT_SOURCE = { meetings: { key: 'src_meetings', color: '#2A5490' }, inspection: { key: 'src_inspection', color: '#E87722' }, report: { key: 'src_report', color: '#27AE60' } };
+  function renderActions(data) {
+    data = data || { applicable: true, snapshot: null, actions: [] };
+    const na = data.applicable === false;
+    const naN = $('sa-act-na'), body = $('sa-act-body');
+    if (naN) { naN.style.display = na ? 'block' : 'none'; naN.textContent = na ? T('not_applicable') + '.' : ''; }
+    if (body) body.style.display = na ? 'none' : '';
+    if (na) { if (_actChart) { _actChart.destroy(); _actChart = null; } return; }
+
+    const snap = data.snapshot || {};
+    const by = snap.by_source || {};
+    const oldest = snap.oldest_days == null ? '—' : (snap.oldest_days + ' ' + T('a_days'));
+    const tiles = [
+      { lbl: T('a_open'),          val: fmtNum(snap.total_open) },
+      { lbl: T('a_oldest'),        val: oldest },
+      { lbl: T('src_meetings'),    val: fmtNum(by.meetings) },
+      { lbl: T('src_inspection'),  val: fmtNum(by.inspection) },
+      { lbl: T('src_report'),      val: fmtNum(by.report) },
+    ];
+    $('sa-act-tiles').innerHTML = tiles.map(t =>
+      `<div class="sa-tile"><div class="lbl">${esc(t.lbl)}</div><div class="val">${esc(t.val)}</div></div>`).join('');
+
+    // Section + column headers (JS-built so the language toggle re-renders them).
+    $('sa-act-chart-h').textContent = T('a_open');
+    $('sa-act-list-h').textContent = T('a_open');
+    $('sa-act-th-task').textContent = T('c_task');
+    $('sa-act-th-source').textContent = T('c_source');
+    $('sa-act-th-dept').textContent = T('c_owner');
+    $('sa-act-th-age').textContent = T('c_age');
+    $('sa-act-th-status').textContent = T('c_status');
+
+    const acts = data.actions || [];
+    $('sa-act-list').innerHTML = acts.length ? acts.map(a => {
+      const src = ACT_SOURCE[a.source] || { key: null, color: '#9aa4b2' };
+      const srcLbl = src.key ? T(src.key) : (a.source || '—');
+      const age = a.age_days == null ? '<span class="sa-muted">—</span>' : String(a.age_days);
+      const statusCell = a.overdue
+        ? `<span class="sa-pill" style="background:#fdecea;color:#c0392b">${esc(a.status || T('a_overdue'))} · ${esc(T('a_overdue'))}</span>`
+        : (esc(a.status) || '<span class="sa-muted">—</span>');
+      return `<tr>
+        <td>${esc(a.task) || '<span class="sa-muted">—</span>'}</td>
+        <td><span class="sa-pill" style="background:${src.color}22;color:${src.color}">${esc(srcLbl)}</span></td>
+        <td>${esc(a.owner) || '<span class="sa-muted">—</span>'}</td>
+        <td class="sa-num">${age}</td>
+        <td>${statusCell}</td>
+      </tr>`;
+    }).join('') : `<tr><td colspan="5" class="sa-muted">${esc(T('none'))}.</td></tr>`;
+
+    renderActChart(by);
+  }
+
+  // Source donut: Meetings / Inspections / Report follow-up. Empty → hide the panel.
+  function renderActChart(by) {
+    if (_actChart) { _actChart.destroy(); _actChart = null; }
+    const panel = $('sa-act-chart-panel');
+    const order = ['meetings', 'inspection', 'report'];
+    const vals = order.map(k => Number(by[k]) || 0);
+    const total = vals.reduce((a, b) => a + b, 0);
+    if (typeof Chart === 'undefined' || !total) { if (panel) panel.style.display = 'none'; return; }
+    if (panel) panel.style.display = '';
+    _actChart = new Chart($('sa-act-chart').getContext('2d'), {
+      type: 'doughnut',
+      data: {
+        labels: order.map(k => T(ACT_SOURCE[k].key)),
+        datasets: [{ data: vals, backgroundColor: order.map(k => ACT_SOURCE[k].color), borderColor: '#fff', borderWidth: 1 }],
+      },
+      options: { responsive: true, maintainAspectRatio: false,
+        plugins: { title: { display: true, text: T('a_open') }, legend: { position: 'bottom' } } },
+    });
+  }
+
+  async function loadActions() {
+    let data;
+    try { data = await api('/api/site-awareness/actions?site=' + encodeURIComponent(siteId == null ? '' : siteId)); }
+    catch { data = { applicable: true, snapshot: null, actions: [] }; }
+    window._saLastActions = data;   // cache so the language toggle re-renders without re-fetching
+    renderActions(data);
+  }
+
+  // ── Projects & Roadmap (activity tracker) ──────────────────────────
+  // Render from data (fetched or cached) so a language toggle re-renders without re-fetching.
+  // RAG DISPLAY thresholds (≥65 green / ≥50 amber / else red) colour the pillar bars.
+  function ragColor(pct) { return pct == null ? '#9aa4b2' : (pct >= 65 ? '#27AE60' : (pct >= 50 ? '#E8A100' : '#DC2626')); }
+  function renderTracker(data) {
+    data = data || { applicable: true, snapshot: null, pillars: [], trend: [] };
+    const na = data.applicable === false;
+    const naN = $('sa-trk-na'), body = $('sa-trk-body');
+    if (naN) { naN.style.display = na ? 'block' : 'none'; naN.textContent = na ? T('not_applicable') + '.' : ''; }
+    if (body) body.style.display = na ? 'none' : '';
+    if (na) {
+      if (_trkPillarsChart) { _trkPillarsChart.destroy(); _trkPillarsChart = null; }
+      if (_trkTrendChart) { _trkTrendChart.destroy(); _trkTrendChart = null; }
+      return;
+    }
+
+    const snap = data.snapshot || {};
+    const deltaVal = snap.delta_pp == null ? '—' : ((snap.delta_pp >= 0 ? '+' : '') + snap.delta_pp + 'pp');
+    const deltaColor = snap.delta_pp == null ? '#8a94a2' : (snap.delta_pp >= 0 ? '#27AE60' : '#DC2626');
+    const tiles = [
+      { lbl: T('t_overall'), val: snap.overall_pct == null ? '—' : snap.overall_pct + '%' },
+      { lbl: T('t_delta'),   val: deltaVal, color: deltaColor },
+      { lbl: T('t_green'),   val: fmtNum(snap.green), color: RAG_COLORS.green },
+      { lbl: T('t_amber'),   val: fmtNum(snap.amber), color: RAG_COLORS.amber },
+      { lbl: T('t_red'),     val: fmtNum(snap.red),   color: RAG_COLORS.red },
+    ];
+    $('sa-trk-tiles').innerHTML = tiles.map(t =>
+      `<div class="sa-tile"><div class="lbl">${esc(t.lbl)}</div><div class="val"${t.color ? ` style="color:${t.color}"` : ''}>${esc(t.val)}</div></div>`).join('');
+
+    $('sa-trk-pillars-h').textContent = T('t_pillars');
+    $('sa-trk-trend-h').textContent = T('t_trend');
+
+    renderTrkPillars(data.pillars || []);
+    renderTrkTrend(data.trend || []);
+  }
+
+  // Pillar bars — one RAG-coloured bar per pillar (display thresholds).
+  function renderTrkPillars(pillars) {
+    if (_trkPillarsChart) { _trkPillarsChart.destroy(); _trkPillarsChart = null; }
+    const panel = $('sa-trk-pillars-panel');
+    if (typeof Chart === 'undefined' || !pillars.length) { if (panel) panel.style.display = 'none'; return; }
+    if (panel) panel.style.display = '';
+    _trkPillarsChart = new Chart($('sa-trk-pillars').getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels: pillars.map(p => p.name),
+        datasets: [{ label: T('t_pillars'), data: pillars.map(p => p.pct),
+          backgroundColor: pillars.map(p => ragColor(p.pct)) }],
+      },
+      options: { responsive: true, maintainAspectRatio: false,
+        plugins: { title: { display: true, text: T('t_pillars') }, legend: { display: false } },
+        scales: { y: { beginAtZero: true, suggestedMax: 100, title: { display: true, text: '%' } } } },
+    });
+  }
+
+  // 6-month trend line — spanGaps:false so a null month breaks the line, never a false 0.
+  function renderTrkTrend(trend) {
+    if (_trkTrendChart) { _trkTrendChart.destroy(); _trkTrendChart = null; }
+    const panel = $('sa-trk-trend-panel');
+    if (typeof Chart === 'undefined' || !trend.length) { if (panel) panel.style.display = 'none'; return; }
+    if (panel) panel.style.display = '';
+    _trkTrendChart = new Chart($('sa-trk-trend').getContext('2d'), {
+      type: 'line',
+      data: {
+        labels: trend.map(t => t.label),
+        datasets: [{ label: T('t_overall'), data: trend.map(t => t.pct),
+          borderColor: '#2A5490', backgroundColor: 'transparent', spanGaps: false, tension: 0.2, pointRadius: 3 }],
+      },
+      options: { responsive: true, maintainAspectRatio: false,
+        plugins: { title: { display: true, text: T('t_trend') }, legend: { display: false } },
+        scales: { y: { beginAtZero: true, suggestedMax: 100, title: { display: true, text: '%' } } } },
+    });
+  }
+
+  async function loadTracker_() {
+    let data;
+    try { data = await api('/api/site-awareness/tracker?site=' + encodeURIComponent(siteId == null ? '' : siteId)); }
+    catch { data = { applicable: true, snapshot: null, pillars: [], trend: [] }; }
+    window._saLastTracker = data;   // cache so the language toggle re-renders without re-fetching
+    renderTracker(data);
+  }
+
+  async function loadSummary(requested) {
+    let data;
+    try { data = await api('/api/site-awareness/summary' + (requested != null ? '?site=' + encodeURIComponent(requested) : '')); }
+    catch { data = { site_id: null, site_name: null, authorized_sites: [], tabs: { helpdesk: true } }; }
+
+    siteId = data.site_id;
+    tabsAvail = data.tabs || { helpdesk: true };
+    $('sa-site-name').textContent = data.site_name || '—';
+
+    // Site selector — populated from authorized_sites; locked when only one site is authorized.
+    const authorized = data.authorized_sites || [];
+    const sel = $('sa-site');
+    sel.innerHTML = authorized.map(s =>
+      `<option value="${s.site_id}"${String(s.site_id) === String(siteId) ? ' selected' : ''}>${esc(s.site_name || ('Site ' + s.site_id))}</option>`).join('')
+      || '<option>—</option>';
+    sel.disabled = authorized.length <= 1;
+
+    // No authorized site (unassigned account, or server 403) → show a clear message, hide the tabs.
+    const noSite = authorized.length === 0;
+    const nb = $('sa-nosite'); if (nb) nb.style.display = noSite ? 'block' : 'none';
+    const tabsEl = $('sa-tabs'); if (tabsEl) tabsEl.style.display = noSite ? 'none' : '';
+    if (noSite) { document.querySelectorAll('[id^="pane-"]').forEach(p => { p.style.display = 'none'; }); return; }
+
+    renderTabs();
+    // Land on the hash tab if it's available, else helpdesk.
+    const want = location.hash.slice(1);
+    showTab((want && tabsAvail[want] !== false && TABS.some(t => t.id === want)) ? want : 'helpdesk');
+  }
+
+  // ── Language toggle ────────────────────────────────────────────────
+  function setLang(lang) {
+    if (lang === 'fr') document.body.classList.add('lang-fr');
+    else               document.body.classList.remove('lang-fr');
+    document.querySelectorAll('#saLangToggle button').forEach(b => {
+      b.classList.toggle('active', b.dataset.lang === lang);
+    });
+    try { localStorage.setItem(LANG_KEY, lang); } catch (_) {}
+    // Re-render JS-built surfaces in the new language, WITHOUT re-fetching.
+    renderTabs();
+    if (current === 'fleet' && window._saLastFleet) renderFleet(window._saLastFleet);
+    if (current === 'helpdesk' && window._saLastHelpdesk) renderHelpdesk(window._saLastHelpdesk);
+    if (current === 'inspections' && window._saLastInspections) renderInspections(window._saLastInspections);
+    if (current === 'meetings' && window._saLastMeetings) renderMeetings(window._saLastMeetings);
+    if (current === 'actions' && window._saLastActions) renderActions(window._saLastActions);
+    if (current === 'tracker' && window._saLastTracker) renderTracker(window._saLastTracker);
+  }
+  // Boot from localStorage if set, else default FR.
+  (function _initLang() {
+    let stored = 'fr';
+    try { stored = localStorage.getItem(LANG_KEY) || 'fr'; } catch (_) {}
+    setLang(stored === 'en' ? 'en' : 'fr');
+  })();
+
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('#saLangToggle button').forEach(b => {
+      b.addEventListener('click', () => setLang(b.dataset.lang));
+    });
+    $('sa-tabs').addEventListener('click', function (e) {
+      const b = e.target.closest('[data-tab]'); if (b && !b.disabled) showTab(b.dataset.tab);
+    });
+    $('sa-site').addEventListener('change', function () {
+      loadSummary(this.value);
+    });
+    // Fleet row click → zoom into that site: set the selector + open the Assistance tab.
+    $('sa-fleet-body').addEventListener('click', function (e) {
+      const tr = e.target.closest('tr[data-site]'); if (!tr) return;
+      const sid = tr.dataset.site; if (!sid) return;
+      const sel = $('sa-site'); if (sel) sel.value = sid;
+      history.replaceState(null, '', '#helpdesk');   // land on Assistance after reload
+      loadSummary(sid);
+    });
+    window.addEventListener('hashchange', function () {
+      const n = location.hash.slice(1) || 'helpdesk';
+      if (tabsAvail[n] !== false) showTab(n);
+    });
+    loadSummary();
+  });
+})();
+</script>
+</body>
+</html>

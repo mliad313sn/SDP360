@@ -1,0 +1,258 @@
+{
+  "total": 1465,
+  "closed": 1354,
+  "closure_rate": 92.4,
+  "sla_compliance": 89.0,
+  "sla_compliance_delta_pp": 1.3,
+  "frt_sla": 72.8,
+  "frt_sla_delta_pp": -0.2,
+  "open_backlog": 199,
+  "avg_res_days": 2,
+  "time_to_assign_h": 21,
+  "first_reply_h": 18,
+  "closing_time_d": 2,
+  "sla_violations_pct": 11.0,
+  "fcr_rate": 99.9,
+  "fcr_count": 1464,
+  "channel": {
+    "E-Mail": 1035,
+    "Web Form": 415,
+    "Live Chat": 9,
+    "Phone Call": 3,
+    "MS Teams": 2
+  },
+  "categories": {
+    "Software and Applications": 367,
+    "User Accounts and Access Permissions": 225,
+    "IT Infrastructure": 223,
+    "IT Hardware and Communication Devices": 121,
+    "Printing Services": 112,
+    "Hardware and Accessories": 101,
+    "Email": 95,
+    "Network & Internet Access": 91,
+    "Mobile & Communication Services": 37,
+    "IT Policy Deviation": 11,
+    "ERP Support": 8,
+    "IT Administrative task": 7,
+    "infosec": 5,
+    "Periodic IT System Access Audit": 4,
+    "Security Issues": 2
+  },
+  "groups": {
+    "Sabodala IT Agents": 299,
+    "Mana IT Agent": 245,
+    "ITY IT Agents": 226,
+    "Hounde IT Agents": 179,
+    "Lafigue IT Agents": 156,
+    "Abidjan IT Agents": 126,
+    "Exploration IT Support": 75,
+    "Kalana IT Agents": 69,
+    "Exploration CI Support": 35,
+    "Exploration BF Support": 24,
+    "Ouaga IT Agents": 22,
+    "Tanda IT Agents": 9
+  },
+  "mi_total": 3,
+  "mi_critical": 2,
+  "mi_high": 1,
+  "changes_total": 22,
+  "changes_type": {
+    "Standard": 15,
+    "Major": 6,
+    "Emergency": 1
+  },
+  "changes_status": {
+    "In Progress": 16,
+    "Completed": 3,
+    "Requested": 1,
+    "On Hold": 1,
+    "Need more information": 1
+  },
+  "changes_emergency": 1,
+  "csat_total_responses": 211,
+  "csat_pct": 91,
+  "csat_satisfied": 191,
+  "csat_dissatisfied": 8,
+  "csat_no_rating": 12,
+  "csat_avg_score": 85.2,
+  "tracker": {
+    "fleet_avg": 57,
+    "fleet_delta_pp": 3,
+    "green": 52,
+    "amber": 55,
+    "red": 42,
+    "on_target_pct": 35,
+    "active_pct": 70,
+    "spread_pp": 24,
+    "sites": {
+      "MGO": {
+        "name": "Mana",
+        "score": 71,
+        "delta": 10,
+        "g": 12,
+        "a": 12,
+        "r": 5,
+        "activities": 29
+      },
+      "HGO": {
+        "name": "Hound\u00e9",
+        "score": 61,
+        "delta": 5,
+        "g": 12,
+        "a": 10,
+        "r": 8,
+        "activities": 30
+      },
+      "SML": {
+        "name": "Lafigu\u00e9",
+        "score": 59,
+        "delta": -1,
+        "g": 11,
+        "a": 9,
+        "r": 10,
+        "activities": 30
+      },
+      "ITY": {
+        "name": "Ity",
+        "score": 47,
+        "delta": -4,
+        "g": 9,
+        "a": 13,
+        "r": 8,
+        "activities": 30
+      },
+      "SGO": {
+        "name": "Sabodala",
+        "score": 48,
+        "delta": 5,
+        "g": 8,
+        "a": 11,
+        "r": 11,
+        "activities": 30
+      }
+    },
+    "pillar_delta_pp": {
+      "Network Infra": 20,
+      "Biz Partnering": 0,
+      "Risk & Compl.": 6,
+      "People Dev": -32
+    },
+    "pillar_rag": {
+      "Network Infra": {
+        "g": 11,
+        "a": 32,
+        "r": 2
+      },
+      "Biz Partnering": {
+        "g": 20,
+        "a": 5,
+        "r": 10
+      },
+      "Risk & Compl.": {
+        "g": 18,
+        "a": 13,
+        "r": 14
+      },
+      "People Dev": {
+        "g": 3,
+        "a": 5,
+        "r": 7
+      }
+    },
+    "site_trend": {
+      "MGO": [
+        23,
+        28,
+        61,
+        71
+      ],
+      "HGO": [
+        26,
+        29,
+        57,
+        61
+      ],
+      "SML": [
+        27,
+        30,
+        60,
+        59
+      ],
+      "ITY": [
+        27,
+        27,
+        51,
+        47
+      ],
+      "SGO": [
+        22,
+        24,
+        43,
+        48
+      ]
+    }
+  },
+  "ageing": {
+    "Sabodala IT Agents": {
+      "open": 38,
+      "over_60": 0,
+      "30_60": 3,
+      "under_30": 35
+    },
+    "Abidjan IT Agents": {
+      "open": 27,
+      "over_60": 0,
+      "30_60": 1,
+      "under_30": 26
+    },
+    "Exploration CI Support": {
+      "open": 15,
+      "over_60": 0,
+      "30_60": 0,
+      "under_30": 15
+    },
+    "Mana IT Agent": {
+      "open": 12,
+      "over_60": 0,
+      "30_60": 0,
+      "under_30": 12
+    },
+    "Exploration IT Support": {
+      "open": 8,
+      "over_60": 0,
+      "30_60": 0,
+      "under_30": 8
+    },
+    "Lafigue IT Agents": {
+      "open": 5,
+      "over_60": 0,
+      "30_60": 0,
+      "under_30": 5
+    },
+    "Hounde IT Agents": {
+      "open": 3,
+      "over_60": 0,
+      "30_60": 0,
+      "under_30": 3
+    },
+    "Tanda IT Agents": {
+      "open": 2,
+      "over_60": 0,
+      "30_60": 2,
+      "under_30": 0
+    },
+    "Exploration BF Support": {
+      "open": 1,
+      "over_60": 0,
+      "30_60": 0,
+      "under_30": 1
+    },
+    "Ouaga IT Agents": {
+      "open": 1,
+      "over_60": 0,
+      "30_60": 0,
+      "under_30": 1
+    }
+  },
+  "fcr_reopened": 1
+}

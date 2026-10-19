@@ -1,0 +1,21 @@
+{
+  "key": "site-weekly",
+  "title": "Site weekly operations",
+  "audience": "site",
+  "grid": { "columns": 12 },
+  "filters": [
+    { "key": "site", "type": "site" },
+    { "key": "window", "type": "window", "default": "rolling13w" }
+  ],
+  "widgets": [
+    { "id": "kpi-inbound",  "type": "kpi", "metric": "helpdesk.inbound",              "title": "Inbound tickets",  "compare": "prev", "layout": { "x": 0, "y": 0, "w": 3, "h": 2 } },
+    { "id": "kpi-closed",   "type": "kpi", "metric": "helpdesk.closed",               "title": "Closed tickets",   "compare": "prev", "layout": { "x": 3, "y": 0, "w": 3, "h": 2 } },
+    { "id": "kpi-res-sla",  "type": "kpi", "metric": "helpdesk.resolution_sla_pct",   "title": "Resolution SLA",   "rag": "sla-percent", "layout": { "x": 6, "y": 0, "w": 3, "h": 2 } },
+    { "id": "kpi-frt-sla",  "type": "kpi", "metric": "helpdesk.first_reply_sla_pct",  "title": "First-reply SLA",  "rag": "sla-percent", "layout": { "x": 9, "y": 0, "w": 3, "h": 2 } },
+    { "id": "trend-volume", "type": "trend", "metric": "helpdesk.inbound", "series": ["helpdesk.inbound", "helpdesk.closed"], "title": "13-week volume", "layout": { "x": 0, "y": 2, "w": 8, "h": 4 } },
+    { "id": "rag-wan",      "type": "ragGrid", "metric": "wan.availability_pct", "rag": "sla-percent", "title": "WAN availability by circuit", "layout": { "x": 8, "y": 2, "w": 4, "h": 4 } },
+    { "id": "actions-open", "type": "actions", "sources": ["meetings", "inspection", "report"], "onlyOverdue": false, "title": "Open actions", "layout": { "x": 0, "y": 6, "w": 8, "h": 4 } },
+    { "id": "tracker",      "type": "trackerRag", "tracker": "it-activity-2026", "title": "Activity tracker — this month", "layout": { "x": 8, "y": 6, "w": 4, "h": 4 } },
+    { "id": "note",         "type": "text", "markdown": "Data as of the last sync. Formulas: see Help ▸ KPI dictionary.", "layout": { "x": 0, "y": 10, "w": 12, "h": 1 } }
+  ]
+}

@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Intégration Infra WAN — Meraki (dispo/qualité) × SDP + SLA / refacturation ISP</title>
+<style>
+  :root{
+    --navy:#1E3A5F; --blue:#145FAE; --green:#16A34A; --amber:#D97706; --red:#D90038;
+    --ink:#1f2933; --muted:#5b6773; --line:#d7dde3; --bg:#f4f6f8; --box:#ffffff;
+  }
+  *{box-sizing:border-box}
+  body{font-family:"Segoe UI",Calibri,Arial,sans-serif;color:var(--ink);line-height:1.5;margin:0;background:var(--bg)}
+  .page{max-width:900px;margin:0 auto;padding:32px 40px 64px;background:var(--box)}
+  h1{font-size:1.7rem;color:var(--navy);margin:0 0 4px;line-height:1.2}
+  .sub{color:var(--muted);font-size:.95rem;margin:0 0 6px}
+  .meta{font-size:.78rem;color:var(--muted);border-bottom:2px solid var(--navy);padding-bottom:14px;margin-bottom:22px}
+  h2{font-size:1.22rem;color:var(--navy);margin:30px 0 8px;border-left:5px solid var(--blue);padding-left:10px}
+  h3{font-size:1.02rem;color:var(--navy);margin:20px 0 6px}
+  p{margin:8px 0}
+  ul,ol{margin:8px 0 8px 4px;padding-left:22px}
+  li{margin:4px 0}
+  table{border-collapse:collapse;width:100%;margin:12px 0;font-size:.86rem}
+  th,td{border:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top}
+  th{background:var(--navy);color:#fff;font-weight:600}
+  tbody tr:nth-child(even){background:#f7f9fb}
+  code{background:#eef2f6;border:1px solid #e0e6ec;border-radius:3px;padding:1px 5px;font-family:Consolas,monospace;font-size:.85em}
+  .tag{display:inline-block;font-size:.72rem;font-weight:700;border-radius:10px;padding:2px 9px;color:#fff;white-space:nowrap}
+  .ok{background:var(--green)} .part{background:var(--amber)} .no{background:var(--red)} .info{background:var(--blue)}
+  .callout{border:1px solid var(--line);border-left:5px solid var(--amber);background:#fff8ef;padding:12px 14px;border-radius:6px;margin:14px 0}
+  .callout.risk{border-left-color:var(--red);background:#fff2f5}
+  .callout.win{border-left-color:var(--green);background:#f1faf3}
+  .callout b{color:var(--navy)}
+  .flow{background:#0f1b2b;color:#e6edf5;border-radius:8px;padding:14px 16px;font-family:Consolas,monospace;font-size:.82rem;white-space:pre-wrap;line-height:1.55;margin:12px 0}
+  .lead{font-size:1rem;background:#eef4fb;border:1px solid #d5e3f3;border-radius:6px;padding:12px 16px}
+  .src{font-size:.78rem;color:var(--muted);word-break:break-word}
+  .toc{background:#f7f9fb;border:1px solid var(--line);border-radius:6px;padding:12px 18px;font-size:.9rem}
+  .toc ol{margin:4px 0}
+  footer{margin-top:34px;border-top:1px solid var(--line);padding-top:12px;font-size:.78rem;color:var(--muted)}
+  @media print{body{background:#fff}.page{max-width:none;padding:0 8mm}h2{break-after:avoid}table,.callout,.flow{break-inside:avoid}}
+</style>
+</head>
+<body>
+<div class="page">
+
+<h1>Infra WAN — Meraki (dispo / qualité)&nbsp;×&nbsp;SDP + SLA / refacturation ISP</h1>
+<p class="sub">Étude de faisabilité sourcée, état de l'existant &amp; plan d'implémentation progressif — disponibilité WAN fidèle à Meraki + instrument de refacturation ISP</p>
+<div class="meta">
+  Programme : Intégration Supervision × SDP Dashboard &nbsp;·&nbsp; Sous-projet <b>Infra WAN</b> (Meraki cloud + OpManager) &nbsp;·&nbsp;
+  Version 1 &nbsp;·&nbsp; 18 août 2026<br>
+  Périmètre outils : Meraki Dashboard API (MX cloud) · Meraki Insight · OpManager (Analytics Plus) · SDP Dashboard
+</div>
+
+<div class="toc">
+<b>Sommaire</b>
+<ol>
+  <li>Objectif &amp; périmètre</li>
+  <li>Architecture (deux instruments distincts)</li>
+  <li>Comment Meraki calcule la disponibilité — sourcé</li>
+  <li>Preuve de faisabilité — sourcée</li>
+  <li>État de l'existant (déjà construit)</li>
+  <li>Écarts à corriger pour être « exactement comme Meraki »</li>
+  <li>Prérequis &amp; gates d'activation (côté client)</li>
+  <li>Plan d'implémentation progressif</li>
+  <li>Garde-fous, risques &amp; rollback</li>
+  <li>Sources</li>
+</ol>
+</div>
+
+<h2>1. Objectif &amp; périmètre</h2>
+<p class="lead">Donner à l'IT une <b>vision fiable de la disponibilité &amp; qualité WAN par site et par lien</b> (WAN1/WAN2), <b>alignée sur les chiffres que Meraki affiche lui-même</b>, et en tirer deux usages : (a) l'<b>auto-remplissage</b> des KPIs infra du rapport hebdo/mensuel, et (b) un <b>instrument SLA / refacturation ISP</b> défendable (crédit de service contractuel), là où l'ISP <b>ne fournit aucun rapport</b>.</p>
+<p><b>Hors périmètre</b> : LAN/WLAN/Serveurs (couverts par OpManager → Analytics Plus, sous-projet voisin) ; SLA de réponse helpdesk (Phase 2) ; sites hors fuseau UTC.</p>
+
+<h2>2. Architecture (deux instruments distincts)</h2>
+<p>Le WAN alimente <b>deux instruments séparés</b> qui ne se mélangent pas :</p>
+<div class="flow">Meraki Dashboard API (lecture seule)
+   │
+   ├─► [A] WAN Health + Auto-fill rapport   →  disponibilité "% Time Up" fidèle Meraki (dérivée loss/latence)
+   │        table wan_link_snapshots            → cartes WAN Health + cellules Infra du rapport hebdo/mensuel
+   │
+   └─► [B] SLA / Refacturation ISP          →  coupures totales dans l'horaire de service → crédit % du MRC
+            table wan_outages                   → vue Chargeback + export de preuve (le rapport que l'ISP ne donne pas)</div>
+<p><b>[A]</b> répond à « le lien est-il sain, quel est le % de dispo ? » (opérationnel). <b>[B]</b> répond à « combien de temps l'ISP nous doit-il un crédit ? » (contractuel, mesuré <b>uniquement dans l'horaire de service</b>, cible SILVER 97 %).</p>
+
+<h2>3. Comment Meraki calcule la disponibilité — <span class="tag ok">sourcé</span></h2>
+<p>Point crucial vérifié dans la documentation officielle Meraki, pour reproduire <b>exactement</b> ses chiffres dans le rapport :</p>
+<ul>
+  <li>Meraki <b>ping une destination</b> (par défaut <code>8.8.8.8</code>, configurable sous <i>Security &amp; SD-WAN → SD-WAN &amp; Traffic Shaping → Uplink Statistics</i>) <b>toutes les secondes</b>.</li>
+  <li>Un lien est <b>DOWN</b> quand il voit <b>100 % de perte de paquets pendant 5 minutes</b> vers la destination <b>primaire</b>.</li>
+  <li><b>Nuance</b> : 100 % de perte vers une destination <i>alternative</i> mais pas la primaire → signalé visuellement mais <b>PAS compté « down »</b>.</li>
+  <li><b>« % Time Up »</b> = fraction du temps <b>non passée dans cet état down</b>, pendant que le MX est en ligne.</li>
+</ul>
+<div class="callout win"><b>Conséquence favorable.</b> Le « % Time Up » du Summary Report est donc <b>dérivable</b> du <code>getDeviceLossAndLatencyHistory</code> (documenté, fiable, gratuit) — <b>pas besoin de l'event-log</b> (non documenté) <b>ni de la licence Insight</b>. Il suffit de dériver avec la <b>même règle que Meraki</b> (voir §6) puis de <b>calibrer</b> contre le Summary Report.</p></div>
+
+<h2>4. Preuve de faisabilité — <span class="tag ok">confirmé</span> / <span class="tag part">à vérifier</span></h2>
+<table>
+<thead><tr><th>Capacité</th><th>Verdict</th><th>Détail</th></tr></thead>
+<tbody>
+<tr><td>Meraki — loss/latence/jitter/goodput par lien &amp; par intervalle</td><td><span class="tag ok">confirmé</span></td><td><code>getDeviceLossAndLatencyHistory</code> (≤31 j, résolution réglable jusqu'à 60 s). C'est la source documentée de la dispo.</td></tr>
+<tr><td>Meraki — règle de détection down (100 % perte 5 min, destination primaire)</td><td><span class="tag ok">confirmé</span></td><td>Doc WAN Health / connectivity monitoring. C'est ainsi qu'on reproduit le « % Time Up ».</td></tr>
+<tr><td>Meraki — statut courant des uplinks (active/ready/failed…)</td><td><span class="tag ok">confirmé</span></td><td><code>getOrganizationApplianceUplinkStatuses</code> — instantané seulement (pas d'historique).</td></tr>
+<tr><td>Meraki — destinations de monitoring par network</td><td><span class="tag ok">confirmé</span></td><td><code>getNetworkApplianceConnectivityMonitoringDestinations</code> — pour cibler la <b>primaire</b>.</td></tr>
+<tr><td>Meraki — <b>event-log</b> uplink up/down (transitions horodatées)</td><td><span class="tag part">à vérifier sur l'org</span></td><td>La doc <b>ne confirme pas</b> les types d'événements uplink pour l'appliance ; rétention non documentée. → probe de découverte requis (§7).</td></tr>
+<tr><td>Meraki — <b>alertes WAN à webhook</b> (« WAN Uplink status », « lien non fonctionnel »)</td><td><span class="tag ok">confirmé (org configuré)</span></td><td>Alertes natives déjà en place (captures fournies). Peuvent <b>pousser</b> la transition up/down en temps réel → source idéale des coupures SLA (§8, Phase 3).</td></tr>
+<tr><td>Meraki — <b>Insight</b> (uptime direct)</td><td><span class="tag part">licence à confirmer</span></td><td>Le nav « Insight » est présent dans l'org. <code>getOrganizationInsightApplianceHealthByTime</code> donnerait l'uptime direct — <b>si</b> la licence add-on couvre les MX visés.</td></tr>
+<tr><td>OpManager → Analytics Plus (LAN/WLAN/Serveurs)</td><td><span class="tag ok">confirmé (voisin)</span></td><td>Vue quotidienne préparée <code>OPS_OPM_Device_Availability_Daily</code> ; SDP classe + agrège. Voir sous-projet OpManager.</td></tr>
+</tbody>
+</table>
+
+<h2>5. État de l'existant (déjà construit, sur <code>main</code>, non déployé)</h2>
+<table>
+<thead><tr><th>Bloc</th><th>Statut</th><th>Contenu</th></tr></thead>
+<tbody>
+<tr><td>WAN dispo &amp; qualité (V1b-A→D)</td><td><span class="tag ok">construit</span></td><td>Client Meraki lecture seule ; <code>wan_link_snapshots</code> (hebdo+mensuel) ; collecteur ; dashboard <b>WAN Health</b> ; auto-fill des cellules infra du rapport <b>hebdo</b>.</td></tr>
+<tr><td>WAN par sous-site — Exploration (V1b-E)</td><td><span class="tag ok">construit</span></td><td>Un rapport, plusieurs sous-sites (<code>WAN1 FETEKRO</code>…) → chaque sous-site avec sa propre ligne WAN a son network Meraki. Token-gaté (sites normaux inchangés).</td></tr>
+<tr><td>SLA / Refacturation ISP (SLA V1)</td><td><span class="tag ok">construit</span></td><td>Moteur pur (dispo dans l'horaire de service + crédit paliers % du MRC) ; store <code>wan_outages</code> ; poller 5 min + notif ISP 15 min (armée-OFF) ; ingester event-log ; routes + cron ; carte admin « SLA WAN » ; vue Chargeback + export preuve.</td></tr>
+<tr><td>OpManager dispo LAN/WLAN/Serveurs (V1a-b)</td><td><span class="tag ok">construit</span></td><td>Via Analytics Plus ; snapshots <code>infra_metric_snapshots</code> ; auto-fill rapport.</td></tr>
+</tbody>
+</table>
+
+<h2>6. Écarts à corriger pour être « exactement comme Meraki »</h2>
+<p>La dérivation V1b actuelle diverge de la méthode Meraki sur 3 points (c'est ce qui a produit l'écart <b>100 % chez nous vs 22 % chez Meraki</b> sur un lien dégradé) :</p>
+<table>
+<thead><tr><th>Notre dérivation V1b</th><th>Meraki (documenté)</th><th>Correction</th></tr></thead>
+<tbody>
+<tr><td>Résolution <b>1 heure</b></td><td>ping/seconde, décision sur fenêtre <b>5 min</b></td><td>Résolution <b>≤5 min</b> — sinon une heure à 17 % masque les fenêtres 5 min à 100 %</td></tr>
+<tr><td>« up si UNE destination répond » (min sur toutes)</td><td>décision sur la <b>destination primaire</b> seule</td><td>Utiliser la <b>primaire</b>, pas le min sur toutes</td></tr>
+<tr><td>« down ssi loss = 100 % » par intervalle</td><td>down = <b>100 % soutenu 5 min</b></td><td>Down = 100 % <b>soutenu ≥5 min</b></td></tr>
+</tbody>
+</table>
+<div class="callout"><b>Puis calibration.</b> L'agrégation fine du « % Time Up » n'est pas publiée par Meraki → après les 3 corrections, on cale les bords via <code>tools/meraki/calibrate.js</code> contre le Summary Report (ex. Ity 99.86 / 97.87). C'est la <b>gate</b> qui valide « fidèle à Meraki ».</div>
+
+<h2>7. Prérequis &amp; gates d'activation (côté client — clés en ENV, jamais affichées)</h2>
+<ol>
+  <li><b>Clé API Meraki + Org ID</b> (numérique, pas l'URL <code>/o/&lt;slug&gt;</code>) — renseignés dans Admin → Infra.</li>
+  <li><b>Mapping Site ↔ network Meraki</b> + sous-sites Exploration (éditable dans l'admin, sans déploiement).</li>
+  <li><b>Destination de monitoring primaire</b> cohérente sur chaque MX (celle qui décide le down).</li>
+  <li><b>Découverte</b> : probe sur l'org réel pour trancher (a) l'event-log émet-il des uplink up/down + types + rétention ; (b) Insight couvre-t-il les MX ; (c) la dérivation loss calibrée reproduit-elle le Summary Report.</li>
+  <li><b>Calibration</b> : lancer <code>calibrate.js</code>, régler <code>meraki_missing_policy</code>.</li>
+  <li><b>SLA</b> : mapper circuits (uplink→ISP, calendrier horaire par site, MRC, contact ISP) + <b>armer</b> la notif 15 min.</li>
+  <li><b>Webhook (Phase 3, optionnel)</b> : pointer l'alerte « WAN Uplink status » vers l'endpoint dashboard pour la capture temps-réel des coupures SLA.</li>
+</ol>
+
+<h2>8. Plan d'implémentation progressif</h2>
+<h3>Phase 0 — Découverte &amp; calibration <span class="tag info">gate</span></h3>
+<p>Probe org (event-log / Insight / loss-fidélité) + calibration contre le Summary Report. <b>Ne dépend pas de dev neuf</b> — dépend de la clé Meraki (client). Livrable : décision de source (loss calibré ✓ par défaut, Insight ou webhook si disponibles).</p>
+<h3>Phase 1 — Dispo « fidèle Meraki » pour le rapport <span class="tag ok">recommandé</span></h3>
+<p>Corriger la dérivation (résolution ≤5 min + destination primaire + 100 %-5 min), calibrée. Alimente WAN Health + l'auto-fill hebdo.</p>
+<h3>Phase 2 — Auto-fill mensuel + sélecteur de dates</h3>
+<p>Câbler l'auto-fill <b>mensuel</b> (fenêtre mois coupée aux jours écoulés, plus d'artefact « fraction du mois »). Ajouter le sélecteur <b>last day / last week / custom</b> sur WAN Health pour réconcilier avec un custom range Meraki identique.</p>
+<h3>Phase 3 — SLA temps-réel par webhook (optionnel)</h3>
+<p>Basculer la capture des coupures SLA du polling vers le <b>webhook Meraki</b> « WAN Uplink status » (transitions horodatées, poussées, sans rétention à gérer).</p>
+
+<h2>9. Garde-fous, risques &amp; rollback</h2>
+<ul>
+  <li><b>Tout config-gaté + best-effort</b> : sans clé Meraki, tout est inerte ; un échec de collecte garde les snapshots précédents.</li>
+  <li><b>Deux instruments séparés</b> : le SLA ne touche ni WAN Health, ni <code>wan_link_snapshots</code>, ni les decks PPTX.</li>
+  <li><b>Notif ISP armée-OFF</b> par défaut : aucun envoi tant que l'admin n'a pas renseigné le contact + coché l'arme ; jamais d'envoi après rétablissement.</li>
+  <li><b>Rollback</b> : additif et réversible — retirer la clé / désactiver l'arme suffit, aucune modification destructive.</li>
+  <li><b>Risque principal (attribution)</b> : « uplink down » mesuré côté MX ≈ circuit ISP, mais un ISP peut contester (électricité last-mile, démarcation). Garde-fous : exclusion wan1+wan2 simultané, fenêtres de maintenance, export de preuve. Le contrat gouverne le chiffre liant.</li>
+</ul>
+
+<h2>10. Sources</h2>
+<p class="src"><b>Meraki — détection down &amp; WAN Health :</b>
+documentation.meraki.com — MI WAN Health Overview ·
+Summary Report Overview (Platform Management → Monitoring &amp; Reporting) ·
+Uplink Statistics / connectivity monitoring (Security &amp; SD-WAN).</p>
+<p class="src"><b>Meraki Dashboard API v1 :</b>
+developer.cisco.com/meraki — Get Device Loss And Latency History ·
+Get Organization Appliance Uplink Statuses ·
+Get Network Appliance Connectivity Monitoring Destinations ·
+Get Network Events ·
+Get Network Insight Application Health By Time.</p>
+<p class="src"><b>Interne :</b>
+<code>docs/superpowers/specs/2026-08-17-wan-sla-isp-chargeback-design.md</code> ·
+<code>docs/superpowers/plans/2026-08-17-wan-sla-isp-chargeback.md</code> ·
+specs/plans V1b-A→E (Infra WAN) ·
+CLAUDE.md (Current state + Known pitfalls).</p>
+
+<footer>
+Document interne SDP Dashboard — Intégration Infra WAN Meraki. Additif, config-gaté, réversible.
+Toutes les capacités « confirmé » sont sourcées ; les « à vérifier » exigent un probe sur l'org réel avant d'être tenues pour acquises.
+</footer>
+</div>
+</body>
+</html>

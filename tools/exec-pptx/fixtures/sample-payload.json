@@ -1,0 +1,95 @@
+{
+  "_README": "SAMPLE / SMOKE-TEST PAYLOAD ONLY — not real data. Used to verify render.py works end-to-end. The numbers below are illustrative (loosely based on April 2026 reference deck). Renderer ignores keys starting with underscore.",
+  "filters": {
+    "period_label": "April 2026",
+    "period_short": "Apr 2026",
+    "prev_period_short": "Mar",
+    "month_name": "April",
+    "year": 2026,
+    "prepared_by": "Mohamed Diagne"
+  },
+  "kpis": {
+    "total_tickets": 1472,
+    "closed_tickets": 1302,
+    "closure_rate": 88.5,
+    "sla_res_pct": 90.2,
+    "frt_sla_pct": 74.3,
+    "open_backlog": 226,
+    "fcr_rate": 17.7,
+    "csat_pct": 82,
+    "nps": 48,
+    "prev_csat_pct": 84,
+    "prev_nps": 50,
+    "prev_total_tickets": 1598,
+
+    "mom_total_pct": -8,
+    "mom_closure_pp": -7.8,
+    "mom_sla_pp": 2.4,
+    "mom_closed_pct": -18,
+    "mom_frt_pp": 1.2,
+    "mom_csat_pp": -2,
+    "mom_nps": -2,
+
+    "email_pct": 70.7,
+    "email_count": 1040,
+    "mom_email_pp": 5.4,
+    "webform_pct": 28.3,
+    "webform_count": 417,
+    "mom_webform_pp": 8.4
+  },
+  "monthly_trend": [
+    {"label": "May 25", "inbound":  945, "closed":  945, "res_sla": 60, "frt_sla": 65},
+    {"label": "Jun 25", "inbound":  357, "closed":  357, "res_sla": 50, "frt_sla": 55},
+    {"label": "Jul 25", "inbound":  918, "closed":  918, "res_sla": 70, "frt_sla": 65},
+    {"label": "Aug 25", "inbound":  918, "closed":  918, "res_sla": 65, "frt_sla": 60},
+    {"label": "Sep 25", "inbound": 1140, "closed": 1140, "res_sla": 78, "frt_sla": 70},
+    {"label": "Oct 25", "inbound": 1277, "closed": 1277, "res_sla": 72, "frt_sla": 68},
+    {"label": "Nov 25", "inbound": 1471, "closed": 1471, "res_sla": 65, "frt_sla": 60},
+    {"label": "Dec 25", "inbound": 1471, "closed": 1471, "res_sla": 80, "frt_sla": 70},
+    {"label": "Jan 26", "inbound": 1485, "closed": 1485, "res_sla": 82, "frt_sla": 70},
+    {"label": "Feb 26", "inbound": 1485, "closed": 1485, "res_sla": 84, "frt_sla": 71},
+    {"label": "Mar 26", "inbound": 1598, "closed": 1598, "res_sla": 88, "frt_sla": 73},
+    {"label": "Apr 26", "inbound": 1472, "closed": 1302, "res_sla": 90, "frt_sla": 74}
+  ],
+  "categories": [
+    {"name": "Hardware",            "current": 312, "previous": 290},
+    {"name": "Software",            "current": 248, "previous": 230},
+    {"name": "Network",             "current": 198, "previous": 215},
+    {"name": "Access / Login",      "current": 185, "previous": 172},
+    {"name": "Email / O365",        "current": 142, "previous": 158},
+    {"name": "Printer",             "current":  95, "previous": 102},
+    {"name": "Telephony",           "current":  78, "previous":  68},
+    {"name": "Other",               "current": 214, "previous": 363}
+  ],
+  "channels": [
+    {"name": "E-Mail",   "current": 1040, "previous":  920},
+    {"name": "Web Form", "current":  417, "previous":  340},
+    {"name": "Phone",    "current":   12, "previous":   18},
+    {"name": "Walk-in",  "current":    3, "previous":    8}
+  ],
+  "ageing": [
+    {"group": "Sabodala",    "t0_30": 38, "t31_45": 12, "t46_60":  9, "t_over_60": 11},
+    {"group": "Hounde",      "t0_30": 32, "t31_45":  8, "t46_60":  6, "t_over_60":  9},
+    {"group": "ITY",         "t0_30": 29, "t31_45":  7, "t46_60":  5, "t_over_60":  4},
+    {"group": "MANA",        "t0_30": 22, "t31_45":  6, "t46_60":  3, "t_over_60":  2},
+    {"group": "Lafigue",     "t0_30": 18, "t31_45":  5, "t46_60":  2, "t_over_60":  1},
+    {"group": "Kalana",      "t0_30": 15, "t31_45":  4, "t46_60":  1, "t_over_60":  0},
+    {"group": "Abidjan",     "t0_30": 12, "t31_45":  2, "t46_60":  0, "t_over_60":  0},
+    {"group": "Exploration", "t0_30":  8, "t31_45":  1, "t46_60":  0, "t_over_60":  0}
+  ],
+  "csat": {
+    "promoters":  82,
+    "passives":   34,
+    "detractors":  6,
+    "total_responses": 122
+  },
+  "changes": {
+    "total":         22,
+    "emergency":      1,
+    "emergency_pct":4.5,
+    "major":          6,
+    "standard":      15,
+    "completed":      1,
+    "in_progress":    9
+  }
+}

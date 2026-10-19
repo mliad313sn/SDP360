@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meetings setup · Codes de référence — Endeavour Mining IT</title>
+
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="brand/icons.css">
+<link rel="stylesheet" href="brand/components.css">
+<link rel="stylesheet" href="_shell.css">
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<link rel="stylesheet" href="module-tabs.css">
+<script nonce="%%CSP_NONCE%%" src="module-tabs.js"></script>
+
+<style nonce="%%CSP_NONCE%%">
+  body {
+    margin: 0; background: var(--color-bg, #F4F5F7);
+    color: var(--color-text-strong, #1F2A33);
+    font-family: var(--font-sans, 'Libre Franklin', sans-serif);
+    font-size: 14px; line-height: 1.45;
+  }
+  .ms-wrap { max-width: 1500px; margin: 0 auto; padding: 24px 28px 48px; }
+
+  /* ── Module tabs (shared with sibling meetings pages) ────────────── */
+  .mtg-tabs {
+    display: inline-flex; gap: 2px;
+    background: #F3F4F6;
+    border: 1px solid #E5E7EB;
+    border-radius: 10px;
+    padding: 3px;
+    margin: 0 0 16px 0;
+  }
+  .mtg-tabs__btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 8px 16px;
+    font-size: 13px; font-weight: 600;
+    color: #6B7280;
+    background: transparent;
+    border: 0; border-radius: 7px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background-color .12s, color .12s;
+  }
+  .mtg-tabs__btn:hover { color: #1F2937; background: #FFFFFF; }
+  .mtg-tabs__btn--active {
+    color: #1F2937; background: #FFFFFF;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+    border-bottom: 2px solid var(--edv-orange, #E87722);
+    padding-bottom: 6px;
+  }
+  /* Setup tab is super_admin-only; hidden by default, revealed via JS
+     once auth.js exposes the role on window.__userHasRole. */
+  .mtg-tabs__btn--admin { display: none; }
+
+  /* ── Hero ────────────────────────────────────────────────────────── */
+  .ms-hero {
+    background: var(--color-card, #fff); border: 1px solid var(--color-border, #E2E5EA);
+    border-radius: 14px; box-shadow: 0 1px 2px rgba(58,74,96,.04);
+    padding: 20px 24px 18px; margin-bottom: 18px;
+    position: relative; overflow: hidden;
+  }
+  .ms-hero::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 6px;
+    background: var(--edv-orange, #E87722);
+  }
+  .ms-eyebrow {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1.4px; color: var(--edv-orange, #E87722); margin-bottom: 6px;
+  }
+  .ms-hero h1 { margin: 0 0 4px; font-size: 22px; font-weight: 800; color: var(--edv-slate, #3A4A60); }
+  .ms-hero p { margin: 0; font-size: 12.5px; color: var(--color-text-muted, #7B7B7B); max-width: 78ch; }
+
+  /* ── Picker bar ─────────────────────────────────────────────────── */
+  .ms-bar {
+    display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+    background: var(--color-card, #fff); border: 1px solid var(--color-border, #E2E5EA);
+    border-radius: 12px; padding: 14px 18px; margin-bottom: 14px;
+  }
+  .ms-bar label {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.6px; color: var(--color-text-muted, #7B7B7B);
+  }
+  .ms-bar select {
+    background: var(--color-card, #fff); border: 1px solid var(--color-border, #E2E5EA);
+    border-radius: 6px; padding: 8px 12px; font: 500 13px var(--font-sans);
+    color: var(--color-text-strong, #1F2A33); min-width: 280px;
+  }
+  .ms-bar .ms-count {
+    font-size: 11.5px; color: var(--color-text-muted, #7B7B7B); font-style: italic;
+  }
+  .ms-bar .ms-spacer { flex: 1; }
+  .ms-btn-primary {
+    background: var(--edv-orange, #E87722); color: #fff;
+    border: 1px solid var(--edv-orange, #E87722);
+    border-radius: 6px; padding: 8px 14px; font: 700 12.5px var(--font-sans);
+    cursor: pointer; text-decoration: none;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .ms-btn-primary:hover { background: #C04E10; }
+  .ms-btn-ghost {
+    background: transparent; color: var(--color-text-strong, #1F2A33);
+    border: 1px solid var(--color-border, #E2E5EA);
+    border-radius: 6px; padding: 8px 14px; font: 700 12.5px var(--font-sans);
+    cursor: pointer; text-decoration: none;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .ms-btn-ghost:hover { background: var(--color-bg, #F4F5F7); }
+  .ms-btn-sm { padding: 4px 10px; font-size: 11.5px; }
+
+  /* ── Lookups table ──────────────────────────────────────────────── */
+  .ms-table-card {
+    background: var(--color-card, #fff); border: 1px solid var(--color-border, #E2E5EA);
+    border-radius: 12px; overflow: hidden;
+  }
+  .ms-table {
+    display: grid; grid-template-rows: auto;
+  }
+  .ms-table__head, .ms-row {
+    display: grid;
+    grid-template-columns: minmax(140px, 1.2fr) minmax(140px, 1.5fr) minmax(140px, 1.5fr) 80px 100px 240px;
+    gap: 10px; align-items: center;
+    padding: 11px 16px; font-size: 13px;
+  }
+  .ms-table__head {
+    font-size: 10.5px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.6px; color: var(--color-text-muted, #7B7B7B);
+    background: var(--color-bg, #F4F5F7);
+    border-bottom: 1px solid var(--color-border, #E2E5EA);
+  }
+  .ms-row {
+    border-top: 1px solid var(--color-border-subtle, #EEF0F3);
+  }
+  .ms-row:first-child { border-top: 0; }
+  .ms-row:hover { background: rgba(232,119,34,.04); }
+  .ms-row--inactive { opacity: 0.55; }
+  .ms-row__code {
+    font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+    font-weight: 600; color: var(--edv-blue, #145FAE); font-size: 13px;
+  }
+  .ms-row__order { text-align: center; font-variant-numeric: tabular-nums; }
+  .ms-row__state { text-align: center; }
+  .ms-chip-active   { background: #DCFCE7; color: #14532D; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+  .ms-chip-inactive { background: #FEE2E2; color: #991B1B; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+  .ms-row__actions { display: flex; gap: 6px; }
+  .ms-empty {
+    padding: 32px; text-align: center; color: var(--color-text-muted, #7B7B7B);
+    font-size: 13px; font-style: italic;
+  }
+
+  /* ── Modal ───────────────────────────────────────────────────────── */
+  .ms-modal-overlay {
+    position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55);
+    display: none; align-items: center; justify-content: center; z-index: 9999;
+  }
+  .ms-modal-overlay.open { display: flex; }
+  .ms-modal {
+    background: #fff; border-radius: 12px; padding: 22px 26px;
+    max-width: 560px; width: 100%; max-height: 92vh; overflow: auto;
+    box-shadow: 0 25px 50px rgba(15, 23, 42, .30);
+  }
+  .ms-modal h2 { margin: 0 0 14px; font-size: 17px; color: var(--edv-slate, #3A4A60); }
+  .ms-form-group { margin-bottom: 12px; }
+  .ms-form-group label {
+    display: block; margin-bottom: 4px;
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.5px; color: var(--color-text-muted, #7B7B7B);
+  }
+  .ms-form-group input, .ms-form-group select {
+    width: 100%; padding: 8px 11px; box-sizing: border-box;
+    border: 1px solid var(--color-border, #E2E5EA); border-radius: 6px;
+    font: 500 13px var(--font-sans); color: var(--color-text-strong, #1F2A33);
+    background: #fff;
+  }
+  .ms-form-group input:read-only { background: #F3F4F6; cursor: not-allowed; }
+  .ms-form-row {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+  }
+  .ms-form-hint {
+    font-size: 11px; color: var(--color-text-muted, #7B7B7B); margin-top: 4px; display: block;
+  }
+  .ms-modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+
+  /* ── Toast (bottom-right transient banner) ──────────────────────── */
+  .ms-toast {
+    position: fixed; bottom: 24px; right: 24px; z-index: 10000;
+    padding: 12px 18px; border-radius: 8px;
+    font: 600 13px var(--font-sans); color: #fff;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, .25);
+    opacity: 0; transform: translateY(8px); pointer-events: none;
+    transition: opacity .15s, transform .15s;
+  }
+  .ms-toast.show { opacity: 1; transform: translateY(0); }
+  .ms-toast--success { background: #16A34A; }
+  .ms-toast--error   { background: #DC2626; }
+  .ms-toast--info    { background: #2563EB; }
+
+  /* Forbidden card surfaces if a non-super_admin lands here directly. */
+  .ms-forbidden {
+    background: #FEF3C7; border: 1px solid #FBBF24; color: #78350F;
+    border-radius: 10px; padding: 18px 22px; font-size: 13.5px;
+  }
+
+  @media (max-width: 900px) {
+    .ms-table__head, .ms-row {
+      grid-template-columns: 1fr 1fr 1fr 60px 80px 200px;
+      gap: 6px; padding: 8px 12px; font-size: 12px;
+    }
+    .ms-form-row { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div id="__shell" data-section="operations" data-current="meetings"></div>
+
+<div class="ms-wrap">
+
+  <!-- Module tabs — Setup is super_admin-only (hidden by default, revealed in JS) -->
+  <div id="__moduletabs" data-module="meetings" data-current="setup"></div>
+
+  <section class="ms-hero">
+    <div class="ms-eyebrow">Insights · Meetings · Setup</div>
+    <h1>Codes de référence du module Réunions</h1>
+    <p>Gérez les 9 listes de référence utilisées par les formulaires et l'import en masse :
+       départements, catégories, sévérités, statuts, motifs d'escalade, thèmes du Conseil, etc.
+       Ajoutez, éditez ou désactivez (soft delete) un code — les PV historiques qui l'utilisent
+       conservent leur libellé d'origine.</p>
+  </section>
+
+  <!-- Forbidden card surfaces for non-super_admin users -->
+  <div class="ms-forbidden" id="msForbidden" style="display:none">
+    <strong>Accès réservé.</strong> Cette page est réservée aux utilisateurs avec le rôle
+    <code>super_admin</code>. Contactez votre administrateur pour gérer les codes de référence
+    du module Réunions.
+  </div>
+
+  <div id="msAdminRegion">
+
+    <div class="ms-bar">
+      <label for="msPicker">Liste :</label>
+      <select id="msPicker">
+        <option value="md_intake_sources">Intake sources — origine de la réunion</option>
+        <option value="md_departments">Departments — départements</option>
+        <option value="md_categories">Categories — catégories d'issues</option>
+        <option value="md_severities">Severities — niveaux de sévérité</option>
+        <option value="md_statuses">Statuses — statuts d'issues / actions</option>
+        <option value="md_meeting_statuses">Meeting statuses — statuts de réunion</option>
+        <option value="md_escalation_reasons">Escalation reasons — motifs d'escalade</option>
+        <option value="md_council_themes">Council themes — thèmes du Conseil IT</option>
+        <option value="md_project_phases">Project phases — phases projet</option>
+      </select>
+      <span class="ms-count" id="msCount"></span>
+      <div class="ms-spacer"></div>
+      <button class="ms-btn-primary" type="button" id="msAddBtn">+ Nouveau code</button>
+    </div>
+
+    <div class="ms-table-card">
+      <div class="ms-table">
+        <div class="ms-table__head" role="row">
+          <span>Code</span>
+          <span>Nom (EN)</span>
+          <span>Nom (FR)</span>
+          <span style="text-align:center">Ordre</span>
+          <span style="text-align:center">Statut</span>
+          <span>Actions</span>
+        </div>
+        <div id="msRows"></div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- Add / Edit modal -->
+<div class="ms-modal-overlay" id="msModal">
+  <div class="ms-modal" role="dialog" aria-modal="true">
+    <h2 id="msModalTitle">Nouveau code</h2>
+    <input type="hidden" id="msModalTable">
+    <input type="hidden" id="msModalMode">
+    <div class="ms-form-group">
+      <label for="msModalCode">Code (identifiant technique) *</label>
+      <input id="msModalCode" type="text" placeholder="ex. business_incubation">
+      <span class="ms-form-hint" id="msModalCodeHint">
+        Lettres, chiffres et underscores. Utilisé tel quel dans les fichiers d'import.
+      </span>
+    </div>
+    <div class="ms-form-group">
+      <label for="msModalNameEn">Nom (anglais) *</label>
+      <input id="msModalNameEn" type="text" placeholder="Business Incubation">
+    </div>
+    <div class="ms-form-group">
+      <label for="msModalNameFr">Nom (français)</label>
+      <input id="msModalNameFr" type="text" placeholder="Incubation d'entreprise">
+    </div>
+    <div class="ms-form-row">
+      <div class="ms-form-group">
+        <label for="msModalOrder">Ordre d'affichage</label>
+        <input id="msModalOrder" type="number" value="10" min="0">
+      </div>
+      <div class="ms-form-group">
+        <label for="msModalActive">Statut</label>
+        <select id="msModalActive">
+          <option value="1">Actif</option>
+          <option value="0">Désactivé (caché)</option>
+        </select>
+      </div>
+    </div>
+    <div class="ms-modal-actions">
+      <button class="ms-btn-ghost"   type="button" id="msModalCancel">Annuler</button>
+      <button class="ms-btn-primary" type="button" id="msModalSave">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div class="ms-toast" id="msToast" role="status" aria-live="polite"></div>
+
+<script nonce="%%CSP_NONCE%%">
+(function () {
+  'use strict';
+
+  const API = '/api/meetings/lookups';
+
+  // Auth headers — mirror the pattern from sibling meetings pages.
+  function authHeaders() {
+    const h = {};
+    const at = window.__authToken;
+    let tok = null;
+    if (typeof at === 'function') { try { tok = at(); } catch(_) {} }
+    else if (typeof at === 'string' && at) { tok = at; }
+    if (!tok) tok = localStorage.getItem('report_token');
+    if (tok) h['x-report-token'] = tok;
+    return h;
+  }
+
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => (
+    { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]
+  ));
+
+  // Friendly singular noun per table — surfaced in modal titles + toast text.
+  const LABELS = {
+    md_intake_sources:    'intake source',
+    md_departments:       'département',
+    md_categories:        'catégorie',
+    md_severities:        'sévérité',
+    md_statuses:          'statut',
+    md_meeting_statuses:  'statut de réunion',
+    md_escalation_reasons:'motif d\'escalade',
+    md_council_themes:    'thème du Conseil',
+    md_project_phases:    'phase projet',
+  };
+
+  // ── Bottom-right toast ────────────────────────────────────────────
+  let _toastTimer = null;
+  function toast(msg, kind) {
+    const el = document.getElementById('msToast');
+    el.textContent = msg;
+    el.className = 'ms-toast ms-toast--' + (kind || 'info') + ' show';
+    if (_toastTimer) clearTimeout(_toastTimer);
+    _toastTimer = setTimeout(() => { el.classList.remove('show'); }, 3200);
+  }
+
+  // ── Lightweight fetch wrapper that throws on non-2xx with a useful msg ──
+  async function call(method, path, body) {
+    const opts = { method, credentials: 'same-origin', headers: { ...authHeaders() } };
+    if (body !== undefined) {
+      opts.headers['Content-Type'] = 'application/json';
+      opts.body = JSON.stringify(body);
+    }
+    const r = await fetch(path, opts);
+    if (!r.ok) {
+      let msg = 'HTTP ' + r.status;
+      try {
+        const j = await r.json();
+        msg = j.error || j.message || msg;
+      } catch (_) {}
+      throw new Error(msg);
+    }
+    return r.status === 204 ? null : r.json();
+  }
+
+  // ── Role gate ─────────────────────────────────────────────────────
+  function hasSuperAdmin() {
+    try { return !!(window.__userHasRole && window.__userHasRole('super_admin')); }
+    catch (_) { return false; }
+  }
+
+  // ── Load + render current table ───────────────────────────────────
+  async function loadRows() {
+    const picker = document.getElementById('msPicker');
+    const rowsEl = document.getElementById('msRows');
+    const countEl= document.getElementById('msCount');
+    const table  = picker.value || 'md_intake_sources';
+    rowsEl.innerHTML = '<div class="ms-empty">Chargement…</div>';
+    countEl.textContent = '';
+    try {
+      const resp = await call('GET', API + '/' + encodeURIComponent(table));
+      const rows = resp.rows || [];
+      countEl.textContent = rows.length + ' code' + (rows.length !== 1 ? 's' : '');
+      if (!rows.length) {
+        rowsEl.innerHTML = '<div class="ms-empty">Aucun code — cliquez « + Nouveau code » pour en ajouter.</div>';
+        return;
+      }
+      rowsEl.innerHTML = rows.map(r => {
+        const isActive = r.active === 1 || r.active === true;
+        // Stash payload on a data attribute to wire Edit without inline JS.
+        const enc = encodeURIComponent(JSON.stringify({ table, ...r }));
+        return `
+          <div class="ms-row ${isActive ? '' : 'ms-row--inactive'}" role="row">
+            <span class="ms-row__code">${esc(r.code)}</span>
+            <span>${esc(r.name_en || '—')}</span>
+            <span>${esc(r.name_fr || '—')}</span>
+            <span class="ms-row__order">${r.display_order != null ? r.display_order : 0}</span>
+            <span class="ms-row__state">${isActive
+              ? '<span class="ms-chip-active">Actif</span>'
+              : '<span class="ms-chip-inactive">Désactivé</span>'}</span>
+            <span class="ms-row__actions">
+              <button class="ms-btn-ghost ms-btn-sm" type="button" data-act="edit" data-row="${enc}">Éditer</button>
+              <button class="ms-btn-ghost ms-btn-sm" type="button" data-act="toggle"
+                      data-table="${esc(table)}" data-code="${esc(r.code)}"
+                      data-next="${isActive ? 0 : 1}">${isActive ? '⊘ Désactiver' : '↻ Réactiver'}</button>
+            </span>
+          </div>`;
+      }).join('');
+    } catch (e) {
+      rowsEl.innerHTML = `<div class="ms-empty" style="color:#991B1B">Échec du chargement : ${esc(e.message || e)}</div>`;
+    }
+  }
+
+  // ── Modal ─────────────────────────────────────────────────────────
+  function openModal(row) {
+    const modal = document.getElementById('msModal');
+    const picker= document.getElementById('msPicker');
+    const table = (row && row.table) || picker.value || 'md_intake_sources';
+    const label = LABELS[table] || table.replace(/^md_/, '');
+
+    document.getElementById('msModalTable').value = table;
+    document.getElementById('msModalMode').value  = row ? 'edit' : 'add';
+    document.getElementById('msModalTitle').textContent = row
+      ? `Éditer le code « ${label} »`
+      : `Nouveau code « ${label} »`;
+
+    const codeInput = document.getElementById('msModalCode');
+    const codeHint  = document.getElementById('msModalCodeHint');
+    codeInput.value    = row ? row.code : '';
+    codeInput.readOnly = !!row;
+    codeHint.textContent = row
+      ? 'Le code est l\'identifiant unique de la ligne — non modifiable.'
+      : 'Lettres, chiffres et underscores. Utilisé tel quel dans les fichiers d\'import.';
+
+    document.getElementById('msModalNameEn').value = row ? (row.name_en || '') : '';
+    document.getElementById('msModalNameFr').value = row ? (row.name_fr || '') : '';
+    document.getElementById('msModalOrder').value  = row && row.display_order != null ? row.display_order : 10;
+    document.getElementById('msModalActive').value = row ? String((row.active === 1 || row.active === true) ? 1 : 0) : '1';
+
+    modal.classList.add('open');
+    setTimeout(() => { (row ? document.getElementById('msModalNameFr') : codeInput).focus(); }, 50);
+  }
+
+  function closeModal() {
+    document.getElementById('msModal').classList.remove('open');
+  }
+
+  async function submitModal() {
+    const table   = document.getElementById('msModalTable').value;
+    const mode    = document.getElementById('msModalMode').value;
+    const code    = document.getElementById('msModalCode').value.trim();
+    const name_en = document.getElementById('msModalNameEn').value.trim();
+    const name_fr = document.getElementById('msModalNameFr').value.trim();
+    const display_order = parseInt(document.getElementById('msModalOrder').value, 10) || 0;
+    const active  = document.getElementById('msModalActive').value === '1' ? 1 : 0;
+
+    if (!code)    { toast('Le code est obligatoire', 'error'); return; }
+    if (!name_en) { toast('Le nom anglais est obligatoire', 'error'); return; }
+
+    try {
+      if (mode === 'edit') {
+        await call('PUT',  `${API}/${encodeURIComponent(table)}/${encodeURIComponent(code)}`,
+                   { name_en, name_fr, display_order, active });
+        toast(`Code « ${code} » mis à jour`, 'success');
+      } else {
+        await call('POST', `${API}/${encodeURIComponent(table)}`,
+                   { code, name_en, name_fr, display_order, active });
+        toast(`Code « ${code} » créé`, 'success');
+      }
+      closeModal();
+      loadRows();
+    } catch (e) {
+      toast('Échec : ' + (e.message || e), 'error');
+    }
+  }
+
+  async function toggleActive(table, code, next) {
+    const verb = next ? 'réactiver' : 'désactiver';
+    const warn = next
+      ? `Réactiver le code « ${code} » ? Il réapparaîtra dans les listes déroulantes et sera accepté à l'import.`
+      : `Désactiver le code « ${code} » ?\n\nIl disparaîtra des listes déroulantes du formulaire et sera REJETÉ aux futurs imports.\nLes PV qui l'utilisent déjà gardent leur code intact (soft delete).`;
+    if (!confirm(warn)) return;
+    try {
+      await call('PATCH', `${API}/${encodeURIComponent(table)}/${encodeURIComponent(code)}/active`, { active: next });
+      toast(`Code « ${code} » ${next ? 'réactivé' : 'désactivé'}`, 'success');
+      loadRows();
+    } catch (e) {
+      toast(`Échec de la ${verb}ation : ` + (e.message || e), 'error');
+    }
+  }
+
+  // ── Wire-up ───────────────────────────────────────────────────────
+  // The role check has to wait until auth.js has resolved the session
+  // (it sets window.__userHasRole after the auth.js script runs). Auth.js
+  // is loaded with `data-require="any"` so we just need to wait for DOM
+  // ready and trust that auth.js has populated by then.
+  function init() {
+    if (!hasSuperAdmin()) {
+      document.getElementById('msForbidden').style.display = '';
+      document.getElementById('msAdminRegion').style.display = 'none';
+      return;
+    }
+    // Reveal the Setup tab in the strip (hidden by default for non-admin).
+    document.querySelectorAll('.mtg-tabs__btn--admin').forEach(el => { el.style.display = ''; });
+
+    document.getElementById('msPicker').addEventListener('change', loadRows);
+    document.getElementById('msAddBtn').addEventListener('click', () => openModal(null));
+    document.getElementById('msModalCancel').addEventListener('click', closeModal);
+    document.getElementById('msModalSave').addEventListener('click', submitModal);
+    document.getElementById('msModal').addEventListener('click', e => {
+      // Click outside the modal sheet → close.
+      if (e.target.id === 'msModal') closeModal();
+    });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && document.getElementById('msModal').classList.contains('open')) closeModal();
+    });
+
+    // Delegated Edit / Toggle button handlers.
+    document.getElementById('msRows').addEventListener('click', e => {
+      const btn = e.target.closest('button[data-act]');
+      if (!btn) return;
+      if (btn.dataset.act === 'edit') {
+        try {
+          const row = JSON.parse(decodeURIComponent(btn.dataset.row));
+          openModal(row);
+        } catch (_) { toast('Erreur de lecture de la ligne', 'error'); }
+      } else if (btn.dataset.act === 'toggle') {
+        toggleActive(btn.dataset.table, btn.dataset.code, parseInt(btn.dataset.next, 10));
+      }
+    });
+
+    loadRows();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,3913 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IT Assets — Endeavour Mining IT</title>
+
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="brand/icons.css">
+<link rel="stylesheet" href="brand/components.css">
+<link rel="stylesheet" href="_shell.css">
+<!-- Chart.js — same CDN + version the rest of the dashboard uses (already CSP-allowed).
+     Loaded ONCE for the whole tabbed module (Hygiene + Finance panes both use it). -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js" defer></script>
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+
+<style nonce="%%CSP_NONCE%%">
+  body {
+    margin: 0;
+    background: var(--color-background, #f4f6f7);
+    color: var(--color-text-primary, #1F2A33);
+    font-family: var(--font-sans, 'Libre Franklin', 'Franklin Gothic', system-ui, sans-serif);
+    font-size: 14px;
+  }
+  .as-wrap        { max-width: 1280px; margin: 0 auto; padding: var(--space-6, 24px); }
+  .as-head        { display: flex; align-items: center; gap: var(--space-4, 16px); margin-bottom: var(--space-4, 16px); flex-wrap: wrap; }
+  .as-head h1     { margin: 0; font-size: 22px; font-weight: 700; color: var(--edv-slate, #3A4A60); }
+  .as-head .sub   { font-size: 13px; color: var(--color-text-muted, #6b7785); }
+  .as-head .spacer { flex: 1; }
+  .as-fresh       { font-size: 12.5px; color: var(--color-text-muted, #6b7785); background: var(--color-surface-2, #f6f8fa);
+                    border: 1px solid var(--color-border, #dfe3e8); border-radius: var(--radius-md, 6px);
+                    padding: 7px 11px; margin-bottom: var(--space-4, 16px); }
+  .as-fresh.stale { border-color: #f0c36d; background: #fdf6e3; color: #8a6d1f; }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 14px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-md, 6px);
+    background: var(--edv-orange, #EF631A); color: #fff;
+    font-family: inherit; font-size: 13px; font-weight: 600;
+    cursor: pointer; text-decoration: none;
+    transition: background var(--motion-fast, 120ms);
+  }
+  .btn:hover        { background: var(--edv-orange-700, #C04E10); }
+  .btn-ghost        { background: #fff; color: var(--color-text-secondary, #3a4452); border-color: var(--color-border, #dfe3e8); }
+  .btn-ghost:hover  { background: var(--color-surface-muted, #f4f6f7); color: var(--color-text-primary, #1F2A33); }
+  .btn-sm           { padding: 5px 10px; font-size: 12px; }
+  .btn .icon        { width: 16px; height: 16px; }
+
+  /* ── Tab bar ────────────────────────────────────────────────────── */
+  /* Aligned with the shared module-tabs strip (module-tabs.css) so Assets looks
+     like Meetings / Inspections / Site Actions: pill-top tabs, white active tab,
+     navy text, inset orange underline. */
+  .tabbar {
+    display: flex; gap: 4px; flex-wrap: wrap; align-items: center;
+    border-bottom: 1px solid var(--edv-border, #e2e8f0);
+    padding-bottom: 2px;
+    margin-bottom: var(--space-5, 18px);
+  }
+  .tabbtn {
+    appearance: none;
+    display: inline-flex; align-items: center; gap: 7px;
+    background: transparent;
+    border: 1px solid transparent; border-bottom: none;
+    border-radius: 8px 8px 0 0;
+    padding: 9px 14px;
+    font-family: inherit; font-size: .86rem; font-weight: 600; line-height: 1;
+    color: var(--edv-slate, #475569);
+    cursor: pointer;
+    transition: background var(--motion-fast, 120ms), color var(--motion-fast, 120ms);
+  }
+  .tabbtn:hover   { background: var(--edv-surface-2, #f1f5f9); color: var(--edv-navy, #1e3a5f); }
+  .tabbtn.active  {
+    color: var(--edv-navy, #1e3a5f); background: #fff;
+    border-color: var(--edv-border, #e2e8f0);
+    box-shadow: inset 0 -2px 0 0 var(--edv-orange, #e87722);
+  }
+
+  .tabpane { display: none; }
+  .tabpane.active { display: block; }
+
+  /* ── Shared filter bar ──────────────────────────────────────────── */
+  .filter-bar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: var(--space-3, 12px);
+    background: var(--color-surface, #fff);
+    border: 1px solid var(--color-border, #dfe3e8);
+    border-radius: var(--radius-md, 6px);
+    padding: var(--space-4, 16px);
+    margin-bottom: var(--space-5, 20px);
+  }
+  .filter-bar label {
+    display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px;
+    color: var(--color-text-secondary, #3a4452); font-weight: 600; margin-bottom: 4px;
+  }
+  .filter-bar select, .filter-bar input {
+    width: 100%; padding: 8px 10px;
+    border: 1px solid var(--color-border, #dfe3e8);
+    border-radius: var(--radius-sm, 4px);
+    background: #fff; font-family: inherit; font-size: 13px;
+    color: var(--color-text-primary, #1F2A33); box-sizing: border-box;
+  }
+  .filter-bar select:focus, .filter-bar input:focus {
+    outline: none; border-color: var(--edv-orange, #EF631A);
+    box-shadow: 0 0 0 3px rgba(239, 99, 26, 0.15);
+  }
+
+  /* ── Section heading (finance pane) ─────────────────────────────── */
+  .sec-head { display: flex; align-items: center; gap: 10px; margin: var(--space-6, 24px) 0 var(--space-4, 16px); flex-wrap: wrap; }
+  .sec-head:first-of-type { margin-top: 0; }
+  .sec-head h2 { margin: 0; font-size: 17px; font-weight: 700; color: var(--edv-slate, #3A4A60); }
+  .sec-head .spacer { flex: 1; }
+  .sec-head .fleet-note {
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px;
+    color: var(--color-text-muted, #6b7785);
+    background: var(--color-surface-muted, #f4f6f7);
+    border: 1px solid var(--color-border-subtle, #eef0f3);
+    border-radius: var(--radius-pill, 9999px);
+    padding: 3px 10px;
+  }
+
+  /* ── Header bands (per pane — the three differ) ─────────────────── */
+  .as-band {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 18px;
+    background: var(--color-surface, #fff);
+    border: 1px solid var(--color-border, #dfe3e8);
+    border-radius: var(--radius-md, 6px);
+    padding: var(--space-4, 16px) var(--space-5, 20px);
+    margin-bottom: var(--space-5, 20px);
+  }
+  .as-band .fresh { font-size: 12px; color: var(--color-text-muted, #6b7785); margin-left: auto; }
+  /* Inventory band: total + per-state chips */
+  #pane-inventory .as-band { gap: 10px; padding: var(--space-4, 16px); }
+  #pane-inventory .as-band .total {
+    display: flex; align-items: baseline; gap: 8px;
+    padding-right: 14px; margin-right: 4px;
+    border-right: 1px solid var(--color-border-subtle, #eef0f3);
+  }
+  #pane-inventory .as-band .total .n { font-size: 28px; font-weight: 700; line-height: 1; color: var(--color-text-primary, #1F2A33); }
+  #pane-inventory .as-band .total .l { font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--color-text-secondary, #3a4452); font-weight: 600; }
+  .state-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 11px;
+    border-radius: var(--radius-pill, 9999px);
+    background: var(--color-surface-muted, #f4f6f7);
+    border: 1px solid var(--color-border-subtle, #eef0f3);
+    font-size: 12px; font-weight: 600;
+    color: var(--color-text-secondary, #3a4452);
+  }
+  .state-chip .c { font-weight: 700; color: var(--color-text-primary, #1F2A33); }
+  /* Hygiene band: stat blocks (baseline) */
+  #pane-hygiene .as-band .stat { display: flex; align-items: baseline; gap: 8px; padding-right: 18px; border-right: 1px solid var(--color-border-subtle, #eef0f3); }
+  #pane-hygiene .as-band .stat:last-of-type { border-right: none; }
+  #pane-hygiene .as-band .stat .n { font-size: 28px; font-weight: 700; line-height: 1; color: var(--color-text-primary, #1F2A33); }
+  #pane-hygiene .as-band .stat .l { font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--color-text-secondary, #3a4452); font-weight: 600; }
+  #pane-hygiene .as-band .stat .n.good { color: var(--edv-green, #1E8E3E); }
+  #pane-hygiene .as-band .stat .n.mid  { color: var(--color-warning, #D97706); }
+  #pane-hygiene .as-band .stat .n.bad  { color: var(--edv-red, #D90038); }
+  /* Finance band: stat blocks (column) */
+  #pane-finance .as-band .stat { display: flex; flex-direction: column; gap: 4px; padding-right: 18px; border-right: 1px solid var(--color-border-subtle, #eef0f3); }
+  #pane-finance .as-band .stat:last-of-type { border-right: none; }
+  #pane-finance .as-band .stat .n { font-size: 26px; font-weight: 700; line-height: 1; color: var(--color-text-primary, #1F2A33); }
+  #pane-finance .as-band .stat .l { font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--color-text-secondary, #3a4452); font-weight: 600; }
+  #pane-finance .as-band .stat .n.usd { color: var(--edv-green, #1E8E3E); }
+  #pane-finance .as-band .rate { font-size: 12px; color: var(--color-text-muted, #6b7785); margin-left: auto; text-align: right; }
+  #pane-finance .as-band .rate strong { color: var(--color-text-secondary, #3a4452); }
+
+  /* ── Worklist / expiry / compliance tiles ───────────────────────── */
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--space-3, 12px); margin-bottom: var(--space-4, 16px); }
+  #pane-hygiene .tiles { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+  .tile {
+    background: var(--color-surface, #fff);
+    border: 1px solid var(--color-border, #dfe3e8);
+    border-left: 4px solid var(--edv-slate, #3A4A60);
+    border-radius: var(--radius-md, 6px);
+    padding: var(--space-4, 16px);
+    cursor: pointer;
+    transition: box-shadow var(--motion-fast, 120ms), transform var(--motion-fast, 120ms);
+    text-align: left;
+  }
+  .tile[data-kind=""] { cursor: default; }
+  .tile:hover { box-shadow: 0 3px 10px rgba(0,0,0,0.08); transform: translateY(-1px); }
+  .tile[data-kind=""]:hover { box-shadow: none; transform: none; }
+  .tile.active { box-shadow: 0 0 0 2px var(--edv-orange, #EF631A); }
+  .tile .tn { font-size: 30px; font-weight: 700; line-height: 1; color: var(--color-text-primary, #1F2A33); }
+  .tile .tl { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--color-text-secondary, #3a4452); margin-top: 6px; }
+  .tile .td { font-size: 11px; color: var(--color-text-muted, #6b7785); margin-top: 4px; }
+  /* Hygiene worklist accents */
+  .tile.k-discovered    { border-left-color: var(--edv-blue, #1E6FBF); }
+  .tile.k-never_scanned { border-left-color: var(--edv-red, #D90038); }
+  .tile.k-ghost         { border-left-color: var(--color-warning, #D97706); }
+  /* Licence expiry accents */
+  .tile.k-expired       { border-left-color: var(--edv-red, #D90038); }
+  .tile.k-expiring_soon { border-left-color: var(--color-warning, #D97706); }
+  .tile.k-ok            { border-left-color: var(--edv-green, #1E8E3E); }
+  .tile.k-no_expiry     { border-left-color: var(--color-text-muted, #6b7785); }
+  /* Software compliance accents */
+  .tile.k-under     { border-left-color: var(--edv-red, #D90038); }
+  .tile.k-over      { border-left-color: var(--color-warning, #D97706); }
+  .tile.k-compliant { border-left-color: var(--edv-green, #1E8E3E); }
+  .tile.k-managed   { border-left-color: var(--edv-blue, #1E6FBF); }
+  .tile.k-under.active { box-shadow: 0 0 0 2px var(--edv-red, #D90038); }
+  /* Hardware health accents */
+  .tile.k-low_ram         { border-left-color: var(--color-warning, #D97706); }
+  .tile.k-full_disk       { border-left-color: var(--edv-red, #D90038); }
+  .tile.k-refresh_due     { border-left-color: var(--edv-blue, #1E6FBF); }
+  .tile.k-no_real_monitor { border-left-color: var(--edv-slate, #3A4A60); }
+  .ram-low { color: var(--edv-red, #D90038); font-weight: 700; }
+
+  /* Hygiene completeness gap row */
+  .gap-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--space-3, 12px); margin-bottom: var(--space-5, 20px); }
+  .gap {
+    background: var(--color-surface-muted, #f4f6f7);
+    border: 1px solid var(--color-border-subtle, #eef0f3);
+    border-radius: var(--radius-md, 6px);
+    padding: 12px 16px; cursor: pointer;
+    display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+    transition: background var(--motion-fast, 120ms);
+  }
+  .gap:hover { background: #eef1f4; }
+  .gap.active { box-shadow: 0 0 0 2px var(--edv-orange, #EF631A); }
+  .gap .gn { font-size: 22px; font-weight: 700; color: var(--color-text-primary, #1F2A33); }
+  .gap .gl { font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--color-text-secondary, #3a4452); font-weight: 600; }
+
+  /* ── Charts ─────────────────────────────────────────────────────── */
+  .chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--space-4, 16px); margin-bottom: var(--space-5, 20px); }
+  .chart-card {
+    background: var(--color-surface, #fff);
+    border: 1px solid var(--color-border, #dfe3e8);
+    border-radius: var(--radius-md, 6px);
+    padding: var(--space-4, 16px);
+    display: flex; flex-direction: column;
+  }
+  .chart-card h3 { margin: 0 0 12px; font-size: 13px; font-weight: 700; color: var(--edv-slate, #3A4A60); text-transform: uppercase; letter-spacing: 0.6px; }
+  .chart-card .cwrap { position: relative; height: 240px; }
+  #pane-finance .chart-card .cwrap { height: 260px; }
+
+  /* ── Panels + tables ────────────────────────────────────────────── */
+  .panel {
+    background: var(--color-surface, #fff);
+    border: 1px solid var(--color-border, #dfe3e8);
+    border-radius: var(--radius-md, 6px);
+    margin-bottom: var(--space-5, 20px);
+  }
+  .drill-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: var(--space-4, 16px); border-bottom: 1px solid var(--color-border-subtle, #eef0f3); }
+  .drill-head h2 { margin: 0; font-size: 15px; font-weight: 700; color: var(--edv-slate, #3A4A60); }
+  .drill-head .spacer { flex: 1; }
+  table.list { width: 100%; border-collapse: collapse; font-size: 13px; background: var(--color-surface, #fff); }
+  table.list th {
+    text-align: left; padding: 10px 12px;
+    background: var(--edv-slate, #3A4A60); color: #fff;
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px;
+    font-weight: 600; white-space: nowrap;
+  }
+  table.list th.num, table.list td.num { text-align: right; }
+  #pane-finance table.list td.num { white-space: nowrap; }
+  table.list td { padding: 10px 12px; border-bottom: 1px solid var(--color-border-subtle, #eef0f3); vertical-align: top; }
+  table.list tfoot td { font-weight: 700; background: var(--color-surface-muted, #f4f6f7); border-top: 2px solid var(--color-border, #dfe3e8); }
+  table.list tr:hover { background: var(--color-surface-muted, #f4f6f7); }
+  table.list tfoot tr:hover { background: var(--color-surface-muted, #f4f6f7); }
+  .state-pill {
+    display: inline-block; padding: 2px 8px;
+    border-radius: var(--radius-pill, 9999px);
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+    background: var(--color-surface-muted, #f4f6f7); color: var(--color-text-secondary, #3a4452);
+  }
+  .free-low  { color: var(--edv-red, #D90038); font-weight: 700; }
+  .free-mid  { color: var(--color-warning, #D97706); font-weight: 600; }
+  .stale     { color: var(--edv-red, #D90038); font-weight: 700; }
+  .exp-bad   { color: var(--edv-red, #D90038); font-weight: 700; }
+  .exp-warn  { color: var(--color-warning, #D97706); font-weight: 700; }
+  .empty { text-align: center; padding: var(--space-10, 40px) var(--space-6, 24px); color: var(--color-text-muted, #6b7785); }
+  .count-note { font-size: 12px; color: var(--color-text-muted, #6b7785); padding: 8px 12px; border-top: 1px solid var(--color-border-subtle, #eef0f3); }
+
+  @media (max-width: 640px) {
+    .as-wrap { padding: var(--space-3, 12px); }
+    table.list { font-size: 12px; }
+    table.list th, table.list td { padding: 8px; }
+    .as-head h1 { font-size: 18px; }
+    table.list .col-mfr, table.list .col-serial, table.list .col-scan,
+    table.list .col-type, table.list .col-vendor { display: none; }
+  }
+
+  /* ── Chart-click drill modal (shared) ───────────────────────────── */
+  .adrill-overlay {
+    position: fixed; inset: 0; z-index: 9999;
+    background: rgba(20, 28, 40, 0.55);
+    display: none; align-items: flex-start; justify-content: center;
+    padding: 40px 16px; overflow-y: auto;
+  }
+  .adrill-overlay.open { display: flex; }
+  .adrill-card {
+    background: var(--color-surface, #fff);
+    border-radius: var(--radius-md, 6px);
+    width: min(1000px, 100%); max-height: calc(100vh - 80px);
+    display: flex; flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.30);
+  }
+  .adrill-head { display: flex; align-items: flex-start; gap: 12px; padding: 16px; border-bottom: 1px solid var(--color-border-subtle, #eef0f3); }
+  .adrill-head h2 { margin: 0; font-size: 15px; font-weight: 700; color: var(--edv-slate, #3A4A60); }
+  .adrill-head .sub { font-size: 12px; color: var(--color-text-muted, #6b7785); margin-top: 3px; }
+  .adrill-head .x { background: none; border: 0; cursor: pointer; font-size: 18px; line-height: 1; color: var(--color-text-muted, #6b7785); padding: 2px 6px; }
+  .adrill-body { overflow: auto; }
+  .adrill-body table.list th { position: sticky; top: 0; }
+  .adrill-foot { display: flex; gap: 10px; justify-content: flex-end; padding: 12px 16px; border-top: 1px solid var(--color-border-subtle, #eef0f3); }
+  .as-clickable { cursor: pointer; }
+
+  /* ── Guide de réconciliation ───────────────────────────────────────── */
+  .rec-guide-body h4 { font-size: 14px; font-weight: 700; margin: 18px 0 6px;
+    color: var(--color-text-primary, #1F2A33); }
+  .rec-guide-body h4:first-child { margin-top: 10px; }
+  .rec-guide-body p, .rec-guide-body li { margin: 6px 0; }
+  .rec-guide-body ol, .rec-guide-body ul { padding-left: 22px; }
+  .rec-guide-body code { font-family: var(--font-mono, ui-monospace, Consolas, monospace);
+    font-size: 12px; background: var(--color-surface-muted, #f4f6f7);
+    border: 1px solid var(--color-border-subtle, #eef0f3); border-radius: 4px; padding: 1px 5px; }
+
+  /* Ctrl+P depuis l'onglet Réconciliation -> un PDF A4 ne contenant QUE le
+     guide. Les coordinateurs l'impriment et le transmettent aux sites ; une
+     capture du tableau de bord entier serait illisible et périmée le lendemain.
+     Le <details> est forcé ouvert : replié, il n'imprimerait qu'un titre. */
+  @media print {
+    @page { size: A4 portrait; margin: 14mm; }
+    body * { visibility: hidden; }
+    #rec-guide, #rec-guide * { visibility: visible; }
+    #rec-guide { position: absolute; left: 0; top: 0; width: 100%;
+      border: none; box-shadow: none; padding: 0; margin: 0; }
+    #rec-guide[open] > summary, #rec-guide > summary { list-style: none; font-size: 18px; margin-bottom: 10px; }
+    #rec-guide > summary::-webkit-details-marker { display: none; }
+    #rec-guide .rec-guide-body { display: block !important; max-width: none; font-size: 11pt; }
+    #rec-guide h4 { break-after: avoid; page-break-after: avoid; }
+    #rec-guide li, #rec-guide p { break-inside: avoid; page-break-inside: avoid; }
+    #rec-guide a[href^="http"]::after { content: " (" attr(href) ")"; font-size: 9pt; }
+  }
+</style>
+<script nonce="%%CSP_NONCE%%">
+// Un <details> replié n'imprime que son titre. On l'ouvre avant l'impression
+// et on le laisse tel quel après — l'utilisateur qui vient d'imprimer le guide
+// veut le voir à l'écran.
+window.addEventListener('beforeprint', function () {
+  var g = document.getElementById('rec-guide');
+  if (g) g.open = true;
+});
+</script>
+</head>
+<body>
+
+<div id="__shell" data-section="infrastructure" data-current="assets"></div>
+
+<div class="as-wrap">
+
+  <div class="as-head">
+    <div>
+      <h1>IT Assets</h1>
+      <div class="sub">Hardware inventory, data-quality hygiene, and finance &amp; licences across all sites</div>
+    </div>
+    <div class="spacer"></div>
+  </div>
+
+  <!-- Freshness (G-03): the register is synced nightly, so an edit made in
+       AssetExplorer is not visible here the same minute. Saying so is what stops a
+       site asset manager reading an unchanged score as "my work did nothing". -->
+  <div id="as-freshness" class="as-fresh">Chargement de la fraîcheur des données…</div>
+
+  <!-- ── Tab bar ─────────────────────────────────────────────────── -->
+  <div class="tabbar" role="tablist" id="assetTabs">
+    <button class="tabbtn active" role="tab" data-tab="inventory" aria-selected="true">Inventory</button>
+    <button class="tabbtn" role="tab" data-tab="hygiene" aria-selected="false">Hygiene</button>
+    <button class="tabbtn" role="tab" data-tab="finance" aria-selected="false">Finance &amp; Licences</button>
+    <button class="tabbtn" role="tab" data-tab="hardware" aria-selected="false">Hardware</button>
+    <button class="tabbtn" role="tab" data-tab="progress" aria-selected="false">Progress</button>
+    <button class="tabbtn" role="tab" data-tab="investment" aria-selected="false">Investment</button>
+    <button class="tabbtn" role="tab" data-tab="reconcile" aria-selected="false">Réconciliation</button>
+  </div>
+
+  <!-- ── Shared filter bar ───────────────────────────────────────── -->
+  <div class="filter-bar">
+    <div>
+      <label for="filterSite">Site</label>
+      <select id="filterSite"><option value="">All sites</option></select>
+    </div>
+    <div>
+      <label for="filterState">State</label>
+      <select id="filterState"><option value="">Any</option></select>
+    </div>
+    <div>
+      <label for="filterType">Product type</label>
+      <select id="filterType"><option value="">Any</option></select>
+    </div>
+    <div>
+      <label for="filterMfr">Manufacturer</label>
+      <select id="filterMfr"><option value="">Any</option></select>
+    </div>
+    <div>
+      <label for="filterQ">Search (name / serial)</label>
+      <input type="text" id="filterQ" placeholder="Type to filter…" />
+    </div>
+    <div style="display:flex;align-items:end">
+      <button class="btn btn-ghost" id="resetBtn" style="width:100%"><span class="icon icon-refresh-cw"></span> Reset</button>
+    </div>
+    <div style="display:flex;align-items:end">
+      <button class="btn btn-ghost" id="syncAssetsBtn" style="width:100%;display:none" title="Re-sync all asset data from AssetExplorer now (admin)"><span class="icon icon-zap"></span> Sync assets now</button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       PANE: INVENTORY
+       ══════════════════════════════════════════════════════════════ -->
+  <section id="pane-inventory" class="tabpane active">
+
+    <div class="as-head" style="margin-bottom:var(--space-4,16px)">
+      <div class="sub">Hardware &amp; configuration inventory across all sites</div>
+      <div class="spacer"></div>
+      <a class="btn btn-ghost" id="inv-exportBtn" href="#" title="Download the current inventory (with the filters applied) as an Excel workbook (admin only)" style="display:none">
+        <span class="icon icon-download"></span> Export Excel
+      </a>
+    </div>
+
+    <div class="as-band" id="inv-band">
+      <div class="total"><span class="n" id="inv-bandTotal">—</span><span class="l">Assets</span></div>
+      <div id="inv-bandStates" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+      <div class="fresh" id="inv-bandFresh"></div>
+    </div>
+
+    <div class="panel" style="padding:0; overflow:hidden">
+      <div style="overflow-x:auto">
+        <table class="list" id="inv-listTable">
+          <thead>
+            <tr>
+              <th>Asset name</th>
+              <th>Product</th>
+              <th>Site</th>
+              <th>State</th>
+              <th class="num">RAM (GB)</th>
+              <th class="num">C: free %</th>
+              <th class="num">Monitors</th>
+              <th>Acquisition</th>
+              <th>User</th>
+              <th>Department</th>
+              <th class="num">Purchase (USD)</th>
+              <th class="num">Book value (USD)</th>
+              <th class="num">TCO (USD)</th>
+              <th class="col-mfr">Manufacturer</th>
+              <th class="col-serial">Serial</th>
+              <th class="col-scan">Last scan</th>
+            </tr>
+          </thead>
+          <tbody id="inv-listBody"></tbody>
+        </table>
+      </div>
+      <div class="empty" id="inv-emptyMsg" style="display:none">
+        <div style="font-size:32px;margin-bottom:8px">🖥️</div>
+        <div id="inv-emptyText">No assets match these filters.</div>
+        <div class="sub" style="margin-top:8px">If this is unexpected, an asset sync may not have run yet.</div>
+      </div>
+      <div class="count-note" id="inv-countNote" style="display:none"></div>
+    </div>
+
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       PANE: HYGIENE
+       ══════════════════════════════════════════════════════════════ -->
+  <section id="pane-hygiene" class="tabpane">
+
+    <div class="as-head" style="margin-bottom:var(--space-4,16px)">
+      <div class="sub">Inventory data-quality worklist — completeness &amp; scan staleness across the fleet</div>
+      <div class="spacer"></div>
+      <a class="btn btn-ghost" id="hyg-exportAllBtn" href="#" title="Download every hygiene worklist (one sheet per kind, current filters) as Excel">
+        <span class="icon icon-download"></span> Export all
+      </a>
+    </div>
+
+    <!-- What's expected of site/office asset managers — from the ITAM training + ITIL -->
+    <div class="hyg-role" style="background:#f1f5fb;border-left:4px solid var(--dark-blue,#1C3A5E);border-radius:8px;padding:12px 16px;margin-bottom:var(--space-4,16px);font-size:13px;line-height:1.55;color:#334155">
+      <div style="font-weight:700;color:var(--dark-blue,#1C3A5E);margin-bottom:6px">Your role as site / office asset manager — asset management is control, not just an inventory</div>
+      <ul style="margin:0;padding-left:18px">
+        <li><strong>Validate what the probe discovers</strong> — auto-discovery only detects a device; move it out of <em>Discovered</em> into In Store / In Use once you confirm the site, owner, cost and tag.</li>
+        <li><strong>Tag everything</strong> — no asset should reach In Store or In Use without an asset tag and QR code (the bridge between the register and the field).</li>
+        <li><strong>Complete the record</strong> — fill the owner (<em>user &amp; department</em>), acquisition date and purchase cost. A blank record is detected, not <em>managed</em>.</li>
+        <li><strong>Keep it audited</strong> — run the quarterly audit and clear <em>Never&nbsp;scanned</em> and <em>Ghost</em> (healthy but stale&nbsp;&gt;&nbsp;90&nbsp;days) devices; document the gaps and corrective actions.</li>
+        <li><strong>Every movement leaves proof</strong> — receive, deploy, repair, loan, dispose: record the evidence (vendor, user, fault, data-wipe certificate…) at each step.</li>
+      </ul>
+      <div style="margin-top:7px;font-style:italic;color:#64748b">Golden rule — for every asset the register must answer: <strong>what&nbsp;· where&nbsp;· who&nbsp;· what&nbsp;state&nbsp;· since&nbsp;when&nbsp;· what&nbsp;cost&nbsp;· with&nbsp;what&nbsp;proof</strong>. This dashboard measures exactly that.</div>
+    </div>
+
+    <div class="as-band" id="hyg-band">
+      <div class="stat"><span class="n" id="hyg-bandCompleteness">—</span><span class="l">Fleet completeness</span></div>
+      <div class="stat"><span class="n" id="hyg-bandTotal">—</span><span class="l">Assets in scope</span></div>
+      <div class="fresh" id="hyg-bandFresh"></div>
+    </div>
+
+    <!-- Worklist tiles -->
+    <div class="tiles" id="hyg-tiles">
+      <button class="tile k-discovered" data-kind="discovered">
+        <div class="tn" id="hyg-cnt-discovered">—</div>
+        <div class="tl">Discovered</div>
+        <div class="td">Newly seen, never brought into inventory state</div>
+      </button>
+      <button class="tile k-never_scanned" data-kind="never_scanned">
+        <div class="tn" id="hyg-cnt-never_scanned">—</div>
+        <div class="tl">Never scanned</div>
+        <div class="td">No successful audit on record</div>
+      </button>
+      <button class="tile k-ghost" data-kind="ghost">
+        <div class="tn" id="hyg-cnt-ghost">—</div>
+        <div class="tl">Ghost</div>
+        <div class="td">Was healthy, now stale &gt; 90 days</div>
+      </button>
+    </div>
+
+    <!-- Completeness gap counts -->
+    <div class="gap-row" id="hyg-gaps">
+      <div class="gap" data-kind="no_owner"><span class="gl">No owner</span><span class="gn" id="hyg-cnt-no_owner">—</span></div>
+      <div class="gap" data-kind="no_age"><span class="gl">No acquisition date</span><span class="gn" id="hyg-cnt-no_age">—</span></div>
+      <div class="gap" data-kind="no_cost"><span class="gl">No cost data</span><span class="gn" id="hyg-cnt-no_cost">—</span></div>
+      <!-- The two kinds C-v1 added to HYGIENE_KINDS. The reader, the /exceptions
+           route and the Excel export have always supported them and the weekly
+           coordinator e-mail reports their counts — but they had no screen, so a
+           coordinator told "No asset tag / QR: 42" had nowhere to go. Both stay
+           OUT of the completeness score (that is still the three B gaps above);
+           they are worklists shown beside it. -->
+      <div class="gap" data-kind="no_asset_tag"><span class="gl">No QR code</span><span class="gn" id="hyg-cnt-no_asset_tag">—</span></div>
+      <div class="gap" data-kind="lifecycle_exception"><span class="gl">In repair / expired / lost</span><span class="gn" id="hyg-cnt-lifecycle_exception">—</span></div>
+    </div>
+
+    <!-- Charts -->
+    <div class="chart-grid">
+      <div class="chart-card">
+        <h3>Completeness by site</h3>
+        <div class="cwrap"><canvas id="hyg-chartSite"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>Scan freshness</h3>
+        <div class="cwrap"><canvas id="hyg-chartFresh"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>State distribution</h3>
+        <div class="cwrap"><canvas id="hyg-chartState"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Drill-down -->
+    <div class="panel">
+      <div class="drill-head">
+        <h2 id="hyg-drillTitle">Select a worklist above</h2>
+        <div class="spacer"></div>
+        <a class="btn btn-ghost btn-sm" id="hyg-exportKindBtn" href="#" style="display:none" title="Download this worklist (current filters) as Excel">
+          <span class="icon icon-download"></span> Export this list
+        </a>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="list" id="hyg-listTable" style="display:none">
+          <thead>
+            <tr>
+              <th>Asset name</th>
+              <th class="col-type">Product</th>
+              <th>Site</th>
+              <th>State</th>
+              <th class="col-mfr">Manufacturer</th>
+              <th class="col-serial">Serial</th>
+              <th class="num">Days since scan</th>
+              <th>Last audit status</th>
+              <th class="col-scan">Last scan source</th>
+            </tr>
+          </thead>
+          <tbody id="hyg-listBody"></tbody>
+        </table>
+      </div>
+      <div class="empty" id="hyg-emptyMsg">
+        <div style="font-size:32px;margin-bottom:8px">🛡️</div>
+        <div id="hyg-emptyText">Click a worklist tile to see the affected assets.</div>
+      </div>
+      <div class="count-note" id="hyg-countNote" style="display:none"></div>
+    </div>
+
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       PANE: FINANCE & LICENCES
+       ══════════════════════════════════════════════════════════════ -->
+  <section id="pane-finance" class="tabpane">
+
+    <div class="as-head" style="margin-bottom:var(--space-4,16px)">
+      <div class="sub">Fleet value, depreciation &amp; refresh (USD) and software licence compliance</div>
+    </div>
+
+    <!-- ══════════════ FINANCE ══════════════ -->
+    <div class="sec-head">
+      <h2>Fleet finance</h2>
+      <div class="spacer"></div>
+      <a class="btn btn-ghost" id="fin-exportFinanceBtn" href="#" title="Download the per-site finance summary (USD) as Excel">
+        <span class="icon icon-download"></span> Export Excel
+      </a>
+    </div>
+
+    <div class="as-band" id="fin-finBand">
+      <div class="stat"><span class="n usd" id="fin-finBook">—</span><span class="l">Fleet book value (USD)</span></div>
+      <div class="stat"><span class="n" id="fin-finPurchase">—</span><span class="l">Purchase cost (USD)</span></div>
+      <div class="stat"><span class="n" id="fin-finTco">—</span><span class="l">Total cost of ownership (USD)</span></div>
+      <div class="stat"><span class="n" id="fin-finAssets">—</span><span class="l">Assets</span></div>
+      <div class="rate" id="fin-finRate">USD (approx)</div>
+    </div>
+
+    <div class="chart-grid" style="grid-template-columns:1fr">
+      <div class="chart-card">
+        <h3>Book value by site (USD)</h3>
+        <div class="cwrap"><canvas id="fin-chartBook"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>Fleet net book value over time (USD)</h3>
+        <div class="cwrap"><canvas id="fin-chartSchedule"></canvas></div>
+      </div>
+    </div>
+
+    <div class="count-note" id="fin-deprecNote" style="border:1px solid var(--color-border,#dfe3e8);border-radius:var(--radius-md,6px);margin-bottom:var(--space-5,20px)"></div>
+
+    <div class="panel">
+      <div class="drill-head">
+        <h2>Per-site finance (USD)</h2>
+        <div class="spacer"></div>
+        <span class="count-note" id="fin-finRateInline" style="border:none;padding:0"></span>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="list" id="fin-finTable">
+          <thead>
+            <tr>
+              <th>Site</th>
+              <th class="num">Assets</th>
+              <th class="num">Purchase (USD)</th>
+              <th class="num" title="Computed by the dashboard from the configured depreciation method / useful-life / salvage (Admin ▸ Assets ▸ Depreciation).">Book value (computed)</th>
+              <th class="num" title="Current Book Value as reported by SDP AssetExplorer — shown for cross-check only.">Book value (SDP)</th>
+              <th class="num">% depreciated</th>
+              <th class="num">TCO (USD)</th>
+              <th class="num">Refresh due</th>
+            </tr>
+          </thead>
+          <tbody id="fin-finBody"></tbody>
+          <tfoot id="fin-finFoot"></tfoot>
+        </table>
+      </div>
+      <div class="empty" id="fin-finEmpty" style="display:none">No finance data for the current filter.</div>
+    </div>
+
+    <!-- ══════════════ LICENCES ══════════════ -->
+    <div class="sec-head">
+      <h2>Software licences</h2>
+      <div class="spacer"></div>
+      <a class="btn btn-ghost" id="fin-exportLicAllBtn" href="#" title="Download every licence exception list (one sheet per kind) as Excel">
+        <span class="icon icon-download"></span> Export all
+      </a>
+    </div>
+
+    <div class="chart-grid">
+      <div class="chart-card">
+        <h3>Licences by family</h3>
+        <div class="cwrap"><canvas id="fin-chartFamily"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>Expiry status</h3>
+        <div class="cwrap"><canvas id="fin-chartExpiry"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Expiry tiles -->
+    <div class="tiles" id="fin-expTiles">
+      <button class="tile k-expired" data-kind="expired">
+        <div class="tn" id="fin-cnt-expired">—</div>
+        <div class="tl">Expired</div>
+      </button>
+      <button class="tile k-expiring_soon" data-kind="expiring_soon">
+        <div class="tn" id="fin-cnt-expiring_90">—</div>
+        <div class="tl">Expiring ≤ 90d</div>
+      </button>
+      <button class="tile k-ok" data-kind="">
+        <div class="tn" id="fin-cnt-ok">—</div>
+        <div class="tl">OK</div>
+      </button>
+      <button class="tile k-no_expiry" data-kind="no_expiry">
+        <div class="tn" id="fin-cnt-no_expiry">—</div>
+        <div class="tl">No expiry</div>
+      </button>
+    </div>
+
+    <!-- Licence drill -->
+    <div class="panel">
+      <div class="drill-head">
+        <h2 id="fin-licDrillTitle">Select an expiry status above</h2>
+        <div class="spacer"></div>
+        <a class="btn btn-ghost btn-sm" id="fin-exportLicKindBtn" href="#" style="display:none" title="Download this licence list (current filters) as Excel">
+          <span class="icon icon-download"></span> Export this list
+        </a>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="list" id="fin-licTable" style="display:none">
+          <thead>
+            <tr>
+              <th>Licence</th>
+              <th>Family</th>
+              <th class="col-type">Type</th>
+              <th>State</th>
+              <th>Site</th>
+              <th class="col-vendor">Vendor</th>
+              <th>Expiry</th>
+              <th class="num">Cost (USD)</th>
+            </tr>
+          </thead>
+          <tbody id="fin-licBody"></tbody>
+        </table>
+      </div>
+      <div class="empty" id="fin-licEmpty">
+        <div style="font-size:32px;margin-bottom:8px">🔑</div>
+        <div id="fin-licEmptyText">Click an expiry tile to see the affected licences.</div>
+      </div>
+      <div class="count-note" id="fin-licCountNote" style="display:none"></div>
+    </div>
+
+    <!-- ══════════════ SOFTWARE COMPLIANCE ══════════════ -->
+    <div class="sec-head">
+      <h2>Software compliance</h2>
+      <span class="fleet-note" title="The software catalogue has no site dimension — this section is fleet-wide. The shared Site filter does not apply here; only Manufacturer + Search do.">Fleet-wide · site filter N/A</span>
+      <div class="spacer"></div>
+      <a class="btn btn-ghost" id="fin-exportSoftAllBtn" href="#" title="Download every software compliance list (one sheet per kind) as Excel">
+        <span class="icon icon-download"></span> Export all
+      </a>
+    </div>
+
+    <div class="count-note" style="border:1px solid var(--color-border,#dfe3e8);border-radius:var(--radius-md,6px);margin-bottom:var(--space-4,16px)">
+      Purchased vs installed — SDP's <strong>Compliance Type</strong> verdict.
+      <strong>Under-Licensed = audit / compliance risk</strong> (more installs than entitlements). Counts only — no cost is shown.
+      This catalogue is <strong>fleet-wide</strong> (no per-site dimension) — the Site filter does not apply; Manufacturer and Search do.
+    </div>
+
+    <!-- Compliance tiles -->
+    <div class="tiles" id="fin-softTiles">
+      <button class="tile k-under" data-kind="under_licensed" title="Titles with more installations than entitlements — audit / compliance risk">
+        <div class="tn" id="fin-cnt-under">—</div>
+        <div class="tl">Under Licensed · risk</div>
+      </button>
+      <button class="tile k-over" data-kind="over_licensed" title="Titles with more entitlements than installations — licence waste">
+        <div class="tn" id="fin-cnt-over">—</div>
+        <div class="tl">Over Licensed · waste</div>
+      </button>
+      <button class="tile k-compliant" data-kind="" title="Metered titles that match their entitlements">
+        <div class="tn" id="fin-cnt-compliant">—</div>
+        <div class="tl">Compliant</div>
+      </button>
+      <button class="tile k-managed" data-kind="managed" title="The metered universe — managed titles of the total software catalogue">
+        <div class="tn" id="fin-cnt-managed">—</div>
+        <div class="tl">Managed titles</div>
+      </button>
+    </div>
+
+    <div class="chart-grid">
+      <div class="chart-card">
+        <h3>Compliance — metered titles only</h3>
+        <div class="cwrap"><canvas id="fin-chartCompliance"></canvas></div>
+        <div class="count-note" style="border:none;padding:6px 0 0">Excludes not-metered titles (they dwarf the metered universe).</div>
+      </div>
+      <div class="chart-card">
+        <h3>Top manufacturers (by risk)</h3>
+        <div style="overflow:auto;max-height:260px">
+          <table class="list" id="fin-softMfrTable">
+            <thead>
+              <tr>
+                <th>Manufacturer</th>
+                <th class="num">Managed</th>
+                <th class="num">Under</th>
+                <th class="num">Over</th>
+              </tr>
+            </thead>
+            <tbody id="fin-softMfrBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Software drill -->
+    <div class="panel">
+      <div class="drill-head">
+        <h2 id="fin-softDrillTitle">Select a compliance status above</h2>
+        <div class="spacer"></div>
+        <a class="btn btn-ghost btn-sm" id="fin-exportSoftKindBtn" href="#" style="display:none" title="Download this software list (current filter) as Excel">
+          <span class="icon icon-download"></span> Export this list
+        </a>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="list" id="fin-softTable" style="display:none">
+          <thead>
+            <tr>
+              <th>Title</th>
+              <th>Manufacturer</th>
+              <th class="num">Installed</th>
+              <th class="num">Allowed</th>
+              <th>Compliance</th>
+            </tr>
+          </thead>
+          <tbody id="fin-softBody"></tbody>
+        </table>
+      </div>
+      <div class="empty" id="fin-softEmpty">
+        <div style="font-size:32px;margin-bottom:8px">🧾</div>
+        <div id="fin-softEmptyText">Click a compliance tile to see the affected software titles.</div>
+      </div>
+      <div class="count-note" id="fin-softCountNote" style="display:none"></div>
+    </div>
+
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       PANE: HARDWARE HEALTH
+       ══════════════════════════════════════════════════════════════ -->
+  <section id="pane-hardware" class="tabpane">
+
+    <div class="as-head" style="margin-bottom:var(--space-4,16px)">
+      <div class="sub">Fleet hardware health — low RAM, full disks, refresh-due machines &amp; missing monitors</div>
+      <div class="spacer"></div>
+      <a class="btn btn-ghost" id="hw-exportAllBtn" href="#" title="Download every hardware health list (one sheet per kind, current filters) as Excel">
+        <span class="icon icon-download"></span> Export all
+      </a>
+    </div>
+
+    <div class="as-band" id="hw-band">
+      <div class="stat"><span class="n" id="hw-bandTotal">—</span><span class="l">Assets in scope</span></div>
+      <div class="stat"><span class="n" id="hw-bandWithReal">—</span><span class="l">With a real monitor</span></div>
+      <div class="stat"><span class="n" id="hw-bandAvgReal">—</span><span class="l">Avg real monitors</span></div>
+      <div class="fresh" id="hw-bandFresh"></div>
+    </div>
+
+    <!-- Health worklist tiles -->
+    <div class="tiles" id="hw-tiles">
+      <button class="tile k-low_ram" data-kind="low_ram">
+        <div class="tn" id="hw-cnt-low_ram">—</div>
+        <div class="tl">Low RAM</div>
+        <div class="td">Under 8 GB installed memory</div>
+      </button>
+      <button class="tile k-full_disk" data-kind="full_disk">
+        <div class="tn" id="hw-cnt-full_disk">—</div>
+        <div class="tl">Full disk</div>
+        <div class="td">C: drive under 10% free</div>
+      </button>
+      <button class="tile k-refresh_due" data-kind="refresh_due">
+        <div class="tn" id="hw-cnt-refresh_due">—</div>
+        <div class="tl">Refresh due</div>
+        <div class="td">Past its replacement cycle</div>
+      </button>
+      <button class="tile k-no_real_monitor" data-kind="no_real_monitor">
+        <div class="tn" id="hw-cnt-no_real_monitor">—</div>
+        <div class="tl">No real monitor</div>
+        <div class="td">Workstation with no real display</div>
+      </button>
+    </div>
+
+    <!-- Denylist note -->
+    <div class="count-note" id="hw-monNote" style="border:1px solid var(--color-border,#dfe3e8);border-radius:var(--radius-md,6px);margin-bottom:var(--space-5,20px)">
+      Monitor count denylists cameras / virtual devices (Intel AVStream Camera, Integrated Webcam,
+      HyperVMonitor, Parallels Vu, No Monitor); <strong>“No real monitor”</strong> is scoped to
+      workstation-type devices so headless servers aren’t flagged.
+    </div>
+
+    <!-- Chart + per-site table -->
+    <div class="chart-grid">
+      <div class="chart-card">
+        <h3>Health issues by kind</h3>
+        <div class="cwrap"><canvas id="hw-chartKind"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>Health issues by site</h3>
+        <div style="overflow:auto;max-height:260px">
+          <table class="list" id="hw-siteTable">
+            <thead>
+              <tr>
+                <th>Site</th>
+                <th class="num">Low RAM</th>
+                <th class="num">Full disk</th>
+                <th class="num">Refresh due</th>
+                <th class="num">No monitor</th>
+              </tr>
+            </thead>
+            <tbody id="hw-siteBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Drill-down -->
+    <div class="panel">
+      <div class="drill-head">
+        <h2 id="hw-drillTitle">Select a health tile above</h2>
+        <div class="spacer"></div>
+        <a class="btn btn-ghost btn-sm" id="hw-exportKindBtn" href="#" style="display:none" title="Download this list (current filters) as Excel">
+          <span class="icon icon-download"></span> Export this list
+        </a>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="list" id="hw-listTable" style="display:none">
+          <thead>
+            <tr>
+              <th>Asset name</th>
+              <th class="col-type">Product</th>
+              <th>Site</th>
+              <th class="num">RAM (GB)</th>
+              <th class="num">C: free %</th>
+              <th class="num">Real monitors</th>
+              <th class="num">Months since acq.</th>
+            </tr>
+          </thead>
+          <tbody id="hw-listBody"></tbody>
+        </table>
+      </div>
+      <div class="empty" id="hw-emptyMsg">
+        <div style="font-size:32px;margin-bottom:8px">🖥️</div>
+        <div id="hw-emptyText">Click a health tile to see the affected machines.</div>
+      </div>
+      <div class="count-note" id="hw-countNote" style="display:none"></div>
+    </div>
+
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       PANE: PROGRESS  (per-site effort trend)
+       ══════════════════════════════════════════════════════════════ -->
+  <section id="pane-progress" class="tabpane">
+
+    <div class="as-head" style="margin-bottom:var(--space-4,16px)">
+      <div class="sub">Per-site effort trend — data-quality progress over time</div>
+      <div class="spacer"></div>
+      <button class="btn btn-ghost" id="prog-snapBtn" style="display:none" title="Capture an effort snapshot for today (admin)">
+        <span class="icon icon-camera"></span> Capture snapshot now
+      </button>
+    </div>
+
+    <!-- Method note -->
+    <div class="count-note" id="prog-methodNote" style="border:1px solid var(--color-border,#dfe3e8);border-radius:var(--radius-md,6px);margin-bottom:var(--space-4,16px)">
+      Composite <strong>effort score</strong> = mean of six good-state rates
+      (cost · age · owner · scan · tag · enrolled). <strong>Δ vs ~30 days ago</strong> = effort made.
+      <div id="prog-snapDate" style="margin-top:6px;color:var(--color-text-muted,#6b7785)">Dernier instantané : —</div>
+    </div>
+
+    <!-- Empty / collecting-data state -->
+    <div class="empty" id="prog-empty" style="display:none">
+      <div style="font-size:32px;margin-bottom:8px">📈</div>
+      <div>Effort trends build up as nightly snapshots accumulate — check back after a few days.
+        Admins can capture a baseline now.</div>
+    </div>
+
+    <!-- Live content (hidden while empty) -->
+    <div id="prog-content">
+
+      <!-- Callouts -->
+      <div class="tiles" id="prog-callouts">
+        <div class="tile" id="prog-mostImproved" style="display:none;cursor:default">
+          <div class="tl" style="color:var(--edv-green,#1E8E3E)">Most improved</div>
+          <div class="tn" id="prog-mostImproved-site" style="font-size:22px">—</div>
+          <div class="td" id="prog-mostImproved-detail"></div>
+        </div>
+        <div class="tile" id="prog-needsAttention" style="display:none;cursor:default">
+          <div class="tl" style="color:var(--edv-red,#D90038)">Needs attention</div>
+          <div class="tn" id="prog-needsAttention-site" style="font-size:22px">—</div>
+          <div class="td" id="prog-needsAttention-detail"></div>
+        </div>
+      </div>
+
+      <!-- Leaderboard + trend chart -->
+      <div class="chart-grid">
+        <div class="chart-card">
+          <h3>Effort leaderboard</h3>
+          <div style="overflow:auto;max-height:320px">
+            <table class="list" id="prog-lbTable">
+              <thead>
+                <tr>
+                  <th class="num">Rank</th>
+                  <th>Site</th>
+                  <th class="num">Actifs</th>
+                  <th class="num">Effort score</th>
+                  <th class="num">Δ (vs ~30d)</th>
+                </tr>
+              </thead>
+              <tbody id="prog-lbBody"></tbody>
+            </table>
+            <div id="prog-lbNote" class="sub" style="margin-top:8px;font-style:italic"></div>
+          </div>
+        </div>
+        <div class="chart-card">
+          <h3>Effort score over time</h3>
+          <div class="cwrap"><canvas id="prog-chartTrend"></canvas></div>
+        </div>
+      </div>
+
+      <!-- Per-site component detail (hidden until a row is clicked) -->
+      <div class="panel" id="prog-detail" style="display:none">
+        <div class="drill-head">
+          <h2 id="prog-detailTitle">Site detail</h2>
+          <div class="spacer"></div>
+          <button class="btn btn-ghost btn-sm" id="prog-detailReset" title="Show all sites">
+            <span class="icon icon-refresh-cw"></span> Show all sites
+          </button>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="list" id="prog-detailTable">
+            <thead>
+              <tr><th>Component</th><th class="num">Good-state rate</th></tr>
+            </thead>
+            <tbody id="prog-detailBody"></tbody>
+          </table>
+        </div>
+        <div class="count-note">
+          Latest-in-window good-state rate per component for this site (higher = cleaner register).
+        </div>
+      </div>
+
+      <!-- Filter note -->
+      <div class="count-note" id="prog-filterNote">
+        Effort is a per-site metric — only the <strong>Site</strong> filter applies on this tab.
+      </div>
+
+    </div><!-- /prog-content -->
+
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       PANE: INVESTMENT  (historical spend + forward forecast by type)
+       ══════════════════════════════════════════════════════════════ -->
+  <section id="pane-investment" class="tabpane">
+
+    <div class="as-head" style="margin-bottom:var(--space-4,16px)">
+      <div class="sub">Investment — historical spend &amp; forward forecast by equipment type</div>
+      <div class="spacer"></div>
+      <label for="invf-horizon" style="font-size:12px;color:var(--color-text-secondary,#3a4452);font-weight:600">Horizon</label>
+      <select id="invf-horizon" style="min-width:110px;padding:7px 10px;border:1px solid var(--color-border,#dfe3e8);border-radius:var(--radius-md,6px);font-size:13px;background:var(--color-surface,#fff);color:var(--color-text-primary,#1F2A33)">
+        <option value="3">3 years</option>
+        <option value="5" selected>5 years</option>
+        <option value="10">10 years</option>
+      </select>
+      <a class="btn btn-ghost" id="invf-exportBtn" href="#" title="Download history + hardware + software forecast (current filters &amp; horizon) as Excel">
+        <span class="icon icon-download"></span> Export Excel
+      </a>
+    </div>
+
+    <!-- Empty / insufficient-data state -->
+    <div class="empty" id="invf-empty" style="display:none">
+      <div style="font-size:32px;margin-bottom:8px">📊</div>
+      <div>Not enough dated/costed records to forecast yet — fill acquisition date + cost
+        on the Inventory / Hygiene tabs, then come back.</div>
+    </div>
+
+    <!-- Live content (hidden while empty) -->
+    <div id="invf-content">
+
+      <!-- COVERAGE BANNERS (the headline — how much of the fleet the forecast covers) -->
+      <div class="as-band" id="invf-coverage" style="flex-direction:column;align-items:stretch;gap:12px">
+        <div class="count-note" id="invf-covHw"
+             style="border:2px solid var(--color-border,#dfe3e8);border-radius:var(--radius-md,6px);border-top:none;font-size:14px;padding:12px 14px">
+          <span id="invf-covHw-line" style="font-weight:700;color:var(--color-text-primary,#1F2A33)">Hardware forecast coverage —</span>
+          <span id="invf-covHw-excl" style="display:block;margin-top:4px;font-size:12px;color:var(--color-text-muted,#6b7785)"></span>
+        </div>
+        <div class="count-note" id="invf-covSw"
+             style="border:2px solid var(--color-border,#dfe3e8);border-radius:var(--radius-md,6px);border-top:none;font-size:14px;padding:12px 14px">
+          <span id="invf-covSw-line" style="font-weight:700;color:var(--color-text-primary,#1F2A33)">Software renewal coverage —</span>
+          <span id="invf-covSw-excl" style="display:block;margin-top:4px;font-size:12px;color:var(--color-text-muted,#6b7785)"></span>
+        </div>
+      </div>
+
+      <!-- Uplift label -->
+      <div class="count-note" id="invf-upliftNote"
+           style="border:1px solid var(--color-border,#dfe3e8);border-radius:var(--radius-md,6px);margin-bottom:var(--space-4,16px)"></div>
+
+      <!-- CHARTS -->
+      <div class="chart-grid" style="grid-template-columns:1fr">
+        <div class="chart-card">
+          <h3>Historical spend (USD)</h3>
+          <div class="cwrap"><canvas id="invf-chartHistory"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <h3>Forward forecast — replacement &amp; renewal (USD)</h3>
+          <div class="cwrap"><canvas id="invf-chartForecast"></canvas></div>
+          <div class="count-note" id="invf-beyondNote" style="display:none"></div>
+        </div>
+      </div>
+
+      <!-- Notes -->
+      <div class="count-note" id="invf-softNote"
+           style="border:1px solid var(--color-border,#dfe3e8);border-radius:var(--radius-md,6px);margin-bottom:var(--space-3,12px)">
+        Software honours <strong>site / state / search</strong> only — the licence table has no product type or manufacturer.
+      </div>
+      <div class="count-note" id="invf-methodNote"
+           style="border:1px solid var(--color-border,#dfe3e8);border-radius:var(--radius-md,6px)">
+        <strong>Hardware</strong> = each asset replaced at its depreciation end-of-life, budgeted at original cost × uplift.
+        <strong>Software</strong> = licence renewals at expiry (no depreciation).
+      </div>
+
+    </div><!-- /invf-content -->
+
+  </section>
+
+  <!-- ════════════════ PANE: RÉCONCILIATION (SDP × AD × Entra × Defender) ══════ -->
+  <section id="pane-reconcile" class="tabpane">
+
+    <div class="as-head" style="margin-bottom:var(--space-4,16px)">
+      <div class="sub">Réconciliation — machines vues ailleurs, absentes de SDP</div>
+      <div class="spacer"></div>
+      <a class="btn btn-ghost" id="rec-exportBtn" href="#" title="Écarts, liste par OU et candidats au retrait, au filtre courant">
+        <span class="icon icon-download"></span> Export Excel
+      </a>
+    </div>
+
+    <!-- Fraîcheur des imports : un écart calculé sur un export d'il y a trois
+         mois ne dit rien d'aujourd'hui. -->
+    <div class="count-note" id="rec-freshness"
+         style="border:1px solid var(--color-border,#dfe3e8);border-radius:var(--radius-md,6px);margin-bottom:var(--space-4,16px)"></div>
+
+    <!-- État initial : aucune source importée -->
+    <div class="empty" id="rec-empty" style="display:none">
+      <div style="font-size:32px;margin-bottom:8px">🔍</div>
+      <div>Aucune source externe importée. Téléchargez le collecteur ci-dessous,
+        exécutez-le, puis déposez le CSV obtenu.</div>
+    </div>
+
+    <!-- ── Collecte + import ─────────────────────────────────────────── -->
+    <div class="chart-card" style="margin-bottom:var(--space-4,16px)">
+      <h3>1 · Collecter &nbsp;→&nbsp; 2 · Déposer</h3>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin:10px 0 14px">
+        <a class="btn btn-ghost" id="rec-dlCollector" href="#">
+          <span class="icon icon-download"></span> Collect-ADComputers.ps1
+        </a>
+        <a class="btn btn-ghost" id="rec-dlKql" href="#">
+          <span class="icon icon-download"></span> DeviceInfo.kql (Defender)
+        </a>
+      </div>
+      <div id="rec-importRow" style="display:flex;gap:14px;flex-wrap:wrap">
+        <label class="count-note" style="border:1px dashed var(--color-border,#dfe3e8);border-radius:var(--radius-md,6px);padding:12px 14px;cursor:pointer;flex:1 1 200px">
+          <strong>Active Directory</strong><br><span style="font-size:12px">CSV du collecteur</span>
+          <input type="file" id="rec-fileAd" accept=".csv,text/csv" data-source="ad" style="display:block;margin-top:8px;font-size:12px">
+        </label>
+        <label class="count-note" style="border:1px dashed var(--color-border,#dfe3e8);border-radius:var(--radius-md,6px);padding:12px 14px;cursor:pointer;flex:1 1 200px">
+          <strong>Entra ID</strong><br><span style="font-size:12px">export « Appareils »</span>
+          <input type="file" id="rec-fileEntra" accept=".csv,text/csv" data-source="entra" style="display:block;margin-top:8px;font-size:12px">
+        </label>
+        <label class="count-note" style="border:1px dashed var(--color-border,#dfe3e8);border-radius:var(--radius-md,6px);padding:12px 14px;cursor:pointer;flex:1 1 200px">
+          <strong>Defender</strong><br><span style="font-size:12px">export de la requête KQL</span>
+          <input type="file" id="rec-fileDef" accept=".csv,text/csv" data-source="defender" style="display:block;margin-top:8px;font-size:12px">
+        </label>
+      </div>
+      <!-- La prévisualisation ne persiste RIEN : elle permet de vérifier un
+           export inconnu sans risquer d'écraser une source. -->
+      <div id="rec-preview" style="display:none;margin-top:14px"></div>
+    </div>
+
+    <!-- ── Tuiles ────────────────────────────────────────────────────── -->
+    <div class="tiles" id="rec-tiles"></div>
+
+    <!-- ── Liste de travail GPO (par OU) — l'unité d'ACTION ──────────── -->
+    <div class="chart-card" style="margin-top:var(--space-4,16px)">
+      <h3>Par unité d'organisation — où rattacher la GPO</h3>
+      <div class="count-note" style="border:none;padding:0 0 10px;font-size:12px">
+        On rattache une GPO à une OU, pas à un site : un site couvre plusieurs OU.
+        Le total AD du conteneur accompagne le nombre d'écarts — 2 sur 2 et 2 sur 400
+        n'appellent pas la même action.
+      </div>
+      <div class="tablewrap"><table class="list" id="rec-ouTable">
+        <thead><tr><th>Conteneur AD</th><th>Site</th><th class="num">Écarts</th><th class="num">Total AD</th><th class="num">Non couvert</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+    </div>
+
+    <!-- ── Progression dans le temps — la preuve que l'effort paie ──────── -->
+    <div class="chart-card" id="rec-progressCard" style="margin-top:var(--space-4,16px);display:none">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <h3 style="margin:0">Progression — écarts dans le temps</h3>
+        <div class="spacer" style="flex:1"></div>
+        <select id="rec-histMonths" style="font-size:12px;padding:5px 8px;border:1px solid var(--color-border,#dfe3e8);border-radius:var(--radius-md,6px)">
+          <option value="6">6 mois</option>
+          <option value="12" selected>12 mois</option>
+          <option value="24">24 mois</option>
+        </select>
+        <button class="btn btn-ghost" id="rec-snapBtn" style="display:none" title="Figer un point aujourd'hui (démo / première ligne de base)">
+          <span class="icon icon-camera"></span> Capturer un point
+        </button>
+      </div>
+      <div class="count-note" style="border:none;padding:6px 0 10px;font-size:12px">
+        Un point est figé à chaque import — on ne peut pas reconstituer l'historique après coup.
+        Filtrez sur un <strong>site</strong> pour voir SA courbe ; sinon, le total du parc.
+      </div>
+      <div class="cwrap" style="height:280px"><canvas id="rec-histChart"></canvas></div>
+    </div>
+
+    <!-- ── Journal des imports ───────────────────────────────────────── -->
+    <div class="chart-card" id="rec-importLogCard" style="margin-top:var(--space-4,16px);display:none">
+      <h3>Journal des imports</h3>
+      <div class="tablewrap"><table class="list" id="rec-importLog">
+        <thead><tr><th>Source</th><th>Déposé le</th><th class="num">Lignes</th><th class="num">Dont datées</th><th>Par</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+    </div>
+
+    <!-- ── Écarts par site, dépliables ───────────────────────────────── -->
+    <div class="chart-card" style="margin-top:var(--space-4,16px)">
+      <h3>Écarts par site</h3>
+      <div class="count-note" style="border:none;padding:0 0 10px;font-size:12px">
+        Le site est <strong>présumé</strong> : sa provenance est indiquée sur chaque ligne.
+        Un site venant d'un libellé d'OU ne se corrige pas comme un site appris.
+      </div>
+      <div id="rec-siteList"></div>
+    </div>
+
+    <!-- ── Sens inverse ──────────────────────────────────────────────── -->
+    <div class="chart-card" style="margin-top:var(--space-4,16px)">
+      <h3>Candidats au retrait — dans SDP, vus nulle part ailleurs</h3>
+      <div class="count-note" style="border:none;padding:0 0 10px;font-size:12px">
+        Liste <strong>triée</strong> : uniquement les actifs <strong>« In Use »</strong>,
+        déjà scannés, au service tag unique. Le matériel réseau (absent d'AD par nature),
+        les fiches renommées, les actifs hors réseau et jamais scannés sont écartés — voir
+        « à vérifier » plus bas.
+      </div>
+      <div class="tablewrap"><table class="list" id="rec-retTable">
+        <thead><tr><th>Actif SDP</th><th>Site</th><th>Vu ailleurs le</th><th class="num">Jours</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+    </div>
+
+    <!-- ── À vérifier — probablement pas à retirer ────────────────────── -->
+    <div class="chart-card" id="rec-reviewCard" style="margin-top:var(--space-4,16px);display:none">
+      <h3>À vérifier — probablement pas à retirer</h3>
+      <div class="count-note" style="border:none;padding:0 0 10px;font-size:12px">
+        SDP identifie une machine par son <strong>service tag</strong> (doc ManageEngine :
+        Service Tag → Nom → MAC). Ces actifs sont absents d'AD mais portent un signe qu'ils
+        ne sont pas partis : un <strong>service tag partagé</strong> ou un nom en
+        <code>_old</code> (renommage / réinstallation → fiche à corriger), un état
+        <strong>hors « In Use »</strong> (délibérément hors réseau), ou aucun scan réussi
+        (présence jamais confirmée).
+      </div>
+      <div class="tablewrap"><table class="list" id="rec-reviewTable">
+        <thead><tr><th>Actif SDP</th><th>Site</th><th>Motif</th><th>État SDP</th><th>Service tag</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+    </div>
+
+    <!-- ── Guide complet — imprimable (Ctrl+P) ───────────────────────── -->
+    <details id="rec-guide" class="chart-card" style="margin-top:var(--space-4,16px)">
+      <summary style="cursor:pointer;font-weight:700;font-size:15px">📘 Guide complet — collecter, déposer, agir</summary>
+      <div class="rec-guide-body" style="font-size:13px;line-height:1.65;max-width:920px">
+
+        <h4>À quoi sert cette page</h4>
+        <p>SelfScan alimente l'inventaire SDP. Mais <strong>un inventaire ne peut pas
+        signaler ce qu'il ignore</strong> : une machine où l'agent ne s'est jamais installé
+        est simplement absente, et rien ne le dit. Cette page compare SDP à des sources
+        qui, elles, voient la machine — Active Directory, Entra ID, Defender — et affiche
+        la différence.</p>
+        <p>Elle répond aussi à la question inverse : quels actifs SDP <em>plus personne</em>
+        ne voit, et sont donc probablement partis.</p>
+
+        <h4>1 · Collecter Active Directory</h4>
+        <ol>
+          <li>Cliquez sur <strong>Collect-ADComputers.ps1</strong> ci-dessus.</li>
+          <li><strong>Débloquez le fichier</strong> — Windows marque tout fichier
+            téléchargé et refuse de l'exécuter. Clic droit → Propriétés → cocher
+            <em>Débloquer</em> → OK. Ou, dans PowerShell :
+            <code>Unblock-File .\Collect-ADComputers.ps1</code></li>
+          <li>Exécutez-le depuis un poste joint au domaine, avec un compte
+            utilisateur ordinaire — <strong>aucun droit administrateur n'est requis</strong>,
+            le script ne fait que lire l'annuaire :
+            <br><code>powershell -ExecutionPolicy Bypass -File .\Collect-ADComputers.ps1</code>
+            <br>Le paramètre <code>-ExecutionPolicy Bypass</code> ne vaut que pour ce
+            lancement ; il ne change aucun réglage de la machine.</li>
+          <li>Un fichier <code>AD-computers_AAAAMMJJ.csv</code> est écrit à côté du script.</li>
+        </ol>
+
+        <h4>2 · Exporter Entra ID</h4>
+        <ol>
+          <li><a href="https://entra.microsoft.com" target="_blank" rel="noopener">entra.microsoft.com</a>
+            → <strong>Identité</strong> → <strong>Appareils</strong> → <strong>Tous les appareils</strong>.</li>
+          <li><strong>Télécharger les appareils</strong> (bouton en haut). L'export arrive
+            par e-mail ou dans le centre de notifications.</li>
+          <li>Déposez le CSV tel quel : <strong>gardez toutes les colonnes</strong>. La page
+            lit par nom d'en-tête, pas par position — les colonnes en trop ne gênent pas.</li>
+        </ol>
+
+        <h4>3 · Exporter Defender (facultatif, mais précieux)</h4>
+        <ol>
+          <li>Cliquez sur <strong>DeviceInfo.kql</strong> ci-dessus.</li>
+          <li>Portail Defender XDR → <strong>Chasse avancée</strong> → collez la requête →
+            <strong>Exécuter</strong> → <strong>Exporter</strong> en CSV.</li>
+        </ol>
+        <p>Defender apporte deux choses que ni AD ni Entra ne donnent : le
+        <strong>modèle et le fabricant</strong> — donc le type d'équipement d'une machine
+        pourtant absente de SDP — et <strong>l'utilisateur connecté</strong>.
+        <em>Angle mort à connaître</em> : Defender ne voit que les machines onboardées,
+        même limite que SelfScan. Cette source complète AD, elle ne le remplace pas.</p>
+
+        <h4>4 · Déposer</h4>
+        <p>Chaque dépôt affiche d'abord une <strong>prévisualisation</strong> : rien n'est
+        enregistré tant que vous n'avez pas confirmé. Un import
+        <strong>remplace uniquement sa propre source</strong> — importer AD ne touche ni
+        Entra ni Defender.</p>
+        <p>Si une colonne obligatoire manque, le message <strong>nomme la colonne</strong>.
+        C'est une erreur de fichier, pas une panne : réexportez sans retirer de colonnes.</p>
+
+        <h4>Lire les résultats</h4>
+        <p><strong>« Site présumé »</strong> — le site affiché est déduit, et sa provenance
+        est écrite à côté de chaque ligne :</p>
+        <ul>
+          <li><em>OU apprise</em> — déduite en comparant AD et SDP sur les machines connues
+            des deux. C'est la plus fiable.</li>
+          <li><em>libellé d'OU</em> — le nom de l'unité d'organisation tel quel. Utilisable,
+            mais ce n'est pas forcément le code site de SDP.</li>
+          <li><em>nom de machine</em> — déduit de la nomenclature. Attention : le nom porte
+            le site de <strong>provisionnement</strong>. Si l'utilisateur a été muté, la
+            machine est ailleurs — <strong>c'est l'utilisateur qui commande le site</strong>.</li>
+          <li><em>indéterminé</em> — aucun signal. Affiché comme tel, jamais deviné.</li>
+        </ul>
+
+        <h4>Que faire d'un écart</h4>
+        <ol>
+          <li><strong>Regardez d'abord la table « par unité d'organisation ».</strong> Une OU
+            à 50 % non couverte n'est pas une histoire de machines oubliées une par une :
+            c'est une GPO qui ne s'applique pas à ce conteneur. On rattache une GPO à une
+            OU, d'où cette table — et le total AD à côté du nombre d'écarts, parce que
+            2 sur 2 et 2 sur 400 n'appellent pas la même action.</li>
+          <li>Pour une machine isolée : vérifiez qu'elle existe encore, installez SelfScan,
+            ou créez l'actif à la main dans SDP.</li>
+          <li>Marquez-la ensuite <strong>Traitée</strong>. Elle sort du compteur mais reste
+            visible — pour pouvoir revenir dessus.</li>
+          <li><strong>Hors périmètre</strong> exige un motif. Sortir une machine du compteur
+            sans dire pourquoi vide l'indicateur de son sens.</li>
+        </ol>
+
+        <h4>Candidats au retrait</h4>
+        <p>Actifs présents dans SDP que personne n'a vus ailleurs depuis 90 jours. Le
+        matériel qui ne rejoint jamais un domaine — commutateurs, bornes Wi-Fi, pare-feux,
+        imprimantes — est <strong>exclu</strong> : absent d'AD par nature, il serait
+        candidat à tort et pour toujours. Le nombre d'exclus est affiché, pas seulement
+        soustrait.</p>
+
+        <h4>À quelle fréquence</h4>
+        <p>Une fois par mois suffit. La fenêtre par défaut retient les machines vues dans
+        les <strong>30 derniers jours</strong> ; la date du dernier import de chaque source
+        est affichée en haut de l'onglet, parce qu'un écart calculé sur un export périmé ne
+        dit rien d'aujourd'hui.</p>
+
+        <p style="margin-top:18px;font-style:italic;color:var(--color-text-muted,#6b7785)">
+          Ce guide s'imprime seul : <strong>Ctrl+P</strong> depuis cet onglet produit un PDF
+          A4 ne contenant que ces instructions.</p>
+      </div>
+    </details>
+
+  </section>
+
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     SHARED: chart-click drill modal + CSV export  (window.openAssetDrill)
+     Defined ONCE, above the panes. Every clickable chart calls this with
+     { title, subtitle, columns:[{key,label,num?,format?}], rows, filename }.
+     CSV mirrors index.html exportCSV(): UTF-8 BOM, CRLF, quote-escaped.
+     ══════════════════════════════════════════════════════════════════ -->
+<script nonce="%%CSP_NONCE%%">
+(function () {
+  'use strict';
+
+  function esc(v) {
+    return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[c]));
+  }
+
+  // Last-shown dataset, used by the Export CSV button.
+  const state = { columns: [], rows: [], filename: 'assets.csv' };
+
+  function escKey(e) { if (e.key === 'Escape') closeDrill(); }
+
+  function closeDrill() {
+    const ov = document.getElementById('asset-drill-overlay');
+    if (ov) ov.classList.remove('open');
+    document.removeEventListener('keydown', escKey);
+  }
+
+  function exportCsv() {
+    const cols = state.columns || [], rows = state.rows || [];
+    if (!rows.length) return;
+    // CSV cell escaper — wrap in double quotes, double any internal quote.
+    const q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+    const lines = [cols.map(c => q(c.label)).join(',')];
+    rows.forEach(r => lines.push(cols.map(c => q(r[c.key])).join(',')));
+    const csv = '﻿' + lines.join('\r\n');   // UTF-8 BOM so Excel reads accents
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = state.filename || 'assets.csv'; a.style.display = 'none';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+  }
+
+  function ensureOverlay() {
+    let ov = document.getElementById('asset-drill-overlay');
+    if (ov) return ov;
+    ov = document.createElement('div');
+    ov.id = 'asset-drill-overlay';
+    ov.className = 'adrill-overlay';
+    ov.innerHTML =
+      '<div class="adrill-card" role="dialog" aria-modal="true" aria-labelledby="asset-drill-title">' +
+        '<div class="adrill-head">' +
+          '<div style="flex:1;min-width:0">' +
+            '<h2 id="asset-drill-title">—</h2>' +
+            '<div class="sub" id="asset-drill-sub"></div>' +
+          '</div>' +
+          '<button type="button" class="x" id="asset-drill-x" aria-label="Close">✕</button>' +
+        '</div>' +
+        '<div class="adrill-body" id="asset-drill-body"></div>' +
+        '<div class="adrill-foot">' +
+          '<button type="button" class="btn btn-ghost" id="asset-drill-close">Close</button>' +
+          '<button type="button" class="btn" id="asset-drill-csv"><span class="icon icon-download"></span> Export CSV</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(ov);
+    ov.addEventListener('click', e => { if (e.target === ov) closeDrill(); });
+    ov.querySelector('#asset-drill-x').addEventListener('click', closeDrill);
+    ov.querySelector('#asset-drill-close').addEventListener('click', closeDrill);
+    ov.querySelector('#asset-drill-csv').addEventListener('click', exportCsv);
+    return ov;
+  }
+
+  // openAssetDrill({ title, subtitle, columns:[{key,label,num?,format?}], rows, filename })
+  window.openAssetDrill = function (opts) {
+    opts = opts || {};
+    const columns = opts.columns || [];
+    const rows = Array.isArray(opts.rows) ? opts.rows : [];
+    state.columns = columns;
+    state.rows = rows;
+    state.filename = opts.filename || 'assets.csv';
+
+    const ov = ensureOverlay();
+    ov.querySelector('#asset-drill-title').textContent = opts.title || 'Details';
+    ov.querySelector('#asset-drill-sub').textContent =
+      (opts.subtitle ? opts.subtitle + '  ·  ' : '') +
+      rows.length.toLocaleString() + ' row' + (rows.length === 1 ? '' : 's');
+
+    const thead = '<thead><tr>' +
+      columns.map(c => '<th' + (c.num ? ' class="num"' : '') + '>' + esc(c.label) + '</th>').join('') +
+      '</tr></thead>';
+    let tbody;
+    if (!rows.length) {
+      tbody = '<tr><td colspan="' + Math.max(columns.length, 1) + '" style="text-align:center;padding:28px;color:var(--color-text-muted,#6b7785)">No rows for this selection.</td></tr>';
+    } else {
+      tbody = rows.map(r => '<tr>' + columns.map(c => {
+        const raw = r[c.key];
+        const disp = c.format ? c.format(raw, r) : (raw == null || raw === '' ? '—' : raw);
+        return '<td' + (c.num ? ' class="num"' : '') + '>' + esc(disp) + '</td>';
+      }).join('') + '</tr>').join('');
+    }
+    ov.querySelector('#asset-drill-body').innerHTML =
+      '<table class="list">' + thead + '<tbody>' + tbody + '</tbody></table>';
+
+    const csvBtn = ov.querySelector('#asset-drill-csv');
+    csvBtn.disabled = !rows.length;
+    csvBtn.style.opacity = rows.length ? '1' : '0.5';
+
+    ov.classList.add('open');
+    document.addEventListener('keydown', escKey);
+  };
+})();
+</script>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     PANE MODULE: INVENTORY  (window.INV_PANE)
+     ══════════════════════════════════════════════════════════════════ -->
+<script nonce="%%CSP_NONCE%%">
+(function () {
+  'use strict';
+  const API = '/api/assets';
+
+  function authHeaders() {
+    const h = {};
+    let tok = null;
+    const at = window.__authToken;
+    if (typeof at === 'function') { try { tok = at(); } catch(_) {} }
+    else if (typeof at === 'string' && at) { tok = at; }
+    if (!tok) tok = localStorage.getItem('report_token');
+    if (tok) h['x-report-token'] = tok;
+    return h;
+  }
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[c]));
+  }
+  function qs(params) {
+    const sp = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) { if (v) sp.set(k, v); }
+    return sp.toString() ? '?' + sp.toString() : '';
+  }
+  function usd(v) {
+    var n = Number(String(v == null ? '' : v).replace(/[$,\s]/g, ''));
+    if (v == null || v === '' || !Number.isFinite(n)) return '—';
+    return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  async function loadSummary() {
+    try {
+      const r = await fetch(API + '/summary', { credentials: 'same-origin', headers: authHeaders() });
+      if (!r.ok) return;
+      const s = await r.json();
+      document.getElementById('inv-bandTotal').textContent = (s.total != null ? s.total : 0).toLocaleString();
+      const by = s.by_state || {};
+      const chips = Object.keys(by).sort((a, b) => by[b] - by[a]).map(st => {
+        const label = st === '' ? '(no state)' : st;
+        return `<span class="state-chip"><span class="c">${escapeHtml(by[st])}</span> ${escapeHtml(label)}</span>`;
+      }).join('');
+      document.getElementById('inv-bandStates').innerHTML = chips || '<span class="fresh">No assets yet.</span>';
+    } catch (e) { /* offline — leave dashes */ }
+  }
+
+  function freePctCell(v) {
+    if (v == null || v === '' || isNaN(v)) return '<td class="num">—</td>';
+    const n = Number(v);
+    const cls = n < 10 ? 'free-low' : (n < 20 ? 'free-mid' : '');
+    return `<td class="num ${cls}">${escapeHtml(n)}%</td>`;
+  }
+
+  function renderTable(rows) {
+    const body  = document.getElementById('inv-listBody');
+    const empty = document.getElementById('inv-emptyMsg');
+    const note  = document.getElementById('inv-countNote');
+    if (!rows.length) {
+      body.innerHTML = '';
+      empty.style.display = 'block';
+      note.style.display = 'none';
+      return;
+    }
+    empty.style.display = 'none';
+    body.innerHTML = rows.map(r => {
+      const ram = r.ram_total_gb ? escapeHtml(r.ram_total_gb) : '—';
+      const mon = (r.monitor_count != null) ? escapeHtml(r.monitor_count) : '—';
+      return `<tr>
+        <td><strong>${escapeHtml(r.asset_name || r.asset_id || '—')}</strong></td>
+        <td>${escapeHtml(r.product || r.product_type || '—')}</td>
+        <td>${escapeHtml(r.site || '—')}</td>
+        <td>${r.state ? `<span class="state-pill">${escapeHtml(r.state)}</span>` : '—'}</td>
+        <td class="num">${ram}</td>
+        ${freePctCell(r.system_disk_free_pct)}
+        <td class="num">${mon}</td>
+        <td>${escapeHtml(r.acquisition_date || '—')}</td>
+        <td>${escapeHtml(r.user_name || '—')}</td>
+        <td>${escapeHtml(r.department || '—')}</td>
+        <td class="num">${usd(r.purchase_cost_usd)}</td>
+        <td class="num">${usd(r.book_value_usd)}</td>
+        <td class="num">${usd(r.tco_usd)}</td>
+        <td class="col-mfr">${escapeHtml(r.manufacturer || '—')}</td>
+        <td class="col-serial">${escapeHtml(r.serial_number || '—')}</td>
+        <td class="col-scan">${escapeHtml(r.last_scan_source || '—')}${r.days_since_scan != null ? ` · ${escapeHtml(r.days_since_scan)}d` : ''}</td>
+      </tr>`;
+    }).join('');
+    note.style.display = 'block';
+    note.textContent = rows.length.toLocaleString() + ' asset' + (rows.length === 1 ? '' : 's') + ' shown.';
+  }
+
+  async function refresh(f) {
+    f = f || {};
+    document.getElementById('inv-exportBtn').setAttribute('href', API + '/export.xlsx' + qs(f));
+    try {
+      const r = await fetch(API + '/inventory' + qs(f), { credentials: 'same-origin', headers: authHeaders() });
+      if (!r.ok) { renderTable([]); return; }
+      const rows = await r.json();
+      renderTable(Array.isArray(rows) ? rows : []);
+    } catch (e) {
+      console.warn('assets inventory refresh failed:', e);
+      renderTable([]);
+    }
+  }
+
+  async function exportExcel(f) {
+    const btn = document.getElementById('inv-exportBtn');
+    const orig = btn.innerHTML;
+    btn.innerHTML = '⏳ Preparing…';
+    try {
+      const r = await fetch(API + '/export.xlsx' + qs(f || {}), { credentials: 'same-origin', headers: authHeaders() });
+      if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || ('HTTP ' + r.status)); }
+      const url = URL.createObjectURL(await r.blob());
+      const a = document.createElement('a'); a.href = url; a.download = 'assets.xlsx';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    } catch (err) {
+      alert('Excel export failed: ' + (err.message || ''));
+    } finally {
+      btn.innerHTML = orig;
+    }
+  }
+
+  async function init(f) {
+    // RBAC audit 2026-10-02 (A15): the inventory export route is admin-only (it carries the amounts).
+    if (window.__userHasRole && window.__userHasRole('admin')) document.getElementById('inv-exportBtn').style.display = '';
+    document.getElementById('inv-exportBtn').addEventListener('click', (e) => {
+      e.preventDefault();
+      exportExcel(window.__assetFilters ? window.__assetFilters() : {});
+    });
+    await loadSummary();
+    await refresh(f);
+  }
+
+  window.INV_PANE = { init, refresh };
+})();
+</script>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     PANE MODULE: HYGIENE  (window.HYG_PANE)
+     ══════════════════════════════════════════════════════════════════ -->
+<script nonce="%%CSP_NONCE%%">
+(function () {
+  'use strict';
+  const API = '/api/assets/hygiene';
+  const KIND_LABEL = {
+    discovered:    'Discovered',
+    never_scanned: 'Never successfully scanned',
+    ghost:         'Ghost (was healthy, stale > 90d)',
+    no_owner:      'No owner',
+    no_age:        'No acquisition date',
+    no_cost:       'No cost data',
+    // Mirrors HYGIENE_KINDS (assets-db.js) — the single source of truth the
+    // routes and the Excel builder read. Keep this map in step with it: a kind
+    // absent here is refused by openKind and renders an unlabelled drill header.
+    no_asset_tag:        'No QR code',
+    lifecycle_exception: 'In repair / expired / lost',
+  };
+
+  let charts = {};
+  let activeKind = null;
+
+  function authHeaders() {
+    const h = {};
+    let tok = null;
+    const at = window.__authToken;
+    if (typeof at === 'function') { try { tok = at(); } catch (_) {} }
+    else if (typeof at === 'string' && at) { tok = at; }
+    if (!tok) tok = localStorage.getItem('report_token');
+    if (tok) h['x-report-token'] = tok;
+    return h;
+  }
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[c]));
+  }
+  function qs(params) {
+    const sp = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) { if (v) sp.set(k, v); }
+    return sp.toString() ? '?' + sp.toString() : '';
+  }
+  function pctClass(p) {
+    if (p == null) return '';
+    return p >= 80 ? 'good' : (p >= 50 ? 'mid' : 'bad');
+  }
+
+  const css = getComputedStyle(document.documentElement);
+  const CV = (name, fallback) => (css.getPropertyValue(name).trim() || fallback);
+  const COL = {
+    slate:  CV('--edv-slate',  '#3A4A60'),
+    blue:   CV('--edv-blue',   '#1E6FBF'),
+    green:  CV('--edv-green',  '#1E8E3E'),
+    amber:  CV('--color-warning', '#D97706'),
+    red:    CV('--edv-red',    '#D90038'),
+    orange: CV('--edv-orange', '#EF631A'),
+    muted:  CV('--color-text-muted', '#6b7785'),
+  };
+
+  async function loadSummary(f) {
+    let s = null;
+    try {
+      const r = await fetch(API + '/summary' + qs(f), { credentials: 'same-origin', headers: authHeaders() });
+      if (!r.ok) return;
+      s = await r.json();
+    } catch (e) { return; }
+
+    const total = Number(s.total) || 0;
+    const bk = s.by_kind || {};
+
+    let comp = null;
+    if (total > 0) {
+      const present = (total - (bk.no_cost || 0)) + (total - (bk.no_age || 0))
+                    + (total - (bk.no_owner || 0)) + (total - (bk.never_scanned || 0));
+      comp = Math.round(1000 * present / (4 * total)) / 10;
+    }
+    const bc = document.getElementById('hyg-bandCompleteness');
+    bc.textContent = comp == null ? '—' : comp + '%';
+    bc.className = 'n ' + pctClass(comp);
+    document.getElementById('hyg-bandTotal').textContent = total.toLocaleString();
+
+    ['discovered','never_scanned','ghost','no_owner','no_age','no_cost','no_asset_tag','lifecycle_exception'].forEach(k => {
+      const el = document.getElementById('hyg-cnt-' + k);
+      if (el) el.textContent = (bk[k] != null ? Number(bk[k]) : 0).toLocaleString();
+    });
+
+    renderCharts(s);
+  }
+
+  async function loadFreshNote() {
+    try {
+      const r = await fetch('/api/assets/summary', { credentials: 'same-origin', headers: authHeaders() });
+      if (!r.ok) return;
+      const s = await r.json();
+      document.getElementById('hyg-bandFresh').textContent =
+        (Number(s.total) || 0).toLocaleString() + ' assets in the register.';
+    } catch (e) { /* offline — leave blank */ }
+  }
+
+  // ── Chart-click drill helpers (fetch rows → shared modal) ──────────
+  const INV_COLS = [
+    { key: 'asset_name',   label: 'Asset',        format: (v, r) => v || r.asset_id || '—' },
+    { key: 'product',      label: 'Product',      format: (v, r) => v || r.product_type || '—' },
+    { key: 'site',         label: 'Site' },
+    { key: 'state',        label: 'State' },
+    { key: 'manufacturer', label: 'Manufacturer' },
+    { key: 'serial_number',label: 'Serial' },
+    { key: 'ram_total_gb', label: 'RAM (GB)', num: true, format: v => (v ? v : '—') },
+    { key: 'last_scan_source', label: 'Last scan' },
+  ];
+  async function drillInventory(extra, title, subtitle, filename) {
+    const f = Object.assign({}, window.__assetFilters ? window.__assetFilters() : {}, extra || {});
+    let rows = [];
+    try {
+      const r = await fetch('/api/assets/inventory' + qs(f), { credentials: 'same-origin', headers: authHeaders() });
+      if (r.ok) rows = await r.json();
+    } catch (e) { console.warn('inventory drill failed:', e); }
+    window.openAssetDrill({ title, subtitle, columns: INV_COLS, rows: Array.isArray(rows) ? rows : [], filename });
+  }
+  async function drillHygKind(kind, title, subtitle, filename) {
+    const f = Object.assign({ kind }, window.__assetFilters ? window.__assetFilters() : {});
+    let rows = [];
+    try {
+      const r = await fetch(API + '/exceptions' + qs(f), { credentials: 'same-origin', headers: authHeaders() });
+      if (r.ok) rows = await r.json();
+    } catch (e) { console.warn('hygiene drill failed:', e); }
+    window.openAssetDrill({ title, subtitle, columns: INV_COLS, rows: Array.isArray(rows) ? rows : [], filename });
+  }
+
+  function renderCharts(s) {
+    if (typeof Chart === 'undefined') { console.warn('Chart.js not loaded'); return; }
+
+    const bySite = (s.by_site || []).filter(x => x.total > 0);
+    upsertChart('hyg-chartSite', {
+      type: 'bar',
+      data: {
+        labels: bySite.map(x => x.site || '(no site)'),
+        datasets: [{
+          label: 'Completeness %',
+          data: bySite.map(x => x.completeness),
+          backgroundColor: bySite.map(x => x.completeness >= 80 ? COL.green : (x.completeness >= 50 ? COL.amber : COL.red)),
+          borderRadius: 3,
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        onClick: (evt, els) => {
+          if (!els || !els.length) return;
+          const x = bySite[els[0].index]; if (!x) return;
+          const lbl = x.site || '(no site)';
+          drillInventory({ site: x.site || '' },
+            'Assets · ' + lbl, 'Completeness ' + x.completeness + '%',
+            'assets_' + (x.site || 'no-site').replace(/[^a-zA-Z0-9]/g, '_') + '.csv');
+        },
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%' } } },
+      },
+    });
+
+    const fr = s.scan_freshness || {};
+    // Slices that map to a hygiene exceptions kind; others (30–90d/7–30d/<7d) skip.
+    const FRESH_KIND = { 0: 'never_scanned', 1: 'ghost' };
+    const FRESH_TITLE = { 0: 'Never successfully scanned', 1: 'Ghost (was healthy, stale > 90d)' };
+    upsertChart('hyg-chartFresh', {
+      type: 'doughnut',
+      data: {
+        labels: ['Never', '> 90d', '30–90d', '7–30d', '< 7d'],
+        datasets: [{
+          data: [fr.never || 0, fr.over90 || 0, fr.d30_90 || 0, fr.d7_30 || 0, fr.under7 || 0],
+          backgroundColor: [COL.red, COL.orange, COL.amber, COL.blue, COL.green],
+          borderWidth: 1, borderColor: '#fff',
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        onClick: (evt, els) => {
+          if (!els || !els.length) return;
+          const kind = FRESH_KIND[els[0].index];
+          if (!kind) return;   // no clean row set behind this bucket → skip silently
+          drillHygKind(kind, FRESH_TITLE[els[0].index], 'Scan-freshness drill', 'hygiene_' + kind + '.csv');
+        },
+        plugins: { legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 } } } },
+      },
+    });
+
+    const bs = s.by_state || {};
+    const stateKeys = Object.keys(bs).sort((a, b) => bs[b] - bs[a]);
+    upsertChart('hyg-chartState', {
+      type: 'bar',
+      data: {
+        labels: stateKeys.map(k => k || '(no state)'),
+        datasets: [{
+          label: 'Assets',
+          data: stateKeys.map(k => bs[k]),
+          backgroundColor: COL.slate, borderRadius: 3,
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        onClick: (evt, els) => {
+          if (!els || !els.length) return;
+          const st = stateKeys[els[0].index]; if (st == null) return;
+          drillInventory({ state: st || '' },
+            'Assets · ' + (st || '(no state)'), 'State breakdown',
+            'assets_state_' + (st || 'none').replace(/[^a-zA-Z0-9]/g, '_') + '.csv');
+        },
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+      },
+    });
+  }
+
+  function upsertChart(canvasId, config) {
+    if (charts[canvasId]) { charts[canvasId].destroy(); }
+    const ctx = document.getElementById(canvasId);
+    if (ctx) charts[canvasId] = new Chart(ctx, config);
+  }
+
+  async function loadDrill(kind, f) {
+    activeKind = kind;
+    document.querySelectorAll('#pane-hygiene .tile, #pane-hygiene .gap').forEach(el =>
+      el.classList.toggle('active', el.getAttribute('data-kind') === kind));
+
+    document.getElementById('hyg-drillTitle').textContent = KIND_LABEL[kind] || kind;
+    const kb = document.getElementById('hyg-exportKindBtn');
+    kb.style.display = 'inline-flex';
+    kb.setAttribute('href', API + '/export.xlsx' + qs(Object.assign({ kind }, f)));
+
+    const table = document.getElementById('hyg-listTable');
+    const body  = document.getElementById('hyg-listBody');
+    const empty = document.getElementById('hyg-emptyMsg');
+    const note  = document.getElementById('hyg-countNote');
+    try {
+      const r = await fetch(API + '/exceptions' + qs(Object.assign({ kind }, f)),
+        { credentials: 'same-origin', headers: authHeaders() });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const rows = await r.json();
+      if (!Array.isArray(rows) || !rows.length) {
+        table.style.display = 'none';
+        body.innerHTML = '';
+        empty.style.display = 'block';
+        document.getElementById('hyg-emptyText').textContent = 'No assets in this worklist for the current filters. 🎉';
+        note.style.display = 'none';
+        return;
+      }
+      empty.style.display = 'none';
+      table.style.display = 'table';
+      body.innerHTML = rows.map(r => {
+        const dss = r.days_since_scan;
+        const dssN = (dss == null || dss === '') ? null : Number(dss);
+        const dssCls = (dssN != null && dssN > 90) ? 'stale' : '';
+        return `<tr>
+          <td><strong>${escapeHtml(r.asset_name || r.asset_id || '—')}</strong></td>
+          <td class="col-type">${escapeHtml(r.product || r.product_type || '—')}</td>
+          <td>${escapeHtml(r.site || '—')}</td>
+          <td>${r.state ? `<span class="state-pill">${escapeHtml(r.state)}</span>` : '—'}</td>
+          <td class="col-mfr">${escapeHtml(r.manufacturer || '—')}</td>
+          <td class="col-serial">${escapeHtml(r.serial_number || '—')}</td>
+          <td class="num ${dssCls}">${dss == null || dss === '' ? '—' : escapeHtml(dss)}</td>
+          <td>${escapeHtml(r.last_audit_status || '—')}</td>
+          <td class="col-scan">${escapeHtml(r.last_scan_source || '—')}</td>
+        </tr>`;
+      }).join('');
+      note.style.display = 'block';
+      note.textContent = rows.length.toLocaleString() + ' asset' + (rows.length === 1 ? '' : 's') + ' in this worklist.';
+    } catch (e) {
+      console.warn('hygiene drill load failed:', e);
+      table.style.display = 'none';
+      body.innerHTML = '';
+      empty.style.display = 'block';
+      document.getElementById('hyg-emptyText').textContent = 'Could not load this worklist.';
+      note.style.display = 'none';
+    }
+  }
+
+  async function refresh(f) {
+    f = f || {};
+    document.getElementById('hyg-exportAllBtn').setAttribute('href', API + '/export.xlsx' + qs(Object.assign({ kind: 'all' }, f)));
+    await loadSummary(f);
+    if (activeKind) await loadDrill(activeKind, f);
+  }
+
+  async function init(f) {
+    document.querySelectorAll('#pane-hygiene .tile, #pane-hygiene .gap').forEach(el =>
+      el.addEventListener('click', () => loadDrill(el.getAttribute('data-kind'), window.__assetFilters ? window.__assetFilters() : {})));
+    await Promise.all([loadFreshNote()]);
+    await refresh(f);
+  }
+
+  // openKind — the deep-link entry point. A site report links straight to the
+  // worklist it just told the coordinator about (…/assets.html?site=X&kind=no_owner),
+  // so acting on a non-conformity is one click from the report instead of four
+  // navigation steps. Guarded on a KNOWN kind: an unknown one would set
+  // activeKind and leave every refresh fetching an endpoint that 400s.
+  async function openKind(kind, f) {
+    if (!kind || !KIND_LABEL[kind]) return;
+    await loadDrill(kind, f || (window.__assetFilters ? window.__assetFilters() : {}));
+    const host = document.getElementById('hyg-drillTitle');
+    if (host && host.scrollIntoView) host.scrollIntoView({ block: 'center' });
+  }
+
+  window.HYG_PANE = { init, refresh, openKind };
+})();
+</script>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     PANE MODULE: FINANCE & LICENCES  (window.FIN_PANE)
+     ══════════════════════════════════════════════════════════════════ -->
+<script nonce="%%CSP_NONCE%%">
+(function () {
+  'use strict';
+
+  const FAMILIES = ['User', 'Machine', 'Enterprise', 'Server', 'Special', 'Other'];
+  const LIC_KIND_LABEL = {
+    expired:       'Expired licences',
+    expiring_soon: 'Expiring within 90 days',
+    no_expiry:     'No / unparseable expiry',
+  };
+  const SOFT_KIND_LABEL = {
+    under_licensed: 'Under-licensed titles · risk',
+    over_licensed:  'Over-licensed titles · waste',
+    managed:        'Managed (metered) titles',
+  };
+
+  let charts = {};
+  let activeLicKind = null;
+  let activeSoftKind = null;
+  let USD_RATE = null;
+  let curFilters = {};   // last filters passed to refresh()
+
+  function authHeaders() {
+    const h = {};
+    let tok = null;
+    const at = window.__authToken;
+    if (typeof at === 'function') { try { tok = at(); } catch (_) {} }
+    else if (typeof at === 'string' && at) { tok = at; }
+    if (!tok) tok = localStorage.getItem('report_token');
+    if (tok) h['x-report-token'] = tok;
+    return h;
+  }
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[c]));
+  }
+  function usd(v) {
+    var n = Number(String(v == null ? '' : v).replace(/[$,\s]/g, ''));
+    if (v == null || v === '' || !Number.isFinite(n)) return '—';
+    return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function pctDep(v) {
+    if (v == null || !Number.isFinite(Number(v))) return '—';
+    return (Number(v) * 100).toFixed(1) + '%';
+  }
+
+  // Finance + licences scope by site (from the shared filter bar).
+  function siteVal() { return curFilters.site || ''; }
+  function qs(params) {
+    const sp = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) { if (v) sp.set(k, v); }
+    return sp.toString() ? '?' + sp.toString() : '';
+  }
+
+  const css = getComputedStyle(document.documentElement);
+  const CV = (name, fallback) => (css.getPropertyValue(name).trim() || fallback);
+  const COL = {
+    slate:  CV('--edv-slate',  '#3A4A60'),
+    blue:   CV('--edv-blue',   '#1E6FBF'),
+    green:  CV('--edv-green',  '#1E8E3E'),
+    amber:  CV('--color-warning', '#D97706'),
+    red:    CV('--edv-red',    '#D90038'),
+    orange: CV('--edv-orange', '#EF631A'),
+    purple: CV('--edv-purple', '#7A5AF8'),
+    muted:  CV('--color-text-muted', '#6b7785'),
+  };
+  const FAMILY_COLORS = [COL.blue, COL.orange, COL.green, COL.purple, COL.amber, COL.muted];
+
+  function upsertChart(canvasId, config) {
+    if (charts[canvasId]) { charts[canvasId].destroy(); }
+    const ctx = document.getElementById(canvasId);
+    if (ctx) charts[canvasId] = new Chart(ctx, config);
+  }
+  function siteKey(v) { return (v == null || v === '') ? '' : String(v); }
+
+  // ── Chart-click drill helpers (fetch rows → shared modal) ──────────
+  const FIN_INV_COLS = [
+    { key: 'asset_name',        label: 'Asset',   format: (v, r) => v || r.asset_id || '—' },
+    { key: 'product',          label: 'Product', format: (v, r) => v || r.product_type || '—' },
+    { key: 'site',             label: 'Site' },
+    { key: 'purchase_cost_usd', label: 'Purchase (USD)', num: true, format: v => usd(v) },
+    { key: 'book_value_usd',   label: 'Book value (USD)', num: true, format: v => usd(v) },
+    { key: 'tco_usd',          label: 'TCO (USD)', num: true, format: v => usd(v) },
+  ];
+  const LIC_COLS = [
+    { key: 'license_name', label: 'Licence', format: (v, r) => v || r.license_id || '—' },
+    { key: 'family',       label: 'Family' },
+    { key: 'license_type', label: 'Type' },
+    { key: 'license_state',label: 'State' },
+    { key: 'site',         label: 'Site' },
+    { key: 'vendor',       label: 'Vendor' },
+    { key: 'expiry_date',  label: 'Expiry' },
+    { key: 'cost',         label: 'Cost (USD)', num: true, format: v => usd(v) },
+  ];
+  const SOFT_COLS = [
+    { key: 'software_name',        label: 'Title' },
+    { key: 'manufacturer',         label: 'Manufacturer' },
+    { key: 'installations',        label: 'Installed', num: true },
+    { key: 'installations_allowed', label: 'Allowed', num: true },
+    { key: 'compliance_type',      label: 'Compliance' },
+  ];
+  async function drillFinInventory(site, title, subtitle, filename) {
+    const f = Object.assign({}, window.__assetFilters ? window.__assetFilters() : {}, { site: site || '' });
+    let rows = [];
+    try {
+      const r = await fetch('/api/assets/inventory' + qs(f), { credentials: 'same-origin', headers: authHeaders() });
+      if (r.ok) rows = await r.json();
+    } catch (e) { console.warn('finance inventory drill failed:', e); }
+    window.openAssetDrill({ title, subtitle, columns: FIN_INV_COLS, rows: Array.isArray(rows) ? rows : [], filename });
+  }
+  async function drillLicKind(kind, title, filename) {
+    let rows = [];
+    try {
+      const r = await fetch('/api/assets/licences/exceptions' + qs({ kind, site: siteVal() }),
+        { credentials: 'same-origin', headers: authHeaders() });
+      if (r.ok) rows = await r.json();
+    } catch (e) { console.warn('licence drill failed:', e); }
+    window.openAssetDrill({ title, subtitle: 'Cost is USD-native (per-licence, not summed)', columns: LIC_COLS, rows: Array.isArray(rows) ? rows : [], filename });
+  }
+  async function drillSoftKind(kind, title, filename) {
+    let rows = [];
+    try {
+      const r = await fetch('/api/assets/software/exceptions' + softQs({ kind }),
+        { credentials: 'same-origin', headers: authHeaders() });
+      if (r.ok) rows = await r.json();
+    } catch (e) { console.warn('software drill failed:', e); }
+    window.openAssetDrill({ title, subtitle: 'Installed vs allowed — no cost shown', columns: SOFT_COLS, rows: Array.isArray(rows) ? rows : [], filename });
+  }
+
+  async function loadFinance() {
+    let s = null, dep = null;
+    try {
+      const fullF = window.__assetFilters ? window.__assetFilters() : { site: siteVal() };
+      const [rf, rd] = await Promise.all([
+        fetch('/api/assets/finance/summary' + qs(fullF),
+          { credentials: 'same-origin', headers: authHeaders() }),
+        fetch('/api/assets/depreciation/summary' + qs(fullF),
+          { credentials: 'same-origin', headers: authHeaders() }),
+      ]);
+      if (!rf.ok) return;
+      s = await rf.json();
+      if (rd.ok) dep = await rd.json();
+    } catch (e) { return; }
+
+    const depBySite = {};
+    (dep && dep.by_site || []).forEach(d => { depBySite[siteKey(d.site)] = d; });
+    const depFleet = (dep && dep.fleet) || {};
+
+    USD_RATE = s.rate;
+    const rateTxt = 'USD (approx @ ' + (s.rate != null ? Number(s.rate).toLocaleString('en-US', { maximumFractionDigits: 6 }) : '?') + ' XOF→USD)';
+    document.getElementById('fin-finRate').innerHTML = '<strong>' + escapeHtml(rateTxt) + '</strong>';
+    document.getElementById('fin-finRateInline').textContent =
+      'All amounts converted from XOF at ' + (s.rate != null ? Number(s.rate).toLocaleString('en-US', { maximumFractionDigits: 6 }) : '?') + ' (USD, approximate).';
+
+    const noteEl = document.getElementById('fin-deprecNote');
+    if (noteEl) {
+      const asOf = dep && dep.asOf ? dep.asOf : '—';
+      const rateStr = (dep && dep.rate != null) ? Number(dep.rate).toLocaleString('en-US', { maximumFractionDigits: 6 })
+                       : (s.rate != null ? Number(s.rate).toLocaleString('en-US', { maximumFractionDigits: 6 }) : '?');
+      noteEl.innerHTML =
+        '<strong>Book value (computed)</strong> is computed from the configured method / useful-life / salvage — configurable in ' +
+        '<strong>Admin ▸ Assets ▸ Depreciation</strong>. The <strong>SDP</strong> book value is shown for cross-check. ' +
+        'As of <strong>' + escapeHtml(asOf) + '</strong> · USD approx @ <strong>' + escapeHtml(rateStr) + '</strong> XOF→USD.';
+    }
+
+    const fleet = s.fleet || {};
+    document.getElementById('fin-finBook').textContent     = usd(depFleet.computed_book_value_usd != null ? depFleet.computed_book_value_usd : fleet.book_value_usd);
+    document.getElementById('fin-finPurchase').textContent = usd(fleet.purchase_cost_usd);
+    document.getElementById('fin-finTco').textContent      = usd(fleet.tco_usd);
+    document.getElementById('fin-finAssets').textContent   = (Number(fleet.asset_count) || 0).toLocaleString();
+
+    const rows = (s.by_site || []).slice();
+    const body = document.getElementById('fin-finBody');
+    const foot = document.getElementById('fin-finFoot');
+    const empty = document.getElementById('fin-finEmpty');
+    const table = document.getElementById('fin-finTable');
+    if (!rows.length) {
+      table.style.display = 'none';
+      empty.style.display = 'block';
+    } else {
+      table.style.display = 'table';
+      empty.style.display = 'none';
+      body.innerHTML = rows.map(x => {
+        const d = depBySite[siteKey(x.site)] || {};
+        return `<tr>
+        <td><strong>${escapeHtml(x.site || '(no site)')}</strong></td>
+        <td class="num">${(Number(x.asset_count) || 0).toLocaleString()}</td>
+        <td class="num">${usd(x.purchase_cost_usd)}</td>
+        <td class="num">${usd(d.computed_book_value_usd)}</td>
+        <td class="num">${usd(x.book_value_usd)}</td>
+        <td class="num">${pctDep(d.pct_depreciated != null ? d.pct_depreciated : x.pct_depreciated)}</td>
+        <td class="num">${usd(x.tco_usd)}</td>
+        <td class="num">${(Number(x.refresh_due) || 0).toLocaleString()}</td>
+      </tr>`; }).join('');
+      foot.innerHTML = `<tr>
+        <td>Fleet</td>
+        <td class="num">${(Number(fleet.asset_count) || 0).toLocaleString()}</td>
+        <td class="num">${usd(fleet.purchase_cost_usd)}</td>
+        <td class="num">${usd(depFleet.computed_book_value_usd)}</td>
+        <td class="num">${usd(fleet.book_value_usd)}</td>
+        <td class="num">${pctDep(depFleet.pct_depreciated != null ? depFleet.pct_depreciated : fleet.pct_depreciated)}</td>
+        <td class="num">${usd(fleet.tco_usd)}</td>
+        <td class="num">${(Number(fleet.refresh_due) || 0).toLocaleString()}</td>
+      </tr>`;
+    }
+
+    if (typeof Chart !== 'undefined') {
+      const bySite = rows.filter(x => Number(x.book_value_usd) > 0);
+      upsertChart('fin-chartBook', {
+        type: 'bar',
+        data: {
+          labels: bySite.map(x => x.site || '(no site)'),
+          datasets: [{
+            label: 'Book value (USD)',
+            data: bySite.map(x => x.book_value_usd),
+            backgroundColor: COL.green, borderRadius: 3,
+          }],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          onClick: (evt, els) => {
+            if (!els || !els.length) return;
+            const x = bySite[els[0].index]; if (!x) return;
+            const lbl = x.site || '(no site)';
+            drillFinInventory(x.site || '', 'Finance · ' + lbl, 'Assets & USD money for ' + lbl,
+              'finance_' + (x.site || 'no-site').replace(/[^a-zA-Z0-9]/g, '_') + '.csv');
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: c => usd(c.parsed.y) } },
+          },
+          scales: { y: { beginAtZero: true, ticks: { callback: v => '$' + Number(v).toLocaleString('en-US') } } },
+        },
+      });
+    }
+  }
+
+  async function loadSchedule() {
+    let sch = null;
+    try {
+      const r = await fetch('/api/assets/depreciation/schedule' + qs(window.__assetFilters ? window.__assetFilters() : { site: siteVal() }),
+        { credentials: 'same-origin', headers: authHeaders() });
+      if (!r.ok) return;
+      sch = await r.json();
+    } catch (e) { return; }
+
+    if (typeof Chart === 'undefined') return;
+    const years = (sch.years || []).map(String);
+    const vals  = sch.book_value_usd || [];
+    upsertChart('fin-chartSchedule', {
+      type: 'line',
+      data: {
+        labels: years,
+        datasets: [{
+          label: 'Net book value (USD)',
+          data: vals,
+          borderColor: COL.blue, backgroundColor: 'rgba(30,111,191,0.12)',
+          fill: true, tension: 0.25, pointRadius: 3, borderWidth: 2,
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: c => usd(c.parsed.y) } },
+        },
+        scales: { y: { beginAtZero: true, ticks: { callback: v => '$' + Number(v).toLocaleString('en-US') } } },
+      },
+    });
+  }
+
+  async function loadLicences() {
+    let s = null;
+    try {
+      const r = await fetch('/api/assets/licences/summary' + qs({ site: siteVal() }),
+        { credentials: 'same-origin', headers: authHeaders() });
+      if (!r.ok) return;
+      s = await r.json();
+    } catch (e) { return; }
+
+    const fam = s.by_family || {};
+    const exp = s.expiry || {};
+    document.getElementById('fin-cnt-expired').textContent     = (Number(exp.expired) || 0).toLocaleString();
+    document.getElementById('fin-cnt-expiring_90').textContent = (Number(exp.expiring_90) || 0).toLocaleString();
+    document.getElementById('fin-cnt-ok').textContent          = (Number(exp.ok) || 0).toLocaleString();
+    document.getElementById('fin-cnt-no_expiry').textContent   = (Number(exp.no_expiry) || 0).toLocaleString();
+
+    if (typeof Chart === 'undefined') { console.warn('Chart.js not loaded'); return; }
+
+    const famLabels = FAMILIES.filter(f => (fam[f] || 0) > 0);
+    upsertChart('fin-chartFamily', {
+      type: 'doughnut',
+      data: {
+        labels: famLabels,
+        datasets: [{
+          data: famLabels.map(f => fam[f] || 0),
+          backgroundColor: famLabels.map((f, i) => FAMILY_COLORS[FAMILIES.indexOf(f) % FAMILY_COLORS.length]),
+          borderWidth: 1, borderColor: '#fff',
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 } } } },
+      },
+    });
+
+    // Expiry slices → licence exceptions kinds (OK has no exceptions kind → skip).
+    const EXP_KIND = { 0: 'expired', 1: 'expiring_soon', 3: 'no_expiry' };
+    const EXP_TITLE = { 0: 'Expired licences', 1: 'Expiring within 90 days', 3: 'No / unparseable expiry' };
+    upsertChart('fin-chartExpiry', {
+      type: 'doughnut',
+      data: {
+        labels: ['Expired', 'Expiring ≤90d', 'OK', 'No expiry'],
+        datasets: [{
+          data: [exp.expired || 0, exp.expiring_90 || 0, exp.ok || 0, exp.no_expiry || 0],
+          backgroundColor: [COL.red, COL.amber, COL.green, COL.muted],
+          borderWidth: 1, borderColor: '#fff',
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        onClick: (evt, els) => {
+          if (!els || !els.length) return;
+          const kind = EXP_KIND[els[0].index];
+          if (!kind) return;   // 'OK' bucket has no exceptions kind → skip silently
+          drillLicKind(kind, EXP_TITLE[els[0].index], 'licences_' + kind + '.csv');
+        },
+        plugins: { legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 } } } },
+      },
+    });
+  }
+
+  async function loadLicDrill(kind) {
+    if (!kind) return;
+    activeLicKind = kind;
+    document.querySelectorAll('#fin-expTiles .tile').forEach(el =>
+      el.classList.toggle('active', el.getAttribute('data-kind') === kind));
+
+    document.getElementById('fin-licDrillTitle').textContent = LIC_KIND_LABEL[kind] || kind;
+    const kb = document.getElementById('fin-exportLicKindBtn');
+    kb.style.display = 'inline-flex';
+    kb.setAttribute('href', '/api/assets/licences/export.xlsx' + qs({ kind, site: siteVal() }));
+
+    const table = document.getElementById('fin-licTable');
+    const body  = document.getElementById('fin-licBody');
+    const empty = document.getElementById('fin-licEmpty');
+    const note  = document.getElementById('fin-licCountNote');
+    try {
+      const r = await fetch('/api/assets/licences/exceptions' + qs({ kind, site: siteVal() }),
+        { credentials: 'same-origin', headers: authHeaders() });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const rows = await r.json();
+      if (!Array.isArray(rows) || !rows.length) {
+        table.style.display = 'none'; body.innerHTML = '';
+        empty.style.display = 'block';
+        document.getElementById('fin-licEmptyText').textContent = 'No licences in this bucket for the current filter. 🎉';
+        note.style.display = 'none';
+        return;
+      }
+      empty.style.display = 'none';
+      table.style.display = 'table';
+      const expCls = kind === 'expired' ? 'exp-bad' : (kind === 'expiring_soon' ? 'exp-warn' : '');
+      body.innerHTML = rows.map(x => `<tr>
+        <td><strong>${escapeHtml(x.license_name || x.license_id || '—')}</strong></td>
+        <td>${escapeHtml(x.family || '—')}</td>
+        <td class="col-type">${escapeHtml(x.license_type || '—')}</td>
+        <td>${x.license_state ? `<span class="state-pill">${escapeHtml(x.license_state)}</span>` : '—'}</td>
+        <td>${escapeHtml(x.site || '—')}</td>
+        <td class="col-vendor">${escapeHtml(x.vendor || '—')}</td>
+        <td class="${expCls}">${escapeHtml(x.expiry_date || '—')}</td>
+        <td class="num">${usd(x.cost)}</td>
+      </tr>`).join('');
+      note.style.display = 'block';
+      note.textContent = rows.length.toLocaleString() + ' licence' + (rows.length === 1 ? '' : 's') + ' in this bucket. Cost is USD-native (per-licence, not summed).';
+    } catch (e) {
+      console.warn('licence drill failed:', e);
+      table.style.display = 'none'; body.innerHTML = '';
+      empty.style.display = 'block';
+      document.getElementById('fin-licEmptyText').textContent = 'Could not load this licence list.';
+      note.style.display = 'none';
+    }
+  }
+
+  // ── Software compliance — FLEET-WIDE (no site tag). Uses shared
+  //    manufacturer + q only; site is intentionally never passed. ──
+  function softSearchVal() { return curFilters.q || ''; }
+  function softMfrVal() { return curFilters.manufacturer || ''; }
+  function softQs(extra) { return qs(Object.assign({ q: softSearchVal(), manufacturer: softMfrVal() }, extra || {})); }
+  function toIntUi(v) {
+    const n = Number(String(v == null ? '' : v).replace(/,/g, ''));
+    return Number.isFinite(n) ? n : null;
+  }
+
+  async function loadSoftware() {
+    let s = null;
+    try {
+      const r = await fetch('/api/assets/software/summary' + softQs(),
+        { credentials: 'same-origin', headers: authHeaders() });
+      if (!r.ok) return;
+      s = await r.json();
+    } catch (e) { return; }
+
+    const bc = s.by_compliance || {};
+    const total = Number(s.total) || 0;
+    const managed = Number(s.managed) || 0;
+    document.getElementById('fin-cnt-under').textContent     = (Number(bc.under_licensed) || 0).toLocaleString();
+    document.getElementById('fin-cnt-over').textContent      = (Number(bc.over_licensed) || 0).toLocaleString();
+    document.getElementById('fin-cnt-compliant').textContent = (Number(bc.compliant) || 0).toLocaleString();
+    document.getElementById('fin-cnt-managed').textContent   = managed.toLocaleString() + ' / ' + total.toLocaleString();
+
+    if (typeof Chart !== 'undefined') {
+      // Compliance slices → software exceptions kinds ('Compliant' has no kind → skip).
+      const CMP_KIND = { 0: 'under_licensed', 1: 'over_licensed' };
+      const CMP_TITLE = { 0: 'Under-licensed titles · risk', 1: 'Over-licensed titles · waste' };
+      upsertChart('fin-chartCompliance', {
+        type: 'doughnut',
+        data: {
+          labels: ['Under Licensed', 'Over Licensed', 'Compliant'],
+          datasets: [{
+            data: [bc.under_licensed || 0, bc.over_licensed || 0, bc.compliant || 0],
+            backgroundColor: [COL.red, COL.amber, COL.green],
+            borderWidth: 1, borderColor: '#fff',
+          }],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          onClick: (evt, els) => {
+            if (!els || !els.length) return;
+            const kind = CMP_KIND[els[0].index];
+            if (!kind) return;   // 'Compliant' has no exceptions kind → skip silently
+            drillSoftKind(kind, CMP_TITLE[els[0].index], 'software_' + kind + '.csv');
+          },
+          plugins: { legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 } } } },
+        },
+      });
+    }
+
+    const mfrs = (s.by_manufacturer || []).slice()
+      .sort((a, b) => (Number(b.under) || 0) - (Number(a.under) || 0) || (Number(b.managed) || 0) - (Number(a.managed) || 0))
+      .slice(0, 10);
+    const mbody = document.getElementById('fin-softMfrBody');
+    mbody.innerHTML = mfrs.length ? mfrs.map(m => {
+      const u = Number(m.under) || 0, o = Number(m.over) || 0;
+      return `<tr>
+        <td><strong>${escapeHtml(m.manufacturer || '(unknown)')}</strong></td>
+        <td class="num">${(Number(m.managed) || 0).toLocaleString()}</td>
+        <td class="num ${u > 0 ? 'exp-bad' : ''}">${u.toLocaleString()}</td>
+        <td class="num ${o > 0 ? 'exp-warn' : ''}">${o.toLocaleString()}</td>
+      </tr>`;
+    }).join('') : `<tr><td colspan="4" style="text-align:center;color:var(--color-text-muted,#6b7785)">No software titles.</td></tr>`;
+  }
+
+  async function loadSoftDrill(kind) {
+    if (!kind) return;
+    activeSoftKind = kind;
+    document.querySelectorAll('#fin-softTiles .tile').forEach(el =>
+      el.classList.toggle('active', el.getAttribute('data-kind') === kind));
+
+    document.getElementById('fin-softDrillTitle').textContent = SOFT_KIND_LABEL[kind] || kind;
+    const kb = document.getElementById('fin-exportSoftKindBtn');
+    kb.style.display = 'inline-flex';
+    kb.setAttribute('href', '/api/assets/software/export.xlsx' + softQs({ kind }));
+
+    const table = document.getElementById('fin-softTable');
+    const body  = document.getElementById('fin-softBody');
+    const empty = document.getElementById('fin-softEmpty');
+    const note  = document.getElementById('fin-softCountNote');
+    try {
+      const r = await fetch('/api/assets/software/exceptions' + softQs({ kind }),
+        { credentials: 'same-origin', headers: authHeaders() });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const rows = await r.json();
+      if (!Array.isArray(rows) || !rows.length) {
+        table.style.display = 'none'; body.innerHTML = '';
+        empty.style.display = 'block';
+        document.getElementById('fin-softEmptyText').textContent = 'No titles in this bucket for the current filter. 🎉';
+        note.style.display = 'none';
+        return;
+      }
+      empty.style.display = 'none';
+      table.style.display = 'table';
+      body.innerHTML = rows.map(x => {
+        const ins = toIntUi(x.installations), allw = toIntUi(x.installations_allowed);
+        const over = (ins != null && allw != null && ins > allw);
+        return `<tr>
+        <td><strong>${escapeHtml(x.software_name || '—')}</strong></td>
+        <td>${escapeHtml(x.manufacturer || '—')}</td>
+        <td class="num ${over ? 'exp-bad' : ''}">${escapeHtml(x.installations != null && x.installations !== '' ? x.installations : '—')}</td>
+        <td class="num">${escapeHtml(x.installations_allowed != null && x.installations_allowed !== '' ? x.installations_allowed : '—')}</td>
+        <td>${x.compliance_type ? `<span class="state-pill">${escapeHtml(x.compliance_type)}</span>` : '—'}</td>
+      </tr>`;
+      }).join('');
+      note.style.display = 'block';
+      note.textContent = rows.length.toLocaleString() + ' title' + (rows.length === 1 ? '' : 's') +
+        ' in this bucket. Counts are installations vs allowed — no cost shown.';
+    } catch (e) {
+      console.warn('software drill failed:', e);
+      table.style.display = 'none'; body.innerHTML = '';
+      empty.style.display = 'block';
+      document.getElementById('fin-softEmptyText').textContent = 'Could not load this software list.';
+      note.style.display = 'none';
+    }
+  }
+
+  function updateExportLinks() {
+    const site = siteVal();
+    const fullF = window.__assetFilters ? window.__assetFilters() : { site };
+    document.getElementById('fin-exportFinanceBtn').setAttribute('href', '/api/assets/finance/export.xlsx' + qs(fullF));
+    document.getElementById('fin-exportLicAllBtn').setAttribute('href', '/api/assets/licences/export.xlsx' + qs({ kind: 'all', site }));
+    if (activeLicKind) {
+      document.getElementById('fin-exportLicKindBtn').setAttribute('href', '/api/assets/licences/export.xlsx' + qs({ kind: activeLicKind, site }));
+    }
+    // Software is fleet-wide — export links carry only q + manufacturer, never site.
+    document.getElementById('fin-exportSoftAllBtn').setAttribute('href', '/api/assets/software/export.xlsx' + softQs({ kind: 'all' }));
+    if (activeSoftKind) {
+      document.getElementById('fin-exportSoftKindBtn').setAttribute('href', '/api/assets/software/export.xlsx' + softQs({ kind: activeSoftKind }));
+    }
+  }
+
+  async function refresh(f) {
+    curFilters = f || {};
+    updateExportLinks();
+    await Promise.all([loadFinance(), loadSchedule(), loadLicences(), loadSoftware()]);
+    if (activeLicKind) await loadLicDrill(activeLicKind);
+    if (activeSoftKind) await loadSoftDrill(activeSoftKind);
+  }
+
+  async function init(f) {
+    document.querySelectorAll('#fin-expTiles .tile').forEach(el =>
+      el.addEventListener('click', () => loadLicDrill(el.getAttribute('data-kind'))));
+    document.querySelectorAll('#fin-softTiles .tile').forEach(el =>
+      el.addEventListener('click', () => loadSoftDrill(el.getAttribute('data-kind'))));
+    await refresh(f);
+  }
+
+  window.FIN_PANE = { init, refresh };
+})();
+</script>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     PANE MODULE: HARDWARE HEALTH  (window.HW_PANE)
+     ══════════════════════════════════════════════════════════════════ -->
+<script nonce="%%CSP_NONCE%%">
+(function () {
+  'use strict';
+  const API = '/api/assets/hardware';
+  const KIND_LABEL = {
+    low_ram:         'Low RAM (< 8 GB)',
+    full_disk:       'Full system disk (< 10% free)',
+    refresh_due:     'Refresh due (past replacement cycle)',
+    no_real_monitor: 'No real monitor (workstation)',
+  };
+  const KINDS = ['low_ram', 'full_disk', 'refresh_due', 'no_real_monitor'];
+
+  let charts = {};
+  let activeKind = null;
+
+  function authHeaders() {
+    const h = {};
+    let tok = null;
+    const at = window.__authToken;
+    if (typeof at === 'function') { try { tok = at(); } catch (_) {} }
+    else if (typeof at === 'string' && at) { tok = at; }
+    if (!tok) tok = localStorage.getItem('report_token');
+    if (tok) h['x-report-token'] = tok;
+    return h;
+  }
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[c]));
+  }
+  function qs(params) {
+    const sp = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) { if (v) sp.set(k, v); }
+    return sp.toString() ? '?' + sp.toString() : '';
+  }
+
+  const css = getComputedStyle(document.documentElement);
+  const CV = (name, fallback) => (css.getPropertyValue(name).trim() || fallback);
+  const COL = {
+    slate:  CV('--edv-slate',  '#3A4A60'),
+    blue:   CV('--edv-blue',   '#1E6FBF'),
+    green:  CV('--edv-green',  '#1E8E3E'),
+    amber:  CV('--color-warning', '#D97706'),
+    red:    CV('--edv-red',    '#D90038'),
+  };
+  const KIND_COL = {
+    low_ram: COL.amber, full_disk: COL.red, refresh_due: COL.blue, no_real_monitor: COL.slate,
+  };
+  const KIND_SHORT = { low_ram: 'Low RAM', full_disk: 'Full disk', refresh_due: 'Refresh due', no_real_monitor: 'No monitor' };
+
+  function upsertChart(canvasId, config) {
+    if (charts[canvasId]) { charts[canvasId].destroy(); }
+    const ctx = document.getElementById(canvasId);
+    if (ctx) charts[canvasId] = new Chart(ctx, config);
+  }
+
+  async function loadSummary(f) {
+    let s = null;
+    try {
+      const r = await fetch(API + '/summary' + qs(f), { credentials: 'same-origin', headers: authHeaders() });
+      if (!r.ok) return;
+      s = await r.json();
+    } catch (e) { return; }
+
+    const total = Number(s.total) || 0;
+    const bk = s.by_kind || {};
+    const mon = s.monitors || {};
+
+    document.getElementById('hw-bandTotal').textContent = total.toLocaleString();
+    document.getElementById('hw-bandWithReal').textContent = (Number(mon.with_real) || 0).toLocaleString();
+    document.getElementById('hw-bandAvgReal').textContent = (mon.avg_real != null ? mon.avg_real : 0);
+
+    KINDS.forEach(k => {
+      const el = document.getElementById('hw-cnt-' + k);
+      if (el) el.textContent = (bk[k] != null ? Number(bk[k]) : 0).toLocaleString();
+    });
+
+    renderChart(bk);
+    renderSiteTable(s.by_site || []);
+  }
+
+  async function loadFreshNote() {
+    try {
+      const r = await fetch('/api/assets/summary', { credentials: 'same-origin', headers: authHeaders() });
+      if (!r.ok) return;
+      const s = await r.json();
+      document.getElementById('hw-bandFresh').textContent =
+        (Number(s.total) || 0).toLocaleString() + ' assets in the register.';
+    } catch (e) { /* offline — leave blank */ }
+  }
+
+  const HW_COLS = [
+    { key: 'asset_name',   label: 'Asset',   format: (v, r) => v || r.asset_id || '—' },
+    { key: 'product',      label: 'Product', format: (v, r) => v || r.product_type || '—' },
+    { key: 'site',         label: 'Site' },
+    { key: 'ram_total_gb', label: 'RAM (GB)', num: true, format: v => (v != null && Number(v) > 0 ? Number(v) : '—') },
+    { key: 'system_disk_free_pct', label: 'Free %', num: true, format: v => (v == null || v === '' ? '—' : Number(v) + '%') },
+    { key: 'real_monitor_count',   label: 'Real monitors', num: true, format: v => (v == null ? '—' : Number(v)) },
+    { key: 'months_since_acquisition', label: 'Age (mo)', num: true, format: v => (v == null || v === '' ? '—' : v) },
+  ];
+  async function drillHwKind(kind, title, filename) {
+    const f = Object.assign({ kind }, window.__assetFilters ? window.__assetFilters() : {});
+    let rows = [];
+    try {
+      const r = await fetch(API + '/exceptions' + qs(f), { credentials: 'same-origin', headers: authHeaders() });
+      if (r.ok) rows = await r.json();
+    } catch (e) { console.warn('hardware drill failed:', e); }
+    window.openAssetDrill({ title, subtitle: 'Hardware-health worklist', columns: HW_COLS, rows: Array.isArray(rows) ? rows : [], filename });
+  }
+
+  function renderChart(bk) {
+    if (typeof Chart === 'undefined') { console.warn('Chart.js not loaded'); return; }
+    upsertChart('hw-chartKind', {
+      type: 'bar',
+      data: {
+        labels: KINDS.map(k => KIND_SHORT[k]),
+        datasets: [{
+          label: 'Machines',
+          data: KINDS.map(k => Number(bk[k]) || 0),
+          backgroundColor: KINDS.map(k => KIND_COL[k]),
+          borderRadius: 3,
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        onClick: (evt, els) => {
+          if (!els || !els.length) return;
+          const kind = KINDS[els[0].index]; if (!kind) return;
+          drillHwKind(kind, KIND_LABEL[kind] || kind, 'hardware_' + kind + '.csv');
+        },
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+      },
+    });
+  }
+
+  function renderSiteTable(bySite) {
+    const body = document.getElementById('hw-siteBody');
+    const rows = (bySite || []).filter(x => (Number(x.total) || 0) > 0);
+    if (!rows.length) {
+      body.innerHTML = '<tr><td colspan="5" style="color:var(--color-text-muted,#6b7785)">No assets in scope.</td></tr>';
+      return;
+    }
+    body.innerHTML = rows.map(x => `<tr>
+      <td>${escapeHtml(x.site || '(no site)')}</td>
+      <td class="num">${escapeHtml(Number(x.low_ram) || 0)}</td>
+      <td class="num">${escapeHtml(Number(x.full_disk) || 0)}</td>
+      <td class="num">${escapeHtml(Number(x.refresh_due) || 0)}</td>
+      <td class="num">${escapeHtml(Number(x.no_real_monitor) || 0)}</td>
+    </tr>`).join('');
+  }
+
+  async function loadDrill(kind, f) {
+    if (!kind) return;
+    activeKind = kind;
+    document.querySelectorAll('#hw-tiles .tile').forEach(el =>
+      el.classList.toggle('active', el.getAttribute('data-kind') === kind));
+
+    document.getElementById('hw-drillTitle').textContent = KIND_LABEL[kind] || kind;
+    const kb = document.getElementById('hw-exportKindBtn');
+    kb.style.display = 'inline-flex';
+    kb.setAttribute('href', API + '/export.xlsx' + qs(Object.assign({ kind }, f)));
+
+    const table = document.getElementById('hw-listTable');
+    const body  = document.getElementById('hw-listBody');
+    const empty = document.getElementById('hw-emptyMsg');
+    const note  = document.getElementById('hw-countNote');
+    try {
+      const r = await fetch(API + '/exceptions' + qs(Object.assign({ kind }, f)),
+        { credentials: 'same-origin', headers: authHeaders() });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const rows = await r.json();
+      if (!Array.isArray(rows) || !rows.length) {
+        table.style.display = 'none';
+        body.innerHTML = '';
+        empty.style.display = 'block';
+        document.getElementById('hw-emptyText').textContent = 'No machines in this list for the current filters. 🎉';
+        note.style.display = 'none';
+        return;
+      }
+      empty.style.display = 'none';
+      table.style.display = 'table';
+      body.innerHTML = rows.map(r => {
+        const ram = (r.ram_total_gb != null && Number(r.ram_total_gb) > 0) ? Number(r.ram_total_gb) : null;
+        const ramCls = (ram != null && ram < 8) ? 'ram-low' : '';
+        const free = r.system_disk_free_pct;
+        const freeN = (free == null || free === '') ? null : Number(free);
+        const freeCls = (freeN != null && freeN < 10) ? 'free-low' : (freeN != null && freeN < 20 ? 'free-mid' : '');
+        const real = (r.real_monitor_count != null) ? Number(r.real_monitor_count) : null;
+        const mo = r.months_since_acquisition;
+        return `<tr>
+          <td><strong>${escapeHtml(r.asset_name || r.asset_id || '—')}</strong></td>
+          <td class="col-type">${escapeHtml(r.product || r.product_type || '—')}</td>
+          <td>${escapeHtml(r.site || '—')}</td>
+          <td class="num ${ramCls}">${ram == null ? '—' : escapeHtml(ram)}</td>
+          <td class="num ${freeCls}">${freeN == null ? '—' : escapeHtml(freeN) + '%'}</td>
+          <td class="num">${real == null ? '—' : escapeHtml(real)}</td>
+          <td class="num">${mo == null || mo === '' ? '—' : escapeHtml(mo)}</td>
+        </tr>`;
+      }).join('');
+      note.style.display = 'block';
+      note.textContent = rows.length.toLocaleString() + ' machine' + (rows.length === 1 ? '' : 's') + ' in this list.';
+    } catch (e) {
+      console.warn('hardware drill load failed:', e);
+      table.style.display = 'none';
+      body.innerHTML = '';
+      empty.style.display = 'block';
+      document.getElementById('hw-emptyText').textContent = 'Could not load this list.';
+      note.style.display = 'none';
+    }
+  }
+
+  async function refresh(f) {
+    f = f || {};
+    document.getElementById('hw-exportAllBtn').setAttribute('href', API + '/export.xlsx' + qs(Object.assign({ kind: 'all' }, f)));
+    await loadSummary(f);
+    if (activeKind) await loadDrill(activeKind, f);
+  }
+
+  async function init(f) {
+    document.querySelectorAll('#hw-tiles .tile').forEach(el =>
+      el.addEventListener('click', () => loadDrill(el.getAttribute('data-kind'), window.__assetFilters ? window.__assetFilters() : {})));
+    await Promise.all([loadFreshNote()]);
+    await refresh(f);
+  }
+
+  window.HW_PANE = { init, refresh };
+})();
+</script>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     PANE MODULE: PROGRESS  (window.PROG_PANE)
+     Per-site effort score, Δ (progression), leaderboard + multi-line trend.
+     ══════════════════════════════════════════════════════════════════ -->
+<script nonce="%%CSP_NONCE%%">
+(function () {
+  'use strict';
+  const API = '/api/assets/progress';
+  const TREND_MONTHS = 6;
+
+  let charts = {};
+  let selectedSite = null;
+
+  function authHeaders() {
+    const h = {};
+    let tok = null;
+    const at = window.__authToken;
+    if (typeof at === 'function') { try { tok = at(); } catch (_) {} }
+    else if (typeof at === 'string' && at) { tok = at; }
+    if (!tok) tok = localStorage.getItem('report_token');
+    if (tok) h['x-report-token'] = tok;
+    return h;
+  }
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[c]));
+  }
+  function qs(params) {
+    const sp = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) { if (v) sp.set(k, v); }
+    return sp.toString() ? '?' + sp.toString() : '';
+  }
+
+  const css = getComputedStyle(document.documentElement);
+  const CV = (name, fallback) => (css.getPropertyValue(name).trim() || fallback);
+  const COL = {
+    slate:  CV('--edv-slate',  '#3A4A60'),
+    blue:   CV('--edv-blue',   '#1E6FBF'),
+    green:  CV('--edv-green',  '#1E8E3E'),
+    amber:  CV('--color-warning', '#D97706'),
+    red:    CV('--edv-red',    '#D90038'),
+    purple: '#7C3AED',
+    teal:   '#0D9488',
+    pink:   '#DB2777',
+  };
+  const PALETTE = [COL.blue, COL.green, COL.amber, COL.purple, COL.teal, COL.red, COL.pink, COL.slate];
+  // Deterministic site → colour (hash the name into the palette).
+  function siteColor(site) {
+    let h = 0; const s = String(site || '');
+    for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+    return PALETTE[h % PALETTE.length];
+  }
+
+  function upsertChart(canvasId, config) {
+    if (charts[canvasId]) { charts[canvasId].destroy(); }
+    const ctx = document.getElementById(canvasId);
+    if (ctx) charts[canvasId] = new Chart(ctx, config);
+  }
+
+  // Δ badge markup: ▲ +N green (>0) · ▼ −N red (<0) · – grey (0) · — (null).
+  function deltaBadge(delta) {
+    if (delta == null) return '<span style="color:var(--color-text-muted,#6b7785)">—</span>';
+    if (delta > 0) return '<span style="color:var(--edv-green,#1E8E3E);font-weight:700">▲ +' + delta + '</span>';
+    if (delta < 0) return '<span style="color:var(--edv-red,#D90038);font-weight:700">▼ −' + Math.abs(delta) + '</span>';
+    return '<span style="color:var(--color-text-muted,#6b7785)">–</span>';
+  }
+
+  // G-04 — a site too small to compare keeps its score but gets no rank. PURE so the
+  // rule is testable outside a browser (tests/assets-freshness.test.js). An absent
+  // `ranked` (a board built before the flag) means ranked, so nothing regresses.
+  function _lbRankCell(r) {
+    if (r && r.ranked === false) {
+      return '<span style="color:var(--color-text-muted,#6b7785);font-style:italic;font-size:11px">hors classement</span>';
+    }
+    return (r && r.rank != null) ? String(r.rank) : '—';
+  }
+
+  function renderLeaderboard(lb) {
+    const body = document.getElementById('prog-lbBody');
+    const rows = (lb && Array.isArray(lb.rows)) ? lb.rows : [];
+    const note = document.getElementById('prog-lbNote');
+    if (note) {
+      note.textContent = (lb && lb.min_assets)
+        ? 'Seuil de classement : ' + lb.min_assets + ' actifs. En dessous, le site garde son '
+          + 'score mais reste hors classement — comparer un parc de deux machines à une mine '
+          + 'de 400 ne veut rien dire.'
+        : '';
+    }
+    if (!rows.length) {
+      body.innerHTML = '<tr><td colspan="5" style="color:var(--color-text-muted,#6b7785)">No effort snapshots yet.</td></tr>';
+      return;
+    }
+    body.innerHTML = rows.map(r => {
+      const sel = (r.site === selectedSite) ? ' style="background:var(--color-surface-alt,#f4f6f8)"' : '';
+      const dot = '<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:'
+        + siteColor(r.site) + ';margin-right:7px;vertical-align:middle"></span>';
+      return '<tr data-site="' + escapeHtml(r.site) + '" style="cursor:pointer"' + sel + '>'
+        + '<td class="num">' + _lbRankCell(r) + '</td>'
+        + '<td>' + dot + escapeHtml(r.site || '(no site)') + '</td>'
+        + '<td class="num">' + (r.total == null ? '—' : escapeHtml(r.total)) + '</td>'
+        + '<td class="num"><strong>' + escapeHtml(r.effort_score) + '</strong></td>'
+        + '<td class="num">' + deltaBadge(r.delta) + '</td>'
+        + '</tr>';
+    }).join('');
+    body.querySelectorAll('tr[data-site]').forEach(tr =>
+      tr.addEventListener('click', () => selectSite(tr.getAttribute('data-site'))));
+  }
+
+  function renderCallouts(lb) {
+    const mi = document.getElementById('prog-mostImproved');
+    const na = document.getElementById('prog-needsAttention');
+    if (lb && lb.most_improved) {
+      mi.style.display = '';
+      document.getElementById('prog-mostImproved-site').textContent = lb.most_improved.site || '(no site)';
+      document.getElementById('prog-mostImproved-detail').innerHTML =
+        'score ' + escapeHtml(lb.most_improved.effort_score) + ' &nbsp; ' + deltaBadge(lb.most_improved.delta);
+    } else { mi.style.display = 'none'; }
+    if (lb && lb.needs_attention) {
+      na.style.display = '';
+      document.getElementById('prog-needsAttention-site').textContent = lb.needs_attention.site || '(no site)';
+      document.getElementById('prog-needsAttention-detail').innerHTML =
+        'score ' + escapeHtml(lb.needs_attention.effort_score) + ' &nbsp; ' + deltaBadge(lb.needs_attention.delta);
+    } else { na.style.display = 'none'; }
+  }
+
+  function renderTrend(trend) {
+    if (typeof Chart === 'undefined') { console.warn('Chart.js not loaded'); return; }
+    const dates = (trend && trend.dates) || [];
+    const sites = (trend && trend.sites) || [];
+    upsertChart('prog-chartTrend', {
+      type: 'line',
+      data: {
+        labels: dates,
+        datasets: sites.map(s => ({
+          label: s.site || '(no site)',
+          data: (s.scores || []).map(v => (v == null ? null : Number(v))),
+          borderColor: siteColor(s.site),
+          backgroundColor: siteColor(s.site),
+          spanGaps: false,          // null = break, NEVER drop to 0
+          tension: 0.25,
+          pointRadius: 3,
+        })),
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'nearest', intersect: false },
+        plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } },
+        scales: { y: { beginAtZero: true, suggestedMax: 100, ticks: { precision: 0 } } },
+      },
+    });
+  }
+
+  const COMP_LABELS = [
+    ['cost_pct', 'Cost'], ['age_pct', 'Age'], ['owner_pct', 'Owner'],
+    ['scan_pct', 'Scan'], ['tag_pct', 'Tag'], ['enrolled_pct', 'Enrolled'],
+  ];
+  function renderDetail(site, components) {
+    const panel = document.getElementById('prog-detail');
+    if (!site || !components) { panel.style.display = 'none'; return; }
+    panel.style.display = '';
+    document.getElementById('prog-detailTitle').textContent = site + ' — component detail';
+    const body = document.getElementById('prog-detailBody');
+    body.innerHTML = COMP_LABELS.map(([k, lbl]) => {
+      const v = components[k];
+      const pct = (v == null) ? null : Math.round(100 * Number(v));
+      const barW = (pct == null) ? 0 : Math.max(0, Math.min(100, pct));
+      const bar = '<span style="display:inline-block;width:120px;height:8px;border-radius:4px;'
+        + 'background:var(--color-border-subtle,#eef0f3);vertical-align:middle;margin-right:8px;overflow:hidden">'
+        + '<span style="display:block;height:100%;width:' + barW + '%;background:' + siteColor(site) + '"></span></span>';
+      return '<tr><td>' + escapeHtml(lbl) + '</td>'
+        + '<td class="num">' + bar + (pct == null ? '—' : escapeHtml(pct) + '%') + '</td></tr>';
+    }).join('');
+  }
+
+  // Click a leaderboard row → fetch that site's single-site trend (carries components).
+  async function selectSite(site) {
+    selectedSite = site;
+    // re-highlight the leaderboard row
+    document.querySelectorAll('#prog-lbBody tr[data-site]').forEach(tr =>
+      tr.style.background = (tr.getAttribute('data-site') === site) ? 'var(--color-surface-alt,#f4f6f8)' : '');
+    let trend = { dates: [], sites: [] };
+    try {
+      const r = await fetch(API + '/trend' + qs({ site, months: TREND_MONTHS }),
+        { credentials: 'same-origin', headers: authHeaders() });
+      if (r.ok) trend = await r.json();
+    } catch (e) { console.warn('progress site trend failed:', e); }
+    const entry = (trend.sites || []).find(s => s.site === site) || (trend.sites || [])[0];
+    renderDetail(site, entry ? entry.components : null);
+  }
+
+  function resetDetail() {
+    selectedSite = null;
+    document.getElementById('prog-detail').style.display = 'none';
+    document.querySelectorAll('#prog-lbBody tr[data-site]').forEach(tr => tr.style.background = '');
+  }
+
+  async function refresh(f) {
+    f = f || {};
+    let lb = { rows: [], most_improved: null, needs_attention: null };
+    let trend = { dates: [], sites: [] };
+    try {
+      const r = await fetch(API + '/leaderboard', { credentials: 'same-origin', headers: authHeaders() });
+      if (r.ok) lb = await r.json();
+    } catch (e) { console.warn('progress leaderboard failed:', e); }
+    try {
+      // Effort is per-site — only the Site filter applies on this tab.
+      const r = await fetch(API + '/trend' + qs({ site: f.site, months: TREND_MONTHS }),
+        { credentials: 'same-origin', headers: authHeaders() });
+      if (r.ok) trend = await r.json();
+    } catch (e) { console.warn('progress trend failed:', e); }
+
+    const collecting = ((trend.dates || []).length < 2) || !(lb.rows && lb.rows.length);
+    document.getElementById('prog-empty').style.display   = collecting ? 'block' : 'none';
+    document.getElementById('prog-content').style.display = collecting ? 'none' : 'block';
+
+    // G-03 — which snapshot these scores come from. The effort score only moves when
+    // a nightly snapshot lands, so a manager comparing "what I fixed today" against
+    // this tab needs the date, not just the number.
+    const snapEl = document.getElementById('prog-snapDate');
+    if (snapEl) {
+      const dts = trend.dates || [];
+      snapEl.textContent = dts.length
+        ? 'Dernier instantané : ' + dts[dts.length - 1] + ' (' + dts.length + ' relevés sur la fenêtre)'
+        : 'Aucun instantané enregistré pour l’instant.';
+    }
+
+    if (!collecting) {
+      renderLeaderboard(lb);
+      renderCallouts(lb);
+      renderTrend(trend);
+      // keep an open detail in sync (site may have dropped out of scope)
+      if (selectedSite && !(lb.rows || []).some(r => r.site === selectedSite)) resetDetail();
+    }
+  }
+
+  async function snapshotNow() {
+    const btn = document.getElementById('prog-snapBtn');
+    btn.disabled = true;
+    try {
+      const r = await fetch(API + '/snapshot', { method: 'POST', credentials: 'same-origin', headers: authHeaders() });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+    } catch (e) { console.warn('progress snapshot failed:', e); }
+    btn.disabled = false;
+    await refresh(window.__assetFilters ? window.__assetFilters() : {});
+  }
+
+  async function init(f) {
+    const btn = document.getElementById('prog-snapBtn');
+    if (window.__userHasRole && window.__userHasRole('admin')) {
+      btn.style.display = 'inline-flex';
+      btn.addEventListener('click', snapshotNow);
+    }
+    document.getElementById('prog-detailReset').addEventListener('click', resetDetail);
+    await refresh(f);
+  }
+
+  window.PROG_PANE = { init, refresh };
+})();
+</script>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     PANE MODULE: INVESTMENT  (window.INVEST_PANE)
+     Historical spend curve + forward CAPEX forecast (hardware replacement +
+     software renewal) + coverage-% transparency headlines, by equipment type.
+     ══════════════════════════════════════════════════════════════════ -->
+<script nonce="%%CSP_NONCE%%">
+(function () {
+  'use strict';
+  const API = '/api/assets/investment';
+
+  let charts = {};
+
+  function authHeaders() {
+    const h = {};
+    let tok = null;
+    const at = window.__authToken;
+    if (typeof at === 'function') { try { tok = at(); } catch (_) {} }
+    else if (typeof at === 'string' && at) { tok = at; }
+    if (!tok) tok = localStorage.getItem('report_token');
+    if (tok) h['x-report-token'] = tok;
+    return h;
+  }
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[c]));
+  }
+  function qs(params) {
+    const sp = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) { if (v) sp.set(k, v); }
+    return sp.toString() ? '?' + sp.toString() : '';
+  }
+  function upsertChart(canvasId, config) {
+    if (charts[canvasId]) { charts[canvasId].destroy(); }
+    const ctx = document.getElementById(canvasId);
+    if (ctx) charts[canvasId] = new Chart(ctx, config);
+  }
+
+  const css = getComputedStyle(document.documentElement);
+  const CV = (name, fallback) => (css.getPropertyValue(name).trim() || fallback);
+  const COL = {
+    blue:  CV('--edv-blue',  '#1E6FBF'),
+    green: CV('--edv-green', '#1E8E3E'),
+    slate: CV('--edv-slate', '#3A4A60'),
+    amber: CV('--color-warning', '#D97706'),
+  };
+
+  // "1,234" USD, no fractional cents (budget figures) with a thousands separator.
+  const usd0 = v => (Number(v) || 0).toLocaleString('en-US', { maximumFractionDigits: 0 });
+  const num  = v => (Number(v) || 0).toLocaleString('en-US');
+  const usdAxis = v => '$' + Number(v).toLocaleString('en-US', { maximumFractionDigits: 0 });
+
+  function horizon() {
+    const n = parseInt(document.getElementById('invf-horizon').value, 10);
+    return Number.isFinite(n) ? n : 5;
+  }
+
+  // ── Coverage banners ──────────────────────────────────────────────
+  function renderCoverage(fc) {
+    const hw = (fc.hardware && fc.hardware.coverage) || {};
+    const sw = (fc.software && fc.software.coverage) || {};
+    const hwEx = hw.excluded || {}, swEx = sw.excluded || {};
+
+    document.getElementById('invf-covHw-line').textContent =
+      'Hardware forecast based on ' + num(hw.eligible) + ' of ' + num(hw.total) +
+      ' assets (' + (hw.pct == null ? '—' : Number(hw.pct)) + '%) — those with acquisition date + cost + a lifecycle policy';
+    document.getElementById('invf-covHw-excl').textContent =
+      'excluded: ' + num(hwEx.no_date) + ' no date · ' + num(hwEx.no_cost) + ' no cost · ' + num(hwEx.no_life) + ' no policy';
+
+    document.getElementById('invf-covSw-line').textContent =
+      'Software renewal based on ' + num(sw.eligible) + ' of ' + num(sw.total) +
+      ' licences (' + (sw.pct == null ? '—' : Number(sw.pct)) + '%) with expiry + cost';
+    document.getElementById('invf-covSw-excl').textContent =
+      'excluded: ' + num(swEx.no_expiry) + ' no expiry · ' + num(swEx.no_cost) + ' no cost';
+  }
+
+  // ── History line chart ────────────────────────────────────────────
+  function renderHistory(hist) {
+    if (typeof Chart === 'undefined') { console.warn('Chart.js not loaded'); return; }
+    const years = (hist.years || []);
+    upsertChart('invf-chartHistory', {
+      type: 'line',
+      data: {
+        labels: years.map(y => y.year),
+        datasets: [
+          { label: 'Hardware (USD)', data: years.map(y => Number(y.hardware_usd) || 0),
+            borderColor: COL.blue, backgroundColor: COL.blue, tension: 0.25, pointRadius: 3 },
+          { label: 'Software (USD)', data: years.map(y => Number(y.software_usd) || 0),
+            borderColor: COL.amber, backgroundColor: COL.amber, tension: 0.25, pointRadius: 3 },
+          { label: 'Cumulative (USD)', data: years.map(y => Number(y.cumulative_usd) || 0),
+            borderColor: COL.green, backgroundColor: COL.green, borderDash: [6, 4], tension: 0.25, pointRadius: 2 },
+        ],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
+          tooltip: { callbacks: { label: c => c.dataset.label + ': ' + usdAxis(c.parsed.y) } },
+        },
+        scales: { y: { beginAtZero: true, title: { display: true, text: 'USD' }, ticks: { callback: usdAxis } } },
+      },
+    });
+  }
+
+  // ── Forecast stacked bar ──────────────────────────────────────────
+  function renderForecast(fc) {
+    if (typeof Chart === 'undefined') { console.warn('Chart.js not loaded'); return; }
+    const hw = fc.hardware || {}, sw = fc.software || {};
+    const hwYears = hw.years || [], swYears = sw.years || [];
+
+    // Union of forecast years (sorted ascending), prefixed by a "Due now" column.
+    const yearSet = new Set();
+    hwYears.forEach(y => yearSet.add(y.year));
+    swYears.forEach(y => yearSet.add(y.year));
+    const years = [...yearSet].sort((a, b) => a - b);
+
+    const hwByYear = {}; hwYears.forEach(y => { hwByYear[y.year] = Number(y.replacement_usd) || 0; });
+    const swByYear = {}; swYears.forEach(y => { swByYear[y.year] = Number(y.renewal_usd) || 0; });
+
+    const labels = ['Due now', ...years.map(String)];
+    const hwData = [Number((hw.due_now || {}).replacement_usd) || 0, ...years.map(y => hwByYear[y] || 0)];
+    const swData = [Number((sw.due_now || {}).renewal_usd) || 0, ...years.map(y => swByYear[y] || 0)];
+
+    upsertChart('invf-chartForecast', {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label: 'Hardware replacement (USD)', data: hwData, backgroundColor: COL.blue, stack: 'spend' },
+          { label: 'Software renewal (USD)', data: swData, backgroundColor: COL.amber, stack: 'spend' },
+        ],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
+          tooltip: { callbacks: { label: c => c.dataset.label + ': ' + usdAxis(c.parsed.y) } },
+        },
+        scales: {
+          x: { stacked: true },
+          y: { stacked: true, beginAtZero: true, title: { display: true, text: 'USD' }, ticks: { callback: usdAxis } },
+        },
+      },
+    });
+
+    // Beyond-horizon note
+    const hwB = hw.beyond_horizon || {}, swB = sw.beyond_horizon || {};
+    const hwCnt = Number(hwB.count) || 0, swCnt = Number(swB.count) || 0;
+    const note = document.getElementById('invf-beyondNote');
+    if (hwCnt === 0 && swCnt === 0) {
+      note.style.display = 'none';
+    } else {
+      note.style.display = '';
+      note.textContent = '+ ' + num(hwCnt) + ' assets / $' + usd0(hwB.usd) +
+        ' hardware and ' + num(swCnt) + ' licences / $' + usd0(swB.usd) +
+        ' software due BEYOND the ' + horizon() + '-year horizon.';
+    }
+  }
+
+  function renderUplift(fc) {
+    const p = Number(fc.uplift_pct) || 0;
+    document.getElementById('invf-upliftNote').innerHTML =
+      p > 0
+        ? 'Replacement prices grown <strong>' + escapeHtml(p) + '%/yr</strong> (compounded from original cost to the forecast year).'
+        : 'Replacement prices budgeted <strong>like-for-like (0%)</strong> — no annual price uplift applied.';
+  }
+
+  function exportHref() {
+    const f = window.__assetFilters ? window.__assetFilters() : {};
+    return API + '/export.xlsx' + qs(Object.assign({ horizon: horizon() }, f));
+  }
+
+  async function exportExcel() {
+    const btn = document.getElementById('invf-exportBtn');
+    const orig = btn.innerHTML;
+    btn.innerHTML = '⏳ Preparing…';
+    try {
+      const r = await fetch(exportHref(), { credentials: 'same-origin', headers: authHeaders() });
+      if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || ('HTTP ' + r.status)); }
+      const url = URL.createObjectURL(await r.blob());
+      const a = document.createElement('a'); a.href = url; a.download = 'assets-investment.xlsx';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    } catch (err) {
+      alert('Excel export failed: ' + (err.message || ''));
+    } finally {
+      btn.innerHTML = orig;
+    }
+  }
+
+  // Refetch only the forecast (history is horizon-independent) + redraw.
+  async function refreshForecast(f) {
+    f = f || (window.__assetFilters ? window.__assetFilters() : {});
+    let fc = { hardware: {}, software: {}, uplift_pct: 0 };
+    try {
+      const r = await fetch(API + '/forecast' + qs(Object.assign({ horizon: horizon() }, f)),
+        { credentials: 'same-origin', headers: authHeaders() });
+      if (r.ok) fc = await r.json();
+    } catch (e) { console.warn('investment forecast failed:', e); }
+    document.getElementById('invf-exportBtn').setAttribute('href', exportHref());
+    renderCoverage(fc);
+    renderForecast(fc);
+    renderUplift(fc);
+    return fc;
+  }
+
+  async function refresh(f) {
+    f = f || {};
+    let hist = { years: [], coverage: {} };
+    try {
+      const r = await fetch(API + '/history' + qs(f), { credentials: 'same-origin', headers: authHeaders() });
+      if (r.ok) hist = await r.json();
+    } catch (e) { console.warn('investment history failed:', e); }
+
+    const fc = await refreshForecast(f);
+
+    // Empty state: no history years AND both forecast coverages have eligible === 0.
+    const hwElig = ((fc.hardware && fc.hardware.coverage) || {}).eligible || 0;
+    const swElig = ((fc.software && fc.software.coverage) || {}).eligible || 0;
+    const empty = !((hist.years || []).length) && hwElig === 0 && swElig === 0;
+    document.getElementById('invf-empty').style.display   = empty ? 'block' : 'none';
+    document.getElementById('invf-content').style.display = empty ? 'none' : 'block';
+
+    if (!empty) renderHistory(hist);
+  }
+
+  async function init(f) {
+    document.getElementById('invf-horizon').addEventListener('change', () => refreshForecast());
+    document.getElementById('invf-exportBtn').addEventListener('click', (e) => { e.preventDefault(); exportExcel(); });
+    await refresh(f);
+  }
+
+  window.INVEST_PANE = { init, refresh };
+})();
+</script>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     PANE MODULE: RÉCONCILIATION  (window.REC_PANE)
+     Machines vues récemment dans AD / Entra / Defender et absentes de SDP —
+     l'angle mort de SelfScan. Plus le sens inverse : actifs SDP que plus
+     personne ne voit.
+     Tout le calcul est côté serveur (services/reconcileView.js) ; ce module
+     n'affiche que ce qu'on lui envoie.
+     ══════════════════════════════════════════════════════════════════ -->
+<script nonce="%%CSP_NONCE%%">
+(function () {
+  'use strict';
+  const API = '/api/assets/reconcile';
+
+  function authHeaders() {
+    const h = {};
+    let tok = null;
+    const at = window.__authToken;
+    if (typeof at === 'function') { try { tok = at(); } catch (_) {} }
+    else if (typeof at === 'string' && at) { tok = at; }
+    if (!tok) tok = localStorage.getItem('report_token');
+    if (tok) h['x-report-token'] = tok;
+    return h;
+  }
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[c]));
+  }
+  function qs(params) {
+    const sp = new URLSearchParams();
+    for (const [k, v] of Object.entries(params || {})) { if (v) sp.set(k, v); }
+    return sp.toString() ? '?' + sp.toString() : '';
+  }
+  const num = v => (Number(v) || 0).toLocaleString('fr-FR');
+  // Date lisible + heure : deux connexions le même jour se distinguent, et
+  // c'est cette valeur qu'on recoupe avec AD ou Entra quand on doute.
+  const fmtDate = (iso) => {
+    if (!iso) return 'jamais';
+    const d = new Date(iso);
+    if (!Number.isFinite(d.getTime())) return String(iso);
+    const p = n => String(n).padStart(2, '0');
+    return p(d.getDate()) + '/' + p(d.getMonth() + 1) + '/' + d.getFullYear() + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+  };
+  const isAdmin = () => !!(window.__userHasRole && (window.__userHasRole('admin') ||
+                        window.__userHasRole('executive') || window.__userHasRole('super_admin')));
+
+  let last = null;          // dernière vue reçue
+  let siteFilter = null;    // filtre Site partagé, mémorisé pour l'export
+
+  // ── Provenances, en clair. Les afficher est le contrat : un site venant
+  //    d'un libellé d'OU n'a pas la même valeur qu'un site appris.
+  const SRC_LABEL = {
+    ou_learned: 'OU apprise', ou_label: 'libellé d\'OU', name: 'nom de machine',
+    product_type: 'type SDP', product: 'modèle', os: 'système',
+  };
+  const srcTag = (s) => s
+    ? '<span style="display:inline-block;padding:1px 6px;border-radius:10px;background:var(--color-surface-muted,#f4f6f7);border:1px solid var(--color-border,#dfe3e8);font-size:10px;opacity:.85">' + escapeHtml(SRC_LABEL[s] || s) + '</span>'
+    : '<span style="display:inline-block;padding:1px 6px;border-radius:10px;background:var(--color-surface-muted,#f4f6f7);border:1px solid var(--color-border,#dfe3e8);font-size:10px;opacity:.55">indéterminé</span>';
+
+  // ── Fraîcheur des imports ──────────────────────────────────────────
+  function renderFreshness(imports) {
+    const el = document.getElementById('rec-freshness');
+    if (!imports || !imports.length) {
+      el.innerHTML = '<strong>Aucune source importée.</strong> Les chiffres ci-dessous sont vides tant qu\'un export n\'a pas été déposé.';
+      return;
+    }
+    const NAMES = { ad: 'Active Directory', entra: 'Entra ID', defender: 'Defender' };
+    el.innerHTML = 'Dernier import — ' + imports.map(i =>
+      '<strong>' + escapeHtml(NAMES[i.source] || i.source) + '</strong> : ' +
+      num(i.n) + ' machines, le ' + escapeHtml(String(i.imported_at || '').slice(0, 16).replace('T', ' '))
+    ).join(' &nbsp;·&nbsp; ');
+  }
+
+  // ── Tuiles ─────────────────────────────────────────────────────────
+  function renderTiles(v) {
+    const c = v.counts || {};
+    const w = v.window || {};
+    // Mêmes classes que les autres onglets (.tiles / .tile / .tn / .tl / .td) —
+    // inventer des noms de classes rend des tuiles en texte brut.
+    const tile = (label, value, note) =>
+      '<div class="tile" data-kind=""><div class="tn">' + escapeHtml(String(value)) + '</div>' +
+      '<div class="tl">' + escapeHtml(label) + '</div>' +
+      (note ? '<div class="td">' + escapeHtml(note) + '</div>' : '') + '</div>';
+    // « Non applicable » et « 0 » ne disent PAS la même chose : sans source
+    // importée, on n'a rien mesuré, et afficher « 0 candidat » se lirait
+    // « parc entièrement sain ». Le contraire de la vérité.
+    const retApplicable = c.retirement_applicable !== false;
+    const srcs = (c.sources_present || []);
+    const SRC = { ad: 'AD', entra: 'Entra', defender: 'Defender' };
+    document.getElementById('rec-tiles').innerHTML =
+      tile('Écarts à traiter', num(c.gaps_open), 'vus il y a ≤ ' + (w.recent_days || 30) + ' j, absents de SDP') +
+      tile('Sites touchés', num(c.sites_touched), (c.gaps_open - 0) && c.sites_touched === 0 ? 'tous indéterminés' : 'sites nommés') +
+      tile('OU à rattacher', num(c.ous_touched), 'unités d\'action GPO') +
+      (retApplicable
+        ? tile('Candidats au retrait', num(c.retirement_candidates),
+               'jugés sur ' + srcs.map(s => SRC[s] || s).join(' + ') + ' · écartés : '
+               + num(c.retirement_excluded_renamed) + ' renommés · '
+               + num(c.retirement_excluded_off_network) + ' hors réseau · '
+               + num(c.retirement_excluded_never_scanned) + ' jamais scannés · '
+               + num(c.retirement_excluded_not_joinable) + ' réseau')
+        // Deux causes, deux messages : sans distinction, un opérateur qui a
+        // BIEN importé un fichier irait chercher un problème d'import alors
+        // que son fichier n'a pas de colonne de dernière connexion.
+        : tile('Candidats au retrait', '—', srcs.length
+               ? 'non applicable — source importée mais aucune date de connexion exploitable'
+               : 'non applicable — aucune source importée'));
+  }
+
+  // ── Liste de travail GPO ───────────────────────────────────────────
+  function renderOu(v) {
+    const tb = document.querySelector('#rec-ouTable tbody');
+    const rows = v.by_ou || [];
+    if (!rows.length) { tb.innerHTML = '<tr><td colspan="5" style="color:var(--color-text-muted,#6b7785)">Aucun écart porteur d\'une OU. Entra et Defender n\'en fournissent pas.</td></tr>'; return; }
+    tb.innerHTML = rows.map(r => {
+      const pct = r.total ? Math.round(100 * r.gaps / r.total) : null;
+      return '<tr><td style="font-family:var(--font-mono,monospace);font-size:11px">' + escapeHtml(r.ou_dn) + '</td>' +
+        '<td>' + escapeHtml(r.site || '—') + '</td>' +
+        '<td class="num"><strong>' + num(r.gaps) + '</strong></td>' +
+        '<td class="num">' + num(r.total) + '</td>' +
+        '<td class="num">' + (pct == null ? '—' : pct + ' %') + '</td></tr>';
+    }).join('');
+  }
+
+  // ── Écarts par site, dépliables ────────────────────────────────────
+  function renderSites(v) {
+    const host = document.getElementById('rec-siteList');
+    const groups = v.by_site || [];
+    if (!groups.length) { host.innerHTML = '<div style="color:var(--color-text-muted,#6b7785)">Aucun écart.</div>'; return; }
+    const byKey = new Map();
+    for (const g of (v.gaps || [])) {
+      if (g.decision) continue;
+      const k = g.site || '';
+      if (!byKey.has(k)) byKey.set(k, []);
+      byKey.get(k).push(g);
+    }
+    host.innerHTML = groups.map((grp, i) => {
+      const key = grp.site || '';
+      const label = grp.site || 'Site indéterminé';
+      const items = byKey.get(key) || [];
+      return '<details style="border:1px solid var(--color-border,#dfe3e8);border-radius:var(--radius-md,6px);margin-bottom:8px">' +
+        '<summary style="padding:10px 12px;cursor:pointer;font-weight:600">' +
+        escapeHtml(label) + ' — ' + num(grp.n) + ' ' +
+        (grp.site_sources || []).map(s => srcTag(s)).join(' ') + '</summary>' +
+        '<div class="tablewrap"><table class="list"><thead><tr>' +
+        '<th>Machine</th><th>Type</th><th>Système</th><th>Dernière connexion</th><th class="num">Il y a</th><th>Vue par</th><th>Décision</th>' +
+        '</tr></thead><tbody>' +
+        items.map(g =>
+          '<tr><td style="font-family:var(--font-mono,monospace);font-size:11px">' + escapeHtml(g.device_name) + '</td>' +
+          '<td>' + escapeHtml(g.type || '—') + ' ' + srcTag(g.type_source) + '</td>' +
+          '<td>' + escapeHtml(g.os || '—') + '</td>' +
+          // La DATE, pas seulement l'ancienneté : c'est elle qu'on recoupe avec
+          // AD ou Entra quand on doute d'une ligne.
+          '<td style="white-space:nowrap">' + escapeHtml(fmtDate(g.last_seen)) + '</td>' +
+          '<td class="num">' + num(g.age_days) + ' j</td>' +
+          '<td>' + escapeHtml((g.sources || []).map(s => ({ad:'AD',entra:'Entra',defender:'Defender'}[s] || s)).join(' + ')) + '</td>' +
+          '<td>' + decisionControl(g) + '</td></tr>'
+        ).join('') +
+        '</tbody></table></div></details>';
+    }).join('');
+    host.querySelectorAll('select[data-key]').forEach(sel => sel.addEventListener('change', onDecision));
+  }
+
+  function decisionControl(g) {
+    const opts = [['', '—'], ['handled', 'Traitée'], ['out_of_scope', 'Hors périmètre']];
+    return '<select data-key="' + escapeHtml(g.device_key) + '" style="font-size:12px;padding:3px 6px">' +
+      opts.map(([v, l]) => '<option value="' + v + '"' + (g.decision === v ? ' selected' : '') + '>' + l + '</option>').join('') +
+      '</select>';
+  }
+
+  async function onDecision(e) {
+    const sel = e.target;
+    const prev = sel.getAttribute('data-prev') || '';
+    const decision = sel.value;
+    let reason = '';
+    // Un hors-périmètre sans motif est refusé par le serveur : sortir une
+    // machine du compteur sans dire pourquoi vide l'indicateur de son sens.
+    if (decision === 'out_of_scope') {
+      reason = window.prompt('Motif — pourquoi cette machine sort-elle du périmètre ?', '') || '';
+      if (!reason.trim()) { sel.value = prev; return; }
+    }
+    try {
+      const r = await fetch(API + '/decision', {
+        method: 'POST', credentials: 'same-origin',
+        headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+        body: JSON.stringify({ device_key: sel.getAttribute('data-key'), decision: decision || null, reason }),
+      });
+      if (!r.ok) {
+        // Un refus doit REVENIR en arrière : afficher une décision non
+        // enregistrée est le pire des deux mondes.
+        const b = await r.json().catch(() => ({}));
+        sel.value = prev;
+        alert(b.error || 'Décision refusée par le serveur.');
+        return;
+      }
+      sel.setAttribute('data-prev', decision);
+      await refresh();
+    } catch (err) { sel.value = prev; alert('Réseau indisponible — décision non enregistrée.'); }
+  }
+
+  // ── Sens inverse ───────────────────────────────────────────────────
+  function renderRetirement(v) {
+    const tb = document.querySelector('#rec-retTable tbody');
+    const rows = v.retirement_candidates || [];
+    // Même règle que la tuile : dire qu'on n'a pas mesuré, pas qu'il n'y a rien.
+    if ((v.counts || {}).retirement_applicable === false) {
+      const had = ((v.counts || {}).sources_present || []).length;
+      tb.innerHTML = '<tr><td colspan="4" style="color:var(--color-text-muted,#6b7785)">'
+        + '<strong>Non applicable.</strong> '
+        + (had
+            ? 'Une source est bien importée, mais aucune de ses lignes ne porte de date de '
+              + 'connexion exploitable — vérifiez que le fichier déposé contient bien la colonne '
+              + '<code>lastLogonTimestamp</code> (AD), <code>approximateLastSignInDateTime</code> '
+              + '(Entra) ou <code>LastSeen</code> (Defender), et qu\'il a été déposé dans la bonne case.'
+            : 'Aucune source externe n\'a été importée.')
+        + ' Sans une seule observation datée, « vu nulle part » ne veut rien dire : '
+        + 'ce serait le parc entier.</td></tr>';
+      return;
+    }
+    if (!rows.length) { tb.innerHTML = '<tr><td colspan="4" style="color:var(--color-text-muted,#6b7785)">Aucun candidat.</td></tr>'; return; }
+    tb.innerHTML = rows.slice(0, 300).map(r =>
+      '<tr><td style="font-family:var(--font-mono,monospace);font-size:11px">' + escapeHtml(r.asset_name) + '</td>' +
+      '<td>' + escapeHtml(r.site || '—') + '</td>' +
+      '<td style="white-space:nowrap">' + escapeHtml(fmtDate(r.last_seen_external)) + '</td>' +
+      '<td class="num">' + (r.age_days == null ? '—' : num(r.age_days)) + '</td></tr>'
+    ).join('') + (rows.length > 300
+      ? '<tr><td colspan="4" style="color:var(--color-text-muted,#6b7785)">… ' + num(rows.length - 300) + ' de plus — voir l\'export Excel</td></tr>' : '');
+    renderReview(v);
+  }
+
+  // ── À vérifier (renommés / hors réseau / jamais scannés) ─────────────
+  const REVIEW_LABEL = {
+    renamed: 'renommage probable (service tag partagé ou nom _old)',
+    off_network: 'hors réseau (état ≠ In Use)',
+    never_scanned: 'jamais scanné avec succès',
+  };
+  function renderReview(v) {
+    const rows = v.retirement_review || [];
+    const card = document.getElementById('rec-reviewCard');
+    card.style.display = rows.length ? 'block' : 'none';
+    if (!rows.length) return;
+    document.querySelector('#rec-reviewTable tbody').innerHTML = rows.slice(0, 300).map(r =>
+      '<tr><td style="font-family:var(--font-mono,monospace);font-size:11px">' + escapeHtml(r.asset_name) + '</td>' +
+      '<td>' + escapeHtml(r.site || '—') + '</td>' +
+      '<td>' + escapeHtml(REVIEW_LABEL[r.reason] || r.reason) + '</td>' +
+      '<td>' + escapeHtml(r.state || '—') + '</td>' +
+      '<td style="font-family:var(--font-mono,monospace);font-size:11px">' + escapeHtml(r.serial_number || '—') + '</td></tr>'
+    ).join('') + (rows.length > 300
+      ? '<tr><td colspan="5" style="color:var(--color-text-muted,#6b7785)">… ' + num(rows.length - 300) + ' de plus — voir l\'export Excel</td></tr>' : '');
+  }
+
+  // ── Import ─────────────────────────────────────────────────────────
+  async function sendFile(source, file, commit) {
+    const buf = await file.arrayBuffer();
+    const r = await fetch(API + (commit ? '/import' : '/preview') + '?source=' + encodeURIComponent(source), {
+      method: 'POST', credentials: 'same-origin',
+      headers: Object.assign({ 'Content-Type': 'text/csv' }, authHeaders()),
+      body: buf,
+    });
+    const body = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(body.error || ('HTTP ' + r.status));
+    return body;
+  }
+
+  async function onFile(e) {
+    const input = e.target;
+    const file = input.files && input.files[0];
+    if (!file) return;
+    const source = input.getAttribute('data-source');
+    const host = document.getElementById('rec-preview');
+    host.style.display = 'block';
+    host.innerHTML = '<div style="color:var(--color-text-muted,#6b7785)">Lecture de ' + escapeHtml(file.name) + '…</div>';
+    try {
+      const p = await sendFile(source, file, false);
+      host.innerHTML =
+        '<div class="count-note" style="border:1px solid var(--color-border,#dfe3e8);border-radius:var(--radius-md,6px)">' +
+        '<strong>' + escapeHtml(file.name) + '</strong> — ' + num(p.rows) + ' machines lues' +
+        (p.skipped_no_name ? ', ' + num(p.skipped_no_name) + ' lignes sans nom ignorées' : '') +
+        (p.warnings && p.warnings.length
+          ? '<ul style="margin:8px 0 0;padding-left:18px;font-size:12px">' +
+            p.warnings.map(w => '<li>' + escapeHtml(w) + '</li>').join('') + '</ul>'
+          : '') +
+        '<div style="margin-top:10px"><button class="btn btn-primary" id="rec-commitBtn">' +
+        'Importer et remplacer la source « ' + escapeHtml(source) + ' »</button></div>' +
+        '<div style="margin-top:6px;font-size:12px;color:var(--color-text-muted,#6b7785)">' +
+        'Rien n\'est encore enregistré. L\'import remplace <strong>uniquement</strong> cette source.</div></div>';
+      document.getElementById('rec-commitBtn').addEventListener('click', async () => {
+        try {
+          const c = await sendFile(source, file, true);
+          host.innerHTML = '<div class="count-note" style="border:1px solid var(--edv-green,#1E8E3E);border-radius:var(--radius-md,6px)">' +
+            '✓ ' + num(c.imported) + ' machines importées pour « ' + escapeHtml(source) +' ».</div>';
+          input.value = '';
+          await refresh();
+        } catch (err) { host.innerHTML = '<div class="count-note" style="border:1px solid var(--edv-red,#D90038);border-radius:var(--radius-md,6px)">' + escapeHtml(err.message) + '</div>'; }
+      });
+    } catch (err) {
+      // Le serveur NOMME la colonne absente — on la répercute telle quelle.
+      host.innerHTML = '<div class="count-note" style="border:1px solid var(--edv-red,#D90038);border-radius:var(--radius-md,6px)">' +
+        escapeHtml(err.message) + '</div>';
+    }
+  }
+
+  // ── Cycle ──────────────────────────────────────────────────────────
+  async function refresh(f) {
+    if (f) siteFilter = f.site || null;
+    const p = siteFilter ? { site: siteFilter } : {};
+    try {
+      const [sr, gr] = await Promise.all([
+        fetch(API + '/summary' + qs(p), { credentials: 'same-origin', headers: authHeaders() }),
+        fetch(API + '/gaps' + qs(p), { credentials: 'same-origin', headers: authHeaders() }),
+      ]);
+      if (!sr.ok || !gr.ok) throw new Error('HTTP');
+      const s = await sr.json(), g = await gr.json();
+      last = Object.assign({}, s, g);
+    } catch (e) { last = null; }
+
+    const empty = !last || !(last.imports || []).length;
+    document.getElementById('rec-empty').style.display = empty ? 'block' : 'none';
+    renderFreshness(last && last.imports);
+    // La progression + le journal ne s'affichent qu'une fois une source importée.
+    document.getElementById('rec-progressCard').style.display = empty ? 'none' : 'block';
+    document.getElementById('rec-importLogCard').style.display = empty ? 'none' : 'block';
+    if (empty) {
+      document.getElementById('rec-tiles').innerHTML = '';
+      document.querySelector('#rec-ouTable tbody').innerHTML = '';
+      document.querySelector('#rec-retTable tbody').innerHTML = '';
+      document.getElementById('rec-siteList').innerHTML = '';
+      return;
+    }
+    renderTiles(last); renderOu(last); renderSites(last); renderRetirement(last);
+    renderHistory();
+  }
+
+  // ── Progression : courbe des écarts + journal des imports ────────────
+  let histChart = null;
+  async function renderHistory() {
+    const months = parseInt(document.getElementById('rec-histMonths').value, 10) || 12;
+    let h;
+    try {
+      const r = await fetch(API + '/history?months=' + months, { credentials: 'same-origin', headers: authHeaders() });
+      if (!r.ok) return;
+      h = await r.json();
+    } catch (e) { return; }
+
+    renderImportLog(h.imports);
+
+    const css = getComputedStyle(document.documentElement);
+    const CV = (n, f) => (css.getPropertyValue(n).trim() || f);
+    const orange = CV('--edv-orange', '#EF631A');
+    const site = siteFilter && siteFilter.toUpperCase();
+    // Filtre site actif -> SA courbe (par la clé normalisée casse) ; sinon le total.
+    let series, label;
+    if (site) {
+      const key = Object.keys(h.series_by_site || {}).find(k => String(k).toUpperCase() === site);
+      series = key ? h.series_by_site[key] : [];
+      label = 'Écarts — ' + siteFilter;
+    } else {
+      series = (h.points || []).map(p => ({ date: p.date, n: p.gaps_open }));
+      label = 'Écarts (parc entier)';
+    }
+    const labels = series.map(x => x.date);
+    const data = series.map(x => x.n);
+
+    if (histChart) histChart.destroy();
+    const ctx = document.getElementById('rec-histChart');
+    if (!ctx || typeof Chart === 'undefined') return;
+    histChart = new Chart(ctx, {
+      type: 'line',
+      data: { labels, datasets: [{ label, data, borderColor: orange, backgroundColor: orange + '22',
+        fill: true, tension: 0.25, pointRadius: 3, spanGaps: false }] },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        scales: { y: { beginAtZero: true, title: { display: true, text: 'Écarts à traiter' } } },
+        plugins: { legend: { display: true } },
+      },
+    });
+  }
+
+  function renderImportLog(imports) {
+    const tb = document.querySelector('#rec-importLog tbody');
+    const rows = imports || [];
+    const NM = { ad: 'Active Directory', entra: 'Entra ID', defender: 'Defender' };
+    tb.innerHTML = rows.length
+      ? rows.map(r =>
+          '<tr><td>' + escapeHtml(NM[r.source] || r.source) + '</td>' +
+          '<td style="white-space:nowrap">' + escapeHtml(String(r.imported_at || '').slice(0, 16).replace('T', ' ')) + '</td>' +
+          '<td class="num">' + num(r.row_count) + '</td>' +
+          '<td class="num">' + (r.dated_count == null ? '—' : num(r.dated_count)) + '</td>' +
+          '<td>' + escapeHtml(r.imported_by || '—') + '</td></tr>'
+        ).join('')
+      : '<tr><td colspan="5" style="color:var(--color-text-muted,#6b7785)">Aucun import journalisé.</td></tr>';
+  }
+
+  function init(f) {
+    // Les collecteurs sont servis par le serveur — la page n'en héberge
+    // aucune copie, deux copies divergent.
+    document.getElementById('rec-dlCollector').addEventListener('click', (e) => {
+      e.preventDefault(); download(API + '/collector.ps1');
+    });
+    document.getElementById('rec-dlKql').addEventListener('click', (e) => {
+      e.preventDefault(); download(API + '/defender.kql');
+    });
+    document.getElementById('rec-exportBtn').addEventListener('click', (e) => {
+      e.preventDefault(); download(API + '/export.xlsx' + qs(siteFilter ? { site: siteFilter } : {}));
+    });
+    // La fenêtre de la courbe — re-rend sans recharger tout le reste.
+    document.getElementById('rec-histMonths').addEventListener('change', renderHistory);
+    // Capture manuelle (admin) — un point de secours quand on ne veut pas
+    // attendre le prochain import.
+    if (isAdmin()) {
+      const snap = document.getElementById('rec-snapBtn');
+      snap.style.display = '';
+      snap.addEventListener('click', async () => {
+        try {
+          const r = await fetch(API + '/snapshot', { method: 'POST', credentials: 'same-origin', headers: authHeaders() });
+          if (!r.ok) { alert('Capture indisponible (HTTP ' + r.status + ')'); return; }
+          await renderHistory();
+        } catch (e) { alert('Capture indisponible.'); }
+      });
+    }
+    // L'import remplace une source pour tout le monde : réservé aux admins.
+    if (!isAdmin()) {
+      const row = document.getElementById('rec-importRow');
+      row.querySelectorAll('input[type=file]').forEach(i => { i.disabled = true; i.title = 'Réservé aux administrateurs'; });
+      row.style.opacity = '.55';
+    } else {
+      document.querySelectorAll('#rec-importRow input[type=file]').forEach(i => i.addEventListener('change', onFile));
+    }
+    return refresh(f);
+  }
+
+  async function download(url) {
+    try {
+      const r = await fetch(url, { credentials: 'same-origin', headers: authHeaders() });
+      if (!r.ok) { alert('Téléchargement indisponible (HTTP ' + r.status + ')'); return; }
+      const blob = await r.blob();
+      const cd = r.headers.get('content-disposition') || '';
+      const m = /filename="?([^"]+)"?/.exec(cd);
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = m ? m[1] : 'download';
+      document.body.appendChild(a); a.click();
+      setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+    } catch (e) { alert('Téléchargement indisponible.'); }
+  }
+
+  window.REC_PANE = { init, refresh };
+})();
+</script>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     CONTROLLER — shared filter bar + tab switching + lazy-init
+     ══════════════════════════════════════════════════════════════════ -->
+<script nonce="%%CSP_NONCE%%">
+(function () {
+  'use strict';
+
+  // Ajouter un onglet impose QUATRE éditions coordonnées — ces trois tables
+  // plus le balisage bouton + section. En oublier une donne un onglet à moitié
+  // vivant : il s'ouvre mais le lien profond ne marche pas, ou l'inverse.
+  const TABS = ['inventory', 'hygiene', 'finance', 'hardware', 'progress', 'investment', 'reconcile'];
+  const PANE = { inventory: 'INV_PANE', hygiene: 'HYG_PANE', finance: 'FIN_PANE', hardware: 'HW_PANE', progress: 'PROG_PANE', investment: 'INVEST_PANE', reconcile: 'REC_PANE' };
+  const inited = { inventory: false, hygiene: false, finance: false, hardware: false, progress: false, investment: false, reconcile: false };
+  let activeTab = 'inventory';
+
+  // G-11 (owner decision, 2026-09-24) — the money is admin+. The routes enforce it; the
+  // page must not walk a viewer into a tab that will answer 403. The engagement tabs
+  // (Inventory, Hygiene, Hardware, Progress, Réconciliation) stay open to everyone:
+  // closing the module would cost more than the exposure it prevents.
+  // PURE, so the rule is testable outside a browser.
+  const MONEY_TABS = ['finance', 'investment'];
+  function _moneyTabsAllowed(hasRole) {
+    if (typeof hasRole !== 'function') return false;   // no helper → assume not allowed
+    try { return !!(hasRole('admin') || hasRole('executive') || hasRole('super_admin')); }
+    catch (e) { return false; }
+  }
+  function _applyMoneyTabGate() {
+    if (_moneyTabsAllowed(window.__userHasRole)) return;
+    for (const t of MONEY_TABS) {
+      const btn = document.querySelector('.tabbtn[data-tab="' + t + '"]');
+      if (btn) btn.style.display = 'none';
+      const idx = TABS.indexOf(t);
+      if (idx >= 0) TABS.splice(idx, 1);              // and out of the deep-link set
+    }
+  }
+
+
+  function authHeaders() {
+    const h = {};
+    let tok = null;
+    const at = window.__authToken;
+    if (typeof at === 'function') { try { tok = at(); } catch (_) {} }
+    else if (typeof at === 'string' && at) { tok = at; }
+    if (!tok) tok = localStorage.getItem('report_token');
+    if (tok) h['x-report-token'] = tok;
+    return h;
+  }
+
+  function filters() {
+    return {
+      site:         document.getElementById('filterSite').value,
+      state:        document.getElementById('filterState').value,
+      product_type: document.getElementById('filterType').value,
+      manufacturer: document.getElementById('filterMfr').value,
+      q:            document.getElementById('filterQ').value.trim(),
+    };
+  }
+  window.__assetFilters = filters;
+
+  // Admin-only "Sync assets now" — full re-sync of all AssetExplorer views (fire-and-
+  // forget on the server: the response means it STARTED, not finished). Uses the page
+  // session, sends an empty JSON body so IIS gets a Content-Length (avoids 411).
+  async function syncAssetsNow() {
+    const btn = document.getElementById('syncAssetsBtn');
+    if (!btn) return;
+    const orig = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="icon icon-refresh-cw"></span> Syncing…';
+    try {
+      const r = await fetch('/api/sync/trigger/assets', {
+        method: 'POST', credentials: 'same-origin',
+        headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+        body: '{}',
+      });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      btn.innerHTML = '✓ Started — refresh in ~1 min';
+    } catch (e) {
+      console.warn('assets sync failed:', e);
+      btn.innerHTML = '⚠ Sync failed — retry';
+    }
+    setTimeout(() => { btn.innerHTML = orig; btn.disabled = false; }, 5000);
+  }
+
+  function pane(tab) { return window[PANE[tab]] || { init(){}, refresh(){} }; }
+
+  // Fill the shared filter dropdowns once from /api/assets/lookups.
+  function fill(selId, values) {
+    const sel = document.getElementById(selId);
+    while (sel.options.length > 1) sel.remove(sel.options.length - 1);
+    (values || []).forEach(v => {
+      const o = document.createElement('option');
+      o.value = v; o.textContent = v;
+      sel.appendChild(o);
+    });
+  }
+  async function loadLookups() {
+    try {
+      const r = await fetch('/api/assets/lookups', { credentials: 'same-origin', headers: authHeaders() });
+      if (!r.ok) return;
+      const lk = await r.json();
+      fill('filterSite',  lk.sites);
+      fill('filterState', lk.states);
+      fill('filterType',  lk.product_types);
+      fill('filterMfr',   lk.manufacturers);
+    } catch (e) { /* offline — leave "All / Any" only */ }
+  }
+
+  // Progress (effort trend) is a per-site metric — only the Site filter applies
+  // (the history table has no state/type/manufacturer/serial columns). Grey out
+  // the inapplicable controls on that tab so they don't read as broken; the note
+  // in the Progress pane explains why. Every other tab keeps all filters live.
+  function applyFilterAvailability(tab) {
+    const siteOnly = (tab === 'progress');
+    ['filterState', 'filterType', 'filterMfr', 'filterQ'].forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.disabled = siteOnly;
+      el.title = siteOnly ? "Not applicable on Progress — effort is a per-site metric (only Site applies)." : '';
+      el.style.opacity = siteOnly ? '0.5' : '';
+      el.style.cursor = siteOnly ? 'not-allowed' : '';
+    });
+  }
+
+  async function activate(tab, opts) {
+    opts = opts || {};
+    if (!TABS.includes(tab)) tab = 'inventory';
+    activeTab = tab;
+    applyFilterAvailability(tab);
+
+    // Tab button + pane visibility
+    document.querySelectorAll('.tabbtn').forEach(b => {
+      const on = b.getAttribute('data-tab') === tab;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    TABS.forEach(t => {
+      const p = document.getElementById('pane-' + t);
+      if (p) p.classList.toggle('active', t === tab);
+    });
+
+    if (!opts.skipHash) {
+      if (('#' + tab) !== location.hash) {
+        history.replaceState(null, '', '#' + tab);
+      }
+    }
+
+    const p = pane(tab);
+    const f = filters();
+    if (!inited[tab]) {
+      inited[tab] = true;
+      await p.init(f);
+    } else {
+      await p.refresh(f);
+    }
+  }
+
+  // Filter change → refresh the ACTIVE tab only.
+  function onFilterChange() {
+    const p = pane(activeTab);
+    if (inited[activeTab] && typeof p.refresh === 'function') p.refresh(filters());
+  }
+
+  function resetFilters() {
+    ['filterSite', 'filterState', 'filterType', 'filterMfr', 'filterQ'].forEach(id => {
+      document.getElementById(id).value = '';
+    });
+    onFilterChange();
+  }
+
+  function wire() {
+    document.querySelectorAll('.tabbtn').forEach(b =>
+      b.addEventListener('click', () => activate(b.getAttribute('data-tab'))));
+
+    ['filterSite', 'filterState', 'filterType', 'filterMfr'].forEach(id =>
+      document.getElementById(id).addEventListener('change', onFilterChange));
+    let t = null;
+    document.getElementById('filterQ').addEventListener('input', () => {
+      clearTimeout(t); t = setTimeout(onFilterChange, 250);
+    });
+    document.getElementById('resetBtn').addEventListener('click', resetFilters);
+
+    // Admin-only assets re-sync button (shown for admin+; server enforces requireAdmin).
+    const sBtn = document.getElementById('syncAssetsBtn');
+    if (sBtn && window.__userHasRole && window.__userHasRole('admin')) {
+      sBtn.style.display = 'inline-flex';
+      sBtn.addEventListener('click', syncAssetsNow);
+    }
+
+    window.addEventListener('hashchange', () => {
+      const tab = (location.hash || '').replace('#', '');
+      if (TABS.includes(tab) && tab !== activeTab) activate(tab, { skipHash: true });
+    });
+  }
+
+  // Deep link — ?site=<AP label>&kind=<hygiene kind>[#hygiene]
+  //
+  // Exists so a site report can send a coordinator straight to the worklist it
+  // just named. The site value is the AP LABEL as stored in `assets.site`
+  // ('Sabodala', 'MGO'), NOT the report's site code: the filter is a <select>
+  // built from getAssetLookups().sites, so anything else silently selects
+  // nothing and the tab reads FLEET-WIDE — a far worse outcome than no filter,
+  // because the coordinator would act on other sites' machines. Hence the
+  // option-exists check: an unknown label is ignored, loudly in the console.
+  function applyDeepLink() {
+    const q = new URLSearchParams(location.search);
+    const site = (q.get('site') || '').trim();
+    if (site) {
+      const sel = document.getElementById('filterSite');
+      const known = Array.prototype.some.call(sel.options, o => o.value === site);
+      if (known) sel.value = site;
+      else console.warn('assets: ?site="' + site + '" is not a known asset site label — ignored');
+    }
+    return (q.get('kind') || '').trim();
+  }
+
+  // ── Freshness banner (G-03) ────────────────────────────────────────────────
+  // PURE so it can be tested outside a browser (tests/assets-freshness.test.js).
+  // A job that never ran reads null → "jamais synchronisé". We never invent a date:
+  // a fabricated freshness is worse than none, because it makes a stale score look live.
+  function _freshnessLabel(s) {
+    var cron = (s && s.next_cron) || '04:30';
+    var raw  = s && s.last_sync;
+    if (!raw) return 'Parc jamais synchronisé · la synchronisation automatique tourne à ' + cron;
+    var iso = String(raw).replace(' ', 'T');
+    var d = new Date(/[Zz]$|[+-]\d\d:?\d\d$/.test(iso) ? iso : iso + 'Z');
+    if (isNaN(d.getTime())) return 'Dernière synchronisation : ' + raw + ' · prochaine à ' + cron;
+    var p = function (n) { return String(n).padStart(2, '0'); };
+    return 'Données synchronisées le ' + p(d.getDate()) + '/' + p(d.getMonth() + 1) + '/' + d.getFullYear()
+      + ' à ' + p(d.getHours()) + ':' + p(d.getMinutes())
+      + ' · prochaine synchronisation automatique à ' + cron
+      + ' — une correction faite dans AssetExplorer apparaît ici après cette synchronisation.';
+  }
+
+  async function loadFreshness() {
+    var el = document.getElementById('as-freshness');
+    if (!el) return;
+    try {
+      const r = await fetch('/api/assets/sync-status', { credentials: 'same-origin', headers: authHeaders() });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const s = await r.json();
+      el.textContent = _freshnessLabel(s);
+      el.classList.toggle('stale', !s || !s.last_sync);
+    } catch (e) {
+      el.textContent = 'Fraîcheur des données indisponible.';
+    }
+  }
+
+  async function boot() {
+    wire();
+    _applyMoneyTabGate();     // before the hash picks a tab, so a deep link cannot bypass it
+    loadFreshness();          // best-effort: never blocks the module from rendering
+    await loadLookups();
+    // AFTER loadLookups (the <option>s must exist) and BEFORE activate, so the
+    // pane's first init() already receives the narrowed filters() — setting the
+    // select afterwards would render the fleet once, then flip.
+    const kind = applyDeepLink();
+    const initialTab = (location.hash || '').replace('#', '');
+    await activate(TABS.includes(initialTab) ? initialTab : 'inventory', { skipHash: !!TABS.includes(initialTab) });
+    // A pane opts in by exporting openKind; one that does not simply ignores the
+    // parameter rather than erroring.
+    if (kind) {
+      const p = pane(activeTab);
+      if (p && typeof p.openKind === 'function') await p.openKind(kind, filters());
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
+})();
+</script>
+
+</body>
+</html>

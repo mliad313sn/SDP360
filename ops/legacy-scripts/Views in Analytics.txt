@@ -1,0 +1,643 @@
+
+viewId             viewName                                                                            viewType    
+------             --------                                                                            --------    
+106803000000002403 % of Overdue Tasks                                                                  AnalysisView
+106803000000002345 % of Reopened Requests                                                              AnalysisView
+106803000000002352 % of Tasks Completed within the Scheduled Time                                      AnalysisView
+106803000000921245 Acronis Backup Table                                                                QueryTable  
+106803000000002145 Active Milestone Details                                                            Pivot       
+106803000000002394 Active Milestones                                                                   AnalysisView
+106803000000002225 Additional Cost Trend In Tasks Monthly                                              AnalysisView
+106803000000002322 Ageing Report for In Progress Requests                                              AnalysisView
+106803000000803585 Ageing Report for In Progress Requests by site                                      AnalysisView
+106803000000800351 Ageing Report since January                                                         AnalysisView
+106803000000002460 Ageing Requests by Technician                                                       Pivot       
+106803000000141197 Ageing Summary                                                                      Pivot       
+106803000000002141 All Open Changes                                                                    Pivot       
+106803000000002660 All Open Problems                                                                   Pivot       
+106803000000002642 All Open Releases                                                                   Pivot       
+106803000000002409 Areas for Improvement                                                               AnalysisView
+106803000000002233 Areas With Highest Requester Dissatisfaction                                        AnalysisView
+106803000000141892 Asset Acquisition Pace                                                              AnalysisView
+106803000000002129 Asset Acquisition Time Frame                                                        AnalysisView
+106803000000002128 Asset Acquisition Trend                                                             AnalysisView
+106803000000022002 Asset Additional Fields                                                             Table       
+106803000000141960 Asset Consumption Forecast                                                          AnalysisView
+106803000000002632 Asset Overview                                                                      Dashboard   
+106803000000002058 Assets                                                                              Table       
+106803000000002473 Assets by Associated Requests and Changes                                           Pivot       
+106803000000002147 Assets by User                                                                      Pivot       
+106803000000002407 Assets with a History of Incidents                                                  AnalysisView
+106803000000002101 Average Change Completion Time (in Days)                                            AnalysisView
+106803000000002323 Average First Response Time -  Last 30 days                                         AnalysisView
+106803000000002305 Average First Response Time by Technician                                           AnalysisView
+106803000000002215 Average First Response Time Trend                                                   AnalysisView
+106803000000002643 Average Release Completion Time (in Days)                                           AnalysisView
+106803000000002279 Average Resolution Time by Site                                                     AnalysisView
+106803000000002231 Average Resolution Time for Technicians                                             AnalysisView
+106803000000002324 Average Time To Resolve - Tier Report                                               AnalysisView
+106803000000002227 Average Turnaround Time by Service Category                                         AnalysisView
+106803000000002226 Average Turnaround Time for Service Requests                                        AnalysisView
+106803000000002316 Average Worklog Entry Time by Site - Last 12 Months                                 AnalysisView
+106803000000002299 Average Worklog Entry Time by Technician                                            AnalysisView
+106803000000002099 Avg Approval Time by CAB Member                                                     AnalysisView
+106803000000002373 Avg Number of Group Changes Per Request                                             AnalysisView
+106803000000002364 Avg Number of Status Changes Per Request                                            AnalysisView
+106803000000002365 Avg Number of Technician Changes Per Request                                        AnalysisView
+106803000000002222 Avg Request Resolution Time Trend                                                   AnalysisView
+106803000000002377 Avg Time in Unassigned State                                                        AnalysisView
+106803000000002380 Avg Time Spent by Technicians                                                       AnalysisView
+106803000000002389 Avg Time Spent in Each Group                                                        AnalysisView
+106803000000002367 Avg Time Spent in Each Status This Month                                            AnalysisView
+106803000000002388 Avg Time Spent Without Group Association                                            AnalysisView
+106803000000141373 Avg Time to Pick-up Requests                                                        Pivot       
+106803000000002379 Avg Unassignment Time Over the Years                                                AnalysisView
+106803000000002135 Avg. Age of Assets in Use                                                           AnalysisView
+106803000000002130 Avg. Depreciation Percentage                                                        AnalysisView
+106803000000002623 Backlog Analysis                                                                    Dashboard   
+106803000000002296 Backlog Analysis by Requester                                                       AnalysisView
+106803000000002235 Backlog Requests Priority Distribution                                              AnalysisView
+106803000000002216 Backlog Trend                                                                       AnalysisView
+106803000000002329 Bottom 5 Technicians by Least Hours Logged                                          AnalysisView
+106803000000002138 CAB Approval Details                                                                Pivot       
+106803000000002140 CAB Approval Summary                                                                Pivot       
+106803000001137789 CAB Compliance (Major) %                                                            AnalysisView
+106803000000002048 CAB Recommendations                                                                 Table       
+106803000001140688 CAB_Summary_By_DisplayID                                                            QueryTable  
+106803000001145831 CAB_Summary_By_DisplayID_New                                                        QueryTable  
+106803000000002346 Call Volume by Hour                                                                 AnalysisView
+106803000000142120 Categories with Deteriorating Satisfaction Scores                                   Pivot       
+106803000000002245 Category Wise Request Inflow by Hour                                                AnalysisView
+106803000000002246 Category Wise Request Inflow by Weekday                                             AnalysisView
+106803000000002044 Change                                                                              Table       
+106803000000141722 Change and Request Correlation                                                      AnalysisView
+106803000000002069 Change Assets Mapping                                                               Table       
+106803000001139896 Change by type                                                                      AnalysisView
+106803000001135214 Change Control Report                                                               Dashboard   
+106803000000002046 Change Downtime                                                                     Table       
+106803000000816534 Change In Implementation Stage                                                      Report      
+106803000000002175 Change Management Dashboard                                                         Dashboard   
+106803000000549346 Change Management Dashboard-& Major incidents                                       Dashboard   
+106803000001132241 Change Manager ID Across Months(Created Time) by Department                         AnalysisView
+106803000001132248 Change Manager ID Across Months(Created Time) by Stage and Status                   AnalysisView
+106803000001132261 Change Manager ID across Weeks with Forecast & Trend                                AnalysisView
+106803000001132317 Change Manager ID Analysis Dashboard                                                Dashboard   
+106803000001132294 Change Manager ID by Months and Stage and Status and Department                     Pivot       
+106803000001132255 Change Manager ID showing Anomaly across Months                                     AnalysisView
+106803000001132006 Change Owner ID Across Months(Created Time) by Department                           AnalysisView
+106803000001132013 Change Owner ID Across Months(Created Time) by Stage and Status                     AnalysisView
+106803000001132026 Change Owner ID across Weeks with Forecast & Trend                                  AnalysisView
+106803000001132086 Change Owner ID Analysis Dashboard                                                  Dashboard   
+106803000001132063 Change Owner ID by Months and Stage and Status and Department                       SummaryView 
+106803000001132020 Change Owner ID showing Anomaly across Months                                       AnalysisView
+106803000000002106 Change Requests by Ownership                                                        AnalysisView
+106803000000002051 Change Roles                                                                        Table       
+106803000000002687 Change Scheduled vs Actual Downtime                                                 AnalysisView
+106803000001140076 Change Type across time                                                             AnalysisView
+106803000001141194 Change_CAB_Compliance_Base                                                          QueryTable  
+106803000001145978 Change_Governance_Base                                                              QueryTable  
+106803000001146637 Change_Governance_Noncompliance_Facts                                               QueryTable  
+106803000001140949 Change_With_CAB_Summary                                                             QueryTable  
+106803000000002146 Changes and Associated Users                                                        Pivot       
+106803000000002103 Changes by Business Impact                                                          AnalysisView
+106803000001144004 Changes by Business Impact per Change Type                                          AnalysisView
+106803000000549547 Changes by Stage                                                                    AnalysisView
+106803000000002139 Changes by Stage and Status                                                         Pivot       
+106803000000002102 Changes Due in Next 30 Days                                                         AnalysisView
+106803000000002206 Changes Initiated Due to a Request                                                  Table       
+106803000000560846 Changes Stages by IT Group                                                          AnalysisView
+106803000000002614 CIO Dashboard                                                                       Dashboard   
+106803000000002298 Closed and Backlog Request Comparison - Top 5 Technicians                           AnalysisView
+106803000000002682 Closed Problems by Closure Code                                                     AnalysisView
+106803000000002656 Closed Releases by Closure Code                                                     AnalysisView
+106803000000002449 Closed Request Trend -  Last 4 Weeks                                                Pivot       
+106803000000002445 Closed Requests - Last 6 Months                                                     Pivot       
+106803000000002444 Closed Requests - Last week and Current Week Comparison                             Pivot       
+106803000000002343 Closed Requests - Last Week Vs This Week                                            AnalysisView
+106803000000002252 Closed Requests by Group                                                            AnalysisView
+106803000000002278 Closed Requests Trend Report                                                        AnalysisView
+106803000000002382 Comparison of the Avg Time Spent by Technician                                      AnalysisView
+106803000000002237 Comparison Trend of Incident and Service Requests                                   AnalysisView
+106803000000676682 Comparison Trend of Incoming Incident and Service Requests per site                 AnalysisView
+106803000000002259 Completed Requests Trend                                                            AnalysisView
+106803000000002321 Completed Task Count by Owners                                                      AnalysisView
+106803000000966637 Computers and Monitors                                                              QueryTable  
+106803000001132032 Created Time-wise Change Owner ID by Stage and Status                               AnalysisView
+106803000001131860 Created Time-wise Group ID by Stage and Status                                      AnalysisView
+106803000000002679 Created, Cancelled and Closed Releases                                              AnalysisView
+106803000000002476 Critical Feedback                                                                   Pivot       
+106803000000002430 Current Open Requests - Technician Wise                                             Pivot       
+106803000000002450 Customer with More Than 5 Tickets Currently Open                                    Pivot       
+106803000000002469 Delayed Milestones                                                                  Pivot       
+106803000000002470 Delayed Projects                                                                    Pivot       
+106803000001131933 Deleted User-wise Group ID by In Progress                                           AnalysisView
+106803000000002055 Departments                                                                         Table       
+106803000000002127 Departments by Asset Consumption Cost                                               AnalysisView
+106803000001132273 Department-wise Change Manager ID                                                   AnalysisView
+106803000001132287 Department-wise Change Manager ID by Stage and Status                               AnalysisView
+106803000001132039 Department-wise Change Owner ID                                                     AnalysisView
+106803000001132053 Department-wise Change Owner ID by Stage and Status                                 AnalysisView
+106803000001131912 Department-wise Group ID                                                            AnalysisView
+106803000001131926 Department-wise Group ID by Stage and Status                                        AnalysisView
+106803000001132158 Department-wise Site ID                                                             AnalysisView
+106803000001132172 Department-wise Site ID by Stage and Status                                         AnalysisView
+106803000000172995 Detailed_Deviation_Tickets_With_Approvals                                           QueryTable  
+106803000001132222 Distribution of Change Manager ID over different ranges                             AnalysisView
+106803000001131992 Distribution of Change Owner ID over different ranges                               AnalysisView
+106803000001131848 Distribution of Group ID over different ranges                                      AnalysisView
+106803000001132105 Distribution of Site ID over different ranges                                       AnalysisView
+106803000000002250 Distribution of Tasks Due Today                                                     AnalysisView
+106803000000002095 Downtime Details                                                                    Table       
+106803000000002096 Downtime Mapping                                                                    Table       
+106803000000002678 Downtime Schedule by Downtime Type                                                  AnalysisView
+106803000000002097 Downtime Services Mapping                                                           Table       
+106803000000410373 EDV One IT Support Dashboard-Alexis-& Tech History                                  Dashboard   
+106803000000555623 EDV One IT Support Dashboard-Alexis-Copy                                            Dashboard   
+106803000000556410 EDV One IT Support Dashboard-Alexis-Technician History                              Dashboard   
+106803000000443978 EDV One IT Support Dashboard-Monthly                                                Dashboard   
+106803000000334342 EDV One IT Support Dashboard-Monthly_Operation                                      Dashboard   
+106803000000898954 EDV One IT Support Dashboard-Quaterly_Operation                                     Dashboard   
+106803000000448475 EDV One IT Support Dashboard-Weekly                                                 Dashboard   
+106803000000705785 EDV One IT Support Dashboard-Weekly-Management                                      Dashboard   
+106803000000303302 EDV One IT Support Performance Trends Dashboard                                     Dashboard   
+106803000000304441 EDV One IT Support Reopened Requests Dashboard                                      Dashboard   
+106803000000304205 EDV One IT Support SLA Analysis                                                     Dashboard   
+106803000000305405 EDV One IT Support Technician History & Handover Dashboard                          Dashboard   
+106803000000305824 EDV One IT Support Technician Leaderboard                                           Dashboard   
+106803000000304894 EDV One IT Support Time spent in Status History Dashboard                           Dashboard   
+106803000001137889 Emergency Changes trend                                                             AnalysisView
+106803000000002418 Escalated Requests                                                                  Pivot       
+106803000000002309 Escalated Requests by Technician                                                    AnalysisView
+106803000000002267 Escalated Service Requests by Technician                                            AnalysisView
+106803000000002315 Escalated vs Total Requests by Category                                             AnalysisView
+106803000000002344 Escalated vs Total Requests by Site                                                 AnalysisView
+106803000000002288 Escalation Trend - Top 5 Technicians                                                AnalysisView
+106803000000002310 Escalation Trend by Technician                                                      AnalysisView
+106803000000002118 Estimated vs Actual Cost                                                            AnalysisView
+106803000000002119 Estimated vs Actual Hours Spent                                                     AnalysisView
+106803000001140679 Failed or not successful finalized changes                                          Report      
+106803000000175834 Final_Deviation_Tickets_With_Approvals                                              QueryTable  
+106803000000002255 Group  wise Open Task Count                                                         AnalysisView
+106803000000002275 Group Based Request Count                                                           AnalysisView
+106803000000002391 Group Change History                                                                AnalysisView
+106803000000002392 Group Change History of Top 10 Longest Pending Requests                             AnalysisView
+106803000000002563 Group History Analysis                                                              Dashboard   
+106803000001131867 Group ID Across Months(Created Time)                                                AnalysisView
+106803000001131880 Group ID Across Months(Created Time) by Department                                  AnalysisView
+106803000001131887 Group ID Across Months(Created Time) by Stage and Status                            AnalysisView
+106803000001131900 Group ID across Weeks with Forecast & Trend                                         AnalysisView
+106803000001131968 Group ID Analysis Dashboard                                                         Dashboard   
+106803000001131947 Group ID distribution across Months and Department by Stage and Status              Pivot       
+106803000001131894 Group ID showing Anomaly across Months                                              AnalysisView
+106803000000002378 Group Re-assignment Behavior                                                        AnalysisView
+106803000000610465 Group SLA Performance                                                               Dashboard   
+106803000000002390 Group Time Spent Analysis Over the Years                                            AnalysisView
+106803000000002433 Group vs Resolution and Response times                                              Pivot       
+106803000000002056 Groups                                                                              Table       
+106803000000002062 Hard Disks                                                                          Table       
+106803000000141657 Hours Spent per Request                                                             AnalysisView
+106803000000002338 Hours to Complete Since Initial Response                                            AnalysisView
+106803000000002677 In Progress Change Downtime Details                                                 Pivot       
+106803000000002417 In Progress Changes and Associated Tasks                                            Pivot       
+106803000000002412 In Progress Changes Initiated Due to Requests                                       Pivot       
+106803000000002693 In Progress Releases  Initiated due to Request                                      Pivot       
+106803000000002650 In Progress Releases and Associated Change                                          Pivot       
+106803000000002651 In Progress Releases and Associated Project                                         Pivot       
+106803000000002649 In Progress Releases and Associated Tasks                                           Pivot       
+106803000000002657 In Progress Releases and Downtime Details                                           Pivot       
+106803000000002646 In Progress releases by Ownership                                                   AnalysisView
+106803000000002692 In Progress Releases Caused by Requests                                             Pivot       
+106803000000002697 In Progress Releases that Initiated due to Problems                                 Pivot       
+106803000000002696 In Progress Releases that Initiated Problems                                        Pivot       
+106803000000002413 In Progress Requests Caused by Change                                               Pivot       
+106803000000168161 Incidents Volume Trend                                                              AnalysisView
+106803000000002333 Incoming Request Trend by Creation Mode                                             AnalysisView
+106803000000002332 Incoming Request Trend by Priority                                                  AnalysisView
+106803000000002291 Incoming Request Trend by Site                                                      AnalysisView
+106803000000002290 Incoming Request Trends by Business Impact                                          AnalysisView
+106803000000002357 Incoming Request Velocity                                                           AnalysisView
+106803000000002294 Incoming requests. Today vs Yesterday                                               AnalysisView
+106803000000002238 Incoming Trend of Service Requests                                                  AnalysisView
+106803000000141515 Incoming vs Closed Status                                                           QueryTable  
+106803000000141585 Incoming vs Closed Tasks                                                            QueryTable  
+106803000000002459 Incoming vs Resolution and Backlog Requests                                         Pivot       
+106803000000002270 Incoming vs Resolved Trend                                                          AnalysisView
+106803000000002264 Incoming, Resolved, Backlog and Same Week Resolution by Month                       AnalysisView
+106803000000002104 Inflow of Change Requests by Site                                                   AnalysisView
+106803000000002213 Initial Response and Resolution Time by Technician                                  AnalysisView
+106803000000002133 IT Assets Not Scanned for 30 Days or More                                           AnalysisView
+106803000000002136 IT Hardware Spend Forecast                                                          AnalysisView
+106803000000141840 IT Spend                                                                            QueryTable  
+106803000000141858 IT Spend Tracker                                                                    AnalysisView
+106803000001132279 Job Title-wise Change Manager ID                                                    AnalysisView
+106803000001132045 Job Title-wise Change Owner ID                                                      AnalysisView
+106803000001131918 Job Title-wise Group ID                                                             AnalysisView
+106803000001132164 Job Title-wise Site ID                                                              AnalysisView
+106803000000002072 Keyboard                                                                            Table       
+106803000000002186 Knowledgebase Dashboard                                                             Dashboard   
+106803000000002665 Known Error Occurrences                                                             AnalysisView
+106803000000002347 Last 30 days Reopened Requests                                                      AnalysisView
+106803000000002349 Last 30 Days Requests                                                               AnalysisView
+106803000000002416 Last 7 Days Performance                                                             Pivot       
+106803000000002301 Last Activity Report for In Progress Requests                                       AnalysisView
+106803000000002455 Last Updated Time Report Based On Technician                                        Pivot       
+106803000000002307 Least 5 Technician by Task Closed                                                   AnalysisView
+106803000000002351 Least Used Service Requests (Bottom 10)                                             AnalysisView
+106803000000002421 List of Tasks Not Created by Task Owner                                             Pivot       
+106803000000002427 Listing of Tasks Which Are Due Today                                                Pivot       
+106803000000002064 Logical Drives                                                                      Table       
+106803000001131940 Login User & Deleted User Contribution to Group ID                                  AnalysisView
+106803000001141403 Major CAB compliant before implementation start                                     QueryTable  
+106803000000691477 Major incident Trend per  Month                                                     AnalysisView
+106803000000691994 Major incident Trend per  Month-Copy                                                AnalysisView
+106803000000691124 Major incident Trend per category                                                   AnalysisView
+106803000000693050 Major incidents By Site and month                                                   AnalysisView
+106803000000002105 Major incidents Categories                                                          AnalysisView
+106803000000796346 Major incidents- Sub-categories                                                     AnalysisView
+106803000000790842 Major Incidents Table                                                               Report      
+106803000000002148 Managed Software and License Allocation                                             Pivot       
+106803000000002066 Memory Modules                                                                      Table       
+106803000000002123 Milestone Duration - Estimated vs Actual                                            AnalysisView
+106803000000002121 Milestone Ownership                                                                 AnalysisView
+106803000000002057 Mobile Devices                                                                      Table       
+106803000000002381 MOM Comparison of Time Spent by Technicians                                         AnalysisView
+106803000000002375 MOM Comparison of Time Spent in Each Status                                         AnalysisView
+106803000000002359 MOM Comparison of Time Spent in Group                                               AnalysisView
+106803000000002067 Monitors                                                                            Table       
+106803000001132120 Month to Date(MTD) Site ID by each Month(Created Time)                              AnalysisView
+106803000000002320 Monthly Incoming Requests Trend                                                     AnalysisView
+106803000000002269 Monthly Inflow of Service Requests                                                  AnalysisView
+106803000000002441 Monthly Tasks by Owner                                                              Pivot       
+106803000000142198 Most Critical Feedback                                                              Pivot       
+106803000000002410 Most Dissatisfied Users                                                             AnalysisView
+106803000000002108 Most Expensive Projects                                                             AnalysisView
+106803000000002363 Most Frequent Status Change - Last 12 Months                                        AnalysisView
+106803000000002113 Most Popular Solutions                                                              AnalysisView
+106803000000002073 Mouse                                                                               Table       
+106803000001131873 Moving Average of Group ID Across Months(Created Time)                              AnalysisView
+106803000000002060 Network Adapters                                                                    Table       
+106803000001058710 New technicians performance table                                                   QueryTable  
+106803000000002419 Oldest Backlog Request Details                                                      Pivot       
+106803000000002143 Oldest Solutions                                                                    Pivot       
+106803000000002456 Open and Closed Request Count by Technician                                         Pivot       
+106803000000002440 Open and Closed Requests by Group                                                   Pivot       
+106803000000002439 Open and Closed Requests by Month and Year                                          Pivot       
+106803000000002663 Open Problems and Associated Task                                                   Pivot       
+106803000000002256 Open Request Ageing Tier Chart                                                      AnalysisView
+106803000000002325 Open Request Reports by Site and Priority                                           AnalysisView
+106803000000002311 Open Requests by Week                                                               AnalysisView
+106803000000002415 Open Tasks of Completed Changes                                                     Pivot       
+106803000000002426 Open Tasks Whose Requests Have Been Closed                                          Pivot       
+106803000000002368 Overall On Hold Time Over the Years                                                 AnalysisView
+106803000000002370 Overall On Hold Time Trend                                                          AnalysisView
+106803000000141289 Overall tech performance                                                            Pivot       
+106803000000002689 Overdue Problems by Priority and Status                                             Pivot       
+106803000000002114 Overdue Projects                                                                    AnalysisView
+106803000000002217 Overdue Task Trend                                                                  AnalysisView
+106803000001148204 Pareto analysis of the causes of non-conformity                                     AnalysisView
+106803000000002654 Pending Approval for Release                                                        Pivot       
+106803000000169043 Pending Approvals                                                                   AnalysisView
+106803000000002100 Pending CAB Approvals                                                               AnalysisView
+106803000000002397 Pending Milestones and Tasks                                                        AnalysisView
+106803000000002111 Percentage of Published Solutions                                                   AnalysisView
+106803000000002262 Performance Timeline                                                                AnalysisView
+106803000000002493 Performance Trends Dashboard                                                        Dashboard   
+106803000000604288 Performance Trends Dashboard-Monthly Operations                                     Dashboard   
+106803000000606261 Performance Trends Dashboard-Weekly Operations                                      Dashboard   
+106803000000142066 Periodic Trend of  Factors Affecting Satisfaction Scores                            AnalysisView
+106803000000002061 Physical Drives                                                                     Table       
+106803000000002063 Printer Info                                                                        Table       
+106803000000002090 Problem                                                                             Table       
+106803000000002662 Problem and Associated Changes                                                      Pivot       
+106803000000002091 Problem Assets Mapping                                                              Table       
+106803000000002661 Problem by Status                                                                   AnalysisView
+106803000000002092 Problem Change Mapping                                                              Table       
+106803000000002664 Problem Matrix                                                                      AnalysisView
+106803000000002672 Problem Overview                                                                    Dashboard   
+106803000000002691 Problem Reported Trend                                                              AnalysisView
+106803000000002093 Problem Request Mapping                                                             Table       
+106803000000002094 Problem Solution Mapping                                                            Table       
+106803000000002690 Problematic Sites                                                                   AnalysisView
+106803000000141920 Problematics Assets                                                                 Pivot       
+106803000000002666 Problems without Workaround or Resolution                                           AnalysisView
+106803000000002065 Processors                                                                          Table       
+106803000000141790 Productivity Lost due to Workstation Repairs                                        Pivot       
+106803000000002134 Prohibited Software Installations                                                   AnalysisView
+106803000000002047 Project                                                                             Table       
+106803000000002120 Project Creation Trend                                                              AnalysisView
+106803000000002398 Project Load                                                                        AnalysisView
+106803000000002542 Project Manager Dashboard                                                           Dashboard   
+106803000000002200 Project Members                                                                     Table       
+106803000000002049 Project Milestones                                                                  Table       
+106803000000002471 Project Overview                                                                    Pivot       
+106803000000002401 Project Progress                                                                    AnalysisView
+106803000000002402 Project Related Task Completion Rate                                                AnalysisView
+106803000000002466 Project Summary                                                                     Pivot       
+106803000000002464 Project Tasks by Status                                                             Pivot       
+106803000000002467 Project Timesheet                                                                   Pivot       
+106803000000002400 Project Timesheet Trend                                                             AnalysisView
+106803000000002396 Project Workload Split                                                              AnalysisView
+106803000000002050 Projects and Related Changes                                                        Table       
+106803000000002472 Projects and their Related Requests                                                 Pivot       
+106803000000002465 Projects by Pending Milestones or Tasks                                             Pivot       
+106803000000002117 Projects Completed Late                                                             AnalysisView
+106803000000002115 Projects Cost Analysis                                                              AnalysisView
+106803000000002144 Projects Initiated for a Change Implementation                                      Pivot       
+106803000000002395 Project-wise Task Progress                                                          AnalysisView
+106803000000002383 QOQ Comparison of Time Spent by Technicians                                         AnalysisView
+106803000000002374 QOQ Comparison of Time Spent in Each Status                                         AnalysisView
+106803000000002360 QOQ Comparison of Time Spent in Group                                               AnalysisView
+106803000001106543 QT_Group_Totals                                                                     QueryTable  
+106803000001106289 QT_Tech_Annual_Performance_120                                                      QueryTable  
+106803000001106002 QT_Tech_Base                                                                        QueryTable  
+106803000001106785 QT_Tech_Base_ByGroup                                                                QueryTable  
+106803000001106684 QT_Tech_Performance_120_ByGroup                                                     QueryTable  
+106803000001106390 QT_Tech_Totals                                                                      QueryTable  
+106803000000002404 Recent SLA Violations                                                               AnalysisView
+106803000000002475 Recent Survey Results                                                               Pivot       
+106803000000002084 Release                                                                             Table       
+106803000000002098 Release Approvals                                                                   Table       
+106803000000002655 Release Approvals Summary                                                           Pivot       
+106803000000002087 Release Assets Mapping                                                              Table       
+106803000000002089 Release Change Mapping                                                              Table       
+106803000000002658 Release Closure Activity                                                            AnalysisView
+106803000000002698 Release Milestone Mapping                                                           Table       
+106803000000002667 Release Overview                                                                    Dashboard   
+106803000000002695 Release Problem Mapping                                                             Table       
+106803000000002088 Release Project Mapping                                                             Table       
+106803000000002680 Release Related Downtime by Service                                                 AnalysisView
+106803000000002688 Release Request Mapping                                                             Table       
+106803000000002085 Release Roles                                                                       Table       
+106803000000002086 Release Stage Info                                                                  Table       
+106803000000002645 Releases by Impact                                                                  AnalysisView
+106803000000002647 Releases by Stage and Status                                                        Pivot       
+106803000000002644 Releases Due in Next 30 Days                                                        AnalysisView
+106803000000002451 Reopened Requests Count                                                             Pivot       
+106803000000002520 Reopened Requests Dashboard                                                         Dashboard   
+106803000000002276 Reopened Requests Trend                                                             AnalysisView
+106803000000608012 Reopened Requests Trend Weekly                                                      AnalysisView
+106803000000002220 Re-Opened Service Request Trend                                                     AnalysisView
+106803000000002422 Report With Request And Task Details For Closed Requests                            Pivot       
+106803000000002201 Request                                                                             Table       
+106803000000002452 Request Ageing - Inprogess Request more than 60 Days                                Pivot       
+106803000000141706 Request and Change Correlation                                                      QueryTable  
+106803000000002694 Request Approvals                                                                   Table       
+106803000000002209 Request Asset Mapping                                                               Table       
+106803000000002308 Request Breakdown by Type                                                           AnalysisView
+106803000000002257 Request Category Trend                                                              AnalysisView
+106803000000141539 Request Closure Deficit                                                             AnalysisView
+106803000000002354 Request Completion Trend Report by Technician                                       AnalysisView
+106803000000002434 Request Details With Time Spent And Technician                                      Pivot       
+106803000000002253 Request Distribution by Mode                                                        AnalysisView
+106803000000002271 Request Inflow by Hour of Day                                                       AnalysisView
+106803000000002428 Request Related Tasks by Category and Timespent                                     Pivot       
+106803000000002277 Request Resolution by Group And Priority                                            AnalysisView
+106803000000002212 Request Resolution Tier                                                             AnalysisView
+106803000000002232 Request Resolution Time by Age Tier                                                 AnalysisView
+106803000000951003 Request Resources                                                                   Table       
+106803000000002224 Request Split by Category                                                           AnalysisView
+106803000000002429 Request Summary                                                                     Pivot       
+106803000000002461 Request Summary Report by Technician                                                Pivot       
+106803000001050180 Request Summary Report by Technician- Perf Evaluation 2025                          Pivot       
+106803000000141992 Request Volume and Satisfaction Correlation                                         AnalysisView
+106803000000002336 Request Volume by Priority                                                          AnalysisView
+106803000000002453 Request Volume QoQ Comparison by Group                                              Pivot       
+106803000000644288 Request Volume Trend Monthly                                                        AnalysisView
+106803000000685763 Request Volume Trend Monthly Web vs Email                                           AnalysisView
+106803000000663618 Request Volume Trend Weekly                                                         AnalysisView
+106803000000002254 Request Volume Trends                                                               AnalysisView
+106803000000347985 Request Volume Trends-ITSupp                                                        AnalysisView
+106803000000445616 Request Volume Trends-ITSupp-Weekly-Report                                          AnalysisView
+106803000000002052 Requester Fields                                                                    Table       
+106803000000002479 Requester with More Than 5 Reopens                                                  SummaryView 
+106803000000002435 Requests And Tasks Due Today For Each Technician                                    Pivot       
+106803000000002405 Requests Approaching SLA Violation                                                  AnalysisView
+106803000000002438 Requests by Department and Category                                                 Pivot       
+106803000000002334 Requests by Priority                                                                AnalysisView
+106803000000002303 Requests by Priority and Category                                                   AnalysisView
+106803000000002337 Requests by Site                                                                    AnalysisView
+106803000000002204 Requests Caused by a Change                                                         Table       
+106803000000002260 Requests Closed by Each Hour                                                        AnalysisView
+106803000000002302 Requests Distribution by Service Category                                           AnalysisView
+106803000000002446 Requests Due In The Next 48 Hours                                                   Pivot       
+106803000000002341 Requests Escalation Trend                                                           AnalysisView
+106803000000607800 Requests Escalation Trend weekly                                                    AnalysisView
+106803000000002314 Requests Inflow Trend by Week Day                                                   AnalysisView
+106803000000002261 Requests Stream - This Quarter vs Last Quarter                                      AnalysisView
+106803000000002447 Resolution And Closed Time Based On Group And Priority                              Pivot       
+106803000000002287 Resolution Time by Technician and Priority                                          AnalysisView
+106803000000002356 Resolution Time Comparison                                                          AnalysisView
+106803000000002214 Response and Resolution Time Trend                                                  AnalysisView
+106803000001132234 Running Change Manager ID Across Months(Created Time)                               AnalysisView
+106803000000142030 Satisfaction Index calculator                                                       QueryTable  
+106803000000002681 Scheduled Releases                                                                  AnalysisView
+106803000000002659 Scheduled vs Actual Downtime - Releases                                             AnalysisView
+106803000000171474 Security Services & IT Deviation -Data                                              Report      
+106803000000002239 Service Request Ageing Report                                                       AnalysisView
+106803000000002480 Service Request and Associated Task Details                                         SummaryView 
+106803000000002247 Service Request Backlog                                                             AnalysisView
+106803000000002236 Service Request Cost Trend                                                          AnalysisView
+106803000000002570 Service Request Dashboard                                                           Dashboard   
+106803000000002241 Service Requests within SLA vs Violated SLA                                         AnalysisView
+106803000000002603 ServiceDesk Manager Dashboard                                                       Dashboard   
+106803000000002081 ServiceDesk Survey Answers                                                          Table       
+106803000000002082 ServiceDesk Survey Questions                                                        Table       
+106803000000002083 ServiceDesk Survey Results                                                          Table       
+106803000001132126 Site ID Across Months(Created Time) by Department                                   AnalysisView
+106803000001132133 Site ID Across Months(Created Time) by Stage and Status                             AnalysisView
+106803000001132146 Site ID across Weeks with Forecast & Trend                                          AnalysisView
+106803000001132202 Site ID Analysis Dashboard                                                          Dashboard   
+106803000001132140 Site ID showing Anomaly across Months                                               AnalysisView
+106803000001132179 Site ID, % Difference distribution across Months and Department by Stage and Status Pivot       
+106803000000002125 Site with the Most Open Projects                                                    AnalysisView
+106803000000002054 Sites                                                                               Table       
+106803000000002554 SLA Analysis                                                                        Dashboard   
+106803000000199486 SLA Analysis-Copy                                                                   Dashboard   
+106803000000141153 SLA and OnHold Time correlation                                                     AnalysisView
+106803000000141119 SLA anomalies                                                                       AnalysisView
+106803000000002234 SLA Compliance  vs Breached  Trend - Last 12 Months                                 AnalysisView
+106803000000002448 SLA Compliance by Group                                                             Pivot       
+106803000000002326 SLA Compliance Trend                                                                AnalysisView
+106803000000002263 SLA Compliance Trend Report                                                         AnalysisView
+106803000000002353 SLA Compliance Trend Reports by Technician                                          AnalysisView
+106803000000002223 SLA Deviation                                                                       AnalysisView
+106803000000002286 SLA Report by Technician                                                            AnalysisView
+106803000000953051 SLA Violated by Category                                                            AnalysisView
+106803000000002411 SLA Violation Percentage by Site                                                    Pivot       
+106803000000002313 SLA Violation Report by Department                                                  AnalysisView
+106803000000002070 Software                                                                            Table       
+106803000000141754 Software Installation Tracker                                                       Pivot       
+106803000000002075 Software Installations                                                              Table       
+106803000000002074 Software Licenses                                                                   Table       
+106803000000002137 Software Spend Forecast                                                             AnalysisView
+106803000000022044 Solution Additional Fields                                                          Table       
+106803000000002142 Solution Creators                                                                   Pivot       
+106803000000002045 Solutions                                                                           Table       
+106803000000002112 Solutions Approval Split                                                            AnalysisView
+106803000000002107 Solutions Creation Trend                                                            AnalysisView
+106803000000002126 Stage and Status of Changes                                                         AnalysisView
+106803000000002648 Stage and Status of Releases                                                        AnalysisView
+106803000001132267 Stage and Status-wise Change Manager ID                                             AnalysisView
+106803000001131906 Stage and Status-wise Group ID                                                      AnalysisView
+106803000001132152 Stage and Status-wise Site ID                                                       AnalysisView
+106803000000141329 Stale requests                                                                      Pivot       
+106803000000002371 Status Change History of the Top 10 Longest Pending Requests                        AnalysisView
+106803000000002463 Status Change Summary of Top 10 Longest Pending Requests                            Pivot       
+106803000000002207 Status History                                                                      Table       
+106803000000002511 Status History Dashboard                                                            Dashboard   
+106803000000002482 Status wise task count for In-Progress Request                                      SummaryView 
+106803000000951033 Sub Release Mapping                                                                 Table       
+106803000001137488 Success Rate trend                                                                  AnalysisView
+106803000000002208 Support Group History                                                               Table       
+106803000000002122 Target vs Actual Milestone Completion                                               AnalysisView
+106803000000002531 Task Analysis Dashboard                                                             Dashboard   
+106803000000141609 Task Closure Deficit                                                                Pivot       
+106803000000002285 Task Distribution by Status                                                         AnalysisView
+106803000000002229 Task Inflow Trend by Priority                                                       AnalysisView
+106803000000002358 Task Split Up Across Various Modules                                                AnalysisView
+106803000000002202 Tasks                                                                               Table       
+106803000000002437 Tasks by Group And Month                                                            Pivot       
+106803000000002423 Tasks by Month, Group and Owner                                                     Pivot       
+106803000000002420 Tasks by Support Rep                                                                Pivot       
+106803000000002319 Tasks Closed Over Time by Technicians                                               AnalysisView
+106803000000002273 Tasks completed that are due today                                                  AnalysisView
+106803000000002414 Tasks Scheduled for Today                                                           Pivot       
+106803000000002366 Tech Change History of Top 10 Longest Pending Requests                              AnalysisView
+106803000000141461 Tech Load Share                                                                     Pivot       
+106803000000002317 Tech vs Other Charge Report -  Month wise                                           AnalysisView
+106803000000002335 Technician Based Backlog Analysis                                                   AnalysisView
+106803000000002384 Technician Change History                                                           AnalysisView
+106803000001051449 Technician Contributive Performance Summary by Sites and Group                      QueryTable  
+106803000001051634 Technician Contributive Performance Summary by tech                                 QueryTable  
+106803000000002432 Technician Escalation Report                                                        Pivot       
+106803000000002053 Technician Fields                                                                   Table       
+106803000000002205 Technician History                                                                  Table       
+106803000000002502 Technician History Dashboard                                                        Dashboard   
+106803000000550580 Technician History Dashboard-Copy                                                   Dashboard   
+106803000000002549 Technician Leaderboard                                                              Dashboard   
+106803000000953001 Technician Load                                                                     AnalysisView
+106803000000141269 Technician performance across modules                                               QueryTable  
+106803000000002372 Technician Re-assignment Behavior                                                   AnalysisView
+106803000000002474 Technician Satisfaction Scorecard                                                   Pivot       
+106803000000002268 Technician Spending Trend - Based On Additional Cost                                AnalysisView
+106803000000002386 Technician Time Spent Analysis                                                      AnalysisView
+106803000000002477 Technician Wise Completion Age Tier                                                 SummaryView 
+106803000000002230 Technician wise open task count categorized by priority                             AnalysisView
+106803000000002348 Technician wise Reopened Requests                                                   AnalysisView
+106803000000002258 Technician Wise Request Reopens                                                     AnalysisView
+106803000000002292 Technician Wise Task Count Grouped by Status                                        AnalysisView
+106803000000002431 Technician Workload Report - This month                                             Pivot       
+106803000000002289 Technicians Who Charged Overtime for Tasks                                          AnalysisView
+106803000000002282 Technicians with Least Escalations                                                  AnalysisView
+106803000000002280 Technicians With Least Request Re-opens                                             AnalysisView
+106803000000002340 Technicians with Least Requests Closed (Bottom 5) - Last 3 Months                   AnalysisView
+106803000000002462 Technicians with Tasks Due Today And Tomorrow                                       Pivot       
+106803000000002425 Time Spent in each mode by Technician                                               Pivot       
+106803000000002295 Time to Assign Requests                                                             AnalysisView
+106803000000546099 Time To Resolve and Close Operations                                                Report      
+106803000000002468 Timesheet Entries This Week                                                         Pivot       
+106803000000002399 Timespent on Projects Every Month                                                   AnalysisView
+106803000000141417 Timespent on-hold                                                                   Pivot       
+106803000000002355 Top 10 Categories by Highest Resolution Time                                        AnalysisView
+106803000000539280 Top 10 Categories With the Highest Resolution Time                                  AnalysisView
+106803000001132228 Top 10 Employee ID by Change Manager ID                                             AnalysisView
+106803000001132000 Top 10 Employee ID by Change Owner ID                                               AnalysisView
+106803000001131854 Top 10 Employee ID by Group ID                                                      AnalysisView
+106803000001132113 Top 10 Employee ID by Site ID                                                       AnalysisView
+106803000000002272 Top 10 Frequently Used Service Requests                                             AnalysisView
+106803000000002210 Top 10 IT Support Technician Load                                                   AnalysisView
+106803000000002284 Top 10 Performers by Requests Closed- All Time                                      AnalysisView
+106803000000002297 Top 10 Requester Wise Backlog Analysis                                              AnalysisView
+106803000000002339 Top 10 Requesters                                                                   AnalysisView
+106803000000002240 Top 10 Requesters by Service Request                                                AnalysisView
+106803000000002218 Top 10 Requesters With the Highest Resolution Time                                  AnalysisView
+106803000000002424 Top 10 Requests by Longest Resolution Time                                          Pivot       
+106803000000002242 Top 10 Service Requests by Highest Resolution Time                                  AnalysisView
+106803000000540958 Top 10 Service Requests by Highest Resolution Time-Copy                             AnalysisView
+106803000000002312 Top 10 SLA Violation by Service Category                                            AnalysisView
+106803000000829506 Top 10 SLA Violation by Service Category-Week                                       AnalysisView
+106803000000002327 Top 10 Technicians by Fastest Average Resolution Time                               AnalysisView
+106803000000002243 Top 10 Technicians by Service Requests Handled                                      AnalysisView
+106803000000002481 Top 10 Time Consuming Open Requests                                                 SummaryView 
+106803000000544214 Top 10 Time Consuming Open Requests-Operation                                       SummaryView 
+106803000000539770 Top 10 Time Consuming Requests Close                                                SummaryView 
+106803000000541195 Top 10 Time to Resolve by Category-M                                                Report      
+106803000000002350 Top 10 Touchy Requesters                                                            AnalysisView
+106803000000002228 Top 20 Requesters by Most Request Reopens                                           AnalysisView
+106803000000609819 Top 3 IT Support Group by SLA breach                                                AnalysisView
+106803000000609965 Top 3 IT Support Group SLA performing                                               AnalysisView
+106803000001139301 Top 5 categories by total changes                                                   AnalysisView
+106803000001139730 Top 5 groups by total changes                                                       AnalysisView
+106803000000002454 Top 5 Requesters with Requests Currently Open                                       Pivot       
+106803000000002457 Top 5 Service Categories based on Request flow                                      Pivot       
+106803000000002458 Top 5 Site with Most Opened Request                                                 Pivot       
+106803000000002304 Top 5 Sites with Most Open Requests                                                 AnalysisView
+106803000000002318 Top 5 Technician by Charges                                                         AnalysisView
+106803000000002484 Top 5 Technician by Resolution Time                                                 SummaryView 
+106803000000002478 Top 5 Technician by SLA Compliance                                                  SummaryView 
+106803000000002266 Top 5 Technician by Task Closed                                                     AnalysisView
+106803000000002251 Top 5 Technician by Worklog Hours                                                   AnalysisView
+106803000000002483 Top 5 Technician with the Least SLA Compliance                                      SummaryView 
+106803000000002342 Top 5 Technicians by Request Load                                                   AnalysisView
+106803000000002306 Top 5 Technicians by Requests Closed                                                AnalysisView
+106803000000002436 Top 5 Technicians of Last Month by Tickets Closed                                   Pivot       
+106803000000002131 Top 5 Under Licensed Software                                                       AnalysisView
+106803000000142164 Top Contributors to Low Satisfaction Rates                                          AnalysisView
+106803000000002283 Top Performing Group                                                                AnalysisView
+106803000000002281 Top Performing Site                                                                 AnalysisView
+106803000000002244 Top Service Categories                                                              AnalysisView
+106803000000002221 Top Sites by Hours                                                                  AnalysisView
+106803000000002110 Top Solution Contributors                                                           AnalysisView
+106803000000002109 Topics with the Least Solutions                                                     AnalysisView
+106803000000002443 Total Charge by Month wise - Last 12 Months                                         Pivot       
+106803000000002249 Total Charge by Site - This Month                                                   AnalysisView
+106803000000002265 Total Charge by Technician - Month wise                                             AnalysisView
+106803000000002300 Total Charge by Technician - This Month                                             AnalysisView
+106803000000002274 Total Hours Logged by Each Site - Last 12 Months                                    AnalysisView
+106803000000002248 Total Worklog Entry Time by Technician                                              AnalysisView
+106803000000002293 Trend of Avg Closing Times and Its Deviation                                        AnalysisView
+106803000000607578 Trend of Avg Closing Times and Its Deviation Weekly                                 AnalysisView
+106803000000002385 Trend of Avg Time Spent by Technicians                                              AnalysisView
+106803000000002393 Trend of Avg Time Spent in Each Status                                              AnalysisView
+106803000000002330 Trend of Avg Time to Assign Requests                                                AnalysisView
+106803000000607134 Trend of Avg Time to Assign Requests Weekly                                         AnalysisView
+106803000000002331 Trend of Avg Time to First Reply and Its Deviation                                  AnalysisView
+106803000000606663 Trend of Avg Time to First Reply and Its Deviation Weekly                           AnalysisView
+106803000000002328 Trend of Avg Time to Resolve Requests and Its Deviation                             AnalysisView
+106803000000607356 Trend of Avg Time to Resolve Requests and Its Deviation Weekly                      AnalysisView
+106803000000002219 Trend of Incoming, Resolved, and Backlogged Service Requests                        AnalysisView
+106803000000002211 Trend of Requests Caused by Change                                                  AnalysisView
+106803000000002361 Trend of Total Time Spent by Each Group                                             AnalysisView
+106803000000141007 Unassigned time over the years                                                      AnalysisView
+106803000000002124 Underestimated Milestones                                                           AnalysisView
+106803000000002116 Underestimated Projects                                                             AnalysisView
+106803000000953019 Upcoming Changes                                                                    AnalysisView
+106803000000002652 Upcoming Releases                                                                   AnalysisView
+106803000000002641 User Satisfaction Analysis                                                          Dashboard   
+106803000000002408 User Satisfaction Trend                                                             AnalysisView
+106803000000002043 Users                                                                               Table       
+106803000000002653 Users and Roles Associated to Releases                                              Pivot       
+106803000000002149 Users Who Own 2 or More Assets                                                      Pivot       
+106803000000002071 Virtual Hosts                                                                       Table       
+106803000000002068 Virtual Machines                                                                    Table       
+106803000000002132 Warranty Expiring in the Next 6 Months                                              AnalysisView
+106803000000141051 Weekly SLA tracker                                                                  Pivot       
+106803000000002406 Week-wise SLA violations                                                            AnalysisView
+106803000000002203 WorkLog                                                                             Table       
+106803000000002442 Worklog by Site and Technician                                                      Pivot       
+106803000000021613 Workstation Additional Fields                                                       Table       
+106803000000002059 Workstations                                                                        Table       
+106803000000002150 Workstations by Disk Usage                                                          Pivot       
+106803000000002151 Workstations with Less than 10% Disk Space                                          Pivot       
+106803000000002152 Workstations with Prohibited Software                                               Pivot       
+106803000000002369 Year-wise Comparison of Time Spent in Status                                        AnalysisView
+106803000000002387 YOY Comparison of Time Spent by Technicians                                         AnalysisView
+106803000000002376 YOY Comparison of Time Spent in Each Status                                         AnalysisView
+106803000000002362 YOY Comparison of Time Spent in Group                                               AnalysisView
+106803000000002076 Zoho Survey Answers                                                                 Table       
+106803000000002078 Zoho Survey Custom Variable                                                         Table       
+106803000000002077 Zoho Survey Questions                                                               Table       
+106803000000002079 Zoho Survey Results                                                                 Table       
+106803000000002080 Zoho Surveys                                                                        Table       
+
+

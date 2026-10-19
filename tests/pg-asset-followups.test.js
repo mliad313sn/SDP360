@@ -1,0 +1,62 @@
+'use strict';
+// Asset engagement — assets layer on PostgreSQL. Throwaway DB; skips cleanly when PG is down.
+process.env.ASSETS_BACKEND = 'postgres';
+const _os = require('os'), _fs = require('fs'), _path = require('path');
+process.env.SDP_DATA_DIR = process.env.SDP_DATA_DIR || _fs.mkdtempSync(_path.join(_os.tmpdir(), 'pgafu-'));
+const { test } = require('node:test');
+const assert = require('node:assert');
+const { provisionTestDb, dropTestDb } = require('./pg-helpers');
+
+let ctx = null, adb = null;
+async function boot() {
+  if (adb) return adb;
+  ctx = await provisionTestDb();
+  if (!ctx) return null;
+  process.env.PG_URL = ctx.url;
+  adb = require('../assets-db');
+  await adb.initPgAssets();
+  return adb;
+}
+const COLS = ['asset_id', 'asset_name', 'site', 'state', 'user_name', 'department', 'purchase_cost', 'acquisition_date'];
+
+test('pg: sightings — empty no-op, baseline, new id, idempotent', async (t) => {
+  const a = await boot();
+  if (!a) return t.skip('Postgres unreachable');
+  await a.replaceTable('assets', COLS, []);
+  assert.strictEqual((await a.recordAssetSightings({ asOf: '2026-07-20' })).inserted, 0);
+  await a.replaceTable('assets', COLS, [{ asset_id: 'A1', asset_name: 'PC-1', site: 'Hounde', state: 'In Use' }]);
+  const b = await a.recordAssetSightings({ asOf: '2026-07-20' });
+  assert.deepStrictEqual([b.baseline, b.inserted], [true, 1]);
+  await a.replaceTable('assets', COLS, [
+    { asset_id: 'A1', asset_name: 'PC-1', site: 'Sabodala', state: 'In Use' },   // moved site
+    { asset_id: 'A2', asset_name: 'PC-2', site: 'Hounde', state: 'In Use' },
+  ]);
+  const n = await a.recordAssetSightings({ asOf: '2026-07-28' });
+  assert.deepStrictEqual([n.baseline, n.inserted], [false, 1]);
+  assert.strictEqual((await a.recordAssetSightings({ asOf: '2026-07-28' })).inserted, 0);
+  const rows = await a.pgHandle().prepare('SELECT * FROM asset_first_seen ORDER BY asset_id').all();
+  const a1 = rows.find(x => x.asset_id === 'A1');
+  assert.strictEqual(a1.site, 'Hounde', 'first-sighting site is never rewritten');
+  assert.strictEqual(a1.first_seen_date, '2026-07-20');
+});
+
+test('pg: followups — predicates, window, no amounts (depends on the sightings test running first)', async (t) => {
+  const a = await boot();
+  if (!a) return t.skip('Postgres unreachable');
+  await a.replaceTable('assets', COLS, [
+    { asset_id: 'A1', asset_name: 'PC-1', site: 'Hounde', state: 'In Use', user_name: ' ', department: '', purchase_cost: '0.00', acquisition_date: '' },
+    { asset_id: 'A2', asset_name: 'PC-2', site: 'Hounde', state: 'In Use', user_name: 'x', department: 'IT', purchase_cost: '10', acquisition_date: '2024-01-01' },
+  ]);
+  const f = await a.getSiteAssetFollowups(['Hounde'], { newFrom: '2026-07-26', newTo: '2026-08-01' });
+  // G-05 keys ride along here too — and this expectation was stale until G-02 made the
+  // pg half runnable: a skipped test cannot tell you it has drifted.
+  assert.deepStrictEqual(f.counts, { new: 1, no_tag: 2, unassigned: 1, no_cost: 1, no_date: 1,
+    active_total: 2, unassigned_in_use: 1, unassigned_other: 0 });   // A2 first seen 2026-07-28 in the sightings test
+  assert.strictEqual(f.new[0].asset_id, 'A2');
+  assert.strictEqual(f.new[0].has_cost, true);
+  assert.ok(!('purchase_cost' in f.unassigned[0]));
+  assert.deepStrictEqual((await a.getSiteAssetFollowups([], {})).counts, { new: 0, no_tag: 0, unassigned: 0, no_cost: 0, no_date: 0,
+    active_total: 0, unassigned_in_use: 0, unassigned_other: 0 });
+});
+
+test('pg: teardown', async () => { if (ctx) await dropTestDb(ctx); });

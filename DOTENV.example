@@ -1,0 +1,40 @@
+# SDP360 — environment template. Copy to .env and fill in. NEVER commit .env.
+# (reports-db.js names this file in its first-boot error message.)
+
+# ── Server ──────────────────────────────────────────────────────────
+PORT=3456
+BIND_HOST=0.0.0.0
+NODE_ENV=production
+CACHE_TTL=300
+# CORS_EXTRA_ORIGINS=https://sharepoint.example.com
+# SESSION_COOKIE_SECURE=1
+
+# ── Bootstrap admin (first boot only; min 12 chars) ─────────────────
+DASH_USER=admin
+DASH_PASS=change-me-please-12
+
+# ── Zoho Analytics Plus (SDP mirror) — can also be set in Admin ▸ API Integration ──
+ZOHO_CLIENT_ID=
+ZOHO_CLIENT_SECRET=
+ZOHO_REFRESH_TOKEN=
+WORKSPACE_ID=
+ORG_ID=
+
+# ── Storage backends: sqlite (default) | postgres ───────────────────
+# PG_URL=postgres://sdp_app:<PG_PASSWORD>@localhost:5432/sdp_dashboard
+# REPORTS_BACKEND=postgres
+# MEETINGS_BACKEND=postgres
+# INSPECTION_BACKEND=postgres
+# TRACKER_BACKEND=postgres
+# ASSETS_BACKEND=sqlite
+# TRACKER_PER_YEAR_EDITS=1
+# SDP_DATA_DIR=./data
+
+# ── Secrets-at-rest key for report_config (AES-256-GCM). Required in prod. ──
+# SDP_CONFIG_KEY=<32+ random chars>
+
+# ── Optional integrations ───────────────────────────────────────────
+# DASHBOARD_API_KEY=
+# FMP_API_KEY=
+# EXEC_PPTX_TIMEOUT_MS=120000
+# REPORT_SEND_TIMEOUT_MS=120000

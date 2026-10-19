@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><title>EDV — Type scale</title>
+<link rel="stylesheet" href="colors_and_type.css">
+<style>
+  body{padding:18px;font-family:var(--font-body)}
+  table{width:100%;border-collapse:collapse}
+  td{padding:6px 8px;vertical-align:baseline;border-bottom:1px solid var(--border-subtle);font-family:var(--font-body)}
+  td.tok{font-family:var(--font-mono);font-size:11px;color:var(--fg-3);width:120px}
+  td.spec{width:90px;font-size:11px;color:var(--fg-3)}
+  .display{font-family:var(--font-display);font-size:42px;line-height:1.05;font-weight:800;text-transform:uppercase;letter-spacing:-.02em}
+  .h1{font-family:var(--font-display);font-size:28px;line-height:1.05;font-weight:700;text-transform:uppercase}
+  .h2{font-family:var(--font-display);font-size:18px;line-height:1.2;font-weight:700;text-transform:uppercase}
+  .h3{font-family:var(--font-display);font-size:13px;line-height:1.2;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+  .b{font-family:var(--font-body);font-size:14px;line-height:1.45}
+  .c{font-family:var(--font-body);font-size:11px;color:var(--fg-3)}
+</style></head>
+<body>
+<table>
+  <tr><td class="tok">--fs-display</td><td class="spec">54 / 1.05</td><td class="display">Display</td></tr>
+  <tr><td class="tok">--fs-h1</td><td class="spec">34 / 1.05</td><td class="h1">Chapter headline</td></tr>
+  <tr><td class="tok">--fs-h2</td><td class="spec">22 / 1.2</td><td class="h2">Sub-chapter headline</td></tr>
+  <tr><td class="tok">--fs-h3</td><td class="spec">14 / 1.2</td><td class="h3">Paragraph header</td></tr>
+  <tr><td class="tok">--fs-body</td><td class="spec">16 / 1.45</td><td class="b">Body — UK English, sentence case</td></tr>
+  <tr><td class="tok">--fs-caption</td><td class="spec">12 / 1.45</td><td class="c">Caption / footnote</td></tr>
+</table>
+</body></html>

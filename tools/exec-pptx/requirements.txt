@@ -1,0 +1,6 @@
+# Python dependencies for the executive-report PPTX renderer.
+# Pinned to known-good versions tested with python 3.12 on the dev box.
+matplotlib==3.9.*
+python-pptx==1.0.*
+pillow>=10.0
+numpy>=2.0
