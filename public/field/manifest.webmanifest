@@ -1,0 +1,14 @@
+{
+  "name": "Endeavour IT — Field",
+  "short_name": "IT Field",
+  "start_url": "/field/index.html",
+  "scope": "/field/",
+  "display": "standalone",
+  "background_color": "#f4f6f7",
+  "theme_color": "#3A4A60",
+  "lang": "en",
+  "description": "Offline-first field app: inspections, tracker entries and quick actions for site IT technicians.",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

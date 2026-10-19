@@ -530,7 +530,7 @@ require('./assets-sync').init(fetchView, VIEWS);
 // alerts (services/sync/alerts.js) to the addresses in Admin ▸ sync_alert_*. The former
 // per-job cron lines lived here; see git history before 2026-10-19 for the old wiring.
 require('./services/sync/schedule').start({
-  cron, sync, fetchView, engagement: _engagementJobs(),
+  cron, sync, fetchView, engagement: _engagementJobs(), field: { purgeOutbox: (o) => _fieldStore.purgeOutbox(o), purgeUploads: (o) => _fieldStore.purgeUploads(o) },   // Step 10 — lazy: _fieldStore is created later at boot
   assets: require('./assets-sync'),
   afterRequests: () => { console.log('[Cron:requests] ✅ Sync done — rebuilding raw cache…'); return _backgroundRefreshRawCache(); },
   getAlertConfig: async () => {
@@ -8144,8 +8144,8 @@ app.use(require('./routes/dashboards')({ express, requireReportSession, store: _
 // Step 7 — generic trackers (builder, entries, bindings, legacy migration); store on tracker.db / shared PG (migration tracker/002).
 const _trkStore = require('./routes/trackers').createStore(require('./tracker-db'));
 app.use(require('./routes/trackers')({ express, requireReportSession, store: _trkStore }));
-const _govStore = require('./routes/governance').createStore(require('./reports-db')), _repStore = require('./routes/reportStudio').createStore(require('./reports-db')), _engStore = require('./routes/engagement').createStore(require('./reports-db'));   // Steps 8-9 — governance (018), report studio + engagement (019)
-app.use(require('./routes/governance')({ express, requireReportSession, store: _govStore, trackerStore: _trkStore })); app.use(require('./routes/reportStudio')({ express, requireReportSession, store: _repStore, dashStore: _dashStore, engStore: _engStore, aiProvider: AI_PROVIDER, aiCall: require('./services/engagementJobs').aiCallFrom(_execAiCall) })); app.use(require('./routes/engagement')({ express, requireReportSession, store: _engStore, dashStore: _dashStore, reportStore: _repStore })); app.use(require('./routes/extApi')({ express, store: _engStore }));
+const _govStore = require('./routes/governance').createStore(require('./reports-db')), _repStore = require('./routes/reportStudio').createStore(require('./reports-db')), _engStore = require('./routes/engagement').createStore(require('./reports-db')), _fieldStore = require('./routes/field').createStore(require('./reports-db'));   // Steps 8-10 — governance (018), report studio + engagement (019), field outbox (020)
+app.use(require('./routes/governance')({ express, requireReportSession, store: _govStore, trackerStore: _trkStore })); app.use(require('./routes/reportStudio')({ express, requireReportSession, store: _repStore, dashStore: _dashStore, engStore: _engStore, aiProvider: AI_PROVIDER, aiCall: require('./services/engagementJobs').aiCallFrom(_execAiCall) })); app.use(require('./routes/engagement')({ express, requireReportSession, store: _engStore, dashStore: _dashStore, reportStore: _repStore })); app.use(require('./routes/extApi')({ express, store: _engStore })); app.use(require('./routes/field')({ express, requireReportSession, store: _fieldStore, dashStore: _dashStore, trackerStore: _trkStore }));
 
 // ══════════════════════════════════════════════════════════════════
 // MEETINGS — routes live in routes/meetings.js (Step 5 modularisation). The meetings-db
@@ -8198,7 +8198,7 @@ async function start() {
     const _pgh = _rdbMod.REPORTS_BACKEND === 'postgres' && typeof _rdbMod.pgHandle === 'function' ? _rdbMod.pgHandle() : null;
     _mr.setCurrent(await _mr.load({ pg: _pgh, log: console.log }));
     await _dashStore.seedAtBoot();   // Step 6 — pg: tables from migration 016, shipped definitions once
-    await _trkStore.seedAtBoot(); await _govStore.initAtBoot(); await _repStore.seedAtBoot(); await _engStore.seedAtBoot();    // Steps 7-9 — pg: tables from migrations tracker/002 + reports/018-019, templates/rules once
+    await _trkStore.seedAtBoot(); await _govStore.initAtBoot(); await _repStore.seedAtBoot(); await _engStore.seedAtBoot(); await _fieldStore.initAtBoot();    // Steps 7-10 — pg: tables from migrations tracker/002 + reports/018-019, templates/rules once
   } catch (e) { console.warn('[metrics] registry load failed (seed in use):', e.message); }
 
   // Zoho Analytics token — AFTER the databases are open, because the credentials may now

@@ -27,7 +27,7 @@ function _defaultTransport() {
 }
 
 function makeSdpClient({ baseUrl, accountsUrl = 'https://accounts.zoho.com', clientId, clientSecret, refreshToken,
-  openFilter = 'Open_System', excludeStatuses = [], transport } = {}) {
+  openFilter = 'Open_System', excludeStatuses = [], writeEnabled = false, transport } = {}) {
   const T = transport || _defaultTransport();
   const configured = !!(baseUrl && clientId && clientSecret && refreshToken);
   const base = String(baseUrl || '').replace(/\/+$/, '');
@@ -108,8 +108,29 @@ function makeSdpClient({ baseUrl, accountsUrl = 'https://accounts.zoho.com', cli
     return rows;
   }
 
+  /**
+   * Step 10 — quick action "SDP ticket from a finding". WRITE path: requires the OAuth scope
+   * SDPOnDemand.requests.CREATE on the self-client (new scope → through the CAB) AND `writeEnabled`
+   * (config sdp_api_write_enabled='1'). Returns { id, display_id } or throws with .code 'WRITE_DISABLED'.
+   */
+  async function createRequest({ subject, description = '', siteName = null, priority = null, requesterEmail = null } = {}) {
+    if (!writeEnabled) throw Object.assign(new Error('SDP write is not enabled (sdp_api_write_enabled) — the CREATE scope must be approved by the CAB first'), { code: 'WRITE_DISABLED' });
+    if (!configured) throw Object.assign(new Error('SDP API client is not configured'), { code: 'WRITE_DISABLED' });
+    const tok = await _token();
+    const request = { subject: String(subject).slice(0, 250), description: String(description || '').slice(0, 20000) };
+    if (siteName) request.site = { name: String(siteName) };
+    if (priority) request.priority = { name: String(priority) };
+    if (requesterEmail) request.requester = { email_id: String(requesterEmail) };
+    let res;
+    try {
+      res = await T.post(`${base}/requests`, null, { params: { input_data: JSON.stringify({ request }) }, headers: { Authorization: `Zoho-oauthtoken ${tok}`, Accept: 'application/vnd.manageengine.sdp.v3+json' } });
+    } catch (e) { const st = e && e.response && e.response.status; const err = new Error(`SDP POST /requests${st ? ` → HTTP ${st}` : ` → ${e.message}`}`); err.status = st; throw err; }
+    const r = (res && res.data && res.data.request) || {};
+    return { id: r.id || null, display_id: r.display_id || null };
+  }
+
   // rows a default listing can hold — a result this long was probably cut off
-  return { configured, listOpenRequests, pageCap: 100 * MAX_PAGES, lastMeta: () => ({ ...meta }) };
+  return { configured, listOpenRequests, createRequest, writeEnabled, pageCap: 100 * MAX_PAGES, lastMeta: () => ({ ...meta }) };
 }
 
 module.exports = { makeSdpClient, FIELDS };

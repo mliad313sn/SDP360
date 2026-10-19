@@ -117,6 +117,8 @@ const DEFAULTS = {
   sdp_api_accounts_url: 'https://accounts.zoho.com',
   sdp_api_client_id: '', sdp_api_client_secret: '', sdp_api_refresh_token: '',
   sdp_api_open_filter: 'Open_System',
+  // Step 10 — quick action "SDP ticket from a finding": OFF until the CAB approves the CREATE scope.
+  sdp_api_write_enabled: '0', field_photo_max_kb: '300',
   // ── Zoho Analytics connection (helpdesk data), editable in Admin ▸ Intégration API ▸ Analytics
   //    (2026-10-04). BLANK = use .env (ZOHO_CLIENT_ID / ZOHO_CLIENT_SECRET / ZOHO_REFRESH_TOKEN /
   //    WORKSPACE_ID / ORG_ID) — services/analyticsSettings resolves database → .env → default.

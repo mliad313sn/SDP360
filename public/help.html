@@ -213,6 +213,7 @@
       <a href="#en-24">24. Trackers &amp; Tracker Builder</a>
       <a href="#en-25">25. Meeting Cockpit, Portfolio &amp; RFI</a>
       <a href="#en-26">26. Report Studio, Notifications &amp; Integrations</a>
+      <a href="#en-27">27. Field app (offline)</a>
     </div>
 
     <!-- Content -->
@@ -1221,6 +1222,18 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Confirm-Destructive.ps1"
           <li><strong>Integrations</strong> (Operations ▸ Integrations, admin) — <strong>API consumers</strong> receive a key (shown once, stored hashed) with scopes (<code>metrics:read</code>, <code>values:read</code>, <code>sites:read</code>) and a daily quota (429 when exceeded); every call is logged. External REST: <code>/ext/v1/metrics</code>, <code>/ext/v1/sites</code>, <code>/ext/v1/metrics/:key/values</code>, <code>/ext/v1/values?metrics=a,b</code> (header <code>X-Api-Key</code> or <code>?api_key=</code>). <strong>Power BI</strong>: OData feed at <code>/ext/odata/</code> (<code>Metrics</code>, <code>Sites</code>, <code>Values</code> with <code>$filter</code>, <code>$top</code>, <code>$select</code>, <code>$count</code>). <strong>Connectors</strong> (daily job, armed by <code>publish_cron_enabled</code>): scheduled Excel by e-mail, webhook, SharePoint list through Microsoft Graph (app registration in config); each self-skips when not configured. Only site names leave the platform — never a person's name.</li>
         </ul>
       </div>
+      <div class="section" id="en-27">
+        <h2><span class="section-num">27</span>Field app — offline on your phone (Step 10)</h2>
+        <ul>
+          <li><strong>Install</strong> — open <code>/field/index.html</code> (Operations ▸ Field app) on your phone, sign in once, then <em>Add to Home screen</em>. The app works <strong>without network</strong>: everything you enter is queued on the phone and sent when the connection returns. The counter at the top right is the queue; the <em>Data as of</em> line is the date of the newest figure, never the current time.</li>
+          <li><strong>Who</strong> — site editors, and anyone with the feature role <code>field-tech</code>; always on <strong>your own sites</strong> (admins: all).</li>
+          <li><strong>Inspect</strong> — area, category, a status per item (ok · minor · major · critical · n/a), one photo (compressed on the phone to 300 KB at most, sent in small pieces so a drop never loses it), observations. The record lands in Inspections like one typed at a desk. The full 173-item form with signatures stays the desktop form.</li>
+          <li><strong>Tracker</strong> — a published tracker, one of your units, an open period: values queue and apply with the same rules as the Trackers page. A <strong>closed month is kept as stored</strong> and the phone shows the entry as refused — nothing is lost silently.</li>
+          <li><strong>Actions</strong> — the open actions of your site (inspections and meetings): <em>Close</em>, or transfer to <em>Ticket</em> / <em>Demand</em> / <em>Cancel</em>, which require a justification (and the SDP ticket number for a ticket), exactly as in the Site Actions hub. <strong>Report to the helpdesk</strong> creates an SDP ticket only when the administrator has enabled field ticket creation; otherwise the button says so.</li>
+          <li><strong>Exactly once</strong> — each queued item carries a unique id: if the phone resends it (bad network), the server answers "already applied" and never duplicates. An item the server refuses (wrong site, missing justification) is dropped from the queue with the reason shown.</li>
+          <li><strong>Low-bandwidth mode</strong> hides photos and reduces refreshes. The <em>Dashboard</em> tab shows the published "My site — field" dashboard with its own data date.</li>
+        </ul>
+      </div>
     </div><!-- /content -->
   </div><!-- /doc-layout -->
 </div><!-- /sec-en -->
@@ -1332,6 +1345,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Confirm-Destructive.ps1"
       <a href="#fr-24">24. Trackers &amp; constructeur de trackers</a>
       <a href="#fr-25">25. Cockpit de réunion, portefeuille &amp; RFI</a>
       <a href="#fr-26">26. Studio de rapports, notifications &amp; intégrations</a>
+      <a href="#fr-27">27. Application terrain (hors-ligne)</a>
     </div>
 
     <div class="content">
@@ -2337,6 +2351,18 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Confirm-Destructive.ps1"
           <li><strong>Notifications</strong> (Operations ▸ Notifications) — centre intégré avec compteur de non-lus, marquage lu, commentaires depuis une notification ; <strong>abonnements</strong> à un modèle de rapport, un tableau de bord ou une règle d'alerte, avec un résumé e-mail quotidien ou hebdomadaire facultatif. <strong>Règles d'alerte</strong> (admin) : métrique, portée (site ou flotte), opérateur, seuil, <em>série</em> (dépassements consécutifs requis), <em>temps de repos</em>, canaux (intégré, e-mail, carte Teams, webhook), destinataires (utilisateurs, rôles, e-mails). Douze règles livrées, canal intégré seulement ; une lecture nulle ne déclenche jamais ; le taux de faux positifs est suivi (marquer un déclenchement comme faux positif). L'évaluation tourne toutes les 15 minutes dans l'ordonnanceur, ou à la demande avec <em>Evaluate now</em>.</li>
           <li><strong>Liens de partage</strong> — un éditeur partage un tableau de bord publié de son site (admin : tous) ou un rapport publié par un lien signé : expiration (72 h par défaut, 90 jours maximum), nombre de vues maximal facultatif, mode <em>embed</em> facultatif pour un iframe (parents autorisés dans la configuration <code>embed_frame_ancestors</code>). Le jeton est affiché une fois et stocké haché ; chaque ouverture est enregistrée (accusés de lecture) ; la révocation rend le lien 404 immédiatement.</li>
           <li><strong>Intégrations</strong> (Operations ▸ Integrations, admin) — les <strong>consommateurs d'API</strong> reçoivent une clé (affichée une fois, stockée hachée) avec des portées (<code>metrics:read</code>, <code>values:read</code>, <code>sites:read</code>) et un quota journalier (429 au-delà) ; chaque appel est journalisé. REST externe : <code>/ext/v1/metrics</code>, <code>/ext/v1/sites</code>, <code>/ext/v1/metrics/:key/values</code>, <code>/ext/v1/values?metrics=a,b</code> (en-tête <code>X-Api-Key</code> ou <code>?api_key=</code>). <strong>Power BI</strong> : flux OData sur <code>/ext/odata/</code> (<code>Metrics</code>, <code>Sites</code>, <code>Values</code> avec <code>$filter</code>, <code>$top</code>, <code>$select</code>, <code>$count</code>). <strong>Connecteurs</strong> (tâche quotidienne, armée par <code>publish_cron_enabled</code>) : Excel planifié par e-mail, webhook, liste SharePoint via Microsoft Graph (inscription d'application dans la configuration) ; chacun se saute s'il n'est pas configuré. Seuls les noms de sites sortent de la plateforme — jamais un nom de personne.</li>
+        </ul>
+      </div>
+      <div class="section" id="fr-27">
+        <h2><span class="section-num">27</span>Application terrain — hors-ligne sur votre téléphone (étape 10)</h2>
+        <ul>
+          <li><strong>Installer</strong> — ouvrir <code>/field/index.html</code> (Operations ▸ Field app) sur le téléphone, se connecter une fois, puis <em>Ajouter à l'écran d'accueil</em>. L'application fonctionne <strong>sans réseau</strong> : tout ce que vous saisissez est mis en file sur le téléphone et envoyé au retour de la connexion. Le compteur en haut à droite est la file d'attente ; la ligne <em>Data as of</em> est la date du chiffre le plus récent, jamais l'heure courante.</li>
+          <li><strong>Qui</strong> — les éditeurs de site, et toute personne portant le rôle <code>field-tech</code> ; toujours sur <strong>ses propres sites</strong> (admins : tous).</li>
+          <li><strong>Inspect</strong> — zone, catégorie, un statut par item (ok · minor · major · critical · n/a), une photo (compressée sur le téléphone à 300 Ko au plus, envoyée par petits morceaux pour qu'une coupure ne la perde jamais), observations. L'inspection arrive dans Inspections comme une inspection saisie au bureau. Le formulaire complet (173 items, signatures) reste celui du bureau.</li>
+          <li><strong>Tracker</strong> — un tracker publié, une de vos unités, une période ouverte : les valeurs se mettent en file et s'appliquent avec les règles de la page Trackers. Un <strong>mois clos est conservé tel que stocké</strong> et le téléphone affiche la saisie comme refusée — rien n'est perdu en silence.</li>
+          <li><strong>Actions</strong> — les actions ouvertes de votre site (inspections et réunions) : <em>Close</em>, ou transfert vers <em>Ticket</em> / <em>Demand</em> / <em>Cancel</em>, qui exigent une justification (et le n° de ticket SDP pour un ticket), exactement comme dans le hub Site Actions. <strong>Signaler au helpdesk</strong> crée un ticket SDP seulement si l'administrateur a activé la création depuis le terrain ; sinon le bouton l'indique.</li>
+          <li><strong>Exactement une fois</strong> — chaque élément en file porte un identifiant unique : si le téléphone le renvoie (réseau instable), le serveur répond « déjà appliqué » et ne duplique jamais. Un élément refusé par le serveur (mauvais site, justification manquante) sort de la file avec le motif affiché.</li>
+          <li><strong>Mode bas débit</strong> : masque les photos et réduit les rafraîchissements. L'onglet <em>Dashboard</em> montre le tableau de bord publié « Mon site — terrain » avec sa propre date de données.</li>
         </ul>
       </div>
     </div><!-- /content -->
