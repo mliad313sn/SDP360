@@ -40,11 +40,10 @@ async function initPgAssets() {
   const { makePgDb } = require('./services/pgDb');
   const url = process.env.PG_URL || process.env.DATABASE_URL;
   if (!url) throw new Error('ASSETS_BACKEND=postgres but PG_URL/DATABASE_URL is not set');
-  _pg = makePgDb(url); await _pg.connect(); await _pg.exec(SCHEMA);
-  // pg supports ADD COLUMN IF NOT EXISTS — idempotent additive migration for existing tables.
-  for (const [table, cols] of Object.entries(_ADDED_COLS)) {
-    for (const c of cols) await _pg.exec(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS ${c} TEXT`);
-  }
+  _pg = makePgDb(url); await _pg.connect();
+  // Step 2: 001_init.sql (shared with sqlite) + 002_additive_columns.sql (the pg twin of
+  // _ADDED_COLS) are applied by the migrator only.
+  await require('./db/migrate').migrateModule(_pg, 'assets');
   return _pg;
 }
 function pgHandle() {
@@ -1690,6 +1689,7 @@ function listImportLog(limit = 50) {
 }
 
 module.exports = {
+  _ADDED_COLS,
   getDB, initPgAssets, pgHandle, ASSETS_BACKEND, replaceTable, countRows,
   getEnrichedAssets, getAssetLookups, getAssetSummary, getAssetCountsByType,
   HYGIENE_KINDS, getHygieneSummary, getHygieneExceptions,

@@ -1,0 +1,73 @@
+# Step 2 (SDP-DASH-2.0) — continuous integration. Every push and pull request on main:
+#   1. syntax gate (every .js file + every inline page script)
+#   2. schema migrator applied to an EMPTY PostgreSQL 17, then replayed (must be a no-op)
+#   3. the whole test suite — sqlite AND PostgreSQL (PG_TESTS_REQUIRED=1: a skipped pg test fails)
+#   4. dependency audit (informational until step 4 makes it a gate)
+# No production secret is used: the database is a throwaway service container.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci-only-password
+          POSTGRES_DB: sdp_dashboard
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PG_URL: postgres://postgres:ci-only-password@localhost:5432/sdp_dashboard
+      PG_ADMIN_URL: postgres://postgres:ci-only-password@localhost:5432/postgres
+      PG_TESTS_REQUIRED: '1'
+      TZ: UTC
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Syntax gate
+        run: node tools/ci/lint.js
+
+      - name: Schema migrator on an empty database
+        run: |
+          node db/migrate.js --apply
+          node db/migrate.js --status | tee migrate-status.txt
+          if grep -Eq "pending=[1-9]|changed=[1-9]" migrate-status.txt; then echo "replay is not a no-op"; exit 1; fi
+
+      - name: Test suite (sqlite + PostgreSQL) with coverage
+        run: node --test --test-force-exit --experimental-test-coverage --test-coverage-include='**/*.js' --test-coverage-exclude='tests/**' --test-coverage-exclude='node_modules/**' tests/*.test.js 2>&1 | tee test-output.txt; exit ${PIPESTATUS[0]}
+
+      - name: Dependency audit (informational)
+        continue-on-error: true
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Keep the test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-output
+          path: test-output.txt
+          retention-days: 14

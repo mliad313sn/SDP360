@@ -74,6 +74,13 @@ made so far so that future sessions can pick up exactly where the last one ended
 > Zoho : > 20 % d'une table à supprimer → refusé, rien supprimé (`SYNC_TRUNCATION_TOLERANCE_PCT`). Une
 > nouvelle tâche planifiée = une entrée dans `jobs.js`, jamais un `cron.schedule`. L'étude affirmait l'étape 1
 > « implémentée » et l'étape 2 « socle livré » alors que rien n'existait : vérifier le dépôt, pas le document.
+>
+> **Étape 2 livrée** (dossier `docs/design/ETAPE-02-postgresql.md`, ADR-002) : le schéma PG ne change QUE par
+> `db/migrate.js` (journal `schema_migrations`, scripts idempotents, rejoués si modifiés) — **une colonne = un
+> fichier `db/postgres/<module>/NNN_*.sql`, jamais un `ALTER` dans `initPg*`** (test statique). Garde
+> `REQUIRE_POSTGRES=1` (refus de démarrer si un module est en SQLite). Sauvegarde chiffrée nocturne = job
+> `db.backup` (`SDP_BACKUP_DIR` + `SDP_BACKUP_KEY`). CI GitHub Actions (`.github/workflows/ci.yml`, Node 24,
+> PostgreSQL 17 en service) — un test propre au poste Windows se marque `skip` avec sa raison hors win32.
 
 ---
 

@@ -2317,6 +2317,16 @@ app.get('/api/sync/health', requireReportSession, requireAdmin, async (req, res)
       j.runs_28d = x ? Number(x.total) || 0 : 0;
       j.success_pct_28d = (ok + failed) ? Math.round(1000 * ok / (ok + failed)) / 10 : null;   // null = nothing measured
     });
+    // Step 2: database state — backend per module (zero SQLite in production) + schema migrations.
+    const bg = require('./services/backendGuard').check();
+    h.database = { backends: bg.backends, sqlite: bg.sqlite, require_postgres: bg.required, message: bg.message, migrations: null };
+    if (rdb.REPORTS_BACKEND === 'postgres') {
+      try {
+        const st = await require('./db/migrate').status(rdb.pgHandle());
+        h.database.migrations = st.map(m => ({ module: m.module, scripts: m.plan.length,
+          pending: m.plan.filter(p => p.action !== 'skip').map(p => p.filename) }));
+      } catch (e) { h.database.migrations_error = e.message; }
+    }
     h.alerts = { email: null, teams: null };
     try {
       const cfg = await require('./services/reportConfig').getConfig(rdb.db);
@@ -9037,6 +9047,13 @@ app.get('/api/meetings/progress/export-pptx', requireReportSession, async (req, 
 // ── START ─────────────────────────────────────────────────────────
 async function start() {
 
+  // Step 2 (SDP-DASH-2.0) — zero SQLite in production: with REQUIRE_POSTGRES=1 the server refuses
+  // to start while a module is still on sqlite (services/backendGuard.js); without it, a warning.
+  {
+    const bg = require('./services/backendGuard').assertBootAllowed();
+    if (bg.sqlite.length) console.warn(`[DB] ⚠ ${bg.message}`);
+  }
+
   // PostgreSQL backends (Chunks 1-4) — connect each pool + apply its schema
   // before serving. Every module defaults to sqlite (the *_BACKEND env vars are
   // unset in prod), so each block is a no-op until the operator flips a flag.
@@ -9118,5 +9135,8 @@ async function start() {
 
 // Boot only when run directly (pm2/prod); skip when required by a test harness so the
 // express app can be mounted in-process (http.createServer(app)) without binding a port.
-if (require.main === module) start();
+if (require.main === module) start().catch(e => {
+  console.error(`❌ Startup refused: ${e.message}`);
+  process.exit(1);
+});
 module.exports = { app };

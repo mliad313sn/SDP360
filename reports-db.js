@@ -1360,95 +1360,22 @@ async function initPgReports() {            // called once at server boot
   if (!url) throw new Error('REPORTS_BACKEND=postgres but PG_URL/DATABASE_URL is not set');
   _pg = makePgDb(url);
   await _pg.connect();
-  await _pg.exec(require('fs').readFileSync(
-    require('path').join(__dirname, 'db', 'postgres', 'reports', '001_auth.sql'), 'utf8'));
-  // Chunk 4B — config tables (action_departments / audit_log / dashboard_preset_groups).
-  await _pg.exec(require('fs').readFileSync(
-    require('path').join(__dirname, 'db', 'postgres', 'reports', '002_config.sql'), 'utf8'));
+  // Step 2 (SDP-DASH-2.0): the schema is applied by db/migrate.js ONLY — db/postgres/reports/NNN_*.sql
+  // in order, journaled in schema_migrations. What follows is data (seeds and backfills), not schema.
+  await require('./db/migrate').migrateModule(_pg, 'reports');
   await _seedConfigPg(_pg);
-  // Chunk 4C — report-editor tables (weeks / weekly_reports / kpis / lights / actions / monthly / objectives / catalogs).
-  await _pg.exec(require('fs').readFileSync(
-    require('path').join(__dirname, 'db', 'postgres', 'reports', '003_reports.sql'), 'utf8'));
-  // SP1b — action_items stable uid + merge columns (idempotent for existing PG DBs)
-  // + backfill uids on rows that predate the column (see the sqlite note above).
-  for (const c of ['uid TEXT', 'source TEXT', 'origin_id INTEGER', 'lineage TEXT', 'status_changed_at TEXT']) {
-    await _pg.exec(`ALTER TABLE action_items ADD COLUMN IF NOT EXISTS ${c}`);
-  }
+  // SP1b — backfill uids on action_items rows that predate the column (see the sqlite note).
   { const nulls = await _pg.prepare('SELECT id FROM action_items WHERE uid IS NULL').all();
     for (const r of nulls) await _pg.prepare('UPDATE action_items SET uid=? WHERE id=?').run(crypto.randomUUID(), r.id); }
   await _seedReportsCatalogsPg(_pg);
-  // Chunk 4D-1 — hot-path Zoho tables (request_records / change_records / cab_approvals / survey_* / sync_metadata).
-  await _pg.exec(require('fs').readFileSync(
-    require('path').join(__dirname, 'db', 'postgres', 'reports', '004_hot.sql'), 'utf8'));
   await _seedSyncMetadataPg(_pg);
-  // Chunk 4E — reporting suite tables.
-  await _pg.exec(require('fs').readFileSync(
-    require('path').join(__dirname, 'db', 'postgres', 'reports', '005_reporting.sql'), 'utf8'));
-  // System Logs v1 — unified security/audit event log.
-  await _pg.exec(require('fs').readFileSync(
-    require('path').join(__dirname, 'db', 'postgres', 'reports', '006_system_log.sql'), 'utf8'));
-  // V1a — OPManager infra availability snapshots.
-  await _pg.exec(require('fs').readFileSync(
-    require('path').join(__dirname, 'db', 'postgres', 'reports', '007_infra_snapshots.sql'), 'utf8'));
-  // V1b — Meraki WAN link availability & quality snapshots.
-  await _pg.exec(require('fs').readFileSync(
-    require('path').join(__dirname, 'db', 'postgres', 'reports', '008_wan_link_snapshots.sql'), 'utf8'));
-  // WAN SLA / ISP chargeback — one row per detected WAN outage.
-  await _pg.exec(require('fs').readFileSync(
-    require('path').join(__dirname, 'db', 'postgres', 'reports', '009_wan_outages.sql'), 'utf8'));
-  // Personal Roadmap Manager — per-user objectives + deliverables (super_admin tool).
-  await _pg.exec(require('fs').readFileSync(
-    require('path').join(__dirname, 'db', 'postgres', 'reports', '010_roadmap.sql'), 'utf8'));
-  // Roadmap Manager — "Projet Intégrations" tab: actionable items + resources.
-  await _pg.exec(require('fs').readFileSync(
-    require('path').join(__dirname, 'db', 'postgres', 'reports', '011_roadmap_project.sql'), 'utf8'));
-  // V1b-E — add sub_site to wan_link_snapshots + swap its PK to the 5-col key (guarded so
-  // it runs once on DBs created before V1b-E; fresh installs get it from 008.sql directly).
-  await _pg.exec(`ALTER TABLE wan_link_snapshots ADD COLUMN IF NOT EXISTS sub_site TEXT NOT NULL DEFAULT ''`);
-  await _pg.exec(`ALTER TABLE wan_link_snapshots ADD COLUMN IF NOT EXISTS avail_quality_pct DOUBLE PRECISION`);
-  await _pg.exec(`ALTER TABLE wan_link_snapshots ADD COLUMN IF NOT EXISTS loss_pct_max DOUBLE PRECISION`);
-  await _pg.exec(`ALTER TABLE wan_link_snapshots ADD COLUMN IF NOT EXISTS latency_ms_max DOUBLE PRECISION`);
-  await _pg.exec(`ALTER TABLE wan_link_snapshots ADD COLUMN IF NOT EXISTS avail_samples INTEGER`);
-  await _pg.exec(`DO $$ BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='wan_link_snapshots_pkey'
-                   AND conrelid='wan_link_snapshots'::regclass
-                   AND array_length(conkey,1)=5) THEN
-      ALTER TABLE wan_link_snapshots DROP CONSTRAINT IF EXISTS wan_link_snapshots_pkey;
-      ALTER TABLE wan_link_snapshots ADD PRIMARY KEY (site_id, sub_site, uplink, period_type, period_start);
-    END IF;
-  END $$;`);
-  // V1b-E — editable sub-site → Meraki network map (Exploration).
-  await _pg.exec(`CREATE TABLE IF NOT EXISTS wan_subsite_networks (
-    site_id  INTEGER NOT NULL,
-    sub_site TEXT NOT NULL,
-    network  TEXT NOT NULL,
-    PRIMARY KEY (site_id, sub_site)
-  )`);
-  // Same sub-site seed as the sqlite boot; ON CONFLICT DO NOTHING keeps admin-set values.
+  // V1b-E — sub-site seed (same as the sqlite boot); ON CONFLICT DO NOTHING keeps admin-set values.
   for (const [siteName, subs] of Object.entries(_WAN_SUBSITE_SEED)) {
     const row = await _pg.prepare('SELECT id FROM sites WHERE lower(name) = lower(?)').get(siteName);
     if (!row) continue;
     for (const [sub, net] of Object.entries(subs)) {
       await _pg.prepare('INSERT INTO wan_subsite_networks (site_id, sub_site, network) VALUES (?, ?, ?) ON CONFLICT (site_id, sub_site) DO NOTHING').run(row.id, sub, net);
     }
-  }
-  // V1b-B — additive recent-vs-window label on infra_metric_snapshots (device availability).
-  await _pg.exec(`ALTER TABLE infra_metric_snapshots ADD COLUMN IF NOT EXISTS basis TEXT`);
-  // Asset engagement — weekly report "Parc informatique" tab.
-  await _pg.exec(require('fs').readFileSync(
-    require('path').join(__dirname, 'db', 'postgres', 'reports', '012_report_asset_review.sql'), 'utf8'));
-  // Teams SLA alerts (2026-10-03) — anti-duplicate log.
-  await _pg.exec(require('fs').readFileSync(
-    require('path').join(__dirname, 'db', 'postgres', 'reports', '013_sla_alert_log.sql'), 'utf8'));
-  // Multi-site editors (2026-10-05) — extra sites of a user.
-  await _pg.exec(require('fs').readFileSync(
-    require('path').join(__dirname, 'db', 'postgres', 'reports', '014_user_sites.sql'), 'utf8'));
-  // Step 1 (SDP-DASH-2.0) — sync runner journal + per-job state.
-  await _pg.exec(require('fs').readFileSync(
-    require('path').join(__dirname, 'db', 'postgres', 'reports', '015_sync_runs.sql'), 'utf8'));
-  // Asset engagement — per-site asset manager contact on the recipients directory.
-  for (const c of ['asset_manager_name TEXT', 'asset_manager_email TEXT', 'asset_manager_email_confirmed INTEGER DEFAULT 0']) {
-    await _pg.exec(`ALTER TABLE report_recipients ADD COLUMN IF NOT EXISTS ${c}`);
   }
   return _pg;
 }

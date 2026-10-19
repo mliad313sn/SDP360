@@ -128,6 +128,7 @@
       <div class="kpi"><div class="v" id="shNever">—</div><div class="l">Never ran</div></div>
     </div>
     <div class="muted">Every scheduled job runs through one runner: overlap lock, retries on transient errors, one log line per run. A job is <b>stale</b> when it has not completed within its freshness window; <b>idle</b> means it ran but its integration is not configured. Click a row to see its runs.</div>
+    <div class="card" id="shDb" style="margin-top:10px;font-size:.82rem">Database: …</div>
     <div class="sh-settings">
       <label class="chk"><input type="checkbox" id="shMail"> E-mail alerts</label>
       <label>Recipients (comma-separated)<input type="text" id="shRcpt" placeholder="it-ops@…"></label>
@@ -247,6 +248,16 @@
       var s=h.summary||{};
       el('shOk').textContent=(s.ok||0)+(s.running||0)+(s.idle||0); el('shStale').textContent=s.stale||0;
       el('shError').textContent=s.error||0; el('shNever').textContent=s.never||0;
+      var db=h.database||{}, mig=db.migrations;
+      var dbHtml = (db.sqlite&&db.sqlite.length)
+        ? '<b style="color:#D90038">⚠ '+esc(db.message)+'</b>'+(db.require_postgres?'':' <span class="muted">(REQUIRE_POSTGRES is not set)</span>')
+        : '<b style="color:#16794c">✓ All modules on PostgreSQL</b>'+(db.require_postgres?' <span class="muted">(enforced at startup)</span>':' <span class="muted">(set REQUIRE_POSTGRES=1 to enforce)</span>');
+      if (mig) {
+        var tot=mig.reduce(function(n,m){return n+m.scripts;},0), pend=[];
+        mig.forEach(function(m){ m.pending.forEach(function(f){ pend.push(m.module+'/'+f); }); });
+        dbHtml += ' · Schema: '+tot+' script(s)'+(pend.length?' — <b style="color:#b45309">pending: '+esc(pend.join(', '))+'</b>':', all applied');
+      }
+      el('shDb').innerHTML = 'Database: '+dbHtml;
       el('shRows').innerHTML=h.jobs.map(function(j){
         return '<tr data-job="'+esc(j.key)+'"'+(j.key===shJob?' class="sel"':'')+'><td><span class="st '+esc(j.status)+'">'+esc(j.status)+'</span></td>'
           +'<td><b>'+esc(j.label)+'</b><br><span class="muted">'+esc(j.key)+'</span></td>'

@@ -165,8 +165,7 @@ async function initPgInspection() {
   if (!url) throw new Error('INSPECTION_BACKEND=postgres but PG_URL/DATABASE_URL is not set');
   _pg = makePgDb(url);
   await _pg.connect();
-  await _pg.exec(require('fs').readFileSync(
-    require('path').join(__dirname, 'db', 'postgres', 'inspection', '001_init.sql'), 'utf8'));
+  await require('./db/migrate').migrateModule(_pg, 'inspection');   // Step 2: schema via the migrator only
   await _seedLookupsPg(_pg);
   return _pg;
 }

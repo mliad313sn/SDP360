@@ -5,6 +5,23 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased] — SDP-Dashboard 2.0, step 2: PostgreSQL only, schema migrator, CI (2026-10-19)
+
+### Added
+- **Schema migrator** `db/migrate.js` (`--status`, `--apply`): applies `db/postgres/<module>/NNN_*.sql` in
+  order, journal `schema_migrations`, one transaction per script under an advisory lock; an edited script is
+  re-applied. Every `initPg*` now goes through it; the inline DDL moved to `reports/016`, `meetings/002`,
+  `assets/002` (ADR-002).
+- **Zero SQLite in production**: `REQUIRE_POSTGRES=1` makes the server refuse to start while a module is on
+  SQLite (`services/backendGuard.js`); Sync health shows the backend of every module and pending scripts.
+- **Nightly encrypted backup** (runner job `db.backup`, 02:30): pg_dump → gzip → AES-256-GCM, retention 14
+  days; enabled by `SDP_BACKUP_DIR` + `SDP_BACKUP_KEY` (no plaintext backup is ever written).
+  `tools/pg/restore-backup.js` + `docs/ops/RESTORE-DRILL.md` (quarterly drill).
+- **CI** (`.github/workflows/ci.yml`): syntax gate (`tools/ci/lint.js`), migrator on an empty PostgreSQL 17
+  then replayed, full test suite sqlite + PostgreSQL with coverage, informational `npm audit`.
+
+---
+
 ## [Unreleased] — SDP-Dashboard 2.0, step 1: reliable, observable synchronisation (2026-10-19)
 
 ### Added

@@ -98,25 +98,19 @@ async function initPgMeetings() {              // called once at server boot
   if (!url) throw new Error('MEETINGS_BACKEND=postgres but PG_URL/DATABASE_URL is not set');
   _pg = makePgDb(url);
   await _pg.connect();
-  await _pg.exec(require('fs').readFileSync(
-    require('path').join(__dirname, 'db', 'postgres', 'meetings', '001_init.sql'), 'utf8'));
+  await require('./db/migrate').migrateModule(_pg, 'meetings');   // Step 2: schema via the migrator only
   // Seed the 11 lookups on first run (data-driven from meetings-init.json).
   const seeded = await _pg.prepare('SELECT COUNT(*) AS n FROM md_categories').get();
   if (!seeded || !seeded.n) await _seedLookupsPg();
   // Idempotent label fix (parity with the sqlite path): survey → "IT Survey".
   await _pg.prepare(`UPDATE md_intake_sources SET name_en='IT Survey', name_fr='Enquête IT'
                      WHERE code='survey' AND (name_en='InfoTech Survey' OR name_fr='Enquête InfoTech')`).run();
-  // 2026-09 Business Incubation (parity with the sqlite path): additive column on an
-  // existing table + the intake_source code (the seed only fires on an empty DB).
-  await _pg.exec(`ALTER TABLE md_meetings ADD COLUMN IF NOT EXISTS incubation_json TEXT`);
+  // 2026-09 Business Incubation (parity with the sqlite path): the intake_source code (the seed
+  // only fires on an empty DB); the incubation_json column comes from meetings/002.
   await _pg.prepare(`INSERT INTO md_intake_sources (code, name_en, name_fr, color, display_order, active)
                      VALUES ('business_incubation', 'Business Incubation', 'Incubation métier', '#0D9488', 4, 1)
                      ON CONFLICT (code) DO NOTHING`).run();
-  // 2026-10-16: transfer statuses (parity with the sqlite path).
-  for (const t of ['md_issues', 'md_actions']) {
-    await _pg.exec(`ALTER TABLE ${t} ADD COLUMN IF NOT EXISTS status_note TEXT`);
-    await _pg.exec(`ALTER TABLE ${t} ADD COLUMN IF NOT EXISTS helpdesk_ticket TEXT`);
-  }
+  // 2026-10-16: transfer statuses (parity with the sqlite path) — columns from meetings/002.
   for (const st of INIT.statuses.filter(x => x.code === 'demand' || x.code === 'helpdesk_ticket')) {
     await _pg.prepare(`INSERT INTO md_statuses (code, name_en, name_fr, color, is_terminal, display_order)
                        VALUES (@code, @name_en, @name_fr, @color, @is_terminal, @display_order)
