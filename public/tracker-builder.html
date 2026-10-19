@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tracker Builder — Endeavour Mining IT</title>
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="brand/icons.css">
+<link rel="stylesheet" href="brand/components.css">
+<link rel="stylesheet" href="_shell.css">
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-require="admin|tracker-admin" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/dashboardRender.js"></script>
+<style nonce="%%CSP_NONCE%%">
+  body { margin:0; background:var(--color-background,#f4f6f7); color:#1F2A33; font-family:var(--font-sans,'Libre Franklin',system-ui,sans-serif); font-size:14px; }
+  .wrap { max-width:1360px; margin:0 auto; padding:24px; }
+  h1 { margin:0 0 4px; font-size:22px; color:var(--edv-slate,#3A4A60); } .sub { font-size:13px; color:#6b7785; margin-bottom:14px; }
+  .bar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:10px 0; }
+  .btn, select, input, textarea { padding:7px 11px; border:1px solid #cfd6e0; border-radius:8px; background:#fff; font-size:13px; color:#1F2A33; font-family:inherit; }
+  .btn { cursor:pointer; } .btn.primary { background:var(--edv-slate,#3A4A60); color:#fff; border-color:var(--edv-slate,#3A4A60); } .btn.danger { color:#b91c1c; }
+  .panel { background:#fff; border:1px solid #e4e8ee; border-radius:12px; padding:14px 16px; margin-bottom:14px; }
+  .panel h2 { margin:0 0 10px; font-size:15px; color:#3A4A60; }
+  .row { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; } label { font-size:12px; color:#6b7785; display:flex; flex-direction:column; gap:3px; }
+  table { border-collapse:collapse; width:100%; font-size:12.5px; } th, td { border:1px solid #e4e8ee; padding:4px 6px; } th { background:#f4f6f7; text-align:left; }
+  td input, td select { width:100%; box-sizing:border-box; padding:4px 6px; } td.w60 { width:60px; } td.w90 { width:90px; }
+  .grp { background:#eef1f5; } .grp td { font-weight:600; }
+  #msg .errors { background:#fef2f2; border:1px solid #fecaca; color:#991b1b; border-radius:10px; padding:8px 12px; font-size:12.5px; } #msg .ok { background:#f0fdf4; border:1px solid #bbf7d0; color:#166534; border-radius:10px; padding:8px 12px; font-size:12.5px; }
+  .pill { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:700; color:#fff; } .pill.GREEN{background:#27AE60} .pill.AMBER{background:#E8A100} .pill.RED{background:#DC2626} .pill.NA{background:#b6bdc7}
+  .scroll { overflow:auto; } .muted { color:#6b7785; font-size:12px; } .sr-only { position:absolute; left:-9999px; }
+</style>
+</head>
+<body>
+<a class="edv-skip" href="#main">Skip to content</a>
+<div id="__shell" data-section="operations" data-current="trackers"></div>
+<main id="main" class="wrap">
+  <h1>Tracker Builder</h1>
+  <div class="sub">Define period, units, groups, items, KPI types, weights and targets — no formula: the engine scores every tracker the same way (help §24).</div>
+  <div class="bar">
+    <label class="sr-only" for="pick">Tracker</label><select id="pick" aria-label="Tracker"></select>
+    <button class="btn" id="new" type="button">New</button>
+    <label class="sr-only" for="tpl">Start from template</label><select id="tpl" aria-label="Start from template"><option value="">Start from template…</option></select>
+    <span style="flex:1"></span>
+    <button class="btn" id="validate" type="button">Validate &amp; dry-run</button>
+    <button class="btn primary" id="save" type="button">Save draft</button>
+    <button class="btn" id="publish" type="button">Publish</button>
+    <button class="btn" id="retire" type="button">Retire</button>
+    <button class="btn danger" id="delete" type="button">Delete draft</button>
+    <a class="btn" id="open" href="trackers.html">Open runtime</a>
+  </div>
+  <div id="msg" role="status" aria-live="polite"></div>
+  <div class="panel"><h2>Identity &amp; period</h2>
+    <div class="row">
+      <label>Key <input id="f-key" placeholder="field-dispatch-2027" maxlength="32"></label>
+      <label>Name <input id="f-name" placeholder="Field dispatch 2027"></label>
+      <label>Period kind <select id="f-kind"><option value="monthly">monthly</option><option value="weekly">weekly</option><option value="quarterly">quarterly</option></select></label>
+      <label>Start (2027 or 2027-01) <input id="f-start" placeholder="2027"></label>
+      <label>Period count <input id="f-count" type="number" min="1" max="53" value="12"></label>
+      <label>RAG policy <select id="f-policy"></select></label>
+      <label>RFI reference <input id="f-rfi" placeholder="RFI-2026-0xx"></label>
+    </div>
+  </div>
+  <div class="panel"><h2>Units (sites / teams)</h2>
+    <div class="scroll"><table id="units"><thead><tr><th>Code</th><th>Name</th><th>Colour</th><th></th></tr></thead><tbody></tbody></table></div>
+    <div class="bar"><button class="btn" id="addUnit" type="button">+ Unit</button><span class="muted">A unit whose code equals a site's tracker code (HGO, MGO…) is editable by that site's tracker-editors and can be filled from the KPI dictionary.</span></div>
+  </div>
+  <div class="panel"><h2>Groups &amp; items</h2>
+    <div class="scroll"><table id="items"><thead><tr><th>Code</th><th>Name</th><th>KPI type</th><th>Weight</th><th>Target</th><th>Start</th><th>End</th><th>Shared</th><th>Source (KPI dictionary)</th><th></th></tr></thead><tbody></tbody></table></div>
+    <div class="bar"><button class="btn" id="addGroup" type="button">+ Group</button><span class="muted">Group weights must sum to 1. A bound item (source) is filled by “Sync sources” and becomes read-only in the entry grid.</span></div>
+  </div>
+  <div class="panel"><h2>Dry-run &amp; lifecycle</h2>
+    <div class="bar"><button class="btn" id="sync" type="button">Sync sources</button><button class="btn" id="versionsBtn" type="button">Versions</button><span class="muted" id="lifecycle"></span></div>
+    <div id="dry" class="scroll"></div><div id="versions"></div>
+  </div>
+  <div class="panel" id="legacy"><h2>IT Activity Tracker migration (parallel run)</h2>
+    <div class="bar"><label>Year <input id="lg-year" type="number" value="2026" style="width:90px"></label><button class="btn" id="lg-compare" type="button">Compare engine vs legacy</button><a class="btn" id="lg-csv" href="#">Download CSV</a><button class="btn" id="lg-import" type="button">Import as definition + entries</button><label><input type="checkbox" id="lg-cut"> Cut-over to the engine (super_admin)</label></div>
+    <div id="lg-out" class="scroll"></div>
+  </div>
+</main>
+<script nonce="%%CSP_NONCE%%">
+(function () {
+  'use strict';
+  var R = window.DashboardRender, $ = function (id) { return document.getElementById(id); }, esc = R.escapeHtml;
+  var H = function (x) { return Object.assign(window.__authToken ? { 'x-report-token': window.__authToken } : {}, x || {}); };
+  var params = new URLSearchParams(location.search), cat = null, meta = null;
+  var def = blank();
+  function blank() { return { key: '', name: '', version: 1, period: { kind: 'monthly', start: String(new Date().getUTCFullYear() + 1), count: 12 }, units: [], ragPolicy: 'tracker-activity', groups: [] }; }
+  function api(p, o) { return fetch(p, Object.assign({ headers: H(o && o.body ? { 'content-type': 'application/json' } : {}) }, o || {})).then(function (r) { return r.json().then(function (j) { if (!r.ok) { var e = new Error(j.error || ('HTTP ' + r.status)); e.errors = j.errors; throw e; } return j; }); }); }
+  function msg(h, cls) { $('msg').innerHTML = h ? '<div class="' + (cls || 'ok') + '">' + h + '</div>' : ''; }
+  function fail(e) { msg(esc(e.message) + (e.errors ? '<ul>' + e.errors.map(function (x) { return '<li>' + esc((x.path ? x.path + ': ' : '') + (x.msg || x)) + '</li>'; }).join('') + '</ul>' : ''), 'errors'); }
+  var pct = function (x) { return x == null ? '—' : (Math.round(x * 1000) / 10) + ' %'; };
+
+  // ── form ↔ def ──────────────────────────────────────────────────────────────────────
+  function toForm() {
+    $('f-key').value = def.key || ''; $('f-name').value = def.name || ''; $('f-kind').value = def.period.kind; $('f-start').value = def.period.start || ''; $('f-count').value = def.period.count; $('f-rfi').value = (meta && meta.rfi_ref) || '';
+    var ps = $('f-policy'); ps.innerHTML = Object.keys(cat.policies).filter(function (k) { return cat.policies[k].scale === 'ratio'; }).map(function (k) { return '<option value="' + k + '">' + k + ' (G ≥ ' + cat.policies[k].green + ', A ≥ ' + cat.policies[k].amber + ')</option>'; }).join('');
+    ps.value = typeof def.ragPolicy === 'string' ? def.ragPolicy : 'tracker-activity';
+    $('units').tBodies[0].innerHTML = def.units.map(function (u, i) { return '<tr><td class="w90"><input data-u="' + i + '" data-f="code" value="' + esc(u.code) + '" aria-label="Unit code"></td><td><input data-u="' + i + '" data-f="name" value="' + esc(u.name || '') + '" aria-label="Unit name"></td><td class="w90"><input data-u="' + i + '" data-f="colour" value="' + esc(u.colour || '') + '" aria-label="Colour"></td><td class="w60"><button class="btn danger" data-del-u="' + i + '" type="button" aria-label="Remove unit">✕</button></td></tr>'; }).join('');
+    var kt = Object.keys(cat.kpiTypes), rows = '';
+    def.groups.forEach(function (g, gi) {
+      rows += '<tr class="grp"><td class="w90"><input data-g="' + gi + '" data-f="code" value="' + esc(g.code) + '" aria-label="Group code"></td><td colspan="2"><input data-g="' + gi + '" data-f="name" value="' + esc(g.name) + '" aria-label="Group name"></td><td class="w60"><input data-g="' + gi + '" data-f="weight" type="number" step="0.01" value="' + g.weight + '" aria-label="Group weight"></td><td colspan="5"><button class="btn" data-add-i="' + gi + '" type="button">+ Item</button></td><td class="w60"><button class="btn danger" data-del-g="' + gi + '" type="button" aria-label="Remove group">✕</button></td></tr>';
+      g.items.forEach(function (it, ii) {
+        var d = 'data-g="' + gi + '" data-i="' + ii + '"';
+        rows += '<tr><td class="w90"><input ' + d + ' data-f="code" value="' + esc(it.code) + '" aria-label="Item code"></td><td><input ' + d + ' data-f="name" value="' + esc(it.name) + '" aria-label="Item name"></td>' +
+          '<td><select ' + d + ' data-f="kpiType" aria-label="KPI type">' + kt.map(function (k) { return '<option' + (k === it.kpiType ? ' selected' : '') + '>' + k + '</option>'; }).join('') + '</select></td>' +
+          '<td class="w60"><input ' + d + ' data-f="weight" type="number" step="0.01" value="' + it.weight + '" aria-label="Item weight"></td><td class="w90"><input ' + d + ' data-f="target" type="number" step="any" value="' + (it.target == null ? '' : it.target) + '" aria-label="Target"></td>' +
+          '<td class="w60"><input ' + d + ' data-f="start" type="number" min="1" value="' + (it.start || 1) + '" aria-label="Start"></td><td class="w60"><input ' + d + ' data-f="end" type="number" min="1" value="' + (it.end || def.period.count) + '" aria-label="End"></td>' +
+          '<td class="w60"><input ' + d + ' data-f="shared" type="checkbox"' + (it.shared ? ' checked' : '') + ' aria-label="Shared"></td>' +
+          '<td><select ' + d + ' data-f="source" aria-label="Source metric"><option value="">manual</option>' + cat.metrics.map(function (m) { return '<option value="' + esc(m.key) + '"' + (it.source && it.source.metric === m.key ? ' selected' : '') + '>' + esc(m.key) + ' (' + m.window_kind + ')</option>'; }).join('') + '</select></td>' +
+          '<td class="w60"><button class="btn danger" data-del-i="' + gi + ':' + ii + '" type="button" aria-label="Remove item">✕</button></td></tr>';
+      });
+    });
+    $('items').tBodies[0].innerHTML = rows;
+    $('lifecycle').textContent = meta ? ('status ' + meta.status + (meta.version ? ' · version ' + meta.version : ' · never published') + (meta.published_at ? ' · published ' + String(meta.published_at).slice(0, 10) : '')) : 'new tracker (not saved)';
+    $('open').href = 'trackers.html' + (def.key ? '?key=' + encodeURIComponent(def.key) : '');
+  }
+  function fromForm() {
+    def.key = $('f-key').value.trim(); def.name = $('f-name').value.trim(); def.period = { kind: $('f-kind').value, start: $('f-start').value.trim(), count: Number($('f-count').value) }; def.ragPolicy = $('f-policy').value;
+    return def;
+  }
+  function onEdit(ev) {
+    var t = ev.target, f = t.dataset.f; if (!f) return;
+    var val = t.type === 'checkbox' ? t.checked : t.type === 'number' ? (t.value === '' ? null : Number(t.value)) : t.value.trim();
+    if (t.dataset.u != null) { def.units[Number(t.dataset.u)][f] = f === 'code' ? String(val).toUpperCase() : val; return; }
+    var g = def.groups[Number(t.dataset.g)]; if (!g) return;
+    if (t.dataset.i == null) { g[f] = val; return; }
+    var it = g.items[Number(t.dataset.i)];
+    if (f === 'source') it.source = val ? { metric: val } : null; else it[f] = val;
+  }
+  document.addEventListener('input', onEdit); document.addEventListener('change', onEdit);
+  document.addEventListener('click', function (ev) {
+    var b = ev.target.closest('button'); if (!b) return;
+    if (b.dataset.delU != null) { def.units.splice(Number(b.dataset.delU), 1); toForm(); }
+    else if (b.dataset.delG != null) { def.groups.splice(Number(b.dataset.delG), 1); toForm(); }
+    else if (b.dataset.delI != null) { var p = b.dataset.delI.split(':'); def.groups[Number(p[0])].items.splice(Number(p[1]), 1); toForm(); }
+    else if (b.dataset.addI != null) { var g = def.groups[Number(b.dataset.addI)]; g.items.push({ code: g.code + '-' + ('0' + (g.items.length + 1)).slice(-2), name: '', kpiType: 'COUNT', weight: 1, target: null, start: 1, end: def.period.count, shared: false, source: null }); toForm(); }
+  });
+  $('addUnit').addEventListener('click', function () { def.units.push({ code: '', name: '' }); toForm(); });
+  $('addGroup').addEventListener('click', function () { var n = def.groups.length + 1; def.groups.push({ code: 'G' + n, name: '', weight: n === 1 ? 1 : 0, items: [] }); toForm(); });
+
+  // ── lifecycle ───────────────────────────────────────────────────────────────────────
+  function load(key) {
+    return api('/api/trackers/' + encodeURIComponent(key)).then(function (j) { meta = j.tracker; def = j.tracker.definition || blank(); toForm(); msg(''); history.replaceState(null, '', 'tracker-builder.html?key=' + encodeURIComponent(key)); });
+  }
+  function dryRun() {
+    fromForm();
+    return api('/api/trackers/' + encodeURIComponent(def.key || '_new') + '/dry-run', { method: 'POST', body: JSON.stringify({ definition: def }) }).then(function (j) {
+      var r = j.result || { units: {}, fleet: {} }; var units = Object.keys(r.units || {});
+      $('dry').innerHTML = '<table><thead><tr><th>Unit</th>' + def.groups.map(function (g) { return '<th>' + esc(g.name || g.code) + '</th>'; }).join('') + '<th>Score</th><th>RAG</th></tr></thead><tbody>' + units.map(function (u) { var x = r.units[u]; return '<tr><td>' + esc(u) + '</td>' + def.groups.map(function (g) { return '<td>' + pct(x.groups[g.code] && x.groups[g.code].score) + '</td>'; }).join('') + '<td><b>' + pct(x.score) + '</b></td><td><span class="pill ' + x.rag + '">' + x.rag + '</span></td></tr>'; }).join('') + '</tbody></table><p class="muted">Dry-run against the stored entries (none for a new tracker → every score is “—”). Valid definition ✓</p>';
+      msg('Definition is valid.');
+    });
+  }
+  $('validate').addEventListener('click', function () { dryRun().catch(fail); });
+  $('save').addEventListener('click', function () {
+    fromForm(); if (!def.key) return msg('Key is required', 'errors');
+    api('/api/trackers/' + encodeURIComponent(def.key), { method: 'PUT', body: JSON.stringify({ definition: def, rfi_ref: $('f-rfi').value.trim() || null }) }).then(function (j) { meta = j.tracker; toForm(); msg('Draft saved.'); return refreshPick(def.key); }).catch(fail);
+  });
+  $('publish').addEventListener('click', function () { if (!def.key) return; api('/api/trackers/' + encodeURIComponent(def.key) + '/publish', { method: 'POST', body: JSON.stringify({ note: 'published from builder' }) }).then(function (j) { meta = j.tracker; toForm(); msg('Published version ' + meta.version + '.'); refreshPick(def.key); }).catch(fail); });
+  $('retire').addEventListener('click', function () { if (!def.key) return; api('/api/trackers/' + encodeURIComponent(def.key) + '/retire', { method: 'POST' }).then(function (j) { meta = j.tracker; toForm(); msg('Retired.'); refreshPick(def.key); }).catch(fail); });
+  $('delete').addEventListener('click', function () { if (!def.key || !confirm('Delete this draft/retired tracker and its entries?')) return; api('/api/trackers/' + encodeURIComponent(def.key), { method: 'DELETE' }).then(function () { def = blank(); meta = null; toForm(); msg('Deleted.'); refreshPick(''); }).catch(fail); });
+  $('sync').addEventListener('click', function () { if (!def.key) return; msg('Syncing…'); api('/api/trackers/' + encodeURIComponent(def.key) + '/sync', { method: 'POST', body: '{}' }).then(function (j) { msg('Sync: ' + j.saved + ' cell(s) filled, ' + j.skipped + ' skipped (not measured / not bindable)' + (j.errors.length ? ', ' + j.errors.length + ' error(s): ' + esc(j.errors.slice(0, 3).map(function (e) { return (e.unit || '') + ' ' + (e.item || '') + ' ' + e.error; }).join(' · ')) : '') + '.'); }).catch(fail); });
+  $('versionsBtn').addEventListener('click', function () {
+    if (!def.key) return; api('/api/trackers/' + encodeURIComponent(def.key) + '/versions').then(function (j) {
+      $('versions').innerHTML = j.versions.length ? '<table><thead><tr><th>Version</th><th>Note</th><th>Date</th><th></th></tr></thead><tbody>' + j.versions.map(function (v) { return '<tr><td>v' + v.version + '</td><td>' + esc(v.note || '') + '</td><td>' + esc(String(v.created_at || '').slice(0, 19)) + '</td><td><button class="btn" data-rb="' + v.version + '" type="button">Roll draft back to v' + v.version + '</button></td></tr>'; }).join('') + '</tbody></table>' : '<p class="muted">Never published.</p>';
+    }).catch(fail);
+  });
+  $('versions').addEventListener('click', function (ev) { var b = ev.target.closest('button[data-rb]'); if (!b) return; api('/api/trackers/' + encodeURIComponent(def.key) + '/rollback/' + b.dataset.rb, { method: 'POST' }).then(function (j) { meta = j.tracker; def = meta.definition; toForm(); msg('Draft now equals version ' + b.dataset.rb + ' — publish to make it live.'); }).catch(fail); });
+  $('new').addEventListener('click', function () { def = blank(); meta = null; toForm(); $('pick').value = ''; history.replaceState(null, '', 'tracker-builder.html'); });
+  $('tpl').addEventListener('change', function () { var k = this.value; this.value = ''; if (!k) return; api('/api/trackers/templates').then(function (j) { var t = j.templates.find(function (x) { return x.key === k; }); if (!t) return; def = JSON.parse(JSON.stringify(t)); def.key = t.key.replace(/^tpl-/, '') + '-' + def.period.start; def.name = t.name.replace(' (template)', ' ' + def.period.start); meta = null; toForm(); msg('Template loaded — adjust units, targets and key, then save.'); }).catch(fail); });
+  $('pick').addEventListener('change', function () { if (this.value) load(this.value).catch(fail); });
+  function refreshPick(sel) { return api('/api/trackers').then(function (j) { var s = $('pick'); s.innerHTML = '<option value="">Open a tracker…</option>' + j.trackers.map(function (t) { return '<option value="' + esc(t.key) + '">' + esc(t.name) + ' · ' + t.status + (t.version ? ' v' + t.version : '') + '</option>'; }).join(''); s.value = sel || ''; }); }
+
+  // ── legacy migration ────────────────────────────────────────────────────────────────
+  $('lg-compare').addEventListener('click', function () {
+    var y = $('lg-year').value; $('lg-csv').href = '/api/trackers/legacy/compare?year=' + y + '&format=csv'; msg('Comparing…');
+    api('/api/trackers/legacy/compare?year=' + y).then(function (j) {
+      $('lg-out').innerHTML = '<p>' + (j.pass ? '<span class="pill GREEN">PASS</span>' : '<span class="pill RED">FAIL</span>') + ' max deviation ' + j.maxDelta + ' pt (tolerance ±' + j.tolerance + ') over ' + j.rows.length + ' site × month points — definition key <code>' + esc(j.key) + '</code></p><table><thead><tr><th>Site</th><th>Month</th><th>Legacy %</th><th>Engine %</th><th>Δ pt</th><th>OK</th></tr></thead><tbody>' + j.rows.filter(function (r) { return !r.ok; }).concat(j.rows.filter(function (r) { return r.ok; }).slice(0, 12)).map(function (r) { return '<tr><td>' + esc(r.site) + '</td><td>' + r.month + '</td><td>' + (r.legacy_pct == null ? '—' : r.legacy_pct) + '</td><td>' + (r.engine_pct == null ? '—' : r.engine_pct) + '</td><td>' + (r.delta_pt == null ? '—' : r.delta_pt) + '</td><td>' + (r.ok ? '✓' : '✗') + '</td></tr>'; }).join('') + '</tbody></table><p class="muted">Deviations first, then the first 12 matching rows; the CSV holds everything.</p>';
+      msg('');
+    }).catch(fail);
+  });
+  $('lg-import').addEventListener('click', function () { api('/api/trackers/legacy/import?year=' + $('lg-year').value, { method: 'POST', body: '{}' }).then(function (j) { msg('Imported as draft <code>' + esc(j.key) + '</code>: ' + j.entries.saved + ' entries, ' + j.targets + ' targets. Review, then publish.'); return refreshPick(j.key).then(function () { return load(j.key); }); }).catch(fail); });
+  $('lg-cut').addEventListener('change', function () { var on = this.checked; api('/api/trackers/legacy/cutover', { method: 'PUT', body: JSON.stringify({ cutover: on }) }).then(function (j) { msg('Cut-over switch is now ' + (j.cutover ? 'ON — the engine is the reference; legacy tables are read-only' : 'OFF — the legacy tracker stays the reference') + '.'); }).catch(function (e) { $('lg-cut').checked = !on; fail(e); }); });
+
+  api('/api/trackers/catalogue').then(function (c) {
+    cat = c; $('tpl').innerHTML += c && c.kpiTypes ? '' : '';
+    return Promise.all([refreshPick(params.get('key') || ''), api('/api/trackers/templates').then(function (j) { $('tpl').innerHTML = '<option value="">Start from template…</option>' + j.templates.map(function (t) { return '<option value="' + esc(t.key) + '">' + esc(t.name) + '</option>'; }).join(''); }), api('/api/trackers/legacy/cutover').then(function (j) { $('lg-cut').checked = !!j.cutover; }).catch(function () {})]);
+  }).then(function () { if (params.get('key')) return load(params.get('key')); toForm(); if (params.get('legacy')) $('legacy').scrollIntoView(); }).catch(fail);
+})();
+</script>
+</body>
+</html>

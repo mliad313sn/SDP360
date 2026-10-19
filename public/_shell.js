@@ -123,6 +123,7 @@
         { id: 'meetings',     label: 'Meetings Decisions', icon: ICON_LIB.users,              href: 'meetings.html',         roles: ['any'] },
         { id: 'site-actions', label: 'Site Actions',       icon: ICON_LIB.check,              href: 'site-actions.html',     roles: ['any'] },
         { id: 'tracker',      label: 'Activity Tracker',   icon: ICON_LIB.target,             href: 'activity-tracker.html', roles: ['any'] },
+        { id: 'trackers',     label: 'Trackers',           icon: ICON_LIB.activity,            href: 'trackers.html',         roles: ['any'] },
         { id: 'dashboards',   label: 'Dashboards',         icon: ICON_LIB.gauge,              href: 'dashboards.html',       roles: ['any'] }
       ]
     },

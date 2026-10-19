@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.0.0-alpha.8 — 2026-10-19 — Étape 7 : constructeur de trackers, saisie, liaisons aux sources, migration du tracker 2026
+- Tracker definitions are persisted and versioned (`services/trackerStore.js`, sqlite on tracker.db + PostgreSQL via migration `tracker/002`): draft → published version N → retired, roll-back to any version; entries per unit × item × period with the closed-month lock (`public/lib/trackerMonthLock.js`) and unit scope for `tracker-editor`; per-unit targets merged into the engine.
+- One scorer for everything: `services/trackerDefinitions.score` now aggregates like the inherited tracker (group-weighted mean over scored groups; a started COUNT without target scores 0) — the parallel run against `tracker-pptx` reads **≤ 0.1 pt** on the shipped 2026 programme (`services/trackerLegacy.js`, CSV report, `/api/trackers/legacy/compare`).
+- Source bindings (`services/trackerSources.js`): an item carrying `source.metric` is filled from the KPI dictionary per unit × period (`POST /api/trackers/:key/sync`); a null reading is skipped, never written as 0.
+- `routes/trackers.js` (list, catalogue, templates, definition CRUD, dry-run, publish/retire/versions/rollback, entries, targets, score, sync, xlsx import, Excel/PPTX exports, legacy compare/import/cut-over); pages `trackers.html` (entry grid + scores) and `tracker-builder.html`; nav Operations ▸ Trackers; 4 templates seeded as drafts (field dispatch, hardware deployment, site maintenance, meetings compliance); config key `tracker_engine_cutover`.
+- Docs: dossier `docs/sdp360/design/ETAPE-07-trackers.md` (migration plan, arbitration points), help §24 EN/FR; tests `tracker-store`, `tracker-sources`, `trackers-routes.smoke`, `pg-tracker-store`.
+
 ## 2.0.0-alpha.7 — 2026-10-19 — Étape 6 : composeur de tableaux de bord, espace direction, design system
 - Dashboard definitions are persisted and versioned (`services/dashboardStore.js`, sqlite + PostgreSQL `016`): draft → published version N → retired; viewers always see the last published snapshot; shipped definitions seeded once (`services/dashboardSeeds.js`: `exec-home`, `site-weekly`, `assets-hygiene`, `field-site`).
 - `routes/dashboards.js`: list / catalogue / definition / **one-call data resolver** (`/api/dashboards/:key/data` — every widget through the metric registry, site-scoped, fleet comparison, 13-week series, per-site RAG grid, open actions) / view log (once per actor per day) / publisher writes (admin or new feature role `dashboard-publisher`).

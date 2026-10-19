@@ -969,6 +969,7 @@ app.use('/api/meetings/lookups/:table',     express.json({ limit: '10mb'  }));
 // Input-tab data not persisting after the 5f11098 path-scoped-parser fix
 // for inspection silently regressed tracker saves to the global parser.
 app.use('/api/tracker/save',                express.json({ limit: '5mb'   }));
+app.use(/^\/api\/trackers\/[^/]+\/import$/,  express.raw({ type: '*/*', limit: '10mb' }));   // Step 7 — xlsx entries import
 app.use('/api/dashboard/presets',           express.json({ limit: '1mb'   }));
 // Réconciliation : le corps est un CSV BRUT, pas du JSON. Un export AD de
 // 5 000 machines pèse ~1 Mo, un export Entra bien plus. Monté AVANT le parseur
@@ -1289,7 +1290,7 @@ function loadHtml(name) {
   'site-awareness.html',
   'assets.html', 'assets-hygiene.html', 'assets-finance.html', 'wan.html', 'wan-health.html', 'wan-sla.html', 'itsm-roadmap.html',
   'infra-health.html', 'itsm-integrations-plan.html',
-  'dashboards.html', 'dashboard-composer.html',
+  'dashboards.html', 'dashboard-composer.html', 'trackers.html', 'tracker-builder.html',
 ].forEach(loadHtml);
 
 // Helper: build the per-request HTML, inject api-key + nonce, send. Pages
@@ -1391,7 +1392,7 @@ app.get('/assets.html', (req, res) => {
 app.get('/wan.html', (req, res) => {
   sendHtmlPage(res, 'wan.html', false, 'WAN unavailable');
 });
-for (const _p of ['dashboards.html', 'dashboard-composer.html']) app.get('/' + _p, (req, res) => sendHtmlPage(res, _p, false, 'Page unavailable'));
+for (const _p of ['dashboards.html', 'dashboard-composer.html', 'trackers.html', 'tracker-builder.html']) app.get('/' + _p, (req, res) => sendHtmlPage(res, _p, false, 'Page unavailable'));
 app.get('/wan-health.html', (req, res) => {
   sendHtmlPage(res, 'wan-health.html', false, 'WAN Health unavailable');
 });
@@ -8140,6 +8141,9 @@ app.use(require('./routes/metrics')({ express, requireReportSession }));
 // Step 6 — dashboard definitions (composer) + one-call data resolver (store seeded in routes/dashboards.createStore).
 const _dashStore = require('./routes/dashboards').createStore(require('./reports-db'));
 app.use(require('./routes/dashboards')({ express, requireReportSession, store: _dashStore }));
+// Step 7 — generic trackers (builder, entries, bindings, legacy migration); store on tracker.db / shared PG (migration tracker/002).
+const _trkStore = require('./routes/trackers').createStore(require('./tracker-db'));
+app.use(require('./routes/trackers')({ express, requireReportSession, store: _trkStore }));
 
 // ══════════════════════════════════════════════════════════════════
 // MEETINGS — routes live in routes/meetings.js (Step 5 modularisation). The meetings-db
@@ -8192,6 +8196,7 @@ async function start() {
     const _pgh = _rdbMod.REPORTS_BACKEND === 'postgres' && typeof _rdbMod.pgHandle === 'function' ? _rdbMod.pgHandle() : null;
     _mr.setCurrent(await _mr.load({ pg: _pgh, log: console.log }));
     await _dashStore.seedAtBoot();   // Step 6 — pg: tables from migration 016, shipped definitions once
+    await _trkStore.seedAtBoot();    // Step 7 — pg: tables from migration tracker/002, templates once
   } catch (e) { console.warn('[metrics] registry load failed (seed in use):', e.message); }
 
   // Zoho Analytics token — AFTER the databases are open, because the credentials may now

@@ -21,6 +21,7 @@ const DEFAULTS = {
   // default. Arm flag ONLY (recipients come from the coordinator directory, not
   // a config list). Must live in DEFAULTS so setConfig's KEYS filter accepts it.
   scoreboard_send_enabled: '0',
+  tracker_engine_cutover: '0',    // Step 7 — '1' once the generic engine is the reference for the IT Activity Tracker (legacy tables read-only)
   // Scheduled per-coordinator WEEKLY report email — armed OFF by default. Arm
   // flag ONLY (recipients come from the coordinator directory, not a config
   // list). Must live in DEFAULTS so setConfig's KEYS filter accepts it.

@@ -81,7 +81,7 @@ function validate(def) {
         if (!(Number.isInteger(e) && e >= s && e <= n)) E(`${ip}.end`, `end must be between start and ${n}`);
         if (it && it.target != null && it.target !== '' && !Number.isFinite(Number(it.target))) E(`${ip}.target`, 'target must be numeric');
         if (it && it.source != null) {
-          if (typeof it.source !== 'object' || !it.source.module || !it.source.metric) E(`${ip}.source`, 'source needs { module, metric }');
+          if (typeof it.source !== 'object' || !it.source.metric) E(`${ip}.source`, 'source needs { metric } (a KPI dictionary key)');
         }
       });
     });
@@ -132,9 +132,11 @@ function score(def, inputs = {}, ctx = {}) {
   const units = {};
   for (const u of def.units) {
     const w = effectiveWeights(def, (it) => tgtOf(u.code, it).active !== false);
-    let total = 0, wsum = 0;
     const groups = {};
     const items = {};
+    // Unit score = Σ group weight × group score ÷ Σ group weight over groups that HAVE a score
+    // (legacy tracker-pptx.ss: a group with no scorable item is dropped, not counted as 0).
+    let gTotalAll = 0, gWAll = 0;
     for (const g of def.groups) {
       let gTotal = 0, gW = 0;
       for (const it of g.items) {
@@ -144,16 +146,20 @@ function score(def, inputs = {}, ctx = {}) {
         const start = it.start || 1, end = it.end || n;
         const value = it.shared ? sharedValue[it.code] : KpiRag.aggregate(series, it.kpiType);
         const elapsed = Math.max(0, Math.min(cur, end) - start + 1);
-        const att = KpiRag.attainment(value, t.target, it.kpiType, { elapsed, span: end - start + 1 });
+        let att = KpiRag.attainment(value, t.target, it.kpiType, { elapsed, span: end - start + 1 });
+        // legacy: a COUNT with a zero/absent target still scores 0 once started (never N/A)
+        if (att == null && it.kpiType === 'COUNT' && elapsed > 0 && (t.target == null || Number(t.target) === 0)) att = 0;
         const capped = att == null ? null : Math.min(1, att);
         let colour = KpiRag.rag(att, policy);
         if (att != null && att < (typeof policy === 'string' ? KpiRag.POLICIES[policy].amber : policy.amber) && cur <= end && it.kpiType !== 'COUNT') colour = 'AMBER'; // not yet overdue
         items[it.code] = { value, target: t.target, attainment: att, rag: colour, weight: w[it.code] };
-        if (capped != null) { gTotal += capped * Number(it.weight); gW += Number(it.weight); total += capped * w[it.code]; wsum += w[it.code]; }
+        if (capped != null) { gTotal += capped * Number(it.weight); gW += Number(it.weight); }
       }
-      groups[g.code] = { score: gW ? gTotal / gW : null, weight: Number(g.weight) };
+      const gs = gW ? gTotal / gW : null;
+      groups[g.code] = { score: gs, weight: Number(g.weight) };
+      if (gs != null) { gTotalAll += gs * Number(g.weight); gWAll += Number(g.weight); }
     }
-    const s = wsum ? total / wsum : null;
+    const s = gWAll ? gTotalAll / gWAll : null;
     units[u.code] = { score: s, rag: KpiRag.rag(s, 'tracker-executive'), groups, items };
   }
 

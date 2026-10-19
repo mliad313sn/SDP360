@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trackers — Endeavour Mining IT</title>
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="brand/icons.css">
+<link rel="stylesheet" href="brand/components.css">
+<link rel="stylesheet" href="_shell.css">
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/dashboardRender.js"></script>
+<style nonce="%%CSP_NONCE%%">
+  body { margin:0; background:var(--color-background,#f4f6f7); color:var(--color-text-primary,#1F2A33); font-family:var(--font-sans,'Libre Franklin',system-ui,sans-serif); font-size:14px; }
+  .wrap { max-width:1360px; margin:0 auto; padding:var(--space-6,24px); }
+  .head { display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:16px; }
+  .head h1 { margin:0; font-size:22px; font-weight:700; color:var(--edv-slate,#3A4A60); } .sub { font-size:13px; color:#6b7785; }
+  .controls { margin-left:auto; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  select, input, .btn { padding:7px 12px; border:1px solid #cfd6e0; border-radius:8px; background:#fff; font-size:13px; color:#1F2A33; }
+  .btn { cursor:pointer; text-decoration:none; display:inline-block; } .btn.primary { background:var(--edv-slate,#3A4A60); color:#fff; border-color:var(--edv-slate,#3A4A60); }
+  .list { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:14px; }
+  .card { background:#fff; border:1px solid #e4e8ee; border-radius:12px; padding:14px 16px; display:block; color:inherit; text-decoration:none; }
+  .card h3 { margin:0 0 6px; font-size:15px; color:#3A4A60; } .meta { font-size:12px; color:#6b7785; display:flex; gap:8px; flex-wrap:wrap; }
+  .section-title { font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:#6b7785; margin:18px 0 8px; font-weight:700; }
+  .status { font-size:12.5px; color:#6b7785; margin:8px 0; }
+  table { border-collapse:collapse; width:100%; background:#fff; font-size:12.5px; } th, td { border:1px solid #e4e8ee; padding:5px 7px; text-align:left; } th { background:#f4f6f7; font-weight:600; }
+  td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
+  td.closed { background:#f3f4f6; color:#9aa3ad; } td input { width:64px; padding:3px 5px; text-align:right; border:1px solid #d7dde6; border-radius:6px; }
+  td input:disabled { background:#f3f4f6; color:#9aa3ad; } .grp { background:#eef1f5; font-weight:600; }
+  .pill { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:700; color:#fff; } .pill.GREEN{background:#27AE60} .pill.AMBER{background:#E8A100} .pill.RED{background:#DC2626} .pill.NA{background:#b6bdc7}
+  .scroll { overflow:auto; } .banner { background:#fff7ed; border:1px solid #f0c9a0; color:#7a3d12; border-radius:10px; padding:8px 12px; font-size:12.5px; margin:8px 0; }
+  .sr-only { position:absolute; left:-9999px; }
+</style>
+</head>
+<body>
+<a class="edv-skip" href="#main">Skip to content</a>
+<div id="__shell" data-section="operations" data-current="trackers"></div>
+<main id="main" class="wrap">
+  <div class="head">
+    <div><h1 id="title">Trackers</h1><div class="sub" id="subtitle">Generic activity trackers — every score comes from the engine (help §24).</div></div>
+    <div class="controls" id="controls" hidden>
+      <label class="sr-only" for="unit">Unit</label><select id="unit" aria-label="Unit"></select>
+      <label class="sr-only" for="period">Period reached</label><select id="period" aria-label="Period reached"></select>
+      <button class="btn" id="save" type="button" hidden>Save entries</button>
+      <label class="btn" id="importLbl" hidden>Import xlsx <input id="importFile" type="file" accept=".xlsx" class="sr-only"></label>
+      <a class="btn" id="xlsx" href="#" download>Excel</a><a class="btn" id="pptx" href="#" download>PPTX</a>
+      <a class="btn" id="edit" href="#" hidden>Open in builder</a>
+      <a class="btn" href="trackers.html">All trackers</a>
+    </div>
+  </div>
+  <div class="status" id="status" role="status" aria-live="polite"></div>
+  <section id="listSection"></section>
+  <section id="view" hidden>
+    <div class="banner" id="lockNote" hidden></div>
+    <div class="section-title">Scores</div><div class="scroll" id="scores"></div>
+    <div class="section-title">Entries — <span id="unitName"></span></div><div class="scroll" id="grid"></div>
+  </section>
+</main>
+<script nonce="%%CSP_NONCE%%">
+(function () {
+  'use strict';
+  var R = window.DashboardRender, $ = function (id) { return document.getElementById(id); }, esc = R.escapeHtml;
+  var H = function () { return window.__authToken ? { 'x-report-token': window.__authToken } : {}; };
+  var key = new URLSearchParams(location.search).get('key');
+  function api(p, o) { return fetch(p, Object.assign({ headers: Object.assign(H(), o && o.body && typeof o.body === 'string' ? { 'content-type': 'application/json' } : {}) }, o || {})).then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status)); return j; }); }); }
+  var status = function (m) { $('status').textContent = m || ''; };
+  var pct = function (x) { return x == null ? '—' : (Math.round(x * 1000) / 10) + ' %'; };
+
+  function renderList() {
+    api('/api/trackers').then(function (j) {
+      var live = j.trackers.filter(function (t) { return !t.template; }), tpl = j.trackers.filter(function (t) { return t.template; });
+      var card = function (t) { return '<a class="card" href="trackers.html?key=' + encodeURIComponent(t.key) + '"><h3>' + esc(t.name) + '</h3><div class="meta"><span class="edv-chip edv-chip--' + (t.status === 'published' ? 'pub' : t.status === 'draft' ? 'draft' : 'retired') + '">' + t.status + (t.version ? ' v' + t.version : '') + '</span><span>' + (t.period ? t.period.kind + ' × ' + t.period.count : '') + '</span><span>' + t.units + ' units · ' + t.items + ' items</span></div></a>'; };
+      var html = '<div class="section-title">Trackers</div><div class="list">' + (live.map(card).join('') || '<div class="edv-dash-empty">No published tracker yet.</div>') + '</div>';
+      if (j.builder) html += '<div class="section-title">Templates (builder)</div><div class="list">' + tpl.map(card).join('') + '</div><p><a class="btn primary" href="tracker-builder.html">New tracker</a> <a class="btn" href="tracker-builder.html?legacy=1">Migrate the IT Activity Tracker</a></p>';
+      $('listSection').innerHTML = html; status('');
+    }).catch(function (e) { status('Could not load trackers: ' + e.message); });
+  }
+
+  var def = null, meta = null, inputs = {}, closed = [], writable = null, dirty = {}, periodSel = null;
+  function renderView() {
+    $('controls').hidden = false; $('view').hidden = false; $('listSection').hidden = true;
+    api('/api/trackers/' + encodeURIComponent(key)).then(function (j) {
+      meta = j.tracker; def = j.published || meta.definition; closed = j.closed || []; writable = j.writable;
+      $('title').textContent = meta.name; document.title = meta.name + ' — Endeavour Mining IT';
+      $('subtitle').textContent = def.period.kind + ' tracker from ' + def.period.start + (meta.version ? ' · version ' + meta.version : ' · draft, not published') + ' — scored by the engine (help §24).';
+      if (j.builder) { $('edit').hidden = false; $('edit').href = 'tracker-builder.html?key=' + encodeURIComponent(key); }
+      var canWrite = writable === null || (writable && writable.length);
+      $('save').hidden = !canWrite; $('importLbl').hidden = !canWrite;
+      $('xlsx').href = '/api/trackers/' + encodeURIComponent(key) + '/export.xlsx'; $('pptx').href = '/api/trackers/' + encodeURIComponent(key) + '/export.pptx';
+      var us = $('unit'); us.innerHTML = ''; def.units.forEach(function (u) { var o = document.createElement('option'); o.value = u.code; o.textContent = u.code + ' — ' + (u.name || u.code); if (writable && writable.indexOf(u.code) < 0 && writable.length) o.disabled = false; us.appendChild(o); });
+      if (writable && writable.length) us.value = writable[0];
+      var ps = $('period'); ps.innerHTML = ''; var labels = periodLabels(def); labels.forEach(function (l, i) { var o = document.createElement('option'); o.value = i + 1; o.textContent = 'to ' + l; ps.appendChild(o); });
+      var cur = currentSlot(def); ps.value = cur; periodSel = cur;
+      if (closed.length) { $('lockNote').hidden = false; $('lockNote').textContent = 'Closed periods (grey) keep their stored value — only a super_admin may change them: ' + closed.map(function (s) { return labels[s - 1]; }).join(', ') + '.'; }
+      loadAll();
+    }).catch(function (e) { status('Tracker unavailable: ' + e.message); });
+  }
+  function periodLabels(d) { var MO = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; var st = /^\d{4}-(\d{2})$/.test(String(d.period.start || '')) ? Number(String(d.period.start).slice(5, 7)) - 1 : 0; var out = []; for (var i = 0; i < d.period.count; i++) out.push(d.period.kind === 'monthly' ? MO[(st + i) % 12] : d.period.kind === 'weekly' ? 'W' + ('0' + (i + 1)).slice(-2) : 'Q' + (i + 1)); return out; }
+  function currentSlot(d) { var now = new Date(), y = Number(String(d.period.start || now.getUTCFullYear()).slice(0, 4)); if (y < now.getUTCFullYear()) return d.period.count; if (y > now.getUTCFullYear()) return 1; if (d.period.kind === 'monthly') return Math.min(d.period.count, now.getUTCMonth() + 1); if (d.period.kind === 'quarterly') return Math.min(d.period.count, Math.floor(now.getUTCMonth() / 3) + 1); return Math.min(d.period.count, R.isoWeek ? R.isoWeek(now).week : Math.ceil(((now - new Date(Date.UTC(y, 0, 1))) / 864e5 + 1) / 7)); }
+  function loadAll() {
+    status('Loading…');
+    Promise.all([api('/api/trackers/' + encodeURIComponent(key) + '/entries'), api('/api/trackers/' + encodeURIComponent(key) + '/score?period=' + periodSel)]).then(function (r) {
+      inputs = r[0].inputs || {}; renderScores(r[1].result); renderGrid(); status('Scores at period ' + periodSel + '/' + def.period.count + ' · ' + (meta.version ? 'version ' + meta.version : 'draft'));
+    }).catch(function (e) { status('Data unavailable: ' + e.message); });
+  }
+  function renderScores(res) {
+    if (!res) { $('scores').innerHTML = '<div class="edv-dash-empty">No score yet.</div>'; return; }
+    var h = '<table><thead><tr><th>Unit</th>' + def.groups.map(function (g) { return '<th class="num">' + esc(g.name) + ' <small>(' + Math.round(g.weight * 100) + ' %)</small></th>'; }).join('') + '<th class="num">Score</th><th>RAG</th></tr></thead><tbody>';
+    def.units.forEach(function (u) { var r = res.units[u.code] || {}; h += '<tr><td>' + esc(u.name || u.code) + '</td>' + def.groups.map(function (g) { return '<td class="num">' + pct(r.groups && r.groups[g.code] && r.groups[g.code].score) + '</td>'; }).join('') + '<td class="num"><b>' + pct(r.score) + '</b></td><td><span class="pill ' + (r.rag || 'NA') + '">' + (r.rag || 'NA') + '</span></td></tr>'; });
+    h += '</tbody><tfoot><tr><td colspan="' + (def.groups.length + 1) + '">Fleet mean ' + pct(res.fleet.mean) + ' · best ' + esc(res.fleet.best || '—') + ' · attainment ' + pct(res.fleet.attainment) + '</td><td colspan="2"></td></tr></tfoot></table>';
+    $('scores').innerHTML = h;
+  }
+  function renderGrid() {
+    var u = $('unit').value, labels = periodLabels(def), canWrite = writable === null || (writable || []).indexOf(u) >= 0;
+    $('unitName').textContent = u + (canWrite ? '' : ' (read-only for your account)');
+    var h = '<table><thead><tr><th>Item</th><th>Type</th>' + labels.map(function (l, i) { return '<th class="num' + (closed.indexOf(i + 1) >= 0 ? ' closed' : '') + '">' + l + '</th>'; }).join('') + '<th class="num">Total</th></tr></thead><tbody>';
+    def.groups.forEach(function (g) {
+      h += '<tr class="grp"><td colspan="' + (labels.length + 3) + '">' + esc(g.name) + '</td></tr>';
+      g.items.forEach(function (it) {
+        var ser = (inputs[u] || {})[it.code] || []; var tot = 0;
+        h += '<tr><td title="' + esc(it.code) + '">' + esc(it.name) + (it.source ? ' <small>⟳ ' + esc(it.source.metric) + '</small>' : '') + '</td><td>' + it.kpiType + '</td>';
+        labels.forEach(function (l, i) { var v = ser[i]; if (v != null) tot += Number(v); var ro = !canWrite || closed.indexOf(i + 1) >= 0 || !!it.source || i + 1 < (it.start || 1) || i + 1 > (it.end || labels.length); h += '<td class="num' + (closed.indexOf(i + 1) >= 0 ? ' closed' : '') + '"><input type="number" step="any" aria-label="' + esc(it.name + ' ' + l) + '" data-item="' + esc(it.code) + '" data-slot="' + (i + 1) + '" value="' + (v == null ? '' : v) + '"' + (ro ? ' disabled' : '') + '></td>'; });
+        h += '<td class="num">' + (Math.round(tot * 100) / 100) + '</td></tr>';
+      });
+    });
+    $('grid').innerHTML = h + '</tbody></table>';
+  }
+  $('grid').addEventListener('input', function (ev) { var t = ev.target; if (t.tagName !== 'INPUT') return; dirty[$('unit').value + '|' + t.dataset.item + '|' + t.dataset.slot] = { unit: $('unit').value, item: t.dataset.item, slot: Number(t.dataset.slot), value: t.value === '' ? null : Number(t.value) }; status(Object.keys(dirty).length + ' change(s) not saved'); });
+  $('save').addEventListener('click', function () {
+    var cells = Object.keys(dirty).map(function (k) { return dirty[k]; }); if (!cells.length) return status('Nothing to save');
+    api('/api/trackers/' + encodeURIComponent(key) + '/entries', { method: 'PUT', body: JSON.stringify({ cells: cells }) }).then(function (r) { dirty = {}; status('Saved ' + r.saved + ' cell(s)' + (r.blocked ? ' · ' + r.blocked + ' closed-period cell(s) kept their stored value' : '') + (r.rejected ? ' · ' + r.rejected + ' rejected' : '')); loadAll(); }).catch(function (e) { status('Save failed: ' + e.message); });
+  });
+  $('importFile').addEventListener('change', function () {
+    var f = this.files[0]; if (!f) return; status('Importing ' + f.name + '…');
+    f.arrayBuffer().then(function (buf) { return fetch('/api/trackers/' + encodeURIComponent(key) + '/import', { method: 'POST', headers: Object.assign(H(), { 'content-type': 'application/octet-stream' }), body: buf }); }).then(function (r) { return r.json(); }).then(function (r) { if (!r.ok) throw new Error(r.error); status('Imported ' + r.saved + ' cell(s)' + (r.blocked ? ' · ' + r.blocked + ' closed' : '') + (r.parse_errors.length ? ' · ' + r.parse_errors.length + ' row error(s): ' + r.parse_errors.slice(0, 3).map(function (e) { return 'row ' + e.row + ' ' + e.error; }).join('; ') : '')); loadAll(); }).catch(function (e) { status('Import failed: ' + e.message); });
+    this.value = '';
+  });
+  $('unit').addEventListener('change', renderGrid);
+  $('period').addEventListener('change', function () { periodSel = Number(this.value); loadAll(); });
+  if (key) renderView(); else renderList();
+})();
+</script>
+</body>
+</html>

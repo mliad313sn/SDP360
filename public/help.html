@@ -210,6 +210,7 @@
       <a href="#en-21">21. Security &amp; access</a>
       <a href="#en-22">22. Installation, updates &amp; the Manager</a>
       <a href="#en-23">23. Dashboards &amp; composer</a>
+      <a href="#en-24">24. Trackers &amp; Tracker Builder</a>
     </div>
 
     <!-- Content -->
@@ -1188,6 +1189,15 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Confirm-Destructive.ps1"
           <li><strong>Who sees what</strong> — a dashboard pinned to a site is listed for that site's people only; a site-scoped account always resolves data for its own sites; the admin tier sees the fleet. Each opening is logged once per person and day (System Logs ▸ dashboards) so the committee can see what is actually used.</li>
         </ul>
       </div>
+      <div class="section" id="en-24">
+        <h2><span class="section-num">24</span>Trackers &amp; Tracker Builder (Step 7)</h2>
+        <ul>
+          <li><strong>Trackers</strong> (Operations ▸ Trackers) — generic activity trackers defined by business users: a <em>period</em> (monthly / weekly / quarterly), <em>units</em> (sites or teams), <em>groups</em> with weights, <em>items</em> with a KPI type (BOOLEAN, COUNT, PERCENT, MILESTONE, CURRENCY, RATING), weight, target and start/end. Every score — item, group, unit, fleet — comes from <strong>one engine</strong>; the pages, the Excel and the PPTX exports read the same result. A value that is not measured reads <strong>—</strong>, never 0.</li>
+          <li><strong>Entry grid</strong> — pick a unit and the period reached; type the values; <em>Save entries</em>. A <strong>closed period</strong> (grey) keeps its stored value — only a super_admin may change it (same rule as the Activity Tracker: the current month, plus the previous one until the 5th). A <code>tracker-editor</code> writes the units of their own site(s) only; an item bound to a KPI is read-only (filled by <em>Sync sources</em>). <em>Import xlsx</em> accepts the file produced by the Excel export (sheet <code>Entries</code>).</li>
+          <li><strong>Tracker Builder</strong> (role <code>tracker-admin</code> or admin) — start empty or from a template (field dispatch, hardware deployment, site maintenance, meetings compliance), fill identity, period, units, groups and items, then <em>Validate &amp; dry-run</em> (inline errors; the score of the stored entries), <em>Save draft</em>, <em>Publish</em> (numbered version), <em>Retire</em>. <em>Versions</em> lists every published version; <em>Roll draft back</em> copies one into the draft, publish again to make it live. An item with a <em>Source</em> is filled from the KPI dictionary (§20) for each unit × period by <em>Sync sources</em>.</li>
+          <li><strong>IT Activity Tracker migration</strong> — in the builder, <em>Compare engine vs legacy</em> scores the inherited 2026 tracker with both engines for every site × month and reports the largest deviation (tolerance ± 0.1 pt; CSV download). <em>Import</em> creates the definition <code>it-activity-2026</code> with its entries and targets as a draft. The <em>cut-over</em> switch (super_admin) records that the engine is now the reference; the legacy tables stay readable until the committee retires them.</li>
+        </ul>
+      </div>
     </div><!-- /content -->
   </div><!-- /doc-layout -->
 </div><!-- /sec-en -->
@@ -1296,6 +1306,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Confirm-Destructive.ps1"
       <a href="#fr-21">21. Sécurité &amp; accès</a>
       <a href="#fr-22">22. Installation, mises à jour &amp; Manager</a>
       <a href="#fr-23">23. Tableaux de bord &amp; composeur</a>
+      <a href="#fr-24">24. Trackers &amp; constructeur de trackers</a>
     </div>
 
     <div class="content">
@@ -2271,6 +2282,15 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Confirm-Destructive.ps1"
           <li><strong>Executive Home</strong> — feux par objectif (feuille de route, SLA de résolution, conformité des inspections, 5 Engagements), incidents majeurs et tickets en retard de la semaine, tendance sur 13 semaines, « où en sommes-nous » par site, actions en retard et décisions en attente. Lecture seule ; le sélecteur de site ne propose que les sites de votre compte.</li>
           <li><strong>Composeur</strong> (rôle <code>dashboard-publisher</code> ou admin) — choisir un type de widget (kpi, trend, bar, table, heatmap, ragGrid, trackerRag, text, actions), le lier à un KPI, le placer sur la grille à 12 colonnes, enregistrer un <em>brouillon</em>, le prévisualiser avec les données réelles, puis <em>publier</em> une version numérotée. Les lecteurs gardent la dernière version publiée jusqu'à la publication suivante ; <em>retirer</em> masque le tableau en conservant ses versions. Un tableau destiné au terrain doit rester lisible sur téléphone (≤ 8 widgets, pas de heatmap, graphiques pleine largeur), sinon il ne peut pas être publié.</li>
           <li><strong>Qui voit quoi</strong> — un tableau rattaché à un site n'est listé que pour les personnes de ce site ; un compte limité à un site ne résout que ses propres sites ; le palier admin voit la flotte. Chaque ouverture est journalisée une fois par personne et par jour (System Logs ▸ dashboards) pour que le comité sache ce qui est réellement utilisé.</li>
+        </ul>
+      </div>
+      <div class="section" id="fr-24">
+        <h2><span class="section-num">24</span>Trackers &amp; constructeur de trackers (étape 7)</h2>
+        <ul>
+          <li><strong>Trackers</strong> (Operations ▸ Trackers) — des trackers d'activités génériques définis par les métiers : une <em>période</em> (mensuelle / hebdomadaire / trimestrielle), des <em>unités</em> (sites ou équipes), des <em>groupes</em> pondérés, des <em>items</em> avec un type de KPI (BOOLEAN, COUNT, PERCENT, MILESTONE, CURRENCY, RATING), un poids, une cible et un début/fin. Chaque score — item, groupe, unité, flotte — vient d'<strong>un seul moteur</strong> ; les pages, l'export Excel et le PPTX lisent le même résultat. Une valeur non mesurée s'affiche <strong>—</strong>, jamais 0.</li>
+          <li><strong>Grille de saisie</strong> — choisir une unité et la période atteinte ; saisir ; <em>Save entries</em>. Une <strong>période clôturée</strong> (grisée) garde sa valeur enregistrée — seul un super_admin peut la modifier (même règle que le tracker d'activités : le mois en cours, plus le précédent jusqu'au 5). Un <code>tracker-editor</code> n'écrit que les unités de son ou ses sites ; un item lié à un KPI est en lecture seule (rempli par <em>Sync sources</em>). <em>Import xlsx</em> accepte le fichier produit par l'export Excel (feuille <code>Entries</code>).</li>
+          <li><strong>Constructeur</strong> (rôle <code>tracker-admin</code> ou admin) — partir de zéro ou d'un modèle (interventions terrain, déploiement matériel, maintenance de site, conformité des réunions), renseigner identité, période, unités, groupes et items, puis <em>Validate &amp; dry-run</em> (erreurs en ligne ; score des saisies enregistrées), <em>Save draft</em>, <em>Publish</em> (version numérotée), <em>Retire</em>. <em>Versions</em> liste chaque version publiée ; <em>Roll draft back</em> en recopie une dans le brouillon — publier de nouveau pour la rendre active. Un item avec une <em>Source</em> est rempli depuis le dictionnaire des KPI (§20) pour chaque unité × période par <em>Sync sources</em>.</li>
+          <li><strong>Migration du tracker d'activités IT</strong> — dans le constructeur, <em>Compare engine vs legacy</em> note le tracker 2026 hérité avec les deux moteurs pour chaque site × mois et donne l'écart maximal (tolérance ± 0,1 pt ; CSV téléchargeable). <em>Import</em> crée la définition <code>it-activity-2026</code> avec ses saisies et cibles, en brouillon. L'interrupteur de <em>bascule</em> (super_admin) enregistre que le moteur devient la référence ; les tables héritées restent lisibles jusqu'à leur retrait par le comité.</li>
         </ul>
       </div>
     </div><!-- /content -->
