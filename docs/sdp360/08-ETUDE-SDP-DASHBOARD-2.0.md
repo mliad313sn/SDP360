@@ -439,6 +439,364 @@ La version 2.0 est **développée intégralement par un agent IA** (Claude Code 
 
 ---
 
+---
+
+## 9. Prompt kit (English) — copy-paste `/goal` and `/instruction` blocks, step by step
+
+This chapter is the operational version of chapter 6 for the AI development agent. Use it in this order: paste **9.1** once at the start of every session; then, for each step, paste the **`/goal`** block to obtain the design dossier, let the committee decide, and paste the **`/instruction`** block (filled with the `DEC-` ids) to build. Every block is self-contained.
+
+### 9.1 Session preamble (paste first, every session)
+
+```
+/goal
+You are the lead architect-developer of SDP-Dashboard, the IT operations platform of Endeavour
+Mining (Node 22, Express, PostgreSQL 17, HTML/JS pages with Chart.js, React for the tracker,
+pptxgenjs, nodemailer; integrations: Zoho ServiceDesk Plus Cloud + Analytics Plus, OpManager,
+Meraki, Microsoft 365). Read CLAUDE.md, docs/ and docs/adr/ before anything else.
+
+Mission: build SDP-Dashboard 2.0 as described in docs/08 (chapter 5), in ten committee-gated
+steps, never regressing v1.11 capabilities.
+
+Working rules (binding):
+1. Before any code, deliver a design dossier in French at docs/design/ETAPE-NN-<topic>.md using
+   the Annex A template, with numbered ARBITRATION POINTS (recommended option stated) and, for any
+   screen, mock-ups for the designer. Implement only after the committee's DEC- decisions; cite
+   them in every commit.
+2. House rules: never `user.site_id === x` (use services/userSites.js); update by id, never
+   delete+reinsert; recompute from counters, never average scores; null = not measured ≠ 0; never
+   invent a date; a new terminal status joins StatusTransfer.DONE and the SQL lists;
+   `CAST(? AS TEXT)` for a lone `?` on PostgreSQL; scheduled jobs never throw and never overlap;
+   secrets are write-only and encrypted; PPTX goes through fixComboChartAxes; asset money is
+   admin+ only; goldens are regenerated only after a visual-change decision.
+3. Tests: unit tests for every pure module; smoke tests for every route (boot on SQLite via
+   tests/_http-fetch.js); PostgreSQL parity for every reader/writer; `npm test` green on both
+   before any PR; tests that read repository files normalise line endings.
+4. Docs: update docs/ (spec, SOP), docs/adr/, CHANGELOG.md and public/help.html in EN and FR;
+   shrink CLAUDE.md, never grow it.
+5. Security by default: no secret in a URL, log, test or commit; no inline script on new pages;
+   every route behind a session and an explicit role check; server-side validation of all input.
+6. Continuity: keep every touched contract (routes, export formats, fixtures); every data
+   migration has a dry run, a backup, a measured parallel run and a rollback.
+7. Design: apply the design system (public/_tokens.css, public/brand) as extended by the
+   designer; responsive; WCAG 2.2 AA on executive and field screens; bilingual EN/FR.
+8. Delivery: one RFI = one branch = one PR with description, screenshots or recording, release
+   note; production packages are built and signed by CI, never by hand.
+9. Honesty: if an acceptance criterion is not met, say so and propose a plan; never bypass a
+   test; never mark anything done without evidence.
+10. Language: code and commits in English; design dossiers, field help and minutes in French.
+```
+
+### 9.2 Step 1 — Reliable, observable synchronisation
+
+```
+/goal
+Step 1. Make all scheduled jobs (Zoho requests / changes-CAB / survey, assets, Meridian,
+OpManager, Meraki WAN sync + events + poller, Teams SLA poll, plus the DB backup) run through one
+sync runner with overlap lock, exponential retry honouring Retry-After, transient-error
+classification, client-side delta, truncation/empty-fetch guard, run log, failure mirrored to
+system_log, consecutive-failure and staleness alerts (e-mail + Teams), and one merged health view
+in System Logs. Produce docs/design/ETAPE-01-synchronisations.md with arbitration points:
+cadence per source and Zoho quota, freshness window per job, truncation tolerance, alert
+threshold and recipients, run-log retention. Acceptance: 100 % of jobs visible in
+/api/sync/health; a simulated truncated export deletes nothing; alert received on a forced
+failure; success ≥ 99 % over 4 weeks; PostgreSQL parity green.
+```
+
+```
+/instruction
+Step 1 — build. Decisions: DEC-2026-001 (tolerance 20 %), DEC-2026-002 (alert after 2
+consecutive failures), DEC-2026-003 (freshness windows 3 h / 30 h / 1 h). Dossier approved:
+docs/design/ETAPE-01-synchronisations.md v1.
+1. Implement services/sync/jobs.js (registry + legacy wrapper), schedule.js (cron binding +
+   hourly staleness sweep), alerts.js; wire server.js to schedule.start() and remove the
+   per-job cron lines.
+2. Add assertNotTruncated before every Zoho reconciliation and countTable in reports-db.
+3. Merge sync_metadata into GET /api/sync/health with status ok|stale|error|never|idle; add the
+   "Sync health" tab to public/system-logs.html.
+4. Tests: registry, guard, schedule, smoke; run npm test on SQLite and PostgreSQL.
+5. Update CHANGELOG.md, help.html (EN+FR), the dossier §13 checklist. Deliver the PR with evidence.
+```
+
+### 9.3 Step 2 — PostgreSQL only, schema migrator, full CI
+
+```
+/goal
+Step 2. One database in production. Build db/migrate.js (schema_migrations journal, idempotent,
+run at boot, by the installer and in CI) applying every db/postgres/** script; move assets to
+PostgreSQL; add deterministic ORDER BY to the 9 non-deterministic readers; retire the SQLite forks
+module by module (SQLite stays for unit tests); add a PostgreSQL service, lint and coverage to
+GitHub Actions; schedule an encrypted nightly pg_dump through the runner; document a quarterly
+restore drill. Dossier docs/design/ETAPE-02-postgresql.md with arbitration points: fork retirement
+order, assets cut-over window, backup retention and key custody, replica now or in step 10.
+Acceptance: zero SQLite in production; CI green on both engines; migrator replayable with no
+effect; restore tested on a throwaway instance.
+```
+
+```
+/instruction
+Step 2 — build. Decisions: DEC-2026-0xx (fork order: assets → tracker → inspections → meetings →
+reports), DEC-2026-0xx (backup retention), DEC-2026-0xx (replica deferred to step 10). Dossier
+approved v1.
+1. Implement db/migrate.js and call it from server boot and from the CI workflow; add the
+   PostgreSQL service to .github/workflows/ci.yml with PG_TESTS_REQUIRED=1.
+2. Cut assets over to PostgreSQL with a hardened copy script (dry run, counts before/after).
+3. Fix the 9 readers' ordering; retire the SQLite forks in the decided order, one PR each.
+4. Add the db.backup job to the registry; write docs/ops/RESTORE-DRILL.md (FR).
+5. Tests, docs, CHANGELOG, PR with evidence.
+```
+
+### 9.4 Step 3 — KPI dictionary, RAG convergence, single site registry
+
+```
+/goal
+Step 3. One figure = one definition = one colour. Load metric_registry and kpi_rag_policies at
+boot; expose GET /api/metrics/registry and GET /api/metrics/:key?site=&window= dispatching to the
+existing readers; register the ≥ 40 existing KPIs (formula, window, owner, source); make every
+screen and export read services/kpiRag.js; delete duplicated thresholds; make sites +
+site_module_codes the only key and delete hard-coded aliases; publish the bilingual KPI
+dictionary in help. Dossier docs/design/ETAPE-03-kpi.md with arbitration points: convergence of
+the five RAG scales to ≤ 3 policies with a before/after impact table per site; fate of the two
+"6-dimension" models; rolling windows replacing anchor dates; closing "TO CONFIRM" site rows.
+Acceptance: every widget and PPTX cell resolves to a registered metric; no scale outside the
+registry (static test); impact report approved.
+```
+
+```
+/instruction
+Step 3 — build. Decisions: DEC-2026-0xx (RAG policies kept: tracker, programme score, SLA),
+DEC-2026-0xx (6-dimension model retained: …), DEC-2026-0xx (site registry closed). Dossier
+approved v1.
+1. Boot-time loading of the registry tables; metrics API with reader contract and tests.
+2. Register the KPIs from docs/templates/KPI-DEFINITION-TEMPLATE.md, one PR per module.
+3. Replace each hard-coded threshold with kpiRag; add the static "no scale outside the registry"
+   test; update the fidelity tests only where a DEC- changed the expected numbers.
+4. Site registry: migration script with dry run; delete scoreboardAliases.js and inspection aliases.
+5. Help ▸ KPI dictionary (EN+FR), CHANGELOG, PR with the impact table attached.
+```
+
+### 9.5 Step 4 — Security, SSO and MFA
+
+```
+/goal
+Step 4. Secure by default. Mandatory config encryption key in production with scrypt derivation
+and a re-encrypt script; API keys out of URLs; verified TLS to OpManager; constant-time key
+comparison; replace the unmaintained Excel library; CSP without inline scripts on new pages and a
+removal plan for existing ones; HSTS, Secure/HttpOnly/SameSite cookies, persistent rate limiter;
+npm audit + SCA + SAST in CI, protected branches, mandatory review; Entra SSO `available` then
+`only`; MFA delegated to Entra conditional access; Entra group → role/site provisioning; automatic
+deactivation on leave; logged break-glass account; extended audit log kept 12 months; incident
+response procedure; penetration test plan. Dossier docs/design/ETAPE-04-securite.md with
+arbitration points: group ↔ role/site mapping, session duration, MFA policy, `available` window,
+secret rotation, pentest scope. Acceptance: no high vulnerability; 100 % accounts on SSO with MFA;
+break-glass tested; no plaintext secret in a backup; per-role authorisation test on every route.
+```
+
+```
+/instruction
+Step 4 — build. Decisions: DEC-2026-0xx (group mapping), DEC-2026-0xx (session 8 h), DEC-2026-0xx
+(available window 3 weeks). Dossier approved v1. Human prerequisites completed: Entra app
+registration (client id/secret in Admin), conditional-access policy created.
+1. Hardening PRs in this order: secrets (key + scrypt + re-encrypt), transport (TLS, keys out of
+   URLs, constant-time compare), HTTP headers and cookies, dependency replacement, CI gates.
+2. SSO: group sync job in the registry, provisioning rules, deactivation, break-glass audit.
+3. Generate the per-route authorisation test matrix from the route table; make it a CI gate.
+4. Write docs/ops/INCIDENT-RESPONSE.md (FR), update help (EN+FR), CHANGELOG, PR with SCA/SAST
+   reports attached.
+```
+
+### 9.6 Step 5 — Windows installer and manager, modular code, signed packages
+
+```
+/goal
+Step 5. Ship SDP-Dashboard Setup.exe (7-screen graphical wizard: welcome/licence, detection of
+the existing install, mode new/update/repair/reinstall, folders and port, PostgreSQL embedded or
+existing with masked password, service account and IIS/TLS certificate, summary and progress;
+automatic backup before update, automatic rollback on failure, readable log) and SDP-Dashboard
+Manager.exe (service state and restart, sync health, backups and restore with red confirmation
+screen, update check/download/apply/rollback of CI-signed packages, diagnostics, secret
+rotation, support bundle, tray icon), both built and signed by CI; a versioned update package
+with manifest; schema migrator called by the installer; removal of the .cmd scripts and the
+frozen-lot register; extraction of server.js into routes/* (≥ 600 lines per sprint, target
+< 3 000); one cron registry; esbuild build step ending in-browser Babel; extraction of CLAUDE.md
+rules into SOP/ADR. Dossier docs/design/ETAPE-05-installateur.md with arbitration points:
+installer technology (Inno Setup vs WiX), Manager technology (.NET WinUI/WPF vs Tauri), wizard
+screens (designer mock-ups), package format and signing, versioning policy, domain split of the
+code, initial ADR list. Acceptance: fresh install < 20 min by a sysadmin on a clean machine;
+update < 5 min with demonstrated rollback; first production release from a CI package;
+server.js < 3 000 lines; no in-browser compilation.
+```
+
+```
+/instruction
+Step 5 — build. Decisions: DEC-2026-0xx (Inno Setup), DEC-2026-0xx (Manager in .NET WPF),
+DEC-2026-0xx (SemVer, signed ZIP + manifest.json). Dossier and wizard mock-ups approved.
+Human prerequisites: code-signing certificate available to CI as a secret.
+1. tools/installer-v2/: Inno script, embedded runtimes, migrator call, backup/rollback; CI job
+   building and signing Setup.exe on tag.
+2. tools/manager/: WPF app consuming /api/sync/health and the installer scripts; update flow
+   with manifest verification and rollback.
+3. Modularisation PRs (routes/*, cron registry already in place), esbuild for the React apps.
+4. docs/ops/INSTALLATION.md and docs/ops/EXPLOITATION.md (FR) embedded in the Manager help;
+   CHANGELOG; PR with install/update recordings.
+```
+
+### 9.7 Step 6 — Design system, executive space, dashboard composer
+
+```
+/goal
+Step 6. With the designer: user journeys (executive, coordinator, technician, external
+stakeholder), extended design system (components, states, densities, mobile, AA accessibility),
+mock-up library. Build the executive space (home page with objective lights, 13-week trends,
+major incidents, pending decisions, "where are we" per site and programme; mobile; read-only;
+dated data) and the dashboard composer (grid, widget catalogue: kpi, trend, bar, table, heatmap,
+ragGrid, trackerRag, text, actions; filters; preview per audience; versioned publish) with a
+renderer on the shared shell; replace the first 10 fixed pages by definitions; usability tests
+with committee users. Dossier docs/design/ETAPE-06-design-direction.md with arbitration points:
+journeys and mock-ups, executive space content, publishing rights, first 10 pages replaced.
+Acceptance: executive space used weekly by ≥ 3 executives (view log); ≥ 5 dashboards published by
+committee members without a developer; SUS ≥ 75; AA audit without blocking defect.
+```
+
+```
+/instruction
+Step 6 — build. Decisions: DEC-2026-0xx (mock-ups approved), DEC-2026-0xx (publishers = admin +
+committee role), DEC-2026-0xx (pages replaced: …). Dossier approved v1.
+1. Design-system extension in public/brand + tokens; axe accessibility checks in CI.
+2. Executive space: routes /api/metrics consumers only, no new formulas; page on the shared shell.
+3. Composer: definitions stored in dashboard_definitions (versioned), validator already in
+   services/dashboardWidgets.js, renderer, publish flow, view log.
+4. Replace the decided pages; keep old URLs redirecting.
+5. Usability test script (FR) for the committee; help (EN+FR); CHANGELOG; PR with screenshots.
+```
+
+### 9.8 Step 7 — Tracker builder and 2026 tracker migration
+
+```
+/goal
+Step 7. Tracker builder for business users (period, units, groups, items, KPI types, weights,
+targets; inline validation; dry-run score; review → versioned publish), entry runtime (unit ×
+period grid, closed-month lock, xlsx import), items automatically bound to sources (meetings,
+inspections, tickets), import of the 2026 IT Activity Tracker, one-month parallel run with
+score comparison at ±0.1 pt, cut-over and retirement of the old tables, PPTX/Excel reading the
+same scorer, templates (field dispatch, hardware deployment, site maintenance, meetings
+compliance). Dossier docs/design/ETAPE-07-trackers.md with arbitration points: builder UX
+(mock-ups), rights, versioning and rollback, migration plan (dates, owners, criteria).
+Acceptance: ≥ 3 trackers created without a developer; 2026 tracker migrated with no deviation;
+no formula outside the engine.
+```
+
+```
+/instruction
+Step 7 — build. Decisions: DEC-2026-0xx (mock-ups), DEC-2026-0xx (migration window), DEC-2026-0xx
+(retire tracker_* tables after sign-off). Dossier approved v1.
+1. Persist definitions in tracker_definitions/_versions; builder UI; runtime grid with month lock.
+2. Source bindings: readers for meetings count, inspections count, ticket metrics.
+3. Migration: fromLegacyInit import, parallel-run comparison report (CSV), cut-over switch.
+4. PPTX/Excel on the engine scorer; templates seeded; help (EN+FR); CHANGELOG; PR with the
+   comparison report attached.
+```
+
+### 9.9 Step 8 — Meeting cockpit, portfolio, RFI/decision register
+
+```
+/goal
+Step 8. Meeting cadences (type, site, day, participants, preparer); generated agenda (KPIs,
+overdue actions, major incidents, pending decisions, RFIs); full-screen session mode with
+per-item timestamps, live decisions (DEC-) and actions linked to their source; automatic minutes
+(HTML, PDF, e-mail); between-meetings follow-up; portfolio programmes → objectives → projects →
+milestones → deliverables → actions with owners, status, confidence, dates, budget, risks;
+automatic evidence per metric; Gantt with dependencies and slippage alerts; project risks linked
+to incidents; monthly portfolio report; in-app RFI and decision register (form, triage,
+scoring); governance dashboard. Dossier docs/design/ETAPE-08-cockpit-portefeuille.md with
+arbitration points: meeting types and agendas, action attachment rules, portfolio model,
+migration of the personal Roadmap Manager, who may create a decision. Acceptance: three real
+cadences held one month in the cockpit with automatic minutes; portfolio with automatic
+evidence on ≥ 50 % of objectives; RFI register used by the committee.
+```
+
+```
+/instruction
+Step 8 — build. Decisions: DEC-2026-0xx (cadences), DEC-2026-0xx (portfolio model),
+DEC-2026-0xx (decision creators = chair + secretary). Dossier approved v1.
+1. Tables meeting_cadences, meeting_sessions, decisions; agenda generator on the metrics API and
+   the Site Actions register; session mode page; minutes generator reusing reportRender.
+2. Portfolio tables and screens; evidence bindings generalising roadmapEvidence; Gantt; risks.
+3. RFI/decision register UI on rfi_requests; governance dashboard definition.
+4. Migrate Roadmap Manager data (dry run); help (EN+FR); CHANGELOG; PR with a recorded session.
+```
+
+### 9.10 Step 9 — AI report generator, engagement engine, external publishing
+
+```
+/goal
+Step 9. Report templates per audience composed of widgets; HTML/PDF/PPTX/CSV outputs; always-on
+deterministic analysis layer; AI commentary fed only by the canonical figures (anti-hallucination
+clause), tone per audience, bilingual, local provider by default (Ollama, Mistral Nemo) with
+optional anonymised cloud, draft until human review, version log, golden reports; engagement:
+alert rules (metric, scope, threshold, cool-down, channel, recipients), subscriptions, in-app
+notification centre, digest, signed expiring share links, read receipts, comment from the
+notification; external publishing: documented REST + OData metrics API with per-consumer keys,
+quotas and log; connectors to SharePoint (lists/pages), Power BI (OData feed), Teams cards,
+e-mail, webhook, scheduled Excel; signed embeddable views; all scheduled through the runner.
+Dossier docs/design/ETAPE-09-rapports-engagement-publication.md with arbitration points: AI
+sovereignty and hardware budget, report templates, review rules, initial ≥ 10 alert rules,
+anti-noise policy, priority connectors and external consumers, link validity. Acceptance:
+monthly executive pack with zero manual entry and zero figure deviation; commentary rated useful
+by ≥ 80 % of reviewers; ≥ 10 rules live with < 5 % false positives; one SharePoint dashboard and
+one Power BI report fed automatically; no PII leaves the site.
+```
+
+```
+/instruction
+Step 9 — build. Decisions: DEC-2026-0xx (local inference, no cloud), DEC-2026-0xx (templates:
+site weekly, exec monthly, council), DEC-2026-0xx (connectors: SharePoint + Power BI first).
+Dossier approved v1. Human prerequisites: inference server available, SharePoint app
+registration, Power BI workspace.
+1. Report templates and generator on the dashboard definitions; deterministic analysis module;
+   AI adapter behind AI_PROVIDER with canonical-figures prompt and review workflow; golden tests.
+2. alert_rules, subscriptions, notification centre, digest job, share links, receipts.
+3. Metrics API keys/quotas; OData endpoint; SharePoint and Power BI connectors as registry jobs;
+   embeddable signed views.
+4. Help (EN+FR), CHANGELOG, PR with a generated pack and connector evidence.
+```
+
+### 9.11 Step 10 — Offline field app and resilience
+
+```
+/goal
+Step 10. Installable PWA (service worker, IndexedDB outbox, "data as of" stamp); offline
+inspection capture (photos ≤ 300 KB, chunked upload to the blob store, idempotent PUT
+/api/field/outbox/:uuid); offline tracker entry; quick actions (SDP ticket from a finding via API
+v3 write scope — new OAuth scope through CAB; close/transfer with justification); low-bandwidth
+mode; field-tech role; 3-site, 6-week pilot with field clinics; PostgreSQL streaming replica
+(RPO 15 min) and restore drill. Dossier docs/design/ETAPE-10-terrain.md with arbitration points:
+pilot sites, devices, conflict policy, maximum inspection size, SDP write scope. Acceptance:
+10-photo inspection synced ≤ 2 min at 1 Mbit/s; zero loss across connectivity drops; weekly site
+entry ≤ 20 min on 3 sites; technician NPS ≥ +30; RPO 15 min demonstrated.
+```
+
+```
+/instruction
+Step 10 — build. Decisions: DEC-2026-0xx (pilot sites), DEC-2026-0xx (last-write-wins + month
+lock), DEC-2026-0xx (SDP write scope approved by CAB). Dossier approved v1.
+1. esbuild field bundle under public/field/; service worker; outbox with idempotent sync.
+2. Chunked photo upload to services/blobStore; inspection and tracker offline forms.
+3. Quick actions; field-tech role through services/userSites.js; low-bandwidth dashboards
+   (audience: field).
+4. Replica and restore drill documented; pilot test script (FR) for the clinics; help (EN+FR);
+   CHANGELOG; PR with device recordings.
+```
+
+### 9.12 Status request (paste any time)
+
+```
+/instruction
+Produce a status report from the repository only (RFI/DEC register, docs/design/*, CI results,
+CHANGELOG.md): for each of the ten steps give state (not started / designing / awaiting decision
+/ building / awaiting acceptance / accepted), open arbitration points, acceptance criteria met
+and not met with evidence, blockers assigned to humans. French, one page, no figure from memory.
+```
+
 ## Annexe A — Gabarit de dossier de conception
 
 ```
