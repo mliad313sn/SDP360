@@ -4,6 +4,38 @@
 
 > **Destinataires.** La direction, le futur comité produit (experts, utilisateurs, designer) et l'équipe de développement épaulée par un assistant IA. Les chapitres 1 à 4 expliquent ce que la plateforme sait faire et ce qui lui manque ; le chapitre 5 décrit la cible « SDP-Dashboard 2.0 » ; le chapitre 6 est le **prompt de commande** à remettre à l'IA de développement, étape par étape, chaque étape étant conçue, décidée et réceptionnée par le comité ; le chapitre 7 chiffre les gains.
 
+## Fiche documentaire
+
+| Champ | Valeur |
+|---|---|
+| Référence | SDP-DASH-2.0-ETUDE |
+| Version | 1.2 — 2026-10-19 |
+| Statut | Pour décision (direction) · Pour exécution (comité, agent IA) |
+| Propriétaire | Service & Support Manager (présidence du comité produit) |
+| Destinataires | Direction · comité produit (experts, utilisateurs, designer) · équipe et agent IA de développement |
+| Confidentialité | Interne — usage Endeavour Mining |
+| Base d'analyse | Dépôt SDP-Dashboard v1.11, HEAD `e74d4cf` ; relecture complète du code, des schémas, des 2 372 tests et du journal de conception |
+
+**Historique des versions**
+
+| Version | Date | Auteur | Changement |
+|---|---|---|---|
+| 1.0 | 2026-10-19 | Agent IA | Étude de l'existant, lacunes, cible 2.0, prompt en dix étapes, gains |
+| 1.1 | 2026-10-19 | Agent IA | Ajout du mode de développement par agent IA (§6.5) et du kit de prompts en anglais (chapitre 9) |
+| 1.2 | 2026-10-19 | Agent IA | Fiche documentaire, guide de lecture, chapitre de suivi (tableau d'avancement, registres), glossaire ; mise en page pour adoption |
+
+## Comment utiliser ce document
+
+| Vous êtes… | Lisez | Temps | Ce que l'on attend de vous |
+|---|---|---|---|
+| **Direction / sponsor** | Chapitre 1, §5.3, chapitre 7, chapitre 8 | 20 min | Les six décisions du chapitre 8 ; la nomination du comité |
+| **Membre du comité produit** | Chapitres 2 à 6, §5.5, chapitre 10 | 1 h 30 | Trancher les points d'arbitrage de chaque étape (`DEC-`), réceptionner sur les critères de sortie, tenir le tableau de suivi (§10.1) |
+| **Designer** | §5.1, §5.5, étapes 5, 6, 7, 10 du chapitre 6 | 45 min | Parcours, maquettes et validation d'accessibilité avant toute implémentation d'écran |
+| **Agent IA / équipe de développement** | Chapitre 6 (règles), chapitre 9 (prompts), annexes A et B | 1 h | Produire le dossier de conception, implémenter après décision, livrer avec preuves |
+| **Coordinateur ou technicien de site** | Chapitre 2, §5.3, étapes 6, 8 et 10 | 30 min | Participer aux cliniques terrain et aux tests d'utilisabilité ; remonter les RFI |
+
+Conventions : **doit / devrait / peut** ont leur sens normatif ; un identifiant `DEC-AAAA-NNN` désigne une décision du comité, `RFI-NNN` une demande d'amélioration ; les chemins de fichiers renvoient au dépôt.
+
 ---
 
 ## 1. Résumé pour la direction
@@ -797,6 +829,74 @@ CHANGELOG.md): for each of the ten steps give state (not started / designing / a
 and not met with evidence, blockers assigned to humans. French, one page, no figure from memory.
 ```
 
+---
+
+## 10. Suivi de l'exécution et adoption
+
+Ce chapitre est l'outil de pilotage du programme. Il est mis à jour par le secrétariat du comité à chaque revue mensuelle et republié avec le document ; l'agent IA le régénère à la demande à partir du dépôt (§9.12).
+
+### 10.1 Tableau d'avancement des dix étapes
+
+États : ⬜ non démarré · 🟦 en conception · 🟨 en attente de décision · 🟧 en réalisation · 🟪 en attente de réception · 🟩 réceptionné.
+
+| # | Étape | État au 2026-10-19 | Dossier de conception | Décisions | Propriétaire comité | Jalon cible | Réception |
+|---|---|---|---|---|---|---|---|
+| 1 | Synchronisations fiables et observables | 🟪 implémenté, en attente de réception | `docs/design/ETAPE-01-synchronisations.md` v1 | à émettre (4 points) | Ingénieur données | T1 | — |
+| 2 | PostgreSQL seul, migrateur, CI | 🟧 socle livré ; retrait des forks en cours | `docs/design/ETAPE-02-postgresql.md` v1 | à émettre (3 points) | Ingénieur données | T1 | — |
+| 3 | Dictionnaire KPI, RAG, référentiel sites | 🟦 en conception | — | — | Analyste métier | T1 | — |
+| 4 | Sécurité, SSO, MFA | ⬜ | — | — | Expert sécurité | T2 | — |
+| 5 | Installateur et gestionnaire, modularisation | ⬜ | — | — | Architecte | T2 | — |
+| 6 | Design, espace direction, composeur | ⬜ | — | — | Designer | T2–T3 | — |
+| 7 | Builder de trackers, migration 2026 | ⬜ | — | — | Coordinateur de site | T3 | — |
+| 8 | Cockpit de réunion, portefeuille, RFI | ⬜ | — | — | Présidence | T3 | — |
+| 9 | Rapports IA, engagement, publication | ⬜ | — | — | Analyste métier | T4 | — |
+| 10 | Terrain hors-ligne, résilience | ⬜ | — | — | Technicien terrain | T4 | — |
+
+### 10.2 Registre des décisions (modèle)
+
+| Id | Date | Étape | Point d'arbitrage | Décision | Option recommandée suivie ? | Votes / dissidence | Commits |
+|---|---|---|---|---|---|---|---|
+| DEC-2026-001 | | 1 | Tolérance de troncature | | | | |
+| DEC-2026-002 | | 1 | Seuil d'alerte (échecs consécutifs) | | | | |
+| DEC-2026-003 | | 1 | Fenêtres de fraîcheur par job | | | | |
+| DEC-2026-004 | | 1 | Destinataires des alertes | | | | |
+| DEC-2026-005 | | 2 | Ordre de retrait des forks SQLite | | | | |
+| DEC-2026-006 | | 2 | Rétention des sauvegardes et garde de la clé | | | | |
+| DEC-2026-007 | | 2 | Réplica maintenant ou à l'étape 10 | | | | |
+
+### 10.3 Calendrier des revues
+
+| Instance | Cadence | Prochaine séance | Ordre du jour type |
+|---|---|---|---|
+| Triage | bimensuel (semaines impaires, mardi) | à fixer | RFI nouvelles, santé des synchronisations, qualité des données |
+| Revue mensuelle (Review Board) | 1ᵉʳ jeudi du mois | à fixer | Dossiers de conception, décisions, réceptions, tableau 10.1 |
+| Planification trimestrielle | trimestre | à fixer | Jalons §6.4, charte, budget |
+| Clinique terrain | mensuelle, sur site | à fixer | Démonstrations, irritants, RFI terrain |
+| CAB | à chaque mise en production | — | Paquet CI signé, note de version, retour arrière |
+
+### 10.4 Indicateurs du programme (revus chaque mois)
+
+| Indicateur | Cible | Source |
+|---|---|---|
+| Étapes réceptionnées / planifiées | selon §6.4 | tableau 10.1 |
+| Délai conception → décision | ≤ 14 jours | registre 10.2 |
+| Écarts de réception ouverts | 0 au-delà de deux itérations | RFI |
+| Suite de tests (SQLite + PostgreSQL) | 0 échec | CI |
+| Dette sécurité ouverte (vulnérabilités hautes) | 0 à partir de l'étape 4 | SCA/SAST |
+| Adoption : vues hebdomadaires par rôle | direction ≥ 3, sites 100 % | journal `*_viewed` |
+| Temps de saisie hebdo par site | ≤ 20 min (étape 10) | pilote |
+
+### 10.5 Risques du programme
+
+| Risque | Probabilité | Impact | Mitigation | Propriétaire |
+|---|---|---|---|---|
+| Décisions du comité en retard → agent IA bloqué | moyenne | élevé | options recommandées par défaut, revue mensuelle tenue, décision par courriel entre deux séances | Présidence |
+| Quota Zoho dépassé | faible | moyen | delta côté client, surveillance des replis, cadence par vue | Ingénieur données |
+| Résistance au changement des coordinateurs | moyenne | élevé | sièges utilisateurs, cliniques terrain, migration à l'identique du tracker 2026 | Coordinateurs |
+| Commentaire IA erroné transmis | faible | élevé | chiffres canoniques imposés, relecture humaine, journal des versions | Analyste métier |
+| Prérequis humains non livrés (Entra, certificat de signature, matériel d'inférence) | moyenne | élevé | listés par étape dans chaque dossier, suivis au tableau 10.1 | Sponsor |
+| Dépendance à un seul développeur humain | élevée | moyen | tout est documenté, CI, agent IA reproductible, dossiers de conception | Architecte |
+
 ## Annexe A — Gabarit de dossier de conception
 
 ```
@@ -832,3 +932,25 @@ Travail demandé :
     liste des critères de réception couverts et non couverts.
 N'élargis pas le périmètre ; signale tout point non prévu au dossier comme nouvelle RFI.
 ```
+
+## Annexe C — Glossaire
+
+| Terme | Définition |
+|---|---|
+| **CAB** | Change Advisory Board : instance qui autorise une mise en production |
+| **CI** | Intégration continue : tests et contrôles automatiques exécutés à chaque modification du dépôt |
+| **DEC-** | Identifiant d'une décision du comité produit, cité dans les commits qui l'appliquent |
+| **Golden (test)** | Test comparant une sortie (deck, e-mail) à une référence figée ; un écart signale un changement visuel |
+| **KPI** | Indicateur clé de performance, décrit dans le registre des métriques (formule, fenêtre, propriétaire) |
+| **MFA** | Authentification multifacteur, ici déléguée à Microsoft Entra ID |
+| **OData** | Protocole standard de consommation de données tabulaires, lu nativement par Power BI et Excel |
+| **PV** | Procès-verbal d'une réunion départementale |
+| **PWA** | Application web installable fonctionnant hors connexion |
+| **RAG** | Échelle rouge / orange / vert appliquée à un indicateur selon une politique de seuils |
+| **RFI** | Request for Improvement : demande d'amélioration soumise au comité |
+| **RPO** | Perte de données maximale admise en cas de sinistre (ici 15 minutes) |
+| **Runner de synchronisation** | Module unique exécutant chaque job planifié avec verrou, rejeu, journal et alertes |
+| **SCA / SAST** | Analyse des dépendances / analyse statique du code, exécutées en CI |
+| **SDP** | ManageEngine ServiceDesk Plus Cloud, l'outil de helpdesk source |
+| **SSO** | Authentification unique d'entreprise (Microsoft Entra ID, OIDC) |
+| **Tracker** | Suivi d'activités ou de projets paramétré par les métiers (périodes, unités, cibles, score) |
