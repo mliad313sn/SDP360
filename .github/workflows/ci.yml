@@ -56,6 +56,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # pg_dump must match the server major version (17); the runner ships 16.
+      - name: PostgreSQL 17 client (pg_dump / psql for the backup + restore drill test)
+        run: |
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -q postgresql-client-17
+          echo "PG_DUMP=/usr/lib/postgresql/17/bin/pg_dump" >> "$GITHUB_ENV"
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+
       - name: Syntax gate
         run: node tools/ci/lint.js
 

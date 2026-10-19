@@ -10,7 +10,7 @@ test('pg: backup → decrypt → restore into a throwaway schema', async (t) => 
   const ctx = await provisionTestDb(); if (!ctx) return t.skip('no pg');
   if (!ctx.schema) return t.skip('restore drill test needs the schema fallback');
   const B = require('../services/dbBackup');
-  const bin = B.findPgDump({});
+  const bin = B.findPgDump(process.env);
   if (bin === 'pg_dump' && process.platform === 'win32') return t.skip('pg_dump not installed');
   const { Client } = require('pg');
   const c = new Client({ connectionString: ctx.url }); await c.connect();
