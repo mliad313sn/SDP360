@@ -1,10 +1,12 @@
 {
   "name": "sdp360",
-  "version": "2.0.0-alpha.5",
+  "version": "2.0.0-alpha.6",
   "description": "SDP360 — IT Operations Management & Field Reporting Platform (ServiceDesk Plus unified ops hub). Fork of samaziz679/SDP-Dashboard v1.11.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+    "build": "node tools/build/build-frontend.js",
+    "build:check": "node tools/build/build-frontend.js --check",
     "dev": "nodemon server.js",
     "test": "node --test --test-force-exit tests/*.test.js",
     "test:unit": "node --test --test-force-exit tests/*.test.js --test-name-pattern \"^(?!.*smoke)\"",
@@ -24,5 +26,8 @@
   },
   "engines": {
     "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
   }
 }

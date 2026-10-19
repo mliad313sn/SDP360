@@ -42,7 +42,7 @@ npm test                        # ~30 s, sqlite, ~2 300 tests; PG suites skip wi
 npm start                       # http://localhost:3456
 ```
 
-PostgreSQL dev cluster: `tools/pg/dev-up.sh` (see `tools/pg/README.md`). Production install on Windows/IIS/PM2: `docs/INSTALLER.md`.
+PostgreSQL dev cluster: `tools/pg/dev-up.sh` (see `tools/pg/README.md`). Production install on Windows/IIS/PM2: `docs/ops/INSTALLATION.md` (Setup.exe, Inno) and day-to-day operations `docs/ops/EXPLOITATION.md`; the v1 console installer is documented in `docs/INSTALLER.md` until it is retired.
 
 ## Repository layout
 
@@ -54,7 +54,7 @@ services/                 domain logic; services/sync = SDP360 sync runner; kpiR
 db/postgres/              idempotent PG schema per module (reports, tracker, meetings, inspection, assets, sync)
 public/                   static UI (37 pages, shared shell, brand tokens, design-system specimens)
 tests/                    node --test suites (unit, *.smoke route tests, pg-* integration)
-tools/                    installer, deploy packager, pg utilities, integration CLIs (meraki, opmanager, teams)
+tools/                    installer-v2 (Inno), sdp-manager CLI, update packager, build (esbuild), pg utilities, integration CLIs (meraki, opmanager, teams)
 docs/sdp360/              SDP360 strategy, governance, roadmap, specs, SOPs, templates
 ops/legacy-scripts/       inherited one-off prod scripts (forensic only)
 ```

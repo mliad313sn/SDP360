@@ -585,9 +585,11 @@ boot** — sqlite via each service's `_initSchema` (`services/reportDirectory.js
   inter-table FKs). Runnable standalone: `PG_URL=… node tools/pg/copy-reports-reporting.js`.
 - **Test:** `tests/pg-reporting.test.js` (PG-gated; clean-skips with no PG).
 
-## Prod admin menu + provisioning (2026-07-09)
+## Prod admin menu + provisioning (2026-07-09) — RETIRED 2026-10-19
 
-`_sdp_admin.cmd` (ships in the deploy ZIP, lives at the app root on prod) is a
+> **Retired in 2.0 (Step 5):** `_sdp_admin.cmd` and the other root `.cmd` scripts were removed. Their jobs now live in `tools/sdp-manager.js` (status / backup / verify / update / rollback / support-bundle) and in the Setup wizard — see `docs/ops/EXPLOITATION.md`. The text below is kept as history of the v1 menu.
+
+`_sdp_admin.cmd` (shipped in the v1 deploy ZIP, lived at the app root on prod) was a
 4MyPeople-style interactive Install & Maintenance menu: apply deploy ZIP,
 pm2 restart (stop/wait/start), backup/restore points (code+data, skips
 node_modules + raw_cache.json + blobs), health probe (:3456/api/auth/config),

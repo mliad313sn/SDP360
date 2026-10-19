@@ -16,3 +16,4 @@
 Conventions: documents are written in English (the platform's UI language since 2026-10-16); French terms used on the mine sites are kept in brackets the first time they appear. Every normative statement uses *must / should / may*. File paths refer to this repository.
 - `design/ETAPE-03-kpi.md` — dossier de conception de l'étape 3 (dictionnaire des KPI, politiques RAG, registre des sites).
 - `design/ETAPE-04-securite.md` — dossier de conception de l'étape 4 (sécurité, SSO, MFA) ; procédure `docs/ops/INCIDENT-RESPONSE.md`, matrice `docs/ops/AUTHZ-MATRIX.md`.
+- `design/ETAPE-05-installateur.md` — dossier de conception de l'étape 5 (installateur Inno, Manager, paquets versionnés, modularisation) ; guides `docs/ops/INSTALLATION.md`, `docs/ops/EXPLOITATION.md` ; ADR-002…005 dans `docs/adr/`.

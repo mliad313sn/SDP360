@@ -1,0 +1,7 @@
+SDP Dashboard — internal software of Endeavour Mining, Group IT.
+
+Copyright (c) 2026 Endeavour Mining. All rights reserved.
+
+This software is provided to Endeavour Mining entities and their contractors for
+internal operational use only. Redistribution outside the company is not permitted.
+Third-party components keep their own licences (see package.json dependencies).

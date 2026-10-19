@@ -145,3 +145,6 @@ tools/meraki/calibration/series/
 
 # Local prod database dumps kept for reference (tens of MB, contain real data) - never commit.
 docs/sdp_dashboard_*.sql
+
+# Prebuilt front-end bundles ARE committed (served without Babel/unsafe-eval)
+!public/activity-tracker/dist/

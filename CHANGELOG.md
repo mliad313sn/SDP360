@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.0.0-alpha.6 — 2026-10-19 — Étape 5 : installateur, Manager, paquets versionnés, modularisation
+- Update package: `tools/deploy/make-update-package.js` builds `sdp-dashboard-<version>.zip` (every runtime file + `manifest.json` with SHA-256/size per file, version, commit) — full packages, no more marker-diff ZIP, no more frozen-lot register.
+- Manager CLI `tools/sdp-manager.js`: `status` (version, pm2, HTTP, sync health), `backup`, `verify`, `update` (manifest check → rollback point → copy → `npm ci` → migrator → stop/start → probe; any failure rolls back by itself; downgrade refused), `rollback`, `support-bundle` (env KEYS only). Pure rules in `services/updatePackage.js`.
+- Windows installer v2: `tools/installer-v2/SDP-Dashboard.iss` (Inno Setup, 7 screens: welcome/licence, detection, mode, folders/port, PostgreSQL embedded/existing, service/TLS, summary) + `post-install.js` (writes `.env` once, creates role/database with SQL on stdin, `npm ci`, `db/migrate.js`, pm2, health probe, rollback on failure). Release workflow on `v*` tags builds and publishes package + Setup.exe, signs the .exe when the certificate secret exists.
+- Modularisation: meetings routes extracted to `routes/meetings.js` (server.js 9164 → 8298 lines, budget pinned by `tests/server-size-budget.test.js`); tracker app prebuilt with esbuild (`npm run build`, committed `public/activity-tracker/dist/app.js`, `build:check` in CI) — no in-browser Babel, `'unsafe-eval'` removed from the tracker CSP.
+- Retired: `_sdp_admin.cmd`, `_pm2_restart_prod.cmd`, `_pm2_recover_prod.cmd`, `_restore_db.cmd`, `tools/deploy/{make-deploy-zip.ps1, apply-on-prod.cmd, mark-deployed.cmd, Check-FrozenLots.ps1, frozen-lots.json}`.
+- Docs: `docs/ops/INSTALLATION.md`, `docs/ops/EXPLOITATION.md` (FR), ADR-002 cron registry, ADR-003 metric registry, ADR-004 secrets, ADR-005 packages/installer/manager, Manager WPF spec `tools/manager/README.md`, dossier `docs/sdp360/design/ETAPE-05-installateur.md`, help §22 EN/FR, `LICENSE`.
+
 ## 2.0.0-alpha.5 — 2026-10-19 — Étape 4 : sécurité, SSO et MFA (volet agent)
 - Secrets: `enc:v2:` boxes keyed by scrypt (v1 still readable), `SDP_CONFIG_KEY` mandatory with `NODE_ENV=production`, `tools/pg/reencrypt-secrets.js` (upgrade + key rotation, never overwrites an unreadable box).
 - Transport/HTTP: constant-time `x-dash-key` compare, `Secure` cookie behind an HTTPS proxy, session lifetime `SESSION_HOURS`, persistent login rate limiter (`rate_limit_hits`, survives restarts), OpManager TLS warning when verification is off.

@@ -1,0 +1,101 @@
+name: Release
+
+# Step 5 — on a version tag: test, build the update package (manifest + SHA-256), build
+# SDP-Dashboard-Setup-<version>.exe with Inno Setup, sign the .exe when the certificate secrets
+# exist (a zip cannot carry Authenticode: its integrity is the .sha256 line + per-file manifest,
+# and the SIGNED Setup.exe embeds the very same zip), attach everything to the GitHub release. Unsigned artefacts are still published
+# (marked as such) so a release never waits on the certificate — but the Manager shows a
+# warning when it applies an unsigned package.
+#
+# Secrets (optional): SIGNING_CERT_PFX_BASE64, SIGNING_CERT_PASSWORD.
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    env:
+      DASH_USER: ci-admin
+      DASH_PASS: ci-password-0000!
+      TZ: UTC
+      PG_ADMIN_URL: postgres://postgres:postgres@localhost:5432/postgres
+      PG_URL: postgres://postgres:postgres@localhost:5432/postgres
+      PG_TESTS_REQUIRED: '1'
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - id: v
+        name: Version = tag, must equal package.json
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG="$(node -p "require('./package.json').version")"
+          test "$TAG" = "$PKG" || { echo "tag $TAG != package.json $PKG"; exit 1; }
+          echo "version=$TAG" >> "$GITHUB_OUTPUT"
+      - run: npm audit --omit=dev --audit-level=high
+      - run: node db/migrate.js
+      - run: npm run build:check
+      - run: npm test
+      - name: Build update package
+        run: node tools/deploy/make-update-package.js --out dist --version "${{ steps.v.outputs.version }}" --commit "${GITHUB_SHA::7}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package
+          path: dist/
+
+  installer:
+    needs: package
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: package
+          path: dist
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+      - name: Import signing certificate (when configured)
+        if: ${{ env.PFX != '' }}
+        env:
+          PFX: ${{ secrets.SIGNING_CERT_PFX_BASE64 }}
+        shell: pwsh
+        run: |
+          [IO.File]::WriteAllBytes("$env:RUNNER_TEMP\sign.pfx", [Convert]::FromBase64String($env:PFX))
+          echo "SIGNTOOL=signtool sign /f $env:RUNNER_TEMP\sign.pfx /p ${{ secrets.SIGNING_CERT_PASSWORD }} /tr http://timestamp.digicert.com /td sha256 /fd sha256" >> $env:GITHUB_ENV
+      - name: Build Setup.exe
+        shell: pwsh
+        run: |
+          $v = "${{ needs.package.outputs.version }}"
+          $sign = if ($env:SIGNTOOL) { "/S""signtool=$env:SIGNTOOL""" ; "/DSignTool=signtool" } else { @() }
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DAppVersion=$v" "/DPackageZip=$PWD\dist\sdp-dashboard-$v.zip" @sign tools\installer-v2\SDP-Dashboard.iss
+      - name: Note signing state
+        shell: pwsh
+        run: |
+          if ($env:SIGNTOOL) { "signed: yes" } else { "signed: NO (SIGNING_CERT_PFX_BASE64 not set)" } | Tee-Object dist\SIGNING.txt
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/sdp-dashboard-*.zip
+            dist/sdp-dashboard-*.zip.sha256
+            dist/manifest.json
+            dist/SDP-Dashboard-Setup-*.exe
+            dist/SIGNING.txt
+          generate_release_notes: true

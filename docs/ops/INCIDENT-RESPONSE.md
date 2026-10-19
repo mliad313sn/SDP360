@@ -20,7 +20,7 @@ Signaux à surveiller : System Logs ▸ événements à risque (`login_failed` e
 2. **Contenir (≤ 2 h)** — Admin ▸ Sessions actives ▸ *Force logout* du compte ; désactiver le compte (Admin ▸ Users) ; en mode SSO, révoquer les sessions dans Entra ; si une clé d'API ou un secret est suspecté : le régénérer à la source (Zoho, Meraki, OpManager, webhook Teams) puis le ressaisir dans Admin (les secrets sont chiffrés à l'écriture).
 3. **Préserver les preuves** — exporter System Logs (`/api/reports/system-log/export.csv`) sur la fenêtre concernée ; conserver le journal pm2 (`pm2 logs --nostream --lines 2000`) ; ne pas purger (`audit.retention` garde 12 mois, 24 pour les événements à risque).
 4. **Éradiquer** — appliquer le correctif (dépendance, configuration, code) via la CI ; si une sauvegarde a fui : rotation de **toutes** les clés listées dans `_SECRET_BLANK_KEEP` puis `node tools/pg/reencrypt-secrets.js --apply` avec `SDP_CONFIG_KEY_OLD` pour changer la clé de chiffrement.
-5. **Restaurer** — si des données ont été altérées : point de restauration (`_sdp_admin.cmd` ▸ restauration, sauvegarde `pre-restore` automatique), puis relance des synchronisations (le garde de troncature protège la réconciliation).
+5. **Restaurer** — si des données ont été altérées : point de restauration (Manager ▸ `sdp-manager rollback` / restauration PostgreSQL, sauvegarde `pre-restore` automatique), puis relance des synchronisations (le garde de troncature protège la réconciliation).
 6. **Clôturer et apprendre (≤ 5 jours ouvrés)** — fiche d'incident (chronologie, cause, impact, actions), décision `DEC-` du comité si une règle change, mise à jour de ce document.
 
 ## 4. Communication
