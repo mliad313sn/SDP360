@@ -146,6 +146,7 @@
       <a href="#en-6">6. Executive Dashboard</a>
       <a href="#en-7">7. Admin Panel</a>
       <a class="toc-sub" href="#en-7-5">Sync health</a>
+      <a class="toc-sub" href="#en-7-6">KPI dictionary &amp; site registry</a>
       <a href="#en-8">8. Quick Reference</a>
       <a href="#en-9">9. Incident SLA Targets</a>
       <a class="toc-sub" href="#en-9-1">Priority Mapping</a>
@@ -565,6 +566,11 @@
         <p>Network errors, Zoho/Meraki "too many requests" (429) and server errors are retried automatically with an increasing delay; other errors are not. <strong>Alerts</strong> (armed off by default): tick <em>E-mail alerts</em> and enter the recipients, and/or <em>Teams card</em> (sent to the default "*" channel of the Teams SLA alerts). An alert is sent after 2 consecutive failures (once per streak), when a job becomes stale, and a recovery notice when it works again.</p>
         <div class="warn">⚠️ <strong>Truncated exports are refused.</strong> The ticket, change and survey syncs download the whole Zoho view and delete local rows that are no longer in it. If a download would delete more than 20 % of a table, nothing is deleted, the run fails and the alert fires. If Zoho really deleted that many records, contact the platform owner.</div>
         <p><strong>Database line.</strong> Above the job table, Sync health shows whether every module runs on PostgreSQL and whether schema scripts are pending (the schema is applied by one migrator, <code>node db/migrate.js --status</code>). The job <strong>Encrypted PostgreSQL backup</strong> (02:30) writes an encrypted copy of the database each night once the administrator has set the backup folder and key on the server; it shows <em>idle</em> until then. The quarterly restore drill is described in <code>docs/ops/RESTORE-DRILL.md</code>.</p>
+
+        <h3 id="en-7-6">7.6 KPI dictionary &amp; site registry</h3>
+        <p><strong>Operations ▸ KPI Dictionary</strong> lists every figure the platform shows (helpdesk, changes, meetings, inspections, scores, assets, infrastructure, risk): what it measures, the formula, the window, the owner, the screen or module that computes it and the colour scale it uses. EN / FR switch at the top right. Indicators marked <strong>API</strong> can be read one site at a time with <code>GET /api/metrics/&lt;key&gt;?site=CODE&amp;month=YYYY-MM</code> — restricted to your own sites, and computed by the same function as the screen.</p>
+        <p>The <strong>Colour scales</strong> tab shows the green / amber / red thresholds in use today. They now live in one place (<code>public/lib/kpiRag.js</code>); <strong>no colour changed</strong>. Merging the ten scales into three is a governance decision: the impact per site is produced by <code>node tools/metrics/rag-impact.js</code>.</p>
+        <p>The <strong>Site registry</strong> tab (admin) shows, for each site, the code each module uses, what the codes still hard-coded in the application would give, and the asset and risk-register labels that point to it. A red flag (for example <em>no_meetings_code</em> or <em>inspection_map_disagrees</em>) is a point to settle before the hard-coded tables can be removed.</p>
       </div>
 
       <!-- 8 -->
@@ -1196,6 +1202,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Confirm-Destructive.ps1"
       <a href="#fr-6">6. Tableau de bord Exécutif</a>
       <a href="#fr-7">7. Panneau d'administration</a>
       <a class="toc-sub" href="#fr-7-5">Santé des synchronisations</a>
+      <a class="toc-sub" href="#fr-7-6">Dictionnaire des indicateurs</a>
       <a href="#fr-8">8. Référence rapide</a>
       <a href="#fr-9">9. Cibles SLA des incidents</a>
       <a class="toc-sub" href="#fr-9-1">Correspondances priorités</a>
@@ -1614,6 +1621,11 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Confirm-Destructive.ps1"
         <p>Les erreurs réseau, les « trop de requêtes » de Zoho/Meraki (429) et les erreurs serveur sont rejouées automatiquement avec un délai croissant ; les autres non. <strong>Alertes</strong> (désarmées par défaut) : cochez <em>E-mail alerts</em> et saisissez les destinataires, et/ou <em>Teams card</em> (envoyée au canal par défaut « * » des alertes SLA Teams). Une alerte part après 2 échecs consécutifs (une fois par série), quand une tâche devient périmée, et un avis de rétablissement quand elle refonctionne.</p>
         <div class="warn">⚠️ <strong>Les exports tronqués sont refusés.</strong> Les synchronisations des tickets, changements et enquêtes téléchargent toute la vue Zoho et suppriment les lignes locales qui n'y figurent plus. Si un téléchargement devait supprimer plus de 20 % d'une table, rien n'est supprimé, le passage échoue et l'alerte part. Si Zoho a réellement supprimé autant d'enregistrements, contactez le responsable de la plateforme.</div>
         <p><strong>Ligne « Database ».</strong> Au-dessus du tableau, Sync health indique si tous les modules tournent sur PostgreSQL et si des scripts de schéma sont en attente (le schéma est appliqué par un migrateur unique, <code>node db/migrate.js --status</code>). La tâche <strong>Encrypted PostgreSQL backup</strong> (02:30) écrit chaque nuit une copie chiffrée de la base dès que l'administrateur a réglé le dossier et la clé de sauvegarde sur le serveur ; elle reste <em>idle</em> jusque-là. L'exercice de restauration trimestriel est décrit dans <code>docs/ops/RESTORE-DRILL.md</code>.</p>
+
+        <h3 id="fr-7-6">7.6 Dictionnaire des indicateurs &amp; registre des sites</h3>
+        <p><strong>Operations ▸ KPI Dictionary</strong> liste chaque chiffre affiché par la plateforme (helpdesk, changements, réunions, inspections, scores, actifs, infrastructure, risques) : ce qu’il mesure, la formule, la période, le responsable, l’écran ou le module qui le calcule et l’échelle de couleurs appliquée. Bascule EN / FR en haut à droite. Les indicateurs marqués <strong>API</strong> se lisent site par site avec <code>GET /api/metrics/&lt;clé&gt;?site=CODE&amp;month=AAAA-MM</code> — limité à vos propres sites, calculé par la même fonction que l’écran.</p>
+        <p>L’onglet <strong>Échelles de couleurs</strong> montre les seuils vert / orange / rouge appliqués aujourd’hui. Ils sont désormais réunis à un seul endroit (<code>public/lib/kpiRag.js</code>) ; <strong>aucune couleur n’a changé</strong>. Ramener les dix échelles à trois est une décision de gouvernance : l’impact par site est produit par <code>node tools/metrics/rag-impact.js</code>.</p>
+        <p>L’onglet <strong>Registre des sites</strong> (admin) montre, pour chaque site, le code utilisé par chaque module, ce que donneraient les codes encore écrits en dur dans l’application, et les libellés d’actifs et du registre des risques qui y mènent. Un drapeau rouge (par exemple <em>no_meetings_code</em> ou <em>inspection_map_disagrees</em>) est un point à trancher avant de pouvoir supprimer les tables codées en dur.</p>
       </div>
 
       <!-- 8 FR -->

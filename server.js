@@ -1246,7 +1246,7 @@ function loadHtml(name) {
   'meetings.html', 'meeting.html', 'meetings-issues.html', 'meetings-council.html', 'meetings-compliance.html',
   'meetings-import.html', 'meetings-progress.html', 'meetings-insights.html', 'meetings-setup.html', 'meetings-actions.html',
   'meetings-unsigned.html',
-  'activity-tracker.html', 'help.html', 'exec-view.html', 'site-report.html', 'it-review.html', 'site-actions.html', 'system-logs.html',
+  'activity-tracker.html', 'help.html', 'exec-view.html', 'site-report.html', 'it-review.html', 'site-actions.html', 'system-logs.html', 'kpi-dictionary.html',
   'site-awareness.html',
   'assets.html', 'assets-hygiene.html', 'assets-finance.html', 'wan.html', 'wan-health.html', 'wan-sla.html', 'itsm-roadmap.html',
   'infra-health.html', 'itsm-integrations-plan.html',
@@ -1412,6 +1412,7 @@ app.get('/meetings-actions.html',    (req, res) => sendHtmlPage(res, 'meetings-a
 // SP1a — per-site Actions Register hub (meetings + inspection + report follow-ups).
 app.get('/site-actions.html',        (req, res) => sendHtmlPage(res, 'site-actions.html',        false, 'Site Actions Register unavailable'));
 app.get('/system-logs.html',         (req, res) => sendHtmlPage(res, 'system-logs.html',         false, 'System Logs unavailable'));
+app.get('/kpi-dictionary.html',      (req, res) => sendHtmlPage(res, 'kpi-dictionary.html',      false, 'KPI Dictionary unavailable'));
 app.get('/meetings-unsigned.html',   (req, res) => sendHtmlPage(res, 'meetings-unsigned.html',   false, 'Unsigned PVs unavailable'));
 app.get('/meetings-council.html',    (req, res) => sendHtmlPage(res, 'meetings-council.html',    false, 'Council escalations unavailable'));
 app.get('/meetings-compliance.html', (req, res) => sendHtmlPage(res, 'meetings-compliance.html', false, '5 Engagements monitor unavailable'));
@@ -8165,6 +8166,8 @@ app.use(require('./routes/siteAwareness')({ express, requireReportSession, rdb: 
 app.use(require('./routes/roadmap')({ express, requireReportSession, requireSuperAdmin }));
 // Teams SLA alerts (2026-10-03) — super_admin settings, test card, preview, run-now.
 app.use(require('./routes/teamsSla')({ express, requireReportSession, requireSuperAdmin }));
+// Step 3 (SDP-DASH-2.0) — KPI dictionary (/api/metrics/*) + site registry (/api/registry/sites, admin).
+app.use(require('./routes/metrics')({ express, requireReportSession, requireAdmin, siteCodeReadDenied: _siteCodeReadDenied }));
 
 // ══════════════════════════════════════════════════════════════════
 // MEETINGS — Department Meetings & Council Escalations (v2 schema)

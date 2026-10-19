@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KPI Dictionary · Endeavour Mining IT</title>
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="_shell.css">
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/kpiRag.js"></script>
+<style>
+  body{font-family:"Segoe UI",Calibri,Arial,sans-serif;color:var(--edv-ink,#1f2933);background:var(--edv-surface-2,#f4f6f8);margin:0}
+  .kd-wrap{max-width:1280px;margin:0 auto;padding:18px 16px 60px}
+  .kd-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;border-left:5px solid var(--edv-orange,#e87722);padding:10px 16px;background:#fff;border-radius:8px;margin-bottom:14px}
+  .kd-head h1{margin:0;font-size:1.4rem;color:var(--edv-navy,#1e3a5f)}
+  .kd-head p{margin:4px 0 0;font-size:.82rem;color:#5b6773}
+  .kd-lang button{padding:5px 10px;border:1px solid var(--edv-border,#d7dde3);background:#fff;border-radius:6px;font-weight:700;cursor:pointer}
+  .kd-lang button.active{background:var(--edv-navy,#1e3a5f);color:#fff}
+  .kd-tabs{display:flex;gap:4px;margin-bottom:14px;border-bottom:1px solid var(--edv-border,#e2e8f0)}
+  .kd-tab{padding:9px 16px;border:1px solid transparent;border-bottom:none;border-radius:8px 8px 0 0;background:none;font-size:.88rem;font-weight:600;color:#475569;cursor:pointer}
+  .kd-tab.active{background:#fff;color:var(--edv-navy,#1e3a5f);border-color:var(--edv-border,#e2e8f0);box-shadow:inset 0 -2px 0 0 var(--edv-orange,#e87722)}
+  .kd-pane{display:none} .kd-pane.active{display:block}
+  .kd-filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:#fff;border:1px solid var(--edv-border,#e2e8f0);border-radius:8px;padding:12px;margin-bottom:12px}
+  .kd-filters input,.kd-filters select{padding:6px 8px;border:1px solid var(--edv-border,#d7dde3);border-radius:6px;font:inherit;font-size:.82rem}
+  .kd-scroll{overflow-x:auto}
+  table.kd-tbl{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--edv-border,#e2e8f0);font-size:.8rem}
+  .kd-tbl th{background:var(--edv-navy,#1e3a5f);color:#fff;text-align:left;padding:8px 10px;font-size:.7rem;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
+  .kd-tbl td{padding:7px 10px;border-top:1px solid #eef2f6;vertical-align:top}
+  .kd-tbl tr:nth-child(even) td{background:#f9fbfc}
+  .kd-key{font-family:Consolas,monospace;font-size:.74rem;color:#145FAE}
+  .kd-muted{color:#5b6773;font-size:.74rem}
+  .pill{display:inline-block;font-size:.68rem;font-weight:700;border-radius:9px;padding:1px 8px;background:#eef2f6;color:#475569;white-space:nowrap}
+  .pill.api{background:#e7f6ec;color:#1d7a3e}
+  .pill.warn{background:#fff4e5;color:#9a5a00}
+  .pill.bad{background:#fdecef;color:#b0002c}
+  .kd-note{background:#fff;border:1px solid var(--edv-border,#e2e8f0);border-radius:8px;padding:12px 14px;margin:12px 0;font-size:.82rem}
+  .kd-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:0 0 12px}
+  .kd-kpi{background:#fff;border:1px solid var(--edv-border,#e2e8f0);border-radius:8px;padding:12px}
+  .kd-kpi .v{font-size:1.5rem;font-weight:800;color:var(--edv-navy,#1e3a5f)} .kd-kpi .l{font-size:.68rem;text-transform:uppercase;color:#5b6773}
+  [data-lng="fr"]{display:none} body.lang-fr [data-lng="en"]{display:none} body.lang-fr [data-lng="fr"]{display:inline}
+</style>
+</head>
+<body>
+<div id="__shell" data-section="operations" data-current="kpi-dictionary"></div>
+<div class="kd-wrap">
+  <div class="kd-head">
+    <div>
+      <h1><span data-lng="en">KPI Dictionary</span><span data-lng="fr">Dictionnaire des indicateurs</span></h1>
+      <p><span data-lng="en">Every figure the platform shows: what it measures, how it is computed, over which window, who owns it, and which colour scale applies.</span>
+         <span data-lng="fr">Chaque chiffre affiché : ce qu’il mesure, comment il est calculé, sur quelle période, qui en est responsable et quelle échelle de couleurs s’applique.</span></p>
+    </div>
+    <div class="kd-lang"><button data-lang="en" class="active">EN</button><button data-lang="fr">FR</button></div>
+  </div>
+
+  <div class="kd-tabs">
+    <button class="kd-tab active" data-pane="dict"><span data-lng="en">Indicators</span><span data-lng="fr">Indicateurs</span></button>
+    <button class="kd-tab" data-pane="rag"><span data-lng="en">Colour scales</span><span data-lng="fr">Échelles de couleurs</span></button>
+    <button class="kd-tab" data-pane="sites" id="tabSites" hidden><span data-lng="en">Site registry</span><span data-lng="fr">Registre des sites</span></button>
+  </div>
+
+  <section class="kd-pane active" id="pane-dict">
+    <div class="kd-filters">
+      <input id="q" type="search" placeholder="Search / Rechercher…" aria-label="Search">
+      <select id="dom" aria-label="Domain"><option value="">All domains / Tous les domaines</option></select>
+      <span class="kd-muted" id="count"></span>
+    </div>
+    <div class="kd-scroll"><table class="kd-tbl" id="tblDict"><thead><tr>
+      <th><span data-lng="en">Indicator</span><span data-lng="fr">Indicateur</span></th>
+      <th><span data-lng="en">Formula</span><span data-lng="fr">Formule</span></th>
+      <th><span data-lng="en">Window</span><span data-lng="fr">Période</span></th>
+      <th><span data-lng="en">Owner</span><span data-lng="fr">Responsable</span></th>
+      <th><span data-lng="en">Colour scale</span><span data-lng="fr">Échelle</span></th>
+      <th>Source</th>
+    </tr></thead><tbody></tbody></table></div>
+    <div class="kd-note">
+      <span data-lng="en"><span class="pill api">API</span> = available as <code>GET /api/metrics/&lt;key&gt;?site=CODE&amp;month=YYYY-MM</code> (or <code>from=&amp;to=</code>), restricted to your sites. The formulas are not re-implemented by the API — it calls the same reader as the screen.</span>
+      <span data-lng="fr"><span class="pill api">API</span> = disponible via <code>GET /api/metrics/&lt;clé&gt;?site=CODE&amp;month=AAAA-MM</code> (ou <code>from=&amp;to=</code>), limité à vos sites. L’API ne recalcule rien : elle appelle la même fonction que l’écran.</span>
+    </div>
+  </section>
+
+  <section class="kd-pane" id="pane-rag">
+    <div class="kd-note">
+      <span data-lng="en">The colours below are the ones in use today. They are kept in one registry (<code>public/lib/kpiRag.js</code>) so they can be changed in one place — but merging them is a governance decision, prepared with a before/after impact table per site.</span>
+      <span data-lng="fr">Ces couleurs sont celles appliquées aujourd’hui. Elles sont réunies dans un registre unique (<code>public/lib/kpiRag.js</code>) pour pouvoir être modifiées à un seul endroit — mais leur fusion est une décision de gouvernance, préparée avec un tableau d’impact avant/après par site.</span>
+    </div>
+    <div class="kd-scroll"><table class="kd-tbl" id="tblRag"><thead><tr>
+      <th><span data-lng="en">Scale</span><span data-lng="fr">Échelle</span></th>
+      <th><span data-lng="en">Green</span><span data-lng="fr">Vert</span></th>
+      <th><span data-lng="en">Amber</span><span data-lng="fr">Orange</span></th>
+      <th><span data-lng="en">Red</span><span data-lng="fr">Rouge</span></th>
+      <th><span data-lng="en">Indicators</span><span data-lng="fr">Indicateurs</span></th>
+      <th>Source</th>
+    </tr></thead><tbody></tbody></table></div>
+  </section>
+
+  <section class="kd-pane" id="pane-sites">
+    <div class="kd-kpis" id="siteKpis"></div>
+    <div class="kd-note">
+      <span data-lng="en">One row per site: the code each module uses (from the database), what the hard-coded maps still in the code would give, and the asset / risk-register labels that point to it. A red flag means a hard-coded map disagrees with the database — it must be settled before that map can be removed.</span>
+      <span data-lng="fr">Une ligne par site : le code utilisé par chaque module (en base), ce que donnent les tables codées en dur encore présentes, et les libellés d’actifs / registre des risques qui y mènent. Un drapeau rouge signale un désaccord entre une table codée en dur et la base — à trancher avant de pouvoir supprimer cette table.</span>
+    </div>
+    <div class="kd-scroll"><table class="kd-tbl" id="tblSites"><thead></thead><tbody></tbody></table></div>
+    <p class="kd-muted" id="unmapped"></p>
+  </section>
+</div>
+
+<script nonce="%%CSP_NONCE%%">
+(function () {
+  var tok = function () { return window.__authToken || ''; };
+  function api(p) {
+    return fetch(p, { headers: { 'x-report-token': tok() } }).then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status); return r.json();
+    });
+  }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  var lang = 'en';
+  try { lang = localStorage.getItem('kd_lang') || 'en'; } catch (_) {}
+  function setLang(l) {
+    lang = l; document.body.classList.toggle('lang-fr', l === 'fr');
+    document.querySelectorAll('.kd-lang button').forEach(function (b) { b.classList.toggle('active', b.dataset.lang === l); });
+    try { localStorage.setItem('kd_lang', l); } catch (_) {}
+    renderDict();
+  }
+  document.querySelectorAll('.kd-lang button').forEach(function (b) { b.addEventListener('click', function () { setLang(b.dataset.lang); }); });
+  document.querySelectorAll('.kd-tab').forEach(function (t) {
+    t.addEventListener('click', function () {
+      document.querySelectorAll('.kd-tab').forEach(function (x) { x.classList.toggle('active', x === t); });
+      document.querySelectorAll('.kd-pane').forEach(function (p) { p.classList.toggle('active', p.id === 'pane-' + t.dataset.pane); });
+      if (t.dataset.pane === 'sites') loadSites();
+    });
+  });
+
+  var METRICS = [];
+  function renderDict() {
+    var q = (document.getElementById('q').value || '').toLowerCase();
+    var dom = document.getElementById('dom').value;
+    var rows = METRICS.filter(function (m) {
+      if (dom && m.domain !== dom) return false;
+      if (!q) return true;
+      return [m.key, m.en, m.fr, m.formula, m.source, m.owner].join(' ').toLowerCase().indexOf(q) >= 0;
+    });
+    document.getElementById('count').textContent = rows.length + ' / ' + METRICS.length;
+    document.querySelector('#tblDict tbody').innerHTML = rows.map(function (m) {
+      return '<tr><td><strong>' + esc(lang === 'fr' ? m.fr : m.en) + '</strong><br><span class="kd-key">' + esc(m.key) + '</span> ' +
+        (m.serve ? '<span class="pill api">API</span>' : '') + '<br><span class="kd-muted">' + esc(m.unit) +
+        (m.direction === 'lower' ? ' · ↓' : m.direction === 'higher' ? ' · ↑' : '') + '</span></td>' +
+        '<td>' + esc(m.formula) + '</td><td>' + esc(m.window) + '</td><td>' + esc(m.owner) + '</td>' +
+        '<td>' + (m.policy ? '<span class="pill">' + esc(m.policy) + '</span>' : '<span class="kd-muted">—</span>') + '</td>' +
+        '<td class="kd-muted">' + esc(m.source) + '</td></tr>';
+    }).join('');
+  }
+  document.getElementById('q').addEventListener('input', renderDict);
+  document.getElementById('dom').addEventListener('change', renderDict);
+
+  function renderRag() {
+    var P = (window.KpiRag && window.KpiRag.POLICIES) || {};
+    document.querySelector('#tblRag tbody').innerHTML = Object.keys(P).map(function (k) {
+      var p = P[k], g, a, r;
+      var pct = function (v) { return p.scale === 1 ? Math.round(v * 100) + ' %' : v; };
+      if (p.kind === 'fixed') { g = '≥ ' + pct(p.g); a = '≥ ' + pct(p.a); r = '< ' + pct(p.a); }
+      else if (p.kind === 'target') { g = '≥ target'; a = p.ratio === 1 ? '—' : '≥ ' + Math.round(p.ratio * 100) + ' % × target'; r = 'below'; }
+      else { g = '≥ target'; a = '≥ target − ' + p.margin; r = 'below'; }
+      var used = METRICS.filter(function (m) { return m.policy === k; }).map(function (m) { return esc(m.key); }).join('<br>');
+      return '<tr><td><span class="pill">' + esc(k) + '</span></td><td>' + g + '</td><td>' + a + '</td><td>' + r + '</td><td class="kd-key">' + (used || '—') + '</td><td class="kd-muted">' + esc(p.source) + '</td></tr>';
+    }).join('');
+  }
+
+  var sitesLoaded = false;
+  function loadSites() {
+    if (sitesLoaded) return; sitesLoaded = true;
+    api('/api/registry/sites').then(function (d) {
+      var s = d.summary || {};
+      document.getElementById('siteKpis').innerHTML = [
+        ['Sites', s.sites], ['Flags', s.blocking_issues], ['Sites flagged', s.with_issues],
+        ['Several codes', s.several_codes], ['Unmapped asset labels', s.unmapped_asset_labels],
+      ].map(function (k) { return '<div class="kd-kpi"><div class="v">' + esc(k[1]) + '</div><div class="l">' + esc(k[0]) + '</div></div>'; }).join('');
+      var mods = d.modules || [];
+      document.querySelector('#tblSites thead').innerHTML = '<tr><th>Site</th>' + mods.map(function (m) { return '<th>' + esc(m) + '</th>'; }).join('') +
+        '<th>Hard-coded</th><th>Asset labels</th><th>Risk register labels</th><th>Flags</th></tr>';
+      document.querySelector('#tblSites tbody').innerHTML = (d.sites || []).map(function (r) {
+        var hc = r.hard_coded || {};
+        var flags = (r.issues || []).map(function (i) { return '<span class="pill ' + (i.info ? 'warn' : 'bad') + '" title="' + esc(i.text) + '">' + esc(i.kind) + '</span>'; }).join(' ');
+        return '<tr><td><strong>' + esc(r.name) + '</strong><br><span class="kd-muted">#' + esc(r.site_id) + (r.zoho_group ? ' · ' + esc(r.zoho_group) : '') + '</span></td>' +
+          mods.map(function (m) { return '<td class="kd-key">' + esc(r.codes[m] || '—') + '</td>'; }).join('') +
+          '<td class="kd-muted">tracker ' + esc(hc.tracker || '—') + '<br>inspection ' + esc(hc.inspection || '—') + '</td>' +
+          '<td class="kd-muted">' + esc((r.asset_labels || []).join(', ') || '—') + '</td>' +
+          '<td class="kd-muted">' + esc((r.rr_labels || []).join(', ') || '—') + '</td>' +
+          '<td>' + (flags || '<span class="pill api">OK</span>') + '<br><span class="kd-muted">' + esc((r.issues || []).filter(function (i) { return !i.info; }).map(function (i) { return i.text; }).join(' ')) + '</span></td></tr>';
+      }).join('');
+      var u = d.unmapped_asset_labels || [];
+      document.getElementById('unmapped').textContent = u.length ? 'Asset labels with no site: ' + u.join(', ') : '';
+    }).catch(function (e) {
+      sitesLoaded = false;
+      document.querySelector('#tblSites tbody').innerHTML = '<tr><td>Could not load the site registry (' + esc(e.message) + ').</td></tr>';
+    });
+  }
+
+  api('/api/metrics/registry').then(function (d) {
+    METRICS = d.metrics || [];
+    var doms = [];
+    METRICS.forEach(function (m) { if (doms.indexOf(m.domain) < 0) doms.push(m.domain); });
+    document.getElementById('dom').insertAdjacentHTML('beforeend', doms.map(function (x) { return '<option value="' + esc(x) + '">' + esc(x) + '</option>'; }).join(''));
+    setLang(lang); renderRag();
+  }).catch(function (e) {
+    document.querySelector('#tblDict tbody').innerHTML = '<tr><td colspan="6">Could not load the dictionary (' + esc(e.message) + ').</td></tr>';
+  });
+
+  if (window.__userHasRole && window.__userHasRole('admin')) document.getElementById('tabSites').hidden = false;
+})();
+</script>
+</body>
+</html>

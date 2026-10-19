@@ -47,10 +47,9 @@ function monthBoundsOf(dateStr) {
 }
 
 function statusColor(value, target) {
-  if (value == null || target == null) return 'none';
-  if (value >= target) return 'green';
-  if (value >= target - 2) return 'orange';
-  return 'red';
+  // Thresholds: RAG policy 'opm_availability' (public/lib/kpiRag.js) - the target-2 variant (ETAPE-03 DEC-3).
+  const k = require('../public/lib/kpiRag').classify('opm_availability', value, target);
+  return k == null ? 'none' : k === 'amber' ? 'orange' : k;
 }
 
 // dailyRows: [{ probe, type, category, day, uptime_pct, uptime_dur, downtime_dur,

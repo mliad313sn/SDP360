@@ -29,7 +29,8 @@ const PT_THRESHOLDS = [
 ];
 
 // rag2() — bands on the composite score.
-function rag2(score) { return score >= 70 ? 'GREEN' : score >= 45 ? 'AMBER' : 'RED'; }
+// Thresholds: RAG policy 'programme_score' (public/lib/kpiRag.js).
+function rag2(score) { return (require('../public/lib/kpiRag').classify('programme_score', score) || 'red').toUpperCase(); }
 
 // sbMoveText() — verbatim. NOTE: the 6th branch is a FALLBACK return, not an
 // `if (key === 'signoff')`, so an unknown key yields the sign-off text. Kept.

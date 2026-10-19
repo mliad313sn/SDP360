@@ -5,6 +5,25 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased] — SDP-Dashboard 2.0, step 3: KPI dictionary, RAG registry, site registry (2026-10-19)
+
+### Added
+- **KPI dictionary** (`services/metrics/registry.js`, 46 indicators: formula, window, owner, source, colour
+  scale) — page **Operations ▸ KPI Dictionary** (EN/FR) and `GET /api/metrics/registry`.
+- **Per-KPI API** `GET /api/metrics/:key?site=CODE&month=YYYY-MM` (or `from=&to=`), site-scoped like every
+  site read; it calls the existing reader, never a second formula.
+- **RAG policy registry** `public/lib/kpiRag.js`: the 10 server-side colour scales in one place, value for
+  value — adopted by 8 server modules; no colour changed (fidelity tests + PPTX fingerprint unchanged).
+- **Site registry** `GET /api/registry/sites` (admin) + tab: every module's code per site, hard-coded maps
+  that disagree with the database, unmapped asset labels.
+- `tools/metrics/rag-impact.js` — read-only before/after table for the proposed 3-policy convergence.
+- Help §7.6 EN/FR; design dossier `docs/design/ETAPE-03-kpi.md` (decisions DEC-1…DEC-5 pending).
+
+### Changed
+- Inspection conformity is computed by one shared formula (`services/metrics/formulas.js`).
+
+---
+
 ## [Unreleased] — SDP-Dashboard 2.0, step 2: PostgreSQL only, schema migrator, CI (2026-10-19)
 
 ### Added

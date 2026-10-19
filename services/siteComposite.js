@@ -133,8 +133,9 @@ function twoMoves(site, D, comp) {
 // source line 126 — composite RAG bands: GREEN ≥75 · AMBER 55–74 · RED <55
 // (NOT rag2, which is the sbDims model's 70/45.)
 function rag(score) {
-  if (score >= 75) return { label: 'GREEN', bg: '#dcefe2', fg: '#2f7d4f' };
-  if (score >= 55) return { label: 'AMBER', bg: '#f5e7c8', fg: '#b07a17' };
+  const k = require('../public/lib/kpiRag').classify('composite', score) || 'red';   // thresholds: RAG policy 'composite'
+  if (k === 'green') return { label: 'GREEN', bg: '#dcefe2', fg: '#2f7d4f' };
+  if (k === 'amber') return { label: 'AMBER', bg: '#f5e7c8', fg: '#b07a17' };
   return { label: 'RED', bg: 'var(--color-accent-100)', fg: '#c2280f' };
 }
 

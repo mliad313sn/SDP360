@@ -52,10 +52,8 @@ function dimPts(m) {
 }
 
 // RAG bands: GREEN ≥70 · AMBER 45–69 · RED <45 (the deck's footer thresholds).
-function rag(score) {
-  if (score >= 70) return 'GREEN';
-  if (score >= 45) return 'AMBER';
-  return 'RED';
+function rag(score) {   // thresholds: RAG policy 'programme_score' (public/lib/kpiRag.js)
+  return (require('../public/lib/kpiRag').classify('programme_score', score) || 'red').toUpperCase();
 }
 
 // Ground rules: 3 department meetings a month over the 4-month programme (= 12)

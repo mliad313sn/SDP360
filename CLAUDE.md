@@ -81,6 +81,14 @@ made so far so that future sessions can pick up exactly where the last one ended
 > `REQUIRE_POSTGRES=1` (refus de démarrer si un module est en SQLite). Sauvegarde chiffrée nocturne = job
 > `db.backup` (`SDP_BACKUP_DIR` + `SDP_BACKUP_KEY`). CI GitHub Actions (`.github/workflows/ci.yml`, Node 24,
 > PostgreSQL 17 en service) — un test propre au poste Windows se marque `skip` avec sa raison hors win32.
+>
+> **Étape 3 (socle) livrée** (dossier `docs/design/ETAPE-03-kpi.md`) : dictionnaire des indicateurs
+> `services/metrics/registry.js` (46 KPI) + `/api/metrics/registry` + `/api/metrics/:key?site=&month=` (lit le
+> lecteur existant, jamais une 2e formule) + page `kpi-dictionary.html`. **Seuils RAG serveur = `public/lib/kpiRag.js`**
+> (10 politiques reproduites à l'identique ; un nouveau seuil va LÀ, jamais en littéral — test statique sur les
+> 8 modules adoptés). Registre des sites `GET /api/registry/sites` (admin) : codes par module vs tables en dur.
+> **La convergence 10 → 3 échelles (DEC-1) et la suppression des alias en dur (DEC-4) attendent le comité** —
+> preuve : `node tools/metrics/rag-impact.js` en prod. Ne pas brancher les pages navigateur sur `kpiRag` avant DEC-1.
 
 ---
 

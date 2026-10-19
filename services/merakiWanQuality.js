@@ -140,12 +140,9 @@ function qualityAvailability(series, opts = {}) {
 // >=target*0.9 orange, else red; null → none. NOT V1a's ±2 band — one canonical
 // band so the report cell and the WAN dashboard never disagree on a colour.
 function statusColor(pct, target) {
-  if (pct == null) return 'none';
-  const t = Number(target);
-  if (!Number.isFinite(t) || t <= 0) return 'none';
-  if (pct >= t) return 'green';
-  if (pct >= t * 0.9) return 'orange';
-  return 'red';
+  // Thresholds: RAG policy 'availability_target' (public/lib/kpiRag.js). 'orange' is this store's word for amber.
+  const k = require('../public/lib/kpiRag').classify('availability_target', pct, target);
+  return k == null ? 'none' : k === 'amber' ? 'orange' : k;
 }
 
 // A Meraki MX pings SEVERAL destinations per uplink (connectivityMonitoringDestinations).

@@ -12,11 +12,12 @@
 
 const WEIGHTS = { helpdesk: 0.40, inspections: 0.20, meetings: 0.20, assets: 0.20 };
 const DIMS = Object.keys(WEIGHTS);
-const G = 75; // green threshold
-const A = 55; // amber threshold
+// Thresholds live in the RAG policy registry (public/lib/kpiRag.js, policy 'scoreboard').
+const { bands: _ragBands, classify: _ragClassify } = require('../public/lib/kpiRag');
+const { green: G, amber: A } = _ragBands('scoreboard');
 
 const clamp = (v) => (v == null ? null : Math.max(0, Math.min(100, Number(v))));
-const ragOf = (s) => (s == null ? null : (s >= G ? 'green' : (s >= A ? 'amber' : 'red')));
+const ragOf = (s) => (s == null ? null : _ragClassify('scoreboard', s));
 
 /**
  * Score one row over the present dims with renormalized weights.

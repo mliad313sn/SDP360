@@ -85,9 +85,8 @@ function autoStatusColor(statusValue, target, storedColor) {
   const val = parseFloat(String(statusValue || '').replace('%', '').trim());
   const tgt = parseFloat(String(target || '').replace('%', '').trim());
   if (!isNaN(val) && !isNaN(tgt) && tgt > 0) {
-    if (val >= tgt)        return { color: '2D9C4A', hasColor: true };
-    if (val >= tgt * 0.90) return { color: 'E87722', hasColor: true };
-    return                        { color: 'D0312D', hasColor: true };
+    const k = require('./public/lib/kpiRag').classify('availability_target', val, tgt);   // same >=t / >=0.9t policy
+    return { color: k === 'green' ? '2D9C4A' : k === 'amber' ? 'E87722' : 'D0312D', hasColor: true };
   }
   const sc = statusColor(storedColor);
   const hasColor = !!(storedColor && storedColor !== 'none');

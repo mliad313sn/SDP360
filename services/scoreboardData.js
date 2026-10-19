@@ -12,6 +12,7 @@
 //   getEffortLeaderboard    ← assets-db.getEffortLeaderboard
 
 const { foldEffortByCode } = require('./scoreboardAliases');
+const { conformityPct } = require('./metrics/formulas');
 
 const pad2 = n => String(n).padStart(2, '0');
 
@@ -69,10 +70,7 @@ async function assembleMonth({ monthObj, from, to, asOf, deps }) {
     // (quarterly cadence — see inspectionWindow), NOT the current month.
     const iw = inspectionWindow(to);
     const agg = (await deps.getInspectionAggregate({ site: code, from: iw.from, to: iw.to })) || {};
-    const fs = agg.findingStatus || [];
-    const applicable = fs.filter(x => x.status !== 'na').reduce((a, x) => a + x.n, 0);
-    const ok = fs.filter(x => x.status === 'ok').reduce((a, x) => a + x.n, 0);
-    const inspections = applicable > 0 ? Math.round((100 * ok) / applicable) : null;
+    const inspections = conformityPct(agg.findingStatus);
 
     // Meetings — score already scaled to 0-100 above; null score stays null (NOT 0).
     const meetings = mtgMap.has(code) ? mtgMap.get(code) : null;
