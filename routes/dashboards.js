@@ -20,6 +20,7 @@
 
 const R = require('../public/lib/dashboardRender');
 const { WIDGET_TYPES, AUDIENCES, FILTER_TYPES, fieldReadiness } = require('../services/dashboardWidgets');
+const { resolveWidgets } = require('../services/dashboardData');
 
 /** Build the store against the reports DB (sqlite: DDL + seed now; pg: migration 016, seed at boot). */
 function createStore(rdbMod, { log = console.log } = {}) {
@@ -117,63 +118,11 @@ module.exports = function dashboardsRoutes(deps) {
       if (site != null && !sites.some(s => Number(s.id) === site)) return res.status(403).json({ ok: false, error: 'site not in your scope' });
       if (site == null) site = Number(sites[0].id);
       const window = req.query.window ? String(req.query.window).slice(0, 24) : null;
-      const reg = registry(); const dd = readerDeps(); const now = new Date();
-      const out = {};
-      for (const w of def.widgets || []) {
-        const m = w.metric ? reg.get(w.metric) : null;
-        const plan = R.widgetDataPlan(w, m && m.window_kind);
-        try {
-          if (plan.mode === 'single' && m) {
-            const one = await reg.resolve(w.metric, { site: m.reader === 'tracker.fleet' ? null : site, window, deps: dd, now });
-            let fleet = null;
-            if (plan.compare && m.reader !== 'tracker.fleet') {
-              const vals = [];
-              for (const s of sites) { const r = await reg.resolve(w.metric, { site: Number(s.id), window, deps: dd, now }); if (r && r.value != null) vals.push(Number(r.value)); }
-              fleet = vals.length ? { mean: Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10, n: vals.length } : null;
-            }
-            out[w.id] = { mode: 'single', unit: m.unit, value: one.value, rag: w.rag ? ragOverride(w.rag, one.value) : one.rag, window: one.window, as_of: one.as_of, fleet, error: one.error || null };
-          } else if (plan.mode === 'series' && m) {
-            const labels = R.windowSeries(plan.kind, plan.n, now);
-            const points = [];
-            for (const lab of labels) { const r = await reg.resolve(w.metric, { site: m.reader === 'tracker.fleet' ? null : site, window: lab, deps: dd, now }); points.push({ label: lab, value: r ? r.value : null }); }
-            out[w.id] = { mode: 'series', unit: m.unit, points, as_of: now.toISOString() };
-          } else if (plan.mode === 'per-site' && m) {
-            const rows = [];
-            for (const s of sites) { const r = await reg.resolve(w.metric, { site: Number(s.id), window, deps: dd, now }); rows.push({ site_id: Number(s.id), site: s.name, value: r ? r.value : null, rag: w.rag ? ragOverride(w.rag, r && r.value) : (r ? r.rag : 'NA') }); }
-            rows.sort((a, b) => (a.value == null) - (b.value == null) || (a.value - b.value));
-            out[w.id] = { mode: 'per-site', unit: m.unit, rows, summary: R.summarizeGrid(rows), as_of: now.toISOString() };
-          } else if (plan.mode === 'actions') {
-            out[w.id] = { mode: 'actions', ...(await actionsFor(site, plan)) };
-          } else out[w.id] = { mode: 'none' };
-        } catch (e) { out[w.id] = { mode: plan.mode, error: String(e.message || e).slice(0, 200), value: null }; }
-      }
+      const now = new Date();
+      const out = await resolveWidgets({ def, sites, site, window, reg: registry(), dd: readerDeps(), rdb: rdb(), now });
       res.json({ ok: true, key: d.key, version: d.version, site, sites: sites.map(s => ({ id: Number(s.id), name: s.name })), window, as_of: now.toISOString(), widgets: out });
     } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
   });
-
-  function ragOverride(rag, value) {
-    const KpiRag = require('../services/kpiRag');
-    if (value == null) return 'NA';
-    try { return typeof rag === 'string' ? KpiRag.rag(Number(value), rag) : (Number(value) >= rag.green ? 'GREEN' : Number(value) >= rag.amber ? 'AMBER' : 'RED'); } catch (_) { return 'NA'; }
-  }
-
-  async function actionsFor(siteId, plan) {
-    const codes = await rdb().listSiteModuleCodes('meetings');
-    const row = (codes || []).find(c => Number(c.site_id) === Number(siteId));
-    if (!row) return { items: [], totals: { open: 0 }, note: 'site has no meetings/inspection code' };
-    const code = row.code;
-    const { buildSiteActions } = require('../services/siteActionsRegister');
-    const mdb = require('../meetings-db'), idb = require('../inspection-db');
-    const asOf = new Date().toISOString().slice(0, 10);
-    const meetings = plan.sources.includes('meetings') ? await mdb.listActions({ site: code }) : [];
-    const inspection = plan.sources.includes('inspection') ? await idb.listActions({ site: code }) : [];
-    const report = plan.sources.includes('report') ? { actions: (await rdb().getSiteOpenReportActions(siteId)).actions } : null;
-    const sa = buildSiteActions({ meetings, inspection, report, asOf });
-    const items = [];
-    for (const g of ['meetings', 'incubation', 'inspection', 'report']) for (const it of (sa.groups[g] && sa.groups[g].items) || []) if (!plan.onlyOverdue || it.overdue) items.push({ source: g, ...it });
-    items.sort((a, b) => (b.overdue - a.overdue) || ((b.age_days || 0) - (a.age_days || 0)));
-    return { items: items.slice(0, 50), totals: sa.totals, site_code: code };
-  }
 
   // ---- publisher writes ------------------------------------------------------------
   router.put('/api/dashboards/:key', requireReportSession, requirePublisher, express.json({ limit: '1mb' }), async (req, res) => {

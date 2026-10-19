@@ -111,6 +111,14 @@ function buildJobs(d) {
   // Step 4 — audit retention: system_log kept 12 months (risk events 24). Mandatory job.
   list.push({ name: 'audit.retention', cron: '30 3 * * *', freshnessHours: 30,
     job: legacyJob('audit.retention', async () => { const rdb = d.rdb || require('../../reports-db'); const r = await rdb.purgeSystemLog({ months: Number(process.env.AUDIT_RETENTION_MONTHS) || 12 }); return { deleted: r.deleted, rows: r.deleted }; }) });
+  // Step 9 — engagement + publishing through the same runner (d.engagement = { evaluate, digest, reports, publish } injected by server.js).
+  const eng = d.engagement || null;
+  list.push({ name: 'engagement.alerts', cron: '*/15 * * * *', freshnessHours: 1, optional: true, job: legacyJob('engagement.alerts', () => eng ? eng.evaluate() : { skipped: true }, { maxAttempts: 2 }) });
+  list.push({ name: 'engagement.digest', cron: '0 7 * * *', freshnessHours: 30, optional: true, job: legacyJob('engagement.digest', () => eng ? eng.digest('daily') : { skipped: true }) });
+  list.push({ name: 'engagement.digest_weekly', cron: '15 7 * * 1', freshnessHours: 24 * 8, optional: true, job: legacyJob('engagement.digest_weekly', () => eng ? eng.digest('weekly') : { skipped: true }) });
+  list.push({ name: 'reports.weekly', cron: '30 6 * * 1', freshnessHours: 24 * 8, optional: true, job: legacyJob('reports.weekly', () => eng ? eng.reports('weekly') : { skipped: true }) });
+  list.push({ name: 'reports.monthly', cron: '45 6 1 * *', freshnessHours: 24 * 32, optional: true, job: legacyJob('reports.monthly', () => eng ? eng.reports('monthly') : { skipped: true }) });
+  list.push({ name: 'publish.connectors', cron: '0 6 * * *', freshnessHours: 30, optional: true, job: legacyJob('publish.connectors', () => eng ? eng.publish() : { skipped: true }) });
   return list;
 }
 
@@ -119,9 +127,11 @@ const FRESHNESS_HOURS = {
   'zoho.requests': 3, 'zoho.change_cab': 3, 'zoho.survey': 3, 'assets.sync': 30,
   'meridian.resources': 30, 'opmanager.availability': 30, 'meraki.wan': 30, 'meraki.wan_events': 30,
   'meraki.wan_events_5m': 1, 'meraki.wan_poller': 1, 'teams.sla_poll': 1, 'db.backup': 30, 'audit.retention': 30,
+  'engagement.alerts': 1, 'engagement.digest': 30, 'engagement.digest_weekly': 24 * 8, 'reports.weekly': 24 * 8, 'reports.monthly': 24 * 32, 'publish.connectors': 30,
 };
 // Jobs that self-skip until configured (no API key / webhook) — never reported "stale", only "idle".
-const OPTIONAL = new Set(['meridian.resources', 'opmanager.availability', 'meraki.wan', 'meraki.wan_events', 'meraki.wan_events_5m', 'meraki.wan_poller', 'teams.sla_poll', 'db.backup']);
+const OPTIONAL = new Set(['meridian.resources', 'opmanager.availability', 'meraki.wan', 'meraki.wan_events', 'meraki.wan_events_5m', 'meraki.wan_poller', 'teams.sla_poll', 'db.backup',
+  'engagement.alerts', 'engagement.digest', 'engagement.digest_weekly', 'reports.weekly', 'reports.monthly', 'publish.connectors']);
 
 // Map the legacy sync_metadata job names onto the registry names (one health view, D7).
 const LEGACY_NAMES = { requests: 'zoho.requests', change_cab: 'zoho.change_cab', survey: 'zoho.survey',

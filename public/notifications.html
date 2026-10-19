@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Notifications — Endeavour Mining IT</title>
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="brand/icons.css">
+<link rel="stylesheet" href="brand/components.css">
+<link rel="stylesheet" href="_shell.css">
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/dashboardRender.js"></script>
+<style nonce="%%CSP_NONCE%%">
+  body { margin:0; background:var(--color-background,#f4f6f7); color:#1F2A33; font-family:var(--font-sans,"Libre Franklin",system-ui,sans-serif); font-size:14px; }
+  .wrap { max-width:1360px; margin:0 auto; padding:24px; }
+  h1 { margin:0 0 4px; font-size:22px; color:var(--edv-slate,#3A4A60); } h2 { margin:0 0 10px; font-size:15px; color:#3A4A60; } .sub { font-size:13px; color:#6b7785; margin-bottom:14px; }
+  .bar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:10px 0; }
+  .btn, select, input, textarea { padding:7px 11px; border:1px solid #cfd6e0; border-radius:8px; background:#fff; font-size:13px; color:#1F2A33; font-family:inherit; }
+  .btn { cursor:pointer; text-decoration:none; display:inline-block; } .btn.primary { background:var(--edv-slate,#3A4A60); color:#fff; border-color:var(--edv-slate,#3A4A60); } .btn.danger { color:#b91c1c; }
+  .panel { background:#fff; border:1px solid #e4e8ee; border-radius:12px; padding:14px 16px; margin-bottom:14px; }
+  .grid2 { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:14px; }
+  .row { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:10px; } label { font-size:12px; color:#6b7785; display:flex; flex-direction:column; gap:3px; }
+  table { border-collapse:collapse; width:100%; font-size:12.5px; } th, td { border:1px solid #e4e8ee; padding:5px 7px; text-align:left; vertical-align:top; } th { background:#f4f6f7; font-weight:600; }
+  .pill { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:700; color:#fff; background:#6b7785; } .pill.GREEN,.pill.done,.pill.delivered,.pill.accepted,.pill.on_track{background:#27AE60} .pill.AMBER,.pill.in_progress,.pill.triaged,.pill.scheduled,.pill.live,.pill.at_risk{background:#E8A100} .pill.RED,.pill.rejected,.pill.late,.pill.blocked{background:#DC2626} .pill.NA,.pill.open,.pill.submitted,.pill.planned,.pill.todo{background:#3A4A60}
+  #msg .errors { background:#fef2f2; border:1px solid #fecaca; color:#991b1b; border-radius:10px; padding:8px 12px; font-size:12.5px; } #msg .ok { background:#f0fdf4; border:1px solid #bbf7d0; color:#166534; border-radius:10px; padding:8px 12px; font-size:12.5px; }
+  .muted { color:#6b7785; font-size:12px; } .scroll { overflow:auto; } .sr-only { position:absolute; left:-9999px; }
+  .tiles { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; } .tile { background:#fff; border:1px solid #e4e8ee; border-radius:12px; padding:10px 12px; } .tile .tn { font-size:22px; font-weight:700; color:#3A4A60; } .tile .tl { font-size:12px; color:#6b7785; }
+  .live { position:fixed; inset:0; background:#fff; z-index:50; overflow:auto; padding:24px; } .live .item { border:1px solid #e4e8ee; border-radius:12px; padding:12px 14px; margin-bottom:10px; } .live .item.active { border-color:#3A4A60; box-shadow:0 0 0 2px #3A4A6033; } .clock { font-variant-numeric:tabular-nums; font-size:18px; font-weight:700; color:#3A4A60; } .kpi { display:inline-block; min-width:140px; margin:4px 8px 4px 0; padding:6px 10px; border:1px solid #e4e8ee; border-radius:10px; }
+</style>
+</head>
+<body>
+<a class="edv-skip" href="#main">Skip to content</a>
+<div id="__shell" data-section="operations" data-current="notifications"></div>
+<main id="main" class="wrap">
+  <h1>Notifications</h1>
+  <div class="sub">Alerts, report packs and governance events addressed to you. Comment from here; subscribe to templates, dashboards or alert rules; choose a daily or weekly digest (help §26).</div>
+  <div id="msg" role="status" aria-live="polite"></div>
+  <div class="bar"><span class="pill NA" id="n-count">0 unread</span><button class="btn" id="n-all" type="button">Mark all read</button><label>Show <select id="n-filter"><option value="1">unread</option><option value="">all</option></select></label></div>
+  <div class="panel"><div id="list"></div></div>
+  <div class="grid2">
+    <div class="panel"><h2>My subscriptions</h2><div id="subs"></div><div class="row"><label>Kind <select id="s-kind"></select></label><label>Target key <input id="s-key" placeholder="site-weekly-pack · exec-home · sla.resolution.red"></label><label>Channel <select id="s-ch"></select></label><label>Digest <select id="s-dig"></select></label></div><div class="bar"><button class="btn primary" id="s-add" type="button">Subscribe</button></div></div>
+    <div class="panel"><h2>Alert rules</h2><div class="scroll" id="rules"></div><p class="muted">Rules are evaluated every 15 min by the shared runner; a rule fires after its streak of breaches, then stays quiet for its cool-down. A value that is not measured never fires.</p></div>
+  </div>
+  <section id="thread" class="panel" hidden><h2 id="th-title"></h2><div id="th-comments"></div><div class="row"><label style="grid-column:1/-1">Comment <textarea id="th-body" rows="2"></textarea></label></div><div class="bar"><button class="btn primary" id="th-send" type="button">Post comment</button></div></section>
+</main>
+<script nonce="%%CSP_NONCE%%">
+(function () {
+  "use strict";
+  var R = window.DashboardRender, $ = function (id) { return document.getElementById(id); }, esc = R.escapeHtml;
+  var H = function (x) { return Object.assign(window.__authToken ? { "x-report-token": window.__authToken } : {}, x || {}); };
+  function api(p, o) { return fetch(p, Object.assign({ headers: H(o && o.body ? { "content-type": "application/json" } : {}) }, o || {})).then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || ("HTTP " + r.status)); return j; }); }); }
+  var msg = function (h, cls) { $("msg").innerHTML = h ? "<div class=\"" + (cls || "ok") + "\">" + esc(h) + "</div>" : ""; };
+  var fail = function (e) { msg(e.message, "errors"); };
+  var S = null, curSrc = null;
+  function load() {
+    var unread = $("n-filter").value;
+    return Promise.all([api("/api/engagement/notifications?limit=200" + (unread ? "&unread=1" : "")), api("/api/engagement/subscriptions"), api("/api/engagement/rules")]).then(function (r) {
+      $("n-count").textContent = r[0].unread + " unread";
+      $("list").innerHTML = r[0].notifications.length ? r[0].notifications.map(function (n) { return "<div class=\"item\" style=\"border-bottom:1px solid #e4e8ee;padding:8px 0;" + (n.read_at ? "opacity:.7" : "") + "\"><b>" + esc(n.title) + "</b> <span class=\"pill " + (n.kind === "alert" ? "RED" : n.kind === "report" ? "AMBER" : "NA") + "\">" + esc(n.kind) + "</span> <small class=\"muted\">" + esc(String(n.created_at).slice(0, 16).replace("T", " ")) + "</small><br><span>" + esc(n.body || "") + "</span><br>" + (n.link ? "<a class=\"btn\" href=\"" + esc(n.link) + "\">Open</a> " : "") + (n.source_kind ? "<button class=\"btn\" data-th=\"" + esc(n.source_kind) + "|" + esc(n.source_ref) + "\" data-title=\"" + esc(n.title) + "\" type=\"button\">Comment</button> " : "") + (n.read_at ? "" : "<button class=\"btn\" data-read=\"" + n.id + "\" type=\"button\">Mark read</button>") + "</div>"; }).join("") : "<p class=\"muted\">Nothing here.</p>";
+      S = r[1]; var fill = function (id, items) { var s = $(id); if (s.options.length) return; items.forEach(function (x) { var o = document.createElement("option"); o.textContent = x; s.appendChild(o); }); }; fill("s-kind", S.kinds); fill("s-ch", S.channels); fill("s-dig", S.digests);
+      $("subs").innerHTML = S.subscriptions.length ? "<table><tbody>" + S.subscriptions.map(function (s) { return "<tr><td>" + esc(s.kind) + "</td><td><b>" + esc(s.target_key) + "</b></td><td>" + esc(s.channel) + " · digest " + esc(s.digest) + "</td><td><button class=\"btn\" data-unsub=\"" + s.id + "\" type=\"button\">Remove</button></td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">No subscription.</p>";
+      $("rules").innerHTML = "<table><thead><tr><th>Rule</th><th>Metric</th><th>Condition</th><th>Anti-noise</th><th>Channels</th><th>On</th></tr></thead><tbody>" + r[2].rules.map(function (x) { return "<tr><td><b>" + esc(x.name) + "</b><br><small class=\"muted\">" + esc(x.key) + "</small></td><td>" + esc(x.metric) + "</td><td>" + esc(x.op) + " " + esc(String(x.threshold)) + (x.scope === "fleet" ? " (fleet)" : "") + "</td><td>streak " + x.streak + " · cool-down " + Math.round(x.cooldown_min / 60) + " h</td><td>" + esc(x.channels.join(", ")) + "</td><td>" + (x.enabled ? "✓" : "—") + "</td></tr>"; }).join("") + "</tbody></table>" + (r[2].admin ? "<p class=\"muted\">Edit rules, channels and recipients on the Integrations page.</p>" : "");
+    }).catch(fail);
+  }
+  document.addEventListener("click", function (ev) { var b = ev.target.closest("button"); if (!b) return;
+    if (b.dataset.read) api("/api/engagement/notifications/read", { method: "POST", body: JSON.stringify({ ids: [Number(b.dataset.read)] }) }).then(load).catch(fail);
+    if (b.dataset.unsub) api("/api/engagement/subscriptions/" + b.dataset.unsub, { method: "DELETE" }).then(load).catch(fail);
+    if (b.dataset.th) { curSrc = b.dataset.th.split("|"); $("thread").hidden = false; $("th-title").textContent = "Comments — " + b.dataset.title; loadThread(); }
+  });
+  function loadThread() { return api("/api/engagement/comments?source_kind=" + encodeURIComponent(curSrc[0]) + "&source_ref=" + encodeURIComponent(curSrc[1])).then(function (j) { $("th-comments").innerHTML = j.comments.length ? j.comments.map(function (c) { return "<p><b>" + esc(c.user_name || "user") + "</b> <small class=\"muted\">" + esc(String(c.created_at).slice(0, 16).replace("T", " ")) + "</small><br>" + esc(c.body) + "</p>"; }).join("") : "<p class=\"muted\">No comment yet.</p>"; }).catch(fail); }
+  $("th-send").addEventListener("click", function () { api("/api/engagement/comments", { method: "POST", body: JSON.stringify({ source_kind: curSrc[0], source_ref: curSrc[1], body: $("th-body").value }) }).then(function () { $("th-body").value = ""; return loadThread(); }).catch(fail); });
+  $("n-all").addEventListener("click", function () { api("/api/engagement/notifications/read", { method: "POST", body: JSON.stringify({ all: true }) }).then(load).catch(fail); });
+  $("n-filter").addEventListener("change", load);
+  $("s-add").addEventListener("click", function () { api("/api/engagement/subscriptions", { method: "POST", body: JSON.stringify({ kind: $("s-kind").value, target_key: $("s-key").value.trim(), channel: $("s-ch").value, digest: $("s-dig").value }) }).then(function () { msg("Subscribed."); return load(); }).catch(fail); });
+  load();
+})();
+</script>
+</body>
+</html>
