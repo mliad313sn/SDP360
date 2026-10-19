@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.0.0-alpha.7 — 2026-10-19 — Étape 6 : composeur de tableaux de bord, espace direction, design system
+- Dashboard definitions are persisted and versioned (`services/dashboardStore.js`, sqlite + PostgreSQL `016`): draft → published version N → retired; viewers always see the last published snapshot; shipped definitions seeded once (`services/dashboardSeeds.js`: `exec-home`, `site-weekly`, `assets-hygiene`, `field-site`).
+- `routes/dashboards.js`: list / catalogue / definition / **one-call data resolver** (`/api/dashboards/:key/data` — every widget through the metric registry, site-scoped, fleet comparison, 13-week series, per-site RAG grid, open actions) / view log (once per actor per day) / publisher writes (admin or new feature role `dashboard-publisher`).
+- Pages: `dashboards.html` (list + viewer, "data as of", null ≠ 0) and `dashboard-composer.html` (widget catalogue, 12-column layout preview, draft / preview / publish / retire / versions); nav: Executive ▸ Executive Home, Operations ▸ Dashboards. Field-audience dashboards must pass `fieldReadiness` to be published.
+- Design system: widget components, RAG classes, densities, one-column collapse under 720 px, skip link, reduced-motion (`public/brand/components.css`); static accessibility floor in CI (`tests/a11y-static.test.js`).
+- Docs: dossier `docs/sdp360/design/ETAPE-06-design-direction.md`, usability script `ETAPE-06-test-utilisabilite.md` (FR), help §23 EN/FR.
+
 ## 2.0.0-alpha.6 — 2026-10-19 — Étape 5 : installateur, Manager, paquets versionnés, modularisation
 - Update package: `tools/deploy/make-update-package.js` builds `sdp-dashboard-<version>.zip` (every runtime file + `manifest.json` with SHA-256/size per file, version, commit) — full packages, no more marker-diff ZIP, no more frozen-lot register.
 - Manager CLI `tools/sdp-manager.js`: `status` (version, pm2, HTTP, sync health), `backup`, `verify`, `update` (manifest check → rollback point → copy → `npm ci` → migrator → stop/start → probe; any failure rolls back by itself; downgrade refused), `rollback`, `support-bundle` (env KEYS only). Pure rules in `services/updatePackage.js`.

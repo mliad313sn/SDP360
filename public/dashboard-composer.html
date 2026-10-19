@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard composer — Endeavour Mining IT</title>
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="brand/icons.css">
+<link rel="stylesheet" href="brand/components.css">
+<link rel="stylesheet" href="_shell.css">
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-require="admin|dashboard-publisher" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/dashboardRender.js"></script>
+<style nonce="%%CSP_NONCE%%">
+  body { margin:0; background:var(--color-background,#f4f6f7); color:#1F2A33; font-family:var(--font-sans,'Libre Franklin',system-ui,sans-serif); font-size:14px; }
+  .wrap { max-width:1360px; margin:0 auto; padding:var(--space-6,24px); }
+  h1 { margin:0 0 4px; font-size:22px; color:#3A4A60; } .sub { font-size:13px; color:#6b7785; margin-bottom:16px; }
+  .cols { display:grid; grid-template-columns:380px 1fr; gap:18px; } @media (max-width:900px) { .cols { grid-template-columns:1fr; } }
+  .panel { background:#fff; border:1px solid #e4e8ee; border-radius:12px; padding:14px 16px; }
+  .panel h2 { margin:0 0 10px; font-size:14px; color:#3A4A60; text-transform:uppercase; letter-spacing:.04em; }
+  label { display:block; font-size:12px; color:#6b7785; margin:8px 0 3px; }
+  input, select, textarea { width:100%; box-sizing:border-box; padding:7px 10px; border:1px solid #cfd6e0; border-radius:8px; font-size:13px; background:#fff; color:#1F2A33; }
+  textarea { min-height:70px; font-family:ui-monospace,monospace; font-size:12px; }
+  .row { display:grid; grid-template-columns:1fr 1fr; gap:8px; } .row4 { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+  .btn { padding:7px 12px; border:1px solid #cfd6e0; border-radius:8px; background:#fff; font-size:13px; cursor:pointer; color:#1F2A33; }
+  .btn.primary { background:#3A4A60; color:#fff; border-color:#3A4A60; } .btn.danger { color:#c0392b; border-color:#f3c8c2; }
+  .bar { display:flex; gap:8px; flex-wrap:wrap; margin:12px 0; }
+  .preview { display:grid; grid-template-columns:repeat(12,minmax(0,1fr)); grid-auto-rows:44px; gap:6px; background:#f7f8fa; border:1px dashed #cfd6e0; border-radius:12px; padding:8px; min-height:200px; }
+  .pw { background:#fff; border:1px solid #cfd6e0; border-radius:8px; padding:6px 8px; font-size:12px; overflow:hidden; cursor:pointer; }
+  .pw.sel { border-color:#3A4A60; box-shadow:0 0 0 2px rgba(58,74,96,.2); } .pw b { display:block; color:#3A4A60; } .pw small { color:#6b7785; }
+  .errors { background:#fdecea; border:1px solid #f3c8c2; color:#8a1f16; border-radius:10px; padding:10px 12px; font-size:12.5px; margin:10px 0; }
+  .ok { background:#e7f6ec; border:1px solid #c3e7d0; color:#1c7a3f; border-radius:10px; padding:10px 12px; font-size:12.5px; margin:10px 0; }
+  .meta { font-size:12px; color:#6b7785; }
+  ul.widgets { list-style:none; padding:0; margin:0; } ul.widgets li { display:flex; gap:8px; align-items:center; padding:6px 0; border-top:1px solid #f0f2f5; font-size:13px; } ul.widgets li:first-child { border-top:0; }
+  ul.widgets li .grow { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+</style>
+</head>
+<body>
+<a class="edv-skip" href="#main">Skip to content</a>
+<div id="__shell" data-section="operations" data-current="dashboards"></div>
+<main id="main" class="wrap">
+  <h1>Dashboard composer</h1>
+  <div class="sub">Assemble widgets over <strong>registered KPIs only</strong> (help §20). Save a draft, preview it with real data, then publish a numbered version. Published dashboards keep serving their last version until you publish again.</div>
+  <div id="msg" role="status" aria-live="polite"></div>
+  <div class="cols">
+    <div>
+      <div class="panel">
+        <h2>Dashboard</h2>
+        <label for="d-key">Key (letters, digits, - _)</label><input id="d-key" placeholder="sgo-weekly">
+        <label for="d-title">Title</label><input id="d-title" placeholder="Sabodala weekly">
+        <div class="row">
+          <div><label for="d-aud">Audience</label><select id="d-aud"></select></div>
+          <div><label for="d-site">Site (blank = fleet)</label><select id="d-site"><option value="">— fleet —</option></select></div>
+        </div>
+        <div class="bar">
+          <button class="btn primary" id="save" type="button">Save draft</button>
+          <button class="btn" id="preview" type="button">Preview with data</button>
+          <button class="btn" id="publish" type="button">Publish version</button>
+          <button class="btn danger" id="retire" type="button">Retire</button>
+        </div>
+        <div class="meta" id="d-meta"></div>
+      </div>
+      <div class="panel" style="margin-top:14px">
+        <h2 id="w-head">Widget</h2>
+        <div class="row">
+          <div><label for="w-id">Id</label><input id="w-id" placeholder="w1"></div>
+          <div><label for="w-type">Type</label><select id="w-type"></select></div>
+        </div>
+        <label for="w-title">Title</label><input id="w-title">
+        <label for="w-metric">Metric</label><select id="w-metric"><option value="">— none —</option></select>
+        <div class="row">
+          <div><label for="w-rag">RAG policy</label><select id="w-rag"><option value="">metric default</option></select></div>
+          <div><label for="w-window">Trend window (13w / 6m)</label><input id="w-window" placeholder="13w"></div>
+        </div>
+        <div class="row4">
+          <div><label for="w-x">x</label><input id="w-x" type="number" min="0" value="0"></div>
+          <div><label for="w-y">y</label><input id="w-y" type="number" min="0" value="0"></div>
+          <div><label for="w-w">w</label><input id="w-w" type="number" min="1" value="3"></div>
+          <div><label for="w-h">h</label><input id="w-h" type="number" min="1" value="2"></div>
+        </div>
+        <label for="w-extra">Options (JSON: compare, markdown, sources, onlyOverdue, pageSize…)</label><textarea id="w-extra">{}</textarea>
+        <div class="bar">
+          <button class="btn primary" id="w-add" type="button">Add / update widget</button>
+          <button class="btn danger" id="w-del" type="button">Remove</button>
+          <button class="btn" id="w-new" type="button">Clear form</button>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="panel">
+        <h2>Layout (12 columns) — click a widget to edit it</h2>
+        <div class="preview" id="grid" aria-label="Layout preview"></div>
+        <ul class="widgets" id="wlist"></ul>
+      </div>
+      <div class="panel" style="margin-top:14px">
+        <h2>Versions</h2>
+        <div id="versions" class="meta">—</div>
+      </div>
+    </div>
+  </div>
+</main>
+<script nonce="%%CSP_NONCE%%">
+(function () {
+  'use strict';
+  var R = window.DashboardRender;
+  var $ = function (id) { return document.getElementById(id); };
+  var H = function (extra) { return Object.assign(window.__authToken ? { 'x-report-token': window.__authToken } : {}, extra || {}); };
+  var params = new URLSearchParams(location.search);
+  var cat = null, doc = { key: '', title: '', audience: 'site', grid: { columns: 12 }, filters: [{ key: 'site', type: 'site' }, { key: 'window', type: 'window' }], widgets: [] }, meta = null, selected = null;
+
+  function api(path, opts) { return fetch(path, Object.assign({ headers: H(opts && opts.body ? { 'content-type': 'application/json' } : {}) }, opts || {})).then(function (r) { return r.json().then(function (j) { if (!r.ok) { var e = new Error(j.error || ('HTTP ' + r.status)); e.errors = j.errors || j.issues; throw e; } return j; }); }); }
+  function msg(html, cls) { $('msg').className = cls || ''; $('msg').innerHTML = html; }
+  function fail(e) { msg('<div class="errors">' + R.escapeHtml(e.message) + (e.errors ? '<ul>' + e.errors.map(function (x) { return '<li>' + R.escapeHtml((x.path ? x.path + ': ' : '') + (x.msg || x)) + '</li>'; }).join('') + '</ul>' : '') + '</div>'); }
+
+  function fillCatalogue() {
+    $('d-aud').innerHTML = cat.audiences.map(function (a) { return '<option value="' + a + '">' + a + '</option>'; }).join('');
+    $('w-type').innerHTML = Object.keys(cat.widgetTypes).map(function (t) { return '<option value="' + t + '">' + t + (cat.widgetTypes[t].needsMetric ? '' : ' (no metric)') + '</option>'; }).join('');
+    $('w-metric').innerHTML = '<option value="">— none —</option>' + cat.metrics.map(function (m) { return '<option value="' + m.key + '">' + R.escapeHtml(m.key + ' — ' + m.name + ' (' + (m.unit || '') + ', ' + m.window_kind + ')') + '</option>'; }).join('');
+    $('w-rag').innerHTML = '<option value="">metric default</option>' + Object.keys(cat.policies).map(function (p) { return '<option value="' + p + '">' + p + '</option>'; }).join('');
+  }
+
+  function renderGrid() {
+    var g = $('grid'); g.innerHTML = '';
+    doc.widgets.forEach(function (w) {
+      var el = document.createElement('div'); el.className = 'pw' + (selected === w.id ? ' sel' : ''); el.setAttribute('style', R.gridStyle(w.layout, 12)); el.tabIndex = 0; el.setAttribute('role', 'button');
+      el.innerHTML = '<b>' + R.escapeHtml(w.title || w.id) + '</b><small>' + R.escapeHtml(w.type + (w.metric ? ' · ' + w.metric : '')) + '</small>';
+      var pick = function () { loadWidget(w); }; el.addEventListener('click', pick); el.addEventListener('keydown', function (ev) { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); pick(); } });
+      g.appendChild(el);
+    });
+    $('wlist').innerHTML = doc.widgets.map(function (w) { return '<li><span class="edv-chip">' + R.escapeHtml(w.type) + '</span><span class="grow">' + R.escapeHtml(w.id + ' — ' + (w.title || '') + (w.metric ? ' · ' + w.metric : '')) + '</span><span class="meta">' + [w.layout.x, w.layout.y, w.layout.w, w.layout.h].join(',') + '</span></li>'; }).join('') || '<li class="meta">No widget yet — add one on the left.</li>';
+  }
+  function loadWidget(w) {
+    selected = w.id; $('w-head').textContent = 'Widget ' + w.id;
+    $('w-id').value = w.id; $('w-type').value = w.type; $('w-title').value = w.title || ''; $('w-metric').value = w.metric || ''; $('w-rag').value = typeof w.rag === 'string' ? w.rag : ''; $('w-window').value = w.window || '';
+    $('w-x').value = w.layout.x; $('w-y').value = w.layout.y; $('w-w').value = w.layout.w; $('w-h').value = w.layout.h;
+    var extra = {}; Object.keys(w).forEach(function (k) { if (['id', 'type', 'title', 'metric', 'rag', 'window', 'layout'].indexOf(k) < 0) extra[k] = w[k]; });
+    $('w-extra').value = JSON.stringify(extra, null, 2); renderGrid();
+  }
+  function readWidget() {
+    var extra = {}; try { extra = JSON.parse($('w-extra').value || '{}'); } catch (e) { throw new Error('Options must be valid JSON: ' + e.message); }
+    var w = Object.assign({}, extra, { id: $('w-id').value.trim(), type: $('w-type').value, layout: { x: +$('w-x').value, y: +$('w-y').value, w: +$('w-w').value, h: +$('w-h').value } });
+    if ($('w-title').value.trim()) w.title = $('w-title').value.trim(); else delete w.title;
+    if ($('w-metric').value) w.metric = $('w-metric').value; else delete w.metric;
+    if ($('w-rag').value) w.rag = $('w-rag').value; else delete w.rag;
+    if ($('w-window').value.trim()) w.window = $('w-window').value.trim(); else delete w.window;
+    return w;
+  }
+  function readDoc() { doc.key = $('d-key').value.trim(); doc.title = $('d-title').value.trim(); doc.audience = $('d-aud').value; return doc; }
+  function showMeta() { $('d-meta').textContent = meta ? ('status ' + meta.status + (meta.version ? ' · version ' + meta.version : ' · never published') + (meta.updated_at ? ' · saved ' + meta.updated_at : '')) : 'new dashboard — not saved yet'; }
+  function loadVersions() { if (!meta) return; api('/api/dashboards/' + encodeURIComponent(meta.key) + '/versions').then(function (j) { $('versions').innerHTML = j.versions.length ? j.versions.map(function (v) { return 'v' + v.version + ' — ' + R.escapeHtml(v.created_at) + (v.note ? ' — ' + R.escapeHtml(v.note) : ''); }).join('<br>') : 'never published'; }).catch(function () {}); }
+
+  $('w-add').addEventListener('click', function () {
+    try { var w = readWidget(); if (!w.id) throw new Error('widget id is required'); var i = doc.widgets.findIndex(function (x) { return x.id === (selected || w.id); }); if (i >= 0) doc.widgets[i] = w; else doc.widgets.push(w); selected = w.id; renderGrid(); msg(''); } catch (e) { fail(e); }
+  });
+  $('w-del').addEventListener('click', function () { doc.widgets = doc.widgets.filter(function (x) { return x.id !== selected; }); selected = null; $('w-new').click(); renderGrid(); });
+  $('w-new').addEventListener('click', function () { selected = null; $('w-head').textContent = 'Widget'; ['w-id', 'w-title', 'w-window'].forEach(function (id) { $(id).value = ''; }); $('w-metric').value = ''; $('w-rag').value = ''; $('w-extra').value = '{}'; renderGrid(); });
+  $('save').addEventListener('click', function () {
+    var d = readDoc(); if (!d.key) return fail(new Error('key is required'));
+    api('/api/dashboards/' + encodeURIComponent(d.key), { method: 'PUT', body: JSON.stringify({ definition: d, site_id: $('d-site').value || null }) })
+      .then(function (j) { meta = j.dashboard; showMeta(); loadVersions(); msg('<div class="ok">Draft saved' + (j.field && !j.field.ok ? ' — field readiness: ' + R.escapeHtml(j.field.issues.join('; ')) : '') + '</div>'); history.replaceState(null, '', 'dashboard-composer.html?key=' + encodeURIComponent(d.key)); }).catch(fail);
+  });
+  $('preview').addEventListener('click', function () { var d = readDoc(); if (!meta || meta.key !== d.key) return fail(new Error('save the draft first')); window.open('dashboards.html?key=' + encodeURIComponent(d.key), '_blank'); });
+  $('publish').addEventListener('click', function () {
+    var d = readDoc(); if (!meta || meta.key !== d.key) return fail(new Error('save the draft first'));
+    var note = window.prompt('Version note (what changed, for whom)?', '') || '';
+    api('/api/dashboards/' + encodeURIComponent(d.key) + '/publish', { method: 'POST', body: JSON.stringify({ note: note }) }).then(function (j) { meta = j.dashboard; showMeta(); loadVersions(); msg('<div class="ok">Published version ' + meta.version + '</div>'); }).catch(fail);
+  });
+  $('retire').addEventListener('click', function () {
+    if (!meta) return; if (!window.confirm('Retire this dashboard? Viewers lose access; versions are kept.')) return;
+    api('/api/dashboards/' + encodeURIComponent(meta.key) + '/retire', { method: 'POST' }).then(function (j) { meta = j.dashboard; showMeta(); msg('<div class="ok">Retired</div>'); }).catch(fail);
+  });
+
+  api('/api/dashboards/catalogue').then(function (c) {
+    cat = c; fillCatalogue();
+    return api('/api/reports/sites').then(function (sites) { (Array.isArray(sites) ? sites : []).forEach(function (s) { var o = document.createElement('option'); o.value = s.id; o.textContent = s.name; $('d-site').appendChild(o); }); });
+  }).then(function () {
+    var key = params.get('key'); if (!key) { renderGrid(); showMeta(); return; }
+    return api('/api/dashboards/' + encodeURIComponent(key)).then(function (j) {
+      meta = j.dashboard; doc = meta.definition || doc; $('d-key').value = doc.key; $('d-title').value = doc.title; $('d-aud').value = doc.audience || 'site'; if (meta.site_id != null) $('d-site').value = String(meta.site_id);
+      showMeta(); renderGrid(); loadVersions();
+    });
+  }).catch(fail);
+})();
+</script>
+</body>
+</html>

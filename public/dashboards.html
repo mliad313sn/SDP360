@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboards — Endeavour Mining IT</title>
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="brand/icons.css">
+<link rel="stylesheet" href="brand/components.css">
+<link rel="stylesheet" href="_shell.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js" defer></script>
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/dashboardRender.js"></script>
+<style nonce="%%CSP_NONCE%%">
+  body { margin:0; background:var(--color-background,#f4f6f7); color:var(--color-text-primary,#1F2A33); font-family:var(--font-sans,'Libre Franklin',system-ui,sans-serif); font-size:14px; }
+  .wrap { max-width:1360px; margin:0 auto; padding:var(--space-6,24px); }
+  .head { display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:16px; }
+  .head h1 { margin:0; font-size:22px; font-weight:700; color:var(--edv-slate,#3A4A60); }
+  .head .sub { font-size:13px; color:var(--color-text-muted,#6b7785); }
+  .controls { margin-left:auto; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  select, input[type=month], input[type=week], .btn { padding:7px 12px; border:1px solid #cfd6e0; border-radius:8px; background:#fff; font-size:13px; color:#1F2A33; }
+  .btn { cursor:pointer; } .btn.primary { background:var(--edv-slate,#3A4A60); color:#fff; border-color:var(--edv-slate,#3A4A60); }
+  label.ctl { font-size:12px; color:#6b7785; display:flex; flex-direction:column; gap:3px; }
+  .list { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:14px; }
+  .card { background:#fff; border:1px solid #e4e8ee; border-radius:12px; padding:14px 16px; display:block; color:inherit; text-decoration:none; }
+  .card:hover, .card:focus { border-color:#3A4A60; outline:none; }
+  .card h3 { margin:0 0 6px; font-size:15px; color:#3A4A60; } .card .meta { font-size:12px; color:#6b7785; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .section-title { font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:#6b7785; margin:18px 0 8px; font-weight:700; }
+  .status { font-size:12.5px; color:#6b7785; margin:8px 0; }
+  canvas { max-height:220px; }
+  .sr-only { position:absolute; left:-9999px; }
+</style>
+</head>
+<body>
+<a class="edv-skip" href="#main">Skip to content</a>
+<div id="__shell" data-section="operations" data-current="dashboards"></div>
+<main id="main" class="wrap">
+  <div class="head">
+    <div><h1 id="title">Dashboards</h1><div class="sub" id="subtitle">Published dashboards — every figure comes from the KPI dictionary and is dated.</div></div>
+    <div class="controls" id="controls" hidden>
+      <label class="ctl">Site <select id="site" aria-label="Site"></select></label>
+      <label class="ctl" id="winWrap">Period <input id="window" type="text" aria-label="Period (YYYY-MM or YYYY-Www)" placeholder="latest" size="10"></label>
+      <button class="btn" id="apply" type="button">Apply</button>
+      <button class="btn" id="edit" type="button" hidden>Edit in composer</button>
+      <a class="btn" id="back" href="dashboards.html">All dashboards</a>
+    </div>
+  </div>
+  <div class="status" id="status" role="status" aria-live="polite"></div>
+  <section id="listSection"></section>
+  <section id="dash" class="edv-dash" data-density="comfortable" aria-label="Dashboard widgets"></section>
+</main>
+<script nonce="%%CSP_NONCE%%">
+(function () {
+  'use strict';
+  var R = window.DashboardRender;
+  var $ = function (id) { return document.getElementById(id); };
+  var H = function () { return window.__authToken ? { 'x-report-token': window.__authToken } : {}; };
+  var params = new URLSearchParams(location.search);
+  var key = params.get('key');
+  var charts = [];
+
+  function api(path, opts) { return fetch(path, Object.assign({ headers: H() }, opts || {})).then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status)); return j; }); }); }
+  function status(msg) { $('status').textContent = msg || ''; }
+
+  // ── list mode ──────────────────────────────────────────────────────────────────────
+  function renderList() {
+    api('/api/dashboards').then(function (j) {
+      var byAud = {};
+      j.dashboards.forEach(function (d) { (byAud[d.audience] = byAud[d.audience] || []).push(d); });
+      var html = '';
+      ['executive', 'site', 'committee', 'field'].forEach(function (a) {
+        if (!byAud[a]) return;
+        html += '<div class="section-title">' + a + '</div><div class="list">' + byAud[a].map(function (d) {
+          return '<a class="card" href="dashboards.html?key=' + encodeURIComponent(d.key) + '"><h3>' + R.escapeHtml(d.title) + '</h3><div class="meta">' +
+            '<span class="edv-chip edv-chip--' + (d.status === 'published' ? 'pub' : d.status === 'draft' ? 'draft' : 'retired') + '">' + d.status + (d.version ? ' v' + d.version : '') + '</span>' +
+            '<span>' + d.widgets + ' widgets</span>' + (d.site_id != null ? '<span>site-specific</span>' : '<span>fleet</span>') + '</div></a>';
+        }).join('') + '</div>';
+      });
+      if (j.publisher) html += '<div class="section-title">Composer</div><p><a class="btn primary" href="dashboard-composer.html">New dashboard</a></p>';
+      $('listSection').innerHTML = html || '<div class="edv-dash-empty">No published dashboard is visible to your account yet.</div>';
+      status('');
+    }).catch(function (e) { status('Could not load dashboards: ' + e.message); });
+  }
+
+  // ── view mode ──────────────────────────────────────────────────────────────────────
+  var def = null, meta = null;
+  function renderView() {
+    $('controls').hidden = false;
+    api('/api/dashboards/' + encodeURIComponent(key)).then(function (j) {
+      meta = j.dashboard; def = j.published || j.dashboard.definition;
+      $('title').textContent = meta.title;
+      $('subtitle').textContent = (meta.audience + ' dashboard' + (meta.version ? ' · version ' + meta.version : ' · draft, not published')) + ' — figures from the KPI dictionary (help §20).';
+      $('edit').hidden = !j.publisher;
+      $('edit').addEventListener('click', function () { location.href = 'dashboard-composer.html?key=' + encodeURIComponent(key); });
+      document.title = meta.title + ' — Endeavour Mining IT';
+      fetch('/api/dashboards/' + encodeURIComponent(key) + '/view', { method: 'POST', headers: H() }).catch(function () {});
+      loadData();
+    }).catch(function (e) { status('Dashboard unavailable: ' + e.message); });
+  }
+
+  function loadData() {
+    status('Loading…');
+    var q = [];
+    if ($('site').value) q.push('site=' + encodeURIComponent($('site').value));
+    if ($('window').value.trim()) q.push('window=' + encodeURIComponent($('window').value.trim()));
+    if (meta && meta.status !== 'published') q.push('draft=1');
+    api('/api/dashboards/' + encodeURIComponent(key) + '/data' + (q.length ? '?' + q.join('&') : '')).then(function (d) {
+      var sel = $('site');
+      if (!sel.options.length) { d.sites.forEach(function (s) { var o = document.createElement('option'); o.value = s.id; o.textContent = s.name; sel.appendChild(o); }); }
+      if (d.site != null) sel.value = String(d.site);
+      renderWidgets(def, d);
+      status('Data as of ' + new Date(d.as_of).toLocaleString() + (d.note ? ' — ' + d.note : ''));
+    }).catch(function (e) { status('Data unavailable: ' + e.message); });
+  }
+
+  function renderWidgets(def, data) {
+    charts.forEach(function (c) { try { c.destroy(); } catch (_) {} }); charts = [];
+    var root = $('dash'); root.innerHTML = '';
+    var cols = (def.grid && def.grid.columns) || 12;
+    root.style.gridTemplateColumns = 'repeat(' + cols + ', minmax(0,1fr))';
+    (def.widgets || []).forEach(function (w) {
+      var d = data.widgets[w.id] || {};
+      var el = document.createElement('section');
+      el.className = 'edv-widget ' + (d.mode === 'single' ? R.ragClass(d.rag) : '');
+      el.setAttribute('style', R.gridStyle(w.layout, cols));
+      el.setAttribute('aria-label', w.title || w.type);
+      el.tabIndex = 0;
+      var title = w.title ? '<h3>' + R.escapeHtml(w.title) + '</h3>' : '';
+      if (d.error) { el.innerHTML = title + '<div class="edv-kpi-sub">Not measured: ' + R.escapeHtml(d.error) + '</div>'; root.appendChild(el); return; }
+      if (w.type === 'text') { el.innerHTML = '<div class="edv-widget-text">' + R.miniMarkdown(w.markdown || '') + '</div>'; }
+      else if (d.mode === 'single') {
+        el.innerHTML = title + '<div class="edv-kpi-value"><span class="edv-rag-dot ' + R.ragClass(d.rag) + '"></span>' + R.formatValue(d.value, d.unit) + '</div>' +
+          '<div class="edv-kpi-sub">' + (d.fleet ? 'fleet mean ' + R.formatValue(d.fleet.mean, d.unit) + ' (' + d.fleet.n + ' sites)' : (d.value == null ? 'not measured' : '')) + '</div>' +
+          '<div class="edv-asof">' + (d.window ? R.escapeHtml(d.window.label) : '') + '</div>';
+      } else if (d.mode === 'series') {
+        el.innerHTML = title + '<canvas role="img" aria-label="' + R.escapeHtml((w.title || w.metric) + ' trend') + '"></canvas>';
+        if (window.Chart) {
+          var c = new Chart(el.querySelector('canvas'), { type: 'line', data: { labels: d.points.map(function (p) { return p.label; }), datasets: [{ label: w.title || w.metric, data: d.points.map(function (p) { return p.value; }), borderColor: '#3A4A60', backgroundColor: 'rgba(58,74,96,.12)', spanGaps: false, tension: .2, fill: true }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: d.unit !== '%', suggestedMax: d.unit === '%' ? 100 : undefined } } } });
+          charts.push(c);
+        }
+      } else if (d.mode === 'per-site') {
+        var max = Math.max.apply(null, d.rows.map(function (r) { return r.value == null ? 0 : Number(r.value); }).concat([1]));
+        el.innerHTML = title + '<div class="edv-kpi-sub">' + d.summary.GREEN + ' green · ' + d.summary.AMBER + ' amber · ' + d.summary.RED + ' red' + (d.summary.NA ? ' · ' + d.summary.NA + ' not measured' : '') + '</div>' +
+          d.rows.map(function (r) { return '<div class="edv-ragline"><span class="edv-rag-dot ' + R.ragClass(r.rag) + '"></span><span>' + R.escapeHtml(r.site) + '</span><span class="bar"><i style="width:' + (r.value == null ? 0 : Math.round(100 * Number(r.value) / max)) + '%"></i></span><span class="n">' + R.formatValue(r.value, d.unit) + '</span></div>'; }).join('');
+      } else if (d.mode === 'actions') {
+        el.innerHTML = title + (d.items.length ? '<table class="edv-actions-table"><thead><tr><th>Source</th><th>Action</th><th>Owner</th><th>Due</th></tr></thead><tbody>' +
+          d.items.map(function (it) { return '<tr><td>' + R.escapeHtml(it.source) + '</td><td>' + R.escapeHtml(it.title || it.task || '') + '</td><td>' + R.escapeHtml(it.owner || '—') + '</td><td class="' + (it.overdue ? 'edv-overdue' : '') + '">' + R.escapeHtml(it.due_date || '—') + '</td></tr>'; }).join('') + '</tbody></table>'
+          : '<div class="edv-kpi-sub">' + (d.note || 'No open action.') + '</div>') + '<div class="edv-asof">' + (d.totals ? d.totals.open + ' open in total' : '') + '</div>';
+      } else el.innerHTML = title + '<div class="edv-kpi-sub">Widget type ' + R.escapeHtml(w.type) + ' is not rendered yet.</div>';
+      root.appendChild(el);
+    });
+  }
+
+  $('apply').addEventListener('click', loadData);
+  $('site').addEventListener('change', loadData);
+  if (key) renderView(); else { $('dash').hidden = true; renderList(); }
+})();
+</script>
+</body>
+</html>

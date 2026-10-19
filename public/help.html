@@ -209,6 +209,7 @@
       <a href="#en-20">20. KPI dictionary (metric registry)</a>
       <a href="#en-21">21. Security &amp; access</a>
       <a href="#en-22">22. Installation, updates &amp; the Manager</a>
+      <a href="#en-23">23. Dashboards &amp; composer</a>
     </div>
 
     <!-- Content -->
@@ -1178,6 +1179,15 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Confirm-Destructive.ps1"
           <li><strong>Versions</strong> — SemVer (<code>2.0.0-alpha.6</code>, <code>2.0.0</code>); the installed version is shown by the Manager and in Admin ▸ System Logs.</li>
         </ul>
       </div>
+      <div class="section" id="en-23">
+        <h2><span class="section-num">23</span>Dashboards &amp; composer (Step 6)</h2>
+        <ul>
+          <li><strong>Dashboards</strong> (Operations ▸ Dashboards, or Executive ▸ Executive Home) — pages assembled from <em>definitions</em>, not code. Every figure is a registered KPI (§20) with its RAG policy; each widget shows the period it covers and the page states its "data as of" time. A figure that could not be measured reads <strong>—</strong>, never 0.</li>
+          <li><strong>Executive Home</strong> — objective lights (roadmap, resolution SLA, inspection conformity, 5 Engagements), major incidents and overdue tickets of the week, a 13-week trend, "where are we" per site, and the overdue actions and pending decisions. Read-only; the site selector lists the sites of your account.</li>
+          <li><strong>Composer</strong> (role <code>dashboard-publisher</code> or admin) — pick a widget type (kpi, trend, bar, table, heatmap, ragGrid, trackerRag, text, actions), bind it to a KPI, place it on the 12-column grid, save a <em>draft</em>, preview it with live data, then <em>publish</em> a numbered version. Viewers keep the last published version until you publish again; <em>retire</em> hides a dashboard and keeps its versions. A field-audience dashboard must stay phone-ready (≤ 8 widgets, no heatmap, charts full width) or it cannot be published.</li>
+          <li><strong>Who sees what</strong> — a dashboard pinned to a site is listed for that site's people only; a site-scoped account always resolves data for its own sites; the admin tier sees the fleet. Each opening is logged once per person and day (System Logs ▸ dashboards) so the committee can see what is actually used.</li>
+        </ul>
+      </div>
     </div><!-- /content -->
   </div><!-- /doc-layout -->
 </div><!-- /sec-en -->
@@ -1285,6 +1295,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Confirm-Destructive.ps1"
       <a href="#fr-20">20. Dictionnaire des KPI (registre des métriques)</a>
       <a href="#fr-21">21. Sécurité &amp; accès</a>
       <a href="#fr-22">22. Installation, mises à jour &amp; Manager</a>
+      <a href="#fr-23">23. Tableaux de bord &amp; composeur</a>
     </div>
 
     <div class="content">
@@ -2251,6 +2262,15 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Confirm-Destructive.ps1"
           <li><strong>Paquets de mise à jour</strong> — une version est un ZIP signé <code>sdp-dashboard-&lt;version&gt;.zip</code> avec un <code>manifest.json</code> (SHA-256 par fichier, version, commit). Un paquet n'est appliqué que si chaque fichier correspond à son manifeste ; un retour en arrière de version est refusé (utiliser <em>Rollback</em>). Votre <code>.env</code>, <code>data/</code> et les journaux ne voyagent jamais dans un paquet.</li>
           <li><strong>Manager</strong> — <code>node tools/sdp-manager.js status | backup | verify | update | rollback | support-bundle</code> (le même moteur que <em>SDP Dashboard Manager</em>). Le bundle de support contient journaux, versions et les <em>noms</em> de vos réglages — jamais une valeur secrète. Exploitation au quotidien : <code>docs/ops/EXPLOITATION.md</code>.</li>
           <li><strong>Versions</strong> — SemVer (<code>2.0.0-alpha.6</code>, <code>2.0.0</code>) ; la version installée est affichée par le Manager et dans Admin ▸ System Logs.</li>
+        </ul>
+      </div>
+      <div class="section" id="fr-23">
+        <h2><span class="section-num">23</span>Tableaux de bord &amp; composeur (étape 6)</h2>
+        <ul>
+          <li><strong>Tableaux de bord</strong> (Operations ▸ Dashboards, ou Executive ▸ Executive Home) — des pages assemblées à partir de <em>définitions</em>, pas de code. Chaque chiffre est un KPI du dictionnaire (§20) avec sa politique RAG ; chaque widget indique sa période et la page donne l'heure de ses données. Un chiffre non mesurable s'affiche <strong>—</strong>, jamais 0.</li>
+          <li><strong>Executive Home</strong> — feux par objectif (feuille de route, SLA de résolution, conformité des inspections, 5 Engagements), incidents majeurs et tickets en retard de la semaine, tendance sur 13 semaines, « où en sommes-nous » par site, actions en retard et décisions en attente. Lecture seule ; le sélecteur de site ne propose que les sites de votre compte.</li>
+          <li><strong>Composeur</strong> (rôle <code>dashboard-publisher</code> ou admin) — choisir un type de widget (kpi, trend, bar, table, heatmap, ragGrid, trackerRag, text, actions), le lier à un KPI, le placer sur la grille à 12 colonnes, enregistrer un <em>brouillon</em>, le prévisualiser avec les données réelles, puis <em>publier</em> une version numérotée. Les lecteurs gardent la dernière version publiée jusqu'à la publication suivante ; <em>retirer</em> masque le tableau en conservant ses versions. Un tableau destiné au terrain doit rester lisible sur téléphone (≤ 8 widgets, pas de heatmap, graphiques pleine largeur), sinon il ne peut pas être publié.</li>
+          <li><strong>Qui voit quoi</strong> — un tableau rattaché à un site n'est listé que pour les personnes de ce site ; un compte limité à un site ne résout que ses propres sites ; le palier admin voit la flotte. Chaque ouverture est journalisée une fois par personne et par jour (System Logs ▸ dashboards) pour que le comité sache ce qui est réellement utilisé.</li>
         </ul>
       </div>
     </div><!-- /content -->

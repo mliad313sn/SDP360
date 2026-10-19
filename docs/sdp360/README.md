@@ -17,3 +17,4 @@ Conventions: documents are written in English (the platform's UI language since 
 - `design/ETAPE-03-kpi.md` — dossier de conception de l'étape 3 (dictionnaire des KPI, politiques RAG, registre des sites).
 - `design/ETAPE-04-securite.md` — dossier de conception de l'étape 4 (sécurité, SSO, MFA) ; procédure `docs/ops/INCIDENT-RESPONSE.md`, matrice `docs/ops/AUTHZ-MATRIX.md`.
 - `design/ETAPE-05-installateur.md` — dossier de conception de l'étape 5 (installateur Inno, Manager, paquets versionnés, modularisation) ; guides `docs/ops/INSTALLATION.md`, `docs/ops/EXPLOITATION.md` ; ADR-002…005 dans `docs/adr/`.
+- `design/ETAPE-06-design-direction.md` — dossier de conception de l'étape 6 (composeur, espace direction, design system) ; script `design/ETAPE-06-test-utilisabilite.md`.

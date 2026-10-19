@@ -1289,7 +1289,7 @@ function getPreviousWeek() {
 // Hierarchy chain — index N implies index N..end (so super_admin implies
 // everything, viewer implies only viewer).
 const ROLE_HIERARCHY = ['super_admin', 'executive', 'admin', 'editor', 'viewer'];
-const FEATURE_ROLES_KNOWN = ['tracker-admin', 'tracker-editor', 'report-author', 'audit-viewer', 'scorecard-viewer', 'site-business', 'group-business'];
+const FEATURE_ROLES_KNOWN = ['tracker-admin', 'tracker-editor', 'report-author', 'audit-viewer', 'scorecard-viewer', 'site-business', 'group-business', 'dashboard-publisher'];
 
 /**
  * Returns the array of role strings explicitly assigned to a user.

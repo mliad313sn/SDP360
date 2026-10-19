@@ -1,0 +1,235 @@
+'use strict';
+// Step 6 — dashboard definitions (composer output) + the one-call data resolver the viewer uses.
+//
+//   GET  /api/dashboards                      published dashboards visible to the session (+ own drafts)
+//   GET  /api/dashboards/catalogue            widget types, audiences, registered metrics, RAG policies
+//   GET  /api/dashboards/:key                 definition (published snapshot for viewers; draft for publishers)
+//   GET  /api/dashboards/:key/data?site=&window=   every widget resolved through the metric registry
+//   POST /api/dashboards/:key/view            view log (one event per actor per day — "is it used?")
+//   PUT  /api/dashboards/:key                 save a draft (publisher)      — validated, never SQL
+//   POST /api/dashboards/:key/publish         version++ and publish (publisher)
+//   POST /api/dashboards/:key/retire          (publisher)
+//   GET  /api/dashboards/:key/versions        (publisher)
+//   DELETE /api/dashboards/:key               a draft/retired definition (publisher)
+//
+// Publisher = admin tier OR the feature role `dashboard-publisher` (committee members).
+// Site scope: an editor/viewer resolves data for one of THEIR sites only (services/userSites);
+// a dashboard pinned to a site (site_id) is listed only for that site's people. Fleet-wide
+// "per-site" widgets enumerate the sites in the caller's scope — never the whole fleet for a
+// site-scoped account.
+
+const R = require('../public/lib/dashboardRender');
+const { WIDGET_TYPES, AUDIENCES, FILTER_TYPES, fieldReadiness } = require('../services/dashboardWidgets');
+
+/** Build the store against the reports DB (sqlite: DDL + seed now; pg: migration 016, seed at boot). */
+function createStore(rdbMod, { log = console.log } = {}) {
+  const pg = rdbMod.REPORTS_BACKEND === 'postgres';
+  const st = require('../services/dashboardStore').makeDashboardStore(pg ? { prepare: (sql) => rdbMod.pgHandle().prepare(sql) } : rdbMod.db, { isPg: pg });
+  if (!pg) {
+    st.init();
+    st.seed(require('../services/dashboardSeeds').SEED_DASHBOARDS).then((a) => { if (a.length) log(`[dashboards] seeded ${a.join(', ')}`); }).catch((e) => console.warn('[dashboards] seed failed:', e.message));
+  }
+  st.seedAtBoot = async () => { if (!pg) return []; await st.init(); const a = await st.seed(require('../services/dashboardSeeds').SEED_DASHBOARDS); if (a.length) log(`[dashboards] seeded ${a.join(', ')}`); return a; };
+  return st;
+}
+
+module.exports = function dashboardsRoutes(deps) {
+  const { express, requireReportSession, store } = deps;
+  const router = express.Router();
+  const rdb = () => deps.rdb || require('../reports-db');
+  const registry = () => deps.registry || require('../services/metricRegistry').current();
+  const userSites = require('../services/userSites');
+  const viewGate = deps.viewGate || require('../services/viewLog').makeOncePerDay();
+  const readerDeps = () => deps.readerDeps || {
+    rdb: rdb(), mdb: require('../meetings-db'), idb: require('../inspection-db'), adb: require('../assets-db'),
+    tracker: require('../tracker-db'), trackerScore: require('../tracker-pptx'),
+  };
+
+  const isAdmin = (u) => rdb().userHasRole(u, 'admin');
+  const isPublisher = (u) => isAdmin(u) || rdb().userHasRole(u, 'dashboard-publisher');
+  function requirePublisher(req, res, next) {
+    if (!isPublisher(req.reportUser)) return res.status(403).json({ ok: false, error: 'dashboard-publisher or admin role required' });
+    next();
+  }
+  async function scopeSites(user) {
+    const all = await rdb().listSites({ includeInactive: false });
+    if (isAdmin(user)) return all;
+    const ids = new Set(userSites.siteIds(user));
+    return all.filter(s => ids.has(Number(s.id)));
+  }
+  const key = (req) => String(req.params.key || '').slice(0, 48);
+
+  router.get('/api/dashboards', requireReportSession, async (req, res) => {
+    try {
+      const u = req.reportUser;
+      const sites = await scopeSites(u);
+      const rows = await store.list({ status: isPublisher(u) ? ['draft', 'review', 'published'] : ['published'],
+        siteIds: isAdmin(u) ? null : sites.map(s => Number(s.id)), ownerId: u.id });
+      res.json({ ok: true, publisher: isPublisher(u), dashboards: rows.map(d => ({ key: d.key, title: d.title, audience: d.audience, status: d.status, version: d.version, site_id: d.site_id, updated_at: d.updated_at, published_at: d.published_at, widgets: (d.definition && d.definition.widgets || []).length })) });
+    } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+  });
+
+  router.get('/api/dashboards/catalogue', requireReportSession, requirePublisher, (req, res) => {
+    const reg = registry();
+    res.json({ ok: true, widgetTypes: WIDGET_TYPES, audiences: AUDIENCES, filterTypes: FILTER_TYPES, metrics: reg.list({ status: 'published' }), policies: reg.policies() });
+  });
+
+  async function loadVisible(req, res) {
+    const u = req.reportUser;
+    const d = isPublisher(u) ? await store.get(key(req)) : await store.published(key(req));
+    if (!d) { res.status(404).json({ ok: false, error: 'dashboard not found' }); return null; }
+    if (d.site_id != null && !isAdmin(u) && !userSites.hasSite(u, d.site_id)) { res.status(403).json({ ok: false, error: 'dashboard belongs to another site' }); return null; }
+    return d;
+  }
+
+  router.get('/api/dashboards/:key', requireReportSession, async (req, res) => {
+    try {
+      const d = await loadVisible(req, res); if (!d) return;
+      const pub = d.status === 'published' ? await store.published(d.key) : null;
+      res.json({ ok: true, dashboard: d, published: pub ? pub.definition : null, publisher: isPublisher(req.reportUser) });
+    } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+  });
+
+  router.get('/api/dashboards/:key/versions', requireReportSession, requirePublisher, async (req, res) => {
+    try { res.json({ ok: true, versions: await store.versions(key(req)) }); } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+  });
+
+  router.post('/api/dashboards/:key/view', requireReportSession, async (req, res) => {
+    try {
+      const d = await loadVisible(req, res); if (!d) return;
+      const ctx = rdb()._logCtx(req);
+      if (viewGate(`${ctx.actor}|${d.key}`, new Date().toISOString().slice(0, 10))) {
+        rdb().logEvent({ category: 'dashboards', action: 'dashboard_viewed', target: d.key, details: { audience: d.audience, version: d.version }, ...ctx });
+      }
+      res.json({ ok: true });
+    } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+  });
+
+  // ---- data: every widget in one call ------------------------------------------------
+  router.get('/api/dashboards/:key/data', requireReportSession, async (req, res) => {
+    try {
+      const u = req.reportUser;
+      const d = await loadVisible(req, res); if (!d) return;
+      const def = (req.query.draft === '1' && isPublisher(u)) ? d.definition : ((await store.published(d.key)) || d).definition;
+      const sites = await scopeSites(u);
+      if (!sites.length) return res.json({ ok: true, key: d.key, site: null, sites: [], widgets: {}, note: 'no site in your scope' });
+      let site = req.query.site == null || req.query.site === '' ? null : Number(req.query.site);
+      if (site != null && !sites.some(s => Number(s.id) === site)) return res.status(403).json({ ok: false, error: 'site not in your scope' });
+      if (site == null) site = Number(sites[0].id);
+      const window = req.query.window ? String(req.query.window).slice(0, 24) : null;
+      const reg = registry(); const dd = readerDeps(); const now = new Date();
+      const out = {};
+      for (const w of def.widgets || []) {
+        const m = w.metric ? reg.get(w.metric) : null;
+        const plan = R.widgetDataPlan(w, m && m.window_kind);
+        try {
+          if (plan.mode === 'single' && m) {
+            const one = await reg.resolve(w.metric, { site: m.reader === 'tracker.fleet' ? null : site, window, deps: dd, now });
+            let fleet = null;
+            if (plan.compare && m.reader !== 'tracker.fleet') {
+              const vals = [];
+              for (const s of sites) { const r = await reg.resolve(w.metric, { site: Number(s.id), window, deps: dd, now }); if (r && r.value != null) vals.push(Number(r.value)); }
+              fleet = vals.length ? { mean: Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10, n: vals.length } : null;
+            }
+            out[w.id] = { mode: 'single', unit: m.unit, value: one.value, rag: w.rag ? ragOverride(w.rag, one.value) : one.rag, window: one.window, as_of: one.as_of, fleet, error: one.error || null };
+          } else if (plan.mode === 'series' && m) {
+            const labels = R.windowSeries(plan.kind, plan.n, now);
+            const points = [];
+            for (const lab of labels) { const r = await reg.resolve(w.metric, { site: m.reader === 'tracker.fleet' ? null : site, window: lab, deps: dd, now }); points.push({ label: lab, value: r ? r.value : null }); }
+            out[w.id] = { mode: 'series', unit: m.unit, points, as_of: now.toISOString() };
+          } else if (plan.mode === 'per-site' && m) {
+            const rows = [];
+            for (const s of sites) { const r = await reg.resolve(w.metric, { site: Number(s.id), window, deps: dd, now }); rows.push({ site_id: Number(s.id), site: s.name, value: r ? r.value : null, rag: w.rag ? ragOverride(w.rag, r && r.value) : (r ? r.rag : 'NA') }); }
+            rows.sort((a, b) => (a.value == null) - (b.value == null) || (a.value - b.value));
+            out[w.id] = { mode: 'per-site', unit: m.unit, rows, summary: R.summarizeGrid(rows), as_of: now.toISOString() };
+          } else if (plan.mode === 'actions') {
+            out[w.id] = { mode: 'actions', ...(await actionsFor(site, plan)) };
+          } else out[w.id] = { mode: 'none' };
+        } catch (e) { out[w.id] = { mode: plan.mode, error: String(e.message || e).slice(0, 200), value: null }; }
+      }
+      res.json({ ok: true, key: d.key, version: d.version, site, sites: sites.map(s => ({ id: Number(s.id), name: s.name })), window, as_of: now.toISOString(), widgets: out });
+    } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+  });
+
+  function ragOverride(rag, value) {
+    const KpiRag = require('../services/kpiRag');
+    if (value == null) return 'NA';
+    try { return typeof rag === 'string' ? KpiRag.rag(Number(value), rag) : (Number(value) >= rag.green ? 'GREEN' : Number(value) >= rag.amber ? 'AMBER' : 'RED'); } catch (_) { return 'NA'; }
+  }
+
+  async function actionsFor(siteId, plan) {
+    const codes = await rdb().listSiteModuleCodes('meetings');
+    const row = (codes || []).find(c => Number(c.site_id) === Number(siteId));
+    if (!row) return { items: [], totals: { open: 0 }, note: 'site has no meetings/inspection code' };
+    const code = row.code;
+    const { buildSiteActions } = require('../services/siteActionsRegister');
+    const mdb = require('../meetings-db'), idb = require('../inspection-db');
+    const asOf = new Date().toISOString().slice(0, 10);
+    const meetings = plan.sources.includes('meetings') ? await mdb.listActions({ site: code }) : [];
+    const inspection = plan.sources.includes('inspection') ? await idb.listActions({ site: code }) : [];
+    const report = plan.sources.includes('report') ? { actions: (await rdb().getSiteOpenReportActions(siteId)).actions } : null;
+    const sa = buildSiteActions({ meetings, inspection, report, asOf });
+    const items = [];
+    for (const g of ['meetings', 'incubation', 'inspection', 'report']) for (const it of (sa.groups[g] && sa.groups[g].items) || []) if (!plan.onlyOverdue || it.overdue) items.push({ source: g, ...it });
+    items.sort((a, b) => (b.overdue - a.overdue) || ((b.age_days || 0) - (a.age_days || 0)));
+    return { items: items.slice(0, 50), totals: sa.totals, site_code: code };
+  }
+
+  // ---- publisher writes ------------------------------------------------------------
+  router.put('/api/dashboards/:key', requireReportSession, requirePublisher, express.json({ limit: '1mb' }), async (req, res) => {
+    try {
+      const u = req.reportUser;
+      const doc = req.body && req.body.definition ? req.body.definition : req.body;
+      if (!doc || doc.key !== key(req)) return res.status(400).json({ ok: false, error: 'definition.key must match the URL' });
+      const existing = await store.get(doc.key);
+      if (existing && !isAdmin(u) && existing.owner_id != null && existing.owner_id !== u.id) return res.status(403).json({ ok: false, error: 'owned by another publisher' });
+      let siteId = req.body && req.body.site_id != null ? Number(req.body.site_id) : (existing ? existing.site_id : null);
+      if (!isAdmin(u)) { const mine = userSites.siteIds(u); if (siteId == null || !mine.includes(siteId)) siteId = mine[0] || null; if (siteId == null) return res.status(403).json({ ok: false, error: 'no site in your scope' }); }
+      const reg = registry();
+      const saved = await store.saveDraft(doc, { user: u, siteId, metrics: reg.list({ status: 'published' }).map(m => m.key) });
+      const field = doc.audience === 'field' ? fieldReadiness(doc) : { ok: true, issues: [] };
+      rdb().logEvent({ category: 'dashboards', action: 'dashboard_saved', target: doc.key, ...rdb()._logCtx(req) });
+      res.json({ ok: true, dashboard: saved, field });
+    } catch (e) {
+      if (e.code === 'INVALID') return res.status(400).json({ ok: false, error: e.message, errors: e.errors });
+      res.status(500).json({ ok: false, error: e.message });
+    }
+  });
+
+  router.post('/api/dashboards/:key/publish', requireReportSession, requirePublisher, express.json({ limit: '64kb' }), async (req, res) => {
+    try {
+      const d = await store.get(key(req)); if (!d) return res.status(404).json({ ok: false, error: 'dashboard not found' });
+      if (!isAdmin(req.reportUser) && d.owner_id != null && d.owner_id !== req.reportUser.id) return res.status(403).json({ ok: false, error: 'owned by another publisher' });
+      if (d.definition && d.definition.audience === 'field') { const f = fieldReadiness(d.definition); if (!f.ok) return res.status(400).json({ ok: false, error: 'field dashboard not phone-ready', issues: f.issues }); }
+      const out = await store.publish(d.key, { user: req.reportUser, note: req.body && req.body.note ? String(req.body.note).slice(0, 500) : null });
+      rdb().logEvent({ category: 'dashboards', action: 'dashboard_published', target: d.key, details: { version: out.version }, ...rdb()._logCtx(req) });
+      res.json({ ok: true, dashboard: out });
+    } catch (e) {
+      if (e.code === 'INVALID') return res.status(400).json({ ok: false, error: e.message, errors: e.errors });
+      res.status(500).json({ ok: false, error: e.message });
+    }
+  });
+
+  router.post('/api/dashboards/:key/retire', requireReportSession, requirePublisher, async (req, res) => {
+    try {
+      const d = await store.get(key(req)); if (!d) return res.status(404).json({ ok: false, error: 'dashboard not found' });
+      if (!isAdmin(req.reportUser) && d.owner_id != null && d.owner_id !== req.reportUser.id) return res.status(403).json({ ok: false, error: 'owned by another publisher' });
+      const out = await store.setStatus(d.key, 'retired');
+      rdb().logEvent({ category: 'dashboards', action: 'dashboard_retired', target: d.key, ...rdb()._logCtx(req) });
+      res.json({ ok: true, dashboard: out });
+    } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+  });
+
+  router.delete('/api/dashboards/:key', requireReportSession, requirePublisher, async (req, res) => {
+    try {
+      const d = await store.get(key(req)); if (!d) return res.status(404).json({ ok: false, error: 'dashboard not found' });
+      if (d.status === 'published') return res.status(409).json({ ok: false, error: 'retire it first' });
+      if (!isAdmin(req.reportUser) && d.owner_id != null && d.owner_id !== req.reportUser.id) return res.status(403).json({ ok: false, error: 'owned by another publisher' });
+      await store.remove(d.key);
+      res.json({ ok: true });
+    } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+  });
+
+  return router;
+};
+module.exports.createStore = createStore;

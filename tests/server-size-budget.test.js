@@ -6,7 +6,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const BUDGET = 8300;   // 2026-10-19: meetings routes extracted (9164 -> 8298)
+const BUDGET = 8260;   // 2026-10-19: meetings + site-actions routes extracted (9164 -> 8252)
 
 test(`server.js stays under its line budget (${BUDGET})`, () => {
   const n = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8').split('\n').length;

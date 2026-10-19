@@ -122,7 +122,8 @@
         { id: 'inspections',  label: 'Inspections',        icon: ICON_LIB['clipboard-check'], href: 'inspections.html',      roles: ['any'] },
         { id: 'meetings',     label: 'Meetings Decisions', icon: ICON_LIB.users,              href: 'meetings.html',         roles: ['any'] },
         { id: 'site-actions', label: 'Site Actions',       icon: ICON_LIB.check,              href: 'site-actions.html',     roles: ['any'] },
-        { id: 'tracker',      label: 'Activity Tracker',   icon: ICON_LIB.target,             href: 'activity-tracker.html', roles: ['any'] }
+        { id: 'tracker',      label: 'Activity Tracker',   icon: ICON_LIB.target,             href: 'activity-tracker.html', roles: ['any'] },
+        { id: 'dashboards',   label: 'Dashboards',         icon: ICON_LIB.gauge,              href: 'dashboards.html',       roles: ['any'] }
       ]
     },
     {
@@ -174,6 +175,7 @@
       roles:    ['executive', 'scorecard-viewer'],
       title:    'Executive dashboards — IT Review and Scorecard',
       children: [
+        { id: 'exec-home', label: 'Executive Home',      icon: ICON_LIB.gauge,          href: 'dashboards.html?key=exec-home', roles: ['executive', 'scorecard-viewer'] },
         { id: 'it-review', label: 'IT Review',           icon: ICON_LIB['bar-chart-3'], href: 'it-review.html', roles: ['executive', 'scorecard-viewer'] },
         { id: 'scorecard', label: 'Executive Scorecard', icon: ICON_LIB.gauge,          href: 'executive.html', roles: ['executive', 'scorecard-viewer'] }
       ]

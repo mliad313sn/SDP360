@@ -1289,6 +1289,7 @@ function loadHtml(name) {
   'site-awareness.html',
   'assets.html', 'assets-hygiene.html', 'assets-finance.html', 'wan.html', 'wan-health.html', 'wan-sla.html', 'itsm-roadmap.html',
   'infra-health.html', 'itsm-integrations-plan.html',
+  'dashboards.html', 'dashboard-composer.html',
 ].forEach(loadHtml);
 
 // Helper: build the per-request HTML, inject api-key + nonce, send. Pages
@@ -1390,6 +1391,7 @@ app.get('/assets.html', (req, res) => {
 app.get('/wan.html', (req, res) => {
   sendHtmlPage(res, 'wan.html', false, 'WAN unavailable');
 });
+for (const _p of ['dashboards.html', 'dashboard-composer.html']) app.get('/' + _p, (req, res) => sendHtmlPage(res, _p, false, 'Page unavailable'));
 app.get('/wan-health.html', (req, res) => {
   sendHtmlPage(res, 'wan-health.html', false, 'WAN Health unavailable');
 });
@@ -5568,56 +5570,8 @@ app.get('/api/reports/site-data', requireReportSession, async (req, res) => {
 // + the latest report's action_items) through the pure buildSiteActions. No
 // schema change, no touch to the report save path. Registered ABOVE
 // /api/reports/:id (the :id shadowing trap). Unknown/absent site → empty groups.
-app.get('/api/reports/site-actions', requireReportSession, async (req, res) => {
-  try {
-    const { buildSiteActions } = require('./services/siteActionsRegister');
-    const rdb = require('./reports-db');
-    const meetingsDb = require('./meetings-db');
-    const inspectionDb = require('./inspection-db');
-    const code = String(req.query.site || '').trim();
-    if (await _siteCodeReadDenied(req.reportUser, code)) return res.status(403).json({ error: 'Access denied: another site' });
-    const asOf = new Date().toISOString().slice(0, 10);
-    if (!code || code === 'all') {
-      return res.json({ site: code || null, week_label: null, ...buildSiteActions({ asOf }) });
-    }
-    // meetings + inspection share the 'meetings' namespace code (SMI/MGO/HGO…).
-    const meetings = await meetingsDb.listActions({ site: code });
-    const inspection = await inspectionDb.listActions({ site: code });
-    // Report follow-ups = every open, non-merged follow-up across ALL the site's
-    // reports, deduped by carry-forward lineage (SP1b-lignée) — so an open item
-    // on an old report never carried forward still surfaces, once. Each row
-    // carries its own report_id/week_label. resolved.site_id (NOT .id) — the
-    // documented falsy-id pitfall.
-    let report = null;
-    const resolved = await rdb.getSiteIdByModuleCode('meetings', code);
-    if (resolved && resolved.site_id) {
-      report = { actions: (await rdb.getSiteOpenReportActions(resolved.site_id)).actions };
-    }
-    // Open issues of the site (resolved/cancelled are dropped by the engine) — the hub
-    // shows who has no action yet and lets the user add one from the issue.
-    const issues = await meetingsDb.listIssues({ site: code, limit: 1000 });
-    const sa = buildSiteActions({ meetings, inspection, report, issues, asOf });
-    // "Show closed / cancelled" (2026-10-16): the last 30 days, so a wrong click can be reopened.
-    if (req.query.closed === '1') {
-      const since = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
-      const closedReport = (resolved && resolved.site_id) ? await rdb.getSiteClosedReportActions(resolved.site_id, since) : null;
-      sa.recent_closed = require('./services/siteActionsRegister').buildRecentlyClosed(
-        { meetings, inspection, issues, report: closedReport, since });
-      sa.recent_since = since;
-    }
-    // Best-effort: fold Meridian project links onto matching rows for the "▸ Projet: X"
-    // badge (F1). NEVER blocks the hub — a Meridian outage/misconfig leaves every
-    // it.project null. getConfig is a Promise on pg → await it.
-    let links = {}, baseUrl = '';
-    try {
-      const cfg = await reportConfig.getConfig(rdb.db);
-      baseUrl = cfg.meridian_base_url || '';
-      links = await require('./services/meridianLinks').getLinksForSite(code, { config: cfg });
-    } catch (_) { links = {}; }
-    require('./services/meridianActions').attachProjectLinks(sa, links, baseUrl);
-    res.json({ site: code, ...sa });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
+// Site Actions hub — routes/siteActions.js (Step 6 modularisation).
+app.use(require('./routes/siteActions')({ express, requireReportSession, siteCodeReadDenied: _siteCodeReadDenied, reportConfig }));
 // ── Report-write authorisation (audit 2026-09-05, F5) ────────────────────────
 // A valid session is NOT enough to write a report or one of its follow-ups: the
 // caller must (1) hold the editor role, (2) be scoped to the OBJECT's site — a
@@ -8183,6 +8137,9 @@ app.use(require('./routes/teamsSla')({ express, requireReportSession, requireSup
 app.use(require('./routes/sync')({ express, requireReportSession }));
 // Step 3 — KPI dictionary: GET /api/metrics/registry, GET /api/metrics/:key?site=&window=.
 app.use(require('./routes/metrics')({ express, requireReportSession }));
+// Step 6 — dashboard definitions (composer) + one-call data resolver (store seeded in routes/dashboards.createStore).
+const _dashStore = require('./routes/dashboards').createStore(require('./reports-db'));
+app.use(require('./routes/dashboards')({ express, requireReportSession, store: _dashStore }));
 
 // ══════════════════════════════════════════════════════════════════
 // MEETINGS — routes live in routes/meetings.js (Step 5 modularisation). The meetings-db
@@ -8234,10 +8191,7 @@ async function start() {
     const _rdbMod = require('./reports-db');
     const _pgh = _rdbMod.REPORTS_BACKEND === 'postgres' && typeof _rdbMod.pgHandle === 'function' ? _rdbMod.pgHandle() : null;
     _mr.setCurrent(await _mr.load({ pg: _pgh, log: console.log }));
-    // Site registry: asset labels per site from site_module_codes (module='assets') — the
-    // in-code alias map stays as the fallback until the committee closes the registry.
-    const _reg = await require('./services/scoreboardAliases').loadFromRegistry(_rdbMod);
-    console.log(`[metrics] asset-label registry: ${_reg ? Object.keys(_reg).length : 0} labels`);
+    await _dashStore.seedAtBoot();   // Step 6 — pg: tables from migration 016, shipped definitions once
   } catch (e) { console.warn('[metrics] registry load failed (seed in use):', e.message); }
 
   // Zoho Analytics token — AFTER the databases are open, because the credentials may now
