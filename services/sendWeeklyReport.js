@@ -75,7 +75,10 @@ function _withTimeout(promise, ms, label) {
   let timer;
   const guard = new Promise((_, reject) => {
     timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
-    if (timer.unref) timer.unref();   // never hold the CLI process open
+    // NOT unref'd (2026-10-19): the timer is cleared as soon as the deck settles, so it
+    // never holds a healthy CLI open; when the deck truly hangs it is the ONLY thing that
+    // can fire, and an unref'd timer never fires once the loop is empty — the send then
+    // silently died instead of degrading to html-only (and the test was cancelled).
   });
   return Promise.race([promise, guard]).finally(() => clearTimeout(timer));
 }

@@ -1358,6 +1358,9 @@ async function initPgReports() {            // called once at server boot
   const { makePgDb } = require('./services/pgDb');
   const url = process.env.PG_URL || process.env.DATABASE_URL;
   if (!url) throw new Error('REPORTS_BACKEND=postgres but PG_URL/DATABASE_URL is not set');
+  // A second call (tests, re-init) must not orphan the previous pool — an idle leaked
+  // connection later dies with "terminating connection due to administrator command".
+  if (_pg) { try { await _pg.close(); } catch (_) {} }
   _pg = makePgDb(url);
   await _pg.connect();
   await _pg.exec(require('fs').readFileSync(

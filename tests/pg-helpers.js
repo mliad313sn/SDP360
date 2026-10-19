@@ -124,8 +124,23 @@ async function provisionTestDb() {
   return ctx;
 }
 
+// Close every module pool that may still hold a connection on the throwaway database:
+// `DROP DATABASE … WITH (FORCE)` otherwise kills them server-side and the idle client
+// surfaces "terminating connection due to administrator command" as an uncaught error
+// AFTER the test ended (seen on pg-asset-followups / pg-report-asset-review).
+async function _closeModulePools() {
+  for (const mod of ['../reports-db', '../assets-db', '../tracker-db', '../meetings-db', '../inspection-db']) {
+    try {
+      const m = require(mod);
+      const h = typeof m.pgHandle === 'function' ? m.pgHandle() : null;
+      if (h && typeof h.close === 'function') await h.close();
+    } catch (_) { /* not initialised in this process */ }
+  }
+}
+
 async function dropTestDb(ctx) {
   if (!ctx) return;
+  await _closeModulePools();
   if (ctx.schema) {
     const base = _baseUrl();
     const c = new Client({ connectionString: base });

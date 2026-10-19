@@ -1,6 +1,6 @@
 # 04 — Functional Specification: Custom Tracker & Dynamic Dashboard Engine
 
-*Module id: `engine`. Implemented core: `services/kpiRag.js`, `services/trackerDefinitions.js`, `services/dashboardWidgets.js`; storage `db/postgres/tracker/002_tracker_definitions.sql`, `db/postgres/reports/015_dashboard_definitions.sql`. This spec covers the builder UIs, runtime, metric API and exports still to build (roadmap P2).*
+*Module id: `engine`. Implemented core: `services/kpiRag.js`, `services/trackerDefinitions.js`, `services/dashboardWidgets.js`; storage `db/postgres/tracker/002_tracker_definitions.sql`, `db/postgres/reports/016_dashboard_definitions.sql`. This spec covers the builder UIs, runtime, metric API and exports still to build (roadmap P2).*
 
 ## 1. Goals and non-goals
 

@@ -14,6 +14,21 @@ jobs:
       DASH_USER: ci-admin
       DASH_PASS: ci-password-0000!
       TZ: UTC
+      # Step 2 — the pg half of the suite MUST run (PG_TESTS_REQUIRED turns a skip into a failure).
+      PG_ADMIN_URL: postgres://postgres:postgres@localhost:5432/postgres
+      PG_URL: postgres://postgres:postgres@localhost:5432/postgres
+      PG_TESTS_REQUIRED: '1'
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -21,4 +36,6 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci --no-audit --no-fund
+      - name: Apply schema migrations on a fresh database (installer/CI path)
+        run: node db/migrate.js && node db/migrate.js --status
       - run: npm test

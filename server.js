@@ -9054,6 +9054,12 @@ async function start() {
     await require('./assets-db').initPgAssets();
     console.log('[Assets] PostgreSQL backend ready');
   }
+  // Step 2 — one schema migrator for every db/postgres/**/*.sql (records schema_migrations).
+  // Best-effort at boot: the module inits above already applied the DDL they own.
+  try {
+    const m = await require('./db/migrate').migrateAtBoot({ log: console.log });
+    if (m && !m.skipped) console.log(`[migrate] applied=${m.applied.length} already=${m.skipped.length} changed=${m.changed.length}`);
+  } catch (e) { console.warn('[migrate] boot migration failed (continuing):', e.message); }
 
   // Zoho Analytics token — AFTER the databases are open, because the credentials may now
   // live in report_config (Admin ▸ Intégration API ▸ Analytics), with .env as the fallback.

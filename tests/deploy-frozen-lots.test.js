@@ -19,6 +19,10 @@ const ROOT = path.join(__dirname, '..');
 const SCRIPT = path.join(ROOT, 'tools', 'deploy', 'Check-FrozenLots.ps1');
 const LOTS = path.join(ROOT, 'tools', 'deploy', 'frozen-lots.json');
 
+// The check is a PowerShell script (Windows packager). On a Linux CI/dev box without
+// powershell/pwsh the three script-driven tests are skipped with a reason, not failed.
+const HAS_PS = (() => { try { execFileSync('powershell', ['-NoProfile', '-Command', 'exit 0'], { stdio: 'ignore' }); return true; } catch (_) { return false; } })();
+
 function run(base) {
   return execFileSync('powershell',
     ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', SCRIPT, '-Base', base, '-Root', ROOT],
@@ -36,7 +40,8 @@ test('the frozen-lot register exists and names both known lots', () => {
   assert.ok(lots.some(l => /tracker/i.test(l.id)), 'the tracker lot is registered');
 });
 
-test('a lot behind the marker is named in the warning', () => {
+test('a lot behind the marker is named in the warning', (t) => {
+  if (!HAS_PS) return t.skip('powershell not available on this host');
   const marker = fs.readFileSync(path.join(ROOT, '.git', 'last-deployed'), 'utf8').trim();
   const out = run(marker);
   assert.match(out, /installer/i, 'the installer lot is reported as not carried');
@@ -44,12 +49,14 @@ test('a lot behind the marker is named in the warning', () => {
   assert.match(out, /jamais|never|manuel|by hand/i, 'says the package will not carry it');
 });
 
-test('a base OLDER than the lots warns about nothing — the diff carries them', () => {
+test('a base OLDER than the lots warns about nothing — the diff carries them', (t) => {
+  if (!HAS_PS) return t.skip('powershell not available on this host');
   const out = run('7fb62d9');
   assert.ok(!/installer-safety-parity/i.test(out), `nothing to warn about, got: ${out.trim()}`);
 });
 
-test('the check never fails the build — a warning is not a blocker', () => {
+test('the check never fails the build — a warning is not a blocker', (t) => {
+  if (!HAS_PS) return t.skip('powershell not available on this host');
   const marker = fs.readFileSync(path.join(ROOT, '.git', 'last-deployed'), 'utf8').trim();
   run(marker);                    // execFileSync throws on a non-zero exit
   run('does-not-exist-at-all');   // an unusable base must not break packaging either

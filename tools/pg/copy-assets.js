@@ -124,10 +124,23 @@ if (require.main === module) {
     if (!url) { console.error('Set PG_URL or DATABASE_URL (or run from the app root where .env lives)'); process.exit(2); }
     const src = process.argv[2] || path.join(__dirname, '../../data/assets.db');
     if (!fs.existsSync(src)) { console.error('assets.db not found at ' + src); process.exit(2); }
+    const dryRun = process.argv.includes('--dry-run');
+    // Step 2 hardening: always print source counts first; --dry-run stops there.
+    const srcDb = new Database(src, { readonly: true });
+    const srcCounts = {};
+    for (const [t] of TABLES) { try { srcCounts[t] = srcDb.prepare(`SELECT COUNT(*) AS n FROM ${t}`).get().n; } catch (_) { srcCounts[t] = null; } }
+    srcDb.close();
+    console.log('[copy-assets] source rows', JSON.stringify(srcCounts));
+    if (dryRun) { console.log('[copy-assets] --dry-run: nothing written'); return; }
     const pg = makePgDb(url); await pg.connect();
     try {
       const counts = await copyAssets(src, pg);
       console.log('[copy-assets] copied', JSON.stringify(counts));
+      const after = {};
+      for (const [t] of TABLES) { try { after[t] = Number((await pg.prepare(`SELECT COUNT(*) AS n FROM ${t}`).get()).n); } catch (_) { after[t] = null; } }
+      console.log('[copy-assets] target rows after', JSON.stringify(after));
+      const short = TABLES.map(([t]) => t).filter(t => srcCounts[t] != null && after[t] != null && after[t] < srcCounts[t]);
+      if (short.length) { console.error('[copy-assets] WARNING target has fewer rows than source for: ' + short.join(', ')); process.exitCode = 3; }
     } finally { await pg.close(); }
   })().catch(e => { console.error(e); process.exit(1); });
 }

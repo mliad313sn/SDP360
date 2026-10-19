@@ -98,7 +98,16 @@ function buildJobs(d) {
     { name: 'teams.sla_poll',  cron: '*/5 * * * *', freshnessHours: 1, optional: true,
       job: legacyJob('teams.sla_poll', () => req('teams/poll-sla').run({}), { maxAttempts: 2 }) },
   ];
-  if (d.backup) list.push({ name: 'db.backup', cron: d.backup.cron || '0 2 * * *', freshnessHours: 30, job: legacyJob('db.backup', () => d.backup.run()) });
+  // Nightly PostgreSQL dump (Step 2). Optional: self-skips without PG_URL. Directory from
+  // SDP_BACKUP_DIR (default <data>/backups), retention SDP_BACKUP_KEEP (default 14).
+  const backup = d.backup || {
+    cron: '0 2 * * *',
+    run: () => require('../backup').runBackup({
+      dir: process.env.SDP_BACKUP_DIR || require('path').join(process.env.SDP_DATA_DIR || require('path').join(__dirname, '..', '..', 'data'), 'backups'),
+      keep: Number(process.env.SDP_BACKUP_KEEP) || 14,
+    }),
+  };
+  list.push({ name: 'db.backup', cron: backup.cron || '0 2 * * *', freshnessHours: 30, optional: true, job: legacyJob('db.backup', () => backup.run()) });
   return list;
 }
 
@@ -109,7 +118,7 @@ const FRESHNESS_HOURS = {
   'meraki.wan_events_5m': 1, 'meraki.wan_poller': 1, 'teams.sla_poll': 1, 'db.backup': 30,
 };
 // Jobs that self-skip until configured (no API key / webhook) — never reported "stale", only "idle".
-const OPTIONAL = new Set(['meridian.resources', 'opmanager.availability', 'meraki.wan', 'meraki.wan_events', 'meraki.wan_events_5m', 'meraki.wan_poller', 'teams.sla_poll']);
+const OPTIONAL = new Set(['meridian.resources', 'opmanager.availability', 'meraki.wan', 'meraki.wan_events', 'meraki.wan_events_5m', 'meraki.wan_poller', 'teams.sla_poll', 'db.backup']);
 
 // Map the legacy sync_metadata job names onto the registry names (one health view, D7).
 const LEGACY_NAMES = { requests: 'zoho.requests', change_cab: 'zoho.change_cab', survey: 'zoho.survey',

@@ -28,7 +28,7 @@ Code shipped in this fork (all covered by tests, `npm run test:sdp360`):
 - **`routes/sync.js`** — `GET /api/sync/runs`, `GET /api/sync/health` (mounted in `server.js`).
 - **`services/kpiRag.js`** — single registry of KPI value types and RAG policies; the five inherited cut-off sets are registered verbatim so modules can migrate with no visible change, then be converged by the committee (`kpi_rag_policies` table).
 - **`services/trackerDefinitions.js`** — schema, validator and generic scorer for self-service trackers (any period kind, any units, data-driven KPI types) + `fromLegacyInit()` importer for the 2026 IT Activity Tracker. Storage: `db/postgres/tracker/002_tracker_definitions.sql`.
-- **`services/dashboardWidgets.js`** — dashboard definition validator (widget catalogue, grid collision/overflow, metric-registry binding, *no raw SQL*) + field-device readiness rule. Storage: `db/postgres/reports/015_dashboard_definitions.sql` (metric registry, dashboards, **RFI register**).
+- **`services/dashboardWidgets.js`** — dashboard definition validator (widget catalogue, grid collision/overflow, metric-registry binding, *no raw SQL*) + field-device readiness rule. Storage: `db/postgres/reports/016_dashboard_definitions.sql` (metric registry, dashboards, **RFI register**).
 - **CI** (`.github/workflows/ci.yml`), **`DOTENV.example`**, root clean-up (one-off prod scripts → `ops/legacy-scripts/`).
 
 Everything else (modules, pages, PPTX/Excel/e-mail engines, installer, RBAC) is inherited unchanged; the legacy README with the full feature inventory is kept at [`docs/LEGACY_README_SDP_DASHBOARD.md`](docs/LEGACY_README_SDP_DASHBOARD.md) and the inherited design log at [`CLAUDE.md`](CLAUDE.md).

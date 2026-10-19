@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.0.0-alpha.3 — 2026-10-19 — Étape 2 : PostgreSQL seul (socle), migrateur, CI à parité
+- `db/migrate.js`: one schema migrator for every `db/postgres/**/*.sql` (journal `schema_migrations`), run at boot, by the installer and in CI (`--status`, `--dry-run`).
+- CI runs the PostgreSQL half of the suite against a PostgreSQL 17 service with `PG_TESTS_REQUIRED=1`; a fresh database is migrated first.
+- Nightly `db.backup` job through the runner (`services/backup.js`, retention `SDP_BACKUP_KEEP`).
+- `tools/pg/copy-assets.js --dry-run` + source/target counts and a warning on shortfall.
+- `kpi_rag_policies` moved to `reports/015` (applied before `016_dashboard_definitions`).
+- Fixed three latent test failures: pool leak on repeated `initPgReports`, unref'd PPTX timeout that could never fire, PowerShell-only tests now skip with a reason.
+
 ## 2.0.0-alpha.2 — 2026-10-19 — Étape 1 : synchronisations fiables et observables
 - One cron registry (`services/sync/jobs.js` + `schedule.js`): every scheduled job runs through the shared runner (overlap lock, exponential retry with Retry-After, run log, failure mirrored to `system_log`).
 - Truncation guard before every Zoho reconciliation (`zoho-sync.js assertNotTruncated`): a partial export can no longer cascade into a mass delete.

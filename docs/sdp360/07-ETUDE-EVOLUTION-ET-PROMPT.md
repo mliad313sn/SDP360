@@ -84,7 +84,7 @@ SDP-Dashboard est une plateforme d'exploitation IT **en production** pour les si
 | Registre des politiques RAG et moteur de score générique | `services/kpiRag.js` (5 tests) | Corrige L3 sur le principe |
 | Moteur de définition de trackers (validation, score, import du tracker 2026) | `services/trackerDefinitions.js` (5 tests) | Corrige L7 sur le principe |
 | Validateur de tableaux de bord (9 widgets, grille, profil terrain, refus du SQL brut) | `services/dashboardWidgets.js` (4 tests) | Base de L12 |
-| Schémas PostgreSQL des nouveaux objets | `002_tracker_definitions.sql`, `015_dashboard_definitions.sql` (métriques, politiques RAG, RFI) | Base de gouvernance |
+| Schémas PostgreSQL des nouveaux objets | `002_tracker_definitions.sql`, `016_dashboard_definitions.sql` (métriques, politiques RAG, RFI) | Base de gouvernance |
 | Intégration continue, `.env` d'exemple, nettoyage des 25 scripts à la racine | `.github/workflows/ci.yml`, `DOTENV.example`, `ops/legacy-scripts/` | Corrige L6 (CI) et L10 (début) |
 | Corpus de gouvernance : évaluation, document stratégique, charte de comité, feuille de route, spécification, SOP, gabarits, comparatif | `docs/sdp360/00…06` | Corrige L11 et L15 sur le papier |
 
