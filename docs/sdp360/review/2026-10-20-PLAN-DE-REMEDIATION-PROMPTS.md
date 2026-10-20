@@ -2,7 +2,7 @@
 title: "SDP Dashboard 2.0 — Plan de remédiation complet"
 subtitle: "Un prompt exécutable par constat (C1–F6 + lacunes V4), avec explication, bénéfice et critère d'acceptation"
 author: "Product Owner — suite du rapport du comité d'évaluation du 20 octobre 2026"
-date: "20 octobre 2026 — version 1.0"
+date: "20 octobre 2026 — version 1.1 (révisée pour une exécution intégralement par IA)"
 lang: fr
 ---
 
@@ -925,7 +925,7 @@ récurrents). Tests : liaison incident-problème ; recherche.
 | F1, F2 | V3 | Garde /reports, SMTP | 0,5 j | — |
 | V4-1…6 | V4 | Lacunes fonctionnelles | 3 à 6 j chacune | pilote |
 
-Total indicatif V1–V3 : **~85 jours-personne** sur 12 semaines, compatible avec un développeur assisté par agent à plein temps et un second contributeur sur V2 (francisation, tests utilisateurs).
+Lecture des efforts : la colonne « effort indicatif » est exprimée en jours-personne pour le lecteur humain ; elle n'est **pas** le coût d'exécution par un agent. Le §8 donne la lecture IA : nombre de sessions d'agent, coût de vérification et parts irréductiblement humaines. En exécution IA, le chemin critique n'est plus le temps de codage mais **le temps de vérification et les quelques gestes humains du §8.1**.
 
 # 6. Ordre d'exécution recommandé et critères de passage
 
@@ -942,3 +942,120 @@ Total indicatif V1–V3 : **~85 jours-personne** sur 12 semaines, compatible ave
 | V2 | SUS ≥ 70 ; 1 à 2 jours par mois et par site rendus aux coordinateurs ; terrain utilisable en français sans perte de saisie ; conformité GDPR documentée |
 | V3 | Audit interne sans constat majeur ; chiffres publiés opposables ; coût de correction divisé par le découpage ; exploitation transférable |
 | V4 | Outil quotidien des techniciens ; participation de l'encadrement ; pilotage budget/fournisseurs/risques au niveau groupe |
+
+# 8. Révision pour une exécution intégralement par IA
+
+Cette section corrige le plan sous l'hypothèse que **tout le travail est réalisé par des agents IA** dans le dépôt, le rôle humain se limitant à ce qui ne peut pas être délégué. Elle remplace la lecture « jours-personne » du §5 et complète chaque prompt.
+
+## 8.1 Ce que l'IA ne peut pas faire — la liste irréductible
+
+| Geste | Fiche | Pourquoi l'IA ne peut pas | Ce que l'IA prépare pour réduire le geste à quelques minutes |
+|---|---|---|---|
+| Signer les décisions D1–D8 | E9, E10, M13, M1 | Décision d'entreprise, engagement du comité | Une **note de décision d'une page par Dx** (options, recommandation, réversibilité, drapeau de configuration) ; en attendant, l'agent **avance sous l'hypothèse recommandée derrière un drapeau** (`score_reference_model`, `ai_cloud_dpia_signed`, etc.) et le journalise — la décision devient un changement de configuration, pas un blocage |
+| Poser les secrets de production | C2, E1, E4, E11, M10 | Pas d'accès à la prod ni aux coffres | Script d'installation qui demande chaque secret, valide le format, chiffre et vérifie ; liste de contrôle imprimable |
+| Enregistrement d'application Entra, certificat de signature, PFX | E1, E2 | Portail Microsoft, autorité de certification | Guide pas-à-pas avec captures attendues (déjà `docs/SSO_ENTRA_SETUP.md`), script de vérification post-enregistrement |
+| Appliquer un paquet sur la prod et redémarrer | toutes | Serveur hors de portée du dépôt | Paquet signé + `SIGNING.txt` + script d'application idempotent + sonde `/ready` qui dit si l'application a pris |
+| Observer de vrais utilisateurs (SUS, pilote) | E7 | Les humains sont l'objet mesuré | Kit complet (instance TEST anonymisée, comptes, grille, feuille de chrono, formulaire de saisie des résultats) + **parcours automatisés Playwright** qui exécutent le script de test avant les humains (voir 8.3) |
+| Test de pénétration externe | V1 sortie | Indépendance exigée par l'audit | Auto-évaluation STRIDE rejouée par un agent adverse (8.4), rapport prêt à remettre au testeur |
+| Accepter le résultat de l'audit blanc | V3 sortie | Jugement d'un tiers | Dossier de preuves auto-généré (journal chaîné, exports, matrice) |
+
+Tout le reste — code, tests, migrations, documentation, francisation, exercices de restauration sur l'instance TEST, captures d'écran, revues croisées — est exécutable par agent.
+
+## 8.2 Ce qui change dans chaque prompt
+
+Ajouter au préambule du §0 le bloc suivant :
+
+```
+Mode d'exécution IA :
+- Tu ne poses jamais de question bloquante : tu avances sous l'hypothèse recommandée dans la fiche, derrière
+  un drapeau de configuration réversible, et tu consignes l'hypothèse dans docs/sdp360/review/DECISIONS-EN-ATTENTE.md.
+- Chaque fiche se termine par un critère d'acceptation EXÉCUTABLE (commande + sortie attendue). Tu ne
+  déclares « fait » qu'après l'avoir exécuté et collé la sortie dans le message de commit.
+- Interdits absolus : régénérer un golden (GOLDEN_UPDATE=1) sans justification chiffrée dans le commit ;
+  affaiblir, ignorer (skip) ou supprimer un test ; élargir le budget de taille de server.js ; modifier
+  CLAUDE.md ou .github/ hors de la fiche qui le demande ; écrire un secret dans le dépôt ; déclarer un
+  test « flaky » sans trois exécutions isolées.
+- Une fiche = une session avec un contexte frais. Si une fiche dépasse ~40 fichiers touchés, découpe-la
+  en sous-fiches numérotées (ex. M12-a, M12-b) et pousse chacune séparément.
+- Après chaque fiche, un AGENT DIFFÉRENT exécute le prompt de vérification du §8.4 ; une fiche n'est
+  close qu'avec son verdict ACCEPTÉ.
+```
+
+Corrections fiche par fiche :
+
+| Fiche | Correction pour l'exécution IA |
+|---|---|
+| C1 | Inchangée ; ajouter la commande d'acceptation : `node --test tests/api-key-injection.smoke.test.js` + `grep -c "__ak" server.js` ≤ 1 |
+| E1 | L'agent **ne peut pas tester la signature Authenticode réelle** (certificat absent) : il livre la correction du workflow, la signature Ed25519 du manifeste avec une paire de clés de test, et un test qui échoue si la condition `if:` redevient fautive (`tests/ci-config.test.js` parse le YAML) ; le humain fournit le PFX une fois |
+| E2 | Inchangée ; le harnais `tests/sso-entra.test.js` fabrique déjà des jetons RSA : couvrir les quatre cas sans Entra réel |
+| E7 | **Scindée** : E7-a (IA) = kit de test, anonymisation, parcours Playwright qui rejouent le script SUS et chronomètrent le rapport hebdo, tableau d'adoption ; E7-b (humain) = 5 sessions de 45 min + 2 sites pilotes, résultats saisis dans un formulaire que l'IA consolide (E7-c) |
+| E8 | Francisation faite par l'agent ; ajouter une **relecture par un agent « locuteur natif »** distinct qui corrige les tournures, puis le test de couverture ; le glossaire métier (PV, parc, SLA, escalade) est fixé dans `public/lib/i18n-glossary.json` avant de commencer pour éviter 5 traductions différentes de « follow-up » |
+| E9 | Démarre **sans attendre D1/D2** : `score_reference_model='scoreboard'` par défaut, les autres modèles sélectionnables par drapeau ; le gel tracker se déploie derrière `tracker_rag_green_pct` (90) lisible dans la configuration, et le document de décision est généré |
+| E10 | Registre des traitements et AIPD **rédigés par l'agent à partir du schéma** (chaque table lue, finalité déduite du code), marqués « projet, à valider par le DPO » ; l'agent ne signe pas |
+| E11 | Exercice de restauration **exécuté par l'agent sur l'instance TEST** (ou un schéma jetable local en CI) et daté ; le humain ne fait que lire le rapport |
+| M1 | La règle « relecteur ≠ rédacteur » doit prévoir le cas où **le rédacteur est un agent IA** (`created_by` = compte de service) : le relecteur est alors obligatoirement un humain nommé ; ajouter `users.is_service_account` |
+| M3 | Inchangée ; attention : l'agent qui écrit le journal chaîné ne doit pas être celui qui écrit `verify-log-chain.js` (vérification croisée, §8.4) |
+| M12 | **À remonter en tête de V1** plutôt qu'en V3 : des agents en parallèle sur un `server.js` de 8 259 lignes produisent des conflits de fusion à chaque fiche ; extraire d'abord les routes que les fiches V1 touchent (reports/users, config, health, risk-register) rend les fiches parallélisables. Découper en M12-a…f, une zone par session |
+| M14 | L'alerte externe est testée sur l'instance TEST par l'agent (arrêt du service, attente de l'alerte sur une boîte de test) |
+| M15 | L'agent ne peut pas créer les secrets Dependabot/gitleaks : il livre les fichiers de configuration et une liste de contrôle |
+| V4-x | Chaque fiche V4 reçoit en plus un **scénario Playwright de bout en bout** comme critère d'acceptation, faute d'utilisateur pour le valider |
+
+## 8.3 Test d'utilisabilité : ce que l'IA fait avant les humains
+
+Chromium et Playwright sont disponibles dans l'environnement d'exécution. Avant toute session humaine (E7-b), un agent :
+
+1. Génère l'instance TEST anonymisée et cinq comptes (coordinateur, technicien, responsable IT, direction, encadrement).
+2. Rejoue le script `ETAPE-06-test-utilisabilite.md` et `ETAPE-10-script-pilote.md` en Playwright, **persona par persona**, en chronométrant chaque tâche et en capturant écran + console à chaque étape (`docs/sdp360/review/usability/auto/<persona>/`).
+3. Produit une **pré-synthèse** : tâches impossibles ou > 2× la cible, erreurs console, libellés non traduits, contrastes insuffisants (`tools/design/contrast-check.js`), violations WCAG détectées par `tests/a11y-static.test.js`.
+4. Corrige ce qui est objectif (libellé, contraste, erreur) **avant** de consommer du temps humain ; ne garde pour les humains que ce qui demande un jugement (compréhension, confiance, priorités).
+
+Le SUS reste humain : une IA qui « juge » l'utilisabilité produit exactement le biais que le comité a relevé dans ses propres notes (§10 du rapport).
+
+## 8.4 Vérification croisée : un second agent par fiche
+
+Chaque fiche est suivie d'une session de vérification par un agent **sans accès à la conversation de l'auteur**, avec ce prompt :
+
+```
+Tu vérifies la fiche <ID> sur le commit <sha> du dépôt SDP360, sans faire confiance au message de commit.
+1. Relis le constat et le critère d'acceptation de la fiche dans docs/sdp360/review/2026-10-20-PLAN-DE-REMEDIATION-PROMPTS.md.
+2. Exécute la suite complète (commande du §0) et le critère d'acceptation ; colle les sorties.
+3. Vérifie les interdits : git diff <sha>~1..<sha> -- tests/ ne supprime ni n'ignore aucun test ; aucun golden
+   régénéré sans justification ; budget de server.js inchangé ou abaissé ; CLAUDE.md et .github/ intacts sauf
+   si la fiche le demande ; aucun secret (grep des motifs de clés).
+4. Rejoue le scénario d'attaque ou d'usage de la fiche (ex. C1 : GET de la page sans cookie, lecture du source,
+   appel de /api/orgs avec la clé) et montre qu'il échoue désormais.
+5. Verdict : ACCEPTÉ / REFUSÉ avec la liste exacte des manques. Un REFUSÉ renvoie la fiche à un nouvel agent
+   auteur avec ton rapport.
+```
+
+Pour les fiches de sécurité (C1–E5, M4, M7–M10, M19), ajouter un **agent adverse** qui tente explicitement le contournement (STRIDE rejoué) avant le verdict. C'est la seule façon de garder une séparation des tâches quand auteur et relecteur sont tous deux des IA : **des contextes séparés et un mandat opposé**.
+
+## 8.5 Parallélisation et ordre révisé
+
+- Des agents parallèles travaillent dans des worktrees séparés sur des fiches **sans fichier commun** ; les fiches qui touchent `server.js` sont sérialisées tant que M12-a…d n'est pas fait.
+- Ordre V1 révisé : **M12-a (extraire routes users/config/health/risk-register)** → C1 → C2 → E3 → E6 → M9 (sur les routes extraites) → en parallèle {E2, E4, M4, M7, E11} → E1 → E5 → E9.
+- Ordre V2 révisé : glossaire i18n → en parallèle {E8 par module, M17, M6} → M5 → M16 → M13 → E10 → E7-a (automatisé) → **E7-b humain** → E7-c.
+- Ordre V3 révisé : M12-e/f (reste du découpage, DDL unique, identité des sites) → en parallèle {M1, M10, M11, M19, M20, F1, F2} → M3 → M2 → M8 → M18 → M15 → M14.
+
+## 8.6 Coût révisé
+
+| Vague | Fiches | Sessions d'agent (auteur) | Sessions de vérification | Gestes humains (minutes) |
+|---|---|---|---|---|
+| V1 | 13 + M12-a…d | ~22 | ~17 | Secrets prod, PFX, application du paquet : ~60 min ; décisions D1/D2 : 30 min |
+| V2 | 8 | ~24 (E8 = 6 modules × 2) | ~10 | 5 sessions SUS (5 × 45 min) + 2 sites pilotes (2 × 2 h) + D4/D5/D6 : ~8 h |
+| V3 | 15 + M12-e/f | ~26 | ~17 | Lecture du dossier de preuves, D7/D8 : ~2 h ; audit blanc : externe |
+| **Total** | | **~72 sessions** | **~44 sessions** | **~12 h humaines** sur 12 semaines |
+
+Ce qui pilote le calendrier n'est donc plus l'effort de développement mais : (1) les ~12 heures humaines, à **planifier dès la semaine 1** (secrets, Entra, PFX) et la **semaine 5** (sessions SUS) ; (2) le temps de vérification, qui représente ~40 % des sessions et ne doit pas être sacrifié ; (3) la discipline « une fiche, un contexte frais, un vérificateur distinct ».
+
+## 8.7 Risques propres à une exécution IA et parades
+
+| Risque | Parade dans ce plan |
+|---|---|
+| L'agent fait passer les tests en les affaiblissant ou en régénérant les goldens | Interdits du §8.2, contrôle du diff `tests/` par le vérificateur, garde CI qui refuse un commit touchant `tests/__golden__` sans le mot-clé `golden-justified:` dans le message |
+| L'agent « déclare » une vérification sans l'avoir exécutée | Sortie de commande obligatoire dans le commit ; le vérificateur ré-exécute |
+| Même modèle, même angle mort auteur/relecteur | Contextes séparés, mandat adverse, agent « locuteur natif » pour E8, agent STRIDE pour la sécurité |
+| Dérive de périmètre (l'agent « améliore » au passage) | Une fiche par session ; tout changement hors fiche est refusé par le vérificateur |
+| Hypothèses non signées qui deviennent des faits | `DECISIONS-EN-ATTENTE.md` tenu à jour et présenté au comité à chaque vague ; tout drapeau par défaut est réversible |
+| Perte de contexte sur les gros fichiers | M12 remonté en V1 ; sous-fiches ≤ 40 fichiers |
+| Conflits de fusion entre agents parallèles | Worktrees + sérialisation des fiches sur fichiers communs (§8.5) |
