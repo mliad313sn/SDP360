@@ -921,6 +921,8 @@
         </ul>
         <p>What it does NOT attempt (intentionally, to avoid sounding like a hallucinating AI): inferred-from-subjects narrative, cross-KPI causal speculation, free-form prose. It is fact-first, narrative-poor.</p>
 
+        <h3 id="en-14-1b">14.1b House style of every AI comment (rule of 2026-10-20)</h3>
+        <p>Every comment the platform generates with an AI — the report studio commentary, the deck-builder analysis and the incident summaries on the public status page — is written in <strong>simple English for a CIO / CFO reader</strong>, whatever the template language or audience. The server enforces it: at most 5 short sentences, no acronyms or IT jargon (the model must say "service target", not SLA; "time to fix", not MTTR; "internet link", not WAN), no bullets, links or exclamation marks, never French. A reply that breaks the rule gets one correction round; if it still fails, the deterministic analysis is shown instead and the run records why. The deck builder's audience selector is locked to <em>Executive (CFO/CIO)</em>.</p>
         <h3 id="en-14-2">14.2 Cloud / on-prem AI (optional — off by default)</h3>
         <p>A richer AI path can generate narrative commentary, but it is <strong>switched off by default</strong> (<code>AI_PROVIDER=off</code>) so no ITSM ticket text ever leaves the corporate network. Your administrator can turn it on in one of two ways via the server <code>.env</code>:</p>
         <table>
@@ -2052,6 +2054,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Confirm-Destructive.ps1"
         </ul>
         <p>Ce qu'il N'ESSAIE PAS de faire (volontairement, pour éviter de sonner comme une IA qui hallucine) : narratif inféré depuis les sujets, spéculation causale entre KPIs, prose libre. Il est factuel, pauvre en narratif.</p>
 
+        <h3 id="fr-14-1b">14.1b Style imposé à tout commentaire IA (règle du 2026-10-20)</h3>
+        <p>Tout commentaire produit par une IA — commentaire du studio de rapports, analyse du constructeur de decks, résumés d'incident de la page statut publique — est rédigé en <strong>anglais simple pour un lecteur CIO / CFO</strong>, quels que soient la langue et le public du gabarit. Le serveur l'impose : au plus 5 phrases courtes, aucun acronyme ni jargon IT (« service target » et non SLA, « time to fix » et non MTTR, « internet link » et non WAN), ni puces, ni liens, ni points d'exclamation, jamais de français. Une réponse qui enfreint la règle a droit à une correction ; si elle échoue encore, l'analyse déterministe est affichée à la place et la raison est enregistrée. Le sélecteur d'audience du constructeur de decks est verrouillé sur <em>Executive (CFO/CIO)</em>.</p>
         <h3 id="fr-14-2">14.2 IA cloud / sur site (optionnelle — désactivée par défaut)</h3>
         <p>Un chemin IA plus riche peut générer un commentaire narratif, mais il est <strong>désactivé par défaut</strong> (<code>AI_PROVIDER=off</code>) afin qu'aucun texte de ticket ITSM ne quitte le réseau d'entreprise. Votre administrateur peut l'activer de deux façons via le <code>.env</code> du serveur :</p>
         <table>

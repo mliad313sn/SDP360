@@ -74,8 +74,9 @@ function applyCachedSummaries(mis, cacheMap) {
 // strict JSON object so parsing is deterministic.
 function buildMiSummaryPrompt(mi) {
   const content =
-    'Summarize this IT major incident for a non-technical executive audience on ' +
-    'a public status page. Be factual, neutral and concise. Do NOT invent ' +
+    'Summarize this IT major incident for a CIO / CFO reader on a public status page, in simple English ' +
+    '(no acronyms, no IT jargon: say "root cause" not RCA, "internet link" not WAN; one sentence under 22 words each). ' +
+    'Be factual, neutral and concise. Do NOT invent ' +
     'details not present in the source. Do NOT include names of people. Reply ' +
     'with ONLY a JSON object of the form ' +
     '{"root_cause":"<one plain-English sentence>","action":"<one plain-English sentence>"}. ' +
@@ -101,8 +102,12 @@ function parseSummaryResponse(text) {
   if (a === -1 || b === -1 || b <= a) return null;
   try {
     const o = JSON.parse(s.slice(a, b + 1));
-    const rc = typeof o.root_cause === 'string' ? o.root_cause.trim() : '';
-    const ac = typeof o.action === 'string' ? o.action.trim() : '';
+    // House style: one plain-English sentence each (CIO / CFO). A sentence that fails the check is
+    // de-jargoned; if it still fails (French, too long) it is dropped so the raw text is shown instead.
+    const plain = require('./plainEnglish');
+    const one = (v) => { if (typeof v !== 'string') return ''; let t = plain.dejargon(v.trim()); const c = plain.check(t, { ...plain.LIMITS, maxSentences: 1, maxWordsPerSentence: 26, maxWords: 26 }); return c.ok ? t : ''; };
+    const rc = one(o.root_cause);
+    const ac = one(o.action);
     if (!rc && !ac) return null;
     return { root_cause: rc, action: ac };
   } catch { return null; }

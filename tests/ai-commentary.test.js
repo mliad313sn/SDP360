@@ -28,18 +28,18 @@ test('anonymise/deanonymise: site names become S1..Sn everywhere and come back',
 });
 
 test('buildPrompt: carries the absolute rule, the figures and the sorted canonical list', () => {
-  const p = buildPrompt(analysis, { audience: 'executive', lang: 'fr' });
-  assert.match(p.system, /RÈGLE ABSOLUE/); assert.match(p.user, /LISTE CANONIQUE/); assert.ok(p.user.includes('Resolution SLA (helpdesk.resolution_sla_pct): 71.4 %'));
+  const p = buildPrompt(analysis, { audience: 'executive', lang: 'fr' }); // lang is ignored: house style is English
+  assert.match(p.system, /ABSOLUTE RULE/); assert.match(p.user, /CANONICAL LIST/); assert.ok(p.user.includes('Resolution SLA (helpdesk.resolution_sla_pct): 71.4 %'));
   assert.deepEqual(p.canonical.slice(0, 3), ['40', '40.0', '71']); assert.ok(p.canonical.includes('71.4'));
 });
 
 test('generateCommentary: provider off → deterministic; local keeps names; cloud anonymises and restores', async () => {
   const off = await generateCommentary({ analysis, provider: 'off', aiCall: async () => 'never called' });
-  assert.equal(off.source, 'deterministic'); assert.ok(off.text.startsWith(analysis.headline));
-  let seen; const local = await generateCommentary({ analysis, provider: 'local', aiCall: async (p) => { seen = p.user; return 'Hounde SLA is 71.4 %.'; } });
+  assert.equal(off.source, 'deterministic'); assert.ok(off.text.startsWith(require('../services/plainEnglish').dejargon(analysis.headline)));
+  let seen; const local = await generateCommentary({ analysis, provider: 'local', aiCall: async (p) => { seen = p.user; return 'Hounde service target is 71.4 percent.'; } });
   assert.equal(local.source, 'ai'); assert.equal(local.anonymised, false); assert.ok(seen.includes('Hounde'));
-  const cloud = await generateCommentary({ analysis, provider: 'anthropic', aiCall: async (p) => { seen = p.user; return 'S1 SLA is 71.4 % while S2 reaches 85 %.'; } });
-  assert.equal(cloud.anonymised, true); assert.ok(!seen.includes('Hounde'), 'real names never leave for a cloud provider'); assert.equal(cloud.text, 'Hounde SLA is 71.4 % while Mana reaches 85 %.');
+  const cloud = await generateCommentary({ analysis, provider: 'anthropic', aiCall: async (p) => { seen = p.user; return 'S1 service target is 71.4 percent while S2 reaches 85 percent.'; } });
+  assert.equal(cloud.anonymised, true); assert.ok(!seen.includes('Hounde'), 'real names never leave for a cloud provider'); assert.equal(cloud.text, 'Hounde service target is 71.4 percent while Mana reaches 85 percent.');
 });
 
 test('generateCommentary: a reply quoting a foreign number or throwing falls back to the deterministic text', async () => {
@@ -49,4 +49,23 @@ test('generateCommentary: a reply quoting a foreign number or throwing falls bac
   assert.equal(thrown.source, 'deterministic'); assert.match(thrown.error, /ECONNREFUSED/);
   const empty = await generateCommentary({ analysis, provider: 'local', aiCall: async () => '' });
   assert.equal(empty.error, 'empty reply');
+});
+
+test('house style: the prompt is always English with the style block, whatever the template says', () => {
+  const p = buildPrompt(analysis, { audience: 'council', lang: 'fr' });
+  assert.match(p.system, /Write a commentary in English/);
+  assert.match(p.system, /CIO or CFO/);
+  assert.ok(!/Tu es l'analyste/.test(p.system));
+});
+
+test('house style: a jargon-laden reply gets one correction round, then the deterministic text wins', async () => {
+  const calls = [];
+  const aiCall = async ({ user }) => { calls.push(user); return calls.length === 1 ? 'The SLA was 71.4 % and the MTTR rose.' : 'The service target was 71.4 percent and the time to fix rose.'; };
+  const r = await generateCommentary({ analysis, audience: 'executive', lang: 'en', provider: 'local', aiCall });
+  assert.equal(calls.length, 2); assert.match(calls[1], /BROKE THE STYLE RULES/);
+  assert.equal(r.source, 'ai'); assert.equal(r.verified, true); assert.ok(!/SLA/.test(r.text));
+  const stubborn = async () => 'Le SLA était à 71.4 %.';
+  const f = await generateCommentary({ analysis, audience: 'executive', lang: 'en', provider: 'local', aiCall: stubborn });
+  assert.equal(f.source, 'deterministic'); assert.match(f.error, /plain-English/);
+  assert.ok(!/\bSLA\b/.test(f.text), 'deterministic fallback is de-jargoned too');
 });

@@ -4853,12 +4853,15 @@ function _alen(key) {
 let _analyzeAudience = (function() {
   try {
     const saved = localStorage.getItem('analyze_audience_v1');
-    if (saved && _ANALYZE_AUDIENCES[saved]) return saved;
+    if (saved && saved !== 'executive') localStorage.setItem('analyze_audience_v1', 'executive');
   } catch (_) {}
-  return 'executive';   // default per user direction 2026-06-04
+  return 'executive';   // locked: simple English for CIO / CFO (sponsor rule 2026-10-20)
 })();
 
 function setAnalyzeAudience(value) {
+  // House rule (2026-10-20): every AI comment is simple English for a CIO / CFO reader — the
+  // operational / technical registers are kept in the table for reference but can no longer be selected.
+  if (value !== 'executive') value = 'executive';
   if (!_ANALYZE_AUDIENCES[value]) return;
   _analyzeAudience = value;
   try { localStorage.setItem('analyze_audience_v1', value); } catch (_) {}
