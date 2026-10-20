@@ -33,6 +33,10 @@ Dépôt SDP360, branche claude/sdp-dashboard-analysis-55b1oy. Contraintes :
   Aucune pull request.
 ```
 
+# 0 bis. Vague 0 « Simplifier » (semaines 1–2, en parallèle de C1–C2)
+
+Depuis le 20 octobre 2026, la **charte de simplicité et de valeur** (`2026-10-20-CHARTE-SIMPLICITE-ET-VALEUR.md`) impose une vague 0 avant celle-ci : accueil par rôle, menu ≤ 12 entrées, rapport hebdo en un écran, action unique, 6 rôles, aide contextuelle, page statut, tableau d'adoption (fiches S-1 à S-8). Elle absorbe M13, M16, V4-4, une partie de E7 et E10, et réduit le périmètre de E8, E5, M9 et M12 aux pages conservées. Le test `tests/simplicity-budget.test.js` devient un critère de sortie de chaque vague.
+
 # 1. Vague 1 — Fermer et trancher (semaines 1–2)
 
 ## C1 — Clé d'API injectée sans session, routes gardées par la clé seule
