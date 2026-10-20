@@ -624,24 +624,8 @@ async function checkZohoViewSchema() {
   return results;
 }
 
-// Expose as an admin-only endpoint for manual health checks
-app.get('/api/health/views', async (req, res) => {
-  // Require a valid session with admin or super_admin role
-  const token = req.headers['x-report-token'] || req.query.token;
-  if (!token) return res.status(401).json({ error: 'Authentication required' });
-  const { validateSession } = require('./reports-db');
-  const user = await validateSession(token);
-  if (!user || !['admin','super_admin'].includes(user.role)) {
-    return res.status(403).json({ error: 'Admin role required' });
-  }
-  try {
-    const results = await checkZohoViewSchema();
-    const allOk = results.every(r => r.ok);
-    res.json({ ok: allOk, checkedAt: new Date().toISOString(), results });
-  } catch(e) {
-    res.status(500).json({ error: e.message });
-  }
-});
+// Zoho view schema health check — routes/health.js (M12-a).
+app.use(require('./routes/health')({ express, checkZohoViewSchema }));
 
 // ── Startup behaviour (2026-05-28) ──────────────────────────────────────
 // Previously: on every pm2 restart, this fired all 3 syncs against Zoho
@@ -3943,130 +3927,9 @@ app.get('/api/cache/status', requireReportSession, (req, res) => {
   });
 });
 
-// ──────────────────────────────────────────────────────────────────────
-// GET /api/risk-register-export?month=YYYY-MM
-// ──────────────────────────────────────────────────────────────────────
-// Exports the Risk Register's monthly Occurrence sheet as an .xlsx file
-// (one row per Site × Domain, count of Incident tickets that matched
-// each domain's category/sub-category rules).
-//
-// PURELY ADDITIVE per Risk_Register_Export_Spec.md §"Non-Regression
-// Constraint": this route is read-only, queries only the existing
-// request_records SQLite table populated by the hourly Zoho sync,
-// and is independent of every other endpoint. No state is mutated.
-//
-// All business logic (classifier rules, site list, Excel styling)
-// lives in risk-register-export.js — the only thing this handler
-// does is parse the month query, run the export, and stream bytes.
-app.get('/api/risk-register-export', async (req, res) => {
-  const month = (req.query.month || '').trim();
-  if (!/^\d{4}-\d{2}$/.test(month)) {
-    return res.status(400).json({ error: 'Invalid month format. Use YYYY-MM (e.g. 2026-05).' });
-  }
-  try {
-    const { buildRiskRegisterExport } = require('./risk-register-export');
-    const { buffer, diagnostics } = await buildRiskRegisterExport(rdb.db, month);
-
-    res.setHeader('Content-Type',        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename="RiskRegister_Occurrence_${month}.xlsx"`);
-    // Surface the row/skip counts in a debug header so the operator can
-    // verify the export reflects what they expect without opening the file.
-    res.setHeader('X-Risk-Register-Diag', JSON.stringify(diagnostics));
-    res.send(Buffer.from(buffer));
-  } catch (err) {
-    console.error('[risk-register-export] error:', err.message);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ──────────────────────────────────────────────────────────────────────
-// Risk Register admin config — SDP site → register code mapping
-// ──────────────────────────────────────────────────────────────────────
-// Editable list of aliases so super_admins can add new mappings (new
-// mines, label renames) without a code deploy. GET is open to any
-// authenticated user (so the export-author roles can sanity-check the
-// list before generating a report). All mutations require super_admin.
-//
-// Routes:
-//   GET    /api/risk-register-config/aliases              list
-//   POST   /api/risk-register-config/aliases              upsert one
-//   DELETE /api/risk-register-config/aliases/:sdp_label   remove
-//   GET    /api/risk-register-config/unmapped?month=...   diagnostics
-//   GET    /api/risk-register-config/sites                canonical codes
-const rrConfigJsonBody = express.json({ limit: '64kb' });
-
-app.get('/api/risk-register-config/aliases', requireReportSession, async (req, res) => {
-  try {
-    const rr = require('./risk-register-export');
-    res.json({ aliases: await rr.listAliases(rdb.db) });
-  } catch (err) {
-    console.error('[rr-config] list error:', err.message);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.get('/api/risk-register-config/sites', requireReportSession, (req, res) => {
-  // No DB hit — pure constant from the module.
-  const rr = require('./risk-register-export');
-  res.json({ sites: rr.SITES });
-});
-
-app.post('/api/risk-register-config/aliases',
-  requireReportSession,
-  (req, res, next) => {
-    if (!rdb.userHasRole(req.reportUser, 'super_admin')) {
-      return res.status(403).json({ error: 'super_admin only' });
-    }
-    next();
-  },
-  rrConfigJsonBody,
-  async (req, res) => {
-    try {
-      const rr = require('./risk-register-export');
-      const { sdp_label, code } = req.body || {};
-      const updatedBy = req.reportUser?.username || req.reportUser?.full_name || 'unknown';
-      const saved = await rr.upsertAlias(rdb.db, sdp_label, code, updatedBy);
-      console.log(`[rr-config] upsert ${saved.sdp_label} → ${saved.code} by ${updatedBy}`);
-      res.json({ saved });
-    } catch (err) {
-      console.error('[rr-config] upsert error:', err.message);
-      res.status(400).json({ error: err.message });
-    }
-  });
-
-app.delete('/api/risk-register-config/aliases/:sdp_label',
-  requireReportSession,
-  (req, res, next) => {
-    if (!rdb.userHasRole(req.reportUser, 'super_admin')) {
-      return res.status(403).json({ error: 'super_admin only' });
-    }
-    next();
-  },
-  async (req, res) => {
-    try {
-      const rr = require('./risk-register-export');
-      const label = decodeURIComponent(req.params.sdp_label || '');
-      const r = await rr.deleteAlias(rdb.db, label);
-      const who = req.reportUser?.username || req.reportUser?.full_name || 'unknown';
-      console.log(`[rr-config] delete "${label}" by ${who} — rows=${r.deleted}`);
-      res.json(r);
-    } catch (err) {
-      console.error('[rr-config] delete error:', err.message);
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-app.get('/api/risk-register-config/unmapped', requireReportSession, async (req, res) => {
-  try {
-    const rr = require('./risk-register-export');
-    const month = (req.query.month || '').trim();
-    res.json({ month, unmapped: await rr.listUnmappedSites(rdb.db, month) });
-  } catch (err) {
-    console.error('[rr-config] unmapped error:', err.message);
-    res.status(400).json({ error: err.message });
-  }
-});
-
+// Risk Register export + site-alias config — routes/riskRegister.js (M12-a).
+// rdb is a `let` assigned later in this file (TDZ here): pass a getter, read per request.
+app.use(require('./routes/riskRegister')({ express, requireReportSession, getRdb: () => rdb }));
 // Passthrough endpoints (all existing)
 const simpleViews = [
   ['/api/data/sla-trend',          'SLA_COMPLIANCE_TREND',  500],
@@ -5381,91 +5244,12 @@ if ((process.env.REPORTS_BACKEND || 'sqlite').toLowerCase() !== 'postgres' && rd
   reportSchedule._initSchema(rdb.db);
 }
 
-app.get('/api/reports/config', requireReportSession, requireSuperAdmin, async (req, res) => {
-  try {
-    const c = await reportConfig.getConfig(rdb.db);
-    if (c && c.smtp_pass) c.smtp_pass = '';   // never expose the stored SMTP password
-    if (c && c.entra_client_secret) c.entra_client_secret = '';   // never expose the stored SSO secret
-    if (c && c.meridian_out_key) c.meridian_out_key = '';   // never expose the stored Meridian keys
-    if (c && c.meridian_in_key) c.meridian_in_key = '';
-    if (c && c.meraki_api_key) c.meraki_api_key = '';   // never expose the stored Meraki API key
-    if (c && c.opmanager_api_key) c.opmanager_api_key = '';   // never expose the stored OpManager API key
-    for (const k of ['sdp_api_client_secret', 'sdp_api_refresh_token', 'teams_sla_channels', 'analytics_client_secret', 'analytics_refresh_token', 'sync_alert_teams_url']) if (c && c[k]) c[k] = '';   // Teams SLA + Analytics secrets
-    res.json(c);
-  }
-  catch (e) { res.status(500).json({ error: e.message }); }
-});
-app.put('/api/reports/config', requireReportSession, requireSuperAdmin, async (req, res) => {
-  try {
-    const body = req.body || {};
-    // SSO settings (mode / secret / tenant) are auth-critical. The endpoint is
-    // requireAdmin (shared with SMTP etc.), so enforce super_admin server-side for
-    // the SSO keys — the UI hide alone is not a boundary.
-    const SSO_KEYS = ['sso_mode','entra_tenant_id','entra_client_id','entra_client_secret','entra_redirect_uri','sso_breakglass_user'];
-    if (SSO_KEYS.some(k => k in body) && req.reportUser?.role !== 'super_admin') {
-      return res.status(403).json({ error: 'SSO settings require super_admin' });
-    }
-    // Meridian federation keys carry a service secret (out/in API keys) → super_admin only.
-    const MERIDIAN_KEYS = ['meridian_base_url','meridian_out_key','meridian_in_key'];
-    if (MERIDIAN_KEYS.some(k => k in body) && req.reportUser?.role !== 'super_admin') {
-      return res.status(403).json({ error: 'Meridian settings require super_admin' });
-    }
-    // Meraki API key carries a service secret → super_admin only (org_id/base_url/policy too, kept simple).
-    const MERAKI_KEYS = ['meraki_api_key','meraki_org_id','meraki_base_url','meraki_missing_policy'];
-    if (MERAKI_KEYS.some(k => k in body) && req.reportUser?.role !== 'super_admin') {
-      return res.status(403).json({ error: 'Meraki settings require super_admin' });
-    }
-    const OPMANAGER_KEYS = ['opmanager_api_key','opmanager_base_url','opmanager_tls_insecure'];
-    if (OPMANAGER_KEYS.some(k => k in body) && req.reportUser?.role !== 'super_admin') {
-      return res.status(403).json({ error: 'OpManager settings require super_admin' });
-    }
-    const out = await reportConfig.setConfig(rdb.db, body, req.reportUser?.username);
-    require('./services/ssoSettings')._invalidate();   // config changed → re-read next request
-    res.json(out);
-  }
-  catch (e) { res.status(500).json({ error: e.message }); }
-});
-// ── Zoho Analytics connection (2026-10-04) — Admin ▸ Intégration API ▸ Analytics. Secrets are
-// write-only (GET says whether one is stored and where each value comes from: db / env / default).
-app.get('/api/integrations/analytics', requireReportSession, requireSuperAdmin, async (req, res) => {
-  try {
-    const A = require('./services/analyticsSettings');
-    A._invalidate();
-    const s = await A.resolveAnalyticsSettings();
-    res.json({
-      client_id: s.clientId, workspace_id: s.workspaceId, org_id: s.orgId, accounts_url: s.accountsUrl,
-      has_client_secret: !!s.clientSecret, has_refresh_token: !!s.refreshToken, sources: s.sources, ready: s.ready,
-      token: { valid: Date.now() < tokenState.expiresAt, expires_at: tokenState.expiresAt ? new Date(tokenState.expiresAt).toISOString() : null,
-        granted_scope: tokenState.grantedScope || null, last_error: tokenState.lastRefreshError || null },
-    });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-app.put('/api/integrations/analytics', requireReportSession, requireSuperAdmin, async (req, res) => {
-  try {
-    const b = req.body || {};
-    const map = { client_id: 'analytics_client_id', client_secret: 'analytics_client_secret', refresh_token: 'analytics_refresh_token',
-      workspace_id: 'analytics_workspace_id', org_id: 'analytics_org_id', accounts_url: 'analytics_accounts_url' };
-    const patch = {};
-    for (const [k, key] of Object.entries(map)) if (k in b) patch[key] = String(b[k] == null ? '' : b[k]).trim();
-    if (patch.analytics_accounts_url && !/^https:\/\/\S+$/i.test(patch.analytics_accounts_url)) return res.status(400).json({ error: 'Serveur OAuth : https:// requis' });
-    await reportConfig.setConfig(rdb.db, patch, req.reportUser?.username);
-    require('./services/analyticsSettings')._invalidate();
-    await _applyAnalyticsSettings();
-    tokenState.accessToken = null; tokenState.expiresAt = 0;   // next Analytics call refreshes with the new credentials
-    res.json({ ok: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-// Refresh the token NOW with the stored settings → proves the credentials + shows the scope.
-app.post('/api/integrations/analytics/test', requireReportSession, requireSuperAdmin, async (req, res) => {
-  try {
-    require('./services/analyticsSettings')._invalidate();
-    tokenState.accessToken = null; tokenState.expiresAt = 0;
-    await refreshAccessToken();
-    const scope = tokenState.grantedScope || '';
-    res.json({ ok: true, granted_scope: scope || null,
-      warning: scope && !scope.includes('MEAplus.fullaccess') ? 'Scope différent de MEAplus.fullaccess.all — certaines vues renverront 7301.' : null });
-  } catch (e) { res.status(502).json({ error: String(e.message || e).slice(0, 400) }); }
-});
+// Report config · Zoho Analytics connection · test-smtp — routes/adminConfig.js (M12-a).
+// tokenState is passed by reference (the handlers mutate its fields, never reassign it).
+app.use(require('./routes/adminConfig')({
+  express, rdb, reportConfig, requireReportSession, requireSuperAdmin,
+  tokenState, refreshAccessToken, applyAnalyticsSettings: _applyAnalyticsSettings,
+}));
 
 // Meridian resource sync — on-demand (admin+). Runs the same job as the nightly cron;
 // self-skips when unconfigured. Behind the /api/ dash-key gate + session/admin.
@@ -5815,26 +5599,7 @@ app.post('/api/reports/send', requireReportSession, requireSuperAdmin, async (re
   }
 });
 
-// Tests the settings the admin is LOOKING AT, not only the last-saved ones:
-// the form's values (if posted) are overlaid on the stored config. Previously
-// this read only the saved config, so testing before Save silently probed an
-// empty host — which nodemailer turns into `ECONNREFUSED 127.0.0.1:587`.
-// The password field is deliberately never echoed back to the browser
-// (reports.html), so a blank one means "keep the stored secret" — the exact
-// rule the Save path already uses.
-app.post('/api/reports/test-smtp', requireReportSession, requireSuperAdmin, async (req, res) => {
-  try {
-    const { buildMailer } = require('./services/mailer');
-    const cfg = Object.assign({}, await reportConfig.getConfig(rdb.db));
-    const body = req.body || {};
-    for (const k of ['transport', 'smtp_host', 'smtp_port', 'smtp_secure', 'smtp_user', 'from', 'reply_to']) {
-      if (body[k] !== undefined && body[k] !== null) cfg[k] = String(body[k]);
-    }
-    if (body.smtp_pass) cfg.smtp_pass = String(body.smtp_pass);
-    res.json(await buildMailer(cfg).verify());
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
+// POST /api/reports/test-smtp → routes/adminConfig.js (M12-a); mounted with /api/reports/config above.
 // ── Auth routes ───────────────────────────────────────────────────
 // SECURITY: Login endpoint is rate-limited (10 attempts/15min) to block brute force.
 app.post('/api/reports/auth/login', loginLimiter, jsonBody, async (req, res) => {
@@ -6096,127 +5861,8 @@ app.delete('/api/reports/sites/:id', requireReportSession, requireExecutiveOrSup
   } catch(e) { res.status(400).json({ error: e.message }); }
 });
 
-// ── Users (admin only) ────────────────────────────────────────────
-app.get('/api/reports/users', requireReportSession, requireSuperAdmin, async (req, res) => {
-  try { res.json(await rdb.listUsers()); }
-  catch(e) { res.status(500).json({ error: e.message }); }
-});
-
-app.post('/api/reports/users', requireReportSession, requireSuperAdmin, jsonBody, async (req, res) => {
-  try {
-    // Accept both legacy `role: 'admin'` (string) and new `roles: ['admin', 'tracker-editor']` (array).
-    const { username, full_name, password, site_id, role, roles, email, extra_site_ids } = req.body || {};
-    if (!username || !full_name || !password) return res.status(400).json({ error: 'username, full_name, password required' });
-    await rdb.createUser({ username, full_name, password, site_id, role, roles, email, extra_site_ids });
-    res.json({ ok: true });
-  } catch(e) {
-    // sqlite raises "UNIQUE constraint failed"; postgres raises SQLSTATE 23505.
-    if (e.code === '23505' || (e.message && e.message.includes('UNIQUE'))) return res.status(409).json({ error: 'Username already exists' });
-    res.status(500).json({ error: e.message });
-  }
-});
-
-// Bulk email mapping for the SSO transition — set many users' emails at once.
-// Body: { updates: [{ id, email }] }. admin+. Registered BEFORE /users/:id so
-// "emails" isn't parsed as an :id.
-app.put('/api/reports/users/emails', requireReportSession, requireSuperAdmin, jsonBody, async (req, res) => {
-  try {
-    const updates = (req.body && req.body.updates) || [];
-    if (!Array.isArray(updates)) return res.status(400).json({ error: 'updates[] required' });
-    let n = 0;
-    for (const u of updates) {
-      const id = parseInt(u && u.id, 10);
-      if (!Number.isFinite(id)) continue;
-      await rdb.setUserEmail(id, (u.email || '').trim());
-      n++;
-    }
-    console.log(`[SSO] bulk email map: ${n} user(s) updated by ${req.reportUser?.username || 'admin'}`);
-    res.json({ ok: true, updated: n });
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
-
-app.put('/api/reports/users/:id', requireReportSession, requireSuperAdmin, jsonBody, async (req, res) => {
-  try {
-    // Accept both legacy `role` (string) and new `roles` (array) — see createUser comment.
-    const { full_name, password, site_id, role, roles, active, email, extra_site_ids } = req.body || {};
-    if (!full_name) return res.status(400).json({ error: 'full_name required' });
-    await rdb.updateUser(parseInt(req.params.id), { full_name, password, site_id, role, roles, active, email, extra_site_ids });
-    res.json({ ok: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
-
-app.delete('/api/reports/users/:id', requireReportSession, requireSuperAdmin, async (req, res) => {
-  try {
-    const id = parseInt(req.params.id);
-    if (req.reportUser.id === id) return res.status(400).json({ error: 'Cannot delete your own account' });
-    await rdb.deleteUser(id);
-    res.json({ ok: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
-
-// ── Active sessions (admin observability) ─────────────────────────
-// "Who's actually using the dashboard right now" — backed by the
-// `last_seen` column that `validateSession()` stamps on every
-// authenticated request. Default window = 5 minutes idle.
-//
-// View: admin+ (matches the Users-card RBAC — same operational scope).
-// Force-logout: super_admin only (destructive action; could kick the
-// wrong session in a multi-tab scenario).
-app.get('/api/reports/sessions/active', requireReportSession, requireSuperAdmin, async (req, res) => {
-  try {
-    const idle = Math.max(1, Math.min(1440, parseInt(req.query.idle_minutes || '5', 10) || 5));
-    const sessions = await rdb.listActiveSessions(idle);
-    // Don't leak full tokens to the browser — sufficient to show a
-    // short prefix for visual identification, and pass the full one
-    // back only when the operator explicitly clicks Force Logout.
-    const safe = sessions.map(s => ({
-      token_preview: (s.token || '').slice(0, 8) + '…',
-      token:         s.token,                    // used by DELETE; not rendered as-is
-      user_id:       s.user_id,
-      username:      s.username,
-      full_name:     s.full_name,
-      role:          s.role,
-      site_name:     s.site_name,
-      last_seen:     s.last_seen,
-      seconds_idle:  s.seconds_idle,
-      created_at:    s.created_at,
-      expires_at:    s.expires_at,
-      is_self:       s.user_id === req.reportUser.id,
-    }));
-    res.json({
-      idle_minutes: idle,
-      count:        safe.length,
-      sessions:     safe,
-      generated_at: new Date().toISOString(),
-    });
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
-
-// Force-logout one session by token. Token is passed in the URL path
-// (URL-encoded) — bodies on DELETE are inconsistent across clients.
-// super_admin only because it's destructive.
-app.delete('/api/reports/sessions/:token', requireReportSession, (req, res, next) => {
-  if (!rdb.userHasRole(req.reportUser, 'super_admin')) {
-    return res.status(403).json({ error: 'super_admin only' });
-  }
-  next();
-}, async (req, res) => {
-  try {
-    const token = decodeURIComponent(req.params.token || '');
-    if (!token) return res.status(400).json({ error: 'token is required' });
-    // Defensive: prevent kicking your own session by accident. The
-    // client-side UI also greys the button on is_self rows.
-    if (token === (req.headers['x-report-token'] || getCookie(req, 'report_token'))) {
-      return res.status(400).json({ error: 'Cannot force-logout your own session — use the regular Logout instead.' });
-    }
-    const r = await rdb.forceLogoutByToken(token);
-    const who = req.reportUser?.username || 'unknown';
-    console.log(`[sessions] force-logout token=${token.slice(0,8)}… by ${who} — rows=${r.deleted}`);
-    rdb.logEvent({ category:'auth', action:'session_killed', target:(r && r.username) || token.slice(0,8), details:{ rows:r.deleted }, ...rdb._logCtx(req) });
-    res.json(r);
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
-
+// ── Users (admin only) + active sessions — routes/adminUsers.js (M12-a) ──
+app.use(require('./routes/adminUsers')({ express, rdb, requireReportSession, requireSuperAdmin, jsonBody, getCookie }));
 // ── Action departments (categories used by action items dropdown) ─
 // GET active list — any logged-in session (used by reports.html dropdown).
 // Mutations require executive or super_admin.

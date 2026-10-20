@@ -1,5 +1,8 @@
 # Changelog
 
+## 2.0.0-alpha.13 — 2026-10-20 — Remédiation vague 0/1
+- **M12-a** : quatre zones de `server.js` extraites en fabriques de routes (patron `routes/inspection.js`, dépendances injectées, handlers inchangés) — `routes/adminUsers.js` (`/api/reports/users*`, `/api/reports/sessions*`), `routes/adminConfig.js` (`/api/reports/config`, `/api/integrations/analytics*`, `/api/reports/test-smtp`), `routes/health.js` (`/api/health/views`), `routes/riskRegister.js` (`/api/risk-register-export`, `/api/risk-register-config/*`). Montées à la place exacte des routes inline (ordre d'enregistrement préservé). `server.js` : 8 259 → 7 905 lignes ; budget de taille abaissé à 7 910.
+
 ## 2.0.0-alpha.12 — 2026-10-20 — Commentaires IA : langage simple pour un lecteur CIO / CFO, en anglais ou en français au choix
 - `services/plainEnglish.js` (pur) : bloc de style injecté dans chaque prompt, vérificateur (≤ 5 phrases, ≤ 22 mots par phrase, jargon → formulation simple, jamais de français, ni puces, liens, exclamations), `dejargon()` appliqué aussi au texte déterministe de repli.
 - `services/plainEnglish.js` est bilingue (cartes de jargon EN/FR, bloc de style par langue, détection de la langue étrangère). `services/aiCommentary.js` : registre exécutif dans la langue choisie ; une réponse hors style reçoit une correction, puis le texte déterministe l'emporte (`style_issues`, `error`). `services/execMiSummary.js` : consigne CIO / CFO et filtre par phrase. `executive-report.html` : audience verrouillée sur Executive (CFO/CIO).
