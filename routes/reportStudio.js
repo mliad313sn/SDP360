@@ -17,6 +17,7 @@
 const { generateRun, rerender, SEED_TEMPLATES } = require('../services/reportGenerator');
 const { renderCsv, renderPptx } = require('../services/reportPack');
 const { generateCommentary } = require('../services/aiCommentary');
+const { runLang } = require('../services/reportGenerator');
 
 function createStore(rdbMod) {
   const pg = rdbMod.REPORTS_BACKEND === 'postgres';
@@ -65,8 +66,9 @@ module.exports = function reportStudioRoutes(deps) {
       if (!isAuthor(u) && !(t.audience === 'site' && site && rdb().userHasRole(u, 'editor'))) return res.status(403).json({ ok: false, error: 'report-author or admin role required (a site editor may generate a site pack for their site)' });
       if (t.audience === 'site' && !site) { site = sites[0] || null; if (!site) return res.status(400).json({ ok: false, error: 'a site template needs a site' }); }
       const d = dashStore ? await dashStore.published(t.dashboard_key) : null; if (!d) return res.status(409).json({ ok: false, error: `dashboard ${t.dashboard_key} has no published version` });
-      const run = await generateRun({ template: t, site, sites, window: req.body && req.body.window ? String(req.body.window).slice(0, 24) : null, dashboardDef: d.definition, registry: registry(), deps: readerDeps(), rdb: rdb(), aiProvider: provider(), aiCall: deps.aiCall || null, baseUrl: await baseUrl(), user: u, store });
-      log(req, 'report_generated', run.id, { template: t.key, site: site && site.id, provider: run.provider, verified: run.commentary && run.commentary.verified });
+      const lang = req.body && (req.body.lang === 'fr' || req.body.lang === 'en') ? req.body.lang : undefined;
+      const run = await generateRun({ template: t, lang, site, sites, window: req.body && req.body.window ? String(req.body.window).slice(0, 24) : null, dashboardDef: d.definition, registry: registry(), deps: readerDeps(), rdb: rdb(), aiProvider: provider(), aiCall: deps.aiCall || null, baseUrl: await baseUrl(), user: u, store });
+      log(req, 'report_generated', run.id, { template: t.key, site: site && site.id, lang: run.analysis && run.analysis.lang, provider: run.provider, verified: run.commentary && run.commentary.verified });
       res.json({ ok: true, run: { ...run, html: undefined } });
     } catch (e) { fail(res, e); }
   });
@@ -82,7 +84,7 @@ module.exports = function reportStudioRoutes(deps) {
       if (req.params.fmt === 'csv') { res.setHeader('Content-Type', 'text/csv; charset=utf-8'); res.setHeader('Content-Disposition', `attachment; filename="${name}.csv"`); return res.send(renderCsv(r)); }
       if (req.params.fmt === 'xlsx') { const { buildWorkbook } = require('../services/tableExcel'); const rows = []; for (const f of r.figures || []) { if (f.series) for (const p of f.series) rows.push({ kind: 'series', metric: f.metric, title: f.title, label: p.label, value: p.value, unit: f.unit }); else if (f.rows) for (const x of f.rows) rows.push({ kind: 'per-site', metric: f.metric, title: f.title, label: x.site, value: x.value, unit: f.unit, rag: x.rag }); else rows.push({ kind: f.open !== undefined ? 'actions' : 'single', metric: f.metric || '', title: f.title, label: f.window || '', value: f.value !== undefined ? f.value : f.open, unit: f.unit || 'count', rag: f.rag || '' }); }
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'); res.setHeader('Content-Disposition', `attachment; filename="${name}.xlsx"`); return res.send(buildWorkbook([{ name: 'Figures', rows }, { name: 'Analysis', rows: ((r.analysis && r.analysis.bullets) || []).map((b, i) => ({ n: i + 1, text: b })) }])); }
-      if (req.params.fmt === 'pptx') { const sites = await rdb().listSites({ includeInactive: true }); const s = r.site_id != null ? (sites || []).find(x => Number(x.id) === r.site_id) : null; const buf = await renderPptx({ template: t, run: r, siteName: s ? s.name : null }); res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'); res.setHeader('Content-Disposition', `attachment; filename="${name}.pptx"`); log(req, 'report_export', r.id, { fmt: 'pptx' }); return res.send(buf); }
+      if (req.params.fmt === 'pptx') { const sites = await rdb().listSites({ includeInactive: true }); const s = r.site_id != null ? (sites || []).find(x => Number(x.id) === r.site_id) : null; const buf = await renderPptx({ template: { ...t, lang: runLang(t, r) }, run: r, siteName: s ? s.name : null }); res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'); res.setHeader('Content-Disposition', `attachment; filename="${name}.pptx"`); log(req, 'report_export', r.id, { fmt: 'pptx' }); return res.send(buf); }
       const p = await (deps.renderPdf || require('../services/reportRender').renderPdf)(r.html || '', { stamp: name }); if (!p.ok) return res.status(503).json({ ok: false, error: 'PDF unavailable: ' + p.reason, html_available: true }); res.setHeader('Content-Type', 'application/pdf'); res.setHeader('Content-Disposition', `attachment; filename="${name}.pdf"`); res.send(p.pdf); } catch (e) { fail(res, e); }
   });
   // (the `.fmt` route is registered BEFORE `/runs/:id` — otherwise `:id` swallows `5.html`)
@@ -104,7 +106,7 @@ module.exports = function reportStudioRoutes(deps) {
   });
   router.post('/api/report-studio/runs/:id/commentary/regenerate', requireReportSession, async (req, res) => {
     try { const r = await visibleRun(req, res, { write: true }); if (!r) return; if (r.status === 'published') return res.status(409).json({ ok: false, error: 'published run is frozen' }); const t = await store.getTemplate(r.template_key);
-      const c = await generateCommentary({ analysis: { ...(r.analysis || {}), figures: r.figures || [] }, audience: t.audience, lang: t.lang, provider: provider(), aiCall: deps.aiCall || null }); const out = await store.updateCommentary(r.id, c); await rerenderRun(out); log(req, 'report_commentary_regenerated', r.id, { source: c.source, verified: c.verified }); res.json({ ok: true, commentary: c }); } catch (e) { fail(res, e); }
+      const c = await generateCommentary({ analysis: { ...(r.analysis || {}), figures: r.figures || [] }, audience: t.audience, lang: runLang(t, r), provider: provider(), aiCall: deps.aiCall || null }); const out = await store.updateCommentary(r.id, c); await rerenderRun(out); log(req, 'report_commentary_regenerated', r.id, { source: c.source, verified: c.verified }); res.json({ ok: true, commentary: c }); } catch (e) { fail(res, e); }
   });
   router.get('/api/report-studio/stats', requireReportSession, requireAuthor, async (req, res) => { try { res.json({ ok: true, provider: provider(), ...(await store.ratingStats()) }); } catch (e) { fail(res, e); } });
   return router;

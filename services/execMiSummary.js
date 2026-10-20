@@ -72,15 +72,20 @@ function applyCachedSummaries(mis, cacheMap) {
 // because the server's provider wrappers impose their own system prompt — the
 // user message survives on both the Anthropic and local paths. Asks for a
 // strict JSON object so parsing is deterministic.
-function buildMiSummaryPrompt(mi) {
-  const content =
-    'Summarize this IT major incident for a CIO / CFO reader on a public status page, in simple English ' +
+function buildMiSummaryPrompt(mi, lang = 'en') {
+  const fr = lang === 'fr';
+  const content = (fr
+    ? 'Résume cet incident informatique majeur pour un directeur général ou financier, sur une page de statut publique, en français simple ' +
+      '(aucun sigle ni jargon : « cause racine » et non RCA, « liaison internet » et non WAN ; une phrase de moins de 22 mots chacune). ' +
+      'Sois factuel, neutre et concis. N\'invente aucun détail absent de la source. Ne cite aucun nom de personne. Réponds UNIQUEMENT par un objet JSON de la forme ' +
+      '{"root_cause":"<une phrase en français simple>","action":"<une phrase en français simple>"}. Si un champ n\'a pas de texte source, mets une chaîne vide.\n\n'
+    : 'Summarize this IT major incident for a CIO / CFO reader on a public status page, in simple English ' +
     '(no acronyms, no IT jargon: say "root cause" not RCA, "internet link" not WAN; one sentence under 22 words each). ' +
     'Be factual, neutral and concise. Do NOT invent ' +
     'details not present in the source. Do NOT include names of people. Reply ' +
     'with ONLY a JSON object of the form ' +
     '{"root_cause":"<one plain-English sentence>","action":"<one plain-English sentence>"}. ' +
-    'If a field has no source text, use an empty string for it.\n\n' +
+    'If a field has no source text, use an empty string for it.\n\n') +
     `Incident: ${mi.subject || '(untitled)'}\n` +
     `Impact: ${mi.impact || '(unspecified)'}\n` +
     `Root cause (raw): ${mi.rca || '(none recorded)'}\n` +
@@ -93,7 +98,7 @@ function buildMiSummaryPrompt(mi) {
 }
 
 // Tolerant JSON extraction from model output (handles ```json fences / prose).
-function parseSummaryResponse(text) {
+function parseSummaryResponse(text, lang = 'en') {
   if (!text) return null;
   let s = String(text).trim();
   const fence = s.match(/```(?:json)?\s*([\s\S]*?)```/i);
@@ -105,7 +110,7 @@ function parseSummaryResponse(text) {
     // House style: one plain-English sentence each (CIO / CFO). A sentence that fails the check is
     // de-jargoned; if it still fails (French, too long) it is dropped so the raw text is shown instead.
     const plain = require('./plainEnglish');
-    const one = (v) => { if (typeof v !== 'string') return ''; let t = plain.dejargon(v.trim()); const c = plain.check(t, { ...plain.LIMITS, maxSentences: 1, maxWordsPerSentence: 26, maxWords: 26 }); return c.ok ? t : ''; };
+    const one = (v) => { if (typeof v !== 'string') return ''; let t = plain.dejargon(v.trim(), lang); const c = plain.check(t, { lang, limits: { ...plain.LIMITS, maxSentences: 1, maxWordsPerSentence: 26, maxWords: 26 } }); return c.ok ? t : ''; };
     const rc = one(o.root_cause);
     const ac = one(o.action);
     if (!rc && !ac) return null;
@@ -115,13 +120,13 @@ function parseSummaryResponse(text) {
 
 // Async write-path step. Best-effort: a per-incident failure is logged and
 // skipped, never thrown (this runs fire-and-forget off the request path).
-async function regenerate({ stale, aiCall, rdb, model, log } = {}) {
+async function regenerate({ stale, aiCall, rdb, model, log, lang = 'en' } = {}) {
   const warn = log || ((m) => console.warn('[exec-mi-summary]', m));
   for (const mi of (stale || [])) {
     if (!mi || !_hasSource(mi) || !mi.request_id) continue;
     try {
-      const text = await aiCall(buildMiSummaryPrompt(mi));
-      const parsed = parseSummaryResponse(text);
+      const text = await aiCall(buildMiSummaryPrompt(mi, lang));
+      const parsed = parseSummaryResponse(text, lang);
       if (!parsed) { warn(`no parseable summary for ${mi.request_id}`); continue; }
       await rdb.setExecMiSummary(mi.request_id, {   // async under REPORTS_BACKEND=postgres; no-op await on sqlite
         src_hash: miSrcHash(mi),

@@ -28,7 +28,7 @@ test('anonymise/deanonymise: site names become S1..Sn everywhere and come back',
 });
 
 test('buildPrompt: carries the absolute rule, the figures and the sorted canonical list', () => {
-  const p = buildPrompt(analysis, { audience: 'executive', lang: 'fr' }); // lang is ignored: house style is English
+  const p = buildPrompt(analysis, { audience: 'executive', lang: 'en' });
   assert.match(p.system, /ABSOLUTE RULE/); assert.match(p.user, /CANONICAL LIST/); assert.ok(p.user.includes('Resolution SLA (helpdesk.resolution_sla_pct): 71.4 %'));
   assert.deepEqual(p.canonical.slice(0, 3), ['40', '40.0', '71']); assert.ok(p.canonical.includes('71.4'));
 });
@@ -51,11 +51,11 @@ test('generateCommentary: a reply quoting a foreign number or throwing falls bac
   assert.equal(empty.error, 'empty reply');
 });
 
-test('house style: the prompt is always English with the style block, whatever the template says', () => {
-  const p = buildPrompt(analysis, { audience: 'council', lang: 'fr' });
-  assert.match(p.system, /Write a commentary in English/);
-  assert.match(p.system, /CIO or CFO/);
-  assert.ok(!/Tu es l'analyste/.test(p.system));
+test('house style: executive register and style block in the chosen language, whatever the audience', () => {
+  const en = buildPrompt(analysis, { audience: 'council', lang: 'en' });
+  assert.match(en.system, /Write a commentary in English/); assert.match(en.system, /CIO or CFO/); assert.match(en.system, /3 to 5 short sentences/);
+  const fr = buildPrompt(analysis, { audience: 'council', lang: 'fr' });
+  assert.match(fr.system, /Tu es l'analyste/); assert.match(fr.system, /directeur général ou financier/); assert.match(fr.system, /3 à 5 phrases courtes/);
 });
 
 test('house style: a jargon-laden reply gets one correction round, then the deterministic text wins', async () => {
@@ -66,6 +66,6 @@ test('house style: a jargon-laden reply gets one correction round, then the dete
   assert.equal(r.source, 'ai'); assert.equal(r.verified, true); assert.ok(!/SLA/.test(r.text));
   const stubborn = async () => 'Le SLA était à 71.4 %.';
   const f = await generateCommentary({ analysis, audience: 'executive', lang: 'en', provider: 'local', aiCall: stubborn });
-  assert.equal(f.source, 'deterministic'); assert.match(f.error, /plain-English/);
+  assert.equal(f.source, 'deterministic'); assert.match(f.error, /plain-language/);
   assert.ok(!/\bSLA\b/.test(f.text), 'deterministic fallback is de-jargoned too');
 });

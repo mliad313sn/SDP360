@@ -3,6 +3,7 @@
 // sqlite + PG fork via the same _h(db) resolver used by groupPresets.js.
 
 const DEFAULTS = {
+  exec_view_lang: 'en',                 // language of the AI incident summaries on the public page (en|fr)
   transport: 'smtp',
   smtp_host: '', smtp_port: '587', smtp_secure: '0', smtp_user: '', smtp_pass: '',
   from: '', reply_to: '',

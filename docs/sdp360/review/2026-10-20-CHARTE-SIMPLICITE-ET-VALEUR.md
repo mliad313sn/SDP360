@@ -36,7 +36,7 @@ La complexité n'est pas dans une fonction en particulier : elle est dans **l'ac
 | S7 | **La langue de l'utilisateur**, jamais un mélange | `tests/i18n-coverage.test.js` |
 | S8 | **Aucune fonction sans usage mesuré 90 jours après sa mise en service** n'est conservée dans le menu | Tableau d'adoption ; revue trimestrielle « garder / masquer / retirer » |
 | S9 | **Budget de complexité** : ≤ 12 entrées de menu, ≤ 6 rôles, ≤ 10 panneaux admin, ≤ 25 clés de configuration visibles, 1 score de site | Test `tests/simplicity-budget.test.js` qui compte et échoue au dépassement |
-| S11 | **Tout commentaire IA est en anglais simple pour un lecteur CIO / CFO** : au plus 5 phrases courtes, aucun acronyme ni jargon, jamais de français, quel que soit le gabarit (règle du sponsor, 2026-10-20) | `services/plainEnglish.js` impose la règle à l'exécution ; `tests/plain-english.test.js` + `tests/ai-commentary.test.js` |
+| S11 | **Tout commentaire IA est en langage simple pour un lecteur CIO / CFO, en anglais ou en français au choix du rapport** : au plus 5 phrases courtes, aucun acronyme ni jargon, jamais de mélange de langues, quel que soit le public du gabarit (règles du sponsor, 2026-10-20) | `services/plainEnglish.js` impose la règle à l'exécution ; `tests/plain-english.test.js` + `tests/ai-commentary.test.js` |
 | S10 | **Toute nouvelle fonction en retire une** ou prouve par l'adoption qu'elle comble un besoin non couvert | Règle du comité, inscrite dans la charte (doc 02) |
 
 # 3. Les six parcours qui comptent (et ce qu'on leur enlève)

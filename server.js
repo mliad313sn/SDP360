@@ -1115,7 +1115,7 @@ function _scheduleMiSummaries(stale) {
   const rdb2 = require('./reports-db');
   const miSummary = require('./services/execMiSummary');
   Promise.resolve()
-    .then(() => miSummary.regenerate({ stale, aiCall: _execAiCall, rdb: rdb2, model: AI_PROVIDER === 'local' ? LOCAL_LLM_MODEL : AI_ALLOWED_MODELS[0] }))
+    .then(async () => { let lang = 'en'; try { const cfg = await require('./services/reportConfig').getConfig(rdb2.db); lang = cfg && cfg.exec_view_lang === 'fr' ? 'fr' : 'en'; } catch (_) {} return miSummary.regenerate({ stale, aiCall: _execAiCall, rdb: rdb2, model: AI_PROVIDER === 'local' ? LOCAL_LLM_MODEL : AI_ALLOWED_MODELS[0], lang }); })
     .catch(e => console.warn('[exec-mi-summary] regen batch failed:', e.message))
     .finally(() => { _miRegenInFlight = false; _execCache = { at: 0, body: null }; }); // bust cache so the next load serves the warm summaries
 }

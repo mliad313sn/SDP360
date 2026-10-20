@@ -9,10 +9,11 @@
 const { canonicalNumbers } = require('./reportAnalysis');
 const plain = require('./plainEnglish');
 
-// Sponsor rule (2026-10-20): every AI comment is simple English for a CIO / CFO reader, whatever the
-// template's audience or language. The deterministic analysis keeps the template language; the AI
-// commentary does not. plainEnglish.check() gates the reply; one correction round, then fallback.
-const HOUSE_LANG = 'en';
+// Sponsor rules (2026-10-20): every AI comment is plain language for a CIO / CFO reader, in the
+// language chosen for the report (English or French — template default, overridable at generation).
+// The register is always executive, whatever the template's audience. plainEnglish.check() gates the
+// reply in that language; one correction round, then the de-jargoned deterministic text wins.
+const HOUSE_LANG = 'en'; // default when no language is given
 
 const LENGTH = { executive: { en: '3 to 5 short sentences, business outcome first, no ITSM jargon', fr: '3 à 5 phrases courtes, résultat métier d\'abord, sans jargon ITSM' },
   council: { en: '4 to 6 sentences: decisions needed, risks, trend', fr: '4 à 6 phrases : décisions attendues, risques, tendance' },
@@ -32,13 +33,13 @@ function anonymise(analysis) {
 function deanonymise(text, map) { let s = String(text || ''); for (const [n, c] of map) s = s.replace(new RegExp(`\\b${c}\\b`, 'g'), n); return s; }
 
 function buildPrompt(analysis, { audience = 'site', lang = HOUSE_LANG } = {}) {
-  lang = HOUSE_LANG; // AI commentary is always English (house style)
-  const L = LENGTH.executive.en; // one register for every audience: CIO / CFO
+  lang = lang === 'fr' ? 'fr' : 'en';
+  const L = LENGTH.executive[lang]; // one register for every audience: CIO / CFO
   const canon = [...canonicalNumbers(analysis.figures)].sort((a, b) => Number(a) - Number(b));
   const figures = (analysis.figures || []).map(f => f.series ? `${f.title} (${f.metric}): series ${f.series.map(p => `${p.label}=${p.value == null ? 'null' : p.value}`).join(', ')} ${f.unit || ''}` : f.rows ? `${f.title} (${f.metric}): ${f.rows.map(r => `${r.site}=${r.value == null ? 'null' : r.value}${r.rag ? '/' + r.rag : ''}`).join(', ')} ${f.unit || ''}` : `${f.title} (${f.metric || f.id}): ${f.value == null && f.open == null ? 'null (not measured)' : f.value != null ? `${f.value} ${f.unit || ''}` : `open=${f.open} overdue=${f.overdue}`}${f.rag ? ' rag=' + f.rag : ''}${f.window ? ' window=' + f.window : ''}${f.fleet != null ? ' fleet_mean=' + f.fleet : ''}`).join('\n');
   const system = lang === 'fr'
-    ? `Tu es l'analyste IT du groupe. Tu rédiges un commentaire en français, ton ${analysis.tone}, ${L}. RÈGLE ABSOLUE : tu ne cites QUE des nombres présents dans la liste CANONIQUE ci-dessous, copiés tels quels ; si une phrase a besoin d'un autre nombre, reformule sans nombre. Un indicateur "null" est non mesuré : écris "non mesuré", jamais 0. Pas de titre, pas de liste à puces, pas de JSON.`
-    : `You are the group IT analyst. Write a commentary in English, ${analysis.tone} tone, ${L}. ABSOLUTE RULE: quote ONLY numbers present in the CANONICAL list below, copied verbatim; if a sentence needs another number, rephrase without it. A "null" indicator is not measured: write "not measured", never 0. No title, no bullet list, no JSON.\n${plain.STYLE_PROMPT}`;
+    ? `Tu es l'analyste IT du groupe. Tu rédiges un commentaire en français, ton ${analysis.tone}, ${L}. RÈGLE ABSOLUE : tu ne cites QUE des nombres présents dans la liste CANONIQUE ci-dessous, copiés tels quels ; si une phrase a besoin d'un autre nombre, reformule sans nombre. Un indicateur "null" est non mesuré : écris "non mesuré", jamais 0. Pas de titre, pas de liste à puces, pas de JSON.\n${plain.stylePrompt('fr')}`
+    : `You are the group IT analyst. Write a commentary in English, ${analysis.tone} tone, ${L}. ABSOLUTE RULE: quote ONLY numbers present in the CANONICAL list below, copied verbatim; if a sentence needs another number, rephrase without it. A "null" indicator is not measured: write "not measured", never 0. No title, no bullet list, no JSON.\n${plain.stylePrompt('en')}`;
   const user = `${lang === 'fr' ? 'Périmètre' : 'Scope'}: ${analysis.site || (lang === 'fr' ? 'flotte' : 'fleet')} · ${lang === 'fr' ? 'fenêtre' : 'window'}: ${analysis.window || 'current'}\n\n${lang === 'fr' ? 'ANALYSE DÉTERMINISTE' : 'DETERMINISTIC ANALYSIS'}:\n${analysis.headline}\n${(analysis.bullets || []).map(b => '- ' + b).join('\n')}\n\n${lang === 'fr' ? 'CHIFFRES' : 'FIGURES'}:\n${figures}\n\n${lang === 'fr' ? 'LISTE CANONIQUE (seuls nombres autorisés)' : 'CANONICAL LIST (the only numbers allowed)'}: ${canon.join(', ') || '(none)'}`;
   return { system, user, canonical: canon };
 }
@@ -57,7 +58,8 @@ function verifyNumbers(text, canonicalSet, { allow = [] } = {}) {
  * @returns {{text, source:'ai'|'deterministic', provider, verified, offending, anonymised, error}}
  */
 async function generateCommentary({ analysis, audience = 'site', lang = 'en', provider = 'off', aiCall = null, now = new Date() }) {
-  const fallback = plain.dejargon([analysis.headline, ...(analysis.bullets || [])].join(' '));
+  const L = lang === 'fr' ? 'fr' : 'en';
+  const fallback = plain.dejargon([analysis.headline, ...(analysis.bullets || [])].join(' '), L);
   const base = { text: fallback, source: 'deterministic', provider, verified: true, offending: [], anonymised: false, generated_at: now.toISOString() };
   if (!aiCall || provider === 'off') return base;
   const cloud = provider !== 'local';
@@ -66,15 +68,17 @@ async function generateCommentary({ analysis, audience = 'site', lang = 'en', pr
   try {
     const allow = [(analysis.coverage || {}).measured, (analysis.coverage || {}).total].filter(x => x != null);
     let text = String(await aiCall({ system: prompt.system, user: prompt.user, maxTokens: 700 }) || '').trim();
-    let style = plain.check(text);
+    let style = plain.check(text, { lang: L });
     if (text && !style.ok) { // one correction round, then the deterministic text wins
-      const fix = `${prompt.user}\n\nYOUR PREVIOUS REPLY BROKE THE STYLE RULES: ${style.issues.join('; ')}. Rewrite it in plain English for a CFO, same facts, same numbers only.`;
+      const fix = L === 'fr'
+        ? `${prompt.user}\n\nTA RÉPONSE PRÉCÉDENTE ENFREINT LES RÈGLES DE STYLE : ${style.issues.join('; ')}. Réécris-la en français simple pour un directeur financier, mêmes faits, mêmes nombres uniquement.`
+        : `${prompt.user}\n\nYOUR PREVIOUS REPLY BROKE THE STYLE RULES: ${style.issues.join('; ')}. Rewrite it in plain English for a CFO, same facts, same numbers only.`;
       text = String(await aiCall({ system: prompt.system, user: fix, maxTokens: 700 }) || '').trim();
-      style = plain.check(text);
+      style = plain.check(text, { lang: L });
     }
     const check = verifyNumbers(text, new Set(prompt.canonical), { allow });
     if (!check.ok || !text) return { ...base, verified: false, offending: check.offending, error: text ? 'commentary quoted numbers outside the canonical list' : 'empty reply', anonymised: cloud };
-    if (!style.ok) return { ...base, verified: false, style_issues: style.issues, error: 'commentary failed the plain-English check: ' + style.issues.join('; '), anonymised: cloud };
+    if (!style.ok) return { ...base, verified: false, style_issues: style.issues, error: 'commentary failed the plain-language check: ' + style.issues.join('; '), anonymised: cloud };
     if (cloud) text = deanonymise(text, map);
     return { text, source: 'ai', provider, verified: true, offending: [], style_issues: [], anonymised: cloud, generated_at: now.toISOString() };
   } catch (e) { return { ...base, error: String(e.message || e).slice(0, 300), anonymised: cloud }; }

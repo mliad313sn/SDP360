@@ -17,15 +17,18 @@ async function generateRun(o) {
   const now = o.now || new Date();
   const siteId = o.site ? Number(o.site.id) : (o.sites && o.sites[0] ? Number(o.sites[0].id) : null);
   const widgets = await resolveWidgets({ def: o.dashboardDef, sites: o.sites || (o.site ? [o.site] : []), site: siteId, window: o.window || null, reg: o.registry, dd: o.deps, rdb: o.rdb, now });
-  const analysis = analyse({ widgets, def: o.dashboardDef, audience: o.template.audience, lang: o.template.lang, siteName: o.site ? o.site.name : null, window: o.window || null, registry: o.registry });
-  const commentary = await generateCommentary({ analysis, audience: o.template.audience, lang: o.template.lang, provider: o.template.ai_enabled === false ? 'off' : (o.aiProvider || 'off'), aiCall: o.aiCall, now });
+  const lang = o.lang === 'fr' || o.lang === 'en' ? o.lang : o.template.lang; // chosen at generation, template default otherwise
+  const tpl = { ...o.template, lang };
+  const analysis = analyse({ widgets, def: o.dashboardDef, audience: o.template.audience, lang, siteName: o.site ? o.site.name : null, window: o.window || null, registry: o.registry });
+  const commentary = await generateCommentary({ analysis, audience: o.template.audience, lang, provider: o.template.ai_enabled === false ? 'off' : (o.aiProvider || 'off'), aiCall: o.aiCall, now });
   const pending = { template_key: o.template.key, site_id: siteId, window_label: o.window || null, status: 'draft', figures: analysis.figures, analysis: { ...analysis, figures: undefined }, commentary, created_at: now.toISOString() };
-  const html = renderHtml({ template: o.template, run: pending, siteName: o.site ? o.site.name : null, baseUrl: o.baseUrl || '' });
+  const html = renderHtml({ template: tpl, run: pending, siteName: o.site ? o.site.name : null, baseUrl: o.baseUrl || '' });
   return o.store.createRun({ templateKey: o.template.key, siteId, windowLabel: o.window || null, figures: analysis.figures, analysis: pending.analysis, commentary, html, provider: commentary.source === 'ai' ? commentary.provider : 'deterministic', deviation: 0, user: o.user });
 }
 
 /** Re-render the HTML of an existing run (after a commentary edit or a status change). */
-function rerender({ template, run, siteName, baseUrl }) { return renderHtml({ template, run, siteName, baseUrl }); }
+function runLang(template, run) { const l = run && run.analysis && run.analysis.lang; return l === 'fr' || l === 'en' ? l : (template.lang === 'fr' ? 'fr' : 'en'); }
+function rerender({ template, run, siteName, baseUrl }) { return renderHtml({ template: { ...template, lang: runLang(template, run) }, run, siteName, baseUrl }); }
 
 /** Shipped templates (arbitration 2: site weekly, executive monthly, council). */
 const SEED_TEMPLATES = [
@@ -34,4 +37,4 @@ const SEED_TEMPLATES = [
   { key: 'council-pack', name: 'Mine IT Council pack', audience: 'council', dashboard_key: 'governance', lang: 'fr', cadence: 'monthly', sections: ['headline', 'figures', 'analysis', 'commentary', 'actions'] },
 ];
 
-module.exports = { generateRun, rerender, SEED_TEMPLATES };
+module.exports = { runLang, generateRun, rerender, SEED_TEMPLATES };

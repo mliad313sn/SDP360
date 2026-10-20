@@ -33,7 +33,8 @@ test('dejargon: rewrites whole words only', () => {
 });
 
 test('STYLE_PROMPT names the audience, the language and the limits', () => {
-  assert.match(plain.STYLE_PROMPT, /CIO or CFO/);
-  assert.match(plain.STYLE_PROMPT, /never French/);
-  assert.match(plain.STYLE_PROMPT, new RegExp(`${plain.LIMITS.maxSentences} short sentences`));
+  assert.match(plain.stylePrompt('en'), /CIO or CFO/);
+  assert.match(plain.stylePrompt('en'), /never French/);
+  assert.match(plain.stylePrompt('en'), new RegExp(`${plain.LIMITS.maxSentences} short sentences`));
+  assert.match(plain.stylePrompt('fr'), /jamais d'anglais/);
 });

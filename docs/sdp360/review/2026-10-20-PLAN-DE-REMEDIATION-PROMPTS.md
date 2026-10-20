@@ -37,12 +37,12 @@ Dépôt SDP360, branche claude/sdp-dashboard-analysis-55b1oy. Contraintes :
 
 Depuis le 20 octobre 2026, la **charte de simplicité et de valeur** (`2026-10-20-CHARTE-SIMPLICITE-ET-VALEUR.md`) impose une vague 0 avant celle-ci : accueil par rôle, menu ≤ 12 entrées, rapport hebdo en un écran, action unique, 6 rôles, aide contextuelle, page statut, tableau d'adoption (fiches S-1 à S-8). Elle absorbe M13, M16, V4-4, une partie de E7 et E10, et réduit le périmètre de E8, E5, M9 et M12 aux pages conservées. Le test `tests/simplicity-budget.test.js` devient un critère de sortie de chaque vague.
 
-## IA-1 — Style imposé aux commentaires IA (FAIT le 2026-10-20, commit de la version 2.0.0-alpha.12)
+## IA-1 — Commentaires IA en langage simple CIO / CFO, anglais ou français au choix (FAIT le 2026-10-20, version 2.0.0-alpha.12)
 
 **Prompt (exécuté)**
 
 ```
-Règle du sponsor : tout commentaire IA des rapports générés est en anglais simple pour un lecteur CIO / CFO.
+Règles du sponsor : tout commentaire IA des rapports est en langage simple pour un lecteur CIO / CFO, et la langue (anglais ou français) se choisit à la génération du rapport.
 Crée services/plainEnglish.js (pur : STYLE_PROMPT, check(text) → {ok, issues}, dejargon, carte jargon →
 formulation simple) ; dans services/aiCommentary.js force lang='en' et le registre executive pour tous les
 publics, ajoute STYLE_PROMPT au système, vérifie la réponse, une correction puis repli déterministe
