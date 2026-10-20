@@ -12,6 +12,7 @@
 | 07 | [Étude d'évolution et prompt de développement piloté par le comité](07-ETUDE-EVOLUTION-ET-PROMPT.md) (français) | Direction, comité, équipe de développement | v1 |
 | 08 | [Étude de l'existant et commande de la version 2.0 — version autonome pour un lecteur de SDP-Dashboard](08-ETUDE-SDP-DASHBOARD-2.0.md) (français) | Direction, comité produit, agent IA | v1 |
 | R | [Rapport du comité d'évaluation — 16 regards, feuille de route et bénéfices attendus](review/2026-10-20-RAPPORT-COMITE-EVALUATION.md) (français, [PDF](review/2026-10-20-RAPPORT-COMITE-EVALUATION.pdf)) | Direction, comité produit, sponsors | v1.0 — 2026-10-20 |
+| P | [Plan de remédiation complet — un prompt exécutable par constat, explication, bénéfice, critère d'acceptation](review/2026-10-20-PLAN-DE-REMEDIATION-PROMPTS.md) (français, [PDF](review/2026-10-20-PLAN-DE-REMEDIATION-PROMPTS.pdf)) | Équipe de développement, agent IA, comité | v1.0 — 2026-10-20 |
 | T | [Templates](templates/) — RFI form, KPI definition sheet, tracker definition, dashboard definition, review minutes | Everyone | v1 |
 
 Conventions: documents are written in English (the platform's UI language since 2026-10-16); French terms used on the mine sites are kept in brackets the first time they appear. Every normative statement uses *must / should / may*. File paths refer to this repository.
