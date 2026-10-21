@@ -1636,6 +1636,34 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         <small style="color:#6b7a99">A KPI whose <code>data_through</code> is older than this is flagged stale in the report/dashboard.</small>
       </div>
 
+      <h4 style="margin:16px 0 6px;color:#3A4A60">OpManager REST (direct device availability)</h4>
+      <p style="color:#6b7a99;font-size:0.85rem;margin:-2px 0 8px">
+        Optional direct read of the on-prem OpManager REST API (LAN / WLAN / Servers device-grain). The connection is
+        <strong>TLS-verified by default</strong>: paste the internal CA bundle (PEM) so a private certificate is <em>verified</em>, not ignored.
+        The API key and the CA bundle are write-only (never echoed back; blank = keep stored).
+      </p>
+      <div class="form-group">
+        <label>OpManager base URL</label>
+        <input type="text" id="cfg-opm-base" placeholder="https://opmanager.example.local:8061" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label>OpManager API key (read-only)</label>
+        <input type="password" id="cfg-opm-key" placeholder="leave blank to keep the stored key" autocomplete="new-password">
+      </div>
+      <div class="form-group">
+        <label>TLS certificate verification</label>
+        <select id="cfg-opm-tls" style="max-width:420px">
+          <option value="0">Verified (default) — reject an untrusted certificate</option>
+          <option value="1">Insecure — accept any certificate (NOT recommended)</option>
+        </select>
+        <div id="cfg-opm-tls-state" style="font-size:0.85rem;margin-top:4px;color:#6b7a99"></div>
+      </div>
+      <div class="form-group">
+        <label>Internal CA bundle (PEM) — optional</label>
+        <textarea id="cfg-opm-ca" rows="3" placeholder="-----BEGIN CERTIFICATE-----&#10;… leave blank to keep the stored bundle" autocomplete="off" style="width:100%;box-sizing:border-box;font-family:monospace;font-size:0.75rem"></textarea>
+        <small style="color:#6b7a99">Paste the CA that signed the OpManager certificate. Type <code>_CLEAR_</code> to remove the stored bundle.</small>
+      </div>
+
       <div class="modal-actions" style="justify-content:flex-start;gap:10px;align-items:center;flex-wrap:wrap">
         <button class="btn btn-primary" onclick="saveInfraConfig()">Save</button>
         <button class="btn btn-secondary" onclick="syncInfraNow('wan', this)">Sync WAN now</button>
@@ -7494,6 +7522,19 @@ function loadInfraConfig() {
     const mk = document.getElementById('cfg-meraki-key'); if (mk) mk.value = '';  // never echo the stored key
     const pol = document.getElementById('cfg-meraki-policy'); if (pol) pol.value = (c.meraki_missing_policy === 'unknown' ? 'unknown' : 'down');
     set('cfg-opm-view', c.opm_availability_view_id);
+    // E4 — OpManager REST: secrets never echoed; show the TLS state the server will actually use.
+    set('cfg-opm-base', c.opmanager_base_url);
+    const ok = document.getElementById('cfg-opm-key'); if (ok) ok.value = '';
+    const oca = document.getElementById('cfg-opm-ca'); if (oca) oca.value = '';
+    const tlsSel = document.getElementById('cfg-opm-tls'); const insecure = String(c.opmanager_tls_insecure) === '1';
+    if (tlsSel) tlsSel.value = insecure ? '1' : '0';
+    const tlsState = document.getElementById('cfg-opm-tls-state');
+    if (tlsState) {
+      tlsState.style.color = insecure ? '#c0392b' : '#1e7e34';
+      tlsState.textContent = insecure
+        ? '⚠ TLS state: INSECURE — the OpManager certificate is NOT verified (opmanager_tls_insecure=1). Paste the CA bundle and switch back to Verified.'
+        : '✓ TLS state: verified' + (c.opmanager_ca_bundle_set ? ' with the stored internal CA bundle' : ' against the system trust store (no internal CA bundle stored)') + '.';
+    }
     const stale = document.getElementById('cfg-opm-stale'); if (stale) stale.value = (c.opm_stale_days == null || c.opm_stale_days === '' ? '9' : c.opm_stale_days);
     set('cfg-wan-timeup-loss', c.wan_timeup_loss_pct, '100');
     set('cfg-wan-timeup-lat', c.wan_timeup_latency_ms);
@@ -7582,6 +7623,11 @@ function saveInfraConfig() {
   mos.advantage_factor = Number(val('cfg-mos-advantage')) || 0;
   patch.wan_mos_config = JSON.stringify(mos);
   const mk = val('cfg-meraki-key'); if (mk) patch.meraki_api_key = mk;     // blank = keep stored
+  // E4 — OpManager REST (secrets: blank = keep stored)
+  patch.opmanager_base_url = val('cfg-opm-base');
+  patch.opmanager_tls_insecure = val('cfg-opm-tls') === '1' ? '1' : '0';
+  const ok = val('cfg-opm-key'); if (ok) patch.opmanager_api_key = ok;
+  const oca = (document.getElementById('cfg-opm-ca') || {}).value || ''; if (oca.trim()) patch.opmanager_ca_bundle = oca.trim();
   api('PUT', '/api/reports/config', patch)
     .then(() => { toast('Infra settings saved ✓', 'success'); loadInfraConfig(); })
     .catch(e => toast('Save failed: ' + (e.message || e), 'error'));
