@@ -100,6 +100,16 @@ made so far so that future sessions can pick up exactly where the last one ended
 > `viewer` refusé si un middleware de rôle est déclaré — utiliser `requireRole([...])`, pas un contrôle inline) ;
 > journal `api` (écritures + 403) 12 mois. SSO groupes→rôles et désactivation des départs livrés **désarmés**.
 > Un changement de `package-lock.json` = le ZIP embarque un `node_modules` complet (swap + retour arrière côté prod).
+>
+> **Étape 5, lot 5.1 livré** (dossier `docs/design/ETAPE-05-installateur-modularisation.md`) : `server.js` 9 203 → 7 394
+> lignes (`routes/meetings.js`, `routes/assets.js`) — **une nouvelle route va dans un module `routes/*.js`**, le cliquet
+> `tests/server-size.test.js` refuse toute hausse (abaisser `CEILING` après chaque extraction). Pièges d'extraction : une
+> déclaration du bloc utilisée ailleurs (`statusTransfer`), une dépendance déclarée plus bas que le montage (`let rdb` →
+> le module l'importe), des routes d'un autre préfixe mêlées au bloc (restent dans `server.js`). **JSX compilé à
+> l'avance** : `npm run build` (`tools/build/build-frontend.js`, fichiers `.js` générés COMMITÉS, `--check` en CI) ;
+> toute page nouvelle ou migrée charge le `.js`, jamais Babel (`tests/frontend-build.test.js`). Le tracker reste sur
+> Babel tant que son gel dure (le compiler expédierait `App.jsx` gelé). Installateur v2 (Inno Setup + paquet CI signé)
+> conçu, pas construit : attend l'E2E TEST et un certificat de signature.
 
 ---
 

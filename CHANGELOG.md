@@ -5,6 +5,25 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased] — SDP-Dashboard 2.0, step 5 (lot 5.1): server.js split, JSX compiled ahead of time (2026-10-21)
+
+### Changed
+- **`server.js` 9,203 → 7,394 lines**: the meetings routes (`/api/meetings/*`, 36 routes) move to
+  `routes/meetings.js` and the assets routes (`/api/assets/*`, 40 routes) to `routes/assets.js`.
+  Handlers unchanged; same registration order. `tests/server-size.test.js` blocks any regrowth and
+  checks every `routes/*.js` module is mounted.
+- **Dashboard preview** (`/dashboard-preview/`): JSX compiled ahead of time by esbuild
+  (`npm run build`, `tools/build/build-frontend.js`); the page no longer loads Babel and its security
+  policy no longer allows `eval`. CI fails when a compiled file is stale. The tracker stays on Babel
+  until its freeze is lifted (compiling it would ship the frozen change).
+
+### Security
+- `follow-redirects` 1.16.0 → 1.16.1 (two high advisories published after step 4; `npm audit` = 0).
+
+### Deployment
+- `package-lock.json` changed → the ZIP carries a full `node_modules` again (same swap + rollback as
+  step 4). No configuration, no data change. Design: `docs/design/ETAPE-05-installateur-modularisation.md`.
+
 ## [Unreleased] — SDP-Dashboard 2.0, step 4: security (2026-10-19)
 
 ### Security
