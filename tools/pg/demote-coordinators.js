@@ -62,13 +62,35 @@ async function _inTx(client, fn) {
   catch (e) { await client.query('ROLLBACK').catch(() => {}); throw e; }
 }
 
-/** Apply the plan (every account in ONE transaction). */
-function applyPlan(client, plan) {
-  return _inTx(client, async () => { for (const p of plan) await _writeRoles(client, p.id, p.after); });
+// E6 — one `identity` / `user_role_changed` row in system_log per modified account (risk
+// event, same shape as reports-db logEvent). Written AFTER the commit and best-effort: the
+// journal never blocks or undoes a role change (logEvent's fire-and-forget contract).
+const LOG_ACTOR = 'demote-coordinators';
+async function _logIdentity(client, plan, mode) {
+  let n = 0;
+  for (const p of plan) {
+    const from = mode === 'restore' ? p.after : p.before, to = mode === 'restore' ? p.before : p.after;
+    try {
+      await client.query(
+        `INSERT INTO system_log (ts, category, action, actor, actor_id, target, details, ip, risk)
+         VALUES ($1, 'identity', 'user_role_changed', $2, NULL, $3, $4, NULL, 1)`,
+        [new Date().toISOString(), LOG_ACTOR, p.username,
+         JSON.stringify({ user_id: p.id, before: from, after: to, tool: LOG_ACTOR, mode })]);
+      n++;
+    } catch (e) { console.warn(`[demote-coordinators] identity log skipped for ${p.username}: ${e.message}`); }
+  }
+  return n;
 }
-/** Put every account of a plan (or of a backup file's content) back to its BEFORE roles. */
-function restorePlan(client, plan) {
-  return _inTx(client, async () => { for (const p of plan) await _writeRoles(client, p.id, p.before); });
+
+/** Apply the plan (every account in ONE transaction), then journal one identity event per account. */
+async function applyPlan(client, plan) {
+  await _inTx(client, async () => { for (const p of plan) await _writeRoles(client, p.id, p.after); });
+  return _logIdentity(client, plan, 'apply');
+}
+/** Put every account of a plan (or of a backup file's content) back to its BEFORE roles, journaled too. */
+async function restorePlan(client, plan) {
+  await _inTx(client, async () => { for (const p of plan) await _writeRoles(client, p.id, p.before); });
+  return _logIdentity(client, plan, 'restore');
 }
 
 function _args(argv) {
@@ -125,4 +147,4 @@ if (require.main === module) {
   main().catch(e => { console.error('[demote-coordinators]', e.message); process.exitCode = 1; });
 }
 
-module.exports = { main, readUsers, applyPlan, restorePlan };
+module.exports = { main, readUsers, applyPlan, restorePlan, _logIdentity, LOG_ACTOR };
