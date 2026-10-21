@@ -83,8 +83,10 @@ const DEFAULTS = {
   meraki_missing_policy: 'down',
   // ── OpManager REST API (V1b-B — LAN/WLAN/Servers device availability). api_key is a
   //    SECRET (redact/blank-keep/super_admin); base_url points at the on-prem server;
-  //    tls_insecure tolerates its self-signed cert. '1' = insecure (default).
-  opmanager_base_url: '', opmanager_api_key: '', opmanager_tls_insecure: '1',
+  //    tls_insecure='1' tolerates its self-signed cert — E4: default '0' (verified). The
+  //    internal CA goes in ca_bundle (PEM, SECRET: redact/blank-keep/super_admin) and is
+  //    passed as `ca:` to the https agent, so verification works with a private CA.
+  opmanager_base_url: '', opmanager_api_key: '', opmanager_tls_insecure: '0', opmanager_ca_bundle: '',
   // ── WAN SLA / ISP chargeback (V1c). The tier/circuit policy (JSON) that the SLA
   //    engine + credit reader resolve per (site_id, sub_site, uplink). Seeded as a
   //    JSON string (like asset_depreciation_config). Must live here or setConfig's
@@ -145,7 +147,7 @@ const KEYS = Object.keys(DEFAULTS);
 // Secrets that the GET handler redacts to '' — a Save that doesn't retype them must
 // NOT wipe the stored value (blank = keep). Any new secret-shaped key joins this set.
 const _SECRET_BLANK_KEEP = new Set([
-  'smtp_pass', 'entra_client_secret', 'meridian_out_key', 'meridian_in_key', 'meraki_api_key', 'opmanager_api_key',
+  'smtp_pass', 'entra_client_secret', 'meridian_out_key', 'meridian_in_key', 'meraki_api_key', 'opmanager_api_key', 'opmanager_ca_bundle',
   'sdp_api_client_secret', 'sdp_api_refresh_token', 'teams_sla_channels',
   'analytics_client_secret', 'analytics_refresh_token',
   'engagement_teams_url', 'engagement_webhook_url', 'publish_webhook_url', 'sharepoint_client_secret',

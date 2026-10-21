@@ -1,5 +1,8 @@
 # Changelog
 
+## 2.0.0-alpha.13 — 2026-10-20 — Remédiation vague 0/1
+- **E4 — OpManager TLS vérifié par défaut, CA interne, clé redigée** : `opmanager_tls_insecure` passe à `'0'` par défaut ; nouvelle clé secrète `opmanager_ca_bundle` (PEM, redaction GET / blank-keep / super_admin / chiffrée) passée en `ca:` à l'agent https (`services/opmanagerClient.js`, `optionsFromConfig`) ; la clé d'API — que l'API REST d'OpManager n'accepte qu'en paramètre de requête — est remplacée par `<key>` dans toute erreur relancée (`redactUrl`, objets axios `config`/`request` abandonnés) ; `tools/opmanager/discover.js` vérifie par défaut, accepte `OPMANAGER_CA_BUNDLE_FILE` et affiche un avertissement rouge si `OPMANAGER_TLS_INSECURE=1` ; la carte Admin ▸ Infra expose l'URL, la clé, le mode TLS et le bundle CA et affiche l'état TLS. Aide §4.1 EN/FR ; tests `opmanager-client` (+4), `report-config-opmanager` (+1).
+
 ## 2.0.0-alpha.12 — 2026-10-20 — Commentaires IA : langage simple pour un lecteur CIO / CFO, en anglais ou en français au choix
 - `services/plainEnglish.js` (pur) : bloc de style injecté dans chaque prompt, vérificateur (≤ 5 phrases, ≤ 22 mots par phrase, jargon → formulation simple, jamais de français, ni puces, liens, exclamations), `dejargon()` appliqué aussi au texte déterministe de repli.
 - `services/plainEnglish.js` est bilingue (cartes de jargon EN/FR, bloc de style par langue, détection de la langue étrangère). `services/aiCommentary.js` : registre exécutif dans la langue choisie ; une réponse hors style reçoit une correction, puis le texte déterministe l'emporte (`style_issues`, `error`). `services/execMiSummary.js` : consigne CIO / CFO et filtre par phrase. `executive-report.html` : audience verrouillée sur Executive (CFO/CIO).

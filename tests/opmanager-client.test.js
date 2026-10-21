@@ -49,3 +49,54 @@ test('_pluck returns the first array-valued property of the envelope', () => {
   assert.deepEqual(_pluck({ records: 0 }), []);          // no array property
   assert.deepEqual(_pluck(null), []);
 });
+
+// ── E4 (remediation 2026-10-20) — verified TLS by default, CA bundle honoured, key redacted ──
+const { redactUrl, optionsFromConfig } = require('../services/opmanagerClient');
+
+test('E4: TLS verification is ON by default (no insecure agent attached)', async () => {
+  const calls = [];
+  const c = makeOpmanagerClient({ apiKey: 'K', baseUrl: 'https://opm:8061', get: fakeGet(calls, {}) });
+  await c.listDevices({});
+  assert.equal(calls[0].opts.httpsAgent, undefined, 'default must not relax certificate checks');
+  assert.equal(c.tlsInsecure, false);
+  assert.equal(optionsFromConfig({}).tlsInsecure, false, 'an absent config key is verified, never insecure');
+  assert.equal(optionsFromConfig({ opmanager_tls_insecure: '1' }).tlsInsecure, true);
+});
+
+test('E4: the CA bundle is passed as `ca` on the https agent, with rejectUnauthorized untouched', async () => {
+  const calls = [];
+  const pem = '-----BEGIN CERTIFICATE-----\nMIIBfake\n-----END CERTIFICATE-----\n';
+  const c = makeOpmanagerClient({ apiKey: 'K', baseUrl: 'https://opm:8061', caBundle: pem, get: fakeGet(calls, {}) });
+  await c.listDevices({});
+  const agent = calls[0].opts.httpsAgent;
+  assert.ok(agent, 'an agent carries the CA');
+  assert.equal(agent.options.ca, pem);
+  assert.notEqual(agent.options.rejectUnauthorized, false, 'a CA bundle never disables verification');
+  assert.equal(c.hasCaBundle, true);
+});
+
+test('E4: a transport failure never leaks the API key (message, stack, config)', async () => {
+  const KEY = 'sup3r-s3cret-k3y';
+  const boom = async (url) => {
+    const e = new Error(`Request failed: GET ${url}?apiKey=${KEY}&rows=1000 → 401 (key ${KEY} rejected)`);
+    e.config = { url: `${url}?apiKey=${KEY}` }; e.request = { path: `/x?apiKey=${KEY}` }; e.response = { status: 401, config: e.config };
+    throw e;
+  };
+  const c = makeOpmanagerClient({ apiKey: KEY, baseUrl: 'https://opm:8061', get: boom });
+  await assert.rejects(() => c.listDevices({}), (e) => {
+    assert.ok(!e.message.includes(KEY), 'key must not be in e.message');
+    assert.ok(e.message.includes('<key>'), 'the key is replaced by <key>, not just dropped');
+    assert.ok(!String(e.stack).includes(KEY), 'nor in the stack');
+    assert.equal(e.config, undefined); assert.equal(e.request, undefined);
+    assert.equal(e.status, 401);
+    return true;
+  });
+});
+
+test('E4: redactUrl masks apiKey params (plain or URL-encoded) and the raw key value', () => {
+  assert.equal(redactUrl('https://o/api?apiKey=abc&rows=5'), 'https://o/api?apiKey=<key>&rows=5');
+  assert.equal(redactUrl('https://o/api?rows=5&api_key=abc'), 'https://o/api?rows=5&api_key=<key>');
+  assert.equal(redactUrl('token a b/c failed', 'a b/c'), 'token <key> failed');
+  assert.equal(redactUrl('token a%20b%2Fc failed', 'a b/c'), 'token <key> failed');
+  assert.equal(redactUrl(null, 'x'), null);
+});

@@ -10,13 +10,18 @@
 //   set OPMANAGER_BASE_URL=https://abj-spm-000:8061
 //   node tools/opmanager/discover.js
 // Paste back the printed strings only.
-const { makeOpmanagerClient } = require('../../services/opmanagerClient');
+const { makeOpmanagerClient, redactUrl } = require('../../services/opmanagerClient');
 const { classifyKpiFamily } = require('../../services/opmClassify');
 
 (async () => {
   const apiKey = process.env.OPMANAGER_API_KEY, baseUrl = process.env.OPMANAGER_BASE_URL;
   if (!apiKey || !baseUrl) { console.error('Set OPMANAGER_API_KEY and OPMANAGER_BASE_URL in the environment first.'); process.exit(2); }
-  const client = makeOpmanagerClient({ apiKey, baseUrl, tlsInsecure: process.env.OPMANAGER_TLS_INSECURE !== '0' });
+  // E4: verification is ON unless OPMANAGER_TLS_INSECURE=1 is set explicitly; a PEM CA bundle
+  // can be supplied through OPMANAGER_CA_BUNDLE_FILE so a private CA is verified, not ignored.
+  const tlsInsecure = process.env.OPMANAGER_TLS_INSECURE === '1';
+  const caBundle = process.env.OPMANAGER_CA_BUNDLE_FILE ? require('fs').readFileSync(process.env.OPMANAGER_CA_BUNDLE_FILE, 'utf8') : '';
+  if (tlsInsecure) console.error('\x1b[31m\x1b[1mWARNING: TLS certificate verification is OFF (OPMANAGER_TLS_INSECURE=1). The OpManager key and data can be intercepted. Install the internal CA (OPMANAGER_CA_BUNDLE_FILE) and unset this.\x1b[0m');
+  const client = makeOpmanagerClient({ apiKey, baseUrl, tlsInsecure, caBundle });
 
   const devices = (await client.listDevices({ rows: 5000, page: 1 })) || [];
   console.log(`\nlistDevices → ${devices.length} devices\n`);
@@ -50,4 +55,4 @@ const { classifyKpiFamily } = require('../../services/opmClassify');
     console.log('  window-hinting keys:', windowKeys.join(', ') || '(none — availdata window unclear, treat as recent)');
   }
   process.exit(0);
-})().catch(e => { console.error('discovery failed:', e.message); process.exit(1); });
+})().catch(e => { console.error('discovery failed:', redactUrl(e.message, process.env.OPMANAGER_API_KEY)); process.exit(1); });

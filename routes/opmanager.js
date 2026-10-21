@@ -129,8 +129,8 @@ module.exports = function opmanagerRoutes(deps) {
       // V1b-B — coverage from the REST device list when OpManager REST is configured
       // (else the availability snapshots + this governance view would derive from two sources).
       if (cfg && cfg.opmanager_api_key && cfg.opmanager_base_url) {
-        const client = deps.opmanagerClient || require('../services/opmanagerClient').makeOpmanagerClient({
-          apiKey: cfg.opmanager_api_key, baseUrl: cfg.opmanager_base_url, tlsInsecure: cfg.opmanager_tls_insecure !== '0' });
+        const client = deps.opmanagerClient || require('../services/opmanagerClient').makeOpmanagerClient(
+          require('../services/opmanagerClient').optionsFromConfig(cfg));
         const raw = (await client.listDevices({ rows: 5000, page: 1 })) || [];
         const rows = raw.map(d => ({ device_key: d.name || d.deviceName || d.displayName, probe: d.probeName, type: d.type, category: d.category }));
         const cov = coverageSummary(rows, { classify: classifyKpiFamily, probeToSite });

@@ -5389,7 +5389,7 @@ app.get('/api/reports/config', requireReportSession, requireSuperAdmin, async (r
     if (c && c.meridian_out_key) c.meridian_out_key = '';   // never expose the stored Meridian keys
     if (c && c.meridian_in_key) c.meridian_in_key = '';
     if (c && c.meraki_api_key) c.meraki_api_key = '';   // never expose the stored Meraki API key
-    if (c && c.opmanager_api_key) c.opmanager_api_key = '';   // never expose the stored OpManager API key
+    if (c) { if (c.opmanager_api_key) c.opmanager_api_key = ''; c.opmanager_ca_bundle_set = !!c.opmanager_ca_bundle; c.opmanager_ca_bundle = ''; }   // never expose the OpManager key; E4: CA bundle write-only, only its presence is shown
     for (const k of ['sdp_api_client_secret', 'sdp_api_refresh_token', 'teams_sla_channels', 'analytics_client_secret', 'analytics_refresh_token', 'sync_alert_teams_url']) if (c && c[k]) c[k] = '';   // Teams SLA + Analytics secrets
     res.json(c);
   }
@@ -5415,7 +5415,7 @@ app.put('/api/reports/config', requireReportSession, requireSuperAdmin, async (r
     if (MERAKI_KEYS.some(k => k in body) && req.reportUser?.role !== 'super_admin') {
       return res.status(403).json({ error: 'Meraki settings require super_admin' });
     }
-    const OPMANAGER_KEYS = ['opmanager_api_key','opmanager_base_url','opmanager_tls_insecure'];
+    const OPMANAGER_KEYS = ['opmanager_api_key','opmanager_base_url','opmanager_tls_insecure','opmanager_ca_bundle'];
     if (OPMANAGER_KEYS.some(k => k in body) && req.reportUser?.role !== 'super_admin') {
       return res.status(403).json({ error: 'OpManager settings require super_admin' });
     }
