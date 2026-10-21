@@ -8557,15 +8557,15 @@ function renderTrackerSummarySlide(pres, D, aS, yr, mo, im, period, pageStr, C, 
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
-// If window.__ak is empty the server route hasn't been registered yet (Docker not restarted).
-// Show a friendly banner so the user knows exactly what to do.
+// window.__ak is injected only when the page request carried a valid session (fiche C1). Without
+// it the API calls still work through the session token auth.js attaches; the banner just tells
+// the user to sign in again if the session cookie is gone.
 if (!AK) {
   const sr = document.getElementById('statusRow');
   if (sr) {
-    sr.innerHTML = `<span style="color:#92400E;font-weight:700">⚠ API key not injected.</span>
-      <span style="color:#475569"> The server route for this page is not active yet — please run
-      <code style="background:#FEF3C7;padding:2px 6px;border-radius:4px;color:#92400E;border:1px solid #FCD34D">docker compose restart</code>
-      in your project folder and reload this page.</span>`;
+    sr.innerHTML = `<span style="color:#92400E;font-weight:700">⚠ Session not recognised by the server.</span>
+      <span style="color:#475569"> If charts stay empty, <a href="login.html?next=executive-report.html" style="color:#92400E">sign in again</a>
+      and reload this page.</span>`;
     sr.style.background = '#FEF3C7';
     sr.style.border = '1px solid #FCD34D';
   }

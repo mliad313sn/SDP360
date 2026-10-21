@@ -17,6 +17,7 @@ const GUARDS = ['requireReportSession', 'requireAdmin', 'requireSuperAdmin', 're
 // Public by design (reason). Everything else under /api needs a guard.
 const PUBLIC = {
   'GET /health': 'liveness probe',
+  'GET /ready': 'readiness probe — {ok, db, last_job_at} only, no business data (fiche C1/M14)',
   'GET /api/health': 'liveness probe',
   'GET /api/exec/summary': 'SharePoint-facing aggregates, PII-whitelisted (Exec View v1)',
   'GET /api/auth/config': 'SSO mode discovery before login',
@@ -25,9 +26,12 @@ const PUBLIC = {
   'POST /api/reports/auth/login': 'password login (rate-limited)',
   'GET /api/actions/open': 'Meridian server-to-server — own X-API-Key check inside routes/meridian.js',
 };
-// Routes that rely ONLY on the global /api/ gate (x-dash-key injected into every authed page, or a
-// session). Equivalent to "any authenticated session"; listed so the gate's reach is explicit.
-const GLOBAL_GATE_PREFIXES = ['/api/data/', '/api/survey/', '/api/sync/', '/api/dashboard/', '/api/ai/', '/api/risk-register', '/api/admin/', '/api/exec/', '/api/analytics/', '/api/integrations/', '/api/meetings/', '/api/inspection/', '/api/tracker/', '/api/assets/', '/api/roadmap/', '/api/teams-sla/', '/api/metrics/', '/api/fmp/', '/api/meridian/', '/api/sites', '/api/reconcile', '/api/4mp', '/api/site-awareness', '/api/changes', '/api/major-incidents', '/api/weeks', '/api/exec-pptx', '/api/health', '/api/ping', '/api/orgs', '/api/workspaces'];
+// Routes that rely ONLY on the global /api/ gate (a session, or — for server-to-server callers
+// without cookie/Origin — the x-dash-key). Since fiche C1 (2026-10-20) the key is injected into a
+// page only with a valid session and never satisfies the gate alone from a browser. Listed so the
+// gate's reach is explicit; /api/orgs, /api/workspaces, /api/health/views and the risk-register
+// export left this list when they moved to requireReportSession.
+const GLOBAL_GATE_PREFIXES = ['/api/data/', '/api/survey/', '/api/sync/', '/api/dashboard/', '/api/ai/', '/api/risk-register-config', '/api/admin/', '/api/exec/', '/api/analytics/', '/api/integrations/', '/api/meetings/', '/api/inspection/', '/api/tracker/', '/api/assets/', '/api/roadmap/', '/api/teams-sla/', '/api/metrics/', '/api/fmp/', '/api/meridian/', '/api/sites', '/api/reconcile', '/api/4mp', '/api/site-awareness', '/api/changes', '/api/major-incidents', '/api/weeks', '/api/exec-pptx', '/api/ping'];
 
 function walk(stack, prefix, out) {
   for (const layer of stack || []) {
@@ -49,7 +53,7 @@ test('every /api route is guarded, public by declaration, or behind the global g
   assert.ok(routes.length > 250, `found ${routes.length} routes`);
   const rows = [], unguarded = [];
   for (const r of routes) {
-    if (!r.path.startsWith('/api') && r.path !== '/health') continue;
+    if (!r.path.startsWith('/api') && r.path !== '/health' && r.path !== '/ready') continue;
     const guard = r.mw.find((n) => GUARDS.some((g) => n === g || n.startsWith(g)));
     let how;
     if (PUBLIC[r.key]) how = `public — ${PUBLIC[r.key]}`;

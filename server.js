@@ -38,13 +38,11 @@ if (!_startupOk) {
 const DASH_USER = process.env.DASH_USER;
 const DASH_PASS = process.env.DASH_PASS;
 
-// Internal API key — derived from Zoho secret so no extra config needed,
-// or override with DASHBOARD_API_KEY in .env
-const DASH_API_KEY = process.env.DASHBOARD_API_KEY ||
-  crypto.createHmac('sha256', process.env.ZOHO_CLIENT_SECRET || 'fallback-secret')
-        .update('endeavour-dashboard-internal-key')
-        .digest('hex')
-        .slice(0, 32);
+// Internal API key — DASHBOARD_API_KEY (.env). No derived fallback any more (fiche C2): production
+// refuses to start without a ≥ 32-char key; elsewhere a random per-boot key is generated and logged masked.
+const _apiKey = require('./services/apiKey').resolveApiKey(process.env, console);
+if (!_apiKey.ok) { console.error('[STARTUP] FATAL: ' + _apiKey.reason); process.exit(78); }
+const DASH_API_KEY = _apiKey.key;
 
 // ── PII COLUMN BLOCKLIST ──────────────────────────────────────────
 // Columns matching these patterns are stripped from ALL API responses
@@ -621,7 +619,7 @@ async function checkZohoViewSchema() {
 }
 
 // Zoho view schema health check — routes/health.js (M12-a).
-app.use(require('./routes/health')({ express, checkZohoViewSchema }));
+app.use(require('./routes/health')({ express, checkZohoViewSchema, requireReportSession, getRdb: () => rdb }));
 
 // ── Startup behaviour (2026-05-28) ──────────────────────────────────────
 // Previously: on every pm2 restart, this fired all 3 syncs against Zoho
@@ -1032,8 +1030,9 @@ app.use((req, res, next) => {
 // API routes are still protected by requireReportSession / API key guard below.
 
 // ── API Key guard — extra layer on all /api/* routes ─────────────
-// Accepts either x-dash-key (injected into HTML) OR a valid x-report-token session.
-// This allows index.html (Editor/Viewer) to call APIs using their session token.
+// Fiche C1 (2026-10-20): the x-dash-key ALONE is accepted only for server-to-server callers
+// (tools/, scheduled jobs). A browser context — a report_token cookie OR an Origin header — must
+// carry a valid session; the key is never read from the query string.
 app.use('/api/', async (req, res, next) => {
   if (req.path.startsWith('/reports/')) return next(); // protected by requireReportSession
   // Public Executive View summary — aggregates-only, no auth (SharePoint-facing).
@@ -1047,9 +1046,10 @@ app.use('/api/', async (req, res, next) => {
   // (report_config meridian_in_key) inside routes/meridian.js, NOT the dash key.
   if (req.method === 'GET' && req.path === '/actions/open') return next();
   const key   = req.headers['x-dash-key'];
-  if (_safeEqual(key, DASH_API_KEY)) return next(); // API key present — allow (constant-time)
-  // Fallback: accept valid session token (for Editor/Viewer users on index.html)
-  const token = req.headers['x-report-token'] || getCookie(req, 'report_token');
+  const cookieToken = getCookie(req, 'report_token');
+  const browserContext = !!(cookieToken || req.headers.origin);
+  if (!browserContext && _safeEqual(key, DASH_API_KEY)) return next(); // server-to-server key (constant-time)
+  const token = req.headers['x-report-token'] || cookieToken;
   if (rdb && token) {
     let user; try { user = await rdb.validateSession(token); } catch (e) { user = null; }
     if (user) return next();
@@ -1263,8 +1263,15 @@ function loadHtml(name) {
 ].forEach(loadHtml);
 
 // Helper: build the per-request HTML, inject api-key + nonce, send. Pages
-// that don't need the api-key call this with `injectApiKey=false`.
-function sendHtmlPage(res, name, injectApiKey, fallbackMsg) {
+// that don't need the api-key call this with `injectApiKey=false`. The key is injected ONLY
+// when the request carries a valid session (fiche C1) — without one the page is served bare and
+// public/auth.js redirects to login.html (the key must never be readable from an anonymous GET).
+async function _hasValidSession(req) {
+  const token = req && (req.headers['x-report-token'] || getCookie(req, 'report_token'));
+  if (!rdb || !token) return false;
+  try { return !!(await rdb.validateSession(token)); } catch (e) { return false; }
+}
+async function sendHtmlPage(res, name, injectApiKey, fallbackMsg) {
   let html = _htmlCache[name];
   if (!html) {
     // Disk cache miss (page renamed / deleted at runtime?) — try one re-read.
@@ -1272,7 +1279,7 @@ function sendHtmlPage(res, name, injectApiKey, fallbackMsg) {
     html = _htmlCache[name];
     if (!html) return res.status(500).send(fallbackMsg);
   }
-  if (injectApiKey) {
+  if (injectApiKey && await _hasValidSession(res.req)) {
     html = html.replace('</head>', `<script nonce="${res.locals.nonce}">window.__ak='${DASH_API_KEY}';</script>\n</head>`);
   }
   html = html.replace(/%%CSP_NONCE%%/g, res.locals.nonce);
@@ -3714,7 +3721,7 @@ app.get('/api/requests', requireReportSession, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.get('/api/orgs', async (req, res) => {
+app.get('/api/orgs', requireReportSession, async (req, res) => {
   try {
     const token = await getValidToken();
     const r = await axios.get(`${CONFIG.analyticsApi}/orgs`, { headers: { 'Authorization': `Zoho-oauthtoken ${token}` }, timeout: 10000 });
@@ -3749,7 +3756,7 @@ app.get('/api/debug/raw-test', requireReportSession, async (req, res) => {
   }
 });
 
-app.get('/api/workspaces', async (req, res) => {
+app.get('/api/workspaces', requireReportSession, async (req, res) => {
   try {
     const token = await getValidToken();
     const r = await axios.get(`${CONFIG.analyticsApi}/workspaces`, { headers: apiHeaders(token), timeout: 10000 });

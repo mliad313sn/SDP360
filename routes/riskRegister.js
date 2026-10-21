@@ -27,7 +27,7 @@ module.exports = function riskRegisterRoutes(deps) {
 // All business logic (classifier rules, site list, Excel styling)
 // lives in risk-register-export.js — the only thing this handler
 // does is parse the month query, run the export, and stream bytes.
-router.get('/api/risk-register-export', async (req, res) => {
+router.get('/api/risk-register-export', requireReportSession, async (req, res) => {
   const month = (req.query.month || '').trim();
   if (!/^\d{4}-\d{2}$/.test(month)) {
     return res.status(400).json({ error: 'Invalid month format. Use YYYY-MM (e.g. 2026-05).' });

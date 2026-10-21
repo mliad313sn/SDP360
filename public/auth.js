@@ -99,6 +99,35 @@
     return { 'x-report-token': token };
   };
 
+  // Since 2026-10-20 (fiche C1) the server injects window.__ak ONLY when the request carried a
+  // valid session, and the key alone no longer satisfies the /api/ gate from a browser. Pages
+  // that still send only 'X-Dash-Key' (executive, analytics, deck builder, freshness bars) must
+  // therefore ALSO present the session: attach x-report-token to every same-origin /api/ call that
+  // does not carry one yet. Pages' own fetch wrappers chain on top of this one.
+  (function attachSessionToApiFetch() {
+    if (typeof window.fetch !== 'function' || window.__sessionFetchPatched) return;
+    window.__sessionFetchPatched = true;
+    const _base = window.fetch.bind(window);
+    window.fetch = function(url, opts) {
+      try {
+        const u = (typeof url === 'string') ? url : (url && url.url) || '';
+        const isApi = u.indexOf('/api/') !== -1 && (u.indexOf('://') === -1 || u.indexOf(location.origin) === 0);
+        if (isApi) {
+          opts = Object.assign({}, opts || {});
+          const h = opts.headers;
+          if (h instanceof Headers) { if (!h.has('x-report-token')) h.set('x-report-token', token); }
+          else if (Array.isArray(h)) { if (!h.some(p => String(p[0]).toLowerCase() === 'x-report-token')) h.push(['x-report-token', token]); }
+          else {
+            const o = Object.assign({}, h || {});
+            if (!Object.keys(o).some(k => k.toLowerCase() === 'x-report-token')) o['x-report-token'] = token;
+            opts.headers = o;
+          }
+        }
+      } catch (_) { /* never break a fetch over an auth header */ }
+      return _base(url, opts);
+    };
+  })();
+
   // Helper: logout function available to all pages
   window.__logout = function() {
     fetch('/api/reports/auth/logout', {

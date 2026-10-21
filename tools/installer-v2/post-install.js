@@ -66,7 +66,7 @@ function envDefaults() {
     NODE_ENV: 'production', PORT, BIND_HOST: '127.0.0.1', SDP_DATA_DIR: dataDir, SDP_BACKUP_DIR: backupDir,
     SDP_CONFIG_KEY: crypto.randomBytes(32).toString('base64url'),
     DASH_USER: 'admin', DASH_PASS: crypto.randomBytes(12).toString('base64url') + '!A1',
-    DASH_API_KEY: crypto.randomBytes(24).toString('hex'),
+    DASHBOARD_API_KEY: crypto.randomBytes(32).toString('hex'),   // ≥ 32 chars — production refuses to start without it (fiche C2)
     PG_URL: `postgres://${user}:${encodeURIComponent(appPass)}@${host}:${port}/${db}`,
     TRACKER_BACKEND: 'postgres', MEETINGS_BACKEND: 'postgres', INSPECTION_BACKEND: 'postgres', REPORTS_BACKEND: 'postgres', ASSETS_BACKEND: 'postgres',
     SESSION_HOURS: '8', _appPass: appPass,
