@@ -58,7 +58,7 @@
 (function () {
   "use strict";
   var R = window.DashboardRender, $ = function (id) { return document.getElementById(id); }, esc = R.escapeHtml;
-  var H = function (x) { return Object.assign(window.__authToken ? { "x-report-token": window.__authToken } : {}, x || {}); };
+  var H = function (x) { return Object.assign({}, x || {}); };
   function api(p, o) { return fetch(p, Object.assign({ headers: H(o && o.body ? { "content-type": "application/json" } : {}) }, o || {})).then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || ("HTTP " + r.status)); return j; }); }); }
   var msg = function (h, cls) { $("msg").innerHTML = h ? "<div class=\"" + (cls || "ok") + "\">" + esc(h) + "</div>" : ""; };
   var fail = function (e) { msg(e.message, "errors"); };
@@ -85,7 +85,7 @@
   function openRun(id) {
     return api("/api/report-studio/runs/" + id).then(function (j) {
       cur = j.run; $("view").hidden = false; $("v-title").textContent = "#" + cur.id + " · " + (j.template ? j.template.name : cur.template_key) + " · " + siteName(cur.site_id) + " · " + cur.status;
-      var base = "/api/report-studio/runs/" + cur.id; var tok = window.__authToken ? "" : "";
+      var base = "/api/report-studio/runs/" + cur.id;
       $("v-links").innerHTML = ["html", "pdf", "csv", "xlsx", "pptx"].map(function (f) { return "<a class=\"btn\" href=\"" + base + "." + f + "\" target=\"_blank\" rel=\"noopener\">" + f.toUpperCase() + "</a>"; }).join("") + (cur.status === "published" ? " <button class=\"btn\" id=\"v-share\" type=\"button\">Create share link (72 h)</button>" : "");
       fetch(base + ".html", { headers: H() }).then(function (r) { return r.text(); }).then(function (h) { $("v-frame").srcdoc = h; });
       var c = cur.commentary || {}; $("r-text").value = c.text || ""; $("r-meta").textContent = (c.source || "—") + (c.provider ? " · " + c.provider : "") + (c.verified === false ? " · REJECTED: " + (c.error || "numbers outside the canonical list") : c.source === "ai" ? " · verified against canonical figures" : "") + (c.anonymised ? " · anonymised payload" : "");

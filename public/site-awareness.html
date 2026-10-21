@@ -512,7 +512,7 @@ W.defaults=O.defaults;window.Chart=W;});
 
   // Auth: session cookie + x-report-token header (copied verbatim from wan.html's api()).
   async function api(path) {
-    const h = {}; const at = window.__authToken; if (at) h['x-report-token'] = at;
+    const h = {};
     const r = await fetch(path, { headers: h });
     if (!r.ok) throw new Error('HTTP ' + r.status);
     return r.json();

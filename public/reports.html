@@ -2529,11 +2529,10 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
 //  STATE
 // ══════════════════════════════════════════════════════════════════
 const API = '';  // same origin
-// Token + user are populated by auth.js (head script) before this code
+// The user is populated by auth.js (the session is the httpOnly cookie, fiche E5) (head script) before this code
 // runs. auth.js validates with /api/reports/auth/me in the background and
 // redirects to login.html on 401, so by the time the page renders we know
 // we have a valid session.
-let token       = window.__authToken || localStorage.getItem('report_token') || '';
 let currentUser = window.__authUser  || null;
 let allSites  = [];
 let currentReport = null;   // the full report object
@@ -2545,7 +2544,7 @@ let currentSection = 0;
 function api(method, path, body) {
   const opts = {
     method,
-    headers: { 'Content-Type': 'application/json', 'X-Report-Token': token, 'X-Dash-Key': window.__ak || '' }
+    headers: { 'Content-Type': 'application/json', 'X-Dash-Key': window.__ak || '' }
   };
   if (body !== undefined) opts.body = JSON.stringify(body);
   return fetch(API + path, opts).then(async r => {
@@ -2653,7 +2652,6 @@ async function initApp() {
   // user.
   if (!window.__authUser) return;
   currentUser = window.__authUser;
-  token       = window.__authToken || token;
 
   // The hidden user-name / user-role-badge spans are kept around because
   // some downstream UI logic in this page reads textContent off them.
@@ -5192,7 +5190,7 @@ async function revertReport() {
   try {
     const res = await fetch(`/api/reports/${currentReport.id}/status`, {
       method: 'PUT',
-      headers: { 'Content-Type':'application/json', 'X-Report-Token': token, 'X-Dash-Key': window.__ak||'' },
+      headers: { 'Content-Type':'application/json', 'X-Dash-Key': window.__ak||'' },
       body: JSON.stringify({ status: 'draft' })
     });
     const data = await res.json();
@@ -5212,7 +5210,7 @@ async function loadAuditLog() {
   tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:8px;font-style:italic">Loading…</td></tr>';
   try {
     const res = await fetch(`/api/reports/${currentReport.id}/audit`,
-      { headers: { 'X-Report-Token': token, 'X-Dash-Key': window.__ak||'' } });
+      { headers: { 'X-Dash-Key': window.__ak||'' } });
     // RBAC audit 2026-10-02 (A11): the history is reserved to audit-viewer / admin. A
     // refusal used to fall through to "No audit entries yet" — a clean, empty history.
     if (res.status === 401 || res.status === 403) {
@@ -5284,7 +5282,7 @@ async function downloadWeeklyPptx() {
   a.href = `/api/reports/${currentReport.id}/pptx`;
   a.download = '';
   // Need to include auth header — use fetch+blob
-  fetch(a.href, { headers: { 'X-Report-Token': token, 'X-Dash-Key': window.__ak||'' } })
+  fetch(a.href, { headers: { 'X-Dash-Key': window.__ak||'' } })
     .then(r => { if(!r.ok) throw new Error('Download failed'); return r.blob(); })
     .then(blob => {
       const url = URL.createObjectURL(blob);
@@ -5303,7 +5301,7 @@ async function downloadMonthlyPptx() {
   if (!siteId || !year || !month) { toast('Select site, year and month', 'error'); return; }
   toast('Generating monthly PPTX…', 'info');
   fetch(`/api/reports/monthly/${siteId}/${year}/${month}/pptx`,
-    { headers: { 'X-Report-Token': token, 'X-Dash-Key': window.__ak||'' } })
+    { headers: { 'X-Dash-Key': window.__ak||'' } })
     .then(r => { if(!r.ok) throw new Error('Download failed'); return r.blob(); })
     .then(blob => {
       const url = URL.createObjectURL(blob);
@@ -5322,7 +5320,7 @@ async function downloadWeeklySummaryPptx() {
   if (!year || !week) { toast('Select year and week', 'error'); return; }
   toast('Generating weekly summary PPTX…', 'info');
   fetch(`/api/reports/weekly-summary/${year}/${week}/pptx`,
-    { headers: { 'X-Report-Token': token, 'X-Dash-Key': window.__ak||'' } })
+    { headers: { 'X-Dash-Key': window.__ak||'' } })
     .then(async r => {
       if (!r.ok) {
         const err = await r.json().catch(()=>({error:'Download failed'}));
@@ -5413,7 +5411,7 @@ async function loadMonthlyEdits() {
 
   toast('Loading monthly data…', 'info');
   try {
-    const hdrs = { 'X-Report-Token': token, 'X-Dash-Key': window.__ak||'' };
+    const hdrs = { 'X-Dash-Key': window.__ak||'' };
     const [monthlyRes, editsRes, objsRes, yearlyRes] = await Promise.all([
       fetch(`/api/reports/monthly/${siteId}/${year}/${month}`,       { headers: hdrs }),
       fetch(`/api/reports/monthly/${siteId}/${year}/${month}/edits`, { headers: hdrs }),
@@ -5471,7 +5469,7 @@ async function loadMonthlyEdits() {
 /** Fetches last-sync timestamp from the server and displays it in the freshness badge. */
 async function _loadSyncFreshness() {
   try {
-    const hdrs = { 'X-Report-Token': token, 'X-Dash-Key': window.__ak||'' };
+    const hdrs = { 'X-Dash-Key': window.__ak||'' };
     const res  = await fetch('/api/sync/status', { headers: hdrs, cache: 'no-store' });
     if (!res.ok) return;
     const data = await res.json();
@@ -5509,7 +5507,7 @@ async function syncZohoData() {
   const el = document.getElementById('mr-sync-freshness');
   if (el) { el.textContent = '🔄 Syncing Zoho data…'; el.style.color = '#e87722'; }
   try {
-    const hdrs = { 'X-Report-Token': token, 'X-Dash-Key': window.__ak||'', 'Content-Type': 'application/json' };
+    const hdrs = { 'X-Dash-Key': window.__ak||'', 'Content-Type': 'application/json' };
     const trigRes = await fetch('/api/sync/trigger/requests', { method: 'POST', headers: hdrs, cache: 'no-store' });
     if (!trigRes.ok) throw new Error(`HTTP ${trigRes.status}`);
 
@@ -5978,7 +5976,7 @@ async function saveMonthlyEdits() {
   try {
     const res = await fetch(`/api/reports/monthly/${siteId}/${year}/${month}/edits`, {
       method: 'POST',
-      headers: { 'Content-Type':'application/json', 'X-Report-Token':token, 'X-Dash-Key':window.__ak||'' },
+      headers: { 'Content-Type':'application/json', 'X-Dash-Key':window.__ak||'' },
       body: JSON.stringify({ edited_lights: mrLights, edited_actions: mrActions, status: 'draft' })
     });
     const data = await res.json();
@@ -6025,7 +6023,7 @@ async function saveObjectives() {
   try {
     const res = await fetch(`/api/reports/objectives/${siteId}/${year}`, {
       method: 'POST',
-      headers: { 'Content-Type':'application/json', 'X-Report-Token':token, 'X-Dash-Key':window.__ak||'' },
+      headers: { 'Content-Type':'application/json', 'X-Dash-Key':window.__ak||'' },
       body: JSON.stringify(mrObjs)
     });
     const data = await res.json();
@@ -6045,7 +6043,7 @@ async function downloadMonthlyPptxV2(fromMonthlyPage) {
   toast('Generating monthly PPTX (7-slide)…', 'info');
   try {
     const r = await fetch(`/api/reports/monthly/${siteId}/${year}/${month}/pptx-v2`,
-      { headers: { 'X-Report-Token': token, 'X-Dash-Key': window.__ak||'' } });
+      { headers: { 'X-Dash-Key': window.__ak||'' } });
     if (!r.ok) { const err = await r.json().catch(()=>({})); throw new Error(err.error||'Download failed'); }
     const blob = await r.blob();
     const url  = URL.createObjectURL(blob);
@@ -6071,7 +6069,7 @@ async function downloadSiteTemplatePptx() {
   toast(`Generating 16-slide site template for ${site?.name||siteId}…`, 'info');
   try {
     const r = await fetch(`/api/reports/monthly/${siteId}/${year}/${month}/site-template/pptx`,
-      { headers: { 'X-Report-Token': token, 'X-Dash-Key': window.__ak||'' } });
+      { headers: { 'X-Dash-Key': window.__ak||'' } });
     if (!r.ok) {
       const err = await r.json().catch(() => ({}));
       throw new Error(err.error || 'Download failed');
@@ -6103,7 +6101,7 @@ async function downloadAllSitesMonthlyPptx(fromMonthlyPage) {
   toast('Generating all-sites monthly PPTX…', 'info');
   try {
     const r = await fetch(`/api/reports/monthly/all-sites/${year}/${month}/pptx`,
-      { headers: { 'X-Report-Token': token, 'X-Dash-Key': window.__ak||'' } });
+      { headers: { 'X-Dash-Key': window.__ak||'' } });
     if (!r.ok) { const err = await r.json().catch(()=>({})); throw new Error(err.error||'Download failed'); }
     const blob = await r.blob();
     const url  = URL.createObjectURL(blob);

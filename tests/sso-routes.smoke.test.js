@@ -56,6 +56,8 @@ test('password login still works normally (no break-glass gate when SSO off)', a
     body: JSON.stringify({ username: process.env.DASH_USER, password: process.env.DASH_PASS }),
   });
   assert.equal(res.status, 200, `expected 200, got ${res.status}`);
+  // E5: the session token travels ONLY in the httpOnly Set-Cookie header, never in the JSON body.
+  assert.match(String(res.headers.get('set-cookie') || ''), /report_token=[^;]+;.*HttpOnly/i, 'sets the session cookie');
   const body = await res.json();
-  assert.ok(body.token, 'returns a session token');
+  assert.ok(body.user, 'returns the profile');
 });

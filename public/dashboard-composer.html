@@ -105,7 +105,7 @@
   'use strict';
   var R = window.DashboardRender;
   var $ = function (id) { return document.getElementById(id); };
-  var H = function (extra) { return Object.assign(window.__authToken ? { 'x-report-token': window.__authToken } : {}, extra || {}); };
+  var H = function (extra) { return Object.assign({}, extra || {}); };
   var params = new URLSearchParams(location.search);
   var cat = null, doc = { key: '', title: '', audience: 'site', grid: { columns: 12 }, filters: [{ key: 'site', type: 'site' }, { key: 'window', type: 'window' }], widgets: [] }, meta = null, selected = null;
 

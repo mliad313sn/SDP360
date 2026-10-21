@@ -56,7 +56,7 @@
   'use strict';
   var R = window.DashboardRender;
   var $ = function (id) { return document.getElementById(id); };
-  var H = function () { return window.__authToken ? { 'x-report-token': window.__authToken } : {}; };
+  var H = function () { return {}; };
   var params = new URLSearchParams(location.search);
   var key = params.get('key');
   var charts = [];

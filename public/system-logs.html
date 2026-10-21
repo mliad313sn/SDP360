@@ -122,8 +122,7 @@
 (function(){
   'use strict';
   var el = function(id){return document.getElementById(id);};
-  var tok = function(){return window.__authToken || '';};
-  function api(p){ return fetch(p, { headers: { 'x-report-token': tok() } }).then(function(r){ return r.json(); }); }
+  function api(p){ return fetch(p, { credentials: 'same-origin' }).then(function(r){ return r.json(); }); }
   function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
 
   // tabs

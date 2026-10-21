@@ -5,18 +5,15 @@
  * Each returns a promise that resolves with the parsed JSON body or
  * rejects with an Error carrying the server error message.
  *
- * Token source mirrors the legacy file: report_token cookie. The
+ * Auth: the httpOnly report_token cookie travels with credentials:'same-origin'. The
  * actual auth is gated by `auth.js` upstream — by the time this
  * runs the user is authenticated.
  */
 (function (global) {
   'use strict';
 
-  function token() {
-    return document.cookie.match(/report_token=([^;]+)/)?.[1] || '';
-  }
   function headers(json) {
-    const h = { 'x-report-token': token() };
+    const h = {};   // E5: the httpOnly session cookie (credentials:'same-origin') is the credential
     if (json) h['Content-Type'] = 'application/json';
     return h;
   }

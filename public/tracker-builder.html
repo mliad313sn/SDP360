@@ -81,7 +81,7 @@
 (function () {
   'use strict';
   var R = window.DashboardRender, $ = function (id) { return document.getElementById(id); }, esc = R.escapeHtml;
-  var H = function (x) { return Object.assign(window.__authToken ? { 'x-report-token': window.__authToken } : {}, x || {}); };
+  var H = function (x) { return Object.assign({}, x || {}); };
   var params = new URLSearchParams(location.search), cat = null, meta = null;
   var def = blank();
   function blank() { return { key: '', name: '', version: 1, period: { kind: 'monthly', start: String(new Date().getUTCFullYear() + 1), count: 12 }, units: [], ragPolicy: 'tracker-activity', groups: [] }; }

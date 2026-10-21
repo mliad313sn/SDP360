@@ -270,7 +270,9 @@ async function login(url, env) {
   const res = await fetch(url + '/api/reports/auth/login', { method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ username: env.DASH_USER, password: env.DASH_PASS }) });
   if (!res.ok) return null;
-  return (await res.json()).token || null;
+  // E5: the login answer no longer carries the token — it travels only in the Set-Cookie header.
+  const m = /report_token=([^;]+)/.exec(String(res.headers.get('set-cookie') || ''));
+  return m ? decodeURIComponent(m[1]) : null;
 }
 async function status({ dir, url = 'http://localhost:3456', env = readEnv(dir), out = log } = {}) {
   const mf = installedManifest(dir);

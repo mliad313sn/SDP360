@@ -173,8 +173,7 @@
          The <img> hides itself if the file is missing so the layout still
          works during the asset-delivery window. -->
     <img src="brand/goldy/welcome-safety.png"
-         alt=""
-         onerror="this.parentElement.style.display='none'">
+         alt="" id="loginMascotImg">
   </div>
 <div class="card">
   <div class="logo">
@@ -223,7 +222,14 @@
   // Reason: server no longer redirects HTML pages to login.html?next=, so ?next= only appears
   // when auth.js on the target page fired (token expired/missing). Showing the form is correct.
   // Previously, auto-redirecting caused a race with the form submit that cleared fresh tokens.
-  const existing = localStorage.getItem('report_token');
+  // E5: the session is the httpOnly cookie (unreadable here); the cached profile is the hint.
+  (function () {
+    var img = document.getElementById('loginMascotImg');
+    var hide = function () { img.parentElement.style.display = 'none'; };
+    if (img) { img.addEventListener('error', hide); if (img.complete && !img.naturalWidth) hide(); }
+    try { localStorage.removeItem('report_token'); } catch (_) {}   // drop any pre-E5 copy
+  })();
+  const existing = localStorage.getItem('report_user');
   const nextParam = new URLSearchParams(location.search).get('next');
   if (existing && !nextParam) {
     // Already logged in, browsed directly to login.html — send to index
@@ -253,8 +259,7 @@
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Invalid credentials');
 
-      // Store token and user info
-      localStorage.setItem('report_token', data.token);
+      // Store the profile only — the session cookie was set by the server (E5)
       localStorage.setItem('report_user', JSON.stringify(data.user));
 
       // ── Smart post-login landing ───────────────────────────────────

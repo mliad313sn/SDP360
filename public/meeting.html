@@ -751,12 +751,6 @@
   // ── Auth header ─────────────────────────────────────────────────
   function authHeaders() {
     const h = { 'Content-Type': 'application/json' };
-    const at = window.__authToken;
-    let tok = null;
-    if (typeof at === 'function') { try { tok = at(); } catch(_) {} }
-    else if (typeof at === 'string' && at) { tok = at; }
-    if (!tok) tok = localStorage.getItem('report_token');
-    if (tok) h['x-report-token'] = tok;
     return h;
   }
 
