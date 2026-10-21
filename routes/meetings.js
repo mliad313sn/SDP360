@@ -1,4 +1,5 @@
 'use strict';
+const { fail } = require('../services/httpError');
 // Step 5 — meetings routes extracted from server.js (modularisation, inspection.js pattern).
 // Handlers are byte-identical to the former inline ones; `app.` became `router.` and the
 // relative requires gained one `../`. server.js mounts it with its own middleware + readers.
@@ -106,7 +107,7 @@ router.get('/api/meetings/lookups', requireReportSession, async (req, res) => {
     res.json(await meetingsDb.loadLookups());
   } catch(e) {
     console.error('[Meetings] lookups error:', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -118,7 +119,7 @@ router.get('/api/meetings/people', requireReportSession, async (req, res) => {
     res.json({ people: await inspectionDb.listPeople({ site_code: req.query.site || null }) });
   } catch(e) {
     console.error('[Meetings] people error:', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -149,7 +150,7 @@ router.get('/api/meetings/list', requireReportSession, async (req, res) => {
     res.json({ rows, total });
   } catch(e) {
     console.error('[Meetings] list error:', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -165,7 +166,7 @@ router.get('/api/meetings/aggregate', requireReportSession, async (req, res) => 
     }));
   } catch(e) {
     console.error('[Meetings] aggregate error:', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -185,7 +186,7 @@ router.get('/api/meetings/insights', requireReportSession, async (req, res) => {
     }));
   } catch(e) {
     console.error('[Meetings] insights error:', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -197,7 +198,7 @@ router.get('/api/meetings/compliance', requireReportSession, async (req, res) =>
     res.json(await meetingsDb.compliance({ month: req.query.month || undefined }));
   } catch(e) {
     console.error('[Meetings] compliance error:', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -224,7 +225,7 @@ router.get('/api/meetings/issues', requireReportSession, async (req, res) => {
     res.json({ rows: await meetingsDb.listIssues(opts) });
   } catch(e) {
     console.error('[Meetings] issues error:', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -245,7 +246,7 @@ router.get('/api/meetings/escalations', requireReportSession, async (req, res) =
     }) });
   } catch(e) {
     console.error('[Meetings] escalations error:', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -272,7 +273,7 @@ router.get('/api/meetings/export.xlsx', requireReportSession, async (req, res) =
     res.send(buf);
   } catch(e) {
     console.error('[Meetings] excel export error:', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -295,7 +296,7 @@ router.get('/api/meetings/actions', requireReportSession, async (req, res) => {
     }) });
   } catch(e) {
     console.error('[Meetings] actions list error:', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -334,7 +335,7 @@ router.post('/api/meetings/actions/:id/update', requireReportSession, meetingsJs
     res.json({ ok: true });
   } catch(e) {
     console.error('[Meetings] action update error:', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -357,7 +358,7 @@ router.get('/api/meetings/unsigned', requireReportSession, async (req, res) => {
     })) });
   } catch (e) {
     console.error('[Meetings] unsigned list error:', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -390,7 +391,7 @@ router.post('/api/meetings/:id/sign', requireReportSession, meetingsJsonBody, as
   } catch (e) {
     console.error('[Meetings] sign error:', e.message);
     const isNF = /not found/i.test(e.message);
-    res.status(isNF ? 404 : 500).json({ error: e.message });
+    fail(res, e, isNF ? 404 : undefined);
   }
 });
 
@@ -408,7 +409,7 @@ router.get('/api/meetings/:id', requireReportSession, async (req, res, next) => 
     res.json(rec);
   } catch(e) {
     console.error('[Meetings] get error:', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -449,7 +450,7 @@ router.post('/api/meetings/save', requireReportSession, meetingsJsonBody, async 
   } catch(e) {
     console.error('[Meetings] save error:', e.message);
     const isScope = /Cross-site|closed/i.test(e.message);
-    res.status(isScope ? 403 : 500).json({ error: e.message });
+    fail(res, e, isScope ? 403 : undefined);
   }
 });
 
@@ -513,7 +514,7 @@ router.post('/api/meetings/issues/:id/update', requireReportSession, meetingsJso
     res.json({ ok: true });
   } catch(e) {
     console.error('[Meetings] issue update error:', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -540,14 +541,14 @@ router.post('/api/meetings/issues/:id/actions', requireReportSession, meetingsJs
         { description: b.description, owner_it: b.owner_it, owner_email: b.owner_email, target_date: b.target_date },
         { author_id: req.reportUser.id || null, author_name: req.reportUser.full_name || req.reportUser.username });
     } catch (e) {
-      if (/required/i.test(e.message)) return res.status(400).json({ error: e.message });
-      if (/not found/i.test(e.message)) return res.status(404).json({ error: e.message });
+      if (/required/i.test(e.message)) return fail(res, e, 400);
+      if (/not found/i.test(e.message)) return fail(res, e, 404);
       throw e;
     }
     res.json({ ok: true, ...out });
   } catch(e) {
     console.error('[Meetings] add action for issue error:', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -567,7 +568,7 @@ router.delete('/api/meetings/:id', requireReportSession, async (req, res) => {
     res.json({ ok: true });
   } catch(e) {
     console.error('[Meetings] delete error:', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -583,7 +584,7 @@ router.post('/api/meetings/lookups/:table', requireReportSession, requireRole('s
     res.json({ ok: true, lookups: await meetingsDb.loadLookups() });
   } catch(e) {
     console.error('[Meetings] addLookupRow error:', e.message);
-    res.status(400).json({ error: e.message });
+    fail(res, e, 400);
   }
 });
 
@@ -598,7 +599,7 @@ router.get('/api/meetings/lookups/:table', requireReportSession, requireRole('su
     res.json({ table: req.params.table, rows });
   } catch(e) {
     console.error('[Meetings] listLookupTable error:', e.message);
-    res.status(400).json({ error: e.message });
+    fail(res, e, 400);
   }
 });
 
@@ -615,7 +616,7 @@ router.put('/api/meetings/lookups/:table/:code', requireReportSession, requireRo
     res.json({ ok: true, changes: result.changes, lookups: await meetingsDb.loadLookups() });
   } catch(e) {
     console.error('[Meetings] updateLookupRow error:', e.message);
-    res.status(400).json({ error: e.message });
+    fail(res, e, 400);
   }
 });
 
@@ -632,7 +633,7 @@ router.patch('/api/meetings/lookups/:table/:code/active', requireReportSession, 
     res.json({ ok: true, active, changes: result.changes });
   } catch(e) {
     console.error('[Meetings] toggleActive error:', e.message);
-    res.status(400).json({ error: e.message });
+    fail(res, e, 400);
   }
 });
 
@@ -644,7 +645,7 @@ router.post('/api/meetings/reset', requireReportSession, requireRole('super_admi
     res.json({ ok: true, lookups: await meetingsDb.loadLookups() });
   } catch(e) {
     console.error('[Meetings] reset error:', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -662,7 +663,7 @@ router.get('/api/meetings/import/template', requireReportSession, async (req, re
     res.send(buf);
   } catch(e) {
     console.error('[Meetings] template error:', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -714,7 +715,7 @@ router.post('/api/meetings/import/preview', requireReportSession, meetingsImport
     });
   } catch(e) {
     console.error('[Meetings] import preview error:', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -739,7 +740,7 @@ router.post('/api/meetings/import/commit', requireReportSession, meetingsImportB
     res.json({ ok: true, parse: parsed.summary, ...result, validation_errors: parsed.errors, warnings: parsed.warnings });
   } catch(e) {
     console.error('[Meetings] import commit error:', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -755,7 +756,7 @@ router.get('/api/meetings/import/incubation-template', requireReportSession, asy
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename="incubation_import_template.xlsx"');
     res.send(buf);
-  } catch(e) { console.error('[Meetings] incubation template error:', e.message); res.status(500).json({ error: e.message }); }
+  } catch(e) { console.error('[Meetings] incubation template error:', e.message); fail(res, e); }
 });
 
 router.post('/api/meetings/import/incubation/preview', requireReportSession, meetingsImportBody, async (req, res) => {
@@ -782,7 +783,7 @@ router.post('/api/meetings/import/incubation/preview', requireReportSession, mee
         will_update: !!s.header._willUpdate,
       })),
     });
-  } catch(e) { console.error('[Meetings] incubation preview error:', e.message); res.status(500).json({ error: e.message }); }
+  } catch(e) { console.error('[Meetings] incubation preview error:', e.message); fail(res, e); }
 });
 
 router.post('/api/meetings/import/incubation/commit', requireReportSession, meetingsImportBody, async (req, res) => {
@@ -800,7 +801,7 @@ router.post('/api/meetings/import/incubation/commit', requireReportSession, meet
       author_name: req.reportUser.full_name || req.reportUser.username || 'incubation-import',
     });
     res.json({ ok: true, parse: parsed.summary, ...result, validation_errors: parsed.errors, warnings: parsed.warnings });
-  } catch(e) { console.error('[Meetings] incubation commit error:', e.message); res.status(500).json({ error: e.message }); }
+  } catch(e) { console.error('[Meetings] incubation commit error:', e.message); fail(res, e); }
 });
 
 // GET /api/meetings/progress — viewer+ — per-site×dept pre-brief diff
@@ -822,7 +823,7 @@ router.get('/api/meetings/progress', requireReportSession, async (req, res) => {
     res.json(out);
   } catch(e) {
     console.error('[Meetings] progress error:', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -853,7 +854,7 @@ router.get('/api/meetings/:id/export-pptx', requireReportSession, async (req, re
     res.end(buf);
   } catch(e) {
     console.error('[Meetings] export-pptx error:', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -883,7 +884,7 @@ router.get('/api/meetings/progress/export-pptx', requireReportSession, async (re
     res.end(buf);
   } catch(e) {
     console.error('[Meetings] progress export-pptx error:', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 

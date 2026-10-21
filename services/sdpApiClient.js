@@ -27,6 +27,8 @@ function _defaultTransport(allowHosts) {
 function makeSdpClient({ baseUrl, accountsUrl = 'https://accounts.zoho.com', clientId, clientSecret, refreshToken,
   openFilter = 'Open_System', excludeStatuses = [], writeEnabled = false, allowHosts, transport } = {}) {
   const T = transport || _defaultTransport(allowHosts);
+  // M9 — every error leaving this client is redacted: URLs → scheme+host, secrets/tokens masked.
+  const _red = (m) => require('./safeUrl').redactMessage(m, [clientSecret, refreshToken, token]);
   const configured = !!(baseUrl && clientId && clientSecret && refreshToken);
   const base = String(baseUrl || '').replace(/\/+$/, '');
   let token = null, tokenExp = 0;
@@ -43,10 +45,10 @@ function makeSdpClient({ baseUrl, accountsUrl = 'https://accounts.zoho.com', cli
       });
     } catch (e) {
       const st = e && e.response && e.response.status;
-      throw new Error(`Zoho OAuth token refresh failed${st ? ` (HTTP ${st})` : `: ${e.message}`}`);
+      throw new Error(_red(`Zoho OAuth token refresh failed${st ? ` (HTTP ${st})` : `: ${e.message}`}`));
     }
     const d = (res && res.data) || {};
-    if (!d.access_token) throw new Error(`Zoho OAuth token refresh refused: ${d.error || 'no access_token returned'}`);
+    if (!d.access_token) throw new Error(_red(`Zoho OAuth token refresh refused: ${d.error || 'no access_token returned'}`));
     token = d.access_token;
     tokenExp = Date.now() + Math.max(60, Number(d.expires_in) || 3600) * 1000 - 60000;
     return token;
@@ -71,7 +73,7 @@ function makeSdpClient({ baseUrl, accountsUrl = 'https://accounts.zoho.com', cli
       } catch (e) {
         const st = e && e.response && e.response.status;
         const msg = e && e.response && e.response.data && JSON.stringify(e.response.data).slice(0, 300);
-        const err = new Error(`SDP GET /requests${st ? ` → HTTP ${st}` : ` → ${e.message}`}${msg ? ` ${msg}` : ''}`);
+        const err = new Error(_red(`SDP GET /requests${st ? ` → HTTP ${st}` : ` → ${e.message}`}${msg ? ` ${msg}` : ''}`));
         err.status = st;
         throw err;
       }
@@ -122,7 +124,7 @@ function makeSdpClient({ baseUrl, accountsUrl = 'https://accounts.zoho.com', cli
     let res;
     try {
       res = await T.post(`${base}/requests`, null, { params: { input_data: JSON.stringify({ request }) }, headers: { Authorization: `Zoho-oauthtoken ${tok}`, Accept: 'application/vnd.manageengine.sdp.v3+json' } });
-    } catch (e) { const st = e && e.response && e.response.status; const err = new Error(`SDP POST /requests${st ? ` → HTTP ${st}` : ` → ${e.message}`}`); err.status = st; throw err; }
+    } catch (e) { const st = e && e.response && e.response.status; const err = new Error(_red(`SDP POST /requests${st ? ` → HTTP ${st}` : ` → ${e.message}`}`)); err.status = st; throw err; }
     const r = (res && res.data && res.data.request) || {};
     return { id: r.id || null, display_id: r.display_id || null };
   }

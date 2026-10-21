@@ -1,4 +1,5 @@
 'use strict';
+const { fail } = require('../services/httpError');
 // Step 3 — the KPI dictionary as an API. Every figure the platform shows has a key here.
 //   GET /api/metrics/registry[?module=]      the dictionary (+ RAG policies) — any session
 //   GET /api/metrics/:key?site=<id>&window=  one value through the registered reader
@@ -36,7 +37,7 @@ module.exports = function metricsRoutes(deps) {
     try {
       const out = await reg.resolve(key, { site, window, deps: readerDeps() });
       res.json({ ok: true, ...out });
-    } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+    } catch (e) { fail(res, e, 500, { ok: false }); }
   });
   return router;
 };

@@ -1,4 +1,5 @@
 'use strict';
+const { fail } = require('../services/httpError');
 // Personal Roadmap Manager — REST for the Service & Support Manager's private objectives +
 // deliverables. Every route is requireReportSession + requireSuperAdmin (a personal tool),
 // and user_id is ALWAYS req.reportUser.id — never trusted from body/query, so one super_admin
@@ -46,22 +47,22 @@ module.exports = function roadmapRoutes(deps) {
 
   router.put('/api/roadmap/objective/:key', requireReportSession, requireSuperAdmin, jsonBody, async (req, res) => {
     try { await rdb.upsertRoadmapObjective(req.reportUser.id, req.params.key, req.body || {}); res.json({ ok: true }); }
-    catch (e) { res.status(500).json({ error: e.message }); }
+    catch (e) { fail(res, e); }
   });
 
   router.post('/api/roadmap/deliverable', requireReportSession, requireSuperAdmin, jsonBody, async (req, res) => {
     try { const uid = await rdb.addRoadmapDeliverable(req.reportUser.id, req.body || {}); res.json({ ok: true, uid }); }
-    catch (e) { res.status(500).json({ error: e.message }); }
+    catch (e) { fail(res, e); }
   });
 
   router.put('/api/roadmap/deliverable/:uid', requireReportSession, requireSuperAdmin, jsonBody, async (req, res) => {
     try { await rdb.updateRoadmapDeliverable(req.reportUser.id, req.params.uid, req.body || {}); res.json({ ok: true }); }
-    catch (e) { res.status(500).json({ error: e.message }); }
+    catch (e) { fail(res, e); }
   });
 
   router.delete('/api/roadmap/deliverable/:uid', requireReportSession, requireSuperAdmin, async (req, res) => {
     try { await rdb.deleteRoadmapDeliverable(req.reportUser.id, req.params.uid); res.json({ ok: true }); }
-    catch (e) { res.status(500).json({ error: e.message }); }
+    catch (e) { fail(res, e); }
   });
 
   // Obj-4 (Transfert de connaissance) — ITAM training tracker CRUD. GET lazy-seeds the 9
@@ -74,17 +75,17 @@ module.exports = function roadmapRoutes(deps) {
 
   router.post('/api/roadmap/training', requireReportSession, requireSuperAdmin, jsonBody, async (req, res) => {
     try { const uid = await rdb.addRoadmapTraining(req.reportUser.id, req.body || {}); res.json({ ok: true, uid }); }
-    catch (e) { res.status(500).json({ error: e.message }); }
+    catch (e) { fail(res, e); }
   });
 
   router.put('/api/roadmap/training/:uid', requireReportSession, requireSuperAdmin, jsonBody, async (req, res) => {
     try { await rdb.updateRoadmapTraining(req.reportUser.id, req.params.uid, req.body || {}); res.json({ ok: true }); }
-    catch (e) { res.status(500).json({ error: e.message }); }
+    catch (e) { fail(res, e); }
   });
 
   router.delete('/api/roadmap/training/:uid', requireReportSession, requireSuperAdmin, async (req, res) => {
     try { await rdb.deleteRoadmapTraining(req.reportUser.id, req.params.uid); res.json({ ok: true }); }
-    catch (e) { res.status(500).json({ error: e.message }); }
+    catch (e) { fail(res, e); }
   });
 
   // "Projet Intégrations" tab — actionable items + resources CRUD. GET lazy-seeds both
@@ -96,28 +97,28 @@ module.exports = function roadmapRoutes(deps) {
 
   router.post('/api/roadmap/action', requireReportSession, requireSuperAdmin, jsonBody, async (req, res) => {
     try { const uid = await rdb.addRoadmapAction(req.reportUser.id, req.body || {}); res.json({ ok: true, uid }); }
-    catch (e) { res.status(500).json({ error: e.message }); }
+    catch (e) { fail(res, e); }
   });
   router.put('/api/roadmap/action/:uid', requireReportSession, requireSuperAdmin, jsonBody, async (req, res) => {
     try { await rdb.updateRoadmapAction(req.reportUser.id, req.params.uid, req.body || {}); res.json({ ok: true }); }
-    catch (e) { res.status(500).json({ error: e.message }); }
+    catch (e) { fail(res, e); }
   });
   router.delete('/api/roadmap/action/:uid', requireReportSession, requireSuperAdmin, async (req, res) => {
     try { await rdb.deleteRoadmapAction(req.reportUser.id, req.params.uid); res.json({ ok: true }); }
-    catch (e) { res.status(500).json({ error: e.message }); }
+    catch (e) { fail(res, e); }
   });
 
   router.post('/api/roadmap/resource', requireReportSession, requireSuperAdmin, jsonBody, async (req, res) => {
     try { const uid = await rdb.addRoadmapResource(req.reportUser.id, req.body || {}); res.json({ ok: true, uid }); }
-    catch (e) { res.status(500).json({ error: e.message }); }
+    catch (e) { fail(res, e); }
   });
   router.put('/api/roadmap/resource/:uid', requireReportSession, requireSuperAdmin, jsonBody, async (req, res) => {
     try { await rdb.updateRoadmapResource(req.reportUser.id, req.params.uid, req.body || {}); res.json({ ok: true }); }
-    catch (e) { res.status(500).json({ error: e.message }); }
+    catch (e) { fail(res, e); }
   });
   router.delete('/api/roadmap/resource/:uid', requireReportSession, requireSuperAdmin, async (req, res) => {
     try { await rdb.deleteRoadmapResource(req.reportUser.id, req.params.uid); res.json({ ok: true }); }
-    catch (e) { res.status(500).json({ error: e.message }); }
+    catch (e) { fail(res, e); }
   });
 
   return router;

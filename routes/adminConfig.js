@@ -1,4 +1,5 @@
 'use strict';
+const { fail } = require('../services/httpError');
 // ─────────────────────────────────────────────────────────────────────────
 // Report config + integrations routes (/api/reports/config, /api/integrations/analytics*, /api/reports/test-smtp) — extracted from server.js (fiche M12-a, 2026-10-20), same
 // dependency-injection pattern as routes/inspection.js. Handlers are byte-for-byte
@@ -63,7 +64,7 @@ router.get('/api/reports/config', requireReportSession, requireSuperAdmin, async
     for (const k of ['sdp_api_client_secret', 'sdp_api_refresh_token', 'teams_sla_channels', 'analytics_client_secret', 'analytics_refresh_token', 'sync_alert_teams_url']) if (c && c[k]) c[k] = '';   // Teams SLA + Analytics secrets
     res.json(c);
   }
-  catch (e) { res.status(500).json({ error: e.message }); }
+  catch (e) { fail(res, e); }
 });
 router.put('/api/reports/config', requireReportSession, requireSuperAdmin, async (req, res) => {
   try {
@@ -102,7 +103,7 @@ router.put('/api/reports/config', requireReportSession, requireSuperAdmin, async
     logUrlChanges(req, body, cur);
     res.json(out);
   }
-  catch (e) { res.status(500).json({ error: e.message }); }
+  catch (e) { fail(res, e); }
 });
 // ── Zoho Analytics connection (2026-10-04) — Admin ▸ Intégration API ▸ Analytics. Secrets are
 // write-only (GET says whether one is stored and where each value comes from: db / env / default).
@@ -117,7 +118,7 @@ router.get('/api/integrations/analytics', requireReportSession, requireSuperAdmi
       token: { valid: Date.now() < tokenState.expiresAt, expires_at: tokenState.expiresAt ? new Date(tokenState.expiresAt).toISOString() : null,
         granted_scope: tokenState.grantedScope || null, last_error: tokenState.lastRefreshError || null },
     });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { fail(res, e); }
 });
 router.put('/api/integrations/analytics', requireReportSession, requireSuperAdmin, async (req, res) => {
   try {
@@ -132,7 +133,7 @@ router.put('/api/integrations/analytics', requireReportSession, requireSuperAdmi
     await _applyAnalyticsSettings();
     tokenState.accessToken = null; tokenState.expiresAt = 0;   // next Analytics call refreshes with the new credentials
     res.json({ ok: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { fail(res, e); }
 });
 // Refresh the token NOW with the stored settings → proves the credentials + shows the scope.
 router.post('/api/integrations/analytics/test', requireReportSession, requireSuperAdmin, async (req, res) => {
@@ -143,7 +144,7 @@ router.post('/api/integrations/analytics/test', requireReportSession, requireSup
     const scope = tokenState.grantedScope || '';
     res.json({ ok: true, granted_scope: scope || null,
       warning: scope && !scope.includes('MEAplus.fullaccess') ? 'Scope différent de MEAplus.fullaccess.all — certaines vues renverront 7301.' : null });
-  } catch (e) { res.status(502).json({ error: String(e.message || e).slice(0, 400) }); }
+  } catch (e) { fail(res, e, 502, { error: 'Token refresh failed — see the server log (correlation_id).' }); }
 });
 
 // Tests the settings the admin is LOOKING AT, not only the last-saved ones:
@@ -163,7 +164,7 @@ router.post('/api/reports/test-smtp', requireReportSession, requireSuperAdmin, a
     }
     if (body.smtp_pass) cfg.smtp_pass = String(body.smtp_pass);
     res.json(await buildMailer(cfg).verify());
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { fail(res, e); }
 });
 
 

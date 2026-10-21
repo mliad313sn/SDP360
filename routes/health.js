@@ -1,4 +1,5 @@
 'use strict';
+const { fail } = require('../services/httpError');
 // ─────────────────────────────────────────────────────────────────────────
 // Health routes — extracted from server.js (fiche M12-a, 2026-10-20), same dependency-injection
 // pattern as routes/inspection.js.
@@ -45,7 +46,7 @@ router.get('/api/health/views', requireReportSession, async (req, res) => {
     const allOk = results.every(r => r.ok);
     res.json({ ok: allOk, checkedAt: new Date().toISOString(), results });
   } catch(e) {
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 

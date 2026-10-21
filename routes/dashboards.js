@@ -1,4 +1,5 @@
 'use strict';
+const { fail } = require('../services/httpError');
 // Step 6 — dashboard definitions (composer output) + the one-call data resolver the viewer uses.
 //
 //   GET  /api/dashboards                      published dashboards visible to the session (+ own drafts)
@@ -67,7 +68,7 @@ module.exports = function dashboardsRoutes(deps) {
       const rows = await store.list({ status: isPublisher(u) ? ['draft', 'review', 'published'] : ['published'],
         siteIds: isAdmin(u) ? null : sites.map(s => Number(s.id)), ownerId: u.id });
       res.json({ ok: true, publisher: isPublisher(u), dashboards: rows.map(d => ({ key: d.key, title: d.title, audience: d.audience, status: d.status, version: d.version, site_id: d.site_id, updated_at: d.updated_at, published_at: d.published_at, widgets: (d.definition && d.definition.widgets || []).length })) });
-    } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+    } catch (e) { fail(res, e, 500, { ok: false }); }
   });
 
   router.get('/api/dashboards/catalogue', requireReportSession, requirePublisher, (req, res) => {
@@ -88,11 +89,11 @@ module.exports = function dashboardsRoutes(deps) {
       const d = await loadVisible(req, res); if (!d) return;
       const pub = d.status === 'published' ? await store.published(d.key) : null;
       res.json({ ok: true, dashboard: d, published: pub ? pub.definition : null, publisher: isPublisher(req.reportUser) });
-    } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+    } catch (e) { fail(res, e, 500, { ok: false }); }
   });
 
   router.get('/api/dashboards/:key/versions', requireReportSession, requirePublisher, async (req, res) => {
-    try { res.json({ ok: true, versions: await store.versions(key(req)) }); } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+    try { res.json({ ok: true, versions: await store.versions(key(req)) }); } catch (e) { fail(res, e, 500, { ok: false }); }
   });
 
   router.post('/api/dashboards/:key/view', requireReportSession, async (req, res) => {
@@ -103,7 +104,7 @@ module.exports = function dashboardsRoutes(deps) {
         rdb().logEvent({ category: 'dashboards', action: 'dashboard_viewed', target: d.key, details: { audience: d.audience, version: d.version }, ...ctx });
       }
       res.json({ ok: true });
-    } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+    } catch (e) { fail(res, e, 500, { ok: false }); }
   });
 
   // ---- data: every widget in one call ------------------------------------------------
@@ -121,7 +122,7 @@ module.exports = function dashboardsRoutes(deps) {
       const now = new Date();
       const out = await resolveWidgets({ def, sites, site, window, reg: registry(), dd: readerDeps(), rdb: rdb(), now });
       res.json({ ok: true, key: d.key, version: d.version, site, sites: sites.map(s => ({ id: Number(s.id), name: s.name })), window, as_of: now.toISOString(), widgets: out });
-    } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+    } catch (e) { fail(res, e, 500, { ok: false }); }
   });
 
   // ---- publisher writes ------------------------------------------------------------
@@ -140,8 +141,8 @@ module.exports = function dashboardsRoutes(deps) {
       rdb().logEvent({ category: 'dashboards', action: 'dashboard_saved', target: doc.key, ...rdb()._logCtx(req) });
       res.json({ ok: true, dashboard: saved, field });
     } catch (e) {
-      if (e.code === 'INVALID') return res.status(400).json({ ok: false, error: e.message, errors: e.errors });
-      res.status(500).json({ ok: false, error: e.message });
+      if (e.code === 'INVALID') return fail(res, e, 400, { ok: false });
+      fail(res, e, 500, { ok: false });
     }
   });
 
@@ -154,8 +155,8 @@ module.exports = function dashboardsRoutes(deps) {
       rdb().logEvent({ category: 'dashboards', action: 'dashboard_published', target: d.key, details: { version: out.version }, ...rdb()._logCtx(req) });
       res.json({ ok: true, dashboard: out });
     } catch (e) {
-      if (e.code === 'INVALID') return res.status(400).json({ ok: false, error: e.message, errors: e.errors });
-      res.status(500).json({ ok: false, error: e.message });
+      if (e.code === 'INVALID') return fail(res, e, 400, { ok: false });
+      fail(res, e, 500, { ok: false });
     }
   });
 
@@ -166,7 +167,7 @@ module.exports = function dashboardsRoutes(deps) {
       const out = await store.setStatus(d.key, 'retired');
       rdb().logEvent({ category: 'dashboards', action: 'dashboard_retired', target: d.key, ...rdb()._logCtx(req) });
       res.json({ ok: true, dashboard: out });
-    } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+    } catch (e) { fail(res, e, 500, { ok: false }); }
   });
 
   router.delete('/api/dashboards/:key', requireReportSession, requirePublisher, async (req, res) => {
@@ -176,7 +177,7 @@ module.exports = function dashboardsRoutes(deps) {
       if (!isAdmin(req.reportUser) && d.owner_id != null && d.owner_id !== req.reportUser.id) return res.status(403).json({ ok: false, error: 'owned by another publisher' });
       await store.remove(d.key);
       res.json({ ok: true });
-    } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+    } catch (e) { fail(res, e, 500, { ok: false }); }
   });
 
   return router;

@@ -137,6 +137,28 @@ function redactUrl(url) {
 }
 
 /**
+ * M9 — redact a free-text message before it leaves the process: every URL is reduced to
+ * scheme + host, `key=value` pairs for well-known secret names and bearer tokens are masked,
+ * and each literal secret passed in `secrets` (raw or URL-encoded) becomes <redacted>.
+ * @param {any} s
+ * @param {Array<string>} [secrets]
+ */
+const _SECRET_PAIR = /\b(api[_-]?key|client[_-]?secret|refresh[_-]?token|access[_-]?token|id[_-]?token|token|password|passwd|secret|authorization)\s*[=:]\s*[^\s&,;"'<>]+/gi;
+function redactMessage(s, secrets) {
+  let out = String(s == null ? '' : s);
+  out = out.replace(/https?:\/\/[^\s"'<>)\]]+/gi, (m) => redactUrl(m));
+  out = out.replace(_SECRET_PAIR, (m, k) => `${k}=<redacted>`);
+  out = out.replace(/\b(Zoho-oauthtoken|Bearer)\s+[^\s"']+/gi, '$1 <redacted>');
+  for (const k of Array.isArray(secrets) ? secrets : []) {
+    const v = k == null ? '' : String(k);
+    if (v.length < 4) continue;
+    out = out.split(v).join('<redacted>');
+    try { const enc = encodeURIComponent(v); if (enc !== v) out = out.split(enc).join('<redacted>'); } catch (_) { /* ignore */ }
+  }
+  return out;
+}
+
+/**
  * Validate an outbound URL. Resolves to the normalised URL string, or throws an Error with
  * `code: 'UNSAFE_URL'` and a message an administrator can act on.
  * @param {string} url
@@ -195,5 +217,5 @@ function safePost(allowHosts, base) {
 
 module.exports = {
   UNSAFE, DEFAULT_ALLOW_HOSTS, parseAllowHosts, allowHostsFromConfig, hostAllowed, isPrivateAddress,
-  validateOutboundUrl, axiosSafeOptions, redactUrl, safeGet, safePost, _resetCache: () => _cache.clear(),
+  validateOutboundUrl, axiosSafeOptions, redactUrl, redactMessage, safeGet, safePost, _resetCache: () => _cache.clear(),
 };

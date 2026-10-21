@@ -1,4 +1,5 @@
 'use strict';
+const { fail } = require('../services/httpError');
 // Teams SLA alerts (2026-10-03) — admin routes, super_admin only. Webhook URLs and the
 // SDP API secrets are WRITE-ONLY: GET says which groups are mapped and whether a secret
 // is set, never the value (a webhook URL lets anyone post in the channel).
@@ -39,7 +40,7 @@ module.exports = function teamsSlaRoutes(deps) {
         known_groups: groups,
         last_run: c.teams_sla_last_run || null,
       });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { fail(res, e); }
   });
 
   router.put('/api/teams-sla/settings', ...guard, jsonBody, async (req, res) => {
@@ -101,7 +102,7 @@ module.exports = function teamsSlaRoutes(deps) {
         try { rdb.logEvent({ category: 'config', action: 'config_url_changed', target, details: { from: from ? safeUrl.redactUrl(from) : '', to: safeUrl.redactUrl(to) }, ...rdb._logCtx(req) }); } catch (_) { /* best-effort */ }
       }
       res.json({ ok: true });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { fail(res, e); }
   });
 
   // Post a test card to one group's channel.
@@ -120,7 +121,7 @@ module.exports = function teamsSlaRoutes(deps) {
     } catch (e) {
       if (e && e.code === safeUrl.UNSAFE) return res.status(400).json({ error: `Webhook URL refused: ${e.message}` });
       const st = e && e.response && e.response.status;
-      res.status(502).json({ error: `Échec de l'envoi${st ? ` (HTTP ${st})` : ''} : ${String(e.message || '').replace(/https?:\/\/\S+/g, '<url>')}` });
+      fail(res, e, 502, { error: `Échec de l'envoi${st ? ` (HTTP ${st})` : ''} — voir le journal serveur (correlation_id).` });
     }
   });
 

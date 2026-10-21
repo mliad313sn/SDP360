@@ -1,4 +1,5 @@
 'use strict';
+const { fail: httpFail, logError } = require('../services/httpError');
 // Step 10 — the field (mobile / offline) API behind public/field/ (PWA).
 //
 //   GET  /api/field/bootstrap              everything the phone caches: scope sites, inspection lookups,
@@ -42,7 +43,7 @@ module.exports = function fieldRoutes(deps) {
   const isAdmin = (u) => rdb().userHasRole(u, 'admin');
   const isField = (u) => isAdmin(u) || rdb().userHasRole(u, 'editor') || rdb().userHasRole(u, 'field-tech');
   function requireField(req, res, next) { if (!isField(req.reportUser)) return res.status(403).json({ ok: false, error: 'editor or field-tech role required' }); next(); }
-  const fail = (res, e) => res.status(e.code === 'INVALID' ? 400 : e.code === 'FORBIDDEN' ? 403 : 500).json({ ok: false, error: e.message, errors: e.errors || undefined, missing: e.missing || undefined });
+  const fail = (res, e) => httpFail(res, e, undefined, { ok: false, missing: e && e.missing || undefined });
 
   async function scopeSites(user) {
     const all = (await rdb().listSites({ includeInactive: false })) || [];
@@ -166,7 +167,7 @@ module.exports = function fieldRoutes(deps) {
       try { result = await APPLY[env.kind](u, env.payload); }
       catch (e) {
         if (e.code === 'INVALID' || e.code === 'FORBIDDEN' || e.code === 'REJECTED' || e.code === 'WRITE_DISABLED') { status = 'rejected'; result = { error: e.message, errors: e.errors || undefined }; code = e.code === 'FORBIDDEN' ? 403 : e.code === 'INVALID' ? 400 : 200; }
-        else { status = 'failed'; result = { error: String(e.message || e).slice(0, 300) }; code = 500; }
+        else { status = 'failed'; result = { error: 'internal_error', correlation_id: logError(e, req, 500) }; code = 500; }
       }
       const fin = await store.finish(env.uuid, status, result);
       try { rdb().logEvent({ category: 'field', action: `field_${env.kind}_${status}`, target: env.uuid, details: { device: env.device || null }, ...rdb()._logCtx(req) }); } catch (_) { /* best effort */ }

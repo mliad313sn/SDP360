@@ -1,4 +1,5 @@
 'use strict';
+const { fail } = require('../services/httpError');
 // ─────────────────────────────────────────────────────────────────────────
 // Users & sessions admin routes (/api/reports/users*, /api/reports/sessions*) — extracted from server.js (fiche M12-a, 2026-10-20), same
 // dependency-injection pattern as routes/inspection.js. Handlers are byte-for-byte
@@ -44,7 +45,7 @@ module.exports = function adminUsersRoutes(deps) {
 // ── Users (admin only) ────────────────────────────────────────────
 router.get('/api/reports/users', requireReportSession, requireSuperAdmin, async (req, res) => {
   try { res.json(await rdb.listUsers()); }
-  catch(e) { res.status(500).json({ error: e.message }); }
+  catch(e) { fail(res, e); }
 });
 
 router.post('/api/reports/users', requireReportSession, requireSuperAdmin, jsonBody, async (req, res) => {
@@ -60,7 +61,7 @@ router.post('/api/reports/users', requireReportSession, requireSuperAdmin, jsonB
   } catch(e) {
     // sqlite raises "UNIQUE constraint failed"; postgres raises SQLSTATE 23505.
     if (e.code === '23505' || (e.message && e.message.includes('UNIQUE'))) return res.status(409).json({ error: 'Username already exists' });
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -80,7 +81,7 @@ router.put('/api/reports/users/emails', requireReportSession, requireSuperAdmin,
     }
     console.log(`[SSO] bulk email map: ${n} user(s) updated by ${req.reportUser?.username || 'admin'}`);
     res.json({ ok: true, updated: n });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { fail(res, e); }
 });
 
 router.put('/api/reports/users/:id', requireReportSession, requireSuperAdmin, jsonBody, async (req, res) => {
@@ -98,7 +99,7 @@ router.put('/api/reports/users/:id', requireReportSession, requireSuperAdmin, js
     if (diff.roles) _log(req, 'user_role_changed', target, { user_id: id, before: diff.roles.before, after: diff.roles.after });
     if (password) _log(req, 'password_reset', target, { user_id: id, by_admin: true });
     res.json({ ok: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { fail(res, e); }
 });
 
 router.delete('/api/reports/users/:id', requireReportSession, requireSuperAdmin, async (req, res) => {
@@ -109,7 +110,7 @@ router.delete('/api/reports/users/:id', requireReportSession, requireSuperAdmin,
     await rdb.deleteUser(id);
     _log(req, 'user_deleted', (before && before.username) || String(id), { user_id: id, before });
     res.json({ ok: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { fail(res, e); }
 });
 
 // ── Active sessions (admin observability) ─────────────────────────
@@ -147,7 +148,7 @@ router.get('/api/reports/sessions/active', requireReportSession, requireSuperAdm
       sessions:     safe,
       generated_at: new Date().toISOString(),
     });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { fail(res, e); }
 });
 
 // Force-logout one session by token. Token is passed in the URL path
@@ -172,7 +173,7 @@ router.delete('/api/reports/sessions/:token', requireReportSession, (req, res, n
     console.log(`[sessions] force-logout token=${token.slice(0,8)}… by ${who} — rows=${r.deleted}`);
     rdb.logEvent({ category:'auth', action:'session_killed', target:(r && r.username) || token.slice(0,8), details:{ rows:r.deleted }, ...rdb._logCtx(req) });
     res.json(r);
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { fail(res, e); }
 });
 
 

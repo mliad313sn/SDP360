@@ -1,4 +1,5 @@
 'use strict';
+const { fail, logError } = require('../services/httpError');
 // V1a — OPManager infrastructure availability READ API. Serves the snapshots the sync
 // composed from the prepared Analytics view; OPS never polls devices. DI factory like
 // routes/meridian.js: server.js passes { express, requireReportSession, requireAdmin,
@@ -114,7 +115,7 @@ module.exports = function opmanagerRoutes(deps) {
         site: code, site_id: site.site_id, site_name: site.name, period, as_of: asOf,
         families: fillFamilies(snaps, targets, staleDays, nowMs),
       });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { fail(res, e); }
   });
 
   // Coverage governance — shared by the /opmanager/coverage route AND /infra/summary. Returns
@@ -187,7 +188,7 @@ module.exports = function opmanagerRoutes(deps) {
       const coverage = await _coverage(cfg);
       const matrix = buildInfraMatrix({ opmSites, wanSites, wanTarget, asOf });
       res.json({ period, as_of: asOf, sites: matrix.sites, fleet: matrix.fleet, coverage });
-    } catch (e) { res.json({ sites: [], reason: e.message }); }
+    } catch (e) { res.json({ sites: [], reason: 'internal_error', correlation_id: logError(e, req) }); }
   });
 
   // ── Infrastructure Health — monthly availability trend for ONE site: LAN/WLAN/Servers
@@ -207,14 +208,14 @@ module.exports = function opmanagerRoutes(deps) {
       const asOf = new Date().toISOString().slice(0, 10);
       const trend = buildInfraTrend({ opmMonthly: opmMonthly || [], wanMonthly, months, asOf });
       res.json({ site: code, site_id: site.site_id, site_name: site.name, months, labels: trend.labels, series: trend.series });
-    } catch (e) { res.json({ labels: [], series: {}, reason: e.message }); }
+    } catch (e) { res.json({ labels: [], series: {}, reason: 'internal_error', correlation_id: logError(e, req) }); }
   });
 
   router.post('/api/analytics/opmanager/sync', requireReportSession, requireAdmin, async (req, res) => {
     try {
       const r = await require('../tools/opmanager/sync-availability').main({ fetchView: deps.fetchView });
       res.json(r);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { fail(res, e); }
   });
 
   // ── V1b-D — WAN Health dashboard (reads wan_link_snapshots, the Meraki WAN archive) ──
@@ -317,7 +318,7 @@ module.exports = function opmanagerRoutes(deps) {
       } catch (_) {}
 
       res.json({ period, as_of: new Date().toISOString().slice(0, 10), poll_active: pollActive, window: win, sites });
-    } catch (e) { res.json({ sites: [], reason: e.message }); }
+    } catch (e) { res.json({ sites: [], reason: 'internal_error', correlation_id: logError(e, req) }); }
   });
 
   router.get('/api/analytics/wan/trend', requireReportSession, async (req, res) => {
@@ -329,14 +330,14 @@ module.exports = function opmanagerRoutes(deps) {
       if (!site) return res.json({ site: code, site_id: null, period, series: [] });
       const rows = await rdb.getWanSnapshots({ site_id: site.site_id, period_type: period });
       res.json({ site: code, site_id: site.site_id, site_name: site.name, period, series: trendSeries(rows) });
-    } catch (e) { res.json({ series: [], reason: e.message }); }
+    } catch (e) { res.json({ series: [], reason: 'internal_error', correlation_id: logError(e, req) }); }
   });
 
   router.post('/api/analytics/wan/sync', requireReportSession, requireAdmin, async (req, res) => {
     try {
       const r = await require('../tools/meraki/sync-wan').main({});
       res.json(r);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { fail(res, e); }
   });
 
   // Editable Site ↔ Meraki-network map (the sync's own source). super_admin — this
@@ -347,7 +348,7 @@ module.exports = function opmanagerRoutes(deps) {
         sites: (await rdb.listSiteMerakiMap()) || [],
         subsites: (await rdb.listWanSubsiteNetworks()) || [],
       });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { fail(res, e); }
   });
   router.put('/api/analytics/wan/mappings', requireReportSession, requireSuperAdmin, express.json(), async (req, res) => {
     try {
@@ -362,7 +363,7 @@ module.exports = function opmanagerRoutes(deps) {
         sites: (await rdb.listSiteMerakiMap()) || [],
         subsites: (await rdb.listWanSubsiteNetworks()) || [],
       });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { fail(res, e); }
   });
 
   // ── V1c — WAN SLA / ISP chargeback. Reads wan_outages (the poller + ingester archive) and
@@ -416,7 +417,7 @@ module.exports = function opmanagerRoutes(deps) {
       }
       const keep = _slaKeep(req.reportUser);
       res.json({ month: label, circuits: circuits.filter(keep), unmapped: [...seen.values()].filter(keep) });
-    } catch (e) { res.json({ month: label, circuits: [], unmapped: [], reason: e.message }); }
+    } catch (e) { res.json({ month: label, circuits: [], unmapped: [], reason: 'internal_error', correlation_id: logError(e, req) }); }
   });
 
   // Raw outage evidence. Tolerant `site` (numeric id, probe/meetings code, or site name) → site_id.
@@ -439,7 +440,7 @@ module.exports = function opmanagerRoutes(deps) {
       const outages = ((await rdb.getWanOutages(f)) || []).filter(_slaKeep(req.reportUser))
         .map(o => ({ ...o, site_name: nameById[o.site_id] || null }));
       res.json({ outages });
-    } catch (e) { res.json({ outages: [], reason: e.message }); }
+    } catch (e) { res.json({ outages: [], reason: 'internal_error', correlation_id: logError(e, req) }); }
   });
 
   // Policy read — super_admin (admin config). No redaction (isp_notify_email is not a secret).
@@ -454,7 +455,7 @@ module.exports = function opmanagerRoutes(deps) {
       if (!body || typeof body !== 'object' || Array.isArray(body)) return res.status(400).json({ error: 'body must be an object' });
       await reportConfig.setConfig(rdb.db, { sla_wan_config: JSON.stringify(body) }, req.reportUser && req.reportUser.username);
       res.json({ ok: true });
-    } catch (e) { res.json({ ok: false, error: e.message }); }
+    } catch (e) { fail(res, e, undefined, { ok: false }); }
   });
 
   // Run the nightly event-log ingester on demand. Config-gated (self-skips) + best-effort.
@@ -465,7 +466,7 @@ module.exports = function opmanagerRoutes(deps) {
       const days = Math.max(1, Math.min(90, parseInt(req.query.days, 10) || 3));
       const since = new Date(Date.now() - days * 86400000).toISOString();
       res.json(await require('../tools/meraki/sync-wan-events').main({ since }));
-    } catch (e) { res.json({ ok: false, error: e.message }); }
+    } catch (e) { fail(res, e, undefined, { ok: false }); }
   });
 
   // CSV evidence export for the month — UTF-8 BOM + CRLF + quote-escaped (index.html convention).
@@ -550,7 +551,7 @@ module.exports = function opmanagerRoutes(deps) {
       const { label, fromISO, toISO } = _monthBounds(req.query.month);
       const outages = ((await rdb.getWanOutages({ from: fromISO, to: toISO })) || []).filter(_slaKeep(req.reportUser));
       _sendXlsx(res, buildWorkbook(_outageSheets(outages, await _siteNames(), label)), `wan-sla-outages-${label}.xlsx`);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { fail(res, e); }
   });
   // "What I see" workbook: the page POSTs the rows it currently shows (its own filters applied:
   // period, min duration, ISP, uplink, attribution) — same three sheets, server-side names.
@@ -560,7 +561,7 @@ module.exports = function opmanagerRoutes(deps) {
       const rows = Array.isArray(req.body && req.body.rows) ? req.body.rows : [];
       const label = String((req.body && req.body.label) || '').replace(/[^0-9A-Za-z_-]/g, '').slice(0, 24) || 'filtre';
       _sendXlsx(res, buildWorkbook(_outageSheets(rows, await _siteNames(), label)), `wan-outages-${label}-filtre.xlsx`);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { fail(res, e); }
   });
 
   return router;

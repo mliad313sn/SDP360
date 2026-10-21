@@ -1,4 +1,5 @@
 'use strict';
+const { fail: httpFail } = require('../services/httpError');
 // Step 9 — report studio: templates per audience composed of a dashboard definition, generated
 // packs (draft → reviewed → published), outputs HTML / PDF / CSV / PPTX / XLSX, AI commentary
 // review. Figures always come from services/dashboardData (the dashboard viewer's resolver).
@@ -38,7 +39,7 @@ module.exports = function reportStudioRoutes(deps) {
   const isAdmin = (u) => rdb().userHasRole(u, 'admin');
   const isAuthor = (u) => isAdmin(u) || rdb().userHasRole(u, 'report-author');
   const requireAuthor = (req, res, next) => isAuthor(req.reportUser) ? next() : res.status(403).json({ ok: false, error: 'report-author or admin role required' });
-  const fail = (res, e) => res.status(e.code === 'INVALID' ? 400 : 500).json({ ok: false, error: e.message });
+  const fail = (res, e) => httpFail(res, e, undefined, { ok: false });
   const log = (req, action, target, details) => { try { rdb().logEvent({ category: 'reports', action, target: String(target), details, ...rdb()._logCtx(req) }); } catch (_) {} };
   const provider = () => deps.aiProvider || 'off';
   async function scope(u) { const all = ((await rdb().listSites({ includeInactive: false })) || []).map(s => ({ id: Number(s.id), name: s.name })); if (isAdmin(u)) return all; const ids = new Set(userSites.siteIds(u).map(Number)); return all.filter(s => ids.has(s.id)); }

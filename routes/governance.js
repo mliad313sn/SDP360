@@ -1,4 +1,5 @@
 'use strict';
+const { fail: httpFail, logError } = require('../services/httpError');
 // Step 8 — meeting cockpit (cadences, sessions, agenda, minutes), decision register, RFI register,
 // portfolio (programmes → objectives → projects → milestones → deliverables, risks), governance overview,
 // Roadmap Manager migration. All figures come from the KPI dictionary / registers; no formula here
@@ -48,7 +49,7 @@ module.exports = function governanceRoutes(deps) {
   const isCommittee = (u) => isAdmin(u) || rdb().userHasRole(u, 'committee-member');
   const isSuper = (u) => rdb().userHasRole(u, 'super_admin');
   const requireCommittee = (req, res, next) => isCommittee(req.reportUser) ? next() : res.status(403).json({ ok: false, error: 'committee-member or admin role required' });
-  const fail = (res, e) => res.status(e.code === 'INVALID' ? 400 : 500).json({ ok: false, error: e.message });
+  const fail = (res, e) => httpFail(res, e, undefined, { ok: false });
   const log = (req, action, target, details) => { try { rdb().logEvent({ category: 'governance', action, target: String(target), details, ...rdb()._logCtx(req) }); } catch (_) {} };
   const canRun = (u, cad) => isCommittee(u) || (cad && (Number(cad.chair_id) === Number(u.id) || Number(cad.secretary_id) === Number(u.id))) || (cad && cad.site_id != null && rdb().userHasRole(u, 'editor') && userSites.hasSite(u, cad.site_id));
   const canDecide = (u, cad) => isAdmin(u) || (cad && (Number(cad.chair_id) === Number(u.id) || Number(cad.secretary_id) === Number(u.id)));
@@ -75,7 +76,7 @@ module.exports = function governanceRoutes(deps) {
         const list = []; for (const g of ['meetings', 'incubation', 'inspection', 'report']) for (const it of (sa.groups[g] && sa.groups[g].items) || []) if (it.overdue) list.push({ source: g, title: it.task || it.description || it.title, owner: it.owner, due_date: it.target_date || it.due_date, age_days: it.age_days });
         out.actions = { open: sa.totals.open, overdue: list.length, list: list.sort((a, b) => (b.age_days || 0) - (a.age_days || 0)).slice(0, 15) };
       }
-    } catch (e) { out.actions.error = e.message; }
+    } catch (e) { out.actions.error = 'internal_error'; out.actions.correlation_id = logError(e, req); }
     try { const groups = String(site.zoho_group || '').split(',').map(x => x.trim()).filter(Boolean); out.incidents = groups.length ? (await rdb().getActiveMajorIncidentsForSite(groups)) || [] : []; } catch (e) { out.incidents = []; }
     return out;
   }

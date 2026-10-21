@@ -1,4 +1,5 @@
 'use strict';
+const { fail } = require('../services/httpError');
 // ─────────────────────────────────────────────────────────────────────────
 // Risk Register routes (/api/risk-register-export, /api/risk-register-config/*) — extracted from server.js (fiche M12-a, 2026-10-20), same
 // dependency-injection pattern as routes/inspection.js. Handlers are byte-for-byte
@@ -44,7 +45,7 @@ router.get('/api/risk-register-export', requireReportSession, async (req, res) =
     res.send(Buffer.from(buffer));
   } catch (err) {
     console.error('[risk-register-export] error:', err.message);
-    res.status(500).json({ error: err.message });
+    fail(res, err);
   }
 });
 
@@ -70,7 +71,7 @@ router.get('/api/risk-register-config/aliases', requireReportSession, async (req
     res.json({ aliases: await rr.listAliases(getRdb().db) });
   } catch (err) {
     console.error('[rr-config] list error:', err.message);
-    res.status(500).json({ error: err.message });
+    fail(res, err);
   }
 });
 
@@ -99,7 +100,7 @@ router.post('/api/risk-register-config/aliases',
       res.json({ saved });
     } catch (err) {
       console.error('[rr-config] upsert error:', err.message);
-      res.status(400).json({ error: err.message });
+      fail(res, err, 400);
     }
   });
 
@@ -121,7 +122,7 @@ router.delete('/api/risk-register-config/aliases/:sdp_label',
       res.json(r);
     } catch (err) {
       console.error('[rr-config] delete error:', err.message);
-      res.status(500).json({ error: err.message });
+      fail(res, err);
     }
   });
 
@@ -132,7 +133,7 @@ router.get('/api/risk-register-config/unmapped', requireReportSession, async (re
     res.json({ month, unmapped: await rr.listUnmappedSites(getRdb().db, month) });
   } catch (err) {
     console.error('[rr-config] unmapped error:', err.message);
-    res.status(400).json({ error: err.message });
+    fail(res, err, 400);
   }
 });
 

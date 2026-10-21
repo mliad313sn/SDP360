@@ -13,6 +13,7 @@ const cron    = require('node-cron');
 const fs      = require('fs');
 const path    = require('path');
 const crypto  = require('crypto');
+const { fail, logError } = require('./services/httpError'); // M9 — generic 5xx bodies + correlation id
 
 // ── STARTUP VALIDATION — fail closed if secrets are missing ───────
 // SECURITY: We refuse to start rather than silently running open.
@@ -612,7 +613,7 @@ async function checkZohoViewSchema() {
       }
     } catch(e) {
       console.warn(`[ViewSchemaCheck] ⚠ ${name}: fetch error — ${e.message}`);
-      results.push({ view: name, ok: false, reason: e.message });
+      results.push({ view: name, ok: false, reason: require('./services/safeUrl').redactMessage(e.message) });
     }
   }
   return results;
@@ -1160,7 +1161,7 @@ app.get('/api/admin/backup-schedule', requireReportSession, async (req, res) => 
       backupSchedule.listRestorePoints(),
     ]);
     res.json({ status, restorePoints: restorePoints.slice(0, 20) });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { fail(res, e); }
 });
 app.post('/api/admin/backup-schedule', requireReportSession, express.json(), async (req, res) => {
   if (!_requireSuperAdminInline(req, res)) return;
@@ -1168,7 +1169,7 @@ app.post('/api/admin/backup-schedule', requireReportSession, express.json(), asy
     const r = await backupSchedule.setSchedule(req.body || {});
     console.log(`[backup-schedule] updated by ${req.reportUser.username}:`, JSON.stringify(req.body));
     res.json(r);
-  } catch (e) { res.status(400).json({ error: e.message }); }
+  } catch (e) { fail(res, e, 400); }
 });
 app.post('/api/admin/backup-now', requireReportSession, express.json(), async (req, res) => {
   if (!_requireSuperAdminInline(req, res)) return;
@@ -1176,7 +1177,7 @@ app.post('/api/admin/backup-now', requireReportSession, express.json(), async (r
     const r = await backupSchedule.backupNow({ dbOnly: !!(req.body && req.body.dbOnly) });
     console.log(`[backup-schedule] manual backup by ${req.reportUser.username} (dbOnly=${!!(req.body && req.body.dbOnly)})`);
     res.json(r);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { fail(res, e); }
 });
 
 // ── APP_VERSION — global cache-busting token (added 2026-06-05) ──────────────
@@ -1660,7 +1661,7 @@ app.get('/api/survey/list', requireReportSession, async (req, res) => {
       hint: `Set ZOHO_SURVEY_VIEW_ID=${SURVEY_VIEW_ID} in .env (already defaulted). Call /api/survey/summary to get CSAT data.`,
     });
   } catch(err) {
-    res.status(500).json({ error: err.message, details: err.response?.data });
+    fail(res, err);
   }
 });
 
@@ -1808,7 +1809,7 @@ app.get('/api/survey/kpis', requireReportSession, async (req, res) => {
     });
   } catch(err) {
     console.error('[survey/kpis]', err.message);
-    res.status(500).json({ error: err.message });
+    fail(res, err);
   }
 });
 
@@ -2059,7 +2060,7 @@ app.get('/api/survey/by-dimension', requireReportSession, async (req, res) => {
 
   } catch(err) {
     console.error('[survey/by-dim]', err.message);
-    res.status(500).json({ error: err.message, byTech: [], bySite: [], byGroup: [] });
+    fail(res, err, 500, { byTech: [], bySite: [], byGroup: [] });
   }
 });
 
@@ -2298,7 +2299,7 @@ app.get('/api/sync/status', requireReportSession, async (req, res) => {
     });
     res.json({ ok: true, jobs: enriched, server_time: new Date().toISOString() });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    fail(res, err);
   }
 });
 
@@ -2392,7 +2393,7 @@ app.get('/api/assets/inventory', requireReportSession, async (req, res) => {
     })));
   } catch (e) {
     console.error('[api/assets/inventory]', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -2401,7 +2402,7 @@ app.get('/api/assets/lookups', requireReportSession, async (req, res) => {
     res.json(await require('./assets-db').getAssetLookups());
   } catch (e) {
     console.error('[api/assets/lookups]', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -2436,7 +2437,7 @@ app.get('/api/assets/summary', requireReportSession, async (req, res) => {
     res.json(body);
   } catch (e) {
     console.error('[api/assets/summary]', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -2468,7 +2469,7 @@ app.get('/api/assets/export.xlsx', requireReportSession, requireAdmin, async (re
     res.send(buf);
   } catch (e) {
     console.error('[api/assets/export.xlsx]', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -2484,7 +2485,7 @@ app.get('/api/assets/sync-status', requireReportSession, async (req, res) => {
     res.json({ last_sync: last_sync || null, next_cron: '04:30', server_time: new Date().toISOString() });
   } catch (e) {
     console.error('[api/assets/sync-status]', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -2505,7 +2506,7 @@ app.get('/api/assets/hygiene/summary', requireReportSession, async (req, res) =>
     res.json(await require('./assets-db').getHygieneSummary(_assetHygieneFilters(req)));
   } catch (e) {
     console.error('[api/assets/hygiene/summary]', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -2519,7 +2520,7 @@ app.get('/api/assets/hygiene/exceptions', requireReportSession, async (req, res)
     res.json(await adb.getHygieneExceptions(kind, _assetHygieneFilters(req)));
   } catch (e) {
     console.error('[api/assets/hygiene/exceptions]', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -2545,7 +2546,7 @@ app.get('/api/assets/hygiene/export.xlsx', requireReportSession, async (req, res
     res.send(buf);
   } catch (e) {
     console.error('[api/assets/hygiene/export.xlsx]', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -2561,7 +2562,7 @@ app.post('/api/assets/hygiene/send', requireReportSession, requireSuperAdmin, as
     res.json(await sendHygiene.main({ preview, force }));
   } catch (e) {
     console.error('[api/assets/hygiene/send]', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -2578,7 +2579,7 @@ app.post('/api/reports/scoreboard/send', requireReportSession, requireSuperAdmin
     res.json(await sendScoreboard.main({ preview, force }));
   } catch (e) {
     console.error('[api/reports/scoreboard/send]', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -2603,7 +2604,7 @@ app.post('/api/reports/weekly/send', requireReportSession, requireSuperAdmin, as
     res.json(await sendWeekly.main({ preview, force }));
   } catch (e) {
     console.error('[api/reports/weekly/send]', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -2623,7 +2624,7 @@ app.post('/api/reports/asset-group/send', requireReportSession, requireSuperAdmi
     res.json(await sendAssetGroup.main({ preview, force }));
   } catch (e) {
     console.error('[api/reports/asset-group/send]', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -2651,7 +2652,7 @@ app.post('/api/reports/asset-reminders/send', requireReportSession, requireSuper
     }));
   } catch (e) {
     console.error('[api/reports/asset-reminders/send]', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -2673,7 +2674,7 @@ app.get('/api/assets/hardware/summary', requireReportSession, async (req, res) =
     res.json(await require('./assets-db').getHardwareHealthSummary(_assetHardwareFilters(req)));
   } catch (e) {
     console.error('[api/assets/hardware/summary]', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -2687,7 +2688,7 @@ app.get('/api/assets/hardware/exceptions', requireReportSession, async (req, res
     res.json(await adb.getHardwareHealthExceptions(kind, _assetHardwareFilters(req)));
   } catch (e) {
     console.error('[api/assets/hardware/exceptions]', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -2713,7 +2714,7 @@ app.get('/api/assets/hardware/export.xlsx', requireReportSession, async (req, re
     res.send(buf);
   } catch (e) {
     console.error('[api/assets/hardware/export.xlsx]', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -2753,7 +2754,7 @@ app.get('/api/assets/finance/summary', requireReportSession, requireAdmin, async
     res.json({ ...s, rate });   // echo the applied rate so the page can label it
   } catch (e) {
     console.error('[api/assets/finance/summary]', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -2770,7 +2771,7 @@ app.get('/api/assets/finance/export.xlsx', requireReportSession, requireAdmin, a
     res.send(buf);
   } catch (e) {
     console.error('[api/assets/finance/export.xlsx]', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -2779,7 +2780,7 @@ app.get('/api/assets/licences/summary', requireReportSession, requireAdmin, asyn
     res.json(await require('./assets-db').getLicenceSummary(_assetLicenceFilters(req)));
   } catch (e) {
     console.error('[api/assets/licences/summary]', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -2792,7 +2793,7 @@ app.get('/api/assets/licences/exceptions', requireReportSession, requireAdmin, a
     res.json(await adb.getLicenceExceptions(kind, _assetLicenceFilters(req)));
   } catch (e) {
     console.error('[api/assets/licences/exceptions]', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -2818,7 +2819,7 @@ app.get('/api/assets/licences/export.xlsx', requireReportSession, requireAdmin, 
     res.send(buf);
   } catch (e) {
     console.error('[api/assets/licences/export.xlsx]', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -2839,7 +2840,7 @@ app.get('/api/assets/software/summary', requireReportSession, async (req, res) =
     res.json(await require('./assets-db').getSoftwareComplianceSummary(_assetSoftwareFilters(req)));
   } catch (e) {
     console.error('[api/assets/software/summary]', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -2852,7 +2853,7 @@ app.get('/api/assets/software/exceptions', requireReportSession, async (req, res
     res.json(await adb.getSoftwareComplianceExceptions(kind, _assetSoftwareFilters(req)));
   } catch (e) {
     console.error('[api/assets/software/exceptions]', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -2878,7 +2879,7 @@ app.get('/api/assets/software/export.xlsx', requireReportSession, async (req, re
     res.send(buf);
   } catch (e) {
     console.error('[api/assets/software/export.xlsx]', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -2901,7 +2902,7 @@ app.get('/api/assets/progress/leaderboard', requireReportSession, async (req, re
     res.json(await adb.getEffortLeaderboard({ asOf: req.query.asOf ? String(req.query.asOf) : undefined }));
   } catch (e) {
     console.error('[api/assets/progress/leaderboard]', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -2915,7 +2916,7 @@ app.get('/api/assets/progress/trend', requireReportSession, async (req, res) => 
     res.json(await adb.getEffortTrend(_assetProgressFilters(req), { months }));
   } catch (e) {
     console.error('[api/assets/progress/trend]', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -2926,7 +2927,7 @@ app.post('/api/assets/progress/snapshot', requireReportSession, requireAdmin, as
     res.json(await require('./assets-db').snapshotEffort({}));
   } catch (e) {
     console.error('[api/assets/progress/snapshot]', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -3006,7 +3007,7 @@ for (const [route, [rel, filename]] of Object.entries(_RECONCILE_FILES)) {
       res.send(body);
     } catch (e) {
       console.error('[api/assets/reconcile/' + route + ']', e.message);
-      res.status(500).json({ error: e.message });
+      fail(res, e);
     }
   });
 }
@@ -3024,7 +3025,7 @@ app.get('/api/assets/reconcile/summary', requireReportSession, async (req, res) 
     });
   } catch (e) {
     console.error('[api/assets/reconcile/summary]', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -3035,7 +3036,7 @@ app.get('/api/assets/reconcile/gaps', requireReportSession, async (req, res) => 
       retirement_review: v.retirement_review, window: v.window });
   } catch (e) {
     console.error('[api/assets/reconcile/gaps]', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -3062,9 +3063,9 @@ function _reconcileError(res, e, where) {
   // Une colonne absente est une erreur de FICHIER, pas de serveur : 400 qui
   // NOMME la colonne. Un 500 enverrait l'opérateur chercher une panne.
   if (e instanceof MissingColumnError) return res.status(400).json({ error: e.message, column: e.column, source: e.source });
-  if (e && e.status === 400) return res.status(400).json({ error: e.message });
+  if (e && e.status === 400) return fail(res, e, 400);
   console.error(where, e.message);
-  return res.status(500).json({ error: e.message });
+  return fail(res, e);
 }
 
 app.post('/api/assets/reconcile/preview', requireReportSession, requireAdmin, (req, res) => {
@@ -3122,7 +3123,7 @@ app.post('/api/assets/reconcile/decision', requireReportSession, requireRole('ed
     // `setDecision` refuse une décision inconnue et un hors-périmètre sans
     // motif : ce sont des erreurs d'appelant, donc 400.
     console.error('[api/assets/reconcile/decision]', e.message);
-    res.status(400).json({ error: e.message });
+    fail(res, e, 400);
   }
 });
 
@@ -3141,7 +3142,7 @@ app.get('/api/assets/reconcile/history', requireReportSession, async (req, res) 
     res.json({ months, points: history.points, series_by_site: history.series_by_site, imports });
   } catch (e) {
     console.error('[api/assets/reconcile/history]', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -3155,7 +3156,7 @@ app.post('/api/assets/reconcile/snapshot', requireReportSession, requireAdmin, a
     res.json(await adb.snapshotReconcile(v, who, {}));
   } catch (e) {
     console.error('[api/assets/reconcile/snapshot]', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -3222,7 +3223,7 @@ app.get('/api/assets/reconcile/export.xlsx', requireReportSession, async (req, r
     res.send(buf);
   } catch (e) {
     console.error('[api/assets/reconcile/export.xlsx]', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -3285,7 +3286,7 @@ app.get('/api/assets/depreciation/summary', requireReportSession, requireAdmin, 
     res.json({ ...s, rate, asOf });
   } catch (e) {
     console.error('[api/assets/depreciation/summary]', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -3300,7 +3301,7 @@ app.get('/api/assets/depreciation/schedule', requireReportSession, requireAdmin,
     res.json({ ...sch, rate, asOf });
   } catch (e) {
     console.error('[api/assets/depreciation/schedule]', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -3309,7 +3310,7 @@ app.get('/api/assets/depreciation-config', requireReportSession, async (req, res
     res.json(await _deprecConfig());
   } catch (e) {
     console.error('[api/assets/depreciation-config GET]', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -3324,7 +3325,7 @@ app.put('/api/assets/depreciation-config', requireReportSession, requireSuperAdm
     res.json(cfg);
   } catch (e) {
     console.error('[api/assets/depreciation-config PUT]', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -3358,7 +3359,7 @@ app.get('/api/assets/investment/history', requireReportSession, requireAdmin, as
     res.json(await require('./assets-db').getInvestmentSummary(_assetInvestmentFilters(req), { rate }));
   } catch (e) {
     console.error('[api/assets/investment/history]', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -3378,7 +3379,7 @@ app.get('/api/assets/investment/forecast', requireReportSession, requireAdmin, a
     res.json({ ...out, uplift_pct: Math.round(upliftPct * 10000) / 100 });
   } catch (e) {
     console.error('[api/assets/investment/forecast]', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -3430,7 +3431,7 @@ app.get('/api/assets/investment/export.xlsx', requireReportSession, requireAdmin
     res.send(buf);
   } catch (e) {
     console.error('[api/assets/investment/export.xlsx]', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -3495,7 +3496,7 @@ app.get('/api/change', requireReportSession, async (req, res) => {
       data: records,
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    fail(res, err);
   }
 });
 
@@ -3517,7 +3518,7 @@ app.get('/api/cab', requireReportSession, async (req, res) => {
       data: records,
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    fail(res, err);
   }
 });
 
@@ -3546,7 +3547,7 @@ app.get('/api/survey', requireReportSession, async (req, res) => {
       data: records,
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    fail(res, err);
   }
 });
 
@@ -3567,7 +3568,7 @@ app.get('/api/survey/:response_id/answers', requireReportSession, async (req, re
       data:   answers,
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    fail(res, err);
   }
 });
 
@@ -3594,7 +3595,7 @@ app.get('/api/metrics/change', requireReportSession, async (req, res) => {
     const syncMeta = (await getSyncStatus()).find(j => j.job_name === 'change_cab') || {};
     res.json({ ok: true, ...buildDataFreshness(syncMeta), data: metrics });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    fail(res, err);
   }
 });
 
@@ -3615,7 +3616,7 @@ app.get('/api/metrics/cab', requireReportSession, async (req, res) => {
     const syncMeta = (await getSyncStatus()).find(j => j.job_name === 'change_cab') || {};
     res.json({ ok: true, ...buildDataFreshness(syncMeta), data: metrics });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    fail(res, err);
   }
 });
 
@@ -3640,7 +3641,7 @@ app.get('/api/metrics/survey', requireReportSession, async (req, res) => {
     }
     res.json({ ok: true, ...freshness, data: metrics });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    fail(res, err);
   }
 });
 
@@ -3672,7 +3673,7 @@ app.get('/api/metrics/requests', requireReportSession, async (req, res) => {
     const syncMeta = (await getSyncStatus()).find(j => j.job_name === 'requests') || {};
     const freshness = buildDataFreshness(syncMeta);
     res.json({ ok: true, ...freshness, data: metrics });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { fail(res, err); }
 });
 
 /**
@@ -3684,7 +3685,7 @@ app.get('/api/metrics/request-filter-options', requireReportSession, async (req,
   try {
     const { getRequestFilterOptions } = require('./reports-db');
     res.json({ ok: true, data: await getRequestFilterOptions() });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { fail(res, err); }
 });
 
 /**
@@ -3718,7 +3719,7 @@ app.get('/api/requests', requireReportSession, async (req, res) => {
       ...buildDataFreshness(syncMeta),
       data: rows,
     });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { fail(res, err); }
 });
 
 app.get('/api/orgs', requireReportSession, async (req, res) => {
@@ -3726,7 +3727,7 @@ app.get('/api/orgs', requireReportSession, async (req, res) => {
     const token = await getValidToken();
     const r = await axios.get(`${CONFIG.analyticsApi}/orgs`, { headers: { 'Authorization': `Zoho-oauthtoken ${token}` }, timeout: 10000 });
     res.json({ success: true, data: r.data });
-  } catch(err) { res.status(500).json({ error: err.message, details: err.response?.data }); }
+  } catch(err) { fail(res, err); }
 });
 
 // Raw diagnostic: shows full response headers + body for any scope error
@@ -3742,7 +3743,7 @@ app.get('/api/debug/raw-test', requireReportSession, async (req, res) => {
       });
       result = { status: r.status, headers: r.headers, body: r.data };
     } catch(e) {
-      result = { networkError: e.message };
+      result = { networkError: require('./services/safeUrl').redactMessage(e.message) };
     }
     res.json({
       grantedScope: tokenState.grantedScope,
@@ -3752,7 +3753,7 @@ app.get('/api/debug/raw-test', requireReportSession, async (req, res) => {
       apiResponse: result,
     });
   } catch(err) {
-    res.status(500).json({ error: err.message });
+    fail(res, err);
   }
 });
 
@@ -3761,7 +3762,7 @@ app.get('/api/workspaces', requireReportSession, async (req, res) => {
     const token = await getValidToken();
     const r = await axios.get(`${CONFIG.analyticsApi}/workspaces`, { headers: apiHeaders(token), timeout: 10000 });
     res.json({ success: true, data: r.data });
-  } catch(err) { res.status(500).json({ error: err.message, details: err.response?.data }); }
+  } catch(err) { fail(res, err); }
 });
 
 app.get('/api/views', requireReportSession, async (req, res) => {
@@ -3769,7 +3770,7 @@ app.get('/api/views', requireReportSession, async (req, res) => {
     const token = await getValidToken();
     const r = await axios.get(`${CONFIG.analyticsApi}/workspaces/${CONFIG.workspaceId}/views`, { headers: apiHeaders(token), timeout: 10000 });
     res.json({ success: true, data: r.data });
-  } catch(err) { res.status(500).json({ error: err.message, details: err.response?.data }); }
+  } catch(err) { fail(res, err); }
 });
 
 app.post('/api/cache/clear', requireReportSession, requireAdmin, (req, res) => {
@@ -3892,13 +3893,11 @@ app.post('/api/admin/refresh-major-incident-udfs', requireReportSession, require
     }
     console.error('[admin/refresh-major-incident-udfs] failed:', err.message, zohoStatus ? `(HTTP ${zohoStatus})` : '');
     if (zohoBody) console.error('[admin/refresh-major-incident-udfs] Zoho body:', zohoBody);
-    res.status(500).json({
+    fail(res, err, 500, {
       ok: false,
-      error: err.message,
       zohoStatus: zohoStatus || null,
-      zohoBody:   zohoBody   || null,
       hint: zohoStatus === 400
-        ? 'Zoho returned 400 — see zohoBody for errorCode/errorMessage. Common causes: 7103 (view deleted/moved), 8504 (rate limit), 7301 (OAuth scope revoked).'
+        ? 'Zoho returned 400 — see the server log (correlation_id) for errorCode/errorMessage. Common causes: 7103 (view deleted/moved), 8504 (rate limit), 7301 (OAuth scope revoked).'
         : zohoStatus === 401
           ? 'Zoho returned 401 — access token rejected. Refresh-token may be expired; check .env ZOHO_REFRESH_TOKEN.'
           : null,
@@ -3987,7 +3986,7 @@ app.get('/api/data/major-incidents', requireReportSession, async (req, res) => {
     res.json({ success: true, data: raw, _source: 'zoho-fallback' });
   } catch(err) {
     console.error('[major-incidents] ❌ both DB and Zoho path failed:', err.message);
-    res.status(500).json({ error: err.message });
+    fail(res, err);
   }
 });
 
@@ -4014,7 +4013,7 @@ app.get('/api/data/change-table', requireReportSession, async (req, res) => {
     res.json({ success: true, data: raw, _source: 'zoho-fallback' });
   } catch(err) {
     console.error('[change-table] ❌ both DB and Zoho path failed:', err.message);
-    res.status(500).json({ error: err.message });
+    fail(res, err);
   }
 });
 
@@ -4057,7 +4056,7 @@ app.get('/api/data/first-response', requireReportSession, async (req, res) => {
     setCache('FIRST_RESPONSE_TREND', raw);
     res.json({ success: true, data: raw, _source: 'zoho-live' });
   } catch(err) {
-    res.status(err.response?.status||500).json({ error: err.message, details: err.response?.data });
+    fail(res, err);
   }
 });
 
@@ -4087,7 +4086,7 @@ app.get('/api/data/sla-trend', requireReportSession, async (req, res) => {
     setCache('SLA_COMPLIANCE_TREND', raw);
     res.json({ success: true, data: raw, _source: 'zoho-live' });
   } catch(err) {
-    res.status(err.response?.status||500).json({ error: err.message, details: err.response?.data });
+    fail(res, err);
   }
 });
 
@@ -4117,7 +4116,7 @@ app.get('/api/data/sla-by-category', requireReportSession, async (req, res) => {
     setCache('SLA_BY_CATEGORY', raw);
     res.json({ success: true, data: raw, _source: 'zoho-live' });
   } catch(err) {
-    res.status(err.response?.status||500).json({ error: err.message, details: err.response?.data });
+    fail(res, err);
   }
 });
 
@@ -4155,7 +4154,7 @@ app.get('/api/data/group-requests', requireReportSession, async (req, res) => {
     setCache('GROUP_REQUEST_COUNT', raw);
     res.json({ success: true, data: raw, _source: 'zoho-live' });
   } catch(err) {
-    res.status(err.response?.status||500).json({ error: err.message, details: err.response?.data });
+    fail(res, err);
   }
 });
 
@@ -4177,7 +4176,7 @@ app.get('/api/data/emergency-changes', requireReportSession, async (req, res) =>
     setCache('EMERGENCY_CHANGES', raw);
     res.json({ success: true, data: raw, _source: 'zoho-live' });
   } catch(err) {
-    res.status(err.response?.status||500).json({ error: err.message, details: err.response?.data });
+    fail(res, err);
   }
 });
 
@@ -4199,7 +4198,7 @@ app.get('/api/data/ageing', requireReportSession, async (req, res) => {
     setCache('AGEING_SUMMARY', raw);
     res.json({ success: true, data: raw, _source: 'zoho-live' });
   } catch(err) {
-    res.status(err.response?.status||500).json({ error: err.message, details: err.response?.data });
+    fail(res, err);
   }
 });
 
@@ -4221,7 +4220,7 @@ app.get('/api/data/incident-vs-sr', requireReportSession, async (req, res) => {
     setCache('INCIDENT_VS_SR', raw);
     res.json({ success: true, data: raw, _source: 'zoho-live' });
   } catch(err) {
-    res.status(err.response?.status||500).json({ error: err.message, details: err.response?.data });
+    fail(res, err);
   }
 });
 
@@ -4243,7 +4242,7 @@ app.get('/api/data/cab-approvals', requireReportSession, async (req, res) => {
     setCache('CAB_APPROVAL_DETAILS', raw);
     res.json({ success: true, data: raw, _source: 'zoho-live' });
   } catch(err) {
-    res.status(err.response?.status||500).json({ error: err.message, details: err.response?.data });
+    fail(res, err);
   }
 });
 
@@ -4265,7 +4264,7 @@ app.get('/api/data/cab-recommendations', requireReportSession, async (req, res) 
     setCache('CAB_RECOMMENDATIONS', raw);
     res.json({ success: true, data: raw, _source: 'zoho-live' });
   } catch(err) {
-    res.status(err.response?.status||500).json({ error: err.message, details: err.response?.data });
+    fail(res, err);
   }
 });
 
@@ -4294,7 +4293,7 @@ _simpleViewsActive.forEach(([route, viewKey, maxR]) => {
       const raw = await fetchView(VIEWS[viewKey], maxR);
       setCache(viewKey, raw);
       res.json({ success: true, data: raw });
-    } catch(err) { res.status(err.response?.status||500).json({ error: err.message, details: err.response?.data }); }
+    } catch(err) { fail(res, err); }
   });
 });
 
@@ -4566,7 +4565,7 @@ app.get('/api/data/submission-channels', requireReportSession, async (req, res) 
     });
   } catch(err) {
     console.error('[submission-channels]', err.message);
-    res.status(500).json({ error: err.message });
+    fail(res, err);
   }
 });
 
@@ -4604,7 +4603,7 @@ app.get('/api/data/requests-raw', requireReportSession, async (req, res) => {
     res.json({ success: true, data: _rawCache.data, _cached: !isStale, _stale: isStale });
   } catch(err) {
     console.error('[requests-raw]', err.message);
-    res.status(500).json({ error: err.message });
+    fail(res, err);
   }
 });
 
@@ -4642,7 +4641,7 @@ app.get('/api/data/monthly-summary', requireReportSession, async (req, res) => {
     res.json({ success: true, data: { rows: [], columns: [] }, _source: 'db-empty', _meta: { note: 'No cached monthly history. Wait for next requests cron tick.' } });
   } catch(err) {
     console.error('[monthly-summary] ❌ DB lookup failed:', err.message);
-    res.status(500).json({ error: err.message });
+    fail(res, err);
   }
 });
 
@@ -4693,7 +4692,7 @@ app.get('/api/data/ageing-by-site', requireReportSession, async (req, res) => {
     });
     result = Object.values(siteMap).filter(s=>s.total>0).sort((a,b)=>b.total-a.total);
     res.json({ success: true, data: { rows: result, columns: ['site','d0','d31','d46','d60','total'] }, _source: 'zoho' });
-  } catch(err) { res.status(err.response?.status||500).json({ error: err.message, details: err.response?.data }); }
+  } catch(err) { fail(res, err); }
 });
 
 // Ageing by IT Group — DB-direct (same pattern as ageing-by-site above).
@@ -4753,7 +4752,7 @@ app.get('/api/data/ageing-by-group', requireReportSession, async (req, res) => {
     result = Object.values(groupMap).filter(g=>g.total>0).sort((a,b)=>b.total-a.total)
       .map(g => ({ group:g.group, site:g.site, t0_30:g.t0_30, t31_45:g.t31_45, t46_60:g.t46_60, tOver60:g.tOver60, total:g.total, slaCompliance:g.slaN>0?Math.round(g.slaSum/g.slaN*10)/10:null }));
     res.json({ success: true, data: { rows: result, columns: ['group','t0_30','t31_45','t46_60','tOver60','total','slaCompliance'] }, _source: 'zoho' });
-  } catch(err) { res.status(err.response?.status||500).json({ error: err.message, details: err.response?.data }); }
+  } catch(err) { fail(res, err); }
 });
 
 // ── AI PROXY ─────────────────────────────────────────────────────
@@ -5030,7 +5029,7 @@ app.post('/api/ai/analyze', requireReportSession, requireRole('report-author'), 
     const status = err.status || err.response?.status || 500;
     const tag    = AI_PROVIDER === 'local' ? 'Local LLM' : 'Anthropic API';
     console.error(`[AI] ${tag} error ${status}:`, err.message);
-    res.status(status).json({ error: IS_DEV || err.status ? err.message : 'AI analysis failed. Please try again.' });
+    fail(res, err, status >= 400 && status < 500 ? status : undefined, { error: 'AI analysis failed. Please try again.' });
   }
 });
 
@@ -5162,7 +5161,7 @@ app.get([_REPORT_ID_READ, _SITE_ID_READ], requireReportSession, async (req, res,
     const bySite = _SITE_ID_READ.exec(req.path);
     if (bySite && _siteReadDenied(req.reportUser, bySite[1])) return res.status(403).json({ error: 'Access denied: another site' });
     next();
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { fail(res, e); }
 });
 
 // ── Multi-role middleware ────────────────────────────────────────────
@@ -5247,15 +5246,15 @@ app.use(require('./routes/adminConfig')({
 // self-skips when unconfigured. Behind the /api/ dash-key gate + session/admin.
 app.post('/api/meridian/sync', requireReportSession, requireSuperAdmin, async (req, res) => {
   try { res.json(await require('./tools/meridian/sync-resources').main()); }
-  catch (e) { res.status(500).json({ error: e.message }); }
+  catch (e) { fail(res, e); }
 });
 app.get('/api/reports/recipients', requireReportSession, requireSuperAdmin, async (req, res) => {
   try { res.json(await reportDirectory.listRecipients(rdb.db)); }
-  catch (e) { res.status(500).json({ error: e.message }); }
+  catch (e) { fail(res, e); }
 });
 app.put('/api/reports/recipients/:site', requireReportSession, requireSuperAdmin, async (req, res) => {
   try { res.json(await reportDirectory.upsertRecipient(rdb.db, req.params.site, req.body || {}, req.reportUser?.username)); }
-  catch (e) { res.status(500).json({ error: e.message }); }
+  catch (e) { fail(res, e); }
 });
 // Pre-fills blank recipient names from meetings PV data. Never overwrites a
 // confirmed value; the admin still confirms every address before any send.
@@ -5266,15 +5265,15 @@ app.post('/api/reports/recipients/suggest', requireReportSession, requireSuperAd
     const codes = (await rdb.listSiteModuleCodes('meetings')).map(r => r.code).filter(Boolean);
     const out = await reportDirectory.suggestFromMeetings(rdb.db, codes, meetingsDb, req.reportUser?.username);
     res.json(out);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { fail(res, e); }
 });
 app.get('/api/reports/schedule', requireReportSession, requireSuperAdmin, async (req, res) => {
   try { res.json(await reportSchedule.getSchedules(rdb.db)); }
-  catch (e) { res.status(500).json({ error: e.message }); }
+  catch (e) { fail(res, e); }
 });
 app.put('/api/reports/schedule', requireReportSession, requireSuperAdmin, async (req, res) => {
   try { res.json(await reportSchedule.setSchedule(rdb.db, req.body || {}, req.reportUser?.username)); }
-  catch (e) { res.status(500).json({ error: e.message }); }
+  catch (e) { fail(res, e); }
 });
 // ── GET/PUT /api/reports/exec-editorial ──────────────────────────────
 // The Group IT deck builder's monthly analysis (Operations Summary + the
@@ -5310,7 +5309,7 @@ app.get('/api/reports/exec-editorial', requireReportSession, requireAdmin, async
     return res.json({ payload: payload ?? null });
   } catch (e) {
     console.error('[exec-editorial] read failed:', e);
-    return res.status(500).json({ error: e.message });
+    return fail(res, e);
   }
 });
 
@@ -5325,7 +5324,7 @@ app.put('/api/reports/exec-editorial', requireReportSession, requireAdmin, async
     return res.json({ ok: true });
   } catch (e) {
     console.error('[exec-editorial] write failed:', e);
-    return res.status(500).json({ error: e.message });
+    return fail(res, e);
   }
 });
 
@@ -5340,7 +5339,7 @@ app.get('/api/reports/site-data', requireReportSession, async (req, res) => {
     const kind = req.query.kind === 'monthly' ? 'monthly' : 'weekly';
     const data = await siteReportData(site, { year, month, kind }, buildSiteReportDeps());
     res.json(data);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { fail(res, e); }
 });
 // GET /api/reports/site-actions?site=CODE — SP1a per-site Actions Register hub.
 // Composes THREE existing dual-backend readers (meetings/inspection listActions
@@ -5406,7 +5405,7 @@ app.post('/api/reports/action/:uid/merge', requireReportSession, async (req, res
     const r = await rdb.setActionMerge(uid, { source, origin_id });
     if (!r.ok) return res.status(404).json({ error: 'action not found' });
     res.json({ ok: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { fail(res, e); }
 });
 app.post('/api/reports/action/:uid/unmerge', requireReportSession, async (req, res) => {
   try {
@@ -5415,7 +5414,7 @@ app.post('/api/reports/action/:uid/unmerge', requireReportSession, async (req, r
     const r = await rdb.clearActionMerge(String(req.params.uid || ''));
     if (!r.ok) return res.status(404).json({ error: 'action not found' });
     res.json({ ok: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { fail(res, e); }
 });
 // Inline status change for a report follow-up from the Site Actions hub. Editor
 // role; keyed by the stable uid (UPDATE never touches source/origin_id/lineage).
@@ -5434,7 +5433,7 @@ app.post('/api/reports/action/:uid/status', requireReportSession, async (req, re
     const r = await rdb.setActionStatus(String(req.params.uid || ''), status, status === 'cancelled' ? 'Cancelled: ' + note : null);
     if (!r.ok) return res.status(404).json({ error: 'action not found' });
     res.json({ ok: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { fail(res, e); }
 });
 // Merge an already-saved follow-up into another's carry-forward lineage (the
 // per-row "Fusionner avec…" button). Editor role; keyed by the stable uid. The
@@ -5458,7 +5457,7 @@ app.post('/api/reports/action/:uid/relineage', requireReportSession, async (req,
         details: { from_key: r.from_key, to_key: lineage, rows: r.rows, renamed: task != null } });
     } catch (_) { /* audit is best-effort */ }
     res.json({ ok: true, rows: r.rows, from_key: r.from_key });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { fail(res, e); }
 });
 // SP3 — GET /api/reports/:id/importable-actions — the report site's OPEN Meetings
 // + Inspection actions, so the editor can pull them into the report's Actions
@@ -5484,7 +5483,7 @@ app.get('/api/reports/:id/importable-actions', requireReportSession, async (req,
       meetings: m.map((a) => ({ origin_id: a.id, title: a.description || '—', owner: a.owner_it || a.owner_email || null, due_date: a.target_date || null, origin_label: a.meeting_reference || null })),
       inspection: i.map((a) => ({ origin_id: a.id, title: a.description || '—', owner: a.owner || null, due_date: a.due_date || null, origin_label: a.inspection_label || null })),
     });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { fail(res, e); }
 });
 // GET /api/reports/review-data — the live IT Review dashboard's data (3B-2b).
 // Feeds public/it-review.html: loadReviewData(asOf) → D, then buildReviewVals
@@ -5533,7 +5532,7 @@ app.get('/api/reports/review-data', requireReportSession, requireRole(['executiv
       extras = Object.assign(extras || {}, { scoreboard: sb });
     } catch (e) { console.error('[review scoreboard]', e && e.message); }
     res.json(buildReviewVals(D, { view, period, site, asOf, extras }));
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { fail(res, e); }
 });
 // POST /api/reports/send?type=coordinator&site=<CODE>[&preview=1][&force=1]
 // A THIN wrapper over services/sendCoordinator — the pipeline (safety gate,
@@ -5587,7 +5586,7 @@ app.post('/api/reports/send', requireReportSession, requireSuperAdmin, async (re
     if (responded) return;
     responded = true; clearTimeout(timer);
     console.error(`[report-send] FAIL site=${site} period=${period} reason=${e.message}`);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -5628,13 +5627,13 @@ app.post('/api/reports/auth/login', loginLimiter, jsonBody, async (req, res) => 
       });
     }
     res.json({ token: result.token, user: result.user });
-  } catch(e) { res.status(500).json({ error: IS_DEV ? e.message : 'Login error.' }); }
+  } catch(e) { fail(res, e); }
 });
 
 app.post('/api/reports/auth/logout', requireReportSession, async (req, res) => {
   const token = req.headers['x-report-token'];
   try { await rdb.logout(token); rdb.logEvent({ category:'auth', action:'logout', ...rdb._logCtx(req) }); res.json({ ok: true }); }
-  catch(e) { res.status(500).json({ error: e.message }); }
+  catch(e) { fail(res, e); }
 });
 
 app.get('/api/reports/auth/me', requireReportSession, (req, res) => {
@@ -5766,7 +5765,7 @@ app.post('/api/reports/auth/change-password', requireReportSession, jsonBody, as
     const result = await rdb.changePassword(req.reportUser.id, current_password, new_password);
     if (!result.ok) return res.status(400).json({ error: result.error });
     res.json({ ok: true, message: 'Password changed successfully' });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { fail(res, e); }
 });
 
 // ── Sites ─────────────────────────────────────────────────────────
@@ -5777,7 +5776,7 @@ app.get('/api/reports/sites', requireReportSession, async (req, res) => {
       return res.status(403).json({ error: 'Executive or super_admin only for include_inactive' });
     }
     res.json(await rdb.listSites({ includeInactive }));
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { fail(res, e); }
 });
 
 // PUT /api/reports/sites/:id — partial update.
@@ -5812,7 +5811,7 @@ app.put('/api/reports/sites/:id', requireReportSession, requireSuperAdmin, jsonB
       });
     }
     res.json({ ok: true, ...after });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { fail(res, e); }
 });
 
 // POST /api/reports/sites — create a new site (executive+).
@@ -5828,7 +5827,7 @@ app.post('/api/reports/sites', requireReportSession, requireExecutiveOrSuperAdmi
       details: { id: result.id, name: result.name, zoho_group: zoho_group || null }
     });
     res.json(result);
-  } catch(e) { res.status(400).json({ error: e.message }); }
+  } catch(e) { fail(res, e, 400); }
 });
 
 // DELETE /api/reports/sites/:id — soft-delete (sets active=0).
@@ -5845,7 +5844,7 @@ app.delete('/api/reports/sites/:id', requireReportSession, requireExecutiveOrSup
       details: { id, name: before.name }
     });
     res.json({ ok: true, ...after });
-  } catch(e) { res.status(400).json({ error: e.message }); }
+  } catch(e) { fail(res, e, 400); }
 });
 
 // ── Users (admin only) + active sessions — routes/adminUsers.js (M12-a) ──
@@ -5860,7 +5859,7 @@ app.get('/api/reports/departments', requireReportSession, async (req, res) => {
       return res.status(403).json({ error: 'Executive or super_admin only for include_inactive' });
     }
     res.json(await rdb.listDepartments({ includeInactive }));
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { fail(res, e); }
 });
 
 app.post('/api/reports/departments', requireReportSession, requireExecutiveOrSuperAdmin, jsonBody, async (req, res) => {
@@ -5873,7 +5872,7 @@ app.post('/api/reports/departments', requireReportSession, requireExecutiveOrSup
       details: { id: result.id, name: result.name }
     });
     res.json(result);
-  } catch(e) { res.status(400).json({ error: e.message }); }
+  } catch(e) { fail(res, e, 400); }
 });
 
 app.put('/api/reports/departments/:id', requireReportSession, requireExecutiveOrSuperAdmin, jsonBody, async (req, res) => {
@@ -5891,7 +5890,7 @@ app.put('/api/reports/departments/:id', requireReportSession, requireExecutiveOr
                               after:  { name: after.name,  active: after.active,  sort_order: after.sort_order } }
     });
     res.json(after);
-  } catch(e) { res.status(400).json({ error: e.message }); }
+  } catch(e) { fail(res, e, 400); }
 });
 
 app.delete('/api/reports/departments/:id', requireReportSession, requireExecutiveOrSuperAdmin, async (req, res) => {
@@ -5906,7 +5905,7 @@ app.delete('/api/reports/departments/:id', requireReportSession, requireExecutiv
       details: { id, name: before.name }
     });
     res.json({ ok: true, ...after });
-  } catch(e) { res.status(400).json({ error: e.message }); }
+  } catch(e) { fail(res, e, 400); }
 });
 
 // ── Week helpers ──────────────────────────────────────────────────
@@ -5915,7 +5914,7 @@ app.get('/api/reports/current-week', requireReportSession, (req, res) => {
     const prev = rdb.getPreviousWeek();
     const range = rdb.getWeekRange(prev.year, prev.week);
     res.json({ year: prev.year, week: prev.week, ...range });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { fail(res, e); }
 });
 
 // ── Report CRUD ───────────────────────────────────────────────────
@@ -5937,7 +5936,7 @@ app.get('/api/reports', requireReportSession, async (req, res) => {
     for (const id of ids) rows.push(...((await rdb.listReports(id, y, w)) || []));
     rows.sort((a, b) => (b.year - a.year) || (b.week_number - a.week_number));
     res.json(rows);
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { fail(res, e); }
 });
 
 // POST /api/reports/ensure  — get or create a report for site+week
@@ -5956,7 +5955,7 @@ app.post('/api/reports/ensure', requireReportSession, jsonBody, async (req, res)
       await rdb.logAudit({ report_id: report.id, site_id: parseInt(site_id), user_id: req.reportUser.id, username: req.reportUser.username, action: 'created', details: { year, week } });
     }
     res.json(report);
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { fail(res, e); }
 });
 
 // GET /api/reports/:id/carry-over-actions  — non-closed actions from previous week (legacy)
@@ -5966,7 +5965,7 @@ app.get('/api/reports/:id/carry-over-actions', requireReportSession, async (req,
     if (!report) return res.status(404).json({ error: 'Report not found' });
     const result = await rdb.getPreviousWeekOpenActions(report.site_id, report.id);
     res.json(result);
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { fail(res, e); }
 });
 
 // GET /api/reports/:id/action-weeks  — list all past weeks with non-closed action counts
@@ -5981,7 +5980,7 @@ app.get('/api/reports/:id/action-weeks', requireReportSession, async (req, res) 
     const { weekCounts } = require('./services/reportActionGroups');
     const counts = weekCounts(await rdb.getSiteActionRows(report.site_id), report.id);
     res.json({ weeks: weeks.map(w => ({ ...w, action_count: counts.get(w.report_id) || 0 })) });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { fail(res, e); }
 });
 
 // GET /api/reports/:id/actions-from/:source_report_id  — non-closed actions from a specific week
@@ -6002,7 +6001,7 @@ app.get('/api/reports/:id/actions-from/:source_report_id', requireReportSession,
     const actions = classifySourceRows({ sourceRows: (result.actions || []).filter(a => !a.source),
       siteRows, currentReportId: report.id });
     res.json({ ...result, actions });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { fail(res, e); }
 });
 
 // ── Asset engagement — weekly "Parc informatique" tab (2026-09-18) ───────────
@@ -6097,7 +6096,7 @@ app.get('/api/reports/:id/asset-followups', requireReportSession, async (req, re
       applicable: true, site_code: a.code, labels: a.labels, counts: a.counts,
       window: { from: report.start_date, to: report.end_date }, previous_counts, generated_at: f.generated_at,
     });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { fail(res, e); }
 });
 
 // PUT /api/reports/:id/asset-review — notes from the client; applicable + counts
@@ -6135,7 +6134,7 @@ app.put('/api/reports/:id/asset-review', requireReportSession, jsonBody, async (
       await rdb.logAudit({ report_id: id, site_id: report.site_id, user_id: req.reportUser.id, username: req.reportUser.username, action: 'edited_asset_review', details: { week_label: report.week_label } });
     } catch (e) { console.error('[api/reports/asset-review] touch/audit (save kept):', e.message); }
     res.json(saved);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { fail(res, e); }
 });
 
 // GET /api/reports/:id/site-open-actions  — the report site's currently-open report
@@ -6154,7 +6153,7 @@ app.get('/api/reports/:id/site-open-actions', requireReportSession, async (req, 
       return { ...a, group: g ? { key: g.key, code: g.code, hue: g.hue, weeks: g.weeks, first_week: g.first_week } : null };
     });
     res.json({ ...result, actions });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { fail(res, e); }
 });
 
 // GET /api/reports/:id/light-weeks  — list all past weeks with lights counts
@@ -6164,7 +6163,7 @@ app.get('/api/reports/:id/light-weeks', requireReportSession, async (req, res) =
     if (!report) return res.status(404).json({ error: 'Report not found' });
     const weeks = await rdb.listAllWeeksWithLights(report.site_id, report.id);
     res.json({ weeks });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { fail(res, e); }
 });
 
 // GET /api/reports/:id/lights-from/:source_report_id  — lights from a specific week
@@ -6179,7 +6178,7 @@ app.get('/api/reports/:id/lights-from/:source_report_id', requireReportSession, 
       return res.status(403).json({ error: 'Source report is from a different site' });
     const result = await rdb.getLightsForReport(parseInt(req.params.source_report_id));
     res.json(result);
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { fail(res, e); }
 });
 
 // GET /api/reports/:id/carry-over-infra  — infra KPIs from previous week (for copy feature)
@@ -6189,7 +6188,7 @@ app.get('/api/reports/:id/carry-over-infra', requireReportSession, async (req, r
     if (!report) return res.status(404).json({ error: 'Report not found' });
     const result = await rdb.getPreviousWeekInfraKpis(report.site_id, report.id);
     res.json(result);
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { fail(res, e); }
 });
 
 // GET /api/reports/:id/audit  — audit trail for a specific report
@@ -6201,7 +6200,7 @@ app.get('/api/reports/:id/audit', requireReportSession, requireRole(['audit-view
     const id = parseInt(req.params.id);
     const entries = await rdb.getReportAuditLog(id);
     res.json(entries);
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { fail(res, e); }
 });
 
 // GET /api/reports/helpdesk-live?start=YYYY-MM-DD&end=YYYY-MM-DD
@@ -6269,7 +6268,7 @@ app.get('/api/reports/helpdesk-live', requireReportSession, async (req, res) => 
     const own = await _userSiteGroups(req.reportUser);
     const visible = own ? result.filter(g => own.includes(String(g.group || '').trim().toLowerCase())) : result;
     res.json({ ops_groups: OPS_GROUPS_DEFAULT, groups: visible, fetched_at: new Date().toISOString() });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { fail(res, e); }
 });
 
 // GET /api/reports/helpdesk-charts?group=NAME[,NAME2,...]&end_date=YYYY-MM-DD
@@ -6463,7 +6462,7 @@ app.get('/api/reports/helpdesk-charts', requireReportSession, async (req, res) =
     // group = display label (first group or all joined); groups = full list for multi-group sites
     const groupLabel = groupList.length === 1 ? groupList[0] : groupList.join(', ');
     res.json({ group: groupLabel, groups: groupList, weeks: weekData, ageing, ageing_total: openRows.length, top10, fetched_at: new Date().toISOString() });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { fail(res, e); }
 });
 
 // GET /api/reports/technicians — unique technician names from live Zoho data
@@ -6476,7 +6475,7 @@ app.get('/api/reports/technicians', requireReportSession, async (req, res) => {
         .filter(t => t && t !== '-No Value-' && t !== 'No Value')
     )].sort();
     res.json({ technicians: techs });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { fail(res, e); }
 });
 
 // ── System Logs (v1) — super_admin only. Registered ABOVE /api/reports/:id so
@@ -6494,11 +6493,11 @@ app.get('/api/reports/system-log', requireReportSession, _syslogGate, async (req
   try {
     const limit = Math.min(parseInt(req.query.limit) || 50, 500), offset = parseInt(req.query.offset) || 0;
     res.json(await rdb.listSystemLog(_syslogFilters(req), { limit, offset }));
-  } catch (e) { res.status(500).json({ error: IS_DEV ? e.message : 'system-log error' }); }
+  } catch (e) { fail(res, e); }
 });
 app.get('/api/reports/system-log/analytics', requireReportSession, _syslogGate, async (req, res) => {
   try { res.json(await rdb.getSystemLogAnalytics({ window: req.query.window || '30d' })); }
-  catch (e) { res.status(500).json({ error: IS_DEV ? e.message : 'system-log analytics error' }); }
+  catch (e) { fail(res, e); }
 });
 app.get('/api/reports/system-log/export.json', requireReportSession, _syslogGate, async (req, res) => {
   try {
@@ -6527,7 +6526,7 @@ app.get('/api/reports/:id', requireReportSession, async (req, res) => {
     if (!report) return res.status(404).json({ error: 'Report not found' });
     // Site scope: enforced by the central report-read guard (lot 4a).
     res.json(report);
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { fail(res, e); }
 });
 
 // GET /api/reports/:id/open-changes  — live open changes for the report's site
@@ -6538,7 +6537,7 @@ app.get('/api/reports/:id/open-changes', requireReportSession, async (req, res) 
     const site = (await rdb.listSites()).find(s => s.id === report.site_id);
     const groups = site ? (site.zoho_group || '').split(',').map(g => g.trim()).filter(Boolean) : [];
     res.json(await rdb.getOpenChangesForSite(groups));
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { fail(res, e); }
 });
 
 // GET /api/sites/:siteId/open-changes  — live open changes by site ID (used by monthly editor)
@@ -6548,7 +6547,7 @@ app.get('/api/sites/:siteId/open-changes', requireReportSession, async (req, res
     if (!site) return res.status(404).json({ error: 'Site not found' });
     const groups = (site.zoho_group || '').split(',').map(g => g.trim()).filter(Boolean);
     res.json(await rdb.getOpenChangesForSite(groups));
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { fail(res, e); }
 });
 
 // GET /api/reports/:id/active-incidents — Major Incidents still OPEN for
@@ -6562,7 +6561,7 @@ app.get('/api/reports/:id/active-incidents', requireReportSession, async (req, r
     const site = (await rdb.listSites()).find(s => s.id === report.site_id);
     const groups = site ? (site.zoho_group || '').split(',').map(g => g.trim()).filter(Boolean) : [];
     res.json(await rdb.getActiveMajorIncidentsForSite(groups));
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { fail(res, e); }
 });
 
 // GET /api/reports/:id/infra-auto — V1b-C. Pre-fill values for the Infrastructure KPIs
@@ -6625,7 +6624,7 @@ app.get('/api/reports/:id/infra-auto', requireReportSession, async (req, res) =>
     const tokens = ((await rdb.listWanSubsiteNetworks()) || [])
       .filter(r => r.site_id === report.site_id).map(r => r.sub_site);
     res.json({ week_label: report.week_label, period_start: start, window, fills, tokens });
-  } catch (e) { res.json({ fills: [], reason: e.message }); }
+  } catch (e) { res.json({ fills: [], reason: 'internal_error', correlation_id: logError(e, req) }); }
 });
 
 // GET /api/sites/:siteId/active-incidents — same payload, looked up by
@@ -6637,7 +6636,7 @@ app.get('/api/sites/:siteId/active-incidents', requireReportSession, async (req,
     if (!site) return res.status(404).json({ error: 'Site not found' });
     const groups = (site.zoho_group || '').split(',').map(g => g.trim()).filter(Boolean);
     res.json(await rdb.getActiveMajorIncidentsForSite(groups));
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { fail(res, e); }
 });
 
 // DELETE /api/reports/:id  — delete a draft (or any report for admin)
@@ -6657,7 +6656,7 @@ app.delete('/api/reports/:id', requireReportSession, async (req, res) => {
     await rdb.logAudit({ report_id: id, site_id: report.site_id, user_id: req.reportUser.id, username: req.reportUser.username, action: 'deleted', details: { week_label: report.week_label } });
     await rdb.deleteReport(id);
     res.json({ ok: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { fail(res, e); }
 });
 
 // PUT /api/reports/:id/infra  — save infrastructure KPIs
@@ -6671,7 +6670,7 @@ app.put('/api/reports/:id/infra', requireReportSession, jsonBody, async (req, re
     const r = await rdb.getReport(id);
     await rdb.logAudit({ report_id: id, site_id: r?.site_id, user_id: req.reportUser.id, username: req.reportUser.username, action: 'edited_infra', details: { week_label: r?.week_label, kpi_count: kpis.length } });
     res.json({ ok: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { fail(res, e); }
 });
 
 // PUT /api/reports/:id/helpdesk  — save helpdesk metrics
@@ -6684,7 +6683,7 @@ app.put('/api/reports/:id/helpdesk', requireReportSession, jsonBody, async (req,
     const r = await rdb.getReport(id);
     await rdb.logAudit({ report_id: id, site_id: r?.site_id, user_id: req.reportUser.id, username: req.reportUser.username, action: 'edited_helpdesk', details: { week_label: r?.week_label } });
     res.json({ ok: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { fail(res, e); }
 });
 
 // PUT /api/reports/:id/lights  — save low/high lights
@@ -6698,7 +6697,7 @@ app.put('/api/reports/:id/lights', requireReportSession, jsonBody, async (req, r
     const r = await rdb.getReport(id);
     await rdb.logAudit({ report_id: id, site_id: r?.site_id, user_id: req.reportUser.id, username: req.reportUser.username, action: 'edited_lights', details: { week_label: r?.week_label, count: lights.length } });
     res.json({ ok: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { fail(res, e); }
 });
 
 // Shared validator used by both PUT /actions (weekly) and POST /monthly/.../edits.
@@ -6763,7 +6762,7 @@ app.put('/api/reports/:id/actions', requireReportSession, jsonBody, async (req, 
     const r = await rdb.getReport(id);
     await rdb.logAudit({ report_id: id, site_id: r?.site_id, user_id: req.reportUser.id, username: req.reportUser.username, action: 'edited_actions', details: { week_label: r?.week_label, count: items.length } });
     res.json({ ok: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { fail(res, e); }
 });
 
 // PUT /api/reports/:id/status  — submit / revert to draft
@@ -6801,7 +6800,7 @@ app.put('/api/reports/:id/status', requireReportSession, jsonBody, async (req, r
     const action = status === 'submitted' ? 'submitted' : (report.status === 'submitted' ? 'reverted' : 'status_changed');
     await rdb.logAudit({ report_id: id, site_id: report.site_id, user_id: req.reportUser.id, username: req.reportUser.username, action, details: { from: report.status, to: status } });
     res.json({ ok: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { fail(res, e); }
 });
 
 // PUT /api/reports/:id/reassign-week  — move report to a different week (any status)
@@ -6835,7 +6834,7 @@ app.put('/api/reports/:id/reassign-week', requireReportSession, jsonBody, async 
     const reassigned = await rdb.getReport(id);
     await rdb.logAudit({ report_id: id, site_id: existing.site_id, user_id: req.reportUser.id, username: req.reportUser.username, action: 'reassigned_week', details: { from_week: existing.week_label, to_week: reassigned?.week_label } });
     res.json(reassigned);
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { fail(res, e); }
 });
 
 // Build the per-site monthly meeting summary for the report decks. Maps the
@@ -6881,7 +6880,7 @@ app.get('/api/reports/:id/pptx', requireReportSession, async (req, res) => {
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.presentationml.presentation');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.send(buf);
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { fail(res, e); }
 });
 
 // GET /api/reports/monthly/all-sites/:year/:month/pptx  — combined all-sites monthly deck
@@ -6912,7 +6911,7 @@ app.get('/api/reports/monthly/all-sites/:year/:month/pptx', requireReportSession
     res.send(buf);
   } catch(e) {
     console.error('[monthly/all-sites/pptx] Error:', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -6945,7 +6944,7 @@ app.get('/api/reports/monthly/:site_id/:year/:month/pptx', requireReportSession,
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.presentationml.presentation');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.send(buf);
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { fail(res, e); }
 });
 
 // GET /api/reports/weekly-summary/:year/:week/pptx  — all-sites aggregated weekly PPTX
@@ -6981,7 +6980,7 @@ app.get('/api/reports/weekly-summary/:year/:week/pptx', requireReportSession, re
     res.send(buf);
   } catch(e) {
     console.error('[weekly-summary pptx]', e);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -6991,7 +6990,7 @@ app.get('/api/reports/monthly/:site_id/:year/:month', requireReportSession, asyn
     const { site_id, year, month } = req.params;
     const data = await rdb.getMonthlyData(parseInt(site_id), parseInt(year), parseInt(month));
     res.json(data);
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { fail(res, e); }
 });
 
 // ── MONTHLY REPORT EDITS ──────────────────────────────────────────
@@ -7002,7 +7001,7 @@ app.get('/api/reports/monthly/:site_id/:year/:month/edits', requireReportSession
     const { site_id, year, month } = req.params;
     const data = await rdb.getMonthlyEdits(parseInt(site_id), parseInt(year), parseInt(month));
     res.json(data);
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { fail(res, e); }
 });
 
 // POST /api/reports/monthly/:site_id/:year/:month/edits
@@ -7027,7 +7026,7 @@ app.post('/api/reports/monthly/:site_id/:year/:month/edits', requireReportSessio
     await rdb.saveMonthlyEdits(parseInt(site_id), parseInt(year), parseInt(month), { edited_lights, edited_actions: cleanedActions, notes, status });
     await rdb.logAudit({ site_id: parseInt(site_id), user_id: req.reportUser.id, username: req.reportUser.username, action: 'edited_monthly', details: { year, month, lights: (edited_lights||[]).length, actions: (cleanedActions||[]).length } });
     res.json({ ok: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { fail(res, e); }
 });
 
 // GET /api/reports/yearly/:site_id/:year
@@ -7037,7 +7036,7 @@ app.get('/api/reports/yearly/:site_id/:year', requireReportSession, async (req, 
     const { site_id, year } = req.params;
     const data = await rdb.getYearlySummary(parseInt(site_id), parseInt(year));
     res.json(data);
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { fail(res, e); }
 });
 
 // GET /api/reports/objectives/:site_id/:year
@@ -7047,7 +7046,7 @@ app.get('/api/reports/objectives/:site_id/:year', requireReportSession, async (r
     const { site_id, year } = req.params;
     const rows = await rdb.getAnnualObjectives(parseInt(site_id), parseInt(year));
     res.json(rows);
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { fail(res, e); }
 });
 
 // POST /api/reports/objectives/:site_id/:year
@@ -7060,7 +7059,7 @@ app.post('/api/reports/objectives/:site_id/:year', requireReportSession, express
     await rdb.saveAnnualObjectives(parseInt(site_id), parseInt(year), objectives);
     await rdb.logAudit({ site_id: parseInt(site_id), user_id: req.reportUser.id, username: req.reportUser.username, action: 'edited_objectives', details: { year, count: objectives.length } });
     res.json({ ok: true, saved: objectives.length });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { fail(res, e); }
 });
 
 // GET /api/reports/monthly/:site_id/:year/:month/pptx-v2  — new 7-slide monthly format
@@ -7087,7 +7086,7 @@ app.get('/api/reports/monthly/:site_id/:year/:month/pptx-v2', requireReportSessi
     res.send(buf);
   } catch(e) {
     console.error('[monthly/pptx-v2] Error:', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -7110,7 +7109,7 @@ app.get('/api/reports/monthly/:site_id/:year/:month/site-template/pptx', require
     res.send(buf);
   } catch(e) {
     console.error('[site-template/pptx] Error:', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -7156,7 +7155,7 @@ app.post('/api/executive-new-pptx', requireReportSession, requireRole('report-au
     res.send(buf);
   } catch(e) {
     console.error('[executive-new-pptx] Error:', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -7184,7 +7183,7 @@ app.post('/api/notes', requireReportSession, express.json({ limit: '1mb' }), (re
     res.json({ ok: true, savedAt: payload.savedAt });
   } catch (err) {
     console.error('[Notes] Write error:', err.message);
-    res.status(500).json({ error: err.message });
+    fail(res, err);
   }
 });
 
@@ -7194,7 +7193,7 @@ app.post('/api/save-charts', requireReportSession, express.json({ limit: '50mb' 
     const outPath = path.join(__dirname, 'data', 'chart_images.json');
     fs.writeFileSync(outPath, JSON.stringify(req.body));
     res.json({ ok: true, path: outPath });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { fail(res, e); }
 });
 
 // Save PPTX binary from browser export (for server-side access)
@@ -7207,7 +7206,7 @@ app.post('/api/save-pptx', requireReportSession, requireRole('report-author'), e
     const outPath = safeJoin(path.join(__dirname, 'data'), req.query.name, { ext: '.pptx', fallback: 'export.pptx' });
     fs.writeFileSync(outPath, req.body);
     res.json({ ok: true, path: outPath });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { fail(res, e); }
 });
 
 // ══════════════════════════════════════════════════════════════════
@@ -7253,7 +7252,7 @@ app.get('/api/tracker/load', requireReportSession, requireRole(['admin', 'tracke
     res.json({ D, scope: scopes === null ? null : (scopes[0] || ''), scopes });
   } catch(e) {
     console.error('[Tracker] load error:', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -7305,7 +7304,7 @@ app.post('/api/tracker/save', requireReportSession, requireRole(['super_admin', 
     res.json({ ok: true, scope: userSite ? userSites.scopeLabel(userSite) : 'all', closed_blocked: blocked });
   } catch(e) {
     console.error('[Tracker] save error:', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -7345,7 +7344,7 @@ app.post('/api/tracker/import-dept-meetings', requireReportSession, requireRole(
     res.json({ ok: true, site, year, meetingsCode, months, total: months.reduce((a, b) => a + (Number(b) || 0), 0), closed_blocked: r.blocked || 0 });
   } catch (e) {
     console.error('[Tracker] import-dept-meetings error:', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -7371,7 +7370,7 @@ app.post('/api/tracker/export', requireReportSession, requireRole(['admin', 'tra
     res.send(buf);
   } catch(e) {
     console.error('[Tracker] export error:', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -7430,7 +7429,7 @@ app.get('/api/dashboard/presets', requireReportSession, async (req, res) => {
     return res.json({ scope, presets, canonical_names: groupPresets.CANONICAL_PRESETS });
   } catch (e) {
     console.error('[group-presets] GET failed:', e);
-    return res.status(500).json({ error: e.message });
+    return fail(res, e);
   }
 });
 
@@ -7454,7 +7453,7 @@ app.put('/api/dashboard/presets', requireReportSession, requireAdmin, async (req
     return res.json(out);
   } catch (e) {
     console.error('[group-presets] PUT failed:', e);
-    return res.status(500).json({ error: e.message });
+    return fail(res, e);
   }
 });
 
@@ -7471,7 +7470,7 @@ app.get('/api/dashboard/groups/discovered', requireReportSession, requireAdmin, 
     return res.json({ scope, discovered, count: discovered.length });
   } catch (e) {
     console.error('[group-presets] discovered failed:', e);
-    return res.status(500).json({ error: e.message });
+    return fail(res, e);
   }
 });
 
@@ -7565,7 +7564,6 @@ app.post('/api/reports/exec-pptx', requireReportSession, requireAdmin, async (re
     try { child.kill('SIGKILL'); } catch(_) {}
     res.status(504).json({
       error: `PPTX renderer exceeded ${TIMEOUT_MS / 1000}s budget. Charts may be slow to render — raise EXEC_PPTX_TIMEOUT_MS in .env if the deck is genuinely large.`,
-      stderr_tail: stderr.slice(-500),
     });
   }, TIMEOUT_MS);
 
@@ -7576,7 +7574,7 @@ app.post('/api/reports/exec-pptx', requireReportSession, requireAdmin, async (re
     responded = true;
     clearTimeout(timer);
     console.error('[exec-pptx] spawn error:', err.message);
-    res.status(500).json({ error: 'Failed to start renderer: ' + err.message });
+    fail(res, err);
   });
   child.on('close', code => {
     if (responded) return;
@@ -7588,12 +7586,12 @@ app.post('/api/reports/exec-pptx', requireReportSession, requireAdmin, async (re
     if (stderr.trim()) console.log('[exec-pptx] renderer stderr:\n' + stderr.trim());
     if (code !== 0) {
       console.error(`[exec-pptx] FAIL exit=${code} duration=${dur}s`);
-      return res.status(500).json({ error: `Renderer exited ${code}`, stderr: stderr.slice(-500) });
+      return fail(res, new Error(`Renderer exited ${code}: ${stderr.slice(-500)}`));
     }
     const buf = Buffer.concat(chunks);
     if (buf.length < 1024) {
       console.error(`[exec-pptx] FAIL empty-output duration=${dur}s`);
-      return res.status(500).json({ error: 'Renderer produced empty output', stderr: stderr.slice(-500) });
+      return fail(res, new Error(`Renderer produced empty output: ${stderr.slice(-500)}`));
     }
     console.log(`[exec-pptx] render OK · ${(buf.length / 1024).toFixed(0)} KB · ${dur}s`);
 
@@ -7628,7 +7626,7 @@ app.post('/api/tracker/reset', requireReportSession, requireRole(['super_admin',
     res.json({ ok: true, D });
   } catch(e) {
     console.error('[Tracker] reset error:', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -7665,7 +7663,7 @@ app.get('/api/tracker/delete-year', requireReportSession, requireRole(['super_ad
     res.json(await trackerDb.previewDeleteTrackerYear(year));
   } catch(e) {
     console.error('[Tracker] delete-year preview error:', e.message);
-    res.status(500).json({ error: e.message });
+    fail(res, e);
   }
 });
 
@@ -7690,7 +7688,7 @@ app.post('/api/tracker/delete-year', requireReportSession, requireRole(['super_a
     res.json({ ok: true, D, summary: result });
   } catch(e) {
     console.error('[Tracker] delete-year error:', e.message);
-    res.status(400).json({ error: e.message });
+    fail(res, e, 400);
   }
 });
 
@@ -7787,6 +7785,7 @@ app.use(require('./routes/governance')({ express, requireReportSession, store: _
 let meetingsDb;
 try { meetingsDb = require('./meetings-db.js'); } catch (e) { console.error('[Meetings] ❌ meetings-db failed to load:', e.message); }
 app.use(require('./routes/meetings')({ express, rdb, inspectionDb, requireReportSession, requireRole }));
+app.use(require('./services/httpError').errorHandler); // M9 — final error handler: generic 5xx body + correlation id (mounted LAST)
 
 // ── START ─────────────────────────────────────────────────────────
 async function start() {

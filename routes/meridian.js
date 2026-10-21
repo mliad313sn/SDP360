@@ -1,4 +1,5 @@
 'use strict';
+const { fail } = require('../services/httpError');
 // F1 — inbound read API: expose SDP's unified open actions to Meridian (contract C2).
 // Key-guarded on the report_config `meridian_in_key` (header X-API-Key), so setting the
 // key from the admin card makes the endpoint live with no restart, and an unset key
@@ -37,7 +38,7 @@ module.exports = function meridianRoutes(deps) {
       const report = { actions: (await rdb.getSiteOpenReportActions(resolved.site_id)).actions };
       const sa = buildSiteActions({ meetings, inspection, report, asOf });
       res.json(flattenOpenActions(code, sa, asOf));
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { fail(res, e); }
   });
 
   return router;

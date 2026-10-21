@@ -1,4 +1,5 @@
 'use strict';
+const { fail: httpFail } = require('../services/httpError');
 // Step 7 — generic trackers: builder (definitions), entry runtime, source bindings, exports,
 // legacy IT Activity Tracker migration. Every score comes from services/trackerDefinitions.score.
 //
@@ -57,7 +58,7 @@ module.exports = function trackersRoutes(deps) {
   function requireBuilder(req, res, next) { if (!isBuilder(req.reportUser)) return res.status(403).json({ ok: false, error: 'tracker-admin or admin role required' }); next(); }
   function requireSuper(req, res, next) { if (!isSuper(req.reportUser)) return res.status(403).json({ ok: false, error: 'super_admin required' }); next(); }
   const key = (req) => String(req.params.key || '').slice(0, 32);
-  const fail = (res, e) => res.status(e.code === 'INVALID' ? 400 : 500).json({ ok: false, error: e.message, errors: e.errors || undefined });
+  const fail = (res, e) => httpFail(res, e, undefined, { ok: false });
 
   /** Unit codes the caller may WRITE: null = all (builder), [] = none. Unit code matches the site's tracker code. */
   async function writableUnits(user, def) {

@@ -1,4 +1,5 @@
 'use strict';
+const { fail } = require('../services/httpError');
 // SDP360 — sync observability routes (Phase 1 Foundation & Sync).
 //   GET /api/sync/runs?job=&limit=   last runs of the generic runner (session-guarded)
 //   GET /api/sync/health             per-job last ok / last error / error count
@@ -16,7 +17,7 @@ module.exports = function syncRoutes(deps) {
       const job = req.query.job ? String(req.query.job).slice(0, 64) : null;
       const rows = await sync.getStore().recentRuns(job, limit);
       res.json({ ok: true, runs: rows.map((r) => ({ ...r, meta: safeJson(r.meta) })) });
-    } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+    } catch (e) { fail(res, e, 500, { ok: false }); }
   });
 
   // One health view (Step 1): runner runs (sync_runs) merged with the legacy sync_metadata rows
@@ -54,7 +55,7 @@ module.exports = function syncRoutes(deps) {
       }).sort((a, b) => a.job.localeCompare(b.job));
       const summary = { ok: jobs.filter((j) => j.status === 'ok').length, stale: jobs.filter((j) => j.status === 'stale').length, error: jobs.filter((j) => j.status === 'error').length, never: jobs.filter((j) => j.status === 'never').length, idle: jobs.filter((j) => j.status === 'idle').length };
       res.json({ ok: true, summary, jobs });
-    } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+    } catch (e) { fail(res, e, 500, { ok: false }); }
   });
 
   function safeJson(s) { if (s == null) return null; try { return JSON.parse(s); } catch (_) { return s; } }

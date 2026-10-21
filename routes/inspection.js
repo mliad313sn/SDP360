@@ -1,4 +1,5 @@
 'use strict';
+const { fail } = require('../services/httpError');
 const userSites = require('../services/userSites');   // multi-site editors (2026-10-05)
 
 const tableExcel = require('../services/tableExcel');
@@ -87,7 +88,7 @@ module.exports = function inspectionRoutes(deps) {
       res.json({ ...(await inspectionDb.loadLookups()), scope: scopes === null ? null : (scopes[0] || null), scopes });
     } catch(e) {
       console.error('[Inspection] lookups error:', e.message);
-      res.status(500).json({ error: e.message });
+      fail(res, e);
     }
   });
 
@@ -142,7 +143,7 @@ module.exports = function inspectionRoutes(deps) {
       res.json({ people: merged, sources: { users: fromUsers.length, tickets: fromTickets.length } });
     } catch(e) {
       console.error('[Inspection] people error:', e.message);
-      res.status(500).json({ error: e.message });
+      fail(res, e);
     }
   });
 
@@ -162,7 +163,7 @@ module.exports = function inspectionRoutes(deps) {
       res.json({ rows });
     } catch(e) {
       console.error('[Inspection] list error:', e.message);
-      res.status(500).json({ error: e.message });
+      fail(res, e);
     }
   });
 
@@ -177,7 +178,7 @@ module.exports = function inspectionRoutes(deps) {
       }));
     } catch(e) {
       console.error('[Inspection] aggregate error:', e.message);
-      res.status(500).json({ error: e.message });
+      fail(res, e);
     }
   });
 
@@ -199,7 +200,7 @@ module.exports = function inspectionRoutes(deps) {
       }) });
     } catch(e) {
       console.error('[Inspection] actions list error:', e.message);
-      res.status(500).json({ error: e.message });
+      fail(res, e);
     }
   });
 
@@ -231,7 +232,7 @@ module.exports = function inspectionRoutes(deps) {
       res.json({ ok: true });
     } catch(e) {
       console.error('[Inspection] action update error:', e.message);
-      res.status(500).json({ error: e.message });
+      fail(res, e);
     }
   });
 
@@ -255,7 +256,7 @@ module.exports = function inspectionRoutes(deps) {
       res.send(buf);
     } catch (e) {
       console.error('[Inspection] excel export error:', e.message);
-      res.status(500).json({ error: e.message });
+      fail(res, e);
     }
   });
 
@@ -268,7 +269,7 @@ module.exports = function inspectionRoutes(deps) {
       res.json(rec);
     } catch(e) {
       console.error('[Inspection] get error:', e.message);
-      res.status(500).json({ error: e.message });
+      fail(res, e);
     }
   });
 
@@ -307,7 +308,7 @@ module.exports = function inspectionRoutes(deps) {
     } catch(e) {
       console.error('[Inspection] save error:', e.message, '| user=' + (req.reportUser && req.reportUser.username) + ' meta=' + JSON.stringify((req.body && req.body.state && req.body.state.meta) || {}).slice(0, 200));
       const isScope = /Cross-site/i.test(e.message);
-      res.status(isScope ? 403 : 500).json({ error: e.message });
+      fail(res, e, isScope ? 403 : undefined);
     }
   });
 
@@ -325,7 +326,7 @@ module.exports = function inspectionRoutes(deps) {
       res.json({ ok: true });
     } catch(e) {
       console.error('[Inspection] delete error:', e.message);
-      res.status(500).json({ error: e.message });
+      fail(res, e);
     }
   });
 
@@ -350,7 +351,7 @@ module.exports = function inspectionRoutes(deps) {
       res.send(buf);
     } catch(e) {
       console.error('[Inspection] aggregate export error:', e.message);
-      res.status(500).json({ error: e.message });
+      fail(res, e);
     }
   });
 
@@ -370,7 +371,7 @@ module.exports = function inspectionRoutes(deps) {
       res.send(buf);
     } catch(e) {
       console.error('[Inspection] export error:', e.message);
-      res.status(500).json({ error: e.message });
+      fail(res, e);
     }
   });
 
@@ -382,7 +383,7 @@ module.exports = function inspectionRoutes(deps) {
       res.json({ ok: true, lookups: await inspectionDb.loadLookups() });
     } catch(e) {
       console.error('[Inspection] reset error:', e.message);
-      res.status(500).json({ error: e.message });
+      fail(res, e);
     }
   });
 

@@ -1,4 +1,5 @@
 'use strict';
+const { fail } = require('../services/httpError');
 // Site Actions register hub — GET /api/reports/site-actions?site=CODE[&closed=1] (moved out of
 // server.js, handler unchanged: composes the three action sources + open issues, folds Meridian links).
 module.exports = function siteActionsRoutes(deps) {
@@ -52,7 +53,7 @@ module.exports = function siteActionsRoutes(deps) {
     } catch (_) { links = {}; }
     require('../services/meridianActions').attachProjectLinks(sa, links, baseUrl);
     res.json({ site: code, ...sa });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { fail(res, e); }
 });
   return router;
 };

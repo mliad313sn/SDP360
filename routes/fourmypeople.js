@@ -1,4 +1,5 @@
 'use strict';
+const { fail } = require('../services/httpError');
 // Integration slice 1 — expose 4MyPeople workforce data to the dashboard, behind
 // the dashboard's OWN auth (no shared session/SSO — that's a later, migration-gated
 // track). Read-only, server-to-server via services/fmpClient (X-API-Key), short-TTL
@@ -24,12 +25,12 @@ module.exports = function fourmypeopleRoutes(deps) {
 
   router.get('/api/integration/fmp/employees', ...gate, async (req, res) => {
     try { res.json({ data: await cached('employees', () => fmpClient.listEmployees()) }); }
-    catch (e) { res.status(502).json({ error: '4MyPeople upstream error', detail: e.message }); }
+    catch (e) { fail(res, e, 502, { error: 'upstream_error' }); }
   });
 
   router.get('/api/integration/fmp/readiness', ...gate, async (req, res) => {
     try { res.json({ data: await cached('readiness', () => fmpClient.listReadiness()) }); }
-    catch (e) { res.status(502).json({ error: '4MyPeople upstream error', detail: e.message }); }
+    catch (e) { fail(res, e, 502, { error: 'upstream_error' }); }
   });
 
   return router;

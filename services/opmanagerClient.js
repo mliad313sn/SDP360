@@ -50,7 +50,8 @@ function redactUrl(s, key) {
 
 /** Build a redacted Error from any transport failure (axios error, plain Error, string). */
 function _redactError(e, key) {
-  const msg = redactUrl(e && e.message != null ? e.message : String(e), key);
+  // M9 — after the key is masked, every URL shrinks to scheme+host (no path / query in a client-visible message).
+  const msg = require('./safeUrl').redactMessage(redactUrl(e && e.message != null ? e.message : String(e), key), [key]);
   const err = new Error(msg);
   if (e && e.code) err.code = e.code;
   if (e && e.response && e.response.status != null) err.status = e.response.status;
