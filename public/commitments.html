@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Commitments — Endeavour Mining IT</title>
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="brand/icons.css">
+<link rel="stylesheet" href="brand/components.css">
+<link rel="stylesheet" href="_shell.css">
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<style nonce="%%CSP_NONCE%%">
+  body { margin: 0; background: var(--color-bg, #F4F5F7); color: var(--color-text-strong, #1F2A33); font-family: var(--font-sans, sans-serif); font-size: 14px; }
+  .cm-wrap { max-width: 1300px; margin: 0 auto; padding: 24px 28px 48px; }
+  .cm-card { background: var(--color-card, #fff); border: 1px solid var(--color-border, #E2E5EA); border-radius: 12px; padding: 18px 20px; margin-bottom: 16px; }
+  .cm-grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 16px; }
+  h1 { margin: 0 0 6px; font-size: 22px; color: var(--edv-slate, #3A4A60); }
+  .cm-muted { color: #6B7785; font-size: 12.5px; }
+  table { width: 100%; border-collapse: collapse; } td, th { padding: 7px 8px; border-bottom: 1px solid #EEF0F3; text-align: left; font-size: 13px; }
+  tr.cm-row { cursor: pointer; } tr.cm-row:hover { background: #F8F9FB; } tr.cm-sel { background: #FFF4EC; }
+  .cm-pill { display: inline-block; border-radius: 999px; padding: 2px 9px; font-size: 11px; font-weight: 700; background: rgba(107,119,133,.12); }
+  .cm-pill--awaiting_verification { background: rgba(217,119,6,.15); color: #92400E; }
+  .cm-pill--verified_closed { background: rgba(39,174,96,.15); color: #1E7A44; }
+  .cm-pill--rejected_for_rework { background: rgba(217,0,56,.12); color: #B00030; }
+  button, select, input, textarea { font: inherit; } button { border: 1px solid #D0D5DD; background: #fff; border-radius: 6px; padding: 6px 12px; cursor: pointer; margin: 0 6px 6px 0; }
+  button.cm-primary { background: var(--edv-orange, #EF631A); color: #fff; border-color: transparent; }
+  .cm-form input, .cm-form select, .cm-form textarea { width: 100%; box-sizing: border-box; padding: 6px 8px; border: 1px solid #D0D5DD; border-radius: 6px; margin-bottom: 8px; }
+  .cm-msg { min-height: 18px; font-size: 13px; color: #B00030; }
+  ul.cm-events { padding-left: 18px; font-size: 12.5px; color: #524F4E; }
+</style>
+</head>
+<body>
+<div id="__shell" data-section="operations" data-current="site-actions"></div>
+<div class="cm-wrap">
+  <div class="cm-card">
+    <h1>Commitments</h1>
+    <div class="cm-muted" data-lng="en">One commitment per business need, finding or risk. Done by IT is not closed: the named reviewer verifies it. <a href="site-actions.html">← Site Actions</a></div>
+    <div class="cm-muted" id="cmDisabled" hidden>Commitments are not enabled on this instance (Admin flag <code>commitments_enabled</code>).</div>
+  </div>
+  <div class="cm-grid">
+    <div class="cm-card">
+      <select id="cmStatus"><option value="">All statuses</option></select>
+      <button id="cmNewBtn" class="cm-primary">+ New commitment</button>
+      <table><thead><tr><th>#</th><th>Title</th><th>Severity</th><th>Due</th><th>Status</th></tr></thead><tbody id="cmList"></tbody></table>
+    </div>
+    <div class="cm-card" id="cmDetail"><div class="cm-muted">Select a commitment.</div></div>
+  </div>
+  <div class="cm-card cm-form" id="cmNew" hidden>
+    <strong>New commitment</strong>
+    <input id="nfTitle" placeholder="Title">
+    <select id="nfKind"></select>
+    <select id="nfSeverity"></select>
+    <input id="nfSite" type="number" placeholder="Site id">
+    <input id="nfOwner" placeholder="Accountable owner (username)">
+    <input id="nfReviewer" placeholder="Reviewer — business or control (username)">
+    <input id="nfDue" type="date">
+    <textarea id="nfPlan" rows="2" placeholder="Treatment plan (required for high / critical)"></textarea>
+    <button id="nfSave" class="cm-primary">Create</button>
+    <div class="cm-msg" id="nfMsg"></div>
+  </div>
+</div>
+<script nonce="%%CSP_NONCE%%">
+(function () {
+  'use strict';
+  function hdr(extra) {
+    const h = extra || {}; const at = window.__authToken; let tok = null;
+    if (typeof at === 'function') { try { tok = at(); } catch (_) {} } else if (typeof at === 'string' && at) tok = at;
+    if (!tok) tok = localStorage.getItem('report_token');
+    if (tok) h['x-report-token'] = tok;
+    return h;
+  }
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const $ = (id) => document.getElementById(id);
+  async function api(method, url, body, raw) {
+    const opt = { method, headers: hdr(raw ? { 'content-type': raw.type || 'application/octet-stream', 'x-filename': raw.name || 'evidence' } : body ? { 'content-type': 'application/json' } : {}) };
+    if (raw) opt.body = raw; else if (body) opt.body = JSON.stringify(body);
+    const r = await fetch(url, opt); const j = await r.json().catch(() => ({}));
+    if (!r.ok) { const e = new Error(j.error || ('HTTP ' + r.status)); e.status = r.status; throw e; }
+    return j;
+  }
+  let selected = null, meta = null;
+  const pill = (s) => `<span class="cm-pill cm-pill--${esc(s)}">${esc(String(s).replace(/_/g, ' '))}</span>`;
+  async function loadList() {
+    try {
+      const q = $('cmStatus').value ? '?status=' + encodeURIComponent($('cmStatus').value) : '';
+      const j = await api('GET', '/api/commitments' + q); meta = j;
+      if ($('cmStatus').options.length === 1) for (const s of j.statuses) $('cmStatus').add(new Option(s.replace(/_/g, ' '), s));
+      if (!$('nfKind').options.length) { for (const k of j.kinds) $('nfKind').add(new Option(k.replace(/_/g, ' '), k)); for (const s of j.severities) $('nfSeverity').add(new Option(s, s)); $('nfSeverity').value = 'medium'; }
+      $('cmList').innerHTML = j.commitments.map((c) => `<tr class="cm-row${selected === c.id ? ' cm-sel' : ''}" data-id="${c.id}"><td>${c.id}</td><td>${esc(c.title)}</td><td>${esc(c.severity)}</td><td>${esc(c.due_date || '—')}</td><td>${pill(c.status)}</td></tr>`).join('') || '<tr><td colspan="5" class="cm-muted">No commitment in your scope.</td></tr>';
+    } catch (e) { if (e.status === 404) { $('cmDisabled').hidden = false; $('cmNewBtn').disabled = true; } else $('cmList').innerHTML = `<tr><td colspan="5">${esc(e.message)}</td></tr>`; }
+  }
+  async function show(id) {
+    selected = Number(id);
+    try {
+      const c = (await api('GET', '/api/commitments/' + id)).commitment;
+      const btns = c.allowed.map((t) => `<button data-to="${t.to}" data-reason="${t.reason ? 1 : 0}"${t.to === 'verified_closed' ? ' class="cm-primary"' : ''}>${esc(t.to.replace(/_/g, ' '))}</button>`).join('') || '<span class="cm-muted">No action available to you.</span>';
+      $('cmDetail').innerHTML = `<h3 style="margin-top:0">#${c.id} ${esc(c.title)} ${pill(c.status)}</h3>
+        <div class="cm-muted">${esc(c.kind)} · severity ${esc(c.severity)} · owner ${esc(c.accountable_owner || '—')} · reviewer ${esc(c.reviewer || '—')} · due ${esc(c.due_date || '—')}${c.baseline_due_date && c.baseline_due_date !== c.due_date ? ' (baseline ' + esc(c.baseline_due_date) + ')' : ''}</div>
+        <p>${btns}</p><div class="cm-msg" id="cmMsg"></div>
+        <strong>Sources</strong><div class="cm-muted">${c.links.map((l) => esc(l.source_system + ':' + l.source_id)).join(', ') || '—'}</div>
+        <strong>Evidence</strong><ul class="cm-events">${c.evidence.map((e) => `<li>${e.url ? `<a href="${esc(e.url)}" target="_blank" rel="noopener">${esc(e.url)}</a>` : `<a href="/api/commitments/${c.id}/evidence/${e.id}" data-dl="${e.id}">${esc(e.filename || 'file')}</a> <span class="cm-muted">sha256 ${esc(String(e.sha256).slice(0, 12))}…</span>`}${e.superseded_by ? ' <em>(superseded)</em>' : ''}</li>`).join('') || '<li>none</li>'}</ul>
+        <input type="file" id="cmFile" accept=".pdf,.png,.jpg,.jpeg,.webp,.txt,.csv"> <button id="cmUpload">Upload evidence</button>
+        <strong>History</strong><ul class="cm-events">${c.events.map((e) => `<li>${esc(String(e.at).slice(0, 16).replace('T', ' '))} — ${esc(e.actor)} — ${esc(e.action)}${e.to_status ? ' → ' + esc(e.to_status) : ''}${e.details && e.details.reason ? ' (' + esc(e.details.reason) + ')' : ''}</li>`).join('')}</ul>`;
+      $('cmDetail').dataset.version = c.version;
+      loadList();
+    } catch (e) { $('cmDetail').innerHTML = `<div class="cm-msg">${esc(e.message)}</div>`; }
+  }
+  $('cmList').addEventListener('click', (ev) => { const tr = ev.target.closest('tr[data-id]'); if (tr) show(tr.dataset.id); });
+  $('cmStatus').addEventListener('change', loadList);
+  $('cmDetail').addEventListener('click', async (ev) => {
+    const b = ev.target.closest('button[data-to]');
+    if (b) {
+      let reason = null;
+      if (b.dataset.reason === '1') { reason = window.prompt('Reason (required):'); if (!reason) return; }
+      try { await api('POST', `/api/commitments/${selected}/transition`, { to: b.dataset.to, version: Number($('cmDetail').dataset.version), reason }); show(selected); }
+      catch (e) { $('cmMsg').textContent = e.status === 409 ? 'Someone changed it meanwhile — reloaded.' : e.message; if (e.status === 409) show(selected); }
+      return;
+    }
+    if (ev.target.id === 'cmUpload') {
+      const f = $('cmFile').files[0]; if (!f) return;
+      try { const blob = new Blob([await f.arrayBuffer()], { type: f.type }); blob.name = f.name; await api('POST', `/api/commitments/${selected}/evidence`, null, blob); show(selected); }
+      catch (e) { $('cmMsg').textContent = e.message; }
+      return;
+    }
+    const dl = ev.target.closest('a[data-dl]');
+    if (dl) {
+      ev.preventDefault();
+      const r = await fetch(dl.getAttribute('href'), { headers: hdr() }); if (!r.ok) return;
+      const url = URL.createObjectURL(await r.blob()); const a = document.createElement('a'); a.href = url; a.download = dl.textContent; a.click(); URL.revokeObjectURL(url);
+    }
+  });
+  $('cmNewBtn').addEventListener('click', () => { $('cmNew').hidden = !$('cmNew').hidden; const u = window.__authUser; if (u && u.site_id && !$('nfSite').value) $('nfSite').value = u.site_id; });
+  $('nfSave').addEventListener('click', async () => {
+    try {
+      const j = await api('POST', '/api/commitments', { title: $('nfTitle').value, kind: $('nfKind').value, severity: $('nfSeverity').value, site_id: $('nfSite').value ? Number($('nfSite').value) : null,
+        accountable_owner: $('nfOwner').value, reviewer: $('nfReviewer').value, due_date: $('nfDue').value || null, treatment_plan: $('nfPlan').value });
+      $('cmNew').hidden = true; $('nfMsg').textContent = ''; show(j.commitment.id);
+    } catch (e) { $('nfMsg').textContent = e.message; }
+  });
+  const qid = new URLSearchParams(location.search).get('id');
+  loadList(); if (qid) show(qid);
+})();
+</script>
+</body>
+</html>

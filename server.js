@@ -1260,7 +1260,7 @@ function loadHtml(name) {
   'site-awareness.html',
   'assets.html', 'assets-hygiene.html', 'assets-finance.html', 'wan.html', 'wan-health.html', 'wan-sla.html', 'itsm-roadmap.html',
   'infra-health.html', 'itsm-integrations-plan.html',
-  'dashboards.html', 'dashboard-composer.html', 'trackers.html', 'tracker-builder.html', 'cockpit.html', 'portfolio.html', 'rfi.html', 'report-studio.html', 'notifications.html', 'integrations.html',
+  'dashboards.html', 'dashboard-composer.html', 'trackers.html', 'tracker-builder.html', 'cockpit.html', 'portfolio.html', 'rfi.html', 'report-studio.html', 'notifications.html', 'integrations.html', 'commitments.html',
 ].forEach(loadHtml);
 
 // Helper: build the per-request HTML, inject api-key + nonce, send. Pages
@@ -5347,7 +5347,7 @@ app.get('/api/reports/site-data', requireReportSession, async (req, res) => {
 // schema change, no touch to the report save path. Registered ABOVE
 // /api/reports/:id (the :id shadowing trap). Unknown/absent site → empty groups.
 // Site Actions hub — routes/siteActions.js (Step 6 modularisation).
-app.use(require('./routes/siteActions')({ express, requireReportSession, siteCodeReadDenied: _siteCodeReadDenied, reportConfig }));
+app.use(require('./routes/siteActions')({ express, requireReportSession, siteCodeReadDenied: _siteCodeReadDenied, reportConfig, getCommitmentStore: () => _cmtStore }));
 // ── Report-write authorisation (audit 2026-09-05, F5) ────────────────────────
 // A valid session is NOT enough to write a report or one of its follow-ups: the
 // caller must (1) hold the editor role, (2) be scoped to the OBJECT's site — a
@@ -7777,6 +7777,7 @@ const _trkStore = require('./routes/trackers').createStore(require('./tracker-db
 app.use(require('./routes/trackers')({ express, requireReportSession, store: _trkStore }));
 const _govStore = require('./routes/governance').createStore(require('./reports-db')), _repStore = require('./routes/reportStudio').createStore(require('./reports-db')), _engStore = require('./routes/engagement').createStore(require('./reports-db')), _fieldStore = require('./routes/field').createStore(require('./reports-db'));   // Steps 8-10 — governance (018), report studio + engagement (019), field outbox (020)
 app.use(require('./routes/governance')({ express, requireReportSession, store: _govStore, trackerStore: _trkStore })); app.use(require('./routes/reportStudio')({ express, requireReportSession, store: _repStore, dashStore: _dashStore, engStore: _engStore, aiProvider: AI_PROVIDER, aiCall: require('./services/engagementJobs').aiCallFrom(_execAiCall) })); app.use(require('./routes/engagement')({ express, requireReportSession, store: _engStore, dashStore: _dashStore, reportStore: _repStore })); app.use(require('./routes/extApi')({ express, store: _engStore })); app.use(require('./routes/field')({ express, requireReportSession, store: _fieldStore, dashStore: _dashStore, trackerStore: _trkStore }));
+const _cmtStore = require('./routes/commitments').createStore(require('./reports-db')); app.use(require('./routes/commitments')({ express, requireReportSession, store: _cmtStore, sendHtmlPage }));   // 2027 Goal 02 — canonical commitments (021), flag commitments_enabled
 
 // ══════════════════════════════════════════════════════════════════
 // MEETINGS — routes live in routes/meetings.js (Step 5 modularisation). The meetings-db
