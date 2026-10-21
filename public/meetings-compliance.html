@@ -259,12 +259,6 @@
 
   function authHeaders() {
     const h = {};
-    const at = window.__authToken;
-    let tok = null;
-    if (typeof at === 'function') { try { tok = at(); } catch(_) {} }
-    else if (typeof at === 'string' && at) { tok = at; }
-    if (!tok) tok = localStorage.getItem('report_token');
-    if (tok) h['x-report-token'] = tok;
     return h;
   }
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));

@@ -1812,11 +1812,9 @@ async function confirmDelete(){
   // block local cleanup either — better to leave the user with a
   // clean local state than to lock them out of their own form.
   try {
-    const tok = document.cookie.match(/report_token=([^;]+)/)?.[1] || localStorage.getItem('report_token') || '';
     const r = await fetch('/api/inspection/' + encodeURIComponent(doomedId), {
       method:      'DELETE',
-      credentials: 'same-origin',
-      headers:     tok ? { 'x-report-token': tok } : {},
+      credentials: 'same-origin',   // E5: the httpOnly session cookie is the credential
     });
     // RBAC audit 2026-10-02 (A3): a REFUSAL is not a failure to work around. The
     // server only lets an administrator delete an inspection; when it says no, the
@@ -3698,20 +3696,7 @@ document.addEventListener('DOMContentLoaded', init);
 
   function authHeaders() {
     const h = { 'Content-Type': 'application/json' };
-    // Token source: auth.js on this page stores `window.__authToken` as
-    // the token STRING directly. Other dashboard pages historically
-    // exposed it as a function that returns the token. Tolerate both
-    // shapes and fall back to localStorage so a misconfigured page can
-    // never throw "__authToken is not a function" mid-fetch.
-    let tok = null;
-    const at = window.__authToken;
-    if (typeof at === 'function') {
-      try { tok = at(); } catch(_) {}
-    } else if (typeof at === 'string' && at) {
-      tok = at;
-    }
-    if (!tok) tok = localStorage.getItem('report_token');
-    if (tok) h['x-report-token'] = tok;
+    // E5: no token header — the httpOnly session cookie travels with every same-origin call.
     return h;
   }
 

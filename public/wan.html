@@ -224,7 +224,7 @@
   const fmt = v => v == null ? '—' : (typeof v === 'number' ? (Math.round(v * 10) / 10) : v);
 
   async function api(path) {
-    const h = {}; const at = window.__authToken; if (at) h['x-report-token'] = at;
+    const h = {};
     const r = await fetch(path, { headers: h });
     if (!r.ok) throw new Error('HTTP ' + r.status);
     return r.json();
@@ -346,7 +346,7 @@
       const btn = $('wh-sync'); btn.style.display = '';
       btn.addEventListener('click', async function () {
         btn.disabled = true; btn.textContent = '⏳ Syncing…';
-        try { await fetch('/api/analytics/wan/sync', { method: 'POST', headers: window.__authToken ? { 'x-report-token': window.__authToken } : {} }); } catch {}
+        try { await fetch('/api/analytics/wan/sync', { method: 'POST', headers: {} }); } catch {}
         btn.disabled = false; btn.textContent = '⚡ Sync now'; loadSummary();
       });
     }
@@ -367,7 +367,7 @@
   }
 
   async function api(path) {
-    const h = {}; const at = window.__authToken; if (at) h['x-report-token'] = at;
+    const h = {};
     const r = await fetch(path, { headers: h });
     if (!r.ok) throw new Error('HTTP ' + r.status);
     return r.json();
@@ -574,7 +574,7 @@
     if (_rec) _rec.addEventListener('click', async function () {
       this.disabled = true; const old = this.textContent; this.textContent = '⏳ Réconciliation…';
       try {
-        const res = await fetch('/api/analytics/wan/sla/sync?days=30', { method: 'POST', headers: window.__authToken ? { 'x-report-token': window.__authToken } : {} });
+        const res = await fetch('/api/analytics/wan/sla/sync?days=30', { method: 'POST', headers: {} });
         const r = await res.json().catch(() => ({}));
         this.textContent = (r && r.ok !== false) ? '✓ Réconcilié' : '⚠ ' + ((r && (r.reason || r.error)) || 'non configuré');
         outagesLoaded = false; reload();

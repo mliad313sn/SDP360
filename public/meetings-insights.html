@@ -599,7 +599,6 @@
   // ───────── Auth helper ────────────────────────────────────────────
   function ah() {
     if (window.__ak)        return { 'X-Dash-Key': window.__ak };
-    if (window.__authToken) return { 'x-report-token': window.__authToken };
     return {};
   }
 

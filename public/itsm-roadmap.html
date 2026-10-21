@@ -211,8 +211,6 @@
 
   function authHeaders(json) {
     var h = {};
-    var at = window.__authToken;
-    if (at) h['x-report-token'] = at;
     if (json) h['Content-Type'] = 'application/json';
     return h;
   }

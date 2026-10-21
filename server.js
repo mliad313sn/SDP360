@@ -137,6 +137,7 @@ function safeError(err, res, fallbackStatus = 500) {
 // The nonce is still generated and used for the window.__ak injection script,
 // but CSP enforcement relies on 'unsafe-inline' + domain allowlist.
 // This is appropriate for an internal private-network dashboard.
+const sessionAuth = require('./services/sessionAuth');   // E5: cookie-only browser session + strict CSP pages
 app.use((req, res, next) => {
   // Generate a nonce — still used to inject window.__ak into HTML pages
   const nonce = crypto.randomBytes(16).toString('base64');
@@ -155,7 +156,7 @@ app.use((req, res, next) => {
   // style-src keeps 'unsafe-inline' (many inline styles throughout).
   res.setHeader('Content-Security-Policy', [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' cdn.jsdelivr.net cdnjs.cloudflare.com",
+    sessionAuth.scriptSrc(nonce, sessionAuth.isStrictCspPath(req.path)),   // E5: nonce-only on public/share pages
     "style-src 'self' 'unsafe-inline' fonts.googleapis.com cdn.jsdelivr.net cdnjs.cloudflare.com",
     "font-src 'self' fonts.gstatic.com data:",
     "img-src 'self' data:",
@@ -1050,7 +1051,7 @@ app.use('/api/', async (req, res, next) => {
   const cookieToken = getCookie(req, 'report_token');
   const browserContext = !!(cookieToken || req.headers.origin);
   if (!browserContext && _safeEqual(key, DASH_API_KEY)) return next(); // server-to-server key (constant-time)
-  const token = req.headers['x-report-token'] || cookieToken;
+  const token = sessionAuth.sessionToken(req);
   if (rdb && token) {
     let user; try { user = await rdb.validateSession(token); } catch (e) { user = null; }
     if (user) return next();
@@ -1268,7 +1269,7 @@ function loadHtml(name) {
 // when the request carries a valid session (fiche C1) — without one the page is served bare and
 // public/auth.js redirects to login.html (the key must never be readable from an anonymous GET).
 async function _hasValidSession(req) {
-  const token = req && (req.headers['x-report-token'] || getCookie(req, 'report_token'));
+  const token = req && sessionAuth.sessionToken(req);
   if (!rdb || !token) return false;
   try { return !!(await rdb.validateSession(token)); } catch (e) { return false; }
 }
@@ -1284,6 +1285,7 @@ async function sendHtmlPage(res, name, injectApiKey, fallbackMsg) {
     html = html.replace('</head>', `<script nonce="${res.locals.nonce}">window.__ak='${DASH_API_KEY}';</script>\n</head>`);
   }
   html = html.replace(/%%CSP_NONCE%%/g, res.locals.nonce);
+  if (sessionAuth.STRICT_PAGES.includes('/' + name)) html = sessionAuth.nonceScripts(html, res.locals.nonce);
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   // Page HTML must NOT be cached by the browser — every visit gets a fresh
   // CSP nonce. Static assets (.js, .css, fonts) are cached aggressively below.
@@ -5100,7 +5102,7 @@ try {
 // (await on the sqlite path resolves synchronously — no behaviour change).
 async function requireReportSession(req, res, next) {
   if (!rdb) return res.status(503).json({ error: 'Reports module not available' });
-  const token = req.headers['x-report-token'] || getCookie(req, 'report_token');
+  const token = sessionAuth.sessionToken(req);
   let user;
   try { user = await rdb.validateSession(token); }
   catch (e) { console.error('[auth] validateSession failed:', e.message); return res.status(500).json({ error: 'Auth check failed' }); }
@@ -5626,12 +5628,13 @@ app.post('/api/reports/auth/login', loginLimiter, jsonBody, async (req, res) => 
         maxAge:   24 * 60 * 60 * 1000, // 24 hours
       });
     }
-    res.json({ token: result.token, user: result.user });
+    res.json({ user: result.user });   // E5: the token travels ONLY in the httpOnly cookie
   } catch(e) { fail(res, e); }
 });
 
 app.post('/api/reports/auth/logout', requireReportSession, async (req, res) => {
-  const token = req.headers['x-report-token'];
+  const token = sessionAuth.sessionToken(req);
+  res.clearCookie('report_token', { httpOnly: true, sameSite: 'lax' });   // E5: expire the session cookie
   try { await rdb.logout(token); rdb.logEvent({ category:'auth', action:'logout', ...rdb._logCtx(req) }); res.json({ ok: true }); }
   catch(e) { fail(res, e); }
 });
@@ -5741,14 +5744,14 @@ app.get('/api/auth/sso/callback', async (req, res) => {
     res.cookie('report_token', session.token, {
       httpOnly: true, secure: netBinding.cookieSecure(req, SESSION_COOKIE_SECURE), sameSite: 'lax', maxAge: rdb.sessionHours() * 60 * 60 * 1000,
     });
-    // …and hand the token to localStorage via a tiny page (mirrors the password
-    // flow; token is in the HTTPS response body, never in the URL).
-    const payload = JSON.stringify({ token: session.token, user: session.user });
+    // …and hand the (non-sensitive) profile to localStorage via a tiny page. E5: the token
+    // itself never reaches page script — the httpOnly cookie is the session.
+    const payload = JSON.stringify({ user: session.user }).replace(/</g, '\\u003c');
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(`<!doctype html><meta charset="utf-8"><title>Signing in…</title>
 <body style="font-family:system-ui;background:#0f1419;color:#cbd5e1;display:grid;place-items:center;height:100vh;margin:0">
 <div>Signing you in…</div>
-<script>try{var d=${payload};localStorage.setItem('report_token',d.token);localStorage.setItem('report_user',JSON.stringify(d.user));}catch(e){}location.replace('/index.html');</script>
+<script nonce="${res.locals.nonce}">try{var d=${payload};localStorage.removeItem('report_token');localStorage.setItem('report_user',JSON.stringify(d.user));}catch(e){}location.replace('/index.html');</script>
 </body>`);
   } catch (e) {
     console.error('[SSO] callback failed:', e.code || '', e.message);

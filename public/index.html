@@ -451,7 +451,7 @@ document.addEventListener('DOMContentLoaded', function applyNavRole() {
 });
 async function pgGet(ep,ms){
   ms=ms||35000;
-  const hdrs = window.__ak ? {'X-Dash-Key': window.__ak} : (window.__authToken ? {'x-report-token': window.__authToken} : {});
+  const hdrs = window.__ak ? {'X-Dash-Key': window.__ak} : ({});
   const to=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),ms));
   const fx=fetch(PROXY+ep,{headers:hdrs}).then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.json();});
   return Promise.race([fx,to]);
@@ -873,7 +873,7 @@ function exportRiskRegister(){
   // pattern inline.
   const _rrHdrs = window.__ak
     ? { 'X-Dash-Key': window.__ak }
-    : (window.__authToken ? { 'x-report-token': window.__authToken } : {});
+    : ({});
   fetch('/api/risk-register-export?month=' + encodeURIComponent(month), { headers: _rrHdrs })
     .then(async (res) => {
       if (!res.ok) {
@@ -1757,7 +1757,7 @@ async function forceSync(){
   if(btn){btn.disabled=true;btn.textContent='⏳ Syncing…';}
   stxt.textContent='Triggering sync…';
   try{
-    const hdrs={'Content-Type':'application/json','x-report-token':window.__authToken||''};
+    const hdrs={'Content-Type':'application/json'};
     // Trigger all three sync jobs in parallel (non-blocking — server responds immediately)
     await Promise.all([
       fetch(PROXY+'/api/sync/trigger/requests',   {method:'POST',headers:hdrs}),

@@ -7,12 +7,14 @@
   'use strict';
   var $ = function (id) { return document.getElementById(id); };
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
-  var token = null; try { token = localStorage.getItem('report_token'); } catch (_) { token = null; }
-  if (!token) { location.href = '../login.html?next=' + encodeURIComponent('/field/index.html'); return; }
-  var H = function (extra) { return Object.assign({ 'x-report-token': token }, extra || {}); };
+  // E5: the session is the httpOnly report_token cookie (sent by the browser); only the cached
+  // profile is readable here. An expired cookie answers 401 and sends the user to login.
+  var profile = null; try { profile = localStorage.getItem('report_user'); } catch (_) { profile = null; }
+  if (!profile) { location.href = '../login.html?next=' + encodeURIComponent('/field/index.html'); return; }
+  var H = function (extra) { return Object.assign({}, extra || {}); };
   function api(path, o) {
     o = o || {};
-    return fetch(path, { method: o.method || 'GET', headers: H(o.body ? { 'content-type': 'application/json' } : {}), body: o.body ? JSON.stringify(o.body) : undefined })
+    return fetch(path, { method: o.method || 'GET', credentials: 'same-origin', headers: H(o.body ? { 'content-type': 'application/json' } : {}), body: o.body ? JSON.stringify(o.body) : undefined })
       .then(function (r) { return r.json().then(function (j) { j.__status = r.status; j.__stale = r.headers.get('x-field-cache') === 'stale'; return j; }); });
   }
   function uuid() { if (crypto.randomUUID) return crypto.randomUUID(); var b = crypto.getRandomValues(new Uint8Array(16)); b[6] = (b[6] & 0x0f) | 0x40; b[8] = (b[8] & 0x3f) | 0x80; var h = Array.from(b, function (x) { return x.toString(16).padStart(2, '0'); }).join(''); return h.slice(0, 8) + '-' + h.slice(8, 12) + '-' + h.slice(12, 16) + '-' + h.slice(16, 20) + '-' + h.slice(20); }

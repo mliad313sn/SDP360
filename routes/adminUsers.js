@@ -165,7 +165,7 @@ router.delete('/api/reports/sessions/:token', requireReportSession, (req, res, n
     if (!token) return res.status(400).json({ error: 'token is required' });
     // Defensive: prevent kicking your own session by accident. The
     // client-side UI also greys the button on is_self rows.
-    if (token === (req.headers['x-report-token'] || getCookie(req, 'report_token'))) {
+    if (token === require('../services/sessionAuth').sessionToken(req)) {
       return res.status(400).json({ error: 'Cannot force-logout your own session — use the regular Logout instead.' });
     }
     const r = await rdb.forceLogoutByToken(token);

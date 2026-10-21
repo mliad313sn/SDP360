@@ -52,7 +52,7 @@
 (function () {
   "use strict";
   var R = window.DashboardRender, $ = function (id) { return document.getElementById(id); }, esc = R.escapeHtml;
-  var H = function (x) { return Object.assign(window.__authToken ? { "x-report-token": window.__authToken } : {}, x || {}); };
+  var H = function (x) { return Object.assign({}, x || {}); };
   function api(p, o) { return fetch(p, Object.assign({ headers: H(o && o.body ? { "content-type": "application/json" } : {}) }, o || {})).then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || ("HTTP " + r.status)); return j; }); }); }
   var msg = function (h, cls) { $("msg").innerHTML = h ? "<div class=\"" + (cls || "ok") + "\">" + esc(h) + "</div>" : ""; };
   var fail = function (e) { msg(e.message, "errors"); };

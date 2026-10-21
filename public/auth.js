@@ -1,6 +1,6 @@
 /**
  * Unified Auth Helper — Endeavour Mining IT Dashboard
- * Checks session token, redirects to login if not authenticated,
+ * Checks the cached profile (the session itself is the httpOnly cookie), redirects to login if not authenticated,
  * and enforces role-based access per page.
  *
  * Usage: <script src="auth.js" data-require="super_admin"></script>
@@ -14,12 +14,15 @@
  *   (no attribute)             — defaults to "any"
  */
 (function() {
-  const TOKEN_KEY = 'report_token';
+  // Fiche E5 (2026-10-20): the session is the httpOnly report_token COOKIE only — page script
+  // can no longer read it, so an XSS cannot steal it. localStorage keeps just the non-sensitive
+  // profile (report_user); a pre-E5 'report_token' copy is removed on sight.
+  const LEGACY_TOKEN_KEY = 'report_token';
   const USER_KEY  = 'report_user';
 
-  function getToken()    { return localStorage.getItem(TOKEN_KEY); }
   function getUser()     { try { return JSON.parse(localStorage.getItem(USER_KEY)); } catch { return null; } }
-  function clearSession(){ localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(USER_KEY); }
+  function clearSession(){ try { localStorage.removeItem(LEGACY_TOKEN_KEY); } catch (_) {} localStorage.removeItem(USER_KEY); }
+  try { localStorage.removeItem(LEGACY_TOKEN_KEY); } catch (_) {}
 
   function redirectLogin() {
     const next = encodeURIComponent(location.pathname.split('/').pop() + location.search);
@@ -30,11 +33,10 @@
   const scriptTag   = document.currentScript;
   const requireRole = scriptTag ? (scriptTag.getAttribute('data-require') || 'any') : 'any';
 
-  const token = getToken();
   const user  = getUser();
 
-  // No token → go to login
-  if (!token || !user) return redirectLogin();
+  // No cached profile → go to login (an expired cookie is caught by the /auth/me check below)
+  if (!user) return redirectLogin();
 
   // ── Multi-role helper ────────────────────────────────────────────
   // Resolves the hierarchy chain (super_admin > executive > admin > editor >
@@ -89,21 +91,17 @@
 
   // Expose user info globally for pages to use
   window.__authUser      = user;
-  window.__authToken     = token;
+  window.__authToken     = null;   // E5: kept defined (legacy callers test it) but never a token
   window.__userHasRole   = userHasRoleClient;
   window.__isExecutive   = userHasRoleClient('executive');     // hierarchy: exec or super_admin
   window.__isSuperAdmin  = (user.role === 'super_admin') || userHasRoleClient('super_admin');
 
   // Helper: add auth header to all fetch calls
-  window.__authHeaders = function() {
-    return { 'x-report-token': token };
-  };
+  window.__authHeaders = function() { return {}; };   // the cookie travels by itself
 
-  // Since 2026-10-20 (fiche C1) the server injects window.__ak ONLY when the request carried a
-  // valid session, and the key alone no longer satisfies the /api/ gate from a browser. Pages
-  // that still send only 'X-Dash-Key' (executive, analytics, deck builder, freshness bars) must
-  // therefore ALSO present the session: attach x-report-token to every same-origin /api/ call that
-  // does not carry one yet. Pages' own fetch wrappers chain on top of this one.
+  // Fiche C1: the key alone no longer satisfies the /api/ gate from a browser, the session must
+  // come too. Fiche E5: that session is the cookie, so every same-origin /api/ call is sent with
+  // credentials:'same-origin' (the fetch default, made explicit so no caller can drop it).
   (function attachSessionToApiFetch() {
     if (typeof window.fetch !== 'function' || window.__sessionFetchPatched) return;
     window.__sessionFetchPatched = true;
@@ -112,17 +110,7 @@
       try {
         const u = (typeof url === 'string') ? url : (url && url.url) || '';
         const isApi = u.indexOf('/api/') !== -1 && (u.indexOf('://') === -1 || u.indexOf(location.origin) === 0);
-        if (isApi) {
-          opts = Object.assign({}, opts || {});
-          const h = opts.headers;
-          if (h instanceof Headers) { if (!h.has('x-report-token')) h.set('x-report-token', token); }
-          else if (Array.isArray(h)) { if (!h.some(p => String(p[0]).toLowerCase() === 'x-report-token')) h.push(['x-report-token', token]); }
-          else {
-            const o = Object.assign({}, h || {});
-            if (!Object.keys(o).some(k => k.toLowerCase() === 'x-report-token')) o['x-report-token'] = token;
-            opts.headers = o;
-          }
-        }
+        if (isApi) opts = Object.assign({}, opts || {}, { credentials: 'same-origin' });
       } catch (_) { /* never break a fetch over an auth header */ }
       return _base(url, opts);
     };
@@ -131,8 +119,7 @@
   // Helper: logout function available to all pages
   window.__logout = function() {
     fetch('/api/reports/auth/logout', {
-      method: 'POST',
-      headers: { 'x-report-token': token }
+      method: 'POST', credentials: 'same-origin'
     }).finally(() => {
       clearSession();
       location.replace('login.html');
@@ -148,7 +135,7 @@
   // gates (a lost page access then redirects through the normal data-require check).
   const _roleSig = u => ((u && Array.isArray(u.roles) && u.roles.length) ? u.roles : (u && u.role ? [u.role] : []))
     .slice().sort().join(',');
-  fetch('/api/reports/auth/me', { headers: { 'x-report-token': token } })
+  fetch('/api/reports/auth/me', { credentials: 'same-origin' })
     .then(async r => {
       if (r.status === 401) {
         clearSession();

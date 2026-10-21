@@ -97,7 +97,7 @@ module.exports = function engagementRoutes(deps) {
       }
       const embed = l.embed && req.query.embed === '1';
       if (embed) { res.removeHeader('X-Frame-Options'); res.setHeader('Content-Security-Policy', `default-src 'none'; style-src 'unsafe-inline'; img-src data:; frame-ancestors ${String(c.embed_frame_ancestors || '').trim() || "'self'"}`); }
-      res.setHeader('Cache-Control', 'no-store'); res.type('html').send(html.replace('</body>', `<p style="font-family:Calibri,Arial;font-size:11px;color:#6b7785">Shared read-only view · expires ${String(l.expires_at).slice(0, 16).replace('T', ' ')} UTC${l.max_views ? ` · ${l.views}/${l.max_views} views` : ''}</p></body>`));
+      res.setHeader('Cache-Control', 'no-store'); /* E5: the global CSP is nonce-only on /share/ and shared HTML carries no script — none is ever nonced here */ res.type('html').send(html.replace('</body>', `<p style="font-family:Calibri,Arial;font-size:11px;color:#6b7785">Shared read-only view · expires ${String(l.expires_at).slice(0, 16).replace('T', ' ')} UTC${l.max_views ? ` · ${l.views}/${l.max_views} views` : ''}</p></body>`));
     } catch (e) { res.status(500).send('Share view failed'); }
   });
 

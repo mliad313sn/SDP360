@@ -98,6 +98,9 @@ test('(f) key alone: accepted server-to-server, refused in a browser context (Or
   assert.equal(stale.status, 401, 'key + invalid session cookie → 401');
   const ok = await req('GET', '/api/ping', { 'x-dash-key': KEY, origin: base, cookie: `report_token=${superToken}` });
   assert.equal(ok.status, 200, 'key + valid session cookie in a browser context → 200');
-  const sessionOnly = await req('GET', '/api/ping', { 'x-report-token': viewerToken, origin: base });
+  // E5: in a browser context the session is the COOKIE; the header form is for non-browser callers.
+  const sessionOnly = await req('GET', '/api/ping', { cookie: `report_token=${viewerToken}`, origin: base });
   assert.equal(sessionOnly.status, 200, 'a session alone (no key) passes the gate');
+  const headerOnly = await req('GET', '/api/ping', { 'x-report-token': viewerToken });
+  assert.equal(headerOnly.status, 200, 'a non-browser caller (no Origin, no cookie) may still use the header');
 });
