@@ -182,6 +182,34 @@ test('pg users: e-mail is stored on create/update and returned by listUsers (+ h
   } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
 });
 
+test('pg SSO (E2): findUserByEntra is oid-first, e-mail fallback restricted, linkUserEntra never re-links', async (t) => {
+  const b = await boot(); if (!b) return t.skip('no pg');
+  const { ctx, rdb } = b;
+  try {
+    const r = await rdb.createUser({ username: 'hugo', full_name: 'Hugo', password: 'pw12345678', roles: ['editor'], email: 'Hugo.L@edv-ops.com' });
+    const uid = r.lastID;
+    let u = await rdb.findUserByEntra({ oid: 'oid-h1', email: 'hugo.l@edv-ops.com', email_source: 'email' });
+    assert.ok(u && u.id === uid, 'pre-provisioning: unlinked row matched by verified e-mail');
+    assert.equal(await rdb.findUserByEntra({ oid: 'oid-h1', email: 'hugo.l@edv-ops.com', email_source: 'preferred_username' }), null, 'preferred_username never matches');
+    assert.equal(await rdb.linkUserEntra(uid, 'oid-h1', 'hugo.l@edv-ops.com'), true);
+    u = await rdb.findUserByEntra({ oid: 'oid-h1', email: 'changed@edv-ops.com', email_source: 'email' });
+    assert.ok(u && u.id === uid, 'linked: oid wins over a changed e-mail');
+    assert.equal(await rdb.findUserByEntra({ oid: 'oid-h2', email: 'hugo.l@edv-ops.com', email_source: 'email' }), null, 'linked row is not re-matched by e-mail');
+    await assert.rejects(rdb.linkUserEntra(uid, 'oid-h2', 'hugo.l@edv-ops.com'), e => e.code === 'sso_link_conflict');
+    assert.ok(await rdb.findUserByEntra({ oid: 'oid-h1' }), 'oid unchanged after the refused re-link');
+    assert.equal(await rdb.linkUserEntra(uid, 'oid-h1', null), true, 'same oid again is a no-op');
+    const { rows } = await rdb.listSystemLog({ action: 'sso_link_conflict' }, { limit: 5, offset: 0 });
+    assert.ok(rows.length >= 1 && Number(rows[0].risk) === 1, 'conflict journaled as a risk event');
+    // break-glass + super_admin are never reached through the e-mail fallback
+    const bg = await rdb.createUser({ username: 'bg', full_name: 'Break Glass', password: 'pw12345678', roles: ['admin'], email: 'bg@edv-ops.com' });
+    assert.equal(await rdb.findUserByEntra({ oid: 'oid-bg', email: 'bg@edv-ops.com', email_source: 'email', breakglassUser: 'bg' }), null);
+    assert.ok(await rdb.findUserByEntra({ oid: 'oid-bg', email: 'bg@edv-ops.com', email_source: 'upn', breakglassUser: 'other' }), 'exclusion keyed on the configured name');
+    const root = await rdb.createUser({ username: 'root2', full_name: 'Root', password: 'pw12345678', roles: ['super_admin'], email: 'root2@edv-ops.com' });
+    assert.ok(root.lastID && bg.lastID);
+    assert.equal(await rdb.findUserByEntra({ oid: 'oid-root', email: 'root2@edv-ops.com', email_source: 'email' }), null, 'super_admin: oid-only');
+  } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
+});
+
 // ── Task 3: copy-reports-auth.js parity ─────────────────────────────────────
 function _makeAuthSqliteFixture() {
   const Database = require('better-sqlite3');

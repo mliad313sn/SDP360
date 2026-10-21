@@ -138,6 +138,38 @@ you only maintain **email + role + site**. First successful Microsoft sign-in
 links the stable Entra `oid`; from then on the match is by `oid` (immune to
 email changes).
 
+### Linking rule (since 2026-10-20, remediation E2)
+
+The match is **`oid` first, always**. The e-mail is only a *bootstrap* for an
+account that has never signed in with Microsoft, and that fallback is narrow:
+
+| Condition | E-mail fallback |
+|---|---|
+| The dashboard user already has an `entra_oid` | **never** — a linked account cannot be re-matched through its (mutable) e-mail, even by a token carrying a different `oid` |
+| The e-mail comes from the `email` (verified) or `upn` claim | allowed |
+| The e-mail comes from `preferred_username` only | **never** — it is a display alias, not an identity |
+| The user is the break-glass account (`sso_breakglass_user`) | **never** |
+| The user holds `super_admin` | **never** — such accounts are linked only by `oid` (sign them in once while `SSO_MODE=available`? No: they stay password accounts unless an administrator links them deliberately — see below) |
+
+Consequences for the administrator:
+
+- An account that must sign in with Microsoft needs its **e-mail mapped before**
+  its first sign-in (§7). A `super_admin` who needs SSO is first created / kept
+  as a regular `admin`, signs in once (which stamps the `oid`), and is promoted
+  afterwards — the promotion never widens the e-mail fallback.
+- A token whose `oid` differs from the one already stored on the matched account
+  is **refused** with the neutral "not set up in the dashboard" message, and a
+  `sso_link_conflict` **risk event** appears in System Logs. Investigate it: it is
+  either a re-created Entra object (clear the old link by hand) or an attempt to
+  take over the account.
+- If Entra omits the `groups` claim because the user is in too many groups
+  (`_claim_names` overage), the sign-in succeeds but **no group-based role or
+  site provisioning is applied** for that login and a `sso_groups_overage` risk
+  event is logged. Fix it in Entra (emit groups assigned to the application only)
+  or set the roles by hand.
+- Entra error descriptions are **truncated and redacted** before they reach the
+  server log (no URLs, no secret-looking values).
+
 ---
 
 ## How it works (reference)

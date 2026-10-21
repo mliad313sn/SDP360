@@ -1891,22 +1891,58 @@ function updateUser(id, { full_name, password, site_id, role, roles, active, ema
 }
 
 // ── Entra ID (Azure AD) SSO helpers ──────────────────────────────────────────
-// findUserByEntra: resolve a Microsoft identity to a dashboard user — prefer the
-// stable oid link, fall back to a case-insensitive email match (pre-provisioning).
+// findUserByEntra: resolve a Microsoft identity to a dashboard user — the stable
+// oid link FIRST. The e-mail fallback exists only for pre-provisioning (a user
+// who has never signed in with Microsoft) and is deliberately narrow (E2):
+//   · only when the row's entra_oid IS NULL (an already-linked account can never
+//     be re-matched through its mutable e-mail),
+//   · only on a VERIFIED claim — `email` or `upn`; never `preferred_username`
+//     (a display alias the tenant user can influence),
+//   · never for the break-glass account (opts.breakglassUser) nor a super_admin.
 // Returns the raw active user row, or null (→ caller denies: not provisioned).
-function findUserByEntra({ oid, email } = {}) {
-  if (REPORTS_BACKEND === 'postgres') return _findUserByEntraPg({ oid, email });
-  let u = null;
-  if (oid)          u = db.prepare(`SELECT * FROM users WHERE entra_oid=? AND active=1`).get(oid);
-  if (!u && email)  u = db.prepare(`SELECT * FROM users WHERE lower(email)=lower(?) AND active=1`).get(email);
-  return u || null;
+const _SSO_EMAIL_SOURCES = new Set(['email', 'upn']);
+function _ssoEmailFallbackAllowed({ email, email_source }) {
+  if (!email) return false;
+  const src = email_source == null ? 'email' : String(email_source);
+  return _SSO_EMAIL_SOURCES.has(src);
+}
+function _ssoCandidateAllowed(u, roles, breakglassUser) {
+  if (!u) return false;
+  if (u.entra_oid) return false;                                        // already linked → oid only
+  if (breakglassUser && String(u.username) === String(breakglassUser)) return false;
+  if (userHasRole({ id: u.id, roles }, 'super_admin')) return false;   // sensitive accounts: oid only
+  return true;
+}
+function findUserByEntra({ oid, email, email_source, breakglassUser } = {}) {
+  if (REPORTS_BACKEND === 'postgres') return _findUserByEntraPg({ oid, email, email_source, breakglassUser });
+  if (oid) {
+    const u = db.prepare(`SELECT * FROM users WHERE entra_oid=? AND active=1`).get(oid);
+    if (u) return u;
+  }
+  if (!_ssoEmailFallbackAllowed({ email, email_source })) return null;
+  const c = db.prepare(`SELECT * FROM users WHERE lower(email)=lower(?) AND active=1 AND entra_oid IS NULL`).get(email);
+  if (!c) return null;
+  return _ssoCandidateAllowed(c, getUserRoles(c.id), breakglassUser) ? c : null;
 }
 // linkUserEntra: on first successful SSO match, stamp the stable oid. Set the
 // email too only if the row didn't already have one (don't clobber a curated value).
+// NEVER overwrites a different existing oid: that is a risk event
+// ('sso_link_conflict') and the caller refuses the login (E2).
+function _ssoLinkConflict(u, oid) {
+  const err = new Error('SSO link conflict: account already linked to another Entra identity');
+  err.code = 'sso_link_conflict';
+  logEvent({ category:'auth', action:'sso_link_conflict', actor:'sso', actor_id:u.id, target:u.username, risk:1,
+             details:{ has_existing_oid:true, incoming_oid: String(oid || '').slice(0, 64) } });
+  return err;
+}
 function linkUserEntra(userId, oid, email) {
   if (REPORTS_BACKEND === 'postgres') return _linkUserEntraPg(userId, oid, email);
-  db.prepare(`UPDATE users SET entra_oid=?, email=COALESCE(email, ?) WHERE id=?`)
+  const u = db.prepare(`SELECT id, username, entra_oid FROM users WHERE id=?`).get(userId);
+  if (!u) return false;
+  if (u.entra_oid && oid && String(u.entra_oid) !== String(oid)) throw _ssoLinkConflict(u, oid);
+  db.prepare(`UPDATE users SET entra_oid=COALESCE(entra_oid, ?), email=COALESCE(email, ?) WHERE id=?`)
     .run(oid || null, (email && String(email).toLowerCase()) || null, userId);
+  return true;
 }
 // updateUserProfileFromEntra: refresh the display profile FROM Microsoft on each
 // SSO login. COALESCE so a field only overwrites when Entra actually supplied it
@@ -1953,16 +1989,25 @@ function createSessionForUser(userId) {
 }
 
 // PostgreSQL forks — reports.db may run under REPORTS_BACKEND=postgres later.
-async function _findUserByEntraPg({ oid, email } = {}) {
+async function _findUserByEntraPg({ oid, email, email_source, breakglassUser } = {}) {
   const h = pgHandle();
-  let u = null;
-  if (oid)         u = await h.prepare(`SELECT * FROM users WHERE entra_oid=? AND active=1`).get(oid);
-  if (!u && email) u = await h.prepare(`SELECT * FROM users WHERE lower(email)=lower(?) AND active=1`).get(email);
-  return u || null;
+  if (oid) {
+    const u = await h.prepare(`SELECT * FROM users WHERE entra_oid=? AND active=1`).get(oid);
+    if (u) return u;
+  }
+  if (!_ssoEmailFallbackAllowed({ email, email_source })) return null;
+  const c = await h.prepare(`SELECT * FROM users WHERE lower(email)=lower(?) AND active=1 AND entra_oid IS NULL`).get(email);
+  if (!c) return null;
+  return _ssoCandidateAllowed(c, await getUserRoles(c.id), breakglassUser) ? c : null;
 }
 async function _linkUserEntraPg(userId, oid, email) {
-  await pgHandle().prepare(`UPDATE users SET entra_oid=?, email=COALESCE(email, ?) WHERE id=?`)
+  const h = pgHandle();
+  const u = await h.prepare(`SELECT id, username, entra_oid FROM users WHERE id=?`).get(userId);
+  if (!u) return false;
+  if (u.entra_oid && oid && String(u.entra_oid) !== String(oid)) throw _ssoLinkConflict(u, oid);
+  await h.prepare(`UPDATE users SET entra_oid=COALESCE(entra_oid, ?), email=COALESCE(email, ?) WHERE id=?`)
     .run(oid || null, (email && String(email).toLowerCase()) || null, userId);
+  return true;
 }
 async function _createSessionForUserPg(userId) {
   const h = pgHandle();
@@ -8221,6 +8266,7 @@ async function _getRequestFilterOptionsPg() {
 // invoke it BARE (never awaited, never chained → clear of await-precedence).
 const _RISK_ACTIONS = new Set([
   'login_failed','session_killed','user_deleted','user_role_changed','password_reset','report_deleted',
+  'sso_link_conflict','sso_groups_overage',
 ]);
 function _isRiskAction(action) { return _RISK_ACTIONS.has(String(action || '')); }
 
