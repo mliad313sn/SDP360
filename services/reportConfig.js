@@ -127,6 +127,8 @@ const DEFAULTS = {
   //    WORKSPACE_ID / ORG_ID) — services/analyticsSettings resolves database → .env → default.
   analytics_client_id: '', analytics_client_secret: '', analytics_refresh_token: '',
   analytics_workspace_id: '', analytics_org_id: '', analytics_accounts_url: '',
+  // 2027 Goal 02 — canonical commitments (routes/commitments.js, hub badge). OFF = no behaviour change.
+  commitments_enabled: '0',
 };
 // ── Sync alerting (Step 1). Recipients = comma list of e-mail addresses; teams_url = a
 //    Workflows webhook (SECRET, blank-keep). Nothing is sent while both are empty.

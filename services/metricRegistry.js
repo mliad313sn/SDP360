@@ -81,6 +81,10 @@ const SEED = [
   // Programme scores — the two authoritative models, registered as metrics (policies as data).
   M('programme.site_score', 'Programme score (sbDims)', 'Score programme (sbDims)', 'programme', 'points', '6 dims × 0/1/2 ÷ 12 × 100 over a rolling 3-month window — the author’s model, ported verbatim', 'rolling3m', 'site-score', 'programme.site_score', 'score', { source: 'services/siteScore.js' }),
   M('programme.composite', 'Operational composite (4 dims)', 'Composite opérationnel (4 dimensions)', 'programme', 'points', 'weighted 40/20/20/20 mean renormalised over present dims (helpdesk SLA, inspections, meetings, assets)', 'month', 'site-composite', 'programme.composite', 'score', { source: 'services/siteScoreboard.js' }),
+  // 2027 Goal 02 — canonical commitments. DRAFT: definitions pending Committee (decision D-04); not
+  // listed by list() (published only) until the committee approves them. Empty denominator → null.
+  { ...M('commitments.verified_on_time_pct', 'Commitments verified on time', 'Engagements vérifiés à temps', 'commitments', '%', 'verified_closed with verified_at ≤ due_date ÷ verified_closed carrying a due_date (technical completion alone never counts)', 'current', null, 'commitments.summary', 'verified_on_time_pct', { source: 'services/commitmentMetrics.js' }), status: 'draft — pending committee' },
+  { ...M('commitments.technical_vs_verified', 'Verified share of technically completed commitments', 'Part vérifiée des engagements techniquement terminés', 'commitments', '%', 'verified_closed ÷ commitments with technical_completed_at set (pending = the difference)', 'current', null, 'commitments.summary', 'verified_of_technical_pct', { source: 'services/commitmentMetrics.js' }), status: 'draft — pending committee' },
 ];
 
 // WAN report band (≥ target → green, ≥ target × 0.9 → amber) expressed as a policy on the
@@ -125,6 +129,12 @@ function resolveWindow(kind, win, now = new Date()) {
 // deps: { rdb, mdb, idb, adb, tracker (loadTracker), trackerScore ({ss,fleetStats}), siteResolve, listSites, aliases }
 // site: canonical site_id (number). A reader returns ONE record (fields for several metrics).
 const READERS = {
+  // 2027 Goal 02 — commitment metrics. deps.commitmentStore absent → not measured (null).
+  async 'commitments.summary'(d, { site }) {
+    if (!d || !d.commitmentStore) return null;
+    const rows = await d.commitmentStore.metricRows({ siteIds: site == null ? null : [Number(site)] });
+    return require('./commitmentMetrics').summary(rows);
+  },
   async 'helpdesk.calendar_month'(d, { site, win }) {
     const r = await d.rdb.getCalendarMonthlyHelpdesk(site, win.year, win.month);
     if (!r) return null; // site has no Zoho group → not measured

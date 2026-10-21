@@ -214,6 +214,7 @@
       <a href="#en-25">25. Meeting Cockpit, Portfolio &amp; RFI</a>
       <a href="#en-26">26. Report Studio, Notifications &amp; Integrations</a>
       <a href="#en-27">27. Field app (offline)</a>
+      <a href="#en-28">28. Commitments &amp; verified closure</a>
     </div>
 
     <!-- Content -->
@@ -1240,6 +1241,16 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Confirm-Destructive.ps1"
           <li><strong>Low-bandwidth mode</strong> hides photos and reduces refreshes. The <em>Dashboard</em> tab shows the published "My site — field" dashboard with its own data date.</li>
         </ul>
       </div>
+      <div class="section" id="en-28">
+        <h2><span class="section-num">28</span>Commitments &amp; verified closure (2027 Goal 02)</h2>
+        <ul>
+          <li><strong>What</strong> — one <em>commitment</em> per business need, inspection finding, control weakness, risk, issue, corrective action, improvement or decision, linked to its sources (meeting action, inspection action, report follow-up, SDP ticket or change). Page <code>/commitments.html</code>; linked rows in Site Actions carry a badge (<em>awaiting verification</em> in amber). Off until the administrator sets <code>commitments_enabled</code>.</li>
+          <li><strong>Done is not closed</strong> — IT moves the commitment to <em>awaiting verification</em> (technical completion). Only the <strong>named reviewer</strong> (business or control owner) — or the admin tier — may verify, reject for rework or accept a residual risk. The owner, an executor or the creator can never verify their own commitment, a super_admin included. A ticket closed in SDP never closes a commitment.</li>
+          <li><strong>High / critical</strong> — cannot leave <em>captured</em> without an accountable owner, a due date (or an approved exception) and a treatment plan.</li>
+          <li><strong>Evidence</strong> — PDF, PNG, JPEG, WebP, text or CSV up to 10 MB (or an https link); the server computes the SHA-256 and checks the file really is what it claims. A new version supersedes the old one, which is kept.</li>
+          <li><strong>History</strong> — every change is an event; a due-date change keeps the baseline and needs a reason; two people editing at once: the second is told to reload (nothing is overwritten).</li>
+        </ul>
+      </div>
     </div><!-- /content -->
   </div><!-- /doc-layout -->
 </div><!-- /sec-en -->
@@ -1352,6 +1363,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Confirm-Destructive.ps1"
       <a href="#fr-25">25. Cockpit de réunion, portefeuille &amp; RFI</a>
       <a href="#fr-26">26. Studio de rapports, notifications &amp; intégrations</a>
       <a href="#fr-27">27. Application terrain (hors-ligne)</a>
+      <a href="#fr-28">28. Engagements &amp; clôture vérifiée</a>
     </div>
 
     <div class="content">
@@ -2375,6 +2387,16 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Confirm-Destructive.ps1"
           <li><strong>Actions</strong> — les actions ouvertes de votre site (inspections et réunions) : <em>Close</em>, ou transfert vers <em>Ticket</em> / <em>Demand</em> / <em>Cancel</em>, qui exigent une justification (et le n° de ticket SDP pour un ticket), exactement comme dans le hub Site Actions. <strong>Signaler au helpdesk</strong> crée un ticket SDP seulement si l'administrateur a activé la création depuis le terrain ; sinon le bouton l'indique.</li>
           <li><strong>Exactement une fois</strong> — chaque élément en file porte un identifiant unique : si le téléphone le renvoie (réseau instable), le serveur répond « déjà appliqué » et ne duplique jamais. Un élément refusé par le serveur (mauvais site, justification manquante) sort de la file avec le motif affiché.</li>
           <li><strong>Mode bas débit</strong> : masque les photos et réduit les rafraîchissements. L'onglet <em>Dashboard</em> montre le tableau de bord publié « Mon site — terrain » avec sa propre date de données.</li>
+        </ul>
+      </div>
+      <div class="section" id="fr-28">
+        <h2><span class="section-num">28</span>Engagements &amp; clôture vérifiée (objectif 2027 n° 2)</h2>
+        <ul>
+          <li><strong>Quoi</strong> — un <em>engagement</em> par besoin métier, constat d'inspection, faiblesse de contrôle, risque, problème, action corrective, amélioration ou décision, relié à ses sources (action de réunion, action d'inspection, suivi du rapport, ticket ou changement SDP). Page <code>/commitments.html</code> ; dans Site Actions, les lignes liées portent un badge (<em>en attente de vérification</em> en orange). Inactif tant que l'administrateur n'a pas posé <code>commitments_enabled</code>.</li>
+          <li><strong>Terminé n'est pas clôturé</strong> — l'IT passe l'engagement en <em>attente de vérification</em> (fin technique). Seul le <strong>vérificateur désigné</strong> (responsable métier ou contrôle) — ou le palier admin — peut vérifier, renvoyer en reprise ou accepter un risque résiduel. Le responsable, un exécutant ou le créateur ne peut jamais vérifier son propre engagement, super_admin compris. Un ticket fermé dans SDP ne clôture jamais un engagement.</li>
+          <li><strong>Élevé / critique</strong> — ne quitte pas l'état <em>saisi</em> sans responsable, date d'échéance (ou exception approuvée) et plan de traitement.</li>
+          <li><strong>Preuves</strong> — PDF, PNG, JPEG, WebP, texte ou CSV jusqu'à 10 Mo (ou un lien https) ; le serveur calcule le SHA-256 et vérifie que le fichier est bien ce qu'il annonce. Une nouvelle version remplace l'ancienne, qui est conservée.</li>
+          <li><strong>Historique</strong> — chaque changement est un événement ; un report d'échéance garde la date initiale et exige un motif ; deux personnes qui modifient en même temps : la seconde est invitée à recharger (rien n'est écrasé).</li>
         </ul>
       </div>
     </div><!-- /content -->

@@ -52,6 +52,13 @@ module.exports = function siteActionsRoutes(deps) {
       links = await require('../services/meridianLinks').getLinksForSite(code, { config: cfg });
     } catch (_) { links = {}; }
     require('../services/meridianActions').attachProjectLinks(sa, links, baseUrl);
+    // 2027 Goal 02 — commitment status + "awaiting verification" badge on linked rows (flag
+    // commitments_enabled). Best-effort, never blocks the hub; flag off → no field added.
+    try {
+      const cfg = await reportConfig.getConfig(rdb.db);
+      const store = String(cfg.commitments_enabled) === '1' && deps.getCommitmentStore && deps.getCommitmentStore();
+      if (store) require('../services/commitmentBackfill').attachCommitments(sa, await store.linksFor(require('../services/commitmentBackfill').hubPairs(sa)));
+    } catch (_) { /* hub renders without the badge */ }
     res.json({ site: code, ...sa });
   } catch (e) { fail(res, e); }
 });
