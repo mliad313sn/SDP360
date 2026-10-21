@@ -4,8 +4,8 @@
 //
 //   node tools/sdp-manager.js status          [--dir <install>] [--url http://localhost:3456]
 //   node tools/sdp-manager.js backup          [--dir <install>] [--out <backupDir>]
-//   node tools/sdp-manager.js verify  <zip>   # manifest check only, touches nothing
-//   node tools/sdp-manager.js update  <zip>   [--dir <install>] [--no-backup] [--no-npm] [--no-migrate] [--no-restart] [--allow-downgrade]
+//   node tools/sdp-manager.js verify  <zip>   [--allow-unsigned] [--public-key <pem>]   # manifest + signature check only, touches nothing
+//   node tools/sdp-manager.js update  <zip>   [--dir <install>] [--no-backup] [--no-npm] [--no-migrate] [--no-restart] [--allow-downgrade] [--allow-unsigned] [--public-key <pem>]
 //   node tools/sdp-manager.js rollback        [--dir <install>] [--no-restart]
 //   node tools/sdp-manager.js support-bundle  [--dir <install>] [--out <file.zip>]
 //
@@ -13,6 +13,11 @@
 // implementation of "apply a package", exercised by tests/sdp-manager.smoke.test.js on a
 // throwaway directory. Rules it enforces (services/updatePackage.js is the pure half):
 //   - a package is applied only when every file hashes as its manifest says;
+//   - E1: the manifest must carry an Ed25519 signature that verifies against the public key in
+//     tools/manifest-public.pem (next to this file; --public-key overrides). No signature →
+//     refused unless --allow-unsigned, and that override is LOGGED (logs/sdp-manager.log + the
+//     system_log hook when one is injected). A signature that does not verify is ALWAYS refused:
+//     an altered package is never applied, whatever the flags;
 //   - downgrade refused (rollback is the way back); same version refused unless --reinstall;
 //   - before copying: PostgreSQL dump (unless --no-backup) + the CURRENT runtime files are
 //     kept under <dir>/.rollback/<version>/ — `rollback` restores them byte for byte;
@@ -30,6 +35,21 @@ const pkg = require('../services/updatePackage');
 const DEFAULT_DIR = process.platform === 'win32' ? 'C:\\Apps\\SDP-Dashboard' : path.resolve(__dirname, '..');
 
 function log(msg) { process.stdout.write(msg + '\n'); }
+const DEFAULT_PUBLIC_KEY = path.join(__dirname, 'manifest-public.pem');
+function loadPublicKey(file = DEFAULT_PUBLIC_KEY) {
+  try { return fs.readFileSync(file, 'utf8'); } catch (e) { throw new Error(`manifest public key unreadable (${file}): ${e.message}`); }
+}
+/**
+ * Manager audit line: appended to <dir>/logs/sdp-manager.log (created on demand) and handed to
+ * `systemLog(event)` when the caller injects one (the server's rdb.logEvent, when reachable —
+ * the standalone CLI has no open database, so the file is the floor, never the only hope).
+ */
+function auditLog(dir, event, { systemLog, out } = {}) {
+  const line = JSON.stringify({ ts: new Date().toISOString(), ...event });
+  try { fs.mkdirSync(path.join(dir, 'logs'), { recursive: true }); fs.appendFileSync(path.join(dir, 'logs', 'sdp-manager.log'), line + '\n'); } catch (_) { /* no install dir yet */ }
+  if (typeof systemLog === 'function') { try { const r = systemLog({ category: 'config', ...event }); if (r && r.catch) r.catch(() => {}); } catch (_) { /* never blocks */ } }
+  if (out) out(`[update] AUDIT ${event.action}: ${event.detail || ''}`);
+}
 function arg(flag, def) { const i = process.argv.indexOf(flag); return i > 0 && process.argv[i + 1] && !process.argv[i + 1].startsWith('--') ? process.argv[i + 1] : def; }
 function has(flag) { return process.argv.includes(flag); }
 
@@ -65,11 +85,23 @@ async function openPackage(zipPath) {
   }
   return { manifest, blobs };
 }
-async function verifyPackage(zipPath) {
+/**
+ * Full pre-apply check: file hashes, protected paths, manifest SIGNATURE.
+ * `result.signature` = { signed, ok, reason, key_id, allowed_unsigned }.
+ */
+async function verifyPackage(zipPath, { publicKeyPem, allowUnsigned = false } = {}) {
   const { manifest, blobs } = await openPackage(zipPath);
   const r = pkg.verifyManifest(manifest, (p) => blobs.get(p) || null);
   const prot = Object.keys(manifest.files || {}).filter(pkg.isProtected);
   if (prot.length) { r.ok = false; r.errors.push('package lists protected paths: ' + prot.join(', ')); }
+  const sig = pkg.verifyManifestSignature(manifest, publicKeyPem || loadPublicKey());
+  sig.allowed_unsigned = false;
+  if (sig.signed && !sig.ok) { r.ok = false; r.errors.push('manifest signature invalid: ' + sig.reason); }
+  else if (!sig.signed) {
+    if (allowUnsigned) sig.allowed_unsigned = true;
+    else { r.ok = false; r.errors.push('manifest is not signed (pass --allow-unsigned to accept a package of unknown origin — this is logged)'); }
+  }
+  r.signature = sig;
   return { manifest, blobs, result: r };
 }
 
@@ -151,10 +183,18 @@ async function probeHealth(url, env, { timeoutMs = 60000 } = {}) {
  * external steps; the apply/rollback logic itself always runs.
  */
 async function applyPackage(zipPath, { dir, backup = true, npm = true, migrate = true, restart = true, probe = true,
-  allowDowngrade = false, reinstall = false, url = 'http://localhost:3456', env = readEnv(dir), out = log, backupDir, afterCopy } = {}) {
-  const { manifest, blobs, result } = await verifyPackage(zipPath);
+  allowDowngrade = false, reinstall = false, allowUnsigned = false, publicKeyPem, systemLog,
+  url = 'http://localhost:3456', env = readEnv(dir), out = log, backupDir, afterCopy } = {}) {
+  const { manifest, blobs, result } = await verifyPackage(zipPath, { publicKeyPem, allowUnsigned });
   if (!result.ok) {
     throw new Error(`package refused: ${result.errors.concat(result.missing.map(m => 'missing ' + m), result.mismatched.map(m => 'corrupt ' + m)).join('; ')}`);
+  }
+  if (result.signature.allowed_unsigned) {
+    auditLog(dir, { action: 'package_unsigned_allowed', risk: 1, actor: os.userInfo().username, target: path.basename(zipPath),
+      detail: `--allow-unsigned: unsigned package ${manifest.version} (commit ${manifest.commit || '?'}) accepted on operator decision`,
+      details: { version: manifest.version, commit: manifest.commit || null, files: Object.keys(manifest.files || {}).length } }, { systemLog, out });
+  } else {
+    out(`[update] manifest signature OK (key ${result.signature.key_id})`);
   }
   const current = installedVersion(dir);
   const can = pkg.canApply(current, manifest.version, { allowDowngrade, allowSame: reinstall });
@@ -294,14 +334,15 @@ async function main() {
       return log(r.skipped ? `[backup] skipped: ${r.reason}` : `[backup] ${r.file}`);
     }
     case 'verify': {
-      const { manifest, result } = await verifyPackage(path.resolve(process.argv[3] || ''));
-      log(`[verify] ${manifest.name} ${manifest.version} commit ${manifest.commit || '?'} — ${result.checked} files checked`);
+      const { manifest, result } = await verifyPackage(path.resolve(process.argv[3] || ''), { allowUnsigned: has('--allow-unsigned'), publicKeyPem: has('--public-key') ? loadPublicKey(path.resolve(arg('--public-key'))) : undefined });
+      log(`[verify] ${manifest.name} ${manifest.version} commit ${manifest.commit || '?'} — ${result.checked} files checked, signature: ${result.signature.ok ? 'OK (key ' + result.signature.key_id + ')' : result.signature.signed ? 'INVALID' : result.signature.allowed_unsigned ? 'NONE (accepted by --allow-unsigned)' : 'NONE'}`);
       if (!result.ok) { log('[verify] REFUSED: ' + result.errors.concat(result.missing.map(m => 'missing ' + m), result.mismatched.map(m => 'corrupt ' + m)).join('; ')); process.exit(2); }
       return log('[verify] OK');
     }
     case 'update': return applyPackage(path.resolve(process.argv[3] || ''), {
       dir, url, backup: !has('--no-backup'), npm: !has('--no-npm'), migrate: !has('--no-migrate'), restart: !has('--no-restart'),
-      allowDowngrade: has('--allow-downgrade'), reinstall: has('--reinstall'),
+      allowDowngrade: has('--allow-downgrade'), reinstall: has('--reinstall'), allowUnsigned: has('--allow-unsigned'),
+      publicKeyPem: has('--public-key') ? loadPublicKey(path.resolve(arg('--public-key'))) : undefined,
     });
     case 'rollback': return rollback({ dir, restart: !has('--no-restart') });
     case 'support-bundle': return supportBundle({ dir, url, file: arg('--out', null) });
@@ -315,4 +356,4 @@ if (require.main === module) {
   main().catch(e => { process.stderr.write('[sdp-manager] ' + e.message + '\n'); process.exit(1); });
 }
 
-module.exports = { readEnv, installedManifest, installedVersion, openPackage, verifyPackage, keepForRollback, latestRollback, restoreFrom, applyPackage, rollback, status, supportBundle, probeHealth };
+module.exports = { readEnv, installedManifest, installedVersion, openPackage, verifyPackage, loadPublicKey, auditLog, DEFAULT_PUBLIC_KEY, keepForRollback, latestRollback, restoreFrom, applyPackage, rollback, status, supportBundle, probeHealth };

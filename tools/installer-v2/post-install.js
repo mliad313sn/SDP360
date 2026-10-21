@@ -150,7 +150,9 @@ async function main() {
   try {
     if (pkgZip) {
       // The manager does verify + rollback point + copy; npm/migrate/restart are run below (we log them).
-      sh(process.execPath, [fs.existsSync(mgr) ? mgr : path.join(path.dirname(pkgZip), 'sdp-manager.js'), 'update', pkgZip, '--dir', DIR, '--no-backup', '--no-npm', '--no-migrate', '--no-restart', ...(MODE === 'repair' ? ['--reinstall'] : [])]);
+      sh(process.execPath, [fs.existsSync(mgr) ? mgr : path.join(path.dirname(pkgZip), 'sdp-manager.js'), 'update', pkgZip, '--dir', DIR, '--no-backup', '--no-npm', '--no-migrate', '--no-restart', ...(MODE === 'repair' ? ['--reinstall'] : []),
+        // E1: an unsigned package is refused by the manager unless the operator opted in (logged by the manager).
+        ...(process.argv.includes('--allow-unsigned') ? ['--allow-unsigned'] : [])]);
       applied = true;
     }
     const envFile = path.join(DIR, '.env');

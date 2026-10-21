@@ -11,8 +11,12 @@
 // manifest, not against a memory of what was shipped. Install state (.env, data/, logs/,
 // node_modules/) is never in a package (services/updatePackage.PROTECTED).
 //
-// Signing: CI signs the zip (and Setup.exe) with the certificate held as a secret; the
-// package format itself is unchanged whether or not a signature travels with it.
+// Signing (E1): when the env var SIGNING_MANIFEST_KEY holds the Ed25519 private key (PKCS8 PEM,
+// a CI secret — never a file in the repo, never printed), manifest.json carries an Ed25519
+// signature the Manager verifies against tools/manifest-public.pem before applying. Without
+// the key the manifest is built UNSIGNED and the log says so loudly; the Manager will then
+// refuse the package unless the operator passes --allow-unsigned. Authenticode on Setup.exe
+// is a separate step in release.yml (certificate secrets).
 
 const fs = require('fs');
 const path = require('path');
@@ -48,7 +52,7 @@ function listRuntimeFiles(root = ROOT) {
   }).sort();
 }
 
-async function buildPackage({ outDir, version, commit, root = ROOT, log = console.log }) {
+async function buildPackage({ outDir, version, commit, root = ROOT, log = console.log, signingKey = process.env.SIGNING_MANIFEST_KEY }) {
   const names = new Set(listRuntimeFiles(root));
   for (const b of BUNDLES) {
     if (!fs.existsSync(path.join(root, b))) throw new Error(`missing front-end bundle ${b} — run "npm run build" first`);
@@ -57,7 +61,12 @@ async function buildPackage({ outDir, version, commit, root = ROOT, log = consol
   const files = [...names].sort().map(p => ({ path: p, data: fs.readFileSync(path.join(root, p)) }));
   // package-lock IS needed to `npm ci --omit=dev` on the server — ship it explicitly.
   files.push({ path: 'package-lock.json', data: fs.readFileSync(path.join(root, 'package-lock.json')) });
-  const manifest = pkgSvc.buildManifest(files, { version, commit });
+  let manifest = pkgSvc.buildManifest(files, { version, commit });
+  let signed = false;
+  if (signingKey && String(signingKey).trim()) {
+    manifest = pkgSvc.signManifest(manifest, String(signingKey).trim());   // key is used, never logged
+    signed = true;
+  }
   const zip = new JSZip();
   for (const f of files) zip.file('files/' + f.path, f.data);
   zip.file('manifest.json', JSON.stringify(manifest, null, 2));
@@ -69,7 +78,8 @@ async function buildPackage({ outDir, version, commit, root = ROOT, log = consol
   fs.writeFileSync(path.join(outDir, name + '.sha256'), pkgSvc.sha256(buf) + '  ' + name + '\n');
   fs.writeFileSync(path.join(outDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
   log(`[package] ${name}: ${files.length} files, ${(buf.length / 1048576).toFixed(1)} MB, commit ${commit || '?'}`);
-  return { out, manifest, count: files.length, bytes: buf.length };
+  log(signed ? `[package] manifest signed (ed25519, key ${manifest.signature.key_id})` : '[package] manifest NOT signed — SIGNING_MANIFEST_KEY is not set; the Manager will refuse this package without --allow-unsigned');
+  return { out, manifest, count: files.length, bytes: buf.length, signed };
 }
 
 function argValue(flag, def) { const i = process.argv.indexOf(flag); return i > 0 && process.argv[i + 1] ? process.argv[i + 1] : def; }

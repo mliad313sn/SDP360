@@ -1,26 +1,42 @@
 name: Release
 
-# Step 5 — on a version tag: test, build the update package (manifest + SHA-256), build
-# SDP-Dashboard-Setup-<version>.exe with Inno Setup, sign the .exe when the certificate secrets
-# exist (a zip cannot carry Authenticode: its integrity is the .sha256 line + per-file manifest,
-# and the SIGNED Setup.exe embeds the very same zip), attach everything to the GitHub release. Unsigned artefacts are still published
-# (marked as such) so a release never waits on the certificate — but the Manager shows a
-# warning when it applies an unsigned package.
+# Step 5 — on a version tag: test, build the update package (manifest + SHA-256 + Ed25519
+# manifest signature), build SDP-Dashboard-Setup-<version>.exe with Inno Setup, Authenticode-sign
+# the .exe when the certificate secrets exist (a zip cannot carry Authenticode: its integrity is
+# the signed manifest, and the SIGNED Setup.exe embeds the very same zip), attach everything to
+# the GitHub release. Unsigned artefacts are still published (marked as such in SIGNING.txt) so a
+# release never waits on the certificate — but the Manager REFUSES an unsigned manifest unless the
+# operator passes --allow-unsigned (logged).
 #
-# Secrets (optional): SIGNING_CERT_PFX_BASE64, SIGNING_CERT_PASSWORD.
+# E1 rules enforced here (tests/ci-config.test.js fails if they regress):
+#   - the signing condition is a JOB-level env (`SIGN`) computed from the secret, read by the
+#     steps with `env.SIGN == 'true'` — a step-level `env:` is NOT visible to that step's own `if:`
+#     (the previous `if: env.PFX != ''` was always false → every release said "signed: NO");
+#   - the certificate password reaches signtool through `env:` of the ISCC step ONLY, expanded
+#     at run time inside a wrapper script — never written to GITHUB_ENV, never on a logged
+#     command line (CLAUDE.md: a secret is never on a command line);
+#   - the manifest signing key reaches the packager through `env:` of its step only;
+#   - every action is pinned by commit SHA (tag kept as a comment), least-privilege permissions:
+#     `contents: read` for the workflow, `contents: write` only on the publish job.
+#
+# Secrets (all optional — without them the release is published unsigned and says so):
+#   SIGNING_CERT_PFX_BASE64, SIGNING_CERT_PASSWORD   Authenticode certificate for Setup.exe
+#   SIGNING_MANIFEST_KEY                              Ed25519 private key, PKCS8 PEM, whose public
+#                                                     half is committed as tools/manifest-public.pem
 
 on:
   push:
     tags: ['v*']
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   package:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.v.outputs.version }}
+      manifest_signed: ${{ steps.pkg.outputs.manifest_signed }}
     env:
       DASH_USER: ci-admin
       DASH_PASS: ci-password-0000!
@@ -37,8 +53,8 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
         with:
           node-version: 22
           cache: npm
@@ -54,9 +70,28 @@ jobs:
       - run: node db/migrate.js
       - run: npm run build:check
       - run: npm test
-      - name: Build update package
-        run: node tools/deploy/make-update-package.js --out dist --version "${{ steps.v.outputs.version }}" --commit "${GITHUB_SHA::7}"
-      - uses: actions/upload-artifact@v4
+      - id: pkg
+        name: Build update package (manifest signed when SIGNING_MANIFEST_KEY is set)
+        env:
+          SIGNING_MANIFEST_KEY: ${{ secrets.SIGNING_MANIFEST_KEY }}
+        run: |
+          node tools/deploy/make-update-package.js --out dist --version "${{ steps.v.outputs.version }}" --commit "${GITHUB_SHA::7}"
+          if node -e "process.exit(require('./dist/manifest.json').signature ? 0 : 1)"; then
+            echo "manifest_signed=yes" >> "$GITHUB_OUTPUT"
+          else
+            echo "manifest_signed=no" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Manager accepts the freshly built package (signature + hashes)
+        # Exactly what the server will run. Fails the release if the embedded public key does not
+        # match the signing secret (or, unsigned, proves the refusal path still works).
+        run: |
+          if [ "${{ steps.pkg.outputs.manifest_signed }}" = "yes" ]; then
+            node tools/sdp-manager.js verify "dist/sdp-dashboard-${{ steps.v.outputs.version }}.zip"
+          else
+            if node tools/sdp-manager.js verify "dist/sdp-dashboard-${{ steps.v.outputs.version }}.zip"; then echo "unsigned package must be refused"; exit 1; fi
+            node tools/sdp-manager.js verify "dist/sdp-dashboard-${{ steps.v.outputs.version }}.zip" --allow-unsigned
+          fi
+      - uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
           name: package
           path: dist/
@@ -64,33 +99,70 @@ jobs:
   installer:
     needs: package
     runs-on: windows-latest
+    env:
+      # Job-level flag: a step-level env is NOT visible to the step's own `if:`.
+      SIGN: ${{ secrets.SIGNING_CERT_PFX_BASE64 != '' }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
           name: package
           path: dist
       - name: Install Inno Setup
         run: choco install innosetup --no-progress -y
       - name: Import signing certificate (when configured)
-        if: ${{ env.PFX != '' }}
+        if: env.SIGN == 'true'
         env:
           PFX: ${{ secrets.SIGNING_CERT_PFX_BASE64 }}
         shell: pwsh
         run: |
+          # The certificate goes to a temp file; the PASSWORD is NOT handled here — it is passed as
+          # env to the ISCC step and read by the wrapper below at run time (never logged).
           [IO.File]::WriteAllBytes("$env:RUNNER_TEMP\sign.pfx", [Convert]::FromBase64String($env:PFX))
-          echo "SIGNTOOL=signtool sign /f $env:RUNNER_TEMP\sign.pfx /p ${{ secrets.SIGNING_CERT_PASSWORD }} /tr http://timestamp.digicert.com /td sha256 /fd sha256" >> $env:GITHUB_ENV
+          $wrapper = @'
+          @echo off
+          signtool sign /f "%RUNNER_TEMP%\sign.pfx" /p "%SIGNING_CERT_PASSWORD%" /tr http://timestamp.digicert.com /td sha256 /fd sha256 %1
+          '@
+          Set-Content -Path "$env:RUNNER_TEMP\sdp-sign.cmd" -Value $wrapper -Encoding ascii
+          Get-Command signtool -ErrorAction SilentlyContinue | Out-Null
+          if (-not $?) { echo "signtool not on PATH" ; exit 1 }
       - name: Build Setup.exe
         shell: pwsh
+        env:
+          SIGNING_CERT_PASSWORD: ${{ secrets.SIGNING_CERT_PASSWORD }}
         run: |
           $v = "${{ needs.package.outputs.version }}"
-          $sign = if ($env:SIGNTOOL) { "/S""signtool=$env:SIGNTOOL""" ; "/DSignTool=signtool" } else { @() }
+          $sign = @()
+          # SDP-Dashboard.iss appends ` $f` itself (SignTool={#SignTool} $f): pass the wrapper path only.
+          if ($env:SIGN -eq 'true') { $sign = @("/Ssigntool=`"$env:RUNNER_TEMP\sdp-sign.cmd`"", "/DSignTool=signtool") }
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DAppVersion=$v" "/DPackageZip=$PWD\dist\sdp-dashboard-$v.zip" @sign tools\installer-v2\SDP-Dashboard.iss
       - name: Note signing state
         shell: pwsh
         run: |
-          if ($env:SIGNTOOL) { "signed: yes" } else { "signed: NO (SIGNING_CERT_PFX_BASE64 not set)" } | Tee-Object dist\SIGNING.txt
-      - uses: softprops/action-gh-release@v2
+          $exe = if ($env:SIGN -eq 'true') { "signed: YES (Authenticode)" } else { "signed: NO (SIGNING_CERT_PFX_BASE64 not set)" }
+          $mf  = if ("${{ needs.package.outputs.manifest_signed }}" -eq 'yes') { "manifest signed: YES (ed25519, tools/manifest-public.pem)" } else { "manifest signed: NO (SIGNING_MANIFEST_KEY not set) - the Manager refuses this package without --allow-unsigned" }
+          @("Setup.exe $exe", $mf) | Tee-Object dist\SIGNING.txt
+      - uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: release-files
+          path: |
+            dist/sdp-dashboard-*.zip
+            dist/sdp-dashboard-*.zip.sha256
+            dist/manifest.json
+            dist/SDP-Dashboard-Setup-*.exe
+            dist/SIGNING.txt
+
+  publish:
+    needs: [package, installer]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # the only job that writes to the repository (release assets)
+    steps:
+      - uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          name: release-files
+          path: dist
+      - uses: softprops/action-gh-release@c062e08bd532815e2082a85e87e3ef29c3e6d191 # v2.0.8
         with:
           files: |
             dist/sdp-dashboard-*.zip

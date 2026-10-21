@@ -6,16 +6,25 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const crypto = require('node:crypto');
 const JSZip = require('jszip');
 const u = require('../services/updatePackage');
 const mgr = require('../tools/sdp-manager');
 
-const OFF = { backup: false, npm: false, migrate: false, restart: false, probe: false, out: () => {} };
+// E1: packages are SIGNED (Ed25519) and the manager verifies before applying. This suite keeps
+// proving the file logic, so every fixture is signed with a key pair generated for this run and
+// the matching public key is injected — tests/update-package-signature.test.js covers the
+// refusal paths (unsigned / altered / --allow-unsigned).
+const KEYS = crypto.generateKeyPairSync('ed25519');
+const PRIV = KEYS.privateKey.export({ type: 'pkcs8', format: 'pem' });
+const PUB = KEYS.publicKey.export({ type: 'spki', format: 'pem' });
+
+const OFF = { backup: false, npm: false, migrate: false, restart: false, probe: false, out: () => {}, publicKeyPem: PUB };
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'sdp-mgr-'));
 
 async function makePackage(dir, version, files, { corrupt } = {}) {
   const list = Object.entries(files).map(([p, s]) => ({ path: p, data: Buffer.from(s) }));
-  const manifest = u.buildManifest(list, { version, commit: 'deadbee' });
+  const manifest = u.signManifest(u.buildManifest(list, { version, commit: 'deadbee' }), PRIV);
   const zip = new JSZip();
   for (const f of list) zip.file('files/' + f.path, corrupt === f.path ? Buffer.from(f.data + '!') : f.data);
   zip.file('manifest.json', JSON.stringify(manifest));
