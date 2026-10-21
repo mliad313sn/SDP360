@@ -1,6 +1,6 @@
 # SDP360 — IT Operations Management & Field Reporting Platform
 
-> **Version:** 2.0.0-alpha.1 · **Lineage:** fork of [`samaziz679/SDP-Dashboard`](https://github.com/samaziz679/SDP-Dashboard) v1.11 (Endeavour Mining IT Dashboard)
+> **Version:** 2.0.0-alpha.13 · **Lineage:** fork of [`samaziz679/SDP-Dashboard`](https://github.com/samaziz679/SDP-Dashboard) v1.11 (Endeavour Mining IT Dashboard)
 > **Stack:** Node.js 18+ / Express · PostgreSQL 17 (SQLite fallback) · ManageEngine ServiceDesk Plus via Zoho Analytics Plus + SDP Cloud API v3 · OpManager · Meraki · pptxgenjs
 > **Default port:** 3456 · **Tests:** `npm test` (Node built-in runner)
 

@@ -1,0 +1,207 @@
+{
+  "inspected_head": "49ff9e022051a8b79e32e5d826d22d2e1bb8f1bc",
+  "inspected_branch": "worktree-agent-a293ba42bd60bae16",
+  "inspected_on": "2026-10-21",
+  "status_vocabulary": {
+    "yes": "proven in this repository at the inspected HEAD (code path exists / named tests passed in the recorded run)",
+    "no": "checked and absent",
+    "partial": "present but incomplete; see notes",
+    "unknown": "cannot be proven from this sandbox (no production, field, security-review or business artefact)",
+    "documented_as_deployed": "a repository document (CLAUDE.md deploy markers / CHANGELOG) states it was deployed; NOT verified here"
+  },
+  "test_run": {
+    "command": "DASH_USER=admin DASH_PASS=*** TZ=UTC PG_ADMIN_URL=postgres://postgres@localhost:5433/postgres PG_TESTS_REQUIRED=1 npm test",
+    "exit_status": 0,
+    "tests": 2702,
+    "pass": 2691,
+    "fail": 0,
+    "skipped": 11,
+    "note": "Baseline before this goal. After adding 9 tests: 2711 tests, 2700 pass, 0 fail, 11 skipped (one earlier run under-reported 2660 — see 00-CURRENT-STATE-AND-TRUTH.md section 7)."
+  },
+  "features": [
+    {
+      "feature": "Site Actions Register (read-side hub over md_actions / insp_actions / action_items / md_issues)",
+      "paths": ["services/siteActionsRegister.js", "routes/siteActions.js", "public/site-actions.html", "public/lib/statusTransfer.js", "public/lib/actionGroups.js"],
+      "tests": ["tests/site-actions-register.test.js", "tests/site-actions-routes.smoke.test.js", "tests/site-actions-merge.smoke.test.js", "tests/status-transfer.smoke.test.js"],
+      "statuses": { "documented": "yes", "implemented_in_code": "yes", "automated_test_passed": "yes", "integrated_test_passed": "unknown", "field_validated": "unknown", "security_approved": "unknown", "deployed": "documented_as_deployed", "business_accepted": "unknown" },
+      "evidence": "CLAUDE.md 2026-07-27 SP1a..SP3 sections; terminal status sets in services/siteActionsRegister.js TERMINAL",
+      "notes": "Aggregator only — no canonical commitment identity; three terminal vocabularies (statusTransfer.DONE, actionGroups TERMINAL, inspection/report sets)."
+    },
+    {
+      "feature": "Governance cockpit (meeting cadences/sessions, session actions, decisions, RFI, native portfolio tables)",
+      "paths": ["services/governanceStore.js", "routes/governance.js", "services/portfolioEvidence.js"],
+      "tests": ["tests/governance-pure.test.js", "tests/governance-store.test.js", "tests/governance-routes.smoke.test.js", "tests/pg-governance-store.test.js"],
+      "statuses": { "documented": "yes", "implemented_in_code": "yes", "automated_test_passed": "yes", "integrated_test_passed": "unknown", "field_validated": "unknown", "security_approved": "unknown", "deployed": "unknown", "business_accepted": "unknown" },
+      "evidence": "CHANGELOG 2.0.0-alpha.9 (Étape 8); tables meeting_cadences, meeting_sessions, session_actions, decisions, rfi_requests, portfolio_* in services/governanceStore.js",
+      "notes": "portfolio_programmes/projects/milestones/deliverables/risks/objectives exist but no stage-gate, business case, budget provenance or benefit ledger. session_actions has its own status vocabulary (todo/open/done/cancelled)."
+    },
+    {
+      "feature": "Report Studio + AI commentary",
+      "paths": ["routes/reportStudio.js", "services/reportGenerator.js", "services/reportStore.js", "public/report-studio.html"],
+      "tests": ["tests/report-studio-routes.smoke.test.js", "tests/report-store.test.js", "tests/pg-report-engagement-store.test.js", "tests/ai-commentary.test.js", "tests/plain-english.test.js", "tests/plain-language-fr.test.js"],
+      "statuses": { "documented": "yes", "implemented_in_code": "yes", "automated_test_passed": "yes", "integrated_test_passed": "unknown", "field_validated": "unknown", "security_approved": "unknown", "deployed": "unknown", "business_accepted": "unknown" },
+      "evidence": "CHANGELOG 2.0.0-alpha.10 and alpha.12",
+      "notes": "No R01-R16 catalogue; no reviewed/approved/released immutable workflow verified against the 2027 brief."
+    },
+    {
+      "feature": "Metric registry + RAG policies",
+      "paths": ["services/metricRegistry.js", "routes/metrics.js", "public/lib/kpiRag.js"],
+      "tests": ["tests/metrics-registry.test.js", "tests/metrics-no-scale-outside-registry.test.js", "tests/metrics-routes.smoke.test.js", "tests/kpi-rag.test.js"],
+      "statuses": { "documented": "yes", "implemented_in_code": "yes", "automated_test_passed": "yes", "integrated_test_passed": "unknown", "field_validated": "unknown", "security_approved": "unknown", "deployed": "unknown", "business_accepted": "no" },
+      "evidence": "E9 (single site score) is blocked on committee decisions D1/D2 per docs/sdp360/review/2026-10-20-PLAN-DE-REMEDIATION-PROMPTS.md",
+      "notes": "No 2027 five-dimension scorecard (20/20/25/20/15); no committee-certified definitions."
+    },
+    {
+      "feature": "Dashboard composer (definitions, versions, widget resolver)",
+      "paths": ["services/dashboardData.js", "services/dashboardStore.js", "routes/dashboards.js", "public/dashboard-composer.html", "public/dashboards.html"],
+      "tests": ["tests/dashboard-store.test.js", "tests/dashboard-widgets.test.js", "tests/dashboards-routes.smoke.test.js", "tests/pg-dashboard-store.test.js"],
+      "statuses": { "documented": "yes", "implemented_in_code": "yes", "automated_test_passed": "yes", "integrated_test_passed": "unknown", "field_validated": "unknown", "security_approved": "unknown", "deployed": "unknown", "business_accepted": "unknown" },
+      "evidence": "tables dashboard_definitions, dashboard_definition_versions",
+      "notes": "No audience-specific landing views (domain 4)."
+    },
+    {
+      "feature": "Engagement: alert rules, notifications, digests, share links",
+      "paths": ["services/engagementJobs.js", "services/alertEngine.js", "services/engagementStore.js", "routes/engagement.js"],
+      "tests": ["tests/alert-engine.test.js", "tests/engagement-store.test.js", "tests/engagement-routes.smoke.test.js", "tests/pg-report-engagement-store.test.js"],
+      "statuses": { "documented": "yes", "implemented_in_code": "yes", "automated_test_passed": "partial", "integrated_test_passed": "unknown", "field_validated": "unknown", "security_approved": "unknown", "deployed": "unknown", "business_accepted": "unknown" },
+      "evidence": "12 seeded alert_rules asserted in tests/engagement-routes.smoke.test.js",
+      "notes": "services/engagementJobs.js itself (digest, scheduled reports, publishScheduled) has no direct unit test; A01-A16 rules not configured."
+    },
+    {
+      "feature": "Graph / SharePoint list publishing (+ Excel e-mail, webhook)",
+      "paths": ["services/engagementJobs.js"],
+      "tests": [],
+      "statuses": { "documented": "yes", "implemented_in_code": "yes", "automated_test_passed": "no", "integrated_test_passed": "unknown", "field_validated": "unknown", "security_approved": "unknown", "deployed": "unknown", "business_accepted": "unknown" },
+      "evidence": "publishScheduled in services/engagementJobs.js (client-credentials Graph call, config-gated by sharepoint_* keys); job publish.connectors in services/sync/jobs.js",
+      "notes": "No test exercises the Graph path. P0 gap."
+    },
+    {
+      "feature": "Configurable trackers (definitions, entries, unit targets, sources)",
+      "paths": ["services/trackerSources.js", "services/trackerStore.js", "routes/trackers.js", "public/tracker-builder.html", "public/trackers.html"],
+      "tests": ["tests/tracker-sources.test.js", "tests/tracker-store.test.js", "tests/trackers-routes.smoke.test.js", "tests/pg-tracker-store.test.js", "tests/tracker-definitions.test.js"],
+      "statuses": { "documented": "yes", "implemented_in_code": "yes", "automated_test_passed": "yes", "integrated_test_passed": "unknown", "field_validated": "unknown", "security_approved": "unknown", "deployed": "unknown", "business_accepted": "unknown" },
+      "evidence": "tables tracker_definitions, tracker_definition_versions, tracker_entries, tracker_unit_targets",
+      "notes": "Separate from the legacy Activity Tracker (tracker-db.js)."
+    },
+    {
+      "feature": "Field PWA (offline outbox, chunked photos)",
+      "paths": ["services/fieldOutbox.js", "services/fieldStore.js", "routes/field.js", "public/field"],
+      "tests": ["tests/field-outbox.test.js", "tests/field-store.test.js", "tests/field-routes.smoke.test.js", "tests/field-pwa-static.test.js", "tests/pg-field-store.test.js"],
+      "statuses": { "documented": "yes", "implemented_in_code": "yes", "automated_test_passed": "yes", "integrated_test_passed": "unknown", "field_validated": "unknown", "security_approved": "unknown", "deployed": "unknown", "business_accepted": "unknown" },
+      "evidence": "CHANGELOG 2.0.0-alpha.11",
+      "notes": "Never validated on a real device / mine-site network (domain 9)."
+    },
+    {
+      "feature": "Sync runner (job registry, lock, retry, run log, freshness)",
+      "paths": ["services/sync/jobs.js", "services/sync/syncRunner.js", "services/sync/schedule.js", "services/sync/syncStore.js", "services/sync/alerts.js", "routes/sync.js"],
+      "tests": ["tests/sync-jobs-registry.test.js", "tests/sync-runner.test.js", "tests/sync-schedule.test.js", "tests/sync-store-sqlite.test.js", "tests/sync-routes.smoke.test.js"],
+      "statuses": { "documented": "yes", "implemented_in_code": "yes", "automated_test_passed": "yes", "integrated_test_passed": "unknown", "field_validated": "unknown", "security_approved": "unknown", "deployed": "unknown", "business_accepted": "unknown" },
+      "evidence": "21 jobs declared in buildJobs(); FRESHNESS_HOURS and OPTIONAL sets",
+      "notes": "Freshness is not yet propagated to report publication (A08)."
+    },
+    {
+      "feature": "External API + OData (Power BI)",
+      "paths": ["routes/extApi.js", "services/odata.js"],
+      "tests": ["tests/ext-api.smoke.test.js", "tests/odata.test.js"],
+      "statuses": { "documented": "yes", "implemented_in_code": "yes", "automated_test_passed": "yes", "integrated_test_passed": "unknown", "field_validated": "unknown", "security_approved": "unknown", "deployed": "unknown", "business_accepted": "unknown" },
+      "evidence": "CHANGELOG alpha.13 M7 (header-only key, per-key limiter)",
+      "notes": "Never tested against a real Power BI consumer."
+    },
+    {
+      "feature": "Auth / RBAC / sessions / Entra SSO",
+      "paths": ["services/userSites.js", "services/ssoEntra.js", "services/ssoLogin.js", "services/ssoProvisioning.js", "services/ssoSettings.js", "routes/adminUsers.js", "public/auth.js"],
+      "tests": ["tests/authz-route-matrix.test.js", "tests/rbac-ui-gates.test.js", "tests/rbac-write-scope.smoke.test.js", "tests/sso-entra.test.js", "tests/sso-login.test.js", "tests/sso-routes.smoke.test.js", "tests/sso-settings.test.js", "tests/sso-provisioning.test.js", "tests/sso-db.test.js"],
+      "statuses": { "documented": "yes", "implemented_in_code": "yes", "automated_test_passed": "yes", "integrated_test_passed": "unknown", "field_validated": "unknown", "security_approved": "unknown", "deployed": "documented_as_deployed", "business_accepted": "unknown" },
+      "evidence": "CLAUDE.md 2026-10-02 RBAC audit (documented in prod); SSO documented as dormant pending app registration",
+      "notes": "Department-level scoping does not exist (site only)."
+    },
+    {
+      "feature": "Meetings & Council escalations (PV, issues, actions, incubation)",
+      "paths": ["meetings-db.js", "meetings-import.js", "routes/meetings.js", "public/meeting.html", "public/meetings.html"],
+      "tests": ["tests/meetings-incubation.test.js", "tests/meetings-summary.test.js", "tests/meetings-site-scope.smoke.test.js", "tests/audit-meetings-integrity.test.js", "tests/pg-meetings.test.js"],
+      "statuses": { "documented": "yes", "implemented_in_code": "yes", "automated_test_passed": "yes", "integrated_test_passed": "unknown", "field_validated": "unknown", "security_approved": "unknown", "deployed": "documented_as_deployed", "business_accepted": "unknown" },
+      "evidence": "CLAUDE.md 2026-10-03 (incubation form in prod, marker 0b649ba)",
+      "notes": "Planned vs held vs logged vs accepted not distinguished."
+    },
+    {
+      "feature": "Inspections (form, findings, corrective actions)",
+      "paths": ["inspection-db.js", "inspection-pptx.js", "routes/inspection.js", "public/inspection.html", "public/inspections.html"],
+      "tests": ["tests/inspection-routes.test.js", "tests/inspection-blobs.test.js", "tests/inspection-site-scope.smoke.test.js", "tests/pg-inspection.test.js"],
+      "statuses": { "documented": "yes", "implemented_in_code": "yes", "automated_test_passed": "yes", "integrated_test_passed": "unknown", "field_validated": "unknown", "security_approved": "unknown", "deployed": "documented_as_deployed", "business_accepted": "unknown" },
+      "evidence": "CLAUDE.md inspection module section",
+      "notes": "No severity justification / treatment-plan enforcement for high/critical findings (A01)."
+    },
+    {
+      "feature": "Assets (inventory, hygiene, finance, reconciliation)",
+      "paths": ["assets-db.js", "assets-sync.js", "public/assets.html"],
+      "tests": ["tests/assets-routes.smoke.test.js", "tests/assets-hygiene-readers.test.js", "tests/assets-integration.test.js"],
+      "statuses": { "documented": "yes", "implemented_in_code": "yes", "automated_test_passed": "yes", "integrated_test_passed": "unknown", "field_validated": "unknown", "security_approved": "unknown", "deployed": "documented_as_deployed", "business_accepted": "unknown" },
+      "evidence": "CLAUDE.md 2026-09-24 deploy markers",
+      "notes": ""
+    },
+    {
+      "feature": "OpManager infrastructure availability",
+      "paths": ["services/opmanagerClient.js", "services/opmanagerAvailability.js", "services/opmAnalytics.js", "routes/opmanager.js", "tools/opmanager/sync-availability.js"],
+      "tests": ["tests/opmanager-client.test.js", "tests/opmanager-availability.test.js", "tests/opm-routes.smoke.test.js", "tests/opm-sync.test.js"],
+      "statuses": { "documented": "yes", "implemented_in_code": "yes", "automated_test_passed": "yes", "integrated_test_passed": "unknown", "field_validated": "unknown", "security_approved": "unknown", "deployed": "unknown", "business_accepted": "unknown" },
+      "evidence": "CLAUDE.md 2026-10-02 notes the Analytics Plus OpManager view frozen at 2026-05-24",
+      "notes": "Availability only; no alarm feed; no per-site coverage matrix (C02)."
+    },
+    {
+      "feature": "Meraki WAN (quality snapshots, outages, SLA chargeback)",
+      "paths": ["services/merakiClient.js", "services/merakiWanQuality.js", "services/wanSla.js", "tools/meraki/sync-wan.js", "tools/meraki/poll-wan-outages.js", "public/wan-sla.html"],
+      "tests": ["tests/meraki-client.test.js", "tests/meraki-sync.test.js", "tests/wan-sla-engine.test.js", "tests/wan-sla-routes.smoke.test.js", "tests/wan-outage-poller.test.js"],
+      "statuses": { "documented": "yes", "implemented_in_code": "yes", "automated_test_passed": "yes", "integrated_test_passed": "unknown", "field_validated": "unknown", "security_approved": "unknown", "deployed": "documented_as_deployed", "business_accepted": "unknown" },
+      "evidence": "Five meraki.* jobs in services/sync/jobs.js",
+      "notes": "Direct infrastructure connector duplicating OpManager scope — retirement decision required (02-DECISION-LOG)."
+    },
+    {
+      "feature": "Meridian PMO federation",
+      "paths": ["routes/meridian.js", "services/meridianActions.js", "services/meridianLinks.js", "services/meridianResources.js"],
+      "tests": ["tests/meridian-actions.test.js", "tests/meridian-links.test.js", "tests/meridian-route.smoke.test.js", "tests/meridian-sync.test.js"],
+      "statuses": { "documented": "yes", "implemented_in_code": "yes", "automated_test_passed": "yes", "integrated_test_passed": "no", "field_validated": "no", "security_approved": "unknown", "deployed": "documented_as_deployed", "business_accepted": "no" },
+      "evidence": "CLAUDE.md: Meridian removed from the integrations plan 2026-09-02, keys empty in prod, dormant",
+      "notes": "External portfolio connector — excluded by the 2027 scope; retirement decision required."
+    },
+    {
+      "feature": "Backups + monthly restore drill",
+      "paths": ["services/backup.js", "services/restoreDrill.js", "tools/pg/restore-drill.js", "routes/health.js"],
+      "tests": ["tests/backup-encrypt.test.js", "tests/backup-job.test.js", "tests/restore-drill.test.js", "tests/restore-drill-admin-card.test.js"],
+      "statuses": { "documented": "yes", "implemented_in_code": "yes", "automated_test_passed": "yes", "integrated_test_passed": "partial", "field_validated": "unknown", "security_approved": "unknown", "deployed": "unknown", "business_accepted": "unknown" },
+      "evidence": "tests/restore-drill.test.js runs a real drill against the sandbox PostgreSQL; docs/ops/restore-drills/2026-10-21.md",
+      "notes": "Drill proven on a sandbox database only, not on production."
+    },
+    {
+      "feature": "Teams SLA alerts (SDP Cloud API v3 + Workflows webhooks)",
+      "paths": ["services/teamsSla.js", "services/teamsCard.js", "routes/teamsSla.js", "tools/teams/poll-sla.js"],
+      "tests": ["tests/sla-alert-log.test.js", "tests/pg-sla-alert-log.test.js"],
+      "statuses": { "documented": "yes", "implemented_in_code": "yes", "automated_test_passed": "yes", "integrated_test_passed": "unknown", "field_validated": "unknown", "security_approved": "unknown", "deployed": "unknown", "business_accepted": "unknown" },
+      "evidence": "CLAUDE.md 2026-10-04 states a test card reached a real channel (documented, not verified here)",
+      "notes": ""
+    },
+    {
+      "feature": "4MyPeople minimal people lookup",
+      "paths": ["routes/fourmypeople.js"],
+      "tests": ["tests/fmp-client.test.js"],
+      "statuses": { "documented": "yes", "implemented_in_code": "yes", "automated_test_passed": "yes", "integrated_test_passed": "unknown", "field_validated": "unknown", "security_approved": "unknown", "deployed": "unknown", "business_accepted": "unknown" },
+      "evidence": "",
+      "notes": "Approval status of the lookup is a human decision (C07)."
+    },
+    {
+      "feature": "Health / readiness probe",
+      "paths": ["routes/health.js"],
+      "tests": ["tests/api-key-injection.smoke.test.js", "tests/authz-route-matrix.test.js", "tests/restore-drill-admin-card.test.js"],
+      "statuses": { "documented": "yes", "implemented_in_code": "yes", "automated_test_passed": "yes", "integrated_test_passed": "unknown", "field_validated": "unknown", "security_approved": "unknown", "deployed": "unknown", "business_accepted": "unknown" },
+      "evidence": "GET /ready returns {ok, db, last_job_at} only",
+      "notes": "Does not expose a version; release version is not observable at runtime except via APP_VERSION (git SHA) asset query strings."
+    },
+    {
+      "feature": "Release version consistency (README / package.json / package-lock / CHANGELOG)",
+      "paths": ["README.md", "package.json", "package-lock.json", "CHANGELOG.md"],
+      "tests": ["tests/version-consistency.test.js"],
+      "statuses": { "documented": "yes", "implemented_in_code": "yes", "automated_test_passed": "yes", "integrated_test_passed": "unknown", "field_validated": "unknown", "security_approved": "unknown", "deployed": "unknown", "business_accepted": "unknown" },
+      "evidence": "Goal 01 change: all four now read 2.0.0-alpha.13",
+      "notes": ""
+    }
+  ]
+}
