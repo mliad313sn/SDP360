@@ -42,7 +42,8 @@ async function main(deps = {}) {
     if (!cfg || !cfg.meraki_api_key) { log('[meraki-wan] not configured (meraki_api_key) — skipping'); return { skipped: true }; }
 
     const client = deps.client || require('../../services/merakiClient').makeMerakiClient({
-      apiKey: cfg.meraki_api_key, orgId: cfg.meraki_org_id, baseUrl: cfg.meraki_base_url });
+      apiKey: cfg.meraki_api_key, orgId: cfg.meraki_org_id, baseUrl: cfg.meraki_base_url,
+      allowHosts: require('../../services/safeUrl').allowHostsFromConfig(cfg) });
     const wanTarget = _safeParse(cfg.opm_targets, {}).wan;
     const missing = cfg.meraki_missing_policy === 'unknown' ? 'unknown' : 'down';
     const mosCfg = _safeParse(cfg.wan_mos_config, {});   // ITU-T E-model config (R-factor → MOS)

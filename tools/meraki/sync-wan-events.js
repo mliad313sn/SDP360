@@ -30,7 +30,8 @@ async function main(deps = {}) {
     const eventTypes = new Set(cfg.event_types || []);
 
     const client = deps.client || require('../../services/merakiClient').makeMerakiClient({
-      apiKey: config.meraki_api_key, orgId: config.meraki_org_id, baseUrl: config.meraki_base_url });
+      apiKey: config.meraki_api_key, orgId: config.meraki_org_id, baseUrl: config.meraki_base_url,
+      allowHosts: require('../../services/safeUrl').allowHostsFromConfig(config) });
     const fetchEvents = deps.fetchAllNetworkEvents || require('../../services/merakiClient').fetchAllNetworkEvents;
 
     // Pre-resolve (awaited, BEFORE the pure calls): network name → targets. A network can feed

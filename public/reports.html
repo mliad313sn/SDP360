@@ -1647,6 +1647,11 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         <input type="text" id="cfg-opm-base" placeholder="https://opmanager.example.local:8061" autocomplete="off">
       </div>
       <div class="form-group">
+        <label>Allowed outbound hosts (comma-separated, exact or <code>*.suffix</code>)</label>
+        <input type="text" id="cfg-outbound-allow" placeholder="opmanager.corp.local, 10.20.30.40" autocomplete="off">
+        <div style="font-size:0.85rem;margin-top:4px;color:#6b7a99">Every webhook / API URL must be https and public. A trusted internal host (private address) is only reachable when listed here — Teams webhook hosts are always allowed.</div>
+      </div>
+      <div class="form-group">
         <label>OpManager API key (read-only)</label>
         <input type="password" id="cfg-opm-key" placeholder="leave blank to keep the stored key" autocomplete="new-password">
       </div>
@@ -7524,6 +7529,7 @@ function loadInfraConfig() {
     set('cfg-opm-view', c.opm_availability_view_id);
     // E4 — OpManager REST: secrets never echoed; show the TLS state the server will actually use.
     set('cfg-opm-base', c.opmanager_base_url);
+    set('cfg-outbound-allow', c.outbound_allow_hosts);   // M4 — allow list for private outbound hosts
     const ok = document.getElementById('cfg-opm-key'); if (ok) ok.value = '';
     const oca = document.getElementById('cfg-opm-ca'); if (oca) oca.value = '';
     const tlsSel = document.getElementById('cfg-opm-tls'); const insecure = String(c.opmanager_tls_insecure) === '1';
@@ -7625,6 +7631,7 @@ function saveInfraConfig() {
   const mk = val('cfg-meraki-key'); if (mk) patch.meraki_api_key = mk;     // blank = keep stored
   // E4 — OpManager REST (secrets: blank = keep stored)
   patch.opmanager_base_url = val('cfg-opm-base');
+  patch.outbound_allow_hosts = val('cfg-outbound-allow');   // M4
   patch.opmanager_tls_insecure = val('cfg-opm-tls') === '1' ? '1' : '0';
   const ok = val('cfg-opm-key'); if (ok) patch.opmanager_api_key = ok;
   const oca = (document.getElementById('cfg-opm-ca') || {}).value || ''; if (oca.trim()) patch.opmanager_ca_bundle = oca.trim();

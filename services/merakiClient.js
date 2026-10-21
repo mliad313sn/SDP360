@@ -10,9 +10,9 @@
 //   /devices/{serial}/lossAndLatencyHistory                — per-uplink loss/latency ≤31d
 //   /networks/{network}/events                             — event log (PAGINATED object, not array)
 let _axios = null;
-function _defaultGet() {
-  if (!_axios) _axios = require('axios');
-  return (url, opts) => _axios.get(url, opts);
+function _defaultGet(allowHosts) {
+  // M4 — the real transport validates the URL (https, no private address unless allow-listed), maxRedirects:0.
+  return require('./safeUrl').safeGet(allowHosts);
 }
 function _clean(params) {
   const out = {};
@@ -20,8 +20,8 @@ function _clean(params) {
   return out;
 }
 
-function makeMerakiClient({ apiKey, orgId, baseUrl = 'https://api.meraki.com/api/v1', get } = {}) {
-  const transport = get || _defaultGet();
+function makeMerakiClient({ apiKey, orgId, baseUrl = 'https://api.meraki.com/api/v1', allowHosts, get } = {}) {
+  const transport = get || _defaultGet(allowHosts);
   const configured = !!(apiKey && orgId);
   const headers = { 'X-Cisco-Meraki-API-Key': apiKey, Accept: 'application/json' };
 

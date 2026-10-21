@@ -34,7 +34,8 @@ async function main(deps = {}) {
     const cfg = parseSlaWanConfig(config.sla_wan_config);
 
     const client = deps.client || require('../../services/merakiClient').makeMerakiClient({
-      apiKey: config.meraki_api_key, orgId: config.meraki_org_id, baseUrl: config.meraki_base_url });
+      apiKey: config.meraki_api_key, orgId: config.meraki_org_id, baseUrl: config.meraki_base_url,
+      allowHosts: require('../../services/safeUrl').allowHostsFromConfig(config) });
     const mailer = deps.mailer || require('../../services/mailer').buildMailer(config);
 
     // Pre-resolve network name → [{site_id, sub_site}] targets (a network can fan to the

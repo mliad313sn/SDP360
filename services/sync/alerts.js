@@ -72,10 +72,13 @@ function emailSender({ mailer, to, from }) {
     await mailer.send({ to, from, subject: msg.title, text: `${msg.text}\n\n${msg.at}`, html: `<p><b>${escapeHtml(msg.title)}</b></p><p>${escapeHtml(msg.text)}</p><p><small>${msg.at}</small></p>` });
   };
 }
-function teamsSender({ post, url }) {
+function teamsSender({ post, url, allowHosts }) {
   return async (msg) => {
     if (!post || !url) return;
-    await post(url, { type: 'message', attachments: [{ contentType: 'application/vnd.microsoft.card.adaptive', content: {
+    // M4 — the Teams webhook is validated right before each post (https, no private address unless
+    // allow-listed); an unsafe URL is a logged sender failure, never a crash of the alerter.
+    const safe = await require('../safeUrl').validateOutboundUrl(url, { allowHosts: allowHosts || require('../safeUrl').DEFAULT_ALLOW_HOSTS });
+    await post(safe, { type: 'message', attachments: [{ contentType: 'application/vnd.microsoft.card.adaptive', content: {
       type: 'AdaptiveCard', version: '1.4', body: [
         { type: 'TextBlock', size: 'Medium', weight: 'Bolder', text: msg.title, color: msg.kind === 'failure' ? 'Attention' : 'Warning' },
         { type: 'TextBlock', wrap: true, text: msg.text }, { type: 'TextBlock', isSubtle: true, size: 'Small', text: msg.at },
