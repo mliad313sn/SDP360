@@ -32,6 +32,12 @@ ORG_ID=
 
 # ── Secrets-at-rest key for report_config (AES-256-GCM). Required in prod. ──
 # SDP_CONFIG_KEY=<32+ random chars>
+# ── Backup-at-rest key (E11): the nightly pg_dump is gzip + AES-256-GCM with THIS key
+#    (*.sql.gz.enc). DISTINCT from SDP_CONFIG_KEY; >= 16 chars; keep it in the vault with .env.
+#    Absent → plaintext *.sql.gz and a warning line on every backup run (never silent).
+# SDP_BACKUP_KEY=<16+ random chars, different from SDP_CONFIG_KEY>
+# SDP_BACKUP_DIR=./data/backups
+# SDP_BACKUP_KEEP=14
 
 # ── Optional integrations ───────────────────────────────────────────
 # DASHBOARD_API_KEY=

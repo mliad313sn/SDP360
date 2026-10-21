@@ -98,16 +98,29 @@ function buildJobs(d) {
     { name: 'teams.sla_poll',  cron: '*/5 * * * *', freshnessHours: 1, optional: true,
       job: legacyJob('teams.sla_poll', () => req('teams/poll-sla').run({}), { maxAttempts: 2 }) },
   ];
-  // Nightly PostgreSQL dump (Step 2). Optional: self-skips without PG_URL. Directory from
-  // SDP_BACKUP_DIR (default <data>/backups), retention SDP_BACKUP_KEEP (default 14).
-  const backup = d.backup || {
-    cron: '0 2 * * *',
-    run: () => require('../backup').runBackup({
-      dir: process.env.SDP_BACKUP_DIR || require('path').join(process.env.SDP_DATA_DIR || require('path').join(__dirname, '..', '..', 'data'), 'backups'),
-      keep: Number(process.env.SDP_BACKUP_KEEP) || 14,
-    }),
+  // Nightly PostgreSQL dump (Step 2, hardened by E11: trailer-verified, gzip, AES-256-GCM with
+  // SDP_BACKUP_KEY, off-site copy to report_config.backup_offsite_path). 03:00 — the time
+  // docs/ops/EXPLOITATION.md §3 announces; keep both in step. Optional: self-skips without PG_URL.
+  // Directory from SDP_BACKUP_DIR (default <data>/backups), retention SDP_BACKUP_KEEP (default 14).
+  const backupDir = () => process.env.SDP_BACKUP_DIR || require('path').join(process.env.SDP_DATA_DIR || require('path').join(__dirname, '..', '..', 'data'), 'backups');
+  const offsitePath = async () => {
+    try { const rdb = d.rdb || require('../../reports-db'); const cfg = await require('../reportConfig').getConfig(rdb.db); return (cfg && cfg.backup_offsite_path) || ''; }
+    catch (_) { return ''; }
   };
-  list.push({ name: 'db.backup', cron: backup.cron || '0 2 * * *', freshnessHours: 30, optional: true, job: legacyJob('db.backup', () => backup.run()) });
+  const backup = d.backup || {
+    cron: '0 3 * * *',
+    run: async () => require('../backup').runBackup({ dir: backupDir(), keep: Number(process.env.SDP_BACKUP_KEEP) || 14, offsitePath: await offsitePath() }),
+  };
+  list.push({ name: 'db.backup', cron: backup.cron || '0 3 * * *', freshnessHours: 30, optional: true, job: legacyJob('db.backup', () => backup.run()) });
+  // E11 — monthly restore drill (1st at 04:00): fresh dump → restore into a disposable target →
+  // row counts compared with the live database → dated report + system_log 'restore_drill'.
+  // A mismatch is a failed run (alerted like any job). Optional: self-skips without PG_URL.
+  const drillRun = d.restoreDrill || (async () => {
+    if (!process.env.PG_URL && !process.env.DATABASE_URL) return { skipped: true, reason: 'no PG_URL' };
+    const rdb = d.rdb || require('../../reports-db');
+    return require('../../tools/pg/restore-drill').run({ dir: backupDir(), backupFirst: true, offsitePath: await offsitePath(), logEvent: rdb.logEvent });
+  });
+  list.push({ name: 'db.restore_drill', cron: '0 4 1 * *', freshnessHours: 24 * 33, optional: true, job: legacyJob('db.restore_drill', () => drillRun(), { maxAttempts: 1 }) });
   // Step 4 — audit retention: system_log kept 12 months (risk events 24). Mandatory job.
   list.push({ name: 'audit.retention', cron: '30 3 * * *', freshnessHours: 30,
     job: legacyJob('audit.retention', async () => { const rdb = d.rdb || require('../../reports-db'); const r = await rdb.purgeSystemLog({ months: Number(process.env.AUDIT_RETENTION_MONTHS) || 12 }); return { deleted: r.deleted, rows: r.deleted }; }) });
@@ -129,11 +142,11 @@ function buildJobs(d) {
 const FRESHNESS_HOURS = {
   'zoho.requests': 3, 'zoho.change_cab': 3, 'zoho.survey': 3, 'assets.sync': 30,
   'meridian.resources': 30, 'opmanager.availability': 30, 'meraki.wan': 30, 'meraki.wan_events': 30,
-  'meraki.wan_events_5m': 1, 'meraki.wan_poller': 1, 'teams.sla_poll': 1, 'db.backup': 30, 'audit.retention': 30,
+  'meraki.wan_events_5m': 1, 'meraki.wan_poller': 1, 'teams.sla_poll': 1, 'db.backup': 30, 'db.restore_drill': 24 * 33, 'audit.retention': 30,
   'engagement.alerts': 1, 'engagement.digest': 30, 'engagement.digest_weekly': 24 * 8, 'reports.weekly': 24 * 8, 'reports.monthly': 24 * 32, 'publish.connectors': 30, 'field.purge': 30,
 };
 // Jobs that self-skip until configured (no API key / webhook) — never reported "stale", only "idle".
-const OPTIONAL = new Set(['meridian.resources', 'opmanager.availability', 'meraki.wan', 'meraki.wan_events', 'meraki.wan_events_5m', 'meraki.wan_poller', 'teams.sla_poll', 'db.backup',
+const OPTIONAL = new Set(['meridian.resources', 'opmanager.availability', 'meraki.wan', 'meraki.wan_events', 'meraki.wan_events_5m', 'meraki.wan_poller', 'teams.sla_poll', 'db.backup', 'db.restore_drill',
   'engagement.alerts', 'engagement.digest', 'engagement.digest_weekly', 'reports.weekly', 'reports.monthly', 'publish.connectors', 'field.purge']);
 
 // Map the legacy sync_metadata job names onto the registry names (one health view, D7).

@@ -1100,6 +1100,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
           <button type="button" class="admin-rail__item" data-panel="sites"       onclick="showAdminPanel('sites')"><span class="ar-ico">🏢</span><span>Sites<small>Zoho group mapping</small></span><span class="ar-scope">Global</span></button>
           <button type="button" class="admin-rail__item" data-panel="email"       onclick="showAdminPanel('email')"><span class="ar-ico">✉</span><span>Email / SMTP<small>Transport &amp; addressing</small></span><span class="ar-scope">Global</span></button>
           <button type="button" class="admin-rail__item" data-panel="backups" id="admin-rail-backups" style="display:none" onclick="showAdminPanel('backups')"><span class="ar-ico">💾</span><span>Backups<small>Scheduled &amp; manual</small></span><span class="ar-scope">Global</span></button>
+          <button type="button" class="admin-rail__item" data-panel="restore-drill" id="admin-rail-restore-drill" style="display:none" onclick="showAdminPanel('restore-drill')"><span class="ar-ico">🧪</span><span>Restore drill<small>Dernier exercice de restauration</small></span><span class="ar-scope">Global</span></button>
           <button type="button" class="admin-rail__item" data-group="integrations" id="admin-rail-grp-integrations" style="display:none" onclick="showAdminGroup('integrations')"><span class="ar-ico">🔗</span><span>Intégrations<small>SSO &amp; Meridian</small></span><span class="ar-scope">Global</span></button>
           <button type="button" class="admin-rail__item" data-group="wan" id="admin-rail-grp-wan" style="display:none" onclick="showAdminGroup('wan')"><span class="ar-ico">📡</span><span>WAN Link<small>Availability &amp; SLA</small></span><span class="ar-scope">Global</span></button>
           <button type="button" class="admin-rail__item" data-group="api" id="admin-rail-grp-api" style="display:none" onclick="showAdminGroup('api')"><span class="ar-ico">🔌</span><span>Intégration API<small>Alertes SLA &amp; Analytics</small></span><span class="ar-scope">Global</span></button>
@@ -1289,6 +1290,20 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
       <h4 style="margin:10px 0 6px">Recent restore points</h4>
       <table class="user-table"><thead><tr><th>Name</th><th>Size</th><th>Date</th></tr></thead>
         <tbody id="bk-points"><tr><td colspan="3" style="color:#6b7a99">Loading…</td></tr></tbody></table>
+    </div>
+
+    <!-- ─── Last restore drill (super_admin only, E11) ────────────────────────
+         Reads the newest `restore_drill` row of system_log through
+         GET /api/health/restore-drill (routes/health.js). The drill itself runs on the
+         1st of each month at 04:00 (job db.restore_drill) or by hand:
+         node tools/pg/restore-drill.js --backup-first -->
+    <div class="card admin-panel" id="ap-restore-drill" data-panel="restore-drill">
+      <h3>🧪 Last restore drill <span style="font-weight:normal;font-size:0.85rem;color:#6b7a99">· Dernier exercice de restauration</span></h3>
+      <p style="font-size:0.9rem;color:#6b7a99;margin:0 0 12px">A backup is only proven once it has been restored: every 1st of the month at 04:00 the newest dump is restored into a disposable database, the row counts of the 10 main tables are compared with the live database, and a dated report is written to <code>docs/ops/restore-drills/</code>.<br><span lang="fr">Une sauvegarde n'est prouvée qu'une fois restaurée : le 1er du mois à 04:00, le dernier dump est restauré dans une base jetable et les comptages des 10 tables principales sont comparés à la base vivante.</span></p>
+      <div id="rd-status" style="font-size:1rem;margin-bottom:10px">Loading…</div>
+      <table class="user-table" style="max-width:640px"><thead><tr><th>Table</th><th>Live</th><th>Restored</th><th>Status</th></tr></thead>
+        <tbody id="rd-counts"><tr><td colspan="4" style="color:#6b7a99">—</td></tr></tbody></table>
+      <p style="font-size:0.8rem;color:#6b7a99;margin-top:10px">Manual run on the server: <code>node tools\pg\restore-drill.js --backup-first</code> · Encryption at rest requires <code>SDP_BACKUP_KEY</code> in <code>.env</code> (distinct from <code>SDP_CONFIG_KEY</code>) · off-site copy: <code>backup_offsite_path</code>.</p>
     </div>
 
     <!-- ─── Risk Register codes (super_admin only) ────────────────────────────
@@ -6103,7 +6118,7 @@ async function downloadAllSitesMonthlyPptx(fromMonthlyPage) {
 //  ADMIN PAGE
 // ══════════════════════════════════════════════════════════════════
 // Admin left-rail: show one settings panel at a time. name ∈ users|sessions|sites|departments|risk.
-const _ADMIN_PANEL_IDS = { users:'ap-users', sessions:'sessions-card', sites:'ap-sites', departments:'ap-depts', execview:'ap-execview', email:'ap-email', backups:'ap-backups', sso:'ap-sso', meridian:'ap-meridian', infra:'ap-infra', sla:'ap-sla', risk:'rr-aliases-card', autoreports:'ap-autoreports', 'assets-finance':'ap-assets-finance', 'assets-deprec':'ap-assets-deprec', hygiene:'ap-hygiene', scoreboard:'ap-scoreboard', weekly:'ap-weekly', 'asset-group':'ap-asset-group', 'asset-reminders':'ap-asset-reminders', 'teams-sla':'ap-teams-sla', 'analytics-api':'ap-analytics-api' };
+const _ADMIN_PANEL_IDS = { users:'ap-users', sessions:'sessions-card', sites:'ap-sites', departments:'ap-depts', execview:'ap-execview', email:'ap-email', backups:'ap-backups', sso:'ap-sso', meridian:'ap-meridian', infra:'ap-infra', sla:'ap-sla', risk:'rr-aliases-card', autoreports:'ap-autoreports', 'assets-finance':'ap-assets-finance', 'assets-deprec':'ap-assets-deprec', hygiene:'ap-hygiene', scoreboard:'ap-scoreboard', weekly:'ap-weekly', 'asset-group':'ap-asset-group', 'asset-reminders':'ap-asset-reminders', 'teams-sla':'ap-teams-sla', 'analytics-api':'ap-analytics-api', 'restore-drill':'ap-restore-drill' };
 // Related config panels merged behind ONE rail item + an in-panel tab strip. The panel cards
 // themselves are untouched (ids, load functions, deep-links all intact) — only the rail entry
 // and the tab strip on top change. member → group is derived once.
@@ -6132,7 +6147,7 @@ function _renderGroupTabs(name) {
 }
 function showAdminPanel(name) {
   // Guard: 'risk' / 'backups' / 'autoreports' / 'sso' / 'meridian' / 'infra' are super_admin-only — fall back to Users for everyone else.
-  if ((name === 'risk' || name === 'backups' || name === 'autoreports' || name === 'sso' || name === 'meridian' || name === 'infra' || name === 'sla' || name === 'asset-reminders' || name === 'teams-sla' || name === 'analytics-api') && currentUser?.role !== 'super_admin') name = 'users';
+  if ((name === 'risk' || name === 'backups' || name === 'autoreports' || name === 'sso' || name === 'meridian' || name === 'infra' || name === 'sla' || name === 'restore-drill' || name === 'asset-reminders' || name === 'teams-sla' || name === 'analytics-api') && currentUser?.role !== 'super_admin') name = 'users';
   if (!_ADMIN_PANEL_IDS[name]) name = 'users';
   document.querySelectorAll('#page-admin .admin-panel').forEach(p => p.classList.remove('active'));
   const _grp = _MEMBER_GROUP[name];
@@ -6153,6 +6168,8 @@ function showAdminPanel(name) {
   }
   // Fresh data when opening Scheduled Backups.
   if (name === 'backups' && typeof loadBackupSchedule === 'function') loadBackupSchedule();
+  // Fresh data when opening the Last restore drill card (E11).
+  if (name === 'restore-drill' && typeof loadRestoreDrillCard === 'function') loadRestoreDrillCard();
   // Fresh data when opening Automated Reports (defaults to the Recipients tab).
   if (name === 'autoreports' && typeof loadAutoReports === 'function') loadAutoReports();
   // Fresh SMTP / addressing when opening the Email panel.
@@ -6209,6 +6226,8 @@ async function loadAdminPage() {
     if (rrRail) rrRail.style.display = isSuperAdmin ? '' : 'none';
     const bkRail = document.getElementById('admin-rail-backups');
     if (bkRail) bkRail.style.display = isSuperAdmin ? '' : 'none';
+    const rdRail = document.getElementById('admin-rail-restore-drill');
+    if (rdRail) rdRail.style.display = isSuperAdmin ? '' : 'none';
     // Grouped rail items (WAN Link = infra+sla, Intégrations = sso+meridian, Envois = the
     // scheduled-email digests). The whole admin page is super_admin-only, so show them all.
     ['admin-rail-grp-wan', 'admin-rail-grp-integrations', 'admin-rail-grp-sends', 'admin-rail-grp-api'].forEach(id => {
@@ -6228,7 +6247,7 @@ async function loadAdminPage() {
     // A group name (#admin/wan) opens the group's first tab; a member name still deep-links.
     const sub = (location.hash.split('/')[1] || '').toLowerCase();
     if (PANEL_GROUPS[sub]) showAdminGroup(sub);
-    else showAdminPanel(['users','sessions','sites','departments','execview','email','backups','sso','meridian','infra','sla','risk','autoreports','assets-finance','assets-deprec','hygiene','scoreboard','weekly','asset-group','asset-reminders','teams-sla','analytics-api'].includes(sub) ? sub : 'users');
+    else showAdminPanel(['users','sessions','sites','departments','execview','email','backups','restore-drill','sso','meridian','infra','sla','risk','autoreports','assets-finance','assets-deprec','hygiene','scoreboard','weekly','asset-group','asset-reminders','teams-sla','analytics-api'].includes(sub) ? sub : 'users');
 
     const deptUrl  = isExecOrSuper ? '/api/reports/departments?include_inactive=1' : '/api/reports/departments';
     const sitesUrl = isExecOrSuper ? '/api/reports/sites?include_inactive=1'        : '/api/reports/sites';
@@ -6964,6 +6983,32 @@ async function loadBackupSchedule() {
     tb.innerHTML = (d.restorePoints && d.restorePoints.length)
       ? d.restorePoints.map(p => '<tr><td>' + esc(p.name) + '</td><td>' + (p.sizeBytes/1048576).toFixed(1) + ' MB</td><td>' + esc((p.mtime||'').slice(0,16).replace('T',' ')) + '</td></tr>').join('')
       : '<tr><td colspan="3" style="color:#6b7a99">none yet</td></tr>';
+  } catch (e) { st.textContent = 'Error: ' + e.message; }
+}
+// E11 — Last restore drill card: date + result of the newest `restore_drill` system_log row.
+async function loadRestoreDrillCard() {
+  const st = document.getElementById('rd-status'), tb = document.getElementById('rd-counts');
+  if (!st || !tb) return;
+  try {
+    const d = await api('GET', '/api/health/restore-drill');
+    if (!d || !d.last) {
+      st.innerHTML = '<span style="color:#b45309">No restore drill has run yet</span> · <span lang="fr">aucun exercice de restauration pour l\'instant</span>. Next scheduled run: 1st of the month, 04:00.';
+      tb.innerHTML = '<tr><td colspan="4" style="color:#6b7a99">—</td></tr>';
+      return;
+    }
+    const L = d.last, det = L.details || {};
+    const when = esc(String(L.ts || '').slice(0, 16).replace('T', ' '));
+    st.innerHTML = (L.ok ? '<span style="color:#15803d;font-weight:700">✓ PASS</span>' : '<span style="color:#b91c1c;font-weight:700">✗ FAIL</span>')
+      + ' · ' + when + ' UTC'
+      + (det.dump ? ' · dump <code>' + esc(det.dump) + '</code>' : '')
+      + (det.encrypted === false ? ' · <span style="color:#b45309">plaintext backup — set SDP_BACKUP_KEY</span>' : (det.encrypted ? ' · encrypted' : ''))
+      + (det.report ? ' · report <code>docs/ops/restore-drills/' + esc(det.report) + '</code>' : '');
+    const counts = det.counts || {};
+    const keys = Object.keys(counts);
+    tb.innerHTML = keys.length
+      ? keys.map(t => { const c = counts[t] || {}; const col = c.status === 'ok' ? '#15803d' : (c.status === 'n/a' ? '#6b7a99' : '#b91c1c');
+          return '<tr><td>' + esc(t) + '</td><td>' + (c.live == null ? '—' : esc(String(c.live))) + '</td><td>' + (c.restored == null ? '—' : esc(String(c.restored))) + '</td><td style="color:' + col + ';font-weight:600">' + esc(String(c.status || '')) + '</td></tr>'; }).join('')
+      : '<tr><td colspan="4" style="color:#6b7a99">no table detail recorded</td></tr>';
   } catch (e) { st.textContent = 'Error: ' + e.message; }
 }
 async function saveBackupSchedule(enable) {

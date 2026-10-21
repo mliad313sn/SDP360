@@ -25,21 +25,9 @@ function loadDotEnv() {
   return out;
 }
 
-function findPgDump() {
-  if (process.env.PG_DUMP && fs.existsSync(process.env.PG_DUMP)) return process.env.PG_DUMP;
-  const roots = ['C:\\Program Files\\PostgreSQL', 'C:\\Program Files (x86)\\PostgreSQL'];
-  for (const root of roots) {
-    try {
-      // newest version first
-      const vers = fs.readdirSync(root).sort((a, b) => parseFloat(b) - parseFloat(a));
-      for (const v of vers) {
-        const p = path.join(root, v, 'bin', 'pg_dump.exe');
-        if (fs.existsSync(p)) return p;
-      }
-    } catch (_) {}
-  }
-  return null;
-}
+// pg_dump location: PG_DUMP override, the Windows install tree, or the PATH (Linux / CI drill).
+const { findPgBin } = require('./pg-bin');
+function findPgDump() { return findPgBin('pg_dump', 'PG_DUMP'); }
 
 const outFile = process.argv[2];
 if (!outFile) { console.error('Usage: node tools/pg/dump-db.js <output.sql>'); process.exit(2); }
@@ -53,7 +41,7 @@ try { u = new URL(url); }
 catch (e) { console.error('[pg-dump] invalid PG_URL: ' + e.message); process.exit(1); }
 
 const pgDump = findPgDump();
-if (!pgDump) { console.error('[pg-dump] pg_dump.exe not found (set PG_DUMP=<full path> to override).'); process.exit(1); }
+if (!pgDump) { console.error('[pg-dump] pg_dump not found (set PG_DUMP=<full path> to override).'); process.exit(1); }
 
 const db = (u.pathname || '/sdp_dashboard').slice(1);
 const args = ['-h', u.hostname || 'localhost', '-p', u.port || '5432',

@@ -1,6 +1,6 @@
 # Réplica PostgreSQL et exercice de restauration — SDP Dashboard 2.0
 
-Version 1 · 2026-10-19 · Public : exploitant / administrateur · Étape 10 (§9.11 de l'étude 08). Complète `EXPLOITATION.md` (sauvegarde nocturne `db.backup`, 02:00, rétention 14) et `INSTALLATION.md`.
+Version 1 · 2026-10-19 · Public : exploitant / administrateur · Étape 10 (§9.11 de l'étude 08). Complète `EXPLOITATION.md` (sauvegarde nocturne `db.backup`, 03:00, rétention 14, gzip + AES-256-GCM `SDP_BACKUP_KEY`) et `INSTALLATION.md`.
 
 ## 1. Objectif et cibles
 - **RPO ≤ 15 min** : au plus 15 minutes de saisies perdues en cas de perte du serveur principal. La sauvegarde nocturne seule donne un RPO de 24 h ; la réplication en flux le ramène sous 15 min.
@@ -13,7 +13,7 @@ Réplication **physique en flux** (streaming replication) PostgreSQL 16 : un **p
 ```
  primaire (PG_URL)  ──WAL en flux (slot sdp_replica)──►  réplica (hot standby, lecture seule)
         │                                                        │
-        └── db.backup 02:00 → <data>/backups/*.sql.gz  (14 j)    └── promotion manuelle : pg_ctl promote
+        └── db.backup 03:00 → <data>/backups/*.sql.gz.enc (14 j)    └── promotion manuelle : pg_ctl promote
 ```
 
 ## 3. Mise en place (une fois, sur le primaire)
