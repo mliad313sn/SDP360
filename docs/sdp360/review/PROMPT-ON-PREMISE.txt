@@ -1,0 +1,22 @@
+You are continuing the SDP360 programme in this repo, branch claude/sdp-dashboard-analysis-55b1oy.
+Read CLAUDE.md, then docs/sdp360/review/2026-10-21-HANDOFF-ON-PREMISE.md, then
+docs/sdp360/review/2026-10-20-PLAN-DE-REMEDIATION-PROMPTS.md and
+docs/sdp360/2027/briefs/2026-10-21-MASTER-GOAL-2027.md.
+
+Work through section 2 of the handoff IN ORDER, one item at a time:
+1. G8.6: make the test run fail when a test file is silently dropped (a guard test that compares
+   files discovered vs files reported). Then get the full suite green on sqlite AND PostgreSQL
+   with PG_TESTS_REQUIRED=1, fixing real failures (never skip/disable a test).
+2. Then Goals 03, 04, 05, then wave 2, then wave 3 fiches, each exactly as its spec section says.
+
+Rules for every item:
+- Follow the fiche's acceptance criteria; write the tests first (sqlite + PG fork where a db is touched).
+- Never block on a question: take the recommended assumption behind a reversible flag
+  (default off for new behaviour) and add a row to docs/sdp360/review/DECISIONS-EN-ATTENTE.md.
+- Respect CLAUDE.md pitfalls (await-precedence, null-not-zero, _htmlCache + sendHtmlPage for new pages,
+  admin panels' 4 surfaces, secrets redact/blank-keep, site scope via services/userSites.js).
+- Keep tests/await-precedence.test.js and the PPTX/e-mail goldens green; never regenerate a golden to pass.
+- After each item: run its tests + the full suite, update CHANGELOG and help.html (EN+FR) when
+  user-visible, commit with a clear message, and report what changed and what is still open.
+- Do not deploy and do not open a pull request unless I ask.
+Start with item 1 now.
