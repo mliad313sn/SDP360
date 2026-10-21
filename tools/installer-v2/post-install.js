@@ -15,8 +15,10 @@
 //   3 PostgreSQL role + database on `new` (psql via PGPASSWORD, SQL on stdin — never argv)
 //   4 npm ci --omit=dev
 //   5 node db/migrate.js
-//   6 pm2: register / restart the service (stop -> start, never reload), pm2 save
-//   7 health probe; on failure after step 1 -> sdp-manager rollback, exit 1
+//   6 Windows Firewall: TCP <port> allowed from 127.0.0.1 only, blocked from the network
+//     (IIS on the box is the sole entry point; Node itself binds to 127.0.0.1 by default)
+//   7 pm2: register / restart the service (stop -> start, never reload), pm2 save
+//   8 health probe; on failure after step 1 -> sdp-manager rollback, exit 1
 
 const fs = require('fs');
 const path = require('path');
@@ -61,7 +63,7 @@ function envDefaults() {
   const host = arg('--pg-host', 'localhost'), port = arg('--pg-port', '5432'), db = arg('--db-name', 'sdp_dashboard'), user = arg('--db-user', 'sdp_app');
   const appPass = crypto.randomBytes(24).toString('base64url');
   return {
-    NODE_ENV: 'production', PORT, SDP_DATA_DIR: dataDir, SDP_BACKUP_DIR: backupDir,
+    NODE_ENV: 'production', PORT, BIND_HOST: '127.0.0.1', SDP_DATA_DIR: dataDir, SDP_BACKUP_DIR: backupDir,
     SDP_CONFIG_KEY: crypto.randomBytes(32).toString('base64url'),
     DASH_USER: 'admin', DASH_PASS: crypto.randomBytes(12).toString('base64url') + '!A1',
     DASH_API_KEY: crypto.randomBytes(24).toString('hex'),
@@ -80,6 +82,34 @@ function createDatabase(d) {
   ].join('\n');
   // SQL on stdin, password in PGPASSWORD: nothing secret on the command line.
   sh('psql', ['-h', host, '-p', port, '-U', 'postgres', '-d', 'postgres', '-v', 'ON_ERROR_STOP=1', '-f', '-'], { input: sql, env: { PGPASSWORD: superPass } });
+}
+
+// E3 (2026-10-20): Windows Firewall rules for the application port — allow inbound TCP from
+// 127.0.0.1 only, block it from every other address (a block rule beats an allow rule; loopback
+// traffic is never filtered). Node already binds to 127.0.0.1; the rules keep the boundary even if
+// BIND_HOST is later widened by mistake. Non-fatal: a warning, never a failed install.
+function firewallRuleNames(port) {
+  return { allow: `SDP Dashboard ${port} - loopback only`, block: `SDP Dashboard ${port} - block remote` };
+}
+function firewallCommands(port) {
+  const n = firewallRuleNames(port);
+  return [
+    ['advfirewall', 'firewall', 'delete', 'rule', `name=${n.allow}`],
+    ['advfirewall', 'firewall', 'delete', 'rule', `name=${n.block}`],
+    ['advfirewall', 'firewall', 'add', 'rule', `name=${n.allow}`, 'dir=in', 'action=allow', 'protocol=TCP', `localport=${port}`, 'remoteip=127.0.0.1', 'profile=any'],
+    ['advfirewall', 'firewall', 'add', 'rule', `name=${n.block}`, 'dir=in', 'action=block', 'protocol=TCP', `localport=${port}`, 'remoteip=any', 'profile=any'],
+  ];
+}
+function firewall(port) {
+  if (process.platform !== 'win32') return;
+  const cmds = firewallCommands(port);
+  const [, , ...adds] = cmds;
+  for (const c of cmds.slice(0, 2)) spawnSync('netsh', c, { encoding: 'utf8' }); // old rules, if any — ignore result
+  for (const c of adds) {
+    const r = spawnSync('netsh', c, { encoding: 'utf8' });
+    if (r.status !== 0) { log(`firewall rule not applied (${(r.stderr || r.stdout || '').trim()}) — run as Administrator: netsh ${c.join(' ')}`); return; }
+  }
+  log(`firewall: TCP ${port} allowed from 127.0.0.1 only, blocked from the network (IIS is the sole entry point)`);
 }
 
 function pm2(dirEnv) {
@@ -131,12 +161,13 @@ async function main() {
       writeEnv(envFile, wanted);
       log('.env created (bootstrap admin "admin" — the password is in .env; change it at first sign-in)');
     } else {
-      const added = writeEnv(envFile, { NODE_ENV: 'production', PORT, SDP_BACKUP_DIR: wanted.SDP_BACKUP_DIR });
+      const added = writeEnv(envFile, { NODE_ENV: 'production', PORT, BIND_HOST: '127.0.0.1', SDP_BACKUP_DIR: wanted.SDP_BACKUP_DIR });
       log(`.env kept (${added} missing keys appended)`);
     }
     const env = readEnv(envFile);
     sh('npm', ['ci', '--omit=dev', '--no-audit', '--no-fund']);
     sh(process.execPath, [path.join(DIR, 'db', 'migrate.js')], { env });
+    firewall(env.PORT || PORT);
     pm2(env);
     await probe();
     log('OK — SDP Dashboard is up');
@@ -151,4 +182,4 @@ async function main() {
 }
 
 if (require.main === module) main();
-module.exports = { writeEnv, readEnv, envDefaults };
+module.exports = { writeEnv, readEnv, envDefaults, firewallCommands, firewallRuleNames };

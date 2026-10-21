@@ -739,7 +739,31 @@ function Step2-RuntimeDeps {
 # App registration with pm2 happens in STEP 7, not here - on a fresh install
 # server.js only exists after step 6 deploys the code.
 # =====================================================================
+# E3 (2026-10-20): Windows Firewall rules for the application port. Node binds
+# to 127.0.0.1 by default (BIND_HOST), and these rules make the boundary hold
+# even if an operator later sets BIND_HOST=0.0.0.0 by mistake: inbound TCP on
+# $AppPort is ALLOWED from 127.0.0.1 only and BLOCKED from any other address
+# (a block rule beats an allow rule; loopback traffic is never filtered). IIS
+# on the same box stays the only entry point (443). Non-fatal: a WARN, never a
+# failed step - the bind address already protects the port.
+function Set-AppPortFirewallRules {
+    $allowName = 'SDP Dashboard ' + $AppPort + ' - loopback only'
+    $blockName = 'SDP Dashboard ' + $AppPort + ' - block remote'
+    if (-not (Get-Command netsh.exe -ErrorAction SilentlyContinue)) { Log 'netsh not found - firewall rules skipped' 'WARN'; return }
+    try {
+        foreach ($n in @($allowName, $blockName)) { cmd /c ('netsh advfirewall firewall delete rule name="' + $n + '" >nul 2>nul') | Out-Null }
+        cmd /c ('netsh advfirewall firewall add rule name="' + $allowName + '" dir=in action=allow protocol=TCP localport=' + $AppPort + ' remoteip=127.0.0.1 profile=any >nul') | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw 'allow rule failed' }
+        cmd /c ('netsh advfirewall firewall add rule name="' + $blockName + '" dir=in action=block protocol=TCP localport=' + $AppPort + ' remoteip=any profile=any >nul') | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw 'block rule failed' }
+        Log ("Firewall: TCP " + $AppPort + " allowed from 127.0.0.1 only, blocked from the network (IIS is the sole entry point)") 'OK'
+    } catch {
+        Log ('Firewall rules not applied (' + $_.Exception.Message + ') - run as Administrator: netsh advfirewall firewall add rule name="' + $blockName + '" dir=in action=block protocol=TCP localport=' + $AppPort + ' remoteip=any') 'WARN'
+    }
+}
+
 function Step3-Pm2Service {
+    Set-AppPortFirewallRules
     $npmDir = if ($env:NPM_GLOBAL_DIR) { $env:NPM_GLOBAL_DIR } else { Join-Path $env:APPDATA 'npm' }
     $pm2 = Resolve-Pm2
     if (-not $pm2) {

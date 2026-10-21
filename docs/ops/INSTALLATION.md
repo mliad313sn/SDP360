@@ -29,8 +29,9 @@ Prérequis machine : Windows Server 2019+ (ou Windows 10/11), 4 Go de RAM libres
 3. `.env` : créé en *nouvelle installation* (clé `SDP_CONFIG_KEY` générée, compte d'amorçage `admin` avec mot de passe aléatoire, `PG_URL`, `NODE_ENV=production`, tous les modules sur PostgreSQL) ; **conservé** sinon (seules les clés manquantes sont ajoutées).
 4. Rôle et base PostgreSQL (nouvelle installation) — SQL passé sur l'entrée standard, mot de passe par `PGPASSWORD`, rien sur une ligne de commande.
 5. `npm ci --omit=dev`, puis le migrateur `node db\migrate.js` (journal `schema_migrations`).
-6. pm2 : enregistrement du processus `endeavour-dashboard` (`--max-old-space-size=4096`) ou redémarrage **stop → start** (jamais `reload`), `pm2 save`.
-7. Sonde `GET /api/auth/config` (90 s). En cas d'échec après la copie : `sdp-manager rollback` puis sortie en erreur — l'ancienne version est de nouveau en place.
+6. Pare-feu Windows (`netsh advfirewall`) : deux règles sur le port de l'application — **autoriser** TCP `<port>` depuis `127.0.0.1` seulement, **bloquer** depuis toute autre adresse (`SDP Dashboard <port> - loopback only` / `- block remote`). Non bloquant : un échec (droits insuffisants) est journalisé en avertissement avec la commande à rejouer en administrateur.
+7. pm2 : enregistrement du processus `endeavour-dashboard` (`--max-old-space-size=4096`) ou redémarrage **stop → start** (jamais `reload`), `pm2 save`.
+8. Sonde `GET /api/auth/config` (90 s). En cas d'échec après la copie : `sdp-manager rollback` puis sortie en erreur — l'ancienne version est de nouveau en place.
 
 Les secrets saisis dans l'assistant transitent par des variables d'environnement (`SDP_SETUP_PGSUPERPASS`, `SDP_SETUP_SVCPASS`), jamais par les arguments (les journaux Windows gardent les lignes de commande).
 
@@ -39,7 +40,7 @@ Les secrets saisis dans l'assistant transitent par des variables d'environnement
 1. Ouvrir `http://localhost:<port>/`, se connecter avec `admin` et le `DASH_PASS` lu dans `.env`, **changer le mot de passe**.
 2. Admin ▸ Sites, Users, Email, Microsoft SSO, Intégration API (Analytics, SDP) : voir l'aide §7 et §21.
 3. Service Windows pm2 (démarrage automatique) : `npm i -g pm2-windows-service` puis `pm2-service-install -n pm2.exe` une fois par machine ; vérifier `sc query pm2.exe`.
-4. IIS : site reverse-proxy vers `http://localhost:<port>`, certificat lié, `maxAllowedContentLength` ≥ 150 Mo, délai ARR 5 min (`docs/INTERNAL_TLS_SETUP.md`).
+4. IIS : site reverse-proxy vers `http://localhost:<port>`, certificat lié, `maxAllowedContentLength` ≥ 150 Mo, délai ARR 5 min (`docs/INTERNAL_TLS_SETUP.md`). **IIS est le seul point d'entrée** : Node écoute sur `127.0.0.1` (`BIND_HOST`, valeur par défaut, écrite dans `.env`) et le pare-feu n'ouvre `<port>` qu'à la boucle locale. Vérifier : `netstat -ano | findstr :<port> | findstr LISTENING` ne doit montrer que `127.0.0.1:<port>`. `BIND_HOST=0.0.0.0` reste possible, explicitement dans `.env`, uniquement sur une machine de laboratoire sans IIS — jamais en production.
 5. Première sauvegarde : `node tools\sdp-manager.js backup`.
 
 ## 5. Installation scriptée (sans assistant)

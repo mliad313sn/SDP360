@@ -88,23 +88,19 @@ function stripPiiColumns(rows) {
 const app  = express();
 const PORT = process.env.PORT || 3456;
 // BIND_HOST controls which network interface the Node server listens on.
-//   undefined / '0.0.0.0' — listen on all interfaces (legacy default; the
-//                           dashboard is reachable directly at the host's
-//                           public IP — only safe BEFORE IIS reverse proxy
-//                           is in place).
-//   '127.0.0.1'           — listen on localhost only. After IIS is wired
-//                           in front of the app for TLS termination, set
-//                           BIND_HOST=127.0.0.1 in the environment so the
-//                           Node process can ONLY be reached through IIS.
-//                           External machines hitting :3456 directly get
-//                           connection refused. See docs/INTERNAL_TLS_SETUP.md.
-const BIND_HOST = process.env.BIND_HOST || '0.0.0.0';
+// Default (E3, 2026-10-20): '127.0.0.1' — IIS on the same box is the ONLY entry
+// point (TLS termination + security headers), so the Node process must be
+// unreachable from the network. External machines hitting :3456 directly get
+// connection refused. Set BIND_HOST=0.0.0.0 explicitly in the environment to
+// listen on every interface (Docker, or a lab box without IIS). Rules live in
+// services/netBinding.js; see docs/ops/INSTALLATION.md and INTERNAL_TLS_SETUP.md.
+const netBinding = require('./services/netBinding');
+const BIND_HOST = netBinding.resolveBindHost(process.env);
 
-// Session-cookie Secure flag. Default false so login still works over plain
-// HTTP on the internal LAN (direct :3456). Set SESSION_COOKIE_SECURE=1 once the
-// dashboard is reached over HTTPS (IIS/TLS termination) so the report_token
-// cookie is only ever transmitted over HTTPS. Flip via .env + pm2 reload — no
-// code change, and only do it when NO client still uses plain HTTP.
+// Session-cookie Secure flag. By default it follows req.secure (set by Express
+// from X-Forwarded-Proto for the trusted loopback proxy only — never from a
+// client-sent header, see netBinding.cookieSecure). SESSION_COOKIE_SECURE=1
+// forces it on unconditionally once NO client uses plain HTTP any more.
 const SESSION_COOKIE_SECURE = process.env.SESSION_COOKIE_SECURE === '1'
   || /^true$/i.test(process.env.SESSION_COOKIE_SECURE || '');
 
@@ -904,23 +900,12 @@ function getCookie(req, name) {
   return match ? decodeURIComponent(match.slice(name.length + 1)) : null;
 }
 
-// CORS — allow requests from:
-//   - localhost / 127.0.0.1 on the same port (direct-IP access during transition,
-//     and for any same-server tooling)
-//   - the corporate HTTPS hostname served via IIS reverse proxy
-//   - the legacy IP URL `http://10.225.99.173:3456` (still used until Phase B
-//     of CH-273 locks Node to 127.0.0.1; after lockdown this entry is harmless
-//     because no external client can reach that interface anyway)
-//
-// Add new origins via the CORS_EXTRA_ORIGINS env var (comma-separated) without
-// editing this file — useful for staging URLs or future hostnames.
-const corsAllowed = [
-  `http://localhost:${PORT}`,
-  `http://127.0.0.1:${PORT}`,
-  `https://itops-dashboard.edv-ops.com`,
-  `http://10.225.99.173:${PORT}`,
-  ...(process.env.CORS_EXTRA_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean),
-];
+// CORS — allow requests from localhost / 127.0.0.1 on the same port (same-server
+// tooling) and the corporate HTTPS hostname served via IIS reverse proxy. The
+// legacy raw-IP origin was removed (E3): Node binds to 127.0.0.1, so no client
+// can reach the box at its IP. Add hostnames via CORS_EXTRA_ORIGINS
+// (comma-separated); literal-IP origins are dropped (services/netBinding.js).
+const corsAllowed = netBinding.corsAllowedOrigins(PORT, process.env);
 app.use(cors({ origin: corsAllowed }));
 
 // ── Path-scoped large JSON parsers ────────────────────────────────────
@@ -5630,7 +5615,7 @@ app.post('/api/reports/auth/login', loginLimiter, jsonBody, async (req, res) => 
     if (result.token) {
       res.cookie('report_token', result.token, {
         httpOnly: true,
-        secure:   SESSION_COOKIE_SECURE || req.secure || req.headers['x-forwarded-proto'] === 'https',
+        secure:   netBinding.cookieSecure(req, SESSION_COOKIE_SECURE),
         sameSite: 'lax',          // 'lax' allows cookie on same-site page navigations (GET)
         maxAge:   24 * 60 * 60 * 1000, // 24 hours
       });
@@ -5748,7 +5733,7 @@ app.get('/api/auth/sso/callback', async (req, res) => {
 
     // Set the same httpOnly session cookie password login uses…
     res.cookie('report_token', session.token, {
-      httpOnly: true, secure: SESSION_COOKIE_SECURE || req.secure || req.headers['x-forwarded-proto'] === 'https', sameSite: 'lax', maxAge: rdb.sessionHours() * 60 * 60 * 1000,
+      httpOnly: true, secure: netBinding.cookieSecure(req, SESSION_COOKIE_SECURE), sameSite: 'lax', maxAge: rdb.sessionHours() * 60 * 60 * 1000,
     });
     // …and hand the token to localStorage via a tiny page (mirrors the password
     // flow; token is in the HTTPS response body, never in the URL).
@@ -7857,12 +7842,10 @@ async function start() {
     console.error('⚠️  Renew: Admin ▸ Intégration API ▸ Analytics (or RENEW_ZOHO_TOKEN.html)');
   }
 
-  // SECURITY: Bind interface controlled by env var BIND_HOST (see top
-  // of file for rationale). On Windows production behind IIS reverse
-  // proxy, set BIND_HOST=127.0.0.1 so the Node process is unreachable
-  // from the network — only IIS on the same box can talk to it.
-  // Inside Docker the Docker host port mapping handles isolation, so
-  // 0.0.0.0 inside the container is fine.
+  // SECURITY: Bind interface controlled by env var BIND_HOST (see top of
+  // file). Default 127.0.0.1 — only IIS on the same box can talk to Node.
+  // Inside Docker the host port mapping handles isolation: set
+  // BIND_HOST=0.0.0.0 explicitly there.
   app.listen(PORT, BIND_HOST, () => {
     console.log('');
     console.log('╔══════════════════════════════════════════════════════════════╗');
