@@ -43,7 +43,7 @@
   <div class="panel"><h2>Recent firings (30 days)</h2><div class="scroll" id="firings"></div></div>
   <div class="grid2">
     <div class="panel"><h2>API consumers</h2><div class="scroll" id="consumers"></div><div class="row"><label>Name <input id="c-name" placeholder="Power BI — Group IT"></label><label>Quota / day <input id="c-quota" type="number" value="5000"></label></div><div class="bar"><button class="btn primary" id="c-add" type="button">Create key</button></div>
-      <p class="muted">REST: <code>GET /ext/v1/metrics</code>, <code>/ext/v1/sites</code>, <code>/ext/v1/values?metrics=…</code> · OData (Power BI → Get data → OData feed): <code id="odata-url"></code> · header <code>X-Api-Key</code> or <code>?api_key=</code>.</p></div>
+      <p class="muted">REST: <code>GET /ext/v1/metrics</code>, <code>/ext/v1/sites</code>, <code>/ext/v1/values?metrics=…</code> · OData (Power BI → Get data → OData feed): <code id="odata-url"></code> · key in a header only: <code>X-Api-Key: &lt;key&gt;</code> or <code>Authorization: Bearer &lt;key&gt;</code> (<code>?api_key=</code> is refused) · 60 calls/min per key.</p></div>
     <div class="panel"><h2>Share links</h2><div class="scroll" id="links"></div></div>
   </div>
   <p class="muted">Connector settings (Teams / webhook URLs, SharePoint registration, scheduled Excel recipients, metric keys, embed frame-ancestors) live in Admin ▸ configuration keys <code>engagement_*</code>, <code>publish_*</code>, <code>sharepoint_*</code>; secrets are write-only.</p>

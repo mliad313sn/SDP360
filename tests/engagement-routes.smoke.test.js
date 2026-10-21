@@ -88,7 +88,7 @@ test('API consumers → /ext: admin only, key shown once, 401 without key, scope
   assert.equal((await get('/ext/v1/metrics')).status, 401); assert.equal((await get('/ext/v1/metrics', null, { 'x-api-key': 'sdp_nope' })).status, 401);
   const m = await get('/ext/v1/metrics', null, { 'x-api-key': c.key }); assert.equal(m.status, 200); assert.equal(m.headers.get('x-quota-remaining'), '8'); const md = await m.json(); assert.ok(md.metrics.some(x => x.key === 'helpdesk.resolution_sla_pct'));
   assert.equal((await get('/ext/v1/sites', null, { 'x-api-key': c.key })).status, 403, 'sites:read not granted');
-  const v = await (await get(`/ext/v1/metrics/helpdesk.resolution_sla_pct/values?site=${hounde}&api_key=${c.key}`)).json(); assert.equal(v.values.length, 1); assert.equal(v.values[0].site_id, hounde); assert.ok(v.values[0].value === null || Number.isFinite(v.values[0].value));
+  const v = await (await get(`/ext/v1/metrics/helpdesk.resolution_sla_pct/values?site=${hounde}`, null, { authorization: `Bearer ${c.key}` })).json(); assert.equal(v.values.length, 1); assert.equal(v.values[0].site_id, hounde); assert.ok(v.values[0].value === null || Number.isFinite(v.values[0].value));
   assert.equal((await get('/ext/v1/metrics/nope/values', null, { 'x-api-key': c.key })).status, 404);
   assert.equal((await get('/ext/v1/values', null, { 'x-api-key': c.key })).status, 400);
   const sd = await (await get('/ext/odata/', null, { 'x-api-key': c.key })).json(); assert.deepEqual(sd.value.map(x => x.name), ['Metrics', 'Values', 'Sites']);

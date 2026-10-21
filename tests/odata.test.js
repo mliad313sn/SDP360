@@ -29,3 +29,15 @@ test('collection: paging, ordering, projection, count; unknown set → NOT_FOUND
   assert.equal(O.collection('http://x', 'Values', new Array(6000).fill(rows[0]), { $top: 99999 }).value.length, 5000);
   assert.equal(O.collection('http://x', 'Values', rows, {}).value.length, 3, 'no count without $count');
 });
+
+test('M7: properties outside the entity are refused (400) — $orderby, $select, $filter, and __proto__/constructor explicitly', () => {
+  const q = (opts) => O.collection('http://x', 'Values', rows, opts);
+  assert.throws(() => q({ $orderby: 'Nope desc' }), /unknown property in \$orderby/);
+  assert.throws(() => q({ $orderby: '__proto__' }), /unknown property in \$orderby/);
+  assert.throws(() => q({ $select: 'Id,constructor' }), /unknown property in \$select/);
+  assert.throws(() => q({ $filter: "__proto__ eq 'x'" }), /unknown property in \$filter/);
+  assert.throws(() => q({ $filter: 'prototype eq 1' }), /unknown property in \$filter/);
+  assert.throws(() => q({ $orderby: 'Value sideways' }), /unsupported \$orderby direction/);
+  for (const bad of ['Nope desc', '__proto__']) { try { q({ $orderby: bad }); assert.fail('should throw'); } catch (e) { assert.equal(e.code, 'INVALID'); } }
+  assert.equal(q({ $orderby: 'Value asc', $select: 'Id' }).value.length, 3, 'declared properties still work');
+});
