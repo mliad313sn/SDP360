@@ -449,6 +449,15 @@ function Invoke-EnvQuestionnaire {
     } else {
         Log 'No .env yet - creating from the questionnaire'
     }
+    # DASHBOARD_API_KEY (fiche C2): the server refuses to start in production without a key of at
+    # least 32 characters, and no longer derives a fallback. Generate one here (64 hex chars) so the
+    # computed slot is always filled; an existing real value in .env still wins (precedence above).
+    if (-not $script:ComputedEnv) { $script:ComputedEnv = @{} }
+    if (-not $script:ComputedEnv.ContainsKey('api_key')) {
+        $kb = New-Object byte[] 32
+        [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($kb)
+        $script:ComputedEnv['api_key'] = (($kb | ForEach-Object { $_.ToString('x2') }) -join '')
+    }
     $resolved = @{}
     foreach ($spec in (Get-EnvTemplate)) {
         $key = $spec.Key
@@ -461,6 +470,12 @@ function Invoke-EnvQuestionnaire {
             $val = [string]$answers[$key]
             if (-not (Test-EnvValid $spec $val)) { Die "EnvAnswers.$key fails validation ($($spec.Validate))" }
             Log "  $key <- silent answer from config"
+        }
+        elseif ($isReal -and -not (Test-EnvValid $spec $cur) -and $spec.Computed -and $script:ComputedEnv.ContainsKey($spec.Computed)) {
+            # An existing value that no longer meets the rule (e.g. a DASHBOARD_API_KEY shorter than
+            # 32 chars) would make the server refuse to start - replace it with the computed value.
+            $val = $script:ComputedEnv[$spec.Computed]
+            Log "  $key existing value fails validation ($($spec.Validate)) - replaced by computed ($($spec.Computed))" 'WARN'
         }
         elseif ($isReal) {
             if ($silent) { $val = $cur }

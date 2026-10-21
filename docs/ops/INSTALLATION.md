@@ -26,7 +26,7 @@ Prérequis machine : Windows Server 2019+ (ou Windows 10/11), 4 Go de RAM libres
 
 1. **Mise à jour seulement** : `sdp-manager backup` (pg_dump dans le dossier des sauvegardes).
 2. `sdp-manager update <paquet>` : vérification du manifeste (une seule empreinte fausse = paquet refusé), **point de retour arrière** `<install>\.rollback\<version précédente>\`, copie des fichiers. Un retour de version est refusé (passer par *Rollback*).
-3. `.env` : créé en *nouvelle installation* (clé `SDP_CONFIG_KEY` générée, compte d'amorçage `admin` avec mot de passe aléatoire, `PG_URL`, `NODE_ENV=production`, tous les modules sur PostgreSQL) ; **conservé** sinon (seules les clés manquantes sont ajoutées).
+3. `.env` : créé en *nouvelle installation* (clé `SDP_CONFIG_KEY` générée, clé d'API interne `DASHBOARD_API_KEY` générée — 64 caractères hexadécimaux, **minimum 32 exigé en production**, le serveur refuse de démarrer sans elle et ne dérive plus de clé de secours —, compte d'amorçage `admin` avec mot de passe aléatoire, `PG_URL`, `NODE_ENV=production`, tous les modules sur PostgreSQL) ; **conservé** sinon (seules les clés manquantes sont ajoutées). L'assistant console (`Install-SDP.ps1`, option E) génère la même clé et remplace une valeur existante trop courte.
 4. Rôle et base PostgreSQL (nouvelle installation) — SQL passé sur l'entrée standard, mot de passe par `PGPASSWORD`, rien sur une ligne de commande.
 5. `npm ci --omit=dev`, puis le migrateur `node db\migrate.js` (journal `schema_migrations`).
 6. pm2 : enregistrement du processus `endeavour-dashboard` (`--max-old-space-size=4096`) ou redémarrage **stop → start** (jamais `reload`), `pm2 save`.
