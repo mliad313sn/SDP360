@@ -4,8 +4,8 @@ docs/sdp360/review/2026-10-20-PLAN-DE-REMEDIATION-PROMPTS.md and
 docs/sdp360/2027/briefs/2026-10-21-MASTER-GOAL-2027.md.
 
 Work through section 2 of the handoff IN ORDER, one item at a time:
-1. G8.6: make the test run fail when a test file is silently dropped (a guard test that compares
-   files discovered vs files reported). Then get the full suite green on sqlite AND PostgreSQL
+1. G8.6 is done (test-runner guard). Run `npm test > n.log 2>&1` in the main checkout; the cloud
+   run showed 94 failures of 2724 (not yet identified). List them (`not ok` lines) and get the full suite green on sqlite AND PostgreSQL
    with PG_TESTS_REQUIRED=1, fixing real failures (never skip/disable a test).
 2. Then Goals 03, 04, 05, then wave 2, then wave 3 fiches, each exactly as its spec section says.
 

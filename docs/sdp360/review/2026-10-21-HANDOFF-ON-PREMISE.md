@@ -20,9 +20,12 @@ npm ci
 
 ## 2. What remains (in this order)
 
-1. **G8.6 — silently dropped test files.** Started in the cloud, NOT merged
-   (work-in-progress was `tests/test-runner-guard.test.js` + `tools/test/`; not pushed — redo it).
-2. **Full suite green** on sqlite and PG (`PG_TESTS_REQUIRED=1`).
+1. **G8.6 — DONE and merged** (`tests/test-runner-guard.test.js`, `tools/test/`, `npm test` now
+   prints `[test-guard] files N/N · tests T · failed F`). In the cloud worktree it reported
+   **94 failures / 2724 tests, identical on 3 runs** — failing tests NOT yet identified; part of them
+   are expected worktree-only noise (no `.env`, `.git` is a file). Re-measure on-premise in the main checkout.
+2. **Full suite green** on sqlite and PG (`PG_TESTS_REQUIRED=1`): `npm test > n.log 2>&1` then
+   `findstr /B "not ok" n.log`, fix each real failure.
 3. **2027 Goal 03** — native portfolio, routines, 5-dimension site dashboard (absorbs E9).
 4. **2027 Goal 04** — catalogue R01–R16, rules A01–A16.
 5. **2027 Goal 05** — connectors (OpManager only for infra), measured value.
@@ -64,8 +67,8 @@ docs/sdp360/review/2026-10-20-PLAN-DE-REMEDIATION-PROMPTS.md and
 docs/sdp360/2027/briefs/2026-10-21-MASTER-GOAL-2027.md.
 
 Work through section 2 of the handoff IN ORDER, one item at a time:
-1. G8.6: make the test run fail when a test file is silently dropped (a guard test that compares
-   files discovered vs files reported). Then get the full suite green on sqlite AND PostgreSQL
+1. G8.6 is done (test-runner guard). Run `npm test > n.log 2>&1` in the main checkout; the cloud
+   run showed 94 failures of 2724 (not yet identified). List them (`not ok` lines) and get the full suite green on sqlite AND PostgreSQL
    with PG_TESTS_REQUIRED=1, fixing real failures (never skip/disable a test).
 2. Then Goals 03, 04, 05, then wave 2, then wave 3 fiches, each exactly as its spec section says.
 
