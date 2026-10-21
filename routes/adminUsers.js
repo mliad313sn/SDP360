@@ -11,6 +11,36 @@ module.exports = function adminUsersRoutes(deps) {
   const { express, rdb, requireReportSession, requireSuperAdmin, jsonBody, getCookie } = deps;
   const router = express.Router();
 
+  // ── E6 — identity journal ───────────────────────────────────────────
+  // Every account change lands in system_log (category 'identity') with a before/after
+  // diff of the governed fields. The password NEVER appears — only the fact that it was
+  // reset (`password_reset`, a risk event). logEvent is fire-and-forget (never awaited).
+  const IDENTITY_FIELDS = ['roles', 'site_id', 'extra_site_ids', 'active', 'email', 'full_name'];
+  const _norm = (k, v) => {
+    if (k === 'roles' || k === 'extra_site_ids') return [...new Set(Array.isArray(v) ? v : [])].sort();
+    if (k === 'active') return v == null ? null : (v ? 1 : 0);
+    if (k === 'email') return v == null || v === '' ? null : String(v).trim().toLowerCase();
+    return v == null || v === '' ? null : v;
+  };
+  const _snapshot = async (id) => {
+    const u = (await rdb.listUsers()).find(x => Number(x.id) === Number(id));
+    if (!u) return null;
+    const out = { id: u.id, username: u.username };
+    for (const k of IDENTITY_FIELDS) out[k] = _norm(k, u[k]);
+    return out;
+  };
+  const _diff = (before, after) => {
+    const d = {};
+    for (const k of IDENTITY_FIELDS) {
+      const a = JSON.stringify(before ? before[k] : null), b = JSON.stringify(after ? after[k] : null);
+      if (a !== b) d[k] = { before: before ? before[k] : null, after: after ? after[k] : null };
+    }
+    return d;
+  };
+  const _log = (req, action, target, details, risk) => {
+    try { rdb.logEvent({ category: 'identity', action, target, details, ...(risk != null ? { risk } : {}), ...rdb._logCtx(req) }); } catch {}
+  };
+
 // ── Users (admin only) ────────────────────────────────────────────
 router.get('/api/reports/users', requireReportSession, requireSuperAdmin, async (req, res) => {
   try { res.json(await rdb.listUsers()); }
@@ -22,7 +52,10 @@ router.post('/api/reports/users', requireReportSession, requireSuperAdmin, jsonB
     // Accept both legacy `role: 'admin'` (string) and new `roles: ['admin', 'tracker-editor']` (array).
     const { username, full_name, password, site_id, role, roles, email, extra_site_ids } = req.body || {};
     if (!username || !full_name || !password) return res.status(400).json({ error: 'username, full_name, password required' });
-    await rdb.createUser({ username, full_name, password, site_id, role, roles, email, extra_site_ids });
+    const r = await rdb.createUser({ username, full_name, password, site_id, role, roles, email, extra_site_ids });
+    const newId = r && (r.lastInsertRowid != null ? Number(r.lastInsertRowid) : (r.lastID != null ? Number(r.lastID) : null));
+    const after = newId != null ? await _snapshot(newId) : null;
+    _log(req, 'user_created', username, { user_id: newId, after });
     res.json({ ok: true });
   } catch(e) {
     // sqlite raises "UNIQUE constraint failed"; postgres raises SQLSTATE 23505.
@@ -55,7 +88,15 @@ router.put('/api/reports/users/:id', requireReportSession, requireSuperAdmin, js
     // Accept both legacy `role` (string) and new `roles` (array) — see createUser comment.
     const { full_name, password, site_id, role, roles, active, email, extra_site_ids } = req.body || {};
     if (!full_name) return res.status(400).json({ error: 'full_name required' });
-    await rdb.updateUser(parseInt(req.params.id), { full_name, password, site_id, role, roles, active, email, extra_site_ids });
+    const id = parseInt(req.params.id);
+    const before = await _snapshot(id);
+    await rdb.updateUser(id, { full_name, password, site_id, role, roles, active, email, extra_site_ids });
+    const after = await _snapshot(id);
+    const target = (after && after.username) || (before && before.username) || String(id);
+    const diff = _diff(before, after);
+    _log(req, 'user_updated', target, { user_id: id, changed: Object.keys(diff), diff, password_reset: !!password });
+    if (diff.roles) _log(req, 'user_role_changed', target, { user_id: id, before: diff.roles.before, after: diff.roles.after });
+    if (password) _log(req, 'password_reset', target, { user_id: id, by_admin: true });
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -64,7 +105,9 @@ router.delete('/api/reports/users/:id', requireReportSession, requireSuperAdmin,
   try {
     const id = parseInt(req.params.id);
     if (req.reportUser.id === id) return res.status(400).json({ error: 'Cannot delete your own account' });
+    const before = await _snapshot(id);
     await rdb.deleteUser(id);
+    _log(req, 'user_deleted', (before && before.username) || String(id), { user_id: id, before });
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
