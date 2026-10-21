@@ -18,17 +18,15 @@ function _createdMs(r) {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 let _axios = null;
-function _defaultTransport() {
-  if (!_axios) _axios = require('axios');
-  return {
-    get: (url, opts) => _axios.get(url, { timeout: 30000, ...opts }),
-    post: (url, body, opts) => _axios.post(url, body, { timeout: 30000, ...opts }),
-  };
+function _defaultTransport(allowHosts) {
+  // M4 — the real transport validates every URL (https, no private address unless allow-listed), maxRedirects:0.
+  const S = require('./safeUrl');
+  return { get: S.safeGet(allowHosts), post: S.safePost(allowHosts, { timeout: 30000 }) };
 }
 
 function makeSdpClient({ baseUrl, accountsUrl = 'https://accounts.zoho.com', clientId, clientSecret, refreshToken,
-  openFilter = 'Open_System', excludeStatuses = [], writeEnabled = false, transport } = {}) {
-  const T = transport || _defaultTransport();
+  openFilter = 'Open_System', excludeStatuses = [], writeEnabled = false, allowHosts, transport } = {}) {
+  const T = transport || _defaultTransport(allowHosts);
   const configured = !!(baseUrl && clientId && clientSecret && refreshToken);
   const base = String(baseUrl || '').replace(/\/+$/, '');
   let token = null, tokenExp = 0;
@@ -67,7 +65,7 @@ function makeSdpClient({ baseUrl, accountsUrl = 'https://accounts.zoho.com', cli
       let res;
       try {
         res = await T.get(`${base}/requests`, {
-          params: { input_data: JSON.stringify({ list_info: li }) },
+          timeout: 30000, params: { input_data: JSON.stringify({ list_info: li }) },
           headers: { Authorization: `Zoho-oauthtoken ${tok}`, Accept: 'application/vnd.manageengine.sdp.v3+json' },
         });
       } catch (e) {

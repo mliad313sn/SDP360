@@ -41,7 +41,7 @@ test('PUT stores secrets + channels; GET never returns them', async () => {
   const put = await call('PUT', '/api/teams-sla/settings', tok.super, {
     enabled: true, sdp_api_client_id: 'cid', sdp_api_client_secret: 'S3CRET', sdp_api_refresh_token: 'RTOK',
     rules: { res_soon_pct: 80 },
-    channels: [{ group: 'Hounde IT Agents', url: 'https://prod.webhook.example/hounde-xyz' }],
+    channels: [{ group: 'Hounde IT Agents', url: 'https://prod.webhook.office.com/hounde-xyz' }],
   });
   assert.equal(put.status, 200);
   const text = await (await call('GET', '/api/teams-sla/settings', tok.super)).text();
@@ -60,13 +60,13 @@ test('PUT stores secrets + channels; GET never returns them', async () => {
 
 test('a blank URL / secret keeps the stored one; a group left out is removed', async () => {
   await call('PUT', '/api/teams-sla/settings', tok.super, {
-    sdp_api_client_secret: '', channels: [{ group: 'Hounde IT Agents', url: '' }, { group: 'Mana IT Agents', url: 'https://w.example/mana' }],
+    sdp_api_client_secret: '', channels: [{ group: 'Hounde IT Agents', url: '' }, { group: 'Mana IT Agents', url: 'https://w.webhook.office.com/mana' }],
   });
   const rc = require('../services/reportConfig');
   const c = await rc.getConfig(rdb.db);
   assert.equal(c.sdp_api_client_secret, 'S3CRET');
   assert.deepEqual(JSON.parse(c.teams_sla_channels), [
-    { group: 'Hounde IT Agents', url: 'https://prod.webhook.example/hounde-xyz' }, { group: 'Mana IT Agents', url: 'https://w.example/mana' }]);
+    { group: 'Hounde IT Agents', url: 'https://prod.webhook.office.com/hounde-xyz' }, { group: 'Mana IT Agents', url: 'https://w.webhook.office.com/mana' }]);
   await call('PUT', '/api/teams-sla/settings', tok.super, { channels: [{ group: 'Mana IT Agents', url: '' }] });
   assert.deepEqual(JSON.parse((await rc.getConfig(rdb.db)).teams_sla_channels).map(c => c.group), ['Mana IT Agents']);
 });
@@ -75,6 +75,24 @@ test('validation: non-https webhook, a new group without URL, bad rules → 400'
   assert.equal((await call('PUT', '/api/teams-sla/settings', tok.super, { channels: [{ group: 'X', url: 'http://plain' }] })).status, 400);
   assert.equal((await call('PUT', '/api/teams-sla/settings', tok.super, { channels: [{ group: 'Nouveau', url: '' }] })).status, 400);
   assert.equal((await call('PUT', '/api/teams-sla/settings', tok.super, { rules: '{not json' })).status, 400);
+});
+
+// M4 — a webhook that points inside the network is refused at save time; the stored list is untouched.
+test('M4: a private / loopback webhook URL is refused with 400 and the stored channels are unchanged', async () => {
+  const rc = require('../services/reportConfig');
+  const before = (await rc.getConfig(rdb.db)).teams_sla_channels;
+  for (const url of ['https://10.20.30.40/hook', 'https://127.0.0.1:8443/hook', 'https://169.254.169.254/latest/meta-data', 'https://[::1]/hook', 'https://localhost/hook']) {
+    const r = await call('PUT', '/api/teams-sla/settings', tok.super, { channels: [{ group: 'Mana IT Agents', url }] });
+    assert.equal(r.status, 400, url);
+    assert.match((await r.json()).error, /refused|private|loopback|metadata|local/i);
+  }
+  assert.equal((await call('PUT', '/api/teams-sla/settings', tok.super, { sdp_api_base_url: 'https://192.168.1.10/app/itdesk/api/v3' })).status, 400);
+  assert.equal((await rc.getConfig(rdb.db)).teams_sla_channels, before, 'stored channels unchanged');
+  // the change is journalled as scheme+host only (never the full webhook path)
+  const rows = await rdb.listSystemLog({ action: 'config_url_changed' }, { limit: 50 });
+  const row = (rows.rows || rows).find(r => /teams_sla_channels/.test(String(r.target)));
+  assert.ok(row, 'a config_url_changed row exists for the channel');
+  assert.ok(!/hounde-xyz|\/mana/.test(String(row.details)), 'details carry scheme+host only');
 });
 
 test('test card: unknown group → 404', async () => {

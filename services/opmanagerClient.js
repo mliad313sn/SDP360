@@ -15,9 +15,10 @@
 // Transport `get` is injectable so tests never hit the network. Inert when unconfigured
 // (no apiKey/baseUrl → []/null, no call) so the collector self-skips.
 let _axios = null, _https = null;
-function _defaultGet() {
-  if (!_axios) _axios = require('axios');
-  return (url, opts) => _axios.get(url, opts);
+function _defaultGet(allowHosts) {
+  // M4 — the real transport validates the URL (https, no private address unless the host is on
+  // outbound_allow_hosts — the normal case for an on-prem OpManager) and never follows redirects.
+  return require('./safeUrl').safeGet(allowHosts);
 }
 function _agent({ tlsInsecure, caBundle }) {
   if (!_https) _https = require('https');
@@ -76,11 +77,12 @@ function optionsFromConfig(cfg) {
     baseUrl: c.opmanager_base_url || '',
     tlsInsecure: String(c.opmanager_tls_insecure) === '1',
     caBundle: c.opmanager_ca_bundle || '',
+    allowHosts: require('./safeUrl').allowHostsFromConfig(c),
   };
 }
 
-function makeOpmanagerClient({ apiKey, baseUrl, tlsInsecure = false, caBundle = '', get } = {}) {
-  const transport = get || _defaultGet();
+function makeOpmanagerClient({ apiKey, baseUrl, tlsInsecure = false, caBundle = '', allowHosts, get } = {}) {
+  const transport = get || _defaultGet(allowHosts);
   const configured = !!(apiKey && baseUrl);
   const httpsAgent = (tlsInsecure || caBundle) ? _agent({ tlsInsecure, caBundle }) : undefined;
   if (configured && tlsInsecure && !makeOpmanagerClient._warned) { makeOpmanagerClient._warned = true; console.warn('[OpManager] TLS certificate verification is OFF (opmanager_tls_insecure=1) — paste the internal CA bundle (opmanager_ca_bundle) and set it back to 0'); }

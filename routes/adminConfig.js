@@ -16,6 +16,40 @@ module.exports = function adminConfigRoutes(deps) {
     tokenState, refreshAccessToken, applyAnalyticsSettings: _applyAnalyticsSettings,
   } = deps;
   const router = express.Router();
+  const safeUrl = require('../services/safeUrl');
+  // M4 — the config keys that hold an outbound URL the server will call.
+  const URL_KEYS = ['opmanager_base_url', 'meraki_base_url', 'sdp_api_base_url', 'sdp_api_accounts_url',
+    'engagement_teams_url', 'engagement_webhook_url', 'publish_webhook_url', 'sync_alert_teams_url'];
+  const _s = (v) => String(v == null ? '' : v).trim();
+  /** Returns an error message for the first changed, non-blank URL that fails the guard; null when all pass. */
+  async function checkOutboundUrls(body, cur) {
+    const allow = safeUrl.allowHostsFromConfig({ ...(cur || {}), ...(body || {}) });
+    for (const k of URL_KEYS) {
+      if (!(k in body)) continue;
+      const v = _s(body[k]);
+      if (!v || v === _s(cur && cur[k])) continue;          // blank = clear; unchanged = already accepted
+      try { await safeUrl.validateOutboundUrl(v, { allowHosts: allow }); }
+      catch (e) { return `${k}: ${e.message}`; }
+    }
+    return null;
+  }
+  /** System log: one `config_url_changed` row per changed URL key, scheme+host only (a webhook URL is a secret). */
+  function logUrlChanges(req, body, cur) {
+    for (const k of URL_KEYS) {
+      if (!(k in body)) continue;
+      const before = _s(cur && cur[k]), after = _s(body[k]);
+      if (before === after) continue;
+      if (!after && reportConfig._SECRET_BLANK_KEEP.has(k)) continue;   // blank secret-shaped URL = keep stored, no change
+
+      try {
+        rdb.logEvent({ category: 'config', action: 'config_url_changed', target: k,
+          details: { from: before ? safeUrl.redactUrl(before) : '', to: after ? safeUrl.redactUrl(after) : '' }, ...rdb._logCtx(req) });
+      } catch (_) { /* best-effort */ }
+    }
+    if ('outbound_allow_hosts' in body && _s(body.outbound_allow_hosts) !== _s(cur && cur.outbound_allow_hosts)) {
+      try { rdb.logEvent({ category: 'config', action: 'config_url_changed', target: 'outbound_allow_hosts', details: { from: _s(cur && cur.outbound_allow_hosts), to: _s(body.outbound_allow_hosts) }, ...rdb._logCtx(req) }); } catch (_) { /* best-effort */ }
+    }
+  }
 
 router.get('/api/reports/config', requireReportSession, requireSuperAdmin, async (req, res) => {
   try {
@@ -55,8 +89,17 @@ router.put('/api/reports/config', requireReportSession, requireSuperAdmin, async
     if (OPMANAGER_KEYS.some(k => k in body) && req.reportUser?.role !== 'super_admin') {
       return res.status(403).json({ error: 'OpManager settings require super_admin' });
     }
+    // M4 — outbound URLs (webhooks, API base URLs) are validated BEFORE they are stored:
+    // https only, never a private / loopback / link-local / metadata address unless the host
+    // is on the allow list (outbound_allow_hosts). Only a CHANGED value is checked, so a form
+    // that re-sends an unchanged URL cannot block an unrelated save; the send-time guard in the
+    // clients re-checks every call anyway. Each change is journalled as scheme+host only.
+    const cur = await reportConfig.getConfig(rdb.db);
+    const denied = await checkOutboundUrls(body, cur);
+    if (denied) return res.status(400).json({ error: denied });
     const out = await reportConfig.setConfig(rdb.db, body, req.reportUser?.username);
     require('../services/ssoSettings')._invalidate();   // config changed → re-read next request
+    logUrlChanges(req, body, cur);
     res.json(out);
   }
   catch (e) { res.status(500).json({ error: e.message }); }

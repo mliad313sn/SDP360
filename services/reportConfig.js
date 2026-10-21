@@ -134,6 +134,10 @@ DEFAULTS.sync_alert_enabled = '1';
 DEFAULTS.sync_alert_recipients = '';
 DEFAULTS.sync_alert_teams_url = '';
 DEFAULTS.sync_truncation_tolerance_pct = '20';
+// ── M4 (2026-10-21) — outbound URL guard (services/safeUrl.js). Comma-separated hosts
+//    (exact or `*.suffix`) that may be targeted even when they resolve to a private address —
+//    the on-prem OpManager, an internal relay. Non-secret. Must live here or setConfig drops it.
+DEFAULTS.outbound_allow_hosts = '';
 // ── Step 9 — engagement + external publishing. Teams / webhook URLs let anyone post → SECRETS
 //    (blank-keep, encrypted). SharePoint: Graph client-credentials app (client_secret = SECRET).
 //    publish_metric_keys = comma list of KPI keys the connectors + the OData Values default to.

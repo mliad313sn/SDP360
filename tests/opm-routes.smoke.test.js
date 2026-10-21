@@ -120,9 +120,13 @@ test('auth gate — no token → 401', async () => {
 test('coverage: REST device list when opmanager configured (available:true, source rest)', async () => {
   const rdb = require('../reports-db');
   const reportConfig = require('../services/reportConfig');
-  // a tiny local OpManager stand-in returning a device envelope
+  // a tiny local OpManager stand-in returning a device envelope — over https with a self-signed
+  // certificate the client verifies through `opmanager_ca_bundle` (E4), and a loopback host that
+  // the M4 outbound guard only accepts because it is on `outbound_allow_hosts` (the on-prem case).
+  const { selfSignedCert } = require('./_self-signed-cert');
+  const tls = selfSignedCert({ ip: '127.0.0.1' });
   const devSrv = await new Promise((resolve) => {
-    const s = http.createServer((rq, rs) => {
+    const s = require('https').createServer({ key: tls.key, cert: tls.cert }, (rq, rs) => {
       rs.setHeader('content-type', 'application/json');
       rs.end(JSON.stringify({ listDevices: [
         { name: 'MGO-SW-01', type: 'Meraki MS Series', category: 'Meraki Switch', probeName: 'Mana' },
@@ -131,8 +135,8 @@ test('coverage: REST device list when opmanager configured (available:true, sour
       ], records: 3 }));
     }).listen(0, '127.0.0.1', () => resolve(s));
   });
-  const devBase = `http://127.0.0.1:${devSrv.address().port}`;
-  await reportConfig.setConfig(rdb.db, { opmanager_api_key: 'K', opmanager_base_url: devBase, opmanager_tls_insecure: '0' }, 'test');
+  const devBase = `https://127.0.0.1:${devSrv.address().port}`;
+  await reportConfig.setConfig(rdb.db, { opmanager_api_key: 'K', opmanager_base_url: devBase, opmanager_tls_insecure: '0', opmanager_ca_bundle: tls.cert, outbound_allow_hosts: '127.0.0.1' }, 'test');
   try {
     const r = await get('/api/analytics/opmanager/coverage', adminToken);
     assert.equal(r.status, 200);
@@ -142,7 +146,7 @@ test('coverage: REST device list when opmanager configured (available:true, sour
     assert.ok(r.body.excluded >= 1, 'UPS excluded');
     assert.ok(r.body.by_family, 'by_family present');
   } finally {
-    await reportConfig.setConfig(rdb.db, { opmanager_api_key: '_CLEAR_', opmanager_base_url: '', opmanager_tls_insecure: '1' }, 'test');
+    await reportConfig.setConfig(rdb.db, { opmanager_api_key: '_CLEAR_', opmanager_base_url: '', opmanager_tls_insecure: '1', outbound_allow_hosts: '' }, 'test');
     devSrv.close();
   }
 });

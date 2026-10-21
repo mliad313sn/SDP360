@@ -58,7 +58,7 @@ module.exports = function engagementRoutes(deps) {
   router.delete('/api/engagement/rules/:key', requireReportSession, requireAdmin, async (req, res) => { try { await store.removeRule(req.params.key); log(req, 'alert_rule_removed', req.params.key); res.json({ ok: true }); } catch (e) { fail(res, e); } });
   router.post('/api/engagement/rules/evaluate', requireReportSession, requireAdmin, async (req, res) => {
     try { const c = await cfg(); const { evaluateAlerts } = require('../services/engagementJobs'); const { buildMailer } = require('../services/mailer');
-      const r = await evaluateAlerts({ store, registry: registry(), deps: readerDeps(), rdb: rdb(), mailer: c.smtp_host ? buildMailer(c) : null, post: deps.post || ((url, body, headers) => require('axios').post(url, body, { timeout: 15000, headers: { 'Content-Type': 'application/json', ...(headers || {}) } })), cfg: c, baseUrl: c.public_base_url || '' });
+      const r = await evaluateAlerts({ store, registry: registry(), deps: readerDeps(), rdb: rdb(), mailer: c.smtp_host ? buildMailer(c) : null, post: deps.post || require('../services/engagementJobs').safePostFor(c), cfg: c, baseUrl: c.public_base_url || '' });
       log(req, 'alerts_evaluated', 'manual', r); res.json({ ok: true, ...r }); } catch (e) { fail(res, e); }
   });
   router.get('/api/engagement/firings', requireReportSession, requireAdmin, async (req, res) => { try { res.json({ ok: true, firings: await store.listFirings({ limit: req.query.limit, since: req.query.since || null }) }); } catch (e) { fail(res, e); } });

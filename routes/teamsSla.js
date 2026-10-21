@@ -10,6 +10,7 @@ module.exports = function teamsSlaRoutes(deps) {
   const reportConfig = require('../services/reportConfig');
   const S = require('../services/teamsSla');
   const poll = require('../tools/teams/poll-sla');
+  const safeUrl = require('../services/safeUrl');   // M4 — outbound URL guard (save + test card)
   const jsonBody = express.json({ limit: '200kb' });
   const guard = [requireReportSession, requireSuperAdmin];
 
@@ -46,9 +47,19 @@ module.exports = function teamsSlaRoutes(deps) {
       const b = req.body || {};
       const cur = await reportConfig.getConfig(rdb.db);
       const patch = {};
+      const allow = safeUrl.allowHostsFromConfig(cur);
+      const urlLog = [];   // M4 — [target, from, to] rows journalled after the save (scheme+host only)
       if ('enabled' in b) patch.teams_sla_enabled = b.enabled ? '1' : '0';
       for (const k of ['sdp_api_base_url', 'sdp_api_accounts_url', 'sdp_api_client_id', 'sdp_api_open_filter']) {
         if (k in b) patch[k] = String(b[k] == null ? '' : b[k]).trim();
+      }
+      // M4 — a changed, non-blank API base URL must pass the outbound guard (https, no private address).
+      for (const k of ['sdp_api_base_url', 'sdp_api_accounts_url']) {
+        if (k in patch && patch[k] && patch[k] !== String(cur[k] || '').trim()) {
+          try { await safeUrl.validateOutboundUrl(patch[k], { allowHosts: allow }); }
+          catch (e) { return res.status(400).json({ error: `${k}: ${e.message}` }); }
+          urlLog.push([k, cur[k], patch[k]]);
+        }
       }
       // blank = keep (reportConfig drops a blank secret on its own)
       for (const k of ['sdp_api_client_secret', 'sdp_api_refresh_token']) if (k in b) patch[k] = String(b[k] == null ? '' : b[k]).trim();
@@ -68,6 +79,13 @@ module.exports = function teamsSlaRoutes(deps) {
           if (next.some(n => n.group.toLowerCase() === group.toLowerCase())) return res.status(400).json({ error: `Groupe en double : ${group}` });
           if (url) {
             if (!/^https:\/\/\S+$/i.test(url)) return res.status(400).json({ error: `URL du webhook invalide pour ${group} (https:// requis)` });
+            // M4 — refuse a webhook that points inside the network (SSRF) before it is stored.
+            const old = prev.find(p => p.group.toLowerCase() === group.toLowerCase());
+            if (!old || old.url !== url) {
+              try { await safeUrl.validateOutboundUrl(url, { allowHosts: allow }); }
+              catch (e) { return res.status(400).json({ error: `Webhook URL for ${group}: ${e.message}` }); }
+              urlLog.push([`teams_sla_channels[${group}]`, old && old.url, url]);
+            }
             next.push({ group, url });
           } else {
             const old = prev.find(p => p.group.toLowerCase() === group.toLowerCase());
@@ -79,6 +97,9 @@ module.exports = function teamsSlaRoutes(deps) {
         patch.teams_sla_channels = JSON.stringify(next);
       }
       await reportConfig.setConfig(rdb.db, patch, req.reportUser && req.reportUser.username);
+      for (const [target, from, to] of urlLog) {
+        try { rdb.logEvent({ category: 'config', action: 'config_url_changed', target, details: { from: from ? safeUrl.redactUrl(from) : '', to: safeUrl.redactUrl(to) }, ...rdb._logCtx(req) }); } catch (_) { /* best-effort */ }
+      }
       res.json({ ok: true });
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
@@ -93,9 +114,11 @@ module.exports = function teamsSlaRoutes(deps) {
       const { buildGroupCard } = require('../services/teamsCard');
       const card = buildGroupCard(group, [{ kind: 'fr_soon', request_id: '0', display_id: 'TEST', subject: 'Message de test — alertes SLA du dashboard IT OPS',
         p: 'P3', group, technician: '', minutes: 15 }], { apiBaseUrl: c.sdp_api_base_url });
-      await require('axios').post(url, card, { timeout: 15000, headers: { 'Content-Type': 'application/json' } });
+      // M4 — a channel stored before the guard existed may still be private: re-check before posting.
+      await safeUrl.safePost(safeUrl.allowHostsFromConfig(c), { timeout: 15000, headers: { 'Content-Type': 'application/json' } })(url, card);
       res.json({ ok: true });
     } catch (e) {
+      if (e && e.code === safeUrl.UNSAFE) return res.status(400).json({ error: `Webhook URL refused: ${e.message}` });
       const st = e && e.response && e.response.status;
       res.status(502).json({ error: `Échec de l'envoi${st ? ` (HTTP ${st})` : ''} : ${String(e.message || '').replace(/https?:\/\/\S+/g, '<url>')}` });
     }

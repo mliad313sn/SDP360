@@ -22,14 +22,16 @@ function _defaultDeps() {
   const rdb = require('../../reports-db');
   const reportConfig = require('../../services/reportConfig');
   const { makeSdpClient } = require('../../services/sdpApiClient');
-  const axios = require('axios');
+  const S4 = require('../../services/safeUrl');   // M4 — outbound guard on the SDP base URL + every webhook post
   return {
     loadConfig: () => reportConfig.getConfig(rdb.db),
-    makeClient: (c) => makeSdpClient({ baseUrl: c.sdp_api_base_url, accountsUrl: c.sdp_api_accounts_url,
+    makeClient: (c) => makeSdpClient({ baseUrl: c.sdp_api_base_url, accountsUrl: c.sdp_api_accounts_url, allowHosts: S4.allowHostsFromConfig(c),
       clientId: c.sdp_api_client_id, clientSecret: c.sdp_api_client_secret, refreshToken: c.sdp_api_refresh_token,
       openFilter: c.sdp_api_open_filter || undefined,
       excludeStatuses: S.parseRules(c.teams_sla_rules).api_exclude_statuses }),
-    post: (url, card) => axios.post(url, card, { timeout: 15000, headers: { 'Content-Type': 'application/json' } }),
+    // M4 — validated right before the send (https, no private address unless allow-listed), maxRedirects:0;
+    // an unsafe URL throws → the group lands in `failures` (scrubbed), nothing is recorded, the pass goes on.
+    post: (url, card, c) => S4.safePost(S4.allowHostsFromConfig(c || {}), { timeout: 15000, headers: { 'Content-Type': 'application/json' } })(url, card),
     log: require('../../services/slaAlertLog'),
     setConfig: (patch) => reportConfig.setConfig(rdb.db, patch, 'teams-sla'),
     now: () => Date.now(),
@@ -84,7 +86,7 @@ async function run({ dryRun = false, deps } = {}) {
       if (!url) { out.unmapped.push(group); continue; }
       const card = buildGroupCard(group, list, { apiBaseUrl: cfg.sdp_api_base_url, maxTickets: rules.max_tickets_per_card });
       try {
-        await D.post(url, card);
+        await D.post(url, card, cfg);
         await D.log.record(null, list);
         out.posted++; out.sent += list.length;
       } catch (e) {
