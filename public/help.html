@@ -976,7 +976,8 @@
 
         <h3 id="en-16-3">16.3 Backup, rollback &amp; cohabitation</h3>
         <ul>
-          <li><strong>One backup unit</strong> — a single <code>pg_dump</code> of <code>sdp_dashboard</code> captures everything (Manager → <code>sdp-manager backup</code>).</li>
+          <li><strong>One backup unit</strong> — a single <code>pg_dump</code> of <code>sdp_dashboard</code> captures everything (Manager → <code>sdp-manager backup</code>). Nightly at <strong>03:00</strong> (job <code>db.backup</code>): the dump is verified (it must end with pg_dump's trailer), gzip-compressed and <strong>encrypted at rest</strong> (AES-256-GCM, <code>SDP_BACKUP_KEY</code> in <code>.env</code>, distinct from <code>SDP_CONFIG_KEY</code>) → <code>*.sql.gz.enc</code>; without the key it stays plaintext gzip and every run logs a warning. An off-site copy goes to <code>backup_offsite_path</code> (UNC / other disk) when set.</li>
+          <li><strong>Restore drill</strong> — on the 1st of each month at 04:00 (job <code>db.restore_drill</code>, or by hand <code>node tools\pg\restore-drill.js --backup-first</code>) the newest dump is restored into a disposable database, the row counts of the 10 main tables are compared with the live database, and a dated report lands in <code>docs/ops/restore-drills/</code>. Admin ▸ 🧪 Restore drill shows the last date and result (PASS / FAIL); a single-row difference is a failure.</li>
           <li><strong>Per-module rollback</strong> — each module has a <code>*_BACKEND</code> flag; unsetting it and restarting falls back to that module's frozen SQLite archive.</li>
           <li><strong>Cohabitation</strong> — <code>sdp_dashboard</code> is a peer of the 4MyPeople appliance database <code>fmp_v2</code> on the same cluster; the appliance's destructive operations are scoped to <code>fmp_*</code> and never touch the SDP database.</li>
         </ul>
@@ -2111,7 +2112,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Confirm-Destructive.ps1"
 
         <h3 id="fr-16-3">16.3 Sauvegarde, retour arrière &amp; cohabitation</h3>
         <ul>
-          <li><strong>Une seule unité de sauvegarde</strong> — un <code>pg_dump</code> de <code>sdp_dashboard</code> capture tout (Manager → <code>sdp-manager backup</code>).</li>
+          <li><strong>Une seule unité de sauvegarde</strong> — un <code>pg_dump</code> de <code>sdp_dashboard</code> capture tout (Manager → <code>sdp-manager backup</code>). Chaque nuit à <strong>03:00</strong> (tâche <code>db.backup</code>) : le dump est vérifié (il doit se terminer par le trailer de pg_dump), compressé en gzip et <strong>chiffré au repos</strong> (AES-256-GCM, <code>SDP_BACKUP_KEY</code> dans <code>.env</code>, distincte de <code>SDP_CONFIG_KEY</code>) → <code>*.sql.gz.enc</code> ; sans la clé il reste en gzip clair et chaque passage journalise un avertissement. Une copie hors site part vers <code>backup_offsite_path</code> (UNC / autre disque) si renseigné.</li>
+          <li><strong>Exercice de restauration</strong> — le 1er du mois à 04:00 (tâche <code>db.restore_drill</code>, ou à la main <code>node tools\pg\restore-drill.js --backup-first</code>) le dernier dump est restauré dans une base jetable, les comptages des 10 tables principales sont comparés à la base vivante et un rapport daté est écrit dans <code>docs/ops/restore-drills/</code>. Admin ▸ 🧪 Restore drill affiche la date et le résultat (PASS / FAIL) ; un écart d'une seule ligne est un échec.</li>
           <li><strong>Retour arrière par module</strong> — chaque module a un flag <code>*_BACKEND</code> ; le retirer et redémarrer revient à l'archive SQLite gelée de ce module.</li>
           <li><strong>Cohabitation</strong> — <code>sdp_dashboard</code> est un pair de la base <code>fmp_v2</code> de l'appliance 4MyPeople sur le même cluster ; les opérations destructrices de l'appliance sont limitées à <code>fmp_*</code> et ne touchent jamais la base SDP.</li>
         </ul>

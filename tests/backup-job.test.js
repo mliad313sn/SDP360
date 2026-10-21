@@ -21,7 +21,10 @@ test('runBackup: skips without PG_URL, fails loudly on a bad exit or a tiny file
   assert.deepEqual((await runBackup({ dir, env: {} })).skipped, true);
   await assert.rejects(() => runBackup({ dir, env: { PG_URL: 'x' }, spawn: () => ({ status: 1, stderr: 'pg_dump: boom' }) }), /pg_dump failed/);
   await assert.rejects(() => runBackup({ dir, env: { PG_URL: 'x' }, spawn: (c, a) => { fs.writeFileSync(a[1], 'tiny'); return { status: 0 }; } }), /suspiciously small/);
-  const out = await runBackup({ dir, keep: 1, env: { PG_URL: 'x' }, spawn: (c, a) => { fs.writeFileSync(a[1], 'x'.repeat(5000)); return { status: 0 }; } });
+  // E11: a real dump ends with pg_dump's trailer — the stub writes one (a size-only payload is now refused, see backup-encrypt.test.js).
+  const DUMP = 'x'.repeat(5000) + '\n-- PostgreSQL database dump complete\n';
+  const out = await runBackup({ dir, keep: 1, env: { PG_URL: 'x' }, spawn: (c, a) => { fs.writeFileSync(a[1], DUMP); return { status: 0 }; }, log: () => {} });
   assert.ok(out.bytes >= 5000);
+  assert.ok(out.file.endsWith('.sql.gz'), 'stored gzip-compressed');
   assert.equal(fs.readdirSync(dir).filter((n) => n.startsWith('sdp_dashboard_')).length, 1);
 });

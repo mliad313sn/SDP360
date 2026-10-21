@@ -134,6 +134,9 @@ DEFAULTS.sync_alert_enabled = '1';
 DEFAULTS.sync_alert_recipients = '';
 DEFAULTS.sync_alert_teams_url = '';
 DEFAULTS.sync_truncation_tolerance_pct = '20';
+// ── E11 — off-site copy of every verified dump (UNC or local path; '' = local only; S3 out of scope).
+//    Not a secret (a path), but super_admin-only like the rest of /api/reports/config.
+DEFAULTS.backup_offsite_path = '';
 // ── Step 9 — engagement + external publishing. Teams / webhook URLs let anyone post → SECRETS
 //    (blank-keep, encrypted). SharePoint: Graph client-credentials app (client_secret = SECRET).
 //    publish_metric_keys = comma list of KPI keys the connectors + the OData Values default to.

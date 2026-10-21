@@ -7,6 +7,7 @@
 //                             /api/ gate on purpose; returns ONLY {ok, db, last_job_at} — no business
 //                             data, no token state, no identifiers.
 //   GET /api/health/views   — Zoho view-schema check, session + admin tier (was key/query-token only).
+//   GET /api/health/restore-drill — last `restore_drill` system_log row (E11), super_admin.
 //
 // Wiring in server.js:
 //   app.use(require('./routes/health')({ express, checkZohoViewSchema, requireReportSession, getRdb }));
@@ -47,6 +48,22 @@ router.get('/api/health/views', requireReportSession, async (req, res) => {
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
+});
+
+// E11 — last restore drill (super_admin): the newest `restore_drill` row of system_log, so the
+// admin card can show date + result without reading the dated report file.
+// `listSystemLog` is a dual-backend dispatcher (Promise on PostgreSQL) → awaited.
+router.get('/api/health/restore-drill', requireReportSession, async (req, res) => {
+  const rdb = getRdb();
+  if (!rdb.userHasRole(req.reportUser, 'super_admin')) return res.status(403).json({ error: 'super_admin only' });
+  try {
+    const { rows } = await rdb.listSystemLog({ category: 'ops', action: 'restore_drill' }, { limit: 1, offset: 0 });
+    const r = rows && rows[0];
+    if (!r) return res.json({ last: null });
+    let details = null;
+    try { details = typeof r.details === 'string' ? JSON.parse(r.details) : r.details; } catch (_) { details = null; }
+    res.json({ last: { ts: r.ts, ok: details ? !!details.ok : !r.risk, date: r.target, details } });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
   return router;
