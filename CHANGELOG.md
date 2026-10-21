@@ -1,5 +1,8 @@
 # Changelog
 
+## 2.0.0-alpha.13 — 2026-10-20 — Remédiation vague 0/1
+- E2/F4/F5 — SSO : appariement par `oid` d'abord ; repli e-mail uniquement pour un compte jamais lié, sur les claims `email`/`upn` (jamais `preferred_username`), jamais pour le compte de secours ni un super_admin ; un `oid` différent déjà lié n'est jamais réécrit (`sso_link_conflict`, événement à risque, refus neutre) ; regex de locataire ancrée ; dépassement de groupes `_claim_names` journalisé sans provisionnement ; `error_description` Entra tronqué et redigé. Règles extraites dans `services/ssoLogin.js` ; doc `docs/SSO_ENTRA_SETUP.md` § Linking rule.
+
 ## 2.0.0-alpha.12 — 2026-10-20 — Commentaires IA : langage simple pour un lecteur CIO / CFO, en anglais ou en français au choix
 - `services/plainEnglish.js` (pur) : bloc de style injecté dans chaque prompt, vérificateur (≤ 5 phrases, ≤ 22 mots par phrase, jargon → formulation simple, jamais de français, ni puces, liens, exclamations), `dejargon()` appliqué aussi au texte déterministe de repli.
 - `services/plainEnglish.js` est bilingue (cartes de jargon EN/FR, bloc de style par langue, détection de la langue étrangère). `services/aiCommentary.js` : registre exécutif dans la langue choisie ; une réponse hors style reçoit une correction, puis le texte déterministe l'emporte (`style_issues`, `error`). `services/execMiSummary.js` : consigne CIO / CFO et filtre par phrase. `executive-report.html` : audience verrouillée sur Executive (CFO/CIO).

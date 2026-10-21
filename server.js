@@ -5944,26 +5944,28 @@ app.get('/api/auth/sso/callback', async (req, res) => {
   const s = await ssoSettings.resolveSsoSettings(rdb.db);
   if (!s.ready) return res.status(404).send('SSO is not enabled on this server.');
   const _fail = (code) => res.redirect('/login.html?sso_error=' + encodeURIComponent(code));
+  const ssoEntra = require('./services/ssoEntra');
   try {
-    if (req.query.error) { console.warn('[SSO] Entra returned error:', req.query.error, req.query.error_description || ''); return _fail(String(req.query.error)); }
+    if (req.query.error) {
+      // E2: Entra's error_description is truncated + redacted before it reaches the log.
+      console.warn('[SSO] Entra returned error:', String(req.query.error).slice(0, 64), ssoEntra.redactEntraError(req.query.error_description));
+      return _fail(String(req.query.error).slice(0, 64));
+    }
     const { code, state } = req.query;
     if (!code || !state) return _fail('missing_code');
     const pending = _ssoPending.get(state);          // state match = CSRF guard
     if (!pending) return _fail('state_expired');
     _ssoPending.delete(state);
 
-    const ssoEntra = require('./services/ssoEntra');
     const claims = await ssoEntra.completeLogin({
       code, codeVerifier: pending.codeVerifier, expectedNonce: pending.nonce, cfg: s.cfg,
     });
 
-    // Pre-provisioned only: the identity must match an active dashboard user.
-    const user = await rdb.findUserByEntra({ oid: claims.oid, email: claims.email });
-    if (!user) {
-      console.warn(`[SSO] denied — no provisioned user for ${claims.email} (oid ${claims.oid})`);
-      return _fail('not_provisioned');
-    }
-    await rdb.linkUserEntra(user.id, claims.oid, claims.email);   // stamp stable oid
+    // Pre-provisioned only, oid first, restricted e-mail fallback, never re-link a different
+    // oid (E2) — the rules live in services/ssoLogin + reports-db.findUserByEntra/linkUserEntra.
+    const ssoLogin = require('./services/ssoLogin');
+    const { user, deny } = await ssoLogin.matchAndLink(rdb, claims, s);
+    if (deny) return _fail(deny);
     // Refresh the display profile FROM Microsoft (name/title/office).
     try {
       await rdb.updateUserProfileFromEntra(user.id, {
@@ -5971,16 +5973,9 @@ app.get('/api/auth/sso/callback', async (req, res) => {
         title: claims.title, office: claims.office, full_name: claims.name,
       });
     } catch (e) { console.warn('[SSO] profile sync skipped:', e.message); }
-    // Step 4 — Entra group → role / site provisioning (config sso_group_map, JSON). Only when a
-    // map is configured; the mapping is pure (services/ssoProvisioning), the write is one update.
-    try {
-      const prov = require('./services/ssoProvisioning');
-      const plan = prov.planProvisioning(user, claims.groups, s.groupMap);
-      if (plan.changed) {
-        await rdb.updateUser(user.id, plan.patch);
-        rdb.logEvent({ category:'identity', action:'user_role_changed', actor:'sso', actor_id:user.id, target:user.username, details:{ via:'entra_group_map', ...plan.patch } });
-      }
-    } catch (e) { console.warn('[SSO] group provisioning skipped:', e.message); }
+    // Step 4 — Entra group → role / site provisioning (config sso_group_map, JSON); F5: a groups
+    // overage (`_claim_names`) is logged and provisions nothing (services/ssoLogin).
+    await ssoLogin.provisionFromGroups(rdb, user, claims, s, req.ip);
     rdb.logEvent({ category:'auth', action:'login_success', actor:user.username, actor_id:user.id, ip:req.ip, details:{ via:'sso' } });
     const session = await rdb.createSessionForUser(user.id);
     if (!session) return _fail('session_failed');

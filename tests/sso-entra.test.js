@@ -136,6 +136,58 @@ test('missing config is rejected up front', () => {
   assert.throws(() => sso.beginLogin({ clientId: 'x' }), e => e.code === 'missing_config');
 });
 
+// ── E2 / F4 / F5 (remediation 2026-10-20) ─────────────────────────────────────
+
+test('E2: email_source names the claim — verified `email` first, then `upn`, preferred_username last', async () => {
+  const login = (over) => sso.completeLogin({ code: 'c', codeVerifier: 'v', expectedNonce: 'NONCE123', cfg: CFG, http: httpFor(makeIdToken(over)) });
+  let c = await login({});
+  assert.equal(c.email_source, 'email');
+  c = await login({ email: undefined, upn: 'Azize.S@edv-ops.com', preferred_username: 'alias@evil.example' });
+  assert.equal(c.email_source, 'upn'); assert.equal(c.email, 'azize.s@edv-ops.com');
+  c = await login({ email: undefined, preferred_username: 'Alias@edv-ops.com' });
+  assert.equal(c.email_source, 'preferred_username', 'kept for display, flagged so the DB layer never matches on it');
+  assert.equal(c.email, 'alias@edv-ops.com');
+  assert.deepEqual(sso.pickEmailClaim({}), { email: '', email_source: null });
+});
+
+test('F4: the multi-tenant alias regex is anchored — "organizations-evil" does NOT skip the tid check', async () => {
+  const cfg = { ...CFG, tenantId: 'organizations-evil' };
+  const iss = `https://login.microsoftonline.com/${cfg.tenantId}/v2.0`;
+  await assert.rejects(
+    sso.completeLogin({ code: 'c', codeVerifier: 'v', expectedNonce: 'NONCE123', cfg, http: httpFor(makeIdToken({ iss, tid: 'another-tenant' })) }),
+    e => e.code === 'bad_tenant');
+  // The genuine alias still accepts any tenant id.
+  const cfg2 = { ...CFG, tenantId: 'organizations' };
+  const c = await sso.completeLogin({ code: 'c', codeVerifier: 'v', expectedNonce: 'NONCE123', cfg: cfg2,
+    http: httpFor(makeIdToken({ iss: `https://login.microsoftonline.com/organizations/v2.0`, tid: 'any-tenant' })) });
+  assert.equal(c.tid, 'any-tenant');
+});
+
+test('F5: a groups overage (_claim_names.groups) yields groups_overage=true and NO groups', async () => {
+  const c = await sso.completeLogin({ code: 'c', codeVerifier: 'v', expectedNonce: 'NONCE123', cfg: CFG,
+    http: httpFor(makeIdToken({ _claim_names: { groups: 'src1' }, _claim_sources: { src1: { endpoint: 'https://graph.microsoft.com/v1.0/users/x/getMemberObjects' } } })) });
+  assert.equal(c.groups_overage, true);
+  assert.deepEqual(c.groups, []);
+  const ok = await sso.completeLogin({ code: 'c', codeVerifier: 'v', expectedNonce: 'NONCE123', cfg: CFG, http: httpFor(makeIdToken({ groups: ['g1'] })) });
+  assert.equal(ok.groups_overage, false); assert.deepEqual(ok.groups, ['g1']);
+});
+
+test('E2: Entra error_description is truncated and redacted before it reaches a log line', async () => {
+  const long = 'AADSTS7000215: Invalid client secret provided. client_secret=SuperSecretValue123 see https://login.microsoftonline.com/error?code=7000215 ' + 'x'.repeat(400);
+  const r = sso.redactEntraError(long);
+  assert.ok(r.length <= 201, 'truncated to ~200 chars');
+  assert.ok(!r.includes('SuperSecretValue123'), 'secret value redacted');
+  assert.ok(!r.includes('https://'), 'URLs redacted');
+  assert.ok(r.startsWith('AADSTS7000215'), 'the error code survives');
+  assert.equal(sso.redactEntraError(undefined), '');
+  // The token-exchange failure carries the redacted text only.
+  const http = { postForm: async () => { const e = new Error('400'); e.response = { data: { error: 'invalid_client', error_description: long } }; throw e; },
+                 getJson: async () => ({ keys: [PUB_JWK] }) };
+  await assert.rejects(
+    sso.completeLogin({ code: 'c', codeVerifier: 'v', expectedNonce: 'NONCE123', cfg: CFG, http }),
+    e => e.code === 'token_exchange_failed' && !e.message.includes('SuperSecretValue123') && e.message.length < 300);
+});
+
 test('token response without id_token is rejected', async () => {
   const http = { postForm: async () => ({ access_token: 'x' }), getJson: async () => ({ keys: [PUB_JWK] }) };
   await assert.rejects(

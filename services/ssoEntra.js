@@ -76,7 +76,7 @@ async function completeLogin({ code, codeVerifier, expectedNonce, cfg, http }) {
     tok = await http.postForm(`${AUTHORITY(cfg.tenantId)}/oauth2/v2.0/token`, body.toString());
   } catch (e) {
     const detail = e.response && e.response.data && (e.response.data.error_description || e.response.data.error);
-    throw _err('token_exchange_failed', 'Token exchange failed: ' + (detail || e.message));
+    throw _err('token_exchange_failed', 'Token exchange failed: ' + redactEntraError(detail || e.message));
   }
   if (!tok || !tok.id_token) throw _err('no_id_token', 'Token response did not include an id_token');
 
@@ -93,6 +93,8 @@ async function completeLogin({ code, codeVerifier, expectedNonce, cfg, http }) {
   return {
     oid:        identity.oid,
     email:      identity.email,
+    email_source: identity.email_source,                                   // 'email' | 'upn' | 'preferred_username'
+    groups_overage: !!identity.groups_overage,                             // F5 — groups omitted by Entra (_claim_names)
     name:       g.displayName    || identity.name       || '',
     first_name: g.givenName      || identity.first_name || '',
     last_name:  g.surname        || identity.last_name  || '',
@@ -146,23 +148,59 @@ async function verifyIdToken(idToken, cfg, http, expectedNonce) {
   if (typeof payload.exp !== 'number' || payload.exp < now - skew) throw _err('expired', 'id_token has expired');
   if (typeof payload.nbf === 'number' && payload.nbf > now + skew)  throw _err('not_yet_valid', 'id_token not yet valid');
   if (expectedNonce && payload.nonce !== expectedNonce)            throw _err('bad_nonce', 'id_token nonce mismatch (possible replay)');
-  if (cfg.tenantId && payload.tid && !/^common|organizations|consumers$/.test(cfg.tenantId) && payload.tid !== cfg.tenantId) {
+  // F4: the multi-tenant aliases must match the WHOLE tenant id — an unanchored
+  // alternation let a tenant id like "organizations-x" skip the tid check.
+  if (cfg.tenantId && payload.tid && !MULTI_TENANT_ALIAS.test(cfg.tenantId) && payload.tid !== cfg.tenantId) {
     throw _err('bad_tenant', 'id_token from a different tenant');
   }
 
-  const email = String(payload.email || payload.preferred_username || payload.upn || '').trim().toLowerCase();
+  // E2: remember WHICH claim supplied the e-mail. Only `email` (verified) and
+  // `upn` may drive the pre-provisioning fallback in reports-db.findUserByEntra;
+  // `preferred_username` is kept for display/logging only.
+  const { email, email_source } = pickEmailClaim(payload);
   const oid   = payload.oid || payload.sub;
   if (!oid)   throw _err('no_oid',   'id_token has no oid/sub claim');
   if (!email) throw _err('no_email', 'id_token has no email/UPN claim (add "email" to the app\'s optional claims)');
 
+  // F5: groups overage — Entra omits `groups` and sets `_claim_names.groups`
+  // when the user is in too many groups. Report it instead of silently reading [].
+  const groups_overage = !!(payload._claim_names && typeof payload._claim_names === 'object' && 'groups' in payload._claim_names);
+
   return {
-    oid, email,
+    oid, email, email_source,
     name:       payload.name        || '',
     first_name: payload.given_name  || '',
-    groups:     Array.isArray(payload.groups) ? payload.groups.map(String) : [],
+    groups:     (!groups_overage && Array.isArray(payload.groups)) ? payload.groups.map(String) : [],
+    groups_overage,
     last_name:  payload.family_name || '',
     tid: payload.tid || null, raw: payload,
   };
+}
+
+const MULTI_TENANT_ALIAS = /^(common|organizations|consumers)$/;
+
+// Which id_token claim carries the e-mail, in trust order. `email` is the
+// optional verified claim; `upn` is the directory principal; `preferred_username`
+// is a mutable display alias and must never drive account matching.
+function pickEmailClaim(payload = {}) {
+  const norm = v => String(v == null ? '' : v).trim().toLowerCase();
+  if (norm(payload.email))              return { email: norm(payload.email),              email_source: 'email' };
+  if (norm(payload.upn))                return { email: norm(payload.upn),                email_source: 'upn' };
+  if (norm(payload.preferred_username)) return { email: norm(payload.preferred_username), email_source: 'preferred_username' };
+  return { email: '', email_source: null };
+}
+
+// Entra error_description strings can be long and may echo request material
+// (redirect URIs, client ids, correlation ids, sometimes a secret-looking value).
+// Keep the AADSTS code and a short, redacted prefix for the log — nothing more.
+const _REDACT_PAIR = /\b(client_secret|code|code_verifier|access_token|id_token|refresh_token|assertion|password)\s*[=:]\s*[^\s&,;]+/gi;
+function redactEntraError(desc, max = 200) {
+  let s = String(desc == null ? '' : desc).replace(/[\r\n\t]+/g, ' ');
+  s = s.replace(_REDACT_PAIR, (m, k) => `${k}=<redacted>`);
+  s = s.replace(/https?:\/\/[^\s)]+/gi, '<url>');
+  s = s.replace(/\b[a-z0-9]{32,}\b/gi, '<redacted>');       // bare long tokens / secrets
+  if (s.length > max) s = s.slice(0, max) + '…';
+  return s;
 }
 
 // ── JWKS fetch + cache (1h), with one refresh on unknown kid (key rotation) ──
@@ -196,4 +234,4 @@ function _requireCfg(cfg, keys) {
   for (const k of keys) if (!cfg[k]) throw _err('missing_config', `SSO config missing "${k}"`);
 }
 
-module.exports = { beginLogin, completeLogin, verifyIdToken, _resetJwksCache };
+module.exports = { beginLogin, completeLogin, verifyIdToken, pickEmailClaim, redactEntraError, _resetJwksCache };

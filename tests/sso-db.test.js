@@ -85,3 +85,63 @@ test('inactive user is not resolved by findUserByEntra', () => {
   assert.equal(rdb.findUserByEntra({ oid: 'oid-stable-123' }), null, 'inactive → not found');
   rdb.updateUser(uid, { full_name: 'Azize SAMANDOULGOU', active: 1 }); // restore
 });
+
+// ── E2 (remediation 2026-10-20): oid-first matching, restricted e-mail fallback, no re-link ──
+// Precondition from the tests above: `azize` (uid) is linked to 'oid-stable-123' and carries
+// e-mail 'bulk.addr@edv-ops.com'.
+
+test('E2: a known oid matches even after the e-mail changed (oid is the primary key)', () => {
+  rdb.setUserEmail(uid, 'renamed.addr@edv-ops.com');
+  const u = rdb.findUserByEntra({ oid: 'oid-stable-123', email: 'something-else@edv-ops.com', email_source: 'email' });
+  assert.ok(u && u.id === uid, 'matched by oid, e-mail ignored');
+  rdb.setUserEmail(uid, 'bulk.addr@edv-ops.com'); // restore
+});
+
+test('E2: unknown oid + e-mail of an ALREADY-LINKED account → refused (no takeover by e-mail)', () => {
+  const u = rdb.findUserByEntra({ oid: 'oid-attacker-999', email: 'bulk.addr@edv-ops.com', email_source: 'email' });
+  assert.equal(u, null, 'a linked row is never re-matched through its mutable e-mail');
+  // The link itself must be untouched.
+  assert.ok(rdb.findUserByEntra({ oid: 'oid-stable-123' }), 'original oid still resolves');
+  assert.equal(rdb.findUserByEntra({ oid: 'oid-attacker-999' }), null, 'attacker oid never got stamped');
+});
+
+test('E2: preferred_username alone never matches; email / upn claims do (unlinked row only)', () => {
+  const r = rdb.createUser({ username: 'pref', full_name: 'Pref User', password: 'temp-pass-123', role: 'editor', email: 'pref.user@edv-ops.com' });
+  const pid = r.lastInsertRowid;
+  assert.equal(rdb.findUserByEntra({ oid: 'oid-pref', email: 'pref.user@edv-ops.com', email_source: 'preferred_username' }), null,
+    'preferred_username is a display alias — no match');
+  let u = rdb.findUserByEntra({ oid: 'oid-pref', email: 'PREF.User@edv-ops.com', email_source: 'upn' });
+  assert.ok(u && u.id === pid, 'upn claim may drive the pre-provisioning match');
+  u = rdb.findUserByEntra({ oid: 'oid-pref', email: 'pref.user@edv-ops.com', email_source: 'email' });
+  assert.ok(u && u.id === pid, 'verified email claim may drive the pre-provisioning match');
+  assert.equal(rdb.findUserByEntra({ email: 'pref.user@edv-ops.com', email_source: 'bogus' }), null, 'unknown claim source → no match');
+});
+
+test('E2: the break-glass account is never linked through its e-mail', () => {
+  rdb.createUser({ username: 'bg', full_name: 'Break Glass', password: 'temp-pass-123', role: 'admin', email: 'bg@edv-ops.com' });
+  assert.equal(rdb.findUserByEntra({ oid: 'oid-bg', email: 'bg@edv-ops.com', email_source: 'email', breakglassUser: 'bg' }), null,
+    'break-glass excluded from the e-mail fallback');
+  assert.ok(rdb.findUserByEntra({ oid: 'oid-bg', email: 'bg@edv-ops.com', email_source: 'email', breakglassUser: 'someone-else' }),
+    'the exclusion is keyed on the configured break-glass username');
+});
+
+test('E2: a super_admin is never linked through its e-mail', () => {
+  const r = rdb.createUser({ username: 'root2', full_name: 'Root Two', password: 'temp-pass-123', roles: ['super_admin'], email: 'root2@edv-ops.com' });
+  assert.ok(rdb.userHasRole(r.lastInsertRowid, 'super_admin'), 'fixture is a super_admin');
+  assert.equal(rdb.findUserByEntra({ oid: 'oid-root', email: 'root2@edv-ops.com', email_source: 'email' }), null,
+    'super_admin excluded from the e-mail fallback (oid-only)');
+});
+
+test('E2: linkUserEntra never overwrites a DIFFERENT oid — throws sso_link_conflict + risk log', async () => {
+  assert.throws(() => rdb.linkUserEntra(uid, 'oid-other-456', 'bulk.addr@edv-ops.com'), e => e.code === 'sso_link_conflict');
+  const u = rdb.findUserByEntra({ oid: 'oid-stable-123' });
+  assert.ok(u && u.id === uid, 'the stored oid is unchanged');
+  assert.equal(rdb.findUserByEntra({ oid: 'oid-other-456' }), null, 'the conflicting oid was not stamped');
+  // Same oid again is a no-op, not a conflict.
+  assert.equal(rdb.linkUserEntra(uid, 'oid-stable-123', 'x@edv-ops.com'), true);
+  const { rows } = await rdb.listSystemLog({ action: 'sso_link_conflict' }, { limit: 5, offset: 0 });
+  assert.ok(rows.length >= 1, 'conflict journaled');
+  assert.equal(rows[0].risk, 1, 'journaled as a risk event');
+  assert.equal(rows[0].target, 'azize');
+  assert.ok(rdb._isRiskAction('sso_link_conflict') && rdb._isRiskAction('sso_groups_overage'), 'both SSO events are risk actions');
+});
