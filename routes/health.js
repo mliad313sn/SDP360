@@ -64,7 +64,7 @@ router.get('/api/health/restore-drill', requireReportSession, async (req, res) =
     let details = null;
     try { details = typeof r.details === 'string' ? JSON.parse(r.details) : r.details; } catch (_) { details = null; }
     res.json({ last: { ts: r.ts, ok: details ? !!details.ok : !r.risk, date: r.target, details } });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { fail(res, e); }
 });
 
   return router;
