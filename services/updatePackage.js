@@ -10,7 +10,12 @@
 //     the whole package is refused, never a partial copy);
 //   - a downgrade is refused unless `allowDowngrade` is explicit (rollback goes through the
 //     kept previous version, not through re-applying an older package);
-//   - SemVer with pre-release (2.0.0-alpha.6 < 2.0.0-beta.1 < 2.0.0).
+//   - SemVer with pre-release (2.0.0-alpha.6 < 2.0.0-beta.1 < 2.0.0);
+//   - E1: the manifest itself is SIGNED (Ed25519) by CI with the private key held as the secret
+//     SIGNING_MANIFEST_KEY; the Manager verifies against the public key shipped in
+//     tools/manifest-public.pem BEFORE applying. A hash shipped next to the zip only proves the
+//     zip is intact, not who built it — the signature does. Unsigned → refused unless the operator
+//     passes --allow-unsigned (logged); a signature that does not verify → always refused.
 
 const crypto = require('crypto');
 
@@ -70,6 +75,70 @@ function verifyManifest(manifest, readFile) {
   return r;
 }
 
+// ---- Manifest signature (Ed25519) ----------------------------------------------------
+// The signature covers the CANONICAL bytes of the manifest without its `signature` member:
+// keys sorted recursively, no whitespace — so a re-serialisation (pretty-printed by the packager,
+// compact in a test fixture) verifies the same, while one changed byte in any file hash,
+// version or path breaks it.
+const SIG_ALG = 'ed25519';
+
+function _canon(v) {
+  if (Array.isArray(v)) return '[' + v.map(_canon).join(',') + ']';
+  if (v && typeof v === 'object') return '{' + Object.keys(v).sort().map(k => JSON.stringify(k) + ':' + _canon(v[k])).join(',') + '}';
+  return JSON.stringify(v === undefined ? null : v);
+}
+function canonicalManifestBytes(manifest) {
+  if (!manifest || typeof manifest !== 'object') throw new Error('manifest required');
+  const { signature, ...rest } = manifest;   // eslint-disable-line no-unused-vars
+  return Buffer.from(_canon(rest), 'utf8');
+}
+function _keyId(publicKey) {
+  return sha256(publicKey.export({ type: 'spki', format: 'der' })).slice(0, 16);
+}
+function _asPrivateKey(k) {
+  const key = typeof k === 'string' || Buffer.isBuffer(k) ? crypto.createPrivateKey(k) : k;
+  if (key.asymmetricKeyType !== SIG_ALG) throw new Error(`manifest signing key must be ${SIG_ALG} (got ${key.asymmetricKeyType})`);
+  return key;
+}
+function _asPublicKey(k) {
+  const key = typeof k === 'string' || Buffer.isBuffer(k) ? crypto.createPublicKey(k) : k;
+  if (key.asymmetricKeyType !== SIG_ALG) throw new Error(`manifest public key must be ${SIG_ALG} (got ${key.asymmetricKeyType})`);
+  return key;
+}
+
+/**
+ * Return a COPY of the manifest carrying `signature = { alg, key_id, value }`.
+ * @param {object} manifest
+ * @param {string|Buffer|import('crypto').KeyObject} privateKey  PKCS8 PEM (the CI secret) or a KeyObject
+ */
+function signManifest(manifest, privateKey) {
+  const key = _asPrivateKey(privateKey);
+  const sig = crypto.sign(null, canonicalManifestBytes(manifest), key);
+  const pub = crypto.createPublicKey(key);
+  return { ...manifest, signature: { alg: SIG_ALG, key_id: _keyId(pub), value: sig.toString('base64') } };
+}
+
+/**
+ * Verify the manifest signature. Never throws on a BAD package — only on a bad public key.
+ * @returns {{ signed:boolean, ok:boolean, reason:string|null, key_id:string|null }}
+ *   signed=false, ok=false            → the manifest carries no signature
+ *   signed=true,  ok=false, reason    → signature present but does not verify (altered or foreign key)
+ *   signed=true,  ok=true             → good
+ */
+function verifyManifestSignature(manifest, publicKey) {
+  const pub = _asPublicKey(publicKey);
+  const r = { signed: false, ok: false, reason: null, key_id: _keyId(pub) };
+  const sig = manifest && manifest.signature;
+  if (!sig || typeof sig !== 'object' || !sig.value) return r;
+  r.signed = true;
+  if (sig.alg !== SIG_ALG) { r.reason = `unsupported signature algorithm: ${sig.alg}`; return r; }
+  let ok = false;
+  try { ok = crypto.verify(null, canonicalManifestBytes(manifest), pub, Buffer.from(String(sig.value), 'base64')); } catch (e) { r.reason = `signature unreadable: ${e.message}`; return r; }
+  if (!ok) { r.reason = sig.key_id && sig.key_id !== r.key_id ? `signature made with another key (${sig.key_id}), not the embedded public key (${r.key_id})` : 'signature does not match the manifest (altered package or wrong key)'; return r; }
+  r.ok = true;
+  return r;
+}
+
 // ---- SemVer -------------------------------------------------------------------------
 const SEMVER = /^v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$/;
 function parseVersion(v) {
@@ -121,4 +190,4 @@ function isProtected(relPath) {
   return PROTECTED.some(x => x.endsWith('/') ? p.startsWith(x) : p === x);
 }
 
-module.exports = { FORMAT, PROTECTED, sha256, normPath, buildManifest, verifyManifest, parseVersion, compareVersions, canApply, isProtected };
+module.exports = { FORMAT, PROTECTED, SIG_ALG, sha256, normPath, buildManifest, verifyManifest, canonicalManifestBytes, signManifest, verifyManifestSignature, parseVersion, compareVersions, canApply, isProtected };
