@@ -209,13 +209,11 @@ app.use((req, res, next) => {
   const _csp = require('./services/cspPolicy');
   if (_csp.STRICT_PAGES.has(path)) res.setHeader('Content-Security-Policy', _csp.strictHeader(res.locals && res.locals.nonce));
   if (isPreviewLike) {
-    // Step 5 (2026-10-21): the dashboard preview's JSX is compiled ahead of time
-    // (tools/build/build-frontend.js), so only the tracker — still on Babel standalone
-    // until its freeze is lifted — keeps 'unsafe-eval'.
-    const needsEval = path === '/activity-tracker.html' || path.startsWith('/activity-tracker/');
+    // Step 5 (2026-10-21/22): every JSX page is compiled ahead of time
+    // (tools/build/build-frontend.js), so none of them needs 'unsafe-eval' any more.
     res.setHeader('Content-Security-Policy', [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline'" + (needsEval ? " 'unsafe-eval'" : '') + " unpkg.com cdn.jsdelivr.net cdnjs.cloudflare.com",
+      "script-src 'self' 'unsafe-inline' unpkg.com cdn.jsdelivr.net cdnjs.cloudflare.com",
       "style-src 'self' 'unsafe-inline' fonts.googleapis.com",
       "font-src 'self' fonts.gstatic.com data:",
       "img-src 'self' data:",

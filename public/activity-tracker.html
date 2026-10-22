@@ -29,12 +29,10 @@
 <script src="activity-tracker/api.js"></script>
 <script src="lib/trackerMonthLock.js"></script>
 
-<!-- React + Babel via CDN (same pattern as /dashboard-preview/). The
-     path-scoped CSP override in server.js grants 'unsafe-eval' +
-     unpkg.com only for this page and the asset bundle below. -->
-<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
-<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
-<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
+<!-- React (production build) via CDN. The JSX is compiled ahead of time by
+     tools/build/build-frontend.js (npm run build): no Babel, no eval in the browser. -->
+<script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" integrity="sha384-DGyLxAyjq0f9SPpVevD6IgztCFlnMF6oW/XQGmfe+IsZ8TqEiDrcHkMLKI6fiB/Z" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" integrity="sha384-gTGxhz21lVGYNMcdJOyq01Edg0jhn/c22nsx0kyqP0TxaV5WVdsSH1fSDUf5YJj1" crossorigin="anonymous"></script>
 </head>
 <body>
 
@@ -48,8 +46,8 @@
      toolbar + tab strip + active panel. -->
 <div id="tracker-root"></div>
 
-<!-- The React app itself, written in JSX (Babel compiles in-browser). -->
-<script type="text/babel" src="activity-tracker/App.jsx"></script>
+<!-- The React app, compiled from App.jsx (npm run build — never edit App.js by hand). -->
+<script src="activity-tracker/App.js"></script>
 
 </body>
 </html>

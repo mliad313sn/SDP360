@@ -26,6 +26,8 @@ made so far so that future sessions can pick up exactly where the last one ended
 > à la main. **Retirer l'entrée du JSON** une fois les fichiers confirmés en prod, sinon l'avertissement
 > devient du bruit qu'on n'écoute plus.
 >
+> **RELEASED 2026-10-22 (step 5, DEC-4)** — the tracker freeze below is lifted: the three files ship by hand
+> with `make-deploy-zip.ps1 -Include …`, the entry left `frozen-lots.json`. Kept for history:
 > **The ONE exception (deliberately frozen, 2026-09-04):** the tracker RAG-band change (GREEN ≥ 90 %
 > of the pro-rated target, commit `c97ae61`, files `public/activity-tracker/engine.js` +
 > `tracker-pptx.js`) and the weight-based attainment donut (`e17b7b7`, `App.jsx`) are on `main` but
@@ -108,7 +110,9 @@ made so far so that future sessions can pick up exactly where the last one ended
 > le module l'importe), des routes d'un autre préfixe mêlées au bloc (restent dans `server.js`). **JSX compilé à
 > l'avance** : `npm run build` (`tools/build/build-frontend.js`, fichiers `.js` générés COMMITÉS, `--check` en CI) ;
 > toute page nouvelle ou migrée charge le `.js`, jamais Babel (`tests/frontend-build.test.js`). Le tracker reste sur
-> Babel tant que son gel dure (le compiler expédierait `App.jsx` gelé). Installateur v2 (Inno Setup + paquet CI signé)
+> Babel tant que son gel dure (le compiler expédierait `App.jsx` gelé). **Gel levé le 2026-10-22 (DEC-4)** : le tracker est
+> compilé à son tour (`App.js`, React **production** avec SRI), plus AUCUNE page n'a `unsafe-eval` ; un fichier inchangé
+> depuis le marqueur s'expédie avec `make-deploy-zip.ps1 -Include <fichier>`. Installateur v2 (Inno Setup + paquet CI signé)
 > conçu, pas construit : attend l'E2E TEST et un certificat de signature.
 
 ---

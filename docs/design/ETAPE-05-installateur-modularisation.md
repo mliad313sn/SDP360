@@ -14,7 +14,7 @@ Référence : SDP-DASH-2.0-ETUDE v1.2, §6.3 étape 5, lacunes L6, L10, L11.
 | Demandé | État | Où |
 |---|---|---|
 | Extraction de `server.js` vers `routes/*` (≥ 600 lignes par sprint, cible < 3 000) | **lot 5.1 : 9 203 → 7 394 lignes** (−1 809) | `routes/meetings.js` (36 routes), `routes/assets.js` (40 routes) ; cliquet `tests/server-size.test.js` (plafond 7 400, à abaisser à chaque extraction ; tout module de `routes/` doit être monté) |
-| Étape de build (esbuild), fin de la compilation dans le navigateur | **en partie** | `tools/build/build-frontend.js` (`npm run build`, `--check` en CI) ; l'aperçu `dashboard-preview` est compilé et ne charge plus Babel ni `unsafe-eval`. **Reste le tracker** : son `App.jsx` est un lot gelé — le compiler maintenant enverrait le changement gelé en production (DEC-4) |
+| Étape de build (esbuild), fin de la compilation dans le navigateur | **oui (lot 5.2, 2026-10-22)** | `tools/build/build-frontend.js` (`npm run build`, `--check` en CI) ; l'aperçu `dashboard-preview` est compilé et ne charge plus Babel ni `unsafe-eval`. Le tracker est compilé depuis la levée de son gel (DEC-4) et charge React en version **production** avec SRI ; plus aucune page n'autorise `unsafe-eval` |
 | Registre unique des tâches planifiées | déjà fait (étape 1) | `services/sync/jobs.js` |
 | Setup.exe et Manager.exe construits et signés par la CI, paquet de mise à jour avec manifeste, retour arrière | conçu (§3), non construit | prérequis : E2E TEST + certificat (DEC-1, DEC-2) |
 | Migrateur appelé par l'installateur | prêt côté code | `db/migrate.js` (étape 2) — l'installateur v2 l'appellera |
@@ -90,5 +90,13 @@ ADR-004 routes en modules injectés, ADR-005 JSX compilé à l'avance, ADR-006 s
 - Mise à jour < 5 min avec retour arrière démontré : **à mesurer** (paquet CI).
 - Première mise en production depuis un paquet CI : **non**.
 - `server.js` < 3 000 lignes : **7 394** (cliquet en place).
-- Aucune compilation dans le navigateur : **1 page restante** (tracker, DEC-4) ; test
-  `tests/frontend-build.test.js` (liste d'exceptions qui ne peut que diminuer).
+- Aucune compilation dans le navigateur : **atteint** (lot 5.2) ; `tests/frontend-build.test.js` (liste d'exceptions vide).
+
+## 7. Décisions prises (2026-10-22)
+
+| # | Décision | Effet |
+|---|---|---|
+| DEC-1 | Certificat de signature de code : **oui**, demandé à la PKI | signature Authenticode dans la CI dès réception |
+| DEC-2 | E2E de l'installeur actuel sur l'instance TEST **avant** tout installateur v2 | l'installateur v2 attend cet essai |
+| DEC-4 | Gel du tracker **levé** | RAG 90 % + donut pondéré livrés ; tracker compilé (lot 5.2) |
+| DEC-5 | React production | appliqué au tracker avec le lot 5.2 |

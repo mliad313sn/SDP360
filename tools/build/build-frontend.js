@@ -16,10 +16,9 @@ const path = require('path');
 
 const ROOT = path.join(__dirname, '..', '..');
 
-// Pages compiled ahead of time. activity-tracker/App.jsx joins the list when the tracker
-// freeze is lifted (tools/deploy/frozen-lots.json) — compiling it now would ship the frozen
-// change to production inside the generated file.
+// Pages compiled ahead of time.
 const ENTRIES = [
+  'public/activity-tracker/App.jsx',
   'public/dashboard-preview/tweaks-panel.jsx',
   'public/dashboard-preview/components.jsx',
   'public/dashboard-preview/App.jsx',

@@ -17,6 +17,9 @@
 # NOTE: keep this file PURE ASCII - Windows PowerShell 5.1 reads .ps1 as ANSI,
 # so non-ASCII chars (em-dashes, box-drawing) corrupt the parse.
 # =============================================================================
+# -Include a,b : files to ship even though they are unchanged since the marker (a lot that
+# sat behind it and is now released by hand). Each must be a tracked file.
+param([string[]]$Include = @())
 $ErrorActionPreference = 'Stop'
 
 $root = (git rev-parse --show-toplevel).Trim()
@@ -44,6 +47,13 @@ if (-not $base) { $base = '7fb62d9' }
 
 $changed = @(git diff --name-only --diff-filter=ACMR "$base..HEAD")
 $deleted = @(git diff --name-only --diff-filter=D    "$base..HEAD")
+foreach ($inc in $Include) {
+  $p = ($inc -replace '\','/').Trim()
+  if (-not $p) { continue }
+  $null = git ls-files --error-unmatch -- $p 2>$null
+  if ($LASTEXITCODE -ne 0) { throw "-Include: '$p' is not a tracked file." }
+  if ($changed -notcontains $p) { $changed += $p; Write-Host "  + included by hand: $p" -ForegroundColor Cyan }
+}
 
 # G-10 — name the lots this package can never carry (merged, never deployed, and now
 # behind the marker). Warning only: it never blocks a build, and an unreadable register

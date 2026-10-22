@@ -5,6 +5,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased] — SDP-Dashboard 2.0, step 5 (lot 5.2): tracker freeze lifted, no JSX compiled in the browser (2026-10-22)
+
+### Changed
+- **Activity Tracker freeze lifted (DEC-4)**: ships the management RAG bands (GREEN ≥ 90 % of the pro-rated
+  target, `engine.js` + `tracker-pptx.js`) and the weight-based attainment donut (`App.jsx`). Scores and deck
+  colours change for activities between 90 % and 100 % of target (amber → green).
+- **Tracker compiled ahead of time**: `activity-tracker/App.js` (esbuild) replaces Babel in the browser; React
+  production build with subresource integrity. No page allows `unsafe-eval` any more.
+
+### Deployment
+- `make-deploy-zip.ps1 -Include <file>` ships a file unchanged since the marker (the released lot). The register
+  `frozen-lots.json` keeps only the installer lot.
+
 ## [Unreleased] — SDP-Dashboard 2.0, step 5 (lot 5.1): server.js split, JSX compiled ahead of time (2026-10-21)
 
 ### Changed

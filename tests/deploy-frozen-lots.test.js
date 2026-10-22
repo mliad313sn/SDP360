@@ -29,22 +29,21 @@ function run(base) {
     { encoding: 'utf8', cwd: ROOT });
 }
 
-test('the frozen-lot register exists and names both known lots', () => {
+test('the frozen-lot register exists and names the installer lot', () => {
   const lots = JSON.parse(fs.readFileSync(LOTS, 'utf8')).lots;
-  assert.ok(Array.isArray(lots) && lots.length >= 2);
+  assert.ok(Array.isArray(lots) && lots.length >= 1);
   for (const l of lots) {
     assert.ok(l.id && l.commit && Array.isArray(l.paths) && l.paths.length, `lot ${l.id} is complete`);
     assert.ok(l.why, `lot ${l.id} says why it is frozen`);
   }
   assert.ok(lots.some(l => /installer/i.test(l.id)), 'the installer lot is registered');
-  assert.ok(lots.some(l => /tracker/i.test(l.id)), 'the tracker lot is registered');
+  // the tracker lot was released on 2026-10-22 (DEC-4, step 5) and removed from the register
 });
 
 test('a lot behind the marker is named in the warning', DEV_ONLY, () => {
   const marker = fs.readFileSync(path.join(ROOT, '.git', 'last-deployed'), 'utf8').trim();
   const out = run(marker);
   assert.match(out, /installer/i, 'the installer lot is reported as not carried');
-  assert.match(out, /tracker/i, 'the tracker lot is reported as not carried');
   assert.match(out, /jamais|never|manuel|by hand/i, 'says the package will not carry it');
 });
 

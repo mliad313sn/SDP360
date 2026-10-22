@@ -9,9 +9,7 @@ const build = require('../tools/build/build-frontend');
 const ROOT = path.join(__dirname, '..');
 // Pages still allowed to compile JSX in the browser, and why. Remove an entry when its
 // page moves to tools/build/build-frontend.js — this list can only shrink.
-const BABEL_ALLOWED = {
-  'public/activity-tracker.html': 'tracker frozen (tools/deploy/frozen-lots.json): compiling App.jsx would ship the frozen change',
-};
+const BABEL_ALLOWED = {};   // empty since 2026-10-22: no page compiles JSX in the browser
 
 test('every compiled file is up to date with its .jsx source (npm run build)', () => {
   for (const src of build.ENTRIES) {
@@ -39,10 +37,24 @@ test('no page loads Babel or a text/babel script, except the allow-listed ones',
 });
 
 test('a compiled page references the .js output, never the .jsx source', () => {
-  const html = fs.readFileSync(path.join(ROOT, 'public/dashboard-preview/index.html'), 'utf8');
-  for (const src of build.ENTRIES.filter(s => s.startsWith('public/dashboard-preview/'))) {
-    const base = path.basename(src, '.jsx');
-    assert.ok(html.includes(`src="${base}.js"`), `${base}.js not loaded`);
-    assert.ok(!html.includes(`${base}.jsx`), `${base}.jsx still referenced`);
+  const pages = {
+    'public/dashboard-preview/index.html': 'public/dashboard-preview/',
+    'public/activity-tracker.html': 'public/',
+  };
+  for (const [page, base] of Object.entries(pages)) {
+    const html = fs.readFileSync(path.join(ROOT, page), 'utf8');
+    for (const src of build.ENTRIES.filter(s => s.startsWith(base) && (base !== 'public/' || s.startsWith('public/activity-tracker/')))) {
+      const rel = src.slice(base.length).replace(/\.jsx$/, '');
+      assert.ok(html.includes(`src="${rel}.js"`), `${page}: ${rel}.js not loaded`);
+      assert.ok(!html.includes(`${rel}.jsx`), `${page}: ${rel}.jsx still referenced`);
+    }
+  }
+});
+
+test('the tracker loads the PRODUCTION React build with subresource integrity', () => {
+  const html = fs.readFileSync(path.join(ROOT, 'public/activity-tracker.html'), 'utf8');
+  assert.ok(!/react(-dom)?\.development\.js/.test(html), 'development React build still loaded');
+  for (const m of html.match(/<script src="https:[^>]*>/g) || []) {
+    if (/unpkg\.com\/react/.test(m)) assert.ok(/integrity="sha384-/.test(m), 'missing SRI: ' + m);
   }
 });
