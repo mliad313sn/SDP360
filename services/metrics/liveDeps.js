@@ -3,25 +3,37 @@
 // /api/metrics/* (routes/metrics.js) and by the dashboard data resolver (services/dashboards/data.js).
 // One `liveDeps()` = one request: the site list and each month's scoreboard are fetched once and reused.
 
+// One request often asks the same reader the same question several times (a trend of tickets in AND closed
+// reads the same weekly block; a KPI and a table read the same month). memo() answers a repeated call from the
+// first one's promise, for the lifetime of this deps object only (never across requests).
+function memo(fn) {
+  const seen = new Map();
+  return (...args) => {
+    const k = JSON.stringify(args);
+    if (!seen.has(k)) seen.set(k, Promise.resolve(fn(...args)));
+    return seen.get(k);
+  };
+}
+
 function liveDeps(rdbIn) {
   const r = rdbIn || require('../../reports-db');
   let sitesP = null;
   const boards = new Map();
   const siteRows = () => (sitesP = sitesP || Promise.resolve(r.listSites()));
   return {
-    getCalendarMonthlyHelpdesk: r.getCalendarMonthlyHelpdesk,
-    getSiteHelpdeskWindow: r.getSiteHelpdeskWindow,
-    getSiteChangesWindow: r.getSiteChangesWindow,
-    getSurveyKpisDB: r.getSurveyKpisDB,
-    getWanSnapshots: r.getWanSnapshots,
+    getCalendarMonthlyHelpdesk: memo(r.getCalendarMonthlyHelpdesk),
+    getSiteHelpdeskWindow: memo(r.getSiteHelpdeskWindow),
+    getSiteChangesWindow: memo(r.getSiteChangesWindow),
+    getSurveyKpisDB: memo(r.getSurveyKpisDB),
+    getWanSnapshots: memo(r.getWanSnapshots),
     getSiteGroups: async (siteId) => {
       const s = ((await siteRows()) || []).find(x => x.id === siteId);
       return String((s && s.zoho_group) || '').split(',').map(g => g.trim()).filter(Boolean);
     },
-    getSiteMonthlyMeetingSummary: require('../../meetings-db').getSiteMonthlyMeetingSummary,
-    meetingsInsights: require('../../meetings-db').insights,
-    getInspectionAggregate: require('../../inspection-db').aggregate,
-    getEffortLeaderboard: require('../../assets-db').getEffortLeaderboard,
+    getSiteMonthlyMeetingSummary: memo(require('../../meetings-db').getSiteMonthlyMeetingSummary),
+    meetingsInsights: memo(require('../../meetings-db').insights),
+    getInspectionAggregate: memo(require('../../inspection-db').aggregate),
+    getEffortLeaderboard: memo(require('../../assets-db').getEffortLeaderboard),
     effortForSite: require('../assetEffortForSite').effortForSite,
     // The operational scoreboard of a month ({year, m}), built once per request.
     getScoreboard: (month) => {
@@ -62,4 +74,4 @@ async function targets(rdbIn) {
   } catch (_) { return { wan: 98 }; }
 }
 
-module.exports = { liveDeps, groupSites, targets };
+module.exports = { liveDeps, groupSites, targets, memo };

@@ -5,7 +5,7 @@ const assert = require('node:assert');
 const def = require('../services/dashboards/definition');
 const R = require('../public/lib/dashboardRender');
 const { resolveAll, prevMonth } = require('../services/dashboards/data');
-const { SYSTEM, DIRECTION } = require('../services/dashboards/seed');
+const { SYSTEM, DIRECTION, CANDIDATES } = require('../services/dashboards/seed');
 
 // ── validator ─────────────────────────────────────────────────────────────
 test('the seeded system dashboards are valid definitions', () => {
@@ -156,4 +156,23 @@ test('resolver: one failing widget does not take the others down', async () => {
 test('prevMonth crosses the year', () => {
   assert.strictEqual(prevMonth('2026-01'), '2025-12');
   assert.strictEqual(prevMonth('2026-10'), '2026-09');
+});
+
+// ── lot 6.6 — the replacement candidates of the legacy pages ─────────────
+test('every candidate resolves without a widget error, in its own scope', async () => {
+  assert.ok(CANDIDATES.length >= 10, 'one candidate per legacy read-only page (dossier §7)');
+  for (const c of CANDIDATES) {
+    const d = def.validate(c).definition;
+    assert.ok(d.id.startsWith('candidat-'), d.id);
+    assert.match(d.description, /DEC-6\.5/, `${d.id} says it awaits the side-by-side decision`);
+    const scope = d.audience.site_scope === 'own' ? 'site' : 'group';
+    const out = (await resolveAll(d, ctx(scope), { metrics, readers })).widgets;
+    for (const w of d.widgets) assert.ok(out[w.id] && !out[w.id].error, `${d.id} › ${w.id}: ${out[w.id] && out[w.id].error}`);
+  }
+});
+
+test('candidates and the direction space have distinct ids; no candidate replaces a page by itself', () => {
+  const ids = SYSTEM.map(s => s.id);
+  assert.strictEqual(new Set(ids).size, ids.length);
+  for (const c of CANDIDATES) assert.ok(!c.redirect && !c.replaces, `${c.id}: a redirect waits for DEC-6.5`);
 });

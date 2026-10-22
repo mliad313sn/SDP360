@@ -96,10 +96,25 @@ module.exports = function dashboardsRoutes(d) {
   }
   const deps = () => d.dashboardDeps || { metrics: live.liveDeps(rdb), readers: readers() };
 
+  // Five-minute cache of a published dashboard's data, per version, scope, site and month (a preview is never
+  // cached). The figures underneath only change with the hourly / nightly syncs.
+  const TTL = Number(process.env.DASHBOARD_CACHE_TTL_MS == null ? 300000 : process.env.DASHBOARD_CACHE_TTL_MS);
+  const dataCache = new Map();
+  async function resolveCached(definition, ctx, key) {
+    if (!key || !TTL || d.dashboardDeps) return resolveAll(definition, ctx, deps());
+    const k = [key, ctx.scope, ctx.site ? ctx.site.site_id : '', ctx.month].join('|');
+    const hit = dataCache.get(k);
+    if (hit && Date.now() - hit.at < TTL) return hit.value;
+    const value = await resolveAll(definition, ctx, deps());
+    dataCache.set(k, { at: Date.now(), value });
+    if (dataCache.size > 300) dataCache.delete(dataCache.keys().next().value);
+    return value;
+  }
+
   async function respondData(req, res, definition, extra) {
     const c = await contextFor(req.reportUser, definition, req.query.site || req.query.month ? req.query : (req.body && req.body.as) || {});
     if (c.error) return res.status(c.status).json({ error: c.error });
-    const data = await resolveAll(definition, c.ctx, deps());
+    const data = await resolveCached(definition, c.ctx, extra && !extra.preview && extra.id ? `${extra.id}@${extra.version}` : null);
     let fresh = {};
     try { fresh = freshness(d.syncStates ? await d.syncStates() : await require('../services/sync/store').listStates()); } catch (_) {}
     res.json({ ...extra, context: { scope: c.ctx.scope, site: c.ctx.site, month: c.ctx.month, as_of: c.ctx.asOf, site_choices: c.choices,
