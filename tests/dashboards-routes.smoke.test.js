@@ -114,6 +114,9 @@ test('a site-scoped dashboard shows the viewer’s own site, never another', asy
   const ok = await (await get('/api/dashboards/my-site/data', tok['db-sitebiz'])).json();
   assert.equal(ok.context.scope, 'site');
   assert.equal(ok.context.site.code, site.code);
+  const sa = await (await get('/api/dashboards/my-site/data', tok['db-sa'])).json();
+  assert.equal(sa.context.scope, 'site', 'a group reader without a site opens it on the first site');
+  assert.ok(sa.context.site_choices.length > 1, 'and may switch to any site');
   const other = (await rdb.listSiteModuleCodes('meetings')).find(c => c.code !== site.code);
   assert.equal((await get('/api/dashboards/my-site/data?site=' + other.code, tok['db-sitebiz'])).status, 403);
 });

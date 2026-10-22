@@ -150,7 +150,7 @@
   function publish() {
     save().then(function () {
       return api('POST', '/api/dashboards/' + encodeURIComponent(cur.id) + '/publish', { note: $('dc-note').value });
-    }).then(function (j) { $('dc-confirm').hidden = true; status('Version ' + j.version + ' publiée.'); return loadList(cur.id); })
+    }).then(function (j) { $('dc-confirm').hidden = true; return loadList(cur.id).then(function () { status('Version ' + j.version + ' publiée.'); }); })
       .catch(function (e) { status('Publication refusée : ' + e.message, true); });
   }
   function renderVersions() {
@@ -185,11 +185,11 @@
   $('dc-versions').addEventListener('click', function (e) {
     var b = e.target.closest('button[data-v]'); if (!b) return;
     api('POST', '/api/dashboards/' + encodeURIComponent(cur.id) + '/rollback', { version: Number(b.getAttribute('data-v')) })
-      .then(function (j) { status('Version ' + j.rollback_to + ' republiée en version ' + j.version + '.'); return loadList(cur.id); })
+      .then(function (j) { return loadList(cur.id).then(function () { status('Version ' + j.rollback_to + ' republiée en version ' + j.version + '.'); }); })
       .catch(function (err) { status(err.message, true); });
   });
   $('dc-retire').addEventListener('click', function () {
-    api('POST', '/api/dashboards/' + encodeURIComponent(cur.id) + '/retire').then(function () { status('Tableau retiré de l’affichage. Une nouvelle publication le remet en ligne.'); return loadList(cur.id); })
+    api('POST', '/api/dashboards/' + encodeURIComponent(cur.id) + '/retire').then(function () { return loadList(cur.id).then(function () { status('Tableau retiré de l’affichage. Une nouvelle publication le remet en ligne.'); }); })
       .catch(function (err) { status(err.message, true); });
   });
 
