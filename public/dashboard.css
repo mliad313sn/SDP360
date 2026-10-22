@@ -7,7 +7,7 @@
 .db-toolbar label { display: grid; gap: 3px; font-size: .78rem; color: var(--text-muted-aa, #666); }
 .db-toolbar select, .db-toolbar input, .db-btn { font: inherit; font-size: .88rem; padding: 7px 10px; border: 1px solid var(--color-border-strong, #C5C6C4); border-radius: 6px; background: #fff; color: var(--color-text-strong, #2A2A2A); min-height: 38px; }
 .db-btn { cursor: pointer; font-weight: 600; }
-.db-btn.db-primary { background: var(--edv-orange, #EF631A); border-color: var(--edv-orange, #EF631A); color: #fff; }
+.db-btn.db-primary { background: var(--text-orange-aa, #B4510F); border-color: var(--text-orange-aa, #B4510F); color: #fff; }   /* white on the brand orange is 3.25:1 */
 .db-btn.db-danger { color: var(--text-danger-aa, #C0002F); }
 .db-btn:focus-visible, .db-toolbar select:focus-visible, .db-toolbar input:focus-visible, .db-page a:focus-visible, .db-page [tabindex]:focus-visible { outline: 3px solid var(--edv-blue, #145FAE); outline-offset: 2px; }
 .db-grow { flex: 1 1 auto; }
@@ -93,7 +93,7 @@
 .db-list li { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-top: 1px solid var(--color-border, #E2E5EA); font-size: .86rem; }
 .db-list li:first-child, .db-events li:first-child { border-top: 0; }
 .db-events li { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: start; padding: 9px 0; border-top: 1px solid var(--color-border, #E2E5EA); }
-.db-tag { font-size: .72rem; font-weight: 600; padding: 2px 6px; border-radius: 4px; background: var(--color-primary-bg, #FEEEE3); color: var(--text-orange-aa, #B4510F); white-space: nowrap; }
+.db-tag { font-size: .72rem; font-weight: 600; padding: 2px 6px; border-radius: 4px; background: #FFF3EA; color: var(--text-orange-aa, #B4510F); white-space: nowrap; }
 .db-tag-mi { background: var(--color-danger-bg, #FEEAEE); color: var(--text-danger-aa, #C0002F); }
 .db-tag-cab { background: var(--color-info-bg, #E8F0FA); color: var(--edv-blue, #145FAE); }
 .db-ev-title { font-weight: 600; color: var(--color-text-strong, #2A2A2A); font-size: .9rem; }
@@ -135,3 +135,5 @@
 .dc-new { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; margin-bottom: 12px; }
 .dc-preview { margin-top: 18px; border-top: 3px solid var(--edv-orange, #EF631A); padding-top: 12px; }
 .db-btn:disabled { opacity: .5; cursor: not-allowed; }
+/* Text read by screen readers only (the words behind an aria-hidden chart). */
+.db-sr { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }

@@ -7,9 +7,15 @@ Maquettes cliquables : `docs/design/maquettes/etape-06-prototype.html` (données
 publiées pour relecture : https://claude.ai/artifact/QheDNbXHNx918gVA9cgHBq (page privée ; la partager depuis son menu
 Partager avec le designer et les relecteurs). Quatre vues : `#direction`, `#site`, `#composeur`, `#systeme`.
 
-> **Statut : lot 6.1 livré — conception à valider.** L'étude impose une conception validée avant tout code : les
-> quatre livrables « à soumettre » (§8) et les décisions DEC-6.1 à DEC-6.8 (§9) doivent être arbitrés avant le
-> lot 6.2. Rien n'a été modifié dans l'application.
+> **Statut (2026-10-22) : lots 6.1 à 6.7 livrés, décisions DEC-6.1 à DEC-6.8 toujours ouvertes.** À la demande du
+> commanditaire, les lots 6.2 à 6.7 ont été construits **sur les recommandations du §9** sans attendre le comité.
+> Chaque recommandation est une **définition modifiable** et non du code figé : objectifs et audiences de l'espace
+> direction (DEC-6.1/6.2) = la définition `direction` dans le composeur ; rôles de publication (DEC-6.4) = deux rôles
+> de fonction attribuables ; pages candidates (DEC-6.5) = 11 définitions `candidat-*`, **sans redirection** ; jetons
+> de texte AA (DEC-6.7) = `_tokens.css`. Un arbitrage différent du comité = une édition + publication, pas un
+> développement. Lots 6.2 à 6.5 : `CHANGELOG.md` ; lot 6.6 : `ETAPE-06-comparaison-pages.md` ; lot 6.7 (outillage :
+> audit AA statique, protocole SUS, mesure des critères) : `docs/ops/USABILITY-TEST-PROTOCOL.md`. **Les séances
+> d'utilisabilité elles-mêmes restent à mener avec le panel (DEC-6.8).** Le plan s'arrête au lot 6.7 (§11).
 
 ## 1. Fiche → état
 

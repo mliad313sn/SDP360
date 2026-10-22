@@ -5,6 +5,29 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased] — SDP-Dashboard 2.0, step 6 (lots 6.6-6.7): page candidates, performance, accessibility, acceptance (2026-10-22)
+
+### Added
+- **11 replacement candidates** of the 10 legacy read-only pages (`candidat-*`, system dashboards next to the pages,
+  same audiences). **No page is redirected**: the side-by-side comparison and the coverage table are in
+  `docs/design/ETAPE-06-comparaison-pages.md`; the decision is DEC-6.5.
+- **Accessibility**: a trend chart is said in words for a screen reader ("from 80 % to 88 % (up)"); a coloured table
+  or heatmap cell says its state in words; static AA audit `tests/a11y-step6.test.js` (contrast of every text colour
+  of `dashboard.css` computed from the real tokens, focus, reduced motion, page and renderer semantics).
+- **Usability kit** `docs/ops/USABILITY-TEST-PROTOCOL.md` (panel, scripted tasks, SUS in French, AA passes) +
+  `docs/ops/sus-template.csv`; acceptance measurement `node tools/metrics/step6-acceptance.js` (weekly distinct
+  leadership-space viewers, dashboards published by non-technical people, mean SUS — counts only, no name).
+
+### Changed
+- **Performance**: `getCalendarMonthlyHelpdesk` reads the month in one pass instead of eight (both backends), and
+  `getSiteHelpdeskWindow` uses a sargable window. Both proved identical to the former readers on the production
+  copies (every site × 10-18 months, every site × week). Leadership space, first view on real data: 26 s → 2.7 s;
+  published dashboard data cached 5 minutes (`DASHBOARD_CACHE_TTL_MS`).
+
+### Fixed
+- Primary button of the step-6 pages: white on the brand orange was 3.25:1 → white on `--text-orange-aa` (5.09:1).
+- Orange tag: 4.50:1 rounded but below 4.5 → lighter tint (4.67:1).
+
 ## [Unreleased] — SDP-Dashboard 2.0, step 6 (lots 6.3-6.5): rendering engine, leadership space, composer (2026-10-22)
 
 ### Added

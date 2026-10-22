@@ -120,6 +120,13 @@ editing it. Nothing was deleted: the old sections moved verbatim (see `docs/hist
 > `routes/{accounts,reportsConfig,reportsSend,reportsDecks,reports,survey,zohoData,ai,tracker}.js` (ADR-004). Lot 5.5 :
 > ce fichier devient un **index** ; les journaux « Current state » sont dans `docs/history/CURRENT-STATE-LOG.md`, les
 > procédures dans `docs/sop/`, les modules dans `docs/modules/`, les décisions dans `docs/adr/` (ADR-003 à 006).
+>
+> **Étape 6, lots 6.1 à 6.7 (2026-10-22)** — espace direction `direction.html`, moteur de tableaux de bord (définitions
+> JSON versionnées, `services/dashboards/`, `routes/dashboards.js`), composeur `dashboard-composer.html`, chiffres groupe
+> (Σ numérateurs ÷ Σ dénominateurs) et séries 13 semaines (`/api/metrics/:key/series`), 11 candidats `candidat-*` des pages
+> historiques **sans redirection**. Construits sur les recommandations du dossier : **DEC-6.1 à 6.8 restent ouvertes** — un
+> arbitrage = éditer + publier une définition, jamais coder un tableau en dur. Couleurs de texte des pages de l'étape 6 =
+> jetons `--text-*-aa` (cliquet `tests/a11y-step6.test.js`).
 
 ---
 
@@ -141,7 +148,8 @@ editing it. Nothing was deleted: the old sections moved verbatim (see `docs/hist
 | change the PostgreSQL schema | `docs/adr/ADR-002-schema-migrations.md`, `docs/design/ETAPE-02-postgresql.md` |
 | add a route / split code out of server.js | `docs/adr/ADR-004-*`, `docs/design/ETAPE-05-installateur-modularisation.md` §2 |
 | touch JSX / React pages | `docs/adr/ADR-005-*` |
-| work on the direction space, the dashboard composer or the design system (step 6) | `docs/design/ETAPE-06-design-espace-direction-composeur.md` (decisions DEC-6.1 to 6.8 pending) |
+| work on the direction space, the dashboard composer or the design system (step 6) | `docs/design/ETAPE-06-design-espace-direction-composeur.md` (lots 6.1-6.7 built on its recommendations; DEC-6.1 to 6.8 still pending — a decision = edit + publish a definition), `docs/design/ETAPE-06-comparaison-pages.md` (no legacy page redirects before DEC-6.5) |
+| run the usability tests / measure step-6 acceptance | `docs/ops/USABILITY-TEST-PROTOCOL.md`, `tools/metrics/step6-acceptance.js` |
 | handle a secret or a security control | `docs/adr/ADR-006-*`, `docs/design/ETAPE-04-securite.md`, `docs/ops/INCIDENT-RESPONSE.md` |
 | add a scheduled job | `docs/design/ETAPE-01-synchronisations.md` (`services/sync/jobs.js`) |
 | add a KPI or an RAG threshold | `docs/design/ETAPE-03-kpi.md` (`services/metrics/registry.js`, `public/lib/kpiRag.js`) |

@@ -21,7 +21,7 @@
       overall: 'Avancement global', attainment: 'activités au vert', open: 'ouverts', rcaDone: 'analyse de cause faite',
       rcaTodo: 'analyse de cause à faire', since: 'depuis', days: 'j', hours: 'h', overdue: 'en retard',
       over30: 'de plus de 30 j', council: 'Council', cab: 'CAB', lateKind: 'Retards', oldest: 'Les plus anciennes',
-      last: 'Dernière valeur', month: 'mois', week: 'semaine', error: 'Ce bloc n’a pas pu être calculé.', noTarget: 'Sans cible',
+      last: 'Dernière valeur', from: 'de', to: 'à', rose: 'hausse', fell: 'baisse', steady: 'stable', over: 'sur', points: 'points', month: 'mois', week: 'semaine', error: 'Ce bloc n’a pas pu être calculé.', noTarget: 'Sans cible',
     },
     en: {
       green: 'On target', amber: 'Watch', red: 'Off target', none: 'Not measured',
@@ -31,7 +31,7 @@
       overall: 'Overall progress', attainment: 'activities green', open: 'open', rcaDone: 'root cause done',
       rcaTodo: 'root cause to do', since: 'since', days: 'd', hours: 'h', overdue: 'overdue',
       over30: 'over 30 days', council: 'Council', cab: 'CAB', lateKind: 'Late', oldest: 'Oldest',
-      last: 'Last value', month: 'month', week: 'week', error: 'This block could not be computed.', noTarget: 'No target',
+      last: 'Last value', from: 'from', to: 'to', rose: 'up', fell: 'down', steady: 'steady', over: 'over', points: 'points', month: 'month', week: 'week', error: 'This block could not be computed.', noTarget: 'No target',
     },
   };
 
@@ -52,6 +52,8 @@
     return s;
   }
   function ragClass(r) { return r === 'green' || r === 'amber' || r === 'red' ? r : 'none'; }
+  // A coloured cell says its state in words too, for a screen reader (the colour is never the only carrier).
+  function srRag(r, t) { return r === 'green' || r === 'amber' || r === 'red' ? '<span class="db-sr"> (' + esc(t[r]) + ')</span>' : ''; }
   function pill(r, t) { var c = ragClass(r); return '<span class="db-pill db-' + c + '">' + esc(t[c]) + '</span>'; }
   function tr(o, lang) { return o ? (o[lang] || o.fr || o.en || '') : ''; }
   function deltaHtml(item, t, lang) {
@@ -131,7 +133,15 @@
         return '<span class="db-leg"><i class="db-s' + (k + 1) + '"></i>' + esc(tr(s.label, lang)) + ' <b>' + esc(fmt(lp && lp.value, s.unit, lang)) + '</b></span>';
       }).join('');
       var alt = t.last + ' ' + (last ? esc(last.label) + (last.partial ? ' (' + t.partial + ')' : '') : '');
-      return '<div class="db-legend">' + legend + '</div>' + lineChart(ok, { unit: unit }) +
+      // The chart is aria-hidden: its content is said in words for a screen reader (dossier §4.4).
+      var words = ok.map(function (s) {
+        var v = s.points.filter(function (p) { return p.value != null; });
+        if (!v.length) return esc(tr(s.label, lang)) + ' : ' + t.noData;
+        var a = Number(v[0].value), b = Number(v[v.length - 1].value), dir = b > a ? t.rose : b < a ? t.fell : t.steady;
+        return esc(tr(s.label, lang)) + ' ' + t.over + ' ' + s.points.length + ' ' + t.points + ' : ' + t.from + ' ' + esc(fmt(a, s.unit, lang)) +
+          ' ' + t.to + ' ' + esc(fmt(b, s.unit, lang)) + ' (' + dir + ')';
+      }).join(' ; ');
+      return '<div class="db-legend">' + legend + '</div><p class="db-sr">' + words + '.</p>' + lineChart(ok, { unit: unit }) +
         '<div class="db-axis-labels"><span>' + esc(pts[0] && pts[0].label) + '</span><span>' + esc(alt) + '</span></div>';
     },
     bars: function (w, d, t, lang) {
@@ -145,7 +155,7 @@
     table: function (w, d, t, lang, pillsOnly) {
       if (!d.rows.length) return '<p class="db-note">' + t.noData + '</p>';
       var head = '<tr><th scope="col">' + t.site + '</th>' + d.columns.map(function (c) { return '<th scope="col">' + esc(tr(c.label, lang)) + '</th>'; }).join('') + '</tr>';
-      var cell = function (c, col) { return pillsOnly ? '<td>' + pill(c.rag, t) + '</td>' : '<td><span class="db-cell db-c-' + ragClass(c.rag) + '">' + esc(fmt(c.value, col.unit, lang)) + '</span></td>'; };
+      var cell = function (c, col) { return pillsOnly ? '<td>' + pill(c.rag, t) + '</td>' : '<td><span class="db-cell db-c-' + ragClass(c.rag) + '">' + esc(fmt(c.value, col.unit, lang)) + '</span>' + srRag(c.rag, t) + '</td>'; };
       var body = d.rows.map(function (r) { return '<tr><th scope="row">' + esc(r.name) + '</th>' + r.cells.map(function (c, i) { return cell(c, d.columns[i]); }).join('') + '</tr>'; }).join('');
       var foot = d.total ? '<tfoot><tr><th scope="row">' + t.total + '</th>' + d.total.map(function (c, i) { return cell(c, d.columns[i]); }).join('') + '</tr></tfoot>' : '';
       return '<div class="db-scroll"><table class="db-table"><thead>' + head + '</thead><tbody>' + body + '</tbody>' + foot + '</table></div>';
@@ -156,7 +166,7 @@
       if (!d.rows.length) return '<p class="db-note">' + t.noData + '</p>';
       var head = '<tr><th scope="col">' + t.site + '</th>' + d.labels.map(function (l) { return '<th scope="col">' + esc(l) + '</th>'; }).join('') + '</tr>';
       var body = d.rows.map(function (r) {
-        return '<tr><th scope="row">' + esc(r.name) + '</th>' + r.cells.map(function (c) { return '<td class="db-heat db-h-' + ragClass(c.rag) + '">' + esc(fmt(c.value, d.unit, lang)) + '</td>'; }).join('') + '</tr>';
+        return '<tr><th scope="row">' + esc(r.name) + '</th>' + r.cells.map(function (c) { return '<td class="db-heat db-h-' + ragClass(c.rag) + '">' + esc(fmt(c.value, d.unit, lang)) + srRag(c.rag, t) + '</td>'; }).join('') + '</tr>';
       }).join('');
       return '<div class="db-scroll"><table class="db-table db-heatmap"><thead>' + head + '</thead><tbody>' + body + '</tbody></table></div>';
     },
