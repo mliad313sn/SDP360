@@ -48,7 +48,7 @@ if (-not $base) { $base = '7fb62d9' }
 $changed = @(git diff --name-only --diff-filter=ACMR "$base..HEAD")
 $deleted = @(git diff --name-only --diff-filter=D    "$base..HEAD")
 foreach ($inc in $Include) {
-  $p = ($inc -replace '\','/').Trim()
+  $p = ($inc -replace '\\','/').Trim()
   if (-not $p) { continue }
   $null = git ls-files --error-unmatch -- $p 2>$null
   if ($LASTEXITCODE -ne 0) { throw "-Include: '$p' is not a tracked file." }
