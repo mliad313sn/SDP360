@@ -5,6 +5,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased] — SDP-Dashboard 2.0, step 5 (lot 5.3): server.js split, accounts + reporting configuration (2026-10-22)
+
+### Changed
+- **`server.js` 7,394 → 6,767 lines**: password login/logout, Microsoft Entra SSO (`/api/auth/*`), change password,
+  sites, users, active sessions, action departments and the current-week helper move to `routes/accounts.js`;
+  reporting configuration (`/api/reports/config`, `/api/integrations/analytics`, `/api/meridian/sync`, recipients,
+  schedules, exec-editorial) moves to `routes/reportsConfig.js`. Handlers unchanged, same registration order — no
+  visible change for users. The size ceiling in `tests/server-size.test.js` drops to 6,800.
+
 ## [Unreleased] — SDP-Dashboard 2.0, step 5 (lot 5.2): tracker freeze lifted, no JSX compiled in the browser (2026-10-22)
 
 ### Changed
