@@ -57,7 +57,7 @@ module.exports = function dashboardsRoutes(d) {
   const isAuthor = (user) => ['dashboard-author', 'dashboard-publisher', 'super_admin'].some(r => has(user, r));
 
   /** Viewer context for a definition. Returns { ctx } or { status, error }. */
-  async function contextFor(user, definition, q) {
+  async function contextFor(user, definition, q, preview) {
     const sites = await live.groupSites(rdb);
     const month = /^\d{4}-\d{2}$/.test(String(q.month || '')) ? String(q.month) : new Date().toISOString().slice(0, 7);
     const today = new Date().toISOString().slice(0, 10);
@@ -74,6 +74,8 @@ module.exports = function dashboardsRoutes(d) {
       if (!canReadGroup(rdb, user) && !userSites.hasSite(user, site.site_id)) return { status: 403, error: 'Access denied: another site' };
     } else if (!group) {
       site = own.find(s => s.code) || own[0] || null;
+      // An author previewing a one-site dashboard without a site of their own sees it as the first site.
+      if (!site && preview && canReadGroup(rdb, user)) site = sites.find(s => s.code) || null;
       if (!site) return { status: 403, error: 'This dashboard shows one site, and no site is attached to your account.' };
     }
     const scope = site ? 'site' : 'group';
@@ -94,7 +96,7 @@ module.exports = function dashboardsRoutes(d) {
   const deps = () => d.dashboardDeps || { metrics: live.liveDeps(rdb), readers: readers() };
 
   async function respondData(req, res, definition, extra) {
-    const c = await contextFor(req.reportUser, definition, req.query.site || req.query.month ? req.query : (req.body && req.body.as) || {});
+    const c = await contextFor(req.reportUser, definition, req.query.site || req.query.month ? req.query : (req.body && req.body.as) || {}, !!(extra && extra.preview));
     if (c.error) return res.status(c.status).json({ error: c.error });
     const data = await resolveAll(definition, c.ctx, deps());
     let fresh = {};
@@ -122,8 +124,11 @@ module.exports = function dashboardsRoutes(d) {
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
 
-  router.get('/api/dashboards/catalog', requireReportSession, AUTHOR, (req, res) => {
+  router.get('/api/dashboards/catalog', requireReportSession, AUTHOR, async (req, res) => {
+    const sites = await live.groupSites(rdb), u = req.reportUser;
     res.json({
+      preview_sites: (canReadGroup(rdb, u) ? sites : sites.filter(x => userSites.hasSite(u, x.site_id))).filter(x => x.code).map(x => ({ code: x.code, name: x.name })),
+      group_allowed: canReadGroup(rdb, u),
       widgets: Object.entries(def.WIDGETS).map(([type, w]) => ({ type, label: w.label, metrics: w.metrics, span: w.span, grains: w.grains })),
       event_sources: def.EVENT_SOURCES, audience_roles: def.AUDIENCE_ROLES,
       metrics: registry.list().filter(m => m.serve).map(m => ({ key: m.key, fr: m.fr, en: m.en, unit: m.unit, domain: m.domain,

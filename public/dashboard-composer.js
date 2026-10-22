@@ -135,9 +135,6 @@
   function preview() {
     var site = $('dc-as').value;
     api('POST', '/api/dashboards/preview', { definition: current(), as: site ? { site: site } : {} }).then(function (p) {
-      var opts = '<option value="">Ensemble du groupe</option>' + (p.context.site_choices || []).map(function (s) {
-        return '<option value="' + esc(s.code) + '"' + (s.code === site ? ' selected' : '') + '>' + esc(s.name) + '</option>'; }).join('');
-      $('dc-as').innerHTML = opts;
       var out = $('dc-preview-out');
       out.innerHTML = '<div class="db-banner">Aperçu du brouillon — ' + (p.context.scope === 'site' ? 'périmètre : ' + esc(p.context.site.name) : 'ensemble du groupe') + '. Rien n’est publié.</div>' + R.render(p.definition, p, { lang: 'fr' });
       out.hidden = false; out.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -199,6 +196,8 @@
   api('GET', '/api/dashboards/catalog').then(function (c) {
     cat = c;
     $('dc-catalog').innerHTML = c.widgets.map(function (w) { return '<button type="button" data-type="' + esc(w.type) + '">' + esc(w.label.fr) + '</button>'; }).join('');
+    $('dc-as').innerHTML = (c.group_allowed ? '<option value="">Ensemble du groupe</option>' : '') + (c.preview_sites || []).map(function (x) {
+      return '<option value="' + esc(x.code) + '">' + esc(x.name) + '</option>'; }).join('');
     var want = new URLSearchParams(location.search).get('id');
     return loadList(want || '');
   }).catch(function (e) { status('Le composeur n’a pas pu se charger : ' + e.message, true); });

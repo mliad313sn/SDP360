@@ -127,4 +127,9 @@ test('preview: an author sees an unsaved definition in a chosen scope', async ()
   assert.equal(j.preview, true);
   assert.equal(j.context.site.code, site.code);
   assert.equal((await send('POST', '/api/dashboards/preview', tok['db-sa'], { definition: { id: 'x' } })).status, 400);
+  const noSite = await (await send('POST', '/api/dashboards/preview', tok['db-sa'], { definition })).json();
+  assert.equal(noSite.context.scope, 'site', 'an author without a site previews a one-site dashboard as the first site');
+  const cat = await (await get('/api/dashboards/catalog', tok['db-sa'])).json();
+  assert.ok(cat.preview_sites.length > 0 && cat.group_allowed === true);
+  assert.equal(cat.widgets.length, 10);
 });
