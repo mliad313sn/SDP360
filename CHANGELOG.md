@@ -5,6 +5,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased] — SDP-Dashboard 2.0, step 5 (lot 5.4): server.js under 3,000 lines (2026-10-22)
+
+### Changed
+- **`server.js` 5,346 → 2,665 lines — the study's < 3,000 target is reached.** New modules:
+  `routes/survey.js` (Analytics Plus survey views + DB-backed `/api/survey`), `routes/zohoData.js` (`/api/change`,
+  `/api/cab`, `/api/metrics/*`, `/api/data/*`, cache routes, MI UDF refresh, Risk Register export + config),
+  `routes/ai.js` (`/api/ai/analyze`, `/api/sample/:viewId`) with the provider switch in `services/aiProxy.js`,
+  and `routes/tracker.js` (Activity Tracker, group presets, Group IT deck `exec-pptx`). Shared helpers move to
+  `services/dataFreshness.js` and `services/recentMonths.js`. Handlers unchanged, registration order preserved —
+  no visible change. Size ceiling 2,700.
+
 ## [Unreleased] — SDP-Dashboard 2.0, step 5 (lot 5.3c): server.js split, weekly report routes (2026-10-22)
 
 ### Changed
