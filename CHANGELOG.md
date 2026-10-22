@@ -5,6 +5,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased] — SDP-Dashboard 2.0, step 5 (lot 5.3b): server.js split, report sends + decks (2026-10-22)
+
+### Changed
+- **`server.js` 6,767 → 6,257 lines**: the six report send routes (`/api/reports/send`, `test-smtp`, scoreboard /
+  weekly / asset-group / asset-reminders digests) move to `routes/reportsSend.js`; the PPTX exports (weekly,
+  monthly, v2, all-sites, weekly summary, site template, `/api/executive-new-pptx`), monthly overview + edits,
+  yearly summary, annual objectives, notes and the chart/PPTX save endpoints move to `routes/reportsDecks.js`.
+  Handlers unchanged — no visible change for users. Size ceiling 6,300.
+
 ## [Unreleased] — SDP-Dashboard 2.0, step 5 (lot 5.3): server.js split, accounts + reporting configuration (2026-10-22)
 
 ### Changed
