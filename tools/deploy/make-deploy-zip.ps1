@@ -47,11 +47,12 @@ if (-not $base) { $base = '7fb62d9' }
 
 $changed = @(git diff --name-only --diff-filter=ACMR "$base..HEAD")
 $deleted = @(git diff --name-only --diff-filter=D    "$base..HEAD")
-foreach ($inc in $Include) {
+# powershell -File passes "a,b,c" as ONE string: split it here.
+foreach ($inc in @($Include | ForEach-Object { $_ -split ',' })) {
   $p = ($inc -replace '\\','/').Trim()
   if (-not $p) { continue }
-  $null = git ls-files --error-unmatch -- $p 2>$null
-  if ($LASTEXITCODE -ne 0) { throw "-Include: '$p' is not a tracked file." }
+  $tracked = @(git ls-files -- $p)
+  if ($tracked.Count -eq 0) { throw "-Include: '$p' is not a tracked file." }
   if ($changed -notcontains $p) { $changed += $p; Write-Host "  + included by hand: $p" -ForegroundColor Cyan }
 }
 
