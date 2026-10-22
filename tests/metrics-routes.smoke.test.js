@@ -66,3 +66,42 @@ test('site registry: admin only, every site listed', async () => {
   assert.ok(j.modules.includes('meetings'));
   assert.ok(typeof j.summary.blocking_issues === 'number');
 });
+
+// ── Step 6 (lot 6.2) — group scope, series, freshness ──────────────────────
+test('group figures: admin tier and the read-only direction role only', async () => {
+  await rdb.createUser({ username: 'mr-sv', full_name: 'MR Scorecard', password: 'mr-sv-0000', roles: ['viewer', 'scorecard-viewer'] });
+  const sv = (await rdb.login('mr-sv', 'mr-sv-0000')).token;
+  assert.equal((await fetch(base + '/api/metrics/helpdesk.inbound?scope=group', { headers: H(viewer) })).status, 403);
+  for (const t of [admin, sv]) {
+    const r = await fetch(base + '/api/metrics/helpdesk.sla_res_pct?scope=group&month=2026-09', { headers: H(t) });
+    assert.equal(r.status, 200);
+    const j = await r.json();
+    assert.equal(j.scope, 'group');
+    assert.ok(j.sites > 0);
+    assert.equal(j.value, null, 'empty database: not measured, never 0');
+    assert.match(j.group_rule, /numerators/);
+  }
+});
+
+test('series: validation, 13 weekly points by default, a monthly-only figure refuses weeks', async () => {
+  const code = (await rdb.listSiteModuleCodes('meetings'))[0].code;
+  assert.equal((await fetch(base + '/api/metrics/helpdesk.inbound/series?scope=group&grain=day', { headers: H(admin) })).status, 400);
+  assert.equal((await fetch(base + '/api/metrics/helpdesk.inbound/series?scope=group&points=40', { headers: H(admin) })).status, 400);
+  assert.equal((await fetch(base + '/api/metrics/helpdesk.inbound/series?site=' + code, { headers: H(viewer) })).status, 403);
+  const r = await fetch(base + '/api/metrics/helpdesk.inbound/series?scope=group&asOf=2026-10-22', { headers: H(admin) });
+  assert.equal(r.status, 200);
+  const j = await r.json();
+  assert.equal(j.points.length, 13);
+  assert.equal(j.points[12].from, '2026-10-19');
+  assert.equal((await fetch(base + '/api/metrics/meetings.pvs_held/series?site=' + code + '&grain=week', { headers: H(admin) })).status, 422);
+  assert.equal((await fetch(base + '/api/metrics/meetings.pvs_held/series?site=' + code + '&grain=month&points=3', { headers: H(admin) })).status, 200);
+});
+
+test('freshness: any session, every domain present', async () => {
+  assert.equal((await fetch(base + '/api/metrics/freshness')).status, 401);
+  const r = await fetch(base + '/api/metrics/freshness', { headers: H(viewer) });
+  assert.equal(r.status, 200);
+  const j = await r.json();
+  for (const d of ['helpdesk', 'changes', 'survey', 'infra', 'meetings']) assert.ok(j.domains[d], d);
+  assert.equal(j.domains.meetings.status, 'live');
+});

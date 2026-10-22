@@ -2160,7 +2160,7 @@ async function _setWanSubsiteNetworksPg(rows) {
 // Pure aggregation core — exported for tests. `rows` are request_records rows
 // already scoped to the site's groups + the calendar month.
 function _computeSiteHelpdesk(rows) {
-  const out = { created: 0, resolved: 0, backlog: 0, sla_overdue: 0, major_incidents: 0, top_categories: [], recurring: [] };
+  const out = { created: 0, resolved: 0, backlog: 0, sla_overdue: 0, major_incidents: 0, sla_res_ok: 0, sla_res_pct: null, top_categories: [], recurring: [] };
   if (!rows || !rows.length) return out;
   const cat = new Map(), sub = new Map();
   for (const r of rows) {
@@ -2169,6 +2169,8 @@ function _computeSiteHelpdesk(rows) {
     // overdue_status is TRI-state: 1 / 0 / NULL (NULL = no SLA rule applies).
     // Keep the strict === 1 — do not "simplify" to !== 0, which counts NULLs.
     if (r.overdue_status === 1) out.sla_overdue++;
+    // Step 6 (lot 6.2): resolution SLA over any window — same rule as getCalendarMonthlyHelpdesk (closed AND not overdue ÷ closed).
+    if (r.pending_status === 0 && r.overdue_status === 0) out.sla_res_ok++;
     const isMI = /major/i.test(String(r.request_type || '')) || /major incident/i.test(String(r.template || ''));
     if (isMI) out.major_incidents++;
     const c = (r.category || '').trim();
@@ -2176,6 +2178,7 @@ function _computeSiteHelpdesk(rows) {
     const s = (r.sub_category || '').trim();
     if (c && s) { const k = `${c} / ${s}`; sub.set(k, (sub.get(k) || 0) + 1); }
   }
+  out.sla_res_pct = out.resolved > 0 ? Math.round(100 * out.sla_res_ok / out.resolved) : null;
   out.top_categories = [...cat.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
     .slice(0, 5).map(([category, count]) => ({ category, count }));
   out.recurring = [...sub.entries()].filter(([, n]) => n >= 3)
@@ -4251,7 +4254,7 @@ function getCalendarMonthlyHelpdesk(site_id, year, month) {
   const gft = [...groups, from, to];
 
   const total  = db.prepare(`SELECT COUNT(*) as n FROM request_records WHERE tech_group IN (${inClause}) AND date(created_time)>=? AND date(created_time)<=?`).get(...gft).n;
-  if (!total) return { inbound:0, closed:0, close_pct:0, sla_res_pct:null, sla_reply_pct:null, source:'calendar' };
+  if (!total) return { inbound:0, closed:0, close_pct:0, sla_res_pct:null, sla_reply_pct:null, sla_res_ok:0, sla_reply_ok:0, sla_reply_total:0, source:'calendar' };
 
   const closed         = db.prepare(`SELECT COUNT(*) as n FROM request_records WHERE tech_group IN (${inClause}) AND date(created_time)>=? AND date(created_time)<=? AND pending_status=0`).get(...gft).n;
   // 2026-06-02 ITSM-alignment (FORMULA_RECONCILIATION.md §6 D2): SLA% denominator
@@ -4283,6 +4286,8 @@ function getCalendarMonthlyHelpdesk(site_id, year, month) {
     // tickets in the period have a verdict yet (pure open backlog or empty).
     sla_res_pct:       closed > 0 ? Math.round(slaResOkClosed / closed * 100) : null,
     sla_reply_pct:     rplyTotal > 0 ? Math.round(rplyOk / rplyTotal * 100) : null,
+    // Step 6 (lot 6.2): the numerators, so a GROUP total is Σok ÷ Σclosed — never a mean of site percentages.
+    sla_res_ok:        slaResOkClosed, sla_reply_ok: rplyOk, sla_reply_total: rplyTotal,
     avg_tta_h:         avgTtaRow.v  != null ? Math.round(avgTtaRow.v)  : null,
     avg_first_reply_h: avgFrRow.v   != null ? Math.round(avgFrRow.v)   : null,
     avg_resolution_d:  avgRtRow.v   != null ? Math.round(avgRtRow.v)   : null,
@@ -4352,7 +4357,7 @@ async function _getCalendarMonthlyHelpdeskPg(site_id, year, month) {
   const gft = [...groups, from, to];
   const DR = `tech_group IN (${inClause}) AND created_time::date>=?::date AND created_time::date<=?::date`;
   const total = (await H.prepare(`SELECT COUNT(*) as n FROM request_records WHERE ${DR}`).get(...gft)).n;
-  if (!total) return { inbound:0, closed:0, close_pct:0, sla_res_pct:null, sla_reply_pct:null, source:'calendar' };
+  if (!total) return { inbound:0, closed:0, close_pct:0, sla_res_pct:null, sla_reply_pct:null, sla_res_ok:0, sla_reply_ok:0, sla_reply_total:0, source:'calendar' };
   const closed         = (await H.prepare(`SELECT COUNT(*) as n FROM request_records WHERE ${DR} AND pending_status=0`).get(...gft)).n;
   const slaResOkClosed = (await H.prepare(`SELECT COUNT(*) as n FROM request_records WHERE ${DR} AND pending_status=0 AND overdue_status=0`).get(...gft)).n;
   const rplyOk    = (await H.prepare(`SELECT COUNT(*) as n FROM request_records WHERE ${DR} AND responded_time IS NOT NULL AND responded_time!='' AND LOWER(first_response_overdue)='false'`).get(...gft)).n;
@@ -4365,6 +4370,7 @@ async function _getCalendarMonthlyHelpdeskPg(site_id, year, month) {
     close_pct: Math.round(closed / total * 100),
     sla_res_pct:   closed > 0 ? Math.round(slaResOkClosed / closed * 100) : null,
     sla_reply_pct: rplyTotal > 0 ? Math.round(rplyOk / rplyTotal * 100) : null,
+    sla_res_ok:    Number(slaResOkClosed), sla_reply_ok: Number(rplyOk), sla_reply_total: Number(rplyTotal),   // step 6: group numerators
     avg_tta_h:         avgTtaRow.v  != null ? Math.round(avgTtaRow.v)  : null,
     avg_first_reply_h: avgFrRow.v   != null ? Math.round(avgFrRow.v)   : null,
     avg_resolution_d:  avgRtRow.v   != null ? Math.round(avgRtRow.v)   : null,

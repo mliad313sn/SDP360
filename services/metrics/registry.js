@@ -50,9 +50,9 @@ const METRICS = [
   K('helpdesk.mttr_hours', { domain: 'helpdesk', en: 'Mean time to resolve', fr: 'Délai moyen de résolution', unit: 'h', direction: 'lower',
     formula: 'Average (resolved − created) over tickets resolved in the window.', window: 'calendar month', owner: OWNER.ops, source: 'reports-db.getRequestMetrics' }),
   K('helpdesk.csat_pct', { domain: 'helpdesk', en: 'Customer satisfaction', fr: 'Satisfaction client', unit: '%',
-    formula: 'Responses rated 4–5 ÷ rated responses, scoped to the selected support groups.', window: 'calendar month', owner: OWNER.ops, source: 'reports-db.getSurveyKpisDB' }),
+    formula: 'Rated responses with an overall score ≥ 80 % ÷ rated responses, scoped to the site’s support groups.', window: 'calendar month', owner: OWNER.ops, source: 'reports-db.getSurveyKpisDB', serve: 'survey_month' }),
   K('helpdesk.nps', { domain: 'helpdesk', en: 'Net promoter score', fr: 'Net promoter score', unit: 'pts',
-    formula: '% promoters (9–10) − % detractors (0–6).', window: 'calendar month', owner: OWNER.ops, source: 'reports-db.getSurveyKpisDB' }),
+    formula: '% promoters (score ≥ 90) − % detractors (< 70) among rated responses.', window: 'calendar month', owner: OWNER.ops, source: 'reports-db.getSurveyKpisDB', serve: 'survey_month' }),
 
   // ── Changes ────────────────────────────────────────────────────────────────
   K('changes.total', { domain: 'changes', en: 'Changes', fr: 'Changements', unit: 'count', direction: 'neutral',
@@ -80,7 +80,7 @@ const METRICS = [
     formula: 'Open issues flagged for the Mine IT Council.', window: 'all time', owner: OWNER.coord, source: 'meetings-db.getSiteMonthlyMeetingSummary', serve: 'meetings_month' }),
   K('meetings.engagements_score', { domain: 'meetings', en: '5 Engagements compliance', fr: 'Conformité aux 5 Engagements', unit: '%',
     formula: 'Unweighted mean of the measured engagements (E1 3 depts/month, E2 diffusion ≤ 48 h, E3 champion per action, E5 escalation discipline; E4 not measured).',
-    window: 'selected months', owner: OWNER.coord, source: 'meetings-db.insights (site_leaderboard)', policy: 'meetings_compliance' }),
+    window: 'selected months', owner: OWNER.coord, source: 'meetings-db.insights (site_leaderboard)', policy: 'meetings_compliance', serve: 'meetings_engagements' }),
 
   // ── Inspections ───────────────────────────────────────────────────────────
   K('inspections.done', { domain: 'inspections', en: 'Inspections done', fr: 'Inspections réalisées', unit: 'count',
@@ -130,7 +130,7 @@ const METRICS = [
   // ── Infrastructure ────────────────────────────────────────────────────────
   K('infra.wan_timeup_pct', { domain: 'infra', en: 'WAN % time up', fr: '% de disponibilité WAN', unit: '%',
     formula: 'Share of Meraki loss samples below the calibrated loss threshold (≥ 5 % loss = down), per uplink.', window: 'week / month',
-    owner: OWNER.infra, source: 'services/merakiWanQuality.js', policy: 'availability_target' }),
+    owner: OWNER.infra, source: 'services/merakiWanQuality.js (wan_link_snapshots)', policy: 'availability_target', serve: 'wan_period' }),
   K('infra.wan_sla_pct', { domain: 'infra', en: 'WAN contractual availability', fr: 'Disponibilité WAN contractuelle', unit: '%',
     formula: 'Service hours minus ISP-attributed total outages (notification → recovery) ÷ service hours.', window: 'calendar month',
     owner: OWNER.infra, source: 'services/wanSla.js', policy: 'wan_sla' }),

@@ -41,5 +41,16 @@ test('recurring = (category / sub_category) with count >= 3', () => {
 
 test('empty rows → all-zero block, never throws', () => {
   const r = _computeSiteHelpdesk([]);
-  assert.deepStrictEqual(r, { created: 0, resolved: 0, backlog: 0, sla_overdue: 0, major_incidents: 0, top_categories: [], recurring: [] });
+  assert.deepStrictEqual(r, { created: 0, resolved: 0, backlog: 0, sla_overdue: 0, major_incidents: 0, sla_res_ok: 0, sla_res_pct: null, top_categories: [], recurring: [] });
+});
+
+// Step 6 (lot 6.2): the window block carries the resolution SLA, same rule as getCalendarMonthlyHelpdesk.
+test('resolution SLA over a window: closed and not overdue ÷ closed; NULL overdue is not on time', () => {
+  const r = _computeSiteHelpdesk([
+    { pending_status: 0, overdue_status: 0 }, { pending_status: 0, overdue_status: 1 },
+    { pending_status: 0, overdue_status: null }, { pending_status: 1, overdue_status: 0 },
+  ]);
+  assert.strictEqual(r.resolved, 3);
+  assert.strictEqual(r.sla_res_ok, 1);
+  assert.strictEqual(r.sla_res_pct, 33);
 });

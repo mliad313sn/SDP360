@@ -9,4 +9,26 @@ function conformityPct(findingStatus) {
   return applicable > 0 ? Math.round((100 * ok) / applicable) : null;
 }
 
-module.exports = { conformityPct };
+/**
+ * Survey satisfaction from overall scores (0-100): satisfied = score ≥ 80 (the rule /api/survey/kpis has always
+ * used). Returns the numerators so a group total is Σsatisfied ÷ Σn, never a mean of percentages.
+ */
+function csatFromScores(scores) {
+  let n = 0, satisfied = 0, promoters = 0, passives = 0, detractors = 0, sum = 0;
+  for (const raw of scores || []) {
+    const s = Number(raw);
+    if (raw == null || !Number.isFinite(s)) continue;
+    n++; sum += s;
+    if (s >= 80) satisfied++;
+    if (s >= 90) promoters++; else if (s >= 70) passives++; else detractors++;
+  }
+  const npsBase = promoters + passives + detractors;
+  return {
+    n, satisfied, promoters, passives, detractors, sum,
+    csat_pct: n > 0 ? Math.round((satisfied / n) * 100) : null,
+    nps: npsBase > 0 ? Math.round(((promoters - detractors) / npsBase) * 100) : null,
+    avg: n > 0 ? Math.round((sum / n) * 10) / 10 : null,
+  };
+}
+
+module.exports = { conformityPct, csatFromScores };

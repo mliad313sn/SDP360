@@ -241,15 +241,9 @@ module.exports = function surveyRoutes(deps) {
       // Forked reader (sqlite/pg dispatch) — q1 period+group-filtered scores, q2 12-mo trend rows.
       const { rows1: kpiRows, rows2: trendRows } = await rdb.getSurveyKpisDB({ yr, mo, groups: groupList });
 
-      let scoreSum = 0, n = 0, satisfied = 0, promoters = 0, passives = 0, detractors = 0;
-      kpiRows.forEach(r => {
-        const s = r.overall_score;
-        scoreSum += s; n++;
-        if (s >= 80) satisfied++;
-        if (s >= 90) promoters++;
-        else if (s >= 70) passives++;
-        else detractors++;
-      });
+      // One formula for satisfaction (also served by /api/metrics/helpdesk.csat_pct) — services/metrics/formulas.js.
+      const _c = require('../services/metrics/formulas').csatFromScores(kpiRows.map(r => r.overall_score));
+      const { n, satisfied, promoters, passives, detractors } = _c, scoreSum = _c.sum;
 
       const byMonthMap = {};
       trendRows.forEach(r => {

@@ -5,6 +5,26 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased] — SDP-Dashboard 2.0, step 6 (lot 6.2): group figures, series, freshness (2026-10-22)
+
+### Added
+- **Group scope** `GET /api/metrics/:key?scope=group` — the whole fleet's figure, rebuilt from each site's numerators
+  and denominators (Σ on-time ÷ Σ closed, Σ successful ÷ Σ executed, Σ compliant ÷ Σ applicable). Reserved to the
+  admin tier, `scorecard-viewer` and `group-business`. Each response says its `group_rule`.
+- **Series** `GET /api/metrics/:key/series?site=|scope=group&grain=week|month&points=13` — consecutive Monday weeks or
+  months ending with `asOf`; the helpdesk monthly figures use their window twin per week; a monthly-only figure refuses
+  weeks (422) instead of inventing them.
+- **Freshness** `GET /api/metrics/freshness` — age of each domain's sync (ok / late / down / live).
+- **RAG colour server-side** on every metric response (`rag`, from `public/lib/kpiRag.js`).
+- **3 figures served**: satisfaction + NPS (`survey_month`), 5-engagements compliance (`meetings_engagements`), WAN
+  % time up (`wan_period`). 10-minute cache on computed figures.
+
+### Changed
+- The helpdesk readers return their SLA numerators (`sla_res_ok`, `sla_reply_ok`, `sla_reply_total`; the window
+  block gains `sla_res_ok` / `sla_res_pct`) — additive, both backends.
+- The satisfaction formula lives once in `services/metrics/formulas.js` (`/api/survey/kpis` uses it); the NPS entry
+  of the KPI dictionary now describes the rule the code has always applied (score ≥ 90 / < 70 on a 0-100 scale).
+
 ## [Unreleased] — SDP-Dashboard 2.0, step 6 (lot 6.1): design dossier + clickable prototype (2026-10-22)
 
 ### Added
