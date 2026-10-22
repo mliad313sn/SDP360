@@ -5,6 +5,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased] — SDP-Dashboard 2.0, step 6 (lot 6.1): design dossier + clickable prototype (2026-10-22)
+
+### Added
+- **`docs/design/ETAPE-06-design-espace-direction-composeur.md`**: user journeys (direction, coordinator, technician,
+  site stakeholder), extended design system (components, states, densities, mobile, AA), direction-space content mapped
+  to existing readers, dashboard-composer model (versioned JSON definition, 10 widget types bound to the KPI
+  dictionary, filters, preview per audience, publication rights), the first 10 pages to replace, decisions
+  DEC-6.1 to DEC-6.8 and the lot plan 6.2–6.7. No application code changed.
+- **Clickable prototype** `docs/design/maquettes/etape-06-prototype.html` (fictional data): direction space, site page,
+  composer, design-system sheet with live-computed contrasts.
+- Findings: only 21 of the 46 KPIs are served, all per site and per month — a group aggregate and 13-week series are the
+  first prerequisite (lot 6.2); four text colours in use fail WCAG AA (brand orange, muted grey, RAG green, warning
+  amber) — replacement text tokens proposed (DEC-6.7).
+
 ## [Unreleased] — SDP-Dashboard 2.0, step 5 (lot 5.6): release package built by CI (2026-10-22)
 
 ### Added
