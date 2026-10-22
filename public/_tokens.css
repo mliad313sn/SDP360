@@ -137,6 +137,15 @@
   /* Header / shell chrome — slate from brand */
   --color-header-bg:       var(--edv-slate);
   --color-header-bg-2:     #2E3A4D;           /* hand-darkened slate for gradient */
+
+  /* Step 6 (DEC-6.7, proposed) — TEXT colours that pass WCAG AA (≥ 4.5:1 on white, on --color-bg and on the
+     tinted pill backgrounds). The brand colours stay for fills, bars, icons and large titles; these four are
+     for running text only. Used by the step-6 pages; existing pages are unchanged until the committee decides. */
+  --text-orange-aa:        #B4510F;   /* replaces --edv-orange (3.25:1) in text */
+  --text-muted-aa:         #666666;   /* replaces --color-text-muted #7B7B7B (4.23:1) */
+  --text-success-aa:       #157A2E;   /* replaces --edv-green (3.66:1) in text */
+  --text-warning-aa:       #9A5200;   /* replaces --color-warning #D97706 (3.19:1) in text */
+  --text-danger-aa:        #C0002F;
   --color-header-text:     #FFFFFF;
   --color-header-text-mute: rgba(255,255,255,.62);
 

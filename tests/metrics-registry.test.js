@@ -15,7 +15,7 @@ test('the dictionary holds at least 40 complete, unique KPIs', () => {
     for (const f of ['domain', 'en', 'fr', 'formula', 'window', 'owner', 'source', 'unit']) assert.ok(m[f], `${m.key}.${f}`);
     assert.ok(['higher', 'lower', 'neutral'].includes(m.direction), m.key);
     // Sources whose value is computed from the whole record (step 6: survey, engagements, WAN) need no field.
-    const WHOLE_RECORD = ['assets_effort', 'survey_month', 'meetings_engagements', 'wan_period'];
+    const WHOLE_RECORD = ['assets_effort', 'survey_month', 'meetings_engagements', 'wan_period', 'scoreboard_month'];
     if (m.serve) assert.ok(WHOLE_RECORD.includes(m.serve) || m.key === 'inspections.conformity_pct' || FIELD[m.key], `${m.key} has no field mapping`);
   }
 });

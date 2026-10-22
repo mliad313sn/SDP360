@@ -102,7 +102,7 @@ const METRICS = [
     owner: OWNER.pmo, source: 'services/siteComposite.js', policy: 'composite' }),
   K('score.scoreboard', { domain: 'scores', en: 'Operational scoreboard', fr: 'Scoreboard opérationnel', unit: 'pts',
     formula: 'Weighted 40/20/20/20 of helpdesk SLA, inspection conformity, 5 Engagements, asset effort — renormalised over the measured dimensions.',
-    window: 'calendar month', owner: OWNER.pmo, source: 'services/siteScoreboard.js', policy: 'scoreboard' }),
+    window: 'calendar month', owner: OWNER.pmo, source: 'services/siteScoreboard.js', policy: 'scoreboard', serve: 'scoreboard_month' }),
   K('score.tracker_site', { domain: 'scores', en: 'Activity tracker site score', fr: 'Score du site (tracker d’activité)', unit: '%',
     formula: 'Weighted mean of the activity scores (actual ÷ pro-rated target, capped at 100 %), pillar weights × activity weights.',
     window: 'year to date', owner: OWNER.pmo, source: 'public/activity-tracker/engine.js + tracker-pptx.js', policy: 'tracker_site' }),

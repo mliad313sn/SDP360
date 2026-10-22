@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Composeur de tableaux · Endeavour Mining IT</title>
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="_shell.css">
+<link rel="stylesheet" href="dashboard.css">
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-require="dashboard-author|dashboard-publisher|super_admin" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/dashboardRender.js"></script>
+</head>
+<body>
+<div id="__shell" data-section="reports" data-current="dashboards"></div>
+<main class="db-page db-composer" id="dc-root">
+  <header class="db-head">
+    <div>
+      <div class="db-eyebrow">Tableaux de bord</div>
+      <h1>Composeur</h1>
+      <p class="db-desc">Chaque widget lit une clé du dictionnaire des indicateurs ; le serveur calcule les chiffres et applique le périmètre de site de chaque lecteur. Aucune formule ni requête ne se saisit ici.</p>
+    </div>
+    <div class="db-toolbar">
+      <label for="dc-pick">Tableau<select id="dc-pick"></select></label>
+      <button class="db-btn" id="dc-new" type="button">Nouveau tableau</button>
+    </div>
+  </header>
+  <form class="dc-new" id="dc-new-form" hidden>
+    <label for="dc-new-id">Identifiant (lettres, chiffres, tirets)<input id="dc-new-id" required pattern="[a-z0-9][a-z0-9-]{1,47}"></label>
+    <label for="dc-new-title">Titre<input id="dc-new-title" required maxlength="120"></label>
+    <button class="db-btn db-primary" type="submit">Créer le brouillon</button>
+    <button class="db-btn" type="button" id="dc-new-cancel">Annuler</button>
+  </form>
+  <p class="db-note" id="dc-status" role="status" aria-live="polite"></p>
+  <div class="dc-layout" id="dc-editor" hidden>
+    <section class="db-w dc-props" aria-labelledby="dc-props-h">
+      <h2 id="dc-props-h">Propriétés</h2>
+      <label for="dc-title-fr">Titre (FR)<input id="dc-title-fr" maxlength="120"></label>
+      <label for="dc-title-en">Titre (EN)<input id="dc-title-en" maxlength="120"></label>
+      <label for="dc-desc">Description<textarea id="dc-desc" rows="2" maxlength="400"></textarea></label>
+      <fieldset><legend>Audience (rôles)</legend><div id="dc-roles" class="dc-checks"></div></fieldset>
+      <fieldset><legend>Périmètre</legend>
+        <label class="dc-inline"><input type="radio" name="dc-scope" value="all" id="dc-scope-all"> Tous les sites (les lecteurs sans droit groupe voient leur site)</label>
+        <label class="dc-inline"><input type="radio" name="dc-scope" value="own" id="dc-scope-own"> Le site du lecteur</label>
+      </fieldset>
+      <label for="dc-density">Densité<select id="dc-density"><option value="comfort">Confort</option><option value="compact">Compact</option></select></label>
+      <h2>Ajouter un widget</h2>
+      <div id="dc-catalog" class="dc-catalog"></div>
+    </section>
+    <section class="db-w dc-widgets" aria-labelledby="dc-w-h">
+      <h2 id="dc-w-h">Widgets (dans l’ordre d’affichage)</h2>
+      <ol id="dc-list" class="dc-list"></ol>
+    </section>
+    <section class="db-w dc-publish" aria-labelledby="dc-p-h">
+      <h2 id="dc-p-h">Brouillon et publication</h2>
+      <div class="db-toolbar">
+        <label for="dc-as">Aperçu comme<select id="dc-as"><option value="">Ensemble du groupe</option></select></label>
+        <button class="db-btn" id="dc-preview" type="button">Aperçu</button>
+        <button class="db-btn" id="dc-save" type="button">Enregistrer le brouillon</button>
+        <button class="db-btn db-primary" id="dc-publish" type="button">Publier</button>
+      </div>
+      <div class="dc-confirm" id="dc-confirm" hidden>
+        <p id="dc-confirm-text"></p>
+        <label for="dc-note">Note de version (facultative)<input id="dc-note" maxlength="200"></label>
+        <div class="db-toolbar"><button class="db-btn db-primary" id="dc-confirm-yes" type="button">Publier cette version</button><button class="db-btn" id="dc-confirm-no" type="button">Annuler</button></div>
+      </div>
+      <h2>Versions</h2>
+      <ul class="db-list" id="dc-versions"></ul>
+      <button class="db-btn db-danger" id="dc-retire" type="button">Retirer de l’affichage</button>
+    </section>
+  </div>
+  <section id="dc-preview-out" class="dc-preview" aria-label="Aperçu" hidden></section>
+</main>
+<script nonce="%%CSP_NONCE%%" src="dashboard-composer.js"></script>
+</body>
+</html>

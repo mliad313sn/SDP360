@@ -1272,7 +1272,8 @@ function getPreviousWeek() {
 // Hierarchy chain — index N implies index N..end (so super_admin implies
 // everything, viewer implies only viewer).
 const ROLE_HIERARCHY = ['super_admin', 'executive', 'admin', 'editor', 'viewer'];
-const FEATURE_ROLES_KNOWN = ['tracker-admin', 'tracker-editor', 'report-author', 'audit-viewer', 'scorecard-viewer', 'site-business', 'group-business'];
+const FEATURE_ROLES_KNOWN = ['tracker-admin', 'tracker-editor', 'report-author', 'audit-viewer', 'scorecard-viewer', 'site-business', 'group-business',
+  'dashboard-author', 'dashboard-publisher'];   // step 6: composed dashboards
 
 /**
  * Returns the array of role strings explicitly assigned to a user.
@@ -8095,6 +8096,26 @@ async function _getUpcomingChangesPg(days = 7) {
   `).all(n);
   return _mapUpcomingChanges(rows);
 }
+// Step 6 (lot 6.2) — changes waiting for a CAB decision: an open change with at least one approval still
+// pending. Selects ONLY operational fields (no requester / approver names). Dates stay ISO TEXT (compared as
+// strings on both engines, never cast). Same SQL on both backends.
+const _PENDING_CAB_SQL = `
+  SELECT c.change_id, c.display_id, c.subject, c.risk, c.change_type, c.emergency, c.site_id, c.group_name,
+         c.scheduled_start, MIN(a.recommendation_requested) AS requested_at, COUNT(a.id) AS pending_approvals
+  FROM change_records c JOIN cab_approvals a ON a.change_id = c.change_id
+  WHERE LOWER(COALESCE(a.approval_status, '')) LIKE '%pend%'
+    AND LOWER(COALESCE(c.stage, '')) <> 'close'
+  GROUP BY c.change_id, c.display_id, c.subject, c.risk, c.change_type, c.emergency, c.site_id, c.group_name, c.scheduled_start
+  ORDER BY requested_at ASC
+  LIMIT 50`;
+function getPendingCabDecisions() {
+  if (REPORTS_BACKEND === 'postgres') return _getPendingCabDecisionsPg();
+  return db.prepare(_PENDING_CAB_SQL).all();
+}
+async function _getPendingCabDecisionsPg() {
+  return pgHandle().prepare(_PENDING_CAB_SQL).all();
+}
+
 // Shared JS row-mapping (both forks) — the 5 whitelisted PII-free fields.
 function _mapUpcomingChanges(rows) {
   const hhmm = (v) => {
@@ -8372,6 +8393,7 @@ module.exports = {
   getActiveMajorIncidentsForSite,
   // Upcoming planned changes (Exec View — planned maintenance)
   getUpcomingChanges,
+  getPendingCabDecisions,
   // Exec View editorial (SharePoint executive page)
   getExecEditorial, setExecEditorial,
   getExecReportEditorial, setExecReportEditorial,

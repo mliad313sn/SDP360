@@ -5,6 +5,31 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased] — SDP-Dashboard 2.0, step 6 (lots 6.3-6.5): rendering engine, leadership space, composer (2026-10-22)
+
+### Added
+- **Leadership space** `direction.html` (nav ▸ Executive ▸ Espace direction; roles `executive`, `scorecard-viewer`):
+  6 service objectives with their colour and the change vs the previous month, 13-week trends, major incidents in
+  progress (root-cause state), pending decisions (Council escalations, changes waiting for CAB, actions late by more
+  than 30 days), sites (operational scoreboard + SLA + inspections + engagements) and IT-strategy pillars. Read-only,
+  phone-first, every block stamped with its data freshness; each view logged once per person per day
+  (`direction_viewed`). It is the first SYSTEM dashboard of the engine (`services/dashboards/seed.js`).
+- **Dashboard engine**: versioned definitions (`dashboards`, `dashboard_versions`; pg `018_dashboards.sql`), a
+  validator that accepts only dictionary keys, layout, audience and restricted Markdown
+  (`services/dashboards/definition.js`), a server-side data resolver that applies the viewer's site scope
+  (`services/dashboards/data.js`), a pure HTML renderer (`public/lib/dashboardRender.js`), `dashboard.html` (list +
+  viewer, nav ▸ Reports ▸ Tableaux de bord) and `routes/dashboards.js`.
+- **Composer** `dashboard-composer.html`: properties, audience, 10 widget types (KPI, trend, bars, table, heatmap, RAG
+  grid, tracker, text, overdue actions, incidents / decisions), server-side preview in a chosen scope, draft, publish
+  with confirmation, version history, rollback, retire. Two feature roles: `dashboard-author`, `dashboard-publisher`
+  (Admin ▸ Users); system dashboards stay super_admin.
+- `score.scoreboard` served by the dictionary; `getPendingCabDecisions` reader (no personal field).
+- Four AA text tokens in `_tokens.css` (`--text-*-aa`, DEC-6.7 proposed), used by the step-6 pages only.
+
+### Fixed
+- The shared navigation no longer pushes every page sideways on a phone (375 px): no caret, tighter items, logo only
+  below 640 px.
+
 ## [Unreleased] — SDP-Dashboard 2.0, step 6 (lot 6.2): group figures, series, freshness (2026-10-22)
 
 ### Added

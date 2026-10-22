@@ -36,43 +36,10 @@ module.exports = function metricsRoutes(d) {
     return value;
   }
 
-  function deps() {
-    if (d.metricDeps) return d.metricDeps;
-    const r = rdb(); let sitesP = null;
-    const siteRows = () => (sitesP = sitesP || Promise.resolve(r.listSites()));
-    return {
-      getCalendarMonthlyHelpdesk: r.getCalendarMonthlyHelpdesk,
-      getSiteHelpdeskWindow: r.getSiteHelpdeskWindow,
-      getSiteChangesWindow: r.getSiteChangesWindow,
-      getSurveyKpisDB: r.getSurveyKpisDB,
-      getWanSnapshots: r.getWanSnapshots,
-      getSiteGroups: async (siteId) => {
-        const s = ((await siteRows()) || []).find(x => x.id === siteId);
-        return String((s && s.zoho_group) || '').split(',').map(g => g.trim()).filter(Boolean);
-      },
-      getSiteMonthlyMeetingSummary: require('../meetings-db').getSiteMonthlyMeetingSummary,
-      meetingsInsights: require('../meetings-db').insights,
-      getInspectionAggregate: require('../inspection-db').aggregate,
-      getEffortLeaderboard: require('../assets-db').getEffortLeaderboard,
-      effortForSite: require('../services/assetEffortForSite').effortForSite,
-    };
-  }
-
-  // Every ACTIVE site, with its meetings code when it has one (helpdesk / changes / WAN count every site).
-  async function groupSites() {
-    const r = rdb();
-    const [sites, codes] = [await r.listSites(), await r.listSiteModuleCodes('meetings')];
-    const code = new Map((codes || []).map(c => [c.site_id, c.code]));
-    return (sites || []).filter(s => s.active !== 0 && s.active !== false).map(s => ({ site_id: s.id, code: code.get(s.id) || null, name: s.name }));
-  }
-
-  async function targets() {
-    try {
-      const cfg = await require('../services/reportConfig').getConfig(rdb().db);
-      const t = JSON.parse(cfg.opm_targets || '{}');
-      return { wan: Number.isFinite(Number(t.wan)) ? Number(t.wan) : 98 };
-    } catch (_) { return { wan: 98 }; }
-  }
+  const live = require('../services/metrics/liveDeps');
+  const deps = () => d.metricDeps || live.liveDeps(rdb());
+  const groupSites = () => live.groupSites(rdb());
+  const targets = () => live.targets(rdb());
 
   // Resolves ?site= / ?scope=group into a scope, or answers the error itself (returns null).
   async function scopeOf(req, res) {

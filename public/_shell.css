@@ -360,4 +360,12 @@ body {
 @media (max-width: 640px) {
   .shell-nav-label { display: none; }
   .shell-user-name { display: none; }
+  /* Step 6 (phone-first direction space): the icon-only nav still ran ~100 px past a 375 px screen for a
+     super_admin (7 entries) and scrolled every page sideways. No caret, tighter items, logo without text. */
+  .shell-nav-caret { display: none; }
+  .shell-nav-item,
+  .shell-nav-item-link { padding: 6px 7px; gap: 0; }
+  .shell-brand-text { display: none; }
+  .shell-brand { margin-right: 4px; }
+  .shell-header { padding: 0 8px; }
 }

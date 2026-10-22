@@ -157,6 +157,7 @@
       title:    'Site reports and executive deck builder',
       children: [
         { id: 'site-reports',    label: 'Site Reports', icon: ICON_LIB['file-text'], href: 'reports.html',          roles: ['any'] },
+        { id: 'dashboards',      label: 'Tableaux de bord', icon: ICON_LIB['bar-chart-3'], href: 'dashboard.html',   roles: ['any'] },   // step 6
         { id: 'reports-builder', label: 'Deck Builder', icon: ICON_LIB.presentation, href: 'executive-report.html', roles: ['super_admin'] }  // = the page's data-require (RBAC audit 2026-10-02, A19)
       ]
     },
@@ -175,6 +176,7 @@
       roles:    ['executive', 'scorecard-viewer'],
       title:    'Executive dashboards — IT Review and Scorecard',
       children: [
+        { id: 'direction', label: 'Espace direction',    icon: ICON_LIB.gauge,          href: 'direction.html', roles: ['executive', 'scorecard-viewer'] },   // step 6
         { id: 'it-review', label: 'IT Review',           icon: ICON_LIB['bar-chart-3'], href: 'it-review.html', roles: ['executive', 'scorecard-viewer'] },
         { id: 'scorecard', label: 'Executive Scorecard', icon: ICON_LIB.gauge,          href: 'executive.html', roles: ['executive', 'scorecard-viewer'] }
       ]

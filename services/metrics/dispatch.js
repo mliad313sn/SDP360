@@ -67,6 +67,7 @@ const GROUP_RULE = {
   survey_month: 'Σ satisfied ÷ Σ rated responses over every site’s support groups.',
   meetings_engagements: 'Mean of the measured site scores (each site’s engagements are scored on its own PVs).',
   wan_period: 'Mean % time up of every measured uplink of every site.',
+  scoreboard_month: 'Mean of the applicable site scores (the scoreboard’s own fleet average).',
 };
 
 /** The site-level component record of a served figure (raw reader output, normalised). */
@@ -110,6 +111,12 @@ async function fetchRecord(def, site, w, deps) {
       const hit = rows.filter(r => (monthly ? r.period_start === w.from : r.period_start >= dayBefore && r.period_start <= w.to));
       return { uplinks: hit.map(r => (r.availability_pct == null ? null : Number(r.availability_pct))) };
     }
+    case 'scoreboard_month': {
+      if (!site.code) return null;
+      const board = await deps.getScoreboard({ year: w.year, m: w.month });
+      const row = ((board && board.rows) || []).find(r => r.code === site.code);
+      return { score: row && row.applicable ? row.score : null, delta: row ? row.delta : null };
+    }
     default: throw new Error('no reader for ' + def.serve);
   }
 }
@@ -122,7 +129,7 @@ function siteValue(key, def, r) {
       if (key === 'inspections.conformity_pct') return conformityPct(r.findingStatus);
       if (key === 'inspections.done') return r.counts ? val(r.counts.total) : null;
       return val(r[FIELD[key]]);
-    case 'assets_effort': case 'meetings_engagements': return r.score;
+    case 'assets_effort': case 'meetings_engagements': case 'scoreboard_month': return r.score;
     case 'survey_month': return key === 'helpdesk.nps' ? r.nps : r.csat_pct;
     case 'wan_period': return mean(r.uplinks);
     case 'helpdesk_window': if (r.__twin) return val(HELPDESK_WINDOW_TWIN[key](r)); return val(r[FIELD[key]]);
@@ -178,6 +185,7 @@ function groupValue(key, def, recs) {
       return pct(S(r => r.satisfied), n);
     }
     case 'assets_effort': case 'meetings_engagements': return mean(R.map(r => r.score));
+    case 'scoreboard_month': { const m = mean(R.map(r => r.score)); return m == null ? null : Math.round(m); }
     case 'wan_period': return mean([].concat(...R.map(r => r.uplinks || [])));
     default: return null;
   }
@@ -195,7 +203,7 @@ function ragFor(def, value, targets) {
 }
 
 function windowOf(def, w) {
-  if (def.serve === 'helpdesk_month' || def.serve === 'meetings_month' || def.serve === 'survey_month') {
+  if (['helpdesk_month', 'meetings_month', 'survey_month', 'scoreboard_month'].includes(def.serve)) {
     const b = monthBounds(`${w.year}-${pad2(w.month)}`); return { from: b.from, to: b.to };
   }
   return { from: w.from, to: w.to };
@@ -267,7 +275,7 @@ function seriesPlan(key, def, grain) {
     if (!HELPDESK_WINDOW_TWIN[key]) return { error: 'this figure exists per month only (no weekly reader)' };
     return { def: { ...def, serve: 'helpdesk_window' }, twin: true };
   }
-  if (def.serve === 'meetings_month' || def.serve === 'survey_month' || def.serve === 'assets_effort')
+  if (['meetings_month', 'survey_month', 'assets_effort', 'scoreboard_month'].includes(def.serve))
     return { error: 'this figure exists per month only (no weekly reader)' };
   return { def };
 }
