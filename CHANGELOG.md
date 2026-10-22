@@ -5,6 +5,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased] — SDP-Dashboard 2.0, step 5 (lot 5.5): CLAUDE.md becomes an index (2026-10-22)
+
+### Changed
+- **`CLAUDE.md` 6,220 → 266 lines**: deployment reality, current state, file map and transversal rules stay; the rest
+  moved verbatim to `docs/history/CURRENT-STATE-LOG.md` (session log), `docs/sop/` (deploy, known pitfalls, browser
+  caching, PPTX, KPI/SLA) and `docs/modules/` (tracker, inspection, meetings, risk register, exec view). A "Where to
+  read what" table says which document to open before touching an area. `tests/claude-md-index.test.js` caps the
+  file at 400 lines, checks every referenced document exists and that the moved sections are present.
+- **ADRs**: ADR-003 (release by CI package — proposed, waits DEC-1/DEC-2), ADR-004 (routes in injected modules),
+  ADR-005 (JSX compiled ahead of time), ADR-006 (encrypted secrets v2).
+
 ## [Unreleased] — SDP-Dashboard 2.0, step 5 (lot 5.4): server.js under 3,000 lines (2026-10-22)
 
 ### Changed

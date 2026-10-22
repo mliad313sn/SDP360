@@ -19,7 +19,7 @@ Référence : SDP-DASH-2.0-ETUDE v1.2, §6.3 étape 5, lacunes L6, L10, L11.
 | Setup.exe et Manager.exe construits et signés par la CI, paquet de mise à jour avec manifeste, retour arrière | conçu (§3), non construit | prérequis : E2E TEST + certificat (DEC-1, DEC-2) |
 | Migrateur appelé par l'installateur | prêt côté code | `db/migrate.js` (étape 2) — l'installateur v2 l'appellera |
 | Retrait des scripts `.cmd` et du registre des lots gelés | après la 1re livraison CI | §3.4 |
-| `CLAUDE.md` réduit à un index, règles vers SOP et ADR | lot 5.5 | §4 |
+| `CLAUDE.md` réduit à un index, règles vers SOP et ADR | **fait (lot 5.5) : 6 220 → 266 lignes** | `docs/sop/`, `docs/modules/`, `docs/history/`, ADR-003 à 006 ; garde `tests/claude-md-index.test.js` (≤ 400 lignes, liens vérifiés) |
 
 ## 2. Découpage de `server.js` — méthode et suite
 
@@ -74,7 +74,7 @@ restaure l'arbre et le dump** (retour arrière automatique, démontré à la ré
 `.git/last-deployed` et `tools/deploy/frozen-lots.json` : un paquet construit depuis un tag porte
 l'arbre entier, il n'y a plus de « fichiers derrière le marqueur ».
 
-## 4. `CLAUDE.md` → index (lot 5.5)
+## 4. `CLAUDE.md` → index (lot 5.5 — fait le 2026-10-22)
 Les sections « Current state » deviennent `CHANGELOG.md` (déjà tenu) ; les pièges deviennent des
 SOP par domaine dans `docs/sop/` ; les décisions deviennent des ADR dans `docs/adr/` (ADR-001
 tracker par année, ADR-002 PostgreSQL existent). `CLAUDE.md` garde la carte des fichiers, les
