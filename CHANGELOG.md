@@ -5,6 +5,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased] — SDP-Dashboard 2.0, step 5 (lot 5.6): release package built by CI (2026-10-22)
+
+### Added
+- **Release package (ADR-003, step 1)**: `tools/release/build-release.js` stages the complete application tree at
+  the current commit (dev-only paths excluded), installs production `node_modules`, writes `manifest.json` (every
+  file + SHA-256, migrations list, one aggregate hash for `node_modules`) and verifies it;
+  `tools/release/verify-release.js <folder>` proves an extracted package is exactly what CI built
+  (`services/releaseManifest.js`, 8 tests). `.github/workflows/release.yml` builds it on `windows-latest` (native
+  binding = prod) for a `v*.*.*` tag (GitHub release with ZIP + SHA-256) or a manual run (artifact only).
+- **`/health` says what is running**: `version` (manifest of the installed package, else `package.json` + `-dev`)
+  and `build`. A package has no `.git`, so asset versioning (`APP_VERSION`) reads the manifest commit.
+
+### Not done — waits on DEC-1 / DEC-2
+- The installer v2 (`Setup.exe`, Inno Setup) and the Manager's "apply a package" flow (backup → stop → replace →
+  migrate → start → `/health`, automatic rollback), and Authenticode signing. The ZIP model stays the deploy procedure.
+
 ## [Unreleased] — SDP-Dashboard 2.0, step 5 (lot 5.5): CLAUDE.md becomes an index (2026-10-22)
 
 ### Changed

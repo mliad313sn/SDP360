@@ -1,6 +1,7 @@
 # ADR-003 — Livraison par paquet construit en CI depuis un tag
 
-Statut : **proposé** (étape 5 de SDP-DASH-2.0, 2026-10-22). Dépend de DEC-1 (certificat de signature) et
+Statut : **partiellement appliqué** (étape 5 de SDP-DASH-2.0, 2026-10-22) — points 1 et 4 faits au lot 5.6
+(`tools/release/`, `.github/workflows/release.yml`, `/health` → `version`) ; points 2 et 3 en attente. Dépend de DEC-1 (certificat de signature) et
 DEC-2 (essai de bout en bout de l'installeur actuel sur l'instance TEST, préalable à toute v2).
 
 ## Contexte

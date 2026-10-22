@@ -1201,6 +1201,8 @@ app.post('/api/admin/backup-now', requireReportSession, express.json(), async (r
 // User-visible: zero RTT for cached assets, zero risk of stale code, zero
 // requirement to Ctrl+F5 after deploys. Same approach webpack / vite /
 // Next.js use in production.
+// Installed release (manifest.json of a CI package, ADR-003) — null when running from a checkout / ZIP deploy.
+const _INSTALLED = require('./services/releaseManifest').readInstalled(__dirname);
 const APP_VERSION = (() => {
   try {
     const v = require('child_process')
@@ -1208,6 +1210,8 @@ const APP_VERSION = (() => {
       .toString().trim();
     if (v) return v;
   } catch (_) {}
+  // A release package (ADR-003) has no .git: its manifest carries the commit.
+  if (_INSTALLED && _INSTALLED.commit) return _INSTALLED.commit;
   // Fallback when git isn't reachable (e.g. shallow deploy without .git).
   // Boot-time epoch — different on every restart but stable within a process.
   return 't' + Date.now().toString(36);
@@ -1672,7 +1676,10 @@ app.use(require('./routes/assets')({
 }));
 
 app.get('/health', (req, res) => res.json({
-  status: 'ok', tokenValid: Date.now() < tokenState.expiresAt,
+  status: 'ok',
+  version: _INSTALLED ? _INSTALLED.version : require('./package.json').version + '-dev',   // what is running (ADR-003)
+  build: APP_VERSION,
+  tokenValid: Date.now() < tokenState.expiresAt,
   expiresAt: new Date(tokenState.expiresAt).toISOString(),
   refreshCount: tokenState.refreshCount,
   grantedScope: tokenState.grantedScope || 'unknown (not yet refreshed)',

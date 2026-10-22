@@ -1,0 +1,73 @@
+# Step 5 (SDP-DASH-2.0, lot 5.6, ADR-003) — release package built by CI.
+# A tag v<MAJOR>.<MINOR>.<PATCH> (or a manual run) builds the COMPLETE application tree + production
+# node_modules + manifest.json (every file with its SHA-256), verifies it, zips it and publishes the ZIP
+# with its SHA-256. Windows runner on purpose: the better-sqlite3 native binding must match production
+# (Windows x64, Node 24). Nothing here touches production — applying a package is the job of the
+# installer v2 / Manager, which waits on DEC-1 (code-signing certificate) and DEC-2 (TEST end-to-end run).
+name: Release package
+
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'SemVer to stamp (e.g. 2.5.0-rc.1). Manual runs upload an artifact, they never publish a release.'
+        required: true
+
+permissions:
+  contents: write   # gh release create (tag runs only)
+
+jobs:
+  package:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      # Never interpolate a user-supplied input straight into a script: pass it through the environment.
+      RELEASE_VERSION: ${{ github.event_name == 'push' && github.ref_name || inputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Build the package (tree + production node_modules + manifest)
+        run: node tools/release/build-release.js --out dist/release
+
+      - name: Verify the package against its manifest
+        shell: pwsh
+        run: |
+          $dir = Get-ChildItem dist/release -Directory | Select-Object -First 1
+          node tools/release/verify-release.js $dir.FullName
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Zip + SHA-256
+        shell: pwsh
+        run: |
+          $dir  = Get-ChildItem dist/release -Directory | Select-Object -First 1
+          $zip  = "dist/$($dir.Name).zip"
+          Compress-Archive -Path "$($dir.FullName)/*" -DestinationPath $zip -Force
+          $hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
+          "$hash  $($dir.Name).zip" | Set-Content "$zip.sha256" -Encoding ascii
+          "ZIP=$zip" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "$($dir.Name).zip  sha256 $hash"
+
+      - name: Keep the package
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdp-dashboard-${{ env.RELEASE_VERSION }}
+          path: |
+            ${{ env.ZIP }}
+            ${{ env.ZIP }}.sha256
+          retention-days: 30
+
+      - name: Publish the GitHub release (tag runs only)
+        if: github.event_name == 'push'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create $env:RELEASE_VERSION $env:ZIP "$($env:ZIP).sha256" `
+            --title "SDP Dashboard $env:RELEASE_VERSION" `
+            --notes "Release package (ADR-003). Verify with: node tools/release/verify-release.js <extracted folder>. Applying it to production waits on the installer v2 (DEC-1, DEC-2)."

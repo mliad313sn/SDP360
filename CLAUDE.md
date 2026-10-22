@@ -144,7 +144,7 @@ editing it. Nothing was deleted: the old sections moved verbatim (see `docs/hist
 | handle a secret or a security control | `docs/adr/ADR-006-*`, `docs/design/ETAPE-04-securite.md`, `docs/ops/INCIDENT-RESPONSE.md` |
 | add a scheduled job | `docs/design/ETAPE-01-synchronisations.md` (`services/sync/jobs.js`) |
 | add a KPI or an RAG threshold | `docs/design/ETAPE-03-kpi.md` (`services/metrics/registry.js`, `public/lib/kpiRag.js`) |
-| work on the installer / release packaging | `docs/INSTALLER.md`, `docs/adr/ADR-003-*` |
+| work on the installer / release packaging | `docs/INSTALLER.md`, `docs/adr/ADR-003-*` (`tools/release/`, `.github/workflows/release.yml`) |
 | understand why something is the way it is (history of a feature) | `docs/history/CURRENT-STATE-LOG.md` (search by feature or date), `CHANGELOG.md`, `docs/superpowers/` |
 | understand the data model | `docs/DATA_ARCHITECTURE.md`, `docs/DATA_EVOLUTION_STRATEGY.md` |
 
