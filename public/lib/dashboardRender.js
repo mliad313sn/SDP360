@@ -136,7 +136,7 @@
       // The chart is aria-hidden: its content is said in words for a screen reader (dossier §4.4).
       var words = ok.map(function (s) {
         var v = s.points.filter(function (p) { return p.value != null; });
-        if (!v.length) return esc(tr(s.label, lang)) + ' : ' + t.noData;
+        if (!v.length) return esc(tr(s.label, lang)) + ' : ' + t.noData.replace(/\.$/, '');
         var a = Number(v[0].value), b = Number(v[v.length - 1].value), dir = b > a ? t.rose : b < a ? t.fell : t.steady;
         return esc(tr(s.label, lang)) + ' ' + t.over + ' ' + s.points.length + ' ' + t.points + ' : ' + t.from + ' ' + esc(fmt(a, s.unit, lang)) +
           ' ' + t.to + ' ' + esc(fmt(b, s.unit, lang)) + ' (' + dir + ')';

@@ -105,4 +105,7 @@ test('renderer: one heading per widget, tables with header scopes, RAG in words,
   assert.match(html, /<svg[^>]*aria-hidden="true"/);
   assert.match(html, /<p class="db-sr">SLA sur 3 points : de 80\s% à 88\s% \(hausse\)\.<\/p>/, 'the chart is said in words');
   assert.match(CSS, /\.db-sr\s*\{[^}]*clip:/, 'the words are visually hidden, not display:none');
+  const empty = R.render({ title: { fr: 'T' }, widgets: [{ id: 'e', type: 'trend', span: 6, title: { fr: 'E' } }] },
+    { context: {}, widgets: { e: { domains: [], series: [{ key: 'a', label: { fr: 'SLA' }, unit: '%', points: [{ label: 'S1', value: null }] }] } } }, { lang: 'fr' });
+  assert.match(empty, /<p class="db-sr">SLA : Aucune donnée sur la période\.<\/p>/, 'one full stop, not two');
 });
