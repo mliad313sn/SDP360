@@ -13,7 +13,7 @@ Référence : SDP-DASH-2.0-ETUDE v1.2, §6.3 étape 5, lacunes L6, L10, L11.
 
 | Demandé | État | Où |
 |---|---|---|
-| Extraction de `server.js` vers `routes/*` (≥ 600 lignes par sprint, cible < 3 000) | **lot 5.1 : 9 203 → 7 394 ; lot 5.3 : → 6 767 ; lot 5.3b : → 6 257 lignes** (−2 946) | `routes/meetings.js` (36 routes), `routes/assets.js` (40 routes), `routes/accounts.js` (comptes, SSO, sites, utilisateurs, sessions, départements — 23 routes), `routes/reportsConfig.js` (configuration des envois et intégrations — 13 routes), `routes/reportsSend.js` (envois — 6 routes), `routes/reportsDecks.js` (PPTX, données mensuelles/annuelles, objectifs, notes — 17 routes) ; cliquet `tests/server-size.test.js` (plafond 6 300, à abaisser à chaque extraction ; tout module de `routes/` doit être monté) |
+| Extraction de `server.js` vers `routes/*` (≥ 600 lignes par sprint, cible < 3 000) | **lot 5.1 : 9 203 → 7 394 ; lot 5.3 : → 6 767 ; lot 5.3b : → 6 257 ; lot 5.3c : → 5 346 lignes** (−3 857) | `routes/meetings.js` (36 routes), `routes/assets.js` (40 routes), `routes/accounts.js` (comptes, SSO, sites, utilisateurs, sessions, départements — 23 routes), `routes/reportsConfig.js` (configuration des envois et intégrations — 13 routes), `routes/reportsSend.js` (envois — 6 routes), `routes/reportsDecks.js` (PPTX, données mensuelles/annuelles, objectifs, notes — 17 routes), `routes/reports.js` (rapports hebdomadaires — 32 routes) ; cliquet `tests/server-size.test.js` (plafond 5 400, à abaisser à chaque extraction ; tout module de `routes/` doit être monté) |
 | Étape de build (esbuild), fin de la compilation dans le navigateur | **oui (lot 5.2, 2026-10-22)** | `tools/build/build-frontend.js` (`npm run build`, `--check` en CI) ; l'aperçu `dashboard-preview` est compilé et ne charge plus Babel ni `unsafe-eval`. Le tracker est compilé depuis la levée de son gel (DEC-4) et charge React en version **production** avec SRI ; plus aucune page n'autorise `unsafe-eval` |
 | Registre unique des tâches planifiées | déjà fait (étape 1) | `services/sync/jobs.js` |
 | Setup.exe et Manager.exe construits et signés par la CI, paquet de mise à jour avec manifeste, retour arrière | conçu (§3), non construit | prérequis : E2E TEST + certificat (DEC-1, DEC-2) |
@@ -36,7 +36,7 @@ Trois pièges relevés pendant ce lot, à vérifier à chaque extraction :
    routes assets) : elles restent dans `server.js`, à la même place dans l'ordre d'enregistrement.
 
 Suite proposée (≈ 600 à 1 000 lignes par sprint) : `reports` (86 routes, en trois lots :
-administration/config — **fait, lot 5.3** —, envois et PPTX — **fait, lot 5.3b** —, rapports hebdo), puis `data`/`survey`/`sync`, puis
+administration/config — **fait, lot 5.3** —, envois et PPTX — **fait, lot 5.3b** —, rapports hebdo — **fait, lot 5.3c**), puis `data`/`survey`/`sync`, puis
 l'amorçage (`start()`, caches HTML) dans `services/boot.js`. Cible < 3 000 lignes.
 
 ## 3. Installateur v2 — conception
@@ -89,7 +89,7 @@ ADR-004 routes en modules injectés, ADR-005 JSX compilé à l'avance, ADR-006 s
 - Installation neuve < 20 min sur machine vierge : **à mesurer** (installateur v2).
 - Mise à jour < 5 min avec retour arrière démontré : **à mesurer** (paquet CI).
 - Première mise en production depuis un paquet CI : **non**.
-- `server.js` < 3 000 lignes : **6 257** (cliquet en place).
+- `server.js` < 3 000 lignes : **5 346** (cliquet en place).
 - Aucune compilation dans le navigateur : **atteint** (lot 5.2) ; `tests/frontend-build.test.js` (liste d'exceptions vide).
 
 ## 7. Décisions prises (2026-10-22)

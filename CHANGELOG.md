@@ -5,6 +5,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased] — SDP-Dashboard 2.0, step 5 (lot 5.3c): server.js split, weekly report routes (2026-10-22)
+
+### Changed
+- **`server.js` 6,257 → 5,346 lines**: the weekly site report routes (list, ensure, read, delete, section writes,
+  status, reassign-week, action carry-over and imports, "Parc informatique" tab, audit trail, helpdesk-live /
+  helpdesk-charts, technicians, System Logs, open changes / active incidents / infra-auto) move to
+  `routes/reports.js` (32 routes). Handlers unchanged, registration order preserved — no visible change.
+  Size ceiling 5,400. The "no cron.schedule outside the runner" test now also scans `routes/*.js`.
+
 ## [Unreleased] — SDP-Dashboard 2.0, step 5 (lot 5.3b): server.js split, report sends + decks (2026-10-22)
 
 ### Changed

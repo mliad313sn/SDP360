@@ -103,7 +103,7 @@ made so far so that future sessions can pick up exactly where the last one ended
 > journal `api` (écritures + 403) 12 mois. SSO groupes→rôles et désactivation des départs livrés **désarmés**.
 > Un changement de `package-lock.json` = le ZIP embarque un `node_modules` complet (swap + retour arrière côté prod).
 >
-> **Étape 5, lot 5.1 livré** (dossier `docs/design/ETAPE-05-installateur-modularisation.md`) : `server.js` 9 203 → 6 257 (lot 5.3 : `routes/accounts.js`, `routes/reportsConfig.js` ; lot 5.3b : `routes/reportsSend.js`, `routes/reportsDecks.js`)
+> **Étape 5, lot 5.1 livré** (dossier `docs/design/ETAPE-05-installateur-modularisation.md`) : `server.js` 9 203 → 5 346 (lot 5.3 : `routes/accounts.js`, `routes/reportsConfig.js` ; lot 5.3b : `routes/reportsSend.js`, `routes/reportsDecks.js` ; lot 5.3c : `routes/reports.js`)
 > lignes (`routes/meetings.js`, `routes/assets.js`) — **une nouvelle route va dans un module `routes/*.js`**, le cliquet
 > `tests/server-size.test.js` refuse toute hausse (abaisser `CEILING` après chaque extraction). Pièges d'extraction : une
 > déclaration du bloc utilisée ailleurs (`statusTransfer`), une dépendance déclarée plus bas que le montage (`let rdb` →

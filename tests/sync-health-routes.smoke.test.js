@@ -37,8 +37,13 @@ const EXPECTED = ['zoho.token', 'zoho.requests', 'zoho.change_cab', 'zoho.survey
   'meraki.wan_events_nightly', 'meraki.wan_poller', 'teams.sla', 'db.backup', 'audit.retention', 'entra.deprovision'];
 
 test('server.js schedules nothing outside the runner', () => {
-  const src = _fs.readFileSync(_p.join(__dirname, '..', 'server.js'), 'utf8');
-  assert.equal((src.match(/cron\.schedule\(/g) || []).length, 0, 'every schedule lives in services/sync/jobs.js');
+  // server.js is being split into routes/*.js (step 5): a schedule must not hide there either.
+  const routesDir = _p.join(__dirname, '..', 'routes');
+  const files = ['server.js', ..._fs.readdirSync(routesDir).filter(f => f.endsWith('.js')).map(f => _p.join('routes', f))];
+  for (const f of files) {
+    const src = _fs.readFileSync(_p.join(__dirname, '..', f), 'utf8');
+    assert.equal((src.match(/cron\.schedule\(/g) || []).length, 0, `${f}: every schedule lives in services/sync/jobs.js`);
+  }
   const crons = require('../services/sync/jobs').buildJobs({}).map(j => j.cron);
   assert.ok(crons.every(Boolean));
 });

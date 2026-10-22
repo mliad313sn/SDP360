@@ -7,7 +7,7 @@ const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
 
-const CEILING = 6300;   // 2026-10-22: 6,767 → 6,257 (lot 5.3b: routes/reportsSend.js + routes/reportsDecks.js)
+const CEILING = 5400;   // 2026-10-22: 6,257 → 5,346 (lot 5.3c: routes/reports.js)
 const TARGET  = 3000;   // study SDP-DASH-2.0 §6.3 step 5, acceptance criterion
 
 test('server.js does not grow back (routes go in routes/*.js)', () => {
