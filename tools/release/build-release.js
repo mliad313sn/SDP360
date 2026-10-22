@@ -39,7 +39,12 @@ function resolveVersion(explicit) {
   const tag = explicit || process.env.RELEASE_VERSION || '';
   const v = tag.replace(/^v/, '');
   if (v) {
-    if (!/^\d+\.\d+\.\d+(-[\w.]+)?$/.test(v)) throw new Error(`version "${tag}" is not SemVer (expected v2.5.0)`);
+    // Core and pre-release checked apart: no nested quantifier (eslint security/detect-unsafe-regex).
+    const dash = v.indexOf('-');
+    const core = dash < 0 ? v : v.slice(0, dash), pre = dash < 0 ? null : v.slice(dash + 1);
+    if (!/^\d+\.\d+\.\d+$/.test(core) || (pre !== null && !/^[\w.]+$/.test(pre))) {
+      throw new Error(`version "${tag}" is not SemVer (expected v2.5.0)`);
+    }
     return v;
   }
   return require('../../package.json').version + '-dev';
