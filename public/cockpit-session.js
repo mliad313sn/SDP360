@@ -7,7 +7,7 @@
   var $ = function (id) { return document.getElementById(id); };
   var st = function (m, e) { S.status($('ss-status'), m, e); };
   var id = decodeURIComponent((location.hash || '').slice(1));
-  var data = null, current = 1, noteTimer = null, tick = null;
+  var data = null, current = 1, noteTimer = null, tick = null, shownSeq = null;
   var STATUS = { planned: 'planifiée', live: 'en cours', closed: 'close' };
   var hm = function (iso) { return iso ? new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '—'; };
 
@@ -49,7 +49,8 @@
     $('ss-section').innerHTML = window.CockpitRender.section(s);
     var live = data.session.status === 'live' && data.chair;
     $('ss-live').hidden = !live;
-    $('ss-notes').value = item(current).notes || '';
+    // The notes box is refilled only when the point changes: a redraw after a decision must not wipe what is being typed.
+    if (shownSeq !== current) { $('ss-notes').value = item(current).notes || ''; shownSeq = current; }
     $('ss-notes').readOnly = !live;
     var dec = (data.decisions || []).filter(function (d) { return Number(d.item_seq) === current; });
     var act = (data.actions || []).filter(function (a) { return Number(a.item_seq) === current; });
@@ -83,28 +84,30 @@
     S.api('POST', base() + '/items/' + current + '/end', {}).then(function (j) { data.items = j.items; renderAgenda(); timer(); }).catch(function (e) { st(e.message, true); });
   });
   function flushNotes() {
-    if (!noteTimer) return;
+    if (!noteTimer) return Promise.resolve();
     clearTimeout(noteTimer); noteTimer = null;
-    var seq = current, notes = $('ss-notes').value;
-    S.api('PUT', base() + '/items/' + seq + '/notes', { notes: notes }).then(function () { var it = item(seq); it.notes = notes; }).catch(function (e) { st(e.message, true); });
+    var seq = current, notes = $('ss-notes').value, it = item(seq);
+    it.notes = notes;
+    return S.api('PUT', base() + '/items/' + seq + '/notes', { notes: notes }).catch(function (e) { st(e.message, true); });
   }
   $('ss-notes').addEventListener('input', function () { clearTimeout(noteTimer); noteTimer = setTimeout(function () { noteTimer = 1; flushNotes(); }, 800); });
   $('ss-dec-form').addEventListener('submit', function (e) {
     e.preventDefault();
+    flushNotes();
     S.api('POST', base() + '/decisions', { item_seq: current, text: $('ss-dec-text').value, owner: $('ss-dec-owner').value }).then(function (j) {
       data.decisions = j.decisions; $('ss-dec-text').value = ''; $('ss-dec-owner').value = ''; renderSection(); st('Décision notée.');
     }).catch(function (e2) { st(e2.message, true); });
   });
   $('ss-act-form').addEventListener('submit', function (e) {
     e.preventDefault();
+    flushNotes();
     S.api('POST', base() + '/actions', { item_seq: current, title: $('ss-act-title').value, owner: $('ss-act-owner').value, due_date: $('ss-act-due').value, source_kind: $('ss-act-src').value, source_ref: $('ss-act-ref').value }).then(function (j) {
       data.actions = j.actions; ['ss-act-title', 'ss-act-owner', 'ss-act-due', 'ss-act-ref'].forEach(function (x) { $(x).value = ''; }); $('ss-act-src').value = 'free';
       renderSection(); st('Action notée.');
     }).catch(function (e2) { st(e2.message, true); });
   });
   $('ss-close').addEventListener('click', function () {
-    flushNotes();
-    S.api('POST', base() + '/close', {}).then(function () { clearInterval(tick); return load(); }).then(function () { st('Réunion close : le procès-verbal est rédigé.'); }).catch(function (e) { st(e.message, true); });
+    flushNotes().then(function () { return S.api('POST', base() + '/close', {}); }).then(function () { clearInterval(tick); return load(); }).then(function () { st('Réunion close : le procès-verbal est rédigé.'); }).catch(function (e) { st(e.message, true); });
   });
   $('ss-pv-html').addEventListener('click', function () { S.openDocument(base() + '/minutes.html').catch(function (e) { st(e.message, true); }); });
   $('ss-pv-pdf').addEventListener('click', function () { S.download(base() + '/minutes.pdf', 'pv-' + id + '.pdf').catch(function (e) { st(e.message, true); }); });
