@@ -6,7 +6,7 @@
 //      (listed in STRICT_PAGES — tests/csp-inline.test.js fails if a new page is not);
 //   2. the legacy count is a RATCHET (tests/__golden__/inline-scripts.json): it may only go down.
 //      The removal plan, page by page, is in docs/design/ETAPE-04-securite.md.
-const STRICT_PAGES = new Set(['/kpi-dictionary.html', '/dashboard.html', '/direction.html', '/dashboard-composer.html']);
+const STRICT_PAGES = new Set(['/kpi-dictionary.html', ...require('./pages').V2_PAGES.map(p => '/' + p[0])]);   // every 2.0 page is strict
 
 function strictHeader(nonce) {
   return [

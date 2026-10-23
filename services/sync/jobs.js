@@ -96,6 +96,15 @@ function buildJobs(deps) {
     { key: 'teams.sla', label: 'Teams SLA alerts', group: 'integrations', cron: '*/5 * * * *',
       freshnessMinutes: FIVE_MIN, retries: 0,
       fn: () => require('../../tools/teams/poll-sla').run({}) },
+    // Step 7 — parallel run of a migrated tracker: the IT Activity Tracker's entries are copied into it every
+    // night and both engines are compared (no migrated tracker in parallel run = nothing to do).
+    { key: 'trackers.legacy_mirror', label: 'Tracker migration — nightly copy + comparison', group: 'trackers', cron: '10 6 * * *',
+      freshnessMinutes: NIGHTLY, retries: 1, baseDelayMs: 60000,
+      fn: () => require('../trackers/service').mirrorAll(require('../../reports-db')) },
+    // Step 7 — items of a tracker linked to a dictionary key (meetings, inspections, tickets…).
+    { key: 'trackers.sources', label: 'Trackers — items linked to the indicators', group: 'trackers', cron: '20 6 * * *',
+      freshnessMinutes: NIGHTLY, retries: 1, baseDelayMs: 60000,
+      fn: () => require('../trackers/service').refreshAllSources(require('../../reports-db')) },
   ];
 }
 

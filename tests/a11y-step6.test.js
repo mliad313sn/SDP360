@@ -9,7 +9,9 @@ const fs = require('fs');
 const path = require('path');
 
 const read = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8').replace(/\r\n/g, '\n');
-const CSS = read('public/dashboard.css');
+// Every stylesheet of the 2.0 pages (step 6 onwards). A new one is added here.
+const CSS_FILES = ['public/dashboard.css', 'public/trackers.css'];
+const CSS = CSS_FILES.map(read).join('\n');
 
 // The FIRST definition of each custom property (the light theme :root).
 const TOKENS = {};
@@ -44,7 +46,7 @@ test('contrast helper matches the WCAG reference values', () => {
   assert.ok(Math.abs(ratio('#B4510F', '#FFFFFF') - 5.09) < 0.02);
 });
 
-test('every text colour of dashboard.css reaches 4.5:1 on its background', () => {
+test('every text colour of the 2.0 stylesheets reaches 4.5:1 on its background', () => {
   const PAGE = resolve('var(--color-bg, #F4F5F7)'), WHITE = '#FFFFFF';
   const fails = [], checked = [];
   for (const r of rules()) {
@@ -73,8 +75,8 @@ test('focus is always visible and motion respects the reduced-motion preference'
   }
 });
 
-test('the three step-6 pages: language, one main landmark, a title, a live region for the loaded content', () => {
-  for (const f of ['public/dashboard.html', 'public/direction.html', 'public/dashboard-composer.html']) {
+test('every 2.0 page (services/pages.js): language, one main landmark, a title, a live region for the loaded content', () => {
+  for (const f of require('../services/pages').V2_PAGES.map(p => 'public/' + p[0])) {
     const h = read(f);
     assert.match(h, /<html lang="fr">/, f);
     assert.strictEqual((h.match(/<main\b/g) || []).length, 1, f);

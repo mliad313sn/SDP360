@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trackers · Endeavour Mining IT</title>
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="_shell.css">
+<link rel="stylesheet" href="dashboard.css">
+<link rel="stylesheet" href="trackers.css">
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/dashboardRender.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/kpiRag.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/trackerEngine.js"></script>
+</head>
+<body>
+<div id="__shell" data-section="reports" data-current="trackers"></div>
+<main class="db-page" id="tk-root" aria-live="polite">
+  <header class="db-head">
+    <div>
+      <div class="db-eyebrow">Trackers métier</div>
+      <h1 id="tk-title">Trackers</h1>
+      <p class="db-desc" id="tk-desc">Choisissez un tracker. Les scores se recalculent pendant la saisie, avec le même moteur que l’export Excel et les diapositives.</p>
+    </div>
+    <div class="db-toolbar">
+      <label for="tk-pick">Tracker<select id="tk-pick"></select></label>
+      <a class="db-btn" id="tk-builder" href="tracker-builder.html" hidden>Construire un tracker</a>
+    </div>
+  </header>
+  <p class="db-note" id="tk-status" role="status" aria-live="polite"></p>
+  <div id="tk-view" hidden>
+    <p class="db-banner" id="tk-parallel" hidden>Fonctionnement en parallèle : les saisies sont recopiées chaque nuit depuis le tracker des activités informatiques, où l’on continue de saisir. Les deux moteurs sont comparés à chaque recopie.</p>
+    <section class="db-w" aria-labelledby="tk-sum-h">
+      <div class="tk-row">
+        <h2 id="tk-sum-h">Synthèse</h2>
+        <label for="tk-month">Cumul à fin de<select id="tk-month"></select></label>
+      </div>
+      <div id="tk-summary"></div>
+    </section>
+    <section class="db-w" aria-labelledby="tk-entry-h">
+      <div class="tk-row">
+        <h2 id="tk-entry-h">Saisie</h2>
+        <label for="tk-unit">Unité<select id="tk-unit"></select></label>
+        <span class="db-note" id="tk-rights"></span>
+      </div>
+      <div class="db-scroll"><table class="db-table tk-grid" id="tk-grid"></table></div>
+      <div class="db-toolbar tk-actions">
+        <button class="db-btn db-primary" id="tk-save" type="button" disabled>Enregistrer les saisies</button>
+        <a class="db-btn" id="tk-xlsx" href="#" download>Exporter (Excel)</a>
+        <a class="db-btn" id="tk-pptx" href="#" download>Exporter (diapositives)</a>
+        <label class="db-btn tk-file" for="tk-import">Importer un fichier Excel<input type="file" id="tk-import" accept=".xlsx"></label>
+      </div>
+      <div id="tk-import-out" class="tk-import" hidden></div>
+    </section>
+    <section class="db-w" id="tk-locks-w" aria-labelledby="tk-locks-h" hidden>
+      <h2 id="tk-locks-h">Mois clos</h2>
+      <p class="db-note">Un mois verrouillé refuse toute saisie et tout import. Seul un responsable de publication verrouille et déverrouille.</p>
+      <div id="tk-locks" class="tk-locks"></div>
+      <button class="db-btn" id="tk-sources" type="button">Recalculer les éléments liés aux indicateurs</button>
+    </section>
+  </div>
+</main>
+<script nonce="%%CSP_NONCE%%" src="trackers-page.js"></script>
+</body>
+</html>

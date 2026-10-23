@@ -34,7 +34,8 @@ after(() => { try { server && server.close(); } catch {} });
 
 const EXPECTED = ['zoho.token', 'zoho.requests', 'zoho.change_cab', 'zoho.survey', 'cache.raw_refresh', 'cache.nightly',
   'assets.sync', 'meridian.resources', 'opmanager.availability', 'meraki.wan', 'meraki.wan_events',
-  'meraki.wan_events_nightly', 'meraki.wan_poller', 'teams.sla', 'db.backup', 'audit.retention', 'entra.deprovision'];
+  'meraki.wan_events_nightly', 'meraki.wan_poller', 'teams.sla', 'db.backup', 'audit.retention', 'entra.deprovision',
+  'trackers.legacy_mirror', 'trackers.sources'];   // step 7
 
 test('server.js schedules nothing outside the runner', () => {
   // server.js is being split into routes/*.js (step 5): a schedule must not hide there either.

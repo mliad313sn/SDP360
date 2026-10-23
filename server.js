@@ -948,6 +948,7 @@ app.use('/api/meetings/lookups/:table',     express.json({ limit: '10mb'  }));
 // for inspection silently regressed tracker saves to the global parser.
 app.use('/api/tracker/save',                express.json({ limit: '5mb'   }));
 app.use('/api/dashboard/presets',           express.json({ limit: '1mb'   }));
+app.use('/api/trackers',                    express.json({ limit: '8mb'   }));   // step 7: entries, drafts, xlsx import
 // Réconciliation : le corps est un CSV BRUT, pas du JSON. Un export AD de
 // 5 000 machines pèse ~1 Mo, un export Entra bien plus. Monté AVANT le parseur
 // JSON global, sinon celui-ci consomme le corps et le rejette à 100 Ko — le
@@ -1276,7 +1277,7 @@ function loadHtml(name) {
   'site-awareness.html',
   'assets.html', 'assets-hygiene.html', 'assets-finance.html', 'wan.html', 'wan-health.html', 'wan-sla.html', 'itsm-roadmap.html',
   'infra-health.html', 'itsm-integrations-plan.html',
-  'dashboard.html', 'direction.html', 'dashboard-composer.html',   // step 6: composed dashboards
+  ...require('./services/pages').V2_PAGES.map(p => p[0]),   // step 6+: services/pages.js
 ].forEach(loadHtml);
 
 // Helper: build the per-request HTML, inject api-key + nonce, send. Pages
@@ -1440,9 +1441,7 @@ app.get('/meetings-actions.html',    (req, res) => sendHtmlPage(res, 'meetings-a
 app.get('/site-actions.html',        (req, res) => sendHtmlPage(res, 'site-actions.html',        false, 'Site Actions Register unavailable'));
 app.get('/system-logs.html',         (req, res) => sendHtmlPage(res, 'system-logs.html',         false, 'System Logs unavailable'));
 app.get('/kpi-dictionary.html',      (req, res) => sendHtmlPage(res, 'kpi-dictionary.html',      false, 'KPI Dictionary unavailable'));
-app.get('/dashboard.html',           (req, res) => sendHtmlPage(res, 'dashboard.html',           false, 'Dashboard unavailable'));
-app.get('/direction.html',           (req, res) => sendHtmlPage(res, 'direction.html',           false, 'Leadership space unavailable'));
-app.get('/dashboard-composer.html',  (req, res) => sendHtmlPage(res, 'dashboard-composer.html',  false, 'Dashboard composer unavailable'));
+for (const [page, label] of require('./services/pages').V2_PAGES) app.get('/' + page, (req, res) => sendHtmlPage(res, page, false, label + ' unavailable'));
 app.get('/meetings-unsigned.html',   (req, res) => sendHtmlPage(res, 'meetings-unsigned.html',   false, 'Unsigned PVs unavailable'));
 app.get('/meetings-council.html',    (req, res) => sendHtmlPage(res, 'meetings-council.html',    false, 'Council escalations unavailable'));
 app.get('/meetings-compliance.html', (req, res) => sendHtmlPage(res, 'meetings-compliance.html', false, '5 Engagements monitor unavailable'));
@@ -2525,6 +2524,7 @@ app.use(require('./routes/teamsSla')({ express, requireReportSession, requireSup
 app.use(require('./routes/metrics')({ express, requireReportSession, requireAdmin, siteCodeReadDenied: _siteCodeReadDenied }));
 // Step 6 — composed dashboards + the direction space (routes/dashboards.js)
 app.use(require('./routes/dashboards')({ express, rdb, requireReportSession, requireRole }));
+app.use(require('./routes/trackers')({ express, rdb, requireReportSession, requireRole }));
 
 // ══════════════════════════════════════════════════════════════════
 // MEETINGS — Department Meetings & Council Escalations (v2 schema)

@@ -1,0 +1,42 @@
+/* Step 7 — business trackers (entry screen + builder). Builds on dashboard.css; text colours come from the AA
+ * text tokens (--text-*-aa), checked by tests/a11y-step6.test.js. */
+.tk-row { display: flex; flex-wrap: wrap; align-items: end; gap: 12px 18px; }
+.tk-row h2 { margin-right: auto; }
+.tk-row label { display: grid; gap: 3px; font-size: .78rem; color: var(--text-muted-aa, #666); }
+.tk-row select { font: inherit; font-size: .88rem; padding: 6px 8px; border: 1px solid var(--color-border-strong, #C5C6C4); border-radius: 6px; background: #fff; color: var(--color-text-strong, #2A2A2A); min-height: 36px; }
+.tk-grid { font-size: .82rem; }
+.tk-grid th[scope="row"] { min-width: 220px; white-space: normal; }
+.tk-grid td { padding: 4px 5px; text-align: center; }
+.tk-group th { background: var(--color-bg, #F4F5F7); color: var(--color-text-strong, #2A2A2A); font-size: .74rem; letter-spacing: .05em; text-transform: uppercase; text-align: left; }
+.tk-in { width: 4.2em; font: inherit; font-size: .82rem; text-align: right; padding: 4px 5px; border: 1px solid var(--color-border-strong, #C5C6C4); border-radius: 4px; background: #fff; color: var(--color-text-strong, #2A2A2A); }
+.tk-in:focus-visible { outline: 3px solid var(--edv-blue, #145FAE); outline-offset: 1px; }
+.tk-in[aria-invalid="true"] { border-color: var(--text-danger-aa, #C0002F); }
+.tk-ro { color: var(--color-text, #524F4E); font-variant-numeric: tabular-nums; }
+.tk-out { background: var(--color-bg, #F4F5F7); }
+.tk-off th, .tk-off td { color: var(--text-muted-aa, #666); }
+.tk-locked { background: var(--color-warning-bg, #FEF3C7); color: var(--text-warning-aa, #9A5200); }
+.tk-lock-tag { display: block; font-size: .66rem; color: var(--text-warning-aa, #9A5200); }
+.tk-linked { display: block; color: var(--text-orange-aa, #B4510F); font-weight: 600; }
+.tk-actions { margin-top: 10px; }
+.tk-file { position: relative; overflow: hidden; cursor: pointer; }
+.tk-file input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.tk-file:focus-within { outline: 3px solid var(--edv-blue, #145FAE); outline-offset: 2px; }
+.tk-import { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--color-border, #E2E5EA); border-radius: 8px; background: #fff; font-size: .86rem; color: var(--color-text, #524F4E); }
+.tk-locks { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 12px; }
+.tk-lock { min-height: 34px; padding: 5px 9px; font-size: .8rem; }
+.tk-lock-on { background: var(--color-warning-bg, #FEF3C7); color: var(--text-warning-aa, #9A5200); border-color: var(--color-warning, #D97706); }
+
+/* Builder */
+.tb-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+@media (min-width: 1100px) { .tb-layout { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); } }
+.tb-table input, .tb-table select { font: inherit; font-size: .82rem; padding: 4px 6px; border: 1px solid var(--color-border-strong, #C5C6C4); border-radius: 4px; background: #fff; color: var(--color-text-strong, #2A2A2A); min-width: 0; width: 100%; }
+.tb-table td { padding: 4px 5px; }
+.tb-table .tb-num { width: 5em; }
+.tb-props label { display: grid; gap: 3px; font-size: .8rem; color: var(--text-muted-aa, #666); margin-bottom: 8px; }
+.tb-props input, .tb-props textarea, .tb-props select { font: inherit; font-size: .88rem; padding: 6px 8px; border: 1px solid var(--color-border-strong, #C5C6C4); border-radius: 6px; color: var(--color-text-strong, #2A2A2A); background: #fff; width: 100%; }
+.tb-checks { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.tb-checks label { display: flex; gap: 6px; align-items: center; color: var(--color-text, #524F4E); font-size: .82rem; }
+.tb-issues { display: grid; gap: 4px; font-size: .84rem; }
+.tb-err { color: var(--text-danger-aa, #C0002F); }
+.tb-warn { color: var(--text-warning-aa, #9A5200); }
+.tb-ok { color: var(--text-success-aa, #157A2E); }

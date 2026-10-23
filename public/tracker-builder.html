@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Builder de trackers · Endeavour Mining IT</title>
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="_shell.css">
+<link rel="stylesheet" href="dashboard.css">
+<link rel="stylesheet" href="trackers.css">
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-require="tracker-author|tracker-publisher|super_admin" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/dashboardRender.js"></script>
+</head>
+<body>
+<div id="__shell" data-section="reports" data-current="trackers"></div>
+<main class="db-page" id="tb-root" aria-live="polite">
+  <header class="db-head">
+    <div>
+      <div class="db-eyebrow">Trackers métier</div>
+      <h1>Builder de trackers</h1>
+      <p class="db-desc">Une définition décrit la période, les unités, les groupes, les éléments, leurs types, poids et cibles. Le score est calculé par le moteur commun : aucune formule ne se saisit ici.</p>
+    </div>
+    <div class="db-toolbar">
+      <label for="tb-pick">Tracker<select id="tb-pick"></select></label>
+      <button class="db-btn" id="tb-new" type="button">Nouveau tracker</button>
+    </div>
+  </header>
+  <form class="db-w tb-props" id="tb-new-form" hidden>
+    <h2>Nouveau tracker</h2>
+    <label for="tb-new-id">Identifiant (lettres minuscules, chiffres, tirets)<input id="tb-new-id" required pattern="[a-z0-9][a-z0-9-]{1,47}"></label>
+    <label for="tb-new-year">Année<input id="tb-new-year" type="number" min="2000" max="2100" required></label>
+    <label for="tb-new-template">Départ<select id="tb-new-template"><option value="">Tracker vide</option></select></label>
+    <div class="db-toolbar">
+      <button class="db-btn db-primary" type="submit">Créer le brouillon</button>
+      <button class="db-btn" type="button" id="tb-new-cancel">Annuler</button>
+    </div>
+    <div id="tb-legacy" hidden>
+      <h2>Migrer le tracker des activités informatiques</h2>
+      <p class="db-note">Crée le tracker « it-activity-année » à l’identique, recopie les saisies et compare les deux moteurs. Il reste en fonctionnement parallèle (recopie chaque nuit) jusqu’à la bascule.</p>
+      <button class="db-btn" type="button" id="tb-legacy-go">Migrer l’année choisie</button>
+    </div>
+  </form>
+  <p class="db-note" id="tb-status" role="status" aria-live="polite"></p>
+  <div class="tb-layout" id="tb-editor" hidden>
+    <div>
+      <section class="db-w tb-props" aria-labelledby="tb-props-h">
+        <h2 id="tb-props-h">Propriétés</h2>
+        <label for="tb-title-fr">Titre (FR)<input id="tb-title-fr" maxlength="120"></label>
+        <label for="tb-title-en">Titre (EN)<input id="tb-title-en" maxlength="120"></label>
+        <label for="tb-desc">Description<textarea id="tb-desc" rows="2" maxlength="400"></textarea></label>
+        <label for="tb-year">Année<input id="tb-year" type="number" min="2000" max="2100"></label>
+        <fieldset><legend>Qui consulte (rôles)</legend><div id="tb-aud" class="tb-checks"></div></fieldset>
+        <fieldset><legend>Périmètre de lecture</legend>
+          <label class="dc-inline" for="tb-scope-all"><input type="radio" name="tb-scope" value="all" id="tb-scope-all"> Toutes les unités</label>
+          <label class="dc-inline" for="tb-scope-own"><input type="radio" name="tb-scope" value="own" id="tb-scope-own"> Les unités des sites du lecteur</label>
+        </fieldset>
+        <fieldset><legend>Qui saisit (rôles)</legend><div id="tb-entry" class="tb-checks"></div>
+          <label class="dc-inline" for="tb-own"><input type="checkbox" id="tb-own"> Seulement pour les unités de ses sites</label>
+        </fieldset>
+        <label class="dc-inline" for="tb-mirror" id="tb-mirror-l" hidden><input type="checkbox" id="tb-mirror"> Fonctionnement en parallèle (décocher puis publier = bascule)</label>
+      </section>
+      <section class="db-w" aria-labelledby="tb-units-h">
+        <h2 id="tb-units-h">Unités</h2>
+        <div class="db-scroll"><table class="db-table tb-table" id="tb-units"></table></div>
+        <button class="db-btn" type="button" id="tb-unit-add">Ajouter une unité</button>
+      </section>
+      <section class="db-w" aria-labelledby="tb-groups-h">
+        <h2 id="tb-groups-h">Groupes (piliers)</h2>
+        <div class="db-scroll"><table class="db-table tb-table" id="tb-groups"></table></div>
+        <button class="db-btn" type="button" id="tb-group-add">Ajouter un groupe</button>
+      </section>
+      <section class="db-w" aria-labelledby="tb-items-h">
+        <h2 id="tb-items-h">Éléments</h2>
+        <div class="db-scroll"><table class="db-table tb-table" id="tb-items"></table></div>
+        <button class="db-btn" type="button" id="tb-item-add">Ajouter un élément</button>
+      </section>
+      <section class="db-w" aria-labelledby="tb-targets-h">
+        <div class="tk-row"><h2 id="tb-targets-h">Cibles</h2><label for="tb-tunit">Unité<select id="tb-tunit"></select></label>
+          <button class="db-btn" type="button" id="tb-tcopy">Copier ces cibles sur toutes les unités</button></div>
+        <div class="db-scroll"><table class="db-table tb-table" id="tb-targets"></table></div>
+      </section>
+    </div>
+    <div>
+      <section class="db-w" aria-labelledby="tb-check-h">
+        <h2 id="tb-check-h">Vérification et score à blanc</h2>
+        <div id="tb-issues" class="tb-issues"></div>
+        <div id="tb-dry"></div>
+      </section>
+      <section class="db-w" aria-labelledby="tb-pub-h">
+        <h2 id="tb-pub-h">Brouillon et publication</h2>
+        <div class="db-toolbar">
+          <button class="db-btn" id="tb-save" type="button">Enregistrer le brouillon</button>
+          <button class="db-btn db-primary" id="tb-publish" type="button">Publier</button>
+        </div>
+        <div class="dc-confirm" id="tb-confirm" hidden>
+          <p id="tb-confirm-text"></p>
+          <label for="tb-note">Note de version (facultative)<input id="tb-note" maxlength="200"></label>
+          <div class="db-toolbar"><button class="db-btn db-primary" id="tb-confirm-yes" type="button">Publier cette version</button><button class="db-btn" id="tb-confirm-no" type="button">Annuler</button></div>
+        </div>
+        <h2>Versions</h2>
+        <ul class="db-list" id="tb-versions"></ul>
+        <div class="db-toolbar">
+          <a class="db-btn" id="tb-open" href="trackers.html">Ouvrir la saisie</a>
+          <button class="db-btn db-danger" id="tb-retire" type="button">Retirer de l’affichage</button>
+          <button class="db-btn db-danger" id="tb-delete" type="button">Supprimer le brouillon</button>
+        </div>
+      </section>
+    </div>
+  </div>
+</main>
+<script nonce="%%CSP_NONCE%%" src="tracker-builder.js"></script>
+</body>
+</html>
