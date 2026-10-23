@@ -150,6 +150,8 @@ editing it. Nothing was deleted: the old sections moved verbatim (see `docs/hist
 | touch JSX / React pages | `docs/adr/ADR-005-*` |
 | work on the direction space, the dashboard composer or the design system (step 6) | `docs/design/ETAPE-06-design-espace-direction-composeur.md` (lots 6.1-6.7 built on its recommendations; DEC-6.1 to 6.8 still pending — a decision = edit + publish a definition), `docs/design/ETAPE-06-comparaison-pages.md` (no legacy page redirects before DEC-6.5) |
 | run the usability tests / measure step-6 acceptance | `docs/ops/USABILITY-TEST-PROTOCOL.md`, `tools/metrics/step6-acceptance.js` |
+| work on business trackers / the tracker builder / the tracker 2026 migration (step 7) | `docs/design/ETAPE-07-trackers.md` — ONE engine `public/lib/trackerEngine.js`; prove fidelity with `tools/trackers/compare-legacy.js` |
+| add a 2.0 page | `services/pages.js` (served + cached + strict CSP from that one list; never a line in `server.js`) |
 | handle a secret or a security control | `docs/adr/ADR-006-*`, `docs/design/ETAPE-04-securite.md`, `docs/ops/INCIDENT-RESPONSE.md` |
 | add a scheduled job | `docs/design/ETAPE-01-synchronisations.md` (`services/sync/jobs.js`) |
 | add a KPI or an RAG threshold | `docs/design/ETAPE-03-kpi.md` (`services/metrics/registry.js`, `public/lib/kpiRag.js`) |

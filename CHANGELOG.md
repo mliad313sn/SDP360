@@ -5,6 +5,24 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased] — SDP-Dashboard 2.0, step 7: business trackers (2026-10-23)
+
+### Added
+- **Business trackers** (`trackers.html`, nav ▸ Reports ▸ Trackers métier): monthly entry per unit, live scores,
+  month locks, Excel import (dry run first) and export, two-slide export. **Builder** (`tracker-builder.html`):
+  units, groups, items (6 KPI types), weights, targets, audience and entry roles, inline validation by the server,
+  dry-run score, publish / versions / rollback / retire, 4 templates (field dispatch, hardware roll-out, site
+  maintenance, meeting compliance). Items can be linked to a dictionary key (computed nightly, job `trackers.sources`).
+- **One engine** `public/lib/trackerEngine.js` (server + browser) — reproduces the IT Activity Tracker engine formula
+  for formula: 0 gap, 0 colour difference on the production copy (3,085 checks) and on 5 random trackers.
+- **Migration of the tracker 2026**: import (super_admin), parallel run with a nightly copy + engine comparison
+  (job `trackers.legacy_mirror`), `tools/trackers/compare-legacy.js`. Switch-over and removal of the old tables
+  are decisions (docs/design/ETAPE-07-trackers.md §5).
+- Feature roles `tracker-author`, `tracker-publisher`; migration `db/postgres/reports/019_trackers.sql`.
+- `services/defstore.js`: the versioned-definition store shared by dashboards (step 6) and trackers (step 7).
+- `services/pages.js`: the 2.0 pages are declared once (served, cached, strict CSP) — a new page no longer adds
+  lines to `server.js`.
+
 ## [Unreleased] — SDP-Dashboard 2.0, step 6 (lots 6.6-6.7): page candidates, performance, accessibility, acceptance (2026-10-22)
 
 ### Added
