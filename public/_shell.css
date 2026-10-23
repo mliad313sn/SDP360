@@ -349,6 +349,21 @@ body {
 }
 
 /* ── RESPONSIVE ─────────────────────────────────────────────────── */
+/* Step 8: a super_admin's bar (7 entries + user pill) ran up to ~170 px past a 1,000 px window and scrolled every
+   page sideways. Below 1,240 px the bar gets compact; below 1,000 px it is icons only. Labels are then hidden
+   VISUALLY, never removed: a screen reader still names every entry (each also carries a tooltip). */
+@media (max-width: 1240px) {
+  .shell-header { padding: 0 12px; }
+  .shell-brand-text { display: none; }
+  .shell-user-name { display: none; }
+  .shell-nav-item,
+  .shell-nav-item-link { padding: 6px 9px; }
+}
+@media (max-width: 1000px) {
+  .shell-nav-label { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .shell-nav-item,
+  .shell-nav-item-link { gap: 0; }
+}
 @media (max-width: 900px) {
   .shell-header { padding: 0 12px; }
   .shell-brand { margin-right: 8px; }
@@ -358,8 +373,6 @@ body {
   .shell-version { display: none; }
 }
 @media (max-width: 640px) {
-  .shell-nav-label { display: none; }
-  .shell-user-name { display: none; }
   /* Step 6 (phone-first direction space): the icon-only nav still ran ~100 px past a 375 px screen for a
      super_admin (7 entries) and scrolled every page sideways. No caret, tighter items, logo without text. */
   .shell-nav-caret { display: none; }

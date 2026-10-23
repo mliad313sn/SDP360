@@ -263,7 +263,7 @@
     const hasKids  = visKids.length > 0;
     const href     = item.href || (hasKids ? landingFor(item.id) : '#');
     const target   = item.target ? ` target="${item.target}"` : '';
-    const titleA   = item.title ? ` title="${escapeHtml(item.title)}"` : '';
+    const titleA   = ` title="${escapeHtml(item.title || item.label)}"`;   // the tooltip of the icon-only bar (< 1,000 px)
     const activeC  = isActive ? ' is-active' : '';
 
     // If a dropdown parent has only ONE visible child for this user
