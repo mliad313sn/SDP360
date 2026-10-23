@@ -127,6 +127,13 @@ editing it. Nothing was deleted: the old sections moved verbatim (see `docs/hist
 > historiques **sans redirection**. Construits sur les recommandations du dossier : **DEC-6.1 à 6.8 restent ouvertes** — un
 > arbitrage = éditer + publier une définition, jamais coder un tableau en dur. Couleurs de texte des pages de l'étape 6 =
 > jetons `--text-*-aa` (cliquet `tests/a11y-step6.test.js`).
+>
+> **Étapes 7 à 10 (2026-10-23)** — trackers métier (moteur unique `public/lib/trackerEngine.js`, migration 2026 à 0 écart),
+> cockpit de réunion + portefeuille + gouvernance, studio de rapports + alertes/notifications + publication externe
+> (`/api/v1`, `/odata`, vues signées), application terrain hors ligne `field.html` + surveillance du réplica PostgreSQL.
+> Migrations `019` à `022` (reports). **Tout ce qui sort du serveur ou écrit ailleurs est livré désarmé** (e-mails, Teams,
+> webhooks, IA, écriture SDP terrain) ; les nouvelles pages 2.0 se déclarent dans `services/pages.js` (servies, versionnées,
+> CSP stricte). Dossiers `docs/design/ETAPE-07-*` à `docs/design/ETAPE-10-*`.
 
 ---
 
@@ -154,6 +161,7 @@ editing it. Nothing was deleted: the old sections moved verbatim (see `docs/hist
 | add a 2.0 page | `services/pages.js` (served + cached + strict CSP from that one list; never a line in `server.js`) |
 | work on the meeting cockpit, the requests register, the portfolio or governance (step 8) | `docs/design/ETAPE-08-cockpit-portefeuille.md` — agendas reuse the dashboard data resolver (never a second formula); minutes are never sent automatically |
 | work on report generation, alerts / notifications or external publication (step 9) | `docs/design/ETAPE-09-rapports-engagement-publication.md` — an AI draft is rejected on any number not in the facts; nothing leaves the server until a super_admin arms it; the external API (`/api/v1/`) bypasses the dash-key gate and uses its own per-consumer keys |
+| work on the offline field app, the PostgreSQL replica or the field pilot (step 10) | `docs/design/ETAPE-10-terrain-resilience.md`, `docs/ops/REPLICA-POSTGRESQL.md`, `docs/ops/PILOTE-TERRAIN.md` — the service worker caches the field app only, never `/api/`; every phone send is idempotent (fixed ids) and a change made elsewhere is a 409, never overwritten; SDP write ships OFF |
 | handle a secret or a security control | `docs/adr/ADR-006-*`, `docs/design/ETAPE-04-securite.md`, `docs/ops/INCIDENT-RESPONSE.md` |
 | add a scheduled job | `docs/design/ETAPE-01-synchronisations.md` (`services/sync/jobs.js`) |
 | add a KPI or an RAG threshold | `docs/design/ETAPE-03-kpi.md` (`services/metrics/registry.js`, `public/lib/kpiRag.js`) |

@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#B4510F">
+<title>Terrain IT · Endeavour Mining IT</title>
+<link rel="manifest" href="field.webmanifest">
+<link rel="icon" href="brand/field-icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="field.css">
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-require="field-tech|editor" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/sdpApi.js"></script>
+</head>
+<body>
+<header class="fd-bar">
+  <a class="fd-home" href="#home" aria-label="Accueil de l’application terrain">Terrain IT</a>
+  <span class="fd-net" id="fd-net" role="status" aria-live="polite">…</span>
+  <button class="fd-sync" type="button" id="fd-sync">Synchroniser <span id="fd-count"></span></button>
+</header>
+<main class="fd-main" id="fd-main" aria-live="polite">
+  <p class="fd-stamp" id="fd-stamp"></p>
+  <p class="fd-msg" id="fd-msg" role="status" aria-live="polite"></p>
+  <section id="v-home" class="fd-view">
+    <h1>Que voulez-vous faire ?</h1>
+    <div class="fd-grid">
+      <button class="fd-tile" type="button" id="fd-new-insp"><b>Nouvelle inspection</b><span>Liste de contrôle, photos, actions</span></button>
+      <a class="fd-tile" href="#drafts"><b>Mes inspections</b><span id="fd-drafts-n">sur ce téléphone</span></a>
+      <a class="fd-tile" href="#trackers"><b>Saisie des trackers</b><span id="fd-trackers-n">mois en cours</span></a>
+      <a class="fd-tile" href="#queue"><b>File d’envoi</b><span id="fd-queue-n">ce qui attend le réseau</span></a>
+      <a class="fd-tile" href="#site" id="fd-site-tile" hidden><b>Demandes du site</b><span id="fd-site-n">à traiter dans ServiceDesk Plus</span></a>
+      <a class="fd-tile" href="#settings"><b>Réglages</b><span>Mode bas débit, données locales</span></a>
+    </div>
+  </section>
+  <section id="v-drafts" class="fd-view" hidden><h1>Mes inspections</h1><ul class="fd-list" id="fd-drafts"></ul></section>
+  <section id="v-insp" class="fd-view" hidden>
+    <h1 id="fd-insp-h">Inspection</h1>
+    <form id="fd-insp-form" class="fd-form">
+      <label for="fi-site">Site<select id="fi-site" required></select></label>
+      <label for="fi-date">Date<input type="date" id="fi-date" required></label>
+      <label for="fi-type">Type<select id="fi-type"></select></label>
+      <label for="fi-area">Zone<select id="fi-area"></select></label>
+      <label for="fi-loc">Emplacement précis<input id="fi-loc" maxlength="200"></label>
+      <label for="fi-inspector">Inspecteur<input id="fi-inspector" maxlength="120"></label>
+    </form>
+    <div id="fd-cats"></div>
+    <h2>Actions correctives</h2>
+    <ul class="fd-list" id="fd-actions"></ul>
+    <form class="fd-form fd-inline" id="fd-action-form">
+      <label for="fa-desc">Action<input id="fa-desc" maxlength="300" required></label>
+      <label for="fa-owner">Responsable<input id="fa-owner" maxlength="120"></label>
+      <label for="fa-due">Échéance<input type="date" id="fa-due"></label>
+      <label for="fa-prio">Priorité<select id="fa-prio"><option>Low</option><option selected>Medium</option><option>High</option><option>Critical</option></select></label>
+      <button class="fd-btn" type="submit">Ajouter l’action</button>
+    </form>
+    <div class="fd-actions-bar">
+      <button class="fd-btn fd-primary" type="button" id="fd-insp-save">Enregistrer</button>
+      <button class="fd-btn" type="button" id="fd-insp-submit">Soumettre</button>
+      <button class="fd-btn fd-danger" type="button" id="fd-insp-drop">Supprimer de ce téléphone</button>
+    </div>
+  </section>
+  <section id="v-trackers" class="fd-view" hidden><h1>Saisie des trackers</h1><div id="fd-trackers"></div></section>
+  <section id="v-queue" class="fd-view" hidden><h1>File d’envoi</h1><ul class="fd-list" id="fd-queue"></ul></section>
+  <section id="v-site" class="fd-view" hidden>
+    <h1>Demandes du site</h1>
+    <p class="fd-help">Demandes de ticket faites depuis le terrain. Créez-les dans ServiceDesk Plus, puis marquez-les faites avec le numéro du ticket.</p>
+    <ul class="fd-list" id="fd-site"></ul>
+  </section>
+  <section id="v-settings" class="fd-view" hidden>
+    <h1>Réglages</h1>
+    <label class="fd-check" for="fd-lowbw"><input type="checkbox" id="fd-lowbw"> Mode bas débit : photos plus légères, envoi seulement quand je le demande</label>
+    <p class="fd-help" id="fd-storage"></p>
+    <button class="fd-btn" type="button" id="fd-refresh">Recharger les listes depuis le serveur</button>
+    <button class="fd-btn fd-danger" type="button" id="fd-wipe">Effacer les données de ce téléphone</button>
+    <p class="fd-help"><a href="index.html">Revenir au tableau de bord</a></p>
+  </section>
+</main>
+<script nonce="%%CSP_NONCE%%" src="field-app.js"></script>
+</body>
+</html>

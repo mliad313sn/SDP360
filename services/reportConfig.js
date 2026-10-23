@@ -132,6 +132,9 @@ const DEFAULTS = {
   // Step 9 — the indicators published to the OData feed / scheduled publications (comma list of dictionary keys).
   // EMPTY = the default set of services/publication/snapshot.js (the six service objectives + volume and backlog).
   published_metrics: '',
+  // Step 10 — quick actions from the field app write to SDP only when armed AND a refresh token with the WRITE scope
+  // (approved by the change board) is stored. Until then they are queued for a coordinator.
+  field_sdp_write_enabled: '0', sdp_write_refresh_token: '',
 };
 const KEYS = Object.keys(DEFAULTS);
 
@@ -141,6 +144,7 @@ const _SECRET_BLANK_KEEP = new Set([
   'smtp_pass', 'entra_client_secret', 'meridian_out_key', 'meridian_in_key', 'meraki_api_key', 'opmanager_api_key',
   'sdp_api_client_secret', 'sdp_api_refresh_token', 'teams_sla_channels',
   'analytics_client_secret', 'analytics_refresh_token',
+  'sdp_write_refresh_token',
 ]);
 
 function _h(db) {

@@ -22,7 +22,7 @@ const WIDGETS = {
 const EVENT_SOURCES = ['incidents', 'decisions'];
 // Roles a definition may target ('any' = every signed-in person). Feature roles included.
 const AUDIENCE_ROLES = ['any', 'viewer', 'editor', 'admin', 'executive', 'super_admin', 'scorecard-viewer',
-  'group-business', 'site-business', 'tracker-editor', 'tracker-admin', 'report-author'];
+  'group-business', 'site-business', 'tracker-editor', 'tracker-admin', 'report-author', 'field-tech'];
 const ID_RE = /^[a-z0-9][a-z0-9-]{1,47}$/;
 const MAX_WIDGETS = 40, MAX_MARKDOWN = 2000, MAX_TITLE = 120;
 

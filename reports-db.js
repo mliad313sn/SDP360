@@ -1276,7 +1276,8 @@ const FEATURE_ROLES_KNOWN = ['tracker-admin', 'tracker-editor', 'report-author',
   'dashboard-author', 'dashboard-publisher',   // step 6: composed dashboards
   'tracker-author', 'tracker-publisher',        // step 7: business trackers
   'meeting-chair', 'portfolio-manager', 'committee-member',    // step 8: cockpit, portfolio, requests
-  'report-reviewer', 'alert-manager'];                          // step 9: report approval, alert rules
+  'report-reviewer', 'alert-manager',                           // step 9: report approval, alert rules
+  'field-tech'];                                                // step 10: field app (inspections, tracker entry on own site)
 
 /**
  * Returns the array of role strings explicitly assigned to a user.

@@ -953,16 +953,36 @@ function getInspectionStatus(id) {
   return row ? (row.status || 'draft') : null;
 }
 
-// { status, site_code } of an inspection, or null — the route checks a scoped user's
+// Step 10 (field app) — the photo REFERENCES stored for an inspection, per checklist item, read from the raw state
+// blob (never inflated): { 'cat__ix': [{ __blob, mime, sizeBytes, caption }] }. The field app keeps them so a later
+// save does not drop the photos, and the server accepts back only refs that belong to THIS inspection.
+function getStoredPhotoRefs(id) {
+  const pick = (json) => {
+    let st = null; try { st = json ? JSON.parse(json) : null; } catch (_) { st = null; }
+    const out = {};
+    for (const [k, v] of Object.entries((st && st.items) || {})) {
+      const refs = (v && Array.isArray(v.photos) ? v.photos : []).filter(p => p && typeof p === 'object' && p.__blob)
+        .map(p => ({ __blob: p.__blob, mime: p.mime || 'image/jpeg', sizeBytes: p.sizeBytes || null, caption: p.caption || '' }));
+      if (refs.length) out[k] = refs;
+    }
+    return out;
+  };
+  if (!id) return {};
+  if (INSPECTION_BACKEND === 'postgres') return pgHandle().prepare('SELECT state_json FROM insp_inspections WHERE id = ?').get(id).then(r => pick(r && r.state_json));
+  const r = getDB().prepare('SELECT state_json FROM insp_inspections WHERE id = ?').get(id);
+  return pick(r && r.state_json);
+}
+
+// { status, site_code, updated_at } of an inspection, or null — the route checks a scoped user's
 // site before a delete / single export (RBAC audit 2026-10-02, lot 4b).
 function getInspectionHeader(id) {
   if (!id) return null;
   if (INSPECTION_BACKEND === 'postgres') {
-    return pgHandle().prepare('SELECT status, site_code FROM insp_inspections WHERE id = ?').get(id)
-      .then(r => (r ? { status: r.status || 'draft', site_code: r.site_code } : null));
+    return pgHandle().prepare('SELECT status, site_code, updated_at FROM insp_inspections WHERE id = ?').get(id)
+      .then(r => (r ? { status: r.status || 'draft', site_code: r.site_code, updated_at: r.updated_at == null ? null : String(r.updated_at instanceof Date ? r.updated_at.toISOString() : r.updated_at) } : null));
   }
-  const r = getDB().prepare('SELECT status, site_code FROM insp_inspections WHERE id = ?').get(id);
-  return r ? { status: r.status || 'draft', site_code: r.site_code } : null;
+  const r = getDB().prepare('SELECT status, site_code, updated_at FROM insp_inspections WHERE id = ?').get(id);
+  return r ? { status: r.status || 'draft', site_code: r.site_code, updated_at: r.updated_at == null ? null : String(r.updated_at) } : null;
 }
 
 // ── Site score inputs (the user's sbDims model — see the score-alignment plan) ──
@@ -1680,6 +1700,7 @@ module.exports = {
   getInspection,
   getInspectionStatus,
   getInspectionHeader,
+  getStoredPhotoRefs,
   saveInspection,
   deleteInspection,
   aggregate,

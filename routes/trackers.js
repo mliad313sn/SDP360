@@ -52,19 +52,9 @@ module.exports = function trackersRoutes(d) {
   const served = () => new Set(registry.list().filter(m => m.serve).map(m => m.key));
   const yearOf = (q, definition) => { const y = Number(q && q.year); return Number.isInteger(y) && y >= 2000 && y <= 2100 ? y : definition.year; };
 
-  /** Units this person may READ in a definition. */
-  function readableUnits(u, definition) {
-    if (definition.audience.site_scope !== 'own' || canReadGroup(rdb, u)) return definition.units;
-    return definition.units.filter(x => x.site_id && userSites.hasSite(u, x.site_id));
-  }
-  /** Units this person may TYPE into (empty when typing is closed for them). */
-  function writableUnits(u, definition) {
-    if (definition.legacy_mirror) return [];
-    const anyUnit = has(u, 'super_admin') || has(u, 'tracker-publisher');
-    if (!anyUnit && !definition.entry.roles.some(r => has(u, r))) return [];
-    if (anyUnit || !definition.entry.own_unit_only) return definition.units;
-    return definition.units.filter(x => x.site_id && userSites.hasSite(u, x.site_id));
-  }
+  const rights = require('../services/trackers/rights');
+  const readableUnits = (u, definition) => rights.readableUnits(u, definition, { has, canReadGroup: (x) => canReadGroup(rdb, x) });
+  const writableUnits = (u, definition) => rights.writableUnits(u, definition, { has });
   function pick(values, units) {
     const out = {};
     for (const x of units) if (values[x.code]) out[x.code] = values[x.code];

@@ -16,6 +16,7 @@ const V2_PAGES = [
   ['notifications.html', 'Notifications'],          // step 9: engagement, reports, publication
   ['report-studio.html', 'Report studio'],
   ['publication.html', 'External publication'],
+  ['field.html', 'Field app'],                        // step 10: offline field app (PWA)
 ];
 
 module.exports = { V2_PAGES };

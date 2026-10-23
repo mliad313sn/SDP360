@@ -123,6 +123,14 @@ function buildJobs(deps) {
     { key: 'publication.run', label: 'Scheduled publications (Teams, webhook, e-mail, Excel)', group: 'publication', cron: '*/15 * * * *',
       freshnessMinutes: FIVE_MIN, retries: 0,
       fn: async () => require('../publication/runner').runDue(await require('../../routes/publication').publicationDeps(require('../../reports-db'))) },
+    // Step 10 — photo uploads from the field never finished or never attached are removed after 7 days.
+    { key: 'field.uploads_purge', label: 'Field app — abandoned photo uploads', group: 'field', cron: '55 2 * * *',
+      freshnessMinutes: NIGHTLY, retries: 0,
+      fn: () => require('../field/uploads').purge(7) },
+    // Step 10 — PostgreSQL replica lag (RPO 15 min). No replica configured (PG_REPLICA_URL empty) = nothing to check.
+    { key: 'db.replica_lag', label: 'PostgreSQL replica — lag (RPO 15 min)', group: 'database', cron: '*/5 * * * *',
+      freshnessMinutes: FIVE_MIN, retries: 1, baseDelayMs: 30000,
+      fn: () => require('../replica').check() },
   ];
 }
 

@@ -5,6 +5,25 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased] — SDP-Dashboard 2.0, step 10: offline field app, data resilience (2026-10-23)
+
+### Added
+- **Field app** (`field.html`, installable PWA, works offline): full inspection checklist with photos compressed to
+  ≤ 300 KB (150 KB in low-bandwidth mode), French voice dictation, corrective actions; tracker entries for the units
+  the person may write; ticket requests. Everything waits in the phone's outbox (IndexedDB) until the server confirms;
+  photos travel in resumable 32 KB chunks; a resent save is neither a duplicate nor a false conflict; a change made
+  elsewhere meanwhile is shown as a conflict (keep mine / take theirs). Service worker scoped to the field app only,
+  never an API answer cached. New role `field-tech` (own site); coordinators (`editor` of the site) handle the
+  "Demandes du site" queue by hand in ServiceDesk Plus.
+- `/api/field/*` (`routes/field.js`): bootstrap, uploads, offline inspection save into the Inspections module, quick
+  actions, sync report. Direct write to ServiceDesk Plus ships OFF (`field_sdp_write_enabled`, write token redacted).
+- **PostgreSQL replica watch** (`services/replica.js`, job `db.replica_lag` every 5 min): fails — and so alerts —
+  beyond `REPLICA_MAX_LAG_MIN` (15), when the replica is unreachable or promoted; idle while `PG_REPLICA_URL` is empty.
+  Build procedure and failover: `docs/ops/REPLICA-POSTGRESQL.md`.
+- Pilot: `docs/ops/PILOTE-TERRAIN.md` (3 sites, 6 weeks) and `tools/metrics/field-pilot.js` (10-photo send time,
+  failures, NPS). Job `field.uploads_purge` (abandoned uploads > 7 days). Migration `db/postgres/reports/022_field.sql`.
+- Trackers: one rights helper (`services/trackers/rights.js`) shared by the tracker routes and the field app.
+
 ## [Unreleased] — SDP-Dashboard 2.0, step 9: report studio, alerts and notifications, external publication (2026-10-23)
 
 ### Added

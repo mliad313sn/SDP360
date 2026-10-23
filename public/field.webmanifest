@@ -1,0 +1,16 @@
+{
+  "name": "SDP Dashboard — Terrain",
+  "short_name": "Terrain IT",
+  "description": "Inspections et saisies terrain, même sans connexion.",
+  "start_url": "/field.html",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F4F5F7",
+  "theme_color": "#B4510F",
+  "lang": "fr",
+  "icons": [
+    { "src": "/brand/field-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/tracker-icons/logo.png", "sizes": "256x256", "type": "image/png" }
+  ]
+}

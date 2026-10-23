@@ -949,6 +949,7 @@ app.use('/api/meetings/lookups/:table',     express.json({ limit: '10mb'  }));
 app.use('/api/tracker/save',                express.json({ limit: '5mb'   }));
 app.use('/api/dashboard/presets',           express.json({ limit: '1mb'   }));
 app.use('/api/trackers',                    express.json({ limit: '8mb'   }));   // step 7: entries, drafts, xlsx import
+app.use('/api/field',                       express.json({ limit: '4mb'   }));   // step 10: offline inspections, photo chunks
 // Réconciliation : le corps est un CSV BRUT, pas du JSON. Un export AD de
 // 5 000 machines pèse ~1 Mo, un export Entra bien plus. Monté AVANT le parseur
 // JSON global, sinon celui-ci consomme le corps et le rejette à 100 Ko — le
@@ -2531,6 +2532,7 @@ app.use(require('./routes/portfolio')({ express, rdb, requireReportSession, requ
 app.use(require('./routes/engagement')({ express, rdb, requireReportSession, requireRole }));   // step 9
 app.use(require('./routes/reportgen')({ express, rdb, requireReportSession, requireRole, AI_DISABLED, AI_PROVIDER, aiCall: _execAiCall }));
 app.use(require('./routes/publication')({ express, rdb, requireReportSession, requireRole }));
+app.use(require('./routes/field')({ express, rdb, requireReportSession, requireRole }));   // step 10
 
 // ══════════════════════════════════════════════════════════════════
 // MEETINGS — Department Meetings & Council Escalations (v2 schema)

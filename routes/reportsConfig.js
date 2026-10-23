@@ -24,7 +24,7 @@ module.exports = function reportsConfigRoutes(deps) {
       if (c && c.meridian_in_key) c.meridian_in_key = '';
       if (c && c.meraki_api_key) c.meraki_api_key = '';   // never expose the stored Meraki API key
       if (c && c.opmanager_api_key) c.opmanager_api_key = '';   // never expose the stored OpManager API key
-      for (const k of ['sdp_api_client_secret', 'sdp_api_refresh_token', 'teams_sla_channels', 'analytics_client_secret', 'analytics_refresh_token']) if (c && c[k]) c[k] = '';   // Teams SLA + Analytics secrets
+      for (const k of ['sdp_api_client_secret', 'sdp_api_refresh_token', 'teams_sla_channels', 'analytics_client_secret', 'analytics_refresh_token', 'sdp_write_refresh_token']) if (c && c[k]) c[k] = '';   // Teams SLA + Analytics secrets
       res.json(c);
     }
     catch (e) { res.status(500).json({ error: e.message }); }
