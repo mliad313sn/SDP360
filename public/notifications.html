@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Notifications et alertes · Endeavour Mining IT</title>
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="_shell.css">
+<link rel="stylesheet" href="dashboard.css">
+<link rel="stylesheet" href="trackers.css">
+<link rel="stylesheet" href="cockpit.css">
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/sdpApi.js"></script>
+</head>
+<body>
+<div id="__shell" data-section="reports" data-current="notifications"></div>
+<main class="db-page" id="nt-root" aria-live="polite">
+  <header class="db-head">
+    <div>
+      <div class="db-eyebrow">Engagement</div>
+      <h1>Notifications et alertes</h1>
+      <p class="db-desc">Les règles d’alerte surveillent les indicateurs, les tickets anciens, les incidents majeurs et les synchronisations. Choisissez celles qui vous concernent et par quel canal ; discutez d’une alerte directement depuis sa notification.</p>
+    </div>
+  </header>
+  <div class="ck-tabs" role="tablist" aria-label="Sections">
+    <button class="db-btn ck-tab" role="tab" id="t-inbox" aria-controls="p-inbox" aria-selected="true" type="button">Mes notifications</button>
+    <button class="db-btn ck-tab" role="tab" id="t-subs" aria-controls="p-subs" aria-selected="false" type="button">Mes abonnements</button>
+    <button class="db-btn ck-tab" role="tab" id="t-rules" aria-controls="p-rules" aria-selected="false" type="button" hidden>Règles d’alerte</button>
+    <button class="db-btn ck-tab" role="tab" id="t-channels" aria-controls="p-channels" aria-selected="false" type="button" hidden>Canaux</button>
+  </div>
+  <p class="db-note" id="nt-status" role="status" aria-live="polite"></p>
+
+  <section id="p-inbox" role="tabpanel" aria-labelledby="t-inbox">
+    <div class="db-w">
+      <div class="tk-row"><h2>Notifications <span id="nt-unread" class="ck-muted"></span></h2>
+        <label class="dc-inline" for="nt-only-unread"><input type="checkbox" id="nt-only-unread"> Non lues seulement</label>
+        <button class="db-btn" type="button" id="nt-read-all">Tout marquer comme lu</button></div>
+      <ul class="db-list" id="nt-list"></ul>
+    </div>
+    <div class="db-w" id="nt-fire" hidden>
+      <h2 id="nt-fire-h">Alerte</h2>
+      <p id="nt-fire-msg"></p>
+      <div id="nt-receipts"></div>
+      <h3>Discussion</h3>
+      <ul class="ck-list" id="nt-comments"></ul>
+      <form class="ck-form" id="nt-comment-form">
+        <label class="ck-wide" for="nt-comment">Votre commentaire<input id="nt-comment" maxlength="2000" required></label>
+        <button class="db-btn db-primary" type="submit">Commenter</button>
+      </form>
+    </div>
+  </section>
+
+  <section id="p-subs" role="tabpanel" aria-labelledby="t-subs" hidden>
+    <div class="db-w">
+      <h2>Règles actives</h2>
+      <p class="db-note">Cochez les alertes que vous voulez recevoir en plus de celles qui vous sont adressées par votre rôle.</p>
+      <div class="db-scroll"><table class="db-table" id="nt-subs"></table></div>
+    </div>
+  </section>
+
+  <section id="p-rules" role="tabpanel" aria-labelledby="t-rules" hidden>
+    <div class="db-w">
+      <div class="tk-row"><h2>Règles d’alerte</h2>
+        <button class="db-btn" type="button" id="nt-import">Ajouter le catalogue initial (règles désactivées)</button>
+        <button class="db-btn" type="button" id="nt-new">Nouvelle règle</button></div>
+      <div class="db-scroll"><table class="db-table" id="nt-rules"></table></div>
+    </div>
+    <div class="db-w" id="nt-edit" hidden>
+      <h2 id="nt-edit-h">Règle</h2>
+      <form class="ck-form" id="nt-rule-form">
+        <label for="nt-r-id">Identifiant<input id="nt-r-id" pattern="[a-z0-9][a-z0-9-]{1,47}" required></label>
+        <label class="ck-wide" for="nt-r-title">Titre<input id="nt-r-title" maxlength="160" required></label>
+        <label for="nt-r-kind">Ce qui est surveillé<select id="nt-r-kind"></select></label>
+        <label for="nt-r-metric">Indicateur<select id="nt-r-metric"></select></label>
+        <label for="nt-r-op">Comparaison<select id="nt-r-op"><option value="<">inférieur à</option><option value="<=">inférieur ou égal à</option><option value=">">supérieur à</option><option value=">=">supérieur ou égal à</option></select></label>
+        <label for="nt-r-threshold">Seuil<input id="nt-r-threshold" inputmode="decimal"></label>
+        <label for="nt-r-days">Ancienneté des tickets<select id="nt-r-days"><option value="30">plus de 30 jours</option><option value="45">plus de 45 jours</option><option value="60">plus de 60 jours</option></select></label>
+        <label for="nt-r-scope">Périmètre<select id="nt-r-scope"></select></label>
+        <label for="nt-r-persist">Évaluations d’affilée avant l’alerte<input id="nt-r-persist" type="number" min="1" max="10"></label>
+        <label for="nt-r-cool">Délai de calme (heures)<input id="nt-r-cool" type="number" min="0" max="168"></label>
+        <fieldset class="ck-wide"><legend>Canaux</legend><div class="tb-checks" id="nt-r-channels"></div></fieldset>
+        <label for="nt-r-channel">Canal Teams ou webhook<select id="nt-r-channel"></select></label>
+        <label class="ck-wide" for="nt-r-recipients">Destinataires (rôles ou noms d’utilisateur, séparés par des virgules)<input id="nt-r-recipients"></label>
+        <label class="dc-inline" for="nt-r-enabled"><input type="checkbox" id="nt-r-enabled"> Règle active</label>
+        <div class="db-toolbar ck-wide">
+          <button class="db-btn db-primary" type="submit">Enregistrer</button>
+          <button class="db-btn" type="button" id="nt-r-test">Tester maintenant</button>
+          <button class="db-btn" type="button" id="nt-r-cancel">Fermer</button>
+          <button class="db-btn db-danger" type="button" id="nt-r-del">Supprimer</button>
+        </div>
+      </form>
+      <p class="db-note" id="nt-r-out"></p>
+      <h3>Dernières alertes de cette règle</h3>
+      <div class="db-scroll"><table class="db-table" id="nt-r-fires"></table></div>
+    </div>
+  </section>
+
+  <section id="p-channels" role="tabpanel" aria-labelledby="t-channels" hidden>
+    <div class="db-w">
+      <h2>Canaux de diffusion</h2>
+      <p class="db-note">L’adresse d’un canal Teams (flux de travail) ou d’un webhook est un secret : elle est chiffrée à l’enregistrement et n’est plus jamais affichée.</p>
+      <ul class="db-list" id="nt-channels"></ul>
+      <form class="ck-form" id="nt-ch-form" hidden>
+        <label for="nt-ch-name">Nom<input id="nt-ch-name" maxlength="80" required></label>
+        <label for="nt-ch-kind">Type<select id="nt-ch-kind"><option value="teams">Canal Teams</option><option value="webhook">Webhook</option></select></label>
+        <label class="ck-wide" for="nt-ch-url">Adresse (https://…)<input id="nt-ch-url" type="url" required autocomplete="off"></label>
+        <label class="ck-wide" for="nt-ch-secret">Secret de signature (webhook, facultatif)<input id="nt-ch-secret" type="password" autocomplete="new-password"></label>
+        <button class="db-btn db-primary" type="submit">Ajouter le canal</button>
+      </form>
+    </div>
+  </section>
+</main>
+<script nonce="%%CSP_NONCE%%" src="notifications-page.js"></script>
+</body>
+</html>

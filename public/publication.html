@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Publication externe · Endeavour Mining IT</title>
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="_shell.css">
+<link rel="stylesheet" href="dashboard.css">
+<link rel="stylesheet" href="trackers.css">
+<link rel="stylesheet" href="cockpit.css">
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-require="super_admin|report-reviewer" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/sdpApi.js"></script>
+</head>
+<body>
+<div id="__shell" data-section="admin" data-current="publication"></div>
+<main class="db-page" id="pb-root" aria-live="polite">
+  <header class="db-head">
+    <div>
+      <div class="db-eyebrow">Administration</div>
+      <h1>Publication externe</h1>
+      <p class="db-desc">Les indicateurs et les rapports validés vont là où on les lit déjà : Power BI (flux OData), une page SharePoint (vue intégrée signée), Teams, un webhook, l’e-mail. Rien ne part tant qu’une publication n’est pas activée.</p>
+    </div>
+  </header>
+  <p class="db-note" id="pb-status" role="status" aria-live="polite"></p>
+
+  <section class="db-w" id="pb-clients-w" aria-labelledby="pb-clients-h">
+    <h2 id="pb-clients-h">Consommateurs de l’API (Power BI, systèmes partenaires)</h2>
+    <p class="db-note">Power BI : Obtenir des données ▸ Flux OData ▸ <code id="pb-odata"></code>, authentification « De base » avec l’identifiant du consommateur et sa clé.</p>
+    <ul class="db-list" id="pb-clients"></ul>
+    <form class="ck-form" id="pb-client-form">
+      <label for="pb-c-name">Nom<input id="pb-c-name" maxlength="80" required placeholder="Power BI — direction"></label>
+      <fieldset><legend>Accès</legend><div class="tb-checks"><label for="pb-c-m"><input type="checkbox" id="pb-c-m" value="metrics" checked> Indicateurs et flux OData</label><label for="pb-c-r"><input type="checkbox" id="pb-c-r" value="reports"> Rapports validés</label></div></fieldset>
+      <label for="pb-c-quota">Appels par jour<input id="pb-c-quota" type="number" min="10" max="100000" value="1000"></label>
+      <button class="db-btn db-primary" type="submit">Créer la clé</button>
+    </form>
+    <p class="db-banner" id="pb-key" hidden></p>
+  </section>
+
+  <section class="db-w" id="pb-jobs-w" aria-labelledby="pb-jobs-h">
+    <div class="tk-row"><h2 id="pb-jobs-h">Publications planifiées</h2><button class="db-btn" type="button" id="pb-snapshot">Recalculer les indicateurs publiés maintenant</button></div>
+    <div class="db-scroll"><table class="db-table" id="pb-jobs"></table></div>
+    <form class="ck-form" id="pb-job-form">
+      <label class="ck-wide" for="pb-j-title">Titre<input id="pb-j-title" maxlength="120" required></label>
+      <label for="pb-j-kind">Destination<select id="pb-j-kind"><option value="teams">Canal Teams (carte)</option><option value="webhook">Webhook (JSON signé)</option><option value="email">E-mail du dernier rapport validé</option><option value="excel">Classeur Excel par e-mail</option></select></label>
+      <label for="pb-j-channel">Canal<select id="pb-j-channel"></select></label>
+      <label for="pb-j-template">Modèle de rapport<select id="pb-j-template"></select></label>
+      <label for="pb-j-metrics">Indicateurs<select id="pb-j-metrics" multiple size="5"></select></label>
+      <label for="pb-j-scope">Périmètre (GROUP ou code de site)<input id="pb-j-scope" value="GROUP" maxlength="20"></label>
+      <label class="ck-wide" for="pb-j-to">Destinataires e-mail (séparés par des virgules)<input id="pb-j-to"></label>
+      <label for="pb-j-freq">Fréquence<select id="pb-j-freq"><option value="monthly">Chaque mois</option><option value="weekly">Chaque semaine</option><option value="daily">Chaque jour</option></select></label>
+      <label for="pb-j-day">Jour du mois (1-28)<input id="pb-j-day" type="number" min="1" max="28" value="2"></label>
+      <label for="pb-j-weekday">Jour de la semaine (1 = lundi)<input id="pb-j-weekday" type="number" min="1" max="7" value="1"></label>
+      <label for="pb-j-hour">Heure (UTC)<input id="pb-j-hour" type="number" min="0" max="23" value="7"></label>
+      <label class="dc-inline" for="pb-j-enabled"><input type="checkbox" id="pb-j-enabled"> Activer</label>
+      <button class="db-btn db-primary" type="submit">Créer la publication</button>
+    </form>
+  </section>
+
+  <section class="db-w" aria-labelledby="pb-embed-h">
+    <h2 id="pb-embed-h">Vue intégrée (SharePoint)</h2>
+    <p class="db-note">Un lien signé affiche le dernier rapport validé d’un modèle, sans connexion. Collez-le dans un composant « Incorporer » d’une page SharePoint. Il expire à la date indiquée.</p>
+    <form class="ck-form" id="pb-embed-form">
+      <label for="pb-e-template">Modèle<select id="pb-e-template"></select></label>
+      <label for="pb-e-days">Validité (jours)<input id="pb-e-days" type="number" min="1" max="366" value="180"></label>
+      <button class="db-btn" type="submit">Créer le lien</button>
+    </form>
+    <p class="db-note" id="pb-embed-out"></p>
+  </section>
+</main>
+<script nonce="%%CSP_NONCE%%" src="publication-page.js"></script>
+</body>
+</html>

@@ -1275,7 +1275,8 @@ const ROLE_HIERARCHY = ['super_admin', 'executive', 'admin', 'editor', 'viewer']
 const FEATURE_ROLES_KNOWN = ['tracker-admin', 'tracker-editor', 'report-author', 'audit-viewer', 'scorecard-viewer', 'site-business', 'group-business',
   'dashboard-author', 'dashboard-publisher',   // step 6: composed dashboards
   'tracker-author', 'tracker-publisher',        // step 7: business trackers
-  'meeting-chair', 'portfolio-manager', 'committee-member'];   // step 8: cockpit, portfolio, requests
+  'meeting-chair', 'portfolio-manager', 'committee-member',    // step 8: cockpit, portfolio, requests
+  'report-reviewer', 'alert-manager'];                          // step 9: report approval, alert rules
 
 /**
  * Returns the array of role strings explicitly assigned to a user.

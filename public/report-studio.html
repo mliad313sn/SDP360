@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rapports rédigés · Endeavour Mining IT</title>
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="_shell.css">
+<link rel="stylesheet" href="dashboard.css">
+<link rel="stylesheet" href="trackers.css">
+<link rel="stylesheet" href="cockpit.css">
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/sdpApi.js"></script>
+</head>
+<body>
+<div id="__shell" data-section="reports" data-current="report-studio"></div>
+<main class="db-page" id="rs-root" aria-live="polite">
+  <header class="db-head">
+    <div>
+      <div class="db-eyebrow">Rapports</div>
+      <h1>Rapports rédigés</h1>
+      <p class="db-desc">Un rapport est généré depuis un modèle : les chiffres viennent du dictionnaire des indicateurs, l’analyse est rédigée automatiquement (sans intelligence artificielle par défaut). Il reste un brouillon jusqu’à sa validation par une personne.</p>
+    </div>
+  </header>
+  <p class="db-note" id="rs-status" role="status" aria-live="polite"></p>
+  <section class="db-w" id="rs-gen" hidden aria-labelledby="rs-gen-h">
+    <h2 id="rs-gen-h">Générer un rapport</h2>
+    <form class="ck-form" id="rs-form">
+      <label for="rs-template">Modèle<select id="rs-template" required></select></label>
+      <label for="rs-month">Mois<input type="month" id="rs-month" required></label>
+      <label for="rs-site">Site (modèles « un site »)<select id="rs-site"></select></label>
+      <button class="db-btn db-primary" type="submit">Générer le brouillon</button>
+    </form>
+    <p class="db-note" id="rs-ai"></p>
+  </section>
+  <section class="db-w" aria-labelledby="rs-list-h">
+    <h2 id="rs-list-h">Rapports</h2>
+    <div class="db-scroll"><table class="db-table" id="rs-runs"></table></div>
+  </section>
+  <section class="db-w" id="rs-run" hidden aria-labelledby="rs-run-h">
+    <h2 id="rs-run-h">Rapport</h2>
+    <p class="db-note" id="rs-run-meta"></p>
+    <div class="db-toolbar">
+      <button class="db-btn" type="button" data-out="html">Lire</button>
+      <button class="db-btn" type="button" data-out="pdf">PDF</button>
+      <button class="db-btn" type="button" data-out="pptx">Présentation</button>
+      <button class="db-btn" type="button" data-out="csv">Chiffres (CSV)</button>
+      <button class="db-btn db-primary" type="button" id="rs-approve" hidden>Valider et diffuser</button>
+      <button class="db-btn" type="button" id="rs-share" hidden>Créer un lien de partage</button>
+    </div>
+    <p class="db-note" id="rs-share-out"></p>
+    <div id="rs-commentary"></div>
+    <button class="db-btn" type="button" id="rs-save" hidden>Enregistrer le commentaire</button>
+    <h3>Journal</h3>
+    <ul class="ck-list" id="rs-events"></ul>
+  </section>
+</main>
+<script nonce="%%CSP_NONCE%%" src="report-studio.js"></script>
+</body>
+</html>

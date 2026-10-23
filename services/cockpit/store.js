@@ -4,23 +4,13 @@
 // — applied by the migrator on PostgreSQL, executed as is on sqlite (SQLite accepts the same DDL). Every function
 // returns a Promise on both backends.
 
-const fs = require('fs');
-const path = require('path');
-const crypto = require('crypto');
+const sql = require('../sqlStore');
 
 const cadences = require('../defstore').createStore({ table: 'ck_cadences', versions: 'ck_cadence_versions', key: 'cadence_id' });
 
-const DDL = path.join(__dirname, '..', '..', 'db', 'postgres', 'reports', '020_cockpit_portfolio.sql');
-const _inited = new WeakSet();
-function handle() {
-  const rdb = require('../../reports-db');
-  if (rdb.REPORTS_BACKEND === 'postgres') return { H: rdb.pgHandle(), isPg: true };
-  const H = rdb.db;
-  if (!_inited.has(H)) { H.exec(fs.readFileSync(DDL, 'utf8')); _inited.add(H); }
-  return { H, isPg: false };
-}
-const now = () => new Date().toISOString();
-const newId = (p) => p + '-' + crypto.randomUUID().replace(/-/g, '').slice(0, 12);
+const handle = () => sql.handle('020_cockpit_portfolio.sql');
+const now = sql.now;
+const newId = sql.newId;
 const parse = (s) => { try { return s ? JSON.parse(s) : null; } catch (_) { return null; } };
 
 // ── Sessions ──────────────────────────────────────────────────────────

@@ -1059,6 +1059,7 @@ app.use('/api/', async (req, res, next) => {
   // Meridian inbound read API — server-to-server, authed by its OWN X-API-Key
   // (report_config meridian_in_key) inside routes/meridian.js, NOT the dash key.
   if (req.method === 'GET' && req.path === '/actions/open') return next();
+  if (req.path.startsWith('/v1/')) return next();   // step 9 external API: its own per-consumer keys (routes/publication.js)
   const key   = req.headers['x-dash-key'];
   if (key && require('./services/safeCompare').safeEqual(key, DASH_API_KEY)) return next(); // API key present — allow (constant-time)
   // Fallback: accept valid session token (for Editor/Viewer users on index.html)
@@ -2527,6 +2528,9 @@ app.use(require('./routes/dashboards')({ express, rdb, requireReportSession, req
 app.use(require('./routes/trackers')({ express, rdb, requireReportSession, requireRole }));
 app.use(require('./routes/cockpit')({ express, rdb, requireReportSession, requireRole }));
 app.use(require('./routes/portfolio')({ express, rdb, requireReportSession, requireRole }));
+app.use(require('./routes/engagement')({ express, rdb, requireReportSession, requireRole }));   // step 9
+app.use(require('./routes/reportgen')({ express, rdb, requireReportSession, requireRole, AI_DISABLED, AI_PROVIDER, aiCall: _execAiCall }));
+app.use(require('./routes/publication')({ express, rdb, requireReportSession, requireRole }));
 
 // ══════════════════════════════════════════════════════════════════
 // MEETINGS — Department Meetings & Council Escalations (v2 schema)

@@ -105,6 +105,24 @@ function buildJobs(deps) {
     { key: 'trackers.sources', label: 'Trackers — items linked to the indicators', group: 'trackers', cron: '20 6 * * *',
       freshnessMinutes: NIGHTLY, retries: 1, baseDelayMs: 60000,
       fn: () => require('../trackers/service').refreshAllSources(require('../../reports-db')) },
+    // Step 9 — alert rules (only the enabled ones are measured) and the daily digest of unread notifications.
+    { key: 'engagement.evaluate', label: 'Alert rules — evaluation', group: 'engagement', cron: '*/30 * * * *',
+      freshnessMinutes: FIVE_MIN * 2, retries: 0,
+      fn: async () => { const rdb = require('../../reports-db'); return require('../engagement/engine').evaluateAll(await require('../../routes/engagement').engineDeps(rdb)); } },
+    { key: 'engagement.digest', label: 'Notifications — daily digest e-mail', group: 'engagement', cron: '45 6 * * *',
+      freshnessMinutes: NIGHTLY, retries: 1, baseDelayMs: 60000,
+      fn: async () => { const rdb = require('../../reports-db'); return require('../engagement/engine').digest(await require('../../routes/engagement').engineDeps(rdb)); } },
+    // Step 9 — nightly snapshot of the published indicators (OData feed), then the scheduled publications.
+    { key: 'publication.snapshot', label: 'Published indicators — nightly snapshot', group: 'publication', cron: '30 6 * * *',
+      freshnessMinutes: NIGHTLY, retries: 1, baseDelayMs: 120000,
+      fn: async () => {
+        const rdb = require('../../reports-db'), live = require('../metrics/liveDeps'), snap = require('../publication/snapshot');
+        const cfg = await require('../reportConfig').getConfig(rdb.db);
+        return snap.run(snap.publishedKeys(cfg), { metrics: live.liveDeps(rdb), sites: await live.groupSites(rdb), targets: await live.targets(rdb) });
+      } },
+    { key: 'publication.run', label: 'Scheduled publications (Teams, webhook, e-mail, Excel)', group: 'publication', cron: '*/15 * * * *',
+      freshnessMinutes: FIVE_MIN, retries: 0,
+      fn: async () => require('../publication/runner').runDue(await require('../../routes/publication').publicationDeps(require('../../reports-db'))) },
   ];
 }
 

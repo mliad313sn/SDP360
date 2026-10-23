@@ -160,6 +160,8 @@
         { id: 'dashboards',      label: 'Tableaux de bord', icon: ICON_LIB['bar-chart-3'], href: 'dashboard.html',   roles: ['any'] },   // step 6
         { id: 'trackers',        label: 'Trackers métier', icon: ICON_LIB.target,          href: 'trackers.html',    roles: ['any'] },   // step 7
         { id: 'cockpit',         label: 'Cockpit de réunion', icon: ICON_LIB.users,        href: 'cockpit.html',     roles: ['any'] },   // step 8
+        { id: 'report-studio',   label: 'Rapports rédigés', icon: ICON_LIB['file-text'],   href: 'report-studio.html', roles: ['any'] },   // step 9
+        { id: 'notifications',   label: 'Notifications et alertes', icon: ICON_LIB.activity, href: 'notifications.html', roles: ['any'] },   // step 9
         { id: 'reports-builder', label: 'Deck Builder', icon: ICON_LIB.presentation, href: 'executive-report.html', roles: ['super_admin'] }  // = the page's data-require (RBAC audit 2026-10-02, A19)
       ]
     },
@@ -195,7 +197,8 @@
       title:    'User management & system settings',
       children: [
         { id: 'admin-settings', label: 'Settings',    icon: ICON_LIB.sliders,          href: 'reports.html#admin', roles: ['super_admin'] },
-        { id: 'system-logs',    label: 'System Logs',  icon: ICON_LIB['shield-check'],  href: 'system-logs.html',   roles: ['super_admin'] }
+        { id: 'system-logs',    label: 'System Logs',  icon: ICON_LIB['shield-check'],  href: 'system-logs.html',   roles: ['super_admin'] },
+        { id: 'publication',    label: 'Publication externe', icon: ICON_LIB['trending-up'], href: 'publication.html', roles: ['super_admin'] }   // step 9
       ]
     },
     {

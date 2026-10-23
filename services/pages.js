@@ -13,6 +13,9 @@ const V2_PAGES = [
   ['rfi.html', 'Requests to the committee'],
   ['portfolio.html', 'Portfolio'],
   ['governance.html', 'Governance'],
+  ['notifications.html', 'Notifications'],          // step 9: engagement, reports, publication
+  ['report-studio.html', 'Report studio'],
+  ['publication.html', 'External publication'],
 ];
 
 module.exports = { V2_PAGES };
