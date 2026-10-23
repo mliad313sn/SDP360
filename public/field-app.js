@@ -31,7 +31,8 @@
   function tx(store, mode, fn) {
     return db().then(function (d) { return new Promise(function (ok, ko) {
       var t = d.transaction(store, mode), s = t.objectStore(store), out = fn(s);
-      t.oncomplete = function () { ok(out && out.result !== undefined ? out.result : out); }; t.onerror = function () { ko(t.error); };
+      // A request's result is undefined when the key is absent: answer undefined, never the request object itself.
+      t.oncomplete = function () { ok(out instanceof IDBRequest ? out.result : out); }; t.onerror = function () { ko(t.error); };
     }); });
   }
   var put = function (store, v) { return tx(store, 'readwrite', function (s) { s.put(v); }); };
@@ -460,6 +461,6 @@
   // ── Start ────────────────────────────────────────────────────────────
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=' + encodeURIComponent(VERSION), { scope: '/' }).catch(function () {});
   netState();
-  getOne('kv', 'settings').then(function (s) { if (s) settings = s.value; }).then(function () { return loadBoot(false); }).then(function () { route(); if (navigator.onLine && !settings.lowbw) sync(); })
+  getOne('kv', 'settings').then(function (s) { if (s && s.value) settings = s.value; }).then(function () { return loadBoot(false); }).then(function () { route(); if (navigator.onLine && !settings.lowbw) sync(); })
     .catch(function (e) { msg('Stockage du téléphone indisponible : ' + e.message, true); });
 })();
