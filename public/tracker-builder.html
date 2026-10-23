@@ -29,7 +29,7 @@
   </header>
   <form class="db-w tb-props" id="tb-new-form" hidden>
     <h2>Nouveau tracker</h2>
-    <label for="tb-new-id">Identifiant (lettres minuscules, chiffres, tirets)<input id="tb-new-id" required pattern="[a-z0-9][a-z0-9-]{1,47}"></label>
+    <label for="tb-new-id">Identifiant (lettres minuscules, chiffres, tirets)<input id="tb-new-id" required pattern="[a-z0-9][a-z0-9\-]{1,47}"></label>
     <label for="tb-new-year">Année<input id="tb-new-year" type="number" min="2000" max="2100" required></label>
     <label for="tb-new-template">Départ<select id="tb-new-template"><option value="">Tracker vide</option></select></label>
     <div class="db-toolbar">

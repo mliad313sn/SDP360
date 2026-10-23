@@ -27,7 +27,7 @@
     </div>
   </header>
   <form class="dc-new" id="dc-new-form" hidden>
-    <label for="dc-new-id">Identifiant (lettres, chiffres, tirets)<input id="dc-new-id" required pattern="[a-z0-9][a-z0-9-]{1,47}"></label>
+    <label for="dc-new-id">Identifiant (lettres, chiffres, tirets)<input id="dc-new-id" required pattern="[a-z0-9][a-z0-9\-]{1,47}"></label>
     <label for="dc-new-title">Titre<input id="dc-new-title" required maxlength="120"></label>
     <button class="db-btn db-primary" type="submit">Créer le brouillon</button>
     <button class="db-btn" type="button" id="dc-new-cancel">Annuler</button>

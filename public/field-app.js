@@ -179,6 +179,8 @@
     }).join('');
     Object.keys(items).forEach(function (k) { renderThumbs(k); });
   }
+  // The page's security policy allows data: images only (no blob: URLs).
+  function asDataUrl(blob) { return new Promise(function (ok, ko) { var fr = new FileReader(); fr.onload = function () { ok(fr.result); }; fr.onerror = function () { ko(fr.error); }; fr.readAsDataURL(blob); }); }
   function renderThumbs(key) {
     var box = document.getElementById('t-' + key), photos = (current.state.items[key] || {}).photos || [];
     if (!box) return;
@@ -186,7 +188,7 @@
     if (settings.lowbw) { box.innerHTML = '<span>' + photos.length + ' photo(s)</span>'; return; }
     Promise.all(photos.map(function (p) { return p.local ? getOne('photos', p.local) : Promise.resolve(null); })).then(function (rows) {
       box.innerHTML = photos.map(function (p, i) { return rows[i] && rows[i].blob ? '<img alt="Photo ' + (i + 1) + '" data-i="' + i + '">' : '<span>photo ' + (i + 1) + ' (envoyée)</span>'; }).join('');
-      box.querySelectorAll('img').forEach(function (img) { var r = rows[Number(img.getAttribute('data-i'))]; img.src = URL.createObjectURL(r.blob); });
+      box.querySelectorAll('img').forEach(function (img) { asDataUrl(rows[Number(img.getAttribute('data-i'))].blob).then(function (u) { img.src = u; }); });
     });
   }
   $('fd-cats').addEventListener('click', function (e) {
@@ -212,7 +214,7 @@
   // Photos: compressed on the phone until they fit the limit (JPEG, longest side 1600 px, 1024 in low bandwidth).
   function compress(file) {
     var maxKB = settings.lowbw ? (boot.limits.low_bandwidth_photo_kb || 150) : (boot.limits.photo_kb || 300), maxSide = settings.lowbw ? 1024 : 1600;
-    return (window.createImageBitmap ? createImageBitmap(file) : new Promise(function (ok, ko) { var img = new Image(); img.onload = function () { ok(img); }; img.onerror = ko; img.src = URL.createObjectURL(file); }))
+    return (window.createImageBitmap ? createImageBitmap(file) : new Promise(function (ok, ko) { var img = new Image(); img.onload = function () { ok(img); }; img.onerror = ko; asDataUrl(file).then(function (u) { img.src = u; }, ko); }))
       .then(function (bmp) {
         var w = bmp.width, h = bmp.height, k = Math.min(1, maxSide / Math.max(w, h));
         function attempt(scale, q) {
